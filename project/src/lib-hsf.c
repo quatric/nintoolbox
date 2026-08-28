@@ -451,7 +451,7 @@ static bool hsf_expand_replica
     active[replica]=1;
     for(u32 n=0;n<node_cnt;n++){
 	int path[HSF_MAX_PARTS],np=0,cur=n;
-	while(cur>=0&&cur!=target&&np<HSF_MAX_PARTS){path[np++]=cur;cur=(s32)hsf_be32(data+off[HSF_IDX_NODES]+(u64)cur*0x144+16);}
+	while(cur>=0&&(u32)cur<node_cnt&&cur!=target&&np<HSF_MAX_PARTS){path[np++]=cur;cur=(s32)hsf_be32(data+off[HSF_IDX_NODES]+(u64)cur*0x144+16);}
 	if(cur!=target)continue;
 	const u8 *p=data+off[HSF_IDX_NODES]+(u64)n*0x144;const u32 type=hsf_be32(p+4);
 	if(type!=1&&type!=2)continue;

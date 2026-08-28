@@ -113,7 +113,7 @@ nfmt_info_t DetectNintendoFormat ( const void *vdata, uint size, ccp filename )
         if (!memcmp(d,"CLAN",4)) return make_info(NFMT_BCLAN,true,false,0);
         if (!memcmp(d,"CLYT",4)) return make_info(NFMT_BCLYT,true,false,0);
         if (!memcmp(d,"PLT0",4)) return make_info(NFMT_PLT0,true,false,0);
-        if (!memcmp(d,"MsgStdBn",8)) return make_info(NFMT_MSBT,true,false,0);
+        if ( size >= 8 && !memcmp(d,"MsgStdBn",8)) return make_info(NFMT_MSBT,true,false,0);
         if (!memcmp(d,"CGFX",4)) return make_info(NFMT_BCRES,true,false,0);
         if (!memcmp(d,"FRES",4)) return make_info(NFMT_BFRES,true,false,0);
         // BNTX (Switch texture container). Full pixel decode is implemented
