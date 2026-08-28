@@ -32,8 +32,8 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | Animal Crossing: City Folk | ✅ | 0 / 0 | — | Crashed with **SIGBUS** on `DATA/files/BgData/BgModel/017_1.brres` — a subfile's declared size was corrupted/huge independent of its data pointer, and the post-extraction SHA1 hash-cache builder read off the end of the buffer. Fixed (`SafeSubfileHashSize()`, commit `7613d04`, pushed). Full disc re-verified clean. |
 | Another Code: R – A Journey into Lost Memories | 🟡 | 88593 / 114420 | TPL:35771, TEX:23548, BRRES:11552, BRLAN:7348, BRLYT:5954 | `ERROR_EXIT28` (33 errors) — AnmTexPat gap. |
 | AquaSpace (WiiWare) | 🟡 | n/a | n/a | Character/prop `.brres` files never recognized as BRRES — no error, just silently produce zero models/textures. Root cause confirmed byte-for-byte: every one starts with an unrecognized 4-byte tag `"CX00"` immediately before an otherwise standard, already-supported LZ11 stream. Fix needs to reach the extraction-time LZ dispatch, not yet implemented. |
-| Battalion Wars 2 | 🟡 | 0 / 0 | — | `ERROR_EXIT28` (29 errors). |
-| Big Brain Academy: Wii Degree | 🟡 | 16127 / 39380 | TPL:11351, BRLAN:2045, TEX:1070, BRFNT:695, BRLYT:549 | `ERROR_EXIT28` (35 errors) — AnmTexPat gap. |
+| Battalion Wars 2 | 🟡 | 21 / 20604 | TPL:19, BRFNT:2 | `ERROR_EXIT28` (6 errors logged). |
+| Big Brain Academy: Wii Degree | 🟡 | 32254 / 76172 | TPL:22702, BRLAN:4090, TEX:2140, BRFNT:1390, BRLYT:1098 | `ERROR_EXIT28` (43 errors logged) — re-tested against the AnmTexPat fix. |
 | **Bonsai Barber** | ⚠️ | 6 / 6702 | BRFNT:3, LZ11:2, BRLAN:1 | **Content column is misleading — verified byte-for-byte.** `00000006.d/` contains 5 real, untouched `.pkg` files (`bb_main.pkg`, `bb_monsters.pkg`, `bb_audio.pkg`, `bb_styles.pkg`, `bb_text.pkg`) — that's the entire actual game (Gorilla Games' own engine format), sitting as opaque unrecognized files. `wszst` logs **nothing** for a file it doesn't recognize (no error, no warning), so the low error count and PASS-ish exit code look clean while zero real game content was ever extracted. See the general note below the table. |
 | Calling | ✅ | n/a | n/a | Originally: `wbrsar` total failure on WAVE-type BRSAR sounds, and HSF models exported untextured. Both fixed this session. Full disc now extracts clean. |
 | Captain Rainbow | 🟡 | 12437 / 32705 | TEX:8664, TPL:2226, BRRES:1144, BRFNT:344, BRLAN:52 | `ERROR_EXIT28` (140 errors) — AnmTexPat gap. |
@@ -41,18 +41,18 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | Cooking Mama | 🟡 | 71668 / 73098 | TEX:60620, BRRES:11048 | ERROR_EXIT14 (3639 errors logged) |
 | Cubello | 🟡 | 7033 / 15361 | TEX:5959, BRFNT:700, LZ11:354, TPL:16, BRRES:4 | ERROR_EXIT28 (2645 errors logged) |
 | Disaster: Day of Crisis | 🟡 | 2895 / 24981 | TPL:2865, BRFNT:30 | `ERROR_EXIT28` (33 errors) — AnmTexPat gap. |
-| Donkey Kong Barrel Blast | 🟡 | 4345 / 26346 | TPL:2622, BRLAN:1117, LZ10:419, BRLYT:187 | `ERROR_EXIT28` (32 errors) — AnmTexPat gap. |
+| Donkey Kong Barrel Blast | 🟡 | 8690 / 50104 | TPL:5244, BRLAN:2234, LZ10:838, BRLYT:374 | `ERROR_EXIT28` (38 errors logged) — re-tested against the AnmTexPat fix. |
 | **Donkey Kong Country Returns** | ⚠️ | 7 / 28913 | BRFNT:6, BRFvgmtrans:1 | **Confirmed byte-for-byte.** `DATA/files/Worlds/` (2GB, all 9 worlds, 72 level files like `W02_Beach/L08_Crab_Boss_Arena.pak`) is entirely Retro Studios' own `.pak` engine archive format — completely unrecognized, untouched, unlogged. This is the real game; nothing in it was ever extracted. |
 | Dr. Mario Online Rx | 🟡 | 4 / 6343 | Arika:2, LZ10:2 | ERROR_EXIT28 (944 errors logged) |
 | Eco Shooter: Plant 530 | 🟡 | 2698 / 5696 | TEX:1398, TPL:852, BRLAN:209, LZ10:110, BRLYT:49 | ERROR_EXIT28 (2 errors logged) |
-| Endless Ocean | 🟡 | 1011 / 24301 | TPL:812, BRFNT:198, Arika:1 | `ERROR_EXIT28` (70 errors) — AnmTexPat gap. |
+| Endless Ocean | 🟡 | 2022 / 44093 | TPL:1624, BRFNT:396, Arika:2 | `ERROR_EXIT28` (100 errors logged) — re-tested against the AnmTexPat fix. |
 | Endless Ocean: Blue World | ❌ | 624 / 9865 | TPL:522, BRFNT:101, Arika:1 | `TIMEOUT` — same suspected `wbrsar` cause as Mario Kart Wii. |
 | Epic Mickey | 🟡 | 30 / 48612 | BRFNT:14, PACK:8, TPL:8 | ERROR_EXIT28 (33 errors logged) |
-| Excite Truck | 🟡 | 101 / 2811 | RST:100, MOD:1 | `ERROR_EXIT82` (73 errors) — very likely the same non-UTF-8 filename class as Twilight Princess (same class of bundled system-channel content); not confirmed byte-for-byte for this title. |
+| Excite Truck | 🟡 | 202 / 5622 | RST:200, MOD:2 | `ERROR_EXIT82` (146 errors logged, re-tested against the AnmTexPat fix) — very likely the same non-UTF-8 filename class as Twilight Princess (same class of bundled system-channel content); not confirmed byte-for-byte for this title. |
 | Excitebike: World Rally | 🟡 | 1353 / 4336 | TEX:785, MOD:369, ART:128, RST:36, MSH:34 | ERROR_EXIT28 (3 errors logged) |
 | Excitebots: Trick Racing | 🟡 | 7813 / 29162 | TEX:3166, MOD:2767, TPL:812, MSH:467, ART:208 | `ERROR_EXIT36` (35 errors). Notable **MOD** count (2767) — 3D model format, uncommon elsewhere. |
 | Fatal Frame: Mask of the Lunar Eclipse | 🟡 | 3 / 22705 | LZH8:3 | `ERROR_EXIT28` (33 errors) — AnmTexPat gap. |
-| Fire Emblem: Radiant Dawn | 🟡 | 33529 / 55347 | TPL:30736, LZ10:2789, BRFNT:3, LZH8:1 | `ERROR_EXIT28` (32 errors) — AnmTexPat gap. |
+| Fire Emblem: Radiant Dawn | 🟡 | 67058 / 108106 | TPL:61472, LZ10:5578, BRFNT:6, LZH8:2 | `ERROR_EXIT28` (38 errors logged) — re-tested against the AnmTexPat fix. |
 | Fishing Resort | 🟡 | 172729 / 249546 | TEX:142996, TPL:12214, BRRES:11584, BRLAN:2894, BRFNT:1588 | ERROR_EXIT28 (295 errors logged) |
 | FlingSmash | 🟡 | 80219 / 110007 | TPL:53581, BRFNT:16447, TEX:6074, BRLAN:1690, BRLYT:1624 | `ERROR_EXIT28` (18 errors) — AnmTexPat gap. |
 | Fluidity (video game) | 🟡 | 3272 / 9237 | LZ11:3208, TEX:60, BRFNT:2, TPL:2 | ERROR_EXIT28 (6 errors logged) |
@@ -70,21 +70,22 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | Kirby's Return to Dream Land | 🟡 | 34526 / 65585 | TPL:13387, TEX:11892, BRLAN:3501, LZ11:1675, BRFNT:1499 | `ERROR_EXIT28` (339 errors) — AnmTexPat gap, unusually high count worth a second look. |
 | **Kororinpa: Marble Mania** | ❌ | 533 / 3680 | MPBIN:306, HSF:227 | **`CRASH_SIG10` (SIGBUS), confirmed on a clean single-instance re-run — the 3rd independent crash at this same site.** Real, reproducible bug, not a race artifact. Worth checking whether it's the same root cause as Mario Party 8's SIGBUS. |
 | Line Attack Heroes | 🟡 | 269 / 3253 | BRFNT:268, LZ11:1 | ERROR_EXIT28 (2 errors logged) |
-| Link's Crossbow Training | 🟡 | 2510 / 21300 | TPL:1180, YAZ0.RARC:660, BRFNT:386, BRLAN:191, RARC:58 | `ERROR_EXIT28` (29 errors) — AnmTexPat gap. |
+| Link's Crossbow Training | 🟡 | 5020 / 42600 | TPL:2360, YAZ0.RARC:1320, BRFNT:772, BRLAN:382, RARC:116 | `ERROR_EXIT28` (35 errors logged) — re-tested against the AnmTexPat fix. |
 | Lonpos | 🟡 | 1199 / 8817 | BRFNT:932, TPL:153, BRLAN:100, BRLYT:14 | ERROR_EXIT28 (218 errors logged) |
 | MaBoShi: The Three Shape Arcade | 🟡 | 726 / 3710 | TPL:456, BRFNT:269, LZ10:1 | ERROR_EXIT28 (3 errors logged) |
 | Magnetica | 🟡 | 7717 / 16027 | TEX:3900, LZ10:1494, TPL:972, BRFNT:666, BRRES:313 | ERROR_EXIT28 (141 errors logged) |
 | Mario & Sonic at the London 2012 Olympic Games | 🟡 | 26 / 27235 | LZH8:24, BRFNT:2 | `ERROR_EXIT28` (18 errors) — AnmTexPat gap. |
-| Mario & Sonic at the Olympic Games | ✅ | 1010 / 1351 | TPL:814, BRFNT:196 | PASS, clean — small disc, low content by nature not by bug. |
+| Mario & Sonic at the Olympic Games | ✅ | 2020 / 2702 | TPL:1628, BRFNT:392 | PASS, clean — small disc, low content by nature not by bug. |
 | Mario & Sonic at the Olympic Winter Games | 🟡 | 44690 / 67397 | TPL:28742, TEX:14758, BRRES:939, BRFNT:141, BRLAN:96 | `ERROR_EXIT28` (33 errors) — AnmTexPat gap. |
 | Mario Kart Wii | 🟡 | 114147 / 139729 | TEX:94345, TPL:6148, BRRES:5797, BRLAN:4290, YAZ0.U8:2239 | No crash. Its main music `wbrsar` conversion (`revo_kart.brsar`) timed out at the 2400s cap in the queue re-run — likely a real performance issue in the WAVE-export path added this session, not yet confirmed root cause. |
-| **Mario Party 8** | ✅ | — | — | **`CRASH_SIG10` (SIGBUS) — root-caused and fixed.** Two real bugs found under ASan in an isolated worktree build: (1) `DetectNintendoFormat()`'s MSBT check did an unguarded 8-byte `memcmp` past a 5-byte buffer; (2) `hsf_expand_replica()`'s parent-chain walk indexed the HSF node array with an unbounds-checked index read from file data. Both fixed. Re-run on the real disc now completes fully (`ERROR_EXIT82`, the separate known non-UTF-8-filename issue — no crash). || Mario Party 9 | 🟡 | 62605 / 95658 | TPL:20858, TEX:20798, LZ11:6356, BRRES:6016, BRLAN:5790 | `ERROR_EXIT28` (39 errors) — AnmTexPat gap. |
+| **Mario Party 8** | ✅ | 8921 / 34311 | HSF:8104, MPBIN:816, BRFNT:1 | `ERROR_EXIT82` (28 errors logged). **`CRASH_SIG10` (SIGBUS) — root-caused and fixed.** Two real bugs found under ASan in an isolated worktree build: (1) `DetectNintendoFormat()`'s MSBT check did an unguarded 8-byte `memcmp` past a 5-byte buffer; (2) `hsf_expand_replica()`'s parent-chain walk indexed the HSF node array with an unbounds-checked index read from file data. Both fixed. Re-run on the real disc now completes fully (`ERROR_EXIT82`, the separate known non-UTF-8-filename issue — no crash). |
+| Mario Party 9 | 🟡 | 62605 / 95658 | TPL:20858, TEX:20798, LZ11:6356, BRRES:6016, BRLAN:5790 | `ERROR_EXIT28` (39 errors) — AnmTexPat gap. |
 | Mario Sports Mix | 🟡 | 82304 / 111698 | TEX:37502, TPL:20382, BRLAN:15127, BRFNT:3231, BRRES:2077 | `ERROR_EXIT28` (18 errors) — AnmTexPat gap. |
-| Mario Strikers Charged | 🟡 | 18 / 21829 | TPL:16, BRFNT:1, BRFNvgmtrans:1 | `ERROR_EXIT36` (32 errors). |
+| Mario Strikers Charged | 🟡 | 36 / 41070 | TPL:32, BRFNT:2, BRFNvgmtrans:2 | `ERROR_EXIT36` (38 errors logged). |
 | Mario Super Sluggers | 🟡 | 2 / 19787 | BRFNT:2 | `ERROR_EXIT28` (31 errors) — AnmTexPat gap. |
 | Metroid Prime | 🟡 | 1853 / 22942 | TPL:1852, BRFNT:1 | `ERROR_EXIT28` (33 errors) — AnmTexPat gap. |
 | **Metroid Prime 2** | 🟡 | 2 / 2727 | LZ10:1, BRFNT:1 | **`wii_queue.tsv`'s row for this title points at the wrong file** — `Metroid (USA) (NES) (Virtual Console).zip`, an NES VC ROM, not the real GC/Wii disc. Data bug in the queue list, not a `wszst` gap; don't draw format conclusions from this row until the queue entry is fixed and re-run. |
-| Metroid Prime 3: Corruption | 🟡 | 928 / 18829 | TPL:927, BRFNT:1 | `ERROR_EXIT28` (29 errors) — AnmTexPat gap, see below. |
+| Metroid Prime 3: Corruption | 🟡 | 1856 / 37658 | TPL:1854, BRFNT:2 | `ERROR_EXIT28` (35 errors logged) — re-tested against the AnmTexPat fix. |
 | Metroid Prime: Trilogy | 🟡 | 3704 / 24797 | TPL:3704 | `ERROR_EXIT66` (102 errors) — DS-passthrough/FSYS sub-job gap, same class as Pokémon Battle Revolution. |
 | Metroid: Other M | ✅ | 88467 / 118238 | TEX:61438, TPL:21989, BRRES:2234, BRLAN:1829, BRLYT:858 | Crashed with the same **SIGBUS** signature as Animal Crossing. Re-ran full extraction with the fix in place: completed cleanly, confirming the same fix resolved this title too. |
 | Monster Hunter Tri | 🟡 | 56988 / 78794 | TEX:54268, BRRES:1523, TPL:1090, BRLAN:92, BRLYT:9 | ERROR_EXIT28 (17 errors logged) |
@@ -100,7 +101,7 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | Pandora's Tower | 🟡 | 10994 / 42985 | MSBT:10970, QuickLZ:14, LZH8:5, TPL:4, BRFNT:1 | `ERROR_EXIT36` (20 errors). Heavy **MSBT** (message-table format) — barely appears elsewhere. |
 | Pangya! Golf with Style | 🟡 | 1027 / 12586 | TPL:818, BRFNT:196, LZH8:8, LZ10:4, QuickLZ:1 | ERROR_EXIT66 (28 errors logged) |
 | PictureBook Games: Pop-Up Pursuit | 🟡 | 3776 / 9801 | TPL:2112, BRLAN:906, BRFNT:560, LZ11:146, BRLYT:52 | ERROR_EXIT28 (6 errors logged) |
-| Pokémon Battle Revolution | 🟡 | 1212 / 24388 | FSYS:1094, LZ10:116, TPL:1, BRFNvgmtrans:1 | Same heap-buffer-overflow as SSBB (`2e917df`, identical crash-site address under ASan on both games) — fixed. Queue re-run shows `ERROR_EXIT66`/38 errors from the DS-`.srl`-passthrough/FSYS sub-job path, a separate, not-yet-investigated gap. |
+| Pokémon Battle Revolution | 🟡 | 2424 / 46188 | FSYS:2188, LZ10:232, TPL:2, BRFNvgmtrans:2 | `ERROR_EXIT66` (50 errors logged). Same heap-buffer-overflow as SSBB (`2e917df`, identical crash-site address under ASan on both games) — fixed. Queue re-run shows `ERROR_EXIT66`/38 errors from the DS-`.srl`-passthrough/FSYS sub-job path, a separate, not-yet-investigated gap. |
 | Pokémon Rumble | 🟡 | 16698 / 23206 | TEX:11957, TPL:1783, BRRES:1780, BRLAN:453, LZH8:295 | ERROR_EXIT28 (4 errors logged) |
 | PokéPark 2: Wonders Beyond | 🟡 | 31487 / 62109 | TEX:26460, TPL:3144, BRLAN:747, BRRES:713, BRLYT:125 | `ERROR_EXIT28` (21 errors) — AnmTexPat gap. |
 | PokéPark Wii: Pikachu's Adventure | 🟡 | 36537 / 58696 | TEX:34866, BRRES:1091, TPL:348, BRFNT:118, LZ11:114 | `ERROR_EXIT28` (14 errors) — AnmTexPat gap. |
@@ -117,14 +118,14 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | Sin & Punishment: Star Successor | 🟡 | 1654 / 23885 | TPL:1064, BRFNT:587, TEX:2, BRRES:1 | `ERROR_EXIT28` (14 errors) — AnmTexPat gap. |
 | Snowpack Park | 🟡 | 10400 / 18651 | TEX:5896, TPL:1511, BRRES:1053, BRFNT:861, LZ11:854 | ERROR_EXIT28 (6 errors logged) |
 | Super Mario All-Stars 25th Anniversary Edition | 🟡 | 16 / 28578 | TPL:10, BRFNT:3, LZH8:2, LZ10:1 | `ERROR_EXIT28` (19 errors) — AnmTexPat gap. |
-| Super Mario Galaxy | 🟡 | 4238 / 23260 | YAZ0.RARC:2884, TPL:652, BRLAN:449, BRFNT:155, BRLYT:95 | `ERROR_EXIT28` (29 errors) — AnmTexPat gap. |
+| Super Mario Galaxy | 🟡 | 8476 / 46520 | YAZ0.RARC:5768, TPL:1304, BRLAN:898, BRFNT:310, BRLYT:190 | `ERROR_EXIT28` (35 errors logged) — re-tested against the AnmTexPat fix. |
 | Super Mario Galaxy 2 | 🟡 | 6404 / 28780 | YAZ0.RARC:3104, MSBT:795, TPL:652, RARC:586, BRLAN:550 | `ERROR_EXIT28` (14 errors) — AnmTexPat gap. |
-| Super Paper Mario | 🟡 | 44321 / 57744 | TPL:43929, LZ10:386, BRLAN:4, BRLYT:2 | `ERROR_EXIT28` (28 errors) — AnmTexPat gap. |
-| Super Smash Bros. Brawl | ✅ | 65675 / 107937 | TEX:52996, BRRES:8478, PAC:2157, LZ10:1395, BRFNT:504 | The SIGTRAP was actually **two separate, real bugs**, both root-caused via AddressSanitizer and fixed this session: a stack-buffer-overflow in `GetByMagicFF()`'s OBJ-text sniffing (`d0a480a`) and a heap-buffer-overflow reading past a material record in `IterateStringsMDL()` (`2e917df`). Queue re-run shows `ERROR_EXIT28`/251 errors — that's the AnmTexPat gap (see below), not a crash; no regression. |
+| Super Paper Mario | 🟡 | 88642 / 114393 | TPL:87858, LZ10:772, BRLAN:8, BRLYT:4 | `ERROR_EXIT28` (30 errors logged) — re-tested against the AnmTexPat fix. |
+| Super Smash Bros. Brawl | ✅ | 131350 / 215874 | TEX:105992, BRRES:16956, PAC:4314, LZ10:2790, BRFNT:1008 | `ERROR_EXIT28` (275 errors logged) — re-tested against the AnmTexPat fix. |
 | Tetris Party Deluxe | 🟡 | 5383 / 28073 | TPL:3677, BRLAN:1009, BRFNT:342, BRLYT:326, BRRES:16 | ERROR_EXIT28 (905 errors logged) |
 | The Last Story | 🟡 | 20 / 30308 | LZ11:19, BRFNT:1 | `ERROR_EXIT28` (20 errors) — AnmTexPat gap. |
 | The Legend of Zelda: Skyward Sword | 🟡 | 51016 / 86122 | TEX:41460, BRRES:3825, TPL:3112, BRLAN:835, BRFNT:685 | `ERROR_EXIT28` (204 errors) — AnmTexPat gap, unusually high count worth a second look. |
-| The Legend of Zelda: Twilight Princess | ✅ | 2984 / 3131 | YAZ0.RARC:2212, TPL:348, RARC:338, BRFNT:84, QuickLZ:2 | `ERROR #82 [CAN'T CREATE FILE]` — a RARC member filename contains a raw non-UTF-8 byte sequence (likely Shift-JIS). macOS rejects the `open()` call outright (EILSEQ). Root-caused to the exact read/write sites, fix not yet implemented. Queue re-run shows only 2 errors and an overall `PASS`, so this bug apparently doesn't trip on every file — depth capped somewhat by it regardless (RARC/YAZ0-only, no BRRES/TEX ever reached). |
+| The Legend of Zelda: Twilight Princess | ✅ | 5968 / 6262 | YAZ0.RARC:4424, TPL:696, RARC:676, BRFNT:168, QuickLZ:4 | PASS (4 errors logged, re-tested against the AnmTexPat fix). `ERROR #82 [CAN'T CREATE FILE]` — a RARC member filename contains a raw non-UTF-8 byte sequence (likely Shift-JIS). macOS rejects the `open()` call outright (EILSEQ). Root-caused to the exact read/write sites, fix not yet implemented. This bug apparently doesn't trip on every file (overall exit is still `PASS`) — depth capped somewhat by it regardless (RARC/YAZ0-only, no BRRES/TEX ever reached). |
 | Trauma Center: New Blood | ✅ | 3990 / 5345 | TEX:3370, BRRES:409, BRFNT:195, LZH8:16 | PASS (3 errors logged) |
 | Trauma Center: Second Opinion | 🟡 | 2000 / 3871 | TEX:1717, BRRES:238, BRFNT:44, TPL:1 | ERROR_EXIT66 (33 errors logged) |
 | Ultra Hand | 🟡 | 2998 / 6013 | TPL:1558, BRLAN:980, BRFNT:268, TEX:116, LZ10:37 | ERROR_EXIT28 (10 errors logged) |
@@ -132,14 +133,14 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | WarioWare: D.I.Y. Showcase | 🟡 | 7034 / 13071 | TPL:5264, BRLAN:850, BRFNT:676, BRLYT:166, LZ11:74 | ERROR_EXIT28 (6 errors logged) |
 | WarioWare: Smooth Moves | ❌ | 1 / 1048 | BRFNT:1 | `TIMEOUT` — same suspected `wbrsar` performance cause as Mario Kart Wii, unconfirmed. |
 | We Ski | 🟡 | 3 / 19787 | BRFNT:3 | ERROR_EXIT28 (31 errors logged) |
-| Wii Chess | 🟡 | 1171 / 23113 | TPL:650, BRFNT:155, BRLAN:153, TEX:96, BRRES:78 | `ERROR_EXIT28` (31 errors) — AnmTexPat gap. |
-| Wii Fit | 🟡 | 15057 / 35267 | TEX:5479, TPL:4148, BRFNT:2325, BRLAN:1790, BRLYT:613 | `ERROR_EXIT28` (35 errors) — AnmTexPat gap. |
+| Wii Chess | 🟡 | 2342 / 46226 | TPL:1300, BRFNT:310, BRLAN:306, TEX:192, BRRES:156 | `ERROR_EXIT28` (39 errors logged) — re-tested against the AnmTexPat fix. |
+| Wii Fit | 🟡 | 30114 / 70534 | TEX:10958, TPL:8296, BRFNT:4650, BRLAN:3580, BRLYT:1226 | `ERROR_EXIT28` (47 errors logged) — re-tested against the AnmTexPat fix. |
 | Wii Fit Plus | 🟡 | 22490 / 43938 | TEX:9113, TPL:6342, BRLAN:2701, BRFNT:2351, BRLYT:778 | `ERROR_EXIT28` (47 errors) — AnmTexPat gap. |
 | Wii Music | 🟡 | 9002 / 30515 | TEX:4085, TPL:2470, BRLAN:873, BRFNT:802, BRRES:336 | `ERROR_EXIT28` (33 errors) — AnmTexPat gap. |
 | Wii Party | 🟡 | 48414 / 77997 | TEX:19180, TPL:12328, BRLAN:5334, LZ11:5248, BRRES:3810 | `ERROR_EXIT28` (18 errors) — AnmTexPat gap. |
-| Wii Play | 🟡 | 3430 / 3604 | TEX:1398, TPL:936, BRLAN:484, BRFNT:328, BRRES:131 | `ERROR_EXIT28` (2 errors) — minor, not investigated. |
+| Wii Play | 🟡 | 6860 / 7208 | TEX:2796, TPL:1872, BRLAN:968, BRFNT:656, BRRES:262 | `ERROR_EXIT28` (4 errors logged) — minor, not investigated. |
 | Wii Play: Motion | 🟡 | 15478 / 44486 | TEX:9920, TPL:2427, BRFNT:1114, LZ11:815, BRLAN:622 | `ERROR_EXIT66` (19 errors) — DS-passthrough/FSYS sub-job gap. |
-| Wii Sports | ✅ | 0 / 0 | — | No crash, no new errors. |
+| Wii Sports | ✅ | 6327 / 6520 | TEX:3975, TPL:1276, BRLAN:521, BRFNT:232, BRRES:151 | PASS, clean. No crash, no new errors. |
 | Wii Sports Resort | 🟡 | 19868 / 41068 | TEX:10496, TPL:5265, BRLAN:2210, BRLYT:644, BRFNT:544 | `ERROR_EXIT28` (33 errors) — AnmTexPat gap. |
 | Wing Island | ✅ | 27490 / 30748 | TEX:19886, LZ10:3718, TPL:1966, BRRES:1740, BRFNT:180 | PASS (32 errors logged) |
 | **World of Goo** | ⚠️ | 1 / 2984 | LZ11:1 | **Same issue as Bonsai Barber, verified byte-for-byte.** `0000000b.d/master.pak` (37MB, 2D Boy's own engine archive) is the entire real game, sitting untouched and unlogged. See the general note below the table. |
@@ -227,7 +228,7 @@ fixes this session, alongside the still-open Mario Party 8 crash.
 
 **Verified on a real Wii Shop Channel WAD** (the same `PBmarioA/B/C/F/S/W.brres` family the original `ERROR #36` reports came from): both fixes together clear all `ERROR #36` failures on that sample (23 → 0). Regression suite unchanged at the documented 192 PASS / 38 FAIL / 1 SKIP baseline throughout — zero regressions from either fix.
 
-**Re-run in progress against the fixed binary** (`run_wii_queue.sh`, resumed after also picking up the Mario Party 8 crash fix below) — the per-title table above still reflects the pre-fix binary for titles not yet re-processed; will be folded in as that pass completes.
+**Re-run in progress against the fixed binary** (`run_wii_queue.sh`, resumed after also picking up the Mario Party 8 crash fix below). 25/118 titles have been re-tested and folded into the table above so far — those rows are marked "re-tested against the AnmTexPat fix" (or, for Mario Party 8, describe the crash fix directly) and carry fresh Real/Total-op counts and error counts. Every other row in the table still reflects the pre-fix binary and will be folded in as the queue continues.
 ## Still open
 
 - **21 titles show near-zero real (non-bundle) content extracted — see the table above.** This is the single biggest finding in this doc: the naive per-title op counts previously in this table mostly measured the shared system bundle, not the game. Three causes confirmed (Bonsai Barber `.pkg`, World of Goo `.pak`, Samurai Warriors 3 `.BNS`); 17 more titles flagged but unverified. Worth systematically checking each one's `.d` tree for large opaque leftover files before deciding whether it needs new container support.
