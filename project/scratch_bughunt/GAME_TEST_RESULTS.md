@@ -129,7 +129,7 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | Trauma Center: New Blood | ✅ | 3990 / 5345 | TEX:3370, BRRES:409, BRFNT:195, LZH8:16 | PASS (3 errors logged) |
 | Trauma Center: Second Opinion | 🟡 | 2000 / 3871 | TEX:1717, BRRES:238, BRFNT:44, TPL:1 | ERROR_EXIT66 (33 errors logged) |
 | Ultra Hand | 🟡 | 2998 / 6013 | TPL:1558, BRLAN:980, BRFNT:268, TEX:116, LZ10:37 | ERROR_EXIT28 (10 errors logged) |
-| Wario Land: Shake It! | 🟡 | 108097 / 129904 | TEX:93758, TPL:9278, GFA:2224, BRRES:1718, BRLYT:718 | `ERROR_EXIT82` (86 errors) — likely the same non-UTF-8 filename class as Twilight Princess. Only title with real **GFA** volume (2224) — the best GFA sample if that decoder needs re-checking. |
+| Wario Land: Shake It! | 🟡 | 108097 / 129904 | TEX:93758, TPL:9278, GFA:2224, BRRES:1718, BRLYT:718 | `ERROR_EXIT82` (86 errors) — likely the same non-UTF-8 filename class as Twilight Princess. Real **GFA** volume (2224) — both Good-Feel titles in this corpus (see also Kirby's Epic Yarn) carry real GFA content, good samples if that decoder needs re-checking. |
 | WarioWare: D.I.Y. Showcase | 🟡 | 7034 / 13071 | TPL:5264, BRLAN:850, BRFNT:676, BRLYT:166, LZ11:74 | ERROR_EXIT28 (6 errors logged) |
 | WarioWare: Smooth Moves | ❌ | 1 / 1048 | BRFNT:1 | `TIMEOUT` — same suspected `wbrsar` performance cause as Mario Kart Wii, unconfirmed. |
 | We Ski | 🟡 | 3 / 19787 | BRFNT:3 | ERROR_EXIT28 (31 errors logged) |
