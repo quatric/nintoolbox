@@ -78,8 +78,7 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | Mario & Sonic at the Olympic Games | ✅ | 1010 / 1351 | TPL:814, BRFNT:196 | PASS, clean — small disc, low content by nature not by bug. |
 | Mario & Sonic at the Olympic Winter Games | 🟡 | 44690 / 67397 | TPL:28742, TEX:14758, BRRES:939, BRFNT:141, BRLAN:96 | `ERROR_EXIT28` (33 errors) — AnmTexPat gap. |
 | Mario Kart Wii | 🟡 | 114147 / 139729 | TEX:94345, TPL:6148, BRRES:5797, BRLAN:4290, YAZ0.U8:2239 | No crash. Its main music `wbrsar` conversion (`revo_kart.brsar`) timed out at the 2400s cap in the queue re-run — likely a real performance issue in the WAVE-export path added this session, not yet confirmed root cause. |
-| **Mario Party 8** | ✅ | — | — | **`CRASH_SIG10` (SIGBUS) — root-caused and fixed.** Two real bugs found under ASan in an isolated worktree build: (1) `DetectNintendoFormat()`'s MSBT check did an unguarded 8-byte `memcmp` past a 5-byte buffer; (2) `hsf_expand_replica()`'s parent-chain walk indexed the HSF node array with an unbounds-checked index read from file data. Both fixed. Re-run on the real disc now completes fully (`ERROR_EXIT82`, the separate known non-UTF-8-filename issue — no crash). |
-| Mario Party 9 | 🟡 | 62605 / 95658 | TPL:20858, TEX:20798, LZ11:6356, BRRES:6016, BRLAN:5790 | `ERROR_EXIT28` (39 errors) — AnmTexPat gap. |
+| **Mario Party 8** | ✅ | — | — | **`CRASH_SIG10` (SIGBUS) — root-caused and fixed.** Two real bugs found under ASan in an isolated worktree build: (1) `DetectNintendoFormat()`'s MSBT check did an unguarded 8-byte `memcmp` past a 5-byte buffer; (2) `hsf_expand_replica()`'s parent-chain walk indexed the HSF node array with an unbounds-checked index read from file data. Both fixed. Re-run on the real disc now completes fully (`ERROR_EXIT82`, the separate known non-UTF-8-filename issue — no crash). || Mario Party 9 | 🟡 | 62605 / 95658 | TPL:20858, TEX:20798, LZ11:6356, BRRES:6016, BRLAN:5790 | `ERROR_EXIT28` (39 errors) — AnmTexPat gap. |
 | Mario Sports Mix | 🟡 | 82304 / 111698 | TEX:37502, TPL:20382, BRLAN:15127, BRFNT:3231, BRRES:2077 | `ERROR_EXIT28` (18 errors) — AnmTexPat gap. |
 | Mario Strikers Charged | 🟡 | 18 / 21829 | TPL:16, BRFNT:1, BRFNvgmtrans:1 | `ERROR_EXIT36` (32 errors). |
 | Mario Super Sluggers | 🟡 | 2 / 19787 | BRFNT:2 | `ERROR_EXIT28` (31 errors) — AnmTexPat gap. |
@@ -229,13 +228,11 @@ fixes this session, alongside the still-open Mario Party 8 crash.
 **Verified on a real Wii Shop Channel WAD** (the same `PBmarioA/B/C/F/S/W.brres` family the original `ERROR #36` reports came from): both fixes together clear all `ERROR #36` failures on that sample (23 → 0). Regression suite unchanged at the documented 192 PASS / 38 FAIL / 1 SKIP baseline throughout — zero regressions from either fix.
 
 **Re-run in progress against the fixed binary** (`run_wii_queue.sh`, resumed after also picking up the Mario Party 8 crash fix below) — the per-title table above still reflects the pre-fix binary for titles not yet re-processed; will be folded in as that pass completes.
-
 ## Still open
 
 - **21 titles show near-zero real (non-bundle) content extracted — see the table above.** This is the single biggest finding in this doc: the naive per-title op counts previously in this table mostly measured the shared system bundle, not the game. Three causes confirmed (Bonsai Barber `.pkg`, World of Goo `.pak`, Samurai Warriors 3 `.BNS`); 17 more titles flagged but unverified. Worth systematically checking each one's `.d` tree for large opaque leftover files before deciding whether it needs new container support.
 - ~~Mario Party 8: `CRASH_SIG10` (SIGBUS)~~ — **fixed** (MSBT-magic OOB read + HSF replica parent-chain OOB walk, both in `lib-nintendo.c`/`lib-hsf.c`). Verified: re-run on the real disc completes fully now, no crash.
 - **Kororinpa: Marble Mania: same signal (SIGBUS), confirmed reproducible on a clean run (3rd independent crash)** — not yet re-tested against the Mario Party 8 fixes above; worth checking whether it's the same root cause or a distinct one.
-- AnmTexPat (texture-pattern animation) parse gap — `ERROR #36`, hits nearly every title with an UPDATE partition (the bundled Wii Menu/Shop-Channel content), by far the most common non-zero exit code in this table. Not yet fixed.
 - Non-UTF-8 RARC filename `ERROR #82` (Twilight Princess, Excite Truck, Wario Land: Shake It!) — root-caused, fix not yet implemented.
 - `ERROR #66` DS-`.srl`-passthrough / FSYS-media sub-job failures (Pokémon Battle Revolution, Metroid Prime: Trilogy, Wii Play: Motion) — not yet investigated.
 - `wbrsar` timeouts on large multi-track BRSAR (Mario Kart Wii, WarioWare: Smooth Moves, Endless Ocean: Blue World) — suspected performance regression in the WAVE-export path, not confirmed.
