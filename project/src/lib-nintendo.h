@@ -567,6 +567,92 @@ void      ResetBNS ( bns_t *bns );
 enumError ScanBNS ( bns_t *bns, const u8 *data, uint size );
 
 //-----------------------------------------------------------------------------
+// Retro Studios' ".pak" archive (Wii: Donkey Kong Country Returns and
+// Metroid Prime Trilogy's Wii remaster). No public tool exists for the
+// *original* Wii-era format specifically (later Tropical Freeze/Wii U .pak
+// is a different, RFRM-based layout -- Aruki's PakTool targets that one,
+// not this), but a dedicated open-source editor for exactly this game
+// exists and fully documents the container: github.com/jellees/crPakTool
+// (Form1.cs loadRSHDData()/ExportDecompress()). Layout transcribed from
+// that tool's real, working code, not guessed, and independently verified
+// byte-exact against a real retail MiscData.pak (112/112 entries resolve
+// in-bounds).
+//
+// All fields big-endian. Header:
+//   00h 4   version
+//   08h 8   hash (unverified, not needed to extract)
+//   48h 4   strg_length  -- length of the STRG (string table) section
+//   50h 4   rshd_length  -- length of the RSHD (entry table) section
+//   58h 4   data_length
+//   80h 4   strg_count   -- STRG section starts here
+// RSHD section starts at (0x80+strg_length): a u32 rshd_count (entry count)
+// followed by rshd_count 24-byte rows:
+//   00h 4   compressed  -- nonzero: entry payload is CMPD-wrapped (below);
+//           zero: payload is the raw file data as-is
+//   04h 4   magic       -- 4-char file-type tag, used as the extension
+//   08h 4   file_id_hi  -- with file_id_lo, forms the 64-bit ordinal name
+//   0Ch 4   file_id_lo
+//   10h 4   data_length -- byte length of the payload as stored (before
+//           CMPD decompression, if any)
+//   14h 4   pointer     -- payload offset, relative to the end of the
+//           header+STRG+RSHD region, i.e. absolute offset =
+//           pointer + 0x80 + strg_length + rshd_length
+//
+// A compressed (CMPD-wrapped) payload is itself:
+//   00h 4   "CMPD" magic
+//   04h 4   block_count
+// followed by block_count 8-byte block headers:
+//   00h 1   unknown (a flag byte -- 0x00 on stored/raw blocks, 0xc0 on every
+//           compressed block seen so far, but not verified as a bitmask)
+//   01h 1   stored_size, top 8 bits  -- NOT part of the "unknown" byte: real
+//           blocks over 64KB stored (common for texture-sized payloads) need
+//           this, and re-deriving it from a real sample is what caught it --
+//           reading only the big-endian u16 at 02h truncates the true stored
+//           size, making the trailing zlib stream look prematurely
+//           terminated (verified: 7 of 112 entries in a real MiscData.pak
+//           have a compressed block over 0xffff bytes stored and decompress
+//           correctly only with this 24-bit size)
+//   02h 2   stored_size, low 16 bits
+//   04h 4   uncompressed_size -- if stored_size==uncompressed_size the block
+//           is stored raw (copy stored_size bytes verbatim); otherwise the
+//           stored_size bytes are a standard zlib stream (with the normal
+//           2-byte zlib header, not raw deflate) that decompresses to
+//           exactly uncompressed_size bytes.
+// Block payloads are concatenated in order immediately after the last block
+// header (no separate offset table -- each block's bytes follow directly).
+typedef struct rpak_entry_t
+{
+    const u8 *data;    // points into rpak_t.data; NULL if out-of-range (skipped)
+    u32      size;      // stored size (as on disk, before CMPD decompression)
+    u32      magic;     // 4-char type tag, big-endian
+    u32      id_hi;
+    u32      id_lo;
+    bool     compressed; // CMPD-wrapped
+}
+rpak_entry_t;
+
+typedef struct rpak_t
+{
+    const u8      *data;      // NOT owned -- points into caller's buffer
+    uint          size;
+    rpak_entry_t  *entries;   // owned
+    uint          n_entries;
+}
+rpak_t;
+
+void      ResetRPAK ( rpak_t *pak );
+
+// Deliberately strict like ScanGPAK()/ScanBNS() above: every single entry
+// must resolve in-bounds for the file to be accepted.
+enumError ScanRPAK ( rpak_t *pak, const u8 *data, uint size );
+
+// Decompress one CMPD-wrapped entry payload. Returns an ALLOC()'d buffer
+// (caller FREE()s it) and sets *res_size, or returns NULL on any structural
+// error (caller should then fall back to treating the entry as uncompressed
+// raw data instead).
+u8 * DecompressRPAKEntry ( const u8 *data, uint size, uint *res_size );
+
+//-----------------------------------------------------------------------------
 // WARC ("WARC" magic): Game & Wario (Wii U)'s flat archive format. Unlike
 // SARC/GFA it is a *different* Monster Games/Nintendo container -- big
 // endian, uncompressed (no QuickLZ despite the superficial similarity to
