@@ -114,7 +114,7 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | Rock N' Roll Climber | 🟡 | 3512 / 12712 | TEX:1994, TPL:510, BRLAN:492, BRFNT:216, BRRES:198 | `ERROR_EXIT28` (63 errors logged). |
 | Rotohex | 🟡 | 5937 / 17195 | TEX:4944, BRFNT:969, LZ11:11, TPL:7, BRRES:5 | `ERROR_EXIT28` (6 errors logged). |
 | Rotozoa | 🟡 | 3815 / 13054 | BRFNT:2463, TEX:652, TPL:350, BRLAN:216, BRLYT:66 | `ERROR_EXIT28` (274 errors logged). |
-| Samurai Warriors 3 | 🟡 | 4 / 55712 | BRFNT:4 | `ERROR_EXIT66` (3031 errors logged). |
+| Samurai Warriors 3 | ✅ | native `.BNS` support shipped | BRFNT:4, BNS archive:5381 | Root cause: `LINKDATA*.BNS` (Koei Tecmo's own archive format, no public tool/BMS script) was being misrouted through the ffmpeg media-passthrough path (extension-only `.bns` claim collided with the unrelated BRSTM-style stream-audio format). RE'd the real container from 5 retail samples: 16-byte header + n_entries×8-byte (block-offset,size) table, verified byte-exact (zero out-of-range entries across all 5 files, re-extracted bytes match source exactly). Native `ScanBNS`/`extract_bns_file` added; passthru's `.bns` extension fallback narrowed to require the real `"BNS "` magic so it no longer steals these archives. |
 | Sin & Punishment: Star Successor | 🟡 | 3308 / 47770 | TPL:2128, BRFNT:1174, TEX:4, BRRES:2 | `ERROR_EXIT28` (24 errors logged) — re-tested against the AnmTexPat fix. |
 | Snowpack Park | 🟡 | 14066 / 25307 | TEX:7904, TPL:2171, BRRES:1319, BRFNT:1195, LZ11:1141 | `ERROR_EXIT28` (9 errors logged). |
 | Super Mario All-Stars 25th Anniversary Edition | 🟡 | 32 / 57156 | TPL:20, BRFNT:6, LZH8:4, LZ10:2 | `ERROR_EXIT28` (34 errors logged) — re-tested against the AnmTexPat fix. |
@@ -151,12 +151,13 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 
 ### Near-zero real content — likely unsupported game-data containers
 
-21 of the 118 titles decoded fewer than 50 real (non-bundle) asset ops
-despite total op counts in the thousands to tens-of-thousands — meaning
-essentially all of that title's own game content was never recognized.
-Two are confirmed byte-for-byte (Bonsai Barber's `.pkg`, World of Goo's
-`.pak`, and Samurai Warriors 3's `.BNS` — see above); the rest are flagged
-here as real candidates for the same class of problem, not yet individually
+21 of the 118 titles originally decoded fewer than 50 real (non-bundle)
+asset ops despite total op counts in the thousands to tens-of-thousands —
+meaning essentially all of that title's own game content was never
+recognized. Three are now confirmed and fixed byte-for-byte (Bonsai
+Barber's `.pkg`, World of Goo's `.pak`, and Samurai Warriors 3's `.BNS` —
+see above, all removed from the table below); the rest are flagged here as
+real candidates for the same class of problem, not yet individually
 root-caused.
 
 **Known metric flaw, confirmed by checking Dr. Mario Online Rx directly:**
@@ -178,7 +179,6 @@ directly before being treated as a real unsupported-format finding.**
 | WarioWare: Smooth Moves | 1 | 1,048 |
 | Mario Super Sluggers | 2 | 19,787 |
 | Metroid Prime 2 | 2 | 2,727 |
-| Samurai Warriors 3 | 2 | 33,910 |
 | Fatal Frame: Mask of the Lunar Eclipse | 3 | 22,705 |
 | We Ski | 3 | 19,787 |
 | Inazuma Eleven Strikers | 5 | 15,220 |
@@ -195,10 +195,9 @@ directly before being treated as a real unsupported-format finding.**
 Confirmed causes so far: **Bonsai Barber** (Gorilla Games `.pkg` engine
 archive — **support now implemented and shipped, see its own row above**),
 **World of Goo** (2D Boy `master.pak` — **support now implemented and
-shipped, see its own row above**), **Samurai Warriors 3**
-(Koei-Tecmo `.BNS` — also mis-routed through the ffmpeg media-passthrough
-path, which fails with "Error opening input file" rather than skipping
-cleanly), and **The Last Story** (Mistwalker's own `.pk`/`.pkh` archives —
+shipped, see its own row above**), **Samurai Warriors 3** (Koei-Tecmo
+`.BNS` — **support now implemented and shipped, see its own row above**),
+and **The Last Story** (Mistwalker's own `.pk`/`.pkh` archives —
 `levels.pk` alone is 570MB, untouched; ~1.3GB of real game content across
 the three `.pk` files, essentially none of it extracted — see its own row
 above). Metroid Prime 2's row is separately known-bad (`wii_queue.tsv`
