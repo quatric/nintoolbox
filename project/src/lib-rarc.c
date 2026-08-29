@@ -37,6 +37,48 @@
 
 #include "lib-rarc.h"
 
+///////////////////////////////////////////////////////////////////////////////
+
+// Returns the byte length (1-4) of a valid UTF-8 sequence starting at 'p',
+// or 0 if 'p' does not start one. See the matching helper/comment in
+// lib-szs.c's IterateFilesU8() -- same real-disc problem (Twilight
+// Princess's RARC member names carry raw non-UTF-8 bytes), different
+// container format's own filename-copy site.
+static uint ValidUTF8SeqLenRARC( const u8 *p )
+{
+    if ( p[0] < 0x80 )
+	return 1;
+    if ( (p[0] & 0xe0) == 0xc0 )
+	return (p[1] & 0xc0) == 0x80 ? 2 : 0;
+    if ( (p[0] & 0xf0) == 0xe0 )
+	return (p[1] & 0xc0) == 0x80 && (p[2] & 0xc0) == 0x80 ? 3 : 0;
+    if ( (p[0] & 0xf8) == 0xf0 )
+	return (p[1] & 0xc0) == 0x80 && (p[2] & 0xc0) == 0x80 && (p[3] & 0xc0) == 0x80 ? 4 : 0;
+    return 0;
+}
+
+static char * StringCopySanitizedUTF8E ( char *buf, ccp buf_end, ccp src )
+{
+    const u8 *s = (const u8*)src;
+    char *dest = buf;
+    while ( dest < buf_end && *s )
+    {
+	const uint seqlen = ValidUTF8SeqLenRARC(s);
+	if (!seqlen)
+	{
+	    s++;
+	    *dest++ = '_';
+	    continue;
+	}
+	uint i;
+	for ( i = 0; i < seqlen && dest < buf_end; i++, s++ )
+	    *dest++ = (char)*s;
+    }
+    if ( dest < buf_end )
+	*dest = 0;
+    return dest;
+}
+
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			IterateFilesRARC()		///////////////
@@ -94,7 +136,7 @@ static int iterate_rarc_dir
 	it->index = idx;
 
 	ccp fname = ri->str_pool + be16(&entry->name_off);
-	char *dest = StringCopyE( path, path_end, fname );
+	char *dest = StringCopySanitizedUTF8E( path, path_end, fname );
 	if ( be16(&entry->id) != 0xffff )
 	{
 	    // is file

@@ -3859,6 +3859,29 @@ void UiCheck ( ui_check_t *uc, szs_file_t *szs )
 }
 
 //
+
+// Returns the byte length (1-4) of a valid UTF-8 sequence starting at 'p',
+// or 0 if 'p' does not start one (an invalid lead byte, a truncated
+// sequence, or a bare continuation byte). Used to sanitize U8/RARC member
+// filenames, which some real discs (e.g. Twilight Princess) store as raw
+// non-UTF-8 bytes (observed: Shift-JIS) -- macOS rejects such a byte
+// sequence in a path outright (EILSEQ), turning one bad filename into a
+// hard extraction failure instead of just one oddly-named file.
+static uint ValidUTF8SeqLen( const u8 *p )
+{
+    if ( p[0] < 0x80 )
+	return 1;
+    if ( (p[0] & 0xe0) == 0xc0 )
+	return (p[1] & 0xc0) == 0x80 ? 2 : 0;
+    if ( (p[0] & 0xf0) == 0xe0 )
+	return (p[1] & 0xc0) == 0x80 && (p[2] & 0xc0) == 0x80 ? 3 : 0;
+    if ( (p[0] & 0xf8) == 0xf0 )
+	return (p[1] & 0xc0) == 0x80 && (p[2] & 0xc0) == 0x80 && (p[3] & 0xc0) == 0x80 ? 4 : 0;
+    return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			IterateFilesU8()		///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -3973,9 +3996,23 @@ int IterateFilesU8
 	char *path_dest = it->trail_path = path_ptr;
 	while ( path_dest < path_end && *fname )
 	{
-	    const char ch = *fname++;
-	    if ( ch != '\\' && ch != '/' || !it->itpar.clean_path )
-		*path_dest++ = ch;
+	    const uint seqlen = ValidUTF8SeqLen((const u8*)fname);
+	    if (!seqlen)
+	    {
+		// Invalid byte (raw Shift-JIS or similar seen on real discs) --
+		// replace with '_' instead of passing it straight through to
+		// the filesystem, where macOS rejects it outright (EILSEQ).
+		fname++;
+		*path_dest++ = '_';
+		continue;
+	    }
+	    uint i;
+	    for ( i = 0; i < seqlen && path_dest < path_end; i++, fname++ )
+	    {
+		const char ch = *fname;
+		if ( ch != '\\' && ch != '/' || !it->itpar.clean_path )
+		    *path_dest++ = ch;
+	    }
 	}
 	if ( it->itpar.clean_path && path_dest == path_ptr+2
 			&& path_ptr[0] == '.' && path_ptr[1] == '.' )
