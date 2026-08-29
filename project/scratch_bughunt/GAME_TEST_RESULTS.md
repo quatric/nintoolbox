@@ -81,7 +81,7 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | **Mario Party 8** | 🟡 | 8921 / 34311 | HSF:8104, MPBIN:816, BRFNT:1 | `ERROR_EXIT82` (28 errors logged). **`CRASH_SIG10` (SIGBUS) — root-caused and fixed.** Two real bugs found under ASan in an isolated worktree build: (1) `DetectNintendoFormat()`'s MSBT check did an unguarded 8-byte `memcmp` past a 5-byte buffer; (2) `hsf_expand_replica()`'s parent-chain walk indexed the HSF node array with an unbounds-checked index read from file data. Both fixed. Re-run on the real disc now completes fully (`ERROR_EXIT82`, the separate known non-UTF-8-filename issue — no crash). |
 | Mario Party 9 | 🟡 | 125210 / 191316 | TPL:41716, TEX:41596, LZ11:12712, BRRES:12032, BRLAN:11580 | `ERROR_EXIT28` (55 errors logged) — re-tested against the AnmTexPat fix. |
 | Mario Sports Mix | 🟡 | 164608 / 223396 | TEX:75004, TPL:40764, BRLAN:30254, BRFNT:6462, BRRES:4154 | `ERROR_EXIT28` (32 errors logged) — re-tested against the AnmTexPat fix. |
-| Mario Strikers Charged | 🟡 | 36 / 41070 | TPL:32, BRFNT:2, BRFNvgmtrans:2 | `ERROR_EXIT36` (38 errors logged). |
+| Mario Strikers Charged | ✅ | real content confirmed present | movies 1.0G (THP, real), characters 30M, environments 32M, objects/animation/nis | Re-tested against the AnmTexPat fix (the `ERROR_EXIT36` was the same shared-bundle `AnmTexPat` crash fixed earlier this session, in `UPDATE/files/_sys/RVL-Shopping-v6.d`, not a game-content gap) — now completes with **zero errors**. Low "real ops" count is another instance of the bulk-unpack metric flaw already documented for Dr. Mario Online Rx: `Art/characters`, `Art/environments`, `Art/objects`, etc. hold real per-title content as raw extracted files (Next Level Games' own `.rlt`/`.bun`/etc formats, not converted to PNG so they don't log `DECODE` lines) rather than one opaque blob — confirmed by directory sizes, not a metric artifact this time either. |
 | Mario Super Sluggers | 🟡 | 4 / 39574 | BRFNT:4 | `ERROR_EXIT28` (39 errors logged) — re-tested against the AnmTexPat fix. |
 | Metroid Prime | 🟡 | 3706 / 45884 | TPL:3704, BRFNT:2 | `ERROR_EXIT28` (43 errors logged) — re-tested against the AnmTexPat fix. |
 | **Metroid Prime 2** | 🟡 | 4 / 5454 | LZ10:2, BRFNT:2 | **`wii_queue.tsv`'s row for this title points at the wrong file** — `Metroid (USA) (NES) (Virtual Console).zip`, an NES VC ROM, not the real GC/Wii disc. Data bug in the queue list, not a `wszst` gap; don't draw format conclusions from this row until the queue entry is fixed and re-run. |
@@ -184,7 +184,6 @@ directly before being treated as a real unsupported-format finding.**
 | Inazuma Eleven Strikers | 5 | 15,220 |
 | My Pokémon Ranch | 6 | 5,975 |
 | Super Mario All-Stars 25th Anniversary Edition | 16 | 28,578 |
-| Mario Strikers Charged | 18 | 21,829 |
 | Punch-Out (Wii) | 18 | 22,367 |
 | Mario & Sonic at the London 2012 Olympic Games | 26 | 27,235 |
 | Epic Mickey | 30 | 48,612 |
@@ -206,11 +205,8 @@ gap; see the note above the table. **The remaining rows below have not
 been individually verified** — each needs the same byte-level check
 (download, `wszst xx`, inspect the resulting `.d` tree for large/opaque
 files with no further `.d` extraction under them, and rule out a bulk-
-unpack-format false flag like Dr. Mario's) before concluding what container
-format they actually need, if any. **Mario Strikers Charged is now the
-most surprising entry here** — a first-party Next Level title, worth
-checking first since a gap there is more likely to be a real, fixable
-format-support hole than a third-party engine quirk.
+unpack-format false flag like Dr. Mario's or Mario Strikers Charged's (see
+its own row above — resolved, not a format gap).
 
 **All 118 titles now have a clean, single-instance result** — the queue
 that had been corrupted by an accidental second concurrent instance
