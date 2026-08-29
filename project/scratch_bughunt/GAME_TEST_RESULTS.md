@@ -96,7 +96,7 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | New Play Control! Mario Power Tennis | 🟡 | 85774 / 135058 | TPL:80306, STPL:5262, BRLAN:178, BRLYT:20, BRFNT:8 | `ERROR_EXIT28` (43 errors logged) — re-tested against the AnmTexPat fix. |
 | New Play Control! Pikmin | 🟡 | 692 / 47546 | BRFNT:544, TPL:96, BRLAN:24, YAZ0.U8:12, BRLYT:10 | `ERROR_EXIT76` (39 errors logged). — new code, not yet explained (see the queue-driver log for this title before assuming AnmTexPat). |
 | New Play Control! Pikmin 2 | 🟡 | 3160 / 50018 | YAZ0.RARC:2484, BRFNT:540, TPL:84, RARC:20, BRLAN:14 | `ERROR_EXIT28` (39 errors logged) — re-tested against the AnmTexPat fix. |
-| New Super Mario Bros. Wii | 🟡 | 20378 / 67012 | TEX:15566, TPL:2144, BRRES:1258, BRLAN:656, BRFNT:462 | `ERROR_EXIT28` (26 errors logged) — re-tested against the AnmTexPat fix. |
+| New Super Mario Bros. Wii | ✅ | 20378 / 67012 | TEX:15566, TPL:2144, BRRES:1258, BRLAN:656, BRFNT:462 | Directly re-tested against the current binary: **0 errors** (was `ERROR_EXIT28`, 26 errors — the same shared-bundle `AnmTexPat` crash fixed earlier this session). 334MB of real content confirmed extracted under `DATA/files`. |
 | Orbient | 🟡 | 1322 / 7322 | TEX:640, BRFNT:560, LZ11:118, BRRES:4 | `ERROR_EXIT28` (6 errors logged). |
 | Pandora's Tower | 🟡 | 21988 / 85970 | MSBT:21940, QuickLZ:28, LZH8:10, TPL:8, BRFNT:2 | `ERROR_EXIT36` (36 errors logged). Heavy **MSBT** (message-table format) — barely appears elsewhere. |
 | Pangya! Golf with Style | 🟡 | 2053 / 25171 | TPL:1636, BRFNT:392, LZH8:15, LZ10:8, QuickLZ:2 | `ERROR_EXIT66` (33 errors logged). |
