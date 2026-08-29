@@ -402,6 +402,23 @@ static bool is_disc_ext ( ccp src )
 	|| is_ext(src,".wia") || is_ext(src,".raw")    || is_ext(src,".img");
 }
 
+// True for the file extensions a real, not-yet-extracted DS ROM image is
+// stored under. Some DS ROM titles literally carry the ASCII string
+// "NINTENDO" in their internal game-title header field (verified: real DS
+// WFC/wifi-connection utility ROMs bundled inside Wii games), which is also
+// this codebase's own claim signature for a DS ROM below -- so a bare
+// "NINTENDO"-at-offset-0 check without this extension guard wrongly
+// re-claims wit/ndstool's own already-extracted "header.bin" output (an
+// exact byte-for-byte copy of that same header, including the title field)
+// as if it were a fresh DS ROM to extract, sending it back through
+// wit/ndstool where it fails (it isn't a real disc image). Same class of
+// bug as the WBFS/disc claim just above, which already learned to pair its
+// header signature with is_disc_ext() for exactly this reason.
+static bool is_ds_ext ( ccp src )
+{
+    return is_ext(src,".nds") || is_ext(src,".srl") || is_ext(src,".dsi");
+}
+
 // Build the staging directory for SRC: BASEDIR (may be NULL or "" for none)
 // plus the file name without extension plus ".d".  Returns false when SRC has
 // no basename at all.
@@ -1862,11 +1879,11 @@ static enumError passthru_claim
     // sub-files (e.g. the 1K "boot.bin" passport block, whose header carries
     // the same wii_magic at 0x18) would wrongly be re-dispatched to wit.
     bool is_disc = ( is_wbfs || is_wdf || is_ciso || is_iso ) && is_disc_ext(src);
-    if ( is_disc || !memcmp(head,"NINTENDO",8) )	// DS ROM header claim
+    bool is_ds   = !memcmp(head,"NINTENDO",8) && is_ds_ext(src);
+    if ( is_disc || is_ds )	// DS ROM header claim
     {
-	const bool ds = !memcmp(head,"NINTENDO",8);
 	return passthru_archive_or_bms(src,basedir,stage,
-	    staged_dir,staged_dir_size, ds, false, false, is_disc, false);
+	    staged_dir,staged_dir_size, is_ds, false, false, is_disc, false);
     }
 
     // Wii U disc image (strong pass, header-only -- this MUST run before any
