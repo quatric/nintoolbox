@@ -43,7 +43,7 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | Disaster: Day of Crisis | 🟡 | 5800 / 49972 | TPL:5730, BRFNT:60, LZH8:10 | `ERROR_EXIT28` (43 errors logged) — re-tested against the AnmTexPat fix. |
 | Donkey Kong Barrel Blast | 🟡 | 8690 / 50104 | TPL:5244, BRLAN:2234, LZ10:838, BRLYT:374 | `ERROR_EXIT28` (38 errors logged) — re-tested against the AnmTexPat fix. |
 | **Donkey Kong Country Returns** | ⚠️ | 7 / 28913 | BRFNT:6, BRFvgmtrans:1 | **Confirmed byte-for-byte.** `DATA/files/Worlds/` (2GB, all 9 worlds, 72 level files like `W02_Beach/L08_Crab_Boss_Arena.pak`) is entirely Retro Studios' own `.pak` engine archive format — completely unrecognized, untouched, unlogged. This is the real game; nothing in it was ever extracted. |
-| Dr. Mario Online Rx | 🟡 | 4 / 6343 | Arika:2, LZ10:2 | ERROR_EXIT28 (944 errors logged) |
+| Dr. Mario Online Rx | ✅ | n/a — see note | n/a — see note | **False alarm, verified byte-for-byte — actually extracts fine.** The Real-ops metric undercounts it: `EXTRACT Arika:...INFO.DAT (628 entries)` is logged as a single bulk-unpack operation, not credited per-file the way `DECODE`/`EXTRACT` lines for other formats are, so the metric made a fully-working extraction look near-empty. Directly verified: 4173 real files on disk, INFO.DAT's 628 entries genuinely unpacked (message archives, BRSAR audio converted to real playable output), GAME.DAT's real soundfont (`GAME.sf2`) and MIDI sequences all present. Only the expected top-level `.app` containers are left opaque — normal for every WiiWare title, not a gap. `ERROR_EXIT28` (944 errors logged, pre-AnmTexPat-fix — not yet re-tested against the fix). |
 | Eco Shooter: Plant 530 | 🟡 | 2698 / 5696 | TEX:1398, TPL:852, BRLAN:209, LZ10:110, BRLYT:49 | ERROR_EXIT28 (2 errors logged) |
 | Endless Ocean | 🟡 | 2022 / 44093 | TPL:1624, BRFNT:396, Arika:2 | `ERROR_EXIT28` (100 errors logged) — re-tested against the AnmTexPat fix. |
 | Endless Ocean: Blue World | ❌ | 624 / 9865 | TPL:522, BRFNT:101, Arika:1 | `TIMEOUT` — same suspected `wbrsar` cause as Mario Kart Wii. |
@@ -157,7 +157,20 @@ essentially all of that title's own game content was never recognized.
 Two are confirmed byte-for-byte (Bonsai Barber's `.pkg`, World of Goo's
 `.pak`, and Samurai Warriors 3's `.BNS` — see above); the rest are flagged
 here as real candidates for the same class of problem, not yet individually
-root-caused:
+root-caused.
+
+**Known metric flaw, confirmed by checking Dr. Mario Online Rx directly:**
+a format whose extractor unpacks its whole archive in one bulk operation
+(logged as a single `EXTRACT <Format>:...(N entries)` line, e.g. Arika's
+`INFO.DAT`/`GAME.DAT`) only counts as **one** real op no matter how many
+real files it actually produced — unlike formats that log one `DECODE`/
+`EXTRACT` line per file. Dr. Mario Online Rx showed 4 real ops here but
+directly verified to extract 4173 real files correctly (message archives,
+BRSAR audio, soundfont+MIDI) — a false alarm from the metric, not a real
+gap, now removed from this list and corrected in the main table above.
+**Any other title using a bulk-unpack format (Arika, GFA, SARC, RARC-via-
+`EXTRACT`) is at risk of the same false flag here and should be checked
+directly before being treated as a real unsupported-format finding.**
 
 | Title | Real ops | Total ops |
 |---|---|---|
@@ -169,7 +182,6 @@ root-caused:
 | Samurai Warriors 3 | 2 | 33,910 |
 | Fatal Frame: Mask of the Lunar Eclipse | 3 | 22,705 |
 | We Ski | 3 | 19,787 |
-| Dr. Mario Online Rx | 4 | 6,343 |
 | Inazuma Eleven Strikers | 5 | 15,220 |
 | Bonsai Barber | 6 | 6,702 |
 | My Pokémon Ranch | 6 | 5,975 |
