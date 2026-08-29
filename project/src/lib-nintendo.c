@@ -318,23 +318,33 @@ static bool ash_symbol
     return true;
 }
 
-enumError DecodeASH0 ( u8 **dest, uint *dest_size, const u8 *src, uint src_size )
+// ASH0's distance-tree bit width is a build-time choice baked into the
+// encoder, not a field in the file header -- confirmed against
+// NinjaCheetah/ASH0-tools (Decompressor/main.c), a from-scratch clean-room
+// ASH0 codec whose CLI exposes it as a manual `-d` flag defaulting to 11
+// ("These work for ASH0 files found in the System Menu and Animal Crossing:
+// City Folk. ASH0 files found in My Pokémon Ranch require setting the
+// distance tree bits to 15 instead.") -- there is no header bit to switch
+// on. Since a real file gives no way to know up front, try the common case
+// first and fall back to the one confirmed exception on failure, rather
+// than guess a detection rule with no evidence behind it.
+static enumError DecodeASH0Try
+(
+    u8 **dest, uint *dest_size, const u8 *src, uint src_size, uint dist_bits
+)
 {
-    if (!src || src_size < 0x10 || memcmp(src,"ASH0",4)) return EINVAL;
     const uint out_size = rd_be32(src+4) & 0x00ffffff;
     const uint dist_start = rd_be32(src+8);
-    if (!out_size || out_size > NFMT_MAX_OUTPUT || dist_start > src_size-4)
-        return EINVAL;
     enumError err = alloc_output(dest,dest_size,out_size);
     if (err) return err;
     ash_bits_t syms, dists;
-    const uint sym_max = 1u<<9, dist_max = 1u<<11;
+    const uint sym_max = 1u<<9, dist_max = 1u<<dist_bits;
     uint *sl = CALLOC(2*sym_max-1,sizeof(*sl)), *sr = CALLOC(2*sym_max-1,sizeof(*sr));
     uint *dl = CALLOC(2*dist_max-1,sizeof(*dl)), *dr = CALLOC(2*dist_max-1,sizeof(*dr));
     uint sym_root = 0, dist_root = 0;
     if (!sl || !sr || !dl || !dr || !ash_init(&syms,src,src_size,0x0c)
         || !ash_init(&dists,src,src_size,dist_start)
-        || !ash_tree(&syms,9,sl,sr,&sym_root) || !ash_tree(&dists,11,dl,dr,&dist_root))
+        || !ash_tree(&syms,9,sl,sr,&sym_root) || !ash_tree(&dists,dist_bits,dl,dr,&dist_root))
         goto invalid;
     for (uint pos = 0; pos < out_size; )
     {
@@ -358,6 +368,19 @@ enumError DecodeASH0 ( u8 **dest, uint *dest_size, const u8 *src, uint src_size 
 invalid:
     FREE(sl); FREE(sr); FREE(dl); FREE(dr); FREE(*dest); *dest = 0; *dest_size = 0;
     return EINVAL;
+}
+
+enumError DecodeASH0 ( u8 **dest, uint *dest_size, const u8 *src, uint src_size )
+{
+    if (!src || src_size < 0x10 || memcmp(src,"ASH0",4)) return EINVAL;
+    const uint out_size = rd_be32(src+4) & 0x00ffffff;
+    const uint dist_start = rd_be32(src+8);
+    if (!out_size || out_size > NFMT_MAX_OUTPUT || dist_start > src_size-4)
+        return EINVAL;
+
+    enumError err = DecodeASH0Try(dest,dest_size,src,src_size,11);
+    if (err) err = DecodeASH0Try(dest,dest_size,src,src_size,15);
+    return err;
 }
 
 typedef struct ash_writer_t { u8 *data; uint size, bitpos; } ash_writer_t;
