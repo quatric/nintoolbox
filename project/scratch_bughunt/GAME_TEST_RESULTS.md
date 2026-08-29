@@ -123,7 +123,7 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | Super Paper Mario | 🟡 | 88642 / 114393 | TPL:87858, LZ10:772, BRLAN:8, BRLYT:4 | `ERROR_EXIT28` (30 errors logged) — re-tested against the AnmTexPat fix. |
 | Super Smash Bros. Brawl | 🟡 | 131350 / 215874 | TEX:105992, BRRES:16956, PAC:4314, LZ10:2790, BRFNT:1008 | `ERROR_EXIT28` (275 errors logged) — re-tested against the AnmTexPat fix. |
 | Tetris Party Deluxe | 🟡 | 5383 / 28073 | TPL:3677, BRLAN:1009, BRFNT:342, BRLYT:326, BRRES:16 | ERROR_EXIT28 (905 errors logged) |
-| The Last Story | 🟡 | 20 / 30308 | LZ11:19, BRFNT:1 | `ERROR_EXIT28` (20 errors) — AnmTexPat gap. |
+| **The Last Story** | ⚠️ | 20 / 30308 | LZ11:19, BRFNT:1 | **Confirmed real, verified byte-for-byte — not a metric artifact.** `DATA/files/pack/` holds Mistwalker's own proprietary `.pk`/`.pkh` archive format: `levels.pk` (570MB, no attempt to even decompress it), `filesystem.pk` (647MB, LZ11-decompressed but only to a 32KB `.bin` — a header/index fragment, not the real content), `eventpacks.pk` (106MB, same partial-decompress pattern). Combined, nearly 1.3GB of the actual game sits essentially untouched. Genuinely the largest confirmed unsupported-format gap found in this whole corpus. |
 | The Legend of Zelda: Skyward Sword | 🟡 | 51016 / 86122 | TEX:41460, BRRES:3825, TPL:3112, BRLAN:835, BRFNT:685 | `ERROR_EXIT28` (204 errors) — AnmTexPat gap, unusually high count worth a second look. |
 | The Legend of Zelda: Twilight Princess | ✅ | 5968 / 6262 | YAZ0.RARC:4424, TPL:696, RARC:676, BRFNT:168, QuickLZ:4 | PASS (4 errors logged, re-tested against the AnmTexPat fix). `ERROR #82 [CAN'T CREATE FILE]` — a RARC member filename contains a raw non-UTF-8 byte sequence (likely Shift-JIS). macOS rejects the `open()` call outright (EILSEQ). Root-caused to the exact read/write sites, fix not yet implemented. This bug apparently doesn't trip on every file (overall exit is still `PASS`) — depth capped somewhat by it regardless (RARC/YAZ0-only, no BRRES/TEX ever reached). |
 | Trauma Center: New Blood | ✅ | 3990 / 5345 | TEX:3370, BRRES:409, BRFNT:195, LZH8:16 | PASS (3 errors logged) |
@@ -189,7 +189,6 @@ directly before being treated as a real unsupported-format finding.**
 | Super Mario All-Stars 25th Anniversary Edition | 16 | 28,578 |
 | Mario Strikers Charged | 18 | 21,829 |
 | Punch-Out (Wii) | 18 | 22,367 |
-| The Last Story | 20 | 30,308 |
 | Mario & Sonic at the London 2012 Olympic Games | 26 | 27,235 |
 | Epic Mickey | 30 | 48,612 |
 | Mystery Case Files: The Malgrave Incident | 34 | 28,945 |
@@ -199,15 +198,22 @@ Confirmed causes so far: **Bonsai Barber** (Gorilla Games `.pkg` engine
 archive), **World of Goo** (2D Boy `master.pak`), **Samurai Warriors 3**
 (Koei-Tecmo `.BNS` — also mis-routed through the ffmpeg media-passthrough
 path, which fails with "Error opening input file" rather than skipping
-cleanly). Metroid Prime 2's row is separately known-bad (`wii_queue.tsv`
-points at the wrong file, an NES VC ROM). The other 17 titles are
-unverified — each needs the same byte-level check (download, `wszst xx`,
-inspect the resulting `.d` tree for large/opaque files with no further
-`.d` extraction under them) before concluding what container format they
-actually need. **Donkey Kong Country Returns and Mario Strikers Charged
-are the two most surprising entries here** — both first-party Retro/Next
-Level titles, worth checking first since a gap there is more likely to be
-a real, fixable format-support hole than a third-party engine quirk.
+cleanly), and **The Last Story** (Mistwalker's own `.pk`/`.pkh` archives —
+`levels.pk` alone is 570MB, untouched; ~1.3GB of real game content across
+the three `.pk` files, essentially none of it extracted — see its own row
+above). Metroid Prime 2's row is separately known-bad (`wii_queue.tsv`
+points at the wrong file, an NES VC ROM). Dr. Mario Online Rx (previously
+listed here) turned out to be a **false alarm** — a metric flaw, not a real
+gap; see the note above the table. **The remaining rows below have not
+been individually verified** — each needs the same byte-level check
+(download, `wszst xx`, inspect the resulting `.d` tree for large/opaque
+files with no further `.d` extraction under them, and rule out a bulk-
+unpack-format false flag like Dr. Mario's) before concluding what container
+format they actually need, if any. **Donkey Kong Country Returns and Mario
+Strikers Charged are the two most surprising entries here** — both
+first-party Retro/Next Level titles, worth checking first since a gap
+there is more likely to be a real, fixable format-support hole than a
+third-party engine quirk.
 
 **All 118 titles now have a clean, single-instance result** — the queue
 that had been corrupted by an accidental second concurrent instance
