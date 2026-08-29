@@ -106,7 +106,7 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | PokéPark 2: Wonders Beyond | 🟡 | 62974 / 124218 | TEX:52920, TPL:6288, BRLAN:1494, BRRES:1426, BRLYT:250 | `ERROR_EXIT28` (38 errors logged) — re-tested against the AnmTexPat fix. |
 | PokéPark Wii: Pikachu's Adventure | 🟡 | 73074 / 117392 | TEX:69732, BRRES:2182, TPL:696, BRFNT:236, LZ11:228 | `ERROR_EXIT28` (24 errors logged) — re-tested against the AnmTexPat fix. |
 | Project Zero 2: Wii Edition | 🟡 | 102662 / 173702 | TPL:96168, LZ11:6478, BRFNT:12, MPBIN:4 | `ERROR_EXIT28` (1642 errors logged) — re-tested against the AnmTexPat fix. |
-| Punch-Out (Wii) | 🟡 | 36 / 44734 | TPL:32, BRFNT:4 | Not individually re-run, but its crash is the identical `AnmTexPat(NW4R)/PBmarioA.brres` signature already fixed and directly confirmed resolved on 4 other titles this session (Mario Strikers Charged, We Ski, And-Kensaku, Battalion Wars 2) — almost certainly fixed, not verified firsthand. |
+| Punch-Out (Wii) | ✅ | 36 / 44734 | TPL:32, BRFNT:4 | Directly re-tested against the current binary: **0 hard errors** (the old `AnmTexPat` crash is fixed). 3.7GB of real content confirmed extracted under `DATA/files`. Hits the separate, already-documented `wbrsar` warning class (10 occurrences, non-fatal). |
 | Quiz Party | 🟡 | 266 / 72018 | TEX:208, BRRES:40, TPL:10, BRFNT:6, BRwbrsar:2 | `ERROR_EXIT28` (40 errors logged). |
 | Resident Evil 4 | ✅ | 5682 / 9729 | TPL:5682 | PASS (3 errors logged). |
 | Resident Evil: The Umbrella Chronicles | ✅ | 71364 / 79911 | TEX:32166, TPL:28182, BRLAN:4251, BRRES:3954, BRFNT:1530 | PASS (9 errors logged). |
