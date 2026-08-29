@@ -89,7 +89,7 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | Metroid Prime: Trilogy | 🟡 | 7408 / 49594 | TPL:7408 | `ERROR_EXIT66` (181 errors logged). — DS-passthrough/FSYS sub-job gap, same class as Pokémon Battle Revolution. |
 | Metroid: Other M | 🟡 | 176934 / 236476 | TEX:122876, TPL:43978, BRRES:4468, BRLAN:3658, BRLYT:1716 | `ERROR_EXIT28` (32 errors logged). Crashed with the same **SIGBUS** signature as Animal Crossing. Re-ran full extraction with the fix in place: completed cleanly, confirming the same fix resolved this title too. |
 | Monster Hunter Tri | 🟡 | 113976 / 157586 | TEX:108536, BRRES:3046, TPL:2180, BRLAN:184, BRLYT:18 | `ERROR_EXIT28` (27 errors logged). |
-| My Pokémon Ranch | 🟡 | 9 / 8962 | BRFNT:6, LZ11:3 | `ERROR_EXIT28` (8 errors logged). |
+| My Pokémon Ranch | ✅ | ASH0 decompression fixed, 57/58 real files recovered | 87MB in `00000004.d` (pokegra.arc, pokemonfarm.brsar, mii.arc, etc.) | Root cause: this title's real content is ASH0-compressed, and its encoder used a non-default distance-tree bit width (15, not the usual 11) -- confirmed via NinjaCheetah/ASH0-tools (independent GitHub decoder whose docs name this exact game as the known exception). `DecodeASH0` now tries 11 then 15. Verified byte-exact against that independent decoder on a real payload. One of 58 `.ash` files (`pii.arc.ash`) needs yet another combination (8-bit symbol tree) and is left unresolved rather than guess a third unverified parameter set. |
 | Mystery Case Files: The Malgrave Incident | 🟡 | 68 / 57890 | TPL:38, MSBT:20, LZ10:4, BRFNvgmtrans:4, BRFNT:2 | `ERROR_EXIT28` (32 errors logged) — re-tested against the AnmTexPat fix. |
 | Naruto: Clash of Ninja | ✅ | 0 / 6 | — | PASS (3 errors logged). |
 | New Play Control! Donkey Kong Jungle Beat | 🟡 | 4580 / 47736 | BRFNT:1498, YAZ0.RARC:1376, TPL:1092, BRLAN:350, RARC:186 | `ERROR_EXIT28` (43 errors logged) — re-tested against the AnmTexPat fix. |
@@ -182,7 +182,6 @@ directly before being treated as a real unsupported-format finding.**
 | Fatal Frame: Mask of the Lunar Eclipse | 3 | 22,705 |
 | We Ski | 3 | 19,787 |
 | Inazuma Eleven Strikers | 5 | 15,220 |
-| My Pokémon Ranch | 6 | 5,975 |
 | Super Mario All-Stars 25th Anniversary Edition | 16 | 28,578 |
 | Punch-Out (Wii) | 18 | 22,367 |
 | Mario & Sonic at the London 2012 Olympic Games | 26 | 27,235 |
