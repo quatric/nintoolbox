@@ -1,118 +1,121 @@
 Wii Sports	Wii Sports (USA).wbfs	PASS	0
-Animal Crossing: City Folk	Animal Crossing - City Folk (USA) (En,Fr,Es).wbfs	PASS	0
-The Legend of Zelda: Twilight Princess	Legend of Zelda, The - Twilight Princess (USA).wbfs	PASS	2
-WarioWare: Smooth Moves	WarioWare - Smooth Moves (USA) (En,Fr,Es).wbfs	TIMEOUT	0
-Metroid Prime 3: Corruption	Metroid Prime 3 - Corruption (USA).wbfs	ERROR_EXIT28	29
-Battalion Wars 2	Battalion Wars 2 (USA).wbfs	ERROR_EXIT28	29
-Excite Truck	Excite Truck (USA).wbfs	ERROR_EXIT82	73
-Wii Play	Wii Play (USA).wbfs	ERROR_EXIT28	2
-Pokémon Battle Revolution	Pokemon Battle Revolution (USA).wbfs	ERROR_EXIT66	38
-Fire Emblem: Radiant Dawn	Fire Emblem - Radiant Dawn (USA) (Rev 1).wbfs	ERROR_EXIT28	32
-Super Paper Mario	Super Paper Mario (USA).wbfs	ERROR_EXIT28	28
-Big Brain Academy: Wii Degree	Big Brain Academy - Wii Degree (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	35
-Mario Strikers Charged	Mario Strikers Charged (USA) (En,Fr,Es) (Rev 1).wbfs	ERROR_EXIT36	32
-Mario Party 8	Mario Party 8 (USA, Asia) (Rev 2).wbfs	CRASH_SIG10	26
-Donkey Kong Barrel Blast	Donkey Kong - Barrel Blast (USA).wbfs	ERROR_EXIT28	32
-Endless Ocean	Endless Ocean (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	70
-Super Mario Galaxy	Super Mario Galaxy (USA, Canada) (En,Fr,Es).wbfs	ERROR_EXIT28	29
+0
+The Legend of Zelda: Twilight Princess	Legend of Zelda, The - Twilight Princess (USA).wbfs	PASS	4
+Excite Truck	Excite Truck (USA).wbfs	ERROR_EXIT82	146
+Wii Play	Wii Play (USA).wbfs	ERROR_EXIT28	4
+0
+Pokémon Battle Revolution	Pokemon Battle Revolution (USA).wbfs	ERROR_EXIT66	50
+Fire Emblem: Radiant Dawn	Fire Emblem - Radiant Dawn (USA) (Rev 1).wbfs	ERROR_EXIT28	38
+Super Paper Mario	Super Paper Mario (USA).wbfs	ERROR_EXIT28	30
+Big Brain Academy: Wii Degree	Big Brain Academy - Wii Degree (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	43
+Mario Strikers Charged	Mario Strikers Charged (USA) (En,Fr,Es) (Rev 1).wbfs	ERROR_EXIT36	38
+Donkey Kong Barrel Blast	Donkey Kong - Barrel Blast (USA).wbfs	ERROR_EXIT28	38
+Endless Ocean	Endless Ocean (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	100
+Metroid Prime 3: Corruption	Metroid Prime 3 - Corruption (USA).wbfs	ERROR_EXIT28	35
+Battalion Wars 2	Battalion Wars 2 (USA).wbfs	ERROR_EXIT28	6
+Super Mario Galaxy	Super Mario Galaxy (USA, Canada) (En,Fr,Es).wbfs	ERROR_EXIT28	35
 Mario & Sonic at the Olympic Games	Mario & Sonic at the Olympic Games (USA) (En,Fr,Es).wbfs	PASS	0
-Link's Crossbow Training	Link's Crossbow Training (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	29
-Wii Fit	Wii Fit (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	35
-Wii Chess	Wii Chess (Europe) (En,Fr,De,Es,It).wbfs	ERROR_EXIT28	31
-Super Smash Bros. Brawl	Super Smash Bros. Brawl (USA, Canada) (Rev 2).wbfs	ERROR_EXIT28	251
-Mario Kart Wii	Mario Kart Wii (USA) (En,Fr,Es).wbfs	TIMEOUT	35
-Mario Super Sluggers	Mario Super Sluggers (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	31
-Wario Land: Shake It!	Wario Land - Shake It! (USA) (En,Fr,Es).wbfs	ERROR_EXIT82	86
-Fatal Frame: Mask of the Lunar Eclipse	Zero - Tsukihami no Kamen (Japan).wbfs	ERROR_EXIT28	33
-Captain Rainbow	Captain Rainbow (Japan).wbfs	ERROR_EXIT28	140
-Disaster: Day of Crisis	Disaster - Day of Crisis (Europe) (En,Fr,De,Es,It).wbfs	ERROR_EXIT28	33
-Wii Music	Wii Music (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	33
-New Play Control! Donkey Kong Jungle Beat	Donkey Kong Jungle Beat (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	33
-New Play Control! Pikmin	Pikmin (USA) (En,Fr,Es).wbfs	ERROR_EXIT76	31
-New Play Control! Mario Power Tennis	Mario Power Tennis (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	33
-Another Code: R – A Journey into Lost Memories	Another Code R - A Journey into Lost Memories (Europe) (En,Fr,De,Es,It).wbfs	ERROR_EXIT28	33
-Metroid Prime	Metroid Prime (Japan).wbfs	ERROR_EXIT28	33
-New Play Control! Pikmin 2	Pikmin 2 (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	31
-Excitebots: Trick Racing	ExciteBots - Trick Racing (USA).wbfs	ERROR_EXIT36	35
-Punch-Out (Wii)	Punch-Out!! (USA) (En,Fr,Es) (Rev 1).wbfs	ERROR_EXIT28	33
-Metroid Prime 2	Metroid (USA) (NES) (Virtual Console).zip	ERROR_EXIT28	2
-Chibi-Robo!	Chibi-Robo! (Japan).wbfs	ERROR_EXIT28	105
-Wii Sports Resort	Wii Sports Resort (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	33
-Metroid Prime: Trilogy	Metroid Prime Trilogy (USA).wbfs	ERROR_EXIT66	102
+0
+Link's Crossbow Training	Link's Crossbow Training (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	35
+Wii Fit	Wii Fit (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	47
+Wii Chess	Wii Chess (Europe) (En,Fr,De,Es,It).wbfs	ERROR_EXIT28	39
+Super Smash Bros. Brawl	Super Smash Bros. Brawl (USA, Canada) (Rev 2).wbfs	ERROR_EXIT28	275
+0
+Mario Party 8	Mario Party 8 (USA, Asia) (Rev 2).wbfs	ERROR_EXIT82	28
+Mario Kart Wii	Mario Kart Wii (USA) (En,Fr,Es).wbfs	TIMEOUT	59
+Mario Super Sluggers	Mario Super Sluggers (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	39
+Wario Land: Shake It!	Wario Land - Shake It! (USA) (En,Fr,Es).wbfs	ERROR_EXIT82	134
+Fatal Frame: Mask of the Lunar Eclipse	Zero - Tsukihami no Kamen (Japan).wbfs	ERROR_EXIT28	43
+Captain Rainbow	Captain Rainbow (Japan).wbfs	ERROR_EXIT28	148
+Disaster: Day of Crisis	Disaster - Day of Crisis (Europe) (En,Fr,De,Es,It).wbfs	ERROR_EXIT28	43
+Wii Music	Wii Music (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	43
+Animal Crossing: City Folk	Animal Crossing - City Folk (USA) (En,Fr,Es).wbfs	ERROR_EXIT66	14
+New Play Control! Donkey Kong Jungle Beat	Donkey Kong Jungle Beat (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	43
+New Play Control! Pikmin	Pikmin (USA) (En,Fr,Es).wbfs	ERROR_EXIT76	39
+New Play Control! Mario Power Tennis	Mario Power Tennis (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	43
+Another Code: R – A Journey into Lost Memories	Another Code R - A Journey into Lost Memories (Europe) (En,Fr,De,Es,It).wbfs	ERROR_EXIT28	43
+Metroid Prime	Metroid Prime (Japan).wbfs	ERROR_EXIT28	43
+New Play Control! Pikmin 2	Pikmin 2 (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	39
+Excitebots: Trick Racing	ExciteBots - Trick Racing (USA).wbfs	ERROR_EXIT36	47
+Punch-Out (Wii)	Punch-Out!! (USA) (En,Fr,Es) (Rev 1).wbfs	ERROR_EXIT28	43
+Metroid Prime 2	Metroid (USA) (NES) (Virtual Console).zip	ERROR_EXIT28	4
+Chibi-Robo!	Chibi-Robo! (Japan).wbfs	ERROR_EXIT28	115
+Wii Sports Resort	Wii Sports Resort (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	43
+Metroid Prime: Trilogy	Metroid Prime Trilogy (USA).wbfs	ERROR_EXIT66	181
 Endless Ocean: Blue World	Endless Ocean - Blue World (USA).wbfs	TIMEOUT	4
-Wii Fit Plus	Wii Fit Plus (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	47
-Mario & Sonic at the Olympic Winter Games	Mario & Sonic at the Olympic Winter Games (USA) (En,Ja,Fr,Es).wbfs	ERROR_EXIT28	33
-Sin & Punishment: Star Successor	Sin & Punishment - Star Successor (USA).wbfs	ERROR_EXIT28	14
-New Super Mario Bros. Wii	New Super Mario Bros. Wii (USA) (En,Fr,Es) (Rev 2).wbfs	ERROR_EXIT28	16
-PokéPark Wii: Pikachu's Adventure	PokePark Wii - Pikachu's Adventure (USA).wbfs	ERROR_EXIT28	14
-Zangeki no Reginleiv	Zangeki no Reginleiv (Japan).wbfs	ERROR_EXIT28	32
-And-Kensaku	And-Kensaku (Japan).wbfs	ERROR_EXIT28	18
-Super Mario Galaxy 2	Super Mario Galaxy 2 (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	14
-Xenoblade Chronicles (video game)	Xenoblade Chronicles (USA, Asia) (En,Fr,Es).wbfs	ERROR_EXIT28	20
-Wii Party	Wii Party (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	18
-Metroid: Other M	Metroid - Other M (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	18
-Kirby's Epic Yarn	Kirby's Epic Yarn (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	450
-Super Mario All-Stars 25th Anniversary Edition	Super Mario All-Stars (USA).wbfs	ERROR_EXIT28	19
-FlingSmash	FlingSmash (USA) (En,Fr,Es) (Rev 1).wbfs	ERROR_EXIT28	18
-Donkey Kong Country Returns	Donkey Kong Country Returns (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	18
-Mario Sports Mix	Mario Sports Mix (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	18
-The Last Story	Last Story, The (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	20
-Pandora's Tower	Pandora's Tower (USA) (En,Fr,Es).wbfs	ERROR_EXIT36	20
-Wii Play: Motion	Wii Play - Motion (USA) (En,Fr,Es).wbfs	ERROR_EXIT66	19
-Mystery Case Files: The Malgrave Incident	Mystery Case Files - The Malgrave Incident (USA).wbfs	ERROR_EXIT28	18
-Rhythm Heaven Fever	Rhythm Heaven Fever (USA).wbfs	ERROR_EXIT28	20
-Just Dance Wii	Just Dance Wii (Japan) (Rev 1).wbfs	ERROR_EXIT28	26
-Kirby's Return to Dream Land	Kirby's Return to Dream Land (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	339
-Mario & Sonic at the London 2012 Olympic Games	Mario & Sonic at the London 2012 Olympic Games (USA) (En,Ja,Fr,Es).wbfs	ERROR_EXIT28	18
-PokéPark 2: Wonders Beyond	PokePark 2 - Wonders Beyond (USA).wbfs	ERROR_EXIT28	21
-The Legend of Zelda: Skyward Sword	Legend of Zelda, The - Skyward Sword (USA) (En,Fr,Es) (Rev 1).wbfs	ERROR_EXIT28	204
-Fortune Street	Fortune Street (USA).wbfs	ERROR_EXIT28	20
-Kiki Trick	Kiki Trick (Japan) (Rev 1).wbfs	ERROR_EXIT28	111
-Mario Party 9	Mario Party 9 (USA, Asia) (En,Fr,Es).wbfs	ERROR_EXIT28	39
-Project Zero 2: Wii Edition	Project Zero 2 - Wii Edition (Europe) (En,Fr,De,Es,It).wbfs	ERROR_EXIT28	823
-Kirby's Dream Collection	Kirby's Dream Collection - Special Edition (USA).wbfs	ERROR_EXIT28	240
-Just Dance Wii 2	Just Dance Wii 2 (Japan).wbfs	ERROR_EXIT28	26
-Pangya! Golf with Style	Pangya! Golf with Style (Europe) (En,Fr,De,Es,It).wbfs	ERROR_EXIT66	28
-Inazuma Eleven Strikers	Inazuma Eleven Strikers (Europe) (En,Es,It).wbfs	ERROR_EXIT78	108
-Cooking Mama	Cooking Mama (Europe) (En,Fr,De,Es,It).wbfs	ERROR_EXIT14	3639
-Zack & Wiki: Quest for Barbaros' Treasure	Zack & Wiki - Quest for Barbaros' Treasure (USA).wbfs	ERROR_EXIT14	1126
-We Ski	We Ski (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	31
-Quiz Party	Quiz Party (Germany).wbfs	ERROR_EXIT28	22
-World of Goo	World of Goo (USA) (Demo) (WiiWare).zip	ERROR_EXIT28	2
-Orbient	Art Style - ORBIENT (USA) (WiiWare).zip	ERROR_EXIT28	3
-Excitebike: World Rally	Excitebike - World Rally (USA) (v512) (WiiWare).zip	ERROR_EXIT28	3
-Ultra Hand	Grill-Off with Ultra Hand! (USA) (Club Nintendo) (WiiWare).zip	ERROR_EXIT28	10
-Eco Shooter: Plant 530	Eco Shooter - Plant 530 (USA) (WiiWare).zip	ERROR_EXIT28	2
-Line Attack Heroes	Line Attack Heroes (Japan) (WiiWare).zip	ERROR_EXIT28	2
-Samurai Warriors 3	Samurai Warriors 3 (USA) (En,Fr,Es).wbfs	ERROR_EXIT66	3016
-Trauma Center: Second Opinion	Trauma Center - Second Opinion (USA).wbfs	ERROR_EXIT66	33
+Wii Fit Plus	Wii Fit Plus (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	70
+Mario & Sonic at the Olympic Winter Games	Mario & Sonic at the Olympic Winter Games (USA) (En,Ja,Fr,Es).wbfs	ERROR_EXIT28	43
+Sin & Punishment: Star Successor	Sin & Punishment - Star Successor (USA).wbfs	ERROR_EXIT28	24
+New Super Mario Bros. Wii	New Super Mario Bros. Wii (USA) (En,Fr,Es) (Rev 2).wbfs	ERROR_EXIT28	26
+PokéPark Wii: Pikachu's Adventure	PokePark Wii - Pikachu's Adventure (USA).wbfs	ERROR_EXIT28	24
+Zangeki no Reginleiv	Zangeki no Reginleiv (Japan).wbfs	ERROR_EXIT28	60
+And-Kensaku	And-Kensaku (Japan).wbfs	ERROR_EXIT28	32
+Super Mario Galaxy 2	Super Mario Galaxy 2 (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	24
+Xenoblade Chronicles (video game)	Xenoblade Chronicles (USA, Asia) (En,Fr,Es).wbfs	ERROR_EXIT28	36
+Wii Party	Wii Party (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	32
+Metroid: Other M	Metroid - Other M (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	32
+Kirby's Epic Yarn	Kirby's Epic Yarn (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	467
+Super Mario All-Stars 25th Anniversary Edition	Super Mario All-Stars (USA).wbfs	ERROR_EXIT28	34
+FlingSmash	FlingSmash (USA) (En,Fr,Es) (Rev 1).wbfs	ERROR_EXIT28	32
+Donkey Kong Country Returns	Donkey Kong Country Returns (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	32
+Mario Sports Mix	Mario Sports Mix (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	32
+The Last Story	Last Story, The (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	36
+Pandora's Tower	Pandora's Tower (USA) (En,Fr,Es).wbfs	ERROR_EXIT36	36
+Wii Play: Motion	Wii Play - Motion (USA) (En,Fr,Es).wbfs	ERROR_EXIT66	34
+Mystery Case Files: The Malgrave Incident	Mystery Case Files - The Malgrave Incident (USA).wbfs	ERROR_EXIT28	32
+Rhythm Heaven Fever	Rhythm Heaven Fever (USA).wbfs	ERROR_EXIT28	36
+Just Dance Wii	Just Dance Wii (Japan) (Rev 1).wbfs	ERROR_EXIT28	48
+Kirby's Return to Dream Land	Kirby's Return to Dream Land (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	654
+Mario & Sonic at the London 2012 Olympic Games	Mario & Sonic at the London 2012 Olympic Games (USA) (En,Ja,Fr,Es).wbfs	ERROR_EXIT28	32
+PokéPark 2: Wonders Beyond	PokePark 2 - Wonders Beyond (USA).wbfs	ERROR_EXIT28	38
+The Legend of Zelda: Skyward Sword	Legend of Zelda, The - Skyward Sword (USA) (En,Fr,Es) (Rev 1).wbfs	ERROR_EXIT28	221
+Fortune Street	Fortune Street (USA).wbfs	ERROR_EXIT28	36
+Kiki Trick	Kiki Trick (Japan) (Rev 1).wbfs	ERROR_EXIT28	134
+Mario Party 9	Mario Party 9 (USA, Asia) (En,Fr,Es).wbfs	ERROR_EXIT28	55
+Project Zero 2: Wii Edition	Project Zero 2 - Wii Edition (Europe) (En,Fr,De,Es,It).wbfs	ERROR_EXIT28	1642
+Kirby's Dream Collection	Kirby's Dream Collection - Special Edition (USA).wbfs	ERROR_EXIT28	445
+Just Dance Wii 2	Just Dance Wii 2 (Japan).wbfs	ERROR_EXIT28	48
+Samurai Warriors 3	Samurai Warriors 3 (USA) (En,Fr,Es).wbfs	ERROR_EXIT66	3031
+Pangya! Golf with Style	Pangya! Golf with Style (Europe) (En,Fr,De,Es,It).wbfs	ERROR_EXIT66	33
+Trauma Center: Second Opinion	Trauma Center - Second Opinion (USA).wbfs	ERROR_EXIT66	64
 Trauma Center: New Blood	Trauma Center - New Blood (USA) (En,Ja).wbfs	PASS	3
-GoldenEye 007 (2010 video game)	GoldenEye 007 (USA) (En,Fr).wbfs	ERROR_EXIT28	17
-Epic Mickey	Disney Epic Mickey (USA, Canada) (En,Fr,Es).wbfs	ERROR_EXIT28	33
-Fishing Resort	Fishing Resort (USA).wbfs	ERROR_EXIT28	295
-Kororinpa: Marble Mania	Kororinpa - Marble Mania (USA).wbfs	CRASH_SIG10	5
+Inazuma Eleven Strikers	Inazuma Eleven Strikers (Europe) (En,Es,It).wbfs	ERROR_EXIT28	126
+GoldenEye 007 (2010 video game)	GoldenEye 007 (USA) (En,Fr).wbfs	ERROR_EXIT28	27
+Epic Mickey	Disney Epic Mickey (USA, Canada) (En,Fr,Es).wbfs	ERROR_EXIT28	47
+Fishing Resort	Fishing Resort (USA).wbfs	ERROR_EXIT28	309
+Cooking Mama	Cooking Mama (Europe) (En,Fr,De,Es,It).wbfs	PASS	3639
+Kororinpa: Marble Mania	Kororinpa - Marble Mania (USA).wbfs	ERROR_EXIT28	6
 Wing Island	Wing Island (USA) (En,Fr,Es).wbfs	PASS	32
 Resident Evil 4	Resident Evil 4 - Wii Edition (USA).wbfs	PASS	3
-Resident Evil: The Umbrella Chronicles	Resident Evil - The Umbrella Chronicles (USA).wbfs	PASS	7
+Resident Evil: The Umbrella Chronicles	Resident Evil - The Umbrella Chronicles (USA).wbfs	PASS	9
+Zack & Wiki: Quest for Barbaros' Treasure	Zack & Wiki - Quest for Barbaros' Treasure (USA).wbfs	PASS	1126
 Naruto: Clash of Ninja	Naruto - Clash of Ninja Revolution (USA).wbfs	PASS	3
-Harvest Moon: Magical Melody	Harvest Moon - Magical Melody (USA).wbfs	ERROR_EXIT28	274
-Harvest Moon: Tree of Tranquility	Harvest Moon - Tree of Tranquility (USA) (Rev 1).wbfs	ERROR_EXIT28	34
-Monster Hunter Tri	Monster Hunter Tri (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	17
-Tetris Party Deluxe	Tetris Party Deluxe (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	905
-Go Vacation	Go Vacation (USA) (En,Fr,Es).wbfs	ERROR_EXIT36	18255
-Dr. Mario Online Rx	Dr. Mario Online Rx (USA) (Beta) (WiiWare).zip	ERROR_EXIT28	944
-My Pokémon Ranch	My Pokemon Ranch (USA) (WiiWare).zip	ERROR_EXIT28	6
-Lonpos	Lonpos (USA) (WiiWare).zip	ERROR_EXIT28	218
-Magnetica	Magnetica Twist (USA) (WiiWare).zip	ERROR_EXIT28	141
-MaBoShi: The Three Shape Arcade	MaBoShi - The Three Shape Arcade (Europe) (WiiWare).zip	ERROR_EXIT28	3
-Cubello	Art Style - CUBELLO (USA) (WiiWare).zip	ERROR_EXIT28	2645
-Rotohex	Art Style - ROTOHEX (USA) (WiiWare).zip	ERROR_EXIT28	4
-PictureBook Games: Pop-Up Pursuit	PictureBook Games - Pop-Up Pursuit (USA) (WiiWare).zip	ERROR_EXIT28	6
-You, Me, and the Cubes	You, Me, and the Cubes (USA) (WiiWare).zip	ERROR_EXIT28	1107
-Bonsai Barber	Bonsai Barber (USA) (WiiWare).zip	ERROR_EXIT28	96
-WarioWare: D.I.Y. Showcase	WarioWare D.I.Y. Showcase (USA) (WiiWare).zip	ERROR_EXIT28	6
-Pokémon Rumble	Pokemon Rumble (USA) (WiiWare).zip	ERROR_EXIT28	4
-Rock N' Roll Climber	Rock N' Roll Climber (USA) (WiiWare).zip	ERROR_EXIT28	61
-Rotozoa	Art Style - ROTOZOA (USA) (WiiWare).zip	ERROR_EXIT28	271
-Snowpack Park	Snowpack Park (USA) (WiiWare).zip	ERROR_EXIT28	6
-Fluidity (video game)	Fluidity (USA) (WiiWare).zip	ERROR_EXIT28	6
+Harvest Moon: Magical Melody	Harvest Moon - Magical Melody (USA).wbfs	ERROR_EXIT28	282
+We Ski	We Ski (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	39
+Harvest Moon: Tree of Tranquility	Harvest Moon - Tree of Tranquility (USA) (Rev 1).wbfs	ERROR_EXIT28	42
+Monster Hunter Tri	Monster Hunter Tri (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	27
+Tetris Party Deluxe	Tetris Party Deluxe (USA) (En,Fr,Es).wbfs	ERROR_EXIT28	915
+Go Vacation	Go Vacation (USA) (En,Fr,Es).wbfs	ERROR_EXIT36	18295
+Quiz Party	Quiz Party (Germany).wbfs	ERROR_EXIT28	40
+Dr. Mario Online Rx	Dr. Mario Online Rx (USA) (Beta) (WiiWare).zip	ERROR_EXIT28	946
+My Pokémon Ranch	My Pokemon Ranch (USA) (WiiWare).zip	ERROR_EXIT28	8
+Lonpos	Lonpos (USA) (WiiWare).zip	ERROR_EXIT28	220
+Magnetica	Magnetica Twist (USA) (WiiWare).zip	ERROR_EXIT28	155
+MaBoShi: The Three Shape Arcade	MaBoShi - The Three Shape Arcade (Europe) (WiiWare).zip	ERROR_EXIT28	6
+World of Goo	World of Goo (USA) (Demo) (WiiWare).zip	ERROR_EXIT28	4
+Orbient	Art Style - ORBIENT (USA) (WiiWare).zip	ERROR_EXIT28	6
+Cubello	Art Style - CUBELLO (USA) (WiiWare).zip	ERROR_EXIT28	2648
+Rotohex	Art Style - ROTOHEX (USA) (WiiWare).zip	ERROR_EXIT28	6
+PictureBook Games: Pop-Up Pursuit	PictureBook Games - Pop-Up Pursuit (USA) (WiiWare).zip	ERROR_EXIT28	8
+You, Me, and the Cubes	You, Me, and the Cubes (USA) (WiiWare).zip	ERROR_EXIT28	1109
+Bonsai Barber	Bonsai Barber (USA) (WiiWare).zip	ERROR_EXIT28	98
+WarioWare: D.I.Y. Showcase	WarioWare D.I.Y. Showcase (USA) (WiiWare).zip	ERROR_EXIT28	8
+Pokémon Rumble	Pokemon Rumble (USA) (WiiWare).zip	ERROR_EXIT28	6
+Rock N' Roll Climber	Rock N' Roll Climber (USA) (WiiWare).zip	ERROR_EXIT28	63
+Excitebike: World Rally	Excitebike - World Rally (USA) (v512) (WiiWare).zip	ERROR_EXIT28	6
+Ultra Hand	Grill-Off with Ultra Hand! (USA) (Club Nintendo) (WiiWare).zip	ERROR_EXIT28	18
+Eco Shooter: Plant 530	Eco Shooter - Plant 530 (USA) (WiiWare).zip	ERROR_EXIT28	4
+Rotozoa	Art Style - ROTOZOA (USA) (WiiWare).zip	ERROR_EXIT28	274
+Line Attack Heroes	Line Attack Heroes (Japan) (WiiWare).zip	ERROR_EXIT28	4
+Snowpack Park	Snowpack Park (USA) (WiiWare).zip	ERROR_EXIT28	9
+Fluidity (video game)	Fluidity (USA) (WiiWare).zip	ERROR_EXIT28	8
