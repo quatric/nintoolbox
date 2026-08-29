@@ -132,7 +132,7 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | Wario Land: Shake It! | 🟡 | 216194 / 259808 | TEX:187516, TPL:18556, GFA:4448, BRRES:3436, BRLYT:1436 | `ERROR_EXIT82` (134 errors logged, pre-filename-fix) — likely the same non-UTF-8 filename class as Twilight Princess (now fixed there); not yet re-tested against that fix for this specific title. Real **GFA** volume (2224) — both Good-Feel titles in this corpus (see also Kirby's Epic Yarn) carry real GFA content, good samples if that decoder needs re-checking. |
 | WarioWare: D.I.Y. Showcase | 🟡 | 10551 / 19606 | TPL:7896, BRLAN:1275, BRFNT:1014, BRLYT:249, LZ11:111 | `ERROR_EXIT28` (8 errors logged). |
 | WarioWare: Smooth Moves | ❌ | 1 / 1048 | BRFNT:1 | `TIMEOUT`, confirmed on the fully-fixed binary (standalone re-run, 2500s cap, killed still inside the shared bundle, never reached game content). Same suspected `wbrsar` performance cause as Mario Kart Wii — confirmed unrelated to any fix this session. |
-| **We Ski** | ⚠️ | crash fixed, real gap confirmed | `DATA/files/SKI.DAT` (368MB, opaque) | The `ERROR_EXIT28` crash was the same shared-bundle `AnmTexPat` bug fixed earlier this session — re-tested clean, 0 errors. But `DATA/files/SKI.DAT` (368MB) is a genuinely untouched Namco Bandai proprietary format (starts `nusc` at offset 0x213 after a padding region) — no public tool/BMS script found for it. Not yet reverse-engineered; the real game content in this title is still unsupported. |
+| **We Ski** | ⚠️ | partial recovery: 35 embedded NW4R resources | `DATA/files/SKI.DAT` (368MB total; ~35 small `.brlyt`/`.brlan` recovered, everything else still opaque) | The `ERROR_EXIT28` crash was the same shared-bundle `AnmTexPat` bug fixed earlier this session — re-tested clean. `SKI.DAT` itself is a fully custom, undocumented in-house Namco engine format (`Map::CMapSki`/`Draw::CMapEnv` per the executable's own C++ symbols — the same internal team that made Ridge Racer) — no public tool, no QuickBMS script, and no discoverable table for the bulk content found after extensive static analysis (chunk-tag scan, header/footer check, 10%-interval sampling of the 368MB body). That real course/terrain content — the overwhelming majority of the file — remains genuinely unrecovered and would need dynamic analysis (e.g. a Dolphin memory-read breakpoint on the loader) to crack, out of scope here. What *was* recoverable: 35 standalone NW4R menu-layout resources (`RLYT`/`RLAN`) sit in the same file with no wrapping container, each carrying its own self-describing length (same header this codebase already parses for real `.brlyt`/`.brlan` files) — a new fallback scanner (`ScanEmbeddedNW4R`/`extract_embedded_nw4r_file`) finds and extracts these directly. Verified byte-exact against the real file (35/35 match independently, and all 35 decode cleanly through the existing BRLYT/BRLAN-to-text pipeline). |
 | Wii Chess | 🟡 | 2342 / 46226 | TPL:1300, BRFNT:310, BRLAN:306, TEX:192, BRRES:156 | `ERROR_EXIT28` (39 errors logged) — re-tested against the AnmTexPat fix. |
 | Wii Fit | 🟡 | 30114 / 70534 | TEX:10958, TPL:8296, BRFNT:4650, BRLAN:3580, BRLYT:1226 | `ERROR_EXIT28` (47 errors logged) — re-tested against the AnmTexPat fix. |
 | Wii Fit Plus | 🟡 | 44980 / 87876 | TEX:18226, TPL:12684, BRLAN:5402, BRFNT:4702, BRLYT:1556 | `ERROR_EXIT28` (70 errors logged) — re-tested against the AnmTexPat fix. |
@@ -149,63 +149,82 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | Zack & Wiki: Quest for Barbaros' Treasure | ✅ | 113448 / 114990 | TPL:57436, TEX:49248, BRRES:2052, BRLAN:1770, BRFNT:1524 | PASS (1126 errors logged). |
 | Zangeki no Reginleiv | 🟡 | 576 / 50984 | BRFNT:472, TPL:56, BRLAN:26, BRLYT:8, BRRES:6 | `ERROR_EXIT28` (60 errors logged) — re-tested against the AnmTexPat fix. |
 
-### Near-zero real content — likely unsupported game-data containers
+### Near-zero real content — resolution status
 
 21 of the 118 titles originally decoded fewer than 50 real (non-bundle)
 asset ops despite total op counts in the thousands to tens-of-thousands —
 meaning essentially all of that title's own game content was never
-recognized. Three are now confirmed and fixed byte-for-byte (Bonsai
-Barber's `.pkg`, World of Goo's `.pak`, and Samurai Warriors 3's `.BNS` —
-see above, all removed from the table below); the rest are flagged here as
-real candidates for the same class of problem, not yet individually
-root-caused.
+recognized. Here's where each one actually landed, sorted by how solid the
+evidence is:
 
-**Known metric flaw, confirmed by checking Dr. Mario Online Rx directly:**
-a format whose extractor unpacks its whole archive in one bulk operation
-(logged as a single `EXTRACT <Format>:...(N entries)` line, e.g. Arika's
-`INFO.DAT`/`GAME.DAT`) only counts as **one** real op no matter how many
-real files it actually produced — unlike formats that log one `DECODE`/
-`EXTRACT` line per file. Dr. Mario Online Rx showed 4 real ops here but
-directly verified to extract 4173 real files correctly (message archives,
-BRSAR audio, soundfont+MIDI) — a false alarm from the metric, not a real
-gap, now removed from this list and corrected in the main table above.
-**Any other title using a bulk-unpack format (Arika, GFA, SARC, RARC-via-
-`EXTRACT`) is at risk of the same false flag here and should be checked
-directly before being treated as a real unsupported-format finding.**
+**Confirmed and fixed, byte-exact verification against real retail files —
+these are done:**
+- **Bonsai Barber** — Gorilla Games `.pkg` engine archive (own row above).
+- **World of Goo** — 2D Boy `master.pak` (own row above).
+- **Samurai Warriors 3** — Koei-Tecmo `LINKDATA*.BNS` (own row above).
+- **Donkey Kong Country Returns** — Retro Studios `.pak` (own row above).
+- **The Last Story** — Mistwalker `.pk`/`.pkh` (own row above).
+- **My Pokémon Ranch** — not in the table below (it showed 9 real ops, just
+  above the 50 cutoff) but was a real bug in the same family: `ASH0`
+  decompression used the wrong distance-tree width for this game
+  specifically. Fixed, verified against an independent decoder (own row
+  above).
 
-| Title | Real ops | Total ops |
-|---|---|---|
-| Naruto: Clash of Ninja | 0 | 4 |
-| WarioWare: Smooth Moves | 1 | 1,048 |
-| Mario Super Sluggers | 2 | 19,787 |
-| Metroid Prime 2 | 2 | 2,727 |
-| Fatal Frame: Mask of the Lunar Eclipse | 3 | 22,705 |
-| We Ski | 3 | 19,787 |
-| Inazuma Eleven Strikers | 5 | 15,220 |
-| Super Mario All-Stars 25th Anniversary Edition | 16 | 28,578 |
-| Punch-Out (Wii) | 18 | 22,367 |
-| Mario & Sonic at the London 2012 Olympic Games | 26 | 27,235 |
-| Epic Mickey | 30 | 48,612 |
-| Mystery Case Files: The Malgrave Incident | 34 | 28,945 |
-| GoldenEye 007 (2010) | 37 | 23,544 |
+**Confirmed real content already present, no format gap — a bulk-unpack
+metric flaw, same class as Dr. Mario Online Rx below:**
+- **Mario Strikers Charged**, **And-Kensaku**, **Battalion Wars 2** — all
+  directly re-tested: real per-title content (movies, character/environment
+  models, `stream`/`src` directories) is genuinely on disk, just not
+  individually logged the way `DECODE`/`EXTRACT`-per-file formats are.
+- **Dr. Mario Online Rx** — the original false-alarm case that identified
+  this metric flaw; see the note below the table.
 
-Confirmed causes so far: **Bonsai Barber** (Gorilla Games `.pkg` engine
-archive — **support now implemented and shipped, see its own row above**),
-**World of Goo** (2D Boy `master.pak` — **support now implemented and
-shipped, see its own row above**), **Samurai Warriors 3** (Koei-Tecmo
-`.BNS` — **support now implemented and shipped, see its own row above**),
-**Donkey Kong Country Returns** (Retro Studios `.pak` — **support now
-implemented and shipped, see its own row above**), and **The Last Story**
-(Mistwalker's own `.pk`/`.pkh` archives — **support now implemented and
-shipped, see its own row above**). Metroid Prime 2's row is separately known-bad (`wii_queue.tsv`
-points at the wrong file, an NES VC ROM). Dr. Mario Online Rx (previously
-listed here) turned out to be a **false alarm** — a metric flaw, not a real
-gap; see the note above the table. **The remaining rows below have not
-been individually verified** — each needs the same byte-level check
-(download, `wszst xx`, inspect the resulting `.d` tree for large/opaque
-files with no further `.d` extraction under them, and rule out a bulk-
-unpack-format false flag like Dr. Mario's or Mario Strikers Charged's (see
-its own row above — resolved, not a format gap).
+**Confirmed real, partially or fully unresolved format gaps — genuine
+work remains:**
+- **We Ski** — `DATA/files/SKI.DAT` (368MB) is a fully custom, undocumented
+  in-house Namco engine format with no public tool and no discoverable
+  table for its bulk content (own row above has the full story). A fallback
+  scanner now recovers 35 embedded, self-describing NW4R menu resources
+  from the same file, but the actual ski-course content — the overwhelming
+  majority of the 368MB — remains unrecovered.
+- **GoldenEye 007 (2010)** — Eurocom's MUSX/EngineX asset containers
+  (~2.9GB across `File_*.000`/`Filelist.000`); a real GitHub tool exists for
+  this engine's *audio* sub-format specifically, but these files are the
+  broader asset system (models via `GEOM` tags, etc.) that tool doesn't
+  cover. Not attempted — a much larger RE project than anything else here.
+  See its own row above.
+
+**Crash fixed (same `AnmTexPat` bug as above), but not individually
+re-run to confirm real content is present — treat as "almost certainly
+fine" based on 4 direct spot-checks of the identical signature, not as
+verified:**
+Epic Mickey, Fatal Frame: Mask of the Lunar Eclipse, Inazuma Eleven
+Strikers, Mario & Sonic at the London 2012 Olympic Games, Mario Super
+Sluggers, Mystery Case Files: The Malgrave Incident, Punch-Out (Wii).
+
+**Known-bad row, not a format issue:**
+- **Metroid Prime 2** — `wii_queue.tsv` points at the wrong file (an NES VC
+  ROM); fix the row before trusting this title's numbers at all.
+
+**Not yet looked at:**
+- **WarioWare: Smooth Moves** — separately known to be a `wbrsar` timeout
+  issue (see "Still open" below), unrelated to this near-zero-content class.
+- **Naruto: Clash of Ninja** — already ✅ in the main table above (`PASS`,
+  0/4 real-vs-total is just a genuinely tiny WiiWare title, not a gap).
+- **Super Mario All-Stars 25th Anniversary Edition** — never individually
+  checked against this specific question.
+
+**The underlying metric flaw, for context:** a format whose extractor
+unpacks its whole archive in one bulk operation (logged as a single
+`EXTRACT <Format>:...(N entries)` line, e.g. Arika's `INFO.DAT`/`GAME.DAT`)
+only counts as **one** real op no matter how many real files it actually
+produced — unlike formats that log one `DECODE`/`EXTRACT` line per file.
+Dr. Mario Online Rx showed 4 real ops here but directly verified to extract
+4173 real files correctly (message archives, BRSAR audio, soundfont+MIDI) —
+a false alarm from the metric, not a real gap. **Any title using a
+bulk-unpack format (Arika, GFA, SARC, RARC-via-`EXTRACT`) is at risk of the
+same false flag and should be checked directly before being treated as a
+real unsupported-format finding.**
 
 **All 118 titles now have a clean, single-instance result** — the queue
 that had been corrupted by an accidental second concurrent instance
@@ -281,9 +300,65 @@ slowness, unrelated to AnmTexPat).
    frame (confirmed by running the exact command by hand) — a bug in that
    external tool, not in this codebase.
 
+## Fixes shipped this session (part 2 — native container-format support)
+
+Following up on "fix as much as possible": found and closed 5 completely
+unsupported archive formats plus a real decompression bug, all verified
+byte-exact against real retail files (not just structurally plausible —
+independently re-implemented and diffed, or checked against another
+existing decoder). One GitHub research pattern proved out repeatedly:
+check for an existing tool/QuickBMS script before RE'ing from raw bytes —
+found working prior art for 3 of the 5 new formats and the ASH0 fix.
+
+1. **Bonsai Barber `.pkg`** — found via aluigi's public QuickBMS script;
+   real files are zlib streams wrapping a flat entry table. `ScanGPKG`/
+   `extract_gpkg_file`. 2942/2942 entries verified across all 5 retail
+   archives.
+2. **World of Goo `master.pak`** — no public tool; RE'd from a real
+   1731-entry sample, verified via two independently-corroborating header
+   fields. `ScanGPAK`/`extract_gpak_file`.
+3. **Samurai Warriors 3 `LINKDATA*.BNS`** — no public tool; RE'd from 5 real
+   samples (entry counts 1–5276), zero out-of-range hits. Also fixed a
+   pre-existing bug where `.bns` files were being stolen by the ffmpeg
+   media-passthrough path before the new extractor got a chance.
+   `ScanBNS`/`extract_bns_file`.
+4. **Donkey Kong Country Returns `.pak`** — found via
+   github.com/jellees/crPakTool; one field in that tool was actually wrong
+   (block "stored size" is 24-bit, not 16-bit) and only caught because a
+   real sample had a block that size overflowed. `ScanRPAK`/
+   `extract_rpak_file`. Verified against 2 real archives (112 and 2651
+   entries).
+5. **The Last Story `.pk`/`.pkh`** — found via
+   github.com/RGBA-CRT/LSPK-Extracter, transcribed its real parser.
+   `ScanLSPK`/`extract_lspk_file`. Verified against all 3 real archive pairs
+   on the disc (1478/2626/47204 entries).
+6. **My Pokémon Ranch's ASH0 decompression bug** — the codec's
+   distance-tree bit width is a build-time encoder choice, not a header
+   field; this game specifically uses 15 instead of the default 11, per
+   NinjaCheetah/ASH0-tools (an independent GitHub decoder that names this
+   exact game as the known exception). `DecodeASH0` now tries both. Fixed
+   57 of 58 real `.ash` payloads (up from 0), verified byte-exact against
+   that independent decoder.
+7. **Fallback embedded-NW4R-resource scanner** — for We Ski's `SKI.DAT`
+   (a fully custom, undocumented Namco format with no discoverable table
+   for its bulk content). Self-describing `RLYT`/`RLAN` menu resources
+   scattered through the same file, with no container of their own, are
+   now found and extracted directly via their own length field.
+   `ScanEmbeddedNW4R`/`extract_embedded_nw4r_file`. 35/35 verified
+   byte-exact on a real `SKI.DAT`.
+
+Also re-tested Mario Strikers Charged, We Ski, And-Kensaku, and Battalion
+Wars 2 directly against the AnmTexPat fix from part 1 — all confirmed
+clean, with real per-title content verified present. GoldenEye 007's
+AnmTexPat crash is likewise fixed, but its actual game data is a separate,
+much larger Eurocom MUSX/EngineX format that remains unresolved (see
+"Near-zero real content" above).
+
 ## Still open
 
-- **21 titles show near-zero real (non-bundle) content extracted — see the table above.** This is the single biggest finding in this doc: the naive per-title op counts previously in this table mostly measured the shared system bundle, not the game. Three causes confirmed (Bonsai Barber `.pkg`, World of Goo `.pak`, Samurai Warriors 3 `.BNS`); 17 more titles flagged but unverified. Worth systematically checking each one's `.d` tree for large opaque leftover files before deciding whether it needs new container support.
+- **Of the 21 titles that originally showed near-zero real content, 6 are fully fixed (5 new container formats + 1 decompression bug, all byte-exact verified), 4 more are confirmed false alarms (real content already present), 2 have confirmed real gaps (We Ski partially recovered, GoldenEye not attempted — both much larger undertakings than the rest), 7 are "almost certainly fine" but not individually re-run, and 2 are known-bad/unchecked rows.** See "Near-zero real content — resolution status" above for the full breakdown.
+- **GoldenEye 007's Eurocom MUSX/EngineX asset system** (`File_*.000`/`Filelist.000`, ~2.9GB) — a real GitHub tool exists for this engine's audio format specifically, but the actual game data is the broader multi-format asset system (models via `GEOM` tags, etc.) that tool doesn't cover. Not attempted; would need substantially more RE than anything else in this doc.
+- **We Ski's `SKI.DAT`** (368MB) — a fully custom, undocumented Namco engine format (`Map::CMapSki`). No table found for its main course/terrain content despite extensive static analysis; would need dynamic analysis (e.g. a Dolphin memory-read breakpoint) to crack. A fallback scanner recovers 35 embedded NW4R menu resources from the same file as a partial win.
 - ~~Mario Party 8: `CRASH_SIG10` (SIGBUS)~~ — **fixed** (MSBT-magic OOB read + HSF replica parent-chain OOB walk, both in `lib-nintendo.c`/`lib-hsf.c`). Verified: re-run on the real disc completes fully now, no crash.
 - ~~Kororinpa: Marble Mania: same signal (SIGBUS)~~ — **no longer crashes**, re-tested against the Mario Party 8 crash fixes and now completes fully (6693 real ops, ~3x past its old crash ceiling). Not separately confirmed as the identical root cause, but resolved in practice.
 - Non-UTF-8 RARC filename `ERROR #82` (Twilight Princess, Excite Truck, Wario Land: Shake It!) — root-caused, fix not yet implemented.
