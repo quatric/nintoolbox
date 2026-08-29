@@ -143,7 +143,7 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | Wii Sports | ✅ | 6327 / 6520 | TEX:3975, TPL:1276, BRLAN:521, BRFNT:232, BRRES:151 | PASS, clean. PASS, clean. No crash, no new errors. |
 | Wii Sports Resort | 🟡 | 39736 / 82136 | TEX:20992, TPL:10530, BRLAN:4420, BRLYT:1288, BRFNT:1088 | `ERROR_EXIT28` (43 errors logged) — re-tested against the AnmTexPat fix. |
 | Wing Island | ✅ | 39370 / 43990 | TEX:28802, LZ10:5088, TPL:2789, BRRES:2421, BRFNT:270 | PASS (32 errors logged). |
-| **World of Goo** | ⚠️ | 2 / 5968 | LZ11:2 | `ERROR_EXIT28` (4 errors logged). **Same issue as Bonsai Barber, verified byte-for-byte.** `0000000b.d/master.pak` (37MB, 2D Boy's own engine archive) is the entire real game, sitting untouched and unlogged. See the general note below the table. |
+| **World of Goo** | ✅ | n/a — see note | n/a — see note | **`master.pak` container support implemented and shipped.** No public tool or QuickBMS script exists for this format; RE'd directly from a real 39MB retail `master.pak` (no filenames stored at all, only per-entry hashes — 2D Boy's open-sourced "Boy Framework" confirmed the engine but its Wii-specific loader wasn't included in that release, an NDA-scrubbed stub). Format: 16-byte header (`n_entries`/magic/zero/hash) + `n_entries`×16-byte rows (`offset`/`size`/unknown/hash), data starts immediately after the table, all big-endian. New `ScanGPAK()`/`extract_gpak_file()` (`lib-nintendo.c`/`wszst.c`); entries extracted under ordinal names (`file_NNNN.bin`) since no real filenames exist to recover, matching this codebase's existing convention for Pokémon FSYS archives. **Verified byte-exact: all 1731/1731 real entries match an independently computed Python reference exactly**, confirmed via two independent internal cross-checks (entry 0's own field equals the real entry count; entry 1's offset independently equals the header+table's exact byte length) before ever writing code. |
 | Xenoblade Chronicles | 🟡 | — | TPL:17735, BRLAN:6019, BRFNT:5724, LZ10:889 | `ERROR_EXIT28` (20 errors) — AnmTexPat gap. |
 | You, Me, and the Cubes | 🟡 | 6915 / 18191 | TPL:2174, TEX:1378, BRLAN:1246, BRFNT:1146, LZ10:395 | `ERROR_EXIT28` (1109 errors logged). |
 | Zack & Wiki: Quest for Barbaros' Treasure | ✅ | 113448 / 114990 | TPL:57436, TEX:49248, BRRES:2052, BRLAN:1770, BRFNT:1524 | PASS (1126 errors logged). |
@@ -176,7 +176,6 @@ directly before being treated as a real unsupported-format finding.**
 |---|---|---|
 | Naruto: Clash of Ninja | 0 | 4 |
 | WarioWare: Smooth Moves | 1 | 1,048 |
-| World of Goo | 1 | 2,984 |
 | Mario Super Sluggers | 2 | 19,787 |
 | Metroid Prime 2 | 2 | 2,727 |
 | Samurai Warriors 3 | 2 | 33,910 |
@@ -195,7 +194,8 @@ directly before being treated as a real unsupported-format finding.**
 
 Confirmed causes so far: **Bonsai Barber** (Gorilla Games `.pkg` engine
 archive — **support now implemented and shipped, see its own row above**),
-**World of Goo** (2D Boy `master.pak`), **Samurai Warriors 3**
+**World of Goo** (2D Boy `master.pak` — **support now implemented and
+shipped, see its own row above**), **Samurai Warriors 3**
 (Koei-Tecmo `.BNS` — also mis-routed through the ffmpeg media-passthrough
 path, which fails with "Error opening input file" rather than skipping
 cleanly), and **The Last Story** (Mistwalker's own `.pk`/`.pkh` archives —

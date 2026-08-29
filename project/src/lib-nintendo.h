@@ -464,6 +464,62 @@ void      ResetGPKG ( gpkg_t *pkg );
 enumError ScanGPKG ( gpkg_t *pkg, const u8 *data, uint size );
 
 //-----------------------------------------------------------------------------
+// 2D Boy's "master.pak" archive (WiiWare: World of Goo). No filenames are
+// stored at all -- only a per-entry 32-bit hash, presumably looked up by the
+// engine's resource manager by hashing the requested path string -- so
+// members are extracted under ordinal names, same convention this codebase
+// already uses for Pokémon-series FSYS archives whose entries are all
+// literally named "(null)".
+//
+// All fields big-endian, no container magic. Header (16 bytes):
+//   00h 4   n_entries
+//   04h 4   unknown (constant across real samples, looks like a version tag)
+//   08h 4   zero
+//   0Ch 4   hash/checksum of something (unverified, not needed to extract)
+// Followed by n_entries 16-byte rows (table starts right after the header,
+// i.e. at byte 16, and spans through byte (n_entries+1)*16 -- entry data
+// begins immediately after that, no padding):
+//   00h 4   absolute offset into the file
+//   04h 4   size
+//   08h 4   unknown (not a simple flag -- 442 distinct values were observed
+//           across 1731 real entries; not needed to extract)
+//   0Ch 4   hash/checksum of something (unverified)
+//
+// Reverse-engineered from a real retail master.pak (no public tool or BMS
+// script exists for this format) and verified structurally, not guessed:
+// all 1731 real entries' offset+size resolve inside the file with zero
+// out-of-range hits, and entry 0 is proven to genuinely be a header (not a
+// truncated first entry) because its own "offset" field value (1731) is
+// exactly the real entry count, while entry 1's offset field independently
+// equals the byte length of the header+table region (n_entries+1)*16 --
+// i.e. file data starts exactly where the table ends, corroborated two
+// different ways from two different fields.
+
+typedef struct gpak_entry_t
+{
+    const u8 *data;   // points into gpak_t.data; NULL if out-of-range (skipped)
+    u32      size;
+}
+gpak_entry_t;
+
+typedef struct gpak_t
+{
+    const u8      *data;      // NOT owned -- points into caller's buffer
+    uint          size;
+    gpak_entry_t  *entries;   // owned
+    uint          n_entries;
+}
+gpak_t;
+
+void      ResetGPAK ( gpak_t *pak );
+
+// Deliberately strict like ScanGPKG() above: every single entry (not just a
+// sample) must resolve in-bounds for the file to be accepted, since there is
+// no magic to check and ".pak" is another industry-wide-overloaded
+// extension.
+enumError ScanGPAK ( gpak_t *pak, const u8 *data, uint size );
+
+//-----------------------------------------------------------------------------
 // WARC ("WARC" magic): Game & Wario (Wii U)'s flat archive format. Unlike
 // SARC/GFA it is a *different* Monster Games/Nintendo container -- big
 // endian, uncompressed (no QuickLZ despite the superficial similarity to
