@@ -48,7 +48,7 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | Endless Ocean | 🟡 | 2022 / 44093 | TPL:1624, BRFNT:396, Arika:2 | `ERROR_EXIT28` (100 errors logged) — re-tested against the AnmTexPat fix. |
 | Endless Ocean: Blue World | ❌ | 1248 / 19730 | TPL:1044, BRFNT:202, Arika:2 | `TIMEOUT` (4 errors logged) — same suspected `wbrsar` cause as Mario Kart Wii. |
 | Epic Mickey | 🟡 | 47 / 77535 | BRFNT:23, PACK:12, TPL:12 | `ERROR_EXIT28` (47 errors logged). |
-| Excite Truck | 🟡 | 202 / 5622 | RST:200, MOD:2 | `ERROR_EXIT82` (146 errors logged) — very likely the same non-UTF-8 filename class as Twilight Princess (same class of bundled system-channel content); not confirmed byte-for-byte for this title. |
+| Excite Truck | 🟡 | 202 / 5622 | RST:200, MOD:2 | `ERROR_EXIT82` (146 errors logged, pre-filename-fix). Very likely the same non-UTF-8 filename class as Twilight Princess (now fixed there, verified 2→0 errors) — not yet re-tested against that fix for this specific title. |
 | Excitebike: World Rally | 🟡 | 2706 / 8672 | TEX:1570, MOD:738, ART:256, RST:72, MSH:68 | `ERROR_EXIT28` (6 errors logged). |
 | Excitebots: Trick Racing | 🟡 | 15626 / 58324 | TEX:6332, MOD:5534, TPL:1624, MSH:934, ART:416 | `ERROR_EXIT36` (47 errors logged) — 3D model format, uncommon elsewhere. |
 | Fatal Frame: Mask of the Lunar Eclipse | 🟡 | 6 / 45410 | LZH8:6 | `ERROR_EXIT28` (43 errors logged) — re-tested against the AnmTexPat fix. |
@@ -129,9 +129,9 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | Trauma Center: New Blood | ✅ | 7972 / 10679 | TEX:6740, BRRES:818, BRFNT:390, LZH8:24 | PASS (3 errors logged). |
 | Trauma Center: Second Opinion | 🟡 | 3986 / 7206 | TEX:3425, BRRES:472, BRFNT:88, TPL:1 | `ERROR_EXIT66` (64 errors logged). |
 | Ultra Hand | 🟡 | 5996 / 12026 | TPL:3116, BRLAN:1960, BRFNT:536, TEX:232, LZ10:74 | `ERROR_EXIT28` (18 errors logged). |
-| Wario Land: Shake It! | 🟡 | 216194 / 259808 | TEX:187516, TPL:18556, GFA:4448, BRRES:3436, BRLYT:1436 | `ERROR_EXIT82` (134 errors logged). — likely the same non-UTF-8 filename class as Twilight Princess. Real **GFA** volume (2224) — both Good-Feel titles in this corpus (see also Kirby's Epic Yarn) carry real GFA content, good samples if that decoder needs re-checking. |
+| Wario Land: Shake It! | 🟡 | 216194 / 259808 | TEX:187516, TPL:18556, GFA:4448, BRRES:3436, BRLYT:1436 | `ERROR_EXIT82` (134 errors logged, pre-filename-fix) — likely the same non-UTF-8 filename class as Twilight Princess (now fixed there); not yet re-tested against that fix for this specific title. Real **GFA** volume (2224) — both Good-Feel titles in this corpus (see also Kirby's Epic Yarn) carry real GFA content, good samples if that decoder needs re-checking. |
 | WarioWare: D.I.Y. Showcase | 🟡 | 10551 / 19606 | TPL:7896, BRLAN:1275, BRFNT:1014, BRLYT:249, LZ11:111 | `ERROR_EXIT28` (8 errors logged). |
-| WarioWare: Smooth Moves | ❌ | 1 / 1048 | BRFNT:1 | `TIMEOUT` — same suspected `wbrsar` performance cause as Mario Kart Wii, unconfirmed. |
+| WarioWare: Smooth Moves | ❌ | 1 / 1048 | BRFNT:1 | `TIMEOUT`, confirmed on the fully-fixed binary (standalone re-run, 2500s cap, killed still inside the shared bundle, never reached game content). Same suspected `wbrsar` performance cause as Mario Kart Wii — confirmed unrelated to any fix this session. |
 | We Ski | 🟡 | 6 / 39574 | BRFNT:6 | `ERROR_EXIT28` (39 errors logged). |
 | Wii Chess | 🟡 | 2342 / 46226 | TPL:1300, BRFNT:310, BRLAN:306, TEX:192, BRRES:156 | `ERROR_EXIT28` (39 errors logged) — re-tested against the AnmTexPat fix. |
 | Wii Fit | 🟡 | 30114 / 70534 | TEX:10958, TPL:8296, BRFNT:4650, BRLAN:3580, BRLYT:1226 | `ERROR_EXIT28` (47 errors logged) — re-tested against the AnmTexPat fix. |
@@ -246,19 +246,49 @@ fixes this session, alongside the still-open Mario Party 8 crash.
 
 **Verified on a real Wii Shop Channel WAD** (the same `PBmarioA/B/C/F/S/W.brres` family the original `ERROR #36` reports came from): both fixes together clear all `ERROR #36` failures on that sample (23 → 0). Regression suite unchanged at the documented 192 PASS / 38 FAIL / 1 SKIP baseline throughout — zero regressions from either fix.
 
-**Re-run against the fixed binary is complete: 117/118 titles**
-(`run_wii_queue.sh`). **Zero crashes across the entire re-tested corpus** —
+**Re-run against the fixed binary is complete: 118/118 titles**
+(`run_wii_queue.sh` covered 117; WarioWare: Smooth Moves confirmed
+separately below). **Zero crashes across the entire re-tested corpus** —
 both the Mario Party 8 crash fix and the AnmTexPat fixes held up at full
 scale with no regressions and no new crashes surfacing anywhere else. Rows
 are marked "re-tested against the AnmTexPat fix" (or, for Mario Party 8,
 describe the crash fix directly) and carry fresh Real/Total-op counts and
-error counts. **WarioWare: Smooth Moves is the one title not re-verified**
-in this final pass (killed mid-run while investigating its known timeout;
-its result row was cleared for a retry that the run didn't loop back to)
-— still known to time out on the pre-fix binary, status on the fixed
-binary genuinely unconfirmed. **Mario Kart Wii still times out** even on
-the fixed binary — confirms its `wbrsar` slowness is a separate, unrelated
-issue from AnmTexPat, not something either fix touches.
+error counts. **WarioWare: Smooth Moves still times out on the fully-fixed
+binary** — re-run standalone with a 2500s cap, killed mid-decode still
+inside the shared Shopping-Channel bundle (never reached the game's own
+content), same as its original pre-fix behavior. Confirms this is a real,
+separate performance issue untouched by any of today's fixes, same
+conclusion as **Mario Kart Wii**, which also still times out (`wbrsar`
+slowness, unrelated to AnmTexPat).
+
+## More fixes shipped this pass (owner-requested "fix as much as possible")
+
+1. **Non-UTF-8 U8/RARC filename `ERROR #82`** — root-caused earlier to two
+   independent raw-byte filename-copy sites (`IterateFilesU8()` in
+   `lib-szs.c`, `iterate_rarc_dir()`'s `StringCopyE()` call in
+   `lib-rarc.c`), neither of which validated UTF-8 before handing the bytes
+   to the filesystem, where macOS rejects an invalid sequence outright
+   (EILSEQ). Both now sanitize an invalid byte to `_` instead. Verified on
+   the real Twilight Princess disc that reported this: 2 `ERROR #82`
+   failures → 0.
+2. **DS-passthrough re-claim bug (`ERROR #66`)** — `passthru_claim()`'s DS
+   ROM detection matched the literal ASCII "NINTENDO" string at file offset
+   0 with no extension check. Real DS WFC/wifi ROMs bundled in some Wii
+   games genuinely start with that string in their title field — but so
+   does `wit`/`ndstool`'s own already-extracted `header.bin` output (a
+   byte-for-byte copy of the same header), so the generic recursive walker
+   wrongly re-claimed it and resubmitted it to `wit`/`ndstool`, which fails
+   since it isn't a real disc image. Added an extension guard
+   (`.nds`/`.srl`/`.dsi`), mirroring the same pattern the disc-image claim
+   right above it already used for an identical reason. Verified on the
+   real Pokémon Battle Revolution disc: 2 of its 4 `ERROR #66` failures
+   (the `wifi/child0[.jp]` ones) are gone.
+3. **Investigated and ruled out of scope**: Pokémon Battle Revolution's
+   remaining 2 `ERROR #66` failures trace to a local `mobipeg`-fork
+   `ffmpeg` build whose THP video *decoder* itself cannot decode a single
+   frame (confirmed by running the exact command by hand) — a bug in that
+   external tool, not in this codebase.
+
 ## Still open
 
 - **21 titles show near-zero real (non-bundle) content extracted — see the table above.** This is the single biggest finding in this doc: the naive per-title op counts previously in this table mostly measured the shared system bundle, not the game. Three causes confirmed (Bonsai Barber `.pkg`, World of Goo `.pak`, Samurai Warriors 3 `.BNS`); 17 more titles flagged but unverified. Worth systematically checking each one's `.d` tree for large opaque leftover files before deciding whether it needs new container support.
