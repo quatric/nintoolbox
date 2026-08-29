@@ -412,6 +412,58 @@ void      ResetPAC ( pac_t *pac );
 enumError ScanPAC  ( pac_t *pac, const u8 *data, uint size );
 
 //-----------------------------------------------------------------------------
+// Gorilla Games' ".pkg" archive (WiiWare: Bonsai Barber, and presumably this
+// studio's other WiiWare titles). No container magic at all -- the entire
+// file is one standard zlib stream (2-byte header, Adler32 trailer; despite
+// aluigi's bonsai_barber.bms script naming its comtype "unzip_dynamic",
+// real samples carry a genuine zlib wrapper, not raw deflate) wrapping a
+// flat header+table+data layout. Header (all fields big-endian, 20 bytes,
+// offsets relative to the DECOMPRESSED buffer):
+//   00h 4   unknown (always 8 on real samples)
+//   04h 4   data_off -- see BASE_OFF below
+//   08h 4   zero (always 0 on real samples)
+//   0Ch 4   crc (unverified -- not needed to extract)
+//   10h 4   n_entries
+// Entry table starts at 14h, one 0x28-byte record per entry:
+//   00h 20h  name (ASCII, zero-padded)
+//   20h 4    offset (relative to BASE_OFF, not absolute)
+//   24h 4    size
+// BASE_OFF = decompressed_size - data_off; an entry's real, absolute offset
+// into the decompressed buffer is offset + BASE_OFF. Layout and field order
+// derived from aluigi's bonsai_barber.bms (mirror.aluigi.org/bms/), verified
+// byte-exact against a real retail Bonsai Barber bb_text.pkg: all 97 real
+// entries' name/offset/size fields resolve to real, non-overlapping,
+// in-bounds slices with plausible names and sub-format magics (.bui UI
+// layouts, tex/-prefixed style records, etc.) -- this only unpacks the
+// container to named raw files, it does not decode those sub-formats.
+
+typedef struct gpkg_entry_t
+{
+    char     name[0x21]; // 32 bytes + guaranteed NUL
+    const u8 *data;      // points into gpkg_t.data; NULL if out-of-range (skipped)
+    u32      size;
+}
+gpkg_entry_t;
+
+typedef struct gpkg_t
+{
+    u8           *data;       // decompressed buffer, owned (malloc'd)
+    uint         size;
+    gpkg_entry_t *entries;    // owned
+    uint         n_entries;
+}
+gpkg_t;
+
+void      ResetGPKG ( gpkg_t *pkg );
+
+// Returns ERR_NOTHING_TO_DO for anything that doesn't decompress+validate as
+// this format (deliberately strict -- ".pkg" is used by countless unrelated
+// formats industry-wide, so detection here is entirely structural: it must
+// zlib-decompress cleanly AND pass the header/table sanity+byte-accounting
+// checks below, not just "any .pkg file").
+enumError ScanGPKG ( gpkg_t *pkg, const u8 *data, uint size );
+
+//-----------------------------------------------------------------------------
 // WARC ("WARC" magic): Game & Wario (Wii U)'s flat archive format. Unlike
 // SARC/GFA it is a *different* Monster Games/Nintendo container -- big
 // endian, uncompressed (no QuickLZ despite the superficial similarity to

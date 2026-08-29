@@ -34,7 +34,7 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | AquaSpace (WiiWare) | 🟡 | n/a | n/a | Character/prop `.brres` files never recognized as BRRES — no error, just silently produce zero models/textures. Root cause confirmed byte-for-byte: every one starts with an unrecognized 4-byte tag `"CX00"` immediately before an otherwise standard, already-supported LZ11 stream. Fix needs to reach the extraction-time LZ dispatch, not yet implemented. |
 | Battalion Wars 2 | 🟡 | 21 / 20604 | TPL:19, BRFNT:2 | `ERROR_EXIT28` (6 errors logged). |
 | Big Brain Academy: Wii Degree | 🟡 | 32254 / 76172 | TPL:22702, BRLAN:4090, TEX:2140, BRFNT:1390, BRLYT:1098 | `ERROR_EXIT28` (43 errors logged) — re-tested against the AnmTexPat fix. |
-| **Bonsai Barber** | ⚠️ | 8 / 9686 | BRFNT:4, LZ11:3, BRLAN:1 | **Content column is misleading — verified byte-for-byte.** `00000006.d/` contains 5 real, untouched `.pkg` files (`bb_main.pkg`, `bb_monsters.pkg`, `bb_audio.pkg`, `bb_styles.pkg`, `bb_text.pkg`) — that's the entire actual game (Gorilla Games' own engine format), sitting as opaque unrecognized files. `wszst` logs **nothing** for a file it doesn't recognize (no error, no warning), so the low error count and PASS-ish exit code look clean while zero real game content was ever extracted. See the general note below the table. |
+| **Bonsai Barber** | ✅ | n/a — see note | n/a — see note | **`.pkg` container support implemented and shipped.** Found the exact format via aluigi's public `bonsai_barber.bms` QuickBMS script (`unzip_dynamic` comtype): despite the script's naming, real files are standard zlib streams (2-byte header, not raw deflate) wrapping a 20-byte header + flat 0x28-byte-per-entry table (name/offset/size), entry offsets relative to `decompressed_size - data_off`. New `ScanGPKG()`/`extract_gpkg_file()` (`lib-nintendo.c`/`wszst.c`), no container magic so detection is fully structural (zlib-decompress + header sanity + full byte-accounting) rather than trusting the generic `.pkg` extension alone. **Verified byte-exact against all 5 real retail archives: 2942/2942 entries match independently-computed reference output exactly** (`bb_main` 226, `bb_text` 97, `bb_styles` 332, `bb_audio` 1743, `bb_monsters` 544). This extracts the container to named raw files only — the sub-formats inside (Gorilla's own `.bui` UI layouts, texture format, etc.) are not further decoded, a separate task. |
 | Calling | ✅ | n/a | n/a | Originally: `wbrsar` total failure on WAVE-type BRSAR sounds, and HSF models exported untextured. Both fixed this session. Full disc now extracts clean. |
 | Captain Rainbow | 🟡 | 24874 / 65410 | TEX:17328, TPL:4452, BRRES:2288, BRFNT:688, BRLAN:104 | `ERROR_EXIT28` (148 errors logged) — re-tested against the AnmTexPat fix. |
 | Chibi-Robo! | 🟡 | 26808 / 69762 | TEX:20028, TPL:4424, BRRES:1906, BRFNT:450 | `ERROR_EXIT28` (115 errors logged) — re-tested against the AnmTexPat fix. |
@@ -183,7 +183,6 @@ directly before being treated as a real unsupported-format finding.**
 | Fatal Frame: Mask of the Lunar Eclipse | 3 | 22,705 |
 | We Ski | 3 | 19,787 |
 | Inazuma Eleven Strikers | 5 | 15,220 |
-| Bonsai Barber | 6 | 6,702 |
 | My Pokémon Ranch | 6 | 5,975 |
 | Donkey Kong Country Returns | 7 | 28,913 |
 | Super Mario All-Stars 25th Anniversary Edition | 16 | 28,578 |
@@ -195,7 +194,8 @@ directly before being treated as a real unsupported-format finding.**
 | GoldenEye 007 (2010) | 37 | 23,544 |
 
 Confirmed causes so far: **Bonsai Barber** (Gorilla Games `.pkg` engine
-archive), **World of Goo** (2D Boy `master.pak`), **Samurai Warriors 3**
+archive — **support now implemented and shipped, see its own row above**),
+**World of Goo** (2D Boy `master.pak`), **Samurai Warriors 3**
 (Koei-Tecmo `.BNS` — also mis-routed through the ffmpeg media-passthrough
 path, which fails with "Error opening input file" rather than skipping
 cleanly), and **The Last Story** (Mistwalker's own `.pk`/`.pkh` archives —

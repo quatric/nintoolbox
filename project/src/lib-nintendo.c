@@ -5199,6 +5199,116 @@ enumError ScanPAC ( pac_t *pac, const u8 *data, uint size )
 }
 
 //-----------------------------------------------------------------------------
+///////////////	Gorilla Games ".pkg" (Bonsai Barber)		///////////////
+//-----------------------------------------------------------------------------
+
+void ResetGPKG ( gpkg_t *pkg )
+{
+    if (!pkg) return;
+    FREE(pkg->entries);
+    FREE(pkg->data);
+    memset(pkg,0,sizeof(*pkg));
+}
+
+// Standard zlib-wrapped inflate into a buffer whose final size isn't known
+// up front (no size field precedes the stream in this format) -- grows and
+// retries on Z_OK/Z_BUF_ERROR, same technique as DecodeFZIP() in lib-szs.c.
+static enumError InflateZlibGrow ( u8 **out_data, uint *out_size, const u8 *src, uint src_size )
+{
+    uint cap = src_size * 4 + 4096;
+    if ( cap > (256u<<20) ) cap = 256u<<20;
+    u8 *out = MALLOC(cap);
+    if (!out) return ERR_OUT_OF_MEMORY;
+
+    int ret = Z_DATA_ERROR;
+    for(;;)
+    {
+	z_stream strm;
+	memset(&strm,0,sizeof(strm));
+	strm.next_in   = (Bytef*)src;
+	strm.avail_in  = src_size;
+	strm.next_out  = out;
+	strm.avail_out = cap;
+	if ( inflateInit2(&strm,15) != Z_OK )
+	    { FREE(out); return ERR_INVALID_DATA; }
+	ret = inflate(&strm,Z_FINISH);
+	const uint produced = cap - strm.avail_out;
+	inflateEnd(&strm);
+	if ( ret == Z_STREAM_END )
+	{
+	    *out_data = out;
+	    *out_size = produced;
+	    return ERR_OK;
+	}
+	if ( ret != Z_OK && ret != Z_BUF_ERROR )
+	    { FREE(out); return ERR_INVALID_DATA; }
+	if ( cap >= (256u<<20) )
+	    { FREE(out); return ERR_FILE_TOO_BIG; }
+	cap = cap*2;
+	u8 *nout = REALLOC(out,cap);
+	if (!nout) { FREE(out); return ERR_OUT_OF_MEMORY; }
+	out = nout;
+    }
+}
+
+enumError ScanGPKG ( gpkg_t *pkg, const u8 *data, uint size )
+{
+    if ( !pkg || !data || size < 2 || data[0] != 0x78 )
+	return ERR_NOTHING_TO_DO; // not zlib at all -- cheap reject before inflating
+
+    memset(pkg,0,sizeof(*pkg));
+    u8 *dec = 0; uint dec_size = 0;
+    if ( InflateZlibGrow(&dec,&dec_size,data,size) != ERR_OK || dec_size < 0x14 )
+	{ FREE(dec); return ERR_NOTHING_TO_DO; }
+
+    const u32 data_off = rd_be32(dec+4);
+    const u32 zero      = rd_be32(dec+8);
+    const u32 n         = rd_be32(dec+16);
+    if ( zero || !n || n > 0x100000 || data_off > dec_size )
+	{ FREE(dec); return ERR_NOTHING_TO_DO; }
+
+    const u64 table_end = (u64)0x14 + (u64)n * 0x28;
+    if ( table_end > dec_size )
+	{ FREE(dec); return ERR_NOTHING_TO_DO; }
+
+    const u32 base_off = dec_size - data_off;
+
+    gpkg_entry_t *entries = CALLOC(n,sizeof(*entries));
+    if (!entries) { FREE(dec); return ERR_CANT_CREATE; }
+
+    uint valid = 0;
+    uint off = 0x14;
+    for ( uint i = 0; i < n; i++, off += 0x28 )
+    {
+	const u8 *h = dec+off;
+	memcpy(entries[i].name,h,0x20);
+	entries[i].name[0x20] = 0;
+
+	const u32 entry_off = rd_be32(h+0x20);
+	const u32 entry_size = rd_be32(h+0x24);
+	const u64 real_off = (u64)entry_off + base_off;
+	if ( real_off + entry_size > dec_size )
+	    continue; // out-of-range entry: skip it, don't abort the whole archive
+
+	entries[i].data = dec + real_off;
+	entries[i].size = entry_size;
+	valid++;
+    }
+
+    // Every real sample has every entry valid; if none are, this probably
+    // isn't really our format (some unrelated zlib stream that happened to
+    // pass the header-field sanity checks above by coincidence).
+    if (!valid)
+	{ FREE(entries); FREE(dec); return ERR_NOTHING_TO_DO; }
+
+    pkg->data = dec;
+    pkg->size = dec_size;
+    pkg->entries = entries;
+    pkg->n_entries = n;
+    return ERR_OK;
+}
+
+//-----------------------------------------------------------------------------
 ///////////////		WARC (Game & Wario, Wii U)		///////////////
 //-----------------------------------------------------------------------------
 
