@@ -8356,11 +8356,19 @@ static enumError extract_rpak_file ( ccp arg, ccp basedir, uint depth )
 	const rpak_entry_t *e = pak.entries+i;
 	if (testmode) continue;
 
+	// Real games embed non-ASCII "magic" bytes here as raw small integers
+	// rather than a genuine 4-char tag (Disney Epic Mickey's own .pak
+	// files, same Retro Studios engine as DKCR, have entries like this).
+	// '/' (0x2F) is inside the naive printable-ASCII range but is a path
+	// separator -- letting it through embeds an unintended subdirectory
+	// in the destination path and corrupts extraction (confirmed: caused
+	// a real "Can't create file ... Is a directory" failure on Epic
+	// Mickey). Exclude it explicitly rather than only checking 0x20-0x7e.
 	char ext[5];
 	for ( uint k = 0; k < 4; k++ )
 	{
 	    const u8 c = (u8)(e->magic >> (24-8*k));
-	    ext[k] = c >= 0x20 && c < 0x7f ? (char)tolower(c) : '_';
+	    ext[k] = c >= 0x20 && c < 0x7f && c != '/' ? (char)tolower(c) : '_';
 	}
 	ext[4] = 0;
 
@@ -8370,9 +8378,14 @@ static enumError extract_rpak_file ( ccp arg, ccp basedir, uint depth )
 	const u8 *out_data = dec ? dec : e->data;
 	const uint out_size = dec ? dec_size : e->size;
 
+	// (id_hi,id_lo) is not guaranteed unique across all .pak files -- a
+	// real Disney Epic Mickey archive has 26 colliding pairs, all sharing
+	// tiny non-ASCII "magic" values that fall back to the same "____"
+	// extension. The entry index is always unique, so it's included
+	// unconditionally rather than only as a collision fallback.
 	char path[PATH_MAX];
-	snprintf(path,sizeof(path),"%s/%s%08x%08x.%s",
-	    dest,basedir ? basedir : "",e->id_hi,e->id_lo,ext);
+	snprintf(path,sizeof(path),"%s/%s%04u_%08x%08x.%s",
+	    dest,basedir ? basedir : "",i,e->id_hi,e->id_lo,ext);
 	File_t F;
 	err = CreateFileOpt(&F,true,path,false,arg);
 	if ( F.f && out_size && fwrite(out_data,1,out_size,F.f) != out_size )
