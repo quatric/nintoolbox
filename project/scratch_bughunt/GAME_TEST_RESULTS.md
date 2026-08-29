@@ -52,7 +52,7 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | Excitebike: World Rally | 🟡 | 2706 / 8672 | TEX:1570, MOD:738, ART:256, RST:72, MSH:68 | `ERROR_EXIT28` (6 errors logged). |
 | Excitebots: Trick Racing | 🟡 | 15626 / 58324 | TEX:6332, MOD:5534, TPL:1624, MSH:934, ART:416 | `ERROR_EXIT36` (47 errors logged) — 3D model format, uncommon elsewhere. |
 | Fatal Frame: Mask of the Lunar Eclipse | ✅ | 6 / 45410 | LZH8:6 | Directly re-tested against the current binary: **0 hard errors** (the old `AnmTexPat` crash is fixed). 8.9GB of real content confirmed extracted under `DATA/files`. Hits the separate, already-documented `wbrsar` warning class (10 occurrences, non-fatal — same known issue as several other titles this session, not a blocker). |
-| Fire Emblem: Radiant Dawn | 🟡 | 67058 / 108106 | TPL:61472, LZ10:5578, BRFNT:6, LZH8:2 | `ERROR_EXIT28` (38 errors logged) — re-tested against the AnmTexPat fix. |
+| Fire Emblem: Radiant Dawn | ✅ | 67058 / 108106 | TPL:61472, LZ10:5578, BRFNT:6, LZH8:2 | Directly re-tested against the current binary: **0 hard errors**. 6.5GB of real content confirmed extracted under `DATA/files`. Hits the separate, already-documented `wbrsar` warning class (6 occurrences, non-fatal). |
 | Fishing Resort | 🟡 | 258035 / 366684 | TEX:214232, TPL:17602, BRRES:17300, BRLAN:4341, BRFNT:2381 | `ERROR_EXIT28` (309 errors logged). |
 | FlingSmash | 🟡 | 160438 / 220014 | TPL:107162, BRFNT:32894, TEX:12148, BRLAN:3380, BRLYT:3248 | `ERROR_EXIT28` (32 errors logged) — re-tested against the AnmTexPat fix. |
 | Fluidity (video game) | 🟡 | 4908 / 13855 | LZ11:4812, TEX:90, BRFNT:3, TPL:3 | `ERROR_EXIT28` (8 errors logged). |
