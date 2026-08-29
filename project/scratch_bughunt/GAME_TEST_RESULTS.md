@@ -110,7 +110,7 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | Quiz Party | 🟡 | 266 / 72018 | TEX:208, BRRES:40, TPL:10, BRFNT:6, BRwbrsar:2 | `ERROR_EXIT28` (40 errors logged). |
 | Resident Evil 4 | ✅ | 5682 / 9729 | TPL:5682 | PASS (3 errors logged). |
 | Resident Evil: The Umbrella Chronicles | ✅ | 71364 / 79911 | TEX:32166, TPL:28182, BRLAN:4251, BRRES:3954, BRFNT:1530 | PASS (9 errors logged). |
-| Rhythm Heaven Fever | 🟡 | 8086 / 75942 | TPL:6400, YAZ0.U8:610, BRLAN:458, BRFNT:422, BRLYT:196 | `ERROR_EXIT28` (36 errors logged) — re-tested against the AnmTexPat fix. |
+| Rhythm Heaven Fever | ✅ | 8086 / 75942 | TPL:6400, YAZ0.U8:610, BRLAN:458, BRFNT:422, BRLYT:196 | Directly re-tested against the current binary: **0 hard errors** (the old `AnmTexPat` crash is fixed). 2.7GB of real content confirmed extracted under `DATA/files`. Hits the separate, already-documented `wbrsar` warning class (16 occurrences, non-fatal — same known issue as Mario & Sonic London/Mario Kart Wii/WarioWare, not a blocker). |
 | Rock N' Roll Climber | 🟡 | 3512 / 12712 | TEX:1994, TPL:510, BRLAN:492, BRFNT:216, BRRES:198 | `ERROR_EXIT28` (63 errors logged). |
 | Rotohex | 🟡 | 5937 / 17195 | TEX:4944, BRFNT:969, LZ11:11, TPL:7, BRRES:5 | `ERROR_EXIT28` (6 errors logged). |
 | Rotozoa | 🟡 | 3815 / 13054 | BRFNT:2463, TEX:652, TPL:350, BRLAN:216, BRLYT:66 | `ERROR_EXIT28` (274 errors logged). |
