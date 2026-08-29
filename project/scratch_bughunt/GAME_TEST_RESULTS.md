@@ -42,7 +42,7 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | Cubello | 🟡 | 9421 / 20748 | TEX:7949, BRFNT:980, LZ11:471, TPL:16, BRRES:5 | `ERROR_EXIT28` (2648 errors logged). |
 | Disaster: Day of Crisis | 🟡 | 5800 / 49972 | TPL:5730, BRFNT:60, LZH8:10 | `ERROR_EXIT28` (43 errors logged) — re-tested against the AnmTexPat fix. |
 | Donkey Kong Barrel Blast | 🟡 | 8690 / 50104 | TPL:5244, BRLAN:2234, LZ10:838, BRLYT:374 | `ERROR_EXIT28` (38 errors logged) — re-tested against the AnmTexPat fix. |
-| **Donkey Kong Country Returns** | ⚠️ | 14 / 57826 | BRFNT:12, BRFvgmtrans:2 | **Confirmed byte-for-byte.** `DATA/files/Worlds/` (2GB, all 9 worlds, 72 level files like `W02_Beach/L08_Crab_Boss_Arena.pak`) is entirely Retro Studios' own `.pak` engine archive format — completely unrecognized, untouched, unlogged. This is the real game; nothing in it was ever extracted. |
+| **Donkey Kong Country Returns** | ✅ | native `.pak` support shipped | RPAK archive, 2651 entries in FrontEnd.pak alone | Root cause: `DATA/files/Worlds/` (2GB, all 9 worlds, 72 level files) plus `MiscData.pak`/`FrontEnd.pak`/`Extras.pak`/etc. are Retro Studios' own `.pak` engine archive format — completely unrecognized, untouched, unlogged. Found an existing open-source editor for exactly this game (github.com/jellees/crPakTool) and transcribed its real header/RSHD-table/CMPD-compression-block layout rather than RE'ing from scratch; one field in that tool was actually wrong (block "stored size" is 24-bit, not the 16-bit `ReadUInt16` crPakTool uses — caught because 7/112 entries in a real `MiscData.pak` have compressed blocks over 64KB and only decompress correctly with the wider field). Verified byte-exact against 2 real retail `.pak` files (112 and 2651 entries) via an independent Python re-implementation. |
 | Dr. Mario Online Rx | 🟡 | 6 / 9073 | Arika:3, LZ10:3 | **False alarm, verified byte-for-byte — actually extracts fine.** The Real-ops metric undercounts it: `EXTRACT Arika:...INFO.DAT (628 entries)` is logged as a single bulk-unpack operation, not credited per-file the way `DECODE`/`EXTRACT` lines for other formats are, so the metric made a fully-working extraction look near-empty. Directly verified: 4173 real files on disk, INFO.DAT's 628 entries genuinely unpacked (message archives, BRSAR audio converted to real playable output), GAME.DAT's real soundfont (`GAME.sf2`) and MIDI sequences all present. Only the expected top-level `.app` containers are left opaque — normal for every WiiWare title, not a gap. `ERROR_EXIT28` (944 errors logged, pre-AnmTexPat-fix — not yet re-tested against the fix). |
 | Eco Shooter: Plant 530 | 🟡 | 5396 / 11392 | TEX:2796, TPL:1704, BRLAN:418, LZ10:220, BRLYT:98 | `ERROR_EXIT28` (4 errors logged). |
 | Endless Ocean | 🟡 | 2022 / 44093 | TPL:1624, BRFNT:396, Arika:2 | `ERROR_EXIT28` (100 errors logged) — re-tested against the AnmTexPat fix. |
@@ -183,7 +183,6 @@ directly before being treated as a real unsupported-format finding.**
 | We Ski | 3 | 19,787 |
 | Inazuma Eleven Strikers | 5 | 15,220 |
 | My Pokémon Ranch | 6 | 5,975 |
-| Donkey Kong Country Returns | 7 | 28,913 |
 | Super Mario All-Stars 25th Anniversary Edition | 16 | 28,578 |
 | Mario Strikers Charged | 18 | 21,829 |
 | Punch-Out (Wii) | 18 | 22,367 |
@@ -197,7 +196,9 @@ archive — **support now implemented and shipped, see its own row above**),
 **World of Goo** (2D Boy `master.pak` — **support now implemented and
 shipped, see its own row above**), **Samurai Warriors 3** (Koei-Tecmo
 `.BNS` — **support now implemented and shipped, see its own row above**),
-and **The Last Story** (Mistwalker's own `.pk`/`.pkh` archives —
+**Donkey Kong Country Returns** (Retro Studios `.pak` — **support now
+implemented and shipped, see its own row above**), and **The Last Story**
+(Mistwalker's own `.pk`/`.pkh` archives —
 `levels.pk` alone is 570MB, untouched; ~1.3GB of real game content across
 the three `.pk` files, essentially none of it extracted — see its own row
 above). Metroid Prime 2's row is separately known-bad (`wii_queue.tsv`
@@ -208,11 +209,10 @@ been individually verified** — each needs the same byte-level check
 (download, `wszst xx`, inspect the resulting `.d` tree for large/opaque
 files with no further `.d` extraction under them, and rule out a bulk-
 unpack-format false flag like Dr. Mario's) before concluding what container
-format they actually need, if any. **Donkey Kong Country Returns and Mario
-Strikers Charged are the two most surprising entries here** — both
-first-party Retro/Next Level titles, worth checking first since a gap
-there is more likely to be a real, fixable format-support hole than a
-third-party engine quirk.
+format they actually need, if any. **Mario Strikers Charged is now the
+most surprising entry here** — a first-party Next Level title, worth
+checking first since a gap there is more likely to be a real, fixable
+format-support hole than a third-party engine quirk.
 
 **All 118 titles now have a clean, single-instance result** — the queue
 that had been corrupted by an accidental second concurrent instance
