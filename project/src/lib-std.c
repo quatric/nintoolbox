@@ -7128,16 +7128,43 @@ valid_t IsValidPAT
 	    // string list (matches how an absent/zero offset is already
 	    // handled elsewhere in this function) instead of rejecting the
 	    // whole file over a field this parser doesn't yet understand.
-	    if ( !( be16(&sref->type) & 2 ))
+	    //
+	    // A third type, 0xf0 (Kirby's Return to Dream Land's own PAT0
+	    // files), doesn't match the bit-0x02 split -- it's bit-clear like
+	    // 5/13, but its "offset" field is the same kind of garbage as
+	    // 7/15 (confirmed on a real element: 0x10001, wildly out of
+	    // bounds for a 188-byte file). Rather than special-case every
+	    // type value Nintendo's tooling might emit, generalize: only
+	    // types 5/13 are verified to always carry a real offset, so only
+	    // they reject the whole file on an out-of-bounds result: any
+	    // other type falls back to "no string list" the same as 7/15,
+	    // since real files prove at least one other type exhibits the
+	    // identical garbage-offset symptom.
+	    const uint type = be16(&sref->type);
+	    if ( !( type & 2 ))
 	    {
 		const u32 str_off = ref_off + be32(&sref->offset_strlist);
+		const bool known_reliable_type = type == 5 || type == 13;
 		if ( str_off + 4 > data_size )
-		    goto invalid;
-
-		shead = (pat_s0_shead_t*)( ana->data + str_off );
-		n_slist = be16(&shead->n_elem);
-		if ( str_off + 4 * (n_slist+1) > data_size )
-		    goto invalid;
+		{
+		    if (known_reliable_type)
+			goto invalid;
+		}
+		else
+		{
+		    pat_s0_shead_t *cand = (pat_s0_shead_t*)( ana->data + str_off );
+		    const uint cand_n = be16(&cand->n_elem);
+		    if ( str_off + 4 * (cand_n+1) > data_size )
+		    {
+			if (known_reliable_type)
+			    goto invalid;
+		    }
+		    else
+		    {
+			shead = cand;
+			n_slist = cand_n;
+		    }
+		}
 	    }
 
 	    if ( i < PAT_MAX_ELEM )
