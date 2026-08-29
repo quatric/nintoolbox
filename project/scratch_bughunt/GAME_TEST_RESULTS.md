@@ -123,7 +123,7 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | Super Paper Mario | 🟡 | 88642 / 114393 | TPL:87858, LZ10:772, BRLAN:8, BRLYT:4 | `ERROR_EXIT28` (30 errors logged) — re-tested against the AnmTexPat fix. |
 | Super Smash Bros. Brawl | 🟡 | 131350 / 215874 | TEX:105992, BRRES:16956, PAC:4314, LZ10:2790, BRFNT:1008 | `ERROR_EXIT28` (275 errors logged) — re-tested against the AnmTexPat fix. |
 | Tetris Party Deluxe | 🟡 | 10766 / 55783 | TPL:7354, BRLAN:2018, BRFNT:684, BRLYT:652, BRRES:32 | `ERROR_EXIT28` (915 errors logged). |
-| **The Last Story** | ⚠️ | 40 / 60616 | LZ11:38, BRFNT:2 | **Confirmed real, verified byte-for-byte — not a metric artifact.** `DATA/files/pack/` holds Mistwalker's own proprietary `.pk`/`.pkh` archive format: `levels.pk` (570MB, no attempt to even decompress it), `filesystem.pk` (647MB, LZ11-decompressed but only to a 32KB `.bin` — a header/index fragment, not the real content), `eventpacks.pk` (106MB, same partial-decompress pattern). Combined, nearly 1.3GB of the actual game sits essentially untouched. Genuinely the largest confirmed unsupported-format gap found in this whole corpus. |
+| **The Last Story** | ✅ | native `.pk`/`.pkh` support shipped | LSPK archive: eventpacks 1478, levels 2626, filesystem 47204 entries | Root cause: `DATA/files/pack/` holds Mistwalker's own proprietary `.pk`/`.pkh` archive format — `levels.pk` (570MB), `filesystem.pk` (647MB), `eventpacks.pk` (106MB), ~1.3GB combined, essentially untouched (only the whole-file LZ11 magic on the first entry was ever noticed, misdecoded as a single stream). Found an existing GitHub tool for exactly this format (RGBA-CRT/LSPK-Extracter) and transcribed its real `.pkh`-table parser rather than RE'ing from scratch. Verified byte-exact (incl. LZ10/LZ11 and zlib decompression) against all 3 real archive pairs — zero out-of-range entries across 1478+2626+47204 entries. |
 | The Legend of Zelda: Skyward Sword | 🟡 | 102032 / 172244 | TEX:82920, BRRES:7650, TPL:6224, BRLAN:1670, BRFNT:1370 | `ERROR_EXIT28` (221 errors logged) — re-tested against the AnmTexPat fix. |
 | The Legend of Zelda: Twilight Princess | ✅ | 5968 / 6262 | YAZ0.RARC:4424, TPL:696, RARC:676, BRFNT:168, QuickLZ:4 | PASS (4 errors logged) — a RARC member filename contains a raw non-UTF-8 byte sequence (likely Shift-JIS). macOS rejects the `open()` call outright (EILSEQ). Root-caused to the exact read/write sites, fix not yet implemented. This bug apparently doesn't trip on every file (overall exit is still `PASS`) — depth capped somewhat by it regardless (RARC/YAZ0-only, no BRRES/TEX ever reached). |
 | Trauma Center: New Blood | ✅ | 7972 / 10679 | TEX:6740, BRRES:818, BRFNT:390, LZH8:24 | PASS (3 errors logged). |
@@ -198,10 +198,8 @@ shipped, see its own row above**), **Samurai Warriors 3** (Koei-Tecmo
 `.BNS` — **support now implemented and shipped, see its own row above**),
 **Donkey Kong Country Returns** (Retro Studios `.pak` — **support now
 implemented and shipped, see its own row above**), and **The Last Story**
-(Mistwalker's own `.pk`/`.pkh` archives —
-`levels.pk` alone is 570MB, untouched; ~1.3GB of real game content across
-the three `.pk` files, essentially none of it extracted — see its own row
-above). Metroid Prime 2's row is separately known-bad (`wii_queue.tsv`
+(Mistwalker's own `.pk`/`.pkh` archives — **support now implemented and
+shipped, see its own row above**). Metroid Prime 2's row is separately known-bad (`wii_queue.tsv`
 points at the wrong file, an NES VC ROM). Dr. Mario Online Rx (previously
 listed here) turned out to be a **false alarm** — a metric flaw, not a real
 gap; see the note above the table. **The remaining rows below have not
