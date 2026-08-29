@@ -652,6 +652,75 @@ enumError ScanRPAK ( rpak_t *pak, const u8 *data, uint size );
 // raw data instead).
 u8 * DecompressRPAKEntry ( const u8 *data, uint size, uint *res_size );
 
+// Plain zlib-stream decompress (standard 2-byte zlib header, not raw
+// deflate), size unknown up front -- grows the output buffer as needed.
+// Shared by GPKG/RPAK internally and exposed here for LSPK's zlib-tagged
+// entries (magic byte 0x78) too.
+enumError DecodeZlibGrow ( u8 **dest, uint *dest_size, const u8 *src, uint src_size );
+
+//-----------------------------------------------------------------------------
+// Mistwalker's ".pk"/".pkh" archive pair (Wii: The Last Story). Layout
+// transcribed from RGBA_CRT's open-source LSPK-Extracter (found on GitHub
+// before any from-scratch RE, per project convention:
+// github.com/RGBA-CRT/LSPK-Extracter, LSPK-lib.sbp's PKH_READER class),
+// not guessed. A third sibling file, ".pfs", carries directory/filename
+// metadata only -- not needed to recover the raw archived files, so it is
+// deliberately not parsed here (ordinal names instead, same convention as
+// GPAK/BNS/RPAK above).
+//
+// ".pkh" (the entry table) -- all fields big-endian:
+//   00h 4   n_entries
+// followed by n_entries fixed-size rows starting at byte 4. The row size
+// is *not* fixed across games -- it's derived as (pkh_filesize-4)/n_entries
+// and must come out to exactly 16 or 24 (any other value means this isn't
+// really an LSPK archive):
+//   16-byte row:                       24-byte row:
+//     00h 4   hash                       00h 4   hash
+//     04h 4   offset (into .pk)          04h 4   unused
+//     08h 4   dec_size                   08h 4   offset_hi
+//     0Ch 4   com_size                   0Ch 4   offset_lo (abs = hi<<32|lo)
+//                                        10h 4   dec_size
+//                                        14h 4   com_size
+// In both layouts, com_size==0 means "not actually compressed": treat the
+// payload as dec_size raw bytes instead (this is the source tool's own
+// convention, not an inference).
+//
+// ".pk" (the payload blob) -- entry payloads are read directly from the
+// resolved offset in this file, length com_size (or dec_size per the above
+// rule). Compression is per-archive, not per-entry, auto-detected from the
+// first payload byte: 0x10/0x11 is Nintendo-standard LZ10/LZ11 (this
+// codebase's own DecodeLZ10LZ11 handles both), 0x78 is a plain zlib stream;
+// anything else means the entry is stored uncompressed as-is.
+typedef struct lspk_entry_t
+{
+    const u8 *data;    // points into lspk_t.pk_data; NULL if out-of-range (skipped)
+    u32      size;      // com_size (payload length as stored in the .pk file)
+    u32      dec_size;   // expected decompressed size (0 if entry is not compressed)
+    u32      hash;
+}
+lspk_entry_t;
+
+typedef struct lspk_t
+{
+    const u8      *pk_data;   // NOT owned -- points into caller's .pk buffer
+    uint          pk_size;
+    lspk_entry_t  *entries;   // owned
+    uint          n_entries;
+}
+lspk_t;
+
+void      ResetLSPK ( lspk_t *pak );
+
+// Parses PKH_DATA (the ".pkh" file contents) and resolves each entry against
+// PK_DATA/PK_SIZE (the sibling ".pk" file). Deliberately strict like
+// ScanGPAK()/ScanBNS()/ScanRPAK() above: every single entry must resolve
+// in-bounds for the file to be accepted.
+enumError ScanLSPK
+(
+    lspk_t *pak, const u8 *pkh_data, uint pkh_size,
+    const u8 *pk_data, uint pk_size
+);
+
 //-----------------------------------------------------------------------------
 // WARC ("WARC" magic): Game & Wario (Wii U)'s flat archive format. Unlike
 // SARC/GFA it is a *different* Monster Games/Nintendo container -- big
