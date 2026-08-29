@@ -1960,10 +1960,17 @@ static enumError passthru_claim
     bool is_thp = !memcmp(head,"THP\0",4) || is_ext(src,".thp");
     bool is_mobiclip = !memcmp(head,".MOC",4) || !memcmp(head,".MOD",4)
 	|| is_ext(src,".mo") || is_ext(src,".mods") || is_ext(src,".moflex");
+    // NOTE: ".bns" is deliberately magic-only here, not extension-fallback
+    // like the siblings above it -- Koei Tecmo's Samurai Warriors 3 also
+    // ships a completely unrelated "LINKDATA*.BNS" *archive* format under
+    // the same extension (no magic, native support in ScanBNS()/
+    // extract_bns_file()), and extension-only claiming here would steal
+    // those files from the native extractor before it ever runs. A real
+    // stream-audio .bns always starts with the "BNS " magic.
     bool is_stream_audio = !memcmp(head,"RSTM",4) || !memcmp(head,"CSTM",4)
 	|| !memcmp(head,"FSTM",4) || !memcmp(head,"BNS ",4)
 	|| is_ext(src,".brstm") || is_ext(src,".bcstm") || is_ext(src,".bfstm")
-	|| is_ext(src,".bns") || is_ext(src,".btsnd") || is_ext(src,".ast")
+	|| is_ext(src,".btsnd") || is_ext(src,".ast")
 	|| is_ext(src,".dsp");
     bool is_other_media = is_ext(src,".h4m") || is_ext(src,".dpg") || is_ext(src,".fv")
 	|| is_ext(src,".ppm") || is_ext(src,".kwz") || is_ext(src,".mmstr")

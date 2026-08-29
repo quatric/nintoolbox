@@ -520,6 +520,53 @@ void      ResetGPAK ( gpak_t *pak );
 enumError ScanGPAK ( gpak_t *pak, const u8 *data, uint size );
 
 //-----------------------------------------------------------------------------
+// Koei Tecmo's "LINKDATA*.BNS" archive (Wii: Samurai Warriors 3). No magic,
+// no filenames -- entries are extracted under ordinal names, same convention
+// as GPAK above.
+//
+// All fields big-endian. Header (16 bytes):
+//   00h 4   unknown (constant 0x19dad/105901 across all 5 real LINKDATA*.BNS
+//           samples in one retail disc, incl. files with wildly different
+//           sizes/entry counts -- looks like a fixed engine build constant,
+//           not per-file data; not needed to extract)
+//   04h 4   n_entries
+//   08h 4   block_size (0x800 = 2048 in every sample seen)
+//   0Ch 4   zero
+// Followed by n_entries 8-byte rows (table starts right after the header,
+// i.e. at byte 16):
+//   00h 4   offset, in block_size units (real byte offset = value*block_size)
+//   04h 4   size, in bytes
+//
+// Reverse-engineered from 5 real retail LINKDATA*.BNS files (no public tool
+// or BMS script exists for this format) and verified structurally: every
+// entry's offset*block_size+size resolves strictly in-bounds across all 5
+// samples (entry counts 1, 18, 41, 45, and 5276), with zero out-of-range
+// hits, and the last entry's end lands within one block of each file's true
+// end (block-aligned tiling of the whole file, not a coincidental subset
+// match).
+typedef struct bns_entry_t
+{
+    const u8 *data;   // points into bns_t.data; NULL if out-of-range (skipped)
+    u32      size;
+}
+bns_entry_t;
+
+typedef struct bns_t
+{
+    const u8     *data;      // NOT owned -- points into caller's buffer
+    uint         size;
+    bns_entry_t  *entries;   // owned
+    uint         n_entries;
+}
+bns_t;
+
+void      ResetBNS ( bns_t *bns );
+
+// Deliberately strict like ScanGPAK() above: every single entry (not just a
+// sample) must resolve in-bounds for the file to be accepted.
+enumError ScanBNS ( bns_t *bns, const u8 *data, uint size );
+
+//-----------------------------------------------------------------------------
 // WARC ("WARC" magic): Game & Wario (Wii U)'s flat archive format. Unlike
 // SARC/GFA it is a *different* Monster Games/Nintendo container -- big
 // endian, uncompressed (no QuickLZ despite the superficial similarity to
