@@ -722,6 +722,50 @@ enumError ScanLSPK
 );
 
 //-----------------------------------------------------------------------------
+// Fallback scan for self-describing NW4R layout resources (RLYT/RLAN)
+// embedded inside an otherwise-opaque blob with no container of its own.
+//
+// Found while investigating We Ski's `DATA/files/SKI.DAT` (368MB, a fully
+// custom in-house Namco engine format -- "Map::CMapSki" per the executable's
+// own C++ symbols -- with no public documentation, no QuickBMS script, and
+// no discoverable offset/size table for its bulk content after extensive
+// static analysis; cracking the real course/terrain data would need dynamic
+// analysis, e.g. a Dolphin memory-read breakpoint on the loader, which is
+// out of reach here). That bulk content stays unrecovered. But scattered
+// through the same file are genuine standalone NW4R menu-layout resources
+// (RLYT/RLAN -- the exact same self-describing header this codebase already
+// parses for standalone .brlyt/.brlan files: 4-byte magic, 0xFEFF BOM,
+// version, and -- critically -- the resource's own total byte length) with
+// no wrapping container at all, just placed back-to-back with other,
+// unidentified data. Since each one carries its own length, no table is
+// needed to recover them: scan for the magic, validate the header, and the
+// length field says exactly how much to copy out.
+//
+// Deliberately conservative: requires the BOM, a byte-length that resolves
+// in-bounds, and a header_size of exactly 0x10 (the only value ever seen in
+// this codebase's own encoder/decoder) before accepting a candidate, and the
+// caller additionally requires at least one hit before treating the file as
+// a real match -- a handful of false-positive coincidental 4-byte matches
+// in 368MB of other content is expected and just quietly skipped.
+typedef struct nw4r_embedded_entry_t
+{
+    const u8 *data;
+    u32      size;
+    bool     is_brlan; // false: RLYT (.brlyt); true: RLAN (.brlan)
+}
+nw4r_embedded_entry_t;
+
+typedef struct nw4r_embedded_t
+{
+    nw4r_embedded_entry_t *entries; // owned
+    uint                   n_entries;
+}
+nw4r_embedded_t;
+
+void ResetEmbeddedNW4R ( nw4r_embedded_t *found );
+void ScanEmbeddedNW4R ( nw4r_embedded_t *found, const u8 *data, uint size );
+
+//-----------------------------------------------------------------------------
 // WARC ("WARC" magic): Game & Wario (Wii U)'s flat archive format. Unlike
 // SARC/GFA it is a *different* Monster Games/Nintendo container -- big
 // endian, uncompressed (no QuickLZ despite the superficial similarity to
