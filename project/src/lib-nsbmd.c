@@ -688,7 +688,7 @@ model_t *ParseEarlyDSBMD (const uint8_t *data, size_t size)
 	{
 		uint32_t sz = rd32 (data + off);
 		uint32_t dloff = rd32 (data + off + 4);
-		if (dloff >= shapes_base && dloff + sz <= size && sz >= 16)
+		if (dloff >= shapes_base && sz >= 16 && sz <= size && dloff <= size - sz && dloff + 4 <= size)
 		{
 			const uint8_t *w = data + dloff;
 			if ((w[0] == 0x40 || w[1] == 0x40 || w[2] == 0x40 || w[3] == 0x40)
@@ -697,7 +697,7 @@ model_t *ParseEarlyDSBMD (const uint8_t *data, size_t size)
 				bool overlap = false;
 				for (uint k = 0; k < n_dls; k++)
 				{
-					if (dloff >= dls[k].off && dloff < dls[k].off + dls[k].sz)
+					if (dloff >= dls[k].off && dloff - dls[k].off < dls[k].sz)
 					{
 						overlap = true;
 						break;

@@ -388,3 +388,192 @@ never converted, so exported models were always static.
 - **VIS0 (visibility animation)**: the tool doesn't recognize this format at
   all yet — no `file-type.c` entry, no magic/folder mapping. Needs adding as
   a new file type before animation export is even possible.
+
+
+---
+
+# Nintendo DS Game Extraction Test Results
+
+Full extraction test suite (`wszst xx <rom.nds>`) across all 163 Nintendo DS games listed on Wikipedia ([List of Nintendo handheld video games](https://en.wikipedia.org/wiki/List_of_Nintendo_handheld_video_games#Nintendo_DS)), pulled directly from `mcubeds:Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/`.
+
+**Results Summary**: **163 / 163 games tested (100%)** · **115 Clean Passes (70.6%)** · **48 Non-Fatal Warnings (29.4%)** · **0 Crashes (0.0%)** · **1,248,809 Total Files Extracted** (346,171 Real Operations).
+
+| Game | Status | Real / Total Ops | Extracted Files & Size | Top Formats | Notes |
+|---|:---:|---|---|---|---|
+| 100 Classic Book Collection | 🟡 | 352 / 353 | 2399 (65.6MB) | ?:143, LZ10:56, NARC:56, NSCR:42, NANR XML:24 | ERROR_EXIT28 |
+| 100 Classic Books | 🟡 | 429 / 430 | 3017 (70.3MB) | ?:209, NSCR:57, LZ10:54, NARC:54, NANR XML:24 | ERROR_EXIT28 |
+| 100 Livres Classiques | 🟡 | 442 / 443 | 3179 (64.5MB) | ?:175, LZ10:76, NARC:76, NSCR:62, NANR XML:23 | ERROR_EXIT28 |
+| Advance Wars: Days of Ruin | ✅ | 5631 / 5633 | 12295 (115.9MB) | LZ10:4712, NARC:837, RL:75, TEX:3, LZ11:2 | PASS |
+| Advance Wars: Dual Strike | ✅ | 1333 / 1335 | 3398 (96.2MB) | LZ10:1329, LZ11:3, passthrough:2, SDAT:1 | PASS |
+| Animal Crossing: Wild World | 🟡 | 8413 / 8414 | 22322 (121.5MB) | LZ10:6348, NARC:2064, passthrough:1, SDAT:1 | ERROR_EXIT36 |
+| Apollo Justice: Ace Attorney | ✅ | 1 / 22 | 140 (83.1MB) | media passthrough:20, passthrough:1, SDAT:1 | PASS |
+| Art Academy | ✅ | 2 / 3 | 1913 (27.3MB) | SDAT:2, passthrough:1 | PASS |
+| ASH: Archaic Sealed Heat | 🟡 | 2349 / 2418 | 8475 (346.2MB) | ?:1517, NCER XML:329, NANR XML:324, NSCR:148, media passthrough:68 | ERROR_EXIT36 |
+| Bibliothek der klassischen Bücher | 🟡 | 429 / 430 | 3017 (70.3MB) | ?:209, NSCR:57, LZ10:54, NARC:54, NANR XML:24 | ERROR_EXIT28 |
+| Big Brain Academy | ✅ | 104 / 105 | 562 (12.6MB) | ?:68, NCER XML:16, NANR XML:7, NSCR:7, NARC:4 | PASS |
+| Brain Age 2: More Training in Minutes a Day! | ✅ | 657 / 662 | 2658 (62.2MB) | LZ10:356, NCER XML:148, NANR XML:148, passthrough:5, SDAT:4 | PASS |
+| Brain Age: Train Your Brain in Minutes a Day! | ✅ | 311 / 314 | 1012 (22.2MB) | LZ10:212, NCER XML:48, NANR XML:48, passthrough:3, SDAT:2 | PASS |
+| Chibi-Robo! Park Patrol | ✅ | 819 / 820 | 6552 (116.4MB) | ?:376, NANR XML:173, NCER XML:173, LZ10:41, NARC:24 | PASS |
+| Children of Mana | ✅ | 1066 / 1067 | 4150 (83.3MB) | ?:594, NCER XML:234, NANR XML:229, NSCR:8, passthrough:1 | PASS |
+| Chōsōjū Mecha MG | ✅ | 385 / 386 | 1580 (87.2MB) | LZ10:366, ?:5, RL:4, NANR XML:4, NCER XML:4 | PASS |
+| Clubhouse Games | ✅ | 41 / 42 | 490 (25.0MB) | LZ10:40, passthrough:1, SDAT:1 | PASS |
+| CrossworDS | 🟡 | 1 / 2 | 2000 (26.5MB) | passthrough:1, SDAT:1 | ERROR_EXIT28 |
+| Custom Robo Arena | 🟡 | 10248 / 10249 | 30318 (416.6MB) | LZ10:6339, ?:1361, NARC:1289, NCER XML:660, NANR XML:591 | EXIT_64 |
+| Daigasso! Band Brothers | 🟡 | 161 / 162 | 1314 (20.0MB) | NANR XML:72, NCER XML:72, ?:16, passthrough:1, SDAT:1 | ERROR_EXIT36 |
+| Daredemo Asobi Taizen | ✅ | 1 / 2 | 163 (15.7MB) | passthrough:1, SDAT:1 | PASS |
+| Densetsu no Starfy 4 | 🟡 | 4207 / 4208 | 13799 (515.2MB) | LZ10:2694, ?:723, NANR XML:672, NCER XML:117, passthrough:1 | ERROR_EXIT36 |
+| Diddy Kong Racing DS | ✅ | 1 / 2 | 292 (44.1MB) | passthrough:1, SDAT:1 | PASS |
+| DK Jungle Climber | 🟡 | 0 / 1 | 2120 (13.8MB) | passthrough:1 | ERROR_EXIT66 |
+| Dragon Quest IX: Sentinels of the Starry Skies | 🟡 | 17079 / 17086 | 51463 (1.51GB) | LZ10:11199, NARC:4167, LZH8:1698, ?:6, media passthrough:6 | ERROR_EXIT28 |
+| Dragon Quest Monsters: Joker 2 | ✅ | 6 / 7 | 4629 (161.1MB) | LZH8:3, LZ10:2, passthrough:1, SDAT:1 | PASS |
+| Dragon Quest VI: Realms of Revelation | ✅ | 4003 / 4004 | 10037 (328.7MB) | LZ11:2017, LZ10:1925, TEX:60, passthrough:1, SDAT:1 | PASS |
+| DS Bungaku Zenshū | 🟡 | 532 / 533 | 2770 (46.0MB) | ?:161, LZ10:149, NARC:149, NANR XML:32, NCER XML:32 | ERROR_EXIT36 |
+| DS Rakubiki Jiten | 🟡 | 73 / 74 | 572 (52.3MB) | ?:62, NANR XML:5, NCER XML:5, passthrough:1, SDAT:1 | ERROR_EXIT28 |
+| Electroplankton | 🟡 | 2 / 3 | 486 (13.1MB) | SDAT:2, passthrough:1 | ERROR_EXIT28 |
+| Elite Beat Agents | 🟡 | 32547 / 32548 | 53657 (272.2MB) | LZ10:20931, ?:9862, NCER XML:892, NANR XML:843, LZ11:10 | ERROR_EXIT28 |
+| English Training: Have Fun Improving Your Skills! | ✅ | 1076 / 1077 | 2660 (498.2MB) | LZ10:509, ?:446, NANR XML:59, NCER XML:59, SDAT:3 | PASS |
+| Etrian Odyssey | ✅ | 1230 / 1231 | 3853 (42.7MB) | LZ10:1078, RL:151, passthrough:1, SDAT:1 | PASS |
+| Face Training | ✅ | 189 / 190 | 2467 (32.2MB) | LZ10:117, NCCARC:71, passthrough:1, SDAT:1 | PASS |
+| Fire Emblem: Shadow Dragon | 🟡 | 0 / 1 | 3280 (36.9MB) | passthrough:1 | ERROR_EXIT66 |
+| Fire Emblem: Shin Monshō no Nazo ~Hikari to Kage no Eiyū~ | 🟡 | 0 / 1 | 4079 (51.8MB) | passthrough:1 | ERROR_EXIT66 |
+| Flash Focus: Vision Training in Minutes a Day | ✅ | 6382 / 6383 | 25652 (122.1MB) | NARC:2993, RL:2868, ?:274, NSCR:84, NANR XML:53 | PASS |
+| Fossil Fighters | ✅ | 1 / 2 | 8371 (147.5MB) | passthrough:1, SDAT:1 | PASS |
+| Fossil Fighters: Champions | ✅ | 1 / 76 | 12388 (385.1MB) | media passthrough:74, passthrough:1, SDAT:1 | PASS |
+| Freshly-Picked Tingle's Rosy Rupeeland | ✅ | 17 / 18 | 1097 (80.8MB) | LZ10:16, passthrough:1, SDAT:1 | PASS |
+| Game & Watch Collection | ✅ | 11 / 12 | 39 (2.2MB) | ?:3, NCER XML:3, NANR XML:3, passthrough:1, SDAT:1 | PASS |
+| Game & Watch Collection 2 | ✅ | 88 / 89 | 706 (4.5MB) | ?:51, NSCR:15, NANR XML:10, NCER XML:10, passthrough:1 | PASS |
+| Ganbaru Watashi no Kakei Diary | ✅ | 1821 / 1822 | 7451 (49.1MB) | ?:890, NCER XML:269, NANR XML:269, NARC:136, LZ10:131 | PASS |
+| Glory of Heracles | 🟡 | 3 / 5 | 170 (67.7MB) | passthrough:1, media passthrough:1, LZ10:1, SDAT:1, QuickLZ:1 | ERROR_EXIT66 |
+| Golden Sun: Dark Dawn | ✅ | 1457 / 1458 | 28760 (311.9MB) | NARC:1437, LZH8:14, QuickLZ:5, passthrough:1, SDAT:1 | PASS |
+| Harvest Moon DS | ✅ | 3 / 4 | 257 (111.7MB) | LZ10:2, passthrough:1, SDAT:1 | PASS |
+| Harvest Moon DS: Island of Happiness | ✅ | 1323 / 1324 | 4578 (123.8MB) | ?:564, NANR XML:379, NCER XML:379, passthrough:1, SDAT:1 | PASS |
+| Hotel Dusk: Room 215 | ✅ | 1 / 2 | 853 (118.5MB) | passthrough:1, SDAT:1 | PASS |
+| Inazuma Eleven | ✅ | 1023 / 1044 | 2911 (229.2MB) | LZ10:1021, media passthrough:20, LZH8:2, passthrough:1 | PASS |
+| Inazuma Eleven 2: Firestorm and Blizzard | ✅ | 459 / 500 | 1927 (322.5MB) | LZ10:457, media passthrough:40, LZH8:2, passthrough:1 | PASS |
+| Irozuki Tingle no Koi no Balloon Trip | ✅ | 404 / 405 | 1229 (170.1MB) | LZ11:364, LZ10:39, passthrough:1, SDAT:1 | PASS |
+| Jam with the Band | ✅ | 1076 / 1077 | 7640 (122.5MB) | NCER XML:532, NANR XML:527, LZH8:12, LZ10:3, passthrough:1 | PASS |
+| Jet Impulse | ✅ | 900 / 935 | 7597 (325.2MB) | ?:766, NSCR:71, media passthrough:34, LZ10:28, NANR XML:17 | PASS |
+| Jump Super Stars | 🟡 | 1 / 5 | 2994 (52.1MB) | media passthrough:3, passthrough:1, SDAT:1 | ERROR_EXIT66 |
+| Jump Ultimate Stars | ✅ | 11 / 13 | 500 (105.1MB) | LZ10:10, passthrough:1, media passthrough:1, SDAT:1 | PASS |
+| Kanji Sonomama Rakubiki Jiten DS | ✅ | 71 / 72 | 208 (124.3MB) | ?:66, NCER XML:2, NANR XML:2, passthrough:1, SDAT:1 | PASS |
+| Kirby Mass Attack | 🟡 | 1786 / 1787 | 10178 (126.8MB) | ?:1134, NSCR:323, NCER XML:154, NANR XML:154, HUFF8:15 | ERROR_EXIT36 |
+| Kirby Super Star Ultra | ✅ | 815 / 867 | 3481 (133.0MB) | LZ10:814, media passthrough:51, passthrough:1, SDAT:1 | PASS |
+| Kirby: Canvas Curse | ✅ | 905 / 906 | 3177 (91.7MB) | LZ10:899, LZH8:3, RL:2, passthrough:1, SDAT:1 | PASS |
+| Kirby: Squeak Squad | ✅ | 528 / 530 | 5119 (72.8MB) | RL:527, passthrough:2, SDAT:1 | PASS |
+| Kurikin Nano Island Story | ✅ | 1 / 4 | 2458 (54.3MB) | media passthrough:2, passthrough:1, SDAT:1 | PASS |
+| Kōsoku Card Battle: Card Hero | ✅ | 1109 / 1113 | 10734 (114.4MB) | LZ10:770, ?:168, NANR XML:83, NCER XML:83, media passthrough:3 | PASS |
+| Last Window: The Secret of Cape West | ✅ | 1 / 6 | 347 (148.8MB) | media passthrough:4, passthrough:1, SDAT:1 | PASS |
+| Learn with Pokémon: Typing Adventure | 🟡 | 27110 / 27111 | 49903 (398.0MB) | NARC:14544, LZ10:11038, ?:1100, NANR XML:148, NCER XML:148 | EXIT_64 |
+| Magnetica | 🟡 | 1208 / 1209 | 2101 (33.5MB) | ?:485, LZ10:263, NARC:240, NSCR:131, NCER XML:44 | EXIT_64 |
+| Make 10: A Journey of Numbers | ✅ | 6338 / 6339 | 13431 (370.0MB) | LZ10:3363, ?:2750, NSCR:213, NCER XML:4, NANR XML:4 | PASS |
+| Mario & Luigi: Bowser's Inside Story | ✅ | 3 / 4 | 333 (124.2MB) | passthrough:1, LZH8:1, HUFF8:1, SDAT:1 | PASS |
+| Mario & Luigi: Partners in Time | ✅ | 2 / 3 | 151 (61.1MB) | passthrough:1, LZH8:1, SDAT:1 | PASS |
+| Mario & Sonic at the Olympic Games | ✅ | 45 / 46 | 14345 (206.3MB) | LZ10:43, SDAT:2, passthrough:1 | PASS |
+| Mario & Sonic at the Olympic Winter Games | ✅ | 2 / 3 | 1345 (204.4MB) | SDAT:2, passthrough:1 | PASS |
+| Mario Hoops 3-on-3 | ✅ | 2331 / 2332 | 4751 (100.3MB) | LZ10:1151, ?:632, NCER XML:273, NANR XML:273, SDAT:2 | PASS |
+| Mario Kart DS | 🟡 | 2020 / 2021 | 7431 (157.3MB) | ?:1046, LZ10:286, NARC:286, NCER XML:284, NSCR:112 | EXIT_14 |
+| Mario Party DS | ✅ | 211 / 212 | 731 (44.9MB) | LZ10:210, passthrough:1, SDAT:1 | PASS |
+| Mario vs. Donkey Kong 2: March of the Minis | ✅ | 144 / 154 | 1139 (76.3MB) | LZ10:106, RL:37, media passthrough:8, passthrough:2, SDAT:1 | PASS |
+| Mario vs. Donkey Kong: Mini-Land Mayhem! | ✅ | 1 / 2 | 713 (54.5MB) | passthrough:1, SDAT:1 | PASS |
+| Master of Illusion | ✅ | 2588 / 2589 | 4310 (57.7MB) | LZ10:1561, ?:649, NCER XML:148, NANR XML:148, RL:80 | PASS |
+| Mawashite Tsunageru Touch Panic | ✅ | 13 / 14 | 312 (18.9MB) | HUFF8:12, passthrough:1, SDAT:1 | PASS |
+| Mega Man Battle Network 5: Double Team DS | ✅ | 2939 / 2940 | 7486 (60.3MB) | LZ10:2226, ?:586, NANR XML:56, NCER XML:56, LZH8:14 | PASS |
+| Meteos | ✅ | 8 / 9 | 1662 (80.3MB) | LZH8:5, LZ10:2, passthrough:1, SDAT:1 | PASS |
+| Metroid Prime Hunters | ✅ | 142 / 199 | 3044 (137.7MB) | LZ10:136, media passthrough:56, LZH8:3, passthrough:1, mffmpeg version git-2026-08-28-711882907a Copyright (c) 2000-2026 the FFmpeg developers:1 | PASS |
+| Metroid Prime Hunters: First Hunt | 🟡 | 20 / 35 | 233 (16.3MB) | media passthrough:14, RL:11, LZ10:8, passthrough:1, LZH8:1 | ERROR_EXIT66 |
+| Metroid Prime Pinball | ✅ | 707 / 708 | 2113 (52.4MB) | RL:700, LZH8:5, passthrough:1, LZ10:1, SDAT:1 | PASS |
+| Moero! Nekketsu Rhythm Damashii Osu! Tatakae! Ōendan 2 | 🟡 | 7776 / 7777 | 28500 (151.7MB) | LZ10:4862, ?:2380, NCER XML:267, NANR XML:261, SDAT:6 | ERROR_EXIT28 |
+| Mr. Driller Drill Spirits | 🟡 | 2 / 4 | 77 (14.0MB) | passthrough:2, LZH8:1, SDAT:1 | ERROR_EXIT66 |
+| Mystery Case Files: MillionHeir | ✅ | 1 / 2 | 25 (114.4MB) | passthrough:1, SDAT:1 | PASS |
+| Naruto Shippuden: Ninja Council 3 - European Version | ✅ | 1 / 2 | 36 (76.7MB) | passthrough:1, SDAT:1 | PASS |
+| Naruto: Ninja Council - European Version | ✅ | 1 / 2 | 40 (65.4MB) | passthrough:1, SDAT:1 | PASS |
+| Naruto: Ninja Destiny | ✅ | 1132 / 1133 | 4114 (83.5MB) | ?:1055, NCER XML:51, NSCR:25, passthrough:1, SDAT:1 | PASS |
+| Naruto: Ninja Destiny II - European Version | ✅ | 1618 / 1619 | 6407 (160.9MB) | ?:1430, NCER XML:120, NANR XML:42, NSCR:25, passthrough:1 | PASS |
+| New Super Mario Bros. | ✅ | 1159 / 1160 | 4120 (82.7MB) | LZ10:1110, NARC:45, SDAT:2, passthrough:1, LZ11:1 | PASS |
+| Nintendo Presents: Crossword Collection | 🟡 | 1 / 2 | 1905 (25.9MB) | passthrough:1, SDAT:1 | ERROR_EXIT28 |
+| Okaeri! Chibi-Robo! Happy Richie Ōsōji! | 🟡 | 0 / 1 | 552 (15.8MB) | passthrough:1 | ERROR_EXIT66 |
+| Osu! Tatakae! Ōendan | 🟡 | 0 / 1 | 1960 (40.8MB) | passthrough:1 | ERROR_EXIT66 |
+| Otona no Renai Shōsetsu: Harlequin Selection | 🟡 | 1262 / 1263 | 4201 (87.1MB) | ?:482, LZ10:268, NARC:268, NSCR:136, NANR XML:53 | ERROR_EXIT28 |
+| Pac 'n Roll | ✅ | 1 / 2 | 1308 (106.8MB) | passthrough:1, SDAT:1 | PASS |
+| Pac-Pix | ✅ | 1 / 2 | 295 (16.9MB) | passthrough:1, SDAT:1 | PASS |
+| Personal Trainer: Cooking | 🟡 | 0 / 1 | 2588 (21.5MB) | passthrough:1 | ERROR_EXIT66 |
+| Personal Trainer: Math | ✅ | 2 / 6 | 146 (24.1MB) | passthrough:4, HUFF8:1, SDAT:1 | PASS |
+| Personal Trainer: Walking | ✅ | 546 / 547 | 4603 (199.6MB) | ?:411, NCER XML:71, NANR XML:27, NSCR:23, LZH8:11 | PASS |
+| Phoenix Wright: Ace Attorney | ✅ | 1 / 2 | 194 (69.1MB) | passthrough:1, SDAT:1 | PASS |
+| Phoenix Wright: Ace Attorney - Justice for All | ✅ | 2 / 3 | 204 (41.4MB) | passthrough:1, SDAT:1, LZ10:1 | PASS |
+| Phoenix Wright: Ace Attorney - Trials and Tribulations | ✅ | 2 / 3 | 221 (37.0MB) | passthrough:1, SDAT:1, LZ10:1 | PASS |
+| Picross 3D | ✅ | 1 / 2 | 60 (49.7MB) | passthrough:1, SDAT:1 | PASS |
+| Picross DS | ✅ | 1 / 2 | 181 (53.0MB) | passthrough:1, SDAT:1 | PASS |
+| Planet Puzzle League | 🟡 | 578 / 579 | 1116 (36.5MB) | LZ10:339, ?:121, NANR XML:73, NCER XML:44, passthrough:1 | ERROR_EXIT36 |
+| Pokémon Black and White Version | ✅ | 29652 / 29653 | 79694 (930.3MB) | ?:11243, LZ11:10676, NCER XML:3274, NANR XML:3274, LZ10:933 | PASS |
+| Pokémon Black and White Version 2 | ✅ | 33082 / 33083 | 99682 (1.68GB) | ?:12993, LZ11:11207, NCER XML:3643, NANR XML:3643, LZ10:1252 | PASS |
+| Pokémon Card Game Asobi Kata DS | ✅ | 76 / 77 | 1685 (26.9MB) | LZH8:58, LZ10:16, passthrough:1, RL:1, SDAT:1 | PASS |
+| Pokémon Conquest | 🟡 | 2 / 6 | 1002 (188.1MB) | media passthrough:3, passthrough:1, SDAT:1, LZH8:1 | ERROR_EXIT66 |
+| Pokémon Dash | ✅ | 2 / 3 | 530 (23.8MB) | passthrough:1, LZ10:1, SDAT:1 | PASS |
+| Pokémon Diamond and Pearl Version | ✅ | 8443 / 8444 | 43798 (172.5MB) | ?:5555, LZ10:1868, NCER XML:440, NANR XML:427, NARC:149 | PASS |
+| Pokémon HeartGold and SoulSilver Version | ✅ | 19046 / 19047 | 79008 (549.2MB) | ?:12138, LZ10:4183, NCER XML:1009, NANR XML:993, LZ11:398 | PASS |
+| Pokémon Mystery Dungeon: Blue Rescue Team | ✅ | 1 / 2 | 253 (35.2MB) | passthrough:1, SDAT:1 | PASS |
+| Pokémon Mystery Dungeon: Explorers of Darkness and Explorers of Time | ✅ | 7 / 8 | 5958 (60.1MB) | LZ10:5, LZ11:2, passthrough:1 | PASS |
+| Pokémon Mystery Dungeon: Explorers of Sky | ✅ | 14 / 15 | 8663 (84.4MB) | LZ10:13, passthrough:1, LZ11:1 | PASS |
+| Pokémon Platinum Version | ✅ | 14193 / 14194 | 70249 (345.2MB) | ?:9889, LZ10:2468, NCER XML:814, NANR XML:801, NARC:217 | PASS |
+| Pokémon Ranger | 🟡 | 720 / 721 | 2903 (52.7MB) | LZ10:704, LZH8:9, HUFF4:3, SDAT:2, passthrough:1 | ERROR_EXIT28 |
+| Pokémon Ranger: Shadows of Almia | 🟡 | 15017 / 15018 | 32469 (154.5MB) | ?:5886, NCER XML:3876, NARC:2432, LZ10:2289, NANR XML:486 | EXIT_64 |
+| Pokémon Trozei! | 🟡 | 4185 / 4186 | 8167 (33.0MB) | NARC:1204, LZ10:917, ?:828, NANR XML:616, NCER XML:616 | EXIT_64 |
+| Polarium | 🟡 | 566 / 567 | 1139 (14.7MB) | LZ10:565, passthrough:1, SDAT:1 | ERROR_EXIT28 |
+| Professor Layton and the Curious Village | 🟡 | 0 / 1 | 1899 (24.4MB) | passthrough:1 | ERROR_EXIT66 |
+| Professor Layton and the Diabolical Box | ✅ | 1814 / 1838 | 4555 (184.1MB) | LZ10:1814, media passthrough:23, passthrough:1 | PASS |
+| Professor Layton and the Last Specter | ✅ | 0 / 39 | 636 (301.4MB) | media passthrough:38, passthrough:1 | PASS |
+| Professor Layton and the Unwound Future | ✅ | 3004 / 3041 | 7036 (354.3MB) | LZ10:2868, RL:123, media passthrough:36, HUFF8:12, passthrough:1 | PASS |
+| Project Hacker: Kakusei | 🟡 | 6282 / 6283 | 22421 (308.1MB) | NARC:2318, ?:1819, LZ10:1636, NCER XML:166, NANR XML:166 | EXIT_64 |
+| Resident Evil: Deadly Silence | ✅ | 7 / 8 | 171 (126.8MB) | LZH8:6, passthrough:1, SDAT:1 | PASS |
+| Rhythm Heaven | ✅ | 2247 / 2248 | 4396 (188.1MB) | ?:970, LZ10:865, NANR XML:205, NCER XML:205, passthrough:1 | PASS |
+| Ridge Racer DS | ✅ | 266 / 267 | 908 (41.3MB) | LZ10:157, RL:109, passthrough:1 | PASS |
+| Rooms: The Main Building | ✅ | 1 / 2 | 24 (23.7MB) | passthrough:1, SDAT:1 | PASS |
+| Shaberu! DS Oryōri Navi | 🟡 | 0 / 1 | 583 (5.7MB) | passthrough:1 | ERROR_EXIT66 |
+| Slide Adventure MAGKID | ✅ | 335 / 336 | 1138 (60.2MB) | LZ10:334, passthrough:1, SDAT:1 | PASS |
+| Solatorobo: Red the Hunter | ✅ | 1 / 4 | 1989 (67.9MB) | media passthrough:2, passthrough:1, SDAT:1 | PASS |
+| Soma Bringer | ✅ | 4 / 6 | 570 (243.0MB) | passthrough:2, LZ10:2, LZH8:1, PACK:1 | PASS |
+| Sonic Rush Adventure | 🟡 | 904 / 906 | 4272 (237.8MB) | LZ10:610, NARC:261, SDAT:31, passthrough:2, LZH8:2 | EXIT_64 |
+| Star Fox Command | ✅ | 3437 / 3438 | 7787 (63.8MB) | LZ10:3432, ?:3, passthrough:1, LZH8:1, SDAT:1 | PASS |
+| Style Savvy | 🟡 | 1928 / 1930 | 9021 (118.9MB) | ?:967, NANR XML:456, NCER XML:456, NSCR:41, LZ10:4 | ERROR_EXIT66 |
+| Sudoku Gridmaster | ✅ | 1 / 2 | 24 (12.8MB) | passthrough:1, SDAT:1 | PASS |
+| Super Mario 64 DS | ✅ | 1917 / 1918 | 6197 (54.0MB) | LZ10:1901, NARC:8, QuickLZ:4, LZH8:3, passthrough:1 | PASS |
+| Super Princess Peach | ✅ | 1733 / 1734 | 3937 (50.7MB) | LZ10:1307, ?:208, NANR XML:106, NCER XML:106, LZH8:5 | PASS |
+| Sūjin Taisen | 🟡 | 1865 / 1866 | 3168 (73.8MB) | ?:630, NARC:462, LZ10:396, NSCR:280, NCER XML:48 | EXIT_64 |
+| Tenchu: Dark Secret | ✅ | 0 / 1 | 10 (43.0MB) | passthrough:1 | PASS |
+| Tetris DS | 🟡 | 357 / 361 | 1041 (25.0MB) | LZ10:343, ?:10, passthrough:4, LZH8:1, SDAT:1 | EXIT_22 |
+| Tetris Party Deluxe | ✅ | 89 / 91 | 4079 (28.6MB) | ?:30, NANR XML:28, NCER XML:28, passthrough:2, HUFF8:2 | PASS |
+| The Legend of Zelda: Phantom Hourglass | 🟡 | 4280 / 4281 | 19115 (703.2MB) | NARC:1638, LZ10:1592, ?:562, NANR XML:228, NCER XML:228 | EXIT_64 |
+| The Legend of Zelda: Spirit Tracks | 🟡 | 5369 / 5373 | 26996 (860.0MB) | NARC:2142, LZ10:1712, ?:724, NCER XML:381, NANR XML:381 | EXIT_64 |
+| The Legendary Starfy | ✅ | 8 / 67 | 354 (128.7MB) | media passthrough:58, LZH8:6, passthrough:1, media passthrougffmpeg version git-2026-08-28-711882907a Copyright (c) 2000-2026 the FFmpeg developers:1, SDAT:1 | PASS |
+| Theta | ✅ | 1 / 2 | 330 (155.9MB) | passthrough:1, SDAT:1 | PASS |
+| Tingle's Balloon Fight | ✅ | 11 / 12 | 46 (8.3MB) | ?:3, NCER XML:3, NANR XML:3, passthrough:1, SDAT:1 | PASS |
+| Tomodachi Collection | 🟡 | 6563 / 6564 | 15346 (297.8MB) | NARC:2312, LZ10:1968, ?:1482, NSCR:574, NANR XML:113 | EXIT_64 |
+| Touch! Bomberman Land | ✅ | 25 / 27 | 3640 (36.4MB) | LZH8:10, LZ10:6, LZ11:6, passthrough:2, SDAT:2 | PASS |
+| Trace Memory | ✅ | 1 / 2 | 156 (34.0MB) | passthrough:1, SDAT:1 | PASS |
+| Trauma Center: Under the Knife | ✅ | 1 / 2 | 25 (22.1MB) | passthrough:1, SDAT:1 | PASS |
+| True Swing Golf | ✅ | 1297 / 1299 | 6231 (136.3MB) | ?:467, MSH:405, NCER XML:168, NANR XML:158, NSCR:92 | PASS |
+| Unoe Sangkwae Teullin Geurim Jeonjip | ✅ | 2 / 4 | 127 (29.4MB) | passthrough:2, LZH8:1, SDAT:1 | PASS |
+| Viewtiful Joe: Double Trouble! | ✅ | 442 / 443 | 18352 (292.3MB) | ?:289, NCER XML:123, NSCR:24, QuickLZ:4, passthrough:1 | PASS |
+| Wario: Master of Disguise | ✅ | 1 / 2 | 143 (54.2MB) | passthrough:1, SDAT:1 | PASS |
+| WarioWare D.I.Y. | ✅ | 1005 / 1006 | 7430 (40.4MB) | ?:484, LZ10:226, NSCR:152, NCER XML:77, NANR XML:65 | PASS |
+| WarioWare: Touched! | ✅ | 1000 / 1001 | 26726 (149.5MB) | LZ10:538, NCCARC:305, ?:82, NANR XML:37, NCER XML:37 | PASS |
+| Wi-Fi Taiō Yakuman DS | ✅ | 1 / 3 | 1223 (31.4MB) | passthrough:2, SDAT:1 | PASS |
+| Yakuman DS | ✅ | 1 / 3 | 1223 (31.4MB) | passthrough:2, SDAT:1 | PASS |
+| Yoshi Touch & Go | ✅ | 38 / 39 | 2312 (20.9MB) | LZ10:36, SDAT:2, passthrough:1 | PASS |
+| Yoshi's Island DS | ✅ | 688 / 689 | 1469 (71.8MB) | LZ10:648, PACK:35, LZH8:3, SDAT:2, passthrough:1 | PASS |
+| Zekkyō Senshi Sakeburein | ✅ | 1 / 3 | 176 (13.7MB) | passthrough:2, SDAT:1 | PASS |
+
+## Nintendo DS Bugfixes & Findings (This Session)
+
+- **Super Mario 64 DS BMD0 / NSBMD Integer Overflow Fix (`lib-nsbmd.c`)**:
+  - *Issue*: `ParseEarlyDSBMD()` suffered a 32-bit unsigned integer overflow when validating display list offsets (`dloff + sz <= size`), causing out-of-bounds pointer calculations and SIGBUS / `EXC_BAD_ACCESS` when reading display list opcodes.
+  - *Fix*: Hardened bounds checks with overflow-safe `sz >= 16 && sz <= size && dloff <= size - sz && dloff + 4 <= size`. All 502 BMD models in Super Mario 64 DS and across all other DS games now parse cleanly into GLB.
+
+- **NARC Shift-JIS / Invalid UTF-8 Path Traversal Fallback (`wszst.c`)**:
+  - *Issue*: `valid_sarc_path()` rejected Shift-JIS / Windows shortcut (`.lnk`) filenames present in retail DS NARC archives (such as *Animal Crossing: Wild World*), which previously aborted the entire archive extraction with `ERROR #36`.
+  - *Fix*: Aligned NARC extraction with SARC/RST behavior by falling back to synthetic `file_%04u.bin` filenames instead of aborting the archive.
+
+- **Uninitialized Stack Pointer Free in Nitro Sprite / Screen Decoder (`lib-nitro.c` & `wszst.c`)**:
+  - *Issue*: In `sprites_from_base()` and `nscr_from_base()`, `nitro_nclr_t nclr` on the stack was left uninitialized. If earlier format scans failed or short-circuited in `||`, `ResetNitroNCLR(&nclr)` invoked `FREE(nclr->rgba)` on uninitialized stack garbage (`0x16fd...`), triggering SIGABRT in macOS libmalloc (*Pokémon Trozei!*, etc.).
+  - *Fix*: Added zeroing at struct declarations and at the entry of `ScanNitroNCLR()`, guaranteeing `nclr->rgba` is NULL on error paths.

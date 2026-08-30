@@ -48,7 +48,10 @@ enumError ScanNitroNCGR (nitro_ncgr_t *ncgr, const u8 *data, uint size)
 
 enumError ScanNitroNCLR (nitro_nclr_t *nclr, const u8 *data, uint size)
 {
-	if (!nclr || !data || size < 0x28 || memcmp (data, "RLCN", 4)
+	if (!nclr)
+		return EINVAL;
+	memset (nclr, 0, sizeof (*nclr));
+	if (!data || size < 0x28 || memcmp (data, "RLCN", 4)
 		|| memcmp (data + 0x10, "TTLP", 4))
 		return EINVAL;
 

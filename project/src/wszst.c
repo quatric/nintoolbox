@@ -10015,8 +10015,8 @@ static enumError extract_narc_mem (ccp arg, ccp basedir, uint depth, const u8 *r
 
 		if (!valid_sarc_path (name))
 		{
-			err = ERROR0 (ERR_INVALID_DATA, "Unsafe NARC entry path: %s\n", name);
-			break;
+			snprintf (auto_name, sizeof (auto_name), "file_%04u.bin", i);
+			name = auto_name;
 		}
 		if (testmode)
 			continue;
@@ -12877,6 +12877,8 @@ static enumError sprites_from_base (ccp dir, ccp base)
 
 	nitro_ncgr_t ncgr;
 	nitro_nclr_t nclr;
+	memset (&ncgr, 0, sizeof (ncgr));
+	memset (&nclr, 0, sizeof (nclr));
 	if (ScanNitroNCGR (&ncgr, ncgr_data, ncgr_size))
 	{
 		err = ERROR0 (ERR_INVALID_DATA, "Invalid NCGR: %s%s.ncgr\n", dir, base);
@@ -12903,6 +12905,7 @@ static enumError sprites_from_base (ccp dir, ccp base)
 	}
 
 	nintendo_ncer_t ncer;
+	memset (&ncer, 0, sizeof (ncer));
 	if (ScanNCER (&ncer, ncer_data, ncer_size))
 	{
 		ResetNitroNCLR (&nclr);
@@ -12942,6 +12945,7 @@ static enumError sprites_from_base (ccp dir, ccp base)
 	if (!err && nanr_data)
 	{
 		nintendo_nanr_t nanr;
+		memset (&nanr, 0, sizeof (nanr));
 		if (!ScanNANR (&nanr, nanr_data, nanr_size))
 		{
 			if (verbose >= 0 || testmode)
@@ -13011,6 +13015,9 @@ static enumError nscr_from_base (ccp dir, ccp base)
 	nitro_nscr_t nscr;
 	nitro_ncgr_t ncgr;
 	nitro_nclr_t nclr;
+	memset (&nscr, 0, sizeof (nscr));
+	memset (&ncgr, 0, sizeof (ncgr));
+	memset (&nclr, 0, sizeof (nclr));
 	if (ScanNitroNSCR (&nscr, nscr_data, nscr_size) || ScanNitroNCGR (&ncgr, ncgr_data, ncgr_size)
 		|| ScanNitroNCLR (&nclr, nclr_data, nclr_size))
 	{

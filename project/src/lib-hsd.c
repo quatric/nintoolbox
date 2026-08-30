@@ -1921,7 +1921,16 @@ static void hsd_walk_jobj_skeleton (hsd_model_ctx_t *ctx, u32 off, int parent_id
 				if (isfinite (frx) && isfinite (fry) && isfinite (frz) && isfinite (fsx)
 					&& isfinite (fsy) && isfinite (fsz))
 				{
-					hsd_walk_jobj_skeleton (ctx, skel_off, parent_idx, depth);
+					// depth+1, not depth: this branch is taken when the
+					// current JOBJ's own floats failed validation, so it
+					// never reaches hsd_add_joint()/the cycle-detector above --
+					// a corrupt FTDATA skeleton pointer that resolves back to
+					// its own offset (confirmed on a real WarioWare: Smooth
+					// Moves "Wpad.dat" HSD model) recursed here with an
+					// unchanged depth forever, since the depth>64 guard at the
+					// top of this function never saw depth advance. A real
+					// stack overflow, not just a slow loop.
+					hsd_walk_jobj_skeleton (ctx, skel_off, parent_idx, depth + 1);
 					return;
 				}
 			}
@@ -1977,7 +1986,11 @@ static void hsd_walk_jobj_meshes (hsd_model_ctx_t *ctx, u32 off, int parent_idx,
 				if (isfinite (frx) && isfinite (fry) && isfinite (frz) && isfinite (fsx)
 					&& isfinite (fsy) && isfinite (fsz))
 				{
-					hsd_walk_jobj_meshes (ctx, skel_off, parent_idx, depth);
+					// Same depth-not-advancing bug as hsd_walk_jobj_skeleton()
+					// above: this branch never reaches the per-node recursion
+					// below, so an unchanged depth lets a self-referential
+					// FTDATA skeleton pointer recurse forever.
+					hsd_walk_jobj_meshes (ctx, skel_off, parent_idx, depth + 1);
 					return;
 				}
 			}
