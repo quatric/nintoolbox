@@ -8373,10 +8373,27 @@ static enumError extract_rpak_file ( ccp arg, ccp basedir, uint depth )
 	ext[4] = 0;
 
 	u8 *dec = 0; uint dec_size = 0;
+	bool decompress_failed = false;
 	if ( e->compressed )
+	{
 	    dec = DecompressRPAKEntry(e->data,e->size,&dec_size);
+	    decompress_failed = !dec;
+	}
 	const u8 *out_data = dec ? dec : e->data;
 	const uint out_size = dec ? dec_size : e->size;
+
+	// A block that fails to decompress (confirmed on a real Metroid Prime
+	// 3 .pak: its CMPD blocks use some other, unidentified codec, not the
+	// zlib DecompressRPAKEntry() expects -- the block header lies about
+	// compression the same way as a genuinely zlib entry, but the payload
+	// itself doesn't parse as zlib) is still raw, still-compressed data of
+	// unknown real format -- writing it under the type-guessed extension
+	// (e.g. ".cmdl") is actively wrong and dangerous: something downstream
+	// keyed off that extension/magic can misidentify and mishandle it
+	// (observed: routed to the Switch NCA tool 'hactool', which then fails
+	// loudly on data that was never an NCA). Use a plain, inert extension
+	// instead so nothing downstream tries to interpret the content.
+	ccp out_ext = decompress_failed ? "bin" : ext;
 
 	// (id_hi,id_lo) is not guaranteed unique across all .pak files -- a
 	// real Disney Epic Mickey archive has 26 colliding pairs, all sharing
@@ -8385,7 +8402,7 @@ static enumError extract_rpak_file ( ccp arg, ccp basedir, uint depth )
 	// unconditionally rather than only as a collision fallback.
 	char path[PATH_MAX];
 	snprintf(path,sizeof(path),"%s/%s%04u_%08x%08x.%s",
-	    dest,basedir ? basedir : "",i,e->id_hi,e->id_lo,ext);
+	    dest,basedir ? basedir : "",i,e->id_hi,e->id_lo,out_ext);
 	File_t F;
 	err = CreateFileOpt(&F,true,path,false,arg);
 	if ( F.f && out_size && fwrite(out_data,1,out_size,F.f) != out_size )
