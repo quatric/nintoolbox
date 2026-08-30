@@ -62,7 +62,7 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | Harvest Moon: Magical Melody | 🟡 | 4703 / 94653 | TPL:4681, BRFNT:12, Bvgmtrans:4, BRFNvgmtrans:4, BRLYT:1 | `ERROR_EXIT28` (282 errors logged). |
 | Harvest Moon: Tree of Tranquility | 🟡 | 4141 / 52913 | TPL:4132, LZH8:6, QuickLZ:3 | `ERROR_EXIT28` (42 errors logged). |
 | Inazuma Eleven Strikers | ✅ | 29 / 51113 | LZH8:18, BRFNT:11 | Directly re-tested against the current binary: **0 hard errors** (the old `AnmTexPat` crash is fixed). 6.4GB of real content confirmed extracted under `DATA/files`. Hits the separate, already-documented `wbrsar` warning class (18 occurrences, non-fatal). |
-| Just Dance Wii | 🟡 | 914 / 83464 | BRFNT:376, TPL:344, BRLAN:176, BRLYT:18 | `ERROR_EXIT28` (48 errors logged) — re-tested against the AnmTexPat fix. |
+| Just Dance Wii | ✅ | 914 / 83464 | BRFNT:376, TPL:344, BRLAN:176, BRLYT:18 | Directly re-tested against the current binary: **0 hard errors**. 2.1GB of real content confirmed extracted under `DATA/files`. Hits the separate, already-documented `wbrsar` warning class (22 occurrences, non-fatal). |
 | Just Dance Wii 2 | 🟡 | 620 / 83170 | TPL:348, BRLAN:176, BRFNT:74, BRLYT:18, AT7:4 | `ERROR_EXIT28` (48 errors logged) — re-tested against the AnmTexPat fix. |
 | Kiki Trick | 🟡 | 21758 / 108184 | TPL:11158, TEX:7604, BRLAN:2210, BRFNT:392, BRLYT:182 | `ERROR_EXIT28` (134 errors logged) — re-tested against the AnmTexPat fix. |
 | Kirby's Dream Collection | 🟡 | 30424 / 93692 | TPL:13554, TEX:8764, BRLAN:3032, BRLYT:1472, LZ11:1464 | `ERROR_EXIT28` (445 errors logged) — re-tested against the AnmTexPat fix. |
