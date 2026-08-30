@@ -5731,7 +5731,15 @@ u8 * DecompressRPAKEntry ( const u8 *data, uint size, uint *res_size )
 		if ( stored-sp < 2 ) { segmented = false; break; }
 		const uint word = (uint)data[pos+sp]<<8 | data[pos+sp+1];
 		sp += 2;
-		const bool raw = word & 0x8000;
+		// This codebase's `bool` is a packed 1-byte enum (see
+		// dclib-types.h) -- assigning a wide bitmask test directly
+		// truncates to the low 8 bits *before* the bool conversion,
+		// so `word & 0x8000` (a bit entirely in the high byte) was
+		// silently always 0/false here regardless of the real flag,
+		// corrupting every raw (negative-size literal) segment in
+		// every real CMPD stream. `!= 0` forces a proper 0-or-1
+		// result first.
+		const bool raw = (word & 0x8000) != 0;
 		const uint sn = raw ? (0x10000-word) : word;
 		if (!sn || sn > stored-sp) { segmented = false; break; }
 		if (raw)
