@@ -253,6 +253,7 @@ injection" describe the injection path specifically, which still consumes a
 | romc | Compression | ✅ | ✅ | N64 Virtual Console ROM compression; type-1 LZ77 decode verified on Kirby 64 and deterministic literal-stream encode with 4 MiB-unit validation and round-trip coverage. Not every N64 VC title uses it (Yoshi's Story stores its ROM raw); the distinct type-2 `romchu` Huffman variant remains unavailable for lack of a retail sample |
 | RL | Compression | ✅ | ✅ | |
 | SARC | Archive | ✅ | ✅ | Nintendo "SARC" (Sorted ARChive); extract, inject, create via `wszst`; widely used in Switch titles |
+| SSZL / VCRA | Compression / archive | ✅ | ❌ | Namco Museum Remix / Megamix (Wii): `wszst xx` recognizes extensionless `SSZL` LZSS0 streams (4096-byte zero-initialized window) and recursively extracts their named `VCRA` archives. |
 | RNC1 | Compression | ✅ | ✅ | deterministic ProPack-compatible method-1 encoder; independently decoded by `propack` regression vectors |
 | RNC2 | Compression | ✅ | ✅ | encode via `wszst COMPRESS --dest .rnc` |
 | RSEQ | Sequence | ✅ | ✅ | Wii Revolution Sequence (.rseq/.brseq); MML disassembly, assembly, MIDI conversion (`wseqt` & `wszst`) |
