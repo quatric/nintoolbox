@@ -1914,9 +1914,18 @@ static enumError passthru_claim
 
     // Switch NSP/XCI/NCA (strong pass):
     // PFS0 (offset 0), XCI "HEAD" tag (offset 0x100), and NCA magic (offset 0x200 or 0)
+    // Real NCA magic is 4 bytes, "NCA2" or "NCA3" (the two versions ever
+    // shipped) -- checking only the first 3 raw bytes ("NCA") throws away
+    // the version digit that actually disambiguates a real container from
+    // random data, and coincidentally matches ~1 in 16M byte positions.
+    // Confirmed as a real false-positive: a Retro Studios .pak's raw CMPD
+    // compressed entry (Metroid Prime 3) has an "NCA" 3-byte run at offset
+    // 0x200 purely by chance, which wrongly routed it to hactool ("PFS0 is
+    // corrupt") even though the file is not remotely an NCA/NSP.
     bool is_nsp = !memcmp(head,"PFS0",4);
     bool is_xci = !memcmp(head+0x100,"HEAD",4);
-    bool is_nca_sig = !memcmp(head+0x200,"NCA",3) || !memcmp(head,"NCA",3);
+    bool is_nca_sig = !memcmp(head+0x200,"NCA2",4) || !memcmp(head+0x200,"NCA3",4)
+	|| !memcmp(head,"NCA2",4) || !memcmp(head,"NCA3",4);
     if ( is_nsp || is_xci || is_nca_sig )
 	return passthru_archive_or_bms(src,basedir,stage,
 	    staged_dir,staged_dir_size, false, false, false, false, true);
