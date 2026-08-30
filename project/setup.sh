@@ -67,7 +67,12 @@ GCC_VERSION="$( "${PRE}gcc" --version | head -n1 | sed 's/([^)]*)//'|awk '{print
 # (e.g. an x86_64 CI runner cross-building for arm64/armhf/i386 would still
 # report SYSTEM=x86_64 and pick up -march=x86-64, which the target compiler
 # rejects).
+# The macros in dclib-system.h's PRINT_SYSTEM_SETTINGS block all sit on one
+# source line, so cpp emits all "result_X = value" pairs on a single output
+# line too (not one per line) -- split them apart first so the awk below,
+# which assumes one pair per line, actually sees one per line.
 "${PRE}gcc" $xflags -E -DPRINT_SYSTEM_SETTINGS system.c \
+	| grep -oE 'result_[A-Za-z0-9_]+ = ("[^"]*"|[^ ]+)' \
 	| awk -F= '/^result_/ { gsub(/"/,"",$2); printf("%s := %s\n",substr($1,8),$2) }' \
 	> Makefile.setup
 
