@@ -135,6 +135,25 @@ int IsLZMA (
 	if (magic != LZMA_MAGIC_NUM3)
 		return -1;
 
+	// The 3-byte magic (0x5D 0x00 0x00) is the same false-positive risk
+	// class as this session's other short-magic fixes (NCA/PFS0/XCI):
+	// confirmed on a real ExciteBots .car archive, where a proprietary
+	// "Low1a.mod" 3D model's own real header happens to start with
+	// exactly those 3 bytes, sending it through DecompressLZMA and
+	// failing with "Error while reading LZMA stream: Data error"
+	// instead of ever reaching the model decoder. The 8-byte compressed-
+	// length field this container format always carries right after the
+	// 5-byte properties (see DecodeLZMAbin's header_size = 5+8) is a
+	// cheap, reliable disambiguator: a real LZMA container's length has
+	// to fit in the buffer it's embedded in; the .mod file's unrelated
+	// header bytes at that offset decode to an implausible ~2 * 10^18.
+	const uint header_size = LZMA_PROPS_SIZE + 8;
+	if (size < header_size)
+		return -1;
+	const u64 in_len = le64 (d + LZMA_PROPS_SIZE);
+	if (!in_len || in_len > size - header_size)
+		return -1;
+
 	return GetComprLevelLZMA (le32 (d + 1));
 }
 
