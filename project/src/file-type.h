@@ -236,6 +236,7 @@ typedef enum file_format_t
 	FF_SEQ_TXT, // 144 - Nintendo Sequence MML text (.rseq.txt / .mml)
 	FF_MIDI, // 145 - Standard MIDI File (.mid)
 	FF_FZIP, // 146 - Game & Wario FZIP compression (.fzip)
+	FF_GVR, // 147 - Sega GameCube/Wii texture (GCIX/GVRT)
 
 	//--- number of elements
 

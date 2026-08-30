@@ -777,6 +777,11 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x46, 0x5a, 0x49, 0x50 }, // "FZIP"
 		0, MinusString, MinusString, "Game & Wario FZIP compression" },
 
+	// FF_GVR = 147 (Sega GameCube/Wii texture)
+	{ FF_GVR, 0, 0, "GVR", ".gvr", ".gvr", ".gvr", FFT_VALID | FFT_GRAPHIC | FFT_DECODE, 4,
+		{ 0x47, 0x43, 0x49, 0x58 }, // "GCIX"
+		0, MinusString, MinusString, "Sega GameCube/Wii texture (GCIX/GVRT)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -860,7 +865,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_BFSAR, "BFSAR", "FSAR", 0x3801 }, { FF_BCWAR, "BCWAR", "CWAR", 0x3801 },
 	{ FF_BFWAR, "BFWAR", "FWAR", 0x3801 }, { FF_BCGRP, "BCGRP", "CGRP", 0x3801 },
 	{ FF_BFGRP, "BFGRP", "FGRP", 0x3801 }, { FF_GTX, "GTX", "GFX2", 0x3001 },
-	{ FF_FZIP, "FZIP", "FZIP", 0x103 },
+	{ FF_FZIP, "FZIP", "FZIP", 0x103 }, { FF_GVR, "GVR", "GCIX", 0x3809 },
 
 	{ 0, 0, 0, 0 }
 };

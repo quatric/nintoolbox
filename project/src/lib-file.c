@@ -973,6 +973,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 				return FF_XYZ;
 			case FZIP_MAGIC_NUM:
 				return FF_FZIP;
+			case 0x47434958: // "GCIX" -- GVR needs its second signature too.
+				return data_size >= 0x20 && !memcmp (data + 0x10, "GVRT", 4) ? FF_GVR : FF_UNKNOWN;
 				//	    case BZ_MAGIC_NUM:		return FF_BZ;
 				//	    case LZ_MAGIC_NUM:		return FF_LZ;
 			case GCH_MAGIC_NUM:
