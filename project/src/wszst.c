@@ -4471,7 +4471,7 @@ static enumError cmd_minimap ()
 						root.maximum = mmap.max;
 
 #if 0 // workaround fails
-			// workaround for a bug in KMP modifier
+	  // workaround for a bug in KMP modifier
 			if ( root.minimum.x > root.minimum.z )
 			     root.minimum.x = root.minimum.z;
 			if ( root.maximum.x < root.maximum.z )
@@ -7951,10 +7951,41 @@ static enumError cmd_update ()
 ///////////////			command extract			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
+// Rejects malformed UTF-8 (macOS's filesystem refuses to create a file
+// whose name isn't valid UTF-8 -- EILSEQ). Seen on real container entry
+// names (Excite Truck .car/.trk archives, a Kirby's Epic Yarn BRRES
+// texture name) carrying a raw byte from some other 8-bit encoding
+// (Shift-JIS/Windows-1252) instead. Not a security check like the rest of
+// this function -- just filesystem compatibility -- but living here means
+// every caller's existing "invalid name" fallback handles it for free.
+static bool valid_utf8 (ccp s)
+{
+	const u8 *p = (const u8 *)s;
+	while (*p)
+	{
+		if (*p < 0x80)
+			p++;
+		else
+		{
+			int len = (*p & 0xe0) == 0xc0 ? 2
+				: (*p & 0xf0) == 0xe0	  ? 3
+				: (*p & 0xf8) == 0xf0	  ? 4
+										  : 0;
+			if (!len)
+				return false;
+			for (int i = 1; i < len; i++)
+				if ((p[i] & 0xc0) != 0x80)
+					return false;
+			p += len;
+		}
+	}
+	return true;
+}
+
 static bool valid_sarc_path (ccp path)
 {
 	return path && *path && path[0] != '/' && !strchr (path, '\\') && strncmp (path, "../", 3)
-		&& strcmp (path, "..") && !strstr (path, "/../");
+		&& strcmp (path, "..") && !strstr (path, "/../") && valid_utf8 (path);
 }
 
 // Forward declared so SARC/PAC/GFA extraction can recurse into their own
@@ -8074,9 +8105,17 @@ static enumError extract_sarc_mem (ccp arg, ccp basedir, uint depth, const u8 *r
 			snprintf (auto_name, sizeof (auto_name), "file_%04u%s", i, ext);
 			name = auto_name;
 		}
-		if (!err && !valid_sarc_path (name))
-			err = ERROR0 (ERR_INVALID_DATA, "Unsafe SARC entry path: %s\n", name);
-		if (err || testmode)
+		if (!valid_sarc_path (name))
+		{
+			// A named-but-unsafe entry (path traversal, or a name with
+			// invalid UTF-8 bytes macOS's filesystem refuses -- see
+			// valid_utf8()'s comment) used to abort every remaining entry
+			// in the archive. Give it a synthetic name instead, same as
+			// the "no name at all" case just above.
+			snprintf (auto_name, sizeof (auto_name), "file_%04u.bin", i);
+			name = auto_name;
+		}
+		if (testmode)
 			continue;
 		char path[PATH_MAX];
 		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", name);
@@ -9529,10 +9568,9 @@ static enumError extract_gfa_file (ccp arg, ccp basedir, uint depth)
 		else
 			snprintf (rel, sizeof (rel), "%s", e->name);
 		if (!valid_sarc_path (rel))
-		{
-			err = ERROR0 (ERR_INVALID_DATA, "Unsafe GFA entry path: %s\n", rel);
-			break;
-		}
+			// Same fallback as the SARC/RST/Arika loops: don't abort every
+			// remaining entry over one unsafe/non-UTF8 name.
+			snprintf (rel, sizeof (rel), "file_%04u.bin", i);
 		if (testmode)
 			continue;
 
@@ -9659,16 +9697,28 @@ static enumError extract_rst_file (ccp arg, ccp basedir, uint depth)
 
 	for (uint i = 0; !err && i < n_entries; i++)
 	{
-		if (!valid_sarc_path (entries[i].name))
+		// An unsafe/empty name (seen on real Excite Truck .car archives --
+		// some TOC entries resolve to an empty string, likely internal/
+		// placeholder table slots rather than real path-traversal attempts)
+		// used to abort the *entire* archive's extraction on the first
+		// occurrence, silently dropping every entry after it. Give it a
+		// synthetic index-based name instead and keep going, same as the
+		// RPAK collision fallback -- no data lost, and genuinely malicious
+		// paths (../, absolute, embedded backslash) still can't escape
+		// 'dest' since they still get this same fallback rather than being
+		// used verbatim.
+		ccp name = entries[i].name;
+		char safe_name[32];
+		if (!valid_sarc_path (name))
 		{
-			err = ERROR0 (ERR_INVALID_DATA, "Unsafe RST entry path: %s\n", entries[i].name);
-			break;
+			snprintf (safe_name, sizeof (safe_name), "%04u.bin", i);
+			name = safe_name;
 		}
 		if (testmode)
 			continue;
 
 		char path[PATH_MAX];
-		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", entries[i].name);
+		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", name);
 		File_t F;
 		err = CreateFileOpt (&F, true, path, false, arg);
 		if (F.f && fwrite (entries[i].data, 1, entries[i].size, F.f) != entries[i].size)
@@ -9747,16 +9797,21 @@ static enumError extract_arika_file (ccp arg, ccp basedir, uint depth)
 
 	for (uint i = 0; !err && i < n_entries; i++)
 	{
-		if (!valid_sarc_path (entries[i].name))
+		// Same fallback as the RST loop above: don't abort the whole
+		// archive over one unsafe/empty entry name, give it a synthetic
+		// name instead.
+		ccp name = entries[i].name;
+		char safe_name[32];
+		if (!valid_sarc_path (name))
 		{
-			err = ERROR0 (ERR_INVALID_DATA, "Unsafe Arika entry path: %s\n", entries[i].name);
-			break;
+			snprintf (safe_name, sizeof (safe_name), "%04u.bin", i);
+			name = safe_name;
 		}
 		if (testmode)
 			continue;
 
 		char path[PATH_MAX];
-		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", entries[i].name);
+		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", name);
 		File_t F;
 		err = CreateFileOpt (&F, true, path, false, arg);
 		if (F.f && entries[i].size
