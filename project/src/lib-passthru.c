@@ -1935,8 +1935,29 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 	// compressed entry (Metroid Prime 3) has an "NCA" 3-byte run at offset
 	// 0x200 purely by chance, which wrongly routed it to hactool ("PFS0 is
 	// corrupt") even though the file is not remotely an NCA/NSP.
-	bool is_nsp = !memcmp (head, "PFS0", 4);
-	bool is_xci = !memcmp (head + 0x100, "HEAD", 4);
+	// A bare 4-byte "PFS0" match at offset 0 has the same false-positive
+	// risk as the old 3-byte NCA check above: confirmed on a real Pangya!
+	// Golf with Style archive, whose raw (non-Switch) sub-data happened to
+	// start with those 4 bytes purely by chance, again routing it to
+	// hactool for the same "PFS0 is corrupt!" failure. A real PFS0 header
+	// is magic + u32 file_count + u32 string_table_size + u32 reserved
+	// (reserved must be 0); require file_count/string_table_size to be
+	// sane and reserved to actually be 0 before trusting the magic alone.
+	u32 pfs0_file_count = head[4] | head[5] << 8 | head[6] << 16 | head[7] << 24;
+	u32 pfs0_str_size = head[8] | head[9] << 8 | head[10] << 16 | head[11] << 24;
+	u32 pfs0_reserved = head[12] | head[13] << 8 | head[14] << 16 | head[15] << 24;
+	bool is_nsp = !memcmp (head, "PFS0", 4) && pfs0_reserved == 0 && pfs0_file_count > 0
+		&& pfs0_file_count < 10000 && pfs0_str_size < 0x100000;
+	// Same false-positive risk as PFS0 above: a bare 4-byte "HEAD" match at
+	// offset 0x100 also hit a real Pangya! Golf with Style sound-effect
+	// file (.gsp, "GSNDB" container, nothing Switch-related) purely by
+	// chance. Cross-check against hactool's own xci_header_t (SciresM/
+	// hactool xci.h): the cart_type byte at head+0x10D is a closed enum
+	// with exactly 6 real values (1/2/4/8/16/32 GB cartridge sizes) --
+	// require it to be one of those before trusting the magic.
+	bool xci_cart_size_valid = head[0x10D] == 0xFA || head[0x10D] == 0xF8 || head[0x10D] == 0xF0
+		|| head[0x10D] == 0xE0 || head[0x10D] == 0xE1 || head[0x10D] == 0xE2;
+	bool is_xci = !memcmp (head + 0x100, "HEAD", 4) && xci_cart_size_valid;
 	bool is_nca_sig = !memcmp (head + 0x200, "NCA2", 4) || !memcmp (head + 0x200, "NCA3", 4)
 		|| !memcmp (head, "NCA2", 4) || !memcmp (head, "NCA3", 4);
 	if (is_nsp || is_xci || is_nca_sig)
