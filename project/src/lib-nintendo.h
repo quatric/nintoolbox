@@ -646,11 +646,17 @@ void      ResetRPAK ( rpak_t *pak );
 // must resolve in-bounds for the file to be accepted.
 enumError ScanRPAK ( rpak_t *pak, const u8 *data, uint size );
 
-// Decompress one CMPD-wrapped entry payload. Returns an ALLOC()'d buffer
-// (caller FREE()s it) and sets *res_size, or returns NULL on any structural
-// error (caller should then fall back to treating the entry as uncompressed
-// raw data instead).
+// Decompress one CMPD-wrapped entry payload. DKCR blocks contain one zlib
+// stream; Metroid Prime 2/3 blocks contain signed-size raw/zlib/LZO1X
+// segments. Returns an ALLOC()'d buffer (caller FREE()s it) and sets
+// *res_size, or returns NULL on any structural error (caller should then fall
+// back to treating the entry as uncompressed raw data instead).
 u8 * DecompressRPAKEntry ( const u8 *data, uint size, uint *res_size );
+
+// Clean-room decoder for the byte-aligned LZO1X stream used by Metroid
+// Prime's CMPD segments. It is deliberately not linked to liblzo. On
+// success, *dest is ALLOC()'d and contains the complete stream output.
+enumError DecodeLZO1XGrow ( u8 **dest, uint *dest_size, const u8 *src, uint src_size );
 
 // Plain zlib-stream decompress (standard 2-byte zlib header, not raw
 // deflate), size unknown up front -- grows the output buffer as needed.
