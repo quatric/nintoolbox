@@ -101,6 +101,13 @@ typedef struct rarc_info_t
 
 ///////////////////////////////////////////////////////////////////////////////
 
+// Maximum supported RARC directory depth (mirrors the U8 iterator's MAX_DEPTH
+// in lib-szs.c). Guards iterate_rarc_dir() against stack overflow on corrupt /
+// cyclic directory graphs where a subdirectory entry points back to a node
+// already on the recursion path (e.g. SMG's ChaosLandZoneMap.arc, which
+// repeats 'camera/CameraParam.bcam/' >25 levels deep).
+#define RARC_MAX_DIR_DEPTH 25
+
 static int iterate_rarc_dir (szs_iterator_t *it, // iterator struct with all infos
 	rarc_info_t *ri, // valid rarc info
 	uint node_idx // node to print
@@ -114,6 +121,9 @@ static int iterate_rarc_dir (szs_iterator_t *it, // iterator struct with all inf
 	DASSERT (ri->entry);
 
 	if (node_idx >= ri->n_node)
+		return 0;
+
+	if (it->depth >= RARC_MAX_DIR_DEPTH)
 		return 0;
 
 	const rarc_node_t *node = ri->node + node_idx;
@@ -160,7 +170,9 @@ static int iterate_rarc_dir (szs_iterator_t *it, // iterator struct with all inf
 
 			char *save_trail_path = it->trail_path;
 			it->trail_path = dest;
+			it->depth++;
 			iterate_rarc_dir (it, ri, be32 (&entry->data_off));
+			it->depth--;
 			it->trail_path = save_trail_path;
 		}
 	}
@@ -289,6 +301,7 @@ int IterateFilesRARC (struct szs_iterator_t *it, // iterator struct with all inf
 	}
 
 	it->trail_path = it->path;
+	it->depth = 0;
 	iterate_rarc_dir (it, &ri, 0);
 	it->trail_path = 0;
 
