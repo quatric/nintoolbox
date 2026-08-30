@@ -8093,6 +8093,145 @@ static void beside_source_dest_ext (char *dest, uint dest_size, ccp arg, ccp new
 	snprintf (dest, dest_size, "%s%s", base, new_ext);
 }
 
+// Sonic and the Secret Rings / Sonic and the Black Knight use a small
+// big-endian ONE archive around PRS-compressed assets.  It has no magic:
+// header[1] is always the 0x10 entry-table offset and header[3] is 0 (Secret
+// Rings) or -1 (Black Knight).  Keep detection deliberately structural so a
+// random file named .one is not opened as an archive.
+static bool decode_storybook_prs (u8 *out, uint out_size, const u8 *in, uint in_size)
+{
+	if (!out || !out_size || !in || !in_size)
+		return false;
+
+	uint ip = 0, op = 0;
+	int n_bits = 9;
+	u8 control = in[ip++];
+	for (;;)
+	{
+		#define PRS_BIT() \
+			( --n_bits == 0 ? ( ip >= in_size ? -1 : ( control = in[ip++], n_bits = 8, control & 1 ) ) \
+				: control & 1 )
+		int bit = PRS_BIT();
+		if (bit < 0)
+			return false;
+		control >>= 1;
+		if (bit)
+		{
+			if (ip >= in_size || op >= out_size)
+				return false;
+			out[op++] = in[ip++];
+			continue;
+		}
+
+		bit = PRS_BIT();
+		if (bit < 0)
+			return false;
+		control >>= 1;
+		int offset, length;
+		if (bit)
+		{
+			if (ip + 2 > in_size)
+				return false;
+			const uint word = in[ip] | in[ip + 1] << 8;
+			ip += 2;
+			if (!word)
+				return op == out_size;
+			length = word & 7;
+			offset = (int)(word >> 3) - 0x2000;
+			if (!length)
+			{
+				if (ip >= in_size)
+					return false;
+				length = in[ip++] + 1;
+			}
+			else
+				length += 2;
+		}
+		else
+		{
+			int b0 = PRS_BIT();
+			if (b0 < 0)
+				return false;
+			control >>= 1;
+			int b1 = PRS_BIT();
+			if (b1 < 0 || ip >= in_size)
+				return false;
+			control >>= 1;
+			length = (b0 << 1 | b1) + 2;
+			offset = (int)in[ip++] - 0x100;
+		}
+		if (offset >= 0 || (uint)-offset > op || length <= 0 || (uint)length > out_size - op)
+			return false;
+		while (length--)
+			out[op] = out[op + offset], op++;
+		#undef PRS_BIT
+	}
+}
+
+static enumError extract_storybook_one_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".one"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false))
+		return ERR_NOTHING_TO_DO;
+	enumError err = ERR_NOTHING_TO_DO;
+	if (raw_size < 16 || raw_size > UINT_MAX)
+		goto cleanup;
+	const uint n_entries = be32 (raw), table = be32 (raw + 4), data = be32 (raw + 8), marker = be32 (raw + 12);
+	if (!n_entries || n_entries > (raw_size - 16) / 48 || table != 16 || (marker != 0 && marker != UINT_MAX)
+		|| data < table + n_entries * 48 || data > raw_size)
+		goto cleanup;
+
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT Sonic Storybook ONE:%s (%u files) -> %s/\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, n_entries, dest);
+	err = ERR_OK;
+	for (uint i = 0; !err && i < n_entries; i++)
+	{
+		const u8 *entry = raw + table + i * 48;
+		char name[33];
+		memcpy (name, entry, 32);
+		name[32] = 0;
+		const uint offset = be32 (entry + 36), size = be32 (entry + 40), out_size = be32 (entry + 44);
+		if (!valid_sarc_path (name) || !*name || offset < data || offset > raw_size || size > raw_size - offset
+			|| !out_size || out_size > opt_max_file_size)
+		{
+			err = ERR_INVALID_DATA;
+			break;
+		}
+		if (testmode)
+			continue;
+		u8 *out = MALLOC (out_size);
+		if (!decode_storybook_prs (out, out_size, raw + offset, size))
+		{
+			FREE (out);
+			err = ERR_INVALID_DATA;
+			break;
+		}
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", name);
+		File_t F;
+		err = CreateFileOpt (&F, true, path, false, arg);
+		if (F.f && fwrite (out, 1, out_size, F.f) != out_size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", out_size, path);
+		ResetFile (&F, opt_preserve);
+		FREE (out);
+	}
+	if (!err && !testmode)
+	{
+		enumError sub_err = extract_tree_complete (dest, depth + 1);
+		if (err < sub_err)
+			err = sub_err;
+	}
+cleanup:
+	FREE (raw);
+	return err;
+}
+
 static enumError extract_sarc_mem (ccp arg, ccp basedir, uint depth, const u8 *raw, size_t raw_size)
 {
 	if (!raw || raw_size < 0x20 || raw_size > UINT_MAX || memcmp (raw, "SARC", 4))
@@ -13587,6 +13726,10 @@ static enumError extract_one_file (ccp arg, ccp basedir, uint depth)
 	}
 
 	err = extract_sarc_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_storybook_one_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
