@@ -993,7 +993,8 @@ static enumError passthru_archive (
 		// second verbosity level turns on its progress counter, useful for
 		// diagnosing a stall/failure on a multi-GB disc image instead of
 		// getting nothing but our own before/after log lines.
-		char *argv[] = { (char *)tool, "EXTRACT", "-D", stage, "-f", "-vv", (char *)src, 0 };
+		char *argv[]
+			= { (char *)tool, "EXTRACT", "-D", stage, "--overwrite", "-vv", (char *)src, 0 };
 		const int rc = run_program (argv);
 		if (rc != 0)
 			return ERROR0 (

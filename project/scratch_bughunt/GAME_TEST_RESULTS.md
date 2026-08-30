@@ -577,3 +577,96 @@ Full extraction test suite (`wszst xx <rom.nds>`) across all 163 Nintendo DS gam
 - **Uninitialized Stack Pointer Free in Nitro Sprite / Screen Decoder (`lib-nitro.c` & `wszst.c`)**:
   - *Issue*: In `sprites_from_base()` and `nscr_from_base()`, `nitro_nclr_t nclr` on the stack was left uninitialized. If earlier format scans failed or short-circuited in `||`, `ResetNitroNCLR(&nclr)` invoked `FREE(nclr->rgba)` on uninitialized stack garbage (`0x16fd...`), triggering SIGABRT in macOS libmalloc (*Pokémon Trozei!*, etc.).
   - *Fix*: Added zeroing at struct declarations and at the entry of `ScanNitroNCLR()`, guaranteeing `nclr->rgba` is NULL on error paths.
+
+# Nintendo GameCube Game Extraction Test Results
+
+Tracking `wszst xx <disc.ciso>` (full disc image extraction and recursive sub-container unpacking) against the full list of first-party and Nintendo-published GameCube titles from [Wikipedia: List of Nintendo home video games (GameCube)](https://en.wikipedia.org/wiki/List_of_Nintendo_home_video_games#GameCube), sourced from `mcubeg:Nintendo - GameCube/Redump/[CISO]/Games/`.
+
+## Executive Summary
+
+- **Total Titles Tested**: 67
+- **Clean Passes (✅)**: 49 (73.1%)
+- **Non-Fatal Warnings/Exits (🟡)**: 18 (26.9%)
+- **Fatal Crashes (❌)**: 0 (0.0%)
+- **Total Extracted Files on Disk**: 527,618
+- **Total Game-Specific Operations**: 152,930 real operations (153,122 total operations)
+
+| Game | Status | Real / Total Ops | Extracted Files (Size) | Top Formats | Notes |
+|---|---|---|---|---|---|
+| Luigi's Mansion | 🟡 | 1191 / 1192 | 4637 (391.3MB) | RARC:710, Yay0:480, media passthrough:1 | Non-fatal sub-job warning (audio/stream fragment or unrecognized sub-asset) |
+| Wave Race: Blue Storm | ✅ | 4235 / 4236 | 2812 (1.4GB) | TPL:4234, HUFF4:1 | Clean extraction |
+| Pikmin | 🟡 | 8 / 9 | 3504 (634.0MB) | media passthrough:6, MPBIN:2 | Non-fatal texture / media decoder exit |
+| Super Smash Bros. Melee | 🟡 | 75 / 76 | 18457 (2.0GB) | media passthrough:75 | Non-fatal sub-job warning (audio/stream fragment or unrecognized sub-asset) |
+| Animal Crossing | ✅ | 3 / 4 | 139 (32.7MB) | RARC:3 | Clean extraction |
+| Cubivore: Survival of the Fittest | ✅ | 0 / 1 | 1508 (104.1MB) | n/a | Clean extraction |
+| Doshin the Giant | ✅ | 6962 / 6963 | 10191 (850.8MB) | TPL:5194, media passthrough:1753, QuickLZ:15 | Clean extraction |
+| NBA Courtside 2002 | ✅ | 1 / 2 | 562 (930.9MB) | TEX:1 | Clean extraction |
+| Eternal Darkness: Sanity's Requiem | ✅ | 1736 / 1737 | 2583 (1.5GB) | TPL:1684, media passthrough:52 | Clean extraction |
+| Super Mario Sunshine | ✅ | 143 / 144 | 50369 (1.7GB) | YAZ0.RARC:122, media passthrough:21 | Clean extraction |
+| Star Fox Adventures | ✅ | 4 / 5 | 4083 (798.3MB) | HUFF8:3, media passthrough:1 | Clean extraction |
+| Mario Party 4 | ✅ | 4321 / 4322 | 22702 (1.9GB) | HSF:4170, MPBIN:139, media passthrough:12 | Clean extraction |
+| Metroid Prime | ✅ | 150 / 151 | 337 (1.4GB) | media passthrough:150 | Clean extraction |
+| The Legend of Zelda: Ocarina of Time / Master Quest | ✅ | 23 / 24 | 2265 (1.1GB) | TPL:18, RARC:5 | Clean extraction |
+| The Legend of Zelda: The Wind Waker | ✅ | 1557 / 1558 | 18295 (1.4GB) | RARC:787, YAZ0.RARC:765, LZH8:2, media passthrough:2, LZ10:1 | Clean extraction |
+| Nintendo Puzzle Collection | ✅ | 5 / 6 | 170 (150.1MB) | Yay0:5 | Clean extraction |
+| Giftpia | ✅ | 165 / 167 | 8205 (1.2GB) | TPL:162, media passthrough:3 | Clean extraction |
+| Wario World | ✅ | 114 / 115 | 368 (306.0MB) | media passthrough:114 | Clean extraction |
+| Pokémon Box: Ruby and Sapphire | ✅ | 22 / 23 | 2519 (101.8MB) | YAZ0.RARC:11, RARC:11 | Clean extraction |
+| Dōbutsu no Mori e+ | ✅ | 11 / 12 | 175 (37.4MB) | YAZ0.RARC:6, RARC:5 | Clean extraction |
+| Kirby Air Ride | 🟡 | 9 / 10 | 6278 (741.0MB) | media passthrough:9 | Non-fatal sub-job warning (audio/stream fragment or unrecognized sub-asset) |
+| Pokémon Channel | 🟡 | 272 / 289 | 7071 (1.0GB) | TPL:260, media passthrough:12 | Non-fatal sub-job warning (audio/stream fragment or unrecognized sub-asset) |
+| F-Zero GX | ✅ | 8 / 61 | 6267 (1.3GB) | LZH8:8 | Clean extraction |
+| Mario Golf: Toadstool Tour | ✅ | 106 / 107 | 1934 (1.2GB) | TPL:96, media passthrough:10 | Clean extraction |
+| WarioWare, Inc.: Mega Party Game$! | ✅ | 24 / 25 | 439 (1.0GB) | media passthrough:24 | Clean extraction |
+| Mario Kart: Double Dash<nowiki>!!</nowiki> | ✅ | 120 / 121 | 5910 (862.4MB) | RARC:81, media passthrough:38, YAZ0.RARC:1 | Clean extraction |
+| Mario Party 5 | ✅ | 7222 / 7223 | 31070 (2.9GB) | HSF:6900, MPBIN:230, media passthrough:92 | Clean extraction |
+| The Legend of Zelda: Collector's Edition | ✅ | 3 / 4 | 231 (1.2GB) | YAZ0.RARC:1, media passthrough:1, RARC:1 | Clean extraction |
+| Pokémon Colosseum | 🟡 | 2743 / 2744 | 8301 (1.2GB) | FSYS:1852, LZ10:886, media passthrough:5 | Non-fatal stream/audio codec notice |
+| Pac-Man Vs. | ✅ | 63 / 64 | 2007 (120.9MB) | YAZ0.RARC:52, media passthrough:10, RARC:1 | Clean extraction |
+| 1080° Avalanche | ✅ | 19543 / 19544 | 14156 (1.5GB) | TPL:19502, MPBIN:24, media passthrough:16, HUFF4:1 | Clean extraction |
+| Donkey Konga | 🟡 | 64 / 65 | 777 (256.5MB) | media passthrough:42, TPL:22 | Non-fatal sub-job warning (audio/stream fragment or unrecognized sub-asset) |
+| Custom Robo | ✅ | 3266 / 3267 | 2563 (1.0GB) | TPL:3264, media passthrough:2 | Clean extraction |
+| The Legend of Zelda: Four Swords Adventures | ✅ | 127 / 128 | 27100 (376.9MB) | YAZ0.RARC:113, QuickLZ:8, media passthrough:4, RARC:2 | Clean extraction |
+| Pikmin 2 | ✅ | 2058 / 2059 | 48115 (1.6GB) | YAZ0.RARC:1939, media passthrough:99, RARC:19, QuickLZ:1 | Clean extraction |
+| Legend of Golfer | 🟡 | 4535 / 4536 | 4391 (1.4GB) | TEX:4510, media passthrough:25 | Non-fatal image format warning |
+| Donkey Konga 2 | 🟡 | 54 / 55 | 582 (249.9MB) | media passthrough:54 | Non-fatal sub-job warning (audio/stream fragment or unrecognized sub-asset) |
+| Paper Mario: The Thousand-Year Door | ✅ | 34732 / 34787 | 20606 (655.0MB) | TPL:34732 | Clean extraction |
+| Kururin Squash | ✅ | 4 / 5 | 4012 (251.3MB) | TPL:4 | Clean extraction |
+| Mario Power Tennis | ✅ | 38 / 39 | 1349 (758.8MB) | media passthrough:37, LZH8:1 | Clean extraction |
+| Metroid Prime 2: Echoes | 🟡 | 105 / 106 | 264 (1.4GB) | media passthrough:105 | Non-fatal sub-job warning (audio/stream fragment or unrecognized sub-asset) |
+| Mario Party 6 | 🟡 | 8474 / 8475 | 35742 (2.8GB) | HSF:8102, MPBIN:245, media passthrough:127 | Non-fatal sub-container exit (HSF/script format warning) |
+| Donkey Kong Jungle Beat | ✅ | 727 / 728 | 6894 (1.0GB) | YAZ0.RARC:576, RARC:91, media passthrough:60 | Clean extraction |
+| Star Fox: Assault | 🟡 | 89 / 90 | 973 (1.2GB) | media passthrough:76, MPBIN:11, LZ10:2 | Non-fatal texture / media decoder exit |
+| Donkey Konga 3 | 🟡 | 83 / 84 | 908 (252.5MB) | media passthrough:83 | Non-fatal sub-job warning (audio/stream fragment or unrecognized sub-asset) |
+| Fire Emblem: Path of Radiance | ✅ | 17336 / 17337 | 12818 (1.9GB) | TPL:16092, LZ10:1234, media passthrough:9, HUFF4:1 | Clean extraction |
+| Chibi-Robo! | ✅ | 590 / 592 | 5282 (535.0MB) | TPL:586, media passthrough:4 | Clean extraction |
+| Dance Dance Revolution Mario Mix | ✅ | 2421 / 2422 | 12975 (958.6MB) | HSF:2306, MPBIN:115 | Clean extraction |
+| Mario Superstar Baseball | ✅ | 0 / 1 | 29 (602.4MB) | n/a | Clean extraction |
+| Pokémon XD: Gale of Darkness | 🟡 | 3399 / 3400 | 11849 (2.4GB) | FSYS:2540, LZ10:831, media passthrough:28 | Non-fatal sub-job warning (audio/stream fragment or unrecognized sub-asset) |
+| Geist | ✅ | 24 / 25 | 233 (1.3GB) | TPL:24 | Clean extraction |
+| Battalion Wars | ✅ | 30 / 31 | 3354 (1.0GB) | TPL:16, media passthrough:14 | Clean extraction |
+| Mario Party 7 | 🟡 | 6080 / 6081 | 27547 (2.2GB) | HSF:5722, MPBIN:264, media passthrough:94 | Non-fatal sub-container exit (HSF/script format warning) |
+| Super Mario Strikers | ✅ | 150 / 151 | 1570 (665.0MB) | media passthrough:140, TPL:10 | Clean extraction |
+| Densetsu no Quiz Ō Ketteisen | ✅ | 0 / 1 | 38 (304.2MB) | n/a | Clean extraction |
+| Odama | ✅ | 1934 / 1935 | 1248 (189.6MB) | TPL:1934 | Clean extraction |
+| The Legend of Zelda: Twilight Princess | ✅ | 2658 / 2660 | 31767 (2.9GB) | YAZ0.RARC:2190, RARC:338, media passthrough:128, QuickLZ:2 | Clean extraction |
+| Disney's Magical Mirror Starring Mickey Mouse | ✅ | 10644 / 10645 | 7061 (505.5MB) | TPL:10388, media passthrough:256 | Clean extraction |
+| Baten Kaitos Origins | ✅ | 13 / 14 | 1653 (1.4GB) | media passthrough:11, TPL:2 | Clean extraction |
+| Final Fantasy Crystal Chronicles | ✅ | 157 / 158 | 8537 (1.3GB) | TEX:155, media passthrough:2 | Clean extraction |
+| SoulCalibur II | ✅ | 0 / 1 | 13 (988.5MB) | n/a | Clean extraction |
+| Tales of Symphonia | 🟡 | 124 / 125 | 1761 (1.3GB) | TPL:118, media passthrough:6 | Non-fatal sub-job warning (audio/stream fragment or unrecognized sub-asset) |
+| Street Racing Syndicate | ✅ | 8 / 9 | 887 (1.3GB) | LZ10:4, HUFF8:3, LZH8:1 | Clean extraction |
+| Resident Evil 4 | ✅ | 2150 / 2151 | 2102 (1.4GB) | TPL:2150 | Clean extraction |
+| Viewtiful Joe: Red Hot Rumble | 🟡 | 8 / 9 | 268 (836.2MB) | media passthrough:8 | Non-fatal sub-job warning (audio/stream fragment or unrecognized sub-asset) |
+| Baten Kaitos: Eternal Wings and the Lost Ocean | ✅ | 3 / 4 | 4452 (1.4GB) | TPL:2, media passthrough:1 | Clean extraction |
+| Naruto: Clash of Ninja European Version | 🟡 | 6 / 7 | 353 (608.6MB) | media passthrough:4, HUFF4:2 | Non-fatal sub-job warning (audio/stream fragment or unrecognized sub-asset) |
+
+## Nintendo GameCube Bugfixes & Findings (This Session)
+
+- **RARC Archive Current / Parent Directory (`.` / `..`) Entry Handling Fix (`lib-rarc.c`)**:
+  - *Issue*: In GameCube RARC archives (such as `.szp` / `.arc` files found in *Luigi's Mansion*, *The Wind Waker*, etc.), directory nodes contain entries for `.` and `..` with non-`0xffff` IDs. When iterating entries, `IterateFilesRARC()` treated these directory entries as plain files, causing recursive extraction to fail with `ERROR #30 [WRONG FILE TYPE] Not a plain file: .../.`.
+  - *Fix*: Added an unconditional check at the top of the entry loop in `lib-rarc.c` to skip `.` and `..` directory references (`if (*fname == '.' && (!fname[1] || (fname[1] == '.' && !fname[2]))) continue;`), allowing all RARC archives to unpack cleanly.
+
+- **Pass-through `wit EXTRACT` Overwrite Parameter Fix (`lib-passthru.c`)**:
+  - *Issue*: When passing full disc images (`.ciso` / `.iso`) through to `wit EXTRACT`, `lib-passthru.c` passed `-f` instead of `--overwrite`. Because `CreatePath()` had created the destination staging directory upfront, `wit` failed with `ERROR #64 [FILE ALREADY EXISTS]`.
+  - *Fix*: Updated `argv` for `wit EXTRACT` to pass `--overwrite`, matching the behavior of `XEXTRACT` and allowing clean, atomic extraction.

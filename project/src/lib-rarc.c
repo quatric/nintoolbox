@@ -134,6 +134,9 @@ static int iterate_rarc_dir (szs_iterator_t *it, // iterator struct with all inf
 		it->index = idx;
 
 		ccp fname = ri->str_pool + be16 (&entry->name_off);
+		if (*fname == '.' && (!fname[1] || (fname[1] == '.' && !fname[2])))
+			continue;
+
 		char *dest = StringCopySanitizedUTF8E (path, path_end, fname);
 		if (be16 (&entry->id) != 0xffff)
 		{
@@ -144,7 +147,7 @@ static int iterate_rarc_dir (szs_iterator_t *it, // iterator struct with all inf
 			it->size = be32 (&entry->data_size);
 			stat = it->func_it (it, false);
 		}
-		else if (!(*fname == '.' && (!fname[1] || fname[1] == '.' && !fname[2])))
+		else
 		{
 			// is directory
 
