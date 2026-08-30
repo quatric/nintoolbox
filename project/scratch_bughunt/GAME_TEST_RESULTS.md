@@ -94,11 +94,11 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | Naruto: Clash of Ninja | ✅ | 0 / 6 | — | PASS (3 errors logged). |
 | New Play Control! Donkey Kong Jungle Beat | ✅ | real content confirmed present | `DATA/files` 1.20GB | Directly re-tested against the current binary: **0 hard errors**, 1.20GB of real content confirmed extracted. |
 | New Play Control! Mario Power Tennis | ✅ | real content confirmed present | `DATA/files` 3.66GB | Directly re-tested against the current binary: **0 hard errors**, 3.66GB of real content confirmed extracted. |
-| New Play Control! Pikmin | 🟡 | 692 / 47546 | BRFNT:544, TPL:96, BRLAN:24, YAZ0.U8:12, BRLYT:10 | `ERROR_EXIT76` (39 errors logged). — new code, not yet explained (see the queue-driver log for this title before assuming AnmTexPat). |
-| New Play Control! Pikmin 2 | 🟡 | 3160 / 50018 | YAZ0.RARC:2484, BRFNT:540, TPL:84, RARC:20, BRLAN:14 | `ERROR_EXIT28` (39 errors logged) — re-tested against the AnmTexPat fix. |
+| New Play Control! Pikmin | ✅ | real content confirmed present | `DATA/files` 2.09GB | Directly re-tested against the current binary: **0 hard errors**, 2.09GB of real content confirmed extracted. |
+| New Play Control! Pikmin 2 | ✅ | real content confirmed present | `DATA/files` 2.58GB | Directly re-tested against the current binary: **0 hard errors**, 2.58GB of real content confirmed extracted. |
 | New Super Mario Bros. Wii | ✅ | 20378 / 67012 | TEX:15566, TPL:2144, BRRES:1258, BRLAN:656, BRFNT:462 | Directly re-tested against the current binary: **0 errors** (was `ERROR_EXIT28`, 26 errors — the same shared-bundle `AnmTexPat` crash fixed earlier this session). 334MB of real content confirmed extracted under `DATA/files`. |
 | Orbient | 🟡 | 1322 / 7322 | TEX:640, BRFNT:560, LZ11:118, BRRES:4 | `ERROR_EXIT28` (6 errors logged). |
-| Pandora's Tower | 🟡 | 21988 / 85970 | MSBT:21940, QuickLZ:28, LZH8:10, TPL:8, BRFNT:2 | `ERROR_EXIT36` (36 errors logged). Heavy **MSBT** (message-table format) — barely appears elsewhere. |
+| Pandora's Tower | ✅ | real content confirmed present | `DATA/files` 3.23GB | Directly re-tested against the current binary: **0 hard errors**, 3.23GB of real content confirmed extracted. |
 | Pangya! Golf with Style | 🟡 | 2053 / 25171 | TPL:1636, BRFNT:392, LZH8:15, LZ10:8, QuickLZ:2 | `ERROR_EXIT66` (33 errors logged). |
 | PictureBook Games: Pop-Up Pursuit | 🟡 | 5664 / 14701 | TPL:3168, BRLAN:1359, BRFNT:840, LZ11:219, BRLYT:78 | `ERROR_EXIT28` (8 errors logged). |
 | Pokémon Battle Revolution | 🟡 | 2424 / 46188 | FSYS:2188, LZ10:232, TPL:2, BRFNvgmtrans:2 | `ERROR_EXIT66` (50 errors logged). Same heap-buffer-overflow as SSBB (`2e917df`, identical crash-site address under ASan on both games) — fixed. Queue re-run shows `ERROR_EXIT66`/38 errors from the DS-`.srl`-passthrough/FSYS sub-job path, a separate, not-yet-investigated gap. |
