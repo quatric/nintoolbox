@@ -147,7 +147,7 @@ timeout, or blocking error) · ⏳ not yet run · — no data (see note)
 | Xenoblade Chronicles | ✅ | real content confirmed present | `DATA/files` 6.63GB | Directly re-tested against the current binary: **0 hard errors**, 6.63GB of real content confirmed extracted. |
 | You, Me, and the Cubes | 🟡 | 6915 / 18191 | TPL:2174, TEX:1378, BRLAN:1246, BRFNT:1146, LZ10:395 | `ERROR_EXIT28` (1109 errors logged). |
 | Zack & Wiki: Quest for Barbaros' Treasure | ✅ | 113448 / 114990 | TPL:57436, TEX:49248, BRRES:2052, BRLAN:1770, BRFNT:1524 | PASS (1126 errors logged). |
-| Zangeki no Reginleiv | 🟡 | 576 / 50984 | BRFNT:472, TPL:56, BRLAN:26, BRLYT:8, BRRES:6 | `ERROR_EXIT28` (60 errors logged) — re-tested against the AnmTexPat fix. |
+| Zangeki no Reginleiv | ✅ | real content confirmed present | `DATA/files` 9.17GB | Directly re-tested against the current binary: **0 hard errors**, 9.17GB of real content confirmed extracted. |
 
 ### Near-zero real content — resolution status
 
