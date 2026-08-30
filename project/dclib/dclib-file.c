@@ -1420,6 +1420,58 @@ enumError CheckCreateFile (
 // through on the way to disk. A no-op for the overwhelming majority of
 // paths, which are already valid UTF-8 (including legitimate multi-byte
 // names -- Japanese, etc).
+// Length (2-4) of the valid UTF-8 sequence starting at 'p', or 0 if 'p[0]'
+// doesn't start one. Strict per RFC 3629, not just a structural bit-pattern
+// check: 0xC0/0xC1 are shaped exactly like valid 2-byte leads but are
+// permanently reserved (overlong encodings of plain ASCII), and 0xE0/0xED/
+// 0xF0/0xF4 each need a narrowed second-byte range to rule out overlong
+// encodings and UTF-16 surrogate halves. A looser check let both slip
+// through unsanitized on a real Wii Fit BRRES sub-object name containing a
+// literal 0xC0 0x8C, which macOS's filesystem then rejected anyway
+// (EILSEQ) -- so the very fallback this function exists for never fired.
+static int Utf8SeqLen (const u8 *p)
+{
+	const u8 c = p[0];
+	int len;
+	u8 lo2 = 0x80, hi2 = 0xbf;
+	if (c >= 0xc2 && c <= 0xdf)
+		len = 2;
+	else if (c == 0xe0)
+	{
+		len = 3;
+		lo2 = 0xa0;
+	}
+	else if (c >= 0xe1 && c <= 0xec)
+		len = 3;
+	else if (c == 0xed)
+	{
+		len = 3;
+		hi2 = 0x9f;
+	}
+	else if (c >= 0xee && c <= 0xef)
+		len = 3;
+	else if (c == 0xf0)
+	{
+		len = 4;
+		lo2 = 0x90;
+	}
+	else if (c >= 0xf1 && c <= 0xf3)
+		len = 4;
+	else if (c == 0xf4)
+	{
+		len = 4;
+		hi2 = 0x8f;
+	}
+	else
+		return 0; // includes the reserved 0xC0/0xC1 leads
+	if (p[1] < lo2 || p[1] > hi2)
+		return 0;
+	for (int i = 2; i < len; i++)
+		if ((p[i] & 0xc0) != 0x80)
+			return 0;
+	return len;
+}
+
 static bool IsValidUTF8Path (ccp s)
 {
 	const u8 *p = (const u8 *)s;
@@ -1429,15 +1481,9 @@ static bool IsValidUTF8Path (ccp s)
 			p++;
 		else
 		{
-			const int len = (*p & 0xe0) == 0xc0 ? 2
-				: (*p & 0xf0) == 0xe0			? 3
-				: (*p & 0xf8) == 0xf0			? 4
-												: 0;
+			const int len = Utf8SeqLen (p);
 			if (!len)
 				return false;
-			for (int i = 1; i < len; i++)
-				if ((p[i] & 0xc0) != 0x80)
-					return false;
 			p += len;
 		}
 	}
@@ -1455,19 +1501,8 @@ static void SanitizeUTF8Path (char *dest, uint dest_size, ccp src)
 			dest[di++] = (char)*p++;
 			continue;
 		}
-		const int len = (*p & 0xe0) == 0xc0 ? 2
-			: (*p & 0xf0) == 0xe0			? 3
-			: (*p & 0xf8) == 0xf0			? 4
-											: 0;
-		bool ok = len > 0;
-		if (ok)
-			for (int i = 1; i < len; i++)
-				if ((p[i] & 0xc0) != 0x80)
-				{
-					ok = false;
-					break;
-				}
-		if (ok)
+		const int len = Utf8SeqLen (p);
+		if (len)
 		{
 			for (int i = 0; i < len && di + 1 < dest_size; i++)
 				dest[di++] = (char)p[i];

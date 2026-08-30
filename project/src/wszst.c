@@ -7958,26 +7958,64 @@ static enumError cmd_update ()
 // (Shift-JIS/Windows-1252) instead. Not a security check like the rest of
 // this function -- just filesystem compatibility -- but living here means
 // every caller's existing "invalid name" fallback handles it for free.
+// Strict per RFC 3629 -- a structural "looks like a 2/3/4-byte lead byte
+// with the right continuation bytes" check alone isn't enough: 0xC0/0xC1
+// are shaped exactly like valid 2-byte leads but are permanently reserved
+// (overlong encodings of plain ASCII), and 0xED can lead a 3-byte sequence
+// that encodes a UTF-16 surrogate half, also forbidden. Both slipped past
+// the first version of this check and reached CreateFile() unsanitized
+// (confirmed on a real Wii Fit BRRES sub-object name containing a literal
+// 0xC0 0x8C), which macOS's filesystem then rejected with EILSEQ anyway --
+// so the fallback this function feeds never actually fired for those.
 static bool valid_utf8 (ccp s)
 {
 	const u8 *p = (const u8 *)s;
 	while (*p)
 	{
-		if (*p < 0x80)
-			p++;
-		else
+		const u8 c = *p;
+		if (c < 0x80)
 		{
-			int len = (*p & 0xe0) == 0xc0 ? 2
-				: (*p & 0xf0) == 0xe0	  ? 3
-				: (*p & 0xf8) == 0xf0	  ? 4
-										  : 0;
-			if (!len)
-				return false;
-			for (int i = 1; i < len; i++)
-				if ((p[i] & 0xc0) != 0x80)
-					return false;
-			p += len;
+			p++;
+			continue;
 		}
+		int len;
+		u8 lo2 = 0x80, hi2 = 0xbf;
+		if (c >= 0xc2 && c <= 0xdf)
+			len = 2;
+		else if (c == 0xe0)
+		{
+			len = 3;
+			lo2 = 0xa0;
+		}
+		else if (c >= 0xe1 && c <= 0xec)
+			len = 3;
+		else if (c == 0xed)
+		{
+			len = 3;
+			hi2 = 0x9f;
+		}
+		else if (c >= 0xee && c <= 0xef)
+			len = 3;
+		else if (c == 0xf0)
+		{
+			len = 4;
+			lo2 = 0x90;
+		}
+		else if (c >= 0xf1 && c <= 0xf3)
+			len = 4;
+		else if (c == 0xf4)
+		{
+			len = 4;
+			hi2 = 0x8f;
+		}
+		else
+			return false; // includes the reserved 0xC0/0xC1 leads
+		if (p[1] < lo2 || p[1] > hi2)
+			return false;
+		for (int i = 2; i < len; i++)
+			if ((p[i] & 0xc0) != 0x80)
+				return false;
+		p += len;
 	}
 	return true;
 }
