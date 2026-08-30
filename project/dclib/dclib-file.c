@@ -1410,6 +1410,78 @@ enumError CheckCreateFile (
 
 ///////////////////////////////////////////////////////////////////////////////
 
+// A container/archive entry name straight from binary game data is
+// untrusted bytes, not necessarily UTF-8 -- macOS's filesystem refuses to
+// create a file or directory whose name isn't valid UTF-8 (EILSEQ). Rather
+// than chase down every individual extractor that builds a path from raw
+// container data (RST/SARC/GFA/Arika entry names and BRRES sub-object
+// names have all hit this independently), replace any invalid byte with
+// '_' once, here, at the actual point every one of those paths passes
+// through on the way to disk. A no-op for the overwhelming majority of
+// paths, which are already valid UTF-8 (including legitimate multi-byte
+// names -- Japanese, etc).
+static bool IsValidUTF8Path (ccp s)
+{
+	const u8 *p = (const u8 *)s;
+	while (*p)
+	{
+		if (*p < 0x80)
+			p++;
+		else
+		{
+			const int len = (*p & 0xe0) == 0xc0 ? 2
+				: (*p & 0xf0) == 0xe0			? 3
+				: (*p & 0xf8) == 0xf0			? 4
+												: 0;
+			if (!len)
+				return false;
+			for (int i = 1; i < len; i++)
+				if ((p[i] & 0xc0) != 0x80)
+					return false;
+			p += len;
+		}
+	}
+	return true;
+}
+
+static void SanitizeUTF8Path (char *dest, uint dest_size, ccp src)
+{
+	uint di = 0;
+	const u8 *p = (const u8 *)src;
+	while (*p && di + 1 < dest_size)
+	{
+		if (*p < 0x80)
+		{
+			dest[di++] = (char)*p++;
+			continue;
+		}
+		const int len = (*p & 0xe0) == 0xc0 ? 2
+			: (*p & 0xf0) == 0xe0			? 3
+			: (*p & 0xf8) == 0xf0			? 4
+											: 0;
+		bool ok = len > 0;
+		if (ok)
+			for (int i = 1; i < len; i++)
+				if ((p[i] & 0xc0) != 0x80)
+				{
+					ok = false;
+					break;
+				}
+		if (ok)
+		{
+			for (int i = 0; i < len && di + 1 < dest_size; i++)
+				dest[di++] = (char)p[i];
+			p += len;
+		}
+		else
+		{
+			dest[di++] = '_';
+			p++;
+		}
+	}
+	dest[di] = 0;
+}
+
 enumError CreateFile (File_t *f, // file structure
 	bool initialize, // true: initialize 'f'
 	ccp fname, // file to open
@@ -1418,6 +1490,13 @@ enumError CreateFile (File_t *f, // file structure
 {
 	DASSERT (f);
 	DASSERT (fname);
+
+	char sanitized_fname[PATH_MAX];
+	if (!IsValidUTF8Path (fname))
+	{
+		SanitizeUTF8Path (sanitized_fname, sizeof (sanitized_fname), fname);
+		fname = sanitized_fname;
+	}
 
 	if (initialize)
 		InitializeFile (f);
