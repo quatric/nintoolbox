@@ -8232,6 +8232,182 @@ cleanup:
 	return err;
 }
 
+// Ubisoft ABE BigFiles are used by Rabbids Go Home (Wii) for the game's
+// actual data.  They are not the older BIG/BUG Jade archives: their index is
+// a pair of linked tables and individual members may carry a 32-byte engine
+// header (including an LZO1X block stream).  Keep this reader deliberately
+// stream based -- RGH.BF alone is almost 1 GiB, so loading it through the SZS
+// path would needlessly hit the generic maximum-file-size limit.
+static u32 get_le32 (const u8 *p)
+{
+	return (u32)p[0] | (u32)p[1] << 8 | (u32)p[2] << 16 | (u32)p[3] << 24;
+}
+
+static bool read_abe_at (FILE *f, u64 off, void *buf, size_t size)
+{
+	return off <= LONG_MAX && !fseek (f, (long)off, SEEK_SET) && fread (buf, 1, size, f) == size;
+}
+
+static bool valid_abe_name (ccp name)
+{
+	return name && *name && !strstr (name, "..") && !strchr (name, '/') && !strchr (name, '\\');
+}
+
+static enumError write_abe_member (FILE *in, u64 off, u32 size, ccp path, ccp source)
+{
+	File_t out;
+	enumError err = CreateFileOpt (&out, true, path, false, source);
+	if (err || !out.f)
+		return err;
+	u8 buf[0x10000];
+	if (!read_abe_at (in, off, buf, 0))
+		err = ERR_READ_FAILED;
+	for (u32 left = size; !err && left;)
+	{
+		const size_t want = left < sizeof(buf) ? left : sizeof(buf);
+		const size_t got = fread (buf, 1, want, in);
+		if (got != want || fwrite (buf, 1, got, out.f) != got)
+			err = ERR_WRITE_FAILED;
+		left -= got;
+	}
+	ResetFile (&out, opt_preserve);
+	return err;
+}
+
+static enumError extract_abe_file (ccp arg, ccp basedir, uint depth)
+{
+	(void)basedir;
+	u8 header[0x40];
+	FILE *in = fopen (arg, "rb");
+	if (!in)
+		return ERR_NOT_EXISTS;
+	if (!read_abe_at (in, 0, header, sizeof(header)) || memcmp (header, "ABE\\0", 4)
+		|| get_le32(header+4) != 4)
+	{
+		fclose (in);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	const u32 ntab = get_le32(header+0x0c);
+	const u32 nfile = get_le32(header+0x2c);
+	u64 tab = get_le32(header+0x18);
+	if (!ntab || !nfile || ntab > 64 || !tab)
+	{
+		fclose (in);
+		return ERR_INVALID_DATA;
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof(dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT ABE:%s (%u files) -> %s/\\n", verbose > 0 ? "\\n" : "",
+			testmode ? "WOULD " : "", arg, nfile, dest);
+
+	enumError err = ERR_OK;
+	u32 emitted = 0;
+	for (u32 ti = 0; !err && ti < ntab && emitted < nfile; ti++)
+	{
+		u8 th[12];
+		if (!read_abe_at(in,tab,th,sizeof(th))) { err = ERR_INVALID_DATA; break; }
+		const u32 count = get_le32(th);
+		const u32 link = get_le32(th+4);
+		const u32 next = get_le32(th+8);
+		if (count > nfile - emitted || tab > UINT_MAX - 12ULL - (u64)count * 0x80)
+			{ err = ERR_INVALID_DATA; break; }
+		for (u32 i = 0; !err && i < count; i++, emitted++)
+		{
+			u8 entry[0x80], engine[0x20];
+			if (!read_abe_at(in,tab+12ULL+(u64)i*0x80,entry,sizeof(entry)))
+				{ err = ERR_INVALID_DATA; break; }
+			char name[65];
+			memcpy(name,entry,64); name[64] = 0;
+			if (!valid_abe_name(name))
+				{ err = ERR_INVALID_DATA; break; }
+			const u64 data_off = get_le32(entry+0x68);
+			char path[PATH_MAX];
+			snprintf(path,sizeof(path),"%s/%s",dest,name);
+			if (testmode)
+				continue;
+			if (!read_abe_at(in,data_off,engine,sizeof(engine)))
+				{ err = ERR_INVALID_DATA; break; }
+			const u32 packed = get_le32(engine);
+			const u32 original = get_le32(engine+4);
+			const u32 type = get_le32(engine+12);
+			if (type == 0 && original && packed <= UINT_MAX - 32)
+			{
+				if (packed == original)
+					err = write_abe_member(in,data_off+32,original,path,arg);
+				else
+				{
+					u8 *src = MALLOC(packed), *dec = 0; uint dec_size = 0;
+					if (!src || !read_abe_at(in,data_off+32,src,packed)) err = ERR_INVALID_DATA;
+					else err = DecodeLZO1XGrow(&dec,&dec_size,src,packed);
+					if (!err && dec_size != original) err = ERR_INVALID_DATA;
+					if (!err) { File_t out; err=CreateFileOpt(&out,true,path,false,arg); if (out.f) { if (fwrite(dec,1,dec_size,out.f)!=dec_size) err=ERR_WRITE_FAILED; ResetFile(&out,opt_preserve); } }
+					FREE(src); FREE(dec);
+				}
+			}
+			else if (type == 2 && original)
+				err = write_abe_member(in,data_off+32,original,path,arg);
+			else if (!type && !original)
+				err = ERR_OK;
+			else if (type == 4 && original)
+			{
+				u8 count_buf[4];
+				if (!read_abe_at(in,data_off+32,count_buf,sizeof(count_buf))) { err=ERR_INVALID_DATA; break; }
+				const u32 chunks = get_le32(count_buf);
+				if (!chunks || chunks > 0x10000) { err=ERR_INVALID_DATA; break; }
+				u32 *sizes = MALLOC((size_t)chunks*sizeof(*sizes));
+				if (!sizes || !read_abe_at(in,data_off+36,sizes,(size_t)chunks*sizeof(*sizes))) err=ERR_INVALID_DATA;
+				File_t out = {0};
+				if (!err) err=CreateFileOpt(&out,true,path,false,arg);
+				u64 pos = data_off + 36ULL + (u64)chunks*4;
+				u32 left = original;
+				for (u32 j=0; !err && j<chunks && left; j++)
+				{
+					const u32 packed_size=get_le32((u8*)sizes+j*4);
+					const u32 want=left < 0x3fffc ? left : 0x3fffc;
+					if (!packed_size)
+					{
+						u8 *raw=MALLOC(want);
+						if (!raw || !read_abe_at(in,pos,raw,want) || fwrite(raw,1,want,out.f)!=want)
+							err=ERR_WRITE_FAILED;
+						FREE(raw);
+					}
+					else
+					{
+						u8 *src=MALLOC(packed_size), *dec=0; uint dec_size=0;
+						if (!src || !read_abe_at(in,pos,src,packed_size)) err=ERR_INVALID_DATA;
+						else err=DecodeLZO1XGrow(&dec,&dec_size,src,packed_size);
+						if (!err && (dec_size != want || fwrite(dec,1,dec_size,out.f)!=dec_size)) err=ERR_WRITE_FAILED;
+						FREE(src); FREE(dec);
+					}
+					pos += packed_size ? packed_size : want;
+					left -= want;
+				}
+				if (!err && left) err=ERR_INVALID_DATA;
+				if (out.f) ResetFile(&out,opt_preserve);
+				FREE(sizes);
+			}
+			else
+				// Type 3 is a cross-BigFile shortcut. Keep its engine record so
+				// callers can resolve it against the companion archive.
+				err = write_abe_member(in,data_off,packed,path,arg);
+		}
+		if (link == 0 && next != UINT_MAX) tab = next;
+		else if (ti + 1 < ntab) { err = ERR_INVALID_DATA; break; }
+	}
+	fclose(in);
+	if (!err && emitted != nfile)
+		err = ERR_INVALID_DATA;
+	if (!err && !testmode)
+	{
+		enumError sub = extract_tree_complete(dest,depth+1);
+		if (err < sub) err = sub;
+	}
+	return err;
+}
+
 static enumError extract_sarc_mem (ccp arg, ccp basedir, uint depth, const u8 *raw, size_t raw_size)
 {
 	if (!raw || raw_size < 0x20 || raw_size > UINT_MAX || memcmp (raw, "SARC", 4))
@@ -13730,6 +13906,10 @@ static enumError extract_one_file (ccp arg, ccp basedir, uint depth)
 		return err;
 
 	err = extract_storybook_one_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_abe_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
