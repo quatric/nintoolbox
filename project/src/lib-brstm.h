@@ -33,43 +33,34 @@
 
 typedef enum brstm_variant_t
 {
-    BRSTM_VARIANT_RSTM, // Wii,   "RSTM", always big-endian
-    BRSTM_VARIANT_FSTM, // Wii U, "FSTM", big-endian
-    BRSTM_VARIANT_CSTM, // 3DS,   "CSTM", little-endian by default
+	BRSTM_VARIANT_RSTM, // Wii,   "RSTM", always big-endian
+	BRSTM_VARIANT_FSTM, // Wii U, "FSTM", big-endian
+	BRSTM_VARIANT_CSTM, // 3DS,   "CSTM", little-endian by default
 } brstm_variant_t;
 
 typedef struct brstm_audio_t
 {
-    brstm_variant_t variant;
-    int      channels;
-    int      sample_rate;
-    s64      n_samples;
-    bool     is_adpcm;      // true: ADPCM_THP: false: PCM16
-    bool     loop;
-    s64      loop_start;    // samples
-    s16     *pcm[DSP_ADPCM_MAX_CHANNELS]; // decoded / to-encode samples, per channel
+	brstm_variant_t variant;
+	int channels;
+	int sample_rate;
+	s64 n_samples;
+	bool is_adpcm; // true: ADPCM_THP: false: PCM16
+	bool loop;
+	s64 loop_start; // samples
+	s16 *pcm[DSP_ADPCM_MAX_CHANNELS]; // decoded / to-encode samples, per channel
 } brstm_audio_t;
 
 // Encode 'audio' (audio->pcm[ch] must hold audio->n_samples samples each,
 // audio->variant selects the container) into a binary. If 'use_adpcm' is
 // set, coefficients are derived from the PCM via DspAdpcmCorrelateCoefs()
 // and the stream is ADPCM_THP-encoded; otherwise it is written as raw PCM16.
-enumError EncodeBRSTM (
-    u8            **out_data,
-    size_t         *out_size,
-    const brstm_audio_t *audio,
-    bool            use_adpcm
-);
+enumError EncodeBRSTM (u8 **out_data, size_t *out_size, const brstm_audio_t *audio, bool use_adpcm);
 
 // Decode a BRSTM/BFSTM/BCSTM binary to PCM16, auto-detecting the variant
 // from the magic/BOM (sets audio->variant). audio->pcm[] is allocated by
 // this function (FREE each channel + zero the struct when done).
-enumError DecodeBRSTM (
-    brstm_audio_t  *audio,
-    const u8       *data,
-    size_t          size
-);
+enumError DecodeBRSTM (brstm_audio_t *audio, const u8 *data, size_t size);
 
-void FreeBRSTMAudio ( brstm_audio_t *audio );
+void FreeBRSTMAudio (brstm_audio_t *audio);
 
 #endif // SZS_LIB_BRSTM_H

@@ -66,355 +66,346 @@
 #include "le-menu.inc"
 #include "9laps.inc"
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			alter file table		///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 typedef struct alter_file_t
 {
-    SlotMode_t	rm_mode;
-    SlotMode_t	add_mode;
-    ccp		fname;
-}
-alter_file_t;
+	SlotMode_t rm_mode;
+	SlotMode_t add_mode;
+	ccp fname;
+} alter_file_t;
 
-static const alter_file_t AlterFileTab[] =
-{
-	//---------------------------------------------------------------------
-	// mode for remove	mode for add		file name
-	//---------------------------------------------------------------------
-	{ SLOTMD_RM_ICE,	SLOTMD_ADD_BICE,	"ice.brres" },
-	{ SLOTMD_RM_SUNDS,	0,			"sunDS.brres" },
-	{ SLOTMD_RM_SUNDS,	0,			"pylon01.brres" },
-	{ SLOTMD_RM_SHYGUY,	SLOTMD_ADD_SHYGUY,	"HeyhoShipGBA.brres" },
-	{ SLOTMD_RM_SHYGUY,	0,			"HeyhoBallGBA.brres" },
-	{0,0,0}
-};
+static const alter_file_t AlterFileTab[]
+	= { //---------------------------------------------------------------------
+		// mode for remove	mode for add		file name
+		//---------------------------------------------------------------------
+		  { SLOTMD_RM_ICE, SLOTMD_ADD_BICE, "ice.brres" }, { SLOTMD_RM_SUNDS, 0, "sunDS.brres" },
+		  { SLOTMD_RM_SUNDS, 0, "pylon01.brres" },
+		  { SLOTMD_RM_SHYGUY, SLOTMD_ADD_SHYGUY, "HeyhoShipGBA.brres" },
+		  { SLOTMD_RM_SHYGUY, 0, "HeyhoBallGBA.brres" }, { 0, 0, 0 }
+	  };
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static const alter_file_t * ShallRemoveFile ( ccp fname )
+static const alter_file_t *ShallRemoveFile (ccp fname)
 {
 
-    if ( opt_slot & SLOTMD_JOB_RM_SZS && fname )
-    {
-	const alter_file_t *alter;
-	for ( alter = AlterFileTab; alter->fname; alter++ )
-	    if ( opt_slot & alter->rm_mode && !strcasecmp(fname,alter->fname) )
-		return alter;
-    }
-    return 0;
+	if (opt_slot & SLOTMD_JOB_RM_SZS && fname)
+	{
+		const alter_file_t *alter;
+		for (alter = AlterFileTab; alter->fname; alter++)
+			if (opt_slot & alter->rm_mode && !strcasecmp (fname, alter->fname))
+				return alter;
+	}
+	return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static bool AddSlotFiles ( szs_file_t *szs, struct szs_norm_t * norm )
+static bool AddSlotFiles (szs_file_t *szs, struct szs_norm_t *norm)
 {
-// [[norm]]
-    DASSERT(szs);
-    bool dirty = false;
-    if ( szs->fform_arch == FF_U8 || szs->fform_arch == FF_WU8 )
-    {
-	const alter_file_t *alter;
-	for ( alter = AlterFileTab; alter->fname; alter++ )
-	    if ( opt_slot & alter->add_mode
-		    && AddMissingFileSZS(szs,alter->fname,FF_BRRES,norm,-1) )
-	    {
-		PATCH_ACTION_LOG("Add","SZS","%s\n",alter->fname);
-		dirty = true;
-	    }
-    }
-    return dirty;
+	// [[norm]]
+	DASSERT (szs);
+	bool dirty = false;
+	if (szs->fform_arch == FF_U8 || szs->fform_arch == FF_WU8)
+	{
+		const alter_file_t *alter;
+		for (alter = AlterFileTab; alter->fname; alter++)
+			if (opt_slot & alter->add_mode
+				&& AddMissingFileSZS (szs, alter->fname, FF_BRRES, norm, -1))
+			{
+				PATCH_ACTION_LOG ("Add", "SZS", "%s\n", alter->fname);
+				dirty = true;
+			}
+	}
+	return dirty;
 }
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////		    scan dir & create szs		///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-static bool fname_allowed ( scan_data_t *sd, ccp name, char * path_dir )
+static bool fname_allowed (scan_data_t *sd, ccp name, char *path_dir)
 {
-    // ignore "." and ".." always
-    if ( *name == '.' && ( !name[1] || name[1] == '.' && !name[2] ))
-	return false;
+	// ignore "." and ".." always
+	if (*name == '.' && (!name[1] || name[1] == '.' && !name[2]))
+		return false;
 
-    if ( opt_rm_aiparam && !strcasecmp(name,"aiparam") )
-    {
-	PATCH_ACTION_LOG("Remove","SZS","%s\n","AIParam");
-	sd->szs->aiparam_removed = true;
-	return false;
-    }
-
-    if (ShallRemoveFile(name))
-    {
-	PATCH_ACTION_LOG("Remove","SZS","%s\n",name);
-	return false;
-    }
-
-    char *path_end = sd->path + sizeof(sd->path) - 1;
-    sd->path_dir = StringCopyE(path_dir,path_end,name);
-    const SetupParam_t * sp = sd->setup_param;
-    DASSERT(sp);
-    if (   !FindStringField(&sp->include_name,sd->path_rel)
-	&& !MatchStringField(&sp->include_pattern,sd->path_rel) )
-    {
-	// file is not in include list
-	if ( *name == '.'
-		|| FindStringField(&sp->exclude_name,sd->path_rel)
-		|| MatchStringField(&sp->exclude_pattern,sd->path_rel) )
+	if (opt_rm_aiparam && !strcasecmp (name, "aiparam"))
 	{
-	    noPRINT("EXCLUDED: %s\n",sd->path_rel);
-	    return false;
+		PATCH_ACTION_LOG ("Remove", "SZS", "%s\n", "AIParam");
+		sd->szs->aiparam_removed = true;
+		return false;
 	}
-    }
 
-    return true;
+	if (ShallRemoveFile (name))
+	{
+		PATCH_ACTION_LOG ("Remove", "SZS", "%s\n", name);
+		return false;
+	}
+
+	char *path_end = sd->path + sizeof (sd->path) - 1;
+	sd->path_dir = StringCopyE (path_dir, path_end, name);
+	const SetupParam_t *sp = sd->setup_param;
+	DASSERT (sp);
+	if (!FindStringField (&sp->include_name, sd->path_rel)
+		&& !MatchStringField (&sp->include_pattern, sd->path_rel))
+	{
+		// file is not in include list
+		if (*name == '.' || FindStringField (&sp->exclude_name, sd->path_rel)
+			|| MatchStringField (&sp->exclude_pattern, sd->path_rel))
+		{
+			noPRINT ("EXCLUDED: %s\n", sd->path_rel);
+			return false;
+		}
+	}
+
+	return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
 // qsort() comparator for an array of 'char*' (directory entry names) -- see
 // scan_data()'s own comment for why these get sorted before use.
-static int cmp_strptr ( const void *a, const void *b )
+static int cmp_strptr (const void *a, const void *b)
 {
-    return strcmp(*(char*const*)a,*(char*const*)b);
+	return strcmp (*(char *const *)a, *(char *const *)b);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static u32 scan_data ( scan_data_t * sd )
+static u32 scan_data (scan_data_t *sd)
 {
-    ASSERT(sd);
-    ASSERT(sd->szs);
-    szs_file_t *szs = sd->szs;
-    const u16 dir_id = sd->n_directories++;
+	ASSERT (sd);
+	ASSERT (sd->szs);
+	szs_file_t *szs = sd->szs;
+	const u16 dir_id = sd->n_directories++;
 
-    char * path_end = sd->path + sizeof(sd->path) - 1;
-    DASSERT( sd->path     <= sd->path_rel );
-    DASSERT( sd->path_rel <= sd->path_dir );
-    DASSERT( sd->path_dir <= path_end );
+	char *path_end = sd->path + sizeof (sd->path) - 1;
+	DASSERT (sd->path <= sd->path_rel);
+	DASSERT (sd->path_rel <= sd->path_dir);
+	DASSERT (sd->path_dir <= path_end);
 
-    PRINT("scan_data(%.*s|%.*s|%s) depth=%d, links=%d\n",
-		(int)(sd->path_rel - sd->path), sd->path,
-		(int)(sd->path_dir - sd->path_rel), sd->path_rel,
-		sd->path_dir, sd->depth, szs->links );
+	PRINT ("scan_data(%.*s|%.*s|%s) depth=%d, links=%d\n", (int)(sd->path_rel - sd->path), sd->path,
+		(int)(sd->path_dir - sd->path_rel), sd->path_rel, sd->path_dir, sd->depth, szs->links);
 
-    // save current path_dir
-    char * path_dir = sd->path_dir;
+	// save current path_dir
+	char *path_dir = sd->path_dir;
 
-    u32 count = 0;
-    DIR * dir = opendir(sd->path);
-    if (dir)
-    {
-	// readdir() order is filesystem-dependent and not reproducible: the
-	// same logical tree can enumerate differently depending on inode
-	// allocation history (e.g. after an EXTRACT of an archive that
-	// itself had no directory nesting to preserve), which made
-	// CREATE -> EXTRACT -> CREATE not byte-reproducible even though the
-	// tree's *content* was identical -- sort names first so the archive
-	// is a pure function of the tree's content, never of directory
-	// history.
-	uint n_names = 0, cap_names = 0;
-	char **names = 0;
-	for(;;)
+	u32 count = 0;
+	DIR *dir = opendir (sd->path);
+	if (dir)
 	{
-	    struct dirent * dent = readdir(dir);
-	    if (!dent)
-		break;
-	    if ( n_names == cap_names )
-	    {
-		cap_names = cap_names ? cap_names*2 : 16;
-		names = REALLOC(names,cap_names*sizeof(*names));
-	    }
-	    names[n_names++] = STRDUP(dent->d_name);
-	}
-	closedir(dir);
-	dir = 0;
-
-	if (n_names)
-	    qsort(names,n_names,sizeof(*names),cmp_strptr);
-
-	for ( uint name_idx = 0; name_idx < n_names; name_idx++ )
-	{
-	    ccp name = names[name_idx];
-	 #ifdef TEST // test it!
-	    if (!fname_allowed(sd,name,path_dir))
-		continue;
-	 #else
-	    // ignore "." and ".." always
-	    if ( *name == '.' && ( !name[1] || name[1] == '.' && !name[2] ))
-		continue;
-
-	    if ( opt_rm_aiparam && !strcasecmp(name,"aiparam") )
-	    {
-		PATCH_ACTION_LOG("Remove","SZS","%s\n","AIParam");
-		szs->aiparam_removed = true;
-		continue;
-	    }
-
-	    if (ShallRemoveFile(name))
-	    {
-		PATCH_ACTION_LOG("Remove","SZS","%s\n",name);
-		continue;
-	    }
-
-	    sd->path_dir = StringCopyE(path_dir,path_end,name);
-	    const SetupParam_t * sp = sd->setup_param;
-	    DASSERT(sp);
-	    if (   !FindStringField(&sp->include_name,sd->path_rel)
-		&& !MatchStringField(&sp->include_pattern,sd->path_rel) )
-	    {
-		// file is not in include list
-		if ( *name == '.'
-			|| FindStringField(&sp->exclude_name,sd->path_rel)
-			|| MatchStringField(&sp->exclude_pattern,sd->path_rel) )
+		// readdir() order is filesystem-dependent and not reproducible: the
+		// same logical tree can enumerate differently depending on inode
+		// allocation history (e.g. after an EXTRACT of an archive that
+		// itself had no directory nesting to preserve), which made
+		// CREATE -> EXTRACT -> CREATE not byte-reproducible even though the
+		// tree's *content* was identical -- sort names first so the archive
+		// is a pure function of the tree's content, never of directory
+		// history.
+		uint n_names = 0, cap_names = 0;
+		char **names = 0;
+		for (;;)
 		{
-		    noPRINT("EXCLUDED: %s\n",sd->path_rel);
-		    continue;
+			struct dirent *dent = readdir (dir);
+			if (!dent)
+				break;
+			if (n_names == cap_names)
+			{
+				cap_names = cap_names ? cap_names * 2 : 16;
+				names = REALLOC (names, cap_names * sizeof (*names));
+			}
+			names[n_names++] = STRDUP (dent->d_name);
 		}
-	    }
-	 #endif
+		closedir (dir);
+		dir = 0;
 
-	    struct stat st;
-	    if (stat(sd->path,&st))
-		continue;
+		if (n_names)
+			qsort (names, n_names, sizeof (*names), cmp_strptr);
 
-	    if ( S_ISDIR(st.st_mode) && sd->depth < sd->max_depth )
-	    {
+		for (uint name_idx = 0; name_idx < n_names; name_idx++)
+		{
+			ccp name = names[name_idx];
+#ifdef TEST // test it!
+			if (!fname_allowed (sd, name, path_dir))
+				continue;
+#else
+			// ignore "." and ".." always
+			if (*name == '.' && (!name[1] || name[1] == '.' && !name[2]))
+				continue;
+
+			if (opt_rm_aiparam && !strcasecmp (name, "aiparam"))
+			{
+				PATCH_ACTION_LOG ("Remove", "SZS", "%s\n", "AIParam");
+				szs->aiparam_removed = true;
+				continue;
+			}
+
+			if (ShallRemoveFile (name))
+			{
+				PATCH_ACTION_LOG ("Remove", "SZS", "%s\n", name);
+				continue;
+			}
+
+			sd->path_dir = StringCopyE (path_dir, path_end, name);
+			const SetupParam_t *sp = sd->setup_param;
+			DASSERT (sp);
+			if (!FindStringField (&sp->include_name, sd->path_rel)
+				&& !MatchStringField (&sp->include_pattern, sd->path_rel))
+			{
+				// file is not in include list
+				if (*name == '.' || FindStringField (&sp->exclude_name, sd->path_rel)
+					|| MatchStringField (&sp->exclude_pattern, sd->path_rel))
+				{
+					noPRINT ("EXCLUDED: %s\n", sd->path_rel);
+					continue;
+				}
+			}
+#endif
+
+			struct stat st;
+			if (stat (sd->path, &st))
+				continue;
+
+			if (S_ISDIR (st.st_mode) && sd->depth < sd->max_depth)
+			{
+				count++;
+				szs_subfile_t *file = AppendSubfileSZS (szs, 0, 0);
+				DASSERT (file);
+				file->dir_id = dir_id;
+				const uint nlen = strlen (name);
+				sd->namepool_size_u8 += nlen + 1;
+
+				file->is_dir = true;
+				*sd->path_dir++ = '/';
+				*sd->path_dir = 0;
+				file->path = STRDUP (sd->path_rel);
+				noTRACE ("DIR:  %s\n", path_dir);
+				file->offset = sd->depth++;
+
+				// pointer 'file' becomes invalid if realloc() called => store index
+				const int idx = file - szs->subfile.list;
+				const u32 sub_count = scan_data (sd);
+				szs->subfile.list[idx].size = sub_count;
+				count += sub_count;
+				sd->depth--;
+			}
+			else if (S_ISREG (st.st_mode))
+			{
+				count++;
+				szs_subfile_t *file = AppendSubfileSZS (szs, 0, 0);
+				DASSERT (file);
+				file->dir_id = dir_id;
+				const uint nlen = strlen (name);
+				sd->namepool_size_u8 += nlen + 1;
+
+				szs_subfile_t *lptr
+					= szs->links ? FindLinkSZS (szs, st.st_dev, st.st_ino, file) : 0;
+				if (lptr)
+				{
+					if (!lptr->link_index)
+						lptr->link_index = ++szs->subfile.link_count;
+					file->link_index = lptr->link_index;
+					PRINT ("LINK[%d]: %s  ->  %s\n", lptr->link_index, lptr->path, sd->path_rel);
+				}
+
+				file->path = STRDUP (sd->path_rel);
+				noTRACE ("FILE: %s\n", path_dir);
+				file->is_dir = false;
+				file->size = st.st_size;
+				file->device = st.st_dev;
+				file->inode = st.st_ino;
+				if (!lptr)
+				{
+					MaxFileAttrib (&szs->fatt, 0, &st);
+					sd->total_size += ALIGN32 (file->size, sd->align);
+				}
+			}
+			// else ignore all other files
+		}
+
+		for (uint i = 0; i < n_names; i++)
+			FREE (names[i]);
+		FREE (names);
+	}
+
+	// restore path_dir
+	sd->path_dir = path_dir;
+	return count;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+static u32 scan_sdir (scan_data_t *sd, SubDir_t *sdir)
+{
+	ASSERT (sd);
+	ASSERT (sd->szs);
+	ASSERT (sdir);
+	const u16 dir_id = sd->n_directories++;
+
+	char *path_dir = sd->path_dir;
+	u32 count = 0;
+
+	uint i;
+	for (i = 0; i < sdir->file.used; i++)
+	{
+		SubFile_t *sf = sdir->file.list[i];
+		ccp name = sf->fname;
+		if (!fname_allowed (sd, name, path_dir))
+			continue;
+
 		count++;
-		szs_subfile_t * file = AppendSubfileSZS(szs,0,0);
-		DASSERT(file);
+		szs_subfile_t *file = AppendSubfileSZS (sd->szs, 0, 0);
+		DASSERT (file);
 		file->dir_id = dir_id;
-		const uint nlen = strlen(name);
+		const uint nlen = strlen (name);
+		sd->namepool_size_u8 += nlen + 1;
+
+		file->path = STRDUP (sd->path_rel);
+		noTRACE ("FILE: %s\n", path_dir);
+		file->is_dir = false;
+		file->size = sf->size;
+		file->data = sf->data;
+		sd->total_size += ALIGN32 (file->size, sd->align);
+	}
+
+	for (i = 0; i < sdir->dir.used; i++)
+	{
+		SubDir_t *sub = sdir->dir.list[i];
+		ccp name = sub->dname;
+		if (!fname_allowed (sd, name, path_dir))
+			continue;
+
+		count++;
+		szs_subfile_t *file = AppendSubfileSZS (sd->szs, 0, 0);
+		DASSERT (file);
+		file->dir_id = dir_id;
+		const uint nlen = strlen (name);
 		sd->namepool_size_u8 += nlen + 1;
 
 		file->is_dir = true;
 		*sd->path_dir++ = '/';
 		*sd->path_dir = 0;
-		file->path = STRDUP(sd->path_rel);
-		noTRACE("DIR:  %s\n",path_dir);
+		file->path = STRDUP (sd->path_rel);
+		noTRACE ("DIR:  %s\n", path_dir);
 		file->offset = sd->depth++;
 
 		// pointer 'file' becomes invalid if realloc() called => store index
-		const int idx = file - szs->subfile.list;
-		const u32 sub_count = scan_data(sd);
-		szs->subfile.list[idx].size = sub_count;
+		const int idx = file - sd->szs->subfile.list;
+		const u32 sub_count = scan_sdir (sd, sub);
+		sd->szs->subfile.list[idx].size = sub_count;
 		count += sub_count;
 		sd->depth--;
-	    }
-	    else if (S_ISREG(st.st_mode))
-	    {
-		count++;
-		szs_subfile_t * file = AppendSubfileSZS(szs,0,0);
-		DASSERT(file);
-		file->dir_id = dir_id;
-		const uint nlen = strlen(name);
-		sd->namepool_size_u8 += nlen + 1;
-
-		szs_subfile_t *lptr = szs->links
-				? FindLinkSZS(szs,st.st_dev,st.st_ino,file) : 0;
-		if (lptr)
-		{
-		    if (!lptr->link_index)
-			lptr->link_index = ++szs->subfile.link_count;
-		    file->link_index = lptr->link_index;
-		    PRINT("LINK[%d]: %s  ->  %s\n",
-				lptr->link_index, lptr->path, sd->path_rel );
-		}
-
-		file->path	= STRDUP(sd->path_rel);
-		noTRACE("FILE: %s\n",path_dir);
-		file->is_dir	= false;
-		file->size	= st.st_size;
-		file->device	= st.st_dev;
-		file->inode	= st.st_ino;
-		if (!lptr)
-		{
-		    MaxFileAttrib(&szs->fatt,0,&st);
-		    sd->total_size += ALIGN32(file->size,sd->align);
-		}
-	    }
-	    // else ignore all other files
 	}
 
-	for ( uint i = 0; i < n_names; i++ )
-	    FREE(names[i]);
-	FREE(names);
-    }
-
-    // restore path_dir
-    sd->path_dir = path_dir;
-    return count;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-static u32 scan_sdir ( scan_data_t *sd, SubDir_t *sdir )
-{
-    ASSERT(sd);
-    ASSERT(sd->szs);
-    ASSERT(sdir);
-    const u16 dir_id = sd->n_directories++;
-
-    char * path_dir = sd->path_dir;
-    u32 count = 0;
-
-    uint i;
-    for ( i = 0; i < sdir->file.used; i++ )
-    {
-	SubFile_t *sf = sdir->file.list[i];
-	ccp name = sf->fname;
-	if (!fname_allowed(sd,name,path_dir))
-	    continue;
-
-	count++;
-	szs_subfile_t * file = AppendSubfileSZS(sd->szs,0,0);
-	DASSERT(file);
-	file->dir_id = dir_id;
-	const uint nlen = strlen(name);
-	sd->namepool_size_u8 += nlen + 1;
-
-	file->path	= STRDUP(sd->path_rel);
-	noTRACE("FILE: %s\n",path_dir);
-	file->is_dir	= false;
-	file->size	= sf->size;
-	file->data	= sf->data;
-	sd->total_size	+= ALIGN32(file->size,sd->align);
-    }
-
-    for ( i = 0; i < sdir->dir.used; i++ )
-    {
-	SubDir_t *sub = sdir->dir.list[i];
-	ccp name = sub->dname;
-	if (!fname_allowed(sd,name,path_dir))
-	    continue;
-
-	count++;
-	szs_subfile_t * file	= AppendSubfileSZS(sd->szs,0,0);
-	DASSERT(file);
-	file->dir_id		= dir_id;
-	const uint nlen		= strlen(name);
-	sd->namepool_size_u8	+= nlen + 1;
-
-	file->is_dir = true;
-	*sd->path_dir++		= '/';
-	*sd->path_dir		= 0;
-	file->path		= STRDUP(sd->path_rel);
-	noTRACE("DIR:  %s\n",path_dir);
-	file->offset		= sd->depth++;
-
-	// pointer 'file' becomes invalid if realloc() called => store index
-	const int idx		= file - sd->szs->subfile.list;
-	const u32 sub_count	= scan_sdir(sd,sub);
-	sd->szs->subfile.list[idx].size = sub_count;
-	count			+= sub_count;
-	sd->depth--;
-    }
-
-    // restore path_dir
-    sd->path_dir = path_dir;
-    return count;
+	// restore path_dir
+	sd->path_dir = path_dir;
+	return count;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -431,84 +422,83 @@ static u32 scan_sdir ( scan_data_t *sd, SubDir_t *sdir )
 // missing or corrupt cache is harmless: it just means "nothing known yet",
 // never an error.
 
-static void LoadHashCache ( ParamField_t *cache, ccp source_dir )
+static void LoadHashCache (ParamField_t *cache, ccp source_dir)
 {
-    InitializeParamField(cache);
-    cache->free_data = true;
+	InitializeParamField (cache);
+	cache->free_data = true;
 
-    char path[PATH_MAX];
-    PathCatPP(path,sizeof(path),source_dir,SZS_HASH_CACHE_FILE);
+	char path[PATH_MAX];
+	PathCatPP (path, sizeof (path), source_dir, SZS_HASH_CACHE_FILE);
 
-    FILE *f = fopen(path,"r");
-    if (!f)
-	return;
+	FILE *f = fopen (path, "r");
+	if (!f)
+		return;
 
-    char buf[2*PATH_MAX];
-    while (fgets(buf,sizeof(buf),f))
-    {
-	char *ptr = buf;
-	while ( *ptr > 0 && *ptr <= ' ' )
-	    ptr++;
-	if ( *ptr == '#' || *ptr == '!' || !*ptr )
-	    continue;
+	char buf[2 * PATH_MAX];
+	while (fgets (buf, sizeof (buf), f))
+	{
+		char *ptr = buf;
+		while (*ptr > 0 && *ptr <= ' ')
+			ptr++;
+		if (*ptr == '#' || *ptr == '!' || !*ptr)
+			continue;
 
-	ccp hex = ptr;
-	uint hexlen = 0;
-	while ( isxdigit((int)(u8)ptr[hexlen]) )
-	    hexlen++;
-	if ( hexlen != 2*sizeof(sha1_hash_t) || ptr[hexlen] != ' ' )
-	    continue; // malformed line: ignore, not fatal
+		ccp hex = ptr;
+		uint hexlen = 0;
+		while (isxdigit ((int)(u8)ptr[hexlen]))
+			hexlen++;
+		if (hexlen != 2 * sizeof (sha1_hash_t) || ptr[hexlen] != ' ')
+			continue; // malformed line: ignore, not fatal
 
-	ptr += hexlen;
-	while ( *ptr == ' ' )
-	    ptr++;
+		ptr += hexlen;
+		while (*ptr == ' ')
+			ptr++;
 
-	char *eol = ptr;
-	while ( *eol && *eol != '\r' && *eol != '\n' )
-	    eol++;
-	*eol = 0;
-	if (!*ptr)
-	    continue;
+		char *eol = ptr;
+		while (*eol && *eol != '\r' && *eol != '\n')
+			eol++;
+		*eol = 0;
+		if (!*ptr)
+			continue;
 
-	sha1_hash_t tmp;
-	Sha1Hex2Bin(tmp,hex,hex+hexlen);
-	u8 *hash = MEMDUP(tmp,sizeof(sha1_hash_t));
-	InsertParamField(cache,ptr,false,0,hash); // false: dup the key, we own 'buf'
-    }
-    fclose(f);
+		sha1_hash_t tmp;
+		Sha1Hex2Bin (tmp, hex, hex + hexlen);
+		u8 *hash = MEMDUP (tmp, sizeof (sha1_hash_t));
+		InsertParamField (cache, ptr, false, 0, hash); // false: dup the key, we own 'buf'
+	}
+	fclose (f);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static void SaveHashCache ( const ParamField_t *cache, ccp source_dir )
+static void SaveHashCache (const ParamField_t *cache, ccp source_dir)
 {
-    char path[PATH_MAX];
-    PathCatPP(path,sizeof(path),source_dir,SZS_HASH_CACHE_FILE);
+	char path[PATH_MAX];
+	PathCatPP (path, sizeof (path), source_dir, SZS_HASH_CACHE_FILE);
 
-    if (!cache->used)
-    {
-	unlink(path);
-	return;
-    }
+	if (!cache->used)
+	{
+		unlink (path);
+		return;
+	}
 
-    FILE *f = fopen(path,"w");
-    if (!f)
-	return; // non-fatal: worst case, the next CREATE just re-checks everything
+	FILE *f = fopen (path, "w");
+	if (!f)
+		return; // non-fatal: worst case, the next CREATE just re-checks everything
 
-    fputs(
-	"# wszst per-member content-hash cache -- auto-generated, do not edit.\n"
-	"# Lets CREATE/ENCODE skip re-encoding and rebuilding when nothing in\n"
-	"# this directory actually changed since the last successful build.\n",
-	f );
+	fputs ("# wszst per-member content-hash cache -- auto-generated, do not edit.\n"
+		   "# Lets CREATE/ENCODE skip re-encoding and rebuilding when nothing in\n"
+		   "# this directory actually changed since the last successful build.\n",
+		f);
 
-    const ParamFieldItem_t *ptr = cache->field, *end = ptr + cache->used;
-    for ( ; ptr < end; ptr++ )
-    {
-	sha1_hex_t hex;
-	Sha1Bin2Hex(hex,ptr->data);
-	fprintf(f,"%s %s\n",hex,ptr->key);
-    }
-    fclose(f);
+	const ParamFieldItem_t *ptr = cache->field, *end = ptr + cache->used;
+	for (; ptr < end; ptr++)
+	{
+		sha1_hex_t hex;
+		Sha1Bin2Hex (hex, ptr->data);
+		fprintf (f, "%s %s\n", hex, ptr->key);
+	}
+	fclose (f);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -527,352 +517,347 @@ static void SaveHashCache ( const ParamField_t *cache, ccp source_dir )
 // - Otherwise ->data points into szs->data at ->offset (see
 //   InsertSubfileSZS's "file->data = szs->data + it->off"), so the real
 //   readable length is whatever remains of szs->data from that offset.
-static u32 SafeSubfileHashSize ( const szs_file_t *szs, const szs_subfile_t *sf )
+static u32 SafeSubfileHashSize (const szs_file_t *szs, const szs_subfile_t *sf)
 {
-    if (!sf->data)
-	return 0;
-    if (sf->data_alloced)
-	return sf->size;
-    if (sf->offset > szs->size)
-	return 0;
-    const u32 remain = (u32)(szs->size - sf->offset);
-    return sf->size < remain ? sf->size : remain;
+	if (!sf->data)
+		return 0;
+	if (sf->data_alloced)
+		return sf->size;
+	if (sf->offset > szs->size)
+		return 0;
+	const u32 remain = (u32)(szs->size - sf->offset);
+	return sf->size < remain ? sf->size : remain;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-enumError CreateSZS
-(
-    szs_file_t		*szs,		// valid szs
-    ccp			dest_fname,	// NULL or planned destination file name
-    ccp			source_dir,	// path to base directory
-    SubDir_t		*sdir,		// not NULL: read from here and ignore source_dir
-    SetupParam_t	*setup_param,	// setup parameters
-					// if NULL: read SZS_SETUP_FILE
-    uint		depth,		// creation depth
-    uint		log_depth,	// print creation log if depth<log_depth
-    bool		mark_readonly	// true: the file will never written
+enumError CreateSZS (szs_file_t *szs, // valid szs
+	ccp dest_fname, // NULL or planned destination file name
+	ccp source_dir, // path to base directory
+	SubDir_t *sdir, // not NULL: read from here and ignore source_dir
+	SetupParam_t *setup_param, // setup parameters
+							   // if NULL: read SZS_SETUP_FILE
+	uint depth, // creation depth
+	uint log_depth, // print creation log if depth<log_depth
+	bool mark_readonly // true: the file will never written
 )
 {
-    DASSERT(szs);
-    PRINT("CreateSZS(%p,%s,%s,%p,%p,%u,%u,%d)\n",
-		szs, dest_fname, source_dir, sdir,
-		setup_param, depth, log_depth, mark_readonly );
-    ResetSZS(szs);
-    if (mark_readonly)
-	MarkReadonlySZS(szs);
-    szs->fform_file	= szs->fform_arch = szs->fform_current = FF_DIRECTORY;
-    szs->ff_attrib	= GetAttribFF(szs->fform_arch);
-    szs->ff_version	= -1;
-    szs->fname		= STRDUP(source_dir);
-    szs->allow_ext_data	= true;
+	DASSERT (szs);
+	PRINT ("CreateSZS(%p,%s,%s,%p,%p,%u,%u,%d)\n", szs, dest_fname, source_dir, sdir, setup_param,
+		depth, log_depth, mark_readonly);
+	ResetSZS (szs);
+	if (mark_readonly)
+		MarkReadonlySZS (szs);
+	szs->fform_file = szs->fform_arch = szs->fform_current = FF_DIRECTORY;
+	szs->ff_attrib = GetAttribFF (szs->fform_arch);
+	szs->ff_version = -1;
+	szs->fname = STRDUP (source_dir);
+	szs->allow_ext_data = true;
 
-    //--- setup
+	//--- setup
 
-    scan_data_t sd;
-    memset(&sd,0,sizeof(sd));
-    sd.szs = szs;
-    sd.path_rel = StringCat2S(sd.path,sizeof(sd.path),source_dir,"/");
-    if ( sd.path_rel > sd.path + 1 && sd.path_rel[-2] == '/' )
-	sd.path_rel--;
-    *sd.path_rel = 0;
-    sd.depth = 1;
-    sd.path_dir = sd.path_rel;
-
-    if (!sdir)
-    {
-	struct stat st;
-	if (stat(sd.path,&st))
-	    return ERROR1(ERR_CANT_OPEN,"Can't open directory: %s\n",sd.path);
-	if (!S_ISDIR(st.st_mode))
-	    return ERROR1(ERR_CANT_OPEN,"Not a directory: %s\n",sd.path);
-    }
-
-    SetupParam_t local_setup_param;
-    if (!setup_param)
-    {
+	scan_data_t sd;
+	memset (&sd, 0, sizeof (sd));
+	sd.szs = szs;
+	sd.path_rel = StringCat2S (sd.path, sizeof (sd.path), source_dir, "/");
+	if (sd.path_rel > sd.path + 1 && sd.path_rel[-2] == '/')
+		sd.path_rel--;
 	*sd.path_rel = 0;
-	InitializeSetupParam(&local_setup_param);
-	setup_param = &local_setup_param;
-	ScanSetupParam(setup_param,true,sd.path,SZS_SETUP_FILE,sdir,true);
-    }
-    sd.setup_param = setup_param;
-    szs->links = opt_links && GetAttribFF(sd.setup_param->fform_arch) & FFT_LINK;
+	sd.depth = 1;
+	sd.path_dir = sd.path_rel;
 
-
-    ParamField_t old_hash_cache, new_hash_cache;
-    if (!sdir)
-    {
-	LoadHashCache(&old_hash_cache,source_dir);
-	InitializeParamField(&new_hash_cache);
-	new_hash_cache.free_data = true;
-
-	if ( old_hash_cache.used == 0 && dest_fname && *dest_fname )
+	if (!sdir)
 	{
-	    szs_file_t orig_szs;
-	    InitializeSZS(&orig_szs);
-	    if ( LoadSZS(&orig_szs, dest_fname, true, true, true) == ERR_OK )
-	    {
-		for ( uint i = 0; i < orig_szs.subfile.used; i++ )
-		{
-		    const szs_subfile_t *sf = orig_szs.subfile.list + i;
-		    if ( !sf->is_dir )
-		    {
-			sha1_hash_t hash;
-			SHA1(sf->data ? sf->data : (const u8*)"", SafeSubfileHashSize(&orig_szs,sf), hash);
-			InsertParamField(&old_hash_cache, sf->path, false, 0,
-					MEMDUP(hash, sizeof(sha1_hash_t)));
-		    }
-		}
-	    }
-	    ResetSZS(&orig_szs);
+		struct stat st;
+		if (stat (sd.path, &st))
+			return ERROR1 (ERR_CANT_OPEN, "Can't open directory: %s\n", sd.path);
+		if (!S_ISDIR (st.st_mode))
+			return ERROR1 (ERR_CANT_OPEN, "Not a directory: %s\n", sd.path);
 	}
-    }
 
-
-    //--- encode files
-
-    uint encode_warnings = 0, encode_errors = 0;
-    if ( !sdir && ( !opt_no_encode || opt_encode_img ))
-    {
-      disable_patch_on_load++;
-      have_patch_count -= 1000000;
-      const FormatFieldItem_t *ptr = setup_param->encode_list.list;
-      const FormatFieldItem_t *end = ptr + setup_param->encode_list.used;
-      for ( ; ptr < end; ptr++ )
-      {
-	ccp ext;
-	bool encoding_needed = opt_encode_all;
-	noPRINT("FF=%u %s\n",ptr->fform,GetNameFF(ptr->fform,0));
-	switch(ptr->fform)
+	SetupParam_t local_setup_param;
+	if (!setup_param)
 	{
-	    case FF_BMG:
-	    case FF_BMG_TXT:
-	    case FF_KMP:
-	    case FF_KMP_TXT:
-	    case FF_LEX:
-	    case FF_LEX_TXT:
- #if 0 // [[2do]] [[mdl]]
+		*sd.path_rel = 0;
+		InitializeSetupParam (&local_setup_param);
+		setup_param = &local_setup_param;
+		ScanSetupParam (setup_param, true, sd.path, SZS_SETUP_FILE, sdir, true);
+	}
+	sd.setup_param = setup_param;
+	szs->links = opt_links && GetAttribFF (sd.setup_param->fform_arch) & FFT_LINK;
+
+	ParamField_t old_hash_cache, new_hash_cache;
+	if (!sdir)
+	{
+		LoadHashCache (&old_hash_cache, source_dir);
+		InitializeParamField (&new_hash_cache);
+		new_hash_cache.free_data = true;
+
+		if (old_hash_cache.used == 0 && dest_fname && *dest_fname)
+		{
+			szs_file_t orig_szs;
+			InitializeSZS (&orig_szs);
+			if (LoadSZS (&orig_szs, dest_fname, true, true, true) == ERR_OK)
+			{
+				for (uint i = 0; i < orig_szs.subfile.used; i++)
+				{
+					const szs_subfile_t *sf = orig_szs.subfile.list + i;
+					if (!sf->is_dir)
+					{
+						sha1_hash_t hash;
+						SHA1 (sf->data ? sf->data : (const u8 *)"",
+							SafeSubfileHashSize (&orig_szs, sf), hash);
+						InsertParamField (&old_hash_cache, sf->path, false, 0,
+							MEMDUP (hash, sizeof (sha1_hash_t)));
+					}
+				}
+			}
+			ResetSZS (&orig_szs);
+		}
+	}
+
+	//--- encode files
+
+	uint encode_warnings = 0, encode_errors = 0;
+	if (!sdir && (!opt_no_encode || opt_encode_img))
+	{
+		disable_patch_on_load++;
+		have_patch_count -= 1000000;
+		const FormatFieldItem_t *ptr = setup_param->encode_list.list;
+		const FormatFieldItem_t *end = ptr + setup_param->encode_list.used;
+		for (; ptr < end; ptr++)
+		{
+			ccp ext;
+			bool encoding_needed = opt_encode_all;
+			noPRINT ("FF=%u %s\n", ptr->fform, GetNameFF (ptr->fform, 0));
+			switch (ptr->fform)
+			{
+				case FF_BMG:
+				case FF_BMG_TXT:
+				case FF_KMP:
+				case FF_KMP_TXT:
+				case FF_LEX:
+				case FF_LEX_TXT:
+#if 0 // [[2do]] [[mdl]]
 	    case FF_MDL:
 	    case FF_MDL_TXT:
- #endif
-	    case FF_PAT:
-	    case FF_PAT_TXT:
-		if (opt_no_encode)
-		{
-		    *sd.path_rel = 0;
-		    continue;
-		}
-		ext = ".txt";
-		break;
+#endif
+				case FF_PAT:
+				case FF_PAT_TXT:
+					if (opt_no_encode)
+					{
+						*sd.path_rel = 0;
+						continue;
+					}
+					ext = ".txt";
+					break;
 
-	    case FF_KCL:
-	    case FF_KCL_TXT:
-	    case FF_WAV_OBJ:
-	    case FF_SKP_OBJ:
-		if (opt_no_encode)
-		{
-		    *sd.path_rel = 0;
-		    continue;
-		}
-		ext = ".obj";
-		break;
+				case FF_KCL:
+				case FF_KCL_TXT:
+				case FF_WAV_OBJ:
+				case FF_SKP_OBJ:
+					if (opt_no_encode)
+					{
+						*sd.path_rel = 0;
+						continue;
+					}
+					ext = ".obj";
+					break;
 
-// [[tpl-ex+]]
-	    case FF_CUPICON:
-	    case FF_TPL:
-	    case FF_TPLX:
-	    case FF_BTI:
-	    case FF_TEX:
-	    case FF_TEX_CT:
-	    case FF_BREFT:
-	    case FF_BREFT_IMG:
-		ext = ".png";
-		encoding_needed = opt_encode_all || opt_encode_img;
-		break;
+					// [[tpl-ex+]]
+				case FF_CUPICON:
+				case FF_TPL:
+				case FF_TPLX:
+				case FF_BTI:
+				case FF_TEX:
+				case FF_TEX_CT:
+				case FF_BREFT:
+				case FF_BREFT_IMG:
+					ext = ".png";
+					encoding_needed = opt_encode_all || opt_encode_img;
+					break;
 
-	    default:
-		*sd.path_rel = 0;
-		PRINT("NO-ENCODE: %s/%s\n",sd.path,ptr->key);
-		continue;
-	}
+				default:
+					*sd.path_rel = 0;
+					PRINT ("NO-ENCODE: %s/%s\n", sd.path, ptr->key);
+					continue;
+			}
 
-	struct stat st_dest;
-	if (!encoding_needed)
-	{
-	    StringCopyE( sd.path_rel, sd.path+sizeof(sd.path), ptr->key );
-	    encoding_needed = stat(sd.path,&st_dest) || !S_ISREG(st_dest.st_mode);
-	}
+			struct stat st_dest;
+			if (!encoding_needed)
+			{
+				StringCopyE (sd.path_rel, sd.path + sizeof (sd.path), ptr->key);
+				encoding_needed = stat (sd.path, &st_dest) || !S_ISREG (st_dest.st_mode);
+			}
 
-	StringCat2E( sd.path_rel, sd.path+sizeof(sd.path), ptr->key, ext );
-	TRACE("FIND: %s\n",sd.path);
+			StringCat2E (sd.path_rel, sd.path + sizeof (sd.path), ptr->key, ext);
+			TRACE ("FIND: %s\n", sd.path);
 
-	struct stat st;
-	if ( stat(sd.path,&st) || !S_ISREG(st.st_mode) )
-	{
-	    NewFileExtS( sd.path, sizeof(sd.path), 0, ext );
-	    if ( stat(sd.path,&st) || !S_ISREG(st.st_mode) )
-		continue;
-	}
-	InsertStringField(&setup_param->exclude_name,sd.path_rel,false);
-	// st_dest.st_mtime was the old staleness gate; replaced by the
-	// content-hash check below (st_dest.st_mode above is still used)
+			struct stat st;
+			if (stat (sd.path, &st) || !S_ISREG (st.st_mode))
+			{
+				NewFileExtS (sd.path, sizeof (sd.path), 0, ext);
+				if (stat (sd.path, &st) || !S_ISREG (st.st_mode))
+					continue;
+			}
+			InsertStringField (&setup_param->exclude_name, sd.path_rel, false);
+			// st_dest.st_mtime was the old staleness gate; replaced by the
+			// content-hash check below (st_dest.st_mode above is still used)
 
-	char hash_key[PATH_MAX];
-	StringCopyS(hash_key,sizeof(hash_key),sd.path_rel);
-	    // snapshot the decode-form's relative path (e.g. "foo.tpl.png") now,
-	    // before the switch below overwrites sd.path_rel with the binary's
+			char hash_key[PATH_MAX];
+			StringCopyS (hash_key, sizeof (hash_key), sd.path_rel);
+			// snapshot the decode-form's relative path (e.g. "foo.tpl.png") now,
+			// before the switch below overwrites sd.path_rel with the binary's
 
-	u8 * data = MALLOC(st.st_size+1);
-	if (!LoadFILE(sd.path,0,0,data,st.st_size,0,0,false))
-	{
-	  data[st.st_size] = 0; // this EOT marker helps scanning text files
+			u8 *data = MALLOC (st.st_size + 1);
+			if (!LoadFILE (sd.path, 0, 0, data, st.st_size, 0, 0, false))
+			{
+				data[st.st_size] = 0; // this EOT marker helps scanning text files
 
-	  sha1_hash_t cur_hash;
-	  SHA1(data,st.st_size,cur_hash);
-	  const ParamFieldItem_t *cached = FindParamField(&old_hash_cache,hash_key);
-	  bool is_unchanged = false;
-	  if ( !encoding_needed )
-	  {
-	      if ( cached && !memcmp(cached->data,cur_hash,sizeof(sha1_hash_t)) )
-		  is_unchanged = true;
-	      else if ( !cached && st.st_mtime <= st_dest.st_mtime + 2 )
-		  is_unchanged = true;
-	  }
+				sha1_hash_t cur_hash;
+				SHA1 (data, st.st_size, cur_hash);
+				const ParamFieldItem_t *cached = FindParamField (&old_hash_cache, hash_key);
+				bool is_unchanged = false;
+				if (!encoding_needed)
+				{
+					if (cached && !memcmp (cached->data, cur_hash, sizeof (sha1_hash_t)))
+						is_unchanged = true;
+					else if (!cached && st.st_mtime <= st_dest.st_mtime + 2)
+						is_unchanged = true;
+				}
 
-	  if ( is_unchanged )
-	  {
-	      PRINT("NO-ENCODE (hash unchanged): %s\n",sd.path);
-	      InsertParamField(&new_hash_cache,hash_key,false,0,MEMDUP(cur_hash,sizeof(sha1_hash_t)));
-	      FREE(data);
-	      continue;
-	  }
+				if (is_unchanged)
+				{
+					PRINT ("NO-ENCODE (hash unchanged): %s\n", sd.path);
+					InsertParamField (&new_hash_cache, hash_key, false, 0,
+						MEMDUP (cur_hash, sizeof (sha1_hash_t)));
+					FREE (data);
+					continue;
+				}
 
-	  const file_format_t fform = GetByMagicFF(data,st.st_size,st.st_size);
-	  if ( depth < log_depth )
-		fprintf(stdlog,"%*s%sENCODE %s:%s\n",
-			2*depth, "",
-			testmode ? "WOULD " : "",
-			GetNameFF(fform,0),
-			sd.path );
+				const file_format_t fform = GetByMagicFF (data, st.st_size, st.st_size);
+				if (depth < log_depth)
+					fprintf (stdlog, "%*s%sENCODE %s:%s\n", 2 * depth, "", testmode ? "WOULD " : "",
+						GetNameFF (fform, 0), sd.path);
 
-	  const uint errs_before_item = encode_errors;
-	  switch (fform)
-	  {
-	    case FF_BMG:
-	    case FF_BMG_TXT:
-	      {
-		bmg_t bmg;
-		enumError err = ScanBMG(&bmg,true,sd.path,data,st.st_size);
-		if (err)
-		{
-		    if ( err > ERR_WARNING )
-		    {
-			encode_errors++;
-			break;
-		    }
-		    encode_warnings++;
-		}
+				const uint errs_before_item = encode_errors;
+				switch (fform)
+				{
+					case FF_BMG:
+					case FF_BMG_TXT:
+					{
+						bmg_t bmg;
+						enumError err = ScanBMG (&bmg, true, sd.path, data, st.st_size);
+						if (err)
+						{
+							if (err > ERR_WARNING)
+							{
+								encode_errors++;
+								break;
+							}
+							encode_warnings++;
+						}
 
-		StringCopyE( sd.path_rel, sd.path+sizeof(sd.path), ptr->key );
-		if (!testmode)
-		{
-		    unlink(sd.path);
-		    if (SaveRawXBMG(&bmg,sd.path,true))
-			encode_errors++;
-		}
-		ResetBMG(&bmg);
-	      }
-	      break;
+						StringCopyE (sd.path_rel, sd.path + sizeof (sd.path), ptr->key);
+						if (!testmode)
+						{
+							unlink (sd.path);
+							if (SaveRawXBMG (&bmg, sd.path, true))
+								encode_errors++;
+						}
+						ResetBMG (&bmg);
+					}
+					break;
 
-	    case FF_KCL:
-	    case FF_KCL_TXT:
-	    case FF_WAV_OBJ:
-	    case FF_SKP_OBJ:
-	      {
-		kcl_t kcl;
-		InitializeKCL(&kcl);
-		kcl.fform_outfile = FF_KCL;
-		kcl.fname = STRDUP(sd.path);
-		enumError err = ScanKCL(&kcl,false,data,st.st_size,true,global_check_mode);
-		if (err)
-		{
-		    if ( err > ERR_WARNING )
-		    {
-			encode_errors++;
-			break;
-		    }
-		    encode_warnings++;
-		}
+					case FF_KCL:
+					case FF_KCL_TXT:
+					case FF_WAV_OBJ:
+					case FF_SKP_OBJ:
+					{
+						kcl_t kcl;
+						InitializeKCL (&kcl);
+						kcl.fform_outfile = FF_KCL;
+						kcl.fname = STRDUP (sd.path);
+						enumError err
+							= ScanKCL (&kcl, false, data, st.st_size, true, global_check_mode);
+						if (err)
+						{
+							if (err > ERR_WARNING)
+							{
+								encode_errors++;
+								break;
+							}
+							encode_warnings++;
+						}
 
-		StringCopyE( sd.path_rel, sd.path+sizeof(sd.path), ptr->key );
-		if (!testmode)
-		{
-		    unlink(sd.path);
-		    if (SaveRawKCL(&kcl,sd.path,true))
-			encode_errors++;
-		}
-		ResetKCL(&kcl);
-	      }
-	      break;
+						StringCopyE (sd.path_rel, sd.path + sizeof (sd.path), ptr->key);
+						if (!testmode)
+						{
+							unlink (sd.path);
+							if (SaveRawKCL (&kcl, sd.path, true))
+								encode_errors++;
+						}
+						ResetKCL (&kcl);
+					}
+					break;
 
-	    case FF_KMP:
-	    case FF_KMP_TXT:
-	      {
-		kmp_t kmp;
-		InitializeKMP(&kmp);
-		kmp.fname = STRDUP(sd.path);
-		enumError err = ScanKMP(&kmp,false,data,st.st_size,global_check_mode);
-		if (err)
-		{
-		    if ( err > ERR_WARNING )
-		    {
-			encode_errors++;
-			break;
-		    }
-		    encode_warnings++;
-		}
+					case FF_KMP:
+					case FF_KMP_TXT:
+					{
+						kmp_t kmp;
+						InitializeKMP (&kmp);
+						kmp.fname = STRDUP (sd.path);
+						enumError err = ScanKMP (&kmp, false, data, st.st_size, global_check_mode);
+						if (err)
+						{
+							if (err > ERR_WARNING)
+							{
+								encode_errors++;
+								break;
+							}
+							encode_warnings++;
+						}
 
-		StringCopyE( sd.path_rel, sd.path+sizeof(sd.path), ptr->key );
-		if (!testmode)
-		{
-		    unlink(sd.path);
-		    if (SaveRawKMP(&kmp,sd.path,true))
-			encode_errors++;
-		}
-		ResetKMP(&kmp);
-	      }
-	      break;
+						StringCopyE (sd.path_rel, sd.path + sizeof (sd.path), ptr->key);
+						if (!testmode)
+						{
+							unlink (sd.path);
+							if (SaveRawKMP (&kmp, sd.path, true))
+								encode_errors++;
+						}
+						ResetKMP (&kmp);
+					}
+					break;
 
-	    case FF_LEX:
-	    case FF_LEX_TXT:
-	      {
-		lex_t lex;
-		InitializeLEX(&lex);
-		lex.fname = STRDUP(sd.path);
-		enumError err = ScanLEX(&lex,false,data,st.st_size);
-		if (err)
-		{
-		    if ( err > ERR_WARNING )
-		    {
-			encode_errors++;
-			break;
-		    }
-		    encode_warnings++;
-		}
+					case FF_LEX:
+					case FF_LEX_TXT:
+					{
+						lex_t lex;
+						InitializeLEX (&lex);
+						lex.fname = STRDUP (sd.path);
+						enumError err = ScanLEX (&lex, false, data, st.st_size);
+						if (err)
+						{
+							if (err > ERR_WARNING)
+							{
+								encode_errors++;
+								break;
+							}
+							encode_warnings++;
+						}
 
-		StringCopyE( sd.path_rel, sd.path+sizeof(sd.path), ptr->key );
-		if (!testmode)
-		{
-		    unlink(sd.path);
-		    if (SaveRawLEX(&lex,sd.path,true))
-			encode_errors++;
-		}
-		ResetLEX(&lex);
-	      }
-	      break;
+						StringCopyE (sd.path_rel, sd.path + sizeof (sd.path), ptr->key);
+						if (!testmode)
+						{
+							unlink (sd.path);
+							if (SaveRawLEX (&lex, sd.path, true))
+								encode_errors++;
+						}
+						ResetLEX (&lex);
+					}
+					break;
 
- #if 0 // [[mdl]]
+#if 0 // [[mdl]]
 	    case FF_MDL:
 	    case FF_MDL_TXT:
 	      {
@@ -901,1502 +886,1439 @@ enumError CreateSZS
 		ResetMDL(&kmp);
 	      }
 	      break;
- #endif
+#endif
 
-	    case FF_PAT:
-	    case FF_PAT_TXT:
-	      {
-		pat_t pat;
-		enumError err = ScanPAT(&pat,true,data,st.st_size,0,global_check_mode);
-		if (err)
+					case FF_PAT:
+					case FF_PAT_TXT:
+					{
+						pat_t pat;
+						enumError err
+							= ScanPAT (&pat, true, data, st.st_size, 0, global_check_mode);
+						if (err)
+						{
+							if (err > ERR_WARNING)
+							{
+								encode_errors++;
+								break;
+							}
+							encode_warnings++;
+						}
+
+						StringCopyE (sd.path_rel, sd.path + sizeof (sd.path), ptr->key);
+						if (!testmode)
+						{
+							unlink (sd.path);
+							if (SaveRawPAT (&pat, sd.path, true))
+								encode_errors++;
+						}
+						ResetPAT (&pat);
+					}
+					break;
+
+					case FF_PNG:
+					{
+						FREE (data);
+						data = 0;
+						Image_t img;
+						enumError err
+							= LoadIMG (&img, true, sd.path, 0, opt_mipmaps >= 0, false, opt_ignore);
+						if (err)
+						{
+							if (err > ERR_WARNING)
+							{
+								encode_errors++;
+								break;
+							}
+							encode_warnings++;
+						}
+
+						Transform3IMG (&img, ptr->fform, ptr->iform, ptr->pform, true);
+						TransformIMG (&img, -1);
+						Transform2InternIMG (&img);
+
+						StringCopyE (sd.path_rel, sd.path + sizeof (sd.path), ptr->key);
+						const file_format_t fform
+							= GetImageFF (img.tform_valid ? img.tform_fform : FF_INVALID,
+								ptr->fform, sd.path, img.info_fform, false, FF_TEX);
+						img.info_n_image = ptr->num;
+						if (SaveIMG (&img, fform, 0, 0, sd.path, true))
+							encode_errors++;
+					}
+					break;
+
+					default:
+						ERROR0 (ERR_INVALID_DATA, "Can't encode: %s\n", sd.path);
+						break;
+				}
+
+				if (encode_errors == errs_before_item)
+					InsertParamField (&new_hash_cache, hash_key, false, 0,
+						MEMDUP (cur_hash, sizeof (sha1_hash_t)));
+				// else: leave it out of the new cache, so a real encode failure
+				// (bad PNG, malformed KMP text, ...) keeps getting retried and
+				// reported instead of being silently remembered as "up to date"
+			}
+			FREE (data);
+		}
+		have_patch_count += 1000000;
+		disable_patch_on_load--;
+	}
+
+	//--- create sub archives
+
+	if (!opt_no_recurse && !sdir)
+	{
+		disable_patch_on_load++;
+		depth++;
+		ccp *ptr = setup_param->create_list.field;
+		ccp *end = ptr + setup_param->create_list.used;
+		for (; ptr < end; ptr++)
 		{
-		    if ( err > ERR_WARNING )
-		    {
-			encode_errors++;
+			StringCat2E (sd.path_rel, sd.path + sizeof (sd.path), *ptr, ".d");
+			struct stat st;
+			if (stat (sd.path, &st) || !S_ISDIR (st.st_mode))
+			{
+				NewFileExtS (sd.path, sizeof (sd.path), 0, ".d");
+				if (stat (sd.path, &st) || !S_ISDIR (st.st_mode))
+					continue;
+			}
+			InsertStringField (&setup_param->exclude_name, sd.path_rel, false);
+			PRINT ("CREATE %s\n", sd.path);
+
+			SetupParam_t setup_param2;
+			InitializeSetupParam (&setup_param2);
+			ScanSetupParam (&setup_param2, true, sd.path, SZS_SETUP_FILE, 0, true);
+			setup_param2.compr_mode = -1;
+
+			szs_file_t szs;
+			InitializeSZS (&szs);
+			if (!CreateSZS (&szs, 0, sd.path, 0, &setup_param2, depth, log_depth, mark_readonly))
+			{
+				StringCopyE (sd.path_rel, sd.path + sizeof (sd.path), *ptr);
+				struct stat st;
+#if HAVE_STATTIME_NSEC
+				if (stat (sd.path, &st) || CompareTimeSpec (&szs.fatt.mtime, &st.st_mtim) > 0)
+#else
+				if (stat (sd.path, &st) || CompareTimeSpecTime (&szs.fatt.mtime, st.st_mtime) > 0)
+#endif
+				{
+					const bool is_compressed = IsCompressedFF (setup_param2.fform_file);
+					if (is_compressed)
+						CompressSZS (&szs, 0, true);
+
+					if (depth < log_depth)
+						fprintf (stdlog, "%*s%sCREATE %s:%s\n", 2 * depth, "",
+							testmode ? "WOULD " : "", GetNameFF (szs.fform_file, szs.fform_arch),
+							sd.path);
+					SaveSZS (&szs, sd.path, true, is_compressed);
+				}
+			}
+			ResetSZS (&szs);
+		}
+		disable_patch_on_load--;
+	}
+
+	//--- scan files
+
+	// pointer 'file' and 'part->file' becomes invalid if realloc() called
+	// store the size first and then assign it (cross a sequence point)
+
+	bool allow_add_files = false;
+	switch (setup_param->fform_arch)
+	{
+		case FF_BRRES:
+			sd.align = opt_align_brres;
+			sd.max_depth = 20;
 			break;
-		    }
-		    encode_warnings++;
+
+		case FF_BREFF:
+		case FF_BREFT:
+			sd.path_dir = StringCopyE (sd.path_rel, sd.path + sizeof (sd.path), "files/");
+			sd.align = 4; // any value because calculation is done later
+			break;
+
+		case FF_PACK:
+			sd.align = opt_align_pack;
+			sd.max_depth = 20;
+			break;
+
+		case FF_RKC:
+			sd.align = 0x10;
+			sd.max_depth = 0;
+			break;
+
+		case FF_LTA:
+		case FF_LFL:
+			sd.align = opt_align_lta;
+			sd.max_depth = 20;
+			break;
+
+		// case FF_RARC: // [[2do]] [[arc]]
+		// case FF_U8:
+		// case FF_WU8:
+		default:
+			sd.align = opt_align_u8;
+			sd.max_depth = 20;
+			allow_add_files = true;
+			break;
+	}
+
+	*sd.path_dir = 0;
+	const u32 n_sub_files = sdir ? scan_sdir (&sd, sdir) : scan_data (&sd);
+	ASSERT_MSG (n_sub_files == szs->subfile.used, "%d+1 != %d [%s]\n", n_sub_files,
+		szs->subfile.used, szs->subfile.list->path);
+
+	//--- member content-hash cache: skip the rebuild entirely if nothing changed
+	//
+	// Only applies to the outer, named-destination call (dest_fname set, !sdir):
+	// the recursive "create sub archives" pass above already has its own
+	// (mtime-based) skip for nested '.d' sub-archives, left as-is here.
+	// Every non-directory member gets hashed fresh off disk -- cheap relative
+	// to the assemble+compress pass it lets us skip -- and compared against
+	// what the last successful build of *this* directory saw.
+
+	bool skip_rebuild = !sdir && dest_fname && !encode_errors;
+	if (skip_rebuild)
+	{
+		// Always hash *every* member, even after we already know we can't
+		// skip -- new_hash_cache must end up complete, or every member found
+		// "different" this run would stay looking different forever after.
+		bool any_diff = false;
+		char member_path[PATH_MAX];
+		for (uint i = 0; i < szs->subfile.used; i++)
+		{
+			const szs_subfile_t *sf = szs->subfile.list + i;
+			if (sf->is_dir)
+				continue;
+
+			PathCatPP (member_path, sizeof (member_path), source_dir, sf->path);
+			u8 *fdata = 0;
+			size_t fsize = 0;
+			if (LoadFileAlloc (member_path, 0, 0, &fdata, &fsize, 0, 2, 0, false))
+			{
+				any_diff = true; // can't verify this one -> play safe, do a real rebuild
+				continue;
+			}
+
+			sha1_hash_t cur_hash;
+			SHA1 (fdata, fsize, cur_hash);
+			FREE (fdata);
+
+			const ParamFieldItem_t *cached = FindParamField (&old_hash_cache, sf->path);
+			if (!cached || memcmp (cached->data, cur_hash, sizeof (sha1_hash_t)))
+				any_diff = true;
+			InsertParamField (
+				&new_hash_cache, sf->path, false, 0, MEMDUP (cur_hash, sizeof (sha1_hash_t)));
 		}
 
-		StringCopyE( sd.path_rel, sd.path+sizeof(sd.path), ptr->key );
+		if (any_diff || old_hash_cache.used != new_hash_cache.used)
+			skip_rebuild = false; // content differs, or a member was added/removed
+
+		struct stat dest_st;
+		if (skip_rebuild && stat (dest_fname, &dest_st))
+			skip_rebuild = false; // no previous output on disk to reuse
+	}
+
+	if (skip_rebuild)
+	{
+		szs->unchanged = true;
+		if (verbose >= 0 || testmode)
+			fprintf (stdlog, "%s%sCREATE (unchanged, skipped) %s/ -> %s\n", verbose > 0 ? "\n" : "",
+				testmode ? "WOULD " : "", source_dir, dest_fname);
 		if (!testmode)
-		{
-		    unlink(sd.path);
-		    if (SaveRawPAT(&pat,sd.path,true))
-			encode_errors++;
-		}
-		ResetPAT(&pat);
-	      }
-	      break;
+			SaveHashCache (&new_hash_cache, source_dir);
+		ResetParamField (&old_hash_cache);
+		ResetParamField (&new_hash_cache);
+		if (setup_param == &local_setup_param)
+			ResetSetupParam (&local_setup_param);
+		return ERR_OK;
+	}
 
-	    case FF_PNG:
-	      {
-		FREE(data);
-		data = 0;
-		Image_t img;
-		enumError err = LoadIMG( &img, true, sd.path, 0,
-					opt_mipmaps >= 0, false, opt_ignore );
-		if (err)
+	//--- add missing files
+
+	if (!sdir && opt_auto_add && allow_add_files)
+		AddMissingFiles (szs, source_dir, &sd, 0, verbose >= 0 ? 2 * (int)depth : -1);
+
+	//--- debugging
+
+	if (logging >= 2)
+	{
+		int i;
+		for (i = 0; i < szs->subfile.used; i++)
 		{
-		    if ( err > ERR_WARNING )
-		    {
-			encode_errors++;
+			szs_subfile_t *f = szs->subfile.list + i;
+			printf ("%3d.: %u %6x %6x %s\n", i, f->is_dir, f->offset, f->size, f->path);
+		}
+	}
+
+	//--- create archive
+
+	enumError err;
+	switch (setup_param->fform_arch)
+	{
+		case FF_BRRES:
+			szs->order_list = &setup_param->order_list;
+			szs->min_data_off = setup_param->min_data_off;
+			err = CreateBRRES (szs, source_dir, 0, sd.total_size);
 			break;
-		    }
-		    encode_warnings++;
-		}
 
-		Transform3IMG(&img,ptr->fform,ptr->iform,ptr->pform,true);
-		TransformIMG(&img,-1);
-		Transform2InternIMG(&img);
+		case FF_BREFF:
+		case FF_BREFT:
+			szs->order_list = &setup_param->order_list;
+			err = CreateBREFF (szs, source_dir, 0, sd.total_size, setup_param);
+			break;
 
-		StringCopyE( sd.path_rel, sd.path+sizeof(sd.path), ptr->key );
-		const file_format_t fform
-		    = GetImageFF( img.tform_valid ? img.tform_fform : FF_INVALID,
-				    ptr->fform,
-				    sd.path,
-				    img.info_fform,
-				    false,
-				    FF_TEX );
-		img.info_n_image = ptr->num;
-		if (SaveIMG(&img,fform,0,0,sd.path,true))
-		    encode_errors++;
-	      }
-	      break;
+		case FF_PACK:
+			szs->order_list = &setup_param->order_list;
+			err = CreatePACK (szs, source_dir, 0, sd.total_size, setup_param);
+			break;
 
-	    default:
-	      ERROR0(ERR_INVALID_DATA,"Can't encode: %s\n",sd.path);
-	      break;
-	  }
+		case FF_RKC:
+			err = CreateRKC (szs, source_dir);
+			setup_param->compr_mode = -1;
+			break;
 
-	  if ( encode_errors == errs_before_item )
-	      InsertParamField(&new_hash_cache,hash_key,false,0,
-				MEMDUP(cur_hash,sizeof(sha1_hash_t)));
-	      // else: leave it out of the new cache, so a real encode failure
-	      // (bad PNG, malformed KMP text, ...) keeps getting retried and
-	      // reported instead of being silently remembered as "up to date"
+		case FF_LFL:
+			err = CreateLFL (szs, source_dir, false, false);
+			setup_param->compr_mode = -1;
+			szs->allow_ext_data = true;
+			break;
+
+		default:
+			err = CreateU8 (szs, source_dir, 0, sd.namepool_size_u8, sd.total_size,
+				setup_param->have_pt_dir > 0);
+			szs->allow_ext_data = true;
+			break;
 	}
-	FREE(data);
-      }
-      have_patch_count += 1000000;
-      disable_patch_on_load--;
-    }
+	szs->order_list = 0;
 
+	//--- transform & compress data
 
-    //--- create sub archives
-
-    if ( !opt_no_recurse && !sdir )
-    {
-	disable_patch_on_load++;
-	depth++;
-	ccp *ptr = setup_param->create_list.field;
-	ccp *end = ptr + setup_param->create_list.used;
-	for ( ; ptr < end; ptr++ )
+	szs->fform_file = szs->fform_arch;
+	PatchSZS (szs);
+	if (szs->allow_ext_data)
 	{
-	    StringCat2E( sd.path_rel, sd.path+sizeof(sd.path), *ptr, ".d" );
-	    struct stat st;
-	    if ( stat(sd.path,&st) || !S_ISDIR(st.st_mode) )
-	    {
-		NewFileExtS( sd.path, sizeof(sd.path), 0, ".d" );
-		if ( stat(sd.path,&st) || !S_ISDIR(st.st_mode) )
-		    continue;
-	    }
-	    InsertStringField(&setup_param->exclude_name,sd.path_rel,false);
-	    PRINT("CREATE %s\n",sd.path);
-
-	    SetupParam_t setup_param2;
-	    InitializeSetupParam(&setup_param2);
-	    ScanSetupParam(&setup_param2,true,sd.path,SZS_SETUP_FILE,0,true);
-	    setup_param2.compr_mode = -1;
-
-	    szs_file_t szs;
-	    InitializeSZS(&szs);
-	    if (!CreateSZS(&szs,0,sd.path,0,&setup_param2,depth,log_depth,mark_readonly))
-	    {
-		StringCopyE( sd.path_rel, sd.path+sizeof(sd.path), *ptr );
-		struct stat st;
-	     #if HAVE_STATTIME_NSEC
-		if ( stat(sd.path,&st) || CompareTimeSpec(&szs.fatt.mtime,&st.st_mtim) > 0 )
-	     #else
-		if ( stat(sd.path,&st) || CompareTimeSpecTime(&szs.fatt.mtime,st.st_mtime) > 0 )
-	     #endif
-		{
-		    const bool is_compressed = IsCompressedFF(setup_param2.fform_file);
-		    if (is_compressed)
-			CompressSZS(&szs,0,true);
-
-		    if ( depth < log_depth )
-			fprintf(stdlog,"%*s%sCREATE %s:%s\n",
-				2*depth, "",
-				testmode ? "WOULD " : "",
-				GetNameFF(szs.fform_file,szs.fform_arch),
-				sd.path );
-		    SaveSZS(&szs,sd.path,true,is_compressed);
-		}
-	    }
-	    ResetSZS(&szs);
+		const bool clean_lex = opt_lex_purge || HavePatchTestLEX ();
+		NormalizeExSZS (szs, opt_rm_aiparam, clean_lex, false);
 	}
-	disable_patch_on_load--;
-    }
 
+	if (!err && setup_param->fform_arch == FF_WU8)
+		err = EncodeWU8 (szs);
 
-    //--- scan files
-
-    // pointer 'file' and 'part->file' becomes invalid if realloc() called
-    // store the size first and then assign it (cross a sequence point)
-
-    bool allow_add_files = false;
-    switch (setup_param->fform_arch)
-    {
-	case FF_BRRES:
-	    sd.align = opt_align_brres;
-	    sd.max_depth = 20;
-	    break;
-
-	case FF_BREFF:
-	case FF_BREFT:
-	    sd.path_dir = StringCopyE(sd.path_rel,sd.path+sizeof(sd.path),"files/");
-	    sd.align = 4; // any value because calculation is done later
-	    break;
-
-	case FF_PACK:
-	    sd.align = opt_align_pack;
-	    sd.max_depth = 20;
-	    break;
-
-	case FF_RKC:
-	    sd.align = 0x10;
-	    sd.max_depth = 0;
-	    break;
-
-	case FF_LTA:
-	case FF_LFL:
-	    sd.align = opt_align_lta;
-	    sd.max_depth = 20;
-	    break;
-
-	//case FF_RARC: // [[2do]] [[arc]]
-	//case FF_U8:
-	//case FF_WU8:
-	default:
-	    sd.align = opt_align_u8;
-	    sd.max_depth = 20;
-	    allow_add_files = true;
-	    break;
-    }
-
-    *sd.path_dir = 0;
-    const u32 n_sub_files = sdir ? scan_sdir(&sd,sdir) : scan_data(&sd);
-    ASSERT_MSG( n_sub_files == szs->subfile.used,
-		"%d+1 != %d [%s]\n", n_sub_files,
-		szs->subfile.used, szs->subfile.list->path );
-
-
-    //--- member content-hash cache: skip the rebuild entirely if nothing changed
-    //
-    // Only applies to the outer, named-destination call (dest_fname set, !sdir):
-    // the recursive "create sub archives" pass above already has its own
-    // (mtime-based) skip for nested '.d' sub-archives, left as-is here.
-    // Every non-directory member gets hashed fresh off disk -- cheap relative
-    // to the assemble+compress pass it lets us skip -- and compared against
-    // what the last successful build of *this* directory saw.
-
-    bool skip_rebuild = !sdir && dest_fname && !encode_errors;
-    if (skip_rebuild)
-    {
-	// Always hash *every* member, even after we already know we can't
-	// skip -- new_hash_cache must end up complete, or every member found
-	// "different" this run would stay looking different forever after.
-	bool any_diff = false;
-	char member_path[PATH_MAX];
-	for ( uint i = 0; i < szs->subfile.used; i++ )
+	if (!err && setup_param->compr_mode >= 0)
 	{
-	    const szs_subfile_t *sf = szs->subfile.list + i;
-	    if (sf->is_dir)
-		continue;
-
-	    PathCatPP(member_path,sizeof(member_path),source_dir,sf->path);
-	    u8 *fdata = 0;
-	    size_t fsize = 0;
-	    if (LoadFileAlloc(member_path,0,0,&fdata,&fsize,0,2,0,false))
-	    {
-		any_diff = true; // can't verify this one -> play safe, do a real rebuild
-		continue;
-	    }
-
-	    sha1_hash_t cur_hash;
-	    SHA1(fdata,fsize,cur_hash);
-	    FREE(fdata);
-
-	    const ParamFieldItem_t *cached = FindParamField(&old_hash_cache,sf->path);
-	    if ( !cached || memcmp(cached->data,cur_hash,sizeof(sha1_hash_t)) )
-		any_diff = true;
-	    InsertParamField(&new_hash_cache,sf->path,false,0,
-				MEMDUP(cur_hash,sizeof(sha1_hash_t)));
+		szs->dest_fname = dest_fname;
+		CompressSZS (szs, 0, true);
+		szs->dest_fname = 0;
 	}
 
-	if ( any_diff || old_hash_cache.used != new_hash_cache.used )
-	    skip_rebuild = false; // content differs, or a member was added/removed
+	//--- member content-hash cache: persist what this run saw, for next time
 
-	struct stat dest_st;
-	if ( skip_rebuild && stat(dest_fname,&dest_st) )
-	    skip_rebuild = false; // no previous output on disk to reuse
-    }
-
-    if (skip_rebuild)
-    {
-	szs->unchanged = true;
-	if ( verbose >= 0 || testmode )
-	    fprintf(stdlog,"%s%sCREATE (unchanged, skipped) %s/ -> %s\n",
-		    verbose > 0 ? "\n" : "", testmode ? "WOULD " : "",
-		    source_dir, dest_fname );
-	if (!testmode)
-	    SaveHashCache(&new_hash_cache,source_dir);
-	ResetParamField(&old_hash_cache);
-	ResetParamField(&new_hash_cache);
-	if ( setup_param == &local_setup_param )
-	    ResetSetupParam(&local_setup_param);
-	return ERR_OK;
-    }
-
-
-    //--- add missing files
-
-    if ( !sdir && opt_auto_add && allow_add_files )
-	AddMissingFiles(szs,source_dir,&sd,0, verbose>=0 ? 2*(int)depth : -1 );
-
-
-    //--- debugging
-
-    if ( logging >= 2 )
-    {
-	int i;
-	for ( i = 0; i < szs->subfile.used; i++ )
+	if (!sdir)
 	{
-	    szs_subfile_t * f = szs->subfile.list + i;
-	    printf("%3d.: %u %6x %6x %s\n", i, f->is_dir, f->offset, f->size, f->path );
+		if (err <= ERR_WARNING && !testmode)
+			SaveHashCache (&new_hash_cache, source_dir);
+		ResetParamField (&old_hash_cache);
+		ResetParamField (&new_hash_cache);
 	}
-    }
 
+	//--- clean and end
 
-    //--- create archive
+	if (setup_param == &local_setup_param)
+		ResetSetupParam (&local_setup_param);
 
-    enumError err;
-    switch (setup_param->fform_arch)
-    {
-	case FF_BRRES:
-	    szs->order_list = &setup_param->order_list;
-	    szs->min_data_off = setup_param->min_data_off;
-	    err = CreateBRRES( szs, source_dir, 0, sd.total_size );
-	    break;
-
-	case FF_BREFF:
-	case FF_BREFT:
-	    szs->order_list = &setup_param->order_list;
-	    err = CreateBREFF( szs, source_dir, 0, sd.total_size, setup_param );
-	    break;
-
-	case FF_PACK:
-	    szs->order_list = &setup_param->order_list;
-	    err = CreatePACK( szs, source_dir, 0, sd.total_size, setup_param );
-	    break;
-
-	case FF_RKC:
-	    err = CreateRKC(szs,source_dir);
-	    setup_param->compr_mode = -1;
-	    break;
-
-	case FF_LFL:
-	    err = CreateLFL(szs,source_dir,false,false);
-	    setup_param->compr_mode = -1;
-	    szs->allow_ext_data = true;
-	    break;
-
-	default:
-	    err = CreateU8( szs, source_dir, 0,
-			sd.namepool_size_u8, sd.total_size,
-			setup_param->have_pt_dir > 0 );
-	    szs->allow_ext_data = true;
-	    break;
-    }
-    szs->order_list = 0;
-
-
-    //--- transform & compress data
-
-    szs->fform_file = szs->fform_arch;
-    PatchSZS(szs);
-    if ( szs->allow_ext_data )
-    {
-	const bool clean_lex = opt_lex_purge || HavePatchTestLEX();
-	NormalizeExSZS(szs,opt_rm_aiparam,clean_lex,false);
-    }
-
-    if ( !err && setup_param->fform_arch == FF_WU8 )
-	err = EncodeWU8(szs);
-
-    if ( !err && setup_param->compr_mode >= 0 )
-    {
-	szs->dest_fname = dest_fname;
-	CompressSZS(szs,0,true);
-	szs->dest_fname = 0;
-    }
-
-
-    //--- member content-hash cache: persist what this run saw, for next time
-
-    if (!sdir)
-    {
-	if ( err <= ERR_WARNING && !testmode )
-	    SaveHashCache(&new_hash_cache,source_dir);
-	ResetParamField(&old_hash_cache);
-	ResetParamField(&new_hash_cache);
-    }
-
-
-    //--- clean and end
-
-    if ( setup_param == &local_setup_param )
-	ResetSetupParam(&local_setup_param);
-
-    return encode_errors && err < ERR_ENCODING
-		? ERR_ENCODING
+	return encode_errors && err < ERR_ENCODING ? ERR_ENCODING
 		: encode_warnings && err < (enumError)ERR_ENCODING_WARN // [[dclib]]
-			? ERR_ENCODING_WARN
-			: err;
+		? ERR_ENCODING_WARN
+		: err;
 }
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			LoadCreateSZS()			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 enum
 {
-	F_REQUIRED	=    1,
-	F_REQUIRED2	=    2,
-	F_OPTIONAL	=    4,
-	F_IS_OBJECT	=    8,
-	F_FOUND		= 0x10,
-	F_NOT_FOUND	= 0x20,
-	F_MODIFIED	= 0x40,
+	F_REQUIRED = 1,
+	F_REQUIRED2 = 2,
+	F_OPTIONAL = 4,
+	F_IS_OBJECT = 8,
+	F_FOUND = 0x10,
+	F_NOT_FOUND = 0x20,
+	F_MODIFIED = 0x40,
 
-	F_M_ADDITIONAL	= F_REQUIRED | F_REQUIRED2 | F_OPTIONAL | F_FOUND,
-	F_M_OPTIONAL	= F_OPTIONAL | F_FOUND,
+	F_M_ADDITIONAL = F_REQUIRED | F_REQUIRED2 | F_OPTIONAL | F_FOUND,
+	F_M_OPTIONAL = F_OPTIONAL | F_FOUND,
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 
-enumError LoadCreateSZS
-(
-    szs_file_t		* szs,		// valid szs
-    ccp			fname,		// valid pointer to filenname
-    bool		decompress,	// decompress after loading
-    bool		ignore_no_file,	// ignore if file does not exists
-					// and return warning ERR_NOT_EXISTS
-    bool		mark_readonly	// true: the file will never written
+enumError LoadCreateSZS (szs_file_t *szs, // valid szs
+	ccp fname, // valid pointer to filenname
+	bool decompress, // decompress after loading
+	bool ignore_no_file, // ignore if file does not exists
+						 // and return warning ERR_NOT_EXISTS
+	bool mark_readonly // true: the file will never written
 )
 {
-    MEM_CHECK;
-    DASSERT(szs);
-    DASSERT(fname);
-    TRACE("LoadCreateSZS(%d,%d) fname=%s\n",decompress,ignore_no_file,fname);
+	MEM_CHECK;
+	DASSERT (szs);
+	DASSERT (fname);
+	TRACE ("LoadCreateSZS(%d,%d) fname=%s\n", decompress, ignore_no_file, fname);
 
-    struct stat st;
-    if ( !stat(fname,&st) && S_ISDIR(st.st_mode) )
-    {
-	SetupParam_t sp;
-	InitializeSetupParam(&sp);
-	ScanSetupParam(&sp,true,fname,SZS_SETUP_FILE,0,true);
-	sp.compr_mode = -1;
-	const enumError err = CreateSZS(szs,0,fname,0,&sp,0,0,mark_readonly);
-	ResetFileSZS(szs,true);
-	ResetSetupParam(&sp);
+	struct stat st;
+	if (!stat (fname, &st) && S_ISDIR (st.st_mode))
+	{
+		SetupParam_t sp;
+		InitializeSetupParam (&sp);
+		ScanSetupParam (&sp, true, fname, SZS_SETUP_FILE, 0, true);
+		sp.compr_mode = -1;
+		const enumError err = CreateSZS (szs, 0, fname, 0, &sp, 0, 0, mark_readonly);
+		ResetFileSZS (szs, true);
+		ResetSetupParam (&sp);
+		return err;
+	}
+
+	enumError err = LoadSZS (szs, fname, decompress, ignore_no_file, mark_readonly);
+	if (err <= ERR_WARNING)
+		PatchSZS (szs);
 	return err;
-    }
-
-    enumError err = LoadSZS(szs,fname,decompress,ignore_no_file,mark_readonly);
-    if ( err <= ERR_WARNING )
-	PatchSZS(szs);
-    return err;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-enumError LoadObjFileListSZS
-(
-    szs_file_t		* szs,		// valid szs
-    const void		* kmp_data,	// not NULL: source data
-    size_t		data_size,	// size of 'kmp_data'
-    ccp			kmp_fname,	// if !kmp_data: load kmp file
-    bool		ignore_no_file,	// param for LoadKMP()/ScanKMP()
-    CheckMode_t		check_mode,	// param for LoadKMP()/ScanKMP()
-    lex_info_t		*lexinfo	// NULL or valid LEX info
+enumError LoadObjFileListSZS (szs_file_t *szs, // valid szs
+	const void *kmp_data, // not NULL: source data
+	size_t data_size, // size of 'kmp_data'
+	ccp kmp_fname, // if !kmp_data: load kmp file
+	bool ignore_no_file, // param for LoadKMP()/ScanKMP()
+	CheckMode_t check_mode, // param for LoadKMP()/ScanKMP()
+	lex_info_t *lexinfo // NULL or valid LEX info
 )
 {
-    DASSERT(szs);
-    if (szs->used_file)
-	return ERR_OK;
+	DASSERT (szs);
+	if (szs->used_file)
+		return ERR_OK;
 
-    szs->used_file = CALLOC(1,sizeof(*szs->used_file));
-    szs->required_file = CALLOC(1,sizeof(*szs->required_file));
-    PRINT0("sizeof(UsedFileFILE_t)=%zu=%zu\n",sizeof(UsedFileFILE_t),sizeof(*szs->used_file));
-    InitializeParamField(szs->required_file);
+	szs->used_file = CALLOC (1, sizeof (*szs->used_file));
+	szs->required_file = CALLOC (1, sizeof (*szs->required_file));
+	PRINT0 ("sizeof(UsedFileFILE_t)=%zu=%zu\n", sizeof (UsedFileFILE_t), sizeof (*szs->used_file));
+	InitializeParamField (szs->required_file);
 
+	//--- load KMP
 
-    //--- load KMP
-
-    kmp_t kmp;
-    enumError err;
-    if (kmp_data)
-    {
-	InitializeKMP(&kmp);
-	kmp.check_only = szs->check_only;
-	kmp.fname = STRDUP2(szs->fname,"/course.kmp");
-	kmp.lexinfo = lexinfo;
-	err = ScanKMP(&kmp,false,kmp_data,data_size,check_mode);
-    }
-    else
-	err = LoadKMP(&kmp,true,kmp_fname,ignore_no_file,check_mode);
-    if (err)
-    {
-	ResetKMP(&kmp);
-	return err;
-    }
-
-    szs->n_cannon = kmp.dlist[KMP_CNPT].used;
-    szs->is_arena = IsArenaKMP(&kmp);
-    PRINT("LoadObjFileListSZS(): %d cannons found, is_arena=%d\n",
-		szs->n_cannon, szs->is_arena );
-
-
-    //--- find used objects
-
-    const uint PFLAG = 0x3f;
-    UsedObject_t pf_obj; // OR'ed presence flag
-    UsedObject_t used_obj;
-    memset(&used_obj,0,sizeof(used_obj));
-    memset(&pf_obj,0,sizeof(pf_obj));
-    PRINT("sizeof(UsedObject_t)=%zu\n",sizeof(used_obj));
-
-    const kmp_gobj_entry_t *gobj = (kmp_gobj_entry_t*)kmp.dlist[KMP_GOBJ].list;
-    const kmp_gobj_entry_t *gend = gobj + kmp.dlist[KMP_GOBJ].used;
-    for ( ; gobj < gend; gobj++ )
-    {
-	const uint id = GetActiveObjectId(gobj);
-	if (id)
+	kmp_t kmp;
+	enumError err;
+	if (kmp_data)
 	{
-	    pf_obj.d[id] |= gobj->pflags & PFLAG;
-	    used_obj.d[id] = 1;
+		InitializeKMP (&kmp);
+		kmp.check_only = szs->check_only;
+		kmp.fname = STRDUP2 (szs->fname, "/course.kmp");
+		kmp.lexinfo = lexinfo;
+		err = ScanKMP (&kmp, false, kmp_data, data_size, check_mode);
+	}
+	else
+		err = LoadKMP (&kmp, true, kmp_fname, ignore_no_file, check_mode);
+	if (err)
+	{
+		ResetKMP (&kmp);
+		return err;
 	}
 
-	const ObjectInfo_t *oi = GetObjectInfo(id);
-	if ( oi && oi->flags & OBF_SPECIAL )
+	szs->n_cannon = kmp.dlist[KMP_CNPT].used;
+	szs->is_arena = IsArenaKMP (&kmp);
+	PRINT ("LoadObjFileListSZS(): %d cannons found, is_arena=%d\n", szs->n_cannon, szs->is_arena);
+
+	//--- find used objects
+
+	const uint PFLAG = 0x3f;
+	UsedObject_t pf_obj; // OR'ed presence flag
+	UsedObject_t used_obj;
+	memset (&used_obj, 0, sizeof (used_obj));
+	memset (&pf_obj, 0, sizeof (pf_obj));
+	PRINT ("sizeof(UsedObject_t)=%zu\n", sizeof (used_obj));
+
+	const kmp_gobj_entry_t *gobj = (kmp_gobj_entry_t *)kmp.dlist[KMP_GOBJ].list;
+	const kmp_gobj_entry_t *gend = gobj + kmp.dlist[KMP_GOBJ].used;
+	for (; gobj < gend; gobj++)
 	{
-	    const ObjSpec_t *os;
-	    for ( os = ObjSpec; os->obj_id; os++ )
-	     if ( os->obj_id == id )
-	      switch (os->type)
-	      {
-		case OSP_FILE_BY_SETTING:
-		  {
-		    const int submode = os->mode / 10;
-		    const int setting = os->mode % 10;
-		    const uint value = gobj->setting[setting];
-		    if ( submode == 1 && value == 1 )
-			break;
-
-		    char buf[100];
-		    snprintf(buf,sizeof(buf),os->text,value);
-		    InsertParamField(szs->required_file,buf,false,0,0);
-		    break;
-		  }
-
-		default:
-		    break;
-	      }
-	}
-    }
-
-
-    //--- slot analysis: 31+71, 31+x+71, 62
-
-    szs->slot_analyzed = true;
-
-// [[31+42+71+]]
-    szs->slot_31_xx_71
-		= ( used_obj.d[GOBJ_SUN_DS]  ? SLOT_31_71_SUNDS : 0 )
-		| ( used_obj.d[GOBJ_PYLON01] ? SLOT_31_71_PYLON01 : 0 );
-
-    szs->slot_62 = used_obj.d[GOBJ_HEYHO_SHIP] != 0;
-
-
-    //--- slot analysis: 42
-
-    szs->slot_42 = ( used_obj.d[0xd0] ? SLOT_42_KART_TRUCK_U : 0 )
-		 | ( used_obj.d[0xd1] ? SLOT_42_CAR_BODY_U : 0 )
-		 | ( pf_obj.d[0xd0] == PFLAG ? SLOT_42_KART_TRUCK_PF : 0 )
-		 | ( pf_obj.d[0xd1] == PFLAG ? SLOT_42_CAR_BODY_PF : 0 );
-
-    const uint USED42 = SLOT_42_KART_TRUCK_U | SLOT_42_CAR_BODY_U;
-    if ( (szs->slot_42 & USED42) == USED42 )
-	szs->slot_42 |= SLOT_42_ALL_U;
-
-    const uint PF42 = SLOT_42_KART_TRUCK_PF | SLOT_42_CAR_BODY_PF;
-    if ( (szs->slot_42 & PF42) == PF42 )
-	szs->slot_42 |= SLOT_42_ALL_PF;
-    //printf("--> SLOT_42 = %02x\n",szs->slot_42);
-
-
-    //--- find used files
-
-    UsedFileGROUP_t used_group;
-    FindDbGroupByObjects(&used_group,true,&used_obj);
-    FindDbFileByGroups(szs->used_file,false,&used_group);
-
-
-    //--- test files
-
-    szs->found_flags = 0;
-    szs_subfile_t *file, *file_end = szs->subfile.list + szs->subfile.used;
-    for ( file = szs->subfile.list; file < file_end; file++ )
-    {
-	if (file->is_dir)
-	    continue;
-
-	ccp path = file->path;
-	if ( path[0] == '.' && path[1] == '/' )
-	    path += 2;
-	int fidx = FindDbFile(path);
-	if ( fidx >= 0 )
-	{
-	    u8 *flags = szs->used_file->d + fidx;
-	    *flags |= F_FOUND;
-
-	    const DbFileFILE_t *ptr = DbFileFILE + fidx;
-	    szs->found_flags |= ptr->flags;
-
-	    if (IsFileOptionalSZS(szs,ptr))
-		*flags |= F_OPTIONAL;
-	    if ( ptr->flags & DBF_REQUIRED )
-		*flags |= F_REQUIRED;
-	    if ( ptr->flags & DBF_REQUIRED2 )
-		*flags |= F_REQUIRED2;
-
-	    if (DBF_ARCH_SUPPORT(ptr->flags))
-	    {
-		*flags |= F_IS_OBJECT;
-
-		sha1_hash_t hash;
-		bool found = false;
-		if (file->offset)
+		const uint id = GetActiveObjectId (gobj);
+		if (id)
 		{
-		    SHA1( szs->data+file->offset, file->size, hash );
-
-		    const s16 *ref = DbFileRefFILE + ptr->ref;
-		    while ( !found && *ref >= 0 )
-		    {
-			DASSERT( *ref < N_DB_FILE );
-			const DbFile_t *db = DbFile + *ref++;
-			DASSERT( db->sha1 < N_DB_FILE_SHA1 );
-			found = !memcmp(hash,DbFileSHA1[db->sha1].sha1,sizeof(hash));
-		    }
+			pf_obj.d[id] |= gobj->pflags & PFLAG;
+			used_obj.d[id] = 1;
 		}
-		if (!found)
-		    *flags |= F_MODIFIED;
-	    }
+
+		const ObjectInfo_t *oi = GetObjectInfo (id);
+		if (oi && oi->flags & OBF_SPECIAL)
+		{
+			const ObjSpec_t *os;
+			for (os = ObjSpec; os->obj_id; os++)
+				if (os->obj_id == id)
+					switch (os->type)
+					{
+						case OSP_FILE_BY_SETTING:
+						{
+							const int submode = os->mode / 10;
+							const int setting = os->mode % 10;
+							const uint value = gobj->setting[setting];
+							if (submode == 1 && value == 1)
+								break;
+
+							char buf[100];
+							snprintf (buf, sizeof (buf), os->text, value);
+							InsertParamField (szs->required_file, buf, false, 0, 0);
+							break;
+						}
+
+						default:
+							break;
+					}
+		}
 	}
-    }
 
+	//--- slot analysis: 31+71, 31+x+71, 62
 
-    //--- count missed and modified files
+	szs->slot_analyzed = true;
 
-    memset(szs->missed_file,0,sizeof(szs->missed_file));
-    memset(szs->modified_file,0,sizeof(szs->modified_file));
+	// [[31+42+71+]]
+	szs->slot_31_xx_71 = (used_obj.d[GOBJ_SUN_DS] ? SLOT_31_71_SUNDS : 0)
+		| (used_obj.d[GOBJ_PYLON01] ? SLOT_31_71_PYLON01 : 0);
 
-    const DbFileFILE_t *ptr = DbFileFILE;
-    for ( int i = 0; i < N_DB_FILE_FILE; i++, ptr++ )
-    {
-	const u8 flag = szs->used_file->d[i];
-	if ( flag & F_MODIFIED )
+	szs->slot_62 = used_obj.d[GOBJ_HEYHO_SHIP] != 0;
+
+	//--- slot analysis: 42
+
+	szs->slot_42 = (used_obj.d[0xd0] ? SLOT_42_KART_TRUCK_U : 0)
+		| (used_obj.d[0xd1] ? SLOT_42_CAR_BODY_U : 0)
+		| (pf_obj.d[0xd0] == PFLAG ? SLOT_42_KART_TRUCK_PF : 0)
+		| (pf_obj.d[0xd1] == PFLAG ? SLOT_42_CAR_BODY_PF : 0);
+
+	const uint USED42 = SLOT_42_KART_TRUCK_U | SLOT_42_CAR_BODY_U;
+	if ((szs->slot_42 & USED42) == USED42)
+		szs->slot_42 |= SLOT_42_ALL_U;
+
+	const uint PF42 = SLOT_42_KART_TRUCK_PF | SLOT_42_CAR_BODY_PF;
+	if ((szs->slot_42 & PF42) == PF42)
+		szs->slot_42 |= SLOT_42_ALL_PF;
+	// printf("--> SLOT_42 = %02x\n",szs->slot_42);
+
+	//--- find used files
+
+	UsedFileGROUP_t used_group;
+	FindDbGroupByObjects (&used_group, true, &used_obj);
+	FindDbFileByGroups (szs->used_file, false, &used_group);
+
+	//--- test files
+
+	szs->found_flags = 0;
+	szs_subfile_t *file, *file_end = szs->subfile.list + szs->subfile.used;
+	for (file = szs->subfile.list; file < file_end; file++)
 	{
-	    szs->modified_file[ptr->subtype]++;
+		if (file->is_dir)
+			continue;
+
+		ccp path = file->path;
+		if (path[0] == '.' && path[1] == '/')
+			path += 2;
+		int fidx = FindDbFile (path);
+		if (fidx >= 0)
+		{
+			u8 *flags = szs->used_file->d + fidx;
+			*flags |= F_FOUND;
+
+			const DbFileFILE_t *ptr = DbFileFILE + fidx;
+			szs->found_flags |= ptr->flags;
+
+			if (IsFileOptionalSZS (szs, ptr))
+				*flags |= F_OPTIONAL;
+			if (ptr->flags & DBF_REQUIRED)
+				*flags |= F_REQUIRED;
+			if (ptr->flags & DBF_REQUIRED2)
+				*flags |= F_REQUIRED2;
+
+			if (DBF_ARCH_SUPPORT (ptr->flags))
+			{
+				*flags |= F_IS_OBJECT;
+
+				sha1_hash_t hash;
+				bool found = false;
+				if (file->offset)
+				{
+					SHA1 (szs->data + file->offset, file->size, hash);
+
+					const s16 *ref = DbFileRefFILE + ptr->ref;
+					while (!found && *ref >= 0)
+					{
+						DASSERT (*ref < N_DB_FILE);
+						const DbFile_t *db = DbFile + *ref++;
+						DASSERT (db->sha1 < N_DB_FILE_SHA1);
+						found = !memcmp (hash, DbFileSHA1[db->sha1].sha1, sizeof (hash));
+					}
+				}
+				if (!found)
+					*flags |= F_MODIFIED;
+			}
+		}
 	}
-	else if ( !(flag & F_FOUND)
-		&& ( flag & F_REQUIRED || ptr->flags & DBF_REQUIRED )
-		&& !IsFileOptionalSZS(szs,ptr)
-		)
+
+	//--- count missed and modified files
+
+	memset (szs->missed_file, 0, sizeof (szs->missed_file));
+	memset (szs->modified_file, 0, sizeof (szs->modified_file));
+
+	const DbFileFILE_t *ptr = DbFileFILE;
+	for (int i = 0; i < N_DB_FILE_FILE; i++, ptr++)
 	{
-	    szs->missed_file[ptr->subtype]++;
+		const u8 flag = szs->used_file->d[i];
+		if (flag & F_MODIFIED)
+		{
+			szs->modified_file[ptr->subtype]++;
+		}
+		else if (!(flag & F_FOUND) && (flag & F_REQUIRED || ptr->flags & DBF_REQUIRED)
+			&& !IsFileOptionalSZS (szs, ptr))
+		{
+			szs->missed_file[ptr->subtype]++;
+		}
 	}
-    }
 
-    //HexDump16(stdout,0,0,szs->missed_file,sizeof(szs->missed_file));
-    //HexDump16(stdout,0,0,szs->modified_file,sizeof(szs->modified_file));
+	// HexDump16(stdout,0,0,szs->missed_file,sizeof(szs->missed_file));
+	// HexDump16(stdout,0,0,szs->modified_file,sizeof(szs->modified_file));
 
-    ResetKMP(&kmp);
-    return ERR_OK;
+	ResetKMP (&kmp);
+	return ERR_OK;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-ccp GetStatusMissedFile ( MissedFile_t miss )
+ccp GetStatusMissedFile (MissedFile_t miss)
 {
-    char buf[4*DBT__N], *dest = buf;
-    for ( int i = 1; i < DBT__N; i++ )
-    {
-	const int n = miss[i];
-	if ( n == 1 )
-	    *dest++ = DbTypeChars[i];
-	else if (n)
-	    dest = snprintfE(dest,buf+sizeof(buf),"%u%c",n,DbTypeChars[i]);
-    }
-    return dest == buf ? EmptyString : CopyCircBuf0(buf,dest-buf);
+	char buf[4 * DBT__N], *dest = buf;
+	for (int i = 1; i < DBT__N; i++)
+	{
+		const int n = miss[i];
+		if (n == 1)
+			*dest++ = DbTypeChars[i];
+		else if (n)
+			dest = snprintfE (dest, buf + sizeof (buf), "%u%c", n, DbTypeChars[i]);
+	}
+	return dest == buf ? EmptyString : CopyCircBuf0 (buf, dest - buf);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-ParamFieldItem_t * IsFileRequiredSZS
-(
-    // check DBF_SPECIAL && szs->required_file
-    szs_file_t		* szs,		// valid szs
-    const DbFileFILE_t	* file		// file to proof
+ParamFieldItem_t *IsFileRequiredSZS (
+	// check DBF_SPECIAL && szs->required_file
+	szs_file_t *szs, // valid szs
+	const DbFileFILE_t *file // file to proof
 )
 {
-    DASSERT(szs);
-    DASSERT(file);
+	DASSERT (szs);
+	DASSERT (file);
 
-    if (!szs->required_file)
-	return 0;
+	if (!szs->required_file)
+		return 0;
 
-    ParamFieldItem_t *it = FindParamField(szs->required_file,file->file);
-    if (it)
-	it->num |= 1;
-    return it;
+	ParamFieldItem_t *it = FindParamField (szs->required_file, file->file);
+	if (it)
+		it->num |= 1;
+	return it;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-bool IsFileOptionalSZS
-(
-    // check DBF_OPTIONAL && DBF_SPECIAL && szs->required_file
-    szs_file_t		* szs,		// valid szs
-    const DbFileFILE_t	* file		// NULL or file to proof
+bool IsFileOptionalSZS (
+	// check DBF_OPTIONAL && DBF_SPECIAL && szs->required_file
+	szs_file_t *szs, // valid szs
+	const DbFileFILE_t *file // NULL or file to proof
 )
 {
-    DASSERT(szs);
-    if ( !file || !(file->flags & DBF_OPTIONAL) )
-	return false;
+	DASSERT (szs);
+	if (!file || !(file->flags & DBF_OPTIONAL))
+		return false;
 
-    return !IsFileRequiredSZS(szs,file);
+	return !IsFileRequiredSZS (szs, file);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-static void AddSpecialFile
-	( szs_file_t *szs, ccp fname, const u8 *data, uint size )
+static void AddSpecialFile (szs_file_t *szs, ccp fname, const u8 *data, uint size)
 {
-    if (!szs->special_file)
-    {
-	szs->special_file = CALLOC(1,sizeof(*szs->special_file));
-	InitializeParamField(szs->special_file);
-	szs->special_file->free_data = true;
-    }
+	if (!szs->special_file)
+	{
+		szs->special_file = CALLOC (1, sizeof (*szs->special_file));
+		InitializeParamField (szs->special_file);
+		szs->special_file->free_data = true;
+	}
 
-    char buf[200];
-    const file_format_t fform = GetByMagicFF(data,size,size);
-    snprintf(buf,sizeof(buf),"%s %s",GetNameFF(fform,0),fname);
+	char buf[200];
+	const file_format_t fform = GetByMagicFF (data, size, size);
+	snprintf (buf, sizeof (buf), "%s %s", GetNameFF (fform, 0), fname);
 
-    ParamFieldItem_t *it
-	= FindInsertParamField(szs->special_file,buf,false,size,0);
-    if (!it->data)
-    {
-	sha1_hash_t *hash = MALLOC(sizeof(sha1_hash_t));
-	SHA1(data,size,*hash);
-	it->data = hash;
-    }
+	ParamFieldItem_t *it = FindInsertParamField (szs->special_file, buf, false, size, 0);
+	if (!it->data)
+	{
+		sha1_hash_t *hash = MALLOC (sizeof (sha1_hash_t));
+		SHA1 (data, size, *hash);
+		it->data = hash;
+	}
 }
 
 //-----------------------------------------------------------------------------
 
-static void CheckSpecialFile
-	( szs_file_t *szs, const szs_subfile_t *file, ccp fname, ccp dir )
+static void CheckSpecialFile (szs_file_t *szs, const szs_subfile_t *file, ccp fname, ccp dir)
 {
-    DASSERT(szs);
-    DASSERT(file);
-    DASSERT(dir);
+	DASSERT (szs);
+	DASSERT (file);
+	DASSERT (dir);
 
-    const int dlen = strlen(dir);
-    if ( strlen(fname) > dlen
-	&& !strncasecmp(fname,dir,dlen)
-	&& !strchr(fname+dlen,'/') )
-    {
-	AddSpecialFile(szs,fname,szs->data+file->offset,file->size);
-    }
+	const int dlen = strlen (dir);
+	if (strlen (fname) > dlen && !strncasecmp (fname, dir, dlen) && !strchr (fname + dlen, '/'))
+	{
+		AddSpecialFile (szs, fname, szs->data + file->offset, file->size);
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void FindSpecialFilesSZS
-(
-    szs_file_t		* szs,		// valid szs
-    bool		force		// true: force new scanning
+void FindSpecialFilesSZS (szs_file_t *szs, // valid szs
+	bool force // true: force new scanning
 )
 {
-    DASSERT(szs);
+	DASSERT (szs);
 
-    if ( !force && szs->special_done )
-	return;
+	if (!force && szs->special_done)
+		return;
 
-    ClearSpecialFilesSZS(szs);
-    CollectFilesSZS(szs,true,0,-1,SORT_NONE);
+	ClearSpecialFilesSZS (szs);
+	CollectFilesSZS (szs, true, 0, -1, SORT_NONE);
 
-    szs_subfile_t *file, *file_end = szs->subfile.list + szs->subfile.used;
-    for ( file = szs->subfile.list; file < file_end; file++ )
-    {
-	ccp fname = file->path;
-	if ( fname[0] == '.' && fname[1] == '/' )
-	    fname += 2;
+	szs_subfile_t *file, *file_end = szs->subfile.list + szs->subfile.used;
+	for (file = szs->subfile.list; file < file_end; file++)
+	{
+		ccp fname = file->path;
+		if (fname[0] == '.' && fname[1] == '/')
+			fname += 2;
 
-	if ( !szs->course_kcl_data && !strcasecmp(fname,"course.kcl") )
-	{
-	    szs->course_kcl_data = szs->data + file->offset;
-	    szs->course_kcl_size = file->size;
-	    LOG_SHA1(szs->course_kcl_data,szs->course_kcl_size,"course.kcl");
-	}
-	else if ( !szs->course_kmp_data && !strcasecmp(fname,"course.kmp") )
-	{
-	    szs->course_kmp_data = szs->data + file->offset;
-	    szs->course_kmp_size = file->size;
-	}
-	else if ( !szs->course_lex_data && !strcasecmp(fname,"course.lex") )
-	{
-	    szs->course_lex_data = szs->data + file->offset;
-	    szs->course_lex_size = file->size;
-	    szs->have.szs[HAVESZS_COURSE_LEX] = HFM_MODIFIED;
-	}
-	else if ( !szs->course_model_data && !strcasecmp(fname,"course_model.brres") )
-	{
-	    szs->course_model_data = szs->data + file->offset;
-	    szs->course_model_size = file->size;
-	}
-	else if ( !szs->course_d_model_data && !strcasecmp(fname,"course_d_model.brres") )
-	{
-	    szs->course_d_model_data = szs->data + file->offset;
-	    szs->course_d_model_size = file->size;
-	}
-	else if ( !szs->vrcorn_model_data && !strcasecmp(fname,"vrcorn_model.brres") )
-	{
-	    szs->vrcorn_model_data = szs->data + file->offset;
-	    szs->vrcorn_model_size = file->size;
-	}
-	else if ( !szs->map_model_data && !strcasecmp(fname,"map_model.brres") )
-	{
-	    szs->map_model_data = szs->data + file->offset;
-	    szs->map_model_size = file->size;
-	}
-	else if ( !szs->have_ice_brres && !strcasecmp(fname,"ice.brres") )
-	{
-	    szs->have_ice_brres = true;
-	}
-
-	if ( !szs->moonview_mdl_stat
-		&& (  !strcasecmp(fname,"course_model.brres")
-		   || !strcasecmp(fname,"course_d_model.brres") ))
-	{
-	    szs_file_t subszs;
-// [[fname+]]
-	    InitializeSubSZS(&subszs,szs,file->offset,file->size,FF_UNKNOWN,fname,false);
-	    Slot42MaterialStat_t slot42 = GetSlot42SupportSZS(&subszs);
-	    noPRINT("SLOT42: found=%03x, mod=%03x, all=%d, cok=%d, ok=%d\n",
-			slot42.found, slot42.modified,
-			slot42.all_found, slot42.content_ok, slot42.ok );
-	    szs->moonview_mdl_stat = slot42.ok		? 3
-				   : slot42.all_found	? 2
-				   : slot42.found	? 1
-				   :			  0;
-	    ResetSZS(&subszs);
-	}
-	else
-	{
-	    uint i;
-	    for ( i = 0; i < HAVESZS__N; i++ )
-		if ( !strcasecmp(fname,have_szs_file[i]) )
+		if (!szs->course_kcl_data && !strcasecmp (fname, "course.kcl"))
 		{
-		    const BZ2Manager_t *bm = GetCommonBZ2Manager(have_szs_fform[i]);
-		    const have_file_mode_t hfm =
-				   bm
-				&& file->size == bm->size
-				&& !memcmp( file->data ? file->data : szs->data + file->offset,
-						bm->data, bm->size )
-				? HFM_ORIGINAL : HFM_MODIFIED;
-		    if ( szs->have.szs[i] < hfm )
-			szs->have.szs[i] = hfm;
-		    break;
+			szs->course_kcl_data = szs->data + file->offset;
+			szs->course_kcl_size = file->size;
+			LOG_SHA1 (szs->course_kcl_data, szs->course_kcl_size, "course.kcl");
 		}
-	}
+		else if (!szs->course_kmp_data && !strcasecmp (fname, "course.kmp"))
+		{
+			szs->course_kmp_data = szs->data + file->offset;
+			szs->course_kmp_size = file->size;
+		}
+		else if (!szs->course_lex_data && !strcasecmp (fname, "course.lex"))
+		{
+			szs->course_lex_data = szs->data + file->offset;
+			szs->course_lex_size = file->size;
+			szs->have.szs[HAVESZS_COURSE_LEX] = HFM_MODIFIED;
+		}
+		else if (!szs->course_model_data && !strcasecmp (fname, "course_model.brres"))
+		{
+			szs->course_model_data = szs->data + file->offset;
+			szs->course_model_size = file->size;
+		}
+		else if (!szs->course_d_model_data && !strcasecmp (fname, "course_d_model.brres"))
+		{
+			szs->course_d_model_data = szs->data + file->offset;
+			szs->course_d_model_size = file->size;
+		}
+		else if (!szs->vrcorn_model_data && !strcasecmp (fname, "vrcorn_model.brres"))
+		{
+			szs->vrcorn_model_data = szs->data + file->offset;
+			szs->vrcorn_model_size = file->size;
+		}
+		else if (!szs->map_model_data && !strcasecmp (fname, "map_model.brres"))
+		{
+			szs->map_model_data = szs->data + file->offset;
+			szs->map_model_size = file->size;
+		}
+		else if (!szs->have_ice_brres && !strcasecmp (fname, "ice.brres"))
+		{
+			szs->have_ice_brres = true;
+		}
 
-	CheckSpecialFile(szs,file,fname,"common/");
-	CheckSpecialFile(szs,file,fname,"itemslottable/");
-    }
+		if (!szs->moonview_mdl_stat
+			&& (!strcasecmp (fname, "course_model.brres")
+				|| !strcasecmp (fname, "course_d_model.brres")))
+		{
+			szs_file_t subszs;
+			// [[fname+]]
+			InitializeSubSZS (&subszs, szs, file->offset, file->size, FF_UNKNOWN, fname, false);
+			Slot42MaterialStat_t slot42 = GetSlot42SupportSZS (&subszs);
+			noPRINT ("SLOT42: found=%03x, mod=%03x, all=%d, cok=%d, ok=%d\n", slot42.found,
+				slot42.modified, slot42.all_found, slot42.content_ok, slot42.ok);
+			szs->moonview_mdl_stat = slot42.ok ? 3 : slot42.all_found ? 2 : slot42.found ? 1 : 0;
+			ResetSZS (&subszs);
+		}
+		else
+		{
+			uint i;
+			for (i = 0; i < HAVESZS__N; i++)
+				if (!strcasecmp (fname, have_szs_file[i]))
+				{
+					const BZ2Manager_t *bm = GetCommonBZ2Manager (have_szs_fform[i]);
+					const have_file_mode_t hfm = bm && file->size == bm->size
+							&& !memcmp (file->data ? file->data : szs->data + file->offset,
+								bm->data, bm->size)
+						? HFM_ORIGINAL
+						: HFM_MODIFIED;
+					if (szs->have.szs[i] < hfm)
+						szs->have.szs[i] = hfm;
+					break;
+				}
+		}
+
+		CheckSpecialFile (szs, file, fname, "common/");
+		CheckSpecialFile (szs, file, fname, "itemslottable/");
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-ccp CreateSpecialFileInfo
-	( szs_file_t * szs, uint select, bool add_value, ccp return_if_empty )
+ccp CreateSpecialFileInfo (szs_file_t *szs, uint select, bool add_value, ccp return_if_empty)
 {
-    DASSERT(szs);
+	DASSERT (szs);
 
-    static char buf[500];
-    char *dest = buf;
+	static char buf[500];
+	char *dest = buf;
 
-    if (add_value)
-    {
-	uint i, val = 0;
-	for ( i = 0; i < HAVESZS__N; i++ )
-	    if ( 1 << szs->have.szs[i] & select )
-		val |= 1 << i;
-	dest = snprintfE( dest, buf+sizeof(buf), "%u=" , val );
-    }
-
-    uint i;
-    ccp sep = "";
-    for ( i = 0; i < HAVESZS__N; i++ )
-	if ( 1 << szs->have.szs[i] & select )
+	if (add_value)
 	{
-	    dest = StringCat2E(dest,buf+sizeof(buf),sep,have_szs_name[i]);
-	    sep = ",";
+		uint i, val = 0;
+		for (i = 0; i < HAVESZS__N; i++)
+			if (1 << szs->have.szs[i] & select)
+				val |= 1 << i;
+		dest = snprintfE (dest, buf + sizeof (buf), "%u=", val);
 	}
 
-    return dest == buf ? return_if_empty : CopyCircBuf0(buf,dest-buf);
+	uint i;
+	ccp sep = "";
+	for (i = 0; i < HAVESZS__N; i++)
+		if (1 << szs->have.szs[i] & select)
+		{
+			dest = StringCat2E (dest, buf + sizeof (buf), sep, have_szs_name[i]);
+			sep = ",";
+		}
+
+	return dest == buf ? return_if_empty : CopyCircBuf0 (buf, dest - buf);
 }
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			NormalizeSZS()			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-static int norm_collect_func
-(
-    struct szs_iterator_t	*it,	// iterator struct with all infos
-    bool			term	// true: termination hint
+static int norm_collect_func (struct szs_iterator_t *it, // iterator struct with all infos
+	bool term // true: termination hint
 )
 {
-    DASSERT(it);
-    DASSERT(it->szs);
-    if (term)
-	return 0;
-
-// [[norm]]
-    szs_norm_t * norm = it->param;
-    DASSERT(norm);
-
-    uint depth = it->depth;
-    ccp path = it->path;
-    if ( path[0] == '.' && path[1] == '/' )
-    {
-	path += 2;
-	depth--;
-	if (!*path)
-	{
-	    norm->u8.have_pt_dir = true;
-	    return 0;
-	}
-    }
-
-    if (!*path)
-	return 0;
-
-    if ( opt_cup_icons && !strcasecmp(path,"control/timg/tt_baby_daisy_64x64.tpl"))
-	norm->add_cup_icons = true;
-
-    if ( norm->rm_aiparam && !strncasecmp(path,"aiparam",7) )
-    {
-	PATCH_ACTION_LOG("Remove","SZS","%s\n","AIPARAM");
-	it->szs->aiparam_removed = true;
-	return 0;
-    }
-
-    if ( norm->clean_lex && !strncasecmp(path,"course.lex",10) )
-    {
-	lex_t lex;
-	u8 *data = it->szs->data + it->off;
-	enumError err = ScanRawLEX(&lex,true,data,it->size,0);
-	if ( !err && PatchLEX(&lex,&it->szs->have) && CreateRawLEX(&lex) == ERR_OK )
-	{
-	    if (!lex.have_sect)
-	    {
-		PATCH_ACTION_LOG("Remove","SZS","%s\n","course.lex");
+	DASSERT (it);
+	DASSERT (it->szs);
+	if (term)
 		return 0;
-	    }
 
-	    if ( lex.raw_data_size <= it->size
-		&& memcmp(data,lex.raw_data,lex.raw_data_size) )
-	    {
-		PATCH_ACTION_LOG("Purge","SZS","%s\n","course.lex");
-		memcpy(data,lex.raw_data,lex.raw_data_size);
-		it->size = lex.raw_data_size;
-	    }
-	}
-    }
+	// [[norm]]
+	szs_norm_t *norm = it->param;
+	DASSERT (norm);
 
-    if (ShallRemoveFile(path))
-    {
-	PATCH_ACTION_LOG("Remove","SZS","%s\n",path);
-	return 0;
-    }
-
-    noPRINT_IF(it->is_dir,"ADD[%u-%u=%u]: %s\n",
-		it->size, it->index, it->size-it->index, path );
-
-    szs_subfile_t * file = AppendSubfileSZS(it->szs,it,0);
-    DASSERT(file);
-    ccp ptr = file->path + strlen(file->path) - 1;
-    if (it->is_dir)
-	ptr--;
-    while ( ptr > file->path && *ptr != '/' )
-	ptr--;
-    if ( *ptr == '/' )
-	ptr++;
-
-    norm->u8.namepool_size += strlen(ptr);
-    noPRINT("ADD: %s[%zu+%u]\n",ptr,strlen(ptr),!it->is_dir);
-    if (it->is_dir)
-    {
-	file->offset = depth;
-	file->size   = it->size - it->index - 1;
-    }
-    else
-    {
-	file->device = it->size;
-	file->inode  = it->off;
-
-	uint relevant_size = file->size;
-	if (it->szs->ext_data.used)
+	uint depth = it->depth;
+	ccp path = it->path;
+	if (path[0] == '.' && path[1] == '/')
 	{
-	    int idx;
-	    for ( idx = 0; idx < it->szs->ext_data.used; idx++ )
-	    {
-		szs_subfile_t * f = it->szs->ext_data.list + idx;
-		if (!StrPathCmp(it->path,f->path))
+		path += 2;
+		depth--;
+		if (!*path)
 		{
-		    PRINT("########## %s %s / %u -> %u%s\n",
-				it->path, f->path, it->size, f->size,
-				f->removed ? " REMOVE!" : "" );
-		    file->ext = f;
-		    relevant_size = f->size;
-		    file->device = 0;
-		    file->inode  = 0;
-
-		    if ( f->removed)
-		    {
-			norm->u8.namepool_size -= strlen(ptr)+1;
-			relevant_size = 0;
-		    }
+			norm->u8.have_pt_dir = true;
+			return 0;
 		}
-	    }
 	}
 
-	szs_subfile_t *lptr = opt_links
-			? FindLinkSZS(it->szs,file->device,file->inode,file) : 0;
-	if (lptr)
+	if (!*path)
+		return 0;
+
+	if (opt_cup_icons && !strcasecmp (path, "control/timg/tt_baby_daisy_64x64.tpl"))
+		norm->add_cup_icons = true;
+
+	if (norm->rm_aiparam && !strncasecmp (path, "aiparam", 7))
 	{
-	    if (!lptr->link_index)
-		lptr->link_index = ++it->szs->subfile.link_count;
-	    file->link_index = lptr->link_index;
-	    PRINT("NORM/LINK[%d]: %s  ->  %s\n",
-			lptr->link_index, lptr->path, file->path );
+		PATCH_ACTION_LOG ("Remove", "SZS", "%s\n", "AIPARAM");
+		it->szs->aiparam_removed = true;
+		return 0;
+	}
+
+	if (norm->clean_lex && !strncasecmp (path, "course.lex", 10))
+	{
+		lex_t lex;
+		u8 *data = it->szs->data + it->off;
+		enumError err = ScanRawLEX (&lex, true, data, it->size, 0);
+		if (!err && PatchLEX (&lex, &it->szs->have) && CreateRawLEX (&lex) == ERR_OK)
+		{
+			if (!lex.have_sect)
+			{
+				PATCH_ACTION_LOG ("Remove", "SZS", "%s\n", "course.lex");
+				return 0;
+			}
+
+			if (lex.raw_data_size <= it->size && memcmp (data, lex.raw_data, lex.raw_data_size))
+			{
+				PATCH_ACTION_LOG ("Purge", "SZS", "%s\n", "course.lex");
+				memcpy (data, lex.raw_data, lex.raw_data_size);
+				it->size = lex.raw_data_size;
+			}
+		}
+	}
+
+	if (ShallRemoveFile (path))
+	{
+		PATCH_ACTION_LOG ("Remove", "SZS", "%s\n", path);
+		return 0;
+	}
+
+	noPRINT_IF (it->is_dir, "ADD[%u-%u=%u]: %s\n", it->size, it->index, it->size - it->index, path);
+
+	szs_subfile_t *file = AppendSubfileSZS (it->szs, it, 0);
+	DASSERT (file);
+	ccp ptr = file->path + strlen (file->path) - 1;
+	if (it->is_dir)
+		ptr--;
+	while (ptr > file->path && *ptr != '/')
+		ptr--;
+	if (*ptr == '/')
+		ptr++;
+
+	norm->u8.namepool_size += strlen (ptr);
+	noPRINT ("ADD: %s[%zu+%u]\n", ptr, strlen (ptr), !it->is_dir);
+	if (it->is_dir)
+	{
+		file->offset = depth;
+		file->size = it->size - it->index - 1;
 	}
 	else
-	    norm->u8.total_size += ALIGN32(relevant_size,opt_align_u8);
+	{
+		file->device = it->size;
+		file->inode = it->off;
 
-	norm->u8.namepool_size++;
-    }
-    return 0;
+		uint relevant_size = file->size;
+		if (it->szs->ext_data.used)
+		{
+			int idx;
+			for (idx = 0; idx < it->szs->ext_data.used; idx++)
+			{
+				szs_subfile_t *f = it->szs->ext_data.list + idx;
+				if (!StrPathCmp (it->path, f->path))
+				{
+					PRINT ("########## %s %s / %u -> %u%s\n", it->path, f->path, it->size, f->size,
+						f->removed ? " REMOVE!" : "");
+					file->ext = f;
+					relevant_size = f->size;
+					file->device = 0;
+					file->inode = 0;
+
+					if (f->removed)
+					{
+						norm->u8.namepool_size -= strlen (ptr) + 1;
+						relevant_size = 0;
+					}
+				}
+			}
+		}
+
+		szs_subfile_t *lptr
+			= opt_links ? FindLinkSZS (it->szs, file->device, file->inode, file) : 0;
+		if (lptr)
+		{
+			if (!lptr->link_index)
+				lptr->link_index = ++it->szs->subfile.link_count;
+			file->link_index = lptr->link_index;
+			PRINT ("NORM/LINK[%d]: %s  ->  %s\n", lptr->link_index, lptr->path, file->path);
+		}
+		else
+			norm->u8.total_size += ALIGN32 (relevant_size, opt_align_u8);
+
+		norm->u8.namepool_size++;
+	}
+	return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-bool NormalizeSZS ( szs_file_t *szs )
+bool NormalizeSZS (szs_file_t *szs)
 {
-    const bool clean_lex = opt_lex_purge || HavePatchTestLEX();
-    return NormalizeExSZS(szs,opt_rm_aiparam,clean_lex,opt_auto_add);
+	const bool clean_lex = opt_lex_purge || HavePatchTestLEX ();
+	return NormalizeExSZS (szs, opt_rm_aiparam, clean_lex, opt_auto_add);
 }
 
 //-----------------------------------------------------------------------------
 
-bool NormalizeExSZS
-	( szs_file_t *szs, bool rm_aiparam, bool clean_lex, bool autoadd )
+bool NormalizeExSZS (szs_file_t *szs, bool rm_aiparam, bool clean_lex, bool autoadd)
 {
-    DASSERT(szs);
-    PRINT("*** NormalizeExSZS(,%d,%d,%d) ***\n",rm_aiparam,clean_lex,autoadd);
+	DASSERT (szs);
+	PRINT ("*** NormalizeExSZS(,%d,%d,%d) ***\n", rm_aiparam, clean_lex, autoadd);
 
-    // [[2do]] [[arc]]
-    if ( szs->fform_arch != FF_U8 && szs->fform_arch != FF_WU8 || !szs->size || !szs->data )
-	return false;
+	// [[2do]] [[arc]]
+	if (szs->fform_arch != FF_U8 && szs->fform_arch != FF_WU8 || !szs->size || !szs->data)
+		return false;
 
-    ResetFileSZS(szs,false);
+	ResetFileSZS (szs, false);
 
-// [[norm]]
-    szs_norm_t norm = { .rm_aiparam = rm_aiparam, .clean_lex = clean_lex };
-    IterateFilesParSZS(szs,norm_collect_func,&norm,false,false,false,0,-1,SORT_NONE);
+	// [[norm]]
+	szs_norm_t norm = { .rm_aiparam = rm_aiparam, .clean_lex = clean_lex };
+	IterateFilesParSZS (szs, norm_collect_func, &norm, false, false, false, 0, -1, SORT_NONE);
 
-    if (norm.add_cup_icons)
-    {
-	static tpl_raw_t raw = {0};
-	if (!raw.valid)
+	if (norm.add_cup_icons)
 	{
-	    Image_t img;
-	    enumError err = LoadIMG(&img,true,opt_cup_icons,0,false,false,false);
-	    if (!err)
-	    {
-		img.is_cup_icon = true;
-		CreateRawTPL(&raw,&img,FF_CUPICON);
-	    }
-	    if (!raw.valid)
-		opt_cup_icons = 0;
-	}
+		static tpl_raw_t raw = { 0 };
+		if (!raw.valid)
+		{
+			Image_t img;
+			enumError err = LoadIMG (&img, true, opt_cup_icons, 0, false, false, false);
+			if (!err)
+			{
+				img.is_cup_icon = true;
+				CreateRawTPL (&raw, &img, FF_CUPICON);
+			}
+			if (!raw.valid)
+				opt_cup_icons = 0;
+		}
 
-	if (raw.valid)
-	{
-	    add_missing_t am = { .szs = szs, .norm = &norm,
-				.data = (u8*)raw.data.ptr, .size = raw.data.len,
+		if (raw.valid)
+		{
+			add_missing_t am = { .szs = szs,
+				.norm = &norm,
+				.data = (u8 *)raw.data.ptr,
+				.size = raw.data.len,
 				.print_err = true };
-	    am.log_indent = verbose >= 1 || logging >= 2 ? 2 : -1;
-// [[tpl-ex+]] 2x
-	    AddMissingFile("button/timg/ct_icons.tpl",FF_CUPICON,&am);
-	    am.link = am.last_subfile; // link always to save space
-	    AddMissingFile("control/timg/ct_icons.tpl",FF_CUPICON,&am);
+			am.log_indent = verbose >= 1 || logging >= 2 ? 2 : -1;
+			// [[tpl-ex+]] 2x
+			AddMissingFile ("button/timg/ct_icons.tpl", FF_CUPICON, &am);
+			am.link = am.last_subfile; // link always to save space
+			AddMissingFile ("control/timg/ct_icons.tpl", FF_CUPICON, &am);
+		}
 	}
-    }
 
-    if (autoadd)
-	AddMissingFiles(szs,0,0,&norm,2);
-    AddSlotFiles(szs,&norm);
-    AddSectionsLEX(szs,&norm,&szs->have);
-    SortSubFilesSZS(szs,SORT_AUTO);
+	if (autoadd)
+		AddMissingFiles (szs, 0, 0, &norm, 2);
+	AddSlotFiles (szs, &norm);
+	AddSectionsLEX (szs, &norm, &szs->have);
+	SortSubFilesSZS (szs, SORT_AUTO);
 
-    uint old_size	= szs->size;
-    u8 * old_data	= szs->data;
-    bool old_alloced	= szs->data_alloced;
-    szs->data		= 0;
-    szs->data_alloced	= false;
+	uint old_size = szs->size;
+	u8 *old_data = szs->data;
+	bool old_alloced = szs->data_alloced;
+	szs->data = 0;
+	szs->data_alloced = false;
 
-    CreateU8ByInfo(szs,0,old_data,&norm.u8);
+	CreateU8ByInfo (szs, 0, old_data, &norm.u8);
 
-    bool dirty = old_size != szs->size || memcmp(old_data,szs->data,old_size);
-    if (old_alloced)
-	FREE(old_data);
-    return dirty;
+	bool dirty = old_size != szs->size || memcmp (old_data, szs->data, old_size);
+	if (old_alloced)
+		FREE (old_data);
+	return dirty;
 }
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			AddMissingFiles()		///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-int AddMissingFile
-(
-    // returns 1 if added, 0 otherwise
+int AddMissingFile (
+	// returns 1 if added, 0 otherwise
 
-    ccp			path,		// calculated path
-    file_format_t	fform,		// FF_BRRES | FF_BREFF | FF_BREFT | FF_U8 | FF_LTA
-    add_missing_t	*am		// user defined parameter
+	ccp path, // calculated path
+	file_format_t fform, // FF_BRRES | FF_BREFF | FF_BREFT | FF_U8 | FF_LTA
+	add_missing_t *am // user defined parameter
 )
 {
-    DASSERT(path);
-    DASSERT(fform);
-    DASSERT(am);
-    DASSERT(am->szs);
-    DASSERT( am->sd || am->norm || am->link || am->data );
+	DASSERT (path);
+	DASSERT (fform);
+	DASSERT (am);
+	DASSERT (am->szs);
+	DASSERT (am->sd || am->norm || am->link || am->data);
 
-    noPRINT("--> %s:%s\n", GetNameFF(0,fform), path );
+	noPRINT ("--> %s:%s\n", GetNameFF (0, fform), path);
 
-    szs_file_t *szs = am->szs;
-    am->last_subfile = 0;
+	szs_file_t *szs = am->szs;
+	am->last_subfile = 0;
 
-    szs_subfile_list_t *subfile = &szs->subfile;
-    szs_subfile_t *sptr, *send = subfile->list + subfile->used;
-    for ( sptr = subfile->list; sptr < send; sptr++ )
-    {
-	ccp spath = sptr->path;
-	if ( spath[0] == '.' && spath[1] == '/' )
-	    spath += 2;
-	if (!strcmp(path,spath))
-	{
-	    PRINT("AUTO-ADD/FOUND:   %s\n",path);
-	    return 0;
-	}
-    }
-
-    const bool is_course_lex = !strcmp(path,"course.lex");
-
-    s64 size = 0;
-    char load_path[PATH_MAX];
-
-    if (is_course_lex)
-    {
-	StringCopyS(load_path,sizeof(load_path),path);
-    }
-    else if ( am->fname )
-    {
-	struct stat st;
-	if ( stat(am->fname,&st) || !S_ISREG(st.st_mode) )
-	{
-	    if (am->print_err)
-		ERROR0(ERR_WARNING,
-		    "Can't add file: %s\n",am->fname);
-	    return 0;
-	}
-	size = st.st_size;
-	StringCopyS(load_path,sizeof(load_path),am->fname);
-    }
-    else if ( am->link > 0 )
-    {
-	size = am->link->size;
-	load_path[0] = 0;
-    }
-    else if ( am->data > 0 )
-    {
-	size = am->size;
-	load_path[0] = 0;
-    }
-    else
-    {
-	size = FindAutoAdd(path,0,load_path,sizeof(load_path));
-	if ( size <= 0 )
-	{
-	    noPRINT("AUTO-ADD/MISSING: %s\n",path);
-	    if (am->print_err)
-		ERROR0(ERR_WARNING,
-		    "Missing file in auto-add archive: %s\n",path);
-	 #ifdef TEST
-	    if (verbose>=0)
-		ERROR0(ERR_WARNING,"Missing sub file '%s': %s\n",
-		    path, szs->fname );
-	 #endif
-	    return 0;
-	}
-    }
-
-    if ( am->log_indent >= 0 )
-	fprintf(stdlog,"%*s>> %s%s [%llu] %s\n",
-			am->log_indent, "",
-			testmode ? "would " : "",
-			am->link ? "link" : am->data ? "add" : "auto-add",
-			size, *load_path ? load_path : path );
-
-    int stack[10], *stack_end = stack;
-    int dir_id = 0;
-
-    char path_buf[ARCH_FILE_MAX];
-    StringCopyS(path_buf,sizeof(path_buf),path);
-    char *ptr = path_buf;
-    bool pt_prefix = false;
-
-    for(;;)
-    {
-	ccp start = ptr;
-	while ( *ptr && *ptr != '/' )
-	    ptr++;
-	if ( !*ptr || !ptr[1] )
-	    break;
-
-	const char save_ch = *++ptr;
-	*ptr = 0;
-	bool found = false;
+	szs_subfile_list_t *subfile = &szs->subfile;
 	szs_subfile_t *sptr, *send = subfile->list + subfile->used;
-	for ( sptr = subfile->list; sptr < send; sptr++ )
+	for (sptr = subfile->list; sptr < send; sptr++)
 	{
-	    noPRINT(" -> %s | %s\n",path_buf,sptr->path);
-	    ccp spath = sptr->path;
-	    if ( spath[0] == '.' && spath[1] == '/' )
-		spath += 2;
-	    if (!strcmp(path_buf,spath))
-	    {
-		found = true;
-		if ( spath > sptr->path )
-		    pt_prefix = true;
-		break;
-	    }
+		ccp spath = sptr->path;
+		if (spath[0] == '.' && spath[1] == '/')
+			spath += 2;
+		if (!strcmp (path, spath))
+		{
+			PRINT ("AUTO-ADD/FOUND:   %s\n", path);
+			return 0;
+		}
 	}
 
-	if (found)
+	const bool is_course_lex = !strcmp (path, "course.lex");
+
+	s64 size = 0;
+	char load_path[PATH_MAX];
+
+	if (is_course_lex)
 	{
-	    dir_id = am->sd ? sptr->dir_id : sptr - subfile->list;
-	    PRINT("DIR-FOUND[%u]: %s\n",dir_id,sptr->path);
+		StringCopyS (load_path, sizeof (load_path), path);
+	}
+	else if (am->fname)
+	{
+		struct stat st;
+		if (stat (am->fname, &st) || !S_ISREG (st.st_mode))
+		{
+			if (am->print_err)
+				ERROR0 (ERR_WARNING, "Can't add file: %s\n", am->fname);
+			return 0;
+		}
+		size = st.st_size;
+		StringCopyS (load_path, sizeof (load_path), am->fname);
+	}
+	else if (am->link > 0)
+	{
+		size = am->link->size;
+		load_path[0] = 0;
+	}
+	else if (am->data > 0)
+	{
+		size = am->size;
+		load_path[0] = 0;
 	}
 	else
 	{
-	    if (am->sd)
-	    {
-		int *stack_ptr;
-		for ( stack_ptr = stack; stack_ptr < stack_end; stack_ptr++ )
-		    subfile->list[*stack_ptr].size++;
-
-		sptr = AppendSubfileSZS(szs,0,0);
-	    }
-	    else
-	    {
-		int *stack_ptr;
-		for ( stack_ptr = stack; stack_ptr < stack_end; stack_ptr++ )
+		size = FindAutoAdd (path, 0, load_path, sizeof (load_path));
+		if (size <= 0)
 		{
-		    subfile->list[*stack_ptr].size++;
-		    if ( *stack_ptr > dir_id )
-			(*stack_ptr)++;
+			noPRINT ("AUTO-ADD/MISSING: %s\n", path);
+			if (am->print_err)
+				ERROR0 (ERR_WARNING, "Missing file in auto-add archive: %s\n", path);
+#ifdef TEST
+			if (verbose >= 0)
+				ERROR0 (ERR_WARNING, "Missing sub file '%s': %s\n", path, szs->fname);
+#endif
+			return 0;
+		}
+	}
+
+	if (am->log_indent >= 0)
+		fprintf (stdlog, "%*s>> %s%s [%llu] %s\n", am->log_indent, "", testmode ? "would " : "",
+			am->link	   ? "link"
+				: am->data ? "add"
+						   : "auto-add",
+			size, *load_path ? load_path : path);
+
+	int stack[10], *stack_end = stack;
+	int dir_id = 0;
+
+	char path_buf[ARCH_FILE_MAX];
+	StringCopyS (path_buf, sizeof (path_buf), path);
+	char *ptr = path_buf;
+	bool pt_prefix = false;
+
+	for (;;)
+	{
+		ccp start = ptr;
+		while (*ptr && *ptr != '/')
+			ptr++;
+		if (!*ptr || !ptr[1])
+			break;
+
+		const char save_ch = *++ptr;
+		*ptr = 0;
+		bool found = false;
+		szs_subfile_t *sptr, *send = subfile->list + subfile->used;
+		for (sptr = subfile->list; sptr < send; sptr++)
+		{
+			noPRINT (" -> %s | %s\n", path_buf, sptr->path);
+			ccp spath = sptr->path;
+			if (spath[0] == '.' && spath[1] == '/')
+				spath += 2;
+			if (!strcmp (path_buf, spath))
+			{
+				found = true;
+				if (spath > sptr->path)
+					pt_prefix = true;
+				break;
+			}
 		}
 
-		sptr = InsertSubfileSZS(szs,++dir_id,0,0);
-	    }
-	    DASSERT(sptr);
+		if (found)
+		{
+			dir_id = am->sd ? sptr->dir_id : sptr - subfile->list;
+			PRINT ("DIR-FOUND[%u]: %s\n", dir_id, sptr->path);
+		}
+		else
+		{
+			if (am->sd)
+			{
+				int *stack_ptr;
+				for (stack_ptr = stack; stack_ptr < stack_end; stack_ptr++)
+					subfile->list[*stack_ptr].size++;
 
-	    sptr->dir_id	= dir_id;
-	    sptr->is_dir	= true;
-	    sptr->path		= pt_prefix ? STRDUP2("./",path_buf) : STRDUP(path_buf);
-	    PRINT("ADD-DIR[%d]:  %s\n",dir_id,sptr->path);
+				sptr = AppendSubfileSZS (szs, 0, 0);
+			}
+			else
+			{
+				int *stack_ptr;
+				for (stack_ptr = stack; stack_ptr < stack_end; stack_ptr++)
+				{
+					subfile->list[*stack_ptr].size++;
+					if (*stack_ptr > dir_id)
+						(*stack_ptr)++;
+				}
 
-	    if (am->sd)
-	    {
-		am->sd->namepool_size_u8 += ptr - start;
-		dir_id = am->sd->n_directories++;
-	    }
-	    else if (am->norm)
-	    {
-		am->norm->u8.namepool_size += ptr - start;
-		sptr->offset = stack_end - stack + 1;
-	    }
+				sptr = InsertSubfileSZS (szs, ++dir_id, 0, 0);
+			}
+			DASSERT (sptr);
+
+			sptr->dir_id = dir_id;
+			sptr->is_dir = true;
+			sptr->path = pt_prefix ? STRDUP2 ("./", path_buf) : STRDUP (path_buf);
+			PRINT ("ADD-DIR[%d]:  %s\n", dir_id, sptr->path);
+
+			if (am->sd)
+			{
+				am->sd->namepool_size_u8 += ptr - start;
+				dir_id = am->sd->n_directories++;
+			}
+			else if (am->norm)
+			{
+				am->norm->u8.namepool_size += ptr - start;
+				sptr->offset = stack_end - stack + 1;
+			}
+		}
+
+		sptr->size++;
+		*stack_end++ = sptr - subfile->list;
+		*ptr = save_ch;
 	}
 
-	sptr->size++;
-	*stack_end++ = sptr - subfile->list;
-	*ptr = save_ch;
-    }
-
-    lex_t lex; // only valid if 'is_course_lex'
-    if ( is_course_lex )
-    {
-	InitializeLEX(&lex);
-	if ( PatchLEX(&lex,&szs->have) && CreateRawLEX(&lex) == ERR_OK )
-	    size = lex.raw_data_size;
-	PRINT0("LEX size=%lld\n",size);
-    }
-
-    szs_subfile_t *file = 0;
-    if (am->link)
-    {
-	file = InsertSubfileSZS(szs,dir_id+1,0,0);
-
-	file->dir_id		= dir_id;
-	file->is_dir		= false;
-	file->path		= pt_prefix ? STRDUP2("./",path) : STRDUP(path);
-	if (!am->link->link_index)
-	    am->link->link_index = ++szs->subfile.link_count;
-	file->link_index	= am->link->link_index;
-
-
-	if (am->norm)
+	lex_t lex; // only valid if 'is_course_lex'
+	if (is_course_lex)
 	{
-	    ccp fname = strrchr(path,'/');
-	    am->norm->u8.namepool_size += strlen(fname ? fname+1 : path) + 1;
+		InitializeLEX (&lex);
+		if (PatchLEX (&lex, &szs->have) && CreateRawLEX (&lex) == ERR_OK)
+			size = lex.raw_data_size;
+		PRINT0 ("LEX size=%lld\n", size);
 	}
-    }
-    else if (am->data)
-    {
-	file = InsertSubfileSZS(szs,dir_id+1,0,0);
 
-	file->dir_id		= dir_id;
-	file->is_dir		= false;
-	file->path		= pt_prefix ? STRDUP2("./",path) : STRDUP(path);
-	file->data		= am->move_data ? am->data : MEMDUP(am->data,size);
-	file->size		= size;
-	file->data_alloced	= true;
-
-	if (am->norm)
+	szs_subfile_t *file = 0;
+	if (am->link)
 	{
-	    ccp fname = strrchr(path,'/');
-	    am->norm->u8.namepool_size += strlen(fname ? fname+1 : path) + 1;
-	    am->norm->u8.total_size  += ALIGN32(file->size,opt_align_u8);
+		file = InsertSubfileSZS (szs, dir_id + 1, 0, 0);
+
+		file->dir_id = dir_id;
+		file->is_dir = false;
+		file->path = pt_prefix ? STRDUP2 ("./", path) : STRDUP (path);
+		if (!am->link->link_index)
+			am->link->link_index = ++szs->subfile.link_count;
+		file->link_index = am->link->link_index;
+
+		if (am->norm)
+		{
+			ccp fname = strrchr (path, '/');
+			am->norm->u8.namepool_size += strlen (fname ? fname + 1 : path) + 1;
+		}
 	}
-    }
-    else if (!size)
-    {
-	// [[2do]] maybe remove "course.lex" from list
-    }
-    else if (am->sd)
-    {
-	file = AppendSubfileSZS(szs,0,0);
-	DASSERT(file);
-	ccp fname = strrchr(path,'/');
-	am->sd->namepool_size_u8 += strlen(fname ? fname+1 : path) + 1;
-
-	file->dir_id        = dir_id;
-	file->is_dir        = false;
-	file->path          = STRDUP(path);
-	file->size          = size;
-	am->sd->total_size  += ALIGN32(file->size,am->sd->align);
-
-	if (!is_course_lex)
-	    file->load_path = STRDUP(load_path);
-	PRINT("ADD-FILE[did=%d,size:%llx/%llx]: %s\n",dir_id,size,am->sd->total_size,path);
-    }
-    else if (am->norm)
-    {
-	file = InsertSubfileSZS(szs,dir_id+1,0,0);
-
-	file->dir_id	= dir_id;
-	file->is_dir	= false;
-	file->path	= pt_prefix ? STRDUP2("./",path) : STRDUP(path);
-	file->size	= size;
-
-	if (!is_course_lex)
-	    file->load_path = STRDUP(load_path);
-
-	ccp fname = strrchr(path,'/');
-	am->norm->u8.namepool_size += strlen(fname ? fname+1 : path) + 1;
-	am->norm->u8.total_size  += ALIGN32(file->size,opt_align_u8);
-
-	PRINT0("ADD-FILE[%d,%zd]: %s, %u bytes\n",
-		dir_id+1, file-szs->subfile.list, path, file->size );
-    }
-    am->last_subfile = file;
-
-    if (is_course_lex)
-    {
-	if (file)
+	else if (am->data)
 	{
-	    file->data_alloced = true;
-	    file->data = lex.raw_data;
-	    lex.raw_data = 0;
-	}
-	ResetLEX(&lex);
-    }
+		file = InsertSubfileSZS (szs, dir_id + 1, 0, 0);
 
-    return 1;
+		file->dir_id = dir_id;
+		file->is_dir = false;
+		file->path = pt_prefix ? STRDUP2 ("./", path) : STRDUP (path);
+		file->data = am->move_data ? am->data : MEMDUP (am->data, size);
+		file->size = size;
+		file->data_alloced = true;
+
+		if (am->norm)
+		{
+			ccp fname = strrchr (path, '/');
+			am->norm->u8.namepool_size += strlen (fname ? fname + 1 : path) + 1;
+			am->norm->u8.total_size += ALIGN32 (file->size, opt_align_u8);
+		}
+	}
+	else if (!size)
+	{
+		// [[2do]] maybe remove "course.lex" from list
+	}
+	else if (am->sd)
+	{
+		file = AppendSubfileSZS (szs, 0, 0);
+		DASSERT (file);
+		ccp fname = strrchr (path, '/');
+		am->sd->namepool_size_u8 += strlen (fname ? fname + 1 : path) + 1;
+
+		file->dir_id = dir_id;
+		file->is_dir = false;
+		file->path = STRDUP (path);
+		file->size = size;
+		am->sd->total_size += ALIGN32 (file->size, am->sd->align);
+
+		if (!is_course_lex)
+			file->load_path = STRDUP (load_path);
+		PRINT ("ADD-FILE[did=%d,size:%llx/%llx]: %s\n", dir_id, size, am->sd->total_size, path);
+	}
+	else if (am->norm)
+	{
+		file = InsertSubfileSZS (szs, dir_id + 1, 0, 0);
+
+		file->dir_id = dir_id;
+		file->is_dir = false;
+		file->path = pt_prefix ? STRDUP2 ("./", path) : STRDUP (path);
+		file->size = size;
+
+		if (!is_course_lex)
+			file->load_path = STRDUP (load_path);
+
+		ccp fname = strrchr (path, '/');
+		am->norm->u8.namepool_size += strlen (fname ? fname + 1 : path) + 1;
+		am->norm->u8.total_size += ALIGN32 (file->size, opt_align_u8);
+
+		PRINT0 ("ADD-FILE[%d,%zd]: %s, %u bytes\n", dir_id + 1, file - szs->subfile.list, path,
+			file->size);
+	}
+	am->last_subfile = file;
+
+	if (is_course_lex)
+	{
+		if (file)
+		{
+			file->data_alloced = true;
+			file->data = lex.raw_data;
+			lex.raw_data = 0;
+		}
+		ResetLEX (&lex);
+	}
+
+	return 1;
 }
 
 //-----------------------------------------------------------------------------
 
-int AddMissingFileSZS
-(
-    szs_file_t		* szs,		// valid szs
-    ccp			fname,		// filename to add
-    file_format_t	fform,		// valid file format
-    struct szs_norm_t	*norm,		// NULL or norm struct
-    int			log_indent	// >-1: print log with indention
+int AddMissingFileSZS (szs_file_t *szs, // valid szs
+	ccp fname, // filename to add
+	file_format_t fform, // valid file format
+	struct szs_norm_t *norm, // NULL or norm struct
+	int log_indent // >-1: print log with indention
 )
 {
-// [[norm]]
-    DASSERT(szs);
-    DASSERT(fname);
-    DASSERT(fform);
+	// [[norm]]
+	DASSERT (szs);
+	DASSERT (fname);
+	DASSERT (fform);
 
-    add_missing_t am	= {0};
-    am.szs		= szs;
-    am.norm		= norm;
-    am.log_indent	= log_indent;
-    am.print_err	= true;
-    return AddMissingFile(fname,fform,&am);
+	add_missing_t am = { 0 };
+	am.szs = szs;
+	am.norm = norm;
+	am.log_indent = log_indent;
+	am.print_err = true;
+	return AddMissingFile (fname, fform, &am);
 }
 
 //-----------------------------------------------------------------------------
 
-enumError AddMissingFiles
-(
-    szs_file_t		* szs,		// valid szs
-    ccp			source_dir,	// NULL or path to base directory
-    struct scan_data_t	* sd,		// NULL or valid scan data
-    struct szs_norm_t	* norm,		// NULL or valid norm data
-    int			log_indent	// >-1: print log with indention
+enumError AddMissingFiles (szs_file_t *szs, // valid szs
+	ccp source_dir, // NULL or path to base directory
+	struct scan_data_t *sd, // NULL or valid scan data
+	struct szs_norm_t *norm, // NULL or valid norm data
+	int log_indent // >-1: print log with indention
 )
 {
-// [[norm]]
-    DASSERT(szs);
-    DASSERT( sd || norm );
+	// [[norm]]
+	DASSERT (szs);
+	DASSERT (sd || norm);
 
-    if (!IsAutoAddAvailable())
-	return ERR_OK;
+	if (!IsAutoAddAvailable ())
+		return ERR_OK;
 
-    char path_buf[PATH_MAX];
-    if (source_dir)
-    {
-	ccp path = PathCatPP(path_buf,sizeof(path_buf),source_dir,"course.kmp");
-	LoadObjFileListSZS(szs,0,0,path,true,0,0);
-    }
-    else
-    {
-	szs_subfile_t *sptr, *send = szs->subfile.list + szs->subfile.used;
-	for ( sptr = szs->subfile.list; sptr < send; sptr++ )
-	    if ( !strcmp(sptr->path,"./course.kmp") || !strcmp(sptr->path,"course.kmp") )
-		break;
-	if ( sptr >= send )
-	    return ERR_WARNING;
-	LoadObjFileListSZS(szs,szs->data+sptr->offset,sptr->size,0,true,0,0);
-    }
-    if (!szs->used_file)
-	return ERR_WARNING;
-
-    add_missing_t am	= {0};
-    am.szs		= szs;
-    am.sd		= sd;
-    am.norm		= norm;
-    am.log_indent	= log_indent;
-
-    int insert_count = 0;
-    for ( int i = 0; i < N_DB_FILE_FILE; i++ )
-	if (szs->used_file->d[i])
+	char path_buf[PATH_MAX];
+	if (source_dir)
 	{
-	    const DbFileFILE_t *ptr = DbFileFILE + i;
-	    if (!IsFileOptionalSZS(szs,ptr))
-		insert_count += AddMissingFile(ptr->file,ptr->fform,&am);
+		ccp path = PathCatPP (path_buf, sizeof (path_buf), source_dir, "course.kmp");
+		LoadObjFileListSZS (szs, 0, 0, path, true, 0, 0);
 	}
+	else
+	{
+		szs_subfile_t *sptr, *send = szs->subfile.list + szs->subfile.used;
+		for (sptr = szs->subfile.list; sptr < send; sptr++)
+			if (!strcmp (sptr->path, "./course.kmp") || !strcmp (sptr->path, "course.kmp"))
+				break;
+		if (sptr >= send)
+			return ERR_WARNING;
+		LoadObjFileListSZS (szs, szs->data + sptr->offset, sptr->size, 0, true, 0, 0);
+	}
+	if (!szs->used_file)
+		return ERR_WARNING;
 
-    #if HAVE_PRINT0
-    {
-	szs_subfile_t *sptr, *send = szs->subfile.list + szs->subfile.used;
-	for ( sptr = szs->subfile.list; sptr < send; sptr++ )
-	    PRINT("-- %2d.%d %6u %s\n",
-			sptr->dir_id, sptr->is_dir, sptr->size, sptr->path );
-    }
-    #endif
+	add_missing_t am = { 0 };
+	am.szs = szs;
+	am.sd = sd;
+	am.norm = norm;
+	am.log_indent = log_indent;
 
-    return insert_count ? ERR_DIFFER : ERR_OK;
+	int insert_count = 0;
+	for (int i = 0; i < N_DB_FILE_FILE; i++)
+		if (szs->used_file->d[i])
+		{
+			const DbFileFILE_t *ptr = DbFileFILE + i;
+			if (!IsFileOptionalSZS (szs, ptr))
+				insert_count += AddMissingFile (ptr->file, ptr->fform, &am);
+		}
+
+#if HAVE_PRINT0
+	{
+		szs_subfile_t *sptr, *send = szs->subfile.list + szs->subfile.used;
+		for (sptr = szs->subfile.list; sptr < send; sptr++)
+			PRINT ("-- %2d.%d %6u %s\n", sptr->dir_id, sptr->is_dir, sptr->size, sptr->path);
+	}
+#endif
+
+	return insert_count ? ERR_DIFFER : ERR_OK;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void AddSectionsLEX ( szs_file_t *szs, szs_norm_t *norm, const szs_have_t * have )
+void AddSectionsLEX (szs_file_t *szs, szs_norm_t *norm, const szs_have_t *have)
 {
-// [[norm]]
-    DASSERT(szs);
-    bool add_course_lex = false;
+	// [[norm]]
+	DASSERT (szs);
+	bool add_course_lex = false;
 
-    if (HaveActivePatchTestLEX())
-    {
-	lex_test_t temp;
-	memcpy(&temp,&TestDataLEX,sizeof(temp));
-	bool empty;
-	PatchTestLEX(&temp,&empty);
-	if ( !empty || force_lex_test )
-	    add_course_lex = true;
-    }
+	if (HaveActivePatchTestLEX ())
+	{
+		lex_test_t temp;
+		memcpy (&temp, &TestDataLEX, sizeof (temp));
+		bool empty;
+		PatchTestLEX (&temp, &empty);
+		if (!empty || force_lex_test)
+			add_course_lex = true;
+	}
 
-    if ( HavePatchFeaturesLEX() && have && have->valid )
-    {
-	features_szs_t fs;
-	SetupFeaturesSZS(&fs,have,true);
-	PRINT0("GetFeaturesStatusSZS()=%d\n",GetFeaturesStatusSZS(&fs));
-	if ( GetFeaturesStatusSZS(&fs) > 1 )
-	    add_course_lex = true;
-	ResetFeaturesSZS(&fs);
-    }
+	if (HavePatchFeaturesLEX () && have && have->valid)
+	{
+		features_szs_t fs;
+		SetupFeaturesSZS (&fs, have, true);
+		PRINT0 ("GetFeaturesStatusSZS()=%d\n", GetFeaturesStatusSZS (&fs));
+		if (GetFeaturesStatusSZS (&fs) > 1)
+			add_course_lex = true;
+		ResetFeaturesSZS (&fs);
+	}
 
-    if (add_course_lex)
-	AddMissingFileSZS(szs,"course.lex", FF_LEX, norm, verbose >= 2 ? 0 : -1 );
+	if (add_course_lex)
+		AddMissingFileSZS (szs, "course.lex", FF_LEX, norm, verbose >= 2 ? 0 : -1);
 }
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			cut files			///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -2404,482 +2326,463 @@ void AddSectionsLEX ( szs_file_t *szs, szs_norm_t *norm, const szs_have_t * have
 // all other file formats like CreateSZS().
 ///////////////////////////////////////////////////////////////////////////////
 
-static int IterateFilesIMG
-(
-    szs_iterator_t	*it,		// iterator struct with all infos
-    bool		multi_img	// false: mipmaps, true: multi images
+static int IterateFilesIMG (szs_iterator_t *it, // iterator struct with all infos
+	bool multi_img // false: mipmaps, true: multi images
 )
 {
-    DASSERT(it);
-    DASSERT(it->func_it);
-    szs_file_t * szs = it->szs;
-    DASSERT(szs);
-    const u8 * data = szs->data;
-    DASSERT(data);
+	DASSERT (it);
+	DASSERT (it->func_it);
+	szs_file_t *szs = it->szs;
+	DASSERT (szs);
+	const u8 *data = szs->data;
+	DASSERT (data);
 
-    int stat = 0;
+	int stat = 0;
 
-    Image_t img;
-    if (!AssignIMG(&img,true,data,szs->size,0,true,it->endian,EmptyString))
-    {
-	if (!img.mipmap)
-	    multi_img = false;
-
-	//--- first evaluate palette data
-
-	int i;
-	Image_t *iptr;
-	u8 *last_pal = 0;
-	for ( i = 0, iptr = &img; iptr && !stat; i++, iptr = iptr->mipmap )
+	Image_t img;
+	if (!AssignIMG (&img, true, data, szs->size, 0, true, it->endian, EmptyString))
 	{
-	    if ( iptr->pal && iptr->pal != last_pal )
-	    {
-		it->index++;
-		it->off		= iptr->pal - data;
-		it->size	= iptr->pal_size;
-		if (multi_img)
-		    snprintf(it->path,sizeof(it->path),"palette-%u.%u.%s",
-			i, iptr->n_pal, GetPaletteFormatName(iptr->pform,"unknown") );
-		else
-		    snprintf(it->path,sizeof(it->path),"palette.%u.%s",
-			iptr->n_pal, GetPaletteFormatName(iptr->pform,"unknown") );
-		it->func_it(it,false);
-	    }
+		if (!img.mipmap)
+			multi_img = false;
+
+		//--- first evaluate palette data
+
+		int i;
+		Image_t *iptr;
+		u8 *last_pal = 0;
+		for (i = 0, iptr = &img; iptr && !stat; i++, iptr = iptr->mipmap)
+		{
+			if (iptr->pal && iptr->pal != last_pal)
+			{
+				it->index++;
+				it->off = iptr->pal - data;
+				it->size = iptr->pal_size;
+				if (multi_img)
+					snprintf (it->path, sizeof (it->path), "palette-%u.%u.%s", i, iptr->n_pal,
+						GetPaletteFormatName (iptr->pform, "unknown"));
+				else
+					snprintf (it->path, sizeof (it->path), "palette.%u.%s", iptr->n_pal,
+						GetPaletteFormatName (iptr->pform, "unknown"));
+				it->func_it (it, false);
+			}
+		}
+
+		//--- second: evaluate image data
+
+		for (i = 0, iptr = &img; iptr && !stat; i++, iptr = iptr->mipmap)
+		{
+			it->index++;
+			it->off = iptr->data - data;
+			it->size = iptr->data_size;
+			ccp formname = GetImageFormatName (iptr->iform, "unknown");
+			if (multi_img)
+				snprintf (it->path, sizeof (it->path), "image-%u.%ux%u.%s", i, iptr->width,
+					iptr->height, formname);
+			else if (i)
+				snprintf (it->path, sizeof (it->path), "mipmap-%u.%ux%u.%s", i, iptr->width,
+					iptr->height, formname);
+			else
+				snprintf (it->path, sizeof (it->path), "image.%ux%u.%s", iptr->width, iptr->height,
+					formname);
+			stat = it->func_it (it, false);
+		}
 	}
-
-
-	//--- second: evaluate image data
-
-	for ( i = 0, iptr = &img; iptr && !stat; i++, iptr = iptr->mipmap )
-	{
-	    it->index++;
-	    it->off	= iptr->data - data;
-	    it->size	= iptr->data_size;
-	    ccp formname = GetImageFormatName(iptr->iform,"unknown");
-	    if (multi_img)
-		snprintf(it->path,sizeof(it->path),"image-%u.%ux%u.%s",
-			i, iptr->width, iptr->height, formname );
-	    else if (i)
-		snprintf(it->path,sizeof(it->path),"mipmap-%u.%ux%u.%s",
-			i, iptr->width, iptr->height, formname );
-	    else
-		snprintf(it->path,sizeof(it->path),"image.%ux%u.%s",
-			iptr->width, iptr->height, formname );
-	    stat = it->func_it(it,false);
-	}
-    }
-    ResetIMG(&img);
-    return stat;
+	ResetIMG (&img);
+	return stat;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-static int IterateFilesBREFT_IMG
-(
-    struct szs_iterator_t	*it,	// iterator struct with all infos
-    bool			term	// true: termination hint
+static int IterateFilesBREFT_IMG (struct szs_iterator_t *it, // iterator struct with all infos
+	bool term // true: termination hint
 )
 {
-    if (term)
-	return 0;
+	if (term)
+		return 0;
 
-    DASSERT(it);
-    DASSERT(it->func_it);
-    szs_file_t * szs = it->szs;
-    DASSERT(szs);
+	DASSERT (it);
+	DASSERT (it->func_it);
+	szs_file_t *szs = it->szs;
+	DASSERT (szs);
 
-    if ( !szs->data || szs->size < sizeof(breft_image_t) )
-	return -1;
+	if (!szs->data || szs->size < sizeof (breft_image_t))
+		return -1;
 
-    it->no_recurse++;
+	it->no_recurse++;
 
-    //const u8 * data		= szs->data;
-    //const breft_image_t *bi	= (breft_image_t*)data;
+	// const u8 * data		= szs->data;
+	// const breft_image_t *bi	= (breft_image_t*)data;
 
-    it->index	= 0;
-    it->off	= 0;
-    it->size	= sizeof(breft_image_t);
-    it->is_dir	= 0;
-    StringCopyS(it->path,sizeof(it->path),".BREFT-IMG.header");
-    it->func_it(it,false);
+	it->index = 0;
+	it->off = 0;
+	it->size = sizeof (breft_image_t);
+	it->is_dir = 0;
+	StringCopyS (it->path, sizeof (it->path), ".BREFT-IMG.header");
+	it->func_it (it, false);
 
-    return IterateFilesIMG(it,false);
+	return IterateFilesIMG (it, false);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static int IterateFilesTEX
-(
-    struct szs_iterator_t	*it,	// iterator struct with all infos
-    bool			term	// true: termination hint
+static int IterateFilesTEX (struct szs_iterator_t *it, // iterator struct with all infos
+	bool term // true: termination hint
 )
 {
-    if (term)
-	return 0;
+	if (term)
+		return 0;
 
-    // [[2do]] ??? BRSUB support
+	// [[2do]] ??? BRSUB support
 
-    DASSERT(it);
-    DASSERT(it->func_it);
-    szs_file_t * szs = it->szs;
-    DASSERT(szs);
+	DASSERT (it);
+	DASSERT (it->func_it);
+	szs_file_t *szs = it->szs;
+	DASSERT (szs);
 
-    if ( !szs->data || szs->size <= sizeof(brsub_header_t) )
-	return -1;
+	if (!szs->data || szs->size <= sizeof (brsub_header_t))
+		return -1;
 
-    const u8 * data		= szs->data;
-    const u8 * data_end		= data + szs->size;
-    const brsub_header_t *bh	= (brsub_header_t*)data;
-    const uint n_grp		= GetSectionNumBRSUB(data,szs->size,it->endian);
-    const tex_info_t *ti	= (tex_info_t*)( bh->grp_offset + n_grp );
+	const u8 *data = szs->data;
+	const u8 *data_end = data + szs->size;
+	const brsub_header_t *bh = (brsub_header_t *)data;
+	const uint n_grp = GetSectionNumBRSUB (data, szs->size, it->endian);
+	const tex_info_t *ti = (tex_info_t *)(bh->grp_offset + n_grp);
 
-    if ( (u8*)ti >= data_end || memcmp(bh->magic,TEX_MAGIC,sizeof(bh->magic)) )
-	return -1;
+	if ((u8 *)ti >= data_end || memcmp (bh->magic, TEX_MAGIC, sizeof (bh->magic)))
+		return -1;
 
-    it->no_recurse++;
+	it->no_recurse++;
 
-    it->index	= 0;
-    it->off	= 0;
-    it->size	= (u8*)ti - data;
-    it->is_dir	= 0;
-    PrintHeaderNameBRSUB(it->path,sizeof(it->path),bh,n_grp,it->endian);
-    it->func_it(it,false);
-
-    it->index++;
-    it->off	+= it->size;
-    it->size	= sizeof(*ti);
-    StringCopyS(it->path,sizeof(it->path),".TEX.header");
-    it->func_it(it,false);
-
-    if ( be32(&bh->version) == 3 )
-    {
-	const u32 raw_off = 0x40;
-	const u32 img_off = be32(bh->grp_offset);
-	if ( img_off > raw_off && img_off <= szs->size )
-	{
-	    const bool have_ct_code = szs->fform_arch == FF_TEX_CT
-					&& img_off > CT_CODE_TEX_OFFSET;
-
-	    const u32 raw_end = have_ct_code ? CT_CODE_TEX_OFFSET : img_off;
-	    it->index++;
-	    it->off  = raw_off;
-	    it->size = raw_end - raw_off;
-	    StringCopyS(it->path,sizeof(it->path),"raw.bin");
-	    it->func_it(it,false);
-
-	    if (have_ct_code)
-	    {
-		it->index++;
-		it->off  = CT_CODE_TEX_OFFSET;
-		it->size = img_off - CT_CODE_TEX_OFFSET;
-		StringCopyS(it->path,sizeof(it->path),"raw.ctcode");
-		it->func_it(it,false);
-	    }
-	}
-    }
-
-    return IterateFilesIMG(it,false);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-static int IterateFilesTPL
-(
-    struct szs_iterator_t	*it,	// iterator struct with all infos
-    bool			term	// true: termination hint
-)
-{
-    if (term)
-	return 0;
-
-    DASSERT(it);
-    DASSERT(it->func_it);
-    szs_file_t * szs = it->szs;
-    DASSERT(szs);
-
-    if ( !szs->data || szs->size < sizeof(tpl_header_t) + sizeof(tpl_imgtab_t) )
-	return -1;
-
-    const tpl_header_t *head;
-    const tpl_imgtab_t *tab;
-    const u8 * data = szs->data;
-    if (!SetupPointerTPL(data,szs->size,0,&head,&tab,0,0,0,0,it->endian))
-	return -1;
-
-    it->no_recurse++;
-
-    const uint n_img = it->endian->rd32(&head->n_image);
-
-    it->index	= 0;
-    it->off	= (u8*)head - data;
-    it->size	= sizeof(tpl_header_t);
-    it->is_dir	= 0;
-    StringCopyS(it->path,sizeof(it->path),".TPL.header");
-    it->func_it(it,false);
-
-    if (IsTplHeaderEx(data,szs->size))
-    {
-	it->index++;
-	it->off	 = sizeof(tpl_header_t);
-	it->size = sizeof(tpl_header_ex_t) - sizeof(tpl_header_t);
-	StringCopyS(it->path,sizeof(it->path),".TPL.header.ex");
-	it->func_it(it,false);
-    }
-
-    it->index++;
-    it->off	= (u8*)tab - data;
-    it->size	= sizeof(tpl_imgtab_t) * n_img;
-    StringCopyS(it->path,sizeof(it->path),".TPL.image-table");
-    it->func_it(it,false);
-
-    uint i;
-    for ( i = 0; i < n_img; i++ )
-    {
-	const tpl_pal_header_t	*tpl_pal;
-	const tpl_img_header_t	*tpl_img;
-	if (SetupPointerTPL(data,szs->size,i,0,0,&tpl_pal,&tpl_img,0,0,it->endian))
-	{
-	    if (tpl_pal)
-	    {
-		it->index++;
-		it->off  = (u8*)tpl_pal - data;
-		it->size = sizeof(tpl_pal_header_t);
-		if ( n_img > 0 )
-		    snprintf(it->path,sizeof(it->path),".palette-%u.header",i);
-		else
-		    StringCopyS(it->path,sizeof(it->path),".palette.header");
-		it->func_it(it,false);
-	    }
-
-	    if (tpl_img)
-	    {
-		it->index++;
-		it->off  = (u8*)tpl_img - data;
-		it->size = sizeof(tpl_img_header_t);
-		if ( n_img > 0 )
-		    snprintf(it->path,sizeof(it->path),".image-%u.header",i);
-		else
-		    StringCopyS(it->path,sizeof(it->path),".image.header");
-		it->func_it(it,false);
-	    }
-	}
-    }
-
-    return IterateFilesIMG(it,true);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-static int IterateFilesBTI
-(
-    struct szs_iterator_t	*it,	// iterator struct with all infos
-    bool			term	// true: termination hint
-)
-{
-    if (term)
-	return 0;
-
-    DASSERT(it);
-    DASSERT(it->func_it);
-    szs_file_t * szs = it->szs;
-    DASSERT(szs);
-
-    if ( !szs->data || szs->size < sizeof(bti_header_t) )
-	return -1;
-
-    it->index++;
-    it->off	= 0;
-    it->size	= sizeof(bti_header_t);
-    StringCopyS(it->path,sizeof(it->path),".BTI.header");
-    it->func_it(it,false);
-
-    return IterateFilesIMG(it,false);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-
-static int IterateFilesBMG
-(
-    szs_iterator_t	*it,		// iterator struct with all infos
-    bool		multi_img	// false: mipmaps, true: multi images
-)
-{
-    DASSERT(it);
-    DASSERT(it->func_it);
-    szs_file_t * szs = it->szs;
-    DASSERT(szs);
-    const u8 * data = szs->data;
-    const u8 * data_end	= data + szs->size;
-    DASSERT(data);
-
-    if ( !data || szs->size < sizeof(bmg_header_t) + sizeof(bmg_section_t) )
-	return -1;
-
-    const bmg_header_t * bh = (bmg_header_t*)data;
-    if (memcmp(bh->magic,BMG_MAGIC,sizeof(bh->magic)))
-	return -1;
-
-    it->no_recurse++;
-
-    it->index	= 0;
-    it->off	= 0;
-    it->size	= sizeof(bmg_header_t);
-    it->is_dir	= 0;
-    StringCopyS(it->path,sizeof(it->path),".BMG.header");
-    int stat = it->func_it(it,false);
-
-    const bmg_section_t *sect = (bmg_section_t*)(bh+1);
-    char id_buf[sizeof(sect->magic)+1];
-    int idx;
-    for ( idx = 0; (u8*)sect < data_end && !stat; idx++ )
-    {
-	const uint sect_size = it->endian->rd32(&sect->size);
-	if (!sect_size)
-	    break;
+	it->index = 0;
+	it->off = 0;
+	it->size = (u8 *)ti - data;
+	it->is_dir = 0;
+	PrintHeaderNameBRSUB (it->path, sizeof (it->path), bh, n_grp, it->endian);
+	it->func_it (it, false);
 
 	it->index++;
-	it->off		= (u8*)sect - data;
-	it->size	= sect_size;
-	snprintf(it->path,sizeof(it->path), "BMG.section-%u.%s",
-		idx, PrintID(sect->magic,sizeof(sect->magic),id_buf) );
-	stat = it->func_it(it,false);
+	it->off += it->size;
+	it->size = sizeof (*ti);
+	StringCopyS (it->path, sizeof (it->path), ".TEX.header");
+	it->func_it (it, false);
 
-	sect = (bmg_section_t*)( (u8*)sect + sect_size );
-    }
-
-    return stat;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-static int IterateFilesKCL
-(
-    szs_iterator_t	*it,		// iterator struct with all infos
-    bool		multi_img	// false: mipmaps, true: multi images
-)
-{
-    DASSERT(it);
-    DASSERT(it->func_it);
-    szs_file_t * szs = it->szs;
-    DASSERT(szs);
-    const u8 *data = szs->data;
-    DASSERT(data);
-
-    kcl_analyze_t ka;
-    if ( IsValidKCL(&ka,data,szs->size,szs->size,"") >= VALID_ERROR )
-	return -1;
-
-    it->no_recurse++;
-
-    const kcl_head_t *kclhead = (kcl_head_t*)data;
-    u32 sect_off[N_KCL_SECT+1];
-    DASSERT( sizeof(sect_off) > sizeof(kclhead->sect_off) );
-
-    it->index	= 0;
-    it->off	= 0;
-    it->size	= sizeof(kcl_head_t);
-    it->is_dir	= 0;
-    StringCopyS(it->path,sizeof(it->path),".KCL.header.bin");
-    int stat = it->func_it(it,false);
-
-    uint i;
-    for ( i = 0; i < N_KCL_SECT; i++ )
-	sect_off[i] = be32(kclhead->sect_off+i);
-    sect_off[2] += 0x10;
-    sect_off[N_KCL_SECT] = szs->size;
-
-    static ccp  name[N_KCL_SECT] = { "verticies", "normals", "triangles", "spartial-index" };
-    static uint size[N_KCL_SECT] = { sizeof(double3), sizeof(double3),
-				     sizeof(kcl_triangle_t), 0 };
-
-    for ( i = 0; i < N_KCL_SECT && !stat; i++ )
-    {
-	it->off		= sect_off[i];
-	it->size	= sect_off[i+1] - sect_off[i];
-	if (size[i])
-	    snprintf(it->path,sizeof(it->path),"KCL.section-%u.%u_%s.bin",
-		i+1,it->size/size[i],name[i]);
-	else
-	    snprintf(it->path,sizeof(it->path),"KCL.section-%u.%s.bin",i+1,name[i]);
-	stat = it->func_it(it,false);
-    }
-
-    return stat;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-static int IterateFilesKMP
-(
-    szs_iterator_t	*it,		// iterator struct with all infos
-    bool		multi_img	// false: mipmaps, true: multi images
-)
-{
-    DASSERT(it);
-    DASSERT(it->func_it);
-    szs_file_t * szs = it->szs;
-    DASSERT(szs);
-    const u8 * data = szs->data;
-    DASSERT(data);
-
-    if ( IsValidKMP(data,szs->size,szs->size,"") >= VALID_ERROR )
-	return -1;
-
-    it->no_recurse++;
-
-    kmp_head_info_t hi;
-    ScanHeadInfoKMP(&hi,data,szs->size);
-
-    it->index	= 0;
-    it->off	= 0;
-    it->size	= sizeof(hi.head_size);
-    it->is_dir	= 0;
-    StringCopyS(it->path,sizeof(it->path),".KMP.header");
-    it->func_it(it,false);
-
-    int stat = 0;
-    uint sect, min_off = 0;
-    char id_buf[4+1];
-
-    for ( sect = 0; sect < hi.n_sect && !stat; sect++ )
-    {
-	uint off = ntohl(hi.sect_off[sect]);
-	if ( off < min_off || off > hi.max_off || off&3 )
-	    continue;
-
-	it->index++;
-	off		+= hi.head_size;
-	it->off		= off;
-	it->size	= 0;
-
-	PrintID(data+off,4,id_buf);
-	int abbrev_count;
-	const KeywordTab_t *cmd = ScanKeyword(&abbrev_count,id_buf,kmp_section_name);
-	if ( cmd && !abbrev_count && cmd->id >= 0 )
+	if (be32 (&bh->version) == 3)
 	{
-	    const kmp_list_head_t *list = (kmp_list_head_t*) ( data + off );
-	    if ( cmd->id < KMP_N_SECT )
-	    {
-		const uint n = be16(&list->n_entry);
-		it->size = kmp_entry_size[cmd->id] * n + sizeof(kmp_list_head_t);
-		if ( cmd->id == KMP_POTI )
-		    it->size += be16(&list->value) * sizeof(kmp_poti_point_t);
-	    }
-	    else if ( cmd->id == KMP_WIM0 )
-		it->size = be32(&list->n_entry) + sizeof(kmp_list_head_t);
+		const u32 raw_off = 0x40;
+		const u32 img_off = be32 (bh->grp_offset);
+		if (img_off > raw_off && img_off <= szs->size)
+		{
+			const bool have_ct_code = szs->fform_arch == FF_TEX_CT && img_off > CT_CODE_TEX_OFFSET;
+
+			const u32 raw_end = have_ct_code ? CT_CODE_TEX_OFFSET : img_off;
+			it->index++;
+			it->off = raw_off;
+			it->size = raw_end - raw_off;
+			StringCopyS (it->path, sizeof (it->path), "raw.bin");
+			it->func_it (it, false);
+
+			if (have_ct_code)
+			{
+				it->index++;
+				it->off = CT_CODE_TEX_OFFSET;
+				it->size = img_off - CT_CODE_TEX_OFFSET;
+				StringCopyS (it->path, sizeof (it->path), "raw.ctcode");
+				it->func_it (it, false);
+			}
+		}
 	}
 
-	snprintf(it->path,sizeof(it->path), "KMP.section-%02u.%s",
-		sect, id_buf );
-	stat = it->func_it(it,false);
-    }
-
-    return stat;
+	return IterateFilesIMG (it, false);
 }
 
-//
+///////////////////////////////////////////////////////////////////////////////
+
+static int IterateFilesTPL (struct szs_iterator_t *it, // iterator struct with all infos
+	bool term // true: termination hint
+)
+{
+	if (term)
+		return 0;
+
+	DASSERT (it);
+	DASSERT (it->func_it);
+	szs_file_t *szs = it->szs;
+	DASSERT (szs);
+
+	if (!szs->data || szs->size < sizeof (tpl_header_t) + sizeof (tpl_imgtab_t))
+		return -1;
+
+	const tpl_header_t *head;
+	const tpl_imgtab_t *tab;
+	const u8 *data = szs->data;
+	if (!SetupPointerTPL (data, szs->size, 0, &head, &tab, 0, 0, 0, 0, it->endian))
+		return -1;
+
+	it->no_recurse++;
+
+	const uint n_img = it->endian->rd32 (&head->n_image);
+
+	it->index = 0;
+	it->off = (u8 *)head - data;
+	it->size = sizeof (tpl_header_t);
+	it->is_dir = 0;
+	StringCopyS (it->path, sizeof (it->path), ".TPL.header");
+	it->func_it (it, false);
+
+	if (IsTplHeaderEx (data, szs->size))
+	{
+		it->index++;
+		it->off = sizeof (tpl_header_t);
+		it->size = sizeof (tpl_header_ex_t) - sizeof (tpl_header_t);
+		StringCopyS (it->path, sizeof (it->path), ".TPL.header.ex");
+		it->func_it (it, false);
+	}
+
+	it->index++;
+	it->off = (u8 *)tab - data;
+	it->size = sizeof (tpl_imgtab_t) * n_img;
+	StringCopyS (it->path, sizeof (it->path), ".TPL.image-table");
+	it->func_it (it, false);
+
+	uint i;
+	for (i = 0; i < n_img; i++)
+	{
+		const tpl_pal_header_t *tpl_pal;
+		const tpl_img_header_t *tpl_img;
+		if (SetupPointerTPL (data, szs->size, i, 0, 0, &tpl_pal, &tpl_img, 0, 0, it->endian))
+		{
+			if (tpl_pal)
+			{
+				it->index++;
+				it->off = (u8 *)tpl_pal - data;
+				it->size = sizeof (tpl_pal_header_t);
+				if (n_img > 0)
+					snprintf (it->path, sizeof (it->path), ".palette-%u.header", i);
+				else
+					StringCopyS (it->path, sizeof (it->path), ".palette.header");
+				it->func_it (it, false);
+			}
+
+			if (tpl_img)
+			{
+				it->index++;
+				it->off = (u8 *)tpl_img - data;
+				it->size = sizeof (tpl_img_header_t);
+				if (n_img > 0)
+					snprintf (it->path, sizeof (it->path), ".image-%u.header", i);
+				else
+					StringCopyS (it->path, sizeof (it->path), ".image.header");
+				it->func_it (it, false);
+			}
+		}
+	}
+
+	return IterateFilesIMG (it, true);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+static int IterateFilesBTI (struct szs_iterator_t *it, // iterator struct with all infos
+	bool term // true: termination hint
+)
+{
+	if (term)
+		return 0;
+
+	DASSERT (it);
+	DASSERT (it->func_it);
+	szs_file_t *szs = it->szs;
+	DASSERT (szs);
+
+	if (!szs->data || szs->size < sizeof (bti_header_t))
+		return -1;
+
+	it->index++;
+	it->off = 0;
+	it->size = sizeof (bti_header_t);
+	StringCopyS (it->path, sizeof (it->path), ".BTI.header");
+	it->func_it (it, false);
+
+	return IterateFilesIMG (it, false);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+static int IterateFilesBMG (szs_iterator_t *it, // iterator struct with all infos
+	bool multi_img // false: mipmaps, true: multi images
+)
+{
+	DASSERT (it);
+	DASSERT (it->func_it);
+	szs_file_t *szs = it->szs;
+	DASSERT (szs);
+	const u8 *data = szs->data;
+	const u8 *data_end = data + szs->size;
+	DASSERT (data);
+
+	if (!data || szs->size < sizeof (bmg_header_t) + sizeof (bmg_section_t))
+		return -1;
+
+	const bmg_header_t *bh = (bmg_header_t *)data;
+	if (memcmp (bh->magic, BMG_MAGIC, sizeof (bh->magic)))
+		return -1;
+
+	it->no_recurse++;
+
+	it->index = 0;
+	it->off = 0;
+	it->size = sizeof (bmg_header_t);
+	it->is_dir = 0;
+	StringCopyS (it->path, sizeof (it->path), ".BMG.header");
+	int stat = it->func_it (it, false);
+
+	const bmg_section_t *sect = (bmg_section_t *)(bh + 1);
+	char id_buf[sizeof (sect->magic) + 1];
+	int idx;
+	for (idx = 0; (u8 *)sect < data_end && !stat; idx++)
+	{
+		const uint sect_size = it->endian->rd32 (&sect->size);
+		if (!sect_size)
+			break;
+
+		it->index++;
+		it->off = (u8 *)sect - data;
+		it->size = sect_size;
+		snprintf (it->path, sizeof (it->path), "BMG.section-%u.%s", idx,
+			PrintID (sect->magic, sizeof (sect->magic), id_buf));
+		stat = it->func_it (it, false);
+
+		sect = (bmg_section_t *)((u8 *)sect + sect_size);
+	}
+
+	return stat;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+static int IterateFilesKCL (szs_iterator_t *it, // iterator struct with all infos
+	bool multi_img // false: mipmaps, true: multi images
+)
+{
+	DASSERT (it);
+	DASSERT (it->func_it);
+	szs_file_t *szs = it->szs;
+	DASSERT (szs);
+	const u8 *data = szs->data;
+	DASSERT (data);
+
+	kcl_analyze_t ka;
+	if (IsValidKCL (&ka, data, szs->size, szs->size, "") >= VALID_ERROR)
+		return -1;
+
+	it->no_recurse++;
+
+	const kcl_head_t *kclhead = (kcl_head_t *)data;
+	u32 sect_off[N_KCL_SECT + 1];
+	DASSERT (sizeof (sect_off) > sizeof (kclhead->sect_off));
+
+	it->index = 0;
+	it->off = 0;
+	it->size = sizeof (kcl_head_t);
+	it->is_dir = 0;
+	StringCopyS (it->path, sizeof (it->path), ".KCL.header.bin");
+	int stat = it->func_it (it, false);
+
+	uint i;
+	for (i = 0; i < N_KCL_SECT; i++)
+		sect_off[i] = be32 (kclhead->sect_off + i);
+	sect_off[2] += 0x10;
+	sect_off[N_KCL_SECT] = szs->size;
+
+	static ccp name[N_KCL_SECT] = { "verticies", "normals", "triangles", "spartial-index" };
+	static uint size[N_KCL_SECT]
+		= { sizeof (double3), sizeof (double3), sizeof (kcl_triangle_t), 0 };
+
+	for (i = 0; i < N_KCL_SECT && !stat; i++)
+	{
+		it->off = sect_off[i];
+		it->size = sect_off[i + 1] - sect_off[i];
+		if (size[i])
+			snprintf (it->path, sizeof (it->path), "KCL.section-%u.%u_%s.bin", i + 1,
+				it->size / size[i], name[i]);
+		else
+			snprintf (it->path, sizeof (it->path), "KCL.section-%u.%s.bin", i + 1, name[i]);
+		stat = it->func_it (it, false);
+	}
+
+	return stat;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+static int IterateFilesKMP (szs_iterator_t *it, // iterator struct with all infos
+	bool multi_img // false: mipmaps, true: multi images
+)
+{
+	DASSERT (it);
+	DASSERT (it->func_it);
+	szs_file_t *szs = it->szs;
+	DASSERT (szs);
+	const u8 *data = szs->data;
+	DASSERT (data);
+
+	if (IsValidKMP (data, szs->size, szs->size, "") >= VALID_ERROR)
+		return -1;
+
+	it->no_recurse++;
+
+	kmp_head_info_t hi;
+	ScanHeadInfoKMP (&hi, data, szs->size);
+
+	it->index = 0;
+	it->off = 0;
+	it->size = sizeof (hi.head_size);
+	it->is_dir = 0;
+	StringCopyS (it->path, sizeof (it->path), ".KMP.header");
+	it->func_it (it, false);
+
+	int stat = 0;
+	uint sect, min_off = 0;
+	char id_buf[4 + 1];
+
+	for (sect = 0; sect < hi.n_sect && !stat; sect++)
+	{
+		uint off = ntohl (hi.sect_off[sect]);
+		if (off < min_off || off > hi.max_off || off & 3)
+			continue;
+
+		it->index++;
+		off += hi.head_size;
+		it->off = off;
+		it->size = 0;
+
+		PrintID (data + off, 4, id_buf);
+		int abbrev_count;
+		const KeywordTab_t *cmd = ScanKeyword (&abbrev_count, id_buf, kmp_section_name);
+		if (cmd && !abbrev_count && cmd->id >= 0)
+		{
+			const kmp_list_head_t *list = (kmp_list_head_t *)(data + off);
+			if (cmd->id < KMP_N_SECT)
+			{
+				const uint n = be16 (&list->n_entry);
+				it->size = kmp_entry_size[cmd->id] * n + sizeof (kmp_list_head_t);
+				if (cmd->id == KMP_POTI)
+					it->size += be16 (&list->value) * sizeof (kmp_poti_point_t);
+			}
+			else if (cmd->id == KMP_WIM0)
+				it->size = be32 (&list->n_entry) + sizeof (kmp_list_head_t);
+		}
+
+		snprintf (it->path, sizeof (it->path), "KMP.section-%02u.%s", sect, id_buf);
+		stat = it->func_it (it, false);
+	}
+
+	return stat;
+}
+
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			PatchSZS()			///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -2887,122 +2790,123 @@ static int IterateFilesKMP
 
 typedef struct patch_szs_par_t
 {
-    uint	modified;	// >0: any data modified
-    ccp		path;		// path without leading "./"
-    bool	job_norm;	// true: normalize SZS as first step
-}
-patch_szs_par_t;
+	uint modified; // >0: any data modified
+	ccp path; // path without leading "./"
+	bool job_norm; // true: normalize SZS as first step
+} patch_szs_par_t;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static void patch_file
-(
-    struct szs_iterator_t *it,		// itarator data
-    const void		*new_data,	// new data
-    uint		new_size,	// size of 'new_data'
-    bool		move_data,	// true: 'new_data' is alloced
-    bool		use_ui_source	// true: search file in directory det by --ui-source
+static void patch_file (struct szs_iterator_t *it, // itarator data
+	const void *new_data, // new data
+	uint new_size, // size of 'new_data'
+	bool move_data, // true: 'new_data' is alloced
+	bool use_ui_source // true: search file in directory det by --ui-source
 )
 {
-    DASSERT(it);
-    DASSERT(new_data||!new_size);
+	DASSERT (it);
+	DASSERT (new_data || !new_size);
 
-    szs_file_t *szs = it->szs;
-    DASSERT(szs);
+	szs_file_t *szs = it->szs;
+	DASSERT (szs);
 
-    patch_szs_par_t *ppar = it->param;
-    DASSERT(ppar);
+	patch_szs_par_t *ppar = it->param;
+	DASSERT (ppar);
 
-    if ( use_ui_source && opt_ui_source )
-    {
-	u8 *fdata = 0;
-	size_t fsize;
-	enumError err = LoadFileAlloc(opt_ui_source,ppar->path,0, &fdata,&fsize, 0,2,0,false);
-	if (!err)
+	if (use_ui_source && opt_ui_source)
 	{
-	    PRINT0("patch_file(), use %s / %s\n",opt_ui_source,ppar->path);
-	    if (move_data)
-		FREE((void*)new_data);
-	    new_data = fdata;
-	    new_size = fsize;
-	    move_data = true;
+		u8 *fdata = 0;
+		size_t fsize;
+		enumError err
+			= LoadFileAlloc (opt_ui_source, ppar->path, 0, &fdata, &fsize, 0, 2, 0, false);
+		if (!err)
+		{
+			PRINT0 ("patch_file(), use %s / %s\n", opt_ui_source, ppar->path);
+			if (move_data)
+				FREE ((void *)new_data);
+			new_data = fdata;
+			new_size = fsize;
+			move_data = true;
+		}
+		else
+			FREE (fdata);
+	}
+
+	u8 *data = szs->data + it->off;
+	if (it->size == new_size)
+	{
+		if (verbose >= 2)
+			fprintf (stdlog, "  >> update [%u] %s \n", new_size, it->path);
+
+		memcpy (data, new_data, new_size);
+		if (move_data)
+			FREE ((void *)new_data);
 	}
 	else
-	    FREE(fdata);
-    }
-
-    u8 *data = szs->data + it->off;
-    if ( it->size == new_size )
-    {
-	if ( verbose >= 2 )
-	    fprintf(stdlog,"  >> update [%u] %s \n",new_size,it->path);
-
-	memcpy(data,new_data,new_size);
-	if (move_data)
-	    FREE((void*)new_data);
-    }
-    else
-    {
-	if ( verbose >= 2 )
-	    fprintf(stdlog,"  >> update [%u->%u] %s \n",it->size,new_size,it->path);
-
-	szs_subfile_t *file = AppendSubFileList(&szs->ext_data,it->path,false);
-	DASSERT(file);
-	file->load_path = move_data ? new_data : MEMDUP(new_data,new_size);
-	it->off += (u8*)file->load_path - data;
-	it->size = file->size = new_size;
-    }
-
-    ppar->modified++;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-static void patch_le_menu ( struct szs_iterator_t *it )
-{
-    struct tab_t
-    {
-	ccp		fname;
-	BZ2Manager_t	*bz2mgr;
-    };
-
-    static const struct tab_t tab[] =
-    {
-	{ "button/blyt/cup_icon_64x64_common.brlyt",	&cup_icon_64x64_common_brlyt_mgr },
-	{ "button/ctrl/Back.brctr",			&back_brctr_mgr },
-	{ "button/ctrl/CupSelectCup.brctr",		&cupselectcup_brctr_mgr },
-	{ "control/blyt/cup_icon_64x64_common.brlyt",	&cup_icon_64x64_common_brlyt_mgr },
-	{ "control/ctrl/CourseSelectCup.brctr",		&courseselectcup_brctr_mgr },
-	{ "demo/blyt/course_name.brlyt",		&course_name_brlyt_mgr },
-	{ "demo/timg/tt_hatena_64x64.tpl",		&tt_hatena_64x64_tpl_mgr },
-	{0,0}
-    };
-
-    patch_szs_par_t *ppar = it->param;
-    DASSERT(ppar);
-
-    for ( const struct tab_t *ptr = tab; ptr->fname; ptr++ )
-    {
-	if (!strcasecmp(ppar->path,ptr->fname))
 	{
-	    BZ2Manager_t *bm = ptr->bz2mgr;
-	    DecodeBZIP2Manager(bm);
-	    patch_file(it,bm->data,bm->size,false,true);
-	    break;
+		if (verbose >= 2)
+			fprintf (stdlog, "  >> update [%u->%u] %s \n", it->size, new_size, it->path);
+
+		szs_subfile_t *file = AppendSubFileList (&szs->ext_data, it->path, false);
+		DASSERT (file);
+		file->load_path = move_data ? new_data : MEMDUP (new_data, new_size);
+		it->off += (u8 *)file->load_path - data;
+		it->size = file->size = new_size;
 	}
-    }
+
+	ppar->modified++;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static void patch_9laps ( struct szs_iterator_t *it )
+static void patch_le_menu (struct szs_iterator_t *it)
 {
-    DASSERT(it);
+	struct tab_t
+	{
+		ccp fname;
+		BZ2Manager_t *bz2mgr;
+	};
 
-    if ( it->ui_check.ui_type != UIT_RACE )
-	return;
+	static const struct tab_t tab[]
+		= { { "button/blyt/cup_icon_64x64_common.brlyt", &cup_icon_64x64_common_brlyt_mgr },
+			  { "button/ctrl/Back.brctr", &back_brctr_mgr },
+			  { "button/ctrl/CupSelectCup.brctr", &cupselectcup_brctr_mgr },
+			  { "control/blyt/cup_icon_64x64_common.brlyt", &cup_icon_64x64_common_brlyt_mgr },
+			  { "control/ctrl/CourseSelectCup.brctr", &courseselectcup_brctr_mgr },
+			  { "demo/blyt/course_name.brlyt", &course_name_brlyt_mgr },
+			  { "demo/timg/tt_hatena_64x64.tpl", &tt_hatena_64x64_tpl_mgr }, { 0, 0 } };
 
-    enum { M_ALL = -9, M_BASE, M_KOREA, M_COND, M_ADD,
+	patch_szs_par_t *ppar = it->param;
+	DASSERT (ppar);
+
+	for (const struct tab_t *ptr = tab; ptr->fname; ptr++)
+	{
+		if (!strcasecmp (ppar->path, ptr->fname))
+		{
+			BZ2Manager_t *bm = ptr->bz2mgr;
+			DecodeBZIP2Manager (bm);
+			patch_file (it, bm->data, bm->size, false, true);
+			break;
+		}
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+static void patch_9laps (struct szs_iterator_t *it)
+{
+	DASSERT (it);
+
+	if (it->ui_check.ui_type != UIT_RACE)
+		return;
+
+	enum
+	{
+		M_ALL = -9,
+		M_BASE,
+		M_KOREA,
+		M_COND,
+		M_ADD,
 		ME = 0x001,
 		MF = 0x002,
 		MG = 0x004,
@@ -3015,588 +2919,594 @@ static void patch_9laps ( struct szs_iterator_t *it )
 		MU = 0x200,
 	};
 
-    struct tab_t
-    {
-	uint			mode;
-	ccp			fname;
-	CompressManager_t	*cmgr;
-    };
-
-    static const struct tab_t tab[] =
-    {
-	{ M_ALL,       "game_image/anim/game_image_lap_texture_pattern_0_9.brlan",
-									&x_game_image_lap_texture_pattern_0_9_brlan_mgr },
-	{ M_BASE,      "game_image/ctrl/time_number.brctr",		&b_time_number_brctr_mgr },
-	{ M_KOREA,     "game_image/ctrl/time_number.brctr",		&k_time_number_brctr_mgr },
-	{ MI,          "game_image/blyt/time_number_texture.brlyt",	&i_time_number_texture_brlyt_mgr },
-	{ MJ|MK|ME|MU, "game_image/blyt/time_number_texture.brlyt",	&j_time_number_texture_brlyt_mgr },
-	{ MM,          "game_image/blyt/time_number_texture.brlyt",	&m_time_number_texture_brlyt_mgr },
-	{ MS,          "game_image/blyt/time_number_texture.brlyt",	&s_time_number_texture_brlyt_mgr },
-	{ MQ,          "game_image/blyt/time_number_texture.brlyt",	&q_time_number_texture_brlyt_mgr },
-	{ MG,          "game_image/blyt/time_number_texture.brlyt",	&g_time_number_texture_brlyt_mgr },
-	{ MF,          "game_image/blyt/time_number_texture.brlyt",	&f_time_number_texture_brlyt_mgr },
-
-	{ M_COND,      "game_image/timg/tt_lap_E_lap3.tpl",		0 },
-	{ M_ADD,       "game_image/timg/tt_lap_E_lap4.tpl",		&j_tt_lap_e_lap4_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_E_lap5.tpl",		&j_tt_lap_e_lap5_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_E_lap6.tpl",		&j_tt_lap_e_lap6_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_E_lap7.tpl",		&j_tt_lap_e_lap7_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_E_lap8.tpl",		&j_tt_lap_e_lap8_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_E_lap9.tpl",		&j_tt_lap_e_lap9_tpl_mgr },
-
-	{ M_COND,      "game_image/timg/tt_lap_F_lap3.tpl",		0 },
-	{ M_ADD,       "game_image/timg/tt_lap_F_lap4.tpl",		&f_tt_lap_f_lap4_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_F_lap5.tpl",		&f_tt_lap_f_lap5_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_F_lap6.tpl",		&f_tt_lap_f_lap6_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_F_lap7.tpl",		&f_tt_lap_f_lap7_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_F_lap8.tpl",		&f_tt_lap_f_lap8_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_F_lap9.tpl",		&f_tt_lap_f_lap9_tpl_mgr },
-
-	{ M_COND,      "game_image/timg/tt_lap_G_lap3.tpl",		0 },
-	{ M_ADD,       "game_image/timg/tt_lap_G_lap4.tpl",		&g_tt_lap_g_lap4_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_G_lap5.tpl",		&g_tt_lap_g_lap5_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_G_lap6.tpl",		&g_tt_lap_g_lap6_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_G_lap7.tpl",		&g_tt_lap_g_lap7_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_G_lap8.tpl",		&g_tt_lap_g_lap8_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_G_lap9.tpl",		&g_tt_lap_g_lap9_tpl_mgr },
-
-	{ M_COND,      "game_image/timg/tt_lap_I_lap3.tpl",		0 },
-	{ M_ADD,       "game_image/timg/tt_lap_I_lap4.tpl",		&i_tt_lap_i_lap4_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_I_lap5.tpl",		&i_tt_lap_i_lap5_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_I_lap6.tpl",		&i_tt_lap_i_lap6_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_I_lap7.tpl",		&i_tt_lap_i_lap7_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_I_lap8.tpl",		&i_tt_lap_i_lap8_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_I_lap9.tpl",		&i_tt_lap_i_lap9_tpl_mgr },
-
-	{ M_COND,      "game_image/timg/tt_lap_S_lap3.tpl",		0 },
-	{ M_ADD,       "game_image/timg/tt_lap_S_lap4.tpl",		&s_tt_lap_s_lap4_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_S_lap5.tpl",		&s_tt_lap_s_lap5_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_S_lap6.tpl",		&s_tt_lap_s_lap6_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_S_lap7.tpl",		&s_tt_lap_s_lap7_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_S_lap8.tpl",		&s_tt_lap_s_lap8_tpl_mgr },
-	{ M_ADD,       "game_image/timg/tt_lap_S_lap9.tpl",		&s_tt_lap_s_lap9_tpl_mgr },
-
-	{0,0,0}
-    };
-
-    patch_szs_par_t *ppar = it->param;
-    DASSERT(ppar);
-
-    for ( const struct tab_t *ptr = tab; ptr->fname; ptr++ )
-    {
-	PRINT0("%4x  %-35s %p  %s\n",ptr->mode,ptr->fname,ptr->bz2mgr,ppar->path);
-	if ( ptr->mode != M_ADD && !strcasecmp(ppar->path,ptr->fname) )
+	struct tab_t
 	{
-	    CompressManager_t *cm = ptr->cmgr;
-	    bool patch = false;
-	    switch (ptr->mode)
-	    {
-	     case M_ALL:
-		PRINT0("9laps/all  %s\n",ptr->fname);
-		patch = true;
-		break;
+		uint mode;
+		ccp fname;
+		CompressManager_t *cmgr;
+	};
 
-	     case M_BASE:
-		if (!it->ui_check.is_korean)
+	static const struct tab_t tab[]
+		= { { M_ALL, "game_image/anim/game_image_lap_texture_pattern_0_9.brlan",
+				&x_game_image_lap_texture_pattern_0_9_brlan_mgr },
+			  { M_BASE, "game_image/ctrl/time_number.brctr", &b_time_number_brctr_mgr },
+			  { M_KOREA, "game_image/ctrl/time_number.brctr", &k_time_number_brctr_mgr },
+			  { MI, "game_image/blyt/time_number_texture.brlyt", &i_time_number_texture_brlyt_mgr },
+			  { MJ | MK | ME | MU, "game_image/blyt/time_number_texture.brlyt",
+				  &j_time_number_texture_brlyt_mgr },
+			  { MM, "game_image/blyt/time_number_texture.brlyt", &m_time_number_texture_brlyt_mgr },
+			  { MS, "game_image/blyt/time_number_texture.brlyt", &s_time_number_texture_brlyt_mgr },
+			  { MQ, "game_image/blyt/time_number_texture.brlyt", &q_time_number_texture_brlyt_mgr },
+			  { MG, "game_image/blyt/time_number_texture.brlyt", &g_time_number_texture_brlyt_mgr },
+			  { MF, "game_image/blyt/time_number_texture.brlyt", &f_time_number_texture_brlyt_mgr },
+
+			  { M_COND, "game_image/timg/tt_lap_E_lap3.tpl", 0 },
+			  { M_ADD, "game_image/timg/tt_lap_E_lap4.tpl", &j_tt_lap_e_lap4_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_E_lap5.tpl", &j_tt_lap_e_lap5_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_E_lap6.tpl", &j_tt_lap_e_lap6_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_E_lap7.tpl", &j_tt_lap_e_lap7_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_E_lap8.tpl", &j_tt_lap_e_lap8_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_E_lap9.tpl", &j_tt_lap_e_lap9_tpl_mgr },
+
+			  { M_COND, "game_image/timg/tt_lap_F_lap3.tpl", 0 },
+			  { M_ADD, "game_image/timg/tt_lap_F_lap4.tpl", &f_tt_lap_f_lap4_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_F_lap5.tpl", &f_tt_lap_f_lap5_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_F_lap6.tpl", &f_tt_lap_f_lap6_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_F_lap7.tpl", &f_tt_lap_f_lap7_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_F_lap8.tpl", &f_tt_lap_f_lap8_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_F_lap9.tpl", &f_tt_lap_f_lap9_tpl_mgr },
+
+			  { M_COND, "game_image/timg/tt_lap_G_lap3.tpl", 0 },
+			  { M_ADD, "game_image/timg/tt_lap_G_lap4.tpl", &g_tt_lap_g_lap4_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_G_lap5.tpl", &g_tt_lap_g_lap5_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_G_lap6.tpl", &g_tt_lap_g_lap6_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_G_lap7.tpl", &g_tt_lap_g_lap7_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_G_lap8.tpl", &g_tt_lap_g_lap8_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_G_lap9.tpl", &g_tt_lap_g_lap9_tpl_mgr },
+
+			  { M_COND, "game_image/timg/tt_lap_I_lap3.tpl", 0 },
+			  { M_ADD, "game_image/timg/tt_lap_I_lap4.tpl", &i_tt_lap_i_lap4_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_I_lap5.tpl", &i_tt_lap_i_lap5_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_I_lap6.tpl", &i_tt_lap_i_lap6_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_I_lap7.tpl", &i_tt_lap_i_lap7_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_I_lap8.tpl", &i_tt_lap_i_lap8_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_I_lap9.tpl", &i_tt_lap_i_lap9_tpl_mgr },
+
+			  { M_COND, "game_image/timg/tt_lap_S_lap3.tpl", 0 },
+			  { M_ADD, "game_image/timg/tt_lap_S_lap4.tpl", &s_tt_lap_s_lap4_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_S_lap5.tpl", &s_tt_lap_s_lap5_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_S_lap6.tpl", &s_tt_lap_s_lap6_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_S_lap7.tpl", &s_tt_lap_s_lap7_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_S_lap8.tpl", &s_tt_lap_s_lap8_tpl_mgr },
+			  { M_ADD, "game_image/timg/tt_lap_S_lap9.tpl", &s_tt_lap_s_lap9_tpl_mgr },
+
+			  { 0, 0, 0 } };
+
+	patch_szs_par_t *ppar = it->param;
+	DASSERT (ppar);
+
+	for (const struct tab_t *ptr = tab; ptr->fname; ptr++)
+	{
+		PRINT0 ("%4x  %-35s %p  %s\n", ptr->mode, ptr->fname, ptr->bz2mgr, ppar->path);
+		if (ptr->mode != M_ADD && !strcasecmp (ppar->path, ptr->fname))
 		{
-		    PRINT0("9laps/base %s\n",ptr->fname);
-		    patch = true;
-		}
-		break;
+			CompressManager_t *cm = ptr->cmgr;
+			bool patch = false;
+			switch (ptr->mode)
+			{
+				case M_ALL:
+					PRINT0 ("9laps/all  %s\n", ptr->fname);
+					patch = true;
+					break;
 
-	     case M_KOREA:
-		if (it->ui_check.is_korean)
-		{
-		    PRINT0("9laps/kor  %s\n",ptr->fname);
-		    patch = true;
-		}
-		break;
+				case M_BASE:
+					if (!it->ui_check.is_korean)
+					{
+						PRINT0 ("9laps/base %s\n", ptr->fname);
+						patch = true;
+					}
+					break;
 
-	     case M_COND:
-		PRINT0("9laps/cond %s\n",ptr->fname);
-		while ( ptr[1].mode == M_ADD )
-		{
-		    ptr++;
-		    cm = ptr->cmgr;
-		    if (cm)
-		    {
-			PRINT0("9laps/add  %s\n",ptr->fname);
-			DecompressManager(cm);
-			add_missing_t am = { .szs = it->szs, .norm = &it->norm_create,
-					.data = (u8*)cm->data, .size = cm->size, .print_err = true };
-			am.log_indent = verbose >= 1 || logging >= 2 ? 2 : -1;
-// [[tpl-ex-]]
-			AddMissingFile(ptr->fname,FF_TPL,&am);
-			it->job_create = true;
-		    }
-		}
-		break;
+				case M_KOREA:
+					if (it->ui_check.is_korean)
+					{
+						PRINT0 ("9laps/kor  %s\n", ptr->fname);
+						patch = true;
+					}
+					break;
 
-	     default:
-		PRINT0("9laps/lang mode=%x, %s\n",ptr->mode,ptr->fname);
-		switch (it->ui_check.ui_lang)
-		{
-		    case 'E': if ( ptr->mode & ME ) patch = true; break;
-		    case 'F': if ( ptr->mode & MF ) patch = true; break;
-		    case 'G': if ( ptr->mode & MG ) patch = true; break;
-		    case 'I': if ( ptr->mode & MI ) patch = true; break;
-		    case 'J': if ( ptr->mode & MJ ) patch = true; break;
-		    case 'K': if ( ptr->mode & MK ) patch = true; break;
-		    case 'M': if ( ptr->mode & MM ) patch = true; break;
-		    case 'Q': if ( ptr->mode & MQ ) patch = true; break;
-		    case 'S': if ( ptr->mode & MS ) patch = true; break;
-		    case 'U': if ( ptr->mode & MU ) patch = true; break;
-		}
-	    }
+				case M_COND:
+					PRINT0 ("9laps/cond %s\n", ptr->fname);
+					while (ptr[1].mode == M_ADD)
+					{
+						ptr++;
+						cm = ptr->cmgr;
+						if (cm)
+						{
+							PRINT0 ("9laps/add  %s\n", ptr->fname);
+							DecompressManager (cm);
+							add_missing_t am = { .szs = it->szs,
+								.norm = &it->norm_create,
+								.data = (u8 *)cm->data,
+								.size = cm->size,
+								.print_err = true };
+							am.log_indent = verbose >= 1 || logging >= 2 ? 2 : -1;
+							// [[tpl-ex-]]
+							AddMissingFile (ptr->fname, FF_TPL, &am);
+							it->job_create = true;
+						}
+					}
+					break;
 
-	    if ( patch && cm )
-	    {
-		DecompressManager(cm);
-		patch_file(it,cm->data,cm->size,false,true);
-		break;
-	    }
+				default:
+					PRINT0 ("9laps/lang mode=%x, %s\n", ptr->mode, ptr->fname);
+					switch (it->ui_check.ui_lang)
+					{
+						case 'E':
+							if (ptr->mode & ME)
+								patch = true;
+							break;
+						case 'F':
+							if (ptr->mode & MF)
+								patch = true;
+							break;
+						case 'G':
+							if (ptr->mode & MG)
+								patch = true;
+							break;
+						case 'I':
+							if (ptr->mode & MI)
+								patch = true;
+							break;
+						case 'J':
+							if (ptr->mode & MJ)
+								patch = true;
+							break;
+						case 'K':
+							if (ptr->mode & MK)
+								patch = true;
+							break;
+						case 'M':
+							if (ptr->mode & MM)
+								patch = true;
+							break;
+						case 'Q':
+							if (ptr->mode & MQ)
+								patch = true;
+							break;
+						case 'S':
+							if (ptr->mode & MS)
+								patch = true;
+							break;
+						case 'U':
+							if (ptr->mode & MU)
+								patch = true;
+							break;
+					}
+			}
+
+			if (patch && cm)
+			{
+				DecompressManager (cm);
+				patch_file (it, cm->data, cm->size, false, true);
+				break;
+			}
+		}
 	}
-    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static void patch_title_screen ( struct szs_iterator_t *it )
+static void patch_title_screen (struct szs_iterator_t *it)
 {
-    patch_szs_par_t *ppar = it->param;
-    DASSERT(ppar);
-    ccp base_name = strrchr(ppar->path,'/');
-    if (!base_name)
-	base_name = ppar->path;
+	patch_szs_par_t *ppar = it->param;
+	DASSERT (ppar);
+	ccp base_name = strrchr (ppar->path, '/');
+	if (!base_name)
+		base_name = ppar->path;
 
-    u8 *data;
-    size_t size;
-    LoadFileAlloc(opt_title_screen,base_name,0,&data,&size,0,2,0,false);
-    if (data)
-	patch_file(it,data,size,true,false);
-    else if (strstr(ppar->path,"/tt_title_screen_"))
-    {
-	char path_buf[PATH_MAX];
-	const bool bokeboke = strstr(ppar->path,"bokeboke") != 0;
-	ccp path = PathCatPP(path_buf,sizeof(path_buf),
-			opt_title_screen, bokeboke ? "title2.png" : "title1.png" );
-	Image_t patch;
-	enumError err = LoadIMG(&patch,true,path,0,false,false,true);
-	if (!err)
+	u8 *data;
+	size_t size;
+	LoadFileAlloc (opt_title_screen, base_name, 0, &data, &size, 0, 2, 0, false);
+	if (data)
+		patch_file (it, data, size, true, false);
+	else if (strstr (ppar->path, "/tt_title_screen_"))
 	{
-	    Image_t img;
-	    u8 *data = it->szs->data + it->off;
-	    data = MEMDUP(data,it->size);
-	    err = AssignIMG(&img,true,data,it->size,0,false,&be_func,it->path);
-	    ConvertIMG(&patch,false,0,IMG_X_RGB,PAL_AUTO);
-	    ConvertIMG(&img,false,0,IMG_X_RGB,PAL_AUTO);
-	    err = PatchIMG(&img,&img,&patch,PIM_TOP|PIM_FOREGROUND);
-	    if (!err)
-	    {
-		ConvertIMG(&img,false,0,IMG_RGB565,PAL_AUTO);
-		tpl_raw_t raw = {0};
-		CreateRawTPL(&raw,&img,FF_TPL);
-		if (raw.valid)
+		char path_buf[PATH_MAX];
+		const bool bokeboke = strstr (ppar->path, "bokeboke") != 0;
+		ccp path = PathCatPP (
+			path_buf, sizeof (path_buf), opt_title_screen, bokeboke ? "title2.png" : "title1.png");
+		Image_t patch;
+		enumError err = LoadIMG (&patch, true, path, 0, false, false, true);
+		if (!err)
 		{
-		    patch_file(it,raw.data.ptr,raw.data.len,true,false);
-		    raw.data.ptr = 0;
+			Image_t img;
+			u8 *data = it->szs->data + it->off;
+			data = MEMDUP (data, it->size);
+			err = AssignIMG (&img, true, data, it->size, 0, false, &be_func, it->path);
+			ConvertIMG (&patch, false, 0, IMG_X_RGB, PAL_AUTO);
+			ConvertIMG (&img, false, 0, IMG_X_RGB, PAL_AUTO);
+			err = PatchIMG (&img, &img, &patch, PIM_TOP | PIM_FOREGROUND);
+			if (!err)
+			{
+				ConvertIMG (&img, false, 0, IMG_RGB565, PAL_AUTO);
+				tpl_raw_t raw = { 0 };
+				CreateRawTPL (&raw, &img, FF_TPL);
+				if (raw.valid)
+				{
+					patch_file (it, raw.data.ptr, raw.data.len, true, false);
+					raw.data.ptr = 0;
+				}
+				ResetRawTPL (&raw);
+			}
+			ResetIMG (&img);
+			FREE (data);
 		}
-		ResetRawTPL(&raw);
-	    }
-	    ResetIMG(&img);
-	    FREE(data);
+		ResetIMG (&patch);
 	}
-	ResetIMG(&patch);
-    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static int transform_collect_func
-(
-    struct szs_iterator_t	*it,	// iterator struct with all infos
-    bool			term	// true: termination hint
+static int transform_collect_func (struct szs_iterator_t *it, // iterator struct with all infos
+	bool term // true: termination hint
 )
 {
-    DASSERT(it);
-    if (term)
+	DASSERT (it);
+	if (term)
+		return 0;
+
+	patch_szs_par_t *ppar = it->param;
+	DASSERT (ppar);
+
+	ccp path = it->path;
+	if (path[0] == '.' && path[1] == '/')
+		path += 2;
+	ppar->path = path;
+
+	if (it->is_dir)
+	{
+	}
+	else
+	{
+		szs_file_t *szs = it->szs;
+		DASSERT (szs);
+		u8 *data = szs->data + it->off;
+		// [[analyse-magic]]
+
+		switch (GetByMagicFF (data, it->size, it->size))
+		{
+			case FF_BMG:
+				if (!have_bmg_patch_count)
+				{
+					PRINT ("### Patch/NOT BMG: %s\n", it->name);
+					break;
+				}
+
+				PRINT ("### Patch BMG: %s/%s\n", szs->fname, it->name);
+				{
+					bmg_t bmg;
+					enumError err = ScanBMG (&bmg, true, it->name, data, it->size);
+					if (!err)
+					{
+						bmg.szs = szs;
+						err = UsePatchingListBMG (&bmg);
+						if (err == ERR_DIFFER && !CreateRawBMG (&bmg))
+						{
+							PRINT ("### BMG: %u -> %u\n", it->size, bmg.raw_data_size);
+							if (bmg.raw_data_size == it->size
+								|| !szs->allow_ext_data && bmg.raw_data_size < it->size)
+							{
+								PATCH_ACTION_LOG ("Patch", "BMG/RAW", "%s\n", it->name);
+								memcpy (data, bmg.raw_data, it->size);
+								it->size = bmg.raw_data_size;
+								ppar->modified++;
+							}
+							else if (szs->allow_ext_data)
+							{
+								PATCH_ACTION_LOG ("Patch", "BMG", "%s\n", it->name);
+								szs_subfile_t *file
+									= AppendSubFileList (&szs->ext_data, it->path, false);
+								DASSERT (file);
+								file->load_path = (ccp)bmg.raw_data;
+								file->size = bmg.raw_data_size;
+								it->off += bmg.raw_data - data;
+								it->size = bmg.raw_data_size;
+								bmg.raw_data = 0;
+								ppar->modified++;
+							}
+							else
+								ERROR0 (ERR_WARNING,
+									"Can't patch BMG because of size [old=%u.new=%u]: %s\n",
+									it->size, bmg.raw_data_size, it->name);
+						}
+					}
+					ResetBMG (&bmg);
+				}
+				break;
+
+			case FF_KCL:
+				if (!PatchFileClass (FF_KCL, it->name))
+				{
+					noPRINT ("### Patch/NOT KCL: %s\n", it->name);
+					break;
+				}
+
+				PRINT ("### Patch KCL: %s/%s\n", szs->fname, it->name);
+				if (szs->allow_ext_data && !(KCL_MODE & KCLMD_INPLACE))
+				{
+					kcl_t kcl;
+					InitializeKCL (&kcl);
+					kcl.fform_outfile = FF_KCL;
+					enumError err = ScanRawKCL (&kcl, false, data, it->size, true);
+					kcl.fast = false;
+
+					if (!err && PatchKCL (&kcl) && CreateRawKCL (&kcl, false) == ERR_OK)
+					{
+						PATCH_ACTION_LOG ("Patch", "KCL", "%s\n", it->name);
+						if (it->size == kcl.raw_data_size)
+						{
+							KCL_ACTION_LOG (&kcl, "Overwrite KCL, size %u.\n", it->size);
+							memcpy (data, kcl.raw_data, it->size);
+						}
+						else
+						{
+							KCL_ACTION_LOG (
+								&kcl, "Replace KCL, size %u -> %u.\n", it->size, kcl.raw_data_size);
+							szs_subfile_t *file
+								= AppendSubFileList (&szs->ext_data, it->path, false);
+							DASSERT (file);
+							if (kcl.raw_data_alloced)
+							{
+								file->load_path = (ccp)kcl.raw_data;
+								kcl.raw_data = 0;
+								kcl.raw_data_alloced = 0;
+							}
+							else
+								file->load_path = MEMDUP (kcl.raw_data, kcl.raw_data_size);
+							it->off += (u8 *)file->load_path - data;
+							it->size = file->size = kcl.raw_data_size;
+						}
+						ppar->modified++;
+					}
+					ResetKCL (&kcl);
+				}
+				else if (PatchRawDataKCL (data, it->size, it->name))
+				{
+					PATCH_ACTION_LOG ("Patch", "KCL/RAW", "%s\n", it->name);
+					ppar->modified++;
+				}
+				break;
+
+			case FF_KMP:
+				if (!PatchFileClass (FF_KMP, it->name))
+				{
+					noPRINT ("### Patch/NOT KMP: %s\n", it->name);
+					break;
+				}
+
+				PRINT ("### Patch KMP: %s\n", it->name);
+				if (szs->allow_ext_data && !(KMP_MODE & KMPMD_INPLACE))
+				{
+					kmp_t kmp;
+					enumError err = ScanRawKMP (&kmp, true, data, it->size);
+					if (!err && PatchKMP (&kmp) && CreateRawKMP (&kmp) == ERR_OK)
+					{
+						PATCH_ACTION_LOG ("Patch", "KMP", "%s\n", it->name);
+						if (it->size == kmp.raw_data_size)
+						{
+							KMP_ACTION_LOG (&kmp, false, "Overwrite KMP, size %u.\n", it->size);
+							memcpy (data, kmp.raw_data, it->size);
+						}
+						else
+						{
+							KMP_ACTION_LOG (&kmp, false, "Replace KMP, size %u -> %u.\n", it->size,
+								kmp.raw_data_size);
+
+							szs_subfile_t *file
+								= AppendSubFileList (&szs->ext_data, it->path, false);
+							DASSERT (file);
+							file->load_path = (ccp)kmp.raw_data;
+							file->size = kmp.raw_data_size;
+							it->off += kmp.raw_data - data;
+							it->size = kmp.raw_data_size;
+							kmp.raw_data = 0;
+						}
+						ppar->modified++;
+					}
+					ResetKMP (&kmp);
+				}
+				else if (PatchRawDataKMP (data, it->size))
+				{
+					PATCH_ACTION_LOG ("Patch", "KMP/RAW", "%s\n", it->name);
+					ppar->modified++;
+				}
+				break;
+
+			case FF_LEX:
+				if (!szs->allow_ext_data || !HavePatchLEX ())
+				{
+					PRINT ("### Patch/NOT LEX: %s\n", it->name);
+					break;
+				}
+
+				PRINT ("### Patch LEX: %s/%s\n", szs->fname, it->name);
+				{
+					lex_t lex;
+					enumError err = ScanRawLEX (&lex, true, data, it->size, 0);
+					if (!err && PatchLEX (&lex, &szs->have) && CreateRawLEX (&lex) == ERR_OK)
+					{
+						if (!lex.have_sect)
+						{
+							LEX_ACTION_LOG (false, "Remove LEX, old_size %u.\n", it->size);
+
+							szs_subfile_t *file
+								= AppendSubFileList (&szs->ext_data, it->path, false);
+							DASSERT (file);
+							file->removed = true;
+							it->off = 0;
+							it->size = 0;
+						}
+						else if (it->size == lex.raw_data_size)
+						{
+							LEX_ACTION_LOG (false, "Overwrite LEX, size %u.\n", it->size);
+							memcpy (data, lex.raw_data, it->size);
+						}
+						else
+						{
+							LEX_ACTION_LOG (false, "Replace LEX, size %u -> %u.\n", it->size,
+								lex.raw_data_size);
+
+							szs_subfile_t *file
+								= AppendSubFileList (&szs->ext_data, it->path, false);
+							DASSERT (file);
+							file->load_path = (ccp)lex.raw_data;
+							file->size = lex.raw_data_size;
+							it->off += lex.raw_data - data;
+							it->size = lex.raw_data_size;
+							lex.raw_data = 0;
+						}
+						ppar->modified++;
+					}
+					PRINT ("PATCH/LEX: modified=%d, have_lex:%x,%x\n", lex.modified, lex.have_sect,
+						lex.have_feat);
+					ResetLEX (&lex);
+				}
+				break;
+
+			case FF_BRRES:
+				szs->brres_type = GetFileClass (FF_BRRES, it->name);
+				szs->dont_patch_mdl = !(szs->brres_type & PATCH_FILE_MODE)
+					|| disable_patch_on_load > 0 || !HavePatchMDL ();
+
+				noPRINT ("### Patch%s BRRES: %s [%x]\n", szs->dont_patch_mdl ? "/NOT" : "",
+					it->name, szs->brres_type);
+				if (!szs->dont_patch_mdl)
+					PATCH_ACTION_LOG ("Enable", "BRRES", "%s\n", it->name);
+				break;
+
+			case FF_MDL:
+				if (szs->fform_arch == FF_BRRES && szs->dont_patch_mdl || disable_patch_on_load > 0
+					|| !HavePatchMDL ())
+				{
+					noPRINT ("### Patch/NOT MDL: %s\n", it->name);
+					break;
+				}
+
+				{
+					noPRINT ("### Patch MDL: %s [%x]\n", it->name, szs->brres_type);
+					const uint stat = PatchRawDataMDL (data, it->size, szs->brres_type,
+						szs && szs->fname && *szs->fname ? szs->fname : it->name);
+					if (stat)
+					{
+						PATCH_ACTION_LOG (" Patch", "MDL/RAW", "%s%s\n", it->name,
+							stat & 2 ? " (vector transformation recognized)" : "");
+						ppar->modified++;
+					}
+				}
+				break;
+
+			default:
+				if (opt_le_menu)
+					patch_le_menu (it);
+				if (opt_9laps)
+					patch_9laps (it);
+				if (opt_title_screen && !memcmp (ppar->path, "title/timg/", 11))
+					patch_title_screen (it);
+				break;
+		}
+	}
 	return 0;
-
-    patch_szs_par_t *ppar = it->param;
-    DASSERT(ppar);
-
-    ccp path = it->path;
-    if ( path[0] == '.' && path[1] == '/' )
-	path += 2;
-    ppar->path = path;
-
-    if (it->is_dir)
-    {
-    }
-    else
-    {
-	szs_file_t *szs = it->szs;
-	DASSERT(szs);
-	u8 * data = szs->data + it->off;
-// [[analyse-magic]]
-
-	switch (GetByMagicFF(data,it->size,it->size))
-	{
-	    case FF_BMG:
-		if (!have_bmg_patch_count)
-		{
-		    PRINT("### Patch/NOT BMG: %s\n",it->name);
-		    break;
-		}
-
-		PRINT("### Patch BMG: %s/%s\n",szs->fname,it->name);
-		{
-		    bmg_t bmg;
-		    enumError err = ScanBMG(&bmg,true,it->name,data,it->size);
-		    if (!err)
-		    {
-			bmg.szs = szs;
-			err = UsePatchingListBMG(&bmg);
-			if ( err == ERR_DIFFER && !CreateRawBMG(&bmg) )
-			{
-			    PRINT("### BMG: %u -> %u\n",it->size,bmg.raw_data_size);
-			    if ( bmg.raw_data_size == it->size
-				|| !szs->allow_ext_data && bmg.raw_data_size < it->size )
-			    {
-				PATCH_ACTION_LOG("Patch","BMG/RAW","%s\n",it->name);
-				memcpy(data,bmg.raw_data,it->size);
-				it->size = bmg.raw_data_size;
-				ppar->modified++;
-			    }
-			    else if ( szs->allow_ext_data )
-			    {
-				PATCH_ACTION_LOG("Patch","BMG","%s\n",it->name);
-				szs_subfile_t * file
-					= AppendSubFileList(&szs->ext_data,it->path,false);
-				DASSERT(file);
-				file->load_path = (ccp)bmg.raw_data;
-				file->size      = bmg.raw_data_size;
-				it->off += bmg.raw_data - data;
-				it->size = bmg.raw_data_size;
-				bmg.raw_data = 0;
-				ppar->modified++;
-			    }
-			    else
-				ERROR0(ERR_WARNING,
-					"Can't patch BMG because of size [old=%u.new=%u]: %s\n",
-					it->size, bmg.raw_data_size, it->name );
-			}
-		    }
-		    ResetBMG(&bmg);
-		}
-		break;
-
-	    case FF_KCL:
-		if (!PatchFileClass(FF_KCL,it->name))
-		{
-		    noPRINT("### Patch/NOT KCL: %s\n",it->name);
-		    break;
-		}
-
-		PRINT("### Patch KCL: %s/%s\n",szs->fname,it->name);
-		if ( szs->allow_ext_data && !(KCL_MODE&KCLMD_INPLACE) )
-		{
-		    kcl_t kcl;
-		    InitializeKCL(&kcl);
-		    kcl.fform_outfile = FF_KCL;
-		    enumError err = ScanRawKCL(&kcl,false,data,it->size,true);
-		    kcl.fast = false;
-
-		    if ( !err
-			&& PatchKCL(&kcl)
-			&& CreateRawKCL(&kcl,false) == ERR_OK )
-		    {
-			PATCH_ACTION_LOG("Patch","KCL","%s\n",it->name);
-			if ( it->size == kcl.raw_data_size )
-			{
-			    KCL_ACTION_LOG(&kcl,"Overwrite KCL, size %u.\n",it->size);
-			    memcpy(data,kcl.raw_data,it->size);
-			}
-			else
-			{
-			    KCL_ACTION_LOG(&kcl,"Replace KCL, size %u -> %u.\n",
-						it->size, kcl.raw_data_size );
-			    szs_subfile_t * file
-				    = AppendSubFileList(&szs->ext_data,it->path,false);
-			    DASSERT(file);
-			    if (kcl.raw_data_alloced)
-			    {
-				file->load_path = (ccp)kcl.raw_data;
-				kcl.raw_data = 0;
-				kcl.raw_data_alloced = 0;
-			    }
-			    else
-				file->load_path = MEMDUP(kcl.raw_data,kcl.raw_data_size);
-			    it->off += (u8*)file->load_path - data;
-			    it->size = file->size = kcl.raw_data_size;
-			}
-			ppar->modified++;
-		    }
-		    ResetKCL(&kcl);
-		}
-		else if (PatchRawDataKCL(data,it->size,it->name))
-		{
-		    PATCH_ACTION_LOG("Patch","KCL/RAW","%s\n",it->name);
-		    ppar->modified++;
-		}
-		break;
-
-
-	    case FF_KMP:
-		if (!PatchFileClass(FF_KMP,it->name))
-		{
-		    noPRINT("### Patch/NOT KMP: %s\n",it->name);
-		    break;
-		}
-
-		PRINT("### Patch KMP: %s\n",it->name);
-		if ( szs->allow_ext_data && !(KMP_MODE&KMPMD_INPLACE) )
-		{
-		    kmp_t kmp;
-		    enumError err = ScanRawKMP(&kmp,true,data,it->size);
-		    if ( !err
-			&& PatchKMP(&kmp)
-			&& CreateRawKMP(&kmp) == ERR_OK )
-		    {
-			PATCH_ACTION_LOG("Patch","KMP","%s\n",it->name);
-			if ( it->size == kmp.raw_data_size )
-			{
-			    KMP_ACTION_LOG(&kmp,false,"Overwrite KMP, size %u.\n",it->size);
-			    memcpy(data,kmp.raw_data,it->size);
-			}
-			else
-			{
-			    KMP_ACTION_LOG(&kmp,false,"Replace KMP, size %u -> %u.\n",
-						it->size, kmp.raw_data_size );
-
-			    szs_subfile_t * file
-				    = AppendSubFileList(&szs->ext_data,it->path,false);
-			    DASSERT(file);
-			    file->load_path = (ccp)kmp.raw_data;
-			    file->size      = kmp.raw_data_size;
-			    it->off += kmp.raw_data - data;
-			    it->size = kmp.raw_data_size;
-			    kmp.raw_data = 0;
-			}
-			ppar->modified++;
-		    }
-		    ResetKMP(&kmp);
-		}
-		else if (PatchRawDataKMP(data,it->size))
-		{
-		    PATCH_ACTION_LOG("Patch","KMP/RAW","%s\n",it->name);
-		    ppar->modified++;
-		}
-		break;
-
-	    case FF_LEX:
-		if ( !szs->allow_ext_data || !HavePatchLEX() )
-		{
-		    PRINT("### Patch/NOT LEX: %s\n",it->name);
-		    break;
-		}
-
-		PRINT("### Patch LEX: %s/%s\n",szs->fname,it->name);
-		{
-		    lex_t lex;
-		    enumError err = ScanRawLEX(&lex,true,data,it->size,0);
-		    if ( !err && PatchLEX(&lex,&szs->have) && CreateRawLEX(&lex) == ERR_OK )
-		    {
-			if (!lex.have_sect)
-			{
-			    LEX_ACTION_LOG(false,"Remove LEX, old_size %u.\n",it->size);
-
-			    szs_subfile_t * file
-				= AppendSubFileList(&szs->ext_data,it->path,false);
-			    DASSERT(file);
-			    file->removed = true;
-			    it->off  = 0;
-			    it->size = 0;
-			}
-			else if ( it->size == lex.raw_data_size )
-			{
-			    LEX_ACTION_LOG(false,"Overwrite LEX, size %u.\n",it->size);
-			    memcpy(data,lex.raw_data,it->size);
-			}
-			else
-			{
-			    LEX_ACTION_LOG(false,"Replace LEX, size %u -> %u.\n",
-						it->size, lex.raw_data_size );
-
-			    szs_subfile_t * file
-				= AppendSubFileList(&szs->ext_data,it->path,false);
-			    DASSERT(file);
-			    file->load_path = (ccp)lex.raw_data;
-			    file->size      = lex.raw_data_size;
-			    it->off += lex.raw_data - data;
-			    it->size = lex.raw_data_size;
-			    lex.raw_data = 0;
-			}
-			ppar->modified++;
-		    }
-		    PRINT("PATCH/LEX: modified=%d, have_lex:%x,%x\n",
-				lex.modified, lex.have_sect, lex.have_feat );
-		    ResetLEX(&lex);
-		}
-		break;
-
-	    case FF_BRRES:
-		szs->brres_type = GetFileClass(FF_BRRES,it->name);
-		szs->dont_patch_mdl = !( szs->brres_type & PATCH_FILE_MODE )
-				   || disable_patch_on_load > 0
-				   || !HavePatchMDL();
-
-		noPRINT("### Patch%s BRRES: %s [%x]\n",
-			szs->dont_patch_mdl ? "/NOT" : "", it->name,
-			szs->brres_type );
-		if (!szs->dont_patch_mdl)
-		    PATCH_ACTION_LOG("Enable","BRRES","%s\n",it->name);
-		break;
-
-
-	    case FF_MDL:
-		if ( szs->fform_arch == FF_BRRES && szs->dont_patch_mdl
-		    || disable_patch_on_load > 0
-		    || !HavePatchMDL() )
-		{
-		    noPRINT("### Patch/NOT MDL: %s\n",it->name);
-		    break;
-		}
-
-		{
-		    noPRINT("### Patch MDL: %s [%x]\n",it->name,szs->brres_type);
-		    const uint stat
-			= PatchRawDataMDL(data,it->size,szs->brres_type,
-				szs && szs->fname && *szs->fname ? szs->fname : it->name );
-		    if (stat)
-		    {
-			PATCH_ACTION_LOG(" Patch","MDL/RAW","%s%s\n",
-				it->name,
-				stat&2 ? " (vector transformation recognized)" : "" );
-			ppar->modified++;
-		    }
-		}
-		break;
-
-	    default:
-		if (opt_le_menu)
-		    patch_le_menu(it);
-		if (opt_9laps)
-		    patch_9laps(it);
-		if ( opt_title_screen && !memcmp(ppar->path,"title/timg/",11) )
-		    patch_title_screen(it);
-		break;
-	}
-    }
-    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PatchSZS ( szs_file_t * szs )
+bool PatchSZS (szs_file_t *szs)
 {
-    DASSERT(szs);
-    CalcHaveSZS(szs);
-    const bool patch_lex = HaveActivePatchLEX();
- #if defined(TEST)
-    static int done = 0;
-    if (!done++)
-    {
-	printf("PATCH-COUNT: *=%d, bmg=%d, kcl=%d, kmp=%d, mdl=%d, lex=%d\n",
-		have_patch_count,
-		have_bmg_patch_count,
-		have_kcl_patch_count,
-		have_kmp_patch_count,
-		have_mdl_patch_count,
-		patch_lex );
-    }
- #endif
-
-    patch_szs_par_t ppar = { .job_norm = opt_9laps };
-    if ( szs->data && szs->size )
-    {
-	if (patch_lex)
+	DASSERT (szs);
+	CalcHaveSZS (szs);
+	const bool patch_lex = HaveActivePatchLEX ();
+#if defined(TEST)
+	static int done = 0;
+	if (!done++)
 	{
-	    CalcHaveSZS(szs);
-	    ppar.modified |= NormalizeExSZS(szs,0,0,0);
+		printf ("PATCH-COUNT: *=%d, bmg=%d, kcl=%d, kmp=%d, mdl=%d, lex=%d\n", have_patch_count,
+			have_bmg_patch_count, have_kcl_patch_count, have_kmp_patch_count, have_mdl_patch_count,
+			patch_lex);
+	}
+#endif
+
+	patch_szs_par_t ppar = { .job_norm = opt_9laps };
+	if (szs->data && szs->size)
+	{
+		if (patch_lex)
+		{
+			CalcHaveSZS (szs);
+			ppar.modified |= NormalizeExSZS (szs, 0, 0, 0);
+		}
+
+		if (have_patch_count > 0 || opt_lex_purge || opt_le_menu || opt_9laps || opt_title_screen)
+		{
+			PRINT ("** PatchSZS() **\n");
+			ScanTformBegin ();
+
+			iterator_param_t itpar = {
+				.sort_mode = SORT_NONE, .job_ui_check = opt_9laps, .job_norm_create = opt_9laps
+			};
+			IterateFilesSZS (szs, transform_collect_func, &ppar, &itpar, -1);
+
+			TformScriptEnd ();
+			ClearSpecialFilesSZS (szs);
+		}
 	}
 
-	if (  have_patch_count > 0
-	   || opt_lex_purge
-	   || opt_le_menu
-	   || opt_9laps
-	   || opt_title_screen
-	   )
-	{
-	    PRINT("** PatchSZS() **\n");
-	    ScanTformBegin();
-
-	    iterator_param_t itpar =
-	    {
-		.sort_mode		= SORT_NONE,
-		.job_ui_check		= opt_9laps,
-		.job_norm_create	= opt_9laps
-	    };
-	    IterateFilesSZS( szs, transform_collect_func, &ppar, &itpar, -1 );
-
-	    TformScriptEnd();
-	    ClearSpecialFilesSZS(szs);
-	}
-    }
-
-    return ppar.modified != 0;
+	return ppar.modified != 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-bool CanBeATrackSZS ( szs_file_t * szs )
+bool CanBeATrackSZS (szs_file_t *szs)
 {
-    FindSpecialFilesSZS(szs,false);
-    return szs->course_kcl_data
-	&& szs->course_kmp_data
-	&& ( szs->course_model_data || szs->course_d_model_data );
+	FindSpecialFilesSZS (szs, false);
+	return szs->course_kcl_data && szs->course_kmp_data
+		&& (szs->course_model_data || szs->course_d_model_data);
 }
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			SetupExtendedSZS		///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-void SetupExtendedSZS()
+void SetupExtendedSZS ()
 {
-    static bool done = false;
-    if (done)
-	return;
-    done = true;
+	static bool done = false;
+	if (done)
+		return;
+	done = true;
 
-    SetupStandardSZS();
+	SetupStandardSZS ();
 
-    cut_iter_func[FF_CT1_DATA]	= IterateFilesCTCODE;
-    cut_iter_func[FF_BMG]	= IterateFilesBMG;
-    cut_iter_func[FF_BREFT_IMG]	= IterateFilesBREFT_IMG;
-    cut_iter_func[FF_KCL]	= IterateFilesKCL;
-    cut_iter_func[FF_KMP]	= IterateFilesKMP;
-//    cut_iter_func[FF_LEX]	= IterateFilesLEX; // [[lex]]
-    cut_iter_func[FF_MDL]	= IterateFilesMDL;
-    cut_iter_func[FF_PAT]	= IterateFilesPAT;
-    cut_iter_func[FF_TEX]	= IterateFilesTEX;
-    cut_iter_func[FF_TEX_CT]	= IterateFilesTEX;
-// [[tpl-ex+]]
-    cut_iter_func[FF_TPL]	= IterateFilesTPL;
-    cut_iter_func[FF_TPLX]	= IterateFilesTPL;
-    cut_iter_func[FF_CUPICON]	= IterateFilesTPL;
-    cut_iter_func[FF_BTI]	= IterateFilesBTI;
+	cut_iter_func[FF_CT1_DATA] = IterateFilesCTCODE;
+	cut_iter_func[FF_BMG] = IterateFilesBMG;
+	cut_iter_func[FF_BREFT_IMG] = IterateFilesBREFT_IMG;
+	cut_iter_func[FF_KCL] = IterateFilesKCL;
+	cut_iter_func[FF_KMP] = IterateFilesKMP;
+	//    cut_iter_func[FF_LEX]	= IterateFilesLEX; // [[lex]]
+	cut_iter_func[FF_MDL] = IterateFilesMDL;
+	cut_iter_func[FF_PAT] = IterateFilesPAT;
+	cut_iter_func[FF_TEX] = IterateFilesTEX;
+	cut_iter_func[FF_TEX_CT] = IterateFilesTEX;
+	// [[tpl-ex+]]
+	cut_iter_func[FF_TPL] = IterateFilesTPL;
+	cut_iter_func[FF_TPLX] = IterateFilesTPL;
+	cut_iter_func[FF_CUPICON] = IterateFilesTPL;
+	cut_iter_func[FF_BTI] = IterateFilesBTI;
 
-  //std_iter_func[FF_TEX_CT]	= IterateFilesTEX;
-  //std_iter_func[FF_CT1_DATA]	= IterateFilesCTCODE;
+	// std_iter_func[FF_TEX_CT]	= IterateFilesTEX;
+	// std_iter_func[FF_CT1_DATA]	= IterateFilesCTCODE;
 }
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			  CheckSZS			///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -3604,923 +3514,828 @@ void SetupExtendedSZS()
 
 typedef struct check_szs_t
 {
-    //--- param
+	//--- param
 
-    szs_file_t		* szs;		// pointer to valid SZS
-    CheckMode_t		mode;		// print mode
+	szs_file_t *szs; // pointer to valid SZS
+	CheckMode_t mode; // print mode
 
-    //--- status
+	//--- status
 
-    int			warn_count;	// number of warnings
-    int			hint_count;	// number of hints
-    int			info_count;	// number of hints
-    bool		head_printed;	// true: header line printed
+	int warn_count; // number of warnings
+	int hint_count; // number of hints
+	int info_count; // number of hints
+	bool head_printed; // true: header line printed
 
-    //--- misc data
+	//--- misc data
 
-    ColorSet_t		col;		// color setup
-    uint		img_count;	// number of checked images
+	ColorSet_t col; // color setup
+	uint img_count; // number of checked images
 
-    //--- vertex counter
+	//--- vertex counter
 
-    uint		*num_vertex;	// NULL or pointer to vertex counter
-    uint		*num_mdl;	// NULL or pointer to MDL counter
+	uint *num_vertex; // NULL or pointer to vertex counter
+	uint *num_mdl; // NULL or pointer to MDL counter
 
-    uint		nv_model;	// number of vert. in 'course_model.brres'
-    uint		nm_model;	// number of MDL's in 'course_model.brres'
-    uint		nv_map;		// number of vert. in 'map_model.brres'
-    uint		nm_map;		// number of MDL's in 'map_model.brres'
-    uint		nv_vrcorn;	// number of vert. in 'vrcorn_model.brres'
-    uint		nm_vrcorn;	// number of MDL's in 'vrcorn_model.brres'
+	uint nv_model; // number of vert. in 'course_model.brres'
+	uint nm_model; // number of MDL's in 'course_model.brres'
+	uint nv_map; // number of vert. in 'map_model.brres'
+	uint nm_map; // number of MDL's in 'map_model.brres'
+	uint nv_vrcorn; // number of vert. in 'vrcorn_model.brres'
+	uint nm_vrcorn; // number of MDL's in 'vrcorn_model.brres'
 
-    uint		nv_total;	// total vertex count
-    uint		nm_total;	// total number of scanned MDL files
+	uint nv_total; // total vertex count
+	uint nm_total; // total number of scanned MDL files
 
 } check_szs_t;
 
 ///////////////////////////////////////////////////////////////////////////////
 
 // predefine function to avoid a warning because of __attribute__ usage
-static void print_check_error
-(
-    check_szs_t		* chk,		// valid data structure
-    CheckMode_t		print_mode,	// NULL | CMOD_WARN|CMOD_HINT|CMOD_SLOT|CMOD_INFO
-    ccp			format,		// format of message
-    ...					// arguments
+static void print_check_error (check_szs_t *chk, // valid data structure
+	CheckMode_t print_mode, // NULL | CMOD_WARN|CMOD_HINT|CMOD_SLOT|CMOD_INFO
+	ccp format, // format of message
+	... // arguments
 
-) __attribute__ ((__format__(__printf__,3,4)));
+	) __attribute__ ((__format__ (__printf__, 3, 4)));
 
-static void print_check_error
-(
-    check_szs_t		* chk,		// valid data structure
-    CheckMode_t		print_mode,	// NULL | CMOD_WARN|CMOD_HINT|CMOD_SLOT|CMOD_INFO
-    ccp			format,		// format of message
-    ...					// arguments
+static void print_check_error (check_szs_t *chk, // valid data structure
+	CheckMode_t print_mode, // NULL | CMOD_WARN|CMOD_HINT|CMOD_SLOT|CMOD_INFO
+	ccp format, // format of message
+	... // arguments
 
 )
 {
-    DASSERT(chk);
-    DASSERT(chk->szs);
+	DASSERT (chk);
+	DASSERT (chk->szs);
 
-    ccp col; // message color
-    ccp bol; // begin of line
-    switch (print_mode)
-    {
-	case CMOD_WARNING:
-	    if (!( chk->mode & CMOD_WARNING ))
-		return;
-	    col = chk->col.warn;
-	    bol = check_bowl;
-	    chk->warn_count++;
-	    break;
+	ccp col; // message color
+	ccp bol; // begin of line
+	switch (print_mode)
+	{
+		case CMOD_WARNING:
+			if (!(chk->mode & CMOD_WARNING))
+				return;
+			col = chk->col.warn;
+			bol = check_bowl;
+			chk->warn_count++;
+			break;
 
-	case CMOD_HINT:
-	    if (!( chk->mode & CMOD_HINT ))
-		return;
-	    col = chk->col.hint;
-	    bol = check_bohl;
-	    chk->hint_count++;
-	    break;
+		case CMOD_HINT:
+			if (!(chk->mode & CMOD_HINT))
+				return;
+			col = chk->col.hint;
+			bol = check_bohl;
+			chk->hint_count++;
+			break;
 
-	case CMOD_SLOT:
-	    if (!( chk->mode & CMOD_SLOT ))
-		return;
-	    col = chk->col.info;
-	    bol = check_bosl;
-	    chk->info_count++;
-	    break;
+		case CMOD_SLOT:
+			if (!(chk->mode & CMOD_SLOT))
+				return;
+			col = chk->col.info;
+			bol = check_bosl;
+			chk->info_count++;
+			break;
 
-	case CMOD_INFO:
-	    if (!( chk->mode & CMOD_INFO ))
-		return;
-	    col = chk->col.info;
-	    bol = check_boil;
-	    chk->info_count++;
-	    break;
+		case CMOD_INFO:
+			if (!(chk->mode & CMOD_INFO))
+				return;
+			col = chk->col.info;
+			bol = check_boil;
+			chk->info_count++;
+			break;
 
-	default:
-	    col = 0;
-	    bol = 0; // print head only
-	    break;
-    }
+		default:
+			col = 0;
+			bol = 0; // print head only
+			break;
+	}
 
-    if (!chk->head_printed)
-    {
-	chk->head_printed = true;
-	if (chk->mode & (CMOD_HEADER|CMOD_FORCE_HEADER) )
-	    fprintf(stdlog,"%s* CHECK %s:%s%s\n",
-			chk->col.heading,
-			GetNameFF(chk->szs->fform_file,chk->szs->fform_arch),
-			chk->szs->fname, chk->col.reset );
-    }
+	if (!chk->head_printed)
+	{
+		chk->head_printed = true;
+		if (chk->mode & (CMOD_HEADER | CMOD_FORCE_HEADER))
+			fprintf (stdlog, "%s* CHECK %s:%s%s\n", chk->col.heading,
+				GetNameFF (chk->szs->fform_file, chk->szs->fform_arch), chk->szs->fname,
+				chk->col.reset);
+	}
 
-    if ( bol && format )
-    {
-	fputs(col,stdlog);
-	fputs(bol,stdlog);
-	fputs(chk->col.reset,stdlog);
+	if (bol && format)
+	{
+		fputs (col, stdlog);
+		fputs (bol, stdlog);
+		fputs (chk->col.reset, stdlog);
 
-	va_list arg;
-	va_start(arg,format);
-	vfprintf(stdlog,format,arg);
-	va_end(arg);
-    }
+		va_list arg;
+		va_start (arg, format);
+		vfprintf (stdlog, format, arg);
+		va_end (arg);
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static void print_vertex_count
-(
-    check_szs_t	*chk,
-    uint	vert_counter,
-    uint	mdl_counter,
-    uint	hint_level,
-    uint	warn_level,
-    ccp		model_name
-)
+static void print_vertex_count (check_szs_t *chk, uint vert_counter, uint mdl_counter,
+	uint hint_level, uint warn_level, ccp model_name)
 {
-    DASSERT(chk);
+	DASSERT (chk);
 
-    if (vert_counter)
-    {
-	CheckMode_t mode = vert_counter >= warn_level
-		? CMOD_WARNING : vert_counter >= hint_level
-		? CMOD_HINT : CMOD_INFO;
+	if (vert_counter)
+	{
+		CheckMode_t mode = vert_counter >= warn_level ? CMOD_WARNING
+			: vert_counter >= hint_level			  ? CMOD_HINT
+													  : CMOD_INFO;
 
-	if (model_name)
-	    print_check_error( chk, mode,
-		"File '%s_model.brres' has %u vertices in %u MDL file%s.\n",
-		model_name, vert_counter, mdl_counter,
-		mdl_counter == 1 ? "" : "s" );
-	else
-	    print_check_error( chk, mode,
-		"Total of %u vertices in %u MDL file%s found.\n",
-		vert_counter, mdl_counter,
-		mdl_counter == 1 ? "" : "s" );
-    }
+		if (model_name)
+			print_check_error (chk, mode,
+				"File '%s_model.brres' has %u vertices in %u MDL file%s.\n", model_name,
+				vert_counter, mdl_counter, mdl_counter == 1 ? "" : "s");
+		else
+			print_check_error (chk, mode, "Total of %u vertices in %u MDL file%s found.\n",
+				vert_counter, mdl_counter, mdl_counter == 1 ? "" : "s");
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static int check_mdl_func
-(
-    struct szs_iterator_t	*it,	// iterator struct with all infos
-    bool			term	// true: termination hint
+static int check_mdl_func (struct szs_iterator_t *it, // iterator struct with all infos
+	bool term // true: termination hint
 )
 {
-    DASSERT(it);
-    DASSERT(it->szs);
-    if ( term || it->is_dir )
+	DASSERT (it);
+	DASSERT (it->szs);
+	if (term || it->is_dir)
+		return 0;
+
+	if (it->group == 2 && it->entry >= 0)
+	{
+		check_szs_t *chk = it->param;
+		DASSERT (chk);
+
+		mdl_sect2_t *ms = (mdl_sect2_t *)(it->szs->data + it->off);
+		const u32 nv = be16 (&ms->n_vertex);
+		chk->nv_total += nv;
+		if (chk->num_vertex)
+			*chk->num_vertex += nv;
+		noPRINT ("MDL group %d, entry %d, N=%u: %s\n", it->group, it->entry, nv, it->path);
+	}
 	return 0;
+}
 
-    if ( it->group == 2 && it->entry >= 0 )
-    {
+///////////////////////////////////////////////////////////////////////////////
+
+static int check_brres_func (struct szs_iterator_t *it, // iterator struct with all infos
+	bool term // true: termination hint
+)
+{
+	DASSERT (it);
+	DASSERT (it->szs);
+	if (term || it->is_dir)
+		return 0;
+
+	const u8 *data = it->szs->data + it->off;
+	const file_format_t fform = GetByMagicFF (data, it->size, it->size);
+	if (fform == FF_BRRES)
+	{
+		check_szs_t *chk = it->param;
+		DASSERT (chk);
+
+		szs_file_t subszs;
+		InitializeSubSZS (&subszs, it->szs, it->off, it->size, fform, it->path, false);
+		subszs.fname = it->path;
+		CheckBRRES (&subszs, chk->mode | CMOD_FORCE_HEADER, chk);
+		subszs.fname = 0;
+		ResetSZS (&subszs);
+	}
+
+	return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+static int check_file_func (struct szs_iterator_t *it, // iterator struct with all infos
+	bool term // true: termination hint
+)
+{
+	DASSERT (it);
+	DASSERT (it->szs);
+	if (term || it->is_dir)
+		return 0;
+
+	const u8 *data = it->szs->data + it->off;
+	// [[analyse-magic]]
+	const file_format_t fform = GetByMagicFF (data, it->size, it->size);
 	check_szs_t *chk = it->param;
-	DASSERT(chk);
+	DASSERT (chk);
 
-	mdl_sect2_t *ms = (mdl_sect2_t*)( it->szs->data + it->off );
-	const u32 nv = be16(&ms->n_vertex);
-	chk->nv_total += nv;
-	if (chk->num_vertex)
-	    *chk->num_vertex += nv;
-	noPRINT("MDL group %d, entry %d, N=%u: %s\n",
-		it->group, it->entry, nv, it->path );
-    }
-    return 0;
+	switch (fform)
+	{
+		case FF_BRRES:
+			switch (GetFileClass (FF_BRRES, it->path))
+			{
+				case PFILE_MODEL:
+					chk->num_vertex = &chk->nv_model;
+					chk->num_mdl = &chk->nm_model;
+					break;
+
+				case PFILE_MINIMAP:
+					chk->num_vertex = &chk->nv_map;
+					chk->num_mdl = &chk->nm_map;
+					break;
+
+				case PFILE_VRCORN:
+					chk->num_vertex = &chk->nv_vrcorn;
+					chk->num_mdl = &chk->nm_vrcorn;
+					break;
+
+				default:
+					chk->num_vertex = 0;
+					chk->num_mdl = 0;
+					break;
+			}
+			noPRINT ("### %d %s %s\n", it->parent_it != 0, GetNameFF (fform, 0), it->path);
+			break;
+
+		case FF_MDL:
+		{
+			noPRINT ("### %d %s %s\n", it->parent_it != 0, GetNameFF (fform, 0), it->path);
+			chk->nm_total++;
+			if (chk->num_mdl)
+				chk->num_mdl[0]++;
+			szs_file_t subszs;
+			InitializeSubSZS (&subszs, it->szs, it->off, it->size, fform, it->path, false);
+			subszs.fname = it->path;
+			IterateFilesParSZS (&subszs, check_mdl_func, chk, false, true, false, 0, 1, SORT_NONE);
+			subszs.fname = 0;
+			ResetSZS (&subszs);
+		}
+		break;
+
+		default:
+			break;
+	}
+
+	Image_t img;
+	ScanDataIMG (&img, true, data, it->size);
+	const ImageGeometry_t *geo = GetImageGeometry (img.iform);
+
+	if (geo)
+	{
+		chk->img_count++;
+
+		if (!img.width || !img.height)
+		{
+			print_check_error (chk, CMOD_WARNING, "%s %ux%u: Illegal image size: %s/%s\n",
+				PrintFormat3 (img.info_fform, img.iform, img.pform), img.width, img.height,
+				it->parent_it ? it->parent_it->path : ".", it->path);
+			goto exit;
+		}
+
+		uint wd, ht;
+		for (wd = 1; !(img.width & wd); wd <<= 1)
+			;
+		for (ht = 1; !(img.height & ht); ht <<= 1)
+			;
+		if (wd != img.width || ht != img.height)
+		{
+			print_check_error (chk, CMOD_WARNING, "%s %ux%u: Image size not power of 2: %s/%s\n",
+				PrintFormat3 (img.info_fform, img.iform, img.pform), img.width, img.height,
+				it->parent_it ? it->parent_it->path : ".", it->path);
+			goto exit;
+		}
+
+		if (img.width > 1024 || img.height > 1024)
+		{
+			print_check_error (chk, CMOD_HINT, "%s %ux%u: Large image found: %s/%s\n",
+				PrintFormat3 (img.info_fform, img.iform, img.pform), img.width, img.height,
+				it->parent_it ? it->parent_it->path : ".", it->path);
+			goto exit;
+		}
+	}
+
+exit:
+	ResetIMG (&img);
+	return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static int check_brres_func
-(
-    struct szs_iterator_t	*it,	// iterator struct with all infos
-    bool			term	// true: termination hint
+static void PrintCheckSummarySZS (const check_szs_t *chk)
+{
+	DASSERT (chk);
+	DASSERT (chk->szs);
+
+	if (chk->mode & (CMOD_FOOTER | CMOD_FORCE_FOOTER))
+	{
+		ccp bind;
+		char hbuf[60], ibuf[60];
+		if (chk->info_count)
+		{
+			snprintf (ibuf, sizeof (ibuf), " and %s%u info%s%s", chk->col.info, chk->info_count,
+				chk->info_count > 1 ? "s" : "", chk->col.heading);
+			bind = ",";
+		}
+		else
+		{
+			*ibuf = 0;
+			bind = " and";
+		}
+
+		if (chk->hint_count)
+			snprintf (hbuf, sizeof (hbuf), "%s %s%u hint%s%s", bind, chk->col.hint, chk->hint_count,
+				chk->hint_count > 1 ? "s" : "", chk->col.heading);
+		else
+			*hbuf = 0;
+
+		if (chk->warn_count)
+			fprintf (stdlog, " %s=> %s%u warning%s%s%s%s for %s:%s%s\n\n", chk->col.heading,
+				chk->col.warn, chk->warn_count, chk->warn_count == 1 ? "" : "s", chk->col.heading,
+				hbuf, ibuf, GetNameFF_SZS (chk->szs), chk->szs->fname, chk->col.reset);
+		else if (chk->mode & CMOD_FORCE_FOOTER || chk->hint_count)
+			fprintf (stdlog, " %s=> no warnings%s%s for %s:%s%s\n\n", chk->col.heading, hbuf, ibuf,
+				GetNameFF_SZS (chk->szs), chk->szs->fname, chk->col.reset);
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+int CheckSZS (
+	// returns number of errors
+
+	szs_file_t *szs, // valid szs
+	CheckMode_t szs_mode, // print mode for szs file
+	CheckMode_t sub_mode // print mode for sub file (KCL,KMP,...)
 )
 {
-    DASSERT(it);
-    DASSERT(it->szs);
-    if ( term || it->is_dir )
-	return 0;
+	DASSERT (szs);
+	PRINT ("CheckSZS(%d,%d)\n", szs_mode, sub_mode);
+	if (disable_checks > 0)
+		return 0;
 
-    const u8 *data = it->szs->data + it->off;
-    const file_format_t fform = GetByMagicFF(data,it->size,it->size);
-    if ( fform == FF_BRRES )
-    {
-	check_szs_t *chk = it->param;
-	DASSERT(chk);
+	szs_mode = GetMainCheckMode (szs_mode, true);
+	sub_mode = GetSubCheckMode (sub_mode, true);
 
-	szs_file_t subszs;
-	InitializeSubSZS(&subszs,it->szs,it->off,it->size,fform,it->path,false);
-	subszs.fname = it->path;
-	CheckBRRES( &subszs, chk->mode | CMOD_FORCE_HEADER, chk );
-	subszs.fname = 0;
-	ResetSZS(&subszs);
-    }
+	//--- setup
 
-    return 0;
-}
+	check_szs_t chk;
+	memset (&chk, 0, sizeof (chk));
+	SetupColorSet (&chk.col, stdlog);
+	chk.szs = szs;
+	chk.mode = szs_mode;
 
-///////////////////////////////////////////////////////////////////////////////
+	//--- check BRRES + BRSUB
 
-static int check_file_func
-(
-    struct szs_iterator_t	*it,	// iterator struct with all infos
-    bool			term	// true: termination hint
-)
-{
-    DASSERT(it);
-    DASSERT(it->szs);
-    if ( term || it->is_dir )
-	return 0;
+	IterateFilesParSZS (szs, check_brres_func, &chk, false, false, false, -1, 0, SORT_AUTO);
 
-    const u8 *data = it->szs->data+it->off;
-// [[analyse-magic]]
-    const file_format_t fform = GetByMagicFF(data,it->size,it->size);
-    check_szs_t *chk = it->param;
-    DASSERT(chk);
+	//--- find KCL
 
-    switch(fform)
-    {
-     case FF_BRRES:
-	switch (GetFileClass(FF_BRRES,it->path))
+	FindSpecialFilesSZS (szs, false);
+
+	int max_cannon = -1;
+	bool need_ice_brres = false;
+	bool kcl_valid = false;
+	kcl_t kcl;
+
+	InitializeKCL (&kcl);
+	if (szs->course_kcl_data)
 	{
-	    case PFILE_MODEL:
-		chk->num_vertex	= &chk->nv_model;
-		chk->num_mdl	= &chk->nm_model;
-		break;
+		kcl.fname = STRDUP2 (szs->fname, "/course.kcl");
+		kcl_valid
+			= !ScanKCL (&kcl, false, szs->course_kcl_data, szs->course_kcl_size, true, sub_mode);
 
-	    case PFILE_MINIMAP:
-		chk->num_vertex	= &chk->nv_map;
-		chk->num_mdl	= &chk->nm_map;
-		break;
+		if (kcl_valid)
+		{
+			//---- calc statistics
 
-	    case PFILE_VRCORN:
-		chk->num_vertex	= &chk->nv_vrcorn;
-		chk->num_mdl	= &chk->nm_vrcorn;
-		break;
-
-	    default:
-		chk->num_vertex	= 0;
-		chk->num_mdl	= 0;
-		break;
-
-	}
-	noPRINT("### %d %s %s\n",it->parent_it!=0,GetNameFF(fform,0),it->path);
-	break;
-
-     case FF_MDL:
-	{
-	    noPRINT("### %d %s %s\n",it->parent_it!=0,GetNameFF(fform,0),it->path);
-	    chk->nm_total++;
-	    if (chk->num_mdl)
-		chk->num_mdl[0]++;
-	    szs_file_t subszs;
-	    InitializeSubSZS(&subszs,it->szs,it->off,it->size,fform,it->path,false);
-	    subszs.fname = it->path;
-	    IterateFilesParSZS(&subszs,check_mdl_func,chk,false,true,false,0,1,SORT_NONE);
-	    subszs.fname = 0;
-	    ResetSZS(&subszs);
-	}
-	break;
-
-     default:
-	break;
-    }
-
-    Image_t img;
-    ScanDataIMG(&img,true,data,it->size);
-    const ImageGeometry_t *geo = GetImageGeometry(img.iform);
-
-    if (geo)
-    {
-	chk->img_count++;
-
-	if ( !img.width || !img.height )
-	{
-	    print_check_error( chk, CMOD_WARNING,
-		"%s %ux%u: Illegal image size: %s/%s\n",
-		PrintFormat3(img.info_fform,img.iform,img.pform),
-		img.width, img.height,
-		it->parent_it ? it->parent_it->path : ".",
-		it->path );
-	    goto exit;
+			uint n = kcl.tridata.used;
+			kcl_tridata_t *td = (kcl_tridata_t *)kcl.tridata.list;
+			for (; n-- > 0; td++)
+			{
+				if (td->cur_flag == 0x70)
+				{
+					need_ice_brres = true;
+				}
+				else if (IS_KCL_TYPE (td->cur_flag, 0x11))
+				{
+					const int idx = td->cur_flag >> 5;
+					if (max_cannon < idx)
+						max_cannon = idx;
+				}
+			}
+			max_cannon++;
+		}
 	}
 
-	uint wd, ht;
-	for ( wd = 1; !(img.width&wd); wd <<= 1 )
-	    ;
-	for ( ht = 1; !(img.height&ht); ht <<= 1 )
-	    ;
-	if ( wd != img.width || ht != img.height )
-	{
-	    print_check_error( chk, CMOD_WARNING,
-		"%s %ux%u: Image size not power of 2: %s/%s\n",
-		PrintFormat3(img.info_fform,img.iform,img.pform),
-		img.width, img.height,
-		it->parent_it ? it->parent_it->path : ".",
-		it->path );
-	    goto exit;
-	}
+	//--- find LEX
 
-	if ( img.width > 1024 || img.height > 1024 )
-	{
-	    print_check_error( chk, CMOD_HINT,
-		"%s %ux%u: Large image found: %s/%s\n",
-		PrintFormat3(img.info_fform,img.iform,img.pform),
-		img.width, img.height,
-		it->parent_it ? it->parent_it->path : ".",
-		it->path );
-	    goto exit;
-	}
-    }
-
- exit:
-    ResetIMG(&img);
-    return 0;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-static void PrintCheckSummarySZS ( const check_szs_t *chk )
-{
-    DASSERT(chk);
-    DASSERT(chk->szs);
-
-    if ( chk->mode & (CMOD_FOOTER|CMOD_FORCE_FOOTER) )
-    {
-	ccp bind;
-	char hbuf[60], ibuf[60];
-	if (chk->info_count)
-	{
-	    snprintf(ibuf,sizeof(ibuf)," and %s%u info%s%s",
-		chk->col.info,
-		chk->info_count, chk->info_count>1 ? "s" : "",
-		chk->col.heading );
-	    bind = ",";
-	}
+	lex_info_t lexinfo;
+	if (szs->course_lex_data)
+		SetupLexInfoByData (&lexinfo, szs->course_lex_data, szs->course_lex_size);
 	else
+		InitializeLexInfo (&lexinfo);
+
+	//--- find KMP
+
+	enumError err = ERR_WARNING;
+	if (szs->course_kmp_data)
+		err = LoadObjFileListSZS (
+			szs, szs->course_kmp_data, szs->course_kmp_size, 0, false, sub_mode, &lexinfo);
+
+	//--- find MINIMAP
+
+	uint minimap_stat = 0;
+	if (szs->map_model_data)
 	{
-	    *ibuf = 0;
-	    bind = " and";
+		minimap_stat = 4;
+
+		szs_file_t mapszs;
+		// [[fname-]]
+		InitializeSubSZS (&mapszs, szs, szs->map_model_data - szs->data, szs->map_model_size,
+			FF_UNKNOWN, 0, false);
+		mdl_minimap_t mmap;
+		FindMinimapData (&mmap, &mapszs);
+		if (mmap.posLD)
+			minimap_stat |= 1;
+		if (mmap.posRU)
+			minimap_stat |= 2;
+		ResetSZS (&mapszs);
 	}
 
-	if (chk->hint_count)
-	    snprintf(hbuf,sizeof(hbuf),"%s %s%u hint%s%s",
-		bind, chk->col.hint,
-		chk->hint_count, chk->hint_count>1 ? "s" : "",
-		chk->col.heading );
-	else
-	    *hbuf = 0;
+	//--- term on error
 
-	if (chk->warn_count)
-	    fprintf(stdlog,
-			" %s=> %s%u warning%s%s%s%s for %s:%s%s\n\n",
-			chk->col.heading, chk->col.warn,
-			chk->warn_count, chk->warn_count == 1 ? "" : "s",
-			chk->col.heading,
-			hbuf, ibuf, GetNameFF_SZS(chk->szs),
-			chk->szs->fname, chk->col.reset );
-	else if ( chk->mode & CMOD_FORCE_FOOTER || chk->hint_count )
-	    fprintf(stdlog," %s=> no warnings%s%s for %s:%s%s\n\n",
-			chk->col.heading,
-			hbuf, ibuf, GetNameFF_SZS(chk->szs),
-			chk->szs->fname, chk->col.reset );
-    }
-}
+	if (err || !szs->used_file)
+		return -1;
 
-///////////////////////////////////////////////////////////////////////////////
+	//--- add global statistics
 
-int CheckSZS
-(
-    // returns number of errors
+	if (global_warn_count || global_hint_count || szs_mode & CMOD_FORCE_HEADER)
+	{
+		chk.mode |= CMOD_FORCE_HEADER;
+		print_check_error (&chk, 0, 0);
+	}
 
-    szs_file_t		* szs,		// valid szs
-    CheckMode_t		szs_mode,	// print mode for szs file
-    CheckMode_t		sub_mode	// print mode for sub file (KCL,KMP,...)
-)
-{
-    DASSERT(szs);
-    PRINT("CheckSZS(%d,%d)\n",szs_mode,sub_mode);
-    if ( disable_checks > 0 )
-	return 0;
+	chk.warn_count += global_warn_count;
+	chk.hint_count += global_hint_count;
+	chk.info_count += global_info_count;
 
-    szs_mode = GetMainCheckMode(szs_mode,true);
-    sub_mode = GetSubCheckMode(sub_mode,true);
+	if (chk.mode & CMOD_HINT)
+	{
+		//--- test special files
 
+		int i;
+		for (i = 0; i < HAVESZS__N; i++)
+		{
+			if (szs->have.szs[i] >= HFM_MODIFIED)
+				print_check_error (&chk, CMOD_HINT, "Special file:    ./%s\n", have_szs_file[i]);
+			else if (szs->have.szs[i] >= HFM_ORIGINAL)
+				print_check_error (&chk, CMOD_HINT, "Original file:   ./%s\n", have_szs_file[i]);
+		}
 
-    //--- setup
+		//--- test optional files
 
-    check_szs_t chk;
-    memset(&chk,0,sizeof(chk));
-    SetupColorSet(&chk.col,stdlog);
-    chk.szs  = szs;
-    chk.mode = szs_mode;
+		if (need_ice_brres)
+		{
+			int i = FindDbFile ("ice.brres");
+			if (i > 0)
+				szs->used_file->d[i] = szs->used_file->d[i] & ~F_OPTIONAL | F_REQUIRED;
+		}
 
+		for (i = 0; i < N_DB_FILE_FILE; i++)
+		{
+			if ((szs->used_file->d[i] & F_M_OPTIONAL) == F_M_OPTIONAL)
+			{
+				const DbFileFILE_t *ptr = DbFileFILE + i;
+#ifdef TEST0
+				print_check_error (&chk, CMOD_HINT, "Optional file [%02x]: ./%s\n",
+					szs->used_file->d[i], ptr->file);
+#else
+				print_check_error (&chk, CMOD_HINT, "Optional file:   ./%s\n", ptr->file);
+#endif
+			}
+		}
 
-    //--- check BRRES + BRSUB
+		//--- test additional files
 
-    IterateFilesParSZS(szs,check_brres_func,&chk,false,false,false,-1,0,SORT_AUTO);
+		for (i = 0; i < N_DB_FILE_FILE; i++)
+			if ((szs->used_file->d[i] & F_M_ADDITIONAL) == F_FOUND)
+			{
+				const DbFileFILE_t *ptr = DbFileFILE + i;
+#ifdef TEST0
+				print_check_error (&chk, CMOD_HINT, "Additional file [%02x]: ./%s\n",
+					szs->used_file->d[i], ptr->file);
+#else
+				print_check_error (&chk, CMOD_HINT, "Additional file: ./%s\n", ptr->file);
+#endif
+			}
 
+		//--- test modified files
 
-    //--- find KCL
+		const DbFileFILE_t *ptr = DbFileFILE;
+		for (i = 0; i < N_DB_FILE_FILE; i++, ptr++)
+			if (szs->used_file->d[i] & F_MODIFIED)
+				print_check_error (&chk, CMOD_HINT, "Modified file:   ./%s\n", ptr->file);
+	}
 
-    FindSpecialFilesSZS(szs,false);
+	//--- test missing files
 
-    int max_cannon = -1;
-    bool need_ice_brres = false;
-    bool kcl_valid = false;
-    kcl_t kcl;
+	if (!(szs->found_flags & DBF_REQUIRED2))
+		print_check_error (
+			&chk, CMOD_WARNING, "Missing file:    ./course_model.brres (or '_d' variant)\n");
 
-    InitializeKCL(&kcl);
-    if ( szs->course_kcl_data )
-    {
-	kcl.fname = STRDUP2(szs->fname,"/course.kcl");
-	kcl_valid = !ScanKCL( &kcl, false, szs->course_kcl_data,
-			szs->course_kcl_size, true, sub_mode );
+	int i;
+	const DbFileFILE_t *ptr = DbFileFILE;
+	for (i = 0; i < N_DB_FILE_FILE; i++, ptr++)
+	{
+		const u8 flag = szs->used_file->d[i];
+		if (flag & F_FOUND)
+			continue;
+		if (flag & F_REQUIRED || ptr->flags & DBF_REQUIRED)
+		{
+			if (!IsFileOptionalSZS (szs, ptr))
+				print_check_error (&chk, CMOD_WARNING, "Missing file:    ./%s\n", ptr->file);
+		}
+	}
+
+	if (szs->required_file)
+	{
+		ParamFieldItem_t *ptr = szs->required_file->field, *end;
+		for (end = ptr + szs->required_file->used; ptr < end; ptr++)
+			if (!ptr->num)
+				print_check_error (&chk, CMOD_WARNING, "Missing unusual file: ./%s\n", ptr->key);
+	}
+
+	//--- check images
+
+	IterateFilesParSZS (szs, check_file_func, &chk, false, false, false, -1, 0, SORT_AUTO);
+	if (chk.img_count)
+		print_check_error (&chk, CMOD_INFO, "Geometry of %u images checked.\n", chk.img_count);
+
+	//--- check number of vertices
+
+	print_vertex_count (&chk, chk.nv_model, chk.nm_model, 20000, 50000, "course");
+	print_vertex_count (&chk, chk.nv_map, chk.nm_map, 2500, 5000, "map");
+	print_vertex_count (&chk, chk.nv_vrcorn, chk.nm_vrcorn, 300, 1000, "vrcorn");
+	print_vertex_count (&chk, chk.nv_total, chk.nm_total, 25000, 60000, 0);
+
+	//--- compare KMP and KCL data
 
 	if (kcl_valid)
 	{
-	    //---- calc statistics
+		//--- check cannons
 
-	    uint n = kcl.tridata.used;
-	    kcl_tridata_t *td = (kcl_tridata_t*)kcl.tridata.list;
-	    for ( ; n-- > 0; td++ )
-	    {
-		if ( td->cur_flag == 0x70 )
+		if (szs->n_cannon >= 0)
 		{
-		    need_ice_brres = true;
+			PRINT ("N-CANNON: kmp=%d, kcl=%d\n", szs->n_cannon, max_cannon);
+			if (max_cannon > szs->n_cannon)
+				print_check_error (&chk, CMOD_WARNING,
+					"KMP defines only %u cannon%s, but KCL needs %u.\n", szs->n_cannon,
+					szs->n_cannon == 1 ? "" : "s", max_cannon);
+			else if (max_cannon < szs->n_cannon)
+				print_check_error (&chk, CMOD_HINT,
+					"KMP defines %u cannon%s, but KCL needs only %u.\n", szs->n_cannon,
+					szs->n_cannon == 1 ? "" : "s", max_cannon);
 		}
-		else if (IS_KCL_TYPE(td->cur_flag,0x11))
+
+		//--- check slot 6.1 and ice.brres
+
+		if (need_ice_brres)
 		{
-		    const int idx = td->cur_flag >> 5;
-		    if ( max_cannon < idx )
-			 max_cannon = idx;
+			if (szs->have_ice_brres)
+				print_check_error (&chk, CMOD_SLOT,
+					"Track will only run at slot 6.1 (sherbet),"
+					" because KCL uses 'ice.brres'.\n");
+			else
+				print_check_error (&chk, CMOD_WARNING,
+					"KCL need missing file 'ice.brres'"
+					" ==> Wii may freeze on fall down.\n");
 		}
-	    }
-	    max_cannon++;
+		else if (szs->have_ice_brres)
+			print_check_error (&chk, CMOD_SLOT, "Track will also run at slot 6.1 (sherbet).\n");
+		else if (szs->slot_analyzed && szs_mode & CMOD_VERBOSE)
+			print_check_error (&chk, CMOD_SLOT, "Track will not run at slot 6.1 (sherbet).\n");
 	}
-    }
+	ResetKCL (&kcl);
 
+	//--- minimap status
 
-    //--- find LEX
-
-    lex_info_t lexinfo;
-    if (szs->course_lex_data)
-	SetupLexInfoByData(&lexinfo,szs->course_lex_data,szs->course_lex_size);
-    else
-	InitializeLexInfo(&lexinfo);
-
-
-    //--- find KMP
-
-    enumError err = ERR_WARNING;
-    if (szs->course_kmp_data)
-	err = LoadObjFileListSZS( szs, szs->course_kmp_data,
-				szs->course_kmp_size, 0, false, sub_mode, &lexinfo );
-
-    //--- find MINIMAP
-
-    uint minimap_stat = 0;
-    if (szs->map_model_data)
-    {
-	minimap_stat = 4;
-
-	szs_file_t mapszs;
-// [[fname-]]
-	InitializeSubSZS( &mapszs, szs, szs->map_model_data - szs->data,
-				szs->map_model_size, FF_UNKNOWN, 0, false );
-	mdl_minimap_t mmap;
-	FindMinimapData(&mmap,&mapszs);
-	if (mmap.posLD)
-	    minimap_stat |= 1;
-	if (mmap.posRU)
-	    minimap_stat |= 2;
-	ResetSZS(&mapszs);
-    }
-
-
-    //--- term on error
-
-    if ( err || !szs->used_file )
-	return -1;
-
-
-    //--- add global statistics
-
-    if ( global_warn_count || global_hint_count || szs_mode & CMOD_FORCE_HEADER )
-    {
-	chk.mode |= CMOD_FORCE_HEADER;
-	print_check_error(&chk,0,0);
-    }
-
-    chk.warn_count += global_warn_count;
-    chk.hint_count += global_hint_count;
-    chk.info_count += global_info_count;
-
-    if ( chk.mode & CMOD_HINT )
-    {
-	//--- test special files
-
-	int i;
-	for ( i = 0; i < HAVESZS__N; i++ )
+	noPRINT ("MINIMAP STATUS: %x\n", minimap_stat);
+	switch (minimap_stat)
 	{
-	    if ( szs->have.szs[i] >= HFM_MODIFIED )
-		print_check_error( &chk, CMOD_HINT,
-				"Special file:    ./%s\n",have_szs_file[i]);
-	    else if ( szs->have.szs[i] >= HFM_ORIGINAL )
-		print_check_error( &chk, CMOD_HINT,
-				"Original file:   ./%s\n",have_szs_file[i]);
+		case 4:
+			print_check_error (
+				&chk, CMOD_WARNING, "Missing bones 'posLD' and 'posRU' in minimap MDL.\n");
+			break;
+
+		case 5:
+			print_check_error (&chk, CMOD_WARNING, "Missing bone 'posRU' in minimap MDL.\n");
+			break;
+
+		case 6:
+			print_check_error (&chk, CMOD_WARNING, "Missing bone 'posLD' in minimap MDL.\n");
+			break;
 	}
 
-	//--- test optional files
+	//--- slot 3.1, 4.2 and 7.1
 
-	if (need_ice_brres)
+	if (szs->slot_31_xx_71)
 	{
-	    int i = FindDbFile("ice.brres");
-	    if ( i > 0 )
-		szs->used_file->d[i] = szs->used_file->d[i] & ~F_OPTIONAL | F_REQUIRED;
+		if (szs->slot_31_xx_71 == (SLOT_31_71_SUNDS | SLOT_31_71_PYLON01))
+			print_check_error (&chk, CMOD_SLOT,
+				"Track will only run at slots 3.1, 4.2, 6.2 and 7.1,"
+				" because objects 'sunDS' and 'pylon01' are used.\n");
+		else
+			print_check_error (&chk, CMOD_SLOT,
+				"Track will only run at slots 3.1, 4.2, 6.2 and 7.1,"
+				" because object '%s' is used.\n",
+				szs->slot_31_xx_71 & SLOT_31_71_SUNDS ? "sunDS" : "pylon01");
 	}
 
-	for ( i = 0; i < N_DB_FILE_FILE; i++ )
+	//--- slot 4.2
+
+	if (szs->moonview_mdl_stat < 3)
 	{
-	    if ( ( szs->used_file->d[i] & F_M_OPTIONAL ) == F_M_OPTIONAL )
-	    {
-		const DbFileFILE_t *ptr = DbFileFILE + i;
-	     #ifdef TEST0
-		print_check_error( &chk, CMOD_HINT,
-				"Optional file [%02x]: ./%s\n",
-				szs->used_file->d[i], ptr->file );
-	     #else
-		print_check_error( &chk, CMOD_HINT,
-				"Optional file:   ./%s\n", ptr->file );
-	     #endif
-	    }
+		if (szs->slot_analyzed && szs_mode & CMOD_VERBOSE)
+		{
+			if (szs->moonview_mdl_stat == 2)
+				print_check_error (&chk, CMOD_SLOT,
+					"Track most likely run at slot 4.2."
+					" All MDL materials found, but some are modified.\n");
+			else if (szs->moonview_mdl_stat == 1)
+				print_check_error (&chk, CMOD_SLOT,
+					"Track will not run at slot 4.2,"
+					" because of some missed MDL materials.\n");
+			else
+				print_check_error (&chk, CMOD_SLOT,
+					"Track will not run at slot 4.2,"
+					" because no needed MDL material was found.\n");
+
+			if (!(szs->slot_42 & SLOT_42_ALL_PF))
+				print_check_error (&chk, CMOD_SLOT,
+					"... Also objects 'car_body' and/or 'kart_truck' aren't used.\n");
+		}
+		else if (szs->moonview_mdl_stat == 2 && szs->slot_42 & SLOT_42_ALL_PF)
+			print_check_error (&chk, CMOD_SLOT,
+				"Track most likely run at slot 4.2."
+				" All MDL materials found, but some are modified.\n");
 	}
-
-	//--- test additional files
-
-	for ( i = 0; i < N_DB_FILE_FILE; i++ )
-	    if ( ( szs->used_file->d[i] & F_M_ADDITIONAL ) == F_FOUND )
-	    {
-		const DbFileFILE_t *ptr = DbFileFILE + i;
-	     #ifdef TEST0
-		print_check_error( &chk, CMOD_HINT,
-				"Additional file [%02x]: ./%s\n",
-				szs->used_file->d[i], ptr->file );
-	     #else
-		print_check_error( &chk, CMOD_HINT,
-				"Additional file: ./%s\n", ptr->file );
-	     #endif
-	    }
-
-	//--- test modified files
-
-	const DbFileFILE_t *ptr = DbFileFILE;
-	for ( i = 0; i < N_DB_FILE_FILE; i++, ptr++ )
-	    if ( szs->used_file->d[i] & F_MODIFIED )
-		print_check_error( &chk, CMOD_HINT,
-				"Modified file:   ./%s\n", ptr->file );
-    }
-
-
-    //--- test missing files
-
-    if ( !(szs->found_flags & DBF_REQUIRED2) )
-	print_check_error( &chk, CMOD_WARNING,
-		"Missing file:    ./course_model.brres (or '_d' variant)\n" );
-
-    int i;
-    const DbFileFILE_t *ptr = DbFileFILE;
-    for ( i = 0; i < N_DB_FILE_FILE; i++, ptr++ )
-    {
-	const u8 flag = szs->used_file->d[i];
-	if ( flag & F_FOUND )
-	    continue;
-	if ( flag & F_REQUIRED || ptr->flags & DBF_REQUIRED )
+	else if (szs->slot_42 & SLOT_42_ALL_PF)
 	{
-	    if (!IsFileOptionalSZS(szs,ptr))
-		print_check_error( &chk, CMOD_WARNING,
-				"Missing file:    ./%s\n", ptr->file );
+		print_check_error (&chk, CMOD_SLOT,
+			"Track will run at slot 4.2,"
+			" because car+truck and all needed MDL materials are defined.\n");
 	}
-    }
-
-    if (szs->required_file)
-    {
-	ParamFieldItem_t *ptr = szs->required_file->field, *end;
-	for ( end = ptr + szs->required_file->used; ptr < end; ptr++ )
-	    if (!ptr->num)
-		print_check_error( &chk, CMOD_WARNING,
-				"Missing unusual file: ./%s\n", ptr->key );
-    }
-
-
-
-    //--- check images
-
-    IterateFilesParSZS(szs,check_file_func,&chk,false,false,false,-1,0,SORT_AUTO);
-    if (chk.img_count)
-	print_check_error( &chk, CMOD_INFO,
-		"Geometry of %u images checked.\n",chk.img_count);
-
-
-    //--- check number of vertices
-
-    print_vertex_count( &chk, chk.nv_model,	chk.nm_model,	20000, 50000, "course");
-    print_vertex_count( &chk, chk.nv_map,	chk.nm_map,	 2500,  5000, "map");
-    print_vertex_count( &chk, chk.nv_vrcorn,	chk.nm_vrcorn,	  300,  1000, "vrcorn");
-    print_vertex_count( &chk, chk.nv_total,	chk.nm_total,	25000, 60000, 0);
-
-
-    //--- compare KMP and KCL data
-
-    if (kcl_valid)
-    {
-	//--- check cannons
-
-	if ( szs->n_cannon >= 0 )
+	else if (szs->slot_42 & SLOT_42_ALL_U)
 	{
-	    PRINT("N-CANNON: kmp=%d, kcl=%d\n",szs->n_cannon,max_cannon);
-	    if ( max_cannon > szs->n_cannon )
-		print_check_error( &chk, CMOD_WARNING,
-			    "KMP defines only %u cannon%s, but KCL needs %u.\n",
-			    szs->n_cannon, szs->n_cannon == 1 ? "" : "s",
-			    max_cannon );
-	    else if ( max_cannon < szs->n_cannon )
-		print_check_error( &chk, CMOD_HINT,
-			    "KMP defines %u cannon%s, but KCL needs only %u.\n",
-			    szs->n_cannon, szs->n_cannon == 1 ? "" : "s",
-			    max_cannon );
+		print_check_error (&chk, CMOD_SLOT,
+			"Track may run at slot 4.2,"
+			" because car+truck and all needed MDL materials are defined.\n");
+		print_check_error (&chk, CMOD_SLOT,
+			"... However, the presence flags are not set to 0x3f"
+			" to support all variants.\n");
 	}
-
-
-	//--- check slot 6.1 and ice.brres
-
-	if (need_ice_brres)
+	else if (szs->slot_analyzed && szs_mode & CMOD_VERBOSE)
 	{
-	    if (szs->have_ice_brres)
-		print_check_error( &chk, CMOD_SLOT,
-			"Track will only run at slot 6.1 (sherbet),"
-			" because KCL uses 'ice.brres'.\n" );
-	    else
-		print_check_error( &chk, CMOD_WARNING,
-			"KCL need missing file 'ice.brres'"
-			" ==> Wii may freeze on fall down.\n" );
+		if (szs->slot_42 & SLOT_42_KART_TRUCK_U)
+			print_check_error (&chk, CMOD_SLOT,
+				"Track will not run at slot 4.2,"
+				" because object 'car_body' isn't used.\n");
+		else if (szs->slot_42 & SLOT_42_CAR_BODY_U)
+			print_check_error (&chk, CMOD_SLOT,
+				"Track will not run at slot 4.2,"
+				" because object 'kart_truck' isn't used.\n");
+		else
+			print_check_error (&chk, CMOD_SLOT,
+				"Track will not run at slot 4.2,"
+				" because objects 'car_body' and 'kart_truck' aren't used.\n");
 	}
-	else if (szs->have_ice_brres)
-	    print_check_error( &chk, CMOD_SLOT,
-			"Track will also run at slot 6.1 (sherbet).\n" );
-	else if ( szs->slot_analyzed && szs_mode & CMOD_VERBOSE )
-	    print_check_error( &chk, CMOD_SLOT,
-			"Track will not run at slot 6.1 (sherbet).\n" );
-    }
-    ResetKCL(&kcl);
 
+	//--- slot 6.2
 
-    //--- minimap status
+	if (szs->slot_62)
+		print_check_error (&chk, CMOD_SLOT,
+			"Track will only run at slot 6.2,"
+			" because object 'HeyhoShipGBA' is used.\n");
+	else if (szs->slot_analyzed && szs_mode & CMOD_VERBOSE)
+		print_check_error (&chk, CMOD_SLOT,
+			"Track will not run at slot 6.2,"
+			" because object 'HeyhoShipGBA' isn't used.\n");
 
-    noPRINT("MINIMAP STATUS: %x\n",minimap_stat);
-    switch (minimap_stat)
-    {
-	case 4:
-	    print_check_error( &chk, CMOD_WARNING,
-		"Missing bones 'posLD' and 'posRU' in minimap MDL.\n" );
-	    break;
-
-	case 5:
-	    print_check_error( &chk, CMOD_WARNING,
-		"Missing bone 'posRU' in minimap MDL.\n" );
-	    break;
-
-	case 6:
-	    print_check_error( &chk, CMOD_WARNING,
-		"Missing bone 'posLD' in minimap MDL.\n" );
-	    break;
-    }
-
-
-    //--- slot 3.1, 4.2 and 7.1
-
-    if (szs->slot_31_xx_71)
-    {
-	if ( szs->slot_31_xx_71 == (SLOT_31_71_SUNDS|SLOT_31_71_PYLON01) )
-	    print_check_error( &chk, CMOD_SLOT,
-		"Track will only run at slots 3.1, 4.2, 6.2 and 7.1,"
-		" because objects 'sunDS' and 'pylon01' are used.\n" );
-	else
-	    print_check_error( &chk, CMOD_SLOT,
-		"Track will only run at slots 3.1, 4.2, 6.2 and 7.1,"
-		" because object '%s' is used.\n",
-		szs->slot_31_xx_71 & SLOT_31_71_SUNDS ? "sunDS" : "pylon01" );
-    }
-
-
-    //--- slot 4.2
-
-    if ( szs->moonview_mdl_stat < 3 )
-    {
-	if ( szs->slot_analyzed && szs_mode & CMOD_VERBOSE )
-	{
-	    if ( szs->moonview_mdl_stat == 2 )
-		print_check_error( &chk, CMOD_SLOT,
-			"Track most likely run at slot 4.2."
-			" All MDL materials found, but some are modified.\n" );
-	    else if ( szs->moonview_mdl_stat == 1 )
-		print_check_error( &chk, CMOD_SLOT,
-			"Track will not run at slot 4.2,"
-			" because of some missed MDL materials.\n" );
-	    else
-		print_check_error( &chk, CMOD_SLOT,
-			"Track will not run at slot 4.2,"
-			" because no needed MDL material was found.\n" );
-
-	    if ( !(szs->slot_42 & SLOT_42_ALL_PF) )
-		print_check_error( &chk, CMOD_SLOT,
-			"... Also objects 'car_body' and/or 'kart_truck' aren't used.\n" );
-	}
-	else if ( szs->moonview_mdl_stat == 2 && szs->slot_42 & SLOT_42_ALL_PF )
-	    print_check_error( &chk, CMOD_SLOT,
-		"Track most likely run at slot 4.2."
-		" All MDL materials found, but some are modified.\n" );
-    }
-    else if ( szs->slot_42 & SLOT_42_ALL_PF )
-    {
-	print_check_error( &chk, CMOD_SLOT,
-		"Track will run at slot 4.2,"
-		" because car+truck and all needed MDL materials are defined.\n" );
-    }
-    else if ( szs->slot_42 & SLOT_42_ALL_U )
-    {
-	print_check_error( &chk, CMOD_SLOT,
-		"Track may run at slot 4.2,"
-		" because car+truck and all needed MDL materials are defined.\n" );
-	print_check_error( &chk, CMOD_SLOT,
-		"... However, the presence flags are not set to 0x3f"
-		" to support all variants.\n" );
-    }
-    else if ( szs->slot_analyzed && szs_mode & CMOD_VERBOSE )
-    {
-	if ( szs->slot_42 & SLOT_42_KART_TRUCK_U )
-	    print_check_error( &chk, CMOD_SLOT,
-		"Track will not run at slot 4.2,"
-		" because object 'car_body' isn't used.\n" );
-	else if ( szs->slot_42 & SLOT_42_CAR_BODY_U )
-	    print_check_error( &chk, CMOD_SLOT,
-		"Track will not run at slot 4.2,"
-		" because object 'kart_truck' isn't used.\n" );
-	else
-	    print_check_error( &chk, CMOD_SLOT,
-		"Track will not run at slot 4.2,"
-		" because objects 'car_body' and 'kart_truck' aren't used.\n" );
-    }
-
-
-    //--- slot 6.2
-
-    if (szs->slot_62)
-	print_check_error( &chk, CMOD_SLOT,
-		"Track will only run at slot 6.2,"
-		" because object 'HeyhoShipGBA' is used.\n" );
-    else if ( szs->slot_analyzed && szs_mode & CMOD_VERBOSE )
-	print_check_error( &chk, CMOD_SLOT,
-		"Track will not run at slot 6.2,"
-		" because object 'HeyhoShipGBA' isn't used.\n" );
-
-
-    //--- terminate
+	//--- terminate
 
 #if 1
-    PrintCheckSummarySZS(&chk);
+	PrintCheckSummarySZS (&chk);
 #else
 
-    if ( szs_mode & (CMOD_FOOTER|CMOD_FORCE_FOOTER) )
-    {
-	ccp bind;
-	char hbuf[60], ibuf[60];
-	if (chk.info_count)
+	if (szs_mode & (CMOD_FOOTER | CMOD_FORCE_FOOTER))
 	{
-	    snprintf(ibuf,sizeof(ibuf)," and %s%u info%s%s",
-		chk.col.info,
-		chk.info_count, chk.info_count>1 ? "s" : "",
-		chk.col.heading );
-	    bind = ",";
-	}
-	else
-	{
-	    *ibuf = 0;
-	    bind = " and";
-	}
+		ccp bind;
+		char hbuf[60], ibuf[60];
+		if (chk.info_count)
+		{
+			snprintf (ibuf, sizeof (ibuf), " and %s%u info%s%s", chk.col.info, chk.info_count,
+				chk.info_count > 1 ? "s" : "", chk.col.heading);
+			bind = ",";
+		}
+		else
+		{
+			*ibuf = 0;
+			bind = " and";
+		}
 
-	if (chk.hint_count)
-	    snprintf(hbuf,sizeof(hbuf),"%s %s%u hint%s%s",
-		bind, chk.col.hint,
-		chk.hint_count, chk.hint_count>1 ? "s" : "",
-		chk.col.heading );
-	else
-	    *hbuf = 0;
+		if (chk.hint_count)
+			snprintf (hbuf, sizeof (hbuf), "%s %s%u hint%s%s", bind, chk.col.hint, chk.hint_count,
+				chk.hint_count > 1 ? "s" : "", chk.col.heading);
+		else
+			*hbuf = 0;
 
-	if (chk.warn_count)
-	    fprintf(stdlog,
-			" %s=> %s%u warning%s%s%s%s for %s:%s%s\n\n",
-			chk.col.heading, chk.col.warn,
-			chk.warn_count, chk.warn_count == 1 ? "" : "s",
-			chk.col.heading,
-			hbuf, ibuf, GetNameFF(szs->fform_file,szs->fform_arch),
-			szs->fname, chk.col.reset );
-	else if ( szs_mode & CMOD_FORCE_FOOTER || chk.hint_count )
-	    fprintf(stdlog," %s=> no warnings%s%s for %s:%s%s\n\n",
-			chk.col.heading,
-			hbuf, ibuf, GetNameFF(szs->fform_file,szs->fform_arch),
-			szs->fname, chk.col.reset );
-    }
+		if (chk.warn_count)
+			fprintf (stdlog, " %s=> %s%u warning%s%s%s%s for %s:%s%s\n\n", chk.col.heading,
+				chk.col.warn, chk.warn_count, chk.warn_count == 1 ? "" : "s", chk.col.heading, hbuf,
+				ibuf, GetNameFF (szs->fform_file, szs->fform_arch), szs->fname, chk.col.reset);
+		else if (szs_mode & CMOD_FORCE_FOOTER || chk.hint_count)
+			fprintf (stdlog, " %s=> no warnings%s%s for %s:%s%s\n\n", chk.col.heading, hbuf, ibuf,
+				GetNameFF (szs->fform_file, szs->fform_arch), szs->fname, chk.col.reset);
+	}
 #endif
 
-    return chk.warn_count;
+	return chk.warn_count;
 }
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			  CheckBRRES			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-static int check_brres
-(
-    struct szs_iterator_t	*it,	// iterator struct with all infos
-    bool			term	// true: termination hint
+static int check_brres (struct szs_iterator_t *it, // iterator struct with all infos
+	bool term // true: termination hint
 )
 {
-    DASSERT(it);
-    DASSERT(it->szs);
+	DASSERT (it);
+	DASSERT (it->szs);
 
-    if ( term || it->size < 0x0c )
+	if (term || it->size < 0x0c)
+		return 0;
+
+	u8 *data = it->szs->data + it->off;
+	const file_format_t fform = GetByMagicFF (data, it->size, it->size);
+	if (IsBRSUB (fform))
+	{
+		check_szs_t *chk = (check_szs_t *)it->param;
+		DASSERT (chk);
+
+		const int version = it->endian->rd32 (data + 8);
+		const brsub_info_t *bi = GetInfoBRSUB (fform, version);
+		const int ns = GetSectionNumBRSUB (data, it->size, it->endian);
+
+		if (!bi || bi->warn >= BIMD_FATAL || ns != bi->good_sect)
+			print_check_error (chk, CMOD_WARNING, "%s v%d (%d section%s) will freeze track: %s\n",
+				GetNameFF (0, fform), version, ns, ns == 1 ? "" : "s", it->path);
+		else if (bi->warn >= BIMD_FAIL)
+			print_check_error (chk, CMOD_WARNING,
+				"%s v%d (%d section%s) is not displayed correctly: %s\n", GetNameFF (0, fform),
+				version, ns, ns == 1 ? "" : "s", it->path);
+		else if (bi->warn >= BIMD_HINT)
+			print_check_error (chk, CMOD_HINT, "Unusual %s version %d: %s\n", GetNameFF (0, fform),
+				version, it->path);
+		else if (bi->warn >= BIMD_INFO)
+			print_check_error (chk, CMOD_INFO, "Unusual %s version %d: %s\n", GetNameFF (0, fform),
+				version, it->path);
+	}
 	return 0;
-
-    u8 *data = it->szs->data + it->off;
-    const file_format_t fform = GetByMagicFF(data,it->size,it->size);
-    if (IsBRSUB(fform))
-    {
-	check_szs_t *chk = (check_szs_t*)it->param;
-	DASSERT(chk);
-
-	const int version	= it->endian->rd32(data+8);
-	const brsub_info_t *bi	= GetInfoBRSUB(fform,version);
-	const int ns		= GetSectionNumBRSUB(data,it->size,it->endian);
-
-	if ( !bi || bi->warn >= BIMD_FATAL || ns != bi->good_sect )
-	     print_check_error( chk, CMOD_WARNING,
-				"%s v%d (%d section%s) will freeze track: %s\n",
-				GetNameFF(0,fform), version,
-				ns, ns == 1 ? "" : "s", it->path );
-	else if ( bi->warn >= BIMD_FAIL )
-	     print_check_error( chk, CMOD_WARNING,
-				"%s v%d (%d section%s) is not displayed correctly: %s\n",
-				GetNameFF(0,fform), version,
-				ns, ns == 1 ? "" : "s", it->path );
-	else if ( bi->warn >= BIMD_HINT )
-	     print_check_error( chk, CMOD_HINT,
-				"Unusual %s version %d: %s\n",
-				GetNameFF(0,fform), version, it->path );
-	else if ( bi->warn >= BIMD_INFO )
-	     print_check_error( chk, CMOD_INFO,
-				"Unusual %s version %d: %s\n",
-				GetNameFF(0,fform), version, it->path );
-    }
-    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-int CheckBRRES
-(
-    // returns number of errors
+int CheckBRRES (
+	// returns number of errors
 
-    szs_file_t		* szs,		// valid szs
-    CheckMode_t		check_mode,	// print mode
-    check_szs_t		* parent_chk	// NULL or parent
+	szs_file_t *szs, // valid szs
+	CheckMode_t check_mode, // print mode
+	check_szs_t *parent_chk // NULL or parent
 )
 {
-    DASSERT(szs);
-    PRINT("CheckBRRES(0x%x)\n",check_mode);
+	DASSERT (szs);
+	PRINT ("CheckBRRES(0x%x)\n", check_mode);
 
-    check_szs_t chk;
-    memset(&chk,0,sizeof(chk));
-    SetupColorSet(&chk.col,stdlog);
-    chk.szs  = szs;
-    chk.mode = check_mode;
-    IterateFilesParSZS(szs,check_brres,&chk,false,false,false,0,-1,SORT_NONE);
+	check_szs_t chk;
+	memset (&chk, 0, sizeof (chk));
+	SetupColorSet (&chk.col, stdlog);
+	chk.szs = szs;
+	chk.mode = check_mode;
+	IterateFilesParSZS (szs, check_brres, &chk, false, false, false, 0, -1, SORT_NONE);
 
-    if (parent_chk)
-    {
-	parent_chk->warn_count += chk.warn_count;
-	parent_chk->hint_count += chk.hint_count;
-	parent_chk->info_count += chk.info_count;
-    }
-    else
-	PrintCheckSummarySZS(&chk);
+	if (parent_chk)
+	{
+		parent_chk->warn_count += chk.warn_count;
+		parent_chk->hint_count += chk.hint_count;
+		parent_chk->info_count += chk.info_count;
+	}
+	else
+		PrintCheckSummarySZS (&chk);
 
-    return chk.warn_count;
+	return chk.warn_count;
 }
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			  FindSlotsSZS			///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -4528,227 +4343,219 @@ int CheckBRRES
 #undef SLOT
 #undef ISLOT
 
-#define SLOT(a,b) slot[a*4+b-5]
-#define ISLOT(a,b) (a*4+b-5)
+#define SLOT(a, b) slot[a * 4 + b - 5]
+#define ISLOT(a, b) (a * 4 + b - 5)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static void set_required_slot
-(
-    int			slot[MKW_N_TRACKS],	// status vector
-    uint		slot1,		// first required slot index
-    uint		slot2,		// second required slot index
-    uint		slot3,		// third required slot index
-    uint		slot4		// fourth required slot index
+static void set_required_slot (int slot[MKW_N_TRACKS], // status vector
+	uint slot1, // first required slot index
+	uint slot2, // second required slot index
+	uint slot3, // third required slot index
+	uint slot4 // fourth required slot index
 )
 {
-    uint i;
-    for ( i = 0; i < MKW_N_TRACKS; i++ )
-	if ( i != slot1 && i != slot2 && i != slot3 && i != slot4 )
-	    slot[i] = -1;
-	else if (!slot[i])
-	    slot[i] = 1;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-static void dump_slots ( int stat, int *slot, ccp info )
-{
-    printf(">> stat=%d:",stat);
-    uint i;
-    for ( i = 0; i < 32; i++ )
-	printf("%s%c", i&3 ? "" : " ",
-		slot[i] < 0 ? '-' : slot[i] > 0 ? '+' : '.' );
-    printf(" : %s\n",info);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-int FindSlotsSZS
-(
-    // returns -1, 0 or +1
-
-    szs_file_t		* szs,		// valid szs
-    int			slot[MKW_N_TRACKS],	// status vector:
-					//	-1: slot not possible
-					//	 0: unknown
-					//	+1: slot possible
-    int			*required_slot	// if not NULL: return 0|31|61|62
-					// 31 is an alias for "31+71" or "31+41+71"
-)
-{
-    DASSERT(szs);
-    DASSERT(slot);
-
-    //--- load data
-
-    FindSpecialFilesSZS(szs,false);
-
-    if ( !szs->course_kcl_data || !szs->course_kmp_data )
-    {
 	uint i;
-	for ( i = 0; i < MKW_N_TRACKS; i++ )
-	    slot[i] = 0;
-	return 0;
-    }
-
-    LoadObjFileListSZS( szs, szs->course_kmp_data,
-			szs->course_kmp_size, 0, false, 0, 0 );
-
-    bool need_ice_brres = false;
-
-    kcl_t kcl;
-    InitializeKCL(&kcl);
-    kcl.fform_outfile = FF_KCL;
-    enable_kcl_drop_auto++;
-    if (!ScanKCL( &kcl, false, szs->course_kcl_data,
-		szs->course_kcl_size, true, 0 ))
-    {
-	uint n = kcl.tridata.used;
-	kcl_tridata_t *td = (kcl_tridata_t*)kcl.tridata.list;
-
-	for ( ; n-- > 0; td++ )
-	    if ( td->cur_flag == 0x70 )
-	    {
-		need_ice_brres = true;
-		break;
-	    }
-	ResetKCL(&kcl);
-    }
-    enable_kcl_drop_auto--;
-
-
-    //--- predefine
-
-    uint i;
-    for ( i = 0; i < MKW_N_TRACKS; i++ )
-	slot[i] = 1;
-    SLOT(4,2) = 0;
-    SLOT(6,1) = 0;
-    SLOT(6,2) = 0;
-
-    if (required_slot)
-	*required_slot = 0;
-
-    //uint pos_count = MKW_N_TRACKS - 3;
-    //uint neg_count = 0;
-
-    int stat = 1;
-
-
-    //--- analyze slots 3.1 & 4.2 & 7.1
-
-    if (szs->slot_31_xx_71)
-    {
-	set_required_slot(slot,ISLOT(3,1),ISLOT(4,2),ISLOT(6,2),ISLOT(7,1));
-	stat = -1;
-	if (required_slot)
-	    *required_slot = 31;
-    }
-
-    //--- analyze slot 4.2
-
-    if ( !szs->slot_42 || szs->moonview_mdl_stat < 2 )
-	SLOT(4,2) = -1;
-    else // if ( szs->moonview_mdl_stat == 3 )
-	SLOT(4,2) = +1;
-
-
-    //--- analyze slot 6.1
-
-    if (need_ice_brres)
-    {
-	set_required_slot(slot,ISLOT(6,1),ISLOT(6,1),ISLOT(6,1),ISLOT(6,1));
-	if (!szs->have_ice_brres)
-	    SLOT(6,1) = -1;
-	else
-	{
-	    stat = -1;
-	    if (required_slot)
-		*required_slot = 61;
-	}
-    }
-    else if ( !SLOT(6,1) && szs->have_ice_brres )
-	SLOT(6,1) = 1;
-
-
-    //--- analyze slot 6.2
-
-    if (szs->slot_62)
-    {
-	stat = -1;
-	set_required_slot(slot,ISLOT(6,2),ISLOT(6,2),ISLOT(6,2),ISLOT(6,2));
-	if (required_slot)
-	    *required_slot = 62;
-    }
-    else
-	SLOT(6,2) = -1;
-
-
-    //--- adjust special slots & terminate
-
-    //if (!SLOT(4,2)) SLOT(4,2) = -1;
-    if (!SLOT(6,1)) SLOT(6,1) = -1;
-    if (!SLOT(6,2)) SLOT(6,2) = -1;
-
-
-    //dump_slots(stat,slot,"END");
-    return stat;
+	for (i = 0; i < MKW_N_TRACKS; i++)
+		if (i != slot1 && i != slot2 && i != slot3 && i != slot4)
+			slot[i] = -1;
+		else if (!slot[i])
+			slot[i] = 1;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void AnalyzeSlot ( slot_ana_t *sa, szs_file_t *szs )
+static void dump_slots (int stat, int *slot, ccp info)
 {
-    DASSERT(sa);
-    DASSERT(szs);
-    memset(sa,0,sizeof(*sa));
-    sa->stat = FindSlotsSZS(szs,sa->slot,&sa->required_slot);
+	printf (">> stat=%d:", stat);
+	uint i;
+	for (i = 0; i < 32; i++)
+		printf ("%s%c", i & 3 ? "" : " ", slot[i] < 0 ? '-' : slot[i] > 0 ? '+' : '.');
+	printf (" : %s\n", info);
+}
 
-    if ( szs->is_arena >= ARENA_FOUND )
-    {
-	StringCopyS(sa->mandatory_slot,sizeof(sa->mandatory_slot),"arena");
-	StringCopyS(sa->slot_info,sizeof(sa->slot_info),"arena");
-	return;
-    }
+///////////////////////////////////////////////////////////////////////////////
 
-    static char buf[500];
-    char *dest = buf;
+int FindSlotsSZS (
+	// returns -1, 0 or +1
 
-    uint i, allow = 0;
-    for ( i = 0; i < MKW_N_TRACKS; i++ )
-    {
-	const int slot = sa->slot[i];
-	if ( slot >= 0 )
-	    allow++;
-	if ( slot != sa->stat )
+	szs_file_t *szs, // valid szs
+	int slot[MKW_N_TRACKS], // status vector:
+							//	-1: slot not possible
+							//	 0: unknown
+							//	+1: slot possible
+	int *required_slot // if not NULL: return 0|31|61|62
+					   // 31 is an alias for "31+71" or "31+41+71"
+)
+{
+	DASSERT (szs);
+	DASSERT (slot);
+
+	//--- load data
+
+	FindSpecialFilesSZS (szs, false);
+
+	if (!szs->course_kcl_data || !szs->course_kmp_data)
 	{
-	    if ( dest > buf )
-		*dest++ = ',';
-	    dest = snprintfE(dest,buf+sizeof(buf),"%c%u.%u",
-		    slot < 0 ? '-' : slot > 0 ? '+' : '?' ,
-		    i/4+1, i%4+1 );
+		uint i;
+		for (i = 0; i < MKW_N_TRACKS; i++)
+			slot[i] = 0;
+		return 0;
 	}
-    }
 
-    if (!allow)
-	dest = StringCopyS(buf,sizeof(buf),"none");
+	LoadObjFileListSZS (szs, szs->course_kmp_data, szs->course_kmp_size, 0, false, 0, 0);
 
-    if ( dest == buf )
-	*dest++ = '%';
-    *dest = 0;
+	bool need_ice_brres = false;
 
-    StringCopyS(sa->slot_info,sizeof(sa->slot_info),buf);
+	kcl_t kcl;
+	InitializeKCL (&kcl);
+	kcl.fform_outfile = FF_KCL;
+	enable_kcl_drop_auto++;
+	if (!ScanKCL (&kcl, false, szs->course_kcl_data, szs->course_kcl_size, true, 0))
+	{
+		uint n = kcl.tridata.used;
+		kcl_tridata_t *td = (kcl_tridata_t *)kcl.tridata.list;
 
-    if ( sa->required_slot == 31 )
-    {
-	if ( sa->slot[ISLOT(4,2)] > 0 )
-	    StringCopyS(sa->mandatory_slot,sizeof(sa->mandatory_slot),"31+42+71");
+		for (; n-- > 0; td++)
+			if (td->cur_flag == 0x70)
+			{
+				need_ice_brres = true;
+				break;
+			}
+		ResetKCL (&kcl);
+	}
+	enable_kcl_drop_auto--;
+
+	//--- predefine
+
+	uint i;
+	for (i = 0; i < MKW_N_TRACKS; i++)
+		slot[i] = 1;
+	SLOT (4, 2) = 0;
+	SLOT (6, 1) = 0;
+	SLOT (6, 2) = 0;
+
+	if (required_slot)
+		*required_slot = 0;
+
+	// uint pos_count = MKW_N_TRACKS - 3;
+	// uint neg_count = 0;
+
+	int stat = 1;
+
+	//--- analyze slots 3.1 & 4.2 & 7.1
+
+	if (szs->slot_31_xx_71)
+	{
+		set_required_slot (slot, ISLOT (3, 1), ISLOT (4, 2), ISLOT (6, 2), ISLOT (7, 1));
+		stat = -1;
+		if (required_slot)
+			*required_slot = 31;
+	}
+
+	//--- analyze slot 4.2
+
+	if (!szs->slot_42 || szs->moonview_mdl_stat < 2)
+		SLOT (4, 2) = -1;
+	else // if ( szs->moonview_mdl_stat == 3 )
+		SLOT (4, 2) = +1;
+
+	//--- analyze slot 6.1
+
+	if (need_ice_brres)
+	{
+		set_required_slot (slot, ISLOT (6, 1), ISLOT (6, 1), ISLOT (6, 1), ISLOT (6, 1));
+		if (!szs->have_ice_brres)
+			SLOT (6, 1) = -1;
+		else
+		{
+			stat = -1;
+			if (required_slot)
+				*required_slot = 61;
+		}
+	}
+	else if (!SLOT (6, 1) && szs->have_ice_brres)
+		SLOT (6, 1) = 1;
+
+	//--- analyze slot 6.2
+
+	if (szs->slot_62)
+	{
+		stat = -1;
+		set_required_slot (slot, ISLOT (6, 2), ISLOT (6, 2), ISLOT (6, 2), ISLOT (6, 2));
+		if (required_slot)
+			*required_slot = 62;
+	}
 	else
-	    StringCopyS(sa->mandatory_slot,sizeof(sa->mandatory_slot),"31+71");
-    }
-    else if ( sa->required_slot )
-	snprintf(sa->mandatory_slot,sizeof(sa->mandatory_slot),"%u",sa->required_slot);
+		SLOT (6, 2) = -1;
+
+	//--- adjust special slots & terminate
+
+	// if (!SLOT(4,2)) SLOT(4,2) = -1;
+	if (!SLOT (6, 1))
+		SLOT (6, 1) = -1;
+	if (!SLOT (6, 2))
+		SLOT (6, 2) = -1;
+
+	// dump_slots(stat,slot,"END");
+	return stat;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void AnalyzeSlot (slot_ana_t *sa, szs_file_t *szs)
+{
+	DASSERT (sa);
+	DASSERT (szs);
+	memset (sa, 0, sizeof (*sa));
+	sa->stat = FindSlotsSZS (szs, sa->slot, &sa->required_slot);
+
+	if (szs->is_arena >= ARENA_FOUND)
+	{
+		StringCopyS (sa->mandatory_slot, sizeof (sa->mandatory_slot), "arena");
+		StringCopyS (sa->slot_info, sizeof (sa->slot_info), "arena");
+		return;
+	}
+
+	static char buf[500];
+	char *dest = buf;
+
+	uint i, allow = 0;
+	for (i = 0; i < MKW_N_TRACKS; i++)
+	{
+		const int slot = sa->slot[i];
+		if (slot >= 0)
+			allow++;
+		if (slot != sa->stat)
+		{
+			if (dest > buf)
+				*dest++ = ',';
+			dest = snprintfE (dest, buf + sizeof (buf), "%c%u.%u",
+				slot < 0	   ? '-'
+					: slot > 0 ? '+'
+							   : '?',
+				i / 4 + 1, i % 4 + 1);
+		}
+	}
+
+	if (!allow)
+		dest = StringCopyS (buf, sizeof (buf), "none");
+
+	if (dest == buf)
+		*dest++ = '%';
+	*dest = 0;
+
+	StringCopyS (sa->slot_info, sizeof (sa->slot_info), buf);
+
+	if (sa->required_slot == 31)
+	{
+		if (sa->slot[ISLOT (4, 2)] > 0)
+			StringCopyS (sa->mandatory_slot, sizeof (sa->mandatory_slot), "31+42+71");
+		else
+			StringCopyS (sa->mandatory_slot, sizeof (sa->mandatory_slot), "31+71");
+	}
+	else if (sa->required_slot)
+		snprintf (sa->mandatory_slot, sizeof (sa->mandatory_slot), "%u", sa->required_slot);
 }
 
 #undef SLOT
@@ -4756,15 +4563,15 @@ void AnalyzeSlot ( slot_ana_t *sa, szs_file_t *szs )
 
 ///////////////////////////////////////////////////////////////////////////////
 
-ccp CreateSlotInfo ( szs_file_t *szs )
+ccp CreateSlotInfo (szs_file_t *szs)
 {
-    DASSERT(szs);
-    slot_ana_t sa;
-    AnalyzeSlot(&sa,szs);
-    return CopyCircBuf(sa.slot_info,strlen(sa.slot_info)+1);
+	DASSERT (szs);
+	slot_ana_t sa;
+	AnalyzeSlot (&sa, szs);
+	return CopyCircBuf (sa.slot_info, strlen (sa.slot_info) + 1);
 }
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			ExtractFilesSZS()		///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -4772,40 +4579,40 @@ ccp CreateSlotInfo ( szs_file_t *szs )
 
 typedef struct extract_param_t
 {
-    ccp			dest;		// destination path
-    bool		have_pt_dir;	// true: '.' directory found
-    bool		is_cutting;	// true: is cutting a file
-    bool		extract;	// true: extract subfiles
-    bool		decode;		// true: store subfiles for decoding
-    bool		mipmap;		// true: extract mipmaps too
-    int			recurse_level;	// current recurse level
-    int			indent;		// indention of log messages
-    u32			align;		// found alignment
+	ccp dest; // destination path
+	bool have_pt_dir; // true: '.' directory found
+	bool is_cutting; // true: is cutting a file
+	bool extract; // true: extract subfiles
+	bool decode; // true: store subfiles for decoding
+	bool mipmap; // true: extract mipmaps too
+	int recurse_level; // current recurse level
+	int indent; // indention of log messages
+	u32 align; // found alignment
 
-    ccp			basedir;	// not NULL: extract only basedir/*
-    uint		basedir_off;	// >0: ...
+	ccp basedir; // not NULL: extract only basedir/*
+	uint basedir_off; // >0: ...
 
-    SubDir_t		*sdir;		// not NULL: store files here
+	SubDir_t *sdir; // not NULL: store files here
 
-    file_format_t	parent_fform;	// file format of parent
+	file_format_t parent_fform; // file format of parent
 
-    uint		extract_count;	// number of extracted files
-    StringField_t	include_list;	// include usually hidden files
-    StringField_t	exclude_list;	// exclude files
-    FormatField_t	decode_list;	// list with decode jobs
-    StringField_t	extract_list;	// list with extract jobs
-    FormatField_t	order_list;	// list of extracted files in sort order
+	uint extract_count; // number of extracted files
+	StringField_t include_list; // include usually hidden files
+	StringField_t exclude_list; // exclude files
+	FormatField_t decode_list; // list with decode jobs
+	StringField_t extract_list; // list with extract jobs
+	FormatField_t order_list; // list of extracted files in sort order
 
-    // PLT0 palettes found anywhere in this archive, keyed by base filename
-    // (extension stripped). Populated by a cheap pre-pass before the main
-    // iteration so a TEX0 processed before its sibling PLT0 (iteration
-    // order isn't guaranteed) can still find it. See FF_TEX in extract_func().
-    ParamField_t	pal_cache;
+	// PLT0 palettes found anywhere in this archive, keyed by base filename
+	// (extension stripped). Populated by a cheap pre-pass before the main
+	// iteration so a TEX0 processed before its sibling PLT0 (iteration
+	// order isn't guaranteed) can still find it. See FF_TEX in extract_func().
+	ParamField_t pal_cache;
 
-    // MDL0 material texture-reference records pair a TEX0 name with its
-    // PLT0 name explicitly. Unlike pal_cache this is a name -> name map,
-    // populated by a second pre-pass over the archive's MDL0 files.
-    ParamField_t	pal_alias;
+	// MDL0 material texture-reference records pair a TEX0 name with its
+	// PLT0 name explicitly. Unlike pal_cache this is a name -> name map,
+	// populated by a second pre-pass over the archive's MDL0 files.
+	ParamField_t pal_alias;
 
 } extract_param_t;
 
@@ -4816,51 +4623,47 @@ typedef struct extract_param_t
 // Needed because a BRRES's Textures(NW4R)/foo and Palettes(NW4R)/foo group
 // order isn't guaranteed, so extract_func() can't assume the palette was
 // already seen when it reaches the texture.
-static int collect_plt0_func
-(
-    struct szs_iterator_t	*it,
-    bool			term
-)
+static int collect_plt0_func (struct szs_iterator_t *it, bool term)
 {
-    if ( term || it->is_dir )
+	if (term || it->is_dir)
+		return 0;
+
+	szs_file_t *szs = it->szs;
+	if (it->off > szs->size || it->off + it->size > szs->size)
+		return 0;
+
+	szs_file_t subszs;
+	InitializeSubSZS (&subszs, szs, it->off, it->size, FF_UNKNOWN, it->path, false);
+	TryDecompressSZS (&subszs, true);
+
+	// Do not depend on the archive classifier here: a few small PLT0s are
+	// left as FF_UNKNOWN even though their on-disk signature is valid.
+	if (subszs.size >= 0x20 && !memcmp (subszs.data, "PLT0", 4))
+	{
+		ccp local_path = it->path;
+		if (*local_path == '.' && local_path[1] == '/')
+			local_path += 2;
+		ccp base = strrchr (local_path, '/');
+		base = base ? base + 1 : local_path;
+		char key[256];
+		// Iterator paths name BRRES resources, not files with a .plt0 suffix.
+		// A dot is therefore significant: PAT0 resources routinely pair TEX0
+		// "foo.0" with PLT0 "foo.0".  Stripping the final component collapsed
+		// every animated palette frame to "foo" and made exact lookup fail.
+		uint klen = (uint)strlen (base);
+		if (klen >= sizeof (key))
+			klen = sizeof (key) - 1;
+		memcpy (key, base, klen);
+		key[klen] = 0;
+
+		ParamField_t *pal_cache = it->param;
+		if (!FindParamField (pal_cache, key))
+			InsertParamField (
+				pal_cache, key, false, subszs.size, MEMDUP (subszs.data, subszs.size));
+	}
+
+	ResetSZS (&subszs);
 	return 0;
-
-    szs_file_t * szs = it->szs;
-    if ( it->off > szs->size || it->off + it->size > szs->size )
-	return 0;
-
-    szs_file_t subszs;
-    InitializeSubSZS(&subszs,szs,it->off,it->size,FF_UNKNOWN,it->path,false);
-    TryDecompressSZS(&subszs,true);
-
-    // Do not depend on the archive classifier here: a few small PLT0s are
-    // left as FF_UNKNOWN even though their on-disk signature is valid.
-    if ( subszs.size >= 0x20 && !memcmp(subszs.data,"PLT0",4) )
-    {
-	ccp local_path = it->path;
-	if ( *local_path == '.' && local_path[1] == '/' )
-	    local_path += 2;
-	ccp base = strrchr(local_path,'/');
-	base = base ? base+1 : local_path;
-	char key[256];
-	// Iterator paths name BRRES resources, not files with a .plt0 suffix.
-	// A dot is therefore significant: PAT0 resources routinely pair TEX0
-	// "foo.0" with PLT0 "foo.0".  Stripping the final component collapsed
-	// every animated palette frame to "foo" and made exact lookup fail.
-	uint klen = (uint)strlen(base);
-	if ( klen >= sizeof(key) )
-	    klen = sizeof(key)-1;
-	memcpy(key,base,klen);
-	key[klen] = 0;
-
-	ParamField_t *pal_cache = it->param;
-	if (!FindParamField(pal_cache,key))
-	    InsertParamField(pal_cache,key,false,subszs.size,
-				MEMDUP(subszs.data,subszs.size));
-    }
-
-    ResetSZS(&subszs);
-    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -4869,49 +4672,52 @@ static int collect_plt0_func
 // DATA. MDL0TextureRef stores texture and palette offsets this way (relative
 // to the reference record itself), rather than as the length-prefixed pooled
 // strings used by most of the rest of MDL0.
-static ccp mdl0_ref_name ( const u8 *data, uint size, const u8 *base, s32 rel )
+static ccp mdl0_ref_name (const u8 *data, uint size, const u8 *base, s32 rel)
 {
-    if (!rel || base < data || base >= data + size)
+	if (!rel || base < data || base >= data + size)
+		return 0;
+	const uint base_off = (uint)(base - data);
+	if (rel > 0 ? (uint)rel > size - base_off : (uint) - (s64)rel > base_off)
+		return 0;
+	const uint ptr_off = rel > 0 ? base_off + (uint)rel : base_off - (uint) - (s64)rel;
+	const u8 *ptr = data + ptr_off;
+	const uint left = (uint)(data + size - ptr);
+	for (uint i = 0; i < left && i < 256; i++)
+	{
+		if (!ptr[i])
+			return i ? (ccp)ptr : 0;
+		if (ptr[i] < 0x20 || ptr[i] > 0x7e)
+			return 0;
+	}
 	return 0;
-    const uint base_off = (uint)(base-data);
-    if ( rel > 0 ? (uint)rel > size - base_off : (uint)-(s64)rel > base_off )
-	return 0;
-    const uint ptr_off = rel > 0 ? base_off + (uint)rel
-				 : base_off - (uint)-(s64)rel;
-    const u8 *ptr = data + ptr_off;
-    const uint left = (uint)(data + size - ptr);
-    for (uint i = 0; i < left && i < 256; i++)
-    {
-	if (!ptr[i])
-	    return i ? (ccp)ptr : 0;
-	if (ptr[i] < 0x20 || ptr[i] > 0x7e)
-	    return 0;
-    }
-    return 0;
 }
 
 // Compare the meaningful portions of a TEX0 and PLT0 name.  Several retail
 // BRRES files use a shared palette for texture variants (tex_treeA_3 uses
 // pl_treeA), while retaining different underscore spelling on either side.
-static uint palette_name_score ( ccp texture, ccp palette )
+static uint palette_name_score (ccp texture, ccp palette)
 {
-    if ( strncmp(texture,"tex_",4) || strncmp(palette,"pl_",3) )
-	return 0;
-    texture += 4;
-    palette += 3;
-    char tex[256], pal[256];
-    uint nt = 0, np = 0;
-    while (*texture && nt+1 < sizeof(tex))
-	if (*texture != '_') tex[nt++] = *texture++;
-	else texture++;
-    while (*palette && np+1 < sizeof(pal))
-	if (*palette != '_') pal[np++] = *palette++;
-	else palette++;
-    if ( !np || np > nt || memcmp(tex,pal,np) )
-	return 0;
-    // Only allow a palette's base name plus a short variant suffix. This
-    // avoids matching unrelated names such as pl_treeA and tex_treeAtlas.
-    return nt - np <= 2 ? np : 0;
+	if (strncmp (texture, "tex_", 4) || strncmp (palette, "pl_", 3))
+		return 0;
+	texture += 4;
+	palette += 3;
+	char tex[256], pal[256];
+	uint nt = 0, np = 0;
+	while (*texture && nt + 1 < sizeof (tex))
+		if (*texture != '_')
+			tex[nt++] = *texture++;
+		else
+			texture++;
+	while (*palette && np + 1 < sizeof (pal))
+		if (*palette != '_')
+			pal[np++] = *palette++;
+		else
+			palette++;
+	if (!np || np > nt || memcmp (tex, pal, np))
+		return 0;
+	// Only allow a palette's base name plus a short variant suffix. This
+	// avoids matching unrelated names such as pl_treeA and tex_treeAtlas.
+	return nt - np <= 2 ? np : 0;
 }
 
 // Return the highest palette index used by the first TEX0 image, plus one.
@@ -4919,191 +4725,171 @@ static uint palette_name_score ( ccp texture, ccp palette )
 // initializes a prefix of the colors.  Knowing the actual range lets the
 // extractor preserve those index maps instead of asking libpng to write an
 // index beyond the supplied palette and abandoning the whole image.
-static uint tex0_required_palette ( const u8 *data, uint size )
+static uint tex0_required_palette (const u8 *data, uint size)
 {
-    if ( size < 0x40 || memcmp(data,"TEX0",4) )
-	return 0;
-    const uint off = be32(data+0x10);
-    const uint width = be16(data+0x1c);
-    const uint height = be16(data+0x1e);
-    const uint format = be32(data+0x20);
-    u64 bytes;
-    switch (format)
-    {
-      case 8: // CI4, 8x8 blocks
-	bytes = (u64)ALIGN32(width,8) * ALIGN32(height,8) / 2;
-	break;
-      case 9: // CI8, 8x4 blocks
-	bytes = (u64)ALIGN32(width,8) * ALIGN32(height,4);
-	break;
-      case 10: // CI14X2, 4x4 blocks
-	bytes = (u64)ALIGN32(width,4) * ALIGN32(height,4) * 2;
-	break;
-      default:
-	return 0;
-    }
-    if ( off > size || bytes > size-off )
-	return 0;
-    const u8 *src = data+off;
-    uint max_index = 0;
-    if (format == 8)
-    {
-	for (u64 i = 0; i < bytes; i++)
+	if (size < 0x40 || memcmp (data, "TEX0", 4))
+		return 0;
+	const uint off = be32 (data + 0x10);
+	const uint width = be16 (data + 0x1c);
+	const uint height = be16 (data + 0x1e);
+	const uint format = be32 (data + 0x20);
+	u64 bytes;
+	switch (format)
 	{
-	    const uint val = src[i];
-	    if ((val>>4) > max_index) max_index = val>>4;
-	    if ((val&15) > max_index) max_index = val&15;
+		case 8: // CI4, 8x8 blocks
+			bytes = (u64)ALIGN32 (width, 8) * ALIGN32 (height, 8) / 2;
+			break;
+		case 9: // CI8, 8x4 blocks
+			bytes = (u64)ALIGN32 (width, 8) * ALIGN32 (height, 4);
+			break;
+		case 10: // CI14X2, 4x4 blocks
+			bytes = (u64)ALIGN32 (width, 4) * ALIGN32 (height, 4) * 2;
+			break;
+		default:
+			return 0;
 	}
-    }
-    else if (format == 9)
-    {
-	for (u64 i = 0; i < bytes; i++)
-	    if (src[i] > max_index) max_index = src[i];
-    }
-    else
-    {
-	for (u64 i = 0; i < bytes; i += 2)
+	if (off > size || bytes > size - off)
+		return 0;
+	const u8 *src = data + off;
+	uint max_index = 0;
+	if (format == 8)
 	{
-	    const uint val = be16(src+i) & 0x3fff;
-	    if (val > max_index) max_index = val;
+		for (u64 i = 0; i < bytes; i++)
+		{
+			const uint val = src[i];
+			if ((val >> 4) > max_index)
+				max_index = val >> 4;
+			if ((val & 15) > max_index)
+				max_index = val & 15;
+		}
 	}
-    }
-    return max_index+1;
+	else if (format == 9)
+	{
+		for (u64 i = 0; i < bytes; i++)
+			if (src[i] > max_index)
+				max_index = src[i];
+	}
+	else
+	{
+		for (u64 i = 0; i < bytes; i += 2)
+		{
+			const uint val = be16 (src + i) & 0x3fff;
+			if (val > max_index)
+				max_index = val;
+		}
+	}
+	return max_index + 1;
 }
 
-static void make_gray_palette_entry ( u8 *dest, palette_format_t format, uint gray )
+static void make_gray_palette_entry (u8 *dest, palette_format_t format, uint gray)
 {
-    if (format == PAL_IA8)
-    {
-	dest[0] = 0xff;
-	dest[1] = gray;
-    }
-    else
-    {
-	const uint g5 = gray >> 3;
-	const uint val = format == PAL_RGB565
-	    ? g5 << 11 | (gray>>2) << 5 | g5
-	    : 0x8000 | g5 << 10 | g5 << 5 | g5;
-	dest[0] = val >> 8;
-	dest[1] = val;
-    }
+	if (format == PAL_IA8)
+	{
+		dest[0] = 0xff;
+		dest[1] = gray;
+	}
+	else
+	{
+		const uint g5 = gray >> 3;
+		const uint val = format == PAL_RGB565 ? g5 << 11 | (gray >> 2) << 5 | g5
+											  : 0x8000 | g5 << 10 | g5 << 5 | g5;
+		dest[0] = val >> 8;
+		dest[1] = val;
+	}
 }
 
 // Return one MDL0 resource group by its version-dependent header index.
 // The group offset is relative to the MDL0 header, and ResourceEntry name
 // offsets are relative to their group (unlike most MDL0 structure names).
-static const u8 * mdl0_group_at
-(
-    const u8	*data,
-    uint	size,
-    uint	index
-)
+static const u8 *mdl0_group_at (const u8 *data, uint size, uint index)
 {
-    const uint field = 0x10 + 4*index;
-    if ( field > size || size-field < 4 )
-	return 0;
-    const s32 off = (s32)be32(data+field);
-    if ( off <= 0 || (uint)off > size || size-(uint)off < 8 )
-	return 0;
-    const u8 *group = data + off;
-    const uint count = be32(group+4);
-    return count <= (size-(uint)off-8)/16-1 ? group : 0;
+	const uint field = 0x10 + 4 * index;
+	if (field > size || size - field < 4)
+		return 0;
+	const s32 off = (s32)be32 (data + field);
+	if (off <= 0 || (uint)off > size || size - (uint)off < 8)
+		return 0;
+	const u8 *group = data + off;
+	const uint count = be32 (group + 4);
+	return count <= (size - (uint)off - 8) / 16 - 1 ? group : 0;
 }
 
-static ccp mdl0_group_entry_name
-(
-    const u8	*bounds,
-    uint	bounds_size,
-    const u8	*group,
-    const u8	*entry
-)
+static ccp mdl0_group_entry_name (
+	const u8 *bounds, uint bounds_size, const u8 *group, const u8 *entry)
 {
-    return mdl0_ref_name(bounds,bounds_size,group,(s32)be32(entry+8));
+	return mdl0_ref_name (bounds, bounds_size, group, (s32)be32 (entry + 8));
 }
 
-static const u8 * mdl0_group_entry_data
-(
-    const u8	*data,
-    uint	size,
-    const u8	*group,
-    const u8	*entry
-)
+static const u8 *mdl0_group_entry_data (const u8 *data, uint size, const u8 *group, const u8 *entry)
 {
-    const s32 rel = (s32)be32(entry+12);
-    if ( rel < 0 || group < data || group >= data+size )
-	return 0;
-    const uint group_off = (uint)(group-data);
-    return (uint)rel <= size-group_off && size-group_off-(uint)rel >= 4
-	? group + rel : 0;
+	const s32 rel = (s32)be32 (entry + 12);
+	if (rel < 0 || group < data || group >= data + size)
+		return 0;
+	const uint group_off = (uint)(group - data);
+	return (uint)rel <= size - group_off && size - group_off - (uint)rel >= 4 ? group + rel : 0;
 }
 
 // MDL0 texture/palette groups both contain lists of {material, matRef}
 // offsets. Matching their matRef targets recovers the exact TEX0 -> PLT0
 // relationship even when MDL0TextureRef::_pltOffset is an unresolved runtime
 // pointer. This is common in retail Animal Crossing character archives.
-static void collect_mdl0_linked_palettes
-(
-    const u8	*data,
-    uint	size,
-    uint	version,
-    ParamField_t *aliases,
-    const u8	*bounds,
-    uint	bounds_size
-)
+static void collect_mdl0_linked_palettes (const u8 *data, uint size, uint version,
+	ParamField_t *aliases, const u8 *bounds, uint bounds_size)
 {
-    const uint tex_index = version >= 10 ? 11 : 9;
-    const uint pal_index = version >= 10 ? 12 : 10;
-    const u8 *tex_group = mdl0_group_at(data,size,tex_index);
-    const u8 *pal_group = mdl0_group_at(data,size,pal_index);
-    if (!tex_group || !pal_group)
-	return;
+	const uint tex_index = version >= 10 ? 11 : 9;
+	const uint pal_index = version >= 10 ? 12 : 10;
+	const u8 *tex_group = mdl0_group_at (data, size, tex_index);
+	const u8 *pal_group = mdl0_group_at (data, size, pal_index);
+	if (!tex_group || !pal_group)
+		return;
 
-    const uint n_tex = be32(tex_group+4);
-    const uint n_pal = be32(pal_group+4);
-    for (uint pi = 1; pi <= n_pal; pi++)
-    {
-	const u8 *pent = pal_group + 8 + 16*pi;
-	ccp pal_name = mdl0_group_entry_name(bounds,bounds_size,pal_group,pent);
-	const u8 *pdata = mdl0_group_entry_data(data,size,pal_group,pent);
-	if (!pal_name || !pdata)
-	    continue;
-	const uint pn = be32(pdata);
-	if ( pn > (uint)(data+size-pdata-4)/8 )
-	    continue;
-
-	for (uint pri = 0; pri < pn; pri++)
+	const uint n_tex = be32 (tex_group + 4);
+	const uint n_pal = be32 (pal_group + 4);
+	for (uint pi = 1; pi <= n_pal; pi++)
 	{
-	    const s32 pref_rel = (s32)be32(pdata+8+8*pri);
-	    const u8 *pref = pref_rel >= 0 && (uint)pref_rel <= (uint)(data+size-pdata)
-		? pdata + pref_rel : 0;
-	    if (!pref)
-		continue;
+		const u8 *pent = pal_group + 8 + 16 * pi;
+		ccp pal_name = mdl0_group_entry_name (bounds, bounds_size, pal_group, pent);
+		const u8 *pdata = mdl0_group_entry_data (data, size, pal_group, pent);
+		if (!pal_name || !pdata)
+			continue;
+		const uint pn = be32 (pdata);
+		if (pn > (uint)(data + size - pdata - 4) / 8)
+			continue;
 
-	    for (uint ti = 1; ti <= n_tex; ti++)
-	    {
-		const u8 *tent = tex_group + 8 + 16*ti;
-		ccp tex_name = mdl0_group_entry_name(bounds,bounds_size,tex_group,tent);
-		const u8 *tdata = mdl0_group_entry_data(data,size,tex_group,tent);
-		if (!tex_name || !tdata)
-		    continue;
-		const uint tn = be32(tdata);
-		if ( tn > (uint)(data+size-tdata-4)/8 )
-		    continue;
-		for (uint tri = 0; tri < tn; tri++)
+		for (uint pri = 0; pri < pn; pri++)
 		{
-		    const s32 tref_rel = (s32)be32(tdata+8+8*tri);
-		    if ( tref_rel >= 0 && (uint)tref_rel <= (uint)(data+size-tdata)
-			&& tdata+tref_rel == pref && !FindParamField(aliases,tex_name) )
-		    {
-			InsertParamField(aliases,tex_name,false,
-				strlen(pal_name)+1,STRDUP(pal_name));
-			if ( verbose > 3 )
-			    printf("  MDL0 PALETTE LINK: %s -> %s\n",tex_name,pal_name);
-		    }
+			const s32 pref_rel = (s32)be32 (pdata + 8 + 8 * pri);
+			const u8 *pref = pref_rel >= 0 && (uint)pref_rel <= (uint)(data + size - pdata)
+				? pdata + pref_rel
+				: 0;
+			if (!pref)
+				continue;
+
+			for (uint ti = 1; ti <= n_tex; ti++)
+			{
+				const u8 *tent = tex_group + 8 + 16 * ti;
+				ccp tex_name = mdl0_group_entry_name (bounds, bounds_size, tex_group, tent);
+				const u8 *tdata = mdl0_group_entry_data (data, size, tex_group, tent);
+				if (!tex_name || !tdata)
+					continue;
+				const uint tn = be32 (tdata);
+				if (tn > (uint)(data + size - tdata - 4) / 8)
+					continue;
+				for (uint tri = 0; tri < tn; tri++)
+				{
+					const s32 tref_rel = (s32)be32 (tdata + 8 + 8 * tri);
+					if (tref_rel >= 0 && (uint)tref_rel <= (uint)(data + size - tdata)
+						&& tdata + tref_rel == pref && !FindParamField (aliases, tex_name))
+					{
+						InsertParamField (
+							aliases, tex_name, false, strlen (pal_name) + 1, STRDUP (pal_name));
+						if (verbose > 3)
+							printf ("  MDL0 PALETTE LINK: %s -> %s\n", tex_name, pal_name);
+					}
+				}
+			}
 		}
-	    }
 	}
-    }
 }
 
 // Collect authoritative TEX0 -> PLT0 links from MDL0Material's
@@ -5112,1860 +4898,1769 @@ static void collect_mdl0_linked_palettes
 // reference beginning with relative texOffset/pltOffset. Bounds-check every
 // offset: archives are untrusted input, and malformed models must simply
 // decline this optional enrichment rather than break extraction.
-static int collect_mdl0_palette_func
-(
-    struct szs_iterator_t	*it,
-    bool			term
-)
+static int collect_mdl0_palette_func (struct szs_iterator_t *it, bool term)
 {
-    if (term || it->is_dir)
-	return 0;
+	if (term || it->is_dir)
+		return 0;
 
-    szs_file_t *szs = it->szs;
-    if (it->off > szs->size || it->size > szs->size - it->off)
-	return 0;
+	szs_file_t *szs = it->szs;
+	if (it->off > szs->size || it->size > szs->size - it->off)
+		return 0;
 
-    szs_file_t sub;
-    InitializeSubSZS(&sub,szs,it->off,it->size,FF_UNKNOWN,it->path,false);
-    TryDecompressSZS(&sub,true);
-    const u8 *data = sub.data;
-    const uint size = sub.size;
+	szs_file_t sub;
+	InitializeSubSZS (&sub, szs, it->off, it->size, FF_UNKNOWN, it->path, false);
+	TryDecompressSZS (&sub, true);
+	const u8 *data = sub.data;
+	const uint size = sub.size;
 
-    // The standalone MDL0 chunks inside BRRES are not consistently assigned
-    // one file-format enum by all archive versions, so gate on their
-    // unambiguous four-byte signature rather than the iterator's classifier.
-    if ( size >= 0x34 && !memcmp(data,"MDL0",4) )
-    {
-	const uint version = be32(data+8);
-	if ( version >= 8 && version <= 11 )
-	    collect_mdl0_linked_palettes(data,size,version,it->param,
-				  szs->data,szs->size);
-
-	// Retail MDL0s can leave _pltOffset as an unresolved run-time pointer.
-	// Their pooled strings remain authoritative: each string is preceded by
-	// its big-endian length, and a material's palette name precedes its texture
-	// name (with its material/object names in between).  Use that representation
-	// as the compatibility path, rather than scanning arbitrary printable bytes.
-	char pending_pal[256] = "";
-	ParamField_t *aliases = it->param;
-	for (uint pos = 0; pos + 5 < size; pos++)
+	// The standalone MDL0 chunks inside BRRES are not consistently assigned
+	// one file-format enum by all archive versions, so gate on their
+	// unambiguous four-byte signature rather than the iterator's classifier.
+	if (size >= 0x34 && !memcmp (data, "MDL0", 4))
 	{
-	    const uint len = be32(data+pos);
-	    if ( !len || len >= sizeof(pending_pal) || len > size-pos-5
-		 || data[pos+4+len] )
-		continue;
-	    const u8 *s = data + pos + 4;
-	    uint si;
-	    for ( si = 0; si < len && s[si] >= 0x20 && s[si] <= 0x7e; si++ )
-		;
-	    if (si != len)
-		continue;
-	    if ( len > 3 && !memcmp(s,"pl_",3) )
-	    {
-		memcpy(pending_pal,s,len);
-		pending_pal[len] = 0;
-	    }
-	    else if ( pending_pal[0] && len > 4 && !memcmp(s,"tex_",4)
-		   && !FindParamField(aliases,(ccp)s) )
-		InsertParamField(aliases,(ccp)s,false,strlen(pending_pal)+1,STRDUP(pending_pal));
-	    pos += 4 + len;
-	}
+		const uint version = be32 (data + 8);
+		if (version >= 8 && version <= 11)
+			collect_mdl0_linked_palettes (data, size, version, it->param, szs->data, szs->size);
 
-	const uint mat_field = version >= 10 ? 0x30 : 0x28;
-	const uint mat_group_off = mat_field+4 <= size ? be32(data+mat_field) : 0;
-	if ( mat_group_off <= size && size - mat_group_off >= 8 )
-	{
-	    const u8 *group = data + mat_group_off;
-	    const uint n_mat = be32(group+4);
-	    if ( n_mat <= (size - mat_group_off - 8) / 16 - 1 )
-	    {
-		for (uint mi = 1; mi <= n_mat; mi++)
+		// Retail MDL0s can leave _pltOffset as an unresolved run-time pointer.
+		// Their pooled strings remain authoritative: each string is preceded by
+		// its big-endian length, and a material's palette name precedes its texture
+		// name (with its material/object names in between).  Use that representation
+		// as the compatibility path, rather than scanning arbitrary printable bytes.
+		char pending_pal[256] = "";
+		ParamField_t *aliases = it->param;
+		for (uint pos = 0; pos + 5 < size; pos++)
 		{
-		    const u8 *entry = group + 8 + 16*mi;
-		    const uint mat_off = be32(entry+12);
-		    if ( mat_off > size - mat_group_off || size - mat_group_off - mat_off < 0x34 )
-			continue;
-		    const u8 *mat = group + mat_off;
-		    const uint n_ref = be32(mat+0x2c);
-		    const s32 ref_off = (s32)be32(mat+0x30);
-		    if ( !ref_off || ref_off < 0 || (uint)ref_off > size - (uint)(mat-data) )
-			continue;
-		    const u8 *ref = mat + ref_off;
-		    if ( n_ref > (size - (uint)(ref-data)) / 0x34 )
-			continue;
-
-		    for (uint ri = 0; ri < n_ref; ri++, ref += 0x34)
-		    {
-			ccp tex = mdl0_ref_name(szs->data,szs->size,ref,(s32)be32(ref));
-			ccp pal = mdl0_ref_name(szs->data,szs->size,ref,(s32)be32(ref+4));
-			if (tex && pal && !FindParamField(aliases,tex))
-			    InsertParamField(aliases,tex,false,strlen(pal)+1,STRDUP(pal));
-		    }
+			const uint len = be32 (data + pos);
+			if (!len || len >= sizeof (pending_pal) || len > size - pos - 5 || data[pos + 4 + len])
+				continue;
+			const u8 *s = data + pos + 4;
+			uint si;
+			for (si = 0; si < len && s[si] >= 0x20 && s[si] <= 0x7e; si++)
+				;
+			if (si != len)
+				continue;
+			if (len > 3 && !memcmp (s, "pl_", 3))
+			{
+				memcpy (pending_pal, s, len);
+				pending_pal[len] = 0;
+			}
+			else if (pending_pal[0] && len > 4 && !memcmp (s, "tex_", 4)
+				&& !FindParamField (aliases, (ccp)s))
+				InsertParamField (
+					aliases, (ccp)s, false, strlen (pending_pal) + 1, STRDUP (pending_pal));
+			pos += 4 + len;
 		}
-	    }
-	}
-    }
 
-    ResetSZS(&sub);
-    return 0;
+		const uint mat_field = version >= 10 ? 0x30 : 0x28;
+		const uint mat_group_off = mat_field + 4 <= size ? be32 (data + mat_field) : 0;
+		if (mat_group_off <= size && size - mat_group_off >= 8)
+		{
+			const u8 *group = data + mat_group_off;
+			const uint n_mat = be32 (group + 4);
+			if (n_mat <= (size - mat_group_off - 8) / 16 - 1)
+			{
+				for (uint mi = 1; mi <= n_mat; mi++)
+				{
+					const u8 *entry = group + 8 + 16 * mi;
+					const uint mat_off = be32 (entry + 12);
+					if (mat_off > size - mat_group_off || size - mat_group_off - mat_off < 0x34)
+						continue;
+					const u8 *mat = group + mat_off;
+					const uint n_ref = be32 (mat + 0x2c);
+					const s32 ref_off = (s32)be32 (mat + 0x30);
+					if (!ref_off || ref_off < 0 || (uint)ref_off > size - (uint)(mat - data))
+						continue;
+					const u8 *ref = mat + ref_off;
+					if (n_ref > (size - (uint)(ref - data)) / 0x34)
+						continue;
+
+					for (uint ri = 0; ri < n_ref; ri++, ref += 0x34)
+					{
+						ccp tex = mdl0_ref_name (szs->data, szs->size, ref, (s32)be32 (ref));
+						ccp pal = mdl0_ref_name (szs->data, szs->size, ref, (s32)be32 (ref + 4));
+						if (tex && pal && !FindParamField (aliases, tex))
+							InsertParamField (aliases, tex, false, strlen (pal) + 1, STRDUP (pal));
+					}
+				}
+			}
+		}
+	}
+
+	ResetSZS (&sub);
+	return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static int extract_func
-(
-    struct szs_iterator_t	*it,	// iterator struct with all infos
-    bool			term	// true: termination hint
+static int extract_func (struct szs_iterator_t *it, // iterator struct with all infos
+	bool term // true: termination hint
 )
 {
-    if (term)
-	return 0;
+	if (term)
+		return 0;
 
-    DASSERT(it);
-    DASSERT(it->param);
-    szs_file_t * szs = it->szs;
-    DASSERT(szs);
-    DASSERT( !szs->file_size || szs->file_size >= szs->size );
-    extract_param_t * ep = it->param;
-    DASSERT(ep);
-    DASSERT(ep->dest);
+	DASSERT (it);
+	DASSERT (it->param);
+	szs_file_t *szs = it->szs;
+	DASSERT (szs);
+	DASSERT (!szs->file_size || szs->file_size >= szs->size);
+	extract_param_t *ep = it->param;
+	DASSERT (ep);
+	DASSERT (ep->dest);
 
-    if ( it->size > 0x40000000 )
-	it->size = 0;
+	if (it->size > 0x40000000)
+		it->size = 0;
 
-    if ( it->off > szs->size || it->off + it->size > szs->size )
-    {
-	if ( it->size != M1(it->size) && WARN_MODE & WARN_INVALID_OFFSET && ErrorLogEnabled() )
-	    ERROR0(ERR_WARNING,
-		"Invalid offset [%x..%x, size=%zx] for subfile.\n"
-		"=> File ignored: %s%s%s\n",
-		it->off, it->off+it->size, szs->size,
-		szs->fname, *szs->fname ? "/" : "",
-		it->path );
-	return 0;
-    }
-
-
-    //--- report files with trailing '.'
-
-    const bool is_string_pool = !strcmp(it->path,BRRES_STRING_POOL_FNAME);
-
-    noPRINT("trail=%s\n",it->trail_path);
-    if ( !is_string_pool && it->trail_path && *it->trail_path == '.' )
-    {
-	if ( it->trail_path[1] == '/' && !it->trail_path[2] )
-	    ep->have_pt_dir = true;
-	else
+	if (it->off > szs->size || it->off + it->size > szs->size)
 	{
-	    char * end = it->trail_path + strlen(it->trail_path) - 1;
-	    const bool have_slash = *end == '/';
-	    if ( have_slash )
-		*end = 0;
-	    noPRINT("TRAILING POINT: %s\n",it->path);
-	    InsertStringField(&ep->include_list,it->path,false);
-	    if ( have_slash )
-		*end = '/';
-	}
-    }
-
-
-    //--- check basedir
-
-    ccp local_path = it->path;
-    if ( *local_path == '.' && local_path[1] == '/' )
-	local_path += 2;
-
-    if (ep->basedir)
-    {
-	if (ep->basedir_off)
-	{
-	    if (strncasecmp(local_path,ep->basedir,ep->basedir_off))
-		ep->basedir_off = 0;
-	}
-	else if (it->is_dir)
-	    ep->basedir_off = strcasecmp(local_path,ep->basedir)
-			? 0 : strlen(local_path);
-
-	if (!ep->basedir_off)
-	    return 0;
-
-	local_path += ep->basedir_off;
-    }
-
-
-    //--- create dir or file
-
-    FormatFieldItem_t * order_item
-	= AppendFormatField(&ep->order_list,local_path,false,false);
-
-    char pathbuf[PATH_MAX];
-    ccp pathptr = PathCatPP(pathbuf,sizeof(pathbuf),ep->dest,local_path);
-
-    if (it->is_dir)
-    {
-	if ( verbose > 1 || testmode && !analyze_fname )
-	{
-	    fprintf(stdlog,"%*s- %sCREATE  %s\n",
-				ep->indent,"", testmode ? "WOULD " : "", pathptr );
-	    fflush(stdlog);
-	}
-	if (ep->sdir)
-	    InsertSubDir(ep->sdir,MemByString(local_path),0);
-	else if (!testmode)
-	    CreatePath(pathptr,true);
-	return 0;
-    }
-
-
-    //--- file handling
-
-    DASSERT(!it->is_dir); // now we have only files
-    DASSERT(order_item);
-    order_item->num = it->off;
-
-    szs_file_t subszs;
-// [[fname+]]
-    InitializeSubSZS(&subszs,szs,it->off,it->size,FF_UNKNOWN,local_path,false);
-    FixIteratorExtByFF(it,subszs.fform_file,subszs.fform_arch);
-
-    if ( verbose > 1 || testmode && !analyze_fname )
-    {
-	fprintf(stdlog,"%*s- %sEXTRACT%s %s:%s\n",
-			    ep->indent,"", testmode ? "WOULD " : "",
-			    ep->is_cutting ? "/CUT" : "",
-			    GetNameFF(0,subszs.fform_arch), pathptr );
-	fflush(stdlog);
-    }
-
-    ep->align |= it->off;
-
-    if ( analyze_fname && IsBRSUB(subszs.fform_arch) )
-	AnalyzeBRSUB(szs,subszs.data,subszs.size,it->name);
-
-
-    //--- write extracted file, but don't close file here
-
-    MEM_CHECK;
-
-    string_pool_t sp;
-    enum { SPM_OFF = 0, SPM_BRRES } sp_mode = SPM_OFF;
-    if (!opt_raw)
-    {
-	switch ((int)szs->fform_arch)
-	{
-	 case FF_BRRES:
-	    sp_mode = SPM_BRRES;
-	    CollectStringsBRSUB(&sp,true,&subszs,true);
-	    break;
-	}
-    }
-
-    File_t F = {0};
-    if (ep->sdir)
-    {
-	bool new_file;
-	SubFile_t *sf = InsertSubFile(ep->sdir,MemByString(local_path),&new_file);
-	if ( sf && new_file && subszs.size )
-	{
-	    sf->data_alloced = true;
-	    sf->type = szs->fform_arch;
-	    if (sp_mode)
-	    {
-		sf->size = subszs.size + sp.size;
-		sf->data = MALLOC(sf->size);
-		memcpy(sf->data,subszs.data,subszs.size);
-		memcpy(sf->data+subszs.size,sp.data,sp.size);
-	    }
-	    else
-	    {
-		sf->data = MEMDUP(subszs.data,subszs.size);
-		sf->size = subszs.size;
-	    }
-	}
-    }
-    else
-    {
-	pathptr = PathCatPP(pathbuf,sizeof(pathbuf),ep->dest,local_path);
-
-	if (opt_links)
-	{
-	    szs_subfile_t *lptr = FindLinkSZS(szs,it->size,it->off,0);
-	    if (lptr)
-	    {
-		PRINT("LINK: %s  ->  %s\n",pathptr,lptr->path);
-		if (!link(lptr->path,pathptr))
-		    goto no_create;
-	    }
-
-	    szs_subfile_t *file = AppendSubfileSZS(it->szs,it,0);
-	    file->path   = STRDUP(pathptr);
-	    file->device = it->size;
-	    file->inode  = it->off;
+		if (it->size != M1 (it->size) && WARN_MODE & WARN_INVALID_OFFSET && ErrorLogEnabled ())
+			ERROR0 (ERR_WARNING,
+				"Invalid offset [%x..%x, size=%zx] for subfile.\n"
+				"=> File ignored: %s%s%s\n",
+				it->off, it->off + it->size, szs->size, szs->fname, *szs->fname ? "/" : "",
+				it->path);
+		return 0;
 	}
 
-	CreateFileOpt(&F,true,pathptr,testmode,0);
-	if (F.f)
+	//--- report files with trailing '.'
+
+	const bool is_string_pool = !strcmp (it->path, BRRES_STRING_POOL_FNAME);
+
+	noPRINT ("trail=%s\n", it->trail_path);
+	if (!is_string_pool && it->trail_path && *it->trail_path == '.')
 	{
-	    SetFileAttrib(&F.fatt,&szs->fatt,0);
-	    size_t wstat = fwrite(subszs.data,1,subszs.size,F.f);
-	    enumError err = wstat != subszs.size ? ERR_WRITE_FAILED : ERR_OK;
-
-	    if ( !err && sp_mode && sp.data )
-	    {
-		wstat = fwrite(sp.data,1,sp.size,F.f);
-		if ( wstat != sp.size )
-		    err = ERR_WRITE_FAILED;
-	    }
-
-	    if (err)
-		FILEERROR1(&F,err,
-			    "Writing %zu bytes failed: %s\n",
-			    subszs.size, pathptr);
-	}
-    }
-  no_create:;
-    if (sp_mode)
-	ResetStringPool(&sp);
-
-    if (is_string_pool)
-    {
-	char *dest = StringCopyS(pathbuf,sizeof(pathbuf),pathptr) - 4;
-	if ( dest < pathbuf )
-	    dest = pathbuf;
-	StringCopyE(dest,pathbuf+sizeof(pathbuf),".txt");
-
-	ccp fpath = strrchr(pathbuf,'/');
-	InsertStringField(&ep->exclude_list,fpath?fpath+1:pathbuf,false);
-	InsertStringField(&ep->exclude_list,local_path,false);
-
-	if (!ep->sdir)
-	{
-	    File_t F;
-	    CreateFileOpt(&F,true,pathbuf,testmode,0);
-	    if (F.f)
-	    {
-		u32 off = 0;
-		while ( off < subszs.size && !it->endian->rd32(subszs.data+off) )
-		    off += 4;
-		off += 4;
-		while ( off < subszs.size )
+		if (it->trail_path[1] == '/' && !it->trail_path[2])
+			ep->have_pt_dir = true;
+		else
 		{
-		    ccp sptr = (ccp)subszs.data + off;
-		    if (!*sptr)
-			break;
-		    fprintf(F.f,"%s\r\n",sptr);
-		    off += ALIGN32(strlen(sptr)+5,4);
+			char *end = it->trail_path + strlen (it->trail_path) - 1;
+			const bool have_slash = *end == '/';
+			if (have_slash)
+				*end = 0;
+			noPRINT ("TRAILING POINT: %s\n", it->path);
+			InsertStringField (&ep->include_list, it->path, false);
+			if (have_slash)
+				*end = '/';
 		}
-	    }
-	    ResetFile(&F,opt_preserve);
 	}
-    }
 
+	//--- check basedir
 
-    //--- prepare ...
+	ccp local_path = it->path;
+	if (*local_path == '.' && local_path[1] == '/')
+		local_path += 2;
 
-    TryDecompressSZS(&subszs,true);
+	if (ep->basedir)
+	{
+		if (ep->basedir_off)
+		{
+			if (strncasecmp (local_path, ep->basedir, ep->basedir_off))
+				ep->basedir_off = 0;
+		}
+		else if (it->is_dir)
+			ep->basedir_off = strcasecmp (local_path, ep->basedir) ? 0 : strlen (local_path);
 
-    bool extract = false, cut_file = false;
-    if (!ep->is_cutting)
-    {
-	//--- decode
+		if (!ep->basedir_off)
+			return 0;
+
+		local_path += ep->basedir_off;
+	}
+
+	//--- create dir or file
+
+	FormatFieldItem_t *order_item = AppendFormatField (&ep->order_list, local_path, false, false);
+
+	char pathbuf[PATH_MAX];
+	ccp pathptr = PathCatPP (pathbuf, sizeof (pathbuf), ep->dest, local_path);
+
+	if (it->is_dir)
+	{
+		if (verbose > 1 || testmode && !analyze_fname)
+		{
+			fprintf (
+				stdlog, "%*s- %sCREATE  %s\n", ep->indent, "", testmode ? "WOULD " : "", pathptr);
+			fflush (stdlog);
+		}
+		if (ep->sdir)
+			InsertSubDir (ep->sdir, MemByString (local_path), 0);
+		else if (!testmode)
+			CreatePath (pathptr, true);
+		return 0;
+	}
+
+	//--- file handling
+
+	DASSERT (!it->is_dir); // now we have only files
+	DASSERT (order_item);
+	order_item->num = it->off;
+
+	szs_file_t subszs;
+	// [[fname+]]
+	InitializeSubSZS (&subszs, szs, it->off, it->size, FF_UNKNOWN, local_path, false);
+	FixIteratorExtByFF (it, subszs.fform_file, subszs.fform_arch);
+
+	if (verbose > 1 || testmode && !analyze_fname)
+	{
+		fprintf (stdlog, "%*s- %sEXTRACT%s %s:%s\n", ep->indent, "", testmode ? "WOULD " : "",
+			ep->is_cutting ? "/CUT" : "", GetNameFF (0, subszs.fform_arch), pathptr);
+		fflush (stdlog);
+	}
+
+	ep->align |= it->off;
+
+	if (analyze_fname && IsBRSUB (subszs.fform_arch))
+		AnalyzeBRSUB (szs, subszs.data, subszs.size, it->name);
+
+	//--- write extracted file, but don't close file here
 
 	MEM_CHECK;
-	noPRINT("FF=%d,%s %s\n",subszs.fform_arch,
-		GetNameFF(0,subszs.fform_arch),PrintID(subszs.data,4,0));
-	switch (ep->parent_fform)
+
+	string_pool_t sp;
+	enum
 	{
-	  case FF_BREFT:
-	    if (!memcmp(local_path,"files/",6))
-	    {
-		const ccp dest_path = STRDUP2(local_path,".png");
-		FormatFieldItem_t *item
-			= InsertFormatFieldFF(&ep->decode_list,
-					local_path,FF_BREFT,false,false,0);
-
-		uint n_image;
-		ExportPNG(
-			    ep->dest,
-			    dest_path,
-			    opt_preserve ? &szs->fatt : 0,
-			    subszs.data,
-			    subszs.size,
-			    0,
-			    ep->mipmap,
-			    &n_image,
-			    it->endian,
-			    item,
-			    ep->decode,
-			    &ep->exclude_list,
-			    PAL_INVALID, 0, 0 );
-		item->num = n_image ? n_image : 1;
-		FreeString(dest_path);
-	    }
-	    break;
-
-	  default:
-	    break;
+		SPM_OFF = 0,
+		SPM_BRRES
+	} sp_mode = SPM_OFF;
+	if (!opt_raw)
+	{
+		switch ((int)szs->fform_arch)
+		{
+			case FF_BRRES:
+				sp_mode = SPM_BRRES;
+				CollectStringsBRSUB (&sp, true, &subszs, true);
+				break;
+		}
 	}
 
-	ccp ext = ".txt";
-	switch (subszs.fform_arch)
+	File_t F = { 0 };
+	if (ep->sdir)
 	{
-	  case FF_BMG:
-	    {
-		// .BMG.header is the raw support fragment emitted while cutting a
-		// complete BMG, not another complete message file. Its leading bytes
-		// identify the parent format, but ScanBMG() correctly rejects the
-		// fragment and used to print thousands of spurious INVALID DATA errors
-		// during a whole-disc XX run. Keep the binary rebuild artifact and do
-		// not schedule a nonsensical text decode for it.
-		ccp bmg_base = strrchr(local_path,'/');
-		bmg_base = bmg_base ? bmg_base+1 : local_path;
-		if (!strcmp(bmg_base,".BMG.header"))
-		    break;
-		InsertStringField(&ep->exclude_list,STRDUP2(local_path,".txt"),true);
-		FormatFieldItem_t * item
-		    = InsertFormatField(&ep->decode_list,local_path,false,false,0);
-		DASSERT(item);
-		item->fform = subszs.fform_arch;
-
-		if (ep->decode)
+		bool new_file;
+		SubFile_t *sf = InsertSubFile (ep->sdir, MemByString (local_path), &new_file);
+		if (sf && new_file && subszs.size)
 		{
-		    bmg_t bmg;
-		    enumError scan_err = ScanBMG(&bmg,true,pathptr,subszs.data,subszs.size);
-		    pathptr = PathCatPPE(pathbuf,sizeof(pathbuf),ep->dest,local_path,".txt");
-		    if ( verbose > 1 || testmode )
-		    {
-			fprintf(stdlog,"%*s- %sDECODE  %s:%s\n",
-				ep->indent,"", testmode ? "WOULD " : "",
-				GetNameFF(0,subszs.fform_arch), pathptr );
-			fflush(stdlog);
-		    }
-		    // A subfile detected as BMG (e.g. the .BMG.header fragment of
-		    // a BMG section) need not be a complete, scannable BMG.  Only
-		    // write the text rendering when scanning really succeeded:
-		    // SaveTextXBMG must never run on a failed/bare bmg.
-		    if (!testmode && !scan_err)
-			SaveTextXBMG(&bmg,pathptr,true);
-		    ResetBMG(&bmg);
-		}
-	    }
-	    break;
-
-
-	  case FF_KCL:
-	    InsertStringField(&ep->exclude_list,STRDUP2(local_path,KCL_MTL_EXT),true);
-	    InsertStringField(&ep->exclude_list,STRDUP2(local_path,KCL_FLAG_EXT),true);
-	    ext = ".obj";
-	    // fall through
-
-	  case FF_KMP:
-	  case FF_LEX:
-	  case FF_MDL:
-	  case FF_PAT:
-	    {
-		InsertStringField(&ep->exclude_list,STRDUP2(local_path,ext),true);
-		FormatFieldItem_t * item
-		    = InsertFormatField(&ep->decode_list,local_path,false,false,0);
-		DASSERT(item);
-		item->fform = subszs.fform_arch;
-
-		if (ep->decode)
-		{
-		    pathptr = PathCatPPE(pathbuf,sizeof(pathbuf),ep->dest,local_path,ext);
-		    if ( verbose > 1 || testmode )
-		    {
-			fprintf(stdlog,"%*s- %sDECODE  %s:%s\n",
-				ep->indent,"", testmode ? "WOULD " : "",
-				GetNameFF(0,subszs.fform_arch), pathptr );
-			fflush(stdlog);
-		    }
-
-		    switch ((int)subszs.fform_arch)
-		    {
-			case FF_KCL:
+			sf->data_alloced = true;
+			sf->type = szs->fform_arch;
+			if (sp_mode)
 			{
-			    kcl_t kcl;
-			    InitializeKCL(&kcl);
-			    kcl.fname = pathptr;
-			    ScanKCL(&kcl,false,subszs.data,subszs.size,true,global_check_mode);
-			    if (!testmode)
-				SaveTextKCL(&kcl,pathptr,true);
-			    if (analyze_fname)
-				AnalyzeKCL(&kcl);
-			    kcl.fname = 0;
-			    ResetKCL(&kcl);
+				sf->size = subszs.size + sp.size;
+				sf->data = MALLOC (sf->size);
+				memcpy (sf->data, subszs.data, subszs.size);
+				memcpy (sf->data + subszs.size, sp.data, sp.size);
+			}
+			else
+			{
+				sf->data = MEMDUP (subszs.data, subszs.size);
+				sf->size = subszs.size;
+			}
+		}
+	}
+	else
+	{
+		pathptr = PathCatPP (pathbuf, sizeof (pathbuf), ep->dest, local_path);
+
+		if (opt_links)
+		{
+			szs_subfile_t *lptr = FindLinkSZS (szs, it->size, it->off, 0);
+			if (lptr)
+			{
+				PRINT ("LINK: %s  ->  %s\n", pathptr, lptr->path);
+				if (!link (lptr->path, pathptr))
+					goto no_create;
+			}
+
+			szs_subfile_t *file = AppendSubfileSZS (it->szs, it, 0);
+			file->path = STRDUP (pathptr);
+			file->device = it->size;
+			file->inode = it->off;
+		}
+
+		CreateFileOpt (&F, true, pathptr, testmode, 0);
+		if (F.f)
+		{
+			SetFileAttrib (&F.fatt, &szs->fatt, 0);
+			size_t wstat = fwrite (subszs.data, 1, subszs.size, F.f);
+			enumError err = wstat != subszs.size ? ERR_WRITE_FAILED : ERR_OK;
+
+			if (!err && sp_mode && sp.data)
+			{
+				wstat = fwrite (sp.data, 1, sp.size, F.f);
+				if (wstat != sp.size)
+					err = ERR_WRITE_FAILED;
+			}
+
+			if (err)
+				FILEERROR1 (&F, err, "Writing %zu bytes failed: %s\n", subszs.size, pathptr);
+		}
+	}
+no_create:;
+	if (sp_mode)
+		ResetStringPool (&sp);
+
+	if (is_string_pool)
+	{
+		char *dest = StringCopyS (pathbuf, sizeof (pathbuf), pathptr) - 4;
+		if (dest < pathbuf)
+			dest = pathbuf;
+		StringCopyE (dest, pathbuf + sizeof (pathbuf), ".txt");
+
+		ccp fpath = strrchr (pathbuf, '/');
+		InsertStringField (&ep->exclude_list, fpath ? fpath + 1 : pathbuf, false);
+		InsertStringField (&ep->exclude_list, local_path, false);
+
+		if (!ep->sdir)
+		{
+			File_t F;
+			CreateFileOpt (&F, true, pathbuf, testmode, 0);
+			if (F.f)
+			{
+				u32 off = 0;
+				while (off < subszs.size && !it->endian->rd32 (subszs.data + off))
+					off += 4;
+				off += 4;
+				while (off < subszs.size)
+				{
+					ccp sptr = (ccp)subszs.data + off;
+					if (!*sptr)
+						break;
+					fprintf (F.f, "%s\r\n", sptr);
+					off += ALIGN32 (strlen (sptr) + 5, 4);
+				}
+			}
+			ResetFile (&F, opt_preserve);
+		}
+	}
+
+	//--- prepare ...
+
+	TryDecompressSZS (&subszs, true);
+
+	bool extract = false, cut_file = false;
+	if (!ep->is_cutting)
+	{
+		//--- decode
+
+		MEM_CHECK;
+		noPRINT ("FF=%d,%s %s\n", subszs.fform_arch, GetNameFF (0, subszs.fform_arch),
+			PrintID (subszs.data, 4, 0));
+		switch (ep->parent_fform)
+		{
+			case FF_BREFT:
+				if (!memcmp (local_path, "files/", 6))
+				{
+					const ccp dest_path = STRDUP2 (local_path, ".png");
+					FormatFieldItem_t *item = InsertFormatFieldFF (
+						&ep->decode_list, local_path, FF_BREFT, false, false, 0);
+
+					uint n_image;
+					ExportPNG (ep->dest, dest_path, opt_preserve ? &szs->fatt : 0, subszs.data,
+						subszs.size, 0, ep->mipmap, &n_image, it->endian, item, ep->decode,
+						&ep->exclude_list, PAL_INVALID, 0, 0);
+					item->num = n_image ? n_image : 1;
+					FreeString (dest_path);
+				}
+				break;
+
+			default:
+				break;
+		}
+
+		ccp ext = ".txt";
+		switch (subszs.fform_arch)
+		{
+			case FF_BMG:
+			{
+				// .BMG.header is the raw support fragment emitted while cutting a
+				// complete BMG, not another complete message file. Its leading bytes
+				// identify the parent format, but ScanBMG() correctly rejects the
+				// fragment and used to print thousands of spurious INVALID DATA errors
+				// during a whole-disc XX run. Keep the binary rebuild artifact and do
+				// not schedule a nonsensical text decode for it.
+				ccp bmg_base = strrchr (local_path, '/');
+				bmg_base = bmg_base ? bmg_base + 1 : local_path;
+				if (!strcmp (bmg_base, ".BMG.header"))
+					break;
+				InsertStringField (&ep->exclude_list, STRDUP2 (local_path, ".txt"), true);
+				FormatFieldItem_t *item
+					= InsertFormatField (&ep->decode_list, local_path, false, false, 0);
+				DASSERT (item);
+				item->fform = subszs.fform_arch;
+
+				if (ep->decode)
+				{
+					bmg_t bmg;
+					enumError scan_err = ScanBMG (&bmg, true, pathptr, subszs.data, subszs.size);
+					pathptr = PathCatPPE (pathbuf, sizeof (pathbuf), ep->dest, local_path, ".txt");
+					if (verbose > 1 || testmode)
+					{
+						fprintf (stdlog, "%*s- %sDECODE  %s:%s\n", ep->indent, "",
+							testmode ? "WOULD " : "", GetNameFF (0, subszs.fform_arch), pathptr);
+						fflush (stdlog);
+					}
+					// A subfile detected as BMG (e.g. the .BMG.header fragment of
+					// a BMG section) need not be a complete, scannable BMG.  Only
+					// write the text rendering when scanning really succeeded:
+					// SaveTextXBMG must never run on a failed/bare bmg.
+					if (!testmode && !scan_err)
+						SaveTextXBMG (&bmg, pathptr, true);
+					ResetBMG (&bmg);
+				}
 			}
 			break;
+
+			case FF_KCL:
+				InsertStringField (&ep->exclude_list, STRDUP2 (local_path, KCL_MTL_EXT), true);
+				InsertStringField (&ep->exclude_list, STRDUP2 (local_path, KCL_FLAG_EXT), true);
+				ext = ".obj";
+				// fall through
 
 			case FF_KMP:
-			{
-			    kmp_t kmp;
-			    InitializeKMP(&kmp);
-			    kmp.fname = pathptr;
-			    ScanKMP(&kmp,false,subszs.data,subszs.size,global_check_mode);
-			    if (!testmode)
-				SaveTextKMP(&kmp,pathptr,true);
-			    if (analyze_fname)
-				AnalyzeKMP(&kmp,szs->fname);
-			    kmp.fname = 0;
-			    ResetKMP(&kmp);
-			}
-			break;
-
 			case FF_LEX:
-			{
-			    lex_t lex;
-			    InitializeLEX(&lex);
-			    lex.fname = pathptr;
-			    ScanLEX(&lex,false,subszs.data,subszs.size);
-			    if (!testmode)
-				SaveTextLEX(&lex,pathptr,true);
-			    lex.fname = 0;
-			    ResetLEX(&lex);
-			}
-			break;
-
 			case FF_MDL:
-			{
-			    mdl_t mdl;
-			    InitializeMDL(&mdl);
-			    mdl.fname = pathptr;
-			#if USE_NEW_CONTAINER_MDL
-			    ScanMDL(&mdl,false,subszs.data,subszs.size,
-					LinkContainerSZS(szs),global_check_mode);
-			#else
-			    ScanMDL(&mdl,false,subszs.data,subszs.size,
-					ContainerSZS(szs),global_check_mode);
-			#endif
-			    if (!testmode)
-				SaveTextMDL(&mdl,pathptr,true);
-			    mdl.fname = 0;
-			    ResetMDL(&mdl);
-			}
-			break;
-
 			case FF_PAT:
 			{
-			    pat_t pat;
-			    InitializePAT(&pat);
-			    pat.fname = pathptr;
-			#if USE_NEW_CONTAINER_PAT
-			    ScanPAT(&pat,false,subszs.data,subszs.size,
-					LinkContainerSZS(szs),global_check_mode);
-			#else
-			    ScanPAT(&pat,false,subszs.data,subszs.size,
-					ContainerSZS(szs),global_check_mode);
-			#endif
-			    if (!testmode)
-				SaveTextPAT(&pat,pathptr,true);
-			    pat.fname = 0;
-			    ResetPAT(&pat);
+				InsertStringField (&ep->exclude_list, STRDUP2 (local_path, ext), true);
+				FormatFieldItem_t *item
+					= InsertFormatField (&ep->decode_list, local_path, false, false, 0);
+				DASSERT (item);
+				item->fform = subszs.fform_arch;
+
+				if (ep->decode)
+				{
+					pathptr = PathCatPPE (pathbuf, sizeof (pathbuf), ep->dest, local_path, ext);
+					if (verbose > 1 || testmode)
+					{
+						fprintf (stdlog, "%*s- %sDECODE  %s:%s\n", ep->indent, "",
+							testmode ? "WOULD " : "", GetNameFF (0, subszs.fform_arch), pathptr);
+						fflush (stdlog);
+					}
+
+					switch ((int)subszs.fform_arch)
+					{
+						case FF_KCL:
+						{
+							kcl_t kcl;
+							InitializeKCL (&kcl);
+							kcl.fname = pathptr;
+							ScanKCL (
+								&kcl, false, subszs.data, subszs.size, true, global_check_mode);
+							if (!testmode)
+								SaveTextKCL (&kcl, pathptr, true);
+							if (analyze_fname)
+								AnalyzeKCL (&kcl);
+							kcl.fname = 0;
+							ResetKCL (&kcl);
+						}
+						break;
+
+						case FF_KMP:
+						{
+							kmp_t kmp;
+							InitializeKMP (&kmp);
+							kmp.fname = pathptr;
+							ScanKMP (&kmp, false, subszs.data, subszs.size, global_check_mode);
+							if (!testmode)
+								SaveTextKMP (&kmp, pathptr, true);
+							if (analyze_fname)
+								AnalyzeKMP (&kmp, szs->fname);
+							kmp.fname = 0;
+							ResetKMP (&kmp);
+						}
+						break;
+
+						case FF_LEX:
+						{
+							lex_t lex;
+							InitializeLEX (&lex);
+							lex.fname = pathptr;
+							ScanLEX (&lex, false, subszs.data, subszs.size);
+							if (!testmode)
+								SaveTextLEX (&lex, pathptr, true);
+							lex.fname = 0;
+							ResetLEX (&lex);
+						}
+						break;
+
+						case FF_MDL:
+						{
+							mdl_t mdl;
+							InitializeMDL (&mdl);
+							mdl.fname = pathptr;
+#if USE_NEW_CONTAINER_MDL
+							ScanMDL (&mdl, false, subszs.data, subszs.size, LinkContainerSZS (szs),
+								global_check_mode);
+#else
+							ScanMDL (&mdl, false, subszs.data, subszs.size, ContainerSZS (szs),
+								global_check_mode);
+#endif
+							if (!testmode)
+								SaveTextMDL (&mdl, pathptr, true);
+							mdl.fname = 0;
+							ResetMDL (&mdl);
+						}
+						break;
+
+						case FF_PAT:
+						{
+							pat_t pat;
+							InitializePAT (&pat);
+							pat.fname = pathptr;
+#if USE_NEW_CONTAINER_PAT
+							ScanPAT (&pat, false, subszs.data, subszs.size, LinkContainerSZS (szs),
+								global_check_mode);
+#else
+							ScanPAT (&pat, false, subszs.data, subszs.size, ContainerSZS (szs),
+								global_check_mode);
+#endif
+							if (!testmode)
+								SaveTextPAT (&pat, pathptr, true);
+							pat.fname = 0;
+							ResetPAT (&pat);
+						}
+						break;
+					}
+				}
 			}
 			break;
-		    }
-		}
-	    }
-	    break;
 
-// [[tpl-ex+]]
-	  case FF_TPL:
-	  case FF_TPLX:
-	  case FF_CUPICON:
-	    if (analyze_fname)
-		AnalyzeTPL(szs,subszs.data,subszs.size,it->name);
+				// [[tpl-ex+]]
+			case FF_TPL:
+			case FF_TPLX:
+			case FF_CUPICON:
+				if (analyze_fname)
+					AnalyzeTPL (szs, subszs.data, subszs.size, it->name);
 
-	    // fall through
+				// fall through
 
-	  case FF_BTI:
-	  case FF_TEX:
-	  case FF_TEX_CT:
-	    {
-		const ccp dest_path = STRDUP2(local_path,".png");
-		FormatFieldItem_t * item
-		    = InsertFormatField(&ep->decode_list,local_path,false,false,0);
-		DASSERT(item);
-		item->fform = subszs.fform_arch;
-
-		// Unlike TPL/BTI, a BRRES TEX0 carries no palette of its own --
-		// an indexed (CI4/CI8/CI14X2) TEX0 is only paired with a PLT0
-		// sibling by naming convention, and real retail content isn't
-		// consistent about which one: Animal Crossing: City Folk alone
-		// uses at least three (checked against real samples pulled via
-		// the wit/WBFS pass-through pipeline -- see PLAN.md §8):
-		//   - same name                    ins_kokbt    <-> ins_kokbt
-		//   - "_tex" suffix -> "_pal"/"_pl" int_..._2_tex <-> int_..._2_pal
-		//   - "tex_"/no prefix -> "pl_"     tex_gaku     <-> pl_gaku
-		//                                   cf_ch        <-> pl_cf_ch
-		// A real fix would resolve this via the MDL0 material's sampler,
-		// which names both halves of the pair explicitly and doesn't
-		// need to guess -- out of scope here; this covers what's been
-		// observed on disk without over-fitting to a single title.
-		palette_format_t ext_pform = PAL_INVALID;
-		uint ext_n_pal = 0;
-		const u8 *ext_pal = 0;
-		if ( subszs.fform_arch == FF_TEX || subszs.fform_arch == FF_TEX_CT )
-		{
-		    ccp base = strrchr(local_path,'/');
-		    base = base ? base+1 : local_path;
-		    char base_name[256];
-		    // BRRES entry names are not filenames: a dot can be significant
-		    // (for example TEX0 "tv.0" is paired with PLT0 "tv0").
-		    uint blen = (uint)strlen(base);
-		    if ( blen >= sizeof(base_name) )
-			blen = sizeof(base_name)-1;
-		    memcpy(base_name,base,blen);
-		    base_name[blen] = 0;
-
-		    // MDL0's material reference is authoritative when present: it
-		    // names the exact PLT0 used by this TEX0, including games such
-		    // as Animal Crossing: City Folk that deliberately share palettes
-		    // across differently named textures (tex_treeA_0 -> pl_treeA).
-		    // Keep the historical filename candidates as a fallback for
-		    // BRRES files without models or without palette fields.
-		    ParamFieldItem_t *alias = FindParamField(&ep->pal_alias,base_name);
-		    // PAT0 animation frames often appear as name.0, name.1, ...
-		    // while MDL0 links only the initially displayed frame (.0).
-		    // Numeric siblings use the same indexed palette, so inherit the
-		    // authoritative frame-0 link rather than falling back to a name guess.
-		    if (!alias)
-		    {
-			ccp dot = strrchr(base_name,'.');
-			if (dot && dot[1])
+			case FF_BTI:
+			case FF_TEX:
+			case FF_TEX_CT:
 			{
-			    ccp p = dot+1;
-			    while (*p >= '0' && *p <= '9') p++;
-			    if (!*p)
-			    {
-				char frame0[300];
-				snprintf(frame0,sizeof(frame0),"%.*s.0",
-					(int)(dot-base_name),base_name);
-				alias = FindParamField(&ep->pal_alias,frame0);
-			    }
+				const ccp dest_path = STRDUP2 (local_path, ".png");
+				FormatFieldItem_t *item
+					= InsertFormatField (&ep->decode_list, local_path, false, false, 0);
+				DASSERT (item);
+				item->fform = subszs.fform_arch;
+
+				// Unlike TPL/BTI, a BRRES TEX0 carries no palette of its own --
+				// an indexed (CI4/CI8/CI14X2) TEX0 is only paired with a PLT0
+				// sibling by naming convention, and real retail content isn't
+				// consistent about which one: Animal Crossing: City Folk alone
+				// uses at least three (checked against real samples pulled via
+				// the wit/WBFS pass-through pipeline -- see PLAN.md §8):
+				//   - same name                    ins_kokbt    <-> ins_kokbt
+				//   - "_tex" suffix -> "_pal"/"_pl" int_..._2_tex <-> int_..._2_pal
+				//   - "tex_"/no prefix -> "pl_"     tex_gaku     <-> pl_gaku
+				//                                   cf_ch        <-> pl_cf_ch
+				// A real fix would resolve this via the MDL0 material's sampler,
+				// which names both halves of the pair explicitly and doesn't
+				// need to guess -- out of scope here; this covers what's been
+				// observed on disk without over-fitting to a single title.
+				palette_format_t ext_pform = PAL_INVALID;
+				uint ext_n_pal = 0;
+				const u8 *ext_pal = 0;
+				if (subszs.fform_arch == FF_TEX || subszs.fform_arch == FF_TEX_CT)
+				{
+					ccp base = strrchr (local_path, '/');
+					base = base ? base + 1 : local_path;
+					char base_name[256];
+					// BRRES entry names are not filenames: a dot can be significant
+					// (for example TEX0 "tv.0" is paired with PLT0 "tv0").
+					uint blen = (uint)strlen (base);
+					if (blen >= sizeof (base_name))
+						blen = sizeof (base_name) - 1;
+					memcpy (base_name, base, blen);
+					base_name[blen] = 0;
+
+					// MDL0's material reference is authoritative when present: it
+					// names the exact PLT0 used by this TEX0, including games such
+					// as Animal Crossing: City Folk that deliberately share palettes
+					// across differently named textures (tex_treeA_0 -> pl_treeA).
+					// Keep the historical filename candidates as a fallback for
+					// BRRES files without models or without palette fields.
+					ParamFieldItem_t *alias = FindParamField (&ep->pal_alias, base_name);
+					// PAT0 animation frames often appear as name.0, name.1, ...
+					// while MDL0 links only the initially displayed frame (.0).
+					// Numeric siblings use the same indexed palette, so inherit the
+					// authoritative frame-0 link rather than falling back to a name guess.
+					if (!alias)
+					{
+						ccp dot = strrchr (base_name, '.');
+						if (dot && dot[1])
+						{
+							ccp p = dot + 1;
+							while (*p >= '0' && *p <= '9')
+								p++;
+							if (!*p)
+							{
+								char frame0[300];
+								snprintf (frame0, sizeof (frame0), "%.*s.0", (int)(dot - base_name),
+									base_name);
+								alias = FindParamField (&ep->pal_alias, frame0);
+							}
+						}
+					}
+					if (alias)
+					{
+						ParamFieldItem_t *pit = FindParamField (&ep->pal_cache, (ccp)alias->data);
+						if (pit)
+							GetRawPLT0 (
+								(const u8 *)pit->data, pit->num, &ext_pform, &ext_n_pal, &ext_pal);
+					}
+
+					char candidate[12][300];
+					uint n_cand = 0;
+					snprintf (candidate[n_cand++], sizeof (candidate[0]), "%s", base_name);
+					// A few Nintendo resource names intentionally describe the object
+					// rather than its shared palette. These are stable BRRES conventions,
+					// not directory-order guesses.
+					if (!strcmp (base_name, "tex_clover")
+						|| !strcmp (base_name, "tex_4leaf_clover"))
+						snprintf (candidate[n_cand++], sizeof (candidate[0]), "pl_4leaf_clover");
+					else if (!strcmp (base_name, "tex_crack"))
+						snprintf (candidate[n_cand++], sizeof (candidate[0]), "pl_stone");
+					else if (!strcmp (base_name, "tex_hole"))
+						snprintf (candidate[n_cand++], sizeof (candidate[0]), "pl_hole_sand");
+					else if (!strncmp (base_name, "tex_treeC_", 10))
+						snprintf (candidate[n_cand++], sizeof (candidate[0]), "pl_treeB");
+					else if (!strncmp (base_name, "tex_", 4)
+						&& strstr (base_name + 4, "_grace_soldout"))
+						snprintf (candidate[n_cand++], sizeof (candidate[0]), "pl_grace_soldout");
+					else if (!strncmp (base_name, "tex_", 4) && strstr (base_name + 4, "_soldout"))
+						snprintf (candidate[n_cand++], sizeof (candidate[0]), "pl_soldout");
+					// ACCF's special-character archives use b for the body and b0 for
+					// its alternate frame; both consume the skin0 palette, although b0
+					// is not present in the model's initial MDL0 resource-link table.
+					else if (!strcmp (base_name, "b0"))
+						snprintf (candidate[n_cand++], sizeof (candidate[0]), "skin0");
+
+					// A fourth real ACCF pattern: variant textures (e.g. a "_e"
+					// glow/emissive map) share the base texture's palette under
+					// the base's own name -- "m_ins_hosokwa_e" has no PLT0 of
+					// its own, only "m_ins_hosokwa" does (real sample:
+					// Insect/m_ins_hosokwa.brres). Strip one short trailing
+					// "_xxx" segment and retry under that name.
+					{
+						ccp us = strrchr (base_name, '_');
+						if (us && us != base_name)
+						{
+							uint suffix_len = (uint)(base_name + blen - us - 1);
+							if (suffix_len >= 1 && suffix_len <= 3)
+								snprintf (candidate[n_cand++], sizeof (candidate[0]), "%.*s",
+									(int)(us - base_name), base_name);
+						}
+					}
+
+					const uint tex_suffix_len = 4; // "_tex"
+					if (blen > tex_suffix_len
+						&& !strcmp (base_name + blen - tex_suffix_len, "_tex"))
+					{
+						snprintf (candidate[n_cand++], sizeof (candidate[0]), "%.*s",
+							(int)(blen - tex_suffix_len), base_name);
+						snprintf (candidate[n_cand++], sizeof (candidate[0]), "%.*s_pal",
+							(int)(blen - tex_suffix_len), base_name);
+						snprintf (candidate[n_cand++], sizeof (candidate[0]), "%.*s_pl",
+							(int)(blen - tex_suffix_len), base_name);
+						// Some archives prefix the stripped texture stem with "pl_"
+						// (F_1_tex -> pl_F_1), rather than suffixing it with _pal/_pl.
+						snprintf (candidate[n_cand++], sizeof (candidate[0]), "pl_%.*s",
+							(int)(blen - tex_suffix_len), base_name);
+						// A small number of retail palettes contain one accidental leading
+						// character (iint_imz_art_rembra_0_pal).  Keep this constrained to
+						// the otherwise exact _tex -> _pal transformation.
+						snprintf (candidate[n_cand++], sizeof (candidate[0]), "i%.*s_pal",
+							(int)(blen - tex_suffix_len), base_name);
+					}
+					else
+					{
+						// Animated resource frames keep their numeric suffix after the
+						// resource kind: foo_tex.2 is paired with foo_pal.2.  The prior
+						// suffix-only rewrite could never see "_tex" before the dot.
+						ccp tex_frame = strstr (base_name, "_tex.");
+						if (tex_frame)
+							snprintf (candidate[n_cand++], sizeof (candidate[0]), "%.*s_pal%s",
+								(int)(tex_frame - base_name), base_name, tex_frame + 4);
+					}
+
+					const uint tex_prefix_len = 4; // "tex_"
+					if (blen > tex_prefix_len && !memcmp (base_name, "tex_", tex_prefix_len))
+						snprintf (candidate[n_cand++], sizeof (candidate[0]), "pl_%s",
+							base_name + tex_prefix_len);
+					else
+						snprintf (candidate[n_cand++], sizeof (candidate[0]), "pl_%s", base_name);
+
+					// Two other naming conventions found in retail BRRES: the art
+					// resources abbreviate int_imz as pl_mz, and tex_obj_mol uses the
+					// reverse object order in its palette name.
+					if (!strncmp (base_name, "int_imz_art_", 12))
+						snprintf (candidate[n_cand++], sizeof (candidate[0]), "pl_mz_art_%s",
+							base_name + 12);
+					else if (!strcmp (base_name, "tex_obj_mol"))
+						snprintf (candidate[n_cand++], sizeof (candidate[0]), "pl_mol_obj");
+
+					// BRRES resource names are not necessarily valid filename stems:
+					// tv.0 is paired with the PLT0 named tv0.  Retry the exact same name
+					// after removing punctuation, but only if this actually changed it.
+					char compact_name[300];
+					uint compact_len = 0;
+					for (uint bi = 0; bi < blen && compact_len + 1 < sizeof (compact_name); bi++)
+						if ((base_name[bi] >= 'a' && base_name[bi] <= 'z')
+							|| (base_name[bi] >= 'A' && base_name[bi] <= 'Z')
+							|| (base_name[bi] >= '0' && base_name[bi] <= '9')
+							|| base_name[bi] == '_')
+							compact_name[compact_len++] = base_name[bi];
+					compact_name[compact_len] = 0;
+					if (strcmp (compact_name, base_name))
+						snprintf (candidate[n_cand++], sizeof (candidate[0]), "%s", compact_name);
+					for (uint ci = 0; ci < n_cand && !ext_pal; ci++)
+					{
+						ParamFieldItem_t *pit = FindParamField (&ep->pal_cache, candidate[ci]);
+						if (pit)
+							GetRawPLT0 (
+								(const u8 *)pit->data, pit->num, &ext_pform, &ext_n_pal, &ext_pal);
+					}
+
+					// Effect maps occasionally use independently numbered glow resources.
+					// There is no filename equality to apply, but their BRRES contains a
+					// single palette from the same glow family (glow31 -> glow28).
+					if (!ext_pal && !strncmp (base_name, "glow", 4))
+					{
+						for (uint pi = 0; pi < ep->pal_cache.used; pi++)
+						{
+							ParamFieldItem_t *pit = ep->pal_cache.field + pi;
+							if (!strncmp (pit->key, "glow", 4))
+							{
+								GetRawPLT0 ((const u8 *)pit->data, pit->num, &ext_pform, &ext_n_pal,
+									&ext_pal);
+								break;
+							}
+						}
+					}
+
+					// If an archive contains exactly one PLT0, there is no ambiguity for
+					// an otherwise-unresolved indexed TEX0.  This covers auxiliary maps
+					// whose resource name deliberately differs from the model/skin name
+					// (for example ACCF's Excap texture "h") without guessing between
+					// multiple palettes in larger archives.
+					if (!ext_pal && ep->pal_cache.used == 1)
+					{
+						ParamFieldItem_t *pit = ep->pal_cache.field;
+						GetRawPLT0 (
+							(const u8 *)pit->data, pit->num, &ext_pform, &ext_n_pal, &ext_pal);
+					}
+
+					// Last-resort naming convention used by many BRRES files: compare
+					// normalized TEX0/PLT0 base names and prefer the most specific
+					// palette. This covers shared variant palettes without a filename
+					// equality assumption.
+					if (!ext_pal)
+					{
+						ParamFieldItem_t *best = 0;
+						uint best_score = 0;
+						for (uint pi = 0; pi < ep->pal_cache.used; pi++)
+						{
+							ParamFieldItem_t *pit = ep->pal_cache.field + pi;
+							const uint score = palette_name_score (base_name, pit->key);
+							if (score > best_score)
+							{
+								best = pit;
+								best_score = score;
+							}
+						}
+						if (best)
+							GetRawPLT0 ((const u8 *)best->data, best->num, &ext_pform, &ext_n_pal,
+								&ext_pal);
+					}
+				}
+
+				u8 completed_palette[512];
+				const uint required_pal = tex0_required_palette (subszs.data, subszs.size);
+				if (required_pal && required_pal <= 256 && ext_n_pal < required_pal)
+				{
+					// Preserve every real color that is present. Missing entries are
+					// runtime-supplied by the game and cannot be recovered from the
+					// archive, so represent only those absent indices as opaque gray.
+					palette_format_t completed_format = ext_pal
+							&& (ext_pform == PAL_IA8 || ext_pform == PAL_RGB565
+								|| ext_pform == PAL_RGB5A3)
+						? ext_pform
+						: PAL_IA8;
+					for (uint pi = 0; pi < required_pal; pi++)
+						make_gray_palette_entry (completed_palette + 2 * pi, completed_format, pi);
+					if (ext_pal && ext_n_pal)
+						memcpy (completed_palette, ext_pal, 2 * ext_n_pal);
+					if (verbose > 0)
+						fprintf (stdlog, "%*s- COMPLETE RUNTIME PALETTE %u -> %u: %s\n", ep->indent,
+							"", ext_n_pal, required_pal, pathptr);
+					ext_pform = completed_format;
+					ext_n_pal = required_pal;
+					ext_pal = completed_palette;
+				}
+
+				uint n_image;
+				ExportPNG (ep->dest, dest_path, opt_preserve ? &szs->fatt : 0, subszs.data,
+					subszs.size, 0, ep->mipmap, &n_image, it->endian, item, ep->decode,
+					&ep->exclude_list, ext_pform, ext_n_pal, ext_pal);
+				item->num = n_image ? n_image : 1;
+				FreeString (dest_path);
 			}
-		    }
-		    if (alias)
-		    {
-			ParamFieldItem_t *pit = FindParamField(&ep->pal_cache,(ccp)alias->data);
-			if (pit)
-			    GetRawPLT0((const u8*)pit->data,pit->num,&ext_pform,&ext_n_pal,&ext_pal);
-		    }
-
-		    char candidate[12][300];
-		    uint n_cand = 0;
-		    snprintf(candidate[n_cand++],sizeof(candidate[0]),"%s",base_name);
-		    // A few Nintendo resource names intentionally describe the object
-		    // rather than its shared palette. These are stable BRRES conventions,
-		    // not directory-order guesses.
-	    if ( !strcmp(base_name,"tex_clover") || !strcmp(base_name,"tex_4leaf_clover") )
-		snprintf(candidate[n_cand++],sizeof(candidate[0]),"pl_4leaf_clover");
-		    else if (!strcmp(base_name,"tex_crack"))
-			snprintf(candidate[n_cand++],sizeof(candidate[0]),"pl_stone");
-		    else if (!strcmp(base_name,"tex_hole"))
-			snprintf(candidate[n_cand++],sizeof(candidate[0]),"pl_hole_sand");
-	    else if (!strncmp(base_name,"tex_treeC_",10))
-		snprintf(candidate[n_cand++],sizeof(candidate[0]),"pl_treeB");
-	    else if ( !strncmp(base_name,"tex_",4)
-		   && strstr(base_name+4,"_grace_soldout") )
-		snprintf(candidate[n_cand++],sizeof(candidate[0]),"pl_grace_soldout");
-	    else if ( !strncmp(base_name,"tex_",4)
-		   && strstr(base_name+4,"_soldout") )
-		snprintf(candidate[n_cand++],sizeof(candidate[0]),"pl_soldout");
-	    // ACCF's special-character archives use b for the body and b0 for
-	    // its alternate frame; both consume the skin0 palette, although b0
-	    // is not present in the model's initial MDL0 resource-link table.
-	    else if (!strcmp(base_name,"b0"))
-		snprintf(candidate[n_cand++],sizeof(candidate[0]),"skin0");
-
-		    // A fourth real ACCF pattern: variant textures (e.g. a "_e"
-		    // glow/emissive map) share the base texture's palette under
-		    // the base's own name -- "m_ins_hosokwa_e" has no PLT0 of
-		    // its own, only "m_ins_hosokwa" does (real sample:
-		    // Insect/m_ins_hosokwa.brres). Strip one short trailing
-		    // "_xxx" segment and retry under that name.
-		    {
-			ccp us = strrchr(base_name,'_');
-			if ( us && us != base_name )
-			{
-			    uint suffix_len = (uint)(base_name+blen-us-1);
-			    if ( suffix_len >= 1 && suffix_len <= 3 )
-				snprintf(candidate[n_cand++],sizeof(candidate[0]),
-					    "%.*s",(int)(us-base_name),base_name);
-			}
-		    }
-
-	    const uint tex_suffix_len = 4; // "_tex"
-	    if ( blen > tex_suffix_len && !strcmp(base_name+blen-tex_suffix_len,"_tex") )
-	    {
-		snprintf(candidate[n_cand++],sizeof(candidate[0]),
-			 "%.*s",(int)(blen-tex_suffix_len),base_name);
-		snprintf(candidate[n_cand++],sizeof(candidate[0]),
-			 "%.*s_pal",(int)(blen-tex_suffix_len),base_name);
-		snprintf(candidate[n_cand++],sizeof(candidate[0]),
-			 "%.*s_pl",(int)(blen-tex_suffix_len),base_name);
-		// Some archives prefix the stripped texture stem with "pl_"
-		// (F_1_tex -> pl_F_1), rather than suffixing it with _pal/_pl.
-		snprintf(candidate[n_cand++],sizeof(candidate[0]),
-			 "pl_%.*s",(int)(blen-tex_suffix_len),base_name);
-		// A small number of retail palettes contain one accidental leading
-		// character (iint_imz_art_rembra_0_pal).  Keep this constrained to
-		// the otherwise exact _tex -> _pal transformation.
-		snprintf(candidate[n_cand++],sizeof(candidate[0]),
-			 "i%.*s_pal",(int)(blen-tex_suffix_len),base_name);
-	    }
-	    else
-	    {
-		// Animated resource frames keep their numeric suffix after the
-		// resource kind: foo_tex.2 is paired with foo_pal.2.  The prior
-		// suffix-only rewrite could never see "_tex" before the dot.
-		ccp tex_frame = strstr(base_name,"_tex.");
-		if (tex_frame)
-		    snprintf(candidate[n_cand++],sizeof(candidate[0]),
-			     "%.*s_pal%s",(int)(tex_frame-base_name),base_name,
-			     tex_frame+4);
-	    }
-
-		    const uint tex_prefix_len = 4; // "tex_"
-		    if ( blen > tex_prefix_len && !memcmp(base_name,"tex_",tex_prefix_len) )
-			snprintf(candidate[n_cand++],sizeof(candidate[0]),
-				    "pl_%s",base_name+tex_prefix_len);
-	    else
-		snprintf(candidate[n_cand++],sizeof(candidate[0]),
-			 "pl_%s",base_name);
-
-	    // Two other naming conventions found in retail BRRES: the art
-	    // resources abbreviate int_imz as pl_mz, and tex_obj_mol uses the
-	    // reverse object order in its palette name.
-	    if ( !strncmp(base_name,"int_imz_art_",12) )
-		snprintf(candidate[n_cand++],sizeof(candidate[0]),"pl_mz_art_%s",base_name+12);
-	    else if ( !strcmp(base_name,"tex_obj_mol") )
-		snprintf(candidate[n_cand++],sizeof(candidate[0]),"pl_mol_obj");
-
-	    // BRRES resource names are not necessarily valid filename stems:
-	    // tv.0 is paired with the PLT0 named tv0.  Retry the exact same name
-	    // after removing punctuation, but only if this actually changed it.
-	    char compact_name[300];
-	    uint compact_len = 0;
-	    for ( uint bi = 0; bi < blen && compact_len+1 < sizeof(compact_name); bi++ )
-		if ( (base_name[bi] >= 'a' && base_name[bi] <= 'z')
-		  || (base_name[bi] >= 'A' && base_name[bi] <= 'Z')
-		  || (base_name[bi] >= '0' && base_name[bi] <= '9')
-		  || base_name[bi] == '_' )
-		    compact_name[compact_len++] = base_name[bi];
-	    compact_name[compact_len] = 0;
-	    if ( strcmp(compact_name,base_name) )
-		snprintf(candidate[n_cand++],sizeof(candidate[0]),"%s",compact_name);
-	    for ( uint ci = 0; ci < n_cand && !ext_pal; ci++ )
-		    {
-			ParamFieldItem_t *pit = FindParamField(&ep->pal_cache,candidate[ci]);
-			if (pit)
-			    GetRawPLT0((const u8*)pit->data,pit->num,&ext_pform,&ext_n_pal,&ext_pal);
-	    }
-
-	    // Effect maps occasionally use independently numbered glow resources.
-	    // There is no filename equality to apply, but their BRRES contains a
-	    // single palette from the same glow family (glow31 -> glow28).
-	    if ( !ext_pal && !strncmp(base_name,"glow",4) )
-	    {
-		for ( uint pi = 0; pi < ep->pal_cache.used; pi++ )
-		{
-		    ParamFieldItem_t *pit = ep->pal_cache.field + pi;
-		    if ( !strncmp(pit->key,"glow",4) )
-		    {
-			GetRawPLT0((const u8*)pit->data,pit->num,
-				   &ext_pform,&ext_n_pal,&ext_pal);
 			break;
-		    }
-		}
-	    }
 
-	    // If an archive contains exactly one PLT0, there is no ambiguity for
-	    // an otherwise-unresolved indexed TEX0.  This covers auxiliary maps
-	    // whose resource name deliberately differs from the model/skin name
-	    // (for example ACCF's Excap texture "h") without guessing between
-	    // multiple palettes in larger archives.
-	    if ( !ext_pal && ep->pal_cache.used == 1 )
-	    {
-		ParamFieldItem_t *pit = ep->pal_cache.field;
-		GetRawPLT0((const u8*)pit->data,pit->num,
-			   &ext_pform,&ext_n_pal,&ext_pal);
-	    }
-
-	    // Last-resort naming convention used by many BRRES files: compare
-		    // normalized TEX0/PLT0 base names and prefer the most specific
-		    // palette. This covers shared variant palettes without a filename
-		    // equality assumption.
-		    if (!ext_pal)
-		    {
-			ParamFieldItem_t *best = 0;
-			uint best_score = 0;
-			for ( uint pi = 0; pi < ep->pal_cache.used; pi++ )
-			{
-			    ParamFieldItem_t *pit = ep->pal_cache.field + pi;
-			    const uint score = palette_name_score(base_name,pit->key);
-			    if (score > best_score)
-			    {
-				best = pit;
-				best_score = score;
-			    }
-			}
-			if (best)
-			    GetRawPLT0((const u8*)best->data,best->num,&ext_pform,&ext_n_pal,&ext_pal);
-		    }
+			default:
+				break;
 		}
 
-		u8 completed_palette[512];
-		const uint required_pal = tex0_required_palette(subszs.data,subszs.size);
-		if ( required_pal && required_pal <= 256 && ext_n_pal < required_pal )
+		if (subszs.ff_attrib & FFT_EXTRACT)
 		{
-		    // Preserve every real color that is present. Missing entries are
-		    // runtime-supplied by the game and cannot be recovered from the
-		    // archive, so represent only those absent indices as opaque gray.
-		    palette_format_t completed_format = ext_pal
-			&& ( ext_pform == PAL_IA8 || ext_pform == PAL_RGB565
-			  || ext_pform == PAL_RGB5A3 ) ? ext_pform : PAL_IA8;
-		    for (uint pi = 0; pi < required_pal; pi++)
-			make_gray_palette_entry(completed_palette+2*pi,
-				completed_format,pi);
-		    if (ext_pal && ext_n_pal)
-			memcpy(completed_palette,ext_pal,2*ext_n_pal);
-		    if (verbose > 0)
-			fprintf(stdlog,"%*s- COMPLETE RUNTIME PALETTE %u -> %u: %s\n",
-				ep->indent,"",ext_n_pal,required_pal,pathptr);
-		    ext_pform = completed_format;
-		    ext_n_pal = required_pal;
-		    ext_pal = completed_palette;
+			InsertStringField (&ep->extract_list, local_path, false);
+			InsertStringField (&ep->exclude_list, STRDUP2 (local_path, ".d"), true);
+			extract = ep->extract;
 		}
-
-		uint n_image;
-		ExportPNG(ep->dest,
-			    dest_path,
-			    opt_preserve ? &szs->fatt : 0,
-			    subszs.data,
-			    subszs.size,
-			    0,
-			    ep->mipmap,
-			    &n_image,
-			    it->endian,
-			    item,
-			    ep->decode,
-			    &ep->exclude_list,
-			    ext_pform, ext_n_pal, ext_pal );
-		item->num = n_image ? n_image : 1;
-		FreeString(dest_path);
-	    }
-	    break;
-
-	  default:
-	    break;
+		else if (subszs.ff_attrib & FFT_CUT)
+		{
+			InsertStringField (&ep->exclude_list, STRDUP2 (local_path, ".d"), true);
+			cut_file = opt_cut && IsValidSZS (&subszs, false) < VALID_ERROR;
+		}
 	}
 
-	if ( subszs.ff_attrib & FFT_EXTRACT )
+	//--- extract sub archives or cut file
+
+	if (extract || cut_file)
 	{
-	    InsertStringField(&ep->extract_list,local_path,false);
-	    InsertStringField(&ep->exclude_list,STRDUP2(local_path,".d"),true);
-	    extract = ep->extract;
+		pathptr = PathCatPP (pathbuf, sizeof (pathbuf), ep->dest, local_path);
+		subszs.fname = pathptr;
+		PRINT ("EXTRACT/%s[%s]: %s\n", __FUNCTION__, GetNameFF_SZS (&subszs), subszs.fname);
+		if (extract)
+			ExtractFilesSZS (&subszs, ep->recurse_level + 1, false, ep->sdir, 0);
+		if (cut_file)
+			ExtractFilesSZS (&subszs, ep->recurse_level + 1, true, ep->sdir, 0);
+
+		subszs.fname = EmptyString;
 	}
-	else if ( subszs.ff_attrib & FFT_CUT )
-	{
-	    InsertStringField(&ep->exclude_list,STRDUP2(local_path,".d"),true);
-	    cut_file = opt_cut && IsValidSZS(&subszs,false) < VALID_ERROR;
-	}
-    }
+	ResetSZS (&subszs);
 
+	//--- now close file (because of time stamps)
 
-    //--- extract sub archives or cut file
-
-    if ( extract || cut_file )
-    {
-	pathptr = PathCatPP(pathbuf,sizeof(pathbuf),ep->dest,local_path);
-	subszs.fname = pathptr;
-	PRINT("EXTRACT/%s[%s]: %s\n",__FUNCTION__,GetNameFF_SZS(&subszs),subszs.fname);
-	if (extract)
-	    ExtractFilesSZS(&subszs,ep->recurse_level+1,false,ep->sdir,0);
-	if (cut_file)
-	    ExtractFilesSZS(&subszs,ep->recurse_level+1,true,ep->sdir,0);
-
-	subszs.fname = EmptyString;
-    }
-    ResetSZS(&subszs);
-
-
-    //--- now close file (because of time stamps)
-
-    ResetFile(&F,opt_preserve);
-    return 0;
+	ResetFile (&F, opt_preserve);
+	return 0;
 }
 
-// local_path local_path it->path local_path it->path local_path it->path local_path it->path local_path
+// local_path local_path it->path local_path it->path local_path it->path local_path it->path
+// local_path
 
 ///////////////////////////////////////////////////////////////////////////////
 
-enumError ExtractFilesSZS
-(
-    szs_file_t	*szs,		// valid szs file
-    int		recurse_level,	// recursion level
-    bool	is_cutting,	// true: is cutting a file
-    SubDir_t	*sdir,		// not NULL: store files here
-    ccp		basedir		// not NULL: Extract only files if "/BASEDIR" or "./BASEDIR".
+enumError ExtractFilesSZS (szs_file_t *szs, // valid szs file
+	int recurse_level, // recursion level
+	bool is_cutting, // true: is cutting a file
+	SubDir_t *sdir, // not NULL: store files here
+	ccp basedir // not NULL: Extract only files if "/BASEDIR" or "./BASEDIR".
 				// BASEDIR is like "a/b/c/" without leading slash
 				// If set, don't create support files.
 )
 {
-    DASSERT(szs);
-    MEM_CHECK;
-    PRINT("JOB EXTRACT: %d/%d %d ff=%d,%d[%s], %zu/%zu %s\n",
-		recurse_level, opt_recurse, is_cutting,
-		szs->fform_file, szs->fform_arch,
-		GetNameFF(szs->fform_file,szs->fform_arch),
-		szs->size, szs->file_size, szs->fname );
-    DASSERT( !szs->file_size || szs->file_size >= szs->size );
+	DASSERT (szs);
+	MEM_CHECK;
+	PRINT ("JOB EXTRACT: %d/%d %d ff=%d,%d[%s], %zu/%zu %s\n", recurse_level, opt_recurse,
+		is_cutting, szs->fform_file, szs->fform_arch, GetNameFF (szs->fform_file, szs->fform_arch),
+		szs->size, szs->file_size, szs->fname);
+	DASSERT (!szs->file_size || szs->file_size >= szs->size);
 
-    if (analyze_fname)
-	switch ((int)szs->fform_arch)
+	if (analyze_fname)
+		switch ((int)szs->fform_arch)
+		{
+			case FF_BREFF:
+			case FF_BREFT:
+				AnalyzeBREFF (szs, szs->data, szs->size, szs->fname);
+				break;
+		}
+
+	char dest[PATH_MAX];
+	StringCat2S (dest, sizeof (dest), szs->fname, ".d");
+	PRINT ("rec=%d isdir=%d dest=%d,%s\n", recurse_level, IsDirectory (dest, false), opt_dest != 0,
+		opt_dest);
+	if (!recurse_level && (opt_dest || !IsDirectory (dest, false)))
 	{
-	    case FF_BREFF:
-	    case FF_BREFT:
-		AnalyzeBREFF(szs,szs->data,szs->size,szs->fname);
-		break;
+		ccp my_dest = opt_dest;
+		if (!my_dest)
+		{
+			switch (szs->fform_arch)
+			{
+				case FF_U8:
+				case FF_WU8:
+				case FF_LTA:
+				case FF_LFL:
+				case FF_RARC:
+				case FF_PACK:
+				case FF_RKC:
+					my_dest = "\1P/\1N.d/";
+					break;
+
+				default:
+					my_dest = "\1P/\1F.d/";
+					break;
+			}
+		}
+		SubstDest (dest, sizeof (dest), szs->fname, my_dest, 0, 0, true);
+		noPRINT ("new-dest=%s\n", dest);
+	}
+	// else if ( recurse_level && !IsArchiveFF(szs->fform_arch) )
+	else if (is_cutting)
+	{
+		ccp file = strrchr (szs->fname, '/');
+		file = file ? file + 1 : szs->fname;
+		snprintf (dest, sizeof (dest), "%.*s.%s.d", (int)(file - szs->fname), szs->fname, file);
+		PRINT ("CUT TO: %s\n", dest);
 	}
 
-    char dest[PATH_MAX];
-    StringCat2S(dest,sizeof(dest),szs->fname,".d");
-    PRINT("rec=%d isdir=%d dest=%d,%s\n",
-	recurse_level, IsDirectory(dest,false), opt_dest!=0, opt_dest );
-    if ( !recurse_level && ( opt_dest || !IsDirectory(dest,false) ) )
-    {
-	ccp my_dest = opt_dest;
-	if (!my_dest)
+	const int indent = 2 * recurse_level;
+	if (verbose >= 0 && !recurse_level || verbose > 0 || testmode && !analyze_fname)
 	{
-	    switch (szs->fform_arch)
-	    {
+		fprintf (stdlog, "%s%*s%sEXTRACT %s:%s -> %s\n", verbose > 1 ? "\n" : "", indent, "",
+			testmode ? "WOULD " : "", GetNameFF_SZS (szs), szs->fname, dest);
+		fflush (stdlog);
+	}
+
+	if (!opt_overwrite && !opt_update && !sdir)
+	{
+		struct stat st;
+		if (!stat (dest, &st))
+			return ERROR0 (ERR_ALREADY_EXISTS, "Destination already exists: %s", dest);
+	}
+
+	extract_param_t ep;
+	memset (&ep, 0, sizeof (ep));
+	InitializeStringField (&ep.include_list);
+	InitializeStringField (&ep.exclude_list);
+	InitializeFormatField (&ep.decode_list);
+	InitializeStringField (&ep.extract_list);
+	InitializeFormatField (&ep.order_list);
+	InitializeParamField (&ep.pal_cache);
+	ep.pal_cache.free_data = true;
+	InitializeParamField (&ep.pal_alias);
+	ep.pal_alias.free_data = true;
+	InsertStringField (&ep.exclude_list, SZS_SETUP_FILE, false);
+
+	ep.parent_fform = szs->fform_arch;
+	ep.sdir = sdir;
+	ep.dest = dest;
+	ep.decode = opt_decode;
+	ep.mipmap = opt_mipmaps >= 0;
+	ep.recurse_level = recurse_level;
+	ep.extract = recurse_level < opt_recurse;
+	ep.is_cutting = is_cutting;
+	ep.indent = indent + 1;
+	ep.align = 0x80000000;
+	ep.basedir = basedir;
+
+	switch (szs->fform_arch)
+	{
 		case FF_U8:
 		case FF_WU8:
+			InsertStringField (&ep.exclude_list, "course.kcl.d", false);
+			InsertStringField (&ep.exclude_list, "course.kcl.obj", false);
+			InsertStringField (&ep.exclude_list, "course.kcl.mtl", false);
+			InsertStringField (&ep.exclude_list, "course.kcl.flag", false);
+			InsertStringField (&ep.exclude_list, "course.kmp.d", false);
+			InsertStringField (&ep.exclude_list, "course.kmp.txt", false);
+			InsertStringField (&ep.exclude_list, "course.lex.txt", false);
+			InsertFormatFieldFF (&ep.decode_list, "course.kcl", FF_KCL, false, false, 0);
+			InsertFormatFieldFF (&ep.decode_list, "course.kmp", FF_KMP, false, false, 0);
+			InsertFormatFieldFF (&ep.decode_list, "course.lex", FF_LEX, false, false, 0);
+			break;
+
 		case FF_LTA:
-		case FF_LFL:
-		case FF_RARC:
-		case FF_PACK:
-		case FF_RKC:
-		    my_dest = "\1P/\1N.d/";
-		    break;
+			InsertStringField (&ep.exclude_list, NODE_LIST_FILE, false);
+			break;
 
 		default:
-		    my_dest = "\1P/\1F.d/";
-		    break;
-	    }
+			break;
 	}
-	SubstDest(dest,sizeof(dest),szs->fname,my_dest,0,0,true);
-	noPRINT("new-dest=%s\n",dest);
-    }
-    //else if ( recurse_level && !IsArchiveFF(szs->fform_arch) )
-    else if (is_cutting)
-    {
-	ccp file = strrchr(szs->fname,'/');
-	file = file ? file+1 : szs->fname;
-	snprintf(dest,sizeof(dest),"%.*s.%s.d",
-		(int)(file - szs->fname), szs->fname, file );
-	PRINT("CUT TO: %s\n",dest);
-    }
 
-    const int indent = 2 * recurse_level;
-    if ( verbose >= 0 && !recurse_level || verbose > 0 || testmode && !analyze_fname )
-    {
-	fprintf(stdlog,"%s%*s%sEXTRACT %s:%s -> %s\n",
-		verbose > 1 ? "\n" : "",
-		indent,"",
-		testmode ? "WOULD " : "",
-		GetNameFF_SZS(szs), szs->fname, dest );
-	fflush(stdlog);
-    }
+	const int cut_files = is_cutting ? 1 : recurse_level || IsArchiveFF (szs->fform_arch) ? -1 : 0;
+	PRINT ("cut_files=%d\n", cut_files);
 
-    if ( !opt_overwrite && !opt_update && !sdir )
-    {
-	struct stat st;
-	if (!stat(dest,&st))
-	    return ERROR0(ERR_ALREADY_EXISTS,"Destination already exists: %s",dest);
-    }
+	IterateFilesParSZS (
+		szs, collect_plt0_func, &ep.pal_cache, true, false, false, 0, -1, SORT_NONE);
+	IterateFilesParSZS (
+		szs, collect_mdl0_palette_func, &ep.pal_alias, true, false, false, 0, -1, SORT_NONE);
+	IterateFilesParSZS (szs, extract_func, &ep, true, false, false, 0, cut_files, SORT_NONE);
 
-    extract_param_t ep;
-    memset(&ep,0,sizeof(ep));
-    InitializeStringField(&ep.include_list);
-    InitializeStringField(&ep.exclude_list);
-    InitializeFormatField(&ep.decode_list);
-    InitializeStringField(&ep.extract_list);
-    InitializeFormatField(&ep.order_list);
-    InitializeParamField(&ep.pal_cache);
-    ep.pal_cache.free_data = true;
-    InitializeParamField(&ep.pal_alias);
-    ep.pal_alias.free_data = true;
-    InsertStringField(&ep.exclude_list,SZS_SETUP_FILE,false);
+	//----- write setup file
 
-    ep.parent_fform	= szs->fform_arch;
-    ep.sdir		= sdir;
-    ep.dest		= dest;
-    ep.decode		= opt_decode;
-    ep.mipmap		= opt_mipmaps >= 0;
-    ep.recurse_level	= recurse_level;
-    ep.extract		= recurse_level < opt_recurse;
-    ep.is_cutting	= is_cutting;
-    ep.indent		= indent + 1;
-    ep.align		= 0x80000000;
-    ep.basedir		= basedir;
+#ifndef __APPLE__
+	char *f_data = 0;
+	size_t f_size = 0;
+#endif
 
-    switch (szs->fform_arch)
-    {
-     case FF_U8:
-     case FF_WU8:
-	InsertStringField(&ep.exclude_list,"course.kcl.d",false);
-	InsertStringField(&ep.exclude_list,"course.kcl.obj",false);
-	InsertStringField(&ep.exclude_list,"course.kcl.mtl",false);
-	InsertStringField(&ep.exclude_list,"course.kcl.flag",false);
-	InsertStringField(&ep.exclude_list,"course.kmp.d",false);
-	InsertStringField(&ep.exclude_list,"course.kmp.txt",false);
-	InsertStringField(&ep.exclude_list,"course.lex.txt",false);
-	InsertFormatFieldFF(&ep.decode_list,"course.kcl",FF_KCL,false,false,0);
-	InsertFormatFieldFF(&ep.decode_list,"course.kmp",FF_KMP,false,false,0);
-	InsertFormatFieldFF(&ep.decode_list,"course.lex",FF_LEX,false,false,0);
-	break;
-
-     case FF_LTA:
-	InsertStringField(&ep.exclude_list,NODE_LIST_FILE,false);
-	break;
-
-     default:
-	break;
-    }
-
-    const int cut_files = is_cutting
-	? 1
-	: recurse_level || IsArchiveFF(szs->fform_arch) ? -1 : 0;
-    PRINT("cut_files=%d\n",cut_files);
-
-    IterateFilesParSZS(szs,collect_plt0_func,&ep.pal_cache,true,false,false,0,-1,SORT_NONE);
-    IterateFilesParSZS(szs,collect_mdl0_palette_func,&ep.pal_alias,true,false,false,0,-1,SORT_NONE);
-    IterateFilesParSZS(szs,extract_func,&ep,true,false,false,0,cut_files,SORT_NONE);
-
-
-    //----- write setup file
-
- #ifndef __APPLE__
-    char  *f_data = 0;
-    size_t f_size = 0;
- #endif
-
-    ccp destptr;
-    FILE *f = 0;
-    if (!basedir)
-    {
-	if (!sdir)
+	ccp destptr;
+	FILE *f = 0;
+	if (!basedir)
 	{
-	    destptr = PathCatPP(dest,sizeof(dest),dest,SZS_SETUP_FILE);
-	    f = fopen(destptr,"w");
+		if (!sdir)
+		{
+			destptr = PathCatPP (dest, sizeof (dest), dest, SZS_SETUP_FILE);
+			f = fopen (destptr, "w");
+		}
+#ifndef __APPLE__
+		else
+		{
+			destptr = SZS_SETUP_FILE;
+			f = open_memstream (&f_data, &f_size);
+		}
+#endif
 	}
-     #ifndef __APPLE__
-	else
+
+	if (f)
 	{
-	    destptr = SZS_SETUP_FILE;
-	    f = open_memstream(&f_data,&f_size);
+		u32 align = 1;
+		if (ep.align)
+			while (!(ep.align & align))
+				align <<= 1;
+
+		fputs (text_setup_header_cr, f);
+		if (szs->obj_name)
+			fprintf (f,
+				"# Name of the object:\r\n"
+				"object-name = %s\r\n"
+				"\r\n",
+				szs->obj_name);
+
+		if (szs->obj_id_used)
+			fprintf (f,
+				"# ID of the object:\r\n"
+				"object-id = 0x%x\r\n"
+				"\r\n",
+				szs->obj_id);
+
+		fprintf (f,
+			"# The internal archive format (U8, WU8, BRRES, BREFF, BREFT, LTA or LFL):\r\n"
+			"archive-format = %s\r\n"
+			"\r\n"
+			"# The file format (YAZ0, YAZ1 or BZ for a compressed archive, other ignored):\r\n"
+			"file-format = %s\r\n"
+			"\r\n"
+			"# An archive format related version number (-1: unknown or not relevant)\r\n"
+			"version = %d\r\n"
+			"\r\n"
+			"# For U8+WU8 archives: Is there a special '.' base directory:\r\n"
+			"have-pt-dir = %d\r\n"
+			"\r\n"
+			"# The minimum and maximum file data positions:\r\n"
+			"min-data-offset = 0x%x\r\n"
+			"max-data-offset = 0x%x\r\n"
+			"\r\n"
+			"# The calculated alignment of all files:\r\n"
+			"data-align = 0x%x\r\n",
+			GetNameFF (szs->fform_arch, szs->fform_arch),
+			GetNameFF (szs->fform_file, szs->fform_file),
+			// [[version-suffix]]
+			GetVersionFF (szs->fform_arch, szs->data, szs->size, 0), ep.have_pt_dir,
+			szs->min_data_off, szs->max_data_off, align);
+
+		fputs (text_setup_include_cr, f);
+		WriteStringField (f, destptr, &ep.include_list, "./", "\r\n");
+		fputs (text_setup_exclude_cr, f);
+		WriteStringField (f, destptr, &ep.exclude_list, "./", "\r\n");
+		fputs (text_setup_encode_cr, f);
+		WriteFormatField (f, destptr, &ep.decode_list, 0, "./", "\r\n", 0);
+		fputs (text_setup_create_cr, f);
+		WriteStringField (f, destptr, &ep.extract_list, "./", "\r\n");
+		fputs (text_setup_order_cr, f);
+		WriteFormatField (f, destptr, &ep.order_list, 0, "./", "\r\n", 10);
+		fputs ("\r\n#---------------------------------------"
+			   "---------------------------------------\r\n\r\n",
+			f);
+		fclose (f);
+
+#ifndef __APPLE__
+		if (sdir)
+		{
+			bool new_file;
+			SubFile_t *sf = InsertSubFile (sdir, MemByString (SZS_SETUP_FILE), &new_file);
+			if (sf && new_file)
+			{
+#if TRACE_ALLOC_MODE > 2
+				RegisterAlloc (__FUNCTION__, __FILE__, __LINE__, f_data, f_size, false);
+#endif
+				sf->data_alloced = true;
+				sf->data = (u8 *)f_data;
+				sf->size = f_size;
+			}
+			else
+				FREE (f_data);
+		}
+#endif
 	}
-     #endif
-    }
 
-    if (f)
-    {
-	u32 align = 1;
-	if ( ep.align )
-	    while ( ! (ep.align & align) )
-		align <<= 1;
-
-	fputs(text_setup_header_cr,f);
-	if (szs->obj_name)
-	    fprintf(f,
-		"# Name of the object:\r\n"
-		"object-name = %s\r\n"
-		"\r\n"
-		,
-		szs->obj_name );
-
-	if (szs->obj_id_used)
-	    fprintf(f,
-		"# ID of the object:\r\n"
-		"object-id = 0x%x\r\n"
-		"\r\n"
-		,
-		szs->obj_id );
-
-	fprintf(f,
-	    "# The internal archive format (U8, WU8, BRRES, BREFF, BREFT, LTA or LFL):\r\n"
-	    "archive-format = %s\r\n"
-	    "\r\n"
-	    "# The file format (YAZ0, YAZ1 or BZ for a compressed archive, other ignored):\r\n"
-	    "file-format = %s\r\n"
-	    "\r\n"
-	    "# An archive format related version number (-1: unknown or not relevant)\r\n"
-	    "version = %d\r\n"
-	    "\r\n"
-	    "# For U8+WU8 archives: Is there a special '.' base directory:\r\n"
-	    "have-pt-dir = %d\r\n"
-	    "\r\n"
-	    "# The minimum and maximum file data positions:\r\n"
-	    "min-data-offset = 0x%x\r\n"
-	    "max-data-offset = 0x%x\r\n"
-	    "\r\n"
-	    "# The calculated alignment of all files:\r\n"
-	    "data-align = 0x%x\r\n"
-	    ,
-	    GetNameFF(szs->fform_arch,szs->fform_arch),
-	    GetNameFF(szs->fform_file,szs->fform_file),
-// [[version-suffix]]
-	    GetVersionFF(szs->fform_arch,szs->data,szs->size,0),
-	    ep.have_pt_dir,
-	    szs->min_data_off, szs->max_data_off, align );
-
-	fputs(text_setup_include_cr,f);
-	WriteStringField(f,destptr,&ep.include_list,"./","\r\n");
-	fputs(text_setup_exclude_cr,f);
-	WriteStringField(f,destptr,&ep.exclude_list,"./","\r\n");
-	fputs(text_setup_encode_cr,f);
-	WriteFormatField(f,destptr,&ep.decode_list,0,"./","\r\n",0);
-	fputs(text_setup_create_cr,f);
-	WriteStringField(f,destptr,&ep.extract_list,"./","\r\n");
-	fputs(text_setup_order_cr,f);
-	WriteFormatField(f,destptr,&ep.order_list,0,"./","\r\n",10);
-	fputs( "\r\n#---------------------------------------"
-		    "---------------------------------------\r\n\r\n",f);
-	fclose(f);
-
- #ifndef __APPLE__
-	if (sdir)
+	if (!sdir && !basedir && *dest)
 	{
-	    bool new_file;
-	    SubFile_t *sf = InsertSubFile(sdir,MemByString(SZS_SETUP_FILE),&new_file);
-	    if ( sf && new_file )
-	    {
-	     #if TRACE_ALLOC_MODE > 2
-		RegisterAlloc(__FUNCTION__,__FILE__,__LINE__,f_data,f_size,false);
-	     #endif
-		sf->data_alloced = true;
-		sf->data = (u8*)f_data;
-		sf->size = f_size;
-	    }
-	    else
-		FREE(f_data);
+		ParamField_t extract_hash_cache;
+		InitializeParamField (&extract_hash_cache);
+		extract_hash_cache.free_data = true;
+		for (uint i = 0; i < szs->subfile.used; i++)
+		{
+			const szs_subfile_t *sf = szs->subfile.list + i;
+			if (!sf->is_dir)
+			{
+				sha1_hash_t hash;
+				SHA1 (sf->data ? sf->data : (const u8 *)"", SafeSubfileHashSize (szs, sf), hash);
+				InsertParamField (
+					&extract_hash_cache, sf->path, false, 0, MEMDUP (hash, sizeof (sha1_hash_t)));
+			}
+		}
+		SaveHashCache (&extract_hash_cache, dest);
+		ResetParamField (&extract_hash_cache);
 	}
- #endif
-    }
 
-    if ( !sdir && !basedir && *dest )
-    {
-	ParamField_t extract_hash_cache;
-	InitializeParamField(&extract_hash_cache);
-	extract_hash_cache.free_data = true;
-	for ( uint i = 0; i < szs->subfile.used; i++ )
-	{
-	    const szs_subfile_t *sf = szs->subfile.list + i;
-	    if ( !sf->is_dir )
-	    {
-		sha1_hash_t hash;
-		SHA1(sf->data ? sf->data : (const u8*)"", SafeSubfileHashSize(szs,sf), hash);
-		InsertParamField(&extract_hash_cache, sf->path, false, 0,
-				MEMDUP(hash, sizeof(sha1_hash_t)));
-	    }
-	}
-	SaveHashCache(&extract_hash_cache, dest);
-	ResetParamField(&extract_hash_cache);
-    }
+	ResetStringField (&ep.include_list);
+	ResetStringField (&ep.exclude_list);
+	ResetFormatField (&ep.decode_list);
+	ResetStringField (&ep.extract_list);
+	ResetFormatField (&ep.order_list);
+	ResetParamField (&ep.pal_cache);
+	ResetParamField (&ep.pal_alias);
 
-    ResetStringField(&ep.include_list);
-    ResetStringField(&ep.exclude_list);
-    ResetFormatField(&ep.decode_list);
-    ResetStringField(&ep.extract_list);
-    ResetFormatField(&ep.order_list);
-    ResetParamField(&ep.pal_cache);
-    ResetParamField(&ep.pal_alias);
-
-    return ERR_OK;
+	return ERR_OK;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-ccp GetOptBasedir()
+ccp GetOptBasedir ()
 {
-    if (!opt_basedir)
-	return 0;
+	if (!opt_basedir)
+		return 0;
 
-    while ( *opt_basedir == '/' || *opt_basedir == '\\' || *opt_basedir == '.' )
-	opt_basedir++;
+	while (*opt_basedir == '/' || *opt_basedir == '\\' || *opt_basedir == '.')
+		opt_basedir++;
 
-    char *src, *dest;
-    int have_slash = 0;
-    for ( src = dest = opt_basedir; *src; src++ )
-    {
-	if ( *src == '/' || *src == '\\' )
-	    have_slash++;
+	char *src, *dest;
+	int have_slash = 0;
+	for (src = dest = opt_basedir; *src; src++)
+	{
+		if (*src == '/' || *src == '\\')
+			have_slash++;
+		else
+		{
+			if (have_slash)
+			{
+				have_slash = 0;
+				*dest++ = '/';
+			}
+			*dest++ = *src;
+		}
+	}
+
+	if (dest < src)
+	{
+		*dest++ = '/';
+		*dest = 0;
+	}
 	else
 	{
-	    if (have_slash)
-	    {
-		have_slash = 0;
-		*dest++ = '/';
-	    }
-	    *dest++ = *src;
+		const uint pos = dest - opt_basedir;
+		opt_basedir = MEMDUP (opt_basedir, pos + 1);
+		opt_basedir[pos] = '/';
 	}
-    }
 
-    if ( dest < src )
-    {
-	*dest++ = '/';
-	*dest = 0;
-    }
-    else
-    {
-	const uint pos = dest - opt_basedir;
-	opt_basedir = MEMDUP(opt_basedir,pos+1);
-	opt_basedir[pos] = '/';
-    }
-
-    return opt_basedir;
+	return opt_basedir;
 }
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			check texture hacks		///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-void PrepareCheckTextureSZS ( szs_file_t * szs )
+void PrepareCheckTextureSZS (szs_file_t *szs)
 {
-    DASSERT(szs);
+	DASSERT (szs);
 
-    static kcl_flag_t *kcl_flag = 0;
-    if (!kcl_flag)
-	kcl_flag = CreatePatchFlagKCL(KCL_MODE|KCLMD_CLR_VISUAL,opt_slot,false);
+	static kcl_flag_t *kcl_flag = 0;
+	if (!kcl_flag)
+		kcl_flag = CreatePatchFlagKCL (KCL_MODE | KCLMD_CLR_VISUAL, opt_slot, false);
 
-    szs_iterator_t res;
-    int stat = FindFileSZS(szs,"course.kcl",0,false,&res);
-    if ( stat > 0 )
-    {
-	kcl_analyze_t ka;
-	u8 *data = szs->data + res.off;
-	if ( IsValidKCL(&ka,data,res.size,res.size,res.path) < VALID_ERROR )
+	szs_iterator_t res;
+	int stat = FindFileSZS (szs, "course.kcl", 0, false, &res);
+	if (stat > 0)
 	{
-	    const uint n_tri  = ka.n[2];
-	    kcl_triangle_t *tri = (kcl_triangle_t*)( data + ka.off[2] );
-	    for ( int i = 0; i < n_tri; i++, tri++ )
-	    {
-		const kcl_flag_t flag = ntohs(tri->flag);
-		tri->flag = htons(kcl_flag[flag]);
-		if ( (flag&0x1f) == 0x12 ) // KCL flag 'force recalculation'
-		    szs->check_enpt = true;
-	    }
+		kcl_analyze_t ka;
+		u8 *data = szs->data + res.off;
+		if (IsValidKCL (&ka, data, res.size, res.size, res.path) < VALID_ERROR)
+		{
+			const uint n_tri = ka.n[2];
+			kcl_triangle_t *tri = (kcl_triangle_t *)(data + ka.off[2]);
+			for (int i = 0; i < n_tri; i++, tri++)
+			{
+				const kcl_flag_t flag = ntohs (tri->flag);
+				tri->flag = htons (kcl_flag[flag]);
+				if ((flag & 0x1f) == 0x12) // KCL flag 'force recalculation'
+					szs->check_enpt = true;
+			}
+		}
 	}
-    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-enumError CheckTextureRefSZS
-(
-    // returns ERR_OK | ERR_DIFFER | ERR_NOTHING_TO_DO | ERR_NO_SOURCE_FOUND | >=ERR_ERROR
-    szs_file_t	* szs2,		// NULL or second szs to compare
-    ccp		*status		// not NULL: store status info here -> FreeString()
+enumError CheckTextureRefSZS (
+	// returns ERR_OK | ERR_DIFFER | ERR_NOTHING_TO_DO | ERR_NO_SOURCE_FOUND | >=ERR_ERROR
+	szs_file_t *szs2, // NULL or second szs to compare
+	ccp *status // not NULL: store status info here -> FreeString()
 				// if !opt_reference: *status=NULL
 )
 {
-    DASSERT(szs2);
-    if (status)
-    {
-	FreeString(*status);
-	*status = 0;
-    }
-
-    if ( !opt_reference || !*opt_reference )
-	return ERR_NOTHING_TO_DO;
-
-    static int err = -1;
-    static szs_file_t *ref_szs = 0;
-
-    if ( err == -1 )
-    {
-	ref_szs = CALLOC(1,sizeof(*ref_szs));
-	err = LoadSZS(ref_szs,opt_reference,true,opt_ignore>0,true);
-	if (err)
-	{
-	    ResetSZS(ref_szs);
-	    FREE(ref_szs);
-	    ref_szs = 0;
-	}
-	else
-	    PrepareCheckTextureSZS(ref_szs);
-    }
-
-    if ( err || !ref_szs )
-    {
+	DASSERT (szs2);
 	if (status)
-	    *status = STRDUP("-1=err");
-	return err;
-    }
+	{
+		FreeString (*status);
+		*status = 0;
+	}
 
-    return szs2 ? CheckTextureSZS(ref_szs,szs2,status) : ERR_OK;
+	if (!opt_reference || !*opt_reference)
+		return ERR_NOTHING_TO_DO;
+
+	static int err = -1;
+	static szs_file_t *ref_szs = 0;
+
+	if (err == -1)
+	{
+		ref_szs = CALLOC (1, sizeof (*ref_szs));
+		err = LoadSZS (ref_szs, opt_reference, true, opt_ignore > 0, true);
+		if (err)
+		{
+			ResetSZS (ref_szs);
+			FREE (ref_szs);
+			ref_szs = 0;
+		}
+		else
+			PrepareCheckTextureSZS (ref_szs);
+	}
+
+	if (err || !ref_szs)
+	{
+		if (status)
+			*status = STRDUP ("-1=err");
+		return err;
+	}
+
+	return szs2 ? CheckTextureSZS (ref_szs, szs2, status) : ERR_OK;
 }
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-#define KMP_POS_EPSILON		0.1
-#define KMP_ROT_EPSILON		0.05
-#define KMP_SCALE_EPSILON	0.01
+#define KMP_POS_EPSILON 0.1
+#define KMP_ROT_EPSILON 0.05
+#define KMP_SCALE_EPSILON 0.01
 
 //-----------------------------------------------------------------------------
 
 typedef struct check_texture_t
 {
-    char info_buf[200];
-    char *info_ptr;
-    char *info_end;
+	char info_buf[200];
+	char *info_ptr;
+	char *info_end;
 
-    char kinfo_buf[20];
-    char *kinfo_ptr;
-    char *kinfo_end;
+	char kinfo_buf[20];
+	char *kinfo_ptr;
+	char *kinfo_end;
 
-    kmp_t kmp1, kmp2;
-    u8 check_route[0x100];
-}
-check_texture_t;
+	kmp_t kmp1, kmp2;
+	u8 check_route[0x100];
+} check_texture_t;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static bool compare_texture_helper
-(
-    szs_file_t		*szs1,
-    szs_file_t		*szs2,
-    ccp			subfile,
-    check_texture_t	*ck,
-    ccp			msg
-)
+static bool compare_texture_helper (
+	szs_file_t *szs1, szs_file_t *szs2, ccp subfile, check_texture_t *ck, ccp msg)
 {
-    szs_iterator_t res1, res2;
-    const int stat1 = FindFileSZS(szs1,subfile,0,false,&res1);
-    const int stat2 = FindFileSZS(szs2,subfile,0,false,&res2);
-    bool same = stat1 == stat2;
-    if ( same && stat1 > 0 )
-	same = res1.size == res2.size
-		&& !memcmp( szs1->data + res1.off, szs2->data + res2.off, res1.size );
-    if ( !same && ck && msg )
-	ck->info_ptr = StringCopyE(ck->info_ptr,ck->info_end,msg);
+	szs_iterator_t res1, res2;
+	const int stat1 = FindFileSZS (szs1, subfile, 0, false, &res1);
+	const int stat2 = FindFileSZS (szs2, subfile, 0, false, &res2);
+	bool same = stat1 == stat2;
+	if (same && stat1 > 0)
+		same = res1.size == res2.size
+			&& !memcmp (szs1->data + res1.off, szs2->data + res2.off, res1.size);
+	if (!same && ck && msg)
+		ck->info_ptr = StringCopyE (ck->info_ptr, ck->info_end, msg);
 
-    return same;
+	return same;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static bool compare_kmp_ck ( check_texture_t *ck )
+static bool compare_kmp_ck (check_texture_t *ck)
 {
-    DASSERT(ck);
+	DASSERT (ck);
 
-    if	(  ck->kmp1.dlist[KMP_CKPH].used != ck->kmp2.dlist[KMP_CKPH].used
-	|| ck->kmp1.dlist[KMP_CKPT].used != ck->kmp2.dlist[KMP_CKPT].used
-	)
-    {
-	PRINT("N(CKPH)=%d,%d, N(CKPT)=%d,%d\n",
-		ck->kmp1.dlist[KMP_CKPH].used,ck->kmp2.dlist[KMP_CKPH].used,
-		ck->kmp1.dlist[KMP_CKPT].used,ck->kmp2.dlist[KMP_CKPT].used);
-	*ck->kinfo_ptr++ = 'c';
-	return false;
-    }
-
-    const kmp_ckph_entry_t *h1 = (kmp_ckph_entry_t*)ck->kmp1.dlist[KMP_CKPH].list;
-    const kmp_ckph_entry_t *h2 = (kmp_ckph_entry_t*)ck->kmp2.dlist[KMP_CKPH].list;
-    for ( int n = ck->kmp1.dlist[KMP_CKPH].used; n>0; n--, h1++, h2++ )
-	if (memcmp(h1,h2,sizeof(*h1)))
+	if (ck->kmp1.dlist[KMP_CKPH].used != ck->kmp2.dlist[KMP_CKPH].used
+		|| ck->kmp1.dlist[KMP_CKPT].used != ck->kmp2.dlist[KMP_CKPT].used)
 	{
-	    *ck->kinfo_ptr++ = 'c';
-	    return false;
+		PRINT ("N(CKPH)=%d,%d, N(CKPT)=%d,%d\n", ck->kmp1.dlist[KMP_CKPH].used,
+			ck->kmp2.dlist[KMP_CKPH].used, ck->kmp1.dlist[KMP_CKPT].used,
+			ck->kmp2.dlist[KMP_CKPT].used);
+		*ck->kinfo_ptr++ = 'c';
+		return false;
 	}
 
-    const kmp_ckpt_entry_t *p1 = (kmp_ckpt_entry_t*)ck->kmp1.dlist[KMP_CKPT].list;
-    const kmp_ckpt_entry_t *p2 = (kmp_ckpt_entry_t*)ck->kmp2.dlist[KMP_CKPT].list;
-    for ( int n = ck->kmp1.dlist[KMP_CKPT].used; n>0; n--, p1++, p2++ )
-    {
-	if (   p1->respawn	!= p2->respawn
-	    || p1->mode	!= p2->mode
-	    || p1->prev	!= p2->prev
-	    || p1->next	!= p2->next
-	    || fabs( p1->left[0]  - p2->left[0]  ) > KMP_POS_EPSILON
-	    || fabs( p1->left[1]  - p2->left[1]  ) > KMP_POS_EPSILON
-	    || fabs( p1->right[0] - p2->right[0] ) > KMP_POS_EPSILON
-	    || fabs( p1->right[1] - p2->right[1] ) > KMP_POS_EPSILON
-	)
-	{
-	    PRINT("A: %2x %2x %2x %2x %10.3f %10.3f %10.3f %10.3f\n",
-		    p1->respawn, p1->mode, p1->prev, p1->next,
-		    p1->left[0], p1->left[1], p1->right[0], p1->right[1] );
-	    PRINT("B: %2x %2x %2x %2x %10.3f %10.3f %10.3f %10.3f\n",
-		    p2->respawn, p2->mode, p2->prev, p2->next,
-		    p2->left[0], p2->left[1], p2->right[0], p2->right[1] );
-	    *ck->kinfo_ptr++ = 'c';
-	    return false;
-	}
-    }
+	const kmp_ckph_entry_t *h1 = (kmp_ckph_entry_t *)ck->kmp1.dlist[KMP_CKPH].list;
+	const kmp_ckph_entry_t *h2 = (kmp_ckph_entry_t *)ck->kmp2.dlist[KMP_CKPH].list;
+	for (int n = ck->kmp1.dlist[KMP_CKPH].used; n > 0; n--, h1++, h2++)
+		if (memcmp (h1, h2, sizeof (*h1)))
+		{
+			*ck->kinfo_ptr++ = 'c';
+			return false;
+		}
 
-    return true;
+	const kmp_ckpt_entry_t *p1 = (kmp_ckpt_entry_t *)ck->kmp1.dlist[KMP_CKPT].list;
+	const kmp_ckpt_entry_t *p2 = (kmp_ckpt_entry_t *)ck->kmp2.dlist[KMP_CKPT].list;
+	for (int n = ck->kmp1.dlist[KMP_CKPT].used; n > 0; n--, p1++, p2++)
+	{
+		if (p1->respawn != p2->respawn || p1->mode != p2->mode || p1->prev != p2->prev
+			|| p1->next != p2->next || fabs (p1->left[0] - p2->left[0]) > KMP_POS_EPSILON
+			|| fabs (p1->left[1] - p2->left[1]) > KMP_POS_EPSILON
+			|| fabs (p1->right[0] - p2->right[0]) > KMP_POS_EPSILON
+			|| fabs (p1->right[1] - p2->right[1]) > KMP_POS_EPSILON)
+		{
+			PRINT ("A: %2x %2x %2x %2x %10.3f %10.3f %10.3f %10.3f\n", p1->respawn, p1->mode,
+				p1->prev, p1->next, p1->left[0], p1->left[1], p1->right[0], p1->right[1]);
+			PRINT ("B: %2x %2x %2x %2x %10.3f %10.3f %10.3f %10.3f\n", p2->respawn, p2->mode,
+				p2->prev, p2->next, p2->left[0], p2->left[1], p2->right[0], p2->right[1]);
+			*ck->kinfo_ptr++ = 'c';
+			return false;
+		}
+	}
+
+	return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static const kmp_area_entry_t * next_area
-	( const kmp_area_entry_t *p, const kmp_area_entry_t *e )
+static const kmp_area_entry_t *next_area (const kmp_area_entry_t *p, const kmp_area_entry_t *e)
 {
-    for ( ; p < e; p++ )
-	if ( p->type == 3 || p->type == 4 || p->type >= 8 && p->type <= 10 )
-	    break;
-    return p;
+	for (; p < e; p++)
+		if (p->type == 3 || p->type == 4 || p->type >= 8 && p->type <= 10)
+			break;
+	return p;
 }
 
 //-----------------------------------------------------------------------------
 
-static bool compare_kmp_area ( check_texture_t *ck )
+static bool compare_kmp_area (check_texture_t *ck)
 {
-    DASSERT(ck);
+	DASSERT (ck);
 
-    if ( ck->kmp1.dlist[KMP_AREA].used != ck->kmp2.dlist[KMP_AREA].used )
-    {
-	*ck->kinfo_ptr++ = 'a';
-	return false;
-    }
-
-    const kmp_area_entry_t *p1 = (kmp_area_entry_t*)ck->kmp1.dlist[KMP_AREA].list;
-    const kmp_area_entry_t *e1 = p1 + ck->kmp1.dlist[KMP_AREA].used;
-
-    const kmp_area_entry_t *p2 = (kmp_area_entry_t*)ck->kmp2.dlist[KMP_AREA].list;
-    const kmp_area_entry_t *e2 = p2 + ck->kmp2.dlist[KMP_AREA].used;
-
-    for (;;)
-    {
-	p1 = next_area(p1,e1);
-	p2 = next_area(p2,e2);
-	if ( p1 >= e1 || p2 >= e2 )
-	    break;
-
-	if (   memcmp( &p1->mode, &p2->mode, 4 )
-	    || memcmp( p1->setting, p2->setting, 8 )
-	    || fabs( p1->position[0] - p2->position[0]	) > KMP_POS_EPSILON
-	    || fabs( p1->position[1] - p2->position[1]	) > KMP_POS_EPSILON
-	    || fabs( p1->position[2] - p2->position[2]	) > KMP_POS_EPSILON
-	    || fabs( p1->rotation[0] - p2->rotation[0]	) > KMP_ROT_EPSILON
-	    || fabs( p1->rotation[1] - p2->rotation[1]	) > KMP_ROT_EPSILON
-	    || fabs( p1->rotation[2] - p2->rotation[2]	) > KMP_ROT_EPSILON
-	    || fabs( p1->scale[0]    - p2->scale[0]	) > KMP_SCALE_EPSILON
-	    || fabs( p1->scale[1]    - p2->scale[1]	) > KMP_SCALE_EPSILON
-	    || fabs( p1->scale[2]    - p2->scale[2]	) > KMP_SCALE_EPSILON
-	)
+	if (ck->kmp1.dlist[KMP_AREA].used != ck->kmp2.dlist[KMP_AREA].used)
 	{
-	    *ck->kinfo_ptr++ = 'a';
-	    return false;
+		*ck->kinfo_ptr++ = 'a';
+		return false;
 	}
 
-	p1++;
-	p2++;
-    }
+	const kmp_area_entry_t *p1 = (kmp_area_entry_t *)ck->kmp1.dlist[KMP_AREA].list;
+	const kmp_area_entry_t *e1 = p1 + ck->kmp1.dlist[KMP_AREA].used;
 
-    if ( p1 != e1 || p2 != e2 )
-    {
-	*ck->kinfo_ptr++ = 'a';
-	return false;
-    }
+	const kmp_area_entry_t *p2 = (kmp_area_entry_t *)ck->kmp2.dlist[KMP_AREA].list;
+	const kmp_area_entry_t *e2 = p2 + ck->kmp2.dlist[KMP_AREA].used;
 
-    return true;
+	for (;;)
+	{
+		p1 = next_area (p1, e1);
+		p2 = next_area (p2, e2);
+		if (p1 >= e1 || p2 >= e2)
+			break;
+
+		if (memcmp (&p1->mode, &p2->mode, 4) || memcmp (p1->setting, p2->setting, 8)
+			|| fabs (p1->position[0] - p2->position[0]) > KMP_POS_EPSILON
+			|| fabs (p1->position[1] - p2->position[1]) > KMP_POS_EPSILON
+			|| fabs (p1->position[2] - p2->position[2]) > KMP_POS_EPSILON
+			|| fabs (p1->rotation[0] - p2->rotation[0]) > KMP_ROT_EPSILON
+			|| fabs (p1->rotation[1] - p2->rotation[1]) > KMP_ROT_EPSILON
+			|| fabs (p1->rotation[2] - p2->rotation[2]) > KMP_ROT_EPSILON
+			|| fabs (p1->scale[0] - p2->scale[0]) > KMP_SCALE_EPSILON
+			|| fabs (p1->scale[1] - p2->scale[1]) > KMP_SCALE_EPSILON
+			|| fabs (p1->scale[2] - p2->scale[2]) > KMP_SCALE_EPSILON)
+		{
+			*ck->kinfo_ptr++ = 'a';
+			return false;
+		}
+
+		p1++;
+		p2++;
+	}
+
+	if (p1 != e1 || p2 != e2)
+	{
+		*ck->kinfo_ptr++ = 'a';
+		return false;
+	}
+
+	return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static const kmp_gobj_entry_t * next_gobj
-	( const kmp_gobj_entry_t *p, const kmp_gobj_entry_t *e )
+static const kmp_gobj_entry_t *next_gobj (const kmp_gobj_entry_t *p, const kmp_gobj_entry_t *e)
 {
-    for ( ; p < e; p++ )
-    {
-	if ( p->obj_id >= GOBJ_MIN_DEF )
-	    break;
-	if ( p->pflags )
+	for (; p < e; p++)
 	{
-	    const u16 relevant_id = GetRelevantObjectId(p->obj_id);
-	    if ( ObjectInfo[relevant_id].flags & OBF_SOLID )
-		break;
+		if (p->obj_id >= GOBJ_MIN_DEF)
+			break;
+		if (p->pflags)
+		{
+			const u16 relevant_id = GetRelevantObjectId (p->obj_id);
+			if (ObjectInfo[relevant_id].flags & OBF_SOLID)
+				break;
+		}
 	}
-    }
-    return p;
+	return p;
 }
 
 //-----------------------------------------------------------------------------
 
-static bool compare_kmp_gobj ( check_texture_t *ck )
+static bool compare_kmp_gobj (check_texture_t *ck)
 {
-    DASSERT(ck);
+	DASSERT (ck);
 
-    SortGOBJ(&ck->kmp1,KSORT_XYZ);
-    SortGOBJ(&ck->kmp2,KSORT_XYZ);
+	SortGOBJ (&ck->kmp1, KSORT_XYZ);
+	SortGOBJ (&ck->kmp2, KSORT_XYZ);
 
-    const kmp_gobj_entry_t *p1 = (kmp_gobj_entry_t*)ck->kmp1.dlist[KMP_GOBJ].list;
-    const kmp_gobj_entry_t *e1 = p1 + ck->kmp1.dlist[KMP_GOBJ].used;
+	const kmp_gobj_entry_t *p1 = (kmp_gobj_entry_t *)ck->kmp1.dlist[KMP_GOBJ].list;
+	const kmp_gobj_entry_t *e1 = p1 + ck->kmp1.dlist[KMP_GOBJ].used;
 
-    const kmp_gobj_entry_t *p2 = (kmp_gobj_entry_t*)ck->kmp2.dlist[KMP_GOBJ].list;
-    const kmp_gobj_entry_t *e2 = p2 + ck->kmp2.dlist[KMP_GOBJ].used;
+	const kmp_gobj_entry_t *p2 = (kmp_gobj_entry_t *)ck->kmp2.dlist[KMP_GOBJ].list;
+	const kmp_gobj_entry_t *e2 = p2 + ck->kmp2.dlist[KMP_GOBJ].used;
 
-    bool valid = true;
-    for (;;)
-    {
-	p1 = next_gobj(p1,e1);
-	p2 = next_gobj(p2,e2);
-	if ( p1 >= e1 || p2 >= e2 )
-	    break;
-
-	if ( p1->route_id < sizeof(ck->check_route) )
-	    ck->check_route[p1->route_id] = 1;
-
-	if ( valid &&
-		(  memcmp( &p1->obj_id, &p2->obj_id, 4 )
-		|| memcmp( &p1->route_id, &p2->route_id, 20 )
-		|| fabs( p1->position[0] - p2->position[0]	) > KMP_POS_EPSILON
-		|| fabs( p1->position[1] - p2->position[1]	) > KMP_POS_EPSILON
-		|| fabs( p1->position[2] - p2->position[2]	) > KMP_POS_EPSILON
-		|| fabs( p1->rotation[0] - p2->rotation[0]	) > KMP_ROT_EPSILON
-		|| fabs( p1->rotation[1] - p2->rotation[1]	) > KMP_ROT_EPSILON
-		|| fabs( p1->rotation[2] - p2->rotation[2]	) > KMP_ROT_EPSILON
-		|| fabs( p1->scale[0]    - p2->scale[0]	) > KMP_SCALE_EPSILON
-		|| fabs( p1->scale[1]    - p2->scale[1]	) > KMP_SCALE_EPSILON
-		|| fabs( p1->scale[2]    - p2->scale[2]	) > KMP_SCALE_EPSILON
-	))
+	bool valid = true;
+	for (;;)
 	{
-	    valid = false;
+		p1 = next_gobj (p1, e1);
+		p2 = next_gobj (p2, e2);
+		if (p1 >= e1 || p2 >= e2)
+			break;
+
+		if (p1->route_id < sizeof (ck->check_route))
+			ck->check_route[p1->route_id] = 1;
+
+		if (valid
+			&& (memcmp (&p1->obj_id, &p2->obj_id, 4) || memcmp (&p1->route_id, &p2->route_id, 20)
+				|| fabs (p1->position[0] - p2->position[0]) > KMP_POS_EPSILON
+				|| fabs (p1->position[1] - p2->position[1]) > KMP_POS_EPSILON
+				|| fabs (p1->position[2] - p2->position[2]) > KMP_POS_EPSILON
+				|| fabs (p1->rotation[0] - p2->rotation[0]) > KMP_ROT_EPSILON
+				|| fabs (p1->rotation[1] - p2->rotation[1]) > KMP_ROT_EPSILON
+				|| fabs (p1->rotation[2] - p2->rotation[2]) > KMP_ROT_EPSILON
+				|| fabs (p1->scale[0] - p2->scale[0]) > KMP_SCALE_EPSILON
+				|| fabs (p1->scale[1] - p2->scale[1]) > KMP_SCALE_EPSILON
+				|| fabs (p1->scale[2] - p2->scale[2]) > KMP_SCALE_EPSILON))
+		{
+			valid = false;
+		}
+
+		p1++;
+		p2++;
 	}
 
-	p1++;
-	p2++;
-    }
+	if (!valid || p1 != e1 || p2 != e2)
+	{
+		*ck->kinfo_ptr++ = 'g';
+		return false;
+	}
 
-    if ( !valid || p1 != e1 || p2 != e2 )
-    {
-	*ck->kinfo_ptr++ = 'g';
-	return false;
-    }
-
-    return true;
+	return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static bool compare_kmp_poti ( check_texture_t *ck )
+static bool compare_kmp_poti (check_texture_t *ck)
 {
-    DASSERT(ck);
+	DASSERT (ck);
 
-    const int ng1 = ck->kmp1.dlist[KMP_POTI].used;
-    const int ng2 = ck->kmp2.dlist[KMP_POTI].used;
-    const int np1 = ck->kmp1.poti_point.used;
-    const int np2 = ck->kmp2.poti_point.used;
+	const int ng1 = ck->kmp1.dlist[KMP_POTI].used;
+	const int ng2 = ck->kmp2.dlist[KMP_POTI].used;
+	const int np1 = ck->kmp1.poti_point.used;
+	const int np2 = ck->kmp2.poti_point.used;
 
-    if ( ng1 != ng2 || np1 != np2 )
-    {
-     err:
-	*ck->kinfo_ptr++ = 'p';
-	return false;
-    }
-
-    const kmp_poti_group_t * pg1 = (kmp_poti_group_t*)ck->kmp1.dlist[KMP_POTI].list;
-    const kmp_poti_group_t * pg2 = (kmp_poti_group_t*)ck->kmp2.dlist[KMP_POTI].list;
-    const kmp_poti_point_t * pp1 = (kmp_poti_point_t*)ck->kmp1.poti_point.list;
-    const kmp_poti_point_t * pp2 = (kmp_poti_point_t*)ck->kmp2.poti_point.list;
-
-    int i, gi;
-    for ( gi = i = 0; gi < ng1 && i < np1; gi++, pg1++, pg2++ )
-    {
-	if (memcmp(pg1,pg2,sizeof(*pg1)))
-	    goto err;
-
-	const int en = pg1->n_point;
-	if ( gi < sizeof(ck->check_route) && !ck->check_route[gi] )
+	if (ng1 != ng2 || np1 != np2)
 	{
-	    pp1 += en;
-	    pp2 += en;
-	    continue;
-	}
-
-	for ( int ei = 0; ei < en; ei++, i++, pp1++, pp2++ )
-	{
-	    if	(  pp1->speed   != pp2->speed
-		|| pp1->unknown != pp2->unknown
-		|| fabs( pp1->position[0] - pp2->position[0] ) > KMP_POS_EPSILON
-		|| fabs( pp1->position[1] - pp2->position[1] ) > KMP_POS_EPSILON
-		|| fabs( pp1->position[2] - pp2->position[2] ) > KMP_POS_EPSILON
-		)
-	    {
+	err:
 		*ck->kinfo_ptr++ = 'p';
 		return false;
-	    }
 	}
-    }
 
-    return true;
+	const kmp_poti_group_t *pg1 = (kmp_poti_group_t *)ck->kmp1.dlist[KMP_POTI].list;
+	const kmp_poti_group_t *pg2 = (kmp_poti_group_t *)ck->kmp2.dlist[KMP_POTI].list;
+	const kmp_poti_point_t *pp1 = (kmp_poti_point_t *)ck->kmp1.poti_point.list;
+	const kmp_poti_point_t *pp2 = (kmp_poti_point_t *)ck->kmp2.poti_point.list;
+
+	int i, gi;
+	for (gi = i = 0; gi < ng1 && i < np1; gi++, pg1++, pg2++)
+	{
+		if (memcmp (pg1, pg2, sizeof (*pg1)))
+			goto err;
+
+		const int en = pg1->n_point;
+		if (gi < sizeof (ck->check_route) && !ck->check_route[gi])
+		{
+			pp1 += en;
+			pp2 += en;
+			continue;
+		}
+
+		for (int ei = 0; ei < en; ei++, i++, pp1++, pp2++)
+		{
+			if (pp1->speed != pp2->speed || pp1->unknown != pp2->unknown
+				|| fabs (pp1->position[0] - pp2->position[0]) > KMP_POS_EPSILON
+				|| fabs (pp1->position[1] - pp2->position[1]) > KMP_POS_EPSILON
+				|| fabs (pp1->position[2] - pp2->position[2]) > KMP_POS_EPSILON)
+			{
+				*ck->kinfo_ptr++ = 'p';
+				return false;
+			}
+		}
+	}
+
+	return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static bool compare_kmp_stgi ( check_texture_t *ck )
+static bool compare_kmp_stgi (check_texture_t *ck)
 {
-    DASSERT(ck);
+	DASSERT (ck);
 
-    if ( ck->kmp1.dlist[KMP_STGI].used != ck->kmp2.dlist[KMP_STGI].used )
-    {
-	*ck->kinfo_ptr++ = 's';
-	return false;
-    }
-
-    const kmp_stgi_entry_t *p1 = (kmp_stgi_entry_t*)ck->kmp1.dlist[KMP_STGI].list;
-    const kmp_stgi_entry_t *p2 = (kmp_stgi_entry_t*)ck->kmp2.dlist[KMP_STGI].list;
-    for ( int n = ck->kmp1.dlist[KMP_STGI].used; n>0; n--, p1++, p2++ )
-    {
-	const u8 lap_count1  = p1->lap_count ? p1->lap_count : 3;
-	const u8 lap_count2  = p2->lap_count ? p2->lap_count : 3;
-	const u16 speed_mod1 = p1->speed_mod ? p1->speed_mod : 0x3f80;
-	const u16 speed_mod2 = p2->speed_mod ? p2->speed_mod : 0x3f80;
-
-	if (   lap_count1	!= lap_count2
-	    || speed_mod1	!= speed_mod2
-	    || p1->pole_pos	!= p2->pole_pos
-	    || p1->narrow_start != p2->narrow_start
-	)
+	if (ck->kmp1.dlist[KMP_STGI].used != ck->kmp2.dlist[KMP_STGI].used)
 	{
-	    *ck->kinfo_ptr++ = 's';
-	    return false;
+		*ck->kinfo_ptr++ = 's';
+		return false;
 	}
-    }
 
-    return true;
+	const kmp_stgi_entry_t *p1 = (kmp_stgi_entry_t *)ck->kmp1.dlist[KMP_STGI].list;
+	const kmp_stgi_entry_t *p2 = (kmp_stgi_entry_t *)ck->kmp2.dlist[KMP_STGI].list;
+	for (int n = ck->kmp1.dlist[KMP_STGI].used; n > 0; n--, p1++, p2++)
+	{
+		const u8 lap_count1 = p1->lap_count ? p1->lap_count : 3;
+		const u8 lap_count2 = p2->lap_count ? p2->lap_count : 3;
+		const u16 speed_mod1 = p1->speed_mod ? p1->speed_mod : 0x3f80;
+		const u16 speed_mod2 = p2->speed_mod ? p2->speed_mod : 0x3f80;
+
+		if (lap_count1 != lap_count2 || speed_mod1 != speed_mod2 || p1->pole_pos != p2->pole_pos
+			|| p1->narrow_start != p2->narrow_start)
+		{
+			*ck->kinfo_ptr++ = 's';
+			return false;
+		}
+	}
+
+	return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static bool compare_kmp_pt1
-(
-    check_texture_t	*ck,
-    kmp_entry_t		sect,  // KMP_JGPT | KMP_CNPT | KMP_MSPT | KMP_KTPT
-    char		msg
-)
+static bool compare_kmp_pt1 (check_texture_t *ck,
+	kmp_entry_t sect, // KMP_JGPT | KMP_CNPT | KMP_MSPT | KMP_KTPT
+	char msg)
 {
-    DASSERT(ck);
+	DASSERT (ck);
 
-    if ( ck->kmp1.dlist[sect].used != ck->kmp2.dlist[sect].used )
-    {
-	*ck->kinfo_ptr++ = msg;
-	return false;
-    }
-
-    const kmp_jgpt_entry_t *p1 = (kmp_jgpt_entry_t*)ck->kmp1.dlist[sect].list;
-    const kmp_jgpt_entry_t *p2 = (kmp_jgpt_entry_t*)ck->kmp2.dlist[sect].list;
-    for ( int n = ck->kmp1.dlist[sect].used; n>0; n--, p1++, p2++ )
-    {
-	if (   p1->id     != p2->id
-	    || p1->effect != p2->effect
-	    || fabs( p1->position[0] - p2->position[0] ) > KMP_POS_EPSILON
-	    || fabs( p1->position[1] - p2->position[1] ) > KMP_POS_EPSILON
-	    || fabs( p1->position[2] - p2->position[2] ) > KMP_POS_EPSILON
-	    || fabs( p1->rotation[0] - p2->rotation[0] ) > KMP_ROT_EPSILON
-	    || fabs( p1->rotation[1] - p2->rotation[1] ) > KMP_ROT_EPSILON
-	    || fabs( p1->rotation[2] - p2->rotation[2] ) > KMP_ROT_EPSILON
-	)
+	if (ck->kmp1.dlist[sect].used != ck->kmp2.dlist[sect].used)
 	{
-	    *ck->kinfo_ptr++ = msg;
-	    return false;
+		*ck->kinfo_ptr++ = msg;
+		return false;
 	}
-    }
 
-    return true;
+	const kmp_jgpt_entry_t *p1 = (kmp_jgpt_entry_t *)ck->kmp1.dlist[sect].list;
+	const kmp_jgpt_entry_t *p2 = (kmp_jgpt_entry_t *)ck->kmp2.dlist[sect].list;
+	for (int n = ck->kmp1.dlist[sect].used; n > 0; n--, p1++, p2++)
+	{
+		if (p1->id != p2->id || p1->effect != p2->effect
+			|| fabs (p1->position[0] - p2->position[0]) > KMP_POS_EPSILON
+			|| fabs (p1->position[1] - p2->position[1]) > KMP_POS_EPSILON
+			|| fabs (p1->position[2] - p2->position[2]) > KMP_POS_EPSILON
+			|| fabs (p1->rotation[0] - p2->rotation[0]) > KMP_ROT_EPSILON
+			|| fabs (p1->rotation[1] - p2->rotation[1]) > KMP_ROT_EPSILON
+			|| fabs (p1->rotation[2] - p2->rotation[2]) > KMP_ROT_EPSILON)
+		{
+			*ck->kinfo_ptr++ = msg;
+			return false;
+		}
+	}
+
+	return true;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static bool compare_kmp_pt2
-(
-    check_texture_t	*ck,
-    kmp_entry_t		sect_ph,  // KMP_ENPH | KMP_ITPH
-    kmp_entry_t		sect_pt,  // KMP_ENPT | KMP_ITPT
-    char		msg
-)
+static bool compare_kmp_pt2 (check_texture_t *ck,
+	kmp_entry_t sect_ph, // KMP_ENPH | KMP_ITPH
+	kmp_entry_t sect_pt, // KMP_ENPT | KMP_ITPT
+	char msg)
 {
-    DASSERT(ck);
+	DASSERT (ck);
 
-    if	(  ck->kmp1.dlist[sect_ph].used != ck->kmp2.dlist[sect_ph].used
-	|| ck->kmp1.dlist[sect_pt].used != ck->kmp2.dlist[sect_pt].used
-	)
-    {
-	*ck->kinfo_ptr++ = msg;
-	return false;
-    }
-
-    const kmp_enph_entry_t *h1 = (kmp_enph_entry_t*)ck->kmp1.dlist[sect_ph].list;
-    const kmp_enph_entry_t *h2 = (kmp_enph_entry_t*)ck->kmp2.dlist[sect_ph].list;
-    uint size = sizeof(*h1);
-    if ( opt_battle_mode <= OFFON_OFF )
-	size -= sizeof(h1->setting);
-    for ( int n = ck->kmp1.dlist[sect_ph].used; n>0; n--, h1++, h2++ )
-	if (memcmp(h1,h2,size))
+	if (ck->kmp1.dlist[sect_ph].used != ck->kmp2.dlist[sect_ph].used
+		|| ck->kmp1.dlist[sect_pt].used != ck->kmp2.dlist[sect_pt].used)
 	{
-	    *ck->kinfo_ptr++ = msg;
-	    return false;
+		*ck->kinfo_ptr++ = msg;
+		return false;
 	}
 
-    const kmp_enpt_entry_t *p1 = (kmp_enpt_entry_t*)ck->kmp1.dlist[sect_pt].list;
-    const kmp_enpt_entry_t *p2 = (kmp_enpt_entry_t*)ck->kmp2.dlist[sect_pt].list;
-    for ( int n = ck->kmp1.dlist[sect_pt].used; n>0; n--, p1++, p2++ )
-    {
-	if (   p1->prop[0] != p2->prop[0]
-	    || p1->prop[1] != p2->prop[1]
-	    || fabs( p1->position[0] - p2->position[0] ) > KMP_POS_EPSILON
-	    || fabs( p1->position[1] - p2->position[1] ) > KMP_POS_EPSILON
-	    || fabs( p1->position[2] - p2->position[2] ) > KMP_POS_EPSILON
-	    || fabs( p1->scale	     - p2->scale       ) > KMP_SCALE_EPSILON
-	)
-	{
-	    *ck->kinfo_ptr++ = msg;
-	    return false;
-	}
-    }
+	const kmp_enph_entry_t *h1 = (kmp_enph_entry_t *)ck->kmp1.dlist[sect_ph].list;
+	const kmp_enph_entry_t *h2 = (kmp_enph_entry_t *)ck->kmp2.dlist[sect_ph].list;
+	uint size = sizeof (*h1);
+	if (opt_battle_mode <= OFFON_OFF)
+		size -= sizeof (h1->setting);
+	for (int n = ck->kmp1.dlist[sect_ph].used; n > 0; n--, h1++, h2++)
+		if (memcmp (h1, h2, size))
+		{
+			*ck->kinfo_ptr++ = msg;
+			return false;
+		}
 
-    return true;
+	const kmp_enpt_entry_t *p1 = (kmp_enpt_entry_t *)ck->kmp1.dlist[sect_pt].list;
+	const kmp_enpt_entry_t *p2 = (kmp_enpt_entry_t *)ck->kmp2.dlist[sect_pt].list;
+	for (int n = ck->kmp1.dlist[sect_pt].used; n > 0; n--, p1++, p2++)
+	{
+		if (p1->prop[0] != p2->prop[0] || p1->prop[1] != p2->prop[1]
+			|| fabs (p1->position[0] - p2->position[0]) > KMP_POS_EPSILON
+			|| fabs (p1->position[1] - p2->position[1]) > KMP_POS_EPSILON
+			|| fabs (p1->position[2] - p2->position[2]) > KMP_POS_EPSILON
+			|| fabs (p1->scale - p2->scale) > KMP_SCALE_EPSILON)
+		{
+			*ck->kinfo_ptr++ = msg;
+			return false;
+		}
+	}
+
+	return true;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 
-enumError CheckTextureSZS
-(
-    // returns ERR_OK | ERR_DIFFER | ERR_ERROR
-    szs_file_t	* szs1,		// first szs to compare
-    szs_file_t	* szs2,		// second szs to compare
-    ccp		*status		// not NULL: store status info here -> FreeString()
+enumError CheckTextureSZS (
+	// returns ERR_OK | ERR_DIFFER | ERR_ERROR
+	szs_file_t *szs1, // first szs to compare
+	szs_file_t *szs2, // second szs to compare
+	ccp *status // not NULL: store status info here -> FreeString()
 )
 {
-    DASSERT(szs1);
-    DASSERT(szs2);
-    disable_checks++;
+	DASSERT (szs1);
+	DASSERT (szs2);
+	disable_checks++;
 
-    if (status)
-    {
-	FreeString(*status);
-	*status = 0;
-    }
-
-    check_texture_t ck;
-    memset(&ck,0,sizeof(ck));
-    ck.info_end = ck.info_buf + sizeof(ck.info_buf) - 2;
-    ck.info_ptr = StringCopyE(ck.info_buf,ck.info_end,"0=no");
-    char *info_start = ck.info_ptr;
-
-
-    //--- check KCL
-
-    compare_texture_helper(szs1,szs2,"course.kcl",&ck,",KCL");
-
-
-    //--- last check: KMP
-
-    szs_iterator_t res1, res2;
-    int stat1 = FindFileSZS(szs1,"course.kmp",0,false,&res1);
-    int stat2 = FindFileSZS(szs2,"course.kmp",0,false,&res2);
-
-    if ( stat1 != stat2 )
-	ck.info_ptr = StringCopyE(ck.info_ptr,ck.info_end,",KMP");
-    else if ( stat1 > 0
-	    && ( res1.size != res2.size
-		|| memcmp( szs1->data + res1.off, szs2->data + res2.off, res1.size )))
-    {
-	InitializeKMP(&ck.kmp1);
-	InitializeKMP(&ck.kmp2);
-	enumError err1 = ScanKMP(&ck.kmp1,false,szs1->data+res1.off,res1.size,0);
-	enumError err2 = ScanKMP(&ck.kmp2,false,szs2->data+res2.off,res2.size,0);
-	if ( err1 || err2 )
-	    ck.info_ptr = StringCopyE(ck.info_ptr,ck.info_end,",KMP");
-	else
-	{
-	    ck.kinfo_end = ck.kinfo_buf + sizeof(ck.kinfo_buf) - 2;
-	    ck.kinfo_ptr = StringCopyE(ck.kinfo_buf,ck.kinfo_end,",KMP=");
-	    char *kinfo_start = ck.kinfo_ptr;
-
-	    compare_kmp_area(&ck);				// KMP_AREA (a)
-//X								// KMP_CAME (?)		not needed
-	    compare_kmp_ck(&ck);				// KMP_CKPH + CKPT (c)
-	    if ( szs1->check_enpt || szs2->check_enpt  )
-		compare_kmp_pt2(&ck,KMP_ENPH,KMP_ENPT,'e');	// KMP_ENPH + ENPT (e)
-	    compare_kmp_gobj(&ck);				// KMP_GOBJ (g)
-	    compare_kmp_pt2(&ck,KMP_ITPH,KMP_ITPT,'i');		// KMP_ITPH+ ITPT (i)
-	    compare_kmp_pt1(&ck,KMP_JGPT,'j');			// KMP_JGPT (j)
-	    compare_kmp_pt1(&ck,KMP_KTPT,'k');			// KMP_KTPT (k)	
-	    compare_kmp_pt1(&ck,KMP_MSPT,'m');			// KMP_MSPT (m)
-	    compare_kmp_pt1(&ck,KMP_CNPT,'n');			// KMP_CNPT (n)
-	    compare_kmp_poti(&ck);				// KMP_POTI (p)
-	    compare_kmp_stgi(&ck);				// KMP_STGI (s)
-
-	    //--- KMP summary
-
-	    if ( ck.kinfo_ptr > kinfo_start )
-	    {
-		*ck.kinfo_ptr = 0;
-		ck.info_ptr = StringCopyE(ck.info_ptr,ck.info_end,ck.kinfo_buf);
-	    }
-	}
-	ResetKMP(&ck.kmp1);
-	ResetKMP(&ck.kmp2);
-    }
-
-
-    //--- check LEX
-
-    compare_texture_helper(szs1,szs2,"course.lex",&ck,",LEX");
-
-
-    //--- check MAP
-
-    stat1 = FindFileSZS(szs1,"map_model.brres",0,false,&res1);
-    stat2 = FindFileSZS(szs2,"map_model.brres",0,false,&res2);
-    if ( stat1 > 0 && stat2 > 0 )
-    {
-	sha1_hash_t hash;
-	SHA1( szs1->data+res1.off, res1.size, hash );
-	int slot1 = GetSha1Slot(SHA1T_MAP,hash);
-	if (slot1)
-	{
-	    SHA1( szs2->data+res2.off, res2.size, hash );
-	    int slot2 = GetSha1Slot(SHA1T_MAP,hash);
-	    if ( slot2 && slot2 != slot1 )
-	    {
-		if ( slot2 > 100 )
-		    ck.info_ptr = snprintfE(ck.info_ptr,ck.info_end,",MAP=A%u",slot2%100);
-		else
-		    ck.info_ptr = snprintfE(ck.info_ptr,ck.info_end,",MAP=%u",slot2);
-	    }
-	}
-    }
-
-
-    //--- finalize
-
-    disable_checks--;
-    if ( ck.info_ptr > info_start )
-    {
 	if (status)
 	{
-	    *info_start = ' ';
-	    *status = STRDUP(ck.info_buf);
+		FreeString (*status);
+		*status = 0;
 	}
-	return ERR_DIFFER;
-    }
 
-    if (status)
-	*status = STRDUP("1=yes");
-    return ERR_OK;
+	check_texture_t ck;
+	memset (&ck, 0, sizeof (ck));
+	ck.info_end = ck.info_buf + sizeof (ck.info_buf) - 2;
+	ck.info_ptr = StringCopyE (ck.info_buf, ck.info_end, "0=no");
+	char *info_start = ck.info_ptr;
+
+	//--- check KCL
+
+	compare_texture_helper (szs1, szs2, "course.kcl", &ck, ",KCL");
+
+	//--- last check: KMP
+
+	szs_iterator_t res1, res2;
+	int stat1 = FindFileSZS (szs1, "course.kmp", 0, false, &res1);
+	int stat2 = FindFileSZS (szs2, "course.kmp", 0, false, &res2);
+
+	if (stat1 != stat2)
+		ck.info_ptr = StringCopyE (ck.info_ptr, ck.info_end, ",KMP");
+	else if (stat1 > 0
+		&& (res1.size != res2.size
+			|| memcmp (szs1->data + res1.off, szs2->data + res2.off, res1.size)))
+	{
+		InitializeKMP (&ck.kmp1);
+		InitializeKMP (&ck.kmp2);
+		enumError err1 = ScanKMP (&ck.kmp1, false, szs1->data + res1.off, res1.size, 0);
+		enumError err2 = ScanKMP (&ck.kmp2, false, szs2->data + res2.off, res2.size, 0);
+		if (err1 || err2)
+			ck.info_ptr = StringCopyE (ck.info_ptr, ck.info_end, ",KMP");
+		else
+		{
+			ck.kinfo_end = ck.kinfo_buf + sizeof (ck.kinfo_buf) - 2;
+			ck.kinfo_ptr = StringCopyE (ck.kinfo_buf, ck.kinfo_end, ",KMP=");
+			char *kinfo_start = ck.kinfo_ptr;
+
+			compare_kmp_area (&ck); // KMP_AREA (a)
+			// X								// KMP_CAME (?)		not needed
+			compare_kmp_ck (&ck); // KMP_CKPH + CKPT (c)
+			if (szs1->check_enpt || szs2->check_enpt)
+				compare_kmp_pt2 (&ck, KMP_ENPH, KMP_ENPT, 'e'); // KMP_ENPH + ENPT (e)
+			compare_kmp_gobj (&ck); // KMP_GOBJ (g)
+			compare_kmp_pt2 (&ck, KMP_ITPH, KMP_ITPT, 'i'); // KMP_ITPH+ ITPT (i)
+			compare_kmp_pt1 (&ck, KMP_JGPT, 'j'); // KMP_JGPT (j)
+			compare_kmp_pt1 (&ck, KMP_KTPT, 'k'); // KMP_KTPT (k)
+			compare_kmp_pt1 (&ck, KMP_MSPT, 'm'); // KMP_MSPT (m)
+			compare_kmp_pt1 (&ck, KMP_CNPT, 'n'); // KMP_CNPT (n)
+			compare_kmp_poti (&ck); // KMP_POTI (p)
+			compare_kmp_stgi (&ck); // KMP_STGI (s)
+
+			//--- KMP summary
+
+			if (ck.kinfo_ptr > kinfo_start)
+			{
+				*ck.kinfo_ptr = 0;
+				ck.info_ptr = StringCopyE (ck.info_ptr, ck.info_end, ck.kinfo_buf);
+			}
+		}
+		ResetKMP (&ck.kmp1);
+		ResetKMP (&ck.kmp2);
+	}
+
+	//--- check LEX
+
+	compare_texture_helper (szs1, szs2, "course.lex", &ck, ",LEX");
+
+	//--- check MAP
+
+	stat1 = FindFileSZS (szs1, "map_model.brres", 0, false, &res1);
+	stat2 = FindFileSZS (szs2, "map_model.brres", 0, false, &res2);
+	if (stat1 > 0 && stat2 > 0)
+	{
+		sha1_hash_t hash;
+		SHA1 (szs1->data + res1.off, res1.size, hash);
+		int slot1 = GetSha1Slot (SHA1T_MAP, hash);
+		if (slot1)
+		{
+			SHA1 (szs2->data + res2.off, res2.size, hash);
+			int slot2 = GetSha1Slot (SHA1T_MAP, hash);
+			if (slot2 && slot2 != slot1)
+			{
+				if (slot2 > 100)
+					ck.info_ptr = snprintfE (ck.info_ptr, ck.info_end, ",MAP=A%u", slot2 % 100);
+				else
+					ck.info_ptr = snprintfE (ck.info_ptr, ck.info_end, ",MAP=%u", slot2);
+			}
+		}
+	}
+
+	//--- finalize
+
+	disable_checks--;
+	if (ck.info_ptr > info_start)
+	{
+		if (status)
+		{
+			*info_start = ' ';
+			*status = STRDUP (ck.info_buf);
+		}
+		return ERR_DIFFER;
+	}
+
+	if (status)
+		*status = STRDUP ("1=yes");
+	return ERR_OK;
 }
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			    END				///////////////
 ///////////////////////////////////////////////////////////////////////////////

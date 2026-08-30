@@ -42,61 +42,55 @@
 
 #include "lib-szs.h"
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			PACK support			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-#define PACK_MAGIC		"PACK"
-#define PACK_MAGIC_NUM		0x5041434b
+#define PACK_MAGIC "PACK"
+#define PACK_MAGIC_NUM 0x5041434b
 
-#define PACK_METRIC_ALIGN	0x10
-#define PACK_SUBFILE_ALIGN	0x20
+#define PACK_METRIC_ALIGN 0x10
+#define PACK_SUBFILE_ALIGN 0x20
 
 ///////////////////////////////////////////////////////////////////////////////
 
 typedef struct pack_header_t
 {
-    u32		magic;			// := PACK_MAGIC_NUM
-    u32		file_size;		// total size of pack file
-    u32		n_files;		// total number of subfiles
-    u32		offset_metric;		// offset to (offset,size) table
-    char	name_pool[0];		// pool with names
-}
-__attribute__ ((packed)) pack_header_t;
+	u32 magic; // := PACK_MAGIC_NUM
+	u32 file_size; // total size of pack file
+	u32 n_files; // total number of subfiles
+	u32 offset_metric; // offset to (offset,size) table
+	char name_pool[0]; // pool with names
+} __attribute__ ((packed)) pack_header_t;
 
 ///////////////////////////////////////////////////////////////////////////////
 
 typedef struct pack_metric_t
 {
-    u32		offset;			// offset of subfile
-    u32		size;			// size of subfile
-}
-__attribute__ ((packed)) pack_metric_t;
+	u32 offset; // offset of subfile
+	u32 size; // size of subfile
+} __attribute__ ((packed)) pack_metric_t;
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			PACK interface			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-int IterateFilesPACK
-(
-    struct szs_iterator_t	*it,	// iterator struct with all infos
-    bool			term	// true: termination hint
+int IterateFilesPACK (struct szs_iterator_t *it, // iterator struct with all infos
+	bool term // true: termination hint
 );
 
 ///////////////////////////////////////////////////////////////////////////////
 
-enumError CreatePACK
-(
-    szs_file_t		* szs,		// valid szs
-    ccp			source_dir,	// NULL or path to source dir
-    u8			* source_data,	// NULL or source data
-    u32			total_size,	// total file size
-    SetupParam_t	* setup_param	// NULL or setup parameters
+enumError CreatePACK (szs_file_t *szs, // valid szs
+	ccp source_dir, // NULL or path to source dir
+	u8 *source_data, // NULL or source data
+	u32 total_size, // total file size
+	SetupParam_t *setup_param // NULL or setup parameters
 );
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			    END				///////////////
 ///////////////////////////////////////////////////////////////////////////////

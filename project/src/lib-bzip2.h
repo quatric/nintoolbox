@@ -43,13 +43,13 @@
 
 #include "lib-std.h"
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			  definitions			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 #ifndef _BZLIB_H
-    typedef void BZFILE;
+typedef void BZFILE;
 #endif
 
 #define BZIP2_DEFAULT_COMPR 9
@@ -58,63 +58,55 @@
 
 typedef struct BZIP2_t
 {
-    File_t		* file;		// IO file
-    BZFILE		* handle;	// bzip2 handle
-    int			compr_level;	// active compression level
+	File_t *file; // IO file
+	BZFILE *handle; // bzip2 handle
+	int compr_level; // active compression level
 
 } BZIP2_t;
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			  helpers			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-int IsBZ
-(
-    // returns
-    // -1:    not BZIP2 data
-    //  1..9: seems to be BZIP2 data; compression level is returned
+int IsBZ (
+	// returns
+	// -1:    not BZIP2 data
+	//  1..9: seems to be BZIP2 data; compression level is returned
 
-    cvp			data,		// NULL or data to investigate
-    uint		size		// size of 'data'
+	cvp data, // NULL or data to investigate
+	uint size // size of 'data'
 );
 
 //-----------------------------------------------------------------------------
 
-int IsBZIP2
-(
-    // returns
-    // -1:    not BZIP2 data
-    //  1..9: seems to be BZIP2 data; compression level is returned
+int IsBZIP2 (
+	// returns
+	// -1:    not BZIP2 data
+	//  1..9: seems to be BZIP2 data; compression level is returned
 
-    cvp			data,		// NULL or data to investigate
-    int			size		// size of 'data'
+	cvp data, // NULL or data to investigate
+	int size // size of 'data'
 );
 
 //-----------------------------------------------------------------------------
 
-ccp GetMessageBZIP2
-(
-    int			err,		// error code
-    ccp			unkown_error	// result for unkown error codes
+ccp GetMessageBZIP2 (int err, // error code
+	ccp unkown_error // result for unkown error codes
 );
 
 //-----------------------------------------------------------------------------
 
-int CalcCompressionLevelBZIP2
-(
-    int			compr_level	// valid are 1..9 / 0: use default value
+int CalcCompressionLevelBZIP2 (int compr_level // valid are 1..9 / 0: use default value
 );
 
 //-----------------------------------------------------------------------------
 
-u32 CalcMemoryUsageBZIP2
-(
-    int			compr_level,	// valid are 1..9 / 0: use default value
-    bool		is_writing	// false: reading mode, true: writing mode
+u32 CalcMemoryUsageBZIP2 (int compr_level, // valid are 1..9 / 0: use default value
+	bool is_writing // false: reading mode, true: writing mode
 );
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			BZIP2 writing			///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -176,7 +168,7 @@ enumError DecodeBZIP2_Close
 ///////////////////////////////////////////////////////////////////////////////
 #endif // 0 // not needed yet
 ///////////////////////////////////////////////////////////////////////////////
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////		    BZIP2 memory conversions		///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -184,110 +176,96 @@ enumError DecodeBZIP2_Close
 
 typedef struct BZ2Manager_t
 {
-    //--- source
+	//--- source
 
-    cvp		src_data;	// BZ2 is automatically detected and
-				// decoded by DecodeBZIP2(). Never NULL
-    uint	src_size;	// size of 'src_data'
+	cvp src_data; // BZ2 is automatically detected and
+				  // decoded by DecodeBZIP2(). Never NULL
+	uint src_size; // size of 'src_data'
 
-    //--- decoded
+	//--- decoded
 
-    u8		*data;		// NULL or data, alloced if not part of 'src_data'
-    uint	size;		// size of 'data'
-}
-BZ2Manager_t;
+	u8 *data; // NULL or data, alloced if not part of 'src_data'
+	uint size; // size of 'data'
+} BZ2Manager_t;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-enumError EncodeBZIP2buf
-(
-    void		*dest,		// valid destination buffer
-    uint		dest_size,	// size of 'dest'
-    uint		*dest_written,	// store num bytes written to 'dest', never NULL
+enumError EncodeBZIP2buf (void *dest, // valid destination buffer
+	uint dest_size, // size of 'dest'
+	uint *dest_written, // store num bytes written to 'dest', never NULL
 
-    const void		*src,		// source buffer
-    uint		src_size,	// size of source buffer
+	const void *src, // source buffer
+	uint src_size, // size of source buffer
 
-    int			compr_level,	// valid are 1..9 / 0: use default value
-    bool		add_dec_size	// true: add decompressed size
+	int compr_level, // valid are 1..9 / 0: use default value
+	bool add_dec_size // true: add decompressed size
 );
 
 //-----------------------------------------------------------------------------
 
-enumError EncodeBZIP2
-(
-    u8			**dest_ptr,	// result: store destination buffer addr
-    uint		*dest_written,	// store num bytes written to 'dest', never NULL
+enumError EncodeBZIP2 (u8 **dest_ptr, // result: store destination buffer addr
+	uint *dest_written, // store num bytes written to 'dest', never NULL
 
-    bool		use_iobuf,	// true: allow the usage of 'iobuf'
-    uint		header_size,	// insert 'header_size' bytes before dest data
-    bool		add_dec_size,	// true: add decompressed size before BZIP2 header
+	bool use_iobuf, // true: allow the usage of 'iobuf'
+	uint header_size, // insert 'header_size' bytes before dest data
+	bool add_dec_size, // true: add decompressed size before BZIP2 header
 
-    const void		*src,		// source buffer
-    uint		src_size,	// size of source buffer
+	const void *src, // source buffer
+	uint src_size, // size of source buffer
 
-    int			compr_level	// valid are 1..9 / 0: use default value
+	int compr_level // valid are 1..9 / 0: use default value
 );
 
 //-----------------------------------------------------------------------------
 
-enumError DecodeBZIP2bin
-(
-    u8			**dest_ptr,	// result: store destination buffer addr
-    uint		*dest_written,	// store num bytes written to 'dest_ptr', never NULL
-    uint		header_size,	// insert 'header_size' bytes before dest data
+enumError DecodeBZIP2bin (u8 **dest_ptr, // result: store destination buffer addr
+	uint *dest_written, // store num bytes written to 'dest_ptr', never NULL
+	uint header_size, // insert 'header_size' bytes before dest data
 
-    const void		*src,		// source buffer
-    uint		src_size	// size of source buffer
+	const void *src, // source buffer
+	uint src_size // size of source buffer
 );
 
 //-----------------------------------------------------------------------------
 
-enumError DecodeBZIP2part
-(
-    // decompress until dest buffer full or end of source reached
-    // return ERR_WARNING for an incomplete decompression
+enumError DecodeBZIP2part (
+	// decompress until dest buffer full or end of source reached
+	// return ERR_WARNING for an incomplete decompression
 
-    void		*dest_buf,	// result: store read data here
-    uint		dest_size,	// size of 'dest_buf'
-    uint		*dest_written,	// store num bytes written to 'dest_ptr', never NULL
+	void *dest_buf, // result: store read data here
+	uint dest_size, // size of 'dest_buf'
+	uint *dest_written, // store num bytes written to 'dest_ptr', never NULL
 
-    const void		*src,		// source buffer
-    uint		src_size	// size of source buffer
+	const void *src, // source buffer
+	uint src_size // size of source buffer
 );
 
 //-----------------------------------------------------------------------------
 
-enumError DecodeBZIP2buf
-(
-    void		*dest,		// valid destination buffer
-    uint		dest_size,	// size of 'dest'
-    uint		*dest_written,	// store num bytes written to 'dest_ptr', never NULL
+enumError DecodeBZIP2buf (void *dest, // valid destination buffer
+	uint dest_size, // size of 'dest'
+	uint *dest_written, // store num bytes written to 'dest_ptr', never NULL
 
-    const void		*src,		// source buffer
-    uint		src_size	// size of source buffer
+	const void *src, // source buffer
+	uint src_size // size of source buffer
 );
 
 //-----------------------------------------------------------------------------
 
-enumError DecodeBZIP2
-(
-    u8			**dest_ptr,	// result: store destination buffer addr
-    uint		*dest_written,	// store num bytes written to 'dest', never NULL
-    uint		header_size,	// insert 'header_size' bytes before dest data
+enumError DecodeBZIP2 (u8 **dest_ptr, // result: store destination buffer addr
+	uint *dest_written, // store num bytes written to 'dest', never NULL
+	uint header_size, // insert 'header_size' bytes before dest data
 
-    const void		*src,		// source buffer, first 4 bytes = dest size
-    uint		src_size	// size of source buffer
+	const void *src, // source buffer, first 4 bytes = dest size
+	uint src_size // size of source buffer
 );
 
 //-----------------------------------------------------------------------------
 
-enumError DecodeBZIP2Manager
-(
-    BZ2Manager_t	*mgr		// manager data
+enumError DecodeBZIP2Manager (BZ2Manager_t *mgr // manager data
 );
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			BZ2S = BZ2-Source		///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -295,47 +273,45 @@ enumError DecodeBZIP2Manager
 
 typedef enum BZ2Status_t
 {
-    BZ2S_F_BZIP2	= 1,	// flag: source was bzip2 encoded
-    BZ2S_M_TYPE		= ~1,	// types without flags
+	BZ2S_F_BZIP2 = 1, // flag: source was bzip2 encoded
+	BZ2S_M_TYPE = ~1, // types without flags
 
-    BZ2S_T_NONE		= 0,	// no data found
-    BZ2S_T_INTERN	= 2,	// internal data used
-    BZ2S_T_FILE		= 4,	// external file used
-}
-BZ2Status_t;
+	BZ2S_T_NONE = 0, // no data found
+	BZ2S_T_INTERN = 2, // internal data used
+	BZ2S_T_FILE = 4, // external file used
+} BZ2Status_t;
 
 //-----------------------------------------------------------------------------
 // [[BZ2Source_t]]
 
 typedef struct BZ2Source_t
 {
-    //--- search files
+	//--- search files
 
-    ccp		search;		// Semicolon separated list of filenames
+	ccp search; // Semicolon separated list of filenames
 				// or sub-paths to search.
 				// NULL terminate source lists.
 
-    //--- internal fall back data
+	//--- internal fall back data
 
-    cvp		src_data;	// NULL or internal fall back data.
-				// BZ2 is automatically detected and
-				// decoded by DecodeBZIP2().
-    uint	src_size;	// size of 'src_data'
+	cvp src_data; // NULL or internal fall back data.
+				  // BZ2 is automatically detected and
+				  // decoded by DecodeBZIP2().
+	uint src_size; // size of 'src_data'
 
-    file_format_t fform;	// not FF_UNKNOWN: Allow only this type
+	file_format_t fform; // not FF_UNKNOWN: Allow only this type
 
-    uint	part_offset;	// >0: use only a part of (decoced) 'src_data'
-    uint	part_size;	// >0: limit result to this size if
-				// 'src_data' is used
+	uint part_offset; // >0: use only a part of (decoced) 'src_data'
+	uint part_size; // >0: limit result to this size if
+					// 'src_data' is used
 
-    //--- result of search
+	//--- result of search
 
-    BZ2Status_t	status;		// return value of SearchBZ2S()
-    ccp		fname;		// NULL or filename, alloced if not 'InternalBZ2S'
-    u8		*data;		// NULL or data, alloced if not part of 'src_data'
-    uint	size;		// size of 'data'
-}
-BZ2Source_t;
+	BZ2Status_t status; // return value of SearchBZ2S()
+	ccp fname; // NULL or filename, alloced if not 'InternalBZ2S'
+	u8 *data; // NULL or data, alloced if not part of 'src_data'
+	uint size; // size of 'data'
+} BZ2Source_t;
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -345,77 +321,69 @@ typedef enum SearchLog_t
 	SEA_LOG_SUCCESS,
 	SEA_LOG_FOUND,
 	SEA_LOG_ALL,
-}
-SearchLog_t;
+} SearchLog_t;
 
 extern const char InternalBZ2S[]; // = "<intern>"
 
 //-----------------------------------------------------------------------------
 
-uint ClearBZ2S
-(
-    // Returns the number of cleard elements
-    // Call this function to free results of SearchBZ2S() and SearchListBZ2S()
-    // Both functions call ClearBZ2S() at the beginning.
+uint ClearBZ2S (
+	// Returns the number of cleard elements
+	// Call this function to free results of SearchBZ2S() and SearchListBZ2S()
+	// Both functions call ClearBZ2S() at the beginning.
 
-    BZ2Source_t		*src,		// valid BZ2Source_t list
-    int			n		// >=0: clear 'n' elements max,
-					//      but always stop at list end!
+	BZ2Source_t *src, // valid BZ2Source_t list
+	int n // >=0: clear 'n' elements max,
+		  //      but always stop at list end!
 );
 
 //-----------------------------------------------------------------------------
 
-static inline bool IsDataAllocedBZ2S ( BZ2Source_t *src	)
+static inline bool IsDataAllocedBZ2S (BZ2Source_t *src)
 {
-    DASSERT(src);
-    return !src->src_data
-	|| src->data < (u8*)src->src_data
-	|| src->data > (u8*)src->src_data + src->src_size;
+	DASSERT (src);
+	return !src->src_data || src->data < (u8 *)src->src_data
+		|| src->data > (u8 *)src->src_data + src->src_size;
 }
 
 //-----------------------------------------------------------------------------
 
-u8 * NonConstDataBZ2S
-(
-    // Converts src->data to malloced data (modifications possible)
-    // return src->data after conversion.
+u8 *NonConstDataBZ2S (
+	// Converts src->data to malloced data (modifications possible)
+	// return src->data after conversion.
 
-    BZ2Source_t		*src		// valid BZ2Source_t
+	BZ2Source_t *src // valid BZ2Source_t
 );
 
 //-----------------------------------------------------------------------------
 
-BZ2Status_t SearchBZ2S
-(
-    BZ2Source_t		*src,		// valid single BZ2Source_t
-    ccp			*dir_list,	// list with search directories
-					// NULL and empty strings are ignored.
-    int			n_dir_list,	// number of elements in 'dir_list'
+BZ2Status_t SearchBZ2S (BZ2Source_t *src, // valid single BZ2Source_t
+	ccp *dir_list, // list with search directories
+				   // NULL and empty strings are ignored.
+	int n_dir_list, // number of elements in 'dir_list'
 					// <0: NULL termianted list
-    SearchLog_t		log_level	// one of SEA_LOG_*
+	SearchLog_t log_level // one of SEA_LOG_*
 );
 
 //-----------------------------------------------------------------------------
 
-uint SearchListBZ2S
-(
-    // returns the number of found (file or internal) sources
+uint SearchListBZ2S (
+	// returns the number of found (file or internal) sources
 
-    BZ2Source_t		*src,		// valid BZ2Source_t list
-    int			n,		// >=0: search 'n' elements max
-					//      but always stop at list end!
-    ccp			*dir_list,	// NULL or list with search directories
-					// NULL and empty strings are ignored.
-    int			n_dir_list,	// number of elements in 'dir_list'
+	BZ2Source_t *src, // valid BZ2Source_t list
+	int n, // >=0: search 'n' elements max
+		   //      but always stop at list end!
+	ccp *dir_list, // NULL or list with search directories
+				   // NULL and empty strings are ignored.
+	int n_dir_list, // number of elements in 'dir_list'
 					// <0: NULL terminated list
-    SearchLog_t		log_level	// one of SEA_LOG_*
+	SearchLog_t log_level // one of SEA_LOG_*
 );
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////				END			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 #endif // !NO_BZIP2
 #endif // SZS_LIB_BZIP2_H 1
-

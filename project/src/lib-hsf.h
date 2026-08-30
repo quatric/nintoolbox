@@ -29,12 +29,12 @@
 // ERR_NOTHING_TO_DO if 'data' isn't an HSFV037 file, or
 // if it uses a primitive record type other than triangle/quad that this
 // decoder does not yet support -- see lib-hsf.c.
-enumError DecodeHSF ( const u8 *data, uint size, ccp out_path );
+enumError DecodeHSF (const u8 *data, uint size, ccp out_path);
 
 // Encode a portable static HSFV037 model. Geometry, normals, UVs, vertex
 // colors, triangle materials, material names and the joint/object hierarchy
 // are written in Hudson's native big-endian section layout. Runtime-only
 // features which model_t cannot express are intentionally omitted.
-enumError EncodeModelToHSF ( const model_t *model, ccp out_path );
+enumError EncodeModelToHSF (const model_t *model, ccp out_path);
 
 #endif // LIB_HSF_H

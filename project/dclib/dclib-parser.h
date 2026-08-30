@@ -37,7 +37,7 @@
 
 #include "dclib-types.h"
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			    ScanText_t			///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -45,47 +45,45 @@
 
 typedef struct ScanText_t
 {
-    //-- base data
+	//-- base data
 
-    ccp		data;			// begin of text
-    uint	data_size;		// total size of text
+	ccp data; // begin of text
+	uint data_size; // total size of text
 
-    ccp		fname;			// NULL or filename for messages
-    bool	fname_alloced;		// true: call FreeString(fname)
+	ccp fname; // NULL or filename for messages
+	bool fname_alloced; // true: call FreeString(fname)
 
-    //-- options
+	//-- options
 
-    bool	ignore_comments;	// true: ignore lines with leading '#'
-    bool	ignore_values;		// true: ignore lines with leading '@'
-    int		detect_sections;	// >0: detect lines of format '[...]'
+	bool ignore_comments; // true: ignore lines with leading '#'
+	bool ignore_values; // true: ignore lines with leading '@'
+	int detect_sections; // >0: detect lines of format '[...]'
 
-    //-- current state
+	//-- current state
 
-    ccp		ptr;			// current text position
-    ccp		eot;			// end of text
-    ccp		line;			// current line
-    ccp		eol;			// end of current line
+	ccp ptr; // current text position
+	ccp eot; // end of text
+	ccp line; // current line
+	ccp eol; // end of current line
 
-    bool	is_value;		// current line begins with '@'
-    bool	is_eot;			// end of text reached
-    bool	is_section;		// new section reached
-    bool	is_term;		// := is_eot || is_section
-}
-ScanText_t;
+	bool is_value; // current line begins with '@'
+	bool is_eot; // end of text reached
+	bool is_section; // new section reached
+	bool is_term; // := is_eot || is_section
+} ScanText_t;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void SetupScanText	( ScanText_t *st, cvp data, uint data_size );
-void ResetScanText	( ScanText_t *st );
-void SetFilenameScanText( ScanText_t *st, ccp fname, CopyMode_t cm );
+void SetupScanText (ScanText_t *st, cvp data, uint data_size);
+void ResetScanText (ScanText_t *st);
+void SetFilenameScanText (ScanText_t *st, ccp fname, CopyMode_t cm);
 
-void RewindScanText	( ScanText_t *st );
-bool NextLineScanText	( ScanText_t *st );
+void RewindScanText (ScanText_t *st);
+bool NextLineScanText (ScanText_t *st);
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			    E N D			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 #endif // DCLIB_PARSER_H
-

@@ -11,11 +11,10 @@
 // a 32-character hex string, a 16-byte key file, or a 544-byte
 // wc24pubk.mod-style blob carrying the AES key at offset 512.
 
-enumError WC24DecryptFile ( ccp infile, ccp outfile, ccp keyarg );
-enumError WC24EncryptFile ( ccp infile, ccp outfile, ccp keyarg,
-			     ccp rsa_pem_path, ccp ivarg );
+enumError WC24DecryptFile (ccp infile, ccp outfile, ccp keyarg);
+enumError WC24EncryptFile (ccp infile, ccp outfile, ccp keyarg, ccp rsa_pem_path, ccp ivarg);
 // Runs the AES/RSA known-answer tests; prints one line per check.
 // Returns ERR_OK when every check passes.
-enumError WC24SelfTest ( void );
+enumError WC24SelfTest (void);
 
 #endif

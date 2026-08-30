@@ -12,10 +12,10 @@
 // True when SRC looks like a QuickLZ stream. This is an exact test, not a
 // guess: it applies the vendor decoders' own header validation and then
 // requires the size the header records to equal the buffer actually given.
-bool IsQuickLZ ( const u8 *src, uint src_size );
+bool IsQuickLZ (const u8 *src, uint src_size);
 
 // Both allocate *dest with MALLOC(); the caller FREE()s it.
-enumError DecodeQuickLZ ( u8 **dest, uint *dest_size, const u8 *src, uint src_size );
-enumError EncodeQuickLZ ( u8 **dest, uint *dest_size, const u8 *src, uint src_size );
+enumError DecodeQuickLZ (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+enumError EncodeQuickLZ (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 
 #endif

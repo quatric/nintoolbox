@@ -50,45 +50,40 @@
 // [[halbank_entry_t]]
 typedef struct halbank_entry_t
 {
-    ccp		name;		// into 'data', NUL terminated, not owned
-    u32		data_off;	// absolute offset of the payload
-    u32		data_size;	// payload size, up to the next payload / EOF
-}
-halbank_entry_t;
+	ccp name; // into 'data', NUL terminated, not owned
+	u32 data_off; // absolute offset of the payload
+	u32 data_size; // payload size, up to the next payload / EOF
+} halbank_entry_t;
 
 // [[halbank_t]]
 typedef struct halbank_t
 {
-    const u8		*data;		// whole file, not owned
-    uint		size;		// size of 'data'
-    halbank_entry_t	*entry;		// 'n_entry' parsed entries
-    uint		n_entry;
-}
-halbank_t;
+	const u8 *data; // whole file, not owned
+	uint size; // size of 'data'
+	halbank_entry_t *entry; // 'n_entry' parsed entries
+	uint n_entry;
+} halbank_t;
 
 ///////////////////////////////////////////////////////////////////////////////
 
 // Quick structural probe: an A2 bank has no magic either, so this validates
 // the pair table (see IsHALBank() in lib-halbank.c for the exact criteria).
-bool IsHALBank ( const u8 *data, uint size );
+bool IsHALBank (const u8 *data, uint size);
 
 // Parse the pair table. Returns false if 'data' is not an A2 bank.
 // 'data' is borrowed and must outlive 'bank'. Call ResetHALBank() when done.
-bool ScanHALBank ( halbank_t *bank, const u8 *data, uint size );
-void ResetHALBank ( halbank_t *bank );
+bool ScanHALBank (halbank_t *bank, const u8 *data, uint size);
+void ResetHALBank (halbank_t *bank);
 
 // Decode every ".tex" entry and write it as a PNG into 'dest_dir', named
 // "<basename>.<entry>_<W>x<H>_<format>.png".
 // Returns the number of textures written, or -1 on error.
-int ExportHALBankTextures
-(
-    const halbank_t *bank,	// valid, scanned bank
-    ccp		dest_dir,	// output directory, created if needed
-    ccp		basename	// name prefix for the written PNGs
+int ExportHALBankTextures (const halbank_t *bank, // valid, scanned bank
+	ccp dest_dir, // output directory, created if needed
+	ccp basename // name prefix for the written PNGs
 );
 
 // Convenience wrapper: scan 'data' and export its textures.
-int ExportHALBankTexturesFromData
-	( const u8 *data, uint size, ccp dest_dir, ccp basename );
+int ExportHALBankTexturesFromData (const u8 *data, uint size, ccp dest_dir, ccp basename);
 
 #endif // LIB_HALBANK_H

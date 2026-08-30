@@ -39,13 +39,12 @@
  *                                                                         *
  ***************************************************************************/
 
-
 #ifndef SZS_UI_WPATT_H
 #define SZS_UI_WPATT_H
 #include "dclib-basics.h"
 #include "dclib-ui.h"
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////                enum enumOptions                 ///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -123,14 +122,14 @@ typedef enum enumOptions
 
 } enumOptions;
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////               enum enumOptionsBit               ///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 //	*****  only for verification  *****
 
-//typedef enum enumOptionsBit
+// typedef enum enumOptionsBit
 //{
 //	//----- command specific options -----
 //
@@ -233,9 +232,9 @@ typedef enum enumOptions
 //				| OB_NO_ECHO
 //				| OB_NO_CHECK,
 //
-//} enumOptionsBit;
+// } enumOptionsBit;
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////                enum enumCommands                ///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -268,44 +267,44 @@ typedef enum enumCommands
 
 } enumCommands;
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////                   enumGetOpt                    ///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 typedef enum enumGetOpt
 {
-	GO__ERR			= '?',
+	GO__ERR = '?',
 
-	GO_ARENAS		= 'A',
-	GO_BRIEF		= 'B',
-	GO_DEST2		= 'D',
-	GO_ESC			= 'E',
-	GO_NO_HEADER		= 'H',
-	GO_LOGGING		= 'L',
-	GO_MAX_FILE_SIZE	= 'M',
-	GO_NO_CHECK		= 'N',
-	GO_NO_PARAM		= 'P',
-	GO_TRACKS		= 'T',
-	GO_VERSION		= 'V',
-	GO_WARN			= 'W',
-	GO_EXT_ERRORS		= 'Y',
+	GO_ARENAS = 'A',
+	GO_BRIEF = 'B',
+	GO_DEST2 = 'D',
+	GO_ESC = 'E',
+	GO_NO_HEADER = 'H',
+	GO_LOGGING = 'L',
+	GO_MAX_FILE_SIZE = 'M',
+	GO_NO_CHECK = 'N',
+	GO_NO_PARAM = 'P',
+	GO_TRACKS = 'T',
+	GO_VERSION = 'V',
+	GO_WARN = 'W',
+	GO_EXT_ERRORS = 'Y',
 
-	GO_CONST		= 'c',
-	GO_DEST			= 'd',
-	GO_HELP			= 'h',
-	GO_IGNORE		= 'i',
-	GO_LONG			= 'l',
-	GO_OVERWRITE		= 'o',
-	GO_PRESERVE		= 'p',
-	GO_QUIET		= 'q',
-	GO_REMOVE_DEST		= 'r',
-	GO_TEST			= 't',
-	GO_UPDATE		= 'u',
-	GO_VERBOSE		= 'v',
-	GO_ZERO			= 'z',
+	GO_CONST = 'c',
+	GO_DEST = 'd',
+	GO_HELP = 'h',
+	GO_IGNORE = 'i',
+	GO_LONG = 'l',
+	GO_OVERWRITE = 'o',
+	GO_PRESERVE = 'p',
+	GO_QUIET = 'q',
+	GO_REMOVE_DEST = 'r',
+	GO_TEST = 't',
+	GO_UPDATE = 'u',
+	GO_VERBOSE = 'v',
+	GO_ZERO = 'z',
 
-	GO_XHELP		= 0x80,
+	GO_XHELP = 0x80,
 	GO_CONFIG,
 	GO_YDEBUG,
 	GO_ALLOW_ALL,
@@ -339,25 +338,24 @@ typedef enum enumGetOpt
 
 } enumGetOpt;
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////                  external vars                  ///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-//extern const InfoOption_t OptionInfo[OPT__N_TOTAL+1];
-//extern const KeywordTab_t CommandTab[];
-//extern const char OptionShort[];
-//extern const struct option OptionLong[];
-//extern u8 OptionUsed[OPT__N_TOTAL+1];
-//extern const OptionIndex_t OptionIndex[UIOPT_INDEX_SIZE];
-//UIOPT_INDEX_SIZE := 0x190 = 400
-//extern const InfoCommand_t CommandInfo[CMD__N+1];
+// extern const InfoOption_t OptionInfo[OPT__N_TOTAL+1];
+// extern const KeywordTab_t CommandTab[];
+// extern const char OptionShort[];
+// extern const struct option OptionLong[];
+// extern u8 OptionUsed[OPT__N_TOTAL+1];
+// extern const OptionIndex_t OptionIndex[UIOPT_INDEX_SIZE];
+// UIOPT_INDEX_SIZE := 0x190 = 400
+// extern const InfoCommand_t CommandInfo[CMD__N+1];
 extern const InfoUI_t InfoUI_wpatt;
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////                       END                       ///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 #endif // SZS_UI_WPATT_H
-

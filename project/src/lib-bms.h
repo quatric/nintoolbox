@@ -9,6 +9,6 @@
 // FOR/NEXT, IF/ELSE/ENDIF, LOG, CLOG, COMTYPE, ENDIAN, PRINT.
 // No quickbms binary is involved; scripts run in-process.
 
-enumError RunBmsScript ( ccp script_path, ccp infile, ccp outdir );
+enumError RunBmsScript (ccp script_path, ccp infile, ccp outdir);
 
 #endif

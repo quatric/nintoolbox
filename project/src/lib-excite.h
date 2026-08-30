@@ -18,25 +18,20 @@
 
 typedef struct excite_tex_t
 {
-    u8   *rgba;   // owned, width*height*4, row-major RGBA8
-    uint width;
-    uint height;
-    uint gx_format;  // the recovered GX texture format (0x0..0xE)
-    float score;      // lower = more confident classification
-}
-excite_tex_t;
+	u8 *rgba; // owned, width*height*4, row-major RGBA8
+	uint width;
+	uint height;
+	uint gx_format; // the recovered GX texture format (0x0..0xE)
+	float score; // lower = more confident classification
+} excite_tex_t;
 
-void      ResetExciteTEX ( excite_tex_t *tex );
+void ResetExciteTEX (excite_tex_t *tex);
 
 // Decode one native GameCube/Wii GX tiled texture level. GX_FORMAT accepts
 // I4..RGBA8 and CMPR (0..6,14), plus C4/C8 (8,9) when PALETTE is supplied.
 // PAL_FORMAT is 0=IA8, 1=RGB565, 2=RGB5A3. The returned buffer is owned.
-enumError DecodeGXTexture_RGBA
-(
-    u8 **dest, uint width, uint height, uint gx_format,
-    const u8 *data, uint data_size,
-    const u8 *palette, uint palette_count, uint pal_format
-);
+enumError DecodeGXTexture_RGBA (u8 **dest, uint width, uint height, uint gx_format, const u8 *data,
+	uint data_size, const u8 *palette, uint palette_count, uint pal_format);
 
 // Recognise and decode a .tex file. This covers Excite Truck's GX texture
 // with trailing dimension footer/no stored format and ExciteBots' explicit
@@ -44,7 +39,7 @@ enumError DecodeGXTexture_RGBA
 // Returns ERR_OK and
 // fills *tex on success; ERR_NOTHING_TO_DO if this is not a recognisable
 // Excite .tex payload.
-enumError ScanTEX ( excite_tex_t *tex, const u8 *data, uint size );
+enumError ScanTEX (excite_tex_t *tex, const u8 *data, uint size);
 
 // Same recovery for GUI art (.art/.img), including both the older zero-footer
 // representation and ExciteBots' explicit header representation. In the
@@ -54,7 +49,7 @@ enumError ScanTEX ( excite_tex_t *tex, const u8 *data, uint size );
 // height, colour on top, stencil mask below); those are detected and
 // recombined into one proper half-height RGBA image before returning -- see
 // excite_art_looks_like_mask()/excite_art_recombine() in lib-excite.c.
-enumError ScanART ( excite_tex_t *tex, const u8 *data, uint size );
+enumError ScanART (excite_tex_t *tex, const u8 *data, uint size);
 
 // Encode a width*height RGBA8 image to a .tex payload: a full box-filtered
 // GX mip chain (capped at 10 levels, matching ScanTEX()'s search bound) in
@@ -67,24 +62,16 @@ enumError ScanART ( excite_tex_t *tex, const u8 *data, uint size );
 // power of two). 'gx_format' selects the pixel format (GX_I4 .. GX_CMPR, see
 // lib-excite.c); pass -1 to auto-pick one from the image's alpha/greyscale
 // content.
-enumError EncodeExciteTEX_RGBA
-(
-    u8 **dest, uint *dest_size,
-    const u8 *rgba, uint width, uint height,
-    int gx_format
-);
+enumError EncodeExciteTEX_RGBA (
+	u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height, int gx_format);
 
 // Same idea for .art/.img: a single GX level (no mip chain) whose byte
 // length is exactly size-128 (a power of two -- guaranteed for standard GX
 // dimensions), followed by a mandatory all-zero 128-byte tail (ScanART()
 // hard-rejects anything else, unlike ScanTEX()'s footer). Parameters as
 // EncodeExciteTEX_RGBA().
-enumError EncodeExciteART_RGBA
-(
-    u8 **dest, uint *dest_size,
-    const u8 *rgba, uint width, uint height,
-    int gx_format
-);
+enumError EncodeExciteART_RGBA (
+	u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height, int gx_format);
 
 //-----------------------------------------------------------------------------
 ///////////////		.msh collision meshes				///////////////
@@ -95,7 +82,7 @@ enumError EncodeExciteART_RGBA
 // float32 XYZ positions and 60-byte indexed triangle records. Writes a
 // COLLADA .dae to 'out_dae_path'. Returns ERR_NOTHING_TO_DO when the section
 // counts, exact file size, or triangle position indices are invalid.
-enumError DecodeExciteMSH ( const u8 *data, uint size, ccp out_dae_path );
+enumError DecodeExciteMSH (const u8 *data, uint size, ccp out_dae_path);
 
 // Encode a model_t (from ParseDAE/ParseGLB) as a little-endian Monster Games
 // PMsh collision resource -- the inverse of DecodeExciteMSH. Positions are
@@ -103,7 +90,7 @@ enumError DecodeExciteMSH ( const u8 *data, uint size, ccp out_dae_path );
 // formulas recovered from the retail corpus (see lib-excite.c), and triangles
 // are grouped into <=16-triangle buckets with exact bbox spheres. Returns
 // ERR_INVALID_DATA for empty/degenerate geometry.
-enumError EncodeExciteMSH ( const model_t *model, ccp out_path );
+enumError EncodeExciteMSH (const model_t *model, ccp out_path);
 
 //-----------------------------------------------------------------------------
 ///////////////		.mod 3D models (Monster Games NDL3/NDL2)	///////////////
@@ -118,7 +105,7 @@ enumError EncodeExciteMSH ( const model_t *model, ccp out_path );
 // DecodeExciteMOD() in lib-excite.c for the exact format and validation
 // against the full retail corpus of both games. Returns ERR_NOTHING_TO_DO
 // if 'data' isn't a recognisable NDL3/NDL2 .mod file.
-enumError DecodeExciteMOD ( const u8 *data, uint size, ccp out_path );
+enumError DecodeExciteMOD (const u8 *data, uint size, ccp out_path);
 
 // Encode a parsed model (COLLADA/GLB input, as produced by DecodeExciteMOD())
 // as a geometry-only "3LDN" .mod file -- the inverse of DecodeExciteMOD().
@@ -129,6 +116,6 @@ enumError DecodeExciteMOD ( const u8 *data, uint size, ccp out_path );
 // bytes). The optional texture-filename table of some retail files has an
 // unrecovered layout and is not written. See the comment above
 // EncodeExciteMOD() in lib-excite.c for details.
-enumError EncodeExciteMOD ( const model_t *model, ccp out_path );
+enumError EncodeExciteMOD (const model_t *model, ccp out_path);
 
 #endif // LIB_EXCITE_H

@@ -42,2601 +42,1840 @@
 #include <getopt.h>
 #include "ui-wstrt.h"
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////                  OptionInfo[]                   ///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-static const InfoOption_t OptionInfo[OPT__N_TOTAL+1] =
-{
-    {0,0,0,0,0,0,0,0,0,0}, // OPT_NONE,
-
-    //----- command specific options -----
-
-    {	OPT_LONG, false, false, false, false, false, 'l', "long",
-	0,
-	"Print long numeric message IDs instead of alternative message names"
-	" like Txx, Uxx or Mxx."
-    },
-
-    {	OPT_BRIEF, false, false, false, false, false, 'B', "brief",
-	0,
-	"List only the track file names and suppress table header and footer."
-    },
-
-    {	OPT_NO_WILDCARDS, false, false, false, false, false, 0, "no-wildcards",
-	0,
-	"Disable wildcard parsing and use each filename exactly as specified."
-    },
-
-    {	OPT_IN_ORDER, false, false, false, false, false, 0, "in-order",
-	0,
-	"Process the input files in order of the command line and don't delete"
-	" duplicates."
-    },
-
-    {	OPT_NO_HEADER, false, false, false, false, false, 'H', "no-header",
-	0,
-	"Suppress the syntax information section in BMG text files."
-    },
-
-    {	OPT_CHEAT, false, true, false, false, false, 0, "cheat",
-	"region",
-	"Change the output format and create a cheat code for the region."
-	" Allowed keywords: JAPAN; AMERICA, NTSC; EUROPE, AUSTRALIA, PAL;"
-	" KOREA."
-    },
-
-    {	OPT_ADD_WCODE, false, true, false, false, false, 0, "@add-wcode",
-	"file",
-	"Each option call adds the filename to an internal list. Each file"
-	" must be of type GCT and is added to the internal wcode stock.\n"
-	" If parameter FILE contains at least one wildcard (e.g. \"*.gct\"),"
-	" then FILE is used as search pattern and all found files are added."
-	" Quote FILE for this purpose. \n"
-	"  If a single file is not found and the filename (not path) contains"
-	" at least 1 '@' character, then all '@' characters of it are replaced"
-	" by the region code (one of P,E,J,K) for a second try."
-    },
-
-    {	OPT_DEST, false, false, false, false, true, 'd', "dest",
-	"path",
-	"Define a destination path (directory/file). The destination - means:"
-	" write to standard output.\n"
-	"  The path may contain escape sequences: %Q is replaced by the fully"
-	" qualified source name. %P and %F are replaced by the source path or"
-	" by the filename. %N and %E are replaced by source filename without"
-	" extension or by the source extension. Finally, %T is replaced by the"
-	" default extension of the destination format.\n"
-	"  A '?' direct behind '%' in %E and %T conversions avoid that the"
-	" same extension is used twice in row. Read"
-	" https://szs.wiimm.de/opt/dest for more details."
-    },
-
-    {	OPT_DEST2, false, false, false, false, false, 'D', "DEST",
-	"path",
-	"Like --dest, but create the directory path automatically."
-    },
-
-    {	OPT_ESC, false, false, false, false, false, 'E', "esc",
-	"char",
-	"Define an alternative escape character for destination files. The"
-	" default is '%'. For Windows batch files it is a good choice to set"
-	" '-E$'."
-    },
-
-    {	OPT_OVERWRITE, false, false, false, false, false, 'o', "overwrite",
-	0,
-	"Overwrite already existing files without warning and ignore option"
-	" --number."
-    },
-
-    {	OPT_NUMBER, false, false, false, false, false, 0, "number",
-	0,
-	"If a file already exist, append a number directly before the file"
-	" extension to make the filename unique. If other numbered files"
-	" already exist (ignoring case), use the maximum existing index+1."
-	" --num is a short cut."
-    },
-
-    {	OPT_REMOVE_DEST, false, false, false, false, false, 'r', "remove-dest",
-	0,
-	"Remove already existing files before creating it. If set, --overwrite"
-	" is ignored. --rm-dest is a short cut."
-    },
-
-    {	OPT_UPDATE, false, false, false, false, false, 'u', "update",
-	0,
-	"Update only existing files and don't create new files. If set,"
-	" --overwrite and --remove-dest are ignored."
-    },
-
-    {	OPT_PRESERVE, false, false, false, false, false, 'p', "preserve",
-	0,
-	"Preserve file times (atime+mtime) while converting or copying files."
-    },
-
-    {	OPT_IGNORE, false, false, false, false, false, 'i', "ignore",
-	0,
-	"Ignore non existing source files without warning."
-    },
-
-    {	OPT_ADD_LECODE, false, false, false, false, false, 0, "add-lecode",
-	0,
-	"Add newest LE-CODE starter from 2023-12 to main.dol."
-    },
-
-    {	OPT_ADDS_LECODE, false, true, false, false, false, 0, "adds-lecode",
-	0,
-	"Add newest LE-CODE starter from 2023-12 to main.dol like"
-	" --add-section does it."
-    },
-
-    {	OPT_ADD_OLD_LECODE, false, false, false, false, false, 0, "add-old-lecode",
-	0,
-	"Add old LE-CODE starter from 2019-01 to main.dol."
-    },
-
-    {	OPT_ADD_CTCODE, false, false, false, false, false, 0, "add-ctcode",
-	0,
-	"If source is an original main.dol file of MKWii, then append 2"
-	" sections (usually T2 and D8) with CT-CODE. The CTCODE is inserted"
-	" after sections defined by --add-section and then only, if there are"
-	" no address collisions.\n"
-	"  If --ct-dir is used, then files named rmc[ejp]/boot_code.bin and"
-	" boot_code.bin for T2, and rmc[ejp]/boot_data.bin and boot_data.bin"
-	" for D8 are searched."
-    },
-
-    {	OPT_MOVE_D8, false, false, false, false, false, 0, "move-d8",
-	0,
-	"Move the CT-CODE section D8 to another place at the middle of binary."
-	" It is done automatically, if the original place overlaps other"
-	" existing sections."
-    },
-
-    {	OPT_ADD_SECTION, false, false, false, false, false, 0, "add-section",
-	"file",
-	"Each option call adds the filename to an internal list. Each file"
-	" must be of type GCT, GCT-TXT, GCH or WCH. All GCT files together are"
-	" combined with an internal code handler to one section (like a GCH"
-	" file). GCH and WCH define sections and patches. The defined sections"
-	" are added and VBI hooks are optionally initialized. Use option"
-	" --force to allow overlapped sections. Use option --verbose up to 2"
-	" times for a log.\n"
-	" If parameter FILE contains at least one wildcard (e.g. \"*.GCT\"),"
-	" then FILE is used as search pattern and all found files are added."
-	" Quote FILE for this purpose. \n"
-	"  If a single file is not found and the filename (not path) contains"
-	" at least 1 '@' character, then all '@' characters of it are replaced"
-	" by the region code (one of P,E,J,K) for a second try.\n"
-	"  The intention of this option is to add a Gecko Code Handler and"
-	" cheat codes to a main.dol for automatic execution. See"
-	" https://szs.wiimm.de/doc/addsect for details."
-    },
-
-    {	OPT_FULL_GCH, false, true, false, false, false, 0, "full-gch",
-	0,
-	"Use the full 'codehandler' instead of 'codehandleronly'."
-    },
-
-    {	OPT_GCT_NO_SEP, false, true, false, false, false, 0, "gct-no-sep",
-	0,
-	"Ignore cheat code separators completly and don't filter 'F0000001"
-	" 0000xxxx' codes. Options --gct-sep and --gct-asm-sep are ignored"
-	" too."
-    },
-
-    {	OPT_GCT_SEP, false, true, false, false, false, 0, "gct-sep",
-	0,
-	"Detect and remove cheat code separators of format 'F0000001"
-	" 0000xxxx'. The separators are used to split the cheat codes into"
-	" several blocks if the total size is too large. ASM blocks are"
-	" skipped if searching separators."
-    },
-
-    {	OPT_GCT_ASM_SEP, false, true, false, false, false, 0, "gct-asm-sep",
-	0,
-	"Detect the beginning of ASM blocks and use them as cheat code"
-	" separators. The separators are used to split the cheat codes into"
-	" several blocks if the total size is too large."
-    },
-
-    {	OPT_GCT_LIST, false, true, false, false, false, 0, "gct-list",
-	0,
-	"If GCT separators active, print a summary table about the"
-	" distribution of the segments. Be more verbose if set twice."
-    },
-
-    {	OPT_GCT_MOVE, true, false, false, false, false, 0, "gct-move",
-	"[=mode]",
-	"If a section is of type gecko code handler + cheat code, then make"
-	" the heap smaller and move the cheat codes before the FST section.\n"
-	"  Parameter MODE is optional. If set, OFF disables and ON enables"
-	" this feature. For mode AUTO (default) this feature is enabled, if"
-	" the cheat codes are too large (end>0x80003000) or for internal"
-	" conflicts."
-    },
-
-    {	OPT_GCT_ADDR, false, false, false, false, false, 0, "gct-addr",
-	"address",
-	"If --gct-move is active, a text section is created to manage the code"
-	" handler. This section is only needed at start and is placed by"
-	" default at address 0x802c0000 (part of BSS, good address for all 4"
-	" regions). This option changes the start address of the section. If"
-	" address is 0 or invalid, then unused BSS space is searched."
-    },
-
-    {	OPT_GCT_SPACE, false, false, false, false, false, 0, "gct-space",
-	"size",
-	"Define the minimal space for the code part of --gct-move. This value"
-	" is ignored, if it is smaller than the size of the cheat codes. This"
-	" debug option was only implemented to test the  memory allocation by"
-	" --gct-move with large blocks."
-    },
-
-    {	OPT_ALLOW_USER_GCH, true, false, false, false, false, 0, "allow-user-gch",
-	"[=mode]",
-	" This option is only relevant, if main.dol is patched for wiimmfi.de."
-	" It is dedicated to custom distribution creators for test purposes."
-	" If enabled, a user can load an own instance of Gecko Code Handler"
-	" and cheat codes and can use them online. If disabled, patching for"
-	" online modus is disabled if an alternative Gecko Code Handler is"
-	" detected.\n"
-	"  Parameter MODE is optional. If set, OFF disables and ON enables"
-	" this feature. For mode AUTO (default) it depends on other options."
-    },
-
-    {	OPT_CREATE_SECT, false, true, false, false, false, 0, "create-sect",
-	"mode=file",
-	"Create a new DOL section by loading the binary file. MODE is a list"
-	" of 'P' (parameter support), 'T' or 'D' with optional digit (define"
-	" section) and an address (auto if not set). The parts are separated"
-	" by spaces or commas.\n"
-	"  If MODE is 'P', then 4 32-bit parameters are expected at offset"
-	" 0x10: The section address at 0x10 (read), the relative entry point"
-	" at 0x14 (read, used if >0), the original DOL entry point at 0x18"
-	" (written), the address of the last defined '.dol' section at 0x1c"
-	" (written).\n"
-	"  If the file name is '.dol', then it points not to a file. Instead a"
-	" copy of the DOL header beginning with the section addresses and"
-	" ending behind the entry point (156B total) is copied. MODE 'P' is"
-	" ignored for this section. All other MODE 'P' sections are updated at"
-	" offset 0x1c.\n"
-	"  --cs is a short cut."
-    },
-
-    {	OPT_WPF, false, true, false, false, false, 0, "wpf",
-	"file",
-	"Each option call adds the filename to an internal list. Each file"
-	" must be of type WPF (Wiimms Patch File) and defines a list of"
-	" conditionals and patches for staticr.rel and main.dol.\n"
-	" If parameter FILE contains at least one wildcard (e.g. \"*.wpf\"),"
-	" then FILE is used as search pattern and all found files are added."
-	" Quote FILE for this purpose. "
-    },
-
-    {	OPT_SECTIONS, false, false, false, false, true, 0, "sections",
-	0,
-	"Print in machine readable sections and parameter lines."
-    },
-
-    {	OPT_PORT_DB, false, false, false, false, false, 0, "port-db",
-	"file",
-	"Load the specified update file and replace the internal porting"
-	" database. If not set, then file port-db.bin is searched in the share"
-	" path."
-    },
-
-    {	OPT_ORDER, false, false, false, false, false, 0, "order",
-	"pujk",
-	"The parameter is scanned for the first appearance of letters P (for"
-	" PAL), U (USA), J (JAPAN) and K (KOREA) to define the order of the"
-	" output. Case is ignored. Missing letters are added automatically."
-	" The default is 'PUJK'."
-    },
-
-    {	OPT_NO_0X, false, false, false, false, false, '0', "no-0x",
-	0,
-	"Suppress 0x prefix of hex numbers. This is the default for cheat"
-	" codes."
-    },
-
-    {	OPT_UPPER, false, false, false, false, false, 'U', "upper",
-	0,
-	"Print digits A-F of hex numbers in upper case. This is the default"
-	" for cheat codes."
-    },
-
-    {	OPT_VADDR, false, false, false, false, true, 0, "vaddr",
-	"RANGE",
-	"Comma separated list of virtual addresses to select the hex-dump"
-	" ranges. Each element is either ADDRESS (1 byte) or START:END or"
-	" START#SIZE."
-    },
-
-    {	OPT_FADDR, false, false, false, false, false, 0, "faddr",
-	"RANGE",
-	"Comma separated list of file addresses to select the hex-dump ranges."
-	" Each element is either ADDRESS (1 byte) or START:END or START#SIZE."
-    },
-
-    {	OPT_SNAME, false, false, false, false, false, 0, "sname",
-	"LIST",
-	"Comma separated list of section names to select the hex-dump ranges."
-    },
-
-    {	OPT_INT1, false, false, false, false, true, 0, "i1",
-	0,
-	"Format: Print single bytes as integer number (default)."
-    },
-
-    {	OPT_INT2, false, false, false, false, false, 0, "i2",
-	0,
-	"Format: Print each 2 bytes as integer number."
-    },
-
-    {	OPT_INT3, false, false, false, false, false, 0, "i3",
-	0,
-	"Format: Print each 3 bytes as integer number."
-    },
-
-    {	OPT_INT4, false, false, false, false, false, 0, "i4",
-	0,
-	"Format: Print each 4 bytes as integer number."
-    },
-
-    {	OPT_INT5, false, false, false, false, false, 0, "i5",
-	0,
-	"Format: Print each 5 bytes as integer number."
-    },
-
-    {	OPT_INT6, false, false, false, false, false, 0, "i6",
-	0,
-	"Format: Print each 6 bytes as integer number."
-    },
-
-    {	OPT_INT7, false, false, false, false, false, 0, "i7",
-	0,
-	"Format: Print each 7 bytes as integer number."
-    },
-
-    {	OPT_INT8, false, false, false, false, false, 0, "i8",
-	0,
-	"Format: Print each 8 bytes as integer number."
-    },
-
-    {	OPT_FLOAT, false, false, false, false, false, 0, "float",
-	0,
-	"Format: Print each 4 bytes as floating point number."
-    },
-
-    {	OPT_DOUBLE, false, false, false, false, false, 0, "double",
-	0,
-	"Format: Print each 8 bytes as double floating point number."
-    },
-
-    {	OPT_LE, false, false, false, false, false, 0, "le",
-	0,
-	"Use little endian for binary data."
-    },
-
-    {	OPT_BE, false, false, false, false, false, 0, "be",
-	0,
-	"Use big endian for binary data (default)."
-    },
-
-    {	OPT_ZEROS, false, false, false, false, false, 0, "zeros",
-	0,
-	"Print integer numbers with leading zeros."
-    },
-
-    {	OPT_HEX, false, false, false, false, false, 0, "hex",
-	0,
-	"Print integer numbers as hexadecimal numbers (default)."
-    },
-
-    {	OPT_DEC, false, false, false, false, false, 0, "dec",
-	0,
-	"Print integer numbers as decimal numbers."
-    },
-
-    {	OPT_C_SYNTAX, false, false, false, false, false, 0, "c-syntax",
-	0,
-	"Print output in `C' syntax."
-    },
-
-    {	OPT_ADDR, false, false, false, false, false, 0, "address",
-	"addr",
-	"Use ADDR instead of null as start address for the dump."
-    },
-
-    {	OPT_ALIGN, false, false, false, false, false, 0, "align",
-	0,
-	"Try to align the dump, so that the addresses (printed or not) are"
-	" multiple of bytes-per-line."
-    },
-
-    {	OPT_TRIGGER, false, false, false, false, false, 0, "trigger",
-	"num",
-	"If the number NUM is found and printed, close the current line and"
-	" start with a new one. If --align is set too, continue the next line"
-	" with the current column. The trigger works only for integer formats,"
-	" but not for floats."
-    },
-
-    {	OPT_NO_ADDR, false, false, false, false, false, 0, "no-address",
-	0,
-	"Suppress the address column of the dump."
-    },
-
-    {	OPT_NO_NUMBERS, false, false, false, false, false, 0, "no-numbers",
-	0,
-	"Suppress the numbers column of the dump."
-    },
-
-    {	OPT_NO_TEXT, false, false, false, false, false, 0, "no-text",
-	0,
-	"Suppress the text column of the dump."
-    },
-
-    {	OPT_FORMAT, false, false, false, false, false, 0, "format",
-	0,
-	"Add '#FORMAT:' info lines."
-    },
-
-    {	OPT_NO_NULL, false, false, false, false, false, 0, "no-null",
-	0,
-	"Ignore data lines with NULL bytes only and print a summary for each"
-	" NULL block. ('#NULL: ...')"
-    },
-
-    {	OPT_NARROW, false, false, false, false, false, 0, "narrow",
-	0,
-	"Suppress the spaces that are usually inserted for readability."
-    },
-
-    {	OPT_SMALL, false, false, false, false, false, 0, "small",
-	0,
-	"Each call will halve the number of bytes per line. Usually, 16 bytes"
-	" per lines are reduced to 8, then to 4, 2 and 1. The effective number"
-	" of bytes per line is format dependent."
-    },
-
-    {	OPT_WIDE, false, false, false, false, false, 0, "wide",
-	0,
-	"Each call will round down the current bytes per line value to the"
-	" next multiple of 16 and then increment it by 16. Usually, 16 bytes"
-	" per lines are enhanced to 32, then to 48, 64, 80 and so on. The"
-	" effective number of bytes per line is format dependent."
-    },
-
-    {	OPT_BYTES, false, false, false, false, false, 0, "bytes",
-	"num",
-	"Print up to NUM bytes per line instead of 16. The maximum allowed"
-	" value is 600. The effective number of bytes per line is format"
-	" dependent (multiple of format size)."
-    },
-
-    {0,0,0,0,0,0,0,0,0,0}, // OPT__N_SPECIFIC == 70
-
-    //----- global options -----
-
-    {	OPT_VERSION, false, false, false, false, false, 'V', "version",
-	0,
-	"Stop parsing the command line, print a version info and exit."
-    },
-
-    {	OPT_HELP, false, false, false, false, false, 'h', "help",
-	0,
-	"Stop parsing the command line, print a help message and exit."
-    },
-
-    {	OPT_XHELP, false, false, false, false, false, 0, "xhelp",
-	0,
-	"Stop parsing the command line and print a help message with all"
-	" commands included. Exit after printing."
-    },
-
-    {	OPT_CONFIG, false, false, false, false, false, 0, "config",
-	"file",
-	"Define a configuration file or a directory as source. In later case,"
-	" file 'wiimms-szs-tools.conf' is searched.\n"
-	"  If option is not not set, then file 'wiimms-szs-tools.conf' is"
-	" searched in different directories. Use command 'wszst CONFIG' to get"
-	" more details."
-    },
-
-    {	OPT_AT_DUMMY, false, true, false, false, false, '@', "@",
-	0,
-	""
-    },
-
-    {	OPT_YDEBUG, false, true, false, false, false, 0, "ydebug",
-	0,
-	" Enable Macros yBINGO and yTRACELINE."
-    },
-
-    {	OPT_ALLOW_ALL, false, false, false, false, false, 0, "allow-all",
-	0,
-	"Usually commands accept only options with impact to the command. All"
-	" other options fire a syntax error. But if --allow-all is set, all"
-	" commands accept all options.\n"
-	"  This makes changing the command of a long command line without"
-	" removing useless options easier. It also helps to override wrong"
-	" option permissions."
-    },
-
-    {	OPT_COMPATIBLE, false, false, false, false, false, 0, "compatible",
-	"vers",
-	"The option expects a version number (format '#.##' or 'v#.##') or a"
-	" revision number (format 'r#') as parameter. If set, the tools try to"
-	" create BMG and KMP text files, that are compatible to the entered"
-	" version of the tools. This may override other legacy options."
-    },
-
-    {	OPT_WIDTH, false, false, false, true, false, 0, "width",
-	"width",
-	"Define the terminal width (number of columns) for help and some other"
-	" messages and disable the automatic detection of the terminal width."
-    },
-
-    {	OPT_MAX_WIDTH, false, false, false, true, false, 0, "max-width",
-	"maxwidth",
-	"Define the maximum terminal width (number of columns) for help and"
-	" some other messages. The default is 120. This option is ignored if"
-	" --width is set."
-    },
-
-    {	OPT_NO_PAGER, false, false, false, true, false, 0, "no-pager",
-	0,
-	"Forbid the internal usage of a pager."
-    },
-
-    {	OPT_ZERO, false, false, false, false, false, 'z', "zero",
-	0,
-	"This option affects the exit status of the programs. Instead of an"
-	" exit status, the value 0 is returned for OK. This happens for"
-	" notices (-v, status<15), warnings (-vv, status<29), errors (-vvv,"
-	" status<115) and fatal errors (-vvvv). The exit status for INTERRUPT"
-	" (112) is never replaced."
-    },
-
-    {	OPT_QUIET, false, false, false, false, false, 'q', "quiet",
-	0,
-	"Be quiet and print only error messages. Multiple use is possible."
-	" Previous use of --verbose is reverted. The impact is command"
-	" dependent. If set at least three times, almost all error messages"
-	" will be suppressed."
-    },
-
-    {	OPT_VERBOSE, false, false, false, false, false, 'v', "verbose",
-	0,
-	"Be verbose and print more progress information. Multiple use is"
-	" possible. Previous use of --quiet is reverted. The impact is command"
-	" dependent."
-    },
-
-    {	OPT_LOGGING, false, false, false, false, false, 'L', "logging",
-	0,
-	"This debug option enables the logging of internal lists and maps. Set"
-	" it up to three times to be more verbose."
-    },
-
-    {	OPT_EXT_ERRORS, false, false, false, false, false, 'Y', "extended-errors",
-	0,
-	"Enable extended error messages. This includes a source file and line"
-	" reference. Logging level 1 activates it too. --xerr is a short cut."
-    },
-
-    {	OPT_TIMING, false, false, false, false, false, 0, "timing",
-	0,
-	"Activate the timing of some operations. Logging level 3 activates"
-	" them too."
-    },
-
-    {	OPT_WARN, false, false, false, false, false, 'W', "warn",
-	"list",
-	"Enable or disable warnings. Parameter 'list' is a comma separated"
-	" list of keywords. A minus sign before a keyword disables a warning."
-	" Each occurrence of the option will only change entered warning and"
-	" all other warnings are untouched.\n"
-	"  Keyword DEFAULT resets the default settings, OFF disables and ALL"
-	" enables all. The other allowed keywords are: INVALID-OFFSET."
-    },
-
-    {	OPT_DE, false, false, false, false, false, 0, "de",
-	0,
-	"Use german track and arena names."
-    },
-
-    {	OPT_COLORS, true, false, false, true, false, 0, "colors",
-	"[=modus]",
-	"Define the modus for colored text output. Allowed keywords are: OFF"
-	" or NO-COLORS to disable colors, AUTO (default) for automatic"
-	" detection, ON for automatic detection but never OFF, 8-COLORS and"
-	" 256-COLORS to force 8 or 256 color support. Without parameter, ON is"
-	" used.\n"
-	"  AUTO will enable colorized output only for terminals. AUTO and ON"
-	" use environment variable TERM to find the correct color modus.\n"
-	"  If a command is prefixed by 'C-', then --color=ON is used"
-	" implicitly as default."
-    },
-
-    {	OPT_NO_COLORS, false, false, false, true, false, 0, "no-colors",
-	0,
-	"Deactive colorized text. This is the default, if an output file is"
-	" not a terminal."
-    },
-
-    {	OPT_CT_CODE, false, false, false, false, false, 0, "ct-code",
-	0,
-	"Enable CT-CODE support. See https://szs.wiimm.de/opt/ctcode for"
-	" details."
-    },
-
-    {	OPT_LE_CODE, true, false, false, false, false, 0, "le-code",
-	"[=param]",
-	"This option is completely ignored by wlect. It only exists due to"
-	" compatibility with the other tools."
-    },
-
-    {	OPT_LE_04X, false, false, false, false, false, 0, "le-04x",
-	0,
-	"Use format %04x instead of %03x for LE-CODE slots to enable uniform"
-	" slot numbers if slots >4095 are used."
-    },
-
-    {	OPT_CHDIR, false, false, false, false, false, 0, "chdir",
-	"dir",
-	"Set a new working directory for all following options, for all"
-	" parameters and for the command execution. This option can be used"
-	" multiple times, but for parameter parsing and for command execution"
-	" only the last usage is relevant. Nevertheless, '@param' values are"
-	" scanned while reading the command line."
-    },
-
-    {	OPT_CONST, false, false, false, false, false, 'c', "const",
-	"list",
-	"Define constant values, that are used by the internal encoders and by"
-	" the numeric options as predefined global variables. This option"
-	" allows a conditional encoding of text files. It can be used multiple"
-	" times for multiple definitions.\n"
-	"  The parameter is a comma separated list of terms and a term is"
-	" 'name=expression'. The expression is calculated by the text parser."
-    },
-
-    {	OPT_TRACKS, false, false, false, false, false, 'T', "tracks",
-	"tracks",
-	"Define a new track order. A comma separated list in the format [a=]b"
-	" or a:=b is expected. 'a' and 'b' are track names or slot numbers."
-	" 'a' is the destination slot and 'b' the assigned track. If 'a' is"
-	" omitted, the next slot is used; this means [a=]b,c,d is possible.\n"
-	"  Tracks will only be exchanged so that always all tracks are"
-	" assigned. But if using ':=' the new slots are assigned without"
-	" exchanging and the old values are lost."
-    },
-
-    {	OPT_ARENAS, false, false, false, false, false, 'A', "arenas",
-	"arenas",
-	"Define a new arena order. A comma separated list in the format [a=]b"
-	" or a:=b is expected. 'a' and 'b' are arena names or slot numbers."
-	" 'a' is the destination slot and 'b' the assigned arena. If 'a' is"
-	" omitted, the next slot is used; this means [a=]b,c,d is possible.\n"
-	"  Arenas will only be exchanged so that always all arenas are"
-	" assigned. But if using ':=' the new slots are assigned without"
-	" exchanging and the old values are lost."
-    },
-
-    {	OPT_REGION, false, false, false, false, false, 'R', "region",
-	"region",
-	"If 'region' is an unsigned number, the region for online versus races"
-	" and for battles is patched to the entered number. If the number is"
-	" prefixed by the letter 't', a test mode is enabled and the places"
-	" are patched with ascending numbers. You can patch StaticR.rel and"
-	" main.dol.\n"
-	"  Otherwise a keyword is expected. Official regions are: JAPAN(0),"
-	" AMERICA(1), EUROPE(2), AUSTRALIA(OCEANIA,3), KOREA(4), TAIWAN(5) and"
-	" CHINA(6). RESTORE restores the original Nintendo values and NONE"
-	" disables region patching (default).\n"
-	"  See https://wiimmfi.de/reg-list for other regions."
-    },
-
-    {	OPT_VS_REGION, false, false, false, false, false, 0, "vs-region",
-	"region",
-	"Same as --region, but only for online versus races."
-    },
-
-    {	OPT_BT_REGION, false, false, false, false, false, 0, "bt-region",
-	"region",
-	"Same as --region, but only for online battles."
-    },
-
-    {	OPT_ALL_RANKS, true, false, false, false, false, 0, "all-ranks",
-	"[=mode]",
-	"If set to ON (default without parameter), the server query to"
-	" Nintendos servers is manipulated, so that the player will find all"
-	" players in online races independent of their ranking points. Value"
-	" RESTORE disables this feature and restores Nintendos original query."
-	" Value NONE disables this kind of patching (default)."
-    },
-
-    {	OPT_POINTS, false, false, false, false, false, 0, "points",
-	"list",
-	"This patch option defines a new table for the points assigned to"
-	" players after a versus or room race. The parameter is a blank or"
-	" comma and slash (next row) separated list with numbers (points)"
-	" between 0 and 255 and the following keywords: NINTENDO, LINEAR, WIN,"
-	" WIN15, WIN25 to select a predefined table; NO-BONUS, BONUS, NULL,"
-	" ONE as options; N1..N12 to select the row for N players. See"
-	" https://szs.wiimm.de/opt/points for details."
-    },
-
-    {	OPT_HTTPS, false, false, false, false, false, 0, "https",
-	"mode",
-	"Patch the https strings of REL and DOL files. 'mode' is one of the"
-	" following keywords:\n"
-	"RESTORE restores the original URLs and domains.\n"
-	"HTTP replaces HTTPS requests by HTTP and sub-domain 'naswii.' by"
-	" 'nas.'.\n"
-	"DOMAIN replace HTTPS requests by HTTP and the domain"
-	" 'nintendowifi.net' by a domain specified by option --domain.\n"
-	"SAKE0 same as DOMAIN, but don't replace URLs with SAKE domain.\n"
-	"SAKE1 same as SAKE0, but replace HTTPS of SAKE domains."
-    },
-
-    {	OPT_DOMAIN, false, false, false, false, false, 0, "domain",
-	"dom",
-	"Define a domain for option --https. The default is 'wiimmfi.de'."
-    },
-
-    {	OPT_WIIMMFI, false, false, false, false, false, 0, "wiimmfi",
-	0,
-	"Patch the files for the new custom server. It is a short cut for"
-	" '--https domain --domain wiimmfi.de'."
-    },
-
-    {	OPT_TWIIMMFI, false, true, false, false, false, 0, "twiimmfi",
-	0,
-	"Patch the files for the test server. It is a short cut for '--https"
-	" domain --domain test.wiimmfi.de'."
-    },
-
-    {	OPT_WC24, false, false, false, false, false, 0, "wc24",
-	0,
-	"Exclude 2 strings of file StaticR.rel from --wiimmfi and --domain"
-	" patch to enable WC24 support."
-    },
-
-    {	OPT_WCODE, true, true, false, false, false, 0, "wcode",
-	"[=mode]",
-	"Enable (mode=ON) or disable (mode=OFF) wiimmfi-code patching. Default"
-	" mode is AUTO. In this case, patching is enabled if any WCODE is"
-	" defined or option --domain is set either to 'wiimmfi.de' or to"
-	" 'test.wiimmfi.de'."
-    },
-
-    {	OPT_PB_MODE, false, false, false, false, false, 0, "pb-mode",
-	"mode",
-	"Mode for the patched-by string: OFF disables modifications. RESET"
-	" resets the string to stars. WIIMMFI defines it only, if patched for"
-	" Wiimmfi. AUTO (default) defines it only, if patched. ALWAYS defines"
-	" it always."
-    },
-
-    {	OPT_PATCHED_BY, false, true, false, false, false, 0, "@patched-by",
-	"string",
-	"Define a string for patched-by. Default is: wstrt vVERSION rREVISION"
-    },
-
-    {	OPT_VS, false, false, false, false, false, 0, "vs",
-	"char",
-	"Reset (str is empty) or replace the second character of 'vs' to"
-	" create an own online world for versus races. The file StaticR.rel"
-	" will be patched at 4 places."
-    },
-
-    {	OPT_VS2, false, true, false, false, false, 0, "vs2",
-	"str",
-	"Reset (str is empty) or replace the 2 characters of 'vs' to create an"
-	" own online world for versus races. If the parameter contains only 1"
-	" character, use 'v' as first character. The file StaticR.rel will be"
-	" patched at 4 places.\n"
-	"  Wiimmfi will only detect 'Versus' if the first letter is 'v' or"
-	" 'V'."
-    },
-
-    {	OPT_BT, false, false, false, false, false, 0, "bt",
-	"char",
-	"Reset (str is empty) or replace the second character of 'bt' to"
-	" create an own online world for battles. The file StaticR.rel will be"
-	" patched at 4 places."
-    },
-
-    {	OPT_BT2, false, true, false, false, false, 0, "bt2",
-	"str",
-	"Reset (str is empty) or replace the 2 characters of 'bt' to create an"
-	" own online world for battles. If the parameter contains only 1"
-	" character, use 'b' as first character. The file StaticR.rel will be"
-	" patched at 4 places.\n"
-	"  Wiimmfi will only detect 'Battle' if the first letter is 'b' or"
-	" 'B'."
-    },
-
-    {	OPT_CANNON, false, false, false, false, false, 0, "cannon",
-	"idx,p1,p2,p3,p4",
-	"Patch parameters for cannon with index IDX (0..2). Parameters P1..P4"
-	" are floating point numbers. Repeat this option for each cannon, that"
-	" should be modified."
-    },
-
-    {	OPT_MENO, false, false, false, false, false, 0, "meno",
-	0,
-	"Patch some 'MenuSingle' and 'MenuMulti' strings of file StaticR.rel"
-	" for online usage to 'MenO*' (MenuOnline) to distinguish between"
-	" offline and online races."
-    },
-
-    {	OPT_UTF_8, false, true, false, false, true, 0, "utf-8",
-	0,
-	"Enables UTF-8 support for filenames (default)."
-    },
-
-    {	OPT_NO_UTF_8, false, true, false, false, false, 0, "no-utf-8",
-	0,
-	"Disables UTF-8 support for filenames."
-    },
-
-    {	OPT_TEST, false, false, false, false, true, 't', "test",
-	0,
-	"Run in test mode, modify nothing.\n"
-	">>> USE THIS OPTION IF UNSURE! <<<"
-    },
-
-    {	OPT_FORCE, false, false, false, false, false, 0, "force",
-	0,
-	"The tools analyse input files and reject files with invalid data"
-	" structures. If --force is set, little repairable issues are ignored"
-	" and a warning is printed.\n"
-	"Option '--kmp force' does the same, but only for KMP files.\n"
-	">>> THE RESULT MAY BE INVALID OUTPUT FILES! <<<"
-    },
-
-    {	OPT_REPAIR_MAGICS, true, false, false, false, false, 0, "repair-magics",
-	"[=mode]",
-	"Control the reparing of missing or wrong magics of files and"
-	" sub-files by analysing file path and file extension. MODE is one of"
-	" OFF (default), ANALYZE or REPAIR (default, if set without mode). OFF"
-	" disables this feature, ANALYZE enables it for analysis only, and"
-	" REPAIR repairs all magics while reading the files. Keyword FNAME can"
-	" be appended (separated by a comma) to give filename scanning the"
-	" highest priority.\n"
-	">>> THE RESULT MAY BE INVALID OUTPUT FILES! <<<"
-    },
-
-    {	OPT_OLD, false, true, false, false, false, 0, "OLD",
-	0,
-	"Developer option: Cancel --NEW and use old implementation if"
-	" available."
-    },
-
-    {	OPT_STD, false, true, false, false, false, 0, "STD",
-	0,
-	"Developer option: Cancel --OLD and --NEW and use standard"
-	" implementation (default)."
-    },
-
-    {	OPT_NEW, false, true, false, false, false, 0, "NEW",
-	0,
-	"Developer option: Cancel --OLD and use new implementation if"
-	" available."
-    },
-
-    {	OPT_EXTRACT, false, true, false, false, false, 0, "EXTRACT",
-	0,
-	"Create the directory and extract different objects in different"
-	" formats at the moment when they are seen. This is a development"
-	" helper option."
-    },
-
-    {	OPT_CLEAN_DOL, false, false, false, false, false, 0, "clean-dol",
-	0,
-	"Remove additional DOL sections, reset entry point and VBI address,"
-	" and try to restore other patches known by SZS tools. This is done"
-	" after loading a DOL and before analysing and patching to allow"
-	" re-patching."
-    },
-
-    {	OPT_CT_DIR, false, false, false, false, false, 0, "ct-dir",
-	"dir",
-	"Define a search directory for CT-CODE parts and use the internal"
-	" copies only, if no valid file is found. Each file is searched"
-	" without and then with extension '.bz2'. For both cases bzip2 files"
-	" are detected and decompressed. Only files with correct file type are"
-	" accepted.\n"
-	"  Use this option multiple times to define more than one search"
-	" directory."
-    },
-
-    {0,0,0,0,0,0,0,0,0,0} // OPT__N_TOTAL == 128
+static const InfoOption_t OptionInfo[OPT__N_TOTAL + 1] = {
+	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, // OPT_NONE,
+
+	//----- command specific options -----
+
+	{ OPT_LONG, false, false, false, false, false, 'l', "long", 0,
+		"Print long numeric message IDs instead of alternative message names"
+		" like Txx, Uxx or Mxx." },
+
+	{ OPT_BRIEF, false, false, false, false, false, 'B', "brief", 0,
+		"List only the track file names and suppress table header and footer." },
+
+	{ OPT_NO_WILDCARDS, false, false, false, false, false, 0, "no-wildcards", 0,
+		"Disable wildcard parsing and use each filename exactly as specified." },
+
+	{ OPT_IN_ORDER, false, false, false, false, false, 0, "in-order", 0,
+		"Process the input files in order of the command line and don't delete"
+		" duplicates." },
+
+	{ OPT_NO_HEADER, false, false, false, false, false, 'H', "no-header", 0,
+		"Suppress the syntax information section in BMG text files." },
+
+	{ OPT_CHEAT, false, true, false, false, false, 0, "cheat", "region",
+		"Change the output format and create a cheat code for the region."
+		" Allowed keywords: JAPAN; AMERICA, NTSC; EUROPE, AUSTRALIA, PAL;"
+		" KOREA." },
+
+	{ OPT_ADD_WCODE, false, true, false, false, false, 0, "@add-wcode", "file",
+		"Each option call adds the filename to an internal list. Each file"
+		" must be of type GCT and is added to the internal wcode stock.\n"
+		" If parameter FILE contains at least one wildcard (e.g. \"*.gct\"),"
+		" then FILE is used as search pattern and all found files are added."
+		" Quote FILE for this purpose. \n"
+		"  If a single file is not found and the filename (not path) contains"
+		" at least 1 '@' character, then all '@' characters of it are replaced"
+		" by the region code (one of P,E,J,K) for a second try." },
+
+	{ OPT_DEST, false, false, false, false, true, 'd', "dest", "path",
+		"Define a destination path (directory/file). The destination - means:"
+		" write to standard output.\n"
+		"  The path may contain escape sequences: %Q is replaced by the fully"
+		" qualified source name. %P and %F are replaced by the source path or"
+		" by the filename. %N and %E are replaced by source filename without"
+		" extension or by the source extension. Finally, %T is replaced by the"
+		" default extension of the destination format.\n"
+		"  A '?' direct behind '%' in %E and %T conversions avoid that the"
+		" same extension is used twice in row. Read"
+		" https://szs.wiimm.de/opt/dest for more details." },
+
+	{ OPT_DEST2, false, false, false, false, false, 'D', "DEST", "path",
+		"Like --dest, but create the directory path automatically." },
+
+	{ OPT_ESC, false, false, false, false, false, 'E', "esc", "char",
+		"Define an alternative escape character for destination files. The"
+		" default is '%'. For Windows batch files it is a good choice to set"
+		" '-E$'." },
+
+	{ OPT_OVERWRITE, false, false, false, false, false, 'o', "overwrite", 0,
+		"Overwrite already existing files without warning and ignore option"
+		" --number." },
+
+	{ OPT_NUMBER, false, false, false, false, false, 0, "number", 0,
+		"If a file already exist, append a number directly before the file"
+		" extension to make the filename unique. If other numbered files"
+		" already exist (ignoring case), use the maximum existing index+1."
+		" --num is a short cut." },
+
+	{ OPT_REMOVE_DEST, false, false, false, false, false, 'r', "remove-dest", 0,
+		"Remove already existing files before creating it. If set, --overwrite"
+		" is ignored. --rm-dest is a short cut." },
+
+	{ OPT_UPDATE, false, false, false, false, false, 'u', "update", 0,
+		"Update only existing files and don't create new files. If set,"
+		" --overwrite and --remove-dest are ignored." },
+
+	{ OPT_PRESERVE, false, false, false, false, false, 'p', "preserve", 0,
+		"Preserve file times (atime+mtime) while converting or copying files." },
+
+	{ OPT_IGNORE, false, false, false, false, false, 'i', "ignore", 0,
+		"Ignore non existing source files without warning." },
+
+	{ OPT_ADD_LECODE, false, false, false, false, false, 0, "add-lecode", 0,
+		"Add newest LE-CODE starter from 2023-12 to main.dol." },
+
+	{ OPT_ADDS_LECODE, false, true, false, false, false, 0, "adds-lecode", 0,
+		"Add newest LE-CODE starter from 2023-12 to main.dol like"
+		" --add-section does it." },
+
+	{ OPT_ADD_OLD_LECODE, false, false, false, false, false, 0, "add-old-lecode", 0,
+		"Add old LE-CODE starter from 2019-01 to main.dol." },
+
+	{ OPT_ADD_CTCODE, false, false, false, false, false, 0, "add-ctcode", 0,
+		"If source is an original main.dol file of MKWii, then append 2"
+		" sections (usually T2 and D8) with CT-CODE. The CTCODE is inserted"
+		" after sections defined by --add-section and then only, if there are"
+		" no address collisions.\n"
+		"  If --ct-dir is used, then files named rmc[ejp]/boot_code.bin and"
+		" boot_code.bin for T2, and rmc[ejp]/boot_data.bin and boot_data.bin"
+		" for D8 are searched." },
+
+	{ OPT_MOVE_D8, false, false, false, false, false, 0, "move-d8", 0,
+		"Move the CT-CODE section D8 to another place at the middle of binary."
+		" It is done automatically, if the original place overlaps other"
+		" existing sections." },
+
+	{ OPT_ADD_SECTION, false, false, false, false, false, 0, "add-section", "file",
+		"Each option call adds the filename to an internal list. Each file"
+		" must be of type GCT, GCT-TXT, GCH or WCH. All GCT files together are"
+		" combined with an internal code handler to one section (like a GCH"
+		" file). GCH and WCH define sections and patches. The defined sections"
+		" are added and VBI hooks are optionally initialized. Use option"
+		" --force to allow overlapped sections. Use option --verbose up to 2"
+		" times for a log.\n"
+		" If parameter FILE contains at least one wildcard (e.g. \"*.GCT\"),"
+		" then FILE is used as search pattern and all found files are added."
+		" Quote FILE for this purpose. \n"
+		"  If a single file is not found and the filename (not path) contains"
+		" at least 1 '@' character, then all '@' characters of it are replaced"
+		" by the region code (one of P,E,J,K) for a second try.\n"
+		"  The intention of this option is to add a Gecko Code Handler and"
+		" cheat codes to a main.dol for automatic execution. See"
+		" https://szs.wiimm.de/doc/addsect for details." },
+
+	{ OPT_FULL_GCH, false, true, false, false, false, 0, "full-gch", 0,
+		"Use the full 'codehandler' instead of 'codehandleronly'." },
+
+	{ OPT_GCT_NO_SEP, false, true, false, false, false, 0, "gct-no-sep", 0,
+		"Ignore cheat code separators completly and don't filter 'F0000001"
+		" 0000xxxx' codes. Options --gct-sep and --gct-asm-sep are ignored"
+		" too." },
+
+	{ OPT_GCT_SEP, false, true, false, false, false, 0, "gct-sep", 0,
+		"Detect and remove cheat code separators of format 'F0000001"
+		" 0000xxxx'. The separators are used to split the cheat codes into"
+		" several blocks if the total size is too large. ASM blocks are"
+		" skipped if searching separators." },
+
+	{ OPT_GCT_ASM_SEP, false, true, false, false, false, 0, "gct-asm-sep", 0,
+		"Detect the beginning of ASM blocks and use them as cheat code"
+		" separators. The separators are used to split the cheat codes into"
+		" several blocks if the total size is too large." },
+
+	{ OPT_GCT_LIST, false, true, false, false, false, 0, "gct-list", 0,
+		"If GCT separators active, print a summary table about the"
+		" distribution of the segments. Be more verbose if set twice." },
+
+	{ OPT_GCT_MOVE, true, false, false, false, false, 0, "gct-move", "[=mode]",
+		"If a section is of type gecko code handler + cheat code, then make"
+		" the heap smaller and move the cheat codes before the FST section.\n"
+		"  Parameter MODE is optional. If set, OFF disables and ON enables"
+		" this feature. For mode AUTO (default) this feature is enabled, if"
+		" the cheat codes are too large (end>0x80003000) or for internal"
+		" conflicts." },
+
+	{ OPT_GCT_ADDR, false, false, false, false, false, 0, "gct-addr", "address",
+		"If --gct-move is active, a text section is created to manage the code"
+		" handler. This section is only needed at start and is placed by"
+		" default at address 0x802c0000 (part of BSS, good address for all 4"
+		" regions). This option changes the start address of the section. If"
+		" address is 0 or invalid, then unused BSS space is searched." },
+
+	{ OPT_GCT_SPACE, false, false, false, false, false, 0, "gct-space", "size",
+		"Define the minimal space for the code part of --gct-move. This value"
+		" is ignored, if it is smaller than the size of the cheat codes. This"
+		" debug option was only implemented to test the  memory allocation by"
+		" --gct-move with large blocks." },
+
+	{ OPT_ALLOW_USER_GCH, true, false, false, false, false, 0, "allow-user-gch", "[=mode]",
+		" This option is only relevant, if main.dol is patched for wiimmfi.de."
+		" It is dedicated to custom distribution creators for test purposes."
+		" If enabled, a user can load an own instance of Gecko Code Handler"
+		" and cheat codes and can use them online. If disabled, patching for"
+		" online modus is disabled if an alternative Gecko Code Handler is"
+		" detected.\n"
+		"  Parameter MODE is optional. If set, OFF disables and ON enables"
+		" this feature. For mode AUTO (default) it depends on other options." },
+
+	{ OPT_CREATE_SECT, false, true, false, false, false, 0, "create-sect", "mode=file",
+		"Create a new DOL section by loading the binary file. MODE is a list"
+		" of 'P' (parameter support), 'T' or 'D' with optional digit (define"
+		" section) and an address (auto if not set). The parts are separated"
+		" by spaces or commas.\n"
+		"  If MODE is 'P', then 4 32-bit parameters are expected at offset"
+		" 0x10: The section address at 0x10 (read), the relative entry point"
+		" at 0x14 (read, used if >0), the original DOL entry point at 0x18"
+		" (written), the address of the last defined '.dol' section at 0x1c"
+		" (written).\n"
+		"  If the file name is '.dol', then it points not to a file. Instead a"
+		" copy of the DOL header beginning with the section addresses and"
+		" ending behind the entry point (156B total) is copied. MODE 'P' is"
+		" ignored for this section. All other MODE 'P' sections are updated at"
+		" offset 0x1c.\n"
+		"  --cs is a short cut." },
+
+	{ OPT_WPF, false, true, false, false, false, 0, "wpf", "file",
+		"Each option call adds the filename to an internal list. Each file"
+		" must be of type WPF (Wiimms Patch File) and defines a list of"
+		" conditionals and patches for staticr.rel and main.dol.\n"
+		" If parameter FILE contains at least one wildcard (e.g. \"*.wpf\"),"
+		" then FILE is used as search pattern and all found files are added."
+		" Quote FILE for this purpose. " },
+
+	{ OPT_SECTIONS, false, false, false, false, true, 0, "sections", 0,
+		"Print in machine readable sections and parameter lines." },
+
+	{ OPT_PORT_DB, false, false, false, false, false, 0, "port-db", "file",
+		"Load the specified update file and replace the internal porting"
+		" database. If not set, then file port-db.bin is searched in the share"
+		" path." },
+
+	{ OPT_ORDER, false, false, false, false, false, 0, "order", "pujk",
+		"The parameter is scanned for the first appearance of letters P (for"
+		" PAL), U (USA), J (JAPAN) and K (KOREA) to define the order of the"
+		" output. Case is ignored. Missing letters are added automatically."
+		" The default is 'PUJK'." },
+
+	{ OPT_NO_0X, false, false, false, false, false, '0', "no-0x", 0,
+		"Suppress 0x prefix of hex numbers. This is the default for cheat"
+		" codes." },
+
+	{ OPT_UPPER, false, false, false, false, false, 'U', "upper", 0,
+		"Print digits A-F of hex numbers in upper case. This is the default"
+		" for cheat codes." },
+
+	{ OPT_VADDR, false, false, false, false, true, 0, "vaddr", "RANGE",
+		"Comma separated list of virtual addresses to select the hex-dump"
+		" ranges. Each element is either ADDRESS (1 byte) or START:END or"
+		" START#SIZE." },
+
+	{ OPT_FADDR, false, false, false, false, false, 0, "faddr", "RANGE",
+		"Comma separated list of file addresses to select the hex-dump ranges."
+		" Each element is either ADDRESS (1 byte) or START:END or START#SIZE." },
+
+	{ OPT_SNAME, false, false, false, false, false, 0, "sname", "LIST",
+		"Comma separated list of section names to select the hex-dump ranges." },
+
+	{ OPT_INT1, false, false, false, false, true, 0, "i1", 0,
+		"Format: Print single bytes as integer number (default)." },
+
+	{ OPT_INT2, false, false, false, false, false, 0, "i2", 0,
+		"Format: Print each 2 bytes as integer number." },
+
+	{ OPT_INT3, false, false, false, false, false, 0, "i3", 0,
+		"Format: Print each 3 bytes as integer number." },
+
+	{ OPT_INT4, false, false, false, false, false, 0, "i4", 0,
+		"Format: Print each 4 bytes as integer number." },
+
+	{ OPT_INT5, false, false, false, false, false, 0, "i5", 0,
+		"Format: Print each 5 bytes as integer number." },
+
+	{ OPT_INT6, false, false, false, false, false, 0, "i6", 0,
+		"Format: Print each 6 bytes as integer number." },
+
+	{ OPT_INT7, false, false, false, false, false, 0, "i7", 0,
+		"Format: Print each 7 bytes as integer number." },
+
+	{ OPT_INT8, false, false, false, false, false, 0, "i8", 0,
+		"Format: Print each 8 bytes as integer number." },
+
+	{ OPT_FLOAT, false, false, false, false, false, 0, "float", 0,
+		"Format: Print each 4 bytes as floating point number." },
+
+	{ OPT_DOUBLE, false, false, false, false, false, 0, "double", 0,
+		"Format: Print each 8 bytes as double floating point number." },
+
+	{ OPT_LE, false, false, false, false, false, 0, "le", 0, "Use little endian for binary data." },
+
+	{ OPT_BE, false, false, false, false, false, 0, "be", 0,
+		"Use big endian for binary data (default)." },
+
+	{ OPT_ZEROS, false, false, false, false, false, 0, "zeros", 0,
+		"Print integer numbers with leading zeros." },
+
+	{ OPT_HEX, false, false, false, false, false, 0, "hex", 0,
+		"Print integer numbers as hexadecimal numbers (default)." },
+
+	{ OPT_DEC, false, false, false, false, false, 0, "dec", 0,
+		"Print integer numbers as decimal numbers." },
+
+	{ OPT_C_SYNTAX, false, false, false, false, false, 0, "c-syntax", 0,
+		"Print output in `C' syntax." },
+
+	{ OPT_ADDR, false, false, false, false, false, 0, "address", "addr",
+		"Use ADDR instead of null as start address for the dump." },
+
+	{ OPT_ALIGN, false, false, false, false, false, 0, "align", 0,
+		"Try to align the dump, so that the addresses (printed or not) are"
+		" multiple of bytes-per-line." },
+
+	{ OPT_TRIGGER, false, false, false, false, false, 0, "trigger", "num",
+		"If the number NUM is found and printed, close the current line and"
+		" start with a new one. If --align is set too, continue the next line"
+		" with the current column. The trigger works only for integer formats,"
+		" but not for floats." },
+
+	{ OPT_NO_ADDR, false, false, false, false, false, 0, "no-address", 0,
+		"Suppress the address column of the dump." },
+
+	{ OPT_NO_NUMBERS, false, false, false, false, false, 0, "no-numbers", 0,
+		"Suppress the numbers column of the dump." },
+
+	{ OPT_NO_TEXT, false, false, false, false, false, 0, "no-text", 0,
+		"Suppress the text column of the dump." },
+
+	{ OPT_FORMAT, false, false, false, false, false, 0, "format", 0, "Add '#FORMAT:' info lines." },
+
+	{ OPT_NO_NULL, false, false, false, false, false, 0, "no-null", 0,
+		"Ignore data lines with NULL bytes only and print a summary for each"
+		" NULL block. ('#NULL: ...')" },
+
+	{ OPT_NARROW, false, false, false, false, false, 0, "narrow", 0,
+		"Suppress the spaces that are usually inserted for readability." },
+
+	{ OPT_SMALL, false, false, false, false, false, 0, "small", 0,
+		"Each call will halve the number of bytes per line. Usually, 16 bytes"
+		" per lines are reduced to 8, then to 4, 2 and 1. The effective number"
+		" of bytes per line is format dependent." },
+
+	{ OPT_WIDE, false, false, false, false, false, 0, "wide", 0,
+		"Each call will round down the current bytes per line value to the"
+		" next multiple of 16 and then increment it by 16. Usually, 16 bytes"
+		" per lines are enhanced to 32, then to 48, 64, 80 and so on. The"
+		" effective number of bytes per line is format dependent." },
+
+	{ OPT_BYTES, false, false, false, false, false, 0, "bytes", "num",
+		"Print up to NUM bytes per line instead of 16. The maximum allowed"
+		" value is 600. The effective number of bytes per line is format"
+		" dependent (multiple of format size)." },
+
+	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, // OPT__N_SPECIFIC == 70
+
+	//----- global options -----
+
+	{ OPT_VERSION, false, false, false, false, false, 'V', "version", 0,
+		"Stop parsing the command line, print a version info and exit." },
+
+	{ OPT_HELP, false, false, false, false, false, 'h', "help", 0,
+		"Stop parsing the command line, print a help message and exit." },
+
+	{ OPT_XHELP, false, false, false, false, false, 0, "xhelp", 0,
+		"Stop parsing the command line and print a help message with all"
+		" commands included. Exit after printing." },
+
+	{ OPT_CONFIG, false, false, false, false, false, 0, "config", "file",
+		"Define a configuration file or a directory as source. In later case,"
+		" file 'wiimms-szs-tools.conf' is searched.\n"
+		"  If option is not not set, then file 'wiimms-szs-tools.conf' is"
+		" searched in different directories. Use command 'wszst CONFIG' to get"
+		" more details." },
+
+	{ OPT_AT_DUMMY, false, true, false, false, false, '@', "@", 0, "" },
+
+	{ OPT_YDEBUG, false, true, false, false, false, 0, "ydebug", 0,
+		" Enable Macros yBINGO and yTRACELINE." },
+
+	{ OPT_ALLOW_ALL, false, false, false, false, false, 0, "allow-all", 0,
+		"Usually commands accept only options with impact to the command. All"
+		" other options fire a syntax error. But if --allow-all is set, all"
+		" commands accept all options.\n"
+		"  This makes changing the command of a long command line without"
+		" removing useless options easier. It also helps to override wrong"
+		" option permissions." },
+
+	{ OPT_COMPATIBLE, false, false, false, false, false, 0, "compatible", "vers",
+		"The option expects a version number (format '#.##' or 'v#.##') or a"
+		" revision number (format 'r#') as parameter. If set, the tools try to"
+		" create BMG and KMP text files, that are compatible to the entered"
+		" version of the tools. This may override other legacy options." },
+
+	{ OPT_WIDTH, false, false, false, true, false, 0, "width", "width",
+		"Define the terminal width (number of columns) for help and some other"
+		" messages and disable the automatic detection of the terminal width." },
+
+	{ OPT_MAX_WIDTH, false, false, false, true, false, 0, "max-width", "maxwidth",
+		"Define the maximum terminal width (number of columns) for help and"
+		" some other messages. The default is 120. This option is ignored if"
+		" --width is set." },
+
+	{ OPT_NO_PAGER, false, false, false, true, false, 0, "no-pager", 0,
+		"Forbid the internal usage of a pager." },
+
+	{ OPT_ZERO, false, false, false, false, false, 'z', "zero", 0,
+		"This option affects the exit status of the programs. Instead of an"
+		" exit status, the value 0 is returned for OK. This happens for"
+		" notices (-v, status<15), warnings (-vv, status<29), errors (-vvv,"
+		" status<115) and fatal errors (-vvvv). The exit status for INTERRUPT"
+		" (112) is never replaced." },
+
+	{ OPT_QUIET, false, false, false, false, false, 'q', "quiet", 0,
+		"Be quiet and print only error messages. Multiple use is possible."
+		" Previous use of --verbose is reverted. The impact is command"
+		" dependent. If set at least three times, almost all error messages"
+		" will be suppressed." },
+
+	{ OPT_VERBOSE, false, false, false, false, false, 'v', "verbose", 0,
+		"Be verbose and print more progress information. Multiple use is"
+		" possible. Previous use of --quiet is reverted. The impact is command"
+		" dependent." },
+
+	{ OPT_LOGGING, false, false, false, false, false, 'L', "logging", 0,
+		"This debug option enables the logging of internal lists and maps. Set"
+		" it up to three times to be more verbose." },
+
+	{ OPT_EXT_ERRORS, false, false, false, false, false, 'Y', "extended-errors", 0,
+		"Enable extended error messages. This includes a source file and line"
+		" reference. Logging level 1 activates it too. --xerr is a short cut." },
+
+	{ OPT_TIMING, false, false, false, false, false, 0, "timing", 0,
+		"Activate the timing of some operations. Logging level 3 activates"
+		" them too." },
+
+	{ OPT_WARN, false, false, false, false, false, 'W', "warn", "list",
+		"Enable or disable warnings. Parameter 'list' is a comma separated"
+		" list of keywords. A minus sign before a keyword disables a warning."
+		" Each occurrence of the option will only change entered warning and"
+		" all other warnings are untouched.\n"
+		"  Keyword DEFAULT resets the default settings, OFF disables and ALL"
+		" enables all. The other allowed keywords are: INVALID-OFFSET." },
+
+	{ OPT_DE, false, false, false, false, false, 0, "de", 0, "Use german track and arena names." },
+
+	{ OPT_COLORS, true, false, false, true, false, 0, "colors", "[=modus]",
+		"Define the modus for colored text output. Allowed keywords are: OFF"
+		" or NO-COLORS to disable colors, AUTO (default) for automatic"
+		" detection, ON for automatic detection but never OFF, 8-COLORS and"
+		" 256-COLORS to force 8 or 256 color support. Without parameter, ON is"
+		" used.\n"
+		"  AUTO will enable colorized output only for terminals. AUTO and ON"
+		" use environment variable TERM to find the correct color modus.\n"
+		"  If a command is prefixed by 'C-', then --color=ON is used"
+		" implicitly as default." },
+
+	{ OPT_NO_COLORS, false, false, false, true, false, 0, "no-colors", 0,
+		"Deactive colorized text. This is the default, if an output file is"
+		" not a terminal." },
+
+	{ OPT_CT_CODE, false, false, false, false, false, 0, "ct-code", 0,
+		"Enable CT-CODE support. See https://szs.wiimm.de/opt/ctcode for"
+		" details." },
+
+	{ OPT_LE_CODE, true, false, false, false, false, 0, "le-code", "[=param]",
+		"This option is completely ignored by wlect. It only exists due to"
+		" compatibility with the other tools." },
+
+	{ OPT_LE_04X, false, false, false, false, false, 0, "le-04x", 0,
+		"Use format %04x instead of %03x for LE-CODE slots to enable uniform"
+		" slot numbers if slots >4095 are used." },
+
+	{ OPT_CHDIR, false, false, false, false, false, 0, "chdir", "dir",
+		"Set a new working directory for all following options, for all"
+		" parameters and for the command execution. This option can be used"
+		" multiple times, but for parameter parsing and for command execution"
+		" only the last usage is relevant. Nevertheless, '@param' values are"
+		" scanned while reading the command line." },
+
+	{ OPT_CONST, false, false, false, false, false, 'c', "const", "list",
+		"Define constant values, that are used by the internal encoders and by"
+		" the numeric options as predefined global variables. This option"
+		" allows a conditional encoding of text files. It can be used multiple"
+		" times for multiple definitions.\n"
+		"  The parameter is a comma separated list of terms and a term is"
+		" 'name=expression'. The expression is calculated by the text parser." },
+
+	{ OPT_TRACKS, false, false, false, false, false, 'T', "tracks", "tracks",
+		"Define a new track order. A comma separated list in the format [a=]b"
+		" or a:=b is expected. 'a' and 'b' are track names or slot numbers."
+		" 'a' is the destination slot and 'b' the assigned track. If 'a' is"
+		" omitted, the next slot is used; this means [a=]b,c,d is possible.\n"
+		"  Tracks will only be exchanged so that always all tracks are"
+		" assigned. But if using ':=' the new slots are assigned without"
+		" exchanging and the old values are lost." },
+
+	{ OPT_ARENAS, false, false, false, false, false, 'A', "arenas", "arenas",
+		"Define a new arena order. A comma separated list in the format [a=]b"
+		" or a:=b is expected. 'a' and 'b' are arena names or slot numbers."
+		" 'a' is the destination slot and 'b' the assigned arena. If 'a' is"
+		" omitted, the next slot is used; this means [a=]b,c,d is possible.\n"
+		"  Arenas will only be exchanged so that always all arenas are"
+		" assigned. But if using ':=' the new slots are assigned without"
+		" exchanging and the old values are lost." },
+
+	{ OPT_REGION, false, false, false, false, false, 'R', "region", "region",
+		"If 'region' is an unsigned number, the region for online versus races"
+		" and for battles is patched to the entered number. If the number is"
+		" prefixed by the letter 't', a test mode is enabled and the places"
+		" are patched with ascending numbers. You can patch StaticR.rel and"
+		" main.dol.\n"
+		"  Otherwise a keyword is expected. Official regions are: JAPAN(0),"
+		" AMERICA(1), EUROPE(2), AUSTRALIA(OCEANIA,3), KOREA(4), TAIWAN(5) and"
+		" CHINA(6). RESTORE restores the original Nintendo values and NONE"
+		" disables region patching (default).\n"
+		"  See https://wiimmfi.de/reg-list for other regions." },
+
+	{ OPT_VS_REGION, false, false, false, false, false, 0, "vs-region", "region",
+		"Same as --region, but only for online versus races." },
+
+	{ OPT_BT_REGION, false, false, false, false, false, 0, "bt-region", "region",
+		"Same as --region, but only for online battles." },
+
+	{ OPT_ALL_RANKS, true, false, false, false, false, 0, "all-ranks", "[=mode]",
+		"If set to ON (default without parameter), the server query to"
+		" Nintendos servers is manipulated, so that the player will find all"
+		" players in online races independent of their ranking points. Value"
+		" RESTORE disables this feature and restores Nintendos original query."
+		" Value NONE disables this kind of patching (default)." },
+
+	{ OPT_POINTS, false, false, false, false, false, 0, "points", "list",
+		"This patch option defines a new table for the points assigned to"
+		" players after a versus or room race. The parameter is a blank or"
+		" comma and slash (next row) separated list with numbers (points)"
+		" between 0 and 255 and the following keywords: NINTENDO, LINEAR, WIN,"
+		" WIN15, WIN25 to select a predefined table; NO-BONUS, BONUS, NULL,"
+		" ONE as options; N1..N12 to select the row for N players. See"
+		" https://szs.wiimm.de/opt/points for details." },
+
+	{ OPT_HTTPS, false, false, false, false, false, 0, "https", "mode",
+		"Patch the https strings of REL and DOL files. 'mode' is one of the"
+		" following keywords:\n"
+		"RESTORE restores the original URLs and domains.\n"
+		"HTTP replaces HTTPS requests by HTTP and sub-domain 'naswii.' by"
+		" 'nas.'.\n"
+		"DOMAIN replace HTTPS requests by HTTP and the domain"
+		" 'nintendowifi.net' by a domain specified by option --domain.\n"
+		"SAKE0 same as DOMAIN, but don't replace URLs with SAKE domain.\n"
+		"SAKE1 same as SAKE0, but replace HTTPS of SAKE domains." },
+
+	{ OPT_DOMAIN, false, false, false, false, false, 0, "domain", "dom",
+		"Define a domain for option --https. The default is 'wiimmfi.de'." },
+
+	{ OPT_WIIMMFI, false, false, false, false, false, 0, "wiimmfi", 0,
+		"Patch the files for the new custom server. It is a short cut for"
+		" '--https domain --domain wiimmfi.de'." },
+
+	{ OPT_TWIIMMFI, false, true, false, false, false, 0, "twiimmfi", 0,
+		"Patch the files for the test server. It is a short cut for '--https"
+		" domain --domain test.wiimmfi.de'." },
+
+	{ OPT_WC24, false, false, false, false, false, 0, "wc24", 0,
+		"Exclude 2 strings of file StaticR.rel from --wiimmfi and --domain"
+		" patch to enable WC24 support." },
+
+	{ OPT_WCODE, true, true, false, false, false, 0, "wcode", "[=mode]",
+		"Enable (mode=ON) or disable (mode=OFF) wiimmfi-code patching. Default"
+		" mode is AUTO. In this case, patching is enabled if any WCODE is"
+		" defined or option --domain is set either to 'wiimmfi.de' or to"
+		" 'test.wiimmfi.de'." },
+
+	{ OPT_PB_MODE, false, false, false, false, false, 0, "pb-mode", "mode",
+		"Mode for the patched-by string: OFF disables modifications. RESET"
+		" resets the string to stars. WIIMMFI defines it only, if patched for"
+		" Wiimmfi. AUTO (default) defines it only, if patched. ALWAYS defines"
+		" it always." },
+
+	{ OPT_PATCHED_BY, false, true, false, false, false, 0, "@patched-by", "string",
+		"Define a string for patched-by. Default is: wstrt vVERSION rREVISION" },
+
+	{ OPT_VS, false, false, false, false, false, 0, "vs", "char",
+		"Reset (str is empty) or replace the second character of 'vs' to"
+		" create an own online world for versus races. The file StaticR.rel"
+		" will be patched at 4 places." },
+
+	{ OPT_VS2, false, true, false, false, false, 0, "vs2", "str",
+		"Reset (str is empty) or replace the 2 characters of 'vs' to create an"
+		" own online world for versus races. If the parameter contains only 1"
+		" character, use 'v' as first character. The file StaticR.rel will be"
+		" patched at 4 places.\n"
+		"  Wiimmfi will only detect 'Versus' if the first letter is 'v' or"
+		" 'V'." },
+
+	{ OPT_BT, false, false, false, false, false, 0, "bt", "char",
+		"Reset (str is empty) or replace the second character of 'bt' to"
+		" create an own online world for battles. The file StaticR.rel will be"
+		" patched at 4 places." },
+
+	{ OPT_BT2, false, true, false, false, false, 0, "bt2", "str",
+		"Reset (str is empty) or replace the 2 characters of 'bt' to create an"
+		" own online world for battles. If the parameter contains only 1"
+		" character, use 'b' as first character. The file StaticR.rel will be"
+		" patched at 4 places.\n"
+		"  Wiimmfi will only detect 'Battle' if the first letter is 'b' or"
+		" 'B'." },
+
+	{ OPT_CANNON, false, false, false, false, false, 0, "cannon", "idx,p1,p2,p3,p4",
+		"Patch parameters for cannon with index IDX (0..2). Parameters P1..P4"
+		" are floating point numbers. Repeat this option for each cannon, that"
+		" should be modified." },
+
+	{ OPT_MENO, false, false, false, false, false, 0, "meno", 0,
+		"Patch some 'MenuSingle' and 'MenuMulti' strings of file StaticR.rel"
+		" for online usage to 'MenO*' (MenuOnline) to distinguish between"
+		" offline and online races." },
+
+	{ OPT_UTF_8, false, true, false, false, true, 0, "utf-8", 0,
+		"Enables UTF-8 support for filenames (default)." },
+
+	{ OPT_NO_UTF_8, false, true, false, false, false, 0, "no-utf-8", 0,
+		"Disables UTF-8 support for filenames." },
+
+	{ OPT_TEST, false, false, false, false, true, 't', "test", 0,
+		"Run in test mode, modify nothing.\n"
+		">>> USE THIS OPTION IF UNSURE! <<<" },
+
+	{ OPT_FORCE, false, false, false, false, false, 0, "force", 0,
+		"The tools analyse input files and reject files with invalid data"
+		" structures. If --force is set, little repairable issues are ignored"
+		" and a warning is printed.\n"
+		"Option '--kmp force' does the same, but only for KMP files.\n"
+		">>> THE RESULT MAY BE INVALID OUTPUT FILES! <<<" },
+
+	{ OPT_REPAIR_MAGICS, true, false, false, false, false, 0, "repair-magics", "[=mode]",
+		"Control the reparing of missing or wrong magics of files and"
+		" sub-files by analysing file path and file extension. MODE is one of"
+		" OFF (default), ANALYZE or REPAIR (default, if set without mode). OFF"
+		" disables this feature, ANALYZE enables it for analysis only, and"
+		" REPAIR repairs all magics while reading the files. Keyword FNAME can"
+		" be appended (separated by a comma) to give filename scanning the"
+		" highest priority.\n"
+		">>> THE RESULT MAY BE INVALID OUTPUT FILES! <<<" },
+
+	{ OPT_OLD, false, true, false, false, false, 0, "OLD", 0,
+		"Developer option: Cancel --NEW and use old implementation if"
+		" available." },
+
+	{ OPT_STD, false, true, false, false, false, 0, "STD", 0,
+		"Developer option: Cancel --OLD and --NEW and use standard"
+		" implementation (default)." },
+
+	{ OPT_NEW, false, true, false, false, false, 0, "NEW", 0,
+		"Developer option: Cancel --OLD and use new implementation if"
+		" available." },
+
+	{ OPT_EXTRACT, false, true, false, false, false, 0, "EXTRACT", 0,
+		"Create the directory and extract different objects in different"
+		" formats at the moment when they are seen. This is a development"
+		" helper option." },
+
+	{ OPT_CLEAN_DOL, false, false, false, false, false, 0, "clean-dol", 0,
+		"Remove additional DOL sections, reset entry point and VBI address,"
+		" and try to restore other patches known by SZS tools. This is done"
+		" after loading a DOL and before analysing and patching to allow"
+		" re-patching." },
+
+	{ OPT_CT_DIR, false, false, false, false, false, 0, "ct-dir", "dir",
+		"Define a search directory for CT-CODE parts and use the internal"
+		" copies only, if no valid file is found. Each file is searched"
+		" without and then with extension '.bz2'. For both cases bzip2 files"
+		" are detected and decompressed. Only files with correct file type are"
+		" accepted.\n"
+		"  Use this option multiple times to define more than one search"
+		" directory." },
+
+	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } // OPT__N_TOTAL == 128
 
 };
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////             alternate option infos              ///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-static const InfoOption_t option_cmd_VERSION_BRIEF =
-    {	OPT_BRIEF, false, false, false, false, false, 'B', "brief",
-	0,
-	"Print only the version number, revision and system. If set twice,"
-	" print only the version number."
-    };
+static const InfoOption_t option_cmd_VERSION_BRIEF
+	= { OPT_BRIEF, false, false, false, false, false, 'B', "brief", 0,
+		  "Print only the version number, revision and system. If set twice,"
+		  " print only the version number." };
 
-static const InfoOption_t option_cmd_VERSION_LONG =
-    {	OPT_LONG, false, false, false, false, false, 'l', "long",
-	0,
-	"Print in long format. Ignored if option --sections is set."
-    };
+static const InfoOption_t option_cmd_VERSION_LONG = { OPT_LONG, false, false, false, false, false,
+	'l', "long", 0, "Print in long format. Ignored if option --sections is set." };
 
-static const InfoOption_t option_cmd_CONFIG_BRIEF =
-    {	OPT_BRIEF, false, false, false, false, false, 'B', "brief",
-	0,
-	" Suppress configuration search list."
-    };
+static const InfoOption_t option_cmd_CONFIG_BRIEF = { OPT_BRIEF, false, false, false, false, false,
+	'B', "brief", 0, " Suppress configuration search list." };
 
-static const InfoOption_t option_cmd_CONFIG_LONG =
-    {	OPT_LONG, false, false, false, false, false, 'l', "long",
-	0,
-	"If set, print the global search list too. If set twice, print the"
-	" auto-add search list too."
-    };
+static const InfoOption_t option_cmd_CONFIG_LONG
+	= { OPT_LONG, false, false, false, false, false, 'l', "long", 0,
+		  "If set, print the global search list too. If set twice, print the"
+		  " auto-add search list too." };
 
-static const InfoOption_t option_cmd_COLORS_LONG =
-    {	OPT_LONG, false, false, false, false, false, 'l', "long",
-	0,
-	"Print also a list of all colored text types. If set twice, include"
-	" alternative names. If set three times, include raw color names."
-    };
+static const InfoOption_t option_cmd_COLORS_LONG
+	= { OPT_LONG, false, false, false, false, false, 'l', "long", 0,
+		  "Print also a list of all colored text types. If set twice, include"
+		  " alternative names. If set three times, include raw color names." };
 
-static const InfoOption_t option_cmd_COLORS_BRIEF =
-    {	OPT_BRIEF, false, false, false, false, false, 'B', "brief",
-	0,
-	"Ignore option --long and print a single status line about current"
-	" color settings."
-    };
+static const InfoOption_t option_cmd_COLORS_BRIEF
+	= { OPT_BRIEF, false, false, false, false, false, 'B', "brief", 0,
+		  "Ignore option --long and print a single status line about current"
+		  " color settings." };
 
-static const InfoOption_t option_cmd_ERROR_LONG =
-    {	OPT_LONG, false, false, false, false, false, 'l', "long",
-	0,
-	"Print message text instead of message name."
-    };
+static const InfoOption_t option_cmd_ERROR_LONG = { OPT_LONG, false, false, false, false, false,
+	'l', "long", 0, "Print message text instead of message name." };
 
-static const InfoOption_t option_cmd_ERROR_BRIEF =
-    {	OPT_BRIEF, false, false, false, false, false, 'B', "brief",
-	0,
-	"Print message number instead of message name."
-    };
+static const InfoOption_t option_cmd_ERROR_BRIEF = { OPT_BRIEF, false, false, false, false, false,
+	'B', "brief", 0, "Print message number instead of message name." };
 
-static const InfoOption_t option_cmd_FILETYPE_LONG =
-    {	OPT_LONG, false, false, false, false, false, 'l', "long",
-	0,
-	"Print an additional column with the decompressed file type and"
-	" version. If entered twice, a validation status column is added."
-    };
+static const InfoOption_t option_cmd_FILETYPE_LONG
+	= { OPT_LONG, false, false, false, false, false, 'l', "long", 0,
+		  "Print an additional column with the decompressed file type and"
+		  " version. If entered twice, a validation status column is added." };
 
-static const InfoOption_t option_cmd_DUMP_LONG =
-    {	OPT_LONG, false, false, false, false, false, 'l', "long",
-	0,
-	"For DOL files: If set, a second table with the image map is printed."
-	" If set twice, a third table with delta values is printed too."
-    };
+static const InfoOption_t option_cmd_DUMP_LONG
+	= { OPT_LONG, false, false, false, false, false, 'l', "long", 0,
+		  "For DOL files: If set, a second table with the image map is printed."
+		  " If set twice, a third table with delta values is printed too." };
 
-static const InfoOption_t option_cmd_PORT_NO_HEADER =
-    {	OPT_NO_HEADER, false, false, false, false, false, 'H', "no-header",
-	0,
-	"Suppress the table header and footer and output exactly 1 line for"
-	" each specified address. This makes the output more machine-readable."
-    };
+static const InfoOption_t option_cmd_PORT_NO_HEADER
+	= { OPT_NO_HEADER, false, false, false, false, false, 'H', "no-header", 0,
+		  "Suppress the table header and footer and output exactly 1 line for"
+		  " each specified address. This makes the output more machine-readable." };
 
-static const InfoOption_t option_cmd_PORT_BRIEF =
-    {	OPT_BRIEF, false, false, false, false, false, 'B', "brief",
-	0,
-	" Same as --no-header."
-    };
+static const InfoOption_t option_cmd_PORT_BRIEF
+	= { OPT_BRIEF, false, false, false, false, false, 'B', "brief", 0, " Same as --no-header." };
 
-static const InfoOption_t option_cmd_PORT_LONG =
-    {	OPT_LONG, false, false, false, false, false, 'l', "long",
-	0,
-	"Print file offsets too."
-    };
+static const InfoOption_t option_cmd_PORT_LONG
+	= { OPT_LONG, false, false, false, false, false, 'l', "long", 0, "Print file offsets too." };
 
-static const InfoOption_t option_cmd_WHERE_NO_HEADER =
-    {	OPT_NO_HEADER, false, false, false, false, false, 'H', "no-header",
-	0,
-	"Suppress the table header and footer and output exactly 1 line for"
-	" each specified address. This makes the output more machine-readable."
-    };
+static const InfoOption_t option_cmd_WHERE_NO_HEADER
+	= { OPT_NO_HEADER, false, false, false, false, false, 'H', "no-header", 0,
+		  "Suppress the table header and footer and output exactly 1 line for"
+		  " each specified address. This makes the output more machine-readable." };
 
-static const InfoOption_t option_cmd_WHERE_BRIEF =
-    {	OPT_BRIEF, false, false, false, false, false, 'B', "brief",
-	0,
-	" Same as --no-header."
-    };
+static const InfoOption_t option_cmd_WHERE_BRIEF
+	= { OPT_BRIEF, false, false, false, false, false, 'B', "brief", 0, " Same as --no-header." };
 
-static const InfoOption_t option_cmd_WHERE_LONG =
-    {	OPT_LONG, false, false, false, false, false, 'l', "long",
-	0,
-	"Print file offsets too."
-    };
+static const InfoOption_t option_cmd_WHERE_LONG
+	= { OPT_LONG, false, false, false, false, false, 'l', "long", 0, "Print file offsets too." };
 
-static const InfoOption_t option_cmd_HTTPS_LONG =
-    {	OPT_LONG, false, false, false, false, false, 'l', "long",
-	0,
-	" Print output a C source"
-    };
+static const InfoOption_t option_cmd_HTTPS_LONG
+	= { OPT_LONG, false, false, false, false, false, 'l', "long", 0, " Print output a C source" };
 
-static const InfoOption_t option_cmd_HTTPS_VERBOSE =
-    {	OPT_VERBOSE, false, false, false, false, false, 'v', "verbose",
-	0,
-	" Print hex dump if an entry differs."
-    };
+static const InfoOption_t option_cmd_HTTPS_VERBOSE = { OPT_VERBOSE, false, false, false, false,
+	false, 'v', "verbose", 0, " Print hex dump if an entry differs." };
 
-static const InfoOption_t option_cmd_TRACKS_LONG =
-    {	OPT_LONG, false, false, false, false, false, 'l', "long",
-	0,
-	"Add columns for music slot and short name."
-    };
+static const InfoOption_t option_cmd_TRACKS_LONG = { OPT_LONG, false, false, false, false, false,
+	'l', "long", 0, "Add columns for music slot and short name." };
 
-static const InfoOption_t option_cmd_FIND_LONG =
-    {	OPT_LONG, false, false, false, false, false, 'l', "long",
-	0,
-	"Add a user friendly track or arena name at the end of each line. If"
-	" set twice, add also the file names of the track and sound files"
-	" before the track name. If set three times, add the slot index and"
-	" the internal index (both zero based) before the file names."
-    };
+static const InfoOption_t option_cmd_FIND_LONG
+	= { OPT_LONG, false, false, false, false, false, 'l', "long", 0,
+		  "Add a user friendly track or arena name at the end of each line. If"
+		  " set twice, add also the file names of the track and sound files"
+		  " before the track name. If set three times, add the slot index and"
+		  " the internal index (both zero based) before the file names." };
 
-static const InfoOption_t option_cmd_POINTS_BRIEF =
-    {	OPT_BRIEF, false, false, false, false, false, 'B', "brief",
-	0,
-	"Print the table as comma separated lists in C notation."
-    };
+static const InfoOption_t option_cmd_POINTS_BRIEF = { OPT_BRIEF, false, false, false, false, false,
+	'B', "brief", 0, "Print the table as comma separated lists in C notation." };
 
-static const InfoOption_t option_cmd_POINTS_LONG =
-    {	OPT_LONG, false, false, false, false, false, 'l', "long",
-	0,
-	"Append a string in --points format that defines the table. If set"
-	" twice, append up to 3 strings in different modes."
-    };
+static const InfoOption_t option_cmd_POINTS_LONG
+	= { OPT_LONG, false, false, false, false, false, 'l', "long", 0,
+		  "Append a string in --points format that defines the table. If set"
+		  " twice, append up to 3 strings in different modes." };
 
-static const InfoOption_t option_cmd_ANALYZE_LONG =
-    {	OPT_LONG, false, false, false, false, false, 'l', "long",
-	0,
-	"Print different lists if bugs found. If set twice, print the lists"
-	" always."
-    };
+static const InfoOption_t option_cmd_ANALYZE_LONG
+	= { OPT_LONG, false, false, false, false, false, 'l', "long", 0,
+		  "Print different lists if bugs found. If set twice, print the lists"
+		  " always." };
 
-static const InfoOption_t option_cmd_PATCH_FORCE =
-    {	OPT_FORCE, false, false, false, false, false, 0, "force",
-	0,
-	"Accept overlapped sections.\n"
-	">>> THE RESULT IS MOST LIKELY INVALID! <<<"
-    };
+static const InfoOption_t option_cmd_PATCH_FORCE
+	= { OPT_FORCE, false, false, false, false, false, 0, "force", 0,
+		  "Accept overlapped sections.\n"
+		  ">>> THE RESULT IS MOST LIKELY INVALID! <<<" };
 
-
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////                  CommandTab[]                   ///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-static const KeywordTab_t CommandTab[] =
-{
-    { CMD_VERSION,	"VERSION",	"V",		0 },
-    { CMD_HELP,		"HELP",		"H",		0 },
-    { CMD_HELP,		"?",		0,		0 },
-    { CMD_CONFIG,	"CONFIG",	0,		0 },
-    { CMD_ARGTEST,	"ARGTEST",	0,		0 },
-    { CMD_EXPAND,	"EXPAND",	0,		0 },
-    { CMD_TEST,		"TEST",		0,		0 },
-    { CMD_COLORS,	"COLORS",	0,		0 },
-    { CMD_ERROR,	"ERROR",	"ERR",		0 },
-    { CMD_FILETYPE,	"FILETYPE",	"FT",		0 },
-    { CMD_FILEATTRIB,	"FILEATTRIB",	"FA",		0 },
-    { CMD_RAWDUMP,	"_RAWDUMP",	0,		0 },
-    { CMD_DUMP,		"DUMP",		0,		0 },
-    { CMD_CDUMP,	"_CDUMP",	0,		0 },
-    { CMD_HEXDUMP,	"HEXDUMP",	"XDUMP",	0 },
-    { CMD_PORT,		"PORT",		0,		0 },
-    { CMD_WHERE,	"WHERE",	0,		0 },
-    { CMD_HTTPS,	"_HTTPS",	0,		0 },
-    { CMD_EXTRACT,	"EXTRACT",	"X",		0 },
-    { CMD_TRACKS,	"TRACKS",	0,		0 },
-    { CMD_ARENAS,	"ARENAS",	0,		0 },
-    { CMD_FILES,	"FILES",	0,		0 },
-    { CMD_FIND,		"FIND",		0,		0 },
-    { CMD_POINTS,	"POINTS",	"PTS",		0 },
-    { CMD_ANALYZE,	"ANALYZE",	"ANA",		0 },
-    { CMD_ANALYZE,	"ANALYSE",	0,		0 },
-    { CMD_PATCH,	"PATCH",	0,		0 },
+static const KeywordTab_t CommandTab[] = { { CMD_VERSION, "VERSION", "V", 0 },
+	{ CMD_HELP, "HELP", "H", 0 }, { CMD_HELP, "?", 0, 0 }, { CMD_CONFIG, "CONFIG", 0, 0 },
+	{ CMD_ARGTEST, "ARGTEST", 0, 0 }, { CMD_EXPAND, "EXPAND", 0, 0 }, { CMD_TEST, "TEST", 0, 0 },
+	{ CMD_COLORS, "COLORS", 0, 0 }, { CMD_ERROR, "ERROR", "ERR", 0 },
+	{ CMD_FILETYPE, "FILETYPE", "FT", 0 }, { CMD_FILEATTRIB, "FILEATTRIB", "FA", 0 },
+	{ CMD_RAWDUMP, "_RAWDUMP", 0, 0 }, { CMD_DUMP, "DUMP", 0, 0 }, { CMD_CDUMP, "_CDUMP", 0, 0 },
+	{ CMD_HEXDUMP, "HEXDUMP", "XDUMP", 0 }, { CMD_PORT, "PORT", 0, 0 },
+	{ CMD_WHERE, "WHERE", 0, 0 }, { CMD_HTTPS, "_HTTPS", 0, 0 }, { CMD_EXTRACT, "EXTRACT", "X", 0 },
+	{ CMD_TRACKS, "TRACKS", 0, 0 }, { CMD_ARENAS, "ARENAS", 0, 0 }, { CMD_FILES, "FILES", 0, 0 },
+	{ CMD_FIND, "FIND", 0, 0 }, { CMD_POINTS, "POINTS", "PTS", 0 },
+	{ CMD_ANALYZE, "ANALYZE", "ANA", 0 }, { CMD_ANALYZE, "ANALYSE", 0, 0 },
+	{ CMD_PATCH, "PATCH", 0, 0 },
 
-    { CMD__N,0,0,0 }
-};
+	{ CMD__N, 0, 0, 0 } };
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////            OptionShort & OptionLong             ///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 static const char OptionShort[] = "Vh@zqvLYW:c:lBHT:A:R:td:D:E:orupi0U";
 
-static const struct option OptionLong[] =
-{
-	{ "version",		0, 0, 'V' },
-	{ "help",		0, 0, 'h' },
-	{ "xhelp",		0, 0, GO_XHELP },
-	{ "config",		1, 0, GO_CONFIG },
-	{ "@",			0, 0, '@' },
-	{ "ydebug",		0, 0, GO_YDEBUG },
-	{ "allow-all",		0, 0, GO_ALLOW_ALL },
-	 { "allowall",		0, 0, GO_ALLOW_ALL },
-	{ "compatible",		1, 0, GO_COMPATIBLE },
-	{ "width",		1, 0, GO_WIDTH },
-	{ "max-width",		1, 0, GO_MAX_WIDTH },
-	 { "maxwidth",		1, 0, GO_MAX_WIDTH },
-	{ "no-pager",		0, 0, GO_NO_PAGER },
-	 { "nopager",		0, 0, GO_NO_PAGER },
-	{ "zero",		0, 0, 'z' },
-	{ "quiet",		0, 0, 'q' },
-	{ "verbose",		0, 0, 'v' },
-	{ "logging",		0, 0, 'L' },
-	{ "extended-errors",	0, 0, 'Y' },
-	 { "extendederrors",	0, 0, 'Y' },
-	 { "xerr",		0, 0, 'Y' },
-	{ "timing",		0, 0, GO_TIMING },
-	{ "warn",		1, 0, 'W' },
-	{ "de",			0, 0, GO_DE },
-	{ "colors",		2, 0, GO_COLORS },
-	{ "no-colors",		0, 0, GO_NO_COLORS },
-	 { "nocolors",		0, 0, GO_NO_COLORS },
-	{ "ct-code",		0, 0, GO_CT_CODE },
-	 { "ctcode",		0, 0, GO_CT_CODE },
-	{ "le-code",		2, 0, GO_LE_CODE },
-	 { "lecode",		2, 0, GO_LE_CODE },
-	{ "le-04x",		0, 0, GO_LE_04X },
-	 { "le04x",		0, 0, GO_LE_04X },
-	{ "chdir",		1, 0, GO_CHDIR },
-	{ "const",		1, 0, 'c' },
-	{ "long",		0, 0, 'l' },
-	{ "brief",		0, 0, 'B' },
-	{ "no-wildcards",	0, 0, GO_NO_WILDCARDS },
-	 { "nowildcards",	0, 0, GO_NO_WILDCARDS },
-	{ "in-order",		0, 0, GO_IN_ORDER },
-	 { "inorder",		0, 0, GO_IN_ORDER },
-	{ "no-header",		0, 0, 'H' },
-	 { "noheader",		0, 0, 'H' },
-	{ "tracks",		1, 0, 'T' },
-	{ "arenas",		1, 0, 'A' },
-	{ "region",		1, 0, 'R' },
-	{ "vs-region",		1, 0, GO_VS_REGION },
-	 { "vsregion",		1, 0, GO_VS_REGION },
-	 { "vregion",		1, 0, GO_VS_REGION },
-	{ "bt-region",		1, 0, GO_BT_REGION },
-	 { "btregion",		1, 0, GO_BT_REGION },
-	 { "bregion",		1, 0, GO_BT_REGION },
-	{ "all-ranks",		2, 0, GO_ALL_RANKS },
-	 { "allranks",		2, 0, GO_ALL_RANKS },
-	{ "points",		1, 0, GO_POINTS },
-	 { "pts",		1, 0, GO_POINTS },
-	{ "cheat",		1, 0, GO_CHEAT },
-	{ "https",		1, 0, GO_HTTPS },
-	{ "domain",		1, 0, GO_DOMAIN },
-	{ "wiimmfi",		0, 0, GO_WIIMMFI },
-	{ "twiimmfi",		0, 0, GO_TWIIMMFI },
-	{ "wc24",		0, 0, GO_WC24 },
-	{ "wcode",		2, 0, GO_WCODE },
-	{ "@add-wcode",		1, 0, GO_ADD_WCODE },
-	 { "@addwcode",		1, 0, GO_ADD_WCODE },
-	{ "pb-mode",		1, 0, GO_PB_MODE },
-	 { "pbmode",		1, 0, GO_PB_MODE },
-	{ "@patched-by",	1, 0, GO_PATCHED_BY },
-	 { "@patchedby",	1, 0, GO_PATCHED_BY },
-	{ "vs",			1, 0, GO_VS },
-	{ "vs2",		1, 0, GO_VS2 },
-	{ "bt",			1, 0, GO_BT },
-	{ "bt2",		1, 0, GO_BT2 },
-	{ "cannon",		1, 0, GO_CANNON },
-	{ "meno",		0, 0, GO_MENO },
-	{ "utf-8",		0, 0, GO_UTF_8 },
-	 { "utf8",		0, 0, GO_UTF_8 },
-	{ "no-utf-8",		0, 0, GO_NO_UTF_8 },
-	 { "no-utf8",		0, 0, GO_NO_UTF_8 },
-	 { "noutf8",		0, 0, GO_NO_UTF_8 },
-	{ "test",		0, 0, 't' },
-	{ "force",		0, 0, GO_FORCE },
-	{ "repair-magics",	2, 0, GO_REPAIR_MAGICS },
-	 { "repairmagics",	2, 0, GO_REPAIR_MAGICS },
-	{ "OLD",		0, 0, GO_OLD },
-	{ "STD",		0, 0, GO_STD },
-	{ "NEW",		0, 0, GO_NEW },
-	{ "EXTRACT",		0, 0, GO_EXTRACT },
-	{ "dest",		1, 0, 'd' },
-	{ "DEST",		1, 0, 'D' },
-	{ "esc",		1, 0, 'E' },
-	{ "overwrite",		0, 0, 'o' },
-	{ "number",		0, 0, GO_NUMBER },
-	 { "num",		0, 0, GO_NUMBER },
-	{ "remove-dest",	0, 0, 'r' },
-	 { "removedest",	0, 0, 'r' },
-	 { "rm-dest",		0, 0, 'r' },
-	 { "rmdest",		0, 0, 'r' },
-	 { "remove",		0, 0, 'r' },
-	{ "update",		0, 0, 'u' },
-	{ "preserve",		0, 0, 'p' },
-	{ "ignore",		0, 0, 'i' },
-	{ "clean-dol",		0, 0, GO_CLEAN_DOL },
-	 { "cleandol",		0, 0, GO_CLEAN_DOL },
-	{ "add-lecode",		0, 0, GO_ADD_LECODE },
-	 { "addlecode",		0, 0, GO_ADD_LECODE },
-	{ "adds-lecode",	0, 0, GO_ADDS_LECODE },
-	 { "addslecode",	0, 0, GO_ADDS_LECODE },
-	{ "add-old-lecode",	0, 0, GO_ADD_OLD_LECODE },
-	 { "addoldlecode",	0, 0, GO_ADD_OLD_LECODE },
-	{ "add-ctcode",		0, 0, GO_ADD_CTCODE },
-	 { "addctcode",		0, 0, GO_ADD_CTCODE },
-	{ "ct-dir",		1, 0, GO_CT_DIR },
-	 { "ctdir",		1, 0, GO_CT_DIR },
-	{ "move-d8",		0, 0, GO_MOVE_D8 },
-	 { "moved8",		0, 0, GO_MOVE_D8 },
-	{ "add-section",	1, 0, GO_ADD_SECTION },
-	 { "addsection",	1, 0, GO_ADD_SECTION },
-	{ "full-gch",		0, 0, GO_FULL_GCH },
-	 { "fullgch",		0, 0, GO_FULL_GCH },
-	{ "gct-no-sep",		0, 0, GO_GCT_NO_SEP },
-	 { "gctnosep",		0, 0, GO_GCT_NO_SEP },
-	{ "gct-sep",		0, 0, GO_GCT_SEP },
-	 { "gctsep",		0, 0, GO_GCT_SEP },
-	{ "gct-asm-sep",	0, 0, GO_GCT_ASM_SEP },
-	 { "gctasmsep",		0, 0, GO_GCT_ASM_SEP },
-	{ "gct-list",		0, 0, GO_GCT_LIST },
-	 { "gctlist",		0, 0, GO_GCT_LIST },
-	{ "gct-move",		2, 0, GO_GCT_MOVE },
-	 { "gctmove",		2, 0, GO_GCT_MOVE },
-	{ "gct-addr",		1, 0, GO_GCT_ADDR },
-	 { "gctaddr",		1, 0, GO_GCT_ADDR },
-	{ "gct-space",		1, 0, GO_GCT_SPACE },
-	 { "gctspace",		1, 0, GO_GCT_SPACE },
-	{ "allow-user-gch",	2, 0, GO_ALLOW_USER_GCH },
-	 { "allowusergch",	2, 0, GO_ALLOW_USER_GCH },
-	{ "create-sect",	1, 0, GO_CREATE_SECT },
-	 { "createsect",	1, 0, GO_CREATE_SECT },
-	 { "cs",		1, 0, GO_CREATE_SECT },
-	{ "wpf",		1, 0, GO_WPF },
-	{ "sections",		0, 0, GO_SECTIONS },
-	{ "port-db",		1, 0, GO_PORT_DB },
-	 { "portdb",		1, 0, GO_PORT_DB },
-	{ "order",		1, 0, GO_ORDER },
-	 { "sort",		1, 0, GO_ORDER },
-	{ "no-0x",		0, 0, '0' },
-	 { "no0x",		0, 0, '0' },
-	{ "upper",		0, 0, 'U' },
-	{ "vaddr",		1, 0, GO_VADDR },
-	 { "va",		1, 0, GO_VADDR },
-	{ "faddr",		1, 0, GO_FADDR },
-	 { "fa",		1, 0, GO_FADDR },
-	{ "sname",		1, 0, GO_SNAME },
-	 { "sn",		1, 0, GO_SNAME },
-	{ "i1",			0, 0, GO_INT1 },
-	{ "i2",			0, 0, GO_INT2 },
-	{ "i3",			0, 0, GO_INT3 },
-	{ "i4",			0, 0, GO_INT4 },
-	{ "i5",			0, 0, GO_INT5 },
-	{ "i6",			0, 0, GO_INT6 },
-	{ "i7",			0, 0, GO_INT7 },
-	{ "i8",			0, 0, GO_INT8 },
-	{ "float",		0, 0, GO_FLOAT },
-	{ "double",		0, 0, GO_DOUBLE },
-	{ "le",			0, 0, GO_LE },
-	{ "be",			0, 0, GO_BE },
-	{ "zeros",		0, 0, GO_ZEROS },
-	{ "hex",		0, 0, GO_HEX },
-	{ "dec",		0, 0, GO_DEC },
-	{ "c-syntax",		0, 0, GO_C_SYNTAX },
-	 { "csyntax",		0, 0, GO_C_SYNTAX },
-	{ "address",		1, 0, GO_ADDR },
-	{ "align",		0, 0, GO_ALIGN },
-	{ "trigger",		1, 0, GO_TRIGGER },
-	{ "no-address",		0, 0, GO_NO_ADDR },
-	 { "noaddress",		0, 0, GO_NO_ADDR },
-	{ "no-numbers",		0, 0, GO_NO_NUMBERS },
-	 { "nonumbers",		0, 0, GO_NO_NUMBERS },
-	{ "no-text",		0, 0, GO_NO_TEXT },
-	 { "notext",		0, 0, GO_NO_TEXT },
-	{ "format",		0, 0, GO_FORMAT },
-	{ "no-null",		0, 0, GO_NO_NULL },
-	 { "nonull",		0, 0, GO_NO_NULL },
-	{ "narrow",		0, 0, GO_NARROW },
-	{ "small",		0, 0, GO_SMALL },
-	{ "wide",		0, 0, GO_WIDE },
-	{ "bytes",		1, 0, GO_BYTES },
+static const struct option OptionLong[] = { { "version", 0, 0, 'V' }, { "help", 0, 0, 'h' },
+	{ "xhelp", 0, 0, GO_XHELP }, { "config", 1, 0, GO_CONFIG }, { "@", 0, 0, '@' },
+	{ "ydebug", 0, 0, GO_YDEBUG }, { "allow-all", 0, 0, GO_ALLOW_ALL },
+	{ "allowall", 0, 0, GO_ALLOW_ALL }, { "compatible", 1, 0, GO_COMPATIBLE },
+	{ "width", 1, 0, GO_WIDTH }, { "max-width", 1, 0, GO_MAX_WIDTH },
+	{ "maxwidth", 1, 0, GO_MAX_WIDTH }, { "no-pager", 0, 0, GO_NO_PAGER },
+	{ "nopager", 0, 0, GO_NO_PAGER }, { "zero", 0, 0, 'z' }, { "quiet", 0, 0, 'q' },
+	{ "verbose", 0, 0, 'v' }, { "logging", 0, 0, 'L' }, { "extended-errors", 0, 0, 'Y' },
+	{ "extendederrors", 0, 0, 'Y' }, { "xerr", 0, 0, 'Y' }, { "timing", 0, 0, GO_TIMING },
+	{ "warn", 1, 0, 'W' }, { "de", 0, 0, GO_DE }, { "colors", 2, 0, GO_COLORS },
+	{ "no-colors", 0, 0, GO_NO_COLORS }, { "nocolors", 0, 0, GO_NO_COLORS },
+	{ "ct-code", 0, 0, GO_CT_CODE }, { "ctcode", 0, 0, GO_CT_CODE },
+	{ "le-code", 2, 0, GO_LE_CODE }, { "lecode", 2, 0, GO_LE_CODE }, { "le-04x", 0, 0, GO_LE_04X },
+	{ "le04x", 0, 0, GO_LE_04X }, { "chdir", 1, 0, GO_CHDIR }, { "const", 1, 0, 'c' },
+	{ "long", 0, 0, 'l' }, { "brief", 0, 0, 'B' }, { "no-wildcards", 0, 0, GO_NO_WILDCARDS },
+	{ "nowildcards", 0, 0, GO_NO_WILDCARDS }, { "in-order", 0, 0, GO_IN_ORDER },
+	{ "inorder", 0, 0, GO_IN_ORDER }, { "no-header", 0, 0, 'H' }, { "noheader", 0, 0, 'H' },
+	{ "tracks", 1, 0, 'T' }, { "arenas", 1, 0, 'A' }, { "region", 1, 0, 'R' },
+	{ "vs-region", 1, 0, GO_VS_REGION }, { "vsregion", 1, 0, GO_VS_REGION },
+	{ "vregion", 1, 0, GO_VS_REGION }, { "bt-region", 1, 0, GO_BT_REGION },
+	{ "btregion", 1, 0, GO_BT_REGION }, { "bregion", 1, 0, GO_BT_REGION },
+	{ "all-ranks", 2, 0, GO_ALL_RANKS }, { "allranks", 2, 0, GO_ALL_RANKS },
+	{ "points", 1, 0, GO_POINTS }, { "pts", 1, 0, GO_POINTS }, { "cheat", 1, 0, GO_CHEAT },
+	{ "https", 1, 0, GO_HTTPS }, { "domain", 1, 0, GO_DOMAIN }, { "wiimmfi", 0, 0, GO_WIIMMFI },
+	{ "twiimmfi", 0, 0, GO_TWIIMMFI }, { "wc24", 0, 0, GO_WC24 }, { "wcode", 2, 0, GO_WCODE },
+	{ "@add-wcode", 1, 0, GO_ADD_WCODE }, { "@addwcode", 1, 0, GO_ADD_WCODE },
+	{ "pb-mode", 1, 0, GO_PB_MODE }, { "pbmode", 1, 0, GO_PB_MODE },
+	{ "@patched-by", 1, 0, GO_PATCHED_BY }, { "@patchedby", 1, 0, GO_PATCHED_BY },
+	{ "vs", 1, 0, GO_VS }, { "vs2", 1, 0, GO_VS2 }, { "bt", 1, 0, GO_BT }, { "bt2", 1, 0, GO_BT2 },
+	{ "cannon", 1, 0, GO_CANNON }, { "meno", 0, 0, GO_MENO }, { "utf-8", 0, 0, GO_UTF_8 },
+	{ "utf8", 0, 0, GO_UTF_8 }, { "no-utf-8", 0, 0, GO_NO_UTF_8 }, { "no-utf8", 0, 0, GO_NO_UTF_8 },
+	{ "noutf8", 0, 0, GO_NO_UTF_8 }, { "test", 0, 0, 't' }, { "force", 0, 0, GO_FORCE },
+	{ "repair-magics", 2, 0, GO_REPAIR_MAGICS }, { "repairmagics", 2, 0, GO_REPAIR_MAGICS },
+	{ "OLD", 0, 0, GO_OLD }, { "STD", 0, 0, GO_STD }, { "NEW", 0, 0, GO_NEW },
+	{ "EXTRACT", 0, 0, GO_EXTRACT }, { "dest", 1, 0, 'd' }, { "DEST", 1, 0, 'D' },
+	{ "esc", 1, 0, 'E' }, { "overwrite", 0, 0, 'o' }, { "number", 0, 0, GO_NUMBER },
+	{ "num", 0, 0, GO_NUMBER }, { "remove-dest", 0, 0, 'r' }, { "removedest", 0, 0, 'r' },
+	{ "rm-dest", 0, 0, 'r' }, { "rmdest", 0, 0, 'r' }, { "remove", 0, 0, 'r' },
+	{ "update", 0, 0, 'u' }, { "preserve", 0, 0, 'p' }, { "ignore", 0, 0, 'i' },
+	{ "clean-dol", 0, 0, GO_CLEAN_DOL }, { "cleandol", 0, 0, GO_CLEAN_DOL },
+	{ "add-lecode", 0, 0, GO_ADD_LECODE }, { "addlecode", 0, 0, GO_ADD_LECODE },
+	{ "adds-lecode", 0, 0, GO_ADDS_LECODE }, { "addslecode", 0, 0, GO_ADDS_LECODE },
+	{ "add-old-lecode", 0, 0, GO_ADD_OLD_LECODE }, { "addoldlecode", 0, 0, GO_ADD_OLD_LECODE },
+	{ "add-ctcode", 0, 0, GO_ADD_CTCODE }, { "addctcode", 0, 0, GO_ADD_CTCODE },
+	{ "ct-dir", 1, 0, GO_CT_DIR }, { "ctdir", 1, 0, GO_CT_DIR }, { "move-d8", 0, 0, GO_MOVE_D8 },
+	{ "moved8", 0, 0, GO_MOVE_D8 }, { "add-section", 1, 0, GO_ADD_SECTION },
+	{ "addsection", 1, 0, GO_ADD_SECTION }, { "full-gch", 0, 0, GO_FULL_GCH },
+	{ "fullgch", 0, 0, GO_FULL_GCH }, { "gct-no-sep", 0, 0, GO_GCT_NO_SEP },
+	{ "gctnosep", 0, 0, GO_GCT_NO_SEP }, { "gct-sep", 0, 0, GO_GCT_SEP },
+	{ "gctsep", 0, 0, GO_GCT_SEP }, { "gct-asm-sep", 0, 0, GO_GCT_ASM_SEP },
+	{ "gctasmsep", 0, 0, GO_GCT_ASM_SEP }, { "gct-list", 0, 0, GO_GCT_LIST },
+	{ "gctlist", 0, 0, GO_GCT_LIST }, { "gct-move", 2, 0, GO_GCT_MOVE },
+	{ "gctmove", 2, 0, GO_GCT_MOVE }, { "gct-addr", 1, 0, GO_GCT_ADDR },
+	{ "gctaddr", 1, 0, GO_GCT_ADDR }, { "gct-space", 1, 0, GO_GCT_SPACE },
+	{ "gctspace", 1, 0, GO_GCT_SPACE }, { "allow-user-gch", 2, 0, GO_ALLOW_USER_GCH },
+	{ "allowusergch", 2, 0, GO_ALLOW_USER_GCH }, { "create-sect", 1, 0, GO_CREATE_SECT },
+	{ "createsect", 1, 0, GO_CREATE_SECT }, { "cs", 1, 0, GO_CREATE_SECT }, { "wpf", 1, 0, GO_WPF },
+	{ "sections", 0, 0, GO_SECTIONS }, { "port-db", 1, 0, GO_PORT_DB },
+	{ "portdb", 1, 0, GO_PORT_DB }, { "order", 1, 0, GO_ORDER }, { "sort", 1, 0, GO_ORDER },
+	{ "no-0x", 0, 0, '0' }, { "no0x", 0, 0, '0' }, { "upper", 0, 0, 'U' },
+	{ "vaddr", 1, 0, GO_VADDR }, { "va", 1, 0, GO_VADDR }, { "faddr", 1, 0, GO_FADDR },
+	{ "fa", 1, 0, GO_FADDR }, { "sname", 1, 0, GO_SNAME }, { "sn", 1, 0, GO_SNAME },
+	{ "i1", 0, 0, GO_INT1 }, { "i2", 0, 0, GO_INT2 }, { "i3", 0, 0, GO_INT3 },
+	{ "i4", 0, 0, GO_INT4 }, { "i5", 0, 0, GO_INT5 }, { "i6", 0, 0, GO_INT6 },
+	{ "i7", 0, 0, GO_INT7 }, { "i8", 0, 0, GO_INT8 }, { "float", 0, 0, GO_FLOAT },
+	{ "double", 0, 0, GO_DOUBLE }, { "le", 0, 0, GO_LE }, { "be", 0, 0, GO_BE },
+	{ "zeros", 0, 0, GO_ZEROS }, { "hex", 0, 0, GO_HEX }, { "dec", 0, 0, GO_DEC },
+	{ "c-syntax", 0, 0, GO_C_SYNTAX }, { "csyntax", 0, 0, GO_C_SYNTAX },
+	{ "address", 1, 0, GO_ADDR }, { "align", 0, 0, GO_ALIGN }, { "trigger", 1, 0, GO_TRIGGER },
+	{ "no-address", 0, 0, GO_NO_ADDR }, { "noaddress", 0, 0, GO_NO_ADDR },
+	{ "no-numbers", 0, 0, GO_NO_NUMBERS }, { "nonumbers", 0, 0, GO_NO_NUMBERS },
+	{ "no-text", 0, 0, GO_NO_TEXT }, { "notext", 0, 0, GO_NO_TEXT }, { "format", 0, 0, GO_FORMAT },
+	{ "no-null", 0, 0, GO_NO_NULL }, { "nonull", 0, 0, GO_NO_NULL }, { "narrow", 0, 0, GO_NARROW },
+	{ "small", 0, 0, GO_SMALL }, { "wide", 0, 0, GO_WIDE }, { "bytes", 1, 0, GO_BYTES },
 
-	{0,0,0,0}
-};
+	{ 0, 0, 0, 0 } };
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////            OptionUsed & OptionIndex             ///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-static u8 OptionUsed[OPT__N_TOTAL+1] = {0};
+static u8 OptionUsed[OPT__N_TOTAL + 1] = { 0 };
 
-static const OptionIndex_t OptionIndex[UIOPT_INDEX_SIZE] =
-{
-	/* 0x000   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-	/* 0x010   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-	/* 0x020   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-	/* 0x030 0 */	OPT_NO_0X,
-	/* 0x031   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,
-	/* 0x040 @ */	OPT_AT_DUMMY,
-	/* 0x041 A */	OPT_ARENAS,
-	/* 0x042 B */	OPT_BRIEF,
-	/* 0x043   */	 0,
-	/* 0x044 D */	OPT_DEST2,
-	/* 0x045 E */	OPT_ESC,
-	/* 0x046   */	 0,0,
-	/* 0x048 H */	OPT_NO_HEADER,
-	/* 0x049   */	 0,0,0,
-	/* 0x04c L */	OPT_LOGGING,
-	/* 0x04d   */	 0,0,0,0, 0,
-	/* 0x052 R */	OPT_REGION,
-	/* 0x053   */	 0,
-	/* 0x054 T */	OPT_TRACKS,
-	/* 0x055 U */	OPT_UPPER,
-	/* 0x056 V */	OPT_VERSION,
-	/* 0x057 W */	OPT_WARN,
-	/* 0x058   */	 0,
-	/* 0x059 Y */	OPT_EXT_ERRORS,
-	/* 0x05a   */	 0,0,0,0, 0,0,0,0, 0,
-	/* 0x063 c */	OPT_CONST,
-	/* 0x064 d */	OPT_DEST,
-	/* 0x065   */	 0,0,0,
-	/* 0x068 h */	OPT_HELP,
-	/* 0x069 i */	OPT_IGNORE,
-	/* 0x06a   */	 0,0,
-	/* 0x06c l */	OPT_LONG,
-	/* 0x06d   */	 0,0,
-	/* 0x06f o */	OPT_OVERWRITE,
-	/* 0x070 p */	OPT_PRESERVE,
-	/* 0x071 q */	OPT_QUIET,
-	/* 0x072 r */	OPT_REMOVE_DEST,
-	/* 0x073   */	 0,
-	/* 0x074 t */	OPT_TEST,
-	/* 0x075 u */	OPT_UPDATE,
-	/* 0x076 v */	OPT_VERBOSE,
-	/* 0x077   */	 0,0,0,
-	/* 0x07a z */	OPT_ZERO,
-	/* 0x07b   */	 0,0,0,0, 0,
-	/* 0x080   */	OPT_XHELP,
-	/* 0x081   */	OPT_CONFIG,
-	/* 0x082   */	OPT_YDEBUG,
-	/* 0x083   */	OPT_ALLOW_ALL,
-	/* 0x084   */	OPT_COMPATIBLE,
-	/* 0x085   */	OPT_WIDTH,
-	/* 0x086   */	OPT_MAX_WIDTH,
-	/* 0x087   */	OPT_NO_PAGER,
-	/* 0x088   */	OPT_TIMING,
-	/* 0x089   */	OPT_DE,
-	/* 0x08a   */	OPT_COLORS,
-	/* 0x08b   */	OPT_NO_COLORS,
-	/* 0x08c   */	OPT_CT_CODE,
-	/* 0x08d   */	OPT_LE_CODE,
-	/* 0x08e   */	OPT_LE_04X,
-	/* 0x08f   */	OPT_CHDIR,
-	/* 0x090   */	OPT_NO_WILDCARDS,
-	/* 0x091   */	OPT_IN_ORDER,
-	/* 0x092   */	OPT_VS_REGION,
-	/* 0x093   */	OPT_BT_REGION,
-	/* 0x094   */	OPT_ALL_RANKS,
-	/* 0x095   */	OPT_POINTS,
-	/* 0x096   */	OPT_CHEAT,
-	/* 0x097   */	OPT_HTTPS,
-	/* 0x098   */	OPT_DOMAIN,
-	/* 0x099   */	OPT_WIIMMFI,
-	/* 0x09a   */	OPT_TWIIMMFI,
-	/* 0x09b   */	OPT_WC24,
-	/* 0x09c   */	OPT_WCODE,
-	/* 0x09d   */	OPT_ADD_WCODE,
-	/* 0x09e   */	OPT_PB_MODE,
-	/* 0x09f   */	OPT_PATCHED_BY,
-	/* 0x0a0   */	OPT_VS,
-	/* 0x0a1   */	OPT_VS2,
-	/* 0x0a2   */	OPT_BT,
-	/* 0x0a3   */	OPT_BT2,
-	/* 0x0a4   */	OPT_CANNON,
-	/* 0x0a5   */	OPT_MENO,
-	/* 0x0a6   */	OPT_UTF_8,
-	/* 0x0a7   */	OPT_NO_UTF_8,
-	/* 0x0a8   */	OPT_FORCE,
-	/* 0x0a9   */	OPT_REPAIR_MAGICS,
-	/* 0x0aa   */	OPT_OLD,
-	/* 0x0ab   */	OPT_STD,
-	/* 0x0ac   */	OPT_NEW,
-	/* 0x0ad   */	OPT_EXTRACT,
-	/* 0x0ae   */	OPT_NUMBER,
-	/* 0x0af   */	OPT_CLEAN_DOL,
-	/* 0x0b0   */	OPT_ADD_LECODE,
-	/* 0x0b1   */	OPT_ADDS_LECODE,
-	/* 0x0b2   */	OPT_ADD_OLD_LECODE,
-	/* 0x0b3   */	OPT_ADD_CTCODE,
-	/* 0x0b4   */	OPT_CT_DIR,
-	/* 0x0b5   */	OPT_MOVE_D8,
-	/* 0x0b6   */	OPT_ADD_SECTION,
-	/* 0x0b7   */	OPT_FULL_GCH,
-	/* 0x0b8   */	OPT_GCT_NO_SEP,
-	/* 0x0b9   */	OPT_GCT_SEP,
-	/* 0x0ba   */	OPT_GCT_ASM_SEP,
-	/* 0x0bb   */	OPT_GCT_LIST,
-	/* 0x0bc   */	OPT_GCT_MOVE,
-	/* 0x0bd   */	OPT_GCT_ADDR,
-	/* 0x0be   */	OPT_GCT_SPACE,
-	/* 0x0bf   */	OPT_ALLOW_USER_GCH,
-	/* 0x0c0   */	OPT_CREATE_SECT,
-	/* 0x0c1   */	OPT_WPF,
-	/* 0x0c2   */	OPT_SECTIONS,
-	/* 0x0c3   */	OPT_PORT_DB,
-	/* 0x0c4   */	OPT_ORDER,
-	/* 0x0c5   */	OPT_VADDR,
-	/* 0x0c6   */	OPT_FADDR,
-	/* 0x0c7   */	OPT_SNAME,
-	/* 0x0c8   */	OPT_INT1,
-	/* 0x0c9   */	OPT_INT2,
-	/* 0x0ca   */	OPT_INT3,
-	/* 0x0cb   */	OPT_INT4,
-	/* 0x0cc   */	OPT_INT5,
-	/* 0x0cd   */	OPT_INT6,
-	/* 0x0ce   */	OPT_INT7,
-	/* 0x0cf   */	OPT_INT8,
-	/* 0x0d0   */	OPT_FLOAT,
-	/* 0x0d1   */	OPT_DOUBLE,
-	/* 0x0d2   */	OPT_LE,
-	/* 0x0d3   */	OPT_BE,
-	/* 0x0d4   */	OPT_ZEROS,
-	/* 0x0d5   */	OPT_HEX,
-	/* 0x0d6   */	OPT_DEC,
-	/* 0x0d7   */	OPT_C_SYNTAX,
-	/* 0x0d8   */	OPT_ADDR,
-	/* 0x0d9   */	OPT_ALIGN,
-	/* 0x0da   */	OPT_TRIGGER,
-	/* 0x0db   */	OPT_NO_ADDR,
-	/* 0x0dc   */	OPT_NO_NUMBERS,
-	/* 0x0dd   */	OPT_NO_TEXT,
-	/* 0x0de   */	OPT_FORMAT,
-	/* 0x0df   */	OPT_NO_NULL,
-	/* 0x0e0   */	OPT_NARROW,
-	/* 0x0e1   */	OPT_SMALL,
-	/* 0x0e2   */	OPT_WIDE,
-	/* 0x0e3   */	OPT_BYTES,
-	/* 0x0e4   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 
-	/* 0x0f0   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-	/* 0x100   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-	/* 0x110   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-	/* 0x120   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-	/* 0x130   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-	/* 0x140   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-	/* 0x150   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-	/* 0x160   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-	/* 0x170   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-	/* 0x180   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
+static const OptionIndex_t OptionIndex[UIOPT_INDEX_SIZE] = {
+	/* 0x000   */ 0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	/* 0x010   */ 0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	/* 0x020   */ 0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	/* 0x030 0 */ OPT_NO_0X,
+	/* 0x031   */ 0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	/* 0x040 @ */ OPT_AT_DUMMY,
+	/* 0x041 A */ OPT_ARENAS,
+	/* 0x042 B */ OPT_BRIEF,
+	/* 0x043   */ 0,
+	/* 0x044 D */ OPT_DEST2,
+	/* 0x045 E */ OPT_ESC,
+	/* 0x046   */ 0,
+	0,
+	/* 0x048 H */ OPT_NO_HEADER,
+	/* 0x049   */ 0,
+	0,
+	0,
+	/* 0x04c L */ OPT_LOGGING,
+	/* 0x04d   */ 0,
+	0,
+	0,
+	0,
+	0,
+	/* 0x052 R */ OPT_REGION,
+	/* 0x053   */ 0,
+	/* 0x054 T */ OPT_TRACKS,
+	/* 0x055 U */ OPT_UPPER,
+	/* 0x056 V */ OPT_VERSION,
+	/* 0x057 W */ OPT_WARN,
+	/* 0x058   */ 0,
+	/* 0x059 Y */ OPT_EXT_ERRORS,
+	/* 0x05a   */ 0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	/* 0x063 c */ OPT_CONST,
+	/* 0x064 d */ OPT_DEST,
+	/* 0x065   */ 0,
+	0,
+	0,
+	/* 0x068 h */ OPT_HELP,
+	/* 0x069 i */ OPT_IGNORE,
+	/* 0x06a   */ 0,
+	0,
+	/* 0x06c l */ OPT_LONG,
+	/* 0x06d   */ 0,
+	0,
+	/* 0x06f o */ OPT_OVERWRITE,
+	/* 0x070 p */ OPT_PRESERVE,
+	/* 0x071 q */ OPT_QUIET,
+	/* 0x072 r */ OPT_REMOVE_DEST,
+	/* 0x073   */ 0,
+	/* 0x074 t */ OPT_TEST,
+	/* 0x075 u */ OPT_UPDATE,
+	/* 0x076 v */ OPT_VERBOSE,
+	/* 0x077   */ 0,
+	0,
+	0,
+	/* 0x07a z */ OPT_ZERO,
+	/* 0x07b   */ 0,
+	0,
+	0,
+	0,
+	0,
+	/* 0x080   */ OPT_XHELP,
+	/* 0x081   */ OPT_CONFIG,
+	/* 0x082   */ OPT_YDEBUG,
+	/* 0x083   */ OPT_ALLOW_ALL,
+	/* 0x084   */ OPT_COMPATIBLE,
+	/* 0x085   */ OPT_WIDTH,
+	/* 0x086   */ OPT_MAX_WIDTH,
+	/* 0x087   */ OPT_NO_PAGER,
+	/* 0x088   */ OPT_TIMING,
+	/* 0x089   */ OPT_DE,
+	/* 0x08a   */ OPT_COLORS,
+	/* 0x08b   */ OPT_NO_COLORS,
+	/* 0x08c   */ OPT_CT_CODE,
+	/* 0x08d   */ OPT_LE_CODE,
+	/* 0x08e   */ OPT_LE_04X,
+	/* 0x08f   */ OPT_CHDIR,
+	/* 0x090   */ OPT_NO_WILDCARDS,
+	/* 0x091   */ OPT_IN_ORDER,
+	/* 0x092   */ OPT_VS_REGION,
+	/* 0x093   */ OPT_BT_REGION,
+	/* 0x094   */ OPT_ALL_RANKS,
+	/* 0x095   */ OPT_POINTS,
+	/* 0x096   */ OPT_CHEAT,
+	/* 0x097   */ OPT_HTTPS,
+	/* 0x098   */ OPT_DOMAIN,
+	/* 0x099   */ OPT_WIIMMFI,
+	/* 0x09a   */ OPT_TWIIMMFI,
+	/* 0x09b   */ OPT_WC24,
+	/* 0x09c   */ OPT_WCODE,
+	/* 0x09d   */ OPT_ADD_WCODE,
+	/* 0x09e   */ OPT_PB_MODE,
+	/* 0x09f   */ OPT_PATCHED_BY,
+	/* 0x0a0   */ OPT_VS,
+	/* 0x0a1   */ OPT_VS2,
+	/* 0x0a2   */ OPT_BT,
+	/* 0x0a3   */ OPT_BT2,
+	/* 0x0a4   */ OPT_CANNON,
+	/* 0x0a5   */ OPT_MENO,
+	/* 0x0a6   */ OPT_UTF_8,
+	/* 0x0a7   */ OPT_NO_UTF_8,
+	/* 0x0a8   */ OPT_FORCE,
+	/* 0x0a9   */ OPT_REPAIR_MAGICS,
+	/* 0x0aa   */ OPT_OLD,
+	/* 0x0ab   */ OPT_STD,
+	/* 0x0ac   */ OPT_NEW,
+	/* 0x0ad   */ OPT_EXTRACT,
+	/* 0x0ae   */ OPT_NUMBER,
+	/* 0x0af   */ OPT_CLEAN_DOL,
+	/* 0x0b0   */ OPT_ADD_LECODE,
+	/* 0x0b1   */ OPT_ADDS_LECODE,
+	/* 0x0b2   */ OPT_ADD_OLD_LECODE,
+	/* 0x0b3   */ OPT_ADD_CTCODE,
+	/* 0x0b4   */ OPT_CT_DIR,
+	/* 0x0b5   */ OPT_MOVE_D8,
+	/* 0x0b6   */ OPT_ADD_SECTION,
+	/* 0x0b7   */ OPT_FULL_GCH,
+	/* 0x0b8   */ OPT_GCT_NO_SEP,
+	/* 0x0b9   */ OPT_GCT_SEP,
+	/* 0x0ba   */ OPT_GCT_ASM_SEP,
+	/* 0x0bb   */ OPT_GCT_LIST,
+	/* 0x0bc   */ OPT_GCT_MOVE,
+	/* 0x0bd   */ OPT_GCT_ADDR,
+	/* 0x0be   */ OPT_GCT_SPACE,
+	/* 0x0bf   */ OPT_ALLOW_USER_GCH,
+	/* 0x0c0   */ OPT_CREATE_SECT,
+	/* 0x0c1   */ OPT_WPF,
+	/* 0x0c2   */ OPT_SECTIONS,
+	/* 0x0c3   */ OPT_PORT_DB,
+	/* 0x0c4   */ OPT_ORDER,
+	/* 0x0c5   */ OPT_VADDR,
+	/* 0x0c6   */ OPT_FADDR,
+	/* 0x0c7   */ OPT_SNAME,
+	/* 0x0c8   */ OPT_INT1,
+	/* 0x0c9   */ OPT_INT2,
+	/* 0x0ca   */ OPT_INT3,
+	/* 0x0cb   */ OPT_INT4,
+	/* 0x0cc   */ OPT_INT5,
+	/* 0x0cd   */ OPT_INT6,
+	/* 0x0ce   */ OPT_INT7,
+	/* 0x0cf   */ OPT_INT8,
+	/* 0x0d0   */ OPT_FLOAT,
+	/* 0x0d1   */ OPT_DOUBLE,
+	/* 0x0d2   */ OPT_LE,
+	/* 0x0d3   */ OPT_BE,
+	/* 0x0d4   */ OPT_ZEROS,
+	/* 0x0d5   */ OPT_HEX,
+	/* 0x0d6   */ OPT_DEC,
+	/* 0x0d7   */ OPT_C_SYNTAX,
+	/* 0x0d8   */ OPT_ADDR,
+	/* 0x0d9   */ OPT_ALIGN,
+	/* 0x0da   */ OPT_TRIGGER,
+	/* 0x0db   */ OPT_NO_ADDR,
+	/* 0x0dc   */ OPT_NO_NUMBERS,
+	/* 0x0dd   */ OPT_NO_TEXT,
+	/* 0x0de   */ OPT_FORMAT,
+	/* 0x0df   */ OPT_NO_NULL,
+	/* 0x0e0   */ OPT_NARROW,
+	/* 0x0e1   */ OPT_SMALL,
+	/* 0x0e2   */ OPT_WIDE,
+	/* 0x0e3   */ OPT_BYTES,
+	/* 0x0e4   */ 0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	/* 0x0f0   */ 0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	/* 0x100   */ 0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	/* 0x110   */ 0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	/* 0x120   */ 0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	/* 0x130   */ 0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	/* 0x140   */ 0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	/* 0x150   */ 0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	/* 0x160   */ 0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	/* 0x170   */ 0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	/* 0x180   */ 0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
 };
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////                opt_allowed_cmd_*                ///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 static u8 option_allowed_cmd_VERSION[70] = // cmd #1
-{
-    0,1,1,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,1, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0
-};
+	{ 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0 };
 
 static u8 option_allowed_cmd_HELP[70] = // cmd #2
-{
-    1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,
-    1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,
-    1,1,1,1,1, 1,1,1,1,1
-};
+	{ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1 };
 
 static u8 option_allowed_cmd_CONFIG[70] = // cmd #3
-{
-    0,1,1,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0
-};
+	{ 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0 };
 
 static u8 option_allowed_cmd_ARGTEST[70] = // cmd #4
-{
-    1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,
-    1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,
-    1,1,1,1,1, 1,1,1,1,1
-};
+	{ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1 };
 
 static u8 option_allowed_cmd_EXPAND[70] = // cmd #5
-{
-    1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,
-    1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,
-    1,1,1,1,1, 1,1,1,1,1
-};
+	{ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1 };
 
 static u8 option_allowed_cmd_TEST[70] = // cmd #6
-{
-    1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,
-    1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,
-    1,1,1,1,1, 1,1,1,1,1
-};
+	{ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1 };
 
 static u8 option_allowed_cmd_COLORS[70] = // cmd #7
-{
-    0,1,1,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0
-};
+	{ 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0 };
 
 static u8 option_allowed_cmd_ERROR[70] = // cmd #8
-{
-    0,1,1,0,0, 1,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,1, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0
-};
+	{ 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0 };
 
 static u8 option_allowed_cmd_FILETYPE[70] = // cmd #9
-{
-    0,1,0,1,1, 0,0,0,0,0,  0,0,0,0,0, 0,1,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0
-};
+	{ 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0 };
 
 static u8 option_allowed_cmd_FILEATTRIB[70] = // cmd #10
-{
-    0,0,0,0,0, 1,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0
-};
+	{ 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0 };
 
 static u8 option_allowed_cmd_RAWDUMP[70] = // cmd #11
-{
-    0,0,0,0,0, 0,0,0,1,1,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0
-};
+	{ 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0 };
 
 static u8 option_allowed_cmd_DUMP[70] = // cmd #12
-{
-    0,1,0,1,1, 0,0,0,0,0,  0,0,0,0,0, 0,1,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0
-};
+	{ 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0 };
 
 static u8 option_allowed_cmd_CDUMP[70] = // cmd #13
-{
-    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0
-};
+	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0 };
 
 static u8 option_allowed_cmd_HEXDUMP[70] = // cmd #14
-{
-    0,0,0,1,1, 0,0,0,0,0,  0,0,0,0,0, 0,1,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,
-    1,1,1,1,1, 1,1,1,1,1
-};
+	{ 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1 };
 
 static u8 option_allowed_cmd_PORT[70] = // cmd #15
-{
-    0,1,1,0,0, 1,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 1,1,1,1,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0
-};
+	{ 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0 };
 
 static u8 option_allowed_cmd_WHERE[70] = // cmd #16
-{
-    0,1,1,0,0, 1,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,1,1,1,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0
-};
+	{ 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0 };
 
 static u8 option_allowed_cmd_HTTPS[70] = // cmd #17
-{
-    0,1,0,1,1, 0,0,0,0,0,  0,0,0,0,0, 0,1,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0
-};
+	{ 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0 };
 
 static u8 option_allowed_cmd_EXTRACT[70] = // cmd #18
-{
-    0,0,0,1,1, 0,0,0,1,1,  0,1,0,0,0, 0,1,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0
-};
+	{ 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0 };
 
 static u8 option_allowed_cmd_TRACKS[70] = // cmd #19
-{
-    0,1,1,0,0, 1,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0
-};
+	{ 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0 };
 
 static u8 option_allowed_cmd_ARENAS[70] = // cmd #20
-{
-    0,1,1,0,0, 1,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0
-};
+	{ 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0 };
 
 static u8 option_allowed_cmd_FILES[70] = // cmd #21
-{
-    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0
-};
+	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0 };
 
 static u8 option_allowed_cmd_FIND[70] = // cmd #22
-{
-    0,1,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0
-};
+	{ 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0 };
 
 static u8 option_allowed_cmd_POINTS[70] = // cmd #23
-{
-    0,1,1,0,0, 0,1,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0
-};
+	{ 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0 };
 
 static u8 option_allowed_cmd_ANALYZE[70] = // cmd #24
-{
-    0,1,0,1,1, 0,0,0,0,0,  0,0,0,0,0, 0,1,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0
-};
+	{ 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0 };
 
 static u8 option_allowed_cmd_PATCH[70] = // cmd #25
-{
-    0,0,0,1,1, 0,0,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,
-    1,1,1,1,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0
-};
+	{ 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0 };
 
-
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////                 InfoOption tabs                 ///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-static const InfoOption_t * option_tab_tool[] =
-{
-	OptionInfo + OPT_VERSION,
-	OptionInfo + OPT_HELP,
-	OptionInfo + OPT_XHELP,
-	OptionInfo + OPT_CONFIG,
-	OptionInfo + OPT_ALLOW_ALL,
-	OptionInfo + OPT_COMPATIBLE,
-	OptionInfo + OPT_WIDTH,
-	OptionInfo + OPT_MAX_WIDTH,
-	OptionInfo + OPT_NO_PAGER,
-	OptionInfo + OPT_ZERO,
-	OptionInfo + OPT_QUIET,
-	OptionInfo + OPT_VERBOSE,
-	OptionInfo + OPT_LOGGING,
-	OptionInfo + OPT_EXT_ERRORS,
-	OptionInfo + OPT_TIMING,
-	OptionInfo + OPT_WARN,
-	OptionInfo + OPT_DE,
-	OptionInfo + OPT_COLORS,
-	OptionInfo + OPT_NO_COLORS,
-	OptionInfo + OPT_CT_CODE,
-	OptionInfo + OPT_LE_CODE,
-	OptionInfo + OPT_LE_04X,
-	OptionInfo + OPT_CHDIR,
-	OptionInfo + OPT_CONST,
-	OptionInfo + OPT_TRACKS,
-	OptionInfo + OPT_ARENAS,
-	OptionInfo + OPT_REGION,
-	OptionInfo + OPT_VS_REGION,
-	OptionInfo + OPT_BT_REGION,
-	OptionInfo + OPT_ALL_RANKS,
-	OptionInfo + OPT_POINTS,
-	OptionInfo + OPT_HTTPS,
-	OptionInfo + OPT_DOMAIN,
-	OptionInfo + OPT_WIIMMFI,
-	OptionInfo + OPT_WC24,
-	OptionInfo + OPT_PB_MODE,
-	OptionInfo + OPT_VS,
-	OptionInfo + OPT_BT,
-	OptionInfo + OPT_CANNON,
-	OptionInfo + OPT_MENO,
+static const InfoOption_t *option_tab_tool[] = { OptionInfo + OPT_VERSION, OptionInfo + OPT_HELP,
+	OptionInfo + OPT_XHELP, OptionInfo + OPT_CONFIG, OptionInfo + OPT_ALLOW_ALL,
+	OptionInfo + OPT_COMPATIBLE, OptionInfo + OPT_WIDTH, OptionInfo + OPT_MAX_WIDTH,
+	OptionInfo + OPT_NO_PAGER, OptionInfo + OPT_ZERO, OptionInfo + OPT_QUIET,
+	OptionInfo + OPT_VERBOSE, OptionInfo + OPT_LOGGING, OptionInfo + OPT_EXT_ERRORS,
+	OptionInfo + OPT_TIMING, OptionInfo + OPT_WARN, OptionInfo + OPT_DE, OptionInfo + OPT_COLORS,
+	OptionInfo + OPT_NO_COLORS, OptionInfo + OPT_CT_CODE, OptionInfo + OPT_LE_CODE,
+	OptionInfo + OPT_LE_04X, OptionInfo + OPT_CHDIR, OptionInfo + OPT_CONST,
+	OptionInfo + OPT_TRACKS, OptionInfo + OPT_ARENAS, OptionInfo + OPT_REGION,
+	OptionInfo + OPT_VS_REGION, OptionInfo + OPT_BT_REGION, OptionInfo + OPT_ALL_RANKS,
+	OptionInfo + OPT_POINTS, OptionInfo + OPT_HTTPS, OptionInfo + OPT_DOMAIN,
+	OptionInfo + OPT_WIIMMFI, OptionInfo + OPT_WC24, OptionInfo + OPT_PB_MODE, OptionInfo + OPT_VS,
+	OptionInfo + OPT_BT, OptionInfo + OPT_CANNON, OptionInfo + OPT_MENO,
 
 	OptionInfo + OPT_NONE, // separator
 
-	OptionInfo + OPT_TEST,
-	OptionInfo + OPT_FORCE,
-	OptionInfo + OPT_REPAIR_MAGICS,
+	OptionInfo + OPT_TEST, OptionInfo + OPT_FORCE, OptionInfo + OPT_REPAIR_MAGICS,
 
 	OptionInfo + OPT_NONE, // separator
 
-	OptionInfo + OPT_CLEAN_DOL,
-	OptionInfo + OPT_CT_DIR,
+	OptionInfo + OPT_CLEAN_DOL, OptionInfo + OPT_CT_DIR,
+
+	0 };
+
+static const InfoOption_t *option_tab_cmd_VERSION[]
+	= { &option_cmd_VERSION_BRIEF, OptionInfo + OPT_SECTIONS, &option_cmd_VERSION_LONG,
+
+		  0 };
+
+static const InfoOption_t *option_tab_cmd_HELP[]
+	= { OptionInfo + OPT_WIDTH, OptionInfo + OPT_MAX_WIDTH,
+
+		  0 };
+
+static const InfoOption_t *option_tab_cmd_CONFIG[]
+	= { OptionInfo + OPT_CONFIG, &option_cmd_CONFIG_BRIEF, &option_cmd_CONFIG_LONG,
+
+		  0 };
+
+static const InfoOption_t *option_tab_cmd_ARGTEST[] = {
 
 	0
 };
 
-static const InfoOption_t * option_tab_cmd_VERSION[] =
-{
-	&option_cmd_VERSION_BRIEF,
-	OptionInfo + OPT_SECTIONS,
-	&option_cmd_VERSION_LONG,
+static const InfoOption_t *option_tab_cmd_EXPAND[] = {
 
 	0
 };
 
-static const InfoOption_t * option_tab_cmd_HELP[] =
-{
-	OptionInfo + OPT_WIDTH,
-	OptionInfo + OPT_MAX_WIDTH,
+static const InfoOption_t *option_tab_cmd_TEST[] = {
 
 	0
 };
 
-static const InfoOption_t * option_tab_cmd_CONFIG[] =
-{
-	OptionInfo + OPT_CONFIG,
-	&option_cmd_CONFIG_BRIEF,
-	&option_cmd_CONFIG_LONG,
+static const InfoOption_t *option_tab_cmd_COLORS[] = { OptionInfo + OPT_COLORS,
+	OptionInfo + OPT_NO_COLORS, &option_cmd_COLORS_LONG, &option_cmd_COLORS_BRIEF,
+
+	0 };
+
+static const InfoOption_t *option_tab_cmd_ERROR[] = { OptionInfo + OPT_SECTIONS,
+	OptionInfo + OPT_NO_HEADER, &option_cmd_ERROR_LONG, &option_cmd_ERROR_BRIEF,
+
+	0 };
+
+static const InfoOption_t *option_tab_cmd_FILETYPE[] = { OptionInfo + OPT_NO_WILDCARDS,
+	OptionInfo + OPT_IN_ORDER, OptionInfo + OPT_IGNORE, &option_cmd_FILETYPE_LONG,
+
+	0 };
+
+static const InfoOption_t *option_tab_cmd_FILEATTRIB[] = { OptionInfo + OPT_NO_HEADER,
+
+	0 };
+
+static const InfoOption_t *option_tab_cmd_RAWDUMP[]
+	= { OptionInfo + OPT_DEST, OptionInfo + OPT_DEST2,
+
+		  0 };
+
+static const InfoOption_t *option_tab_cmd_DUMP[]
+	= { OptionInfo + OPT_NO_WILDCARDS, OptionInfo + OPT_IN_ORDER, OptionInfo + OPT_IGNORE,
+
+		  OptionInfo + OPT_NONE, // separator
+
+		  &option_cmd_DUMP_LONG,
+
+		  0 };
+
+static const InfoOption_t *option_tab_cmd_CDUMP[] = {
 
 	0
 };
 
-static const InfoOption_t * option_tab_cmd_ARGTEST[] =
-{
-
-	0
-};
-
-static const InfoOption_t * option_tab_cmd_EXPAND[] =
-{
-
-	0
-};
-
-static const InfoOption_t * option_tab_cmd_TEST[] =
-{
-
-	0
-};
-
-static const InfoOption_t * option_tab_cmd_COLORS[] =
-{
-	OptionInfo + OPT_COLORS,
-	OptionInfo + OPT_NO_COLORS,
-	&option_cmd_COLORS_LONG,
-	&option_cmd_COLORS_BRIEF,
-
-	0
-};
-
-static const InfoOption_t * option_tab_cmd_ERROR[] =
-{
-	OptionInfo + OPT_SECTIONS,
-	OptionInfo + OPT_NO_HEADER,
-	&option_cmd_ERROR_LONG,
-	&option_cmd_ERROR_BRIEF,
-
-	0
-};
-
-static const InfoOption_t * option_tab_cmd_FILETYPE[] =
-{
-	OptionInfo + OPT_NO_WILDCARDS,
-	OptionInfo + OPT_IN_ORDER,
-	OptionInfo + OPT_IGNORE,
-	&option_cmd_FILETYPE_LONG,
-
-	0
-};
-
-static const InfoOption_t * option_tab_cmd_FILEATTRIB[] =
-{
-	OptionInfo + OPT_NO_HEADER,
-
-	0
-};
-
-static const InfoOption_t * option_tab_cmd_RAWDUMP[] =
-{
-	OptionInfo + OPT_DEST,
-	OptionInfo + OPT_DEST2,
-
-	0
-};
-
-static const InfoOption_t * option_tab_cmd_DUMP[] =
-{
-	OptionInfo + OPT_NO_WILDCARDS,
-	OptionInfo + OPT_IN_ORDER,
-	OptionInfo + OPT_IGNORE,
+static const InfoOption_t *option_tab_cmd_HEXDUMP[] = { OptionInfo + OPT_NO_WILDCARDS,
+	OptionInfo + OPT_IN_ORDER, OptionInfo + OPT_IGNORE,
 
 	OptionInfo + OPT_NONE, // separator
 
-	&option_cmd_DUMP_LONG,
-
-	0
-};
-
-static const InfoOption_t * option_tab_cmd_CDUMP[] =
-{
-
-	0
-};
-
-static const InfoOption_t * option_tab_cmd_HEXDUMP[] =
-{
-	OptionInfo + OPT_NO_WILDCARDS,
-	OptionInfo + OPT_IN_ORDER,
-	OptionInfo + OPT_IGNORE,
+	OptionInfo + OPT_VADDR, OptionInfo + OPT_FADDR, OptionInfo + OPT_SNAME,
+	OptionInfo + OPT_LOGGING, OptionInfo + OPT_EXT_ERRORS, OptionInfo + OPT_TIMING,
 
 	OptionInfo + OPT_NONE, // separator
 
-	OptionInfo + OPT_VADDR,
-	OptionInfo + OPT_FADDR,
-	OptionInfo + OPT_SNAME,
-	OptionInfo + OPT_LOGGING,
-	OptionInfo + OPT_EXT_ERRORS,
-	OptionInfo + OPT_TIMING,
+	OptionInfo + OPT_INT1, OptionInfo + OPT_INT2, OptionInfo + OPT_INT3, OptionInfo + OPT_INT4,
+	OptionInfo + OPT_INT5, OptionInfo + OPT_INT6, OptionInfo + OPT_INT7, OptionInfo + OPT_INT8,
+	OptionInfo + OPT_FLOAT, OptionInfo + OPT_DOUBLE, OptionInfo + OPT_LE, OptionInfo + OPT_BE,
+	OptionInfo + OPT_ZEROS, OptionInfo + OPT_HEX, OptionInfo + OPT_DEC, OptionInfo + OPT_C_SYNTAX,
+	OptionInfo + OPT_ADDR, OptionInfo + OPT_ALIGN, OptionInfo + OPT_TRIGGER,
+	OptionInfo + OPT_NO_ADDR, OptionInfo + OPT_NO_NUMBERS, OptionInfo + OPT_NO_TEXT,
+	OptionInfo + OPT_FORMAT, OptionInfo + OPT_NO_NULL, OptionInfo + OPT_NARROW,
+	OptionInfo + OPT_SMALL, OptionInfo + OPT_WIDE, OptionInfo + OPT_BYTES,
+
+	0 };
+
+static const InfoOption_t *option_tab_cmd_PORT[] = { OptionInfo + OPT_PORT_DB,
+	OptionInfo + OPT_ORDER, OptionInfo + OPT_NO_0X, OptionInfo + OPT_UPPER,
+	&option_cmd_PORT_NO_HEADER, &option_cmd_PORT_BRIEF, &option_cmd_PORT_LONG,
+
+	0 };
+
+static const InfoOption_t *option_tab_cmd_WHERE[]
+	= { OptionInfo + OPT_ORDER, OptionInfo + OPT_NO_0X, OptionInfo + OPT_UPPER,
+		  &option_cmd_WHERE_NO_HEADER, &option_cmd_WHERE_BRIEF, &option_cmd_WHERE_LONG,
+
+		  0 };
+
+static const InfoOption_t *option_tab_cmd_HTTPS[]
+	= { OptionInfo + OPT_NO_WILDCARDS, OptionInfo + OPT_IN_ORDER, OptionInfo + OPT_IGNORE,
+
+		  OptionInfo + OPT_NONE, // separator
+
+		  &option_cmd_HTTPS_LONG, &option_cmd_HTTPS_VERBOSE,
+
+		  0 };
+
+static const InfoOption_t *option_tab_cmd_EXTRACT[]
+	= { OptionInfo + OPT_NO_WILDCARDS, OptionInfo + OPT_IN_ORDER, OptionInfo + OPT_IGNORE,
+
+		  OptionInfo + OPT_NONE, // separator
+
+		  OptionInfo + OPT_DEST, OptionInfo + OPT_DEST2, OptionInfo + OPT_OVERWRITE,
+
+		  0 };
+
+static const InfoOption_t *option_tab_cmd_TRACKS[]
+	= { OptionInfo + OPT_NO_HEADER, OptionInfo + OPT_BRIEF, &option_cmd_TRACKS_LONG,
+		  OptionInfo + OPT_DE, OptionInfo + OPT_TRACKS, OptionInfo + OPT_ARENAS,
+		  OptionInfo + OPT_REGION, OptionInfo + OPT_VS_REGION, OptionInfo + OPT_BT_REGION,
+		  OptionInfo + OPT_ALL_RANKS, OptionInfo + OPT_HTTPS, OptionInfo + OPT_DOMAIN,
+		  OptionInfo + OPT_WIIMMFI, OptionInfo + OPT_PB_MODE, OptionInfo + OPT_WC24,
+		  OptionInfo + OPT_VS, OptionInfo + OPT_BT, OptionInfo + OPT_CANNON, OptionInfo + OPT_MENO,
+
+		  0 };
+
+static const InfoOption_t *option_tab_cmd_ARENAS[]
+	= { OptionInfo + OPT_NO_HEADER, OptionInfo + OPT_BRIEF, &option_cmd_TRACKS_LONG,
+		  OptionInfo + OPT_DE, OptionInfo + OPT_TRACKS, OptionInfo + OPT_ARENAS,
+		  OptionInfo + OPT_REGION, OptionInfo + OPT_VS_REGION, OptionInfo + OPT_BT_REGION,
+		  OptionInfo + OPT_ALL_RANKS, OptionInfo + OPT_HTTPS, OptionInfo + OPT_DOMAIN,
+		  OptionInfo + OPT_WIIMMFI, OptionInfo + OPT_PB_MODE, OptionInfo + OPT_WC24,
+		  OptionInfo + OPT_VS, OptionInfo + OPT_BT, OptionInfo + OPT_CANNON, OptionInfo + OPT_MENO,
+
+		  0 };
+
+static const InfoOption_t *option_tab_cmd_FILES[]
+	= { OptionInfo + OPT_TRACKS, OptionInfo + OPT_ARENAS, OptionInfo + OPT_REGION,
+		  OptionInfo + OPT_VS_REGION, OptionInfo + OPT_BT_REGION, OptionInfo + OPT_ALL_RANKS,
+		  OptionInfo + OPT_HTTPS, OptionInfo + OPT_DOMAIN, OptionInfo + OPT_WIIMMFI,
+		  OptionInfo + OPT_PB_MODE, OptionInfo + OPT_WC24, OptionInfo + OPT_VS, OptionInfo + OPT_BT,
+		  OptionInfo + OPT_CANNON, OptionInfo + OPT_MENO,
+
+		  0 };
+
+static const InfoOption_t *option_tab_cmd_FIND[] = { OptionInfo + OPT_TRACKS,
+	OptionInfo + OPT_ARENAS, OptionInfo + OPT_REGION, OptionInfo + OPT_VS_REGION,
+	OptionInfo + OPT_BT_REGION, OptionInfo + OPT_ALL_RANKS, OptionInfo + OPT_HTTPS,
+	OptionInfo + OPT_DOMAIN, OptionInfo + OPT_WIIMMFI, OptionInfo + OPT_PB_MODE,
+	OptionInfo + OPT_WC24, OptionInfo + OPT_VS, OptionInfo + OPT_BT, OptionInfo + OPT_CANNON,
+	OptionInfo + OPT_MENO, &option_cmd_FIND_LONG, OptionInfo + OPT_DE,
+
+	0 };
+
+static const InfoOption_t *option_tab_cmd_POINTS[]
+	= { OptionInfo + OPT_POINTS, &option_cmd_POINTS_BRIEF, &option_cmd_POINTS_LONG,
+
+		  0 };
+
+static const InfoOption_t *option_tab_cmd_ANALYZE[] = { OptionInfo + OPT_NO_WILDCARDS,
+	OptionInfo + OPT_IN_ORDER, OptionInfo + OPT_IGNORE,
 
 	OptionInfo + OPT_NONE, // separator
 
-	OptionInfo + OPT_INT1,
-	OptionInfo + OPT_INT2,
-	OptionInfo + OPT_INT3,
-	OptionInfo + OPT_INT4,
-	OptionInfo + OPT_INT5,
-	OptionInfo + OPT_INT6,
-	OptionInfo + OPT_INT7,
-	OptionInfo + OPT_INT8,
-	OptionInfo + OPT_FLOAT,
-	OptionInfo + OPT_DOUBLE,
-	OptionInfo + OPT_LE,
-	OptionInfo + OPT_BE,
-	OptionInfo + OPT_ZEROS,
-	OptionInfo + OPT_HEX,
-	OptionInfo + OPT_DEC,
-	OptionInfo + OPT_C_SYNTAX,
-	OptionInfo + OPT_ADDR,
-	OptionInfo + OPT_ALIGN,
-	OptionInfo + OPT_TRIGGER,
-	OptionInfo + OPT_NO_ADDR,
-	OptionInfo + OPT_NO_NUMBERS,
-	OptionInfo + OPT_NO_TEXT,
-	OptionInfo + OPT_FORMAT,
-	OptionInfo + OPT_NO_NULL,
-	OptionInfo + OPT_NARROW,
-	OptionInfo + OPT_SMALL,
-	OptionInfo + OPT_WIDE,
-	OptionInfo + OPT_BYTES,
+	OptionInfo + OPT_CLEAN_DOL, OptionInfo + OPT_TRACKS, OptionInfo + OPT_ARENAS,
+	OptionInfo + OPT_REGION, OptionInfo + OPT_VS_REGION, OptionInfo + OPT_BT_REGION,
+	OptionInfo + OPT_ALL_RANKS, OptionInfo + OPT_HTTPS, OptionInfo + OPT_DOMAIN,
+	OptionInfo + OPT_WIIMMFI, OptionInfo + OPT_PB_MODE, OptionInfo + OPT_WC24, OptionInfo + OPT_VS,
+	OptionInfo + OPT_BT, OptionInfo + OPT_CANNON, OptionInfo + OPT_MENO, &option_cmd_ANALYZE_LONG,
 
-	0
-};
+	0 };
 
-static const InfoOption_t * option_tab_cmd_PORT[] =
-{
-	OptionInfo + OPT_PORT_DB,
-	OptionInfo + OPT_ORDER,
-	OptionInfo + OPT_NO_0X,
-	OptionInfo + OPT_UPPER,
-	&option_cmd_PORT_NO_HEADER,
-	&option_cmd_PORT_BRIEF,
-	&option_cmd_PORT_LONG,
+static const InfoOption_t *option_tab_cmd_PATCH[]
+	= { OptionInfo + OPT_NO_WILDCARDS, OptionInfo + OPT_IN_ORDER, OptionInfo + OPT_IGNORE,
 
-	0
-};
+		  OptionInfo + OPT_NONE, // separator
 
-static const InfoOption_t * option_tab_cmd_WHERE[] =
-{
-	OptionInfo + OPT_ORDER,
-	OptionInfo + OPT_NO_0X,
-	OptionInfo + OPT_UPPER,
-	&option_cmd_WHERE_NO_HEADER,
-	&option_cmd_WHERE_BRIEF,
-	&option_cmd_WHERE_LONG,
+		  OptionInfo + OPT_DEST, OptionInfo + OPT_DEST2, OptionInfo + OPT_ESC,
 
-	0
-};
+		  OptionInfo + OPT_NONE, // separator
 
-static const InfoOption_t * option_tab_cmd_HTTPS[] =
-{
-	OptionInfo + OPT_NO_WILDCARDS,
-	OptionInfo + OPT_IN_ORDER,
-	OptionInfo + OPT_IGNORE,
+		  OptionInfo + OPT_OVERWRITE, OptionInfo + OPT_NUMBER, OptionInfo + OPT_REMOVE_DEST,
+		  OptionInfo + OPT_UPDATE, OptionInfo + OPT_PRESERVE,
 
-	OptionInfo + OPT_NONE, // separator
+		  OptionInfo + OPT_NONE, // separator
 
-	&option_cmd_HTTPS_LONG,
-	&option_cmd_HTTPS_VERBOSE,
+		  OptionInfo + OPT_CLEAN_DOL, OptionInfo + OPT_TRACKS, OptionInfo + OPT_ARENAS,
+		  OptionInfo + OPT_REGION, OptionInfo + OPT_VS_REGION, OptionInfo + OPT_BT_REGION,
+		  OptionInfo + OPT_ALL_RANKS, OptionInfo + OPT_HTTPS, OptionInfo + OPT_DOMAIN,
+		  OptionInfo + OPT_WIIMMFI, OptionInfo + OPT_PB_MODE, OptionInfo + OPT_WC24,
+		  OptionInfo + OPT_VS, OptionInfo + OPT_BT, OptionInfo + OPT_CANNON, OptionInfo + OPT_MENO,
+		  OptionInfo + OPT_ADD_LECODE, OptionInfo + OPT_ADD_OLD_LECODE, OptionInfo + OPT_ADD_CTCODE,
+		  OptionInfo + OPT_CT_DIR, OptionInfo + OPT_MOVE_D8, OptionInfo + OPT_ADD_SECTION,
+		  OptionInfo + OPT_GCT_MOVE, OptionInfo + OPT_GCT_ADDR, OptionInfo + OPT_GCT_SPACE,
+		  OptionInfo + OPT_ALLOW_USER_GCH, &option_cmd_PATCH_FORCE,
 
-	0
-};
+		  0 };
 
-static const InfoOption_t * option_tab_cmd_EXTRACT[] =
-{
-	OptionInfo + OPT_NO_WILDCARDS,
-	OptionInfo + OPT_IN_ORDER,
-	OptionInfo + OPT_IGNORE,
-
-	OptionInfo + OPT_NONE, // separator
-
-	OptionInfo + OPT_DEST,
-	OptionInfo + OPT_DEST2,
-	OptionInfo + OPT_OVERWRITE,
-
-	0
-};
-
-static const InfoOption_t * option_tab_cmd_TRACKS[] =
-{
-	OptionInfo + OPT_NO_HEADER,
-	OptionInfo + OPT_BRIEF,
-	&option_cmd_TRACKS_LONG,
-	OptionInfo + OPT_DE,
-	OptionInfo + OPT_TRACKS,
-	OptionInfo + OPT_ARENAS,
-	OptionInfo + OPT_REGION,
-	OptionInfo + OPT_VS_REGION,
-	OptionInfo + OPT_BT_REGION,
-	OptionInfo + OPT_ALL_RANKS,
-	OptionInfo + OPT_HTTPS,
-	OptionInfo + OPT_DOMAIN,
-	OptionInfo + OPT_WIIMMFI,
-	OptionInfo + OPT_PB_MODE,
-	OptionInfo + OPT_WC24,
-	OptionInfo + OPT_VS,
-	OptionInfo + OPT_BT,
-	OptionInfo + OPT_CANNON,
-	OptionInfo + OPT_MENO,
-
-	0
-};
-
-static const InfoOption_t * option_tab_cmd_ARENAS[] =
-{
-	OptionInfo + OPT_NO_HEADER,
-	OptionInfo + OPT_BRIEF,
-	&option_cmd_TRACKS_LONG,
-	OptionInfo + OPT_DE,
-	OptionInfo + OPT_TRACKS,
-	OptionInfo + OPT_ARENAS,
-	OptionInfo + OPT_REGION,
-	OptionInfo + OPT_VS_REGION,
-	OptionInfo + OPT_BT_REGION,
-	OptionInfo + OPT_ALL_RANKS,
-	OptionInfo + OPT_HTTPS,
-	OptionInfo + OPT_DOMAIN,
-	OptionInfo + OPT_WIIMMFI,
-	OptionInfo + OPT_PB_MODE,
-	OptionInfo + OPT_WC24,
-	OptionInfo + OPT_VS,
-	OptionInfo + OPT_BT,
-	OptionInfo + OPT_CANNON,
-	OptionInfo + OPT_MENO,
-
-	0
-};
-
-static const InfoOption_t * option_tab_cmd_FILES[] =
-{
-	OptionInfo + OPT_TRACKS,
-	OptionInfo + OPT_ARENAS,
-	OptionInfo + OPT_REGION,
-	OptionInfo + OPT_VS_REGION,
-	OptionInfo + OPT_BT_REGION,
-	OptionInfo + OPT_ALL_RANKS,
-	OptionInfo + OPT_HTTPS,
-	OptionInfo + OPT_DOMAIN,
-	OptionInfo + OPT_WIIMMFI,
-	OptionInfo + OPT_PB_MODE,
-	OptionInfo + OPT_WC24,
-	OptionInfo + OPT_VS,
-	OptionInfo + OPT_BT,
-	OptionInfo + OPT_CANNON,
-	OptionInfo + OPT_MENO,
-
-	0
-};
-
-static const InfoOption_t * option_tab_cmd_FIND[] =
-{
-	OptionInfo + OPT_TRACKS,
-	OptionInfo + OPT_ARENAS,
-	OptionInfo + OPT_REGION,
-	OptionInfo + OPT_VS_REGION,
-	OptionInfo + OPT_BT_REGION,
-	OptionInfo + OPT_ALL_RANKS,
-	OptionInfo + OPT_HTTPS,
-	OptionInfo + OPT_DOMAIN,
-	OptionInfo + OPT_WIIMMFI,
-	OptionInfo + OPT_PB_MODE,
-	OptionInfo + OPT_WC24,
-	OptionInfo + OPT_VS,
-	OptionInfo + OPT_BT,
-	OptionInfo + OPT_CANNON,
-	OptionInfo + OPT_MENO,
-	&option_cmd_FIND_LONG,
-	OptionInfo + OPT_DE,
-
-	0
-};
-
-static const InfoOption_t * option_tab_cmd_POINTS[] =
-{
-	OptionInfo + OPT_POINTS,
-	&option_cmd_POINTS_BRIEF,
-	&option_cmd_POINTS_LONG,
-
-	0
-};
-
-static const InfoOption_t * option_tab_cmd_ANALYZE[] =
-{
-	OptionInfo + OPT_NO_WILDCARDS,
-	OptionInfo + OPT_IN_ORDER,
-	OptionInfo + OPT_IGNORE,
-
-	OptionInfo + OPT_NONE, // separator
-
-	OptionInfo + OPT_CLEAN_DOL,
-	OptionInfo + OPT_TRACKS,
-	OptionInfo + OPT_ARENAS,
-	OptionInfo + OPT_REGION,
-	OptionInfo + OPT_VS_REGION,
-	OptionInfo + OPT_BT_REGION,
-	OptionInfo + OPT_ALL_RANKS,
-	OptionInfo + OPT_HTTPS,
-	OptionInfo + OPT_DOMAIN,
-	OptionInfo + OPT_WIIMMFI,
-	OptionInfo + OPT_PB_MODE,
-	OptionInfo + OPT_WC24,
-	OptionInfo + OPT_VS,
-	OptionInfo + OPT_BT,
-	OptionInfo + OPT_CANNON,
-	OptionInfo + OPT_MENO,
-	&option_cmd_ANALYZE_LONG,
-
-	0
-};
-
-static const InfoOption_t * option_tab_cmd_PATCH[] =
-{
-	OptionInfo + OPT_NO_WILDCARDS,
-	OptionInfo + OPT_IN_ORDER,
-	OptionInfo + OPT_IGNORE,
-
-	OptionInfo + OPT_NONE, // separator
-
-	OptionInfo + OPT_DEST,
-	OptionInfo + OPT_DEST2,
-	OptionInfo + OPT_ESC,
-
-	OptionInfo + OPT_NONE, // separator
-
-	OptionInfo + OPT_OVERWRITE,
-	OptionInfo + OPT_NUMBER,
-	OptionInfo + OPT_REMOVE_DEST,
-	OptionInfo + OPT_UPDATE,
-	OptionInfo + OPT_PRESERVE,
-
-	OptionInfo + OPT_NONE, // separator
-
-	OptionInfo + OPT_CLEAN_DOL,
-	OptionInfo + OPT_TRACKS,
-	OptionInfo + OPT_ARENAS,
-	OptionInfo + OPT_REGION,
-	OptionInfo + OPT_VS_REGION,
-	OptionInfo + OPT_BT_REGION,
-	OptionInfo + OPT_ALL_RANKS,
-	OptionInfo + OPT_HTTPS,
-	OptionInfo + OPT_DOMAIN,
-	OptionInfo + OPT_WIIMMFI,
-	OptionInfo + OPT_PB_MODE,
-	OptionInfo + OPT_WC24,
-	OptionInfo + OPT_VS,
-	OptionInfo + OPT_BT,
-	OptionInfo + OPT_CANNON,
-	OptionInfo + OPT_MENO,
-	OptionInfo + OPT_ADD_LECODE,
-	OptionInfo + OPT_ADD_OLD_LECODE,
-	OptionInfo + OPT_ADD_CTCODE,
-	OptionInfo + OPT_CT_DIR,
-	OptionInfo + OPT_MOVE_D8,
-	OptionInfo + OPT_ADD_SECTION,
-	OptionInfo + OPT_GCT_MOVE,
-	OptionInfo + OPT_GCT_ADDR,
-	OptionInfo + OPT_GCT_SPACE,
-	OptionInfo + OPT_ALLOW_USER_GCH,
-	&option_cmd_PATCH_FORCE,
-
-	0
-};
-
-
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////                   InfoCommand                   ///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-static const InfoCommand_t CommandInfo[CMD__N+1] =
-{
-    {	0,
-	false,
-	false,
-	false,
-	"wstrt",
-	0,
-	"wstrt [option]... command [option|parameter|file]...",
-	"Wiimms StaticR Tool : Manipulate the 'main.dol' and 'StaticR.rel'"
-	" files of Mario Kart Wii.",
-	0,
-	45,
-	option_tab_tool,
-	0
-    },
+static const InfoCommand_t CommandInfo[CMD__N + 1] = {
+	{ 0, false, false, false, "wstrt", 0, "wstrt [option]... command [option|parameter|file]...",
+		"Wiimms StaticR Tool : Manipulate the 'main.dol' and 'StaticR.rel'"
+		" files of Mario Kart Wii.",
+		0, 45, option_tab_tool, 0 },
 
-    {	CMD_VERSION,
-	false,
-	false,
-	false,
-	"VERSION",
-	"V",
-	"wstrt VERSION [ignored]...",
-	"Print program name and version and exit.",
-	0,
-	3,
-	option_tab_cmd_VERSION,
-	option_allowed_cmd_VERSION
-    },
+	{ CMD_VERSION, false, false, false, "VERSION", "V", "wstrt VERSION [ignored]...",
+		"Print program name and version and exit.", 0, 3, option_tab_cmd_VERSION,
+		option_allowed_cmd_VERSION },
 
-    {	CMD_HELP,
-	false,
-	false,
-	false,
-	"HELP",
-	"H",
-	"wstrt HELP [--width=wd] OPT|OPTION ...\n"
-	"wstrt HELP [--width=wd] CMD|COMMAND [ignored]...\n"
-	"wstrt HELP [--width=wd] command [-b] [ignored]...\n"
-	"wstrt HELP [--width=wd] [ignored]...",
-	"Print help for commands and options.",
-	"Print help for commands and options.\n"
-	"  The first variant (with keyword OPT or OPTION) prints a list of all"
-	" global and command specific options. If at least one option is set,"
-	" only info about the declared options are printed. The second variant"
-	" (with keyword CMD or COMMAND) prints an overview about all commands."
-	" The third variant (with a valid command name) prints details about"
-	" the declared command. The fourth variant prints an overview about"
-	" all commands and all global options.",
-	2,
-	option_tab_cmd_HELP,
-	option_allowed_cmd_HELP
-    },
+	{ CMD_HELP, false, false, false, "HELP", "H",
+		"wstrt HELP [--width=wd] OPT|OPTION ...\n"
+		"wstrt HELP [--width=wd] CMD|COMMAND [ignored]...\n"
+		"wstrt HELP [--width=wd] command [-b] [ignored]...\n"
+		"wstrt HELP [--width=wd] [ignored]...",
+		"Print help for commands and options.",
+		"Print help for commands and options.\n"
+		"  The first variant (with keyword OPT or OPTION) prints a list of all"
+		" global and command specific options. If at least one option is set,"
+		" only info about the declared options are printed. The second variant"
+		" (with keyword CMD or COMMAND) prints an overview about all commands."
+		" The third variant (with a valid command name) prints details about"
+		" the declared command. The fourth variant prints an overview about"
+		" all commands and all global options.",
+		2, option_tab_cmd_HELP, option_allowed_cmd_HELP },
 
-    {	CMD_CONFIG,
-	false,
-	false,
-	false,
-	"CONFIG",
-	0,
-	"wstrt CONFIG [options]...",
-	"Show all information about the search for the configuration file and"
-	" its content.",
-	0,
-	3,
-	option_tab_cmd_CONFIG,
-	option_allowed_cmd_CONFIG
-    },
+	{ CMD_CONFIG, false, false, false, "CONFIG", 0, "wstrt CONFIG [options]...",
+		"Show all information about the search for the configuration file and"
+		" its content.",
+		0, 3, option_tab_cmd_CONFIG, option_allowed_cmd_CONFIG },
 
-    {	CMD_ARGTEST,
-	false,
-	false,
-	false,
-	"ARGTEST",
-	0,
-	"wstrt ARGTEST ...",
-	"This debug command accepts all kinds of parameters and prints one"
-	" line for each parameter. All tools know the ARGTEST command.",
-	0,
-	0,
-	option_tab_cmd_ARGTEST,
-	option_allowed_cmd_ARGTEST
-    },
+	{ CMD_ARGTEST, false, false, false, "ARGTEST", 0, "wstrt ARGTEST ...",
+		"This debug command accepts all kinds of parameters and prints one"
+		" line for each parameter. All tools know the ARGTEST command.",
+		0, 0, option_tab_cmd_ARGTEST, option_allowed_cmd_ARGTEST },
 
-    {	CMD_EXPAND,
-	false,
-	false,
-	false,
-	"EXPAND",
-	0,
-	"wstrt EXPAND ...",
-	"This debug command accepts (like ARGTEST) all kinds of parameters and"
-	" prints one line for each parameter. After that, the parameter is"
-	" treated as a filename with wildcards and all matching files are"
-	" searched. All tools know the EXPAND command.",
-	0,
-	0,
-	option_tab_cmd_EXPAND,
-	option_allowed_cmd_EXPAND
-    },
+	{ CMD_EXPAND, false, false, false, "EXPAND", 0, "wstrt EXPAND ...",
+		"This debug command accepts (like ARGTEST) all kinds of parameters and"
+		" prints one line for each parameter. After that, the parameter is"
+		" treated as a filename with wildcards and all matching files are"
+		" searched. All tools know the EXPAND command.",
+		0, 0, option_tab_cmd_EXPAND, option_allowed_cmd_EXPAND },
 
-    {	CMD_TEST,
-	false,
-	false,
-	false,
-	"TEST",
-	0,
-	"wstrt TEST [options]... [ignored]...",
-	"This debugging command accepts all options and parameters and prints"
-	" a list of the internal option values. The command is designed to"
-	" test the option parameters. The non option parameters are completely"
-	" ignored.",
-	0,
-	0,
-	option_tab_cmd_TEST,
-	option_allowed_cmd_TEST
-    },
+	{ CMD_TEST, false, false, false, "TEST", 0, "wstrt TEST [options]... [ignored]...",
+		"This debugging command accepts all options and parameters and prints"
+		" a list of the internal option values. The command is designed to"
+		" test the option parameters. The non option parameters are completely"
+		" ignored.",
+		0, 0, option_tab_cmd_TEST, option_allowed_cmd_TEST },
 
-    {	CMD_COLORS,
-	false,
-	false,
-	false,
-	"COLORS",
-	0,
-	"wstrt COLORS",
-	"Ignore all parameters and print colored text for testing.",
-	0,
-	4,
-	option_tab_cmd_COLORS,
-	option_allowed_cmd_COLORS
-    },
+	{ CMD_COLORS, false, false, false, "COLORS", 0, "wstrt COLORS",
+		"Ignore all parameters and print colored text for testing.", 0, 4, option_tab_cmd_COLORS,
+		option_allowed_cmd_COLORS },
 
-    {	CMD_ERROR,
-	false,
-	false,
-	false,
-	"ERROR",
-	"ERR",
-	"wstrt ERROR [error_code]",
-	"Translate an exit code to a message name. If no exit code is entered,"
-	" print a table with all error messages. All tools know the ERROR"
-	" command.",
-	0,
-	4,
-	option_tab_cmd_ERROR,
-	option_allowed_cmd_ERROR
-    },
+	{ CMD_ERROR, false, false, false, "ERROR", "ERR", "wstrt ERROR [error_code]",
+		"Translate an exit code to a message name. If no exit code is entered,"
+		" print a table with all error messages. All tools know the ERROR"
+		" command.",
+		0, 4, option_tab_cmd_ERROR, option_allowed_cmd_ERROR },
 
-    {	CMD_FILETYPE,
-	false,
-	false,
-	false,
-	"FILETYPE",
-	"FT",
-	"wstrt FILETYPE file...",
-	"Scan the header of the entered files and print file type and path for"
-	" each file as list. Wildcards and pipe characters are parsed, see"
-	" https://szs.wiimm.de/doc/wildcards for details. All tools know the"
-	" FILETYPE command.",
-	0,
-	4,
-	option_tab_cmd_FILETYPE,
-	option_allowed_cmd_FILETYPE
-    },
+	{ CMD_FILETYPE, false, false, false, "FILETYPE", "FT", "wstrt FILETYPE file...",
+		"Scan the header of the entered files and print file type and path for"
+		" each file as list. Wildcards and pipe characters are parsed, see"
+		" https://szs.wiimm.de/doc/wildcards for details. All tools know the"
+		" FILETYPE command.",
+		0, 4, option_tab_cmd_FILETYPE, option_allowed_cmd_FILETYPE },
 
-    {	CMD_FILEATTRIB,
-	false,
-	false,
-	false,
-	"FILEATTRIB",
-	"FA",
-	"wstrt FILEATTRIB [keyword]...",
-	"Print a table with attributes for all known file types. If at least"
-	" one keyword is entered, only matching file types are printed. A"
-	" keyword is either a file type (like 'BRRES' or 'BMG') or one of the"
-	" printed keywords (like 'ARCHIVE' or 'EXTRACT'). All tools know the"
-	" FILEATTRIB command.",
-	0,
-	1,
-	option_tab_cmd_FILEATTRIB,
-	option_allowed_cmd_FILEATTRIB
-    },
+	{ CMD_FILEATTRIB, false, false, false, "FILEATTRIB", "FA", "wstrt FILEATTRIB [keyword]...",
+		"Print a table with attributes for all known file types. If at least"
+		" one keyword is entered, only matching file types are printed. A"
+		" keyword is either a file type (like 'BRRES' or 'BMG') or one of the"
+		" printed keywords (like 'ARCHIVE' or 'EXTRACT'). All tools know the"
+		" FILEATTRIB command.",
+		0, 1, option_tab_cmd_FILEATTRIB, option_allowed_cmd_FILEATTRIB },
 
-    {	CMD_RAWDUMP,
-	true,
-	false,
-	false,
-	"_RAWDUMP",
-	0,
-	"wszst _RAWDUMP [-d|-D] destdir",
-	"This hidden command creates the destination directory  and create"
-	" several files as copy of internal data.",
-	0,
-	2,
-	option_tab_cmd_RAWDUMP,
-	option_allowed_cmd_RAWDUMP
-    },
+	{ CMD_RAWDUMP, true, false, false, "_RAWDUMP", 0, "wszst _RAWDUMP [-d|-D] destdir",
+		"This hidden command creates the destination directory  and create"
+		" several files as copy of internal data.",
+		0, 2, option_tab_cmd_RAWDUMP, option_allowed_cmd_RAWDUMP },
 
-    {	CMD_DUMP,
-	false,
-	false,
-	true,
-	"DUMP",
-	0,
-	"wstrt DUMP file...",
-	"Dump the structure of REL files (e.g. StaticR.rel) and of DOL files"
-	" (e.g. main.dol) as text. Wildcards and pipe characters are parsed,"
-	" see https://szs.wiimm.de/doc/wildcards for details.",
-	0,
-	4,
-	option_tab_cmd_DUMP,
-	option_allowed_cmd_DUMP
-    },
+	{ CMD_DUMP, false, false, true, "DUMP", 0, "wstrt DUMP file...",
+		"Dump the structure of REL files (e.g. StaticR.rel) and of DOL files"
+		" (e.g. main.dol) as text. Wildcards and pipe characters are parsed,"
+		" see https://szs.wiimm.de/doc/wildcards for details.",
+		0, 4, option_tab_cmd_DUMP, option_allowed_cmd_DUMP },
 
-    {	CMD_CDUMP,
-	true,
-	false,
-	false,
-	"_CDUMP",
-	0,
-	"wstrt _CDUMP file...",
-	"Dump the structure of of DOL files as C source fragments.",
-	0,
-	0,
-	option_tab_cmd_CDUMP,
-	option_allowed_cmd_CDUMP
-    },
+	{ CMD_CDUMP, true, false, false, "_CDUMP", 0, "wstrt _CDUMP file...",
+		"Dump the structure of of DOL files as C source fragments.", 0, 0, option_tab_cmd_CDUMP,
+		option_allowed_cmd_CDUMP },
 
-    {	CMD_HEXDUMP,
-	false,
-	false,
-	false,
-	"HEXDUMP",
-	"XDUMP",
-	"wstrt HEXDUMP file...",
-	"Dump the content of DOL files as hex dump and use virtual addresses."
-	" Wildcards and pipe characters are parsed, see"
-	" https://szs.wiimm.de/doc/wildcards for details. Select parts by"
-	" --vaddr, --faddr and --sname. Without selectors, the whole file is"
-	" dumped.",
-	0,
-	37,
-	option_tab_cmd_HEXDUMP,
-	option_allowed_cmd_HEXDUMP
-    },
+	{ CMD_HEXDUMP, false, false, false, "HEXDUMP", "XDUMP", "wstrt HEXDUMP file...",
+		"Dump the content of DOL files as hex dump and use virtual addresses."
+		" Wildcards and pipe characters are parsed, see"
+		" https://szs.wiimm.de/doc/wildcards for details. Select parts by"
+		" --vaddr, --faddr and --sname. Without selectors, the whole file is"
+		" dumped.",
+		0, 37, option_tab_cmd_HEXDUMP, option_allowed_cmd_HEXDUMP },
 
-    {	CMD_PORT,
-	false,
-	false,
-	false,
-	"PORT",
-	0,
-	"wstrt PORT param...",
-	"The command expects a list of keywords or hex numbers. Keywords are"
-	" PAL (default), USA, JAPAN, KOREA, or any abbreviation of them. They"
-	" select the region for the following addresses. The hex numbers (with"
-	" or without 0x prefix) are interpreted as addresses. If an address"
-	" begins with m, M, s or S, then it is interpreted as a file offset"
-	" for main.dol or staticr.rel. If the number begins with a point (.),"
-	" then it is interpreted as a cheat code. In this case, the lowest 25"
-	" bits are interpreted as address and the highest 7 bits are saved and"
-	" used for the address output. All addresses are ported to all other"
-	" regions. The result is printed as colorized table. See"
-	" https://szs.wiimm.de/cmd/wstrt/port for more details.",
-	0,
-	7,
-	option_tab_cmd_PORT,
-	option_allowed_cmd_PORT
-    },
+	{ CMD_PORT, false, false, false, "PORT", 0, "wstrt PORT param...",
+		"The command expects a list of keywords or hex numbers. Keywords are"
+		" PAL (default), USA, JAPAN, KOREA, or any abbreviation of them. They"
+		" select the region for the following addresses. The hex numbers (with"
+		" or without 0x prefix) are interpreted as addresses. If an address"
+		" begins with m, M, s or S, then it is interpreted as a file offset"
+		" for main.dol or staticr.rel. If the number begins with a point (.),"
+		" then it is interpreted as a cheat code. In this case, the lowest 25"
+		" bits are interpreted as address and the highest 7 bits are saved and"
+		" used for the address output. All addresses are ported to all other"
+		" regions. The result is printed as colorized table. See"
+		" https://szs.wiimm.de/cmd/wstrt/port for more details.",
+		0, 7, option_tab_cmd_PORT, option_allowed_cmd_PORT },
 
-    {	CMD_WHERE,
-	false,
-	false,
-	false,
-	"WHERE",
-	0,
-	"wstrt WHERE address...",
-	"A list of addresses in hex format is expected as input. The segments"
-	" in which the specified addresses are located is calculated for each"
-	" region. The result is output as a human and machine readable table.\n"
-	"  This command is well suited to converting addresses into file"
-	" offsets and vice versa. See https://szs.wiimm.de/cmd/wstrt/where for"
-	" more details.",
-	0,
-	6,
-	option_tab_cmd_WHERE,
-	option_allowed_cmd_WHERE
-    },
+	{ CMD_WHERE, false, false, false, "WHERE", 0, "wstrt WHERE address...",
+		"A list of addresses in hex format is expected as input. The segments"
+		" in which the specified addresses are located is calculated for each"
+		" region. The result is output as a human and machine readable table.\n"
+		"  This command is well suited to converting addresses into file"
+		" offsets and vice versa. See https://szs.wiimm.de/cmd/wstrt/where for"
+		" more details.",
+		0, 6, option_tab_cmd_WHERE, option_allowed_cmd_WHERE },
 
-    {	CMD_HTTPS,
-	true,
-	false,
-	false,
-	"_HTTPS",
-	0,
-	"wstrt _HTTPS file...",
-	"Collect data about https-requests and print a total summary for all"
-	" accepted files. Wildcards and pipe characters are parsed, see"
-	" https://szs.wiimm.de/doc/wildcards for details.",
-	0,
-	5,
-	option_tab_cmd_HTTPS,
-	option_allowed_cmd_HTTPS
-    },
+	{ CMD_HTTPS, true, false, false, "_HTTPS", 0, "wstrt _HTTPS file...",
+		"Collect data about https-requests and print a total summary for all"
+		" accepted files. Wildcards and pipe characters are parsed, see"
+		" https://szs.wiimm.de/doc/wildcards for details.",
+		0, 5, option_tab_cmd_HTTPS, option_allowed_cmd_HTTPS },
 
-    {	CMD_EXTRACT,
-	false,
-	false,
-	false,
-	"EXTRACT",
-	"X",
-	"wstrt EXTRACT dol...",
-	"Extract the sections of DOL and REL file into a directory. Wildcards"
-	" and pipe characters are parsed, see"
-	" https://szs.wiimm.de/doc/wildcards for details.",
-	0,
-	6,
-	option_tab_cmd_EXTRACT,
-	option_allowed_cmd_EXTRACT
-    },
+	{ CMD_EXTRACT, false, false, false, "EXTRACT", "X", "wstrt EXTRACT dol...",
+		"Extract the sections of DOL and REL file into a directory. Wildcards"
+		" and pipe characters are parsed, see"
+		" https://szs.wiimm.de/doc/wildcards for details.",
+		0, 6, option_tab_cmd_EXTRACT, option_allowed_cmd_EXTRACT },
 
-    {	CMD_TRACKS,
-	false,
-	false,
-	true,
-	"TRACKS",
-	0,
-	"wstrt TRACKS [file]...",
-	"Show track infos in the order of the 'StaticR.rel' files. If no file"
-	" is entered, the standard order is used.",
-	0,
-	19,
-	option_tab_cmd_TRACKS,
-	option_allowed_cmd_TRACKS
-    },
+	{ CMD_TRACKS, false, false, true, "TRACKS", 0, "wstrt TRACKS [file]...",
+		"Show track infos in the order of the 'StaticR.rel' files. If no file"
+		" is entered, the standard order is used.",
+		0, 19, option_tab_cmd_TRACKS, option_allowed_cmd_TRACKS },
 
-    {	CMD_ARENAS,
-	false,
-	false,
-	false,
-	"ARENAS",
-	0,
-	"wstrt ARENAS [file]...",
-	"Show arena infos in the order of the 'StaticR.rel' files. If no file"
-	" is entered, the standard order is used.",
-	0,
-	19,
-	option_tab_cmd_ARENAS,
-	option_allowed_cmd_ARENAS
-    },
+	{ CMD_ARENAS, false, false, false, "ARENAS", 0, "wstrt ARENAS [file]...",
+		"Show arena infos in the order of the 'StaticR.rel' files. If no file"
+		" is entered, the standard order is used.",
+		0, 19, option_tab_cmd_ARENAS, option_allowed_cmd_ARENAS },
 
-    {	CMD_FILES,
-	false,
-	false,
-	false,
-	"FILES",
-	0,
-	"wstrt FILES [file]...",
-	"List track and arena file names in machine readable format. Use the"
-	" order of the entered 'StaticR.rel' files. If no file is entered, the"
-	" standard order is used.",
-	0,
-	15,
-	option_tab_cmd_FILES,
-	option_allowed_cmd_FILES
-    },
+	{ CMD_FILES, false, false, false, "FILES", 0, "wstrt FILES [file]...",
+		"List track and arena file names in machine readable format. Use the"
+		" order of the entered 'StaticR.rel' files. If no file is entered, the"
+		" standard order is used.",
+		0, 15, option_tab_cmd_FILES, option_allowed_cmd_FILES },
 
-    {	CMD_FIND,
-	false,
-	false,
-	false,
-	"FIND",
-	0,
-	"wstrt FIND [+]TRACK keyword...\n"
-	"wstrt FIND [+]ARENA keyword...",
-	"Find a track or arena by keyword and print one line for each keyword"
-	" in machine readable format 'type slot' or, if not found, a simple"
-	" '-'. The name is searched in the entered context (tracks or arenas)."
-	" If TRACK or ARENA is prefixed by a plus, then a failed search will"
-	" be continued in the other context. If at least one name is not"
-	" found, the tool terminates with exit code NOT_EXISTS.",
-	0,
-	17,
-	option_tab_cmd_FIND,
-	option_allowed_cmd_FIND
-    },
+	{ CMD_FIND, false, false, false, "FIND", 0,
+		"wstrt FIND [+]TRACK keyword...\n"
+		"wstrt FIND [+]ARENA keyword...",
+		"Find a track or arena by keyword and print one line for each keyword"
+		" in machine readable format 'type slot' or, if not found, a simple"
+		" '-'. The name is searched in the entered context (tracks or arenas)."
+		" If TRACK or ARENA is prefixed by a plus, then a failed search will"
+		" be continued in the other context. If at least one name is not"
+		" found, the tool terminates with exit code NOT_EXISTS.",
+		0, 17, option_tab_cmd_FIND, option_allowed_cmd_FIND },
 
-    {	CMD_POINTS,
-	false,
-	false,
-	false,
-	"POINTS",
-	"PTS",
-	"wstrt POINTS [--points=list] [file]...",
-	"Print a table with the points assigned to player after a versus or"
-	" room race for each entered file. If no file is entered, the standard"
-	" table is used. However, if option --points is set only the resulting"
-	" table is printed.",
-	0,
-	3,
-	option_tab_cmd_POINTS,
-	option_allowed_cmd_POINTS
-    },
+	{ CMD_POINTS, false, false, false, "POINTS", "PTS", "wstrt POINTS [--points=list] [file]...",
+		"Print a table with the points assigned to player after a versus or"
+		" room race for each entered file. If no file is entered, the standard"
+		" table is used. However, if option --points is set only the resulting"
+		" table is printed.",
+		0, 3, option_tab_cmd_POINTS, option_allowed_cmd_POINTS },
 
-    {	CMD_ANALYZE,
-	false,
-	false,
-	true,
-	"ANALYZE",
-	"ANA",
-	"wstrt ANALYZE [file]...",
-	"Open 'StaticR.rel' and DOL files and analyze them. Wildcards and pipe"
-	" characters are parsed, see https://szs.wiimm.de/doc/wildcards for"
-	" details. The files will be classified using SHA1 checksums.",
-	0,
-	20,
-	option_tab_cmd_ANALYZE,
-	option_allowed_cmd_ANALYZE
-    },
+	{ CMD_ANALYZE, false, false, true, "ANALYZE", "ANA", "wstrt ANALYZE [file]...",
+		"Open 'StaticR.rel' and DOL files and analyze them. Wildcards and pipe"
+		" characters are parsed, see https://szs.wiimm.de/doc/wildcards for"
+		" details. The files will be classified using SHA1 checksums.",
+		0, 20, option_tab_cmd_ANALYZE, option_allowed_cmd_ANALYZE },
 
-    {	CMD_PATCH,
-	false,
-	false,
-	false,
-	"PATCH",
-	0,
-	"wstrt PATCH [file]...",
-	"Patch 'main.dol' and 'StaticR.rel' files of Mario Kart Wii. Wildcards"
-	" and pipe characters are parsed, see"
-	" https://szs.wiimm.de/doc/wildcards for details. No backup is made.",
-	0,
-	38,
-	option_tab_cmd_PATCH,
-	option_allowed_cmd_PATCH
-    },
+	{ CMD_PATCH, false, false, false, "PATCH", 0, "wstrt PATCH [file]...",
+		"Patch 'main.dol' and 'StaticR.rel' files of Mario Kart Wii. Wildcards"
+		" and pipe characters are parsed, see"
+		" https://szs.wiimm.de/doc/wildcards for details. No backup is made.",
+		0, 38, option_tab_cmd_PATCH, option_allowed_cmd_PATCH },
 
-    {0,0,0,0,0,0,0,0,0,0,0,0}
+	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
 };
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////                     InfoUI                      ///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-const InfoUI_t InfoUI_wstrt =
-{
-	"wstrt",
-	CMD__N,
-	CommandTab,
-	CommandInfo,
-	OPT__N_SPECIFIC,
-	OPT__N_TOTAL,
-	OptionInfo,
-	OptionUsed,
-	OptionIndex,
-	OptionShort,
-	OptionLong
-};
+const InfoUI_t InfoUI_wstrt = { "wstrt", CMD__N, CommandTab, CommandInfo, OPT__N_SPECIFIC,
+	OPT__N_TOTAL, OptionInfo, OptionUsed, OptionIndex, OptionShort, OptionLong };
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////                       END                       ///////////////
 ///////////////////////////////////////////////////////////////////////////////
-

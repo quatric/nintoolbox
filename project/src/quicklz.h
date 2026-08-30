@@ -35,11 +35,11 @@
 #include <string.h>
 
 // Public functions of QuickLZ
-size_t qlz_size_decompressed(const char *source);
-size_t qlz_size_compressed(const char *source);
-size_t qlz_decompress(const char *source, void *destination, char *scratch_decompress);
-size_t qlz_compress(const void *source, char *destination, size_t size, char *scratch_compress);
-int qlz_get_setting(int setting);
+size_t qlz_size_decompressed (const char *source);
+size_t qlz_size_compressed (const char *source);
+size_t qlz_decompress (const char *source, void *destination, char *scratch_decompress);
+size_t qlz_compress (const void *source, char *destination, size_t size, char *scratch_compress);
+int qlz_get_setting (int setting);
 
 // Verify compression level
 #if QLZ_COMPRESSION_LEVEL != 1 && QLZ_COMPRESSION_LEVEL != 2 && QLZ_COMPRESSION_LEVEL != 3
@@ -74,10 +74,14 @@ typedef struct
 #define QLZ_ALIGNMENT_PADD 8
 #define QLZ_BUFFER_COUNTER 8
 
-#define QLZ_SCRATCH_COMPRESS QLZ_ALIGNMENT_PADD + QLZ_BUFFER_COUNTER + QLZ_STREAMING_BUFFER + sizeof(qlz_hash_compress[QLZ_HASH_VALUES]) + QLZ_HASH_VALUES
+#define QLZ_SCRATCH_COMPRESS                                                                       \
+	QLZ_ALIGNMENT_PADD + QLZ_BUFFER_COUNTER + QLZ_STREAMING_BUFFER                                 \
+		+ sizeof (qlz_hash_compress[QLZ_HASH_VALUES]) + QLZ_HASH_VALUES
 
 #if QLZ_COMPRESSION_LEVEL < 3
-#define QLZ_SCRATCH_DECOMPRESS QLZ_ALIGNMENT_PADD + QLZ_BUFFER_COUNTER + QLZ_STREAMING_BUFFER + sizeof(qlz_hash_decompress[QLZ_HASH_VALUES]) + QLZ_HASH_VALUES
+#define QLZ_SCRATCH_DECOMPRESS                                                                     \
+	QLZ_ALIGNMENT_PADD + QLZ_BUFFER_COUNTER + QLZ_STREAMING_BUFFER                                 \
+		+ sizeof (qlz_hash_decompress[QLZ_HASH_VALUES]) + QLZ_HASH_VALUES
 #else
 #define QLZ_SCRATCH_DECOMPRESS QLZ_ALIGNMENT_PADD + QLZ_BUFFER_COUNTER + QLZ_STREAMING_BUFFER
 #endif

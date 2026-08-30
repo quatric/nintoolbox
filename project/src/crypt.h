@@ -39,15 +39,14 @@
 #define WIIMM_CRYPT_H 1
 
 #ifdef USE_SHA_LIB
-  #include <openssl/sha.h>
+#include <openssl/sha.h>
 #else
-  #include "crypto/wiimm-sha.h"
-  #define SHA1		WIIMM_SHA1
-  #define SHA1_Init	WIIMM_SHA1_Init
-  #define SHA1_Update	WIIMM_SHA1_Update
-  #define SHA1_Final	WIIMM_SHA1_Final
-  #define SHA_CTX	WIIMM_SHA_CTX
+#include "crypto/wiimm-sha.h"
+#define SHA1 WIIMM_SHA1
+#define SHA1_Init WIIMM_SHA1_Init
+#define SHA1_Update WIIMM_SHA1_Update
+#define SHA1_Final WIIMM_SHA1_Final
+#define SHA_CTX WIIMM_SHA_CTX
 #endif
 
 #endif // WIIMM_CRYPT_H
-

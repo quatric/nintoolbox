@@ -54,76 +54,76 @@ typedef struct bf_list_t bf_list_t;
 
 typedef enum bf_val_type_t
 {
-    BF_T_NONE,      // Python None
-    BF_T_BOOL,
-    BF_T_INT,
-    BF_T_FLOAT,
-    BF_T_STR,       // UTF-8 string, malloc owned, never NULL
-    BF_T_BYTES,     // raw bytes (Python bytes), malloc owned
-    BF_T_NODE,      // an ordered dict (Python OrderedDict)
-    BF_T_LIST       // an ordered list
-}
-bf_val_type_t;
+	BF_T_NONE, // Python None
+	BF_T_BOOL,
+	BF_T_INT,
+	BF_T_FLOAT,
+	BF_T_STR, // UTF-8 string, malloc owned, never NULL
+	BF_T_BYTES, // raw bytes (Python bytes), malloc owned
+	BF_T_NODE, // an ordered dict (Python OrderedDict)
+	BF_T_LIST // an ordered list
+} bf_val_type_t;
 
 typedef struct bf_val_t
 {
-    bf_val_type_t type;
-    union
-    {
-	bool b;
-	int  i;
-	double f;
-	char *s;          // UTF-8 string, malloc owned
-	struct { u8 *d; uint n; } by;  // raw bytes, malloc owned
-	bf_node_t *node;
-	bf_list_t *list;
-    }
-    u;
-}
-bf_val_t;
+	bf_val_type_t type;
+	union
+	{
+		bool b;
+		int i;
+		double f;
+		char *s; // UTF-8 string, malloc owned
+		struct
+		{
+			u8 *d;
+			uint n;
+		} by; // raw bytes, malloc owned
+		bf_node_t *node;
+		bf_list_t *list;
+	} u;
+} bf_val_t;
 
 struct bf_list_t
 {
-    bf_val_t *items;
-    uint n, cap;
+	bf_val_t *items;
+	uint n, cap;
 };
 
 struct bf_node_t
 {
-    struct bf_kv_t
-    {
-	char *key;        // malloc owned, never NULL
-	bf_val_t val;
-    }
-    *kv;
-    uint n, cap;
+	struct bf_kv_t
+	{
+		char *key; // malloc owned, never NULL
+		bf_val_t val;
+	} *kv;
+	uint n, cap;
 };
 
-void BFNodeInit ( bf_node_t *node );
-void BFNodeFree ( bf_node_t *node );
-void BFListInit ( bf_list_t *list );
-void BFListFree ( bf_list_t *list );
-void BFValClear ( bf_val_t *val );
+void BFNodeInit (bf_node_t *node);
+void BFNodeFree (bf_node_t *node);
+void BFListInit (bf_list_t *list);
+void BFListFree (bf_list_t *list);
+void BFValClear (bf_val_t *val);
 
 // set functions return ERR_OK or ERR_OUT_OF_MEMORY
 // (they take ownership of the passed string on success)
-enumError BFNodeSetStr ( bf_node_t *node, ccp key, ccp s );
-enumError BFNodeSetInt ( bf_node_t *node, ccp key, int i );
-enumError BFNodeSetFloat ( bf_node_t *node, ccp key, double f );
-enumError BFNodeSetBool ( bf_node_t *node, ccp key, bool b );
-enumError BFNodeSetNone ( bf_node_t *node, ccp key );
-enumError BFNodeSetBytes ( bf_node_t *node, ccp key, const void *data, uint n );
-bf_node_t *BFNodeSetNode ( bf_node_t *node, ccp key ); // returns the new child, NULL on OOM
-bf_list_t *BFNodeSetList ( bf_node_t *node, ccp key ); // returns the new list, NULL on OOM
-bf_val_t *BFNodeGet ( bf_node_t *node, ccp key );      // NULL if absent
+enumError BFNodeSetStr (bf_node_t *node, ccp key, ccp s);
+enumError BFNodeSetInt (bf_node_t *node, ccp key, int i);
+enumError BFNodeSetFloat (bf_node_t *node, ccp key, double f);
+enumError BFNodeSetBool (bf_node_t *node, ccp key, bool b);
+enumError BFNodeSetNone (bf_node_t *node, ccp key);
+enumError BFNodeSetBytes (bf_node_t *node, ccp key, const void *data, uint n);
+bf_node_t *BFNodeSetNode (bf_node_t *node, ccp key); // returns the new child, NULL on OOM
+bf_list_t *BFNodeSetList (bf_node_t *node, ccp key); // returns the new list, NULL on OOM
+bf_val_t *BFNodeGet (bf_node_t *node, ccp key); // NULL if absent
 
-enumError BFListAddStr ( bf_list_t *list, ccp s );
-enumError BFListAddInt ( bf_list_t *list, int i );
-enumError BFListAddFloat ( bf_list_t *list, double f );
-enumError BFListAddBool ( bf_list_t *list, bool b );
-enumError BFListAddBytes ( bf_list_t *list, const void *data, uint n );
-bf_node_t *BFListAddNode ( bf_list_t *list ); // returns the new element, NULL on OOM
-bf_list_t *BFListAddList ( bf_list_t *list ); // returns the new element, NULL on OOM
+enumError BFListAddStr (bf_list_t *list, ccp s);
+enumError BFListAddInt (bf_list_t *list, int i);
+enumError BFListAddFloat (bf_list_t *list, double f);
+enumError BFListAddBool (bf_list_t *list, bool b);
+enumError BFListAddBytes (bf_list_t *list, const void *data, uint n);
+bf_node_t *BFListAddNode (bf_list_t *list); // returns the new element, NULL on OOM
+bf_list_t *BFListAddList (bf_list_t *list); // returns the new element, NULL on OOM
 
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -131,10 +131,10 @@ bf_list_t *BFListAddList ( bf_list_t *list ); // returns the new element, NULL o
 ///////////////////////////////////////////////////////////////////////////////
 
 // Returns malloc'd NUL-terminated text (Python repr based). NULL on OOM.
-char * BFTreeDump ( const bf_node_t *root );
+char *BFTreeDump (const bf_node_t *root);
 
 // Parse txtree text into ROOT. On error the tree is left partially filled.
-enumError BFTreeLoad ( const char *text, uint len, bf_node_t *root );
+enumError BFTreeLoad (const char *text, uint len, bf_node_t *root);
 
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -144,22 +144,21 @@ enumError BFTreeLoad ( const char *text, uint len, bf_node_t *root );
 
 typedef struct bflyt_t
 {
-    u32 magic;        // FLYT/CLYT/FLAN/CLAN, or 0 if the input was text
-    u32 data_size;    // size of the scanned binary input (0 for text)
-    bf_node_t tree;   // root tree: byte-order, version, BFLYT, magic
-}
-bflyt_t;
+	u32 magic; // FLYT/CLYT/FLAN/CLAN, or 0 if the input was text
+	u32 data_size; // size of the scanned binary input (0 for text)
+	bf_node_t tree; // root tree: byte-order, version, BFLYT, magic
+} bflyt_t;
 
-void InitializeBFLYT ( bflyt_t *bflyt );
-void ResetBFLYT ( bflyt_t *bflyt );
+void InitializeBFLYT (bflyt_t *bflyt);
+void ResetBFLYT (bflyt_t *bflyt);
 
 // Detect magic (FLYT/CLYT/FLAN/CLAN) or the txtree text format.
-enumError ScanBFLYT ( bflyt_t *bflyt, bool init, const u8 *data, uint data_size );
+enumError ScanBFLYT (bflyt_t *bflyt, bool init, const u8 *data, uint data_size);
 
 // Build a complete binary layout from the model tree. *DEST is malloc owned.
-enumError BuildBFLYT ( const bflyt_t *bflyt, u8 **dest, uint *dest_size );
+enumError BuildBFLYT (const bflyt_t *bflyt, u8 **dest, uint *dest_size);
 
-enumError SaveRawBFLYT ( const bflyt_t *bflyt, ccp fname, bool set_time );
-enumError SaveTextBFLYT ( const bflyt_t *bflyt, ccp fname, bool set_time );
+enumError SaveRawBFLYT (const bflyt_t *bflyt, ccp fname, bool set_time);
+enumError SaveTextBFLYT (const bflyt_t *bflyt, ccp fname, bool set_time);
 
 #endif // SZS_LIB_BFLYT_H

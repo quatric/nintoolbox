@@ -15,37 +15,30 @@
 
 typedef struct ccf_entry_t
 {
-    char name[21];      // NUL-terminated copy of the 20-byte name field
-    const u8 *data;      // points into the source buffer (still compressed
-                          // if compressed != decompressed size)
-    u32 size;             // stored (possibly compressed) size
-    u32 decompressed_size; // == size if stored raw
-}
-ccf_entry_t;
+	char name[21]; // NUL-terminated copy of the 20-byte name field
+	const u8 *data; // points into the source buffer (still compressed
+					// if compressed != decompressed size)
+	u32 size; // stored (possibly compressed) size
+	u32 decompressed_size; // == size if stored raw
+} ccf_entry_t;
 
 typedef struct ccf_t
 {
-    const u8 *data;
-    uint size;
-    uint n_entries;
-    ccf_entry_t *entries; // owned
-}
-ccf_t;
+	const u8 *data;
+	uint size;
+	uint n_entries;
+	ccf_entry_t *entries; // owned
+} ccf_t;
 
-enumError ScanCCF  ( ccf_t *ccf, const u8 *data, uint size );
-void      ResetCCF ( ccf_t *ccf );
+enumError ScanCCF (ccf_t *ccf, const u8 *data, uint size);
+void ResetCCF (ccf_t *ccf);
 
 // Decompresses one CCF entry (a no-op copy if it's stored raw).
-enumError DecodeCCFEntry
-(
-    u8 **dest, uint *dest_size, const ccf_entry_t *entry
-);
+enumError DecodeCCFEntry (u8 **dest, uint *dest_size, const ccf_entry_t *entry);
 
 struct nintendo_sarc_entry_t;
-enumError CreateCCF
-(
-    u8 **dest, uint *dest_size, const struct nintendo_sarc_entry_t *entries, uint n_entries, bool compress
-);
+enumError CreateCCF (u8 **dest, uint *dest_size, const struct nintendo_sarc_entry_t *entries,
+	uint n_entries, bool compress);
 
 //-----------------------------------------------------------------------------
 // "romc"/"romchu": N64 Virtual Console's own ROM compression, applied
@@ -55,7 +48,7 @@ enumError CreateCCF
 // ("romchu", LZ77+Huffman) is detected and declined (EINVAL) rather than
 // guessed at -- no real sample of it has been found yet.
 
-enumError DecodeRomC ( u8 **dest, uint *dest_size, const u8 *src, uint src_size );
-enumError EncodeRomC ( u8 **dest, uint *dest_size, const u8 *src, uint src_size );
+enumError DecodeRomC (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+enumError EncodeRomC (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 
 #endif

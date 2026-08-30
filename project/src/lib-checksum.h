@@ -47,7 +47,7 @@
 
 typedef struct szs_file_t szs_file_t;
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			struct sha1_size_hash_t		///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -57,61 +57,62 @@ typedef struct szs_file_t szs_file_t;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void CreateSS ( cvp data, uint size, sha1_size_hash_t *dest );
-void CreateSS64 ( cvp data, uint size, sha1_size_b64_t dest );
+void CreateSS (cvp data, uint size, sha1_size_hash_t *dest);
+void CreateSS64 (cvp data, uint size, sha1_size_b64_t dest);
 
 // bufsize should be >40
-void CreateSSChecksum		( char *buf, uint bufsize, const sha1_size_hash_t *ss );
-void CreateSSChecksumBySZS	( char *buf, uint bufsize, const szs_file_t *szs );
+void CreateSSChecksum (char *buf, uint bufsize, const sha1_size_hash_t *ss);
+void CreateSSChecksumBySZS (char *buf, uint bufsize, const szs_file_t *szs);
 
 // normed DB coding (independent of options)
-void CreateSSChecksumDB		( char *buf, uint bufsize, const sha1_size_hash_t *ss );
-void CreateSSChecksumDBByData	( char *buf, uint bufsize, cvp data, uint size );
-void CreateSSChecksumDBBySZS	( char *buf, uint bufsize, const szs_file_t *szs );
-void CreateSSXChecksumDBByData	( char *buf, uint bufsize, cvp data, uint size, file_format_t ff );
-void CreateSSXChecksumDBBySZS	( char *buf, uint bufsize, const szs_file_t *szs );
+void CreateSSChecksumDB (char *buf, uint bufsize, const sha1_size_hash_t *ss);
+void CreateSSChecksumDBByData (char *buf, uint bufsize, cvp data, uint size);
+void CreateSSChecksumDBBySZS (char *buf, uint bufsize, const szs_file_t *szs);
+void CreateSSXChecksumDBByData (char *buf, uint bufsize, cvp data, uint size, file_format_t ff);
+void CreateSSXChecksumDBBySZS (char *buf, uint bufsize, const szs_file_t *szs);
 
-enumError GetSSByFile ( sha1_size_hash_t *ss, ccp path1, ccp path2 );
+enumError GetSSByFile (sha1_size_hash_t *ss, ccp path1, ccp path2);
 
 // slen < 0 => strlen(source)
 // returns: 0:fail, 1:SHA1, 2:DB64
 // if res != NULL: scanned SHA1
-int IsSSChecksum ( sha1_size_hash_t *res, ccp source, int slen );
+int IsSSChecksum (sha1_size_hash_t *res, ccp source, int slen);
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			szs cache support		///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 #define SZS_CACHE_FNAME "cache-content.txt"
 
-extern ccp		szs_cache_dir;
-extern ParamField_t	szs_cache;
+extern ccp szs_cache_dir;
+extern ParamField_t szs_cache;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void LogCacheActivity ( ccp keyword, ccp format, ... )
-	__attribute__ ((__format__(__printf__,2,3)));
+void LogCacheActivity (ccp keyword, ccp format, ...)
+	__attribute__ ((__format__ (__printf__, 2, 3)));
 
-static inline bool IsSZSCacheEnabled()
-	{ return szs_cache_dir != 0; }
+static inline bool IsSZSCacheEnabled ()
+{
+	return szs_cache_dir != 0;
+}
 
-void SetupSZSCache ( ccp dir_name, bool use_dirname );
+void SetupSZSCache (ccp dir_name, bool use_dirname);
 
-void ScanSZSCache ( ccp dir_name, bool purge );
-enumError LoadSZSCache(void);
-enumError SaveSZSCache ( bool force );
-enumError AppendSZSCache(void);
+void ScanSZSCache (ccp dir_name, bool purge);
+enumError LoadSZSCache (void);
+enumError SaveSZSCache (bool force);
+enumError AppendSZSCache (void);
 
-ParamFieldItem_t * StoreSZSCache
-(
-    // return NULL or pointer to cache item
+ParamFieldItem_t *StoreSZSCache (
+	// return NULL or pointer to cache item
 
-    ccp		fname,		// NULL or filename, only basename(fname) is used
-    ccp		checksum,	// DB checksum; if NULL: load file and calc checksum
-    bool	rename_file,	// true: rename existing file
-    bool	*r_exists	// not NULL: store a status here
-				//	=> true: file result->data exists
+	ccp fname, // NULL or filename, only basename(fname) is used
+	ccp checksum, // DB checksum; if NULL: load file and calc checksum
+	bool rename_file, // true: rename existing file
+	bool *r_exists // not NULL: store a status here
+				   //	=> true: file result->data exists
 );
 
 //-----------------------------------------------------------------------------
@@ -119,39 +120,36 @@ ParamFieldItem_t * StoreSZSCache
 
 typedef struct check_cache_t
 {
-    file_format_t	fform;
-    bool		found;		// true, if file found in cache
-    char		csum[CHECKSUM_DB_SIZE+4];
-					// checksum with suffix
-    szs_file_t		cache;		// file loaded from cache, valid if found==true
-}
-check_cache_t;
+	file_format_t fform;
+	bool found; // true, if file found in cache
+	char csum[CHECKSUM_DB_SIZE + 4];
+	// checksum with suffix
+	szs_file_t cache; // file loaded from cache, valid if found==true
+} check_cache_t;
 
-void ResetCheckCache ( check_cache_t *cc );
+void ResetCheckCache (check_cache_t *cc);
 
-bool CheckSZSCache
-(
-    // returns true if file found in cache (same as cc->found)
+bool CheckSZSCache (
+	// returns true if file found in cache (same as cc->found)
 
-    check_cache_t	*cc,		// initialized by CheckSZSCache()
-    szs_file_t		*szs,		// related SZS file
-    cvp			data,		// data
-    uint		size,		// size of 'data'
-    file_format_t	fform,		// compression format
-    ccp			ext		// wanted file extension including leading '.'
+	check_cache_t *cc, // initialized by CheckSZSCache()
+	szs_file_t *szs, // related SZS file
+	cvp data, // data
+	uint size, // size of 'data'
+	file_format_t fform, // compression format
+	ccp ext // wanted file extension including leading '.'
 );
 
-bool CheckSZSCacheSZS
-(
-    // returns true if file found in cache (same as cc->found)
+bool CheckSZSCacheSZS (
+	// returns true if file found in cache (same as cc->found)
 
-    szs_file_t		*szs,		// related SZS file
-    file_format_t	fform,		// compression format
-    ccp			ext,		// wanted file extension including leading '.'
-    bool		rm_uncompressed	// true: remove uncompressed data if cache is used
+	szs_file_t *szs, // related SZS file
+	file_format_t fform, // compression format
+	ccp ext, // wanted file extension including leading '.'
+	bool rm_uncompressed // true: remove uncompressed data if cache is used
 );
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			    END				///////////////
 ///////////////////////////////////////////////////////////////////////////////

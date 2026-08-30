@@ -47,125 +47,115 @@
 
 #include "lib-brres.h"
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////		   BREFF + BREFT file header		///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 // BREFF + BREFT uses the same header like BRRES, but other magics
 
-#define BREFF_MAGIC		"REFF"
-#define BREFF_MAGIC_NUM		0x52454646
-#define BREFF_DEFAULT_ALIGN	0x04
+#define BREFF_MAGIC "REFF"
+#define BREFF_MAGIC_NUM 0x52454646
+#define BREFF_DEFAULT_ALIGN 0x04
 
-#define BREFT_MAGIC		"REFT"
-#define BREFT_MAGIC_NUM		0x52454654
-#define BREFT_9_DEFAULT_ALIGN	0x20
-#define BREFT_11_DEFAULT_ALIGN	0x40
+#define BREFT_MAGIC "REFT"
+#define BREFT_MAGIC_NUM 0x52454654
+#define BREFT_9_DEFAULT_ALIGN 0x20
+#define BREFT_11_DEFAULT_ALIGN 0x40
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			breff root			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 typedef struct breff_root_head_t
 {
-    char		magic[4];	// magic
-    u32			data_size;	// data size
-    u8			data[0];	// data, starting with a breff_root_t
+	char magic[4]; // magic
+	u32 data_size; // data size
+	u8 data[0]; // data, starting with a breff_root_t
 
-}
-__attribute__ ((packed)) breff_root_head_t;
+} __attribute__ ((packed)) breff_root_head_t;
 
 //-----------------------------------------------------------------------------
 
 typedef struct breff_root_t
 {
-    u32			first_item_off;	// offset of first breff_item_t
-    u32			unknown1;	// always 0 in MKW
-    u32			unknown2;	// always 0 in MKW
-    u16			name_len0;	// length of name including terminating NULL
-    u16			unknown3;	// always 0 in MKW
-    char		name[0];	// NULL terminated name
-    //u8		data[];		// padding or real data
-}
-__attribute__ ((packed)) breff_root_t;
+	u32 first_item_off; // offset of first breff_item_t
+	u32 unknown1; // always 0 in MKW
+	u32 unknown2; // always 0 in MKW
+	u16 name_len0; // length of name including terminating NULL
+	u16 unknown3; // always 0 in MKW
+	char name[0]; // NULL terminated name
+	// u8		data[];		// padding or real data
+} __attribute__ ((packed)) breff_root_t;
 
 ///////////////////////////////////////////////////////////////////////////////
 
 typedef struct breff_item_name_t
 {
-    u16			name_len0;	// length of name including terminating NULL
-    //char		name[0];	// NULL terminated name
-					// breff_item_data_t follows not aligned
-					// -> disabled because of MVC
-}
-__attribute__ ((packed)) breff_item_name_t;
+	u16 name_len0; // length of name including terminating NULL
+	// char		name[0];	// NULL terminated name
+	//  breff_item_data_t follows not aligned
+	//  -> disabled because of MVC
+} __attribute__ ((packed)) breff_item_name_t;
 
 //-----------------------------------------------------------------------------
 
 typedef struct breff_item_data_t
 {
-    u32			offset;		// data offset relative to item list
-    u32			size;		// data size
-}
-__attribute__ ((packed)) breff_item_data_t;
+	u32 offset; // data offset relative to item list
+	u32 size; // data size
+} __attribute__ ((packed)) breff_item_data_t;
 
 //-----------------------------------------------------------------------------
 
 typedef struct breff_item_list_t
 {
-    u32			size;		// size of all items
-    u16			n_item;		// number of itmes
-    u16			unknown1;
-    breff_item_name_t	item[0];	// first item
-}
-__attribute__ ((packed)) breff_item_list_t;
+	u32 size; // size of all items
+	u16 n_item; // number of itmes
+	u16 unknown1;
+	breff_item_name_t item[0]; // first item
+} __attribute__ ((packed)) breff_item_list_t;
 
 //-----------------------------------------------------------------------------
 
 typedef struct breft_image_t
 {
-    u32		unknown1;	// always 0
-    u16		width;
-    u16		height;
-    u32		img_size;	// total bytes of base image + mipmaps
-    u8		iform;
-    u8		pform;		// Wii palette format: IA8=0, RGB565=1, RGB5A3=2
-    u16		n_pal;		// number of palette entries, 0 for direct color
-    u32		pal_size;	// palette bytes following image data
-    u8		n_mipmap;	// number of mipmaps after the base image
-    u8		min_filter;
-    u8		mag_filter;
-    u8		reserved;
-    u32		lod_bias;	// big-endian float bits
-    u8		data[];		// image data, followed by palette data
-}
-__attribute__ ((packed)) breft_image_t;
+	u32 unknown1; // always 0
+	u16 width;
+	u16 height;
+	u32 img_size; // total bytes of base image + mipmaps
+	u8 iform;
+	u8 pform; // Wii palette format: IA8=0, RGB565=1, RGB5A3=2
+	u16 n_pal; // number of palette entries, 0 for direct color
+	u32 pal_size; // palette bytes following image data
+	u8 n_mipmap; // number of mipmaps after the base image
+	u8 min_filter;
+	u8 mag_filter;
+	u8 reserved;
+	u32 lod_bias; // big-endian float bits
+	u8 data[]; // image data, followed by palette data
+} __attribute__ ((packed)) breft_image_t;
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			Interface			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-int IterateFilesBREFF
-(
-    struct szs_iterator_t	*it,	// iterator struct with all infos
-    bool			term	// true: termination hint
+int IterateFilesBREFF (struct szs_iterator_t *it, // iterator struct with all infos
+	bool term // true: termination hint
 );
 
 //-----------------------------------------------------------------------------
 
-enumError CreateBREFF
-(
-    szs_file_t		* szs,		// valid szs
-    ccp			source_dir,	// NULL or path to source dir
-    u8			* source_data,	// NULL or source data
-    u32			total_size,	// total file size
-    SetupParam_t	* setup_param	// NULL or setup parameters
+enumError CreateBREFF (szs_file_t *szs, // valid szs
+	ccp source_dir, // NULL or path to source dir
+	u8 *source_data, // NULL or source data
+	u32 total_size, // total file size
+	SetupParam_t *setup_param // NULL or setup parameters
 );
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			    END				///////////////
 ///////////////////////////////////////////////////////////////////////////////

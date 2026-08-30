@@ -29,53 +29,49 @@
 
 typedef enum bfsar_sound_type_t
 {
-    BFSAR_TYPE_NONE       = 0,
-    BFSAR_TYPE_SOUND      = 1,
-    BFSAR_TYPE_SOUNDGROUP = 2,
-    BFSAR_TYPE_BANK       = 3,
-    BFSAR_TYPE_PLAYER     = 4,
-    BFSAR_TYPE_WAVEARCHIVE= 5,
-    BFSAR_TYPE_GROUP      = 6,
-}
-bfsar_sound_type_t;
+	BFSAR_TYPE_NONE = 0,
+	BFSAR_TYPE_SOUND = 1,
+	BFSAR_TYPE_SOUNDGROUP = 2,
+	BFSAR_TYPE_BANK = 3,
+	BFSAR_TYPE_PLAYER = 4,
+	BFSAR_TYPE_WAVEARCHIVE = 5,
+	BFSAR_TYPE_GROUP = 6,
+} bfsar_sound_type_t;
 
 typedef struct bfsar_entry_t
 {
-    u32   id;         // 0xTTIIIIII (TT: bfsar_sound_type_t, IIIIII: index)
-    bool  present;     // false: this slot's reference offset was NULL_PTR (-1)
-    ccp   name;        // resolved via STRG's lookup trie, or NULL if not found
-}
-bfsar_entry_t;
+	u32 id; // 0xTTIIIIII (TT: bfsar_sound_type_t, IIIIII: index)
+	bool present; // false: this slot's reference offset was NULL_PTR (-1)
+	ccp name; // resolved via STRG's lookup trie, or NULL if not found
+} bfsar_entry_t;
 
 typedef struct bfsar_table_t
 {
-    bfsar_sound_type_t type;
-    ccp                 type_name;
-    uint                n_entry;
-    bfsar_entry_t      *entry;   // n_entry entries, malloc'd
-}
-bfsar_table_t;
+	bfsar_sound_type_t type;
+	ccp type_name;
+	uint n_entry;
+	bfsar_entry_t *entry; // n_entry entries, malloc'd
+} bfsar_table_t;
 
 #define BFSAR_MAX_TABLE 7 // Sound, Bank, Player, WaveArchive, SoundGroup, Group, File
 
 typedef struct bfsar_t
 {
-    bool     is_ctr;         // true: 'CSAR' (3DS), false: 'FSAR' (Wii U/Switch)
-    bool     little_endian;
-    u8       version_major, version_minor, version_revision;
-    uint     n_table;
-    bfsar_table_t table[BFSAR_MAX_TABLE];
+	bool is_ctr; // true: 'CSAR' (3DS), false: 'FSAR' (Wii U/Switch)
+	bool little_endian;
+	u8 version_major, version_minor, version_revision;
+	uint n_table;
+	bfsar_table_t table[BFSAR_MAX_TABLE];
 
-    // owns the STRG string data referenced by every entry->name above
-    char   **strings;
-    uint     n_strings;
-}
-bfsar_t;
+	// owns the STRG string data referenced by every entry->name above
+	char **strings;
+	uint n_strings;
+} bfsar_t;
 
-enumError ScanBFSAR ( bfsar_t *bfsar, const u8 *data, uint size );
-void ResetBFSAR ( bfsar_t *bfsar );
+enumError ScanBFSAR (bfsar_t *bfsar, const u8 *data, uint size);
+void ResetBFSAR (bfsar_t *bfsar);
 
 // Dump as a lossless-structure XML, same convention as wrbnk's DumpRBNK_XML().
-enumError DumpBFSAR_XML ( const bfsar_t *bfsar, FILE *f, ccp source_name );
+enumError DumpBFSAR_XML (const bfsar_t *bfsar, FILE *f, ccp source_name);
 
 #endif // SZS_LIB_BFSAR_H

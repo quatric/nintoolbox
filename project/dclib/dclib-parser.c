@@ -37,117 +37,112 @@
 #include "dclib-basics.h"
 #include "dclib-parser.h"
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			    ScanText_t			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-void SetupScanText ( ScanText_t *st, cvp data, uint data_size )
+void SetupScanText (ScanText_t *st, cvp data, uint data_size)
 {
-    DASSERT(st);
-    memset(st,0,sizeof(*st));
-    st->data		= data;
-    st->data_size	= data_size;
-    st->ignore_comments	= true;
-    st->ignore_values	= true;
-    
-    RewindScanText(st);
+	DASSERT (st);
+	memset (st, 0, sizeof (*st));
+	st->data = data;
+	st->data_size = data_size;
+	st->ignore_comments = true;
+	st->ignore_values = true;
+
+	RewindScanText (st);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void ResetScanText ( ScanText_t *st )
+void ResetScanText (ScanText_t *st)
 {
-    if (st)
-    {
-	if (st->fname_alloced)
-	    FreeString(st->fname);
-	memset(st,0,sizeof(*st));
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-void SetFilenameScanText( ScanText_t *st, ccp fname, CopyMode_t cm )
-{
-    DASSERT(st);
-    if (st->fname_alloced)
-	FreeString(st->fname);
-    st->fname = CopyString(fname,cm,&st->fname_alloced);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-void RewindScanText ( ScanText_t *st )
-{
-    DASSERT(st);
-
-    st->ptr		= st->data;
-    st->eot		= st->data + st->data_size;
-    st->line		= st->data;
-    st->eol		= st->data;
-
-    st->is_eot		= !st->ptr || st->ptr >= st->eot;
-    st->is_section	= false;
-    st->is_term		= st->is_eot;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-bool NextLineScanText ( ScanText_t *st )
-{
-    DASSERT(st);
-    st->is_section = false;
-    st->is_value = false;
-
-    ccp ptr = st->ptr;
-    ccp eot = st->eot;
-    if ( !ptr || ptr >= eot )
-    {
-	st->line = st->eol = ptr;
-	st->is_eot = st->is_term = true;
-	return false;
-    }
-
-    while ( ptr < eot )
-    {
-	// skip leading spaced and controls
-	while ( ptr < eot && (uchar)*ptr <= ' ' )
-	    ptr++;
-
-	ccp line = ptr;
-	while ( ptr < eot && *ptr && *ptr != '\r' && *ptr != '\n' )
-	    ptr++;
-	ccp eol = ptr;
-	while ( eol > line && eol[-1] == ' ' || eol[-1] == '\t' )
-	    eol--;
-
-	st->is_value = *line == '@';
-	if ( line == eol || *line == '#' && st->ignore_comments || st->is_value && st->ignore_values )
-	    continue;
-	if ( st->detect_sections > 0
-	   && *line == '['
-	   && eol[-1] == ']'
-	   && !memchr(line+1,'[',eol-line-2)
-	   && !memchr(line+1,']',eol-line-2)
-	   )
+	if (st)
 	{
-	    st->is_section = true;
+		if (st->fname_alloced)
+			FreeString (st->fname);
+		memset (st, 0, sizeof (*st));
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void SetFilenameScanText (ScanText_t *st, ccp fname, CopyMode_t cm)
+{
+	DASSERT (st);
+	if (st->fname_alloced)
+		FreeString (st->fname);
+	st->fname = CopyString (fname, cm, &st->fname_alloced);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void RewindScanText (ScanText_t *st)
+{
+	DASSERT (st);
+
+	st->ptr = st->data;
+	st->eot = st->data + st->data_size;
+	st->line = st->data;
+	st->eol = st->data;
+
+	st->is_eot = !st->ptr || st->ptr >= st->eot;
+	st->is_section = false;
+	st->is_term = st->is_eot;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+bool NextLineScanText (ScanText_t *st)
+{
+	DASSERT (st);
+	st->is_section = false;
+	st->is_value = false;
+
+	ccp ptr = st->ptr;
+	ccp eot = st->eot;
+	if (!ptr || ptr >= eot)
+	{
+		st->line = st->eol = ptr;
+		st->is_eot = st->is_term = true;
+		return false;
 	}
 
-	st->line = line;
-	st->eol  = eol;
-	break;
-    }
+	while (ptr < eot)
+	{
+		// skip leading spaced and controls
+		while (ptr < eot && (uchar)*ptr <= ' ')
+			ptr++;
 
-    st->ptr = ptr;
-    st->is_eot = ptr >= eot;
-    st->is_term = st->is_eot || st->is_section;
-    return !st->is_term;
+		ccp line = ptr;
+		while (ptr < eot && *ptr && *ptr != '\r' && *ptr != '\n')
+			ptr++;
+		ccp eol = ptr;
+		while (eol > line && eol[-1] == ' ' || eol[-1] == '\t')
+			eol--;
+
+		st->is_value = *line == '@';
+		if (line == eol || *line == '#' && st->ignore_comments || st->is_value && st->ignore_values)
+			continue;
+		if (st->detect_sections > 0 && *line == '[' && eol[-1] == ']'
+			&& !memchr (line + 1, '[', eol - line - 2) && !memchr (line + 1, ']', eol - line - 2))
+		{
+			st->is_section = true;
+		}
+
+		st->line = line;
+		st->eol = eol;
+		break;
+	}
+
+	st->ptr = ptr;
+	st->is_eot = ptr >= eot;
+	st->is_term = st->is_eot || st->is_section;
+	return !st->is_term;
 }
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////				END			///////////////
 ///////////////////////////////////////////////////////////////////////////////
-

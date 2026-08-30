@@ -42,172 +42,154 @@
 
 #include "lib-std.h"
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			  definitions			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-#define LZMA_MAGIC_NUM3		0x5d0000		// 3 relevant bytes
-#define XZ_MAGIC_NUM6		0xfd377a585a00ull	// 6 relevant bytes
+#define LZMA_MAGIC_NUM3 0x5d0000 // 3 relevant bytes
+#define XZ_MAGIC_NUM6 0xfd377a585a00ull // 6 relevant bytes
 
-#define LZMA_DEFAULT_COMPR	6
+#define LZMA_DEFAULT_COMPR 6
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			  helpers			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-int IsLZ
-(
-    // returns
-    // -1:    not LZ data
-    //	0:    seems to be LZ; compression level is unknown
-    //  1..9: seems to be LZ; compression level is returned
+int IsLZ (
+	// returns
+	// -1:    not LZ data
+	//	0:    seems to be LZ; compression level is unknown
+	//  1..9: seems to be LZ; compression level is returned
 
-    cvp			data,		// NULL or data to investigate
-    uint		size		// size of 'data'
+	cvp data, // NULL or data to investigate
+	uint size // size of 'data'
 );
 
 //-----------------------------------------------------------------------------
 
-int IsYLZ
-(
-    // returns
-    // -1:    not LZ data
-    //	0:    seems to be LZ; compression level is unknown
-    //  1..9: seems to be LZ; compression level is returned
+int IsYLZ (
+	// returns
+	// -1:    not LZ data
+	//	0:    seems to be LZ; compression level is unknown
+	//  1..9: seems to be LZ; compression level is returned
 
-    cvp			data,		// NULL or data to investigate
-    uint		size		// size of 'data'
+	cvp data, // NULL or data to investigate
+	uint size // size of 'data'
 );
 
 //-----------------------------------------------------------------------------
 
-int IsLZMA
-(
-    // returns
-    // -1:    not LZMA data
-    //	0:    seems to be LZMA data; compression level is unknown
-    //  1..9: seems to be LZMA data; compression level is returned
+int IsLZMA (
+	// returns
+	// -1:    not LZMA data
+	//	0:    seems to be LZMA data; compression level is unknown
+	//  1..9: seems to be LZMA data; compression level is returned
 
-    cvp			data,		// NULL or data to investigate
-    uint		size		// size of 'data'
+	cvp data, // NULL or data to investigate
+	uint size // size of 'data'
 );
 
 //-----------------------------------------------------------------------------
 
-int CalcCompressionLevelLZMA
-(
-    int			compr_level	// valid are 1..9 / 0: use default value
+int CalcCompressionLevelLZMA (int compr_level // valid are 1..9 / 0: use default value
 );
 
 //-----------------------------------------------------------------------------
 
-int GetDicSizeByLevel ( int level );
-int GetComprLevelLZMA ( u32 dict_size );
+int GetDicSizeByLevel (int level);
+int GetComprLevelLZMA (u32 dict_size);
 
 //-----------------------------------------------------------------------------
 
-int IsXZ
-(
-    // returns
-    // -1:    not XZ data
-    //	0:    seems to be LZMA data; compression level is unknown
-    //  1..9: seems to be LZMA data; compression level is returned
+int IsXZ (
+	// returns
+	// -1:    not XZ data
+	//	0:    seems to be LZMA data; compression level is unknown
+	//  1..9: seems to be LZMA data; compression level is returned
 
-    cvp			data,		// NULL or data to investigate
-    uint		size		// size of 'data'
+	cvp data, // NULL or data to investigate
+	uint size // size of 'data'
 );
 
 //-----------------------------------------------------------------------------
 
-ccp GetMessageLZMA
-(
-    int			err,		// error code
-    ccp			unkown_error	// result for unkown error codes
+ccp GetMessageLZMA (int err, // error code
+	ccp unkown_error // result for unkown error codes
 );
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			    Encode LZMA			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-enumError EncodeLZMAbuf
-(
-    void		*dest,		// valid destination buffer
-    uint		dest_size,	// size of 'dest'
-    uint		*dest_written,	// store num bytes written to 'dest', never NULL
+enumError EncodeLZMAbuf (void *dest, // valid destination buffer
+	uint dest_size, // size of 'dest'
+	uint *dest_written, // store num bytes written to 'dest', never NULL
 
-    const void		*src,		// source buffer
-    uint		src_size,	// size of source buffer
+	const void *src, // source buffer
+	uint src_size, // size of source buffer
 
-    int			compr_level,	// valid are 1..9 / 0: use default value
-    bool		add_dec_size	// true: add decompressed size
+	int compr_level, // valid are 1..9 / 0: use default value
+	bool add_dec_size // true: add decompressed size
 );
 
 //-----------------------------------------------------------------------------
 
-enumError EncodeLZMA
-(
-    u8			**dest_ptr,	// result: store destination buffer addr
-    uint		*dest_written,	// store num bytes written to 'dest', never NULL
+enumError EncodeLZMA (u8 **dest_ptr, // result: store destination buffer addr
+	uint *dest_written, // store num bytes written to 'dest', never NULL
 
-    bool		use_iobuf,	// true: allow the usage of 'iobuf'
-    uint		header_size,	// insert 'header_size' bytes before dest data
-    bool		add_dec_size,	// true: add decompressed size
+	bool use_iobuf, // true: allow the usage of 'iobuf'
+	uint header_size, // insert 'header_size' bytes before dest data
+	bool add_dec_size, // true: add decompressed size
 
-    const void		*src,		// source buffer
-    uint		src_size,	// size of source buffer
+	const void *src, // source buffer
+	uint src_size, // size of source buffer
 
-    int			compr_level	// valid are 1..9 / 0: use default value
+	int compr_level // valid are 1..9 / 0: use default value
 );
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			    Decode LZMA			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-enumError DecodeLZMAbin
-(
-    u8			**dest_ptr,	// result: store destination buffer addr
-    uint		*dest_written,	// store num bytes written to 'dest', never NULL
-    uint		header_size,	// insert 'header_size' bytes before dest data
+enumError DecodeLZMAbin (u8 **dest_ptr, // result: store destination buffer addr
+	uint *dest_written, // store num bytes written to 'dest', never NULL
+	uint header_size, // insert 'header_size' bytes before dest data
 
-    const void		*src,		// source buffer
-    uint		src_size	// size of source buffer
+	const void *src, // source buffer
+	uint src_size // size of source buffer
 );
 
 ///////////////////////////////////////////////////////////////////////////////
 
-enumError DecodeLZMApart
-(
-    // decompress until dest buffer full or end of source reached
-    // return ERR_WARNING for an incomplete decompression
+enumError DecodeLZMApart (
+	// decompress until dest buffer full or end of source reached
+	// return ERR_WARNING for an incomplete decompression
 
-    void		*dest_buf,	// result: store read data here
-    uint		dest_size,	// size of 'dest_buf'
-    uint		*dest_written,	// store num bytes written to 'dest_ptr', never NULL
+	void *dest_buf, // result: store read data here
+	uint dest_size, // size of 'dest_buf'
+	uint *dest_written, // store num bytes written to 'dest_ptr', never NULL
 
-    const void		*src,		// source buffer
-    uint		src_size	// size of source buffer
+	const void *src, // source buffer
+	uint src_size // size of source buffer
 );
 
 ///////////////////////////////////////////////////////////////////////////////
 
-enumError DecodeLZMAsize
-(
-    u8			**dest_ptr,	// result: store destination buffer addr
-    uint		*dest_written,	// store num bytes written to 'dest', never NULL
-    uint		header_size,	// insert 'header_size' bytes before dest data
+enumError DecodeLZMAsize (u8 **dest_ptr, // result: store destination buffer addr
+	uint *dest_written, // store num bytes written to 'dest', never NULL
+	uint header_size, // insert 'header_size' bytes before dest data
 
-    const void		*src,		// source buffer, first 4 bytes = dest size
-    uint		src_size	// size of source buffer
+	const void *src, // source buffer, first 4 bytes = dest size
+	uint src_size // size of source buffer
 );
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////				END			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 #endif // SZS_LIB_LZMA_H 1
-

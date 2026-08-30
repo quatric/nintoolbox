@@ -45,12 +45,12 @@
 
 typedef enum dcUnicodeConsts
 {
-    DCLIB_UNICODE_MAX_UTF8_1	= 0x7f,
-    DCLIB_UNICODE_MAX_UTF8_2	= 0x7ff,
-    DCLIB_UNICODE_MAX_UTF8_3	= 0xffff,
-    DCLIB_UNICODE_MAX_UTF8_4	= 0x1fffff,
+	DCLIB_UNICODE_MAX_UTF8_1 = 0x7f,
+	DCLIB_UNICODE_MAX_UTF8_2 = 0x7ff,
+	DCLIB_UNICODE_MAX_UTF8_3 = 0xffff,
+	DCLIB_UNICODE_MAX_UTF8_4 = 0x1fffff,
 
-    DCLIB_UNICODE_CODE_MASK	= 0x1fffff,
+	DCLIB_UNICODE_CODE_MASK = 0x1fffff,
 
 } dcUnicodeConsts;
 
@@ -59,89 +59,99 @@ typedef enum dcUnicodeConsts
 
 typedef enum dcUTF8Mode
 {
-    DC_UTF8_ILLEGAL		= 0x0000, // Illegale UTF8 Zeichen-Kombination
+	DC_UTF8_ILLEGAL = 0x0000, // Illegale UTF8 Zeichen-Kombination
 
-    DC_UTF8_1CHAR		= 0x0001, // Das Zeichen ist ein Einzelzeichen
+	DC_UTF8_1CHAR = 0x0001, // Das Zeichen ist ein Einzelzeichen
 
-    DC_UTF8_2CHAR		= 0x0002, // Beginn einer 2-Zeichen Sequenz
-    DC_UTF8_CONT_22		= 0x0004, // ein Fortsetzungszeichen an Pos 2 einer 2-er Sequenz
+	DC_UTF8_2CHAR = 0x0002, // Beginn einer 2-Zeichen Sequenz
+	DC_UTF8_CONT_22 = 0x0004, // ein Fortsetzungszeichen an Pos 2 einer 2-er Sequenz
 
-    DC_UTF8_3CHAR		= 0x0008, // Beginn einer 3-Zeichen Sequenz
-    DC_UTF8_CONT_23		= 0x0010, // ein Fortsetzungszeichen an Pos 2 einer 3-er Sequenz
-    DC_UTF8_CONT_33		= 0x0020, // ein Fortsetzungszeichen an Pos 3 einer 3-er Sequenz
+	DC_UTF8_3CHAR = 0x0008, // Beginn einer 3-Zeichen Sequenz
+	DC_UTF8_CONT_23 = 0x0010, // ein Fortsetzungszeichen an Pos 2 einer 3-er Sequenz
+	DC_UTF8_CONT_33 = 0x0020, // ein Fortsetzungszeichen an Pos 3 einer 3-er Sequenz
 
-    DC_UTF8_4CHAR		= 0x0040, // Beginn einer 4-Zeichen Sequenz
-    DC_UTF8_CONT_24		= 0x0080, // ein Fortsetzungszeichen an Pos 2 einer 4-er Sequenz
-    DC_UTF8_CONT_34		= 0x0100, // ein Fortsetzungszeichen an Pos 3 einer 4-er Sequenz
-    DC_UTF8_CONT_44		= 0x0200, // ein Fortsetzungszeichen an Pos 4 einer 4-er Sequenz
+	DC_UTF8_4CHAR = 0x0040, // Beginn einer 4-Zeichen Sequenz
+	DC_UTF8_CONT_24 = 0x0080, // ein Fortsetzungszeichen an Pos 2 einer 4-er Sequenz
+	DC_UTF8_CONT_34 = 0x0100, // ein Fortsetzungszeichen an Pos 3 einer 4-er Sequenz
+	DC_UTF8_CONT_44 = 0x0200, // ein Fortsetzungszeichen an Pos 4 einer 4-er Sequenz
 
-    DC_UTF8_CONT_ANY		= 0x0400, // ein Fortsetzungszeichen an beliebger Stelle
+	DC_UTF8_CONT_ANY = 0x0400, // ein Fortsetzungszeichen an beliebger Stelle
 
-    DC_UTF8_1CHAR_POSSIBLE	= 0x0800, // als Einzelzeichen darstellbar
-    DC_UTF8_2CHAR_POSSIBLE	= 0x1000, // als 2-er Sequenz darstellbar
-    DC_UTF8_3CHAR_POSSIBLE	= 0x2000, // als 3-er Sequenz darstellbar
-    DC_UTF8_4CHAR_POSSIBLE	= 0x4000, // als 4-er Sequenz darstellbar
+	DC_UTF8_1CHAR_POSSIBLE = 0x0800, // als Einzelzeichen darstellbar
+	DC_UTF8_2CHAR_POSSIBLE = 0x1000, // als 2-er Sequenz darstellbar
+	DC_UTF8_3CHAR_POSSIBLE = 0x2000, // als 3-er Sequenz darstellbar
+	DC_UTF8_4CHAR_POSSIBLE = 0x4000, // als 4-er Sequenz darstellbar
 
 } dcUTF8Mode;
 
 ///////////////////////////////////////////////////////////////////////////////
 
 extern const unsigned short TableUTF8Mode[0x100];
-static inline dcUTF8Mode CheckUTF8Mode ( unsigned char ch )
-	{ return (dcUTF8Mode)TableUTF8Mode[ch]; }
+static inline dcUTF8Mode CheckUTF8Mode (unsigned char ch)
+{
+	return (dcUTF8Mode)TableUTF8Mode[ch];
+}
 
-int	GetUTF8CharLength ( u32 code );
-char *	NextUTF8Char  ( ccp str );
-char *	NextUTF8CharE ( ccp str, ccp end );
-char *	PrevUTF8Char  ( ccp str );
-char *  PrevUTF8CharB ( ccp str, ccp begin );
-char *	SkipUTF8Char  ( ccp str, int skip );
-char *	SkipUTF8CharE ( ccp str, ccp end, int skip );
+int GetUTF8CharLength (u32 code);
+char *NextUTF8Char (ccp str);
+char *NextUTF8CharE (ccp str, ccp end);
+char *PrevUTF8Char (ccp str);
+char *PrevUTF8CharB (ccp str, ccp begin);
+char *SkipUTF8Char (ccp str, int skip);
+char *SkipUTF8CharE (ccp str, ccp end, int skip);
 
-u32	GetUTF8Char       ( ccp str );
-u32	ScanUTF8Char      ( ccp * str );
-u32	ScanUTF8CharE     ( ccp * str, ccp end );
-u32	ScanUTF8CharInc   ( ccp * str );
-u32	ScanUTF8CharIncE  ( ccp * str, ccp end );
-u32	GetUTF8AnsiChar   ( ccp str );
-u32	ScanUTF8AnsiChar  ( ccp * str );
-u32	ScanUTF8AnsiCharE ( ccp * str, ccp end );
-int	ScanUTF8Length	  ( ccp str );
-int	ScanUTF8LengthE	  ( ccp str, ccp end );
-int	CalcUTF8PrintFW   ( ccp str, ccp end, uint wanted_fw );
+u32 GetUTF8Char (ccp str);
+u32 ScanUTF8Char (ccp *str);
+u32 ScanUTF8CharE (ccp *str, ccp end);
+u32 ScanUTF8CharInc (ccp *str);
+u32 ScanUTF8CharIncE (ccp *str, ccp end);
+u32 GetUTF8AnsiChar (ccp str);
+u32 ScanUTF8AnsiChar (ccp *str);
+u32 ScanUTF8AnsiCharE (ccp *str, ccp end);
+int ScanUTF8Length (ccp str);
+int ScanUTF8LengthE (ccp str, ccp end);
+int CalcUTF8PrintFW (ccp str, ccp end, uint wanted_fw);
 
-char *	PrintUTF8Char ( char * buf, u32 code );
-char *	PrintUTF8CharToCircBuf ( u32 code );
+char *PrintUTF8Char (char *buf, u32 code);
+char *PrintUTF8CharToCircBuf (u32 code);
 
-exmem_t AlignUTF8 ( exmem_dest_t *dest, ccp str, int str_len, int fw, int prec );
-ccp	AlignUTF8ToCircBuf ( ccp str, int fw, int prec );
+exmem_t AlignUTF8 (exmem_dest_t *dest, ccp str, int str_len, int fw, int prec);
+ccp AlignUTF8ToCircBuf (ccp str, int fw, int prec);
 
 ///////////////////////////////////////////////////////////////////////////////
 // special variants, that ignore known escape sequences
 
-char *	NextEUTF8Char    ( ccp str );
-char *	NextEUTF8CharE   ( ccp str, ccp end );
-char *	SkipEUTF8Char    ( ccp str, int skip );
-char *	SkipEUTF8CharE   ( ccp str, ccp end, int skip );
-int	ScanEUTF8Length  ( ccp str );
-int	ScanEUTF8LengthE ( ccp str, ccp end );
+char *NextEUTF8Char (ccp str);
+char *NextEUTF8CharE (ccp str, ccp end);
+char *SkipEUTF8Char (ccp str, int skip);
+char *SkipEUTF8CharE (ccp str, ccp end, int skip);
+int ScanEUTF8Length (ccp str);
+int ScanEUTF8LengthE (ccp str, ccp end);
 
-exmem_t AlignEUTF8 ( exmem_dest_t *dest, ccp str, int str_len, int fw, int prec );
-ccp	AlignEUTF8ToCircBuf ( ccp str, int fw, int prec );
+exmem_t AlignEUTF8 (exmem_dest_t *dest, ccp str, int str_len, int fw, int prec);
+ccp AlignEUTF8ToCircBuf (ccp str, int fw, int prec);
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static inline int strlen8 ( ccp str )
-	{ return ScanUTF8Length(str); }
+static inline int strlen8 (ccp str)
+{
+	return ScanUTF8Length (str);
+}
 
-static inline int strlen8e ( ccp str, ccp end )
-	{ return ScanUTF8LengthE(str,end); }
+static inline int strlen8e (ccp str, ccp end)
+{
+	return ScanUTF8LengthE (str, end);
+}
 
-static inline int strlene8 ( ccp str )
-	{ return ScanEUTF8Length(str); }
+static inline int strlene8 (ccp str)
+{
+	return ScanEUTF8Length (str);
+}
 
-static inline int strlene8e ( ccp str, ccp end )
-	{ return ScanEUTF8LengthE(str,end); }
+static inline int strlene8e (ccp str, ccp end)
+{
+	return ScanEUTF8LengthE (str, end);
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -154,13 +164,12 @@ typedef struct dcUnicodeTripel
 } dcUnicodeTripel;
 
 extern const dcUnicodeTripel TableUnicodeDecomp[];
-const dcUnicodeTripel * DecomposeUnicode ( u32 code );
+const dcUnicodeTripel *DecomposeUnicode (u32 code);
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////				END			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 #endif // WIN_DCLIB
 #endif // DCLIB_UTF8_H
-

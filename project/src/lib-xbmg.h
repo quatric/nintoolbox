@@ -46,102 +46,91 @@
 #include "lib-bmg.h"
 #include "lib-std.h"
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			struct bmg_t			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-void SetupBMG ( ccp opt_msg );
+void SetupBMG (ccp opt_msg);
 
-enumError LoadXBMG
-(
-    bmg_t		* bmg,		// pointer to valid bmg
-    bool		initialize,	// true: initialize 'bmg'
-    ccp			fname,		// filename of source
-    bool		allow_archive,	// true: concat BMGs of archives to 1 source
-    bool		ignore_no_file	// ignore if file does not exists
-					// and return warning ERR_NOT_EXISTS
+enumError LoadXBMG (bmg_t *bmg, // pointer to valid bmg
+	bool initialize, // true: initialize 'bmg'
+	ccp fname, // filename of source
+	bool allow_archive, // true: concat BMGs of archives to 1 source
+	bool ignore_no_file // ignore if file does not exists
+						// and return warning ERR_NOT_EXISTS
 );
 
 struct raw_data_t;
-enumError ScanRawDataBMG
-(
-    bmg_t		* bmg,		// BMG data structure
-    bool		init_bmg,	// true: initialize 'bmg' first
-    struct raw_data_t	* raw		// valid raw data
+enumError ScanRawDataBMG (bmg_t *bmg, // BMG data structure
+	bool init_bmg, // true: initialize 'bmg' first
+	struct raw_data_t *raw // valid raw data
 );
 
-static inline file_format_t GetFF_BMG ( const bmg_t * bmg )
+static inline file_format_t GetFF_BMG (const bmg_t *bmg)
 {
-    DASSERT(bmg);
-    return bmg->is_text_src ? FF_BMG_TXT : FF_BMG;
+	DASSERT (bmg);
+	return bmg->is_text_src ? FF_BMG_TXT : FF_BMG;
 }
 
-static inline ccp GetNameFF_BMG ( const bmg_t * bmg )
+static inline ccp GetNameFF_BMG (const bmg_t *bmg)
 {
-    DASSERT(bmg);
-    return GetNameFF( bmg->is_text_src ? FF_BMG_TXT : FF_BMG, 0 );
+	DASSERT (bmg);
+	return GetNameFF (bmg->is_text_src ? FF_BMG_TXT : FF_BMG, 0);
 }
 
 //-----------------------------------------------------------------------------
 
-enumError SaveRawXBMG
-(
-    bmg_t		* bmg,		// pointer to valid bmg
-    ccp			fname,		// filename of destination
-    bool		set_time	// true: set time stamps
+enumError SaveRawXBMG (bmg_t *bmg, // pointer to valid bmg
+	ccp fname, // filename of destination
+	bool set_time // true: set time stamps
 );
 
-enumError SaveTextXBMG
-(
-    bmg_t		* bmg,		// pointer to valid bmg
-    ccp			fname,		// filename of destination
-    bool		set_time	// true: set time stamps
+enumError SaveTextXBMG (bmg_t *bmg, // pointer to valid bmg
+	ccp fname, // filename of destination
+	bool set_time // true: set time stamps
 );
 
 //-----------------------------------------------------------------------------
 
 extern int have_bmg_patch_count;
 
-int ScanOptPatchMessage ( ccp arg );
-int ScanOptMacroBMG ( ccp arg );
-enumError SetupPatchingListBMG();
-void ResetPatchingListBMG();
-enumError UsePatchingListBMG ( bmg_t * dest );
-uint ListPatchingListBMG ( FILE *f, int indent, ccp title );
-ccp GetPatchNameBMG ( uint cmd );
+int ScanOptPatchMessage (ccp arg);
+int ScanOptMacroBMG (ccp arg);
+enumError SetupPatchingListBMG ();
+void ResetPatchingListBMG ();
+enumError UsePatchingListBMG (bmg_t *dest);
+uint ListPatchingListBMG (FILE *f, int indent, ccp title);
+ccp GetPatchNameBMG (uint cmd);
 
-
-enumError DiffBMG
-(
-    const bmg_t		* bmg1,		// first bmg
-    const bmg_t		* bmg2,		// second bmg
-    bool		quiet,		// true: be quiet
-    int			width		// width out output lines
+enumError DiffBMG (const bmg_t *bmg1, // first bmg
+	const bmg_t *bmg2, // second bmg
+	bool quiet, // true: be quiet
+	int width // width out output lines
 );
 
 //-----------------------------------------------------------------------------
 
-int ScanOptBmgEndian	( ccp arg );
-int ScanOptBmgEncoding	( ccp arg );
-int ScanOptBmgInfSize	( ccp arg, bool is_wbmgt );
-int ScanOptBmgMid	( ccp arg );
-int ScanOptForceAttrib	( ccp arg );
-int ScanOptDefAttrib	( ccp arg );
-int ScanOptLoadBMG	( ccp arg );
+int ScanOptBmgEndian (ccp arg);
+int ScanOptBmgEncoding (ccp arg);
+int ScanOptBmgInfSize (ccp arg, bool is_wbmgt);
+int ScanOptBmgMid (ccp arg);
+int ScanOptForceAttrib (ccp arg);
+int ScanOptDefAttrib (ccp arg);
+int ScanOptLoadBMG (ccp arg);
 
 extern bmg_t opt_load_bmg;
 extern bool opt_patch_names;
 
-int ScanOptFilterBMG ( ccp arg );
+int ScanOptFilterBMG (ccp arg);
 
 #define MAX_FILTER_MSG 0x10000
-extern u8 * filter_message; // NULL or field with 'MAX_FILTER_MSG' elements
+extern u8 *filter_message; // NULL or field with 'MAX_FILTER_MSG' elements
 
-enumError cmd_bmg_cat ( bool mix );
-enumError cmd_bmg_identifier();
+enumError cmd_bmg_cat (bool mix);
+enumError cmd_bmg_identifier ();
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			    END				///////////////
 ///////////////////////////////////////////////////////////////////////////////

@@ -45,7 +45,7 @@
 #include "lib-lex.h"
 #include "lib-szs.h"
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			analyze_param_t			///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -53,31 +53,26 @@
 
 typedef struct analyze_param_t
 {
-    ccp			fname;		// NULL or source filename
-    szs_file_t		szs;		// source file
-    File_t		fo;		// output file
-    PrintScript_t	ps;		// script options
-}
-analyze_param_t;
+	ccp fname; // NULL or source filename
+	szs_file_t szs; // source file
+	File_t fo; // output file
+	PrintScript_t ps; // script options
+} analyze_param_t;
 
 //-----------------------------------------------------------------------------
 
-void PrintHeaderAP
-(
-    analyze_param_t	*ap,		// valid structure
-    ccp			analyze		// analyzed object
+void PrintHeaderAP (analyze_param_t *ap, // valid structure
+	ccp analyze // analyzed object
 );
 
-void PrintFooterAP
-(
-    analyze_param_t	*ap,		// valid structure
-    bool		valid,		// true if source is valid
-    u_usec_t		duration_usec,	// 0 or duration of analysis
-    ccp			warn_format,	// NULL or format for warn message
-    ...					// arguments for 'warn_format'
-) __attribute__ ((__format__(__printf__,4,5)));
+void PrintFooterAP (analyze_param_t *ap, // valid structure
+	bool valid, // true if source is valid
+	u_usec_t duration_usec, // 0 or duration of analysis
+	ccp warn_format, // NULL or format for warn message
+	... // arguments for 'warn_format'
+	) __attribute__ ((__format__ (__printf__, 4, 5)));
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			analyze_szs_t			///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -85,84 +80,77 @@ void PrintFooterAP
 
 typedef struct analyze_szs_t
 {
-    //--- db+sha1 check sums
+	//--- db+sha1 check sums
 
-    char	db64[CHECKSUM_DB_SIZE+1];
-					// DB64 checksum
-    sha1_hex_t	sha1_szs;		// SHA1 of SZS file
-    sha1_hex_t	sha1_szs_norm;		// SHA1 of normed SZS file
-    sha1_hex_t	sha1_kmp;		// SHA1 of KMP file
-    sha1_hex_t	sha1_kmp_norm;		// SHA1 of normed KMP file
-    sha1_hex_t	sha1_kcl;		// SHA1 of KCL file
-    sha1_hex_t	sha1_course;		// SHA1 of course-model
-    sha1_hex_t	sha1_vrcorn;		// SHA1 of vrcorn
-    sha1_hex_t	sha1_minimap;		// SHA1 of minimap
+	char db64[CHECKSUM_DB_SIZE + 1];
+	// DB64 checksum
+	sha1_hex_t sha1_szs; // SHA1 of SZS file
+	sha1_hex_t sha1_szs_norm; // SHA1 of normed SZS file
+	sha1_hex_t sha1_kmp; // SHA1 of KMP file
+	sha1_hex_t sha1_kmp_norm; // SHA1 of normed KMP file
+	sha1_hex_t sha1_kcl; // SHA1 of KCL file
+	sha1_hex_t sha1_course; // SHA1 of course-model
+	sha1_hex_t sha1_vrcorn; // SHA1 of vrcorn
+	sha1_hex_t sha1_minimap; // SHA1 of minimap
 
+	//--- slots of original tracks: 0:none, 11..84:versus 111..125:arena
 
-    //--- slots of original tracks: 0:none, 11..84:versus 111..125:arena
+	u8 sha1_kmp_slot;
+	u8 sha1_kmp_norm_slot;
+	u8 sha1_kcl_slot;
+	u8 sha1_minimap_slot;
 
-    u8		sha1_kmp_slot;
-    u8		sha1_kmp_norm_slot;
-    u8		sha1_kcl_slot;
-    u8		sha1_minimap_slot;
+	//--- sub files
 
+	lex_info_t lexinfo; // LEX info
+	slot_ana_t slotana; // slot data
+	slot_info_t slotinfo; // slot data
+	kmp_finish_t kmp_finish; // finish line
+	kmp_usedpos_t used_pos; // used positions
+	szs_have_t have; // complete have status, copy of szs_file_t::have
 
-    //--- sub files
+	//--- ct id
 
-    lex_info_t		lexinfo;	// LEX info
-    slot_ana_t		slotana;	// slot data
-    slot_info_t		slotinfo;	// slot data
-    kmp_finish_t	kmp_finish;	// finish line
-    kmp_usedpos_t	used_pos;	// used positions
-    szs_have_t		have;		// complete have status, copy of szs_file_t::have
+	uint ctid_list; // id by --id-list
+	uint ctid_attrib; // id by attribute
 
+	//--- more stats
 
-    //--- ct id
+	int ckpt0_count; // number of LC in CKPT, -1 unknown
+	int lap_count; // STGI lap counter
+	float speed_factor; // STGI speed factor
+	u16 speed_mod; // STGI speed mod
+	u8 have_common; // 1: found at least one common file
+	u8 valid_track; // 1: valid track or arena file
 
-    uint		ctid_list;	// id by --id-list
-    uint		ctid_attrib;	// id by attribute
+	char gobj_info[20]; // gobj counters
+	char ct_attrib[300]; // collected ct attributes
 
-
-    //--- more stats
-
-    int		ckpt0_count;		// number of LC in CKPT, -1 unknown
-    int		lap_count;		// STGI lap counter
-    float	speed_factor;		// STGI speed factor
-    u16		speed_mod;		// STGI speed mod
-    u8		have_common;		// 1: found at least one common file
-    u8		valid_track;		// 1: valid track or arena file
-
-    char	gobj_info[20];		// gobj counters
-    char	ct_attrib[300];		// collected ct attributes
-
-    u_usec_t	duration_usec;		// duration of AnalyzeSZS() in usec
-}
-analyze_szs_t;
+	u_usec_t duration_usec; // duration of AnalyzeSZS() in usec
+} analyze_szs_t;
 
 //-----------------------------------------------------------------------------
 
-void InitializeAnalyzeSZS ( analyze_szs_t * as );
-void ResetAnalyzeSZS ( analyze_szs_t * as );
+void InitializeAnalyzeSZS (analyze_szs_t *as);
+void ResetAnalyzeSZS (analyze_szs_t *as);
 
-void AnalyzeSZS
-(
-    analyze_szs_t	*as,		// result
-    bool		init_sa,	// true: init 'as', false: reset 'as'
-    szs_file_t		*szs,		// SZS file to analysze
-    ccp			fname		// NULL or fname for slot analysis
+void AnalyzeSZS (analyze_szs_t *as, // result
+	bool init_sa, // true: init 'as', false: reset 'as'
+	szs_file_t *szs, // SZS file to analysze
+	ccp fname // NULL or fname for slot analysis
 );
 
-uint GetCtIdByList ( sha1_hex_t sha1 );
+uint GetCtIdByList (sha1_hex_t sha1);
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			exec analyze			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-enumError ExecAnalyzeSZS	( analyze_param_t *ap );
-enumError ExecAnalyzeLECODE	( analyze_param_t *ap );
+enumError ExecAnalyzeSZS (analyze_param_t *ap);
+enumError ExecAnalyzeLECODE (analyze_param_t *ap);
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			    END				///////////////
 ///////////////////////////////////////////////////////////////////////////////
