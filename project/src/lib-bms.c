@@ -25,6 +25,8 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <zlib.h>
 #include "lib-std.h"
 #include "lib-szs.h"
@@ -1285,7 +1287,7 @@ static void run (bms_ctx_t *ctx)
 	}
 }
 
-enumError RunBmsScript (ccp script_path, ccp infile, ccp outdir)
+static enumError RunNativeBmsScript (ccp script_path, ccp infile, ccp outdir)
 {
 	FILE *sf = fopen (script_path, "rb");
 	if (!sf)
@@ -1349,4 +1351,48 @@ enumError RunBmsScript (ccp script_path, ccp infile, ccp outdir)
 			FREE (ctx.files[i].data);
 	FREE (fdata);
 	return ERR_OK;
+}
+
+// Run the bundled QuickBMS engine when it is available.  Keeping this as a
+// separate process is intentional: QuickBMS exposes a plugin/DLL ABI and a
+// very large codec and crypto registry which cannot safely share this
+// program's process state.  WBMSX_QUICKBMS is primarily useful to packagers;
+// the second path makes an in-tree build work without installation.
+enumError RunBmsScript (ccp script_path, ccp infile, ccp outdir)
+{
+	const char *engine = getenv ("WBMSX_QUICKBMS");
+	if (!engine || !*engine)
+	{
+		static char bundled[PATH_MAX];
+		if (ProgInfo.progdir && *ProgInfo.progdir)
+			snprintf (bundled, sizeof (bundled), "%s/third_party/quickbms/quickbms",
+				ProgInfo.progdir);
+		else
+			strcpy (bundled, "third_party/quickbms/quickbms");
+		if (!access (bundled, X_OK))
+			engine = bundled;
+		else
+			engine = "quickbms";
+	}
+
+	pid_t pid = fork ();
+	if (pid < 0)
+		return ERROR0 (ERR_ERROR, "Can't start QuickBMS\n");
+	if (!pid)
+	{
+		execlp (engine, engine, script_path, infile, outdir, (char *)NULL);
+		// A source checkout remains useful before its bundled dependency has
+		// been built.  Do not make that look like full QuickBMS compatibility.
+		if (!strcmp (engine, "quickbms"))
+			exit (RunNativeBmsScript (script_path, infile, outdir));
+		perror ("wbmsx: exec QuickBMS");
+		exit (127);
+	}
+
+	int status;
+	if (waitpid (pid, &status, 0) < 0)
+		return ERROR0 (ERR_ERROR, "Can't wait for QuickBMS\n");
+	if (WIFEXITED (status))
+		return WEXITSTATUS (status) ? ERR_ERROR : ERR_OK;
+	return ERR_ERROR;
 }

@@ -707,6 +707,15 @@ $(LIB_LZMA_OBJ): %.o: %.c Makefile
 # Mario Party BIN round-trip depends on them at the project root.
 all: setup-files $(TEXT_FILES) $(HELPER_TOOLS) $(ALL_TOOLS) wmpbpack wmpbdump $(INSTALL_SCRIPTS) $(SETUP_INFO)
 
+# The complete BMS command set lives in the pinned upstream submodule.  It is
+# deliberately an explicit target: the upstream project compiles hundreds of
+# optional codecs and callers that only use the native formats need not pay
+# that build cost.  wbmsx/"wszst BMS" use it automatically once built.
+QUICKBMS_DIR	:= third_party/quickbms
+.PHONY: quickbms
+quickbms:
+	$(MAKE) -C $(QUICKBMS_DIR)
+
 .PHONY : all+
 all+: clean+ all distrib
 

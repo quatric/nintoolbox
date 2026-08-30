@@ -2104,7 +2104,7 @@
 
   { T_OPT_GP,	"WITH_BMS",	"with-bms|bms",
 		"path",
-		"Define a QuickBMS script to apply during extraction."
+		"Add a QuickBMS script as a drop-in extraction stage."
 		" Any unrecognized container file is extracted via the specified"
 		" BMS script and the unpacked directory is recursively processed." },
 

@@ -3,7 +3,9 @@
 
 #include "types.h"
 
-// Native QuickBMS script interpreter, enough for the common
+// QuickBMS script runner. If the bundled QuickBMS runtime is built, scripts
+// run through its complete compatibility engine. The native interpreter is a
+// source-tree fallback, enough for the common
 // "open, walk a table, extract entries" extraction scripts.
 // Supported: IDSTRING, GET/GETDSTRING/GETCT, PUT/PUTDSTRING/PUTCT, GOTO,
 // SAVEPOS, MATH/XMATH (full expressions with parens), SET, STRING/STRLEN,
@@ -13,7 +15,7 @@
 // COMTYPE, ENDIAN, PRINT. Not a full QuickBMS clone -- see lib-bms.c's
 // header for what's out of scope (CallDLL, the crypto suite, array ops,
 // most compression plugins beyond this fork's own native decoders).
-// No quickbms binary is involved; scripts run in-process.
+// Set WBMSX_QUICKBMS to override the bundled runtime path.
 
 enumError RunBmsScript (ccp script_path, ccp infile, ccp outdir);
 

@@ -12,15 +12,11 @@ int main (int argc, char **argv)
 {
 	if (argc < 4)
 	{
-		printf ("wbmsx - native QuickBMS script interpreter\n"
+		printf ("wbmsx - QuickBMS script runner\n"
 				"Also available as 'wszst BMS'.\n\n"
 				"Usage: %s <script.bms> <input_file> <output_dir>\n"
-				"Supports: IDSTRING GET/GETDSTRING/GETCT PUT/PUTDSTRING/PUTCT GOTO\n"
-				"          SAVEPOS MATH/XMATH SET STRING/STRLEN GETVARCHR/PUTVARCHR\n"
-				"          REVERSESHORT/LONG/LONGLONG GETBITS/PUTBITS PADDING FINDLOC\n"
-				"          APPEND OPEN FOR/NEXT WHILE/ENDWHILE IF/ELSE/ENDIF (AND/OR)\n"
-				"          LOG CLOG COMTYPE ENDIAN PRINT\n"
-				"Not a full QuickBMS clone: no CallDLL, crypto suite, array ops.\n",
+				"Uses the bundled QuickBMS runtime when available (all upstream commands).\n"
+				"Set WBMSX_QUICKBMS to select a runtime explicitly.\n",
 			argv[0]);
 		return ERR_SYNTAX;
 	}

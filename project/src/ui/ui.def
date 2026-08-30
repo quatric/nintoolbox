@@ -1731,7 +1731,7 @@
 
 #:def_opt( "WITH_BMS", "with-bms|bms", "GP", \
 	"path", \
-	"Define a QuickBMS script to apply during extraction. Any unrecognized" \
+	"Add a QuickBMS script as a drop-in extraction stage. Any unrecognized" \
 	" container file is extracted via the specified BMS script and the" \
 	" unpacked directory is recursively processed." )
 

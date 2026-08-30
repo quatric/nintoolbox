@@ -96,6 +96,9 @@ rather than duplicated here.
 - QuickBMS script chaining: `wszst xx --bms=<script.bms>` chains a QuickBMS
   script into `wszst xx` for unsupported containers, auto-staging and
   recursing into inner Nintendo assets.
+
+  Build the pinned runtime with `make -C project quickbms`. It is selected
+  automatically; set `WBMSX_QUICKBMS` to use a separately built runtime.
 - `wajpg`/`wlzh8`/`wbmsx`/`wwc24crypt`/`wlayt`/`wmdlt`/`wbrsar` folded into
   `wimgt`/`wszst` as first-class commands, no standalone binaries needed.
 - `wszst xx` recurses into pass-through and SARC/PAC/GFA/DARC extraction
@@ -201,7 +204,7 @@ injection" describe the injection path specifically, which still consumes a
 | BRSTM / BFSTM / BCSTM | Audio stream | ✅ | ✅ | Wii/Wii U/3DS sound stream (`wbrstm`); DSP-ADPCM (`adpcm_thp`) and PCM16 to/from WAV. Encoding (`from_wav`) prefers passing straight through to the sibling 'mobipeg' repo's real `adpcm_thp` encoder over this project's own port, falling back to the port when mobipeg isn't installed or predates the brstm/dsp/bns muxers |
 | BLZ | Compression | ✅ | ✅ | DS ARM9/ARM7/overlay compression |
 | BMD (Early DS) | Model | ✅ | ✅ | Super Mario 64 DS / early Nitro 3D models; geometry decode to DAE & encode via DAE `--parent` injection |
-| BMS | Interpreter | ✅ | 🟡 | QuickBMS interpreter (`wbmsx` + `wszst xx --bms`); native codec aliases only |
+| BMS | Interpreter | ✅ | ✅ | Bundled QuickBMS runtime (`wbmsx` + `wszst xx --bms`); supports the upstream command set when `third_party/quickbms/quickbms` is built. |
 | BNTX | Texture | ✅ | ✅ | Switch textures; RGBA8/565/5551/4 + BC1-7 (incl. BC6H) + every standard 2D ASTC block footprint decode (validated against K0lb3/texture2ddecoder conformance vectors), RGBA8 encode |
 | BREFT | Texture | ✅ | ✅ | Brawl effect texture, palette-indexed; encode via `wszst CREATE --breft`, `wimgt --btimg` |
 | BRFNA | Font | ✅ | ✅ | Wii font archive, RFNA; encode via `wimgt ENCODE .brfna` |
