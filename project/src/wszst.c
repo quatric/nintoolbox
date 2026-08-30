@@ -13112,6 +13112,8 @@ static enumError decode_image_if_possible (ccp arg)
 		is_image = true;
 	else if (!memcmp (head, "TXTR", 4) || is_ext (arg, ".dsb"))
 		is_image = true;
+	else if (fform == FF_GVR || is_ext (arg, ".gvr"))
+		is_image = true;
 	else if (nfmt.type == NFMT_BFLIM || nfmt.type == NFMT_BCLIM || is_ext (arg, ".bflim")
 		|| is_ext (arg, ".bclim"))
 		is_image = true;
