@@ -83,11 +83,20 @@ done
 # Address vectors generated independently with GTX-Extractor's Python
 # AddrLib port. --gc-sections lets this tiny test link only the surface
 # addressing API from the normal production object.
+# --gc-sections is GNU ld's flag name; some ld64 (macOS) toolchains reject
+# it outright rather than treating it as the -dead_strip alias newer Xcode
+# versions accept -- same fallback the Arika test below already has.
 if ${CC:-cc} -O2 -ffunction-sections -fdata-sections -Isrc -Idclib \
     ../tests/test-gtx-address.c ./lib-gtx.o -Wl,--gc-sections \
     -o /tmp/_r_gtx_address >/tmp/_r_gtx_address_build.log 2>&1 \
-    && /tmp/_r_gtx_address; then
-  ok "GX2 macro-tile address vectors (modes 4-11)"
+    || ${CC:-cc} -O2 -ffunction-sections -fdata-sections -Isrc -Idclib \
+    ../tests/test-gtx-address.c ./lib-gtx.o -Wl,-dead_strip \
+    -o /tmp/_r_gtx_address >>/tmp/_r_gtx_address_build.log 2>&1; then
+  if /tmp/_r_gtx_address; then
+    ok "GX2 macro-tile address vectors (modes 4-11)"
+  else
+    no "GX2 macro-tile address vectors (modes 4-11)" "runtime check failed"
+  fi
 else
   no "GX2 macro-tile address vectors (modes 4-11)" \
     "$(tail -1 /tmp/_r_gtx_address_build.log 2>/dev/null)"
@@ -96,9 +105,15 @@ fi
 if ${CC:-cc} -O2 -ffunction-sections -fdata-sections -Isrc -Idclib \
     ../tests/test-gtx-encode.c ./lib-gtx.o ./lib-bntx.o -Wl,--gc-sections \
     -o /tmp/_r_gtx_encode >/tmp/_r_gtx_encode_build.log 2>&1 \
-    && /tmp/_r_gtx_encode; then
-  ok "GX2 encode/decode: formats, tile modes, mips, arrays and MSAA"
-  bok "GX2 format/tile/mip/array/MSAA matrix -> identical container bytes"
+    || ${CC:-cc} -O2 -ffunction-sections -fdata-sections -Isrc -Idclib \
+    ../tests/test-gtx-encode.c ./lib-gtx.o ./lib-bntx.o -Wl,-dead_strip \
+    -o /tmp/_r_gtx_encode >>/tmp/_r_gtx_encode_build.log 2>&1; then
+  if /tmp/_r_gtx_encode; then
+    ok "GX2 encode/decode: formats, tile modes, mips, arrays and MSAA"
+    bok "GX2 format/tile/mip/array/MSAA matrix -> identical container bytes"
+  else
+    no "GX2 general encoder matrix" "runtime check failed"
+  fi
 else
   no "GX2 general encoder matrix" \
     "$(tail -1 /tmp/_r_gtx_encode_build.log 2>/dev/null)"
