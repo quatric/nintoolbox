@@ -1965,6 +1965,35 @@ open('$d/raw.bin', 'wb').write(toc + f1 + f2)
 }
 t_at7_container
 
+echo "== Call of Duty Wii PAK0 sound archive extraction =="
+t_cod_pak0(){
+  command -v python3 >/dev/null || { sk "Call of Duty Wii PAK0 extraction"; return; }
+  local d; d=$(mktemp -d) || { no "Call of Duty Wii PAK0 extraction" "mktemp failed"; return; }
+  python3 -c "
+import struct
+entries = [(0x11223344, 0, b'DSP-AUDIO-ONE'), (0xaabbccdd, 1, b'DSP-AUDIO-TWO')]
+multiplier, data_start = 0x20, 0x80
+raw = bytearray(b'PAK0' + struct.pack('<IIII', 0, len(entries), multiplier, data_start))
+for crc, offset, payload in entries:
+    raw += struct.pack('<III', crc, offset, len(payload))
+raw += b'\\0' * (data_start - len(raw))
+for _, offset, payload in entries:
+    at = data_start + offset * multiplier
+    raw += b'\\0' * (at - len(raw))
+    raw += payload
+open('$d/sound.pak', 'wb').write(raw)
+"
+  "$B/wszst" xx "$d/sound.pak" --no-passthrough --dest "$d/out" --overwrite >/dev/null 2>&1
+  if [ "$(cat "$d/out/sound_0x11223344.dsp" 2>/dev/null)" = "DSP-AUDIO-ONE" ] \
+  && [ "$(cat "$d/out/sound_0xaabbccdd.dsp" 2>/dev/null)" = "DSP-AUDIO-TWO" ]; then
+    ok "Call of Duty Wii PAK0 extraction (wszst xx)"
+  else
+    no "Call of Duty Wii PAK0 extraction" "DSP member mismatch or missing"
+  fi
+  rm -rf "$d"
+}
+t_cod_pak0
+
 echo "== Nintendo Huffman (HUFF4 / HUFF8) =="
 t_huffman(){
   command -v python3 >/dev/null || { sk "Nintendo Huffman (4-bit & 8-bit)"; return; }
