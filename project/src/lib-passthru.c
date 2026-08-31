@@ -1749,7 +1749,18 @@ static enumError passthru_wiiu_disc (
 	}
 	fclose (ck);
 
-	if (!realpath (src, abs_wud))
+	char temp_wud[PATH_MAX] = "";
+	if (is_ext (src, ".wux"))
+	{
+		snprintf (temp_wud, sizeof (temp_wud), "%s/temp_disc_%d.wud", abs_stage, (int)getpid ());
+		if (!wux_decompress (src, temp_wud))
+		{
+			unlink (abs_common);
+			return ERROR0 (ERR_ERROR, "Failed to decompress WUX: %s", src);
+		}
+		snprintf (abs_wud, sizeof (abs_wud), "%s", temp_wud);
+	}
+	else if (!realpath (src, abs_wud))
 	{
 		unlink (abs_common);
 		return ERROR0 (ERR_ERROR, "Cannot resolve %s", src);
@@ -1773,6 +1784,8 @@ static enumError passthru_wiiu_disc (
 	const int rc = run_program_in_dir (argv, abs_stage);
 
 	unlink (abs_common);
+	if (*temp_wud)
+		unlink (temp_wud);
 
 	if (rc != 0)
 	{
