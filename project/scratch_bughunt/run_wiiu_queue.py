@@ -98,7 +98,7 @@ def main():
         except Exception:
             results = []
             
-    completed_titles = {r["title"]: r for r in results if r.get("status_icon") in ["✅", "🟡"] and r.get("real_ops", 0) > 0}
+    completed_titles = {r["title"]: r for r in results}
     
     print(f"Starting Wii U extraction test queue: {len(queue)} games total, {len(completed_titles)} already tested.", flush=True)
     print(f"Working directory on SSD: {WORK_DIR}", flush=True)
