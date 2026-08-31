@@ -331,43 +331,43 @@
   {
     "title": "Trine 2: Director's Cut",
     "developer": "Frozenbyte",
-    "target_file": "Trine 2 - Director's Cut (Europe) (eShop).zip",
-    "remote_path": "mcubewiqu:No-Intro/Digital/Trine 2 - Director's Cut (Europe) (eShop).zip",
+    "target_file": "Trine 2 - Director's Cut (Europe) (En,Fr,De,Es,It).zip",
+    "remote_path": "mcubewiqu:No-Intro/Digital (CDN)/Trine 2 - Director's Cut (Europe) (En,Fr,De,Es,It).zip",
     "index": 48
   },
   {
     "title": "Little Inferno",
     "developer": "Tomorrow Corporation",
-    "target_file": "Little Inferno (Europe) (eShop).zip",
-    "remote_path": "mcubewiqu:No-Intro/Digital/Little Inferno (Europe) (eShop).zip",
+    "target_file": "Little Inferno (Europe) (En,Fr,De,Es,Nl).zip",
+    "remote_path": "mcubewiqu:No-Intro/Digital (CDN)/Little Inferno (Europe) (En,Fr,De,Es,Nl).zip",
     "index": 49
   },
   {
     "title": "The Swapper",
     "developer": "Facepalm Games",
-    "target_file": "The Swapper (Europe) (eShop).zip",
-    "remote_path": "mcubewiqu:No-Intro/Digital/The Swapper (Europe) (eShop).zip",
+    "target_file": "Swapper, The (Europe).zip",
+    "remote_path": "mcubewiqu:No-Intro/Digital (CDN)/Swapper, The (Europe).zip",
     "index": 50
   },
   {
     "title": "Swords & Soldiers",
     "developer": "Ronimo Games",
-    "target_file": "Swords & Soldiers (Europe) (eShop).zip",
-    "remote_path": "mcubewiqu:No-Intro/Digital/Swords & Soldiers (Europe) (eShop).zip",
+    "target_file": "Swords & Soldiers (Europe) (En,Fr,De,Es,It,Nl) (eShop).zip",
+    "remote_path": "mcubewiqu:No-Intro/Digital/Swords & Soldiers (Europe) (En,Fr,De,Es,It,Nl) (eShop).zip",
     "index": 51
   },
   {
     "title": "Year Walk",
     "developer": "Simogo",
-    "target_file": "Year Walk (Europe) (eShop).zip",
-    "remote_path": "mcubewiqu:No-Intro/Digital/Year Walk (Europe) (eShop).zip",
+    "target_file": "Year Walk (Europe) (En,Fr,De,Es,It).zip",
+    "remote_path": "mcubewiqu:No-Intro/Digital (CDN)/Year Walk (Europe) (En,Fr,De,Es,It).zip",
     "index": 52
   },
   {
     "title": "Swords & Soldiers II",
     "developer": "Ronimo Games",
-    "target_file": "Swords & Soldiers II (Europe) (eShop).zip",
-    "remote_path": "mcubewiqu:No-Intro/Digital/Swords & Soldiers II (Europe) (eShop).zip",
+    "target_file": "Swords & Soldiers II (Europe) (En,Fr,De,Es,Nl,Pt).zip",
+    "remote_path": "mcubewiqu:No-Intro/Digital (CDN)/Swords & Soldiers II (Europe) (En,Fr,De,Es,Nl,Pt).zip",
     "index": 53
   },
   {
@@ -388,7 +388,7 @@
     "title": "Monster Hunter 3 Ultimate",
     "developer": "Capcom",
     "target_file": "Monster Hunter 3 Ultimate (USA) (En,Fr,De,Es,It).wux",
-    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Monster Hunter 3 Ultimate (USA) (En,Fr,Es,It).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Monster Hunter 3 Ultimate (USA) (En,Fr,De,Es,It).wux",
     "index": 56
   },
   {

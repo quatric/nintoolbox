@@ -18,9 +18,9 @@ import glob
 import re
 
 QUEUE_FILE = "/Users/larsen/wiimms-szs-tools-plus/project/scratch_bughunt/wiiu_final_queue.json"
-RESULTS_FILE = "/Volumes/`/wiiu_test_results.json"
+RESULTS_FILE = "/Volumes/SSD/`/wiiu_test_results.json"
 WORK_DIR = "/Volumes/SSD/wiiu_work"
-LOGS_DIR = "/Volumes/`/wiiu_logs"
+LOGS_DIR = "/Volumes/SSD/`/wiiu_logs"
 KEYS_DIR = "/Volumes/SSD/wiiu_keys"
 WSZST_BIN = "/Users/larsen/wiimms-szs-tools-plus/project/bin/mac/arm/debug/wszst"
 
@@ -84,8 +84,15 @@ def parse_wszst_log(log_text):
     return total_ops, real_ops, top_fmt_str, errors
 
 def main():
-    os.makedirs(WORK_DIR, exist_ok=True)
-    os.makedirs(LOGS_DIR, exist_ok=True)
+    try:
+        os.makedirs(WORK_DIR, exist_ok=True)
+    except Exception:
+        pass
+    try:
+        if not os.path.exists(LOGS_DIR):
+            os.mkdir(LOGS_DIR)
+    except Exception:
+        pass
     
     with open(QUEUE_FILE) as f:
         queue = json.load(f)
@@ -211,9 +218,11 @@ def main():
             elapsed = time.time() - t_start
             status_text = f"ERROR_{str(e)[:30]}"
             status_icon = "❌"
-        os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
-        with open(log_file_path, "w", errors="ignore") as f:
-            f.write(log_content)
+        try:
+            with open(log_file_path, "w", errors="ignore") as f:
+                f.write(log_content)
+        except Exception as e:
+            print(f"Warning: could not write log: {e}", flush=True)
             
         # Stats on extracted directory
         disc_d = os.path.join(WORK_DIR, target_file.rsplit('.', 1)[0] + ".d")
