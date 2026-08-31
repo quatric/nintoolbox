@@ -8527,7 +8527,11 @@ enumError ExtractTHP (
 		for (u32 c = 0; c < num_comps; c++)
 		{
 			u32 csz = comp_sizes[c];
-			if (csz > 0 && comp_payload_off + csz <= thp_size)
+			// Perform the bounds check in 64-bit: a corrupt/truncated THP can
+			// carry a component size near 0xFFFFFFFF, and the 32-bit sum
+			// comp_payload_off + csz would wrap around and pass the check,
+			// making MALLOC/memcpy read far past thp_size (crash).
+			if (csz > 0 && (uint64_t)comp_payload_off + csz <= (uint64_t)thp_size)
 			{
 				char name[64];
 				if (c == 0)
