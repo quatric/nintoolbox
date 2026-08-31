@@ -29,12 +29,8 @@ struct BitfieldHelper
                                   ValueType value)
    {
       auto uValue = bit_cast<unsigned_underlying_type>(value);
+      uValue &= RelativeMask;
 
-      if (std::is_signed<underlying_type>::value) {
-         uValue &= RelativeMask;
-      }
-
-      decaf_assert(uValue <= RelativeMask, fmt::format("{} <= {}", uValue, static_cast<unsigned>(RelativeMask)));
       bitfield.value &= ~AbsoluteMask;
       bitfield.value |= static_cast<typename BitfieldType::StorageType>(uValue) << (Position);
       return bitfield;

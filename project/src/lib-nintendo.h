@@ -52,7 +52,9 @@ typedef enum nfmt_type_t
 	NFMT_BYML,
 	NFMT_NARC,
 	NFMT_NSCR,
-	NFMT_FZIP
+	NFMT_FZIP,
+	NFMT_JARC,
+	NFMT_JCMP
 } nfmt_type_t;
 
 typedef struct nfmt_info_t
@@ -911,6 +913,31 @@ typedef struct narc_t
 
 void ResetNARC (narc_t *narc);
 enumError ScanNARC (narc_t *narc, const u8 *data, size_t size);
+
+// JARC / jCMP (Ganbarion archive & compression container, Wii / Wii U / 3DS)
+typedef struct jarc_entry_t
+{
+	char name[256];
+	const u8 *data; // points into decompressed or uncompressed buffer
+	u32 size;
+	u32 offset;
+	char ext[16];   // e.g. "jmdl", "jtex", "jmot", "jmsg", "jclt", "jefc", "bin"
+} jarc_entry_t;
+
+typedef struct jarc_t
+{
+	const u8 *raw;
+	size_t raw_size;
+	u8 *decomp_buffer; // owned, if jCMP decompressed
+	uint decomp_size;
+	bool is_big_endian;
+	jarc_entry_t *entries; // owned array
+	uint n_entries;
+} jarc_t;
+
+void ResetJARC (jarc_t *jarc);
+enumError DecodeJCMP (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+enumError ScanJARC (jarc_t *jarc, const u8 *data, size_t size);
 
 //-----------------------------------------------------------------------------
 // Sound Archive Family: BCSAR (3DS, "CSAR"), BFSAR (Wii U / Switch, "FSAR"),

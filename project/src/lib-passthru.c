@@ -1749,18 +1749,7 @@ static enumError passthru_wiiu_disc (
 	}
 	fclose (ck);
 
-	bool wud_is_temp = false;
-	if (is_wux)
-	{
-		snprintf (abs_wud, sizeof (abs_wud), "%s/.wux_decompressed.wud", abs_stage);
-		if (!wux_decompress (src, abs_wud))
-		{
-			unlink (abs_common);
-			return ERROR0 (ERR_ERROR, "WUX decompression failed for %s", src);
-		}
-		wud_is_temp = true;
-	}
-	else if (!realpath (src, abs_wud))
+	if (!realpath (src, abs_wud))
 	{
 		unlink (abs_common);
 		return ERROR0 (ERR_ERROR, "Cannot resolve %s", src);
@@ -1783,8 +1772,6 @@ static enumError passthru_wiiu_disc (
 	char *argv[] = { (char *)wud2app, abs_common, abs_key, abs_wud, 0 };
 	const int rc = run_program_in_dir (argv, abs_stage);
 
-	if (wud_is_temp)
-		unlink (abs_wud);
 	unlink (abs_common);
 
 	if (rc != 0)
@@ -1821,14 +1808,37 @@ static enumError passthru_wiiu_disc (
 	if (!*app_dir)
 		return ERROR0 (ERR_ERROR, "wud2app produced no title folder for %s", src);
 
-	char *cd_argv[] = { (char *)cdecrypt, app_dir, abs_stage, 0 };
+	char *cd_argv[] = { (char *)cdecrypt, app_dir, 0 };
 	const int cd_rc = run_program (cd_argv);
 
-	remove_dir_recursive (app_dir);
-
 	if (cd_rc != 0)
+	{
+		remove_dir_recursive (app_dir);
 		return ERROR0 (
 			ERR_SUBJOB_FAILED, "pass-through 'cdecrypt' failed for %s (exit %d)", src, cd_rc);
+	}
+
+	DIR *ad = opendir (app_dir);
+	if (ad)
+	{
+		struct dirent *de;
+		while ((de = readdir (ad)))
+		{
+			if (!strcmp (de->d_name, ".") || !strcmp (de->d_name, ".."))
+				continue;
+			if (!strcmp (de->d_name, "code") || !strcmp (de->d_name, "content")
+				|| !strcmp (de->d_name, "meta"))
+			{
+				char src_item[PATH_MAX], dst_item[PATH_MAX];
+				snprintf (src_item, sizeof (src_item), "%s/%s", app_dir, de->d_name);
+				snprintf (dst_item, sizeof (dst_item), "%s/%s", abs_stage, de->d_name);
+				rename (src_item, dst_item);
+			}
+		}
+		closedir (ad);
+	}
+
+	remove_dir_recursive (app_dir);
 
 	snprintf (staged_dir, staged_dir_size, "%s", stage);
 	return ERR_OK;

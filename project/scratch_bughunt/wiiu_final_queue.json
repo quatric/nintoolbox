@@ -1,0 +1,429 @@
+[
+  {
+    "title": "New Super Mario Bros. U",
+    "developer": "Nintendo EAD",
+    "target_file": "New Super Mario Bros. U (USA) (En,Fr,Es) (Rev 2).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/New Super Mario Bros. U (USA) (En,Fr,Es) (Rev 2).wux",
+    "index": 1
+  },
+  {
+    "title": "Nintendo Land",
+    "developer": "Nintendo EAD",
+    "target_file": "Nintendo Land (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Nintendo Land (USA) (En,Fr,Es).wux",
+    "index": 2
+  },
+  {
+    "title": "Sing Party",
+    "developer": "FreeStyleGames",
+    "target_file": "Sing Party (USA) (En,Fr,Es,Pt).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Sing Party (USA) (En,Fr,Es,Pt).wux",
+    "index": 3
+  },
+  {
+    "title": "Lego City Undercover",
+    "developer": "TT Fusion",
+    "target_file": "LEGO City Undercover (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/LEGO City Undercover (USA) (En,Fr,Es).wux",
+    "index": 4
+  },
+  {
+    "title": "Game & Wario",
+    "developer": "Intelligent Systems",
+    "target_file": "Game & Wario (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Game & Wario (USA) (En,Fr,Es).wux",
+    "index": 5
+  },
+  {
+    "title": "Pikmin 3",
+    "developer": "Nintendo EAD",
+    "target_file": "Pikmin 3 (USA) (En,Fr,Es) (Rev 1).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Pikmin 3 (USA) (En,Fr,Es) (Rev 1).wux",
+    "index": 6
+  },
+  {
+    "title": "New Super Luigi U",
+    "developer": "Nintendo EAD",
+    "target_file": "New Super Luigi U (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/New Super Luigi U (USA) (En,Fr,Es).wux",
+    "index": 7
+  },
+  {
+    "title": "The Wonderful 101",
+    "developer": "PlatinumGames",
+    "target_file": "Wonderful 101, The (USA) (En,Ja) (Rev 1).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Wonderful 101, The (USA) (En,Ja) (Rev 1).wux",
+    "index": 8
+  },
+  {
+    "title": "The Legend of Zelda: The Wind Waker HD",
+    "developer": "Nintendo EAD",
+    "target_file": "Legend of Zelda, The - The Wind Waker HD (USA, Asia) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Legend of Zelda, The - The Wind Waker HD (USA, Asia) (En,Fr,Es).wux",
+    "index": 9
+  },
+  {
+    "title": "Wii Party U",
+    "developer": "NDcube",
+    "target_file": "Wii Party U (USA) (En,Fr,Es) (Rev 1).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Wii Party U (USA) (En,Fr,Es) (Rev 1).wux",
+    "index": 10
+  },
+  {
+    "title": "Wii Fit U",
+    "developer": "Nintendo EAD",
+    "target_file": "Wii Fit U (USA) (En,Fr,Es) (Rev 2).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Wii Fit U (USA) (En,Fr,Es) (Rev 2).wux",
+    "index": 11
+  },
+  {
+    "title": "New Super Mario Bros. U + New Super Luigi U",
+    "developer": "Nintendo EAD",
+    "target_file": "New Super Mario Bros. U + New Super Luigi U (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/New Super Mario Bros. U + New Super Luigi U (USA) (En,Fr,Es).wux",
+    "index": 12
+  },
+  {
+    "title": "Mario & Sonic at the Sochi 2014 Olympic Winter Games",
+    "developer": "Sega Sports R&D",
+    "target_file": "Mario & Sonic at the Sochi 2014 Olympic Winter Games (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Mario & Sonic at the Sochi 2014 Olympic Winter Games (USA) (En,Fr,Es).wux",
+    "index": 13
+  },
+  {
+    "title": "Super Mario 3D World",
+    "developer": "Nintendo EAD Tokyo",
+    "target_file": "Super Mario 3D World (USA) (En,Fr,Es) (Rev 2).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Super Mario 3D World (USA) (En,Fr,Es) (Rev 2).wux",
+    "index": 14
+  },
+  {
+    "title": "Donkey Kong Country: Tropical Freeze",
+    "developer": "Retro Studios",
+    "target_file": "Donkey Kong Country - Tropical Freeze (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Donkey Kong Country - Tropical Freeze (USA) (En,Fr,Es).wux",
+    "index": 15
+  },
+  {
+    "title": "Just Dance Wii U",
+    "developer": "Ubisoft",
+    "target_file": "Just Dance Wii U (Japan) (Rev 1).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Just Dance Wii U (Japan) (Rev 1).wux",
+    "index": 16
+  },
+  {
+    "title": "NES Remix Pack",
+    "developer": "Nintendo EAD Tokyo",
+    "target_file": "NES Remix Pack (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/NES Remix Pack (USA) (En,Fr,Es).wux",
+    "index": 17
+  },
+  {
+    "title": "Mario Kart 8",
+    "developer": "Nintendo EAD",
+    "target_file": "Mario Kart 8 (USA) (En,Fr,Es) (Rev 5).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Mario Kart 8 (USA) (En,Fr,Es) (Rev 5).wux",
+    "index": 18
+  },
+  {
+    "title": "Wii Sports Club",
+    "developer": "Bandai Namco Studios",
+    "target_file": "Wii Sports Club (USA) (En,Fr,Es) (Rev 1).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Wii Sports Club (USA) (En,Fr,Es) (Rev 1).wux",
+    "index": 19
+  },
+  {
+    "title": "Hyrule Warriors",
+    "developer": "Omega Force",
+    "target_file": "Hyrule Warriors (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Hyrule Warriors (USA) (En,Fr,Es).wux",
+    "index": 20
+  },
+  {
+    "title": "Bayonetta",
+    "developer": "PlatinumGames",
+    "target_file": "Bayonetta (USA) (En,Ja,Fr,De,Es,It).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Bayonetta (USA) (En,Ja,Fr,De,Es,It).wux",
+    "index": 21
+  },
+  {
+    "title": "Bayonetta 2",
+    "developer": "PlatinumGames",
+    "target_file": "Bayonetta 2 (USA) (En,Ja,Fr,De,Es,It).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Bayonetta 2 (USA) (En,Ja,Fr,De,Es,It).wux",
+    "index": 22
+  },
+  {
+    "title": "Fatal Frame: Maiden of Black Water",
+    "developer": "Koei Tecmo",
+    "target_file": "Zero - Nuregarasu no Miko (Japan).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Zero - Nuregarasu no Miko (Japan).wux",
+    "index": 23
+  },
+  {
+    "title": "Captain Toad: Treasure Tracker",
+    "developer": "Nintendo EAD Tokyo",
+    "target_file": "Captain Toad - Treasure Tracker (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Captain Toad - Treasure Tracker (USA) (En,Fr,Es).wux",
+    "index": 24
+  },
+  {
+    "title": "Super Smash Bros. for Wii U",
+    "developer": "Bandai Namco Studios",
+    "target_file": "Super Smash Bros. for Wii U (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Super Smash Bros. for Wii U (USA) (En,Fr,Es).wux",
+    "index": 25
+  },
+  {
+    "title": "Kirby and the Rainbow Curse",
+    "developer": "HAL Laboratory",
+    "target_file": "Kirby and the Rainbow Curse (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Kirby and the Rainbow Curse (USA) (En,Fr,Es).wux",
+    "index": 26
+  },
+  {
+    "title": "Mario Party 10",
+    "developer": "NDcube",
+    "target_file": "Mario Party 10 (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Mario Party 10 (USA) (En,Fr,Es).wux",
+    "index": 27
+  },
+  {
+    "title": "Mario vs. Donkey Kong: Tipping Stars",
+    "developer": "Nintendo Software Technology",
+    "target_file": "Mario vs. Donkey Kong - Minna de Mini Land (Japan).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Mario vs. Donkey Kong - Minna de Mini Land (Japan).wux",
+    "index": 28
+  },
+  {
+    "title": "Xenoblade Chronicles X",
+    "developer": "Monolith Soft",
+    "target_file": "Xenoblade Chronicles X (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Xenoblade Chronicles X (USA) (En,Fr,Es).wux",
+    "index": 29
+  },
+  {
+    "title": "Splatoon",
+    "developer": "Nintendo EAD",
+    "target_file": "Splatoon (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Splatoon (USA) (En,Fr,Es).wux",
+    "index": 30
+  },
+  {
+    "title": "Yoshi's Woolly World",
+    "developer": "Good-Feel",
+    "target_file": "Yoshi's Woolly World (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Yoshi's Woolly World (USA) (En,Fr,Es).wux",
+    "index": 31
+  },
+  {
+    "title": "Art Academy: Home Studio",
+    "developer": "Headstrong Games",
+    "target_file": "Art Academy - Atelier (Europe) (En,Fr,De,Es,It,Nl,Pt,Ru).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Art Academy - Atelier (Europe) (En,Fr,De,Es,It,Nl,Pt,Ru).wux",
+    "index": 32
+  },
+  {
+    "title": "Devil's Third",
+    "developer": "Valhalla Game Studios",
+    "target_file": "Devil's Third (USA) (En,Fr).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Devil's Third (USA) (En,Fr).wux",
+    "index": 33
+  },
+  {
+    "title": "Super Mario Maker",
+    "developer": "Nintendo EAD",
+    "target_file": "Super Mario Maker (USA) (En,Fr,Es) (Rev 5).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Super Mario Maker (USA) (En,Fr,Es) (Rev 5).wux",
+    "index": 34
+  },
+  {
+    "title": "Animal Crossing: Amiibo Festival",
+    "developer": "Nintendo EPD",
+    "target_file": "Animal Crossing - Amiibo Festival (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Animal Crossing - Amiibo Festival (USA) (En,Fr,Es).wux",
+    "index": 35
+  },
+  {
+    "title": "Mario Tennis: Ultra Smash",
+    "developer": "Camelot Software Planning",
+    "target_file": "Mario Tennis - Ultra Smash (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Mario Tennis - Ultra Smash (USA) (En,Fr,Es).wux",
+    "index": 36
+  },
+  {
+    "title": "Tokyo Mirage Sessions #FE",
+    "developer": "Atlus",
+    "target_file": "Tokyo Mirage Sessions FE (USA).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Tokyo Mirage Sessions FE (USA).wux",
+    "index": 37
+  },
+  {
+    "title": "The Legend of Zelda: Twilight Princess HD",
+    "developer": "Tantalus",
+    "target_file": "Legend of Zelda, The - Twilight Princess HD (USA) (En,Fr,Es) (Rev 2).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Legend of Zelda, The - Twilight Princess HD (USA) (En,Fr,Es) (Rev 2).wux",
+    "index": 38
+  },
+  {
+    "title": "Pokk\u00e9n Tournament",
+    "developer": "Bandai Namco Studios",
+    "target_file": "Pokken Tournament (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Pokken Tournament (USA) (En,Fr,Es).wux",
+    "index": 39
+  },
+  {
+    "title": "Star Fox Zero",
+    "developer": "Nintendo EPD",
+    "target_file": "Star Fox Zero (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Star Fox Zero (USA) (En,Fr,Es).wux",
+    "index": 40
+  },
+  {
+    "title": "Star Fox Guard",
+    "developer": "Nintendo EPD",
+    "target_file": "Star Fox Guard (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Star Fox Guard (USA) (En,Fr,Es).wux",
+    "index": 41
+  },
+  {
+    "title": "Mario & Sonic at the Rio 2016 Olympic Games",
+    "developer": "Sega Sports R&D",
+    "target_file": "Mario & Sonic at the Rio 2016 Olympic Games (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Mario & Sonic at the Rio 2016 Olympic Games (USA) (En,Fr,Es).wux",
+    "index": 42
+  },
+  {
+    "title": "Paper Mario: Color Splash",
+    "developer": "Intelligent Systems",
+    "target_file": "Paper Mario - Color Splash (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Paper Mario - Color Splash (USA) (En,Fr,Es).wux",
+    "index": 43
+  },
+  {
+    "title": "The Legend of Zelda: Breath of the Wild",
+    "developer": "Nintendo EPD",
+    "target_file": "Legend of Zelda, The - Breath of the Wild (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Legend of Zelda, The - Breath of the Wild (USA) (En,Fr,Es).wux",
+    "index": 44
+  },
+  {
+    "title": "Ninja Gaiden 3: Razor's Edge",
+    "developer": "Tecmo Koei",
+    "target_file": "Ninja Gaiden 3 - Razor's Edge (USA) (En,Ja,Fr,De,Es,It).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Ninja Gaiden 3 - Razor's Edge (USA) (En,Ja,Fr,De,Es,It).wux",
+    "index": 45
+  },
+  {
+    "title": "Scribblenauts Unlimited",
+    "developer": "Warner Bros. Interactive Entertainment",
+    "target_file": "Scribblenauts Unlimited (USA) (En,Fr,Es,Pt).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Scribblenauts Unlimited (USA) (En,Fr,Es,Pt).wux",
+    "index": 46
+  },
+  {
+    "title": "Rayman Legends",
+    "developer": "Ubisoft",
+    "target_file": "Rayman Legends (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Rayman Legends (USA) (En,Fr,Es).wux",
+    "index": 47
+  },
+  {
+    "title": "Trine 2: Director's Cut",
+    "developer": "Frozenbyte",
+    "target_file": "Trine 2 - Director's Cut (Europe) (eShop).zip",
+    "remote_path": "mcubewiqu:No-Intro/Digital/Trine 2 - Director's Cut (Europe) (eShop).zip",
+    "index": 48
+  },
+  {
+    "title": "Little Inferno",
+    "developer": "Tomorrow Corporation",
+    "target_file": "Little Inferno (Europe) (eShop).zip",
+    "remote_path": "mcubewiqu:No-Intro/Digital/Little Inferno (Europe) (eShop).zip",
+    "index": 49
+  },
+  {
+    "title": "The Swapper",
+    "developer": "Facepalm Games",
+    "target_file": "The Swapper (Europe) (eShop).zip",
+    "remote_path": "mcubewiqu:No-Intro/Digital/The Swapper (Europe) (eShop).zip",
+    "index": 50
+  },
+  {
+    "title": "Swords & Soldiers",
+    "developer": "Ronimo Games",
+    "target_file": "Swords & Soldiers (Europe) (eShop).zip",
+    "remote_path": "mcubewiqu:No-Intro/Digital/Swords & Soldiers (Europe) (eShop).zip",
+    "index": 51
+  },
+  {
+    "title": "Year Walk",
+    "developer": "Simogo",
+    "target_file": "Year Walk (Europe) (eShop).zip",
+    "remote_path": "mcubewiqu:No-Intro/Digital/Year Walk (Europe) (eShop).zip",
+    "index": 52
+  },
+  {
+    "title": "Swords & Soldiers II",
+    "developer": "Ronimo Games",
+    "target_file": "Swords & Soldiers II (Europe) (eShop).zip",
+    "remote_path": "mcubewiqu:No-Intro/Digital/Swords & Soldiers II (Europe) (eShop).zip",
+    "index": 53
+  },
+  {
+    "title": "Shovel Knight",
+    "developer": "Yacht Club Games",
+    "target_file": "Shovel Knight (USA).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Shovel Knight (USA).wux",
+    "index": 54
+  },
+  {
+    "title": "Minecraft: Wii U Edition",
+    "developer": "Mojang Studios",
+    "target_file": "Minecraft - Wii U Edition (USA) (En,Ja,Fr,De,Es,It,Nl,Pt,Zh,Ko,Ru) (Rev 1).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Minecraft - Wii U Edition (USA) (En,Ja,Fr,De,Es,It,Nl,Pt,Zh,Ko,Ru) (Rev 1).wux",
+    "index": 55
+  },
+  {
+    "title": "Monster Hunter 3 Ultimate",
+    "developer": "Capcom",
+    "target_file": "Monster Hunter 3 Ultimate (USA) (En,Fr,De,Es,It).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Monster Hunter 3 Ultimate (USA) (En,Fr,Es,It).wux",
+    "index": 56
+  },
+  {
+    "title": "Sonic Lost World",
+    "developer": "Sega",
+    "target_file": "Sonic Lost World (USA) (En,Ja,Fr,De,Es,It).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Sonic Lost World (USA) (En,Ja,Fr,De,Es,It).wux",
+    "index": 57
+  },
+  {
+    "title": "Sonic Boom: Rise of Lyric",
+    "developer": "Sega",
+    "target_file": "Sonic Boom - Rise of Lyric (USA) (En,Fr,Es).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Sonic Boom - Rise of Lyric (USA) (En,Fr,Es).wux",
+    "index": 58
+  },
+  {
+    "title": "Yo-kai Watch Dance: Just Dance Special Version",
+    "developer": "Level-5",
+    "target_file": "Youkai Watch Dance - Just Dance Special Version (Japan).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Youkai Watch Dance - Just Dance Special Version (Japan).wux",
+    "index": 59
+  },
+  {
+    "title": "Fast Racing Neo",
+    "developer": "Shin'en Multimedia",
+    "target_file": "Fast Racing Neo (Europe) (En,Fr,De,Es,It).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/Fast Racing Neo (Europe) (En,Fr,De,Es,It).wux",
+    "index": 60
+  },
+  {
+    "title": "SteamWorld Collection",
+    "developer": "Image & Form",
+    "target_file": "SteamWorld Collection (USA) (En,Ja,Fr,De,Es,It,Ru).wux",
+    "remote_path": "mcubewiiu:Redump/[WUX]/Games/SteamWorld Collection (USA) (En,Ja,Fr,De,Es,It,Ru).wux",
+    "index": 61
+  }
+]
