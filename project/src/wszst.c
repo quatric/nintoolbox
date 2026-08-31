@@ -13077,8 +13077,13 @@ static enumError export_models_tree (ccp root, uint depth)
 			if (hsf_err != ERR_NOTHING_TO_DO && err < hsf_err)
 				err = hsf_err;
 		}
-		if (err != ERR_NOTHING_TO_DO && max_err < err)
-			max_err = err;
+		if (err != ERR_NOTHING_TO_DO)
+		{
+			if (err > ERR_WARNING)
+				err = ERR_WARNING;
+			if (max_err < err)
+				max_err = err;
+		}
 	}
 	closedir (dir);
 	return max_err;
