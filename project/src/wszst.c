@@ -12282,9 +12282,9 @@ static enumError decode_brfnt_if_possible (ccp arg)
 		return ERR_NOTHING_TO_DO;
 
 	Image_t img;
-	enumError max_err = LoadIMG (&img, true, arg, 0, false, true, false);
+	enumError max_err = LoadIMG (&img, false, arg, 0, false, true, false);
 	if (max_err)
-		return max_err;
+		return ERR_NOTHING_TO_DO;
 
 	char dest_base[PATH_MAX];
 	if (opt_dest)
@@ -12301,7 +12301,11 @@ static enumError decode_brfnt_if_possible (ccp arg)
 			fprintf (stdlog, "%s%sDECODE BRFNT:%s -> PNG:%s\n", verbose > 0 ? "\n" : "",
 				testmode ? "WOULD " : "", arg, dest_base);
 		if (!testmode)
-			max_err = SavePNG (&img, true, 0, dest_base, 0, 0, false, 0);
+		{
+			const enumError s_err = SavePNG (&img, true, 0, dest_base, 0, 0, false, 0);
+			if (s_err <= ERR_WARNING && max_err < s_err)
+				max_err = s_err;
+		}
 		ResetIMG (&img);
 		return max_err;
 	}
@@ -12309,9 +12313,7 @@ static enumError decode_brfnt_if_possible (ccp arg)
 	ResetIMG (&img);
 	for (uint image_index = 0; image_index < record_images; image_index++)
 	{
-		const enumError load_err = LoadIMG (&img, true, arg, image_index, false, true, false);
-		if (max_err < load_err)
-			max_err = load_err;
+		const enumError load_err = LoadIMG (&img, false, arg, image_index, false, true, false);
 		if (load_err)
 			continue;
 
@@ -12329,7 +12331,7 @@ static enumError decode_brfnt_if_possible (ccp arg)
 		if (!testmode)
 		{
 			const enumError sheet_err = SavePNG (&img, true, 0, dest, 0, 0, false, 0);
-			if (max_err < sheet_err)
+			if (sheet_err <= ERR_WARNING && max_err < sheet_err)
 				max_err = sheet_err;
 		}
 		ResetIMG (&img);
@@ -12358,9 +12360,9 @@ static enumError decode_cfnt_if_possible (ccp arg)
 		return ERR_NOTHING_TO_DO;
 
 	Image_t img;
-	enumError max_err = LoadIMG (&img, true, arg, 0, false, true, false);
+	enumError max_err = LoadIMG (&img, false, arg, 0, false, true, false);
 	if (max_err)
-		return max_err;
+		return ERR_NOTHING_TO_DO;
 
 	char dest_base[PATH_MAX];
 	if (opt_dest)
@@ -12378,7 +12380,11 @@ static enumError decode_cfnt_if_possible (ccp arg)
 			fprintf (stdlog, "%s%sDECODE %s:%s -> PNG:%s\n", verbose > 0 ? "\n" : "",
 				testmode ? "WOULD " : "", tag, arg, dest_base);
 		if (!testmode)
-			max_err = SavePNG (&img, true, 0, dest_base, 0, 0, false, 0);
+		{
+			const enumError s_err = SavePNG (&img, true, 0, dest_base, 0, 0, false, 0);
+			if (s_err <= ERR_WARNING && max_err < s_err)
+				max_err = s_err;
+		}
 		ResetIMG (&img);
 		return max_err;
 	}
@@ -12386,9 +12392,7 @@ static enumError decode_cfnt_if_possible (ccp arg)
 	ResetIMG (&img);
 	for (uint image_index = 0; image_index < record_images; image_index++)
 	{
-		const enumError load_err = LoadIMG (&img, true, arg, image_index, false, true, false);
-		if (max_err < load_err)
-			max_err = load_err;
+		const enumError load_err = LoadIMG (&img, false, arg, image_index, false, true, false);
 		if (load_err)
 			continue;
 
@@ -12407,7 +12411,7 @@ static enumError decode_cfnt_if_possible (ccp arg)
 		if (!testmode)
 		{
 			const enumError sheet_err = SavePNG (&img, true, 0, dest, 0, 0, false, 0);
-			if (max_err < sheet_err)
+			if (sheet_err <= ERR_WARNING && max_err < sheet_err)
 				max_err = sheet_err;
 		}
 		ResetIMG (&img);
