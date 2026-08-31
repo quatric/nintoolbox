@@ -759,3 +759,7 @@ A total of **61 Wii U titles** were tested across the automated regression pipel
 - **Automated WUX Disc Decompression Pipeline Integration (`lib-passthru.c`, `run_wiiu_queue.py`)**:
   - *Issue*: `.wux` compressed Wii U disc images required multi-step decryption and partition dumping.
   - *Fix*: Implemented seamless pipeline coupling `wux_decompress`, `wud2app` partition extraction, `cdecrypt` package decryption, and recursive `wszst xx` unpacking into a single automated test harness.
+
+- **Post-Extraction Helper Export Error Propagation Fix (`wszst.c`)**:
+  - *Issue*: During whole-disc recursive extraction (`wszst xx`), best-effort post-extraction helper decoders (e.g. converting discovered BYML to YAML, BFLYT to text, or 3D models to COLLADA) that encountered malformed or unsupported sub-nodes returned `ERR_INVALID_DATA` (`#36`). This error was propagated up through `export_models_tree()`, causing the overall disc extraction to report `ERROR_EXIT36` despite extracting 100% of the game archives.
+  - *Fix*: Capped auxiliary helper conversion errors in `export_models_tree()` to `ERR_WARNING`, ensuring individual sub-file export errors do not fail or mask successful container extraction.
