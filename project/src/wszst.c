@@ -8026,6 +8026,30 @@ static bool valid_sarc_path (ccp path)
 		&& strcmp (path, "..") && !strstr (path, "/../") && valid_utf8 (path);
 }
 
+// AT7 (Capcom MT Framework) stores each member under a single flat name that
+// may use a backslash as a namespace separator (e.g. "Fade\fade_in",
+// "effect\an\com01"). valid_sarc_path() rejects all backslashes, which is
+// correct for the SARC family but wrongly flags every Capcom atlas. On both
+// POSIX and Windows a lone backslash inside the name cannot escape the
+// extraction root -- it is either a literal filename character (POSIX) or, at
+// worst on Windows, a nested subdirectory still *within* dest. So we relax the
+// backslash ban but keep every real traversal guard: no leading separator
+// (absolute path), and no ".." component in either separator form, so a forged
+// "..\..\evil" or "../evil" can never climb out of the output directory.
+static bool valid_at7_path (ccp path)
+{
+	if (!path || !*path || path[0] == '/' || path[0] == '\\' || !valid_utf8 (path))
+		return false;
+	if (!strcmp (path, ".") || !strcmp (path, ".."))
+		return false;
+	if (strstr (path, "/../") || strstr (path, "\\..\\")
+		|| strstr (path, "\\../") || strstr (path, "/..\\"))
+		return false;
+	if (!strncmp (path, "../", 3) || !strncmp (path, "..\\", 3))
+		return false;
+	return true;
+}
+
 // Forward declared so SARC/PAC/GFA extraction can recurse into their own
 // output directory once all members are written -- without this, anything
 // nested inside those container types (e.g. the .brres models inside a real
@@ -11418,7 +11442,7 @@ static enumError extract_at7_file (ccp arg, ccp basedir, uint depth)
 		char name[24] = { 0 };
 		memcpy (name, raw + cur + 8, 20);
 		name[20] = 0;
-		if (!valid_sarc_path (name))
+		if (!valid_at7_path (name))
 		{
 			err = ERROR0 (ERR_INVALID_DATA, "Unsafe AT7 entry path: %s\n", name);
 			break;
