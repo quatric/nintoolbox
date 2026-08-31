@@ -211,9 +211,8 @@ def main():
             elapsed = time.time() - t_start
             status_text = f"ERROR_{str(e)[:30]}"
             status_icon = "❌"
-            log_content = str(e)
-            
-        with open(log_file_path, "w") as f:
+        os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+        with open(log_file_path, "w", errors="ignore") as f:
             f.write(log_content)
             
         # Stats on extracted directory
