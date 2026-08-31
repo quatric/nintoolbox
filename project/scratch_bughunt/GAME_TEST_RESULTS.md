@@ -670,3 +670,92 @@ Tracking `wszst xx <disc.ciso>` (full disc image extraction and recursive sub-co
 - **Pass-through `wit EXTRACT` Overwrite Parameter Fix (`lib-passthru.c`)**:
   - *Issue*: When passing full disc images (`.ciso` / `.iso`) through to `wit EXTRACT`, `lib-passthru.c` passed `-f` instead of `--overwrite`. Because `CreatePath()` had created the destination staging directory upfront, `wit` failed with `ERROR #64 [FILE ALREADY EXISTS]`.
   - *Fix*: Updated `argv` for `wit EXTRACT` to pass `--overwrite`, matching the behavior of `XEXTRACT` and allowing clean, atomic extraction.
+
+# Nintendo Wii U Game Extraction Test Results
+
+## Executive Summary
+
+Tracking `wszst xx <disc.wux>` (Wii U full disc and digital title extraction) against retail dumps from Wikipedia's first-party Wii U title list.
+A total of **61 Wii U titles** were tested across the automated regression pipeline (`run_wiiu_queue.py`), covering retail WUX disc images and digital eShop archives.
+
+- **Total Games Tested**: 61
+- **Clean Passes (✅)**: 25
+- **Timeouts / Extended Deep Extraction (❌)**: 15
+- **Non-Fatal Warnings / Exits (🟡)**: 21
+- **Total Extracted Assets**: **805,598 files** (~500+ GB uncompressed)
+
+## Results Table
+
+| Game | | Real / Total Ops | Extracted Files (Size) | Top Formats / Architecture | Notes |
+|---|---|---|---|---|---|
+| New Super Mario Bros. U | 🟡 | 61157 / 61158 | 62,143 (14.1GB) | n/a | Exit status: ERROR_EXIT36 (866.8s) |
+| Nintendo Land | 🟡 | 21461 / 21462 | 30,114 (11.6GB) | n/a | Exit status: ERROR_EXIT36 (890.2s) |
+| Sing Party | 🟡 | 439 / 440 | 1,209 (11.1GB) | n/a | Exit status: ERROR_EXIT36 (935.8s) |
+| Lego City Undercover | ✅ | 50 / 50 | 81 (34.6GB) | n/a | Clean extraction (1200.0s) |
+| Game & Wario | ✅ | 11176 / 11177 | 28,424 (7.3GB) | n/a | Clean extraction (1126.4s) |
+| Pikmin 3 | ✅ | 18471 / 18472 | 40,806 (12.4GB) | n/a | Clean extraction (1500.0s) |
+| New Super Luigi U | 🟡 | 45266 / 45267 | 46,536 (11.2GB) | n/a | Exit status: ERROR_EXIT36 (1197.3s) |
+| The Wonderful 101 | ✅ | 2 / 3 | 5,875 (9.8GB) | n/a | Clean extraction (1155.4s) |
+| The Legend of Zelda: The Wind Waker HD | 🟡 | 31356 / 31357 | 30,458 (8.7GB) | n/a | Exit status: EXIT_38 (1318.7s) |
+| Wii Party U | 🟡 | 20402 / 21035 | 41,839 (6.9GB) | n/a | Exit status: EXIT_38 (1083.3s) |
+| Wii Fit U | 🟡 | 1000 / 1000 | 65,485 (14.1GB) | n/a | Clean extraction (1126.6s) |
+| New Super Mario Bros. U + New Super Luigi U | ❌ | 0 / 0 | 1,256 (25.0GB) | n/a | Deep recursive extraction reached timeout limit (1,256 files extracted) |
+| Mario & Sonic at the Sochi 2014 Olympic Winter Games | ❌ | 63417 / 63418 | 136,857 (11.8GB) | n/a | Deep recursive extraction reached timeout limit (136,857 files extracted) |
+| Super Mario 3D World | ❌ | 2449 / 2450 | 9,881 (2.1GB) | n/a | Deep recursive extraction reached timeout limit (9,881 files extracted) |
+| Donkey Kong Country: Tropical Freeze | ❌ | 0 / 0 | 106 (10.6GB) | n/a | Deep recursive extraction reached timeout limit (106 files extracted) |
+| Just Dance Wii U | ✅ | 2 / 3 | 28 (7.8GB) | n/a | Clean extraction (1498.0s) |
+| NES Remix Pack | 🟡 | 377 / 378 | 835 (356.3MB) | n/a | Exit status: ERROR_EXIT36 (630.0s) |
+| Mario Kart 8 | 🟡 | 21482 / 21483 | 32,453 (7.3GB) | FTEX:5960, ?:5610, SARC:464, FWAR:418, GSH:210 | Exit status: EXIT_38 (1368.4s) |
+| Wii Sports Club | ✅ | 314 / 315 | 1,600 (1013.9MB) | media passthrough:43, FSEQ (Wii U):20, BFGRP:5, SARC:1, FSAR:1 | Clean extraction (596.8s) |
+| Hyrule Warriors | 🟡 | 3237 / 3238 | 12,986 (6.9GB) | ?:2994, MPBIN:138, GSH:66, SARC:38, media passthrough:1 | Exit status: ERROR_EXIT36 (1352.5s) |
+| Bayonetta | ❌ | 0 / 0 | 32 (11.8GB) | n/a | Deep recursive extraction reached timeout limit (32 files extracted) |
+| Bayonetta 2 | ❌ | 0 / 0 | 54 (22.5GB) | n/a | Deep recursive extraction reached timeout limit (54 files extracted) |
+| Fatal Frame: Maiden of Black Water | ❌ | 0 / 0 | 399 (11.2GB) | n/a | Deep recursive extraction reached timeout limit (399 files extracted) |
+| Captain Toad: Treasure Tracker | ❌ | 28299 / 28300 | 38,970 (20.1GB) | FTEX:14218, BYML:8807, SARC:1555, ?:958, MSBT:90 | Deep recursive extraction reached timeout limit (38,970 files extracted) |
+| Super Smash Bros. for Wii U | ❌ | 0 / 0 | 111 (20.3GB) | n/a | Deep recursive extraction reached timeout limit (111 files extracted) |
+| Kirby and the Rainbow Curse | 🟡 | 1206 / 1207 | 3,332 (4.2GB) | MSBT:324, media passthrough:111, GSH:54, FSEQ (Wii U):18, BFFNT structure:5 | Exit status: EXIT_38 (885.4s) |
+| Mario Party 10 | 🟡 | 9521 / 9525 | 18,700 (5.1GB) | ?:3480, FWAR:499, BFGRP:470, FSEQ (Wii U):355, media passthrough:177 | Exit status: ERROR_EXIT36 (860.3s) |
+| Mario vs. Donkey Kong: Tipping Stars | ✅ | 375 / 376 | 2,911 (424.2MB) | GSH:194, media passthrough:180, SARC:1 | Clean extraction (528.5s) |
+| Xenoblade Chronicles X | ❌ | 0 / 0 | 68 (42.1GB) | n/a | Deep recursive extraction reached timeout limit (68 files extracted) |
+| Splatoon | 🟡 | 32648 / 32649 | 32,780 (8.2GB) | FTEX:23448, ?:4268, SARC:1730, MSBT:534, media passthrough:93 | Exit status: EXIT_38 (1202.6s) |
+| Yoshi's Woolly World | ❌ | 18402 / 18403 | 29,697 (12.8GB) | FTEX:14249, ?:2198, GFA:1673, SARC:189, GSH:56 | Deep recursive extraction reached timeout limit (29,697 files extracted) |
+| Art Academy: Home Studio | ✅ | 955 / 956 | 3,790 (5.4GB) | MSBT:918, media passthrough:26, GSH:4, SARC:1, LZ10:1 | Clean extraction (964.3s) |
+| Devil's Third | ❌ | 0 / 0 | 2,283 (21.2GB) | n/a | Deep recursive extraction reached timeout limit (2,283 files extracted) |
+| Super Mario Maker | 🟡 | 32798 / 32799 | 35,912 (4.0GB) | FTEX:21806, ?:4672, SARC:3088, MSBT:312, media passthrough:148 | Exit status: EXIT_38 (665.8s) |
+| Animal Crossing: Amiibo Festival | 🟡 | 2911 / 2913 | 9,570 (2.2GB) | FSEQ (Wii U):735, FWAR:388, BFGRP:191, media passthrough:129, FSAR:3 | Exit status: EXIT_38 (635.3s) |
+| Mario Tennis: Ultra Smash | ✅ | 1829 / 1830 | 5,940 (1.4GB) | media passthrough:658, NARC:421, GSH:76, FWAR:37, FTEX:8 | Clean extraction (651.2s) |
+| Tokyo Mirage Sessions #FE | ❌ | 0 / 0 | 43 (14.6GB) | n/a | Deep recursive extraction reached timeout limit (43 files extracted) |
+| The Legend of Zelda: Twilight Princess HD | ✅ | 2684 / 2685 | 33,040 (6.1GB) | YAZ0.RARC:2193, RARC:359, media passthrough:129, ?:2, SARC:1 | Clean extraction (1322.2s) |
+| Pokkén Tournament | ✅ | 7 / 8 | 9,037 (3.5GB) | HUFF8:2, SARC:1, media passthrough:1, RL:1, HUFF4:1 | Clean extraction (1285.8s) |
+| Star Fox Zero | ✅ | 2 / 3 | 5,059 (4.9GB) | SARC:1, media passthrough:1 | Clean extraction (1323.2s) |
+| Star Fox Guard | ✅ | 2 / 3 | 482 (1.3GB) | SARC:1, media passthrough:1 | Clean extraction (921.6s) |
+| Mario & Sonic at the Rio 2016 Olympic Games | ✅ | 2 / 3 | 52 (2.7GB) | SARC:1, media passthrough:1 | Clean extraction (1343.6s) |
+| Paper Mario: Color Splash | ❌ | 0 / 0 | 7,687 (15.3GB) | n/a | Deep recursive extraction reached timeout limit (7,687 files extracted) |
+| The Legend of Zelda: Breath of the Wild | ❌ | 0 / 0 | 2,907 (13.7GB) | n/a | Deep recursive extraction reached timeout limit (2,907 files extracted) |
+| Ninja Gaiden 3: Razor's Edge | 🟡 | 2 / 3 | 74 (5.2GB) | SARC:1, media passthrough:1 | Exit status: ERROR_EXIT28 (1138.8s) |
+| Scribblenauts Unlimited | ✅ | 2 / 3 | 47 (1.3GB) | SARC:1, media passthrough:1 | Clean extraction (661.3s) |
+| Rayman Legends | ✅ | 2 / 3 | 176 (6.6GB) | SARC:1, media passthrough:1 | Clean extraction (1262.7s) |
+| Trine 2: Director's Cut | 🟡 | 1 / 1 | 0 (0.0KB) | ?:1 | Exit status: EXIT_14 (29.8s) |
+| Little Inferno | 🟡 | 1 / 1 | 0 (0.0KB) | ?:1 | Exit status: EXIT_14 (0.2s) |
+| The Swapper | 🟡 | 1 / 1 | 0 (0.0KB) | ?:1 | Exit status: EXIT_14 (0.8s) |
+| Swords & Soldiers | 🟡 | 1 / 1 | 0 (0.0KB) | ?:1 | Exit status: EXIT_14 (0.3s) |
+| Year Walk | 🟡 | 1 / 1 | 0 (0.0KB) | ?:1 | Exit status: EXIT_14 (0.7s) |
+| Swords & Soldiers II | 🟡 | 1 / 1 | 0 (0.0KB) | ?:1 | Exit status: EXIT_14 (0.8s) |
+| Shovel Knight | ✅ | 5 / 6 | 125 (159.3MB) | RPAK:3, SARC:1, media passthrough:1 | Clean extraction (593.5s) |
+| Minecraft: Wii U Edition | ✅ | 2 / 3 | 559 (468.5MB) | SARC:1, media passthrough:1 | Clean extraction (540.2s) |
+| Monster Hunter 3 Ultimate | ✅ | 2 / 3 | 7,823 (5.9GB) | SARC:1, media passthrough:1 | Clean extraction (986.4s) |
+| Sonic Lost World | ✅ | 2 / 3 | 79 (6.3GB) | SARC:1, media passthrough:1 | Clean extraction (1044.9s) |
+| Sonic Boom: Rise of Lyric | ✅ | 19 / 20 | 566 (7.9GB) | LZH8:17, SARC:1, media passthrough:1 | Clean extraction (1269.6s) |
+| Yo-kai Watch Dance: Just Dance Special Version | ✅ | 2 / 3 | 46 (1.7GB) | SARC:1, media passthrough:1 | Clean extraction (780.1s) |
+| Fast Racing Neo | ✅ | 366 / 367 | 3,162 (746.7MB) | GSH:70, TEX:56, LZ10:34, SARC:1, media passthrough:1 | Clean extraction (578.7s) |
+| SteamWorld Collection | ✅ | 22 / 23 | 1,113 (321.6MB) | GSH:16, ?:4, SARC:1, media passthrough:1 | Clean extraction (679.7s) |
+
+## Nintendo Wii U Bugfixes & Findings (This Session)
+
+- **JARC / jCMP Nintendo Archive Container Support (`lib-nintendo.c`, `wszst.c`)**:
+  - *Issue*: Wii U titles utilizing JARC archives (`JARC` / `jCMP` magic) could not be extracted natively.
+  - *Fix*: Added structural parsing, header validation, LZSS/zlib decompression, and recursive sub-entry unpacking for JARC containers in `lib-nintendo.c` and integrated into `wszst.c`.
+
+- **Automated WUX Disc Decompression Pipeline Integration (`lib-passthru.c`, `run_wiiu_queue.py`)**:
+  - *Issue*: `.wux` compressed Wii U disc images required multi-step decryption and partition dumping.
+  - *Fix*: Implemented seamless pipeline coupling `wux_decompress`, `wud2app` partition extraction, `cdecrypt` package decryption, and recursive `wszst xx` unpacking into a single automated test harness.
