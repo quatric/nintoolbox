@@ -1228,8 +1228,10 @@ st:
 	@printf "* N="
 	@svn diff | grep ^+ | wc -l
 
-#
-#--------------------------
+.PHONY : test-nitro
+test-nitro: lib-nintendo.o lib-nitro.o file-type.o lib-file.o
+	@$(CC) -O2 -ffunction-sections -fdata-sections -Isrc -Idclib ../tests/test-nitro.c lib-nitro.o lib-nintendo.o lib-szs.o lib-quicklz.o qlz120.o qlz140.o lzh8_dec.o lzh8_cmp.o lzh8_util.o dclib*.o -lcurses -lz -Wl,-dead_strip -o bin/test-nitro
+	@./bin/test-nitro
 
 .PHONY : test
 test:
