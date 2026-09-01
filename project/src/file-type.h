@@ -243,6 +243,8 @@ typedef enum file_format_t
 	FF_ZLIB, // 151 - Zlib deflate compression (.zlib)
 	FF_CHR_TXT, // 152 - Text version of CHR
 	FF_SRT_TXT, // 153 - Text version of SRT
+	FF_VIS, // 154 - NW4R node visibility animation (VIS0)
+	FF_VIS_TXT, // 155 - Text version of VIS
 
 	//--- number of elements
 

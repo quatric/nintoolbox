@@ -818,6 +818,18 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x23, 0x53, 0x52, 0x54 }, // "#SRT"
 		0, MinusString, MinusString, "Text version of SRT" },
 
+	// FF_VIS = 154 (NW4R node visibility animation)
+	{ FF_VIS, FF_VIS, FF_VIS_TXT, "VIS", ".vis", ".szs", ".vis0",
+		FFT_VALID | FFT_BRSUB | FFT_BRSUB2 | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
+		{ 0x56, 0x49, 0x53, 0x30 }, // "VIS0"
+		"AnmVis(NW4R)", "4,(*)", "3,4", "Node visibility animations" },
+
+	// FF_VIS_TXT = 155 (text version of VIS)
+	{ FF_VIS_TXT, FF_VIS, FF_VIS_TXT, "VISTXT", ".txt", ".szs", ".txt",
+		FFT_VALID | FFT_TEXT | FFT_DECODE | FFT_ENCODE | FFT_PARSER, 4,
+		{ 0x23, 0x56, 0x49, 0x53 }, // "#VIS"
+		0, MinusString, MinusString, "Text version of VIS" },
+
 	// FF_N
 	{ 0 }
 };
@@ -858,7 +870,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_CT_SHA1, "CT-SHA1", "CTSHA1", 0x11 }, { FF_MDL_TXT, "MDL-TXT", "MDLTXT", 0x11 },
 	{ FF_PAT_TXT, "PAT-TXT", "PATTXT", 0x7011 },
 	{ FF_CHR_TXT, "CHR-TXT", "CHRTXT", 0x7011 },
-	{ FF_SRT_TXT, "SRT-TXT", "SRTTXT", 0x7011 }, { FF_TPL, "TPL", 0, 0x3809 },
+	{ FF_SRT_TXT, "SRT-TXT", "SRTTXT", 0x7011 },
+	{ FF_VIS, "VIS", "VIS0", 0x861 }, { FF_VIS_TXT, "VIS-TXT", "VISTXT", 0x7011 }, { FF_TPL, "TPL", 0, 0x3809 },
 	{ FF_TPLX, "TPL", "TPLX", 0x3809 }, { FF_CUPICON, "CUPICON", "TPL", 0x2009 },
 	{ FF_CUPICON, "TPLX", 0, 0x2009 }, { FF_BTI, "BTI", "BTIENV", 0x3809 },
 	{ FF_BTI, "BTIMAT", 0, 0x3809 }, { FF_BREFT_IMG, "BREFT-IMG", "BREFTIMG", 0x3809 },

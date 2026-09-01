@@ -61,6 +61,7 @@
 #include "lib-pat.h"
 #include "lib-chr.h"
 #include "lib-srt.h"
+#include "lib-vis0.h"
 #include "lib-breff.h"
 #include "lib-image.h"
 #include "lib-common.h"
@@ -15887,6 +15888,26 @@ static bool ConvertHelper (const u8 *data, // valid data
 					: binary_dest ? SaveRawSRT0 (&srt, dest_fname, true)
 								  : SaveTextSRT0 (&srt, dest_fname, true);
 				ResetSRT0 (&srt);
+			}
+			return true;
+
+		case FF_VIS:
+		case FF_VIS_TXT:
+			FreeContainerData (cdata);
+			{
+				vis0_t vis;
+				InitializeVIS0 (&vis);
+				*err = fform == FF_VIS_TXT ? ScanTextVIS0 (&vis, false, src_fname)
+										   : ScanRawVIS0 (&vis, false, data, data_size);
+				if (*err)
+				{
+					ResetVIS0 (&vis);
+					return false;
+				}
+				*err = testmode	  ? ERR_OK
+					: binary_dest ? SaveRawVIS0 (&vis, dest_fname, true)
+								  : SaveTextVIS0 (&vis, dest_fname, true);
+				ResetVIS0 (&vis);
 			}
 			return true;
 

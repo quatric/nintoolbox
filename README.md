@@ -375,6 +375,7 @@ here for comparison. Status is read directly from each format's
 | SKP-OBJ | ✅ | ✅ |
 | SRT (SRT0) | 🟡 | 🟡 |
 | TEX (TEX0) | ✅ | ✅ |
+| VIS (VIS0) | 🟡 | 🟡 |
 | TEX+CT | ✅ | ✅ |
 | TPL | ✅ | ✅ |
 | U8 | ✅ | ✅ |
@@ -435,5 +436,30 @@ Notes on the BRRES animation siblings added by this fork:
   `t_chr_srt_cli` in `tests/regress.sh`.
 - The rows stay 🟡 rather than ✅: CHR0 still refuses version 3, and neither
   encoder reproduces retail's byte layout.
+- **VIS0** 🟡 — node visibility animation. A `src/lib-vis0.{c,h}` had been
+  sitting in this tree wired into the Makefile but reachable from nothing:
+  there was no `FF_VIS`, so `wszst` reported these files as `?` and no code
+  path ever called the library. It now has a file type (`FF_VIS`/`FF_VIS_TXT`,
+  `VIS0`/`#VIS` magics), a BRSUB version record for v3 and v4, and TEXT/BINARY
+  dispatch, which is also the first time any of it has ever executed.
+  Running it found two real bugs, both fixed: the writer laid the string pool
+  out *before* the resource group, which made every group-relative entry name
+  offset negative and wrapped it to a huge u32, and a header offset slip wrote
+  `n-frames` over the orig-path field, so re-encoded files lost their frame
+  count and loop flag. The writer now uses the retail order (header, group,
+  entry data, pool last) and the real NW4R lookup tree via `CalcEntryBRRES`.
+  Verified on the 5 retail Animal Crossing: City Folk VIS0 files in
+  `tests/fixtures`: all 5 decode and re-encode, the re-encoded file decodes to
+  an identical text form, and re-encoding *that* is byte-identical, so the
+  writer is deterministic. Against retail the group is reproduced exactly —
+  same group size, entry count, dummy root and entry-data offset — but the
+  files are not byte-identical, for a reason specific to VIS0: unlike CHR0 and
+  SRT0, retail VIS0 entries do not carry their own names. Their name offsets
+  point into the **shared BRRES string pool**, because the names duplicate the
+  sibling MDL0's bone names, so a VIS0 extracted on its own has no bytes to
+  resolve them from. The decoder substitutes explicit `"?<offset>"` markers and
+  warns, rather than silently emitting empty names; since the NW4R tree ids are
+  derived from the names, they differ too. Resolving these needs the VIS0 to be
+  decoded in its container, which is not yet wired — hence 🟡.
 - **CLR0**, **SHP0** and **SCN0** remain ⛔: not started, so no claim is made
   about them.

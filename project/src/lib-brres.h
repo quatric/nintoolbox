@@ -126,6 +126,9 @@ void CalcEntryBRRES (brres_info_t *info, uint entry_idx);
 #define MDL_MAGIC_NUM 0x4d444c30
 #define TEX_MAGIC_NUM 0x54455830
 #define SRT_MAGIC_NUM 0x53525430
+
+#define VIS_MAGIC "VIS0"
+#define VIS_MAGIC_NUM 0x56495330
 #define CHR_MAGIC_NUM 0x43485230
 #define PAT_MAGIC_NUM 0x50415430
 #define CLR_MAGIC_NUM 0x434c5230
@@ -143,6 +146,9 @@ void CalcEntryBRRES (brres_info_t *info, uint entry_idx);
 
 #define SRT_TEXT_MAGIC "#SRT"
 #define SRT_TEXT_MAGIC_NUM 0x23535254
+
+#define VIS_TEXT_MAGIC "#VIS"
+#define VIS_TEXT_MAGIC_NUM 0x23564953
 
 //-----------------------------------------------------------------------------
 // [[brsub_list_t]]

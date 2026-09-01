@@ -942,6 +942,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 				return FF_CHR_TXT;
 			case SRT_TEXT_MAGIC_NUM:
 				return FF_SRT_TXT;
+			case VIS_TEXT_MAGIC_NUM:
+				return FF_VIS_TXT;
 			case KMG_TEXT_MAGIC_NUM:
 				return FF_KMG_TXT;
 			case KRT_TEXT_MAGIC_NUM:
@@ -1149,6 +1151,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 					return FF_SHP;
 				case SRT_MAGIC_NUM:
 					return FF_SRT;
+				case VIS_MAGIC_NUM:
+					return FF_VIS;
 				case TEX_MAGIC_NUM:
 					return IsValidTEXCT (data, data_size, 0, 0, 0) < VALID_ERROR ? FF_TEX_CT
 																				 : FF_TEX;
@@ -1210,6 +1214,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 					return FF_CHR_TXT;
 				case SRT_TEXT_MAGIC_NUM:
 					return FF_SRT_TXT;
+				case VIS_TEXT_MAGIC_NUM:
+					return FF_VIS_TXT;
 				case KMG_TEXT_MAGIC_NUM:
 					return FF_KMG_TXT;
 				case KRT_TEXT_MAGIC_NUM:

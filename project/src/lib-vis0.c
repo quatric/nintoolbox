@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include "lib-vis0.h"
 #include "lib-szs.h"
+#include "lib-brres.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			byte order helper			///////////////
@@ -168,6 +169,7 @@ enumError ScanRawVIS0 (vis0_t *vis, bool init_vis, const void *data, uint data_s
 		return ERROR0 (ERR_INVALID_DATA, "VIS0: group entry table exceeds file size\n");
 
 	const uint n_bits_byte = vis0_align (n_frames, 32) / 8;
+	uint n_unresolved = 0;
 
 	for (u32 i = 1; i <= grp_n_entries; i++)
 	{
@@ -178,9 +180,23 @@ enumError ScanRawVIS0 (vis0_t *vis, bool init_vis, const void *data, uint data_s
 		if (!entry_off || entry_off + 8 > data_size - data_off)
 			return ERROR0 (ERR_INVALID_DATA, "VIS0: invalid entry offset\n");
 
-		ccp name = name_off && data_off + name_off < data_size
-			? (ccp)(base + data_off + name_off)
-			: "";
+		// Unlike CHR0/SRT0, retail VIS0 entries usually do not carry their own
+		// names: the entry name offset points into the *shared* BRRES string
+		// pool, because the names duplicate the sibling MDL0's bone names. A
+		// VIS0 extracted on its own therefore has no bytes to resolve them
+		// from. Emit an explicit "?<offset>" marker in that case rather than
+		// an empty string, so the loss is visible in the text form (and in a
+		// re-encoded file) instead of silently producing unnamed entries.
+		char namebuf[24];
+		ccp name;
+		if (name_off && data_off + name_off < data_size)
+			name = (ccp)(base + data_off + name_off);
+		else
+		{
+			snprintf (namebuf, sizeof (namebuf), "?0x%x", name_off);
+			name = namebuf;
+			n_unresolved++;
+		}
 		vis0_entry_t *e = AppendEntryVIS0 (vis, name);
 
 		const u32 flags = vis0_rd32 (entry + 4);
@@ -196,6 +212,14 @@ enumError ScanRawVIS0 (vis0_t *vis, bool init_vis, const void *data, uint data_s
 			memcpy (e->bits, entry + 8, n_bits_byte);
 		}
 	}
+
+	if (n_unresolved)
+		ERROR0 (ERR_WARNING,
+			"VIS0: %u of %u entry name%s point outside this file, into the"
+			" shared BRRES string pool, and were replaced by \"?<offset>\""
+			" markers. Decode the VIS0 from within its BRRES to get the real"
+			" names.\n",
+			n_unresolved, grp_n_entries, grp_n_entries == 1 ? "" : "s");
 
 	return ERR_OK;
 }
@@ -213,40 +237,45 @@ enumError SaveRawVIS0 (vis0_t *vis, ccp fname, bool set_time)
 	const uint head_size = vis->version == 4 ? 0x28 : 0x24;
 	const uint n_bits_byte = vis0_align (vis->n_frames, 32) / 8;
 
-	//--- lay out the string pool: object name, orig path, then one name per entry
-	// (each string simply appended, NUL terminated; duplicates are fine, this
-	// is not a shared BRRES-wide pool, just a private per-sub-file pool as
-	// BrawlLib also emits it when a VIS0 is decoded standalone)
+	//--- layout, mirroring what retail VIS0 files do: header, resource group
+	// (with its entry data inline), then the string pool last. The pool has to
+	// come last because the group's entry name fields are stored relative to
+	// the group; a pool placed before the group would make every one of those
+	// offsets negative.
 
 	ccp name = vis->name ? vis->name : "";
 	ccp orig_path = vis->orig_path ? vis->orig_path : "";
 
-	uint pool_size = strlen (name) + 1;
-	uint orig_path_rel = orig_path[0] ? pool_size : 0;
-	if (orig_path[0])
-		pool_size += strlen (orig_path) + 1;
-
-	uint *name_rel = CALLOC (vis->n_entry, sizeof (uint));
-	for (uint i = 0; i < vis->n_entry; i++)
-	{
-		name_rel[i] = pool_size;
-		pool_size += strlen (vis->entry[i].name) + 1;
-	}
-
-	//--- calculate the group + entry-data size
-
-	const uint group_off = head_size + pool_size;
+	const uint group_off = head_size;
 	const uint group_head_size = 8 + (vis->n_entry + 1) * 16;
 
 	uint data_size = group_head_size;
-	uint *entry_rel = CALLOC (vis->n_entry, sizeof (uint));
+	uint *entry_rel = CALLOC (vis->n_entry, sizeof (*entry_rel));
 	for (uint i = 0; i < vis->n_entry; i++)
 	{
 		entry_rel[i] = data_size;
 		data_size += vis->entry[i].is_constant ? 8 : 8 + n_bits_byte;
 	}
 
-	const uint total_size = group_off + data_size;
+	// absolute pool offsets: [0] name, [1] orig_path (0 if none), [2+i] entries
+	const uint pool_off = vis0_align (group_off + data_size, 4);
+	uint *name_off = CALLOC (vis->n_entry + 2, sizeof (*name_off));
+	uint pool_size = 0;
+
+	name_off[0] = pool_off + pool_size;
+	pool_size += strlen (name) + 1;
+	if (orig_path[0])
+	{
+		name_off[1] = pool_off + pool_size;
+		pool_size += strlen (orig_path) + 1;
+	}
+	for (uint i = 0; i < vis->n_entry; i++)
+	{
+		name_off[i + 2] = pool_off + pool_size;
+		pool_size += strlen (vis->entry[i].name) + 1;
+	}
+
+	const uint total_size = pool_off + pool_size;
 	u8 *buf = CALLOC (total_size, 1);
 
 	//--- header
@@ -263,9 +292,9 @@ enumError SaveRawVIS0 (vis0_t *vis, ccp fname, bool set_time)
 		vis0_w32 (buf + off, 0); // user_data_offset: none
 		off += 4;
 	}
-	vis0_w32 (buf + off, head_size); // string_offset -> name, right after the header
+	vis0_w32 (buf + off, name_off[0]); // string_offset
 	off += 4;
-	vis0_w32 (buf + off, orig_path[0] ? head_size + orig_path_rel : 0);
+	vis0_w32 (buf + off, name_off[1]); // orig_path_offset, 0 if absent
 	off += 4;
 	vis0_w16 (buf + off, vis->n_frames);
 	off += 2;
@@ -273,59 +302,59 @@ enumError SaveRawVIS0 (vis0_t *vis, ccp fname, bool set_time)
 	off += 2;
 	vis0_w32 (buf + off, vis->loop ? 1 : 0);
 
-	//--- string pool
-
-	memcpy (buf + head_size, name, strlen (name) + 1);
-	if (orig_path[0])
-		memcpy (buf + head_size + orig_path_rel, orig_path, strlen (orig_path) + 1);
-	for (uint i = 0; i < vis->n_entry; i++)
-		memcpy (buf + head_size + name_rel[i], vis->entry[i].name, strlen (vis->entry[i].name) + 1);
-
-	//--- resource group
+	//--- resource group, with the NW4R lookup tree
 
 	u8 *group = buf + group_off;
-	vis0_w32 (group, group_head_size); // BrawlLib writes only the header's own
-										// size here for a freshly built group,
-										// the size field is otherwise unused
-										// by loaders
+	vis0_w32 (group, group_head_size);
 	vis0_w32 (group + 4, vis->n_entry);
 
-	// dummy root entry #0
-	vis0_w16 (group + 8, 0xffff);
-	vis0_w16 (group + 8 + 2, 0);
-	vis0_w16 (group + 8 + 4, 0);
-	vis0_w16 (group + 8 + 6, 0);
-	vis0_w32 (group + 8 + 8, 0);
-	vis0_w32 (group + 8 + 12, 0);
+	brres_info_t *info = CALLOC (vis->n_entry + 1, sizeof (*info));
+	info[0].id = 0xffff;
+	info[0].name = "";
+	info[0].nlen = 0;
+	for (uint i = 0; i < vis->n_entry; i++)
+	{
+		info[i + 1].name = vis->entry[i].name;
+		info[i + 1].nlen = strlen (vis->entry[i].name);
+		CalcEntryBRRES (info, i + 1);
+	}
+
+	for (uint i = 0; i <= vis->n_entry; i++)
+	{
+		u8 *rec = group + 8 + i * 16;
+		vis0_w16 (rec, info[i].id);
+		vis0_w16 (rec + 2, 0);
+		vis0_w16 (rec + 4, info[i].left_idx);
+		vis0_w16 (rec + 6, info[i].right_idx);
+		if (i)
+		{
+			vis0_w32 (rec + 8, name_off[i + 1] - group_off);
+			vis0_w32 (rec + 12, entry_rel[i - 1]);
+		}
+	}
+	FREE (info);
 
 	for (uint i = 0; i < vis->n_entry; i++)
 	{
-		u8 *rec = group + 8 + (i + 1) * 16;
-		vis0_w16 (rec, i); // id: simple ascending index is sufficient, this
-						   //   is a red-black tree cache, not authoritative
-		vis0_w16 (rec + 2, 0);
-		vis0_w16 (rec + 4, 0xffff);
-		vis0_w16 (rec + 6, 0xffff);
-		vis0_w32 (rec + 8, head_size + name_rel[i] - group_off);
-		vis0_w32 (rec + 12, entry_rel[i]);
-
+		const vis0_entry_t *e = vis->entry + i;
 		u8 *entry = group + entry_rel[i];
-		vis0_w32 (entry, head_size + name_rel[i] - entry_rel[i] - group_off);
-		const u32 flags = (vis->entry[i].enabled ? 1u : 0)
-			| (vis->entry[i].is_constant ? 2u : 0);
-		vis0_w32 (entry + 4, flags);
-		if (!vis->entry[i].is_constant)
-		{
-			if (vis->entry[i].bits && vis->entry[i].n_bits_byte == n_bits_byte)
-				memcpy (entry + 8, vis->entry[i].bits, n_bits_byte);
-			else if (vis->entry[i].bits)
-				memcpy (entry + 8, vis->entry[i].bits,
-					vis->entry[i].n_bits_byte < n_bits_byte ? vis->entry[i].n_bits_byte
-															 : n_bits_byte);
-		}
+		vis0_w32 (entry, name_off[i + 2] - group_off - entry_rel[i]);
+		vis0_w32 (entry + 4, (e->enabled ? 1u : 0) | (e->is_constant ? 2u : 0));
+		if (!e->is_constant && e->bits)
+			memcpy (entry + 8, e->bits,
+				e->n_bits_byte < n_bits_byte ? e->n_bits_byte : n_bits_byte);
 	}
 
-	FREE (name_rel);
+	//--- string pool
+
+	memcpy (buf + name_off[0], name, strlen (name) + 1);
+	if (orig_path[0])
+		memcpy (buf + name_off[1], orig_path, strlen (orig_path) + 1);
+	for (uint i = 0; i < vis->n_entry; i++)
+		memcpy (buf + name_off[i + 2], vis->entry[i].name,
+			strlen (vis->entry[i].name) + 1);
+
+	FREE (name_off);
 	FREE (entry_rel);
 
 	//--- write file

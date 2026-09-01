@@ -1879,6 +1879,40 @@ echo "== QuickBMS-derived flat archives (SFZ DAT / BG4 / cram / SA01 / CA01 / HW
 # Synthetic fixtures built to each format's published .bms layout. These
 # assert the scanners, not retail fidelity -- see the README rows for which
 # of these formats has been checked against a real game file.
+t_vis0_cli(){
+  # VIS0 had a library in the tree that nothing ever called. This is its first
+  # coverage. Retail VIS0 entries name their nodes through the *shared* BRRES
+  # string pool, so a standalone VIS0 cannot resolve them and the decoder
+  # substitutes "?<offset>" markers -- which is why byte equality against
+  # retail is not asserted here. What is asserted: every retail VIS0 decodes,
+  # re-encodes, and the re-encoded file decodes to an identical text form; and
+  # re-encoding that output reproduces the same bytes, so the writer is
+  # deterministic and byte-exact once names are resolvable.
+  local d; d=$(mktemp -d)
+  local ok=1 n=0
+  for src in accf_ins_taran accf_ins_mukade accf_fgItem; do
+    "$B/wszst" EXTRACT "$PWD_PROJECT/../tests/fixtures/$src.brres" \
+      --dest "$d/$src" --overwrite >/dev/null 2>&1 || ok=0
+  done
+  local f
+  while IFS= read -r f; do
+    n=$((n+1))
+    "$B/wszst" TEXT   "$f"         --dest "$d/$n.txt" --overwrite >/dev/null 2>&1 || { ok=0; continue; }
+    "$B/wszst" BINARY "$d/$n.txt"  --dest "$d/$n.bin" --overwrite >/dev/null 2>&1 || { ok=0; continue; }
+    "$B/wszst" TEXT   "$d/$n.bin"  --dest "$d/$n.t2"  --overwrite >/dev/null 2>&1 || { ok=0; continue; }
+    cmp -s "$d/$n.txt" "$d/$n.t2" || ok=0
+    # names resolve inside our own output, so this direction must be byte-exact
+    "$B/wszst" BINARY "$d/$n.t2"   --dest "$d/$n.b2"  --overwrite >/dev/null 2>&1 || { ok=0; continue; }
+    cmp -s "$d/$n.bin" "$d/$n.b2" || ok=0
+  done < <(find "$d" -type f -path '*AnmVis*' | sort)
+
+  [ "$n" -ge 5 ] || ok=0
+  rm -rf "$d"
+  [ "$ok" = 1 ] && ok "VIS0 CLI decode -> encode -> decode ($n retail animations)" \
+    || no "VIS0 CLI decode -> encode -> decode" "mismatch"
+}
+t_vis0_cli
+
 t_chr_srt_cli(){
   # CHR0/SRT0 reach the CLI as TEXT/BINARY conversions. The encoders are not
   # byte-exact (retail orders the deduplicated track blobs differently), so
