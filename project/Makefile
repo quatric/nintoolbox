@@ -304,6 +304,7 @@ XOBJ_LIB	= analyze.o lib-szs-create.o lib-analyze.o lib-xbmg.o lib-msbt.o \
 			lib-wc24.o lib-bms.o lib-nitro.o lib-bch.o lib-aes.o lib-bignum.o lib-rsa.o \
 			lib-vc.o lib-sequence.o lib-excite.o lib-hsf.o \
 			lib-mdl.o lib-pat.o lib-vis0.o lib-transform.o \
+			lib-brres-anim.o lib-chr.o lib-srt.o \
 			lib-ctcode.o lib-lex.o lib-lecode.o lib-ledis.o \
 			lib-staticr.o db-dol.o db-ctcode.o getopt.o \
 			$(XOBJ_KMP) $(XOBJ_COMMON) $(XOBJ_KCL) lib-kcl-image.o lib-rkg.o \

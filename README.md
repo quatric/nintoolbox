@@ -301,7 +301,7 @@ here for comparison. Status is read directly from each format's
 | C0DATA | ⛔ | ⛔ |
 | C1CODE | ⛔ | ⛔ |
 | C1DATA (CTCODE) | ✅ | ⛔ |
-| CHR (CHR0) | ⛔ | ⛔ |
+| CHR (CHR0) | 🟡 | 🟡 |
 | CLR (CLR0) | ⛔ | ⛔ |
 | CRS1 | ⛔ | ⛔ |
 | CT-DEF | ✅ | ✅ |
@@ -367,7 +367,7 @@ here for comparison. Status is read directly from each format's
 | SHA1REF | ⛔ | ✅ |
 | SHP (SHP0) | ⛔ | ⛔ |
 | SKP-OBJ | ✅ | ✅ |
-| SRT (SRT0) | ⛔ | ⛔ |
+| SRT (SRT0) | 🟡 | 🟡 |
 | TEX (TEX0) | ✅ | ✅ |
 | TEX+CT | ✅ | ✅ |
 | TPL | ✅ | ✅ |
@@ -385,7 +385,39 @@ here for comparison. Status is read directly from each format's
 | YBZ | ✅ | ✅ |
 | YLZ | ✅ | ✅ |
 
-✅ supported · ⛔ not implemented/registered — many of these `⛔` rows (e.g.
-`CHR0`/`CLR0`/`SCN0`/`SHP0`/`SRT0`, the `RKG`/`GCT`/`WCH` family) are
+✅ supported · 🟡 partial · ⛔ not implemented/registered — many of these `⛔`
+rows (e.g. `CLR0`/`SCN0`/`SHP0`, the `RKG`/`GCT`/`WCH` family) are
 recognized/detected file types with no dedicated decode or encode path
 wired up in stock `wszst` itself.
+
+Notes on the BRRES animation siblings added by this fork:
+
+- **CHR0** 🟡 — bone animation. Full binary decode and re-encode of the
+  container, resource group, per-bone code word, all nine channels and the
+  I4/I6/I12/L1/L2/L4 track encodings, plus a lossless line-based text form
+  (`src/lib-chr.{c,h}`, sharing `src/lib-brres-anim.{c,h}`). Verified against
+  the 24 version-5 CHR0 files reachable from a retail Mario Kart Wii (USA)
+  disc image: all 24 decode, and decode→encode→decode is semantically
+  identical for all 24, byte-identical for 3. The remaining differences are
+  confined to name-pool ordering and the order in which shared track blobs
+  are emitted; the animation data itself matches. **Version 3 is deliberately
+  refused** (`ERR_NOT_IMPLEMENTED`): its I6 tracks use an 8-byte header that
+  carries no quantization base/step pair, and no scaling we tested reproduced
+  the stored Hermite tangents across the 62 retail v3 tracks available, so the
+  decoder declines rather than emitting plausible-looking wrong numbers. This
+  is why the row is 🟡 and not ✅.
+- **SRT0** 🟡 — material texture-SRT animation. Full decode and re-encode of
+  the container, resource group, per-material layer masks, the per-layer code
+  word and all five channels, plus a text form (`src/lib-srt.{c,h}`). Verified
+  against the 10 retail Mario Kart Wii SRT0 files: all 10 decode, all 10 round
+  trip semantically identically, 1 byte-identically, with the same name-pool
+  and track-ordering caveat as CHR0.
+- Both writers reproduce the retail layout: the NW4R resource-group lookup
+  tree (reusing this repo's `CalcEntryBRRES`), the trailing length-prefixed
+  string pool that sits outside the sub-file's declared size, and the sharing
+  of byte-identical track blobs between channels.
+- These are currently **library-level** implementations wired into the build
+  but not yet exposed as `wszst` subcommands, which is the remaining work for
+  a ✅ row.
+- **CLR0**, **SHP0** and **SCN0** remain ⛔: not started, so no claim is made
+  about them.
