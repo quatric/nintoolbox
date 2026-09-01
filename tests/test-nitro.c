@@ -673,6 +673,114 @@ int main (void)
 		}
 	}
 
+	// 20. Test SA01 (Mii Maker Wii U archive)
+	{
+		nintendo_sarc_entry_t entries[2];
+		memset (entries, 0, sizeof (entries));
+		entries[0].name = "mii_head.dat";
+		entries[0].data = (const u8 *)"MII_HEAD_DATA_PAYLOAD";
+		entries[0].size = (uint)strlen ((const char *)entries[0].data);
+		entries[1].name = "mii_body.dat";
+		entries[1].data = (const u8 *)"MII_BODY_DATA_PAYLOAD_123456";
+		entries[1].size = (uint)strlen ((const char *)entries[1].data);
+
+		u8 *sa_blob = 0;
+		uint sa_sz = 0;
+		enumError e1 = CreateSA01 (&sa_blob, &sa_sz, entries, 2, true, true);
+		if (e1 || !sa_blob || sa_sz < 8)
+		{
+			printf("  FAIL: CreateSA01 failed\n");
+			fail++;
+		}
+		else
+		{
+			u8 *inner = 0;
+			uint inner_sz = 0;
+			enumError e_dec = DecodeSA01Container (&inner, &inner_sz, sa_blob, sa_sz);
+			if (e_dec || !inner || inner_sz < 12)
+			{
+				printf("  FAIL: DecodeSA01Container failed on created SA01\n");
+				fail++;
+			}
+			else
+			{
+				nintendo_sarc_entry_t *scanned = 0;
+				uint n_scanned = 0;
+				enumError e2 = ScanSA01 (&scanned, &n_scanned, inner, inner_sz);
+				if (e2 || n_scanned != 2
+					|| strcmp (scanned[0].name, "mii_head.dat")
+					|| scanned[0].size != entries[0].size
+					|| memcmp (scanned[0].data, entries[0].data, entries[0].size)
+					|| strcmp (scanned[1].name, "mii_body.dat")
+					|| scanned[1].size != entries[1].size
+					|| memcmp (scanned[1].data, entries[1].data, entries[1].size))
+				{
+					printf("  FAIL: ScanSA01 roundtrip mismatch\n");
+					fail++;
+				}
+				else
+				{
+					printf("  PASS: SA01 create -> decode -> scan roundtrip (2 members)\n");
+				}
+				ResetOwnedEntries (scanned, n_scanned);
+				free (inner);
+			}
+			free (sa_blob);
+		}
+	}
+
+	// 21. Test CA01 (amiibo Settings 3DS archive)
+	{
+		nintendo_sarc_entry_t entries[2];
+		memset (entries, 0, sizeof (entries));
+		entries[0].data = (const u8 *)"AMIIBO_DATA_CHUNK_0";
+		entries[0].size = (uint)strlen ((const char *)entries[0].data);
+		entries[1].data = (const u8 *)"AMIIBO_DATA_CHUNK_1_5678";
+		entries[1].size = (uint)strlen ((const char *)entries[1].data);
+
+		u8 *ca_blob = 0;
+		uint ca_sz = 0;
+		enumError e1 = CreateCA01 (&ca_blob, &ca_sz, entries, 2, true, false);
+		if (e1 || !ca_blob || ca_sz < 0x80)
+		{
+			printf("  FAIL: CreateCA01 failed\n");
+			fail++;
+		}
+		else
+		{
+			u8 *inner = 0;
+			uint inner_sz = 0;
+			enumError e_dec = DecodeSA01Container (&inner, &inner_sz, ca_blob, ca_sz);
+			if (e_dec || !inner || inner_sz < 12)
+			{
+				printf("  FAIL: DecodeSA01Container failed on created CA01\n");
+				fail++;
+			}
+			else
+			{
+				nintendo_sarc_entry_t *scanned = 0;
+				uint n_scanned = 0;
+				enumError e2 = ScanSA01 (&scanned, &n_scanned, inner, inner_sz);
+				if (e2 || n_scanned != 2
+					|| scanned[0].size != entries[0].size
+					|| memcmp (scanned[0].data, entries[0].data, entries[0].size)
+					|| scanned[1].size != entries[1].size
+					|| memcmp (scanned[1].data, entries[1].data, entries[1].size))
+				{
+					printf("  FAIL: ScanCA01 roundtrip mismatch\n");
+					fail++;
+				}
+				else
+				{
+					printf("  PASS: CA01 create -> decode -> scan roundtrip (2 members)\n");
+				}
+				ResetOwnedEntries (scanned, n_scanned);
+				free (inner);
+			}
+			free (ca_blob);
+		}
+	}
+
 	printf("=== Results: %s (failures: %d) ===\n", fail == 0 ? "ALL PASSED" : "SOME FAILED", fail);
 	return fail;
 }

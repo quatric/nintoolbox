@@ -1105,6 +1105,14 @@ enumError ScanSA01 (
 	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size);
 enumError DecodeSA01Container (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 
+enumError CreateSA01 (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries,
+	bool compress, bool big_endian);
+
+enumError CreateCA01 (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries,
+	bool compress, bool big_endian);
+
 //-----------------------------------------------------------------------------
 // Metroid: Samus Returns (3DS): a headerless {u32 info_size, u32 data_size,
 // u32 files} + per-file {u32 crc, u32 offset, u32 end_offset} table with no

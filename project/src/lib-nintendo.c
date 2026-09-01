@@ -13378,6 +13378,244 @@ enumError ScanSA01 (
 	return ERR_OK;
 }
 
+static enumError nintendo_compress_zlib (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
+{
+	uLongf bound = compressBound ((uLong)src_size);
+	u8 *out = MALLOC (bound);
+	if (!out)
+		return ERR_CANT_CREATE;
+	uLongf out_size = bound;
+	if (compress (out, &out_size, src, src_size) != Z_OK)
+	{
+		FREE (out);
+		return ERR_CANT_CREATE;
+	}
+	*dest = out;
+	*dest_size = (uint)out_size;
+	return ERR_OK;
+}
+
+enumError CreateSA01 (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries,
+	bool compress, bool big_endian)
+{
+	if (!dest || !dest_size || !entries || !n_entries || n_entries > 0x10000)
+		return EINVAL;
+
+	const uint files = n_entries;
+	const uint off_tab = 12;
+	const uint size_tab = off_tab + files * 4;
+	const uint name_tab = size_tab + files * 4;
+	const uint header_meta = name_tab + files * 0x80;
+	const uint base_off = (header_meta + 15) & ~15u;
+
+	u64 total_size = base_off;
+	for (uint i = 0; i < files; i++)
+	{
+		total_size += entries[i].size;
+		total_size = (total_size + 15) & ~15u;
+	}
+
+	if (total_size > 0x7fffffff)
+		return EFBIG;
+
+	u8 *inner = CALLOC (1, (size_t)total_size);
+	if (!inner)
+		return ERR_CANT_CREATE;
+
+	memcpy (inner, "SA01", 4);
+	if (big_endian)
+	{
+		wr_be32 (inner + 4, files);
+		wr_be32 (inner + 8, base_off);
+	}
+	else
+	{
+		wr_le32 (inner + 4, files);
+		wr_le32 (inner + 8, base_off);
+	}
+
+	u32 cur_data_off = base_off;
+	for (uint i = 0; i < files; i++)
+	{
+		const u32 rel_off = cur_data_off - base_off;
+		if (big_endian)
+		{
+			wr_be32 (inner + off_tab + i * 4, rel_off);
+			wr_be32 (inner + size_tab + i * 4, entries[i].size);
+		}
+		else
+		{
+			wr_le32 (inner + off_tab + i * 4, rel_off);
+			wr_le32 (inner + size_tab + i * 4, entries[i].size);
+		}
+
+		ccp name = entries[i].name ? entries[i].name : "";
+		uint nlen = (uint)strlen (name);
+		if (nlen > 0x7f)
+			nlen = 0x7f;
+		memcpy (inner + name_tab + i * 0x80, name, nlen);
+
+		if (entries[i].data && entries[i].size)
+			memcpy (inner + cur_data_off, entries[i].data, entries[i].size);
+
+		cur_data_off += entries[i].size;
+		cur_data_off = (cur_data_off + 15) & ~15u;
+	}
+
+	if (compress)
+	{
+		u8 *zdata = 0;
+		uint zsize = 0;
+		enumError zerr = nintendo_compress_zlib (&zdata, &zsize, inner, (uint)total_size);
+		FREE (inner);
+		if (zerr)
+			return zerr;
+
+		if (big_endian)
+		{
+			u8 *out = MALLOC (4 + zsize);
+			if (!out)
+			{
+				FREE (zdata);
+				return ERR_CANT_CREATE;
+			}
+			wr_be32 (out, (u32)total_size);
+			memcpy (out + 4, zdata, zsize);
+			FREE (zdata);
+			*dest = out;
+			*dest_size = 4 + zsize;
+			return ERR_OK;
+		}
+		else
+		{
+			u8 *out = CALLOC (1, 0x80 + zsize);
+			if (!out)
+			{
+				FREE (zdata);
+				return ERR_CANT_CREATE;
+			}
+			memcpy (out, "ZCMP", 4);
+			memcpy (out + 0x80, zdata, zsize);
+			FREE (zdata);
+			*dest = out;
+			*dest_size = 0x80 + zsize;
+			return ERR_OK;
+		}
+	}
+
+	*dest = inner;
+	*dest_size = (uint)total_size;
+	return ERR_OK;
+}
+
+enumError CreateCA01 (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries,
+	bool compress, bool big_endian)
+{
+	if (!dest || !dest_size || !entries || !n_entries || n_entries > 0x10000)
+		return EINVAL;
+
+	const uint files = n_entries;
+	const uint off_tab = 12;
+	const uint size_tab = off_tab + files * 4;
+	const uint header_meta = size_tab + files * 4;
+	const uint base_off = (header_meta + 15) & ~15u;
+
+	u64 total_size = base_off;
+	for (uint i = 0; i < files; i++)
+	{
+		total_size += entries[i].size;
+		total_size = (total_size + 15) & ~15u;
+	}
+
+	if (total_size > 0x7fffffff)
+		return EFBIG;
+
+	u8 *inner = CALLOC (1, (size_t)total_size);
+	if (!inner)
+		return ERR_CANT_CREATE;
+
+	memcpy (inner, "CA01", 4);
+	if (big_endian)
+	{
+		wr_be32 (inner + 4, files);
+		wr_be32 (inner + 8, base_off);
+	}
+	else
+	{
+		wr_le32 (inner + 4, files);
+		wr_le32 (inner + 8, base_off);
+	}
+
+	u32 cur_data_off = base_off;
+	for (uint i = 0; i < files; i++)
+	{
+		const u32 rel_off = cur_data_off - base_off;
+		if (big_endian)
+		{
+			wr_be32 (inner + off_tab + i * 4, rel_off);
+			wr_be32 (inner + size_tab + i * 4, entries[i].size);
+		}
+		else
+		{
+			wr_le32 (inner + off_tab + i * 4, rel_off);
+			wr_le32 (inner + size_tab + i * 4, entries[i].size);
+		}
+
+		if (entries[i].data && entries[i].size)
+			memcpy (inner + cur_data_off, entries[i].data, entries[i].size);
+
+		cur_data_off += entries[i].size;
+		cur_data_off = (cur_data_off + 15) & ~15u;
+	}
+
+	if (compress)
+	{
+		u8 *zdata = 0;
+		uint zsize = 0;
+		enumError zerr = nintendo_compress_zlib (&zdata, &zsize, inner, (uint)total_size);
+		FREE (inner);
+		if (zerr)
+			return zerr;
+
+		if (big_endian)
+		{
+			u8 *out = MALLOC (4 + zsize);
+			if (!out)
+			{
+				FREE (zdata);
+				return ERR_CANT_CREATE;
+			}
+			wr_be32 (out, (u32)total_size);
+			memcpy (out + 4, zdata, zsize);
+			FREE (zdata);
+			*dest = out;
+			*dest_size = 4 + zsize;
+			return ERR_OK;
+		}
+		else
+		{
+			u8 *out = CALLOC (1, 0x80 + zsize);
+			if (!out)
+			{
+				FREE (zdata);
+				return ERR_CANT_CREATE;
+			}
+			memcpy (out, "ZCMP", 4);
+			memcpy (out + 0x80, zdata, zsize);
+			FREE (zdata);
+			*dest = out;
+			*dest_size = 0x80 + zsize;
+			return ERR_OK;
+		}
+	}
+
+	*dest = inner;
+	*dest_size = (uint)total_size;
+	return ERR_OK;
+}
+
 //-----------------------------------------------------------------------------
 ///////////////	   Metroid: Samus Returns (3DS) archive		///////////////
 //-----------------------------------------------------------------------------

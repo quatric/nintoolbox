@@ -5701,6 +5701,52 @@ static enumError create_bg4_dir (ccp source, ccp dest)
 	return err;
 }
 
+static enumError create_sa01_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+	u8 *data = 0;
+	uint size = 0;
+	if (!err)
+		err = CreateSA01 (&data, &size, list.entry, list.used, true, true);
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, source);
+		if (F.f && fwrite (data, 1, size, F.f) != size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+
+static enumError create_ca01_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+	u8 *data = 0;
+	uint size = 0;
+	if (!err)
+		err = CreateCA01 (&data, &size, list.entry, list.used, true, false);
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, source);
+		if (F.f && fwrite (data, 1, size, F.f) != size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+
 static enumError create_rarc_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -6658,6 +6704,10 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest)
 		return create_warc_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".bg4"))
 		return create_bg4_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".sa01"))
+		return create_sa01_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".ca01"))
+		return create_ca01_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".dat") && looks_like_sfzdat_dir (source_dir))
 		return create_sfzdat_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".gfa"))
@@ -7721,6 +7771,34 @@ static enumError cmd_create (bool create)
 			enumError err = create_bg4_dir (source_dir, dest);
 			if (verbose >= 0 || testmode)
 				fprintf (stdlog, "%s%sCREATE BG4 %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", source_dir, dest);
+			if (max_err < err)
+				max_err = err;
+			if (err <= ERR_WARNING && src_len > 2 && !strcasecmp (source_dir + src_len - 2, ".d")
+				&& !testmode)
+				remove_dir_recursive (source_dir);
+			ResetSetupParam (&sp);
+			continue;
+		}
+		if (create && ext && !strcasecmp (ext, ".sa01"))
+		{
+			enumError err = create_sa01_dir (source_dir, dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE SA01 %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", source_dir, dest);
+			if (max_err < err)
+				max_err = err;
+			if (err <= ERR_WARNING && src_len > 2 && !strcasecmp (source_dir + src_len - 2, ".d")
+				&& !testmode)
+				remove_dir_recursive (source_dir);
+			ResetSetupParam (&sp);
+			continue;
+		}
+		if (create && ext && !strcasecmp (ext, ".ca01"))
+		{
+			enumError err = create_ca01_dir (source_dir, dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE CA01 %s/ -> %s\n", verbose > 0 ? "\n" : "",
 					testmode ? "WOULD " : "", source_dir, dest);
 			if (max_err < err)
 				max_err = err;
