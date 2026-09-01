@@ -5955,6 +5955,44 @@ static enumError create_sze_dir (ccp source, ccp dest)
 	return err;
 }
 
+static bool looks_like_rflres_dir (ccp dir)
+{
+	char test[PATH_MAX];
+	snprintf (test, sizeof (test), "%s/beard", dir);
+	struct stat st;
+	if (stat (test, &st) == 0 && S_ISDIR (st.st_mode))
+		return true;
+	snprintf (test, sizeof (test), "%s/faceline", dir);
+	if (stat (test, &st) == 0 && S_ISDIR (st.st_mode))
+		return true;
+	return false;
+}
+
+static enumError create_rflres_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+
+	u8 *data = 0;
+	uint size = 0;
+	if (!err)
+		err = CreateRFLRes (&data, &size, list.entry, list.used);
+
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, source);
+		if (F.f && fwrite (data, 1, size, F.f) != size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+
 static enumError create_rarc_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -6926,6 +6964,8 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest)
 		return create_sze_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".dat") && looks_like_sfzdat_dir (source_dir))
 		return create_sfzdat_dir (source_dir, dest);
+	if ((!strcasecmp (ext, ".dat") || !strcasecmp (ext, ".rflres") || !strcasecmp (ext, ".rfl")) && looks_like_rflres_dir (source_dir))
+		return create_rflres_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".gfa"))
 		return create_gfa_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".rarc"))
@@ -8088,6 +8128,21 @@ static enumError cmd_create (bool create)
 			enumError err = create_sfzdat_dir (source_dir, dest);
 			if (verbose >= 0 || testmode)
 				fprintf (stdlog, "%s%sCREATE DAT %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", source_dir, dest);
+			if (max_err < err)
+				max_err = err;
+			if (err <= ERR_WARNING && src_len > 2 && !strcasecmp (source_dir + src_len - 2, ".d")
+				&& !testmode)
+				remove_dir_recursive (source_dir);
+			ResetSetupParam (&sp);
+			continue;
+		}
+		if (create && ext && (!strcasecmp (ext, ".dat") || !strcasecmp (ext, ".rflres") || !strcasecmp (ext, ".rfl"))
+			&& looks_like_rflres_dir (source_dir))
+		{
+			enumError err = create_rflres_dir (source_dir, dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE RFLRES %s/ -> %s\n", verbose > 0 ? "\n" : "",
 					testmode ? "WOULD " : "", source_dir, dest);
 			if (max_err < err)
 				max_err = err;
@@ -11325,6 +11380,58 @@ static enumError extract_sze_file (ccp arg, ccp basedir, uint depth)
 	}
 
 	FREE (dec);
+	if (!err && !testmode)
+	{
+		enumError sub = extract_tree_complete (dest, depth + 1);
+		if (err < sub)
+			err = sub;
+	}
+	return err;
+}
+
+static enumError extract_rflres_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err || raw_size < 8 || raw_size > 0x10000000)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	nintendo_sarc_entry_t *entries = 0;
+	uint n_entries = 0;
+	err = ScanRFLRes (&entries, &n_entries, raw, (uint)raw_size);
+	if (err || !entries || !n_entries)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT RFLRES:%s -> %s/ (%u files)\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest, n_entries);
+
+	if (!testmode)
+	{
+		for (uint i = 0; i < n_entries; i++)
+		{
+			char path[PATH_MAX];
+			snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", entries[i].name);
+			File_t F;
+			CreateFileOpt (&F, true, path, false, arg);
+			if (F.f && entries[i].size)
+				fwrite (entries[i].data, 1, entries[i].size, F.f);
+			ResetFile (&F, opt_preserve);
+		}
+	}
+
+	ResetOwnedEntries (entries, n_entries);
+	FREE (raw);
+
 	if (!err && !testmode)
 	{
 		enumError sub = extract_tree_complete (dest, depth + 1);
@@ -15628,6 +15735,10 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		return err;
 
 	err = extract_sze_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_rflres_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 

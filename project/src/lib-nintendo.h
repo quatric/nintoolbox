@@ -1114,6 +1114,16 @@ enumError EncodeSZE (
 	u8 **dest, uint *dest_size, const u8 *data, uint size, const u8 key[16], const u8 iv[16], uint mode);
 
 //-----------------------------------------------------------------------------
+// RFL_Res.dat / RFLRes.dat (Revolution Face Library / Wii Mii Resource archive).
+// Hierarchical container of 18 sub-archives (shapes, textures, facelines, etc.)
+
+enumError ScanRFLRes (
+	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size);
+
+enumError CreateRFLRes (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
+
+//-----------------------------------------------------------------------------
 // Mii Maker (Wii U, "SA01") and amiibo Settings (3DS, "CA01").  Both are a
 // zlib payload -- Mii Maker behind a bare big-endian u32 uncompressed size,
 // amiibo behind a "ZCMP" header with the payload at 0x80 -- wrapping a flat

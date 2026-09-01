@@ -974,6 +974,49 @@ int main (void)
 		}
 	}
 
+	// 27. Test RFL_Res.dat (Revolution Face Library)
+	{
+		nintendo_sarc_entry_t entries[3] = {
+			{ "beard/000.bin", (const u8 *)"RFL_BEARD_DATA", 14 },
+			{ "faceline/000.bin", (const u8 *)"RFL_FACELINE_GEOMETRY_MODEL_DATA", 32 },
+			{ "eye/000.bin", (const u8 *)"RFL_EYE_TEXTURE_RESOURCE", 24 }
+		};
+		u8 *rfl_data = 0;
+		uint rfl_size = 0;
+		enumError e1 = CreateRFLRes (&rfl_data, &rfl_size, entries, 3);
+		if (e1 || !rfl_data || rfl_size < 32)
+		{
+			printf("  FAIL: CreateRFLRes failed\n");
+			fail++;
+		}
+		else
+		{
+			nintendo_sarc_entry_t *scanned = 0;
+			uint n_scanned = 0;
+			enumError e2 = ScanRFLRes (&scanned, &n_scanned, rfl_data, rfl_size);
+			if (e2 || n_scanned != 3
+				|| strcmp (scanned[0].name, entries[0].name)
+				|| scanned[0].size != entries[0].size
+				|| memcmp (scanned[0].data, entries[0].data, entries[0].size)
+				|| strcmp (scanned[1].name, entries[2].name) // eye is arc index 1
+				|| scanned[1].size != entries[2].size
+				|| memcmp (scanned[1].data, entries[2].data, entries[2].size)
+				|| strcmp (scanned[2].name, entries[1].name) // faceline is arc index 3
+				|| scanned[2].size != entries[1].size
+				|| memcmp (scanned[2].data, entries[1].data, entries[1].size))
+			{
+				printf("  FAIL: ScanRFLRes roundtrip mismatch (n_scanned=%u)\n", n_scanned);
+				fail++;
+			}
+			else
+			{
+				printf("  PASS: RFL_Res.dat create -> scan roundtrip (3 members)\n");
+			}
+			ResetOwnedEntries (scanned, n_scanned);
+			free (rfl_data);
+		}
+	}
+
 	printf("=== Results: %s (failures: %d) ===\n", fail == 0 ? "ALL PASSED" : "SOME FAILED", fail);
 	return fail;
 }
