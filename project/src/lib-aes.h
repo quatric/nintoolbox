@@ -27,4 +27,7 @@ void AES128_CBC_Decrypt (const uint8_t key[16], const uint8_t iv[16], uint8_t *d
 // Encrypt and decrypt are the same operation for OFB.
 void AES128_OFB_Crypt (const uint8_t key[16], const uint8_t iv[16], uint8_t *data, size_t size);
 
+// CTR mode over 'size' bytes with standard 128-bit big-endian counter increment.
+void AES128_CTR_Crypt (const uint8_t key[16], const uint8_t iv[16], uint8_t *data, size_t size);
+
 #endif

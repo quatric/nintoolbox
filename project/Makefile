@@ -315,9 +315,9 @@ TOBJ_gen-ui	= $(XOBJ_OBJECT)
 TOBJ_wszst	= $(XOBJ_LIB) lib-hsd.o lib-halbank.o lib-bcres.o lib-bfres.o lib-nsbmd.o lib-passthru.o $(WRAPPER_OBJ) lzh8_cmp.o lzh8_dec.o lzh8_util.o
 TOBJ_wbmgt	= lib-xbmg.o lib-msbt.o $(XOBJ_OBJECT)
 TOBJ_wctct	= $(XOBJ_LIB)
-TOBJ_wimgt	= $(XOBJ_IMAGE) lib-excite.o lib-model-glb.o cgltf_impl.o lib-brres-model.o $(XOBJ_OBJECT)
+TOBJ_wimgt	= lib-aes.o $(XOBJ_IMAGE) lib-excite.o lib-model-glb.o cgltf_impl.o lib-brres-model.o $(XOBJ_OBJECT)
 TOBJ_wkclt	= lib-transform.o $(XOBJ_KCL) $(XOBJ_PARSER) $(XOBJ_OBJECT)
-TOBJ_wkmpt	= $(XOBJ_KMP) lib-transform.o \
+TOBJ_wkmpt	= lib-aes.o $(XOBJ_KMP) lib-transform.o \
 			$(XOBJ_KCL) lib-kcl-image.o \
 			$(XOBJ_IMAGE) $(XOBJ_PARSER) $(XOBJ_OBJECT)
 TOBJ_wlect	= $(XOBJ_LIB)
@@ -325,12 +325,12 @@ TOBJ_wmdlt	= $(XOBJ_LIB) lib-hsd.o lib-bcres.o lib-bfres.o lib-nsbmd.o
 TOBJ_wpatt	= lib-pat.o $(XOBJ_PARSER) $(XOBJ_OBJECT)
 TOBJ_wstrt	= lib-staticr.o db-dol.o db-ctcode.o $(XOBJ_OBJECT)
 TOBJ_wtest	= $(XOBJ_LIB)
-TOBJ_wlayt	= $(XOBJ_IMAGE) $(XOBJ_OBJECT)
+TOBJ_wlayt	= lib-aes.o $(XOBJ_IMAGE) $(XOBJ_OBJECT)
 TOBJ_wbrsar	= lib-sequence.o lib-brsar.o $(XOBJ_OBJECT)
 TOBJ_wwc24crypt	= lib-wc24.o lib-aes.o lib-bignum.o lib-rsa.o $(XOBJ_OBJECT)
-TOBJ_wbmsx	= lib-bms.o $(XOBJ_IMAGE) $(XOBJ_OBJECT)
+TOBJ_wbmsx	= lib-bms.o lib-aes.o $(XOBJ_IMAGE) $(XOBJ_OBJECT)
 TOBJ_wseqt	= lib-sequence.o $(XOBJ_OBJECT)
-TOBJ_wbrstm	= lib-dspadpcm.o lib-brstm.o lib-passthru.o lib-bms.o $(XOBJ_IMAGE) $(XOBJ_OBJECT)
+TOBJ_wbrstm	= lib-dspadpcm.o lib-brstm.o lib-passthru.o lib-bms.o lib-aes.o $(XOBJ_IMAGE) $(XOBJ_OBJECT)
 TOBJ_wrbnk	= lib-rbnk.o $(XOBJ_OBJECT)
 TOBJ_wbfsar	= lib-bfsar.o $(XOBJ_OBJECT)
 
@@ -1229,8 +1229,8 @@ st:
 	@svn diff | grep ^+ | wc -l
 
 .PHONY : test-nitro
-test-nitro: lib-nintendo.o lib-nitro.o lib-smdh.o lib-bntx.o lib-gtx.o file-type.o lib-file.o src/astc/astc_decomp.o src/astc/astc_wrapper.o $(BCN_CXX_OBJS) $(LATTE_CXX_OBJS)
-	@$(CC) -O2 -ffunction-sections -fdata-sections -Isrc -Idclib ../tests/test-nitro.c lib-nitro.o lib-nintendo.o lib-smdh.o lib-bntx.o lib-gtx.o src/astc/astc_decomp.o src/astc/astc_wrapper.o $(BCN_CXX_OBJS) $(LATTE_CXX_OBJS) lib-szs.o lib-quicklz.o qlz120.o qlz140.o lzh8_dec.o lzh8_cmp.o lzh8_util.o dclib*.o -lcurses -lz -lc++ -Wl,-dead_strip -o bin/test-nitro
+test-nitro: lib-nintendo.o lib-nitro.o lib-smdh.o lib-bntx.o lib-gtx.o lib-aes.o file-type.o lib-file.o src/astc/astc_decomp.o src/astc/astc_wrapper.o $(BCN_CXX_OBJS) $(LATTE_CXX_OBJS)
+	@$(CC) -O2 -ffunction-sections -fdata-sections -Isrc -Idclib ../tests/test-nitro.c lib-nitro.o lib-nintendo.o lib-smdh.o lib-bntx.o lib-gtx.o lib-aes.o src/astc/astc_decomp.o src/astc/astc_wrapper.o $(BCN_CXX_OBJS) $(LATTE_CXX_OBJS) lib-szs.o lib-quicklz.o qlz120.o qlz140.o lzh8_dec.o lzh8_cmp.o lzh8_util.o dclib*.o -lcurses -lz -lc++ -Wl,-dead_strip -o bin/test-nitro
 	@./bin/test-nitro
 
 .PHONY : test

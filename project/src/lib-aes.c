@@ -257,3 +257,28 @@ void AES128_OFB_Crypt (const uint8_t key[16], const uint8_t iv[16], uint8_t *dat
 		off += n;
 	}
 }
+
+void AES128_CTR_Crypt (const uint8_t key[16], const uint8_t iv[16], uint8_t *data, size_t size)
+{
+	aes128_ctx_t ctx;
+	AES128_Init (&ctx, key);
+	uint8_t counter[16];
+	memcpy (counter, iv, 16);
+	size_t off = 0;
+	while (off < size)
+	{
+		uint8_t keystream[16];
+		memcpy (keystream, counter, 16);
+		AES128_EncryptBlock (&ctx, keystream);
+		const size_t n = size - off < 16 ? size - off : 16;
+		for (size_t i = 0; i < n; i++)
+			data[off + i] ^= keystream[i];
+		off += n;
+
+		for (int c = 15; c >= 0; c--)
+		{
+			if (++counter[c] != 0)
+				break;
+		}
+	}
+}

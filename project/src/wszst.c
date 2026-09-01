@@ -5923,6 +5923,38 @@ static enumError create_hwl_dir (ccp source, ccp dest)
 	return err;
 }
 
+static enumError create_sze_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+
+	u8 *sarc_data = 0;
+	uint sarc_size = 0;
+	if (!err)
+		err = CreateSARC (&sarc_data, &sarc_size, list.entry, list.used, false);
+
+	u8 *sze_data = 0;
+	uint sze_size = 0;
+	if (!err && sarc_data && sarc_size)
+		err = EncodeSZE (&sze_data, &sze_size, sarc_data, sarc_size, 0, 0, 1);
+
+	FREE (sarc_data);
+
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, source);
+		if (F.f && fwrite (sze_data, 1, sze_size, F.f) != sze_size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", sze_size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (sze_data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+
 static enumError create_rarc_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -6890,6 +6922,8 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest)
 		return create_fsys_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".gsh"))
 		return create_gsh_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".sze"))
+		return create_sze_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".dat") && looks_like_sfzdat_dir (source_dir))
 		return create_sfzdat_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".gfa"))
@@ -8025,6 +8059,20 @@ static enumError cmd_create (bool create)
 			enumError err = create_gsh_dir (source_dir, dest);
 			if (verbose >= 0 || testmode)
 				fprintf (stdlog, "%s%sCREATE GSH %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", source_dir, dest);
+			if (max_err < err)
+				max_err = err;
+			if (err <= ERR_WARNING && src_len > 2 && !strcasecmp (source_dir + src_len - 2, ".d")
+				&& !testmode)
+				remove_dir_recursive (source_dir);
+			ResetSetupParam (&sp);
+			continue;
+		}
+		if (create && ext && !strcasecmp (ext, ".sze"))
+		{
+			enumError err = create_sze_dir (source_dir, dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE SZE %s/ -> %s\n", verbose > 0 ? "\n" : "",
 					testmode ? "WOULD " : "", source_dir, dest);
 			if (max_err < err)
 				max_err = err;
@@ -11208,6 +11256,81 @@ static enumError extract_gsh_shaders (ccp arg, ccp basedir, uint depth)
 	ResetGTX (&gtx);
 	FREE (raw);
 	return written ? err : ERR_NOTHING_TO_DO;
+}
+
+static enumError extract_sze_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".sze"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err || raw_size < 32)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	u8 *dec = 0;
+	uint dec_size = 0;
+	err = DecodeSZE (&dec, &dec_size, raw, (uint)raw_size, 0);
+	FREE (raw);
+	if (err || !dec || !dec_size)
+	{
+		FREE (dec);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT SZE:%s -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (!testmode)
+	{
+		nintendo_sarc_t sarc;
+		enumError serr = ScanSARC (&sarc, dec, dec_size);
+		if (!serr && sarc.n_entries)
+		{
+			for (uint i = 0; i < sarc.n_entries; i++)
+			{
+				ccp name = 0;
+				const u8 *edata = 0;
+				uint esize = 0;
+				if (GetSARCEntry (&sarc, i, &name, &edata, &esize) == ERR_OK)
+				{
+					char path[PATH_MAX];
+					snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", name ? name : "unknown.bin");
+					File_t F;
+					CreateFileOpt (&F, true, path, false, arg);
+					if (F.f && esize)
+						fwrite (edata, 1, esize, F.f);
+					ResetFile (&F, opt_preserve);
+				}
+			}
+		}
+		else
+		{
+			char path[PATH_MAX];
+			snprintf (path, sizeof (path), "%s/%sdecrypted.szs", dest, basedir ? basedir : "");
+			File_t F;
+			CreateFileOpt (&F, true, path, false, arg);
+			if (F.f)
+				fwrite (dec, 1, dec_size, F.f);
+			ResetFile (&F, opt_preserve);
+		}
+	}
+
+	FREE (dec);
+	if (!err && !testmode)
+	{
+		enumError sub = extract_tree_complete (dest, depth + 1);
+		if (err < sub)
+			err = sub;
+	}
+	return err;
 }
 
 // Extract a Monster Games .art/.img GUI image to a sibling PNG. Same GX
@@ -15500,6 +15623,10 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		return err;
 
 	err = extract_hwlegends_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_sze_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 

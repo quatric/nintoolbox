@@ -268,6 +268,7 @@ injection" describe the injection path specifically, which still consumes a
 | RL | Compression | ✅ | ✅ | |
 | SARC | Archive | ✅ | ✅ | Nintendo "SARC" (Sorted ARChive); extract, inject, create via `wszst`; widely used in Switch titles |
 | SSZL / VCRA | Compression / archive | ✅ | ✅ | Namco Museum Remix / Megamix (Wii): `wszst xx` recognizes extensionless `SSZL` LZSS0 streams (4096-byte zero-initialized window) and extracts `VCRA` archives; `EncodeSSZL`/`DecodeSSZL` fully supported |
+| SZE | Encrypted archive / container | ✅ | ✅ | F-Zero 99 and Nintendo Switch (NST) AES-128 encrypted SZS/SARC/Zstd container (`"SZE\0"` / `"SZE1"` 32-byte header with AES-CTR/CBC/OFB payload); `wszst EXTRACT`/`xx` transparently decrypts and unpacks member files, and `wszst CREATE <folder> --dest <file.sze>` creates encrypted SZE archives |
 | RNC1 | Compression | ✅ | ✅ | deterministic ProPack-compatible method-1 encoder; independently decoded by `propack` regression vectors |
 | RNC2 | Compression | ✅ | ✅ | encode via `wszst COMPRESS --dest .rnc` |
 | RSEQ | Sequence | ✅ | ✅ | Wii Revolution Sequence (.rseq/.brseq); MML disassembly, assembly, MIDI conversion (`wseqt` & `wszst`) |

@@ -1104,6 +1104,16 @@ enumError CreateCramARC (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 
 //-----------------------------------------------------------------------------
+// SZE (Encrypted SZS / SARC / Zstd container used by F-Zero 99 and Switch titles).
+// Wraps encrypted payload behind a 32-byte header with AES-128-CTR/CBC.
+
+enumError DecodeSZE (
+	u8 **dest, uint *dest_size, const u8 *data, uint size, const u8 key[16]);
+
+enumError EncodeSZE (
+	u8 **dest, uint *dest_size, const u8 *data, uint size, const u8 key[16], const u8 iv[16], uint mode);
+
+//-----------------------------------------------------------------------------
 // Mii Maker (Wii U, "SA01") and amiibo Settings (3DS, "CA01").  Both are a
 // zlib payload -- Mii Maker behind a bare big-endian u32 uncompressed size,
 // amiibo behind a "ZCMP" header with the payload at 0x80 -- wrapping a flat
