@@ -7278,12 +7278,49 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 			if (!target_exists && !is_archive_dir_name (path, strlen (path)))
 				continue;
 
-			// Check for audio/video preview directories that must NOT be repacked into U8 archives
+			// Media extraction produces one editable MP4 preview. If its content is
+			// newer than the source, send it back through mobipeg using settings
+			// recovered from the source; otherwise discard the preview directory.
 			ccp t_ext = strrchr (target_file, '.');
 			if (t_ext
+				&& (!strcasecmp (t_ext, ".thp") || !strcasecmp (t_ext, ".moflex")
+					|| !strcasecmp (t_ext, ".mo") || !strcasecmp (t_ext, ".mods")))
+			{
+				DIR *md = opendir (path); struct dirent *me; char preview[PATH_MAX] = {0};
+				while (md && (me = readdir (md)))
+				{
+					size_t ml = strlen (me->d_name);
+					if (ml > 4 && !strcasecmp (me->d_name + ml - 4, ".mp4"))
+						{ snprintf (preview, sizeof (preview), "%s/%s", path, me->d_name); break; }
+				}
+				if (md) closedir (md);
+				struct stat ps;
+				const bool media_changed = *preview && target_exists && !stat (preview, &ps)
+					&& ps.st_mtime > st_target.st_mtime;
+				if (media_changed)
+				{
+					enumError err = PassthruReencodeMedia (preview, target_file);
+					if (err == ERR_NOTHING_TO_DO)
+					{
+						ERROR0 (ERR_WARNING,
+							"edited media retained because mobipeg is unavailable: %s", preview);
+						if (max_err < ERR_WARNING) max_err = ERR_WARNING;
+						continue;
+					}
+					if (err > ERR_WARNING)
+					{
+						if (max_err < err) max_err = err;
+						continue; // keep the edited preview so a failed encode loses nothing
+					}
+				}
+				remove_dir_recursive (path);
+				continue;
+			}
+
+			// Audio previews and archives are not generic U8 directories.
+			if (t_ext
 				&& (!strcasecmp (t_ext, ".brsar") || !strcasecmp (t_ext, ".sdat")
-					|| !strcasecmp (t_ext, ".thp") || !strcasecmp (t_ext, ".moflex")
-					|| !strcasecmp (t_ext, ".mo") || !strcasecmp (t_ext, ".brstm")
+					|| !strcasecmp (t_ext, ".brstm")
 					|| !strcasecmp (t_ext, ".bcstm") || !strcasecmp (t_ext, ".bfstm")
 					|| !strcasecmp (t_ext, ".bns") || !strcasecmp (t_ext, ".ast")
 					|| !strcasecmp (t_ext, ".dsp")))

@@ -53,8 +53,21 @@ static enumError passthru_archive_or_bms (ccp src, ccp basedir, ccp stage, char 
 
 static int run_program_capture (char *const argv[], ccp capture_path);
 static void dump_capture (ccp capture_path);
+static const char *find_program (ccp name);
 
 static ccp resolve_mobipeg (void);
+
+static ccp resolve_ffprobe_for_mobipeg (ccp mobipeg)
+{
+	ccp slash = strrchr (mobipeg, '/');
+	if (slash)
+	{
+		snprintf (prog_buf, sizeof (prog_buf), "%.*s/ffprobe", (int)(slash - mobipeg), mobipeg);
+		if (!access (prog_buf, X_OK))
+			return prog_buf;
+	}
+	return find_program ("ffprobe");
+}
 
 static enumError passthru_media (
 	ccp src, ccp basedir, ccp stage, char *staged_dir, uint staged_dir_size, bool is_audio);
@@ -202,6 +215,15 @@ static enumError passthru_media (
 	if (rc != 0)
 		return ERROR0 (ERR_SUBJOB_FAILED, "pass-through mobipeg failed for %s (exit %d)", src, rc);
 
+	// Extraction itself can take minutes. Give the preview the source's time so
+	// a later CREATE can distinguish that generated file from a user edit.
+	struct stat src_stat;
+	if (!stat (src, &src_stat))
+	{
+		struct timespec times[2] = { src_stat.st_atim, src_stat.st_mtim };
+		utimensat (AT_FDCWD, out_file, times, 0);
+	}
+
 	snprintf (staged_dir, staged_dir_size, "%s", stage);
 	return ERR_OK;
 }
@@ -344,6 +366,86 @@ enumError PassthruEncodeAudio (ccp wav_path, ccp dest_path, ccp format, s64 loop
 	}
 	unlink (capture_path);
 	return err;
+}
+
+enumError PassthruReencodeMedia (ccp preview_path, ccp source_path)
+{
+	ccp tool = resolve_mobipeg ();
+	if (!tool || !*tool)
+		return ERR_NOTHING_TO_DO;
+	char tool_path[PATH_MAX];
+	snprintf (tool_path, sizeof (tool_path), "%s", tool);
+
+	ccp ext = strrchr (source_path, '.');
+	ccp codec = 0, muxer = 0, mobi_generation = 0;
+	if (ext && !strcasecmp (ext, ".thp"))
+		codec = "thp", muxer = "thp";
+	else if (ext && !strcasecmp (ext, ".mo"))
+		codec = "mobiclip", muxer = "mobiclip_mo", mobi_generation = "0";
+	else if (ext && !strcasecmp (ext, ".moflex"))
+		codec = "mobiclip", muxer = "moflex", mobi_generation = "1";
+	else if (ext && !strcasecmp (ext, ".mods"))
+		codec = "mobiclip", muxer = "mods", mobi_generation = "2";
+	else
+		return ERR_NOTHING_TO_DO;
+
+	// ffprobe is shipped beside mobipeg. Its compact output gives us the two
+	// source-controlled video settings that can be recovered from a finished
+	// bitstream. Encoder-only knobs (motion search, multipass, etc.) are not
+	// present in any media file and therefore cannot truthfully be inferred.
+	char fps[64] = {0}, bitrate[64] = {0};
+	ccp probe = resolve_ffprobe_for_mobipeg (tool_path);
+	if (probe)
+	{
+		char probe_path[PATH_MAX];
+		snprintf (probe_path, sizeof (probe_path), "%s", probe);
+		char capture[PATH_MAX];
+		snprintf (capture, sizeof (capture), "/tmp/wszst-mobipeg-probe-%d.log", (int)getpid ());
+		char *pargv[] = { probe_path, "-v", "error", "-select_streams", "v:0", "-show_entries",
+			"stream=avg_frame_rate,bit_rate", "-of", "default=nw=1:nk=1", (char *)source_path, 0 };
+		if (!run_program_capture (pargv, capture))
+		{
+			FILE *f = fopen (capture, "r");
+			if (f)
+			{
+				if (fgets (fps, sizeof (fps), f)) fps[strcspn (fps, "\r\n")] = 0;
+				if (fgets (bitrate, sizeof (bitrate), f)) bitrate[strcspn (bitrate, "\r\n")] = 0;
+				fclose (f);
+			}
+		}
+		unlink (capture);
+	}
+
+	char temp[PATH_MAX];
+	snprintf (temp, sizeof (temp), "%s.wszst-new", source_path);
+	char *argv[32]; uint n = 0;
+	argv[n++] = tool_path; argv[n++] = "-i"; argv[n++] = (char *)preview_path;
+	argv[n++] = "-i"; argv[n++] = (char *)source_path;
+	argv[n++] = "-map"; argv[n++] = "0:v:0";
+	argv[n++] = "-map"; argv[n++] = "1:a?";
+	argv[n++] = "-c:v"; argv[n++] = (char *)codec;
+	if (mobi_generation) { argv[n++] = "-mobiclip"; argv[n++] = (char *)mobi_generation; }
+	if (*fps && strcmp (fps, "0/0") && strcmp (fps, "N/A")) { argv[n++] = "-r"; argv[n++] = fps; }
+	if (*bitrate && strcmp (bitrate, "N/A") && strcmp (bitrate, "0"))
+		{ argv[n++] = "-b:v"; argv[n++] = bitrate; }
+	argv[n++] = "-c:a"; argv[n++] = "copy";
+	argv[n++] = "-f"; argv[n++] = (char *)muxer;
+	argv[n++] = "-y"; argv[n++] = temp; argv[n++] = 0;
+	assert (n <= sizeof (argv) / sizeof (*argv));
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%sREPACK media passthrough: %s -> %s (%s; source fps/bitrate/audio)\n",
+			testmode ? "WOULD " : "", preview_path, source_path, tool_path);
+	if (testmode)
+		return ERR_OK;
+	const int rc = run_program (argv);
+	if (rc || rename (temp, source_path))
+	{
+		unlink (temp);
+		return ERROR0 (ERR_SUBJOB_FAILED, "pass-through mobipeg re-encode failed for %s (exit %d)",
+			source_path, rc);
+	}
+	return ERR_OK;
 }
 
 // Same as run_program(), but redirects the child's stdout+stderr into

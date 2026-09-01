@@ -1,5 +1,10 @@
 # Roadmap: wiimms-szs-tools-plus
 
+> This is an engineering log, not user documentation. Start with
+> [README.md](README.md) for the format index and
+> [docs/WORKFLOWS.md](docs/WORKFLOWS.md) for the unpack/edit/selective-rebuild
+> workflow. The detail below is retained as implementation provenance.
+
 Working plan for the next round of fork work. Items are grouped by how ready
 they are to build, not by the order they were requested in. Update this file
 as items land — move them to the README's format table / gist and delete the
@@ -556,4 +561,3 @@ Supported QuickBMS script chaining directly in `wszst xx` via the `--bms` CLI op
 4. §5/§6/§7 — each needs a research pass (samples + oracle) before any
    code gets written, per this project's verification discipline. Don't
    start implementing until that research step is done for each one.
-

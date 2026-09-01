@@ -52,6 +52,11 @@ formats beyond what upstream Wiimm's SZS Tools ships, plus a few tools
 into `wszst`/`wimgt`. Builds with the normal `cd project && make all -j4` and
 is exercised by `tests/regress.sh`.
 
+For the normal unpack, edit, and selective recursive rebuild workflow, see
+**[docs/WORKFLOWS.md](docs/WORKFLOWS.md)**. That guide is the canonical home
+for cache behavior, companion-tool setup, and source-preset-preserving mobipeg
+re-encoding. The table below remains the canonical format capability index.
+
 Regression results have distinct meanings. Ordinary `PASS` entries may be
 decoded-data, semantic, structural, or explicitly byte-exact checks as stated
 in their labels. The separate `BYTE`/`BFAIL` totals are stricter canonical

@@ -52,6 +52,12 @@ bool wux_compress (ccp src, ccp dst);
 // Returns ERR_NOTHING_TO_DO if mobipeg isn't installed.
 enumError PassthruEncodeAudio (ccp wav_path, ccp dest_path, ccp format, s64 loop_start);
 
+// Re-encode an edited media preview back over SOURCE_PATH. The source is
+// probed and also supplied as the audio input, so the replacement keeps the
+// original container/video family, frame rate, average video bitrate and
+// encoded audio stream instead of silently falling back to mobipeg defaults.
+enumError PassthruReencodeMedia (ccp preview_path, ccp source_path);
+
 // Repack an extracted container directory back into a container file using
 // external tools (wit COPY, ndstool -c, sharpii WAD -p, wux_compress).
 enumError PassthruPack (ccp src_dir, ccp dest);
