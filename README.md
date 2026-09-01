@@ -81,18 +81,18 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 
 ### 3D Models & Geometry
 
-| Format | Extensions | Middleware / Engine / Platform Context |
-|---|---|---|
-| **BCH** | `.bch` | NintendoWare NW4C CTR H3D model container (3DS) |
-| **BCRES / CGFX** | `.bcres`, `.cgfx` | NintendoWare NW4C CTR graphics container (3DS) |
-| **BFRES** | `.bfres` | NintendoWare NW4F & NintendoSDK binary resource (Wii U / Switch) |
-| **BMD** | `.bmd`, `.bdhc` | Early Nintendo DS 3D model format |
-| **HSD** | `.dat` | HAL Laboratory `sysdolphin` object graph (GameCube) |
-| **HSF** | `.hsf` | Hudson Soft 3D model format (GameCube / Wii) |
-| **MDL0 / BRRES** | `.mdl0`, `.brres` | NintendoWare NW4R binary resource model (Wii) |
-| **MOD** | `.mod` | Monster Games NDL3/NDL2 display list model (Wii) |
-| **MSH (PMsh)** | `.msh` | Monster Games collision mesh format (Wii) |
-| **NSBMD** | `.nsbmd`, `.bmd` | Nintendo DS Nitro 3D model format (DS) |
+| Format | Extensions | Support Mode | Middleware / Engine / Platform Context |
+|---|---|---|---|
+| **BCH** | `.bch` | Passthrough | NintendoWare NW4C CTR H3D model container (3DS) |
+| **BCRES / CGFX** | `.bcres`, `.cgfx` | Passthrough | NintendoWare NW4C CTR graphics container (3DS) |
+| **BFRES** | `.bfres` | Passthrough | NintendoWare NW4F & NintendoSDK binary resource (Wii U / Switch) |
+| **BMD** | `.bmd`, `.bdhc` | **GLB** | Early Nintendo DS 3D model format |
+| **HSD** | `.dat` | **GLB** | HAL Laboratory `sysdolphin` object graph (GameCube) |
+| **HSF** | `.hsf` | **GLB** | Hudson Soft 3D model format (GameCube / Wii) |
+| **MDL0 / BRRES** | `.mdl0`, `.brres` | **GLB** | NintendoWare NW4R binary resource model (Wii) |
+| **MOD** | `.mod` | **GLB** | Monster Games NDL3/NDL2 display list model (Wii) |
+| **MSH (PMsh)** | `.msh` | **GLB** | Monster Games collision mesh format (Wii) |
+| **NSBMD** | `.nsbmd`, `.bmd` | **GLB** | Nintendo DS Nitro 3D model format (DS) |
 
 ---
 
