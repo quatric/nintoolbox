@@ -133,9 +133,10 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, MinusString, MinusString, "LE-CODE File List" },
 
 	// FF_CHR = 22
-	{ FF_CHR, 0, 0, "CHR", ".chr", ".szs", ".chr0", FFT_VALID | FFT_BRSUB | FFT_BRSUB2 | FFT_CUT, 4,
+	{ FF_CHR, FF_CHR, FF_CHR_TXT, "CHR", ".chr", ".szs", ".chr0",
+		FFT_VALID | FFT_BRSUB | FFT_BRSUB2 | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
 		{ 0x43, 0x48, 0x52, 0x30 }, // "CHR0"
-		"AnmChr(NW4R)", "5,(*)", filetype_info_not_supported, "Model movement animations" },
+		"AnmChr(NW4R)", "5,(*)", "4,5", "Model movement animations" },
 
 	// FF_CLR = 23
 	{ FF_CLR, 0, 0, "CLR", ".clr", ".szs", ".clr0", FFT_VALID | FFT_BRSUB | FFT_BRSUB2 | FFT_CUT, 4,
@@ -165,9 +166,10 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		"AnmShp(NW4R)", "4,(*)", filetype_info_not_supported, filetype_info_unknown },
 
 	// FF_SRT = 28
-	{ FF_SRT, 0, 0, "SRT", ".srt", ".szs", ".srt0", FFT_VALID | FFT_BRSUB | FFT_BRSUB2 | FFT_CUT, 4,
+	{ FF_SRT, FF_SRT, FF_SRT_TXT, "SRT", ".srt", ".szs", ".srt0",
+		FFT_VALID | FFT_BRSUB | FFT_BRSUB2 | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
 		{ 0x53, 0x52, 0x54, 0x30 }, // "SRT0"
-		"AnmTexSrt(NW4R)", "5,(*)", filetype_info_not_supported, "Texture movement animations" },
+		"AnmTexSrt(NW4R)", "5,(*)", "4,5", "Texture movement animations" },
 
 	// FF_TEX = 29
 	{ FF_TEX, 0, 0, "TEX", ".tex", ".szs", ".tex0",
@@ -804,6 +806,18 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 },
 		0, MinusString, MinusString, "Zlib deflate compression (.zlib)" },
 
+	// FF_CHR_TXT = 152 (text version of CHR)
+	{ FF_CHR_TXT, FF_CHR, FF_CHR_TXT, "CHRTXT", ".txt", ".szs", ".txt",
+		FFT_VALID | FFT_TEXT | FFT_DECODE | FFT_ENCODE | FFT_PARSER, 4,
+		{ 0x23, 0x43, 0x48, 0x52 }, // "#CHR"
+		0, MinusString, MinusString, "Text version of CHR" },
+
+	// FF_SRT_TXT = 153 (text version of SRT)
+	{ FF_SRT_TXT, FF_SRT, FF_SRT_TXT, "SRTTXT", ".txt", ".szs", ".txt",
+		FFT_VALID | FFT_TEXT | FFT_DECODE | FFT_ENCODE | FFT_PARSER, 4,
+		{ 0x23, 0x53, 0x52, 0x54 }, // "#SRT"
+		0, MinusString, MinusString, "Text version of SRT" },
+
 	// FF_N
 	{ 0 }
 };
@@ -842,7 +856,9 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_SHA1REF, "SHA1REF", 0, 0x2011 }, { FF_SHA1ID, "SHA1ID", 0, 0x2011 },
 	{ FF_PREFIX, "PREFIX", 0, 0x3011 }, { FF_MTCAT, "MTCAT", 0, 0x3011 },
 	{ FF_CT_SHA1, "CT-SHA1", "CTSHA1", 0x11 }, { FF_MDL_TXT, "MDL-TXT", "MDLTXT", 0x11 },
-	{ FF_PAT_TXT, "PAT-TXT", "PATTXT", 0x7011 }, { FF_TPL, "TPL", 0, 0x3809 },
+	{ FF_PAT_TXT, "PAT-TXT", "PATTXT", 0x7011 },
+	{ FF_CHR_TXT, "CHR-TXT", "CHRTXT", 0x7011 },
+	{ FF_SRT_TXT, "SRT-TXT", "SRTTXT", 0x7011 }, { FF_TPL, "TPL", 0, 0x3809 },
 	{ FF_TPLX, "TPL", "TPLX", 0x3809 }, { FF_CUPICON, "CUPICON", "TPL", 0x2009 },
 	{ FF_CUPICON, "TPLX", 0, 0x2009 }, { FF_BTI, "BTI", "BTIENV", 0x3809 },
 	{ FF_BTI, "BTIMAT", 0, 0x3809 }, { FF_BREFT_IMG, "BREFT-IMG", "BREFTIMG", 0x3809 },

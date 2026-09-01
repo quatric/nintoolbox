@@ -422,8 +422,18 @@ Notes on the BRRES animation siblings added by this fork:
   tree (reusing this repo's `CalcEntryBRRES`), the trailing length-prefixed
   string pool that sits outside the sub-file's declared size, and the sharing
   of byte-identical track blobs between channels.
-- These are currently **library-level** implementations wired into the build
-  but not yet exposed as `wszst` subcommands, which is the remaining work for
-  a ✅ row.
+- Both are now reachable from the CLI. `wszst TEXT <file.chr0>` decodes to the
+  text form and `wszst BINARY <file.txt>` re-encodes it, matching how PAT0 is
+  wired: new `FF_CHR_TXT`/`FF_SRT_TXT` file types with `#CHR`/`#SRT` text
+  magics, so both directions are auto-detected and no explicit format flag is
+  needed. Retested end to end through the CLI on the 6 retail Animal Crossing:
+  City Folk animations in `tests/fixtures` (4 CHR0, 2 SRT0): all 6 decode and
+  re-encode, the re-encoded binary decodes to a byte-identical text form, and
+  the encoder is deterministic. None of the 6 is byte-exact against retail —
+  the payload values are all present and the file size is often unchanged, but
+  the deduplicated track blobs are laid out in a different order. Covered by
+  `t_chr_srt_cli` in `tests/regress.sh`.
+- The rows stay 🟡 rather than ✅: CHR0 still refuses version 3, and neither
+  encoder reproduces retail's byte layout.
 - **CLR0**, **SHP0** and **SCN0** remain ⛔: not started, so no claim is made
   about them.

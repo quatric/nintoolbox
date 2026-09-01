@@ -241,6 +241,8 @@ typedef enum file_format_t
 	FF_SARC, // 149 - Nintendo SARC archive (SARC / .sarc)
 	FF_BFMA, // 150 - Nintendo Wii U manual archive (.bfma)
 	FF_ZLIB, // 151 - Zlib deflate compression (.zlib)
+	FF_CHR_TXT, // 152 - Text version of CHR
+	FF_SRT_TXT, // 153 - Text version of SRT
 
 	//--- number of elements
 

@@ -138,6 +138,12 @@ void CalcEntryBRRES (brres_info_t *info, uint entry_idx);
 #define PAT_TEXT_MAGIC "#PAT"
 #define PAT_TEXT_MAGIC_NUM 0x23504154
 
+#define CHR_TEXT_MAGIC "#CHR"
+#define CHR_TEXT_MAGIC_NUM 0x23434852
+
+#define SRT_TEXT_MAGIC "#SRT"
+#define SRT_TEXT_MAGIC_NUM 0x23535254
+
 //-----------------------------------------------------------------------------
 // [[brsub_list_t]]
 

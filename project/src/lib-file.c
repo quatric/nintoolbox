@@ -938,6 +938,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 				return FF_MDL_TXT;
 			case PAT_TEXT_MAGIC_NUM:
 				return FF_PAT_TXT;
+			case CHR_TEXT_MAGIC_NUM:
+				return FF_CHR_TXT;
+			case SRT_TEXT_MAGIC_NUM:
+				return FF_SRT_TXT;
 			case KMG_TEXT_MAGIC_NUM:
 				return FF_KMG_TXT;
 			case KRT_TEXT_MAGIC_NUM:
@@ -1202,6 +1206,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 					return FF_MDL_TXT;
 				case PAT_TEXT_MAGIC_NUM:
 					return FF_PAT_TXT;
+				case CHR_TEXT_MAGIC_NUM:
+					return FF_CHR_TXT;
+				case SRT_TEXT_MAGIC_NUM:
+					return FF_SRT_TXT;
 				case KMG_TEXT_MAGIC_NUM:
 					return FF_KMG_TXT;
 				case KRT_TEXT_MAGIC_NUM:

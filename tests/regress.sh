@@ -1879,6 +1879,32 @@ echo "== QuickBMS-derived flat archives (SFZ DAT / BG4 / cram / SA01 / CA01 / HW
 # Synthetic fixtures built to each format's published .bms layout. These
 # assert the scanners, not retail fidelity -- see the README rows for which
 # of these formats has been checked against a real game file.
+t_chr_srt_cli(){
+  # CHR0/SRT0 reach the CLI as TEXT/BINARY conversions. The encoders are not
+  # byte-exact (retail orders the deduplicated track blobs differently), so
+  # assert what the fork can honestly claim: every retail animation decodes,
+  # re-encodes, and survives a second decode with an identical text form.
+  local d; d=$(mktemp -d)
+  local ok=1 n=0
+  for src in accf_ins_taran accf_ins_mukade accf_pat0season00; do
+    "$B/wszst" EXTRACT "$PWD_PROJECT/../tests/fixtures/$src.brres" --dest "$d/$src" --overwrite >/dev/null 2>&1 || ok=0
+  done
+  local f k
+  while IFS= read -r f; do
+    n=$((n+1)); k=$n
+    "$B/wszst" TEXT   "$f"          --dest "$d/$k.txt" --overwrite >/dev/null 2>&1 || { ok=0; continue; }
+    "$B/wszst" BINARY "$d/$k.txt"   --dest "$d/$k.bin" --overwrite >/dev/null 2>&1 || { ok=0; continue; }
+    "$B/wszst" TEXT   "$d/$k.bin"   --dest "$d/$k.t2"  --overwrite >/dev/null 2>&1 || { ok=0; continue; }
+    cmp -s "$d/$k.txt" "$d/$k.t2" || ok=0
+  done < <(find "$d" -type f \( -path '*AnmChr*' -o -path '*AnmTexSrt*' \) | sort)
+
+  [ "$n" -ge 6 ] || ok=0
+  rm -rf "$d"
+  [ "$ok" = 1 ] && ok "CHR0/SRT0 CLI decode -> encode -> decode ($n retail animations)" \
+    || no "CHR0/SRT0 CLI decode -> encode -> decode" "mismatch"
+}
+t_chr_srt_cli
+
 t_bms_ports(){
   command -v python3 >/dev/null || { sk "QuickBMS-derived flat archives"; return; }
   local d; d=$(mktemp -d)

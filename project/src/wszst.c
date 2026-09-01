@@ -59,6 +59,8 @@
 #include "lib-ledis.h"
 #include "lib-mdl.h"
 #include "lib-pat.h"
+#include "lib-chr.h"
+#include "lib-srt.h"
 #include "lib-breff.h"
 #include "lib-image.h"
 #include "lib-common.h"
@@ -15846,6 +15848,46 @@ static bool ConvertHelper (const u8 *data, // valid data
 			pat.fname = 0;
 			ResetPAT (&pat);
 		}
+			return true;
+
+		case FF_CHR:
+		case FF_CHR_TXT:
+			FreeContainerData (cdata);
+			{
+				chr0_t chr;
+				InitializeCHR0 (&chr);
+				*err = fform == FF_CHR_TXT ? ScanTextCHR0 (&chr, false, src_fname)
+										   : ScanRawCHR0 (&chr, false, data, data_size);
+				if (*err)
+				{
+					ResetCHR0 (&chr);
+					return false;
+				}
+				*err = testmode	  ? ERR_OK
+					: binary_dest ? SaveRawCHR0 (&chr, dest_fname, true)
+								  : SaveTextCHR0 (&chr, dest_fname, true);
+				ResetCHR0 (&chr);
+			}
+			return true;
+
+		case FF_SRT:
+		case FF_SRT_TXT:
+			FreeContainerData (cdata);
+			{
+				srt0_t srt;
+				InitializeSRT0 (&srt);
+				*err = fform == FF_SRT_TXT ? ScanTextSRT0 (&srt, false, src_fname)
+										   : ScanRawSRT0 (&srt, false, data, data_size);
+				if (*err)
+				{
+					ResetSRT0 (&srt);
+					return false;
+				}
+				*err = testmode	  ? ERR_OK
+					: binary_dest ? SaveRawSRT0 (&srt, dest_fname, true)
+								  : SaveTextSRT0 (&srt, dest_fname, true);
+				ResetSRT0 (&srt);
+			}
 			return true;
 
 		case FF_BFLYT:
