@@ -298,6 +298,21 @@ static char *strip_ext_dup (ccp name)
 	char *out = MALLOC (len + 1);
 	memcpy (out, name, len);
 	out[len] = 0;
+
+	ccp dot2 = strrchr (out, '.');
+	if (dot2 && (!strcasecmp (dot2, ".rseq") || !strcasecmp (dot2, ".rbnk")
+		|| !strcasecmp (dot2, ".rwar") || !strcasecmp (dot2, ".rwsd")
+		|| !strcasecmp (dot2, ".brseq") || !strcasecmp (dot2, ".brbnk")
+		|| !strcasecmp (dot2, ".brwar") || !strcasecmp (dot2, ".brwsd")
+		|| !strcasecmp (dot2, ".sseq") || !strcasecmp (dot2, ".sbnk")
+		|| !strcasecmp (dot2, ".swar") || !strcasecmp (dot2, ".fseq")
+		|| !strcasecmp (dot2, ".fbnk") || !strcasecmp (dot2, ".fwar")
+		|| !strcasecmp (dot2, ".cseq") || !strcasecmp (dot2, ".cbnk")
+		|| !strcasecmp (dot2, ".cwar")))
+	{
+		size_t len2 = (size_t)(dot2 - out);
+		out[len2] = 0;
+	}
 	return out;
 }
 
@@ -863,38 +878,61 @@ static enumError UnpackBrsarContent (
 	if (stat (out_dir, &st) != 0)
 		mkdir (out_dir, 0755);
 
+	bool *extracted_fid = CALLOC (file_count + 1, sizeof (bool));
 	uint extracted = 0;
-	for (u32 i = 0; i < item_count; i++)
+
+	for (u32 g = 0; g < group_count; g++)
 	{
-		u32 item_entry_offs = rd_u32 (info + item_tab_offs + 8 + i * 8);
-		const u8 *item = info + item_entry_offs;
-		u32 fid = rd_u32 (item + 0x00);
-		u32 data_offs = rd_u32 (item + 0x04);
-		u32 data_size = rd_u32 (item + 0x08);
+		u32 group_entry_offs = rd_u32 (info + group_tab_offs + 8 + g * 8);
+		const u8 *group = info + group_entry_offs;
+		u32 group_data_offs = rd_u32 (group + 0x10);
+		u32 item_tab_offs = rd_u32 (group + 0x24);
+		u32 item_count = rd_u32 (info + item_tab_offs);
 
-		if ((size_t)group_data_offs + data_offs + data_size > file_size)
-			continue;
-		const u8 *bytes = file_base + group_data_offs + data_offs;
+		for (u32 i = 0; i < item_count; i++)
+		{
+			u32 item_entry_offs = rd_u32 (info + item_tab_offs + 8 + i * 8);
+			const u8 *item = info + item_entry_offs;
+			u32 fid = rd_u32 (item + 0x00);
+			u32 data_offs = rd_u32 (item + 0x04);
+			u32 data_size = rd_u32 (item + 0x08);
 
-		ccp name = fid < file_count ? file_name[fid] : 0;
-		char path[PATH_MAX];
-		if (name)
-			snprintf (
-				path, sizeof (path), "%s/%s%s", out_dir, name, sniff_extension (bytes, data_size));
-		else
-			snprintf (path, sizeof (path), "%s/file_%03u%s", out_dir, fid,
-				sniff_extension (bytes, data_size));
+			if (fid < file_count && extracted_fid[fid])
+				continue;
 
-		File_t F;
-		enumError ferr = CreateFileOpt (&F, true, path, false, out_dir);
-		if (F.f && fwrite (bytes, 1, data_size, F.f) != data_size)
-			ferr = FILEERROR1 (
-				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", data_size, path);
-		ResetFile (&F, 0);
-		if (!ferr)
-			extracted++;
+			if ((size_t)group_data_offs + data_offs + data_size > file_size)
+				continue;
+			const u8 *bytes = file_base + group_data_offs + data_offs;
+
+			ccp name = fid < file_count ? file_name[fid] : 0;
+			ccp ext = sniff_extension (bytes, data_size);
+			char path[PATH_MAX];
+			if (name)
+			{
+				if (has_suffix (name, ext))
+					snprintf (path, sizeof (path), "%s/%s", out_dir, name);
+				else
+					snprintf (path, sizeof (path), "%s/%s%s", out_dir, name, ext);
+			}
+			else
+				snprintf (path, sizeof (path), "%s/file_%03u%s", out_dir, fid, ext);
+
+			File_t F;
+			enumError ferr = CreateFileOpt (&F, true, path, false, out_dir);
+			if (F.f && fwrite (bytes, 1, data_size, F.f) != data_size)
+				ferr = FILEERROR1 (
+					&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", data_size, path);
+			ResetFile (&F, 0);
+			if (!ferr)
+			{
+				extracted++;
+				if (fid < file_count)
+					extracted_fid[fid] = true;
+			}
+		}
 	}
 
+	FREE (extracted_fid);
 	FREE (file_name);
 	return extracted ? ERR_OK : ERROR0 (ERR_INVALID_DATA, "UnpackBRSAR: no assets extracted\n");
 }
