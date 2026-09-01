@@ -7818,7 +7818,8 @@ static enumError cmd_create (bool create)
 				ccp stem_ext = strrchr (raw_stem, '.');
 				if (stem_ext
 					&& (!strcasecmp (stem_ext, ".wbfs") || !strcasecmp (stem_ext, ".iso")
-						|| !strcasecmp (stem_ext, ".nds") || !strcasecmp (stem_ext, ".wad")
+						|| !strcasecmp (stem_ext, ".nds") || !strcasecmp (stem_ext, ".srl")
+						|| !strcasecmp (stem_ext, ".dsi") || !strcasecmp (stem_ext, ".wad")
 						|| !strcasecmp (stem_ext, ".wux")))
 				{
 					snprintf (dest, sizeof (dest), "%s", raw_stem);

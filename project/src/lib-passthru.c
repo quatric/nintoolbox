@@ -2180,8 +2180,8 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 
 	// ----- claimed by extension alone (weak path only) -----
 
-	// Nintendo DS ROM  (by extension)
-	if (!strong_only && is_ext (src, ".nds"))
+	// Nintendo DS ROM  (by extension: .nds, .srl, .dsi)
+	if (!strong_only && is_ds_ext (src))
 		return passthru_archive_or_bms (
 			src, basedir, stage, staged_dir, staged_dir_size, true, false, false, false, false);
 
@@ -2327,8 +2327,8 @@ enumError PassthruPack (ccp src_dir, ccp dest)
 		return ERR_OK;
 	}
 
-	// 2. Nintendo DS ROM (.nds)
-	if (is_ext (dest, ".nds"))
+	// 2. Nintendo DS ROM (.nds, .srl, .dsi)
+	if (is_ds_ext (dest))
 	{
 		ccp tool = resolve_tool (opt_with_wit, "wit");
 		bool use_ndstool = !wit_supports_xcontainers (tool);
