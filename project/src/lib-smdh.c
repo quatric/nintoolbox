@@ -22,6 +22,26 @@ static inline u64 srd64 (const u8 *p)
 	return (u64)srd32 (p) | (u64)srd32 (p + 4) << 32;
 }
 
+static inline void swr16 (u8 *p, u16 v)
+{
+	p[0] = (u8)(v & 0xff);
+	p[1] = (u8)((v >> 8) & 0xff);
+}
+
+static inline void swr32 (u8 *p, u32 v)
+{
+	p[0] = (u8)(v & 0xff);
+	p[1] = (u8)((v >> 8) & 0xff);
+	p[2] = (u8)((v >> 16) & 0xff);
+	p[3] = (u8)((v >> 24) & 0xff);
+}
+
+static inline void swr64 (u8 *p, u64 v)
+{
+	swr32 (p, (u32)(v & 0xffffffff));
+	swr32 (p + 4, (u32)(v >> 32));
+}
+
 //-----------------------------------------------------------------------------
 
 // NUL-terminated (or field-width-truncated) UTF-16LE -> malloc'd UTF-8.
@@ -277,4 +297,92 @@ char *TextSMDH (const smdh_t *smdh)
 		out[n] = 0;
 	}
 	return out;
+}
+
+//-----------------------------------------------------------------------------
+
+static void smdh_utf8_to_utf16le (u8 *dest, uint max_u16, ccp src)
+{
+	memset (dest, 0, max_u16 * 2);
+	if (!src)
+		return;
+
+	uint out_idx = 0;
+	const u8 *s = (const u8 *)src;
+	while (*s && out_idx < max_u16)
+	{
+		u32 cp = 0;
+		if (*s < 0x80)
+			cp = *s++;
+		else if ((*s & 0xe0) == 0xc0)
+		{
+			cp = (*s++ & 0x1f) << 6;
+			if (*s) cp |= (*s++ & 0x3f);
+		}
+		else if ((*s & 0xf0) == 0xe0)
+		{
+			cp = (*s++ & 0x0f) << 12;
+			if (*s) cp |= (*s++ & 0x3f) << 6;
+			if (*s) cp |= (*s++ & 0x3f);
+		}
+		else
+		{
+			s++;
+			continue;
+		}
+
+		if (cp < 0x10000)
+		{
+			dest[out_idx * 2] = (u8)(cp & 0xFF);
+			dest[out_idx * 2 + 1] = (u8)((cp >> 8) & 0xFF);
+			out_idx++;
+		}
+	}
+}
+
+enumError EncodeSMDH (u8 **dest, uint *dest_size, const smdh_t *smdh)
+{
+	if (!dest || !dest_size || !smdh)
+		return EINVAL;
+
+	u8 *out = MALLOC (SMDH_SIZE);
+	if (!out)
+		return ERR_CANT_CREATE;
+
+	memset (out, 0, SMDH_SIZE);
+	memcpy (out, "SMDH", 4);
+	swr16 (out + 4, smdh->version);
+
+	u8 *p = out + 8;
+	for (uint i = 0; i < SMDH_N_TITLES; i++, p += 0x200)
+	{
+		smdh_utf8_to_utf16le (p, 0x40, smdh->title[i].short_desc);
+		smdh_utf8_to_utf16le (p + 0x80, 0x80, smdh->title[i].long_desc);
+		smdh_utf8_to_utf16le (p + 0x180, 0x40, smdh->title[i].publisher);
+	}
+
+	// Application settings at offset 0x2008
+	memcpy (p, smdh->game_ratings, 0x10);
+	swr32 (p + 0x10, smdh->region_lock);
+	swr32 (p + 0x14, smdh->matchmaker_id);
+	swr64 (p + 0x18, smdh->matchmaker_bit_id);
+	swr32 (p + 0x20, smdh->flags);
+	swr16 (p + 0x24, smdh->eula_version);
+
+	u32 frame_bits = 0;
+	memcpy (&frame_bits, &smdh->banner_frame, 4);
+	swr32 (p + 0x28, frame_bits);
+	swr32 (p + 0x2c, smdh->streetpass_id);
+
+	p += 0x30;
+	p += 8; // 8 reserved bytes
+
+	if (smdh->small_icon)
+		memcpy (p, smdh->small_icon, SMDH_SMALL_ICON_SIZE);
+	if (smdh->large_icon)
+		memcpy (p + SMDH_SMALL_ICON_SIZE, smdh->large_icon, SMDH_LARGE_ICON_SIZE);
+
+	*dest = out;
+	*dest_size = SMDH_SIZE;
+	return ERR_OK;
 }

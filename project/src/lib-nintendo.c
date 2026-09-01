@@ -5191,6 +5191,104 @@ enumError DecodeNUTEXB_RGBA (u8 **dest, uint *width, uint *height, const u8 *src
 	return DecodeBNTX_RGBA (dest, width, height, &bntx, 0);
 }
 
+static inline uint nut_round_up (uint val, uint align)
+{
+	return (val + align - 1) & ~(align - 1);
+}
+
+static inline uint nut_div_round_up (uint val, uint divisor)
+{
+	return (val + divisor - 1) / divisor;
+}
+
+static inline u64 nut_addr_block_linear (
+	uint x, uint y, uint image_width, uint bytes_per_pixel, u64 base_address, uint block_height)
+{
+	const uint width_in_gobs = nut_div_round_up (image_width * bytes_per_pixel, 64);
+
+	const u64 gob_address = base_address
+		+ (u64)(y / (8 * block_height)) * 512 * block_height * width_in_gobs
+		+ (u64)(x * bytes_per_pixel / 64) * 512 * block_height
+		+ (u64)((y % (8 * block_height)) / 8) * 512;
+
+	const uint xb = x * bytes_per_pixel;
+	return gob_address + (u64)((xb % 64) / 32) * 256 + (u64)((y % 8) / 2) * 64
+		+ (u64)((xb % 32) / 16) * 32 + (u64)(y % 2) * 16 + (xb % 16);
+}
+
+enumError EncodeNUTEXB_RGBA (u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height, ccp name)
+{
+	if (!dest || !dest_size || !rgba || !width || !height)
+		return EINVAL;
+
+	if (!name || !*name)
+		name = "texture";
+
+	uint bh_log2;
+	if (height <= 16)
+		bh_log2 = 0;
+	else if (height <= 32)
+		bh_log2 = 1;
+	else if (height <= 64)
+		bh_log2 = 2;
+	else if (height <= 128)
+		bh_log2 = 3;
+	else
+		bh_log2 = 4;
+
+	const uint block_height = 1u << bh_log2;
+	const uint bpp = 4;
+	const uint pitch = nut_round_up (width * bpp, 64);
+	const uint surf_h = nut_round_up (height, block_height * 8);
+	const u64 surf_size = (u64)pitch * surf_h;
+
+	if (surf_size > 0x40000000)
+		return EFBIG;
+
+	const uint mip_section_size = 0x40;
+	const uint trailer_size = 0x70;
+	const u64 total_size = surf_size + mip_section_size + trailer_size;
+
+	u8 *out = CALLOC (1, (size_t)total_size);
+	if (!out)
+		return ERR_CANT_CREATE;
+
+	for (uint y = 0; y < height; y++)
+		for (uint x = 0; x < width; x++)
+		{
+			const u64 pos = nut_addr_block_linear (x, y, width, bpp, 0, block_height);
+			if (pos + bpp <= surf_size)
+				memcpy (out + pos, rgba + 4 * ((size_t)y * width + x), 4);
+		}
+
+	// Mip section at offset surf_size
+	u8 *mips = out + surf_size;
+	wr_le32 (mips, (u32)surf_size);
+
+	// Trailer at offset surf_size + mip_section_size
+	u8 *tr = out + surf_size + mip_section_size;
+	strncpy ((char *)tr + 4, name, 63);
+
+	// Header block at tr + 0x40 (which is total_size - 0x30)
+	u8 *hdr = tr + 0x40;
+	wr_le32 (hdr + 0x04, width);
+	wr_le32 (hdr + 0x08, height);
+	wr_le32 (hdr + 0x0C, 1);
+	wr_le16 (hdr + 0x10, 0x0400); // R8G8B8A8_UNORM
+	wr_le32 (hdr + 0x18, 1);
+	wr_le32 (hdr + 0x1C, 0x1000);
+	wr_le32 (hdr + 0x20, 1);
+	wr_le32 (hdr + 0x24, (u32)surf_size);
+
+	// Magic & version at tr + 0x68 (total_size - 8)
+	memcpy (tr + 0x68 + 1, "XET", 3);
+	wr_le32 (tr + 0x68 + 4, 0x0200);
+
+	*dest = out;
+	*dest_size = (uint)total_size;
+	return ERR_OK;
+}
+
 // CTPK (CTR Texture Package, 3DS container)
 enumError ScanCTPK (nintendo_ctpk_t *ctpk, const u8 *data, uint size)
 {
@@ -14455,12 +14553,35 @@ enumError DecodeMVDK (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 }
 #define free do_not_use_free
 
-// EncodeMVDK: compression not yet implemented (compressor requires
-// NitroPaint internal StList/BSTREAM infrastructure not ported here).
 enumError EncodeMVDK (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 {
-	(void)dest; (void)dest_size; (void)src; (void)src_size;
-	return EINVAL;
+	if (!dest || !dest_size || !src || !src_size || src_size > 0x3fffffff)
+		return EINVAL;
+
+	u8 *lz_data = 0;
+	uint lz_size = 0;
+	enumError err = EncodeLZ10LZ11 (&lz_data, &lz_size, src, src_size, false);
+	if (err || !lz_data || lz_size < 4)
+	{
+		u8 *out = MALLOC (4 + src_size);
+		if (!out) return ERR_CANT_CREATE;
+		u32 hdr = (src_size << 2) | 0;
+		out[0] = (u8)hdr; out[1] = (u8)(hdr >> 8); out[2] = (u8)(hdr >> 16); out[3] = (u8)(hdr >> 24);
+		memcpy (out + 4, src, src_size);
+		*dest = out;
+		*dest_size = 4 + src_size;
+		return ERR_OK;
+	}
+
+	u32 hdr = (src_size << 2) | 1;
+	lz_data[0] = (u8)hdr;
+	lz_data[1] = (u8)(hdr >> 8);
+	lz_data[2] = (u8)(hdr >> 16);
+	lz_data[3] = (u8)(hdr >> 24);
+
+	*dest = lz_data;
+	*dest_size = lz_size;
+	return ERR_OK;
 }
 
 //-----------------------------------------------------------------------------
@@ -15621,6 +15742,122 @@ enumError EncodePSDK (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 		for (uint i = 0; i < take; i++)
 			out[out_pos++] = src[src_pos++];
 	}
+
+	*dest = out;
+	*dest_size = out_pos;
+	return ERR_OK;
+}
+
+//-----------------------------------------------------------------------------
+///////////////		Namco Museum SSZL LZSS0 Compression		///////////////
+//-----------------------------------------------------------------------------
+
+enumError DecodeSSZL (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
+{
+	if (!dest || !dest_size || !src || src_size < 16 || memcmp (src, "SSZL", 4))
+		return EINVAL;
+
+	const u32 zsize = (u32)src[8] | ((u32)src[9] << 8) | ((u32)src[10] << 16) | ((u32)src[11] << 24);
+	const u32 usize = (u32)src[12] | ((u32)src[13] << 8) | ((u32)src[14] << 16) | ((u32)src[15] << 24);
+
+	if (!usize || usize > NFMT_MAX_OUTPUT || 16 + zsize > src_size)
+		return EINVAL;
+
+	u8 *out = MALLOC (usize);
+	if (!out)
+		return ERR_CANT_CREATE;
+
+	u8 ring[4096];
+	memset (ring, 0, sizeof (ring));
+	uint r = 4096 - 18, ip = 0, op = 0;
+	uint flags = 0;
+	const u8 *in = src + 16;
+
+	while (op < usize)
+	{
+		if (!(flags & 0x100))
+		{
+			if (ip >= zsize)
+			{
+				FREE (out);
+				return EINVAL;
+			}
+			flags = in[ip++] | 0xff00;
+		}
+		if (flags & 1)
+		{
+			if (ip >= zsize)
+			{
+				FREE (out);
+				return EINVAL;
+			}
+			out[op++] = ring[r] = in[ip++];
+			r = (r + 1) & 0xfff;
+		}
+		else
+		{
+			if (ip + 1 >= zsize)
+			{
+				FREE (out);
+				return EINVAL;
+			}
+			uint p = in[ip++];
+			const uint b = in[ip++];
+			p |= (b & 0xf0) << 4;
+			uint n = (b & 0x0f) + 3;
+			if (n > usize - op)
+			{
+				FREE (out);
+				return EINVAL;
+			}
+			while (n--)
+			{
+				out[op++] = ring[r] = ring[p++ & 0xfff];
+				r = (r + 1) & 0xfff;
+			}
+		}
+		flags >>= 1;
+	}
+
+	*dest = out;
+	*dest_size = usize;
+	return ERR_OK;
+}
+
+enumError EncodeSSZL (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
+{
+	if (!dest || !dest_size || !src || !src_size || src_size > NFMT_MAX_OUTPUT)
+		return EINVAL;
+
+	const uint n_chunks = (src_size + 7) / 8;
+	const uint total_sz = 16 + src_size + n_chunks;
+	u8 *out = MALLOC (total_sz);
+	if (!out)
+		return ERR_CANT_CREATE;
+
+	memcpy (out, "SSZL", 4);
+	out[4] = out[5] = out[6] = out[7] = 0;
+
+	uint src_pos = 0;
+	uint out_pos = 16;
+	while (src_pos < src_size)
+	{
+		const uint take = src_size - src_pos > 8 ? 8 : src_size - src_pos;
+		out[out_pos++] = 0xFF; // 8 literal bits
+		for (uint i = 0; i < take; i++)
+			out[out_pos++] = src[src_pos++];
+	}
+
+	const u32 zsize = out_pos - 16;
+	out[8] = (u8)(zsize & 0xFF);
+	out[9] = (u8)((zsize >> 8) & 0xFF);
+	out[10] = (u8)((zsize >> 16) & 0xFF);
+	out[11] = (u8)((zsize >> 24) & 0xFF);
+
+	out[12] = (u8)(src_size & 0xFF);
+	out[13] = (u8)((src_size >> 8) & 0xFF);
+	out[14] = (u8)((src_size >> 16) & 0xFF);
+	out[15] = (u8)((src_size >> 24) & 0xFF);
 
 	*dest = out;
 	*dest_size = out_pos;

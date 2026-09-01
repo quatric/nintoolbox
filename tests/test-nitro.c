@@ -7,6 +7,7 @@ extern "C" {
 #include "types.h"
 #include "lib-nintendo.h"
 #include "lib-nitro.h"
+#include "lib-smdh.h"
 #ifdef __cplusplus
 }
 #endif
@@ -489,6 +490,139 @@ int main (void)
 			else
 			{
 				printf("  PASS: PSDK encode -> decode roundtrip\n");
+			}
+			free (dec);
+			free (enc);
+		}
+	}
+
+	// 15. Test MVDK (Mario vs. Donkey Kong compression)
+	{
+		const u8 mvdk_test[] = "Mario vs Donkey Kong custom LZ compression test payload string 0123456789";
+		const uint len = sizeof (mvdk_test);
+		u8 *enc = 0, *dec = 0;
+		uint enc_sz = 0, dec_sz = 0;
+
+		enumError e1 = EncodeMVDK (&enc, &enc_sz, mvdk_test, len);
+		if (e1 || !enc || enc_sz < 4)
+		{
+			printf("  FAIL: EncodeMVDK failed\n");
+			fail++;
+		}
+		else
+		{
+			enumError e2 = DecodeMVDK (&dec, &dec_sz, enc, enc_sz);
+			if (e2 || dec_sz != len || memcmp (dec, mvdk_test, len))
+			{
+				printf("  FAIL: DecodeMVDK roundtrip mismatch\n");
+				fail++;
+			}
+			else
+			{
+				printf("  PASS: MVDK encode -> decode roundtrip\n");
+			}
+			free (dec);
+			free (enc);
+		}
+	}
+
+	// 16. Test SSZL (Namco Museum LZSS0 compression)
+	{
+		const u8 sszl_test[] = "Namco Museum SSZL LZSS0 custom compression test payload 0123456789";
+		const uint len = sizeof (sszl_test);
+		u8 *enc = 0, *dec = 0;
+		uint enc_sz = 0, dec_sz = 0;
+
+		enumError e1 = EncodeSSZL (&enc, &enc_sz, sszl_test, len);
+		if (e1 || !enc || enc_sz < 16)
+		{
+			printf("  FAIL: EncodeSSZL failed\n");
+			fail++;
+		}
+		else
+		{
+			enumError e2 = DecodeSSZL (&dec, &dec_sz, enc, enc_sz);
+			if (e2 || dec_sz != len || memcmp (dec, sszl_test, len))
+			{
+				printf("  FAIL: DecodeSSZL roundtrip mismatch\n");
+				fail++;
+			}
+			else
+			{
+				printf("  PASS: SSZL encode -> decode roundtrip\n");
+			}
+			free (dec);
+			free (enc);
+		}
+	}
+
+	// 17. Test SMDH (3DS System Menu Data Header)
+	{
+		smdh_t smdh;
+		memset (&smdh, 0, sizeof (smdh));
+		smdh.version = 0;
+		smdh.title[SMDH_LANG_ENGLISH].short_desc = "Test Title";
+		smdh.title[SMDH_LANG_ENGLISH].long_desc = "Long Test Description";
+		smdh.title[SMDH_LANG_ENGLISH].publisher = "Nintendo";
+		smdh.region_lock = 0x7fffffff;
+		smdh.flags = 0x01;
+
+		u8 *enc = 0;
+		uint enc_sz = 0;
+		enumError e1 = EncodeSMDH (&enc, &enc_sz, &smdh);
+		if (e1 || !enc || enc_sz != SMDH_SIZE)
+		{
+			printf("  FAIL: EncodeSMDH failed\n");
+			fail++;
+		}
+		else
+		{
+			smdh_t parsed;
+			enumError e2 = ScanSMDH (&parsed, enc, enc_sz);
+			if (e2 || strcmp (parsed.title[SMDH_LANG_ENGLISH].short_desc, "Test Title")
+				|| strcmp (parsed.title[SMDH_LANG_ENGLISH].long_desc, "Long Test Description")
+				|| strcmp (parsed.title[SMDH_LANG_ENGLISH].publisher, "Nintendo")
+				|| parsed.region_lock != 0x7fffffff)
+			{
+				printf("  FAIL: ScanSMDH roundtrip mismatch\n");
+				fail++;
+			}
+			else
+			{
+				printf("  PASS: SMDH encode -> scan roundtrip\n");
+			}
+			ResetSMDH (&parsed);
+			free (enc);
+		}
+	}
+
+	// 18. Test NUTEXB (Switch texture wrapper)
+	{
+		const uint w = 16, h = 16;
+		u8 rgba_in[16 * 16 * 4];
+		for (uint i = 0; i < sizeof (rgba_in); i++)
+			rgba_in[i] = (u8)(i ^ 0x5a);
+
+		u8 *enc = 0, *dec = 0;
+		uint enc_sz = 0, dec_w = 0, dec_h = 0;
+
+		enumError e1 = EncodeNUTEXB_RGBA (&enc, &enc_sz, rgba_in, w, h, "test_tex");
+		if (e1 || !enc || enc_sz < 0x70)
+		{
+			printf("  FAIL: EncodeNUTEXB_RGBA failed\n");
+			fail++;
+		}
+		else
+		{
+			enumError e2 = DecodeNUTEXB_RGBA (&dec, &dec_w, &dec_h, enc, enc_sz);
+			if (e2 || dec_w != w || dec_h != h || memcmp (dec, rgba_in, sizeof (rgba_in)))
+			{
+				printf("  FAIL: DecodeNUTEXB_RGBA roundtrip mismatch\n");
+				fail++;
+			}
+			else
+			{
+				printf("  PASS: NUTEXB encode -> decode roundtrip (16x16)\n");
 			}
 			free (dec);
 			free (enc);

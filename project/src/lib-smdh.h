@@ -88,4 +88,7 @@ enumError DecodeSMDHIcon_RGBA (u8 **dest, uint *width, uint *height, const smdh_
 // terminated buffer. Caller FREEs the result.
 char *TextSMDH (const smdh_t *smdh);
 
+// Serializes SMDH to a valid binary SMDH buffer (SMDH_SIZE bytes). Caller FREEs *dest.
+enumError EncodeSMDH (u8 **dest, uint *dest_size, const smdh_t *smdh);
+
 #endif
