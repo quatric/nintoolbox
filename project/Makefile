@@ -414,6 +414,14 @@ ASTC_CXX_OBJS	= src/astc/astc_decomp.o src/astc/astc_wrapper.o
 C_OBJECTS	= $(filter-out $(ASTC_CXX_OBJS) $(LATTE_CXX_OBJS) $(BCN_CXX_OBJS), $(sort $(OTHER_TOOLS_OBJ) $(SZS_O) $(TOBJ_NO_WRAPPER)))
 ASM_OBJECTS	= ssl-asm.o
 
+# These C++ objects live below src/, so the root-level *.{o,d} clean glob does
+# not remove them.  In a universal macOS build that left x86_64 objects in
+# place for the arm64 leg; ld then ignored latte_bridge.o and reported its C
+# bridge symbols as undefined.  Remove both objects and dependency files so
+# each architecture is rebuilt with the active target flags.
+NESTED_CXX_OBJS	= $(ASTC_CXX_OBJS) $(LATTE_CXX_OBJS) $(BCN_CXX_OBJS)
+RM_FILES	+= $(NESTED_CXX_OBJS) $(patsubst %.o,%.d,$(NESTED_CXX_OBJS))
+
 # all objects + sources
 ALL_OBJECTS	= $(sort $(SZS_O) $(ASM_OBJECTS) $(LIB_OBJECTS))
 ALL_SOURCES	= $(patsubst %.o,%.c,$(UI_OBJECTS) $(C_OBJECTS) \
