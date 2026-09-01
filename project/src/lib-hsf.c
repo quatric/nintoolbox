@@ -2436,6 +2436,11 @@ static u32 hsf_align32 (u32 x)
 	return (x + 31) & ~31u;
 }
 
+static u8 hsf_float_to_u8 (float v)
+{
+	return v <= 0 ? 0 : v >= 1 ? 255 : (u8)(v * 255 + .5f);
+}
+
 enumError EncodeModelToHSF (const model_t *model, ccp out_path)
 {
 	if (!model || !out_path || !model->num_meshes || model->num_meshes > HSF_MAX_PARTS)
@@ -2722,8 +2727,29 @@ enumError EncodeModelToHSF (const model_t *model, ccp out_path)
 	u32 sym_tex = nshape;
 	for (u32 i = 0; i < nmat; i++)
 	{
+		const material_t *mat = model->materials + i;
 		u8 *p = buf + off[HSF_IDX_MATERIALS] + i * 60;
 		hsf_put32 (p, mat_name[i]);
+		// HsfMaterial_s stores lit (ambient), diffuse, shadow, highlight
+		// scale and inverse alpha in the fields consumed by DecodeHSF().
+		// These used to remain zero, making an encode/decode cycle turn every
+		// material black and fully transparent and discard its shininess.
+		p[0x0b] = hsf_float_to_u8 (mat->ambient[0]);
+		p[0x0c] = hsf_float_to_u8 (mat->ambient[1]);
+		p[0x0d] = hsf_float_to_u8 (mat->ambient[2]);
+		p[0x0e] = hsf_float_to_u8 (mat->diffuse[0]);
+		p[0x0f] = hsf_float_to_u8 (mat->diffuse[1]);
+		p[0x10] = hsf_float_to_u8 (mat->diffuse[2]);
+		p[0x11] = hsf_float_to_u8 (mat->specular[0]);
+		p[0x12] = hsf_float_to_u8 (mat->specular[1]);
+		p[0x13] = hsf_float_to_u8 (mat->specular[2]);
+		hsf_putf (p + 0x14, isfinite (mat->shininess) ? mat->shininess : 0);
+		float alpha = isfinite (mat->diffuse[3]) ? mat->diffuse[3] : 1;
+		if (alpha < 0)
+			alpha = 0;
+		else if (alpha > 1)
+			alpha = 1;
+		hsf_putf (p + 0x1c, 1 - alpha);
 		u32 first = sym_tex, count = 0;
 		for (int l = 0; l < 8; l++)
 		{
@@ -2732,6 +2758,11 @@ enumError EncodeModelToHSF (const model_t *model, ccp out_path)
 				continue;
 			u8 *a = buf + off[HSF_IDX_ATTRIBUTES] + ti * 132;
 			hsf_put32 (a, tex_name[ti]);
+			const bool transformed = mat->has_tex_transform[l];
+			hsf_putf (a + 0x28, transformed ? mat->tex_scale_s[l] : 1);
+			hsf_putf (a + 0x2c, transformed ? mat->tex_scale_t[l] : 1);
+			hsf_putf (a + 0x30, transformed ? mat->tex_translate_s[l] : 0);
+			hsf_putf (a + 0x34, transformed ? mat->tex_translate_t[l] : 0);
 			hsf_put32 (a + 100, model->materials[i].wrap_s[l]);
 			hsf_put32 (a + 104, model->materials[i].wrap_t[l]);
 			hsf_put32 (a + 128, ti);

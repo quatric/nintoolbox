@@ -314,6 +314,197 @@ static enumError cmd_list (int long_level)
 ///////////////			command decode			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
+// BRFNT stores large fonts as a sequence of narrow TGLP texture strips.  A
+// strip per PNG is faithful to the container, but awkward for editors.  Join
+// the strips left-to-right and write the character-to-rectangle information
+// beside the atlas.  Return ERR_NOTHING_TO_DO for non-Wii-font inputs.
+static enumError decode_brfnt_atlas (ccp arg, ccp dest)
+{
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return err;
+	if (raw_size < 0x10 || memcmp (raw, "RFNT", 4) && memcmp (raw, "RFNA", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	const uint nsec = be16 (raw + 0x0e);
+	const u8 *tglp = 0;
+	uint off = 0x10;
+	for (uint i = 0; i < nsec && off + 8 <= raw_size; i++)
+	{
+		const uint len = be32 (raw + off + 4);
+		if (len < 8 || len > raw_size - off)
+			break;
+		if (!memcmp (raw + off, "TGLP", 4) && len >= 0x20)
+			tglp = raw + off;
+		off += len;
+	}
+	if (!tglp)
+	{
+		FREE (raw);
+		return ERR_INVALID_DATA;
+	}
+
+	Image_t img;
+	err = LoadIMG (&img, true, arg, 0, false, true, opt_ignore > 0);
+	if (err)
+	{
+		FREE (raw);
+		return err;
+	}
+	const uint nsheet = img.info_n_image;
+	const uint sw = img.width, sh = img.height;
+	ResetIMG (&img);
+	if (!sw || !sh || nsheet > UINT_MAX / sw || sw * nsheet > UINT_MAX / 4 / sh)
+	{
+		FREE (raw);
+		return ERR_INVALID_DATA;
+	}
+	const uint atlas_w = sw * nsheet, atlas_h = sh;
+	u8 *atlas = CALLOC (1, (size_t)atlas_w * atlas_h * 4);
+	if (!atlas)
+	{
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+
+	for (uint sheet = 0; sheet < nsheet; sheet++)
+	{
+		err = LoadIMG (&img, true, arg, sheet, false, true, opt_ignore > 0);
+		if (err)
+			break;
+		Transform2XIMG (&img);
+		for (uint y = 0; y < sh; y++)
+			memcpy (atlas + ((size_t)y * atlas_w + sheet * sw) * 4,
+				img.data + (size_t)y * img.xwidth * 4, (size_t)sw * 4);
+		ResetIMG (&img);
+	}
+	if (err)
+	{
+		FREE (atlas);
+		FREE (raw);
+		return err;
+	}
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE %s:%s[%u sheets] -> PNG:%s + XML\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "",
+			!memcmp (raw, "RFNA", 4) ? "BRFNA" : "BRFNT", arg, nsheet, dest);
+	if (testmode)
+	{
+		FREE (atlas);
+		FREE (raw);
+		return ERR_OK;
+	}
+	err = SaveDecodedRGBAToPNG (atlas, atlas_w, atlas_h, &be_func, dest, 0, false);
+	if (err)
+	{
+		FREE (raw);
+		return err;
+	}
+
+	char xml_path[PATH_MAX];
+	ccp ext = strrchr (dest, '.');
+	if (ext)
+		snprintf (xml_path, sizeof (xml_path), "%.*s.xml", (int)(ext - dest), dest);
+	else
+		snprintf (xml_path, sizeof (xml_path), "%s.xml", dest);
+	File_t F;
+	err = CreateFileOpt (&F, true, xml_path, false, arg);
+	if (!F.f)
+	{
+		FREE (raw);
+		return err;
+	}
+
+	const uint cell_w = tglp[8], cell_h = tglp[9];
+	const uint cells_per_row = be16 (tglp + 0x14);
+	const uint cell_rows = be16 (tglp + 0x16);
+	const uint per_sheet = cells_per_row * cell_rows;
+	fprintf (F.f, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+		"<font-atlas image=\"%s\" width=\"%u\" height=\"%u\" sheets=\"%u\" "
+		"sheet-width=\"%u\" sheet-height=\"%u\">\n", dest, atlas_w, atlas_h, nsheet, sw, sh);
+
+	// Each CMAP maps Unicode/code-page values to glyph indices.  Methods 0,
+	// 1 and 2 are direct, table and scan mappings respectively.
+	off = 0x10;
+	for (uint si = 0; si < nsec && off + 8 <= raw_size; si++)
+	{
+		const uint len = be32 (raw + off + 4);
+		if (len < 8 || len > raw_size - off)
+			break;
+		const u8 *sec = raw + off;
+		if (!memcmp (sec, "CMAP", 4) && len >= 0x14 && per_sheet)
+		{
+			const uint first = be16 (sec + 8), last = be16 (sec + 10), method = be16 (sec + 12);
+			uint count = 0;
+			if (method == 2 && len >= 0x16)
+				count = be16 (sec + 0x14);
+			else if (last >= first)
+				count = last - first + 1;
+			for (uint j = 0; j < count; j++)
+			{
+				uint code, glyph;
+				if (method == 0 && len >= 0x16)
+				{
+					code = first + j;
+					glyph = be16 (sec + 0x14) + j;
+				}
+				else if (method == 1 && 0x14 + j * 2 + 2 <= len)
+				{
+					code = first + j;
+					glyph = be16 (sec + 0x14 + j * 2);
+				}
+				else if (method == 2 && 0x16 + j * 4 + 4 <= len)
+				{
+					code = be16 (sec + 0x16 + j * 4);
+					glyph = be16 (sec + 0x18 + j * 4);
+				}
+				else
+					continue;
+				if (glyph == 0xffff || glyph / per_sheet >= nsheet)
+					continue;
+				const uint sheet = glyph / per_sheet, local = glyph % per_sheet;
+				const uint x = sheet * sw + local % cells_per_row * (cell_w + 1);
+				const uint y = local / cells_per_row * (cell_h + 1);
+				int left = 0;
+				uint glyph_w = cell_w, advance = cell_w;
+				uint wo = 0x10;
+				for (uint wi = 0; wi < nsec && wo + 0x10 <= raw_size; wi++)
+				{
+					const uint wl = be32 (raw + wo + 4);
+					if (wl < 8 || wl > raw_size - wo) break;
+					if (!memcmp (raw + wo, "CWDH", 4) && wl >= 0x10)
+					{
+						const uint wf = be16 (raw + wo + 8), we = be16 (raw + wo + 10);
+						if (glyph >= wf && glyph <= we && 0x10 + (glyph-wf)*3 + 3 <= wl)
+						{
+							const u8 *m = raw + wo + 0x10 + (glyph-wf)*3;
+							left = (s8)m[0]; glyph_w = m[1]; advance = m[2]; break;
+						}
+					}
+					wo += wl;
+				}
+				fprintf (F.f, "  <character code=\"U+%04X\" glyph=\"%u\" sheet=\"%u\" "
+					"x=\"%u\" y=\"%u\" width=\"%u\" height=\"%u\" left=\"%d\" "
+					"glyph-width=\"%u\" advance=\"%u\"/>\n", code, glyph, sheet,
+					x, y, cell_w, cell_h, left, glyph_w, advance);
+			}
+		}
+		off += len;
+	}
+	fputs ("</font-atlas>\n", F.f);
+	if (ferror (F.f) && !err)
+		err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing font atlas XML failed: %s\n", xml_path);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
 static enumError cmd_decode ()
 {
 	ccp def_path = "\1P/\1F.png";
@@ -337,6 +528,17 @@ static enumError cmd_decode ()
 
 		char dest[PATH_MAX];
 		SubstDest (dest, sizeof (dest), arg, opt_dest, def_path, 0, false);
+
+		// Wii fonts with multiple TGLP records are more useful as one atlas.
+		// The helper also emits the matching character-placement XML.
+		err = decode_brfnt_atlas (arg, dest);
+		if (err != ERR_NOTHING_TO_DO)
+		{
+			if (max_err < err)
+				max_err = err;
+			ResetIMG (&img);
+			continue;
+		}
 
 		// A TPL's top-level table contains independent textures.  Older wimgt
 		// treated those records as a mip chain, which both produced misleading

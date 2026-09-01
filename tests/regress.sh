@@ -2316,13 +2316,17 @@ def mesh_signature(g):
    ia=g['accessors'][p['indices']] if 'indices' in p else None
    prim.append((a['count'],tuple(a.get('min',[])),tuple(a.get('max',[])),
                 ia['count'] if ia else 0,p.get('mode',4)))
-  out.append(tuple(prim))
+ out.append(tuple(prim))
  return tuple(out)
 assert encoded.startswith(b'HSFV037')
 assert mesh_signature(roundtrip)==mesh_signature(r)
 textured=open(sys.argv[9],'rb').read(); textured_glb=glb(sys.argv[10])
 assert struct.unpack_from('>I',textured,12+3*8)[0]==1
 assert struct.unpack_from('>I',textured,12+9*8)[0]==1 and len(textured_glb['images'])==1
+# The first encoded attribute has an identity UV transform unless its source
+# material requested KHR_texture_transform.  Zero here collapses all UVs.
+attr_off=struct.unpack_from('>I',textured,8+3*8)[0]
+assert struct.unpack_from('>4f',textured,attr_off+0x28)==(1.0,1.0,0.0,0.0)
 PY
   then ok "HSF retail morphs, replicas, cameras, lights and scene metadata"
   else no "HSF runtime features" "$src"; fi

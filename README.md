@@ -214,8 +214,8 @@ injection" describe the injection path specifically, which still consumes a
 | BMS | Interpreter | ✅ | ✅ | Bundled QuickBMS runtime (`wbmsx` + `wszst xx --bms`); supports the upstream command set when `third_party/quickbms/quickbms` is built. |
 | BNTX | Texture | ✅ | ✅ | Switch textures; RGBA8/565/5551/4 + BC1-7 (incl. BC6H) + every standard 2D ASTC block footprint decode (validated against K0lb3/texture2ddecoder conformance vectors), RGBA8 encode |
 | BREFT | Texture | ✅ | ✅ | Brawl effect texture, palette-indexed; encode via `wszst CREATE --breft`, `wimgt --btimg` |
-| BRFNA | Font | ✅ | ✅ | Wii font archive, RFNA; encode via `wimgt ENCODE .brfna` |
-| BRFNT | Font | ✅ | ✅ | Wii bitmap font; encode via `wimgt ENCODE .brfnt` |
+| BRFNA | Font | ✅ | ✅ | Wii font archive, RFNA; decode to a PNG atlas plus character-placement XML; encode via `wimgt ENCODE .brfna` |
+| BRFNT | Font | ✅ | ✅ | Wii bitmap font; `wimgt DECODE` joins multi-sheet fonts into one PNG atlas and writes character placements/metrics to a sibling XML file; encode via `wimgt ENCODE .brfnt` |
 | BRLAN | Layout | ✅ | ✅ | Wii layout animation; lossless text roundtrip via `wlayt` |
 | BRLYT | Layout | ✅ | ✅ | Wii layout; lossless text roundtrip via `wlayt` |
 | BRRES MDL0 | Model | ✅ | ✅ | Wii models → COLLADA; encode via DAE `--parent` injection |
