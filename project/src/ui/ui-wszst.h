@@ -315,7 +315,7 @@ typedef enum enumOptions
 	OPT_NEW,
 	OPT_EXTRACT,
 
-	OPT__N_TOTAL // == 252
+	OPT__N_TOTAL // == 254
 
 } enumOptions;
 

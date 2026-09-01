@@ -1735,6 +1735,11 @@
 	" container file is extracted via the specified BMS script and the" \
 	" unpacked directory is recursively processed." )
 
+#:def_opt( "WITH_7Z", "with-7z|7z", "GP", \
+	"path", \
+	"Set the external 7-Zip extraction tool (7z, 7zz, 7za, unar). Default:" \
+	" '7z'." )
+
 #:def_opt( "TRANSFORM", "x|transform", "CP", \
 	"list", \
 	"Convert image formats. A comma separated list with terms is expected." \
@@ -1836,6 +1841,11 @@
 #:def_opt( "LZMA", "lzma", "G", \
 	"", \
 	"If creating a compressed file, create a LZMA compatible file." )
+
+#:def_opt( "ZSTD", "zstd|zs", "G", \
+	"", \
+	"If creating a compressed file, create a Zstandard (ZSTD) compatible" \
+	" file." )
 
 #:def_opt( "CYLZ", "cylz", "G", \
 	"", \
