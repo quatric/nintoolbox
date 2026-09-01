@@ -343,9 +343,9 @@ enumError ScanMSBT (msbt_file_t *msbt, const u8 *data, uint data_size, ccp fname
 	msbt->is_big_endian = (bom == 0xFEFF);
 	bool be = msbt->is_big_endian;
 
-	msbt->encoding = (msbt_encoding_t)data[0x0A];
-	msbt->version = data[0x0B];
-	u16 num_sections = r16 (data + 0x0C, be);
+	msbt->encoding = (msbt_encoding_t)data[0x0C];
+	msbt->version = data[0x0D];
+	u16 num_sections = r16 (data + 0x0E, be);
 
 	// Section pointers
 	const u8 *lbl1_data = 0;
@@ -395,8 +395,10 @@ enumError ScanMSBT (msbt_file_t *msbt, const u8 *data, uint data_size, ccp fname
 		return ERR_INVALID_DATA;
 
 	u32 num_strings = r32 (txt2_data, be);
-	if (!num_strings || num_strings > 200000)
+	if (num_strings > 200000)
 		return ERR_INVALID_DATA;
+	if (!num_strings)
+		return ERR_OK;
 
 	msbt->entries = CALLOC (num_strings, sizeof (msbt_entry_t));
 	msbt->num_entries = num_strings;
@@ -949,10 +951,12 @@ enumError CreateMSBT (u8 **out_data, uint *out_size, const msbt_file_t *msbt)
 	// File header
 	memcpy (out, "MsgStdBn", 8);
 	wr_be16 (out + 8, be ? 0xFEFF : 0xFFFE);
-	out[0x0A] = (u8)enc;
-	out[0x0B] = msbt->version ? msbt->version : 3;
-	w16 (out + 0x0C, num_sections, be);
-	w32 (out + 0x10, total_size, be);
+	out[0x0A] = 0;
+	out[0x0B] = 0;
+	out[0x0C] = (u8)enc;
+	out[0x0D] = msbt->version ? msbt->version : 3;
+	w16 (out + 0x0E, num_sections, be);
+	w32 (out + 0x14, total_size, be);
 
 	uint cur_sec = 0x20;
 	if (lbl1_buf)
@@ -1227,9 +1231,9 @@ enumError ScanMSBP (msbp_file_t *msbp, const u8 *data, uint data_size, ccp fname
 	msbp->is_big_endian = (bom == 0xFEFF);
 	bool be = msbp->is_big_endian;
 
-	msbp->encoding = (msbt_encoding_t)data[0x0A];
-	msbp->version = data[0x0B];
-	u16 num_sections = r16 (data + 0x0C, be);
+	msbp->encoding = (msbt_encoding_t)data[0x0C];
+	msbp->version = data[0x0D];
+	u16 num_sections = r16 (data + 0x0E, be);
 
 	const u8 *clr1_data = 0;
 	uint clr1_size = 0;
@@ -1268,11 +1272,10 @@ enumError ScanMSBP (msbp_file_t *msbp, const u8 *data, uint data_size, ccp fname
 			msbp->num_colors = num_colors;
 			for (uint i = 0; i < num_colors; i++)
 			{
-				const u8 *cp = clr1_data + 4 + i * 4;
-				msbp->colors[i].r = cp[0];
-				msbp->colors[i].g = cp[1];
-				msbp->colors[i].b = cp[2];
-				msbp->colors[i].a = cp[3];
+				msbp->colors[i].r = clr1_data[4 + i * 4];
+				msbp->colors[i].g = clr1_data[4 + i * 4 + 1];
+				msbp->colors[i].b = clr1_data[4 + i * 4 + 2];
+				msbp->colors[i].a = clr1_data[4 + i * 4 + 3];
 			}
 		}
 	}
@@ -1284,6 +1287,7 @@ enumError ScanMSBP (msbp_file_t *msbp, const u8 *data, uint data_size, ccp fname
 		{
 			u32 count = r32 (clb1_data + 4 + g * 8, be);
 			u32 group_off = r32 (clb1_data + 4 + g * 8 + 4, be);
+
 			uint pos = group_off;
 			for (uint c = 0; c < count && pos < clb1_size; c++)
 			{
@@ -1341,15 +1345,16 @@ enumError SaveJSONMSBP (const msbp_file_t *msbp, ccp dest_fname)
 	if (!f)
 		return ERR_CANT_CREATE;
 
-	fprintf (f, "{\n");
-	fprintf (f, "  \"endian\": \"%s\",\n", msbp->is_big_endian ? "big" : "little");
-	fprintf (f, "  \"encoding\": \"%s\",\n", msbp->encoding == MSBT_ENC_UTF8 ? "utf-8" : "utf-16");
+	fprintf (f, "{\n  \"endian\": \"%s\",\n  \"encoding\": \"%s\",\n",
+		msbp->is_big_endian ? "BigEndian" : "LittleEndian",
+		msbp->encoding == MSBT_ENC_UTF8 ? "UTF-8" : "UTF-16");
+
 	fprintf (f, "  \"colors\": [\n");
 	for (uint i = 0; i < msbp->num_colors; i++)
 	{
 		fprintf (f, "    { \"index\": %u, \"name\": \"%s\", \"rgba\": \"#%02X%02X%02X%02X\" }%s\n",
-			i, msbp->colors[i].name ? msbp->colors[i].name : "", msbp->colors[i].r,
-			msbp->colors[i].g, msbp->colors[i].b, msbp->colors[i].a,
+			i, msbp->colors[i].name ? msbp->colors[i].name : "",
+			msbp->colors[i].r, msbp->colors[i].g, msbp->colors[i].b, msbp->colors[i].a,
 			(i + 1 < msbp->num_colors) ? "," : "");
 	}
 	fprintf (f, "  ]\n}\n");
@@ -1363,18 +1368,27 @@ enumError CreateMSBP (u8 **out_data, uint *out_size, const msbp_file_t *msbp)
 		return ERR_INVALID_DATA;
 	bool be = msbp->is_big_endian;
 
+	// Build CLR1 section
 	uint clr1_len = 4 + msbp->num_colors * 4;
 	u8 *clr1_buf = CALLOC (clr1_len, 1);
 	w32 (clr1_buf, msbp->num_colors, be);
-	bool has_names = false;
 	for (uint i = 0; i < msbp->num_colors; i++)
 	{
-		clr1_buf[4 + i * 4 + 0] = msbp->colors[i].r;
+		clr1_buf[4 + i * 4] = msbp->colors[i].r;
 		clr1_buf[4 + i * 4 + 1] = msbp->colors[i].g;
 		clr1_buf[4 + i * 4 + 2] = msbp->colors[i].b;
 		clr1_buf[4 + i * 4 + 3] = msbp->colors[i].a;
+	}
+
+	// Check if names exist
+	bool has_names = false;
+	for (uint i = 0; i < msbp->num_colors; i++)
+	{
 		if (msbp->colors[i].name && *msbp->colors[i].name)
+		{
 			has_names = true;
+			break;
+		}
 	}
 
 	u8 *clb1_buf = 0;
@@ -1434,10 +1448,12 @@ enumError CreateMSBP (u8 **out_data, uint *out_size, const msbp_file_t *msbp)
 	u8 *out = CALLOC (total_size, 1);
 	memcpy (out, "MsgPrjBn", 8);
 	wr_be16 (out + 8, be ? 0xFEFF : 0xFFFE);
-	out[0x0A] = (u8)msbp->encoding;
-	out[0x0B] = msbp->version ? msbp->version : 3;
-	w16 (out + 0x0C, clb1_buf ? 2 : 1, be);
-	w32 (out + 0x10, total_size, be);
+	out[0x0A] = 0;
+	out[0x0B] = 0;
+	out[0x0C] = (u8)msbp->encoding;
+	out[0x0D] = msbp->version ? msbp->version : 3;
+	w16 (out + 0x0E, clb1_buf ? 2 : 1, be);
+	w32 (out + 0x14, total_size, be);
 
 	uint pos = 0x20;
 	memcpy (out + pos, "CLR1", 4);
@@ -1604,9 +1620,9 @@ enumError ScanMSBF (msbf_file_t *msbf, const u8 *data, uint data_size, ccp fname
 	msbf->is_big_endian = (bom == 0xFEFF);
 	bool be = msbf->is_big_endian;
 
-	msbf->encoding = (msbt_encoding_t)data[0x0A];
-	msbf->version = data[0x0B];
-	u16 num_sections = r16 (data + 0x0C, be);
+	msbf->encoding = (msbt_encoding_t)data[0x0C];
+	msbf->version = data[0x0D];
+	u16 num_sections = r16 (data + 0x0E, be);
 
 	const u8 *flw3_data = 0;
 	uint flw3_size = 0;
@@ -1753,12 +1769,9 @@ enumError SaveTextMSBF (const msbf_file_t *msbf, ccp dest_fname)
 			fprintf (f, "])\n");
 		}
 		else if (n->type == MSBF_NODE_EVENT)
-			fprintf (f, "  type = Event (event_id=%u, param=0x%X, next=%u)\n", n->event_id,
-				n->event_param, n->next_node);
-		else if (n->type == MSBF_NODE_ENTRY)
-			fprintf (f, "  type = EntryPoint (next=%u)\n", n->next_node);
+			fprintf (f, "  type = Event (event_id=%u, param=%u)\n", n->event_id, n->event_param);
 		else
-			fprintf (f, "  type = Unknown (%u, next=%u)\n", n->type, n->next_node);
+			fprintf (f, "  type = Unknown (%u)\n", n->type);
 
 		fprintf (f, "\n");
 	}
@@ -1775,17 +1788,16 @@ enumError SaveJSONMSBF (const msbf_file_t *msbf, ccp dest_fname)
 	if (!f)
 		return ERR_CANT_CREATE;
 
-	fprintf (f, "{\n");
-	fprintf (f, "  \"endian\": \"%s\",\n", msbf->is_big_endian ? "big" : "little");
-	fprintf (f, "  \"nodes\": [\n");
+	fprintf (f, "{\n  \"endian\": \"%s\",\n  \"nodes\": [\n",
+		msbf->is_big_endian ? "BigEndian" : "LittleEndian");
 	for (uint i = 0; i < msbf->num_nodes; i++)
 	{
 		const msbf_node_t *n = msbf->nodes + i;
 		fprintf (f, "    {\n");
-		fprintf (f, "      \"id\": %u,\n", n->node_id);
-		fprintf (f, "      \"type\": %u,\n", n->type);
+		fprintf (f, "      \"node_id\": %u,\n", n->node_id);
 		fprintf (f, "      \"label\": \"%s\",\n", n->label ? n->label : "");
-		fprintf (f, "      \"next\": %u,\n", n->next_node);
+		fprintf (f, "      \"type\": %u,\n", n->type);
+		fprintf (f, "      \"next_node\": %u,\n", n->next_node);
 		if (n->type == MSBF_NODE_MESSAGE)
 			fprintf (f, "      \"msg_index\": %u\n", n->msg_index);
 		else if (n->type == MSBF_NODE_BRANCH)
@@ -1856,16 +1868,19 @@ enumError CreateMSBF (u8 **out_data, uint *out_size, const msbf_file_t *msbf)
 		}
 	}
 
-	u8 *lbl1_buf = 0;
-	uint lbl1_len = 0;
+	// Check if labels exist
 	bool has_labels = false;
 	for (uint i = 0; i < msbf->num_nodes; i++)
+	{
 		if (msbf->nodes[i].label && *msbf->nodes[i].label)
 		{
 			has_labels = true;
 			break;
 		}
+	}
 
+	u8 *lbl1_buf = 0;
+	uint lbl1_len = 0;
 	if (has_labels)
 	{
 		uint num_groups = msbf->num_nodes > 0 ? msbf->num_nodes : 1;
@@ -1921,10 +1936,12 @@ enumError CreateMSBF (u8 **out_data, uint *out_size, const msbf_file_t *msbf)
 	u8 *out = CALLOC (total_size, 1);
 	memcpy (out, "MsgFlwBn", 8);
 	wr_be16 (out + 8, be ? 0xFEFF : 0xFFFE);
-	out[0x0A] = (u8)msbf->encoding;
-	out[0x0B] = msbf->version ? msbf->version : 3;
-	w16 (out + 0x0C, lbl1_buf ? 2 : 1, be);
-	w32 (out + 0x10, total_size, be);
+	out[0x0A] = 0;
+	out[0x0B] = 0;
+	out[0x0C] = (u8)msbf->encoding;
+	out[0x0D] = msbf->version ? msbf->version : 3;
+	w16 (out + 0x0E, lbl1_buf ? 2 : 1, be);
+	w32 (out + 0x14, total_size, be);
 
 	uint pos = 0x20;
 	memcpy (out + pos, "FLW3", 4);

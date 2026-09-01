@@ -4,6 +4,7 @@
 #include "lib-quicklz.h"
 #include "lib-bflyt.h"
 #include "lib-bntx.h"
+#include "lib-gtx.h"
 
 #define NFMT_MAX_OUTPUT (512u << 20)
 
@@ -4691,6 +4692,50 @@ enumError DecodeFLIM_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, 
 	u32 (*r32) (const u8 *) = be ? rd_be32 : rd_le32;
 	if (r16 (foot + 6) != 0x14 || memcmp (foot + 0x14, "imag", 4) || r32 (foot + 0x18) != 0x10)
 		return EINVAL;
+	if (be)
+	{
+		const uint w = r16 (foot + 0x1c), h = r16 (foot + 0x1e);
+		const uint bflim_fmt = foot[0x20];
+		const uint flags = foot[0x23];
+		const uint tile_mode = flags & 0x0f;
+		const uint swizzle = (uint)((flags >> 4) & 7) << 16;
+		const uint data_size = r32 (src + src_size - 4);
+		if (!w || !h || w > 16384 || h > 16384 || data_size > src_size - 0x28)
+			return EINVAL;
+
+		uint gx2_fmt = 0;
+		switch (bflim_fmt)
+		{
+			case 0x00: gx2_fmt = 0x0001; break; // R8_UNORM
+			case 0x01: gx2_fmt = 0x0001; break; // R8_UNORM / L8
+			case 0x02: gx2_fmt = 0x0001; break; // A8
+			case 0x03: gx2_fmt = 0x0002; break; // R4_G4
+			case 0x04: gx2_fmt = 0x0007; break; // R8_G8
+			case 0x05: gx2_fmt = 0x0008; break; // R5_G6_B5
+			case 0x06: gx2_fmt = 0x000a; break; // R5_G5_B5_A1
+			case 0x07: gx2_fmt = 0x000b; break; // R4_G4_B4_A4
+			case 0x08: gx2_fmt = 0x041a; break; // R8_G8_B8_A8_SRGB
+			case 0x10: gx2_fmt = 0x0431; break; // BC1_SRGB
+			case 0x11: gx2_fmt = 0x0432; break; // BC2_SRGB
+			case 0x12: gx2_fmt = 0x0433; break; // BC3_SRGB
+			case 0x13: gx2_fmt = 0x0034; break; // BC4_UNORM
+			case 0x14: gx2_fmt = 0x0035; break; // BC5_UNORM
+			case 0x20: gx2_fmt = 0x0433; break; // BC3_SRGB
+			default: return EINVAL;
+		}
+
+		uint out_w = 0, out_h = 0;
+		enumError err = DecodeGX2SurfaceSlice_RGBA (dest, &out_w, &out_h, 1, w, h, 1,
+			gx2_fmt, 0, tile_mode, 0, swizzle, 0, 0, src, data_size);
+		if (!err)
+		{
+			*width = out_w;
+			*height = out_h;
+			return ERR_OK;
+		}
+		return err;
+	}
+
 	const uint w = r16 (foot + 0x1c), h = r16 (foot + 0x1e);
 	const uint fmt = foot[0x22], tile_mode = foot[0x23] & 31;
 	const uint data_size = r32 (src + src_size - 4);
