@@ -942,7 +942,7 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 			gmat->emissive_factor[1] = mat->ambient[1];
 			gmat->emissive_factor[2] = mat->ambient[2];
 		}
-		gmat->alpha_mode = (mat->diffuse[3] > 0 && mat->diffuse[3] < 1.0f) ? cgltf_alpha_mode_blend : cgltf_alpha_mode_opaque;
+		gmat->alpha_mode = (mat->has_alpha || (mat->diffuse[3] > 0 && mat->diffuse[3] < 1.0f)) ? cgltf_alpha_mode_blend : cgltf_alpha_mode_opaque;
 
 		int primary = dae_primary_texture(mat, out_glb_file);
 
@@ -951,7 +951,7 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 			if (!mat->textures[t][0]) continue;
 			char tex_path[PATH_MAX];
 			if (!dae_texture_path (tex_path, sizeof (tex_path), out_glb_file, mat->textures[t])) continue;
-			dae_localize_texture (tex_path, sizeof (tex_path), out_glb_file);
+			// dae_localize_texture (tex_path, sizeof (tex_path), out_glb_file);
 
 			char full_png_path[PATH_MAX];
 			if (tex_path[0] == '/') snprintf (full_png_path, sizeof (full_png_path), "%s", tex_path);

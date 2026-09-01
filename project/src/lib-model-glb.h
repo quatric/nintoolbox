@@ -133,6 +133,7 @@ typedef struct
 	float specular[3];
 	float ambient[3];
 	float shininess;
+	uint8_t has_alpha;
 } material_t;
 
 // An additional scene node which reuses an existing mesh.  HSF replica

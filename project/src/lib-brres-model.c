@@ -1335,6 +1335,9 @@ skip_bones:
 			if (nm)
 				copy_pooled_string (mat->name, sizeof (mat->name), nm, nlen);
 
+			uint32_t xlu = swap32 (*(const uint32_t *)(matBase + 0x10));
+			mat->has_alpha = (xlu != 0);
+
 			read_material_textures (data, size, matBase, matLen, version, mat);
 		}
 		read_linked_material_textures (data, size, version, model->materials, model->num_materials);
