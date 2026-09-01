@@ -28,7 +28,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **BCGRP** | 3DS / Audio Archive | ✅ | ✅ | CTR Sound Group Archive (CGRP) |
 | **BFFNT** | Wii U / Font | ✅ | ✅ | Wii U bitmap font to PNG atlas |
 | **BG4** | 3DS / Archive | ✅ | ✅ | Mario & Luigi flat archive with BLZ member compression |
-| **BIGF** | Wii / Archive | ✅ | ⛔ | EA BIGF container |
+| **BIGF** | Wii / Archive | ✅ | 🟡 | EA BIGF container (encode round-trips losslessly; not a byte-exact retail reproduction — no retail `.big` sample to derive member ordering/padding from) |
 | **BFLAN** | Wii U / Layout | ✅ | ✅ | Wii U layout animation |
 | **BFLIM** | Wii U / Texture | ✅ | ✅ | Wii U textures (BC1-BC5) |
 | **BFLYT** | Wii U / Layout | ✅ | ✅ | Wii U binary layout |
@@ -38,6 +38,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **BFWAR** | Wii U / Switch / Audio Archive | ✅ | ✅ | Sound Wave Archive (FWAR) |
 | **BFGRP** | Wii U / Switch / Audio Archive | ✅ | ✅ | Sound Group Archive (FGRP) |
 | **BLZ** | DS / Compression | ✅ | ✅ | Nitro backward-LZSS |
+| **BPE / GFCP** | Wii / Compression | ✅ | ✅ | Good-Feel Byte Pair Encoding (GFAC mode 1) |
 | **BMD** | DS / Model | ✅ | ✅ | Early Nitro 3D models |
 | **BNTX** | Switch / Texture | ✅ | ✅ | Switch texture container (Tegra block-linear) |
 | **BREFT** | Wii / Texture | ✅ | ✅ | Brawl effect texture |

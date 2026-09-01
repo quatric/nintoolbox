@@ -145,6 +145,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 |---|---|---|
 | **ALZ1** | `ALZ1` | Hudson Soft Mario Party / Bomberman LZ77 (GameCube / Wii) |
 | **BLZ** | ARM9 overlay trailer | Nintendo DS Nitro backward LZ overlay compression |
+| **BPE / GFCP** | `GFCP` (zip mode 1) | Good-Feel Byte Pair Encoding (Wii Kirby's Epic Yarn / Yoshi's Woolly World) |
 | **Bzip2** | `BZh` | Standard high-compression block-sorting codec |
 | **Deflate / Zlib** | `78 01`, `78 9C`, `78 DA` | Standard RFC 1950 / 1951 stream compression |
 | **Diff8 / Diff16** | `0x81`, `0x82` | Nintendo DS differential delta filter encoding |
