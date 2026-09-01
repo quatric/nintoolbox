@@ -1090,6 +1090,9 @@ enumError CreateBG4 (
 enumError ScanHWLegends (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *idx,
 	uint idx_size, const u8 *bin, uint bin_size);
 
+enumError CreateHWLegends (u8 **dest_idx, uint *dest_idx_size, u8 **dest_bin, uint *dest_bin_size,
+	const nintendo_sarc_entry_t *entries, uint n_entries);
+
 //-----------------------------------------------------------------------------
 // Xenoblade Chronicles 3D ("cram", 3DS, little endian): flat, named,
 // uncompressed.  Layout ported from aluigi's public xenoblade_arc.bms.

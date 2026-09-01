@@ -5878,6 +5878,51 @@ static enumError create_gsh_dir (ccp source, ccp dest)
 	return err;
 }
 
+static enumError create_hwl_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+
+	u8 *idx_data = 0, *bin_data = 0;
+	uint idx_size = 0, bin_size = 0;
+	if (!err)
+		err = CreateHWLegends (&idx_data, &idx_size, &bin_data, &bin_size, list.entry, list.used);
+
+	if (!err && !testmode)
+	{
+		char idx_path[PATH_MAX], bin_path[PATH_MAX];
+		snprintf (idx_path, sizeof (idx_path), "%s", dest);
+		snprintf (bin_path, sizeof (bin_path), "%s", dest);
+		char *dot = strrchr (idx_path, '.');
+		if (dot && !strcasecmp (dot, ".bin"))
+			strcpy (dot, ".idx");
+		dot = strrchr (bin_path, '.');
+		if (dot && !strcasecmp (dot, ".idx"))
+			strcpy (dot, ".bin");
+
+		File_t F;
+		err = CreateFileOpt (&F, true, idx_path, false, source);
+		if (F.f && fwrite (idx_data, 1, idx_size, F.f) != idx_size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", idx_size, idx_path);
+		ResetFile (&F, opt_preserve);
+
+		if (!err)
+		{
+			err = CreateFileOpt (&F, true, bin_path, false, source);
+			if (F.f && fwrite (bin_data, 1, bin_size, F.f) != bin_size)
+				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", bin_size, bin_path);
+			ResetFile (&F, opt_preserve);
+		}
+	}
+
+	FREE (idx_data);
+	FREE (bin_data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+
 static enumError create_rarc_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -6874,6 +6919,8 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest)
 		return create_nccarc_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".at7") || !strcasecmp (ext, ".at7p") || !strcasecmp (ext, ".at7x"))
 		return create_at7_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".idx"))
+		return create_hwl_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".bin"))
 		return create_mpbin_dir (source_dir, dest);
 
@@ -8180,6 +8227,17 @@ static enumError cmd_create (bool create)
 			enumError err = create_at7_dir (source_dir, dest);
 			if (verbose >= 0 || testmode)
 				fprintf (stdlog, "%s%sCREATE AT7 %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", source_dir, dest);
+			if (max_err < err)
+				max_err = err;
+			ResetSetupParam (&sp);
+			continue;
+		}
+		if (create && ext && !strcasecmp (ext, ".idx"))
+		{
+			enumError err = create_hwl_dir (source_dir, dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE HWL %s/ -> %s\n", verbose > 0 ? "\n" : "",
 					testmode ? "WOULD " : "", source_dir, dest);
 			if (max_err < err)
 				max_err = err;

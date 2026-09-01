@@ -901,6 +901,49 @@ int main (void)
 		}
 	}
 
+	// 25. Test Hyrule Warriors Legends (.idx / .bin pair)
+	{
+		nintendo_sarc_entry_t entries[2];
+		memset (entries, 0, sizeof (entries));
+		entries[0].name = "00000.bin";
+		entries[0].data = (const u8 *)"HYRULE_WARRIORS_MEMBER_0";
+		entries[0].size = (uint)strlen ((const char *)entries[0].data);
+		entries[1].name = "00001.bin";
+		entries[1].data = (const u8 *)"HYRULE_WARRIORS_MEMBER_1_DATA";
+		entries[1].size = (uint)strlen ((const char *)entries[1].data);
+
+		u8 *idx_blob = 0, *bin_blob = 0;
+		uint idx_sz = 0, bin_sz = 0;
+		enumError e1 = CreateHWLegends (&idx_blob, &idx_sz, &bin_blob, &bin_sz, entries, 2);
+		if (e1 || !idx_blob || !bin_blob || idx_sz != 16)
+		{
+			printf("  FAIL: CreateHWLegends failed\n");
+			fail++;
+		}
+		else
+		{
+			nintendo_sarc_entry_t *scanned = 0;
+			uint n_scanned = 0;
+			enumError e2 = ScanHWLegends (&scanned, &n_scanned, idx_blob, idx_sz, bin_blob, bin_sz);
+			if (e2 || n_scanned != 2
+				|| scanned[0].size != entries[0].size
+				|| memcmp (scanned[0].data, entries[0].data, entries[0].size)
+				|| scanned[1].size != entries[1].size
+				|| memcmp (scanned[1].data, entries[1].data, entries[1].size))
+			{
+				printf("  FAIL: ScanHWLegends roundtrip mismatch\n");
+				fail++;
+			}
+			else
+			{
+				printf("  PASS: HWLegends .idx/.bin create -> scan roundtrip (2 members)\n");
+			}
+			ResetOwnedEntries (scanned, n_scanned);
+			free (idx_blob);
+			free (bin_blob);
+		}
+	}
+
 	printf("=== Results: %s (failures: %d) ===\n", fail == 0 ? "ALL PASSED" : "SOME FAILED", fail);
 	return fail;
 }
