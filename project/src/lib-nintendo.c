@@ -10032,340 +10032,155 @@ static void yaml_eval_scalar (const char *s, bf_val_t *val)
 	val->u.s = STRDUP (s);
 }
 
-typedef struct y_line_t
-{
-	int indent;
-	bool is_list_item;
-	char *key;
-	char *val;
-} y_line_t;
+#include <yaml.h>
 
-static void node_set_sval (bf_node_t *node, ccp key, const bf_val_t *sval)
-{
-	if (sval->type == BF_T_STR)
-	{
-		BFNodeSetStr (node, key, sval->u.s);
-		FREE (sval->u.s);
-	}
-	else if (sval->type == BF_T_INT)
-		BFNodeSetInt (node, key, sval->u.i);
-	else if (sval->type == BF_T_FLOAT)
-		BFNodeSetFloat (node, key, sval->u.f);
-	else if (sval->type == BF_T_BOOL)
-		BFNodeSetBool (node, key, sval->u.b);
-	else if (sval->type == BF_T_NONE)
-		BFNodeSetNone (node, key);
+static enumError fill_bf_node_from_yaml(yaml_document_t *doc, int node_id, bf_node_t *out_dict);
+static enumError fill_bf_list_from_yaml(yaml_document_t *doc, int node_id, bf_list_t *out_list);
+
+static enumError fill_bf_list_from_yaml(yaml_document_t *doc, int node_id, bf_list_t *out_list) {
+    yaml_node_t *node = yaml_document_get_node(doc, node_id);
+    if (!node || node->type != YAML_SEQUENCE_NODE) return ERR_SEMANTIC;
+
+    for (yaml_node_item_t *i = node->data.sequence.items.start; i < node->data.sequence.items.top; i++) {
+        yaml_node_t *item_node = yaml_document_get_node(doc, *i);
+        if (!item_node) continue;
+        
+        if (item_node->type == YAML_SCALAR_NODE) {
+            bf_val_t sval;
+            yaml_eval_scalar((const char *)item_node->data.scalar.value, &sval);
+            if (sval.type == BF_T_STR) { BFListAddStr(out_list, sval.u.s); FREE(sval.u.s); }
+            else if (sval.type == BF_T_INT) BFListAddInt(out_list, sval.u.i);
+            else if (sval.type == BF_T_FLOAT) BFListAddFloat(out_list, sval.u.f);
+            else if (sval.type == BF_T_BOOL) BFListAddBool(out_list, sval.u.b);
+        }
+        else if (item_node->type == YAML_SEQUENCE_NODE) {
+            bf_list_t *cl = BFListAddList(out_list);
+            if (!cl) return ERR_OUT_OF_MEMORY;
+            enumError err = fill_bf_list_from_yaml(doc, *i, cl);
+            if (err) return err;
+        }
+        else if (item_node->type == YAML_MAPPING_NODE) {
+            bf_node_t *cn = BFListAddNode(out_list);
+            if (!cn) return ERR_OUT_OF_MEMORY;
+            enumError err = fill_bf_node_from_yaml(doc, *i, cn);
+            if (err) return err;
+        }
+    }
+    return ERR_OK;
 }
 
-static void list_add_sval (bf_list_t *list, const bf_val_t *sval)
-{
-	if (sval->type == BF_T_STR)
-	{
-		BFListAddStr (list, sval->u.s);
-		FREE (sval->u.s);
-	}
-	else if (sval->type == BF_T_INT)
-		BFListAddInt (list, sval->u.i);
-	else if (sval->type == BF_T_FLOAT)
-		BFListAddFloat (list, sval->u.f);
-	else if (sval->type == BF_T_BOOL)
-		BFListAddBool (list, sval->u.b);
+static enumError fill_bf_node_from_yaml(yaml_document_t *doc, int node_id, bf_node_t *out_dict) {
+    yaml_node_t *node = yaml_document_get_node(doc, node_id);
+    if (!node || node->type != YAML_MAPPING_NODE) return ERR_SEMANTIC;
+
+    for (yaml_node_pair_t *p = node->data.mapping.pairs.start; p < node->data.mapping.pairs.top; p++) {
+        yaml_node_t *key_node = yaml_document_get_node(doc, p->key);
+        yaml_node_t *val_node = yaml_document_get_node(doc, p->value);
+        if (!key_node || key_node->type != YAML_SCALAR_NODE || !val_node) continue;
+        const char *key_str = (const char *)key_node->data.scalar.value;
+
+        if (val_node->type == YAML_SCALAR_NODE) {
+            bf_val_t sval;
+            yaml_eval_scalar((const char *)val_node->data.scalar.value, &sval);
+            if (sval.type == BF_T_STR) { BFNodeSetStr(out_dict, key_str, sval.u.s); FREE(sval.u.s); }
+            else if (sval.type == BF_T_INT) BFNodeSetInt(out_dict, key_str, sval.u.i);
+            else if (sval.type == BF_T_FLOAT) BFNodeSetFloat(out_dict, key_str, sval.u.f);
+            else if (sval.type == BF_T_BOOL) BFNodeSetBool(out_dict, key_str, sval.u.b);
+            else if (sval.type == BF_T_NONE) BFNodeSetNone(out_dict, key_str);
+        }
+        else if (val_node->type == YAML_SEQUENCE_NODE) {
+            bf_list_t *cl = BFNodeSetList(out_dict, key_str);
+            if (!cl) return ERR_OUT_OF_MEMORY;
+            enumError err = fill_bf_list_from_yaml(doc, p->value, cl);
+            if (err) return err;
+        }
+        else if (val_node->type == YAML_MAPPING_NODE) {
+            bf_node_t *cn = BFNodeSetNode(out_dict, key_str);
+            if (!cn) return ERR_OUT_OF_MEMORY;
+            enumError err = fill_bf_node_from_yaml(doc, p->value, cn);
+            if (err) return err;
+        }
+    }
+    return ERR_OK;
 }
 
-static void parse_y_line (const char *raw_line, y_line_t *yl)
+enumError EncodeBYML_Text ( u8 **dest, uint *dest_size, const char *text, uint text_len, bool is_le, u16 version )
 {
-	memset (yl, 0, sizeof (*yl));
-	ccp p = raw_line;
-	int ind = 0;
-	while (*p == ' ')
-	{
-		ind++;
-		p++;
-	}
-	if (*p == '\t')
-	{
-		ind += 4;
-		p++;
-	}
-	yl->indent = ind;
+    if (!dest || !dest_size || !text)
+        return ERR_SEMANTIC;
+    *dest = 0; *dest_size = 0;
 
-	char buf[1024];
-	uint blen = (uint)strlen (p);
-	while (blen > 0
-		&& (p[blen - 1] == '\r' || p[blen - 1] == '\n' || p[blen - 1] == ' '
-			|| p[blen - 1] == '\t'))
-		blen--;
-	if (!blen || *p == '#')
-	{
-		yl->indent = -1;
-		return;
-	}
-	if (blen >= sizeof (buf))
-		blen = sizeof (buf) - 1;
-	memcpy (buf, p, blen);
-	buf[blen] = 0;
+    yaml_parser_t parser;
+    yaml_document_t document;
+    if (!yaml_parser_initialize(&parser)) return ERR_OUT_OF_MEMORY;
+    yaml_parser_set_input_string(&parser, (const unsigned char *)text, text_len);
+    if (!yaml_parser_load(&parser, &document)) {
+        yaml_parser_delete(&parser);
+        return ERR_SEMANTIC;
+    }
 
-	ccp cur = buf;
-	if (cur[0] == '-' && (cur[1] == ' ' || cur[1] == 0))
-	{
-		yl->is_list_item = true;
-		cur += (cur[1] == ' ') ? 2 : 1;
-		while (*cur == ' ')
-			cur++;
-	}
+    bf_node_t root;
+    BFNodeInit(&root);
 
-	if (!*cur)
-		return;
+    yaml_node_t *root_node = yaml_document_get_root_node(&document);
+    if (root_node) {
+        if (root_node->type == YAML_MAPPING_NODE) {
+            fill_bf_node_from_yaml(&document, yaml_document_get_root_node(&document) - document.nodes.start + 1, &root);
+        } else {
+            // Not a mapping at root, technically BYML requires mapping at root but let's ignore or error.
+            // (If BYML accepts lists at root, we'd have to restructure. Assuming dict at root here.)
+        }
+    }
 
-	ccp col = strchr (cur, ':');
-	if (col && (col[1] == ' ' || col[1] == 0))
-	{
-		uint klen = (uint)(col - cur);
-		while (klen > 0 && (cur[klen - 1] == ' ' || cur[klen - 1] == '\t'))
-			klen--;
-		char *k = strndup (cur, klen);
-		if ((k[0] == '"' && k[klen - 1] == '"') || (k[0] == '\'' && k[klen - 1] == '\''))
-		{
-			k[klen - 1] = 0;
-			char *tmp = STRDUP (k + 1);
-			FREE (k);
-			k = tmp;
-		}
-		yl->key = k;
-		ccp v = col + 1;
-		while (*v == ' ')
-			v++;
-		if (*v)
-			yl->val = STRDUP (v);
-	}
-	else
-	{
-		yl->val = STRDUP (cur);
-	}
-}
+    yaml_document_delete(&document);
+    yaml_parser_delete(&parser);
 
-static enumError parse_yaml_nodes (const y_line_t *lines, uint n_lines, uint *cur_idx,
-	int current_indent, bool is_list, bf_list_t *list_out, bf_node_t *node_out)
-{
-	while (*cur_idx < n_lines)
-	{
-		const y_line_t *L = &lines[*cur_idx];
-		if (L->indent < 0)
-		{
-			(*cur_idx)++;
-			continue;
-		}
-		if (L->indent < current_indent)
-			break;
+    str_list_t keys, strs;
+    str_list_init(&keys);
+    str_list_init(&strs);
 
-		if (is_list)
-		{
-			if (!L->is_list_item && L->indent <= current_indent)
-				break;
-			(*cur_idx)++;
+    bf_val_t root_val;
+    root_val.type = BF_T_NODE;
+    root_val.u.node = &root;
+    collect_byml_symbols(&root_val, &keys, &strs);
 
-			if (L->key)
-			{
-				bf_node_t *item_node = BFListAddNode (list_out);
-				if (!item_node)
-					return ERR_OUT_OF_MEMORY;
+    if (keys.count > 1)
+        qsort(keys.items, keys.count, sizeof(char*), str_cmp_qsort);
 
-				if (L->val && *L->val)
-				{
-					bf_val_t sval;
-					yaml_eval_scalar (L->val, &sval);
-					node_set_sval (item_node, L->key, &sval);
-				}
-				else
-				{
-					if (*cur_idx < n_lines && lines[*cur_idx].indent > L->indent)
-					{
-						int child_ind = lines[*cur_idx].indent;
-						if (lines[*cur_idx].is_list_item)
-						{
-							bf_list_t *cl = BFNodeSetList (item_node, L->key);
-							parse_yaml_nodes (lines, n_lines, cur_idx, child_ind, true, cl, 0);
-						}
-						else
-						{
-							bf_node_t *cn = BFNodeSetNode (item_node, L->key);
-							parse_yaml_nodes (lines, n_lines, cur_idx, child_ind, false, 0, cn);
-						}
-					}
-				}
-				parse_yaml_nodes (lines, n_lines, cur_idx, L->indent + 2, false, 0, item_node);
-			}
-			else if (L->val && *L->val)
-			{
-				bf_val_t sval;
-				yaml_eval_scalar (L->val, &sval);
-				list_add_sval (list_out, &sval);
-			}
-			else
-			{
-				if (*cur_idx < n_lines && lines[*cur_idx].indent > L->indent)
-				{
-					int child_ind = lines[*cur_idx].indent;
-					if (lines[*cur_idx].is_list_item)
-					{
-						bf_list_t *cl = BFListAddList (list_out);
-						parse_yaml_nodes (lines, n_lines, cur_idx, child_ind, true, cl, 0);
-					}
-					else
-					{
-						bf_node_t *cn = BFListAddNode (list_out);
-						parse_yaml_nodes (lines, n_lines, cur_idx, child_ind, false, 0, cn);
-					}
-				}
-			}
-		}
-		else
-		{
-			if (L->is_list_item && L->indent <= current_indent)
-				break;
-			if (!L->key)
-			{
-				(*cur_idx)++;
-				continue;
-			}
-			(*cur_idx)++;
+    byml_writer_t w;
+    bw_init(&w, is_le);
+    // Header placeholder: 16 bytes
+    bw_append(&w, 0, 16);
 
-			if (L->val && *L->val)
-			{
-				if (!strcmp (L->val, "[]"))
-				{
-					BFNodeSetList (node_out, L->key);
-				}
-				else if (!strcmp (L->val, "{}"))
-				{
-					BFNodeSetNode (node_out, L->key);
-				}
-				else
-				{
-					bf_val_t sval;
-					yaml_eval_scalar (L->val, &sval);
-					node_set_sval (node_out, L->key, &sval);
-				}
-			}
-			else
-			{
-				if (*cur_idx < n_lines && lines[*cur_idx].indent > L->indent)
-				{
-					int child_ind = lines[*cur_idx].indent;
-					if (lines[*cur_idx].is_list_item)
-					{
-						bf_list_t *cl = BFNodeSetList (node_out, L->key);
-						parse_yaml_nodes (lines, n_lines, cur_idx, child_ind, true, cl, 0);
-					}
-					else
-					{
-						bf_node_t *cn = BFNodeSetNode (node_out, L->key);
-						parse_yaml_nodes (lines, n_lines, cur_idx, child_ind, false, 0, cn);
-					}
-				}
-				else
-				{
-					BFNodeSetNode (node_out, L->key);
-				}
-			}
-		}
-	}
-	return ERR_OK;
-}
+    uint hash_key_off = write_byml_str_table(&w, &keys);
+    uint str_table_off = write_byml_str_table(&w, &strs);
+    uint root_off = write_byml_node(&w, &root_val, &keys, &strs);
 
-enumError EncodeBYML_Text (
-	u8 **dest, uint *dest_size, const char *text, uint text_len, bool is_le, u16 version)
-{
-	if (!dest || !dest_size || !text)
-		return ERR_SEMANTIC;
-	*dest = 0;
-	*dest_size = 0;
+    // Write header
+    w.buf[0] = is_le ? 'Y' : 'B';
+    w.buf[1] = is_le ? 'B' : 'Y';
+    if (is_le)
+    {
+        wr_le16(w.buf + 2, version ? version : 1);
+        wr_le32(w.buf + 4, hash_key_off);
+        wr_le32(w.buf + 8, str_table_off);
+        wr_le32(w.buf + 12, root_off);
+    }
+    else
+    {
+        wr_be16(w.buf + 2, version ? version : 1);
+        wr_be32(w.buf + 4, hash_key_off);
+        wr_be32(w.buf + 8, str_table_off);
+        wr_be32(w.buf + 12, root_off);
+    }
 
-	// Split text into lines
-	char *copy = CALLOC (1, text_len + 1);
-	memcpy (copy, text, text_len);
-	copy[text_len] = 0;
+    str_list_free(&keys);
+    str_list_free(&strs);
+    BFNodeFree(&root);
 
-	uint line_alloc = 64, n_lines = 0;
-	char **raw_lines = CALLOC (line_alloc, sizeof (char *));
-
-	char *saveptr = 0;
-	char *token = strtok_r (copy, "\n", &saveptr);
-	while (token)
-	{
-		if (n_lines >= line_alloc)
-		{
-			line_alloc *= 2;
-			raw_lines = REALLOC (raw_lines, line_alloc * sizeof (char *));
-		}
-		raw_lines[n_lines++] = token;
-		token = strtok_r (0, "\n", &saveptr);
-	}
-
-	y_line_t *lines = CALLOC (n_lines ? n_lines : 1, sizeof (y_line_t));
-	for (uint i = 0; i < n_lines; i++)
-		parse_y_line (raw_lines[i], &lines[i]);
-
-	bf_node_t root;
-	BFNodeInit (&root);
-	uint cur_idx = 0;
-	parse_yaml_nodes (lines, n_lines, &cur_idx, 0, false, 0, &root);
-
-	for (uint i = 0; i < n_lines; i++)
-	{
-		FREE (lines[i].key);
-		FREE (lines[i].val);
-	}
-	FREE (lines);
-	FREE (raw_lines);
-	FREE (copy);
-
-	str_list_t keys, strs;
-	str_list_init (&keys);
-	str_list_init (&strs);
-
-	bf_val_t root_val;
-	root_val.type = BF_T_NODE;
-	root_val.u.node = &root;
-	collect_byml_symbols (&root_val, &keys, &strs);
-
-	if (keys.count > 1)
-		qsort (keys.items, keys.count, sizeof (char *), str_cmp_qsort);
-
-	byml_writer_t w;
-	bw_init (&w, is_le);
-	// Header placeholder: 16 bytes
-	bw_append (&w, 0, 16);
-
-	uint hash_key_off = write_byml_str_table (&w, &keys);
-	uint str_table_off = write_byml_str_table (&w, &strs);
-	uint root_off = write_byml_node (&w, &root_val, &keys, &strs);
-
-	// Write header
-	w.buf[0] = is_le ? 'Y' : 'B';
-	w.buf[1] = is_le ? 'B' : 'Y';
-	if (is_le)
-	{
-		wr_le16 (w.buf + 2, version ? version : 1);
-		wr_le32 (w.buf + 4, hash_key_off);
-		wr_le32 (w.buf + 8, str_table_off);
-		wr_le32 (w.buf + 12, root_off);
-	}
-	else
-	{
-		wr_be16 (w.buf + 2, version ? version : 1);
-		wr_be32 (w.buf + 4, hash_key_off);
-		wr_be32 (w.buf + 8, str_table_off);
-		wr_be32 (w.buf + 12, root_off);
-	}
-
-	str_list_free (&keys);
-	str_list_free (&strs);
-	BFNodeFree (&root);
-
-	*dest = w.buf;
-	*dest_size = w.len;
-	return ERR_OK;
+    *dest = w.buf;
+    *dest_size = w.len;
+    return ERR_OK;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

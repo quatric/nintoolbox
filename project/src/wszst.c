@@ -59,6 +59,7 @@
 #include "lib-ledis.h"
 #include "lib-mdl.h"
 #include "lib-pat.h"
+#include <mxml.h>
 #include "lib-chr.h"
 #include "lib-srt.h"
 #include "lib-vis0.h"
@@ -6058,119 +6059,108 @@ typedef struct ncer_xml_cell_t
 // extract_nitro_sprite_manifest().  It is not a general XML parser: rejecting
 // extensions outside that vocabulary prevents a malformed project from being
 // converted into an unsafe binary layout.
-static enumError create_ncer_xml (ccp source, ccp dest)
+static enumError create_ncer_xml ( ccp source, ccp dest )
 {
-	u8 *xml = 0;
-	size_t xml_size = 0;
-	enumError err = LoadFileAlloc (source, 0, 0, &xml, &xml_size, 16 << 20, 0, 0, false);
-	if (err)
-		return err;
-	uint n_cells = 0;
-	if (sscanf ((ccp)xml, "<?xml version=\"1.0\"?>\n<ncer cells=\"%u\">", &n_cells) != 1 || !n_cells
-		|| n_cells > 65535)
-	{
-		FREE (xml);
-		return ERR_INVALID_DATA;
-	}
-	ncer_xml_cell_t *cells = CALLOC (n_cells, sizeof (*cells));
-	u16 *objects = 0;
-	uint n_objects = 0, obj_alloc = 0;
-	ccp p = (ccp)xml;
-	for (uint i = 0; i < n_cells; i++)
-	{
-		p = strstr (p, "<cell ");
-		uint index = 0, count = 0;
-		if (!p || sscanf (p, "<cell index=\"%u\" objects=\"%u\">", &index, &count) != 2
-			|| index != i || count > 65535 - n_objects)
-		{
-			err = ERR_INVALID_DATA;
-			break;
-		}
-		cells[i].count = count;
-		cells[i].object_off = n_objects;
-		p += 6;
-		for (uint j = 0; j < count; j++)
-		{
-			p = strstr (p, "<obj ");
-			uint a0, a1, a2;
-			if (!p
-				|| sscanf (p, "<obj attr0=\"0x%x\" attr1=\"0x%x\" attr2=\"0x%x\"/>", &a0, &a1, &a2)
-					!= 3
-				|| a0 > 0xffff || a1 > 0xffff || a2 > 0xffff)
-			{
-				err = ERR_INVALID_DATA;
-				break;
-			}
-			if (n_objects == obj_alloc)
-			{
-				const uint new_alloc = obj_alloc ? obj_alloc * 2 : 64;
-				u16 *new_objects = REALLOC (objects, 3 * new_alloc * sizeof (*objects));
-				if (!new_objects)
-				{
-					err = ERR_CANT_CREATE;
-					break;
-				}
-				objects = new_objects;
-				obj_alloc = new_alloc;
-			}
-			objects[3 * n_objects] = a0;
-			objects[3 * n_objects + 1] = a1;
-			objects[3 * n_objects + 2] = a2;
-			n_objects++;
-			p += 5;
-		}
-		if (err)
-			break;
-	}
-	const u64 chunk64 = (0x20ull + 8ull * n_cells + 6ull * n_objects + 3) & ~3ull;
-	if (!err && (chunk64 > UINT_MAX || chunk64 + 0x10 > UINT_MAX))
-		err = ERR_FILE_TOO_BIG;
-	u8 *out = !err ? CALLOC (1, 0x10 + (uint)chunk64) : 0;
-	if (!err && !out)
-		err = ERR_CANT_CREATE;
-	if (!err)
-	{
-		memcpy (out, "RECN", 4);
-		write_le16 (out + 4, 0xfeff);
-		write_le16 (out + 6, 0x100);
-		write_le32 (out + 8, 0x10 + (uint)chunk64);
-		write_le16 (out + 12, 0x10);
-		write_le16 (out + 14, 1);
-		u8 *kbec = out + 0x10;
-		memcpy (kbec, "KBEC", 4);
-		write_le32 (kbec + 4, chunk64);
-		write_le16 (kbec + 8, n_cells);
-		write_le32 (kbec + 12, 0x18); // cell table is at KBEC+0x20
-		u8 *obj = kbec + 0x20 + 8 * n_cells;
-		for (uint i = 0; i < n_cells; i++)
-		{
-			u8 *cell = kbec + 0x20 + 8 * i;
-			write_le16 (cell, cells[i].count);
-			write_le32 (cell + 4, 6 * cells[i].object_off);
-		}
-		for (uint i = 0; i < n_objects; i++)
-		{
-			write_le16 (obj + 6 * i, objects[3 * i]);
-			write_le16 (obj + 6 * i + 2, objects[3 * i + 1]);
-			write_le16 (obj + 6 * i + 4, objects[3 * i + 2]);
-		}
-		if (verbose >= 0 || testmode)
-			fprintf (
-				stdlog, "%sCREATE NCER XML:%s -> %s\n", testmode ? "WOULD " : "", source, dest);
-		if (!testmode)
-		{
-			File_t F;
-			CreateFILE (&F, true, dest, testmode, false, true, false, false);
-			if (F.f && fwrite (out, 1, 0x10 + (uint)chunk64, F.f) != 0x10 + (uint)chunk64)
-				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing NCER failed: %s\n", dest);
-			ResetFile (&F, opt_preserve);
-		}
-	}
-	FREE (out);
-	FREE (objects);
-	FREE (cells);
-	FREE (xml);
-	return err;
+    u8 *xml = 0;
+    size_t xml_size = 0;
+    enumError err = LoadFileAlloc(source,0,0,&xml,&xml_size,16<<20,0,0,false);
+    if (err) return err;
+
+    mxml_node_t *tree = mxmlLoadString(NULL, (ccp)xml, MXML_OPAQUE_CALLBACK);
+    if (!tree) { FREE(xml); return ERR_INVALID_DATA; }
+
+    mxml_node_t *ncer_node = mxmlFindElement(tree, tree, "ncer", NULL, NULL, MXML_DESCEND);
+    if (!ncer_node) { mxmlDelete(tree); FREE(xml); return ERR_INVALID_DATA; }
+
+    const char *cells_attr = mxmlElementGetAttr(ncer_node, "cells");
+    if (!cells_attr) { mxmlDelete(tree); FREE(xml); return ERR_INVALID_DATA; }
+
+    uint n_cells = strtoul(cells_attr, NULL, 10);
+    if (!n_cells || n_cells > 65535) { mxmlDelete(tree); FREE(xml); return ERR_INVALID_DATA; }
+
+    ncer_xml_cell_t *cells = CALLOC(n_cells,sizeof(*cells));
+    u16 *objects = 0;
+    uint n_objects = 0, obj_alloc = 0;
+
+    mxml_node_t *cell_node = mxmlFindElement(ncer_node, ncer_node, "cell", NULL, NULL, MXML_DESCEND_FIRST);
+    for (uint i = 0; i < n_cells; i++)
+    {
+        if (!cell_node) { err = ERR_INVALID_DATA; break; }
+        const char *idx_attr = mxmlElementGetAttr(cell_node, "index");
+        const char *cnt_attr = mxmlElementGetAttr(cell_node, "objects");
+        if (!idx_attr || !cnt_attr) { err = ERR_INVALID_DATA; break; }
+
+        uint index = strtoul(idx_attr, NULL, 10);
+        uint count = strtoul(cnt_attr, NULL, 10);
+        if (index != i || count > 65535-n_objects) { err = ERR_INVALID_DATA; break; }
+
+        cells[i].count = count;
+        cells[i].object_off = n_objects;
+
+        mxml_node_t *obj_node = mxmlFindElement(cell_node, cell_node, "obj", NULL, NULL, MXML_DESCEND_FIRST);
+        for (uint j = 0; j < count; j++)
+        {
+            if (!obj_node) { err = ERR_INVALID_DATA; break; }
+            const char *a0_attr = mxmlElementGetAttr(obj_node, "attr0");
+            const char *a1_attr = mxmlElementGetAttr(obj_node, "attr1");
+            const char *a2_attr = mxmlElementGetAttr(obj_node, "attr2");
+            if (!a0_attr || !a1_attr || !a2_attr) { err = ERR_INVALID_DATA; break; }
+
+            uint a0 = strtoul(a0_attr, NULL, 16);
+            uint a1 = strtoul(a1_attr, NULL, 16);
+            uint a2 = strtoul(a2_attr, NULL, 16);
+            if (a0 > 0xffff || a1 > 0xffff || a2 > 0xffff) { err = ERR_INVALID_DATA; break; }
+
+            if (n_objects == obj_alloc)
+            {
+                const uint new_alloc = obj_alloc ? obj_alloc*2 : 64;
+                u16 *new_objects = REALLOC(objects,3*new_alloc*sizeof(*objects));
+                if (!new_objects) { err = ERR_CANT_CREATE; break; }
+                objects = new_objects; obj_alloc = new_alloc;
+            }
+            objects[3*n_objects] = a0; objects[3*n_objects+1] = a1;
+            objects[3*n_objects+2] = a2; n_objects++;
+            obj_node = mxmlFindElement(obj_node, cell_node, "obj", NULL, NULL, MXML_NO_DESCEND);
+        }
+        if (err) break;
+        cell_node = mxmlFindElement(cell_node, ncer_node, "cell", NULL, NULL, MXML_NO_DESCEND);
+    }
+    mxmlDelete(tree);
+    const u64 chunk64 = ( 0x20ull + 8ull*n_cells + 6ull*n_objects + 3 ) & ~3ull;
+    if (!err && (chunk64 > UINT_MAX || chunk64+0x10 > UINT_MAX)) err = ERR_FILE_TOO_BIG;
+    u8 *out = !err ? CALLOC(1,0x10+(uint)chunk64) : 0;
+    if (!err && !out) err = ERR_CANT_CREATE;
+    if (!err)
+    {
+        memcpy(out,"RECN",4); write_le16(out+4,0xfeff); write_le16(out+6,0x100);
+        write_le32(out+8,0x10+(uint)chunk64); write_le16(out+12,0x10); write_le16(out+14,1);
+        u8 *kbec = out+0x10;
+        memcpy(kbec,"KBEC",4); write_le32(kbec+4,chunk64); write_le16(kbec+8,n_cells);
+        write_le32(kbec+12,0x18); // cell table is at KBEC+0x20
+        u8 *obj = kbec+0x20+8*n_cells;
+        for (uint i = 0; i < n_cells; i++)
+        {
+            u8 *cell = kbec+0x20+8*i;
+            write_le16(cell,cells[i].count); write_le32(cell+4,6*cells[i].object_off);
+        }
+        for (uint i = 0; i < n_objects; i++)
+        {
+            write_le16(obj+6*i,objects[3*i]); write_le16(obj+6*i+2,objects[3*i+1]);
+            write_le16(obj+6*i+4,objects[3*i+2]);
+        }
+        if (verbose >= 0 || testmode)
+            fprintf(stdlog,"%sCREATE NCER XML:%s -> %s\n",testmode ? "WOULD " : "",source,dest);
+        if (!testmode)
+        {
+            File_t F;
+            CreateFILE(&F,true,dest,testmode,false,true,false,false);
+            if (F.f && fwrite(out,1,0x10+(uint)chunk64,F.f) != 0x10+(uint)chunk64)
+                err = FILEERROR1(&F,ERR_WRITE_FAILED,"Writing NCER failed: %s\n",dest);
+            ResetFile(&F,opt_preserve);
+        }
+    }
+    FREE(out); FREE(objects); FREE(cells); FREE(xml);
+    return err;
 }
 
 typedef struct nanr_xml_frame_t
@@ -6178,119 +6168,112 @@ typedef struct nanr_xml_frame_t
 	uint cell, duration, data_off;
 } nanr_xml_frame_t;
 
-static enumError create_nanr_xml (ccp source, ccp dest)
+static enumError create_nanr_xml ( ccp source, ccp dest )
 {
-	u8 *xml = 0;
-	size_t xml_size = 0;
-	enumError err = LoadFileAlloc (source, 0, 0, &xml, &xml_size, 16 << 20, 0, 0, false);
-	if (err)
-		return err;
-	uint n_anims = 0, n_frames = 0;
-	if (sscanf ((ccp)xml, "<?xml version=\"1.0\"?>\n<nanr animations=\"%u\" frames=\"%u\">",
-			&n_anims, &n_frames)
-			!= 2
-		|| !n_anims || !n_frames || n_anims > 65535 || n_frames > 65535)
-	{
-		FREE (xml);
-		return ERR_INVALID_DATA;
-	}
-	uint *anim_first = CALLOC (n_anims, sizeof (*anim_first));
-	uint *anim_count = CALLOC (n_anims, sizeof (*anim_count));
-	nanr_xml_frame_t *frames = CALLOC (n_frames, sizeof (*frames));
-	if (!anim_first || !anim_count || !frames)
-		err = ERR_CANT_CREATE;
-	uint frame_used = 0, data_size = 0;
-	ccp p = (ccp)xml;
-	for (uint i = 0; !err && i < n_anims; i++)
-	{
-		p = strstr (p, "<animation ");
-		uint index, count;
-		if (!p || sscanf (p, "<animation index=\"%u\" frames=\"%u\">", &index, &count) != 2
-			|| index != i || !count || count > n_frames - frame_used)
-		{
-			err = ERR_INVALID_DATA;
-			break;
-		}
-		anim_first[i] = frame_used;
-		anim_count[i] = count;
-		p += 11;
-		for (uint j = 0; j < count; j++)
-		{
-			p = strstr (p, "<frame ");
-			uint cell, duration, off;
-			if (!p
-				|| sscanf (p, "<frame cell=\"%u\" duration=\"%u\" data-offset=\"0x%x\"/>", &cell,
-					   &duration, &off)
-					!= 3
-				|| cell > 0xffff || duration > 0xffff || off > 0xfffffffdu || off + 2 < off)
-			{
-				err = ERR_INVALID_DATA;
-				break;
-			}
-			frames[frame_used++] = (nanr_xml_frame_t) { cell, duration, off };
-			if (data_size < off + 2)
-				data_size = off + 2;
-			p += 7;
-		}
-	}
-	if (!err && frame_used != n_frames)
-		err = ERR_INVALID_DATA;
-	const u64 data_base = 0x20ull + 16ull * n_anims + 8ull * n_frames;
-	const u64 chunk64 = (data_base + data_size + 3) & ~3ull;
-	if (!err && (chunk64 > UINT_MAX || chunk64 + 0x10 > UINT_MAX))
-		err = ERR_FILE_TOO_BIG;
-	u8 *out = !err ? CALLOC (1, 0x10 + (uint)chunk64) : 0;
-	if (!err && !out)
-		err = ERR_CANT_CREATE;
-	if (!err)
-	{
-		memcpy (out, "RNAN", 4);
-		write_le16 (out + 4, 0xfeff);
-		write_le16 (out + 6, 0x100);
-		write_le32 (out + 8, 0x10 + (uint)chunk64);
-		write_le16 (out + 12, 0x10);
-		write_le16 (out + 14, 1);
-		u8 *knba = out + 0x10;
-		memcpy (knba, "KNBA", 4);
-		write_le32 (knba + 4, chunk64);
-		write_le16 (knba + 8, n_anims);
-		write_le16 (knba + 10, n_frames);
-		write_le32 (knba + 12, 0x18);
-		write_le32 (knba + 16, 0x18 + 16 * n_anims);
-		write_le32 (knba + 20, 0x18 + 16 * n_anims + 8 * n_frames);
-		u8 *anims = knba + 0x20, *frame_ptr = anims + 16 * n_anims,
-		   *frame_data = frame_ptr + 8 * n_frames;
-		for (uint i = 0; i < n_anims; i++)
-		{
-			write_le32 (anims + 16 * i, anim_count[i]);
-			write_le16 (anims + 16 * i + 6, 1);
-			write_le32 (anims + 16 * i + 8, 1);
-			write_le32 (anims + 16 * i + 12, 8 * anim_first[i]);
-		}
-		for (uint i = 0; i < n_frames; i++)
-		{
-			write_le32 (frame_ptr + 8 * i, frames[i].data_off);
-			write_le16 (frame_ptr + 8 * i + 4, frames[i].duration);
-			write_le16 (frame_data + frames[i].data_off, frames[i].cell);
-		}
-		if (verbose >= 0 || testmode)
-			fprintf (
-				stdlog, "%sCREATE NANR XML:%s -> %s\n", testmode ? "WOULD " : "", source, dest);
-		if (!testmode)
-		{
-			File_t F;
-			CreateFILE (&F, true, dest, testmode, false, true, false, false);
-			if (F.f && fwrite (out, 1, 0x10 + (uint)chunk64, F.f) != 0x10 + (uint)chunk64)
-				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing NANR failed: %s\n", dest);
-			ResetFile (&F, opt_preserve);
-		}
-	}
-	FREE (out);
-	FREE (frames);
-	FREE (anim_count);
-	FREE (anim_first);
-	FREE (xml);
-	return err;
+    u8 *xml = 0;
+    size_t xml_size = 0;
+    enumError err = LoadFileAlloc(source,0,0,&xml,&xml_size,16<<20,0,0,false);
+    if (err) return err;
+    uint n_anims = 0, n_frames = 0;
+
+    mxml_node_t *tree = mxmlLoadString(NULL, (ccp)xml, MXML_OPAQUE_CALLBACK);
+    if (!tree) { FREE(xml); return ERR_INVALID_DATA; }
+
+    mxml_node_t *nanr_node = mxmlFindElement(tree, tree, "nanr", NULL, NULL, MXML_DESCEND);
+    if (!nanr_node) { mxmlDelete(tree); FREE(xml); return ERR_INVALID_DATA; }
+
+    const char *anims_attr = mxmlElementGetAttr(nanr_node, "animations");
+    const char *frames_attr = mxmlElementGetAttr(nanr_node, "frames");
+    if (!anims_attr || !frames_attr) { mxmlDelete(tree); FREE(xml); return ERR_INVALID_DATA; }
+
+    n_anims = strtoul(anims_attr, NULL, 10);
+    n_frames = strtoul(frames_attr, NULL, 10);
+    if (!n_anims || !n_frames || n_anims > 65535 || n_frames > 65535) {
+        mxmlDelete(tree); FREE(xml); return ERR_INVALID_DATA;
+    }
+
+    uint *anim_first = CALLOC(n_anims,sizeof(*anim_first));
+    uint *anim_count = CALLOC(n_anims,sizeof(*anim_count));
+    nanr_xml_frame_t *frames = CALLOC(n_frames,sizeof(*frames));
+    if (!anim_first || !anim_count || !frames) err = ERR_CANT_CREATE;
+    uint frame_used = 0, data_size = 0;
+
+    mxml_node_t *anim_node = mxmlFindElement(nanr_node, nanr_node, "animation", NULL, NULL, MXML_DESCEND_FIRST);
+    for (uint i = 0; !err && i < n_anims; i++)
+    {
+        if (!anim_node) { err = ERR_INVALID_DATA; break; }
+        const char *idx_attr = mxmlElementGetAttr(anim_node, "index");
+        const char *cnt_attr = mxmlElementGetAttr(anim_node, "frames");
+        if (!idx_attr || !cnt_attr) { err = ERR_INVALID_DATA; break; }
+
+        uint index = strtoul(idx_attr, NULL, 10);
+        uint count = strtoul(cnt_attr, NULL, 10);
+        if (index != i || !count || count > n_frames-frame_used) { err = ERR_INVALID_DATA; break; }
+
+        anim_first[i] = frame_used; anim_count[i] = count;
+
+        mxml_node_t *frame_node = mxmlFindElement(anim_node, anim_node, "frame", NULL, NULL, MXML_DESCEND_FIRST);
+        for (uint j = 0; j < count; j++)
+        {
+            if (!frame_node) { err = ERR_INVALID_DATA; break; }
+            const char *cell_attr = mxmlElementGetAttr(frame_node, "cell");
+            const char *dur_attr = mxmlElementGetAttr(frame_node, "duration");
+            const char *off_attr = mxmlElementGetAttr(frame_node, "data-offset");
+            if (!cell_attr || !dur_attr || !off_attr) { err = ERR_INVALID_DATA; break; }
+
+            uint cell = strtoul(cell_attr, NULL, 10);
+            uint duration = strtoul(dur_attr, NULL, 10);
+            uint off = strtoul(off_attr, NULL, 16);
+            if (cell > 0xffff || duration > 0xffff || off > 0xfffffffdu || off+2 < off) { err = ERR_INVALID_DATA; break; }
+
+            frames[frame_used++] = (nanr_xml_frame_t){ cell, duration, off };
+            if (data_size < off+2) data_size = off+2;
+            
+            frame_node = mxmlFindElement(frame_node, anim_node, "frame", NULL, NULL, MXML_NO_DESCEND);
+        }
+        anim_node = mxmlFindElement(anim_node, nanr_node, "animation", NULL, NULL, MXML_NO_DESCEND);
+    }
+    mxmlDelete(tree);
+    if (!err && frame_used != n_frames) err = ERR_INVALID_DATA;
+    const u64 data_base = 0x20ull + 16ull*n_anims + 8ull*n_frames;
+    const u64 chunk64 = (data_base + data_size + 3) & ~3ull;
+    if (!err && (chunk64 > UINT_MAX || chunk64+0x10 > UINT_MAX)) err = ERR_FILE_TOO_BIG;
+    u8 *out = !err ? CALLOC(1,0x10+(uint)chunk64) : 0;
+    if (!err && !out) err = ERR_CANT_CREATE;
+    if (!err)
+    {
+        memcpy(out,"RNAN",4); write_le16(out+4,0xfeff); write_le16(out+6,0x100);
+        write_le32(out+8,0x10+(uint)chunk64); write_le16(out+12,0x10); write_le16(out+14,1);
+        u8 *knba = out+0x10;
+        memcpy(knba,"KNBA",4); write_le32(knba+4,chunk64);
+        write_le16(knba+8,n_anims); write_le16(knba+10,n_frames);
+        write_le32(knba+12,0x18); write_le32(knba+16,0x18+16*n_anims);
+        write_le32(knba+20,0x18+16*n_anims+8*n_frames);
+        u8 *anims = knba+0x20, *frame_ptr = anims+16*n_anims, *frame_data = frame_ptr+8*n_frames;
+        for (uint i = 0; i < n_anims; i++)
+        {
+            write_le32(anims+16*i,anim_count[i]); write_le16(anims+16*i+6,1);
+            write_le32(anims+16*i+8,1); write_le32(anims+16*i+12,8*anim_first[i]);
+        }
+        for (uint i = 0; i < n_frames; i++)
+        {
+            write_le32(frame_ptr+8*i,frames[i].data_off);
+            write_le16(frame_ptr+8*i+4,frames[i].duration);
+            write_le16(frame_data+frames[i].data_off,frames[i].cell);
+        }
+        if (verbose >= 0 || testmode)
+            fprintf(stdlog,"%sCREATE NANR XML:%s -> %s\n",testmode ? "WOULD " : "",source,dest);
+        if (!testmode)
+        {
+            File_t F;
+            CreateFILE(&F,true,dest,testmode,false,true,false,false);
+            if (F.f && fwrite(out,1,0x10+(uint)chunk64,F.f) != 0x10+(uint)chunk64)
+                err = FILEERROR1(&F,ERR_WRITE_FAILED,"Writing NANR failed: %s\n",dest);
+            ResetFile(&F,opt_preserve);
+        }
+    }
+    FREE(out); FREE(frames); FREE(anim_count); FREE(anim_first); FREE(xml);
+    return err;
 }
 
 static enumError encode_byml_file (ccp source, ccp dest)

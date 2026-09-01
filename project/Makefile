@@ -145,7 +145,7 @@ DEFINES1	+= -DDEBUG_ASSERT		# enable ASSERTions in release version too
 DEFINES1	+= -DEXTENDED_ERRORS=1		# enable extended error messages (function,line,file)
 DEFINES1	+= -DUIOPT_INDEX_SIZE=400	# define max number of options (default 0x100)
 
-CFLAGS		+= $(DCLIB_CFLAGS) -Isrc/mxml -Isrc/vgmtrans/src/ui/cli
+CFLAGS		+= $(DCLIB_CFLAGS) -Isrc/mxml -Isrc/libyaml -Isrc/vgmtrans/src/ui/cli
 CFLAGS		+= -std=gnu99 -D_GNU_SOURCE -fomit-frame-pointer -fno-strict-aliasing -funroll-loops
 CFLAGS		+= -Wall -Wno-parentheses -Wno-unused-function
 CFLAGS		+= -Wno-deprecated-declarations
@@ -352,7 +352,11 @@ LZMA_FLAGS	= -DZ7_ST=1
 # libmxml
 LIB_MXML_SRC	= $(filter-out src/mxml/testmxml.c src/mxml/mvalidate.c src/mxml/mxmldoc.c, $(wildcard src/mxml/*.c))
 LIB_MXML_OBJ	= $(patsubst %.c,%.o,$(LIB_MXML_SRC))
-
+# libyaml
+LIB_YAML_SRC	= $(wildcard src/libyaml/*.c)
+LIB_YAML_OBJ	= $(patsubst %.c,%.o,$(LIB_YAML_SRC))
+LIB_LIST	+= libbz2 liblzma mxml ajpg libyaml
+LIB_OBJECTS	+= $(LIB_BZ2_OBJ) $(LIB_LZMA_OBJ) $(LIB_MXML_OBJ) $(LIB_BENZIN_OBJ) $(LIB_YAML_OBJ)
 # benzin: layout (BRLYT/BFLYT/BCLYT + BRLAN/BFLAN/BCLAN) support is native,
 # see lib-bflyt.c; no external interpreter needed.
 LIB_BENZIN_SRC	=
