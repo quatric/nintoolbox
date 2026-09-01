@@ -72,6 +72,7 @@ typedef enum seq_format_t
 	SEQ_FMT_FSEQ_BE, // Wii U (Format Sequence) - Big Endian
 	SEQ_FMT_FSEQ_LE, // Switch (Format Sequence) - Little Endian
 	SEQ_FMT_SSEQ, // NDS (Nitro Sequence) - Little Endian
+	SEQ_FMT_BMS, // GameCube / Wii (JAudio Binary Music Sequence) - Big Endian
 } seq_format_t;
 
 // Disassemble a sequence (RSEQ/CSEQ/FSEQ/SSEQ) to human-readable MML text.

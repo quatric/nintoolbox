@@ -128,7 +128,7 @@ static inline size_t vlq_len (u32 val)
 
 seq_format_t DetectSequenceFormat (const u8 *data, size_t size)
 {
-	if (!data || size < 16)
+	if (!data || size < 4)
 		return SEQ_FMT_UNKNOWN;
 
 	if (size >= 0x20 && !memcmp (data, "RSEQ", 4))
@@ -144,6 +144,14 @@ seq_format_t DetectSequenceFormat (const u8 *data, size_t size)
 		return SEQ_FMT_SSEQ;
 	if (size >= 12 && !memcmp (data, "DATA", 4))
 		return SEQ_FMT_RSEQ;
+
+	// Check for raw JAudio BMS bytecode sequence (starts with standard opcodes)
+	if (size >= 4
+		&& (data[0] == SEQ_OP_OPEN_TRACK || data[0] == SEQ_OP_ALLOC_TRACK
+			|| data[0] == SEQ_OP_TEMPO || data[0] == SEQ_OP_TIMEBASE
+			|| data[0] == SEQ_OP_PRG || data[0] == SEQ_OP_WAIT
+			|| data[0] == SEQ_OP_VOLUME || data[0] < 0x80))
+		return SEQ_FMT_BMS;
 
 	return SEQ_FMT_UNKNOWN;
 }
@@ -164,6 +172,9 @@ seq_format_t ParseSequenceFormatName (const char *name)
 	if (!strcasecmp (name, "SSEQ") || !strcasecmp (name, "NDS") || !strcasecmp (name, "NITRO")
 		|| !strcasecmp (name, "DS"))
 		return SEQ_FMT_SSEQ;
+	if (!strcasecmp (name, "BMS") || !strcasecmp (name, "BMC") || !strcasecmp (name, "JAUDIO")
+		|| !strcasecmp (name, "GC") || !strcasecmp (name, "GAMECUBE"))
+		return SEQ_FMT_BMS;
 	return SEQ_FMT_RSEQ;
 }
 
@@ -181,6 +192,8 @@ const char *GetSequenceFormatName (seq_format_t fmt)
 			return "FSEQ (Switch)";
 		case SEQ_FMT_SSEQ:
 			return "SSEQ";
+		case SEQ_FMT_BMS:
+			return "BMS (GameCube/Wii)";
 		default:
 			return "Unknown";
 	}
@@ -223,7 +236,7 @@ static void add_label (
 
 enumError DisassembleSequence (char **out_text, size_t *out_size, const u8 *data, size_t size)
 {
-	if (!data || size < 12 || !out_text)
+	if (!data || size < 4 || !out_text)
 		return ERR_INVALID_DATA;
 
 	seq_format_t fmt = DetectSequenceFormat (data, size);
@@ -959,7 +972,16 @@ enumError AssembleSequence (
 	size_t total_size = 0;
 	u8 *out = NULL;
 
-	if (target_fmt == SEQ_FMT_SSEQ)
+	if (target_fmt == SEQ_FMT_BMS)
+	{
+		total_size = code_len;
+		out = code;
+		*out_data = out;
+		if (out_size)
+			*out_size = total_size;
+		return ERR_OK;
+	}
+	else if (target_fmt == SEQ_FMT_SSEQ)
 	{
 		// 0x10 Header + 0x0C DATA header + code
 		uint data_sec_size = (uint)(12 + code_len);
@@ -1104,7 +1126,7 @@ static int compare_midi_events (const void *a, const void *b)
 
 enumError SequenceToMIDI (u8 **out_midi, size_t *out_size, const u8 *seq_data, size_t seq_size)
 {
-	if (!seq_data || seq_size < 12 || !out_midi)
+	if (!seq_data || seq_size < 4 || !out_midi)
 		return ERR_INVALID_DATA;
 
 	seq_format_t fmt = DetectSequenceFormat (seq_data, seq_size);
@@ -1579,7 +1601,7 @@ enumError SequenceFromMIDI (
 enumError InvertSequence (
 	u8 **out_data, size_t *out_size, const u8 *seq_data, size_t seq_size, int center_note)
 {
-	if (!seq_data || seq_size < 12 || !out_data)
+	if (!seq_data || seq_size < 4 || !out_data)
 		return ERR_INVALID_DATA;
 
 	u8 *buf = MALLOC (seq_size);

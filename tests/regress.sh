@@ -3172,12 +3172,13 @@ fin
 EOF
 
   local ok=1
-  # Test RSEQ, CSEQ, FSEQ (Wii U & Switch), SSEQ assembly
+  # Test RSEQ, CSEQ, FSEQ (Wii U & Switch), SSEQ, BMS assembly
   "$B/wseqt" asm "$d/song.txt" "$d/song.rseq" --format RSEQ >/dev/null 2>&1 || ok=0
   "$B/wseqt" asm "$d/song.txt" "$d/song.cseq" --format CSEQ >/dev/null 2>&1 || ok=0
   "$B/wseqt" asm "$d/song.txt" "$d/song_wiiu.fseq" --format FSEQ >/dev/null 2>&1 || ok=0
   "$B/wseqt" asm "$d/song.txt" "$d/song_nx.fseq" --format FSEQ_LE >/dev/null 2>&1 || ok=0
   "$B/wseqt" asm "$d/song.txt" "$d/song.sseq" --format SSEQ >/dev/null 2>&1 || ok=0
+  "$B/wseqt" asm "$d/song.txt" "$d/song.bms" --format BMS >/dev/null 2>&1 || ok=0
 
   # Test disassembly
   "$B/wseqt" disasm "$d/song.rseq" "$d/song_dis.txt" >/dev/null 2>&1 || ok=0
@@ -3185,11 +3186,20 @@ EOF
   grep -q "tempo 120" "$d/song_dis.txt" || ok=0
   grep -q "note C4" "$d/song_dis.txt" || ok=0
 
+  # Test BMS disassembly
+  "$B/wseqt" disasm "$d/song.bms" "$d/song_bms_dis.txt" >/dev/null 2>&1 || ok=0
+  grep -q "timebase 48" "$d/song_bms_dis.txt" || ok=0
+  grep -q "tempo 120" "$d/song_bms_dis.txt" || ok=0
+
   # Test MIDI conversion roundtrip
   "$B/wseqt" to_midi "$d/song.rseq" "$d/song.mid" >/dev/null 2>&1 || ok=0
   [ -s "$d/song.mid" ] || ok=0
   "$B/wseqt" from_midi "$d/song.mid" "$d/song_midi.rseq" --format RSEQ >/dev/null 2>&1 || ok=0
   [ -s "$d/song_midi.rseq" ] || ok=0
+  "$B/wseqt" to_midi "$d/song.bms" "$d/song_bms.mid" >/dev/null 2>&1 || ok=0
+  [ -s "$d/song_bms.mid" ] || ok=0
+  "$B/wseqt" from_midi "$d/song_bms.mid" "$d/song_midi.bms" --format BMS >/dev/null 2>&1 || ok=0
+  [ -s "$d/song_midi.bms" ] || ok=0
 
   # Test sequence invert
   "$B/wseqt" invert "$d/song.rseq" "$d/song_inv.rseq" --center 63 >/dev/null 2>&1 || ok=0
@@ -3204,8 +3214,8 @@ EOF
   [ -s "$d/out/wszst_song.mid" ] || ok=0
 
   rm -rf "$d"
-  [ "$ok" = 1 ] && ok "NintendoWare sequence RSEQ/CSEQ/FSEQ/SSEQ/MIDI roundtrips & wszst integration" \
-    || no "NintendoWare sequence RSEQ/CSEQ/FSEQ/SSEQ/MIDI roundtrips & wszst integration" "sequence test failed"
+  [ "$ok" = 1 ] && ok "NintendoWare sequence RSEQ/CSEQ/FSEQ/SSEQ/BMS/MIDI roundtrips & wszst integration" \
+    || no "NintendoWare sequence RSEQ/CSEQ/FSEQ/SSEQ/BMS/MIDI roundtrips & wszst integration" "sequence test failed"
 }
 t_sequence_roundtrips
 
@@ -4413,7 +4423,7 @@ t_byte_exact_encoders(){
   # NintendoWare sequence assembly. Test both endian variants of FSEQ.
   mkdir -p "$d/seq-a" "$d/seq-b"
   printf '; canonical sequence\ntimebase 48\ntempo 120\nnote C4 100 48\nwait 48\nfin\n' > "$d/song.txt"
-  for spec in 'RSEQ rseq' 'CSEQ cseq' 'FSEQ fseq' 'FSEQ_LE fseqle' 'SSEQ sseq'; do
+  for spec in 'RSEQ rseq' 'CSEQ cseq' 'FSEQ fseq' 'FSEQ_LE fseqle' 'SSEQ sseq' 'BMS bms'; do
     set -- $spec; local form=$1; ext=$2
     if "$B/wseqt" asm "$d/song.txt" "$d/seq-a/same.$ext" --format "$form" >/dev/null 2>&1 \
     && "$B/wseqt" asm "$d/song.txt" "$d/seq-b/same.$ext" --format "$form" >/dev/null 2>&1 \
@@ -5265,7 +5275,7 @@ EOF
 
   # NintendoWare sequence assembly & disassembly fixed points.
   printf '; canonical sequence\ntimebase 48\ntempo 120\nnote C4 100 48\nwait 48\nfin\n' > "$d/song.txt"
-  for spec in 'RSEQ rseq' 'CSEQ cseq' 'FSEQ fseq' 'FSEQ_LE fseqle' 'SSEQ sseq'; do
+  for spec in 'RSEQ rseq' 'CSEQ cseq' 'FSEQ fseq' 'FSEQ_LE fseqle' 'SSEQ sseq' 'BMS bms'; do
     set -- $spec; local form=$1; ext=$2
     if "$B/wseqt" asm "$d/song.txt" "$d/archive-a/same.$ext" --format "$form" >/dev/null 2>&1 \
     && "$B/wseqt" disasm "$d/archive-a/same.$ext" "$d/mid-seq-$ext.txt" >/dev/null 2>&1 \

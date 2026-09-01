@@ -13,13 +13,13 @@ static void print_usage (const char *prog)
 	printf ("wseqt - NintendoWare sequence bytecode compiler and MIDI tool\n"
 			"Supports: RSEQ (Wii), CSEQ (3DS), FSEQ (Wii U / Switch), SSEQ (NDS)\n\n"
 			"Usage:\n"
-			"  %s disasm    <input.rseq|cseq|fseq|sseq> [output.txt]\n"
-			"  %s asm       <input.txt> [output.rseq|cseq|fseq|sseq] [--format <fmt>]\n"
-			"  %s to_midi   <input.rseq|cseq|fseq|sseq> [output.mid]\n"
-			"  %s from_midi <input.mid> [output.rseq|cseq|fseq|sseq] [--format <fmt>]\n"
-			"  %s invert    <input.rseq|cseq|fseq|sseq> [output.rseq] [--center <note>]\n"
-			"  %s info      <input.rseq|cseq|fseq|sseq>\n\n"
-			"Formats for --format: RSEQ (default), CSEQ, FSEQ, FSEQ_LE, SSEQ\n",
+			"  %s disasm    <input.rseq|cseq|fseq|sseq|bms> [output.txt]\n"
+			"  %s asm       <input.txt> [output.rseq|cseq|fseq|sseq|bms] [--format <fmt>]\n"
+			"  %s to_midi   <input.rseq|cseq|fseq|sseq|bms> [output.mid]\n"
+			"  %s from_midi <input.mid> [output.rseq|cseq|fseq|sseq|bms] [--format <fmt>]\n"
+			"  %s invert    <input.rseq|cseq|fseq|sseq|bms> [output.rseq] [--center <note>]\n"
+			"  %s info      <input.rseq|cseq|fseq|sseq|bms>\n\n"
+			"Formats for --format: RSEQ (default), CSEQ, FSEQ, FSEQ_LE, SSEQ, BMS\n",
 		prog, prog, prog, prog, prog, prog);
 }
 
@@ -95,6 +95,7 @@ int main (int argc, char **argv)
 			const char *ext = (target_fmt == SEQ_FMT_CSEQ)						   ? ".cseq"
 				: (target_fmt == SEQ_FMT_FSEQ_BE || target_fmt == SEQ_FMT_FSEQ_LE) ? ".fseq"
 				: (target_fmt == SEQ_FMT_SSEQ)									   ? ".sseq"
+				: (target_fmt == SEQ_FMT_BMS)									   ? ".bms"
 																				   : ".rseq";
 			snprintf (out_buf, sizeof (out_buf), "%.*s%s",
 				(int)(strlen (input_path) > 4
@@ -152,6 +153,7 @@ int main (int argc, char **argv)
 			const char *ext = (target_fmt == SEQ_FMT_CSEQ)						   ? ".cseq"
 				: (target_fmt == SEQ_FMT_FSEQ_BE || target_fmt == SEQ_FMT_FSEQ_LE) ? ".fseq"
 				: (target_fmt == SEQ_FMT_SSEQ)									   ? ".sseq"
+				: (target_fmt == SEQ_FMT_BMS)									   ? ".bms"
 																				   : ".rseq";
 			snprintf (out_buf, sizeof (out_buf), "%s%s", input_path, ext);
 			output_path = out_buf;

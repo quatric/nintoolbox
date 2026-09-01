@@ -51,6 +51,7 @@
 #include "lib-gtx.h"
 #include "lib-hsf.h"
 #include "lib-quicklz.h"
+#include "lib-zstd.h"
 #include "lib-brres.h"
 #include "lib-xbmg.h"
 #include "lib-msbt.h"
@@ -4979,6 +4980,69 @@ static enumError decompress_nintendo_file2 (ccp arg, char *dest_out, uint dest_o
 		return err;
 	}
 
+	if ((src_ext && (!strcasecmp (src_ext, ".zs") || !strcasecmp (src_ext, ".zst") || !strcasecmp (src_ext, ".zstd")))
+		|| (size >= 4 && IsZSTD (data, size) > 0 && !dest_out))
+	{
+		err = DecodeZSTD (&decoded, &decoded_size, data, size);
+		FREE (data);
+		if (err)
+			return err;
+
+		char dest[PATH_MAX];
+		if (opt_dest && !dest_out)
+			SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".bin", false);
+		else
+		{
+			snprintf (dest, sizeof (dest), "%s", arg);
+			char *dot = strrchr (dest, '.');
+			bool stripped = false;
+			if (dot && (!strcasecmp (dot, ".zs") || !strcasecmp (dot, ".zst") || !strcasecmp (dot, ".zstd")))
+			{
+				*dot = 0;
+				stripped = true;
+			}
+			char *dot2 = strrchr (dest, '.');
+			if (!stripped || !dot2)
+			{
+				const nfmt_info_t dec_info = DetectNintendoFormat (decoded, decoded_size, dest);
+				ccp ext = ".bin";
+				if (decoded_size >= 4 && be32 (decoded) == U8_MAGIC_NUM)
+					ext = ".u8";
+				else if (dec_info.type == NFMT_SARC || dec_info.type == NFMT_BFMA)
+					ext = ".sarc";
+				else if (dec_info.type == NFMT_NARC)
+					ext = ".narc";
+				else if (dec_info.type == NFMT_BFRES)
+					ext = ".bfres";
+				else if (dec_info.type == NFMT_BCRES)
+					ext = ".bcres";
+				else if (decoded_size >= 4 && !memcmp (decoded, "darc", 4))
+					ext = ".darc";
+				else if (decoded_size >= 4 && !memcmp (decoded, "RARC", 4))
+					ext = ".rarc";
+				else if (decoded_size >= 4 && !memcmp (decoded, "WARC", 4))
+					ext = ".warc";
+				snprintf (dest + strlen (dest), sizeof (dest) - strlen (dest), "%s", ext);
+			}
+		}
+		if (verbose >= 0 || testmode)
+			fprintf (stdlog, "%s%sDECOMPRESS ZSTD:%s -> RAW:%s\n", verbose > 0 ? "\n" : "",
+				testmode ? "WOULD " : "", arg, dest);
+		if (!testmode)
+		{
+			File_t F;
+			err = CreateFileOpt (&F, true, dest, false, arg);
+			if (F.f && fwrite (decoded, 1, decoded_size, F.f) != decoded_size)
+				err = FILEERROR1 (
+					&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", decoded_size, dest);
+			ResetFile (&F, opt_preserve);
+		}
+		FREE (decoded);
+		if (!err && dest_out)
+			snprintf (dest_out, dest_out_size, "%s", dest);
+		return err;
+	}
+
 	if (src_ext
 		&& (!strcasecmp (src_ext, ".bfwav") || !strcasecmp (src_ext, ".bcwav")
 			|| !strcasecmp (src_ext, ".cwav") || !strcasecmp (src_ext, ".fwav")
@@ -6317,6 +6381,8 @@ static enumError encode_sequence_file (ccp source, ccp dest)
 			fmt = SEQ_FMT_FSEQ_BE;
 		else if (!strcasecmp (ext, ".sseq"))
 			fmt = SEQ_FMT_SSEQ;
+		else if (!strcasecmp (ext, ".bms") || !strcasecmp (ext, ".bmc"))
+			fmt = SEQ_FMT_BMS;
 	}
 
 	u8 *raw = 0;
@@ -7771,7 +7837,8 @@ static enumError cmd_create (bool create)
 			&& (!strcasecmp (ext, ".rseq") || !strcasecmp (ext, ".brseq")
 				|| !strcasecmp (ext, ".cseq") || !strcasecmp (ext, ".bcseq")
 				|| !strcasecmp (ext, ".fseq") || !strcasecmp (ext, ".bfseq")
-				|| !strcasecmp (ext, ".sseq")))
+				|| !strcasecmp (ext, ".sseq") || !strcasecmp (ext, ".bms")
+				|| !strcasecmp (ext, ".bmc")))
 		{
 			enumError err = encode_sequence_file (arg, dest);
 			if (verbose >= 0 || testmode)
@@ -12187,7 +12254,7 @@ static enumError extract_sequence_file (ccp arg, ccp basedir, uint depth)
 
 	if (strcasecmp (ext, ".rseq") && strcasecmp (ext, ".brseq") && strcasecmp (ext, ".cseq")
 		&& strcasecmp (ext, ".bcseq") && strcasecmp (ext, ".fseq") && strcasecmp (ext, ".bfseq")
-		&& strcasecmp (ext, ".sseq"))
+		&& strcasecmp (ext, ".sseq") && strcasecmp (ext, ".bms") && strcasecmp (ext, ".bmc"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;
@@ -12195,7 +12262,7 @@ static enumError extract_sequence_file (ccp arg, ccp basedir, uint depth)
 	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
 	if (err)
 		return ERR_NOTHING_TO_DO;
-	if (raw_size < 12)
+	if (raw_size < 4)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
