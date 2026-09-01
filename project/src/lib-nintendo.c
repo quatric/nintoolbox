@@ -13009,6 +13009,78 @@ enumError ScanBG4 (
 	return ERR_OK;
 }
 
+enumError CreateBG4 (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	if (!dest || !dest_size || !entries || !n_entries || n_entries > 0xFFFF)
+		return EINVAL;
+
+	const uint tab_size = n_entries * 14;
+	uint names_size = 0;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		ccp name = entries[i].name ? entries[i].name : "";
+		names_size += (uint)strlen (name) + 1;
+	}
+	names_size = (names_size + 3) & ~3u;
+
+	const uint header_and_meta = 16 + tab_size + names_size;
+	const uint data_start = (header_and_meta + 15) & ~15u;
+
+	u64 total_size = data_start;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		total_size += entries[i].size;
+		total_size = (total_size + 15) & ~15u;
+	}
+
+	if (total_size > 0x7fffffff)
+		return EFBIG;
+
+	u8 *out = CALLOC (1, (size_t)total_size);
+	if (!out)
+		return ERR_CANT_CREATE;
+
+	memcpy (out, "BG4\0", 4);
+	wr_le16 (out + 4, 0);
+	wr_le16 (out + 6, (u16)n_entries);
+	wr_le32 (out + 8, (u32)data_start);
+	wr_le32 (out + 12, 0);
+
+	const uint names_base = 16 + tab_size;
+	uint cur_name_off = 0;
+	u32 cur_data_off = (u32)data_start;
+
+	for (uint i = 0; i < n_entries; i++)
+	{
+		u8 *e = out + 16 + i * 14;
+		ccp name = entries[i].name ? entries[i].name : "";
+		const uint name_len = (uint)strlen (name);
+
+		wr_le32 (e, cur_data_off);
+		wr_le32 (e + 4, entries[i].size);
+
+		u32 crc = 0;
+		if (entries[i].data && entries[i].size)
+			crc = (u32)crc32 (0, entries[i].data, entries[i].size);
+		wr_le32 (e + 8, crc);
+		wr_le16 (e + 12, (u16)cur_name_off);
+
+		memcpy (out + names_base + cur_name_off, name, name_len + 1);
+		cur_name_off += name_len + 1;
+
+		if (entries[i].data && entries[i].size)
+			memcpy (out + cur_data_off, entries[i].data, entries[i].size);
+
+		cur_data_off += entries[i].size;
+		cur_data_off = (cur_data_off + 15) & ~15u;
+	}
+
+	*dest = out;
+	*dest_size = (uint)total_size;
+	return ERR_OK;
+}
+
 //-----------------------------------------------------------------------------
 ///////////////	   Hyrule Warriors Legends (3DS) .idx/.bin	///////////////
 //-----------------------------------------------------------------------------

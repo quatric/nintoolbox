@@ -629,6 +629,50 @@ int main (void)
 		}
 	}
 
+	// 19. Test BG4 (Mario & Luigi: Paper Jam 3DS archive)
+	{
+		nintendo_sarc_entry_t entries[2];
+		memset (entries, 0, sizeof (entries));
+		entries[0].name = "file1.txt";
+		entries[0].data = (const u8 *)"Hello from BG4 test member 1!";
+		entries[0].size = (uint)strlen ((const char *)entries[0].data);
+		entries[1].name = "sub/file2.bin";
+		entries[1].data = (const u8 *)"\x01\x02\x03\x04\x05\x06\x07\x08";
+		entries[1].size = 8;
+
+		u8 *bg4_blob = 0;
+		uint bg4_sz = 0;
+		enumError e1 = CreateBG4 (&bg4_blob, &bg4_sz, entries, 2);
+		if (e1 || !bg4_blob || bg4_sz < 16)
+		{
+			printf("  FAIL: CreateBG4 failed\n");
+			fail++;
+		}
+		else
+		{
+			nintendo_sarc_entry_t *scanned = 0;
+			uint n_scanned = 0;
+			enumError e2 = ScanBG4 (&scanned, &n_scanned, bg4_blob, bg4_sz);
+			if (e2 || n_scanned != 2
+				|| strcmp (scanned[0].name, "file1.txt")
+				|| scanned[0].size != entries[0].size
+				|| memcmp (scanned[0].data, entries[0].data, entries[0].size)
+				|| strcmp (scanned[1].name, "sub/file2.bin")
+				|| scanned[1].size != entries[1].size
+				|| memcmp (scanned[1].data, entries[1].data, entries[1].size))
+			{
+				printf("  FAIL: ScanBG4 roundtrip mismatch\n");
+				fail++;
+			}
+			else
+			{
+				printf("  PASS: BG4 create -> scan roundtrip (2 members)\n");
+			}
+			ResetOwnedEntries (scanned, n_scanned);
+			free (bg4_blob);
+		}
+	}
+
 	printf("=== Results: %s (failures: %d) ===\n", fail == 0 ? "ALL PASSED" : "SOME FAILED", fail);
 	return fail;
 }

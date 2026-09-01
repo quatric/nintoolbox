@@ -1072,6 +1072,9 @@ enumError CreateSFZDAT (
 enumError ScanBG4 (
 	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size);
 
+enumError CreateBG4 (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
+
 //-----------------------------------------------------------------------------
 // Hyrule Warriors Legends (3DS): a split ".idx"/".bin" pair.  The .idx is a
 // bare array of {u32 size, u32 offset} into the .bin with no header, no
