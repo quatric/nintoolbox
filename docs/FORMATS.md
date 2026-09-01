@@ -32,7 +32,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **BFLAN** | Wii U / Layout | ✅ | ✅ | Wii U layout animation |
 | **BFLIM** | Wii U / Texture | ✅ | ✅ | Wii U textures (BC1-BC5) |
 | **BFLYT** | Wii U / Layout | ✅ | ✅ | Wii U binary layout |
-| **BFRES** | Wii U / Switch / Model | ✅ | ✅ | GX2/NX model container -> GLB/DAE |
+| **BFRES** | Wii U / Switch / Model | ✅ | ✅ | GX2/NX model container -> GLB |
 | **BFSAR** | Wii U / Switch / Audio Archive | ✅ | ✅ | Sound Archive (FSAR) |
 | **BFWAV** | Wii U / Switch / Audio | ✅ | ✅ | Sound Wave |
 | **BFWAR** | Wii U / Switch / Audio Archive | ✅ | ✅ | Sound Wave Archive (FWAR) |

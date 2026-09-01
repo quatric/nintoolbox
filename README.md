@@ -28,7 +28,7 @@ wszst xx Game.nds
 # 2. Rebuild an extracted directory back into an archive
 wszst CREATE Track.d --dest Track.szs
 
-# 3. Convert 3D models to standard GLB (or COLLADA .dae)
+# 3. Convert 3D models to standard GLB (.glb)
 wmdlt DECODE Mario.mdl0 --dest Mario.glb
 wmdlt DECODE Course.bfres --dest Course.glb
 wmdlt ENCODE Mario.glb --dest Mario.hsf

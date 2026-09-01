@@ -11507,9 +11507,9 @@ static enumError extract_msh_file (ccp arg, ccp basedir, uint depth)
 	}
 
 	char dest[PATH_MAX];
-	beside_source_dest_ext (dest, sizeof (dest), arg, ".dae");
+	beside_source_dest_ext (dest, sizeof (dest), arg, ".glb");
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT MSH:%s -> DAE:%s\n", verbose > 0 ? "\n" : "",
+		fprintf (stdlog, "%s%sEXTRACT MSH:%s -> GLB:%s\n", verbose > 0 ? "\n" : "",
 			testmode ? "WOULD " : "", arg, dest);
 
 	if (!testmode)
@@ -11518,9 +11518,7 @@ static enumError extract_msh_file (ccp arg, ccp basedir, uint depth)
 	return err;
 }
 
-// Extract a Monster Games "3LDN"/"2LDN" .mod model to a sibling model file
-// (GLB by default, or DAE with --dest *.dae) -- see the long comment above
-// DecodeExciteMOD() in lib-excite.c for the format and validation scope.
+// Extract a Monster Games "3LDN"/"2LDN" .mod model to a sibling GLB model file
 static enumError extract_mod_file (ccp arg, ccp basedir, uint depth)
 {
 	if (!is_ext (arg, ".mod"))
@@ -11538,14 +11536,12 @@ static enumError extract_mod_file (ccp arg, ccp basedir, uint depth)
 	}
 
 	char dest[PATH_MAX];
-	const char *ext = (opt_dest && is_ext (opt_dest, ".dae")) ? ".dae" : ".glb";
-	beside_source_dest_ext (dest, sizeof (dest), arg, ext);
-	const bool is_dae = is_ext (dest, ".dae");
+	beside_source_dest_ext (dest, sizeof (dest), arg, ".glb");
 
 	if (testmode)
 	{
 		FREE (raw);
-		fprintf (stdlog, "WOULD EXTRACT MOD:%s -> %s:%s\n", arg, is_dae ? "DAE" : "GLB", dest);
+		fprintf (stdlog, "WOULD EXTRACT MOD:%s -> GLB:%s\n", arg, dest);
 		return ERR_OK;
 	}
 
@@ -11555,8 +11551,7 @@ static enumError extract_mod_file (ccp arg, ccp basedir, uint depth)
 		return err;
 
 	if (verbose >= 0)
-		fprintf (stdlog, "%sEXTRACT MOD:%s -> %s:%s\n", verbose > 0 ? "\n" : "", arg,
-			is_dae ? "DAE" : "GLB", dest);
+		fprintf (stdlog, "%sEXTRACT MOD:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, dest);
 	return err;
 }
 
@@ -11581,11 +11576,6 @@ static enumError extract_hsf_file (ccp arg, ccp basedir, uint depth)
 		return ERR_FILE_TOO_BIG;
 	}
 
-	// Now positively identified as a real HSF. Defer the actual conversion
-	// to export_models_tree()'s later, properly texture-indexed pass -- see
-	// g_in_hsf_deferred_pass's comment. ERR_OK (not ERR_NOTHING_TO_DO):
-	// this file is claimed, so the dispatch chain must not fall through to
-	// some other extractor for it.
 	if (g_in_hsf_deferred_pass)
 	{
 		FREE (raw);
@@ -11593,14 +11583,12 @@ static enumError extract_hsf_file (ccp arg, ccp basedir, uint depth)
 	}
 
 	char dest[PATH_MAX];
-	const char *ext = (opt_dest && is_ext (opt_dest, ".dae")) ? ".dae" : ".glb";
-	beside_source_dest_ext (dest, sizeof (dest), arg, ext);
-	const bool is_dae = is_ext (dest, ".dae");
+	beside_source_dest_ext (dest, sizeof (dest), arg, ".glb");
 
 	if (testmode)
 	{
 		FREE (raw);
-		fprintf (stdlog, "WOULD EXTRACT HSF:%s -> %s:%s\n", arg, is_dae ? "DAE" : "GLB", dest);
+		fprintf (stdlog, "WOULD EXTRACT HSF:%s -> GLB:%s\n", arg, dest);
 		return ERR_OK;
 	}
 
@@ -11610,8 +11598,7 @@ static enumError extract_hsf_file (ccp arg, ccp basedir, uint depth)
 		return err;
 
 	if (verbose >= 0)
-		fprintf (stdlog, "%sEXTRACT HSF:%s -> %s:%s\n", verbose > 0 ? "\n" : "", arg,
-			is_dae ? "DAE" : "GLB", dest);
+		fprintf (stdlog, "%sEXTRACT HSF:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, dest);
 	return err;
 }
 
@@ -13887,11 +13874,10 @@ static enumError export_model_if_possible (ccp arg)
 	if ((size >= 4 && !memcmp (data, "BMD0", 4)) || is_bmd_file)
 	{
 		char dest_probe[PATH_MAX];
-		const char *ext = (opt_dest && is_ext (opt_dest, ".dae")) ? ".dae" : ".glb";
 		if (opt_dest)
-			SubstDest (dest_probe, sizeof (dest_probe), arg, opt_dest, 0, ext, false);
+			SubstDest (dest_probe, sizeof (dest_probe), arg, opt_dest, 0, ".glb", false);
 		else
-			snprintf (dest_probe, sizeof (dest_probe), "%s%s", arg, ext);
+			snprintf (dest_probe, sizeof (dest_probe), "%s.glb", arg);
 		if (!testmode)
 			ExportEarlyDSBMDTextures (data, size, dest_probe);
 		model = ParseNSBMD (data, size);
@@ -13899,11 +13885,10 @@ static enumError export_model_if_possible (ccp arg)
 	else if (size >= 4 && !memcmp (data, "CGFX", 4))
 	{
 		char dest_probe[PATH_MAX];
-		const char *ext = (opt_dest && is_ext (opt_dest, ".dae")) ? ".dae" : ".glb";
 		if (opt_dest)
-			SubstDest (dest_probe, sizeof (dest_probe), arg, opt_dest, 0, ext, false);
+			SubstDest (dest_probe, sizeof (dest_probe), arg, opt_dest, 0, ".glb", false);
 		else
-			snprintf (dest_probe, sizeof (dest_probe), "%s%s", arg, ext);
+			snprintf (dest_probe, sizeof (dest_probe), "%s.glb", arg);
 		if (!testmode)
 			ExportBCRESTexturesFromData (data, size, dest_probe);
 		model = ParseBCRES (data, size);
@@ -13911,11 +13896,10 @@ static enumError export_model_if_possible (ccp arg)
 	else if (size >= 4 && !memcmp (data, "BCH\0", 4))
 	{
 		char dest_probe[PATH_MAX];
-		const char *ext = (opt_dest && is_ext (opt_dest, ".dae")) ? ".dae" : ".glb";
 		if (opt_dest)
-			SubstDest (dest_probe, sizeof (dest_probe), arg, opt_dest, 0, ext, false);
+			SubstDest (dest_probe, sizeof (dest_probe), arg, opt_dest, 0, ".glb", false);
 		else
-			snprintf (dest_probe, sizeof (dest_probe), "%s%s", arg, ext);
+			snprintf (dest_probe, sizeof (dest_probe), "%s.glb", arg);
 		if (!testmode)
 			ExportBCHTexturesFromData (data, (uint)size, dest_probe);
 		model = (model_t *)ParseBCH (data, (uint)size);
@@ -13936,28 +13920,21 @@ static enumError export_model_if_possible (ccp arg)
 	if (!model)
 		return ERR_NOTHING_TO_DO;
 	char dest[PATH_MAX];
-	const char *ext = (opt_dest && is_ext (opt_dest, ".dae")) ? ".dae" : ".glb";
 	if (opt_dest)
-		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ext, false);
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".glb", false);
 	else
-		snprintf (dest, sizeof (dest), "%s%s", arg, ext);
-	// A caller explicitly naming a non-model destination (e.g. --dest *.xml,
-	// requesting extract_bfres_switch_manifest()'s structure dump instead of
-	// a GLB/DAE) wins the shared single-file destination -- otherwise this
-	// handler's earlier position in the dispatch chain would always shadow
-	// the manifest path for Switch BFRES once real geometry decode existed.
-	if (opt_dest && !is_ext (dest, ".dae") && !is_ext (dest, ".glb"))
+		snprintf (dest, sizeof (dest), "%s.glb", arg);
+	if (opt_dest && !is_ext (dest, ".glb"))
 	{
 		FreeModel (model);
 		return ERR_NOTHING_TO_DO;
 	}
-	const bool is_dae = is_ext (dest, ".dae");
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXPORT MODEL:%s -> %s:%s\n", verbose > 0 ? "\n" : "",
-			testmode ? "WOULD " : "", arg, is_dae ? "DAE" : "GLB", dest);
+		fprintf (stdlog, "%s%sEXPORT MODEL:%s -> GLB:%s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
 	if (!testmode)
 		err = (ExportModelToGLB (model, dest))
-			? ERROR0 (ERR_WRITE_FAILED, "Failed to write %s: %s\n", is_dae ? "DAE" : "GLB", dest)
+			? ERROR0 (ERR_WRITE_FAILED, "Failed to write GLB: %s\n", dest)
 			: ERR_OK;
 	FreeModel (model);
 	return err;
