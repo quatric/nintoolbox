@@ -147,6 +147,8 @@ void CalcEntryBRRES (brres_info_t *info, uint entry_idx);
 #define SRT_TEXT_MAGIC "#SRT"
 #define SRT_TEXT_MAGIC_NUM 0x23535254
 
+#define CLR_TEXT_MAGIC "#CLR"
+#define CLR_TEXT_MAGIC_NUM 0x23434c52
 #define VIS_TEXT_MAGIC "#VIS"
 #define VIS_TEXT_MAGIC_NUM 0x23564953
 

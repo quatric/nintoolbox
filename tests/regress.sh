@@ -1879,6 +1879,35 @@ echo "== QuickBMS-derived flat archives (SFZ DAT / BG4 / cram / SA01 / CA01 / HW
 # Synthetic fixtures built to each format's published .bms layout. These
 # assert the scanners, not retail fidelity -- see the README rows for which
 # of these formats has been checked against a real game file.
+t_clr0_cli(){
+  # CLR0 (material colour animation). Unlike VIS0, CLR0 carries its material
+  # names in its own trailing string pool, so a standalone file is fully
+  # self-describing and re-encoding retail input must reproduce the retail
+  # bytes exactly -- including the pool's ordinal name order, which is not the
+  # material record order.
+  local d; d=$(mktemp -d)
+  local ok=1 n=0
+  for src in accf_fgItem accf_pat0season00; do
+    "$B/wszst" EXTRACT "$PWD_PROJECT/../tests/fixtures/$src.brres" \
+      --dest "$d/$src" --overwrite >/dev/null 2>&1 || ok=0
+  done
+  local f
+  while IFS= read -r f; do
+    n=$((n+1))
+    "$B/wszst" TEXT   "$f"        --dest "$d/$n.txt" --overwrite >/dev/null 2>&1 || { ok=0; continue; }
+    "$B/wszst" BINARY "$d/$n.txt" --dest "$d/$n.bin" --overwrite >/dev/null 2>&1 || { ok=0; continue; }
+    cmp -s "$f" "$d/$n.bin" || ok=0
+    "$B/wszst" TEXT   "$d/$n.bin" --dest "$d/$n.t2"  --overwrite >/dev/null 2>&1 || { ok=0; continue; }
+    cmp -s "$d/$n.txt" "$d/$n.t2" || ok=0
+  done < <(find "$d" -type f -path '*AnmClr*' | sort)
+
+  [ "$n" -ge 2 ] || ok=0
+  rm -rf "$d"
+  [ "$ok" = 1 ] && ok "CLR0 CLI byte-exact decode -> encode ($n retail animations)" \
+    || no "CLR0 CLI byte-exact decode -> encode" "mismatch"
+}
+t_clr0_cli
+
 t_vis0_cli(){
   # VIS0 had a library in the tree that nothing ever called. This is its first
   # coverage. Retail VIS0 entries name their nodes through the *shared* BRRES

@@ -64,6 +64,7 @@
 #include "lib-chr.h"
 #include "lib-srt.h"
 #include "lib-vis0.h"
+#include "lib-clr.h"
 #include "lib-breff.h"
 #include "lib-image.h"
 #include "lib-common.h"
@@ -15965,6 +15966,26 @@ static bool ConvertHelper (const u8 *data, // valid data
 					: binary_dest ? SaveRawVIS0 (&vis, dest_fname, true)
 								  : SaveTextVIS0 (&vis, dest_fname, true);
 				ResetVIS0 (&vis);
+			}
+			return true;
+
+		case FF_CLR:
+		case FF_CLR_TXT:
+			FreeContainerData (cdata);
+			{
+				clr0_t clr;
+				InitializeCLR0 (&clr);
+				*err = fform == FF_CLR_TXT ? ScanTextCLR0 (&clr, false, src_fname)
+										   : ScanRawCLR0 (&clr, false, data, data_size);
+				if (*err)
+				{
+					ResetCLR0 (&clr);
+					return false;
+				}
+				*err = testmode	  ? ERR_OK
+					: binary_dest ? SaveRawCLR0 (&clr, dest_fname, true)
+								  : SaveTextCLR0 (&clr, dest_fname, true);
+				ResetCLR0 (&clr);
 			}
 			return true;
 
