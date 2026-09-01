@@ -464,12 +464,28 @@ Notes on the BRRES animation siblings added by this fork:
 - **CLR0**, **SHP0** and **SCN0** remain ⛔: not started, so no claim is made
   about them.
 
+
 ---
 
 ## Credits & Attributions
 
-This project incorporates and builds upon various open-source libraries and projects:
+This project builds upon, incorporates, and references various open-source libraries, reverse-engineering projects, and format specifications:
+
+### Core & Reference Implementations
 - **[Wiimms SZS Tools](https://szs.wiimm.de/)** by Dirk Clemens (Core engine & framework)
+- **[Garhoogin / NitroPaint](https://github.com/Garhoogin)** by Garhoogin (Nintendo DS graphics, palettes, cell/animations, and NSBMD 3D formats)
+- **Nintendo DS Decompressors** by CUE (Nintendo compression algorithms: LZ77 0x10, LZ11 0x11, Huffman 0x24/0x28, RLE 0x30, Diff 0x80)
+- **[Switch Toolbox](https://github.com/KillzXGaming/Switch-Toolbox)** by KillzXGaming (Switch, Wii U, and 3DS formats: BFRES, BNTX, BCA, BMA, BNXP, SARC, BYML)
+- **[Kuriimu & Kuriimu2](https://github.com/FanTranslatorsInternational/Kuriimu)** by IcySon55 & FanTranslatorsInternational (Game translation tools, MSBT, BMG, containers)
+- **[BrawlCrate & BrawlLib](https://github.com/soopercool101/BrawlCrate)** by soopercool101, BrawlCrate Team, Kryal, BlackJax96 (Wii NW4R formats: BRRES, MDL0, CHR0, CLR0, PAT0, SCN0, SHP0, SRT0, VIS0, REFF, REFT)
+- **[GotaSequenceCmd & Nitro Studio](https://github.com/Gota7)** by Gota7 (Nintendo DS/3DS sound formats: SDAT, SSEQ, SBNK, SWAR, CSEQ, CWAV)
+- **[SPICA](https://github.com/gdkchan/SPICA) & [Ohana3DS](https://github.com/gdkchan/Ohana3DS-Rebirth)** by gdkchan (3DS CTR NW4C BCH, CTPK, PICA200)
+- **[benzin](https://github.com/Treeki)** by Treeki, feartec, megazig, quickdraw (Wii BRLYT / BRLAN layout tools)
+- **[LayoutStudio & WiiLayoutEditor](https://github.com/NinjaCheetah/LayoutStudio)** (Nintendo layout format tools)
+- **[Sharpii & libWiiSharp](https://github.com/Treeki/Sharpii)** by Treeki & Leathl (Wii container & system formats)
+- **[QuickBMS](http://aluigi.altervista.org/quickbms.htm)** by Luigi Auriemma (Container extraction & compression specifications)
+
+### Embedded Libraries
 - **[LibYAML](https://github.com/yaml/libyaml)** by Kirill Simonov & contributors (YAML parser/emitter)
 - **[Mini-XML (mxml)](https://www.msweet.org/mxml/)** by Michael R Sweet (XML parser/writer)
 - **[cgltf](https://github.com/jkuhlmann/cgltf)** by Johannes Kuhlmann & Philip Rideout (glTF 2.0 / GLB)
@@ -480,4 +496,4 @@ This project incorporates and builds upon various open-source libraries and proj
 - **[LZMA SDK](https://www.7-zip.org/sdk.html)** by Igor Pavlov
 - **[QuickLZ](http://www.quicklz.com/)** by Lasse Mikkel Reinhold
 
-See [`CREDITS.md`](CREDITS.md) for full licensing and attribution details.
+See [CREDITS.md](CREDITS.md) for full licensing and attribution details.

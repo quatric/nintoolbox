@@ -1,6 +1,6 @@
 # Credits & Attributions
 
-`wiimms-szs-tools-plus` builds upon, incorporates, and interfaces with many open-source projects, libraries, reverse-engineering tools, and community research. We gratefully acknowledge and credit all original authors, contributors, and reverse-engineering pioneers below.
+`wiimms-szs-tools-plus` builds upon, incorporates, and interfaces with various open-source projects, libraries, reverse-engineering tools, and community research. We gratefully acknowledge and credit all original authors, contributors, and reverse-engineering pioneers below.
 
 ---
 
@@ -20,10 +20,10 @@ We acknowledge and credit the following tools and authors whose research, format
 
 * **Garhoogin / NitroPaint** ([Garhoogin](https://github.com/Garhoogin))
   * Reference implementation and deep technical research for Nintendo DS graphics, palettes, cell/animation systems, and 3D formats (NCGR, NCLR, NCER, NANR, NSBMD, etc.).
-* **Nintendo DS Decompressors** by **CUE** & **Barubary** ([DSDecmp](https://github.com/Barubary/dsdecmp))
+* **Nintendo DS Decompressors** by **CUE**
   * Reference implementations and algorithm specifications for Nintendo compression formats (LZ77 0x10, LZ11 0x11, Huffman 0x24/0x28, RLE 0x30, Difference filter 0x80).
 * **Switch Toolbox** by **KillzXGaming** ([Switch-Toolbox](https://github.com/KillzXGaming/Switch-Toolbox))
-  * Invaluable technical reference for Switch, Wii U, and 3DS format structures (BFRES, BNTX, BCA, BMA, BNXP, SARC, BYML, and texture compression layouts).
+  * Technical reference for Switch, Wii U, and 3DS format structures (BFRES, BNTX, BCA, BMA, BNXP, SARC, BYML, and texture compression layouts).
 * **Kuriimu / Kuriimu2** by **IcySon55, FanTranslatorsInternational** ([Kuriimu](https://github.com/FanTranslatorsInternational/Kuriimu))
   * Research and reference implementation for game translation tools, text archives (MSBT, BMG, MSBP, MSBF), and container formats across Nintendo platforms.
 * **BrawlCrate & BrawlLib** by **soopercool101, BrawlCrate Team, Kryal, BlackJax96** ([BrawlCrate](https://github.com/soopercool101/BrawlCrate))
@@ -114,12 +114,7 @@ We acknowledge and credit the following tools and authors whose research, format
 * **License:** GNU General Public License (GPL) 1/2/3
 * **Description:** Fast compression library used for RST/TOC and QuickLZ streams.
 
-### 11. AJPG / ODH Codec (mobipeg / ActImagine)
-* **Authors / Project:** FFmpeg project & mobipeg contributors (ActImagine GBA baseline JPEG core)
-* **License:** GNU Lesser General Public License v2.1 or later (LGPL-2.1+)
-* **Description:** GBA and Wii Message Board photo attachment (AJPG/ODH) codec.
-
-### 12. midilib
+### 11. midilib
 * **Description:** Standard MIDI File (SMF 0/1/2) stream reader, event tracker, and file synthesis for Nintendo sequence conversion.
 
 ---
