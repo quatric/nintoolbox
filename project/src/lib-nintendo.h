@@ -339,6 +339,12 @@ enumError CreateAT7 (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *en
 enumError CreateCTPK (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 
+enumError ScanFSYS (
+	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size);
+
+enumError CreateFSYS (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries, bool compress);
+
 enumError ExtractRST (nintendo_sarc_entry_t **out_entries, uint *out_n_entries, const u8 *car_data,
 	uint car_size, const u8 *toc_data, uint toc_size);
 
