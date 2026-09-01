@@ -984,4 +984,82 @@ void ResetSoundArchive (sound_archive_t *sar);
 enumError ScanSoundArchive (sound_archive_t *sar, const u8 *data, size_t size);
 enumError CreateSoundArchive (u8 **dest, uint *dest_size, const sound_archive_t *sar);
 
+//-----------------------------------------------------------------------------
+///////////////	  QuickBMS-derived flat archive ports		///////////////
+//-----------------------------------------------------------------------------
+// The scanners below all produce a flat, malloc-owned entry list (both the
+// name and the payload of every entry are owned copies, because several of
+// these formats compress their members and cannot point into the source
+// buffer).  Free with ResetOwnedEntries().
+
+void ResetOwnedEntries (nintendo_sarc_entry_t *entries, uint n_entries);
+
+//-----------------------------------------------------------------------------
+// Star Fox Zero DAT ("DAT\0", Wii U, big endian).  PlatinumGames' flat
+// container: a 7-word header (magic, file count, and five section offsets)
+// followed by five parallel per-file sections.  Layout ported from aluigi's
+// public star_fox_zero_dat.bms; see ScanSFZDAT() for the record widths that
+// the script's sequential string reads leave implicit.
+
+enumError ScanSFZDAT (
+	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size);
+
+// Inverse of ScanSFZDAT.  Entry names are "<ext>/<name>" exactly as the
+// scanner emits them; an entry without a '/' gets its extension taken from
+// its filename suffix.  The trailing hash-map section is emitted with a
+// valid, empty structure -- see the comment at the definition.
+enumError CreateSFZDAT (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
+
+//-----------------------------------------------------------------------------
+// BG4 ("BG4\0", 3DS, little endian): Mario & Luigi: Paper Jam / Paper Mario
+// MIX.  Flat, named; a member whose table offset has bit 31 set is BLZ
+// ("backward LZSS") compressed and is decompressed in place by the scanner.
+// Layout ported from aluigi's public mario_luigi_paper.bms.
+
+enumError ScanBG4 (
+	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size);
+
+//-----------------------------------------------------------------------------
+// Hyrule Warriors Legends (3DS): a split ".idx"/".bin" pair.  The .idx is a
+// bare array of {u32 size, u32 offset} into the .bin with no header, no
+// magic and no names; size==0 entries are holes and are skipped.  Layout
+// ported from aluigi's public hyrule_warriors_legends.bms.
+
+enumError ScanHWLegends (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *idx,
+	uint idx_size, const u8 *bin, uint bin_size);
+
+//-----------------------------------------------------------------------------
+// Xenoblade Chronicles 3D ("cram", 3DS, little endian): flat, named,
+// uncompressed.  Layout ported from aluigi's public xenoblade_arc.bms.
+
+enumError ScanCramARC (
+	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size);
+
+//-----------------------------------------------------------------------------
+// Mii Maker (Wii U, "SA01") and amiibo Settings (3DS, "CA01").  Both are a
+// zlib payload -- Mii Maker behind a bare big-endian u32 uncompressed size,
+// amiibo behind a "ZCMP" header with the payload at 0x80 -- wrapping a flat
+// archive of three parallel arrays (offsets, sizes, and for SA01 only a
+// 0x80-byte fixed-width name per file).  Layout ported from aluigi's public
+// mii_maker.bms and amiibo.bms.  ScanSA01() takes the *inner*, already
+// decompressed image; DecodeSA01Container() handles both outer wrappers and
+// a bare inner image.
+
+enumError ScanSA01 (
+	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size);
+enumError DecodeSA01Container (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+
+//-----------------------------------------------------------------------------
+// Metroid: Samus Returns (3DS): a headerless {u32 info_size, u32 data_size,
+// u32 files} + per-file {u32 crc, u32 offset, u32 end_offset} table with no
+// magic and no names.  Layout ported from aluigi's public metroid_sr_3ds.bms.
+// Because there is nothing to key detection off, ScanMetroidSR() enforces a
+// deliberately strict set of self-consistency constraints; see its
+// definition.
+
+enumError ScanMetroidSR (
+	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size);
+
+
 #endif

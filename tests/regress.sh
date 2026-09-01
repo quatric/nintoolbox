@@ -1875,6 +1875,54 @@ open('$d/sample.warc', 'wb').write(warc)
 }
 t_fzip_container
 
+echo "== QuickBMS-derived flat archives (SFZ DAT / BG4 / cram / SA01 / CA01 / HWL / MSR) =="
+# Synthetic fixtures built to each format's published .bms layout. These
+# assert the scanners, not retail fidelity -- see the README rows for which
+# of these formats has been checked against a real game file.
+t_bms_ports(){
+  command -v python3 >/dev/null || { sk "QuickBMS-derived flat archives"; return; }
+  local d; d=$(mktemp -d)
+  python3 "$(dirname "$0")/mk-bms-fixtures.py" "$d" || { no "QuickBMS-derived flat archives" "fixture build failed"; rm -rf "$d"; return; }
+
+  local ok=1
+  for f in sfz.dat xeno.arc mii_sa01.bin amiibo.cbarc msr.pkg hwl.idx mlpj.bg4; do
+    "$B/wszst" xx "$d/$f" --overwrite >/dev/null 2>&1 || ok=0
+  done
+  # named formats keep their real member names and payloads
+  cmp -s "$d/sfz.dat.d/bxm/model.bxm"      "$d/expect/model.bxm" || ok=0
+  cmp -s "$d/sfz.dat.d/wtb/tex.wtb"        "$d/expect/tex.wtb"   || ok=0
+  cmp -s "$d/xeno.arc.d/model.bxm"         "$d/expect/model.bxm" || ok=0
+  cmp -s "$d/mii_sa01.bin.d/tex.wtb"       "$d/expect/tex.wtb"   || ok=0
+  cmp -s "$d/mlpj.bg4.d/tex.wtb"           "$d/expect/tex.wtb"   || ok=0
+  # nameless formats get synthetic names, so check the payloads positionally
+  cmp -s "$d/amiibo.cbarc.d/00001.sar"     "$d/expect/tex.wtb"   || ok=0
+  cmp -s "$d/msr.pkg.d/00001.bin"          "$d/expect/tex.wtb"   || ok=0
+  cmp -s "$d/hwl.idx.d/00002.bin"          "$d/expect/tex.wtb"   || ok=0
+
+  rm -rf "$d"
+  [ "$ok" = 1 ] && ok "SFZ DAT / BG4 / cram / SA01 / CA01 / HWL / MSR extraction" \
+    || no "SFZ DAT / BG4 / cram / SA01 / CA01 / HWL / MSR extraction" "mismatch"
+}
+t_bms_ports
+
+t_sfzdat_roundtrip(){
+  command -v python3 >/dev/null || { sk "Star Fox Zero DAT create -> extract"; return; }
+  local d; d=$(mktemp -d)
+  python3 "$(dirname "$0")/mk-bms-fixtures.py" "$d" >/dev/null 2>&1
+  local ok=1
+  "$B/wszst" xx "$d/sfz.dat" --overwrite >/dev/null 2>&1 || ok=0
+  cp -R "$d/sfz.dat.d" "$d/rebuild.dat.d" 2>/dev/null || ok=0
+  "$B/wszst" CREATE "$d/rebuild.dat.d" --dest "$d/rebuilt.dat" --overwrite >/dev/null 2>&1 || ok=0
+  "$B/wszst" EXTRACT "$d/rebuilt.dat" --dest "$d/rebuilt.out" --overwrite >/dev/null 2>&1 || ok=0
+  cmp -s "$d/rebuilt.out/bxm/model.bxm" "$d/expect/model.bxm" || ok=0
+  cmp -s "$d/rebuilt.out/wtb/tex.wtb"   "$d/expect/tex.wtb"   || ok=0
+  cmp -s "$d/rebuilt.out/dat/sub.dat"   "$d/expect/sub.dat"   || ok=0
+  rm -rf "$d"
+  [ "$ok" = 1 ] && ok "Star Fox Zero DAT create -> extract roundtrip" \
+    || no "Star Fox Zero DAT create -> extract" "mismatch"
+}
+t_sfzdat_roundtrip
+
 t_fzip_tool_integration(){
   local d; d=$(mktemp -d)
   mkdir -p "$d/tree/sub"

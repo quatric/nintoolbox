@@ -5468,6 +5468,76 @@ static enumError create_pac_dir (ccp source, ccp dest)
 	return err;
 }
 
+// Star Fox Zero DAT (Wii U). Names keep the "<ext>/<name>" folder shape the
+// extractor writes, which CreateSFZDAT turns back into the type section.
+// ".dat" is already spoken for on this tool's extract side (HAL's HSD and A2
+// bank archives both use it), so CREATE only routes a directory to the Star
+// Fox Zero builder when the directory actually has that container's shape:
+// every top-level entry is a short type/extension folder, which is exactly
+// what extract_sfzdat_file writes and nothing else here produces.
+static bool looks_like_sfzdat_dir (ccp source)
+{
+	DIR *dir = opendir (source);
+	if (!dir)
+		return false;
+	uint n_type_dirs = 0;
+	bool ok = true;
+	for (const struct dirent *de; ok && (de = readdir (dir));)
+	{
+		ccp nm = de->d_name;
+		if (*nm == '.' || !strcmp (nm, "wszst-setup.txt") || !strcmp (nm, ".wszst-cache.txt"))
+			continue;
+		const uint len = (uint)strlen (nm);
+		if (len < 1 || len > 4)
+		{
+			ok = false;
+			break;
+		}
+		for (uint i = 0; i < len; i++)
+			if (!isalnum ((int)(u8)nm[i]))
+			{
+				ok = false;
+				break;
+			}
+		if (!ok)
+			break;
+		char sub[PATH_MAX];
+		snprintf (sub, sizeof (sub), "%s/%s", source, nm);
+		struct stat st;
+		if (stat (sub, &st) || !S_ISDIR (st.st_mode))
+		{
+			ok = false;
+			break;
+		}
+		n_type_dirs++;
+	}
+	closedir (dir);
+	return ok && n_type_dirs > 0;
+}
+
+static enumError create_sfzdat_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+	u8 *data = 0;
+	uint size = 0;
+	if (!err)
+		err = CreateSFZDAT (&data, &size, list.entry, list.used);
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, source);
+		if (F.f && fwrite (data, 1, size, F.f) != size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+
 static enumError create_warc_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -6477,6 +6547,8 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest)
 	if (!strcasecmp (ext, ".warc")
 		|| (strlen (dest) >= 10 && !strcasecmp (dest + strlen (dest) - 10, ".warc.fzip")))
 		return create_warc_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".dat") && looks_like_sfzdat_dir (source_dir))
+		return create_sfzdat_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".gfa"))
 		return create_gfa_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".rarc"))
@@ -7487,6 +7559,20 @@ static enumError cmd_create (bool create)
 			enumError err = create_warc_dir (source_dir, dest);
 			if (verbose >= 0 || testmode)
 				fprintf (stdlog, "%s%sCREATE WARC %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", source_dir, dest);
+			if (max_err < err)
+				max_err = err;
+			if (err <= ERR_WARNING && src_len > 2 && !strcasecmp (source_dir + src_len - 2, ".d")
+				&& !testmode)
+				remove_dir_recursive (source_dir);
+			ResetSetupParam (&sp);
+			continue;
+		}
+		if (create && ext && !strcasecmp (ext, ".dat") && looks_like_sfzdat_dir (source_dir))
+		{
+			enumError err = create_sfzdat_dir (source_dir, dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE DAT %s/ -> %s\n", verbose > 0 ? "\n" : "",
 					testmode ? "WOULD " : "", source_dir, dest);
 			if (max_err < err)
 				max_err = err;
@@ -10108,6 +10194,238 @@ static enumError extract_fsys_file (ccp arg, ccp basedir, uint depth)
 			err = sub;
 	}
 	return err;
+}
+
+//-----------------------------------------------------------------------------
+// Ports of aluigi's QuickBMS scripts for six flat Nintendo archives. All six
+// scanners hand back a malloc-owned entry list (name + payload both owned,
+// because several of them decompress their members), so they share one
+// writer below.
+//-----------------------------------------------------------------------------
+
+static enumError write_owned_entries (ccp arg, ccp basedir, uint depth, ccp label,
+	nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT %s:%s (%u entries) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", label, arg, n_entries, dest);
+
+	enumError err = ERR_OK;
+	for (uint i = 0; !err && i < n_entries; i++)
+	{
+		// Same fallback the Arika loop uses: never abort a whole archive
+		// over one unusable member name, substitute a synthetic one.
+		ccp name = entries[i].name;
+		char safe_name[32];
+		if (!valid_sarc_path (name))
+		{
+			snprintf (safe_name, sizeof (safe_name), "%04u.bin", i);
+			name = safe_name;
+		}
+		if (testmode)
+			continue;
+
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", name);
+		File_t F;
+		err = CreateFileOpt (&F, true, path, false, arg);
+		if (F.f && entries[i].size
+			&& fwrite (entries[i].data, 1, entries[i].size, F.f) != entries[i].size)
+			err = FILEERROR1 (
+				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", entries[i].size, path);
+		ResetFile (&F, opt_preserve);
+	}
+	ResetOwnedEntries (entries, n_entries);
+
+	if (!err && !testmode)
+	{
+		enumError sub = extract_tree_complete (dest, depth + 1);
+		if (err < sub)
+			err = sub;
+	}
+	return err;
+}
+
+// Star Fox Zero DAT ("DAT\0", Wii U), ported from star_fox_zero_dat.bms.
+static enumError extract_sfzdat_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	if (raw_size > UINT_MAX || raw_size < 32 || memcmp (raw, "DAT\0", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	nintendo_sarc_entry_t *entries = 0;
+	uint n_entries = 0;
+	const enumError serr = ScanSFZDAT (&entries, &n_entries, raw, (uint)raw_size);
+	FREE (raw);
+	if (serr || !n_entries)
+		return ERR_NOTHING_TO_DO;
+	return write_owned_entries (arg, basedir, depth, "DAT", entries, n_entries);
+}
+
+// BG4 ("BG4\0", Mario & Luigi: Paper Jam, 3DS), from mario_luigi_paper.bms.
+static enumError extract_bg4_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	if (raw_size > UINT_MAX || raw_size < 16 || memcmp (raw, "BG4\0", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	nintendo_sarc_entry_t *entries = 0;
+	uint n_entries = 0;
+	const enumError serr = ScanBG4 (&entries, &n_entries, raw, (uint)raw_size);
+	FREE (raw);
+	if (serr || !n_entries)
+		return ERR_NOTHING_TO_DO;
+	return write_owned_entries (arg, basedir, depth, "BG4", entries, n_entries);
+}
+
+// Xenoblade Chronicles 3D "cram" .arc (3DS), from xenoblade_arc.bms.
+static enumError extract_cram_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	if (raw_size > UINT_MAX || raw_size < 16 || memcmp (raw, "cram", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	nintendo_sarc_entry_t *entries = 0;
+	uint n_entries = 0;
+	const enumError serr = ScanCramARC (&entries, &n_entries, raw, (uint)raw_size);
+	FREE (raw);
+	if (serr || !n_entries)
+		return ERR_NOTHING_TO_DO;
+	return write_owned_entries (arg, basedir, depth, "cram", entries, n_entries);
+}
+
+// Mii Maker (Wii U) "SA01" and amiibo Settings (3DS) "CA01", from
+// mii_maker.bms / amiibo.bms. Every accepted outer wrapper has to decode to
+// an inner SA01/CA01 image, so the heuristic bare-size+zlib form can't fire
+// on an unrelated zlib file.
+static enumError extract_sa01_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	if (raw_size > UINT_MAX || raw_size < 12)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	u8 *inner = 0;
+	uint inner_size = 0;
+	const enumError derr = DecodeSA01Container (&inner, &inner_size, raw, (uint)raw_size);
+	FREE (raw);
+	if (derr || !inner)
+	{
+		FREE (inner);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	nintendo_sarc_entry_t *entries = 0;
+	uint n_entries = 0;
+	const enumError serr = ScanSA01 (&entries, &n_entries, inner, inner_size);
+	const bool named = !memcmp (inner, "SA01", 4);
+	FREE (inner);
+	if (serr || !n_entries)
+		return ERR_NOTHING_TO_DO;
+	return write_owned_entries (arg, basedir, depth, named ? "SA01" : "CA01", entries, n_entries);
+}
+
+// Hyrule Warriors Legends (3DS) .idx/.bin pair, from
+// hyrule_warriors_legends.bms. Neither half has a magic, so this is gated on
+// the ".idx" extension plus an existing sibling ".bin" -- and ScanHWLegends
+// then rejects the pair outright unless every table record addresses a real,
+// in-bounds region of that .bin. Visiting the .bin directly does nothing
+// (its extension never matches), so members are never extracted twice.
+static enumError extract_hwlegends_file (ccp arg, ccp basedir, uint depth)
+{
+	const uint len = (uint)strlen (arg);
+	if (len < 5 || strcasecmp (arg + len - 4, ".idx"))
+		return ERR_NOTHING_TO_DO;
+
+	char bin_path[PATH_MAX];
+	snprintf (bin_path, sizeof (bin_path), "%.*s%s", (int)(len - 4), arg,
+		arg[len - 3] >= 'a' && arg[len - 3] <= 'z' ? ".bin" : ".BIN");
+
+	u8 *idx = 0, *bin = 0;
+	size_t idx_size = 0, bin_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &idx, &idx_size, 0, 0, 0, false) || !idx
+		|| LoadFileAlloc (bin_path, 0, 0, &bin, &bin_size, 0, 0, 0, false) || !bin
+		|| idx_size > UINT_MAX || bin_size > UINT_MAX)
+	{
+		FREE (idx);
+		FREE (bin);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	nintendo_sarc_entry_t *entries = 0;
+	uint n_entries = 0;
+	const enumError serr
+		= ScanHWLegends (&entries, &n_entries, idx, (uint)idx_size, bin, (uint)bin_size);
+	FREE (idx);
+	FREE (bin);
+	if (serr || !n_entries)
+		return ERR_NOTHING_TO_DO;
+	return write_owned_entries (arg, basedir, depth, "HWL-idx", entries, n_entries);
+}
+
+// Metroid: Samus Returns (3DS), from metroid_sr_3ds.bms. Headerless and
+// nameless: ScanMetroidSR carries the whole (deliberately strict)
+// self-consistency test, and this is wired in last so any format with an
+// actual signature gets first refusal.
+static enumError extract_metroidsr_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	if (raw_size > UINT_MAX || raw_size < 24)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	nintendo_sarc_entry_t *entries = 0;
+	uint n_entries = 0;
+	const enumError serr = ScanMetroidSR (&entries, &n_entries, raw, (uint)raw_size);
+	FREE (raw);
+	if (serr || !n_entries)
+		return ERR_NOTHING_TO_DO;
+	return write_owned_entries (arg, basedir, depth, "MSR", entries, n_entries);
 }
 
 // Extract a Game & Wario WARC archive ("WARC" magic, Wii U). Unlike PAC,
@@ -14687,6 +15005,26 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
+	err = extract_sfzdat_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_bg4_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_cram_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_sa01_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_hwlegends_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
 	err = extract_msh_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
@@ -14768,6 +15106,13 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		return err;
 
 	err = decode_msbt_if_possible (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	// Last of the archive scanners: Metroid: Samus Returns has no magic at
+	// all, so it only gets a look after every signature-bearing format has
+	// declined the file.
+	err = extract_metroidsr_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
