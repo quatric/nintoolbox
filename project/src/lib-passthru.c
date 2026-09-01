@@ -220,7 +220,13 @@ static enumError passthru_media (
 	struct stat src_stat;
 	if (!stat (src, &src_stat))
 	{
+		// st_atim/st_mtim are the POSIX.1-2008 names; Darwin spells them
+		// st_atimespec/st_mtimespec
+#ifdef __APPLE__
+		struct timespec times[2] = { src_stat.st_atimespec, src_stat.st_mtimespec };
+#else
 		struct timespec times[2] = { src_stat.st_atim, src_stat.st_mtim };
+#endif
 		utimensat (AT_FDCWD, out_file, times, 0);
 	}
 
