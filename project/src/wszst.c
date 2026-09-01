@@ -65,6 +65,7 @@
 #include "lib-srt.h"
 #include "lib-vis0.h"
 #include "lib-clr.h"
+#include "lib-shp.h"
 #include "lib-breff.h"
 #include "lib-image.h"
 #include "lib-common.h"
@@ -16003,6 +16004,26 @@ static bool ConvertHelper (const u8 *data, // valid data
 					: binary_dest ? SaveRawVIS0 (&vis, dest_fname, true)
 								  : SaveTextVIS0 (&vis, dest_fname, true);
 				ResetVIS0 (&vis);
+			}
+			return true;
+
+		case FF_SHP:
+		case FF_SHP_TXT:
+			FreeContainerData (cdata);
+			{
+				shp0_t shp;
+				InitializeSHP0 (&shp);
+				*err = fform == FF_SHP_TXT ? ScanTextSHP0 (&shp, false, src_fname)
+										   : ScanRawSHP0 (&shp, false, data, data_size);
+				if (*err)
+				{
+					ResetSHP0 (&shp);
+					return false;
+				}
+				*err = testmode	  ? ERR_OK
+					: binary_dest ? SaveRawSHP0 (&shp, dest_fname, true)
+								  : SaveTextSHP0 (&shp, dest_fname, true);
+				ResetSHP0 (&shp);
 			}
 			return true;
 

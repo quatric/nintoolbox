@@ -1,8 +1,39 @@
-#ifndef SZS_LIB_SHP0_H
-#define SZS_LIB_SHP0_H 1
+/***************************************************************************
+ *                         _______ _______ _______                         *
+ *                        |  ___  |____   |  ___  |                        *
+ *                        | |   |_|    / /| |   |_|                        *
+ *                        | |_____    / / | |_____                         *
+ *                        |_____  |  / /  |_____  |                        *
+ *                         _    | | / /    _    | |                        *
+ *                        | |___| |/ /____| |___| |                        *
+ *                        |_______|_______|_______|                        *
+ *                                                                         *
+ *                            Wiimms SZS Tools                             *
+ *                          https://szs.wiimm.de/                          *
+ *                                                                         *
+ ***************************************************************************
+ *                                                                         *
+ *   This file is part of the SZS project.                                 *
+ *   Visit https://szs.wiimm.de/ for project details and sources.          *
+ *                                                                         *
+ ***************************************************************************/
+
+// SHP0: Nintendo NW4R "vertex morph animation" BRRES sub-file.
+// Added by this fork.
+//
+// SHP0 blends between named vertex sets of a polygon over time. Each entry
+// names one polygon (material) and carries one keyframe track per morph
+// target; the targets themselves are named by index into a file-level string
+// list.
+//
+// Layout reverse-engineered from BrawlLib
+// (BrawlLib/SSBB/Types/Animations/SHP0.cs: SHP0v3/SHP0v4, SHP0Entry,
+// SHP0KeyframeEntries, and SHP0Node.OnInitialize for the string list).
+
+#ifndef SZS_LIB_SHP_H
+#define SZS_LIB_SHP_H 1
 
 #include "lib-std.h"
-#include "lib-brres.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -10,36 +41,45 @@
 #define SHP0_MAX_VERSION 4
 #define SHP0_DEFAULT_VERSION 4
 
-// [[shp0_keyframe_t]]
+///////////////////////////////////////////////////////////////////////////////
+// [[shp0_key_t]]
 
-typedef struct shp0_keyframe_t
+// one keyframe of a morph track: NW4R stores (frame, value, tangent) floats
+typedef struct shp0_key_t
 {
-	float index;
+	float frame;
 	float value;
 	float tangent;
-} shp0_keyframe_t;
 
-// [[shp0_vertex_set_t]]
+} shp0_key_t;
 
-typedef struct shp0_vertex_set_t
+///////////////////////////////////////////////////////////////////////////////
+// [[shp0_track_t]]
+
+typedef struct shp0_track_t
 {
-	ccp name; // alloced entry name (morph target name)
-	bool is_fixed; // true: no per-frame data, just 'fixed_value'
-	float fixed_value; // only relevant if 'is_fixed'
-	shp0_keyframe_t *keyframes; // NULL if fixed, else alloced array of keyframes
-	uint n_keyframes; // size of 'keyframes'
-} shp0_vertex_set_t;
+	bool is_fixed; // true: the track is a single constant, 'fixed' holds it
+	float fixed;
 
+	int vertex_idx; // index into the file-level string list (may be -1)
+
+	float recip; // NW4R frame-scale reciprocal, preserved verbatim
+	shp0_key_t *key; // alloced keyframes
+	uint n_key;
+
+} shp0_track_t;
+
+///////////////////////////////////////////////////////////////////////////////
 // [[shp0_entry_t]]
 
 typedef struct shp0_entry_t
 {
-	ccp name; // alloced entry (base shape name)
-	uint flags; // entry flags
-	
-	shp0_vertex_set_t *vset; // list of vertex sets, alloced
-	uint n_vset; // number of used elements of 'vset'
-	uint n_vset_alloced; // number of alloced elements of 'vset'
+	ccp name; // alloced polygon/material name
+	u32 flags; // raw flags word, preserved verbatim
+	int name_idx; // raw _nameIndex field
+
+	shp0_track_t *track; // alloced
+	uint n_track;
 
 } shp0_entry_t;
 
@@ -52,18 +92,23 @@ typedef struct shp0_t
 	FileAttrib_t fatt; // file attribute
 
 	uint version; // 3 or 4
-	ccp name; // alloced resource name of the animation, or NULL
+	ccp name; // alloced resource name, or NULL
 	ccp orig_path; // alloced original source path, or NULL
-	uint n_frames; // number of frames
-	bool loop; // true: animation loops
+	uint n_frames;
+	bool loop;
 
-	shp0_entry_t *entry; // list of entries, alloced
-	uint n_entry; // number of used elements of 'entry'
-	uint n_entry_alloced; // number of alloced elements of 'entry'
-	
-	ccp *strings; // list of unique strings, alloced
-	uint n_strings; // number of used elements of 'strings'
-	uint n_strings_alloced; // number of alloced elements of 'strings'
+	// The vertex-set string list. Retail SHP0 files point these offsets into
+	// the *shared* BRRES string pool (the names duplicate the sibling MDL0's
+	// vertex set names), so a standalone SHP0 usually cannot resolve them.
+	// The raw offset is kept either way, which is what lets an unresolvable
+	// file still re-encode byte-identically.
+	ccp *str; // alloced; element is NULL when unresolvable
+	u32 *str_off; // alloced; the raw offset as found in the file
+	uint n_str;
+
+	shp0_entry_t *entry; // alloced
+	uint n_entry;
+	uint n_entry_alloced;
 
 } shp0_t;
 
@@ -73,7 +118,6 @@ void InitializeSHP0 (shp0_t *shp);
 void ResetSHP0 (shp0_t *shp);
 
 shp0_entry_t *AppendEntrySHP0 (shp0_t *shp, ccp name);
-shp0_vertex_set_t *AppendVertexSetSHP0 (shp0_entry_t *entry, ccp name);
 
 //-----------------------------------------------------------------------------
 
@@ -106,4 +150,4 @@ enumError SaveTextSHP0 (shp0_t *shp, // pointer to valid SHP0
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#endif // SZS_LIB_SHP0_H
+#endif // SZS_LIB_SHP_H

@@ -246,6 +246,7 @@ typedef enum file_format_t
 	FF_VIS, // 154 - NW4R node visibility animation (VIS0)
 	FF_VIS_TXT, // 155 - Text version of VIS
 	FF_CLR_TXT, // 156 - Text version of CLR
+	FF_SHP_TXT, // 157 - Text version of SHP
 	FF_ZSTD, // 157 - Zstandard compression (.zs / .zst / .zstd)
 
 	//--- number of elements

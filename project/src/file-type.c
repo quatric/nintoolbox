@@ -162,9 +162,10 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		"AnmScn(NW4R)", "5,(*)", filetype_info_not_supported, "Polygon morphing animations" },
 
 	// FF_SHP = 27
-	{ FF_SHP, 0, 0, "SHP", ".shp", ".szs", ".shp0", FFT_VALID | FFT_BRSUB | FFT_BRSUB2 | FFT_CUT, 4,
+	{ FF_SHP, FF_SHP, FF_SHP_TXT, "SHP", ".shp", ".szs", ".shp0",
+		FFT_VALID | FFT_BRSUB | FFT_BRSUB2 | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
 		{ 0x53, 0x48, 0x50, 0x30 }, // "SHP0"
-		"AnmShp(NW4R)", "4,(*)", filetype_info_not_supported, filetype_info_unknown },
+		"AnmShp(NW4R)", "4,(*)", "3,4", "Vertex morph animations" },
 
 	// FF_SRT = 28
 	{ FF_SRT, FF_SRT, FF_SRT_TXT, "SRT", ".srt", ".szs", ".srt0",
@@ -837,6 +838,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x23, 0x43, 0x4c, 0x52 }, // "#CLR"
 		0, MinusString, MinusString, "Text version of CLR" },
 
+	// FF_SHP_TXT = 157 (text version of SHP)
+	{ FF_SHP_TXT, FF_SHP, FF_SHP_TXT, "SHPTXT", ".txt", ".szs", ".txt",
+		FFT_VALID | FFT_TEXT | FFT_DECODE | FFT_ENCODE | FFT_PARSER, 4,
+		{ 0x23, 0x53, 0x48, 0x50 }, // "#SHP"
+		0, MinusString, MinusString, "Text version of SHP" },
+
 	// FF_ZSTD = 157 (Zstandard compression)
 	{ FF_ZSTD, 0, 0, "ZSTD", ".zs", ".zs", ".zst", FFT_VALID | FFT_COMPRESS | FFT_TRACK, 4,
 		{ 0x28, 0xb5, 0x2f, 0xfd }, // Zstandard magic 0xFD2FB528
@@ -884,7 +891,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_CHR_TXT, "CHR-TXT", "CHRTXT", 0x7011 },
 	{ FF_SRT_TXT, "SRT-TXT", "SRTTXT", 0x7011 },
 	{ FF_VIS, "VIS", "VIS0", 0x861 }, { FF_VIS_TXT, "VIS-TXT", "VISTXT", 0x7011 },
-	{ FF_CLR_TXT, "CLR-TXT", "CLRTXT", 0x7011 },{ FF_TPL, "TPL", 0, 0x3809 },
+	{ FF_CLR_TXT, "CLR-TXT", "CLRTXT", 0x7011 },
+	{ FF_SHP_TXT, "SHP-TXT", "SHPTXT", 0x7011 },{ FF_TPL, "TPL", 0, 0x3809 },
 	{ FF_TPLX, "TPL", "TPLX", 0x3809 }, { FF_CUPICON, "CUPICON", "TPL", 0x2009 },
 	{ FF_CUPICON, "TPLX", 0, 0x2009 }, { FF_BTI, "BTI", "BTIENV", 0x3809 },
 	{ FF_BTI, "BTIMAT", 0, 0x3809 }, { FF_BREFT_IMG, "BREFT-IMG", "BREFTIMG", 0x3809 },

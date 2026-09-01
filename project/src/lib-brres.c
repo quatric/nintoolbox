@@ -148,7 +148,8 @@ const brsub_info_t brsub_info[] = {
 	{ FF_CHR, 0, 3, 5, 1, 2, BIMD_FATAL },
 	{ FF_CHR, 0, 5, 5, 2, 2, BIMD_OK }, // [[2do]] verify hexdump
 
-	{ FF_CLR, 0, 4, 4, 2, 2, BIMD_OK }, // [[2do]] verify hexdump
+	{ FF_CLR, 0, 3, 4, 1, 2, BIMD_FATAL },
+	{ FF_CLR, 0, 4, 4, 2, 2, BIMD_OK },
 
 	{ FF_MDL, 0, 8, 11, 11, 14, BIMD_FATAL },
 	{ FF_MDL, 0, 9, 11, 11, 14, BIMD_FATAL }, // found in SSBB
@@ -159,16 +160,14 @@ const brsub_info_t brsub_info[] = {
 	{ FF_SCN, 0, 4, 5, 6, 7, BIMD_FATAL },
 	{ FF_SCN, 0, 5, 5, 7, 7, BIMD_OK }, // [[2do]] verify hexdump
 
-	{ FF_SHP, 0, 4, 4, 3, 3, BIMD_OK }, // [[2do]] verify hexdump
+	{ FF_SHP, 0, 3, 4, 2, 3, BIMD_FATAL },
+	{ FF_SHP, 0, 4, 4, 3, 3, BIMD_OK },
 
 	{ FF_SRT, 0, 4, 5, 1, 2, BIMD_FATAL },
 	{ FF_SRT, 0, 5, 5, 2, 2, BIMD_OK }, // [[2do]] verify hexdump
 
 	{ FF_VIS, 0, 3, 4, 1, 2, BIMD_FATAL },
 	{ FF_VIS, 0, 4, 4, 2, 2, BIMD_OK },
-
-	{ FF_CLR, 0, 3, 4, 1, 2, BIMD_FATAL },
-	{ FF_CLR, 0, 4, 4, 2, 2, BIMD_OK },
 
 	{ FF_TEX, FF_TEX_CT, 1, 3, 1, 1, BIMD_INFO }, // not BIMD_HINT
 	{ FF_TEX, FF_TEX_CT, 2, 3, 2, 1, BIMD_FAIL }, { FF_TEX, FF_TEX_CT, 3, 3, 1, 1, BIMD_OK },
