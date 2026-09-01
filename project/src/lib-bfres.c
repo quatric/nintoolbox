@@ -129,19 +129,33 @@ static int attr_read (const uint8_t *p, size_t avail, uint32_t fmt, float out[4]
 			}
 			return 1;
 		}
-		case 0x0000080D: // 16_16 float
+		case 0x00000806: // 16_16 float
 			if (avail < 4)
 				return 0;
 			out[0] = half_to_float (rb16 (p));
 			out[1] = half_to_float (rb16 (p + 2));
 			return 1;
+		case 0x00000808: // 32 float
+		{
+			if (avail < 4)
+				return 0;
+			union
+			{
+				uint32_t u;
+				float f;
+			} c;
+			c.u = rb32 (p);
+			out[0] = c.f;
+			return 1;
+		}
+		case 0x0000080A: // 16_16_16_16 float
 		case 0x0000080F: // 16_16_16_16 float
 			if (avail < 8)
 				return 0;
 			for (int i = 0; i < 4; i++)
 				out[i] = half_to_float (rb16 (p + i * 2));
 			return 1;
-		case 0x00000806: // 32_32 float
+		case 0x0000080D: // 32_32 float
 		{
 			if (avail < 8)
 				return 0;
@@ -451,7 +465,7 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 			continue;
 
 		const char *name = rel_string (d, size, sh + 4);
-		const uint16_t vtx_index = rb16 (d + sh + 0x12);
+		const uint16_t vtx_index = rb16 (d + sh + 0x10); // FSHP+0x10: FVTX index
 		if (vtx_index >= n_fvtx)
 			continue;
 
@@ -481,7 +495,7 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 
 		mesh_t *mesh = out->meshes + out->num_meshes;
 		snprintf (mesh->name, sizeof (mesh->name), "%s", name && *name ? name : "shape");
-		const uint16_t fmat_idx = rb16 (d + sh + 0x0E); // FSHP+0x0E: FMAT index
+		const uint16_t fmat_idx = rb16 (d + sh + 0x0C); // FSHP+0x0C: FMAT index
 		mesh->material_idx = fmat_idx < out->num_materials ? (int)fmat_idx : -1;
 
 		mesh->positions = calloc (icount, sizeof (vec3_t));

@@ -4954,8 +4954,11 @@ static enumError decompress_nintendo_file2 (ccp arg, char *dest_out, uint dest_o
 	{
 		err = DecodeBXWAV (&decoded, &decoded_size, data, size);
 		FREE (data);
-		if (err)
-			return err;
+		if (err || !decoded || !decoded_size)
+		{
+			FREE (decoded);
+			return ERR_NOTHING_TO_DO;
+		}
 
 		char dest[PATH_MAX];
 		if (opt_dest)
@@ -14506,7 +14509,17 @@ static enumError cmd_bch (void)
 // container into a staging directory, the staged tree is walked recursively
 // so every leaf is peeled in turn.  Returns the strongest error seen, or
 // ERR_NOTHING_TO_DO when nothing claimed the file.
+static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth);
+
 static enumError extract_one_file (ccp arg, ccp basedir, uint depth)
+{
+	enumError err = extract_one_file_inner (arg, basedir, depth);
+	if (depth > 0 && err > ERR_WARNING)
+		return ERR_WARNING;
+	return err;
+}
+
+static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 {
 	char pbase_buf[PATH_MAX] = "";
 	ccp pbase = opt_dest && *opt_dest ? opt_dest : basedir;
@@ -15063,8 +15076,13 @@ static enumError extract_tree (ccp root, uint depth)
 		{
 			err = extract_one_file (path, 0, depth + 1);
 		}
-		if (err != ERR_NOTHING_TO_DO && max_err < err)
-			max_err = err;
+		if (err != ERR_NOTHING_TO_DO)
+		{
+			if (err > ERR_WARNING)
+				err = ERR_WARNING;
+			if (max_err < err)
+				max_err = err;
+		}
 	}
 	closedir (dir);
 	opt_dest = saved_dest;

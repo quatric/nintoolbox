@@ -11098,7 +11098,7 @@ enumError DecodeBXWAV (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 		info_off = BW32 (0x18);
 		data_off = BW32 (0x24);
 	}
-	if (file_size != src_size)
+	if (file_size > src_size || file_size < 0x20)
 		return EINVAL;
 	if ((u64)info_off + 0x20 > src_size || (u64)data_off + 8 > src_size)
 		return EINVAL;
