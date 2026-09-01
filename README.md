@@ -4,22 +4,9 @@ A fast, unified command-line toolkit to extract, modify, convert, and rebuild ga
 
 ---
 
-## Highlights
-
-- **Universal Extraction & Repacking (`wszst`)**: Extract almost any Nintendo archive or disc image with `wszst xx <file>`, edit the contents, and rebuild cleanly with `wszst CREATE <folder>`.
-- **Modern 3D Model Pipelines (`wmdlt`)**: Convert Wii (MDL0), GameCube (HSF, HSD), DS (BMD, NSBMD), 3DS (BCH, BCRES), and Wii U / Switch (BFRES) models directly to and from **GLB** and **COLLADA (DAE)**.
-- **Full Texture & Image Suite (`wimgt`)**: Decode and encode Wii GX textures (TPL, BTI, TEX0), 3DS (BCLIM, CTPK), Wii U (BFLIM, GTX), Switch (BNTX, NUTEXB), and DS sprites (NCGR, NCLR, NCER, NANR) to standard **PNG**.
-- **Audio & Sound Archives (`wbrsar` / `wbrstm`)**: Unpack, convert, and repack BRSAR, BCSAR, BFSAR, and DS SDAT archives; convert stream audio (BRSTM, BCSTM, BFSTM) and sequence music (RSEQ, CSEQ, FSEQ, SSEQ) to WAV and MIDI.
-- **Layout & Message Editing (`wlayt` / `wbmgt`)**: Lossless text/XML disassembly and compilation for BRLYT, BCLYT, BFLYT layouts and MSBT / BMG game text.
-- **Transparent Compression & Crypto**: Native support for Yaz0, Yay0, LZ10, LZ11, QuickLZ, BLZ, Deflate, Zlib, RNC, and AES-encrypted containers.
-
----
-
 ## Quick Start
 
-### Building from Source
-
-Build the complete suite using `make`:
+### Installation & Building
 
 ```bash
 git clone https://github.com/quatric/wiimms-szs-tools-plus.git
@@ -27,68 +14,132 @@ cd wiimms-szs-tools-plus/project
 make all -j$(nproc)
 ```
 
-The compiled binaries (`wszst`, `wimgt`, `wmdlt`, `wbrsar`, `wbmgt`, `wlayt`, `wctct`, `wkclt`, `wkmpt`) will be placed in `project/bin/`.
+Compiled binaries (`wszst`, `wimgt`, `wmdlt`, `wbrsar`, `wbmgt`, `wlayt`, `wctct`, `wkclt`, `wkmpt`) will be placed in `project/bin/`.
 
 ---
 
 ## Common Commands
 
-### 1. Extracting & Repacking Archives
 ```bash
-# Extract any archive or ROM (SZS, U8, RARC, SARC, NARC, DARC, GFA, PAC, NDS, etc.)
+# 1. Extract any archive or ROM (SZS, U8, RARC, SARC, NARC, DARC, NDS, etc.)
 wszst xx Track.szs
+wszst xx Game.nds
 
-# Rebuild an extracted directory back into an archive
+# 2. Rebuild an extracted directory back into an archive
 wszst CREATE Track.d --dest Track.szs
-```
 
-### 2. Converting 3D Models
-```bash
-# Convert a Nintendo 3D model to GLB (or .dae)
+# 3. Convert 3D models to standard GLB (or COLLADA .dae)
 wmdlt DECODE Mario.mdl0 --dest Mario.glb
 wmdlt DECODE Course.bfres --dest Course.glb
-wmdlt DECODE Model.hsf --dest Model.glb
-
-# Convert a GLB/DAE back into a native Nintendo model
 wmdlt ENCODE Mario.glb --dest Mario.hsf
-```
 
-### 3. Converting Textures & Images
-```bash
-# Decode Nintendo textures to PNG
+# 4. Convert Nintendo textures to PNG
 wimgt DECODE texture.tpl --dest texture.png
 wimgt DECODE texture.bntx --dest texture.png
-
-# Encode PNG images to Nintendo texture formats
 wimgt ENCODE texture.png --dest texture.tpl
-```
 
-### 4. Audio & Sound Archives
-```bash
-# Unpack a sound archive (BRSAR / BCSAR / BFSAR / SDAT)
+# 5. Extract sound archives and convert audio streams
 wbrsar unpack Sound.brsar --dest Sound.d
-
-# Convert multi-channel streams to WAV
 wbrstm DECODE music.brstm --dest music.wav
-
-# Convert sequence music to MIDI
 wseqt DECODE sequence.sseq --dest sequence.mid
 ```
 
 ---
 
-## Supported Formats Summary
+## Supported Formats by Category
 
-| Category | Supported Formats |
-|---|---|
-| **Archives & Containers** | `.szs`, `.u8`, `.arc`, `.rarc`, `.sarc`, `.narc`, `.darc`, `.gfa`, `.pac`, `.fsys`, `.bg4`, `.ccf`, `.cram`, `.sze`, `.rflres`, `.idx`/`.bin`, `.wud`, `.wux`, `.nds`, `.srl`, `.3ds`, `.cia`, `.nsp`, `.xci` |
-| **3D Models** | `.mdl0`, `.bmd`, `.nsbmd`, `.bch`, `.bcres`, `.bfres`, `.hsf`, `.hsd` (`.dat`), `.mod`, `.msh` $\leftrightarrow$ **GLB** / **COLLADA (DAE)** |
-| **Textures & Sprites** | `.tpl`, `.bti`, `.tex0`, `.bclim`, `.ctpk`, `.bflim`, `.gtx`, `.bntx`, `.nutexb`, `.ncgr`, `.nclr`, `.ncer`, `.nanr`, `.art`, `.img` $\leftrightarrow$ **PNG** |
-| **Audio & Sound** | `.brsar`, `.bcsar`, `.bfsar`, `.sdat`, `.brstm`, `.bcstm`, `.bfstm`, `.bcwav`, `.bfwav`, `.rwav`, `.rseq`, `.cseq`, `.fseq`, `.sseq`, `.rbnk` $\leftrightarrow$ **WAV** / **MIDI** / **SF2** |
-| **Layouts & Text** | `.brlyt`, `.brlan`, `.bclyt`, `.bclan`, `.bflyt`, `.bflan`, `.msbt`, `.msbp`, `.msbf`, `.bmg`, `.byaml`, `.byml` $\leftrightarrow$ **XML** / **TXT** |
-| **Compression** | Yaz0, Yay0, LZ10, LZ11, LZ77, QuickLZ, BLZ, ALZ1, PSDK, SSZL, MVDK, Deflate, Zlib, RNC1, RNC2, Diff8/16, LZX, PuCrunch |
+### Archives & Containers
 
-For detailed technical specifications, exact struct layouts, and reverse-engineering findings, see **[docs/FORMATS.md](docs/FORMATS.md)** and **[docs/WORKFLOWS.md](docs/WORKFLOWS.md)**.
+| Format | Extensions | Games / Platforms Using This Format |
+|---|---|---|
+| **ARC / U8** | `.arc`, `.szs` | *Mario Kart Wii*, *Super Mario Galaxy 1 & 2*, *New Super Mario Bros. Wii*, *Wii Sports*, *Zelda: Skyward Sword* |
+| **Arika Archive** | `INFO.DAT`, `GAME.DAT` | *Dr. Mario Online Rx*, *Dr. Mario Express*, *Endless Ocean 1 & 2* (DS/Wii) |
+| **ARCV** | `.arc` | *Pac-Man Party* (Wii) |
+| **AT7** | `.at7` | *Another Century's Episode*, Koei Tecmo titles (Wii/PS2) |
+| **BG4** | `.bg4` | *Mario & Luigi: Paper Jam*, *Paper Mario MIX* (3DS) |
+| **BIGF** | `.big` | EA Wii titles (*Littlest Pet Shop*, etc.) |
+| **CA01 / SA01** | `.ca01`, `.sa01` | *Mii Maker* (Wii U), *amiibo Settings* (3DS) |
+| **CCF** | `.ccf` | Virtual Console Arcade / TurboGrafx-16 releases (Wii / Switch) |
+| **CRAM** | `.arc`, `.cram` | *Xenoblade Chronicles 3D* (3DS) |
+| **DARC** | `.darc` | *Mario Kart 7*, *Luigi's Mansion: Dark Moon*, *Super Smash Bros. 3DS* |
+| **FSYS** | `.fsys` | *Pokémon Colosseum*, *Pokémon XD: Gale of Darkness*, *Pokémon Battle Revolution* (GC/Wii) |
+| **GFA** | `.gfa` | *Pokémon Sun & Moon*, *Pokémon Ultra Sun & Ultra Moon* (3DS) |
+| **Hyrule Warriors** | `.idx`, `.bin` | *Hyrule Warriors Legends* (3DS) |
+| **MPBIN** | `.bin` | *Mario Party 4, 5, 6, 7, 8* (GameCube / Wii) |
+| **NARC** | `.narc` | *Pokémon Diamond/Pearl/Platinum/HGSS/BW/BW2*, *Mario Kart DS*, *Animal Crossing: Wild World* |
+| **NCCARC** | `.nccarc` | *WarioWare: Touched!* (DS) |
+| **NDS / SRL / DSI** | `.nds`, `.srl`, `.dsi` | Nintendo DS, DSiWare, and DS ROM images |
+| **PAC / MRG** | `.pac`, `.mrg` | *Super Smash Bros. Brawl* (Wii) |
+| **RARC** | `.rarc`, `.arc` | *Zelda: The Wind Waker*, *Zelda: Twilight Princess*, *Super Mario Sunshine*, *Luigi's Mansion* |
+| **RFL_Res** | `RFL_Res.dat`, `.dat` | Wii System NAND, *Mii Channel*, *Wii Sports*, *Wii Party*, *Wii Fit* |
+| **SARC** | `.sarc`, `.szs` | *Zelda: Breath of the Wild*, *Super Mario Odyssey*, *Mario Kart 8 / Deluxe*, *Splatoon 1/2/3*, *Animal Crossing: New Horizons* |
+| **SZE** | `.sze` | *F-Zero 99*, NST Nintendo Switch titles |
+| **WARC** | `.warc` | *Game & Wario* (Wii U) |
+| **WUD / WUX** | `.wud`, `.wux` | Nintendo Wii U retail disc images |
+
+---
+
+### 3D Models & Geometry
+
+| Format | Extensions | Games / Platforms Using This Format |
+|---|---|---|
+| **BCH** | `.bch` | *Pokémon X/Y/ORAS/Sun/Moon*, *Zelda: A Link Between Worlds*, *Luigi's Mansion: Dark Moon* (3DS) |
+| **BCRES** | `.bcres` | *Super Mario 3D Land*, *Mario Kart 7*, *Zelda: Ocarina of Time 3D / Majora's Mask 3D* (3DS) |
+| **BFRES** | `.bfres` | *Super Mario Odyssey*, *Mario Kart 8 / Deluxe*, *Zelda: BotW*, *Splatoon*, *Super Mario 3D World*, *Captain Toad* (Wii U / Switch) |
+| **BMD** | `.bmd`, `.bdhc` | *Super Mario 64 DS*, early Nintendo DS 3D titles |
+| **CGFX** | `.cgfx` | *Super Smash Bros. 3DS*, *Mario & Luigi: Dream Team* (3DS) |
+| **HSD** | `.dat` | *Super Smash Bros. Melee*, *Kirby Air Ride* (GameCube) |
+| **HSF** | `.hsf` | *Mario Party 4, 5, 6, 7, 8* (GameCube / Wii) |
+| **MDL0 / BRRES** | `.mdl0`, `.brres` | *Mario Kart Wii*, *Super Smash Bros. Brawl*, *Super Mario Galaxy 1 & 2*, *Donkey Kong Country Returns* (Wii) |
+| **MOD** | `.mod` | *Excite Truck*, *ExciteBots: Trick Racing*, *NASCAR Heat* (Wii) |
+| **MSH (PMsh)** | `.msh` | *Excite Truck*, *ExciteBots: Trick Racing* collision meshes (Wii) |
+| **NSBMD** | `.nsbmd`, `.bmd` | *Pokémon HGSS/BW/BW2*, *New Super Mario Bros. DS*, *Zelda: Phantom Hourglass* (DS) |
+
+---
+
+### Textures & 2D Graphics
+
+| Format | Extensions | Games / Platforms Using This Format |
+|---|---|---|
+| **ART / IMG** | `.art`, `.img` | *Excite Truck*, *ExciteBots: Trick Racing* UI images (Wii) |
+| **BCFNT / BFFNT / BRFNT** | `.bcfnt`, `.bffnt`, `.brfnt` | 3DS, Wii U, and Wii system fonts and game UI text |
+| **BCLIM / CTPK** | `.bclim`, `.ctpk` | *Mario Kart 7*, *Animal Crossing: New Leaf*, *Super Mario 3D Land* (3DS) |
+| **BFLIM** | `.bflim` | *Mario Kart 8*, *Super Mario 3D World*, *Captain Toad*, *Splatoon* (Wii U) |
+| **BNTX** | `.bntx` | *Super Mario Odyssey*, *Mario Kart 8 Deluxe*, *Splatoon 2 & 3*, *Zelda: BotW / TotK*, *ARMS* (Switch) |
+| **BREFT** | `.breft` | *Super Smash Bros. Brawl*, *Mario Kart Wii* particle effect textures |
+| **BTI / TPL** | `.bti`, `.tpl` | *Super Mario Sunshine*, *Luigi's Mansion*, *Mario Kart: Double Dash!!*, *Mario Kart Wii* |
+| **GTX** | `.gtx` | *Donkey Kong Country: Tropical Freeze*, *Pikmin 3*, *Zelda: Wind Waker HD / Twilight Princess HD*, *Nintendo Land* (Wii U) |
+| **NCGR / NCLR / NCER / NANR** | `.ncgr`, `.nclr`, `.ncer`, `.nanr` | *Pokémon Diamond/Pearl/Platinum/HGSS/BW/BW2*, *Mario Kart DS*, *Chrono Trigger DS*, *Kirby Super Star Ultra* (DS) |
+| **NSBTX** | `.nsbtx` | *Pokémon Platinum/HGSS/BW2*, *Mario Kart DS*, *Dragon Quest IX* (DS) |
+| **NUTEXB** | `.nutexb` | *Super Smash Bros. Ultimate* (Switch) |
+| **TEX** | `.tex` | *Excite Truck*, *ExciteBots: Trick Racing* GX textures (Wii) |
+| **TEX0** | `.tex0` | *Mario Kart Wii*, *Super Smash Bros. Brawl*, *Super Mario Galaxy* (Wii) |
+
+---
+
+### Audio, Sound & Music
+
+| Format | Extensions | Games / Platforms Using This Format |
+|---|---|---|
+| **BCSAR / BCWAR / BCWAV** | `.bcsar`, `.bcwar`, `.bcwav` | *Mario Kart 7*, *Super Mario 3D Land*, *Luigi's Mansion: Dark Moon*, *Kid Icarus: Uprising* (3DS) |
+| **BFSAR / BFWAR / BFWAV** | `.bfsar`, `.bfwar`, `.bfwav` | *Super Mario Odyssey*, *Mario Kart 8 / Deluxe*, *Zelda: BotW*, *Splatoon 1/2/3* (Wii U / Switch) |
+| **BRSAR / RBNK / RWAV** | `.brsar`, `.rbnk`, `.rwav` | *Mario Kart Wii*, *Super Smash Bros. Brawl*, *Wii Sports*, *Super Mario Galaxy 1 & 2* (Wii) |
+| **BRSTM / BCSTM / BFSTM** | `.brstm`, `.bcstm`, `.bfstm` | Multi-channel audio streams across Wii, 3DS, Wii U, and Switch titles |
+| **RSEQ / CSEQ / FSEQ / SSEQ** | `.rseq`, `.cseq`, `.fseq`, `.sseq` | Sequence music and MIDI across Wii, 3DS, Wii U, Switch, and DS |
+| **SDAT** | `.sdat` | *Pokémon Platinum/HGSS/BW/BW2*, *Mario Kart DS*, *New Super Mario Bros.*, *Chrono Trigger DS* (DS) |
+
+---
+
+### Layouts, Text & Game Data
+
+| Format | Extensions | Games / Platforms Using This Format |
+|---|---|---|
+| **BCLYT / BCLAN** | `.bclyt`, `.bclan` | *Mario Kart 7*, *Animal Crossing: New Leaf*, *Super Mario 3D Land* (3DS) |
+| **BFLYT / BFLAN** | `.bflyt`, `.bflan` | *Mario Kart 8*, *Super Mario 3D World*, *Splatoon*, *Pikmin 3* (Wii U) |
+| **BMG** | `.bmg` | *Mario Kart Wii*, *Super Mario Galaxy*, *Zelda: Twilight Princess* (Wii / GC) |
+| **BRLYT / BRLAN** | `.brlyt`, `.brlan` | *Mario Kart Wii*, *Super Smash Bros. Brawl*, *New Super Mario Bros. Wii*, *Wii Sports Resort* (Wii) |
+| **BYAML / BYML** | `.byaml`, `.byml` | *Super Mario Galaxy 1 & 2*, *Super Mario 3D World*, *Super Mario Odyssey*, *Zelda: BotW* |
+| **MSBT / MSBP / MSBF** | `.msbt`, `.msbp`, `.msbf` | *Animal Crossing: New Leaf / New Horizons*, *Zelda: BotW*, *Mario Kart 8 / Deluxe*, *Super Mario Odyssey* |
 
 ---
 
