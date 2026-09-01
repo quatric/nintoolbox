@@ -1879,6 +1879,38 @@ echo "== QuickBMS-derived flat archives (SFZ DAT / BG4 / cram / SA01 / CA01 / HW
 # Synthetic fixtures built to each format's published .bms layout. These
 # assert the scanners, not retail fidelity -- see the README rows for which
 # of these formats has been checked against a real game file.
+t_scn0_cli(){
+  # SCN0 (scene animation: light sets, ambient lights, lights, fog, cameras).
+  # SCN0 is the only NW4R animation with a *nested* resource group, and retail
+  # writes each node's animated slots in flag-BIT numeric order rather than in
+  # struct field order -- for a camera that puts perspFovY ahead of rotX. The
+  # trailing string pool is in ordinal name order, and version 4 declares a
+  # size that includes that pool while version 5 stops at the data section.
+  # All of that has to be reproduced for the retail bytes to come back.
+  local d; d=$(mktemp -d)
+  local ok=1 n=0
+  "$B/wszst" EXTRACT "$PWD_PROJECT/../tests/fixtures/mkw_123dai.brres" \
+    --dest "$d/123dai" --overwrite >/dev/null 2>&1 || ok=0
+  cp "$PWD_PROJECT/../tests/fixtures/mkw_scn0_v4_course.scn0" "$d/v4.scn0" || ok=0
+  cp "$PWD_PROJECT/../tests/fixtures/mkw_scn0_v5_course.scn0" "$d/v5.scn0" || ok=0
+
+  local f
+  while IFS= read -r f; do
+    n=$((n+1))
+    "$B/wszst" TEXT   "$f"        --dest "$d/$n.txt" --overwrite >/dev/null 2>&1 || { ok=0; continue; }
+    "$B/wszst" BINARY "$d/$n.txt" --dest "$d/$n.bin" --overwrite >/dev/null 2>&1 || { ok=0; continue; }
+    cmp -s "$f" "$d/$n.bin" || ok=0
+    "$B/wszst" TEXT   "$d/$n.bin" --dest "$d/$n.t2"  --overwrite >/dev/null 2>&1 || { ok=0; continue; }
+    cmp -s "$d/$n.txt" "$d/$n.t2" || ok=0
+  done < <({ find "$d" -type f -path '*AnmScn*'; ls "$d"/v4.scn0 "$d"/v5.scn0; } | sort)
+
+  [ "$n" -ge 5 ] || ok=0
+  rm -rf "$d"
+  [ "$ok" = 1 ] && ok "SCN0 CLI byte-exact decode -> encode ($n retail animations)" \
+    || no "SCN0 CLI byte-exact decode -> encode" "mismatch"
+}
+t_scn0_cli
+
 t_shp0_cli(){
   # SHP0 (vertex morph animation). Retail SHP0 names its morph targets through
   # the *shared* BRRES string pool, so a standalone file cannot resolve those

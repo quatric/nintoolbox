@@ -149,6 +149,9 @@ void CalcEntryBRRES (brres_info_t *info, uint entry_idx);
 
 #define SHP_TEXT_MAGIC "#SHP"
 #define SHP_TEXT_MAGIC_NUM 0x23534850
+#define SCN_TEXT_MAGIC "#SCN"
+#define SCN_TEXT_MAGIC_NUM 0x2353434e
+
 #define CLR_TEXT_MAGIC "#CLR"
 #define CLR_TEXT_MAGIC_NUM 0x23434c52
 #define VIS_TEXT_MAGIC "#VIS"

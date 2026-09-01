@@ -374,7 +374,7 @@ here for comparison. Status is read directly from each format's
 | RKC | ✅ | ✅ |
 | RKCO | ⛔ | ⛔ |
 | RKG | ⛔ | ⛔ |
-| SCN (SCN0) | ⛔ | ⛔ |
+| SCN (SCN0) | ✅ | ✅ |
 | SHA1ID | ⛔ | ✅ |
 | SHA1REF | ⛔ | ✅ |
 | SHP (SHP0) | ✅ | ✅ |
@@ -507,7 +507,25 @@ Notes on the BRRES animation siblings added by this fork:
   Wii sample corpus re-encode byte-identically to the originals. Two of the
   source archives are checked in as `tests/fixtures/mkw_r_parasol.brres` and
   `mkw_wanwan.brres`; covered by `t_shp0_cli` in `tests/regress.sh`.
-- **SCN0** remains ⛔: not started, so no claim is made about it.
+- **SCN0** is the scene animation: light sets, ambient lights, lights, fog and
+  cameras. It is the only NW4R animation built on a *nested* resource group --
+  one outer group naming the sections, each holding its own group of nodes.
+  Two layout rules had to be recovered from the retail files because BrawlLib
+  does not describe them: a node's animated slots are written in flag-**bit**
+  numeric order rather than in struct field order (for a camera that puts
+  `perspFovY`, bit 0x80, physically ahead of `rotX`, bit 0x2000), and the
+  trailing string pool is in ordinal name order, with version 4 declaring a
+  size that *includes* that pool while version 5 stops at the end of the data
+  section. As with SHP0, a node's own name offset points into the shared BRRES
+  string pool and cannot be resolved standalone, so it is preserved verbatim.
+  **All 19 retail SCN0 animations** found across the Mario Kart Wii sample
+  corpus re-encode byte-identically to the originals, and every byte below the
+  declared size is accounted for by the model. Fixtures are checked in as
+  `tests/fixtures/mkw_123dai.brres`, `mkw_scn0_v4_course.scn0` and
+  `mkw_scn0_v5_course.scn0`; covered by `t_scn0_cli` in `tests/regress.sh`.
+  Fog is the one gap: **no sample in the corpus contains a fog node**, so the
+  fog path is implemented from the BrawlLib layout but is *unverified* against
+  retail data.
 
 
 ---

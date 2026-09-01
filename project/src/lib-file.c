@@ -949,6 +949,9 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 				return FF_CLR_TXT;
 			case SHP_TEXT_MAGIC_NUM:
 				return FF_SHP_TXT;
+
+			case SCN_TEXT_MAGIC_NUM:
+				return FF_SCN_TXT;
 			case KMG_TEXT_MAGIC_NUM:
 				return FF_KMG_TXT;
 			case KRT_TEXT_MAGIC_NUM:
@@ -1248,6 +1251,9 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 					return FF_CLR_TXT;
 				case SHP_TEXT_MAGIC_NUM:
 					return FF_SHP_TXT;
+
+				case SCN_TEXT_MAGIC_NUM:
+					return FF_SCN_TXT;
 				case KMG_TEXT_MAGIC_NUM:
 					return FF_KMG_TXT;
 				case KRT_TEXT_MAGIC_NUM:

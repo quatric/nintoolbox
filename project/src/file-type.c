@@ -157,7 +157,8 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		"AnmTexPat(NW4R)", "4,(*)", "4", "Texture swapping animations" },
 
 	// FF_SCN = 26
-	{ FF_SCN, 0, 0, "SCN", ".scn", ".szs", ".scn0", FFT_VALID | FFT_BRSUB | FFT_BRSUB2 | FFT_CUT, 4,
+	{ FF_SCN, FF_SCN, FF_SCN_TXT, "SCN", ".scn", ".szs", ".scn0",
+	    FFT_VALID | FFT_BRSUB | FFT_BRSUB2 | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
 		{ 0x53, 0x43, 0x4e, 0x30 }, // "SCN0"
 		"AnmScn(NW4R)", "5,(*)", filetype_info_not_supported, "Polygon morphing animations" },
 
@@ -901,6 +902,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	{ FF_DIFF, 0, 0, "DIFF", ".diff", ".szs", ".diff", FFT_VALID | FFT_COMPRESS | FFT_TRACK, 1,
 		{ 0x80 }, 0, MinusString, MinusString, "Nintendo differential filter (0x80/0x81)" },
 
+	// FF_SCN_TXT = 169 (text version of SCN)
+	{ FF_SCN_TXT, FF_SCN, FF_SCN_TXT, "SCNTXT", ".txt", ".szs", ".txt",
+		FFT_VALID | FFT_TEXT | FFT_DECODE | FFT_ENCODE | FFT_PARSER, 4,
+		{ 0x23, 0x53, 0x43, 0x4e }, // "#SCN"
+		0, MinusString, MinusString, "Text version of SCN" },
+
 	// FF_N
 	{ 0 }
 };
@@ -944,7 +951,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_SRT_TXT, "SRT-TXT", "SRTTXT", 0x7011 },
 	{ FF_VIS, "VIS", "VIS0", 0x861 }, { FF_VIS_TXT, "VIS-TXT", "VISTXT", 0x7011 },
 	{ FF_CLR_TXT, "CLR-TXT", "CLRTXT", 0x7011 },
-	{ FF_SHP_TXT, "SHP-TXT", "SHPTXT", 0x7011 },{ FF_TPL, "TPL", 0, 0x3809 },
+	{ FF_SHP_TXT, "SHP-TXT", "SHPTXT", 0x7011 },
+	{ FF_SCN_TXT, "SCN-TXT", "SCNTXT", 0x7011 },{ FF_TPL, "TPL", 0, 0x3809 },
 	{ FF_TPLX, "TPL", "TPLX", 0x3809 }, { FF_CUPICON, "CUPICON", "TPL", 0x2009 },
 	{ FF_CUPICON, "TPLX", 0, 0x2009 }, { FF_BTI, "BTI", "BTIENV", 0x3809 },
 	{ FF_BTI, "BTIMAT", 0, 0x3809 }, { FF_BREFT_IMG, "BREFT-IMG", "BREFTIMG", 0x3809 },

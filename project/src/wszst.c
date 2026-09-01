@@ -66,6 +66,7 @@
 #include "lib-vis0.h"
 #include "lib-clr.h"
 #include "lib-shp.h"
+#include "lib-scn.h"
 #include "lib-breff.h"
 #include "lib-image.h"
 #include "lib-common.h"
@@ -16033,6 +16034,26 @@ static bool ConvertHelper (const u8 *data, // valid data
 					: binary_dest ? SaveRawVIS0 (&vis, dest_fname, true)
 								  : SaveTextVIS0 (&vis, dest_fname, true);
 				ResetVIS0 (&vis);
+			}
+			return true;
+
+		case FF_SCN:
+		case FF_SCN_TXT:
+			FreeContainerData (cdata);
+			{
+				scn0_t scn;
+				InitializeSCN0 (&scn);
+				*err = fform == FF_SCN_TXT ? ScanTextSCN0 (&scn, false, src_fname)
+										   : ScanRawSCN0 (&scn, false, data, data_size);
+				if (*err)
+				{
+					ResetSCN0 (&scn);
+					return false;
+				}
+				*err = testmode   ? ERR_OK
+					: binary_dest ? SaveRawSCN0 (&scn, dest_fname, true)
+								  : SaveTextSCN0 (&scn, dest_fname, true);
+				ResetSCN0 (&scn);
 			}
 			return true;
 

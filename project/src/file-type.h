@@ -258,6 +258,7 @@ typedef enum file_format_t
 	FF_PUCRUNCH, // 166 - Griptonite Games DS compression (.pucrunch)
 	FF_LZX, // 167 - Nintendo DS extended LZ11 (.lzx)
 	FF_DIFF, // 168 - Nintendo differential filter (.diff)
+	FF_SCN_TXT, // 169 - Text version of SCN
 
 	//--- number of elements
 
