@@ -6916,7 +6916,7 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 					{
 						if (!strcasecmp (model_exts[k], ".hsf"))
 						{
-							model_t *mdl = is_glb_file ? ParseGLBFile (path) : ParseDAEFile (path);
+							model_t *mdl = ParseGLBFile (path);
 							if (mdl)
 							{
 								enumError enc = EncodeModelToHSF (mdl, parent_model);
@@ -6932,7 +6932,7 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 						}
 						if (!strcasecmp (model_exts[k], ".msh"))
 						{
-							model_t *mdl = is_glb_file ? ParseGLBFile (path) : ParseDAEFile (path);
+							model_t *mdl = ParseGLBFile (path);
 							if (mdl)
 							{
 								enumError enc = EncodeExciteMSH (mdl, parent_model);
@@ -6948,7 +6948,7 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 						}
 						if (!strcasecmp (model_exts[k], ".mod"))
 						{
-							model_t *mdl = is_glb_file ? ParseGLBFile (path) : ParseDAEFile (path);
+							model_t *mdl = ParseGLBFile (path);
 							if (mdl)
 							{
 								enumError enc = EncodeExciteMOD (mdl, parent_model);
@@ -6966,7 +6966,7 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 						InitializeRawData (&parent_raw);
 						if (LoadRawData (&parent_raw, false, parent_model, 0, false, 0) == ERR_OK)
 						{
-							model_t *mdl = is_glb_file ? ParseGLBFile (path) : ParseDAEFile (path);
+							model_t *mdl = ParseGLBFile (path);
 							if (mdl)
 							{
 								uint8_t *injected = 0;
@@ -7002,7 +7002,7 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 				struct stat st_bfres;
 				if (stat (bfres_path, &st_bfres) != 0 || !S_ISREG (st_bfres.st_mode))
 				{
-					model_t *mdl = is_glb_file ? ParseGLBFile (path) : ParseDAEFile (path);
+					model_t *mdl = ParseGLBFile (path);
 					if (mdl)
 					{
 						uint8_t *created = 0;
@@ -12929,7 +12929,7 @@ static enumError export_model_if_possible (ccp arg)
 		fprintf (stdlog, "%s%sEXPORT MODEL:%s -> %s:%s\n", verbose > 0 ? "\n" : "",
 			testmode ? "WOULD " : "", arg, is_dae ? "DAE" : "GLB", dest);
 	if (!testmode)
-		err = (is_dae ? ExportModelToDAE (model, dest) : ExportModelToGLB (model, dest))
+		err = (ExportModelToGLB (model, dest))
 			? ERROR0 (ERR_WRITE_FAILED, "Failed to write %s: %s\n", is_dae ? "DAE" : "GLB", dest)
 			: ERR_OK;
 	FreeModel (model);

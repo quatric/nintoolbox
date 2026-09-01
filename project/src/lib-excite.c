@@ -1642,7 +1642,7 @@ enumError DecodeExciteMSH (const u8 *data, uint size, ccp out_dae_path)
 	model.meshes = &mesh;
 	model.num_meshes = 1;
 
-	const int rc = ExportModelToDAE (&model, out_dae_path);
+	const int rc = ExportModelToGLB (&model, out_dae_path);
 	FREE (mesh.positions);
 	FREE (mesh.normals);
 	FREE (mesh.vertices);
@@ -2455,7 +2455,7 @@ enumError DecodeExciteMOD (const u8 *data, uint size, ccp out_path)
 		model.num_meshes = 1;
 		const uint path_len = strlen (out_path);
 		const bool is_dae = path_len > 4 && !strcasecmp (out_path + path_len - 4, ".dae");
-		rc = (is_dae ? ExportModelToDAE (&model, out_path) : ExportModelToGLB (&model, out_path))
+		rc = (ExportModelToGLB (&model, out_path))
 				== 0
 			? ERR_OK
 			: ERR_CANT_CREATE;

@@ -343,9 +343,7 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 			{
 				if (!testmode)
 				{
-					model_t *in_model = is_glb_input
-						? ParseGLB (raw.data, raw.data_size)
-						: ParseDAE ((const char *)raw.data, raw.data_size);
+					model_t *in_model = ParseGLB (raw.data, raw.data_size);
 					if (!in_model)
 					{
 						ERROR0 (ERR_INVALID_DATA, "Failed to parse model %s: %s\n",
@@ -633,7 +631,7 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				if (model)
 				{
 					if (is_dae)
-						ExportModelToDAE (model, dest);
+						ExportModelToGLB (model, dest);
 					else
 						ExportModelToGLB (model, dest);
 					FreeModel (model);
@@ -660,7 +658,7 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				if (model)
 				{
 					if (is_dae)
-						ExportModelToDAE (model, dest);
+						ExportModelToGLB (model, dest);
 					else
 						ExportModelToGLB (model, dest);
 					FreeModel (model);

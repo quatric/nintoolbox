@@ -229,12 +229,9 @@ extern "C"
 {
 #endif
 
-	int ExportModelToDAE (const model_t *model, const char *out_xml_file);
 	int ExportModelToGLB (const model_t *model, const char *out_glb_file);
 
 	// Parse a COLLADA DAE (.dae) or GLB (.glb) file or in-memory data into a model_t.
-	model_t *ParseDAE (const char *xml_data, size_t xml_size);
-	model_t *ParseDAEFile (const char *filename);
 	model_t *ParseGLB (const uint8_t *data, size_t size);
 	model_t *ParseGLBFile (const char *filename);
 	void FreeModel (model_t *model);

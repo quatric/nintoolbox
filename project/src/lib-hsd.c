@@ -2104,8 +2104,8 @@ int ExportHSDModel (const hsd_t *hsd, ccp out_glb_file)
 
 		const uint path_len = strlen (out_glb_file);
 		const bool is_dae = path_len > 4 && !strcasecmp (out_glb_file + path_len - 4, ".dae");
-		written = (is_dae ? ExportModelToDAE (&model, out_glb_file)
-						  : ExportModelToGLB (&model, out_glb_file))
+		written = (ExportModelToGLB (&model, out_glb_file)
+						  )
 				== 0
 			? (int)ctx.n_meshes
 			: -1;
