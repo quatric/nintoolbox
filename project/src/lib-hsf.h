@@ -12,7 +12,7 @@
 #define LIB_HSF_H
 
 #include "types.h"
-#include "lib-model-dae.h"
+#include "lib-model-glb.h"
 
 // Recognise and decode an HSFV037 model's geometry, object hierarchy,
 // materials and native GX textures, one mesh per named mesh-object, single

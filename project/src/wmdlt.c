@@ -37,7 +37,7 @@
 
 #include "lib-mdl.h"
 #include "lib-szs.h"
-#include "lib-model-dae.h"
+#include "lib-model-glb.h"
 #include "lib-hsf.h"
 #include "lib-hsd.h"
 #include "lib-excite.h"

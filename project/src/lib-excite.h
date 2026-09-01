@@ -10,7 +10,7 @@
 #define LIB_EXCITE_H
 
 #include "types.h"
-#include "lib-model-dae.h"
+#include "lib-model-glb.h"
 
 //-----------------------------------------------------------------------------
 ///////////////		.tex textures (GX pixel data + footer)		///////////////

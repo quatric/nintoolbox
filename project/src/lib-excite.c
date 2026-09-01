@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0+
 #include "lib-std.h"
 #include "lib-excite.h"
-#include "lib-model-dae.h"
+#include "lib-model-glb.h"
 #include "lib-image.h"
 #include <math.h>
 

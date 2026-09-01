@@ -1,4 +1,4 @@
-#include "lib-model-dae.h"
+#include "lib-model-glb.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

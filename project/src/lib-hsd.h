@@ -9,7 +9,7 @@
 #define LIB_HSD_H
 
 #include "lib-std.h"
-#include "lib-model-dae.h"
+#include "lib-model-glb.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -98,7 +98,7 @@ int ExportHSDTexturesFromData (const u8 *data, uint size, ccp dest_dir, ccp base
 ///////////////			     model geometry		///////////////
 ///////////////////////////////////////////////////////////////////////////////
 //
-// JOBJ/DOBJ/POBJ tree -> model_t (lib-model-dae.h), verified against Super
+// JOBJ/DOBJ/POBJ tree -> model_t (lib-model-glb.h), verified against Super
 // Smash Bros. Melee's real HSD_JOBJ/HSD_DOBJ/HSD_POBJ/GX_Attribute field
 // layout (Ploaj/HSDLib, MIT licensed) and the real GX display-list opcode
 // stream (byte-for-byte confirmed on TyBox.dat's item-box model: attribute

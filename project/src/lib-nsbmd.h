@@ -1,7 +1,7 @@
 #ifndef LIB_NSBMD_H
 #define LIB_NSBMD_H
 
-#include "lib-model-dae.h"
+#include "lib-model-glb.h"
 #include "lib-std.h"
 #include <stdint.h>
 #include <stddef.h>

@@ -1,5 +1,5 @@
-#ifndef LIB_MODEL_DAE_H
-#define LIB_MODEL_DAE_H
+#ifndef LIB_MODEL_GLB_H
+#define LIB_MODEL_GLB_H
 
 #include <stdint.h>
 #include <stddef.h>
@@ -248,4 +248,4 @@ extern "C"
 }
 #endif
 
-#endif // LIB_MODEL_DAE_H
+#endif // LIB_MODEL_GLB_H

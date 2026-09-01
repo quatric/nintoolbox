@@ -1,7 +1,7 @@
 #ifndef LIB_BCRES_H
 #define LIB_BCRES_H
 
-#include "lib-model-dae.h"
+#include "lib-model-glb.h"
 #include "lib-std.h"
 #include <stdint.h>
 #include <stddef.h>

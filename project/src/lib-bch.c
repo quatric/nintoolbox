@@ -258,7 +258,7 @@ enumError ScanBCH (bch_t *bch, const u8 *data, uint size)
 // formats, the vertex stride and the index buffer all have to be recovered by
 // replaying that command stream.
 
-#include "lib-model-dae.h"
+#include "lib-model-glb.h"
 #include "lib-brres-model.h"
 #include "lib-nintendo.h"
 #include "lib-image.h"

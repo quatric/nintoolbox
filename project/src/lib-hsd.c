@@ -13,7 +13,7 @@
 
 #include "lib-hsd.h"
 #include "lib-image.h"
-#include "lib-model-dae.h"
+#include "lib-model-glb.h"
 
 #include <stdlib.h>
 #include <string.h>

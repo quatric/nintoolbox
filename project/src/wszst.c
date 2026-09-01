@@ -63,7 +63,7 @@
 #include "lib-image.h"
 #include "lib-common.h"
 #include "lib-rkg.h"
-#include "lib-model-dae.h"
+#include "lib-model-glb.h"
 #include "lib-brres-inject.h"
 #include "lib-bntx.h"
 #include "lib-vc.h"
@@ -96,7 +96,7 @@ static ccp opt_parent = 0;
 #include "lib-bfres.h"
 #include "lib-gtx.h"
 #include "lib-vc.h"
-#include "lib-model-dae.h"
+#include "lib-model-glb.h"
 
 #if HAVE_WIIMM_EXT
 #include "lib-vehicle.h"

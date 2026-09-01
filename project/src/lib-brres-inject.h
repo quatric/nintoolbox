@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include "lib-model-dae.h"
+#include "lib-model-glb.h"
 
 #ifdef __cplusplus
 extern "C"
