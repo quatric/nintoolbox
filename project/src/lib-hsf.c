@@ -1703,7 +1703,10 @@ enumError DecodeHSF (const u8 *data, uint size, ccp out_path)
 			if (mesh->material_idx < 0 && material < mat_cnt)
 				mesh->material_idx = (int)material;
 
-			s16 pidx[8], nidx[8], cidx[8], uidx[8];
+			s16 pidx_stack[64], nidx_stack[64], cidx_stack[64], uidx_stack[64];
+			s16 *pidx = pidx_stack, *nidx = nidx_stack, *cidx = cidx_stack, *uidx = uidx_stack;
+			s16 *allocated = 0;
+
 			const int n_explicit = ptype == 4 ? 3 : 4;
 			const u8 *gp = rp + 4;
 			for (int g = 0; g < n_explicit; g++, gp += 8)
@@ -1719,24 +1722,50 @@ enumError DecodeHSF (const u8 *data, uint size, ccp out_path)
 			{
 				const s32 ecount = (s32)hsf_be32 (gp);
 				const u32 eoff = hsf_be32 (gp + 4);
-				// duplicate corner 1 as the strip seam vertex (matches the
-				// reference decoder), then append up to 4 Ext-pool entries.
-				pidx[3] = pidx[1];
-				nidx[3] = nidx[1];
-				cidx[3] = cidx[1];
-				uidx[3] = uidx[1];
-				n_vg = 4;
-				if (ecount > 0 && ecount <= 4
-					&& ext_pool_off + (u64)eoff * 8 + (u64)ecount * 8 <= size)
+				if (ecount > 0)
 				{
-					const u8 *ep = data + ext_pool_off + (u64)eoff * 8;
-					for (int g = 0; g < ecount; g++, ep += 8, n_vg++)
+					if (ext_pool_off + (u64)eoff * 8 + (u64)ecount * 8 > size)
 					{
-						pidx[n_vg] = hsf_be16s (ep);
-						nidx[n_vg] = hsf_be16s (ep + 2);
-						cidx[n_vg] = hsf_be16s (ep + 4);
-						uidx[n_vg] = hsf_be16s (ep + 6);
+						bad = true;
+						break;
 					}
+					const int total_vg = 4 + ecount;
+					if (total_vg > 64)
+					{
+						allocated = MALLOC (total_vg * 4 * sizeof (s16));
+						pidx = allocated;
+						nidx = allocated + total_vg;
+						cidx = allocated + total_vg * 2;
+						uidx = allocated + total_vg * 3;
+						for (int g = 0; g < 3; g++)
+						{
+							pidx[g] = pidx_stack[g];
+							nidx[g] = nidx_stack[g];
+							cidx[g] = cidx_stack[g];
+							uidx[g] = uidx_stack[g];
+						}
+					}
+					pidx[3] = pidx[1];
+					nidx[3] = nidx[1];
+					cidx[3] = cidx[1];
+					uidx[3] = uidx[1];
+					const u8 *ep = data + ext_pool_off + (u64)eoff * 8;
+					for (int g = 0; g < ecount; g++, ep += 8)
+					{
+						pidx[4 + g] = hsf_be16s (ep);
+						nidx[4 + g] = hsf_be16s (ep + 2);
+						cidx[4 + g] = hsf_be16s (ep + 4);
+						uidx[4 + g] = hsf_be16s (ep + 6);
+					}
+					n_vg = total_vg;
+				}
+				else
+				{
+					pidx[3] = pidx[1];
+					nidx[3] = nidx[1];
+					cidx[3] = cidx[1];
+					uidx[3] = uidx[1];
+					n_vg = 4;
 				}
 			}
 
@@ -1759,20 +1788,22 @@ enumError DecodeHSF (const u8 *data, uint size, ccp out_path)
 			{
 				for (int c = 2; c < n_vg; c++)
 				{
-					if (c & 1)
+					int i0 = (c & 1) ? c - 1 : c - 2;
+					int i1 = (c & 1) ? c - 2 : c - 1;
+					int i2 = c;
+					int p0 = pidx[i0] >= 0 && (u32)pidx[i0] < mesh->num_positions ? pidx[i0] : 0;
+					int p1 = pidx[i1] >= 0 && (u32)pidx[i1] < mesh->num_positions ? pidx[i1] : 0;
+					int p2 = pidx[i2] >= 0 && (u32)pidx[i2] < mesh->num_positions ? pidx[i2] : 0;
+					if (p0 != p1 && p1 != p2 && p0 != p2)
 					{
-						HSF_EMIT (c - 1);
-						HSF_EMIT (c - 2);
-						HSF_EMIT (c);
-					}
-					else
-					{
-						HSF_EMIT (c - 2);
-						HSF_EMIT (c - 1);
-						HSF_EMIT (c);
+						HSF_EMIT (i0);
+						HSF_EMIT (i1);
+						HSF_EMIT (i2);
 					}
 				}
 			}
+			if (allocated)
+				FREE (allocated);
 		}
 #undef HSF_EMIT
 
