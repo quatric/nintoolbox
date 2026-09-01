@@ -613,18 +613,63 @@ static enumError SavePLT0 (Image_t *img, ccp dest, ccp source)
 	Transform2XIMG (img);
 	if (img->iform != IMG_X_RGB)
 		return ERROR0 (ERR_INVALID_DATA, "Can't convert image to RGBA: %s\n", source);
-	const uint num_colors = img->width * img->height;
-	if (!num_colors)
+	const uint num_pixels = img->width * img->height;
+	if (!num_pixels)
 		return ERROR0 (ERR_INVALID_DATA, "Empty image: %s\n", source);
-	u8 *rgba = MALLOC (num_colors * 4);
-	if (!rgba)
-		return ERR_CANT_CREATE;
-	for (uint y = 0; y < img->height; y++)
-		memcpy (rgba + 4 * y * img->width, img->data + 4 * y * img->xwidth, 4 * img->width);
+
 	u8 *data = 0;
 	uint size = 0;
-	enumError err = EncodePLT0_RGBA (&data, &size, rgba, num_colors, img->pform);
-	FREE (rgba);
+	enumError err = ERR_OK;
+
+	if (img->height > 1)
+	{
+		// 2D image: quantize palette to 256 colors using plt0 3-pass quantization
+		u8 *raw_pal = 0;
+		uint pal_size = 0, n_colors = 0;
+		err = QuantizePalette_PLT0 (img->data, img->width, img->height, img->xwidth,
+			img->pform, 256, &raw_pal, &pal_size, &n_colors, 0);
+		if (err)
+			return ERROR0 (ERR_INVALID_DATA, "Can't quantize PLT0 palette: %s\n", source);
+
+		size = 0x40 + pal_size;
+		data = CALLOC (1, size);
+		if (!data)
+		{
+			FREE (raw_pal);
+			return ERR_OUT_OF_MEMORY;
+		}
+
+		u32 raw_pform = 2; // RGB5A3
+		if (img->pform == PAL_IA8)
+			raw_pform = 0;
+		else if (img->pform == PAL_RGB565)
+			raw_pform = 1;
+
+		memcpy (data, "PLT0", 4);
+		data[0x04] = (u8)(size >> 24);
+		data[0x05] = (u8)(size >> 16);
+		data[0x06] = (u8)(size >> 8);
+		data[0x07] = (u8)(size & 0xFF);
+		data[0x0B] = 1; // version 1
+		data[0x13] = 0x40; // headerLen
+		data[0x1B] = (u8)raw_pform; // pixelFormat
+		data[0x1C] = (u8)(n_colors >> 8);
+		data[0x1D] = (u8)(n_colors & 0xFF);
+		memcpy (data + 0x40, raw_pal, pal_size);
+		FREE (raw_pal);
+	}
+	else
+	{
+		// 1-high palette strip
+		u8 *rgba = MALLOC (num_pixels * 4);
+		if (!rgba)
+			return ERR_CANT_CREATE;
+		for (uint y = 0; y < img->height; y++)
+			memcpy (rgba + 4 * y * img->width, img->data + 4 * y * img->xwidth, 4 * img->width);
+		err = EncodePLT0_RGBA (&data, &size, rgba, num_pixels, img->pform);
+		FREE (rgba);
+	}
+
 	if (err)
 		return ERROR0 (ERR_INVALID_DATA, "Can't encode PLT0 palette: %s\n", source);
 	File_t F;

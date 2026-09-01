@@ -233,3 +233,323 @@ enumError EncodePLT0_RGBA (
 	*dest_size = total_size;
 	return ERR_OK;
 }
+
+typedef struct plt0_hist_t
+{
+	u16 color16;
+	u32 count;
+} plt0_hist_t;
+
+static int compare_plt0_hist (const void *a, const void *b)
+{
+	const plt0_hist_t *ha = (const plt0_hist_t *)a;
+	const plt0_hist_t *hb = (const plt0_hist_t *)b;
+	if (hb->count != ha->count)
+		return (hb->count > ha->count) ? 1 : -1;
+	return (int)ha->color16 - (int)hb->color16;
+}
+
+static inline u16 rgba_to_pal16_val (u8 r, u8 g, u8 b, u8 a, u32 raw_pform)
+{
+	if (raw_pform == 0) // IA8
+	{
+		u8 intensity = (a == 0) ? 0 : (u8)(((u32)r * 77 + (u32)g * 150 + (u32)b * 29) >> 8);
+		return ((u16)a << 8) | intensity;
+	}
+	else if (raw_pform == 1) // RGB565
+	{
+		return ((u16)(r >> 3) << 11) | ((u16)(g >> 2) << 5) | (u16)(b >> 3);
+	}
+	else // RGB5A3
+	{
+		if (a < 224)
+			return ((u16)(a >> 5) << 12) | ((u16)(r >> 4) << 8) | ((u16)(g >> 4) << 4)
+				| (u16)(b >> 4);
+		else
+			return 0x8000 | ((u16)(r >> 3) << 10) | ((u16)(g >> 3) << 5) | (u16)(b >> 3);
+	}
+}
+
+static inline void pal16_val_to_rgba (u16 c, u32 raw_pform, u8 *r, u8 *g, u8 *b, u8 *a)
+{
+	if (raw_pform == 0) // IA8
+	{
+		*a = (u8)(c >> 8);
+		*r = *g = *b = (u8)(c & 0xFF);
+	}
+	else if (raw_pform == 1) // RGB565
+	{
+		u8 cr = (c >> 11) & 0x1F;
+		*r = (cr << 3) | (cr >> 2);
+		u8 cg = (c >> 5) & 0x3F;
+		*g = (cg << 2) | (cg >> 4);
+		u8 cb = c & 0x1F;
+		*b = (cb << 3) | (cb >> 2);
+		*a = 0xFF;
+	}
+	else // RGB5A3
+	{
+		if (c & 0x8000)
+		{
+			u8 cr = (c >> 10) & 0x1F;
+			*r = (cr << 3) | (cr >> 2);
+			u8 cg = (c >> 5) & 0x1F;
+			*g = (cg << 3) | (cg >> 2);
+			u8 cb = c & 0x1F;
+			*b = (cb << 3) | (cb >> 2);
+			*a = 0xFF;
+		}
+		else
+		{
+			u8 ca = (c >> 12) & 0x07;
+			*a = (ca << 5) | (ca << 2) | (ca >> 1);
+			u8 cr = (c >> 8) & 0x0F;
+			*r = (cr << 4) | cr;
+			u8 cg = (c >> 4) & 0x0F;
+			*g = (cg << 4) | cg;
+			u8 cb = c & 0x0F;
+			*b = (cb << 4) | cb;
+		}
+	}
+}
+
+static inline int pal16_dist_val (u16 c1, u16 c2, u32 raw_pform)
+{
+	u8 r1, g1, b1, a1, r2, g2, b2, a2;
+	pal16_val_to_rgba (c1, raw_pform, &r1, &g1, &b1, &a1);
+	pal16_val_to_rgba (c2, raw_pform, &r2, &g2, &b2, &a2);
+	return abs ((int)r1 - (int)r2) + abs ((int)g1 - (int)g2) + abs ((int)b1 - (int)b2)
+		+ abs ((int)a1 - (int)a2);
+}
+
+enumError QuantizePalette_PLT0 (const u8 *rgba, uint width, uint height, uint xwidth,
+	palette_format_t pform, uint target_colors, u8 **out_raw_pal, uint *out_pal_size,
+	uint *out_num_colors, u16 **out_indices)
+{
+	if (!rgba || !width || !height || !target_colors)
+		return ERR_SEMANTIC;
+
+	u32 raw_pform = 2; // RGB5A3
+	if (pform == PAL_IA8)
+		raw_pform = 0;
+	else if (pform == PAL_RGB565)
+		raw_pform = 1;
+	else if (pform == PAL_RGB5A3)
+		raw_pform = 2;
+	else
+	{
+		bool is_gray = true;
+		bool has_trans = false;
+		for (uint y = 0; y < height; y++)
+		{
+			for (uint x = 0; x < width; x++)
+			{
+				const u8 *p = rgba + 4 * (y * xwidth + x);
+				if (p[0] != p[1] || p[1] != p[2])
+					is_gray = false;
+				if (p[3] < 224)
+					has_trans = true;
+			}
+		}
+		if (is_gray)
+			raw_pform = 0; // IA8
+		else if (has_trans)
+			raw_pform = 2; // RGB5A3
+		else
+			raw_pform = 1; // RGB565
+	}
+
+	u32 *hist = CALLOC (65536, sizeof (u32));
+	if (!hist)
+		return ERR_OUT_OF_MEMORY;
+
+	for (uint y = 0; y < height; y++)
+	{
+		for (uint x = 0; x < width; x++)
+		{
+			const u8 *p = rgba + 4 * (y * xwidth + x);
+			u16 c = rgba_to_pal16_val (p[0], p[1], p[2], p[3], raw_pform);
+			hist[c]++;
+		}
+	}
+
+	uint unique_count = 0;
+	for (uint i = 0; i < 65536; i++)
+	{
+		if (hist[i] > 0)
+			unique_count++;
+	}
+
+	plt0_hist_t *entries = MALLOC (unique_count * sizeof (plt0_hist_t));
+	if (!entries)
+	{
+		FREE (hist);
+		return ERR_OUT_OF_MEMORY;
+	}
+
+	uint idx = 0;
+	for (uint i = 0; i < 65536; i++)
+	{
+		if (hist[i] > 0)
+		{
+			entries[idx].color16 = (u16)i;
+			entries[idx].count = hist[i];
+			idx++;
+		}
+	}
+	FREE (hist);
+
+	qsort (entries, unique_count, sizeof (plt0_hist_t), compare_plt0_hist);
+
+	u16 *pal = CALLOC (target_colors, sizeof (u16));
+	if (!pal)
+	{
+		FREE (entries);
+		return ERR_OUT_OF_MEMORY;
+	}
+
+	uint pal_count = 0;
+
+	if (unique_count <= target_colors)
+	{
+		for (uint i = 0; i < unique_count; i++)
+			pal[pal_count++] = entries[i].color16;
+	}
+	else
+	{
+		// Pass 1: diversity >= 10 (yoshakami/plt0 quantization)
+		const int diversity1 = 10;
+		for (uint i = 0; i < unique_count && pal_count < target_colors; i++)
+		{
+			u16 c = entries[i].color16;
+			bool ok = true;
+			for (uint j = 0; j < pal_count; j++)
+			{
+				if (pal16_dist_val (c, pal[j], raw_pform) < diversity1)
+				{
+					ok = false;
+					break;
+				}
+			}
+			if (ok)
+				pal[pal_count++] = c;
+		}
+
+		// Pass 2: diversity >= 4 if needed
+		if (pal_count < target_colors)
+		{
+			const int diversity2 = 4;
+			for (uint i = 0; i < unique_count && pal_count < target_colors; i++)
+			{
+				u16 c = entries[i].color16;
+				bool ok = true;
+				for (uint j = 0; j < pal_count; j++)
+				{
+					if (pal16_dist_val (c, pal[j], raw_pform) < diversity2)
+					{
+						ok = false;
+						break;
+					}
+				}
+				if (ok)
+					pal[pal_count++] = c;
+			}
+		}
+
+		// Pass 3: Fill remainder with most used non-duplicates
+		if (pal_count < target_colors)
+		{
+			for (uint i = 0; i < unique_count && pal_count < target_colors; i++)
+			{
+				u16 c = entries[i].color16;
+				bool ok = true;
+				for (uint j = 0; j < pal_count; j++)
+				{
+					if (c == pal[j])
+					{
+						ok = false;
+						break;
+					}
+				}
+				if (ok)
+					pal[pal_count++] = c;
+			}
+		}
+	}
+	FREE (entries);
+
+	// Pre-unpack palette RGBA for fast Manhattan distance matching
+	u8 *pal_r = MALLOC (target_colors);
+	u8 *pal_g = MALLOC (target_colors);
+	u8 *pal_b = MALLOC (target_colors);
+	u8 *pal_a = MALLOC (target_colors);
+	for (uint i = 0; i < target_colors; i++)
+		pal16_val_to_rgba (pal[i], raw_pform, pal_r + i, pal_g + i, pal_b + i, pal_a + i);
+
+	if (out_indices)
+	{
+		u16 *indices = CALLOC (xwidth * height, sizeof (u16));
+		if (!indices)
+		{
+			FREE (pal);
+			FREE (pal_r);
+			FREE (pal_g);
+			FREE (pal_b);
+			FREE (pal_a);
+			return ERR_OUT_OF_MEMORY;
+		}
+
+		for (uint y = 0; y < height; y++)
+		{
+			for (uint x = 0; x < width; x++)
+			{
+				const u8 *p = rgba + 4 * (y * xwidth + x);
+				u8 pr = p[0], pg = p[1], pb = p[2], pa = p[3];
+				int min_d = 999999;
+				uint best_k = 0;
+				for (uint k = 0; k < pal_count; k++)
+				{
+					int d = abs ((int)pr - (int)pal_r[k]) + abs ((int)pg - (int)pal_g[k])
+						+ abs ((int)pb - (int)pal_b[k]) + abs ((int)pa - (int)pal_a[k]);
+					if (d < min_d)
+					{
+						min_d = d;
+						best_k = k;
+						if (d == 0)
+							break;
+					}
+				}
+				indices[y * xwidth + x] = (u16)best_k;
+			}
+		}
+		*out_indices = indices;
+	}
+
+	FREE (pal_r);
+	FREE (pal_g);
+	FREE (pal_b);
+	FREE (pal_a);
+
+	if (out_raw_pal && out_pal_size)
+	{
+		u8 *raw_pal = MALLOC (target_colors * 2);
+		if (!raw_pal)
+		{
+			FREE (pal);
+			return ERR_OUT_OF_MEMORY;
+		}
+		for (uint i = 0; i < target_colors; i++)
+		{
+			raw_pal[i * 2] = (u8)(pal[i] >> 8);
+			raw_pal[i * 2 + 1] = (u8)(pal[i] & 0xFF);
+		}
+		*out_raw_pal = raw_pal;
+		*out_pal_size = target_colors * 2;
+	}
+	FREE (pal);
+
+	if (out_num_colors)
+		*out_num_colors = target_colors;
+
+	return ERR_OK;
+}

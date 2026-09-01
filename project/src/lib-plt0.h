@@ -21,4 +21,11 @@ bool GetRawPLT0 (const u8 *data, uint data_size,
 enumError EncodePLT0_RGBA (
 	u8 **dest, uint *dest_size, const u8 *rgba, uint num_colors, palette_format_t pform);
 
+// Quantize RGBA image data to a palette of up to 'target_colors' entries in format 'pform',
+// building the 16-bit raw palette and mapping each pixel to the closest palette color index
+// using the 3-pass diversity & histogram quantization algorithm from yoshakami/plt0.
+enumError QuantizePalette_PLT0 (const u8 *rgba, uint width, uint height, uint xwidth,
+	palette_format_t pform, uint target_colors, u8 **out_raw_pal, uint *out_pal_size,
+	uint *out_num_colors, u16 **out_indices);
+
 #endif

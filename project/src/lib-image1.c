@@ -38,6 +38,7 @@
 #include "lib-std.h"
 #include "lib-image.h"
 #include "lib-breff.h"
+#include "lib-plt0.h"
 
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -2843,115 +2844,40 @@ static enumError create_C_palette (Image_t *img, // valid destination
 												 : PAL_RGB5A3;
 			break;
 	}
+
 	PRINT ("%*s  create_C_palette() %s.%s\n", 2 * convert_depth, "",
 		GetImageFormatName (iform, "?"), GetPaletteFormatName (pform, "?"));
 
-	//--- reduce color depth or normalize image
+	uint target_colors = 256;
+	if (iform == IMG_X_PAL4)
+		target_colors = 16;
+	else if (iform == IMG_X_PAL8)
+		target_colors = 256;
+	else if (iform == IMG_X_PAL14)
+		target_colors = 16384;
 
-	u8 *ptr = img->data;
-	u8 *end = ptr + img->data_size;
-
-	switch (pform)
-	{
-		case PAL_IA8:
-			while (ptr < end)
-			{
-				const u8 gray = (ptr[0] + ptr[1] + ptr[2] + 1) / 3;
-				*ptr++ = gray;
-				*ptr++ = gray;
-				*ptr++ = gray;
-				ptr++; // dont't touch alhpa
-			}
-			break;
-
-		case PAL_RGB565:
-			while (ptr < end)
-			{
-				*ptr = cc85s1[*ptr];
-				ptr++;
-				*ptr = cc86[*ptr];
-				ptr++;
-				*ptr = cc85s1[*ptr];
-				ptr++;
-				*ptr++ = 0xff;
-			}
-			break;
-
-		case PAL_RGB5A3:
-			while (ptr < end)
-			{
-				*ptr = cc85[*ptr];
-				ptr++;
-				*ptr = cc85[*ptr];
-				ptr++;
-				*ptr = cc85[*ptr];
-				ptr++;
-				*ptr = cc83[*ptr];
-				ptr++;
-			}
-			break;
-
-		default:
-			// never reached
-			ASSERT (0);
-	}
-
-	//--- convert now to palette
-
-	err = ConvertToPALETTE (img, img, 0, iform);
-	img->pform = pform;
+	u8 *raw_pal = 0;
+	uint pal_size = 0, n_colors = 0;
+	u16 *indices = 0;
+	err = QuantizePalette_PLT0 (img->data, img->width, img->height, img->xwidth,
+		pform, target_colors, &raw_pal, &pal_size, &n_colors, &indices);
 	if (err)
 		return err;
 
-	//--- transform the palette
+	if (img->data && img->data_alloced)
+		FREE (img->data);
+	img->data = (u8 *)indices;
+	img->data_size = img->xwidth * img->height * 2;
+	img->data_alloced = true;
 
-	DASSERT (img->pal);
-	const u8 *src = img->pal;
-	u8 *dest = img->pal;
-	uint n = img->n_pal;
-	void (*wr16) (void *, u16) = img->endian->wr16;
-
-	switch (pform)
-	{
-		case PAL_IA8:
-			img->is_grayed = true;
-			while (n-- > 0)
-			{
-				wr16 (dest, src[0] | src[3] << 8);
-				dest += 2;
-				src += 4;
-			}
-			break;
-
-		case PAL_RGB565:
-			while (n-- > 0)
-			{
-				wr16 (dest,
-					(src[0] & 0xfe) << 10 // already shifted by 1
-						| src[1] << 5 | src[2] >> 1 // already shifted by 1
-				);
-				dest += 2;
-				src += 4;
-			}
-			break;
-
-		case PAL_RGB5A3:
-			while (n-- > 0)
-			{
-				if (src[3] == 0x07)
-					wr16 (dest, src[0] << 10 | src[1] << 5 | src[2] | 0x8000);
-				else
-					wr16 (dest,
-						(src[0] & 0xfe) << 7 | (src[0] & 0xfe) << 3 | src[0] >> 1 | src[3] << 12);
-				dest += 2;
-				src += 4;
-			}
-			break;
-
-		default:
-			// never reached
-			ASSERT (0);
-	}
+	if (img->pal && img->pal_alloced)
+		FREE (img->pal);
+	img->pal = raw_pal;
+	img->pal_size = pal_size;
+	img->n_pal = n_colors;
+	img->pal_alloced = true;
+	img->pform = pform;
+	img->iform = iform;
 
 	return ERR_OK;
 }
