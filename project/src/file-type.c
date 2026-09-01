@@ -837,6 +837,11 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x23, 0x43, 0x4c, 0x52 }, // "#CLR"
 		0, MinusString, MinusString, "Text version of CLR" },
 
+	// FF_ZSTD = 157 (Zstandard compression)
+	{ FF_ZSTD, 0, 0, "ZSTD", ".zs", ".zs", ".zst", FFT_VALID | FFT_COMPRESS | FFT_TRACK, 4,
+		{ 0x28, 0xb5, 0x2f, 0xfd }, // Zstandard magic 0xFD2FB528
+		0, MinusString, MinusString, "Zstandard compression (.zs / .zst / .zstd)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -928,6 +933,9 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_SMDH, "SMDH", 0, 0x3009 }, { FF_SARC, "SARC", "SARC", 0xe05 },
 	{ FF_BFMA, "BFMA", "BFMA", 0xe05 }, { FF_ZLIB, "ZLIB", "ZLIB", 0x103 },
 	{ FF_ZLIB, "DEFLATE", 0, 0x103 },
+	{ FF_ZSTD, "ZSTD", "ZSTD", 0x103 },
+	{ FF_ZSTD, "ZST", "ZST", 0x103 },
+	{ FF_ZSTD, "ZS", "ZS", 0x103 },
 
 	{ 0, 0, 0, 0 }
 };

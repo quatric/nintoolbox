@@ -59,6 +59,7 @@
 #include "lib-common.h"
 #include "lib-bzip2.h"
 #include "lib-lzma.h"
+#include "lib-zstd.h"
 #include "dclib-utf8.h"
 #include "dclib-ui.h"
 #include "lib-mkw.h"
@@ -761,6 +762,8 @@ ccp LibGetErrorName (int stat, ccp ret_not_found)
 			return "XZ ERROR";
 		case ERR_PNG:
 			return "PNG ERROR";
+		case ERR_ZSTD:
+			return "ZSTD ERROR";
 	}
 	return ret_not_found;
 }
@@ -785,6 +788,8 @@ ccp LibGetErrorText (int stat, ccp ret_not_found)
 			return "XZ error";
 		case ERR_PNG:
 			return "PNG error";
+		case ERR_ZSTD:
+			return "ZSTD error";
 	}
 	return ret_not_found;
 }
@@ -3119,6 +3124,9 @@ int GetComprByFF (file_format_t ff, int compr)
 		case FF_LZMA:
 			return compr >= 1 && compr <= 9 ? compr : LZMA_DEFAULT_COMPR;
 
+		case FF_ZSTD:
+			return compr >= 1 && compr <= 22 ? compr : ZSTD_DEFAULT_COMPR;
+
 		default:
 			return compr < 1 ? 9 : compr;
 	}
@@ -4315,6 +4323,19 @@ enumError cmd_filetype ()
 					u8 *dec = 0;
 					uint wr = 0;
 					if (DecodeZlibGrow (&dec, &wr, (u8 *)buf1, bufsize) == ERR_OK && dec)
+					{
+						fatt.size = wr;
+						fform2 = GetByMagicFF (dec, wr, wr);
+						stat2 = GetNameFF (0, fform2);
+						FREE (dec);
+					}
+					load_full = true;
+				}
+				else if (fform1 == FF_ZSTD)
+				{
+					u8 *dec = 0;
+					uint wr = 0;
+					if (DecodeZSTD (&dec, &wr, (u8 *)buf1, bufsize) == ERR_OK && dec)
 					{
 						fatt.size = wr;
 						fform2 = GetByMagicFF (dec, wr, wr);

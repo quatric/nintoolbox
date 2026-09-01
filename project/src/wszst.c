@@ -16888,6 +16888,9 @@ static enumError CheckOptions (int argc, char **argv, bool is_env)
 			case GO_LZMA:
 				SetCompressionFF (FF_INVALID, FF_LZMA);
 				break;
+			case GO_ZSTD:
+				SetCompressionFF (FF_INVALID, FF_ZSTD);
+				break;
 			case GO_CYLZ:
 				SetCompressionFF (FF_INVALID, FF_YLZ);
 				break;
@@ -17085,6 +17088,9 @@ static enumError CheckOptions (int argc, char **argv, bool is_env)
 				break;
 			case GO_WITH_BMS:
 				opt_with_bms = optarg;
+				break;
+			case GO_WITH_7Z:
+				opt_with_7z = optarg;
 				break;
 
 			case GO_ENCODE_ALL:

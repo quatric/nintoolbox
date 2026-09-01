@@ -1466,6 +1466,9 @@ enumError CompressZLIB (szs_file_t *szs, int compr, bool remove_uncompressed);
 enumError DecodeZlibGrow (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 int IsZlib (cvp data, uint size);
 
+enumError DecompressZSTD (szs_file_t *szs, bool rm_compressed);
+enumError CompressZSTD (szs_file_t *szs, int compr, bool remove_uncompressed);
+
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			BRASD support			///////////////

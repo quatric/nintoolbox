@@ -162,6 +162,7 @@ enum
 	ERR_LZMA = ERU_ERROR2_02,
 	ERR_XZ = ERU_ERROR2_03,
 	ERR_PNG = ERU_ERROR2_04,
+	ERR_ZSTD = ERU_ERROR2_05,
 };
 
 //-----------------------------------------------------------------------------

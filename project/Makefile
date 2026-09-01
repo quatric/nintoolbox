@@ -145,7 +145,7 @@ DEFINES1	+= -DDEBUG_ASSERT		# enable ASSERTions in release version too
 DEFINES1	+= -DEXTENDED_ERRORS=1		# enable extended error messages (function,line,file)
 DEFINES1	+= -DUIOPT_INDEX_SIZE=400	# define max number of options (default 0x100)
 
-CFLAGS		+= $(DCLIB_CFLAGS) -Isrc/mxml -Isrc/libyaml -Isrc/midilib -Isrc/vgmtrans/src/ui/cli
+CFLAGS		+= $(DCLIB_CFLAGS) -Isrc/mxml -Isrc/libyaml -Isrc/midilib -Isrc/libzstd -Isrc/vgmtrans/src/ui/cli
 CFLAGS		+= -std=gnu99 -D_GNU_SOURCE -fomit-frame-pointer -fno-strict-aliasing -funroll-loops
 CFLAGS		+= -Wall -Wno-parentheses -Wno-unused-function
 CFLAGS		+= -Wno-deprecated-declarations
@@ -359,8 +359,13 @@ LIB_MIDILIB_OBJ	= $(patsubst %.c,%.o,$(LIB_MIDILIB_SRC))
 # libyaml
 LIB_YAML_SRC	= $(wildcard src/libyaml/*.c)
 LIB_YAML_OBJ	= $(patsubst %.c,%.o,$(LIB_YAML_SRC))
-LIB_LIST	+= libbz2 liblzma mxml ajpg libyaml midilib
-LIB_OBJECTS	+= $(LIB_BZ2_OBJ) $(LIB_LZMA_OBJ) $(LIB_MXML_OBJ) $(LIB_BENZIN_OBJ) $(LIB_YAML_OBJ) $(LIB_MIDILIB_OBJ)
+
+# libzstd
+LIB_ZSTD_SRC	= $(wildcard src/libzstd/*.c)
+LIB_ZSTD_OBJ	= $(patsubst %.c,%.o,$(LIB_ZSTD_SRC))
+
+LIB_LIST	+= libbz2 liblzma mxml ajpg libyaml midilib libzstd
+LIB_OBJECTS	+= $(LIB_BZ2_OBJ) $(LIB_LZMA_OBJ) $(LIB_MXML_OBJ) $(LIB_BENZIN_OBJ) $(LIB_YAML_OBJ) $(LIB_MIDILIB_OBJ) $(LIB_ZSTD_OBJ)
 # benzin: layout (BRLYT/BFLYT/BCLYT + BRLAN/BFLAN/BCLAN) support is native,
 # see lib-bflyt.c; no external interpreter needed.
 LIB_BENZIN_SRC	=
@@ -369,8 +374,8 @@ LIB_BENZIN_OBJ	= $(patsubst %,%.o,$(basename $(LIB_BENZIN_SRC)))
 #------------------------------------------------------------------------------
 # library object lists
 
-LIB_LIST	+= libbz2 liblzma mxml ajpg
-LIB_OBJECTS	+= $(LIB_BZ2_OBJ) $(LIB_LZMA_OBJ) $(LIB_MXML_OBJ) $(LIB_BENZIN_OBJ)
+LIB_LIST	+= libbz2 liblzma mxml ajpg libzstd
+LIB_OBJECTS	+= $(LIB_BZ2_OBJ) $(LIB_LZMA_OBJ) $(LIB_MXML_OBJ) $(LIB_BENZIN_OBJ) $(LIB_ZSTD_OBJ)
 RM_FILES	+= $(foreach l,$(LIB_LIST),src/$(l)/*.{d,o})
 
 #-------------------------------------------------------------------------------
@@ -398,7 +403,7 @@ SZS_O		:= lib-std.o lib-file.o lib-numeric.o \
 		   lib-szs.o lib-checksum.o \
 		   lib-rarc.o lib-pack.o lib-rkc.o lib-brres.o lib-breff.o \
 		   file-type.o db-mkw.o lib-mkw.o lib-dol.o \
-		   sha1dgst.o sha1_one.o lib-bzip2.o lib-lzma.o \
+		   sha1dgst.o sha1_one.o lib-bzip2.o lib-lzma.o lib-zstd.o \
 		   $(DCLIB_O)
 
 # object groups
@@ -706,6 +711,10 @@ $(LIB_BZ2_OBJ): %.o: %.c Makefile
 $(LIB_LZMA_OBJ): %.o: %.c Makefile
 	@printf "$(LOGFORMAT_CC)" object "$(subst src/liblzma/,,$@)" "$(MODE) [lzma]"
 	@$(CC) $(CFLAGS) $(DEPFLAGS) $(LZMA_FLAGS) $(DEFINES) -c $< -o $@
+
+$(LIB_ZSTD_OBJ): %.o: %.c Makefile
+	@printf "$(LOGFORMAT_CC)" object "$(subst src/libzstd/,,$@)" "$(MODE) [zstd]"
+	@$(CC) $(CFLAGS) $(DEPFLAGS) $(DEFINES) -c $< -o $@
 
 #
 ###############################################################################

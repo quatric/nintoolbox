@@ -3248,6 +3248,49 @@ EOF
 }
 t_sequence_roundtrips
 
+t_zstd_and_7z_roundtrips(){
+  local d; d=$(mktemp -d)
+  local ok=1
+
+  # Create a test text file
+  printf "The quick brown fox jumps over the lazy dog. 1234567890\n" > "$d/sample.txt"
+
+  # Test ZSTD compression and decompression
+  "$B/wszst" compress "$d/sample.txt" --zstd -d "$d/sample.txt.zs" --overwrite >/dev/null 2>&1 || ok=0
+  [ -s "$d/sample.txt.zs" ] || ok=0
+
+  # Test filetype detection
+  "$B/wszst" filetype "$d/sample.txt.zs" 2>/dev/null | grep -q "ZSTD" || ok=0
+
+  # Test decompress
+  "$B/wszst" decompress "$d/sample.txt.zs" -d "$d/sample_out.txt" --overwrite >/dev/null 2>&1 || ok=0
+  cmp -s "$d/sample.txt" "$d/sample_out.txt" || ok=0
+
+  # Test nested archive inside .zs with recursive wszst extract
+  mkdir -p "$d/nested/sub"
+  printf "Payload inside SZS in ZSTD\n" > "$d/nested/sub/data.txt"
+  "$B/wszst" create "$d/nested" -d "$d/nested.szs" --overwrite >/dev/null 2>&1 || ok=0
+  "$B/wszst" compress "$d/nested.szs" --zstd -d "$d/nested.szs.zs" --overwrite >/dev/null 2>&1 || ok=0
+  "$B/wszst" extract "$d/nested.szs.zs" --overwrite >/dev/null 2>&1 || ok=0
+  [ -f "$d/nested.d/sub/data.txt" ] || ok=0
+
+  # Test 7-Zip archive extraction if 7z or 7za or 7zz or unar is available
+  if command -v 7z >/dev/null 2>&1 || command -v 7zz >/dev/null 2>&1 || command -v 7za >/dev/null 2>&1; then
+    mkdir -p "$d/pack_tree"
+    cp "$d/nested.szs.zs" "$d/pack_tree/"
+    (cd "$d" && (7z a "$d/test_pack.7z" "$d/pack_tree" >/dev/null 2>&1 || 7zz a "$d/test_pack.7z" "$d/pack_tree" >/dev/null 2>&1 || 7za a "$d/test_pack.7z" "$d/pack_tree" >/dev/null 2>&1))
+    if [ -s "$d/test_pack.7z" ]; then
+      "$B/wszst" extract "$d/test_pack.7z" --overwrite >/dev/null 2>&1 || ok=0
+      [ -f "$d/test_pack.d/nested.d/sub/data.txt" ] || [ -f "$d/test_pack.d/pack_tree/nested.d/sub/data.txt" ] || ok=0
+    fi
+  fi
+
+  rm -rf "$d"
+  [ "$ok" = 1 ] && ok "Zstandard (ZSTD) encoding/decoding and 7-Zip recursive extraction" \
+    || no "Zstandard (ZSTD) encoding/decoding and 7-Zip recursive extraction" "zstd/7z test failed"
+}
+t_zstd_and_7z_roundtrips
+
 t_brstm_roundtrip(){
   # BRSTM ADPCM_THP encode->decode roundtrip. from_wav prefers passing
   # through to mobipeg's real adpcm_thp encoder (PassthruEncodeAudio(),

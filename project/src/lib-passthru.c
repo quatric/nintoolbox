@@ -34,10 +34,13 @@ ccp opt_with_hactool = 0; // --with-hactool=path|name
 ccp opt_with_hacbrewpack = 0; // --with-hacbrewpack=path|name
 ccp opt_with_bms = 0; // --with-bms=path|--bms=path
 ccp opt_with_mobipeg = 0; // --with-mobipeg=path|name
+ccp opt_with_7z = 0; // --with-7z=path|name
 
 // Curried static result buffer, only valid until the next call.  Reasonable
 // here since these helpers are used from single-threaded option parsing.
 static char prog_buf[PATH_MAX];
+
+static enumError make_stage_dir (ccp stage, bool tool_missing);
 
 static enumError passthru_claim (
 	bool strong_only, ccp src, ccp basedir, char *staged_dir, uint staged_dir_size);
@@ -121,6 +124,25 @@ static ccp resolve_mobipeg (void)
 	return 0;
 }
 
+static ccp resolve_7z (void)
+{
+	if (opt_with_7z && *opt_with_7z)
+		return find_program (opt_with_7z);
+	ccp found = find_program ("7z");
+	if (found)
+		return found;
+	found = find_program ("7zz");
+	if (found)
+		return found;
+	found = find_program ("7za");
+	if (found)
+		return found;
+	found = find_program ("unar");
+	if (found)
+		return found;
+	return 0;
+}
+
 // Spawn a program with ARGV (NULL-terminated).  ARGV[0] is used as path.
 // STDOUT/STDERR are inherited so the user sees the tool's own messages.
 // Returns the exit code or 127 on exec failure (like a shell).
@@ -179,6 +201,59 @@ static enumError passthru_media (
 	const int rc = run_program (argv);
 	if (rc != 0)
 		return ERROR0 (ERR_SUBJOB_FAILED, "pass-through mobipeg failed for %s (exit %d)", src, rc);
+
+	snprintf (staged_dir, staged_dir_size, "%s", stage);
+	return ERR_OK;
+}
+
+static enumError passthru_7z (
+	ccp src, ccp basedir, ccp stage, char *staged_dir, uint staged_dir_size)
+{
+	ccp tool = resolve_7z ();
+	if (!tool || !*tool)
+	{
+		*staged_dir = 0;
+		return make_stage_dir (stage, true);
+	}
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT 7zip passthrough: %s -> %s (%s)\n", testmode ? "WOULD " : "",
+			verbose > 0 ? "\n" : "", src, stage, tool);
+
+	if (testmode)
+	{
+		snprintf (staged_dir, staged_dir_size, "%s", stage);
+		return ERR_OK;
+	}
+
+	if (CreatePath (stage, false))
+		return ERROR0 (ERR_CANT_CREATE_DIR, "Cannot create dest dir: %s", stage);
+
+	char out_arg[PATH_MAX + 8];
+	char *argv[10];
+	int argc = 0;
+	argv[argc++] = (char *)tool;
+	if (strstr (tool, "unar"))
+	{
+		argv[argc++] = "-o";
+		argv[argc++] = (char *)stage;
+		argv[argc++] = "-f";
+		argv[argc++] = (char *)src;
+		argv[argc] = 0;
+	}
+	else
+	{
+		argv[argc++] = "x";
+		argv[argc++] = "-y";
+		snprintf (out_arg, sizeof (out_arg), "-o%s", stage);
+		argv[argc++] = out_arg;
+		argv[argc++] = (char *)src;
+		argv[argc] = 0;
+	}
+
+	const int rc = run_program (argv);
+	if (rc != 0)
+		return ERROR0 (ERR_SUBJOB_FAILED, "pass-through 7z failed for %s (exit %d)", src, rc);
 
 	snprintf (staged_dir, staged_dir_size, "%s", stage);
 	return ERR_OK;
@@ -1988,6 +2063,13 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 		return passthru_archive_or_bms (
 			src, basedir, stage, staged_dir, staged_dir_size, false, false, false, false, true);
 
+	// 7-Zip / RAR / Tar archives (strong pass)
+	bool is_7z_magic = !memcmp (head, "7z\xBC\xAF\x27\x1C", 6);
+	bool is_rar_magic = !memcmp (head, "Rar!\x1A\x07", 6);
+	bool is_tar_magic = !memcmp (head + 257, "ustar", 5);
+	if (is_7z_magic || is_rar_magic || is_tar_magic)
+		return passthru_7z (src, basedir, stage, staged_dir, staged_dir_size);
+
 	// ----- claimed by extension alone (weak path only) -----
 
 	// Nintendo DS ROM  (by extension)
@@ -2022,6 +2104,13 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 	if (!strong_only && is_wad_header && (is_ext (src, ".wad") || is_ext (src, ".app")))
 		return passthru_archive_or_bms (
 			src, basedir, stage, staged_dir, staged_dir_size, false, false, true, false, false);
+
+	// 7-Zip / RAR / Tar archives (by extension)
+	if (!strong_only
+		&& (is_ext (src, ".7z") || is_ext (src, ".rar") || is_ext (src, ".cb7")
+			|| is_ext (src, ".tar") || is_ext (src, ".tgz") || is_ext (src, ".tbz2")
+			|| is_ext (src, ".txz")))
+		return passthru_7z (src, basedir, stage, staged_dir, staged_dir_size);
 
 	// Media files (THP, Mobiclip, BRSTM, BCSTM, BFSTM, BNS, BTSND, AST, DSP, HVQM4, etc.)
 	bool is_thp = !memcmp (head, "THP\0", 4) || is_ext (src, ".thp");

@@ -58,6 +58,7 @@
 #include "lib-kmp.h"
 #include "lib-bflyt.h"
 #include "lib-rkc.h"
+#include "lib-zstd.h"
 #include "lib-rkg.h"
 #include "lib-image.h"
 #include "lib-staticr.h"
@@ -1440,6 +1441,9 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 
 	if (data_size >= 6 && IsZlib (data, data_size) >= 0)
 		return FF_ZLIB;
+
+	if (data_size >= 4 && IsZSTD (data, data_size) >= 0)
+		return FF_ZSTD;
 
 	return FF_UNKNOWN;
 }

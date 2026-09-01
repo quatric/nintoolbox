@@ -1870,6 +1870,11 @@ static const InfoOption_t OptionInfo[OPT__N_TOTAL+1] =
 	" unpacked directory is recursively processed."
     },
 
+    {	OPT_WITH_7Z, false, false, false, false, false, 0, "with-7z",
+	"path",
+	"Set the external 7-Zip extraction tool (7z, 7zz, 7za, unar). Default: '7z'."
+    },
+
     {	OPT_UTF_8, false, true, false, false, true, 0, "utf-8",
 	0,
 	"Enables UTF-8 support for filenames (default)."
@@ -1965,6 +1970,11 @@ static const InfoOption_t OptionInfo[OPT__N_TOTAL+1] =
     {	OPT_LZMA, false, false, false, false, false, 0, "lzma",
 	0,
 	"If creating a compressed file, create a LZMA compatible file."
+    },
+
+    {	OPT_ZSTD, false, false, false, false, false, 0, "zstd",
+	0,
+	"If creating a compressed file, create a Zstandard (ZSTD) compatible file."
     },
 
     {	OPT_CYLZ, false, false, false, false, false, 0, "cylz",
@@ -2962,6 +2972,9 @@ static const struct option OptionLong[] =
 	 { "withhacbrewpack",	1, 0, GO_WITH_HACBREWPACK },
 	{ "with-bms",		1, 0, GO_WITH_BMS },
 	 { "bms",		1, 0, GO_WITH_BMS },
+	{ "with-7z",		1, 0, GO_WITH_7Z },
+	 { "with7z",		1, 0, GO_WITH_7Z },
+	 { "7z",		1, 0, GO_WITH_7Z },
 	{ "transform",		1, 0, 'x' },
 	{ "strip",		0, 0, GO_STRIP },
 	{ "utf-8",		0, 0, GO_UTF_8 },
@@ -2984,6 +2997,9 @@ static const struct option OptionLong[] =
 	{ "ybz",		0, 0, GO_YBZ },
 	{ "lz",			0, 0, GO_LZ },
 	{ "lzma",		0, 0, GO_LZMA },
+	{ "zstd",		0, 0, GO_ZSTD },
+	 { "zs",		0, 0, GO_ZSTD },
+	 { "zst",		0, 0, GO_ZSTD },
 	{ "cylz",		0, 0, GO_CYLZ },
 	{ "ylz",		0, 0, GO_YLZ },
 	{ "sh",			0, 0, GO_SH },

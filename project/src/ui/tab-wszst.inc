@@ -2108,6 +2108,10 @@
 		" Any unrecognized container file is extracted via the specified"
 		" BMS script and the unpacked directory is recursively processed." },
 
+  { T_OPT_GP,	"WITH_7Z",	"with-7z|7z",
+		"path",
+		"Set the external 7-Zip extraction tool (7z, 7zz, 7za, unar). Default: '7z'." },
+
   { T_SEP_OPT,	0,0,0,0 }, //----- separator -----
 
   { T_OPT_CP,	"TRANSFORM",	"x|transform",
@@ -2240,6 +2244,10 @@
   { T_OPT_G,	"LZMA",		"lzma",
 		0,
 		"If creating a compressed file, create a LZMA compatible file." },
+
+  { T_OPT_G,	"ZSTD",		"zstd|zs",
+		0,
+		"If creating a compressed file, create a Zstandard (ZSTD) compatible file." },
 
   { T_OPT_G,	"CYLZ",		"cylz",
 		0,
