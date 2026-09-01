@@ -1,6 +1,6 @@
-# Credits & Third-Party Attributions
+# Credits & Attributions
 
-`wiimms-szs-tools-plus` builds upon, incorporates, and interfaces with many open-source projects, libraries, and reverse-engineering contributions. We gratefully acknowledge and credit all original authors and contributors below.
+`wiimms-szs-tools-plus` builds upon, incorporates, and interfaces with many open-source projects, libraries, reverse-engineering tools, and community research. We gratefully acknowledge and credit all original authors, contributors, and reverse-engineering pioneers below.
 
 ---
 
@@ -11,6 +11,37 @@
   * **Website / Project:** <https://szs.wiimm.de/>
   * **License:** GNU General Public License v2.0 or later (GPL-2.0-or-later)
   * **Description:** The foundation, CLI framework, and core format handlers for Mario Kart Wii and Nintendo file formats.
+
+---
+
+## Reference Tools & Research Implementations
+
+We acknowledge and credit the following tools and authors whose research, format specifications, and reference implementations were instrumental:
+
+* **Garhoogin / NitroPaint** ([Garhoogin](https://github.com/Garhoogin))
+  * Reference implementation and deep technical research for Nintendo DS graphics, palettes, cell/animation systems, and 3D formats (NCGR, NCLR, NCER, NANR, NSBMD, etc.).
+* **Nintendo DS Decompressors** by **CUE** & **Barubary** ([DSDecmp](https://github.com/Barubary/dsdecmp))
+  * Reference implementations and algorithm specifications for Nintendo compression formats (LZ77 0x10, LZ11 0x11, Huffman 0x24/0x28, RLE 0x30, Difference filter 0x80).
+* **Switch Toolbox** by **KillzXGaming** ([Switch-Toolbox](https://github.com/KillzXGaming/Switch-Toolbox))
+  * Invaluable technical reference for Switch, Wii U, and 3DS format structures (BFRES, BNTX, BCA, BMA, BNXP, SARC, BYML, and texture compression layouts).
+* **Kuriimu / Kuriimu2** by **IcySon55, FanTranslatorsInternational** ([Kuriimu](https://github.com/FanTranslatorsInternational/Kuriimu))
+  * Research and reference implementation for game translation tools, text archives (MSBT, BMG, MSBP, MSBF), and container formats across Nintendo platforms.
+* **BrawlCrate & BrawlLib** by **soopercool101, BrawlCrate Team, Kryal, BlackJax96** ([BrawlCrate](https://github.com/soopercool101/BrawlCrate))
+  * Essential reference specifications and implementations for Nintendo Wii NW4R binary formats (BRRES, MDL0, CHR0, CLR0, PAT0, SCN0, SHP0, SRT0, VIS0, BREFF, BREFT).
+* **GotaSequenceCmd & Nitro Studio** by **Gota7** ([Gota7](https://github.com/Gota7))
+  * Sequence, bank, and wave format research and conversion tools for Nintendo DS/3DS sound archives (SDAT, SSEQ, SBNK, SWAR, CSEQ, CWAV).
+* **SPICA & Ohana3DS / Ohana3DS Rebirth** by **gdkchan** ([SPICA](https://github.com/gdkchan/SPICA), [Ohana3DS](https://github.com/gdkchan/Ohana3DS-Rebirth))
+  * Research and reference implementation for Nintendo 3DS 3D model formats (CTR NW4C BCH, CTPK, and PICA200 texture processing).
+* **benzin** by **Treeki, feartec, megazig, quickdraw**
+  * Pioneer research and disassembler/assembler tools for Wii layout formats (BRLYT, BRLAN).
+* **LayoutStudio & WiiLayoutEditor** by **NinjaCheetah, Treeki, GalaxySimulator, and contributors**
+  * Reference implementations and documentation for Nintendo 2D layout formats (BRLYT, BFLYT, BCLYT, BRLAN, BFLAN, BCLAN).
+* **Sharpii & libWiiSharp** by **Treeki & Leathl**
+  * Reference tools for Wii container and system formats (U8, TPL, BMG, DOL, WAD, TMD, Ticket).
+* **QuickBMS** by **Luigi Auriemma** (<http://aluigi.altervista.org/quickbms.htm>)
+  * Format documentation, decompression algorithms, and container specifications used for various flat archives.
+* **LibMobiclip / FastVideoDS** by **Gericom**
+  * Video playback, codec reverse engineering, and format specifications for Nintendo DS / Wii Mobiclip video streams.
 
 ---
 
@@ -96,4 +127,4 @@
 ## Community & Research Credits
 
 * **Custom Mario Kart Wii (Wiiki) Community:** Documentation, specifications, and research on KMP, KCL, BRRES, and associated formats (<http://wiki.tockdom.com/>).
-* **Nintendo Reverse Engineering Community:** Documentation on 3DS (CTR/NW4C), Wii U (Cafe/NW4F), and Switch (NX/NW4N) layout, sound, and model formats.
+* **Nintendo Reverse Engineering Community:** Documentation and research on 3DS (CTR/NW4C), Wii U (Cafe/NW4F), and Switch (NX/NW4N) layout, sound, and model formats.
