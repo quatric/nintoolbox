@@ -1,4 +1,8 @@
 #include "lib-sequence.h"
+#include "midilib/midi_file.h"
+#include "midilib/midi_reader.h"
+#include "midilib/stream.h"
+#include "midilib/buffer.h"
 #include <math.h>
 
 // Note name lookup table
@@ -1039,6 +1043,15 @@ enumError AssembleSequence (
 	return ERR_OK;
 }
 
+// Callback for midi_file_write: appends raw bytes into a midilib buffer.
+// Must return number of bytes written (fwrite convention), not 0.
+static int midi_buf_write_cb (void *data, size_t len, void *userdata)
+{
+	struct buffer *b = (struct buffer *)userdata;
+	int r = buffer_write (b, (uint8_t *)data, (int)len);
+	return r < 0 ? 0 : (int)len;
+}
+
 // Sequence to MIDI conversion
 typedef struct midi_event_t
 {
@@ -1308,96 +1321,49 @@ enumError SequenceToMIDI (u8 **out_midi, size_t *out_size, const u8 *seq_data, s
 	}
 
 	// Sort events in each track and compute delta times
-	size_t midi_cap = 65536;
-	u8 *midi = MALLOC (midi_cap);
-	if (!midi)
-	{
-		for (uint t = 0; t < active_tracks; t++)
-		{
-			for (uint i = 0; i < tracks[t].n_events; i++)
-				FREE (tracks[t].events[i].meta_data);
-			FREE (tracks[t].events);
-		}
-		FREE (tracks);
-		return ERR_CANT_CREATE;
-	}
-
-	// MThd Header
-	memcpy (midi, "MThd", 4);
-	write_be32 (midi + 4, 6);
-	write_be16 (midi + 8, (active_tracks > 1) ? 1 : 0); // format 1 or 0
-	write_be16 (midi + 10, (u16)active_tracks);
-	write_be16 (midi + 12, 48); // 48 PPQN
-
-	size_t midi_pos = 14;
+	struct midi_file mf;
+	midi_file_init(&mf, (active_tracks > 1) ? 1 : 0, 0, 48);
 
 	for (uint t = 0; t < active_tracks; t++)
 	{
+		struct midi_track *mtr = midi_file_append_empty_track(&mf);
 		if (tracks[t].n_events > 1)
 			qsort (
 				tracks[t].events, tracks[t].n_events, sizeof (midi_event_t), compare_midi_events);
 
-		size_t trk_head_pos = midi_pos;
-		if (midi_pos + 8 >= midi_cap)
-		{
-			midi_cap *= 2;
-			midi = REALLOC (midi, midi_cap);
-		}
-		memcpy (midi + midi_pos, "MTrk", 4);
-		midi_pos += 8;
-
-		size_t trk_data_start = midi_pos;
 		u32 last_time = 0;
-
 		for (uint i = 0; i < tracks[t].n_events; i++)
 		{
 			const midi_event_t *e = &tracks[t].events[i];
 			u32 delta = (e->time >= last_time) ? (e->time - last_time) : 0;
 			last_time = e->time;
 
-			if (midi_pos + 32 >= midi_cap)
-			{
-				midi_cap *= 2;
-				midi = REALLOC (midi, midi_cap);
-			}
-
-			write_vlq (midi, &midi_pos, delta);
-
 			if (e->type == 0xFF) // Meta event
 			{
-				midi[midi_pos++] = 0xFF;
-				midi[midi_pos++] = e->channel; // meta event type
-				write_vlq (midi, &midi_pos, e->meta_len);
-				if (e->meta_len && e->meta_data)
-					memcpy (midi + midi_pos, e->meta_data, e->meta_len);
-				midi_pos += e->meta_len;
+				midi_track_write_meta_event_buf(mtr, delta, e->channel, (uint8_t)e->meta_len, e->meta_data);
 			}
-			else if ((e->type & 0xF0) == 0xC0) // Program change (1 data byte)
+			else if ((e->type & 0xF0) == 0xC0) // Program change
 			{
-				midi[midi_pos++] = (u8)(e->type | (e->channel & 0x0F));
-				midi[midi_pos++] = e->data1;
+				midi_track_write_program_change(mtr, delta, e->channel & 0x0F, e->data1);
 			}
-			else // 2 data bytes
+			else if ((e->type & 0xF0) == 0xB0) // Control Change
 			{
-				midi[midi_pos++] = (u8)(e->type | (e->channel & 0x0F));
-				midi[midi_pos++] = e->data1;
-				midi[midi_pos++] = e->data2;
+				midi_track_write_control_change(mtr, delta, e->channel & 0x0F, e->data1, e->data2);
+			}
+			else if ((e->type & 0xF0) == 0xE0) // Pitch bend
+			{
+				midi_track_write_pitch_bend(mtr, delta, e->channel & 0x0F, ((uint16_t)e->data2 << 7) | e->data1);
+			}
+			else if ((e->type & 0xF0) == 0x90) // Note On
+			{
+				midi_track_write_note_on(mtr, delta, e->channel & 0x0F, e->data1, e->data2);
+			}
+			else if ((e->type & 0xF0) == 0x80) // Note Off
+			{
+				midi_track_write_note_off(mtr, delta, e->channel & 0x0F, e->data1, e->data2);
 			}
 		}
-
-		// End of Track meta event: delta 0, FF 2F 00
-		if (midi_pos + 8 >= midi_cap)
-		{
-			midi_cap *= 2;
-			midi = REALLOC (midi, midi_cap);
-		}
-		midi[midi_pos++] = 0x00;
-		midi[midi_pos++] = 0xFF;
-		midi[midi_pos++] = 0x2F;
-		midi[midi_pos++] = 0x00;
-
-		u32 trk_len = (u32)(midi_pos - trk_data_start);
-		write_be32 (midi + trk_head_pos + 4, trk_len);
+		midi_track_write_track_end(mtr, 0);
 	}
 
 	for (uint t = 0; t < active_tracks; t++)
@@ -1408,222 +1374,206 @@ enumError SequenceToMIDI (u8 **out_midi, size_t *out_size, const u8 *seq_data, s
 	}
 	FREE (tracks);
 
-	*out_midi = midi;
+	struct buffer buf;
+	buffer_init(&buf);
+
+	midi_file_write(&mf, midi_buf_write_cb, &buf);
+	midi_file_clear(&mf);
+
+	u8 *midi_copy = MALLOC(buf.data_len);
+	if (midi_copy)
+		memcpy(midi_copy, buf.data, buf.data_len);
+	size_t final_size = buf.data_len;
+	buffer_destroy(&buf);
+
+	*out_midi = midi_copy;
 	if (out_size)
-		*out_size = midi_pos;
+		*out_size = final_size;
 	return ERR_OK;
 }
 
+
 // Convert MIDI file to binary sequence
+
+struct my_midi_reader {
+	struct midi_reader reader;
+	char *txt;
+	size_t txt_len;
+	size_t txt_cap;
+	u32 pending_wait;
+	double time_scale;
+	int track_index;
+};
+
+static void txt_append(struct my_midi_reader *my, const char *fmt, ...) {
+	if (my->txt_len + 256 >= my->txt_cap) {
+		my->txt_cap *= 2;
+		my->txt = REALLOC(my->txt, my->txt_cap);
+	}
+	va_list args;
+	va_start(args, fmt);
+	my->txt_len += vsnprintf(my->txt + my->txt_len, my->txt_cap - my->txt_len, fmt, args);
+	va_end(args);
+}
+
+static void my_handle_track(struct midi_reader *h, int number, int length) {
+	struct my_midi_reader *my = (struct my_midi_reader *)h;
+	my->track_index = number;
+	if (number > 0) {
+		txt_append(my, "\n@Track%u:\n", number);
+	}
+	my->pending_wait = 0;
+}
+
+static void my_add_wait(struct my_midi_reader *my, int duration) {
+	u32 scaled_delta = (u32)round((double)duration * my->time_scale);
+	my->pending_wait += scaled_delta;
+}
+
+static void my_flush_wait(struct my_midi_reader *my) {
+	if (my->pending_wait > 0) {
+		txt_append(my, "    wait %u\n", my->pending_wait);
+		my->pending_wait = 0;
+	}
+}
+
+static void my_handle_tempo(struct midi_reader *h, int duration, uint32_t tempo) {
+	struct my_midi_reader *my = (struct my_midi_reader *)h;
+	my_add_wait(my, duration);
+	if (tempo > 0) {
+		u32 bpm = 60000000 / tempo;
+		my_flush_wait(my);
+		txt_append(my, "    tempo %u\n", bpm);
+	}
+}
+
+static void my_handle_note_on(struct midi_reader *h, uint8_t channel, int duration, int note, int vel) {
+	struct my_midi_reader *my = (struct my_midi_reader *)h;
+	my_add_wait(my, duration);
+	if (vel > 0) {
+		my_flush_wait(my);
+		char nstr[16];
+		pitch_to_name(nstr, sizeof(nstr), note);
+		txt_append(my, "    note %s %u 48\n", nstr, vel);
+	}
+}
+
+static void my_handle_note_off(struct midi_reader *h, uint8_t channel, int duration, int note, int vel) {
+	struct my_midi_reader *my = (struct my_midi_reader *)h;
+	my_add_wait(my, duration);
+}
+
+static void my_handle_program_change(struct midi_reader *h, uint8_t channel, int duration, int program) {
+	struct my_midi_reader *my = (struct my_midi_reader *)h;
+	my_add_wait(my, duration);
+	my_flush_wait(my);
+	txt_append(my, "    prg %u\n", program);
+}
+
+static void my_handle_control_change(struct midi_reader *h, uint8_t channel, int duration, int controller, int value) {
+	struct my_midi_reader *my = (struct my_midi_reader *)h;
+	my_add_wait(my, duration);
+	if (controller == 7) {
+		my_flush_wait(my);
+		txt_append(my, "    vol %u\n", value);
+	} else if (controller == 10) {
+		my_flush_wait(my);
+		txt_append(my, "    pan %u\n", value);
+	} else if (controller == 11) {
+		my_flush_wait(my);
+		txt_append(my, "    expr %u\n", value);
+	} else if (controller == 64) {
+		my_flush_wait(my);
+		txt_append(my, "    dmp %u\n", value);
+	} else if (controller == 91) {
+		my_flush_wait(my);
+		txt_append(my, "    rev %u\n", value);
+	}
+}
+
+static void my_handle_pitch_wheel_change(struct midi_reader *h, uint8_t channel, uint32_t duration, uint16_t value) {
+	struct my_midi_reader *my = (struct my_midi_reader *)h;
+	my_add_wait(my, duration);
+	int bend = ((int)value - 8192) / 64;
+	if (bend < -128) bend = -128;
+	if (bend > 127) bend = 127;
+	my_flush_wait(my);
+	txt_append(my, "    bend %d\n", bend);
+}
+
+static void my_handle_track_end(struct midi_reader *h, int duration) {
+	struct my_midi_reader *my = (struct my_midi_reader *)h;
+	my_add_wait(my, duration);
+	my_flush_wait(my);
+	txt_append(my, "    fin\n");
+}
+
+static void my_handle_meta_event(struct midi_reader *h, int duration, int cmd, int len, uint8_t *data) {
+	struct my_midi_reader *my = (struct my_midi_reader *)h;
+	my_add_wait(my, duration);
+}
+
 enumError SequenceFromMIDI (
 	u8 **out_seq, size_t *out_size, const u8 *midi_data, size_t midi_size, seq_format_t target_fmt)
 {
-	if (!midi_data || midi_size < 14 || memcmp (midi_data, "MThd", 4) != 0)
+	struct buffer buf;
+	buf.data = (uint8_t*)midi_data;
+	buf.data_len = midi_size;
+	buf.allocated_len = midi_size;
+	
+	struct mem_stream mstream;
+	mem_stream_init(&mstream, &buf);
+
+	struct my_midi_reader my;
+	midi_reader_init(&my.reader);
+	my.reader.handle_track = my_handle_track;
+	my.reader.handle_tempo = my_handle_tempo;
+	my.reader.handle_note_on = my_handle_note_on;
+	my.reader.handle_note_off = my_handle_note_off;
+	my.reader.handle_program_change = my_handle_program_change;
+	my.reader.handle_control_change = my_handle_control_change;
+	my.reader.handle_pitch_wheel_change = my_handle_pitch_wheel_change;
+	my.reader.handle_track_end = my_handle_track_end;
+	my.reader.handle_meta_event = my_handle_meta_event;
+
+	my.txt_cap = 65536;
+	my.txt = MALLOC(my.txt_cap);
+	if (!my.txt) return ERR_CANT_CREATE;
+	my.txt_len = 0;
+	my.pending_wait = 0;
+	my.time_scale = 1.0;
+
+	if (midi_reader_load(&my.reader, &mstream.stream) != 0) {
+		FREE(my.txt);
 		return ERR_INVALID_DATA;
+	}
 
-	u16 num_tracks = read_be16 (midi_data + 10);
-	u16 ppqn = read_be16 (midi_data + 12);
-	if (ppqn == 0)
-		ppqn = 48;
+	if (my.reader.ticks_per_quarter_note == 0) my.reader.ticks_per_quarter_note = 48;
+	my.time_scale = 48.0 / (double)my.reader.ticks_per_quarter_note;
 
-	double time_scale = 48.0 / (double)ppqn;
-
-	// Disassemble each track into an MML text buffer, then AssembleSequence
-	size_t txt_cap = 65536;
-	char *txt = MALLOC (txt_cap);
-	if (!txt)
-		return ERR_CANT_CREATE;
-	size_t txt_len = 0;
-
-	txt_len += snprintf (txt + txt_len, txt_cap - txt_len,
-		"; Converted from Standard MIDI File\n"
-		"timebase 48\n");
-
-	// Track pointers and allocation
+	txt_append(&my, "; Converted from Standard MIDI File\ntimebase 48\n");
+	
+	u16 num_tracks = my.reader.num_tracks;
 	u16 track_mask = 0;
 	for (uint t = 0; t < num_tracks && t < 16; t++)
 		track_mask |= (1 << t);
 
-	txt_len += snprintf (txt + txt_len, txt_cap - txt_len, "alloc_track 0x%04X\n", track_mask);
-	for (uint t = 1; t < num_tracks && t < 16; t++)
-	{
-		txt_len += snprintf (txt + txt_len, txt_cap - txt_len, "open_track %u @Track%u\n", t, t);
+	txt_append(&my, "alloc_track 0x%04X\n", track_mask);
+	for (uint t = 1; t < num_tracks && t < 16; t++) {
+		txt_append(&my, "open_track %u @Track%u\n", t, t);
 	}
 
-	size_t pos = 14 + read_be32 (midi_data + 4) - 6; // start of first track chunk
-
-	for (uint t = 0; t < num_tracks && pos + 8 <= midi_size; t++)
-	{
-		if (memcmp (midi_data + pos, "MTrk", 4) != 0)
-			break;
-		u32 trk_size = read_be32 (midi_data + pos + 4);
-		pos += 8;
-
-		size_t trk_end = pos + trk_size;
-		if (trk_end > midi_size)
-			trk_end = midi_size;
-
-		if (t > 0)
-		{
-			txt_len += snprintf (txt + txt_len, txt_cap - txt_len, "\n@Track%u:\n", t);
-		}
-
-		u8 running_status = 0;
-		u32 pending_wait = 0;
-
-		while (pos < trk_end)
-		{
-			u32 delta = read_vlq (midi_data, trk_end, &pos);
-			u32 scaled_delta = (u32)round ((double)delta * time_scale);
-			pending_wait += scaled_delta;
-
-			if (pos >= trk_end)
-				break;
-			u8 status = midi_data[pos];
-			if (status & 0x80)
-			{
-				running_status = status;
-				pos++;
-			}
-			else
-			{
-				status = running_status;
-			}
-
-			if (txt_len + 256 >= txt_cap)
-			{
-				txt_cap *= 2;
-				txt = REALLOC (txt, txt_cap);
-			}
-
-			if (status == 0xFF) // Meta event
-			{
-				if (pos >= trk_end)
-					break;
-				u8 meta_type = midi_data[pos++];
-				u32 meta_len = read_vlq (midi_data, trk_end, &pos);
-				if (meta_type == 0x51 && meta_len >= 3 && pos + 3 <= trk_end)
-				{
-					u32 us_pqn = read_be24 (midi_data + pos);
-					if (us_pqn > 0)
-					{
-						u32 bpm = 60000000 / us_pqn;
-						if (pending_wait > 0)
-						{
-							txt_len += snprintf (
-								txt + txt_len, txt_cap - txt_len, "    wait %u\n", pending_wait);
-							pending_wait = 0;
-						}
-						txt_len
-							+= snprintf (txt + txt_len, txt_cap - txt_len, "    tempo %u\n", bpm);
-					}
-				}
-				pos += meta_len;
-			}
-			else if ((status & 0xF0) == 0x90) // Note On
-			{
-				if (pos + 2 > trk_end)
-					break;
-				u8 pitch = midi_data[pos++];
-				u8 vel = midi_data[pos++];
-				if (vel > 0)
-				{
-					if (pending_wait > 0)
-					{
-						txt_len += snprintf (
-							txt + txt_len, txt_cap - txt_len, "    wait %u\n", pending_wait);
-						pending_wait = 0;
-					}
-					char nstr[16];
-					pitch_to_name (nstr, sizeof (nstr), pitch);
-					txt_len += snprintf (
-						txt + txt_len, txt_cap - txt_len, "    note %s %u 48\n", nstr, vel);
-				}
-			}
-			else if ((status & 0xF0) == 0x80) // Note Off
-			{
-				if (pos + 2 > trk_end)
-					break;
-				pos += 2;
-			}
-			else if ((status & 0xF0) == 0xC0) // Program Change
-			{
-				if (pos + 1 > trk_end)
-					break;
-				u8 prg = midi_data[pos++];
-				if (pending_wait > 0)
-				{
-					txt_len += snprintf (
-						txt + txt_len, txt_cap - txt_len, "    wait %u\n", pending_wait);
-					pending_wait = 0;
-				}
-				txt_len += snprintf (txt + txt_len, txt_cap - txt_len, "    prg %u\n", prg);
-			}
-			else if ((status & 0xF0) == 0xB0) // Control Change
-			{
-				if (pos + 2 > trk_end)
-					break;
-				u8 cc = midi_data[pos++];
-				u8 val = midi_data[pos++];
-				if (cc == 7)
-				{
-					if (pending_wait > 0)
-					{
-						txt_len += snprintf (
-							txt + txt_len, txt_cap - txt_len, "    wait %u\n", pending_wait);
-						pending_wait = 0;
-					}
-					txt_len += snprintf (txt + txt_len, txt_cap - txt_len, "    vol %u\n", val);
-				}
-				else if (cc == 10)
-				{
-					if (pending_wait > 0)
-					{
-						txt_len += snprintf (
-							txt + txt_len, txt_cap - txt_len, "    wait %u\n", pending_wait);
-						pending_wait = 0;
-					}
-					txt_len += snprintf (txt + txt_len, txt_cap - txt_len, "    pan %u\n", val);
-				}
-			}
-			else if ((status & 0xF0) == 0xE0) // Pitch Bend
-			{
-				if (pos + 2 > trk_end)
-					break;
-				u8 lsb = midi_data[pos++];
-				u8 msb = midi_data[pos++];
-				int pb = (int)((msb << 7) | lsb) - 8192;
-				int bend = pb / 64;
-				if (pending_wait > 0)
-				{
-					txt_len += snprintf (
-						txt + txt_len, txt_cap - txt_len, "    wait %u\n", pending_wait);
-					pending_wait = 0;
-				}
-				txt_len += snprintf (txt + txt_len, txt_cap - txt_len, "    bend %d\n", bend);
-			}
-			else
-			{
-				// other MIDI commands
-				if ((status & 0xF0) == 0xD0)
-					pos += 1;
-				else
-					pos += 2;
-			}
-		}
-
-		if (pending_wait > 0)
-		{
-			txt_len += snprintf (txt + txt_len, txt_cap - txt_len, "    wait %u\n", pending_wait);
-		}
-		txt_len += snprintf (txt + txt_len, txt_cap - txt_len, "    fin\n");
-		pos = trk_end;
+	for (int i = 0; i < my.reader.num_tracks; i++) {
+		midi_reader_read_track(&my.reader, i);
 	}
 
-	enumError err = AssembleSequence (out_seq, out_size, txt, target_fmt);
-	FREE (txt);
+	txt_append(&my, "\n");
+
+	enumError err = AssembleSequence(out_seq, out_size, my.txt, target_fmt);
+	FREE(my.txt);
 	return err;
 }
+
 
 // Invert notes in sequence
 enumError InvertSequence (

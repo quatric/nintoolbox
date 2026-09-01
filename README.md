@@ -463,3 +463,21 @@ Notes on the BRRES animation siblings added by this fork:
   decoded in its container, which is not yet wired — hence 🟡.
 - **CLR0**, **SHP0** and **SCN0** remain ⛔: not started, so no claim is made
   about them.
+
+---
+
+## Credits & Attributions
+
+This project incorporates and builds upon various open-source libraries and projects:
+- **[Wiimms SZS Tools](https://szs.wiimm.de/)** by Dirk Clemens (Core engine & framework)
+- **[LibYAML](https://github.com/yaml/libyaml)** by Kirill Simonov & contributors (YAML parser/emitter)
+- **[Mini-XML (mxml)](https://www.msweet.org/mxml/)** by Michael R Sweet (XML parser/writer)
+- **[cgltf](https://github.com/jkuhlmann/cgltf)** by Johannes Kuhlmann & Philip Rideout (glTF 2.0 / GLB)
+- **[Decaf](https://github.com/decaf-emu/decaf-emu)** by exzap & contributors (Latte GPU ISA tools)
+- **[VGMTrans](https://github.com/vgmtrans/vgmtrans)** by Mike & VGMTrans Team (Audio & SDAT translation)
+- **[bcn-decoder](https://github.com/K0lb3)** by K0lb3 (BCn texture codecs)
+- **[bzip2](https://sourceware.org/bzip2/)** by Julian R Seward
+- **[LZMA SDK](https://www.7-zip.org/sdk.html)** by Igor Pavlov
+- **[QuickLZ](http://www.quicklz.com/)** by Lasse Mikkel Reinhold
+
+See [`CREDITS.md`](CREDITS.md) for full licensing and attribution details.
