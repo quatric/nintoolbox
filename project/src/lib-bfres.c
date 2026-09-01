@@ -91,12 +91,14 @@ static int attr_read (const uint8_t *p, size_t avail, uint32_t fmt, float out[4]
 	out[3] = 1.0f;
 	switch (fmt)
 	{
+		case 0x00000004: // 8_8 unorm (alias)
 		case 0x00000005: // 8_8 unorm
 			if (avail < 2)
 				return 0;
 			out[0] = p[0] / 255.0f;
 			out[1] = p[1] / 255.0f;
 			return 1;
+		case 0x00000204: // 8_8 snorm (alias)
 		case 0x00000205: // 8_8 snorm
 			if (avail < 2)
 				return 0;
@@ -181,7 +183,7 @@ static int attr_read (const uint8_t *p, size_t avail, uint32_t fmt, float out[4]
 			return 1;
 		}
 		case 0x0000080A: // 16_16_16_16 float
-		case 0x00000811: // 16_16_16_16 float
+		case 0x0000080E: // 16_16_16_16 float
 			if (avail < 8)
 				return 0;
 			for (int i = 0; i < 4; i++)
@@ -204,6 +206,7 @@ static int attr_read (const uint8_t *p, size_t avail, uint32_t fmt, float out[4]
 			}
 			return 1;
 		}
+		case 0x00000811: // 32_32_32 float
 		case 0x00000813: // 32_32_32 float
 		{
 			if (avail < 12)
