@@ -314,7 +314,7 @@ here for comparison. Status is read directly from each format's
 | C1CODE | ⛔ | ⛔ |
 | C1DATA (CTCODE) | ✅ | ⛔ |
 | CHR (CHR0) | 🟡 | 🟡 |
-| CLR (CLR0) | ⛔ | ⛔ |
+| CLR (CLR0) | ✅ | ✅ |
 | CRS1 | ⛔ | ⛔ |
 | CT-DEF | ✅ | ✅ |
 | CT-SHA1 | ⛔ | ⛔ |
@@ -467,8 +467,27 @@ Notes on the BRRES animation siblings added by this fork:
   warns, rather than silently emitting empty names; since the NW4R tree ids are
   derived from the names, they differ too. Resolving these needs the VIS0 to be
   decoded in its container, which is not yet wired — hence 🟡.
-- **CLR0**, **SHP0** and **SCN0** remain ⛔: not started, so no claim is made
-  about them.
+- **CLR0** ✅ — material colour animation. Implemented from scratch in
+  `src/lib-clr.{c,h}` (layout taken from BrawlLib's `CLR0.cs`: `CLR0v3`/
+  `CLR0v4`, `CLR0Material`, `CLR0MaterialEntry`, `CLR0EntryFlags`). CLR0
+  animates up to 11 GX colour targets per named material — the two light
+  channel material colours, the two ambient colours, the three TEV colour
+  registers and the four TEV konstants — each either absent, one constant
+  RGBA, or one RGBA per frame. Registered as `FF_CLR`/`FF_CLR_TXT`
+  (`CLR0`/`#CLR`), with BRSUB version records for v3 and v4 and TEXT/BINARY
+  dispatch in `wszst`.
+  Unlike VIS0, CLR0 carries its material names in its own trailing
+  length-prefixed pool, so a standalone file is fully self-describing and the
+  encoder can be held to byte equality — and is: both retail Animal Crossing:
+  City Folk CLR0 files in `tests/fixtures` re-encode byte-identically to the
+  originals. That required one non-obvious detail: retail lays the string pool
+  out in **ordinal name order**, not in material-record order (BrawlLib's
+  shared string table sorts before writing), so the writer sorts the pool and
+  scatters the resulting offsets back onto the logical slots. The encoder also
+  deduplicates identical colour arrays, as retail does. Covered by
+  `t_clr0_cli` in `tests/regress.sh`.
+- **SHP0** and **SCN0** remain ⛔: not started, so no claim is made about
+  them.
 
 
 ---
