@@ -58,6 +58,8 @@ typedef enum nfmt_type_t
 	NFMT_JCMP,
 	NFMT_BFMA,
 	NFMT_ZLIB
+	, NFMT_MVDK
+
 } nfmt_type_t;
 
 typedef struct nfmt_info_t
@@ -83,6 +85,9 @@ ccp GetNintendoFormatName (nfmt_type_t type);
 enumError DecodeCamelot (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 enumError EncodeCamelot (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 enumError DecodeLZ10LZ11 (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+int CxIsCompressedMvDK (const unsigned char *buffer, unsigned int size);
+enumError DecodeMVDK (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+
 enumError DecodeNintendoRL (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 enumError DecodeNintendoHuff (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 enumError EncodeNintendoHuff (
@@ -94,6 +99,8 @@ enumError EncodeASH0 (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 // short token form where possible, so the output is accepted by both the DS
 // and 3DS SDK decoders without relying on a host-side compressor.
 enumError EncodeLZ10LZ11 (u8 **dest, uint *dest_size, const u8 *src, uint src_size, bool lz11);
+enumError EncodeMVDK (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+
 enumError DecodeYay0 (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 
 // BLZ ("backward LZSS", DS ARM9/ARM7/overlay compression). No header magic
