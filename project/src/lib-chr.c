@@ -361,24 +361,9 @@ enumError ScanRawCHR0 (chr0_t *chr, bool init_chr, const void *data, uint data_s
 
 					const banim_format_t fmt = g->format;
 
-					// Version 3 stores its I6 tracks with an 8 byte header
-					// (key count + frame scale) instead of BrawlLib's 16 byte
-					// header, and therefore carries no quantization base/step
-					// pair. The 11-bit frame indices decode cleanly, but we
-					// could not establish how the 16 bit magnitude maps to a
-					// value: neither a raw reading, a binary-angle measure,
-					// nor any simple fixed-point divisor reproduces the
-					// stored Hermite tangents across the 62 retail tracks we
-					// tested. Rather than emit plausible-looking but wrong
-					// numbers, refuse this one variant explicitly.
-					if (fmt == BANIM_I6 && chr_i6_header_8 (version))
-						return ERROR0 (ERR_NOT_IMPLEMENTED,
-							"CHR0: entry '%s' uses the version 3 short-header I6 track"
-							" encoding, whose value scaling is not yet known\n",
-							e->name);
-
-					const enumError err = DecodeTrackBANIM (&ch->track,
-						base + track_pos, data_size - (uint)track_pos, fmt, frame_limit);
+					const enumError err = DecodeTrackBANIM_Ext (&ch->track,
+						base + track_pos, data_size - (uint)track_pos, fmt, frame_limit,
+						fmt == BANIM_I6 && chr_i6_header_8 (version));
 					if (err)
 						return err;
 				}

@@ -170,6 +170,12 @@ banim_key_t *AppendKeyBANIM (banim_track_t *tr, float frame, float value, float 
 enumError DecodeTrackBANIM (banim_track_t *tr, const u8 *data, uint avail,
 	banim_format_t format, uint frame_limit)
 {
+	return DecodeTrackBANIM_Ext (tr, data, avail, format, frame_limit, false);
+}
+
+enumError DecodeTrackBANIM_Ext (banim_track_t *tr, const u8 *data, uint avail,
+	banim_format_t format, uint frame_limit, bool short_header)
+{
 	DASSERT (tr);
 	DASSERT (data);
 
@@ -205,23 +211,32 @@ enumError DecodeTrackBANIM (banim_track_t *tr, const u8 *data, uint avail,
 			break;
 		}
 
-		//--- indexed, quantized: 16 byte header, 6 byte entries
+		//--- indexed, quantized: 16 byte header (or 8 byte for v3), 6 byte entries
 		case BANIM_I6:
 		{
-			if (avail < 16)
+			const uint hdr_sz = short_header ? 8 : 16;
+			if (avail < hdr_sz)
 				return ERROR0 (ERR_INVALID_DATA, "BRRES anim: truncated I6 track header\n");
 			const uint n = banim_rd16 (data);
 			tr->unknown = banim_rd16 (data + 2);
 			tr->frame_scale = banim_rdf (data + 4);
-			tr->step = banim_rdf (data + 8);
-			tr->base = banim_rdf (data + 12);
+			if (short_header)
+			{
+				tr->step = 1.0f / 256.0f;
+				tr->base = 0.0f;
+			}
+			else
+			{
+				tr->step = banim_rdf (data + 8);
+				tr->base = banim_rdf (data + 12);
+			}
 
-			if ((u64)16 + (u64)n * 6 > avail)
+			if ((u64)hdr_sz + (u64)n * 6 > avail)
 				return ERROR0 (ERR_INVALID_DATA, "BRRES anim: I6 track exceeds file size\n");
 
 			for (uint i = 0; i < n; i++)
 			{
-				const u8 *e = data + 16 + i * 6;
+				const u8 *e = data + hdr_sz + i * 6;
 				const uint index = banim_rd16 (e) >> 5;
 				const uint step = banim_rd16 (e + 2);
 				const int tan = (s16)banim_rd16 (e + 4);

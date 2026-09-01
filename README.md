@@ -313,7 +313,7 @@ here for comparison. Status is read directly from each format's
 | C0DATA | ⛔ | ⛔ |
 | C1CODE | ⛔ | ⛔ |
 | C1DATA (CTCODE) | ✅ | ⛔ |
-| CHR (CHR0) | 🟡 | 🟡 |
+| CHR (CHR0) | ✅ | ✅ |
 | CLR (CLR0) | ✅ | ✅ |
 | CRS1 | ⛔ | ⛔ |
 | CT-DEF | ✅ | ✅ |
@@ -379,9 +379,9 @@ here for comparison. Status is read directly from each format's
 | SHA1REF | ⛔ | ✅ |
 | SHP (SHP0) | ✅ | ✅ |
 | SKP-OBJ | ✅ | ✅ |
-| SRT (SRT0) | 🟡 | 🟡 |
+| SRT (SRT0) | ✅ | ✅ |
 | TEX (TEX0) | ✅ | ✅ |
-| VIS (VIS0) | 🟡 | 🟡 |
+| VIS (VIS0) | ✅ | ✅ |
 | TEX+CT | ✅ | ✅ |
 | TPL | ✅ | ✅ |
 | U8 | ✅ | ✅ |
