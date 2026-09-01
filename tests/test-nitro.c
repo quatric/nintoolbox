@@ -8,6 +8,7 @@ extern "C" {
 #include "lib-nintendo.h"
 #include "lib-nitro.h"
 #include "lib-smdh.h"
+#include "lib-gtx.h"
 #ifdef __cplusplus
 }
 #endif
@@ -864,6 +865,39 @@ int main (void)
 			}
 			ResetOwnedEntries (scanned, n_scanned);
 			free (fsys_blob);
+		}
+	}
+
+	// 24. Test GSH (Gfx2 shader container encode -> scan)
+	{
+		const char *latte_src =
+			"RAW[0000] word0=0x00000000 word1=0x00000000\n"
+			"RAW[0001] word0=0x12345678 word1=0x9abcdef0\n";
+		u8 *gsh_blob = 0;
+		uint gsh_sz = 0;
+		enumError e1 = EncodeGSHFromLatte (&gsh_blob, &gsh_sz, latte_src, GTX_SHADER_VERTEX);
+		if (e1 || !gsh_blob || gsh_sz < 64)
+		{
+			printf("  FAIL: EncodeGSHFromLatte failed\n");
+			fail++;
+		}
+		else
+		{
+			gtx_t gtx;
+			enumError e2 = ScanGTX (&gtx, gsh_blob, gsh_sz);
+			if (e2 || gtx.n_shaders != 1 || !gtx.shaders[0].program
+				|| gtx.shaders[0].program->data_size != 16
+				|| gtx.shaders[0].stage != GTX_SHADER_VERTEX)
+			{
+				printf("  FAIL: ScanGTX on generated GSH failed\n");
+				fail++;
+			}
+			else
+			{
+				printf("  PASS: GSH shader encode -> scan roundtrip\n");
+			}
+			ResetGTX (&gtx);
+			free (gsh_blob);
 		}
 	}
 

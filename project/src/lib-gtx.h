@@ -163,4 +163,22 @@ enumError EncodeGTX_RGBA_Format (u8 **dest, uint *dest_size, const u8 *rgba, uin
 // Compatibility wrapper: RGBA8, one 2D mip, tile mode 4.
 enumError EncodeGTX_RGBA (u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height);
 
+// One shader stage to pack into a Gfx2/GSH container.
+typedef struct gsh_shader_input_t
+{
+	gtx_shader_stage_t stage;
+	const u8 *program_data; // binary Latte bytecode
+	uint program_size;
+	const u8 *header_data; // optional GX2 shader header blob (if NULL, auto-generated)
+	uint header_size;
+} gsh_shader_input_t;
+
+// Encode one or more GX2 shader programs into a complete Gfx2/GSH container.
+enumError EncodeGSHShaders (
+	u8 **dest, uint *dest_size, const gsh_shader_input_t *shaders, uint n_shaders);
+
+// Assemble a Latte shader listing and encode it as a complete Gfx2/GSH container.
+enumError EncodeGSHFromLatte (
+	u8 **dest, uint *dest_size, const char *latte_text, gtx_shader_stage_t stage);
+
 #endif

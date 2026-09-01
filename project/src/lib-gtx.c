@@ -1770,3 +1770,110 @@ enumError EncodeGTX_RGBA (u8 **dest, uint *dest_size, const u8 *rgba, uint width
 {
 	return EncodeGTX_RGBA_Format (dest, dest_size, rgba, width, height, 0x1a, 4);
 }
+
+enumError EncodeGSHShaders (
+	u8 **dest, uint *dest_size, const gsh_shader_input_t *shaders, uint n_shaders)
+{
+	if (!dest || !dest_size || !shaders || !n_shaders)
+		return EINVAL;
+
+	u64 total = GTX_FILE_HDR_SIZE + 32; // File header + End block
+	for (uint i = 0; i < n_shaders; i++)
+	{
+		const gsh_shader_input_t *s = shaders + i;
+		const uint hdr_sz = s->header_size ? s->header_size : 0x40;
+		total += 32 + hdr_sz; // Shader header block (BLK{ + size)
+		total += 32 + s->program_size; // Shader program block (BLK{ + size)
+	}
+
+	if (total > GTX_MAX_OUTPUT)
+		return EFBIG;
+
+	u8 *buf = CALLOC (1, (size_t)total);
+	if (!buf)
+		return ERR_CANT_CREATE;
+
+	// File Header ("Gfx2" 32 bytes)
+	memcpy (buf, "Gfx2", 4);
+	gwr32 (buf + 4, 32);
+	gwr32 (buf + 8, 7);
+	gwr32 (buf + 12, 3);
+	gwr32 (buf + 16, 2);
+	gwr32 (buf + 20, 0x1000);
+
+	u8 *p = buf + GTX_FILE_HDR_SIZE;
+	for (uint i = 0; i < n_shaders; i++)
+	{
+		const gsh_shader_input_t *s = shaders + i;
+		uint head_type = 3, prog_type = 5;
+		switch (s->stage)
+		{
+			case GTX_SHADER_VERTEX:
+				head_type = 3;
+				prog_type = 5;
+				break;
+			case GTX_SHADER_PIXEL:
+				head_type = 6;
+				prog_type = 7;
+				break;
+			case GTX_SHADER_GEOMETRY:
+				head_type = 8;
+				prog_type = 9;
+				break;
+			case GTX_SHADER_COMPUTE:
+				head_type = 14;
+				prog_type = 15;
+				break;
+		}
+
+		const uint hdr_sz = s->header_size ? s->header_size : 0x40;
+		gtx_write_block_header (p, head_type, hdr_sz);
+		if (s->header_data && s->header_size)
+		{
+			memcpy (p + 32, s->header_data, s->header_size);
+		}
+		else
+		{
+			gwr32 (p + 32 + 0x00, s->program_size);
+			gwr32 (p + 32 + 0x04, 0);
+		}
+		p += 32 + hdr_sz;
+
+		gtx_write_block_header (p, prog_type, s->program_size);
+		if (s->program_data && s->program_size)
+			memcpy (p + 32, s->program_data, s->program_size);
+		p += 32 + s->program_size;
+	}
+
+	gtx_write_block_header (p, 1, 0);
+
+	*dest = buf;
+	*dest_size = (uint)total;
+	return ERR_OK;
+}
+
+enumError EncodeGSHFromLatte (
+	u8 **dest, uint *dest_size, const char *latte_text, gtx_shader_stage_t stage)
+{
+	if (!dest || !dest_size || !latte_text)
+		return EINVAL;
+
+	u8 *prog = 0;
+	uint prog_sz = 0;
+	enumError err = AssembleLatteCF (&prog, &prog_sz, latte_text);
+	if (err || !prog || !prog_sz)
+	{
+		FREE (prog);
+		return err ? err : ERR_INVALID_DATA;
+	}
+
+	gsh_shader_input_t input;
+	memset (&input, 0, sizeof (input));
+	input.stage = stage;
+	input.program_data = prog;
+	input.program_size = prog_sz;
+
+	err = EncodeGSHShaders (dest, dest_size, &input, 1);
+	FREE (prog);
+	return err;
+}
