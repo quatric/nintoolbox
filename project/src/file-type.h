@@ -237,6 +237,7 @@ typedef enum file_format_t
 	FF_MIDI, // 145 - Standard MIDI File (.mid)
 	FF_FZIP, // 146 - Game & Wario FZIP compression (.fzip)
 	FF_GVR, // 147 - Sega GameCube/Wii texture (GCIX/GVRT)
+	FF_SMDH, // 148 - Nintendo 3DS icon/title metadata (SMDH)
 
 	//--- number of elements
 

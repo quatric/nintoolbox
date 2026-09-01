@@ -21,6 +21,7 @@ typedef enum nfmt_type_t
 	NFMT_LZH8,
 	NFMT_BFLIM,
 	NFMT_BCLIM,
+	NFMT_NUTEXB,
 	NFMT_BNR,
 	NFMT_NCGR,
 	NFMT_NCLR,
@@ -193,6 +194,15 @@ enumError DecodeFLIM_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, 
 // matching decoder and common CTR tooling.
 enumError EncodeFLIM_RGBA (
 	u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height, bool bclim);
+
+// NUTEXB (Switch texture wrapper used by Smash Ultimate and other titles;
+// distinct from BNTX even though both are Switch/Tegra containers -- see
+// DecodeNUTEXB_RGBA in lib-nintendo.c for the layout and format-code
+// mapping). Decodes texture data by reusing lib-bntx.c's already-verified
+// deswizzle and block decoders; a texture whose NUTEXB format code has no
+// BNTX equivalent (currently only R32G32B32A32_FLOAT) is reported as
+// unsupported rather than guessed at.
+enumError DecodeNUTEXB_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, uint src_size);
 
 // CTPK (CTR Texture Package, 3DS container)
 typedef struct nintendo_ctpk_entry_t

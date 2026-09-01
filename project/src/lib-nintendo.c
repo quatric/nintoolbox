@@ -52,7 +52,7 @@ static inline void wr_le32 (u8 *p, u32 v)
 ccp GetNintendoFormatName (nfmt_type_t type)
 {
 	static const ccp tab[] = { "UNKNOWN", "DSB", "TPL", "STPL", "SARC", "LZ10", "LZ11", "HUFF4",
-		"HUFF8", "RL", "ASH0", "Yay0", "LZH8", "BFLIM", "BCLIM", "BNR", "NCGR", "NCLR", "NCER",
+		"HUFF8", "RL", "ASH0", "Yay0", "LZH8", "BFLIM", "BCLIM", "NUTEXB", "BNR", "NCGR", "NCLR", "NCER",
 		"NANR", "BRFNT", "BRFNA", "BCFNT", "BRLAN", "BRLYT", "BFLAN", "BFLYT", "BCLAN", "BCLYT",
 		"PLT0", "MSBT", "BCRES", "BFRES", "BNTX", "GFA", "BCH", "QuickLZ", "PAC", "RNC", "romc",
 		"PSDK", "AT7", "CTPK", "BYML", "NARC", "NSCR", "FZIP", "JARC", "jCMP" };
@@ -235,6 +235,16 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		if (size >= 0x28 && !memcmp (d + size - 0x28, "CLIM", 4))
 			return make_info (NFMT_BCLIM, true, false, 0);
 
+		// NUTEXB (Switch texture wrapper, e.g. Smash Ultimate): another
+		// trailing-footer format, magic "XET" 7 bytes before EOF (3-byte
+		// magic + 4-byte little-endian version), same reasoning as the
+		// BFLIM/BCLIM check just above -- test it before the single-byte
+		// compression heuristics so real texture payloads that happen to
+		// start with 0x10/0x11/etc. aren't stolen by them. 0x70 (112) is
+		// the fixed trailer size, so anything shorter can't be one.
+		if (size >= 0x70 && !memcmp (d + size - 7, "XET", 3))
+			return make_info (NFMT_NUTEXB, false, false, 0);
+
 		// QuickLZ is checked before the single-byte heuristics: its test is
 		// exact (the header's own recorded compressed length must equal the
 		// buffer) whereas the tests below are one-byte guesses.
@@ -278,6 +288,8 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		return make_info (NFMT_BFLIM, true, false, 0);
 	if (size >= 0x28 && !memcmp (d + size - 0x28, "CLIM", 4))
 		return make_info (NFMT_BCLIM, true, false, 0);
+	if (size >= 0x70 && !memcmp (d + size - 7, "XET", 3))
+		return make_info (NFMT_NUTEXB, false, false, 0);
 	return make_info (NFMT_UNKNOWN, true, false, 0);
 }
 
@@ -4959,6 +4971,181 @@ enumError EncodeFLIM_RGBA (
 	*dest = out;
 	*dest_size = total;
 	return ERR_OK;
+}
+
+//-----------------------------------------------------------------------------
+///////////////			NUTEXB (Switch texture wrapper)		///////////////
+//-----------------------------------------------------------------------------
+
+// NUTEXB layout, all fields little endian (struct verified field-by-field
+// against Switch-Toolbox's NUTEXB.cs -- KillzXGaming/Switch-Toolbox,
+// File_Formats/Texture/NUTEXB.cs -- which is the closest thing to a spec
+// this format has; there's no equivalent to 3dbrew for it). Everything
+// lives in a fixed 0x70-byte trailer at the end of the file:
+//   size-0x70   1 byte padding, then a 3-byte tag (unused by any reader,
+//               including this one), then a NUL-terminated texture name
+//               (the trailing bytes of this 64-byte name field are padding)
+//   size-0x30   u32 padding, u32 width, u32 height, u32 depth,
+//               u16 NUTEXImageFormat, u16 padding, u32 unk,
+//               u32 mip_count, u32 alignment, u32 array_count,
+//               u32 image_size
+//   size-8      1 byte padding
+//   size-7      3-byte magic "XET"
+//   size-4      u32 version
+// image_size bytes of (Tegra block-linear swizzled) pixel data sit at
+// offset 0 of the file; a per-array-slice table of mip_count u32 mip sizes
+// (each slice's table padded to 0x40 bytes) follows at offset image_size.
+// This decoder only reads array slice 0, mip 0 -- the same single-texture
+// scope as DecodeBNTX_RGBA and DecodeFLIM_RGBA.
+//
+// The pixel formats NUTEXB actually carries (RGBA8/BGRA8/BC1-BC7) are the
+// same ones lib-bntx.c's Tegra deswizzle and block decoders already handle,
+// just spelled with different numeric format codes; rather than
+// reimplementing that swizzle/block math a second time, this builds a
+// one-texture synthetic bntx_t using BNTX's own format-word encoding and
+// hands it to DecodeBNTX_RGBA. NUTEXB has no field equivalent to BNTX's
+// block_height_log2/tile_mode, so those are derived from height using the
+// same GOB-count heuristic this codebase's own EncodeBNTX_RGBA already
+// applies for its RGBA8 encodes; that heuristic is unverified here against
+// a real compressed (BC1-BC7) NUTEXB sample with non-power-of-two height
+// (see the NUTEXB README row).
+enumError DecodeNUTEXB_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, uint src_size)
+{
+	if (!dest || !width || !height || !src || src_size < 0x70)
+		return EINVAL;
+	if (memcmp (src + src_size - 7, "XET", 3))
+		return EINVAL;
+
+	// Header fields block: 0x28 (40) bytes starting 0x30 (48) bytes before
+	// EOF -- i.e. "reader.Seek(pos - 48)" in NUTEXB.cs's Read().
+	const u8 *hdr = src + src_size - 0x30;
+	const u32 w = rd_le32 (hdr + 0x04);
+	const u32 h = rd_le32 (hdr + 0x08);
+	const u32 nutfmt = rd_le16 (hdr + 0x10);
+	const u32 mip_count = rd_le32 (hdr + 0x18);
+	const u32 image_size = rd_le32 (hdr + 0x24);
+	if (!w || !h || !mip_count || (u64)image_size > src_size)
+		return EINVAL;
+
+	uint bntx_fmt = 0, bntx_type = 1, blk_h = 1;
+	switch (nutfmt)
+	{
+		case 0x0400:
+			bntx_fmt = 0x0b;
+			break; // R8G8B8A8_UNORM
+		case 0x0405:
+			bntx_fmt = 0x0b;
+			break; // R8G8B8A8_SRGB
+		case 0x0450:
+			bntx_fmt = 0x0c;
+			break; // B8G8R8A8_UNORM
+		case 0x0455:
+			bntx_fmt = 0x0c;
+			break; // B8G8R8A8_SRGB
+		case 0x0480:
+			bntx_fmt = 0x1a;
+			blk_h = 4;
+			break; // BC1_UNORM
+		case 0x0485:
+			bntx_fmt = 0x1a;
+			blk_h = 4;
+			break; // BC1_SRGB
+		case 0x0490:
+			bntx_fmt = 0x1b;
+			blk_h = 4;
+			break; // BC2_UNORM
+		case 0x0495:
+			bntx_fmt = 0x1b;
+			blk_h = 4;
+			break; // BC2_SRGB
+		case 0x04a0:
+			bntx_fmt = 0x1c;
+			blk_h = 4;
+			break; // BC3_UNORM
+		case 0x04a5:
+			bntx_fmt = 0x1c;
+			blk_h = 4;
+			break; // BC3_SRGB
+		case 0x0180:
+			bntx_fmt = 0x1d;
+			blk_h = 4;
+			break; // BC4_UNORM
+		case 0x0185:
+			bntx_fmt = 0x1d;
+			blk_h = 4;
+			bntx_type = 2;
+			break; // BC4_SNORM
+		case 0x0280:
+			bntx_fmt = 0x1e;
+			blk_h = 4;
+			break; // BC5_UNORM
+		case 0x0285:
+			bntx_fmt = 0x1e;
+			blk_h = 4;
+			bntx_type = 2;
+			break; // BC5_SNORM
+		case 0x04d7:
+			bntx_fmt = 0x1f;
+			blk_h = 4;
+			break; // BC6_UFLOAT
+		case 0x04d8:
+			bntx_fmt = 0x1f;
+			blk_h = 4;
+			bntx_type = 2;
+			break; // BC6_SFLOAT
+		case 0x04e0:
+			bntx_fmt = 0x20;
+			blk_h = 4;
+			break; // BC7_UNORM
+		case 0x04e5:
+			bntx_fmt = 0x20;
+			blk_h = 4;
+			break; // BC7_SRGB
+		default:
+			// Includes R32G32B32A32_FLOAT (0x0434), which lib-bntx.c's
+			// decoder has no equivalent for -- reported honestly rather
+			// than guessed at.
+			return ERROR0 (ERR_INVALID_IFORM,
+				"Unsupported NUTEXB texture format 0x%04x\n", nutfmt);
+	}
+
+	// Same block-height-log2 derivation as EncodeBNTX_RGBA, generalized from
+	// raw pixel height to element (block) height so it also covers the
+	// BC-compressed formats above.
+	const uint elem_h = (h + blk_h - 1) / blk_h;
+	uint bh_log2;
+	if (elem_h <= 16)
+		bh_log2 = 0;
+	else if (elem_h <= 32)
+		bh_log2 = 1;
+	else if (elem_h <= 64)
+		bh_log2 = 2;
+	else if (elem_h <= 128)
+		bh_log2 = 3;
+	else
+		bh_log2 = 4;
+
+	bntx_texture_t tex;
+	memset (&tex, 0, sizeof (tex));
+	tex.name = "nutexb";
+	tex.width = w;
+	tex.height = h;
+	tex.format = bntx_fmt << 8 | bntx_type;
+	tex.comp_sel = 0; // identity (R,G,B,A)
+	tex.tile_mode = 0; // block-linear
+	tex.block_height_log2 = bh_log2;
+	tex.n_mips = 1;
+	tex.data = src;
+	tex.data_size = image_size;
+
+	bntx_t bntx;
+	memset (&bntx, 0, sizeof (bntx));
+	bntx.data = src;
+	bntx.size = src_size;
+	bntx.n_textures = 1;
+	bntx.textures = &tex;
+
+	return DecodeBNTX_RGBA (dest, width, height, &bntx, 0);
 }
 
 // CTPK (CTR Texture Package, 3DS container)

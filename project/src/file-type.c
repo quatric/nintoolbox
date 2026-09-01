@@ -782,6 +782,11 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x47, 0x43, 0x49, 0x58 }, // "GCIX"
 		0, MinusString, MinusString, "Sega GameCube/Wii texture (GCIX/GVRT)" },
 
+	// FF_SMDH = 148 (3DS icon/title metadata)
+	{ FF_SMDH, 0, 0, "SMDH", ".smdh", ".smdh", ".smdh", FFT_VALID | FFT_GRAPHIC | FFT_DECODE, 4,
+		{ 0x53, 0x4d, 0x44, 0x48 }, // "SMDH"
+		0, MinusString, MinusString, "3DS application icon/title metadata (SMDH)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -866,6 +871,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_BFWAR, "BFWAR", "FWAR", 0x3801 }, { FF_BCGRP, "BCGRP", "CGRP", 0x3801 },
 	{ FF_BFGRP, "BFGRP", "FGRP", 0x3801 }, { FF_GTX, "GTX", "GFX2", 0x3001 },
 	{ FF_FZIP, "FZIP", "FZIP", 0x103 }, { FF_GVR, "GVR", "GCIX", 0x3809 },
+	{ FF_SMDH, "SMDH", 0, 0x3009 },
 
 	{ 0, 0, 0, 0 }
 };

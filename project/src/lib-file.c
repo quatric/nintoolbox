@@ -1075,6 +1075,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x424e5458: // "BNTX"
 				return FF_BNTX;
 
+			// SMDH: 3DS application icon/title metadata block, fixed 0x36c0 size
+			case 0x534d4448: // "SMDH"
+				return FF_SMDH;
+
 			// GFA: Good-Feel archive (Wario Land: Shake It!, Kirby's Epic Yarn)
 			case 0x47464143: // "GFAC"
 				return FF_GFA;

@@ -45,6 +45,7 @@
 #include "lib-plt0.h"
 #include "ajpg/ajpg.h"
 #include "lib-bntx.h"
+#include "lib-smdh.h"
 #include "lib-gtx.h"
 
 #include "red-36.inc"
@@ -566,6 +567,25 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		return PatchListIMG (img);
 	}
 
+	if (data_size >= SMDH_SIZE && !memcmp (data, "SMDH", 4))
+	{
+		// 3DS icon/title metadata: decode the large (48x48) icon, the one
+		// actually shown as the application icon. The small (24x24) icon and
+		// the 16 per-language titles are available via `wszst DUMP`/extract,
+		// not through this single-image decode path.
+		smdh_t smdh;
+		if (ScanSMDH (&smdh, data, data_size))
+			return ERROR0 (ERR_INVALID_IFORM, "Invalid SMDH file: %s\n", fname);
+		u8 *rgba = 0;
+		uint w = 0, h = 0;
+		const enumError serr = DecodeSMDHIcon_RGBA (&rgba, &w, &h, &smdh, true);
+		ResetSMDH (&smdh);
+		if (serr)
+			return serr;
+		AssignDecodedRGBA (img, rgba, w, h, &le_func, fname);
+		return PatchListIMG (img);
+	}
+
 	if (data_size >= 4 && !memcmp (data, "Gfx2", 4))
 	{
 		// Wii U GX2 texture container: decode its first texture. Multi-
@@ -763,6 +783,20 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		img->endian = nfmt.big_endian ? &be_func : &le_func;
 		img->path = fname;
 		img->seq_num = ++image_seq_num;
+		return PatchListIMG (img);
+	}
+
+	if (nfmt.type == NFMT_NUTEXB)
+	{
+		// Switch texture wrapper (Smash Ultimate etc.) -- see
+		// DecodeNUTEXB_RGBA in lib-nintendo.c. Only array slice 0 / mip 0 is
+		// decoded, matching the single-texture scope used above for BNTX.
+		u8 *rgba = 0;
+		uint width = 0, height = 0;
+		const enumError err = DecodeNUTEXB_RGBA (&rgba, &width, &height, data, data_size);
+		if (err)
+			return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported NUTEXB texture: %s\n", fname);
+		AssignDecodedRGBA (img, rgba, width, height, &le_func, fname);
 		return PatchListIMG (img);
 	}
 
