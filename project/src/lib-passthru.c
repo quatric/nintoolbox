@@ -2079,6 +2079,21 @@ enumError PassthruPack (ccp src_dir, ccp dest)
 	const size_t src_len = strlen (src_dir);
 	const bool is_dot_d = (src_len > 2 && !strcasecmp (src_dir + src_len - 2, ".d"));
 
+	// Nintendo DS sound archives are built by wbrsar, which owns the Nitro
+	// SYMB/INFO/FAT/FILE implementation and SSEQ assembler.
+	if (is_ext (dest, ".sdat"))
+	{
+		ccp tool = resolve_tool (0, "wbrsar");
+		if (!tool || !*tool)
+			return ERROR0 (ERR_NOT_EXISTS, "wbrsar not found; cannot pack SDAT: %s", dest);
+		if (testmode)
+			return ERR_OK;
+		char *argv[] = { (char *)tool, "pack", (char *)src_dir, (char *)dest, "--sdat", 0 };
+		const int rc = run_program (argv);
+		return rc ? ERROR0 (ERR_SUBJOB_FAILED, "wbrsar failed packing %s (exit %d)", dest, rc)
+			: ERR_OK;
+	}
+
 	// 1. Wii / GameCube disc images (.wbfs, .iso, .ciso, .wdf, .wia, .gcz, .gcm, .gca, .raw, .img)
 	if (is_disc_ext (dest))
 	{

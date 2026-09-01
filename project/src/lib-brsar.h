@@ -74,4 +74,9 @@ enumError PackBRSARDir (u8 **out_data, size_t *out_size, ccp input_dir, brsar_va
 // without a name use "file_NNN.<ext>". Extensions are sniffed from magic.
 enumError UnpackBRSAR (const u8 *data, size_t size, ccp out_dir);
 
+// Nintendo DS Nitro Sound Archive. The directory form accepts .sseq, .sbnk
+// and .swar files; .txt files are assembled as SSEQ.
+enumError PackSDATDir (u8 **out_data, size_t *out_size, ccp input_dir);
+enumError UnpackSDAT (const u8 *data, size_t size, ccp out_dir);
+
 #endif // SZS_LIB_BRSAR_H

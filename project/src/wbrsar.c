@@ -24,7 +24,7 @@ static int cmd_pack (int argc, char *argv[])
 	{
 		fprintf (stderr,
 			"wbrsar pack: missing input directory\n"
-			"Usage: %s pack <input_dir> [output.brsar] [--bfsar|--bcsar]\n",
+			"Usage: %s pack <input_dir> [output] [--bfsar|--bcsar|--sdat]\n",
 			argv[0]);
 		return ERR_SYNTAX;
 	}
@@ -32,12 +32,15 @@ static int cmd_pack (int argc, char *argv[])
 	ccp input_dir = argv[2];
 	ccp output_path = 0;
 	brsar_variant_t variant = BRSAR_VARIANT_RSAR;
+	bool sdat = false;
 	for (int i = 3; i < argc; i++)
 	{
 		if (!strcmp (argv[i], "--bfsar"))
 			variant = BRSAR_VARIANT_FSAR;
 		else if (!strcmp (argv[i], "--bcsar"))
 			variant = BRSAR_VARIANT_CSAR;
+		else if (!strcmp (argv[i], "--sdat"))
+			sdat = true;
 		else if (!output_path)
 			output_path = argv[i];
 	}
@@ -45,7 +48,7 @@ static int cmd_pack (int argc, char *argv[])
 	char out_buf[1024];
 	if (!output_path)
 	{
-		ccp ext = variant == BRSAR_VARIANT_FSAR ? ".bfsar"
+		ccp ext = sdat ? ".sdat" : variant == BRSAR_VARIANT_FSAR ? ".bfsar"
 			: variant == BRSAR_VARIANT_CSAR		? ".bcsar"
 												: ".brsar";
 		size_t len = strlen (input_dir);
@@ -58,7 +61,8 @@ static int cmd_pack (int argc, char *argv[])
 
 	u8 *data = 0;
 	size_t size = 0;
-	enumError err = PackBRSARDir (&data, &size, input_dir, variant);
+	enumError err = sdat ? PackSDATDir (&data, &size, input_dir)
+		: PackBRSARDir (&data, &size, input_dir, variant);
 	if (err)
 	{
 		fprintf (stderr, "wbrsar: pack failed for %s\n", input_dir);
@@ -84,7 +88,7 @@ static int cmd_unpack (int argc, char *argv[])
 	{
 		fprintf (stderr,
 			"wbrsar unpack: missing input archive\n"
-			"Usage: %s unpack <input.brsar|.bfsar|.bcsar> [output_dir]\n",
+			"Usage: %s unpack <input.brsar|.bfsar|.bcsar|.sdat> [output_dir]\n",
 			argv[0]);
 		return ERR_SYNTAX;
 	}
@@ -107,7 +111,8 @@ static int cmd_unpack (int argc, char *argv[])
 		return err;
 	}
 
-	err = UnpackBRSAR (raw, raw_size, out_dir);
+	err = raw_size >= 4 && !memcmp (raw, "SDAT", 4)
+		? UnpackSDAT (raw, raw_size, out_dir) : UnpackBRSAR (raw, raw_size, out_dir);
 	FREE (raw);
 	if (err)
 	{
@@ -140,8 +145,8 @@ int main (int argc, char *argv[])
 				"Extracts all MIDI sequences and exactly 1 copy of the soundfont for the "
 				"archive.\n\n"
 				"Usage: %s [options] <input.brsar> [output_dir]\n"
-				"       %s pack   <input_dir> [output.brsar] [--bfsar|--bcsar]\n"
-				"       %s unpack <input.brsar|.bfsar|.bcsar> [output_dir]\n\n"
+				"       %s pack   <input_dir> [output] [--bfsar|--bcsar|--sdat]\n"
+				"       %s unpack <input.brsar|.bfsar|.bcsar|.sdat> [output_dir]\n\n"
 				"Options:\n"
 				"  --sf2            Export SoundFont 2 (.sf2) [default]\n"
 				"  --dls            Export DLS (.dls)\n"
@@ -153,6 +158,8 @@ int main (int argc, char *argv[])
 				"      BRSAR (Wii); --bfsar/--bcsar select the Wii U / 3DS container\n"
 				"      instead (FSAR/CSAR layout is extrapolated, not independently\n"
 				"      verified -- see lib-brsar.h).\n"
+				"      --sdat builds a Nintendo DS archive from SSEQ/SBNK/SWAR files\n"
+				"      (or .txt MML assembled as SSEQ).\n"
 				"unpack: Extract an archive's RSEQ/RBNK/RWAR/RWSD assets to a directory\n"
 				"      (raw asset dump, distinct from the MIDI/SF2 conversion above).\n",
 				argv[0], argv[0], argv[0]);

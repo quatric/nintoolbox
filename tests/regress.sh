@@ -2649,6 +2649,26 @@ t_sdat(){
 }
 t_sdat
 
+t_sdat_pack(){
+  local d=/tmp/_r_sdat_pack; rm -rf "$d"; mkdir -p "$d/in" "$d/out"
+  printf 'SSEQsynthetic-sequence' > "$d/in/song.sseq"
+  printf 'SBNKsynthetic-bank' > "$d/in/bank.sbnk"
+  printf 'SWARsynthetic-wave' > "$d/in/wave.swar"
+  if "$B/wbrsar" pack "$d/in" "$d/a.sdat" --sdat >/dev/null 2>&1 \
+  && "$B/wbrsar" unpack "$d/a.sdat" "$d/out" >/dev/null 2>&1 \
+  && "$B/wbrsar" pack "$d/out" "$d/b.sdat" --sdat >/dev/null 2>&1 \
+  && cmp -s "$d/a.sdat" "$d/b.sdat" \
+  && [ "$(head -c4 "$d/a.sdat")" = SDAT ] \
+  && cmp -s "$d/in/song.sseq" "$d/out/song.sseq" \
+  && cmp -s "$d/in/bank.sbnk" "$d/out/bank.sbnk" \
+  && cmp -s "$d/in/wave.swar" "$d/out/wave.swar"; then
+    ok "SDAT pack -> raw unpack -> identical repack"
+  else
+    no "SDAT packing" "$d"
+  fi
+}
+t_sdat_pack
+
 t_rbnk(){
   local d; d=$(mktemp -d /tmp/_r_rbnk.XXXXXX) || return
   local brsar="$PWD_PROJECT/../tests/samples-excitebots/extract/excitebots.d/UPDATE/files/_sys/RVL-Eulav_US-v2.d/0000000b.d/sound/eulaSound.brsar"

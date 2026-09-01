@@ -6447,6 +6447,9 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest)
 	if (!ext)
 		ext = "";
 
+	if (!strcasecmp (ext, ".sdat"))
+		return PassthruPack (source_dir, dest);
+
 	// Audio and video formats with extracted preview trees must NOT be repacked into U8 archives
 	if (!strcasecmp (ext, ".brsar") || !strcasecmp (ext, ".sdat") || !strcasecmp (ext, ".thp")
 		|| !strcasecmp (ext, ".moflex") || !strcasecmp (ext, ".mo") || !strcasecmp (ext, ".brstm")

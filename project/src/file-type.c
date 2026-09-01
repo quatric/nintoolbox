@@ -704,7 +704,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, MinusString, MinusString, "MSBF text representation" },
 
 	// FF_SDAT = 132 (Nintendo DS Sound Archive)
-	{ FF_SDAT, 0, 0, "SDAT", ".sdat", ".sdat", ".sdat", FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT, 4,
+	{ FF_SDAT, 0, 0, "SDAT", ".sdat", ".sdat", ".sdat", FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT | FFT_CREATE, 4,
 		{ 0x53, 0x44, 0x41, 0x54 }, // "SDAT"
 		0, MinusString, MinusString, "Nintendo DS Sound Archive (SDAT)" },
 
