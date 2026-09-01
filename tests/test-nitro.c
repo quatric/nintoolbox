@@ -465,6 +465,36 @@ int main (void)
 		}
 	}
 
+	// 14. Test PSDK (Prosonic SDK LZ)
+	{
+		const u8 psdk_test[] = "PSDK Prosonic SDK compression test payload with some repeating repeating text 123456789";
+		const uint len = sizeof (psdk_test);
+		u8 *enc = 0, *dec = 0;
+		uint enc_sz = 0, dec_sz = 0;
+
+		enumError e1 = EncodePSDK (&enc, &enc_sz, psdk_test, len);
+		if (e1 || !enc || enc_sz < 8)
+		{
+			printf("  FAIL: EncodePSDK failed\n");
+			fail++;
+		}
+		else
+		{
+			enumError e2 = DecodePSDK (&dec, &dec_sz, enc, enc_sz);
+			if (e2 || dec_sz != len || memcmp (dec, psdk_test, len))
+			{
+				printf("  FAIL: DecodePSDK roundtrip mismatch\n");
+				fail++;
+			}
+			else
+			{
+				printf("  PASS: PSDK encode -> decode roundtrip\n");
+			}
+			free (dec);
+			free (enc);
+		}
+	}
+
 	printf("=== Results: %s (failures: %d) ===\n", fail == 0 ? "ALL PASSED" : "SOME FAILED", fail);
 	return fail;
 }

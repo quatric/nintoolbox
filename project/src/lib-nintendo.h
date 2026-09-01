@@ -110,6 +110,8 @@ int CxIsCompressedLZOvl (const unsigned char *src, unsigned int size);
 enumError DecodeALAR (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 enumError DecodeDARC (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 enumError DecodeSADL_WAV (u8 **dest_wav, uint *dest_size, const u8 *src, uint src_size);
+enumError DecodePSDK (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+enumError EncodePSDK (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 
 enumError DecodeVLX (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 enumError EncodeVLX (u8 **dest, uint *dest_size, const u8 *src, uint src_size);

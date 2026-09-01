@@ -5179,19 +5179,9 @@ static enumError decompress_nintendo_file2 (ccp arg, char *dest_out, uint dest_o
 		case NFMT_LZOVL:
 			err = DecodeLZOvl (&decoded, &decoded_size, data, size);
 			break;
-
-		// Recognized codecs with no in-tree decoder.  Report them clearly
-		// instead of silently treating the payload as unknown data; a future
-		// build can fill in PSDK decoding without touching this switch.
 		case NFMT_PSDK:
-		{
-			const enumError e = ERROR0 (ERR_WRONG_FILE_TYPE,
-				"Codec %s is recognized but not yet supported "
-				"(no decoder in this build): %s\n",
-				GetNintendoFormatName (info.type), arg);
-			FREE (data);
-			return e;
-		}
+			err = DecodePSDK (&decoded, &decoded_size, data, size);
+			break;
 
 		default:
 			FREE (data);
@@ -5222,7 +5212,7 @@ static enumError decompress_nintendo_file2 (ccp arg, char *dest_out, uint dest_o
 				|| !strcasecmp (dot, ".lzs") || !strcasecmp (dot, ".fzip")
 				|| !strcasecmp (dot, ".vlx") || !strcasecmp (dot, ".pc")
 				|| !strcasecmp (dot, ".lzx") || !strcasecmp (dot, ".diff")
-				|| !strcasecmp (dot, ".ovl")))
+				|| !strcasecmp (dot, ".ovl") || !strcasecmp (dot, ".psdk")))
 		{
 			*dot = 0;
 			stripped = true;
