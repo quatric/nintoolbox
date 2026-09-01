@@ -1091,6 +1091,9 @@ enumError ScanHWLegends (nintendo_sarc_entry_t **entries, uint *n_entries, const
 enumError ScanCramARC (
 	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size);
 
+enumError CreateCramARC (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
+
 //-----------------------------------------------------------------------------
 // Mii Maker (Wii U, "SA01") and amiibo Settings (3DS, "CA01").  Both are a
 // zlib payload -- Mii Maker behind a bare big-endian u32 uncompressed size,

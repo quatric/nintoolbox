@@ -781,6 +781,50 @@ int main (void)
 		}
 	}
 
+	// 22. Test cram (.arc, Xenoblade Chronicles 3D)
+	{
+		nintendo_sarc_entry_t entries[2];
+		memset (entries, 0, sizeof (entries));
+		entries[0].name = "model.bcmdl";
+		entries[0].data = (const u8 *)"BCMDL_SAMPLE_CHUNK_01234567";
+		entries[0].size = (uint)strlen ((const char *)entries[0].data);
+		entries[1].name = "texture.bctex";
+		entries[1].data = (const u8 *)"BCTEX_SAMPLE_CHUNK_ABCDEFGH";
+		entries[1].size = (uint)strlen ((const char *)entries[1].data);
+
+		u8 *cram_blob = 0;
+		uint cram_sz = 0;
+		enumError e1 = CreateCramARC (&cram_blob, &cram_sz, entries, 2);
+		if (e1 || !cram_blob || cram_sz < 16)
+		{
+			printf("  FAIL: CreateCramARC failed\n");
+			fail++;
+		}
+		else
+		{
+			nintendo_sarc_entry_t *scanned = 0;
+			uint n_scanned = 0;
+			enumError e2 = ScanCramARC (&scanned, &n_scanned, cram_blob, cram_sz);
+			if (e2 || n_scanned != 2
+				|| strcmp (scanned[0].name, "model.bcmdl")
+				|| scanned[0].size != entries[0].size
+				|| memcmp (scanned[0].data, entries[0].data, entries[0].size)
+				|| strcmp (scanned[1].name, "texture.bctex")
+				|| scanned[1].size != entries[1].size
+				|| memcmp (scanned[1].data, entries[1].data, entries[1].size))
+			{
+				printf("  FAIL: ScanCramARC roundtrip mismatch\n");
+				fail++;
+			}
+			else
+			{
+				printf("  PASS: cram ARC create -> scan roundtrip (2 members)\n");
+			}
+			ResetOwnedEntries (scanned, n_scanned);
+			free (cram_blob);
+		}
+	}
+
 	printf("=== Results: %s (failures: %d) ===\n", fail == 0 ? "ALL PASSED" : "SOME FAILED", fail);
 	return fail;
 }
