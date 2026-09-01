@@ -377,7 +377,7 @@ here for comparison. Status is read directly from each format's
 | SCN (SCN0) | ⛔ | ⛔ |
 | SHA1ID | ⛔ | ✅ |
 | SHA1REF | ⛔ | ✅ |
-| SHP (SHP0) | ⛔ | ⛔ |
+| SHP (SHP0) | ✅ | ✅ |
 | SKP-OBJ | ✅ | ✅ |
 | SRT (SRT0) | 🟡 | 🟡 |
 | TEX (TEX0) | ✅ | ✅ |
@@ -486,8 +486,28 @@ Notes on the BRRES animation siblings added by this fork:
   scatters the resulting offsets back onto the logical slots. The encoder also
   deduplicates identical colour arrays, as retail does. Covered by
   `t_clr0_cli` in `tests/regress.sh`.
-- **SHP0** and **SCN0** remain ⛔: not started, so no claim is made about
-  them.
+- **SHP0** ✅ — vertex morph animation. Implemented from scratch in
+  `src/lib-shp.{c,h}` (layout from BrawlLib's `SHP0.cs`: `SHP0v3`/`SHP0v4`,
+  `SHP0Entry`, `SHP0KeyframeEntries`, plus `SHP0Node.OnInitialize` for how the
+  string list resolves). SHP0 blends a polygon between named vertex sets over
+  time: each entry names one polygon and carries one track per morph target,
+  each track either a fixed value or a list of `(frame, value, tangent)`
+  keyframes. The non-obvious part of the layout is `_indiciesOffset`, which
+  points at the `u16` target-index array while the parallel `s32` keyframe-set
+  offset array sits *immediately before* it — BrawlLib reaches it as
+  `_indiciesOffset - 4 * _numIndices`.
+  Registered as `FF_SHP`/`FF_SHP_TXT` (`SHP0`/`#SHP`), with BRSUB version
+  records for v3 and v4 and TEXT/BINARY dispatch in `wszst`.
+  Like VIS0, retail SHP0 names its morph targets through the **shared BRRES
+  string pool**, so a standalone file cannot resolve them — but unlike VIS0
+  those offsets feed nothing else (the NW4R tree is built from the polygon
+  names, which *are* local), so the decoder keeps each raw offset and the
+  encoder writes it back verbatim. That makes byte equality reachable anyway,
+  and it holds: **all 31 retail SHP0 animations** found across the Mario Kart
+  Wii sample corpus re-encode byte-identically to the originals. Two of the
+  source archives are checked in as `tests/fixtures/mkw_r_parasol.brres` and
+  `mkw_wanwan.brres`; covered by `t_shp0_cli` in `tests/regress.sh`.
+- **SCN0** remains ⛔: not started, so no claim is made about it.
 
 
 ---

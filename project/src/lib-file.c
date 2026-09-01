@@ -1124,6 +1124,29 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x434c414e: // "CLAN"
 				return FF_BCLYT; // treat BCLAN same as BCLYT for now
 
+			// Nitro 3D Texture Archive (NSBTX)
+			case 0x42545830: // "BTX0"
+				return FF_NSBTX;
+
+			// Nitro Font Resource (NFTR / BNFR)
+			case 0x52544e46: // "RTNF"
+			case 0x464e5452: // "FNTR"
+				return FF_NFTR;
+			case 0x524e4642: // "RNFB"
+			case 0x424e4652: // "BNFR"
+				return FF_BNFR;
+
+			// Nitro 2D Layouts (BNLL / BNCL / BNBL)
+			case 0x4c4c4e42: // "LLNB"
+			case 0x424e4c4c: // "BNLL"
+				return FF_BNLL;
+			case 0x4c434e42: // "LCNB"
+			case 0x424e434c: // "BNCL"
+				return FF_BNCL;
+			case 0x4c424e42: // "LBNB"
+			case 0x424e424c: // "BNBL"
+				return FF_BNBL;
+
 			case BREFF_MAGIC_NUM:
 				if (file_size >= 0x20)
 					return data_size < 0x14 || !memcmp (data + 0x10, BREFF_MAGIC, 4) ? FF_BREFF

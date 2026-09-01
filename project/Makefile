@@ -291,6 +291,7 @@ BCN_CXX_OBJS	= src/bcn-decoder/bcn.o src/bcn-decoder/bcn_wrapper.o
 XOBJ_IMAGE	= lib-image1.o lib-image2.o lib-image3.o lib-nintendo.o lib-plt0.o lib-bntx.o \
 			lib-smdh.o \
 			lib-gtx.o \
+			lib-nitro.o \
 			$(LATTE_CXX_OBJS) $(BCN_CXX_OBJS) \
 			lib-quicklz.o qlz120.o qlz140.o src/ajpg/odh_core.o lib-bflyt.o \
 			src/astc/astc_decomp.o src/astc/astc_wrapper.o
@@ -301,7 +302,7 @@ XOBJ_KMP	= lib-kmp.o lib-kmp-text.o lib-kmp-pflags.o lib-kmp-diff.o lib-kmp-draw
 XOBJ_COMMON	= lib-common.o lib-geohit.o lib-itemslot.o lib-minigame.o lib-objflow.o
 
 XOBJ_LIB	= analyze.o lib-szs-create.o lib-analyze.o lib-xbmg.o lib-msbt.o \
-			lib-wc24.o lib-bms.o lib-nitro.o lib-bch.o lib-aes.o lib-bignum.o lib-rsa.o \
+			lib-wc24.o lib-bms.o lib-bch.o lib-aes.o lib-bignum.o lib-rsa.o \
 			lib-vc.o lib-sequence.o lib-excite.o lib-hsf.o \
 			lib-mdl.o lib-pat.o lib-vis0.o lib-clr.o lib-shp.o lib-transform.o \
 			lib-brres-anim.o lib-chr.o lib-srt.o \

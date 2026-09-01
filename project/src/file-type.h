@@ -247,7 +247,17 @@ typedef enum file_format_t
 	FF_VIS_TXT, // 155 - Text version of VIS
 	FF_CLR_TXT, // 156 - Text version of CLR
 	FF_SHP_TXT, // 157 - Text version of SHP
-	FF_ZSTD, // 157 - Zstandard compression (.zs / .zst / .zstd)
+	FF_ZSTD, // 158 - Zstandard compression (.zs / .zst / .zstd)
+	FF_NSBTX, // 159 - Nintendo DS 3D texture archive (.nsbtx / BTX0)
+	FF_NFTR, // 160 - Nintendo DS font resource (.nftr / RTNF)
+	FF_BNFR, // 161 - Nintendo DS binary font resource (.bnfr / RNFB)
+	FF_BNLL, // 162 - Nintendo DS binary layout (.bnll / LLNB)
+	FF_BNCL, // 163 - Nintendo DS binary cell layout (.bncl / LCNB)
+	FF_BNBL, // 164 - Nintendo DS binary block layout (.bnbl / LBNB)
+	FF_VLX, // 165 - Namco/Pac-Man World DS compression (.vlx)
+	FF_PUCRUNCH, // 166 - Griptonite Games DS compression (.pucrunch)
+	FF_LZX, // 167 - Nintendo DS extended LZ11 (.lzx)
+	FF_DIFF, // 168 - Nintendo differential filter (.diff)
 
 	//--- number of elements
 

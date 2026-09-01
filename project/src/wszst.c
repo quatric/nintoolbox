@@ -5160,6 +5160,21 @@ static enumError decompress_nintendo_file2 (ccp arg, char *dest_out, uint dest_o
 		case NFMT_FZIP:
 			err = DecodeFZIP (&decoded, &decoded_size, data, size);
 			break;
+		case NFMT_VLX:
+			err = DecodeVLX (&decoded, &decoded_size, data, size);
+			break;
+		case NFMT_PUCRUNCH:
+			err = DecodePuCrunch (&decoded, &decoded_size, data, size);
+			break;
+		case NFMT_LZX:
+			err = DecodeLZX (&decoded, &decoded_size, data, size);
+			break;
+		case NFMT_DIFF8:
+			err = DecodeDiff8 (&decoded, &decoded_size, data, size);
+			break;
+		case NFMT_DIFF16:
+			err = DecodeDiff16 (&decoded, &decoded_size, data, size);
+			break;
 
 		// Recognized codecs with no in-tree decoder.  Report them clearly
 		// instead of silently treating the payload as unknown data; a future
@@ -5200,7 +5215,9 @@ static enumError decompress_nintendo_file2 (ccp arg, char *dest_out, uint dest_o
 				|| !strcasecmp (dot, ".qlz") || !strcasecmp (dot, ".rnc")
 				|| !strcasecmp (dot, ".romc") || !strcasecmp (dot, ".at7")
 				|| !strcasecmp (dot, ".stpl") || !strcasecmp (dot, ".p")
-				|| !strcasecmp (dot, ".lzs") || !strcasecmp (dot, ".fzip")))
+				|| !strcasecmp (dot, ".lzs") || !strcasecmp (dot, ".fzip")
+				|| !strcasecmp (dot, ".vlx") || !strcasecmp (dot, ".pc")
+				|| !strcasecmp (dot, ".lzx") || !strcasecmp (dot, ".diff")))
 		{
 			*dot = 0;
 			stripped = true;
@@ -5223,6 +5240,18 @@ static enumError decompress_nintendo_file2 (ccp arg, char *dest_out, uint dest_o
 				ext = ".nanr";
 			else if (dec_info.type == NFMT_NSCR)
 				ext = ".nscr";
+			else if (dec_info.type == NFMT_NSBTX)
+				ext = ".nsbtx";
+			else if (dec_info.type == NFMT_NFTR)
+				ext = ".nftr";
+			else if (dec_info.type == NFMT_BNFR)
+				ext = ".bnfr";
+			else if (dec_info.type == NFMT_BNLL)
+				ext = ".bnll";
+			else if (dec_info.type == NFMT_BNCL)
+				ext = ".bncl";
+			else if (dec_info.type == NFMT_BNBL)
+				ext = ".bnbl";
 			else if (dec_info.type == NFMT_SARC)
 				ext = ".sarc";
 			else if (dec_info.type == NFMT_NARC)

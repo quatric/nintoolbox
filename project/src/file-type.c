@@ -844,10 +844,62 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x23, 0x53, 0x48, 0x50 }, // "#SHP"
 		0, MinusString, MinusString, "Text version of SHP" },
 
-	// FF_ZSTD = 157 (Zstandard compression)
+	// FF_ZSTD = 158 (Zstandard compression)
 	{ FF_ZSTD, 0, 0, "ZSTD", ".zs", ".zs", ".zst", FFT_VALID | FFT_COMPRESS | FFT_TRACK, 4,
 		{ 0x28, 0xb5, 0x2f, 0xfd }, // Zstandard magic 0xFD2FB528
 		0, MinusString, MinusString, "Zstandard compression (.zs / .zst / .zstd)" },
+
+	// FF_NSBTX = 159 (Nitro 3D texture archive)
+	{ FF_NSBTX, FF_NSBTX, 0, "NSBTX", ".nsbtx", ".szs", ".btx0",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
+		{ 0x42, 0x54, 0x58, 0x30 }, // "BTX0"
+		"NitroTexArc", "4,(*)", "1", "Nintendo DS 3D texture archive" },
+
+	// FF_NFTR = 160 (Nitro font resource)
+	{ FF_NFTR, FF_NFTR, 0, "NFTR", ".nftr", ".szs", ".fntr",
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
+		{ 0x52, 0x54, 0x4e, 0x46 }, // "RTNF"
+		"NitroFont", "4,(*)", "1", "Nintendo DS font resource" },
+
+	// FF_BNFR = 161 (Binary Nitro font resource)
+	{ FF_BNFR, FF_BNFR, 0, "BNFR", ".bnfr", ".szs", ".rnfb",
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
+		{ 0x52, 0x4e, 0x46, 0x42 }, // "RNFB"
+		"BinaryNitroFont", "4,(*)", "1", "Binary Nitro font resource" },
+
+	// FF_BNLL = 162 (Nitro binary layout)
+	{ FF_BNLL, FF_BNLL, 0, "BNLL", ".bnll", ".szs", ".llnb",
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
+		{ 0x4c, 0x4c, 0x4e, 0x42 }, // "LLNB"
+		"NitroLayout", "4,(*)", "1", "Nintendo DS binary layout" },
+
+	// FF_BNCL = 163 (Nitro binary cell layout)
+	{ FF_BNCL, FF_BNCL, 0, "BNCL", ".bncl", ".szs", ".lcnb",
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
+		{ 0x4c, 0x43, 0x4e, 0x42 }, // "LCNB"
+		"NitroCellLayout", "4,(*)", "1", "Nintendo DS binary cell layout" },
+
+	// FF_BNBL = 164 (Nitro binary block layout)
+	{ FF_BNBL, FF_BNBL, 0, "BNBL", ".bnbl", ".szs", ".lbnb",
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
+		{ 0x4c, 0x42, 0x4e, 0x42 }, // "LBNB"
+		"NitroBlockLayout", "4,(*)", "1", "Nintendo DS binary block layout" },
+
+	// FF_VLX = 165 (Pac-Man World DS compression)
+	{ FF_VLX, 0, 0, "VLX", ".vlx", ".szs", ".vlx", FFT_VALID | FFT_COMPRESS | FFT_TRACK, 0,
+		{ 0 }, 0, MinusString, MinusString, "Namco VLX compression" },
+
+	// FF_PUCRUNCH = 166 (Griptonite Games PuCrunch compression)
+	{ FF_PUCRUNCH, 0, 0, "PUCRUNCH", ".pc", ".szs", ".pc", FFT_VALID | FFT_COMPRESS | FFT_TRACK, 1,
+		{ 0x60 }, 0, MinusString, MinusString, "Griptonite PuCrunch compression" },
+
+	// FF_LZX = 167 (Nintendo DS extended LZ11)
+	{ FF_LZX, 0, 0, "LZX", ".lzx", ".szs", ".lzx", FFT_VALID | FFT_COMPRESS | FFT_TRACK, 1,
+		{ 0x19 }, 0, MinusString, MinusString, "Nintendo DS extended LZ11 (0x19)" },
+
+	// FF_DIFF = 168 (Nintendo differential filter)
+	{ FF_DIFF, 0, 0, "DIFF", ".diff", ".szs", ".diff", FFT_VALID | FFT_COMPRESS | FFT_TRACK, 1,
+		{ 0x80 }, 0, MinusString, MinusString, "Nintendo differential filter (0x80/0x81)" },
 
 	// FF_N
 	{ 0 }
@@ -944,6 +996,16 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_ZSTD, "ZSTD", "ZSTD", 0x103 },
 	{ FF_ZSTD, "ZST", "ZST", 0x103 },
 	{ FF_ZSTD, "ZS", "ZS", 0x103 },
+	{ FF_NSBTX, "NSBTX", "BTX0", 0x3829 },
+	{ FF_NFTR, "NFTR", "FNTR", 0x3809 },
+	{ FF_BNFR, "BNFR", "RNFB", 0x3809 },
+	{ FF_BNLL, "BNLL", "LLNB", 0x3001 },
+	{ FF_BNCL, "BNCL", "LCNB", 0x3001 },
+	{ FF_BNBL, "BNBL", "LBNB", 0x3001 },
+	{ FF_VLX, "VLX", 0, 0x103 },
+	{ FF_PUCRUNCH, "PUCRUNCH", "PCRUNCH", 0x103 },
+	{ FF_LZX, "LZX", 0, 0x103 },
+	{ FF_DIFF, "DIFF", 0, 0x103 },
 
 	{ 0, 0, 0, 0 }
 };
