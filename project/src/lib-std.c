@@ -6771,7 +6771,14 @@ valid_t IsValidLEX (const void *data, // data
 	if (memcmp (lex->magic, "LE-X", sizeof (lex->magic)))
 		return VALID_WRONG_FF;
 
-	// [[todo]] [[lex]] ???
+	if (ntohs (lex->major_version) != LEX_MAJOR_VERSION)
+		return VALID_WRONG_VERSION;
+
+	const uint size = ntohl (lex->size);
+	const uint off = ntohl (lex->element_off);
+	if ((size & 3) || (file_size && size > file_size) || (off & 3) || off + 4 > size)
+		return VALID_CORRUPT;
+
 	return VALID_OK;
 }
 
