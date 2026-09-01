@@ -69,7 +69,11 @@ typedef enum nfmt_type_t
 	NFMT_BNFR,
 	NFMT_BNLL,
 	NFMT_BNCL,
-	NFMT_BNBL
+	NFMT_BNBL,
+	NFMT_LZOVL,
+	NFMT_ALAR,
+	NFMT_DARC,
+	NFMT_SADL
 
 } nfmt_type_t;
 
@@ -98,6 +102,14 @@ enumError EncodeCamelot (u8 **dest, uint *dest_size, const u8 *src, uint src_siz
 enumError DecodeLZ10LZ11 (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 int CxIsCompressedMvDK (const unsigned char *buffer, unsigned int size);
 enumError DecodeMVDK (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+
+enumError DecodeLZOvl (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+enumError EncodeLZOvl (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+int CxIsCompressedLZOvl (const unsigned char *src, unsigned int size);
+
+enumError DecodeALAR (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+enumError DecodeDARC (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+enumError DecodeSADL_WAV (u8 **dest_wav, uint *dest_size, const u8 *src, uint src_size);
 
 enumError DecodeVLX (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 enumError EncodeVLX (u8 **dest, uint *dest_size, const u8 *src, uint src_size);

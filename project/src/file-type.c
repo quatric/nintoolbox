@@ -908,6 +908,40 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x23, 0x53, 0x43, 0x4e }, // "#SCN"
 		0, MinusString, MinusString, "Text version of SCN" },
 
+	// FF_LZOVL = 170 (Nintendo DS Overlay LZSS compression)
+	{ FF_LZOVL, 0, 0, "LZOVL", ".ovl", ".szs", ".ovl", FFT_VALID | FFT_COMPRESS | FFT_TRACK, 0,
+		{ 0 }, 0, MinusString, MinusString, "Nintendo DS Overlay LZSS compression" },
+
+	// FF_ALAR = 171 (Jump Ultimate Stars archive)
+	{ FF_ALAR, FF_ALAR, 0, "ALAR", ".alar", ".szs", ".alar",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE, 4,
+		{ 0x41, 0x4c, 0x41, 0x52 }, // "ALAR"
+		0, "4,(*)", "1", "Jump Ultimate Stars archive" },
+
+	// FF_DARC = 172 (Level-5 / Layton archive)
+	{ FF_DARC, FF_DARC, 0, "DARC", ".darc", ".szs", ".darc",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE, 4,
+		{ 0x44, 0x41, 0x52, 0x43 }, // "DARC"
+		0, "4,(*)", "1", "Level-5 / Layton archive" },
+
+	// FF_SADL = 173 (Level-5 / Layton SADL sound archive)
+	{ FF_SADL, FF_SADL, 0, "SADL", ".sad", ".szs", ".sadl",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+		{ 0x53, 0x41, 0x44, 0x4c }, // "SADL"
+		0, MinusString, MinusString, "Level-5 / Layton SADL sound archive" },
+
+	// FF_NCER = 174 (Nitro cell resource)
+	{ FF_NCER, FF_NCER, 0, "NCER", ".ncer", ".szs", ".recn",
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
+		{ 0x52, 0x45, 0x43, 0x4e }, // "RECN"
+		0, MinusString, MinusString, "Nintendo DS Cell resource" },
+
+	// FF_NANR = 175 (Nitro animation resource)
+	{ FF_NANR, FF_NANR, 0, "NANR", ".nanr", ".szs", ".rnan",
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
+		{ 0x52, 0x4e, 0x41, 0x4e }, // "RNAN"
+		0, MinusString, MinusString, "Nintendo DS Animation resource" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1014,6 +1048,12 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_PUCRUNCH, "PUCRUNCH", "PCRUNCH", 0x103 },
 	{ FF_LZX, "LZX", 0, 0x103 },
 	{ FF_DIFF, "DIFF", 0, 0x103 },
+	{ FF_LZOVL, "LZOVL", "OVL", 0x103 },
+	{ FF_ALAR, "ALAR", 0, 0xe05 },
+	{ FF_DARC, "DARC", 0, 0xe05 },
+	{ FF_SADL, "SADL", 0, 0x861 },
+	{ FF_NCER, "NCER", "RECN", 0x3001 },
+	{ FF_NANR, "NANR", "RNAN", 0x3001 },
 
 	{ 0, 0, 0, 0 }
 };

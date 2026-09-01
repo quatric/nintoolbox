@@ -181,4 +181,10 @@ enumError EncodeNFTR_Atlas (u8 **dest, uint *dest_size,
 enumError DecodeBNLL_Text (char **dest_text, const u8 *data, uint size);
 enumError EncodeBNLL_Text (u8 **dest, uint *dest_size, ccp text);
 
+enumError DecodeNCER_Text (char **dest_text, const u8 *data, uint size);
+enumError EncodeNCER_Text (u8 **dest, uint *dest_size, ccp text);
+
+enumError DecodeNANR_Text (char **dest_text, const u8 *data, uint size);
+enumError EncodeNANR_Text (u8 **dest, uint *dest_size, ccp text);
+
 #endif // SZS_LIB_NITRO_H

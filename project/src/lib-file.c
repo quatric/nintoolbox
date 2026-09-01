@@ -1150,6 +1150,28 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x424e424c: // "BNBL"
 				return FF_BNBL;
 
+			// JUS Archive (ALAR)
+			case 0x414c4152: // "ALAR"
+				return FF_ALAR;
+
+			// Level-5 Layton Archive (DARC)
+			case 0x44415243: // "DARC"
+				return FF_DARC;
+
+			// Level-5 Layton Sound (SADL)
+			case 0x5341444c: // "SADL"
+				return FF_SADL;
+
+			// Nitro Cell Resource (NCER / RECN)
+			case 0x5245434e: // "RECN"
+			case 0x4e434552: // "NCER"
+				return FF_NCER;
+
+			// Nitro Animation Resource (NANR / RNAN)
+			case 0x524e414e: // "RNAN"
+			case 0x4e414e52: // "NANR"
+				return FF_NANR;
+
 			case BREFF_MAGIC_NUM:
 				if (file_size >= 0x20)
 					return data_size < 0x14 || !memcmp (data + 0x10, BREFF_MAGIC, 4) ? FF_BREFF

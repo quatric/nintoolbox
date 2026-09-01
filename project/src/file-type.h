@@ -259,6 +259,12 @@ typedef enum file_format_t
 	FF_LZX, // 167 - Nintendo DS extended LZ11 (.lzx)
 	FF_DIFF, // 168 - Nintendo differential filter (.diff)
 	FF_SCN_TXT, // 169 - Text version of SCN
+	FF_LZOVL, // 170 - Nintendo DS Overlay LZSS compression (.ovl)
+	FF_ALAR, // 171 - Jump Ultimate Stars archive (.alar)
+	FF_DARC, // 172 - Level-5 / Layton archive (.darc)
+	FF_SADL, // 173 - Level-5 / Layton SADL sound archive (.sad)
+	FF_NCER, // 174 - Nintendo DS Cell resource (.ncer / RECN)
+	FF_NANR, // 175 - Nintendo DS Animation resource (.nanr / RNAN)
 
 	//--- number of elements
 

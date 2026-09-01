@@ -5176,6 +5176,9 @@ static enumError decompress_nintendo_file2 (ccp arg, char *dest_out, uint dest_o
 		case NFMT_DIFF16:
 			err = DecodeDiff16 (&decoded, &decoded_size, data, size);
 			break;
+		case NFMT_LZOVL:
+			err = DecodeLZOvl (&decoded, &decoded_size, data, size);
+			break;
 
 		// Recognized codecs with no in-tree decoder.  Report them clearly
 		// instead of silently treating the payload as unknown data; a future
@@ -5218,7 +5221,8 @@ static enumError decompress_nintendo_file2 (ccp arg, char *dest_out, uint dest_o
 				|| !strcasecmp (dot, ".stpl") || !strcasecmp (dot, ".p")
 				|| !strcasecmp (dot, ".lzs") || !strcasecmp (dot, ".fzip")
 				|| !strcasecmp (dot, ".vlx") || !strcasecmp (dot, ".pc")
-				|| !strcasecmp (dot, ".lzx") || !strcasecmp (dot, ".diff")))
+				|| !strcasecmp (dot, ".lzx") || !strcasecmp (dot, ".diff")
+				|| !strcasecmp (dot, ".ovl")))
 		{
 			*dot = 0;
 			stripped = true;

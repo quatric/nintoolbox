@@ -306,6 +306,165 @@ int main (void)
 		}
 	}
 
+	// 9. Test LZOvl (NDS Overlay reverse compression)
+	{
+		const u8 test_data[] = "Reverse LZ overlay compression test payload for ARM9 overlay 0123456789";
+		const uint len = sizeof (test_data);
+		u8 *enc_ovl = 0, *dec_ovl = 0;
+		uint enc_sz = 0, dec_sz = 0;
+
+		enumError e1 = EncodeLZOvl (&enc_ovl, &enc_sz, test_data, len);
+		if (e1 || !enc_ovl || enc_sz < 8)
+		{
+			printf("  FAIL: EncodeLZOvl failed\n");
+			fail++;
+		}
+		else
+		{
+			enumError e2 = DecodeLZOvl (&dec_ovl, &dec_sz, enc_ovl, enc_sz);
+			if (e2 || dec_sz != len || memcmp (dec_ovl, test_data, len))
+			{
+				printf("  FAIL: DecodeLZOvl roundtrip mismatch\n");
+				fail++;
+			}
+			else
+			{
+				printf("  PASS: LZOvl reverse compression roundtrip\n");
+			}
+			free (dec_ovl);
+			free (enc_ovl);
+		}
+	}
+
+	// 10. Test ALAR (Jump Ultimate Stars Archive)
+	{
+		u8 alar_buf[64] = { 0 };
+		memcpy (alar_buf, "ALAR", 4);
+		alar_buf[4] = 2; // Type 2
+		alar_buf[6] = 1; // 1 file
+		// File 0 entry at 16: ofs=32, sz=12
+		alar_buf[16 + 4] = 32;
+		alar_buf[16 + 8] = 12;
+		memcpy (alar_buf + 32, "hello alar!", 12);
+
+		u8 *out = 0;
+		uint out_sz = 0;
+		enumError e1 = DecodeALAR (&out, &out_sz, alar_buf, sizeof (alar_buf));
+		if (e1 || out_sz != 12 || memcmp (out, "hello alar!", 12))
+		{
+			printf("  FAIL: DecodeALAR failed\n");
+			fail++;
+		}
+		else
+		{
+			printf("  PASS: ALAR archive unpack\n");
+		}
+		free (out);
+	}
+
+	// 11. Test DARC (Level-5 Layton Archive)
+	{
+		u8 darc_buf[64] = { 0 };
+		memcpy (darc_buf, "DARC", 4);
+		darc_buf[4] = 1; // 1 file
+		// rel_ofs = 8 (abs_ofs = 8 + 4 + 8 = 20)
+		darc_buf[8] = 8;
+		// sz at abs_ofs - 4 = 16
+		darc_buf[16] = 12;
+		memcpy (darc_buf + 20, "hello darc!", 12);
+
+		u8 *out = 0;
+		uint out_sz = 0;
+		enumError e1 = DecodeDARC (&out, &out_sz, darc_buf, sizeof (darc_buf));
+		if (e1 || out_sz != 12 || memcmp (out, "hello darc!", 12))
+		{
+			printf("  FAIL: DecodeDARC failed\n");
+			fail++;
+		}
+		else
+		{
+			printf("  PASS: DARC archive unpack\n");
+		}
+		free (out);
+	}
+
+	// 12. Test SADL (Level-5 Audio -> WAV)
+	{
+		u8 sadl_buf[0x100 + 32] = { 0 };
+		memcpy (sadl_buf, "SADL", 4);
+		sadl_buf[0x32] = 1; // 1 channel
+		sadl_buf[0x33] = 4; // 32728 Hz
+		sadl_buf[0x40] = (u8)(sizeof (sadl_buf) & 0xFF);
+		sadl_buf[0x41] = (u8)(sizeof (sadl_buf) >> 8);
+
+		u8 *wav = 0;
+		uint wav_sz = 0;
+		enumError e1 = DecodeSADL_WAV (&wav, &wav_sz, sadl_buf, sizeof (sadl_buf));
+		if (e1 || wav_sz < 44 || memcmp (wav, "RIFF", 4))
+		{
+			printf("  FAIL: DecodeSADL_WAV failed\n");
+			fail++;
+		}
+		else
+		{
+			printf("  PASS: SADL audio -> WAV decode\n");
+		}
+		free (wav);
+	}
+
+	// 13. Test NCER & NANR 2D Graphics text codecs
+	{
+		u8 *ncer = 0;
+		uint ncer_sz = 0;
+		enumError e1 = EncodeNCER_Text (&ncer, &ncer_sz, "cell text");
+		if (e1 || !ncer || ncer_sz < 0x20)
+		{
+			printf("  FAIL: EncodeNCER_Text failed\n");
+			fail++;
+		}
+		else
+		{
+			char *txt = 0;
+			enumError e2 = DecodeNCER_Text (&txt, ncer, ncer_sz);
+			if (e2 || !txt || !strstr (txt, "NCER"))
+			{
+				printf("  FAIL: DecodeNCER_Text failed\n");
+				fail++;
+			}
+			else
+			{
+				printf("  PASS: NCER 2D cell encode -> disassemble text\n");
+			}
+			free (txt);
+			free (ncer);
+		}
+
+		u8 *nanr = 0;
+		uint nanr_sz = 0;
+		e1 = EncodeNANR_Text (&nanr, &nanr_sz, "anim text");
+		if (e1 || !nanr || nanr_sz < 0x20)
+		{
+			printf("  FAIL: EncodeNANR_Text failed\n");
+			fail++;
+		}
+		else
+		{
+			char *txt = 0;
+			enumError e2 = DecodeNANR_Text (&txt, nanr, nanr_sz);
+			if (e2 || !txt || !strstr (txt, "NANR"))
+			{
+				printf("  FAIL: DecodeNANR_Text failed\n");
+				fail++;
+			}
+			else
+			{
+				printf("  PASS: NANR 2D animation encode -> disassemble text\n");
+			}
+			free (txt);
+			free (nanr);
+		}
+	}
+
 	printf("=== Results: %s (failures: %d) ===\n", fail == 0 ? "ALL PASSED" : "SOME FAILED", fail);
 	return fail;
 }

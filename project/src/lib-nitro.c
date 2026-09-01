@@ -1422,3 +1422,132 @@ enumError EncodeBNLL_Text (u8 **dest, uint *dest_size, ccp text)
 	return ERR_OK;
 }
 
+//-----------------------------------------------------------------------------
+///////////////		Nitro 2D Cell Resource (NCER)			///////////////
+//-----------------------------------------------------------------------------
+
+enumError DecodeNCER_Text (char **dest_text, const u8 *data, uint size)
+{
+	if (!dest_text || !data || size < 0x18)
+		return EINVAL;
+
+	const bool is_ncer = !memcmp (data, "RECN", 4) || !memcmp (data, "NCER", 4);
+	if (!is_ncer)
+		return EINVAL;
+
+	const uint ver = nrd16 (data + 6);
+	const uint n_sec = nrd16 (data + 14);
+
+	uint n_banks = 0;
+	if (size >= 0x20 && (!memcmp (data + 0x10, "CEBK", 4) || !memcmp (data + 0x10, "KBEC", 4)))
+	{
+		n_banks = nrd16 (data + 0x18);
+	}
+
+	char buf[4096];
+	snprintf (buf, sizeof (buf),
+		"# Nitro DS 2D Cell Resource (NCER)\n"
+		"version = 0x%04x\n"
+		"sections = %u\n"
+		"banks = %u\n"
+		"size = %u\n",
+		ver, n_sec, n_banks, size);
+
+	*dest_text = STRDUP (buf);
+	return ERR_OK;
+}
+
+enumError EncodeNCER_Text (u8 **dest, uint *dest_size, ccp text)
+{
+	if (!dest || !dest_size || !text)
+		return EINVAL;
+
+	const uint total = 0x30;
+	u8 *out = CALLOC (1, total);
+	if (!out)
+		return ERR_CANT_CREATE;
+
+	// NCER Header
+	memcpy (out, "RECN", 4);
+	out[4] = 0xFF; out[5] = 0xFE;
+	nwr16 (out + 6, 0x0100);
+	nwr32 (out + 8, total);
+	nwr16 (out + 12, 0x10);
+	nwr16 (out + 14, 1);
+
+	// CEBK Section
+	u8 *cebk = out + 0x10;
+	memcpy (cebk, "CEBK", 4);
+	nwr32 (cebk + 4, 0x20);
+	nwr16 (cebk + 8, 1); // 1 bank
+	nwr16 (cebk + 10, 0);
+
+	*dest = out;
+	*dest_size = total;
+	return ERR_OK;
+}
+
+//-----------------------------------------------------------------------------
+///////////////		Nitro 2D Animation Resource (NANR)		///////////////
+//-----------------------------------------------------------------------------
+
+enumError DecodeNANR_Text (char **dest_text, const u8 *data, uint size)
+{
+	if (!dest_text || !data || size < 0x18)
+		return EINVAL;
+
+	const bool is_nanr = !memcmp (data, "RNAN", 4) || !memcmp (data, "NANR", 4);
+	if (!is_nanr)
+		return EINVAL;
+
+	const uint ver = nrd16 (data + 6);
+	const uint n_sec = nrd16 (data + 14);
+
+	uint n_anims = 0;
+	if (size >= 0x20 && (!memcmp (data + 0x10, "ABNK", 4) || !memcmp (data + 0x10, "KNBA", 4)))
+	{
+		n_anims = nrd16 (data + 0x18);
+	}
+
+	char buf[4096];
+	snprintf (buf, sizeof (buf),
+		"# Nitro DS 2D Animation Resource (NANR)\n"
+		"version = 0x%04x\n"
+		"sections = %u\n"
+		"animations = %u\n"
+		"size = %u\n",
+		ver, n_sec, n_anims, size);
+
+	*dest_text = STRDUP (buf);
+	return ERR_OK;
+}
+
+enumError EncodeNANR_Text (u8 **dest, uint *dest_size, ccp text)
+{
+	if (!dest || !dest_size || !text)
+		return EINVAL;
+
+	const uint total = 0x30;
+	u8 *out = CALLOC (1, total);
+	if (!out)
+		return ERR_CANT_CREATE;
+
+	// NANR Header
+	memcpy (out, "RNAN", 4);
+	out[4] = 0xFF; out[5] = 0xFE;
+	nwr16 (out + 6, 0x0100);
+	nwr32 (out + 8, total);
+	nwr16 (out + 12, 0x10);
+	nwr16 (out + 14, 1);
+
+	// ABNK Section
+	u8 *abnk = out + 0x10;
+	memcpy (abnk, "ABNK", 4);
+	nwr32 (abnk + 4, 0x20);
+	nwr16 (abnk + 8, 1); // 1 animation sequence
+
+	*dest = out;
+	*dest_size = total;
+	return ERR_OK;
+}
+
