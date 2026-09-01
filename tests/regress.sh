@@ -3332,6 +3332,30 @@ t_excite_headered(){
 }
 t_excite_headered
 
+t_excite_headered_encode(){
+  # The ExciteBots encoder writes the explicit dimensions/mip-count header.
+  # RGBA32 is deliberately used by the CLI auto path: unlike the legacy
+  # representation it is lossless and cannot collide by byte size with a
+  # different GX format. The low-level encoder separately accepts every GX
+  # format and supplies the mandatory 1024-byte tail for I4/IA4 codes 40/41.
+  local src="$PWD_PROJECT/../tests/fixtures/excite_bat_d2.tex"
+  [ -f "$src" ] || { sk "ExciteBots explicit-header encode"; return; }
+  local d=/tmp/_r_exheadenc
+  rm -rf "$d"; mkdir -p "$d"
+  "$B/wszst" EXTRACT "$src" --dest "$d/orig.png" -o >"$d/log" 2>&1 || return
+  "$B/wimgt" CONVERT "$d/orig.png" --dest "$d/re.ebtex" -o >>"$d/log" 2>&1 || return
+  cp "$d/re.ebtex" "$d/re.tex"
+  "$B/wszst" EXTRACT "$d/re.tex" --dest "$d/re.png" -o >>"$d/log" 2>&1
+  # Fixture is 128x128: LE dimensions, 8 levels through 1x1, RGBA32 code 47.
+  local hdr; hdr=$(od -An -tx1 -N6 "$d/re.ebtex" | tr -d ' \n')
+  if [ "$hdr" = 800080000847 ] && python3 "$PNGTOOL" cmp "$d/orig.png" "$d/re.png" 2>/dev/null; then
+    ok "ExciteBots explicit-header encode (header, mip chain, exact pixels)"
+  else
+    no "ExciteBots explicit-header encode" "header=$hdr; see $d/log"
+  fi
+}
+t_excite_headered_encode
+
 t_gtx(){
   # Wii U GX2 "Gfx2" texture container: standalone .gtx files (e.g. debug
   # fonts, UI textures shipped outside any BFRES) were previously not

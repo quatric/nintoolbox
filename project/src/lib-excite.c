@@ -18,6 +18,11 @@ static inline void xwr_be16 (u8 *p, u16 v)
 	p[0] = (u8)(v >> 8);
 	p[1] = (u8)v;
 }
+static inline void xwr_le16 (u8 *p, u16 v)
+{
+	p[0] = (u8)v;
+	p[1] = (u8)(v >> 8);
+}
 
 // Sanity cap on encoder output size, matching lib-nintendo.c's NFMT_MAX_OUTPUT.
 #define XTEX_MAX_OUTPUT (512u << 20)
@@ -396,6 +401,8 @@ enumError DecodeGXTexture_RGBA (u8 **dest, uint w, uint h, uint fmt, const u8 *d
 //-----------------------------------------------------------------------------
 ///////////////		.tex / .art GX texture encoding			///////////////
 //-----------------------------------------------------------------------------
+
+static enumError scan_excite_header (excite_tex_t *tex, const u8 *data, uint size);
 //
 // gx_encode() is the exact byte-for-byte inverse of gx_decode() above: same
 // tile traversal, same bit-packing, so anything it writes decodes back to
@@ -848,6 +855,157 @@ enumError EncodeExciteART_RGBA (
 		FREE (out);
 	}
 	return ERR_INVALID_DATA;
+}
+
+// Canonical renderer-state values observed in the ExciteBots retail corpus.
+// The byte is not, in general, a pixel-format enum (several values select
+// filtering/wrapping variants), but these choices are known-good defaults for
+// newly-created resources. 0x40/0x41 are exceptional: the loader gives them
+// I4/IA4 storage semantics and expects an additional 1024-byte renderer tail.
+static uint excite_renderer_code (u8 fmt)
+{
+	switch (fmt)
+	{
+		case GX_I4: return 0x40;
+		case GX_IA4: return 0x41;
+		case GX_CMPR: return 0x42;
+		case GX_RGBA32: return 0x47;
+		case GX_I8: return 0x49;
+		case GX_IA8:
+		case GX_RGB565:
+		case GX_RGB5A3: return 0x46;
+		default: return 0;
+	}
+}
+
+enumError EncodeExciteHeader_RGBA (u8 **dest, uint *dest_size, const u8 *rgba, uint width,
+	uint height, int gx_format, uint levels, uint renderer_code)
+{
+	if (!dest || !dest_size)
+		return EINVAL;
+	*dest = 0;
+	*dest_size = 0;
+	if (!rgba || !is_gx_dim (width) || !is_gx_dim (height) || gx_format < 0
+		|| !find_gx_format ((u8)gx_format) || levels < 1 || levels > 10)
+		return ERR_INVALID_DATA;
+
+	// Reject redundant levels after both dimensions have reached 1. Apart
+	// from avoiding ambiguous files, this is the chain shape used by retail.
+	uint max_levels = 1, lw = width, lh = height;
+	while (max_levels < 10 && (lw > 1 || lh > 1))
+	{
+		lw = lw > 1 ? lw / 2 : 1;
+		lh = lh > 1 ? lh / 2 : 1;
+		max_levels++;
+	}
+	if (levels > max_levels)
+		return ERR_INVALID_DATA;
+
+	const u8 fmt = (u8)gx_format;
+	if (!renderer_code)
+		renderer_code = excite_renderer_code (fmt);
+	if (renderer_code < 0x40 || renderer_code > 0x4f
+		|| (renderer_code == 0x40 && fmt != GX_I4)
+		|| (renderer_code == 0x41 && fmt != GX_IA4)
+		|| (fmt == GX_I4 && renderer_code != 0x40)
+		|| (fmt == GX_IA4 && renderer_code != 0x41))
+		return ERR_INVALID_DATA;
+	// The decoder has to preserve a retail quirk where (2,0x44) denotes one
+	// level. Do not emit that ambiguous combination from the general encoder.
+	if (renderer_code == 0x44 && levels == 2)
+		return ERR_INVALID_DATA;
+
+	const u64 chain = gx_chain_size (fmt, width, height, levels);
+	const uint aux_size = renderer_code == 0x40 || renderer_code == 0x41 ? 1024 : 0;
+	if (!chain || chain > XTEX_MAX_OUTPUT - 128 - aux_size)
+		return ERR_INVALID_DATA;
+	const uint total = 128 + (uint)chain + aux_size;
+	u8 *out = CALLOC (1, total);
+	if (!out)
+		return ERR_CANT_CREATE;
+	// Stable descriptor defaults used by the retail ExciteBots exporter.
+	// These bytes include the ordinary wrap/filter state and descriptor-table
+	// offset; leaving the whole descriptor zero happens to satisfy our scanner
+	// but does not describe a usable texture to the game's renderer.
+	out[6] = 3;
+	out[7] = 3;
+	out[8] = fmt == GX_I4 || fmt == GX_I8 || fmt == GX_CMPR ? 5 : 6;
+	out[9] = 0x32;
+	out[11] = 2;
+	out[12] = 5;
+	out[13] = 4;
+	memset (out + 15, 0xe3, 5);
+	out[20] = 0x18;
+	out[28] = 0x68;
+	if (renderer_code == 0x40 || renderer_code == 0x41)
+	{
+		// The auxiliary renderer record begins at 0x468 in the loaded object:
+		// 0x68 is the on-disk descriptor offset and 0x400 its fixed tail size.
+		out[24] = 0x68;
+		out[29] = 4;
+	}
+	xwr_le16 (out, (u16)width);
+	xwr_le16 (out + 2, (u16)height);
+	out[4] = (u8)levels;
+	out[5] = (u8)renderer_code;
+
+	u8 *level = 0;
+	lw = width;
+	lh = height;
+	uint off = 128;
+	for (uint i = 0; i < levels; i++)
+	{
+		const u8 *src = i ? level : rgba;
+		gx_encode (fmt, lw, lh, src, out + off);
+		off += gx_level_size (fmt, lw, lh);
+		if (i + 1 < levels)
+		{
+			const uint nw = lw > 1 ? lw / 2 : 1, nh = lh > 1 ? lh / 2 : 1;
+			u8 *next = box_downsample2x (src, lw, lh, nw, nh);
+			FREE (level);
+			level = next;
+			if (!level)
+			{
+				FREE (out);
+				return ERR_CANT_CREATE;
+			}
+			lw = nw;
+			lh = nh;
+		}
+	}
+	FREE (level);
+
+	// Exercise the production header parser, including its exact chain/tail
+	// bounds checks. I4/IA4 are deterministic from the renderer code. Other
+	// equal-byte-size formats remain material-selected in the game, so only
+	// require the parser to recover dimensions for those formats.
+	excite_tex_t verify;
+	const enumError verr = scan_excite_header (&verify, out, total);
+	const bool ok = !verr && verify.width == width && verify.height == height
+		&& ((fmt != GX_I4 && fmt != GX_IA4) || verify.gx_format == fmt);
+	ResetExciteTEX (&verify);
+	if (!ok)
+	{
+		FREE (out);
+		return ERR_INVALID_DATA;
+	}
+	*dest = out;
+	*dest_size = total;
+	return ERR_OK;
+}
+
+enumError EncodeExciteTEXHeader_RGBA (
+	u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height, int gx_format)
+{
+	return EncodeExciteHeader_RGBA (dest, dest_size, rgba, width, height,
+		gx_format < 0 ? GX_RGBA32 : gx_format, gx_mip_levels (width, height), 0);
+}
+
+enumError EncodeExciteARTHeader_RGBA (
+	u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height, int gx_format)
+{
+	return EncodeExciteHeader_RGBA (
+		dest, dest_size, rgba, width, height, gx_format < 0 ? GX_RGBA32 : gx_format, 1, 0);
 }
 
 // Distinct-value sample used to reject degenerate all-flat decodes (a wrong

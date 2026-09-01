@@ -746,7 +746,7 @@ static enumError SaveBCFNT (Image_t *img, ccp dest, ccp source, bool is_wiiu)
 	return err;
 }
 
-static enumError SaveExciteTEX (Image_t *img, ccp dest, ccp source)
+static enumError SaveExciteTEX (Image_t *img, ccp dest, ccp source, bool headered)
 {
 	Transform2XIMG (img);
 	if (img->iform != IMG_X_RGB)
@@ -761,7 +761,9 @@ static enumError SaveExciteTEX (Image_t *img, ccp dest, ccp source)
 		memcpy (rgba + 4 * y * img->width, img->data + 4 * y * img->xwidth, 4 * img->width);
 	u8 *data = 0;
 	uint size = 0;
-	enumError err = EncodeExciteTEX_RGBA (&data, &size, rgba, img->width, img->height, -1);
+	enumError err = headered
+		? EncodeExciteTEXHeader_RGBA (&data, &size, rgba, img->width, img->height, -1)
+		: EncodeExciteTEX_RGBA (&data, &size, rgba, img->width, img->height, -1);
 	FREE (rgba);
 	if (err)
 		return ERROR0 (ERR_INVALID_DATA,
@@ -778,7 +780,7 @@ static enumError SaveExciteTEX (Image_t *img, ccp dest, ccp source)
 	return err;
 }
 
-static enumError SaveExciteART (Image_t *img, ccp dest, ccp source)
+static enumError SaveExciteART (Image_t *img, ccp dest, ccp source, bool headered)
 {
 	Transform2XIMG (img);
 	if (img->iform != IMG_X_RGB)
@@ -793,7 +795,9 @@ static enumError SaveExciteART (Image_t *img, ccp dest, ccp source)
 		memcpy (rgba + 4 * y * img->width, img->data + 4 * y * img->xwidth, 4 * img->width);
 	u8 *data = 0;
 	uint size = 0;
-	enumError err = EncodeExciteART_RGBA (&data, &size, rgba, img->width, img->height, -1);
+	enumError err = headered
+		? EncodeExciteARTHeader_RGBA (&data, &size, rgba, img->width, img->height, -1)
+		: EncodeExciteART_RGBA (&data, &size, rgba, img->width, img->height, -1);
 	FREE (rgba);
 	if (err)
 		return ERROR0 (ERR_INVALID_DATA,
@@ -1011,27 +1015,31 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		// TEX0 encoder above (SaveTEX(), reached via the generic fform path
 		// below). ".etex" avoids the collision; rename the result to ".tex"
 		// afterwards to use it with wszst or the game.
-		if (dot && !strcasecmp (dot, ".etex"))
+		if (dot && (!strcasecmp (dot, ".etex") || !strcasecmp (dot, ".ebtex")))
 		{
+			const bool headered = !strcasecmp (dot, ".ebtex");
 			if (verbose >= 0 || testmode)
 				fprintf (stdlog, "%s%s%s %s:%s -> Excite-TEX:%s\n", verbose > 0 ? "\n" : "",
 					testmode ? "WOULD " : "", cmd_name, PrintFormat3 (src_f, src_i, src_p), arg,
 					dest);
 			if (!testmode)
-				err = SaveExciteTEX (&img, dest, arg);
+				err = SaveExciteTEX (&img, dest, arg, headered);
 			ResetIMG (&img);
 			if (err > ERR_WARNING)
 				return err;
 			continue;
 		}
-		if (dot && (!strcasecmp (dot, ".art") || !strcasecmp (dot, ".img")))
+		if (dot && (!strcasecmp (dot, ".art") || !strcasecmp (dot, ".img")
+				|| !strcasecmp (dot, ".ebart") || !strcasecmp (dot, ".ebimg")))
 		{
+			const bool headered
+				= !strcasecmp (dot, ".ebart") || !strcasecmp (dot, ".ebimg");
 			if (verbose >= 0 || testmode)
 				fprintf (stdlog, "%s%s%s %s:%s -> Excite-ART:%s\n", verbose > 0 ? "\n" : "",
 					testmode ? "WOULD " : "", cmd_name, PrintFormat3 (src_f, src_i, src_p), arg,
 					dest);
 			if (!testmode)
-				err = SaveExciteART (&img, dest, arg);
+				err = SaveExciteART (&img, dest, arg, headered);
 			ResetIMG (&img);
 			if (err > ERR_WARNING)
 				return err;

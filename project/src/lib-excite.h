@@ -73,6 +73,26 @@ enumError EncodeExciteTEX_RGBA (
 enumError EncodeExciteART_RGBA (
 	u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height, int gx_format);
 
+// Encode ExciteBots' later, explicit 128-byte-header representation. Unlike
+// the legacy encoders above, this layout records dimensions and mip count and
+// therefore does not depend on the heuristic legacy classifier. LEVELS must
+// be 1..10 and may not extend past the 1x1 level. RENDERER_CODE may be 0 to
+// select the canonical code for GX_FORMAT, or an explicit value 0x40..0x4f.
+// The special renderer codes 0x40/0x41 are only valid for I4/IA4 respectively
+// and append the format's mandatory 1024-byte auxiliary renderer tail.
+enumError EncodeExciteHeader_RGBA (u8 **dest, uint *dest_size, const u8 *rgba, uint width,
+	uint height, int gx_format, uint levels, uint renderer_code);
+
+// Convenient explicit-header variants used by wimgt. TEX writes a complete
+// mip chain (up to the decoder's ten-level bound); ART writes one level.
+// Auto format selection favours RGBA32 so the headered path is deterministic
+// and lossless. Use EncodeExciteHeader_RGBA() to request I4/IA4 or another
+// particular GX storage format.
+enumError EncodeExciteTEXHeader_RGBA (
+	u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height, int gx_format);
+enumError EncodeExciteARTHeader_RGBA (
+	u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height, int gx_format);
+
 //-----------------------------------------------------------------------------
 ///////////////		.msh collision meshes				///////////////
 //-----------------------------------------------------------------------------
