@@ -142,6 +142,34 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 
 ---
 
+### Compression & Encoding Formats
+
+| Algorithm / Codec | Identifiers / Headers | Platform / Engine Context |
+|---|---|---|
+| **ALZ1** | `ALZ1` | Hudson Soft Mario Party / Bomberman LZ77 (GameCube / Wii) |
+| **BLZ** | ARM9 overlay trailer | Nintendo DS Nitro backward LZ overlay compression |
+| **Bzip2** | `BZh` | Standard high-compression block-sorting codec |
+| **Deflate / Zlib** | `78 01`, `78 9C`, `78 DA` | Standard RFC 1950 / 1951 stream compression |
+| **Diff8 / Diff16** | `0x81`, `0x82` | Nintendo DS differential delta filter encoding |
+| **Huffman (4-bit / 8-bit)** | `0x24`, `0x28` | Nintendo DS Huffman stream compression |
+| **LZ10** | `0x10` (LZSS) | Nintendo standard LZ77 (GameCube / Wii / DS / GBA) |
+| **LZ11** | `0x11` (Extended LZSS) | Nintendo extended LZSS with 4-byte match lengths (DS / 3DS) |
+| **LZO / LZOvl** | Overlay trailer | Nintendo DS reverse LZO overlay compression |
+| **LZX** | `LZX` | Capcom Ace Attorney / Ghost Trick LZSS (DS) |
+| **MVDK** | `MVDK` | Nintendo Mario vs. Donkey Kong LZSS (DS) |
+| **PSDK** | `PSDK` / `AT4PX` | Chunsoft Pokémon Mystery Dungeon Explorers LZSS (DS) |
+| **PuCrunch** | `0x50 0x75` (`Pu`) | Retro / Nitro hybrid LZ + RLE stream compression |
+| **QuickLZ** | `QLZ` | Fast byte-oriented block compression (Level 1 / 3) |
+| **RLE** | `0x30` | Nintendo DS run-length encoding |
+| **RNC1 / RNC2** | `RNC\1`, `RNC\2` | Rob Northen Computing ProPack Method 1 / Method 2 |
+| **SSZL** | `SSZL` | Bandai Namco Museum Remix LZSS0 stream compression (Wii) |
+| **VLX** | `VLX` | Level-5 Professor Layton / Inazuma Eleven LZSS (DS) |
+| **Yay0 (SZP)** | `Yay0` | Nintendo early LZSS container (Nintendo 64 / GameCube) |
+| **Yaz0 (SZS)** | `Yaz0` | Nintendo standard byte-aligned LZSS (GameCube / Wii / Switch) |
+| **Zstandard (Zstd)** | `28 B5 2F FD` | Modern high-ratio dictionary compression (Switch / F-Zero 99) |
+
+---
+
 ## Documentation & Guides
 
 - **[Workflow & Modding Guide](docs/WORKFLOWS.md)**: Recursive game directory tree traversal, asset modification, and incremental repacking.
