@@ -63,17 +63,23 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **CRAM** | `.arc`, `.cram` | Monolith Soft 3DS flat archive container |
 | **DARC** | `.darc` | NintendoWare NW4C differential archive (3DS) |
 | **FSYS** | `.fsys` | Genius Sonority archive system (GameCube / Wii) |
-| **GFA** | `.gfa` | Game Freak GFAC container (3DS) |
+| **GFA** | `.gfa` | Good-Feel GFAC container (Wii / 3DS) |
 | **Hyrule Warriors** | `.idx`, `.bin` | Koei Tecmo / Omega Force split index archive (3DS) |
+| **JARC** | `.jarc` | Level-5 DS archive container (DS) |
+| **LSPK** | `.lspk` | Level-5 Professor Layton flat package (DS) |
 | **MPBIN** | `.bin` | Hudson Soft Mario Party archive container (GameCube / Wii) |
 | **NARC** | `.narc` | Nintendo DS Nitro standard archive (DS / DSi) |
 | **NCCARC** | `.nccarc` | Nintendo DS flat blob container |
 | **NDS / SRL / DSI** | `.nds`, `.srl`, `.dsi` | Nintendo DS & DSi ROM images and executables |
 | **PAC / MRG** | `.pac`, `.mrg` | HAL Laboratory / Game Arts Wii archive container |
+| **PKG / GPKG / GPAK** | `.pkg`, `.pak` | Sonic Team Storybook series archive (*Secret Rings* / *Black Knight*) |
 | **RARC** | `.rarc`, `.arc` | Nintendo standard resource archive (GameCube / Wii) |
 | **RFL_Res** | `RFL_Res.dat`, `.dat` | Revolution Face Library Mii resource database (Wii / 3DS / Wii U) |
+| **RPAK** | `.rpak`, `.pak` | Retro Studios asset container (*Metroid Prime* / *Donkey Kong Country Returns*) |
+| **RST / TOC** | `.rst`, `.toc` | Monster Games archive & table of contents (*Excite Truck* / *Excitebots*) |
 | **SARC** | `.sarc`, `.szs` | NintendoWare NW4F & NintendoSDK sorted archive (Wii U / Switch / 3DS) |
 | **SZE** | `.sze` | Nintendo Switch AES-encrypted container (NST / Switch) |
+| **VCRA** | `.bin`, `.vcra` | Bandai Namco Museum Remix archive format (Wii) |
 | **WARC** | `.warc` | Nintendo / Intelligent Systems flat archive (Wii U) |
 | **WUD / WUX** | `.wud`, `.wux` | Nintendo Wii U optical disc images (raw & compressed) |
 
