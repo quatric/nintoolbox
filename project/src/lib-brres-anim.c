@@ -480,3 +480,73 @@ void WritePoolBANIM (u8 *file_base, ccp *names, uint n_names, uint pool_start)
 		pos = pos + 3 & ~3u;
 	}
 }
+
+///////////////////////////////////////////////////////////////////////////////
+
+// Retail lays the trailing string pool out in ordinal (strcmp) name order
+// rather than in the logical slot order of the sub-file. These two helpers
+// wrap CalcPoolBANIM()/WritePoolBANIM() with that permutation so a re-encode
+// reproduces retail byte for byte; CalcPoolSortedBANIM() still returns the
+// offsets scattered back onto the caller's *logical* slots.
+
+static uint *OrderPoolBANIM (ccp *names, uint n_names)
+{
+	uint *ord = CALLOC (n_names, sizeof (uint));
+	for (uint i = 0; i < n_names; i++)
+		ord[i] = i;
+
+	for (uint i = 1; i < n_names; i++)
+	{
+		const uint cur = ord[i];
+		int j = i - 1;
+		while (j >= 0 && strcmp (names[ord[j]], names[cur]) > 0)
+		{
+			ord[j + 1] = ord[j];
+			j--;
+		}
+		ord[j + 1] = cur;
+	}
+	return ord;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+uint CalcPoolSortedBANIM (ccp *names, uint n_names, uint pool_start, uint *char_off)
+{
+	DASSERT (names);
+
+	uint *ord = OrderPoolBANIM (names, n_names);
+	ccp *sorted = CALLOC (n_names, sizeof (ccp));
+	uint *sorted_off = CALLOC (n_names, sizeof (uint));
+	for (uint i = 0; i < n_names; i++)
+		sorted[i] = names[ord[i]];
+
+	const uint pool_size = CalcPoolBANIM (sorted, n_names, pool_start, sorted_off);
+	if (char_off)
+		for (uint i = 0; i < n_names; i++)
+			char_off[ord[i]] = sorted_off[i];
+
+	FREE (sorted);
+	FREE (sorted_off);
+	FREE (ord);
+	return pool_size;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void WritePoolSortedBANIM (u8 *file_base, ccp *names, uint n_names, uint pool_start)
+{
+	DASSERT (file_base);
+	DASSERT (names);
+
+	uint *ord = OrderPoolBANIM (names, n_names);
+	ccp *sorted = CALLOC (n_names, sizeof (ccp));
+	for (uint i = 0; i < n_names; i++)
+		sorted[i] = names[ord[i]];
+
+	WritePoolBANIM (file_base, sorted, n_names, pool_start);
+
+	FREE (sorted);
+	FREE (ord);
+}
+

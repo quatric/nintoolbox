@@ -414,21 +414,27 @@ enumError SaveRawSRT0 (srt0_t *srt, ccp fname, bool set_time)
 	const uint group_off = head_size;
 	const uint group_head_size = 8 + (srt->n_entry + 1) * 16;
 
-	uint *entry_rel = CALLOC (srt->n_entry ? srt->n_entry : 1, sizeof (uint));
+	// Retail interleaves each entry's texture entries directly behind that
+	// entry's own header -- header, its layers, next header, its layers -- and
+	// only then emits one shared block holding every track. Laying the texture
+	// entries out as one block behind all headers produces a file of exactly
+	// the same size that is not byte identical to retail.
+	const uint n_alloc = srt->n_entry ? srt->n_entry : 1;
+	uint *entry_rel = CALLOC (n_alloc, sizeof (uint));
+	uint *entry_tex_rel = CALLOC (n_alloc, sizeof (uint));
+
 	uint data_size = group_head_size;
 	for (uint i = 0; i < srt->n_entry; i++)
 	{
 		entry_rel[i] = data_size;
 		data_size += 12 + srt->entry[i].n_texture * 4;
+
+		entry_tex_rel[i] = data_size;
+		for (uint t = 0; t < srt->entry[i].n_texture; t++)
+			data_size += 4 + srt_count_slots (srt->entry[i].texture + t) * 4;
 	}
 
-	uint tex_size = 0;
-	for (uint i = 0; i < srt->n_entry; i++)
-		for (uint t = 0; t < srt->entry[i].n_texture; t++)
-			tex_size += 4 + srt_count_slots (srt->entry[i].texture + t) * 4;
-
-	const uint tex_start = data_size;
-	const uint track_start = tex_start + tex_size;
+	const uint track_start = data_size;
 
 	// upper bound: retail files share byte identical track data between
 	// channels, so the final size may be smaller -- see the dedup below
@@ -452,13 +458,27 @@ enumError SaveRawSRT0 (srt0_t *srt, ccp fname, bool set_time)
 	u8 *blob = MALLOC (track_size ? track_size : 1);
 	uint blob_used = 0;
 	uint *track_at = CALLOC (n_track ? n_track : 1, sizeof (uint)); // rel to track_start
-	uint *track_len = CALLOC (n_track ? n_track : 1, sizeof (uint));
+	uint *track_uid = CALLOC (n_track ? n_track : 1, sizeof (uint));
+
+	// the unique blobs, in encounter order
+	uint *uni_at = CALLOC (n_track ? n_track : 1, sizeof (uint)); // rel to 'blob'
+	uint *uni_len = CALLOC (n_track ? n_track : 1, sizeof (uint));
+	uint n_uni = 0;
 	uint track_idx = 0;
+
+	// where each texture entry's channel tracks start, in encounter order
+	uint n_tex_total = 0;
+	for (uint i = 0; i < srt->n_entry; i++)
+		n_tex_total += srt->entry[i].n_texture;
+	uint *tex_first = CALLOC (n_tex_total ? n_tex_total : 1, sizeof (uint));
+	uint *tex_ntrack = CALLOC (n_tex_total ? n_tex_total : 1, sizeof (uint));
+	uint tex_idx = 0;
 
 	for (uint i = 0; i < srt->n_entry; i++)
 		for (uint t = 0; t < srt->entry[i].n_texture; t++)
 		{
 			const srt0_texture_t *tx = srt->entry[i].texture + t;
+			tex_first[tex_idx] = track_idx;
 			for (uint c = 0; c < SRT0_N_CHANNEL; c++)
 			{
 				if (tx->channel[c].is_fixed)
@@ -467,26 +487,87 @@ enumError SaveRawSRT0 (srt0_t *srt, ccp fname, bool set_time)
 					= EncodeTrackBANIM (&tx->channel[c].track, blob + blob_used, frame_limit);
 
 				uint found = ~0u;
-				for (uint p = 0; p < track_idx; p++)
-					if (track_len[p] == len
-						&& !memcmp (blob + track_at[p], blob + blob_used, len))
+				for (uint p = 0; p < n_uni; p++)
+					if (uni_len[p] == len && !memcmp (blob + uni_at[p], blob + blob_used, len))
 					{
-						found = track_at[p];
+						found = p;
 						break;
 					}
 
-				track_len[track_idx] = len;
 				if (found == ~0u)
 				{
-					track_at[track_idx] = blob_used;
+					found = n_uni++;
+					uni_at[found] = blob_used;
+					uni_len[found] = len;
 					blob_used += len;
 				}
-				else
-					track_at[track_idx] = found;
-				track_idx++;
+				track_uid[track_idx++] = found;
 			}
+			tex_ntrack[tex_idx] = track_idx - tex_first[tex_idx];
+			tex_idx++;
 		}
 	track_size = blob_used;
+
+	// Retail does not emit the shared track blobs in the order the channels
+	// first reference them. It walks the texture entries in *reverse* order --
+	// last layer of the last material first -- while keeping the channels
+	// inside one texture entry in their normal order, and then stably sorts
+	// the resulting list by descending encoded size. All three parts were
+	// needed: files whose tracks differ in size fail without the sort, files
+	// whose equal-size tracks live in different layers fail without the
+	// reversal, and files whose equal-size tracks share one layer fail if the
+	// reversal is applied per track instead of per texture entry.
+	uint *order = CALLOC (n_uni ? n_uni : 1, sizeof (uint));
+	u8 *seen = CALLOC (n_uni ? n_uni : 1, 1);
+	uint n_order = 0;
+	for (int x = (int)n_tex_total - 1; x >= 0; x--)
+		for (uint k = 0; k < tex_ntrack[x]; k++)
+		{
+			const uint u = track_uid[tex_first[x] + k];
+			if (!seen[u])
+			{
+				seen[u] = 1;
+				order[n_order++] = u;
+			}
+		}
+	DASSERT (n_order == n_uni);
+	FREE (seen);
+	FREE (tex_first);
+	FREE (tex_ntrack);
+	for (uint i = 1; i < n_uni; i++)
+	{
+		const uint cur = order[i];
+		int j = i - 1;
+		while (j >= 0 && uni_len[order[j]] < uni_len[cur])
+		{
+			order[j + 1] = order[j];
+			j--;
+		}
+		order[j + 1] = cur;
+	}
+
+	// lay the unique blobs out in that order and repack the scratch buffer
+	uint *uni_final = CALLOC (n_uni ? n_uni : 1, sizeof (uint));
+	u8 *packed = MALLOC (track_size ? track_size : 1);
+	uint packed_used = 0;
+	for (uint i = 0; i < n_uni; i++)
+	{
+		const uint u = order[i];
+		uni_final[u] = packed_used;
+		memcpy (packed + packed_used, blob + uni_at[u], uni_len[u]);
+		packed_used += uni_len[u];
+	}
+	FREE (blob);
+	blob = packed;
+
+	for (uint i = 0; i < track_idx; i++)
+		track_at[i] = uni_final[track_uid[i]];
+
+	FREE (order);
+	FREE (uni_final);
+	FREE (uni_at);
+	FREE (uni_len);
+	FREE (track_uid);
 
 	// the sub-file's declared size stops at the end of the data section; the
 	// string pool that follows belongs to the enclosing BRRES
@@ -502,11 +583,11 @@ enumError SaveRawSRT0 (srt0_t *srt, ccp fname, bool set_time)
 	for (uint i = 0; i < srt->n_entry; i++)
 		names[i + 2] = srt->entry[i].name;
 
-	const uint pool_size = CalcPoolBANIM (names, n_names, file_size, name_off);
+	const uint pool_size = CalcPoolSortedBANIM (names, n_names, file_size, name_off);
 	const uint total_size = file_size + pool_size;
 
 	u8 *buf = CALLOC (total_size, 1);
-	WritePoolBANIM (buf, names, n_names, file_size);
+	WritePoolSortedBANIM (buf, names, n_names, file_size);
 
 	//--- header
 
@@ -569,7 +650,7 @@ enumError SaveRawSRT0 (srt0_t *srt, ccp fname, bool set_time)
 	memcpy (buf + group_off + track_start, blob, track_size);
 	FREE (blob);
 
-	uint tex_pos = tex_start;
+	uint tex_pos = 0;
 	track_idx = 0;
 
 	for (uint i = 0; i < srt->n_entry; i++)
@@ -578,6 +659,7 @@ enumError SaveRawSRT0 (srt0_t *srt, ccp fname, bool set_time)
 
 		u8 *entry = group + entry_rel[i];
 		srt_w32 (entry, name_off[i + 2] - group_off - entry_rel[i]);
+		tex_pos = entry_tex_rel[i];
 
 		// rebuild the masks from the layer list so that an edited text file
 		// stays self consistent
@@ -627,8 +709,8 @@ enumError SaveRawSRT0 (srt0_t *srt, ccp fname, bool set_time)
 	}
 
 	FREE (entry_rel);
+	FREE (entry_tex_rel);
 	FREE (track_at);
-	FREE (track_len);
 	FREE (names);
 	FREE (name_off);
 

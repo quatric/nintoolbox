@@ -57,8 +57,19 @@ typedef enum nfmt_type_t
 	NFMT_JARC,
 	NFMT_JCMP,
 	NFMT_BFMA,
-	NFMT_ZLIB
-	, NFMT_MVDK
+	NFMT_ZLIB,
+	NFMT_MVDK,
+	NFMT_VLX,
+	NFMT_PUCRUNCH,
+	NFMT_LZX,
+	NFMT_DIFF8,
+	NFMT_DIFF16,
+	NFMT_NSBTX,
+	NFMT_NFTR,
+	NFMT_BNFR,
+	NFMT_BNLL,
+	NFMT_BNCL,
+	NFMT_BNBL
 
 } nfmt_type_t;
 
@@ -87,6 +98,23 @@ enumError EncodeCamelot (u8 **dest, uint *dest_size, const u8 *src, uint src_siz
 enumError DecodeLZ10LZ11 (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 int CxIsCompressedMvDK (const unsigned char *buffer, unsigned int size);
 enumError DecodeMVDK (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+
+enumError DecodeVLX (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+enumError EncodeVLX (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+int CxIsCompressedVlx (const unsigned char *src, unsigned int size);
+
+enumError DecodePuCrunch (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+enumError EncodePuCrunch (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+int CxIsCompressedPuCrunch (const unsigned char *buffer, unsigned int size);
+
+enumError DecodeLZX (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+enumError EncodeLZX (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+int CxIsCompressedLZX (const unsigned char *buffer, unsigned int size);
+
+enumError DecodeDiff8 (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+enumError EncodeDiff8 (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+enumError DecodeDiff16 (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+enumError EncodeDiff16 (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 
 enumError DecodeNintendoRL (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 enumError DecodeNintendoHuff (u8 **dest, uint *dest_size, const u8 *src, uint src_size);

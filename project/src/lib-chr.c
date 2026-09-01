@@ -445,7 +445,9 @@ enumError SaveRawCHR0 (chr0_t *chr, ccp fname, bool set_time)
 				const uint chan = grp * 3 + (e->group[grp].isotropic ? 0 : s);
 				if (!e->channel[chan].is_fixed)
 				{
-					track_size += GetEncodedSizeBANIM (&e->channel[chan].track, frame_limit);
+					// +3: retail pads every track blob up to a 4 byte
+					// boundary, see the layout loop below
+					track_size += GetEncodedSizeBANIM (&e->channel[chan].track, frame_limit) + 3;
 					n_track++;
 				}
 			}
@@ -457,12 +459,22 @@ enumError SaveRawCHR0 (chr0_t *chr, ccp fname, bool set_time)
 	u8 *blob = MALLOC (track_size ? track_size : 1);
 	uint blob_used = 0;
 	uint *track_at = CALLOC (n_track ? n_track : 1, sizeof (uint));
-	uint *track_len = CALLOC (n_track ? n_track : 1, sizeof (uint));
+	uint *track_uid = CALLOC (n_track ? n_track : 1, sizeof (uint));
+
+	// the unique blobs, in encounter order
+	uint *uni_at = CALLOC (n_track ? n_track : 1, sizeof (uint));
+	uint *uni_len = CALLOC (n_track ? n_track : 1, sizeof (uint));
+	uint n_uni = 0;
 	uint track_idx = 0;
+
+	// where each bone's channel tracks start, in encounter order
+	uint *ent_first = CALLOC (chr->n_entry ? chr->n_entry : 1, sizeof (uint));
+	uint *ent_ntrack = CALLOC (chr->n_entry ? chr->n_entry : 1, sizeof (uint));
 
 	for (uint i = 0; i < chr->n_entry; i++)
 	{
 		const chr0_entry_t *e = chr->entry + i;
+		ent_first[i] = track_idx;
 		for (uint grp = 0; grp < CHR0_N_GROUP; grp++)
 		{
 			if (!e->group[grp].exists)
@@ -477,27 +489,61 @@ enumError SaveRawCHR0 (chr0_t *chr, ccp fname, bool set_time)
 					= EncodeTrackBANIM (&e->channel[chan].track, blob + blob_used, frame_limit);
 
 				uint found = ~0u;
-				for (uint p = 0; p < track_idx; p++)
-					if (track_len[p] == len
-						&& !memcmp (blob + track_at[p], blob + blob_used, len))
+				for (uint p = 0; p < n_uni; p++)
+					if (uni_len[p] == len && !memcmp (blob + uni_at[p], blob + blob_used, len))
 					{
-						found = track_at[p];
+						found = p;
 						break;
 					}
 
-				track_len[track_idx] = len;
 				if (found == ~0u)
 				{
-					track_at[track_idx] = blob_used;
-					blob_used += len;
+					found = n_uni++;
+					uni_at[found] = blob_used;
+					uni_len[found] = len;
+					// The I6/L2 track encodings store 16 bit entries, so a
+					// track can end on a 2 byte boundary. Retail pads it out
+					// to 4 before starting the next one; packing them tightly
+					// yields a file 2 bytes short per odd-length track.
+					blob_used += len + (-len & 3);
 				}
-				else
-					track_at[track_idx] = found;
-				track_idx++;
+				track_uid[track_idx++] = found;
 			}
 		}
+		ent_ntrack[i] = track_idx - ent_first[i];
 	}
 	track_size = blob_used;
+
+	// Unlike SRT0, CHR0 emits the shared track blobs in plain first-reference
+	// order: reordering them the way SRT0 does drops the byte-exact count from
+	// 135 to 10 of the same 249 retail animations, so the order is kept as is.
+	uint *order = CALLOC (n_uni ? n_uni : 1, sizeof (uint));
+	for (uint i = 0; i < n_uni; i++)
+		order[i] = i;
+	FREE (ent_first);
+	FREE (ent_ntrack);
+
+	uint *uni_final = CALLOC (n_uni ? n_uni : 1, sizeof (uint));
+	u8 *packed = CALLOC (track_size ? track_size : 1, 1);
+	uint packed_used = 0;
+	for (uint i = 0; i < n_uni; i++)
+	{
+		const uint u = order[i];
+		uni_final[u] = packed_used;
+		memcpy (packed + packed_used, blob + uni_at[u], uni_len[u]);
+		packed_used += uni_len[u] + (-uni_len[u] & 3);
+	}
+	FREE (blob);
+	blob = packed;
+
+	for (uint i = 0; i < track_idx; i++)
+		track_at[i] = uni_final[track_uid[i]];
+
+	FREE (order);
+	FREE (uni_final);
+	FREE (uni_at);
+	FREE (uni_len);
+	FREE (track_uid);
 
 	// the declared size stops at the end of the data section; the name pool
 	// behind it belongs to the enclosing BRRES
@@ -511,11 +557,11 @@ enumError SaveRawCHR0 (chr0_t *chr, ccp fname, bool set_time)
 	for (uint i = 0; i < chr->n_entry; i++)
 		names[i + 2] = chr->entry[i].name;
 
-	const uint pool_size = CalcPoolBANIM (names, n_names, file_size, name_off);
+	const uint pool_size = CalcPoolSortedBANIM (names, n_names, file_size, name_off);
 	const uint total_size = file_size + pool_size;
 
 	u8 *buf = CALLOC (total_size, 1);
-	WritePoolBANIM (buf, names, n_names, file_size);
+	WritePoolSortedBANIM (buf, names, n_names, file_size);
 	memcpy (buf + group_off + track_start, blob, track_size);
 	FREE (blob);
 
@@ -607,7 +653,6 @@ enumError SaveRawCHR0 (chr0_t *chr, ccp fname, bool set_time)
 
 	FREE (entry_rel);
 	FREE (track_at);
-	FREE (track_len);
 	FREE (names);
 	FREE (name_off);
 

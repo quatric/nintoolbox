@@ -168,6 +168,12 @@ uint CalcPoolBANIM (ccp *names, uint n_names, uint pool_start, uint *char_off);
 // hold pool_start + CalcPoolBANIM(...) bytes.
 void WritePoolBANIM (u8 *file_base, ccp *names, uint n_names, uint pool_start);
 
+// Same as the two above, but laying the pool out in ordinal name order, which
+// is what retail does. CalcPoolSortedBANIM() returns the offsets scattered
+// back onto the caller's logical slots, so callers need no other change.
+uint CalcPoolSortedBANIM (ccp *names, uint n_names, uint pool_start, uint *char_off);
+void WritePoolSortedBANIM (u8 *file_base, ccp *names, uint n_names, uint pool_start);
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #endif // SZS_LIB_BRRES_ANIM_H

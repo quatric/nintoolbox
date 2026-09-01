@@ -47,6 +47,7 @@
 #include "lib-bntx.h"
 #include "lib-smdh.h"
 #include "lib-gtx.h"
+#include "lib-nitro.h"
 
 #include "red-36.inc"
 #include "blue-40.inc"
@@ -839,6 +840,43 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		img->endian = &le_func;
 		img->path = fname;
 		img->seq_num = ++image_seq_num;
+		return PatchListIMG (img);
+	}
+
+	if (nfmt.type == NFMT_NSBTX || (data_size >= 4 && !memcmp (data, "BTX0", 4)))
+	{
+		u8 *rgba = 0;
+		uint width = 0, height = 0;
+		const enumError err = DecodeNSBTX_RGBA (&rgba, &width, &height, data, data_size);
+		if (err)
+			return ERROR0 (ERR_INVALID_IFORM, "Invalid NSBTX texture archive: %s\n", fname);
+		AssignDecodedRGBA (img, rgba, width, height, &le_func, fname);
+		return PatchListIMG (img);
+	}
+
+	if (nfmt.type == NFMT_NFTR || nfmt.type == NFMT_BNFR
+		|| (data_size >= 4 && (!memcmp (data, "RTNF", 4) || !memcmp (data, "FNTR", 4)
+			|| !memcmp (data, "RNFB", 4) || !memcmp (data, "BNFR", 4))))
+	{
+		u8 *atlas = 0;
+		uint width = 0, height = 0;
+		char *xml = 0;
+		const enumError err = DecodeNFTR_Atlas (&atlas, &width, &height, &xml, data, data_size);
+		if (xml) FREE (xml);
+		if (err)
+			return ERROR0 (ERR_INVALID_IFORM, "Invalid Nitro font resource: %s\n", fname);
+		AssignDecodedRGBA (img, atlas, width, height, &le_func, fname);
+		return PatchListIMG (img);
+	}
+
+	if (data_size >= 4 && !memcmp (data, "5TX0", 4))
+	{
+		u8 *rgba = 0;
+		uint width = 0, height = 0;
+		const enumError err = Decode5TX_RGBA (&rgba, &width, &height, data, data_size);
+		if (err)
+			return ERROR0 (ERR_INVALID_IFORM, "Invalid 5TX image: %s\n", fname);
+		AssignDecodedRGBA (img, rgba, width, height, &le_func, fname);
 		return PatchListIMG (img);
 	}
 

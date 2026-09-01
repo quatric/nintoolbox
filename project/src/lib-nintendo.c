@@ -55,7 +55,8 @@ ccp GetNintendoFormatName (nfmt_type_t type)
 		"HUFF8", "RL", "ASH0", "Yay0", "LZH8", "BFLIM", "BCLIM", "NUTEXB", "BNR", "NCGR", "NCLR", "NCER",
 		"NANR", "BRFNT", "BRFNA", "BCFNT", "BRLAN", "BRLYT", "BFLAN", "BFLYT", "BCLAN", "BCLYT",
 		"PLT0", "MSBT", "BCRES", "BFRES", "BNTX", "GFA", "BCH", "QuickLZ", "PAC", "RNC", "romc",
-		"PSDK", "AT7", "CTPK", "BYML", "NARC", "NSCR", "FZIP", "JARC", "jCMP", "BFMA", "Zlib", "MVDK" };
+		"PSDK", "AT7", "CTPK", "BYML", "NARC", "NSCR", "FZIP", "JARC", "jCMP", "BFMA", "Zlib", "MVDK",
+		"VLX", "PuCrunch", "LZX", "Diff8", "Diff16", "NSBTX", "NFTR", "BNFR", "BNLL", "BNCL", "BNBL" };
 	return type < sizeof (tab) / sizeof (*tab) ? tab[type] : "UNKNOWN";
 }
 
@@ -112,6 +113,18 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_NANR, true, false, 0);
 		if (!memcmp (d, "RCSN", 4))
 			return make_info (NFMT_NSCR, true, false, 0);
+		if (!memcmp (d, "BTX0", 4) || !memcmp (d, "BMD0", 4))
+			return make_info (NFMT_NSBTX, true, false, 0);
+		if (!memcmp (d, "RTNF", 4) || !memcmp (d, "FNTR", 4))
+			return make_info (NFMT_NFTR, true, false, 0);
+		if (!memcmp (d, "RNFB", 4) || !memcmp (d, "BNFR", 4))
+			return make_info (NFMT_BNFR, true, false, 0);
+		if (!memcmp (d, "LLNB", 4) || !memcmp (d, "BNLL", 4))
+			return make_info (NFMT_BNLL, true, false, 0);
+		if (!memcmp (d, "LCNB", 4) || !memcmp (d, "BNCL", 4))
+			return make_info (NFMT_BNCL, true, false, 0);
+		if (!memcmp (d, "LBNB", 4) || !memcmp (d, "BNBL", 4))
+			return make_info (NFMT_BNBL, true, false, 0);
 
 		// WarioWare: D.I.Y. Showcase / "WarioWare Snapped!" (DSiWare, NTR-KUWE)
 		// wraps every Nitro graphics resource (NCGR/NCLR/NCER/NANR) it stores
@@ -261,6 +274,16 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		// Mario vs. Donkey Kong custom deflate (header low-2 bits == 2)
 		if (size >= 4 && CxIsCompressedMvDK (d, size))
 			return make_info (NFMT_MVDK, false, true, *(u32*)d >> 2);
+		if (size >= 4 && CxIsCompressedVlx (d, size))
+			return make_info (NFMT_VLX, false, true, 0);
+		if (size >= 8 && CxIsCompressedPuCrunch (d, size))
+			return make_info (NFMT_PUCRUNCH, false, true, (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);
+		if (d[0] == 0x19 && size >= 4 && CxIsCompressedLZX (d, size))
+			return make_info (NFMT_LZX, false, true, (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);
+		if (d[0] == 0x80 && size >= 4)
+			return make_info (NFMT_DIFF8, false, true, (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);
+		if (d[0] == 0x81 && size >= 4)
+			return make_info (NFMT_DIFF16, false, true, (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);
 		if ((d[0] == 0x10 || d[0] == 0x11) && size >= 4)
 			return make_info (d[0] == 0x10 ? NFMT_LZ10 : NFMT_LZ11, false, true,
 				(u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);
@@ -14430,3 +14453,798 @@ enumError EncodeMVDK (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 	(void)dest; (void)dest_size; (void)src; (void)src_size;
 	return EINVAL;
 }
+
+//-----------------------------------------------------------------------------
+///////////////		VLX Compression (Namco / Pac-Man World)	///////////////
+//-----------------------------------------------------------------------------
+
+typedef struct vlx_tree_node_t
+{
+	uint value;
+	uint mask_bits;
+	u32 encoding;
+	u32 mask;
+} vlx_tree_node_t;
+
+typedef struct vlx_buffer_t
+{
+	const u8 *src;
+	uint srcpos, size;
+	u32 cur_word;
+	int bits_left;
+	bool error;
+} vlx_buffer_t;
+
+static void vlx_buf_init (vlx_buffer_t *b, const u8 *src, uint pos, uint size)
+{
+	b->src = src;
+	b->srcpos = pos;
+	b->size = size;
+	b->cur_word = 0;
+	b->bits_left = 0;
+	b->error = false;
+}
+
+static u32 vlx_read_bits (vlx_buffer_t *b, int n)
+{
+	if (n <= 0) return 0;
+	while (b->bits_left < n)
+	{
+		if (b->srcpos + 4 > b->size)
+		{
+			// Read remaining bytes with zero padding
+			u32 w = 0;
+			for (uint i = 0; i < 4; i++)
+				if (b->srcpos + i < b->size)
+					w |= (u32)b->src[b->srcpos + i] << (i * 8);
+			b->cur_word |= w << b->bits_left;
+			b->srcpos = b->size;
+			b->bits_left += 32;
+			break;
+		}
+		const u32 w = (u32)b->src[b->srcpos] | ((u32)b->src[b->srcpos + 1] << 8)
+			| ((u32)b->src[b->srcpos + 2] << 16) | ((u32)b->src[b->srcpos + 3] << 24);
+		b->srcpos += 4;
+		b->cur_word |= w << b->bits_left;
+		b->bits_left += 32;
+	}
+	const u32 val = b->cur_word & ((1u << n) - 1);
+	b->cur_word >>= n;
+	b->bits_left -= n;
+	return val;
+}
+
+static uint vlx_read_next_val (vlx_buffer_t *b, const vlx_tree_node_t *nodes, uint n_nodes)
+{
+	while (b->bits_left < 16 && b->srcpos < b->size)
+	{
+		const u8 byte = b->src[b->srcpos++];
+		b->cur_word |= (u32)byte << b->bits_left;
+		b->bits_left += 8;
+	}
+	for (uint i = 0; i < n_nodes; i++)
+	{
+		const uint mb = nodes[i].mask_bits;
+		if ((int)mb > b->bits_left)
+			continue;
+		const u32 code = b->cur_word & ((1u << mb) - 1);
+		if ((code << (32 - mb)) == nodes[i].encoding)
+		{
+			b->cur_word >>= mb;
+			b->bits_left -= mb;
+			return nodes[i].value;
+		}
+	}
+	b->error = true;
+	return (uint)-1;
+}
+
+static int vlx_try_decompress (const u8 *src, uint size, u8 *dest, uint *out_len_ptr)
+{
+	if (!src || size < 2)
+		return 0;
+	if (src[0] & 0xF0)
+		return 0;
+
+	const uint lenlen = src[0] & 0xF;
+	uint outlen = 0;
+	if (lenlen == 1)
+	{
+		if (size < 3) return 0;
+		outlen = src[1];
+	}
+	else if (lenlen == 2)
+	{
+		if (size < 4) return 0;
+		outlen = (uint)src[1] | ((uint)src[2] << 8);
+	}
+	else if (lenlen == 4)
+	{
+		if (size < 6) return 0;
+		outlen = (uint)src[1] | ((uint)src[2] << 8) | ((uint)src[3] << 16) | ((uint)src[4] << 24);
+	}
+	else
+		return 0;
+
+	if (!outlen || outlen > NFMT_MAX_OUTPUT)
+		return 0;
+
+	uint srcpos = lenlen + 1;
+	if (srcpos >= size) return 0;
+
+	const u8 byte1 = src[srcpos++];
+	const uint hi4 = (byte1 >> 4) & 0xF;
+	const uint lo4 = byte1 & 0xF;
+	if (hi4 > 12 || lo4 > 12 || srcpos + (hi4 + lo4) * 2 > size)
+		return 0;
+
+	vlx_tree_node_t len_nodes[12] = { { 0 } };
+	vlx_tree_node_t dist_nodes[12] = { { 0 } };
+
+	for (uint i = 0; i < hi4; i++)
+	{
+		const u16 hw = (u16)src[srcpos] | ((u16)src[srcpos + 1] << 8);
+		srcpos += 2;
+		len_nodes[i].value = hw >> 12;
+		int mb = 11;
+		if ((hw & 0xFFF) == 0) return 0;
+		while (!((hw & 0xFFF) & (1 << mb)) && mb > 0) mb--;
+		if (mb == 0) return 0;
+		len_nodes[i].mask_bits = mb;
+		len_nodes[i].encoding = (hw & 0xFFF) & ((1u << mb) - 1);
+	}
+
+	for (uint i = 0; i < lo4; i++)
+	{
+		const u16 hw = (u16)src[srcpos] | ((u16)src[srcpos + 1] << 8);
+		srcpos += 2;
+		dist_nodes[i].value = hw >> 12;
+		int mb = 11;
+		if ((hw & 0xFFF) == 0) return 0;
+		while (!((hw & 0xFFF) & (1 << mb)) && mb > 0) mb--;
+		if (mb == 0) return 0;
+		dist_nodes[i].mask_bits = mb;
+		dist_nodes[i].encoding = (hw & 0xFFF) & ((1u << mb) - 1);
+	}
+
+	vlx_buffer_t buf;
+	vlx_buf_init (&buf, src, srcpos, size);
+	uint outpos = 0;
+
+	while (outpos < outlen && !buf.error)
+	{
+		const uint n_len_bits = vlx_read_next_val (&buf, len_nodes, hi4);
+		if (n_len_bits == (uint)-1) return 0;
+
+		if (n_len_bits == 0)
+		{
+			const u8 b = (u8)vlx_read_bits (&buf, 8);
+			if (dest) dest[outpos] = b;
+			outpos++;
+		}
+		else
+		{
+			const uint copylen = (1u << n_len_bits) + vlx_read_bits (&buf, n_len_bits);
+			const uint n_dist_bits = vlx_read_next_val (&buf, dist_nodes, lo4);
+			if (n_dist_bits == (uint)-1) return 0;
+			const uint dist = (1u << n_dist_bits) + vlx_read_bits (&buf, n_dist_bits) - 1;
+			if (dist > outpos || dist == 0 || copylen > outlen - outpos)
+				return 0;
+
+			if (dest)
+			{
+				for (uint i = 0; i < copylen; i++)
+					dest[outpos + i] = dest[outpos - dist + i];
+			}
+			outpos += copylen;
+		}
+	}
+
+	if (out_len_ptr) *out_len_ptr = outlen;
+	return outpos == outlen && !buf.error;
+}
+
+int CxIsCompressedVlx (const unsigned char *src, unsigned int size)
+{
+	return vlx_try_decompress (src, size, 0, 0);
+}
+
+enumError DecodeVLX (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
+{
+	if (!dest || !dest_size || !src || src_size < 4)
+		return EINVAL;
+	uint uncomp_sz = 0;
+	if (!vlx_try_decompress (src, src_size, 0, &uncomp_sz))
+		return EINVAL;
+	enumError err = alloc_output (dest, dest_size, uncomp_sz);
+	if (err)
+		return err;
+	if (!vlx_try_decompress (src, src_size, *dest, 0))
+	{
+		FREE (*dest);
+		*dest = 0;
+		*dest_size = 0;
+		return EINVAL;
+	}
+	return ERR_OK;
+}
+
+enumError EncodeVLX (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
+{
+	if (!dest || !dest_size || !src || !src_size || src_size > NFMT_MAX_OUTPUT)
+		return EINVAL;
+
+	// Build a valid literal VLX stream with lenlen=4
+	// Header: [0]=4, [1..4]=src_size, [5]=0x10 (hi4=1, lo4=0), [6..7]=hw(node 0, enc 0 with sentinel bit 1 => 2)
+	const uint total_sz = 5 + 1 + 2 + src_size * 2 + 8;
+	u8 *out = CALLOC (1, total_sz);
+	if (!out)
+		return ERR_CANT_CREATE;
+
+	out[0] = 4; // 4-byte uncompressed size
+	out[1] = (u8)(src_size & 0xFF);
+	out[2] = (u8)((src_size >> 8) & 0xFF);
+	out[3] = (u8)((src_size >> 16) & 0xFF);
+	out[4] = (u8)((src_size >> 24) & 0xFF);
+	out[5] = 0x10; // hi4=1, lo4=0
+	out[6] = 0x02; // hw = (value 0 << 12) | (1 << 1 sentinel) | (code 0) = 2
+	out[7] = 0x00;
+
+	// Write literal tokens (1 bit '0' length token + 8 bits data)
+	uint bitpos = 0;
+	u8 *bitstream = out + 8;
+	for (uint i = 0; i < src_size; i++)
+	{
+		// 1 bit '0' for length node value 0
+		bitpos++; // bit remains 0
+		// 8 bits of literal byte
+		for (uint b = 0; b < 8; b++)
+		{
+			if (src[i] & (1 << b))
+				bitstream[bitpos / 8] |= 0x01 << (bitpos & 7);
+			bitpos++;
+		}
+	}
+
+	const uint final_size = 8 + (bitpos + 7) / 8;
+	*dest = out;
+	*dest_size = final_size;
+	return ERR_OK;
+}
+
+//-----------------------------------------------------------------------------
+///////////////		PuCrunch Compression (Griptonite Games)	///////////////
+//-----------------------------------------------------------------------------
+
+typedef struct pc_bit_reader_t
+{
+	const u8 *src, *end;
+	uint bitpos;
+	bool error;
+} pc_bit_reader_t;
+
+static inline bool pc_read_bit (pc_bit_reader_t *r)
+{
+	const u8 *p = r->src + (r->bitpos / 8);
+	if (p >= r->end)
+	{
+		r->error = true;
+		return false;
+	}
+	const bool b = (*p & (0x80 >> (r->bitpos & 7))) != 0;
+	r->bitpos++;
+	return b;
+}
+
+static inline uint pc_read_bits (pc_bit_reader_t *r, uint n)
+{
+	uint val = 0;
+	for (uint i = 0; i < n; i++)
+		val = (val << 1) | (pc_read_bit (r) ? 1 : 0);
+	return val;
+}
+
+static inline uint pc_read_gamma (pc_bit_reader_t *r)
+{
+	uint count = 0;
+	while (pc_read_bit (r) && !r->error && count < 32)
+		count++;
+	if (r->error) return 0;
+	if (count == 0) return 1;
+	return (1u << count) | pc_read_bits (r, count);
+}
+
+int CxIsCompressedPuCrunch (const unsigned char *buffer, unsigned int size)
+{
+	if (!buffer || size < 8 || buffer[0] != 0x60)
+		return 0;
+	const uint uncomp_size = ((uint)buffer[1]) | ((uint)buffer[2] << 8) | ((uint)buffer[3] << 16);
+	if (!uncomp_size || uncomp_size > NFMT_MAX_OUTPUT)
+		return 0;
+
+	const u8 *info = buffer + 4;
+	const uint freq_tbl_size = info[0];
+	const uint esc_bits = info[3];
+	const uint lz_extra = info[2];
+	if (freq_tbl_size > size - 8 || (freq_tbl_size & 3) || freq_tbl_size > 0x20 || !freq_tbl_size)
+		return 0;
+	if (esc_bits > 8 || lz_extra > 24)
+		return 0;
+	return 1;
+}
+
+enumError DecodePuCrunch (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
+{
+	if (!dest || !dest_size || !src || !CxIsCompressedPuCrunch (src, src_size))
+		return EINVAL;
+
+	const uint uncomp_size = ((uint)src[1]) | ((uint)src[2] << 8) | ((uint)src[3] << 16);
+	enumError err = alloc_output (dest, dest_size, uncomp_size);
+	if (err)
+		return err;
+
+	u8 *out = *dest;
+	const u8 *info = src + 4;
+	const uint freq_tbl_size = info[0];
+	u8 esc = info[1];
+	const uint lz_extra = info[2];
+	const uint esc_bits = info[3];
+	const u8 *freq_table = src + 8;
+	const u8 *bit_stream = info + 4 + freq_tbl_size;
+
+	pc_bit_reader_t reader = { bit_stream, src + src_size, 0, false };
+	const uint n_lz_bits = 8 + lz_extra;
+	uint outpos = 0;
+
+	while (outpos < uncomp_size && !reader.error)
+	{
+		const u8 init_bits = (u8)pc_read_bits (&reader, esc_bits);
+		if (init_bits != esc)
+		{
+			const u8 rest = (u8)pc_read_bits (&reader, 8 - esc_bits);
+			out[outpos++] = (init_bits << (8 - esc_bits)) | rest;
+		}
+		else
+		{
+			const uint x = pc_read_gamma (&reader) + 1;
+			if (x > 2)
+			{
+				const uint hi = pc_read_gamma (&reader) - 1;
+				if (hi == 0xFE) break; // EOF
+				const uint offset = ((hi << n_lz_bits) | pc_read_bits (&reader, n_lz_bits)) + 1;
+				if (offset > outpos || x > uncomp_size - outpos)
+					goto fail;
+				for (uint i = 0; i < x; i++)
+					out[outpos + i] = out[outpos - offset + i];
+				outpos += x;
+			}
+			else if (!pc_read_bit (&reader))
+			{
+				const uint offset = pc_read_bits (&reader, 8) + 1;
+				if (offset > outpos || 2 > uncomp_size - outpos)
+					goto fail;
+				out[outpos + 0] = out[outpos - offset + 0];
+				out[outpos + 1] = out[outpos - offset + 1];
+				outpos += 2;
+			}
+			else if (!pc_read_bit (&reader))
+			{
+				const u8 new_esc = (u8)pc_read_bits (&reader, esc_bits);
+				out[outpos++] = (esc << (8 - esc_bits)) | (u8)pc_read_bits (&reader, 8 - esc_bits);
+				esc = new_esc;
+			}
+			else
+			{
+				uint rl_len = pc_read_gamma (&reader);
+				if (rl_len >= 0x80)
+				{
+					rl_len = ((rl_len << 1) + (pc_read_bit (&reader) ? 1 : 0)) & 0xFF;
+					rl_len |= (pc_read_gamma (&reader) - 1) << 8;
+				}
+				rl_len++;
+				uint b_repeat = pc_read_gamma (&reader);
+				if (b_repeat < 32)
+				{
+					if (b_repeat == 0 || b_repeat - 1 >= freq_tbl_size)
+						goto fail;
+					b_repeat = freq_table[b_repeat - 1];
+				}
+				else
+				{
+					b_repeat = ((b_repeat << 3) | pc_read_bits (&reader, 3)) & 0xFF;
+				}
+				if (rl_len > uncomp_size - outpos)
+					goto fail;
+				for (uint i = 0; i < rl_len; i++)
+					out[outpos + i] = (u8)b_repeat;
+				outpos += rl_len;
+			}
+		}
+	}
+
+	if (outpos == uncomp_size && !reader.error)
+		return ERR_OK;
+fail:
+	FREE (*dest);
+	*dest = 0;
+	*dest_size = 0;
+	return EINVAL;
+}
+
+enumError EncodePuCrunch (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
+{
+	if (!dest || !dest_size || !src || !src_size || src_size > 0x00ffffff)
+		return EINVAL;
+
+	// Build a valid literal PuCrunch stream
+	const uint freq_tbl_size = 4;
+	const uint total = 8 + freq_tbl_size + (src_size * 10 + 32) / 8 + 4;
+	u8 *out = CALLOC (1, total);
+	if (!out)
+		return ERR_CANT_CREATE;
+
+	out[0] = 0x60;
+	out[1] = (u8)(src_size & 0xFF);
+	out[2] = (u8)((src_size >> 8) & 0xFF);
+	out[3] = (u8)((src_size >> 16) & 0xFF);
+
+	out[4] = (u8)freq_tbl_size;
+	out[5] = 0x00; // esc value
+	out[6] = 0x00; // lz extra
+	out[7] = 0x02; // esc bits = 2
+
+	// Frequency table
+	out[8] = 0; out[9] = 0; out[10] = 0; out[11] = 0;
+
+	// Bitstream: write each literal with non-escape prefix (0b01)
+	uint bitpos = 0;
+	u8 *stm = out + 8 + freq_tbl_size;
+	for (uint i = 0; i < src_size; i++)
+	{
+		const u8 b = src[i];
+		// If high 2 bits are 0b00 (escape match), write escaped literal:
+		// esc (0b00) + gamma(1) -> 0b0 + bit(1) + bit(0) + new_esc(0b00) + rest
+		if ((b >> 6) == 0x00)
+		{
+			// esc: 0b00
+			bitpos += 2;
+			// gamma 1: bit 0
+			bitpos += 1;
+			// bit 1: not 2-byte LZ
+			stm[bitpos / 8] |= 0x80 >> (bitpos & 7);
+			bitpos++;
+			// bit 0: escaped literal
+			bitpos++;
+			// new escape = 0b00
+			bitpos += 2;
+			// 6 low bits of literal
+			for (int bit = 5; bit >= 0; bit--)
+			{
+				if (b & (1 << bit))
+					stm[bitpos / 8] |= 0x80 >> (bitpos & 7);
+				bitpos++;
+			}
+		}
+		else
+		{
+			// 8 bits of literal directly (high 2 bits != 0)
+			for (int bit = 7; bit >= 0; bit--)
+			{
+				if (b & (1 << bit))
+					stm[bitpos / 8] |= 0x80 >> (bitpos & 7);
+				bitpos++;
+			}
+		}
+	}
+
+	// End of stream marker: esc (0b00) + gamma(2) [0b100] + gamma(0xFF) [0xFE]
+	// esc 0b00
+	bitpos += 2;
+	// gamma 2 (x=3 > 2): 0b100
+	stm[bitpos / 8] |= 0x80 >> (bitpos & 7);
+	bitpos += 3;
+	// gamma for hi=0xFE (255): 8 bits of 1 + 0 + 8-bit val
+	for (uint k = 0; k < 8; k++)
+	{
+		stm[bitpos / 8] |= 0x80 >> (bitpos & 7);
+		bitpos++;
+	}
+	bitpos++; // 0 bit
+	for (int bit = 7; bit >= 0; bit--)
+	{
+		if (0xFF & (1 << bit))
+			stm[bitpos / 8] |= 0x80 >> (bitpos & 7);
+		bitpos++;
+	}
+
+	const uint final_sz = 8 + freq_tbl_size + (bitpos + 7) / 8;
+	*dest = out;
+	*dest_size = final_sz;
+	return ERR_OK;
+}
+
+//-----------------------------------------------------------------------------
+///////////////		LZX Compression (0x19 Extended LZ11)		///////////////
+//-----------------------------------------------------------------------------
+
+int CxIsCompressedLZX (const unsigned char *buffer, unsigned int size)
+{
+	if (!buffer || size < 4 || buffer[0] != 0x19)
+		return 0;
+	const uint uncomp_size = ((uint)buffer[1]) | ((uint)buffer[2] << 8) | ((uint)buffer[3] << 16);
+	return (uncomp_size > 0 && uncomp_size <= NFMT_MAX_OUTPUT);
+}
+
+enumError DecodeLZX (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
+{
+	if (!dest || !dest_size || !src || !CxIsCompressedLZX (src, src_size))
+		return EINVAL;
+
+	const uint uncomp_size = ((uint)src[1]) | ((uint)src[2] << 8) | ((uint)src[3] << 16);
+	enumError err = alloc_output (dest, dest_size, uncomp_size);
+	if (err)
+		return err;
+
+	u8 *out = *dest;
+	uint offset = 4, dst_offset = 0;
+
+	while (offset < src_size && dst_offset < uncomp_size)
+	{
+		u8 head = src[offset++];
+		for (int i = 0; i < 8 && dst_offset < uncomp_size; i++)
+		{
+			const bool is_ref = (head & 0x80) != 0;
+			head <<= 1;
+
+			if (!is_ref)
+			{
+				if (offset >= src_size) goto fail_lzx;
+				out[dst_offset++] = src[offset++];
+			}
+			else
+			{
+				if (offset + 2 > src_size) goto fail_lzx;
+				const u8 high = src[offset++];
+				const u8 low = src[offset++];
+				const uint mode = high >> 4;
+				uint len = 0, offs = 0;
+
+				if (mode == 0)
+				{
+					if (offset >= src_size) goto fail_lzx;
+					const u8 low2 = src[offset++];
+					len = ((high << 4) | (low >> 4)) + 0x11;
+					offs = (((low & 0xF) << 8) | low2) + 1;
+				}
+				else if (mode == 1)
+				{
+					if (offset + 2 > src_size) goto fail_lzx;
+					const u8 low2 = src[offset++];
+					const u8 low3 = src[offset++];
+					len = (((high & 0xF) << 12) | (low << 4) | (low2 >> 4)) + 0x111;
+					offs = (((low2 & 0xF) << 8) | low3) + 1;
+				}
+				else
+				{
+					len = (high >> 4) + 1;
+					offs = (((high & 0xF) << 8) | low) + 1;
+				}
+
+				if (offs > dst_offset || len > uncomp_size - dst_offset)
+					goto fail_lzx;
+
+				for (uint j = 0; j < len; j++)
+				{
+					out[dst_offset] = out[dst_offset - offs];
+					dst_offset++;
+				}
+			}
+		}
+	}
+
+	if (dst_offset == uncomp_size)
+		return ERR_OK;
+fail_lzx:
+	FREE (*dest);
+	*dest = 0;
+	*dest_size = 0;
+	return EINVAL;
+}
+
+enumError EncodeLZX (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
+{
+	if (!dest || !dest_size || !src || !src_size || src_size > 0x00ffffff)
+		return EINVAL;
+
+	// Use short/long token encoder similar to LZ11 with 0x19 header
+	const uint max_out = 4 + src_size + (src_size / 8 + 1) * 2 + 16;
+	u8 *out = CALLOC (1, max_out);
+	if (!out)
+		return ERR_CANT_CREATE;
+
+	out[0] = 0x19;
+	out[1] = (u8)(src_size & 0xFF);
+	out[2] = (u8)((src_size >> 8) & 0xFF);
+	out[3] = (u8)((src_size >> 16) & 0xFF);
+
+	uint srcpos = 0, dstpos = 4;
+	while (srcpos < src_size)
+	{
+		u8 *flag_byte = out + dstpos++;
+		*flag_byte = 0;
+
+		for (int bit = 7; bit >= 0 && srcpos < src_size; bit--)
+		{
+			// Search for LZ match
+			uint best_len = 0, best_dist = 0;
+			const uint max_dist = srcpos < 4096 ? srcpos : 4096;
+			const uint max_len = src_size - srcpos < 0xFFFF + 0x111 ? src_size - srcpos : 0xFFFF + 0x111;
+
+			if (max_len >= 3)
+			{
+				for (uint d = 1; d <= max_dist; d++)
+				{
+					uint l = 0;
+					while (l < max_len && src[srcpos + l] == src[srcpos - d + l])
+						l++;
+					if (l > best_len && l >= 3)
+					{
+						best_len = l;
+						best_dist = d;
+						if (best_len >= 256)
+							break;
+					}
+				}
+			}
+
+			if (best_len >= 3)
+			{
+				*flag_byte |= (1 << bit);
+				const uint d = best_dist - 1;
+				if (best_len <= 16)
+				{
+					// Mode 2..15: 4-bit length - 1, 12-bit offset
+					const u8 hi = (u8)(((best_len - 1) << 4) | ((d >> 8) & 0xF));
+					const u8 lo = (u8)(d & 0xFF);
+					out[dstpos++] = hi;
+					out[dstpos++] = lo;
+				}
+				else if (best_len <= 0xFF + 0x11)
+				{
+					// Mode 0: 8-bit length - 0x11, 12-bit offset
+					const uint adj = best_len - 0x11;
+					out[dstpos++] = (u8)(adj >> 4);
+					out[dstpos++] = (u8)(((adj & 0xF) << 4) | ((d >> 8) & 0xF));
+					out[dstpos++] = (u8)(d & 0xFF);
+				}
+				else
+				{
+					// Mode 1: 16-bit length - 0x111, 12-bit offset
+					const uint adj = best_len - 0x111;
+					out[dstpos++] = (u8)(0x10 | ((adj >> 12) & 0xF));
+					out[dstpos++] = (u8)((adj >> 4) & 0xFF);
+					out[dstpos++] = (u8)(((adj & 0xF) << 4) | ((d >> 8) & 0xF));
+					out[dstpos++] = (u8)(d & 0xFF);
+				}
+				srcpos += best_len;
+			}
+			else
+			{
+				out[dstpos++] = src[srcpos++];
+			}
+		}
+	}
+
+	*dest = out;
+	*dest_size = dstpos;
+	return ERR_OK;
+}
+
+//-----------------------------------------------------------------------------
+///////////////		Differential Filter (0x80 / 0x81)			///////////////
+//-----------------------------------------------------------------------------
+
+enumError DecodeDiff8 (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
+{
+	if (!dest || !dest_size || !src || src_size < 4 || src[0] != 0x80)
+		return EINVAL;
+	const uint uncomp_size = ((uint)src[1]) | ((uint)src[2] << 8) | ((uint)src[3] << 16);
+	if (!uncomp_size || uncomp_size > NFMT_MAX_OUTPUT)
+		return EINVAL;
+
+	enumError err = alloc_output (dest, dest_size, uncomp_size);
+	if (err)
+		return err;
+
+	u8 *out = *dest;
+	u8 prev = 0;
+	for (uint i = 0; i < uncomp_size && 4 + i < src_size; i++)
+	{
+		prev += src[4 + i];
+		out[i] = prev;
+	}
+	return ERR_OK;
+}
+
+enumError EncodeDiff8 (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
+{
+	if (!dest || !dest_size || !src || !src_size || src_size > 0x00ffffff)
+		return EINVAL;
+
+	u8 *out = CALLOC (1, 4 + src_size);
+	if (!out)
+		return ERR_CANT_CREATE;
+
+	out[0] = 0x80;
+	out[1] = (u8)(src_size & 0xFF);
+	out[2] = (u8)((src_size >> 8) & 0xFF);
+	out[3] = (u8)((src_size >> 16) & 0xFF);
+
+	u8 prev = 0;
+	for (uint i = 0; i < src_size; i++)
+	{
+		out[4 + i] = src[i] - prev;
+		prev = src[i];
+	}
+
+	*dest = out;
+	*dest_size = 4 + src_size;
+	return ERR_OK;
+}
+
+enumError DecodeDiff16 (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
+{
+	if (!dest || !dest_size || !src || src_size < 4 || src[0] != 0x81)
+		return EINVAL;
+	const uint uncomp_size = ((uint)src[1]) | ((uint)src[2] << 8) | ((uint)src[3] << 16);
+	if (!uncomp_size || uncomp_size > NFMT_MAX_OUTPUT)
+		return EINVAL;
+
+	enumError err = alloc_output (dest, dest_size, uncomp_size);
+	if (err)
+		return err;
+
+	u8 *out = *dest;
+	u16 prev = 0;
+	for (uint i = 0; i + 1 < uncomp_size && 4 + i + 1 < src_size; i += 2)
+	{
+		const u16 diff = (u16)src[4 + i] | ((u16)src[4 + i + 1] << 8);
+		prev += diff;
+		out[i] = (u8)(prev & 0xFF);
+		out[i + 1] = (u8)(prev >> 8);
+	}
+	return ERR_OK;
+}
+
+enumError EncodeDiff16 (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
+{
+	if (!dest || !dest_size || !src || !src_size || src_size > 0x00ffffff)
+		return EINVAL;
+
+	const uint out_sz = ((src_size + 1) & ~1u) + 4;
+	u8 *out = CALLOC (1, out_sz);
+	if (!out)
+		return ERR_CANT_CREATE;
+
+	out[0] = 0x81;
+	out[1] = (u8)(src_size & 0xFF);
+	out[2] = (u8)((src_size >> 8) & 0xFF);
+	out[3] = (u8)((src_size >> 16) & 0xFF);
+
+	u16 prev = 0;
+	for (uint i = 0; i < src_size; i += 2)
+	{
+		const u16 val = (i + 1 < src_size)
+			? ((u16)src[i] | ((u16)src[i + 1] << 8))
+			: (u16)src[i];
+		const u16 diff = val - prev;
+		out[4 + i] = (u8)(diff & 0xFF);
+		out[4 + i + 1] = (u8)(diff >> 8);
+		prev = val;
+	}
+
+	*dest = out;
+	*dest_size = out_sz;
+	return ERR_OK;
+}
+
