@@ -1470,7 +1470,16 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 		if (model->joints[j].parent_idx == -1) scene_nodes_idx[num_scene_nodes++] = j;
 	}
 	for (size_t m = 0; m < model->num_meshes; m++) {
-		scene_nodes_idx[num_scene_nodes++] = model->num_joints + m;
+		bool has_inst = false;
+		for (size_t i = 0; i < model->num_instances; i++) {
+			if (model->instances[i].mesh_idx == m) {
+				has_inst = true;
+				break;
+			}
+		}
+		if (!has_inst) {
+			scene_nodes_idx[num_scene_nodes++] = model->num_joints + m;
+		}
 	}
 	for (size_t i = 0; i < model->num_instances; i++) {
 		if (model->instances[i].parent_idx == -1) scene_nodes_idx[num_scene_nodes++] = model->num_joints + model->num_meshes + i;
