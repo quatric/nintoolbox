@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <dirent.h>
 
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -2248,6 +2249,91 @@ static void hsd_bld_ptr (hsd_builder_t *bld, u32 target_off)
 	hsd_bld_u32 (bld, target_off);
 }
 
+static void hsd_bld_patch_ptr (hsd_builder_t *bld, u32 loc, u32 target_off)
+{
+	DASSERT (bld);
+	DASSERT (loc + 4 <= bld->size);
+	DASSERT (target_off);
+	bld->buf[loc] = target_off >> 24;
+	bld->buf[loc + 1] = target_off >> 16;
+	bld->buf[loc + 2] = target_off >> 8;
+	bld->buf[loc + 3] = target_off;
+	if (bld->n_relocs == bld->cap_relocs)
+	{
+		bld->cap_relocs = bld->cap_relocs ? bld->cap_relocs * 2 : 256;
+		bld->relocs = REALLOC (bld->relocs, bld->cap_relocs * sizeof (*bld->relocs));
+	}
+	bld->relocs[bld->n_relocs++] = loc;
+}
+
+// A DOBJ is owned by the joint to which its rigid vertices are bound.  DAE
+// represents that through position_node -> node_influences, so recover the
+// common single-bone binding here.  Weighted or inconsistent meshes stay on
+// the first root; their POBJ envelope is handled separately.
+static int hsd_mesh_owner_joint (const model_t *model, const mesh_t *mesh)
+{
+	if (!model->num_joints || !mesh->position_node)
+		return -1;
+	int owner = -1;
+	for (uint i = 0; i < mesh->num_positions; i++)
+	{
+		const int node = mesh->position_node[i];
+		if (node < 0 || (size_t)node >= model->num_node_influences)
+			continue;
+		const node_influence_t *inf = model->node_influences + node;
+		if (inf->num_weights != 1 || inf->weights[0].weight <= 0.0f)
+			return -1;
+		const int bone = inf->weights[0].bone_idx;
+		if (bone < 0 || (size_t)bone >= model->num_joints)
+			return -1;
+		if (owner < 0)
+			owner = bone;
+		else if (owner != bone)
+			return -1;
+	}
+	return owner;
+}
+
+static enumError hsd_load_model_texture (Image_t *img, ccp out_dir, ccp name)
+{
+	char path[PATH_MAX];
+	if (name[0] == '/' || !*out_dir)
+		snprintf (path, sizeof (path), "%s", name);
+	else
+		snprintf (path, sizeof (path), "%s%s", out_dir, name);
+	if (!access (path, R_OK))
+		return LoadPNG (img, false, false, path, 0);
+
+	// HSD export names carry dimensions/format (Model.tex003_128x128_CMPR.png),
+	// while COLLADA's logical image name is tex003.png.  Resolve that stable
+	// token when encoding an exported DAE beside its textures.
+	char token[64];
+	snprintf (token, sizeof (token), "%s", name);
+	char *dot = strrchr (token, '.');
+	if (dot && !strcasecmp (dot, ".png"))
+		*dot = 0;
+	DIR *dir = opendir (*out_dir ? out_dir : ".");
+	if (dir)
+	{
+		struct dirent *ent;
+		while ((ent = readdir (dir)))
+		{
+			const char *hit = strstr (ent->d_name, token);
+			const size_t len = strlen (ent->d_name);
+			if (hit && (hit == ent->d_name || hit[-1] == '.')
+				&& (hit[strlen (token)] == '_' || hit[strlen (token)] == '.') && len >= 4
+				&& !strcasecmp (ent->d_name + len - 4, ".png"))
+			{
+				snprintf (path, sizeof (path), "%s%s", out_dir, ent->d_name);
+				closedir (dir);
+				return LoadPNG (img, false, false, path, 0);
+			}
+		}
+		closedir (dir);
+	}
+	return ERR_CANT_OPEN;
+}
+
 enumError EncodeModelToHSD (const model_t *model, ccp out_path)
 {
 	if (!model || !out_path || !model->num_meshes)
@@ -2276,9 +2362,7 @@ enumError EncodeModelToHSD (const model_t *model, ccp out_path)
 			ccp tex_name = mat->textures[0];
 			Image_t src;
 			InitializeIMG (&src);
-			enumError e = LoadPNG (&src, false, false, tex_name, 0);
-			if (e > ERR_WARNING && *out_dir)
-				e = LoadPNG (&src, false, false, out_dir, tex_name);
+			enumError e = hsd_load_model_texture (&src, out_dir, tex_name);
 
 			if (e <= ERR_WARNING)
 			{
@@ -2395,10 +2479,12 @@ enumError EncodeModelToHSD (const model_t *model, ccp out_path)
 	// 2. Meshes -> Buffers, Attributes, DL, POBJ, DOBJ
 	const uint nm = model->num_meshes;
 	u32 *mesh_dobj_offs = CALLOC (nm ? nm : 1, sizeof (*mesh_dobj_offs));
+	int *mesh_owner = CALLOC (nm ? nm : 1, sizeof (*mesh_owner));
 
 	for (uint m = 0; m < nm; m++)
 	{
 		const mesh_t *mesh = model->meshes + m;
+		mesh_owner[m] = hsd_mesh_owner_joint (model, mesh);
 
 		// Position buffer (f32)
 		hsd_bld_align (&bld, 32);
@@ -2598,48 +2684,75 @@ enumError EncodeModelToHSD (const model_t *model, ccp out_path)
 		mesh_dobj_offs[m] = dobj_off;
 	}
 
-	// Link DOBJs in chain if multiple meshes
-	for (uint m = 0; m + 1 < nm; m++)
+	// 3. JOBJ hierarchy.  Reserve all fixed-size records first, which makes
+	// child/sibling pointers deterministic even when the model contains more
+	// than one root.  A joint owns only its own DOBJ chain.
+	const uint nj = model->num_joints ? model->num_joints : 1;
+	u32 *jobj_offs = CALLOC (nj, sizeof (*jobj_offs));
+	u32 *first_dobj = CALLOC (nj, sizeof (*first_dobj));
+	u32 *last_dobj = CALLOC (nj, sizeof (*last_dobj));
+	for (uint m = 0; m < nm; m++)
 	{
-		u32 loc = mesh_dobj_offs[m] + 0x04;
-		u32 target = mesh_dobj_offs[m + 1];
-		bld.buf[loc] = (target >> 24) & 0xff;
-		bld.buf[loc + 1] = (target >> 16) & 0xff;
-		bld.buf[loc + 2] = (target >> 8) & 0xff;
-		bld.buf[loc + 3] = target & 0xff;
-		if (bld.n_relocs == bld.cap_relocs)
-		{
-			bld.cap_relocs = bld.cap_relocs ? bld.cap_relocs * 2 : 256;
-			bld.relocs = REALLOC (bld.relocs, bld.cap_relocs * sizeof (*bld.relocs));
-		}
-		bld.relocs[bld.n_relocs++] = loc;
+		int owner = mesh_owner[m];
+		if (owner < 0 || (uint)owner >= nj)
+			owner = 0;
+		if (!first_dobj[owner])
+			first_dobj[owner] = mesh_dobj_offs[m];
+		if (last_dobj[owner])
+			hsd_bld_patch_ptr (&bld, last_dobj[owner] + 4, mesh_dobj_offs[m]);
+		last_dobj[owner] = mesh_dobj_offs[m];
 	}
 
-	// 3. Root JOBJ (0x40 bytes)
 	hsd_bld_align (&bld, 4);
-	u32 root_jobj_off = hsd_bld_pos (&bld);
-	hsd_bld_u32 (&bld, 0); // class_name
-	hsd_bld_u32 (&bld, 0x80000010); // flags (ROOT|USER)
-	hsd_bld_u32 (&bld, 0); // child
-	hsd_bld_u32 (&bld, 0); // next
-	if (nm)
-		hsd_bld_ptr (&bld, mesh_dobj_offs[0]);
-	else
-		hsd_bld_u32 (&bld, 0);
-	// RX, RY, RZ
-	hsd_bld_f32 (&bld, 0.0f);
-	hsd_bld_f32 (&bld, 0.0f);
-	hsd_bld_f32 (&bld, 0.0f);
-	// SX, SY, SZ
-	hsd_bld_f32 (&bld, 1.0f);
-	hsd_bld_f32 (&bld, 1.0f);
-	hsd_bld_f32 (&bld, 1.0f);
-	// TX, TY, TZ
-	hsd_bld_f32 (&bld, 0.0f);
-	hsd_bld_f32 (&bld, 0.0f);
-	hsd_bld_f32 (&bld, 0.0f);
-	hsd_bld_u32 (&bld, 0); // inv_world
-	hsd_bld_u32 (&bld, 0); // robj
+	const u32 jobj_base = hsd_bld_pos (&bld);
+	for (uint i = 0; i < nj; i++)
+		jobj_offs[i] = jobj_base + i * 0x40;
+	const double d2r = M_PI / 180.0;
+	for (uint i = 0; i < nj; i++)
+	{
+		const joint_t *j = model->num_joints ? model->joints + i : 0;
+		hsd_bld_u32 (&bld, 0); // class_name
+		hsd_bld_u32 (&bld, j && j->parent_idx >= 0 ? 0x10 : 0x80000010);
+		uint child = 0, sibling = 0;
+		if (j)
+			for (uint k = 0; k < nj; k++)
+				if (model->joints[k].parent_idx == (int)i)
+				{
+					if (!child)
+						child = jobj_offs[k];
+				}
+		if (j)
+			for (uint k = i + 1; k < nj; k++)
+				if (model->joints[k].parent_idx == j->parent_idx)
+				{
+					sibling = jobj_offs[k];
+					break;
+				}
+		if (child)
+			hsd_bld_ptr (&bld, child);
+		else
+			hsd_bld_u32 (&bld, 0);
+		if (sibling)
+			hsd_bld_ptr (&bld, sibling);
+		else
+			hsd_bld_u32 (&bld, 0);
+		if (first_dobj[i])
+			hsd_bld_ptr (&bld, first_dobj[i]);
+		else
+			hsd_bld_u32 (&bld, 0);
+		hsd_bld_f32 (&bld, j ? j->rotate.x * d2r : 0.0f);
+		hsd_bld_f32 (&bld, j ? j->rotate.y * d2r : 0.0f);
+		hsd_bld_f32 (&bld, j ? j->rotate.z * d2r : 0.0f);
+		hsd_bld_f32 (&bld, j ? j->scale.x : 1.0f);
+		hsd_bld_f32 (&bld, j ? j->scale.y : 1.0f);
+		hsd_bld_f32 (&bld, j ? j->scale.z : 1.0f);
+		hsd_bld_f32 (&bld, j ? j->translate.x : 0.0f);
+		hsd_bld_f32 (&bld, j ? j->translate.y : 0.0f);
+		hsd_bld_f32 (&bld, j ? j->translate.z : 0.0f);
+		hsd_bld_u32 (&bld, 0); // inv_world
+		hsd_bld_u32 (&bld, 0); // robj
+	}
+	u32 root_jobj_off = jobj_offs[0];
 
 	// 4. Relocation Table (sorted in ascending order)
 	qsort (bld.relocs, bld.n_relocs, sizeof (u32), cmp_u32);
@@ -2693,6 +2806,10 @@ enumError EncodeModelToHSD (const model_t *model, ccp out_path)
 	FREE (bld.relocs);
 	FREE (mat_mobj_offs);
 	FREE (mesh_dobj_offs);
+	FREE (mesh_owner);
+	FREE (jobj_offs);
+	FREE (first_dobj);
+	FREE (last_dobj);
 	return rc;
 }
 
