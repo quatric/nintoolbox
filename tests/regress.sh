@@ -5144,6 +5144,27 @@ EOF
   && cmp -s "$d/codec-a/same.romc" "$d/codec-b/same.romc"; then
     fok "romc encode -> decode -> identical re-encode"
   else fno "romc canonical fixed point" "second-generation bytes differ"; fi
+
+  # BFMA and zlib-compressed ARC support test
+  mkdir -p "$d/bfma_u8/inner"
+  printf 'bfma inner manual content test\n' > "$d/bfma_u8/inner/text.txt"
+  if "$B/wszst" CREATE "$d/bfma_u8" --dest "$d/page_00.u8" --overwrite >/dev/null 2>&1 \
+  && "$B/wszst" COMPRESS "$d/page_00.u8" --dest "$d/page_00.zlib" --overwrite >/dev/null 2>&1 \
+  && cp "$d/page_00.zlib" "$d/page_00.arc" \
+  && "$B/wszst" DECOMPRESS "$d/page_00.arc" --dest "$d/page_00_dec.u8" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/page_00.u8" "$d/page_00_dec.u8"; then
+    fok "zlib ARC decompress -> matches original U8"
+  else fno "zlib ARC decompress" "decompressed bytes differ from original U8"; fi
+
+  mkdir -p "$d/manual_src"
+  printf '<manual><title>Test</title></manual>' > "$d/manual_src/meta.xml"
+  cp "$d/page_00.arc" "$d/manual_src/page_00.arc"
+  if "$B/wszst" CREATE "$d/manual_src" --dest "$d/manual.bfma" --overwrite >/dev/null 2>&1 \
+  && "$B/wszst" XX "$d/manual.bfma" --dest "$d/manual_xx" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/manual_xx/meta.xml" ] \
+  && { [ -f "$d/manual_xx/page_00.arc.d/inner/text.txt" ] || [ -f "$d/manual_xx/page_00.d/inner/text.txt" ]; }; then
+    fok "BFMA create -> XX recursive unpack with zlib ARC decompression"
+  else fno "BFMA recursive extraction" "failed to extract manual.bfma and its internal zlib .arc files"; fi
 }
 t_byte_fixed_points
 

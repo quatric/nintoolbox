@@ -91,13 +91,27 @@ static int attr_read (const uint8_t *p, size_t avail, uint32_t fmt, float out[4]
 	out[3] = 1.0f;
 	switch (fmt)
 	{
-		case 0x00000007: // 16_16 unorm
+		case 0x00000005: // 8_8 unorm
+			if (avail < 2)
+				return 0;
+			out[0] = p[0] / 255.0f;
+			out[1] = p[1] / 255.0f;
+			return 1;
+		case 0x00000205: // 8_8 snorm
+			if (avail < 2)
+				return 0;
+			out[0] = (int8_t)p[0] / 127.0f;
+			out[1] = (int8_t)p[1] / 127.0f;
+			return 1;
+		case 0x00000007: // 16_16 unorm (alias)
+		case 0x00000008: // 16_16 unorm
 			if (avail < 4)
 				return 0;
 			out[0] = rb16 (p) / 65535.0f;
 			out[1] = rb16 (p + 2) / 65535.0f;
 			return 1;
-		case 0x00000207: // 16_16 snorm
+		case 0x00000207: // 16_16 snorm (alias)
+		case 0x00000208: // 16_16 snorm
 			if (avail < 4)
 				return 0;
 			out[0] = (int16_t)rb16 (p) / 32767.0f;
@@ -115,7 +129,19 @@ static int attr_read (const uint8_t *p, size_t avail, uint32_t fmt, float out[4]
 			for (int i = 0; i < 4; i++)
 				out[i] = (int8_t)p[i] / 127.0f;
 			return 1;
+		case 0x0000000B: // 10_10_10_2 unorm
+		case 0x0000000C: // 10_10_10_2 unorm
+		{
+			if (avail < 4)
+				return 0;
+			const uint32_t v = rb32 (p);
+			for (int i = 0; i < 3; i++)
+				out[i] = (float)((v >> (i * 10)) & 0x3FF) / 1023.0f;
+			out[3] = (float)((v >> 30) & 3) / 3.0f;
+			return 1;
+		}
 		case 0x0000020B: // 10_10_10_2 snorm
+		case 0x0000020C: // 10_10_10_2 snorm
 		{
 			if (avail < 4)
 				return 0;
@@ -127,14 +153,20 @@ static int attr_read (const uint8_t *p, size_t avail, uint32_t fmt, float out[4]
 					c -= 0x400;
 				out[i] = (float)c / 511.0f;
 			}
+			int w = (v >> 30) & 3;
+			if (w & 2)
+				w -= 4;
+			out[3] = (float)w;
 			return 1;
 		}
 		case 0x00000806: // 16_16 float
+		case 0x00000809: // 16_16 float
 			if (avail < 4)
 				return 0;
 			out[0] = half_to_float (rb16 (p));
 			out[1] = half_to_float (rb16 (p + 2));
 			return 1;
+		case 0x00000807: // 32 float
 		case 0x00000808: // 32 float
 		{
 			if (avail < 4)
@@ -149,13 +181,14 @@ static int attr_read (const uint8_t *p, size_t avail, uint32_t fmt, float out[4]
 			return 1;
 		}
 		case 0x0000080A: // 16_16_16_16 float
-		case 0x0000080F: // 16_16_16_16 float
+		case 0x00000811: // 16_16_16_16 float
 			if (avail < 8)
 				return 0;
 			for (int i = 0; i < 4; i++)
 				out[i] = half_to_float (rb16 (p + i * 2));
 			return 1;
 		case 0x0000080D: // 32_32 float
+		case 0x0000080F: // 32_32 float
 		{
 			if (avail < 8)
 				return 0;
@@ -171,7 +204,7 @@ static int attr_read (const uint8_t *p, size_t avail, uint32_t fmt, float out[4]
 			}
 			return 1;
 		}
-		case 0x00000811: // 32_32_32 float
+		case 0x00000813: // 32_32_32 float
 		{
 			if (avail < 12)
 				return 0;
@@ -187,7 +220,7 @@ static int attr_read (const uint8_t *p, size_t avail, uint32_t fmt, float out[4]
 			}
 			return 1;
 		}
-		case 0x00000813: // 32_32_32_32 float
+		case 0x00000814: // 32_32_32_32 float
 		{
 			if (avail < 16)
 				return 0;
@@ -465,7 +498,7 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 			continue;
 
 		const char *name = rel_string (d, size, sh + 4);
-		const uint16_t vtx_index = rb16 (d + sh + 0x10); // FSHP+0x10: FVTX index
+		const uint16_t vtx_index = rb16 (d + sh + 0x12); // FSHP+0x12: FVTX index
 		if (vtx_index >= n_fvtx)
 			continue;
 
@@ -495,7 +528,7 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 
 		mesh_t *mesh = out->meshes + out->num_meshes;
 		snprintf (mesh->name, sizeof (mesh->name), "%s", name && *name ? name : "shape");
-		const uint16_t fmat_idx = rb16 (d + sh + 0x0C); // FSHP+0x0C: FMAT index
+		const uint16_t fmat_idx = rb16 (d + sh + 0x0E); // FSHP+0x0E: FMAT index
 		mesh->material_idx = fmat_idx < out->num_materials ? (int)fmat_idx : -1;
 
 		mesh->positions = calloc (icount, sizeof (vec3_t));

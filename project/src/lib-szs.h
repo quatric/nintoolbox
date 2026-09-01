@@ -1461,6 +1461,11 @@ enumError CompressFZIP (szs_file_t *szs, int compr, bool remove_uncompressed);
 enumError DecodeFZIP (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 enumError EncodeFZIP (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 
+enumError DecompressZLIB (szs_file_t *szs, bool rm_compressed);
+enumError CompressZLIB (szs_file_t *szs, int compr, bool remove_uncompressed);
+enumError DecodeZlibGrow (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+int IsZlib (cvp data, uint size);
+
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			BRASD support			///////////////

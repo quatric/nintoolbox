@@ -1755,7 +1755,8 @@ static enumError list_sarc_file (ccp arg)
 	enumError err = LoadFileAlloc (arg, 0, 0, &data, &file_size, 0, 0, 0, false);
 	if (err)
 		return err;
-	if (file_size > UINT_MAX || DetectNintendoFormat (data, file_size, arg).type != NFMT_SARC)
+	const nfmt_type_t ftype = DetectNintendoFormat (data, file_size, arg).type;
+	if (file_size > UINT_MAX || (ftype != NFMT_SARC && ftype != NFMT_BFMA))
 	{
 		FREE (data);
 		return ERR_NOTHING_TO_DO;
@@ -4910,24 +4911,51 @@ static enumError decompress_nintendo_file2 (ccp arg, char *dest_out, uint dest_o
 		return err;
 	}
 
-	if (src_ext && (!strcasecmp (src_ext, ".zlib") || !strcasecmp (src_ext, ".deflate")))
+	if ((src_ext && (!strcasecmp (src_ext, ".zlib") || !strcasecmp (src_ext, ".deflate")))
+		|| (size >= 6 && IsZlib (data, size) >= 0 && !dest_out))
 	{
-		const bool raw_deflate = !strcasecmp (src_ext, ".deflate");
+		const bool raw_deflate = src_ext && !strcasecmp (src_ext, ".deflate");
 		err = DecodeZlib (&decoded, &decoded_size, data, size, raw_deflate);
 		FREE (data);
 		if (err)
 			return err;
 
 		char dest[PATH_MAX];
-		if (opt_dest)
+		if (opt_dest && !dest_out)
 			SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".bin", false);
 		else
 		{
 			snprintf (dest, sizeof (dest), "%s", arg);
 			char *dot = strrchr (dest, '.');
-			if (dot)
+			bool stripped = false;
+			if (dot && (!strcasecmp (dot, ".zlib") || !strcasecmp (dot, ".deflate")))
+			{
 				*dot = 0;
-			snprintf (dest + strlen (dest), sizeof (dest) - strlen (dest), ".bin");
+				stripped = true;
+			}
+			char *dot2 = strrchr (dest, '.');
+			if (!stripped || !dot2)
+			{
+				const nfmt_info_t dec_info = DetectNintendoFormat (decoded, decoded_size, dest);
+				ccp ext = ".bin";
+				if (decoded_size >= 4 && be32 (decoded) == U8_MAGIC_NUM)
+					ext = ".u8";
+				else if (dec_info.type == NFMT_SARC || dec_info.type == NFMT_BFMA)
+					ext = ".sarc";
+				else if (dec_info.type == NFMT_NARC)
+					ext = ".narc";
+				else if (dec_info.type == NFMT_BFRES)
+					ext = ".bfres";
+				else if (dec_info.type == NFMT_BCRES)
+					ext = ".bcres";
+				else if (decoded_size >= 4 && !memcmp (decoded, "darc", 4))
+					ext = ".darc";
+				else if (decoded_size >= 4 && !memcmp (decoded, "RARC", 4))
+					ext = ".rarc";
+				else if (decoded_size >= 4 && !memcmp (decoded, "WARC", 4))
+					ext = ".warc";
+				snprintf (dest + strlen (dest), sizeof (dest) - strlen (dest), "%s", ext);
+			}
 		}
 		if (verbose >= 0 || testmode)
 			fprintf (stdlog, "%s%sDECOMPRESS %s:%s -> RAW:%s\n", verbose > 0 ? "\n" : "",
@@ -6435,7 +6463,7 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest)
 	const bool sarc_le = (!strcasecmp (ext, ".sarcle") || !strcasecmp (ext, ".le")
 		|| (strlen (dest) >= 8 && !strcasecmp (ext - 5, ".sarc.le")));
 
-	const bool is_sarc = !strcasecmp (ext, ".sarc")
+	const bool is_sarc = !strcasecmp (ext, ".sarc") || !strcasecmp (ext, ".bfma")
 		|| (strlen (dest) >= 10 && !strcasecmp (dest + strlen (dest) - 10, ".sarc.fzip"))
 		|| sarc_le;
 	if (is_sarc)
@@ -7391,7 +7419,7 @@ static enumError cmd_create (bool create)
 				|| !strcasecmp (ext, ".le") && strlen (dest) >= 8
 					&& !strcasecmp (ext - 5, ".sarc.le"));
 		const bool is_sarc = ext
-			&& (!strcasecmp (ext, ".sarc")
+			&& (!strcasecmp (ext, ".sarc") || !strcasecmp (ext, ".bfma")
 				|| (strlen (dest) >= 10 && !strcasecmp (dest + strlen (dest) - 10, ".sarc.fzip"))
 				|| sarc_le);
 		if (create && is_sarc)
@@ -8817,7 +8845,7 @@ static enumError extract_sarc_file (ccp arg, ccp basedir, uint depth)
 {
 	if (!is_ext (arg, ".sarc") && !is_ext (arg, ".szs") && !is_ext (arg, ".lyarc")
 		&& !is_ext (arg, ".arc") && !is_ext (arg, ".pack") && !is_ext (arg, ".bin")
-		&& !is_ext (arg, ".fzip"))
+		&& !is_ext (arg, ".fzip") && !is_ext (arg, ".bfma"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;
@@ -14868,9 +14896,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 				|| !memcmp (head, "SARC", 4) || !memcmp (head, "NARC", 4)
 				|| !memcmp (head, "CRAN", 4) || !memcmp (head, "CTPK", 4) || is_ext (arg, ".szs")
 				|| is_ext (arg, ".arc") || is_ext (arg, ".carc") || is_ext (arg, ".sarc")
-				|| is_ext (arg, ".narc") || is_ext (arg, ".ctpk") || is_ext (arg, ".pack")
-				|| is_ext (arg, ".barc") || is_ext (arg, ".rarc") || is_ext (arg, ".brres")
-				|| is_ext (arg, ".bres"))
+				|| is_ext (arg, ".bfma") || is_ext (arg, ".narc") || is_ext (arg, ".ctpk")
+				|| is_ext (arg, ".pack") || is_ext (arg, ".barc") || is_ext (arg, ".rarc")
+				|| is_ext (arg, ".brres") || is_ext (arg, ".bres"))
 				is_arch = true;
 		}
 		if (!is_arch)

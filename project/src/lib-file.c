@@ -1079,6 +1079,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x534d4448: // "SMDH"
 				return FF_SMDH;
 
+			// SARC / BFMA archive (Wii U / Switch / 3DS)
+			case 0x53415243: // "SARC"
+				return FF_SARC;
+
 			// GFA: Good-Feel archive (Wario Land: Shake It!, Kirby's Epic Yarn)
 			case 0x47464143: // "GFAC"
 				return FF_GFA;
@@ -1416,6 +1420,9 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		}
 	}
 
+	if (data_size >= 6 && IsZlib (data, data_size) >= 0)
+		return FF_ZLIB;
+
 	return FF_UNKNOWN;
 }
 
@@ -1440,7 +1447,11 @@ file_format_t GetFileTypeByMagic (
 		if (S_ISDIR (fatt->mode))
 			return FF_DIRECTORY;
 
-		return GetByMagicFF (buf, sizeof (buf), fatt->size);
+		const file_format_t ff = GetByMagicFF (buf, sizeof (buf), fatt->size);
+		ccp ext = fname ? strrchr (fname, '.') : 0;
+		if (ff == FF_SARC && ext && !strcasecmp (ext, ".bfma"))
+			return FF_BFMA;
+		return ff;
 	}
 
 	return FF_INVALID;

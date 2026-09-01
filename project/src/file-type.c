@@ -787,6 +787,23 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x53, 0x4d, 0x44, 0x48 }, // "SMDH"
 		0, MinusString, MinusString, "3DS application icon/title metadata (SMDH)" },
 
+	// FF_SARC = 149 (Nintendo SARC archive)
+	{ FF_SARC, 0, 0, "SARC", ".sarc", ".szs", ".sarc",
+		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT | FFT_CREATE, 4,
+		{ 0x53, 0x41, 0x52, 0x43 }, // "SARC"
+		0, MinusString, MinusString, "Nintendo SARC archive (.sarc)" },
+
+	// FF_BFMA = 150 (Nintendo Wii U manual archive)
+	{ FF_BFMA, 0, 0, "BFMA", ".bfma", ".bfma", ".bfma",
+		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT | FFT_CREATE, 4,
+		{ 0x53, 0x41, 0x52, 0x43 }, // "SARC"
+		0, MinusString, MinusString, "Nintendo Wii U manual archive (.bfma)" },
+
+	// FF_ZLIB = 151 (Zlib deflate compression)
+	{ FF_ZLIB, 0, 0, "ZLIB", ".zlib", ".zlib", ".zlib", FFT_VALID | FFT_COMPRESS | FFT_TRACK, 0,
+		{ 0 },
+		0, MinusString, MinusString, "Zlib deflate compression (.zlib)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -871,7 +888,9 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_BFWAR, "BFWAR", "FWAR", 0x3801 }, { FF_BCGRP, "BCGRP", "CGRP", 0x3801 },
 	{ FF_BFGRP, "BFGRP", "FGRP", 0x3801 }, { FF_GTX, "GTX", "GFX2", 0x3001 },
 	{ FF_FZIP, "FZIP", "FZIP", 0x103 }, { FF_GVR, "GVR", "GCIX", 0x3809 },
-	{ FF_SMDH, "SMDH", 0, 0x3009 },
+	{ FF_SMDH, "SMDH", 0, 0x3009 }, { FF_SARC, "SARC", "SARC", 0xe05 },
+	{ FF_BFMA, "BFMA", "BFMA", 0xe05 }, { FF_ZLIB, "ZLIB", "ZLIB", 0x103 },
+	{ FF_ZLIB, "DEFLATE", 0, 0x103 },
 
 	{ 0, 0, 0, 0 }
 };

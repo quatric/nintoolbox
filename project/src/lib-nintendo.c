@@ -55,7 +55,7 @@ ccp GetNintendoFormatName (nfmt_type_t type)
 		"HUFF8", "RL", "ASH0", "Yay0", "LZH8", "BFLIM", "BCLIM", "NUTEXB", "BNR", "NCGR", "NCLR", "NCER",
 		"NANR", "BRFNT", "BRFNA", "BCFNT", "BRLAN", "BRLYT", "BFLAN", "BFLYT", "BCLAN", "BCLYT",
 		"PLT0", "MSBT", "BCRES", "BFRES", "BNTX", "GFA", "BCH", "QuickLZ", "PAC", "RNC", "romc",
-		"PSDK", "AT7", "CTPK", "BYML", "NARC", "NSCR", "FZIP", "JARC", "jCMP" };
+		"PSDK", "AT7", "CTPK", "BYML", "NARC", "NSCR", "FZIP", "JARC", "jCMP", "BFMA", "Zlib" };
 	return type < sizeof (tab) / sizeof (*tab) ? tab[type] : "UNKNOWN";
 }
 
@@ -82,12 +82,20 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_JARC, true, false, 0);
 		if (!memcmp (d, "FZIP", 4))
 			return make_info (NFMT_FZIP, true, true, size >= 8 ? rd_be32 (d + 4) : 0);
+		if (size >= 6 && IsZlib (d, size) >= 0 && ext
+			&& (!strcasecmp (ext, ".zlib") || !strcasecmp (ext, ".deflate")
+				|| !strcasecmp (ext, ".arc")))
+			return make_info (NFMT_ZLIB, false, true, 0);
 		if (!memcmp (d, "TXTR", 4))
 			return make_info (NFMT_DSB, true, false, 0);
 		if (magic == 0x0020af30)
 			return make_info (NFMT_TPL, true, false, 0);
 		if (!memcmp (d, "SARC", 4))
+		{
+			if (ext && !strcasecmp (ext, ".bfma"))
+				return make_info (NFMT_BFMA, size >= 8 && d[6] == 0xfe, false, 0);
 			return make_info (NFMT_SARC, size >= 8 && d[6] == 0xfe, false, 0);
+		}
 		if (!memcmp (d, "ASH0", 4))
 			return make_info (NFMT_ASH0, true, true, size >= 8 ? rd_be32 (d + 4) : 0);
 		if (!memcmp (d, "Yay0", 4))
@@ -6205,67 +6213,6 @@ void ResetGPKG (gpkg_t *pkg)
 	memset (pkg, 0, sizeof (*pkg));
 }
 
-// Standard zlib-wrapped inflate into a buffer whose final size isn't known
-// up front (no size field precedes the stream in this format) -- grows and
-// retries on Z_OK/Z_BUF_ERROR, same technique as DecodeFZIP() in lib-szs.c.
-static enumError InflateZlibGrow (u8 **out_data, uint *out_size, const u8 *src, uint src_size)
-{
-	uint cap = src_size * 4 + 4096;
-	if (cap > (256u << 20))
-		cap = 256u << 20;
-	u8 *out = MALLOC (cap);
-	if (!out)
-		return ERR_OUT_OF_MEMORY;
-
-	int ret = Z_DATA_ERROR;
-	for (;;)
-	{
-		z_stream strm;
-		memset (&strm, 0, sizeof (strm));
-		strm.next_in = (Bytef *)src;
-		strm.avail_in = src_size;
-		strm.next_out = out;
-		strm.avail_out = cap;
-		if (inflateInit2 (&strm, 15) != Z_OK)
-		{
-			FREE (out);
-			return ERR_INVALID_DATA;
-		}
-		ret = inflate (&strm, Z_FINISH);
-		const uint produced = cap - strm.avail_out;
-		inflateEnd (&strm);
-		if (ret == Z_STREAM_END)
-		{
-			*out_data = out;
-			*out_size = produced;
-			return ERR_OK;
-		}
-		if (ret != Z_OK && ret != Z_BUF_ERROR)
-		{
-			FREE (out);
-			return ERR_INVALID_DATA;
-		}
-		if (cap >= (256u << 20))
-		{
-			FREE (out);
-			return ERR_FILE_TOO_BIG;
-		}
-		cap = cap * 2;
-		u8 *nout = REALLOC (out, cap);
-		if (!nout)
-		{
-			FREE (out);
-			return ERR_OUT_OF_MEMORY;
-		}
-		out = nout;
-	}
-}
-
-enumError DecodeZlibGrow (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
-{
-	return InflateZlibGrow (dest, dest_size, src, src_size);
-}
-
 // Clean-room LZO1X decoder. This follows the byte layout described in the
 // Linux kernel's Documentation/staging/lzo.rst, rather than using (or
 // translating) liblzo. In particular, it accepts only the original stream
@@ -6457,7 +6404,7 @@ enumError ScanGPKG (gpkg_t *pkg, const u8 *data, uint size)
 	memset (pkg, 0, sizeof (*pkg));
 	u8 *dec = 0;
 	uint dec_size = 0;
-	if (InflateZlibGrow (&dec, &dec_size, data, size) != ERR_OK || dec_size < 0x14)
+	if (DecodeZlibGrow (&dec, &dec_size, data, size) != ERR_OK || dec_size < 0x14)
 	{
 		FREE (dec);
 		return ERR_NOTHING_TO_DO;
@@ -6822,7 +6769,7 @@ u8 *DecompressRPAKEntry (const u8 *data, uint size, uint *res_size)
 					const u8 *seg = data + pos + sp;
 					const bool zlib = sn >= 2 && seg[0] == 0x78
 						&& (seg[1] == 0x01 || seg[1] == 0x9c || seg[1] == 0xda);
-					const enumError derr = zlib ? InflateZlibGrow (&dec, &dec_size, seg, sn)
+					const enumError derr = zlib ? DecodeZlibGrow (&dec, &dec_size, seg, sn)
 												: DecodeLZO1XGrow (&dec, &dec_size, seg, sn);
 					if (derr != ERR_OK || dec_size > usize - so)
 					{
@@ -6842,7 +6789,7 @@ u8 *DecompressRPAKEntry (const u8 *data, uint size, uint *res_size)
 			{
 				u8 *dec = 0;
 				uint dec_size = 0;
-				if (InflateZlibGrow (&dec, &dec_size, data + pos, stored) != ERR_OK
+				if (DecodeZlibGrow (&dec, &dec_size, data + pos, stored) != ERR_OK
 					|| dec_size != usize)
 				{
 					FREE (dec);
@@ -9123,7 +9070,17 @@ typedef struct byml_ctx_t
 	uint n_hash_keys;
 	const char **strings;
 	uint n_strings;
+	u32 visited_stack[256];
+	uint visited_depth;
 } byml_ctx_t;
+
+static bool byml_is_visited (const byml_ctx_t *ctx, u32 off)
+{
+	for (uint i = 0; i < ctx->visited_depth; i++)
+		if (ctx->visited_stack[i] == off)
+			return true;
+	return false;
+}
 
 static inline u32 byml_u24 (const u8 *p, bool is_le)
 {
@@ -9400,6 +9357,11 @@ static enumError byml_print_node (
 		case 0xC0: // Array
 		{
 			u32 off = val;
+			if (byml_is_visited (ctx, off))
+			{
+				fprintf (out, "*array_0x%x", off);
+				break;
+			}
 			if (off + 4 > ctx->size)
 			{
 				fprintf (out, "[]");
@@ -9431,6 +9393,9 @@ static enumError byml_print_node (
 				break;
 			}
 
+			if (ctx->visited_depth < 256)
+				((byml_ctx_t *)ctx)->visited_stack[((byml_ctx_t *)ctx)->visited_depth++] = off;
+
 			for (uint i = 0; i < count; i++)
 			{
 				u8 elem_tag = tags[i];
@@ -9446,7 +9411,11 @@ static enumError byml_print_node (
 				if (elem_tag == 0xC1)
 				{
 					u32 d_off = elem_val;
-					if (d_off + 4 <= ctx->size && ctx->data[d_off] == 0xC1)
+					if (byml_is_visited (ctx, d_off))
+					{
+						fprintf (out, "*dict_0x%x\n", d_off);
+					}
+					else if (d_off + 4 <= ctx->size && ctx->data[d_off] == 0xC1)
 					{
 						uint d_count = byml_u24 (ctx->data + d_off + 1, ctx->is_le);
 						if (!d_count)
@@ -9464,8 +9433,15 @@ static enumError byml_print_node (
 				}
 				else if (elem_tag == 0xC0)
 				{
-					fprintf (out, "\n");
-					byml_print_node (out, ctx, elem_tag, elem_val, indent + 2, depth + 1);
+					if (byml_is_visited (ctx, elem_val))
+					{
+						fprintf (out, "*array_0x%x\n", elem_val);
+					}
+					else
+					{
+						fprintf (out, "\n");
+						byml_print_node (out, ctx, elem_tag, elem_val, indent + 2, depth + 1);
+					}
 				}
 				else
 				{
@@ -9473,11 +9449,19 @@ static enumError byml_print_node (
 					fputc ('\n', out);
 				}
 			}
+
+			if (ctx->visited_depth > 0 && ctx->visited_stack[ctx->visited_depth - 1] == off)
+				((byml_ctx_t *)ctx)->visited_depth--;
 			break;
 		}
 		case 0xC1: // Dictionary
 		{
 			u32 off = val;
+			if (byml_is_visited (ctx, off))
+			{
+				fprintf (out, "*dict_0x%x", off);
+				break;
+			}
 			if (off + 4 > ctx->size)
 			{
 				fprintf (out, "{}");
@@ -9501,6 +9485,9 @@ static enumError byml_print_node (
 				break;
 			}
 
+			if (ctx->visited_depth < 256)
+				((byml_ctx_t *)ctx)->visited_stack[((byml_ctx_t *)ctx)->visited_depth++] = off;
+
 			for (uint i = 0; i < count; i++)
 			{
 				const u8 *entry = p + 4 + i * 8;
@@ -9518,21 +9505,28 @@ static enumError byml_print_node (
 
 				if (val_type == 0xC0 || val_type == 0xC1)
 				{
-					bool is_empty = false;
-					if (child_val + 4 <= ctx->size)
+					if (byml_is_visited (ctx, child_val))
 					{
-						uint c_cnt = byml_u24 (ctx->data + child_val + 1, ctx->is_le);
-						if (!c_cnt)
-							is_empty = true;
-					}
-					if (is_empty)
-					{
-						fprintf (out, " %s\n", val_type == 0xC0 ? "[]" : "{}");
+						fprintf (out, " *%s_0x%x\n", val_type == 0xC0 ? "array" : "dict", child_val);
 					}
 					else
 					{
-						fprintf (out, "\n");
-						byml_print_node (out, ctx, val_type, child_val, indent + 2, depth + 1);
+						bool is_empty = false;
+						if (child_val + 4 <= ctx->size)
+						{
+							uint c_cnt = byml_u24 (ctx->data + child_val + 1, ctx->is_le);
+							if (!c_cnt)
+								is_empty = true;
+						}
+						if (is_empty)
+						{
+							fprintf (out, " %s\n", val_type == 0xC0 ? "[]" : "{}");
+						}
+						else
+						{
+							fprintf (out, "\n");
+							byml_print_node (out, ctx, val_type, child_val, indent + 2, depth + 1);
+						}
 					}
 				}
 				else
@@ -9542,6 +9536,9 @@ static enumError byml_print_node (
 					fputc ('\n', out);
 				}
 			}
+
+			if (ctx->visited_depth > 0 && ctx->visited_stack[ctx->visited_depth - 1] == off)
+				((byml_ctx_t *)ctx)->visited_depth--;
 			break;
 		}
 		default:

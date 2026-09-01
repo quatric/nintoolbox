@@ -55,7 +55,9 @@ typedef enum nfmt_type_t
 	NFMT_NSCR,
 	NFMT_FZIP,
 	NFMT_JARC,
-	NFMT_JCMP
+	NFMT_JCMP,
+	NFMT_BFMA,
+	NFMT_ZLIB
 } nfmt_type_t;
 
 typedef struct nfmt_info_t
@@ -602,6 +604,7 @@ enumError DecodeLZO1XGrow (u8 **dest, uint *dest_size, const u8 *src, uint src_s
 // Shared by GPKG/RPAK internally and exposed here for LSPK's zlib-tagged
 // entries (magic byte 0x78) too.
 enumError DecodeZlibGrow (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+int IsZlib (cvp data, uint size);
 
 //-----------------------------------------------------------------------------
 // Mistwalker's ".pk"/".pkh" archive pair (Wii: The Last Story). Layout

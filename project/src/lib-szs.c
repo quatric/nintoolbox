@@ -52,6 +52,7 @@
 #include "lib-bzip2.h"
 #include "lib-lzma.h"
 #include "lib-checksum.h"
+#include "lib-nintendo.h"
 #include "dclib-utf8.h"
 #include "crypt.h"
 
@@ -888,6 +889,8 @@ enumError DecompressSZS (szs_file_t *szs, // valid SZS source, use cdata
 			return DecompressLZMA (szs, rm_compressed);
 		case FF_FZIP:
 			return DecompressFZIP (szs, rm_compressed);
+		case FF_ZLIB:
+			return DecompressZLIB (szs, rm_compressed);
 		default:
 			break;
 	}
@@ -1611,6 +1614,8 @@ enumError CompressWith (
 			return CompressLZMA (szs, compr, rm_uncompr);
 		case FF_FZIP:
 			return CompressFZIP (szs, compr, rm_uncompr);
+		case FF_ZLIB:
+			return CompressZLIB (szs, compr, rm_uncompr);
 		default:
 			break;
 	}
@@ -2758,6 +2763,172 @@ enumError EncodeFZIP (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 
 	*dest = buf;
 	*dest_size = 8 + (uint)strm.total_out;
+	return ERR_OK;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////			  ZLIB support			///////////////
+///////////////////////////////////////////////////////////////////////////////
+
+int IsZlib (cvp data, uint size)
+{
+	const u8 *d = data;
+	if (!d || size < 6)
+		return -1;
+	if ((d[0] & 0x0f) != 8 || ((d[0] >> 4) & 0x0f) > 7)
+		return -1;
+	if (((d[0] << 8) | d[1]) % 31 != 0)
+		return -1;
+	return 1;
+}
+
+enumError DecodeZlibGrow (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
+{
+	if (!dest || !dest_size || !src)
+		return ERR_SEMANTIC;
+	*dest = 0;
+	*dest_size = 0;
+
+	uint cap = src_size * 4 + 4096;
+	if (cap > (256u << 20))
+		cap = 256u << 20;
+	u8 *out = MALLOC (cap);
+	if (!out)
+		return ERR_OUT_OF_MEMORY;
+
+	int ret = Z_DATA_ERROR;
+	int windowBits = 15;
+	for (;;)
+	{
+		z_stream strm;
+		memset (&strm, 0, sizeof (strm));
+		strm.next_in = (Bytef *)src;
+		strm.avail_in = src_size;
+		strm.next_out = out;
+		strm.avail_out = cap;
+		if (inflateInit2 (&strm, windowBits) != Z_OK)
+		{
+			FREE (out);
+			return ERR_INVALID_DATA;
+		}
+		ret = inflate (&strm, Z_FINISH);
+		const uint produced = cap - strm.avail_out;
+		inflateEnd (&strm);
+		if (ret == Z_STREAM_END)
+		{
+			*dest = out;
+			*dest_size = produced;
+			return ERR_OK;
+		}
+		if (ret == Z_DATA_ERROR && windowBits == 15)
+		{
+			windowBits = -15;
+			continue;
+		}
+		if (ret != Z_OK && ret != Z_BUF_ERROR)
+		{
+			FREE (out);
+			return ERR_INVALID_DATA;
+		}
+		if (cap >= (256u << 20))
+		{
+			FREE (out);
+			return ERR_FILE_TOO_BIG;
+		}
+		cap = cap * 2;
+		u8 *nout = REALLOC (out, cap);
+		if (!nout)
+		{
+			FREE (out);
+			return ERR_OUT_OF_MEMORY;
+		}
+		out = nout;
+	}
+}
+
+enumError DecompressZLIB (szs_file_t *szs, bool rm_compressed)
+{
+	PRINT ("DecompressZLIB(%p,%d)\n", szs, rm_compressed);
+	DASSERT (szs);
+
+	if (!szs->csize || !szs->cdata || szs->data)
+		return ERR_OK;
+
+	u8 *data = 0;
+	uint size = 0;
+	enumError err = DecodeZlibGrow (&data, &size, szs->cdata, szs->csize);
+	if (err)
+		return err;
+
+	szs->data = data;
+	szs->size = size;
+	szs->file_size = size;
+	szs->data_alloced = true;
+	szs->fform_arch = szs->fform_current = GetByMagicFF (data, size, size);
+	szs->ff_attrib = GetAttribFF (szs->fform_arch);
+	szs->ff_version = GetVersionFF (szs->fform_arch, szs->data, szs->size, 0);
+
+	ClearContainerSZS (szs);
+	if (rm_compressed)
+		ClearCompressedSZS (szs);
+
+	if (IsCompressedFF (szs->fform_arch))
+	{
+		szs->cdata = szs->data;
+		szs->csize = szs->size;
+		szs->cdata_alloced = szs->data_alloced;
+		szs->data = 0;
+		szs->size = 0;
+		szs->data_alloced = false;
+		szs->fform_file = szs->fform_arch;
+		return DecompressSZS (szs, rm_compressed, 0);
+	}
+	return ERR_OK;
+}
+
+enumError CompressZLIB (szs_file_t *szs, int compr, bool remove_uncompressed)
+{
+	PRINT ("CompressZLIB(%p,%d,%d)\n", szs, compr, remove_uncompressed);
+	DASSERT (szs);
+
+	if (!szs->size || !szs->data || szs->cdata)
+		return ERR_OK;
+
+	uLongf bound = compressBound ((uLong)szs->size) + 64;
+	u8 *cdata = MALLOC (bound);
+	if (!cdata)
+		return ERR_OUT_OF_MEMORY;
+
+	z_stream strm;
+	memset (&strm, 0, sizeof (strm));
+	if (deflateInit2 (&strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15, 8, Z_DEFAULT_STRATEGY) != Z_OK)
+	{
+		FREE (cdata);
+		return ERR_INVALID_DATA;
+	}
+
+	strm.next_in = (Bytef *)szs->data;
+	strm.avail_in = (uInt)szs->size;
+	strm.next_out = cdata;
+	strm.avail_out = (uInt)bound;
+
+	int ret = deflate (&strm, Z_FINISH);
+	deflateEnd (&strm);
+
+	if (ret != Z_STREAM_END)
+	{
+		FREE (cdata);
+		return ERR_INVALID_DATA;
+	}
+
+	szs->cdata = cdata;
+	szs->csize = (uint)strm.total_out;
+	szs->cdata_alloced = true;
+	szs->fform_file = FF_ZLIB;
+
+	ClearContainerSZS (szs);
+	if (remove_uncompressed)
+		ClearUncompressedSZS (szs);
 	return ERR_OK;
 }
 

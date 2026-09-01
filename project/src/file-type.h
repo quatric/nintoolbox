@@ -238,6 +238,9 @@ typedef enum file_format_t
 	FF_FZIP, // 146 - Game & Wario FZIP compression (.fzip)
 	FF_GVR, // 147 - Sega GameCube/Wii texture (GCIX/GVRT)
 	FF_SMDH, // 148 - Nintendo 3DS icon/title metadata (SMDH)
+	FF_SARC, // 149 - Nintendo SARC archive (SARC / .sarc)
+	FF_BFMA, // 150 - Nintendo Wii U manual archive (.bfma)
+	FF_ZLIB, // 151 - Zlib deflate compression (.zlib)
 
 	//--- number of elements
 
