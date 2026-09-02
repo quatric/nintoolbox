@@ -966,13 +966,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x53, 0x53, 0x42, 0x48 }, // "SSBH"
 		0, MinusString, MinusString, "Smash Ultimate SSBH Mesh (NUMSHB)" },
 
-	// FF_NUS3 = 180 (Namco Universal Sound 3)
-	{ FF_NUS3, 0, 0, "NUS3", ".nus3bank", ".nus3bank", ".nus3audio",
-		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT | FFT_CREATE, 4,
-		{ 0x4e, 0x55, 0x53, 0x33 }, // "NUS3"
-		0, MinusString, MinusString, "Namco Universal Sound 3 archive (Smash 4 / Ultimate)" },
-
-	// FF_UE4_PAK = 181 (Unreal Engine 4 archive)
+	// FF_UE4_PAK = 180 (Unreal Engine 4 archive)
 	{ FF_UE4_PAK, 0, 0, "PAK", ".pak", ".pak", ".pak",
 		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT | FFT_CREATE, 0,
 		{ 0 },
@@ -1112,8 +1106,6 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_NUD, "NUD", "NDP3", 0x3001 },
 	{ FF_DTLS, "DTLS", "LS", 0xe05 },
 	{ FF_NUMSHB, "NUMSHB", "SSBH", 0x3001 },
-	{ FF_NUS3, "NUS3", "NUS3BANK", 0xe05 },
-	{ FF_NUS3, "NUS3AUDIO", 0, 0xe05 },
 	{ FF_UE4_PAK, "PAK", "UE4PAK", 0xe05 },
 	{ FF_SMASH_ARC, "ARC", "SMASHARC", 0xe05 },
 	{ FF_PRC, "PRC", "PARAM", 0x3001 },

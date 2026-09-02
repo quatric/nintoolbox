@@ -269,11 +269,10 @@ typedef enum file_format_t
 	FF_NUD, // 177 - Namco Universal Data model (.nud / NDP3 / NDWU)
 	FF_DTLS, // 178 - Smash 4 data/lookup archive (dt00 / ls00)
 	FF_NUMSHB, // 179 - Smash Ultimate SSBH Mesh (.numshb)
-	FF_NUS3, // 180 - Namco Universal Sound 3 (NUS3BANK / NUS3AUDIO)
-	FF_UE4_PAK, // 181 - Unreal Engine 4 archive (Mario & Luigi: Brothership .pak)
-	FF_SMASH_ARC, // 182 - Super Smash Bros. Ultimate data.arc archive
-	FF_PRC, // 183 - Smash Parameter binary (.prc / parambinary)
-	FF_CNUT, // 184 - Compiled Squirrel script / messages (Wii Party .cnut / SQIR)
+	FF_UE4_PAK, // 180 - Unreal Engine 4 archive (Mario & Luigi: Brothership .pak)
+	FF_SMASH_ARC, // 181 - Super Smash Bros. Ultimate data.arc archive
+	FF_PRC, // 182 - Smash Parameter binary (.prc / parambinary)
+	FF_CNUT, // 183 - Compiled Squirrel script / messages (Wii Party .cnut / SQIR)
 
 	//--- number of elements
 

@@ -64,7 +64,6 @@
 #include "lib-chr.h"
 #include "lib-srt.h"
 #include "lib-ue4pak.h"
-#include "lib-nus3.h"
 #include "lib-nut.h"
 #include "lib-smash-arc.h"
 #include "lib-prc.h"
@@ -13607,68 +13606,6 @@ static enumError extract_ue4_pak_file (ccp arg, ccp basedir, uint depth)
 	return err;
 }
 
-static enumError extract_nus3_file (ccp arg, ccp basedir, uint depth)
-{
-	if (!is_ext (arg, ".nus3bank") && !is_ext (arg, ".nus3audio")
-		&& !is_ext (arg, ".nus3") && !is_ext (arg, ".bin"))
-		return ERR_NOTHING_TO_DO;
-
-	u8 *raw = 0;
-	size_t raw_size = 0;
-	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
-	if (err)
-		return ERR_NOTHING_TO_DO;
-
-	if (!IsNUS3 (raw, raw_size))
-	{
-		FREE (raw);
-		return ERR_NOTHING_TO_DO;
-	}
-
-	nus3_t nus;
-	err = ScanNUS3 (&nus, raw, raw_size);
-	if (err)
-	{
-		FREE (raw);
-		return ERR_NOTHING_TO_DO;
-	}
-
-	char dest[PATH_MAX];
-	beside_source_dest (dest, sizeof (dest), arg);
-	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT NUS3 (Smash 4 / Ultimate):%s (%u tracks) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, nus.n_tracks, dest);
-
-	for (uint i = 0; !err && i < nus.n_tracks; i++)
-	{
-		if (testmode)
-			continue;
-
-		const nus3_track_t *t = &nus.tracks[i];
-		if (!t->data || t->size == 0)
-			continue;
-
-		char path[PATH_MAX];
-		snprintf (path, sizeof (path), "%s/%s%s%s", dest, basedir ? basedir : "", t->name, t->ext);
-
-		File_t F;
-		err = CreateFileOpt (&F, true, path, false, arg);
-		if (F.f && fwrite (t->data, 1, t->size, F.f) != t->size)
-			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", t->size, path);
-		ResetFile (&F, opt_preserve);
-	}
-
-	ResetNUS3 (&nus);
-	FREE (raw);
-
-	if (!err && !testmode)
-	{
-		enumError sub_err = extract_tree_complete (dest, depth + 1);
-		if (err < sub_err)
-			err = sub_err;
-	}
-	return err;
-}
 
 
 static enumError extract_smash_arc_file (ccp arg, ccp basedir, uint depth)
@@ -16709,10 +16646,6 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		return err;
 
 	err = extract_ue4_pak_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-
-	err = extract_nus3_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 

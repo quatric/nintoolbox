@@ -407,7 +407,7 @@ SZS_O		:= lib-std.o lib-file.o lib-numeric.o \
 		   lib-rarc.o lib-pack.o lib-rkc.o lib-brres.o lib-breff.o \
 		   file-type.o db-mkw.o lib-mkw.o lib-dol.o \
 		   sha1dgst.o sha1_one.o lib-bzip2.o lib-lzma.o lib-zstd.o \
-		   lib-ue4pak.o lib-nus3.o lib-smash-arc.o lib-prc.o lib-cnut.o \
+		   lib-ue4pak.o lib-smash-arc.o lib-prc.o lib-cnut.o \
 		   $(DCLIB_O)
 
 # object groups
