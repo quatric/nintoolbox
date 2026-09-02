@@ -452,3 +452,459 @@ enumError ExtractF9ResArchive (ccp arg, ccp basedir, uint depth)
 	FREE (raw);
 	return ERR_OK;
 }
+
+// ----------------------------------------------------------------------------
+// Repacking / Creation Implementations
+// ----------------------------------------------------------------------------
+
+#include <zlib.h>
+#include <stdlib.h>
+
+static int compare_archive_entries (const void *a, const void *b)
+{
+	const nintendo_sarc_entry_t *ea = (const nintendo_sarc_entry_t *)a;
+	const nintendo_sarc_entry_t *eb = (const nintendo_sarc_entry_t *)b;
+	ccp na = ea->name ? ea->name : "";
+	ccp nb = eb->name ? eb->name : "";
+	return strcmp (na, nb);
+}
+
+// 1. Level-5 Container Archive (.xc / .xpck)
+enumError CreateXPCKArchive (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	if (!dest || !dest_size || !entries || !n_entries)
+		return ERR_INVALID_DATA;
+
+	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
+	if (!sorted)
+		return ERR_OUT_OF_MEMORY;
+	memcpy (sorted, entries, n_entries * sizeof (*sorted));
+	qsort (sorted, n_entries, sizeof (*sorted), compare_archive_entries);
+
+	const u32 header_sz = 0x10;
+	const u32 file_info_sz = n_entries * 12;
+	const u32 file_names_start = header_sz + file_info_sz;
+
+	u32 names_len = 0;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		ccp name = sorted[i].name ? sorted[i].name : "";
+		ccp slash = strrchr (name, '/');
+		if (slash)
+			name = slash + 1;
+		names_len += strlen (name) + 1;
+	}
+	const u32 filename_table_size = (names_len + 3) & ~3;
+	const u32 data_start = (file_names_start + filename_table_size + 15) & ~15;
+
+	u32 cur_data_off = data_start;
+	for (uint i = 0; i < n_entries; i++)
+		cur_data_off = (cur_data_off + sorted[i].size + 3) & ~3;
+
+	u8 *buf = CALLOC (cur_data_off, 1);
+	if (!buf)
+	{
+		FREE (sorted);
+		return ERR_OUT_OF_MEMORY;
+	}
+
+	memcpy (buf, "XPCK", 4);
+	wr_le16 (buf + 4, (u16)(n_entries & 0xFFF));
+	wr_le16 (buf + 6, (u16)(header_sz / 4));
+	wr_le16 (buf + 8, (u16)(file_names_start / 4));
+	wr_le16 (buf + 10, (u16)(data_start / 4));
+	wr_le16 (buf + 12, 0);
+	wr_le16 (buf + 14, (u16)(filename_table_size / 4));
+
+	u32 name_write_pos = file_names_start;
+	u32 data_off = data_start;
+
+	for (uint i = 0; i < n_entries; i++)
+	{
+		ccp name = sorted[i].name ? sorted[i].name : "";
+		ccp slash = strrchr (name, '/');
+		if (slash)
+			name = slash + 1;
+
+		const size_t nlen = strlen (name);
+		memcpy (buf + name_write_pos, name, nlen + 1);
+		name_write_pos += nlen + 1;
+
+		const u32 eoff = header_sz + i * 12;
+		u32 crc = (u32)crc32 (0, (const Bytef *)name, nlen);
+		wr_le32 (buf + eoff, crc);
+
+		u32 rel_off = (data_off - data_start) / 4;
+		u32 sz = sorted[i].size;
+
+		wr_le16 (buf + eoff + 6, (u16)(rel_off & 0xFFFF));
+		wr_le16 (buf + eoff + 8, (u16)(sz & 0xFFFF));
+		buf[eoff + 10] = (u8)((rel_off >> 16) & 0xFF);
+		buf[eoff + 11] = (u8)((sz >> 16) & 0xFF);
+
+		if (sorted[i].data && sorted[i].size > 0)
+			memcpy (buf + data_off, sorted[i].data, sorted[i].size);
+
+		data_off = (data_off + sorted[i].size + 3) & ~3;
+	}
+
+	FREE (sorted);
+	*dest = buf;
+	*dest_size = cur_data_off;
+	return ERR_OK;
+}
+
+// 2. Camelot Archive Table (.ztab / .tab)
+enumError CreateZTABArchive (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	if (!dest || !dest_size || !entries || !n_entries)
+		return ERR_INVALID_DATA;
+
+	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
+	if (!sorted)
+		return ERR_OUT_OF_MEMORY;
+	memcpy (sorted, entries, n_entries * sizeof (*sorted));
+	qsort (sorted, n_entries, sizeof (*sorted), compare_archive_entries);
+
+	const u32 header_sz = 8;
+	const u32 table_sz = n_entries * 16;
+	u32 data_start = (header_sz + table_sz + 15) & ~15;
+
+	u32 cur_data_off = data_start;
+	for (uint i = 0; i < n_entries; i++)
+		cur_data_off = (cur_data_off + sorted[i].size + 15) & ~15;
+
+	u8 *buf = CALLOC (cur_data_off, 1);
+	if (!buf)
+	{
+		FREE (sorted);
+		return ERR_OUT_OF_MEMORY;
+	}
+
+	memcpy (buf, "ZTAB", 4);
+	wr_be32 (buf + 4, n_entries);
+
+	u32 data_off = data_start;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		const u32 eoff = header_sz + i * 16;
+		u32 flags = 0;
+		ccp name = sorted[i].name ? sorted[i].name : "";
+		ccp slash = strrchr (name, '/');
+		if (slash)
+			name = slash + 1;
+
+		const char *fpos = strstr (name, "flags_");
+		if (fpos)
+			sscanf (fpos + 6, "%x", &flags);
+
+		wr_be32 (buf + eoff, flags);
+		wr_be32 (buf + eoff + 4, data_off);
+		wr_be32 (buf + eoff + 8, sorted[i].size);
+		wr_be32 (buf + eoff + 12, 0);
+
+		if (sorted[i].data && sorted[i].size > 0)
+			memcpy (buf + data_off, sorted[i].data, sorted[i].size);
+
+		data_off = (data_off + sorted[i].size + 15) & ~15;
+	}
+
+	FREE (sorted);
+	*dest = buf;
+	*dest_size = cur_data_off;
+	return ERR_OK;
+}
+
+// 3. Dance Dance Revolution Mario Mix Chunk Archive (.mdr)
+enumError CreateMDRArchive (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	if (!dest || !dest_size || !entries || !n_entries)
+		return ERR_INVALID_DATA;
+
+	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
+	if (!sorted)
+		return ERR_OUT_OF_MEMORY;
+	memcpy (sorted, entries, n_entries * sizeof (*sorted));
+	qsort (sorted, n_entries, sizeof (*sorted), compare_archive_entries);
+
+	u8 **comp_chunks = CALLOC (n_entries, sizeof (u8 *));
+	u32 *comp_sizes = CALLOC (n_entries, sizeof (u32));
+	u32 *flags = CALLOC (n_entries, sizeof (u32));
+
+	if (!comp_chunks || !comp_sizes || !flags)
+	{
+		FREE (sorted);
+		FREE (comp_chunks);
+		FREE (comp_sizes);
+		FREE (flags);
+		return ERR_OUT_OF_MEMORY;
+	}
+
+	for (uint i = 0; i < n_entries; i++)
+	{
+		ccp name = sorted[i].name ? sorted[i].name : "";
+		const char *fpos = strstr (name, "flags_");
+		if (fpos)
+			sscanf (fpos + 6, "%x", &flags[i]);
+
+		if (sorted[i].size > 0 && sorted[i].data)
+		{
+			uLongf bound = compressBound (sorted[i].size);
+			comp_chunks[i] = MALLOC (bound);
+			uLongf actual = bound;
+			if (compress (comp_chunks[i], &actual, sorted[i].data, sorted[i].size) == Z_OK)
+			{
+				comp_sizes[i] = (u32)actual;
+			}
+			else
+			{
+				FREE (comp_chunks[i]);
+				comp_chunks[i] = 0;
+				comp_sizes[i] = 0;
+			}
+		}
+	}
+
+	const u32 header_sz = (4 + n_entries * 4 + 15) & ~15;
+	u32 cur_off = header_sz;
+	u32 *chunk_ptrs = CALLOC (n_entries, sizeof (u32));
+	for (uint i = 0; i < n_entries; i++)
+	{
+		chunk_ptrs[i] = cur_off;
+		cur_off = (cur_off + 16 + comp_sizes[i] + 15) & ~15;
+	}
+
+	u8 *buf = CALLOC (cur_off, 1);
+	if (!buf)
+	{
+		for (uint i = 0; i < n_entries; i++)
+			FREE (comp_chunks[i]);
+		FREE (comp_chunks);
+		FREE (comp_sizes);
+		FREE (flags);
+		FREE (chunk_ptrs);
+		FREE (sorted);
+		return ERR_OUT_OF_MEMORY;
+	}
+
+	wr_be32 (buf, n_entries);
+	for (uint i = 0; i < n_entries; i++)
+		wr_be32 (buf + 4 + i * 4, chunk_ptrs[i]);
+
+	for (uint i = 0; i < n_entries; i++)
+	{
+		const u32 coff = chunk_ptrs[i];
+		wr_be32 (buf + coff, sorted[i].size);
+		wr_be32 (buf + coff + 4, flags[i]);
+		wr_be32 (buf + coff + 8, 0);
+		wr_be32 (buf + coff + 12, comp_sizes[i]);
+
+		if (comp_chunks[i] && comp_sizes[i] > 0)
+		{
+			memcpy (buf + coff + 16, comp_chunks[i], comp_sizes[i]);
+			FREE (comp_chunks[i]);
+		}
+	}
+
+	FREE (comp_chunks);
+	FREE (comp_sizes);
+	FREE (flags);
+	FREE (chunk_ptrs);
+	FREE (sorted);
+
+	*dest = buf;
+	*dest_size = cur_off;
+	return ERR_OK;
+}
+
+// 4. Pikmin 1 & 2 Model/Archive Container (.pvol)
+enumError CreatePVOLArchive (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	if (!dest || !dest_size || !entries || !n_entries)
+		return ERR_INVALID_DATA;
+
+	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
+	if (!sorted)
+		return ERR_OUT_OF_MEMORY;
+	memcpy (sorted, entries, n_entries * sizeof (*sorted));
+	qsort (sorted, n_entries, sizeof (*sorted), compare_archive_entries);
+
+	const u32 fcount = n_entries + 1;
+	const u32 table_sz = 4 + (fcount - 1) * 8;
+	u32 data_start = (table_sz + 31) & ~31;
+
+	u32 cur_off = data_start;
+	for (uint i = 0; i < n_entries; i++)
+		cur_off = (cur_off + 0x28 + sorted[i].size + 15) & ~15;
+
+	u8 *buf = CALLOC (cur_off, 1);
+	if (!buf)
+	{
+		FREE (sorted);
+		return ERR_OUT_OF_MEMORY;
+	}
+
+	wr_le32 (buf, fcount);
+
+	u32 off = data_start;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		const u32 toff = 4 + i * 8;
+		wr_le32 (buf + toff, off);
+		wr_le32 (buf + toff + 4, sorted[i].size);
+
+		ccp name = sorted[i].name ? sorted[i].name : "";
+		ccp slash = strrchr (name, '/');
+		if (slash)
+			name = slash + 1;
+
+		const size_t nlen = strlen (name);
+		if (nlen <= 32)
+			memcpy (buf + off, name, nlen);
+		else
+		{
+			memcpy (buf + off, name, 32);
+			const size_t rem = nlen - 32 < 8 ? nlen - 32 : 8;
+			memcpy (buf + off + 0x20, name + 32, rem);
+		}
+
+		if (sorted[i].data && sorted[i].size > 0)
+			memcpy (buf + off + 0x28, sorted[i].data, sorted[i].size);
+
+		off = (off + 0x28 + sorted[i].size + 15) & ~15;
+	}
+
+	FREE (sorted);
+	*dest = buf;
+	*dest_size = cur_off;
+	return ERR_OK;
+}
+
+// 5. Jump Super Stars / Jump Ultimate Stars DS Archive (.srd / .stpk)
+enumError CreateSTPKArchive (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	if (!dest || !dest_size || !entries || !n_entries)
+		return ERR_INVALID_DATA;
+
+	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
+	if (!sorted)
+		return ERR_OUT_OF_MEMORY;
+	memcpy (sorted, entries, n_entries * sizeof (*sorted));
+	qsort (sorted, n_entries, sizeof (*sorted), compare_archive_entries);
+
+	const u32 header_sz = 0x10;
+	const u32 table_sz = n_entries * 0x30;
+	u32 data_start = (header_sz + table_sz + 15) & ~15;
+
+	u32 cur_data_off = data_start;
+	for (uint i = 0; i < n_entries; i++)
+		cur_data_off = (cur_data_off + sorted[i].size + 15) & ~15;
+
+	u8 *buf = CALLOC (cur_data_off, 1);
+	if (!buf)
+	{
+		FREE (sorted);
+		return ERR_OUT_OF_MEMORY;
+	}
+
+	memcpy (buf, "STPK", 4);
+	wr_be32 (buf + 4, 1);
+	wr_be32 (buf + 8, n_entries);
+	wr_be32 (buf + 12, 0);
+
+	u32 data_off = data_start;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		const u32 eoff = header_sz + i * 0x30;
+		wr_be32 (buf + eoff, data_off);
+		wr_be32 (buf + eoff + 4, sorted[i].size);
+
+		ccp name = sorted[i].name ? sorted[i].name : "";
+		ccp slash = strrchr (name, '/');
+		if (slash)
+			name = slash + 1;
+		strncpy ((char *)(buf + eoff + 0x10), name, 31);
+
+		if (sorted[i].data && sorted[i].size > 0)
+			memcpy (buf + data_off, sorted[i].data, sorted[i].size);
+
+		data_off = (data_off + sorted[i].size + 15) & ~15;
+	}
+
+	FREE (sorted);
+	*dest = buf;
+	*dest_size = cur_data_off;
+	return ERR_OK;
+}
+
+// 6. GameCube Resource Archive (.res / res\n)
+enumError CreateF9ResArchive (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	if (!dest || !dest_size || !entries || !n_entries)
+		return ERR_INVALID_DATA;
+
+	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
+	if (!sorted)
+		return ERR_OUT_OF_MEMORY;
+	memcpy (sorted, entries, n_entries * sizeof (*sorted));
+	qsort (sorted, n_entries, sizeof (*sorted), compare_archive_entries);
+
+	const u32 header_offset = 0x20;
+	const u32 chunks_offset = 0x20;
+	const u32 chunks_table_sz = 8 + n_entries * 20;
+	u32 data_start = (chunks_offset + chunks_table_sz + 15) & ~15;
+
+	u32 cur_data_off = data_start;
+	for (uint i = 0; i < n_entries; i++)
+		cur_data_off = (cur_data_off + sorted[i].size + 15) & ~15;
+
+	u8 *buf = CALLOC (cur_data_off, 1);
+	if (!buf)
+	{
+		FREE (sorted);
+		return ERR_OUT_OF_MEMORY;
+	}
+
+	memcpy (buf, "res\n", 4);
+	wr_be32 (buf + 8, header_offset);
+	wr_be32 (buf + 0x1C, chunks_offset);
+
+	wr_be32 (buf + chunks_offset, n_entries);
+	wr_be32 (buf + chunks_offset + 4, 4);
+
+	u32 data_off = data_start;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		const u32 coff = chunks_offset + 8 + i * 20;
+		ccp name = sorted[i].name ? sorted[i].name : "";
+		ccp slash = strrchr (name, '/');
+		if (slash)
+			name = slash + 1;
+
+		char tag[5] = "DATA";
+		for (int c = 0; c < 4 && name[c] && name[c] != '_'; c++)
+			tag[c] = name[c];
+
+		memcpy (buf + coff, tag, 4);
+		wr_be32 (buf + coff + 4, data_off - header_offset);
+		wr_be32 (buf + coff + 8, sorted[i].size);
+		wr_be32 (buf + coff + 12, 0);
+		wr_be32 (buf + coff + 16, 0);
+
+		if (sorted[i].data && sorted[i].size > 0)
+			memcpy (buf + data_off, sorted[i].data, sorted[i].size);
+
+		data_off = (data_off + sorted[i].size + 15) & ~15;
+	}
+
+	FREE (sorted);
+	*dest = buf;
+	*dest_size = cur_data_off;
+	return ERR_OK;
+}
