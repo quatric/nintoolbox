@@ -5745,6 +5745,66 @@ with open("'"$d"'/nsmbw_test/sample_lh.txt", "wb") as f:
   else
     fno "Newer SMBW formats" "failed to decode Newer SMBW or NSMBW tileset formats";
   fi
+
+  # Koopatlas Binary World Map (.kpbin) test
+  mkdir -p "$d/koopatlas_test"
+  python3 -c '
+import struct
+magic = b"KP_m"
+version = 2
+layer_count = 1
+header_size = 44
+data = bytearray(b"\x00" * header_size)
+layer_offs = len(data)
+data.extend(struct.pack(">I", 0))
+l0_off = len(data)
+struct.pack_into(">I", data, layer_offs, l0_off)
+node_cnt = 2
+path_cnt = 1
+data.extend(struct.pack(">IB3x", 2, 255))
+noffs_ptr = len(data)
+data.extend(struct.pack(">II", node_cnt, 0))
+poffs_ptr = len(data)
+data.extend(struct.pack(">II", path_cnt, 0))
+nodes_tbl_off = len(data)
+struct.pack_into(">I", data, noffs_ptr + 4, nodes_tbl_off)
+data.extend(struct.pack(">II", 0, 0))
+paths_tbl_off = len(data)
+struct.pack_into(">I", data, poffs_ptr + 4, paths_tbl_off)
+data.extend(struct.pack(">I", 0))
+n0_off = len(data)
+struct.pack_into(">I", data, nodes_tbl_off, n0_off)
+data.extend(struct.pack(">hhIIIIII3xB8xBBB", 100, 200, 0, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0, 0, 2, 1, 1, 0))
+n1_off = len(data)
+struct.pack_into(">I", data, nodes_tbl_off + 4, n1_off)
+data.extend(struct.pack(">hhIIIIII3xB8xBBB", 250, 200, 0xFFFFFFFF, 0, 0xFFFFFFFF, 0xFFFFFFFF, 0, 0, 2, 1, 2, 1))
+p0_off = len(data)
+struct.pack_into(">I", data, paths_tbl_off, p0_off)
+data.extend(struct.pack(">IIIIBB2xfI", n0_off, n1_off, 0, 0, 3, 0, 2.5, 0))
+while len(data) % 4 != 0:
+    data.append(0)
+worlds_off = len(data)
+w0_off = len(data)
+data.extend(struct.pack(">I6IBBBBBBB3x", 0, 0xFFFFFFFF, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0))
+bg_str_off = len(data)
+data.extend(b"bg_overworld.png\x00")
+wname_off = len(data)
+data.extend(b"World 1: Yoshi Island\x00")
+struct.pack_into(">I", data, w0_off, wname_off)
+struct.pack_into(">4sIIIIIIIIII", data, 0, magic, version, layer_count, layer_offs, 0, 0, 0, 0, bg_str_off, worlds_off, 1)
+with open("'"$d"'/koopatlas_test/sample_map.kpbin", "wb") as f:
+    f.write(data)
+'
+  if "$B/wszst" XX "$d/koopatlas_test/sample_map.kpbin" --dest "$d/koopatlas_test/sample_map.txt" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/koopatlas_test/sample_map.txt" ] \
+  && [ -f "$d/koopatlas_test/sample_map.json" ] \
+  && grep -q "Yoshi Island" "$d/koopatlas_test/sample_map.txt" 2>/dev/null \
+  && grep -q "level=1-1" "$d/koopatlas_test/sample_map.txt" 2>/dev/null \
+  && grep -q "KPMap" "$d/koopatlas_test/sample_map.json" 2>/dev/null; then
+    fok "Koopatlas Binary Map (.kpbin) extraction"
+  else
+    fno "Koopatlas Binary Map" "failed to extract .kpbin sample";
+  fi
 }
 t_byte_fixed_points
 

@@ -1114,6 +1114,18 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 },
 		0, MinusString, MinusString, "NSMBW Tileset Collision Attributes (d_bgchk_*.bin)" },
 
+	// FF_KPBIN = 205 (Koopatlas Binary World Map)
+	{ FF_KPBIN, FF_KPBIN, 0, "KPBIN", ".kpbin", ".kpbin", ".kpbin",
+		FFT_VALID | FFT_ARCHIVE | FFT_DECODE | FFT_ENCODE | FFT_EXTRACT | FFT_CREATE, 4,
+		{ 'K', 'P', '_', 'm' },
+		0, MinusString, MinusString, "Koopatlas Binary World Map (.kpbin / KP_m)" },
+
+	// FF_KPMAP = 206 (Koopatlas Map Project)
+	{ FF_KPMAP, FF_KPMAP, 0, "KPMAP", ".kpmap", ".kpmap", ".kpmap",
+		FFT_VALID | FFT_DECODE | FFT_ENCODE, 0,
+		{ 0 },
+		0, MinusString, MinusString, "Koopatlas Map Project (.kpmap / JSON)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1255,6 +1267,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_NWR_LEVELINFO, "NWR-LEVELINFO", "LEVELINFO", 0xe05 },
 	{ FF_NWR_ANIMTILES, "NWR-ANIMTILES", "ANIMTILES", 0xe05 },
 	{ FF_NSMBW_CHK, "NSMBW-CHK", "BGCHK", 0x3001 },
+	{ FF_KPBIN, "KPBIN", "KP_M", 0xe05 },
+	{ FF_KPMAP, "KPMAP", 0, 0x3001 },
 
 	{ 0, 0, 0, 0 }
 };

@@ -294,6 +294,8 @@ typedef enum file_format_t
 	FF_NWR_LEVELINFO, // 202 - Newer SMBW Level Information (LevelInfo.bin / NWRp)
 	FF_NWR_ANIMTILES, // 203 - Newer SMBW Animated Tiles (AnimTiles.bin / NWRa)
 	FF_NSMBW_CHK, // 204 - NSMBW Tileset Collision Attributes (d_bgchk_*.bin)
+	FF_KPBIN, // 205 - Koopatlas Binary World Map (.kpbin / KP_m)
+	FF_KPMAP, // 206 - Koopatlas Map Project (.kpmap / JSON)
 
 	//--- number of elements
 
