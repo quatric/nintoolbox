@@ -4,10 +4,11 @@
 #include <errno.h>
 
 //-----------------------------------------------------------------------------
-///////////////	  RFL_Res.dat (Revolution Face Library)		///////////////
+///////////////	  Mii Face Library Resource Archive Codec		///////////////
+///////////////	  (RFL_Res.dat, FFL_Res.dat, CFL_Res.dat, etc.)	///////////////
 //-----------------------------------------------------------------------------
 
-static const char * const rfl_arc_names[18] = {
+static const char * const mii_arc_names[18] = {
 	"beard",
 	"eye",
 	"eyebrow",
@@ -28,7 +29,7 @@ static const char * const rfl_arc_names[18] = {
 	"cap_tex"
 };
 
-enumError ScanRFLRes (
+enumError ScanMiiRes (
 	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
 {
 	if (!entries || !n_entries || !data || size < 8)
@@ -37,26 +38,80 @@ enumError ScanRFLRes (
 	*entries = 0;
 	*n_entries = 0;
 
-	const u16 total_arc = rd_be16 (data);
-	if (total_arc == 0 || total_arc > 64)
-		return EINVAL;
+	bool is_be = false;
+	bool valid = false;
+	u16 total_arc = 0;
 
-	if (4 + total_arc * 4 > size)
-		return EINVAL;
-
-	for (uint i = 0; i < total_arc; i++)
+	// Check Big-Endian (Wii RFL_Res, Wii U FFL_Res)
+	u16 be_arc = rd_be16 (data);
+	if (be_arc >= 1 && be_arc <= 128 && 4 + (uint)be_arc * 4 <= size)
 	{
-		const u32 off = rd_be32 (data + 4 + i * 4);
-		if (off + 4 > size)
-			return EINVAL;
+		bool ok = true;
+		u32 prev = 0;
+		for (uint i = 0; i < be_arc; i++)
+		{
+			const u32 off = rd_be32 (data + 4 + i * 4);
+			if (off < 4 + (uint)be_arc * 4 || off + 4 > size || (i > 0 && off < prev))
+			{
+				ok = false;
+				break;
+			}
+			prev = off;
+		}
+		if (ok)
+		{
+			const u32 a0 = rd_be32 (data + 4);
+			const u16 n0 = rd_be16 (data + a0);
+			if (a0 + 4 + ((uint)n0 + 1) * 4 <= size)
+			{
+				is_be = true;
+				valid = true;
+				total_arc = be_arc;
+			}
+		}
 	}
+
+	// Check Little-Endian (3DS CFL_Res, Switch FFL_Res / AFL_Res)
+	if (!valid)
+	{
+		u16 le_arc = rd_le16 (data);
+		if (le_arc >= 1 && le_arc <= 128 && 4 + (uint)le_arc * 4 <= size)
+		{
+			bool ok = true;
+			u32 prev = 0;
+			for (uint i = 0; i < le_arc; i++)
+			{
+				const u32 off = rd_le32 (data + 4 + i * 4);
+				if (off < 4 + (uint)le_arc * 4 || off + 4 > size || (i > 0 && off < prev))
+				{
+					ok = false;
+					break;
+				}
+				prev = off;
+			}
+			if (ok)
+			{
+				const u32 a0 = rd_le32 (data + 4);
+				const u16 n0 = rd_le16 (data + a0);
+				if (a0 + 4 + ((uint)n0 + 1) * 4 <= size)
+				{
+					is_be = false;
+					valid = true;
+					total_arc = le_arc;
+				}
+			}
+		}
+	}
+
+	if (!valid || total_arc == 0)
+		return EINVAL;
 
 	uint total_files = 0;
 	for (uint i = 0; i < total_arc; i++)
 	{
-		const u32 arc_off = rd_be32 (data + 4 + i * 4);
-		const u16 num = rd_be16 (data + arc_off);
-		if (arc_off + 4 + (num + 1) * 4 > size)
+		const u32 arc_off = is_be ? rd_be32 (data + 4 + i * 4) : rd_le32 (data + 4 + i * 4);
+		const u16 num = is_be ? rd_be16 (data + arc_off) : rd_le16 (data + arc_off);
+		if (arc_off + 4 + ((uint)num + 1) * 4 > size)
 			return EINVAL;
 		total_files += num;
 	}
@@ -71,11 +126,11 @@ enumError ScanRFLRes (
 	uint out_idx = 0;
 	for (uint i = 0; i < total_arc; i++)
 	{
-		const u32 arc_off = rd_be32 (data + 4 + i * 4);
-		const u16 num = rd_be16 (data + arc_off);
-		const u32 data_base = arc_off + 4 + (num + 1) * 4;
+		const u32 arc_off = is_be ? rd_be32 (data + 4 + i * 4) : rd_le32 (data + 4 + i * 4);
+		const u16 num = is_be ? rd_be16 (data + arc_off) : rd_le16 (data + arc_off);
+		const u32 data_base = arc_off + 4 + ((uint)num + 1) * 4;
 
-		ccp cat_name = i < 18 ? rfl_arc_names[i] : "subarc";
+		ccp cat_name = i < 18 ? mii_arc_names[i] : "subarc";
 		char cat_buf[32];
 		if (i >= 18)
 		{
@@ -85,8 +140,8 @@ enumError ScanRFLRes (
 
 		for (uint j = 0; j < num; j++)
 		{
-			const u32 f_off = rd_be32 (data + arc_off + 4 + j * 4);
-			const u32 next_off = rd_be32 (data + arc_off + 4 + (j + 1) * 4);
+			const u32 f_off = is_be ? rd_be32 (data + arc_off + 4 + j * 4) : rd_le32 (data + arc_off + 4 + j * 4);
+			const u32 next_off = is_be ? rd_be32 (data + arc_off + 4 + (j + 1) * 4) : rd_le32 (data + arc_off + 4 + (j + 1) * 4);
 			if (next_off < f_off || data_base + next_off > size)
 			{
 				ResetOwnedEntries (res, out_idx);
@@ -118,8 +173,26 @@ enumError ScanRFLRes (
 	return ERR_OK;
 }
 
-enumError CreateRFLRes (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+enumError ScanRFLRes (
+	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
+{
+	return ScanMiiRes (entries, n_entries, data, size);
+}
+
+enumError ScanFFLRes (
+	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
+{
+	return ScanMiiRes (entries, n_entries, data, size);
+}
+
+enumError ScanCFLRes (
+	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
+{
+	return ScanMiiRes (entries, n_entries, data, size);
+}
+
+enumError CreateMiiRes (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries, bool big_endian)
 {
 	if (!dest || !dest_size || !entries || !n_entries)
 		return EINVAL;
@@ -142,7 +215,7 @@ enumError CreateRFLRes (
 				if (!strncmp (dir, "arc_", 4))
 				{
 					uint idx = (uint)atoi (dir + 4);
-					if (idx + 1 > max_cat && idx < 64)
+					if (idx + 1 > max_cat && idx < 128)
 						max_cat = idx + 1;
 				}
 			}
@@ -153,9 +226,9 @@ enumError CreateRFLRes (
 		uint count;
 		uint alloc;
 		const nintendo_sarc_entry_t **files;
-	} rfl_cat_t;
+	} mii_cat_t;
 
-	rfl_cat_t *cats = CALLOC (max_cat, sizeof (*cats));
+	mii_cat_t *cats = CALLOC (max_cat, sizeof (*cats));
 	if (!cats)
 		return ERR_CANT_CREATE;
 
@@ -173,20 +246,33 @@ enumError CreateRFLRes (
 				dir[dlen] = 0;
 				for (int c = 0; c < 18; c++)
 				{
-					if (!strcmp (dir, rfl_arc_names[c]))
+					if (!strcmp (dir, mii_arc_names[c]))
 					{
 						cat_idx = c;
 						break;
 					}
 				}
-				if (cat_idx < 0 && !strncmp (dir, "arc_", 4))
-					cat_idx = atoi (dir + 4);
+				if (cat_idx < 0)
+				{
+					if (!strcmp (dir, "facetex"))
+						cat_idx = 4;
+					else if (!strcmp (dir, "forehead"))
+						cat_idx = 5;
+					else if (!strcmp (dir, "glasstex"))
+						cat_idx = 7;
+					else if (!strcmp (dir, "noseline"))
+						cat_idx = 14;
+					else if (!strcmp (dir, "captex"))
+						cat_idx = 17;
+					else if (!strncmp (dir, "arc_", 4))
+						cat_idx = atoi (dir + 4);
+				}
 			}
 		}
 		if (cat_idx < 0 || (uint)cat_idx >= max_cat)
 			cat_idx = 0;
 
-		rfl_cat_t *c = cats + cat_idx;
+		mii_cat_t *c = cats + cat_idx;
 		if (c->count >= c->alloc)
 		{
 			c->alloc = c->alloc ? c->alloc * 2 : 16;
@@ -219,10 +305,20 @@ enumError CreateRFLRes (
 		return ERR_CANT_CREATE;
 	}
 
-	wr_be16 (buf, (u16)max_cat);
-	wr_be16 (buf + 2, 0x0001);
-	for (uint i = 0; i < max_cat; i++)
-		wr_be32 (buf + 4 + i * 4, arc_offsets[i]);
+	if (big_endian)
+	{
+		wr_be16 (buf, (u16)max_cat);
+		wr_be16 (buf + 2, 0x0001);
+		for (uint i = 0; i < max_cat; i++)
+			wr_be32 (buf + 4 + i * 4, arc_offsets[i]);
+	}
+	else
+	{
+		wr_le16 (buf, (u16)max_cat);
+		wr_le16 (buf + 2, 0x0001);
+		for (uint i = 0; i < max_cat; i++)
+			wr_le32 (buf + 4 + i * 4, arc_offsets[i]);
+	}
 
 	for (uint i = 0; i < max_cat; i++)
 	{
@@ -235,19 +331,34 @@ enumError CreateRFLRes (
 				max_sz = cats[i].files[j]->size;
 		}
 
-		wr_be16 (buf + a_off, (u16)num);
-		wr_be16 (buf + a_off + 2, (u16)max_sz);
+		if (big_endian)
+		{
+			wr_be16 (buf + a_off, (u16)num);
+			wr_be16 (buf + a_off + 2, (u16)max_sz);
+		}
+		else
+		{
+			wr_le16 (buf + a_off, (u16)num);
+			wr_le16 (buf + a_off + 2, (u16)max_sz);
+		}
 
 		u32 rel_off = 0;
 		const u32 data_start = a_off + 4 + (num + 1) * 4;
 		for (uint j = 0; j < num; j++)
 		{
-			wr_be32 (buf + a_off + 4 + j * 4, rel_off);
+			if (big_endian)
+				wr_be32 (buf + a_off + 4 + j * 4, rel_off);
+			else
+				wr_le32 (buf + a_off + 4 + j * 4, rel_off);
+
 			if (cats[i].files[j]->size)
 				memcpy (buf + data_start + rel_off, cats[i].files[j]->data, cats[i].files[j]->size);
 			rel_off += cats[i].files[j]->size;
 		}
-		wr_be32 (buf + a_off + 4 + num * 4, rel_off);
+		if (big_endian)
+			wr_be32 (buf + a_off + 4 + num * 4, rel_off);
+		else
+			wr_le32 (buf + a_off + 4 + num * 4, rel_off);
 	}
 
 	for (uint i = 0; i < max_cat; i++)
@@ -260,3 +371,26 @@ enumError CreateRFLRes (
 	return ERR_OK;
 }
 
+enumError CreateRFLRes (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	return CreateMiiRes (dest, dest_size, entries, n_entries, true);
+}
+
+enumError CreateFFLRes (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	return CreateMiiRes (dest, dest_size, entries, n_entries, true);
+}
+
+enumError CreateCFLRes (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	return CreateMiiRes (dest, dest_size, entries, n_entries, false);
+}
+
+enumError CreateAFLRes (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	return CreateMiiRes (dest, dest_size, entries, n_entries, false);
+}

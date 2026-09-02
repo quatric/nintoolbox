@@ -5968,10 +5968,16 @@ static bool looks_like_rflres_dir (ccp dir)
 	snprintf (test, sizeof (test), "%s/faceline", dir);
 	if (stat (test, &st) == 0 && S_ISDIR (st.st_mode))
 		return true;
+	snprintf (test, sizeof (test), "%s/eye", dir);
+	if (stat (test, &st) == 0 && S_ISDIR (st.st_mode))
+		return true;
+	snprintf (test, sizeof (test), "%s/hair", dir);
+	if (stat (test, &st) == 0 && S_ISDIR (st.st_mode))
+		return true;
 	return false;
 }
 
-static enumError create_rflres_dir (ccp source, ccp dest)
+static enumError create_rflres_dir (ccp source, ccp dest, bool big_endian)
 {
 	sarc_build_list_t list = { 0 };
 	enumError err = collect_sarc_dir (&list, source, "");
@@ -5981,7 +5987,7 @@ static enumError create_rflres_dir (ccp source, ccp dest)
 	u8 *data = 0;
 	uint size = 0;
 	if (!err)
-		err = CreateRFLRes (&data, &size, list.entry, list.used);
+		err = CreateMiiRes (&data, &size, list.entry, list.used, big_endian);
 
 	if (!err && !testmode)
 	{
@@ -7173,8 +7179,15 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest)
 		return create_sze_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".dat") && looks_like_sfzdat_dir (source_dir))
 		return create_sfzdat_dir (source_dir, dest);
-	if ((!strcasecmp (ext, ".dat") || !strcasecmp (ext, ".rflres") || !strcasecmp (ext, ".rfl")) && looks_like_rflres_dir (source_dir))
-		return create_rflres_dir (source_dir, dest);
+	if ((!strcasecmp (ext, ".dat") || !strcasecmp (ext, ".rflres") || !strcasecmp (ext, ".rfl")
+		|| !strcasecmp (ext, ".fflres") || !strcasecmp (ext, ".ffl")
+		|| !strcasecmp (ext, ".cflres") || !strcasecmp (ext, ".cfl")
+		|| !strcasecmp (ext, ".aflres") || !strcasecmp (ext, ".afl")) && looks_like_rflres_dir (source_dir))
+	{
+		const bool be = strcasecmp (ext, ".cfl") && strcasecmp (ext, ".cflres")
+			&& strcasecmp (ext, ".afl") && strcasecmp (ext, ".aflres");
+		return create_rflres_dir (source_dir, dest, be);
+	}
 	if (!strcasecmp (ext, ".gfa"))
 		return create_gfa_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".rarc"))
@@ -8350,12 +8363,17 @@ static enumError cmd_create (bool create)
 			ResetSetupParam (&sp);
 			continue;
 		}
-		if (create && ext && (!strcasecmp (ext, ".dat") || !strcasecmp (ext, ".rflres") || !strcasecmp (ext, ".rfl"))
+		if (create && ext && (!strcasecmp (ext, ".dat") || !strcasecmp (ext, ".rflres") || !strcasecmp (ext, ".rfl")
+			|| !strcasecmp (ext, ".fflres") || !strcasecmp (ext, ".ffl")
+			|| !strcasecmp (ext, ".cflres") || !strcasecmp (ext, ".cfl")
+			|| !strcasecmp (ext, ".aflres") || !strcasecmp (ext, ".afl"))
 			&& looks_like_rflres_dir (source_dir))
 		{
-			enumError err = create_rflres_dir (source_dir, dest);
+			const bool be = strcasecmp (ext, ".cfl") && strcasecmp (ext, ".cflres")
+				&& strcasecmp (ext, ".afl") && strcasecmp (ext, ".aflres");
+			enumError err = create_rflres_dir (source_dir, dest, be);
 			if (verbose >= 0 || testmode)
-				fprintf (stdlog, "%s%sCREATE RFLRES %s/ -> %s\n", verbose > 0 ? "\n" : "",
+				fprintf (stdlog, "%s%sCREATE MIIRES %s/ -> %s\n", verbose > 0 ? "\n" : "",
 					testmode ? "WOULD " : "", source_dir, dest);
 			if (max_err < err)
 				max_err = err;
@@ -11653,7 +11671,7 @@ static enumError extract_rflres_file (ccp arg, ccp basedir, uint depth)
 	char dest[PATH_MAX];
 	beside_source_dest (dest, sizeof (dest), arg);
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT RFLRES:%s -> %s/ (%u files)\n", verbose > 0 ? "\n" : "",
+		fprintf (stdlog, "%s%sEXTRACT MIIRES:%s -> %s/ (%u files)\n", verbose > 0 ? "\n" : "",
 			testmode ? "WOULD " : "", arg, dest, n_entries);
 
 	if (!testmode)
