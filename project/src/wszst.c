@@ -48,6 +48,7 @@
 #include "lib-szs.h"
 #include "lib-nintendo.h"
 #include "lib-excite.h"
+#include "lib-nintendo-archives.h"
 #include "lib-gtx.h"
 #include "lib-hsf.h"
 #include "lib-quicklz.h"
@@ -16575,6 +16576,26 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		return err;
 
 	err = extract_dtls_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = ExtractXPCKArchive (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = ExtractZTABArchive (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = ExtractMDRArchive (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = ExtractPVOLArchive (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = ExtractSTPKArchive (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 

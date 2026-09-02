@@ -994,6 +994,8 @@ typedef struct hsd_vtx_t
 	bool has_clr1;
 	float extra_uv[7][2];
 	bool has_extra_uv[7];
+	u8 pn_mtx;
+	bool has_pn_mtx;
 } hsd_vtx_t;
 
 // Reads one vertex's worth of attribute data from the display-list cursor
@@ -1053,6 +1055,10 @@ static bool hsd_fetch_vertex (const hsd_t *hsd, const hsd_attr_t *attrs, uint n_
 		decode_gx_elem (at, src, comp, 9);
 		switch (at->name)
 		{
+			case 0: // HSD_GX_VA_PNMTXIDX
+				v->pn_mtx = (u8)(src[0] / 3);
+				v->has_pn_mtx = true;
+				break;
 			case HSD_GX_VA_POS:
 				memcpy (v->pos, comp, 12);
 				break;
@@ -1498,21 +1504,18 @@ static int hsd_read_mobj (hsd_model_ctx_t *ctx, u32 mobj_off)
 // Populates ctx->node_influences and fills per-position weights into the
 // mesh's position_node array.  Returns true if at least one envelope was read.
 //--------------------------------------------------------------------------
-static bool hsd_read_pobj_envelope (
-	hsd_model_ctx_t *ctx, u32 pobj_off, int joint_idx, int *position_node, uint n_positions)
+static uint hsd_read_pobj_envelope (
+	hsd_model_ctx_t *ctx, u32 pobj_off, uint *out_ni, uint max_env)
 {
 	const hsd_t *hsd = ctx->hsd;
 	// The union at +0x14 is a relocated pointer to a NULL-terminated array
 	// of HSD_EnvelopeDesc* pointers.
 	const u32 arr_off = get_ptr (hsd, pobj_off + 0x14);
 	if (!arr_off || arr_off >= hsd->reloc_off)
-		return false;
+		return 0;
 
-	// Read the NULL-terminated array of envelope descriptor pointers
 	uint n_env = 0;
-	u32 env_desc_offs[64]; // stack buffer; Melee rarely exceeds 4-8 envelopes per POBJ
-
-	for (uint i = 0; i < 64; i++)
+	for (uint i = 0; i < max_env; i++)
 	{
 		// Each entry is a relocated pointer (4 bytes) in the array
 		const u32 entry_loc = arr_off + 4 * i;
@@ -1521,71 +1524,60 @@ static bool hsd_read_pobj_envelope (
 		const u32 env_desc_ptr = get_ptr (hsd, entry_loc);
 		if (!env_desc_ptr)
 			break; // NULL terminator
-		if (env_desc_ptr + HSD_ENVELOPE_DESC_SIZE > hsd->reloc_off)
-			break;
-		env_desc_offs[n_env++] = env_desc_ptr;
-	}
 
-	if (!n_env)
-		return false;
+		// Read multi-bone list starting at env_desc_ptr
+		u32 curr = env_desc_ptr;
+		influence_t weights[16];
+		uint n_weights = 0;
+		float total_weight = 0.0f;
 
-	// Build a single node_influence from all envelopes
-	influence_t *weights = CALLOC (n_env, sizeof (*weights));
-	uint n_weights = 0;
-	float total_weight = 0;
+		while (curr && curr + HSD_ENVELOPE_DESC_SIZE <= hsd->reloc_off && n_weights < 16)
+		{
+			const u32 jobj_ptr = get_ptr (hsd, curr);
+			const float w = bef32 (hsd->data + curr + 4);
+			if (!jobj_ptr || w <= 0.0f)
+				break;
 
-	for (uint i = 0; i < n_env; i++)
-	{
-		const u8 *e = hsd->data + env_desc_offs[i];
-		const u32 jobj_ptr = get_ptr (hsd, env_desc_offs[i]); // joint field at +0x00
-		const float w = bef32 (e + 0x04);
+			const int mapped = hsd_find_joint_by_offset (ctx, jobj_ptr);
+			if (mapped >= 0)
+			{
+				weights[n_weights].bone_idx = mapped;
+				weights[n_weights].weight = w;
+				total_weight += w;
+				n_weights++;
+			}
 
-		if (!jobj_ptr || w <= 0.0f)
+			if (total_weight >= 0.999f)
+				break;
+			curr += 8;
+		}
+
+		if (!n_weights)
 			continue;
 
-		const int mapped = hsd_find_joint_by_offset (ctx, jobj_ptr);
-		if (mapped < 0)
-			continue; // joint not yet in skeleton
+		if (total_weight > 0.0f && fabsf (total_weight - 1.0f) > 1e-4f)
+		{
+			const float inv = 1.0f / total_weight;
+			for (uint w = 0; w < n_weights; w++)
+				weights[w].weight *= inv;
+		}
 
-		weights[n_weights].bone_idx = mapped;
-		weights[n_weights].weight = w;
-		total_weight += w;
-		n_weights++;
+		if (ctx->n_node_influences == ctx->cap_node_influences)
+		{
+			ctx->cap_node_influences = ctx->cap_node_influences ? ctx->cap_node_influences * 2 : 64;
+			ctx->node_influences = REALLOC (
+				ctx->node_influences, ctx->cap_node_influences * sizeof (*ctx->node_influences));
+		}
+		const uint ni_idx = ctx->n_node_influences++;
+		influence_t *w_copy = CALLOC (n_weights, sizeof (*w_copy));
+		memcpy (w_copy, weights, n_weights * sizeof (*w_copy));
+		ctx->node_influences[ni_idx].weights = w_copy;
+		ctx->node_influences[ni_idx].num_weights = n_weights;
+
+		out_ni[n_env++] = ni_idx;
 	}
 
-	if (!n_weights)
-	{
-		FREE (weights);
-		return false;
-	}
-
-	// Normalize weights to sum to 1.0
-	if (total_weight > 0.0f && total_weight != 1.0f)
-	{
-		const float inv = 1.0f / total_weight;
-		for (uint i = 0; i < n_weights; i++)
-			weights[i].weight *= inv;
-	}
-
-	// Allocate node_influence
-	if (ctx->n_node_influences == ctx->cap_node_influences)
-	{
-		ctx->cap_node_influences = ctx->cap_node_influences ? ctx->cap_node_influences * 2 : 64;
-		ctx->node_influences = REALLOC (
-			ctx->node_influences, ctx->cap_node_influences * sizeof (*ctx->node_influences));
-	}
-	const uint ni_idx = ctx->n_node_influences++;
-	ctx->node_influences[ni_idx].weights = weights;
-	ctx->node_influences[ni_idx].num_weights = n_weights;
-
-	// Assign this node influence to all positions in the mesh
-	if (position_node)
-	{
-		for (uint i = 0; i < n_positions; i++)
-			position_node[i] = (int)ni_idx;
-	}
-
-	return true;
+	return n_env;
 }
 
 //--------------------------------------------------------------------------
@@ -1674,8 +1666,15 @@ static void hsd_build_dobj_meshes (hsd_model_ctx_t *ctx, u32 dobj_off, int joint
 					// single-weight node_influence for the resolved joint.
 					if (pobj_type == HSD_POBJ_ENVELOPE)
 					{
-						hsd_read_pobj_envelope (
-							ctx, pobj_off, joint_idx, all_tri_node + n_all_tri, n_tri);
+						uint env_ni[64];
+						const uint n_env = hsd_read_pobj_envelope (ctx, pobj_off, env_ni, 64);
+						for (uint i = 0; i < n_tri; i++)
+						{
+							const uint mtx_idx = tri[i].has_pn_mtx ? tri[i].pn_mtx : 0;
+							all_tri_node[n_all_tri + i] = (mtx_idx < n_env)
+								? (int)env_ni[mtx_idx]
+								: (n_env ? (int)env_ni[0] : -1);
+						}
 					}
 					else
 					{
