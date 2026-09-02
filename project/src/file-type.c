@@ -960,6 +960,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x4c, 0x53, 0x00, 0x00 }, // "LS\0\0"
 		0, MinusString, MinusString, "Smash 4 DTLS archive (dt00/ls00)" },
 
+	// FF_NUMSHB = 179 (Smash Ultimate SSBH Mesh)
+	{ FF_NUMSHB, FF_NUMSHB, 0, "NUMSHB", ".numshb", ".szs", ".numshb",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+		{ 0x53, 0x53, 0x42, 0x48 }, // "SSBH"
+		0, MinusString, MinusString, "Smash Ultimate SSBH Mesh (NUMSHB)" },
+
 	// FF_N
 	{ 0 }
 };

@@ -48,6 +48,7 @@
 #include "lib-bch.h"
 #include "lib-bfres.h"
 #include "lib-nud.h"
+#include "lib-numsh.h"
 #include "ui.h" // [[dclib]] wrapper
 #include "ui-wmdlt.c"
 
@@ -631,6 +632,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 					model = ParseBFRESSwitch (raw.data, raw.data_size);
 				if (!model && raw.data_size >= 4 && (!memcmp (raw.data, "NDP3", 4) || !memcmp (raw.data, "NDWU", 4)))
 					model = ParseNUD (raw.data, raw.data_size);
+				if (!model && raw.data_size >= 4 && (!memcmp (raw.data, "SSBH", 4) || !memcmp (raw.data, "HBSS", 4)))
+					model = ParseNUMSHB (raw.data, raw.data_size);
 				if (model)
 				{
 					if (is_dae)

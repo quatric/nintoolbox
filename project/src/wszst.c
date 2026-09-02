@@ -75,6 +75,7 @@
 #include "lib-brres-inject.h"
 #include "lib-nud.h"
 #include "lib-nut.h"
+#include "lib-numsh.h"
 #include "lib-bntx.h"
 #include "lib-vc.h"
 #include "lib-sequence.h"
@@ -6980,6 +6981,175 @@ static enumError create_bigf_dir (ccp source, ccp dest)
 	return err;
 }
 
+// A bare "file_%04u%n" scan also matches decoded side-products of a member
+// that extract_tree_complete() expanded further (e.g. "file_0002.rseq.mid",
+// "file_0002.rseq.txt", or a "file_0000.brres.d" preview directory), which
+// would otherwise look like duplicate or extra members. Require the name to
+// end exactly at one of arcv_member_ext()'s known single extensions.
+static bool arcv_member_name_ok (ccp nm, uint *idx)
+{
+	int consumed = 0;
+	if (sscanf (nm, "file_%u%n", idx, &consumed) != 1 || !consumed)
+		return false;
+	ccp rest = nm + consumed;
+	static const char *known_ext[]
+		= { ".bin", ".brres", ".rseq", ".rstm", ".rwav", ".rarc", ".pac", 0 };
+	for (uint i = 0; known_ext[i]; i++)
+		if (!strcmp (rest, known_ext[i]))
+			return true;
+	return false;
+}
+
+// ARCV shares the .arc extension with several other archive formats (RARC,
+// Brawl PAC, etc.), so disambiguate at CREATE time the same way looks_like_
+// sfzdat_dir()/looks_like_rflres_dir() do for the equally overloaded .dat
+// extension: treat a directory as ARCV input once it holds at least one of
+// extract_arcv_file()'s unnamed "file_%04u<ext>" members. Anything else in
+// the directory is ignored rather than rejected -- extract_tree_complete()
+// may have expanded a member further into "file_0000.brres.d/" or emitted
+// derived side-products like "file_0002.rseq.mid" alongside the original.
+static bool looks_like_arcv_dir (ccp source)
+{
+	DIR *dir = opendir (source);
+	if (!dir)
+		return false;
+	uint n_members = 0;
+	for (const struct dirent *de; (de = readdir (dir));)
+	{
+		uint idx;
+		if (arcv_member_name_ok (de->d_name, &idx))
+			n_members++;
+	}
+	closedir (dir);
+	return n_members > 0;
+}
+
+// Repack a directory extracted by extract_arcv_file() back into a Namco/Tose
+// ARCV archive.  Members carry no on-disk name, only an ordinal encoded into
+// the extractor's "file_%04u<ext>" filename, so recover that ordinal from the
+// filename instead of relying on directory scan order (which is not
+// guaranteed to match numerically for 4+ digit indices on all filesystems).
+typedef struct arcv_member_t
+{
+	uint index;
+	u8 *data;
+	size_t size;
+} arcv_member_t;
+
+static int cmp_arcv_member (const void *a, const void *b)
+{
+	const arcv_member_t *ma = a, *mb = b;
+	return ma->index < mb->index ? -1 : ma->index > mb->index ? 1 : 0;
+}
+
+static enumError create_arcv_dir (ccp source, ccp dest)
+{
+	DIR *dir = opendir (source);
+	if (!dir)
+		return ERROR0 (ERR_NOT_EXISTS, "Can't open ARCV input directory: %s\n", source);
+
+	arcv_member_t *list = 0;
+	uint used = 0, size = 0;
+	enumError err = ERR_OK;
+	struct dirent *de;
+	while (!err && (de = readdir (dir)))
+	{
+		uint idx;
+		if (!arcv_member_name_ok (de->d_name, &idx))
+			continue;
+
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/%s", source, de->d_name);
+		struct stat st;
+		if (stat (path, &st) || !S_ISREG (st.st_mode))
+			continue;
+
+		if (used == size)
+		{
+			const uint nsize = size ? 2 * size : 32;
+			void *ptr = REALLOC (list, nsize * sizeof (*list));
+			if (!ptr)
+			{
+				err = ERR_CANT_CREATE;
+				break;
+			}
+			list = ptr;
+			size = nsize;
+		}
+		u8 *data = 0;
+		size_t fsize = 0;
+		err = LoadFileAlloc (path, 0, 0, &data, &fsize, 0, 0, 0, false);
+		if (err)
+		{
+			ERROR0 (err, "Can't load ARCV input: %s\n", path);
+			break;
+		}
+		list[used].index = idx;
+		list[used].data = data;
+		list[used].size = fsize;
+		used++;
+	}
+	closedir (dir);
+
+	if (!err && !used)
+		err = ERR_NOTHING_TO_DO;
+	if (!err)
+		qsort (list, used, sizeof (*list), cmp_arcv_member);
+	// The extractor names members by ordinal position (0, 1, 2, ...), so a
+	// gap or duplicate here means the directory wasn't produced by it.
+	for (uint i = 0; !err && i < used; i++)
+		if (list[i].index != i)
+			err = ERROR0 (ERR_INVALID_DATA,
+				"ARCV input directory has a non-contiguous member index: %s/file_%04u*\n",
+				source, list[i].index);
+
+	if (!err && !testmode)
+	{
+		const uint table_end = 12 + used * 12;
+		u64 total_size = table_end;
+		for (uint i = 0; i < used; i++)
+			total_size += list[i].size;
+		if (total_size > UINT_MAX)
+			err = ERR_FILE_TOO_BIG;
+		else
+		{
+			u8 *out = CALLOC (1, total_size);
+			if (!out)
+				err = ERR_CANT_CREATE;
+			else
+			{
+				memcpy (out, "ARCV", 4);
+				wr_le32 (out + 4, used);
+				wr_le32 (out + 8, (u32)total_size);
+
+				u64 off = table_end;
+				for (uint i = 0; i < used; i++)
+				{
+					u8 *entry = out + 12 + i * 12;
+					wr_le32 (entry, (u32)off);
+					wr_le32 (entry + 4, (u32)list[i].size);
+					wr_le32 (entry + 8, (u32)crc32 (0, list[i].data, list[i].size));
+					memcpy (out + off, list[i].data, list[i].size);
+					off += list[i].size;
+				}
+
+				File_t F;
+				err = CreateFileOpt (&F, true, dest, false, source);
+				if (F.f && fwrite (out, 1, total_size, F.f) != total_size)
+					err = FILEERROR1 (&F, ERR_WRITE_FAILED,
+						"Writing %llu bytes failed: %s\n", (unsigned long long)total_size, dest);
+				ResetFile (&F, opt_preserve);
+				FREE (out);
+			}
+		}
+	}
+
+	for (uint i = 0; i < used; i++)
+		FREE (list[i].data);
+	FREE (list);
+	return err;
+}
+
 static enumError create_archive_from_dir (ccp source_dir, ccp dest)
 {
 	ccp ext = strrchr (dest, '.');
@@ -7070,6 +7240,8 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest)
 		return create_mpbin_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".big"))
 		return create_bigf_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".arc") && looks_like_arcv_dir (source_dir))
+		return create_arcv_dir (source_dir, dest);
 
 	// Default: U8/Yaz0/BRRES/ARC archive via CreateSZS
 	SetupParam_t sp;
@@ -8244,6 +8416,20 @@ static enumError cmd_create (bool create)
 			enumError err = create_bigf_dir (source_dir, dest);
 			if (verbose >= 0 || testmode)
 				fprintf (stdlog, "%s%sCREATE BIGF %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", source_dir, dest);
+			if (max_err < err)
+				max_err = err;
+			if (err <= ERR_WARNING && src_len > 2 && !strcasecmp (source_dir + src_len - 2, ".d")
+				&& !testmode)
+				remove_dir_recursive (source_dir);
+			ResetSetupParam (&sp);
+			continue;
+		}
+		if (create && ext && !strcasecmp (ext, ".arc") && looks_like_arcv_dir (source_dir))
+		{
+			enumError err = create_arcv_dir (source_dir, dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE ARCV %s/ -> %s\n", verbose > 0 ? "\n" : "",
 					testmode ? "WOULD " : "", source_dir, dest);
 			if (max_err < err)
 				max_err = err;
@@ -11724,6 +11910,44 @@ static enumError extract_nud_file (ccp arg, ccp basedir, uint depth)
 
 	if (verbose >= 0)
 		fprintf (stdlog, "%sEXTRACT NUD:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, dest);
+	return ERR_OK;
+}
+
+static enumError extract_numshb_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".numshb"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+	if (raw_size < 16 || (!IsSSBH (raw, raw_size)))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest_ext (dest, sizeof (dest), arg, ".glb");
+	if (testmode)
+	{
+		FREE (raw);
+		fprintf (stdlog, "WOULD EXTRACT NUMSHB:%s -> GLB:%s\n", arg, dest);
+		return ERR_OK;
+	}
+
+	model_t *model = ParseNUMSHB (raw, raw_size);
+	FREE (raw);
+	if (!model)
+		return ERR_INVALID_DATA;
+
+	ExportModelToGLB (model, dest);
+	FreeModel (model);
+
+	if (verbose >= 0)
+		fprintf (stdlog, "%sEXTRACT NUMSHB:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, dest);
 	return ERR_OK;
 }
 
@@ -15984,6 +16208,10 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		return err;
 
 	err = extract_nud_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_numshb_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 

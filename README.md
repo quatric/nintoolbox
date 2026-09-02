@@ -98,6 +98,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **MSH (PMsh)** | `.msh` | **GLB** | Monster Games collision mesh format (Wii) |
 | **NSBMD** | `.nsbmd`, `.bmd` | **GLB** | Nintendo DS Nitro 3D model format (DS) |
 | **NUD** | `.nud` | **GLB** | Bandai Namco 3D model format (*Super Smash Bros. 4* Wii U / 3DS) |
+| **NUMSHB** | `.numshb` | **GLB** | Bandai Namco SSBH 3D mesh model (*Super Smash Bros. Ultimate* Switch) |
 
 ---
 

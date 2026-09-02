@@ -12,7 +12,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **ALAR** | DS / Archive | ✅ | ✅ | Nitro ALAR archive |
 | **ALZ1** | DS / Compression | ✅ | ✅ | Arika 4096-byte window LZSS with inverted flag bits |
 | **Arika (INFO.DAT/GAME.DAT)** | DS/DSi / Archive | ✅ | ✅ | Obfuscated directory decryption and member decompression |
-| **ARCV** | Wii / Archive | ✅ | ❌ | Pac-Man Party (Wii) archive |
+| **ARCV** | Wii / Archive | ✅ | ✅ | Pac-Man Party (Wii) archive; byte-exact round-trip |
 | **ART / IMG** | Wii / Texture | ✅ | ✅ | Monster Games GUI image format |
 | **ASH0** | GameCube/Wii / Compression | ✅ | ✅ | Nintendo ASH0 compression |
 | **AT7** | PS2/Wii / Archive | ✅ | ✅ | Koei Tecmo container |
@@ -75,6 +75,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **NCCARC** | DS / Archive | ✅ | ✅ | WarioWare: Touched! container |
 | **NSBMD / NSBTX** | DS / 3D Graphics | ✅ | ✅ | Nitro 3D models and textures |
 | **NUD** | Wii U / 3DS / Model | ✅ | ❌ | Bandai Namco 3D model container (Smash 4) |
+| **NUMSHB** | Switch / Model | ✅ | ❌ | Bandai Namco SSBH 3D mesh model (Smash Ultimate) |
 | **NUT** | Wii U / 3DS / Texture | ✅ | ❌ | Bandai Namco texture package (Smash 4) |
 | **NUTEXB** | Switch / Texture | ✅ | ✅ | Super Smash Bros. Ultimate texture container |
 | **PAC** | Wii / Archive | ✅ | ✅ | Super Smash Bros. Brawl archive |

@@ -268,6 +268,7 @@ typedef enum file_format_t
 	FF_NUT, // 176 - Namco Universal Texture (.nut / NTP3 / NTWU)
 	FF_NUD, // 177 - Namco Universal Data model (.nud / NDP3 / NDWU)
 	FF_DTLS, // 178 - Smash 4 data/lookup archive (dt00 / ls00)
+	FF_NUMSHB, // 179 - Smash Ultimate SSBH Mesh (.numshb)
 
 	//--- number of elements
 
