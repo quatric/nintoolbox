@@ -62,6 +62,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **CCF** | `.ccf` | Nintendo Virtual Console container (Wii / Switch) |
 | **CRAM** | `.arc`, `.cram` | Monolith Soft 3DS flat archive container |
 | **DARC** | `.darc` | NintendoWare NW4C differential archive (3DS) |
+| **DTLS** | `dt00`, `ls00`, `.ls` | Bandai Namco composite package & lookup archive (*Super Smash Bros. 4* Wii U / 3DS) |
 | **FSYS** | `.fsys` | Genius Sonority archive system (GameCube / Wii) |
 | **GFA** | `.gfa` | Good-Feel GFAC container (Wii / 3DS) |
 | **Hyrule Warriors** | `.idx`, `.bin` | Koei Tecmo / Omega Force split index archive (3DS) |
@@ -96,6 +97,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **MOD** | `.mod` | **GLB** | Monster Games NDL3/NDL2 display list model (Wii) |
 | **MSH (PMsh)** | `.msh` | **GLB** | Monster Games collision mesh format (Wii) |
 | **NSBMD** | `.nsbmd`, `.bmd` | **GLB** | Nintendo DS Nitro 3D model format (DS) |
+| **NUD** | `.nud` | **GLB** | Bandai Namco 3D model format (*Super Smash Bros. 4* Wii U / 3DS) |
 
 ---
 
@@ -113,6 +115,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **GTX** | `.gtx` | Nintendo Wii U GX2 surface container (Wii U) |
 | **NCGR / NCLR / NCER / NANR** | `.ncgr`, `.nclr`, `.ncer`, `.nanr` | Nintendo DS Nitro 2D graphics, palette, cell & animation (DS) |
 | **NSBTX** | `.nsbtx` | Nintendo DS Nitro 3D texture container (DS) |
+| **NUT** | `.nut` | Bandai Namco texture package (*Super Smash Bros. 4* Wii U / 3DS) |
 | **NUTEXB** | `.nutexb` | Bandai Namco / Nintendo Switch texture wrapper (Switch) |
 | **TEX** | `.tex` | Monster Games GX texture format (Wii) |
 | **TEX0** | `.tex0` | NintendoWare NW4R texture resource (Wii) |

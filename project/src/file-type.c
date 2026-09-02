@@ -942,6 +942,24 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x52, 0x4e, 0x41, 0x4e }, // "RNAN"
 		0, MinusString, MinusString, "Nintendo DS Animation resource" },
 
+	// FF_NUT = 176 (Namco Universal Texture)
+	{ FF_NUT, FF_NUT, 0, "NUT", ".nut", ".szs", ".nut",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE, 4,
+		{ 0x4e, 0x54, 0x50, 0x33 }, // "NTP3"
+		0, MinusString, MinusString, "Namco Universal Texture (NTP3/NTWU)" },
+
+	// FF_NUD = 177 (Namco Universal Data model)
+	{ FF_NUD, FF_NUD, 0, "NUD", ".nud", ".szs", ".nud",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+		{ 0x4e, 0x44, 0x50, 0x33 }, // "NDP3"
+		0, MinusString, MinusString, "Namco Universal Data 3D model (NDP3/NDWU)" },
+
+	// FF_DTLS = 178 (Smash 4 data/lookup archive)
+	{ FF_DTLS, FF_DTLS, 0, "DTLS", ".ls", ".szs", ".ls",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_CREATE, 4,
+		{ 0x4c, 0x53, 0x00, 0x00 }, // "LS\0\0"
+		0, MinusString, MinusString, "Smash 4 DTLS archive (dt00/ls00)" },
+
 	// FF_N
 	{ 0 }
 };

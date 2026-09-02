@@ -47,6 +47,7 @@
 #include "lib-bcres.h"
 #include "lib-bch.h"
 #include "lib-bfres.h"
+#include "lib-nud.h"
 #include "ui.h" // [[dclib]] wrapper
 #include "ui-wmdlt.c"
 
@@ -628,6 +629,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 					: ParseBFRES (raw.data, raw.data_size);
 				if (!model && raw.data_size >= 4 && !memcmp (raw.data, "FRES", 4))
 					model = ParseBFRESSwitch (raw.data, raw.data_size);
+				if (!model && raw.data_size >= 4 && (!memcmp (raw.data, "NDP3", 4) || !memcmp (raw.data, "NDWU", 4)))
+					model = ParseNUD (raw.data, raw.data_size);
 				if (model)
 				{
 					if (is_dae)

@@ -56,6 +56,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **DARC** | 3DS / Archive | ✅ | ✅ | Differential archive container |
 | **DAT (Star Fox Zero)** | Wii U / Archive | ✅ | 🟡 | Big-endian flat archive |
 | **Deflate** | Compression | ✅ | ✅ | Standard Deflate / Zlib streams |
+| **DTLS (dt00/ls00)** | Wii U / 3DS / Archive | ✅ | ✅ | Super Smash Bros. 4 composite resource package & lookup |
 | **FSYS** | GameCube / Archive | ✅ | ✅ | Genius Sonority Pokémon archive |
 | **FZIP** | Wii U / Compression | ✅ | ✅ | Game & Wario Zlib container |
 | **GFA** | 3DS / Archive | ✅ | ✅ | GFAC archive |
@@ -73,6 +74,8 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **NANR / NCER / NCGR / NCLR** | DS / 2D Graphics | ✅ | ✅ | Nitro 2D cell, sprites, palettes |
 | **NCCARC** | DS / Archive | ✅ | ✅ | WarioWare: Touched! container |
 | **NSBMD / NSBTX** | DS / 3D Graphics | ✅ | ✅ | Nitro 3D models and textures |
+| **NUD** | Wii U / 3DS / Model | ✅ | ❌ | Bandai Namco 3D model container (Smash 4) |
+| **NUT** | Wii U / 3DS / Texture | ✅ | ❌ | Bandai Namco texture package (Smash 4) |
 | **NUTEXB** | Switch / Texture | ✅ | ✅ | Super Smash Bros. Ultimate texture container |
 | **PAC** | Wii / Archive | ✅ | ✅ | Super Smash Bros. Brawl archive |
 | **PLT0** | Wii / Animation | ✅ | ✅ | NW4R palette animation |
