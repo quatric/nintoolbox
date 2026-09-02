@@ -2107,11 +2107,84 @@ int ExportHSDModel (const hsd_t *hsd, ccp out_glb_file)
 		model.num_node_influences = ctx.n_node_influences;
 		ComputeModelTRSBinds (&model);
 
+		// HSD display lists store vertices in joint-local space. Transform
+		// them into bind-pose model space using accumulated joint matrices.
+		for (size_t mi = 0; mi < model.num_meshes; mi++)
+		{
+			mesh_t *mesh = model.meshes + mi;
+			if (!mesh->positions || !mesh->position_node)
+				continue;
+
+			for (size_t pi = 0; pi < mesh->num_positions; pi++)
+			{
+				const int ni = mesh->position_node[pi];
+				if (ni < 0 || (size_t)ni >= model.num_node_influences)
+					continue;
+
+				const node_influence_t *inf = model.node_influences + ni;
+				if (!inf->weights || !inf->num_weights)
+					continue;
+
+				const vec3_t p = mesh->positions[pi];
+				vec3_t p_out = { 0, 0, 0 };
+
+				for (size_t w = 0; w < inf->num_weights; w++)
+				{
+					const int bi = inf->weights[w].bone_idx;
+					if (bi < 0 || (size_t)bi >= model.num_joints)
+						continue;
+
+					const float *m = model.joints[bi].bind;
+					const float wt = inf->weights[w].weight;
+
+					p_out.x += wt * (m[0] * p.x + m[1] * p.y + m[2] * p.z + m[3]);
+					p_out.y += wt * (m[4] * p.x + m[5] * p.y + m[6] * p.z + m[7]);
+					p_out.z += wt * (m[8] * p.x + m[9] * p.y + m[10] * p.z + m[11]);
+				}
+				mesh->positions[pi] = p_out;
+			}
+
+			if (mesh->normals)
+			{
+				for (size_t vi = 0; vi < mesh->num_vertices; vi++)
+				{
+					const int ni = (mesh->position_node && vi < mesh->num_positions)
+						? mesh->position_node[vi] : -1;
+					if (ni < 0 || (size_t)ni >= model.num_node_influences)
+						continue;
+
+					const int nrm_i = mesh->vertices[vi].normal_idx;
+					if (nrm_i < 0 || (size_t)nrm_i >= mesh->num_normals)
+						continue;
+
+					const node_influence_t *inf = model.node_influences + ni;
+					if (!inf->weights || !inf->num_weights)
+						continue;
+
+					const vec3_t n = mesh->normals[nrm_i];
+					vec3_t n_out = { 0, 0, 0 };
+
+					for (size_t w = 0; w < inf->num_weights; w++)
+					{
+						const int bi = inf->weights[w].bone_idx;
+						if (bi < 0 || (size_t)bi >= model.num_joints)
+							continue;
+
+						const float *m = model.joints[bi].bind;
+						const float wt = inf->weights[w].weight;
+
+						n_out.x += wt * (m[0] * n.x + m[1] * n.y + m[2] * n.z);
+						n_out.y += wt * (m[4] * n.x + m[5] * n.y + m[6] * n.z);
+						n_out.z += wt * (m[8] * n.x + m[9] * n.y + m[10] * n.z);
+					}
+					mesh->normals[nrm_i] = n_out;
+				}
+			}
+		}
+
 		const uint path_len = strlen (out_glb_file);
 		const bool is_dae = path_len > 4 && !strcasecmp (out_glb_file + path_len - 4, ".dae");
-		written = (ExportModelToGLB (&model, out_glb_file)
-						  )
-				== 0
+		written = (ExportModelToGLB (&model, out_glb_file)) == 0
 			? (int)ctx.n_meshes
 			: -1;
 	}

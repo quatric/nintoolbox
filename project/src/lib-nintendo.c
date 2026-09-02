@@ -21,7 +21,8 @@ ccp GetNintendoFormatName (nfmt_type_t type)
 		"PLT0", "MSBT", "BCRES", "BFRES", "BNTX", "GFA", "BCH", "QuickLZ", "PAC", "RNC", "romc",
 		"PSDK", "AT7", "CTPK", "BYML", "NARC", "NSCR", "FZIP", "JARC", "jCMP", "BFMA", "Zlib", "MVDK",
 		"VLX", "PuCrunch", "LZX", "Diff8", "Diff16", "NSBTX", "NFTR", "BNFR", "BNLL", "BNCL", "BNBL",
-		"LZOvl", "ALAR", "DARC", "SADL" };
+		"LZOvl", "ALAR", "DARC", "SADL", "HSF", "HSD", "BNFM", "XPCK", "XIMG", "HGO", "ZTAB", "GLG",
+		"MDR", "PERS", "PVOL", "STPK", "G1M", "G1T", "G4PKM", "LMD" };
 	return type < sizeof (tab) / sizeof (*tab) ? tab[type] : "UNKNOWN";
 }
 
@@ -96,6 +97,51 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_DARC, true, false, 0);
 		if (!memcmp (d, "SADL", 4))
 			return make_info (NFMT_SADL, true, false, 0);
+		if (size >= 8 && (!memcmp (d, "HSFV", 4) || !memcmp (d, "HSF\0", 4) || (d[0] == 'H' && d[1] == 'S' && d[2] == 'F' && d[3] == 'V')))
+			return make_info (NFMT_HSF, true, false, 0);
+		if (size >= 0x20)
+		{
+			const u32 fs = rd_be32 (d);
+			const u32 ds = rd_be32 (d + 4);
+			const u32 roots = rd_be32 (d + 12);
+			const u32 refs = rd_be32 (d + 16);
+			if (fs >= 0x20 && ds > 0 && ds <= fs && (roots > 0 || refs > 0) && roots < 0x10000 && refs < 0x10000
+				&& (fs == size || (ext && (!strcasecmp (ext, ".dat") || !strcasecmp (ext, ".sys")))))
+				return make_info (NFMT_HSD, true, false, 0);
+		}
+		if (size >= 12 && !memcmp (d, "BNFM", 4))
+			return make_info (NFMT_BNFM, true, false, 0);
+		if (!memcmp (d, "XPCK", 4) || !memcmp (d, "XPC2", 4))
+			return make_info (NFMT_XPCK, false, false, 0);
+		if (!memcmp (d, "XIM2", 4) || !memcmp (d, "XIMG", 4) || !memcmp (d, "XINF", 4) || !memcmp (d, "XI\0\0", 4))
+			return make_info (NFMT_XIMG, false, false, 0);
+		if (!memcmp (d, "0OGH", 4) || !memcmp (d, "0MXT", 4) || !memcmp (d, "0TST", 4) || !memcmp (d, "LBTN", 4)
+			|| (size >= 12 && (!memcmp (d + 4, "0OGH", 4) || !memcmp (d + 8, "0OGH", 4))))
+			return make_info (NFMT_HGO, true, false, 0);
+		if (ext && !strcasecmp (ext, ".hgo"))
+			return make_info (NFMT_HGO, true, false, 0);
+		if (!memcmp (d, "ZTAB", 4))
+			return make_info (NFMT_ZTAB, true, false, 0);
+		if (ext && !strcasecmp (ext, ".glg"))
+			return make_info (NFMT_GLG, true, false, 0);
+		if (ext && !strcasecmp (ext, ".mdr"))
+			return make_info (NFMT_MDR, true, false, 0);
+		if ((size >= 8 && !memcmp (d, "PERS-SZP", 8)) || (size >= 16 && !memcmp (d + 8, "FRAGMENT", 8)) || !memcmp (d, "FRAGMENT", 8))
+			return make_info (NFMT_PERS, true, false, 0);
+		if (ext && !strcasecmp (ext, ".pers"))
+			return make_info (NFMT_PERS, true, false, 0);
+		if (ext && !strcasecmp (ext, ".pvol"))
+			return make_info (NFMT_PVOL, false, false, 0);
+		if (!memcmp (d, "STPK", 4) || !memcmp (d, "$CFH", 4) || !memcmp (d, "$RSF", 4))
+			return make_info (NFMT_STPK, true, false, 0);
+		if (!memcmp (d, "G1M_", 4) || !memcmp (d, "G1M\0", 4) || !memcmp (d, "_M1G", 4) || !memcmp (d, "SM1G", 4) || !memcmp (d, "GM1G", 4))
+			return make_info (NFMT_G1M, false, false, 0);
+		if (!memcmp (d, "G1T_", 4) || !memcmp (d, "G1T\0", 4) || !memcmp (d, "_T1G", 4) || !memcmp (d, "GT1G", 4))
+			return make_info (NFMT_G1T, false, false, 0);
+		if (ext && !strcasecmp (ext, ".g4pkm"))
+			return make_info (NFMT_G4PKM, false, false, 0);
+		if (ext && !strcasecmp (ext, ".lmd"))
+			return make_info (NFMT_LMD, false, false, 0);
 		if (CxIsCompressedLZOvl (d, size))
 			return make_info (NFMT_LZOVL, false, true, 0);
 

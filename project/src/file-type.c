@@ -994,6 +994,102 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	{ FF_CMP, 0, 0, "CMP", ".cmp", ".szs", ".cmp", FFT_VALID | FFT_COMPRESS | FFT_TRACK, 1,
 		{ 0x11 }, 0, MinusString, MinusString, "HAL Laboratory LZ11 compressed file (.cmp)" },
 
+	// FF_HSF = 185 (Hudson Soft 3D Model)
+	{ FF_HSF, FF_HSF, 0, "HSF", ".hsf", ".szs", ".hsf",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+		{ 0x48, 0x53, 0x46, 0x56 }, // "HSFV"
+		0, MinusString, MinusString, "Hudson Soft 3D Model (Mario Party 4-8 .hsf)" },
+
+	// FF_HSD = 186 (HAL Laboratory SYS/DAT Data/Model)
+	{ FF_HSD, FF_HSD, 0, "HSD", ".dat", ".szs", ".dat",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
+		{ 0 },
+		0, MinusString, MinusString, "HAL Laboratory SYS/DAT Model/Data (Super Smash Bros Melee)" },
+
+	// FF_BNFM = 187 (Nd Cube Wii U 3D Model)
+	{ FF_BNFM, FF_BNFM, 0, "BNFM", ".bnfm", ".szs", ".bnfm",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+		{ 0x42, 0x4e, 0x46, 0x4d }, // "BNFM"
+		0, MinusString, MinusString, "Nd Cube Wii U 3D Model (Mario Party 10 .bnfm)" },
+
+	// FF_XPCK = 188 (Level-5 3DS/Switch Container Archive)
+	{ FF_XPCK, FF_XPCK, 0, "XPCK", ".xc", ".szs", ".xpck",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 0x58, 0x50, 0x43, 0x4b }, // "XPCK"
+		0, MinusString, MinusString, "Level-5 3DS/Switch Container Archive (.xc / XPCK)" },
+
+	// FF_XIMG = 189 (Level-5 3DS/Switch Image/Texture)
+	{ FF_XIMG, FF_XIMG, 0, "XIMG", ".xi", ".szs", ".xi",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+		{ 0x58, 0x49, 0x4d, 0x32 }, // "XIM2"
+		0, MinusString, MinusString, "Level-5 3DS/Switch Image/Texture (.xi / XIMG)" },
+
+	// FF_HGO = 190 (Camelot GameCube/Wii 3D Model)
+	{ FF_HGO, FF_HGO, 0, "HGO", ".hgo", ".szs", ".hgo",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+		{ 0x30, 0x4f, 0x47, 0x48 }, // "0OGH"
+		0, MinusString, MinusString, "Camelot GameCube/Wii 3D Model (Mario Golf & Tennis GC)" },
+
+	// FF_ZTAB = 191 (Camelot GameCube/Wii Archive Table)
+	{ FF_ZTAB, FF_ZTAB, 0, "ZTAB", ".ztab", ".szs", ".ztab",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE, 4,
+		{ 0x5a, 0x54, 0x41, 0x42 }, // "ZTAB"
+		0, MinusString, MinusString, "Camelot GameCube/Wii Archive Table (.ztab / ZTAB)" },
+
+	// FF_GLG = 192 (Next Level Games 3D Model)
+	{ FF_GLG, FF_GLG, 0, "GLG", ".glg", ".szs", ".glg",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
+		{ 0 },
+		0, MinusString, MinusString, "Next Level Games 3D Model (Super Mario Strikers .glg)" },
+
+	// FF_MDR = 193 (Dance Dance Revolution Mario Mix Chunk Archive)
+	{ FF_MDR, FF_MDR, 0, "MDR", ".mdr", ".szs", ".mdr",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
+		{ 0 },
+		0, MinusString, MinusString, "Dance Dance Revolution Mario Mix Chunk Archive (.mdr)" },
+
+	// FF_PERS = 194 (Pokemon Stadium N64 Model / Fragment)
+	{ FF_PERS, FF_PERS, 0, "PERS", ".pers", ".szs", ".pers",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 8,
+		{ 0x50, 0x45, 0x52, 0x53, 0x2d, 0x53, 0x5a, 0x50 }, // "PERS-SZP"
+		0, MinusString, MinusString, "Pokemon Stadium N64 Model / Fragment (.pers / FRAGMENT)" },
+
+	// FF_PVOL = 195 (Pikmin 1 & 2 Model Container Archive)
+	{ FF_PVOL, FF_PVOL, 0, "PVOL", ".pvol", ".szs", ".pvol",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
+		{ 0 },
+		0, MinusString, MinusString, "Pikmin 1 & 2 Model Container Archive (.pvol)" },
+
+	// FF_STPK = 196 (Jump Super Stars / Jump Ultimate Stars DS Archive)
+	{ FF_STPK, FF_STPK, 0, "STPK", ".srd", ".szs", ".stpk",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 0x53, 0x54, 0x50, 0x4b }, // "STPK"
+		0, MinusString, MinusString, "Jump Super Stars / Jump Ultimate Stars DS Archive (.srd / STPK)" },
+
+	// FF_G1M = 197 (Koei Tecmo 3D Model)
+	{ FF_G1M, FF_G1M, 0, "G1M", ".g1m", ".szs", ".g1m",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+		{ 0x47, 0x31, 0x4d, 0x5f }, // "G1M_"
+		0, MinusString, MinusString, "Koei Tecmo 3D Model (Hyrule Warriors / FE Warriors .g1m)" },
+
+	// FF_G1T = 198 (Koei Tecmo Texture Container)
+	{ FF_G1T, FF_G1T, 0, "G1T", ".g1t", ".szs", ".g1t",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+		{ 0x47, 0x31, 0x54, 0x5f }, // "G1T_"
+		0, MinusString, MinusString, "Koei Tecmo Texture Container (Hyrule Warriors / FE Warriors .g1t)" },
+
+	// FF_G4PKM = 199 (Level-5 / Nintendo 3D Model)
+	{ FF_G4PKM, FF_G4PKM, 0, "G4PKM", ".g4pkm", ".szs", ".g4pkm",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
+		{ 0 },
+		0, MinusString, MinusString, "Level-5 / Nintendo 3D Model (.g4pkm)" },
+
+	// FF_LMD = 200 (Pokemon Masters 3D Model)
+	{ FF_LMD, FF_LMD, 0, "LMD", ".lmd", ".szs", ".lmd",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
+		{ 0 },
+		0, MinusString, MinusString, "Pokemon Masters 3D Model (.lmd)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1115,6 +1211,22 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_PRC, "PRC", "PARAM", 0x3001 },
 	{ FF_CNUT, "CNUT", "SQIR", 0xe05 },
 	{ FF_CMP, "CMP", 0, 0x103 },
+	{ FF_HSF, "HSF", "HSFV", 0x3001 },
+	{ FF_HSD, "HSD", "HALDAT", 0x3001 },
+	{ FF_BNFM, "BNFM", 0, 0x3001 },
+	{ FF_XPCK, "XPCK", "XC", 0xe05 },
+	{ FF_XIMG, "XIMG", "XI", 0x3809 },
+	{ FF_HGO, "HGO", "0OGH", 0x3001 },
+	{ FF_ZTAB, "ZTAB", 0, 0xe05 },
+	{ FF_GLG, "GLG", 0, 0x3001 },
+	{ FF_MDR, "MDR", 0, 0xe05 },
+	{ FF_PERS, "PERS", "FRAGMENT", 0x3001 },
+	{ FF_PVOL, "PVOL", 0, 0xe05 },
+	{ FF_STPK, "STPK", "SRD", 0xe05 },
+	{ FF_G1M, "G1M", 0, 0x3001 },
+	{ FF_G1T, "G1T", 0, 0x3809 },
+	{ FF_G4PKM, "G4PKM", 0, 0x3001 },
+	{ FF_LMD, "LMD", 0, 0x3001 },
 
 	{ 0, 0, 0, 0 }
 };

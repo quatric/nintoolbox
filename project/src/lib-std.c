@@ -4229,7 +4229,19 @@ enumError cmd_filetype ()
 				fform1 = FF_DIRECTORY;
 			}
 			else
+			{
 				fform1 = GetByMagicFF (buf1, bufsize, fatt.size);
+				if (fform1 == FF_UNKNOWN)
+				{
+					ccp ext = arg ? strrchr (arg, '.') : 0;
+					if (ext)
+					{
+						const file_type_t *ft = GetFileTypeByExt (ext, false);
+						if (ft)
+							fform1 = ft->fform;
+					}
+				}
+			}
 
 			ccp stat1 = err > ERR_WARNING ? "-" : GetCompressionNameFF (0, fform1, buf1, bufsize);
 			ccp buf = buf1;

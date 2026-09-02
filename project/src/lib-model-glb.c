@@ -931,17 +931,23 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 		{
 			r = mat->diffuse[0]; g = mat->diffuse[1]; b = mat->diffuse[2]; a = mat->diffuse[3];
 		}
+		if (mat->num_textures > 0)
+		{
+			// When diffuse textures are present, don't darken or tint base color
+			r = 1.0f; g = 1.0f; b = 1.0f;
+			if (mat->diffuse[3] > 0.0f) a = mat->diffuse[3];
+		}
 		gmat->pbr_metallic_roughness.base_color_factor[0] = r;
 		gmat->pbr_metallic_roughness.base_color_factor[1] = g;
 		gmat->pbr_metallic_roughness.base_color_factor[2] = b;
 		gmat->pbr_metallic_roughness.base_color_factor[3] = a;
 
-		if (mat->ambient[0] > 0 || mat->ambient[1] > 0 || mat->ambient[2] > 0)
-		{
-			gmat->emissive_factor[0] = mat->ambient[0];
-			gmat->emissive_factor[1] = mat->ambient[1];
-			gmat->emissive_factor[2] = mat->ambient[2];
-		}
+		// Note: GameCube/Wii GX ambient is for fixed-function lighting, NOT glTF emissive
+		gmat->emissive_factor[0] = 0.0f;
+		gmat->emissive_factor[1] = 0.0f;
+		gmat->emissive_factor[2] = 0.0f;
+		gmat->pbr_metallic_roughness.metallic_factor = 0.0f;
+		gmat->pbr_metallic_roughness.roughness_factor = 0.8f;
 		gmat->alpha_mode = (mat->has_alpha || (mat->diffuse[3] > 0 && mat->diffuse[3] < 1.0f)) ? cgltf_alpha_mode_blend : cgltf_alpha_mode_opaque;
 
 		int primary = dae_primary_texture(mat, out_glb_file);

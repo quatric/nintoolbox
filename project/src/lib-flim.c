@@ -267,7 +267,7 @@ enumError DecodeFLIM_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, 
 	}
 
 	const uint w = r16 (foot + 0x1c), h = r16 (foot + 0x1e);
-	const uint fmt = foot[0x22], tile_mode = foot[0x23] & 31;
+	const uint fmt = foot[0x20], tile_mode = 1;
 	const uint data_size = r32 (src + src_size - 4);
 
 	if (fmt == 10 || fmt == 11) // ETC1 (fmt 10, opaque) / ETC1A4 (fmt 11): block-compressed

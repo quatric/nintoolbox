@@ -1173,6 +1173,58 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x4e414e52: // "NANR"
 				return FF_NANR;
 
+			// Mario Party HSF
+			case 0x48534656: // "HSFV"
+			case 0x48534600: // "HSF\0"
+				return FF_HSF;
+
+			// Nd Cube Wii U Model (BNFM)
+			case 0x424e464d: // "BNFM"
+				return FF_BNFM;
+
+			// Level-5 Container Archive (XPCK / XPC2)
+			case 0x5850434b: // "XPCK"
+			case 0x58504332: // "XPC2"
+				return FF_XPCK;
+
+			// Level-5 Image (XIM2 / XIMG / XINF)
+			case 0x58494d32: // "XIM2"
+			case 0x58494d47: // "XIMG"
+			case 0x58494e46: // "XINF"
+			case 0x58490000: // "XI\0\0"
+				return FF_XIMG;
+
+			// Camelot 3D Model
+			case 0x304f4748: // "0OGH"
+			case 0x304d5854: // "0MXT"
+			case 0x30545354: // "0TST"
+				return FF_HGO;
+
+			// Camelot Archive Table (ZTAB)
+			case 0x5a544142: // "ZTAB"
+				return FF_ZTAB;
+
+			// Jump Super Stars Archive (STPK / $CFH / $RSF)
+			case 0x5354504b: // "STPK"
+			case 0x24434648: // "$CFH"
+			case 0x24525346: // "$RSF"
+				return FF_STPK;
+
+			// Koei Tecmo 3D Model (G1M_ / _M1G / SM1G / GM1G)
+			case 0x47314d5f: // "G1M_"
+			case 0x47314d00: // "G1M\0"
+			case 0x5f4d3147: // "_M1G"
+			case 0x534d3147: // "SM1G"
+			case 0x474d3147: // "GM1G"
+				return FF_G1M;
+
+			// Koei Tecmo Texture (G1T_ / _T1G / GT1G)
+			case 0x4731545f: // "G1T_"
+			case 0x47315400: // "G1T\0"
+			case 0x5f543147: // "_T1G"
+			case 0x47543147: // "GT1G"
+				return FF_G1T;
+
 			case BREFF_MAGIC_NUM:
 				if (file_size >= 0x20)
 					return data_size < 0x14 || !memcmp (data + 0x10, BREFF_MAGIC, 4) ? FF_BREFF
@@ -1212,6 +1264,12 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 																				 : FF_TEX;
 			}
 		}
+	}
+
+	if (data_size >= 8)
+	{
+		if (!memcmp (data, "PERS-SZP", 8) || (data_size >= 16 && !memcmp (data + 8, "FRAGMENT", 8)) || !memcmp (data, "FRAGMENT", 8))
+			return FF_PERS;
 	}
 
 	const uint bom_len = GetTextBOMLen (data, data_size);
@@ -1501,21 +1559,72 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 	if (data_size >= 4 && IsZSTD (data, data_size) >= 0)
 		return FF_ZSTD;
 
-	if (data_size >= 4)
+	const nfmt_info_t nfmt = DetectNintendoFormat (data, data_size, 0);
+	switch (nfmt.type)
 	{
-		const u8 b0 = *(const u8 *)data;
-		if (b0 == 0x10)
-		{
-			const uint dec_sz = (uint)((const u8 *)data)[1] | ((uint)((const u8 *)data)[2] << 8) | ((uint)((const u8 *)data)[3] << 16);
-			if (dec_sz > data_size && dec_sz < 0x20000000)
-				return FF_LZ;
-		}
-		else if (b0 == 0x11)
-		{
-			const uint dec_sz = (uint)((const u8 *)data)[1] | ((uint)((const u8 *)data)[2] << 8) | ((uint)((const u8 *)data)[3] << 16);
-			if ((dec_sz > data_size || dec_sz == 0) && dec_sz < 0x20000000)
-				return FF_CMP;
-		}
+		case NFMT_LZ10:
+			return FF_LZ;
+		case NFMT_LZ11:
+			return FF_CMP;
+		case NFMT_LZX:
+			return FF_LZX;
+		case NFMT_PUCRUNCH:
+			return FF_PUCRUNCH;
+		case NFMT_DIFF8:
+		case NFMT_DIFF16:
+			return FF_DIFF;
+		case NFMT_VLX:
+			return FF_VLX;
+		case NFMT_LZOVL:
+			return FF_LZOVL;
+		case NFMT_ALAR:
+			return FF_ALAR;
+		case NFMT_DARC:
+			return FF_DARC;
+		case NFMT_SADL:
+			return FF_SADL;
+		case NFMT_NCER:
+			return FF_NCER;
+		case NFMT_NANR:
+			return FF_NANR;
+		case NFMT_FZIP:
+			return FF_FZIP;
+		case NFMT_ZLIB:
+			return FF_ZLIB;
+		case NFMT_HSF:
+			return FF_HSF;
+		case NFMT_HSD:
+			return FF_HSD;
+		case NFMT_BNFM:
+			return FF_BNFM;
+		case NFMT_XPCK:
+			return FF_XPCK;
+		case NFMT_XIMG:
+			return FF_XIMG;
+		case NFMT_HGO:
+			return FF_HGO;
+		case NFMT_ZTAB:
+			return FF_ZTAB;
+		case NFMT_GLG:
+			return FF_GLG;
+		case NFMT_MDR:
+			return FF_MDR;
+		case NFMT_PERS:
+			return FF_PERS;
+		case NFMT_PVOL:
+			return FF_PVOL;
+		case NFMT_STPK:
+			return FF_STPK;
+		case NFMT_G1M:
+			return FF_G1M;
+		case NFMT_G1T:
+			return FF_G1T;
+		case NFMT_G4PKM:
+			return FF_G4PKM;
+		case NFMT_LMD:
+			return FF_LMD;
+		default:
+			break;
 	}
 
 	return FF_UNKNOWN;
@@ -1542,10 +1651,16 @@ file_format_t GetFileTypeByMagic (
 		if (S_ISDIR (fatt->mode))
 			return FF_DIRECTORY;
 
-		const file_format_t ff = GetByMagicFF (buf, sizeof (buf), fatt->size);
+		file_format_t ff = GetByMagicFF (buf, sizeof (buf), fatt->size);
 		ccp ext = fname ? strrchr (fname, '.') : 0;
 		if (ff == FF_SARC && ext && !strcasecmp (ext, ".bfma"))
 			return FF_BFMA;
+		if (ff == FF_UNKNOWN && ext)
+		{
+			const file_type_t *ft = GetFileTypeByExt (ext, false);
+			if (ft)
+				return ft->fform;
+		}
 		return ff;
 	}
 

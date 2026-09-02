@@ -274,6 +274,22 @@ typedef enum file_format_t
 	FF_PRC, // 182 - Smash Parameter binary (.prc / parambinary)
 	FF_CNUT, // 183 - Compiled Squirrel script / messages (Wii Party .cnut / SQIR)
 	FF_CMP, // 184 - HAL Laboratory LZ11 compressed file (.cmp)
+	FF_HSF, // 185 - Hudson Soft 3D Model (Mario Party 4-8 .hsf)
+	FF_HSD, // 186 - HAL Laboratory SYS/DAT Data/Model (Super Smash Bros Melee .dat)
+	FF_BNFM, // 187 - Nd Cube Wii U 3D Model (Mario Party 10 .bnfm)
+	FF_XPCK, // 188 - Level-5 3DS/Switch Container Archive (Layton/Inazuma/Yokai .xc / XPCK)
+	FF_XIMG, // 189 - Level-5 3DS/Switch Image/Texture (.xi / XIMG)
+	FF_HGO, // 190 - Camelot GameCube/Wii 3D Model (Mario Golf/Tennis .hgo)
+	FF_ZTAB, // 191 - Camelot GameCube/Wii Archive Table (.ztab / ZTAB)
+	FF_GLG, // 192 - Next Level Games 3D Model (Super Mario Strikers .glg)
+	FF_MDR, // 193 - Dance Dance Revolution Mario Mix Chunk Archive (.mdr)
+	FF_PERS, // 194 - Pokemon Stadium N64 Model / Fragment (.pers / FRAGMENT)
+	FF_PVOL, // 195 - Pikmin 1 & 2 Model Container Archive (.pvol)
+	FF_STPK, // 196 - Jump Super Stars / Jump Ultimate Stars DS Archive (.srd / STPK)
+	FF_G1M, // 197 - Koei Tecmo 3D Model (Hyrule Warriors / FE Warriors .g1m)
+	FF_G1T, // 198 - Koei Tecmo Texture Container (Hyrule Warriors / FE Warriors .g1t)
+	FF_G4PKM, // 199 - Level-5 / Nintendo 3D Model (.g4pkm)
+	FF_LMD, // 200 - Pokemon Masters 3D Model (.lmd)
 
 	//--- number of elements
 
