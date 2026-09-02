@@ -64,25 +64,31 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **DARC** | `.darc` | NintendoWare NW4C differential archive (3DS) |
 | **DTLS** | `dt00`, `ls00`, `.ls` | Bandai Namco composite package & lookup archive (*Super Smash Bros. 4* Wii U / 3DS) |
 | **FSYS** | `.fsys` | Genius Sonority archive system (GameCube / Wii) |
+| **F9RES** | `.res` | GameCube resource archive container |
 | **GFA** | `.gfa` | Good-Feel GFAC container (Wii / 3DS) |
 | **Hyrule Warriors** | `.idx`, `.bin` | Koei Tecmo / Omega Force split index archive (3DS) |
 | **JARC** | `.jarc` | Level-5 DS archive container (DS) |
 | **LSPK** | `.lspk` | Level-5 Professor Layton flat package (DS) |
+| **MDR** | `.mdr` | *Dance Dance Revolution Mario Mix* chunk archive with per-chunk zlib streams |
 | **MPBIN** | `.bin` | Hudson Soft Mario Party archive container (GameCube / Wii) |
 | **NARC** | `.narc` | Nintendo DS Nitro standard archive (DS / DSi) |
 | **NCCARC** | `.nccarc` | Nintendo DS flat blob container |
 | **NDS / SRL / DSI** | `.nds`, `.srl`, `.dsi` | Nintendo DS & DSi ROM images and executables |
 | **PAC / MRG** | `.pac`, `.mrg` | HAL Laboratory / Game Arts Wii archive container |
 | **PKG / GPKG / GPAK** | `.pkg`, `.pak` | Sonic Team Storybook series archive (*Secret Rings* / *Black Knight*) |
+| **PVOL** | `.pvol` | *Pikmin 1 & 2* model & resource container archive |
 | **RARC** | `.rarc`, `.arc` | Nintendo standard resource archive (GameCube / Wii) |
 | **RFL_Res** | `RFL_Res.dat`, `.dat` | Revolution Face Library Mii resource database (Wii / 3DS / Wii U) |
 | **RPAK** | `.rpak`, `.pak` | Retro Studios asset container (*Metroid Prime* / *Donkey Kong Country Returns*) |
 | **RST / TOC** | `.rst`, `.toc` | Monster Games archive & table of contents (*Excite Truck* / *Excitebots*) |
 | **SARC** | `.sarc`, `.szs` | NintendoWare NW4F & NintendoSDK sorted archive (Wii U / Switch / 3DS) |
+| **STPK** | `.srd`, `.stpk` | *Jump Super Stars* & *Jump Ultimate Stars* DS resource archive |
 | **SZE** | `.sze` | Nintendo Switch AES-encrypted container (NST / Switch) |
 | **VCRA** | `.bin`, `.vcra` | Bandai Namco Museum Remix archive format (Wii) |
 | **WARC** | `.warc` | Nintendo / Intelligent Systems flat archive (Wii U) |
 | **WUD / WUX** | `.wud`, `.wux` | Nintendo Wii U optical disc images (raw & compressed) |
+| **XPCK** | `.xc`, `.xpck` | Level-5 container archive (*Inazuma Eleven*, *Professor Layton*, *Yo-kai Watch*) |
+| **ZTAB** | `.ztab`, `.tab` | Camelot archive table (*Mario Golf: Toadstool Tour*, *Mario Power Tennis*) |
 
 ---
 
@@ -91,14 +97,21 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | Format | Extensions | Target Output | Middleware / Engine / Platform Context |
 |---|---|---|---|
 | **BMD** | `.bmd`, `.bdhc` | **GLB** | Early Nintendo DS 3D model format (DS) |
+| **BNFM** | `.bnfm` | **GLB** | Nd Cube Wii U 3D model format (*Animal Crossing: Amiibo Festival*, *Mario Party 10*) |
+| **G1M** | `.g1m` | **GLB** | Koei Tecmo 3D model format (*Hyrule Warriors*, *Fire Emblem Warriors*) |
+| **G4PKM** | `.g4pkm` | **GLB** | Level-5 / Nintendo Pokémon & Yo-kai Watch 3D model format |
+| **GLG** | `.glg` | **GLB** | Next Level Games 3D model format (*Super Mario Strikers*) |
+| **HGO** | `.hgo` | **GLB** | Camelot GameCube/Wii 3D model format (*Mario Golf*, *Mario Tennis*) |
 | **HSD** | `.dat` | **GLB** | HAL Laboratory `sysdolphin` object graph (GameCube) |
 | **HSF** | `.hsf` | **GLB** | Hudson Soft 3D model format (GameCube / Wii) |
+| **LMD** | `.lmd` | **GLB** | DeNA / Pokémon Masters 3D model format |
 | **MDL0 / BRRES** | `.mdl0`, `.brres` | **GLB** | NintendoWare NW4R binary resource model (Wii) |
 | **MOD** | `.mod` | **GLB** | Monster Games NDL3/NDL2 display list model (Wii) |
 | **MSH (PMsh)** | `.msh` | **GLB** | Monster Games collision mesh format (Wii) |
 | **NSBMD** | `.nsbmd`, `.bmd` | **GLB** | Nintendo DS Nitro 3D model format (DS) |
 | **NUD** | `.nud` | **GLB** | Bandai Namco 3D model format (*Super Smash Bros. 4* Wii U / 3DS) |
 | **NUMSHB** | `.numshb` | **GLB** | Bandai Namco SSBH 3D mesh model (*Super Smash Bros. Ultimate* Switch) |
+| **PERS** | `.pers` | **GLB** | Pokémon Stadium N64 model format |
 
 ---
 
@@ -113,6 +126,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **BNTX** | `.bntx` | NintendoSDK Tegra block-linear texture container (Switch) |
 | **BREFT** | `.breft` | NintendoWare NW4R particle effect texture (Wii) |
 | **BTI / TPL** | `.bti`, `.tpl` | Nintendo standard texture palette library (GameCube / Wii) |
+| **G1T** | `.g1t` | Koei Tecmo texture container (*Hyrule Warriors*, *Fire Emblem Warriors*) |
 | **GTX** | `.gtx` | Nintendo Wii U GX2 surface container (Wii U) |
 | **NCGR / NCLR / NCER / NANR** | `.ncgr`, `.nclr`, `.ncer`, `.nanr` | Nintendo DS Nitro 2D graphics, palette, cell & animation (DS) |
 | **NSBTX** | `.nsbtx` | Nintendo DS Nitro 3D texture container (DS) |
@@ -120,6 +134,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **NUTEXB** | `.nutexb` | Bandai Namco / Nintendo Switch texture wrapper (Switch) |
 | **TEX** | `.tex` | Monster Games GX texture format (Wii) |
 | **TEX0** | `.tex0` | NintendoWare NW4R texture resource (Wii) |
+| **XIMG** | `.xi` | Level-5 3DS/Switch image & texture container |
 
 ---
 
