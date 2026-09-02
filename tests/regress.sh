@@ -5586,7 +5586,7 @@ EOF
   # conventions, not just two calls to the encoder.
   printf 'lossless canonical fixed point payload payload payload\n' > "$d/raw.bin"
   mkdir -p "$d/codec-a" "$d/codec-b"
-  for ext in lz10 lz11 rl yay0 ash lzh8 qlz at7 blz huff4 huff8 stpl rnc1 rnc2 fzip zlib deflate wux yaz0 yaz1 xyz bz ybz bz2 lz ylz lzma xz bclz rle; do
+  for ext in lz10 lz11 cmp rl yay0 ash lzh8 qlz at7 blz huff4 huff8 stpl rnc1 rnc2 fzip zlib deflate wux yaz0 yaz1 xyz bz ybz bz2 lz ylz lzma xz bclz rle; do
     if "$B/wszst" COMPRESS "$d/raw.bin" --dest "$d/codec-a/same.$ext" --overwrite >/dev/null 2>&1 \
     && "$B/wszst" DECOMPRESS "$d/codec-a/same.$ext" --dest "$d/decoded-$ext.bin" --overwrite >/dev/null 2>&1 \
     && "$B/wszst" COMPRESS "$d/decoded-$ext.bin" --dest "$d/codec-b/same.$ext" --overwrite >/dev/null 2>&1 \

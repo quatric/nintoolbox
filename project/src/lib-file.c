@@ -67,6 +67,7 @@
 #include "lib-bzip2.h"
 #include "lib-lzma.h"
 #include "lib-checksum.h"
+#include "lib-nintendo.h"
 #include "config.inc"
 
 //
@@ -1499,6 +1500,42 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 
 	if (data_size >= 4 && IsZSTD (data, data_size) >= 0)
 		return FF_ZSTD;
+
+	const nfmt_info_t nfmt = DetectNintendoFormat (data, data_size, 0);
+	switch (nfmt.type)
+	{
+		case NFMT_LZ10:
+			return FF_LZ;
+		case NFMT_LZ11:
+			return FF_CMP;
+		case NFMT_LZX:
+			return FF_LZX;
+		case NFMT_PUCRUNCH:
+			return FF_PUCRUNCH;
+		case NFMT_DIFF8:
+		case NFMT_DIFF16:
+			return FF_DIFF;
+		case NFMT_VLX:
+			return FF_VLX;
+		case NFMT_LZOVL:
+			return FF_LZOVL;
+		case NFMT_ALAR:
+			return FF_ALAR;
+		case NFMT_DARC:
+			return FF_DARC;
+		case NFMT_SADL:
+			return FF_SADL;
+		case NFMT_NCER:
+			return FF_NCER;
+		case NFMT_NANR:
+			return FF_NANR;
+		case NFMT_FZIP:
+			return FF_FZIP;
+		case NFMT_ZLIB:
+			return FF_ZLIB;
+		default:
+			break;
+	}
 
 	return FF_UNKNOWN;
 }

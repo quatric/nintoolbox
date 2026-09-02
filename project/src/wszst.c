@@ -4676,14 +4676,15 @@ static enumError compress_nintendo_file (ccp arg)
 		return wux_compress (arg, dest) ? ERR_OK : ERR_WRITE_FAILED;
 	}
 	if (!ext
-		|| (strcasecmp (ext, ".lz10") && strcasecmp (ext, ".lz11") && strcasecmp (ext, ".rl")
-			&& strcasecmp (ext, ".yay0") && strcasecmp (ext, ".ash") && strcasecmp (ext, ".ash0")
-			&& strcasecmp (ext, ".lzh8") && strcasecmp (ext, ".qlz") && strcasecmp (ext, ".at7")
-			&& strcasecmp (ext, ".at7p") && strcasecmp (ext, ".blz") && strcasecmp (ext, ".huff4")
-			&& strcasecmp (ext, ".huff8") && strcasecmp (ext, ".huff") && strcasecmp (ext, ".stpl")
-			&& strcasecmp (ext, ".camelot") && strcasecmp (ext, ".rnc") && strcasecmp (ext, ".rnc1")
-			&& strcasecmp (ext, ".rnc2") && strcasecmp (ext, ".romc") && strcasecmp (ext, ".fzip")
-			&& strcasecmp (ext, ".zlib") && strcasecmp (ext, ".deflate") && strcasecmp (ext, ".mvdk")))
+		|| (strcasecmp (ext, ".lz10") && strcasecmp (ext, ".lz11") && strcasecmp (ext, ".cmp")
+			&& strcasecmp (ext, ".rl") && strcasecmp (ext, ".yay0") && strcasecmp (ext, ".ash")
+			&& strcasecmp (ext, ".ash0") && strcasecmp (ext, ".lzh8") && strcasecmp (ext, ".qlz")
+			&& strcasecmp (ext, ".at7") && strcasecmp (ext, ".at7p") && strcasecmp (ext, ".blz")
+			&& strcasecmp (ext, ".huff4") && strcasecmp (ext, ".huff8") && strcasecmp (ext, ".huff")
+			&& strcasecmp (ext, ".stpl") && strcasecmp (ext, ".camelot") && strcasecmp (ext, ".rnc")
+			&& strcasecmp (ext, ".rnc1") && strcasecmp (ext, ".rnc2") && strcasecmp (ext, ".romc")
+			&& strcasecmp (ext, ".fzip") && strcasecmp (ext, ".zlib") && strcasecmp (ext, ".deflate")
+			&& strcasecmp (ext, ".mvdk")))
 		return ERR_NOTHING_TO_DO;
 	u8 *data = 0, *packed = 0;
 	size_t file_size = 0;
@@ -4716,7 +4717,9 @@ static enumError compress_nintendo_file (ccp arg)
 			: !strcasecmp (ext, ".deflate")
 			? EncodeZlib (&packed, &packed_size, data, file_size, true)
 			: !strcasecmp (ext, ".mvdk") ? EncodeMVDK (&packed, &packed_size, data, file_size)
-			: EncodeLZ10LZ11 (&packed, &packed_size, data, file_size, !strcasecmp (ext, ".lz11"));
+			: !strcasecmp (ext, ".cmp") || !strcasecmp (ext, ".lz11")
+			? EncodeLZ10LZ11 (&packed, &packed_size, data, file_size, true)
+			: EncodeLZ10LZ11 (&packed, &packed_size, data, file_size, false);
 	FREE (data);
 	if (err)
 	{
@@ -4746,6 +4749,7 @@ static enumError compress_nintendo_file (ccp arg)
 				: !strcasecmp (ext, ".zlib")	? "Zlib"
 				: !strcasecmp (ext, ".deflate") ? "Deflate"
 				: !strcasecmp (ext, ".mvdk")	? "MVDK"
+				: !strcasecmp (ext, ".cmp")		? "CMP"
 				: !strcasecmp (ext, ".lz11")	? "LZ11"
 												: "LZ10",
 			arg, dest);
@@ -5201,7 +5205,7 @@ static enumError decompress_nintendo_file2 (ccp arg, char *dest_out, uint dest_o
 		return ERR_NOTHING_TO_DO;
 
 	char dest[PATH_MAX];
-	if (opt_dest)
+	if (opt_dest && strcmp (opt_dest, "\1P/\1N\1?T"))
 		SubstDest (dest, sizeof (dest), arg, opt_dest, 0,
 			info.type == NFMT_STPL		 ? ".tpl"
 				: info.type == NFMT_ROMC ? ".z64"
@@ -5221,7 +5225,8 @@ static enumError decompress_nintendo_file2 (ccp arg, char *dest_out, uint dest_o
 				|| !strcasecmp (dot, ".lzs") || !strcasecmp (dot, ".fzip")
 				|| !strcasecmp (dot, ".vlx") || !strcasecmp (dot, ".pc")
 				|| !strcasecmp (dot, ".lzx") || !strcasecmp (dot, ".diff")
-				|| !strcasecmp (dot, ".ovl") || !strcasecmp (dot, ".psdk")))
+				|| !strcasecmp (dot, ".ovl") || !strcasecmp (dot, ".psdk")
+				|| !strcasecmp (dot, ".cmp")))
 		{
 			*dot = 0;
 			stripped = true;

@@ -990,6 +990,10 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0xfa, 0xfa, 0x53, 0x51, 0x49, 0x52 }, // 0xFAFA + "SQIR"
 		0, MinusString, MinusString, "Compiled Squirrel script / messages (Wii Party .cnut / SQIR)" },
 
+	// FF_CMP = 185 (HAL Laboratory LZ11 compressed file)
+	{ FF_CMP, 0, 0, "CMP", ".cmp", ".szs", ".cmp", FFT_VALID | FFT_COMPRESS | FFT_TRACK, 1,
+		{ 0x11 }, 0, MinusString, MinusString, "HAL Laboratory LZ11 compressed file (.cmp)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1110,6 +1114,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_SMASH_ARC, "ARC", "SMASHARC", 0xe05 },
 	{ FF_PRC, "PRC", "PARAM", 0x3001 },
 	{ FF_CNUT, "CNUT", "SQIR", 0xe05 },
+	{ FF_CMP, "CMP", 0, 0x103 },
 
 	{ 0, 0, 0, 0 }
 };

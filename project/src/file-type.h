@@ -273,6 +273,7 @@ typedef enum file_format_t
 	FF_SMASH_ARC, // 181 - Super Smash Bros. Ultimate data.arc archive
 	FF_PRC, // 182 - Smash Parameter binary (.prc / parambinary)
 	FF_CNUT, // 183 - Compiled Squirrel script / messages (Wii Party .cnut / SQIR)
+	FF_CMP, // 184 - HAL Laboratory LZ11 compressed file (.cmp)
 
 	//--- number of elements
 
