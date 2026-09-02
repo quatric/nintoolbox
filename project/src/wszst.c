@@ -63,6 +63,11 @@
 #include <mxml.h>
 #include "lib-chr.h"
 #include "lib-srt.h"
+#include "lib-ue4pak.h"
+#include "lib-nus3.h"
+#include "lib-nut.h"
+#include "lib-smash-arc.h"
+#include "lib-prc.h"
 #include "lib-vis0.h"
 #include "lib-clr.h"
 #include "lib-shp.h"
@@ -12010,7 +12015,7 @@ static enumError extract_numshb_file (ccp arg, ccp basedir, uint depth)
 
 static enumError extract_nut_file (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext (arg, ".nut"))
+	if (!is_ext (arg, ".nut") && !is_ext (arg, ".bin"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;
@@ -12018,6 +12023,7 @@ static enumError extract_nut_file (ccp arg, ccp basedir, uint depth)
 	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
 	if (err)
 		return ERR_NOTHING_TO_DO;
+
 	if (raw_size < 16 || (!IsNUT (raw, raw_size)))
 	{
 		FREE (raw);
@@ -12025,7 +12031,8 @@ static enumError extract_nut_file (ccp arg, ccp basedir, uint depth)
 	}
 
 	nut_t nut;
-	if (!ParseNUT (&nut, raw, raw_size))
+	err = ScanNUT (&nut, raw, raw_size);
+	if (err)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
@@ -12034,32 +12041,42 @@ static enumError extract_nut_file (ccp arg, ccp basedir, uint depth)
 	char dest[PATH_MAX];
 	beside_source_dest (dest, sizeof (dest), arg);
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT NUT:%s (%u textures) -> %s/\n", verbose > 0 ? "\n" : "",
-			testmode ? "WOULD " : "", arg, nut.count, dest);
+		fprintf (stdlog, "%s%sEXTRACT NUT (Smash 4):%s (%u textures) -> %s/\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, nut.n_textures, dest);
 
-	if (!testmode)
+	for (uint i = 0; !err && i < nut.n_textures; i++)
 	{
-		for (uint16_t i = 0; i < nut.count; i++)
-		{
-			uint8_t *rgba = 0;
-			uint32_t w = 0, h = 0;
-			if (DecodeNUTTextureToRGBA (&nut.textures[i], &rgba, &w, &h) && rgba)
-			{
-				char png_path[PATH_MAX];
-				if (nut.count == 1)
-					beside_source_dest_ext (png_path, sizeof (png_path), arg, ".png");
-				else
-					snprintf (png_path, sizeof (png_path), "%s/tex_%08X.png", dest,
-						nut.textures[i].hash ? nut.textures[i].hash : i);
+		if (testmode)
+			continue;
 
-				SaveDecodedRGBAToPNG (rgba, w, h, &le_func, png_path, 0, opt_overwrite);
-			}
-		}
+		u8 *tex_data = 0;
+		size_t tex_sz = 0;
+		char ext[16] = ".bin";
+		enumError terr = ExtractNUTTexture (&nut, i, &tex_data, &tex_sz, ext, sizeof (ext));
+		if (terr || !tex_data || tex_sz == 0)
+			continue;
+
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/%s%s%s", dest, basedir ? basedir : "", nut.textures[i].name, ext);
+
+		File_t F;
+		err = CreateFileOpt (&F, true, path, false, arg);
+		if (F.f && fwrite (tex_data, 1, tex_sz, F.f) != tex_sz)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", tex_sz, path);
+		ResetFile (&F, opt_preserve);
+		FREE (tex_data);
 	}
 
-	FreeNUT (&nut);
+	ResetNUT (&nut);
 	FREE (raw);
-	return ERR_OK;
+
+	if (!err && !testmode)
+	{
+		enumError sub_err = extract_tree_complete (dest, depth + 1);
+		if (err < sub_err)
+			err = sub_err;
+	}
+	return err;
 }
 
 static enumError extract_dtls_file (ccp arg, ccp basedir, uint depth)
@@ -13512,6 +13529,257 @@ static enumError extract_sequence_file (ccp arg, ccp basedir, uint depth)
 	}
 
 	FREE (raw);
+	return err;
+}
+
+static enumError extract_ue4_pak_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".pak") && !is_ext (arg, ".bin") && !is_ext (arg, ".ue4"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsUE4Pak (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	ue4_pak_t pak;
+	err = ScanUE4Pak (&pak, raw, raw_size);
+	if (err)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT UE4-PAK (Mario & Luigi: Brothership):%s (%u files) -> %s/\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, pak.n_entries, dest);
+
+	for (uint i = 0; !err && i < pak.n_entries; i++)
+	{
+		if (testmode)
+			continue;
+
+		u8 *entry_data = 0;
+		size_t entry_size = 0;
+		enumError eerr = ExtractUE4PakEntry (&pak, i, &entry_data, &entry_size);
+		if (eerr)
+			continue;
+
+		const char *fname = pak.entries[i].filename;
+		while (*fname == '/' || *fname == '\\' || !strncmp (fname, "../", 3) || !strncmp (fname, "..\\", 3))
+		{
+			if (*fname == '/' || *fname == '\\')
+				fname++;
+			else
+				fname += 3;
+		}
+
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", fname);
+
+		File_t F;
+		err = CreateFileOpt (&F, true, path, false, arg);
+		if (F.f && entry_size > 0 && fwrite (entry_data, 1, entry_size, F.f) != entry_size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", entry_size, path);
+		ResetFile (&F, opt_preserve);
+		FREE (entry_data);
+	}
+
+	ResetUE4Pak (&pak);
+	FREE (raw);
+
+	if (!err && !testmode)
+	{
+		enumError sub_err = extract_tree_complete (dest, depth + 1);
+		if (err < sub_err)
+			err = sub_err;
+	}
+	return err;
+}
+
+static enumError extract_nus3_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".nus3bank") && !is_ext (arg, ".nus3audio")
+		&& !is_ext (arg, ".nus3") && !is_ext (arg, ".bin"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsNUS3 (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	nus3_t nus;
+	err = ScanNUS3 (&nus, raw, raw_size);
+	if (err)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT NUS3 (Smash 4 / Ultimate):%s (%u tracks) -> %s/\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, nus.n_tracks, dest);
+
+	for (uint i = 0; !err && i < nus.n_tracks; i++)
+	{
+		if (testmode)
+			continue;
+
+		const nus3_track_t *t = &nus.tracks[i];
+		if (!t->data || t->size == 0)
+			continue;
+
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/%s%s%s", dest, basedir ? basedir : "", t->name, t->ext);
+
+		File_t F;
+		err = CreateFileOpt (&F, true, path, false, arg);
+		if (F.f && fwrite (t->data, 1, t->size, F.f) != t->size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", t->size, path);
+		ResetFile (&F, opt_preserve);
+	}
+
+	ResetNUS3 (&nus);
+	FREE (raw);
+
+	if (!err && !testmode)
+	{
+		enumError sub_err = extract_tree_complete (dest, depth + 1);
+		if (err < sub_err)
+			err = sub_err;
+	}
+	return err;
+}
+
+
+static enumError extract_smash_arc_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".arc") && !is_ext (arg, ".bin"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsSmashArc (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	smash_arc_t arc;
+	err = ScanSmashArc (&arc, raw, raw_size);
+	if (err)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT Smash Ultimate data.arc:%s (%u files) -> %s/\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, arc.n_files, dest);
+
+	for (uint i = 0; !err && i < arc.n_files; i++)
+	{
+		if (testmode)
+			continue;
+
+		u8 *file_data = 0;
+		size_t file_sz = 0;
+		enumError aerr = ExtractSmashArcEntry (&arc, i, &file_data, &file_sz);
+		if (aerr || !file_data)
+			continue;
+
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", arc.files[i].filename);
+
+		File_t F;
+		err = CreateFileOpt (&F, true, path, false, arg);
+		if (F.f && file_sz > 0 && fwrite (file_data, 1, file_sz, F.f) != file_sz)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", file_sz, path);
+		ResetFile (&F, opt_preserve);
+		FREE (file_data);
+	}
+
+	ResetSmashArc (&arc);
+	FREE (raw);
+
+	if (!err && !testmode)
+	{
+		enumError sub_err = extract_tree_complete (dest, depth + 1);
+		if (err < sub_err)
+			err = sub_err;
+	}
+	return err;
+}
+
+static enumError extract_prc_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".prc") && !is_ext (arg, ".param"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsPRC (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char *xml = 0;
+	err = DecodePRC_XML (&xml, raw, raw_size);
+	FREE (raw);
+	if (err || !xml)
+		return ERR_NOTHING_TO_DO;
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".xml", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.xml", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT PRC XML:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (xml);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f && fwrite (xml, 1, strlen (xml), F.f) != strlen (xml))
+		err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing XML failed: %s\n", dest);
+	ResetFile (&F, opt_preserve);
+	FREE (xml);
 	return err;
 }
 
@@ -16353,6 +16621,22 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		return err;
 
 	err = decode_msbt_if_possible (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_ue4_pak_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_nus3_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_smash_arc_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_prc_manifest (arg);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 

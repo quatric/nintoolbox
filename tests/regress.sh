@@ -1711,6 +1711,148 @@ t_container_roundtrips(){
     else
       no "BFFNT encode -> extract XML" "failed"
     fi
+
+    # UE4 PAK (Mario & Luigi: Brothership .pak container)
+    python3 -c "
+import struct, zlib
+mp = b'../../../MarioAndLuigi/Content/\x00'
+f1_name = b'Maps/Island01.uexp\x00'
+f1_data = b'Brothership Map Data Island 01\n' * 5
+f2_name = b'Characters/Mario.uexp\x00'
+f2_data = b'Mario Animation and Mesh Data\n' * 5
+
+# Write data payload with FPakEntry headers
+hdr_sz = 53
+p1_hdr = struct.pack('<QQQI20sBI', 0, len(f1_data), len(f1_data), 0, b'\x00'*20, 0, 65536)
+p2_hdr = struct.pack('<QQQI20sBI', len(p1_hdr) + len(f1_data), len(f2_data), len(f2_data), 0, b'\x00'*20, 0, 65536)
+
+body = p1_hdr + f1_data + p2_hdr + f2_data
+idx_off = len(body)
+
+# Write index table
+idx = struct.pack('<i', len(mp)) + mp
+idx += struct.pack('<I', 2) # 2 entries
+idx += struct.pack('<i', len(f1_name)) + f1_name
+idx += struct.pack('<QQQI20sBI', 0, len(f1_data), len(f1_data), 0, b'\x00'*20, 0, 65536)
+idx += struct.pack('<i', len(f2_name)) + f2_name
+idx += struct.pack('<QQQI20sBI', len(p1_hdr) + len(f1_data), len(f2_data), len(f2_data), 0, b'\x00'*20, 0, 65536)
+idx_sz = len(idx)
+
+# Write footer
+footer = b'\x00'*16 + b'\x00' # Guid + encrypted
+footer += struct.pack('<IIQQ20sB', 0x5A6F12E1, 8, idx_off, idx_sz, b'\x00'*20, 0)
+footer += b'None\x00' + b'\x00'*27
+footer += b'Zlib\x00' + b'\x00'*27
+footer += b'Zstd\x00' + b'\x00'*27
+footer += b'Oodle\x00' + b'\x00'*26
+
+open('$d/brothership.pak', 'wb').write(body + idx + footer)
+" 2>/dev/null
+    rm -rf "$d/pak_out"
+    if [ -f "$d/brothership.pak" ] \
+    && "$B/wszst" xx "$d/brothership.pak" --dest "$d/pak_out" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/pak_out/Maps/Island01.uexp" ] \
+    && [ -s "$d/pak_out/Characters/Mario.uexp" ]; then
+      ok "UE4 PAK (Mario & Luigi: Brothership) extract roundtrip"
+    else
+      no "UE4 PAK (Mario & Luigi: Brothership) extract" "failed"
+    fi
+
+    # NUS3AUDIO (Super Smash Bros. Ultimate audio archive)
+    python3 -c "
+import struct
+magic = b'NUS3'
+t1_name = b'bgm_smash_theme'
+t1_data = b'IDSP' + struct.pack('>I', 64) + b'\x00'*56
+t2_name = b'se_mario_punch'
+t2_data = b'OPUS' + b'\x00'*60
+
+n_tracks = 2
+audiindx = struct.pack('<I', n_tracks)
+tnid = struct.pack('<II', 100, 101)
+tnnm_str1 = struct.pack('B', len(t1_name)) + t1_name + b'\x00'
+tnnm_str2 = struct.pack('B', len(t2_name)) + t2_name + b'\x00'
+tnnm = tnnm_str1 + tnnm_str2
+nmof = struct.pack('<II', 0, len(tnnm_str1))
+adof = struct.pack('<IIII', 0, len(t1_data), len(t1_data), len(t2_data))
+pack = t1_data + t2_data
+
+body = (b'AUDIINDX' + struct.pack('<I', len(audiindx)) + audiindx +
+        b'TNID\x00\x00\x00\x00' + struct.pack('<I', len(tnid)) + tnid +
+        b'NMOF\x00\x00\x00\x00' + struct.pack('<I', len(nmof)) + nmof +
+        b'ADOF\x00\x00\x00\x00' + struct.pack('<I', len(adof)) + adof +
+        b'TNNM\x00\x00\x00\x00' + struct.pack('<I', len(tnnm)) + tnnm +
+        b'PACK\x00\x00\x00\x00' + struct.pack('<I', len(pack)) + pack)
+hdr = magic + struct.pack('<I', len(body))
+open('$d/smash_audio.nus3audio', 'wb').write(hdr + body)
+" 2>/dev/null
+    rm -rf "$d/nus3_out"
+    if [ -f "$d/smash_audio.nus3audio" ] \
+    && "$B/wszst" xx "$d/smash_audio.nus3audio" --dest "$d/nus3_out" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/nus3_out/bgm_smash_theme.idsp" ] \
+    && [ -s "$d/nus3_out/se_mario_punch.lopus" ]; then
+      ok "NUS3AUDIO (Smash Ultimate audio archive) extract roundtrip"
+    else
+      no "NUS3AUDIO (Smash Ultimate audio archive) extract" "failed"
+    fi
+
+    # NUT (Smash 4 NTP3 texture container)
+    python3 -c "
+import struct
+tex1_data = b'DDS_TEST_TEXTURE_1_RGBA8' + b'\x00'*40
+tex2_data = b'DDS_TEST_TEXTURE_2_RGBA8' + b'\x00'*40
+hdr = b'NTP3' + struct.pack('<HHII', 0x0200, 2, 0, 0)
+th1 = struct.pack('<IIIHH', 48 + len(tex1_data), 0, len(tex1_data), 48, 0)
+th1 += struct.pack('<HHIIII', 64, 64, 1, 0x0000, 16 + 96, 0) + b'\x00'*12
+th2 = struct.pack('<IIIHH', 48 + len(tex2_data), 0, len(tex2_data), 48, 0)
+th2 += struct.pack('<HHIIII', 64, 64, 1, 0x0000, 16 + 96 + len(tex1_data), 0) + b'\x00'*12
+open('$d/smash_tex.nut', 'wb').write(hdr + th1 + th2 + tex1_data + tex2_data)
+" 2>/dev/null
+    rm -rf "$d/nut_out"
+    if [ -f "$d/smash_tex.nut" ] \
+    && "$B/wszst" xx "$d/smash_tex.nut" --dest "$d/nut_out" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/nut_out/texture_000.dds" ] \
+    && [ -s "$d/nut_out/texture_001.dds" ]; then
+      ok "NUT (Smash 4 NTP3 texture container) extract roundtrip"
+    else
+      no "NUT (Smash 4 NTP3 texture container) extract" "failed"
+    fi
+
+    # Smash Ultimate data.arc
+    python3 -c "
+import struct
+f1 = b'fighter/mario/model/body/c00/model.numatb\x00'
+f1_data = b'NUMATB Material Data\n'*4
+f2 = b'sound/bgm/bgm_smash.nus3audio\x00'
+f2_data = b'NUS3\x00\x00\x00\x00'
+
+hdr = struct.pack('<II', 0xABCDEF00, 2)
+p1 = struct.pack('104sQQQ', f1, 8 + 256, len(f1_data), len(f1_data))
+p2 = struct.pack('104sQQQ', f2, 8 + 256 + len(f1_data), len(f2_data), len(f2_data))
+open('$d/test_smash.arc', 'wb').write(hdr + p1 + p2 + f1_data + f2_data)
+" 2>/dev/null
+    rm -rf "$d/smash_arc_out"
+    if [ -f "$d/test_smash.arc" ] \
+    && "$B/wszst" xx "$d/test_smash.arc" --dest "$d/smash_arc_out" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/smash_arc_out/fighter/mario/model/body/c00/model.numatb" ] \
+    && [ -s "$d/smash_arc_out/sound/bgm/bgm_smash.nus3audio" ]; then
+      ok "Smash Ultimate data.arc container extract roundtrip"
+    else
+      no "Smash Ultimate data.arc container extract" "failed"
+    fi
+
+    # Smash PRC parameter file
+    python3 -c "
+open('$d/test_param.prc', 'wb').write(b'parambinary\x00' + b'\x00'*64)
+" 2>/dev/null
+    rm -rf "$d/prc_out.xml"
+    if [ -f "$d/test_param.prc" ] \
+    && "$B/wszst" xx "$d/test_param.prc" --dest "$d/prc_out.xml" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/prc_out.xml" ]; then
+      ok "Smash PRC parameter XML extract roundtrip"
+    else
+      no "Smash PRC parameter XML extract" "failed"
+    fi
   fi
 
   rm -rf "$d"

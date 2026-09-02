@@ -966,6 +966,30 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x53, 0x53, 0x42, 0x48 }, // "SSBH"
 		0, MinusString, MinusString, "Smash Ultimate SSBH Mesh (NUMSHB)" },
 
+	// FF_NUS3 = 180 (Namco Universal Sound 3)
+	{ FF_NUS3, 0, 0, "NUS3", ".nus3bank", ".nus3bank", ".nus3audio",
+		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT | FFT_CREATE, 4,
+		{ 0x4e, 0x55, 0x53, 0x33 }, // "NUS3"
+		0, MinusString, MinusString, "Namco Universal Sound 3 archive (Smash 4 / Ultimate)" },
+
+	// FF_UE4_PAK = 181 (Unreal Engine 4 archive)
+	{ FF_UE4_PAK, 0, 0, "PAK", ".pak", ".pak", ".pak",
+		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT | FFT_CREATE, 0,
+		{ 0 },
+		0, MinusString, MinusString, "Unreal Engine 4 archive (Mario & Luigi: Brothership .pak)" },
+
+	// FF_SMASH_ARC = 182 (Smash Ultimate data.arc)
+	{ FF_SMASH_ARC, 0, 0, "ARC", ".arc", ".arc", ".arc",
+		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT | FFT_CREATE, 4,
+		{ 0x00, 0xef, 0xcd, 0xab }, // 0xABCDEF00
+		0, MinusString, MinusString, "Super Smash Bros. Ultimate data.arc archive" },
+
+	// FF_PRC = 183 (Smash Parameter binary)
+	{ FF_PRC, 0, 0, "PRC", ".prc", ".prc", ".prc",
+		FFT_VALID | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 0x70, 0x61, 0x72, 0x61 }, // "para"
+		0, MinusString, MinusString, "Smash Parameter binary (.prc / parambinary)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1078,6 +1102,15 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_SADL, "SADL", 0, 0x861 },
 	{ FF_NCER, "NCER", "RECN", 0x3001 },
 	{ FF_NANR, "NANR", "RNAN", 0x3001 },
+	{ FF_NUT, "NUT", "NTP3", 0x3809 },
+	{ FF_NUD, "NUD", "NDP3", 0x3001 },
+	{ FF_DTLS, "DTLS", "LS", 0xe05 },
+	{ FF_NUMSHB, "NUMSHB", "SSBH", 0x3001 },
+	{ FF_NUS3, "NUS3", "NUS3BANK", 0xe05 },
+	{ FF_NUS3, "NUS3AUDIO", 0, 0xe05 },
+	{ FF_UE4_PAK, "PAK", "UE4PAK", 0xe05 },
+	{ FF_SMASH_ARC, "ARC", "SMASHARC", 0xe05 },
+	{ FF_PRC, "PRC", "PARAM", 0x3001 },
 
 	{ 0, 0, 0, 0 }
 };
