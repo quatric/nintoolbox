@@ -5225,11 +5225,13 @@ t_byte_fixed_points(){
   printf '#BMG\n@ENDIAN = 0\n@ENCODING = 3\n@BMG-MID = 1\n[0001]\nHello SJIS world!\n\n[0002]\nSecond string\n' > "$d/source-bmg-sjis.txt"
   printf '#BMG\n@ENDIAN = 0\n@ENCODING = 4\n@BMG-MID = 1\n[0001]\nHello UTF-8 world!\n\n[0002]\nSecond string\n' > "$d/source-bmg-utf8.txt"
   printf '#BMG\n@LEGACY = 1\n@ENDIAN = 0\n@ENCODING = 1\n@BMG-MID = 0\n[0001]\nHello GameCube BMG!\n\n[0002]\nSecond string\n' > "$d/source-bmg-gc.txt"
+  printf '#BMG\n@ENDIAN = 0\n@ENCODING = 1\n@BMG-MID = 1\n@INF-MAGIC = "INF2"\n[0001]\nHello Flow world!\n\n[0002]\nSecond message\n\n@SECTION "FLW1"\n@X 0: 0 2 0 8 0 0 0 0 0 0 0 0 0 1 0 0 :................:\n@X 10: 0 0 0 1 ff ff 0 0 / :........:\n\n@SECTION "FLI1"\n@X 0: 0 2 0 2 0 0 0 0 0 0 0 1 0 0 0 0 :................:\n@X 10: 0 0 0 0 0 0 0 0 / :........:\n' > "$d/source-bmg-flow.txt"
   for spec in 'source-bmg-cp1252.txt BMG_CP1252' \
               'source-bmg-utf16.txt BMG_UTF16' \
               'source-bmg-sjis.txt BMG_SJIS' \
               'source-bmg-utf8.txt BMG_UTF8' \
-              'source-bmg-gc.txt BMG_GameCube'; do
+              'source-bmg-gc.txt BMG_GameCube' \
+              'source-bmg-flow.txt BMG_Flow'; do
     set -- $spec; src="$d/$1"; label=$2
     if "$B/wbmgt" ENCODE "$src" --dest "$d/a/same-$label.bmg" --overwrite >/dev/null 2>&1 \
     && "$B/wbmgt" DECODE "$d/a/same-$label.bmg" --dest "$d/mid-$label.txt" --overwrite >/dev/null 2>&1 \

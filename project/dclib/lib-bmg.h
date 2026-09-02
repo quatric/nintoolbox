@@ -526,11 +526,22 @@ typedef struct bmg_mid_t
 //-----------------------------------------------------------------------------
 // [[bmg_flw_t]]
 
+typedef struct bmg_flw_node_t
+{
+	/*00*/ be16_t type; // Node type: 0=Message, 1=Branch/Condition, 2=Choice, 3=Event, 4=Exit
+	/*02*/ be16_t param1; // Message index / Condition ID / Event ID
+	/*04*/ be16_t next; // Next flow node index / True branch target
+	/*06*/ be16_t param2; // False branch target / FLI jump index
+} __attribute__ ((packed)) bmg_flw_node_t;
+
 typedef struct bmg_flw_t
 {
-	/*00*/ char magic[4]; // = BMG_FLW_MAGIC
+	/*00*/ char magic[4]; // = "FLW1" or "FLW0"
 	/*04*/ be32_t size; // total size of the section
-	/*08*/ u8 unknown[]; // ??? [[2do]]
+	/*08*/ be16_t n_flow; // number of flow nodes
+	/*0a*/ be16_t flow_size; // size of each node (usually 8 bytes)
+	/*0c*/ be32_t reserved; // = 0
+	/*10*/ bmg_flw_node_t nodes[0];
 } __attribute__ ((packed)) bmg_flw_t;
 
 //
@@ -545,10 +556,53 @@ typedef struct bmg_flw_t
 
 typedef struct bmg_fli_t
 {
-	/*00*/ char magic[4]; // = BMG_FLI_MAGIC
+	/*00*/ char magic[4]; // = "FLI1", "FLI0", or "FLID"
 	/*04*/ be32_t size; // total size of the section
-	/*08*/ u8 unknown[]; // ??? [[2do]]
+	/*08*/ be16_t n_index; // number of flow index entries
+	/*0a*/ be16_t index_size; // element size (usually 2 for u16)
+	/*0c*/ be32_t reserved; // = 0
+	/*10*/ be16_t indices[0]; // flow node indices
 } __attribute__ ((packed)) bmg_fli_t;
+
+//
+///////////////////////////////////////////////////////////////////////////////
+///////////////			struct bmg_tbn_t		///////////////
+///////////////////////////////////////////////////////////////////////////////
+
+#define BMG_TBN_MAGIC "TBN2"
+
+//-----------------------------------------------------------------------------
+// [[bmg_tbn_t]]
+
+typedef struct bmg_tbn_t
+{
+	/*00*/ char magic[4]; // = "TBN2" or "TBN1"
+	/*04*/ be32_t size; // total size of the section
+	/*08*/ be16_t n_entries; // number of entries
+	/*0a*/ be16_t entry_size; // size of each entry
+	/*0c*/ be32_t reserved; // = 0
+	/*10*/ u8 data[0]; // attribute / table data
+} __attribute__ ((packed)) bmg_tbn_t;
+
+//
+///////////////////////////////////////////////////////////////////////////////
+///////////////			struct bmg_wii_t		///////////////
+///////////////////////////////////////////////////////////////////////////////
+
+#define BMG_WII_MAGIC "WII1"
+
+//-----------------------------------------------------------------------------
+// [[bmg_wii_t]]
+
+typedef struct bmg_wii_t
+{
+	/*00*/ char magic[4]; // = "WII1"
+	/*04*/ be32_t size; // total size of the section
+	/*08*/ be16_t n_entries; // number of entries
+	/*0a*/ be16_t entry_size; // size of each entry
+	/*0c*/ be32_t reserved; // = 0
+	/*10*/ u8 data[0];
+} __attribute__ ((packed)) bmg_wii_t;
 
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -585,12 +639,14 @@ typedef struct bmg_sect_list_t
 
 	// all following pointers point into raw source data
 	bmg_header_t *header; // NULL or pointer to BMG file header
-	bmg_inf_t *pinf; // NULL or pointer to INF1 header
+	bmg_inf_t *pinf; // NULL or pointer to INF1/INF2 header
 	bmg_dat_t *pdat; // NULL or pointer to DAT1 header
 	bmg_str_t *pstr; // NULL or pointer to STR1 header
 	bmg_mid_t *pmid; // NULL or pointer to MID1 header
-	bmg_flw_t *pflw; // NULL or pointer to FLW1 header
-	bmg_fli_t *pfli; // NULL or pointer to FLI1 header
+	bmg_flw_t *pflw; // NULL or pointer to FLW1/FLW0 header
+	bmg_fli_t *pfli; // NULL or pointer to FLI1/FLI0/FLID header
+	bmg_tbn_t *ptbn; // NULL or pointer to TBN2/TBN1 header
+	bmg_wii_t *pwii; // NULL or pointer to WII1 header
 
 	uint n_sections; // number if secton, get by bmg header
 	uint n_info; // number of info records excluding terimination
@@ -766,6 +822,7 @@ typedef struct bmg_t
 
 	//--- section header data
 
+	char inf_magic[8]; // magic of INF section ("INF1", "INF2", etc.)
 	u32 unknown_inf_0c; // section INF1 offset 0x0c
 	u16 unknown_mid_0a; // section MID1 offset 0x0a
 	u32 unknown_mid_0c; // section MID1 offset 0x0c

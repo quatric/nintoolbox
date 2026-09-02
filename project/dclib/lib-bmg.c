@@ -1227,7 +1227,7 @@ bmg_sect_list_t *ScanSectionsBMG (cvp data, uint size, const endian_func_t *endi
 			si.n_elem_head = endian->n2hs (sl.pinf->n_msg);
 			si.known = true;
 			si.supported = true;
-			si.info = "offset & attributes";
+			si.info = !memcmp (sect->magic, "INF2", 4) ? "offset & attributes (v2)" : "offset & attributes";
 		}
 		else if (!memcmp (sect->magic, BMG_DAT_MAGIC, sizeof (sect->magic)))
 		{
@@ -1243,7 +1243,7 @@ bmg_sect_list_t *ScanSectionsBMG (cvp data, uint size, const endian_func_t *endi
 			si.head_size = sizeof (bmg_str_t);
 			si.known = true;
 			si.supported = false;
-			si.info = "secondary string pool";
+			si.info = "string id pool";
 		}
 		else if (!memcmp (sect->magic, BMG_MID_MAGIC, sizeof (sect->magic)))
 		{
@@ -1259,6 +1259,10 @@ bmg_sect_list_t *ScanSectionsBMG (cvp data, uint size, const endian_func_t *endi
 		{
 			sl.pflw = (bmg_flw_t *)sect;
 			si.head_size = sizeof (bmg_flw_t);
+			si.elem_size = endian->n2hs (sl.pflw->flow_size);
+			if (!si.elem_size)
+				si.elem_size = sizeof (bmg_flw_node_t);
+			si.n_elem_head = endian->n2hs (sl.pflw->n_flow);
 			si.known = true;
 			si.supported = false;
 			si.info = "message flow nodes";
@@ -1267,20 +1271,30 @@ bmg_sect_list_t *ScanSectionsBMG (cvp data, uint size, const endian_func_t *endi
 		{
 			sl.pfli = (bmg_fli_t *)sect;
 			si.head_size = sizeof (bmg_fli_t);
+			si.elem_size = endian->n2hs (sl.pfli->index_size);
+			if (!si.elem_size)
+				si.elem_size = sizeof (u16);
+			si.n_elem_head = endian->n2hs (sl.pfli->n_index);
 			si.known = true;
 			si.supported = false;
 			si.info = "message flow indices";
 		}
 		else if (!memcmp (sect->magic, "TBN", 3))
 		{
-			si.head_size = sizeof (bmg_section_t);
+			sl.ptbn = (bmg_tbn_t *)sect;
+			si.head_size = sizeof (bmg_tbn_t);
+			si.elem_size = endian->n2hs (sl.ptbn->entry_size);
+			si.n_elem_head = endian->n2hs (sl.ptbn->n_entries);
 			si.known = true;
 			si.supported = false;
-			si.info = "attributes";
+			si.info = "attributes table";
 		}
 		else if (!memcmp (sect->magic, "WII", 3))
 		{
-			si.head_size = sizeof (bmg_section_t);
+			sl.pwii = (bmg_wii_t *)sect;
+			si.head_size = sizeof (bmg_wii_t);
+			si.elem_size = endian->n2hs (sl.pwii->entry_size);
+			si.n_elem_head = endian->n2hs (sl.pwii->n_entries);
 			si.known = true;
 			si.supported = false;
 			si.info = "wii attributes";
@@ -2436,6 +2450,7 @@ enumError ScanRawBMG (bmg_t *bmg)
 	if (!sl->pinf || !sl->pdat)
 		return ERROR0 (ERR_INVALID_DATA, "Corrupted BMG file: %s\n", bmg->fname);
 
+	memcpy (bmg->inf_magic, pinf->magic, sizeof (bmg->inf_magic));
 	bmg->unknown_inf_0c = bmg->endian->n2hl (pinf->unknown_0c);
 
 	uint max_item;
@@ -2883,6 +2898,10 @@ enumError ScanTextBMG (bmg_t *bmg)
 				AssignEncodingBMG (bmg, str2l (start, 0, 10));
 			else if (!strcmp (namebuf, "BMG-MID"))
 				bmg->have_mid = str2ul (start, 0, 10) > 0;
+			else if (!strcmp (namebuf, "INF-MAGIC"))
+			{
+				ScanEscapedString (bmg->inf_magic, sizeof (bmg->inf_magic), start, ptr - start, false, -1, 0);
+			}
 			else if (!strcmp (namebuf, "INF-SIZE"))
 				AssignInfSizeBMG (bmg, str2ul (start, 0, 10));
 			else if (!strcmp (namebuf, "DEFAULT-ATTRIBS"))
@@ -3657,7 +3676,7 @@ enumError CreateRawBMG (bmg_t *bmg // pointer to valid BMG
 	pinf->n_msg = bc.endian->h2ns (bc.n_msg);
 	pinf->inf_size = bc.endian->h2ns (bmg->inf_size);
 	pinf->unknown_0c = bc.endian->h2nl (bmg->unknown_inf_0c);
-	memcpy (pinf->magic, BMG_INF_MAGIC, sizeof (pinf->magic));
+	memcpy (pinf->magic, bmg->inf_magic[0] ? bmg->inf_magic : BMG_INF_MAGIC, sizeof (pinf->magic));
 	memcpy (pinf->list, inf.ptr, inf.len);
 
 	dest += inf_size;
@@ -4157,8 +4176,11 @@ enumError SaveTextFileBMG (bmg_t *bmg, // pointer to valid bmg
 	}
 
 	if (print_settings || bmg->unknown_inf_0c != BMG_INF_DEFAULT_0C
-		|| bmg->unknown_mid_0a != BMG_MID_DEFAULT_0A || bmg->unknown_mid_0c != BMG_MID_DEFAULT_0C)
+		|| bmg->unknown_mid_0a != BMG_MID_DEFAULT_0A || bmg->unknown_mid_0c != BMG_MID_DEFAULT_0C
+		|| (bmg->inf_magic[0] && memcmp (bmg->inf_magic, BMG_INF_MAGIC, 4)))
 	{
+		if (bmg->inf_magic[0] && memcmp (bmg->inf_magic, BMG_INF_MAGIC, 4))
+			fprintf (f, "@INF-MAGIC       = \"%.4s\"\r\n", bmg->inf_magic);
 		if (print_full)
 			fprintf (f, unknown_param, param_announce, bmg->unknown_inf_0c, bmg->unknown_mid_0a,
 				bmg->unknown_mid_0c);

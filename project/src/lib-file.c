@@ -68,7 +68,6 @@
 #include "lib-bzip2.h"
 #include "lib-lzma.h"
 #include "lib-checksum.h"
-#include "lib-nintendo.h"
 #include "config.inc"
 
 //
@@ -1502,40 +1501,21 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 	if (data_size >= 4 && IsZSTD (data, data_size) >= 0)
 		return FF_ZSTD;
 
-	const nfmt_info_t nfmt = DetectNintendoFormat (data, data_size, 0);
-	switch (nfmt.type)
+	if (data_size >= 4)
 	{
-		case NFMT_LZ10:
-			return FF_LZ;
-		case NFMT_LZ11:
-			return FF_CMP;
-		case NFMT_LZX:
-			return FF_LZX;
-		case NFMT_PUCRUNCH:
-			return FF_PUCRUNCH;
-		case NFMT_DIFF8:
-		case NFMT_DIFF16:
-			return FF_DIFF;
-		case NFMT_VLX:
-			return FF_VLX;
-		case NFMT_LZOVL:
-			return FF_LZOVL;
-		case NFMT_ALAR:
-			return FF_ALAR;
-		case NFMT_DARC:
-			return FF_DARC;
-		case NFMT_SADL:
-			return FF_SADL;
-		case NFMT_NCER:
-			return FF_NCER;
-		case NFMT_NANR:
-			return FF_NANR;
-		case NFMT_FZIP:
-			return FF_FZIP;
-		case NFMT_ZLIB:
-			return FF_ZLIB;
-		default:
-			break;
+		const u8 b0 = *(const u8 *)data;
+		if (b0 == 0x10)
+		{
+			const uint dec_sz = (uint)((const u8 *)data)[1] | ((uint)((const u8 *)data)[2] << 8) | ((uint)((const u8 *)data)[3] << 16);
+			if (dec_sz > data_size && dec_sz < 0x20000000)
+				return FF_LZ;
+		}
+		else if (b0 == 0x11)
+		{
+			const uint dec_sz = (uint)((const u8 *)data)[1] | ((uint)((const u8 *)data)[2] << 8) | ((uint)((const u8 *)data)[3] << 16);
+			if ((dec_sz > data_size || dec_sz == 0) && dec_sz < 0x20000000)
+				return FF_CMP;
+		}
 	}
 
 	return FF_UNKNOWN;
