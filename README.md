@@ -88,6 +88,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **WARC** | `.warc` | Nintendo / Intelligent Systems flat archive (Wii U) |
 | **WUD / WUX** | `.wud`, `.wux` | Nintendo Wii U optical disc images (raw & compressed) |
 | **XPCK** | `.xc`, `.xpck` | Level-5 container archive (*Inazuma Eleven*, *Professor Layton*, *Yo-kai Watch*) |
+| **ZLARC** | `.zlarc` | indieszero compressed package archive (*NES Remix*, *NES Remix 2*, *NES Remix Pack*) |
 | **ZTAB** | `.ztab`, `.tab` | Camelot archive table (*Mario Golf: Toadstool Tour*, *Mario Power Tennis*) |
 
 ---

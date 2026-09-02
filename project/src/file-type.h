@@ -290,6 +290,7 @@ typedef enum file_format_t
 	FF_G1T, // 198 - Koei Tecmo Texture Container (Hyrule Warriors / FE Warriors .g1t)
 	FF_G4PKM, // 199 - Level-5 / Nintendo 3D Model (.g4pkm)
 	FF_LMD, // 200 - Pokemon Masters 3D Model (.lmd)
+	FF_XMSG, // 201 - Wii Party Message / Text Archive (mess.bin / XMSG)
 
 	//--- number of elements
 

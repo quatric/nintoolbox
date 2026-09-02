@@ -69,6 +69,7 @@
 #include "lib-smash-arc.h"
 #include "lib-prc.h"
 #include "lib-cnut.h"
+#include "lib-xmsg.h"
 #include "lib-vis0.h"
 #include "lib-clr.h"
 #include "lib-shp.h"
@@ -5923,6 +5924,29 @@ static enumError create_f9res_dir (ccp source, ccp dest)
 	return err;
 }
 
+static enumError create_zlarc_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+	u8 *data = 0;
+	uint size = 0;
+	if (!err)
+		err = CreateZLARCArchive (&data, &size, list.entry, list.used);
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, source);
+		if (F.f && fwrite (data, 1, size, F.f) != size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+
 static enumError create_fsys_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -7356,6 +7380,8 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest)
 		return create_stpk_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".res") && looks_like_f9res_dir (source_dir))
 		return create_f9res_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".zlarc"))
+		return create_zlarc_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".gsh"))
 		return create_gsh_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".sze"))
@@ -7446,7 +7472,7 @@ static const char *cand_archive_exts[] = { ".wbfs", ".iso", ".ciso", ".wdf", ".w
 	".darc", ".pac", ".pcs", ".gfa", ".rarc", ".warc", ".bcsar", ".bfsar", ".bcwar", ".bfwar",
 	".bcgrp", ".bfgrp", ".rst", ".car", ".res", ".trk", ".lvl", ".wu8", ".wbz", ".wlz", ".bntx",
 	".bcres", ".bfres", ".bch", ".big", ".xc", ".xpck", ".ztab", ".tab", ".mdr", ".pvol", ".srd",
-	".stpk", 0 };
+	".stpk", ".zlarc", 0 };
 
 static bool is_archive_dir_name (ccp dir, size_t len)
 {
@@ -8582,6 +8608,20 @@ static enumError cmd_create (bool create)
 			enumError err = create_f9res_dir (source_dir, dest);
 			if (verbose >= 0 || testmode)
 				fprintf (stdlog, "%s%sCREATE RES %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", source_dir, dest);
+			if (max_err < err)
+				max_err = err;
+			if (err <= ERR_WARNING && src_len > 2 && !strcasecmp (source_dir + src_len - 2, ".d")
+				&& !testmode)
+				remove_dir_recursive (source_dir);
+			ResetSetupParam (&sp);
+			continue;
+		}
+		if (create && ext && !strcasecmp (ext, ".zlarc"))
+		{
+			enumError err = create_zlarc_dir (source_dir, dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE ZLARC %s/ -> %s\n", verbose > 0 ? "\n" : "",
 					testmode ? "WOULD " : "", source_dir, dest);
 			if (max_err < err)
 				max_err = err;
@@ -14066,6 +14106,89 @@ static enumError extract_cnut_file (ccp arg, ccp basedir, uint depth)
 	return err;
 }
 
+static enumError extract_xmsg_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".xmsg") && !is_ext (arg, ".bin") && !is_ext (arg, ".xml"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsXMSG (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	xmsg_t xmsg;
+	err = ScanXMSG (&xmsg, raw, raw_size);
+	FREE (raw);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	char *xml = 0;
+	size_t xml_len = 0;
+	err = ExtractXMSGXml (&xmsg, &xml, &xml_len);
+	if (err || !xml)
+	{
+		ResetXMSG (&xmsg);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, ".xml", 0, false);
+	else
+		snprintf (dest, sizeof (dest), "%s.xml", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT XMSG (Wii Party):%s -> %s\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (xml);
+		ResetXMSG (&xmsg);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f && fwrite (xml, 1, xml_len, F.f) != xml_len)
+		err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing XML failed: %s\n", dest);
+	ResetFile (&F, opt_preserve);
+	FREE (xml);
+
+	// Also extract human-readable text dump
+	char *txt = 0;
+	size_t txt_len = 0;
+	if (ExtractXMSGText (&xmsg, &txt, &txt_len) == ERR_OK && txt && txt_len > 0)
+	{
+		char txt_dest[PATH_MAX];
+		snprintf (txt_dest, sizeof (txt_dest), "%s", dest);
+		char *ext = strrchr (txt_dest, '.');
+		if (ext && !strcmp (ext, ".xml"))
+			snprintf (ext, sizeof (txt_dest) - (ext - txt_dest), ".txt");
+		else
+			snprintf (txt_dest + strlen (txt_dest), sizeof (txt_dest) - strlen (txt_dest), ".txt");
+
+		File_t F_txt;
+		if (CreateFileOpt (&F_txt, true, txt_dest, false, arg) == ERR_OK)
+		{
+			if (F_txt.f)
+				fwrite (txt, 1, txt_len, F_txt.f);
+			ResetFile (&F_txt, opt_preserve);
+		}
+		FREE (txt);
+	}
+
+	ResetXMSG (&xmsg);
+	return err;
+}
+
 static enumError extract_bfres_switch_manifest (ccp arg)
 {
 	if (!is_ext (arg, ".bfres") && !is_ext (arg, ".fres"))
@@ -16859,6 +16982,10 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
+	err = ExtractZLARCArchive (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
 	err = extract_nccarc_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
@@ -16944,6 +17071,10 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		return err;
 
 	err = extract_cnut_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_xmsg_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 

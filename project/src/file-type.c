@@ -1090,6 +1090,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 },
 		0, MinusString, MinusString, "Pokemon Masters 3D Model (.lmd)" },
 
+	// FF_XMSG = 201 (Wii Party Message / Text Archive)
+	{ FF_XMSG, FF_XMSG, 0, "XMSG", ".bin", ".bin", ".bin",
+		FFT_VALID | FFT_ARCHIVE | FFT_DECODE | FFT_ENCODE | FFT_EXTRACT | FFT_CREATE, 8,
+		{ 0x58, 0x4D, 0x53, 0x47, 0x20, 0x10, 0x05, 0x03 }, // "XMSG \x10\x05\x03"
+		0, MinusString, MinusString, "Wii Party Message / Text Archive (mess.bin / XMSG)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1227,6 +1233,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_G1T, "G1T", 0, 0x3809 },
 	{ FF_G4PKM, "G4PKM", 0, 0x3001 },
 	{ FF_LMD, "LMD", 0, 0x3001 },
+	{ FF_XMSG, "XMSG", "MESS", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

@@ -23,6 +23,9 @@ enumError ExtractSTPKArchive (ccp arg, ccp basedir, uint depth);
 // Extract GameCube Resource Archive (.res / res\n)
 enumError ExtractF9ResArchive (ccp arg, ccp basedir, uint depth);
 
+// Extract NES Remix indieszero Archive (.zlarc)
+enumError ExtractZLARCArchive (ccp arg, ccp basedir, uint depth);
+
 // Repack / Create functions
 enumError CreateXPCKArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 enumError CreateZTABArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
@@ -30,5 +33,6 @@ enumError CreateMDRArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entr
 enumError CreatePVOLArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 enumError CreateSTPKArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 enumError CreateF9ResArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
+enumError CreateZLARCArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 
 #endif // LIB_NINTENDO_ARCHIVES_H
