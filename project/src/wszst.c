@@ -6127,38 +6127,6 @@ static enumError create_gfa_dir (ccp source, ccp dest)
 	return err;
 }
 
-static inline void wr_le16 (void *p, u16 v)
-{
-	u8 *d = p;
-	d[0] = (u8)v;
-	d[1] = (u8)(v >> 8);
-}
-
-static inline void wr_le32 (void *p, u32 v)
-{
-	u8 *d = p;
-	d[0] = (u8)v;
-	d[1] = (u8)(v >> 8);
-	d[2] = (u8)(v >> 16);
-	d[3] = (u8)(v >> 24);
-}
-
-static inline void wr_be16 (void *p, u16 v)
-{
-	u8 *d = p;
-	d[0] = (u8)(v >> 8);
-	d[1] = (u8)v;
-}
-
-static inline void wr_be32 (void *p, u32 v)
-{
-	u8 *d = p;
-	d[0] = (u8)(v >> 24);
-	d[1] = (u8)(v >> 16);
-	d[2] = (u8)(v >> 8);
-	d[3] = (u8)v;
-}
-
 static enumError create_ccf_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };

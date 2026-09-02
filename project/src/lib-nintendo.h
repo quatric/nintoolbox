@@ -4,6 +4,49 @@
 
 #include "types.h"
 
+#define NFMT_MAX_OUTPUT (512u << 20)
+
+static inline u32 rd_be32 (const u8 *p)
+{
+	return (u32)p[0] << 24 | (u32)p[1] << 16 | (u32)p[2] << 8 | p[3];
+}
+static inline u32 rd_le32 (const u8 *p)
+{
+	return (u32)p[3] << 24 | (u32)p[2] << 16 | (u32)p[1] << 8 | p[0];
+}
+static inline u16 rd_be16 (const u8 *p)
+{
+	return (u16)p[0] << 8 | p[1];
+}
+static inline u16 rd_le16 (const u8 *p)
+{
+	return (u16)p[1] << 8 | p[0];
+}
+static inline void wr_be16 (u8 *p, u16 v)
+{
+	p[0] = v >> 8;
+	p[1] = v;
+}
+static inline void wr_le16 (u8 *p, u16 v)
+{
+	p[0] = v;
+	p[1] = v >> 8;
+}
+static inline void wr_be32 (u8 *p, u32 v)
+{
+	p[0] = v >> 24;
+	p[1] = v >> 16;
+	p[2] = v >> 8;
+	p[3] = v;
+}
+static inline void wr_le32 (u8 *p, u32 v)
+{
+	p[0] = v;
+	p[1] = v >> 8;
+	p[2] = v >> 16;
+	p[3] = v >> 24;
+}
+
 typedef enum nfmt_type_t
 {
 	NFMT_UNKNOWN,
@@ -339,11 +382,7 @@ enumError CreateAT7 (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *en
 enumError CreateCTPK (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 
-enumError ScanFSYS (
-	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size);
-
-enumError CreateFSYS (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries, bool compress);
+#include "lib-fsys.h"
 
 enumError ExtractRST (nintendo_sarc_entry_t **out_entries, uint *out_n_entries, const u8 *car_data,
 	uint car_size, const u8 *toc_data, uint toc_size);
@@ -764,68 +803,9 @@ typedef struct nw4r_embedded_t
 void ResetEmbeddedNW4R (nw4r_embedded_t *found);
 void ScanEmbeddedNW4R (nw4r_embedded_t *found, const u8 *data, uint size);
 
-//-----------------------------------------------------------------------------
-// WARC ("WARC" magic): Game & Wario (Wii U)'s flat archive format. Unlike
-// SARC/GFA it is a *different* Monster Games/Nintendo container -- big
-// endian, uncompressed (no QuickLZ despite the superficial similarity to
-// Excite's TOC/RES), with real per-entry filenames but only a single flat
-// folder-path prefix (no real directory tree -- the format itself only
-// tracks one path string per archive, applied to every entry; see ScanWARC's
-// definition for the layout, ported from aluigi's public game_wario.bms).
+#include "lib-warc.h"
 
-typedef struct warc_entry_t
-{
-	char *name; // "<path>/<name>", owned name storage
-	const u8 *data; // points into the source buffer
-	u32 size;
-} warc_entry_t;
-
-typedef struct warc_t
-{
-	const u8 *data;
-	uint size;
-	warc_entry_t *entries; // owned
-	uint n_entries;
-	char *names; // owned name storage backing entries[].name
-} warc_t;
-
-void ResetWARC (warc_t *warc);
-enumError ScanWARC (warc_t *warc, const u8 *data, uint size);
-
-// Build a WARC matching ScanWARC's layout. All entries share a single flat
-// folder prefix, taken from the directory portion of entries[0].name (empty
-// if it has none); any entry whose name doesn't start with that same prefix
-// keeps its full name as-is (no folder stripped for it).
-enumError CreateWARC (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
-
-//-----------------------------------------------------------------------------
-// NCCARC: an undocumented flat blob-archive format used by WarioWare: Touched!
-// (DS) for its "cg_*" graphics files. No magic, no public reference exists
-// (a single unanswered forum thread is the entire prior art) -- this is a
-// from-scratch, byte-verified container split only, not a pixel decoder for
-// whatever's inside each chunk. See ScanNCCARC() in lib-nintendo.c for the
-// verification detail.
-
-typedef struct nccarc_entry_t
-{
-	const u8 *data; // points into the source buffer
-	u32 size;
-	bool flag; // bit 31 of the raw table entry -- meaning unknown,
-			   // preserved rather than discarded (see comment at
-			   // ScanNCCARC's definition)
-} nccarc_entry_t;
-
-typedef struct nccarc_t
-{
-	const u8 *data;
-	uint size;
-	nccarc_entry_t *entries; // owned
-	uint n_entries;
-} nccarc_t;
-
-void ResetNCCARC (nccarc_t *nc);
-enumError ScanNCCARC (nccarc_t *nc, const u8 *data, uint size);
+#include "lib-nccarc.h"
 // Byte Pair Encoding, the other GFCP comtype.
 enumError DecodeBPE (u8 *dest, uint dest_size, const u8 *src, uint src_size);
 
@@ -1156,16 +1136,6 @@ enumError CreateCA01 (
 enumError ScanMetroidSR (
 	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size);
 
-//-----------------------------------------------------------------------------
-// Smash 4 (Wii U / 3DS) DTLS resource / lookup archive (ls00 / dt00 / resource)
-//-----------------------------------------------------------------------------
-
-enumError ScanDTLS (
-	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *ls_data, uint ls_size,
-	const u8 *dt_data, uint dt_size);
-
-enumError CreateDTLS (
-	u8 **out_ls, uint *out_ls_size, u8 **out_dt, uint *out_dt_size,
-	const nintendo_sarc_entry_t *entries, uint n_entries, bool compress, bool big_endian);
+#include "lib-dtls.h"
 
 #endif
