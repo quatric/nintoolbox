@@ -73,6 +73,8 @@
 #include "lib-rkg.h"
 #include "lib-model-glb.h"
 #include "lib-brres-inject.h"
+#include "lib-nud.h"
+#include "lib-nut.h"
 #include "lib-bntx.h"
 #include "lib-vc.h"
 #include "lib-sequence.h"
@@ -7105,7 +7107,7 @@ static const char *cand_archive_exts[] = { ".wbfs", ".iso", ".ciso", ".wdf", ".w
 	".rpx", ".rpl", ".nsp", ".xci", ".nca", ".szs", ".carc", ".arc", ".brres", ".sarc", ".narc",
 	".darc", ".pac", ".pcs", ".gfa", ".rarc", ".warc", ".bcsar", ".bfsar", ".bcwar", ".bfwar",
 	".bcgrp", ".bfgrp", ".rst", ".car", ".res", ".trk", ".lvl", ".wu8", ".wbz", ".wlz", ".bntx",
-	".bcres", ".bfres", ".bch", 0 };
+	".bcres", ".bfres", ".bch", ".big", 0 };
 
 static bool is_archive_dir_name (ccp dir, size_t len)
 {
@@ -8228,6 +8230,20 @@ static enumError cmd_create (bool create)
 			enumError err = create_gfa_dir (source_dir, dest);
 			if (verbose >= 0 || testmode)
 				fprintf (stdlog, "%s%sCREATE GFA %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", source_dir, dest);
+			if (max_err < err)
+				max_err = err;
+			if (err <= ERR_WARNING && src_len > 2 && !strcasecmp (source_dir + src_len - 2, ".d")
+				&& !testmode)
+				remove_dir_recursive (source_dir);
+			ResetSetupParam (&sp);
+			continue;
+		}
+		if (create && ext && !strcasecmp (ext, ".big"))
+		{
+			enumError err = create_bigf_dir (source_dir, dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE BIGF %s/ -> %s\n", verbose > 0 ? "\n" : "",
 					testmode ? "WOULD " : "", source_dir, dest);
 			if (max_err < err)
 				max_err = err;
@@ -11671,6 +11687,171 @@ static enumError extract_hsf_file (ccp arg, ccp basedir, uint depth)
 	if (verbose >= 0)
 		fprintf (stdlog, "%sEXTRACT HSF:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, dest);
 	return err;
+}
+
+static enumError extract_nud_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".nud"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+	if (raw_size < 16 || (!IsNUD (raw, raw_size)))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest_ext (dest, sizeof (dest), arg, ".glb");
+	if (testmode)
+	{
+		FREE (raw);
+		fprintf (stdlog, "WOULD EXTRACT NUD:%s -> GLB:%s\n", arg, dest);
+		return ERR_OK;
+	}
+
+	model_t *model = ParseNUD (raw, raw_size);
+	FREE (raw);
+	if (!model)
+		return ERR_INVALID_DATA;
+
+	ExportModelToGLB (model, dest);
+	FreeModel (model);
+
+	if (verbose >= 0)
+		fprintf (stdlog, "%sEXTRACT NUD:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, dest);
+	return ERR_OK;
+}
+
+static enumError extract_nut_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".nut"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+	if (raw_size < 16 || (!IsNUT (raw, raw_size)))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	nut_t nut;
+	if (!ParseNUT (&nut, raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT NUT:%s (%u textures) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, nut.count, dest);
+
+	if (!testmode)
+	{
+		for (uint16_t i = 0; i < nut.count; i++)
+		{
+			uint8_t *rgba = 0;
+			uint32_t w = 0, h = 0;
+			if (DecodeNUTTextureToRGBA (&nut.textures[i], &rgba, &w, &h) && rgba)
+			{
+				char png_path[PATH_MAX];
+				if (nut.count == 1)
+					beside_source_dest_ext (png_path, sizeof (png_path), arg, ".png");
+				else
+					snprintf (png_path, sizeof (png_path), "%s/tex_%08X.png", dest,
+						nut.textures[i].hash ? nut.textures[i].hash : i);
+
+				SaveDecodedRGBAToPNG (rgba, w, h, &le_func, png_path, 0, opt_overwrite);
+			}
+		}
+	}
+
+	FreeNUT (&nut);
+	FREE (raw);
+	return ERR_OK;
+}
+
+static enumError extract_dtls_file (ccp arg, ccp basedir, uint depth)
+{
+	ccp fname = FindFilename (arg, 0);
+	if (!fname || (!strstr (fname, "ls00") && !strstr (fname, "ls01") && !is_ext (arg, ".ls")))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *ls_raw = 0;
+	size_t ls_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &ls_raw, &ls_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	char dt_path[PATH_MAX];
+	snprintf (dt_path, sizeof (dt_path), "%s", arg);
+	char *ls_pos = strstr (dt_path, "ls00");
+	if (ls_pos)
+		memcpy (ls_pos, "dt00", 4);
+	else
+	{
+		ls_pos = strstr (dt_path, "ls01");
+		if (ls_pos)
+			memcpy (ls_pos, "dt01", 4);
+		else
+		{
+			char *dot = strrchr (dt_path, '.');
+			if (dot)
+				snprintf (dot, sizeof (dt_path) - (dot - dt_path), ".dt");
+		}
+	}
+
+	u8 *dt_raw = 0;
+	size_t dt_size = 0;
+	LoadFileAlloc (dt_path, 0, 0, &dt_raw, &dt_size, 0, 0, 0, false);
+
+	nintendo_sarc_entry_t *entries = 0;
+	uint n_entries = 0;
+	err = ScanDTLS (&entries, &n_entries, ls_raw, (uint)ls_size, dt_raw, (uint)dt_size);
+	if (err)
+	{
+		FREE (ls_raw);
+		if (dt_raw) FREE (dt_raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT DTLS:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, n_entries, dest);
+
+	if (!testmode)
+	{
+		for (uint i = 0; i < n_entries; i++)
+		{
+			char path[PATH_MAX];
+			snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", entries[i].name);
+			File_t F;
+			if (!CreateFileOpt (&F, true, path, false, arg) && F.f)
+			{
+				if (entries[i].size && entries[i].data)
+					fwrite (entries[i].data, 1, entries[i].size, F.f);
+				ResetFile (&F, opt_preserve);
+			}
+			FREE ((void *)entries[i].name);
+		}
+	}
+
+	FREE (entries);
+	FREE (ls_raw);
+	if (dt_raw) FREE (dt_raw);
+	return ERR_OK;
 }
 
 static enumError extract_nccarc_file (ccp arg, ccp basedir, uint depth)
@@ -15799,6 +15980,18 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		return err;
 
 	err = extract_mod_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_nud_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_nut_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_dtls_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
