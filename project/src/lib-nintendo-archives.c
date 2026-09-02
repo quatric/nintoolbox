@@ -222,6 +222,7 @@ enumError ExtractMDRArchive (ccp arg, ccp basedir, uint depth)
 			continue;
 
 		const u32 decom_sz = rd_be32 (raw + off);
+		(void)decom_sz;
 		const u32 flags = rd_be32 (raw + off + 4);
 		const u32 comp_sz = rd_be32 (raw + off + 12);
 
@@ -374,6 +375,75 @@ enumError ExtractSTPKArchive (ccp arg, ccp basedir, uint depth)
 
 		char out_path[PATH_MAX];
 		snprintf (out_path, sizeof (out_path), "%s/%s", dest, name);
+
+		if (!testmode && sz > 0 && off < raw_size)
+			SaveFile (out_path, 0, 0, raw + off, sz, 0);
+	}
+
+	FREE (raw);
+	return ERR_OK;
+}
+
+// ----------------------------------------------------------------------------
+// 6. GameCube Resource Archive (.res / res\n)
+// ----------------------------------------------------------------------------
+enumError ExtractF9ResArchive (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext_match (arg, ".res") && !is_ext_match (arg, ".bin"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (raw_size < 0x24 || memcmp (raw, "res\n", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	const u32 header_offset = rd_be32 (raw + 8);
+	const u32 chunks_offset = rd_be32 (raw + 0x1C);
+
+	if (chunks_offset + 8 > raw_size)
+	{
+		FREE (raw);
+		return ERR_INVALID_DATA;
+	}
+
+	const u32 chunk_count = rd_be32 (raw + chunks_offset);
+	if (chunks_offset + 8 + chunk_count * 20 > raw_size)
+	{
+		FREE (raw);
+		return ERR_INVALID_DATA;
+	}
+
+	char dest[PATH_MAX];
+	get_dest_dir (dest, sizeof (dest), arg, basedir);
+	CreatePath (dest, true);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT RES:%s (%u chunks) -> %s/\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, chunk_count, dest);
+
+	for (uint i = 0; i < chunk_count; i++)
+	{
+		const u32 coff = chunks_offset + 8 + i * 20;
+		char tag[5] = { 0 };
+		memcpy (tag, raw + coff, 4);
+		for (int c = 0; c < 4; c++)
+			if (tag[c] < 32 || tag[c] > 126) tag[c] = '_';
+
+		const u32 off = rd_be32 (raw + coff + 4) + header_offset;
+		u32 sz = rd_be32 (raw + coff + 8);
+
+		if (off + sz > raw_size)
+			sz = raw_size > off ? (uint)(raw_size - off) : 0;
+
+		char out_path[PATH_MAX];
+		snprintf (out_path, sizeof (out_path), "%s/%s_%04u.bin", dest, tag, i);
 
 		if (!testmode && sz > 0 && off < raw_size)
 			SaveFile (out_path, 0, 0, raw + off, sz, 0);

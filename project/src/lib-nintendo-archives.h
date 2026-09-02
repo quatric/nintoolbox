@@ -19,4 +19,7 @@ enumError ExtractPVOLArchive (ccp arg, ccp basedir, uint depth);
 // Extract Jump Super Stars / Jump Ultimate Stars DS Archive (.srd / .stpk / STPK)
 enumError ExtractSTPKArchive (ccp arg, ccp basedir, uint depth);
 
+// Extract GameCube Resource Archive (.res / res\n)
+enumError ExtractF9ResArchive (ccp arg, ccp basedir, uint depth);
+
 #endif // LIB_NINTENDO_ARCHIVES_H
