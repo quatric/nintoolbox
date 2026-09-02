@@ -48,6 +48,7 @@
 #include "lib-bch.h"
 #include "lib-bfres.h"
 #include "lib-nud.h"
+#include "lib-bnfm.h"
 #include "lib-numsh.h"
 #include "ui.h" // [[dclib]] wrapper
 #include "ui-wmdlt.c"
@@ -524,6 +525,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 
 		const bool is_hsf_in
 			= is_ext (arg, ".hsf") || (raw.data_size >= 7 && !memcmp (raw.data, "HSFV037", 7));
+		const bool is_bnfm_in
+			= is_ext (arg, ".bnfm") || (raw.data_size >= 4 && !memcmp (raw.data, "BNFM", 4));
 		const bool is_hsd_in = is_ext (arg, ".dat")
 			|| (raw.data_size >= 0x40 && IsHSD (raw.data, (uint)raw.data_size));
 		const bool is_msh_in
@@ -531,6 +534,20 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		const bool is_mod_in = is_ext (arg, ".mod")
 			|| (raw.data_size >= 4
 				&& (!memcmp (raw.data, "NDL3", 4) || !memcmp (raw.data, "NDL2", 4)));
+
+		if (is_model_dest && is_bnfm_in)
+		{
+			if (!testmode)
+			{
+				err = DecodeBNFM (raw.data, (uint)raw.data_size, dest);
+				if (err > ERR_WARNING)
+				{
+					ERROR0 (err, "Failed to decode BNFM: %s\n", arg);
+					return err;
+				}
+			}
+			continue;
+		}
 
 		if (is_model_dest && is_hsf_in)
 		{
