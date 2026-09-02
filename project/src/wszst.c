@@ -4680,7 +4680,7 @@ static enumError compress_nintendo_file (ccp arg)
 	if (!ext
 		|| (strcasecmp (ext, ".lz10") && strcasecmp (ext, ".lz11") && strcasecmp (ext, ".cmp")
 			&& strcasecmp (ext, ".rl") && strcasecmp (ext, ".yay0") && strcasecmp (ext, ".ash")
-			&& strcasecmp (ext, ".ash0") && strcasecmp (ext, ".lzh8") && strcasecmp (ext, ".qlz")
+			&& strcasecmp (ext, ".ash0") && strcasecmp (ext, ".lzh8") && strcasecmp (ext, ".lh") && strcasecmp (ext, ".qlz")
 			&& strcasecmp (ext, ".at7") && strcasecmp (ext, ".at7p") && strcasecmp (ext, ".blz")
 			&& strcasecmp (ext, ".huff4") && strcasecmp (ext, ".huff8") && strcasecmp (ext, ".huff")
 			&& strcasecmp (ext, ".stpl") && strcasecmp (ext, ".camelot") && strcasecmp (ext, ".rnc")
@@ -4699,7 +4699,8 @@ static enumError compress_nintendo_file (ccp arg)
 			: !strcasecmp (ext, ".ash") || !strcasecmp (ext, ".ash0")
 			? EncodeASH0 (&packed, &packed_size, data, file_size)
 			: !strcasecmp (ext, ".yay0") ? EncodeYay0 (&packed, &packed_size, data, file_size)
-			: !strcasecmp (ext, ".lzh8") ? EncodeLZH8 (&packed, &packed_size, data, file_size)
+			: !strcasecmp (ext, ".lzh8") || !strcasecmp (ext, ".lh")
+			? EncodeLZH8 (&packed, &packed_size, data, file_size)
 			: !strcasecmp (ext, ".qlz")	 ? EncodeQuickLZ (&packed, &packed_size, data, file_size)
 			: !strcasecmp (ext, ".at7") || !strcasecmp (ext, ".at7p")
 			? EncodeAT7 (&packed, &packed_size, data, file_size)
@@ -4736,7 +4737,7 @@ static enumError compress_nintendo_file (ccp arg)
 			!strcasecmp (ext, ".rl")										  ? "RL"
 				: !strcasecmp (ext, ".ash") || !strcasecmp (ext, ".ash0")	  ? "ASH0"
 				: !strcasecmp (ext, ".yay0")								  ? "Yay0"
-				: !strcasecmp (ext, ".lzh8")								  ? "LZH8"
+				: !strcasecmp (ext, ".lzh8") || !strcasecmp (ext, ".lh")	  ? "LH"
 				: !strcasecmp (ext, ".qlz")									  ? "QuickLZ"
 				: !strcasecmp (ext, ".at7") || !strcasecmp (ext, ".at7p")	  ? "AT7"
 				: !strcasecmp (ext, ".blz")									  ? "BLZ"
@@ -5228,7 +5229,8 @@ static enumError decompress_nintendo_file2 (ccp arg, char *dest_out, uint dest_o
 				|| !strcasecmp (dot, ".vlx") || !strcasecmp (dot, ".pc")
 				|| !strcasecmp (dot, ".lzx") || !strcasecmp (dot, ".diff")
 				|| !strcasecmp (dot, ".ovl") || !strcasecmp (dot, ".psdk")
-				|| !strcasecmp (dot, ".cmp")))
+				|| !strcasecmp (dot, ".cmp") || !strcasecmp (dot, ".lzh8")
+				|| !strcasecmp (dot, ".lh")))
 		{
 			*dot = 0;
 			stripped = true;
