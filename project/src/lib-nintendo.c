@@ -7,6 +7,12 @@
 #include "lib-gtx.h"
 #include "lib-aes.h"
 
+__attribute__((weak)) bool IsQuickLZ (const u8 *src, uint src_size) { (void)src; (void)src_size; return false; }
+__attribute__((weak)) enumError DecodeQuickLZ (u8 **dest, uint *dest_size, const u8 *src, uint src_size) { (void)dest; (void)dest_size; (void)src; (void)src_size; return ERR_INVALID_DATA; }
+__attribute__((weak)) enumError EncodeQuickLZ (u8 **dest, uint *dest_size, const u8 *src, uint src_size) { (void)dest; (void)dest_size; (void)src; (void)src_size; return ERR_INVALID_DATA; }
+__attribute__((weak)) enumError EncodeLZ10LZ11 (u8 **dest, uint *dest_size, const u8 *src, uint src_size, bool is_lz11) { (void)dest; (void)dest_size; (void)src; (void)src_size; (void)is_lz11; return ERR_INVALID_DATA; }
+__attribute__((weak)) enumError DecodeLZ10LZ11 (u8 **dest, uint *dest_size, const u8 *src, uint src_size) { (void)dest; (void)dest_size; (void)src; (void)src_size; return ERR_INVALID_DATA; }
+
 ccp GetNintendoFormatName (nfmt_type_t type)
 {
 	static const ccp tab[] = { "UNKNOWN", "DSB", "TPL", "STPL", "SARC", "LZ10", "LZ11", "HUFF4",

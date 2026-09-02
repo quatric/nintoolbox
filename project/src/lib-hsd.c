@@ -602,9 +602,13 @@ int ExportHSDTextures (const hsd_t *hsd, ccp dest_dir, ccp basename)
 		snprintf (path, sizeof (path), "%s/%s.tex%03u_%ux%u_%s.png", dir, base, i, t->width,
 			t->height, GetImageFormatName (t->iform, "?"));
 
+		char path_glb[PATH_MAX];
+		snprintf (path_glb, sizeof (path_glb), "%s/tex%03u.png", dir, i);
+
 		if (!ConvertIMG (&img, false, 0, IMG_X_RGB, PAL_INVALID)
 			&& !SavePNG (&img, false, 0, path, 0, 0, true, 0))
 		{
+			SavePNG (&img, false, 0, path_glb, 0, 0, true, 0);
 			written++;
 		}
 		ResetIMG (&img);

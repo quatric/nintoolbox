@@ -135,7 +135,7 @@ typedef struct nfmt_info_t
 } nfmt_info_t;
 
 // Detect formats by their stable magic/header fields. Never reads past SIZE.
-nfmt_info_t DetectNintendoFormat (const void *data, uint size, ccp filename);
+__attribute__((weak)) nfmt_info_t DetectNintendoFormat (const void *data, uint size, ccp filename);
 ccp GetNintendoFormatName (nfmt_type_t type);
 
 enumError AllocOutput (u8 **dest, uint *dest_size, u32 size);

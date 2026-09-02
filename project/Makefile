@@ -288,7 +288,7 @@ LATTE_CXX_OBJS	= src/latte-decaf/decaf/src/latte_disassembler.o \
 			src/latte-decaf/assembler/src/assembler_parse.o \
 			src/latte-decaf/assembler/src/assembler_tex.o
 BCN_CXX_OBJS	= src/bcn-decoder/bcn.o src/bcn-decoder/bcn_wrapper.o
-XOBJ_IMAGE	= lib-image1.o lib-image2.o lib-image3.o lib-nintendo.o lib-plt0.o lib-bntx.o \
+XOBJ_IMAGE	= lib-image1.o lib-image2.o lib-image3.o lib-plt0.o lib-bntx.o \
 			lib-smdh.o \
 			lib-gtx.o \
 			lib-nitro.o \
@@ -403,7 +403,7 @@ CFLAGS		+= -I$(DCLIB_DIR)
 
 # other objects
 SZS_O		:= lib-std.o lib-file.o lib-numeric.o \
-		   lib-szs.o lib-checksum.o \
+		   lib-szs.o lib-checksum.o lib-nintendo.o \
 		   lib-rarc.o lib-pack.o lib-rkc.o lib-brres.o lib-breff.o \
 		   file-type.o db-mkw.o lib-mkw.o lib-dol.o \
 		   sha1dgst.o sha1_one.o lib-bzip2.o lib-lzma.o lib-zstd.o \

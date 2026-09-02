@@ -58,6 +58,7 @@
 #include "lib-kmp.h"
 #include "lib-bflyt.h"
 #include "lib-rkc.h"
+#include "lib-nintendo.h"
 #include "lib-zstd.h"
 #include "lib-rkg.h"
 #include "lib-image.h"

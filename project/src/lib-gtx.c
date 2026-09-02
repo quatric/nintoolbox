@@ -981,7 +981,7 @@ static enumError gtx_detile (u8 **dest, const u8 *src, uint src_size, uint width
 	const uint bw = is_bc ? div_round_up (width, 4) : width;
 	const uint bh = is_bc ? div_round_up (height, 4) : height;
 	if (!pitch)
-		pitch = gx2_min_pitch (bw, tile_mode);
+		pitch = (bw + 31) & ~31;
 	const uint bytes = bpp / 8;
 	const u64 out_size = (u64)bw * bh * bytes;
 	if (!bw || !bh || out_size > GTX_MAX_OUTPUT)

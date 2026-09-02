@@ -218,8 +218,8 @@ enumError DecodeFLIM_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, 
 		const uint w = r16 (foot + 0x1c), h = r16 (foot + 0x1e);
 		const uint bflim_fmt = foot[0x22];
 		const uint flags = foot[0x23];
-		const uint tile_mode = flags & 0x0f;
-		const uint swizzle = (uint)((flags >> 4) & 7) << 16;
+		const uint tile_mode = flags & 31;
+		const uint swizzle = (uint)((flags >> 5) & 7) << 8;
 		const uint data_size = r32 (src + src_size - 4);
 		if (!w || !h || w > 16384 || h > 16384 || data_size > src_size - 0x28)
 			return EINVAL;
@@ -227,27 +227,30 @@ enumError DecodeFLIM_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, 
 		uint gx2_fmt = 0;
 		switch (bflim_fmt)
 		{
-			case 0x00: gx2_fmt = 0x0001; break; // R8_UNORM
-			case 0x01: gx2_fmt = 0x0001; break; // R8_UNORM / L8
-			case 0x02: gx2_fmt = 0x0002; break; // R4_G4
-			case 0x03: gx2_fmt = 0x0007; break; // R8_G8
-			case 0x04: gx2_fmt = 0x0007; break; // R8_G8 / HILO8
-			case 0x05: gx2_fmt = 0x0008; break; // R5_G6_B5
-			case 0x06: gx2_fmt = 0x000a; break; // R5_G5_B5_A1
-			case 0x07: gx2_fmt = 0x000a; break; // R5_G5_B5_A1
-			case 0x08: gx2_fmt = 0x000b; break; // R4_G4_B4_A4
-			case 0x09: gx2_fmt = 0x001a; break; // R8_G8_B8_A8_UNORM / RGBA8
-			case 0x0e: gx2_fmt = 0x0033; break; // BC3_UNORM
-			case 0x0f: gx2_fmt = 0x0032; break; // BC2_UNORM
-			case 0x10: gx2_fmt = 0x0033; break; // BC3_UNORM
-			case 0x11: gx2_fmt = 0x0034; break; // BC4_UNORM
-			case 0x12: gx2_fmt = 0x0035; break; // BC5_UNORM
-			case 0x13: gx2_fmt = 0x0431; break; // BC1_SRGB
-			case 0x14: gx2_fmt = 0x0432; break; // BC2_SRGB
-			case 0x15: gx2_fmt = 0x0433; break; // BC3_SRGB
-			case 0x16: gx2_fmt = 0x0034; break; // BC4_UNORM
-			case 0x17: gx2_fmt = 0x0035; break; // BC5_UNORM
-			case 0x20: gx2_fmt = 0x0433; break; // BC3_SRGB
+			case 0: gx2_fmt = 0x0001; break; // L8
+			case 1: gx2_fmt = 0x0001; break; // A8
+			case 2: gx2_fmt = 0x0002; break; // LA4
+			case 3: gx2_fmt = 0x0007; break; // LA8
+			case 4: gx2_fmt = 0x0007; break; // HILO8
+			case 5: gx2_fmt = 0x0008; break; // RGB565
+			case 6: gx2_fmt = 0x001a; break; // B8G8R8A8
+			case 7: gx2_fmt = 0x000a; break; // RGBA5551
+			case 8: gx2_fmt = 0x000b; break; // RGBA4
+			case 9: gx2_fmt = 0x001a; break; // RGBA8
+			case 10: gx2_fmt = 0x0031; break; // ETC1
+			case 11: gx2_fmt = 0x0031; break; // ETC1_A4
+			case 12: gx2_fmt = 0x0031; break; // BC1
+			case 13: gx2_fmt = 0x0032; break; // BC2
+			case 14: gx2_fmt = 0x0033; break; // BC3
+			case 15: gx2_fmt = 0x0034; break; // BC4
+			case 16: gx2_fmt = 0x0034; break; // BC4_A
+			case 17: gx2_fmt = 0x0035; break; // BC5
+			case 18: gx2_fmt = 0x0002; break; // L4
+			case 19: gx2_fmt = 0x0002; break; // A4
+			case 20: gx2_fmt = 0x041a; break; // RGBA8_SRGB
+			case 21: gx2_fmt = 0x0431; break; // BC1_SRGB
+			case 22: gx2_fmt = 0x0432; break; // BC2_SRGB
+			case 23: gx2_fmt = 0x0433; break; // BC3_SRGB
 			default: return EINVAL;
 		}
 

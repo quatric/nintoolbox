@@ -759,31 +759,7 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		if (err)
 			return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported %s texture: %s\n",
 				GetNintendoFormatName (nfmt.type), fname);
-		// DecodeFLIM_RGBA returns a tightly packed width*height buffer, but
-		// SavePNG (and friends) index img->data using an xwidth/xheight
-		// stride (EXPAND8-rounded) -- pad into that stride here.
-		const uint xwidth = EXPAND8 (width), xheight = EXPAND8 (height);
-		u8 *padded = xwidth == width && xheight == height ? rgba : CALLOC (1, xwidth * xheight * 4);
-		if (padded != rgba)
-		{
-			for (uint y = 0; y < height; y++)
-				memcpy (padded + y * xwidth * 4, rgba + y * width * 4, width * 4);
-			FREE (rgba);
-		}
-		img->data = padded;
-		img->data_alloced = true;
-		img->data_size = xwidth * xheight * 4;
-		img->width = width;
-		img->xwidth = xwidth;
-		img->height = height;
-		img->xheight = xheight;
-		img->iform = img->info_iform = IMG_X_RGB;
-		img->info_fform = FF_UNKNOWN;
-		img->info_n_image = 1;
-		img->alpha_status = 0;
-		img->endian = nfmt.big_endian ? &be_func : &le_func;
-		img->path = fname;
-		img->seq_num = ++image_seq_num;
+		AssignDecodedRGBA (img, rgba, width, height, nfmt.big_endian ? &be_func : &le_func, fname);
 		return PatchListIMG (img);
 	}
 

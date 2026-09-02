@@ -1,7 +1,14 @@
 #include "lib-ue4pak.h"
 #include "lib-std.h"
+#include "lib-nintendo.h"
 #include "lib-zstd.h"
 #include <zlib.h>
+
+static inline void wr_le64 (u8 *p, u64 v)
+{
+	wr_le32 (p, (u32)v);
+	wr_le32 (p + 4, (u32)(v >> 32));
+}
 
 bool IsUE4Pak (const u8 *data, size_t size)
 {
@@ -425,48 +432,48 @@ enumError CreateUE4Pak (u8 **dest, size_t *dest_size, const char *mount_point,
 
 		// Write local FPakEntry header
 		u8 *eh = entry_hdr;
-		CF_W64 (eh + 0, offsets[i]);
-		CF_W64 (eh + 8, fsz);
-		CF_W64 (eh + 16, fsz);
-		CF_W32 (eh + 24, 0); // Method 0 = None
+		wr_le64 (eh + 0, offsets[i]);
+		wr_le64 (eh + 8, fsz);
+		wr_le64 (eh + 16, fsz);
+		wr_le32 (eh + 24, 0); // Method 0 = None
 		memset (eh + 28, 0, 20); // Hash
 		eh[48] = 0; // encrypted
-		CF_W32 (eh + 49, 65536); // block_size
+		wr_le32 (eh + 49, 65536); // block_size
 	}
 
 	u64 index_offset = (u64)(p - buf);
 
 	// Write Index table
 	s32 mp_len = (s32)(strlen (mp) + 1);
-	CF_W32 (p, mp_len);
+	wr_le32 (p, mp_len);
 	p += 4;
 	memcpy (p, mp, mp_len);
 	p += mp_len;
 
-	CF_W32 (p, n_files);
+	wr_le32 (p, n_files);
 	p += 4;
 
 	for (uint i = 0; i < n_files; i++)
 	{
 		s32 flen = (s32)(strlen (rel_paths[i]) + 1);
-		CF_W32 (p, flen);
+		wr_le32 (p, flen);
 		p += 4;
 		memcpy (p, rel_paths[i], flen);
 		p += flen;
 
 		size_t fsz = file_sizes ? file_sizes[i] : 0;
-		CF_W64 (p, offsets[i]);
+		wr_le64 (p, offsets[i]);
 		p += 8;
-		CF_W64 (p, fsz);
+		wr_le64 (p, fsz);
 		p += 8;
-		CF_W64 (p, fsz);
+		wr_le64 (p, fsz);
 		p += 8;
-		CF_W32 (p, 0); // compression_method = 0
+		wr_le32 (p, 0); // compression_method = 0
 		p += 4;
 		memset (p, 0, 20); // hash
 		p += 20;
 		*p++ = 0; // encrypted = 0
-		CF_W32 (p, 65536); // block_size
+		wr_le32 (p, 65536); // block_size
 		p += 4;
 	}
 
@@ -477,10 +484,10 @@ enumError CreateUE4Pak (u8 **dest, size_t *dest_size, const char *mount_point,
 	u8 *footer = buf + total_size - footer_size;
 	// EncryptionKeyGuid (16 bytes zero)
 	footer[16] = 0; // bEncryptedIndex
-	CF_W32 (footer + 17, UE4_PAK_MAGIC);
-	CF_W32 (footer + 21, version);
-	CF_W64 (footer + 25, index_offset);
-	CF_W64 (footer + 33, real_index_size);
+	wr_le32 (footer + 17, UE4_PAK_MAGIC);
+	wr_le32 (footer + 21, version);
+	wr_le64 (footer + 25, index_offset);
+	wr_le64 (footer + 33, real_index_size);
 	memset (footer + 41, 0, 20); // IndexHash
 	footer[61] = 0; // bFrozenIndex
 
