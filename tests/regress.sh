@@ -1682,6 +1682,25 @@ t_container_roundtrips(){
     no "BMG decode" "no readable ASCII message found in $last_bmg"
   fi
 
+  # Wii Fit Plus padded BMG and DS FLI1/FLW1 sections:
+  printf '#BMG\n@ENDIAN = 0\n@ENCODING = 2\n@BMG-MID = 1\n@INF-SIZE = 0x0c\n[0001]\nHello Wii Fit Plus!\n' > "$d/wiifit.bmg.txt"
+  if "$B/wbmgt" ENCODE "$d/wiifit.bmg.txt" -d "$d/wiifit.bmg" --overwrite >/dev/null 2>&1; then
+    # Test decoding with announced size larger than file size (Wii Fit Plus padding)
+    python3 -c "
+d = bytearray(open('$d/wiifit.bmg', 'rb').read())
+import struct
+sz = struct.unpack('>I', d[8:12])[0]
+struct.pack_into('>I', d, 8, sz + 32)
+open('$d/wiifit_padded.bmg', 'wb').write(d)
+"
+    if "$B/wbmgt" DECODE "$d/wiifit_padded.bmg" -d "$d/wiifit_padded.txt" --overwrite >/dev/null 2>&1 \
+    && grep -q "Hello Wii Fit Plus!" "$d/wiifit_padded.txt"; then
+      ok "Wii Fit Plus padded BMG decode"
+    else
+      no "Wii Fit Plus padded BMG decode" "Failed to decode padded BMG"
+    fi
+  fi
+
   # BRFNT font
   if [ -f "$d/img.png" ]; then
     if "$B/wimgt" ENCODE "$d/img.png" -d "$d/test.brfnt" --overwrite >/dev/null 2>&1 \

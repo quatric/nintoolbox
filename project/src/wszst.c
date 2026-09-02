@@ -14149,7 +14149,7 @@ static enumError decode_brfnt_if_possible (ccp arg)
 		return ERR_NOTHING_TO_DO;
 
 	Image_t img;
-	enumError max_err = LoadIMG (&img, false, arg, 0, false, true, false);
+	enumError max_err = LoadIMG (&img, true, arg, 0, false, true, false);
 	if (max_err)
 		return ERR_NOTHING_TO_DO;
 
@@ -14180,7 +14180,7 @@ static enumError decode_brfnt_if_possible (ccp arg)
 	ResetIMG (&img);
 	for (uint image_index = 0; image_index < record_images; image_index++)
 	{
-		const enumError load_err = LoadIMG (&img, false, arg, image_index, false, true, false);
+		const enumError load_err = LoadIMG (&img, true, arg, image_index, false, true, false);
 		if (load_err)
 			continue;
 
@@ -14227,7 +14227,7 @@ static enumError decode_cfnt_if_possible (ccp arg)
 		return ERR_NOTHING_TO_DO;
 
 	Image_t img;
-	enumError max_err = LoadIMG (&img, false, arg, 0, false, true, false);
+	enumError max_err = LoadIMG (&img, true, arg, 0, false, true, false);
 	if (max_err)
 		return ERR_NOTHING_TO_DO;
 
@@ -14259,7 +14259,7 @@ static enumError decode_cfnt_if_possible (ccp arg)
 	ResetIMG (&img);
 	for (uint image_index = 0; image_index < record_images; image_index++)
 	{
-		const enumError load_err = LoadIMG (&img, false, arg, image_index, false, true, false);
+		const enumError load_err = LoadIMG (&img, true, arg, image_index, false, true, false);
 		if (load_err)
 			continue;
 

@@ -4304,6 +4304,10 @@ int CxIsCompressedLZOvl (const unsigned char *src, unsigned int size)
 {
 	if (!src || size < 8)
 		return 0;
+	if (!memcmp (src, "Yaz0", 4) || !memcmp (src, "Yay0", 4) || !memcmp (src, "YAY0", 4)
+		|| !memcmp (src, "\x55\xaa\x38\x2d", 4) || !memcmp (src, "MESG", 4) || !memcmp (src, "RARC", 4)
+		|| !memcmp (src, "RFNT", 4) || !memcmp (src, "RFNA", 4) || !memcmp (src, "CFNT", 4))
+		return 0;
 	const u32 extra = (u32)src[size - 4] | ((u32)src[size - 3] << 8)
 		| ((u32)src[size - 2] << 16) | ((u32)src[size - 1] << 24);
 	if (extra == 0 || extra > NFMT_MAX_OUTPUT)

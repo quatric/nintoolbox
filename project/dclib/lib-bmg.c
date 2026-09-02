@@ -157,15 +157,40 @@ static const endian_func_t *get_bmg_endian (const bmg_t *bmg)
 static const endian_func_t *get_endian_by_bh (const bmg_header_t *bh, uint size)
 {
 	DASSERT (bh);
-	if (be_func.n2hl (bh->size) <= size && be_func.n2hl (bh->n_sections) <= BMG_MAX_SECTIONS)
+	const u32 be_n = be_func.n2hl (bh->n_sections);
+	const u32 be_sz = be_func.n2hl (bh->size);
+	if (be_n >= 1 && be_n <= BMG_MAX_SECTIONS)
 	{
-		return &be_func;
+		if (be_sz <= size || (size >= sizeof (bmg_header_t) && (be_sz - size <= 0x1000 || size >= 32)))
+		{
+			const bmg_section_t *sec = (const bmg_section_t *)(bh + 1);
+			if (!memcmp (sec->magic, "INF", 3) || !memcmp (sec->magic, "DAT", 3)
+				|| !memcmp (sec->magic, "MID", 3) || !memcmp (sec->magic, "STR", 3)
+				|| !memcmp (sec->magic, "FL", 2) || !memcmp (sec->magic, "TBN", 3)
+				|| !memcmp (sec->magic, "WII", 3))
+				return &be_func;
+		}
 	}
 
-	if (le_func.n2hl (bh->size) <= size && le_func.n2hl (bh->n_sections) <= BMG_MAX_SECTIONS)
+	const u32 le_n = le_func.n2hl (bh->n_sections);
+	const u32 le_sz = le_func.n2hl (bh->size);
+	if (le_n >= 1 && le_n <= BMG_MAX_SECTIONS)
 	{
-		return &le_func;
+		if (le_sz <= size || (size >= sizeof (bmg_header_t) && (le_sz - size <= 0x1000 || size >= 32)))
+		{
+			const bmg_section_t *sec = (const bmg_section_t *)(bh + 1);
+			if (!memcmp (sec->magic, "INF", 3) || !memcmp (sec->magic, "DAT", 3)
+				|| !memcmp (sec->magic, "MID", 3) || !memcmp (sec->magic, "STR", 3)
+				|| !memcmp (sec->magic, "FL", 2) || !memcmp (sec->magic, "TBN", 3)
+				|| !memcmp (sec->magic, "WII", 3))
+				return &le_func;
+		}
 	}
+
+	if (be_sz <= size && be_n <= BMG_MAX_SECTIONS)
+		return &be_func;
+	if (le_sz <= size && le_n <= BMG_MAX_SECTIONS)
+		return &le_func;
 
 	return 0;
 }
@@ -1194,7 +1219,7 @@ bmg_sect_list_t *ScanSectionsBMG (cvp data, uint size, const endian_func_t *endi
 		si.sect = sect;
 		si.info = "?";
 
-		if (!memcmp (sect->magic, BMG_INF_MAGIC, sizeof (sect->magic)))
+		if (!memcmp (sect->magic, BMG_INF_MAGIC, sizeof (sect->magic)) || !memcmp (sect->magic, "INF2", 4))
 		{
 			sl.pinf = (bmg_inf_t *)sect;
 			si.head_size = sizeof (bmg_inf_t);
@@ -1225,20 +1250,40 @@ bmg_sect_list_t *ScanSectionsBMG (cvp data, uint size, const endian_func_t *endi
 			sl.pmid = (bmg_mid_t *)sect;
 			si.head_size = sizeof (bmg_mid_t);
 			si.elem_size = sizeof (u32);
-			si.n_elem_head = endian->n2hs (sl.pinf->n_msg);
+			si.n_elem_head = sl.pinf ? endian->n2hs (sl.pinf->n_msg) : 0;
 			si.known = true;
 			si.supported = true;
 			si.info = "message ids";
 		}
-		else if (!memcmp (sect->magic, BMG_FLW_MAGIC, sizeof (sect->magic)))
+		else if (!memcmp (sect->magic, "FLW", 3))
 		{
 			sl.pflw = (bmg_flw_t *)sect;
+			si.head_size = sizeof (bmg_flw_t);
 			si.known = true;
+			si.supported = false;
+			si.info = "message flow nodes";
 		}
-		else if (!memcmp (sect->magic, BMG_FLI_MAGIC, sizeof (sect->magic)))
+		else if (!memcmp (sect->magic, "FLI", 3) || !memcmp (sect->magic, "FLID", 4))
 		{
 			sl.pfli = (bmg_fli_t *)sect;
+			si.head_size = sizeof (bmg_fli_t);
 			si.known = true;
+			si.supported = false;
+			si.info = "message flow indices";
+		}
+		else if (!memcmp (sect->magic, "TBN", 3))
+		{
+			si.head_size = sizeof (bmg_section_t);
+			si.known = true;
+			si.supported = false;
+			si.info = "attributes";
+		}
+		else if (!memcmp (sect->magic, "WII", 3))
+		{
+			si.head_size = sizeof (bmg_section_t);
+			si.known = true;
+			si.supported = false;
+			si.info = "wii attributes";
 		}
 
 		if (si.elem_size)
@@ -2211,9 +2256,12 @@ static void scan_raw_utf16 (
 		if (code == 0x1a)
 		{
 			ptr += 2;
-			const uint skip = *ptr + 1 & 0x1e;
-			if (skip > 4)
-				ptr += skip - 4;
+			if (ptr < end)
+			{
+				const uint skip = (*ptr + 1) & ~1;
+				if (skip > 4)
+					ptr += skip - 4;
+			}
 		}
 	}
 
