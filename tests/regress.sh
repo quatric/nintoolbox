@@ -5605,6 +5605,30 @@ EOF
   && { [ -f "$d/manual_xx/page_00.arc.d/inner/text.txt" ] || [ -f "$d/manual_xx/page_00.d/inner/text.txt" ]; }; then
     fok "BFMA create -> XX recursive unpack with zlib ARC decompression"
   else fno "BFMA recursive extraction" "failed to extract manual.bfma and its internal zlib .arc files"; fi
+
+  # Wii Party CNUT test
+  local cnut_sample=""
+  for cs in /tmp/cnuts/camera_button.cnut /tmp/wiiparty_extracted/DATA/files/scripts/mr083/camera_button.cnut.lz; do
+    if [ -f "$cs" ]; then
+      cnut_sample="$cs"
+      break
+    fi
+  done
+
+  if [ -n "$cnut_sample" ]; then
+    mkdir -p "$d/cnut_out"
+    if [ "${cnut_sample##*.}" = "lz" ]; then
+      "$B/wszst" DECOMPRESS "$cnut_sample" --dest "$d/test.cnut" --overwrite >/dev/null 2>&1
+      cnut_sample="$d/test.cnut"
+    fi
+    if "$B/wszst" XX "$cnut_sample" --dest "$d/cnut_out/sample.nut" --overwrite >/dev/null 2>&1 \
+    && [ -f "$d/cnut_out/sample.nut" ] \
+    && grep -q "camera_button" "$d/cnut_out/sample.nut" 2>/dev/null; then
+      fok "Wii Party CNUT (SQIR) script extraction and disassembly"
+    else
+      fno "Wii Party CNUT extraction" "failed to disassemble cnut sample";
+    fi
+  fi
 }
 t_byte_fixed_points
 

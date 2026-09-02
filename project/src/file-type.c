@@ -990,6 +990,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x70, 0x61, 0x72, 0x61 }, // "para"
 		0, MinusString, MinusString, "Smash Parameter binary (.prc / parambinary)" },
 
+	// FF_CNUT = 184 (Compiled Squirrel script / messages)
+	{ FF_CNUT, 0, 0, "CNUT", ".cnut", ".cnut", ".cnut",
+		FFT_VALID | FFT_ARCHIVE | FFT_DECODE | FFT_ENCODE | FFT_EXTRACT | FFT_CREATE, 6,
+		{ 0xfa, 0xfa, 0x53, 0x51, 0x49, 0x52 }, // 0xFAFA + "SQIR"
+		0, MinusString, MinusString, "Compiled Squirrel script / messages (Wii Party .cnut / SQIR)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1111,6 +1117,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_UE4_PAK, "PAK", "UE4PAK", 0xe05 },
 	{ FF_SMASH_ARC, "ARC", "SMASHARC", 0xe05 },
 	{ FF_PRC, "PRC", "PARAM", 0x3001 },
+	{ FF_CNUT, "CNUT", "SQIR", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

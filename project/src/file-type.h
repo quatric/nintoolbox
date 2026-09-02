@@ -273,6 +273,7 @@ typedef enum file_format_t
 	FF_UE4_PAK, // 181 - Unreal Engine 4 archive (Mario & Luigi: Brothership .pak)
 	FF_SMASH_ARC, // 182 - Super Smash Bros. Ultimate data.arc archive
 	FF_PRC, // 183 - Smash Parameter binary (.prc / parambinary)
+	FF_CNUT, // 184 - Compiled Squirrel script / messages (Wii Party .cnut / SQIR)
 
 	//--- number of elements
 
