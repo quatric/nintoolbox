@@ -5650,6 +5650,33 @@ EOF
       fno "Wii Party CNUT extraction" "failed to disassemble cnut sample";
     fi
   fi
+
+  # Wii Party XMSG (mess.bin) test
+  mkdir -p "$d/xmsg_test"
+  python3 -c '
+import sys
+data = bytearray(bytes.fromhex("584d534720100503"))
+data.extend((1).to_bytes(4, "big"))
+data.extend((0x1c).to_bytes(4, "big"))
+data.extend((0x2b).to_bytes(4, "big"))
+data.extend((0x24).to_bytes(4, "big"))
+data.extend((0x4d).to_bytes(4, "big"))
+data.extend(b"test_01\x00")
+data.extend(b"dialog\x00")
+data.extend("Hello Wii Party!".encode("utf-16be") + b"\x00\x00")
+data.extend(bytes.fromhex("ffffffff000000ff1818020200000102"))
+with open(sys.argv[1], "wb") as f:
+    f.write(data)
+' "$d/xmsg_test/mess.bin"
+  if "$B/wszst" XX "$d/xmsg_test/mess.bin" --dest "$d/xmsg_test/mess.xml" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/xmsg_test/mess.xml" ] \
+  && [ -f "$d/xmsg_test/mess.txt" ] \
+  && grep -q "Hello Wii Party!" "$d/xmsg_test/mess.xml" 2>/dev/null \
+  && grep -q "test_01" "$d/xmsg_test/mess.txt" 2>/dev/null; then
+    fok "Wii Party XMSG (mess.bin) XML and text extraction"
+  else
+    fno "Wii Party XMSG extraction" "failed to extract XMSG mess.bin";
+  fi
 }
 t_byte_fixed_points
 

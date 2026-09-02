@@ -853,9 +853,14 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		if (IsXZ (data, data_size) >= 0)
 			return FF_XZ;
 
+		if (data_size >= 6 && data8[0] == 0xfa && data8[1] == 0xfa && !memcmp (data8 + 2, "SQIR", 4))
+			return FF_CNUT;
+
 		const u64 magic64 = be64 (data);
 		switch (magic64)
 		{
+			case 0x584d534720100503ULL:
+				return FF_XMSG; // "XMSG \x10\x05\x03" (Wii Party mess.bin)
 			case BMG_MAGIC8_NUM:
 				return FF_BMG;
 			case PNG_MAGIC8_NUM:
