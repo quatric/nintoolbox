@@ -191,6 +191,12 @@ enumError ScanCFLRes (
 	return ScanMiiRes (entries, n_entries, data, size);
 }
 
+enumError ScanNFLRes (
+	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
+{
+	return ScanMiiRes (entries, n_entries, data, size);
+}
+
 enumError CreateMiiRes (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries, bool big_endian)
 {
@@ -390,6 +396,12 @@ enumError CreateCFLRes (
 }
 
 enumError CreateAFLRes (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	return CreateMiiRes (dest, dest_size, entries, n_entries, false);
+}
+
+enumError CreateNFLRes (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {
 	return CreateMiiRes (dest, dest_size, entries, n_entries, false);

@@ -3,8 +3,8 @@
 
 #include "lib-nintendo.h"
 
-// Scan any Mii Face Library resource archive (RFL_Res, FFL_Res, CFL_Res, AFL_Res)
-// Auto-detects Big Endian (Wii RFL, Wii U FFL) and Little Endian (3DS CFL, Switch FFL/AFL).
+// Scan any Mii Face Library resource archive (RFL_Res, FFL_Res, CFL_Res, AFL_Res, NFL_Res)
+// Auto-detects Big Endian (Wii RFL, Wii U FFL) and Little Endian (DS NFL, 3DS CFL, Switch FFL/AFL).
 enumError ScanMiiRes (
 	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size);
 enumError ScanRFLRes (
@@ -12,6 +12,8 @@ enumError ScanRFLRes (
 enumError ScanFFLRes (
 	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size);
 enumError ScanCFLRes (
+	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size);
+enumError ScanNFLRes (
 	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size);
 
 // Build Mii Face Library resource archive
@@ -24,6 +26,8 @@ enumError CreateFFLRes (
 enumError CreateCFLRes (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 enumError CreateAFLRes (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
+enumError CreateNFLRes (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 
 #endif

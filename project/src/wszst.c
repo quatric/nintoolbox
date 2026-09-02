@@ -7182,10 +7182,12 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest)
 	if ((!strcasecmp (ext, ".dat") || !strcasecmp (ext, ".rflres") || !strcasecmp (ext, ".rfl")
 		|| !strcasecmp (ext, ".fflres") || !strcasecmp (ext, ".ffl")
 		|| !strcasecmp (ext, ".cflres") || !strcasecmp (ext, ".cfl")
-		|| !strcasecmp (ext, ".aflres") || !strcasecmp (ext, ".afl")) && looks_like_rflres_dir (source_dir))
+		|| !strcasecmp (ext, ".aflres") || !strcasecmp (ext, ".afl")
+		|| !strcasecmp (ext, ".nflres") || !strcasecmp (ext, ".nfl") || !strcasecmp (ext, ".nfl_res")) && looks_like_rflres_dir (source_dir))
 	{
 		const bool be = strcasecmp (ext, ".cfl") && strcasecmp (ext, ".cflres")
-			&& strcasecmp (ext, ".afl") && strcasecmp (ext, ".aflres");
+			&& strcasecmp (ext, ".afl") && strcasecmp (ext, ".aflres")
+			&& strcasecmp (ext, ".nfl") && strcasecmp (ext, ".nflres") && strcasecmp (ext, ".nfl_res");
 		return create_rflres_dir (source_dir, dest, be);
 	}
 	if (!strcasecmp (ext, ".gfa"))
@@ -8366,11 +8368,13 @@ static enumError cmd_create (bool create)
 		if (create && ext && (!strcasecmp (ext, ".dat") || !strcasecmp (ext, ".rflres") || !strcasecmp (ext, ".rfl")
 			|| !strcasecmp (ext, ".fflres") || !strcasecmp (ext, ".ffl")
 			|| !strcasecmp (ext, ".cflres") || !strcasecmp (ext, ".cfl")
-			|| !strcasecmp (ext, ".aflres") || !strcasecmp (ext, ".afl"))
+			|| !strcasecmp (ext, ".aflres") || !strcasecmp (ext, ".afl")
+			|| !strcasecmp (ext, ".nflres") || !strcasecmp (ext, ".nfl") || !strcasecmp (ext, ".nfl_res"))
 			&& looks_like_rflres_dir (source_dir))
 		{
 			const bool be = strcasecmp (ext, ".cfl") && strcasecmp (ext, ".cflres")
-				&& strcasecmp (ext, ".afl") && strcasecmp (ext, ".aflres");
+				&& strcasecmp (ext, ".afl") && strcasecmp (ext, ".aflres")
+				&& strcasecmp (ext, ".nfl") && strcasecmp (ext, ".nflres") && strcasecmp (ext, ".nfl_res");
 			enumError err = create_rflres_dir (source_dir, dest, be);
 			if (verbose >= 0 || testmode)
 				fprintf (stdlog, "%s%sCREATE MIIRES %s/ -> %s\n", verbose > 0 ? "\n" : "",
