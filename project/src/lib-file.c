@@ -59,6 +59,7 @@
 #include "lib-bflyt.h"
 #include "lib-rkc.h"
 #include "lib-nintendo.h"
+#include "lib-nsmbw.h"
 #include "lib-zstd.h"
 #include "lib-rkg.h"
 #include "lib-image.h"
@@ -1003,6 +1004,11 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 				return FF_WCH;
 			case WPF_MAGIC_NUM:
 				return FF_WPF;
+
+			case NWRP_MAGIC_NUM: // 'NWRp' (Newer SMBW LevelInfo.bin)
+				return FF_NWR_LEVELINFO;
+			case NWRA_MAGIC_NUM: // 'NWRa' (Newer SMBW AnimTiles.bin)
+				return FF_NWR_ANIMTILES;
 			case XPF_MAGIC_NUM:
 				return FF_XPF;
 			case RKG_MAGIC_NUM:

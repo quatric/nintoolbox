@@ -291,6 +291,9 @@ typedef enum file_format_t
 	FF_G4PKM, // 199 - Level-5 / Nintendo 3D Model (.g4pkm)
 	FF_LMD, // 200 - Pokemon Masters 3D Model (.lmd)
 	FF_XMSG, // 201 - Wii Party Message / Text Archive (mess.bin / XMSG)
+	FF_NWR_LEVELINFO, // 202 - Newer SMBW Level Information (LevelInfo.bin / NWRp)
+	FF_NWR_ANIMTILES, // 203 - Newer SMBW Animated Tiles (AnimTiles.bin / NWRa)
+	FF_NSMBW_CHK, // 204 - NSMBW Tileset Collision Attributes (d_bgchk_*.bin)
 
 	//--- number of elements
 

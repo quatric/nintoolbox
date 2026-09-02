@@ -190,7 +190,7 @@ enumError ExtractMDRArchive (ccp arg, ccp basedir, uint depth)
 	}
 
 	const u32 count = rd_be32 (raw);
-	if (!count || 4 + count * 4 > raw_size)
+	if (!count || count > 100000 || (uint64_t)4 + (uint64_t)count * 4 > raw_size)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
@@ -198,7 +198,7 @@ enumError ExtractMDRArchive (ccp arg, ccp basedir, uint depth)
 
 	// Validate first offset
 	const u32 first_off = rd_be32 (raw + 4);
-	if (first_off < 4 + count * 4 || first_off + 16 > raw_size)
+	if ((uint64_t)first_off < (uint64_t)4 + (uint64_t)count * 4 || (uint64_t)first_off + 16 > raw_size)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;

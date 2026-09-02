@@ -1096,6 +1096,24 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x58, 0x4D, 0x53, 0x47, 0x20, 0x10, 0x05, 0x03 }, // "XMSG \x10\x05\x03"
 		0, MinusString, MinusString, "Wii Party Message / Text Archive (mess.bin / XMSG)" },
 
+	// FF_NWR_LEVELINFO = 202 (Newer SMBW Level Information)
+	{ FF_NWR_LEVELINFO, FF_NWR_LEVELINFO, 0, "NWR-LEVELINFO", ".bin", ".bin", ".bin",
+		FFT_VALID | FFT_ARCHIVE | FFT_DECODE | FFT_ENCODE | FFT_EXTRACT | FFT_CREATE, 4,
+		{ 'N', 'W', 'R', 'p' },
+		0, MinusString, MinusString, "Newer SMBW Level Information (LevelInfo.bin / NWRp)" },
+
+	// FF_NWR_ANIMTILES = 203 (Newer SMBW Animated Tiles)
+	{ FF_NWR_ANIMTILES, FF_NWR_ANIMTILES, 0, "NWR-ANIMTILES", ".bin", ".bin", ".bin",
+		FFT_VALID | FFT_ARCHIVE | FFT_DECODE | FFT_ENCODE | FFT_EXTRACT | FFT_CREATE, 4,
+		{ 'N', 'W', 'R', 'a' },
+		0, MinusString, MinusString, "Newer SMBW Animated Tiles (AnimTiles.bin / NWRa)" },
+
+	// FF_NSMBW_CHK = 204 (NSMBW Tileset Collision Attributes)
+	{ FF_NSMBW_CHK, FF_NSMBW_CHK, 0, "NSMBW-CHK", ".bin", ".bin", ".bin",
+		FFT_VALID | FFT_DECODE | FFT_EXTRACT, 0,
+		{ 0 },
+		0, MinusString, MinusString, "NSMBW Tileset Collision Attributes (d_bgchk_*.bin)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1234,6 +1252,9 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_G4PKM, "G4PKM", 0, 0x3001 },
 	{ FF_LMD, "LMD", 0, 0x3001 },
 	{ FF_XMSG, "XMSG", "MESS", 0xe05 },
+	{ FF_NWR_LEVELINFO, "NWR-LEVELINFO", "LEVELINFO", 0xe05 },
+	{ FF_NWR_ANIMTILES, "NWR-ANIMTILES", "ANIMTILES", 0xe05 },
+	{ FF_NSMBW_CHK, "NSMBW-CHK", "BGCHK", 0x3001 },
 
 	{ 0, 0, 0, 0 }
 };

@@ -5677,6 +5677,74 @@ with open(sys.argv[1], "wb") as f:
   else
     fno "Wii Party XMSG extraction" "failed to extract XMSG mess.bin";
   fi
+
+  # Newer Super Mario Bros. Wii (.LH compression, LevelInfo.bin, AnimTiles.bin, NSMBW tileset tex/chk)
+  mkdir -p "$d/nsmbw_test"
+  python3 -c '
+import struct
+
+magic = b"NWRp"
+num_worlds = 1
+world_offset = 0x0C
+num_entries = 2
+comments = b"NewerSMBW Test\x00"
+text_start = 12 + 4 + num_entries * 12 + len(comments)
+
+def enc(s):
+    return bytes([(ord(c) - 0x30) & 0xff for c in s]) + b"\x00"
+
+t0 = enc("Grassland")
+t1 = enc("Mushroom Plains")
+LEVEL_ENTRY_STRUCT = struct.Struct(">5BxHI")
+data = bytearray(magic)
+data.extend(struct.pack(">I", num_worlds))
+data.extend(struct.pack(">I", world_offset))
+data.extend(struct.pack(">I", num_entries))
+data.extend(LEVEL_ENTRY_STRUCT.pack(98, 98, 1, 100, len("Grassland"), 0, text_start))
+data.extend(LEVEL_ENTRY_STRUCT.pack(0, 0, 1, 1, len("Mushroom Plains"), 0x0012, text_start + len(t0)))
+data.extend(comments)
+data.extend(t0 + t1)
+with open("'"$d"'/nsmbw_test/LevelInfo.bin", "wb") as f:
+    f.write(data)
+
+at_magic = b"NWRa"
+at_strings = b"water_fall_tex.bin\x004,4,4,4\x00"
+at_entries = [(16, 16 + len("water_fall_tex.bin\x00"), 0x0042, 0, 0)]
+at_data = bytearray(at_magic)
+at_data.extend(struct.pack(">I", len(at_entries)))
+for e in at_entries:
+    at_data.extend(struct.pack(">HHHBB", e[0], e[1], e[2], e[3], e[4]))
+at_data.extend(at_strings)
+with open("'"$d"'/nsmbw_test/AnimTiles.bin", "wb") as f:
+    f.write(at_data)
+
+chk_data = bytearray(2048)
+chk_data[0] = 0x01
+with open("'"$d"'/nsmbw_test/d_bgchk_sample.bin", "wb") as f:
+    f.write(chk_data)
+
+tex = b"\xff\xff" * (1024 * 256)
+with open("'"$d"'/nsmbw_test/sample_tex.bin", "wb") as f:
+    f.write(tex)
+
+with open("'"$d"'/nsmbw_test/sample_lh.txt", "wb") as f:
+    f.write(b"Testing Newer SMBW LH compression")
+'
+  "$B/wszst" COMPRESS "$d/nsmbw_test/sample_lh.txt" --dest "$d/nsmbw_test/sample_lh.lh" --overwrite >/dev/null 2>&1
+  "$B/wszst" DECOMPRESS "$d/nsmbw_test/sample_lh.lh" --dest "$d/nsmbw_test/sample_lh_out.txt" --overwrite >/dev/null 2>&1
+  if cmp -s "$d/nsmbw_test/sample_lh.txt" "$d/nsmbw_test/sample_lh_out.txt" \
+  && "$B/wszst" XX "$d/nsmbw_test/sample_tex.bin" --dest "$d/nsmbw_test/sample_tex.png" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/nsmbw_test/sample_tex.png" ] \
+  && "$B/wszst" XX "$d/nsmbw_test/LevelInfo.bin" --dest "$d/nsmbw_test/LevelInfo.txt" --overwrite >/dev/null 2>&1 \
+  && grep -q "Mushroom Plains" "$d/nsmbw_test/LevelInfo.txt" 2>/dev/null \
+  && "$B/wszst" XX "$d/nsmbw_test/AnimTiles.bin" --dest "$d/nsmbw_test/AnimTiles.txt" --overwrite >/dev/null 2>&1 \
+  && grep -q "water_fall_tex.bin" "$d/nsmbw_test/AnimTiles.txt" 2>/dev/null \
+  && "$B/wszst" XX "$d/nsmbw_test/d_bgchk_sample.bin" --dest "$d/nsmbw_test/d_bgchk_sample.txt" --overwrite >/dev/null 2>&1 \
+  && grep -q "solid" "$d/nsmbw_test/d_bgchk_sample.txt" 2>/dev/null; then
+    fok "Newer SMBW (.LH, LevelInfo, AnimTiles, NSMBW tileset tex/chk)"
+  else
+    fno "Newer SMBW formats" "failed to decode Newer SMBW or NSMBW tileset formats";
+  fi
 }
 t_byte_fixed_points
 
