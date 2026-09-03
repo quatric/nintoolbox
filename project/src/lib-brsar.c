@@ -900,6 +900,13 @@ static enumError UnpackBrsarContent (
 			if (fid < file_count && extracted_fid[fid])
 				continue;
 
+			// A zero-size item is an empty/reserved file slot with no real
+			// payload (seen in retail archives, e.g. MotionPlusMovieSound.brsar
+			// fid 3) -- there's nothing to preserve, so don't fabricate a
+			// placeholder file for it; PackBRSAR wouldn't recreate one anyway.
+			if (!data_size)
+				continue;
+
 			if ((size_t)group_data_offs + data_offs + data_size > file_size)
 				continue;
 			const u8 *bytes = file_base + group_data_offs + data_offs;
