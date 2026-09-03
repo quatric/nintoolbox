@@ -2192,7 +2192,7 @@ t_chr_srt_cli
 t_bms_ports(){
   command -v python3 >/dev/null || { sk "QuickBMS-derived flat archives"; return; }
   local d; d=$(mktemp -d)
-  python3 "$(dirname "$0")/mk-bms-fixtures.py" "$d" || { no "QuickBMS-derived flat archives" "fixture build failed"; rm -rf "$d"; return; }
+  python3 "$PWD_PROJECT/../tests/mk-bms-fixtures.py" "$d" || { no "QuickBMS-derived flat archives" "fixture build failed"; rm -rf "$d"; return; }
 
   local ok=1
   for f in sfz.dat xeno.arc mii_sa01.bin amiibo.cbarc msr.pkg hwl.idx mlpj.bg4; do
@@ -2218,7 +2218,7 @@ t_bms_ports
 t_sfzdat_roundtrip(){
   command -v python3 >/dev/null || { sk "Star Fox Zero DAT create -> extract"; return; }
   local d; d=$(mktemp -d)
-  python3 "$(dirname "$0")/mk-bms-fixtures.py" "$d" >/dev/null 2>&1
+  python3 "$PWD_PROJECT/../tests/mk-bms-fixtures.py" "$d" >/dev/null 2>&1
   local ok=1
   "$B/wszst" xx "$d/sfz.dat" --overwrite >/dev/null 2>&1 || ok=0
   cp -R "$d/sfz.dat.d" "$d/rebuild.dat.d" 2>/dev/null || ok=0
