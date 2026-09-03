@@ -205,8 +205,9 @@ typedef enum enumOptions
 	OPT_ALL,
 	OPT_RAW,
 	OPT_SECTIONS,
+	OPT_WITH_UPDATE_PART,
 
-	OPT__N_SPECIFIC, // == 150
+	OPT__N_SPECIFIC, // == 151
 
 	//----- global options -----
 
@@ -315,7 +316,7 @@ typedef enum enumOptions
 	OPT_NEW,
 	OPT_EXTRACT,
 
-	OPT__N_TOTAL // == 254
+	OPT__N_TOTAL // == 255
 
 } enumOptions;
 
@@ -1495,6 +1496,7 @@ typedef enum enumGetOpt
 	GO_CUT,
 	GO_RAW,
 	GO_SECTIONS,
+	GO_WITH_UPDATE_PART,
 
 } enumGetOpt;
 

@@ -17999,8 +17999,11 @@ static enumError extract_tree (ccp root, uint depth)
 		enumError err = ERR_OK;
 		if (S_ISDIR (st.st_mode))
 		{
-			if (!is_extractor_output_dir (path))
+			if ( !is_extractor_output_dir (path)
+			  && ( opt_with_update_part || strcasecmp (de->d_name, "UPDATE") ) )
+			{
 				err = extract_tree (path, depth + 1);
+			}
 		}
 		else if (S_ISREG (st.st_mode))
 		{
@@ -19658,6 +19661,9 @@ static enumError CheckOptions (int argc, char **argv, bool is_env)
 				break;
 			case GO_DECODE:
 				opt_decode = true;
+				break;
+			case GO_WITH_UPDATE_PART:
+				opt_with_update_part = true;
 				break;
 			case GO_CMPR_DEFAULT:
 				err += ScanOptCmprDefault (optarg);

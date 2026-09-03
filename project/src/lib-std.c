@@ -189,6 +189,7 @@ char *opt_basedir = 0;
 int opt_recurse = -1;
 int opt_ext = 0;
 bool opt_decode = false;
+bool opt_with_update_part = false;
 bool opt_cut = false;
 bool opt_cmpr_valid = false;
 u8 opt_cmpr_def[8] = { 0x00, 0x00, 0x00, 0x20, 0xff, 0xff, 0xff, 0xff };
