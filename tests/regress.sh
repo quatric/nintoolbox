@@ -5805,6 +5805,22 @@ with open("'"$d"'/koopatlas_test/sample_map.kpbin", "wb") as f:
   else
     fno "Koopatlas Binary Map" "failed to extract .kpbin sample";
   fi
+
+  # Nintendo Wii ChannelScript (.cs / RCHE) test
+  mkdir -p "$d/chans_test"
+  local cs_fixture="$PWD_PROJECT/../tests/fixtures/forecast_icon.cs"
+  if [ -f "$cs_fixture" ]; then
+    if "$B/wszst" XX "$cs_fixture" --dest "$d/chans_test/" --overwrite >/dev/null 2>&1 \
+    && [ -f "$d/chans_test/forecast_icon.txt" ] \
+    && [ -f "$d/chans_test/forecast_icon.js" ] \
+    && grep -q "function main()" "$d/chans_test/forecast_icon.js" 2>/dev/null \
+    && grep -q "for (var_1ff2 in this)" "$d/chans_test/forecast_icon.js" 2>/dev/null \
+    && grep -q "DISASSEMBLY" "$d/chans_test/forecast_icon.txt" 2>/dev/null; then
+      fok "Nintendo Wii ChannelScript (.cs) extraction & decompilation"
+    else
+      fno "Nintendo Wii ChannelScript" "failed to extract .cs sample";
+    fi
+  fi
 }
 t_byte_fixed_points
 

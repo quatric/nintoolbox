@@ -296,6 +296,7 @@ typedef enum file_format_t
 	FF_NSMBW_CHK, // 204 - NSMBW Tileset Collision Attributes (d_bgchk_*.bin)
 	FF_KPBIN, // 205 - Koopatlas Binary World Map (.kpbin / KP_m)
 	FF_KPMAP, // 206 - Koopatlas Map Project (.kpmap / JSON)
+	FF_CHANS, // 207 - Nintendo Wii ChannelScript (.cs / RCHE)
 
 	//--- number of elements
 

@@ -1126,6 +1126,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 },
 		0, MinusString, MinusString, "Koopatlas Map Project (.kpmap / JSON)" },
 
+	// FF_CHANS = 207 (Nintendo Wii ChannelScript)
+	{ FF_CHANS, FF_CHANS, 0, "CHANS", ".cs", ".cs", ".cs",
+		FFT_VALID | FFT_ARCHIVE | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 'R', 'C', 'H', 'E' },
+		0, MinusString, MinusString, "Nintendo Wii ChannelScript (.cs / RCHE)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1269,6 +1275,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_NSMBW_CHK, "NSMBW-CHK", "BGCHK", 0x3001 },
 	{ FF_KPBIN, "KPBIN", "KP_M", 0xe05 },
 	{ FF_KPMAP, "KPMAP", 0, 0x3001 },
+	{ FF_CHANS, "CHANS", "RCHE", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

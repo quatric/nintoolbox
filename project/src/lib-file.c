@@ -61,6 +61,7 @@
 #include "lib-nintendo.h"
 #include "lib-nsmbw.h"
 #include "lib-koopatlas.h"
+#include "lib-chans.h"
 #include "lib-zstd.h"
 #include "lib-rkg.h"
 #include "lib-image.h"
@@ -1012,6 +1013,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 				return FF_NWR_ANIMTILES;
 			case KPBIN_MAGIC_NUM: // 'KP_m' (Koopatlas binary map)
 				return FF_KPBIN;
+			case CHANS_MAGIC_NUM: // 'RCHE' (Nintendo Wii ChannelScript)
+				return FF_CHANS;
 			case XPF_MAGIC_NUM:
 				return FF_XPF;
 			case RKG_MAGIC_NUM:
