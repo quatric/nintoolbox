@@ -7569,7 +7569,7 @@ static bool is_archive_dir_name (ccp dir, size_t len)
 	return false;
 }
 
-static void cleanup_extracted_artifacts (ccp root)
+static void cleanup_extracted_artifacts (ccp root, bool is_root)
 {
 	DIR *dir = opendir (root);
 	if (!dir)
@@ -7594,14 +7594,23 @@ static void cleanup_extracted_artifacts (ccp root)
 			}
 			else
 			{
-				cleanup_extracted_artifacts (path);
+				cleanup_extracted_artifacts (path, false);
 			}
 		}
 		else if (S_ISREG (st.st_mode))
 		{
 			if (!strcmp (de->d_name, "wszst-setup.txt"))
 			{
-				unlink (path);
+				// The root directory's own setup file is still needed by the
+				// caller (cmd_create's ScanSetupParam, right after this call)
+				// to recover the original archive/compression format -- e.g.
+				// "file-format = U8" for an uncompressed source .arc. Deleting
+				// it here defaulted every repack of that root to YAZ0-compressed
+				// output regardless of what the source actually was. Nested
+				// .d dirs' own setup files were already consumed by
+				// repack_tree_bottom_up(), so those are still safe to remove.
+				if (!is_root)
+					unlink (path);
 				continue;
 			}
 			// Companion model files (.glb, .dae)
@@ -8246,7 +8255,7 @@ static enumError cmd_create (bool create)
 				max_err = tree_err;
 
 			// Clean up all leftover .d folders and preview/companion artifacts from the tree
-			cleanup_extracted_artifacts (source_dir);
+			cleanup_extracted_artifacts (source_dir, true);
 
 			// If it's a general directory tree and no explicit --dest was given, tree repacking is
 			// done.
