@@ -2,16 +2,106 @@
 """Validate the COLLADA invariants that XML parsing/import smoke tests miss."""
 
 import argparse
+import json
 import math
 import os
+import struct
 import sys
 import xml.etree.ElementTree as ET
 
 
 NS = "{http://www.collada.org/2005/11/COLLADASchema}"
 
+COMPONENT_FMT = {
+    5120: ('b', 1), 5121: ('B', 1), 5122: ('h', 2),
+    5123: ('H', 2), 5125: ('I', 4), 5126: ('f', 4),
+}
+TYPE_COUNT = {
+    'SCALAR': 1, 'VEC2': 2, 'VEC3': 3, 'VEC4': 4,
+    'MAT2': 4, 'MAT3': 9, 'MAT4': 16,
+}
+
+
+def validate_glb(path, require_images=False):
+    # wmdlt/wszst model export is GLB (binary glTF), not COLLADA, but callers
+    # still pass ".dae" destination names in a few places -- validate the
+    # equivalent invariants (finite floats, in-range indices, >=1 triangle
+    # primitive, referenced images present) against the real format instead.
+    errors = []
+    buf = open(path, 'rb').read()
+    magic, version, length = struct.unpack_from('<4sII', buf, 0)
+    off = 12
+    json_chunk = bin_chunk = None
+    while off < length:
+        clen, ctype = struct.unpack_from('<II', buf, off)
+        cdata = buf[off + 8: off + 8 + clen]
+        if ctype == 0x4E4F534A:
+            json_chunk = cdata
+        elif ctype == 0x004E4942:
+            bin_chunk = cdata
+        off += 8 + clen
+    doc = json.loads(json_chunk)
+
+    def accessor_values(idx):
+        acc = doc['accessors'][idx]
+        bv = doc['bufferViews'][acc['bufferView']]
+        fmt_c, csize = COMPONENT_FMT[acc['componentType']]
+        ncomp = TYPE_COUNT[acc['type']]
+        start = bv.get('byteOffset', 0) + acc.get('byteOffset', 0)
+        stride = bv.get('byteStride', ncomp * csize)
+        count = acc['count']
+        out = []
+        for i in range(count):
+            base = start + i * stride
+            out.extend(struct.unpack_from('<%d%s' % (ncomp, fmt_c), bin_chunk, base))
+        return out
+
+    triangles_seen = 0
+    for mi, mesh in enumerate(doc.get('meshes', [])):
+        for pi, prim in enumerate(mesh.get('primitives', [])):
+            attrs = prim.get('attributes', {})
+            if 'POSITION' not in attrs:
+                errors.append(f"mesh {mi} primitive {pi}: no POSITION attribute")
+                continue
+            pos = accessor_values(attrs['POSITION'])
+            if any(not math.isfinite(v) for v in pos):
+                errors.append(f"mesh {mi} primitive {pi}: non-finite position")
+            nverts = len(pos) // 3
+            if 'indices' in prim:
+                idxs = [int(v) for v in accessor_values(prim['indices'])]
+                bad = next((i for i in idxs if i < 0 or i >= nverts), None)
+                if bad is not None:
+                    errors.append(f"mesh {mi} primitive {pi}: index {bad} outside 0..{nverts-1}")
+            else:
+                idxs = list(range(nverts))
+            triangles_seen += len(idxs) // 3
+
+    if triangles_seen == 0:
+        errors.append("no triangles")
+
+    if require_images:
+        images = doc.get('images', [])
+        if not images:
+            errors.append("no images")
+        for i, img in enumerate(images):
+            if 'bufferView' in img:
+                continue
+            uri = img.get('uri', '')
+            if not uri:
+                errors.append(f"image {i}: no bufferView or uri")
+                continue
+            target = os.path.normpath(os.path.join(os.path.dirname(path), uri))
+            if not os.path.isfile(target):
+                errors.append(f"image {i}: missing {uri}")
+    return errors
+
 
 def validate(path, require_images=False):
+    with open(path, 'rb') as f:
+        head = f.read(4)
+    if head == b'glTF':
+        return validate_glb(path, require_images)
+
     errors = []
     try:
         root = ET.parse(path).getroot()

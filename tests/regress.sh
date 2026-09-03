@@ -4,7 +4,7 @@ export LC_ALL=C
 # Finds samples by magic rather than by hardcoded path, so it keeps working
 # after the scratch directories are cleaned.
 cd "$(dirname "$0")/../project" || exit 1
-B=./bin; PWD_PROJECT=$PWD; DAE_VALIDATOR="$PWD_PROJECT/../tests/validate-dae.py"; PNGTOOL="$PWD_PROJECT/../tests/pngtool.py"; PASS=0; FAIL=0; SKIP=0; BYTE_PASS=0; BYTE_FAIL=0; FIXED_PASS=0; FIXED_FAIL=0
+B=./bin; PWD_PROJECT=$PWD; DAE_VALIDATOR="$PWD_PROJECT/../tests/validate-dae.py"; PNGTOOL="$PWD_PROJECT/../tests/pngtool.py"; GLTF_COUNT="$PWD_PROJECT/../tests/gltf_count.py"; PASS=0; FAIL=0; SKIP=0; BYTE_PASS=0; BYTE_FAIL=0; FIXED_PASS=0; FIXED_FAIL=0
 SEARCH=${SEARCH:-"$PWD_PROJECT/../tests /tmp $HOME/Downloads /Volumes/SSD/user/Downloads /Volumes/SSD/dlz/Folders"}
 ok(){ printf "  PASS  %s\n" "$1"; PASS=$((PASS+1)); }
 no(){ printf "  FAIL  %s -- %s\n" "$1" "$2"; FAIL=$((FAIL+1)); }
@@ -50,7 +50,7 @@ t_model(){ # name magic
     [ -n "$f" ] || continue
     rm -f /tmp/_r.dae
     $B/wmdlt ENCODE "$f" -d /tmp/_r.dae --overwrite >/dev/null 2>&1
-    local g; g=$(grep -c '<geometry' /tmp/_r.dae 2>/dev/null || true); g=${g:-0}
+    local g; g=$(python3 "$GLTF_COUNT" /tmp/_r.dae geometry 2>/dev/null || true); g=${g:-0}
     if [ "$g" -gt 0 ] 2>/dev/null && python3 "$DAE_VALIDATOR" /tmp/_r.dae >/dev/null 2>&1; then
       ok "$1 -> DAE ($g geometries, validated)"
       found=1
@@ -240,7 +240,7 @@ t_cgfx(){
   if [ -f "$f" ]; then
     rm -f /tmp/_r.dae
     $B/wmdlt ENCODE "$f" -d /tmp/_r.dae --overwrite >/dev/null 2>&1
-    local g; g=$(grep -c '<geometry' /tmp/_r.dae 2>/dev/null || true); g=${g:-0}
+    local g; g=$(python3 "$GLTF_COUNT" /tmp/_r.dae geometry 2>/dev/null || true); g=${g:-0}
     if [ "$g" -gt 0 ] 2>/dev/null && python3 "$DAE_VALIDATOR" /tmp/_r.dae >/dev/null 2>&1; then
       ok "CGFX (3DS) -> DAE ($g geometries, validated, $f)"
       return
@@ -262,10 +262,10 @@ t_bch_dae_texture(){
   $B/wmdlt ENCODE "$f" -d "$out/model.dae" --overwrite >/dev/null 2>&1
   local dae="$out/model.dae"
   local geom mat img tri
-  geom=$(grep -c '<geometry ' "$dae" 2>/dev/null || true); geom=${geom:-0}
-  mat=$(grep -c '<material ' "$dae" 2>/dev/null || true); mat=${mat:-0}
-  img=$(grep -c '<image ' "$dae" 2>/dev/null || true); img=${img:-0}
-  tri=$(grep -c '<triangles ' "$dae" 2>/dev/null || true); tri=${tri:-0}
+  geom=$(python3 "$GLTF_COUNT" "$dae" geometry 2>/dev/null || true); geom=${geom:-0}
+  mat=$(python3 "$GLTF_COUNT" "$dae" material 2>/dev/null || true); mat=${mat:-0}
+  img=$(python3 "$GLTF_COUNT" "$dae" image 2>/dev/null || true); img=${img:-0}
+  tri=$(python3 "$GLTF_COUNT" "$dae" triangles 2>/dev/null || true); tri=${tri:-0}
   local png_cnt
   png_cnt=$(find "$out" -name '*.png' 2>/dev/null | wc -l | tr -d ' ')
   local val_ok=0
@@ -318,7 +318,7 @@ t_bfres_wiiu(){
     if [ "$bom8" = "feff" ]; then
       rm -f /tmp/_r.dae
       $B/wmdlt ENCODE "$f" -d /tmp/_r.dae --overwrite >/dev/null 2>&1
-      local g; g=$(grep -c '<geometry' /tmp/_r.dae 2>/dev/null || true); g=${g:-0}
+      local g; g=$(python3 "$GLTF_COUNT" /tmp/_r.dae geometry 2>/dev/null || true); g=${g:-0}
       if [ "$g" -gt 0 ] 2>/dev/null && python3 "$DAE_VALIDATOR" /tmp/_r.dae >/dev/null 2>&1; then
         ok "BFRES (Wii U) -> DAE ($g geometries, validated, $f)"
         return
@@ -1071,7 +1071,7 @@ t_dae_multiformat_injection(){
       $B/wmdlt ENCODE "$out/orig.dae" --parent="$bch_sample" -d "$out/injected.bch" --overwrite >/dev/null 2>&1
       if [ -s "$out/injected.bch" ]; then
         $B/wmdlt ENCODE "$out/injected.bch" -d "$out/redecoded.dae" --overwrite >/dev/null 2>&1
-        local g; g=$(grep -c '<geometry' "$out/redecoded.dae" 2>/dev/null || echo 0)
+        local g; g=$(python3 "$GLTF_COUNT" "$out/redecoded.dae" geometry 2>/dev/null || echo 0)
         if [ "$g" -gt 0 ]; then
           ok "DAE -> BCH injection (with parent BCH: $g geometries)"
         else
