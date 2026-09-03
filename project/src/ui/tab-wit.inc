@@ -281,6 +281,25 @@
 		" This is how Wii U images are converted between WUD and WUX;"
 		" the output format is taken from the extension of DEST." },
 
+  { T_DEF_CMD,	"RIIVOLUTION",	"RIIVOLUTION|RIIV|RII",
+		    "wit RIIVOLUTION [options] source xml [dest]\n"
+		    "wit RIIVOLUTION [options] xml",
+		"Apply a Riivolution mod XML and external patch files to a Wii disc"
+		" image or extracted filesystem, and build a patched output image"
+		" (ISO, WBFS, WDF, etc.) or patch the FST directory in place."
+		"\\1 source: game image (ISO/WBFS/WDF/etc.) or extracted FST directory."
+		"\\1 xml: Riivolution XML file (.xml)."
+		"\\1 dest: optional output image path or directory." },
+
+  { T_DEF_CMD,	"BRAWLBUILDER",	"BRAWLBUILDER|BRAWL-BUILDER|BRAWL",
+		    "wit BRAWLBUILDER [options] source [mod_folder] [dest]\n"
+		    "wit BRAWLBUILDER [options] source [dest] --mod <dir>",
+		"Build a modded Super Smash Bros. Brawl disc image from a Gecko-based"
+		" mod (Project M, Project+, Brawl-, PM Remix, etc.) using BrawlBuilder pipeline."
+		"\\1 source: clean Brawl image (RSBE01.wbfs/iso) or extracted ssbb.d directory."
+		"\\1 mod_folder: directory containing mod files (e.g. pf/ or projectm/)."
+		"\\1 dest: output image path (.wbfs, .iso) or directory." },
+
   { T_DEF_CMD,	"COPY",		"COPY|CP",
 		    "wit COPY source dest\n"
 		    "wit COPY [[--source|--recurse] source]... [-d|-D] dest",
@@ -1446,6 +1465,82 @@
 		"file",
 		"Define a patch file." },
 
+  { T_OPT_CP,	"RIIV_ROOT",	"root",
+		"dir",
+		"Define external files root directory for Riivolution patches"
+		" (defaults to mod directory or SD card root)." },
+
+  { T_OPT_CMP,	"RIIV_CHOICE",	"choice|select",
+		"spec",
+		"Select Riivolution option choices by index or name (e.g."
+		" 'Option=Choice' or comma-separated list)." },
+
+  { T_OPT_C,	"RIIV_ALL",	"all-choices|allchoices",
+		0,
+		"Enable all single choices or first available choices for options"
+		" without defaults." },
+
+  { T_OPT_C,	"RIIV_DEFAULT",	"default-choices|defaultchoices",
+		0,
+		"Use only the default choices declared in the Riivolution XML." },
+
+  { T_OPT_C,	"RIIV_INFO",	"info",
+		0,
+		"Inspect the Riivolution XML and display sections, options,"
+		" choices, game IDs, and patch summary." },
+
+  { T_OPT_C,	"RIIV_IGNORE_REGIONS", "ignore-regions|ignoreregions",
+		0,
+		"Ignore game ID and region filter mismatches." },
+
+  { T_OPT_CP,	"RIIV_SAVE_XML", "save-xml|savexml",
+		"file",
+		"Save the resolved/preprocessed Riivolution XML to a file." },
+
+  { T_OPT_C,	"KEEP_TEMP",	"keep-temp|keeptemp",
+		0,
+		"Do not delete temporary extracted files after building." },
+
+  { T_OPT_CP,	"RIIV_XML",	"riivolution|riiv",
+		"xml",
+		"Apply a Riivolution mod XML and patch files when copying." },
+
+  { T_OPT_CMP,	"RIIV_GCT",	"gct|add-section",
+		"file",
+		"Inject GCT/GCH cheat codes into main.dol using wstrt." },
+
+  { T_OPT_CP,	"RIIV_DOL",	"dol",
+		"file",
+		"Use custom main.dol file as base executable replacement." },
+
+  { T_OPT_C,	"RIIV_INTERACTIVE", "interactive",
+		0,
+		"Prompt interactively for mod choices, 6-character Game ID, and Title." },
+
+  { T_OPT_CP,	"BRAWL_MOD",	"mod|mod-folder|modfolder",
+		"dir",
+		"Specify the Brawl mod folder (e.g. pf/ or projectm/)." },
+
+  { T_OPT_C,	"BRAWL_REMOVE_SSE", "remove-sse|removesse|no-sse|nosse",
+		0,
+		"Remove Subspace Emissary files to significantly shrink output image." },
+
+  { T_OPT_CP,	"BRAWL_BANNER",	"banner",
+		"file",
+		"Specify custom opening.bnr banner file." },
+
+  { T_OPT_C,	"BRAWL_NO_GCT_PATCH", "no-gct-patch|nogctpatch",
+		0,
+		"Disable automatic patching of GCT codes." },
+
+  { T_OPT_C,	"BRAWL_NO_ALT_PAD", "no-alt-pad|noaltpad",
+		0,
+		"Disable padding base stage files to match largest alternate stage." },
+
+  { T_OPT_CP,	"BRAWL_OFFSET",	"offset",
+		"hex",
+		"Memory offset in main.dol for GCT section (default: 0x80570000)." },
+
   //
   //---------- wit GROUP TITLES ----------
 
@@ -2179,6 +2274,74 @@
   { T_COPT_M,	"VERBOSE",	0,0,0 },
   { T_COPT_M,	"TEST",		0,0,0 },
   { T_COPT,	"OVERWRITE",	0,0,0 },
+
+  //---------- COMMAND wit RIIVOLUTION ----------
+
+  { T_CMD_BEG,	"RIIVOLUTION",	0,0,0 },
+
+  { T_COPT,	"QUIET",	0,0,0 },
+  { T_COPT_M,	"VERBOSE",	0,0,0 },
+  { T_COPT_M,	"LONG",		0,0,0 },
+  { T_COPT_M,	"TEST",		0,0,0 },
+  { T_COPT,	"OVERWRITE",	0,0,0 },
+  { T_COPT,	"DEST",		0,0,0 },
+  { T_COPT,	"DEST2",	0,0,0 },
+  { T_COPT,	"SOURCE",	0,0,0 },
+
+  { T_SEP_OPT,	0,0,0,0 },
+  { T_COPT,	"RIIV_ROOT",	0,0,0 },
+  { T_COPT_M,	"RIIV_CHOICE",	0,0,0 },
+  { T_COPT,	"RIIV_ALL",	0,0,0 },
+  { T_COPT,	"RIIV_DEFAULT",	0,0,0 },
+  { T_COPT,	"RIIV_INFO",	0,0,0 },
+  { T_COPT,	"RIIV_IGNORE_REGIONS", 0,0,0 },
+  { T_COPT,	"RIIV_SAVE_XML",0,0,0 },
+  { T_COPT,	"KEEP_TEMP",	0,0,0 },
+  { T_COPT_M,	"RIIV_GCT",	0,0,0 },
+  { T_COPT,	"RIIV_DOL",	0,0,0 },
+  { T_COPT,	"RIIV_INTERACTIVE", 0,0,0 },
+
+  { T_SEP_OPT,	0,0,0,0 },
+  { T_COPT,	"NAME",		0,0,0 },
+  { T_COPT,	"ID",		0,0,0 },
+  { T_COPT,	"DISC_ID",	0,0,0 },
+  { T_COPT,	"TT_ID",	0,0,0 },
+
+  { T_SEP_OPT,	0,0,0,0 },
+  { T_COPY_GRP,	"OUTMODE_FST",	0,0,0 },
+
+  //---------- COMMAND wit BRAWLBUILDER ----------
+
+  { T_CMD_BEG,	"BRAWLBUILDER",	0,0,0 },
+
+  { T_COPT,	"QUIET",	0,0,0 },
+  { T_COPT_M,	"VERBOSE",	0,0,0 },
+  { T_COPT_M,	"LONG",		0,0,0 },
+  { T_COPT_M,	"TEST",		0,0,0 },
+  { T_COPT,	"OVERWRITE",	0,0,0 },
+  { T_COPT,	"DEST",		0,0,0 },
+  { T_COPT,	"DEST2",	0,0,0 },
+  { T_COPT,	"SOURCE",	0,0,0 },
+
+  { T_SEP_OPT,	0,0,0,0 },
+  { T_COPT,	"BRAWL_MOD",	0,0,0 },
+  { T_COPT_M,	"RIIV_GCT",	0,0,0 },
+  { T_COPT,	"BRAWL_REMOVE_SSE", 0,0,0 },
+  { T_COPT,	"BRAWL_BANNER",	0,0,0 },
+  { T_COPT,	"BRAWL_NO_GCT_PATCH", 0,0,0 },
+  { T_COPT,	"BRAWL_NO_ALT_PAD", 0,0,0 },
+  { T_COPT,	"BRAWL_OFFSET",	0,0,0 },
+  { T_COPT,	"RIIV_INTERACTIVE", 0,0,0 },
+  { T_COPT,	"KEEP_TEMP",	0,0,0 },
+
+  { T_SEP_OPT,	0,0,0,0 },
+  { T_COPT,	"NAME",		0,0,0 },
+  { T_COPT,	"ID",		0,0,0 },
+  { T_COPT,	"DISC_ID",	0,0,0 },
+  { T_COPT,	"TT_ID",	0,0,0 },
+
+  { T_SEP_OPT,	0,0,0,0 },
+  { T_COPY_GRP,	"OUTMODE_FST",	0,0,0 },
 
   //---------- COMMAND wit COPY ----------
 

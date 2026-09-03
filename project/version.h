@@ -24,10 +24,10 @@
 #define REVISION_NUM	8638
 #define REVISION_NEXT	8638
 
-#define BINTIME		1787109060
-#define DATE		"2026-08-18"
-#define TIME		"22:11:00"
-#define DATETIME	"2026-08-18 22:11:00"
+#define BINTIME		1788391957
+#define DATE		"2026-09-02"
+#define TIME		"18:32:37"
+#define DATETIME	"2026-09-02 18:32:37"
 
 #define INSTALL_PATH	"/usr/local"
 #define SHARE_PATH	"/usr/local/share/wit"

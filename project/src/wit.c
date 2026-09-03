@@ -65,6 +65,10 @@
 #include "wbfs-interface.h"
 #include "match-pattern.h"
 #include "crypt.h"
+#include "x-riivolution.h"
+#include "x-brawl.h"
+
+static RiivolutionOptions_t riiv_options;
 
 #include "ui-wit.c"
 #include "logo.inc"
@@ -3124,6 +3128,165 @@ static enumError cmd_xconvert()
     return XConvert(source,dest,XF_UNKNOWN);
 }
 
+//-----------------------------------------------------------------------------
+
+static enumError cmd_riivolution()
+{
+    if ( verbose >= 0 )
+	print_title(stdout);
+
+    riiv_options.verbose = verbose;
+    riiv_options.testmode = testmode;
+    riiv_options.overwrite = OptionUsed[OPT_OVERWRITE] != 0;
+    riiv_options.custom_id = modify_id;
+    riiv_options.custom_name = modify_name;
+
+    if (OptionUsed[OPT_FST])
+	riiv_options.output_oft = OFT_FST;
+    else if (OptionUsed[OPT_ISO])
+	riiv_options.output_oft = OFT_PLAIN;
+    else if (OptionUsed[OPT_WBFS])
+	riiv_options.output_oft = OFT_WBFS;
+    else if (OptionUsed[OPT_WDF])
+	riiv_options.output_oft = OFT__WDF_DEF;
+    else if (OptionUsed[OPT_WIA])
+	riiv_options.output_oft = OFT_WIA;
+    else if (OptionUsed[OPT_CISO])
+	riiv_options.output_oft = OFT_CISO;
+    else if (output_file_type != OFT_UNKNOWN)
+	riiv_options.output_oft = output_file_type;
+
+    ParamList_t *p = first_param;
+    int n_params = 0;
+    while (p)
+    {
+	n_params++;
+	p = p->next;
+    }
+
+    if (n_params == 0 && !riiv_options.xml_file)
+    {
+	return ERROR0(ERR_SYNTAX, "wit RIIVOLUTION requires XML file and game image / FST source.\n"
+				  "Usage: wit RIIVOLUTION [options] source xml [dest]\n"
+				  "       wit RIIVOLUTION [options] xml\n");
+    }
+
+    if (n_params == 1)
+    {
+	ccp arg = first_param->arg;
+	size_t len = strlen(arg);
+	if ((len > 4 && !strcasecmp(arg + len - 4, ".xml")) || riiv_options.info_only)
+	{
+	    riiv_options.xml_file = arg;
+	    riiv_options.info_only = true;
+	}
+	else
+	{
+	    riiv_options.source_image = arg;
+	}
+    }
+    else if (n_params >= 2)
+    {
+	ccp p1 = first_param->arg;
+	ccp p2 = first_param->next->arg;
+	size_t len1 = strlen(p1);
+	size_t len2 = strlen(p2);
+
+	if (len1 > 4 && !strcasecmp(p1 + len1 - 4, ".xml"))
+	{
+	    riiv_options.xml_file = p1;
+	    riiv_options.source_image = p2;
+	}
+	else if (len2 > 4 && !strcasecmp(p2 + len2 - 4, ".xml"))
+	{
+	    riiv_options.source_image = p1;
+	    riiv_options.xml_file = p2;
+	}
+	else
+	{
+	    riiv_options.source_image = p1;
+	    riiv_options.xml_file = p2;
+	}
+
+	if (n_params >= 3)
+	{
+	    riiv_options.dest_path = first_param->next->next->arg;
+	}
+    }
+
+    if (!riiv_options.dest_path && opt_dest)
+	riiv_options.dest_path = opt_dest;
+
+    if (!riiv_options.info_only && (!riiv_options.xml_file || !riiv_options.source_image))
+    {
+	return ERROR0(ERR_SYNTAX, "Riivolution builder requires both a source image/FST and a Riivolution XML.\n"
+				  "Usage: wit RIIVOLUTION [options] source xml [dest]\n"
+				  "       wit RIIVOLUTION [options] xml\n");
+    }
+
+    return RiivolutionCommand(&riiv_options);
+}
+
+//
+///////////////////////////////////////////////////////////////////////////////
+///////////////			command BRAWLBUILDER		///////////////
+///////////////////////////////////////////////////////////////////////////////
+
+static enumError cmd_brawlbuilder()
+{
+    if ( verbose >= 0 )
+	print_title(stdout);
+
+    brawl_options.test_mode = testmode != 0;
+    brawl_options.overwrite = OptionUsed[OPT_OVERWRITE] != 0;
+    brawl_options.keep_temp = OptionUsed[OPT_KEEP_TEMP] != 0;
+    if (modify_id)
+	brawl_options.custom_id = modify_id;
+    if (modify_name)
+	brawl_options.custom_name = modify_name;
+
+    ParamList_t *p = first_param;
+    int n_params = 0;
+    while (p)
+    {
+	n_params++;
+	p = p->next;
+    }
+
+    if (n_params == 0 && !brawl_options.source_image)
+    {
+	return ERROR0(ERR_SYNTAX, "wit BRAWLBUILDER requires source Brawl image and mod folder.\n"
+				  "Usage: wit BRAWLBUILDER [options] source [mod_folder] [dest]\n"
+				  "       wit BRAWLBUILDER [options] source [dest] --mod <dir>\n");
+    }
+
+    if (n_params == 1)
+    {
+	brawl_options.source_image = first_param->arg;
+    }
+    else if (n_params == 2)
+    {
+	brawl_options.source_image = first_param->arg;
+	if (!brawl_options.mod_folder)
+	    brawl_options.mod_folder = first_param->next->arg;
+	else if (!brawl_options.dest_path)
+	    brawl_options.dest_path = first_param->next->arg;
+    }
+    else if (n_params >= 3)
+    {
+	brawl_options.source_image = first_param->arg;
+	if (!brawl_options.mod_folder)
+	    brawl_options.mod_folder = first_param->next->arg;
+	if (!brawl_options.dest_path)
+	    brawl_options.dest_path = first_param->next->next->arg;
+    }
+
+    if (!brawl_options.dest_path && opt_dest)
+	brawl_options.dest_path = opt_dest;
+
+    return BrawlCommand(&brawl_options);
+}
+
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			command EXTRACT			///////////////
@@ -4313,6 +4476,30 @@ enumError CheckOptions ( int argc, char ** argv, bool is_env )
 	case GO_DISC_SIZE:	err += ScanOptDiscSize(optarg); break;
 	case GO_OVERLAY:	break;
 	case GO_PATCH_FILE:	opt_patch_file = optarg; break;
+	case GO_RIIV_ROOT:	riiv_options.root_dir = optarg; break;
+	case GO_RIIV_CHOICE:	AppendStringField(&riiv_options.choices,optarg,false); break;
+	case GO_RIIV_ALL:	riiv_options.all_choices = true; break;
+	case GO_RIIV_DEFAULT:	riiv_options.default_choices = true; break;
+	case GO_RIIV_INFO:	riiv_options.info_only = true; break;
+	case GO_RIIV_IGNORE_REGIONS: riiv_options.ignore_regions = true; break;
+	case GO_RIIV_SAVE_XML:	riiv_options.save_xml_path = optarg; break;
+	case GO_KEEP_TEMP:	riiv_options.keep_temp = true; break;
+	case GO_RIIV_XML:	riiv_options.xml_file = optarg; break;
+	case GO_RIIV_GCT:
+	    AppendStringField(&riiv_options.gct_files,optarg,false);
+	    brawl_options.gct_file = optarg;
+	    break;
+	case GO_RIIV_DOL:	riiv_options.custom_dol = optarg; break;
+	case GO_RIIV_INTERACTIVE:
+	    riiv_options.interactive = true;
+	    brawl_options.interactive = true;
+	    break;
+	case GO_BRAWL_MOD:	brawl_options.mod_folder = optarg; break;
+	case GO_BRAWL_REMOVE_SSE: brawl_options.remove_sse = true; break;
+	case GO_BRAWL_BANNER:	brawl_options.banner_file = optarg; break;
+	case GO_BRAWL_NO_GCT_PATCH: brawl_options.no_gct_patch = true; break;
+	case GO_BRAWL_NO_ALT_PAD: brawl_options.no_alt_pad = true; break;
+	case GO_BRAWL_OFFSET:	brawl_options.gct_offset = (u32)strtoul(optarg, NULL, 16); break;
 	case GO_DEST:		SetDest(optarg,false); break;
 	case GO_DEST2:		SetDest(optarg,true); break;
 
@@ -4580,6 +4767,8 @@ enumError CheckCommand ( int argc, char ** argv )
 	case CMD_XEXTRACT:	err = cmd_xextract(); break;
 	case CMD_XCREATE:	err = cmd_xcreate(); break;
 	case CMD_XCONVERT:	err = cmd_xconvert(); break;
+	case CMD_RIIVOLUTION:	err = cmd_riivolution(); break;
+	case CMD_BRAWLBUILDER:	err = cmd_brawlbuilder(); break;
 	case CMD_EXTRACT:	err = cmd_extract(); break;
 	case CMD_COPY:		err = cmd_copy(); break;
 	case CMD_CONVERT:	err = cmd_convert(); break;
@@ -4617,6 +4806,7 @@ int main ( int argc, char ** argv )
 
     InitializeStringField(&source_list);
     InitializeStringField(&recurse_list);
+    InitRiivolutionOptions(&riiv_options);
 
 
     //----- process arguments
