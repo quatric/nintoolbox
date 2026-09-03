@@ -431,7 +431,7 @@ if [ -n "$f_ffnt" ]; then
   [ "$g" -gt 0 ] 2>/dev/null && ok "BFFNT (Wii U) -> structure XML ($f_ffnt)" \
     || no "BFFNT (Wii U) -> structure XML" "no tglp from $f_ffnt"
   "$B/wimgt" DECODE "$f_ffnt" --dest /tmp/_r_bffnt.png --overwrite >/dev/null 2>&1
-  psz=$(stat -c%s /tmp/_r_bffnt.png 2>/dev/null || echo 0)
+  psz=$(fsize_of /tmp/_r_bffnt.png); psz=${psz:-0}
   [ "$psz" -gt 100 ] 2>/dev/null && ok "BFFNT (Wii U) -> PNG ($f_ffnt)" \
     || no "BFFNT (Wii U) -> PNG" "decode produced no PNG (size=$psz)"
 else
@@ -444,7 +444,7 @@ if [ -n "$f_cfnt" ]; then
   [ "$g" -gt 0 ] 2>/dev/null && ok "BCFNT (3DS) -> structure XML ($f_cfnt)" \
     || no "BCFNT (3DS) -> structure XML" "no tglp from $f_cfnt"
   "$B/wimgt" DECODE "$f_cfnt" --dest /tmp/_r_bcfnt.png --overwrite >/dev/null 2>&1
-  psz=$(stat -c%s /tmp/_r_bcfnt.png 2>/dev/null || echo 0)
+  psz=$(fsize_of /tmp/_r_bcfnt.png); psz=${psz:-0}
   [ "$psz" -gt 100 ] 2>/dev/null && ok "BCFNT (3DS) -> PNG ($f_cfnt)" \
     || no "BCFNT (3DS) -> PNG" "decode produced no PNG (size=$psz)"
 else
