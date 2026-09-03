@@ -7644,12 +7644,12 @@ static void cleanup_extracted_artifacts (ccp root, bool is_root)
 				if (stat (cand, &st_c) == 0 && S_ISREG (st_c.st_mode))
 					unlink (path);
 			}
-			if (nlen > 10
-				&& (!strcasecmp (de->d_name + nlen - 10, ".bflyt.xml")
-					|| !strcasecmp (de->d_name + nlen - 10, ".brfnt.xml")))
+			// BFLYT/BCLYT/BRLYT/BRLAN (layout/animation) decode to *.tflyt,
+			// not *.xml -- see decode_bflyt_if_possible()/cmd_convert().
+			if (nlen > 6 && !strcasecmp (de->d_name + nlen - 6, ".tflyt"))
 			{
 				char cand[PATH_MAX];
-				snprintf (cand, sizeof (cand), "%.*s", (int)(strlen (path) - 4), path);
+				snprintf (cand, sizeof (cand), "%.*s", (int)(strlen (path) - 6), path);
 				struct stat st_c;
 				if (stat (cand, &st_c) == 0 && S_ISREG (st_c.st_mode))
 					unlink (path);
@@ -7839,11 +7839,33 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 										// (unmodified preview)
 			static const char *model_exts[] = { ".brres", ".bmd", ".bch", ".bcres", ".bfres",
 				".mdl0", ".hsf", ".msh", ".mod", 0 };
+
+			// wmdlt DECODE names a multi-model archive's per-model exports
+			// "<archive-stem>.<modelname>.glb" (see wmdlt.c: "%s.%s.glb"). A plain
+			// "<glb-stem><native-ext>" lookup then never matches the single shared
+			// native sibling file (e.g. "foo.brres"), so every model past the first
+			// looked unowned and fell through to the "create a new Switch BFRES"
+			// fallback below -- silently turning BRRES models into bogus BFRES files.
+			// Try the direct stem first (unchanged single-model behaviour), and only
+			// if that finds nothing, retry with the ".<modelname>" suffix stripped.
+			char glb_stem[PATH_MAX];
+			snprintf (glb_stem, sizeof (glb_stem), "%.*s", (int)(strlen (path) - 4), path);
+			const char *model_bases[3] = { glb_stem, 0, 0 };
+			char glb_multi_stem[PATH_MAX];
+			ccp glb_last_dot = strrchr (glb_stem, '.');
+			if (glb_last_dot && glb_last_dot != glb_stem)
+			{
+				snprintf (glb_multi_stem, sizeof (glb_multi_stem), "%.*s",
+					(int)(glb_last_dot - glb_stem), glb_stem);
+				model_bases[1] = glb_multi_stem;
+			}
+
+			for (int b = 0; model_bases[b] && !handled && !found_sibling; b++)
 			for (int k = 0; model_exts[k]; k++)
 			{
 				char parent_model[PATH_MAX];
-				snprintf (parent_model, sizeof (parent_model), "%.*s%s", (int)(strlen (path) - 4),
-					path, model_exts[k]);
+				snprintf (parent_model, sizeof (parent_model), "%s%s", model_bases[b],
+					model_exts[k]);
 				struct stat st_m;
 				if (!stat (parent_model, &st_m) && S_ISREG (st_m.st_mode))
 				{
