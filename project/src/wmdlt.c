@@ -290,6 +290,92 @@ static enumError cmd_cat ()
 
 //
 ///////////////////////////////////////////////////////////////////////////////
+///////////////	  BRRES/archive -> GLB helper (DECODE)			///////////////
+///////////////////////////////////////////////////////////////////////////////
+
+// `wmdlt DECODE some.brres --dest out.glb` used to hand the whole archive's
+// raw bytes straight to ScanRawDataMDL()/ParseMDL0(), both of which only
+// recognize a bare MDL0 file (FF_MDL) at offset 0 -- so it failed every
+// single BRRES with "No MDL file", even though the archive plainly contains
+// one (or more) MDL0 sub-files, exactly like `wszst xx` extracts and
+// converts correctly via its own separate export_models_tree() path. Walk
+// the archive here the same way and export each MDL0 found; the common case
+// (exactly one model) writes straight to the requested --dest, and the rare
+// multi-model BRRES gets one file per model, disambiguated by its NW4R name,
+// instead of silently discarding every model past the first.
+typedef struct mdl0_export_ctx_t
+{
+	ccp dest;
+	uint count;
+	enumError err;
+
+} mdl0_export_ctx_t;
+
+static int iter_export_mdl0_glb (struct szs_iterator_t *it, bool term)
+{
+	if (term || it->is_dir)
+		return 0;
+
+	mdl0_export_ctx_t *ctx = it->param;
+	const u8 *data = it->szs->data + it->off;
+	// [[analyse-magic]]
+	if (GetByMagicFF (data, it->size, it->size) != FF_MDL)
+		return 0;
+
+	model_t *model = ParseMDL0 (data, it->size);
+	if (!model)
+	{
+		ctx->err = ERR_INVALID_DATA;
+		return 0;
+	}
+
+	char path[PATH_MAX];
+	if (!ctx->count)
+		snprintf (path, sizeof (path), "%s", ctx->dest);
+	else
+	{
+		char base[PATH_MAX];
+		snprintf (base, sizeof (base), "%s", ctx->dest);
+		char *dot = strrchr (base, '.');
+		if (dot)
+			*dot = 0;
+		ccp name = *it->path ? it->path : "model";
+		ccp slash = strrchr (name, '/');
+		if (slash)
+			name = slash + 1;
+		snprintf (path, sizeof (path), "%s.%s.glb", base, name);
+	}
+
+	if (verbose >= 0)
+		fprintf (stdlog, "%sEXPORT MODEL:%s -> GLB:%s\n", verbose > 0 ? "\n" : "",
+			*it->path ? it->path : ctx->dest, path);
+
+	ExportModelToGLB (model, path);
+	FreeModel (model);
+	ctx->count++;
+	return 0;
+}
+
+// Returns true when 'raw' was handled here (an archive, whether or not it
+// actually contained a model -- callers must not fall through to the
+// bare-MDL0 path below either way).
+static bool export_mdl0_from_archive (raw_data_t *raw, ccp dest, enumError *err)
+{
+	if (!IsArchiveFF (raw->fform))
+		return false;
+
+	szs_file_t szs;
+	AssignSZS (&szs, true, raw->data, raw->data_size, false, raw->fform, raw->fname);
+	mdl0_export_ctx_t ctx = { dest, 0, ERR_OK };
+	IterateFilesParSZS (&szs, iter_export_mdl0_glb, &ctx, false, false, false, -1, -1, SORT_NONE);
+	ResetSZS (&szs);
+
+	*err = ctx.count ? ctx.err : ERROR0 (ERR_INVALID_DATA, "No MDL file: %s\n", raw->fname);
+	return true;
+}
+
+//
+///////////////////////////////////////////////////////////////////////////////
 ///////////////		  command encode/decode			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -666,6 +752,17 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				}
 			}
 			continue;
+		}
+
+		if (is_model_dest && !testmode)
+		{
+			enumError archive_err;
+			if (export_mdl0_from_archive (&raw, dest, &archive_err))
+			{
+				if (archive_err > ERR_WARNING)
+					return archive_err;
+				continue;
+			}
 		}
 
 		mdl_t mdl;
