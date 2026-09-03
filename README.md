@@ -216,6 +216,7 @@ When extracting or repacking game trees with `wszst xx` / `wszst create`, unsupp
 
 ## Documentation & Guides
 
+- **[Command Reference & New Tools Guide](docs/COMMANDS.md)**: Complete guide to all new standalone tools, wszst subcommands, and extended CLI workflows.
 - **[Workflow & Modding Guide](docs/WORKFLOWS.md)**: Recursive game directory tree traversal, asset modification, and incremental repacking.
 - **[Format Specifications & Technical Reference](docs/FORMATS.md)**: Deep technical index of all supported formats.
 - **[Official Wiimms SZS Tools Documentation](https://szs.wiimm.de/)**: Original command reference, parameters, and documentation.
