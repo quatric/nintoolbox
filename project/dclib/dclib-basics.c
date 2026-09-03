@@ -6206,10 +6206,10 @@ const KeywordTab_t *ScanKeywordEx (int *res_abbrev, // NULL or pointer to result
 				key_ct = ct;
 				break;
 			}
-			name2_abbrev = !memcmp (ct->name2, key_buf, key_len);
+			name2_abbrev = !strncmp (ct->name2, key_buf, key_len);
 		}
 
-		if (name2_abbrev && !memcmp (ct->name1, key_buf, strlen (ct->name1)))
+		if (name2_abbrev && !strncmp (ct->name1, key_buf, strlen (ct->name1)))
 		{
 			if (!favor_ct)
 			{
@@ -6226,7 +6226,7 @@ const KeywordTab_t *ScanKeywordEx (int *res_abbrev, // NULL or pointer to result
 		if (*key_buf == '_') // no abbreviations for commands beginning with '_'
 			continue;
 
-		if (name2_abbrev || !memcmp (ct->name1, key_buf, key_len))
+		if (name2_abbrev || !strncmp (ct->name1, key_buf, key_len))
 		{
 			if (!abbrev_ct)
 			{

@@ -84,12 +84,40 @@
 #undef IS_BIG_ENDIAN
 #undef IS_LITTLE_ENDIAN
 
+// __BYTE_ORDER/__BIG_ENDIAN/__LITTLE_ENDIAN (single leading underscore) are
+// glibc's <endian.h> macros and are simply undefined on non-glibc platforms
+// (macOS/BSD libc, some other clang toolchains). The C preprocessor treats
+// an undefined identifier in an #if as 0, so on those platforms the old
+// "#if __BYTE_ORDER == __BIG_ENDIAN" test silently became "0 == 0", which
+// is always true -- forcing IS_BIG_ENDIAN=1 even on little-endian hosts
+// (e.g. every macOS Intel/Apple Silicon build) and making every h2nl/n2hl
+// byte-swap in this file's callers a no-op where a swap was required.
+// __BYTE_ORDER__/__ORDER_BIG_ENDIAN__/__ORDER_LITTLE_ENDIAN__ (double
+// leading+trailing underscore) are compiler builtins defined by both GCC
+// and Clang on every target, so prefer those and only fall back to the
+// glibc names when the builtins aren't available.
+#if defined(__BYTE_ORDER__) && defined(__ORDER_BIG_ENDIAN__) && defined(__ORDER_LITTLE_ENDIAN__)
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define IS_BIG_ENDIAN 1
+#define IS_LITTLE_ENDIAN 0
+#elif __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#define IS_BIG_ENDIAN 0
+#define IS_LITTLE_ENDIAN 1
+#else
+#define IS_BIG_ENDIAN 0
+#define IS_LITTLE_ENDIAN 0
+#endif
+#elif defined(__BYTE_ORDER) && defined(__BIG_ENDIAN) && defined(__LITTLE_ENDIAN)
 #if __BYTE_ORDER == __BIG_ENDIAN
 #define IS_BIG_ENDIAN 1
 #define IS_LITTLE_ENDIAN 0
 #elif __BYTE_ORDER == __LITTLE_ENDIAN
 #define IS_BIG_ENDIAN 0
 #define IS_LITTLE_ENDIAN 1
+#else
+#define IS_BIG_ENDIAN 0
+#define IS_LITTLE_ENDIAN 0
+#endif
 #else
 #define IS_BIG_ENDIAN 0
 #define IS_LITTLE_ENDIAN 0

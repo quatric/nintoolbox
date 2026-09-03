@@ -180,7 +180,12 @@ int FindLowest1BitLE (cvp addr, uint size);
 int FindHighest0BitLE (cvp addr, uint size);
 int FindHighest1BitLE (cvp addr, uint size);
 
-#if __BYTE_ORDER == 1234
+// See dclib-types.h's IS_LITTLE_ENDIAN comment: __BYTE_ORDER is a glibc-only
+// macro and is undefined (== 0 in an #if) on macOS/BSD libc, which used to
+// make "__BYTE_ORDER == 1234" silently false there and always select the
+// big-endian bit-search functions even on little-endian hosts. Reuse the
+// already-portably-computed IS_LITTLE_ENDIAN from dclib-types.h instead.
+#if IS_LITTLE_ENDIAN
 #define FindLowest0Bit FindLowest0BitLE
 #define FindLowest1Bit FindLowest1BitLE
 #define FindHighest0Bit FindHighest0BitLE
