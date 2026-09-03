@@ -15026,6 +15026,23 @@ static enumError decode_bflyt_if_possible (ccp arg)
 	if (export_count <= 0)
 		return ERR_NOTHING_TO_DO;
 
+	u8 magic[4];
+	FILE *probe = fopen (arg, "rb");
+	if (!probe)
+		return ERR_NOT_EXISTS;
+	const size_t n_magic = fread (magic, 1, sizeof (magic), probe);
+	fclose (probe);
+
+	const bool is_lyt_magic = n_magic == sizeof (magic)
+		&& (!memcmp (magic, "FLYT", 4) || !memcmp (magic, "CLYT", 4)
+			|| !memcmp (magic, "RLYT", 4) || !memcmp (magic, "RLAN", 4));
+	const bool is_lyt_ext = is_ext (arg, ".bflyt") || is_ext (arg, ".bclyt")
+		|| is_ext (arg, ".brlyt") || is_ext (arg, ".brlan")
+		|| is_ext (arg, ".flyt") || is_ext (arg, ".clyt");
+
+	if (!is_lyt_magic && !is_lyt_ext)
+		return ERR_NOTHING_TO_DO;
+
 	raw_data_t raw;
 	InitializeRawData (&raw);
 	enumError err = LoadRawData (&raw, false, arg, 0, false, 0);

@@ -54,6 +54,7 @@
 #include "lib-zstd.h"
 #include "lib-checksum.h"
 #include "lib-nintendo.h"
+#include "lib-lz10.h"
 #include "dclib-utf8.h"
 #include "crypt.h"
 
@@ -894,6 +895,128 @@ enumError DecompressSZS (szs_file_t *szs, // valid SZS source, use cdata
 			return DecompressZLIB (szs, rm_compressed);
 		case FF_ZSTD:
 			return DecompressZSTD (szs, rm_compressed);
+		case FF_CMP:
+		{
+			u8 *data = 0;
+			uint size = 0;
+			enumError err = DecodeLZ10LZ11 (&data, &size, szs->cdata, szs->csize);
+			if (err || !data)
+				return err ? err : ERR_INVALID_DATA;
+			szs->data = data;
+			szs->size = size;
+			szs->file_size = size;
+			szs->data_alloced = true;
+			szs->fform_arch = szs->fform_current = GetByMagicFF (data, size, size);
+			szs->ff_attrib = GetAttribFF (szs->fform_arch);
+			szs->ff_version = GetVersionFF (szs->fform_arch, szs->data, szs->size, 0);
+			ClearContainerSZS (szs);
+			if (rm_compressed)
+				ClearCompressedSZS (szs);
+			return ERR_OK;
+		}
+		case FF_DIFF:
+		{
+			u8 *data = 0;
+			uint size = 0;
+			enumError err = DecodeDiff8 (&data, &size, szs->cdata, szs->csize);
+			if (err && szs->csize >= 4 && (szs->cdata[0] == 0x81 || szs->cdata[0] == 0x82))
+				err = DecodeDiff16 (&data, &size, szs->cdata, szs->csize);
+			if (err || !data)
+				return err ? err : ERR_INVALID_DATA;
+			szs->data = data;
+			szs->size = size;
+			szs->file_size = size;
+			szs->data_alloced = true;
+			szs->fform_arch = szs->fform_current = GetByMagicFF (data, size, size);
+			szs->ff_attrib = GetAttribFF (szs->fform_arch);
+			szs->ff_version = GetVersionFF (szs->fform_arch, szs->data, szs->size, 0);
+			ClearContainerSZS (szs);
+			if (rm_compressed)
+				ClearCompressedSZS (szs);
+			return ERR_OK;
+		}
+		case FF_LZOVL:
+		{
+			u8 *data = 0;
+			uint size = 0;
+			enumError err = DecodeLZOvl (&data, &size, szs->cdata, szs->csize);
+			if (err && (szs->cdata[0] == 0x80 || szs->cdata[0] == 0x81 || szs->cdata[0] == 0x82))
+			{
+				err = DecodeDiff8 (&data, &size, szs->cdata, szs->csize);
+				if (err)
+					err = DecodeDiff16 (&data, &size, szs->cdata, szs->csize);
+			}
+			if (err || !data)
+				return err ? err : ERR_INVALID_DATA;
+			szs->data = data;
+			szs->size = size;
+			szs->file_size = size;
+			szs->data_alloced = true;
+			szs->fform_arch = szs->fform_current = GetByMagicFF (data, size, size);
+			szs->ff_attrib = GetAttribFF (szs->fform_arch);
+			szs->ff_version = GetVersionFF (szs->fform_arch, szs->data, szs->size, 0);
+			ClearContainerSZS (szs);
+			if (rm_compressed)
+				ClearCompressedSZS (szs);
+			return ERR_OK;
+		}
+		case FF_PUCRUNCH:
+		{
+			u8 *data = 0;
+			uint size = 0;
+			enumError err = DecodePuCrunch (&data, &size, szs->cdata, szs->csize);
+			if (err || !data)
+				return err ? err : ERR_INVALID_DATA;
+			szs->data = data;
+			szs->size = size;
+			szs->file_size = size;
+			szs->data_alloced = true;
+			szs->fform_arch = szs->fform_current = GetByMagicFF (data, size, size);
+			szs->ff_attrib = GetAttribFF (szs->fform_arch);
+			szs->ff_version = GetVersionFF (szs->fform_arch, szs->data, szs->size, 0);
+			ClearContainerSZS (szs);
+			if (rm_compressed)
+				ClearCompressedSZS (szs);
+			return ERR_OK;
+		}
+		case FF_VLX:
+		{
+			u8 *data = 0;
+			uint size = 0;
+			enumError err = DecodeVLX (&data, &size, szs->cdata, szs->csize);
+			if (err || !data)
+				return err ? err : ERR_INVALID_DATA;
+			szs->data = data;
+			szs->size = size;
+			szs->file_size = size;
+			szs->data_alloced = true;
+			szs->fform_arch = szs->fform_current = GetByMagicFF (data, size, size);
+			szs->ff_attrib = GetAttribFF (szs->fform_arch);
+			szs->ff_version = GetVersionFF (szs->fform_arch, szs->data, szs->size, 0);
+			ClearContainerSZS (szs);
+			if (rm_compressed)
+				ClearCompressedSZS (szs);
+			return ERR_OK;
+		}
+		case FF_LZX:
+		{
+			u8 *data = 0;
+			uint size = 0;
+			enumError err = DecodeLZX (&data, &size, szs->cdata, szs->csize);
+			if (err || !data)
+				return err ? err : ERR_INVALID_DATA;
+			szs->data = data;
+			szs->size = size;
+			szs->file_size = size;
+			szs->data_alloced = true;
+			szs->fform_arch = szs->fform_current = GetByMagicFF (data, size, size);
+			szs->ff_attrib = GetAttribFF (szs->fform_arch);
+			szs->ff_version = GetVersionFF (szs->fform_arch, szs->data, szs->size, 0);
+			ClearContainerSZS (szs);
+			if (rm_compressed)
+				ClearCompressedSZS (szs);
+			return ERR_OK;
+		}
 		default:
 			break;
 	}
@@ -2335,7 +2458,25 @@ enumError DecompressLZ (szs_file_t *szs, bool rm_compressed)
 
 	const wlz_header_t *wh = (wlz_header_t *)szs->cdata;
 	if (memcmp (wh->magic, LZ_MAGIC, sizeof (wh->magic)))
+	{
+		u8 *data = 0;
+		uint size = 0;
+		if (DecodeLZ10LZ11 (&data, &size, szs->cdata, szs->csize) == ERR_OK && data)
+		{
+			szs->data = data;
+			szs->size = size;
+			szs->file_size = size;
+			szs->data_alloced = true;
+			szs->fform_arch = szs->fform_current = GetByMagicFF (data, size, size);
+			szs->ff_attrib = GetAttribFF (szs->fform_arch);
+			szs->ff_version = GetVersionFF (szs->fform_arch, szs->data, szs->size, 0);
+			ClearContainerSZS (szs);
+			if (rm_compressed)
+				ClearCompressedSZS (szs);
+			return ERR_OK;
+		}
 		return ERROR0 (ERR_INVALID_DATA, "Invalid LZ magic!\n");
+	}
 
 	u8 *data;
 	uint size;
