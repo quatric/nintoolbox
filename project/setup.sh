@@ -84,7 +84,17 @@ SYSTEM=$(awk '$1=="SYSTEM" {print $3}' Makefile.setup)
 libpng="-lpng -lz"
 case "$SYSTEM" in
     mac)
-	[[ -s /usr/local/lib/libpng.a ]] && libpng="/usr/local/lib/libpng.a -lz"
+	# HOMEBREW_PREFIX (see makefiles-local/Makefile.local.mac's mac-x86_64
+	# / mac-arm legs) pins which arch's Homebrew static lib to use. Without
+	# it, an /usr/local libpng.a always wins even while cross-building
+	# arm64 against /opt/homebrew, which links a wrong-slice static lib
+	# and fails with "Undefined symbols for architecture arm64".
+	if [[ -n "$HOMEBREW_PREFIX" ]]
+	then
+	    [[ -s "$HOMEBREW_PREFIX/lib/libpng.a" ]] && libpng="$HOMEBREW_PREFIX/lib/libpng.a -lz"
+	else
+	    [[ -s /usr/local/lib/libpng.a ]] && libpng="/usr/local/lib/libpng.a -lz"
+	fi
 	;;
 
     i386)
