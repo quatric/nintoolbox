@@ -134,10 +134,10 @@ fi
 # there instead of just recording an unrelated toolchain limitation as if it
 # were a bug in this test.
 if ${CC:-cc} -O2 -ffunction-sections -fdata-sections -Isrc -Idclib \
-    ../tests/test-arika.c ./lib-nintendo.o -Wl,--gc-sections \
+    ../tests/test-arika.c ./lib-nintendo.o ./lib-sound-archive.o -Wl,--gc-sections \
     -o /tmp/_r_arika >/tmp/_r_arika_build.log 2>&1 \
     || ${CC:-cc} -O2 -ffunction-sections -fdata-sections -Isrc -Idclib \
-    ../tests/test-arika.c ./lib-nintendo.o -Wl,-dead_strip \
+    ../tests/test-arika.c ./lib-nintendo.o ./lib-sound-archive.o -Wl,-dead_strip \
     -o /tmp/_r_arika >>/tmp/_r_arika_build.log 2>&1; then
   if /tmp/_r_arika; then
     ok "Arika ALZ1 + INFO.DAT/GAME.DAT archive: fixtures, encryption, RF2 grouping"
@@ -153,10 +153,10 @@ fi
 # segments. These are hand-authored streams so this remains a decoder test,
 # independent from any external LZO implementation or a self-made encoder.
 if ${CC:-cc} -O2 -ffunction-sections -fdata-sections -Isrc -Idclib \
-    ../tests/test-lzo1x.c ./lib-nintendo.o -lz -Wl,--gc-sections \
+    ../tests/test-lzo1x.c ./lib-nintendo.o ./lib-lzo.o ./lib-rpak.o ./lib-szs.o -lz -Wl,--gc-sections \
     -o /tmp/_r_lzo1x >/tmp/_r_lzo1x_build.log 2>&1 \
     || ${CC:-cc} -O2 -ffunction-sections -fdata-sections -Isrc -Idclib \
-    ../tests/test-lzo1x.c ./lib-nintendo.o -lz -Wl,-dead_strip \
+    ../tests/test-lzo1x.c ./lib-nintendo.o ./lib-lzo.o ./lib-rpak.o ./lib-szs.o -lz -Wl,-dead_strip \
     -o /tmp/_r_lzo1x >>/tmp/_r_lzo1x_build.log 2>&1; then
   if /tmp/_r_lzo1x; then
     ok "LZO1X + Metroid Prime CMPD segmented decompression"
