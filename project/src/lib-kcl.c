@@ -39,6 +39,7 @@
 #include "lib-szs.h"
 #include "lib-image.h"
 #include "lib-bzip2.h"
+#include "lib-model-glb.h"
 #include "kcl.inc"
 #include "obj-mtl-bz2.inc"
 #include <math.h>
@@ -5116,6 +5117,172 @@ abort:
 	FREE (index_list);
 	ResetF3L (&vertex);
 	ResetF3L (&normal);
+
+	return err;
+}
+
+//
+///////////////////////////////////////////////////////////////////////////////
+///////////////			SaveGlbKCL()			///////////////
+///////////////////////////////////////////////////////////////////////////////
+
+// Export a KCL collision mesh to binary glTF (.glb), colored per triangle
+// group the same way the OBJ+MTL export and the top-down PNG renderer
+// (lib-kcl-image.c) color groups: one material per (class,color_index+
+// col_idx) combination, cycling col_idx 0..cls->ncol-1 across the class's
+// flags in declaration order.
+enumError SaveGlbKCL (kcl_t *kcl, // pointer to valid KCL
+	ccp fname, // filename of destination
+	bool set_time // true: set time stamps
+)
+{
+	DASSERT (kcl);
+	DASSERT (fname);
+
+	KCL_ACTION_LOG (kcl, "SaveGlbKCL(%s) N=%u\n", fname, kcl->tridata.used);
+
+	CalcNormalsKCL (kcl, false);
+
+	const uint n_tri = kcl->tridata.used;
+	kcl_tridata_t *td_base = (kcl_tridata_t *)kcl->tridata.list;
+	kcl_tridata_t *td, *td_end = td_base + n_tri;
+
+	uint n_valid_tri = 0;
+	for (td = td_base; td < td_end; td++)
+		if (!(td->status & TD_INVALID))
+			n_valid_tri++;
+
+	if (!n_valid_tri)
+		return ERR_NOTHING_TO_DO;
+
+	uint *flag_count = AllocFlagCount ();
+	CountFlagsKCL (kcl, flag_count);
+
+	//--- build one material per present group, and a flag->material lookup
+
+	const uint max_flag = N_KCL_FLAG + n_user_color;
+	int *flag2mat = MALLOC (max_flag * sizeof (*flag2mat));
+	for (uint k = 0; k < max_flag; k++)
+		flag2mat[k] = -1;
+
+	material_t *materials = MALLOC (max_flag * sizeof (*materials));
+	uint n_materials = 0;
+
+	uint class_idx[N_KCL_CLASS] = { 0 };
+	uint i;
+	for (i = 0; i <= N_KCL_TYPE; i++)
+	{
+		const kcl_class_t *cls = kcl_class + kcl_type[i].cls;
+		uint col_idx = class_idx[cls->cls];
+		uint col_max = cls->ncol;
+
+		int j, j_max, j_inc;
+		if (i < N_KCL_TYPE)
+		{
+			j = i;
+			j_max = N_KCL_FLAG;
+			j_inc = N_KCL_TYPE;
+		}
+		else
+		{
+			j = N_KCL_FLAG;
+			j_max = KCL_FLAG_USER_0 + n_user_color;
+			j_inc = 1;
+		}
+
+		for (; j < j_max; j += j_inc)
+		{
+			if (!flag_count[j])
+				continue;
+
+			material_t *mat = materials + n_materials;
+			memset (mat, 0, sizeof (*mat));
+			ccp grp_name = GetGroupNameKCL (j, false);
+			StringCopyS (mat->name, sizeof (mat->name), grp_name);
+
+			const u8 *col = kcl_color[cls->color_index + col_idx];
+			mat->diffuse[0] = col[0] / 255.0f;
+			mat->diffuse[1] = col[1] / 255.0f;
+			mat->diffuse[2] = col[2] / 255.0f;
+			mat->diffuse[3] = col[3] / 255.0f;
+			mat->has_alpha = col[3] != 0xff;
+
+			flag2mat[j] = (int)n_materials++;
+			if (i < N_KCL_TYPE && ++col_idx >= col_max)
+				col_idx = 0;
+		}
+		class_idx[cls->cls] = col_idx;
+	}
+	FREE (flag_count);
+
+	//--- build the mesh: one unshared position+normal per triangle corner
+
+	mesh_t mesh;
+	memset (&mesh, 0, sizeof (mesh));
+	StringCopyS (mesh.name, sizeof (mesh.name), "kcl");
+	mesh.material_idx = -1;
+
+	mesh.positions = MALLOC (3 * n_valid_tri * sizeof (*mesh.positions));
+	mesh.num_positions = 3 * n_valid_tri;
+	mesh.normals = MALLOC (n_valid_tri * sizeof (*mesh.normals));
+	mesh.num_normals = n_valid_tri;
+	mesh.vertices = MALLOC (3 * n_valid_tri * sizeof (*mesh.vertices));
+	mesh.num_vertices = 3 * n_valid_tri;
+	mesh.triangle_materials = MALLOC (n_valid_tri * sizeof (*mesh.triangle_materials));
+
+	uint out_tri = 0;
+	for (td = td_base; td < td_end; td++)
+	{
+		if (td->status & TD_INVALID)
+			continue;
+
+		for (uint p = 0; p < 3; p++)
+		{
+			vec3_t *pos = mesh.positions + out_tri * 3 + p;
+			pos->x = td->pt[p].x;
+			pos->y = td->pt[p].y;
+			pos->z = td->pt[p].z;
+
+			vertex_t *v = mesh.vertices + out_tri * 3 + p;
+			v->position_idx = out_tri * 3 + p;
+			v->normal_idx = out_tri;
+			v->tangent_idx = -1;
+			v->texcoord_idx = -1;
+			v->matrix_idx = -1;
+			v->color_idx[0] = -1;
+			v->color_idx[1] = -1;
+			for (int k = 0; k < 7; k++)
+				v->extra_texcoord_idx[k] = -1;
+		}
+
+		vec3_t *norm = mesh.normals + out_tri;
+		norm->x = td->normal[0].x;
+		norm->y = td->normal[0].y;
+		norm->z = td->normal[0].z;
+
+		const int mat_idx = td->cur_flag < max_flag ? flag2mat[td->cur_flag] : -1;
+		mesh.triangle_materials[out_tri] = mat_idx;
+
+		out_tri++;
+	}
+	FREE (flag2mat);
+
+	model_t model;
+	memset (&model, 0, sizeof (model));
+	model.meshes = &mesh;
+	model.num_meshes = 1;
+	model.materials = materials;
+	model.num_materials = n_materials;
+
+	enumError err = ERR_OK;
+	if (!testmode)
+		err = ExportModelToGLB (&model, fname) ? ERR_OK : ERR_WRITE_FAILED;
+
+	FREE (mesh.positions);
+	FREE (mesh.normals);
+	FREE (mesh.vertices);
+	FREE (mesh.triangle_materials);
+	FREE (materials);
 
 	return err;
 }

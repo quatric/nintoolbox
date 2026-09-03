@@ -899,6 +899,13 @@ enumError SaveTextKCL (kcl_t *kcl, // pointer to valid KCL
 
 //-----------------------------------------------------------------------------
 
+enumError SaveGlbKCL (kcl_t *kcl, // pointer to valid KCL
+	ccp fname, // filename of destination
+	bool set_time // true: set time stamps
+);
+
+//-----------------------------------------------------------------------------
+
 enumError DumpKCL (kcl_t *kcl, // pointer to valid KCL
 	ccp fname, // filename of destination
 	bool print_tridata, // true: triangle list

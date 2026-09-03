@@ -7620,17 +7620,31 @@ static void cleanup_extracted_artifacts (ccp root, bool is_root)
 			{
 				static const char *m_exts[] = { ".brres", ".bmd", ".bch", ".bcres", ".bfres",
 					".mdl0", ".hsf", ".msh", ".mod", 0 };
+				const size_t stem_len = strlen (path) - 4;
+				bool did_unlink = false;
 				for (int k = 0; m_exts[k]; k++)
 				{
 					char cand[PATH_MAX];
-					snprintf (
-						cand, sizeof (cand), "%.*s%s", (int)(strlen (path) - 4), path, m_exts[k]);
+					snprintf (cand, sizeof (cand), "%.*s%s", (int)stem_len, path, m_exts[k]);
 					struct stat st_m;
 					if (stat (cand, &st_m) == 0 && S_ISREG (st_m.st_mode))
 					{
 						unlink (path);
+						did_unlink = true;
 						break;
 					}
+				}
+				// KCL exports append rather than replace the extension
+				// (e.g. "foo.kcl" -> "foo.kcl.glb", like "foo.kcl.obj"), so the
+				// stem itself -- not stem+".kcl" -- is the candidate source.
+				if (!did_unlink && stem_len > 4
+					&& !strcasecmp (path + stem_len - 4, ".kcl"))
+				{
+					char cand[PATH_MAX];
+					snprintf (cand, sizeof (cand), "%.*s", (int)stem_len, path);
+					struct stat st_m;
+					if (stat (cand, &st_m) == 0 && S_ISREG (st_m.st_mode))
+						unlink (path);
 				}
 			}
 			// Companion XML files
@@ -15211,6 +15225,53 @@ static enumError decode_bflyt_if_possible (ccp arg)
 	return err ? err : ERR_OK;
 }
 
+// Export a KCL collision file to a viewable .kcl.glb companion during
+// "wszst XX", alongside the existing .obj text-editing round trip (which
+// SaveTextKCL/ScanTextKCL still own -- that pairing is unrelated to this
+// export and is left untouched). KCL has no magic signature, so detection
+// is by extension only, same as decode_bflyt_if_possible()'s is_lyt_ext path.
+static enumError export_kcl_glb_if_possible (ccp arg)
+{
+	if (export_count <= 0)
+		return ERR_NOTHING_TO_DO;
+	if (!is_ext (arg, ".kcl"))
+		return ERR_NOTHING_TO_DO;
+
+	raw_data_t raw;
+	InitializeRawData (&raw);
+	enumError err = LoadRawData (&raw, false, arg, 0, false, 0);
+	if (err > ERR_WARNING || raw.fform != FF_KCL)
+	{
+		ResetRawData (&raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".glb", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.glb", arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sCREATE/GLB %s:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", GetNameFF (raw.fform, 0), arg, dest);
+	if (testmode)
+	{
+		ResetRawData (&raw);
+		return ERR_OK;
+	}
+
+	kcl_t kcl;
+	InitializeKCL (&kcl);
+	kcl.fname = arg;
+	err = ScanKCL (&kcl, false, raw.data, raw.data_size, false, global_check_mode);
+	if (!err)
+		err = SaveGlbKCL (&kcl, dest, true);
+	kcl.fname = 0;
+	ResetKCL (&kcl);
+	ResetRawData (&raw);
+	return err ? err : ERR_OK;
+}
+
 static enumError decode_byml_if_possible (ccp arg)
 {
 	if (export_count <= 0)
@@ -15792,6 +15853,9 @@ static enumError export_models_tree (ccp root, uint depth)
 			const enumError byml_err = decode_byml_if_possible (path);
 			if (byml_err != ERR_NOTHING_TO_DO && err < byml_err)
 				err = byml_err;
+			const enumError kcl_err = export_kcl_glb_if_possible (path);
+			if (kcl_err != ERR_NOTHING_TO_DO && err < kcl_err)
+				err = kcl_err;
 			const enumError img_err = decode_image_if_possible (path);
 			if (img_err != ERR_NOTHING_TO_DO && err < img_err)
 				err = img_err;
@@ -17538,6 +17602,10 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		return err;
 
 	err = decode_byml_if_possible (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = export_kcl_glb_if_possible (arg);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
