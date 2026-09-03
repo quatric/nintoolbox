@@ -134,7 +134,7 @@ enumError ExtractZTABArchive (ccp arg, ccp basedir, uint depth)
 	}
 
 	const u32 count = rd_be32 (raw + 4);
-	if (8 + count * 16 > raw_size)
+	if (!count || count > 100000 || (uint64_t)8 + (uint64_t)count * 16 > raw_size)
 	{
 		FREE (raw);
 		return ERR_INVALID_DATA;
@@ -174,7 +174,7 @@ enumError ExtractZTABArchive (ccp arg, ccp basedir, uint depth)
 // ----------------------------------------------------------------------------
 enumError ExtractMDRArchive (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext_match (arg, ".mdr") && !is_ext_match (arg, ".bin"))
+	if (!is_ext_match (arg, ".mdr"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;
@@ -257,7 +257,7 @@ enumError ExtractMDRArchive (ccp arg, ccp basedir, uint depth)
 // ----------------------------------------------------------------------------
 enumError ExtractPVOLArchive (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext_match (arg, ".pvol") && !is_ext_match (arg, ".bin"))
+	if (!is_ext_match (arg, ".pvol"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;
@@ -266,17 +266,45 @@ enumError ExtractPVOLArchive (ccp arg, ccp basedir, uint depth)
 	if (err)
 		return ERR_NOTHING_TO_DO;
 
-	if (raw_size < 8)
+	if (raw_size < 12)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
 	}
 
 	const u32 fcount = rd_le32 (raw);
-	if (fcount < 2 || 4 + (fcount - 1) * 8 > raw_size)
+	if (fcount < 2 || fcount > 100000)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
+	}
+
+	const uint64_t table_sz = (uint64_t)4 + (uint64_t)(fcount - 1) * 8;
+	if (table_sz > raw_size)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	const u32 first_off = rd_le32 (raw + 4);
+	if ((uint64_t)first_off < table_sz || (uint64_t)first_off >= raw_size)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	u32 prev_off = first_off;
+	for (uint i = 0; i < fcount - 1; i++)
+	{
+		const u32 toff = 4 + i * 8;
+		const u32 off = rd_le32 (raw + toff);
+		const u32 len = rd_le32 (raw + toff + 4);
+		if ((uint64_t)off < table_sz || (uint64_t)off + len > raw_size || off < prev_off)
+		{
+			FREE (raw);
+			return ERR_NOTHING_TO_DO;
+		}
+		prev_off = off;
 	}
 
 	char dest[PATH_MAX];
@@ -345,7 +373,7 @@ enumError ExtractSTPKArchive (ccp arg, ccp basedir, uint depth)
 	}
 
 	const u32 resource_count = rd_be32 (raw + 8);
-	if (0x10 + resource_count * 0x30 > raw_size)
+	if (!resource_count || resource_count > 100000 || (uint64_t)0x10 + (uint64_t)resource_count * 0x30 > raw_size)
 	{
 		FREE (raw);
 		return ERR_INVALID_DATA;
@@ -414,7 +442,7 @@ enumError ExtractF9ResArchive (ccp arg, ccp basedir, uint depth)
 	}
 
 	const u32 chunk_count = rd_be32 (raw + chunks_offset);
-	if (chunks_offset + 8 + chunk_count * 20 > raw_size)
+	if (!chunk_count || chunk_count > 100000 || (uint64_t)chunks_offset + 8 + (uint64_t)chunk_count * 20 > raw_size)
 	{
 		FREE (raw);
 		return ERR_INVALID_DATA;
@@ -941,7 +969,7 @@ enumError ExtractZLARCArchive (ccp arg, ccp basedir, uint depth)
 	}
 
 	const u32 count = rd_be32 (raw);
-	if (!count || 4 + count * 4 > raw_size)
+	if (!count || count > 100000 || (uint64_t)4 + (uint64_t)count * 4 > raw_size)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
@@ -949,7 +977,7 @@ enumError ExtractZLARCArchive (ccp arg, ccp basedir, uint depth)
 
 	// Validate first offset
 	const u32 first_off = rd_be32 (raw + 4);
-	if (first_off < 4 + count * 4 || first_off + 12 > raw_size)
+	if ((uint64_t)first_off < (uint64_t)4 + (uint64_t)count * 4 || (uint64_t)first_off + 12 > raw_size)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
