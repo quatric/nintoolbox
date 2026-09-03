@@ -44,6 +44,7 @@ them into that pipeline they get their own four commands — `XINFO`, `XEXTRACT`
 | 3DS CCI / CIA | Disc/package | 🔍 | ⛔ | Identified by `XINFO`, not yet unpacked |
 | Switch XCI / NSP | Disc/package | 🔍 | ⛔ | Identified by `XINFO`, not yet unpacked |
 | NKit (`.nkit.iso`) | Disc image | ✅ | ⛔ | Restore via `XCONVERT`; Wii is byte exact against the header CRC32; GameCube is implemented but still unverified against a real sample |
+| Riivolution | Mod / Disc Patching | ✅ | ✅ | Full XML spec: file/folder replacement, DOL memory patching, dynamic sections, variable substitution, multi-choice selection via `wit RIIVOLUTION` |
 
 ✅ supported · 🟡 partial · 🔍 detected, not decoded · ⛔ not implemented
 
@@ -156,6 +157,120 @@ gcz-decompress game.nkit.gcz game.nkit.iso   # any GCZ tool; Dolphin's format, z
 wit XCONVERT   game.nkit.iso  game.iso
 wit VERIFY     game.iso
 ```
+
+### Riivolution ISO Builder (`wit RIIVOLUTION`)
+
+`wit RIIVOLUTION` applies Riivolution mod XML packages and external replacement files directly to Wii disc images (WBFS, ISO, WDF, CISO, WIA) or extracted FST directories. It produces standalone patched disc images or patches FST folders in place, without needing SD card emulation or external python/batch scripts.
+
+```bash
+# Inspect a Riivolution mod XML (displays sections, options, choices, and patches)
+wit RIIVOLUTION --info /path/to/mod.xml
+
+# Test resolution of choices and patches against a base game without making changes
+wit RIIVOLUTION --test game.wbfs /path/to/mod.xml
+
+# Build a patched WBFS or ISO
+wit RIIVOLUTION game.wbfs /path/to/mod.xml patched_game.wbfs
+wit RIIVOLUTION game.iso  /path/to/mod.xml patched_game.iso
+
+# Select custom options and choices
+wit RIIVOLUTION --choice "Difficulty=Hard,Costumes=Alt" game.wbfs mod.xml patched.wbfs
+
+# Enable all available choices or use XML defaults
+wit RIIVOLUTION --all-choices game.wbfs mod.xml patched.wbfs
+wit RIIVOLUTION --default-choices game.wbfs mod.xml patched.wbfs
+
+# Interactive configuration mode (prompts for options, Game ID, and Title)
+wit RIIVOLUTION --interactive game.wbfs mod.xml patched.wbfs
+
+# Patch an extracted FST directory in place
+wit RIIVOLUTION /path/to/extracted_fst /path/to/mod.xml
+
+# Set custom Disc ID and Title for independent save files
+wit RIIVOLUTION --id SMNE03 --name "Newer Super Mario Bros. Wii" game.wbfs mod.xml newer.wbfs
+
+# Provide a custom or patched main.dol executable
+wit RIIVOLUTION --dol /path/to/custom_main.dol game.wbfs mod.xml patched.wbfs
+
+# Inject GCT / Gecko cheat codes into main.dol using wstrt
+wit RIIVOLUTION --gct codes.gct game.wbfs mod.xml patched.wbfs
+wit RIIVOLUTION --add-section codes.gct game.wbfs mod.xml patched.wbfs
+```
+
+#### Supported Riivolution Features
+- **Full Riivolution XML Specification**: Full parsing of `<wiidisc>`, `<id>`, `<options>`, `<section>`, `<option>`, `<choice>`, `<patch>`, `<file>`, `<folder>`, `<savegame>`, and `<memory>` tags.
+- **Patched DOL Handling & Executable Replacement**:
+  - Automatically imports external DOL executables declared in `<file>` or `<folder>` tags (e.g. `disc="/sys/main.dol"` or `disc="main.dol"`).
+  - Automatically discovers standalone `main.dol` in mod or SD root directories if present.
+  - Supports explicit CLI executable overrides via `--dol <file>`.
+- **GCT Cheat Code Injection (`--gct` / `--add-section`)**:
+  - Seamlessly integrates with Wiimms SZS Tool (`wstrt`) to inject Gecko Code Tables (`.gct`) directly into `main.dol` as a new executable section.
+  - Automatically detects `<gameid>.gct` or `codes/<gameid>.gct` in the mod folder if present.
+- **DOL Executable Memory Patching**:
+  - In-place virtual memory patching with `original` byte verification.
+  - Pattern search and replace (`search="true"`) with configurable alignment strides.
+  - Dynamic section creation: automatically allocates free DOL text/data section headers and appends payload code to `main.dol` for patches targeting high unmapped memory addresses.
+  - Ocarina hook insertion: automatically scans for `blr` epilogues and patches branches to hook code.
+- **Variable Substitution**: Automatic substitution of `{$__gameid}`, `{$__region}`, `{$__maker}`, and custom parameters defined in `<param>` tags or `<macros>`.
+- **Filesystem Flexibility**:
+  - Direct file replacements and folder merges with `resize`, `create`, `offset`, `fileoffset`, and `length` support.
+  - Automatic external file resolution handling standard SD card folder structures (`/riivolution/...` and mod root folders).
+  - Case-insensitive path lookup matching Wii filesystem naming conventions.
+- **Container Formats**: Outputs directly to any format WIT supports (`.iso`, `.wbfs`, `.wdf`, `.ciso`, `.wia`, or extracted `.fst` folder).
+
+### BrawlBuilder ISO Builder (`wit BRAWLBUILDER`)
+
+`wit BRAWLBUILDER` (aliases `BRAWL-BUILDER`, `BRAWL`) is a native C implementation of the BrawlBuilder pipeline for Super Smash Bros. Brawl. It builds standalone modded disc images (`.wbfs`, `.iso`, etc.) or extracted FST directories from Gecko-based Brawl mods (such as Project M, Project+, Brawl-, PM Remix, and custom stage/fighter packs), without requiring external C# runtimes, Mono, or .NET.
+
+```bash
+# Test Brawl mod configuration without modifying files
+wit BRAWLBUILDER --test brawl.wbfs /path/to/mod_folder/ output.wbfs
+
+# Build a modded Brawl WBFS image
+wit BRAWLBUILDER brawl.wbfs /path/to/mod_folder/ output.wbfs
+
+# Interactive configuration mode (prompts for Game ID, Title, and Subspace removal)
+wit BRAWLBUILDER --interactive brawl.wbfs /path/to/mod_folder/ output.wbfs
+
+# Shrink final image by removing Subspace Emissary files (~5 GB saved)
+wit BRAWLBUILDER --remove-sse brawl.wbfs /path/to/mod_folder/ output.wbfs
+
+# Assign custom Game ID and Title (automatically patches Brawl's disc check)
+wit BRAWLBUILDER --id PM3601 --name "Project M 3.6" brawl.wbfs /path/to/mod/ pm36.wbfs
+
+# Explicitly specify GCT codes file and custom opening banner
+wit BRAWLBUILDER --gct codes/RSBE01.gct --banner opening.bnr brawl.wbfs mod/ output.wbfs
+```
+
+#### Pipeline & Gecko Mod Compatibility
+- **Automatic Mod Root & GCT Detection**: Intelligently locates game files under `pf/` or root, and auto-discovers `RSBE01.gct` under `codes/` or mod root.
+- **GCT Compatibility Patching**:
+  - Individual Stock Icons fix (prevents crashes on boot).
+  - Alternate Stage Loader loop patch (reroutes stage loading from SD to disc).
+  - Soundbank & SFX DVD loader patch (loads custom `.sawnd` audio files from disc instead of SD card).
+- **Alternate Stage Preparation & Padding**:
+  - Automatically identifies alternate stage definitions (`_[A-Z].pac`) and duplicates the corresponding base stage module (`module/st_*.rel` -> `module/st_*_*.rel`).
+  - Pads base stage `.pac` files with zero-byte padding to match the size of their largest alternate stage, ensuring seamless in-game stage transitions.
+  - Automatically cleans up redundant duplicate modules.
+- **Subspace Emissary Removal (`--remove-sse`)**:
+  - Strips all 840 single-player Subspace Emissary assets and cutscenes, drastically reducing final image size from ~7.5 GB to ~2.5 GB.
+- **Native DOL Code Injection**:
+  - Injects Gecko CodeHandler into a new text section at `0x80001800`.
+  - Injects the patched GCT codes into a new data section at `0x80570000` (configurable via `--offset`).
+  - Patches CodeHandler branch hooks (`0x80200984` and `0x80002778`) and security checks (`0x800042B8` and `0x803E9930`).
+  - Automatically patches Brawl's internal disc ID check at `0x805A14B0` & `0x805A14B8` when a custom Game ID is used, bypassing the *"Please insert the Super Smash Bros. Brawl Game Disc"* screen.
+
+> [!NOTE]
+> Like BrawlBuilder, `wit BRAWLBUILDER` supports standard Gecko-based file-patching mods. Mods utilizing **BrawlEx** (e.g. Brawl- versions beyond 2.x.6) rely on dynamic character slot expansion routines requiring physical SD card hardware access and are not compatible with disc-based ISO loading.
+
+---
+
+## Documentation & Guides
+
+- **[Command Reference & New Tools Guide](docs/COMMANDS.md)**: Complete guide to all new commands (`XINFO`, `XEXTRACT`, `XCREATE`, `XCONVERT`, `RIIVOLUTION`, `BRAWLBUILDER`), options, and supported container formats.
+- **[Official Wiimms ISO Tools Documentation](https://wit.wiimm.de/)**: Original WIT command reference, parameters, and documentation.
+
+---
 
 <dl>
 <dt>Note:</dt>
