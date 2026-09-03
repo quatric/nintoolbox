@@ -7996,7 +7996,48 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 			}
 
 			// Fallback: no sibling model file found; create a new Switch BFRES.
-			if (!handled && !found_sibling)
+			// Only do this in a directory our own decoder never touched, e.g. a
+			// hand-authored dir containing just "model.dae". A directory that
+			// carries our hash-cache marker was produced/managed by wszst's own
+			// extract/pack pipeline (any container format, not just Switch); an
+			// orphan .glb there is just a read-only preview the decoder emitted,
+			// not something to repack -- synthesizing a bogus Switch BFRES for
+			// it corrupts the (possibly non-Switch) container and pointlessly
+			// redoes work the decoder already did.
+			// wszst-setup.txt marks the top of a tree our own extract/xexport
+			// pipeline produced. It sits at the root of that tree, which may be
+			// an ancestor of the directory actually being packed (e.g. CREATE
+			// is pointed straight at a "<Group>(NW4R)" subfolder inside a
+			// bigger extracted BRRES) -- walk upward looking for it.
+			bool decoder_managed_dir = false;
+			{
+				char anc[PATH_MAX];
+				snprintf (anc, sizeof (anc), "%s", root);
+				for (int up = 0; up < 16 && anc[0]; up++)
+				{
+					char marker[PATH_MAX];
+					snprintf (marker, sizeof (marker), "%s/%s", anc, SZS_SETUP_FILE);
+					struct stat st_marker;
+					if (stat (marker, &st_marker) == 0)
+					{
+						decoder_managed_dir = true;
+						break;
+					}
+					char cache_marker[PATH_MAX];
+					snprintf (cache_marker, sizeof (cache_marker), "%s/%s", anc, SZS_HASH_CACHE_FILE);
+					struct stat st_cache;
+					if (stat (cache_marker, &st_cache) == 0)
+					{
+						decoder_managed_dir = true;
+						break;
+					}
+					ccp slash = strrchr (anc, '/');
+					if (!slash || slash == anc)
+						break;
+					anc[slash - anc] = 0;
+				}
+			}
+			if (!handled && !found_sibling && !decoder_managed_dir)
 			{
 				char bfres_path[PATH_MAX];
 				snprintf (
