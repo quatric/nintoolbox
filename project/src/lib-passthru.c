@@ -2221,9 +2221,14 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 		return passthru_7z (src, basedir, stage, staged_dir, staged_dir_size);
 
 	// Media files (THP, Mobiclip, BRSTM, BCSTM, BFSTM, BNS, BTSND, AST, DSP, HVQM4, etc.)
-	bool is_thp = !memcmp (head, "THP\0", 4) || is_ext (src, ".thp");
-	bool is_mobiclip = !memcmp (head, ".MOC", 4) || !memcmp (head, ".MOD", 4) || is_ext (src, ".mo")
-		|| is_ext (src, ".mods") || is_ext (src, ".moflex");
+	bool is_thp = !memcmp (head, "THP\0", 4) || (!strong_only && is_ext (src, ".thp"));
+	bool is_mobiclip = (head[0] == 'M' && head[1] == 'O' && head[2] == 'C')
+		|| !memcmp (head, "MODS", 4) || !memcmp (head, "VXDS", 4)
+		|| (head[0] == 0x4C && head[1] == 0x32)
+		|| !memcmp (head, "MOFLEX", 6)
+		|| !memcmp (head, ".MOC", 4) || !memcmp (head, ".MOD", 4)
+		|| (!strong_only && (is_ext (src, ".mo") || is_ext (src, ".mods") || is_ext (src, ".moflex") || is_ext (src, ".vx")));
+	bool is_hvqm = !memcmp (head, "HVQM", 4) || (!strong_only && is_ext (src, ".h4m"));
 	// NOTE: ".bns" is deliberately magic-only here, not extension-fallback
 	// like the siblings above it -- Koei Tecmo's Samurai Warriors 3 also
 	// ships a completely unrelated "LINKDATA*.BNS" *archive* format under
@@ -2232,14 +2237,14 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 	// those files from the native extractor before it ever runs. A real
 	// stream-audio .bns always starts with the "BNS " magic.
 	bool is_stream_audio = !memcmp (head, "RSTM", 4) || !memcmp (head, "CSTM", 4)
-		|| !memcmp (head, "FSTM", 4) || !memcmp (head, "BNS ", 4) || is_ext (src, ".brstm")
-		|| is_ext (src, ".bcstm") || is_ext (src, ".bfstm") || is_ext (src, ".btsnd")
-		|| is_ext (src, ".ast") || is_ext (src, ".dsp");
-	bool is_other_media = is_ext (src, ".h4m") || is_ext (src, ".dpg") || is_ext (src, ".fv")
+		|| !memcmp (head, "FSTM", 4) || !memcmp (head, "BNS ", 4)
+		|| (!strong_only && (is_ext (src, ".brstm") || is_ext (src, ".bcstm") || is_ext (src, ".bfstm")
+			|| is_ext (src, ".btsnd") || is_ext (src, ".ast") || is_ext (src, ".dsp")));
+	bool is_other_media = !strong_only && (is_ext (src, ".dpg") || is_ext (src, ".fv")
 		|| is_ext (src, ".ppm") || is_ext (src, ".kwz") || is_ext (src, ".mmstr")
-		|| is_ext (src, ".rvid") || is_ext (src, ".vx");
+		|| is_ext (src, ".rvid"));
 
-	if (is_thp || is_mobiclip || is_stream_audio || is_other_media)
+	if (is_thp || is_mobiclip || is_hvqm || is_stream_audio || is_other_media)
 	{
 		ccp mobipeg = resolve_mobipeg ();
 		if (mobipeg)

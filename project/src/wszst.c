@@ -15529,7 +15529,7 @@ static enumError convert_brsar_if_possible (ccp arg)
 
 	bool is_rsar = (n_magic == sizeof (magic) && !memcmp (magic, "RSAR", 4));
 	bool is_sdat = (n_magic == sizeof (magic) && !memcmp (magic, "SDAT", 4));
-	bool is_sound = is_rsar || is_sdat || is_ext (arg, ".brsar") || is_ext (arg, ".sdat");
+	bool is_sound = is_rsar || is_sdat;
 
 	if (!is_sound)
 		return ERR_NOTHING_TO_DO;
