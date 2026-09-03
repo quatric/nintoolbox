@@ -1683,7 +1683,7 @@ t_container_roundtrips(){
   fi
 
   # Wii Fit Plus padded BMG and DS FLI1/FLW1 sections:
-  printf '#BMG\n@ENDIAN = 0\n@ENCODING = 2\n@BMG-MID = 1\n@INF-SIZE = 0x0c\n[0001]\nHello Wii Fit Plus!\n' > "$d/wiifit.bmg.txt"
+  printf '#BMG\n@ENDIAN = 0\n@ENCODING = 2\n@BMG-MID = 1\n@INF-SIZE = 0x0c\n1 = Hello Wii Fit Plus!\n' > "$d/wiifit.bmg.txt"
   if "$B/wbmgt" ENCODE "$d/wiifit.bmg.txt" -d "$d/wiifit.bmg" --overwrite >/dev/null 2>&1; then
     # Test decoding with announced size larger than file size (Wii Fit Plus padding)
     python3 -c "
