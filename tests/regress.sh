@@ -4479,8 +4479,8 @@ t_byte_exact_encoders(){
       if "$B/wimgt" ENCODE "$d/atlas.png" --transform "$fmt" --dest "$d/gx-a/same.$cont" --overwrite >/dev/null 2>&1 \
       && "$B/wimgt" ENCODE "$d/atlas.png" --transform "$fmt" --dest "$d/gx-b/same.$cont" --overwrite >/dev/null 2>&1 \
       && cmp -s "$d/gx-a/same.$cont" "$d/gx-b/same.$cont"; then
-        bok "${cont^^} ${fmt} same PNG -> identical encoded bytes"
-      else bno "${cont^^} ${fmt} canonical encoding" "two encodes differ"; fi
+        bok "$(echo "$cont" | tr a-z A-Z) ${fmt} same PNG -> identical encoded bytes"
+      else bno "$(echo "$cont" | tr a-z A-Z) ${fmt} canonical encoding" "two encodes differ"; fi
     done
   done
   for fmt in IA8 RGB565 RGB5A3; do
@@ -4991,8 +4991,8 @@ t_byte_fixed_points(){
       && "$B/wimgt" DECODE "$d/gx-a/same.$cont" --dest "$d/mid.png" --overwrite >/dev/null 2>&1 \
       && "$B/wimgt" ENCODE "$d/mid.png" --transform "$fmt" --dest "$d/gx-b/same.$cont" --overwrite >/dev/null 2>&1 \
       && cmp -s "$d/gx-a/same.$cont" "$d/gx-b/same.$cont"; then
-        fok "${cont^^} ${fmt} encode -> PNG -> identical re-encode"
-      else fno "${cont^^} ${fmt} canonical fixed point" "second-generation bytes differ"; fi
+        fok "$(echo "$cont" | tr a-z A-Z) ${fmt} encode -> PNG -> identical re-encode"
+      else fno "$(echo "$cont" | tr a-z A-Z) ${fmt} canonical fixed point" "second-generation bytes differ"; fi
     done
   done
   for fmt in IA8 RGB565 RGB5A3; do
@@ -5011,8 +5011,8 @@ t_byte_fixed_points(){
       && "$B/wimgt" DECODE "$d/${cont}-a/same.$cont" --dest "$d/mid.png" --overwrite >/dev/null 2>&1 \
       && "$B/wimgt" ENCODE "$d/mid.png" --transform "$fmt" --dest "$d/${cont}-b/same.$cont" --overwrite >/dev/null 2>&1 \
       && cmp -s "$d/${cont}-a/same.$cont" "$d/${cont}-b/same.$cont"; then
-        fok "${cont^^} ${fmt} encode -> PNG -> identical re-encode"
-      else fno "${cont^^} ${fmt} canonical fixed point" "second-generation bytes differ"; fi
+        fok "$(echo "$cont" | tr a-z A-Z) ${fmt} encode -> PNG -> identical re-encode"
+      else fno "$(echo "$cont" | tr a-z A-Z) ${fmt} canonical fixed point" "second-generation bytes differ"; fi
     done
   done
   for fmt in RGB565 RGBA8; do
