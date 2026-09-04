@@ -1143,9 +1143,12 @@ t_brfnt(){
   # samples while developing this (I4 ASCII, IA4 outline, I4 Japanese
   # kana/katakana) -- all legible, correctly shaped glyphs, not noise.
   local f; f=$(find_magic "RFNT"); [ -n "$f" ] || { sk "BRFNT (Wii bitmap font)"; return; }
-  rm -f /tmp/_r_brfnt.png /tmp/_r_brfnt.img000.png
+  # Multi-TGLP BRFNT fonts are decoded as a single combined atlas PNG (plus a
+  # matching placement XML) written directly to the requested -d path, not as
+  # per-sheet imgNNN.png files -- see decode_brfnt_atlas() in src/wimgt.c.
+  rm -f /tmp/_r_brfnt.png /tmp/_r_brfnt.xml
   $B/wimgt DECODE "$f" -d /tmp/_r_brfnt.png --overwrite >/dev/null 2>&1
-  [ -s /tmp/_r_brfnt.img000.png ] && ok "BRFNT (Wii bitmap font) -> PNG ($f)" \
+  [ -s /tmp/_r_brfnt.png ] && ok "BRFNT (Wii bitmap font) -> PNG ($f)" \
     || no "BRFNT (Wii bitmap font)" "$f"
 }
 t_brfnt
