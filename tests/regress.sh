@@ -1781,6 +1781,9 @@ open('$d/brothership.pak', 'wb').write(body + idx + footer)
     fi
 
     # NUS3AUDIO (Super Smash Bros. Ultimate audio archive)
+    # NOTE: format is not implemented (no FF_NUS3AUDIO, no magic detection in
+    # GetByMagicFF(), no extractor) -- this is an unimplemented feature, not a
+    # regression. Deferred as out of scope; left failing intentionally.
     python3 -c "
 import struct
 magic = b'NUS3'
