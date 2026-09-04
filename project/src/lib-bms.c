@@ -933,6 +933,14 @@ static void run (bms_ctx_t *ctx)
 				v->is_str = true;
 				f->pos = p < f->size ? p + 1 : p;
 			}
+			else if (!strcasecmp (ln->tok[2], "asize") || !strcasecmp (ln->tok[2], "size")
+				|| !strcasecmp (ln->tok[2], "fsize"))
+			{
+				// QuickBMS pseudo-type: not a byte width to read from the
+				// stream -- it's the current file's total size, and the
+				// read position is left untouched.
+				set_var (ctx, ln->tok[1], (int64_t)f->size);
+			}
 			else
 			{
 				int sz = type_size (ln->tok[2]);
@@ -1066,6 +1074,19 @@ static void run (bms_ctx_t *ctx)
 				line_t sub;
 				tokenize (buf, &sub);
 				set_var (ctx, ln->tok[1], eval_tokens (ctx, sub.tok, sub.n));
+			}
+			else if (ln->n == 4 && strlen (ln->tok[2]) == 2 && ln->tok[2][1] == '='
+				&& strchr ("+-*/%&|^", ln->tok[2][0]))
+			{
+				// Compound assignment ("MATH VAR -= VAL" etc): the RHS
+				// expression parser only ever sees the tokens after VAR, so
+				// it has no way to fold in VAR's own current value -- do
+				// that explicitly instead of letting it silently evaluate
+				// "-= VAL" as if "-=" were a variable (reads as 0).
+				char binop[2] = { ln->tok[2][0], 0 };
+				int64_t lhs = val_of (ctx, ln->tok[1]);
+				int64_t rhs = eval_tokens (ctx, &ln->tok[3], ln->n - 3);
+				set_var (ctx, ln->tok[1], apply_op (binop, lhs, rhs));
 			}
 			else
 				set_var (ctx, ln->tok[1], eval_tokens (ctx, &ln->tok[2], ln->n - 2));
