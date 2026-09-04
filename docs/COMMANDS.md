@@ -11,7 +11,7 @@ For format specifications, see **[FORMATS.md](FORMATS.md)**. For the recursive u
 | Binary | Tool Name | Focus Area | Key Commands / Functions | Platforms & Context |
 |---|---|---|---|---|
 | **`wszst`** | Wiimms SZS Tool | Universal Game Archives & Containers | `xx`, `CREATE`, `EXTRACT`, `WC24DECRYPT`, `WC24ENCRYPT`, `BCH`, `SPRITES`, `BMS`, `COMPRESS`, `DECOMPRESS` | All Nintendo platforms (GC, Wii, DS, 3DS, Wii U, Switch) |
-| **`wmdlt`** | Wiimms Model Tool | 3D Models & Geometry Conversion | `DECODE`, `ENCODE`, `CAT`, `STRINGS`, `GEOMETRY` | MDL0, HSD, HSF, NSBMD, CGFX, BCRES, BCH, BFRES, NUD, NUMSHB, MOD, MSH, etc. $\leftrightarrow$ GLB / DAE |
+| **`wmdlt`** | Wiimms Model Tool | 3D Models & Geometry Conversion | `DECODE`, `ENCODE`, `CAT`, `STRINGS`, `GEOMETRY` | MDL0, HSD, HSF, NSBMD, CGFX, BCRES, BCH, BFRES, NUD, NUMSHB, MOD, MSH, etc. $\leftrightarrow$ GLB |
 | **`wbrsar`** | Wiimms Sound Archive Tool | Sound Archives & Audio Extraction | *Default* (MIDI + SF2/DLS), `unpack`, `pack` | Wii BRSAR, Wii U BFSAR, 3DS BCSAR, NDS SDAT |
 | **`wbfsar`** | Wiimms BFSAR/BCSAR Tool | Sound Archive Directory Listing | `dump` | Wii U / Switch (FSAR) and 3DS (CSAR) directory XML dump |
 | **`wlayt`** | Wiimms Layout Tool | 2D Layouts & Animations | `decode`, `encode` | BRLYT/BRLAN (Wii), BFLYT/BFLAN (Wii U/Switch), BCLYT/BCLAN (3DS) |
@@ -240,10 +240,10 @@ wszst COMPRESS raw.bin --dest raw.lh      # LZH8 alias
 
 ### `wmdlt DECODE` / `wmdlt DEC`
 
-Converts Nintendo 3D models to standard **GLB** (`.glb`) or **COLLADA** (`.dae`).
+Converts Nintendo 3D models to standard **GLB** (`.glb`) — binary glTF 2.0.
 
 ```bash
-wmdlt DECODE <model-file> [--dest <output.glb|output.dae>] [--overwrite]
+wmdlt DECODE <model-file> [--dest <output.glb>] [--overwrite]
 # Short form:
 wmdlt DEC Mario.mdl0 --dest Mario.glb
 ```
@@ -259,26 +259,26 @@ wmdlt DECODE Player.bfres --dest Player.glb
 # Convert GameCube Hudson HSF model:
 wmdlt DECODE Character.hsf --dest Character.glb
 
-# Convert Nintendo DS NSBMD model to COLLADA DAE:
-wmdlt DECODE Map.nsbmd --dest Map.dae
+# Convert Nintendo DS NSBMD model to GLB:
+wmdlt DECODE Map.nsbmd --dest Map.glb
 ```
 
 ---
 
 ### `wmdlt ENCODE` / `wmdlt ENC`
 
-Encodes standard GLB or DAE models back into Nintendo formats, or injects geometry into existing binary parent models.
+Encodes standard GLB models back into Nintendo formats, or injects geometry into existing binary parent models.
 
 ```bash
 # 1. Direct model encoding (HSF, HSD, MSH, MOD, Switch BFRES):
-wmdlt ENCODE <model.glb|model.dae> --dest <output.hsf|output.dat|output.bfres>
+wmdlt ENCODE <model.glb> --dest <output.hsf|output.dat|output.bfres>
 
 # 2. Geometry injection into an existing parent model:
-wmdlt ENCODE <model.glb|model.dae> --parent=<parent.brres|parent.mdl0> --dest <output.brres|output.mdl0>
+wmdlt ENCODE <model.glb> --parent=<parent.brres|parent.mdl0> --dest <output.brres|output.mdl0>
 ```
 
 #### Geometry Injection Workflow
-When creating custom tracks or character models for Wii games (such as *Mario Kart Wii* or *Super Smash Bros. Brawl*), `wmdlt` injects new vertices, polygons, UV coordinates, and normals from a `.glb` or `.dae` into an existing `BRRES` or `MDL0` template file. This preserves original bones, node structures, material settings, and shader stages.
+When creating custom tracks or character models for Wii games (such as *Mario Kart Wii* or *Super Smash Bros. Brawl*), `wmdlt` injects new vertices, polygons, UV coordinates, and normals from a `.glb` into an existing `BRRES` or `MDL0` template file. This preserves original bones, node structures, material settings, and shader stages.
 
 #### Examples
 ```bash
@@ -289,7 +289,7 @@ wmdlt ENCODE custom.glb --dest mario.hsf
 wmdlt ENCODE custom.glb --dest trophy.dat
 
 # Inject custom geometry into a Mario Kart Wii track model:
-wmdlt ENCODE track.dae --parent=course_model.brres --dest modified_course.brres --overwrite
+wmdlt ENCODE track.glb --parent=course_model.brres --dest modified_course.brres --overwrite
 ```
 
 ---
