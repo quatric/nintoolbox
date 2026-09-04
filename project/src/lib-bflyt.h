@@ -57,6 +57,8 @@ typedef enum bf_val_type_t
 	BF_T_NONE, // Python None
 	BF_T_BOOL,
 	BF_T_INT,
+	BF_T_UINT, // same 32-bit bit pattern as BF_T_INT, but printed/encoded
+	           // unsigned (BYML type 0xD2 instead of 0xD1)
 	BF_T_FLOAT,
 	BF_T_STR, // UTF-8 string, malloc owned, never NULL
 	BF_T_BYTES, // raw bytes (Python bytes), malloc owned

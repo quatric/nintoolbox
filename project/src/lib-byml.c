@@ -5,6 +5,7 @@
 #include <math.h>
 #include <string.h>
 #include <errno.h>
+#include <ctype.h>
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -150,7 +151,13 @@ static void yaml_print_string (FILE *out, const char *s)
 			else if (*p == '\t')
 				fprintf (out, "\\t");
 			else if (*p < 0x20 || (!valid_u8 && *p >= 0x80))
-				fprintf (out, "\\x%02x", *p);
+				// Emit a doubled backslash: libyaml decodes a *single*-backslash
+				// "\xNN" quoted-scalar escape as the Unicode codepoint U+00NN
+				// (re-encoded as multi-byte UTF-8), not as the raw byte NN.
+				// "\\\\xNN" decodes (by libyaml) to the literal two chars "\x"
+				// followed by "NN", which our own yaml_eval_scalar() below then
+				// unescapes back into the single raw byte.
+				fprintf (out, "\\\\x%02x", *p);
 			else
 				fputc (*p, out);
 		}
@@ -798,6 +805,11 @@ static uint write_byml_node (
 				vtype = 0xD1;
 				vval = (u32)child->u.i;
 			}
+			else if (child->type == BF_T_UINT)
+			{
+				vtype = 0xD2;
+				vval = (u32)child->u.i;
+			}
 			else if (child->type == BF_T_FLOAT)
 			{
 				vtype = 0xD3;
@@ -869,6 +881,11 @@ static uint write_byml_node (
 			else if (child->type == BF_T_INT)
 			{
 				vtype = 0xD1;
+				vval = (u32)child->u.i;
+			}
+			else if (child->type == BF_T_UINT)
+			{
+				vtype = 0xD2;
 				vval = (u32)child->u.i;
 			}
 			else if (child->type == BF_T_FLOAT)
@@ -951,6 +968,13 @@ static void yaml_eval_scalar (const char *s, bf_val_t *val)
 					str[out_pos++] = '"';
 				else if (s[i] == '\'')
 					str[out_pos++] = '\'';
+				else if (s[i] == 'x' && i + 2 < len - 1
+					&& isxdigit ((u8)s[i + 1]) && isxdigit ((u8)s[i + 2]))
+				{
+					char hex[3] = { s[i + 1], s[i + 2], 0 };
+					str[out_pos++] = (char)(u8)strtoul (hex, 0, 16);
+					i += 2;
+				}
 				else
 					str[out_pos++] = s[i];
 			}
@@ -965,8 +989,22 @@ static void yaml_eval_scalar (const char *s, bf_val_t *val)
 	long long lval = strtoll (s, &endp, 0);
 	if (endp && !*endp)
 	{
-		val->type = BF_T_INT;
-		val->u.i = (int)lval;
+		// A positive literal that doesn't fit in a signed 32-bit int can only
+		// have come from our own TEXT dump of a BYML U32 (0xD2) value: S32
+		// (0xD1) values are always printed with a leading '-' when negative,
+		// so their magnitude as printed text never exceeds INT32_MAX. Tag it
+		// as unsigned so the BYML encoder writes it back with type 0xD2
+		// instead of silently reinterpreting the bits as a negative S32.
+		if (s[0] != '-' && lval > INT32_MAX && lval <= UINT32_MAX)
+		{
+			val->type = BF_T_UINT;
+			val->u.i = (int)(u32)lval;
+		}
+		else
+		{
+			val->type = BF_T_INT;
+			val->u.i = (int)lval;
+		}
 		return;
 	}
 	double dval = strtod (s, &endp);
@@ -998,6 +1036,10 @@ static enumError fill_bf_list_from_yaml(yaml_document_t *doc, int node_id, bf_li
             yaml_eval_scalar((const char *)item_node->data.scalar.value, &sval);
             if (sval.type == BF_T_STR) { BFListAddStr(out_list, sval.u.s); FREE(sval.u.s); }
             else if (sval.type == BF_T_INT) BFListAddInt(out_list, sval.u.i);
+            else if (sval.type == BF_T_UINT) {
+                BFListAddInt(out_list, sval.u.i);
+                if (out_list->n) out_list->items[out_list->n - 1].type = BF_T_UINT;
+            }
             else if (sval.type == BF_T_FLOAT) BFListAddFloat(out_list, sval.u.f);
             else if (sval.type == BF_T_BOOL) BFListAddBool(out_list, sval.u.b);
         }
@@ -1032,6 +1074,11 @@ static enumError fill_bf_node_from_yaml(yaml_document_t *doc, int node_id, bf_no
             yaml_eval_scalar((const char *)val_node->data.scalar.value, &sval);
             if (sval.type == BF_T_STR) { BFNodeSetStr(out_dict, key_str, sval.u.s); FREE(sval.u.s); }
             else if (sval.type == BF_T_INT) BFNodeSetInt(out_dict, key_str, sval.u.i);
+            else if (sval.type == BF_T_UINT) {
+                BFNodeSetInt(out_dict, key_str, sval.u.i);
+                bf_val_t *v = BFNodeGet(out_dict, key_str);
+                if (v) v->type = BF_T_UINT;
+            }
             else if (sval.type == BF_T_FLOAT) BFNodeSetFloat(out_dict, key_str, sval.u.f);
             else if (sval.type == BF_T_BOOL) BFNodeSetBool(out_dict, key_str, sval.u.b);
             else if (sval.type == BF_T_NONE) BFNodeSetNone(out_dict, key_str);
@@ -1094,6 +1141,8 @@ enumError EncodeBYML_Text ( u8 **dest, uint *dest_size, const char *text, uint t
 
     if (keys.count > 1)
         qsort(keys.items, keys.count, sizeof(char*), str_cmp_qsort);
+    if (strs.count > 1)
+        qsort(strs.items, strs.count, sizeof(char*), str_cmp_qsort);
 
     byml_writer_t w;
     bw_init(&w, is_le);
