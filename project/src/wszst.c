@@ -6993,15 +6993,40 @@ static enumError encode_image_from_png (ccp png_path, ccp dest_path)
 		return ERR_NOTHING_TO_DO;
 	}
 
-	// If target exists, inherit its internal pixel format / palette format
+	// If target exists, inherit its internal pixel format / palette format.
+	// Resolve the freshly decoded PNG (still raw IMG_X_* here) to a real,
+	// correctly packed format first -- stomping img.iform directly (as this
+	// used to do) short-circuits Transform2InternIMG()/ExecTransformIMG(),
+	// which key off the raw IMG_X_* tag: with iform already overwritten to a
+	// concrete format, they silently no-op and the still-raw pixel buffer
+	// gets written out mislabeled as the target format, corrupting the
+	// image. Do the real conversion here instead so callers below always
+	// receive fully packed pixel data.
 	Image_t orig_img;
 	if (LoadIMG (&orig_img, true, dest_path, 0, false, true, false) == ERR_OK)
 	{
-		if (orig_img.iform != IMG_INVALID)
-			img.iform = orig_img.iform;
-		if (orig_img.pform != PAL_INVALID)
-			img.pform = orig_img.pform;
+		const image_format_t inherited_iform = orig_img.iform;
+		const palette_format_t inherited_pform = orig_img.pform;
 		ResetIMG (&orig_img);
+
+		Transform2InternIMG (&img);
+		err = ExecTransformIMG (&img);
+		if (err)
+		{
+			ResetIMG (&img);
+			return err;
+		}
+
+		if (inherited_iform != IMG_INVALID && inherited_iform != img.iform)
+			err = ConvertIMG (&img, false, 0, inherited_iform,
+				inherited_pform != PAL_INVALID ? inherited_pform : img.pform);
+		else if (inherited_pform != PAL_INVALID && inherited_pform != img.pform)
+			err = ConvertIMG (&img, false, 0, img.iform, inherited_pform);
+		if (err)
+		{
+			ResetIMG (&img);
+			return err;
+		}
 	}
 
 	if (!strcasecmp (dot, ".tpl"))
