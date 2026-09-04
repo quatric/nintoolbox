@@ -5411,6 +5411,11 @@ static void reset_sarc_build_list (sarc_build_list_t *list)
 	memset (list, 0, sizeof (*list));
 }
 
+static int cmp_strptr_sarc (const void *a, const void *b)
+{
+	return strcmp (*(char *const *)a, *(char *const *)b);
+}
+
 static enumError collect_sarc_dir (sarc_build_list_t *list, ccp root, ccp rel)
 {
 	char path[PATH_MAX];
@@ -5418,17 +5423,46 @@ static enumError collect_sarc_dir (sarc_build_list_t *list, ccp root, ccp rel)
 	DIR *dir = opendir (path);
 	if (!dir)
 		return ERROR0 (ERR_NOT_EXISTS, "Can't open SARC input directory: %s\n", path);
-	enumError err = ERR_OK;
+
+	// readdir() order is filesystem-dependent and not reproducible (see the
+	// analogous comment in lib-szs-create.c's scan_data()): sort the names
+	// first so CREATE -> EXTRACT -> CREATE is a pure function of the tree's
+	// content, never of directory/inode history.
+	uint n_names = 0, cap_names = 0;
+	char **names = 0;
 	struct dirent *de;
-	while (!err && (de = readdir (dir)))
+	while ((de = readdir (dir)))
 	{
-		if (!strcmp (de->d_name, ".") || !strcmp (de->d_name, ".."))
+		if (n_names == cap_names)
+		{
+			cap_names = cap_names ? cap_names * 2 : 16;
+			names = REALLOC (names, cap_names * sizeof (*names));
+		}
+		names[n_names++] = STRDUP (de->d_name);
+	}
+	closedir (dir);
+	dir = 0;
+	if (n_names)
+		qsort (names, n_names, sizeof (*names), cmp_strptr_sarc);
+
+	enumError err = ERR_OK;
+	for (uint name_idx = 0; !err && name_idx < n_names; name_idx++)
+	{
+		ccp name = names[name_idx];
+		if (!strcmp (name, ".") || !strcmp (name, ".."))
 			continue;
-		const uint dlen = strlen (de->d_name);
-		if (dlen >= 2 && de->d_name[dlen - 1] == 'd' && de->d_name[dlen - 2] == '.')
+		// wszst-setup.txt (and its cache sibling) is metadata written by
+		// EXTRACT for the generic SZS tree format, not archive payload --
+		// including it here as a member is why re-CREATE-ing an
+		// EXTRACT-ed rarc/nccarc/etc. tree used to balloon or corrupt the
+		// second-generation archive.
+		if (!strcmp (name, SZS_SETUP_FILE) || !strcmp (name, ".wszst-cache.txt"))
+			continue;
+		const uint dlen = strlen (name);
+		if (dlen >= 2 && name[dlen - 1] == 'd' && name[dlen - 2] == '.')
 			continue;
 		char child_rel[PATH_MAX], child_path[PATH_MAX];
-		snprintf (child_rel, sizeof (child_rel), "%s%s%s", rel, *rel ? "/" : "", de->d_name);
+		snprintf (child_rel, sizeof (child_rel), "%s%s%s", rel, *rel ? "/" : "", name);
 		snprintf (child_path, sizeof (child_path), "%s/%s", root, child_rel);
 		struct stat st;
 		if (lstat (child_path, &st))
@@ -5470,7 +5504,9 @@ static enumError collect_sarc_dir (sarc_build_list_t *list, ccp root, ccp rel)
 			entry->size = size;
 		}
 	}
-	closedir (dir);
+	for (uint i = 0; i < n_names; i++)
+		FREE (names[i]);
+	FREE (names);
 	return err;
 }
 
