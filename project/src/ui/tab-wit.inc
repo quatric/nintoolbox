@@ -300,6 +300,22 @@
 		"\\1 mod_folder: directory containing mod files (e.g. pf/ or projectm/)."
 		"\\1 dest: output image path (.wbfs, .iso) or directory." },
 
+  { T_DEF_CMD,	"PATCH",	"PATCH|PAT",
+		    "wit PATCH [options] source [dest]\n"
+		    "wit PATCH --patch-list",
+		"Apply known, documented anti-piracy neutralization patches to a"
+		" Wii disc image or extracted FST, using the same memory-patch"
+		" pipeline as {wit RIIVOLUTION}."
+		"\\1 source: game image (ISO/WBFS/WDF/etc.) or extracted FST directory."
+		"\\1 dest: optional output image path or directory."
+		"\n "
+		" The patch database currently covers Kirby's Return to Dream Land /"
+		" Kirby's Adventure Wii's \"MetaFortress\" decoy-level trap (US, EU,"
+		" JP). Other known anti-piracy triggers (Wii Error #001/#002, and"
+		" New Super Mario Bros. Wii's anti-piracy message screen) are listed"
+		" by {wit PATCH --patch-list} but not yet implemented, because no"
+		" verified per-game address/opcode data for them could be sourced." },
+
   { T_DEF_CMD,	"COPY",		"COPY|CP",
 		    "wit COPY source dest\n"
 		    "wit COPY [[--source|--recurse] source]... [-d|-D] dest",
@@ -1541,6 +1557,17 @@
 		"hex",
 		"Memory offset in main.dol for GCT section (default: 0x80570000)." },
 
+  { T_OPT_C,	"PATCH_LIST",	"patch-list|patchlist|list-patches",
+		0,
+		"List the known anti-piracy patch database and exit"
+		" (does not require a source)." },
+
+  { T_OPT_CMP,	"PATCH_SELECT", "patch|select-patch",
+		"key",
+		"Select specific patch keys to apply (e.g. 'metafortress')."
+		" May be repeated or comma-separated. Default: apply all"
+		" known patches that match the source game ID." },
+
   //
   //---------- wit GROUP TITLES ----------
 
@@ -2339,6 +2366,29 @@
   { T_COPT,	"ID",		0,0,0 },
   { T_COPT,	"DISC_ID",	0,0,0 },
   { T_COPT,	"TT_ID",	0,0,0 },
+
+  { T_SEP_OPT,	0,0,0,0 },
+  { T_COPY_GRP,	"OUTMODE_FST",	0,0,0 },
+
+  //---------- COMMAND wit PATCH ----------
+
+  { T_CMD_BEG,	"PATCH",	0,0,0 },
+
+  { T_COPT,	"QUIET",	0,0,0 },
+  { T_COPT_M,	"VERBOSE",	0,0,0 },
+  { T_COPT_M,	"TEST",		0,0,0 },
+  { T_COPT,	"OVERWRITE",	0,0,0 },
+  { T_COPT,	"DEST",		0,0,0 },
+  { T_COPT,	"DEST2",	0,0,0 },
+  { T_COPT,	"SOURCE",	0,0,0 },
+
+  { T_SEP_OPT,	0,0,0,0 },
+  { T_COPT,	"PATCH_LIST",	0,0,0 },
+  { T_COPT_M,	"PATCH_SELECT",	0,0,0 },
+
+  { T_SEP_OPT,	0,0,0,0 },
+  { T_COPT,	"NAME",		0,0,0 },
+  { T_COPT,	"ID",		0,0,0 },
 
   { T_SEP_OPT,	0,0,0,0 },
   { T_COPY_GRP,	"OUTMODE_FST",	0,0,0 },

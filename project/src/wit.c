@@ -67,6 +67,7 @@
 #include "crypt.h"
 #include "x-riivolution.h"
 #include "x-brawl.h"
+#include "x-patch.h"
 
 static RiivolutionOptions_t riiv_options;
 
@@ -3289,6 +3290,64 @@ static enumError cmd_brawlbuilder()
 
 //
 ///////////////////////////////////////////////////////////////////////////////
+///////////////			command PATCH			///////////////
+///////////////////////////////////////////////////////////////////////////////
+
+static enumError cmd_patch()
+{
+    if ( verbose >= 0 )
+	print_title(stdout);
+
+    patch_options.verbose	= verbose;
+    patch_options.testmode	= testmode;
+    patch_options.overwrite	= OptionUsed[OPT_OVERWRITE] != 0;
+    patch_options.list_only	= OptionUsed[OPT_PATCH_LIST] != 0;
+    patch_options.custom_id	= modify_id;
+    patch_options.custom_name	= modify_name;
+
+    if (OptionUsed[OPT_FST])
+	patch_options.output_oft = OFT_FST;
+    else if (OptionUsed[OPT_ISO])
+	patch_options.output_oft = OFT_PLAIN;
+    else if (OptionUsed[OPT_WBFS])
+	patch_options.output_oft = OFT_WBFS;
+    else if (OptionUsed[OPT_WDF])
+	patch_options.output_oft = OFT__WDF_DEF;
+    else if (OptionUsed[OPT_WIA])
+	patch_options.output_oft = OFT_WIA;
+    else if (OptionUsed[OPT_CISO])
+	patch_options.output_oft = OFT_CISO;
+    else if (output_file_type != OFT_UNKNOWN)
+	patch_options.output_oft = output_file_type;
+
+    if (!patch_options.list_only)
+    {
+	ParamList_t *p = first_param;
+	int n_params = 0;
+	while (p)
+	{
+	    n_params++;
+	    p = p->next;
+	}
+
+	if (n_params == 0)
+	    return ERROR0(ERR_SYNTAX, "wit PATCH requires a source game image / FST directory.\n"
+				      "Usage: wit PATCH [options] source [dest]\n"
+				      "       wit PATCH --patch-list\n");
+
+	patch_options.source_image = first_param->arg;
+	if (n_params >= 2)
+	    patch_options.dest_path = first_param->next->arg;
+    }
+
+    if (!patch_options.dest_path && opt_dest)
+	patch_options.dest_path = opt_dest;
+
+    return PatchCommand(&patch_options);
+}
+
+//
+///////////////////////////////////////////////////////////////////////////////
 ///////////////			command EXTRACT			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -4500,6 +4559,8 @@ enumError CheckOptions ( int argc, char ** argv, bool is_env )
 	case GO_BRAWL_NO_GCT_PATCH: brawl_options.no_gct_patch = true; break;
 	case GO_BRAWL_NO_ALT_PAD: brawl_options.no_alt_pad = true; break;
 	case GO_BRAWL_OFFSET:	brawl_options.gct_offset = (u32)strtoul(optarg, NULL, 16); break;
+	case GO_PATCH_LIST:	patch_options.list_only = true; break;
+	case GO_PATCH_SELECT:	AppendStringField(&patch_options.select,optarg,false); break;
 	case GO_DEST:		SetDest(optarg,false); break;
 	case GO_DEST2:		SetDest(optarg,true); break;
 
@@ -4769,6 +4830,7 @@ enumError CheckCommand ( int argc, char ** argv )
 	case CMD_XCONVERT:	err = cmd_xconvert(); break;
 	case CMD_RIIVOLUTION:	err = cmd_riivolution(); break;
 	case CMD_BRAWLBUILDER:	err = cmd_brawlbuilder(); break;
+	case CMD_PATCH:		err = cmd_patch(); break;
 	case CMD_EXTRACT:	err = cmd_extract(); break;
 	case CMD_COPY:		err = cmd_copy(); break;
 	case CMD_CONVERT:	err = cmd_convert(); break;
@@ -4807,6 +4869,7 @@ int main ( int argc, char ** argv )
     InitializeStringField(&source_list);
     InitializeStringField(&recurse_list);
     InitRiivolutionOptions(&riiv_options);
+    InitPatchOptions(&patch_options);
 
 
     //----- process arguments

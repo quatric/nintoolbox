@@ -180,8 +180,10 @@ typedef enum enumOptions
 	OPT_BRAWL_NO_GCT_PATCH,
 	OPT_BRAWL_NO_ALT_PAD,
 	OPT_BRAWL_OFFSET,
+	OPT_PATCH_LIST,
+	OPT_PATCH_SELECT,
 
-	OPT__N_SPECIFIC, // == 125
+	OPT__N_SPECIFIC, // == 127
 
 	//----- global options -----
 
@@ -226,7 +228,7 @@ typedef enum enumOptions
 	OPT_AVAR,
 	OPT_CASE,
 
-	OPT__N_TOTAL // == 165
+	OPT__N_TOTAL // == 167
 
 } enumOptions;
 
@@ -365,6 +367,8 @@ typedef enum enumOptions
 //	OB_BRAWL_NO_GCT_PATCH	= 1llu << OPT_BRAWL_NO_GCT_PATCH,
 //	OB_BRAWL_NO_ALT_PAD	= 1llu << OPT_BRAWL_NO_ALT_PAD,
 //	OB_BRAWL_OFFSET		= 1llu << OPT_BRAWL_OFFSET,
+//	OB_PATCH_LIST		= 1llu << OPT_PATCH_LIST,
+//	OB_PATCH_SELECT		= 1llu << OPT_PATCH_SELECT,
 //
 //	//----- group & command options -----
 //
@@ -717,6 +721,16 @@ typedef enum enumOptions
 //				| OB_TT_ID
 //				| OB_GRP_OUTMODE_FST,
 //
+//	OB_CMD_PATCH		= OB_OVERWRITE
+//				| OB_DEST
+//				| OB_DEST2
+//				| OB_SOURCE
+//				| OB_PATCH_LIST
+//				| OB_PATCH_SELECT
+//				| OB_NAME
+//				| OB_ID
+//				| OB_GRP_OUTMODE_FST,
+//
 //	OB_CMD_COPY		= OB_CMD_EXTRACT
 //				| OB_UPDATE
 //				| OB_DIFF
@@ -857,6 +871,7 @@ typedef enum enumCommands
 	CMD_XCONVERT,
 	CMD_RIIVOLUTION,
 	CMD_BRAWLBUILDER,
+	CMD_PATCH,
 	CMD_COPY,
 	CMD_CONVERT,
 	CMD_EDIT,
@@ -870,7 +885,7 @@ typedef enum enumCommands
 	CMD_SKELETON,
 	CMD_MIX,
 
-	CMD__N // == 53
+	CMD__N // == 54
 
 } enumCommands;
 
@@ -1051,6 +1066,8 @@ typedef enum enumGetOpt
 	GO_BRAWL_NO_GCT_PATCH,
 	GO_BRAWL_NO_ALT_PAD,
 	GO_BRAWL_OFFSET,
+	GO_PATCH_LIST,
+	GO_PATCH_SELECT,
 
 } enumGetOpt;
 

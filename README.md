@@ -36,15 +36,16 @@ them into that pipeline they get their own four commands — `XINFO`, `XEXTRACT`
 
 | Format | Category | Decode | Encode | Notes |
 |---|---|---|---|---|
-| ISO / WDF / CISO / WBFS / WIA / GCZ / FST | Disc image | ✅ | ✅ | Upstream WIT commands |
-| RVZ | Disc image | ✅ | ⛔ | Dolphin's WIA derivative; all normal WIT read commands; Zstandard, sub-2 MiB chunks and losslessly packed pseudo-random padding |
-| WUX / WUD | Disc image | ✅ | ✅ | Wii U; container conversion via `XINFO` and `XCONVERT`; file-system unpacking needs the per-disc key and is not implemented |
-| NDS | Disc image | ✅ | ✅ | DS/DSi; full file system, both CPU binaries, overlays and banner via `XINFO`, `XEXTRACT` and `XCREATE` |
-| WAD | Installable title | ✅ | ✅ | Wii; contents decrypted and re-encrypted via `XINFO`, `XEXTRACT` and `XCREATE`; TMD re-signed only when something changed |
 | 3DS CCI / CIA | Disc/package | 🔍 | ⛔ | Identified by `XINFO`, not yet unpacked |
-| Switch XCI / NSP | Disc/package | 🔍 | ⛔ | Identified by `XINFO`, not yet unpacked |
+| BrawlBuilder | Mod / Disc Patching | ✅ | ✅ | Brawl/PW4/PMEX code-mod pipeline: PatchFile injection, Gecko codes, module relocation via `wit BRAWLBUILDER` |
+| ISO / WDF / CISO / WBFS / WIA / GCZ / FST | Disc image | ✅ | ✅ | Upstream WIT commands |
+| NDS | Disc image | ✅ | ✅ | DS/DSi; full file system, both CPU binaries, overlays and banner via `XINFO`, `XEXTRACT` and `XCREATE` |
 | NKit (`.nkit.iso`) | Disc image | ✅ | ⛔ | Restore via `XCONVERT`; Wii is byte exact against the header CRC32; GameCube is implemented but still unverified against a real sample |
 | Riivolution | Mod / Disc Patching | ✅ | ✅ | Full XML spec: file/folder replacement, DOL memory patching, dynamic sections, variable substitution, multi-choice selection via `wit RIIVOLUTION` |
+| RVZ | Disc image | ✅ | ⛔ | Dolphin's WIA derivative; all normal WIT read commands; Zstandard, sub-2 MiB chunks and losslessly packed pseudo-random padding |
+| Switch XCI / NSP | Disc/package | 🔍 | ⛔ | Identified by `XINFO`, not yet unpacked |
+| WAD | Installable title | ✅ | ✅ | Wii; contents decrypted and re-encrypted via `XINFO`, `XEXTRACT` and `XCREATE`; TMD re-signed only when something changed |
+| WUX / WUD | Disc image | ✅ | ✅ | Wii U; container conversion via `XINFO` and `XCONVERT`; file-system unpacking needs the per-disc key and is not implemented |
 
 ✅ supported · 🟡 partial · 🔍 detected, not decoded · ⛔ not implemented
 

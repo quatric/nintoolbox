@@ -224,6 +224,21 @@
 	" files (e.g. pf/ or projectm/).\\1 dest: output image path (.wbfs," \
 	" .iso) or directory." )
 
+#:def_cmd( "PATCH", "PATCH|PAT", \
+	"wit PATCH [options] source [dest]\n" \
+	"wit PATCH --patch-list", \
+	"Apply known, documented anti-piracy neutralization patches to a Wii" \
+	" disc image or extracted FST, using the same memory-patch pipeline as" \
+	" {wit RIIVOLUTION}.\\1 source: game image (ISO/WBFS/WDF/etc.) or" \
+	" extracted FST directory.\\1 dest: optional output image path or" \
+	" directory.\n" \
+	"  The patch database currently covers Kirby's Return to Dream Land /" \
+	" Kirby's Adventure Wii's \"MetaFortress\" decoy-level trap (US, EU," \
+	" JP). Other known anti-piracy triggers (Wii Error #001/#002, and New" \
+	" Super Mario Bros. Wii's anti-piracy message screen) are listed by" \
+	" {wit PATCH --patch-list} but not yet implemented, because no" \
+	" verified per-game address/opcode data for them could be sourced." )
+
 #:def_cmd( "COPY", "COPY|CP", \
 	"wit COPY source dest\n" \
 	"wit COPY [[--source|--recurse] source]... [-d|-D] dest", \
@@ -1279,6 +1294,17 @@
 #:def_opt( "BRAWL_OFFSET", "offset", "CP", \
 	"hex", \
 	"Memory offset in main.dol for GCT section (default: 0x80570000)." )
+
+#:def_opt( "PATCH_LIST", "patch-list|patchlist|list-patches", "C", \
+	"", \
+	"List the known anti-piracy patch database and exit (does not require" \
+	" a source)." )
+
+#:def_opt( "PATCH_SELECT", "patch|select-patch", "CMP", \
+	"key", \
+	"Select specific patch keys to apply (e.g. 'metafortress'). May be" \
+	" repeated or comma-separated. Default: apply all known patches that" \
+	" match the source game ID." )
 
 #:def_cmd_opt( "VERSION", "BRIEF", \
 	"", \
@@ -4424,6 +4450,98 @@
 	"" )
 
 #:def_cmd_opt( "BRAWLBUILDER", "FST", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "PATCH", "QUIET", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "PATCH", "VERBOSE", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "PATCH", "TEST", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "PATCH", "OVERWRITE", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "PATCH", "DEST", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "PATCH", "DEST2", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "PATCH", "SOURCE", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "PATCH", "PATCH_LIST", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "PATCH", "PATCH_SELECT", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "PATCH", "NAME", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "PATCH", "ID", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "PATCH", "WDF", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "PATCH", "WDF1", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "PATCH", "WDF2", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "PATCH", "ALIGN_WDF", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "PATCH", "ISO", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "PATCH", "CISO", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "PATCH", "WBFS", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "PATCH", "WIA", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "PATCH", "GCZ", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "PATCH", "GCZ_ZIP", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "PATCH", "GCZ_BLOCK", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "PATCH", "FST", \
 	"", \
 	"" )
 
