@@ -17931,8 +17931,24 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		// decompressed payload can never itself start with the same codec's
 		// magic byte again, so this terminates in one extra hop in practice;
 		// the depth cap only guards against a corrupt/adversarial file.
-		return depth < 32 ? extract_one_file (decompressed_path, basedir, depth + 1)
-						  : ERR_FILE_TOO_BIG;
+		const enumError sub_err = depth < 32
+			? extract_one_file (decompressed_path, basedir, depth + 1)
+			: ERR_FILE_TOO_BIG;
+
+		// If nothing further recognised the decompressed payload as a real
+		// container (extract_one_file() left it sitting there untouched,
+		// same file it wrote above), it's just an inert dump kept for
+		// inspection -- the same class of bug as extract_mii_file()'s
+		// glb/png previews: leaving it on disk lets a later CREATE sweep it
+		// into the rebuilt archive as bogus new content. Discard it unless
+		// the caller explicitly asked to keep raw dumps.
+		if (!opt_export_raw)
+		{
+			struct stat st_leftover;
+			if (!stat (decompressed_path, &st_leftover) && S_ISREG (st_leftover.st_mode))
+				unlink (decompressed_path);
+		}
+		return sub_err;
 	}
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
@@ -19858,6 +19874,9 @@ static enumError CheckOptions (int argc, char **argv, bool is_env)
 				break;
 			case GO_EXPORT_MIIS:
 				opt_export_miis = true;
+				break;
+			case GO_EXPORT_RAW:
+				opt_export_raw = true;
 				break;
 			case GO_CMPR_DEFAULT:
 				err += ScanOptCmprDefault (optarg);

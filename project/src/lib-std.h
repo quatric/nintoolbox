@@ -2738,6 +2738,7 @@ extern int opt_ext;
 extern bool opt_decode;
 extern bool opt_with_update_part;
 extern bool opt_export_miis;
+extern bool opt_export_raw;
 extern bool opt_cut;
 extern bool opt_cmpr_valid;
 extern u8 opt_cmpr_def[8];

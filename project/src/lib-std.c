@@ -191,6 +191,7 @@ int opt_ext = 0;
 bool opt_decode = false;
 bool opt_with_update_part = false;
 bool opt_export_miis = false;
+bool opt_export_raw = false;
 bool opt_cut = false;
 bool opt_cmpr_valid = false;
 u8 opt_cmpr_def[8] = { 0x00, 0x00, 0x00, 0x20, 0xff, 0xff, 0xff, 0xff };

@@ -207,8 +207,9 @@ typedef enum enumOptions
 	OPT_SECTIONS,
 	OPT_WITH_UPDATE_PART,
 	OPT_EXPORT_MIIS,
+	OPT_EXPORT_RAW,
 
-	OPT__N_SPECIFIC, // == 152
+	OPT__N_SPECIFIC, // == 153
 
 	//----- global options -----
 
@@ -317,7 +318,7 @@ typedef enum enumOptions
 	OPT_NEW,
 	OPT_EXTRACT,
 
-	OPT__N_TOTAL // == 256
+	OPT__N_TOTAL // == 257
 
 } enumOptions;
 
@@ -1499,6 +1500,7 @@ typedef enum enumGetOpt
 	GO_SECTIONS,
 	GO_WITH_UPDATE_PART,
 	GO_EXPORT_MIIS,
+	GO_EXPORT_RAW,
 
 } enumGetOpt;
 
