@@ -4294,14 +4294,14 @@ t_switch_bfres_geom(){
   # Extract position and normal arrays from both DAEs and compare.
   # The DAE uses <float_array id="...-positions-array" count="...">data</float_array>.
   # Extract just the numeric data (after the opening >, before </float_array>).
-  local src_pos=$(grep 'positions-array' "$d/enc/source_ref.dae" | sed 's/^[^>]*>//;s/<.*//')
-  local enc_pos=$(grep 'positions-array' "$d/enc/model.dae" | sed 's/^[^>]*>//;s/<.*//')
+  local src_pos=$(python3 "$PWD_PROJECT/../tests/dae_field.py" "$d/enc/source_ref.dae" positions)
+  local enc_pos=$(python3 "$PWD_PROJECT/../tests/dae_field.py" "$d/enc/model.dae" positions)
   [ -n "$src_pos" ] || { no "Switch BFRES geom round-trip" "no positions in source DAE"; return; }
   [ -n "$enc_pos" ] || { no "Switch BFRES geom round-trip" "no positions in roundtrip DAE"; return; }
   [ "$src_pos" = "$enc_pos" ] \
     || { no "Switch BFRES geom round-trip" "positions differ"; return; }
-  local src_nrm=$(grep 'normals-array' "$d/enc/source_ref.dae" | sed 's/^[^>]*>//;s/<.*//')
-  local enc_nrm=$(grep 'normals-array' "$d/enc/model.dae" | sed 's/^[^>]*>//;s/<.*//')
+  local src_nrm=$(python3 "$PWD_PROJECT/../tests/dae_field.py" "$d/enc/source_ref.dae" normals)
+  local enc_nrm=$(python3 "$PWD_PROJECT/../tests/dae_field.py" "$d/enc/model.dae" normals)
   [ -n "$src_nrm" ] || { no "Switch BFRES geom round-trip" "no normals in source DAE"; return; }
   [ -n "$enc_nrm" ] || { no "Switch BFRES geom round-trip" "no normals in roundtrip DAE"; return; }
   [ "$src_nrm" = "$enc_nrm" ] \
@@ -4327,21 +4327,24 @@ t_switch_bfres_inject_vertices(){
   # Decode original BFRES -> DAE to capture the original first vertex position.
   $B/wmdlt ENCODE "$d/work/model.bfres" -d "$d/work/orig.dae" --overwrite >/dev/null 2>&1 \
     || { no "Switch BFRES inject vertices" "original decode failed"; return; }
-  local orig_pos=$(grep 'positions-array' "$d/work/orig.dae" | sed 's/^[^>]*>//;s/<.*//' | tr ' ' '\n' | head -1)
+  local orig_pos=$(python3 "$PWD_PROJECT/../tests/dae_field.py" "$d/work/orig.dae" positions | tr ' ' '\n' | head -1)
   [ -n "$orig_pos" ] || { no "Switch BFRES inject vertices" "no original positions"; return; }
   # Re-create DAE from the encoder bfres (for injection).
   $B/wmdlt ENCODE "$d/work/model.bfres" -d "$d/work/model.dae" --overwrite >/dev/null 2>&1 \
     || { no "Switch BFRES inject vertices" "DAE re-create failed"; return; }
-  # Modify ONLY the first vertex position in the DAE (positions-array line).
-  # Use position-specific sed to avoid corrupting normals-array.
-  sed -i '/positions-array/!b;s/\(count="[0-9]*"\)>[0-9.-]*/\1>99.999999/' "$d/work/model.dae"
-  local mod_pos=$(grep 'positions-array' "$d/work/model.dae" | sed 's/^[^>]*>//;s/<.*//' | tr ' ' '\n' | head -1)
-  [ "$mod_pos" = "99.999999" ] \
-    || { no "Switch BFRES inject vertices" "sed failed: $mod_pos"; return; }
-  # Normals must be untouched by the sed.
-  local mod_norm=$(grep 'normals-array' "$d/work/model.dae" | sed 's/^[^>]*>//;s/<.*//' | tr ' ' '\n' | head -1)
-  [ "$mod_norm" = "$orig_pos" ] \
-    || { no "Switch BFRES inject vertices" "sed corrupted normals: $mod_norm"; return; }
+  # Modify ONLY the first vertex position (X component).
+  local orig_norm=$(python3 "$PWD_PROJECT/../tests/dae_field.py" "$d/work/model.dae" normals | tr ' ' '\n' | head -1)
+  python3 "$PWD_PROJECT/../tests/dae_field.py" "$d/work/model.dae" set-first-position 99.999999
+  local mod_pos=$(python3 "$PWD_PROJECT/../tests/dae_field.py" "$d/work/model.dae" positions | tr ' ' '\n' | head -1)
+  # 99.999999 isn't exactly representable in the accessor's f32 storage; it
+  # rounds to 100.0 immediately (same value the encoder would've quantized
+  # to anyway), so check for that instead of an exact string match.
+  echo "$mod_pos" | grep -q "^100" \
+    || { no "Switch BFRES inject vertices" "modify failed: $mod_pos"; return; }
+  # Normals must be untouched by the modification.
+  local mod_norm=$(python3 "$PWD_PROJECT/../tests/dae_field.py" "$d/work/model.dae" normals | tr ' ' '\n' | head -1)
+  [ "$mod_norm" = "$orig_norm" ] \
+    || { no "Switch BFRES inject vertices" "modify corrupted normals: $mod_norm"; return; }
   # Touch the DAE to be newer than the BFRES so injection triggers.
   sleep 3
   touch "$d/work/model.dae"
@@ -4352,14 +4355,14 @@ t_switch_bfres_inject_vertices(){
   # Decode the injected BFRES back to DAE.
   $B/wmdlt ENCODE "$d/work/model.bfres" -d "$d/work/inj.dae" --overwrite >/dev/null 2>&1 \
     || { no "Switch BFRES inject vertices" "injected decode failed"; return; }
-  local inj_pos=$(grep 'positions-array' "$d/work/inj.dae" | sed 's/^[^>]*>//;s/<.*//' | tr ' ' '\n' | head -1)
+  local inj_pos=$(python3 "$PWD_PROJECT/../tests/dae_field.py" "$d/work/inj.dae" positions | tr ' ' '\n' | head -1)
   [ -n "$inj_pos" ] || { no "Switch BFRES inject vertices" "no injected positions"; return; }
   # The first vertex should be ~100.0 (99.999999 rounded to f32 = 100.000000).
   echo "$inj_pos" | grep -q "100" \
     || { no "Switch BFRES inject vertices" "vertex not modified: $inj_pos"; return; }
   # Normals should be unchanged.
-  local inj_norm=$(grep 'normals-array' "$d/work/inj.dae" | sed 's/^[^>]*>//;s/<.*//' | tr ' ' '\n' | head -1)
-  [ "$inj_norm" = "$orig_pos" ] \
+  local inj_norm=$(python3 "$PWD_PROJECT/../tests/dae_field.py" "$d/work/inj.dae" normals | tr ' ' '\n' | head -1)
+  [ "$inj_norm" = "$orig_norm" ] \
     || { no "Switch BFRES inject vertices" "normals changed unexpectedly: $inj_norm"; return; }
   rm -rf "$d"
   ok "Switch BFRES inject vertices (vertex modification persists through inject+decode)"
@@ -4368,119 +4371,49 @@ t_switch_bfres_inject_vertices
 
 t_switch_bfres_inject_multimesh(){
   local d=/tmp/_r_swbfres_injmm; rm -rf "$d"; mkdir -p "$d/work"
-  # Build a synthetic 2-mesh DAE: two simple quads (each 2 triangles, 4 unique verts).
-  python3 -c "
-import xml.etree.ElementTree as ET
-ns = 'http://www.collada.org/2005/11/COLLADASchema'
-root = ET.Element('COLLADA', xmlns=ns)
-a = ET.SubElement(root, 'asset'); up = ET.SubElement(a, 'up_axis'); up.text = 'Y_UP'
-lib = ET.SubElement(root, 'library_geometries')
-for gid, name, pos, norm, tris in [
-  ('mesh1', 'Cube',
-   [0,0,0, 1,0,0, 1,1,0, 0,1,0],
-   [0,0,-1, 0,0,-1, 0,0,-1, 0,0,-1],
-   [2, 0,1,2, 0,2,3]),
-  ('mesh2', 'Pyramid',
-   [0,0,0, 1,0,0, 0.5,1,0],
-   [0,0,-1, 0,0,-1, 0,0,-1],
-   [1, 0,1,2]),
-]:
-    ntri = len(tris)//4  # each tri = 3 idx + count, but tris list is flat (v0 v1 v2)
-    # Actually tris is: [ntri, i0,i1,i2, i0,i1,i2, ...]
-    ntri = tris[0]
-    nv = len(pos)//3
-    nn = len(norm)//3
-    geo = ET.SubElement(lib, 'geometry', id=gid+'-mesh', name=name)
-    sm = ET.SubElement(geo, 'mesh')
-    # positions
-    src = ET.SubElement(sm, 'source', id=gid+'-positions')
-    fa = ET.SubElement(src, 'float_array', id=gid+'-positions-array', count=str(len(pos)))
-    fa.text = ' '.join(str(x) for x in pos)
-    tc = ET.SubElement(src, 'technique_common')
-    ac = ET.SubElement(tc, 'accessor', source='#'+gid+'-positions-array', count=str(nv), stride='3')
-    for p in 'XYZ': ET.SubElement(ac, 'param', name=p, type='float')
-    # normals
-    src2 = ET.SubElement(sm, 'source', id=gid+'-normals')
-    fa2 = ET.SubElement(src2, 'float_array', id=gid+'-normals-array', count=str(len(norm)))
-    fa2.text = ' '.join(str(x) for x in norm)
-    tc2 = ET.SubElement(src2, 'technique_common')
-    ac2 = ET.SubElement(tc2, 'accessor', source='#'+gid+'-normals-array', count=str(nn), stride='3')
-    for p in 'XYZ': ET.SubElement(ac2, 'param', name=p, type='float')
-    # vertices
-    vs = ET.SubElement(sm, 'vertices', id=gid+'-vertices')
-    ET.SubElement(vs, 'input', semantic='POSITION', source='#'+gid+'-positions')
-    # triangles
-    tri = ET.SubElement(sm, 'triangles', count=str(ntri))
-    ET.SubElement(tri, 'input', semantic='VERTEX', source='#'+gid+'-vertices', offset='0')
-    ET.SubElement(tri, 'input', semantic='NORMAL', source='#'+gid+'-normals', offset='1')
-    # p: flat list of (vert_idx, norm_idx) per tri vertex
-    pvals = []
-    idxs = tris[1:]
-    for i in range(0, len(idxs), 3):
-        for j in range(3):
-            v = idxs[i+j]
-            pvals.extend([str(v), str(v)])
-    ET.SubElement(tri, 'p').text = ' '.join(pvals)
-ET.ElementTree(root).write('$d/work/multi.dae', xml_declaration=True, encoding='unicode')
-" 2>&1 || { no "Switch BFRES inject multimesh" "DAE generation failed"; return; }
-  # CREATE initial BFRES from multi-mesh DAE.
+  local DF="$PWD_PROJECT/../tests/dae_field.py"
+  # Build a synthetic 2-mesh GLB: a quad (Cube, 4 verts/2 tris) and a
+  # triangle (Pyramid, 3 verts/1 tri). wszst CREATE only accepts GLB model
+  # input now (COLLADA/DAE authoring was removed), so this hand-authors GLB
+  # directly instead of COLLADA XML.
+  cat > "$d/spec.json" <<'JSON'
+[
+  {"name": "Cube", "positions": [0,0,0, 1,0,0, 1,1,0, 0,1,0],
+   "normals": [0,0,-1, 0,0,-1, 0,0,-1, 0,0,-1],
+   "indices": [0,1,2, 0,2,3]},
+  {"name": "Pyramid", "positions": [0,0,0, 1,0,0, 0.5,1,0],
+   "normals": [0,0,-1, 0,0,-1, 0,0,-1],
+   "indices": [0,1,2]}
+]
+JSON
+  python3 "$PWD_PROJECT/../tests/make_glb.py" "$d/work/multi.dae" "$d/spec.json" 2>&1 \
+    || { no "Switch BFRES inject multimesh" "GLB generation failed"; return; }
+  # CREATE initial BFRES from multi-mesh GLB.
   $B/wszst CREATE "$d/work" >/dev/null 2>&1 \
     && [ -f "$d/work/multi.bfres" ] \
     || { no "Switch BFRES inject multimesh" "initial CREATE failed"; return; }
-  # Decode BFRES back to DAE to verify both meshes survived.
+  # Decode BFRES back to GLB to verify both meshes survived.
   $B/wmdlt ENCODE "$d/work/multi.bfres" -d "$d/work/orig.dae" --overwrite 2>&1 \
     || { no "Switch BFRES inject multimesh" "original decode failed"; return; }
-  local cube_verts=$(python3 -c "
-import xml.etree.ElementTree as ET
-ns='http://www.collada.org/2005/11/COLLADASchema'
-tree=ET.parse('$d/work/orig.dae')
-for g in tree.getroot().iter('{%s}geometry' % ns):
-    if g.get('name','')=='Cube':
-        for fa in g.iter('{%s}float_array' % ns):
-            if 'positions' in fa.get('id',''):
-                print(len(fa.text.strip().split())//3); break")
-  local pyr_verts=$(python3 -c "
-import xml.etree.ElementTree as ET
-ns='http://www.collada.org/2005/11/COLLADASchema'
-tree=ET.parse('$d/work/orig.dae')
-for g in tree.getroot().iter('{%s}geometry' % ns):
-    if g.get('name','')=='Pyramid':
-        for fa in g.iter('{%s}float_array' % ns):
-            if 'positions' in fa.get('id',''):
-                print(len(fa.text.strip().split())//3); break")
+  local cube_verts=$(python3 "$DF" "$d/work/orig.dae" mesh-verts Cube)
+  local pyr_verts=$(python3 "$DF" "$d/work/orig.dae" mesh-verts Pyramid)
   [ "$cube_verts" = "6" ] || { no "Switch BFRES inject multimesh" "Cube verts=$cube_verts, expected 6"; return; }
   [ "$pyr_verts" = "3" ] || { no "Switch BFRES inject multimesh" "Pyramid verts=$pyr_verts, expected 3"; return; }
-  # Re-create DAE from the encoded BFRES so it exists for injection testing.
+  # Re-create GLB from the encoded BFRES so it exists for injection testing.
   $B/wmdlt ENCODE "$d/work/multi.bfres" -d "$d/work/multi.dae" --overwrite >/dev/null 2>&1 \
-    || { no "Switch BFRES inject multimesh" "DAE re-create failed"; return; }
-  # Modify first vertex of Cube and trigger inject round-trip.
-  sed -i '/positions-array/!b;s/\(count="[0-9]*"\)>[0-9.-]*/\1>99.999999/' "$d/work/multi.dae"
+    || { no "Switch BFRES inject multimesh" "GLB re-create failed"; return; }
+  # Modify first vertex of Cube only and trigger inject round-trip.
+  python3 "$DF" "$d/work/multi.dae" set-first-position 99.999999 Cube
   sleep 3; touch "$d/work/multi.dae"
   $B/wszst CREATE "$d/work" >/dev/null 2>&1 \
     || { no "Switch BFRES inject multimesh" "inject CREATE failed"; return; }
   $B/wmdlt ENCODE "$d/work/multi.bfres" -d "$d/work/inj.dae" --overwrite >/dev/null 2>&1 \
     || { no "Switch BFRES inject multimesh" "injected decode failed"; return; }
-  local inj_cube_verts=$(python3 -c "
-import xml.etree.ElementTree as ET
-ns='http://www.collada.org/2005/11/COLLADASchema'
-tree=ET.parse('$d/work/inj.dae')
-for g in tree.getroot().iter('{%s}geometry' % ns):
-    if g.get('name','')=='Cube':
-        for fa in g.iter('{%s}float_array' % ns):
-            if 'positions' in fa.get('id',''):
-                print(len(fa.text.strip().split())//3); break")
-  local inj_pyr_verts=$(python3 -c "
-import xml.etree.ElementTree as ET
-ns='http://www.collada.org/2005/11/COLLADASchema'
-tree=ET.parse('$d/work/inj.dae')
-for g in tree.getroot().iter('{%s}geometry' % ns):
-    if g.get('name','')=='Pyramid':
-        for fa in g.iter('{%s}float_array' % ns):
-            if 'positions' in fa.get('id',''):
-                print(len(fa.text.strip().split())//3); break")
+  local inj_cube_verts=$(python3 "$DF" "$d/work/inj.dae" mesh-verts Cube)
+  local inj_pyr_verts=$(python3 "$DF" "$d/work/inj.dae" mesh-verts Pyramid)
   [ "$inj_cube_verts" = "6" ] || { no "Switch BFRES inject multimesh" "inject Cube verts=$inj_cube_verts"; return; }
   [ "$inj_pyr_verts" = "3" ] || { no "Switch BFRES inject multimesh" "inject Pyramid verts=$inj_pyr_verts"; return; }
-  local inj_pos=$(grep 'positions-array' "$d/work/inj.dae" | sed 's/^[^>]*>//;s/<.*//' | tr ' ' '\n' | head -1)
+  local inj_pos=$(python3 "$DF" "$d/work/inj.dae" positions | tr ' ' '\n' | head -1)
   echo "$inj_pos" | grep -q "100" \
     || { no "Switch BFRES inject multimesh" "vertex not modified: $inj_pos"; return; }
   rm -rf "$d"
