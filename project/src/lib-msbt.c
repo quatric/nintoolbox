@@ -1769,7 +1769,10 @@ enumError SaveTextMSBF (const msbf_file_t *msbf, ccp dest_fname)
 			fprintf (f, "])\n");
 		}
 		else if (n->type == MSBF_NODE_EVENT)
-			fprintf (f, "  type = Event (event_id=%u, param=%u)\n", n->event_id, n->event_param);
+			fprintf (f, "  type = Event (event_id=%u, param=0x%x, next=%u)\n",
+				n->event_id, n->event_param, n->next_node);
+		else if (n->type == MSBF_NODE_ENTRY)
+			fprintf (f, "  type = EntryPoint (next=%u)\n", n->next_node);
 		else
 			fprintf (f, "  type = Unknown (%u)\n", n->type);
 
