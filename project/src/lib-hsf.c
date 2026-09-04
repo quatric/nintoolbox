@@ -402,7 +402,9 @@ static void hsf_build_animations (
 		model_animation_t *an = model->animations + m;
 		hsf_safe_name (
 			an->name, sizeof (an->name), hsf_str (data, size, str_off, hsf_be32 (h)), "motion");
-		an->channels = CALLOC (model->num_joints * 3 + model->num_meshes, sizeof (*an->channels));
+		an->channels = CALLOC (
+			model->num_joints * 3 + model->num_instances * 3 + model->num_meshes * 4,
+			sizeof (*an->channels));
 		if (!an->channels)
 			continue;
 		for (size_t j = 0; j < model->num_joints; j++)
@@ -481,9 +483,165 @@ static void hsf_build_animations (
 					}
 				}
 			}
+		// Replica/instance nodes (type 1) can carry their own TRS animation
+		// tracks, same as true joints (type 0) -- model->joints was filtered
+		// down to true joints only, so instance nodes must be scanned here
+		// separately or their TRS tracks (e.g. an animated replica rotation)
+		// are silently dropped.
+		for (size_t ii = 0; ii < model->num_instances; ii++)
+			for (int path = 0; path < 3; path++)
+			{
+				bool found = false;
+				for (uint t = 0; t < nt; t++)
+				{
+					u64 x = track_base + rel + (u64)t * 16;
+					if (x + 16 > size)
+						break;
+					const u8 *p = data + x;
+					int ef = hsf_be16s (p + 6);
+					if (p[0] == 2
+						&& !strcmp (hsf_str (data, size, str_off, (u16)hsf_be16s (p + 2)),
+							model->instances[ii].name)
+						&& ((path == 0 && ef >= 8 && ef <= 10)
+							|| (path == 1 && ef >= 28 && ef <= 30)
+							|| (path == 2 && ef >= 31 && ef <= 33)))
+					{
+						found = true;
+						break;
+					}
+				}
+				if (!found)
+					continue;
+				model_anim_channel_t *ch = an->channels + an->num_channels++;
+				ch->node_idx = (int)(model->num_joints + model->num_meshes + ii);
+				ch->path = path == 0 ? MODEL_ANIM_TRANSLATION
+					: path == 1		 ? MODEL_ANIM_ROTATION
+									 : MODEL_ANIM_SCALE;
+				ch->count = frames;
+				ch->components = path == 1 ? 4 : 3;
+				ch->times = MALLOC (frames * sizeof (float));
+				ch->values = MALLOC ((u64)frames * ch->components * sizeof (float));
+				if (!ch->times || !ch->values)
+					continue;
+				for (uint f = 0; f < frames; f++)
+				{
+					float v[3] = { path == 0 ? model->instances[ii].translate.x
+							: path == 1		 ? model->instances[ii].rotate.x
+											 : model->instances[ii].scale.x,
+						path == 0		? model->instances[ii].translate.y
+							: path == 1 ? model->instances[ii].rotate.y
+										: model->instances[ii].scale.y,
+						path == 0		? model->instances[ii].translate.z
+							: path == 1 ? model->instances[ii].rotate.z
+										: model->instances[ii].scale.z };
+					for (uint t = 0; t < nt; t++)
+					{
+						u64 x = track_base + rel + (u64)t * 16;
+						if (x + 16 > size)
+							break;
+						const u8 *p = data + x;
+						if (p[0] != 2
+							|| strcmp (hsf_str (data, size, str_off, (u16)hsf_be16s (p + 2)),
+								model->instances[ii].name))
+							continue;
+						int ef = hsf_be16s (p + 6), base = path == 0 ? 8 : path == 1 ? 28 : 31;
+						if (ef >= base && ef < base + 3)
+							v[ef - base] = hsf_eval_track (data, size, p, key_base, f);
+					}
+					ch->times[f] = f / 60.0f;
+					if (path != 1)
+						memcpy (ch->values + (u64)f * 3, v, 12);
+					else
+					{
+						double hx = v[0] * M_PI / 360, hy = v[1] * M_PI / 360,
+							   hz = v[2] * M_PI / 360, cx = cos (hx), sx = sin (hx), cy = cos (hy),
+							   sy = sin (hy), cz = cos (hz), sz = sin (hz);
+						float *q = ch->values + (u64)f * 4;
+						q[0] = sx * cy * cz - cx * sy * sz;
+						q[1] = cx * sy * cz + sx * cy * sz;
+						q[2] = cx * cy * sz - sx * sy * cz;
+						q[3] = cx * cy * cz + sx * sy * sz;
+					}
+				}
+			}
+		// Mesh-definition nodes (HSF type 2) can carry their own TRS animation
+		// tracks in addition to (or instead of) morph-weight tracks -- e.g. a
+		// mesh node animated with both a weight track and a rotate track. Scan
+		// for those here, independent of whether the mesh has morph targets.
 		for (size_t mi = 0; mi < model->num_meshes; mi++)
 		{
 			mesh_t *mesh = model->meshes + mi;
+			for (int path = 0; path < 3; path++)
+			{
+				bool found = false;
+				for (uint t = 0; t < nt; t++)
+				{
+					u64 x = track_base + rel + (u64)t * 16;
+					if (x + 16 > size)
+						break;
+					const u8 *p = data + x;
+					int ef = hsf_be16s (p + 6);
+					ccp target = hsf_str (data, size, str_off, (u16)hsf_be16s (p + 2));
+					bool mesh_target = !strcmp (target, mesh->name)
+						|| (*target && !strncmp (mesh->name, target, strlen (target))
+							&& strstr (mesh->name, "_mat"));
+					if (p[0] == 2 && mesh_target
+						&& ((path == 0 && ef >= 8 && ef <= 10)
+							|| (path == 1 && ef >= 28 && ef <= 30)
+							|| (path == 2 && ef >= 31 && ef <= 33)))
+					{
+						found = true;
+						break;
+					}
+				}
+				if (!found)
+					continue;
+				model_anim_channel_t *ch = an->channels + an->num_channels++;
+				ch->node_idx = (int)(model->num_joints + mi);
+				ch->path = path == 0 ? MODEL_ANIM_TRANSLATION
+					: path == 1		 ? MODEL_ANIM_ROTATION
+									 : MODEL_ANIM_SCALE;
+				ch->count = frames;
+				ch->components = path == 1 ? 4 : 3;
+				ch->times = MALLOC (frames * sizeof (float));
+				ch->values = MALLOC ((u64)frames * ch->components * sizeof (float));
+				if (!ch->times || !ch->values)
+					continue;
+				for (uint f = 0; f < frames; f++)
+				{
+					float v[3] = { 0, 0, 0 };
+					for (uint t = 0; t < nt; t++)
+					{
+						u64 x = track_base + rel + (u64)t * 16;
+						if (x + 16 > size)
+							break;
+						const u8 *p = data + x;
+						ccp target = hsf_str (data, size, str_off, (u16)hsf_be16s (p + 2));
+						bool mesh_target = !strcmp (target, mesh->name)
+							|| (*target && !strncmp (mesh->name, target, strlen (target))
+								&& strstr (mesh->name, "_mat"));
+						if (p[0] != 2 || !mesh_target)
+							continue;
+						int ef = hsf_be16s (p + 6), base = path == 0 ? 8 : path == 1 ? 28 : 31;
+						if (ef >= base && ef < base + 3)
+							v[ef - base] = hsf_eval_track (data, size, p, key_base, f);
+					}
+					ch->times[f] = f / 60.0f;
+					if (path != 1)
+						memcpy (ch->values + (u64)f * 3, v, 12);
+					else
+					{
+						double hx = v[0] * M_PI / 360, hy = v[1] * M_PI / 360,
+							   hz = v[2] * M_PI / 360, cx = cos (hx), sx = sin (hx), cy = cos (hy),
+							   sy = sin (hy), cz = cos (hz), sz = sin (hz);
+						float *q = ch->values + (u64)f * 4;
+						q[0] = sx * cy * cz - cx * sy * sz;
+						q[1] = cx * sy * cz + sx * cy * sz;
+						q[2] = cx * cy * sz - sx * sy * cz;
+						q[3] = cx * cy * cz + sx * sy * sz;
+					}
+				}
+			}
 			if (!mesh->num_morph_targets)
 				continue;
 			bool found = false;
@@ -1408,8 +1566,21 @@ enumError DecodeHSF (const u8 *data, uint size, ccp out_path)
 	const u32 node_cnt = entry_cnt[HSF_IDX_NODES];
 	joint_t *joints
 		= node_cnt && node_cnt <= HSF_MAX_PARTS ? CALLOC (node_cnt, sizeof (*joints)) : 0;
-	if (node_cnt && !joints)
+	// Raw HSF node-table entries mix true hierarchy joints (type 0) with
+	// mesh-definition nodes (type 2, written at model->num_joints+m on
+	// encode) and replica/instance nodes (type 1, written at
+	// model->num_joints+nm+i). All of these share the node index space so
+	// parent_idx lookups below work, but only type-0 entries are real
+	// skeleton joints -- `ntype` remembers each entry's type so they can be
+	// filtered back out before being handed to model.joints (see below);
+	// otherwise every mesh/replica node round-trips into an extra spurious
+	// joint on every decode->encode cycle, breaking the canonical fixed
+	// point.
+	u8 *ntype = node_cnt && node_cnt <= HSF_MAX_PARTS ? CALLOC (node_cnt, 1) : 0;
+	if (node_cnt && (!joints || !ntype))
 	{
+		FREE (joints);
+		FREE (ntype);
 		FREE (materials);
 		FREE (tex_names);
 		return ERR_CANT_CREATE;
@@ -1422,6 +1593,7 @@ enumError DecodeHSF (const u8 *data, uint size, ccp out_path)
 		ccp n = hsf_str (data, size, str_off, hsf_be32 (data + o));
 		hsf_safe_name (joints[i].name, sizeof (joints[i].name), n, "node");
 		const u32 type = hsf_be32 (data + o + 4);
+		ntype[i] = type <= 6 ? (u8)type : 7;
 		joints[i].parent_idx = type <= 6 ? (s32)hsf_be32 (data + o + 16) : -2;
 		if (type > 6)
 		{
@@ -1609,7 +1781,13 @@ enumError DecodeHSF (const u8 *data, uint size, ccp out_path)
 					for (u32 i = 0; i < n_uv; i++, p += 8)
 					{
 						mesh->texcoords[i].u = hsf_bef32 (p);
-						mesh->texcoords[i].v = hsf_bef32 (p + 4);
+						// HSF-native texcoords are top-left origin; COLLADA/
+						// mesh_t is bottom-left. The encoder flips V
+						// (1.0 - v) when writing HSF data (see hsf_putf
+						// call below), so mirror that flip here on decode
+						// -- otherwise decode -> encode nets one extra
+						// flip instead of cancelling out.
+						mesh->texcoords[i].v = 1.0f - hsf_bef32 (p + 4);
 					}
 				}
 			}
@@ -2045,8 +2223,39 @@ enumError DecodeHSF (const u8 *data, uint size, ccp out_path)
 		memset (&model, 0, sizeof (model));
 		model.meshes = meshes;
 		model.num_meshes = out_n;
-		model.joints = joints;
-		model.num_joints = node_cnt;
+		// Filter the raw node table down to true skeleton joints and remap
+		// parent_idx references (which are raw node-table indices) to the
+		// compacted joint index space -- see the `ntype` comment above.
+		// Only replica/instance nodes (type 1), mesh-definition nodes
+		// (type 2), and camera/light nodes (mapped to ntype 7) are written
+		// back separately by EncodeModelToHSF (as instances, meshes, and
+		// cameras/lights respectively); every other raw node type (0, and
+		// the various non-mesh/replica helper/effector kinds 3-6 some HSF
+		// exporters emit for a plain skeleton) is a genuine joint used by
+		// vertex skinning and must stay in model.joints, or bone indices
+		// recorded by hsf_set_influences() (which reference the raw
+		// node-table index space) and skin joint counts fall out of range.
+#define HSF_IS_JOINT(t) ((t) != 1 && (t) != 2 && (t) < 7)
+		u32 *jmap = node_cnt ? CALLOC (node_cnt, sizeof (*jmap)) : 0;
+		u32 true_joint_cnt = 0;
+		for (u32 i = 0; i < node_cnt; i++)
+			jmap[i] = HSF_IS_JOINT (ntype[i]) ? true_joint_cnt++ : (u32)-1;
+		joint_t *real_joints = true_joint_cnt ? CALLOC (true_joint_cnt, sizeof (*real_joints)) : 0;
+		for (u32 i = 0, j = 0; i < node_cnt; i++)
+			if (HSF_IS_JOINT (ntype[i]))
+			{
+				real_joints[j] = joints[i];
+				s32 pi = joints[i].parent_idx;
+				real_joints[j].parent_idx
+					= pi >= 0 && (u32)pi < node_cnt && jmap[pi] != (u32)-1 ? (s32)jmap[pi] : -1;
+				j++;
+			}
+		model.joints = real_joints;
+		model.num_joints = true_joint_cnt;
+		FREE (joints);
+		joints = 0; // avoid double-free at the shared cleanup below
+		FREE (ntype);
+#undef HSF_IS_JOINT
 		model.materials = materials;
 		model.num_materials = mat_cnt;
 		if (node_cnt && (u64)entry_off[HSF_IDX_NODES] + (u64)node_cnt * 0x144 <= size)
@@ -2123,6 +2332,16 @@ enumError DecodeHSF (const u8 *data, uint size, ccp out_path)
 			}
 			FREE (active);
 		}
+		// hsf_expand_replica() set model.instances[i].parent_idx to the
+		// replica node's raw node-table parent index; remap it into the
+		// compacted joint index space, same as the joints above.
+		for (u32 i = 0; i < model.num_instances; i++)
+		{
+			s32 pi = model.instances[i].parent_idx;
+			model.instances[i].parent_idx
+				= pi >= 0 && (u32)pi < node_cnt && jmap[pi] != (u32)-1 ? (s32)jmap[pi] : -1;
+		}
+		FREE (jmap);
 		ComputeModelTRSBinds (&model);
 
 		// CENV envelope data. Each output position receives a private influence
@@ -2258,6 +2477,7 @@ enumError DecodeHSF (const u8 *data, uint size, ccp out_path)
 		for (size_t i = 0; i < model.num_node_influences; i++)
 			FREE (model.node_influences[i].weights);
 		FREE (model.node_influences);
+		FREE (model.joints);
 		FREE (model.instances);
 		FREE (model.cameras);
 		FREE (model.lights);
@@ -2389,7 +2609,22 @@ enumError EncodeModelToHSF (const model_t *model, ccp out_path)
 	for (u32 i = 0; i < model->num_joints; i++)
 		str_size += strlen (model->joints[i].name) + 1;
 	for (u32 i = 0; i < model->num_instances; i++)
-		str_size += strlen (model->instances[i].name) + 1;
+	{
+		// Match the "_<meshName>" suffix strip performed below when the
+		// scene/replica name is actually written -- str_size must reflect
+		// the stripped length or the string pool is over-allocated and the
+		// leftover bytes are written as trailing NULs, growing the file by
+		// the difference on every decode->encode cycle.
+		ccp full = model->instances[i].name;
+		ccp mesh_nm = model->instances[i].mesh_idx >= 0 && (u32)model->instances[i].mesh_idx < nm
+			? model->meshes[model->instances[i].mesh_idx].name : "";
+		size_t full_len = strlen (full), mesh_len = strlen (mesh_nm);
+		if (mesh_len && full_len > mesh_len + 1 && full[full_len - mesh_len - 1] == '_'
+			&& !strcmp (full + full_len - mesh_len, mesh_nm))
+			str_size += full_len - mesh_len - 1 + 1;
+		else
+			str_size += full_len + 1;
+	}
 	for (u32 i = 0; i < model->num_cameras; i++)
 		str_size += strlen (model->cameras[i].name) + 1;
 	for (u32 i = 0; i < model->num_lights; i++)
@@ -2576,7 +2811,31 @@ enumError EncodeModelToHSF (const model_t *model, ccp out_path)
 		HSF_NAME (joint_name[i], model->joints[i].name, "joint");
 	u32 scene_idx = 0;
 	for (u32 i = 0; i < model->num_instances; i++)
-		HSF_NAME (scene_name[scene_idx++], model->instances[i].name, "replica");
+	{
+		// hsf_expand_replica() (decode side) composes the instance name as
+		// "<replicaNodeName>_<meshName>" so it is unique in the flattened
+		// glTF scene. Strip that synthetic "_<meshName>" suffix back off
+		// here so the HSF node name we write matches what was originally
+		// decoded -- otherwise every decode -> encode cycle grows the name
+		// by another "_<meshName>", breaking the canonical fixed point.
+		char rn[64];
+		ccp full = model->instances[i].name;
+		ccp mesh_nm = model->instances[i].mesh_idx >= 0 && (u32)model->instances[i].mesh_idx < nm
+			? model->meshes[model->instances[i].mesh_idx].name : "";
+		size_t full_len = strlen (full), mesh_len = strlen (mesh_nm);
+		if (mesh_len && full_len > mesh_len + 1 && full[full_len - mesh_len - 1] == '_'
+			&& !strcmp (full + full_len - mesh_len, mesh_nm))
+		{
+			size_t rn_len = full_len - mesh_len - 1;
+			if (rn_len >= sizeof (rn))
+				rn_len = sizeof (rn) - 1;
+			memcpy (rn, full, rn_len);
+			rn[rn_len] = 0;
+			HSF_NAME (scene_name[scene_idx++], rn, "replica");
+		}
+		else
+			HSF_NAME (scene_name[scene_idx++], full, "replica");
+	}
 	for (u32 i = 0; i < model->num_cameras; i++)
 		HSF_NAME (scene_name[scene_idx++], model->cameras[i].name, "camera");
 	for (u32 i = 0; i < model->num_lights; i++)
