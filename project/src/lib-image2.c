@@ -4064,11 +4064,16 @@ bool Transform2InternIMG (Image_t *img)
 	switch (img->tform_iform)
 	{
 		case IMG_X_GRAY:
-			img->tform_iform = img->tform_noalpha ? IMG_I8 : IMG_IA4;
+			// Prefer the alpha-less format automatically if the source has
+			// no real alpha data: it gives more precision for the same size
+			// instead of wasting bits on an alpha channel nobody set.
+			img->tform_iform = img->tform_noalpha || CheckAlphaIMG(img,false) < 0
+					? IMG_I8 : IMG_IA4;
 			return img->tform_exec = true;
 
 		case IMG_X_RGB:
-			img->tform_iform = img->tform_noalpha ? IMG_RGB565 : IMG_RGB5A3;
+			img->tform_iform = img->tform_noalpha || CheckAlphaIMG(img,false) < 0
+					? IMG_RGB565 : IMG_RGB5A3;
 			return img->tform_exec = true;
 
 		case IMG_X_PAL4:
