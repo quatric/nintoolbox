@@ -264,6 +264,35 @@ wit BRAWLBUILDER --gct codes/RSBE01.gct --banner opening.bnr brawl.wbfs mod/ out
 > [!NOTE]
 > Like BrawlBuilder, `wit BRAWLBUILDER` supports standard Gecko-based file-patching mods. Mods utilizing **BrawlEx** (e.g. Brawl- versions beyond 2.x.6) rely on dynamic character slot expansion routines requiring physical SD card hardware access and are not compatible with disc-based ISO loading.
 
+### Anti-Piracy Patch Database (`wit PATCH`)
+
+`wit PATCH` (alias `PAT`) applies known, documented anti-piracy neutralization patches to a Wii disc image (WBFS, ISO, WDF, CISO, WIA) or extracted FST directory. It reuses the same DOL memory-patch engine as `wit RIIVOLUTION` internally, so every patch is a verified, sourced set of RAM pokes rather than a guessed offset.
+
+```bash
+# List the known patch database, including unimplemented entries and why
+wit PATCH --patch-list
+
+# Apply all patches that match the source game's Disc ID automatically
+wit PATCH game.wbfs patched.wbfs
+
+# Select a specific patch by key
+wit PATCH --patch metafortress game.iso patched.iso
+
+# Test resolution without writing anything
+wit PATCH --test game.wbfs
+
+# Patch an extracted FST directory in place
+wit PATCH /path/to/extracted_fst
+```
+
+#### Patch Database Status
+- **Kirby's Return to Dream Land / Kirby's Adventure Wii — `metafortress`** (`SUKE01`/`SUKP01`/`SUKJ01`, USA/Europe/Japan): **Implemented.** Neutralizes the "MetaFortress" decoy-level anti-piracy trap using the 1391-1392 memory-poke patch set ported verbatim from Dolphin Emulator's own `GameSettings/SUK*.ini` "Bypass Metafortress [crediar]" patch, a community-verified, widely-distributed Gecko-style fix.
+- **Wii "Error #001"**: **Not implemented.** Error 001 is raised by the IOS/DI trust-chain check outside of any per-game `main.dol` code, so there is no single disc-image byte patch that fixes it for a given game — the documented community fix is a correctly-signed cIOS / Trucha Bug fix at the system level, out of scope for a disc-image patch database.
+- **Wii "Error #002"**: **Not implemented.** Error 002 is triggered by an IOS-version mismatch resolved system-side (loading the correct/patched IOS), not by a single fixed offset shared across games. No verified per-game address could be sourced, so no patch was added rather than guessing one.
+- **New Super Mario Bros. Wii anti-piracy screen**: **Not implemented.** The BCA-check neutralization is not distributed as a standard Gecko code or Dolphin GameSettings patch, so no sourced, verified address/opcode set could be found for it; it needs dedicated reverse engineering per game revision before it can be added.
+
+Run `wit PATCH --patch-list` at any time for the live, in-tool version of this table, including full source citations for each entry.
+
 ---
 
 ## Documentation & Guides
