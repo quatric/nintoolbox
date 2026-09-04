@@ -2364,7 +2364,12 @@ enumError DecodeExciteMOD (const u8 *data, uint size, ccp out_path)
 	for (uint i = 0; i < n_tex; i++)
 	{
 		mesh.texcoords[i].u = tex_f[i * tex_n];
-		mesh.texcoords[i].v = tex_n > 1 ? tex_f[i * tex_n + 1] : 0.0f;
+		// GX-native texcoords are top-left origin; COLLADA/mesh_t is
+		// bottom-left. The encoder flips V (1.0 - v) when writing GX
+		// data, so mirror that flip here on decode -- otherwise a
+		// decode -> encode cycle nets one extra flip instead of
+		// cancelling out, breaking the canonical fixed point.
+		mesh.texcoords[i].v = tex_n > 1 ? (float)(1.0 - (double)tex_f[i * tex_n + 1]) : 0.0f;
 	}
 
 	uint tri_cap = best_total * 2 + 8, tri_n = 0;
