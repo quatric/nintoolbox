@@ -8123,6 +8123,20 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 					}
 				}
 			}
+			else if (!handled && !found_sibling && decoder_managed_dir)
+			{
+				// Genuine orphan case: our own decoder emitted this .glb/.dae as a
+				// read-only preview (no repackable sibling exists, e.g. a Mii
+				// reference like "mii_000.rsd" that has no embedded model at all).
+				// It must not fall through to the generic directory packer, which
+				// would otherwise silently stuff it into the archive as bogus new
+				// content -- bloating the container and shifting/duplicating
+				// entries the game never expected. Delete it; a future EXTRACT
+				// regenerates the same preview on demand.
+				unlink (path);
+				if (verbose >= 0)
+					fprintf (stdlog, "SKIP PREVIEW %s\n", path);
+			}
 		}
 
 		// Check for .ncer.xml or .nanr.xml or .byml.yaml files
