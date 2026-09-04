@@ -12264,6 +12264,12 @@ static enumError extract_mii_file (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 	}
 
+	if (!opt_export_miis)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
 	char dest_png[PATH_MAX];
 	char dest_glb[PATH_MAX];
 	beside_source_dest_ext (dest_png, sizeof (dest_png), arg, ".png");
@@ -19849,6 +19855,9 @@ static enumError CheckOptions (int argc, char **argv, bool is_env)
 				break;
 			case GO_WITH_UPDATE_PART:
 				opt_with_update_part = true;
+				break;
+			case GO_EXPORT_MIIS:
+				opt_export_miis = true;
 				break;
 			case GO_CMPR_DEFAULT:
 				err += ScanOptCmprDefault (optarg);
