@@ -111,13 +111,18 @@
 // described here; the differences are Zstandard compression, chunk sizes
 // below 2 MiB, the extended rvz_group_t and the "RVZ packing" of the
 // pseudo random padding data.  See lib-lfg.h and read_rvz_group() in
-// lib-wia.c.  Reading is supported, writing is not.
+// lib-wia.c.  Reading and writing are both supported; writing does not yet
+// implement Dolphin's "RVZ packing" of pseudo-random padding, so groups are
+// written as plain Zstandard-compressed data (still spec-valid, larger).
 
 #define RVZ_MAGIC		"RVZ\1"
 #define RVZ_MAGIC_SIZE		4
 
 // smallest chunk size an RVZ file may use (must also be a power of two)
 #define RVZ_MIN_CHUNK_SIZE	0x8000
+
+// default chunk size used by wit when writing RVZ (matches Dolphin's own default)
+#define RVZ_DEF_CHUNK_SIZE	0x200000
 
 //-----------------------------------------------------
 // Format of version number: AABBCCDD = A.BB | A.BB.CC

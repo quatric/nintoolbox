@@ -204,6 +204,12 @@ u32 CalcMemoryUsageWIA
 	case WD_COMPR_LZMA2:
 	    size += CalcMemoryUsageLZMA2(compr_level,is_writing);
 	    break;
+
+	case WD_COMPR_ZSTD:
+	 #ifndef NO_ZSTD
+	    size += ZSTD_compressBound(chunk_size);
+	 #endif
+	    break;
     }
 
     return size;
@@ -257,6 +263,12 @@ int CalcDefaultSettingsWIA
 	case WD_COMPR_LZMA2:
 	    level = CalcCompressionLevelLZMA(level);
 	    //clevel = WIA_DEF_CHUNK_FACTOR; // == default setting
+	    break;
+
+	case WD_COMPR_ZSTD:
+	    if ( level < 0 || level > 22 )
+		level = 0;
+	    clevel = RVZ_DEF_CHUNK_SIZE / WIA_BASE_CHUNK_SIZE;
 	    break;
     }
 
@@ -1894,6 +1906,7 @@ static enumError write_data
     DefineProgressChunkSF(sf,data_size,data_size+except_size);
 
     u32 written = 0;
+    bool is_rvz_group_compressed = false;
     switch((wd_compression_t)wia->disc.compression)
     {
       //----------------------------------------------------------------------
@@ -2033,6 +2046,52 @@ static enumError write_data
 
       //----------------------------------------------------------------------
 
+      case WD_COMPR_ZSTD:
+       #ifdef NO_ZSTD
+	return ERROR0(ERR_NOT_IMPLEMENTED,
+		"No Zstandard support in this build, cannot write RVZ: %s\n",sf->f.fname);
+       #else
+      {
+	u32 src_size = 0;
+	if (except_size)
+	{
+	    if ( (u8*)except != tempbuf )
+		memmove(tempbuf,except,except_size);
+	    src_size = except_size;
+	}
+	if (data_size)
+	{
+	    memcpy(tempbuf+src_size,data_ptr,data_size);
+	    src_size += data_size;
+	}
+
+	const size_t bound = ZSTD_compressBound(src_size);
+	u8 * out = alloc_rvz_buf(wia,bound);
+	const size_t res = ZSTD_compress( out, bound, tempbuf, src_size, opt_compr_level );
+	if (ZSTD_isError(res))
+	    return ERROR0(ERR_WIA_INVALID,
+		"Zstandard error (%s): %s\n",ZSTD_getErrorName(res),sf->f.fname);
+
+	enumError err = WriteAtF( &sf->f, wia->write_data_off, out, res );
+	if (err)
+	    return err;
+	written = res;
+
+	// RVZ group table entries store the compressed-flag in the MSB of
+	// data_size (see RVZ_GROUP_COMPRESSED); we always store compressed
+	// zstd data here, so mark it. 'written' (<=chunk_size, well below
+	// 2^31) never collides with the flag bit.
+	if (wia->is_rvz)
+	    is_rvz_group_compressed = true;
+
+	noPRINT(">> WRITE ZSTD: %9llx, %6x+%6x => %6x, grp %d\n",
+		    wia->write_data_off, except_size, data_size, written, group );
+      }
+      break;
+       #endif // !NO_ZSTD
+
+      //----------------------------------------------------------------------
+
       // no default case defined
       //	=> compiler checks the existence of all enum values
 
@@ -2045,7 +2104,9 @@ static enumError write_data
     {
 	wia_group_t * grp = wia->group + group;
 	grp->data_off4 = htonl( written ? wia->write_data_off >> 2 : 0 );
-	grp->data_size = htonl( written );
+	grp->data_size = htonl( is_rvz_group_compressed
+				? written | RVZ_GROUP_COMPRESSED
+				: written );
     }
 
     wia->write_data_off += written + 3 & ~3;
@@ -2813,14 +2874,31 @@ enumError SetupWriteWIA
     wia->is_writing = true;
     wia->gdata_group = wia->gdata_part = -1;  // reset gdata
 
+    //----- detect RVZ target by filename extension
+    // Note: sf->f.fname may be a ".XXXXXX.tmp" temp name (CreateWFile()
+    // writes to a temp file and renames on close); the real destination
+    // name is kept in sf->f.rename in that case.
+
+    ccp fname = sf->f.rename ? sf->f.rename : sf->f.fname;
+    const size_t fname_len = fname ? strlen(fname) : 0;
+    wia->is_rvz = fname_len >= 4 && !strcasecmp(fname+fname_len-4,".rvz");
+
+    // Zstandard is only valid for RVZ; if the user didn't explicitly
+    // request a compression method, default RVZ targets to Zstandard.
+    wd_compression_t compr_method = opt_compr_method;
+    if ( wia->is_rvz && !opt_compr_method_used )
+	compr_method = WD_COMPR_ZSTD;
+
     AllocBufferWIA(wia, opt_compr_chunk_size
-			? opt_compr_chunk_size : opt_chunk_size, true, false );
+			? opt_compr_chunk_size
+			: wia->is_rvz ? RVZ_DEF_CHUNK_SIZE : opt_chunk_size,
+			true, false );
 
 
     //----- setup file header
 
     wia_file_head_t *fhead = &wia->fhead;
-    memcpy(fhead->magic,WIA_MAGIC,sizeof(fhead->magic));
+    memcpy(fhead->magic, wia->is_rvz ? RVZ_MAGIC : WIA_MAGIC, sizeof(fhead->magic));
     fhead->magic[3]++; // magic is invalid now
     fhead->version		= WIA_VERSION;
     fhead->version_compatible	= WIA_VERSION_COMPATIBLE;
@@ -2831,10 +2909,10 @@ enumError SetupWriteWIA
 
     wia_disc_t *disc = &wia->disc;
     disc->disc_type	= WD_DT_UNKNOWN;
-    disc->compression	= opt_compr_method;
+    disc->compression	= compr_method;
     disc->chunk_size	= wia->chunk_size;
 
-    switch(opt_compr_method)
+    switch(compr_method)
     {
 	case WD_COMPR__N:
 	case WD_COMPR_NONE:
@@ -2843,10 +2921,19 @@ enumError SetupWriteWIA
 	    break;
 
 	case WD_COMPR_ZSTD:
-	    // Zstandard only exists in RVZ, and writing RVZ is not supported.
+	 #ifdef NO_ZSTD
 	    return ERROR0(ERR_NOT_IMPLEMENTED,
-		"Zstandard is only defined for RVZ, which %s can not write.\n",
-		ProgInfo.progname );
+		"No Zstandard support in this build, cannot write RVZ: %s\n",
+		sf->f.fname );
+	 #else
+	    if (!wia->is_rvz)
+		return ERROR0(ERR_NOT_IMPLEMENTED,
+		    "Zstandard is only defined for RVZ (use a '.rvz' destination): %s\n",
+		    sf->f.fname );
+	    disc->compr_level = opt_compr_level > 0 ? opt_compr_level : ZSTD_CLEVEL_DEFAULT;
+	    wia->memory_usage += ZSTD_compressBound(wia->chunk_size);
+	    break;
+	 #endif
 
 	case WD_COMPR_BZIP2:
 	 #ifdef NO_BZIP2
@@ -3056,8 +3143,30 @@ enumError TermWriteWIA
 	DASSERT(wia->group);
 	disc->n_groups	= wia->group_used;
 	disc->group_off	= wia->write_data_off;
-	const u32 group_len	= wia->group_used * sizeof(wia_group_t);
-	err = write_data( sf, 0, wia->group, group_len, -1, &disc->group_size );
+
+	if (wia->is_rvz)
+	{
+	    // RVZ stores the wider rvz_group_t (with an extra, always-zero
+	    // 'rvz_packed_size' field since we don't implement Dolphin's
+	    // junk-data repacking) rather than the plain wia_group_t.
+	    const u32 rvz_len = wia->group_used * sizeof(rvz_group_t);
+	    rvz_group_t * rgrp = MALLOC(rvz_len);
+	    u32 i;
+	    for ( i = 0; i < wia->group_used; i++ )
+	    {
+		rgrp[i].data_off4       = wia->group[i].data_off4;
+		rgrp[i].data_size       = wia->group[i].data_size;
+		rgrp[i].rvz_packed_size = 0;
+	    }
+	    err = write_data( sf, 0, rgrp, rvz_len, -1, &disc->group_size );
+	    FREE(rgrp);
+	}
+	else
+	{
+	    const u32 group_len = wia->group_used * sizeof(wia_group_t);
+	    err = write_data( sf, 0, wia->group, group_len, -1, &disc->group_size );
+	}
+
 	PRINT("** GROUP TABLE: n=%d, off=%llx, size=%x\n",
 			disc->n_groups, disc->group_off, disc->group_size );
 	if (err)
@@ -3087,7 +3196,7 @@ enumError TermWriteWIA
     //----- calc file header
 
     wia_file_head_t *fhead	= &wia->fhead;
-    memcpy(fhead->magic,WIA_MAGIC,sizeof(fhead->magic));
+    memcpy(fhead->magic, wia->is_rvz ? RVZ_MAGIC : WIA_MAGIC, sizeof(fhead->magic));
     fhead->version		= WIA_VERSION;
     fhead->version_compatible	= WIA_VERSION_COMPATIBLE;
     fhead->disc_size		= sizeof(wia_disc_t);

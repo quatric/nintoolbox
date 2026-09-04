@@ -42,7 +42,7 @@ them into that pipeline they get their own four commands — `XINFO`, `XEXTRACT`
 | NDS | Disc image | ✅ | ✅ | DS/DSi; full file system, both CPU binaries, overlays and banner via `XINFO`, `XEXTRACT` and `XCREATE` |
 | NKit (`.nkit.iso`) | Disc image | ✅ | ⛔ | Restore via `XCONVERT`; Wii is byte exact against the header CRC32; GameCube is implemented but still unverified against a real sample |
 | Riivolution | Mod / Disc Patching | ✅ | ✅ | Full XML spec: file/folder replacement, DOL memory patching, dynamic sections, variable substitution, multi-choice selection via `wit RIIVOLUTION` |
-| RVZ | Disc image | ✅ | ⛔ | Dolphin's WIA derivative; all normal WIT read commands; Zstandard, sub-2 MiB chunks and losslessly packed pseudo-random padding |
+| RVZ | Disc image | ✅ | ✅ | Dolphin's WIA derivative; all normal WIT read/write commands; Zstandard, sub-2 MiB chunks and losslessly packed pseudo-random padding on decode; encoding writes plain zstd-compressed groups without Dolphin's junk-data repacking (still spec-valid, larger output) |
 | Switch XCI / NSP | Disc/package | 🔍 | ⛔ | Identified by `XINFO`, not yet unpacked |
 | WAD | Installable title | ✅ | ✅ | Wii; contents decrypted and re-encrypted via `XINFO`, `XEXTRACT` and `XCREATE`; TMD re-signed only when something changed |
 | WUX / WUD | Disc image | ✅ | ✅ | Wii U; container conversion via `XINFO` and `XCONVERT`; file-system unpacking needs the per-disc key and is not implemented |
@@ -60,9 +60,13 @@ wit COPY --iso --raw game.rvz --dest game.iso
 wit EXTRACT game.rvz --dest game.d/
 ```
 
-Reading RVZ needs Zstandard; `./setup.sh` detects `zstd.h` automatically and the
-build falls back to a clear "not supported" error if it is missing.  Writing RVZ
-is not implemented — use `--wia` for a compressed output format.
+Reading and writing RVZ both need Zstandard; `./setup.sh` detects `zstd.h`
+automatically and the build falls back to a clear "not supported" error if it
+is missing. Any output file named `*.rvz` (e.g. `wit COPY game.iso game.rvz`)
+is written as RVZ automatically; writing does not implement Dolphin's
+junk-data repacking, so RVZ files produced by `wit` are spec-valid and read
+back byte-identical, but larger than Dolphin's own RVZ output for the same
+disc.
 
 The implementation follows Dolphin's
 [WiaAndRvz.md](https://github.com/dolphin-emu/dolphin/blob/master/docs/WiaAndRvz.md).

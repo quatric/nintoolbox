@@ -1789,6 +1789,7 @@ enumError ScanHexSilent
 ///////////////////////////////////////////////////////////////////////////////
 
 wd_compression_t opt_compr_method = WD_COMPR__DEFAULT;
+bool opt_compr_method_used	  = false; // true: opt_compr_method was set explicitly by the user
 int opt_compr_level		  = 0;	// 0=default, 1..9=valid
 u32 opt_compr_chunk_size	  = 0;	// 0=default
 
@@ -1816,6 +1817,7 @@ static wd_compression_t ScanCompression_helper
 	{ WD_COMPR_BZIP2,	"BZIP2",	"BZ2",	0 },
 	{ WD_COMPR_LZMA,	"LZMA",		"LZ",	0 },
 	{ WD_COMPR_LZMA2,	"LZMA2",	"LZ2",	0 },
+	{ WD_COMPR_ZSTD,	"ZSTD",		"ZS",	0 },
 
 	{ WD_COMPR__DEFAULT,	"DEFAULT",	"D",	0 },
 	{ WD_COMPR__FAST,	"FAST",		"F",	0x300 + 10 },
@@ -2023,6 +2025,12 @@ wd_compression_t ScanCompression
 	    case WD_COMPR_LZMA2:
 		*level = CalcCompressionLevelLZMA(*level);
 		break;
+
+	    case WD_COMPR_ZSTD:
+		// zstd levels 1..22, 0 = library default
+		if ( *level < 0 || *level > 22 )
+		    *level = 0;
+		break;
 	}
     }
 
@@ -2047,6 +2055,7 @@ int ScanOptCompression
 	if ( new_compr == -1 )
 	    return 1;
 	opt_compr_method	= new_compr;
+	opt_compr_method_used	= true;
 	opt_compr_level		= new_level;
 	opt_compr_chunk_size	= new_chunk_size;
     }

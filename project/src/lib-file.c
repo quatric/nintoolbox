@@ -1135,7 +1135,7 @@ const OFT_info_t oft_info[OFT__N+1] =
     { OFT_WIA,
 	OFT_A_READ|OFT_A_CREATE|OFT_A_COMPR,
 	IOM_IS_COMPRESSED,
-	"WIA", "--wia", ".wia", 0, "Compressed Wii ISO Archive" },
+	"WIA", "--wia", ".wia", ".rvz", "Compressed Wii ISO Archive" },
 
     { OFT_GCZ,
 	OFT_A_READ|OFT_A_CREATE|OFT_A_COMPR,
@@ -1186,6 +1186,11 @@ enumOFT CalcOFT ( enumOFT force, ccp fname_dest, ccp fname_src, enumOFT def )
 		return ProposeOFT_WDF(def);
 
 	    if ( !strcasecmp(fname+len-4,".wia") )
+		return OFT_WIA;
+
+	    if ( !strcasecmp(fname+len-4,".rvz") )
+		// RVZ is a WIA derivative (Zstandard, RVZ_MAGIC); there is no
+		// separate OFT_RVZ, SetupWriteWIA() detects it by extension.
 		return OFT_WIA;
 
 	    if ( !strcasecmp(fname+len-4,".gcz") )

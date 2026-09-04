@@ -1328,6 +1328,7 @@ enumError ScanSetupFile
 ///////////////////////////////////////////////////////////////////////////////
 
 extern wd_compression_t opt_compr_method; // = WD_COMPR__DEFAULT
+extern bool opt_compr_method_used;	  // true: opt_compr_method was set explicitly by the user
 extern int opt_compr_level;		  // = 0=default, 1..9=valid
 extern u32 opt_compr_chunk_size;	  // = 0=default
 
