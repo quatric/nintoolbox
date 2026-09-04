@@ -2571,10 +2571,16 @@ t_mpb_modify_repack_roundtrip(){
   local d; d=$(mktemp -d /tmp/_r_mpb_rt.XXXXXX) || { no "MPBIN modify+repack round-trip" "mktemp failed"; return; }
   $B/wszst xx "$src" --dest "$d/orig" --overwrite >"$d/xx1.log" 2>&1
   # 'xx' also decodes each .hsf leaf to a sidecar .glb (now that multi-part
-  # HSF models decode too, both leaves in this fixture do) -- those are
-  # derived convenience output, not raw container members, so they don't
-  # belong in the repack input.
-  rm -f "$d"/orig/*.glb
+  # HSF models decode too, both leaves in this fixture do), and decoding
+  # that .glb in turn drops a .hsf.json/.motion.json sidecar plus the
+  # model's embedded textures as standalone .png files beside it. None of
+  # that is a raw MPBIN container member -- only the "fileNNN.<ext>" names
+  # written directly by extract_mpbin_file() are -- so strip everything
+  # else before repacking, or the repack picks up 9 extra phantom entries
+  # that were never really in the archive.
+  find -E "$d/orig" -maxdepth 1 -type f \
+    ! -regex '.*/file[0-9]{3}\.(hsf|atb|pac|darc|sarc|dat)' \
+    -delete
   local target; target=$(find "$d/orig" -maxdepth 1 -type f -name '*.hsf' | sort | tail -1)
   if [ -z "$target" ]; then no "MPBIN modify+repack round-trip" "no extracted files"; rm -rf "$d"; return; fi
   python3 -c "
