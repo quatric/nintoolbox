@@ -377,7 +377,17 @@ static enumError decode_brfnt_atlas (ccp arg, ccp dest)
 		err = LoadIMG (&img, true, arg, sheet, false, true, opt_ignore > 0);
 		if (err)
 			break;
-		Transform2XIMG (&img);
+		// Transform2XIMG() only flags the pending conversion (RGBA8/CMPR/...
+		// -> flat X_RGB); it never touches img.data itself. Without actually
+		// running it, the memcpy() below was copying the sheet's raw GX-tiled
+		// bytes (AR/GB block pairs for RGBA8) straight into the atlas as if
+		// they were already a flat RGBA raster.
+		if (Transform2XIMG (&img))
+		{
+			err = ExecTransformIMG (&img);
+			if (err)
+				break;
+		}
 		for (uint y = 0; y < sh; y++)
 			memcpy (atlas + ((size_t)y * atlas_w + sheet * sw) * 4,
 				img.data + (size_t)y * img.xwidth * 4, (size_t)sw * 4);
