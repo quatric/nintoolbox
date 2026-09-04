@@ -3941,9 +3941,19 @@ t_exart_encode
 
 t_exmsh(){
   # Monster Games PMsh collision resources: count header, spatial buckets,
-  # indexed float32 positions and 60-byte triangle/collision records -> DAE.
-  # Counts are pinned from retail resources so this verifies topology rather
-  # than merely checking that a non-empty file was produced.
+  # indexed float32 positions and 60-byte triangle/collision records -> GLB
+  # (the model exporter now targets glTF/GLB, not COLLADA -- see the DAE->GLB
+  # migration). want_pos is the retail position *pool* size pinned straight
+  # from each file's header (n_positions at offset 12); it is deliberately
+  # NOT re-checked against the GLB output below, because ExportModelToGLB()
+  # flattens to one vertex per triangle corner (glTF has no DAE-style shared
+  # vertex pool with per-triangle attribute offsets, since each corner here
+  # carries its own flat-shaded face normal) -- and real retail pools contain
+  # duplicate-coordinate entries at distinct indices, so "unique positions in
+  # the output" is not a stable oracle. want_tri stays a real correctness
+  # check: it is pinned from retail data and independently verified against
+  # the source file's own n_tris field, and the GLB's corner/index counts
+  # must both equal want_tri*3.
   local spec name want_pos want_tri
   for spec in "excite_goalback 16 16" "excite_gpmesh 221 248" "excite_rail2bp 222 198"; do
     read -r name want_pos want_tri <<<"$spec"
@@ -3952,15 +3962,26 @@ t_exmsh(){
     rm -rf /tmp/_r_exmsh; mkdir -p /tmp/_r_exmsh
     cp "$f" /tmp/_r_exmsh/
     $B/wszst EXTRACT "/tmp/_r_exmsh/$name.msh" --overwrite >/tmp/_r_exmsh.log 2>&1
-    local dae="/tmp/_r_exmsh/$name.dae"
-    if [ -s "$dae" ] && grep -q "EXTRACT MSH:" /tmp/_r_exmsh.log; then
-      local nfloat ntri
-      nfloat=$(grep -oE '<float_array[^>]*count="[0-9]+"' "$dae" | head -1 | grep -oE '[0-9]+')
-      ntri=$(grep -oE '<triangles[^>]*count="[0-9]+"' "$dae" | head -1 | grep -oE '[0-9]+')
-      if [ "$nfloat" = "$((want_pos*3))" ] && [ "$ntri" = "$want_tri" ]; then
-        ok "Excite PMsh collision mesh -> DAE ($name: $want_pos positions, $want_tri tris)"
+    local glb="/tmp/_r_exmsh/$name.glb"
+    if [ -s "$glb" ] && grep -q "EXTRACT MSH:" /tmp/_r_exmsh.log; then
+      local counts
+      counts=$(python3 - "$glb" <<'PY'
+import json,struct,sys
+d=open(sys.argv[1],'rb').read()
+n=struct.unpack_from('<I',d,12)[0]
+j=json.loads(d[20:20+n])
+prim=j['meshes'][0]['primitives'][0]
+pos=j['accessors'][prim['attributes']['POSITION']]
+idx=j['accessors'][prim['indices']] if 'indices' in prim else None
+print(pos['count'], idx['count'] if idx else pos['count'])
+PY
+)
+      local nvtx nidx
+      read -r nvtx nidx <<<"$counts"
+      if [ "$nvtx" = "$((want_tri*3))" ] && [ "$nidx" = "$((want_tri*3))" ]; then
+        ok "Excite PMsh collision mesh -> GLB ($name: $want_pos pool positions, $want_tri tris)"
       else
-        no "Excite PMsh collision mesh" "$name: expected $((want_pos*3)) position floats/$want_tri tris, got $nfloat/$ntri"
+        no "Excite PMsh collision mesh" "$name: expected $((want_tri*3)) corners/indices, got $nvtx/$nidx"
       fi
     else
       no "Excite PMsh collision mesh" "$name"
@@ -3970,9 +3991,10 @@ t_exmsh(){
 t_exmsh
 
 t_exmsh_encode(){
-  # PMsh encoder: retail .msh -> DAE -> wmdlt ENCODE --dest *.msh -> DAE.
+  # PMsh encoder: retail .msh -> GLB -> wmdlt ENCODE --dest *.msh -> GLB.
   # The re-decoded geometry must match the original decode exactly (triangle
-  # corner coordinate triples, order included).
+  # corner coordinate triples, order included). Uses GLB now, not COLLADA --
+  # see the DAE->GLB model export migration.
   local name
   for name in excite_goalback excite_gpmesh; do
     local f="$PWD_PROJECT/../tests/fixtures/$name.msh"
@@ -3980,47 +4002,51 @@ t_exmsh_encode(){
     rm -rf /tmp/_r_exmshe; mkdir -p /tmp/_r_exmshe
     cp "$f" /tmp/_r_exmshe/
     $B/wszst EXTRACT "/tmp/_r_exmshe/$name.msh" --overwrite >/dev/null 2>&1
-    local dae="/tmp/_r_exmshe/$name.dae"
+    local glb="/tmp/_r_exmshe/$name.glb"
     local msh2="/tmp/_r_exmshe/re.msh"
-    if ! [ -s "$dae" ] \
-      || ! $B/wmdlt ENCODE "$dae" --dest "$msh2" --overwrite >/dev/null 2>&1 \
+    if ! [ -s "$glb" ] \
+      || ! $B/wmdlt ENCODE "$glb" --dest "$msh2" --overwrite >/dev/null 2>&1 \
       || ! [ -s "$msh2" ]; then
       no "Excite PMsh encode roundtrip" "$name: encode failed"; continue
     fi
-    local dae2="/tmp/_r_exmshe/re.dae"
-    $B/wszst EXTRACT "$msh2" --dest "$dae2" --overwrite >/dev/null 2>&1
-    if [ ! -s "$dae2" ]; then
+    local glb2="/tmp/_r_exmshe/re.glb"
+    $B/wszst EXTRACT "$msh2" --dest "$glb2" --overwrite >/dev/null 2>&1
+    if [ ! -s "$glb2" ]; then
       no "Excite PMsh encode roundtrip" "$name: re-decode failed"; continue
     fi
     local cmp_out
-    cmp_out=$(python3 - "$dae" "$dae2" <<'PY'
-import sys, xml.etree.ElementTree as ET
-NS={'c':'http://www.collada.org/2005/11/COLLADASchema'}
+    cmp_out=$(python3 - "$glb" "$glb2" <<'PY'
+import sys, json, struct
+def load(path):
+    d=open(path,'rb').read()
+    n=struct.unpack_from('<I',d,12)[0]
+    j=json.loads(d[20:20+n])
+    ct=struct.unpack_from('<I',d,20+n+4)[0]
+    bin_off=20+n+8
+    return j, d[bin_off:bin_off+ct]
 def tris(path):
-    r=ET.parse(path).getroot()
-    mesh=r.find('.//c:mesh',NS)
-    srcs={s.get('id'):[float(x) for x in s.find('c:float_array',NS).text.split()]
-          for s in mesh.findall('c:source',NS)}
-    pos=None
-    for inp in mesh.find('c:vertices',NS).findall('c:input',NS):
-        if inp.get('semantic')=='POSITION':
-            pos=srcs[inp.get('source').lstrip('#')]
-    P=[tuple(pos[i*3:i*3+3]) for i in range(len(pos)//3)]
-    T=[]
-    for tg in mesh.findall('c:triangles',NS):
-        offs={i.get('semantic'):int(i.get('offset')) for i in tg.findall('c:input',NS)}
-        stride=max(offs.values())+1
-        for p in tg.findall('c:p',NS):
-            tok=[int(x) for x in p.text.split()]
-            for j in range(0,len(tok),stride):
-                T.append(P[tok[j+offs['VERTEX']]])
-    return T
+    j,bin=load(path)
+    prim=j['meshes'][0]['primitives'][0]
+    pos=j['accessors'][prim['attributes']['POSITION']]
+    bv=j['bufferViews'][pos['bufferView']]
+    off=bv.get('byteOffset',0)
+    P=[struct.unpack_from('<3f',bin,off+12*i) for i in range(pos['count'])]
+    idx=j['accessors'][prim['indices']] if 'indices' in prim else None
+    if idx:
+        ibv=j['bufferViews'][idx['bufferView']]
+        ioff=ibv.get('byteOffset',0)
+        comp={5121:'B',5123:'H',5125:'I'}[idx['componentType']]
+        sz={'B':1,'H':2,'I':4}[comp]
+        I=[struct.unpack_from('<'+comp,bin,ioff+sz*i)[0] for i in range(idx['count'])]
+    else:
+        I=list(range(pos['count']))
+    return [P[i] for i in I]
 a,b=tris(sys.argv[1]),tris(sys.argv[2])
 print("MATCH" if a==b and len(a)>0 else f"DIFF {len(a)} vs {len(b)}")
 PY
 )
     if [ "$cmp_out" = "MATCH" ]; then
-      ok "Excite PMsh encode roundtrip ($name: geometry identical through dae->encode->decode)"
+      ok "Excite PMsh encode roundtrip ($name: geometry identical through glb->encode->decode)"
     else
       no "Excite PMsh encode roundtrip" "$name: $cmp_out"
     fi
