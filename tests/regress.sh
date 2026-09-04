@@ -3844,9 +3844,14 @@ t_exart(){
   # single mip level with a zeroed footer, so dimensions/format come from
   # tile-seam continuity alone. Colour+stencil pairs are detected and
   # recombined into one proper RGBA image by ScanART -- see t_exart_mask.
+  # apploader.img is excluded: it's the standard GameCube/Wii disc apploader
+  # binary (unrelated to Excite Truck/Bots GUI textures), and the sample
+  # corpus under tests/samples-excitebots/extract/.../sys/ carries two real
+  # copies of it that otherwise sort ahead of the actual .art/.img fixtures.
   local f; f=$(for d in $SEARCH; do [ -d "$d" ] || continue
       find -L "$d" -maxdepth 8 -type f \( -iname '*.art' -o -iname '*.img' \) -size -65M \
-        ! -path '*claude-*' ! -path '*_r_*' ! -iname 'test.*' ! -iname 'test_*' 2>/dev/null
+        ! -path '*claude-*' ! -path '*_r_*' ! -iname 'test.*' ! -iname 'test_*' \
+        ! -iname 'apploader.img' 2>/dev/null
     done | head -1)
   [ -n "$f" ] || { sk "Excite .art/.img GUI image"; return; }
   rm -rf /tmp/_r_exart; mkdir -p /tmp/_r_exart
