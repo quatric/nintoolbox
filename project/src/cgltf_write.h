@@ -568,7 +568,31 @@ static void cgltf_write_mesh(cgltf_write_context* context, const cgltf_mesh* mes
 		cgltf_write_floatarrayprop(context, "weights", mesh->weights, mesh->weights_count);
 	}
 
-	cgltf_write_extras(context, &mesh->extras);
+	if (mesh->target_names_count > 0 && !mesh->extras.data
+		&& mesh->extras.end_offset == mesh->extras.start_offset)
+	{
+		// cgltf_write_extras() only ever echoes an *existing* extras blob
+		// (either a caller-supplied JSON string, or a byte range sliced out
+		// of the source document it parsed) -- it has no path for emitting
+		// morph-target names that were only ever set programmatically via
+		// mesh->target_names[], which is exactly how the glTF/GLB exporter
+		// in lib-model-glb.c populates them. Without this, every morph
+		// target's name was silently dropped from the written file.
+		cgltf_write_line(context, "\"extras\": {");
+		cgltf_write_line(context, "\"targetNames\": [");
+		for (cgltf_size i = 0; i < mesh->target_names_count; ++i)
+		{
+			cgltf_write_indent(context);
+			CGLTF_SPRINTF("\"%s\"", mesh->target_names[i] ? mesh->target_names[i] : "");
+			context->needs_comma = 1;
+		}
+		cgltf_write_line(context, "]");
+		cgltf_write_line(context, "}");
+	}
+	else
+	{
+		cgltf_write_extras(context, &mesh->extras);
+	}
 	cgltf_write_line(context, "}");
 }
 
