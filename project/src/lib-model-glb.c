@@ -1722,8 +1722,18 @@ static void convert_meshes_and_skin(cgltf_data *data, model_t *model) {
         for (size_t j = 0; j < m->primitives_count; j++) {
             cgltf_primitive *p = &m->primitives[j];
             mesh_t *dst = &model->meshes[model->num_meshes++];
-            if (m->name) snprintf(dst->name, sizeof(dst->name), "%s_%zu", m->name, j);
-            else snprintf(dst->name, sizeof(dst->name), "mesh_%zu_%zu", i, j);
+            // As with instances below: only disambiguate with a "_<j>"
+            // suffix when the glTF mesh actually has multiple primitives.
+            // Appending it unconditionally mutates a single-primitive
+            // mesh's name on every decode->encode cycle, breaking the
+            // canonical fixed point.
+            if (m->primitives_count > 1) {
+                if (m->name) snprintf(dst->name, sizeof(dst->name), "%s_%zu", m->name, j);
+                else snprintf(dst->name, sizeof(dst->name), "mesh_%zu_%zu", i, j);
+            } else {
+                if (m->name) snprintf(dst->name, sizeof(dst->name), "%s", m->name);
+                else snprintf(dst->name, sizeof(dst->name), "mesh_%zu", i);
+            }
             
             if (p->material) {
                 dst->material_idx = p->material - data->materials;
@@ -1896,20 +1906,40 @@ static void convert_nodes(cgltf_data *data, model_t *model) {
         }
     }
     
+    // Our own GLB export writes an orphan node holding the raw mesh
+    // definition (glTF node index model->num_joints+m) whenever no instance
+    // references that mesh directly, purely so the mesh has a node slot to
+    // point instances at (see the exporter around scene_object_base). That
+    // node is never reachable from the scene graph (not a scene root, not
+    // anyone's child). Re-importing it as its own instance -- on top of the
+    // real instance nodes that already reference the same mesh -- duplicates
+    // the placement on every decode->encode cycle, breaking the canonical
+    // fixed point. Only mesh-bearing nodes actually reachable from the scene
+    // graph become instances.
+    cgltf_bool *is_root = data->nodes_count ? calloc(data->nodes_count, sizeof(cgltf_bool)) : 0;
+    if (data->scene) {
+        for (size_t s = 0; s < data->scene->nodes_count; s++) {
+            cgltf_node *rn = data->scene->nodes[s];
+            size_t idx = (size_t)(rn - data->nodes);
+            if (idx < data->nodes_count) is_root[idx] = 1;
+        }
+    }
+    #define NODE_REACHABLE(n) ((n)->parent != NULL || is_root[(size_t)((n) - data->nodes)])
+
     size_t num_inst = 0;
     for (size_t i = 0; i < data->nodes_count; i++) {
-        if (data->nodes[i].mesh) {
+        if (data->nodes[i].mesh && NODE_REACHABLE(&data->nodes[i])) {
             num_inst += data->nodes[i].mesh->primitives_count;
         }
     }
-    
+
     if (num_inst) {
         model->instances = calloc(num_inst, sizeof(model_instance_t));
         model->num_instances = 0;
-        
+
         for (size_t i = 0; i < data->nodes_count; i++) {
             cgltf_node *n = &data->nodes[i];
-            if (n->mesh) {
+            if (n->mesh && NODE_REACHABLE(n)) {
                 int base_mesh_idx = -1;
                 for (size_t mi = 0; mi < data->meshes_count; mi++) {
                     if (&data->meshes[mi] == n->mesh) {
@@ -1922,8 +1952,18 @@ static void convert_nodes(cgltf_data *data, model_t *model) {
                 
                 for (size_t p = 0; p < n->mesh->primitives_count; p++) {
                     model_instance_t *dst = &model->instances[model->num_instances++];
-                    if (n->name) snprintf(dst->name, sizeof(dst->name), "%s_%zu", n->name, p);
-                    else snprintf(dst->name, sizeof(dst->name), "inst_%zu_%zu", i, p);
+                    // Only disambiguate with a "_<p>" suffix when the node's
+                    // mesh actually has multiple primitives -- appending it
+                    // unconditionally mutates a single-primitive node's name
+                    // on every decode->encode cycle (e.g. "x" -> "x_0" ->
+                    // "x_0_0" ...), breaking the canonical fixed point.
+                    if (n->mesh->primitives_count > 1) {
+                        if (n->name) snprintf(dst->name, sizeof(dst->name), "%s_%zu", n->name, p);
+                        else snprintf(dst->name, sizeof(dst->name), "inst_%zu_%zu", i, p);
+                    } else {
+                        if (n->name) snprintf(dst->name, sizeof(dst->name), "%s", n->name);
+                        else snprintf(dst->name, sizeof(dst->name), "inst_%zu", i);
+                    }
                     
                     dst->mesh_idx = base_mesh_idx + p;
                     dst->parent_idx = -1;
@@ -1941,6 +1981,8 @@ static void convert_nodes(cgltf_data *data, model_t *model) {
             }
         }
     }
+    #undef NODE_REACHABLE
+    free(is_root);
 }
 
 static void convert_animations(cgltf_data *data, model_t *model) {
