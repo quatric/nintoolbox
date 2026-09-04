@@ -901,7 +901,9 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 	data.scenes = calloc (1, sizeof (cgltf_scene));
 	data.scene = data.scenes;
 	data.cameras = calloc (model->num_cameras > 0 ? model->num_cameras : 1, sizeof (cgltf_camera));
+	data.cameras_count = model->num_cameras;
 	data.lights = calloc (model->num_lights > 0 ? model->num_lights : 1, sizeof (cgltf_light));
+	data.lights_count = model->num_lights;
 	data.animations = calloc (model->num_animations > 0 ? model->num_animations : 1, sizeof (cgltf_animation));
 	data.skins = calloc (1, sizeof (cgltf_skin));
 
