@@ -267,7 +267,14 @@ enumError DecodeFLIM_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, 
 	}
 
 	const uint w = r16 (foot + 0x1c), h = r16 (foot + 0x1e);
-	const uint fmt = foot[0x20], tile_mode = 1;
+	// Layout after the "imag" sub-header (all LE): u16 width, u16 height,
+	// u16 count/orientation (unused here), u8 format, u8 flags (bit0-4 =
+	// tile mode). The format byte sits at +0x22, not +0x20 -- +0x20 is the
+	// count field, so reading it there was decoding every CTR BCLIM/BFLIM
+	// as whatever format happens to be encoded in the low byte of "count"
+	// (always 1 = A8) instead of the real pixel format written by the
+	// encoder at +0x22.
+	const uint fmt = foot[0x22], tile_mode = 1;
 	const uint data_size = r32 (src + src_size - 4);
 
 	if (fmt == 10 || fmt == 11) // ETC1 (fmt 10, opaque) / ETC1A4 (fmt 11): block-compressed
