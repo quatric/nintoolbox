@@ -74,6 +74,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **MDR** | `.mdr` | — | — | *Dance Dance Revolution Mario Mix* chunk archive with per-chunk zlib streams |
 | **MKGPDX PAC** | `.pac` | ✅ | — | *Mario Kart Arcade GP DX* layout archive (`pack`) |
 | **MPBIN** | `.bin` | ✅ | ✅ | Hudson Soft Mario Party archive container (GameCube / Wii) |
+| **MTXT** | `.mtxt` | ✅ | — | Nintendo Switch MTXT texture archive (gzip-wrapped XTX) |
 | **NARC** | `.narc` | ✅ | ✅ | Nintendo DS Nitro standard archive (DS / DSi) |
 | **NCCARC** | `.nccarc` | ✅ | ✅ | Nintendo DS flat blob container |
 | **NDS / SRL / DSI** | `.nds`, `.srl`, `.dsi` | ✅ | — | Nintendo DS & DSi ROM images and executables |
@@ -85,6 +86,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **RARC** | `.rarc`, `.arc` | ✅ | ✅ | Nintendo standard resource archive (GameCube / Wii) |
 | **RFL_Res** | `RFL_Res.dat`, `.dat` | — | — | Revolution Face Library Mii resource database (Wii / 3DS / Wii U) |
 | **RPAK** | `.rpak`, `.pak` | ✅ | — | Retro Studios asset container (*Metroid Prime* / *Donkey Kong Country Returns*) |
+| **SIR0** | `.sir0` | ✅ | — | Pokémon Mystery Dungeon resource container (DS / 3DS) |
 | **RST / TOC** | `.rst`, `.toc` | ✅ | ✅ | Monster Games archive & table of contents (*Excite Truck* / *Excitebots*) |
 | **SARC** | `.sarc`, `.szs` | ✅ | ✅ | NintendoWare NW4F & NintendoSDK sorted archive (Wii U / Switch / 3DS) |
 | **STPK** | `.srd`, `.stpk` | — | — | *Jump Super Stars* & *Jump Ultimate Stars* DS resource archive |
@@ -109,7 +111,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **BNFM** | `.bnfm` | **GLB** | — | — | — | Nd Cube Wii U 3D model format (*Animal Crossing: Amiibo Festival*, *Mario Party 10*) |
 | **G1M** | `.g1m` | **GLB** | — | — | — | Koei Tecmo 3D model format (*Hyrule Warriors*, *Fire Emblem Warriors*) |
 | **G4PKM** | `.g4pkm` | **GLB** | — | — | — | Level-5 / Nintendo Pokémon & Yo-kai Watch 3D model format |
-| **GLG / RLG** | `.glg`, `.rlg` | **GLB** | ✅ | — | — | Next Level Games 3D model format (*Super Mario Strikers*, *Mario Strikers Charged*) |
+| **GLG / RLG** | `.glg`, `.rlg` | **GLB** | ✅ | ✅ | ✅ | Next Level Games 3D model format (*Super Mario Strikers*, *Mario Strikers Charged*) |
 | **HGO** | `.hgo` | **GLB** | — | — | — | Camelot GameCube/Wii 3D model format (*Mario Golf*, *Mario Tennis*) |
 | **HSD** | `.dat` | **GLB** | ✅ | ✅ | ✅ | HAL Laboratory `sysdolphin` object graph (GameCube) |
 | **HSF** | `.hsf` | **GLB** | ✅ | ✅ | ✅ | Hudson Soft 3D model format (GameCube / Wii) |
@@ -138,6 +140,8 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **BREFT** | `.breft` | ✅ | — | NintendoWare NW4R particle effect texture (Wii) |
 | **BTI / TPL** | `.bti`, `.tpl` | ✅ | ✅ | Nintendo standard texture palette library (GameCube / Wii) |
 | **CTXB** | `.ctxb` | ✅ | — | Grezzo 3DS texture container (*Ocarina of Time 3D*, *Majora's Mask 3D*) |
+| **PTLG** | `.glt`, `.rlt` | ✅ | — | Next Level Games texture container, extracted as TPL (*Super Mario Strikers*, *Mario Strikers Charged*) |
+| **TEX3DS** | `.tex` | — | — | Nintendo 3DS proprietary texture (identification only) |
 | **G1T** | `.g1t` | — | — | Koei Tecmo texture container (*Hyrule Warriors*, *Fire Emblem Warriors*) |
 | **GTX** | `.gtx` | ✅ | — | Nintendo Wii U GX2 surface container (Wii U) |
 | **NCGR / NCLR / NCER / NANR** | `.ncgr`, `.nclr`, `.ncer`, `.nanr` | ✅ | — | Nintendo DS Nitro 2D graphics, palette, cell & animation (DS) |

@@ -2365,11 +2365,18 @@ enumError ExpandAtArgManager (ArgManager_t *am, // valid arg-manager
 #define SIZEOF_INFO_SEP() { -2, 0 },
 #define SIZEOF_INFO_TERM() { -9, 0 },
 
+// Deliberately NOT packed: these tables are in-memory diagnostics for the
+// inspect/test commands and never map a file layout, but packing gives the
+// struct alignment 1, which puts every `name` pointer at offset 4 of a
+// 12-byte element. arm64 then rejects the relocation for any such pointer
+// landing near a page boundary ("unaligned pointer(s) for architecture
+// arm64"), which broke linking intermittently as unrelated code shifted
+// addresses.
 typedef struct sizeof_info_t
 {
 	int size;
 	ccp name;
-} __attribute__ ((packed)) sizeof_info_t;
+} sizeof_info_t;
 
 //-----------------------------------------------------------------------------
 

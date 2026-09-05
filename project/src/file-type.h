@@ -320,6 +320,10 @@ typedef enum file_format_t
 	FF_TVOL, // 226 - Koei Tecmo / Gust Texture Volume Archive (.tvol)
 	FF_TXE, // 227 - Pikmin 1 Texture (.txe)
 	FF_MKAGPDX_MDL, // 228 - Mario Kart Arcade GP DX Model (.bin / BIKE)
+	FF_MTXT, // 229 - Nintendo Switch MTXT Texture Archive (.mtxt / MTXT)
+	FF_SIR0, // 230 - Pokemon Mystery Dungeon Resource Container (.sir0 / SIR0)
+	FF_TEX3DS, // 231 - Nintendo 3DS Proprietary Texture (.tex)
+	FF_PTLG, // 232 - Next Level Games Texture Container (.glt / .rlt / PTLG)
 
 	//--- number of elements
 

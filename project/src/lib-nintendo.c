@@ -146,6 +146,8 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_MSH, false, false, 0);
 		if (ext && !strcasecmp (ext, ".mod"))
 			return make_info (NFMT_MOD, false, false, 0);
+		if (ext && !strcasecmp (ext, ".tex") && size >= 0x80)
+			return make_info (NFMT_TEX3DS, false, false, 0);
 		if (CxIsCompressedLZOvl (d, size))
 			return make_info (NFMT_LZOVL, false, true, 0);
 

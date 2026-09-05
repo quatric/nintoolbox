@@ -74,6 +74,18 @@ enumError ExtractXTXArchive (ccp arg, ccp basedir, uint depth);
 // Extract Koei Tecmo / Gust Texture Volume Archive (.tvol)
 enumError ExtractTVOLArchive (ccp arg, ccp basedir, uint depth);
 
+// Extract Nintendo Switch MTXT Texture Archive (.mtxt / MTXT)
+enumError ExtractMTXTArchive (ccp arg, ccp basedir, uint depth);
+
+// Extract Pokemon Mystery Dungeon Resource Container (.sir0 / SIR0)
+enumError ExtractSIR0Archive (ccp arg, ccp basedir, uint depth);
+
+// Extract Next Level Games PTLG texture container (.glt / .rlt), as used by
+// Super Mario Strikers (GameCube) and Mario Strikers Charged (Wii). Each
+// texture is written as a standalone TPL, since PTLG stores plain GX pixel
+// data in the same formats TPL wraps.
+enumError ExtractPTLGArchive (ccp arg, ccp basedir, uint depth);
+
 // Repack / Create functions
 enumError CreateXPCKArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 enumError CreateZTABArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);

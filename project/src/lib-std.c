@@ -4237,7 +4237,14 @@ enumError cmd_filetype ()
 				if (fform1 == FF_UNKNOWN)
 				{
 					ccp ext = arg ? strrchr (arg, '.') : 0;
-					if (ext)
+					// Same ".tex" disambiguation as GetFileTypeByMagic():
+					// TEX0/TEX+CT carry a magic and are resolved above, so a
+					// magic-less .tex of plausible size is the headerless 3DS
+					// texture. Extension lookup alone always yields FF_TEX,
+					// which comes earlier in FileTypeTab.
+					if (ext && !strcasecmp (ext, ".tex") && fatt.size >= 0x80)
+						fform1 = FF_TEX3DS;
+					else if (ext)
 					{
 						const file_type_t *ft = GetFileTypeByExt (ext, false);
 						if (ft)

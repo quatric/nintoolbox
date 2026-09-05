@@ -1294,6 +1294,18 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x42494b45: // "BIKE"
 				return FF_MKAGPDX_MDL;
 
+			// Nintendo Switch MTXT Texture Archive (MTXT)
+			case 0x4d545854: // "MTXT"
+				return FF_MTXT;
+
+			// Pokemon Mystery Dungeon Resource Container (SIR0)
+			case 0x53495230: // "SIR0"
+				return FF_SIR0;
+
+			// Next Level Games Texture Container (PTLG)
+			case 0x50544c47: // "PTLG"
+				return FF_PTLG;
+
 			// Koei Tecmo 3D Model (G1M_ / _M1G / SM1G / GM1G)
 			case 0x47314d5f: // "G1M_"
 			case 0x47314d00: // "G1M\0"
@@ -1713,6 +1725,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_MOD;
 		case NFMT_GAR:
 			return FF_GAR;
+		case NFMT_TEX3DS:
+			return FF_TEX3DS;
 		default:
 			break;
 	}
@@ -1751,6 +1765,13 @@ file_format_t GetFileTypeByMagic (
 		file_format_t ff = GetByMagicFF (buf, sizeof (buf), fatt->size);
 		if (ff == FF_SARC && ext && !strcasecmp (ext, ".bfma"))
 			return FF_BFMA;
+		// ".tex" is claimed by three formats: NintendoWare TEX0 (Wii BRRES)
+		// and TEX+CT both carry a real magic and are resolved above, so a
+		// magic-less .tex of plausible size is the headerless 3DS texture.
+		// Resolving it by extension alone would always hit FF_TEX first,
+		// since that entry comes earlier in FileTypeTab.
+		if (ff == FF_UNKNOWN && ext && !strcasecmp (ext, ".tex") && fatt->size >= 0x80)
+			return FF_TEX3DS;
 		if (ff == FF_UNKNOWN && ext)
 		{
 			const file_type_t *ft = GetFileTypeByExt (ext, false);

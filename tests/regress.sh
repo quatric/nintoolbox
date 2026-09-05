@@ -6213,6 +6213,102 @@ with open(sys.argv[1], "wb") as f:
   else
     fno "Mario Kart Arcade GP DX Model" "failed to identify .bin sample";
   fi
+
+  # Nintendo Switch MTXT Texture Archive (.mtxt / MTXT) test
+  mkdir -p "$d/mtxt_test"
+  python3 -c '
+import sys, struct, gzip
+mtxt_magic = b"MTXT\x00\x00\x00\x00"
+xtx_hdr = struct.pack("<4sIII", b"DFvN", 0x10, 1, 0)
+hbvn = struct.pack("<4sIQQIII", b"HBvN", 0x34, 16, 0x24, 3, 0, 0)
+payload = b"1234567890123456"
+inner_xtx = xtx_hdr + hbvn + payload
+compressed = gzip.compress(inner_xtx)
+with open(sys.argv[1], "wb") as f:
+    f.write(mtxt_magic + compressed)
+' "$d/mtxt_test/sample.mtxt"
+  if "$B/wszst" x "$d/mtxt_test/sample.mtxt" --dest "$d/mtxt_test/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/mtxt_test/out/texture.xtx" ] \
+  && [ -f "$d/mtxt_test/out/surface_0000.bin" ] \
+  && [ "$(cat "$d/mtxt_test/out/surface_0000.bin")" = "1234567890123456" ]; then
+    fok "Nintendo Switch MTXT Texture Archive (.mtxt) extraction"
+  else
+    fno "Nintendo Switch MTXT Texture Archive" "failed to extract .mtxt sample";
+  fi
+
+  # Pokemon Mystery Dungeon Resource Container (.sir0 / SIR0) test
+  mkdir -p "$d/sir0_test"
+  python3 -c '
+import sys, struct
+sir0_hdr = struct.pack("<4sIII", b"SIR0", 0x18, 0x20, 0)
+subhdr = b"PMD_SUB_DATA"
+payload = b"DATA"
+with open(sys.argv[1], "wb") as f:
+    f.write(sir0_hdr + payload + subhdr)
+' "$d/sir0_test/sample.sir0"
+  if "$B/wszst" x "$d/sir0_test/sample.sir0" --dest "$d/sir0_test/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/sir0_test/out/subheader.bin" ] \
+  && [ -f "$d/sir0_test/out/data.bin" ]; then
+    fok "Pokemon Mystery Dungeon SIR0 Container (.sir0) extraction"
+  else
+    fno "Pokemon Mystery Dungeon SIR0 Container" "failed to extract .sir0 sample";
+  fi
+
+  # Nintendo 3DS Proprietary Texture (.tex) test
+  mkdir -p "$d/tex3ds_test"
+  python3 -c '
+import sys, struct
+tex_hdr = struct.pack("<IIBBH", 64, 64, 1, 0, 0)
+name = b"tex_sample\x00".ljust(0x74, b"\x00")
+with open(sys.argv[1], "wb") as f:
+    f.write(tex_hdr + name + b"\x00" * 256)
+' "$d/tex3ds_test/sample.tex"
+  if "$B/wszst" filetype "$d/tex3ds_test/sample.tex" 2>/dev/null | grep -q "TEX3DS"; then
+    fok "Nintendo 3DS Texture (.tex) identification"
+  else
+    fno "Nintendo 3DS Texture" "failed to identify .tex sample";
+  fi
+
+  # Next Level Games PTLG texture container (.glt / .rlt) test.
+  # The per-texture header is 16 bytes on GameCube and 32 on Wii; both are
+  # exercised here, and each texture must come out as a TPL that wimgt can
+  # decode to a PNG of exactly the declared size. An I8 texture is used so
+  # the payload size (w*h) is trivially checkable.
+  mkdir -p "$d/ptlg_test"
+  for plat in gc wii; do
+    python3 -c '
+import sys, struct
+plat = sys.argv[2]
+w = h = 32
+pixels = bytes((x * 8 + y) & 0xFF for y in range(h) for x in range(w))
+if plat == "gc":
+    hdr = struct.pack(">IIBBBBHH", 1, 2, 5, 3, 5, 0, w, h)      # 16 bytes
+else:
+    hdr = struct.pack(">IIBBBBHHH", 1, 2, 5, 3, 5, 0, 0, w, h)  # padded
+    hdr = hdr.ljust(32, b"\x00")                                # 32 bytes
+section = hdr + pixels
+unk = 0 if plat == "gc" else 0xC31808CF
+head = struct.pack(">4sIII", b"PTLG", 1, unk, 0)
+entry = struct.pack(">IIII", 0xABCD1234, 0, len(section), 0)
+with open(sys.argv[1], "wb") as f:
+    f.write(head + entry + section)
+' "$d/ptlg_test/sample_$plat.rlt" "$plat"
+    rm -rf "$d/ptlg_test/out_$plat"
+    if "$B/wszst" x "$d/ptlg_test/sample_$plat.rlt" --dest "$d/ptlg_test/out_$plat" --overwrite >/dev/null 2>&1 \
+    && [ -f "$d/ptlg_test/out_$plat/abcd1234.tpl" ] \
+    && "$B/wimgt" DECODE "$d/ptlg_test/out_$plat/abcd1234.tpl" --dest "$d/ptlg_test/out_$plat/t.png" --overwrite >/dev/null 2>&1 \
+    && python3 -c '
+import sys, struct
+d = open(sys.argv[1], "rb").read()
+assert d[:8] == b"\x89PNG\r\n\x1a\x0a", "not a png"
+w, h = struct.unpack(">II", d[16:24])
+assert (w, h) == (32, 32), f"got {w}x{h}"
+' "$d/ptlg_test/out_$plat/t.png" >/dev/null 2>&1; then
+      fok "Next Level Games PTLG texture container ($plat) -> TPL -> PNG"
+    else
+      fno "Next Level Games PTLG texture container ($plat)" "failed to extract/decode sample";
+    fi
+  done
 }
 t_byte_fixed_points
 

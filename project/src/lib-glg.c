@@ -271,18 +271,26 @@ enumError DecodeGLG (const u8 *data, uint size, ccp out_glb_path)
 		for (u32 v = 0; v < vertex_count; v++)
 		{
 			const u8 *p = vert_chunk.data + pos_attr->offset + (u64) v * pos_attr->stride;
+			float x, y, z;
 			if (pos_attr->stride == 12)
 			{
-				positions[v].x = glg_bef32 (p);
-				positions[v].y = glg_bef32 (p + 4);
-				positions[v].z = glg_bef32 (p + 8);
+				x = glg_bef32 (p);
+				y = glg_bef32 (p + 4);
+				z = glg_bef32 (p + 8);
 			}
 			else // 6: 3x s16, 10.6 fixed point (matches StrikersRLG.cs: /1024)
 			{
-				positions[v].x = glg_be16s (p) / 1024.0f;
-				positions[v].y = glg_be16s (p + 2) / 1024.0f;
-				positions[v].z = glg_be16s (p + 4) / 1024.0f;
+				x = glg_be16s (p) / 1024.0f;
+				y = glg_be16s (p + 2) / 1024.0f;
+				z = glg_be16s (p + 4) / 1024.0f;
 			}
+			// Bring the model upright for glTF's Y-up convention: a -90 deg
+			// rotation about X, as StrikersRLG.cs applies. Being an axis
+			// swap with a sign flip it is exact in binary floating point,
+			// so EncodeGLG's inverse below round-trips without drift.
+			positions[v].x = x;
+			positions[v].y = z;
+			positions[v].z = -y;
 		}
 
 		vec2_t *texcoords = NULL;
@@ -538,10 +546,14 @@ enumError EncodeGLG (const model_t *model, ccp out_path)
 
 		for (u32 v = 0; v < num_welded; v++)
 		{
+			// Inverse of DecodeGLG's -90 deg X rotation: (x,y,z) -> (x,-z,y).
+			const float x = out_pos[v].x;
+			const float y = -out_pos[v].z;
+			const float z = out_pos[v].y;
 			u8 tmp[6];
-			glg_put16 (tmp, (s16) lroundf (out_pos[v].x * 1024.0f));
-			glg_put16 (tmp + 2, (s16) lroundf (out_pos[v].y * 1024.0f));
-			glg_put16 (tmp + 4, (s16) lroundf (out_pos[v].z * 1024.0f));
+			glg_put16 (tmp, (s16) lroundf (x * 1024.0f));
+			glg_put16 (tmp + 2, (s16) lroundf (y * 1024.0f));
+			glg_put16 (tmp + 4, (s16) lroundf (z * 1024.0f));
 			glg_buf_put (&vert_buf, tmp, 6);
 		}
 

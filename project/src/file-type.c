@@ -1270,6 +1270,30 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 'B', 'I', 'K', 'E' },
 		0, MinusString, MinusString, "Mario Kart Arcade GP DX Model (.bin / BIKE)" },
 
+	// FF_MTXT = 229 (Nintendo Switch MTXT Texture Archive)
+	{ FF_MTXT, FF_MTXT, 0, "MTXT", ".mtxt", ".szs", ".mtxt",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 'M', 'T', 'X', 'T' },
+		0, MinusString, MinusString, "Nintendo Switch MTXT Texture Archive (.mtxt / MTXT)" },
+
+	// FF_SIR0 = 230 (Pokemon Mystery Dungeon Resource Container)
+	{ FF_SIR0, FF_SIR0, 0, "SIR0", ".sir0", ".szs", ".sir0",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 'S', 'I', 'R', '0' },
+		0, MinusString, MinusString, "Pokemon Mystery Dungeon Resource Container (.sir0 / SIR0)" },
+
+	// FF_TEX3DS = 231 (Nintendo 3DS Proprietary Texture)
+	{ FF_TEX3DS, FF_TEX3DS, 0, "TEX3DS", ".tex", ".png", ".tex",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
+		{ 0 },
+		0, MinusString, MinusString, "Nintendo 3DS Proprietary Texture (.tex)" },
+
+	// FF_PTLG = 232 (Next Level Games Texture Container)
+	{ FF_PTLG, FF_PTLG, 0, "PTLG", ".rlt", ".szs", ".rlt",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 'P', 'T', 'L', 'G' },
+		0, MinusString, MinusString, "Next Level Games Texture Container (.glt / .rlt / PTLG)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1437,6 +1461,10 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_TVOL, "TVOL", 0, 0xe05 },
 	{ FF_TXE, "TXE", 0, 0x3809 },
 	{ FF_MKAGPDX_MDL, "MKAGPDX-MDL", "BIKE", 0x3001 },
+	{ FF_MTXT, "MTXT", 0, 0xe05 },
+	{ FF_SIR0, "SIR0", 0, 0xe05 },
+	{ FF_TEX3DS, "TEX3DS", "TEX", 0x3809 },
+	{ FF_PTLG, "PTLG", "RLT", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };
