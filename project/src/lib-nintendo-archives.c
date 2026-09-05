@@ -3,6 +3,7 @@
 #include "lib-nintendo.h"
 #include "lib-szs.h"
 #include "lib-std.h"
+#include "lib-zstd.h"
 #include <string.h>
 
 static bool is_ext_match (ccp path, ccp ext)
@@ -1051,6 +1052,777 @@ enumError ExtractZLARCArchive (ccp arg, ccp basedir, uint depth)
 
 		if (!testmode && data_sz > 0 && file_off < raw_size)
 			SaveFile (out_path, 0, 0, raw + file_off, data_sz, 0);
+	}
+
+	FREE (raw);
+	return ERR_OK;
+}
+
+// ----------------------------------------------------------------------------
+// 8. Grezzo Zelda / Luigi's Mansion 3DS Archive (.zar / .gar)
+// ----------------------------------------------------------------------------
+enumError ExtractGARArchive (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext_match (arg, ".zar") && !is_ext_match (arg, ".gar") && !is_ext_match (arg, ".bin"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (raw_size < 0x20)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	const bool is_zar1 = !memcmp (raw, "ZAR\x01", 4);
+	const bool is_gar = !memcmp (raw, "GAR", 3) && raw[3] >= 2 && raw[3] <= 5;
+	if (!is_zar1 && !is_gar)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	const u32 declared_file_size = rd_le32 (raw + 4);
+	const u16 file_group_count = rd_le16 (raw + 8);
+	const u16 file_count = rd_le16 (raw + 10);
+	const u32 file_group_offset = rd_le32 (raw + 12);
+	const u32 file_info_offset = rd_le32 (raw + 16);
+	const u32 data_offset = rd_le32 (raw + 20);
+	const char *codename = (const char *)(raw + 24);
+	(void)declared_file_size;
+
+	if (file_group_offset >= raw_size || file_info_offset >= raw_size)
+	{
+		FREE (raw);
+		return ERR_INVALID_DATA;
+	}
+
+	char dest[PATH_MAX];
+	get_dest_dir (dest, sizeof (dest), arg, basedir);
+	CreatePath (dest, true);
+
+	const bool is_zelda = !memcmp (codename, "queen\0\0\0", 8) || !memcmp (codename, "jenkins\0", 8);
+	(void)is_zelda;
+	const bool is_system = !memcmp (codename, "agora\0\0\0", 8) || !memcmp (codename, "SYSTEM\0\0", 8);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT GAR/ZAR:%s (%u files, %u groups, %.*s) -> %s/\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, file_count, file_group_count,
+			8, codename, dest);
+
+	if (is_system)
+	{
+		// System Grezzo Archive (Luigi's Mansion 3DS / agora / SYSTEM)
+		uint info_pos = file_info_offset;
+		for (uint g = 0; g < file_group_count; g++)
+		{
+			const uint grp_off = file_group_offset + g * 0x20;
+			if (grp_off + 20 > raw_size)
+				break;
+
+			const u32 grp_file_count = rd_le32 (raw + grp_off);
+			const u32 ext_str_off = rd_le32 (raw + grp_off + 12);
+
+			char ext[32] = "";
+			if (ext_str_off < raw_size)
+			{
+				const char *s = (const char *)(raw + ext_str_off);
+				size_t slen = strnlen (s, sizeof (ext) - 1);
+				memcpy (ext, s, slen);
+				ext[slen] = 0;
+			}
+
+			for (uint f = 0; f < grp_file_count; f++)
+			{
+				if (info_pos + 16 > raw_size)
+					break;
+
+				const u32 f_size = rd_le32 (raw + info_pos);
+				const u32 f_offset = rd_le32 (raw + info_pos + 4);
+				const u32 name_str_off = rd_le32 (raw + info_pos + 8);
+				info_pos += 16;
+
+				char name[PATH_MAX];
+				if (name_str_off < raw_size)
+				{
+					const char *s = (const char *)(raw + name_str_off);
+					size_t slen = strnlen (s, sizeof (name) - 34);
+					memcpy (name, s, slen);
+					name[slen] = 0;
+				}
+				else
+				{
+					snprintf (name, sizeof (name), "file_%u_%u", g, f);
+				}
+
+				char out_path[PATH_MAX];
+				if (ext[0])
+					snprintf (out_path, sizeof (out_path), "%s/%s.%s", dest, name, ext);
+				else
+					snprintf (out_path, sizeof (out_path), "%s/%s", dest, name);
+
+				char *slash = strrchr (out_path, '/');
+				if (slash)
+				{
+					*slash = 0;
+					CreatePath (out_path, true);
+					*slash = '/';
+				}
+
+				if (!testmode && f_size > 0 && f_offset < raw_size)
+				{
+					u32 actual_sz = f_size;
+					if (f_offset + actual_sz > raw_size)
+						actual_sz = (u32)(raw_size - f_offset);
+					SaveFile (out_path, 0, 0, raw + f_offset, actual_sz, 0);
+				}
+			}
+		}
+	}
+	else
+	{
+		// Zelda Grezzo Archive (OoT3D / MM3D - queen / jenkins)
+		// Data offsets array is at data_offset
+		if (data_offset + (uint64_t)file_count * 4 > raw_size)
+		{
+			FREE (raw);
+			return ERR_INVALID_DATA;
+		}
+
+		uint info_pos = file_info_offset;
+		uint file_idx = 0;
+
+		for (uint g = 0; g < file_group_count; g++)
+		{
+			const uint grp_off = file_group_offset + g * 16;
+			if (grp_off + 16 > raw_size)
+				break;
+			const u32 grp_file_count = rd_le32 (raw + grp_off);
+
+			for (uint f = 0; f < grp_file_count && file_idx < file_count; f++, file_idx++)
+			{
+				const u32 data_payload_off = rd_le32 (raw + data_offset + file_idx * 4);
+				u32 f_size = 0;
+				u32 name_str_off = 0;
+
+				if (is_zar1)
+				{
+					// ZarFileInfo: FileSize (4), FileName offset (4)
+					if (info_pos + 8 > raw_size)
+						break;
+					f_size = rd_le32 (raw + info_pos);
+					name_str_off = rd_le32 (raw + info_pos + 4);
+					info_pos += 8;
+				}
+				else
+				{
+					// GarFileInfo: FileSize (4), Name offset (4), FileName offset (4)
+					if (info_pos + 12 > raw_size)
+						break;
+					f_size = rd_le32 (raw + info_pos);
+					// Name offset at +4, FileName offset at +8
+					name_str_off = rd_le32 (raw + info_pos + 8);
+					if (!name_str_off || name_str_off >= raw_size)
+						name_str_off = rd_le32 (raw + info_pos + 4);
+					info_pos += 12;
+				}
+
+				char name[PATH_MAX];
+				if (name_str_off < raw_size)
+				{
+					const char *s = (const char *)(raw + name_str_off);
+					size_t slen = strnlen (s, sizeof (name) - 1);
+					memcpy (name, s, slen);
+					name[slen] = 0;
+				}
+				else
+				{
+					snprintf (name, sizeof (name), "file_%04u.bin", file_idx);
+				}
+
+				char out_path[PATH_MAX];
+				snprintf (out_path, sizeof (out_path), "%s/%s", dest, name);
+
+				char *slash = strrchr (out_path, '/');
+				if (slash)
+				{
+					*slash = 0;
+					CreatePath (out_path, true);
+					*slash = '/';
+				}
+
+				if (!testmode && f_size > 0 && data_payload_off < raw_size)
+				{
+					u32 actual_sz = f_size;
+					if (data_payload_off + actual_sz > raw_size)
+						actual_sz = (u32)(raw_size - data_payload_off);
+					SaveFile (out_path, 0, 0, raw + data_payload_off, actual_sz, 0);
+				}
+			}
+		}
+	}
+
+	FREE (raw);
+	return ERR_OK;
+}
+
+// ----------------------------------------------------------------------------
+// 9. Mario Kart Arcade GP DX Layout Archive (.pac / pack)
+// ----------------------------------------------------------------------------
+enumError ExtractMKGPDXPacArchive (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext_match (arg, ".pac") && !is_ext_match (arg, ".bin"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (raw_size < 20 || memcmp (raw, "pack", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	const u32 file_count = rd_le32 (raw + 4);
+	const u32 str_pool_offset = rd_le32 (raw + 8);
+	const u32 alignment = rd_le32 (raw + 12);
+	const u32 file_type = rd_le32 (raw + 16);
+	(void)file_type;
+
+	if (!file_count || file_count > 100000)
+	{
+		FREE (raw);
+		return ERR_INVALID_DATA;
+	}
+
+	const u32 entries_size = 20 + file_count * 16;
+	if (entries_size > raw_size)
+	{
+		FREE (raw);
+		return ERR_INVALID_DATA;
+	}
+
+	const u32 align_val = alignment ? alignment : 1;
+	const u32 data_block_pos = (entries_size + (align_val - 1)) & ~(align_val - 1);
+	if (data_block_pos >= raw_size)
+	{
+		FREE (raw);
+		return ERR_INVALID_DATA;
+	}
+
+	char dest[PATH_MAX];
+	get_dest_dir (dest, sizeof (dest), arg, basedir);
+	CreatePath (dest, true);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT MKAGPDX PAC:%s (%u files, align=%u) -> %s/\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, file_count, align_val, dest);
+
+	for (uint i = 0; i < file_count; i++)
+	{
+		const uint entry_pos = 20 + i * 16;
+		const u32 unknown = rd_le32 (raw + entry_pos);
+		(void)unknown;
+		const u32 name_offset = rd_le32 (raw + entry_pos + 4);
+		const u32 offset = rd_le32 (raw + entry_pos + 8);
+		u32 size = rd_le32 (raw + entry_pos + 12);
+
+		const u32 name_pos = data_block_pos + str_pool_offset + name_offset;
+		char name[PATH_MAX];
+		if (name_pos < raw_size)
+		{
+			const char *s = (const char *)(raw + name_pos);
+			size_t slen = strnlen (s, sizeof (name) - 1);
+			memcpy (name, s, slen);
+			name[slen] = 0;
+		}
+		else
+		{
+			snprintf (name, sizeof (name), "file_%04u.bin", i);
+		}
+
+		const u32 file_pos = data_block_pos + offset;
+		if (file_pos + size > raw_size)
+			size = raw_size > file_pos ? (u32)(raw_size - file_pos) : 0;
+
+		char out_path[PATH_MAX];
+		snprintf (out_path, sizeof (out_path), "%s/%s", dest, name);
+
+		char *slash = strrchr (out_path, '/');
+		if (slash)
+		{
+			*slash = 0;
+			CreatePath (out_path, true);
+			*slash = '/';
+		}
+
+		if (!testmode && size > 0 && file_pos < raw_size)
+			SaveFile (out_path, 0, 0, raw + file_pos, size, 0);
+	}
+
+	FREE (raw);
+	return ERR_OK;
+}
+
+// ----------------------------------------------------------------------------
+// 10. Twilight Princess HD / Zelda TMPK Archive (.pack / TMPK)
+// ----------------------------------------------------------------------------
+enumError ExtractTMPKArchive (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext_match (arg, ".pack") && !is_ext_match (arg, ".bin") && !is_ext_match (arg, ".tmpk"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (raw_size < 16 || memcmp (raw, "TMPK", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	const u32 file_count = rd_be32 (raw + 4);
+	const u32 alignment = rd_be32 (raw + 8);
+
+	if (!file_count || file_count > 100000 || 16 + (uint64_t)file_count * 16 > raw_size)
+	{
+		FREE (raw);
+		return ERR_INVALID_DATA;
+	}
+
+	char dest[PATH_MAX];
+	get_dest_dir (dest, sizeof (dest), arg, basedir);
+	CreatePath (dest, true);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT TMPK:%s (%u files, align=%u) -> %s/\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, file_count, alignment, dest);
+
+	for (uint i = 0; i < file_count; i++)
+	{
+		const uint entry_pos = 16 + i * 16;
+		const u32 name_offset = rd_be32 (raw + entry_pos);
+		const u32 file_offset = rd_be32 (raw + entry_pos + 4);
+		u32 file_size = rd_be32 (raw + entry_pos + 8);
+
+		char name[PATH_MAX];
+		if (name_offset < raw_size)
+		{
+			const char *s = (const char *)(raw + name_offset);
+			size_t slen = strnlen (s, sizeof (name) - 1);
+			memcpy (name, s, slen);
+			name[slen] = 0;
+		}
+		else
+		{
+			snprintf (name, sizeof (name), "file_%04u.bin", i);
+		}
+
+		if (file_offset + file_size > raw_size)
+			file_size = raw_size > file_offset ? (u32)(raw_size - file_offset) : 0;
+
+		char out_path[PATH_MAX];
+		snprintf (out_path, sizeof (out_path), "%s/%s", dest, name);
+
+		char *slash = strrchr (out_path, '/');
+		if (slash)
+		{
+			*slash = 0;
+			CreatePath (out_path, true);
+			*slash = '/';
+		}
+
+		if (!testmode && file_size > 0 && file_offset < raw_size)
+			SaveFile (out_path, 0, 0, raw + file_offset, file_size, 0);
+	}
+
+	FREE (raw);
+	return ERR_OK;
+}
+
+// ----------------------------------------------------------------------------
+// 11. Nintendo Switch NX Archive (.nxarc / RAXN)
+// ----------------------------------------------------------------------------
+enumError ExtractNXARCArchive (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext_match (arg, ".nxarc") && !is_ext_match (arg, ".bin") && !is_ext_match (arg, ".arc"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (raw_size < 32 || memcmp (raw, "RAXN", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	const u32 offset_block = rd_le32 (raw + 12);
+	const u32 header_size = rd_le32 (raw + 16);
+	const u32 file_count = rd_le32 (raw + 20);
+	const u32 block_size = rd_le32 (raw + 24);
+
+	if (!file_count || file_count > 100000 || offset_block >= raw_size || header_size >= raw_size)
+	{
+		FREE (raw);
+		return ERR_INVALID_DATA;
+	}
+
+	char dest[PATH_MAX];
+	get_dest_dir (dest, sizeof (dest), arg, basedir);
+	CreatePath (dest, true);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT NXARC:%s (%u files) -> %s/\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, file_count, dest);
+
+	// Read zero-terminated strings from offset_block
+	// File 0 is string table entry, actual files start at index 1
+	uint str_pos = offset_block;
+	for (uint i = 0; i < file_count; i++)
+	{
+		char name[PATH_MAX];
+		if (str_pos < raw_size)
+		{
+			const char *s = (const char *)(raw + str_pos);
+			size_t slen = strnlen (s, sizeof (name) - 1);
+			memcpy (name, s, slen);
+			name[slen] = 0;
+			str_pos += (uint)slen + 1;
+		}
+		else
+		{
+			snprintf (name, sizeof (name), "file_%04u.bin", i);
+		}
+
+		if (i == 0)
+			continue; // skip string table pseudo-entry
+
+		const uint entry_pos = header_size + i * 32;
+		if (entry_pos + 32 > raw_size)
+			break;
+
+		(void)block_size;
+		const u64 size = (u64)rd_le32(raw + entry_pos) | ((u64)rd_le32(raw + entry_pos + 4) << 32);
+		const u64 offset = (u64)rd_le32(raw + entry_pos + 8) | ((u64)rd_le32(raw + entry_pos + 12) << 32);
+		const u64 flag = (u64)rd_le32(raw + entry_pos + 16) | ((u64)rd_le32(raw + entry_pos + 20) << 32);
+
+		if (offset >= raw_size || (size_t)size > raw_size - offset)
+			continue;
+
+		char out_path[PATH_MAX];
+		snprintf (out_path, sizeof (out_path), "%s/%s", dest, name);
+
+		char *slash = strrchr (out_path, '/');
+		if (slash)
+		{
+			*slash = 0;
+			CreatePath (out_path, true);
+			*slash = '/';
+		}
+
+		if (!testmode && size > 0)
+		{
+			if (flag == 1)
+			{
+				// Zlib compressed
+				u8 *decomp = 0;
+				uint decomp_sz = 0;
+				err = DecodeZlibGrow (&decomp, &decomp_sz, raw + offset, (uint)size);
+				if (!err && decomp)
+				{
+					SaveFile (out_path, 0, 0, decomp, decomp_sz, 0);
+					FREE (decomp);
+				}
+			}
+			else
+			{
+				SaveFile (out_path, 0, 0, raw + offset, (uint)size, 0);
+			}
+		}
+	}
+
+	FREE (raw);
+	return ERR_OK;
+}
+
+// ----------------------------------------------------------------------------
+// 12. Nintendo APAK Archive (.apak / APAK)
+// ----------------------------------------------------------------------------
+enumError ExtractAPAKArchive (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext_match (arg, ".apak") && !is_ext_match (arg, ".bin"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (raw_size < 24 || memcmp (raw, "APAK", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	// Detect endianness: version at offset 6 is 5
+	const u16 ver_be = rd_be16 (raw + 6);
+	const bool big = (ver_be == 5);
+
+	const u32 file_count = big ? rd_be32 (raw + 8) : rd_le32 (raw + 8);
+	const u32 unknown1 = big ? rd_be32 (raw + 12) : rd_le32 (raw + 12);
+	const u32 file_info_size = big ? rd_be32 (raw + 16) : rd_le32 (raw + 16);
+	(void)unknown1;
+	(void)file_info_size;
+
+	if (!file_count || file_count > 100000 || 24 + (uint64_t)file_count * 64 > raw_size)
+	{
+		FREE (raw);
+		return ERR_INVALID_DATA;
+	}
+
+	char dest[PATH_MAX];
+	get_dest_dir (dest, sizeof (dest), arg, basedir);
+	CreatePath (dest, true);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT APAK:%s (%u files, %s-endian) -> %s/\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, file_count,
+			big ? "big" : "little", dest);
+
+	for (uint i = 0; i < file_count; i++)
+	{
+		const uint entry_pos = 24 + i * 64;
+		const u32 data_offset = big ? rd_be32 (raw + entry_pos + 4) : rd_le32 (raw + entry_pos + 4);
+		u32 file_size = big ? rd_be32 (raw + entry_pos + 8) : rd_le32 (raw + entry_pos + 8);
+
+		char name[33];
+		memcpy (name, raw + entry_pos + 32, 32);
+		name[32] = 0;
+
+		if (!name[0])
+			snprintf (name, sizeof (name), "file_%04u.bin", i);
+
+		if (data_offset >= raw_size)
+			continue;
+		if (data_offset + file_size > raw_size)
+			file_size = (u32)(raw_size - data_offset);
+
+		char out_path[PATH_MAX];
+		snprintf (out_path, sizeof (out_path), "%s/%s", dest, name);
+
+		char *slash = strrchr (out_path, '/');
+		if (slash)
+		{
+			*slash = 0;
+			CreatePath (out_path, true);
+			*slash = '/';
+		}
+
+		if (!testmode && file_size > 0)
+			SaveFile (out_path, 0, 0, raw + data_offset, file_size, 0);
+	}
+
+	FREE (raw);
+	return ERR_OK;
+}
+
+// ----------------------------------------------------------------------------
+// 13. PlatinumGames Archive (.pkz / pkz)
+// ----------------------------------------------------------------------------
+enumError ExtractPKZArchive (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext_match (arg, ".pkz") && !is_ext_match (arg, ".bin") && !is_ext_match (arg, ".dat"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (raw_size < 32 || memcmp (raw, "pkz\0", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	const u32 file_count = rd_le32 (raw + 16);
+	const u32 offset_file_info = rd_le32 (raw + 20);
+
+	if (!file_count || file_count > 100000 || offset_file_info >= raw_size)
+	{
+		FREE (raw);
+		return ERR_INVALID_DATA;
+	}
+
+	const uint info_size = file_count * 32;
+	const uint str_table_pos = offset_file_info + info_size;
+	if (str_table_pos > raw_size)
+	{
+		FREE (raw);
+		return ERR_INVALID_DATA;
+	}
+
+	char dest[PATH_MAX];
+	get_dest_dir (dest, sizeof (dest), arg, basedir);
+	CreatePath (dest, true);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT PKZ:%s (%u files) -> %s/\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, file_count, dest);
+
+	for (uint i = 0; i < file_count; i++)
+	{
+		const uint entry_pos = offset_file_info + i * 32;
+		if (entry_pos + 32 > raw_size)
+			break;
+
+		const u64 name_offset = (u64)rd_le32 (raw + entry_pos) | ((u64)rd_le32 (raw + entry_pos + 4) << 32);
+		const u64 file_size = (u64)rd_le32 (raw + entry_pos + 8) | ((u64)rd_le32 (raw + entry_pos + 12) << 32);
+		const u64 file_offset = (u64)rd_le32 (raw + entry_pos + 16) | ((u64)rd_le32 (raw + entry_pos + 20) << 32);
+		const u64 comp_size = (u64)rd_le32 (raw + entry_pos + 24) | ((u64)rd_le32 (raw + entry_pos + 28) << 32);
+
+		char name[PATH_MAX];
+		const uint full_name_pos = str_table_pos + (uint)name_offset;
+		if (full_name_pos < raw_size)
+		{
+			const char *s = (const char *)(raw + full_name_pos);
+			size_t slen = strnlen (s, sizeof (name) - 1);
+			memcpy (name, s, slen);
+			name[slen] = 0;
+		}
+		else
+		{
+			snprintf (name, sizeof (name), "file_%04u.bin", i);
+		}
+
+		if (file_offset >= raw_size)
+			continue;
+
+		char out_path[PATH_MAX];
+		snprintf (out_path, sizeof (out_path), "%s/%s", dest, name);
+
+		char *slash = strrchr (out_path, '/');
+		if (slash)
+		{
+			*slash = 0;
+			CreatePath (out_path, true);
+			*slash = '/';
+		}
+
+		if (!testmode && comp_size > 0 && (size_t)(file_offset + comp_size) <= raw_size)
+		{
+			if (comp_size != file_size && file_size > 0)
+			{
+				// Zstandard decompression (Zstb)
+				u8 *decomp = 0;
+				uint decomp_sz = 0;
+				err = DecodeZSTD (&decomp, &decomp_sz, raw + file_offset, (uint)comp_size);
+				if (!err && decomp)
+				{
+					SaveFile (out_path, 0, 0, decomp, decomp_sz, 0);
+					FREE (decomp);
+				}
+				else
+				{
+					SaveFile (out_path, 0, 0, raw + file_offset, (uint)comp_size, 0);
+				}
+			}
+			else
+			{
+				SaveFile (out_path, 0, 0, raw + file_offset, (uint)comp_size, 0);
+			}
+		}
+	}
+
+	FREE (raw);
+	return ERR_OK;
+}
+
+// ----------------------------------------------------------------------------
+// 14. Nintendo Switch Joy-Con Vibration Archive (.vibs)
+// ----------------------------------------------------------------------------
+enumError ExtractVIBSArchive (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext_match (arg, ".vibs"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (raw_size < 8)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	const u32 version = rd_le32 (raw);
+	const u32 num_entries = rd_le32 (raw + 4);
+	(void)version;
+
+	if (!num_entries || num_entries > 100000 || 8 + (uint64_t)num_entries * 44 > raw_size)
+	{
+		FREE (raw);
+		return ERR_INVALID_DATA;
+	}
+
+	char dest[PATH_MAX];
+	get_dest_dir (dest, sizeof (dest), arg, basedir);
+	CreatePath (dest, true);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT VIBS:%s (%u files) -> %s/\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, num_entries, dest);
+
+	for (uint i = 0; i < num_entries; i++)
+	{
+		const uint entry_pos = 8 + i * 44;
+		char name[25];
+		memcpy (name, raw + entry_pos, 24);
+		name[24] = 0;
+
+		if (!name[0])
+			snprintf (name, sizeof (name), "vibration_%04u.bnvib", i);
+
+		u32 data_len = rd_le32 (raw + entry_pos + 32);
+		const u32 data_offset = rd_le32 (raw + entry_pos + 40);
+
+		if (data_offset >= raw_size)
+			continue;
+		if (data_offset + data_len > raw_size)
+			data_len = (u32)(raw_size - data_offset);
+
+		char out_path[PATH_MAX];
+		snprintf (out_path, sizeof (out_path), "%s/%s", dest, name);
+
+		char *slash = strrchr (out_path, '/');
+		if (slash)
+		{
+			*slash = 0;
+			CreatePath (out_path, true);
+			*slash = '/';
+		}
+
+		if (!testmode && data_len > 0)
+			SaveFile (out_path, 0, 0, raw + data_offset, data_len, 0);
 	}
 
 	FREE (raw);

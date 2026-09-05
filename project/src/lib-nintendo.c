@@ -22,7 +22,7 @@ ccp GetNintendoFormatName (nfmt_type_t type)
 		"PSDK", "AT7", "CTPK", "BYML", "NARC", "NSCR", "FZIP", "JARC", "jCMP", "BFMA", "Zlib", "MVDK",
 		"VLX", "PuCrunch", "LZX", "Diff8", "Diff16", "NSBTX", "NFTR", "BNFR", "BNLL", "BNCL", "BNBL",
 		"LZOvl", "ALAR", "DARC", "SADL", "HSF", "HSD", "BNFM", "XPCK", "XIMG", "HGO", "ZTAB", "GLG",
-		"MDR", "PERS", "PVOL", "STPK", "G1M", "G1T", "G4PKM", "LMD", "MSH", "MOD" };
+		"MDR", "PERS", "PVOL", "STPK", "G1M", "G1T", "G4PKM", "LMD", "MSH", "MOD", "GAR" };
 	return type < sizeof (tab) / sizeof (*tab) ? tab[type] : "UNKNOWN";
 }
 
@@ -244,6 +244,10 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		// CTPK (CTR Texture Package / 3DS texture container)
 		if (!memcmp (d, "CTPK", 4))
 			return make_info (NFMT_CTPK, false, false, 0);
+
+		// Grezzo 3DS Archive (ZAR\x01 / GAR\x02 / GAR\x03 / GAR\x04 / GAR\x05)
+		if (size >= 0x20 && (!memcmp (d, "ZAR\x01", 4) || (!memcmp (d, "GAR", 3) && d[3] >= 2 && d[3] <= 5)))
+			return make_info (NFMT_GAR, false, false, rd_le32 (d + 4));
 
 		// BYML / BYAML (Binary YAML, 3DS / Wii U / Switch)
 		if (size >= 16 && (!memcmp (d, "BY", 2) || !memcmp (d, "YB", 2)))

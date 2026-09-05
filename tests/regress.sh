@@ -5796,6 +5796,174 @@ with open("'"$d"'/koopatlas_test/sample_map.kpbin", "wb") as f:
       fno "Nintendo Wii ChannelScript" "failed to extract .cs sample";
     fi
   fi
+  # Grezzo Zelda / Luigi's Mansion Archive (.zar / .gar) test
+  mkdir -p "$d/gar_test"
+  python3 -c '
+import struct
+payload = b"Grezzo ZAR Test Payload 1234"
+zar_data = bytearray(0x80 + len(payload))
+struct.pack_into("<4sIHHIII8s", zar_data, 0, b"ZAR\x01", len(zar_data), 1, 1, 0x30, 0x40, 0x50, b"queen\0\0\0")
+zar_data[0x20:0x29] = b"item.bin\0"
+struct.pack_into("<IIII", zar_data, 0x30, 1, 0, 0, 0)
+struct.pack_into("<II", zar_data, 0x40, len(payload), 0x20)
+struct.pack_into("<I", zar_data, 0x50, 0x80)
+zar_data[0x80:0x80+len(payload)] = payload
+with open("'"$d"'/gar_test/sample.zar", "wb") as f:
+    f.write(zar_data)
+'
+  if "$B/wszst" x "$d/gar_test/sample.zar" --dest "$d/gar_test/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/gar_test/out/item.bin" ] \
+  && [ "$(cat "$d/gar_test/out/item.bin")" = "Grezzo ZAR Test Payload 1234" ]; then
+    fok "Grezzo ZAR Archive (.zar) extraction"
+  else
+    fno "Grezzo ZAR Archive" "failed to extract .zar sample";
+  fi
+
+  # Mario Kart Arcade GP DX Layout Archive (.pac / pack) test
+  mkdir -p "$d/pac_test"
+  python3 -c '
+import struct
+pac_payload = b"Mario Kart Arcade GP DX PAC Payload"
+name = b"layout.bin\0"
+entry_off = len(name)
+pac_data = bytearray()
+pac_data.extend(struct.pack("<4sIIII", b"pack", 1, 0, 16, 0))
+pac_data.extend(struct.pack("<IIII", 0, 0, entry_off, len(pac_payload)))
+pad_len = (16 - (len(pac_data) % 16)) % 16
+pac_data.extend(b"\0" * pad_len)
+pac_data.extend(name)
+pac_data.extend(pac_payload)
+with open("'"$d"'/pac_test/sample.pac", "wb") as f:
+    f.write(pac_data)
+'
+  if "$B/wszst" x "$d/pac_test/sample.pac" --dest "$d/pac_test/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/pac_test/out/layout.bin" ] \
+  && [ "$(cat "$d/pac_test/out/layout.bin")" = "Mario Kart Arcade GP DX PAC Payload" ]; then
+    fok "Mario Kart Arcade GP DX PAC (.pac) extraction"
+  else
+    fno "Mario Kart Arcade GP DX PAC" "failed to extract .pac sample";
+  fi
+
+  # Grezzo 3DS Texture Container (.ctxb) test
+  mkdir -p "$d/ctxb_test"
+  python3 -c '
+import struct
+hdr_size = 24
+chunk_size = 12 + 36
+tex_data_off = hdr_size + chunk_size
+img_data = b"\xff\x00\x00\xff" * 64
+total_sz = tex_data_off + len(img_data)
+ctxb = bytearray(total_sz)
+struct.pack_into("<4sIIIII", ctxb, 0, b"ctxb", total_sz, 1, 0, 24, tex_data_off)
+struct.pack_into("<4sII", ctxb, 24, b"tex ", 36, 1)
+struct.pack_into("<IHHHHI", ctxb, 36, len(img_data), 0, 0, 8, 8, 0x14016752)
+struct.pack_into("<I", ctxb, 36 + 16, 0)
+ctxb[36+20:36+36] = b"test_texture\x00\x00\x00\x00"
+ctxb[tex_data_off:tex_data_off+len(img_data)] = img_data
+with open("'"$d"'/ctxb_test/sample.ctxb", "wb") as f:
+    f.write(ctxb)
+'
+  if "$B/wimgt" DECODE "$d/ctxb_test/sample.ctxb" -d "$d/ctxb_test/sample.png" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/ctxb_test/sample.png" ]; then
+    fok "Grezzo 3DS Texture Container (.ctxb) decoding"
+  else
+    fno "Grezzo 3DS Texture Container" "failed to decode .ctxb sample";
+  fi
+
+  # Twilight Princess HD TMPK Archive (.pack) test
+  mkdir -p "$d/tmpk_test"
+  python3 -c '
+import struct
+name = b"sample_payload.bin\x00"
+hdr = b"TMPK" + struct.pack(">III", 1, 16, 0)
+ent = struct.pack(">IIII", 32, 64, 18, 0)
+raw = hdr + ent + name.ljust(32, b"\x00") + b"TPHD_TMPK_PAYLOAD!"
+with open("'"$d"'/tmpk_test/sample.pack", "wb") as f:
+    f.write(raw)
+'
+  if "$B/wszst" x "$d/tmpk_test/sample.pack" --dest "$d/tmpk_test/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/tmpk_test/out/sample_payload.bin" ] \
+  && [ "$(cat "$d/tmpk_test/out/sample_payload.bin")" = "TPHD_TMPK_PAYLOAD!" ]; then
+    fok "Twilight Princess HD TMPK Archive (.pack) extraction"
+  else
+    fno "Twilight Princess HD TMPK Archive" "failed to extract .pack sample";
+  fi
+
+  # Nintendo Switch NX Archive (.nxarc) test
+  mkdir -p "$d/nxarc_test"
+  python3 -c '
+import struct
+hdr = b"RAXN" + struct.pack("<IIIIII", 1, 125, 96, 32, 2, 0) + b"\x00"*4
+str_tbl = b"dummy\x00sample_switch.bin\x00"
+e0 = struct.pack("<QQQQ", len(str_tbl), 96, 0, 0)
+e1 = struct.pack("<QQQQ", 17, 128, 0, 0)
+payload = b"NXARC_TEST_DATA!!"
+raw = hdr + e0 + e1 + str_tbl + (b"\x00" * (128 - 96 - len(str_tbl))) + payload
+with open("'"$d"'/nxarc_test/sample.nxarc", "wb") as f:
+    f.write(raw)
+'
+  if "$B/wszst" x "$d/nxarc_test/sample.nxarc" --dest "$d/nxarc_test/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/nxarc_test/out/sample_switch.bin" ] \
+  && [ "$(cat "$d/nxarc_test/out/sample_switch.bin")" = "NXARC_TEST_DATA!!" ]; then
+    fok "Nintendo Switch NX Archive (.nxarc) extraction"
+  else
+    fno "Nintendo Switch NX Archive" "failed to extract .nxarc sample";
+  fi
+
+  # Nintendo APAK Archive (.apak) test
+  mkdir -p "$d/apak_test"
+  python3 -c '
+import struct
+hdr = b"APAK\x00\x00\x00\x05" + struct.pack(">IIII", 1, 5381, 64, 18)
+ent = struct.pack(">IIII", 0, 88, 18, 18) + struct.pack(">IIII", 64, 0, 0, 0) + b"sample.bfres\x00".ljust(32, b"\x00")
+payload = b"APAK_PAYLOAD_TEST!"
+with open("'"$d"'/apak_test/sample.apak", "wb") as f:
+    f.write(hdr + ent + payload)
+'
+  if "$B/wszst" x "$d/apak_test/sample.apak" --dest "$d/apak_test/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/apak_test/out/sample.bfres" ] \
+  && [ "$(cat "$d/apak_test/out/sample.bfres")" = "APAK_PAYLOAD_TEST!" ]; then
+    fok "Nintendo APAK Archive (.apak) extraction"
+  else
+    fno "Nintendo APAK Archive" "failed to extract .apak sample";
+  fi
+
+  # PlatinumGames Archive (.pkz) test
+  mkdir -p "$d/pkz_test"
+  python3 -c '
+import struct
+hdr = b"pkz\x00" + struct.pack("<I", 0) + struct.pack("<Q", 97) + struct.pack("<II", 1, 32) + struct.pack("<Q", 16)
+ent = struct.pack("<QQQQ", 0, 17, 80, 17)
+str_tbl = b"sample.dat\x00".ljust(16, b"\x00")
+payload = b"PLATINUM_PKZ_DATA"
+with open("'"$d"'/pkz_test/sample.pkz", "wb") as f:
+    f.write(hdr + ent + str_tbl + payload)
+'
+  if "$B/wszst" x "$d/pkz_test/sample.pkz" --dest "$d/pkz_test/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/pkz_test/out/sample.dat" ] \
+  && [ "$(cat "$d/pkz_test/out/sample.dat")" = "PLATINUM_PKZ_DATA" ]; then
+    fok "PlatinumGames Archive (.pkz) extraction"
+  else
+    fno "PlatinumGames Archive" "failed to extract .pkz sample";
+  fi
+
+  # Nintendo Switch Joy-Con Vibration Archive (.vibs) test
+  mkdir -p "$d/vibs_test"
+  python3 -c '
+import struct
+hdr = struct.pack("<II", 1, 1)
+ent = b"vibe.bnvib\x00".ljust(24, b"\x00") + struct.pack("<IIIII", 0, 0, 14, 0, 52)
+payload = b"VIBRATION_TEST"
+with open("'"$d"'/vibs_test/sample.vibs", "wb") as f:
+    f.write(hdr + ent + payload)
+'
+  if "$B/wszst" x "$d/vibs_test/sample.vibs" --dest "$d/vibs_test/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/vibs_test/out/vibe.bnvib" ] \
+  && [ "$(cat "$d/vibs_test/out/vibe.bnvib")" = "VIBRATION_TEST" ]; then
+    fok "Joy-Con Vibration Archive (.vibs) extraction"
+  else
+    fno "Joy-Con Vibration Archive" "failed to extract .vibs sample";
+  fi
 }
 t_byte_fixed_points
 

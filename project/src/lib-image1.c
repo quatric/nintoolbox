@@ -507,6 +507,23 @@ void ScanDataIMG (Image_t *img, // destination image
 		}
 		break;
 
+		case FF_CTXB:
+		{
+			if (data_size >= 0x18)
+			{
+				const u32 chunk_offset = rd_le32 ((const u8 *)data + 16);
+				if (chunk_offset + 12 + 12 <= data_size && !memcmp ((const u8 *)data + chunk_offset, "tex ", 4))
+				{
+					const u8 *tentry = (const u8 *)data + chunk_offset + 12;
+					img->width = (uint)rd_le16 (tentry + 8);
+					img->height = (uint)rd_le16 (tentry + 10);
+					img->iform = img->info_iform = IMG_X_RGB;
+					img->info_n_image = 1;
+				}
+			}
+		}
+		break;
+
 		default:
 			return;
 	}

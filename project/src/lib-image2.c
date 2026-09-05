@@ -819,6 +819,101 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		return PatchListIMG (img);
 	}
 
+	if (data_size >= 0x18 && !memcmp (data, "ctxb", 4))
+	{
+		// Grezzo 3DS Texture Container (.ctxb)
+		const u32 chunk_count = rd_le32 (data + 8);
+		const u32 chunk_offset = rd_le32 (data + 16);
+		const u32 tex_data_offset = rd_le32 (data + 20);
+
+		if (chunk_offset >= data_size || tex_data_offset >= data_size)
+			return ERROR0 (ERR_INVALID_IFORM, "Invalid CTXB container: %s\n", fname);
+
+		// Read first chunk ("tex ") and its first texture
+		uint cur_chunk_off = chunk_offset;
+		bool found_tex = false;
+		u8 *rgba = 0;
+		uint width = 0, height = 0;
+
+		for (uint c = 0; c < chunk_count && cur_chunk_off + 12 <= data_size; c++)
+		{
+			if (memcmp (data + cur_chunk_off, "tex ", 4))
+				break;
+			const u32 sec_size = rd_le32 (data + cur_chunk_off + 4);
+			const u32 tex_count = rd_le32 (data + cur_chunk_off + 8);
+
+			if (tex_count > 0 && cur_chunk_off + 12 + 36 <= data_size)
+			{
+				const u8 *tentry = data + cur_chunk_off + 12;
+				const u32 img_size = rd_le32 (tentry);
+				width = (uint)rd_le16 (tentry + 8);
+				height = (uint)rd_le16 (tentry + 10);
+				const u32 ctxb_fmt = rd_le32 (tentry + 12);
+				const u32 data_rel_off = rd_le32 (tentry + 16);
+
+				// Map CTXB texture format to CTR PICA format
+				uint pica_fmt = 0;
+				switch (ctxb_fmt)
+				{
+					case 0x14016756: pica_fmt = 8; break;  // A8
+					case 0x0000675A: pica_fmt = 12; break; // ETC1
+					case 0x0000675B: pica_fmt = 13; break; // ETC1A4
+					case 0x67616757: pica_fmt = 10; break; // L4
+					case 0x14016757: pica_fmt = 7; break;  // L8
+					case 0x14016758: pica_fmt = 5; break;  // LA8
+					case 0x83636754: pica_fmt = 3; break;  // RGB565
+					case 0x80336752: pica_fmt = 4; break;  // RGBA4444
+					case 0x80346752: pica_fmt = 2; break;  // RGBA5551
+					case 0x14016752: pica_fmt = 0; break;  // RGBA8
+					case 0x14016754: pica_fmt = 1; break;  // RGB8
+					default: pica_fmt = 0; break;
+				}
+
+				const u32 tex_start = tex_data_offset + data_rel_off;
+				if (tex_start < data_size)
+				{
+					const uint avail = data_size - tex_start;
+					const uint use_size = img_size <= avail ? img_size : avail;
+					enumError derr = DecodePicaTexture (&rgba, &width, &height,
+						data + tex_start, width, height, pica_fmt, use_size);
+					if (!derr && rgba)
+					{
+						found_tex = true;
+						break;
+					}
+				}
+			}
+			cur_chunk_off += 12 + sec_size;
+		}
+
+		if (!found_tex || !rgba)
+			return ERROR0 (ERR_INVALID_IFORM, "Failed decoding CTXB texture: %s\n", fname);
+
+		const uint xwidth = EXPAND8 (width), xheight = EXPAND8 (height);
+		u8 *padded = xwidth == width && xheight == height ? rgba : CALLOC (1, xwidth * xheight * 4);
+		if (padded != rgba)
+		{
+			for (uint y = 0; y < height; y++)
+				memcpy (padded + y * xwidth * 4, rgba + y * width * 4, width * 4);
+			FREE (rgba);
+		}
+		img->data = padded;
+		img->data_alloced = true;
+		img->data_size = xwidth * xheight * 4;
+		img->width = width;
+		img->xwidth = xwidth;
+		img->height = height;
+		img->xheight = xheight;
+		img->iform = img->info_iform = IMG_X_RGB;
+		img->info_fform = FF_CTXB;
+		img->info_n_image = 1;
+		img->alpha_status = 0;
+		img->endian = &le_func;
+		img->path = fname;
+		img->seq_num = ++image_seq_num;
+		return PatchListIMG (img);
+	}
+
 	if (nfmt.type == NFMT_NSBTX || (data_size >= 4 && !memcmp (data, "BTX0", 4)))
 	{
 		u8 *rgba = 0;
@@ -3748,6 +3843,7 @@ const KeywordTab_t cmdtab_transform[] = { //--- file formats
 	{ FF_BREFT_IMG, "REFT-IMG", "REFTIMG", TM_IDX_FILE },
 	{ FF_BREFT_IMG, "BT-IMG", "BTIMG", TM_IDX_FILE }, { FF_PNG, "PNG", 0, TM_IDX_FILE },
 	{ FF_AJPG, "AJPG", 0, TM_IDX_FILE },
+	{ FF_CTXB, "CTXB", 0, TM_IDX_FILE },
 
 	//--- image formats
 

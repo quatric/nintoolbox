@@ -26,6 +26,27 @@ enumError ExtractF9ResArchive (ccp arg, ccp basedir, uint depth);
 // Extract NES Remix indieszero Archive (.zlarc)
 enumError ExtractZLARCArchive (ccp arg, ccp basedir, uint depth);
 
+// Extract Grezzo Zelda / Luigi's Mansion 3DS Archive (.zar / .gar / ZAR\x01 / GAR\x02..GAR\x05)
+enumError ExtractGARArchive (ccp arg, ccp basedir, uint depth);
+
+// Extract Mario Kart Arcade GP DX Layout Archive (.pac / pack)
+enumError ExtractMKGPDXPacArchive (ccp arg, ccp basedir, uint depth);
+
+// Extract Twilight Princess HD / Zelda TMPK Archive (.pack / TMPK)
+enumError ExtractTMPKArchive (ccp arg, ccp basedir, uint depth);
+
+// Extract Nintendo Switch NX Archive (.nxarc / RAXN)
+enumError ExtractNXARCArchive (ccp arg, ccp basedir, uint depth);
+
+// Extract Nintendo APAK Archive (.apak / APAK)
+enumError ExtractAPAKArchive (ccp arg, ccp basedir, uint depth);
+
+// Extract PlatinumGames Archive (.pkz / pkz)
+enumError ExtractPKZArchive (ccp arg, ccp basedir, uint depth);
+
+// Extract Nintendo Switch Joy-Con Vibration Archive (.vibs)
+enumError ExtractVIBSArchive (ccp arg, ccp basedir, uint depth);
+
 // Repack / Create functions
 enumError CreateXPCKArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 enumError CreateZTABArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);

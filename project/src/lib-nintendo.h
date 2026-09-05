@@ -134,7 +134,8 @@ typedef enum nfmt_type_t
 	NFMT_G4PKM,
 	NFMT_LMD,
 	NFMT_MSH,
-	NFMT_MOD
+	NFMT_MOD,
+	NFMT_GAR
 } nfmt_type_t;
 
 typedef struct nfmt_info_t

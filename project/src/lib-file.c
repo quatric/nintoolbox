@@ -1211,6 +1211,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x58490000: // "XI\0\0"
 				return FF_XIMG;
 
+			// Grezzo 3DS Texture Container (CTXB)
+			case 0x63747862: // "ctxb"
+				return FF_CTXB;
+
 			// Camelot 3D Model
 			case 0x304f4748: // "0OGH"
 			case 0x304d5854: // "0MXT"
@@ -1226,6 +1230,22 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x24434648: // "$CFH"
 			case 0x24525346: // "$RSF"
 				return FF_STPK;
+
+			// Twilight Princess HD Archive (TMPK)
+			case 0x544d504b: // "TMPK"
+				return FF_TMPK;
+
+			// Nintendo Switch NX Archive (RAXN)
+			case 0x5241584e: // "RAXN"
+				return FF_NXARC;
+
+			// Nintendo APAK Archive (APAK)
+			case 0x4150414b: // "APAK"
+				return FF_APAK;
+
+			// PlatinumGames Archive (pkz\0)
+			case 0x706b7a00: // "pkz\0"
+				return FF_PKZ;
 
 			// Koei Tecmo 3D Model (G1M_ / _M1G / SM1G / GM1G)
 			case 0x47314d5f: // "G1M_"
@@ -1644,6 +1664,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_MSH;
 		case NFMT_MOD:
 			return FF_MOD;
+		case NFMT_GAR:
+			return FF_GAR;
 		default:
 			break;
 	}

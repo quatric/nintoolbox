@@ -1150,6 +1150,48 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 },
 		0, MinusString, MinusString, "Next Level Games 3D Model (Mario Strikers Charged .rlg)" },
 
+	// FF_GAR = 209 (Grezzo Archive)
+	{ FF_GAR, FF_GAR, 0, "GAR", ".zar", ".szs", ".zar",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 'Z', 'A', 'R', 0x01 },
+		0, MinusString, MinusString, "Grezzo Zelda / Luigi's Mansion Archive (.zar / .gar)" },
+
+	// FF_CTXB = 210 (Grezzo Texture Container)
+	{ FF_CTXB, FF_CTXB, 0, "CTXB", ".ctxb", ".szs", ".ctxb",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+		{ 'c', 't', 'x', 'b' },
+		0, MinusString, MinusString, "Grezzo 3DS Texture Container (.ctxb)" },
+
+	// FF_TMPK = 211 (Twilight Princess HD Archive)
+	{ FF_TMPK, FF_TMPK, 0, "TMPK", ".pack", ".szs", ".pack",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 'T', 'M', 'P', 'K' },
+		0, MinusString, MinusString, "Twilight Princess HD Archive (.pack / TMPK)" },
+
+	// FF_NXARC = 212 (Nintendo Switch NX Archive)
+	{ FF_NXARC, FF_NXARC, 0, "NXARC", ".nxarc", ".szs", ".nxarc",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 'R', 'A', 'X', 'N' },
+		0, MinusString, MinusString, "Nintendo Switch NX Archive (.nxarc / RAXN)" },
+
+	// FF_APAK = 213 (Nintendo APAK Archive)
+	{ FF_APAK, FF_APAK, 0, "APAK", ".apak", ".szs", ".apak",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 'A', 'P', 'A', 'K' },
+		0, MinusString, MinusString, "Nintendo APAK Archive (.apak / APAK)" },
+
+	// FF_PKZ = 214 (PlatinumGames Archive)
+	{ FF_PKZ, FF_PKZ, 0, "PKZ", ".pkz", ".szs", ".pkz",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 'p', 'k', 'z', 0 },
+		0, MinusString, MinusString, "PlatinumGames Archive (.pkz / pkz)" },
+
+	// FF_VIBS = 215 (Nintendo Switch Joy-Con Vibration Archive)
+	{ FF_VIBS, FF_VIBS, 0, "VIBS", ".vibs", ".szs", ".vibs",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
+		{ 0 },
+		0, MinusString, MinusString, "Nintendo Switch Joy-Con Vibration Archive (.vibs)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1297,6 +1339,13 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_KPMAP, "KPMAP", 0, 0x3001 },
 	{ FF_CHANS, "CHANS", "RCHE", 0xe05 },
 	{ FF_RLG, "RLG", 0, 0x3001 },
+	{ FF_GAR, "GAR", "ZAR", 0xe05 },
+	{ FF_CTXB, "CTXB", 0, 0x3809 },
+	{ FF_TMPK, "TMPK", 0, 0xe05 },
+	{ FF_NXARC, "NXARC", "RAXN", 0xe05 },
+	{ FF_APAK, "APAK", 0, 0xe05 },
+	{ FF_PKZ, "PKZ", 0, 0xe05 },
+	{ FF_VIBS, "VIBS", 0, 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

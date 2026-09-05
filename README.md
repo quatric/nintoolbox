@@ -52,6 +52,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 
 | Format | Extensions | Decode Tested | Encode Tested | Middleware / Engine / Platform Context |
 |---|---|---|---|---|
+| **APAK** | `.apak` | ✅ | — | Nintendo / Pokémon APAK archive format (Wii U / Switch) |
 | **ARC / U8** | `.arc`, `.szs` | ✅ | ✅ | Nintendo standard U8 archive (Wii / GameCube NintendoWare & EAD) |
 | **Arika Archive** | `INFO.DAT`, `GAME.DAT` | ✅ | — | Arika DS / DSi / Wii archive system |
 | **ARCV** | `.arc` | — | — | Namco / Tose Wii archive format |
@@ -65,17 +66,21 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **DTLS** | `dt00`, `ls00`, `.ls` | ✅ | ✅ | Bandai Namco composite package & lookup archive (*Super Smash Bros. 4* Wii U / 3DS) |
 | **FSYS** | `.fsys` | — | — | Genius Sonority archive system (GameCube / Wii) |
 | **F9RES** | `.res` | — | — | GameCube resource archive container |
+| **GAR / ZAR** | `.zar`, `.gar` | ✅ | — | Grezzo Zelda & Luigi's Mansion archive (*OoT3D*, *MM3D*, *LM3DS*) |
 | **GFA** | `.gfa` | ✅ | ✅ | Good-Feel GFAC container (Wii / 3DS) |
 | **Hyrule Warriors** | `.idx`, `.bin` | ✅ | — | Koei Tecmo / Omega Force split index archive (3DS) |
 | **JARC** | `.jarc` | — | — | Level-5 DS archive container (DS) |
 | **LSPK** | `.lspk` | — | — | Level-5 Professor Layton flat package (DS) |
 | **MDR** | `.mdr` | — | — | *Dance Dance Revolution Mario Mix* chunk archive with per-chunk zlib streams |
+| **MKGPDX PAC** | `.pac` | ✅ | — | *Mario Kart Arcade GP DX* layout archive (`pack`) |
 | **MPBIN** | `.bin` | ✅ | ✅ | Hudson Soft Mario Party archive container (GameCube / Wii) |
 | **NARC** | `.narc` | ✅ | ✅ | Nintendo DS Nitro standard archive (DS / DSi) |
 | **NCCARC** | `.nccarc` | ✅ | ✅ | Nintendo DS flat blob container |
 | **NDS / SRL / DSI** | `.nds`, `.srl`, `.dsi` | ✅ | — | Nintendo DS & DSi ROM images and executables |
+| **NXARC** | `.nxarc` | ✅ | — | Nintendo Switch NX archive (`RAXN`) |
 | **PAC / MRG** | `.pac`, `.mrg` | ✅ | ✅ | HAL Laboratory / Game Arts Wii archive container |
 | **PKG / GPKG / GPAK** | `.pkg`, `.pak` | ✅ | — | Sonic Team Storybook series archive (*Secret Rings* / *Black Knight*) |
+| **PKZ** | `.pkz` | ✅ | — | PlatinumGames archive format (*Bayonetta*, *Astral Chain*) |
 | **PVOL** | `.pvol` | — | — | *Pikmin 1 & 2* model & resource container archive |
 | **RARC** | `.rarc`, `.arc` | ✅ | ✅ | Nintendo standard resource archive (GameCube / Wii) |
 | **RFL_Res** | `RFL_Res.dat`, `.dat` | — | — | Revolution Face Library Mii resource database (Wii / 3DS / Wii U) |
@@ -84,7 +89,9 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **SARC** | `.sarc`, `.szs` | ✅ | ✅ | NintendoWare NW4F & NintendoSDK sorted archive (Wii U / Switch / 3DS) |
 | **STPK** | `.srd`, `.stpk` | — | — | *Jump Super Stars* & *Jump Ultimate Stars* DS resource archive |
 | **SZE** | `.sze` | — | — | Nintendo Switch AES-encrypted container (NST / Switch) |
+| **TMPK** | `.pack`, `.tmpk` | ✅ | — | *The Legend of Zelda: Twilight Princess HD* archive (`TMPK`) |
 | **VCRA** | `.bin`, `.vcra` | — | — | Bandai Namco Museum Remix archive format (Wii) |
+| **VIBS** | `.vibs` | ✅ | — | Nintendo Switch Joy-Con vibration archive |
 | **WARC** | `.warc` | ✅ | ✅ | Nintendo / Intelligent Systems flat archive (Wii U) |
 | **WUD / WUX** | `.wud`, `.wux` | ✅ | — | Nintendo Wii U optical disc images (raw & compressed) |
 | **XPCK** | `.xc`, `.xpck` | — | — | Level-5 container archive (*Inazuma Eleven*, *Professor Layton*, *Yo-kai Watch*) |
@@ -130,6 +137,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **BNTX** | `.bntx` | ✅ | — | NintendoSDK Tegra block-linear texture container (Switch) |
 | **BREFT** | `.breft` | ✅ | — | NintendoWare NW4R particle effect texture (Wii) |
 | **BTI / TPL** | `.bti`, `.tpl` | ✅ | ✅ | Nintendo standard texture palette library (GameCube / Wii) |
+| **CTXB** | `.ctxb` | ✅ | — | Grezzo 3DS texture container (*Ocarina of Time 3D*, *Majora's Mask 3D*) |
 | **G1T** | `.g1t` | — | — | Koei Tecmo texture container (*Hyrule Warriors*, *Fire Emblem Warriors*) |
 | **GTX** | `.gtx` | ✅ | — | Nintendo Wii U GX2 surface container (Wii U) |
 | **NCGR / NCLR / NCER / NANR** | `.ncgr`, `.nclr`, `.ncer`, `.nanr` | ✅ | — | Nintendo DS Nitro 2D graphics, palette, cell & animation (DS) |

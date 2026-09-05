@@ -300,6 +300,13 @@ typedef enum file_format_t
 	FF_KPMAP, // 206 - Koopatlas Map Project (.kpmap / JSON)
 	FF_CHANS, // 207 - Nintendo Wii ChannelScript (.cs / RCHE)
 	FF_RLG, // 208 - Next Level Games 3D Model (Mario Strikers Charged .rlg)
+	FF_GAR, // 209 - Grezzo Zelda / Luigi's Mansion Archive (.zar / .gar)
+	FF_CTXB, // 210 - Grezzo 3DS Texture Container (.ctxb)
+	FF_TMPK, // 211 - Twilight Princess HD Archive (.pack / TMPK)
+	FF_NXARC, // 212 - Nintendo Switch NX Archive (.nxarc / RAXN)
+	FF_APAK, // 213 - Nintendo APAK Archive (.apak / APAK)
+	FF_PKZ, // 214 - PlatinumGames Archive (.pkz / pkz)
+	FF_VIBS, // 215 - Nintendo Switch Joy-Con Vibration Archive (.vibs)
 
 	//--- number of elements
 
