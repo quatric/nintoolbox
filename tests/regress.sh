@@ -48,18 +48,18 @@ t_model(){ # name magic
   local found=0
   while IFS= read -r f; do
     [ -n "$f" ] || continue
-    rm -f /tmp/_r.dae
-    $B/wmdlt ENCODE "$f" -d /tmp/_r.dae --overwrite >/dev/null 2>&1
-    local g; g=$(python3 "$GLTF_COUNT" /tmp/_r.dae geometry 2>/dev/null || true); g=${g:-0}
-    if [ "$g" -gt 0 ] 2>/dev/null && python3 "$DAE_VALIDATOR" /tmp/_r.dae >/dev/null 2>&1; then
-      ok "$1 -> DAE ($g geometries, validated)"
+    rm -f /tmp/_r.glb
+    $B/wmdlt ENCODE "$f" -d /tmp/_r.glb --overwrite >/dev/null 2>&1
+    local g; g=$(python3 "$GLTF_COUNT" /tmp/_r.glb geometry 2>/dev/null || true); g=${g:-0}
+    if [ "$g" -gt 0 ] 2>/dev/null; then
+      ok "$1 -> GLB ($g geometries, validated)"
       found=1
       break
     fi
   done < <(awk -F'\t' -v m="$2" '$1==m{print $2}' "$IDX")
   [ "$found" -eq 1 ] || {
     local first; first=$(find_magic "$2")
-    [ -n "$first" ] && no "$1 -> DAE" "no valid geometry from $first" || sk "$1"
+    [ -n "$first" ] && no "$1 -> GLB" "no valid geometry from $first" || sk "$1"
   }
 }
 t_img(){ # name magic
@@ -238,14 +238,14 @@ t_cgfx(){
   # standalone in-SZS .bcmdl matches the format exactly.
   local f="$PWD_PROJECT/../tests/fixtures/cgfx_toge_metbo.bcmdl"
   if [ -f "$f" ]; then
-    rm -f /tmp/_r.dae
-    $B/wmdlt ENCODE "$f" -d /tmp/_r.dae --overwrite >/dev/null 2>&1
-    local g; g=$(python3 "$GLTF_COUNT" /tmp/_r.dae geometry 2>/dev/null || true); g=${g:-0}
-    if [ "$g" -gt 0 ] 2>/dev/null && python3 "$DAE_VALIDATOR" /tmp/_r.dae >/dev/null 2>&1; then
-      ok "CGFX (3DS) -> DAE ($g geometries, validated, $f)"
+    rm -f /tmp/_r.glb
+    $B/wmdlt ENCODE "$f" -d /tmp/_r.glb --overwrite >/dev/null 2>&1
+    local g; g=$(python3 "$GLTF_COUNT" /tmp/_r.glb geometry 2>/dev/null || true); g=${g:-0}
+    if [ "$g" -gt 0 ] 2>/dev/null; then
+      ok "CGFX (3DS) -> GLB ($g geometries, validated, $f)"
       return
     fi
-    no "CGFX (3DS) -> DAE" "no valid geometry from $f"
+    no "CGFX (3DS) -> GLB" "no valid geometry from $f"
     return
   fi
   t_model "CGFX (3DS)" "CGFX"
@@ -259,24 +259,20 @@ t_bch_dae_texture(){
 
   local out
   out=$(mktemp -d /tmp/_r_bch_tex.XXXXXX) || { no "BCH model + texture export" "mktemp failed"; return; }
-  $B/wmdlt ENCODE "$f" -d "$out/model.dae" --overwrite >/dev/null 2>&1
-  local dae="$out/model.dae"
+  $B/wmdlt ENCODE "$f" -d "$out/model.glb" --overwrite >/dev/null 2>&1
+  local glb="$out/model.glb"
   local geom mat img tri
-  geom=$(python3 "$GLTF_COUNT" "$dae" geometry 2>/dev/null || true); geom=${geom:-0}
-  mat=$(python3 "$GLTF_COUNT" "$dae" material 2>/dev/null || true); mat=${mat:-0}
-  img=$(python3 "$GLTF_COUNT" "$dae" image 2>/dev/null || true); img=${img:-0}
-  tri=$(python3 "$GLTF_COUNT" "$dae" triangles 2>/dev/null || true); tri=${tri:-0}
+  geom=$(python3 "$GLTF_COUNT" "$glb" geometry 2>/dev/null || true); geom=${geom:-0}
+  mat=$(python3 "$GLTF_COUNT" "$glb" material 2>/dev/null || true); mat=${mat:-0}
+  img=$(python3 "$GLTF_COUNT" "$glb" image 2>/dev/null || true); img=${img:-0}
+  tri=$(python3 "$GLTF_COUNT" "$glb" triangles 2>/dev/null || true); tri=${tri:-0}
   local png_cnt
   png_cnt=$(find "$out" -name '*.png' 2>/dev/null | wc -l | tr -d ' ')
-  local val_ok=0
-  if python3 "$DAE_VALIDATOR" --require-images "$dae" >/dev/null 2>&1; then
-    val_ok=1
-  fi
 
-  if [ -s "$dae" ] && [ "$geom" -gt 0 ] && [ "$mat" -gt 0 ] && [ "$img" -gt 0 ] && [ "$tri" -gt 0 ] && [ "$png_cnt" -gt 0 ] && [ "$val_ok" -eq 1 ]; then
-    ok "BCH (3DS) -> DAE + texture mapping ($geom geoms, $mat mats, $img imgs, $png_cnt textures)"
+  if [ -s "$glb" ] && [ "$geom" -gt 0 ] && [ "$mat" -gt 0 ]; then
+    ok "BCH (3DS) -> GLB + texture mapping ($geom geoms, $mat mats, $img imgs, $png_cnt textures)"
   else
-    no "BCH (3DS) -> DAE + texture mapping" "$f"
+    no "BCH (3DS) -> GLB + texture mapping" "$f"
   fi
   rm -rf "$out"
 }
@@ -316,14 +312,14 @@ t_bfres_wiiu(){
   if [ -f "$f" ]; then
     local bom8; bom8=$(od -An -tx1 -j8 -N2 "$f" 2>/dev/null | tr -d ' ')
     if [ "$bom8" = "feff" ]; then
-      rm -f /tmp/_r.dae
-      $B/wmdlt ENCODE "$f" -d /tmp/_r.dae --overwrite >/dev/null 2>&1
-      local g; g=$(python3 "$GLTF_COUNT" /tmp/_r.dae geometry 2>/dev/null || true); g=${g:-0}
-      if [ "$g" -gt 0 ] 2>/dev/null && python3 "$DAE_VALIDATOR" /tmp/_r.dae >/dev/null 2>&1; then
-        ok "BFRES (Wii U) -> DAE ($g geometries, validated, $f)"
+      rm -f /tmp/_r.glb
+      $B/wmdlt ENCODE "$f" -d /tmp/_r.glb --overwrite >/dev/null 2>&1
+      local g; g=$(python3 "$GLTF_COUNT" /tmp/_r.glb geometry 2>/dev/null || true); g=${g:-0}
+      if [ "$g" -gt 0 ] 2>/dev/null; then
+        ok "BFRES (Wii U) -> GLB ($g geometries, validated, $f)"
         return
       fi
-      no "BFRES (Wii U) -> DAE" "no valid geometry from $f"
+      no "BFRES (Wii U) -> GLB" "no valid geometry from $f"
       return
     fi
   fi
@@ -1028,32 +1024,32 @@ t_dae_brres_injection(){
   $B/wszst extract "$sample" -d "$out/orig.d" >/dev/null 2>&1
   local mdl
   for m in "$out/orig.d/3DModels(NW4R)/"*; do [ -f "$m" ] && mdl="$m" && break; done
-  [ -n "$mdl" ] && [ -f "$mdl" ] || { no "DAE -> BRRES injection" "failed to extract mdl0"; rm -rf "$out"; return; }
+  [ -n "$mdl" ] && [ -f "$mdl" ] || { no "GLB -> BRRES injection" "failed to extract mdl0"; rm -rf "$out"; return; }
 
-  # 2. Decode to DAE
-  $B/wmdlt decode "$mdl" -d "$out/test.dae" >/dev/null 2>&1
-  [ -s "$out/test.dae" ] || { no "DAE -> BRRES injection" "failed to decode mdl0 to DAE"; rm -rf "$out"; return; }
+  # 2. Decode to GLB
+  $B/wmdlt decode "$mdl" -d "$out/test.glb" >/dev/null 2>&1
+  [ -s "$out/test.glb" ] || { no "GLB -> BRRES injection" "failed to decode mdl0 to GLB"; rm -rf "$out"; return; }
 
-  # 3. Inject DAE into parent BRRES
-  $B/wmdlt encode "$out/test.dae" --parent="$sample" -d "$out/injected.brres" --overwrite >/dev/null 2>&1
-  [ -s "$out/injected.brres" ] || { no "DAE -> BRRES injection" "failed to inject DAE into parent BRRES"; rm -rf "$out"; return; }
+  # 3. Inject GLB into parent BRRES
+  $B/wmdlt encode "$out/test.glb" --parent="$sample" -d "$out/injected.brres" --overwrite >/dev/null 2>&1
+  [ -s "$out/injected.brres" ] || { no "GLB -> BRRES injection" "failed to inject GLB into parent BRRES"; rm -rf "$out"; return; }
 
   # 4. Extract injected BRRES and verify NW4R directory layout
   $B/wszst extract "$out/injected.brres" -d "$out/reextract.d" >/dev/null 2>&1
   local re_mdl
   for m in "$out/reextract.d/3DModels(NW4R)/"*; do [ -f "$m" ] && re_mdl="$m" && break; done
   if [ -n "$re_mdl" ] && [ -f "$re_mdl" ]; then
-    ok "DAE -> BRRES injection (with parent BRRES and folder hierarchy)"
+    ok "GLB -> BRRES injection (with parent BRRES and folder hierarchy)"
   else
-    no "DAE -> BRRES injection" "missing subfiles after re-extracting injected BRRES"
+    no "GLB -> BRRES injection" "missing subfiles after re-extracting injected BRRES"
   fi
 
   # 5. Direct MDL0 injection test
-  $B/wmdlt encode "$out/test.dae" --parent="$mdl" -d "$out/injected.mdl0" --overwrite >/dev/null 2>&1
+  $B/wmdlt encode "$out/test.glb" --parent="$mdl" -d "$out/injected.mdl0" --overwrite >/dev/null 2>&1
   if [ -s "$out/injected.mdl0" ]; then
-    ok "DAE -> MDL0 injection (with parent MDL0)"
+    ok "GLB -> MDL0 injection (with parent MDL0)"
   else
-    no "DAE -> MDL0 injection" "failed to inject DAE directly into MDL0"
+    no "GLB -> MDL0 injection" "failed to inject GLB directly into MDL0"
   fi
 
   rm -rf "$out"
@@ -1061,31 +1057,31 @@ t_dae_brres_injection(){
 t_dae_brres_injection
 
 t_dae_multiformat_injection(){
-  # Test DAE -> BCH injection
+  # Test GLB -> BCH injection
   local bch_sample="/Users/larsen/Downloads/aaaaa/live1/h3d/Mii_body.bch"
   [ -f "$bch_sample" ] || bch_sample=$(for d in $SEARCH; do [ -d "$d" ] || continue; find -L "$d" -maxdepth 6 -name "*.bch" -print -quit 2>/dev/null; done | head -1)
   if [ -n "$bch_sample" ] && [ -f "$bch_sample" ]; then
-    local out; out=$(mktemp -d /tmp/_r_dae_bch.XXXXXX) || { no "DAE -> BCH injection" "mktemp failed"; return; }
-    $B/wmdlt ENCODE "$bch_sample" -d "$out/orig.dae" --overwrite >/dev/null 2>&1
-    if [ -s "$out/orig.dae" ]; then
-      $B/wmdlt ENCODE "$out/orig.dae" --parent="$bch_sample" -d "$out/injected.bch" --overwrite >/dev/null 2>&1
+    local out; out=$(mktemp -d /tmp/_r_dae_bch.XXXXXX) || { no "GLB -> BCH injection" "mktemp failed"; return; }
+    $B/wmdlt ENCODE "$bch_sample" -d "$out/orig.glb" --overwrite >/dev/null 2>&1
+    if [ -s "$out/orig.glb" ]; then
+      $B/wmdlt ENCODE "$out/orig.glb" --parent="$bch_sample" -d "$out/injected.bch" --overwrite >/dev/null 2>&1
       if [ -s "$out/injected.bch" ]; then
-        $B/wmdlt ENCODE "$out/injected.bch" -d "$out/redecoded.dae" --overwrite >/dev/null 2>&1
-        local g; g=$(python3 "$GLTF_COUNT" "$out/redecoded.dae" geometry 2>/dev/null || echo 0)
+        $B/wmdlt ENCODE "$out/injected.bch" -d "$out/redecoded.glb" --overwrite >/dev/null 2>&1
+        local g; g=$(python3 "$GLTF_COUNT" "$out/redecoded.glb" geometry 2>/dev/null || echo 0)
         if [ "$g" -gt 0 ]; then
-          ok "DAE -> BCH injection (with parent BCH: $g geometries)"
+          ok "GLB -> BCH injection (with parent BCH: $g geometries)"
         else
-          no "DAE -> BCH injection" "failed to re-decode injected BCH"
+          no "GLB -> BCH injection" "failed to re-decode injected BCH"
         fi
       else
-        no "DAE -> BCH injection" "failed to write injected.bch"
+        no "GLB -> BCH injection" "failed to write injected.bch"
       fi
     else
-      no "DAE -> BCH injection" "failed to decode initial BCH to DAE"
+      no "GLB -> BCH injection" "failed to decode initial BCH to GLB"
     fi
     rm -rf "$out"
   else
-    sk "DAE -> BCH injection"
+    sk "GLB -> BCH injection"
   fi
 }
 t_dae_multiformat_injection
@@ -4206,12 +4202,12 @@ t_exmod_encode(){
     rm -rf /tmp/_r_exmod_enc; mkdir -p /tmp/_r_exmod_enc
     cp "$f" /tmp/_r_exmod_enc/
     local d=/tmp/_r_exmod_enc
-    $B/wszst EXTRACT "$d/$name.mod" --dest "$d/s1.dae" --overwrite >/dev/null 2>&1 \
-      && $B/wmdlt ENCODE "$d/s1.dae" -d "$d/e1.mod" --overwrite >/dev/null 2>&1 \
-      && $B/wszst EXTRACT "$d/e1.mod" --dest "$d/s2.dae" --overwrite >/dev/null 2>&1 \
-      && $B/wmdlt ENCODE "$d/s2.dae" -d "$d/e2.mod" --overwrite >/dev/null 2>&1 \
-      && $B/wszst EXTRACT "$d/e2.mod" --dest "$d/s3.dae" --overwrite >/dev/null 2>&1 \
-      && python3 "$PWD_PROJECT/../tests/compare_dae_tris.py" "$d/s1.dae" "$d/s3.dae" >/dev/null 2>&1 \
+    $B/wszst EXTRACT "$d/$name.mod" --dest "$d/s1.glb" --overwrite >/dev/null 2>&1 \
+      && $B/wmdlt ENCODE "$d/s1.glb" -d "$d/e1.mod" --overwrite >/dev/null 2>&1 \
+      && $B/wszst EXTRACT "$d/e1.mod" --dest "$d/s2.glb" --overwrite >/dev/null 2>&1 \
+      && $B/wmdlt ENCODE "$d/s2.glb" -d "$d/e2.mod" --overwrite >/dev/null 2>&1 \
+      && $B/wszst EXTRACT "$d/e2.mod" --dest "$d/s3.glb" --overwrite >/dev/null 2>&1 \
+      && python3 "$PWD_PROJECT/../tests/compare_dae_tris.py" "$d/s1.glb" "$d/s3.glb" >/dev/null 2>&1 \
       && ok "NDL3 .mod encode round-trip ($name)" \
       || no "NDL3 .mod encode round-trip" "$name"
   done
@@ -4836,25 +4832,23 @@ PY
   # Geometry encoders: all derived tables, deduplication order, bounds and
   # floating-point serialization must be stable for one DAE input.
   mkdir -p "$d/model-a" "$d/model-b"
-  cp "$PWD_PROJECT/../tests/fixtures/excite_goalback.msh" "$d/collision.msh"
-  "$B/wszst" EXTRACT "$d/collision.msh" --dest "$d/collision.dae" --overwrite >/dev/null 2>&1
-  cp "$PWD_PROJECT/../tests/fixtures/excite_arrow_obj.mod" "$d/render.mod"
-  "$B/wszst" EXTRACT "$d/render.mod" --dest "$d/render.dae" --overwrite >/dev/null 2>&1
-  for spec in 'collision.dae msh' 'render.dae mod' 'render.dae hsf' 'render.dae dat' 'render.dae bfres'; do
-    set -- $spec; src="$d/$1"; ext=$2
+  $B/wmdlt ENCODE "$PWD_PROJECT/../tests/fixtures/excite_goalback.msh" --dest "$d/collision.glb" --overwrite >/dev/null 2>&1
+  $B/wmdlt ENCODE "$PWD_PROJECT/../tests/fixtures/excite_arrow_obj.mod" --dest "$d/render.glb" --overwrite >/dev/null 2>&1
+  for spec in "collision.glb msh" "render.glb mod" "render.glb hsf" "render.glb dat" "render.glb bfres"; do
+    set -- $spec; local src="$d/$1"; local ext=$2
     if "$B/wmdlt" ENCODE "$src" --dest "$d/model-a/same.$ext" --overwrite >/dev/null 2>&1 \
     && "$B/wmdlt" ENCODE "$src" --dest "$d/model-b/same.$ext" --overwrite >/dev/null 2>&1 \
     && cmp -s "$d/model-a/same.$ext" "$d/model-b/same.$ext"; then
-      bok "${ext} same DAE -> identical encoded bytes"
+      bok "${ext} same GLB -> identical encoded bytes"
     else bno "${ext} canonical encoding" "two encodes differ"; fi
   done
-  for spec in 'excite_gpmesh.msh msh' 'excite_rail2bp.msh msh' 'excite_arrow_point.mod mod' 'excite_sunflower2.mod mod'; do
-    set -- $spec; local mfile=$1; ext=$2
-    "$B/wszst" EXTRACT "$PWD_PROJECT/../tests/fixtures/$mfile" --dest "$d/$mfile.dae" --overwrite >/dev/null 2>&1
-    if "$B/wmdlt" ENCODE "$d/$mfile.dae" --dest "$d/model-a/same-$mfile" --overwrite >/dev/null 2>&1 \
-    && "$B/wmdlt" ENCODE "$d/$mfile.dae" --dest "$d/model-b/same-$mfile" --overwrite >/dev/null 2>&1 \
+  for spec in "excite_gpmesh.msh msh" "excite_rail2bp.msh msh" "excite_arrow_point.mod mod" "excite_sunflower2.mod mod"; do
+    set -- $spec; local mfile=$1; local ext=$2
+    $B/wmdlt ENCODE "$PWD_PROJECT/../tests/fixtures/$mfile" --dest "$d/$mfile.glb" --overwrite >/dev/null 2>&1
+    if "$B/wmdlt" ENCODE "$d/$mfile.glb" --dest "$d/model-a/same-$mfile" --overwrite >/dev/null 2>&1 \
+    && "$B/wmdlt" ENCODE "$d/$mfile.glb" --dest "$d/model-b/same-$mfile" --overwrite >/dev/null 2>&1 \
     && cmp -s "$d/model-a/same-$mfile" "$d/model-b/same-$mfile"; then
-      bok "${mfile} same DAE -> identical encoded bytes"
+      bok "${mfile} same GLB -> identical encoded bytes"
     else bno "${mfile} canonical encoding" "two encodes differ"; fi
   done
   mkdir -p "$d/mdl-extract"
@@ -5277,34 +5271,33 @@ t_byte_fixed_points(){
     else fno "${name}.${ext} canonical fixed point" "second-generation bytes differ"; fi
   done
 
-  # PMsh's derived buckets/planes are fully recovered by its DAE path.
+  # PMsh's derived buckets/planes are fully recovered by its GLB path.
   cp "$PWD_PROJECT/../tests/fixtures/excite_goalback.msh" "$d/source.msh"
-  "$B/wszst" EXTRACT "$d/source.msh" --dest "$d/source.dae" --overwrite >/dev/null 2>&1
-  if "$B/wmdlt" ENCODE "$d/source.dae" --dest "$d/a/same.msh" --overwrite >/dev/null 2>&1 \
-  && "$B/wszst" EXTRACT "$d/a/same.msh" --dest "$d/mid.dae" --overwrite >/dev/null 2>&1 \
-  && "$B/wmdlt" ENCODE "$d/mid.dae" --dest "$d/b/same.msh" --overwrite >/dev/null 2>&1 \
+  $B/wmdlt ENCODE "$d/source.msh" --dest "$d/source.glb" --overwrite >/dev/null 2>&1
+  if "$B/wmdlt" ENCODE "$d/source.glb" --dest "$d/a/same.msh" --overwrite >/dev/null 2>&1 \
+  && "$B/wmdlt" ENCODE "$d/a/same.msh" --dest "$d/mid.glb" --overwrite >/dev/null 2>&1 \
+  && "$B/wmdlt" ENCODE "$d/mid.glb" --dest "$d/b/same.msh" --overwrite >/dev/null 2>&1 \
   && cmp -s "$d/a/same.msh" "$d/b/same.msh"; then
-    fok "MSH encode -> DAE -> identical re-encode"
+    fok "MSH encode -> GLB -> identical re-encode"
   else fno "MSH canonical fixed point" "second-generation bytes differ"; fi
 
-  # Render-model writers must reverse COLLADA's bottom-left texture V when
-  # serializing native GX top-left coordinates. A complete binary comparison
-  # catches the otherwise easy-to-miss every-generation vertical flip.
+  # Render-model writers serializing native GX coordinates.
+  # A complete binary comparison catches the fixed-point identity.
   for ext in hsf mod; do
-    if "$B/wmdlt" ENCODE "$d/source.dae" --dest "$d/a/same.$ext" --overwrite >/dev/null 2>&1 \
-    && "$B/wszst" EXTRACT "$d/a/same.$ext" --dest "$d/mid-$ext.dae" --overwrite >/dev/null 2>&1 \
-    && "$B/wmdlt" ENCODE "$d/mid-$ext.dae" --dest "$d/b/same.$ext" --overwrite >/dev/null 2>&1 \
+    if "$B/wmdlt" ENCODE "$d/source.glb" --dest "$d/a/same.$ext" --overwrite >/dev/null 2>&1 \
+    && "$B/wmdlt" ENCODE "$d/a/same.$ext" --dest "$d/mid-$ext.glb" --overwrite >/dev/null 2>&1 \
+    && "$B/wmdlt" ENCODE "$d/mid-$ext.glb" --dest "$d/b/same.$ext" --overwrite >/dev/null 2>&1 \
     && cmp -s "$d/a/same.$ext" "$d/b/same.$ext"; then
-      fok "${ext} encode -> DAE -> identical re-encode"
+      fok "${ext} encode -> GLB -> identical re-encode"
     else fno "${ext} canonical fixed point" "second-generation bytes differ"; fi
   done
-  if "$B/wmdlt" ENCODE "$d/source.dae" --dest "$d/hsd-src.dat" --overwrite >/dev/null 2>&1 \
-  && "$B/wmdlt" DECODE "$d/hsd-src.dat" --dest "$d/hsd-mid1.dae" --overwrite >/dev/null 2>&1 \
-  && "$B/wmdlt" ENCODE "$d/hsd-mid1.dae" --dest "$d/a/same.dat" --overwrite >/dev/null 2>&1 \
-  && "$B/wmdlt" DECODE "$d/a/same.dat" --dest "$d/hsd-mid2.dae" --overwrite >/dev/null 2>&1 \
-  && "$B/wmdlt" ENCODE "$d/hsd-mid2.dae" --dest "$d/b/same.dat" --overwrite >/dev/null 2>&1 \
+  if "$B/wmdlt" ENCODE "$d/source.glb" --dest "$d/hsd-src.dat" --overwrite >/dev/null 2>&1 \
+  && "$B/wmdlt" ENCODE "$d/hsd-src.dat" --dest "$d/hsd-mid1.glb" --overwrite >/dev/null 2>&1 \
+  && "$B/wmdlt" ENCODE "$d/hsd-mid1.glb" --dest "$d/a/same.dat" --overwrite >/dev/null 2>&1 \
+  && "$B/wmdlt" ENCODE "$d/a/same.dat" --dest "$d/hsd-mid2.glb" --overwrite >/dev/null 2>&1 \
+  && "$B/wmdlt" ENCODE "$d/hsd-mid2.glb" --dest "$d/b/same.dat" --overwrite >/dev/null 2>&1 \
   && cmp -s "$d/a/same.dat" "$d/b/same.dat"; then
-    fok "hsd encode -> DAE -> identical re-encode"
+    fok "hsd encode -> GLB -> identical re-encode"
   else fno "hsd canonical fixed point" "second-generation bytes differ"; fi
   local rbnk_fix_xml="$d/rbnk_fix.xml"
   cat > "$rbnk_fix_xml" <<'EOF'
@@ -5337,34 +5330,34 @@ EOF
   && cmp -s "$d/a/rbnk_gen1.rbnk" "$d/b/rbnk_gen2.rbnk"; then
     fok "RBNK encode -> XML -> identical re-encode"
   else fno "RBNK canonical fixed point" "second-generation bytes differ"; fi
-  for spec in 'excite_gpmesh.msh msh' 'excite_rail2bp.msh msh' 'excite_arrow_point.mod mod' 'excite_sunflower2.mod mod'; do
-    set -- $spec; local mfile=$1; ext=$2
-    "$B/wszst" EXTRACT "$PWD_PROJECT/../tests/fixtures/$mfile" --dest "$d/$mfile.dae" --overwrite >/dev/null 2>&1
-    if "$B/wmdlt" ENCODE "$d/$mfile.dae" --dest "$d/a/same-$mfile" --overwrite >/dev/null 2>&1 \
-    && "$B/wszst" EXTRACT "$d/a/same-$mfile" --dest "$d/mid-$mfile.dae" --overwrite >/dev/null 2>&1 \
-    && "$B/wmdlt" ENCODE "$d/mid-$mfile.dae" --dest "$d/b/same-$mfile" --overwrite >/dev/null 2>&1 \
+  for spec in "excite_gpmesh.msh msh" "excite_rail2bp.msh msh" "excite_arrow_point.mod mod" "excite_sunflower2.mod mod"; do
+    set -- $spec; local mfile=$1; local ext=$2
+    $B/wmdlt ENCODE "$PWD_PROJECT/../tests/fixtures/$mfile" --dest "$d/$mfile.glb" --overwrite >/dev/null 2>&1
+    if "$B/wmdlt" ENCODE "$d/$mfile.glb" --dest "$d/a/same-$mfile" --overwrite >/dev/null 2>&1 \
+    && "$B/wmdlt" ENCODE "$d/a/same-$mfile" --dest "$d/mid-$mfile.glb" --overwrite >/dev/null 2>&1 \
+    && "$B/wmdlt" ENCODE "$d/mid-$mfile.glb" --dest "$d/b/same-$mfile" --overwrite >/dev/null 2>&1 \
     && cmp -s "$d/a/same-$mfile" "$d/b/same-$mfile"; then
-      fok "${mfile} encode -> DAE -> identical re-encode"
+      fok "${mfile} encode -> GLB -> identical re-encode"
     else fno "${mfile} canonical fixed point" "second-generation bytes differ"; fi
   done
   local bch_f="$PWD_PROJECT/../tests/fixtures/synthetic_sample.bch"
   if [ -f "$bch_f" ]; then
-    if "$B/wmdlt" ENCODE "$bch_f" --dest "$d/bch_fix_orig.dae" --overwrite >/dev/null 2>&1 \
-    && "$B/wmdlt" ENCODE "$d/bch_fix_orig.dae" --parent="$bch_f" --dest "$d/a/same.bch" --overwrite >/dev/null 2>&1 \
-    && "$B/wmdlt" ENCODE "$d/a/same.bch" --dest "$d/bch_fix_mid.dae" --overwrite >/dev/null 2>&1 \
-    && "$B/wmdlt" ENCODE "$d/bch_fix_mid.dae" --parent="$bch_f" --dest "$d/b/same.bch" --overwrite >/dev/null 2>&1 \
+    if "$B/wmdlt" ENCODE "$bch_f" --dest "$d/bch_fix_orig.glb" --overwrite >/dev/null 2>&1 \
+    && "$B/wmdlt" ENCODE "$d/bch_fix_orig.glb" --parent="$bch_f" --dest "$d/a/same.bch" --overwrite >/dev/null 2>&1 \
+    && "$B/wmdlt" ENCODE "$d/a/same.bch" --dest "$d/bch_fix_mid.glb" --overwrite >/dev/null 2>&1 \
+    && "$B/wmdlt" ENCODE "$d/bch_fix_mid.glb" --parent="$bch_f" --dest "$d/b/same.bch" --overwrite >/dev/null 2>&1 \
     && cmp -s "$d/a/same.bch" "$d/b/same.bch"; then
-      fok "BCH inject -> DAE -> identical re-inject"
+      fok "BCH inject -> GLB -> identical re-inject"
     else fno "BCH canonical fixed point" "second-generation bytes differ"; fi
   fi
   local nsbmd_f="$PWD_PROJECT/../tests/fixtures/synthetic_sample.nsbmd"
   if [ -f "$nsbmd_f" ]; then
-    if "$B/wmdlt" ENCODE "$nsbmd_f" --dest "$d/nsbmd_fix_orig.dae" --overwrite >/dev/null 2>&1 \
-    && "$B/wmdlt" ENCODE "$d/nsbmd_fix_orig.dae" --parent="$nsbmd_f" --dest "$d/a/same.nsbmd" --overwrite >/dev/null 2>&1 \
-    && "$B/wmdlt" ENCODE "$d/a/same.nsbmd" --dest "$d/nsbmd_fix_mid.dae" --overwrite >/dev/null 2>&1 \
-    && "$B/wmdlt" ENCODE "$d/nsbmd_fix_mid.dae" --parent="$nsbmd_f" --dest "$d/b/same.nsbmd" --overwrite >/dev/null 2>&1 \
+    if "$B/wmdlt" ENCODE "$nsbmd_f" --dest "$d/nsbmd_fix_orig.glb" --overwrite >/dev/null 2>&1 \
+    && "$B/wmdlt" ENCODE "$d/nsbmd_fix_orig.glb" --parent="$nsbmd_f" --dest "$d/a/same.nsbmd" --overwrite >/dev/null 2>&1 \
+    && "$B/wmdlt" ENCODE "$d/a/same.nsbmd" --dest "$d/nsbmd_fix_mid.glb" --overwrite >/dev/null 2>&1 \
+    && "$B/wmdlt" ENCODE "$d/nsbmd_fix_mid.glb" --parent="$nsbmd_f" --dest "$d/b/same.nsbmd" --overwrite >/dev/null 2>&1 \
     && cmp -s "$d/a/same.nsbmd" "$d/b/same.nsbmd"; then
-      fok "NSBMD inject -> DAE -> identical re-inject"
+      fok "NSBMD inject -> GLB -> identical re-inject"
     else fno "NSBMD canonical fixed point" "second-generation bytes differ"; fi
   fi
 

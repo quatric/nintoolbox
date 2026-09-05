@@ -2507,7 +2507,7 @@ static inline int16_t fx12_enc (float v)
 // Encode float (-1..+0.999) to 1:0:9 fixed-point 10-bit signed
 static inline uint32_t fx9_enc (float v)
 {
-	int val = (int)roundf (v * 511.0f);
+	int val = (int)roundf (v * 512.0f);
 	if (val > 511)
 		val = 511;
 	if (val < -512)
@@ -2586,8 +2586,45 @@ int InjectDAEIntoNSBMD (const uint8_t *nsbmd_data, size_t nsbmd_size, const mode
 
 	size_t dl_bytes = word_idx * sizeof (uint32_t);
 
-	// Build new NSBMD buffer
+	// Find shape display list location in parent NSBMD
 	size_t base_size = ALIGN_4 (nsbmd_size);
+	uint32_t n_blocks = RDL16 (nsbmd_data + 0x0e);
+	for (uint32_t b = 0; b < n_blocks; b++)
+	{
+		uint32_t blk_off = RDL32 (nsbmd_data + 0x10 + b * 4);
+		if (blk_off + 8 <= nsbmd_size && !memcmp (nsbmd_data + blk_off, "MDL0", 4))
+		{
+			const uint8_t *mdl = nsbmd_data + blk_off;
+			const uint8_t *dict_base = mdl + 8;
+			if (blk_off + 8 + 0x14 <= nsbmd_size)
+			{
+				uint32_t n_models = dict_base[1];
+				if (n_models >= 1)
+				{
+					uint32_t info_hdr = 8 + (4 + n_models * 4);
+					uint32_t model_off = RDL32 (dict_base + info_hdr + 4);
+					const uint8_t *m = mdl + model_off;
+					uint32_t shapes_off = RDL32 (m + 0x0c);
+					const uint8_t *sbase = m + shapes_off;
+					uint32_t n_shapes = sbase[1];
+					if (n_shapes >= 1)
+					{
+						uint32_t s_info_hdr = 8 + (4 + n_shapes * 4);
+						uint32_t item_size = RDL16 (sbase + s_info_hdr);
+						uint32_t sh_rel = item_size >= 8 ? RDL32 (sbase + s_info_hdr + 4 + 4) : RDL32 (sbase + s_info_hdr + 4);
+						const uint8_t *sh = sbase + sh_rel;
+						uint32_t orig_dl_off = RDL32 (sh + 12);
+						size_t orig_pos = (size_t)(sh - nsbmd_data) + orig_dl_off;
+						if (orig_pos <= nsbmd_size && orig_pos >= 0x30)
+							base_size = orig_pos;
+					}
+				}
+			}
+			break;
+		}
+	}
+
+	// Build new NSBMD buffer
 	size_t total_size = ALIGN_4 (base_size + dl_bytes);
 
 	uint8_t *out = CALLOC (1, total_size);
@@ -2597,9 +2634,46 @@ int InjectDAEIntoNSBMD (const uint8_t *nsbmd_data, size_t nsbmd_size, const mode
 		return 0;
 	}
 
-	memcpy (out, nsbmd_data, nsbmd_size);
+	memcpy (out, nsbmd_data, base_size);
 	memcpy (out + base_size, dl_words, dl_bytes);
 	FREE (dl_words);
+
+	// Update shape header dl_size and dl_off
+	for (uint32_t b = 0; b < n_blocks; b++)
+	{
+		uint32_t blk_off = RDL32 (out + 0x10 + b * 4);
+		if (blk_off + 8 <= nsbmd_size && !memcmp (out + blk_off, "MDL0", 4))
+		{
+			uint8_t *mdl = out + blk_off;
+			uint8_t *dict_base = mdl + 8;
+			if (blk_off + 8 + 0x14 <= nsbmd_size)
+			{
+				uint32_t n_models = dict_base[1];
+				if (n_models >= 1)
+				{
+					uint32_t info_hdr = 8 + (4 + n_models * 4);
+					uint32_t model_off = RDL32 (dict_base + info_hdr + 4);
+					uint8_t *m = mdl + model_off;
+					uint32_t shapes_off = RDL32 (m + 0x0c);
+					uint8_t *sbase = m + shapes_off;
+					uint32_t n_shapes = sbase[1];
+					if (n_shapes >= 1)
+					{
+						uint32_t s_info_hdr = 8 + (4 + n_shapes * 4);
+						uint32_t item_size = RDL16 (sbase + s_info_hdr);
+						uint32_t sh_rel = item_size >= 8 ? RDL32 (sbase + s_info_hdr + 4 + 4) : RDL32 (sbase + s_info_hdr + 4);
+						uint8_t *sh = sbase + sh_rel;
+						// Update dl_size (at sh + 8) and dl_off (at sh + 12)
+						WRL32 (sh + 8, (uint32_t)dl_bytes);
+						WRL32 (sh + 12, (uint32_t)((out + base_size) - sh));
+						// Update MDL0 block length at mdl + 4
+						WRL32 (mdl + 4, (uint32_t)(total_size - blk_off));
+					}
+				}
+			}
+			break;
+		}
+	}
 
 	// Update BMD0 total file size at offset 0x08
 	WRL32 (out + 0x08, (uint32_t)total_size);

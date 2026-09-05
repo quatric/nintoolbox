@@ -1652,7 +1652,7 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 		if (data.images[i].uri) free((void*)data.images[i].uri);
 	}
 	for(size_t i=0; i<data.nodes_count; i++) if (data.nodes[i].children) free(data.nodes[i].children);
-	if (data.skins[0].joints) free(data.skins[0].joints);
+	if (data.skins && data.skins_count > 0 && data.skins[0].joints) free(data.skins[0].joints);
 	
 	free(data.buffers);
 	free(data.buffer_views);
@@ -1663,7 +1663,7 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 	free(data.materials);
 	free(data.meshes);
 	free(data.nodes);
-	free(data.scenes[0].nodes);
+	if (data.scenes && data.scenes[0].nodes) free(data.scenes[0].nodes);
 	free(data.scenes);
 	free(data.cameras);
 	free(data.lights);

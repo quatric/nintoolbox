@@ -2244,28 +2244,26 @@ static bool mod_decode_ndl_chunk (const u8 *data, uint size, uint m, int mat_idx
 	if (!n_pos || n_pos > 100000)
 		return false;
 
-	const u32 pos_off = h[9] >= m && h[9] < size ? h[9] : m + 0x40;
-	const u32 second_off = h[10] >= m && h[10] < size ? h[10] : 0;
-	const u32 third_off = h[11] >= m && h[11] < size ? h[11] : 0;
 	const u32 dl_hdr_off = h[13] >= m && h[13] < size ? h[13] : 0;
 	const u32 dl_hdr_sz = h[12] && dl_hdr_off + h[12] <= size ? h[12] : 0;
+	uint dl_start = 0;
+	uint dl_size = 0;
 
-	uint dl_start = dl_hdr_off ? dl_hdr_off : 0;
-	uint dl_size = dl_hdr_sz;
-
-	if (!dl_start)
+	const uint hi = dl_end && m + dl_end <= size ? m + dl_end : size;
+	for (uint q = m; q + 14 <= hi; q++)
 	{
-		const uint hi = dl_end && m + dl_end <= size ? m + dl_end : size;
-		for (uint q = m; q + 14 <= hi; q++)
+		if (data[q] == 0x08 && data[q + 1] == 0x70 && data[q + 6] == 0x08 && data[q + 7] == 0x80
+			&& data[q + 12] == 0x08 && data[q + 13] == 0x90)
 		{
-			if (data[q] == 0x08 && data[q + 1] == 0x70 && data[q + 6] == 0x08 && data[q + 7] == 0x80
-				&& data[q + 12] == 0x08 && data[q + 13] == 0x90)
-			{
-				dl_start = q;
-				dl_size = dl_end > (q - m) && m + dl_end <= size ? dl_end - (q - m) : size - dl_start;
-				break;
-			}
+			dl_start = q;
+			dl_size = dl_end > (q - m) && m + dl_end <= size ? dl_end - (q - m) : size - dl_start;
+			break;
 		}
+	}
+	if (!dl_start && dl_hdr_off && dl_hdr_sz)
+	{
+		dl_start = dl_hdr_off;
+		dl_size = dl_hdr_sz;
 	}
 	if (!dl_start)
 		return false;
@@ -2319,6 +2317,10 @@ static bool mod_decode_ndl_chunk (const u8 *data, uint size, uint m, int mat_idx
 		FREE (best_prims);
 		return false;
 	}
+
+	const u32 pos_off = (h[9] >= m + 0x40 && h[9] < dl_start) ? h[9] : m + 0x40;
+	const u32 second_off = (h[10] >= m + 0x40 && h[10] < dl_start) ? h[10] : 0;
+	const u32 third_off = (h[11] >= m + 0x40 && h[11] < dl_start) ? h[11] : 0;
 	const uint tex_off = third_off ? third_off : (second_off ? second_off : pos_off + n_pos * pos_n * fmt_sz[pos_fmt]);
 
 	const bool has_tex = (third_off != 0) || (best_bpv == 3 && second_off != 0 && second_off != tex_off);

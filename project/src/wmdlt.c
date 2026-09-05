@@ -628,10 +628,11 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		const bool is_hsd_in = is_ext (arg, ".dat")
 			|| (raw.data_size >= 0x40 && IsHSD (raw.data, (uint)raw.data_size));
 		const bool is_msh_in
-			= is_ext (arg, ".msh") || (raw.data_size >= 4 && !memcmp (raw.data, "PMsh", 4));
+			= is_ext (arg, ".msh") || (raw.data_size >= 4 && (!memcmp (raw.data, "PMsh", 4) || !memcmp (raw.data, "hsMP", 4)));
 		const bool is_mod_in = is_ext (arg, ".mod")
 			|| (raw.data_size >= 4
-				&& (!memcmp (raw.data, "NDL3", 4) || !memcmp (raw.data, "NDL2", 4)));
+				&& (!memcmp (raw.data, "NDL3", 4) || !memcmp (raw.data, "3LDN", 4)
+					|| !memcmp (raw.data, "NDL2", 4) || !memcmp (raw.data, "2LDN", 4)));
 
 		const bool is_nud_in = is_ext (arg, ".nud")
 			|| (raw.data_size >= 4

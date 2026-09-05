@@ -16,6 +16,11 @@
 #include <string.h>
 #include <stdio.h>
 
+#undef calloc
+#undef malloc
+#undef realloc
+#undef free
+
 typedef unsigned int uint;
 
 //-----------------------------------------------------------------------------
@@ -139,7 +144,7 @@ typedef struct
 		if ((n) >= (cap))                                                                          \
 		{                                                                                          \
 			size_t nc = (cap) ? (cap) * 2 : 256;                                                   \
-			type *np = REALLOC ((arr), nc * sizeof (type));                                        \
+			type *np = realloc ((arr), nc * sizeof (type));                                        \
 			if (!np)                                                                               \
 				return 0;                                                                          \
 			(arr) = np;                                                                            \
@@ -156,9 +161,15 @@ static int push_vertex (geom_t *g, vec3_t p, vec3_t n, vec2_t t, int has_n, int 
 	GROW (g->uv, g->n_uv, g->cap_uv, vec2_t);
 	g->uv[g->n_uv] = t;
 	GROW (g->vtx, g->n_vtx, g->cap_vtx, vertex_t);
+	memset (&g->vtx[g->n_vtx], 0, sizeof (vertex_t));
 	g->vtx[g->n_vtx].position_idx = (int)g->n_pos;
 	g->vtx[g->n_vtx].normal_idx = (int)g->n_nrm;
+	g->vtx[g->n_vtx].tangent_idx = -1;
 	g->vtx[g->n_vtx].texcoord_idx = has_t ? (int)g->n_uv : -1;
+	g->vtx[g->n_vtx].matrix_idx = -1;
+	g->vtx[g->n_vtx].color_idx[0] = g->vtx[g->n_vtx].color_idx[1] = -1;
+	for (int e = 0; e < 7; e++)
+		g->vtx[g->n_vtx].extra_texcoord_idx[e] = -1;
 	g->n_pos++;
 	g->n_nrm++;
 	g->n_uv++;
@@ -566,7 +577,7 @@ model_t *ParseEarlyDSBMD (const uint8_t *data, size_t size)
 		return NULL;
 	}
 
-	model_t *out = CALLOC (1, sizeof (model_t));
+	model_t *out = calloc (1, sizeof (model_t));
 	if (!out)
 	{
 		if (allocated_data)
@@ -578,8 +589,8 @@ model_t *ParseEarlyDSBMD (const uint8_t *data, size_t size)
 	ds_bone_xf_t *bone_xfs = NULL;
 	if (bone_count > 0 && bone_off < size)
 	{
-		out->joints = CALLOC (bone_count, sizeof (joint_t));
-		bone_xfs = CALLOC (bone_count, sizeof (ds_bone_xf_t));
+		out->joints = calloc (bone_count, sizeof (joint_t));
+		bone_xfs = calloc (bone_count, sizeof (ds_bone_xf_t));
 		if (out->joints && bone_xfs)
 		{
 			out->num_joints = bone_count;
@@ -636,7 +647,7 @@ model_t *ParseEarlyDSBMD (const uint8_t *data, size_t size)
 	uint tex_w = 32, tex_h = 32;
 	if (mat_count > 0 && mat_off > 0 && mat_off < size)
 	{
-		out->materials = CALLOC (mat_count, sizeof (material_t));
+		out->materials = calloc (mat_count, sizeof (material_t));
 		if (out->materials)
 		{
 			out->num_materials = mat_count;
@@ -715,7 +726,7 @@ model_t *ParseEarlyDSBMD (const uint8_t *data, size_t size)
 
 	if (n_dls > 0)
 	{
-		out->meshes = CALLOC (n_dls, sizeof (mesh_t));
+		out->meshes = calloc (n_dls, sizeof (mesh_t));
 		if (out->meshes)
 		{
 			for (uint i = 0; i < n_dls; i++)
@@ -726,10 +737,10 @@ model_t *ParseEarlyDSBMD (const uint8_t *data, size_t size)
 					&g, data + dls[i].off, dls[i].sz, bone_xfs, out->num_joints, tex_w, tex_h);
 				if (!g.n_vtx)
 				{
-					FREE (g.pos);
-					FREE (g.nrm);
-					FREE (g.uv);
-					FREE (g.vtx);
+					free (g.pos);
+					free (g.nrm);
+					free (g.uv);
+					free (g.vtx);
 					continue;
 				}
 				mesh_t *mesh = out->meshes + out->num_meshes;
@@ -749,7 +760,7 @@ model_t *ParseEarlyDSBMD (const uint8_t *data, size_t size)
 	}
 
 	if (bone_xfs)
-		FREE (bone_xfs);
+		free (bone_xfs);
 	if (allocated_data)
 		FREE (allocated_data);
 
@@ -1129,7 +1140,7 @@ model_t *ParseNSBMD (const uint8_t *data, size_t size)
 	const uint8_t *m = mdl + model_off;
 	const size_t m_avail = mdl_size - model_off;
 
-	model_t *out = CALLOC (1, sizeof (model_t));
+	model_t *out = calloc (1, sizeof (model_t));
 	if (!out)
 		return NULL;
 
@@ -1139,7 +1150,7 @@ model_t *ParseNSBMD (const uint8_t *data, size_t size)
 	nitro_dict_t bones;
 	if (bones_off < m_avail && read_dict (&bones, m + bones_off, m_avail - bones_off))
 	{
-		out->joints = CALLOC (bones.n, sizeof (joint_t));
+		out->joints = calloc (bones.n, sizeof (joint_t));
 		if (out->joints)
 		{
 			out->num_joints = bones.n;
@@ -1162,7 +1173,7 @@ model_t *ParseNSBMD (const uint8_t *data, size_t size)
 	nitro_dict_t shapes;
 	if (shapes_off < m_avail && read_dict (&shapes, m + shapes_off, m_avail - shapes_off))
 	{
-		out->meshes = CALLOC (shapes.n, sizeof (mesh_t));
+		out->meshes = calloc (shapes.n, sizeof (mesh_t));
 		if (out->meshes)
 		{
 			const uint8_t *sbase = m + shapes_off;
@@ -1191,10 +1202,10 @@ model_t *ParseNSBMD (const uint8_t *data, size_t size)
 				run_display_list (&g, m + dl_pos, dl_size, NULL, 0, 32, 32);
 				if (!g.n_vtx)
 				{
-					FREE (g.pos);
-					FREE (g.nrm);
-					FREE (g.uv);
-					FREE (g.vtx);
+					free (g.pos);
+					free (g.nrm);
+					free (g.uv);
+					free (g.vtx);
 					continue;
 				}
 
