@@ -22,7 +22,7 @@ ccp GetNintendoFormatName (nfmt_type_t type)
 		"PSDK", "AT7", "CTPK", "BYML", "NARC", "NSCR", "FZIP", "JARC", "jCMP", "BFMA", "Zlib", "MVDK",
 		"VLX", "PuCrunch", "LZX", "Diff8", "Diff16", "NSBTX", "NFTR", "BNFR", "BNLL", "BNCL", "BNBL",
 		"LZOvl", "ALAR", "DARC", "SADL", "HSF", "HSD", "BNFM", "XPCK", "XIMG", "HGO", "ZTAB", "GLG",
-		"MDR", "PERS", "PVOL", "STPK", "G1M", "G1T", "G4PKM", "LMD" };
+		"MDR", "PERS", "PVOL", "STPK", "G1M", "G1T", "G4PKM", "LMD", "MSH", "MOD" };
 	return type < sizeof (tab) / sizeof (*tab) ? tab[type] : "UNKNOWN";
 }
 
@@ -142,6 +142,10 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_G4PKM, false, false, 0);
 		if (ext && !strcasecmp (ext, ".lmd"))
 			return make_info (NFMT_LMD, false, false, 0);
+		if (ext && !strcasecmp (ext, ".msh"))
+			return make_info (NFMT_MSH, false, false, 0);
+		if (ext && !strcasecmp (ext, ".mod"))
+			return make_info (NFMT_MOD, false, false, 0);
 		if (CxIsCompressedLZOvl (d, size))
 			return make_info (NFMT_LZOVL, false, true, 0);
 

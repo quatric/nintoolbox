@@ -1048,7 +1048,19 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 },
 		0, MinusString, MinusString, "Dance Dance Revolution Mario Mix Chunk Archive (.mdr)" },
 
-	// FF_PERS = 194 (Pokemon Stadium N64 Model / Fragment)
+	// FF_MSH = 194 (Monster Games Collision Mesh)
+	{ FF_MSH, FF_MSH, 0, "MSH", ".msh", ".szs", ".msh",
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
+		{ 0x50, 0x4d, 0x73, 0x68 }, // "PMsh"
+		0, MinusString, MinusString, "Monster Games Collision Mesh (Excite Truck/Bots .msh)" },
+
+	// FF_MOD = 195 (Monster Games Display List Model)
+	{ FF_MOD, FF_MOD, 0, "MOD", ".mod", ".szs", ".mod",
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
+		{ 0x4e, 0x44, 0x4c, 0x33 }, // "NDL3"
+		0, MinusString, MinusString, "Monster Games Display List Model (Excite Truck/Bots .mod)" },
+
+	// FF_PERS = 196 (Pokemon Stadium N64 Model / Fragment)
 	{ FF_PERS, FF_PERS, 0, "PERS", ".pers", ".szs", ".pers",
 		FFT_VALID | FFT_CUT | FFT_DECODE, 8,
 		{ 0x50, 0x45, 0x52, 0x53, 0x2d, 0x53, 0x5a, 0x50 }, // "PERS-SZP"
@@ -1262,6 +1274,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_ZTAB, "ZTAB", 0, 0xe05 },
 	{ FF_GLG, "GLG", 0, 0x3001 },
 	{ FF_MDR, "MDR", 0, 0xe05 },
+	{ FF_MSH, "MSH", "PMSH", 0x3001 },
+	{ FF_MOD, "MOD", "NDL3", 0x3001 },
 	{ FF_PERS, "PERS", "FRAGMENT", 0x3001 },
 	{ FF_PVOL, "PVOL", 0, 0xe05 },
 	{ FF_STPK, "STPK", "SRD", 0xe05 },

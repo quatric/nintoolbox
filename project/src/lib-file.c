@@ -1640,6 +1640,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_G4PKM;
 		case NFMT_LMD:
 			return FF_LMD;
+		case NFMT_MSH:
+			return FF_MSH;
+		case NFMT_MOD:
+			return FF_MOD;
 		default:
 			break;
 	}
@@ -1668,8 +1672,14 @@ file_format_t GetFileTypeByMagic (
 		if (S_ISDIR (fatt->mode))
 			return FF_DIRECTORY;
 
-		file_format_t ff = GetByMagicFF (buf, sizeof (buf), fatt->size);
 		ccp ext = fname ? strrchr (fname, '.') : 0;
+		if (ext && (!strcasecmp (ext, ".msh") || !strcasecmp (ext, ".mod") || !strcasecmp (ext, ".glg") || !strcasecmp (ext, ".hgo") || !strcasecmp (ext, ".pers")))
+		{
+			const file_type_t *ft = GetFileTypeByExt (ext, false);
+			if (ft)
+				return ft->fform;
+		}
+		file_format_t ff = GetByMagicFF (buf, sizeof (buf), fatt->size);
 		if (ff == FF_SARC && ext && !strcasecmp (ext, ".bfma"))
 			return FF_BFMA;
 		if (ff == FF_UNKNOWN && ext)

@@ -2,6 +2,12 @@
 #include "lib-numsh.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
+
+#undef calloc
+#undef malloc
+#undef realloc
+#undef free
 
 static uint16_t rd_le16 (const uint8_t *p) { return (uint16_t)p[1] << 8 | p[0]; }
 static uint32_t rd_le32 (const uint8_t *p) { return (uint32_t)p[3] << 24 | (uint32_t)p[2] << 16 | (uint32_t)p[1] << 8 | p[0]; }
@@ -38,14 +44,14 @@ model_t *ParseNUMSHB (const uint8_t *data, size_t size)
 	if (!objects_count || objects_count > 0x1000 || objects_off >= size)
 		return NULL;
 
-	model_t *model = CALLOC (1, sizeof (model_t));
+	model_t *model = calloc (1, sizeof (model_t));
 	if (!model)
 		return NULL;
 
-	model->meshes = CALLOC (objects_count, sizeof (mesh_t));
+	model->meshes = calloc (objects_count, sizeof (mesh_t));
 	if (!model->meshes)
 	{
-		FREE (model);
+		free (model);
 		return NULL;
 	}
 
