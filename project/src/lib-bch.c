@@ -654,7 +654,7 @@ void *ParseBCH (const u8 *data, uint size)
 					else if (attrs[a].name == PICA_ATTR_TEXCOORD0)
 					{
 						mesh->texcoords[n].u = pica_read (p, attrs[a].fmt, 0);
-						mesh->texcoords[n].v = el > 1 ? pica_read (p, attrs[a].fmt, 1) : 0;
+						mesh->texcoords[n].v = el > 1 ? 1.0f - pica_read (p, attrs[a].fmt, 1) : 0;
 					}
 				}
 				mesh->vertices[n].position_idx = (int)n;
