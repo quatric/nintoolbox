@@ -319,9 +319,9 @@ TOBJ_wszst	= $(XOBJ_LIB) lib-hsd.o lib-halbank.o lib-bcres.o lib-bfres.o lib-nsb
 TOBJ_wbmgt	= lib-xbmg.o lib-msbt.o $(XOBJ_OBJECT)
 TOBJ_wctct	= $(XOBJ_LIB)
 TOBJ_wimgt	= lib-aes.o $(XOBJ_IMAGE) lib-excite.o lib-model-glb.o cgltf_impl.o lib-brres-model.o $(XOBJ_OBJECT)
-TOBJ_wkclt	= lib-transform.o $(XOBJ_KCL) $(XOBJ_PARSER) $(XOBJ_OBJECT)
+TOBJ_wkclt	= lib-transform.o $(XOBJ_KCL) lib-model-glb.o cgltf_impl.o lib-brres-model.o $(XOBJ_PARSER) $(XOBJ_OBJECT)
 TOBJ_wkmpt	= lib-aes.o $(XOBJ_KMP) lib-transform.o \
-			$(XOBJ_KCL) lib-kcl-image.o \
+			$(XOBJ_KCL) lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-kcl-image.o \
 			$(XOBJ_IMAGE) $(XOBJ_PARSER) $(XOBJ_OBJECT)
 TOBJ_wlect	= $(XOBJ_LIB)
 TOBJ_wmdlt	= $(XOBJ_LIB) lib-hsd.o lib-bcres.o lib-bfres.o lib-nsbmd.o lib-nud.o lib-nut.o lib-numsh.o

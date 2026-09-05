@@ -1,0 +1,189 @@
+static const u8 ctcode_brres_strings_bz2[] = {
+	0x00,
+	0x00,
+	0x01,
+	0x40,
+	0x42,
+	0x5a,
+	0x68,
+	0x31,
+	0x31,
+	0x41,
+	0x59,
+	0x26,
+	0x53,
+	0x59,
+	0x0f,
+	0x63,
+	0x56,
+	0x7c,
+	0x00,
+	0x00,
+	0x09,
+	0xff,
+	0x80,
+	0x70,
+	0x21,
+	0x08,
+	0x00,
+	0x00,
+	0x60,
+	0x7f,
+	0x60,
+	0x3e,
+	0x81,
+	0xd4,
+	0x80,
+	0xa2,
+	0x00,
+	0x5e,
+	0x40,
+	0x20,
+	0x00,
+	0x75,
+	0x09,
+	0x54,
+	0xf4,
+	0x40,
+	0x00,
+	0x0d,
+	0x00,
+	0xd3,
+	0x20,
+	0x02,
+	0xa8,
+	0xa8,
+	0x3d,
+	0x40,
+	0x00,
+	0x68,
+	0x06,
+	0x8d,
+	0x34,
+	0xda,
+	0x9b,
+	0x51,
+	0x9e,
+	0x6c,
+	0xc6,
+	0xc5,
+	0x31,
+	0x1f,
+	0x66,
+	0x02,
+	0x92,
+	0xa2,
+	0x2f,
+	0xf5,
+	0x43,
+	0xe3,
+	0x81,
+	0xcc,
+	0xa8,
+	0xba,
+	0xc1,
+	0xd0,
+	0x23,
+	0x06,
+	0x08,
+	0x0c,
+	0x04,
+	0x3c,
+	0x04,
+	0xc1,
+	0x43,
+	0x90,
+	0x6f,
+	0x5a,
+	0xf2,
+	0xea,
+	0x55,
+	0xb3,
+	0xdc,
+	0xf2,
+	0x19,
+	0x96,
+	0xf1,
+	0x6b,
+	0xc8,
+	0xe9,
+	0xb0,
+	0x06,
+	0xcb,
+	0xc5,
+	0xb8,
+	0x0a,
+	0xd7,
+	0x0d,
+	0xf3,
+	0x30,
+	0xb8,
+	0x5b,
+	0x4a,
+	0xbe,
+	0x26,
+	0x53,
+	0x9b,
+	0xf8,
+	0xbb,
+	0x92,
+	0x29,
+	0xc2,
+	0x84,
+	0x80,
+	0x7b,
+	0x1a,
+	0xb3,
+	0xe0,
+	// 0x88 = 136 Bytes
+};
+
+//
+///////////////////////////////////////////////////////////////////////////////
+///////////////			ctcode_data_tab[]		///////////////
+///////////////////////////////////////////////////////////////////////////////
+
+#undef DEF_DATA
+#undef DEF_BZIP
+// #undef DEF_PATCH
+
+#define DEF_DATA(a) { #a, 0, a, sizeof (a) },
+#define DEF_BZIP(a) { #a, 1, a##_bz2, sizeof (a##_bz2) },
+// #define DEF_PATCH(m,a,b) { #a, m, b, sizeof(b), a },
+
+const data_tab_t ctcode_data_tab[] = { DEF_DATA (ctcode_header) DEF_DATA (cup1_header)
+		DEF_DATA (crs1_header)
+
+			DEF_BZIP (ctcode_boot_code_pal) DEF_BZIP (ctcode_boot_code_usa)
+				DEF_BZIP (ctcode_boot_code_jap)
+
+					DEF_BZIP (ctcode_boot_data_pal) DEF_BZIP (ctcode_boot_data_usa)
+						DEF_BZIP (ctcode_boot_data_jap)
+
+							DEF_BZIP (ctcode_bad1code_pal) DEF_BZIP (ctcode_bad1code_usa)
+								DEF_BZIP (ctcode_bad1code_jap)
+
+									DEF_BZIP (ctcode_mod1_pal) DEF_BZIP (ctcode_mod1_usa)
+										DEF_BZIP (ctcode_mod1_jap)
+
+											DEF_BZIP (ctcode_mod2_pal) DEF_BZIP (ctcode_mod2_usa)
+												DEF_BZIP (ctcode_mod2_jap)
+
+													DEF_BZIP (ctcode_ovr1_pal) DEF_BZIP (
+														ctcode_ovr1_usa) DEF_BZIP (ctcode_ovr1_jap)
+
+														DEF_BZIP (ctcode_image)
+
+															DEF_BZIP (ctcode_brres_base)
+																DEF_BZIP (ctcode_brres_strings)
+
+																	{ 0, 0, 0 } };
+
+#undef DEF_DATA
+#undef DEF_BZIP
+// #undef DEF_PATCH
+
+//
+///////////////////////////////////////////////////////////////////////////////
+///////////////			    END				///////////////
+///////////////////////////////////////////////////////////////////////////////
