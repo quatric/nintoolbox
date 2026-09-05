@@ -97,6 +97,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 
 | Format | Extensions | Target Output | Decode Tested | Encode Tested | Middleware / Engine / Platform Context |
 |---|---|---|---|---|---|
+| **BCH** | `.bch` | **GLB** | ✅ | — | NintendoWare NW4C H3D binary character model (3DS) |
 | **BMD** | `.bmd`, `.bdhc` | **GLB** | ✅ | — | Early Nintendo DS 3D model format (DS) |
 | **BNFM** | `.bnfm` | **GLB** | — | — | Nd Cube Wii U 3D model format (*Animal Crossing: Amiibo Festival*, *Mario Party 10*) |
 | **G1M** | `.g1m` | **GLB** | — | — | Koei Tecmo 3D model format (*Hyrule Warriors*, *Fire Emblem Warriors*) |
