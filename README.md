@@ -62,7 +62,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **CCF** | `.ccf` | ✅ | ✅ | Nintendo Virtual Console container (Wii / Switch) |
 | **CRAM** | `.arc`, `.cram` | ✅ | — | Monolith Soft 3DS flat archive container |
 | **DARC** | `.darc` | ✅ | ✅ | NintendoWare NW4C differential archive (3DS) |
-| **DTLS** | `dt00`, `ls00`, `.ls` | — | — | Bandai Namco composite package & lookup archive (*Super Smash Bros. 4* Wii U / 3DS) |
+| **DTLS** | `dt00`, `ls00`, `.ls` | ✅ | ✅ | Bandai Namco composite package & lookup archive (*Super Smash Bros. 4* Wii U / 3DS) |
 | **FSYS** | `.fsys` | — | — | Genius Sonority archive system (GameCube / Wii) |
 | **F9RES** | `.res` | — | — | GameCube resource archive container |
 | **GFA** | `.gfa` | ✅ | ✅ | Good-Feel GFAC container (Wii / 3DS) |
@@ -110,7 +110,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **MOD** | `.mod` | **GLB** | ✅ | — | Monster Games NDL3/NDL2 display list model (Wii) |
 | **MSH (PMsh)** | `.msh` | **GLB** | ✅ | — | Monster Games collision mesh format (Wii) |
 | **NSBMD** | `.nsbmd`, `.bmd` | **GLB** | ✅ | — | Nintendo DS Nitro 3D model format (DS) |
-| **NUD** | `.nud` | **GLB** | — | — | Bandai Namco 3D model format (*Super Smash Bros. 4* Wii U / 3DS) |
+| **NUD** | `.nud` | **GLB** | ✅ | ✅ | Bandai Namco 3D model format (*Super Smash Bros. 4* Wii U / 3DS) |
 | **NUMSHB** | `.numshb` | **GLB** | — | — | Bandai Namco SSBH 3D mesh model (*Super Smash Bros. Ultimate* Switch) |
 | **PERS** | `.pers` | **GLB** | ✅ | — | Pokémon Stadium N64 model format |
 
