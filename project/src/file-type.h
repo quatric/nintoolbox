@@ -319,6 +319,7 @@ typedef enum file_format_t
 	FF_XTX, // 225 - Nintendo Switch XTX Texture Container (.xtx / DFvN)
 	FF_TVOL, // 226 - Koei Tecmo / Gust Texture Volume Archive (.tvol)
 	FF_TXE, // 227 - Pikmin 1 Texture (.txe)
+	FF_MKAGPDX_MDL, // 228 - Mario Kart Arcade GP DX Model (.bin / BIKE)
 
 	//--- number of elements
 

@@ -6204,6 +6204,15 @@ with open(sys.argv[1], "wb") as f:
   else
     fno "Pikmin 1 Texture" "failed to identify .txe sample";
   fi
+
+  # Mario Kart Arcade GP DX Model (.bin / BIKE) test
+  mkdir -p "$d/mkagpdx_mdl_test"
+  printf "BIKE%0.s\0" {1..28} > "$d/mkagpdx_mdl_test/sample.bin"
+  if "$B/wszst" filetype "$d/mkagpdx_mdl_test/sample.bin" 2>/dev/null | grep -q "MKAGPDX-MDL"; then
+    fok "Mario Kart Arcade GP DX Model (.bin / BIKE) identification"
+  else
+    fno "Mario Kart Arcade GP DX Model" "failed to identify .bin sample";
+  fi
 }
 t_byte_fixed_points
 

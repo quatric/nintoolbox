@@ -1264,6 +1264,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 },
 		0, MinusString, MinusString, "Pikmin 1 Texture (.txe)" },
 
+	// FF_MKAGPDX_MDL = 228 (Mario Kart Arcade GP DX Model)
+	{ FF_MKAGPDX_MDL, FF_MKAGPDX_MDL, 0, "MKAGPDX-MDL", ".bin", ".szs", ".bin",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+		{ 'B', 'I', 'K', 'E' },
+		0, MinusString, MinusString, "Mario Kart Arcade GP DX Model (.bin / BIKE)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1430,6 +1436,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_XTX, "XTX", "DFVN", 0xe05 },
 	{ FF_TVOL, "TVOL", 0, 0xe05 },
 	{ FF_TXE, "TXE", 0, 0x3809 },
+	{ FF_MKAGPDX_MDL, "MKAGPDX-MDL", "BIKE", 0x3001 },
 
 	{ 0, 0, 0, 0 }
 };
