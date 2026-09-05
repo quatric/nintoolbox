@@ -6052,6 +6052,45 @@ with open(sys.argv[1], "wb") as f:
   else
     fno "Nintendo Audio Resource Archive" "failed to extract .bars sample";
   fi
+
+  # Next Level Games Dictionary Archive (.dict) test
+  mkdir -p "$d/nlg_dict_test"
+  python3 -c '
+import sys, struct
+hdr = struct.pack(">IHBBIIBBBB", 0x5824F3A9, 0x0401, 0, 0, 100, 0x78340300, 1, 0, 0, 0)
+fentry = struct.pack("<IIIHBB", 36, 14, 14, 0, 0, 0)
+payload = b"LM3_DICT_TEST!"
+with open(sys.argv[1], "wb") as f:
+    f.write(hdr + fentry + payload)
+' "$d/nlg_dict_test/sample.dict"
+  if "$B/wszst" x "$d/nlg_dict_test/sample.dict" --dest "$d/nlg_dict_test/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/nlg_dict_test/out/file_0000.bin" ] \
+  && [ "$(cat "$d/nlg_dict_test/out/file_0000.bin")" = "LM3_DICT_TEST!" ]; then
+    fok "Next Level Games Dictionary Archive (.dict) extraction"
+  else
+    fno "Next Level Games Dictionary Archive" "failed to extract .dict sample";
+  fi
+
+  # Next Level Games Texture To Go (.txtg) test
+  mkdir -p "$d/txtg_test"
+  python3 -c '
+import sys, struct
+txtg_hdr = bytearray(0x50)
+struct.pack_into("<HH4sHHHBBB", txtg_hdr, 0, 0x50, 0x11, b"6PK0", 64, 64, 1, 1, 2, 1)
+struct.pack_into("<H", txtg_hdr, 0x44, 0x202)
+t1 = struct.pack("<HBB", 0, 0, 1)
+t2 = struct.pack("<II", 16, 6)
+payload = b"TXTG_TEST_SAMPLE"
+with open(sys.argv[1], "wb") as f:
+    f.write(bytes(txtg_hdr) + t1 + t2 + payload)
+' "$d/txtg_test/sample.txtg"
+  if "$B/wszst" x "$d/txtg_test/sample.txtg" --dest "$d/txtg_test/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/txtg_test/out/surface_a0_m0.bin" ] \
+  && [ "$(cat "$d/txtg_test/out/surface_a0_m0.bin")" = "TXTG_TEST_SAMPLE" ]; then
+    fok "Next Level Games Texture To Go (.txtg) extraction"
+  else
+    fno "Next Level Games Texture To Go" "failed to extract .txtg sample";
+  fi
 }
 t_byte_fixed_points
 

@@ -311,6 +311,8 @@ typedef enum file_format_t
 	FF_WTA, // 217 - PlatinumGames WT Archive (.wta / WTA )
 	FF_GFPAK, // 218 - Game Freak Pokemon Archive (.gfpak / GFLXPACK)
 	FF_BARS, // 219 - Nintendo Binary Audio Resource Archive (.bars / BARS)
+	FF_NLG_DICT, // 220 - Next Level Games Dictionary Archive (.dict / LM2 / LM3 / Punch-Out!!)
+	FF_TXTG, // 221 - Next Level Games Texture To Go (.txtg / 6PK0)
 
 	//--- number of elements
 

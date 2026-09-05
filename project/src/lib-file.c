@@ -1265,6 +1265,15 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 					return FF_GFPAK;
 				break;
 
+			// Next Level Games Texture To Go (6PK0)
+			case 0x36504b30: // "6PK0"
+				return FF_TXTG;
+
+			// Next Level Games Dictionary (.dict: LM2, LM3, Punch-Out!!)
+			case 0x5824f3a9: // LM2 / LM3 big-endian magic
+			case 0xa9f32458: // Punch-Out!! / little-endian magic
+				return FF_NLG_DICT;
+
 			// Koei Tecmo 3D Model (G1M_ / _M1G / SM1G / GM1G)
 			case 0x47314d5f: // "G1M_"
 			case 0x47314d00: // "G1M\0"

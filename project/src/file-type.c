@@ -1216,6 +1216,18 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 'B', 'A', 'R', 'S' },
 		0, MinusString, MinusString, "Nintendo Binary Audio Resource Archive (.bars / BARS)" },
 
+	// FF_NLG_DICT = 220 (Next Level Games Dictionary Archive)
+	{ FF_NLG_DICT, FF_NLG_DICT, 0, "NLG-DICT", ".dict", ".szs", ".dict",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
+		{ 0 },
+		0, MinusString, MinusString, "Next Level Games Dictionary Archive (.dict)" },
+
+	// FF_TXTG = 221 (Next Level Games Texture To Go)
+	{ FF_TXTG, FF_TXTG, 0, "TXTG", ".txtg", ".szs", ".txtg",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ '6', 'P', 'K', '0' },
+		0, MinusString, MinusString, "Next Level Games Texture To Go (.txtg / 6PK0)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1374,6 +1386,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_WTA, "WTA", 0, 0xe05 },
 	{ FF_GFPAK, "GFPAK", "GFLXPACK", 0xe05 },
 	{ FF_BARS, "BARS", 0, 0xe05 },
+	{ FF_NLG_DICT, "NLG-DICT", "DICT", 0xe05 },
+	{ FF_TXTG, "TXTG", "6PK0", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };
