@@ -2446,11 +2446,31 @@ static bool mod_decode_ndl_chunk (const u8 *data, uint size, uint m, int mat_idx
 	return tri_n > 0;
 }
 
+// Extract a null/e3-terminated ASCII texture name starting at pos
+static bool mod_extract_tex_name (const u8 *data, uint size, uint pos, char *out, size_t out_size)
+{
+	if (pos >= size)
+		return false;
+	uint end = pos;
+	while (end < size && data[end] >= 32 && data[end] <= 126 && data[end] != 0 && data[end] != 0xe3)
+		end++;
+	uint len = end - pos;
+	if (!len)
+		return false;
+	if (len > 4 && !strcasecmp ((const char*)data + pos + len - 4, ".tex"))
+		len -= 4;
+	if (len >= out_size)
+		len = (uint)out_size - 1;
+	memcpy (out, data + pos, len);
+	out[len] = 0;
+	return true;
+}
+
 // Parse material descriptor at desc_off, extracting texture references
 static int mod_find_or_create_material (
 	const u8 *data, uint size, uint desc_off, material_t *materials, uint *num_materials, uint max_materials)
 {
-	if (!desc_off || desc_off >= size)
+	if (!desc_off || desc_off + 4 > size)
 		return -1;
 
 	// Check if this descriptor offset was already parsed into an existing material
@@ -2470,49 +2490,59 @@ static int mod_find_or_create_material (
 	snprintf (mat->name, sizeof (mat->name), "%s", mat_name);
 	mat->diffuse[0] = mat->diffuse[1] = mat->diffuse[2] = mat->diffuse[3] = 1.0f;
 
-	// Search forward in the descriptor block (up to 0x200 bytes) for .tex strings
-	const uint limit = desc_off + 0x200 < size ? desc_off + 0x200 : size;
-	uint p = desc_off;
-	while (p + 4 <= limit && mat->num_textures < 8)
+	const u32 num_layers = xrd_le32 (data + desc_off);
+	if (num_layers >= 1 && num_layers <= 8)
 	{
-		if (data[p] == '.' && data[p + 1] == 't' && data[p + 2] == 'e' && data[p + 3] == 'x')
+		char tex_name[64];
+		if (num_layers == 1)
 		{
-			uint st = p;
-			while (st > desc_off && data[st - 1] >= 32 && data[st - 1] <= 126)
-				st--;
-			const uint nlen = p + 4 - st;
-			if (nlen > 4 && nlen < sizeof (mat->textures[0]))
+			if (mod_extract_tex_name (data, size, desc_off + 16, tex_name, sizeof (tex_name)))
 			{
-				char tex_name[64];
-				uint baselen = nlen;
-				if (baselen > 4 && !strcasecmp ((char*)data + st + baselen - 4, ".tex"))
-					baselen -= 4;
-				memcpy (tex_name, data + st, baselen);
-				tex_name[baselen] = 0;
-				// Check for duplicates in this material
-				bool dup = false;
-				for (int t = 0; t < mat->num_textures; t++)
-				{
-					if (!strcasecmp (mat->textures[t], tex_name))
-					{
-						dup = true;
-						break;
-					}
-				}
-				if (!dup)
+				snprintf (mat->textures[0], sizeof (mat->textures[0]), "%s", tex_name);
+				mat->wrap_s[0] = mat->wrap_t[0] = 1;
+				mat->min_filter[0] = mat->mag_filter[0] = 1;
+				mat->num_textures = 1;
+			}
+		}
+		else if (num_layers == 2)
+		{
+			if (mod_extract_tex_name (data, size, desc_off + 20, tex_name, sizeof (tex_name)))
+			{
+				snprintf (mat->textures[mat->num_textures], sizeof (mat->textures[0]), "%s", tex_name);
+				mat->wrap_s[mat->num_textures] = mat->wrap_t[mat->num_textures] = 1;
+				mat->min_filter[mat->num_textures] = mat->mag_filter[mat->num_textures] = 1;
+				mat->num_textures++;
+			}
+			const u32 ptr2 = xrd_le32 (data + desc_off + 12);
+			if (ptr2 < size && mod_extract_tex_name (data, size, ptr2 + 4, tex_name, sizeof (tex_name)))
+			{
+				snprintf (mat->textures[mat->num_textures], sizeof (mat->textures[0]), "%s", tex_name);
+				mat->wrap_s[mat->num_textures] = mat->wrap_t[mat->num_textures] = 1;
+				mat->min_filter[mat->num_textures] = mat->mag_filter[mat->num_textures] = 1;
+				mat->num_textures++;
+			}
+		}
+		else
+		{
+			if (mod_extract_tex_name (data, size, desc_off + 24, tex_name, sizeof (tex_name)))
+			{
+				snprintf (mat->textures[mat->num_textures], sizeof (mat->textures[0]), "%s", tex_name);
+				mat->wrap_s[mat->num_textures] = mat->wrap_t[mat->num_textures] = 1;
+				mat->min_filter[mat->num_textures] = mat->mag_filter[mat->num_textures] = 1;
+				mat->num_textures++;
+			}
+			for (u32 L = 1; L < num_layers && mat->num_textures < 8; L++)
+			{
+				const u32 ptr = xrd_le32 (data + desc_off + 8 + L * 4);
+				if (ptr < size && mod_extract_tex_name (data, size, ptr + 4, tex_name, sizeof (tex_name)))
 				{
 					snprintf (mat->textures[mat->num_textures], sizeof (mat->textures[0]), "%s", tex_name);
-					mat->wrap_s[mat->num_textures] = 1; // repeat
-					mat->wrap_t[mat->num_textures] = 1;
-					mat->min_filter[mat->num_textures] = 1;
-					mat->mag_filter[mat->num_textures] = 1;
+					mat->wrap_s[mat->num_textures] = mat->wrap_t[mat->num_textures] = 1;
+					mat->min_filter[mat->num_textures] = mat->mag_filter[mat->num_textures] = 1;
 					mat->num_textures++;
 				}
 			}
-			p += 4;
 		}
-		else
-			p++;
 	}
 
 	const int idx = (int)(*num_materials);

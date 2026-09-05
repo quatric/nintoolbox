@@ -466,10 +466,11 @@ static int dae_primary_texture (const material_t *mat, const char *dae_path)
 		else if (material[0]
 			&& (strstr (texture, material) == texture || strstr (material, texture) == material))
 			score += 200;
-		// Border/noise/mask layers are normally TEV details, not the base
+		// Border/noise/mask/envmap layers are normally TEV/reflection details, not the base
 		// color map a single-texture profile_COMMON effect should display.
-		if (strstr (texture, "noise") || strstr (texture, "mask") || strstr (texture, "brd"))
-			score -= 50;
+		if (strstr (texture, "noise") || strstr (texture, "mask") || strstr (texture, "brd")
+			|| strstr (texture, "envmap") || strstr (texture, "env_map") || strstr (texture, "cenvmap"))
+			score -= 100;
 		if (score > best_score)
 		{
 			best = t;
