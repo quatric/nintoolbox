@@ -115,12 +115,16 @@ static void apply_relocations (bch_t *b)
 	for (u32 off = 0; off + 4 <= b->reloc_len; off += 4)
 	{
 		const u32 value = hrd32 (b->data + b->reloc_addr + off);
-		u32 ptr_addr = value & 0x1ffffff;
+		u32 param = value & 0x1ffffff;
 		int target = (value >> 25) & 0xf;
 		const int source = value >> 29;
 
+		if (b->bc < 0x21 && target >= 7)
+			target += 2;
 		target += legacy_reloc_diff (target, b->bc);
-		ptr_addr <<= 2;
+
+		// String targets store byte offsets directly; other targets store word indices.
+		const u32 ptr_addr = (target == H3D_STRINGS) ? param : (param << 2);
 
 		const u32 slot = section_address (b, source) + ptr_addr;
 		if ((u64)slot + 4 > b->size)
@@ -226,8 +230,8 @@ enumError ScanBCH (bch_t *bch, const u8 *data, uint size)
 		uint n = 0;
 		for (u32 k = 0; k < count; k++)
 		{
-			const u32 name_off = hrd32 (bch->data + tree + (u64)(k + 1) * 12 + 8);
-			ccp name = bch_str (bch, bch->strings_addr + name_off);
+			const u32 name_addr = hrd32 (bch->data + tree + (u64)(k + 1) * 12 + 8);
+			ccp name = bch_str (bch, name_addr);
 			if (!name)
 				continue;
 			ent[n].name = name;
@@ -463,16 +467,57 @@ void *ParseBCH (const u8 *data, uint size)
 				else
 					snprintf (mat->name, sizeof (mat->name), "mat_%u", mi);
 
-				char base_name[128];
-				snprintf (base_name, sizeof (base_name), "%s", mat->name);
-				char *at = strchr (base_name, '@');
-				if (at)
-					*at = 0;
+				const u32 m_addr = bch.dict[BCH_MATERIALS].entries[mi].address;
+				bool tex_enabled = true;
+				if (m_addr && (u64)m_addr + 0xb0 <= bsize)
+				{
+					const u32 flags0c = hrd32 (b + m_addr + 0x0c);
+					tex_enabled = (flags0c & 1) != 0;
+
+					const u8 wrap = b[m_addr + 0xa8];
+					mat->wrap_s[0] = wrap & 3;
+					mat->wrap_t[0] = (wrap >> 2) & 3;
+					mat->min_filter[0] = 1;
+					mat->mag_filter[0] = 1;
+
+					// H3D colors at 0x64 (emission), 0x68 (ambient), 0x6c (diffuse), 0x78 (constant0)
+					const u8 *c_amb = b + m_addr + 0x68;
+					const u8 *c_dif = b + m_addr + 0x6c;
+					const u8 *c_c0 = b + m_addr + 0x78;
+
+					if (c_c0[0] || c_c0[1] || c_c0[2])
+					{
+						mat->diffuse[0] = c_c0[0] / 255.0f;
+						mat->diffuse[1] = c_c0[1] / 255.0f;
+						mat->diffuse[2] = c_c0[2] / 255.0f;
+						mat->diffuse[3] = c_c0[3] ? c_c0[3] / 255.0f : 1.0f;
+					}
+					else if (c_amb[0] || c_amb[1] || c_amb[2])
+					{
+						mat->diffuse[0] = c_amb[0] / 255.0f;
+						mat->diffuse[1] = c_amb[1] / 255.0f;
+						mat->diffuse[2] = c_amb[2] / 255.0f;
+						mat->diffuse[3] = c_amb[3] ? c_amb[3] / 255.0f : 1.0f;
+					}
+					else if (c_dif[0] || c_dif[1] || c_dif[2])
+					{
+						mat->diffuse[0] = c_dif[0] / 255.0f;
+						mat->diffuse[1] = c_dif[1] / 255.0f;
+						mat->diffuse[2] = c_dif[2] / 255.0f;
+						mat->diffuse[3] = c_dif[3] ? c_dif[3] / 255.0f : 1.0f;
+					}
+				}
 
 				const uint n_tex = bch.dict[BCH_TEXTURES].n;
 				int matched_tex = -1;
-				if (n_tex > 0)
+				if (tex_enabled && n_tex > 0)
 				{
+					char base_name[128];
+					snprintf (base_name, sizeof (base_name), "%s", mat->name);
+					char *at = strchr (base_name, '@');
+					if (at)
+						*at = 0;
+
 					for (uint ti = 0; ti < n_tex; ti++)
 					{
 						ccp tname = bch.dict[BCH_TEXTURES].entries[ti].name;
@@ -498,16 +543,6 @@ void *ParseBCH (const u8 *data, uint size)
 							mat->num_textures = 1;
 						}
 					}
-				}
-
-				const u32 m_addr = bch.dict[BCH_MATERIALS].entries[mi].address;
-				if (m_addr && (u64)m_addr + 0xb0 <= bsize)
-				{
-					const u8 wrap = b[m_addr + 0xa8];
-					mat->wrap_s[0] = wrap & 3;
-					mat->wrap_t[0] = (wrap >> 2) & 3;
-					mat->min_filter[0] = 1;
-					mat->mag_filter[0] = 1;
 				}
 			}
 		}

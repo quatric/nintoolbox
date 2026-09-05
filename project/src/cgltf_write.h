@@ -233,7 +233,47 @@ static void cgltf_write_strprop(cgltf_write_context* context, const char* label,
 	if (val)
 	{
 		cgltf_write_indent(context);
-		CGLTF_SPRINTF("\"%s\": \"%s\"", label, val);
+		CGLTF_SPRINTF("\"%s\": \"", label);
+		for (const unsigned char *p = (const unsigned char *)val; *p; p++)
+		{
+			if (*p == '"')
+			{
+				CGLTF_SPRINTF("\\\"");
+			}
+			else if (*p == '\\')
+			{
+				CGLTF_SPRINTF("\\\\");
+			}
+			else if (*p == '\b')
+			{
+				CGLTF_SPRINTF("\\b");
+			}
+			else if (*p == '\f')
+			{
+				CGLTF_SPRINTF("\\f");
+			}
+			else if (*p == '\n')
+			{
+				CGLTF_SPRINTF("\\n");
+			}
+			else if (*p == '\r')
+			{
+				CGLTF_SPRINTF("\\r");
+			}
+			else if (*p == '\t')
+			{
+				CGLTF_SPRINTF("\\t");
+			}
+			else if (*p < 0x20 || *p == 0x7f)
+			{
+				CGLTF_SPRINTF("\\u%04x", (unsigned int)*p);
+			}
+			else
+			{
+				CGLTF_SPRINTF("%c", *p);
+			}
+		}
+		CGLTF_SPRINTF("\"");
 		context->needs_comma = 1;
 	}
 }
