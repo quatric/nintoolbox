@@ -6091,6 +6091,31 @@ with open(sys.argv[1], "wb") as f:
   else
     fno "Next Level Games Texture To Go" "failed to extract .txtg sample";
   fi
+
+  # Next Level Games Localization Text (.nloc / NLOC) test
+  mkdir -p "$d/nloc_test"
+  python3 -c '
+import sys
+nloc_hdr = b"NLOC" + (1).to_bytes(4, "little") + (0x1234).to_bytes(4, "little") + (1).to_bytes(4, "little") + (0).to_bytes(4, "little")
+nloc_entry = (100).to_bytes(4, "little") + (0).to_bytes(4, "little")
+nloc_str = "Test".encode("utf-16le") + b"\x00\x00"
+with open(sys.argv[1], "wb") as f:
+    f.write(nloc_hdr + nloc_entry + nloc_str)
+' "$d/nloc_test/sample.nloc"
+  if "$B/wszst" filetype "$d/nloc_test/sample.nloc" 2>/dev/null | grep -q "NLOC"; then
+    fok "Next Level Games Localization (.nloc) identification"
+  else
+    fno "Next Level Games Localization" "failed to identify .nloc sample";
+  fi
+
+  # Nintendo Effect Link (.bslnk / XLNK) test
+  mkdir -p "$d/xlnk_test"
+  printf "XLNK%0.s\0" {1..32} > "$d/xlnk_test/sample.bslnk"
+  if "$B/wszst" filetype "$d/xlnk_test/sample.bslnk" 2>/dev/null | grep -q "XLNK"; then
+    fok "Nintendo Effect Link (.bslnk) identification"
+  else
+    fno "Nintendo Effect Link" "failed to identify .bslnk sample";
+  fi
 }
 t_byte_fixed_points
 

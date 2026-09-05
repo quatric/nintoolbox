@@ -1228,6 +1228,18 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ '6', 'P', 'K', '0' },
 		0, MinusString, MinusString, "Next Level Games Texture To Go (.txtg / 6PK0)" },
 
+	// FF_NLOC = 222 (Next Level Games Localization Text)
+	{ FF_NLOC, FF_NLOC, 0, "NLOC", ".nloc", ".txt", ".nloc",
+		FFT_VALID | FFT_DECODE | FFT_ENCODE, 4,
+		{ 'N', 'L', 'O', 'C' },
+		0, MinusString, MinusString, "Next Level Games Localization Text (.nloc / NLOC)" },
+
+	// FF_XLNK = 223 (Nintendo Effect Link Binary)
+	{ FF_XLNK, FF_XLNK, 0, "XLNK", ".bslnk", ".xml", ".bslnk",
+		FFT_VALID | FFT_DECODE | FFT_ENCODE, 4,
+		{ 'X', 'L', 'N', 'K' },
+		0, MinusString, MinusString, "Nintendo Effect Link Binary (.bslnk / XLNK)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1388,6 +1400,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_BARS, "BARS", 0, 0xe05 },
 	{ FF_NLG_DICT, "NLG-DICT", "DICT", 0xe05 },
 	{ FF_TXTG, "TXTG", "6PK0", 0xe05 },
+	{ FF_NLOC, "NLOC", 0, 0x3001 },
+	{ FF_XLNK, "XLNK", "BSLNK", 0x3001 },
 
 	{ 0, 0, 0, 0 }
 };

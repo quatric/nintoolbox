@@ -313,6 +313,8 @@ typedef enum file_format_t
 	FF_BARS, // 219 - Nintendo Binary Audio Resource Archive (.bars / BARS)
 	FF_NLG_DICT, // 220 - Next Level Games Dictionary Archive (.dict / LM2 / LM3 / Punch-Out!!)
 	FF_TXTG, // 221 - Next Level Games Texture To Go (.txtg / 6PK0)
+	FF_NLOC, // 222 - Next Level Games Localization Text (.nloc / .loc / NLOC)
+	FF_XLNK, // 223 - Nintendo Effect Link Binary (.bslnk / .belnk / XLNK)
 
 	//--- number of elements
 

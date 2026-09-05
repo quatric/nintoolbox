@@ -1274,6 +1274,14 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0xa9f32458: // Punch-Out!! / little-endian magic
 				return FF_NLG_DICT;
 
+			// Next Level Games Localization (NLOC)
+			case 0x4e4c4f43: // "NLOC"
+				return FF_NLOC;
+
+			// Nintendo Effect Link Binary (XLNK)
+			case 0x584c4e4b: // "XLNK"
+				return FF_XLNK;
+
 			// Koei Tecmo 3D Model (G1M_ / _M1G / SM1G / GM1G)
 			case 0x47314d5f: // "G1M_"
 			case 0x47314d00: // "G1M\0"
