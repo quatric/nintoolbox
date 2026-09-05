@@ -936,8 +936,11 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 		}
 		if (mat->num_textures > 0)
 		{
-			// When diffuse textures are present, don't darken or tint base color
-			r = 1.0f; g = 1.0f; b = 1.0f;
+			// When textures are present, retain explicit diffuse tint if provided, otherwise default to white
+			if (!mat->diffuse[0] && !mat->diffuse[1] && !mat->diffuse[2])
+			{
+				r = 1.0f; g = 1.0f; b = 1.0f;
+			}
 			if (mat->diffuse[3] > 0.0f) a = mat->diffuse[3];
 		}
 		gmat->pbr_metallic_roughness.base_color_factor[0] = r;
