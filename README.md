@@ -95,25 +95,27 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 
 ### 3D Models & Geometry
 
-| Format | Extensions | Target Output | Decode Tested | Encode Tested | Middleware / Engine / Platform Context |
-|---|---|---|---|---|---|
-| **BCH** | `.bch` | **GLB** | ✅ | ✅ | NintendoWare NW4C H3D binary character model (3DS) |
-| **BMD** | `.bmd`, `.bdhc` | **GLB** | ✅ | ✅ | Early Nintendo DS 3D model format (DS) |
-| **BNFM** | `.bnfm` | **GLB** | — | — | Nd Cube Wii U 3D model format (*Animal Crossing: Amiibo Festival*, *Mario Party 10*) |
-| **G1M** | `.g1m` | **GLB** | — | — | Koei Tecmo 3D model format (*Hyrule Warriors*, *Fire Emblem Warriors*) |
-| **G4PKM** | `.g4pkm` | **GLB** | — | — | Level-5 / Nintendo Pokémon & Yo-kai Watch 3D model format |
-| **GLG** | `.glg` | **GLB** | — | — | Next Level Games 3D model format (*Super Mario Strikers*) |
-| **HGO** | `.hgo` | **GLB** | — | — | Camelot GameCube/Wii 3D model format (*Mario Golf*, *Mario Tennis*) |
-| **HSD** | `.dat` | **GLB** | ✅ | ✅ | HAL Laboratory `sysdolphin` object graph (GameCube) |
-| **HSF** | `.hsf` | **GLB** | ✅ | ✅ | Hudson Soft 3D model format (GameCube / Wii) |
-| **LMD** | `.lmd` | **GLB** | — | — | DeNA / Pokémon Masters 3D model format |
-| **MDL0 / BRRES** | `.mdl0`, `.brres` | **GLB** | ✅ | ✅ | NintendoWare NW4R binary resource model (Wii) |
-| **MOD** | `.mod` | **GLB** | ✅ | ✅ | Monster Games NDL3/NDL2 display list model (Wii) |
-| **MSH (PMsh)** | `.msh` | **GLB** | ✅ | ✅ | Monster Games collision mesh format (Wii) |
-| **NSBMD** | `.nsbmd`, `.bmd` | **GLB** | ✅ | ✅ | Nintendo DS Nitro 3D model format (DS) |
-| **NUD** | `.nud` | **GLB** | ✅ | ✅ | Bandai Namco 3D model format (*Super Smash Bros. 4* Wii U / 3DS) |
-| **NUMSHB** | `.numshb` | **GLB** | — | — | Bandai Namco SSBH 3D mesh model (*Super Smash Bros. Ultimate* Switch) |
-| **PERS** | `.pers` | **GLB** | ✅ | — | Pokémon Stadium N64 model format |
+| Format | Extensions | Target Output | Decode Tested | Encode Tested | Byte-Exact Roundtrip | Middleware / Engine / Platform Context |
+|---|---|---|---|---|---|---|
+| **BCH** | `.bch` | **GLB** | ✅ | ✅ | ✅ | NintendoWare NW4C H3D binary character model (3DS) |
+| **BMD** | `.bmd`, `.bdhc` | **GLB** | ✅ | ✅ | — | Early Nintendo DS 3D model format (DS) |
+| **BNFM** | `.bnfm` | **GLB** | — | — | — | Nd Cube Wii U 3D model format (*Animal Crossing: Amiibo Festival*, *Mario Party 10*) |
+| **G1M** | `.g1m` | **GLB** | — | — | — | Koei Tecmo 3D model format (*Hyrule Warriors*, *Fire Emblem Warriors*) |
+| **G4PKM** | `.g4pkm` | **GLB** | — | — | — | Level-5 / Nintendo Pokémon & Yo-kai Watch 3D model format |
+| **GLG** | `.glg` | **GLB** | — | — | — | Next Level Games 3D model format (*Super Mario Strikers*) |
+| **HGO** | `.hgo` | **GLB** | — | — | — | Camelot GameCube/Wii 3D model format (*Mario Golf*, *Mario Tennis*) |
+| **HSD** | `.dat` | **GLB** | ✅ | ✅ | ✅ | HAL Laboratory `sysdolphin` object graph (GameCube) |
+| **HSF** | `.hsf` | **GLB** | ✅ | ✅ | ✅ | Hudson Soft 3D model format (GameCube / Wii) |
+| **LMD** | `.lmd` | **GLB** | — | — | — | DeNA / Pokémon Masters 3D model format |
+| **MDL0 / BRRES** | `.mdl0`, `.brres` | **GLB** | ✅ | ✅ | — | NintendoWare NW4R binary resource model (Wii) |
+| **MOD** | `.mod` | **GLB** | ✅ | ✅ | ✅ | Monster Games NDL3/NDL2 display list model (Wii) |
+| **MSH (PMsh)** | `.msh` | **GLB** | ✅ | ✅ | ✅ | Monster Games collision mesh format (Wii) |
+| **NSBMD** | `.nsbmd`, `.bmd` | **GLB** | ✅ | ✅ | ✅ | Nintendo DS Nitro 3D model format (DS) |
+| **NUD** | `.nud` | **GLB** | ✅ | ✅ | — | Bandai Namco 3D model format (*Super Smash Bros. 4* Wii U / 3DS) |
+| **NUMSHB** | `.numshb` | **GLB** | — | — | — | Bandai Namco SSBH 3D mesh model (*Super Smash Bros. Ultimate* Switch) |
+| **PERS** | `.pers` | **GLB** | ✅ | — | — | Pokémon Stadium N64 model format |
+
+`Byte-Exact Roundtrip` = decode → GLB → re-encode reproduces the original file's bytes identically (canonical fixed-point verified), not just a successful encode.
 
 ---
 
