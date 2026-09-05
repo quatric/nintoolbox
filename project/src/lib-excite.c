@@ -1398,6 +1398,22 @@ static enumError scan_excite_header (excite_tex_t *tex, const u8 *data, uint siz
 		tex->score = 0;
 		return ERR_OK;
 	}
+	if (data[5] == 0x44)
+	{
+		const u8 fmt = GX_CMPR;
+		const u64 single_chain = gx_chain_size (fmt, w, h, levels);
+		if (single_chain * 2 == psize || single_chain == psize)
+		{
+			tex->rgba = gx_decode (fmt, w, h, pixels, gx_level_size (fmt, w, h));
+			if (!tex->rgba)
+				return ERR_CANT_CREATE;
+			tex->width = w;
+			tex->height = h;
+			tex->gx_format = fmt;
+			tex->score = 0;
+			return ERR_OK;
+		}
+	}
 
 	double best_score = 1e18;
 	u8 best_fmt = 0;
