@@ -2228,25 +2228,11 @@ static bool mod_read_attr (
 	return true;
 }
 
-enumError DecodeExciteMOD (const u8 *data, uint size, ccp out_path)
+// Helper to decode a single NDL chunk into a mesh_t
+static bool mod_decode_ndl_chunk (const u8 *data, uint size, uint m, int mat_idx, uint chunk_idx, mesh_t *out_mesh)
 {
-	if (!data || size < 0x40)
-		return ERR_NOTHING_TO_DO;
-
-	// The magic isn't always at offset 0 -- most real files carry a small
-	// texture-filename table ahead of it.
-	uint m = 0;
-	bool found = false;
-	for (; m + 4 <= size; m++)
-	{
-		if (!memcmp (data + m, "3LDN", 4) || !memcmp (data + m, "2LDN", 4))
-		{
-			found = true;
-			break;
-		}
-	}
-	if (!found || m + 0x38 > size)
-		return ERR_NOTHING_TO_DO;
+	if (m + 0x38 > size)
+		return false;
 
 	u32 h[14];
 	for (int i = 0; i < 14; i++)
@@ -2256,10 +2242,8 @@ enumError DecodeExciteMOD (const u8 *data, uint size, ccp out_path)
 		dl_end &= 0xffff; // NDL2 u16 quirk
 	const u32 n_pos = h[7];
 	if (!n_pos || n_pos > 100000)
-		return ERR_NOTHING_TO_DO;
+		return false;
 
-	// Locate the display list by its CP-register preamble, not a version-
-	// specific offset/size field.
 	const uint hi = dl_end && m + dl_end <= size ? m + dl_end : size;
 	uint dl_off = 0;
 	bool sig_found = false;
@@ -2274,14 +2258,12 @@ enumError DecodeExciteMOD (const u8 *data, uint size, ccp out_path)
 		}
 	}
 	if (!sig_found)
-		return ERR_NOTHING_TO_DO;
+		return false;
 
 	const uint dl_start = m + dl_off;
 	const uint dl_size = dl_end > dl_off && m + dl_end <= size ? dl_end - dl_off : size - dl_start;
 	const u8 *dl = data + dl_start;
 
-	// Brute-force the index width: the correct one is whichever fully,
-	// validly parses the display list while covering the most vertices.
 	mod_prim_t *best_prims = 0;
 	uint best_np = 0, best_total = 0, best_bpv = 0;
 	u32 vat[256];
@@ -2308,11 +2290,11 @@ enumError DecodeExciteMOD (const u8 *data, uint size, ccp out_path)
 			FREE (prims);
 	}
 	if (!best_prims)
-		return ERR_NOTHING_TO_DO;
+		return false;
 	if (!best_vat_set[0x70])
 	{
 		FREE (best_prims);
-		return ERR_NOTHING_TO_DO;
+		return false;
 	}
 
 	const u32 va = best_vat[0x70];
@@ -2325,14 +2307,11 @@ enumError DecodeExciteMOD (const u8 *data, uint size, ccp out_path)
 	if (pos_fmt > 4)
 	{
 		FREE (best_prims);
-		return ERR_NOTHING_TO_DO;
+		return false;
 	}
 	const uint pos_off = m + 0x40;
 	const uint tex_off = pos_off + n_pos * pos_n * fmt_sz[pos_fmt];
 
-	// Texcoord array length isn't stored -- size it from the highest index
-	// any primitive actually uses (position index is always tuple byte 0,
-	// texcoord index is the last tuple byte when bpv>1, else always 0).
 	uint max_tex = 0;
 	for (uint i = 0; i < best_np; i++)
 	{
@@ -2356,36 +2335,28 @@ enumError DecodeExciteMOD (const u8 *data, uint size, ccp out_path)
 		FREE (best_prims);
 		FREE (pos_f);
 		FREE (tex_f);
-		return ERR_NOTHING_TO_DO;
+		return false;
 	}
 
-	model_t model;
-	memset (&model, 0, sizeof (model));
-	mesh_t mesh;
-	memset (&mesh, 0, sizeof (mesh));
-	snprintf (mesh.name, sizeof (mesh.name), "mod");
-	mesh.material_idx = -1;
+	memset (out_mesh, 0, sizeof (*out_mesh));
+	snprintf (out_mesh->name, sizeof (out_mesh->name), "mesh_%u", chunk_idx);
+	out_mesh->material_idx = mat_idx;
 
-	mesh.positions = MALLOC (n_pos * sizeof (vec3_t));
-	mesh.num_positions = n_pos;
+	out_mesh->positions = MALLOC (n_pos * sizeof (vec3_t));
+	out_mesh->num_positions = n_pos;
 	for (uint i = 0; i < n_pos; i++)
 	{
-		mesh.positions[i].x = pos_f[i * pos_n];
-		mesh.positions[i].y = pos_f[i * pos_n + 1];
-		mesh.positions[i].z = pos_n > 2 ? pos_f[i * pos_n + 2] : 0.0f;
+		out_mesh->positions[i].x = pos_f[i * pos_n];
+		out_mesh->positions[i].y = pos_f[i * pos_n + 1];
+		out_mesh->positions[i].z = pos_n > 2 ? pos_f[i * pos_n + 2] : 0.0f;
 	}
 
-	mesh.texcoords = MALLOC (n_tex * sizeof (vec2_t));
-	mesh.num_texcoords = n_tex;
+	out_mesh->texcoords = MALLOC (n_tex * sizeof (vec2_t));
+	out_mesh->num_texcoords = n_tex;
 	for (uint i = 0; i < n_tex; i++)
 	{
-		mesh.texcoords[i].u = tex_f[i * tex_n];
-		// GX-native texcoords are top-left origin; COLLADA/mesh_t is
-		// bottom-left. The encoder flips V (1.0 - v) when writing GX
-		// data, so mirror that flip here on decode -- otherwise a
-		// decode -> encode cycle nets one extra flip instead of
-		// cancelling out, breaking the canonical fixed point.
-		mesh.texcoords[i].v = tex_n > 1 ? (float)(1.0 - (double)tex_f[i * tex_n + 1]) : 0.0f;
+		out_mesh->texcoords[i].u = tex_f[i * tex_n];
+		out_mesh->texcoords[i].v = tex_n > 1 ? (float)(1.0 - (double)tex_f[i * tex_n + 1]) : 0.0f;
 	}
 
 	uint tri_cap = best_total * 2 + 8, tri_n = 0;
@@ -2461,33 +2432,185 @@ enumError DecodeExciteMOD (const u8 *data, uint size, ccp out_path)
 				}
 				break;
 			default:
-				break; // LINES/LINESTRIP/POINTS carry no surface geometry
+				break;
 		}
 	}
 #undef MOD_CORNER
 
-	mesh.vertices = tris;
-	mesh.num_vertices = tri_n;
-
-	enumError rc = ERR_NOTHING_TO_DO;
-	if (tri_n)
-	{
-		model.meshes = &mesh;
-		model.num_meshes = 1;
-		const uint path_len = strlen (out_path);
-		const bool is_dae = path_len > 4 && !strcasecmp (out_path + path_len - 4, ".dae");
-		rc = (ExportModelToGLB (&model, out_path))
-				== 0
-			? ERR_OK
-			: ERR_CANT_CREATE;
-	}
+	out_mesh->vertices = tris;
+	out_mesh->num_vertices = tri_n;
 
 	FREE (best_prims);
 	FREE (pos_f);
 	FREE (tex_f);
-	FREE (mesh.positions);
-	FREE (mesh.texcoords);
-	FREE (mesh.vertices);
+	return tri_n > 0;
+}
+
+// Parse material descriptor at desc_off, extracting texture references
+static int mod_find_or_create_material (
+	const u8 *data, uint size, uint desc_off, material_t *materials, uint *num_materials, uint max_materials)
+{
+	if (!desc_off || desc_off >= size)
+		return -1;
+
+	// Check if this descriptor offset was already parsed into an existing material
+	char mat_name[64];
+	snprintf (mat_name, sizeof (mat_name), "mat_0x%x", desc_off);
+	for (uint i = 0; i < *num_materials; i++)
+	{
+		if (!strcmp (materials[i].name, mat_name))
+			return (int)i;
+	}
+
+	if (*num_materials >= max_materials)
+		return -1;
+
+	material_t *mat = &materials[*num_materials];
+	memset (mat, 0, sizeof (*mat));
+	snprintf (mat->name, sizeof (mat->name), "%s", mat_name);
+	mat->diffuse[0] = mat->diffuse[1] = mat->diffuse[2] = mat->diffuse[3] = 1.0f;
+
+	// Search forward in the descriptor block (up to 0x200 bytes) for .tex strings
+	const uint limit = desc_off + 0x200 < size ? desc_off + 0x200 : size;
+	uint p = desc_off;
+	while (p + 4 <= limit && mat->num_textures < 8)
+	{
+		if (data[p] == '.' && data[p + 1] == 't' && data[p + 2] == 'e' && data[p + 3] == 'x')
+		{
+			uint st = p;
+			while (st > desc_off && data[st - 1] >= 32 && data[st - 1] <= 126)
+				st--;
+			const uint nlen = p + 4 - st;
+			if (nlen > 4 && nlen < sizeof (mat->textures[0]))
+			{
+				char tex_name[64];
+				uint baselen = nlen;
+				if (baselen > 4 && !strcasecmp ((char*)data + st + baselen - 4, ".tex"))
+					baselen -= 4;
+				memcpy (tex_name, data + st, baselen);
+				tex_name[baselen] = 0;
+				// Check for duplicates in this material
+				bool dup = false;
+				for (int t = 0; t < mat->num_textures; t++)
+				{
+					if (!strcasecmp (mat->textures[t], tex_name))
+					{
+						dup = true;
+						break;
+					}
+				}
+				if (!dup)
+				{
+					snprintf (mat->textures[mat->num_textures], sizeof (mat->textures[0]), "%s", tex_name);
+					mat->wrap_s[mat->num_textures] = 1; // repeat
+					mat->wrap_t[mat->num_textures] = 1;
+					mat->min_filter[mat->num_textures] = 1;
+					mat->mag_filter[mat->num_textures] = 1;
+					mat->num_textures++;
+				}
+			}
+			p += 4;
+		}
+		else
+			p++;
+	}
+
+	const int idx = (int)(*num_materials);
+	(*num_materials)++;
+	return idx;
+}
+
+enumError DecodeExciteMOD (const u8 *data, uint size, ccp out_path)
+{
+	if (!data || size < 0x40)
+		return ERR_NOTHING_TO_DO;
+
+	const u32 num_entries = xrd_le32 (data);
+	const u32 table_off = xrd_le32 (data + 4);
+
+	bool is_multi = false;
+	if (num_entries > 0 && num_entries < 2000 && table_off >= 0x40 && table_off + num_entries * 16 <= size)
+		is_multi = true;
+
+	material_t materials[64];
+	uint num_materials = 0;
+	memset (materials, 0, sizeof (materials));
+
+	mesh_t *meshes = 0;
+	uint num_meshes = 0;
+
+	if (is_multi)
+	{
+		meshes = CALLOC (num_entries, sizeof (mesh_t));
+		if (!meshes)
+			return ERR_CANT_CREATE;
+
+		for (uint i = 0; i < num_entries; i++)
+		{
+			const uint ent_off = table_off + i * 16;
+			const u32 desc_off = xrd_le32 (data + ent_off + 8);
+			const u32 ndl_off = xrd_le32 (data + ent_off + 12);
+
+			const int mat_idx = mod_find_or_create_material (
+				data, size, desc_off, materials, &num_materials, 64);
+
+			mesh_t mesh;
+			if (mod_decode_ndl_chunk (data, size, ndl_off, mat_idx, i, &mesh))
+			{
+				meshes[num_meshes++] = mesh;
+			}
+		}
+	}
+	else
+	{
+		// Single NDL fallback
+		uint m = 0;
+		bool found = false;
+		for (; m + 4 <= size; m++)
+		{
+			if (!memcmp (data + m, "3LDN", 4) || !memcmp (data + m, "2LDN", 4))
+			{
+				found = true;
+				break;
+			}
+		}
+		if (!found || m + 0x38 > size)
+			return ERR_NOTHING_TO_DO;
+
+		meshes = CALLOC (1, sizeof (mesh_t));
+		if (!meshes)
+			return ERR_CANT_CREATE;
+
+		mesh_t mesh;
+		if (mod_decode_ndl_chunk (data, size, m, -1, 0, &mesh))
+		{
+			meshes[num_meshes++] = mesh;
+		}
+	}
+
+	if (!num_meshes)
+	{
+		FREE (meshes);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	model_t model;
+	memset (&model, 0, sizeof (model));
+	model.meshes = meshes;
+	model.num_meshes = num_meshes;
+	model.materials = num_materials ? materials : 0;
+	model.num_materials = num_materials;
+
+	const enumError rc = (ExportModelToGLB (&model, out_path) == 0) ? ERR_OK : ERR_CANT_CREATE;
+
+	for (uint i = 0; i < num_meshes; i++)
+	{
+		FREE (meshes[i].positions);
+		FREE (meshes[i].texcoords);
+		FREE (meshes[i].vertices);
+	}
+	FREE (meshes);
+
 	return rc;
 }
 
