@@ -2244,24 +2244,32 @@ static bool mod_decode_ndl_chunk (const u8 *data, uint size, uint m, int mat_idx
 	if (!n_pos || n_pos > 100000)
 		return false;
 
-	const uint hi = dl_end && m + dl_end <= size ? m + dl_end : size;
-	uint dl_off = 0;
-	bool sig_found = false;
-	for (uint q = m; q + 14 <= hi; q++)
+	const u32 pos_off = h[9] >= m && h[9] < size ? h[9] : m + 0x40;
+	const u32 second_off = h[10] >= m && h[10] < size ? h[10] : 0;
+	const u32 third_off = h[11] >= m && h[11] < size ? h[11] : 0;
+	const u32 dl_hdr_off = h[13] >= m && h[13] < size ? h[13] : 0;
+	const u32 dl_hdr_sz = h[12] && dl_hdr_off + h[12] <= size ? h[12] : 0;
+
+	uint dl_start = dl_hdr_off ? dl_hdr_off : 0;
+	uint dl_size = dl_hdr_sz;
+
+	if (!dl_start)
 	{
-		if (data[q] == 0x08 && data[q + 1] == 0x70 && data[q + 6] == 0x08 && data[q + 7] == 0x80
-			&& data[q + 12] == 0x08 && data[q + 13] == 0x90)
+		const uint hi = dl_end && m + dl_end <= size ? m + dl_end : size;
+		for (uint q = m; q + 14 <= hi; q++)
 		{
-			dl_off = q - m;
-			sig_found = true;
-			break;
+			if (data[q] == 0x08 && data[q + 1] == 0x70 && data[q + 6] == 0x08 && data[q + 7] == 0x80
+				&& data[q + 12] == 0x08 && data[q + 13] == 0x90)
+			{
+				dl_start = q;
+				dl_size = dl_end > (q - m) && m + dl_end <= size ? dl_end - (q - m) : size - dl_start;
+				break;
+			}
 		}
 	}
-	if (!sig_found)
+	if (!dl_start)
 		return false;
 
-	const uint dl_start = m + dl_off;
-	const uint dl_size = dl_end > dl_off && m + dl_end <= size ? dl_end - dl_off : size - dl_start;
 	const u8 *dl = data + dl_start;
 
 	mod_prim_t *best_prims = 0;
@@ -2309,8 +2317,7 @@ static bool mod_decode_ndl_chunk (const u8 *data, uint size, uint m, int mat_idx
 		FREE (best_prims);
 		return false;
 	}
-	const uint pos_off = m + 0x40;
-	const uint tex_off = pos_off + n_pos * pos_n * fmt_sz[pos_fmt];
+	const uint tex_off = third_off ? third_off : (second_off ? second_off : pos_off + n_pos * pos_n * fmt_sz[pos_fmt]);
 
 	uint max_tex = 0;
 	for (uint i = 0; i < best_np; i++)
