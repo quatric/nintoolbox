@@ -106,7 +106,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **HSD** | `.dat` | **GLB** | ✅ | — | HAL Laboratory `sysdolphin` object graph (GameCube) |
 | **HSF** | `.hsf` | **GLB** | ✅ | ✅ | Hudson Soft 3D model format (GameCube / Wii) |
 | **LMD** | `.lmd` | **GLB** | — | — | DeNA / Pokémon Masters 3D model format |
-| **MDL0 / BRRES** | `.mdl0`, `.brres` | **GLB** | ✅ | — | NintendoWare NW4R binary resource model (Wii) |
+| **MDL0 / BRRES** | `.mdl0`, `.brres` | **GLB** | ✅ | ✅ | NintendoWare NW4R binary resource model (Wii) |
 | **MOD** | `.mod` | **GLB** | ✅ | — | Monster Games NDL3/NDL2 display list model (Wii) |
 | **MSH (PMsh)** | `.msh` | **GLB** | ✅ | — | Monster Games collision mesh format (Wii) |
 | **NSBMD** | `.nsbmd`, `.bmd` | **GLB** | ✅ | — | Nintendo DS Nitro 3D model format (DS) |
@@ -121,7 +121,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | Format | Extensions | Decode Tested | Encode Tested | Middleware / Engine / Platform Context |
 |---|---|---|---|---|
 | **ART / IMG** | `.art`, `.img` | ✅ | — | Monster Games GUI image format (Wii) |
-| **BCFNT / BFFNT / BRFNT** | `.bcfnt`, `.bffnt`, `.brfnt` | ✅ | — | NintendoWare font resource (3DS / Wii U / Wii) |
+| **BCFNT / BFFNT / BRFNT** | `.bcfnt`, `.bffnt`, `.brfnt` | ✅ | ✅ | NintendoWare font resource (3DS / Wii U / Wii) |
 | **BCLIM / CTPK** | `.bclim`, `.ctpk` | ✅ | ✅ | NintendoWare NW4C texture container (3DS) |
 | **BFLIM** | `.bflim` | ✅ | — | NintendoWare NW4F texture format (Wii U) |
 | **BNTX** | `.bntx` | ✅ | — | NintendoSDK Tegra block-linear texture container (Switch) |
