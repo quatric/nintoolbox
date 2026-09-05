@@ -419,6 +419,7 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		const bool is_msh = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".msh");
 		const bool is_mod = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".mod");
 		const bool is_bfres = dest_len > 6 && !strcasecmp (dest + dest_len - 6, ".bfres");
+		const bool is_nud = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".nud");
 		const bool is_model_dest = is_dae || is_glb;
 
 		const int arg_len = strlen (arg);
@@ -477,6 +478,17 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 							ERROR0 (err, "Failed to encode MOD: %s\n", dest);
 						else if (verbose >= 0)
 							fprintf (stdlog, "%sENCODE MOD:%s -> %s\n", verbose > 0 ? "\n" : "",
+								arg, dest);
+						continue;
+					}
+					if (is_nud)
+					{
+						err = EncodeModelToNUD (in_model, dest);
+						FreeModel (in_model);
+						if (err > ERR_WARNING)
+							ERROR0 (err, "Failed to encode NUD: %s\n", dest);
+						else if (verbose >= 0)
+							fprintf (stdlog, "%sENCODE NUD:%s -> %s\n", verbose > 0 ? "\n" : "",
 								arg, dest);
 						continue;
 					}
@@ -620,6 +632,29 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		const bool is_mod_in = is_ext (arg, ".mod")
 			|| (raw.data_size >= 4
 				&& (!memcmp (raw.data, "NDL3", 4) || !memcmp (raw.data, "NDL2", 4)));
+
+		const bool is_nud_in = is_ext (arg, ".nud")
+			|| (raw.data_size >= 4
+				&& (!memcmp (raw.data, "NDP3", 4) || !memcmp (raw.data, "NDWU", 4)));
+
+		if (is_model_dest && is_nud_in)
+		{
+			if (!testmode)
+			{
+				model_t *model = ParseNUD (raw.data, raw.data_size);
+				if (model)
+				{
+					ExportModelToGLB (model, dest);
+					FreeModel (model);
+				}
+				else
+				{
+					ERROR0 (ERR_INVALID_DATA, "Failed to decode NUD: %s\n", arg);
+					return ERR_INVALID_DATA;
+				}
+			}
+			continue;
+		}
 
 		if (is_model_dest && is_bnfm_in)
 		{
