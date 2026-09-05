@@ -154,6 +154,7 @@ CFLAGS		+= -Isrc/latte-decaf -Isrc/latte-decaf/decaf -Isrc/latte-decaf/fmt-pinne
 			-Isrc/latte-decaf/gsl -Isrc/latte-decaf/gsl-lite-core \
 			-Isrc/latte-decaf/cnl -Isrc/latte-decaf/peglib \
 			-Isrc/latte-decaf/assembler/src -Isrc/bcn-decoder -Isrc/bcn-support
+CFLAGS		+= -Dgsl_FEATURE_GSL_COMPATIBILITY_MODE=1
 
 DEPFLAGS	+= -MMD
 
