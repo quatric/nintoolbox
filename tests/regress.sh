@@ -6190,6 +6190,20 @@ with open(sys.argv[1], "wb") as f:
   else
     fno "Koei Tecmo Texture Volume Archive" "failed to extract .tvol sample";
   fi
+
+  # Pikmin 1 Texture (.txe) test
+  mkdir -p "$d/txe_test"
+  python3 -c '
+import sys, struct
+txe_hdr = struct.pack(">HHHI", 32, 32, 0, 1) + b"\x00" * 20
+with open(sys.argv[1], "wb") as f:
+    f.write(txe_hdr + b"\x00" * 1024)
+' "$d/txe_test/sample.txe"
+  if "$B/wszst" filetype "$d/txe_test/sample.txe" 2>/dev/null | grep -q "TXE"; then
+    fok "Pikmin 1 Texture (.txe) identification"
+  else
+    fno "Pikmin 1 Texture" "failed to identify .txe sample";
+  fi
 }
 t_byte_fixed_points
 

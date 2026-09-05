@@ -318,6 +318,7 @@ typedef enum file_format_t
 	FF_ROMFS, // 224 - Nintendo 3DS Read-Only File System (.romfs / IVFC)
 	FF_XTX, // 225 - Nintendo Switch XTX Texture Container (.xtx / DFvN)
 	FF_TVOL, // 226 - Koei Tecmo / Gust Texture Volume Archive (.tvol)
+	FF_TXE, // 227 - Pikmin 1 Texture (.txe)
 
 	//--- number of elements
 

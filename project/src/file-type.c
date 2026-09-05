@@ -1258,6 +1258,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 },
 		0, MinusString, MinusString, "Koei Tecmo Texture Volume Archive (.tvol)" },
 
+	// FF_TXE = 227 (Pikmin 1 Texture)
+	{ FF_TXE, FF_TXE, 0, "TXE", ".txe", ".png", ".txe",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
+		{ 0 },
+		0, MinusString, MinusString, "Pikmin 1 Texture (.txe)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1423,6 +1429,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_ROMFS, "ROMFS", "IVFC", 0xe05 },
 	{ FF_XTX, "XTX", "DFVN", 0xe05 },
 	{ FF_TVOL, "TVOL", 0, 0xe05 },
+	{ FF_TXE, "TXE", 0, 0x3809 },
 
 	{ 0, 0, 0, 0 }
 };

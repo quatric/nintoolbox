@@ -1738,7 +1738,7 @@ file_format_t GetFileTypeByMagic (
 			return FF_DIRECTORY;
 
 		ccp ext = fname ? strrchr (fname, '.') : 0;
-		if (ext && (!strcasecmp (ext, ".msh") || !strcasecmp (ext, ".mod") || !strcasecmp (ext, ".glg") || !strcasecmp (ext, ".rlg") || !strcasecmp (ext, ".hgo") || !strcasecmp (ext, ".pers")))
+		if (ext && (!strcasecmp (ext, ".msh") || !strcasecmp (ext, ".mod") || !strcasecmp (ext, ".glg") || !strcasecmp (ext, ".rlg") || !strcasecmp (ext, ".hgo") || !strcasecmp (ext, ".pers") || !strcasecmp (ext, ".tvol") || !strcasecmp (ext, ".txe")))
 		{
 			const file_type_t *ft = GetFileTypeByExt (ext, false);
 			if (ft)
