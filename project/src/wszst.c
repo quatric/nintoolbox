@@ -6313,7 +6313,7 @@ static enumError create_rst_dir (ccp source, ccp dest)
 		err = ERR_NOTHING_TO_DO;
 	u8 *car_data = 0, *toc_data = 0;
 	uint car_size = 0, toc_size = 0;
-	bool compress = OptionUsed[OPT_COMPRESS];
+	bool compress = !OptionUsed[OPT_NO_COMPRESS];
 	bool big_endian = false;
 	if (!err)
 		err = CreateRST (&car_data, &car_size, &toc_data, &toc_size, list.entry, list.used,
