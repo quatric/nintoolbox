@@ -4873,15 +4873,21 @@ PY
   && cmp -s "$d/model-a/same-wiiu.bfres" "$d/model-b/same-wiiu.bfres"; then
     bok "Wii U BFRES same DAE+parent -> identical injected bytes"
   else bno "Wii U BFRES canonical injection" "two injections differ"; fi
-  local bch_f="$PWD_PROJECT/../tests/fixtures/synthetic_sample.bch"
-  if [ -f "$bch_f" ]; then
-    if "$B/wmdlt" ENCODE "$bch_f" --dest "$d/bch-orig.dae" --overwrite >/dev/null 2>&1 \
-    && "$B/wmdlt" ENCODE "$d/bch-orig.dae" --parent="$bch_f" --dest "$d/model-a/same.bch" --overwrite >/dev/null 2>&1 \
-    && "$B/wmdlt" ENCODE "$d/bch-orig.dae" --parent="$bch_f" --dest "$d/model-b/same.bch" --overwrite >/dev/null 2>&1 \
-    && cmp -s "$d/model-a/same.bch" "$d/model-b/same.bch"; then
-      bok "BCH same DAE+parent -> identical injected bytes"
-    else bno "BCH canonical injection" "two injections differ"; fi
-  fi
+  for bch_f in "$PWD_PROJECT/../tests/fixtures/synthetic_sample.bch" \
+               "$PWD_PROJECT/../tests/fixtures/3ds_samples/zelda_bch/HookshotR.bch" \
+               "$PWD_PROJECT/../tests/fixtures/3ds_samples/zelda_bch/GtEvSwordD.bch" \
+               "$PWD_PROJECT/../tests/fixtures/3ds_samples/zelda_bch/HeartContainer.bch" \
+               "$PWD_PROJECT/../tests/fixtures/3ds_samples/zelda_bch/FlatLinkLv1.bch"; do
+    if [ -f "$bch_f" ]; then
+      local bname; bname=$(basename "$bch_f")
+      if "$B/wmdlt" ENCODE "$bch_f" --dest "$d/bch-${bname}.dae" --overwrite >/dev/null 2>&1 \
+      && "$B/wmdlt" ENCODE "$d/bch-${bname}.dae" --parent="$bch_f" --dest "$d/model-a/same-${bname}" --overwrite >/dev/null 2>&1 \
+      && "$B/wmdlt" ENCODE "$d/bch-${bname}.dae" --parent="$bch_f" --dest "$d/model-b/same-${bname}" --overwrite >/dev/null 2>&1 \
+      && cmp -s "$d/model-a/same-${bname}" "$d/model-b/same-${bname}"; then
+        bok "BCH ${bname} same DAE+parent -> identical injected bytes"
+      else bno "BCH ${bname} canonical injection" "two injections differ"; fi
+    fi
+  done
   local nsbmd_f="$PWD_PROJECT/../tests/fixtures/synthetic_sample.nsbmd"
   if [ -f "$nsbmd_f" ]; then
     if "$B/wmdlt" ENCODE "$nsbmd_f" --dest "$d/nsbmd-orig.dae" --overwrite >/dev/null 2>&1 \
