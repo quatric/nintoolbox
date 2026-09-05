@@ -315,6 +315,7 @@ typedef enum file_format_t
 	FF_TXTG, // 221 - Next Level Games Texture To Go (.txtg / 6PK0)
 	FF_NLOC, // 222 - Next Level Games Localization Text (.nloc / .loc / NLOC)
 	FF_XLNK, // 223 - Nintendo Effect Link Binary (.bslnk / .belnk / XLNK)
+	FF_ROMFS, // 224 - Nintendo 3DS Read-Only File System (.romfs / IVFC)
 
 	//--- number of elements
 

@@ -6116,6 +6116,45 @@ with open(sys.argv[1], "wb") as f:
   else
     fno "Nintendo Effect Link" "failed to identify .bslnk sample";
   fi
+
+  # Nintendo 3DS RomFS Archive (.romfs / IVFC) test
+  mkdir -p "$d/romfs_test"
+  python3 -c '
+import sys, struct
+ivfc_hdr = bytearray(0x200)
+struct.pack_into("<4sIIQQIIQQIIQQIIII", ivfc_hdr, 0,
+    b"IVFC", 0x10000, 0,
+    0, 0, 9, 0,
+    0, 0, 9, 0,
+    0x200, 0, 9, 0, 0, 0
+)
+l3_hdr = struct.pack("<10I",
+    0x28,
+    0x28, 4,
+    0x30, 0x20,
+    0x50, 4,
+    0x60, 0x30,
+    0x100
+)
+dir_meta = struct.pack("<6I", 0, 0xFFFFFFFF, 0xFFFFFFFF, 0, 0xFFFFFFFF, 0)
+fname_utf16 = "hello.txt".encode("utf-16le")
+file_meta = struct.pack("<IIQQII", 0, 0xFFFFFFFF, 0, 15, 0xFFFFFFFF, len(fname_utf16)) + fname_utf16
+l3_body = bytearray(0x200)
+l3_body[0:len(l3_hdr)] = l3_hdr
+l3_body[0x30:0x30+len(dir_meta)] = dir_meta
+l3_body[0x60:0x60+len(file_meta)] = file_meta
+payload = b"ROMFS_TEST_DATA"
+l3_body[0x100:0x100+len(payload)] = payload
+with open(sys.argv[1], "wb") as f:
+    f.write(bytes(ivfc_hdr) + bytes(l3_body))
+' "$d/romfs_test/sample.romfs"
+  if "$B/wszst" x "$d/romfs_test/sample.romfs" --dest "$d/romfs_test/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/romfs_test/out/hello.txt" ] \
+  && [ "$(cat "$d/romfs_test/out/hello.txt")" = "ROMFS_TEST_DATA" ]; then
+    fok "Nintendo 3DS RomFS Archive (.romfs) extraction"
+  else
+    fno "Nintendo 3DS RomFS Archive" "failed to extract .romfs sample";
+  fi
 }
 t_byte_fixed_points
 

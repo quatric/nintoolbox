@@ -1240,6 +1240,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 'X', 'L', 'N', 'K' },
 		0, MinusString, MinusString, "Nintendo Effect Link Binary (.bslnk / XLNK)" },
 
+	// FF_ROMFS = 224 (Nintendo 3DS Read-Only File System)
+	{ FF_ROMFS, FF_ROMFS, 0, "ROMFS", ".romfs", ".szs", ".romfs",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 'I', 'V', 'F', 'C' },
+		0, MinusString, MinusString, "Nintendo 3DS Read-Only File System (.romfs / IVFC)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1402,6 +1408,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_TXTG, "TXTG", "6PK0", 0xe05 },
 	{ FF_NLOC, "NLOC", 0, 0x3001 },
 	{ FF_XLNK, "XLNK", "BSLNK", 0x3001 },
+	{ FF_ROMFS, "ROMFS", "IVFC", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };
