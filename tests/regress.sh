@@ -6269,6 +6269,29 @@ with open(sys.argv[1], "wb") as f:
     fno "Nintendo 3DS Texture" "failed to identify .tex sample";
   fi
 
+  # Next Level Games GLG/RLG models: decode to GLB, re-encode, and confirm
+  # the second generation is byte-identical to the first. ball.glg is a
+  # 74-byte-entry prop, Luigi.glg a 66-byte-entry character (the entry size
+  # is derived from the model table, not fixed), and peach.rlg exercises the
+  # Wii layout, whose sections are 4-byte aligned with 8-byte attribute
+  # records and float positions/normals.
+  for spec in "gc_samples/strikers_glg/ball.glg" "gc_samples/strikers_glg/Luigi.glg" \
+              "wii_samples/charged_rlg/peach.rlg"; do
+    src="$PWD_PROJECT/../tests/fixtures/$spec"
+    name=$(basename "$spec")
+    [ -f "$src" ] || continue
+    if "$B/wmdlt" ENCODE "$src" --dest "$d/$name.glb" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/$name.glb" ] \
+    && "$B/wmdlt" ENCODE "$d/$name.glb" --dest "$d/a/$name.glg" --overwrite >/dev/null 2>&1 \
+    && "$B/wmdlt" ENCODE "$d/a/$name.glg" --dest "$d/mid-$name.glb" --overwrite >/dev/null 2>&1 \
+    && "$B/wmdlt" ENCODE "$d/mid-$name.glb" --dest "$d/b/$name.glg" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/a/$name.glg" "$d/b/$name.glg"; then
+      fok "$name decode -> GLB -> identical re-encode"
+    else
+      fno "$name canonical fixed point" "second-generation bytes differ";
+    fi
+  done
+
   # Next Level Games PTLG texture container (.glt / .rlt) test.
   # The per-texture header is 16 bytes on GameCube and 32 on Wii; both are
   # exercised here, and each texture must come out as a TPL that wimgt can

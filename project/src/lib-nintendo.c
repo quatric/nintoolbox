@@ -122,6 +122,18 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_HGO, true, false, 0);
 		if (!memcmp (d, "ZTAB", 4))
 			return make_info (NFMT_ZTAB, true, false, 0);
+		// Next Level Games container (Super Mario Strikers' .glg, Mario
+		// Strikers Charged's .rlg): tag 0x8001b0xx for models and
+		// 0x8001b1xx for stages, then a u32 length covering the rest of the
+		// file. These are never compressed, but the leading 0x80 and the
+		// bytes after it keep tripping the one-byte compression guesses
+		// further down -- as LZOVL, DIFF8, LZ10 and LZMA in turn -- and each
+		// then fails to decompress and aborts the load before any model code
+		// sees the file. Match on content here, since the extension test
+		// just below never fires from GetByMagicFF(), which passes no name.
+		if (size >= 8 && d[0] == 0x80 && d[1] == 0x01 && (d[2] & 0xf0) == 0xb0
+			&& (u64) rd_be32 (d + 4) + 8 <= size)
+			return make_info (NFMT_GLG, true, false, 0);
 		if (ext && (!strcasecmp (ext, ".glg") || !strcasecmp (ext, ".rlg")))
 			return make_info (NFMT_GLG, true, false, 0);
 		if (ext && !strcasecmp (ext, ".mdr"))
@@ -309,13 +321,7 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_PUCRUNCH, false, true, (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);
 		if (d[0] == 0x19 && size >= 4 && CxIsCompressedLZX (d, size))
 			return make_info (NFMT_LZX, false, true, (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);
-		// Same false-positive risk class as the other fixes in this function:
-		// Next Level Games' GLG container tag (0x8001b0xx, Super Mario
-		// Strikers .glg models) starts with the DIFF8 marker byte 0x80 and
-		// happens to carry 0x01b0 in the following two bytes -- an
-		// implausible "decompressed size" high word (0xb0010000+) for the
-		// small, fixed-size DIFF8 streams this format is actually used for.
-		if (d[0] == 0x80 && size >= 4 && !(d[1] == 0x01 && d[2] == 0xb0))
+		if (d[0] == 0x80 && size >= 4)
 			return make_info (NFMT_DIFF8, false, true, (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);
 		if (d[0] == 0x81 && size >= 4)
 			return make_info (NFMT_DIFF16, false, true, (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);

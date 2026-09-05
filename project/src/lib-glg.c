@@ -94,6 +94,32 @@ static glg_chunk_t glg_find_chunk (const u8 *data, u32 size, u32 key, bool is_wi
 	return none;
 }
 
+// True when walking the inner chunks with (or without) Wii 4-byte section
+// padding consumes the container exactly, which is what distinguishes the
+// two layouts.
+static bool glg_walk_ends_clean (const u8 *data, u32 size, bool is_wii)
+{
+	if (size < 8)
+		return false;
+
+	const u32 outer_len = glg_be32 (data + 4);
+	const u32 end = 8 + outer_len <= size ? 8 + outer_len : size;
+	u32 off = 8;
+	uint seen = 0;
+
+	while (off + 8 <= end)
+	{
+		const u32 len = glg_be32 (data + off + 4);
+		if (off + 8 + (u64) len > end)
+			return false;
+		off += 8 + len;
+		if (is_wii)
+			off = (off + 3) & ~3u;
+		seen++;
+	}
+	return seen > 0 && off == end;
+}
+
 //-----------------------------------------------------------------------------
 // Mesh table entry, 0x4a (74) bytes on GameCube. Field offsets confirmed
 // against FUN_801bfdf0/FUN_801c1e5c and StrikersRLG.cs; fields past
@@ -172,28 +198,81 @@ enumError DecodeGLG (const u8 *data, uint size, ccp out_glb_path)
 	if (!data || size < 16 || !out_glb_path)
 		return ERR_NOTHING_TO_DO;
 
-	// Map containers (0x8001b1xx, used for stages with >50 models) and
-	// external-skeleton characters aren't handled by this first pass.
-	const u32 outer_tag = glg_be32 (data) & 0x80ffffff;
+	// Stage files wrap the model container in an outer 0x8001b100 block; the
+	// game's loader descends into it the same way (FUN_801bfdf0 advances the
+	// cursor by one header when the tag matches). Every stage in Super Mario
+	// Strikers holds exactly one child, so step into it and carry on.
+	u32 outer_tag = glg_be32 (data) & 0x80ffffff;
+	if (outer_tag == 0x8001b100)
+	{
+		const u32 outer_len = glg_be32 (data + 4);
+		if ((u64) 8 + outer_len > size || outer_len < 8)
+			return ERR_NOTHING_TO_DO;
+		data += 8;
+		size = outer_len;
+		outer_tag = glg_be32 (data) & 0x80ffffff;
+	}
 	if (outer_tag != 0x8001b000 && outer_tag != 0x8001b001)
 		return ERR_NOTHING_TO_DO;
 
+	// GameCube and Wii differ in whether sections are padded to a 4-byte
+	// boundary, in the model entry size (16 vs 12), and in the vertex
+	// attribute record size (6 vs 8). No single one of those is a reliable
+	// discriminator on its own -- plenty of Wii files are naturally
+	// 4-aligned, so the unpadded walk "succeeds" for them too -- so score
+	// both layouts on whether they are internally consistent end to end and
+	// take the one that holds together.
+	//
+	// The mesh entry size is itself not a constant: it is the mesh chunk
+	// divided by the mesh count summed over the model table, exactly as the
+	// game and StrikersRLG.cs compute it. Super Mario Strikers' props use
+	// 74-byte entries while its character models use 66, so assuming either
+	// value drops a large part of the retail corpus.
 	bool is_wii = false;
-	glg_chunk_t mesh_chunk = glg_find_chunk (data, size, 0x1b004, false);
-	if (mesh_chunk.data && mesh_chunk.size > 0 && (mesh_chunk.size % GLG_MESH_SIZE) == 0)
+	u32 mesh_entry_size = 0;
+	glg_chunk_t mesh_chunk = { 0, 0 };
+	for (uint pass = 0; pass < 2; pass++)
 	{
-		is_wii = false;
-	}
-	else
-	{
-		mesh_chunk = glg_find_chunk (data, size, 0x1b004, true);
-		if (mesh_chunk.data && mesh_chunk.size > 0 && (mesh_chunk.size % RLG_MESH_SIZE) == 0)
-			is_wii = true;
-		else
-			return ERR_NOTHING_TO_DO;
-	}
+		const bool wii = pass != 0;
+		if (!glg_walk_ends_clean (data, size, wii))
+			continue;
 
-	const u32 mesh_entry_size = is_wii ? RLG_MESH_SIZE : GLG_MESH_SIZE;
+		const glg_chunk_t mc = glg_find_chunk (data, size, 0x1b004, wii);
+		const glg_chunk_t pc = glg_find_chunk (data, size, 0x1b003, wii);
+		if (!mc.data || !mc.size || !pc.data)
+			continue;
+
+		const u32 model_entry_size = wii ? 12 : 16;
+		u32 total_meshes = 0;
+		for (u32 m = 0; m + model_entry_size <= pc.size; m += model_entry_size)
+			total_meshes += wii ? glg_be32 (pc.data + m + 4) : glg_be32 (pc.data + m);
+		if (!total_meshes || mc.size % total_meshes)
+			continue;
+
+		const u32 entry = mc.size / total_meshes;
+		if (entry < 16 || entry > 256)
+			continue;
+
+		// Cross-check against the attribute table: the per-mesh attribute
+		// counts must tile the VAPD chunk exactly at this layout's record
+		// size. This is what actually separates the two platforms.
+		const glg_chunk_t vc = glg_find_chunk (data, size, 0x1b005, wii);
+		if (!vc.data)
+			continue;
+		u32 attr_total = 0;
+		for (u32 i = 0; i < total_meshes; i++)
+			attr_total += mc.data[i * entry + 11];
+		if (attr_total * (wii ? RLG_VAPD_SIZE : GLG_VAPD_SIZE) != vc.size)
+			continue;
+
+		is_wii = wii;
+		mesh_entry_size = entry;
+		mesh_chunk = mc;
+		break;
+	}
+	if (!mesh_chunk.data)
+		return ERR_NOTHING_TO_DO;
+
 	const u32 vapd_entry_size = is_wii ? RLG_VAPD_SIZE : GLG_VAPD_SIZE;
 	glg_chunk_t vapd_chunk = glg_find_chunk (data, size, 0x1b005, is_wii);
 	glg_chunk_t vert_chunk = glg_find_chunk (data, size, 0x1b006, is_wii);
@@ -233,13 +312,21 @@ enumError DecodeGLG (const u8 *data, uint size, ccp out_glb_path)
 		for (uint a = 0; a < num_attrs; a++)
 			glg_read_vapd (vapd_chunk.data + vapd_mesh_off + a * vapd_entry_size, attrs + a);
 
-		const glg_vapd_t *pos_attr = NULL, *uv_attr = NULL;
+		const glg_vapd_t *pos_attr = NULL, *uv_attr = NULL, *nrm_attr = NULL;
 		for (uint a = 0; a < num_attrs; a++)
 		{
 			if ((attrs[a].type == GLG_ATTR_POSITION || attrs[a].type == 0x67) && !pos_attr)
 				pos_attr = attrs + a;
 			else if ((attrs[a].type == GLG_ATTR_TEXCOORD0 || attrs[a].type == 0x26 || attrs[a].type == 0xcc) && !uv_attr)
 				uv_attr = attrs + a;
+			// Only float3 normals are decoded. The packed 3-byte variant the
+			// GameCube build uses is left alone: decoding it as 3x s8 (either
+			// /127 or /255, renormalized) renders visibly wrong, with
+			// backface-style black patches, so its encoding is still unknown
+			// and emitting a guess is worse than emitting none.
+			else if ((attrs[a].type == GLG_ATTR_NORMAL || attrs[a].type == 0xfe) && !nrm_attr
+				&& attrs[a].stride == 12)
+				nrm_attr = attrs + a;
 		}
 		if (!pos_attr || !pos_attr->stride || (pos_attr->stride != 6 && pos_attr->stride != 12))
 			continue;
@@ -306,6 +393,25 @@ enumError DecodeGLG (const u8 *data, uint size, ccp out_glb_path)
 			}
 		}
 
+		vec3_t *normals = NULL;
+		if (nrm_attr
+			&& (u64) nrm_attr->offset + (u64) vertex_count * nrm_attr->stride <= vert_chunk.size)
+		{
+			normals = MALLOC (vertex_count * sizeof (vec3_t));
+			for (u32 v = 0; v < vertex_count; v++)
+			{
+				const u8 *p = vert_chunk.data + nrm_attr->offset + (u64) v * nrm_attr->stride;
+				// Same -90 deg X rotation the positions get, so normals stay
+				// consistent with the geometry they belong to.
+				const float x = glg_bef32 (p);
+				const float y = glg_bef32 (p + 4);
+				const float z = glg_bef32 (p + 8);
+				normals[v].x = x;
+				normals[v].y = z;
+				normals[v].z = -y;
+			}
+		}
+
 		mesh_t *mesh = meshes + num_out_meshes;
 		snprintf (mesh->name, sizeof (mesh->name), "mesh%u", i);
 		mesh->material_idx = -1;
@@ -313,13 +419,21 @@ enumError DecodeGLG (const u8 *data, uint size, ccp out_glb_path)
 		vertex_t *verts = MALLOC ((size_t) (m->face_count - 2) * 3 * sizeof (vertex_t));
 		size_t num_verts = 0;
 
+		// face_type selects the primitive: 0 is a plain triangle list, 1 a
+		// triangle strip. Reading a list as a strip still yields a roughly
+		// right-looking shape -- which is how the two were confused here at
+		// first -- but invents a triangle per index rather than per three:
+		// ball.glg's 360 indices are 120 clean list triangles with not one
+		// degenerate group, against 305 fabricated strip triangles.
+		const bool is_strip = m->face_type != 0;
 		const u8 *idx_data = idx_chunk.data + m->face_off;
-		for (u16 t = 0; t + 2 < m->face_count; t++)
+		const uint step = is_strip ? 1 : 3;
+		for (u32 t = 0; t + 2 < m->face_count; t += step)
 		{
 			u16 i0 = (m->face_format == 0) ? glg_be16 (idx_data + t * 2) : idx_data[t];
 			u16 i1 = (m->face_format == 0) ? glg_be16 (idx_data + (t + 1) * 2) : idx_data[t + 1];
 			u16 i2 = (m->face_format == 0) ? glg_be16 (idx_data + (t + 2) * 2) : idx_data[t + 2];
-			if (t & 1)
+			if (is_strip && (t & 1))
 			{
 				const u16 tmp = i1;
 				i1 = i2;
@@ -335,7 +449,7 @@ enumError DecodeGLG (const u8 *data, uint size, ccp out_glb_path)
 			for (uint k = 0; k < 3; k++)
 			{
 				v[k].position_idx = tri_idx[k];
-				v[k].normal_idx = -1; // see lib-glg.h: normal encoding unconfirmed
+				v[k].normal_idx = normals ? (int) tri_idx[k] : -1;
 				v[k].texcoord_idx = texcoords ? (int) tri_idx[k] : -1;
 				v[k].tangent_idx = v[k].matrix_idx = -1;
 				v[k].color_idx[0] = v[k].color_idx[1] = -1;
@@ -350,12 +464,15 @@ enumError DecodeGLG (const u8 *data, uint size, ccp out_glb_path)
 			FREE (verts);
 			FREE (positions);
 			FREE (texcoords);
+			FREE (normals);
 			continue;
 		}
 
 		mesh->positions = positions;
 		mesh->num_positions = vertex_count;
 		mesh->texcoords = texcoords;
+		mesh->normals = normals;
+		mesh->num_normals = normals ? vertex_count : 0;
 		mesh->num_texcoords = texcoords ? vertex_count : 0;
 		mesh->vertices = verts;
 		mesh->num_vertices = num_verts;
@@ -380,6 +497,7 @@ enumError DecodeGLG (const u8 *data, uint size, ccp out_glb_path)
 	{
 		FREE (meshes[i].positions);
 		FREE (meshes[i].texcoords);
+		FREE (meshes[i].normals);
 		FREE (meshes[i].vertices);
 	}
 	FREE (meshes);
@@ -396,12 +514,8 @@ enumError DecodeGLG (const u8 *data, uint size, ccp out_glb_path)
 // true canonical fixed point, the same standard this project's other
 // decode/encode pairs (MSH, MOD, HSD, ...) are held to.
 //
-// Triangle-strip index encoding: each triangle after the first is joined to
-// the stream with a 2-index degenerate bridge {prev_c, next_a}, and every
-// odd-numbered triangle has its b/c indices pre-swapped so that DecodeGLG's
-// own odd-position winding flip cancels out -- verified by hand-tracing the
-// decode sliding window across a bridge (see the design discussion in this
-// change) rather than guessed.
+// Geometry is written with the format's own triangle-list primitive
+// (face_type 0), which DecodeGLG reads back one-for-one.
 
 typedef struct glg_out_buf_t
 {
@@ -576,31 +690,13 @@ enumError EncodeGLG (const model_t *model, ccp out_path)
 		FREE (out_pos);
 		FREE (out_uv);
 
-		// Index stream: bridged tristrip, see the function-level comment.
+		// Index stream: a plain triangle list, matching the face_type 0 the
+		// mesh entry declares. The format's own list primitive is a direct
+		// inverse of the decoder, so no strip bridging or winding
+		// compensation is needed.
 		const u32 face_off = idx_buf.size;
-		const size_t num_tris = num_corners / 3;
-		u32 prev_c = 0;
-		for (size_t ti = 0; ti < num_tris; ti++)
-		{
-			u32 a = combined[ti * 3 + 0];
-			u32 b = combined[ti * 3 + 1];
-			u32 c = combined[ti * 3 + 2];
-			if (ti & 1)
-			{
-				const u32 tmp = b;
-				b = c;
-				c = tmp;
-			}
-			if (ti)
-			{
-				glg_buf_put16 (&idx_buf, (u16) prev_c);
-				glg_buf_put16 (&idx_buf, (u16) a);
-			}
-			glg_buf_put16 (&idx_buf, (u16) a);
-			glg_buf_put16 (&idx_buf, (u16) b);
-			glg_buf_put16 (&idx_buf, (u16) c);
-			prev_c = c;
-		}
+		for (size_t c = 0; c < num_corners; c++)
+			glg_buf_put16 (&idx_buf, (u16) combined[c]);
 		FREE (combined);
 
 		const u32 face_count = (idx_buf.size - face_off) / 2;
