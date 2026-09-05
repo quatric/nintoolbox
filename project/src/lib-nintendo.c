@@ -317,7 +317,16 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		// the LZH8 wrapped-stream fallback just below: skip the unrecognized
 		// prefix and look for the real compression magic just past it,
 		// instead of special-casing the wrapper tag by name at every caller.
-		if (d[0] != 0x10 && d[0] != 0x11 && size >= 8 && (d[4] == 0x10 || d[4] == 0x11))
+		// Same false-positive risk class as the LZMA fix above: confirmed on
+		// this repo's own re-encoded ExciteBots "excite_gpmesh.msh" (Monster
+		// Games collision mesh), whose raw header happens to carry the
+		// unrelated 32-bit value 0x00000010 at this offset, satisfying the
+		// CX00-prefix pattern and sending a plain model file through LZ10
+		// decompression instead of the MSH decoder. A genuine LZ10/LZ11
+		// stream always declares a nonzero decompressed size; reject the
+		// zero-size case as the cheap disambiguator.
+		if (d[0] != 0x10 && d[0] != 0x11 && size >= 8 && (d[4] == 0x10 || d[4] == 0x11)
+			&& ((u32)d[5] | (u32)d[6] << 8 | (u32)d[7] << 16))
 		{
 			nfmt_info_t inf = make_info (d[4] == 0x10 ? NFMT_LZ10 : NFMT_LZ11, false, true,
 				(u32)d[5] | (u32)d[6] << 8 | (u32)d[7] << 16);
