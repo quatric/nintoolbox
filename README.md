@@ -102,7 +102,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **BNFM** | `.bnfm` | **GLB** | — | — | — | Nd Cube Wii U 3D model format (*Animal Crossing: Amiibo Festival*, *Mario Party 10*) |
 | **G1M** | `.g1m` | **GLB** | — | — | — | Koei Tecmo 3D model format (*Hyrule Warriors*, *Fire Emblem Warriors*) |
 | **G4PKM** | `.g4pkm` | **GLB** | — | — | — | Level-5 / Nintendo Pokémon & Yo-kai Watch 3D model format |
-| **GLG** | `.glg` | **GLB** | — | — | — | Next Level Games 3D model format (*Super Mario Strikers*) |
+| **GLG / RLG** | `.glg`, `.rlg` | **GLB** | ✅ | — | — | Next Level Games 3D model format (*Super Mario Strikers*, *Mario Strikers Charged*) |
 | **HGO** | `.hgo` | **GLB** | — | — | — | Camelot GameCube/Wii 3D model format (*Mario Golf*, *Mario Tennis*) |
 | **HSD** | `.dat` | **GLB** | ✅ | ✅ | ✅ | HAL Laboratory `sysdolphin` object graph (GameCube) |
 | **HSF** | `.hsf` | **GLB** | ✅ | ✅ | ✅ | Hudson Soft 3D model format (GameCube / Wii) |

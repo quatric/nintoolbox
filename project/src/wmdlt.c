@@ -41,6 +41,7 @@
 #include "lib-hsf.h"
 #include "lib-hsd.h"
 #include "lib-excite.h"
+#include "lib-glg.h"
 #include "lib-brres-model.h"
 #include "lib-brres-inject.h"
 #include "lib-nsbmd.h"
@@ -418,6 +419,7 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		const bool is_hsd = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".dat");
 		const bool is_msh = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".msh");
 		const bool is_mod = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".mod");
+		const bool is_glg = dest_len > 4 && (!strcasecmp (dest + dest_len - 4, ".glg") || !strcasecmp (dest + dest_len - 4, ".rlg"));
 		const bool is_bfres = dest_len > 6 && !strcasecmp (dest + dest_len - 6, ".bfres");
 		const bool is_nud = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".nud");
 		const bool is_model_dest = is_dae || is_glb;
@@ -467,6 +469,17 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 							ERROR0 (err, "Failed to encode MSH: %s\n", dest);
 						else if (verbose >= 0)
 							fprintf (stdlog, "%sENCODE MSH:%s -> %s\n", verbose > 0 ? "\n" : "",
+								arg, dest);
+						continue;
+					}
+					if (is_glg)
+					{
+						err = EncodeGLG (in_model, dest);
+						FreeModel (in_model);
+						if (err > ERR_WARNING)
+							ERROR0 (err, "Failed to encode GLG: %s\n", dest);
+						else if (verbose >= 0)
+							fprintf (stdlog, "%sENCODE GLG:%s -> %s\n", verbose > 0 ? "\n" : "",
 								arg, dest);
 						continue;
 					}
@@ -637,6 +650,24 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		const bool is_nud_in = is_ext (arg, ".nud")
 			|| (raw.data_size >= 4
 				&& (!memcmp (raw.data, "NDP3", 4) || !memcmp (raw.data, "NDWU", 4)));
+
+		const bool is_glg_in = is_ext (arg, ".glg") || is_ext (arg, ".rlg")
+			|| (raw.data_size >= 4 && raw.data[0] == 0x80 && raw.data[1] == 0
+				&& raw.data[2] == 0xb0 && (raw.data[3] == 0 || raw.data[3] == 1));
+
+		if (is_model_dest && is_glg_in)
+		{
+			if (!testmode)
+			{
+				err = DecodeGLG (raw.data, (uint)raw.data_size, dest);
+				if (err > ERR_WARNING)
+				{
+					ERROR0 (err, "Failed to decode GLG: %s\n", arg);
+					return err;
+				}
+			}
+			continue;
+		}
 
 		if (is_model_dest && is_nud_in)
 		{

@@ -1144,6 +1144,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 'R', 'C', 'H', 'E' },
 		0, MinusString, MinusString, "Nintendo Wii ChannelScript (.cs / RCHE)" },
 
+	// FF_RLG = 208 (Next Level Games 3D Model)
+	{ FF_RLG, FF_RLG, 0, "RLG", ".rlg", ".szs", ".rlg",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
+		{ 0 },
+		0, MinusString, MinusString, "Next Level Games 3D Model (Mario Strikers Charged .rlg)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1272,7 +1278,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_XIMG, "XIMG", "XI", 0x3809 },
 	{ FF_HGO, "HGO", "0OGH", 0x3001 },
 	{ FF_ZTAB, "ZTAB", 0, 0xe05 },
-	{ FF_GLG, "GLG", 0, 0x3001 },
+	{ FF_GLG, "GLG", "RLG", 0x3001 },
 	{ FF_MDR, "MDR", 0, 0xe05 },
 	{ FF_MSH, "MSH", "PMSH", 0x3001 },
 	{ FF_MOD, "MOD", "NDL3", 0x3001 },
@@ -1290,6 +1296,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_KPBIN, "KPBIN", "KP_M", 0xe05 },
 	{ FF_KPMAP, "KPMAP", 0, 0x3001 },
 	{ FF_CHANS, "CHANS", "RCHE", 0xe05 },
+	{ FF_RLG, "RLG", 0, 0x3001 },
 
 	{ 0, 0, 0, 0 }
 };

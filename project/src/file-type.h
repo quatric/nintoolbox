@@ -299,6 +299,7 @@ typedef enum file_format_t
 	FF_KPBIN, // 205 - Koopatlas Binary World Map (.kpbin / KP_m)
 	FF_KPMAP, // 206 - Koopatlas Map Project (.kpmap / JSON)
 	FF_CHANS, // 207 - Nintendo Wii ChannelScript (.cs / RCHE)
+	FF_RLG, // 208 - Next Level Games 3D Model (Mario Strikers Charged .rlg)
 
 	//--- number of elements
 

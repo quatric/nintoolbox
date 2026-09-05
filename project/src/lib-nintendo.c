@@ -122,7 +122,7 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_HGO, true, false, 0);
 		if (!memcmp (d, "ZTAB", 4))
 			return make_info (NFMT_ZTAB, true, false, 0);
-		if (ext && !strcasecmp (ext, ".glg"))
+		if (ext && (!strcasecmp (ext, ".glg") || !strcasecmp (ext, ".rlg")))
 			return make_info (NFMT_GLG, true, false, 0);
 		if (ext && !strcasecmp (ext, ".mdr"))
 			return make_info (NFMT_MDR, true, false, 0);
@@ -303,7 +303,13 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_PUCRUNCH, false, true, (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);
 		if (d[0] == 0x19 && size >= 4 && CxIsCompressedLZX (d, size))
 			return make_info (NFMT_LZX, false, true, (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);
-		if (d[0] == 0x80 && size >= 4)
+		// Same false-positive risk class as the other fixes in this function:
+		// Next Level Games' GLG container tag (0x8001b0xx, Super Mario
+		// Strikers .glg models) starts with the DIFF8 marker byte 0x80 and
+		// happens to carry 0x01b0 in the following two bytes -- an
+		// implausible "decompressed size" high word (0xb0010000+) for the
+		// small, fixed-size DIFF8 streams this format is actually used for.
+		if (d[0] == 0x80 && size >= 4 && !(d[1] == 0x01 && d[2] == 0xb0))
 			return make_info (NFMT_DIFF8, false, true, (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);
 		if (d[0] == 0x81 && size >= 4)
 			return make_info (NFMT_DIFF16, false, true, (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);
