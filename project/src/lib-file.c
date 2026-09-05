@@ -1255,6 +1255,16 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x57544120: // "WTA "
 				return FF_WTA;
 
+			// Nintendo Binary Audio Resource Archive (BARS)
+			case 0x42415253: // "BARS"
+				return FF_BARS;
+
+			// Game Freak Pokemon Archive (GFLXPACK)
+			case 0x47464c58: // "GFLX"
+				if (data_size >= 8 && !memcmp (data, "GFLXPACK", 8))
+					return FF_GFPAK;
+				break;
+
 			// Koei Tecmo 3D Model (G1M_ / _M1G / SM1G / GM1G)
 			case 0x47314d5f: // "G1M_"
 			case 0x47314d00: // "G1M\0"

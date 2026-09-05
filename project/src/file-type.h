@@ -309,6 +309,8 @@ typedef enum file_format_t
 	FF_VIBS, // 215 - Nintendo Switch Joy-Con Vibration Archive (.vibs)
 	FF_PG_DAT, // 216 - PlatinumGames DAT Archive (.dat / DAT)
 	FF_WTA, // 217 - PlatinumGames WT Archive (.wta / WTA )
+	FF_GFPAK, // 218 - Game Freak Pokemon Archive (.gfpak / GFLXPACK)
+	FF_BARS, // 219 - Nintendo Binary Audio Resource Archive (.bars / BARS)
 
 	//--- number of elements
 

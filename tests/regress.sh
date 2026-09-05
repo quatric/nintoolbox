@@ -6004,6 +6004,54 @@ with open(sys.argv[1], "wb") as f:
   else
     fno "PlatinumGames WT Archive" "failed to extract .wta sample";
   fi
+
+  # Game Freak Pokemon Archive (.gfpak / GFLXPACK) test
+  mkdir -p "$d/gfpak_test"
+  python3 -c '
+import sys, struct
+header = struct.pack("<8sQIIQQQQ", b"GFLXPACK", 0x10, 1, 2, 56, 0, 0, 0)
+entry = struct.pack("<HHIIIQ", 9, 1, 13, 13, 0xcc, 80)
+payload = b"GFPAK_PAYLOAD"
+with open(sys.argv[1], "wb") as f:
+    f.write(header + entry + payload)
+' "$d/gfpak_test/sample.gfpak"
+  if "$B/wszst" x "$d/gfpak_test/sample.gfpak" --dest "$d/gfpak_test/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/gfpak_test/out/file_0000.bin" ] \
+  && [ "$(cat "$d/gfpak_test/out/file_0000.bin")" = "GFPAK_PAYLOAD" ]; then
+    fok "Game Freak Pokemon Archive (.gfpak) extraction"
+  else
+    fno "Game Freak Pokemon Archive" "failed to extract .gfpak sample";
+  fi
+
+  # Nintendo Binary Audio Resource Archive (.bars / BARS) test
+  mkdir -p "$d/bars_test"
+  python3 -c '
+import sys, struct
+bars_hdr = struct.pack("<4sIHHI", b"BARS", 0x70, 0xFEFF, 0x0102, 1)
+hash_val = struct.pack("<I", 0x12345678)
+amta_off = 0x20
+audio_off = 0x50
+pairs = struct.pack("<II", amta_off, audio_off)
+pad1 = b"\x00" * (amta_off - (0x10 + 4 + 8))
+
+amta_body = bytearray(0x30)
+struct.pack_into("<4sHHI", amta_body, 0, b"AMTA", 0xFEFF, 0x0100, 0x30)
+struct.pack_into("<I", amta_body, 0x24, 4)
+name_str = b"bgm_test\x00"
+amta_body[0x28:0x28+len(name_str)] = name_str
+
+audio_data = b"BWAV" + struct.pack("<II", 0, 20) + b"12345678"
+bars_data = bars_hdr + hash_val + pairs + pad1 + bytes(amta_body) + audio_data
+with open(sys.argv[1], "wb") as f:
+    f.write(bars_data)
+' "$d/bars_test/sample.bars"
+  if "$B/wszst" x "$d/bars_test/sample.bars" --dest "$d/bars_test/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/bars_test/out/bgm_test.bwav" ] \
+  && [ -f "$d/bars_test/out/bgm_test.amta" ]; then
+    fok "Nintendo Audio Resource Archive (.bars) extraction"
+  else
+    fno "Nintendo Audio Resource Archive" "failed to extract .bars sample";
+  fi
 }
 t_byte_fixed_points
 

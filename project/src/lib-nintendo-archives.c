@@ -2059,6 +2059,276 @@ enumError ExtractWTAArchive (ccp arg, ccp basedir, uint depth)
 	return ERR_OK;
 }
 
+// ----------------------------------------------------------------------------
+// 17. Game Freak Pokemon Archive (.gfpak / GFLXPACK)
+// ----------------------------------------------------------------------------
+enumError ExtractGFPAKArchive (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext_match (arg, ".gfpak") && !is_ext_match (arg, ".bin") && !is_ext_match (arg, ".pak"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (raw_size < 40 || memcmp (raw, "GFLXPACK", 8))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	// GFLXPACK Header (little-endian):
+	// 0x00: Magic ("GFLXPACK", 8 bytes)
+	// 0x08: u64 dummy (often 0x10)
+	// 0x10: u32 file_count
+	// 0x14: u32 dummy (often 2)
+	// 0x18: u64 info_offset
+	// 0x20: u64 name_hash_table_offset
+	const u32 file_count = rd_le32 (raw + 16);
+	const u64 info_offset = rd_le64 (raw + 24);
+
+	if (!file_count || file_count > 100000 || info_offset >= raw_size)
+	{
+		FREE (raw);
+		return ERR_INVALID_DATA;
+	}
+
+	char dest[PATH_MAX];
+	get_dest_dir (dest, sizeof (dest), arg, basedir);
+	CreatePath (dest, true);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT GFPAK:%s (%u files) -> %s/\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, file_count, dest);
+
+	for (uint i = 0; i < file_count; i++)
+	{
+		const u64 entry_pos = info_offset + (u64)i * 24;
+		if (entry_pos + 24 > raw_size)
+			break;
+
+		// Entry:
+		// 0x00: u16 dummy
+		// 0x02: u16 zip (1 = uncompressed/raw, 2 = lz4/zlib, 3 = oodle/other)
+		// 0x04: u32 uncomp_size
+		// 0x08: u32 comp_size
+		// 0x0C: u32 dummy
+		// 0x10: u64 offset
+		const u16 zip = rd_le16 (raw + entry_pos + 2);
+		const u32 uncomp_sz = rd_le32 (raw + entry_pos + 4);
+		u32 comp_sz = rd_le32 (raw + entry_pos + 8);
+		const u64 file_off = rd_le64 (raw + entry_pos + 16);
+
+		if (file_off >= raw_size)
+			continue;
+		if (file_off + comp_sz > raw_size)
+			comp_sz = (u32)(raw_size - file_off);
+
+		char name[PATH_MAX];
+		snprintf (name, sizeof (name), "file_%04u.bin", i);
+
+		char out_path[PATH_MAX];
+		snprintf (out_path, sizeof (out_path), "%s/%s", dest, name);
+
+		char *slash = strrchr (out_path, '/');
+		if (slash)
+		{
+			*slash = 0;
+			CreatePath (out_path, true);
+			*slash = '/';
+		}
+
+		if (!testmode && comp_sz > 0)
+		{
+			if (zip != 1 && comp_sz != uncomp_sz && comp_sz >= 2 && raw[file_off] == 0x78)
+			{
+				u8 *decomp = 0;
+				uint decomp_sz = 0;
+				err = DecodeZlibGrow (&decomp, &decomp_sz, raw + file_off, comp_sz);
+				if (!err && decomp)
+				{
+					SaveFile (out_path, 0, 0, decomp, decomp_sz, 0);
+					FREE (decomp);
+				}
+				else
+				{
+					SaveFile (out_path, 0, 0, raw + file_off, comp_sz, 0);
+				}
+			}
+			else
+			{
+				SaveFile (out_path, 0, 0, raw + file_off, comp_sz, 0);
+			}
+		}
+	}
+
+	FREE (raw);
+	return ERR_OK;
+}
+
+// ----------------------------------------------------------------------------
+// 18. Nintendo Binary Audio Resource Archive (.bars / BARS)
+// ----------------------------------------------------------------------------
+enumError ExtractBARSArchive (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext_match (arg, ".bars") && !is_ext_match (arg, ".bin"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (raw_size < 16 || memcmp (raw, "BARS", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	// BARS Header:
+	// 0x00: Magic ("BARS", 4 bytes)
+	// 0x04: u32 file_size
+	// 0x08: u16 BOM (0xFEFF for big-endian, 0xFFFE for little-endian)
+	// 0x0A: u16 version
+	// 0x0C: u32 asset_count
+	const u16 bom = rd_be16 (raw + 8);
+	const bool big = (bom == 0xFEFF);
+
+	const u32 asset_count = big ? rd_be32 (raw + 12) : rd_le32 (raw + 12);
+	if (!asset_count || asset_count > 100000)
+	{
+		FREE (raw);
+		return ERR_INVALID_DATA;
+	}
+
+	char dest[PATH_MAX];
+	get_dest_dir (dest, sizeof (dest), arg, basedir);
+	CreatePath (dest, true);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT BARS:%s (%u assets, %s-endian) -> %s/\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, asset_count,
+			big ? "big" : "little", dest);
+
+	const uint hash_table_offset = 16;
+	const uint offset_pairs_table = hash_table_offset + asset_count * 4;
+
+	if (offset_pairs_table + asset_count * 8 > raw_size)
+	{
+		FREE (raw);
+		return ERR_INVALID_DATA;
+	}
+
+	for (uint i = 0; i < asset_count; i++)
+	{
+		const uint pair_pos = offset_pairs_table + i * 8;
+		const u32 amta_offset = big ? rd_be32 (raw + pair_pos) : rd_le32 (raw + pair_pos);
+		const u32 audio_offset = big ? rd_be32 (raw + pair_pos + 4) : rd_le32 (raw + pair_pos + 4);
+
+		char name[PATH_MAX];
+		bool name_found = false;
+
+		// Check AMTA metadata chunk for filename
+		if (amta_offset + 0x30 <= raw_size && !memcmp (raw + amta_offset, "AMTA", 4))
+		{
+			const u32 name_rel_ptr = big ? rd_be32 (raw + amta_offset + 0x24) : rd_le32 (raw + amta_offset + 0x24);
+			const uint name_abs = amta_offset + 0x24 + name_rel_ptr;
+			if (name_abs < raw_size)
+			{
+				const char *str = (const char *)(raw + name_abs);
+				size_t slen = strnlen (str, sizeof (name) - 1);
+				if (slen > 0)
+				{
+					memcpy (name, str, slen);
+					name[slen] = 0;
+					name_found = true;
+				}
+			}
+		}
+
+		if (!name_found)
+			snprintf (name, sizeof (name), "audio_%04u", i);
+
+		// If audio_offset is valid, extract the audio asset (BWAV / BFWAV / etc.)
+		if (audio_offset != 0xFFFFFFFF && audio_offset < raw_size)
+		{
+			// Determine audio asset size: BWAV / BFWAV header contains size at offset 8 or 12
+			u32 audio_sz = 0;
+			ccp ext = ".bwav";
+			if (audio_offset + 16 <= raw_size)
+			{
+				if (!memcmp (raw + audio_offset, "BWAV", 4))
+				{
+					ext = ".bwav";
+					audio_sz = big ? rd_be32 (raw + audio_offset + 8) : rd_le32 (raw + audio_offset + 8);
+				}
+				else if (!memcmp (raw + audio_offset, "FWAV", 4))
+				{
+					ext = ".bfwav";
+					audio_sz = big ? rd_be32 (raw + audio_offset + 8) : rd_le32 (raw + audio_offset + 8);
+				}
+			}
+
+			if (audio_sz == 0 || audio_offset + audio_sz > raw_size)
+			{
+				// Bound by raw_size or next asset/offset
+				audio_sz = (u32)(raw_size - audio_offset);
+			}
+
+			char out_path[PATH_MAX];
+			// Avoid double extension if name already has one
+			if (strchr (name, '.'))
+				snprintf (out_path, sizeof (out_path), "%s/%s", dest, name);
+			else
+				snprintf (out_path, sizeof (out_path), "%s/%s%s", dest, name, ext);
+
+			char *slash = strrchr (out_path, '/');
+			if (slash)
+			{
+				*slash = 0;
+				CreatePath (out_path, true);
+				*slash = '/';
+			}
+
+			if (!testmode && audio_sz > 0)
+				SaveFile (out_path, 0, 0, raw + audio_offset, audio_sz, 0);
+		}
+
+		// Also extract AMTA metadata chunk alongside if available
+		if (amta_offset < raw_size && amta_offset + 12 <= raw_size && !memcmp (raw + amta_offset, "AMTA", 4))
+		{
+			u32 amta_sz = big ? rd_be32 (raw + amta_offset + 8) : rd_le32 (raw + amta_offset + 8);
+			if (amta_sz == 0 || amta_offset + amta_sz > raw_size)
+				amta_sz = (u32)(raw_size - amta_offset);
+
+			char out_amta[PATH_MAX];
+			char clean_name[PATH_MAX];
+			snprintf (clean_name, sizeof (clean_name), "%s", name);
+			char *dot = strrchr (clean_name, '.');
+			if (dot)
+				*dot = 0;
+			snprintf (out_amta, sizeof (out_amta), "%s/%s.amta", dest, clean_name);
+
+			char *slash = strrchr (out_amta, '/');
+			if (slash)
+			{
+				*slash = 0;
+				CreatePath (out_amta, true);
+				*slash = '/';
+			}
+
+			if (!testmode && amta_sz > 0)
+				SaveFile (out_amta, 0, 0, raw + amta_offset, amta_sz, 0);
+		}
+	}
+
+	FREE (raw);
+	return ERR_OK;
+}
+
 enumError CreateZLARCArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {

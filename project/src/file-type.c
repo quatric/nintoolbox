@@ -1204,6 +1204,18 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 'W', 'T', 'A', ' ' },
 		0, MinusString, MinusString, "PlatinumGames WT Archive (.wta / WTA )" },
 
+	// FF_GFPAK = 218 (Game Freak Pokemon Archive)
+	{ FF_GFPAK, FF_GFPAK, 0, "GFPAK", ".gfpak", ".szs", ".gfpak",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 8,
+		{ 'G', 'F', 'L', 'X', 'P', 'A', 'C', 'K' },
+		0, MinusString, MinusString, "Game Freak Pokemon Archive (.gfpak / GFLXPACK)" },
+
+	// FF_BARS = 219 (Nintendo Binary Audio Resource Archive)
+	{ FF_BARS, FF_BARS, 0, "BARS", ".bars", ".szs", ".bars",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 'B', 'A', 'R', 'S' },
+		0, MinusString, MinusString, "Nintendo Binary Audio Resource Archive (.bars / BARS)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1360,6 +1372,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_VIBS, "VIBS", 0, 0xe05 },
 	{ FF_PG_DAT, "PG-DAT", "PGDAT", 0xe05 },
 	{ FF_WTA, "WTA", 0, 0xe05 },
+	{ FF_GFPAK, "GFPAK", "GFLXPACK", 0xe05 },
+	{ FF_BARS, "BARS", 0, 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

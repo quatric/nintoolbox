@@ -22,6 +22,14 @@ static inline u16 rd_le16 (const u8 *p)
 {
 	return (u16)p[1] << 8 | p[0];
 }
+static inline u64 rd_be64 (const u8 *p)
+{
+	return (u64)rd_be32 (p) << 32 | (u64)rd_be32 (p + 4);
+}
+static inline u64 rd_le64 (const u8 *p)
+{
+	return (u64)rd_le32 (p) | (u64)rd_le32 (p + 4) << 32;
+}
 static inline void wr_be16 (u8 *p, u16 v)
 {
 	p[0] = v >> 8;
