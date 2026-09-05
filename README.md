@@ -122,7 +122,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 |---|---|---|---|---|
 | **ART / IMG** | `.art`, `.img` | ✅ | — | Monster Games GUI image format (Wii) |
 | **BCFNT / BFFNT / BRFNT** | `.bcfnt`, `.bffnt`, `.brfnt` | ✅ | — | NintendoWare font resource (3DS / Wii U / Wii) |
-| **BCLIM / CTPK** | `.bclim`, `.ctpk` | ✅ | — | NintendoWare NW4C texture container (3DS) |
+| **BCLIM / CTPK** | `.bclim`, `.ctpk` | ✅ | ✅ | NintendoWare NW4C texture container (3DS) |
 | **BFLIM** | `.bflim` | ✅ | — | NintendoWare NW4F texture format (Wii U) |
 | **BNTX** | `.bntx` | ✅ | — | NintendoSDK Tegra block-linear texture container (Switch) |
 | **BREFT** | `.breft` | ✅ | — | NintendoWare NW4R particle effect texture (Wii) |
