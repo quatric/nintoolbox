@@ -56,8 +56,7 @@ enumError ScanPAC (pac_t *pac, const u8 *data, uint size)
 
 		const u8 *np = h + 0x10;
 		uint nl = 0;
-		while (nl < sizeof (entries[i].name) && np[nl]
-			&& (isalnum (np[nl]) || np[nl] == '_' || np[nl] == '-' || np[nl] == '.'))
+		while (nl < sizeof (entries[i].name) && np[nl] >= 0x20 && np[nl] <= 0x7E && np[nl] != '/')
 			nl++;
 		if (nl && nl < sizeof (entries[i].name) && !np[nl])
 		{
