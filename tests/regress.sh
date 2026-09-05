@@ -6155,6 +6155,41 @@ with open(sys.argv[1], "wb") as f:
   else
     fno "Nintendo 3DS RomFS Archive" "failed to extract .romfs sample";
   fi
+
+  # Nintendo Switch XTX Texture Container (.xtx / DFvN) test
+  mkdir -p "$d/xtx_test"
+  python3 -c '
+import sys, struct
+xtx_hdr = struct.pack("<4sIII", b"DFvN", 0x10, 1, 0)
+hbvn = struct.pack("<4sIQQIII", b"HBvN", 0x34, 16, 0x24, 3, 0, 0)
+payload = b"XTX_PAYLOAD_TEST"
+with open(sys.argv[1], "wb") as f:
+    f.write(xtx_hdr + hbvn + payload)
+' "$d/xtx_test/sample.xtx"
+  if "$B/wszst" x "$d/xtx_test/sample.xtx" --dest "$d/xtx_test/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/xtx_test/out/texture_0000.bin" ] \
+  && [ "$(cat "$d/xtx_test/out/texture_0000.bin")" = "XTX_PAYLOAD_TEST" ]; then
+    fok "Nintendo Switch XTX Container (.xtx) extraction"
+  else
+    fno "Nintendo Switch XTX Container" "failed to extract .xtx sample";
+  fi
+
+  # Koei Tecmo / Gust Texture Volume Archive (.tvol) test
+  mkdir -p "$d/tvol_test"
+  python3 -c '
+import sys, struct
+tvol_hdr = struct.pack("<III", 1, 12, 16)
+payload = b"TVOL_PAYLOAD_123"
+with open(sys.argv[1], "wb") as f:
+    f.write(tvol_hdr + payload)
+' "$d/tvol_test/sample.tvol"
+  if "$B/wszst" x "$d/tvol_test/sample.tvol" --dest "$d/tvol_test/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/tvol_test/out/tex_0000.bin" ] \
+  && [ "$(cat "$d/tvol_test/out/tex_0000.bin")" = "TVOL_PAYLOAD_123" ]; then
+    fok "Koei Tecmo Texture Volume Archive (.tvol) extraction"
+  else
+    fno "Koei Tecmo Texture Volume Archive" "failed to extract .tvol sample";
+  fi
 }
 t_byte_fixed_points
 

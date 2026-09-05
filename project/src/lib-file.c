@@ -1286,6 +1286,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x49564643: // "IVFC"
 				return FF_ROMFS;
 
+			// Nintendo Switch XTX Texture Container (DFvN)
+			case 0x4446764e: // "DFvN"
+				return FF_XTX;
+
 			// Koei Tecmo 3D Model (G1M_ / _M1G / SM1G / GM1G)
 			case 0x47314d5f: // "G1M_"
 			case 0x47314d00: // "G1M\0"

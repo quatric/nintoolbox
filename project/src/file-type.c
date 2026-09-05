@@ -1246,6 +1246,18 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 'I', 'V', 'F', 'C' },
 		0, MinusString, MinusString, "Nintendo 3DS Read-Only File System (.romfs / IVFC)" },
 
+	// FF_XTX = 225 (Nintendo Switch XTX Texture Container)
+	{ FF_XTX, FF_XTX, 0, "XTX", ".xtx", ".szs", ".xtx",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 'D', 'F', 'v', 'N' },
+		0, MinusString, MinusString, "Nintendo Switch XTX Texture Container (.xtx / DFvN)" },
+
+	// FF_TVOL = 226 (Koei Tecmo / Gust Texture Volume Archive)
+	{ FF_TVOL, FF_TVOL, 0, "TVOL", ".tvol", ".szs", ".tvol",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
+		{ 0 },
+		0, MinusString, MinusString, "Koei Tecmo Texture Volume Archive (.tvol)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1409,6 +1421,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_NLOC, "NLOC", 0, 0x3001 },
 	{ FF_XLNK, "XLNK", "BSLNK", 0x3001 },
 	{ FF_ROMFS, "ROMFS", "IVFC", 0xe05 },
+	{ FF_XTX, "XTX", "DFVN", 0xe05 },
+	{ FF_TVOL, "TVOL", 0, 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

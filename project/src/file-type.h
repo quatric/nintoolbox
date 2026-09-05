@@ -316,6 +316,8 @@ typedef enum file_format_t
 	FF_NLOC, // 222 - Next Level Games Localization Text (.nloc / .loc / NLOC)
 	FF_XLNK, // 223 - Nintendo Effect Link Binary (.bslnk / .belnk / XLNK)
 	FF_ROMFS, // 224 - Nintendo 3DS Read-Only File System (.romfs / IVFC)
+	FF_XTX, // 225 - Nintendo Switch XTX Texture Container (.xtx / DFvN)
+	FF_TVOL, // 226 - Koei Tecmo / Gust Texture Volume Archive (.tvol)
 
 	//--- number of elements
 

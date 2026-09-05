@@ -68,6 +68,12 @@ enumError ExtractTXTGArchive (ccp arg, ccp basedir, uint depth);
 // Extract Nintendo 3DS RomFS Archive (.romfs / IVFC)
 enumError ExtractROMFSArchive (ccp arg, ccp basedir, uint depth);
 
+// Extract Nintendo Switch XTX Texture Container (.xtx / DFvN)
+enumError ExtractXTXArchive (ccp arg, ccp basedir, uint depth);
+
+// Extract Koei Tecmo / Gust Texture Volume Archive (.tvol)
+enumError ExtractTVOLArchive (ccp arg, ccp basedir, uint depth);
+
 // Repack / Create functions
 enumError CreateXPCKArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 enumError CreateZTABArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);

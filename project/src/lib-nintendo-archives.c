@@ -2878,6 +2878,143 @@ enumError ExtractROMFSArchive (ccp arg, ccp basedir, uint depth)
 	return ERR_OK;
 }
 
+// Extract Nintendo Switch XTX Texture Container (.xtx / DFvN)
+enumError ExtractXTXArchive (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext_match (arg, ".xtx") && !is_ext_match (arg, ".bin"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (raw_size < 16 || memcmp (raw, "DFvN", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	// XTX Header (16 bytes):
+	// 0x00: "DFvN"
+	// 0x04: u32 HeaderSize
+	// 0x08: u32 MajorVersion
+	// 0x0C: u32 MinorVersion
+	const u32 header_size = rd_le32 (raw + 4);
+	if (header_size < 16 || header_size >= raw_size)
+	{
+		FREE (raw);
+		return ERR_INVALID_DATA;
+	}
+
+	char dest[PATH_MAX];
+	get_dest_dir (dest, sizeof (dest), arg, basedir);
+	CreatePath (dest, true);
+
+	uint block_pos = header_size;
+	uint image_idx = 0;
+
+	// Loop through blocks (HBvN)
+	while (block_pos + 32 <= raw_size)
+	{
+		if (memcmp (raw + block_pos, "HBvN", 4))
+			break;
+
+		const u32 block_size = rd_le32 (raw + block_pos + 4);
+		const u64 data_size = rd_le64 (raw + block_pos + 8);
+		const s64 data_offset = (s64)rd_le64 (raw + block_pos + 16);
+		const u32 block_type = rd_le32 (raw + block_pos + 24);
+
+		// BlockType 3 is Texture Data block
+		if (block_type == 3 && data_size > 0)
+		{
+			const s64 abs_payload = (s64)block_pos + data_offset;
+			if (abs_payload >= 0 && (size_t)abs_payload + data_size <= raw_size)
+			{
+				char out_file[PATH_MAX];
+				snprintf (out_file, sizeof (out_file), "%s/texture_%04u.bin", dest, image_idx++);
+
+				if (!testmode)
+					SaveFile (out_file, 0, 0, raw + abs_payload, (uint)data_size, 0);
+			}
+		}
+
+		if (block_size == 0)
+			break;
+		block_pos += block_size;
+	}
+
+	FREE (raw);
+	return ERR_OK;
+}
+
+// Extract Koei Tecmo / Gust Texture Volume Archive (.tvol)
+enumError ExtractTVOLArchive (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext_match (arg, ".tvol"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (raw_size < 12)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	const u32 num_textures = rd_le32 (raw);
+	if (num_textures == 0 || num_textures > 10000 || 4 + num_textures * 8 > raw_size)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	get_dest_dir (dest, sizeof (dest), arg, basedir);
+	CreatePath (dest, true);
+
+	for (uint i = 0; i < num_textures; i++)
+	{
+		const u32 offset = rd_le32 (raw + 4 + i * 8);
+		const u32 size = rd_le32 (raw + 4 + i * 8 + 4);
+
+		if (size == 0 || offset >= raw_size)
+			continue;
+
+		const u32 to_write = offset + size <= raw_size ? size : (u32)(raw_size - offset);
+
+		// Name is stored at offset as null-terminated string (up to 48 bytes)
+		char name[64] = "";
+		if (offset + 48 <= raw_size)
+		{
+			const char *nptr = (const char *)(raw + offset);
+			size_t nlen = strnlen (nptr, 47);
+			if (nlen > 0)
+			{
+				memcpy (name, nptr, nlen);
+				name[nlen] = 0;
+			}
+		}
+
+		char out_file[PATH_MAX];
+		if (*name)
+			snprintf (out_file, sizeof (out_file), "%s/%s.bin", dest, name);
+		else
+			snprintf (out_file, sizeof (out_file), "%s/tex_%04u.bin", dest, i);
+
+		if (!testmode && to_write > 0)
+			SaveFile (out_file, 0, 0, raw + offset, to_write, 0);
+	}
+
+	FREE (raw);
+	return ERR_OK;
+}
+
 enumError CreateZLARCArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {
