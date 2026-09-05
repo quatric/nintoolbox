@@ -5964,6 +5964,46 @@ with open("'"$d"'/vibs_test/sample.vibs", "wb") as f:
   else
     fno "Joy-Con Vibration Archive" "failed to extract .vibs sample";
   fi
+
+  # PlatinumGames DAT Archive (.dat / DAT\0) test
+  mkdir -p "$d/pgdat_test"
+  python3 -c '
+import sys, struct
+hdr = struct.pack("<4sIIIII8s", b"DAT\x00", 1, 0x20, 0, 0, 0x24, b"\x00"*8)
+offs = struct.pack("<I", 0x28)
+szs = struct.pack("<I", 14)
+payload = b"PG_DAT_PAYLOAD"
+with open(sys.argv[1], "wb") as f:
+    f.write(hdr + offs + szs + payload)
+' "$d/pgdat_test/sample.dat"
+  if "$B/wszst" x "$d/pgdat_test/sample.dat" --dest "$d/pgdat_test/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/pgdat_test/out/file_0000.bin" ] \
+  && [ "$(cat "$d/pgdat_test/out/file_0000.bin")" = "PG_DAT_PAYLOAD" ]; then
+    fok "PlatinumGames DAT Archive (.dat) extraction"
+  else
+    fno "PlatinumGames DAT Archive" "failed to extract .dat sample";
+  fi
+
+  # PlatinumGames WT Archive (.wta / WTA ) test
+  mkdir -p "$d/wta_test"
+  python3 -c '
+import sys, struct
+wta_hdr = struct.pack("<4sIIIIIII", b"WTA ", 1, 1, 0x20, 0x24, 0, 0, 0)
+wta_data = bytearray(0x40)
+wta_data[0:len(wta_hdr)] = wta_hdr
+struct.pack_into("<I", wta_data, 0x20, 0x30)
+struct.pack_into("<I", wta_data, 0x24, 11)
+wta_data[0x30:0x30+11] = b"WTA_PAYLOAD"
+with open(sys.argv[1], "wb") as f:
+    f.write(wta_data)
+' "$d/wta_test/sample.wta"
+  if "$B/wszst" x "$d/wta_test/sample.wta" --dest "$d/wta_test/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/wta_test/out/texture_0000.bin" ] \
+  && [ "$(cat "$d/wta_test/out/texture_0000.bin")" = "WTA_PAYLOAD" ]; then
+    fok "PlatinumGames WT Archive (.wta) extraction"
+  else
+    fno "PlatinumGames WT Archive" "failed to extract .wta sample";
+  fi
 }
 t_byte_fixed_points
 

@@ -1247,6 +1247,14 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x706b7a00: // "pkz\0"
 				return FF_PKZ;
 
+			// PlatinumGames DAT Archive (DAT\0)
+			case 0x44415400: // "DAT\0"
+				return FF_PG_DAT;
+
+			// PlatinumGames WT Archive (WTA )
+			case 0x57544120: // "WTA "
+				return FF_WTA;
+
 			// Koei Tecmo 3D Model (G1M_ / _M1G / SM1G / GM1G)
 			case 0x47314d5f: // "G1M_"
 			case 0x47314d00: // "G1M\0"

@@ -47,6 +47,12 @@ enumError ExtractPKZArchive (ccp arg, ccp basedir, uint depth);
 // Extract Nintendo Switch Joy-Con Vibration Archive (.vibs)
 enumError ExtractVIBSArchive (ccp arg, ccp basedir, uint depth);
 
+// Extract PlatinumGames DAT Archive (.dat / .pkz / DAT)
+enumError ExtractPGDATArchive (ccp arg, ccp basedir, uint depth);
+
+// Extract PlatinumGames WT Archive (.wta / WTA )
+enumError ExtractWTAArchive (ccp arg, ccp basedir, uint depth);
+
 // Repack / Create functions
 enumError CreateXPCKArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 enumError CreateZTABArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);

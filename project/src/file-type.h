@@ -307,6 +307,8 @@ typedef enum file_format_t
 	FF_APAK, // 213 - Nintendo APAK Archive (.apak / APAK)
 	FF_PKZ, // 214 - PlatinumGames Archive (.pkz / pkz)
 	FF_VIBS, // 215 - Nintendo Switch Joy-Con Vibration Archive (.vibs)
+	FF_PG_DAT, // 216 - PlatinumGames DAT Archive (.dat / DAT)
+	FF_WTA, // 217 - PlatinumGames WT Archive (.wta / WTA )
 
 	//--- number of elements
 

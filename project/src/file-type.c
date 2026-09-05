@@ -1192,6 +1192,18 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 },
 		0, MinusString, MinusString, "Nintendo Switch Joy-Con Vibration Archive (.vibs)" },
 
+	// FF_PG_DAT = 216 (PlatinumGames DAT Archive)
+	{ FF_PG_DAT, FF_PG_DAT, 0, "PG-DAT", ".dat", ".szs", ".dat",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 'D', 'A', 'T', 0 },
+		0, MinusString, MinusString, "PlatinumGames DAT Archive (.dat / DAT)" },
+
+	// FF_WTA = 217 (PlatinumGames WT Archive)
+	{ FF_WTA, FF_WTA, 0, "WTA", ".wta", ".szs", ".wta",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 'W', 'T', 'A', ' ' },
+		0, MinusString, MinusString, "PlatinumGames WT Archive (.wta / WTA )" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1346,6 +1358,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_APAK, "APAK", 0, 0xe05 },
 	{ FF_PKZ, "PKZ", 0, 0xe05 },
 	{ FF_VIBS, "VIBS", 0, 0xe05 },
+	{ FF_PG_DAT, "PG-DAT", "PGDAT", 0xe05 },
+	{ FF_WTA, "WTA", 0, 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

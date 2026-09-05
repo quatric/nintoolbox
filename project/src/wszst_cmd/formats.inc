@@ -1036,6 +1036,14 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
+	err = ExtractPGDATArchive (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = ExtractWTAArchive (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
 	err = extract_nccarc_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
