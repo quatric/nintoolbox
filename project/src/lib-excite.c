@@ -2363,7 +2363,7 @@ static bool mod_decode_ndl_chunk (const u8 *data, uint size, uint m, int mat_idx
 	for (uint i = 0; i < n_tex; i++)
 	{
 		out_mesh->texcoords[i].u = tex_f[i * tex_n];
-		out_mesh->texcoords[i].v = tex_n > 1 ? (float)(1.0 - (double)tex_f[i * tex_n + 1]) : 0.0f;
+		out_mesh->texcoords[i].v = tex_n > 1 ? tex_f[i * tex_n + 1] : 0.0f;
 	}
 
 	uint tri_cap = best_total * 2 + 8, tri_n = 0;
@@ -2854,7 +2854,7 @@ enumError EncodeExciteMOD (const model_t *model, ccp out_path)
 		{
 			// model_t parsed from COLLADA uses the conventional bottom-left T
 			// origin; the GX display list uses top-left texture coordinates.
-			const double d = c ? 1.0 - texcoords[i].v : texcoords[i].u;
+			const double d = c ? texcoords[i].v : texcoords[i].u;
 			s32 scaled = (s32)lrint (d * 8192.0);
 			if (scaled > 32767)
 				scaled = 32767;
