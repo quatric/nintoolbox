@@ -2278,8 +2278,10 @@ static bool mod_decode_ndl_chunk (const u8 *data, uint size, uint m, int mat_idx
 	u8 vat_set[256];
 	u32 best_vat[256];
 	u8 best_vat_set[256];
-	for (uint bpv = 1; bpv <= 8; bpv++)
+	static const uint candidate_bpvs[] = { 3, 2, 4, 5, 6, 7, 8, 1 };
+	for (uint b = 0; b < 8; b++)
 	{
+		const uint bpv = candidate_bpvs[b];
 		mod_prim_t *prims;
 		uint np, total;
 		if (!mod_try_parse_dl (dl, dl_size, bpv, &prims, &np, &total, vat, vat_set))
@@ -2319,15 +2321,19 @@ static bool mod_decode_ndl_chunk (const u8 *data, uint size, uint m, int mat_idx
 	}
 	const uint tex_off = third_off ? third_off : (second_off ? second_off : pos_off + n_pos * pos_n * fmt_sz[pos_fmt]);
 
+	const bool has_tex = (third_off != 0) || (best_bpv == 3 && second_off != 0 && second_off != tex_off);
 	uint max_tex = 0;
 	for (uint i = 0; i < best_np; i++)
 	{
 		const mod_prim_t *pr = best_prims + i;
-		if (best_bpv < 2)
-			continue;
 		for (uint v = 0; v < pr->cnt; v++)
 		{
-			const u8 ti = dl[pr->dl_off + v * best_bpv + best_bpv - 1];
+			const u8 *vp = dl + pr->dl_off + v * best_bpv;
+			uint ti = 0;
+			if (best_bpv == 3 && (third_off != 0 || (second_off != 0 && second_off != tex_off)))
+				ti = vp[2];
+			else if (best_bpv == 5)
+				ti = vp[4];
 			if (ti > max_tex)
 				max_tex = ti;
 		}
@@ -2336,7 +2342,7 @@ static bool mod_decode_ndl_chunk (const u8 *data, uint size, uint m, int mat_idx
 
 	float *pos_f = 0, *tex_f = 0;
 	if (!mod_read_attr (data, size, pos_off, n_pos, pos_fmt, pos_n, pos_shft, &pos_f)
-		|| (tex_fmt <= 4
+		|| (tex_fmt <= 4 && n_tex > 0
 			&& !mod_read_attr (data, size, tex_off, n_tex, tex_fmt, tex_n, tex_shft, &tex_f)))
 	{
 		FREE (best_prims);
@@ -2358,12 +2364,15 @@ static bool mod_decode_ndl_chunk (const u8 *data, uint size, uint m, int mat_idx
 		out_mesh->positions[i].z = pos_n > 2 ? pos_f[i * pos_n + 2] : 0.0f;
 	}
 
-	out_mesh->texcoords = MALLOC (n_tex * sizeof (vec2_t));
-	out_mesh->num_texcoords = n_tex;
-	for (uint i = 0; i < n_tex; i++)
+	if (tex_f && n_tex > 0)
 	{
-		out_mesh->texcoords[i].u = tex_f[i * tex_n];
-		out_mesh->texcoords[i].v = tex_n > 1 ? tex_f[i * tex_n + 1] : 0.0f;
+		out_mesh->texcoords = MALLOC (n_tex * sizeof (vec2_t));
+		out_mesh->num_texcoords = n_tex;
+		for (uint i = 0; i < n_tex; i++)
+		{
+			out_mesh->texcoords[i].u = tex_f[i * tex_n];
+			out_mesh->texcoords[i].v = tex_n > 1 ? tex_f[i * tex_n + 1] : 0.0f;
+		}
 	}
 
 	uint tri_cap = best_total * 2 + 8, tri_n = 0;
@@ -2378,10 +2387,30 @@ static bool mod_decode_ndl_chunk (const u8 *data, uint size, uint m, int mat_idx
 			tris = REALLOC (tris, tri_cap * sizeof (vertex_t));                                    \
 		}                                                                                          \
 		vertex_t *dv = tris + tri_n++;                                                             \
-		const u8 pi = dl[pr->dl_off + (idxarr) * best_bpv];                                        \
-		const u8 ti = best_bpv > 1 ? dl[pr->dl_off + (idxarr) * best_bpv + best_bpv - 1] : 0;      \
-		dv->position_idx = pi < n_pos ? pi : 0;                                                    \
-		dv->texcoord_idx = ti < n_tex ? ti : 0;                                                    \
+		const u8 *vp = dl + pr->dl_off + (idxarr) * best_bpv;                                      \
+		uint pi = 0, ti = 0;                                                                       \
+		if (best_bpv == 1)                                                                         \
+			pi = vp[0];                                                                            \
+		else if (best_bpv == 2)                                                                    \
+			pi = vp[0];                                                                            \
+		else if (best_bpv == 3)                                                                    \
+		{                                                                                          \
+			pi = vp[0];                                                                            \
+			if (out_mesh->num_texcoords > 0)                                                       \
+				ti = vp[2];                                                                        \
+		}                                                                                          \
+		else if (best_bpv == 4)                                                                    \
+			pi = xrd_be16 (vp);                                                                    \
+		else if (best_bpv == 5)                                                                    \
+		{                                                                                          \
+			pi = xrd_be16 (vp);                                                                    \
+			if (out_mesh->num_texcoords > 0)                                                       \
+				ti = vp[4];                                                                        \
+		}                                                                                          \
+		else                                                                                       \
+			pi = vp[0];                                                                            \
+		dv->position_idx = pi < n_pos ? (int)pi : 0;                                               \
+		dv->texcoord_idx = (out_mesh->num_texcoords > 0 && ti < n_tex) ? (int)ti : -1;             \
 		dv->normal_idx = dv->matrix_idx = -1;                                                      \
 		dv->color_idx[0] = dv->color_idx[1] = -1;                                                  \
 		for (int e = 0; e < 7; e++)                                                                \
