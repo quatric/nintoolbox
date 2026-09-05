@@ -109,13 +109,13 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **LMD** | `.lmd` | **GLB** | — | — | — | DeNA / Pokémon Masters 3D model format |
 | **MDL0 / BRRES** | `.mdl0`, `.brres` | **GLB** | ✅ | ✅ | — | NintendoWare NW4R binary resource model (Wii) |
 | **MOD** | `.mod` | **GLB** | ✅ | ✅ | ✅ | Monster Games NDL3/NDL2 display list model (Wii) |
-| **MSH (PMsh)** | `.msh` | **GLB** | ✅ | ✅ | ✅ | Monster Games collision mesh format (Wii) |
+| **MSH (PMsh)** | `.msh` | **GLB** | ✅ | ✅ | ⚠️ | Monster Games collision mesh format (Wii) |
 | **NSBMD** | `.nsbmd`, `.bmd` | **GLB** | ✅ | ✅ | ✅ | Nintendo DS Nitro 3D model format (DS) |
 | **NUD** | `.nud` | **GLB** | ✅ | ✅ | — | Bandai Namco 3D model format (*Super Smash Bros. 4* Wii U / 3DS) |
 | **NUMSHB** | `.numshb` | **GLB** | — | — | — | Bandai Namco SSBH 3D mesh model (*Super Smash Bros. Ultimate* Switch) |
 | **PERS** | `.pers` | **GLB** | ✅ | — | — | Pokémon Stadium N64 model format |
 
-`Byte-Exact Roundtrip` = decode → GLB → re-encode reproduces the original file's bytes identically (canonical fixed-point verified), not just a successful encode.
+`Byte-Exact Roundtrip` = decode → GLB → re-encode reproduces the original file's bytes identically (canonical fixed-point verified), not just a successful encode. ⚠️ = confirmed on some fixtures but a known regression remains on at least one sample (MSH: `excite_gpmesh.msh` fails the fixed-point check while `excite_rail2bp.msh` passes; not yet root-caused).
 
 ---
 
