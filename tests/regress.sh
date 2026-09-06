@@ -3536,6 +3536,20 @@ t_zstd_and_7z_roundtrips(){
 }
 t_zstd_and_7z_roundtrips
 
+t_bzip2_roundtrip(){
+  local d; d=$(mktemp -d)
+  local ok=1
+  printf "BZIP2 high-compression block-sorting codec roundtrip test in wszst\n" > "$d/in.txt"
+  "$B/wszst" compress "$d/in.txt" --bzip2 -d "$d/out.bz2" --overwrite >/dev/null 2>&1 || ok=0
+  [ -s "$d/out.bz2" ] || ok=0
+  "$B/wszst" decompress "$d/out.bz2" -d "$d/dec.txt" --overwrite >/dev/null 2>&1 || ok=0
+  cmp -s "$d/in.txt" "$d/dec.txt" || ok=0
+  rm -rf "$d"
+  [ "$ok" = 1 ] && ok "Bzip2 (BZ2) encoding/decoding roundtrip" \
+    || no "Bzip2 (BZ2) encoding/decoding" "bzip2 test failed"
+}
+t_bzip2_roundtrip
+
 t_brstm_roundtrip(){
   # BRSTM ADPCM_THP encode->decode roundtrip. from_wav prefers passing
   # through to mobipeg's real adpcm_thp encoder (PassthruEncodeAudio(),
@@ -6680,6 +6694,38 @@ t_arika_test(){
   fi
 }
 t_arika_test
+
+# Level-5 LSPK (.pkh / .pk) container encode, decode, and byte-exact roundtrip
+t_lspk_roundtrip(){
+  local d; d=$(mktemp -d /tmp/_r_lspk.XXXXXX) || { no "LSPK roundtrip" "mktemp failed"; return; }
+  mkdir -p "$d/src.d"
+  printf 'LSPK_PAYLOAD_DATA_1' > "$d/src.d/11223344.bin"
+  printf 'LSPK_PAYLOAD_DATA_TWO_LONGER' > "$d/src.d/55667788.bin"
+  cp -r "$d/src.d" "$d/ref.d"
+  if "$B/wszst" CREATE "$d/src.d" --dest "$d/a.pk" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/a.pk" ] && [ -s "$d/a.pkh" ]; then
+    ok "LSPK encode"
+  else
+    no "LSPK encode" "CREATE produced no archive"; rm -rf "$d"; return
+  fi
+  if "$B/wszst" XX "$d/a.pk" --dest "$d/out.d" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/ref.d/11223344.bin" "$d/out.d/11223344.bin" \
+  && cmp -s "$d/ref.d/55667788.bin" "$d/out.d/55667788.bin"; then
+    ok "LSPK decode"
+  else
+    no "LSPK decode" "extracted members differ from reference"; rm -rf "$d"; return
+  fi
+  cp -r "$d/out.d" "$d/re.d"
+  if "$B/wszst" CREATE "$d/re.d" --dest "$d/b.pk" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/a.pk" "$d/b.pk" \
+  && cmp -s "$d/a.pkh" "$d/b.pkh"; then
+    bok "LSPK re-encode is byte identical"
+  else
+    bno "LSPK byte-exact" "rebuild differs from the original archive"
+  fi
+  rm -rf "$d"
+}
+t_lspk_roundtrip
 
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"

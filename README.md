@@ -70,7 +70,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **GFA** | `.gfa` | ✅ | ✅ | ✅ | Good-Feel GFAC container (Wii / 3DS) |
 | **Hyrule Warriors** | `.idx`, `.bin` | ✅ | ✅ | ✅ | Koei Tecmo / Omega Force split index archive (3DS) |
 | **JARC** | `.jarc` | ✅ | ✅ | ✅ | Level-5 DS archive container (DS) |
-| **LSPK** | `.lspk` | — | — | — | Level-5 Professor Layton flat package (DS) |
+| **LSPK** | `.pk`, `.pkh`, `.lspk` | ✅ | ✅ | ✅ | Level-5 / Mistwalker flat package (*The Last Story*) |
 | **MDR** | `.mdr` | ✅ | ✅ | ✅ | *Dance Dance Revolution Mario Mix* chunk archive with per-chunk zlib streams |
 | **MKGPDX PAC** | `.pac`, `.mkgpdx` | ✅ | ✅ | ✅ | *Mario Kart Arcade GP DX* layout archive (`pack`) |
 | **MPBIN** | `.bin` | ✅ | ✅ | ✅ | Hudson Soft Mario Party archive container (GameCube / Wii) |
@@ -203,7 +203,7 @@ its encode column stays unverified.
 | **ALZ1** | `ALZ1` | ✅ | — | Hudson Soft Mario Party / Bomberman LZ77 (GameCube / Wii) |
 | **BLZ** | ARM9 overlay trailer | ✅ | ✅ | Nintendo DS Nitro backward LZ overlay compression |
 | **BPE / GFCP** | `GFCP` (zip mode 1) | — | — | Good-Feel Byte Pair Encoding (Wii Kirby's Epic Yarn / Yoshi's Woolly World) |
-| **Bzip2** | `BZh` | — | — | Standard high-compression block-sorting codec |
+| **Bzip2** | `BZh` | ✅ | ✅ | Standard high-compression block-sorting codec |
 | **Deflate / Zlib** | `78 01`, `78 9C`, `78 DA` | ✅ | ✅ | Standard RFC 1950 / 1951 stream compression |
 | **Diff8 / Diff16** | `0x81`, `0x82` | ✅ | ✅ | Nintendo DS differential delta filter encoding |
 | **Huffman (4-bit / 8-bit)** | `0x24`, `0x28` | ✅ | — | Nintendo DS Huffman stream compression |
@@ -221,7 +221,7 @@ its encode column stays unverified.
 | **VLX** | `VLX` | ✅ | ✅ | Level-5 Professor Layton / Inazuma Eleven LZSS (DS) |
 | **Yay0 (SZP)** | `Yay0` | ✅ | ✅ | Nintendo early LZSS container (Nintendo 64 / GameCube) |
 | **Yaz0 (SZS)** | `Yaz0` | ✅ | ✅ | Nintendo standard byte-aligned LZSS (GameCube / Wii / Switch) |
-| **Zstandard (Zstd)** | `28 B5 2F FD` | ✅ | — | Modern high-ratio dictionary compression (Switch / F-Zero 99) |
+| **Zstandard (Zstd)** | `28 B5 2F FD` | ✅ | ✅ | Modern high-ratio dictionary compression (Switch / F-Zero 99) |
 
 ---
 

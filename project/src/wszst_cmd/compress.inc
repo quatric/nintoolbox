@@ -1374,6 +1374,51 @@ static enumError create_arika_dir (ccp source, ccp dest)
 	return err;
 }
 
+static enumError create_lspk_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+	u8 *dest_pkh = 0;
+	uint dest_pkh_size = 0;
+	u8 *dest_pk = 0;
+	uint dest_pk_size = 0;
+	if (!err)
+		err = CreateLSPKArchive (&dest_pkh, &dest_pkh_size, &dest_pk, &dest_pk_size,
+			list.entry, list.used);
+	if (!err && !testmode)
+	{
+		char pkh_path[PATH_MAX];
+		char pk_path[PATH_MAX];
+		snprintf (pk_path, sizeof (pk_path), "%s", dest);
+		char *dot = strrchr (pk_path, '.');
+		char *slash = strrchr (pk_path, '/');
+		if (dot && (!slash || dot > slash))
+			*dot = 0;
+		snprintf (pkh_path, sizeof (pkh_path), "%s.pkh", pk_path);
+		snprintf (pk_path, sizeof (pk_path), "%s.pk", pk_path);
+
+		File_t F_pkh, F_pk;
+		err = CreateFileOpt (&F_pkh, true, pkh_path, false, source);
+		if (!err && F_pkh.f && fwrite (dest_pkh, 1, dest_pkh_size, F_pkh.f) != dest_pkh_size)
+			err = FILEERROR1 (&F_pkh, ERR_WRITE_FAILED, "Writing PKH failed: %s\n", pkh_path);
+		ResetFile (&F_pkh, opt_preserve);
+
+		if (!err)
+		{
+			err = CreateFileOpt (&F_pk, true, pk_path, false, source);
+			if (!err && F_pk.f && fwrite (dest_pk, 1, dest_pk_size, F_pk.f) != dest_pk_size)
+				err = FILEERROR1 (&F_pk, ERR_WRITE_FAILED, "Writing PK failed: %s\n", pk_path);
+			ResetFile (&F_pk, opt_preserve);
+		}
+	}
+	FREE (dest_pkh);
+	FREE (dest_pk);
+	reset_sarc_build_list (&list);
+	return err;
+}
+
 static enumError create_apak_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };

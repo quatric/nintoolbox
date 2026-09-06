@@ -79,3 +79,104 @@ enumError ScanLSPK (
 	pak->n_entries = n;
 	return ERR_OK;
 }
+
+static int compare_lspk_entries (const void *a, const void *b)
+{
+	const nintendo_sarc_entry_t *ea = (const nintendo_sarc_entry_t *)a;
+	const nintendo_sarc_entry_t *eb = (const nintendo_sarc_entry_t *)b;
+	ccp na = ea->name ? ea->name : "";
+	ccp nb = eb->name ? eb->name : "";
+	ccp sa = strrchr (na, '/');
+	if (sa)
+		na = sa + 1;
+	ccp sb = strrchr (nb, '/');
+	if (sb)
+		nb = sb + 1;
+	return strcmp (na, nb);
+}
+
+static u32 lspk_hash_name (ccp name)
+{
+	if (!name)
+		return 0;
+	ccp slash = strrchr (name, '/');
+	if (slash)
+		name = slash + 1;
+	// Check if name is hex hash e.g. "12345678.bin" or "12345678"
+	char *endptr = 0;
+	u32 val = (u32)strtoul (name, &endptr, 16);
+	if (endptr && (*endptr == '.' || *endptr == '\0') && (endptr - name) == 8)
+		return val;
+	// Fallback: simple djb2 / sdbm hash if arbitrary string
+	u32 h = 5381;
+	for (ccp p = name; *p && *p != '.'; p++)
+		h = ((h << 5) + h) + (u8)*p;
+	return h;
+}
+
+enumError CreateLSPKArchive (
+	u8 **dest_pkh, uint *dest_pkh_size, u8 **dest_pk, uint *dest_pk_size,
+	const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	if (!dest_pkh || !dest_pkh_size || !dest_pk || !dest_pk_size || !entries || !n_entries)
+		return ERR_INVALID_DATA;
+
+	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
+	if (!sorted)
+		return ERR_OUT_OF_MEMORY;
+	memcpy (sorted, entries, n_entries * sizeof (*sorted));
+	qsort (sorted, n_entries, sizeof (*sorted), compare_lspk_entries);
+
+	// PKH table: 4 bytes entry count + 16 bytes per entry
+	const uint pkh_sz = 4 + n_entries * 16;
+	u8 *pkh = CALLOC (pkh_sz, 1);
+	if (!pkh)
+	{
+		FREE (sorted);
+		return ERR_OUT_OF_MEMORY;
+	}
+	wr_be32 (pkh, n_entries);
+
+	// Compute PK size: aligned to 16 bytes per entry payload
+	u32 cur_pk_off = 0;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		cur_pk_off = (cur_pk_off + 15) & ~15;
+		cur_pk_off += sorted[i].size;
+	}
+	const u32 pk_sz = (cur_pk_off + 15) & ~15;
+	u8 *pk = CALLOC (pk_sz ? pk_sz : 16, 1);
+	if (!pk)
+	{
+		FREE (pkh);
+		FREE (sorted);
+		return ERR_OUT_OF_MEMORY;
+	}
+
+	cur_pk_off = 0;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		cur_pk_off = (cur_pk_off + 15) & ~15;
+		const u32 hash = lspk_hash_name (sorted[i].name);
+		const u32 off = cur_pk_off;
+		const u32 size = sorted[i].size;
+
+		u8 *h = pkh + 4 + i * 16;
+		wr_be32 (h + 0, hash);
+		wr_be32 (h + 4, off);
+		wr_be32 (h + 8, size);  // dec_size
+		wr_be32 (h + 12, 0);    // com_size (0 = uncompressed raw)
+
+		if (sorted[i].data && size > 0)
+			memcpy (pk + off, sorted[i].data, size);
+
+		cur_pk_off += size;
+	}
+
+	FREE (sorted);
+	*dest_pkh = pkh;
+	*dest_pkh_size = pkh_sz;
+	*dest_pk = pk;
+	*dest_pk_size = pk_sz;
+	return ERR_OK;
+}
