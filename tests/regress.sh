@@ -4870,7 +4870,7 @@ PY
   mkdir -p "$d/model-a" "$d/model-b"
   $B/wmdlt ENCODE "$PWD_PROJECT/../tests/fixtures/excite_goalback.msh" --dest "$d/collision.glb" --overwrite >/dev/null 2>&1
   $B/wmdlt ENCODE "$PWD_PROJECT/../tests/fixtures/excite_arrow_obj.mod" --dest "$d/render.glb" --overwrite >/dev/null 2>&1
-  for spec in "collision.glb msh" "render.glb mod" "render.glb hsf" "render.glb dat" "render.glb bfres"; do
+  for spec in "collision.glb msh" "render.glb mod" "render.glb hsf" "render.glb dat" "render.glb bfres" "render.glb bnfm"; do
     set -- $spec; local src="$d/$1"; local ext=$2
     if "$B/wmdlt" ENCODE "$src" --dest "$d/model-a/same.$ext" --overwrite >/dev/null 2>&1 \
     && "$B/wmdlt" ENCODE "$src" --dest "$d/model-b/same.$ext" --overwrite >/dev/null 2>&1 \
@@ -5493,6 +5493,14 @@ with open('$d/sample.nud', 'wb') as f:
   && cmp -s "$d/a/same.nud" "$d/b/same.nud"; then
     fok "NUD encode -> GLB -> identical re-encode"
   else fno "NUD canonical fixed point" "second-generation bytes differ"; fi
+
+  if "$B/wmdlt" ENCODE "$d/nud_fix_orig.glb" --dest "$d/a/same.bnfm" --overwrite >/dev/null 2>&1 \
+  && "$B/wmdlt" DECODE "$d/a/same.bnfm" --dest "$d/bnfm_fix_mid.glb" --overwrite >/dev/null 2>&1 \
+  && "$B/wmdlt" ENCODE "$d/bnfm_fix_mid.glb" --dest "$d/b/same.bnfm" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/a/same.bnfm" "$d/b/same.bnfm"; then
+    fok "BNFM encode -> GLB -> identical re-encode"
+  else fno "BNFM canonical fixed point" "second-generation bytes differ"; fi
+
 
 
 

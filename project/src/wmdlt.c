@@ -422,6 +422,7 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		const bool is_glg = dest_len > 4 && (!strcasecmp (dest + dest_len - 4, ".glg") || !strcasecmp (dest + dest_len - 4, ".rlg"));
 		const bool is_bfres = dest_len > 6 && !strcasecmp (dest + dest_len - 6, ".bfres");
 		const bool is_nud = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".nud");
+		const bool is_bnfm = dest_len > 5 && !strcasecmp (dest + dest_len - 5, ".bnfm");
 		const bool is_model_dest = is_dae || is_glb;
 
 		const int arg_len = strlen (arg);
@@ -502,6 +503,17 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 							ERROR0 (err, "Failed to encode NUD: %s\n", dest);
 						else if (verbose >= 0)
 							fprintf (stdlog, "%sENCODE NUD:%s -> %s\n", verbose > 0 ? "\n" : "",
+								arg, dest);
+						continue;
+					}
+					if (is_bnfm)
+					{
+						err = EncodeModelToBNFM (in_model, dest);
+						FreeModel (in_model);
+						if (err > ERR_WARNING)
+							ERROR0 (err, "Failed to encode BNFM: %s\n", dest);
+						else if (verbose >= 0)
+							fprintf (stdlog, "%sENCODE BNFM:%s -> %s\n", verbose > 0 ? "\n" : "",
 								arg, dest);
 						continue;
 					}

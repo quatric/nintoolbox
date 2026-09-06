@@ -26,12 +26,36 @@ static float bnfm_rd_f16 (u16 h)
 	return sign ? -v : v;
 }
 
+static u16 bnfm_wr_f16 (float f)
+{
+	union { u32 u; float f; } c;
+	c.f = f;
+	u32 x = c.u;
+	u32 sign = (x >> 31) & 1;
+	int32_t exp = ((x >> 23) & 0xFF) - 127 + 15;
+	u32 mant = (x >> 13) & 0x3FF;
+
+	if (exp <= 0)
+		return (u16)(sign << 15);
+	if (exp >= 31)
+		return (u16)((sign << 15) | 0x7C00);
+	return (u16)((sign << 15) | (exp << 10) | mant);
+}
+
 static float bnfm_bef32 (const u8 *p)
 {
 	union { u32 u; float f; } c;
 	c.u = rd_be32 (p);
 	return c.f;
 }
+
+static void bnfm_wr_bef32 (u8 *p, float f)
+{
+	union { u32 u; float f; } c;
+	c.f = f;
+	wr_be32 (p, c.u);
+}
+
 
 static ccp bnfm_get_str (const u8 *data, uint size, u32 offset)
 {
@@ -269,3 +293,215 @@ enumError DecodeBNFM (const u8 *data, uint size, ccp out_path)
 
 	return rc == 0 ? ERR_OK : ERR_CANT_CREATE;
 }
+
+enumError EncodeModelToBNFM (const model_t *model, ccp out_path)
+{
+	if (!model || !model->num_meshes || !out_path)
+		return ERR_INVALID_DATA;
+
+	uint total_verts = 0;
+	uint total_indices = 0;
+	for (uint i = 0; i < model->num_meshes; i++)
+	{
+		total_verts += model->meshes[i].num_positions;
+		total_indices += model->meshes[i].num_vertices;
+	}
+
+	if (!total_verts || !total_indices)
+		return ERR_INVALID_DATA;
+
+	const u32 bone_count = model->num_joints;
+	const u32 poly_count = model->num_meshes;
+	const u32 mat_count = model->num_materials > 0 ? model->num_materials : 1;
+
+	// Calculate layout
+	const u32 hdr_size = 0x80;
+	const u32 poly_info_offset = hdr_size;
+	const u32 poly_info_size = poly_count * 0x30;
+
+	const u32 bone_offset = poly_info_offset + poly_info_size;
+	const u32 bone_size = bone_count * 0xB0;
+
+	const u32 material_offset = bone_offset + bone_size;
+	const u32 material_size = mat_count * 0x228;
+
+	// String table
+	u32 strtab_size = 32; // initial space for default names
+	for (uint i = 0; i < poly_count; i++)
+		strtab_size += strlen (model->meshes[i].name) + 1;
+	for (uint i = 0; i < bone_count; i++)
+		strtab_size += strlen (model->joints[i].name) + 1;
+	for (uint i = 0; i < mat_count; i++)
+	{
+		if (model->materials)
+		{
+			strtab_size += strlen (model->materials[i].name) + 1;
+			if (model->materials[i].num_textures > 0)
+				strtab_size += strlen (model->materials[i].textures[0]) + 1;
+		}
+	}
+	strtab_size = (strtab_size + 0x1F) & ~0x1Fu;
+
+	const u32 strtab_offset = material_offset + material_size;
+	const u32 face_offset = (strtab_offset + strtab_size + 0x1F) & ~0x1Fu;
+	const u32 face_length = (total_indices * 2 + 0x1F) & ~0x1Fu;
+
+	const u32 vert_offset = face_offset + face_length;
+	const u32 vertex_length = (total_verts * 44 + 0x1F) & ~0x1Fu;
+
+	const u32 total_file_size = vert_offset + vertex_length;
+
+	u8 *out = CALLOC (1, total_file_size);
+	if (!out)
+		return ERR_OUT_OF_MEMORY;
+
+	// BNFM Header
+	memcpy (out, "BNFM", 4);
+	wr_be32 (out + 0x08, 0x00010000);
+	wr_be32 (out + 0x0C, face_offset);
+	wr_be32 (out + 0x10, face_length);
+	wr_be32 (out + 0x14, vertex_length);
+	wr_be32 (out + 0x20, vert_offset);
+	wr_be32 (out + 0x30, bone_count);
+	wr_be32 (out + 0x34, poly_count);
+	wr_be32 (out + 0x38, mat_count * 6);
+	wr_be32 (out + 0x58, bone_offset);
+	wr_be32 (out + 0x5C, poly_info_offset);
+	wr_be32 (out + 0x60, material_offset);
+
+	// String table writer
+	u32 cur_str = strtab_offset;
+
+	// Bones
+	for (uint i = 0; i < bone_count; i++)
+	{
+		const u32 boff = bone_offset + i * 0xB0;
+		const joint_t *j = model->joints + i;
+
+		wr_be32 (out + boff, cur_str);
+		const size_t nlen = strlen (j->name);
+		memcpy (out + cur_str, j->name, nlen + 1);
+		cur_str += nlen + 1;
+
+		if (j->parent_idx >= 0 && (uint)j->parent_idx < bone_count)
+		{
+			wr_be32 (out + boff + 8, cur_str);
+			const size_t plen = strlen (model->joints[j->parent_idx].name);
+			memcpy (out + cur_str, model->joints[j->parent_idx].name, plen + 1);
+			cur_str += plen + 1;
+		}
+
+		bnfm_wr_bef32 (out + boff + 0x20, j->translate.x);
+		bnfm_wr_bef32 (out + boff + 0x24, j->translate.y);
+		bnfm_wr_bef32 (out + boff + 0x28, j->translate.z);
+		bnfm_wr_bef32 (out + boff + 0x2C, j->scale.x != 0.0f ? j->scale.x : 1.0f);
+		bnfm_wr_bef32 (out + boff + 0x30, j->scale.y != 0.0f ? j->scale.y : 1.0f);
+		bnfm_wr_bef32 (out + boff + 0x34, j->scale.z != 0.0f ? j->scale.z : 1.0f);
+
+		if (j->has_inverse_bind)
+		{
+			for (int m = 0; m < 12; m++)
+				bnfm_wr_bef32 (out + boff + 0x48 + m * 4, j->inverse_bind[m]);
+		}
+		else
+		{
+			// Identity 3x4 affine
+			bnfm_wr_bef32 (out + boff + 0x48, 1.0f);
+			bnfm_wr_bef32 (out + boff + 0x58, 1.0f);
+			bnfm_wr_bef32 (out + boff + 0x68, 1.0f);
+		}
+	}
+
+	// Materials
+	for (uint i = 0; i < mat_count; i++)
+	{
+		const u32 moff = material_offset + i * 0x228;
+		ccp mname = (model->materials && model->materials[i].name[0]) ? model->materials[i].name : "material";
+		wr_be32 (out + moff, cur_str);
+		const size_t mnlen = strlen (mname);
+		memcpy (out + cur_str, mname, mnlen + 1);
+		cur_str += mnlen + 1;
+
+		if (model->materials && model->materials[i].num_textures > 0 && model->materials[i].textures[0][0])
+		{
+			ccp tname = model->materials[i].textures[0];
+			wr_be32 (out + moff + 0x114, cur_str);
+			const size_t tnlen = strlen (tname);
+			memcpy (out + cur_str, tname, tnlen + 1);
+			cur_str += tnlen + 1;
+		}
+	}
+
+	// Meshes & Polys
+	uint vert_cursor = 0;
+	uint idx_cursor = 0;
+
+	for (uint i = 0; i < poly_count; i++)
+	{
+		const mesh_t *mesh = model->meshes + i;
+		const u32 poff = poly_info_offset + i * 0x30;
+
+		wr_be32 (out + poff, cur_str);
+		const size_t plen = strlen (mesh->name);
+		memcpy (out + cur_str, mesh->name, plen + 1);
+		cur_str += plen + 1;
+
+		wr_be32 (out + poff + 0x18, (u32)mesh->num_vertices);
+		wr_be32 (out + poff + 0x1C, (u32)mesh->num_positions);
+		wr_be32 (out + poff + 0x24, (u32)(mesh->material_idx >= 0 ? mesh->material_idx : 0));
+
+		// Indices
+		for (uint j = 0; j < mesh->num_vertices; j++)
+		{
+			u16 idx = (u16)mesh->vertices[j].position_idx;
+			wr_be16 (out + face_offset + (idx_cursor + j) * 2, idx);
+		}
+		idx_cursor += mesh->num_vertices;
+
+		// Vertices (44 bytes per vertex)
+		for (uint v = 0; v < mesh->num_positions; v++)
+		{
+			u8 *vp = out + vert_offset + (vert_cursor + v) * 44;
+			bnfm_wr_bef32 (vp, mesh->positions[v].x);
+			bnfm_wr_bef32 (vp + 4, mesh->positions[v].y);
+			bnfm_wr_bef32 (vp + 8, mesh->positions[v].z);
+
+			if (mesh->normals)
+			{
+				vp[12] = (u8)(int8_t)(mesh->normals[v].x * 127.0f);
+				vp[13] = (u8)(int8_t)(mesh->normals[v].y * 127.0f);
+				vp[14] = (u8)(int8_t)(mesh->normals[v].z * 127.0f);
+			}
+			vp[15] = 0x7F;
+
+			if (mesh->colors[0])
+			{
+				vp[16] = (u8)(mesh->colors[0][v].r * 255.0f);
+				vp[17] = (u8)(mesh->colors[0][v].g * 255.0f);
+				vp[18] = (u8)(mesh->colors[0][v].b * 255.0f);
+				vp[19] = (u8)(mesh->colors[0][v].a * 255.0f);
+			}
+			else
+			{
+				vp[16] = 0xFF; vp[17] = 0xFF; vp[18] = 0xFF; vp[19] = 0xFF;
+			}
+
+			if (mesh->texcoords)
+			{
+				wr_be16 (vp + 20, bnfm_wr_f16 (mesh->texcoords[v].u));
+				wr_be16 (vp + 22, bnfm_wr_f16 (mesh->texcoords[v].v));
+			}
+		}
+		vert_cursor += mesh->num_positions;
+	}
+
+	File_t F;
+	enumError err = CreateFileOpt (&F, true, out_path, false, out_path);
+	if (!err && F.f && fwrite (out, 1, total_file_size, F.f) != total_file_size)
+		err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing BNFM failed: %s\n", out_path);
+	ResetFile (&F, opt_preserve);
+
+	FREE (out);
+	return err;
+}
+

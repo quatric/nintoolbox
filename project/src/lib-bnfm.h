@@ -8,5 +8,6 @@
 // Decode a Nintendo / Nd Cube BNFM 3D model (Animal Crossing: Amiibo Festival,
 // Mario Party 10, Wii U Party) to a GLB or COLLADA .dae file.
 enumError DecodeBNFM (const u8 *data, uint size, ccp out_path);
+enumError EncodeModelToBNFM (const model_t *model, ccp out_path);
 
 #endif // LIB_BNFM_H

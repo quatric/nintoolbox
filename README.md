@@ -112,7 +112,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 |---|---|---|---|---|---|---|
 | **BCH** | `.bch` | **GLB** | ✅ | ✅ | ✅ | NintendoWare NW4C H3D binary character model (3DS) |
 | **BMD** | `.bmd`, `.bdhc` | **GLB** | ✅ | ✅ | ✅ | Early Nintendo DS 3D model format (DS) |
-| **BNFM** | `.bnfm` | **GLB** | — | — | — | Nd Cube Wii U 3D model format (*Animal Crossing: Amiibo Festival*, *Mario Party 10*) |
+| **BNFM** | `.bnfm` | **GLB** | ✅ | ✅ | ✅ | Nd Cube Wii U 3D model format (*Animal Crossing: Amiibo Festival*, *Mario Party 10*) |
 | **G1M** | `.g1m` | **GLB** | — | — | — | Koei Tecmo 3D model format (*Hyrule Warriors*, *Fire Emblem Warriors*) |
 | **G4PKM** | `.g4pkm` | **GLB** | — | — | — | Level-5 / Nintendo Pokémon & Yo-kai Watch 3D model format |
 | **GLG / RLG** | `.glg`, `.rlg` | **GLB** | ✅ | ✅ | ✅ | Next Level Games 3D model format (*Super Mario Strikers*, *Mario Strikers Charged*) |
