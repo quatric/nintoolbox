@@ -120,7 +120,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **HSD** | `.dat` | **GLB** | ✅ | ✅ | ✅ | ✅ | HAL Laboratory `sysdolphin` object graph (GameCube) |
 | **HSF** | `.hsf` | **GLB** | ✅ | ✅ | ✅ | ✅ | Hudson Soft 3D model format (GameCube / Wii) |
 | **LMD** | `.lmd` | — | — | — | — | — | Identified by filename only: no magic in the type table and no decoder. No source game was available to check the claim against |
-| **MDL0 / BRRES** | `.mdl0`, `.brres` | **GLB** | ✅ | ✅ | — | ✅ | NintendoWare NW4R binary resource model (Wii) |
+| **MDL0 / BRRES** | `.mdl0`, `.brres` | **GLB** | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4R binary resource model (Wii). Encoding injects geometry into a parent, and geometry that did not change is preserved from that parent byte for byte -- an MDL0 quantizes each vertex array to its own type and divisor, shares arrays between objects and draws them from a display list, none of which a GLB can carry, so only what actually changed is rebuilt |
 | **MOD** | `.mod` | **GLB** | ✅ | ✅ | ✅ | ✅ | Monster Games NDL3/NDL2 display list model (Wii) |
 | **MSH (PMsh)** | `.msh` | **GLB** | ✅ | ✅ | ✅ | ✅ | Monster Games collision mesh format (Wii) |
 | **NSBMD** | `.nsbmd`, `.bmd` | **GLB** | ✅ | ✅ | ✅ | — | Nintendo DS Nitro 3D model format (DS) |

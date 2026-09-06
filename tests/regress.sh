@@ -4892,6 +4892,59 @@ PY
   && cmp -s "$d/model-a/same.mdl0" "$d/model-b/same.mdl0"; then
     bok "MDL0 same DAE+parent -> identical injected bytes"
   else bno "MDL0 canonical injection" "two injections differ"; fi
+
+  # Byte-exact roundtrip. An MDL0 quantizes each vertex array to its own type
+  # and divisor, shares arrays between objects and draws them from a display
+  # list, none of which a GLB can carry, so a rebuild cannot reproduce the
+  # parent's layout. Injecting geometry that did not change must therefore
+  # return the parent untouched.
+  if "$B/wmdlt" DECODE "$mdl" --dest "$d/rt.glb" --overwrite >/dev/null 2>&1 \
+  && "$B/wmdlt" ENCODE "$d/rt.glb" --parent="$mdl" --dest "$d/rt.mdl0" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$mdl" "$d/rt.mdl0"; then
+    bok "MDL0 re-encode is byte identical"
+  else bno "MDL0 byte-exact roundtrip" "re-injected MDL0 differs from its parent"; fi
+
+  # That preservation is only sound because the comparison is real: move one
+  # value of each attribute in turn and the parent must be rebuilt, not copied.
+  local perturbed=0 checked=0
+  for attr in POSITION NORMAL TEXCOORD_0; do
+    python3 -c '
+import json, struct, sys
+b = bytearray(open(sys.argv[1], "rb").read())
+off, doc, binoff = 12, None, None
+while off < len(b):
+    clen, ctype = struct.unpack_from("<II", b, off)
+    if ctype == 0x4E4F534A: doc = json.loads(b[off+8:off+8+clen])
+    elif ctype == 0x004E4942: binoff = off + 8
+    off += 8 + clen
+at = doc["meshes"][0]["primitives"][0]["attributes"]
+if sys.argv[3] not in at: sys.exit(3)
+acc = doc["accessors"][at[sys.argv[3]]]
+bv = doc["bufferViews"][acc["bufferView"]]
+o = binoff + bv.get("byteOffset", 0) + acc.get("byteOffset", 0)
+struct.pack_into("<f", b, o, struct.unpack_from("<f", b, o)[0] + 0.25)
+open(sys.argv[2], "wb").write(bytes(b))
+' "$d/rt.glb" "$d/moved.glb" "$attr" || continue
+    checked=$((checked + 1))
+    rm -f "$d/moved.mdl0"
+    "$B/wmdlt" ENCODE "$d/moved.glb" --parent="$mdl" --dest "$d/moved.mdl0" --overwrite \
+      >/dev/null 2>&1
+    cmp -s "$mdl" "$d/moved.mdl0" && perturbed=$((perturbed + 1))
+  done
+  if [ "$checked" -eq 3 ] && [ "$perturbed" -eq 0 ]; then
+    bok "MDL0 preservation rebuilds when geometry actually changed"
+  else
+    bno "MDL0 byte-exact roundtrip" \
+      "returned the parent for changed geometry ($perturbed of $checked attributes)"
+  fi
+
+  local brs="$PWD_PROJECT/../tests/fixtures/accf_ins_taran.brres"
+  if "$B/wmdlt" DECODE "$brs" --dest "$d/rt-arc.glb" --overwrite >/dev/null 2>&1 \
+  && "$B/wmdlt" ENCODE "$d/rt-arc.glb" --parent="$brs" --dest "$d/rt.brres" --overwrite \
+       >/dev/null 2>&1 \
+  && cmp -s "$brs" "$d/rt.brres"; then
+    bok "BRRES re-encode is byte identical"
+  else bno "BRRES byte-exact roundtrip" "re-injected BRRES differs from its parent"; fi
   local wbf="$PWD_PROJECT/../tests/fixtures/bfres_wiiu_splatoon_clt.bfres"
   if "$B/wmdlt" ENCODE "$wbf" --dest "$d/wiiu-bfres.dae" --overwrite >/dev/null 2>&1 \
   && "$B/wmdlt" ENCODE "$d/wiiu-bfres.dae" --parent="$wbf" --dest "$d/model-a/same-wiiu.bfres" --overwrite >/dev/null 2>&1 \

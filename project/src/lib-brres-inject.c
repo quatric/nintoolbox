@@ -1,6 +1,7 @@
 #include "lib-brres-inject.h"
 #include "lib-szs.h"
 #include "lib-brres.h"
+#include "lib-brres-model.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -367,6 +368,102 @@ static const char *get_mdl0_string (
 	return (const char *)(ptr + 4);
 }
 
+// ---------------------------------------------------------------------------
+// Parent preservation
+// ---------------------------------------------------------------------------
+// An MDL0 stores geometry in a form a glTF cannot describe: vertex arrays are
+// quantized to their own type and divisor, shared between objects, ordered as
+// the original exporter emitted them, and drawn by a display list that may use
+// triangle strips or fans. Exporting to GLB flattens all of that into one
+// unified vertex stream per mesh, so rebuilding an MDL0 from a GLB cannot
+// recover the parent's layout -- it can only pick some layout of its own.
+//
+// So when the incoming geometry is the geometry the parent already holds, the
+// right answer is the parent's own bytes. This decodes the parent through the
+// same reader the exporter uses and compares the two models corner by corner;
+// only if every corner agrees is the parent handed back untouched. Anything
+// that actually differs still goes through the rebuild below.
+
+static int mdl0_close (float a, float b, float scale)
+{
+	const float d = a > b ? a - b : b - a;
+	return d <= 1e-5f + 1e-5f * scale;
+}
+
+// An attribute is present only when its index is in range of a non-empty
+// array: a mesh without texcoords still carries texcoord_idx 0 on every
+// corner, so the index alone does not say whether the attribute exists.
+#define MDL0_ATTR(m, arr, cnt, idx) \
+	((idx) >= 0 && (size_t)(idx) < (m)->cnt ? &(m)->arr[(idx)] : NULL)
+
+static int mdl0_vec3_eq (const vec3_t *a, const vec3_t *b)
+{
+	if (!a || !b)
+		return a == b;
+	const float s = fabsf (a->x) + fabsf (a->y) + fabsf (a->z);
+	return mdl0_close (a->x, b->x, s) && mdl0_close (a->y, b->y, s)
+		&& mdl0_close (a->z, b->z, s);
+}
+
+// One triangle corner of each mesh, resolved through its index tuple.
+static int mdl0_corner_matches (const mesh_t *a, const mesh_t *b, size_t i)
+{
+	const vertex_t *va = &a->vertices[i], *vb = &b->vertices[i];
+
+	if (!mdl0_vec3_eq (MDL0_ATTR (a, positions, num_positions, va->position_idx),
+			MDL0_ATTR (b, positions, num_positions, vb->position_idx)))
+		return 0;
+
+	if (!mdl0_vec3_eq (MDL0_ATTR (a, normals, num_normals, va->normal_idx),
+			MDL0_ATTR (b, normals, num_normals, vb->normal_idx)))
+		return 0;
+
+	const vec2_t *ta = MDL0_ATTR (a, texcoords, num_texcoords, va->texcoord_idx);
+	const vec2_t *tb = MDL0_ATTR (b, texcoords, num_texcoords, vb->texcoord_idx);
+	if (!ta || !tb)
+		return ta == tb;
+	return mdl0_close (ta->u, tb->u, 1.0f) && mdl0_close (ta->v, tb->v, 1.0f);
+}
+
+// Whether `incoming` carries exactly the geometry `parent` already holds.
+// Meshes are paired by the same rule the injector itself uses, so a model that
+// preserves compares the same way it would rebuild.
+static int mdl0_geometry_unchanged (const model_t *parent, const model_t *incoming)
+{
+	if (!parent || !incoming)
+		return 0;
+	if (parent->num_meshes != incoming->num_meshes)
+		return 0;
+	// A bone-only MDL0 carries no geometry to compare, and none arrived to
+	// replace it, so it is unchanged by definition.
+	if (!parent->num_meshes)
+		return 1;
+
+	for (size_t i = 0; i < parent->num_meshes; i++)
+	{
+		const mesh_t *pm = &parent->meshes[i];
+		const mesh_t *im = NULL;
+		for (size_t m = 0; m < incoming->num_meshes; m++)
+			if (!strcmp (incoming->meshes[m].name, pm->name))
+			{
+				im = &incoming->meshes[m];
+				break;
+			}
+		if (!im)
+			im = &incoming->meshes[i];
+
+		if (pm->num_vertices != im->num_vertices || !pm->num_vertices)
+			return 0;
+		if (!pm->vertices || !im->vertices)
+			return 0;
+		for (size_t v = 0; v < pm->num_vertices; v++)
+			if (!mdl0_corner_matches (pm, im, v))
+				return 0;
+	}
+
+	return 1;
+}
+
 int InjectDAEIntoMDL0 (const uint8_t *mdl0_data, size_t mdl0_size, const model_t *dae_model,
 	uint8_t **out_data, size_t *out_size)
 {
@@ -375,6 +472,28 @@ int InjectDAEIntoMDL0 (const uint8_t *mdl0_data, size_t mdl0_size, const model_t
 
 	if (memcmp (mdl0_data, "MDL0", 4))
 		return 0;
+
+	// Hand the parent straight back when nothing about its geometry changed.
+	// See mdl0_geometry_unchanged above for why rebuilding cannot reproduce
+	// the parent's own layout.
+	{
+		model_t *parent_model = ParseMDL0 (mdl0_data, mdl0_size);
+		const int unchanged = mdl0_geometry_unchanged (parent_model, dae_model);
+		if (parent_model)
+			FreeModel (parent_model);
+		if (unchanged)
+		{
+			uint8_t *copy = MALLOC (mdl0_size);
+			if (copy)
+			{
+				memcpy (copy, mdl0_data, mdl0_size);
+				*out_data = copy;
+				*out_size = mdl0_size;
+				return 1;
+			}
+		}
+	}
+
 	const MDL0Header *in_hdr = (const MDL0Header *)mdl0_data;
 	uint32_t version = to_be32 (in_hdr->version);
 	int32_t in_size = to_be32 (in_hdr->size);
@@ -971,8 +1090,26 @@ int InjectDAEIntoMDL0 (const uint8_t *mdl0_data, size_t mdl0_size, const model_t
 	return 1;
 }
 
+// Locate the wszst that belongs to this build. Reading /proc/self/exe alone
+// only works on Linux; everywhere else it fails and the bare name falls
+// through to whatever wszst happens to be on PATH, which may be an unrelated
+// installation. ProgramDirectory() is the portable answer the rest of the
+// tools already use, so ask it first and keep the old paths as fallbacks.
 static void get_wszst_cmd (char *buf, size_t buf_sz)
 {
+	char test_path[PATH_MAX];
+
+	ccp dir = ProgramDirectory ();
+	if (dir && *dir)
+	{
+		snprintf (test_path, sizeof (test_path), "%s/wszst", dir);
+		if (!access (test_path, X_OK))
+		{
+			snprintf (buf, buf_sz, "\"%s\"", test_path);
+			return;
+		}
+	}
+
 	char self_path[PATH_MAX];
 	ssize_t len = readlink ("/proc/self/exe", self_path, sizeof (self_path) - 1);
 	if (len > 0)
@@ -982,7 +1119,6 @@ static void get_wszst_cmd (char *buf, size_t buf_sz)
 		if (slash)
 		{
 			*slash = 0;
-			char test_path[PATH_MAX];
 			snprintf (test_path, sizeof (test_path), "%s/wszst", self_path);
 			if (!access (test_path, X_OK))
 			{
@@ -991,6 +1127,7 @@ static void get_wszst_cmd (char *buf, size_t buf_sz)
 			}
 		}
 	}
+
 	snprintf (buf, buf_sz, "wszst");
 }
 
@@ -1030,9 +1167,16 @@ int InjectDAEIntoBRRES (const uint8_t *brres_data, size_t brres_size, const mode
 	opt_dest = saved_dest;
 	ResetSZS (&ext_szs);
 
-	bool injected = false;
+	// Pick which model to inject into by name order, not by readdir order:
+	// readdir varies between filesystems, so taking whatever it returned first
+	// made the choice of overwritten model unpredictable on a multi-model
+	// archive. Sorting also lets the preserving pass below run over a stable
+	// sequence.
 	char mdl_dir_path[PATH_MAX];
 	snprintf (mdl_dir_path, sizeof (mdl_dir_path), "%s/3DModels(NW4R)", temp_dir);
+
+	char (*mdl_names)[256] = NULL;
+	size_t num_mdl = 0, cap_mdl = 0;
 	DIR *mdl_dir = opendir (mdl_dir_path);
 	if (mdl_dir)
 	{
@@ -1041,15 +1185,53 @@ int InjectDAEIntoBRRES (const uint8_t *brres_data, size_t brres_size, const mode
 		{
 			if (ent->d_name[0] == '.')
 				continue;
+			if (num_mdl == cap_mdl)
+			{
+				const size_t grow = cap_mdl ? cap_mdl * 2 : 8;
+				char (*bigger)[256] = REALLOC (mdl_names, grow * sizeof (*mdl_names));
+				if (!bigger)
+					break;
+				mdl_names = bigger;
+				cap_mdl = grow;
+			}
+			snprintf (mdl_names[num_mdl++], sizeof (mdl_names[0]), "%s", ent->d_name);
+		}
+		closedir (mdl_dir);
+	}
+	for (size_t a = 0; a + 1 < num_mdl; a++)
+		for (size_t b = a + 1; b < num_mdl; b++)
+			if (strcmp (mdl_names[a], mdl_names[b]) > 0)
+			{
+				char swap[256];
+				memcpy (swap, mdl_names[a], sizeof (swap));
+				memcpy (mdl_names[a], mdl_names[b], sizeof (swap));
+				memcpy (mdl_names[b], swap, sizeof (swap));
+			}
+
+	// An archive holding several models is exported as only one of them, so
+	// injecting into a different one would rewrite a model nobody edited.
+	// Prefer the model the incoming geometry leaves untouched -- that is the
+	// one it came from -- and only fall back to the first that accepts the
+	// injection when no model matches.
+	bool injected = false;
+	for (int prefer_unchanged = 1; prefer_unchanged >= 0 && !injected; prefer_unchanged--)
+	{
+		for (size_t i = 0; i < num_mdl && !injected; i++)
+		{
 			char mdl_file_path[PATH_MAX];
-			snprintf (mdl_file_path, sizeof (mdl_file_path), "%s/%s", mdl_dir_path, ent->d_name);
+			snprintf (mdl_file_path, sizeof (mdl_file_path), "%s/%s", mdl_dir_path, mdl_names[i]);
 			u8 *mdl_raw = 0;
 			size_t mdl_sz = 0;
-			if (!LoadFileAlloc (mdl_file_path, 0, 0, &mdl_raw, &mdl_sz, 0, 0, 0, false))
+			if (LoadFileAlloc (mdl_file_path, 0, 0, &mdl_raw, &mdl_sz, 0, 0, 0, false))
+				continue;
+
+			u8 *new_mdl0 = NULL;
+			size_t new_mdl0_sz = 0;
+			if (InjectDAEIntoMDL0 (mdl_raw, mdl_sz, dae_model, &new_mdl0, &new_mdl0_sz))
 			{
-				u8 *new_mdl0 = NULL;
-				size_t new_mdl0_sz = 0;
-				if (InjectDAEIntoMDL0 (mdl_raw, mdl_sz, dae_model, &new_mdl0, &new_mdl0_sz))
+				const bool unchanged
+					= new_mdl0_sz == mdl_sz && !memcmp (new_mdl0, mdl_raw, mdl_sz);
+				if (!prefer_unchanged || unchanged)
 				{
 					FILE *mf = fopen (mdl_file_path, "wb");
 					if (mf)
@@ -1058,15 +1240,13 @@ int InjectDAEIntoBRRES (const uint8_t *brres_data, size_t brres_size, const mode
 						fclose (mf);
 						injected = true;
 					}
-					FREE (new_mdl0);
 				}
-				FREE (mdl_raw);
+				FREE (new_mdl0);
 			}
-			if (injected)
-				break;
+			FREE (mdl_raw);
 		}
-		closedir (mdl_dir);
 	}
+	FREE (mdl_names);
 
 	if (!injected)
 	{
