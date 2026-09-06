@@ -1088,6 +1088,10 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
+	err = ExtractG1TArchive (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
 	err = ExtractPERSFile (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

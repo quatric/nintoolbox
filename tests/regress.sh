@@ -7271,6 +7271,47 @@ open(sys.argv[1], "wb").write(d)
 }
 t_pers_container
 
+# Koei Tecmo G1T, against the two retail 3DS samples. Both are single
+# ETC1/ETC1A4 textures whose declared total size matches the file exactly
+# and whose mip chain accounts for every remaining byte, which is how the
+# header layout was derived in the first place.
+t_g1t_textures(){
+  local dir="$PWD_PROJECT/../tests/fixtures/3ds_samples/koei_g1t"
+  [ -d "$dir" ] || { sk "Koei Tecmo G1T textures"; return; }
+  local d; d=$(mktemp -d /tmp/_r_g1t.XXXXXX) || { no "G1T textures" "mktemp failed"; return; }
+  local okall=1
+  for spec in 'sample_09014.g1t 64 256' 'sample_10545.g1t 128 256'; do
+    set -- $spec
+    [ -f "$dir/$1" ] || { okall=0; break; }
+    cp "$dir/$1" "$d/"
+    rm -rf "$d/$1.d"
+    if ! "$B/wszst" xx "$d/$1" --dest "$d/$1.d" --overwrite >/dev/null 2>&1 \
+    || ! python3 -c '
+import struct, sys, zlib
+d = open(sys.argv[1], "rb").read()
+assert d[:8] == b"\x89PNG\r\n\x1a\n"
+w, h = struct.unpack(">II", d[16:24])
+assert (w, h) == (int(sys.argv[2]), int(sys.argv[3])), (w, h)
+i, idat = 8, b""
+while i < len(d):
+    ln = struct.unpack(">I", d[i:i+4])[0]
+    if d[i+4:i+8] == b"IDAT":
+        idat += d[i+8:i+8+ln]
+    i += 12 + ln
+assert any(zlib.decompress(idat)), "decoded to an empty image"
+' "$d/$1.d/${1}_0000.png" "$2" "$3" >/dev/null 2>&1; then
+      okall=0; break
+    fi
+  done
+  if [ "$okall" = 1 ]; then
+    ok "Koei Tecmo G1T -> PNG (retail 3DS ETC1/ETC1A4)"
+  else
+    no "G1T textures" "a sample failed to decode at its declared size"
+  fi
+  rm -rf "$d"
+}
+t_g1t_textures
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]

@@ -95,6 +95,9 @@ enumError CreatePTLGArchive (u8 **dest, uint *dest_size, const nintendo_sarc_ent
 enumError ExtractNUS3AudioArchive (ccp arg, ccp basedir, uint depth);
 enumError CreateNUS3AudioArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 
+// Extract a Koei Tecmo G1T texture container to PNGs.
+enumError ExtractG1TArchive (ccp arg, ccp basedir, uint depth);
+
 // Extract a Pokemon Stadium (N64) PERS-SZP container: a small header around
 // a Yay0 stream.
 enumError ExtractPERSFile (ccp arg, ccp basedir, uint depth);
