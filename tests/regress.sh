@@ -6431,6 +6431,46 @@ t_container_roundtrip(){
 }
 t_container_roundtrip
 
+# MTXT wraps a single XTX texture container in a gzip stream, so it needs a
+# real XTX rather than the generic two-member directory above. The reader
+# also slices the XTX's own surfaces out as "surface_%04u.bin" copies; the
+# writer must ignore those and re-wrap only texture.xtx, or the archive
+# would grow on every rebuild.
+t_mtxt_roundtrip(){
+  local d; d=$(mktemp -d /tmp/_r_mtxt.XXXXXX) || { no "MTXT roundtrip" "mktemp failed"; return; }
+  mkdir -p "$d/src.d"
+  python3 -c '
+import struct, sys
+hdr = b"DFvN" + struct.pack("<I", 16) + b"\x00" * 8
+payload = bytes(range(256)) * 4
+blk = (b"HBvN" + struct.pack("<I", 32) + struct.pack("<Q", len(payload))
+       + struct.pack("<q", 32) + struct.pack("<I", 3) + b"\x00" * 4)
+open(sys.argv[1], "wb").write(hdr + blk + payload)
+' "$d/src.d/texture.xtx"
+  cp -r "$d/src.d" "$d/ref.d"
+  if "$B/wszst" CREATE "$d/src.d" --dest "$d/a.mtxt" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/a.mtxt" ]; then
+    ok "MTXT encode"
+  else
+    no "MTXT encode" "CREATE produced no archive"; rm -rf "$d"; return
+  fi
+  if "$B/wszst" XX "$d/a.mtxt" --dest "$d/out.d" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/ref.d/texture.xtx" "$d/out.d/texture.xtx"; then
+    ok "MTXT decode"
+  else
+    no "MTXT decode" "inner XTX did not survive"; rm -rf "$d"; return
+  fi
+  cp -r "$d/out.d" "$d/re.d"
+  if "$B/wszst" CREATE "$d/re.d" --dest "$d/b.mtxt" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/a.mtxt" "$d/b.mtxt"; then
+    bok "MTXT re-encode is byte identical"
+  else
+    bno "MTXT byte-exact" "rebuild differs from the original archive"
+  fi
+  rm -rf "$d"
+}
+t_mtxt_roundtrip
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
