@@ -50,6 +50,7 @@
 #include "lib-excite.h"
 #include "lib-nintendo-archives.h"
 #include "lib-gtx.h"
+#include "lib-glg.h"
 #include "lib-hsf.h"
 #include "lib-quicklz.h"
 #include "lib-zstd.h"

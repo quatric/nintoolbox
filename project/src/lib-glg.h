@@ -44,6 +44,11 @@
 // supported.
 enumError DecodeGLG (const u8 *data, uint size, ccp out_glb_path);
 
+// Same, but SRC_PATH lets the decoder find the sibling .glt/.rlt PTLG
+// container a .glg binds its textures from by hash. Pass NULL to skip
+// texture binding entirely.
+enumError DecodeGLG2 (const u8 *data, uint size, ccp src_path, ccp out_glb_path);
+
 // Encode a parsed model (GLB input, as produced by DecodeGLG) as a
 // geometry-only .glg file -- the inverse of DecodeGLG. Positions are written
 // as 10.6 fixed-point s16 and texcoords as u16/1024; mesh-table fields with

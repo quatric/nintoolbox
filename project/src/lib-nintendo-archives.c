@@ -3267,6 +3267,90 @@ static image_format_t ptlg_image_format (u8 format)
 	}
 }
 
+// Decode every texture in a PTLG container to "<hash>.png" in DEST_DIR.
+//
+// GLG/RLG models bind their textures by the same 32-bit hash PTLG keys its
+// entries with, so a model exporter needs the images under exactly those
+// names. This shares the container walk and TPL wrapping with
+// ExtractPTLGArchive() below; the only difference is the output form.
+enumError DecodePTLGToPNGDir (const u8 *data, uint size, ccp dest_dir, uint *n_written)
+{
+	if (n_written)
+		*n_written = 0;
+	if (!data || size < 0x20 || !dest_dir || memcmp (data, "PTLG", 4))
+		return ERR_NOTHING_TO_DO;
+
+	const u32 n_tex = rd_be32 (data + 4);
+	if (!n_tex || n_tex > 0x10000)
+		return ERR_NOTHING_TO_DO;
+	const bool is_gc = rd_be32 (data + 8) == 0;
+	const u32 tab_off = rd_be32 (data + 0x10) == 0 ? 0x20 : 0x10;
+	if ((u64)tab_off + (u64)n_tex * 16 > size)
+		return ERR_NOTHING_TO_DO;
+	const u32 data_base = tab_off + n_tex * 16;
+
+	uint written = 0;
+	for (u32 i = 0; i < n_tex; i++)
+	{
+		const u8 *ent = data + tab_off + i * 16;
+		const u32 hash = rd_be32 (ent);
+		const u32 img_off = rd_be32 (ent + 4);
+		const u32 sect_size = rd_be32 (ent + 8);
+
+		const u64 abs = (u64)data_base + img_off;
+		if (abs + 0x20 > size || !sect_size || abs + sect_size > size)
+			continue;
+
+		const u8 *th = data + abs;
+		const u8 format = th[9];
+		const u16 width = is_gc ? rd_be16 (th + 12) : rd_be16 (th + 14);
+		const u16 height = is_gc ? rd_be16 (th + 14) : rd_be16 (th + 16);
+		const u32 hdr = is_gc ? 16 : 32;
+
+		const image_format_t iform = ptlg_image_format (format);
+		if (iform == IMG_INVALID || !width || !height || hdr >= sect_size)
+			continue;
+
+		const u32 img_size = sect_size - hdr;
+		if (abs + hdr + img_size > size)
+			continue;
+
+		const u32 tpl_hdr = sizeof (tpl_header_t);
+		const u32 tpl_tab = tpl_hdr + sizeof (tpl_imgtab_t);
+		const u32 tpl_data = tpl_tab + sizeof (tpl_img_header_t);
+		u8 *tpl = CALLOC (tpl_data + img_size, 1);
+		if (!tpl)
+			continue;
+
+		write_be32 (tpl, TPL_MAGIC_NUM);
+		write_be32 (tpl + 4, 1);
+		write_be32 (tpl + 8, tpl_hdr);
+		write_be32 (tpl + tpl_hdr, tpl_tab);
+		write_be32 (tpl + tpl_hdr + 4, 0);
+		write_be16 (tpl + tpl_tab, height);
+		write_be16 (tpl + tpl_tab + 2, width);
+		write_be32 (tpl + tpl_tab + 4, iform);
+		write_be32 (tpl + tpl_tab + 8, tpl_data);
+		write_be32 (tpl + tpl_tab + 20, 1);
+		write_be32 (tpl + tpl_tab + 24, 1);
+		memcpy (tpl + tpl_data, data + abs + hdr, img_size);
+
+		char out[PATH_MAX];
+		snprintf (out, sizeof (out), "%s/%08x.png", dest_dir, hash);
+
+		Image_t img;
+		if (AssignIMG (&img, 1, tpl, tpl_data + img_size, 0, false, &be_func, out) == ERR_OK
+			&& SaveIMG (&img, FF_PNG, 0, 0, out, true) == ERR_OK)
+			written++;
+		ResetIMG (&img);
+		FREE (tpl);
+	}
+
+	if (n_written)
+		*n_written = written;
+	return written ? ERR_OK : ERR_NOTHING_TO_DO;
+}
+
 enumError ExtractPTLGArchive (ccp arg, ccp basedir, uint depth)
 {
 	if (!is_ext_match (arg, ".glt") && !is_ext_match (arg, ".rlt"))

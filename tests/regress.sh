@@ -7019,6 +7019,39 @@ t_mod_deferred_export(){
 }
 t_mod_deferred_export
 
+# A .glg names no textures: each mesh entry carries the 32-bit PTLG hash of
+# the texture it uses, and the images live in the sibling .glt/.rlt. Build a
+# tiny PTLG whose hash matches the one in the fixture's mesh table and check
+# the exporter binds it -- and that a hash the container does not hold binds
+# nothing rather than picking up the wrong texture.
+t_glg_ptlg_textures(){
+  local src="$PWD_PROJECT/../tests/fixtures/gc_samples/strikers_glg/chainchomp.glg"
+  [ -f "$src" ] || { sk "GLG -> PTLG texture binding"; return; }
+  local d; d=$(mktemp -d /tmp/_r_glgtex.XXXXXX) || { no "GLG texture binding" "mktemp failed"; return; }
+  cp "$src" "$d/m.glg"
+  # chainchomp's single mesh entry carries hash 0c49e238 at +40.
+  python3 "$PWD_PROJECT/../tests/mk_ptlg.py" "$d/m.glt" 0c49e238 >/dev/null 2>&1
+  if "$B/wmdlt" DECODE "$d/m.glg" --dest "$d/m.glb" --overwrite >/dev/null 2>&1 \
+  && python3 "$PWD_PROJECT/../tests/glb_images.py" "$d/m.glb" 1 \
+  && [ -z "$(ls "$d"/*.png 2>/dev/null)" ]; then
+    ok "GLG binds its PTLG texture by hash and stages no leftovers"
+  else
+    no "GLG -> PTLG texture binding" "expected one embedded texture"
+  fi
+
+  # Same model, container holding a different hash: nothing should bind.
+  rm -f "$d/m.glb"
+  python3 "$PWD_PROJECT/../tests/mk_ptlg.py" "$d/m.glt" deadbeef >/dev/null 2>&1
+  if "$B/wmdlt" DECODE "$d/m.glg" --dest "$d/m.glb" --overwrite >/dev/null 2>&1 \
+  && python3 "$PWD_PROJECT/../tests/glb_images.py" "$d/m.glb" 0; then
+    ok "GLG binds nothing when the container lacks the mesh's hash"
+  else
+    no "GLG -> PTLG texture binding" "bound a texture the container does not hold"
+  fi
+  rm -rf "$d"
+}
+t_glg_ptlg_textures
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]

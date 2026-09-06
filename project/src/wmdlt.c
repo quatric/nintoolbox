@@ -839,7 +839,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		{
 			if (!testmode)
 			{
-				err = DecodeGLG (raw.data, (uint)raw.data_size, dest);
+				// 'arg' locates the sibling .glt/.rlt this model's textures live in.
+				err = DecodeGLG2 (raw.data, (uint)raw.data_size, arg, dest);
 				if (err > ERR_WARNING)
 				{
 					ERROR0 (err, "Failed to decode GLG: %s\n", arg);

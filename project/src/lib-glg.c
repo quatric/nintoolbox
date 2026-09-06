@@ -14,6 +14,9 @@
 #include "lib-std.h"
 #include <math.h>
 #include "lib-glg.h"
+#include "lib-nintendo-archives.h"
+#include <unistd.h>
+#include <sys/stat.h>
 #include <string.h>
 
 static inline u16 glg_be16 (const u8 *p)
@@ -148,13 +151,23 @@ typedef struct glg_mesh_entry_t
 	u8 attr_count;
 	u32 vapd_off;	  // byte offset into the 0x1b005 chunk (GameCube only)
 	u16 vertex_count; // stored directly on Wii; derived from strides on GameCube
+	// PTLG texture hash: GLG binds its textures by the same 32-bit key the
+	// sibling .glt/.rlt container names its entries with (which is why the
+	// PTLG extractor writes "<hash>.tpl"). Verified against Super Mario
+	// Strikers: over the 360 meshes whose model has a populated sibling
+	// container, every non-sentinel hash resolves to a texture in it.
+	// Retail files put it at either +36 or +40 and never both, so both are
+	// read and the caller keeps whichever actually names a texture in the
+	// container -- a hash that matches nothing binds nothing.
+	u32 tex_hash[2];
 } glg_mesh_entry_t;
 
 // GameCube layout (0x4a bytes): u16 pad, u16 index format, u32 index offset,
 // u16 index count, u8 face type, u8 attr count, u32 vapd offset, ...
 // Wii layout (48 bytes): u32 index offset, u16 index format, u16 index count,
 // u16 vertex count, u8 unknown, u8 attr count, ... (StrikersRLG.cs MeshData)
-static void glg_read_mesh_entry (const u8 *e, glg_mesh_entry_t *out, bool is_wii)
+static void glg_read_mesh_entry (
+	const u8 *e, uint entry_size, glg_mesh_entry_t *out, bool is_wii)
 {
 	memset (out, 0, sizeof (*out));
 	if (is_wii)
@@ -165,6 +178,11 @@ static void glg_read_mesh_entry (const u8 *e, glg_mesh_entry_t *out, bool is_wii
 		out->vertex_count = glg_be16 (e + 8);
 		out->face_type = 0;
 		out->attr_count = e[11];
+		if (entry_size >= 44)
+		{
+			out->tex_hash[0] = glg_be32 (e + 40);
+			out->tex_hash[1] = glg_be32 (e + 36);
+		}
 	}
 	else
 	{
@@ -174,6 +192,11 @@ static void glg_read_mesh_entry (const u8 *e, glg_mesh_entry_t *out, bool is_wii
 		out->face_type = e[10];
 		out->attr_count = e[11];
 		out->vapd_off = glg_be32 (e + 12);
+		if (entry_size >= 44)
+		{
+			out->tex_hash[0] = glg_be32 (e + 40);
+			out->tex_hash[1] = glg_be32 (e + 36);
+		}
 	}
 }
 
@@ -193,7 +216,150 @@ static void glg_read_vapd (const u8 *rec, glg_vapd_t *out)
 
 //-----------------------------------------------------------------------------
 
+// Textures staged beside the model while the GLB is written, tracked so
+// cleanup removes exactly what was created and never a pre-existing file.
+typedef struct glg_staged_tex_t
+{
+	u32 *hashes;
+	char **paths;
+	uint used, size;
+
+} glg_staged_tex_t;
+
+static bool glg_staged_has (const glg_staged_tex_t *st, u32 hash)
+{
+	if (hash == 0 || hash == 0xffffffff)
+		return false;
+	for (uint i = 0; i < st->used; i++)
+		if (st->hashes[i] == hash)
+			return true;
+	return false;
+}
+
+static void glg_staged_cleanup (glg_staged_tex_t *st)
+{
+	for (uint i = 0; i < st->used; i++)
+	{
+		unlink (st->paths[i]);
+		FREE (st->paths[i]);
+	}
+	FREE (st->paths);
+	FREE (st->hashes);
+	memset (st, 0, sizeof (*st));
+}
+
+// Decode SRC_PATH's sibling .glt/.rlt into "<hash>.png" files beside
+// OUT_GLB_PATH and record what was written.
+static void glg_stage_ptlg_textures (ccp src_path, ccp out_glb_path, glg_staged_tex_t *st)
+{
+	ccp dot = strrchr (src_path, '.');
+	if (!dot)
+		return;
+
+	char ptlg[PATH_MAX];
+	static const char *const ext[] = { ".glt", ".rlt", 0 };
+	const u8 *raw = 0;
+	u8 *loaded = 0;
+	size_t raw_size = 0;
+	for (uint i = 0; ext[i]; i++)
+	{
+		snprintf (ptlg, sizeof (ptlg), "%.*s%s", (int)(dot - src_path), src_path, ext[i]);
+		if (!LoadFileAlloc (ptlg, 0, 0, &loaded, &raw_size, 0, 0, 0, false) && loaded)
+		{
+			raw = loaded;
+			break;
+		}
+	}
+	if (!raw)
+		return;
+
+	char dir[PATH_MAX];
+	ccp slash = strrchr (out_glb_path, '/');
+	if (slash)
+		snprintf (dir, sizeof (dir), "%.*s", (int)(slash - out_glb_path), out_glb_path);
+	else
+		snprintf (dir, sizeof (dir), ".");
+
+	// Note which "<hash>.png" files already exist: those belong to the user
+	// (or to a previous extraction) and must survive this export untouched.
+	u32 n_tex = raw_size >= 8 ? ((u32)raw[4] << 24 | (u32)raw[5] << 16 | (u32)raw[6] << 8 | raw[7]) : 0;
+	bool *pre_existing = n_tex && n_tex <= 0x10000 ? CALLOC (n_tex, sizeof (bool)) : 0;
+	const u32 tab_off = raw_size > 0x14 && !(raw[0x10] | raw[0x11] | raw[0x12] | raw[0x13]) ? 0x20 : 0x10;
+	if (pre_existing)
+		for (u32 i = 0; i < n_tex; i++)
+		{
+			const size_t eo = (size_t)tab_off + (size_t)i * 16;
+			if (eo + 4 > raw_size)
+				break;
+			const u32 h = (u32)raw[eo] << 24 | (u32)raw[eo + 1] << 16 | (u32)raw[eo + 2] << 8
+				| raw[eo + 3];
+			char path[PATH_MAX];
+			snprintf (path, sizeof (path), "%s/%08x.png", dir, h);
+			struct stat sb;
+			pre_existing[i] = !stat (path, &sb);
+		}
+
+	uint written = 0;
+	DecodePTLGToPNGDir (raw, (uint)raw_size, dir, &written);
+
+	if (written && pre_existing)
+	{
+		st->size = n_tex;
+		st->hashes = CALLOC (n_tex, sizeof (*st->hashes));
+		st->paths = CALLOC (n_tex, sizeof (*st->paths));
+		if (st->hashes && st->paths)
+			for (u32 i = 0; i < n_tex; i++)
+			{
+				const size_t eo = (size_t)tab_off + (size_t)i * 16;
+				if (eo + 4 > raw_size)
+					break;
+				const u32 h = (u32)raw[eo] << 24 | (u32)raw[eo + 1] << 16
+					| (u32)raw[eo + 2] << 8 | raw[eo + 3];
+				char path[PATH_MAX];
+				snprintf (path, sizeof (path), "%s/%08x.png", dir, h);
+				struct stat sb;
+				if (stat (path, &sb))
+					continue;
+				st->hashes[st->used] = h;
+				// A file that was already there is still usable as a
+				// texture, but it is not ours to delete afterwards.
+				st->paths[st->used] = pre_existing[i] ? 0 : STRDUP (path);
+				st->used++;
+			}
+		else
+		{
+			FREE (st->hashes);
+			FREE (st->paths);
+			memset (st, 0, sizeof (*st));
+		}
+	}
+
+	FREE (pre_existing);
+	FREE (loaded);
+}
+
+// Materials are keyed by texture hash: meshes sharing a texture share one.
+static int glg_find_or_add_material (material_t *mats, uint *n, u32 hash)
+{
+	char name[64];
+	snprintf (name, sizeof (name), "%08x", hash);
+	for (uint i = 0; i < *n; i++)
+		if (!strcmp (mats[i].textures[0], name))
+			return (int)i;
+	material_t *m = mats + *n;
+	snprintf (m->name, sizeof (m->name), "mat_%08x", hash);
+	snprintf (m->textures[0], sizeof (m->textures[0]), "%s", name);
+	m->num_textures = 1;
+	m->diffuse[0] = m->diffuse[1] = m->diffuse[2] = m->diffuse[3] = 1.0f;
+	return (int)(*n)++;
+}
+
 enumError DecodeGLG (const u8 *data, uint size, ccp out_glb_path)
+{
+	return DecodeGLG2 (data, size, 0, out_glb_path);
+}
+
+enumError DecodeGLG2 (const u8 *data, uint size, ccp src_path, ccp out_glb_path)
 {
 	if (!data || size < 16 || !out_glb_path)
 		return ERR_NOTHING_TO_DO;
@@ -288,9 +454,13 @@ enumError DecodeGLG (const u8 *data, uint size, ccp out_glb_path)
 
 	glg_mesh_entry_t *entries = MALLOC (mesh_count * sizeof (*entries));
 	for (uint i = 0; i < mesh_count; i++)
-		glg_read_mesh_entry (mesh_chunk.data + i * mesh_entry_size, entries + i, is_wii);
+		glg_read_mesh_entry (
+			mesh_chunk.data + i * mesh_entry_size, mesh_entry_size, entries + i, is_wii);
 
 	mesh_t *meshes = CALLOC (mesh_count, sizeof (mesh_t));
+	// Not every mesh-table entry emits a mesh, so remember which entry each
+	// output mesh came from -- the texture hash lives in that entry.
+	u32 *mesh_src_entry = CALLOC (mesh_count, sizeof (*mesh_src_entry));
 	uint num_out_meshes = 0;
 	uint wii_vapd_off = 0;
 
@@ -476,22 +646,68 @@ enumError DecodeGLG (const u8 *data, uint size, ccp out_glb_path)
 		mesh->num_texcoords = texcoords ? vertex_count : 0;
 		mesh->vertices = verts;
 		mesh->num_vertices = num_verts;
+		mesh_src_entry[num_out_meshes] = i;
 		num_out_meshes++;
 	}
-	FREE (entries);
 
 	if (!num_out_meshes)
 	{
+		FREE (entries);
 		FREE (meshes);
+		FREE (mesh_src_entry);
 		return ERR_NOTHING_TO_DO;
+	}
+
+	// Bind textures from the sibling PTLG container, when there is one.
+	//
+	// A .glg names no textures at all: each mesh entry carries the 32-bit
+	// PTLG hash of the texture it uses, and the images live in the .glt
+	// (GameCube) or .rlt (Wii) file beside it. Decode that container's
+	// textures to "<hash>.png" next to the GLB being written, so the GLB
+	// writer's own bare-name lookup finds them and embeds them; then remove
+	// the staged files, since the images are inside the GLB by then.
+	//
+	// A hash is only bound when the container really holds it, so a model
+	// whose textures live elsewhere stays untextured rather than picking up
+	// something wrong.
+	glg_staged_tex_t staged = { 0, 0, 0 };
+	material_t *materials = 0;
+	uint num_materials = 0;
+	if (src_path)
+	{
+		glg_stage_ptlg_textures (src_path, out_glb_path, &staged);
+		if (staged.used)
+		{
+			materials = CALLOC (num_out_meshes, sizeof (*materials));
+			if (materials)
+				for (uint i = 0; i < num_out_meshes; i++)
+				{
+					const glg_mesh_entry_t *m = entries + mesh_src_entry[i];
+					for (uint h = 0; h < 2; h++)
+					{
+						const u32 hash = m->tex_hash[h];
+						if (!glg_staged_has (&staged, hash))
+							continue;
+						const int idx
+							= glg_find_or_add_material (materials, &num_materials, hash);
+						meshes[i].material_idx = idx;
+						break;
+					}
+				}
+		}
 	}
 
 	model_t model;
 	memset (&model, 0, sizeof (model));
 	model.meshes = meshes;
 	model.num_meshes = num_out_meshes;
+	model.materials = materials;
+	model.num_materials = num_materials;
 
 	const int rc = ExportModelToGLB (&model, out_glb_path);
+	glg_staged_cleanup (&staged);
+	FREE (materials);
+	FREE (entries);
 
 	for (uint i = 0; i < num_out_meshes; i++)
 	{
@@ -501,6 +717,7 @@ enumError DecodeGLG (const u8 *data, uint size, ccp out_glb_path)
 		FREE (meshes[i].vertices);
 	}
 	FREE (meshes);
+	FREE (mesh_src_entry);
 
 	return rc == 0 ? ERR_OK : ERR_CANT_CREATE;
 }
