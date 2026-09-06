@@ -101,15 +101,29 @@ static enumError cmd_compress ()
 // Decompress raw Nintendo codecs through the normal wszst destination and
 // overwrite path. They are deliberately handled before LoadSZS(), because
 // their payload is not an archive.
-static enumError decompress_nintendo_file2 (ccp arg, char *dest_out, uint dest_out_size);
+static enumError decompress_nintendo_file3 (
+	ccp arg, char *dest_out, uint dest_out_size, bool *is_final_out);
 
 static enumError decompress_nintendo_file (ccp arg)
 {
-	return decompress_nintendo_file2 (arg, 0, 0);
+	return decompress_nintendo_file3 (arg, 0, 0, 0);
 }
 
 static enumError decompress_nintendo_file2 (ccp arg, char *dest_out, uint dest_out_size)
 {
+	return decompress_nintendo_file3 (arg, dest_out, dest_out_size, 0);
+}
+
+// 'is_final_out' distinguishes this function's two kinds of output. Most
+// branches decompress a payload that may itself be a container, so the caller
+// recurses into it and discards it if nothing recognises it. A few branches
+// instead *convert* to a finished deliverable -- BXWAV -> WAV is one -- and
+// those must survive that discard. See extract_one_file().
+static enumError decompress_nintendo_file3 (
+	ccp arg, char *dest_out, uint dest_out_size, bool *is_final_out)
+{
+	if (is_final_out)
+		*is_final_out = false;
 	// Like extract_at7_file(), this has no extension gate (compression magic
 	// can appear in any filename) so it runs against every file reaching
 	// extract_one_file() -- including multi-gigabyte pass-through sources.
@@ -330,6 +344,8 @@ static enumError decompress_nintendo_file2 (ccp arg, char *dest_out, uint dest_o
 		FREE (decoded);
 		if (!err && dest_out)
 			snprintf (dest_out, dest_out_size, "%s", dest);
+		if (!err && is_final_out)
+			*is_final_out = true; // a decoded WAV, not an intermediate
 		return err;
 	}
 

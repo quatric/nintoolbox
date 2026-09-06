@@ -1269,7 +1269,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	// This also makes a compressed asset found inside an extracted tree usable
 	// without switching to a separate command.
 	char decompressed_path[PATH_MAX];
-	err = decompress_nintendo_file2 (arg, decompressed_path, sizeof (decompressed_path));
+	bool decompressed_is_final = false;
+	err = decompress_nintendo_file3 (
+		arg, decompressed_path, sizeof (decompressed_path), &decompressed_is_final);
 	if (err == ERR_OK)
 	{
 		// Every check above (SARC/GFA/PAC/DARC, BRFNT/BFLYT auto-decode,
@@ -1298,7 +1300,11 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		// glb/png previews: leaving it on disk lets a later CREATE sweep it
 		// into the rebuilt archive as bogus new content. Discard it unless
 		// the caller explicitly asked to keep raw dumps.
-		if (!opt_export_raw)
+		// ... but not when the payload is itself the deliverable. A .bfwav
+		// decodes to a finished WAV, which no container probe claims, so
+		// this discard used to delete every decoded wave the extractor
+		// produced -- BFWAV/BCWAV/BRWAV conversion never left a file behind.
+		if (!opt_export_raw && !decompressed_is_final)
 		{
 			struct stat st_leftover;
 			if (!stat (decompressed_path, &st_leftover) && S_ISREG (st_leftover.st_mode))
