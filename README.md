@@ -113,13 +113,13 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **BCH** | `.bch` | **GLB** | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C H3D binary character model (3DS) |
 | **BMD** | `.bmd`, `.bdhc` | **GLB** | ✅ | ✅ | ✅ | — | Early Nintendo DS 3D model format (DS) |
 | **BNFM** | `.bnfm` | **GLB** | ✅ | ✅ | ✅ | — | Nd Cube Wii U 3D model format (*Animal Crossing: Amiibo Festival*, *Mario Party 10*) |
-| **G1M** | `.g1m` | **GLB** | ✅ | — | — | ✅ | Koei Tecmo 3D model format (*Hyrule Warriors*, *Fire Emblem Warriors*). Positions, normals and UVs. Vertex colour and skinning attributes are read from the layout table but not exported |
-| **G4PKM** | `.g4pkm` | **GLB** | — | — | — | — | Level-5 / Nintendo Pokémon & Yo-kai Watch 3D model format |
+| **G1M** | `.g1m` | **GLB** | ✅ | — | — | ✅ | Koei Tecmo 3D model format (*Hyrule Warriors*, *Fire Emblem Warriors*). Positions, normals and UVs. Vertex colour is parsed but not exported; all 600 models checked carry a single bone and no blend attributes, so there is no skinning in this corpus to export |
+| **G4PKM** | `.g4pkm` | — | — | — | — | — | Identified by filename only: the type table carries no magic for it and nothing decodes it. The extension occurs in none of the games checked here, including a Level-5 3DS title (*Inazuma Eleven 3*, which uses `.pkh`/`.pkb`), so the format this names is unconfirmed |
 | **GLG / RLG** | `.glg`, `.rlg` | **GLB** | ✅ | ✅ | ✅ | ✅ | Next Level Games 3D model format (*Super Mario Strikers*, *Mario Strikers Charged*) |
 | **HGO** | `.hgo` | **GLB** | — | — | — | — | Camelot 3D model format. The `0OGH` magic this row claims occurs in none of *Mario Golf: Toadstool Tour* (GC), *Mario Power Tennis* (GC & Wii), *We Love Golf!* (Wii) or *Mario Golf: World Tour* (3DS) — neither as a file magic nor embedded anywhere. Camelot ships models as PPC relocatable modules (`elfbin/xcmdl_*.sbn`) instead, so the source of this magic is unidentified |
 | **HSD** | `.dat` | **GLB** | ✅ | ✅ | ✅ | ✅ | HAL Laboratory `sysdolphin` object graph (GameCube) |
 | **HSF** | `.hsf` | **GLB** | ✅ | ✅ | ✅ | ✅ | Hudson Soft 3D model format (GameCube / Wii) |
-| **LMD** | `.lmd` | **GLB** | — | — | — | — | DeNA / Pokémon Masters 3D model format |
+| **LMD** | `.lmd` | — | — | — | — | — | Identified by filename only: no magic in the type table and no decoder. No source game was available to check the claim against |
 | **MDL0 / BRRES** | `.mdl0`, `.brres` | **GLB** | ✅ | ✅ | — | ✅ | NintendoWare NW4R binary resource model (Wii) |
 | **MOD** | `.mod` | **GLB** | ✅ | ✅ | ✅ | ✅ | Monster Games NDL3/NDL2 display list model (Wii) |
 | **MSH (PMsh)** | `.msh` | **GLB** | ✅ | ✅ | ✅ | ✅ | Monster Games collision mesh format (Wii) |
