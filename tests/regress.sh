@@ -7052,6 +7052,42 @@ t_glg_ptlg_textures(){
 }
 t_glg_ptlg_textures
 
+# Camelot GX texture bank (Mario Golf: Toadstool Tour, Mario Power Tennis).
+# Those discs name every asset with single letters, so detection is
+# structural: decompress Camelot's LZ codec, then require the bank magic.
+# Build one bank of two textures, compressed the way the discs store them.
+t_camelot_texbank(){
+  local d; d=$(mktemp -d /tmp/_r_camtex.XXXXXX) || { no "Camelot texture bank" "mktemp failed"; return; }
+  python3 "$PWD_PROJECT/../tests/mk_camelot_tex.py" "$d/bank" >/dev/null 2>&1
+  rm -rf "$d/bank.d"
+  if "$B/wszst" xx "$d/bank" --dest "$d/bank.d" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/bank.d/bank_0000.png" ] && [ -s "$d/bank.d/bank_0001.png" ] \
+  && python3 -c '
+import struct, sys
+for p in sys.argv[1:]:
+    d = open(p, "rb").read()
+    assert d[:8] == b"\x89PNG\r\n\x1a\n", p
+    w, h = struct.unpack(">II", d[16:24])
+    assert (w, h) == (8, 8), (p, w, h)
+' "$d/bank.d/bank_0000.png" "$d/bank.d/bank_0001.png"; then
+    ok "Camelot GX texture bank -> PNG (LZ-wrapped, 2 textures)"
+  else
+    no "Camelot texture bank" "extraction produced no usable PNGs"
+  fi
+
+  # A bank that is not one must be declined, not half-decoded.
+  printf '\x01\x00\x00\x10not a camelot stream at all' > "$d/junk"
+  rm -rf "$d/junk.d"
+  "$B/wszst" xx "$d/junk" --dest "$d/junk.d" --overwrite >/dev/null 2>&1
+  if [ ! -f "$d/junk.d/junk_0000.png" ]; then
+    ok "Camelot texture detection declines a non-bank"
+  else
+    no "Camelot texture bank" "claimed a file that is not a texture bank"
+  fi
+  rm -rf "$d"
+}
+t_camelot_texbank
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]

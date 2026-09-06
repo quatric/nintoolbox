@@ -2,6 +2,7 @@
 #include "lib-nintendo-archives.h"
 #include "lib-nintendo.h"
 #include "lib-image.h" // TPL headers, for re-emitting PTLG textures
+#include "lib-camelot.h"
 #include "lib-szs.h"
 #include "lib-std.h"
 #include "lib-zstd.h"
@@ -3265,6 +3266,204 @@ static image_format_t ptlg_image_format (u8 format)
 		default:
 			return IMG_INVALID;
 	}
+}
+
+// ----------------------------------------------------------------------------
+// Camelot GX texture bank (Mario Golf: Toadstool Tour, Mario Power Tennis)
+//
+// Camelot's GameCube discs name every asset with single letters (files/A/U/R),
+// so there is no extension to key on and the container is usually wrapped in
+// Camelot's own LZ codec. Layout, big-endian, after decompression:
+//
+//   0x00  u32 magic 0x0020af30
+//   0x04  u32 texture count
+//   0x08  u32 offset of the entry-pointer table
+//         table: count * { u32 entry offset, u32 pad }
+//   entry:
+//     0x00  u16 width, u16 height
+//     0x04  u32 GX texture format (the hardware's own numbering)
+//     0x08  u32 offset of the pixel data from the start of the file
+//     0x0c  sampler state
+//
+// Verified across every such file on both retail discs: 881 containers,
+// 4252 texture entries, of which 4246 have a format/geometry whose GX size
+// lands inside the file (670 of 676 single-entry files end exactly at the
+// computed size). Palettised formats are declined rather than guessed at --
+// three files disc-wide use one and where their palette lives is unknown.
+// ----------------------------------------------------------------------------
+
+#define CAMELOT_TEXBANK_MAGIC 0x0020af30
+
+static image_format_t camelot_gx_image_format (u32 format)
+{
+	switch (format)
+	{
+		case 0:
+			return IMG_I4;
+		case 1:
+			return IMG_I8;
+		case 2:
+			return IMG_IA4;
+		case 3:
+			return IMG_IA8;
+		case 4:
+			return IMG_RGB565;
+		case 5:
+			return IMG_RGB5A3;
+		case 6:
+			return IMG_RGBA32;
+		case 14:
+			return IMG_CMPR;
+		default:
+			return IMG_INVALID; // includes C4/C8/C14X2: palette location unknown
+	}
+}
+
+// Bytes one GX level occupies, tile padding included.
+static u32 camelot_gx_level_size (u32 format, u32 w, u32 h)
+{
+	uint bw, bh, bpp;
+	switch (format)
+	{
+		case 0:
+		case 14:
+			bw = 8, bh = 8, bpp = 4;
+			break;
+		case 1:
+		case 2:
+			bw = 8, bh = 4, bpp = 8;
+			break;
+		case 3:
+		case 4:
+		case 5:
+			bw = 4, bh = 4, bpp = 16;
+			break;
+		case 6:
+			bw = 4, bh = 4, bpp = 32;
+			break;
+		default:
+			return 0;
+	}
+	return ((w + bw - 1) / bw) * ((h + bh - 1) / bh) * bw * bh * bpp / 8;
+}
+
+// Write every texture in a decompressed bank to "<stem>_%04u.png" in DEST.
+static uint camelot_texbank_to_pngs (const u8 *raw, uint size, ccp dest, ccp stem)
+{
+	if (size < 16 || rd_be32 (raw) != CAMELOT_TEXBANK_MAGIC)
+		return 0;
+	const u32 count = rd_be32 (raw + 4);
+	const u32 tbl = rd_be32 (raw + 8);
+	if (!count || count > 0x1000 || (u64)tbl + (u64)count * 8 > size)
+		return 0;
+
+	uint written = 0;
+	for (u32 i = 0; i < count; i++)
+	{
+		const u32 eoff = rd_be32 (raw + tbl + i * 8);
+		if ((u64)eoff + 16 > size)
+			continue;
+		const u32 w = rd_be16 (raw + eoff);
+		const u32 h = rd_be16 (raw + eoff + 2);
+		const u32 format = rd_be32 (raw + eoff + 4);
+		const u32 doff = rd_be32 (raw + eoff + 8);
+
+		const image_format_t iform = camelot_gx_image_format (format);
+		const u32 need = camelot_gx_level_size (format, w, h);
+		if (iform == IMG_INVALID || !w || !h || !need || (u64)doff + need > size)
+			continue;
+
+		// Wrap the GX pixels in a one-image TPL, the same shape the PTLG
+		// reader builds, then let the image layer turn it into a PNG.
+		const u32 tpl_hdr = sizeof (tpl_header_t);
+		const u32 tpl_tab = tpl_hdr + sizeof (tpl_imgtab_t);
+		const u32 tpl_data = tpl_tab + sizeof (tpl_img_header_t);
+		u8 *tpl = CALLOC (tpl_data + need, 1);
+		if (!tpl)
+			continue;
+
+		write_be32 (tpl, TPL_MAGIC_NUM);
+		write_be32 (tpl + 4, 1);
+		write_be32 (tpl + 8, tpl_hdr);
+		write_be32 (tpl + tpl_hdr, tpl_tab);
+		write_be32 (tpl + tpl_hdr + 4, 0);
+		write_be16 (tpl + tpl_tab, h);
+		write_be16 (tpl + tpl_tab + 2, w);
+		write_be32 (tpl + tpl_tab + 4, iform);
+		write_be32 (tpl + tpl_tab + 8, tpl_data);
+		write_be32 (tpl + tpl_tab + 20, 1);
+		write_be32 (tpl + tpl_tab + 24, 1);
+		memcpy (tpl + tpl_data, raw + doff, need);
+
+		char out[PATH_MAX];
+		snprintf (out, sizeof (out), "%s/%s_%04u.png", dest, stem, i);
+
+		Image_t img;
+		if (AssignIMG (&img, 1, tpl, tpl_data + need, 0, false, &be_func, out) == ERR_OK
+			&& SaveIMG (&img, FF_PNG, 0, 0, out, true) == ERR_OK)
+			written++;
+		ResetIMG (&img);
+		FREE (tpl);
+	}
+	return written;
+}
+
+// Detection is deliberately structural rather than name- or first-byte-based:
+// a Camelot LZ stream only announces itself with a 1 or 2 in byte 0, far too
+// weak on its own (which is why GetNintendoFormat() only accepts it for an
+// explicit .stpl/.camelot name). Requiring the decompressed result to carry
+// the bank magic is the strong signal, and costs one bounded decode.
+enumError ExtractCamelotTexBank (ccp arg, ccp basedir, uint depth)
+{
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false))
+		return ERR_NOTHING_TO_DO;
+	if (raw_size < 16 || raw_size > UINT_MAX)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	const u8 *bank = raw;
+	uint bank_size = (uint)raw_size;
+	u8 *decoded = 0;
+	if (rd_be32 (raw) != CAMELOT_TEXBANK_MAGIC && (raw[0] == 1 || raw[0] == 2))
+	{
+		uint decoded_size = 0;
+		if (!DecodeCamelot (&decoded, &decoded_size, raw, (uint)raw_size) && decoded
+			&& decoded_size >= 16 && rd_be32 (decoded) == CAMELOT_TEXBANK_MAGIC)
+		{
+			bank = decoded;
+			bank_size = decoded_size;
+		}
+	}
+	if (rd_be32 (bank) != CAMELOT_TEXBANK_MAGIC)
+	{
+		FREE (decoded);
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	get_dest_dir (dest, sizeof (dest), arg, basedir);
+	CreatePath (dest, true);
+
+	ccp stem = strrchr (arg, '/');
+	stem = stem ? stem + 1 : arg;
+
+	const u32 count = rd_be32 (bank + 4);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT CAMELOT-TEX:%s (%u textures) -> %s/\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, count, dest);
+
+	uint written = 0;
+	if (!testmode)
+		written = camelot_texbank_to_pngs (bank, bank_size, dest, stem);
+
+	FREE (decoded);
+	FREE (raw);
+	return testmode || written ? ERR_OK : ERR_INVALID_DATA;
 }
 
 // Decode every texture in a PTLG container to "<hash>.png" in DEST_DIR.

@@ -95,6 +95,10 @@ enumError CreatePTLGArchive (u8 **dest, uint *dest_size, const nintendo_sarc_ent
 enumError ExtractNUS3AudioArchive (ccp arg, ccp basedir, uint depth);
 enumError CreateNUS3AudioArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 
+// Extract a Camelot GX texture bank (Mario Golf / Mario Power Tennis), whether
+// stored raw or wrapped in Camelot's own LZ codec.
+enumError ExtractCamelotTexBank (ccp arg, ccp basedir, uint depth);
+
 // Repack / Create functions
 enumError CreateXPCKArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 enumError CreateZTABArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
