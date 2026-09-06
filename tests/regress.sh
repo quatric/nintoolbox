@@ -7040,6 +7040,18 @@ with open(sys.argv[1], "wb") as f:
     fi
   fi
 
+  # Nintendo Wii U Sound Wave Archive (.bfwar / FWAR) retail test
+  local bfwar_sample="$PWD_PROJECT/../tests/fixtures/audio_samples/retail_sample.bfwar"
+  if [ -f "$bfwar_sample" ]; then
+    mkdir -p "$d/bfwar_retail_test"
+    if "$B/wszst" X "$bfwar_sample" -d "$d/bfwar_retail_test" --overwrite >/dev/null 2>&1 \
+    && [ "$(find "$d/bfwar_retail_test" -name '*.bfwav' 2>/dev/null | wc -l)" -gt 0 ]; then
+      fok "Nintendo Wii U Sound Wave Archive (.bfwar / FWAR) retail extraction"
+    else
+      fno "Nintendo Wii U Sound Wave Archive" "failed to extract retail .bfwar sample";
+    fi
+  fi
+
   # Nintendo 3DS Zelda BCH retail model test
   local bch_retail="$PWD_PROJECT/../tests/fixtures/3ds_samples/zelda_bch/HookshotR.bch"
   if [ -f "$bch_retail" ]; then
