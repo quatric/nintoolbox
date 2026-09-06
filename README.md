@@ -111,7 +111,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | Format | Extensions | Target Output | Decode Tested | Encode Tested | Byte-Exact Roundtrip | Middleware / Engine / Platform Context |
 |---|---|---|---|---|---|---|
 | **BCH** | `.bch` | **GLB** | ✅ | ✅ | ✅ | NintendoWare NW4C H3D binary character model (3DS) |
-| **BMD** | `.bmd`, `.bdhc` | **GLB** | ✅ | ✅ | — | Early Nintendo DS 3D model format (DS) |
+| **BMD** | `.bmd`, `.bdhc` | **GLB** | ✅ | ✅ | ✅ | Early Nintendo DS 3D model format (DS) |
 | **BNFM** | `.bnfm` | **GLB** | — | — | — | Nd Cube Wii U 3D model format (*Animal Crossing: Amiibo Festival*, *Mario Party 10*) |
 | **G1M** | `.g1m` | **GLB** | — | — | — | Koei Tecmo 3D model format (*Hyrule Warriors*, *Fire Emblem Warriors*) |
 | **G4PKM** | `.g4pkm` | **GLB** | — | — | — | Level-5 / Nintendo Pokémon & Yo-kai Watch 3D model format |
@@ -124,7 +124,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **MOD** | `.mod` | **GLB** | ✅ | ✅ | ✅ | Monster Games NDL3/NDL2 display list model (Wii) |
 | **MSH (PMsh)** | `.msh` | **GLB** | ✅ | ✅ | ✅ | Monster Games collision mesh format (Wii) |
 | **NSBMD** | `.nsbmd`, `.bmd` | **GLB** | ✅ | ✅ | ✅ | Nintendo DS Nitro 3D model format (DS) |
-| **NUD** | `.nud` | **GLB** | ✅ | ✅ | — | Bandai Namco 3D model format (*Super Smash Bros. 4* Wii U / 3DS) |
+| **NUD** | `.nud` | **GLB** | ✅ | ✅ | ✅ | Bandai Namco 3D model format (*Super Smash Bros. 4* Wii U / 3DS) |
 | **NUMSHB** | `.numshb` | **GLB** | — | — | — | Bandai Namco SSBH 3D mesh model (*Super Smash Bros. Ultimate* Switch) |
 | **PERS** | `.pers` | **GLB** | ✅ | — | — | Pokémon Stadium N64 model format |
 
@@ -206,7 +206,7 @@ its encode column stays unverified.
 | **Bzip2** | `BZh` | ✅ | ✅ | Standard high-compression block-sorting codec |
 | **Deflate / Zlib** | `78 01`, `78 9C`, `78 DA` | ✅ | ✅ | Standard RFC 1950 / 1951 stream compression |
 | **Diff8 / Diff16** | `0x81`, `0x82` | ✅ | ✅ | Nintendo DS differential delta filter encoding |
-| **Huffman (4-bit / 8-bit)** | `0x24`, `0x28` | ✅ | — | Nintendo DS Huffman stream compression |
+| **Huffman (4-bit / 8-bit)** | `0x24`, `0x28` | ✅ | ✅ | Nintendo DS Huffman stream compression |
 | **LZ10** | `0x10` (LZSS) | ✅ | ✅ | Nintendo standard LZ77 (GameCube / Wii / DS / GBA) |
 | **LZ11** | `0x11` (Extended LZSS) | ✅ | ✅ | Nintendo extended LZSS with 4-byte match lengths (DS / 3DS) |
 | **LZO / LZOvl** | Overlay trailer | ✅ | ✅ | Nintendo DS reverse LZO overlay compression |
@@ -214,9 +214,9 @@ its encode column stays unverified.
 | **MVDK** | `MVDK` | ✅ | ✅ | Nintendo Mario vs. Donkey Kong LZSS (DS) |
 | **PSDK** | `PSDK` / `AT4PX` | ✅ | ✅ | Chunsoft Pokémon Mystery Dungeon Explorers LZSS (DS) |
 | **PuCrunch** | `0x50 0x75` (`Pu`) | ✅ | ✅ | Retro / Nitro hybrid LZ + RLE stream compression |
-| **QuickLZ** | `QLZ` | ✅ | — | Fast byte-oriented block compression (Level 1 / 3) |
+| **QuickLZ** | `QLZ` | ✅ | ✅ | Fast byte-oriented block compression (Level 1 / 3) |
 | **RLE** | `0x30` | ✅ | ✅ | Nintendo DS run-length encoding |
-| **RNC1 / RNC2** | `RNC\1`, `RNC\2` | ✅ | — | Rob Northen Computing ProPack Method 1 / Method 2 |
+| **RNC1 / RNC2** | `RNC\1`, `RNC\2` | ✅ | ✅ | Rob Northen Computing ProPack Method 1 / Method 2 |
 | **SSZL** | `SSZL` | ✅ | ✅ | Bandai Namco Museum Remix LZSS0 stream compression (Wii) |
 | **VLX** | `VLX` | ✅ | ✅ | Level-5 Professor Layton / Inazuma Eleven LZSS (DS) |
 | **Yay0 (SZP)** | `Yay0` | ✅ | ✅ | Nintendo early LZSS container (Nintendo 64 / GameCube) |

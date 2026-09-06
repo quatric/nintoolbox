@@ -5413,6 +5413,85 @@ EOF
       fok "NSBMD inject -> GLB -> identical re-inject"
     else fno "NSBMD canonical fixed point" "second-generation bytes differ"; fi
   fi
+  # Early DS BMD (Super Mario 64 DS proprietary 3D format)
+  python3 -c "
+import struct
+shapes_off, dl_off, bone_off, bone_name_off = 0x3c, 0x58, 0x80, 0xc0
+mat_off, mat_name_off, plt_off, plt_name_off, data_off = 0xd0, 0xe4, 0xf0, 0x100, 0x120
+h = [0, 1, bone_off, 1, shapes_off, 1, mat_off, 1, plt_off, 0, 0, 0, 0, 0, data_off]
+hdr = struct.pack('<15I', *h)
+shapes = struct.pack('<7I', 1, 0x44, 1, 0x54, 0x28, dl_off, 0)
+w1_cmds = bytes([0x40, 0x22, 0x23, 0x23])
+w1_params = struct.pack('<I hh 2h 2h 2h 2h', 0, 0,0, 0,0, 0,0, 0x1000,0, 0,0)
+w2_cmds = bytes([0x23, 0, 0, 0])
+w2_params = struct.pack('<2h 2h', 0,0x1000, 0,0)
+dl = w1_cmds + w1_params + w2_cmds + w2_params
+bone = struct.pack('<IIIIiiiiiiiiIIII', 0, bone_name_off, 0, 0, 0x1000, 0x1000, 0x1000, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+bone_name = b'root\x00\x00\x00\x00'
+mat = struct.pack('<IIIII', mat_name_off, data_off, 0, 16 | (16 << 16), 0)
+mat_name = b'sm64_coin\x00\x00\x00'
+plt = struct.pack('<IIII', plt_name_off, data_off + 256, 0, 0)
+plt_name = b'sm64_coin_pl\x00'
+pixels = bytes([i % 16 for i in range(256)])
+palette = struct.pack('<16H', *[i * 0x421 for i in range(16)])
+data = bytearray(0x280)
+data[0:len(hdr)] = hdr
+data[shapes_off:shapes_off+len(shapes)] = shapes
+data[dl_off:dl_off+len(dl)] = dl
+data[bone_off:bone_off+len(bone)] = bone
+data[bone_name_off:bone_name_off+len(bone_name)] = bone_name
+data[mat_off:mat_off+len(mat)] = mat
+data[mat_name_off:mat_name_off+len(mat_name)] = mat_name
+data[plt_off:plt_off+len(plt)] = plt
+data[plt_name_off:plt_name_off+len(plt_name)] = plt_name
+data[data_off:data_off+len(pixels)+len(palette)] = pixels + palette
+with open('$d/sm64_src.bmd', 'wb') as f:
+    f.write(data)
+"
+  if "$B/wmdlt" ENCODE "$d/sm64_src.bmd" --dest "$d/sm64_fix_orig.glb" --overwrite >/dev/null 2>&1 \
+  && "$B/wmdlt" ENCODE "$d/sm64_fix_orig.glb" --parent="$d/sm64_src.bmd" --dest "$d/a/same_sm64.bmd" --overwrite >/dev/null 2>&1 \
+  && "$B/wmdlt" ENCODE "$d/a/same_sm64.bmd" --dest "$d/sm64_fix_mid.glb" --overwrite >/dev/null 2>&1 \
+  && "$B/wmdlt" ENCODE "$d/sm64_fix_mid.glb" --parent="$d/sm64_src.bmd" --dest "$d/b/same_sm64.bmd" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/a/same_sm64.bmd" "$d/b/same_sm64.bmd"; then
+    fok "Early DS BMD inject -> GLB -> identical re-inject"
+  else fno "Early DS BMD canonical fixed point" "second-generation bytes differ"; fi
+
+  # Bandai Namco NUD (.nud / NDP3) 3D model format
+  python3 -c "
+import struct
+poly_sz = 0x360
+num_indices = 3
+tri_sz = (num_indices * 2 + 0x1F) & ~0x1F
+stride = 24
+vert_count = 3
+vert_sz = (vert_count * stride + 0x1F) & ~0x1F
+total_sz = 0x30 + poly_sz + tri_sz + vert_sz
+buf = bytearray(total_sz)
+buf[0:4] = b'NDP3'
+struct.pack_into('>HHHH', buf, 4, 0, 20, 2, 4)
+struct.pack_into('>IIIII', buf, 12, 0x00010004, poly_sz, tri_sz, vert_sz, 0)
+struct.pack_into('>ffff', buf, 0x20, 0.5, 0.5, 0.0, 1.0)
+tri_start = 0x30 + poly_sz
+struct.pack_into('>HHH', buf, tri_start, 0, 1, 2)
+vert_start = tri_start + tri_sz
+verts = [(0.0, 0.0, 0.0, 0, 0, 127), (1.0, 0.0, 0.0, 0, 0, 127), (0.0, 1.0, 0.0, 0, 0, 127)]
+for i, v in enumerate(verts):
+    vp = vert_start + i * stride
+    struct.pack_into('>ffff', buf, vp, v[0], v[1], v[2], 1.0)
+    buf[vp+16] = v[3]; buf[vp+17] = v[4]; buf[vp+18] = v[5]; buf[vp+19] = 0x7f
+    struct.pack_into('>HH', buf, vp+20, 0, 0)
+with open('$d/sample.nud', 'wb') as f:
+    f.write(buf)
+"
+  if "$B/wmdlt" ENCODE "$d/sample.nud" --dest "$d/nud_fix_orig.glb" --overwrite >/dev/null 2>&1 \
+  && "$B/wmdlt" ENCODE "$d/nud_fix_orig.glb" --dest "$d/a/same.nud" --overwrite >/dev/null 2>&1 \
+  && "$B/wmdlt" ENCODE "$d/a/same.nud" --dest "$d/nud_fix_mid.glb" --overwrite >/dev/null 2>&1 \
+  && "$B/wmdlt" ENCODE "$d/nud_fix_mid.glb" --dest "$d/b/same.nud" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/a/same.nud" "$d/b/same.nud"; then
+    fok "NUD encode -> GLB -> identical re-encode"
+  else fno "NUD canonical fixed point" "second-generation bytes differ"; fi
+
+
 
   # Container extraction must reproduce the creator's exact canonical member
   # tree, including path factoring, tables, alignment and compression choice.

@@ -1,9 +1,16 @@
 #include "lib-std.h"
 #include "lib-nud.h"
+#include "lib-brres-model.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+
+#undef calloc
+#undef malloc
+#undef realloc
+#undef free
+
 
 static inline uint16_t rd_be16 (const uint8_t *p) { return (uint16_t)p[0] << 8 | p[1]; }
 static inline uint32_t rd_be32 (const uint8_t *p) { return (uint32_t)p[0] << 24 | (uint32_t)p[1] << 16 | (uint32_t)p[2] << 8 | p[3]; }
@@ -126,14 +133,14 @@ model_t *ParseNUD (const uint8_t *data, size_t size)
 	if (!vert_count)
 		return NULL;
 
-	model_t *model = CALLOC (1, sizeof (model_t));
+	model_t *model = calloc (1, sizeof (model_t));
 	if (!model)
 		return NULL;
 
-	model->meshes = CALLOC (1, sizeof (mesh_t));
+	model->meshes = calloc (1, sizeof (mesh_t));
 	if (!model->meshes)
 	{
-		FREE (model);
+		free (model);
 		return NULL;
 	}
 
@@ -141,10 +148,10 @@ model_t *ParseNUD (const uint8_t *data, size_t size)
 	mesh_t *mesh = &model->meshes[0];
 	snprintf (mesh->name, sizeof (mesh->name), "nud_mesh");
 
-	mesh->positions = CALLOC (vert_count, sizeof (vec3_t));
-	mesh->normals = CALLOC (vert_count, sizeof (vec3_t));
-	mesh->texcoords = CALLOC (vert_count, sizeof (vec2_t));
-	mesh->vertices = CALLOC (num_indices, sizeof (vertex_t));
+	mesh->positions = calloc (vert_count, sizeof (vec3_t));
+	mesh->normals = calloc (vert_count, sizeof (vec3_t));
+	mesh->texcoords = calloc (vert_count, sizeof (vec2_t));
+	mesh->vertices = calloc (num_indices, sizeof (vertex_t));
 	mesh->num_positions = vert_count;
 	mesh->num_normals = vert_count;
 	mesh->num_texcoords = vert_count;
@@ -207,7 +214,7 @@ int EncodeModelToNUD (const model_t *model, const char *out_nud_path)
 	const size_t vert_sz = (vert_count * stride + 0x1F) & ~0x1F;
 	const size_t total_sz = 0x30 + poly_sz + tri_sz + vert_sz;
 
-	uint8_t *buf = CALLOC (1, total_sz);
+	uint8_t *buf = calloc (1, total_sz);
 	if (!buf)
 		return ERR_OUT_OF_MEMORY;
 
@@ -282,13 +289,13 @@ int EncodeModelToNUD (const model_t *model, const char *out_nud_path)
 	FILE *f = fopen (out_nud_path, "wb");
 	if (!f)
 	{
-		FREE (buf);
+		free (buf);
 		return ERR_CANT_CREATE;
 	}
 
 	fwrite (buf, 1, total_sz, f);
 	fclose (f);
-	FREE (buf);
+	free (buf);
 
 	return ERR_OK;
 }

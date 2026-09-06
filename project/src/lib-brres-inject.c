@@ -2708,6 +2708,19 @@ int InjectDAEIntoEarlyDSBMD (const uint8_t *bmd_data, size_t bmd_size, const mod
 	dl_words[word_idx++] = 0x00000040; // BEGIN_VTXS
 	dl_words[word_idx++] = 0; // GL_TRIANGLES
 
+	uint32_t tex_w = 32, tex_h = 32;
+	const uint32_t mat_count = RDL32 (bmd_data + 20);
+	const uint32_t mat_off = RDL32 (bmd_data + 24);
+	if (mat_count > 0 && mat_off + 16 <= bmd_size)
+	{
+		const uint16_t mw = RDL16 (bmd_data + mat_off + 12);
+		const uint16_t mh = RDL16 (bmd_data + mat_off + 14);
+		if (mw > 0 && mw <= 1024)
+			tex_w = mw;
+		if (mh > 0 && mh <= 1024)
+			tex_h = mh;
+	}
+
 	for (size_t i = 0; i < mesh->num_vertices; i++)
 	{
 		const vertex_t *vx = &mesh->vertices[i];
@@ -2722,7 +2735,9 @@ int InjectDAEIntoEarlyDSBMD (const uint8_t *bmd_data, size_t bmd_size, const mod
 			: (vec2_t) { 0, 0 };
 
 		uint32_t norm_packed = fx9_enc (n.x) | (fx9_enc (n.y) << 10) | (fx9_enc (n.z) << 20);
-		uint32_t tex_packed = (uint16_t)fx4_enc (t.u) | ((uint32_t)(uint16_t)fx4_enc (t.v) << 16);
+		int16_t u_fx = (int16_t)roundf (t.u * 16.0f * (float)tex_w);
+		int16_t v_fx = (int16_t)roundf ((1.0f - t.v) * 16.0f * (float)tex_h);
+		uint32_t tex_packed = (uint16_t)u_fx | ((uint32_t)(uint16_t)v_fx << 16);
 		uint32_t vtx_xy = (uint16_t)fx12_enc (p.x) | ((uint32_t)(uint16_t)fx12_enc (p.y) << 16);
 		uint32_t vtx_z = (uint16_t)fx12_enc (p.z);
 
