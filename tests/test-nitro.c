@@ -13,6 +13,11 @@ extern "C" {
 }
 #endif
 
+extern void trace_free (const char *func, const char *file, unsigned int line, void *ptr);
+extern void *trace_calloc (const char *func, const char *file, unsigned int line, size_t nmemb, size_t size);
+#define free(p) trace_free(__FUNCTION__, __FILE__, __LINE__, (p))
+#define calloc(n, s) trace_calloc(__FUNCTION__, __FILE__, __LINE__, (n), (s))
+
 int main (void)
 {
 	int fail = 0;

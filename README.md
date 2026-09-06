@@ -88,7 +88,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **RPAK** | `.rpak`, `.pak` | ✅ | — | — | Retro Studios asset container (*Metroid Prime* / *Donkey Kong Country Returns*) |
 | **RST / TOC** | `.rst`, `.toc` | ✅ | ✅ | ✅ | Monster Games archive & table of contents (*Excite Truck* / *Excitebots*) |
 | **SARC** | `.sarc`, `.szs` | ✅ | ✅ | ✅ | NintendoWare NW4F & NintendoSDK sorted archive (Wii U / Switch / 3DS) |
-| **SIR0** | `.sir0` | ✅ | — | — | Pokémon Mystery Dungeon resource container (DS / 3DS) |
+| **SIR0** | `.sir0` | ✅ | ✅ | ✅ | Pokémon Mystery Dungeon resource container (DS / 3DS) |
 | **STPK** | `.srd`, `.stpk` | ✅ | ✅ | ✅ | *Jump Super Stars* & *Jump Ultimate Stars* DS resource archive |
 | **SZE** | `.sze` | ✅ | ✅ | ✅ | Nintendo Switch AES-encrypted container (NST / Switch) |
 | **TMPK** | `.pack`, `.tmpk` | ✅ | ✅ | ✅ | *The Legend of Zelda: Twilight Princess HD* archive (`TMPK`) |

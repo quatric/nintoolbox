@@ -6587,9 +6587,38 @@ open(sys.argv[1], "wb").write(hdr + blk + payload)
   else
     bno "MTXT byte-exact" "rebuild differs from the original archive"
   fi
+t_mtxt_roundtrip
+
+# SIR0 container encode, decode, and byte-exact roundtrip
+t_sir0_roundtrip(){
+  local d; d=$(mktemp -d /tmp/_r_sir0.XXXXXX) || { no "SIR0 roundtrip" "mktemp failed"; return; }
+  mkdir -p "$d/src.d"
+  printf 'DATA' > "$d/src.d/data.bin"
+  printf 'PMD_SUB_DATA' > "$d/src.d/subheader.bin"
+  cp -r "$d/src.d" "$d/ref.d"
+  if "$B/wszst" CREATE "$d/src.d" --dest "$d/a.sir0" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/a.sir0" ]; then
+    ok "SIR0 encode"
+  else
+    no "SIR0 encode" "CREATE produced no archive"; rm -rf "$d"; return
+  fi
+  if "$B/wszst" XX "$d/a.sir0" --dest "$d/out.d" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/ref.d/data.bin" "$d/out.d/data.bin" \
+  && cmp -s "$d/ref.d/subheader.bin" "$d/out.d/subheader.bin"; then
+    ok "SIR0 decode"
+  else
+    no "SIR0 decode" "extracted members differ from reference"; rm -rf "$d"; return
+  fi
+  cp -r "$d/out.d" "$d/re.d"
+  if "$B/wszst" CREATE "$d/re.d" --dest "$d/b.sir0" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/a.sir0" "$d/b.sir0"; then
+    bok "SIR0 re-encode is byte identical"
+  else
+    bno "SIR0 byte-exact" "rebuild differs from the original archive"
+  fi
   rm -rf "$d"
 }
-t_mtxt_roundtrip
+t_sir0_roundtrip
 
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
