@@ -6997,6 +6997,28 @@ t_brres_standalone_textures(){
 }
 t_brres_standalone_textures
 
+# .mod conversion is deferred to export_models_tree() so it runs after the
+# tree pass has decoded the sibling .tex files it names its textures from.
+# The deferral has an obvious failure mode -- skip during extraction and
+# then never run at all -- so assert a tree walk still produces the GLB.
+# (Texture binding itself needs the retail ExciteBots corpus, which is not
+# in this repository; this pins the ordering, not the binding.)
+t_mod_deferred_export(){
+  local src="$PWD_PROJECT/../tests/fixtures/excite_arrow_obj.mod"
+  [ -f "$src" ] || { sk "deferred .mod export"; return; }
+  local d; d=$(mktemp -d /tmp/_r_moddef.XXXXXX) || { no "deferred .mod export" "mktemp failed"; return; }
+  mkdir -p "$d/tree.d"
+  cp "$src" "$d/tree.d/arrow.mod"
+  "$B/wszst" xx "$d/tree.d" --overwrite >/dev/null 2>&1
+  if [ -s "$d/tree.d/arrow.glb" ]; then
+    ok "deferred .mod export still runs during a tree walk"
+  else
+    no "deferred .mod export" "tree walk produced no GLB"
+  fi
+  rm -rf "$d"
+}
+t_mod_deferred_export
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]

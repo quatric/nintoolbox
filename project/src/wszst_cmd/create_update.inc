@@ -1603,7 +1603,7 @@ next_zip_entry:
 // (extract_one_file() is called directly, never through
 // extract_tree_complete()), so that already-verified-working standalone
 // path is unaffected.
-static bool g_in_hsf_deferred_pass = false;
+static bool g_in_model_deferred_pass = false;
 
 // SubstDest() with a NULL/empty 'dest' param just echoes 'arg' back
 // unchanged -- it returns before ever touching the "\1P/\1N" pattern (see
@@ -4318,6 +4318,18 @@ static enumError extract_mod_file (ccp arg, ccp basedir, uint depth)
 		return ERR_FILE_TOO_BIG;
 	}
 
+	// A .mod names its textures but does not carry them: they are sibling
+	// .tex files that this same tree pass decodes to PNG. Converting here
+	// would run before most of those PNGs exist, so the GLB would come out
+	// with named-but-empty image entries -- on Mantis.car only 2 of 18
+	// textures resolved. Defer to export_models_tree(), which runs once the
+	// whole tree is extracted and indexed, exactly as HSF does above.
+	if (g_in_model_deferred_pass)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
 	char dest[PATH_MAX];
 	beside_source_dest_ext (dest, sizeof (dest), arg, ".glb");
 
@@ -4359,7 +4371,7 @@ static enumError extract_hsf_file (ccp arg, ccp basedir, uint depth)
 		return ERR_FILE_TOO_BIG;
 	}
 
-	if (g_in_hsf_deferred_pass)
+	if (g_in_model_deferred_pass)
 	{
 		FREE (raw);
 		return ERR_OK;
@@ -7962,13 +7974,18 @@ static enumError export_models_tree (ccp root, uint depth)
 			if (brsar_err != ERR_NOTHING_TO_DO && err < brsar_err)
 				err = brsar_err;
 			// extract_hsf_file() deferred its own conversion here (see
-			// g_in_hsf_deferred_pass) so it can run after SetDAETextureSearchRoot()
+			// g_in_model_deferred_pass) so it can run after SetDAETextureSearchRoot()
 			// has actually indexed the textures HSF itself decodes as a side
-			// effect of the very same DecodeHSF() call -- g_in_hsf_deferred_pass
+			// effect of the very same DecodeHSF() call -- g_in_model_deferred_pass
 			// is back off by now, so this call does the real work.
 			const enumError hsf_err = extract_hsf_file (path, 0, depth);
 			if (hsf_err != ERR_NOTHING_TO_DO && err < hsf_err)
 				err = hsf_err;
+			// Same deferral, for the same reason: .mod resolves its texture
+			// names against the sibling PNGs this pass can finally see.
+			const enumError mod_err = extract_mod_file (path, 0, depth);
+			if (mod_err != ERR_NOTHING_TO_DO && err < mod_err)
+				err = mod_err;
 		}
 		if (err != ERR_NOTHING_TO_DO)
 		{
@@ -8474,13 +8491,13 @@ static enumError extract_halbank_textures_tree (ccp root, uint depth)
 // Halbank do above -- DecodeHSF() decodes its embedded textures to PNG as
 // an inseparable side effect of writing the model itself (see lib-hsf.c).
 // Deferring the real HSF->GLB/DAE conversion to export_models_tree() (see
-// g_in_hsf_deferred_pass) is not enough on its own: SetDAETextureSearchRoot()
+// g_in_model_deferred_pass) is not enough on its own: SetDAETextureSearchRoot()
 // takes its one static snapshot of every PNG under ROOT *before*
 // export_models_tree() runs at all, so even a model's own just-decoded
 // texture -- written by that very same phase-2 call -- still isn't in the
 // index yet when dae_texture_path() looks for it moments later.
 //
-// So this walker calls extract_hsf_file() early, with g_in_hsf_deferred_pass
+// So this walker calls extract_hsf_file() early, with g_in_model_deferred_pass
 // still off, forcing every .hsf to actually convert (and thus decode its
 // textures to disk) *before* the search root gets indexed. The GLB/DAE this
 // produces is thrown away -- export_models_tree()'s later, properly-indexed
@@ -8537,10 +8554,10 @@ static enumError extract_tree_complete (ccp root, uint depth)
 
 	const int saved_export_count = export_count;
 	export_count = 0;
-	const bool saved_hsf_deferred = g_in_hsf_deferred_pass;
-	g_in_hsf_deferred_pass = true;
+	const bool saved_model_deferred = g_in_model_deferred_pass;
+	g_in_model_deferred_pass = true;
 	enumError err = extract_tree (root, depth);
-	g_in_hsf_deferred_pass = saved_hsf_deferred;
+	g_in_model_deferred_pass = saved_model_deferred;
 	export_count = saved_export_count;
 
 	extract_bfres_textures_tree (root, depth);
