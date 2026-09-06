@@ -64,7 +64,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **CRAM** | `.arc`, `.cram` | ✅ | ✅ | ✅ | Monolith Soft 3DS flat archive container |
 | **DARC** | `.darc` | ✅ | ✅ | ✅ | NintendoWare NW4C differential archive (3DS) |
 | **DTLS** | `dt00`, `ls00`, `.ls` | ✅ | ✅ | — | Bandai Namco composite package & lookup archive (*Super Smash Bros. 4* Wii U / 3DS) |
-| **F9RES** | `.res` | — | — | — | GameCube resource archive container |
+| **F9RES** | `.res` | ✅ | ✅ | ✅ | GameCube resource archive container |
 | **FSYS** | `.fsys` | ✅ | ✅ | ✅ | Genius Sonority archive system (GameCube / Wii) |
 | **GAR / ZAR** | `.zar`, `.gar` | ✅ | — | — | Grezzo Zelda & Luigi's Mansion archive (*OoT3D*, *MM3D*, *LM3DS*) |
 | **GFA** | `.gfa` | ✅ | ✅ | ✅ | Good-Feel GFAC container (Wii / 3DS) |

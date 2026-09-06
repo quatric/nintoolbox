@@ -6355,11 +6355,15 @@ t_container_roundtrip(){
     .xc:named .pvol:named .stpk:named .zlarc:named .apak:named .nxarc:named \
     .pkz:named .tmpk:named .vibs:named \
     .ca01:ordinal .fsys:ordinal .mdr:ordinal .nccarc:ordinal .ztab:ordinal \
-    .arc:arcv .jarc:arcv
+    .arc:arcv .jarc:arcv .res:f9res
   do
     ext=${spec%%:*}; names=${spec##*:}
     local c="$d/$ext"; rm -rf "$c"; mkdir -p "$c/src.d"
-    if [ "$names" = arcv ]; then
+    if [ "$names" = f9res ]; then
+      # F9RES keys members off a 4-character prefix followed by '_'.
+      printf 'alpha-member-payload'   > "$c/src.d/aaaa_one.bin"
+      printf 'BRAVO-member-payload!!' > "$c/src.d/bbbb_two.bin"
+    elif [ "$names" = arcv ]; then
       printf 'alpha-member-payload'   > "$c/src.d/file_0000.bin"
       printf 'BRAVO-member-payload!!' > "$c/src.d/file_0001.bin"
     else
