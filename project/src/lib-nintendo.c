@@ -391,6 +391,8 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 				return make_info (NFMT_GFBMDL, false, false, 0);
 			if (!strcasecmp (ext, ".gfbanm"))
 				return make_info (NFMT_GFBANM, false, false, 0);
+			if (!strcasecmp (ext, ".tex"))
+				return make_info (NFMT_TEX3DS, false, false, 0);
 		}
 	}
 	return make_info (NFMT_UNKNOWN, true, false, 0);
