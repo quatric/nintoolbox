@@ -48,6 +48,7 @@
 #include "lib-smdh.h"
 #include "lib-gtx.h"
 #include "lib-nitro.h"
+#include "lib-nut.h"
 
 #include "red-36.inc"
 #include "blue-40.inc"
@@ -912,6 +913,45 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		img->path = fname;
 		img->seq_num = ++image_seq_num;
 		return PatchListIMG (img);
+	}
+
+	if (IsNUT (data, data_size))
+	{
+		nut_t nut;
+		if (ScanNUT (&nut, data, data_size) == ERR_OK && nut.n_textures > 0)
+		{
+			uint tex_idx = img_index < nut.n_textures ? img_index : 0;
+			u8 *rgba = 0;
+			u32 width = 0, height = 0;
+			if (DecodeNUTTextureToRGBA (&nut.textures[tex_idx], &rgba, &width, &height) && rgba && width && height)
+			{
+				const uint xwidth = EXPAND8 (width), xheight = EXPAND8 (height);
+				u8 *padded = (xwidth == width && xheight == height) ? rgba : CALLOC (1, xwidth * xheight * 4);
+				if (padded != rgba)
+				{
+					for (uint y = 0; y < height; y++)
+						memcpy (padded + y * xwidth * 4, rgba + y * width * 4, width * 4);
+					FREE (rgba);
+				}
+				img->data = padded;
+				img->data_alloced = true;
+				img->data_size = xwidth * xheight * 4;
+				img->width = width;
+				img->xwidth = xwidth;
+				img->height = height;
+				img->xheight = xheight;
+				img->iform = img->info_iform = IMG_X_RGB;
+				img->info_fform = FF_NUT;
+				img->info_n_image = nut.n_textures;
+				img->alpha_status = 0;
+				img->endian = nut.is_big_endian ? &be_func : &le_func;
+				img->path = fname;
+				img->seq_num = ++image_seq_num;
+				ResetNUT (&nut);
+				return PatchListIMG (img);
+			}
+			ResetNUT (&nut);
+		}
 	}
 
 	if (nfmt.type == NFMT_NSBTX || (data_size >= 4 && !memcmp (data, "BTX0", 4)))
@@ -2517,6 +2557,83 @@ enumError SaveAJPG (Image_t *img, // valid image
 
 //-----------------------------------------------------------------------------
 
+static enumError SaveNUT (Image_t *img, FILE *fo, ccp path, bool overwrite)
+{
+	DASSERT (img);
+	DASSERT (path);
+
+	enumError err = ERR_OK;
+	if (img->iform != IMG_X_RGB)
+	{
+		err = ConvertToRGB (img, img, PAL_AUTO);
+		if (err)
+			return err;
+	}
+
+	const uint width = img->width;
+	const uint height = img->height;
+	const size_t raw_sz = (size_t)width * height * 4;
+	u8 *raw_rgba = CALLOC (1, raw_sz);
+	if (!raw_rgba)
+		return ERR_CANT_CREATE;
+
+	const u8 *src = img->data;
+	for (uint y = 0; y < height; y++)
+		memcpy (raw_rgba + y * width * 4, src + y * img->xwidth * 4, width * 4);
+
+	u16 w16 = (u16)width;
+	u16 h16 = (u16)height;
+	u32 fmt = 0x0014; // RGBA8
+	const u8 *tex_ptrs[1] = { raw_rgba };
+	const size_t tex_szs[1] = { raw_sz };
+
+	u8 *nut_data = 0;
+	size_t nut_size = 0;
+	err = CreateNUT (&nut_data, &nut_size, 1, &w16, &h16, &fmt, tex_ptrs, tex_szs);
+	FREE (raw_rgba);
+
+	if (err || !nut_data)
+		return err ? err : ERR_CANT_CREATE;
+
+	File_t f;
+	if (fo)
+	{
+		InitializeFile (&f);
+		f.f = fo;
+		f.is_writing = true;
+	}
+	else
+	{
+		err = CreateFileOpt (&f, true, path, testmode, overwrite ? path : 0);
+		if (err || !f.f)
+		{
+			ResetFile (&f, 0);
+			FREE (nut_data);
+			return err;
+		}
+	}
+
+	size_t stat = fwrite (nut_data, 1, nut_size, f.f);
+	FREE (nut_data);
+
+	if (stat != nut_size)
+	{
+		err = ERROR0 (ERR_WRITE_FAILED, "Error while writing NUT data: %s\n", path);
+		RegisterFileError (&f, ERR_WRITE_FAILED);
+	}
+
+	if (opt_preserve)
+		memcpy (&f.fatt, &img->fatt, sizeof (f.fatt));
+
+	if (fo)
+		f.f = 0;
+	err = ResetFile (&f, opt_preserve);
+
+	return err;
+}
+
+//-----------------------------------------------------------------------------
+
 static enumError SaveCTXB (Image_t *img, FILE *fo, ccp path, bool overwrite)
 {
 	DASSERT (img);
@@ -2592,7 +2709,7 @@ static enumError SaveCTXB (Image_t *img, FILE *fo, ccp path, bool overwrite)
 	if (!fname) fname = "texture";
 	char tname[16];
 	memset (tname, 0, sizeof (tname));
-	char *dot = strrchr (fname, '.');
+	char *dot = strchr (fname, '.');
 	size_t flen = dot ? (size_t)(dot - fname) : strlen (fname);
 	if (flen > 15) flen = 15;
 	memcpy (tname, fname, flen);
@@ -2679,6 +2796,8 @@ enumError SaveIMG (Image_t *img, // pointer to valid img
 			return SaveAJPG (img, f, fname, 0, overwrite);
 		case FF_CTXB:
 			return SaveCTXB (img, f, fname, overwrite);
+		case FF_NUT:
+			return SaveNUT (img, f, fname, overwrite);
 
 		default:
 			return ERROR0 (ERR_INVALID_IFORM, "Can_t create image [file type=%s]: %s\n",

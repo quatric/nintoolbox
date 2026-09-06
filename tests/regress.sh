@@ -5139,6 +5139,16 @@ t_byte_fixed_points(){
     fok "ctpk encode -> PNG -> identical re-encode"
   else fno "ctpk canonical fixed point" "second-generation bytes differ"; fi
 
+  # NUTEXB embeds the texture basename, so keep logical name identical across roundtrip.
+  mkdir -p "$d/nutexb-a" "$d/nutexb-b"
+  cp "$d/source.png" "$d/nutexb-a/source.png"
+  if "$B/wimgt" ENCODE "$d/nutexb-a/source.png" --dest "$d/nutexb-a/same.nutexb" --overwrite >/dev/null 2>&1 \
+  && "$B/wimgt" DECODE "$d/nutexb-a/same.nutexb" --dest "$d/nutexb-b/source.png" --overwrite >/dev/null 2>&1 \
+  && "$B/wimgt" ENCODE "$d/nutexb-b/source.png" --dest "$d/nutexb-b/same.nutexb" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/nutexb-a/same.nutexb" "$d/nutexb-b/same.nutexb"; then
+    fok "nutexb encode -> PNG -> identical re-encode"
+  else fno "nutexb canonical fixed point" "second-generation bytes differ"; fi
+
   # Excite GUI and texture resources use wszst's format-aware extraction.
   # The footerless TEX encoder uses .etex to select encoding and .tex to make
   # the otherwise magic-less result identifiable to the decoder.
@@ -6436,6 +6446,8 @@ with open(sys.argv[1], "wb") as f:
   # the payload size (w*h) is trivially checkable.
   mkdir -p "$d/ptlg_test"
   for plat in gc wii; do
+    ext_test="rlt"
+    [ "$plat" = "gc" ] && ext_test="glt"
     python3 -c '
 import sys, struct
 plat = sys.argv[2]
@@ -6452,9 +6464,9 @@ head = struct.pack(">4sIII", b"PTLG", 1, unk, 0)
 entry = struct.pack(">IIII", 0xABCD1234, 0, len(section), 0)
 with open(sys.argv[1], "wb") as f:
     f.write(head + entry + section)
-' "$d/ptlg_test/sample_$plat.rlt" "$plat"
+' "$d/ptlg_test/sample_$plat.$ext_test" "$plat"
     rm -rf "$d/ptlg_test/out_$plat"
-    if "$B/wszst" x "$d/ptlg_test/sample_$plat.rlt" --dest "$d/ptlg_test/out_$plat" --overwrite >/dev/null 2>&1 \
+    if "$B/wszst" x "$d/ptlg_test/sample_$plat.$ext_test" --dest "$d/ptlg_test/out_$plat" --overwrite >/dev/null 2>&1 \
     && [ -f "$d/ptlg_test/out_$plat/abcd1234.tpl" ] \
     && "$B/wimgt" DECODE "$d/ptlg_test/out_$plat/abcd1234.tpl" --dest "$d/ptlg_test/out_$plat/t.png" --overwrite >/dev/null 2>&1 \
     && python3 -c '
@@ -6467,6 +6479,13 @@ assert (w, h) == (32, 32), f"got {w}x{h}"
       fok "Next Level Games PTLG texture container ($plat) -> TPL -> PNG"
     else
       fno "Next Level Games PTLG texture container ($plat)" "failed to extract/decode sample";
+    fi
+    rm -f "$d/ptlg_test/out_$plat/t.png"
+    if "$B/wszst" CREATE "$d/ptlg_test/out_$plat" --dest "$d/ptlg_test/re_$plat.$ext_test" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/ptlg_test/sample_$plat.$ext_test" "$d/ptlg_test/re_$plat.$ext_test"; then
+      bok "PTLG ($plat) re-encode is byte identical"
+    else
+      bno "PTLG ($plat) byte-exact" "rebuild differs from original"
     fi
   done
 }
@@ -6738,6 +6757,113 @@ t_dtls_roundtrip(){
   rm -rf "$d"
 }
 t_dtls_roundtrip
+
+# Grezzo 3DS Texture Container (.ctxb) encode, decode, and byte-exact roundtrip
+t_ctxb_roundtrip(){
+  local d; d=$(mktemp -d /tmp/_r_ctxb.XXXXXX) || { no "CTXB roundtrip" "mktemp failed"; return; }
+  python3 -c "
+import struct
+def morton8(x, y):
+    mort = 0
+    for b in range(3):
+        mort |= ((x >> b) & 1) << (2 * b)
+        mort |= ((y >> b) & 1) << (2 * b + 1)
+    return mort
+
+w, h = 16, 16
+tw, th = 16, 16
+img_data = bytearray(tw * th * 4)
+for y in range(h):
+    for x in range(w):
+        pos = ((y // 8) * (tw // 8) + (x // 8)) * 64 + morton8(x & 7, y & 7)
+        img_data[4 * pos : 4 * pos + 4] = bytes([(x * 16) & 0xff, (y * 16) & 0xff, 0x80, 0xff])
+
+hdr = bytearray(24)
+struct.pack_into('<4sIIIII', hdr, 0, b'ctxb', 24 + 48 + len(img_data), 1, 0, 24, 24 + 48)
+chunk = bytearray(48)
+struct.pack_into('<4sII', chunk, 0, b'tex ', 36, 1)
+struct.pack_into('<IHHHHII16s', chunk, 12, len(img_data), 0, 0, w, h, 0x14016752, 0, b'tex_test\x00' + b'\x00'*7)
+with open('$d/a.ctxb', 'wb') as f:
+    f.write(hdr + chunk + img_data)
+"
+  if "$B/wimgt" DECODE "$d/a.ctxb" -d "$d/a.png" >/dev/null 2>&1 \
+  && [ -s "$d/a.png" ]; then
+    ok "CTXB decode"
+  else
+    no "CTXB decode" "failed to decode sample"; rm -rf "$d"; return
+  fi
+  if "$B/wimgt" ENCODE "$d/a.png" -d "$d/sample.ctxb" >/dev/null 2>&1 \
+  && [ -s "$d/sample.ctxb" ]; then
+    ok "CTXB encode"
+  else
+    no "CTXB encode" "failed to encode to CTXB"; rm -rf "$d"; return
+  fi
+  if "$B/wimgt" DECODE "$d/sample.ctxb" -d "$d/sample.png" >/dev/null 2>&1 \
+  && cmp -s "$d/a.png" "$d/sample.png"; then
+    ok "CTXB image roundtrip is pixel identical"
+  else
+    no "CTXB pixel roundtrip" "decoded pixel data differs"; rm -rf "$d"; return
+  fi
+  cp "$d/sample.ctxb" "$d/sample_orig.ctxb"
+  if "$B/wimgt" ENCODE "$d/sample.png" -d "$d/sample.ctxb" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/sample_orig.ctxb" "$d/sample.ctxb"; then
+    bok "CTXB re-encode is byte identical (canonical fixed-point)"
+  else
+    bno "CTXB byte-exact" "rebuild differs from canonical fixed-point"
+  fi
+  rm -rf "$d"
+}
+t_ctxb_roundtrip
+
+# Bandai Namco NUT (.nut / NTP3) texture container encode, decode, and byte-exact roundtrip
+t_nut_roundtrip(){
+  local d; d=$(mktemp -d /tmp/_r_nut.XXXXXX) || { no "NUT roundtrip" "mktemp failed"; return; }
+  python3 -c "
+import struct
+w, h = 8, 8
+tex_data = b'\x12\x34\x56\xff' * (w * h)
+total_data_size = len(tex_data)
+per_tex_hdr = 48
+hdr_size = 16
+total_size = hdr_size + per_tex_hdr + total_data_size
+
+buf = bytearray(total_size)
+struct.pack_into('<4sHH', buf, 0, b'NTP3', 0x0200, 1)
+data_off = hdr_size + per_tex_hdr
+struct.pack_into('<IIIHHHHI', buf, 16,
+    per_tex_hdr + total_data_size,
+    0,
+    total_data_size,
+    per_tex_hdr,
+    0,
+    w, h,
+    1
+)
+struct.pack_into('<II', buf, 16 + 24, 0x0014, data_off)
+buf[data_off:data_off + total_data_size] = tex_data
+with open('$d/a.nut', 'wb') as f:
+    f.write(buf)
+"
+  if "$B/wimgt" DECODE "$d/a.nut" -d "$d/a.png" >/dev/null 2>&1 \
+  && [ -s "$d/a.png" ]; then
+    ok "NUT decode"
+  else
+    no "NUT decode" "failed to decode sample"; rm -rf "$d"; return
+  fi
+  if "$B/wimgt" ENCODE "$d/a.png" -d "$d/b.nut" >/dev/null 2>&1 \
+  && [ -s "$d/b.nut" ]; then
+    ok "NUT encode"
+  else
+    no "NUT encode" "failed to encode to NUT"; rm -rf "$d"; return
+  fi
+  if cmp -s "$d/a.nut" "$d/b.nut"; then
+    bok "NUT re-encode is byte identical"
+  else
+    bno "NUT byte-exact" "rebuild differs from original"
+  fi
+  rm -rf "$d"
+}
+t_nut_roundtrip
 
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"

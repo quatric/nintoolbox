@@ -1464,6 +1464,29 @@ static enumError create_dtls_dir (ccp source, ccp dest)
 	return err;
 }
 
+static enumError create_ptlg_dir (ccp source, ccp dest, bool is_gc)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+	u8 *dest_ptlg = 0;
+	uint dest_ptlg_size = 0;
+	if (!err)
+		err = CreatePTLGArchive (&dest_ptlg, &dest_ptlg_size, list.entry, list.used, is_gc);
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, source);
+		if (!err && F.f && fwrite (dest_ptlg, 1, dest_ptlg_size, F.f) != dest_ptlg_size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing PTLG failed: %s\n", dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (dest_ptlg);
+	reset_sarc_build_list (&list);
+	return err;
+}
+
 static enumError create_apak_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };

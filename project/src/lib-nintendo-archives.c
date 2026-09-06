@@ -3383,6 +3383,158 @@ enumError ExtractPTLGArchive (ccp arg, ccp basedir, uint depth)
 	return written ? ERR_OK : ERR_NOTHING_TO_DO;
 }
 
+enumError CreatePTLGArchive (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries, bool is_gc)
+{
+	if (!dest || !dest_size || !entries || !n_entries)
+		return ERR_INVALID_DATA;
+
+	// Calculate section sizes
+	const u32 tab_off = 0x10;
+	const u32 table_bytes = n_entries * 16;
+	const u32 data_base = tab_off + table_bytes;
+	const u32 th_size = is_gc ? 16 : 32;
+
+	// Pass 1: compute offsets and total size
+	u32 cur_img_off = 0;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		const nintendo_sarc_entry_t *e = &entries[i];
+		u32 payload_sz = 0;
+		if (e->data && e->size >= 0x28 && memcmp (e->data, "\x00\x20\xaf\x30", 4) == 0)
+		{
+			const tpl_header_t *th = (const tpl_header_t *)e->data;
+			u32 n_img = be32 (&th->n_image);
+			u32 img_tab_off = be32 (&th->imgtab_off);
+			if (n_img > 0 && img_tab_off + 4 <= e->size)
+			{
+				u32 img_hdr_off = be32 (e->data + img_tab_off);
+				if (img_hdr_off + sizeof (tpl_img_header_t) <= e->size)
+				{
+					const tpl_img_header_t *ti = (const tpl_img_header_t *)(e->data + img_hdr_off);
+					u32 d_off = be32 (&ti->data_off);
+					if (d_off < e->size)
+						payload_sz = e->size - d_off;
+				}
+			}
+		}
+		if (!payload_sz)
+			payload_sz = e->size;
+
+		u32 sect_size = th_size + payload_sz;
+		cur_img_off += sect_size;
+	}
+
+	const u32 total_size = data_base + cur_img_off;
+	u8 *buf = CALLOC (1, total_size);
+	if (!buf)
+		return ERR_OUT_OF_MEMORY;
+
+	// Header
+	memcpy (buf, "PTLG", 4);
+	write_be32 (buf + 4, n_entries);
+	write_be32 (buf + 8, is_gc ? 0 : 0xC31808CF);
+	write_be32 (buf + 12, 0);
+
+	// Pass 2: serialize entries and textures
+	cur_img_off = 0;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		const nintendo_sarc_entry_t *e = &entries[i];
+		u32 hash = 0;
+		if (e->name)
+		{
+			// If filename is hex like "abcd1234.tpl", parse it
+			char *endp = 0;
+			u32 hval = (u32)strtoul (e->name, &endp, 16);
+			if (endp && (*endp == '.' || *endp == 0))
+				hash = hval;
+			else
+				hash = CalcCRC32 (0, (const u8 *)e->name, strlen (e->name));
+		}
+		if (!hash)
+			hash = 0xABCD0000 + i;
+
+		u16 w = 32, h = 32;
+		u8 format = 3; // default I8
+		const u8 *payload = e->data;
+		u32 payload_sz = e->size;
+
+		if (e->data && e->size >= 0x28 && memcmp (e->data, "\x00\x20\xaf\x30", 4) == 0)
+		{
+			const tpl_header_t *th = (const tpl_header_t *)e->data;
+			u32 n_img = be32 (&th->n_image);
+			u32 img_tab_off = be32 (&th->imgtab_off);
+			if (n_img > 0 && img_tab_off + 4 <= e->size)
+			{
+				u32 img_hdr_off = be32 (e->data + img_tab_off);
+				if (img_hdr_off + sizeof (tpl_img_header_t) <= e->size)
+				{
+					const tpl_img_header_t *ti = (const tpl_img_header_t *)(e->data + img_hdr_off);
+					h = be16 (&ti->height);
+					w = be16 (&ti->width);
+					u32 iform = be32 (&ti->iform);
+					switch (iform)
+					{
+						case IMG_I4: format = 0x2; break;
+						case IMG_I8: format = 0x3; break;
+						case IMG_IA4: format = 0x4; break;
+						case IMG_RGB5A3: format = 0x5; break;
+						case IMG_CMPR: format = 0x6; break;
+						case IMG_RGB565: format = 0x7; break;
+						case IMG_RGBA32: format = 0x8; break;
+						default: format = 0x3; break;
+					}
+					u32 d_off = be32 (&ti->data_off);
+					if (d_off < e->size)
+					{
+						payload = e->data + d_off;
+						payload_sz = e->size - d_off;
+					}
+				}
+			}
+		}
+
+		u32 sect_size = th_size + payload_sz;
+
+		// Entry in table
+		u8 *ent = buf + tab_off + i * 16;
+		write_be32 (ent + 0, hash);
+		write_be32 (ent + 4, cur_img_off);
+		write_be32 (ent + 8, sect_size);
+		write_be32 (ent + 12, 0);
+
+		// Per-texture header
+		u8 *th = buf + data_base + cur_img_off;
+		write_be32 (th + 0, 1); // mip count = 1
+		write_be32 (th + 4, 2); // unk
+		th[8] = 5;
+		th[9] = format;
+		th[10] = 5;
+		th[11] = 0;
+		if (is_gc)
+		{
+			write_be16 (th + 12, w);
+			write_be16 (th + 14, h);
+		}
+		else
+		{
+			write_be16 (th + 14, w);
+			write_be16 (th + 16, h);
+		}
+
+		// Payload
+		if (payload && payload_sz > 0)
+			memcpy (th + th_size, payload, payload_sz);
+
+		cur_img_off += sect_size;
+	}
+
+	*dest = buf;
+	*dest_size = total_size;
+	return ERR_OK;
+}
+
 enumError CreateZLARCArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {

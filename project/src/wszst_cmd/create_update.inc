@@ -638,6 +638,21 @@ static enumError cmd_create (bool create)
 			ResetSetupParam (&sp);
 			continue;
 		}
+		if (create && ext && (!strcasecmp (ext, ".glt") || !strcasecmp (ext, ".rlt") || !strcasecmp (ext, ".ptlg")))
+		{
+			bool is_gc = !strcasecmp (ext, ".glt");
+			enumError err = create_ptlg_dir (source_dir, dest, is_gc);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE PTLG (%s) %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", is_gc ? "GameCube" : "Wii", source_dir, dest);
+			if (max_err < err)
+				max_err = err;
+			if (err <= ERR_WARNING && src_len > 2 && !strcasecmp (source_dir + src_len - 2, ".d")
+				&& !testmode)
+				remove_dir_recursive (source_dir);
+			ResetSetupParam (&sp);
+			continue;
+		}
 		if (create && ext && !strcasecmp (ext, ".mkgpdx"))
 		{
 			enumError err = create_mkgpdx_dir (source_dir, dest);

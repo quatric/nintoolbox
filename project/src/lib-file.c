@@ -1306,6 +1306,13 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x50544c47: // "PTLG"
 				return FF_PTLG;
 
+			// Namco Universal Texture (NTP3 / NTWU)
+			case 0x4e545033: // "NTP3"
+			case 0x3350544e: // "3PTN"
+			case 0x4e545755: // "NTWU"
+			case 0x5557544d: // "UWTM"
+				return FF_NUT;
+
 			// Nintendo 3DS Stream Audio (CSTM)
 			case 0x4353544d: // "CSTM"
 				return FF_BCSTM;
@@ -1931,6 +1938,7 @@ file_format_t IsImageFF (
 		case FF_BREFT_IMG:
 		case FF_AJPG:
 		case FF_CTXB:
+		case FF_NUT:
 			return fform;
 
 		case FF_BREFT:
