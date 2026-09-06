@@ -2634,6 +2634,86 @@ static enumError SaveNUT (Image_t *img, FILE *fo, ccp path, bool overwrite)
 
 //-----------------------------------------------------------------------------
 
+static enumError SaveNSBTX (Image_t *img, FILE *fo, ccp path, bool overwrite)
+{
+	DASSERT (img);
+	DASSERT (path);
+
+	enumError err = ERR_OK;
+	if (img->iform != IMG_X_RGB)
+	{
+		err = ConvertToRGB (img, img, PAL_AUTO);
+		if (err)
+			return err;
+	}
+
+	const uint width = img->width;
+	const uint height = img->height;
+	const size_t raw_sz = (size_t)width * height * 4;
+	u8 *raw_rgba = CALLOC (1, raw_sz);
+	if (!raw_rgba)
+		return ERR_CANT_CREATE;
+
+	const u8 *src = img->data;
+	for (uint y = 0; y < height; y++)
+		memcpy (raw_rgba + y * width * 4, src + y * img->xwidth * 4, width * 4);
+
+	ccp fname = FindFilename (path, 0);
+	if (!fname) fname = "tex0";
+	char tname[16];
+	memset (tname, 0, sizeof (tname));
+	char *dot = strchr (fname, '.');
+	size_t flen = dot ? (size_t)(dot - fname) : strlen (fname);
+	if (flen > 15) flen = 15;
+	memcpy (tname, fname, flen);
+
+	u8 *btx_data = 0;
+	uint btx_size = 0;
+	err = CreateNSBTX (&btx_data, &btx_size, raw_rgba, width, height, NITRO_TEXFMT_DIRECT, tname, 0);
+	FREE (raw_rgba);
+
+	if (err || !btx_data)
+		return err ? err : ERR_CANT_CREATE;
+
+	File_t f;
+	if (fo)
+	{
+		InitializeFile (&f);
+		f.f = fo;
+		f.is_writing = true;
+	}
+	else
+	{
+		err = CreateFileOpt (&f, true, path, testmode, overwrite ? path : 0);
+		if (err || !f.f)
+		{
+			ResetFile (&f, 0);
+			FREE (btx_data);
+			return err;
+		}
+	}
+
+	size_t stat = fwrite (btx_data, 1, btx_size, f.f);
+	FREE (btx_data);
+
+	if (stat != btx_size)
+	{
+		err = ERROR0 (ERR_WRITE_FAILED, "Error while writing NSBTX data: %s\n", path);
+		RegisterFileError (&f, ERR_WRITE_FAILED);
+	}
+
+	if (opt_preserve)
+		memcpy (&f.fatt, &img->fatt, sizeof (f.fatt));
+
+	if (fo)
+		f.f = 0;
+	err = ResetFile (&f, opt_preserve);
+
+	return err;
+}
+
+//-----------------------------------------------------------------------------
+
 static enumError SaveCTXB (Image_t *img, FILE *fo, ccp path, bool overwrite)
 {
 	DASSERT (img);
@@ -2798,6 +2878,8 @@ enumError SaveIMG (Image_t *img, // pointer to valid img
 			return SaveCTXB (img, f, fname, overwrite);
 		case FF_NUT:
 			return SaveNUT (img, f, fname, overwrite);
+		case FF_NSBTX:
+			return SaveNSBTX (img, f, fname, overwrite);
 
 		default:
 			return ERROR0 (ERR_INVALID_IFORM, "Can_t create image [file type=%s]: %s\n",

@@ -149,7 +149,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **GTX** | `.gtx` | ✅ | ✅ | ✅ | Nintendo Wii U GX2 surface container (Wii U) |
 | **NCER / NANR** | `.ncer`, `.nanr` | ✅ | ✅ | ✅ | Nintendo DS Nitro cell & animation resources (DS) |
 | **NCGR / NCLR** | `.ncgr`, `.nclr` | ✅ | ✅ | ✅ | Nintendo DS Nitro 2D graphics & palette (DS) |
-| **NSBTX** | `.nsbtx` | ✅ | ✅ | — | Nintendo DS Nitro 3D texture container (DS) |
+| **NSBTX** | `.nsbtx` | ✅ | ✅ | ✅ | Nintendo DS Nitro 3D texture container (DS) |
 | **NUT** | `.nut` | ✅ | ✅ | ✅ | Bandai Namco texture package (*Super Smash Bros. 4* Wii U / 3DS) |
 | **NUTEXB** | `.nutexb` | ✅ | ✅ | ✅ | Bandai Namco / Nintendo Switch texture wrapper (Switch) |
 | **PTLG** | `.glt`, `.rlt` | ✅ | ✅ | ✅ | Next Level Games texture container, extracted as TPL (*Super Mario Strikers*, *Mario Strikers Charged*) |
