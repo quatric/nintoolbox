@@ -7345,6 +7345,57 @@ open(sys.argv[1], "wb").write(d)
 }
 t_g1m_geometry
 
+# SSBH MESH (.numshb) from Super Smash Bros. Ultimate. Positions are float3,
+# normals four halves and texcoords two, addressed through per-object buffer
+# offsets and strides; indices are a plain triangle list.
+t_numshb_mesh(){
+  local d; d=$(mktemp -d /tmp/_r_numshb.XXXXXX) || { no "NUMSHB mesh" "mktemp failed"; return; }
+  python3 "$PWD_PROJECT/../tests/mk_numshb.py" "$d/model.numshb" >/dev/null 2>&1
+  if "$B/wmdlt" DECODE "$d/model.numshb" --dest "$d/model.glb" --overwrite >/dev/null 2>&1 \
+  && python3 -c '
+import json, struct, sys
+b = open(sys.argv[1], "rb").read()
+assert b[:4] == b"glTF"
+off, doc = 12, None
+while off < len(b):
+    clen, ctype = struct.unpack_from("<II", b, off)
+    if ctype == 0x4E4F534A:
+        doc = json.loads(b[off+8:off+8+clen]); break
+    off += 8 + clen
+assert doc, "no JSON chunk"
+tris = 0
+for m in doc["meshes"]:
+    for p in m["primitives"]:
+        a = p["attributes"]
+        assert "NORMAL" in a, "normal dropped"
+        assert "TEXCOORD_0" in a, "texcoord dropped"
+        tris += doc["accessors"][a["POSITION"]]["count"] // 3
+assert tris == 1, f"expected 1 triangle, got {tris}"
+' "$d/model.glb"; then
+    ok "NUMSHB -> GLB with normals and UVs"
+  else
+    no "NUMSHB mesh" "export missing or wrong contents"
+  fi
+
+  # Version 1.8 lays its object record out differently and must be declined
+  # rather than read with 1.10 offsets.
+  python3 -c '
+import struct, sys
+d = bytearray(open(sys.argv[1], "rb").read())
+struct.pack_into("<HH", d, 0x14, 1, 8)
+open(sys.argv[1], "wb").write(d)
+' "$d/model.numshb"
+  rm -f "$d/model.glb"
+  "$B/wmdlt" DECODE "$d/model.numshb" --dest "$d/model.glb" --overwrite >/dev/null 2>&1
+  if [ ! -s "$d/model.glb" ]; then
+    ok "NUMSHB declines a MESH version it does not lay out"
+  else
+    no "NUMSHB mesh" "parsed an unsupported MESH version"
+  fi
+  rm -rf "$d"
+}
+t_numshb_mesh
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]

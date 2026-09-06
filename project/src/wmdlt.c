@@ -959,11 +959,15 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		// they must be dispatched to their own parsers *before* that call
 		const bool is_bmd
 			= is_ext (arg, ".bmd") || (raw.data_size >= 4 && !memcmp (raw.data, "BMD0", 4));
+		// SSBH belongs in this list too: the ParseNUMSHB() call further down
+		// was unreachable without it, so a .numshb fell through to
+		// ScanRawDataMDL() and came back as "No MDL file".
 		if (is_model_dest
 			&& (is_bmd
 				|| (raw.data_size >= 4
 					&& (!memcmp (raw.data, "CGFX", 4) || !memcmp (raw.data, "FRES", 4)
-						|| !memcmp (raw.data, "BCH\0", 4)))))
+						|| !memcmp (raw.data, "BCH\0", 4) || !memcmp (raw.data, "SSBH", 4)
+						|| !memcmp (raw.data, "HBSS", 4)))))
 		{
 			if (!testmode)
 			{
