@@ -244,11 +244,12 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_BCRES, true, false, 0);
 		if (!memcmp (d, "FRES", 4))
 			return make_info (NFMT_BFRES, true, false, 0);
-		// BNTX (Switch texture container). Full pixel decode is implemented
-		// in lib-bntx.c (DecodeBNTX_RGBA, wired into wimgt DECODE) -- see
-		// that file's header comment for what's verified and how.
 		if (!memcmp (d, "BNTX", 4))
 			return make_info (NFMT_BNTX, false, false, 0);
+		if (!memcmp (d, "NSTX", 4))
+			return make_info (NFMT_BNSTX, false, false, 0);
+		if (!memcmp (d, "AAMP", 4))
+			return make_info (NFMT_AAMP, false, false, 0);
 		// GFA: Good-Feel archive (Wario Land: Shake It!, Kirby's Epic Yarn)
 		if (!memcmp (d, "GFAC", 4))
 			return make_info (NFMT_GFA, false, true, 0);

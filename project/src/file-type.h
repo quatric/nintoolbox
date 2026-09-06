@@ -331,6 +331,11 @@ typedef enum file_format_t
 	FF_BNSH, // 237 - Nintendo Switch Binary Shader (.bnsh / BNSH)
 	FF_GFBMDL, // 238 - Game Freak FlatBuffer Model (.gfbmdl)
 	FF_GFBANM, // 239 - Game Freak FlatBuffer Animation (.gfbanm)
+	FF_BNSTX, // 240 - Nintendo Switch Texture Package (.bnstx / NSTX)
+	FF_BFLIM, // 241 - Nintendo Wii U FLIM Texture (.bflim / FLIM)
+	FF_BCLIM, // 242 - Nintendo 3DS CLIM Texture (.bclim / CLIM)
+	FF_AAMP, // 243 - Nintendo Binary Parameter Archive (.aamp / AAMP)
+	FF_BYML, // 244 - Nintendo Binary YAML (.byml / .byaml / BY)
 
 	//--- number of elements
 

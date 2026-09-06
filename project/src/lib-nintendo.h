@@ -151,7 +151,9 @@ typedef enum nfmt_type_t
 	NFMT_BFWAV,
 	NFMT_BNSH,
 	NFMT_GFBMDL,
-	NFMT_GFBANM
+	NFMT_GFBANM,
+	NFMT_BNSTX,
+	NFMT_AAMP
 } nfmt_type_t;
 
 typedef struct nfmt_info_t

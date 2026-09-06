@@ -6357,6 +6357,33 @@ with open(sys.argv[1], "wb") as f:
     fno "Game Freak FlatBuffer Animation" "failed to identify .gfbanm sample";
   fi
 
+  # Nintendo Switch Texture Package (.bnstx / NSTX) test
+  mkdir -p "$d/bnstx_test"
+  printf "NSTX\0\0\0\0" > "$d/bnstx_test/sample.bnstx"
+  if "$B/wszst" filetype "$d/bnstx_test/sample.bnstx" 2>/dev/null | grep -q "BNSTX"; then
+    fok "Nintendo Switch Texture Package (.bnstx / NSTX) identification"
+  else
+    fno "Nintendo Switch Texture Package" "failed to identify .bnstx sample";
+  fi
+
+  # Nintendo Binary Parameter Archive (.aamp / AAMP) test
+  mkdir -p "$d/aamp_test"
+  printf "AAMP\0\0\0\0" > "$d/aamp_test/sample.aamp"
+  if "$B/wszst" filetype "$d/aamp_test/sample.aamp" 2>/dev/null | grep -q "AAMP"; then
+    fok "Nintendo Binary Parameter Archive (.aamp / AAMP) identification"
+  else
+    fno "Nintendo Binary Parameter Archive" "failed to identify .aamp sample";
+  fi
+
+  # Nintendo Binary YAML (.byml / BY) test
+  mkdir -p "$d/byml_test"
+  printf "BY\0\x01\0\0\0" > "$d/byml_test/sample.byml"
+  if "$B/wszst" filetype "$d/byml_test/sample.byml" 2>/dev/null | grep -q "BYML"; then
+    fok "Nintendo Binary YAML (.byml / BY) identification"
+  else
+    fno "Nintendo Binary YAML" "failed to identify .byml sample";
+  fi
+
   # Next Level Games GLG/RLG models: decode to GLB, re-encode, and confirm
   # the second generation is byte-identical to the first. ball.glg is a
   # 74-byte-entry prop, Luigi.glg a 66-byte-entry character (the entry size

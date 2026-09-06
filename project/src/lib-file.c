@@ -1753,6 +1753,16 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_GFBMDL;
 		case NFMT_GFBANM:
 			return FF_GFBANM;
+		case NFMT_BNSTX:
+			return FF_BNSTX;
+		case NFMT_BFLIM:
+			return FF_BFLIM;
+		case NFMT_BCLIM:
+			return FF_BCLIM;
+		case NFMT_AAMP:
+			return FF_AAMP;
+		case NFMT_BYML:
+			return FF_BYML;
 		default:
 			break;
 	}

@@ -1336,6 +1336,36 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 },
 		0, MinusString, MinusString, "Game Freak FlatBuffer Animation (.gfbanm)" },
 
+	// FF_BNSTX = 240 (Nintendo Switch Texture Package)
+	{ FF_BNSTX, FF_BNSTX, 0, "BNSTX", ".bnstx", ".szs", ".bnstx",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+		{ 'N', 'S', 'T', 'X' },
+		0, MinusString, MinusString, "Nintendo Switch Texture Package (.bnstx / NSTX)" },
+
+	// FF_BFLIM = 241 (Nintendo Wii U FLIM Texture)
+	{ FF_BFLIM, FF_BFLIM, 0, "BFLIM", ".bflim", ".szs", ".bflim",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
+		{ 0 },
+		0, MinusString, MinusString, "Nintendo Wii U FLIM Texture (.bflim / FLIM)" },
+
+	// FF_BCLIM = 242 (Nintendo 3DS CLIM Texture)
+	{ FF_BCLIM, FF_BCLIM, 0, "BCLIM", ".bclim", ".szs", ".bclim",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
+		{ 0 },
+		0, MinusString, MinusString, "Nintendo 3DS CLIM Texture (.bclim / CLIM)" },
+
+	// FF_AAMP = 243 (Nintendo Binary Parameter Archive)
+	{ FF_AAMP, FF_AAMP, 0, "AAMP", ".aamp", ".szs", ".aamp",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+		{ 'A', 'A', 'M', 'P' },
+		0, MinusString, MinusString, "Nintendo Binary Parameter Archive (.aamp / AAMP)" },
+
+	// FF_BYML = 244 (Nintendo Binary YAML)
+	{ FF_BYML, FF_BYML, 0, "BYML", ".byml", ".szs", ".byml",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 2,
+		{ 'B', 'Y' },
+		0, MinusString, MinusString, "Nintendo Binary YAML (.byml / .byaml / BY)" },
+
 	// FF_N
 	{ 0 }
 };
