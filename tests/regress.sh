@@ -6335,6 +6335,32 @@ assert (w, h) == (32, 32), f"got {w}x{h}"
 }
 t_byte_fixed_points
 
+# tests/test-nitro.c exercises the NitroPaint-derived codecs and the RFL_Res
+# writer: Diff8/Diff16, PuCrunch, LZX, VLX, PSDK, MVDK and SSZL round-trips,
+# plus a create -> scan check on RFL_Res.dat. It has existed unbuilt since it
+# was written, so none of it ran. It pulls in enough of the tree (image, GTX,
+# Latte, Mii rendering) that hand-listing objects is unmaintainable -- reuse
+# the link line make itself would use for a tool, swapping in this source.
+nitro_link=$(make -n wtest 2>/dev/null \
+  | awk '{ while (sub(/\\$/,"")) { getline nxt; $0 = $0 nxt } print }' \
+  | grep -- "-o wtest$" | tail -1)
+if [ -n "$nitro_link" ]; then
+  nitro_cmd=${nitro_link/ wtest.o / ../tests/test-nitro.c }
+  nitro_cmd=${nitro_cmd%-o wtest}"-o /tmp/_r_nitro"
+  if eval "$nitro_cmd" >/tmp/_r_nitro_build.log 2>&1; then
+    if /tmp/_r_nitro >/tmp/_r_nitro_run.log 2>&1; then
+      ok "Nitro codecs (Diff8/16, PuCrunch, LZX, VLX, PSDK, MVDK, SSZL) + RFL_Res roundtrip"
+    else
+      no "Nitro codecs + RFL_Res roundtrip" \
+        "$(grep -m1 FAIL /tmp/_r_nitro_run.log 2>/dev/null || echo 'runtime check failed')"
+    fi
+  else
+    no "Nitro codecs + RFL_Res roundtrip" "$(tail -1 /tmp/_r_nitro_build.log 2>/dev/null)"
+  fi
+else
+  sk "Nitro codecs + RFL_Res roundtrip"
+fi
+
 echo "== container encode/decode/byte-exact roundtrips =="
 # For every container this fork can both read and write, assert the full
 # cycle: build an archive from a directory, extract it, and rebuild it. The
