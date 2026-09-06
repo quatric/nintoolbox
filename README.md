@@ -72,7 +72,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **JARC** | `.jarc` | ✅ | ✅ | ✅ | Level-5 DS archive container (DS) |
 | **LSPK** | `.lspk` | — | — | — | Level-5 Professor Layton flat package (DS) |
 | **MDR** | `.mdr` | ✅ | ✅ | ✅ | *Dance Dance Revolution Mario Mix* chunk archive with per-chunk zlib streams |
-| **MKGPDX PAC** | `.pac` | ✅ | — | — | *Mario Kart Arcade GP DX* layout archive (`pack`) |
+| **MKGPDX PAC** | `.pac`, `.mkgpdx` | ✅ | ✅ | ✅ | *Mario Kart Arcade GP DX* layout archive (`pack`) |
 | **MPBIN** | `.bin` | ✅ | ✅ | ✅ | Hudson Soft Mario Party archive container (GameCube / Wii) |
 | **MTXT** | `.mtxt` | ✅ | ✅ | ✅ | Nintendo Switch MTXT texture archive (gzip-wrapped XTX) |
 | **NARC** | `.narc` | ✅ | ✅ | ✅ | Nintendo DS Nitro standard archive (DS / DSi) |

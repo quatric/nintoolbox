@@ -1276,7 +1276,10 @@ enumError ExtractGARArchive (ccp arg, ccp basedir, uint depth)
 // ----------------------------------------------------------------------------
 enumError ExtractMKGPDXPacArchive (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext_match (arg, ".pac") && !is_ext_match (arg, ".bin"))
+	// .mkgpdx is the disambiguating extension CREATE writes, since .pac is
+	// already claimed by the HAL Laboratory / Game Arts container.
+	if (!is_ext_match (arg, ".pac") && !is_ext_match (arg, ".bin")
+		&& !is_ext_match (arg, ".mkgpdx"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;
@@ -3832,5 +3835,79 @@ enumError CreateMTXTArchive (
 
 	*dest = buf;
 	*dest_size = out_size;
+	return ERR_OK;
+}
+
+// Mario Kart Arcade GP DX layout archive ("pack"), little-endian.
+//
+// Offsets in the entry table are relative to the aligned data block rather
+// than to the file, and the name pool lives inside that block too. The
+// canonical layout below puts the pool at the head of the block
+// (str_pool_offset 0) and aligns every member to 32 bytes.
+//
+// .pac is already claimed by the HAL Laboratory / Game Arts container, so
+// CREATE selects this format on the .mkgpdx extension, the same way
+// .sarcle and .at7p disambiguate their own overloaded extensions.
+enumError CreateMKGPDXPacArchive (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	if (!dest || !dest_size || !entries || !n_entries)
+		return ERR_INVALID_DATA;
+
+	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
+	if (!sorted)
+		return ERR_OUT_OF_MEMORY;
+	memcpy (sorted, entries, n_entries * sizeof (*sorted));
+	qsort (sorted, n_entries, sizeof (*sorted), compare_archive_entries);
+
+	const u32 alignment = 32;
+	const u32 data_block_pos = align_up (20 + n_entries * 16, alignment);
+
+	u32 names_len = 0;
+	for (uint i = 0; i < n_entries; i++)
+		names_len += (u32)strlen (leaf_name (sorted[i].name)) + 1;
+
+	// Member offsets are relative to data_block_pos, and the name pool
+	// occupies the start of the block.
+	const u32 first_member_rel = align_up (names_len, alignment);
+	u32 total_rel = first_member_rel;
+	for (uint i = 0; i < n_entries; i++)
+		total_rel = align_up (total_rel + sorted[i].size, alignment);
+
+	const u32 total = data_block_pos + total_rel;
+	u8 *buf = CALLOC (total, 1);
+	if (!buf)
+	{
+		FREE (sorted);
+		return ERR_OUT_OF_MEMORY;
+	}
+
+	memcpy (buf, "pack", 4);
+	wr_le32 (buf + 4, n_entries);
+	wr_le32 (buf + 8, 0); // string pool at the head of the data block
+	wr_le32 (buf + 12, alignment);
+
+	u32 name_rel = 0;
+	u32 member_rel = first_member_rel;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		ccp name = leaf_name (sorted[i].name);
+		const size_t nlen = strlen (name);
+		memcpy (buf + data_block_pos + name_rel, name, nlen + 1);
+
+		const uint entry_pos = 20 + i * 16;
+		wr_le32 (buf + entry_pos + 4, name_rel);
+		wr_le32 (buf + entry_pos + 8, member_rel);
+		wr_le32 (buf + entry_pos + 12, sorted[i].size);
+
+		if (sorted[i].data && sorted[i].size)
+			memcpy (buf + data_block_pos + member_rel, sorted[i].data, sorted[i].size);
+		member_rel = align_up (member_rel + sorted[i].size, alignment);
+		name_rel += (u32)nlen + 1;
+	}
+
+	FREE (sorted);
+	*dest = buf;
+	*dest_size = total;
 	return ERR_OK;
 }
