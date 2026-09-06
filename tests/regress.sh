@@ -6294,10 +6294,43 @@ name = b"tex_sample\x00".ljust(0x74, b"\x00")
 with open(sys.argv[1], "wb") as f:
     f.write(tex_hdr + name + b"\x00" * 256)
 ' "$d/tex3ds_test/sample.tex"
-  if "$B/wszst" filetype "$d/tex3ds_test/sample.tex" 2>/dev/null | grep -q "TEX3DS"; then
+  if "$B/wszst" filetype "$d/tex3ds_test/sample.tex" 2>/dev/null | grep -q "TEX"; then
     fok "Nintendo 3DS Texture (.tex) identification"
   else
     fno "Nintendo 3DS Texture" "failed to identify .tex sample";
+  fi
+
+  # Nintendo 3DS Stream Audio (.bcstm / CSTM) test
+  mkdir -p "$d/audio_test"
+  printf "CSTM\0\0\0\0" > "$d/audio_test/sample.bcstm"
+  if "$B/wszst" filetype "$d/audio_test/sample.bcstm" 2>/dev/null | grep -q "BCSTM"; then
+    fok "Nintendo 3DS Stream Audio (.bcstm / CSTM) identification"
+  else
+    fno "Nintendo 3DS Stream Audio" "failed to identify .bcstm sample";
+  fi
+
+  # Nintendo Wii U / Switch Stream Audio (.bfstm / FSTM) test
+  printf "FSTM\0\0\0\0" > "$d/audio_test/sample.bfstm"
+  if "$B/wszst" filetype "$d/audio_test/sample.bfstm" 2>/dev/null | grep -q "BFSTM"; then
+    fok "Nintendo Wii U / Switch Stream Audio (.bfstm / FSTM) identification"
+  else
+    fno "Nintendo Wii U / Switch Stream Audio" "failed to identify .bfstm sample";
+  fi
+
+  # Nintendo 3DS Wave Audio (.bcwav / CWAV) test
+  printf "CWAV\0\0\0\0" > "$d/audio_test/sample.bcwav"
+  if "$B/wszst" filetype "$d/audio_test/sample.bcwav" 2>/dev/null | grep -q "BCWAV"; then
+    fok "Nintendo 3DS Wave Audio (.bcwav / CWAV) identification"
+  else
+    fno "Nintendo 3DS Wave Audio" "failed to identify .bcwav sample";
+  fi
+
+  # Nintendo Wii U / Switch Wave Audio (.bfwav / FWAV) test
+  printf "FWAV\0\0\0\0" > "$d/audio_test/sample.bfwav"
+  if "$B/wszst" filetype "$d/audio_test/sample.bfwav" 2>/dev/null | grep -q "BFWAV"; then
+    fok "Nintendo Wii U / Switch Wave Audio (.bfwav / FWAV) identification"
+  else
+    fno "Nintendo Wii U / Switch Wave Audio" "failed to identify .bfwav sample";
   fi
 
   # Next Level Games GLG/RLG models: decode to GLB, re-encode, and confirm

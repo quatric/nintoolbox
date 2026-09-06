@@ -1294,6 +1294,30 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 'P', 'T', 'L', 'G' },
 		0, MinusString, MinusString, "Next Level Games Texture Container (.glt / .rlt / PTLG)" },
 
+	// FF_BCSTM = 233 (Nintendo 3DS Stream Audio)
+	{ FF_BCSTM, FF_BCSTM, 0, "BCSTM", ".bcstm", ".wav", ".bcstm",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+		{ 'C', 'S', 'T', 'M' },
+		0, MinusString, MinusString, "Nintendo 3DS Stream Audio (.bcstm / CSTM)" },
+
+	// FF_BFSTM = 234 (Nintendo Wii U / Switch Stream Audio)
+	{ FF_BFSTM, FF_BFSTM, 0, "BFSTM", ".bfstm", ".wav", ".bfstm",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+		{ 'F', 'S', 'T', 'M' },
+		0, MinusString, MinusString, "Nintendo Wii U / Switch Stream Audio (.bfstm / FSTM)" },
+
+	// FF_BCWAV = 235 (Nintendo 3DS Wave Audio)
+	{ FF_BCWAV, FF_BCWAV, 0, "BCWAV", ".bcwav", ".wav", ".bcwav",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+		{ 'C', 'W', 'A', 'V' },
+		0, MinusString, MinusString, "Nintendo 3DS Wave Audio (.bcwav / CWAV)" },
+
+	// FF_BFWAV = 236 (Nintendo Wii U / Switch Wave Audio)
+	{ FF_BFWAV, FF_BFWAV, 0, "BFWAV", ".bfwav", ".wav", ".bfwav",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+		{ 'F', 'W', 'A', 'V' },
+		0, MinusString, MinusString, "Nintendo Wii U / Switch Wave Audio (.bfwav / FWAV)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1465,6 +1489,10 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_SIR0, "SIR0", 0, 0xe05 },
 	{ FF_TEX3DS, "TEX3DS", "TEX", 0x3809 },
 	{ FF_PTLG, "PTLG", "RLT", 0xe05 },
+	{ FF_BCSTM, "BCSTM", "CSTM", 0x3801 },
+	{ FF_BFSTM, "BFSTM", "FSTM", 0x3801 },
+	{ FF_BCWAV, "BCWAV", "CWAV", 0x3801 },
+	{ FF_BFWAV, "BFWAV", "FWAV", 0x3801 },
 
 	{ 0, 0, 0, 0 }
 };

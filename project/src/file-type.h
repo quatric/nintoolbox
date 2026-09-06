@@ -324,6 +324,10 @@ typedef enum file_format_t
 	FF_SIR0, // 230 - Pokemon Mystery Dungeon Resource Container (.sir0 / SIR0)
 	FF_TEX3DS, // 231 - Nintendo 3DS Proprietary Texture (.tex)
 	FF_PTLG, // 232 - Next Level Games Texture Container (.glt / .rlt / PTLG)
+	FF_BCSTM, // 233 - Nintendo 3DS Stream Audio (.bcstm / CSTM)
+	FF_BFSTM, // 234 - Nintendo Wii U / Switch Stream Audio (.bfstm / FSTM)
+	FF_BCWAV, // 235 - Nintendo 3DS Wave Audio (.bcwav / CWAV)
+	FF_BFWAV, // 236 - Nintendo Wii U / Switch Wave Audio (.bfwav / FWAV)
 
 	//--- number of elements
 

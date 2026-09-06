@@ -1306,6 +1306,22 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x50544c47: // "PTLG"
 				return FF_PTLG;
 
+			// Nintendo 3DS Stream Audio (CSTM)
+			case 0x4353544d: // "CSTM"
+				return FF_BCSTM;
+
+			// Nintendo Wii U / Switch Stream Audio (FSTM)
+			case 0x4653544d: // "FSTM"
+				return FF_BFSTM;
+
+			// Nintendo 3DS Wave Audio (CWAV)
+			case 0x43574156: // "CWAV"
+				return FF_BCWAV;
+
+			// Nintendo Wii U / Switch Wave Audio (FWAV)
+			case 0x46574156: // "FWAV"
+				return FF_BFWAV;
+
 			// Koei Tecmo 3D Model (G1M_ / _M1G / SM1G / GM1G)
 			case 0x47314d5f: // "G1M_"
 			case 0x47314d00: // "G1M\0"

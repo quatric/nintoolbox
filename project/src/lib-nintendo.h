@@ -144,7 +144,11 @@ typedef enum nfmt_type_t
 	NFMT_MSH,
 	NFMT_MOD,
 	NFMT_GAR,
-	NFMT_TEX3DS
+	NFMT_TEX3DS,
+	NFMT_BCSTM,
+	NFMT_BFSTM,
+	NFMT_BCWAV,
+	NFMT_BFWAV
 } nfmt_type_t;
 
 typedef struct nfmt_info_t
