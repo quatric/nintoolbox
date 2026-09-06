@@ -14,63 +14,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-// The project test build enables allocation tracing. Keep this standalone
-// regression independent of the full CLI support graph.
-void trace_free (ccp f, ccp p, uint l, void *v)
-{
-	(void)f;
-	(void)p;
-	(void)l;
-	free (v);
-}
-void *trace_malloc (ccp f, ccp p, uint l, size_t n)
-{
-	(void)f;
-	(void)p;
-	(void)l;
-	return malloc (n);
-}
-void *trace_calloc (ccp f, ccp p, uint l, size_t n, size_t s)
-{
-	(void)f;
-	(void)p;
-	(void)l;
-	return calloc (n, s);
-}
-void *trace_realloc (ccp f, ccp p, uint l, void *v, size_t n)
-{
-	(void)f;
-	(void)p;
-	(void)l;
-	return realloc (v, n);
-}
-char *trace_strdup (ccp f, ccp p, uint l, ccp s)
-{
-	(void)f;
-	(void)p;
-	(void)l;
-	return s ? strdup (s) : 0;
-}
-void dclib_free (void *v)
-{
-	free (v);
-}
-void *dclib_malloc (size_t n)
-{
-	return malloc (n);
-}
-void *dclib_calloc (size_t n, size_t s)
-{
-	return calloc (n, s);
-}
-void *dclib_realloc (void *v, size_t n)
-{
-	return realloc (v, n);
-}
-char *dclib_strdup (ccp s)
-{
-	return s ? strdup (s) : 0;
-}
+extern void trace_free (const char *func, const char *file, unsigned int line, void *ptr);
+extern void *trace_malloc (const char *func, const char *file, unsigned int line, size_t size);
+extern void *trace_calloc (const char *func, const char *file, unsigned int line, size_t nmemb, size_t size);
+extern void *trace_realloc (const char *func, const char *file, unsigned int line, void *ptr, size_t size);
+extern char *trace_strdup (const char *func, const char *file, unsigned int line, const char *str);
+#define free(p) trace_free(__FUNCTION__, __FILE__, __LINE__, (p))
+#define malloc(s) trace_malloc(__FUNCTION__, __FILE__, __LINE__, (s))
+#define calloc(n, s) trace_calloc(__FUNCTION__, __FILE__, __LINE__, (n), (s))
+#define realloc(p, s) trace_realloc(__FUNCTION__, __FILE__, __LINE__, (p), (s))
+#define strdup(s) trace_strdup(__FUNCTION__, __FILE__, __LINE__, (s))
 
 // Hand-built ALZ1 bitstream vectors, derived directly from GBATEK's
 // decompression pseudocode (not from this project's own EncodeALZ1), to

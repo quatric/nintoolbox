@@ -105,5 +105,6 @@ enumError CreateVIBSArchive (u8 **dest, uint *dest_size, const nintendo_sarc_ent
 enumError CreateMTXTArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 enumError CreateMKGPDXPacArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 enumError CreateSIR0Archive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
+enumError CreateGARArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 
 #endif // LIB_NINTENDO_ARCHIVES_H

@@ -1683,7 +1683,7 @@ t_container_roundtrips(){
     [ -n "$f_bmg" ] || continue
     last_bmg="$f_bmg"
     if "$B/wszst" TEXT "$f_bmg" --dest "$d/msg.bmg.txt" --overwrite >/dev/null 2>&1 \
-    && grep -qE '^ *[0-9a-f]+[[:space:]]*=[[:space:]]*[A-Za-z]{3,}' "$d/msg.bmg.txt"; then
+    && grep -qE '^ *[0-9a-f]+([[:space:]]+@[0-9a-f]+)?[[:space:]]*=[[:space:]]*[A-Za-z]{3,}' "$d/msg.bmg.txt"; then
       ok "BMG decode produces readable text ($f_bmg)"
       found_bmg=1
       break
@@ -5501,27 +5501,31 @@ EOF
   # Canonical BRSARs retain names for every asset kind, including RWSD/RWAR
   # members that lack a retail sound/bank name-table association.
   local retail_brsar="$PWD_PROJECT/../tests/samples-excitebots/extract/excitebots.d/UPDATE/files/_sys/RVL-Eulav_US-v2.d/0000000b.d/sound/eulaSound.brsar"
-  if "$B/wbrsar" unpack "$retail_brsar" "$d/brsar-source" >/dev/null 2>&1 \
-  && "$B/wbrsar" pack "$d/brsar-source" "$d/archive-a/same.brsar" >/dev/null 2>&1 \
-  && "$B/wbrsar" unpack "$d/archive-a/same.brsar" "$d/brsar-mid" >/dev/null 2>&1 \
-  && "$B/wbrsar" pack "$d/brsar-mid" "$d/archive-b/same.brsar" >/dev/null 2>&1 \
-  && cmp -s "$d/archive-a/same.brsar" "$d/archive-b/same.brsar"; then
-    fok "BRSAR pack -> unpack -> identical re-pack"
-  else fno "BRSAR canonical fixed point" "second-generation bytes differ"; fi
+  if [ ! -f "$retail_brsar" ]; then
+    sk "BRSAR/BCSAR/BFSAR canonical fixed point (retail corpus absent)"
+  else
+    if "$B/wbrsar" unpack "$retail_brsar" "$d/brsar-source" >/dev/null 2>&1 \
+    && "$B/wbrsar" pack "$d/brsar-source" "$d/archive-a/same.brsar" >/dev/null 2>&1 \
+    && "$B/wbrsar" unpack "$d/archive-a/same.brsar" "$d/brsar-mid" >/dev/null 2>&1 \
+    && "$B/wbrsar" pack "$d/brsar-mid" "$d/archive-b/same.brsar" >/dev/null 2>&1 \
+    && cmp -s "$d/archive-a/same.brsar" "$d/archive-b/same.brsar"; then
+      fok "BRSAR pack -> unpack -> identical re-pack"
+    else fno "BRSAR canonical fixed point" "second-generation bytes differ"; fi
 
-  # The same canonical INFO/SYMB/FILE content is wrapped by this library's
-  # endian-appropriate CSAR and FSAR envelopes. Verify each through its own
-  # public unpacker rather than inferring correctness from the RSAR result.
-  local typ flag label
-  for typ in bc bf; do
-    if [ "$typ" = bc ]; then flag=--bcsar; label=BCSAR; else flag=--bfsar; label=BFSAR; fi
-    if "$B/wbrsar" pack "$d/brsar-source" "$d/archive-a/same.${typ}sar" "$flag" >/dev/null 2>&1 \
-    && "$B/wbrsar" unpack "$d/archive-a/same.${typ}sar" "$d/${typ}sar-mid" >/dev/null 2>&1 \
-    && "$B/wbrsar" pack "$d/${typ}sar-mid" "$d/archive-b/same.${typ}sar" "$flag" >/dev/null 2>&1 \
-    && cmp -s "$d/archive-a/same.${typ}sar" "$d/archive-b/same.${typ}sar"; then
-      fok "$label pack -> unpack -> identical re-pack"
-    else fno "$label canonical fixed point" "second-generation bytes differ"; fi
-  done
+    # The same canonical INFO/SYMB/FILE content is wrapped by this library's
+    # endian-appropriate CSAR and FSAR envelopes. Verify each through its own
+    # public unpacker rather than inferring correctness from the RSAR result.
+    local typ flag label
+    for typ in bc bf; do
+      if [ "$typ" = bc ]; then flag=--bcsar; label=BCSAR; else flag=--bfsar; label=BFSAR; fi
+      if "$B/wbrsar" pack "$d/brsar-source" "$d/archive-a/same.${typ}sar" "$flag" >/dev/null 2>&1 \
+      && "$B/wbrsar" unpack "$d/archive-a/same.${typ}sar" "$d/${typ}sar-mid" >/dev/null 2>&1 \
+      && "$B/wbrsar" pack "$d/${typ}sar-mid" "$d/archive-b/same.${typ}sar" "$flag" >/dev/null 2>&1 \
+      && cmp -s "$d/archive-a/same.${typ}sar" "$d/archive-b/same.${typ}sar"; then
+        fok "$label pack -> unpack -> identical re-pack"
+      else fno "$label canonical fixed point" "second-generation bytes differ"; fi
+    done
+  fi
 
   # BRRES: real retail sample member trees re-extracted and re-created must be byte-identical
   for brres_file in $(ls "$PWD_PROJECT/../tests/fixtures"/accf_*.brres | sort); do
@@ -6621,6 +6625,61 @@ t_sir0_roundtrip(){
   rm -rf "$d"
 }
 t_sir0_roundtrip
+
+# Grezzo ZAR container encode, decode, and byte-exact roundtrip
+t_zar_roundtrip(){
+  local d; d=$(mktemp -d /tmp/_r_zar.XXXXXX) || { no "ZAR roundtrip" "mktemp failed"; return; }
+  mkdir -p "$d/src.d"
+  printf 'ZELDA_ZAR_PAYLOAD_1' > "$d/src.d/file1.bin"
+  printf 'ZELDA_ZAR_PAYLOAD_2_LONGER' > "$d/src.d/file2.bin"
+  cp -r "$d/src.d" "$d/ref.d"
+  if "$B/wszst" CREATE "$d/src.d" --dest "$d/a.zar" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/a.zar" ]; then
+    ok "ZAR encode"
+  else
+    no "ZAR encode" "CREATE produced no archive"; rm -rf "$d"; return
+  fi
+  if "$B/wszst" XX "$d/a.zar" --dest "$d/out.d" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/ref.d/file1.bin" "$d/out.d/file1.bin" \
+  && cmp -s "$d/ref.d/file2.bin" "$d/out.d/file2.bin"; then
+    ok "ZAR decode"
+  else
+    no "ZAR decode" "extracted members differ from reference"; rm -rf "$d"; return
+  fi
+  cp -r "$d/out.d" "$d/re.d"
+  if "$B/wszst" CREATE "$d/re.d" --dest "$d/b.zar" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/a.zar" "$d/b.zar"; then
+    bok "ZAR re-encode is byte identical"
+  else
+    bno "ZAR byte-exact" "rebuild differs from the original archive"
+  fi
+  rm -rf "$d"
+}
+t_zar_roundtrip
+
+# Arika INFO.DAT / GAME.DAT archive & ALZ1 codec standalone verification
+t_arika_test(){
+  local arika_link=$(make -n -W src/wtest.c wtest 2>/dev/null \
+    | awk '{ while (sub(/\\$/,"")) { getline nxt; $0 = $0 nxt } print }' \
+    | grep -- "-o wtest$" | tail -1)
+  if [ -n "$arika_link" ]; then
+    local arika_cmd=${arika_link/ wtest.o / ../tests/test-arika.c }
+    arika_cmd=${arika_cmd%-o wtest}"-o /tmp/_r_arika"
+    if eval "$arika_cmd" >/tmp/_r_arika_build.log 2>&1; then
+      if /tmp/_r_arika >/tmp/_r_arika_run.log 2>&1; then
+        ok "Arika INFO.DAT/GAME.DAT & ALZ1 roundtrip"
+      else
+        no "Arika INFO.DAT/GAME.DAT" \
+          "$(grep -m1 FAIL /tmp/_r_arika_run.log 2>/dev/null || echo 'runtime check failed')"
+      fi
+    else
+      no "Arika INFO.DAT/GAME.DAT" "$(tail -1 /tmp/_r_arika_build.log 2>/dev/null)"
+    fi
+  else
+    sk "Arika INFO.DAT/GAME.DAT"
+  fi
+}
+t_arika_test
 
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"

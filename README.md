@@ -55,7 +55,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **APAK** | `.apak` | ✅ | ✅ | ✅ | Nintendo / Pokémon APAK archive format (Wii U / Switch) |
 | **ARC / U8** | `.arc`, `.szs` | ✅ | ✅ | ✅ | Nintendo standard U8 archive (Wii / GameCube NintendoWare & EAD) |
 | **ARCV** | `.arc` | ✅ | ✅ | ✅ | Namco / Tose Wii archive format |
-| **Arika Archive** | `INFO.DAT`, `GAME.DAT` | ✅ | — | — | Arika DS / DSi / Wii archive system |
+| **Arika Archive** | `INFO.DAT`, `GAME.DAT`, `.arika` | ✅ | ✅ | ✅ | Arika DS / DSi / Wii archive system |
 | **AT7** | `.at7` | ✅ | ✅ | ✅ | Koei Tecmo container format (Wii / PS2) |
 | **BG4** | `.bg4` | ✅ | ✅ | ✅ | AlphaDream 3DS flat archive with BLZ member compression |
 | **BIGF** | `.big` | ✅ | ✅ | ✅ | Electronic Arts Wii asset archive |
@@ -66,7 +66,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **DTLS** | `dt00`, `ls00`, `.ls` | ✅ | ✅ | — | Bandai Namco composite package & lookup archive (*Super Smash Bros. 4* Wii U / 3DS) |
 | **F9RES** | `.res` | ✅ | ✅ | ✅ | GameCube resource archive container |
 | **FSYS** | `.fsys` | ✅ | ✅ | ✅ | Genius Sonority archive system (GameCube / Wii) |
-| **GAR / ZAR** | `.zar`, `.gar` | ✅ | — | — | Grezzo Zelda & Luigi's Mansion archive (*OoT3D*, *MM3D*, *LM3DS*) |
+| **GAR / ZAR** | `.zar`, `.gar` | ✅ | ✅ | ✅ | Grezzo Zelda & Luigi's Mansion archive (*OoT3D*, *MM3D*, *LM3DS*) |
 | **GFA** | `.gfa` | ✅ | ✅ | ✅ | Good-Feel GFAC container (Wii / 3DS) |
 | **Hyrule Warriors** | `.idx`, `.bin` | ✅ | ✅ | ✅ | Koei Tecmo / Omega Force split index archive (3DS) |
 | **JARC** | `.jarc` | ✅ | ✅ | ✅ | Level-5 DS archive container (DS) |

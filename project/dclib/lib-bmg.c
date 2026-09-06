@@ -4369,14 +4369,16 @@ enumError SaveTextFileBMG (bmg_t *bmg, // pointer to valid bmg
 	{
 		fflush (stdout);
 		const struct sep_t *sep;
-		for (sep = sep_std_tab + 1; sep->mid; sep++)
-			if (sep[-1].mid > sep->mid)
-				fprintf (stderr, "Wrong order in sep_std_tab[%zu]:\n\t%04x %s\n\t%04x %s\n",
-					sep - sep_std_tab, sep[-1].mid, sep[-1].info, sep->mid, sep->info);
-		for (sep = sep_mkw_tab + 1; sep->mid; sep++)
-			if (sep[-1].mid > sep->mid)
-				fprintf (stderr, "Wrong order in sep_mkw_tab[%zu]:\n\t%04x %s\n\t%04x %s\n",
-					sep - sep_mkw_tab, sep[-1].mid, sep[-1].info, sep->mid, sep->info);
+		if (sep_std_tab[0].mid)
+			for (sep = sep_std_tab + 1; sep->mid; sep++)
+				if (sep[-1].mid > sep->mid)
+					fprintf (stderr, "Wrong order in sep_std_tab[%zu]:\n\t%04x %s\n\t%04x %s\n",
+						sep - sep_std_tab, sep[-1].mid, sep[-1].info, sep->mid, sep->info);
+		if (sep_mkw_tab[0].mid)
+			for (sep = sep_mkw_tab + 1; sep->mid; sep++)
+				if (sep[-1].mid > sep->mid)
+					fprintf (stderr, "Wrong order in sep_mkw_tab[%zu]:\n\t%04x %s\n\t%04x %s\n",
+						sep - sep_mkw_tab, sep[-1].mid, sep[-1].info, sep->mid, sep->info);
 		fflush (stderr);
 	}
 #endif

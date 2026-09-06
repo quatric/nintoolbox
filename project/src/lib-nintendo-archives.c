@@ -3824,6 +3824,87 @@ enumError CreateSIR0Archive (
 	return ERR_OK;
 }
 
+// Grezzo Zelda / Luigi's Mansion 3DS Archive (.zar / ZAR\x01), little-endian
+enumError CreateGARArchive (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	if (!dest || !dest_size || !entries || !n_entries)
+		return ERR_INVALID_DATA;
+
+	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
+	if (!sorted)
+		return ERR_OUT_OF_MEMORY;
+	memcpy (sorted, entries, n_entries * sizeof (*sorted));
+	qsort (sorted, n_entries, sizeof (*sorted), compare_archive_entries);
+
+	// Layout:
+	// 0x00..0x1F: Header (32 bytes)
+	// 0x20: Filenames string table (aligned to 16)
+	// Group table: 1 group (0x10 bytes)
+	// Info table: n_entries * 8 bytes (FileSize:4, FileNameOffset:4)
+	// Data offset table: n_entries * 4 bytes
+	// Payloads: aligned to 16 bytes
+
+	u32 str_tbl_len = 0;
+	for (uint i = 0; i < n_entries; i++)
+		str_tbl_len += (u32)strlen (leaf_name (sorted[i].name)) + 1;
+
+	const u32 str_tbl_off = 0x20;
+	const u32 grp_off = align_up (str_tbl_off + str_tbl_len, 16);
+	const u32 info_off = grp_off + 16;
+	const u32 data_tbl_off = info_off + n_entries * 8;
+	const u32 first_data_off = align_up (data_tbl_off + n_entries * 4, 16);
+
+	u32 total = first_data_off;
+	for (uint i = 0; i < n_entries; i++)
+		total = align_up (total + sorted[i].size, 16);
+
+	u8 *buf = CALLOC (total, 1);
+	if (!buf)
+	{
+		FREE (sorted);
+		return ERR_OUT_OF_MEMORY;
+	}
+
+	memcpy (buf, "ZAR\x01", 4);
+	wr_le32 (buf + 4, total);
+	wr_le16 (buf + 8, 1);                  // file_group_count
+	wr_le16 (buf + 10, (u16)n_entries);    // file_count
+	wr_le32 (buf + 12, grp_off);           // file_group_offset
+	wr_le32 (buf + 16, info_off);          // file_info_offset
+	wr_le32 (buf + 20, data_tbl_off);      // data_offset
+	memcpy (buf + 24, "queen\0\0\0", 8);   // codename
+
+	// Group record
+	wr_le32 (buf + grp_off, n_entries);
+
+	u32 cur_str_off = str_tbl_off;
+	u32 cur_data_off = first_data_off;
+
+	for (uint i = 0; i < n_entries; i++)
+	{
+		ccp name = leaf_name (sorted[i].name);
+		const size_t nlen = strlen (name);
+		memcpy (buf + cur_str_off, name, nlen + 1);
+
+		wr_le32 (buf + info_off + i * 8, sorted[i].size);
+		wr_le32 (buf + info_off + i * 8 + 4, cur_str_off);
+
+		wr_le32 (buf + data_tbl_off + i * 4, cur_data_off);
+
+		if (sorted[i].data && sorted[i].size)
+			memcpy (buf + cur_data_off, sorted[i].data, sorted[i].size);
+
+		cur_str_off += (u32)nlen + 1;
+		cur_data_off = align_up (cur_data_off + sorted[i].size, 16);
+	}
+
+	FREE (sorted);
+	*dest = buf;
+	*dest_size = total;
+	return ERR_OK;
+}
+
 // Nintendo Switch MTXT texture archive (.mtxt): a four-byte magic, a flags
 // word, then a gzip stream wrapping one XTX texture container.
 //
