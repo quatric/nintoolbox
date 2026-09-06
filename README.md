@@ -73,7 +73,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **LSPK** | `.pk`, `.pkh`, `.lspk` | ✅ | ✅ | ✅ | — | Level-5 / Mistwalker flat package (*The Last Story*) |
 | **MDR** | `.mdr` | ✅ | ✅ | ✅ | — | *Dance Dance Revolution Mario Mix* chunk archive with per-chunk zlib streams |
 | **MKGPDX PAC** | `.pac`, `.mkgpdx` | ✅ | ✅ | ✅ | — | *Mario Kart Arcade GP DX* layout archive (`pack`) |
-| **MPBIN** | `.bin` | ✅ | ✅ | ✅ | — | Hudson Soft Mario Party archive container (GameCube / Wii) |
+| **MPBIN** | `.bin` | ✅ | ✅ | ✅ | ✅ | Hudson Soft Mario Party archive container (GameCube / Wii) |
 | **MTXT** | `.mtxt` | ✅ | ✅ | ✅ | — | Nintendo Switch MTXT texture archive (gzip-wrapped XTX) |
 | **NARC** | `.narc` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro standard archive (DS / DSi) |
 | **NCCARC** | `.nccarc` | ✅ | ✅ | ✅ | — | Nintendo DS flat blob container |

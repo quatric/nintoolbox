@@ -6430,6 +6430,102 @@ with open("'"$d"'/ctxb_test/sample.ctxb", "wb") as f:
     fi
   fi
 
+  # Hudson Soft Mario Party Archive Container (.bin / MPBIN) retail test
+  local mpbin_retail="$PWD_PROJECT/../tests/fixtures/mp4_mariomdl0.bin"
+  if [ -f "$mpbin_retail" ]; then
+    mkdir -p "$d/mpbin_retail_test"
+    if "$B/wszst" X "$mpbin_retail" -d "$d/mpbin_retail_test" --overwrite >/dev/null 2>&1 \
+    && [ "$(find "$d/mpbin_retail_test" -type f 2>/dev/null | wc -l)" -gt 0 ]; then
+      fok "Hudson Soft Mario Party Archive (.bin / MPBIN) retail extraction"
+    else
+      fno "Hudson Soft Mario Party Archive" "failed to extract retail .bin sample";
+    fi
+  fi
+
+  # Nintendo Wii U GTX Surface Container (.gtx) test
+  local gtx_src="$PWD_PROJECT/../tests/fixtures/wiiu_debug_font.gtx"
+  if [ -f "$gtx_src" ]; then
+    mkdir -p "$d/gtx_fixture_test"
+    if "$B/wimgt" DECODE "$gtx_src" -d "$d/gtx_fixture_test/font.png" --overwrite >/dev/null 2>&1 \
+    && [ -f "$d/gtx_fixture_test/font.png" ]; then
+      fok "Nintendo Wii U GTX Surface (.gtx) decoding"
+    else
+      fno "Nintendo Wii U GTX Surface" "failed to decode .gtx sample";
+    fi
+    if "$B/wimgt" ENCODE "$d/gtx_fixture_test/font.png" --transform IA4 -d "$d/gtx_fixture_test/font.gtx" --overwrite >/dev/null 2>&1 \
+    && "$B/wimgt" DECODE "$d/gtx_fixture_test/font.gtx" -d "$d/gtx_fixture_test/font_re.png" --overwrite >/dev/null 2>&1 \
+    && "$B/wimgt" ENCODE "$d/gtx_fixture_test/font_re.png" --transform IA4 -d "$d/gtx_fixture_test/font_fp.gtx" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/gtx_fixture_test/font.gtx" "$d/gtx_fixture_test/font_fp.gtx"; then
+      bok "Nintendo Wii U GTX Surface (.gtx) canonical fixed point"
+    else
+      bno "Nintendo Wii U GTX Surface" "failed canonical fixed point";
+    fi
+  fi
+
+  # Nintendo DS Nitro Standard Archive (.narc) test
+  local narc_src="$PWD_PROJECT/../tests/fixtures/sm3dl_shaders.narc"
+  if [ -f "$narc_src" ]; then
+    mkdir -p "$d/narc_fixture_test"
+    if "$B/wszst" X "$narc_src" -d "$d/narc_fixture_test" --overwrite >/dev/null 2>&1 \
+    && [ "$(find "$d/narc_fixture_test" -name "nwfont_RectDrawerShader.shbin" 2>/dev/null | wc -l)" -gt 0 ]; then
+      fok "Nintendo DS Nitro Standard Archive (.narc) extraction"
+    else
+      fno "Nintendo DS Nitro Standard Archive" "failed to extract .narc sample";
+    fi
+  fi
+
+  # HAL / Game Arts Wii Archive (.pac) container roundtrip
+  local pac_src="$PWD_PROJECT/../tests/fixtures/synthetic_sample.pac"
+  if [ -f "$pac_src" ]; then
+    mkdir -p "$d/pac_fixture_a" "$d/pac_fixture_b"
+    if "$B/wszst" X "$pac_src" -d "$d/pac_fixture_a" --overwrite >/dev/null 2>&1 \
+    && "$B/wszst" CREATE "$d/pac_fixture_a" -d "$d/pac_fixture_re.pac" --overwrite >/dev/null 2>&1 \
+    && "$B/wszst" X "$d/pac_fixture_re.pac" -d "$d/pac_fixture_b" --overwrite >/dev/null 2>&1 \
+    && "$B/wszst" CREATE "$d/pac_fixture_b" -d "$d/pac_fixture_fp.pac" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/pac_fixture_re.pac" "$d/pac_fixture_fp.pac"; then
+      bok "Nintendo Wii PAC Container (.pac) canonical fixed point"
+    else
+      bno "Nintendo Wii PAC Container" "failed canonical fixed point";
+    fi
+  fi
+
+  # Nintendo / Intelligent Systems Flat Archive (.warc) container roundtrip
+  local warc_src="$PWD_PROJECT/../tests/fixtures/synthetic_sample.warc"
+  if [ -f "$warc_src" ]; then
+    mkdir -p "$d/warc_fixture_ext1" "$d/warc_fixture_ext2"
+    "$B/wszst" X "$warc_src" -d "$d/warc_fixture_ext1" --overwrite >/dev/null 2>&1
+    local warc_sub1=$(find "$d/warc_fixture_ext1" -mindepth 1 -maxdepth 1 -type d | head -1)
+    if [ -n "$warc_sub1" ] \
+    && "$B/wszst" CREATE "$warc_sub1" -d "$d/warc_fixture_re.warc" --overwrite >/dev/null 2>&1 \
+    && "$B/wszst" X "$d/warc_fixture_re.warc" -d "$d/warc_fixture_ext2" --overwrite >/dev/null 2>&1; then
+      local warc_sub2=$(find "$d/warc_fixture_ext2" -mindepth 1 -maxdepth 1 -type d | head -1)
+      if [ -n "$warc_sub2" ] \
+      && "$B/wszst" CREATE "$warc_sub2" -d "$d/warc_fixture_fp.warc" --overwrite >/dev/null 2>&1 \
+      && cmp -s "$d/warc_fixture_re.warc" "$d/warc_fixture_fp.warc"; then
+        bok "Nintendo WARC Archive (.warc) canonical fixed point"
+      else
+        bno "Nintendo WARC Archive" "failed canonical fixed point";
+      fi
+    else
+      bno "Nintendo WARC Archive" "failed extraction / re-creation";
+    fi
+  fi
+
+  # Nintendo DS Flat Blob Container (.nccarc) container roundtrip
+  local nccarc_src="$PWD_PROJECT/../tests/fixtures/synthetic_sample.nccarc"
+  if [ -f "$nccarc_src" ]; then
+    mkdir -p "$d/nccarc_fixture_a" "$d/nccarc_fixture_b"
+    if "$B/wszst" X "$nccarc_src" -d "$d/nccarc_fixture_a" --overwrite >/dev/null 2>&1 \
+    && "$B/wszst" CREATE "$d/nccarc_fixture_a" -d "$d/nccarc_fixture_re.nccarc" --overwrite >/dev/null 2>&1 \
+    && "$B/wszst" X "$d/nccarc_fixture_re.nccarc" -d "$d/nccarc_fixture_b" --overwrite >/dev/null 2>&1 \
+    && "$B/wszst" CREATE "$d/nccarc_fixture_b" -d "$d/nccarc_fixture_fp.nccarc" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/nccarc_fixture_re.nccarc" "$d/nccarc_fixture_fp.nccarc"; then
+      bok "Nintendo DS NCCARC Container (.nccarc) canonical fixed point"
+    else
+      bno "Nintendo DS NCCARC Container" "failed canonical fixed point";
+    fi
+  fi
+
   # Twilight Princess HD TMPK Archive (.pack) test
   mkdir -p "$d/tmpk_test"
   python3 -c '
@@ -6947,6 +7043,18 @@ with open(sys.argv[1], "wb") as f:
       fok "WarioWare: D.I.Y. (.mio) retail extraction"
     else
       fno "WarioWare: D.I.Y. (.mio)" "failed to extract retail .mio sample";
+    fi
+  fi
+
+  # Next Level Games Mario Strikers Charged (.rlg) retail model decode test
+  local rlg_retail="$PWD_PROJECT/../tests/fixtures/wii_samples/charged_rlg/mario.rlg"
+  if [ -f "$rlg_retail" ]; then
+    if "$B/wszst" xx "$rlg_retail" --dest "$d/mario_charged.glb" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/mario_charged.glb" ] \
+    && [ "$(python3 "$PWD_PROJECT/../tests/gltf_count.py" "$d/mario_charged.glb" geometry 2>/dev/null)" -gt 0 ]; then
+      fok "Next Level Games Wii RLG retail model decode (mario.rlg -> GLB)"
+    else
+      fno "Next Level Games Wii RLG retail model" "failed to decode retail mario.rlg";
     fi
   fi
 
