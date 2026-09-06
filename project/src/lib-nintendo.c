@@ -118,9 +118,11 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_XPCK, false, false, 0);
 		if (!memcmp (d, "XIM2", 4) || !memcmp (d, "XIMG", 4) || !memcmp (d, "XINF", 4) || !memcmp (d, "XI\0\0", 4))
 			return make_info (NFMT_XIMG, false, false, 0);
-		if (!memcmp (d, "0OGH", 4) || !memcmp (d, "0MXT", 4) || !memcmp (d, "0TST", 4) || !memcmp (d, "LBTN", 4)
-			|| (size >= 12 && (!memcmp (d + 4, "0OGH", 4) || !memcmp (d + 8, "0OGH", 4))))
-			return make_info (NFMT_HGO, true, false, 0);
+		// No content test for .hgo: the "0OGH"/"0MXT"/"0TST"/"LBTN" magics
+		// once matched here occur in none of the Camelot games this format
+		// was attributed to, in any byte order, so they identified nothing
+		// and could only mislabel unrelated data that happened to start with
+		// those bytes. The extension is all that is actually known.
 		if (ext && !strcasecmp (ext, ".hgo"))
 			return make_info (NFMT_HGO, true, false, 0);
 		if (!memcmp (d, "ZTAB", 4))

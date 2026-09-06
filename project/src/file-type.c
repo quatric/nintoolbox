@@ -1024,11 +1024,18 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x58, 0x49, 0x4d, 0x32 }, // "XIM2"
 		0, MinusString, MinusString, "Level-5 3DS/Switch Image/Texture (.xi / XIMG)" },
 
-	// FF_HGO = 190 (Camelot GameCube/Wii 3D Model)
+	// FF_HGO = 190 (unidentified, recognised by extension only)
+	// The "0OGH" magic this used to carry matches nothing: it appears in no
+	// byte order anywhere in Mario Golf: Toadstool Tour (GC), Mario Power
+	// Tennis (GC & Wii), We Love Golf! (Wii) or Mario Golf: World Tour (3DS),
+	// and Camelot ships its models as PPC relocatable modules
+	// (elfbin/xcmdl_*.sbn) instead. Claiming it only risked mislabelling
+	// unrelated data, and nothing here decodes or cuts such a file, so this
+	// now recognises the extension and says no more than that.
 	{ FF_HGO, FF_HGO, 0, "HGO", ".hgo", ".szs", ".hgo",
-		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
-		{ 0x30, 0x4f, 0x47, 0x48 }, // "0OGH"
-		0, MinusString, MinusString, "Camelot GameCube/Wii 3D Model (Mario Golf & Tennis GC)" },
+		FFT_VALID, 0,
+		{ 0 },
+		0, MinusString, MinusString, "Unidentified format, named by its .hgo extension" },
 
 	// FF_ZTAB = 191 (Camelot GameCube/Wii Archive Table)
 	{ FF_ZTAB, FF_ZTAB, 0, "ZTAB", ".ztab", ".szs", ".ztab",
@@ -1090,17 +1097,22 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x47, 0x31, 0x54, 0x5f }, // "G1T_"
 		0, MinusString, MinusString, "Koei Tecmo Texture Container (Hyrule Warriors / FE Warriors .g1t)" },
 
-	// FF_G4PKM = 199 (Level-5 / Nintendo 3D Model)
+	// FF_G4PKM = 199 (unidentified, recognised by extension only)
+	// No magic, no decoder, and no game here uses the extension. "pkm" in a
+	// Pokemon context names individual save data rather than a model, so even
+	// the "3D Model" this used to claim is unsupported.
 	{ FF_G4PKM, FF_G4PKM, 0, "G4PKM", ".g4pkm", ".szs", ".g4pkm",
-		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
+		FFT_VALID, 0,
 		{ 0 },
-		0, MinusString, MinusString, "Level-5 / Nintendo 3D Model (.g4pkm)" },
+		0, MinusString, MinusString, "Unidentified format, named by its .g4pkm extension" },
 
-	// FF_LMD = 200 (Pokemon Masters 3D Model)
+	// FF_LMD = 200 (unidentified, recognised by extension only)
+	// ".lmd" is not one format -- several unrelated programs use it -- and no
+	// sample backs the "Pokemon Masters" attribution this used to make.
 	{ FF_LMD, FF_LMD, 0, "LMD", ".lmd", ".szs", ".lmd",
-		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
+		FFT_VALID, 0,
 		{ 0 },
-		0, MinusString, MinusString, "Pokemon Masters 3D Model (.lmd)" },
+		0, MinusString, MinusString, "Unidentified format, named by its .lmd extension" },
 
 	// FF_XMSG = 201 (Wii Party Message / Text Archive)
 	{ FF_XMSG, FF_XMSG, 0, "XMSG", ".bin", ".bin", ".bin",
@@ -1504,7 +1516,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_BNFM, "BNFM", 0, 0x3001 },
 	{ FF_XPCK, "XPCK", "XC", 0xe05 },
 	{ FF_XIMG, "XIMG", "XI", 0x3809 },
-	{ FF_HGO, "HGO", "0OGH", 0x3001 },
+	{ FF_HGO, "HGO", 0, 0x3001 },
 	{ FF_ZTAB, "ZTAB", 0, 0xe05 },
 	{ FF_GLG, "GLG", "RLG", 0x3001 },
 	{ FF_MDR, "MDR", 0, 0xe05 },

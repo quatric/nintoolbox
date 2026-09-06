@@ -1230,12 +1230,6 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x63747862: // "ctxb"
 				return FF_CTXB;
 
-			// Camelot 3D Model
-			case 0x304f4748: // "0OGH"
-			case 0x304d5854: // "0MXT"
-			case 0x30545354: // "0TST"
-				return FF_HGO;
-
 			// Camelot Archive Table (ZTAB)
 			case 0x5a544142: // "ZTAB"
 				return FF_ZTAB;

@@ -147,6 +147,39 @@ else
   sk "Arika ALZ1 + INFO.DAT/GAME.DAT archive"
 fi
 
+# HGO, G4PKM and LMD were carried in the type table as named formats without
+# anything to back them: HGO matched a "0OGH" magic that occurs in none of the
+# Camelot games it was attributed to -- in any byte order -- while G4PKM and
+# LMD had no magic at all, and none of the three has a decoder or a cutter.
+# A magic that identifies nothing does not merely fail to help; it mislabels
+# unrelated data that happens to start with those bytes. So content detection
+# is gone and only the extension, which is all that is actually known, still
+# names them.
+ft_dir=$(mktemp -d /tmp/_r_attr.XXXXXX) || ft_dir=
+if [ -n "$ft_dir" ]; then
+  printf '0OGH' > "$ft_dir/mystery.bin"
+  head -c 64 /dev/zero >> "$ft_dir/mystery.bin"
+  for magic in 0OGH 0MXT 0TST LBTN; do
+    printf '%s' "$magic" > "$ft_dir/m.bin"
+    head -c 64 /dev/zero >> "$ft_dir/m.bin"
+    if "$B/wszst" FILETYPE "$ft_dir/m.bin" 2>/dev/null | grep -q "^HGO"; then
+      no "unattributed formats claim nothing" "$magic content still identified as HGO"
+      ft_bad=1
+    fi
+  done
+  cp "$ft_dir/mystery.bin" "$ft_dir/thing.hgo"
+  if [ -z "$ft_bad" ] \
+  && "$B/wszst" FILETYPE "$ft_dir/thing.hgo" 2>/dev/null | grep -q "^HGO"; then
+    ok "unattributed formats are named by extension only, never by invented magic"
+  elif [ -z "$ft_bad" ]; then
+    no "unattributed formats claim nothing" "the .hgo extension stopped being recognised"
+  fi
+  rm -rf "$ft_dir"
+  unset ft_bad
+else
+  sk "unattributed formats claim nothing"
+fi
+
 # Almost every texture in a shipped BRRES is indexed -- 154 of the 184 in
 # tests/fixtures are C4 or C8 -- and keeps its colours in a sibling PLT0
 # rather than in the TEX0. SaveTEX() drops the palette, which is right for a
