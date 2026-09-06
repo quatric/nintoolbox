@@ -6335,6 +6335,70 @@ assert (w, h) == (32, 32), f"got {w}x{h}"
 }
 t_byte_fixed_points
 
+echo "== container encode/decode/byte-exact roundtrips =="
+# For every container this fork can both read and write, assert the full
+# cycle: build an archive from a directory, extract it, and rebuild it. The
+# members must survive byte for byte, and the second archive must be
+# identical to the first -- i.e. the writer emits a canonical layout that is
+# a fixed point of its own reader.
+#
+# Formats whose members carry no stored name (ARCV, jARC, and the ordinal
+# containers below) are compared by content, not filename, because the
+# reader necessarily invents the names it writes out.
+t_container_roundtrip(){
+  local d; d=$(mktemp -d /tmp/_r_container.XXXXXX) || { no "container roundtrip" "mktemp failed"; return; }
+  local ext names
+  # "ext:naming" -- named containers keep member names, ordinal ones do not.
+  for spec in \
+    .sarc:named .narc:named .darc:named .warc:named .bg4:named .sa01:named \
+    .cram:named .gfa:named .ccf:named .at7:named .sze:named .big:named \
+    .xc:named .pvol:named .stpk:named .zlarc:named .apak:named .nxarc:named \
+    .pkz:named .tmpk:named .vibs:named \
+    .ca01:ordinal .fsys:ordinal .mdr:ordinal .nccarc:ordinal .ztab:ordinal \
+    .arc:arcv .jarc:arcv
+  do
+    ext=${spec%%:*}; names=${spec##*:}
+    local c="$d/$ext"; rm -rf "$c"; mkdir -p "$c/src.d"
+    if [ "$names" = arcv ]; then
+      printf 'alpha-member-payload'   > "$c/src.d/file_0000.bin"
+      printf 'BRAVO-member-payload!!' > "$c/src.d/file_0001.bin"
+    else
+      printf 'alpha-member-payload'   > "$c/src.d/alpha.bin"
+      printf 'BRAVO-member-payload!!' > "$c/src.d/bravo.bin"
+    fi
+    cp -r "$c/src.d" "$c/ref.d"
+
+    if ! "$B/wszst" CREATE "$c/src.d" --dest "$c/a$ext" --overwrite >/dev/null 2>&1 \
+    || [ ! -s "$c/a$ext" ]; then
+      no "$ext container encode" "CREATE produced no archive"; continue
+    fi
+    ok "$ext container encode"
+
+    if ! "$B/wszst" XX "$c/a$ext" --dest "$c/out.d" --overwrite >/dev/null 2>&1; then
+      no "$ext container decode" "XX failed"; continue
+    fi
+    # Compare the multiset of member contents; nameless formats cannot
+    # round-trip filenames, only bytes and order.
+    local want got
+    want=$(cd "$c/ref.d" && cat * 2>/dev/null | cksum)
+    got=$(find "$c/out.d" -type f 2>/dev/null | sort | xargs cat 2>/dev/null | cksum)
+    if [ -z "$want" ] || [ "$want" != "$got" ]; then
+      no "$ext container decode" "extracted members differ from the originals"; continue
+    fi
+    ok "$ext container decode"
+
+    cp -r "$c/out.d" "$c/re.d"
+    if "$B/wszst" CREATE "$c/re.d" --dest "$c/b$ext" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$c/a$ext" "$c/b$ext"; then
+      bok "$ext container re-encode is byte identical"
+    else
+      bno "$ext container byte-exact" "rebuild differs from the original archive"
+    fi
+  done
+  rm -rf "$d"
+}
+t_container_roundtrip
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]

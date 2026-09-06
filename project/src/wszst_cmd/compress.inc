@@ -2732,6 +2732,129 @@ static enumError create_arcv_dir (ccp source, ccp dest)
 	return err;
 }
 
+// Repack a directory extracted by extract_jarc_file() back into a Level-5
+// jARC archive. Like ARCV, jARC members carry no stored name -- the reader
+// names them "file_%04u.<ext>" from an ordinal plus an extension sniffed out
+// of the member's own magic -- so recover the ordinal from the filename and
+// accept whatever single extension the sniffer chose.
+static bool jarc_member_name_ok (ccp nm, uint *idx)
+{
+	int consumed = 0;
+	if (sscanf (nm, "file_%u%n", idx, &consumed) != 1 || !consumed)
+		return false;
+	ccp rest = nm + consumed;
+	// Exactly one extension, and nothing that looks like a derived
+	// side-product ("file_0002.rseq.mid") or an expanded member directory.
+	return *rest == '.' && rest[1] && !strchr (rest + 1, '.');
+}
+
+static enumError create_jarc_dir (ccp source, ccp dest)
+{
+	DIR *dir = opendir (source);
+	if (!dir)
+		return ERROR0 (ERR_NOT_EXISTS, "Can't open jARC input directory: %s\n", source);
+
+	arcv_member_t *list = 0;
+	uint used = 0, size = 0;
+	enumError err = ERR_OK;
+	struct dirent *de;
+	while (!err && (de = readdir (dir)))
+	{
+		uint idx;
+		if (!jarc_member_name_ok (de->d_name, &idx))
+			continue;
+
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/%s", source, de->d_name);
+		struct stat st;
+		if (stat (path, &st) || !S_ISREG (st.st_mode))
+			continue;
+
+		if (used == size)
+		{
+			const uint nsize = size ? 2 * size : 32;
+			void *ptr = REALLOC (list, nsize * sizeof (*list));
+			if (!ptr)
+			{
+				err = ERR_CANT_CREATE;
+				break;
+			}
+			list = ptr;
+			size = nsize;
+		}
+		u8 *data = 0;
+		size_t fsize = 0;
+		err = LoadFileAlloc (path, 0, 0, &data, &fsize, 0, 0, 0, false);
+		if (err)
+		{
+			ERROR0 (err, "Can't load jARC input: %s\n", path);
+			break;
+		}
+		list[used].index = idx;
+		list[used].data = data;
+		list[used].size = fsize;
+		used++;
+	}
+	closedir (dir);
+
+	if (!err && !used)
+		err = ERR_NOTHING_TO_DO;
+	if (!err)
+		qsort (list, used, sizeof (*list), cmp_arcv_member);
+	for (uint i = 0; !err && i < used; i++)
+		if (list[i].index != i)
+			err = ERROR0 (ERR_INVALID_DATA,
+				"jARC input directory has a non-contiguous member index: %s/file_%04u*\n",
+				source, list[i].index);
+
+	if (!err && !testmode)
+	{
+		const uint data_start = 0x10 + used * 16;
+		u64 total_size = data_start;
+		for (uint i = 0; i < used; i++)
+			total_size += list[i].size;
+		if (total_size > UINT_MAX)
+			err = ERR_FILE_TOO_BIG;
+		else
+		{
+			u8 *out = CALLOC (1, total_size);
+			if (!out)
+				err = ERR_CANT_CREATE;
+			else
+			{
+				// Big-endian, the byte order every retail jARC uses.
+				memcpy (out, "jARC", 4);
+				wr_be32 (out + 4, (u32)total_size);
+				wr_be32 (out + 8, used);
+				wr_be32 (out + 12, 0x10); // table offset
+
+				u64 off = data_start;
+				for (uint i = 0; i < used; i++)
+				{
+					u8 *entry = out + 0x10 + i * 16;
+					wr_be32 (entry, (u32)off);
+					wr_be32 (entry + 4, (u32)list[i].size);
+					memcpy (out + off, list[i].data, list[i].size);
+					off += list[i].size;
+				}
+
+				File_t F;
+				err = CreateFileOpt (&F, true, dest, false, source);
+				if (F.f && fwrite (out, 1, total_size, F.f) != total_size)
+					err = FILEERROR1 (&F, ERR_WRITE_FAILED,
+						"Writing %llu bytes failed: %s\n", (unsigned long long)total_size, dest);
+				ResetFile (&F, opt_preserve);
+				FREE (out);
+			}
+		}
+	}
+
+	for (uint i = 0; i < used; i++)
+		FREE (list[i].data);
+	FREE (list);
+	return err;
+}
+
 static bool looks_like_f9res_dir (ccp source)
 {
 	DIR *dir = opendir (source);
@@ -2816,6 +2939,8 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest)
 		return create_f9res_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".zlarc"))
 		return create_zlarc_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".jarc"))
+		return create_jarc_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".apak"))
 		return create_apak_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".nxarc"))
