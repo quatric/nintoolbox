@@ -4609,7 +4609,8 @@ t_byte_exact_encoders(){
   # but their own encoder must still choose one deterministic representation.
   mkdir -p "$d/layout-a" "$d/layout-b"
   local spec src
-  for spec in 'splatoon_cmn_bg_out.bflan bflan' 'splatoon_cmn_seq_drc_option.bflyt bflyt'; do
+  for spec in 'splatoon_cmn_bg_out.bflan bflan' 'splatoon_cmn_seq_drc_option.bflyt bflyt' \
+              'synthetic_sample.bclan bclan' 'synthetic_sample.bclyt bclyt'; do
     set -- $spec; src="$PWD_PROJECT/../tests/fixtures/$1"; ext=$2
     if "$B/wlayt" decode "$src" "$d/same-$ext.tflyt" >/dev/null 2>&1 \
     && "$B/wlayt" encode "$d/same-$ext.tflyt" "$d/layout-a/same.$ext" >/dev/null 2>&1 \
@@ -5297,7 +5298,8 @@ t_byte_fixed_points(){
   # first retail decode legitimately relocates sections or strings.
   mkdir -p "$d/layout-a" "$d/layout-b"
   local spec src
-  for spec in 'splatoon_cmn_bg_out.bflan bflan' 'splatoon_cmn_seq_drc_option.bflyt bflyt'; do
+  for spec in 'splatoon_cmn_bg_out.bflan bflan' 'splatoon_cmn_seq_drc_option.bflyt bflyt' \
+              'synthetic_sample.bclan bclan' 'synthetic_sample.bclyt bclyt'; do
     set -- $spec; src="$PWD_PROJECT/../tests/fixtures/$1"; ext=$2
     if "$B/wlayt" decode "$src" "$d/source-$ext.tflyt" >/dev/null 2>&1 \
     && "$B/wlayt" encode "$d/source-$ext.tflyt" "$d/layout-a/same.$ext" >/dev/null 2>&1 \
