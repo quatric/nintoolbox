@@ -21,7 +21,7 @@ ccp GetNintendoFormatName (nfmt_type_t type)
 		"PLT0", "MSBT", "BCRES", "BFRES", "BNTX", "GFA", "BCH", "QuickLZ", "PAC", "RNC", "romc",
 		"PSDK", "AT7", "CTPK", "BYML", "NARC", "NSCR", "FZIP", "JARC", "jCMP", "BFMA", "Zlib", "MVDK",
 		"VLX", "PuCrunch", "LZX", "Diff8", "Diff16", "NSBTX", "NFTR", "BNFR", "BNLL", "BNCL", "BNBL",
-		"LZOvl", "ALAR", "DARC", "SADL", "HSF", "HSD", "BNFM", "XPCK", "XIMG", "HGO", "ZTAB", "GLG",
+		"LZOvl", "ALAR", "DARC", "SADL", "HSF", "HSD", "BNFM", "XPCK", "XIMG", "ZTAB", "GLG",
 		"MDR", "PERS", "PVOL", "STPK", "G1M", "G1T", "G4PKM", "LMD", "MSH", "MOD", "GAR",
 		"TEX3DS", "BCSTM", "BFSTM", "BCWAV", "BFWAV", "BNSH", "GFBMDL", "GFBANM", "BNSTX", "AAMP", "MIO", "ZDAT" };
 	return type < sizeof (tab) / sizeof (*tab) ? tab[type] : "UNKNOWN";
@@ -118,13 +118,6 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_XPCK, false, false, 0);
 		if (!memcmp (d, "XIM2", 4) || !memcmp (d, "XIMG", 4) || !memcmp (d, "XINF", 4) || !memcmp (d, "XI\0\0", 4))
 			return make_info (NFMT_XIMG, false, false, 0);
-		// No content test for .hgo: the "0OGH"/"0MXT"/"0TST"/"LBTN" magics
-		// once matched here occur in none of the Camelot games this format
-		// was attributed to, in any byte order, so they identified nothing
-		// and could only mislabel unrelated data that happened to start with
-		// those bytes. The extension is all that is actually known.
-		if (ext && !strcasecmp (ext, ".hgo"))
-			return make_info (NFMT_HGO, true, false, 0);
 		// Animal Crossing: Pocket Camp asset container. Header offsets are
 		// 16-bit: the entry array starts at 0x20 and the names begin directly
 		// after it, so the name offset is fixed by the entry count. Checking

@@ -130,7 +130,6 @@ typedef enum nfmt_type_t
 	NFMT_BNFM,
 	NFMT_XPCK,
 	NFMT_XIMG,
-	NFMT_HGO,
 	NFMT_ZTAB,
 	NFMT_GLG,
 	NFMT_MDR,

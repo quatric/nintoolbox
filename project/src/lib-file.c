@@ -1737,8 +1737,6 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_XPCK;
 		case NFMT_XIMG:
 			return FF_XIMG;
-		case NFMT_HGO:
-			return FF_HGO;
 		case NFMT_ZTAB:
 			return FF_ZTAB;
 		case NFMT_GLG:

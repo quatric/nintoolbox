@@ -215,18 +215,16 @@ else
   sk "ZDAT container"
 fi
 
-# HGO, G4PKM and LMD were carried in the type table as named formats without
-# anything to back them: HGO matched a "0OGH" magic that occurs in none of the
-# Camelot games it was attributed to -- in any byte order -- while G4PKM and
-# LMD had no magic at all, and none of the three has a decoder or a cutter.
-# A magic that identifies nothing does not merely fail to help; it mislabels
-# unrelated data that happens to start with those bytes. So content detection
-# is gone and only the extension, which is all that is actually known, still
-# names them.
+# G4PKM and LMD are carried in the type table as names with nothing behind
+# them: no magic, no decoder, no cutter, and no sample anywhere to say what
+# they are. They stay recognised by extension, which is the one true thing
+# about them, and must claim nothing more. HGO was removed outright -- its
+# "0OGH"/"0MXT"/"0TST"/"LBTN" magics appear in no Camelot game on any
+# platform, N64 included, and N64 data carries no four-character tags at all,
+# so nothing was left to keep.
 ft_dir=$(mktemp -d /tmp/_r_attr.XXXXXX) || ft_dir=
 if [ -n "$ft_dir" ]; then
-  printf '0OGH' > "$ft_dir/mystery.bin"
-  head -c 64 /dev/zero >> "$ft_dir/mystery.bin"
+  ft_bad=
   for magic in 0OGH 0MXT 0TST LBTN; do
     printf '%s' "$magic" > "$ft_dir/m.bin"
     head -c 64 /dev/zero >> "$ft_dir/m.bin"
@@ -235,17 +233,49 @@ if [ -n "$ft_dir" ]; then
       ft_bad=1
     fi
   done
-  cp "$ft_dir/mystery.bin" "$ft_dir/thing.hgo"
+  cp "$ft_dir/m.bin" "$ft_dir/thing.hgo"
   if [ -z "$ft_bad" ] \
   && "$B/wszst" FILETYPE "$ft_dir/thing.hgo" 2>/dev/null | grep -q "^HGO"; then
+    no "unattributed formats claim nothing" "HGO is gone but .hgo is still claimed"
+    ft_bad=1
+  fi
+  cp "$ft_dir/m.bin" "$ft_dir/thing.g4pkm"
+  cp "$ft_dir/m.bin" "$ft_dir/thing.lmd"
+  if [ -z "$ft_bad" ] \
+  && "$B/wszst" FILETYPE "$ft_dir/thing.g4pkm" 2>/dev/null | grep -q "^G4PKM" \
+  && "$B/wszst" FILETYPE "$ft_dir/thing.lmd" 2>/dev/null | grep -q "^LMD"; then
     ok "unattributed formats are named by extension only, never by invented magic"
   elif [ -z "$ft_bad" ]; then
-    no "unattributed formats claim nothing" "the .hgo extension stopped being recognised"
+    no "unattributed formats claim nothing" "extension recognition regressed"
   fi
   rm -rf "$ft_dir"
   unset ft_bad
 else
   sk "unattributed formats claim nothing"
+fi
+
+# FileTypeTab[] is indexed by the file_format_t value itself, so a row that
+# drifts out of step with the enum does not fail loudly -- it silently renames
+# every format after it. Adding or removing a format shifts the whole tail, so
+# the alignment is checked outright.
+ftt_link=$(make -n -W src/wtest.c wtest 2>/dev/null \
+  | awk '{ while (sub(/\\$/,"")) { getline nxt; $0 = $0 nxt } print }' \
+  | grep -- "-o wtest$" | tail -1)
+if [ -n "$ftt_link" ]; then
+  ftt_cmd=${ftt_link/ wtest.o / ../tests/test-filetype-table.c }
+  ftt_cmd=${ftt_cmd%-o wtest}"-o /tmp/_r_ftcheck"
+  if eval "$ftt_cmd" >/tmp/_r_ftcheck_build.log 2>&1; then
+    if /tmp/_r_ftcheck >/tmp/_r_ftcheck_run.log 2>&1; then
+      ok "every FileTypeTab row sits at the index its own format names"
+    else
+      no "file type table alignment" \
+        "$(grep -m1 FAIL /tmp/_r_ftcheck_run.log 2>/dev/null || echo 'check failed')"
+    fi
+  else
+    no "file type table alignment" "$(tail -1 /tmp/_r_ftcheck_build.log 2>/dev/null)"
+  fi
+else
+  sk "file type table alignment"
 fi
 
 # Almost every texture in a shipped BRRES is indexed -- 154 of the 184 in

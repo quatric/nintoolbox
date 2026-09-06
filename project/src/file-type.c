@@ -1024,80 +1024,67 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x58, 0x49, 0x4d, 0x32 }, // "XIM2"
 		0, MinusString, MinusString, "Level-5 3DS/Switch Image/Texture (.xi / XIMG)" },
 
-	// FF_HGO = 190 (unidentified, recognised by extension only)
-	// The "0OGH" magic this used to carry matches nothing: it appears in no
-	// byte order anywhere in Mario Golf: Toadstool Tour (GC), Mario Power
-	// Tennis (GC & Wii), We Love Golf! (Wii) or Mario Golf: World Tour (3DS),
-	// and Camelot ships its models as PPC relocatable modules
-	// (elfbin/xcmdl_*.sbn) instead. Claiming it only risked mislabelling
-	// unrelated data, and nothing here decodes or cuts such a file, so this
-	// now recognises the extension and says no more than that.
-	{ FF_HGO, FF_HGO, 0, "HGO", ".hgo", ".szs", ".hgo",
-		FFT_VALID, 0,
-		{ 0 },
-		0, MinusString, MinusString, "Unidentified format, named by its .hgo extension" },
-
-	// FF_ZTAB = 191 (Camelot GameCube/Wii Archive Table)
+	// FF_ZTAB = 190 (Camelot GameCube/Wii Archive Table)
 	{ FF_ZTAB, FF_ZTAB, 0, "ZTAB", ".ztab", ".szs", ".ztab",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE, 4,
 		{ 0x5a, 0x54, 0x41, 0x42 }, // "ZTAB"
 		0, MinusString, MinusString, "Camelot GameCube/Wii Archive Table (.ztab / ZTAB)" },
 
-	// FF_GLG = 192 (Next Level Games 3D Model)
+	// FF_GLG = 191 (Next Level Games 3D Model)
 	{ FF_GLG, FF_GLG, 0, "GLG", ".glg", ".szs", ".glg",
 		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
 		{ 0 },
 		0, MinusString, MinusString, "Next Level Games 3D Model (Super Mario Strikers .glg)" },
 
-	// FF_MDR = 193 (Dance Dance Revolution Mario Mix Chunk Archive)
+	// FF_MDR = 192 (Dance Dance Revolution Mario Mix Chunk Archive)
 	{ FF_MDR, FF_MDR, 0, "MDR", ".mdr", ".szs", ".mdr",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
 		{ 0 },
 		0, MinusString, MinusString, "Dance Dance Revolution Mario Mix Chunk Archive (.mdr)" },
 
-	// FF_MSH = 194 (Monster Games Collision Mesh)
+	// FF_MSH = 193 (Monster Games Collision Mesh)
 	{ FF_MSH, FF_MSH, 0, "MSH", ".msh", ".szs", ".msh",
 		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
 		{ 0x50, 0x4d, 0x73, 0x68 }, // "PMsh"
 		0, MinusString, MinusString, "Monster Games Collision Mesh (Excite Truck/Bots .msh)" },
 
-	// FF_MOD = 195 (Monster Games Display List Model)
+	// FF_MOD = 194 (Monster Games Display List Model)
 	{ FF_MOD, FF_MOD, 0, "MOD", ".mod", ".szs", ".mod",
 		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
 		{ 0x4e, 0x44, 0x4c, 0x33 }, // "NDL3"
 		0, MinusString, MinusString, "Monster Games Display List Model (Excite Truck/Bots .mod)" },
 
-	// FF_PERS = 196 (Pokemon Stadium N64 Model / Fragment)
+	// FF_PERS = 195 (Pokemon Stadium N64 Model / Fragment)
 	{ FF_PERS, FF_PERS, 0, "PERS", ".pers", ".szs", ".pers",
 		FFT_VALID | FFT_CUT | FFT_DECODE, 8,
 		{ 0x50, 0x45, 0x52, 0x53, 0x2d, 0x53, 0x5a, 0x50 }, // "PERS-SZP"
 		0, MinusString, MinusString, "Pokemon Stadium N64 Model / Fragment (.pers / FRAGMENT)" },
 
-	// FF_PVOL = 195 (Pikmin 1 & 2 Model Container Archive)
+	// FF_PVOL = 194 (Pikmin 1 & 2 Model Container Archive)
 	{ FF_PVOL, FF_PVOL, 0, "PVOL", ".pvol", ".szs", ".pvol",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
 		{ 0 },
 		0, MinusString, MinusString, "Pikmin 1 & 2 Model Container Archive (.pvol)" },
 
-	// FF_STPK = 196 (Jump Super Stars / Jump Ultimate Stars DS Archive)
+	// FF_STPK = 195 (Jump Super Stars / Jump Ultimate Stars DS Archive)
 	{ FF_STPK, FF_STPK, 0, "STPK", ".srd", ".szs", ".stpk",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
 		{ 0x53, 0x54, 0x50, 0x4b }, // "STPK"
 		0, MinusString, MinusString, "Jump Super Stars / Jump Ultimate Stars DS Archive (.srd / STPK)" },
 
-	// FF_G1M = 197 (Koei Tecmo 3D Model)
+	// FF_G1M = 196 (Koei Tecmo 3D Model)
 	{ FF_G1M, FF_G1M, 0, "G1M", ".g1m", ".szs", ".g1m",
 		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
 		{ 0x47, 0x31, 0x4d, 0x5f }, // "G1M_"
 		0, MinusString, MinusString, "Koei Tecmo 3D Model (Hyrule Warriors / FE Warriors .g1m)" },
 
-	// FF_G1T = 198 (Koei Tecmo Texture Container)
+	// FF_G1T = 197 (Koei Tecmo Texture Container)
 	{ FF_G1T, FF_G1T, 0, "G1T", ".g1t", ".szs", ".g1t",
 		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
 		{ 0x47, 0x31, 0x54, 0x5f }, // "G1T_"
 		0, MinusString, MinusString, "Koei Tecmo Texture Container (Hyrule Warriors / FE Warriors .g1t)" },
 
-	// FF_G4PKM = 199 (unidentified, recognised by extension only)
+	// FF_G4PKM = 198 (unidentified, recognised by extension only)
 	// No magic, no decoder, and no game here uses the extension. "pkm" in a
 	// Pokemon context names individual save data rather than a model, so even
 	// the "3D Model" this used to claim is unsupported.
@@ -1106,7 +1093,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 },
 		0, MinusString, MinusString, "Unidentified format, named by its .g4pkm extension" },
 
-	// FF_LMD = 200 (unidentified, recognised by extension only)
+	// FF_LMD = 199 (unidentified, recognised by extension only)
 	// ".lmd" is not one format -- several unrelated programs use it -- and no
 	// sample backs the "Pokemon Masters" attribution this used to make.
 	{ FF_LMD, FF_LMD, 0, "LMD", ".lmd", ".szs", ".lmd",
@@ -1114,283 +1101,283 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 },
 		0, MinusString, MinusString, "Unidentified format, named by its .lmd extension" },
 
-	// FF_XMSG = 201 (Wii Party Message / Text Archive)
+	// FF_XMSG = 200 (Wii Party Message / Text Archive)
 	{ FF_XMSG, FF_XMSG, 0, "XMSG", ".bin", ".bin", ".bin",
 		FFT_VALID | FFT_ARCHIVE | FFT_DECODE | FFT_ENCODE | FFT_EXTRACT | FFT_CREATE, 8,
 		{ 0x58, 0x4D, 0x53, 0x47, 0x20, 0x10, 0x05, 0x03 }, // "XMSG \x10\x05\x03"
 		0, MinusString, MinusString, "Wii Party Message / Text Archive (mess.bin / XMSG)" },
 
-	// FF_NWR_LEVELINFO = 202 (Newer SMBW Level Information)
+	// FF_NWR_LEVELINFO = 201 (Newer SMBW Level Information)
 	{ FF_NWR_LEVELINFO, FF_NWR_LEVELINFO, 0, "NWR-LEVELINFO", ".bin", ".bin", ".bin",
 		FFT_VALID | FFT_ARCHIVE | FFT_DECODE | FFT_ENCODE | FFT_EXTRACT | FFT_CREATE, 4,
 		{ 'N', 'W', 'R', 'p' },
 		0, MinusString, MinusString, "Newer SMBW Level Information (LevelInfo.bin / NWRp)" },
 
-	// FF_NWR_ANIMTILES = 203 (Newer SMBW Animated Tiles)
+	// FF_NWR_ANIMTILES = 202 (Newer SMBW Animated Tiles)
 	{ FF_NWR_ANIMTILES, FF_NWR_ANIMTILES, 0, "NWR-ANIMTILES", ".bin", ".bin", ".bin",
 		FFT_VALID | FFT_ARCHIVE | FFT_DECODE | FFT_ENCODE | FFT_EXTRACT | FFT_CREATE, 4,
 		{ 'N', 'W', 'R', 'a' },
 		0, MinusString, MinusString, "Newer SMBW Animated Tiles (AnimTiles.bin / NWRa)" },
 
-	// FF_NSMBW_CHK = 204 (NSMBW Tileset Collision Attributes)
+	// FF_NSMBW_CHK = 203 (NSMBW Tileset Collision Attributes)
 	{ FF_NSMBW_CHK, FF_NSMBW_CHK, 0, "NSMBW-CHK", ".bin", ".bin", ".bin",
 		FFT_VALID | FFT_DECODE | FFT_EXTRACT, 0,
 		{ 0 },
 		0, MinusString, MinusString, "NSMBW Tileset Collision Attributes (d_bgchk_*.bin)" },
 
-	// FF_KPBIN = 205 (Koopatlas Binary World Map)
+	// FF_KPBIN = 204 (Koopatlas Binary World Map)
 	{ FF_KPBIN, FF_KPBIN, 0, "KPBIN", ".kpbin", ".kpbin", ".kpbin",
 		FFT_VALID | FFT_ARCHIVE | FFT_DECODE | FFT_ENCODE | FFT_EXTRACT | FFT_CREATE, 4,
 		{ 'K', 'P', '_', 'm' },
 		0, MinusString, MinusString, "Koopatlas Binary World Map (.kpbin / KP_m)" },
 
-	// FF_KPMAP = 206 (Koopatlas Map Project)
+	// FF_KPMAP = 205 (Koopatlas Map Project)
 	{ FF_KPMAP, FF_KPMAP, 0, "KPMAP", ".kpmap", ".kpmap", ".kpmap",
 		FFT_VALID | FFT_DECODE | FFT_ENCODE, 0,
 		{ 0 },
 		0, MinusString, MinusString, "Koopatlas Map Project (.kpmap / JSON)" },
 
-	// FF_CHANS = 207 (Nintendo Wii ChannelScript)
+	// FF_CHANS = 206 (Nintendo Wii ChannelScript)
 	{ FF_CHANS, FF_CHANS, 0, "CHANS", ".cs", ".cs", ".cs",
 		FFT_VALID | FFT_ARCHIVE | FFT_DECODE | FFT_EXTRACT, 4,
 		{ 'R', 'C', 'H', 'E' },
 		0, MinusString, MinusString, "Nintendo Wii ChannelScript (.cs / RCHE)" },
 
-	// FF_RLG = 208 (Next Level Games 3D Model)
+	// FF_RLG = 207 (Next Level Games 3D Model)
 	{ FF_RLG, FF_RLG, 0, "RLG", ".rlg", ".szs", ".rlg",
 		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
 		{ 0 },
 		0, MinusString, MinusString, "Next Level Games 3D Model (Mario Strikers Charged .rlg)" },
 
-	// FF_GAR = 209 (Grezzo Archive)
+	// FF_GAR = 208 (Grezzo Archive)
 	{ FF_GAR, FF_GAR, 0, "GAR", ".zar", ".szs", ".zar",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
 		{ 'Z', 'A', 'R', 0x01 },
 		0, MinusString, MinusString, "Grezzo Zelda / Luigi's Mansion Archive (.zar / .gar)" },
 
-	// FF_CTXB = 210 (Grezzo Texture Container)
+	// FF_CTXB = 209 (Grezzo Texture Container)
 	{ FF_CTXB, FF_CTXB, 0, "CTXB", ".ctxb", ".szs", ".ctxb",
 		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
 		{ 'c', 't', 'x', 'b' },
 		0, MinusString, MinusString, "Grezzo 3DS Texture Container (.ctxb)" },
 
-	// FF_TMPK = 211 (Twilight Princess HD Archive)
+	// FF_TMPK = 210 (Twilight Princess HD Archive)
 	{ FF_TMPK, FF_TMPK, 0, "TMPK", ".pack", ".szs", ".pack",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
 		{ 'T', 'M', 'P', 'K' },
 		0, MinusString, MinusString, "Twilight Princess HD Archive (.pack / TMPK)" },
 
-	// FF_NXARC = 212 (Nintendo Switch NX Archive)
+	// FF_NXARC = 211 (Nintendo Switch NX Archive)
 	{ FF_NXARC, FF_NXARC, 0, "NXARC", ".nxarc", ".szs", ".nxarc",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
 		{ 'R', 'A', 'X', 'N' },
 		0, MinusString, MinusString, "Nintendo Switch NX Archive (.nxarc / RAXN)" },
 
-	// FF_APAK = 213 (Nintendo APAK Archive)
+	// FF_APAK = 212 (Nintendo APAK Archive)
 	{ FF_APAK, FF_APAK, 0, "APAK", ".apak", ".szs", ".apak",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
 		{ 'A', 'P', 'A', 'K' },
 		0, MinusString, MinusString, "Nintendo APAK Archive (.apak / APAK)" },
 
-	// FF_PKZ = 214 (PlatinumGames Archive)
+	// FF_PKZ = 213 (PlatinumGames Archive)
 	{ FF_PKZ, FF_PKZ, 0, "PKZ", ".pkz", ".szs", ".pkz",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
 		{ 'p', 'k', 'z', 0 },
 		0, MinusString, MinusString, "PlatinumGames Archive (.pkz / pkz)" },
 
-	// FF_VIBS = 215 (Nintendo Switch Joy-Con Vibration Archive)
+	// FF_VIBS = 214 (Nintendo Switch Joy-Con Vibration Archive)
 	{ FF_VIBS, FF_VIBS, 0, "VIBS", ".vibs", ".szs", ".vibs",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
 		{ 0 },
 		0, MinusString, MinusString, "Nintendo Switch Joy-Con Vibration Archive (.vibs)" },
 
-	// FF_PG_DAT = 216 (PlatinumGames DAT Archive)
+	// FF_PG_DAT = 215 (PlatinumGames DAT Archive)
 	{ FF_PG_DAT, FF_PG_DAT, 0, "PG-DAT", ".dat", ".szs", ".dat",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
 		{ 'D', 'A', 'T', 0 },
 		0, MinusString, MinusString, "PlatinumGames DAT Archive (.dat / DAT)" },
 
-	// FF_WTA = 217 (PlatinumGames WT Archive)
+	// FF_WTA = 216 (PlatinumGames WT Archive)
 	{ FF_WTA, FF_WTA, 0, "WTA", ".wta", ".szs", ".wta",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
 		{ 'W', 'T', 'A', ' ' },
 		0, MinusString, MinusString, "PlatinumGames WT Archive (.wta / WTA )" },
 
-	// FF_GFPAK = 218 (Game Freak Pokemon Archive)
+	// FF_GFPAK = 217 (Game Freak Pokemon Archive)
 	{ FF_GFPAK, FF_GFPAK, 0, "GFPAK", ".gfpak", ".szs", ".gfpak",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 8,
 		{ 'G', 'F', 'L', 'X', 'P', 'A', 'C', 'K' },
 		0, MinusString, MinusString, "Game Freak Pokemon Archive (.gfpak / GFLXPACK)" },
 
-	// FF_BARS = 219 (Nintendo Binary Audio Resource Archive)
+	// FF_BARS = 218 (Nintendo Binary Audio Resource Archive)
 	{ FF_BARS, FF_BARS, 0, "BARS", ".bars", ".szs", ".bars",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
 		{ 'B', 'A', 'R', 'S' },
 		0, MinusString, MinusString, "Nintendo Binary Audio Resource Archive (.bars / BARS)" },
 
-	// FF_NLG_DICT = 220 (Next Level Games Dictionary Archive)
+	// FF_NLG_DICT = 219 (Next Level Games Dictionary Archive)
 	{ FF_NLG_DICT, FF_NLG_DICT, 0, "NLG-DICT", ".dict", ".szs", ".dict",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
 		{ 0 },
 		0, MinusString, MinusString, "Next Level Games Dictionary Archive (.dict)" },
 
-	// FF_TXTG = 221 (Next Level Games Texture To Go)
+	// FF_TXTG = 220 (Next Level Games Texture To Go)
 	{ FF_TXTG, FF_TXTG, 0, "TXTG", ".txtg", ".szs", ".txtg",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
 		{ '6', 'P', 'K', '0' },
 		0, MinusString, MinusString, "Next Level Games Texture To Go (.txtg / 6PK0)" },
 
-	// FF_NLOC = 222 (Next Level Games Localization Text)
+	// FF_NLOC = 221 (Next Level Games Localization Text)
 	{ FF_NLOC, FF_NLOC, 0, "NLOC", ".nloc", ".txt", ".nloc",
 		FFT_VALID | FFT_DECODE | FFT_ENCODE, 4,
 		{ 'N', 'L', 'O', 'C' },
 		0, MinusString, MinusString, "Next Level Games Localization Text (.nloc / NLOC)" },
 
-	// FF_XLNK = 223 (Nintendo Effect Link Binary)
+	// FF_XLNK = 222 (Nintendo Effect Link Binary)
 	{ FF_XLNK, FF_XLNK, 0, "XLNK", ".bslnk", ".xml", ".bslnk",
 		FFT_VALID | FFT_DECODE | FFT_ENCODE, 4,
 		{ 'X', 'L', 'N', 'K' },
 		0, MinusString, MinusString, "Nintendo Effect Link Binary (.bslnk / XLNK)" },
 
-	// FF_ROMFS = 224 (Nintendo 3DS Read-Only File System)
+	// FF_ROMFS = 223 (Nintendo 3DS Read-Only File System)
 	{ FF_ROMFS, FF_ROMFS, 0, "ROMFS", ".romfs", ".szs", ".romfs",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
 		{ 'I', 'V', 'F', 'C' },
 		0, MinusString, MinusString, "Nintendo 3DS Read-Only File System (.romfs / IVFC)" },
 
-	// FF_XTX = 225 (Nintendo Switch XTX Texture Container)
+	// FF_XTX = 224 (Nintendo Switch XTX Texture Container)
 	{ FF_XTX, FF_XTX, 0, "XTX", ".xtx", ".szs", ".xtx",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
 		{ 'D', 'F', 'v', 'N' },
 		0, MinusString, MinusString, "Nintendo Switch XTX Texture Container (.xtx / DFvN)" },
 
-	// FF_TVOL = 226 (Koei Tecmo / Gust Texture Volume Archive)
+	// FF_TVOL = 225 (Koei Tecmo / Gust Texture Volume Archive)
 	{ FF_TVOL, FF_TVOL, 0, "TVOL", ".tvol", ".szs", ".tvol",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
 		{ 0 },
 		0, MinusString, MinusString, "Koei Tecmo Texture Volume Archive (.tvol)" },
 
-	// FF_TXE = 227 (Pikmin 1 Texture)
+	// FF_TXE = 226 (Pikmin 1 Texture)
 	{ FF_TXE, FF_TXE, 0, "TXE", ".txe", ".png", ".txe",
 		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
 		{ 0 },
 		0, MinusString, MinusString, "Pikmin 1 Texture (.txe)" },
 
-	// FF_MKAGPDX_MDL = 228 (Mario Kart Arcade GP DX Model)
+	// FF_MKAGPDX_MDL = 227 (Mario Kart Arcade GP DX Model)
 	{ FF_MKAGPDX_MDL, FF_MKAGPDX_MDL, 0, "MKAGPDX-MDL", ".bin", ".szs", ".bin",
 		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
 		{ 'B', 'I', 'K', 'E' },
 		0, MinusString, MinusString, "Mario Kart Arcade GP DX Model (.bin / BIKE)" },
 
-	// FF_MTXT = 229 (Nintendo Switch MTXT Texture Archive)
+	// FF_MTXT = 228 (Nintendo Switch MTXT Texture Archive)
 	{ FF_MTXT, FF_MTXT, 0, "MTXT", ".mtxt", ".szs", ".mtxt",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
 		{ 'M', 'T', 'X', 'T' },
 		0, MinusString, MinusString, "Nintendo Switch MTXT Texture Archive (.mtxt / MTXT)" },
 
-	// FF_SIR0 = 230 (Pokemon Mystery Dungeon Resource Container)
+	// FF_SIR0 = 229 (Pokemon Mystery Dungeon Resource Container)
 	{ FF_SIR0, FF_SIR0, 0, "SIR0", ".sir0", ".szs", ".sir0",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
 		{ 'S', 'I', 'R', '0' },
 		0, MinusString, MinusString, "Pokemon Mystery Dungeon Resource Container (.sir0 / SIR0)" },
 
-	// FF_TEX3DS = 231 (Nintendo 3DS Proprietary Texture)
+	// FF_TEX3DS = 230 (Nintendo 3DS Proprietary Texture)
 	{ FF_TEX3DS, FF_TEX3DS, 0, "TEX3DS", ".tex", ".png", ".tex",
 		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
 		{ 0 },
 		0, MinusString, MinusString, "Nintendo 3DS Proprietary Texture (.tex)" },
 
-	// FF_PTLG = 232 (Next Level Games Texture Container)
+	// FF_PTLG = 231 (Next Level Games Texture Container)
 	{ FF_PTLG, FF_PTLG, 0, "PTLG", ".rlt", ".szs", ".rlt",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
 		{ 'P', 'T', 'L', 'G' },
 		0, MinusString, MinusString, "Next Level Games Texture Container (.glt / .rlt / PTLG)" },
 
-	// FF_BCSTM = 233 (Nintendo 3DS Stream Audio)
+	// FF_BCSTM = 232 (Nintendo 3DS Stream Audio)
 	{ FF_BCSTM, FF_BCSTM, 0, "BCSTM", ".bcstm", ".wav", ".bcstm",
 		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
 		{ 'C', 'S', 'T', 'M' },
 		0, MinusString, MinusString, "Nintendo 3DS Stream Audio (.bcstm / CSTM)" },
 
-	// FF_BFSTM = 234 (Nintendo Wii U / Switch Stream Audio)
+	// FF_BFSTM = 233 (Nintendo Wii U / Switch Stream Audio)
 	{ FF_BFSTM, FF_BFSTM, 0, "BFSTM", ".bfstm", ".wav", ".bfstm",
 		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
 		{ 'F', 'S', 'T', 'M' },
 		0, MinusString, MinusString, "Nintendo Wii U / Switch Stream Audio (.bfstm / FSTM)" },
 
-	// FF_BCWAV = 235 (Nintendo 3DS Wave Audio)
+	// FF_BCWAV = 234 (Nintendo 3DS Wave Audio)
 	{ FF_BCWAV, FF_BCWAV, 0, "BCWAV", ".bcwav", ".wav", ".bcwav",
 		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
 		{ 'C', 'W', 'A', 'V' },
 		0, MinusString, MinusString, "Nintendo 3DS Wave Audio (.bcwav / CWAV)" },
 
-	// FF_BFWAV = 236 (Nintendo Wii U / Switch Wave Audio)
+	// FF_BFWAV = 235 (Nintendo Wii U / Switch Wave Audio)
 	{ FF_BFWAV, FF_BFWAV, 0, "BFWAV", ".bfwav", ".wav", ".bfwav",
 		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
 		{ 'F', 'W', 'A', 'V' },
 		0, MinusString, MinusString, "Nintendo Wii U / Switch Wave Audio (.bfwav / FWAV)" },
 
-	// FF_BNSH = 237 (Nintendo Switch Binary Shader)
+	// FF_BNSH = 236 (Nintendo Switch Binary Shader)
 	{ FF_BNSH, FF_BNSH, 0, "BNSH", ".bnsh", ".szs", ".bnsh",
 		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
 		{ 'B', 'N', 'S', 'H' },
 		0, MinusString, MinusString, "Nintendo Switch Binary Shader (.bnsh / BNSH)" },
 
-	// FF_GFBMDL = 238 (Game Freak FlatBuffer Model)
+	// FF_GFBMDL = 237 (Game Freak FlatBuffer Model)
 	{ FF_GFBMDL, FF_GFBMDL, 0, "GFBMDL", ".gfbmdl", ".szs", ".gfbmdl",
 		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
 		{ 0 },
 		0, MinusString, MinusString, "Game Freak FlatBuffer Model (.gfbmdl)" },
 
-	// FF_GFBANM = 239 (Game Freak FlatBuffer Animation)
+	// FF_GFBANM = 238 (Game Freak FlatBuffer Animation)
 	{ FF_GFBANM, FF_GFBANM, 0, "GFBANM", ".gfbanm", ".szs", ".gfbanm",
 		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
 		{ 0 },
 		0, MinusString, MinusString, "Game Freak FlatBuffer Animation (.gfbanm)" },
 
-	// FF_BNSTX = 240 (Nintendo Switch Texture Package)
+	// FF_BNSTX = 239 (Nintendo Switch Texture Package)
 	{ FF_BNSTX, FF_BNSTX, 0, "BNSTX", ".bnstx", ".szs", ".bnstx",
 		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
 		{ 'N', 'S', 'T', 'X' },
 		0, MinusString, MinusString, "Nintendo Switch Texture Package (.bnstx / NSTX)" },
 
-	// FF_BFLIM = 241 (Nintendo Wii U FLIM Texture)
+	// FF_BFLIM = 240 (Nintendo Wii U FLIM Texture)
 	{ FF_BFLIM, FF_BFLIM, 0, "BFLIM", ".bflim", ".szs", ".bflim",
 		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
 		{ 0 },
 		0, MinusString, MinusString, "Nintendo Wii U FLIM Texture (.bflim / FLIM)" },
 
-	// FF_BCLIM = 242 (Nintendo 3DS CLIM Texture)
+	// FF_BCLIM = 241 (Nintendo 3DS CLIM Texture)
 	{ FF_BCLIM, FF_BCLIM, 0, "BCLIM", ".bclim", ".szs", ".bclim",
 		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
 		{ 0 },
 		0, MinusString, MinusString, "Nintendo 3DS CLIM Texture (.bclim / CLIM)" },
 
-	// FF_AAMP = 243 (Nintendo Binary Parameter Archive)
+	// FF_AAMP = 242 (Nintendo Binary Parameter Archive)
 	{ FF_AAMP, FF_AAMP, 0, "AAMP", ".aamp", ".szs", ".aamp",
 		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
 		{ 'A', 'A', 'M', 'P' },
 		0, MinusString, MinusString, "Nintendo Binary Parameter Archive (.aamp / AAMP)" },
 
-	// FF_BYML = 244 (Nintendo Binary YAML)
+	// FF_BYML = 243 (Nintendo Binary YAML)
 	{ FF_BYML, FF_BYML, 0, "BYML", ".byml", ".szs", ".byml",
 		FFT_VALID | FFT_CUT | FFT_DECODE, 2,
 		{ 'B', 'Y' },
 		0, MinusString, MinusString, "Nintendo Binary YAML (.byml / .byaml / BY)" },
 
-	// FF_MIO = 245 (WarioWare D.I.Y. Game/Comic/Record)
+	// FF_MIO = 244 (WarioWare D.I.Y. Game/Comic/Record)
 	{ FF_MIO, FF_MIO, 0, "MIO", ".mio", ".szs", ".mio",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
 		{ 0 },
 		0, MinusString, MinusString, "WarioWare D.I.Y. Game/Comic/Record (.mio)" },
 
-	// FF_IQIPACK = 246 (NVIDIA Shield iQiyi PAK archive)
+	// FF_IQIPACK = 245 (NVIDIA Shield iQiyi PAK archive)
 	{ FF_IQIPACK, FF_IQIPACK, 0, "IQIPACK", ".pak", ".pak", ".pak",
 		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT | FFT_CREATE, 4,
 		{ 'P', 'A', 'C', 'K' },
 		0, MinusString, MinusString, "NVIDIA Shield iQiyi PAK archive (.pak)" },
 
-	// FF_ZDAT = 247 (Animal Crossing: Pocket Camp asset container)
+	// FF_ZDAT = 246 (Animal Crossing: Pocket Camp asset container)
 	{ FF_ZDAT, FF_ZDAT, 0, "ZDAT", ".zdat", ".szs", ".zdat",
 		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT, 4,
 		{ 0x5a, 0x44, 0x41, 0x54 }, // "ZDAT"
@@ -1523,7 +1510,6 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_BNFM, "BNFM", 0, 0x3001 },
 	{ FF_XPCK, "XPCK", "XC", 0xe05 },
 	{ FF_XIMG, "XIMG", "XI", 0x3809 },
-	{ FF_HGO, "HGO", 0, 0x3001 },
 	{ FF_ZTAB, "ZTAB", 0, 0xe05 },
 	{ FF_GLG, "GLG", "RLG", 0x3001 },
 	{ FF_MDR, "MDR", 0, 0xe05 },
