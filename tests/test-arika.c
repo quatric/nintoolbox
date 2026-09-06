@@ -44,6 +44,13 @@ void *trace_realloc (ccp f, ccp p, uint l, void *v, size_t n)
 	(void)l;
 	return realloc (v, n);
 }
+char *trace_strdup (ccp f, ccp p, uint l, ccp s)
+{
+	(void)f;
+	(void)p;
+	(void)l;
+	return s ? strdup (s) : 0;
+}
 void dclib_free (void *v)
 {
 	free (v);

@@ -6587,6 +6587,8 @@ open(sys.argv[1], "wb").write(hdr + blk + payload)
   else
     bno "MTXT byte-exact" "rebuild differs from the original archive"
   fi
+  rm -rf "$d"
+}
 t_mtxt_roundtrip
 
 # SIR0 container encode, decode, and byte-exact roundtrip
