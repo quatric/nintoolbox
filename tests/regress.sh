@@ -7238,6 +7238,39 @@ open(sys.argv[1], "wb").write(hdr + bytes(0x400))
 }
 t_smash_retail_arc
 
+# Pokemon Stadium (N64) PERS-SZP: a 24-byte header wrapping a Yay0 stream.
+# The header states the payload size independently of the stream's own, so a
+# mismatch is a rejection rather than a partial extraction.
+t_pers_container(){
+  local d; d=$(mktemp -d /tmp/_r_pers.XXXXXX) || { no "PERS container" "mktemp failed"; return; }
+  python3 "$PWD_PROJECT/../tests/mk_pers.py" "$d/asset.pers" >/dev/null 2>&1
+  if "$B/wszst" xx "$d/asset.pers" --dest "$d/out" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/out/asset.pers.bin" ] \
+  && [ "$(wc -c < "$d/out/asset.pers.bin" | tr -d ' ')" = 1024 ]; then
+    ok "PERS-SZP -> Yay0 payload (1024 bytes)"
+  else
+    no "PERS container" "payload missing or wrong size"
+  fi
+
+  # Corrupt the declared size: the extractor must refuse rather than emit a
+  # payload whose length contradicts its own header.
+  python3 -c '
+import sys
+d = bytearray(open(sys.argv[1], "rb").read())
+d[0x0c:0x10] = (12345).to_bytes(4, "big")
+open(sys.argv[1], "wb").write(d)
+' "$d/asset.pers"
+  rm -rf "$d/out2"
+  "$B/wszst" xx "$d/asset.pers" --dest "$d/out2" --overwrite >/dev/null 2>&1
+  if [ ! -f "$d/out2/asset.pers.bin" ]; then
+    ok "PERS-SZP refuses a header whose size disagrees with the stream"
+  else
+    no "PERS container" "accepted a mismatched declared size"
+  fi
+  rm -rf "$d"
+}
+t_pers_container
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]

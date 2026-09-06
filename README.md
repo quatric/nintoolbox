@@ -126,7 +126,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **NSBMD** | `.nsbmd`, `.bmd` | **GLB** | ✅ | ✅ | ✅ | — | Nintendo DS Nitro 3D model format (DS) |
 | **NUD** | `.nud` | **GLB** | ✅ | ✅ | ✅ | — | Bandai Namco 3D model format (*Super Smash Bros. 4* Wii U / 3DS) |
 | **NUMSHB** | `.numshb` | **GLB** | — | — | — | — | Bandai Namco SSBH 3D mesh model (*Super Smash Bros. Ultimate* Switch). Blocked on `data.arc`: the retail filesystem is a compressed, hash-indexed block this fork does not read, so no retail `.numshb` can be reached. `ParseNUMSHB()` is also a stub — it assumes a fixed interleaved vertex layout and discards the index buffer, so it emits no triangles |
-| **PERS** | `.pers` | **GLB** | ✅ | — | — | — | Pokémon Stadium N64 model format |
+| **PERS** | `.pers` | *(raw payload)* | ✅ | — | — | ✅ | Pokémon Stadium (N64) PERS-SZP container: a 24-byte header around a Yay0 stream. Verified against all 410 instances in the retail cart. The payload is not yet parsed, and the sibling `FRAGMENT` signature is a MIPS code overlay, not a model |
 
 `Byte-Exact Roundtrip` = decode → GLB → re-encode reproduces the original file's bytes identically (canonical fixed-point verified), not just a successful encode.
 
