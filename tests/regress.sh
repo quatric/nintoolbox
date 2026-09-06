@@ -6863,6 +6863,40 @@ with open(sys.argv[1], "wb") as f:
     fi
   fi
 
+  # Nintendo 3DS Wave Archive (.bcwar / CWAR) retail test
+  local bcwar_sample="$PWD_PROJECT/../tests/fixtures/audio_samples/retail_sample.bcwar"
+  if [ -f "$bcwar_sample" ]; then
+    mkdir -p "$d/bcwar_retail_test"
+    if "$B/wszst" X "$bcwar_sample" -d "$d/bcwar_retail_test" --overwrite >/dev/null 2>&1 \
+    && [ "$(find "$d/bcwar_retail_test" -name '*.bcwav' 2>/dev/null | wc -l)" -gt 0 ]; then
+      fok "Nintendo 3DS Wave Archive (.bcwar / CWAR) retail extraction"
+    else
+      fno "Nintendo 3DS Wave Archive" "failed to extract retail .bcwar sample";
+    fi
+  fi
+
+  # Nintendo 3DS Sequence Music (.cseq / CSEQ) retail test
+  local cseq_sample="$PWD_PROJECT/../tests/fixtures/audio_samples/retail_sample.cseq"
+  if [ -f "$cseq_sample" ]; then
+    if "$B/wszst" X "$cseq_sample" -d "$d/audio_test/cseq.mid" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/audio_test/cseq.mid" ]; then
+      fok "Nintendo 3DS Sequence Music (.cseq / CSEQ) retail decode"
+    else
+      fno "Nintendo 3DS Sequence Music" "failed to decode retail .cseq sample";
+    fi
+  fi
+
+  # Nintendo Wii U Sequence Music (.fseq / FSEQ) retail test
+  local fseq_sample="$PWD_PROJECT/../tests/fixtures/audio_samples/retail_sample.fseq"
+  if [ -f "$fseq_sample" ]; then
+    if "$B/wszst" X "$fseq_sample" -d "$d/audio_test/fseq.mid" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/audio_test/fseq.mid" ]; then
+      fok "Nintendo Wii U Sequence Music (.fseq / FSEQ) retail decode"
+    else
+      fno "Nintendo Wii U Sequence Music" "failed to decode retail .fseq sample";
+    fi
+  fi
+
   # Nintendo Wii U / Switch Wave Audio (.bfwav / FWAV) test
   local bfwav_sample="$PWD_PROJECT/../tests/fixtures/audio_samples/retail_sample.bfwav"
   if [ -f "$bfwav_sample" ]; then
@@ -6877,6 +6911,42 @@ with open(sys.argv[1], "wb") as f:
       fok "Nintendo Wii U / Switch Wave Audio (.bfwav / FWAV) identification"
     else
       fno "Nintendo Wii U / Switch Wave Audio" "failed to identify .bfwav sample";
+    fi
+  fi
+
+  # Nintendo 3DS Zelda BCH retail model test
+  local bch_retail="$PWD_PROJECT/../tests/fixtures/3ds_samples/zelda_bch/HookshotR.bch"
+  if [ -f "$bch_retail" ]; then
+    if "$B/wmdlt" ENCODE "$bch_retail" -d "$d/hookshot.glb" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/hookshot.glb" ] \
+    && [ "$(python3 "$PWD_PROJECT/../tests/gltf_count.py" "$d/hookshot.glb" geometry 2>/dev/null)" -gt 0 ]; then
+      fok "Nintendo 3DS BCH retail model decode (HookshotR.bch -> GLB)"
+    else
+      fno "Nintendo 3DS BCH retail model" "failed to decode retail HookshotR.bch";
+    fi
+  fi
+
+  # Good-Feel GFAC Archive (.gfa) retail test
+  local gfa_retail="$PWD_PROJECT/../tests/fixtures/3ds_samples/gfa/mapdata.gfa"
+  if [ -f "$gfa_retail" ]; then
+    mkdir -p "$d/gfa_retail_test"
+    if "$B/wszst" X "$gfa_retail" -d "$d/gfa_retail_test" --overwrite >/dev/null 2>&1 \
+    && [ "$(find "$d/gfa_retail_test" -name "StageList.bson" 2>/dev/null | wc -l)" -gt 0 ]; then
+      fok "Good-Feel GFAC Archive (.gfa) retail extraction"
+    else
+      fno "Good-Feel GFAC Archive" "failed to extract retail .gfa sample";
+    fi
+  fi
+
+  # WarioWare: D.I.Y. Made in Ore (.mio) retail test
+  local mio_retail="$PWD_PROJECT/../tests/fixtures/mio_samples/game.mio"
+  if [ -f "$mio_retail" ]; then
+    mkdir -p "$d/mio_retail_test"
+    if "$B/wszst" X "$mio_retail" -d "$d/mio_retail_test" --overwrite >/dev/null 2>&1 \
+    && [ "$(find "$d/mio_retail_test" -type f 2>/dev/null | wc -l)" -gt 0 ]; then
+      fok "WarioWare: D.I.Y. (.mio) retail extraction"
+    else
+      fno "WarioWare: D.I.Y. (.mio)" "failed to extract retail .mio sample";
     fi
   fi
 
