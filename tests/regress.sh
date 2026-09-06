@@ -6381,7 +6381,9 @@ t_container_roundtrip(){
     .xc:named .pvol:named .stpk:named .zlarc:named .apak:named .nxarc:named \
     .pkz:named .tmpk:named .vibs:named \
     .ca01:ordinal .fsys:ordinal .mdr:ordinal .nccarc:ordinal .ztab:ordinal \
-    .arc:arcv .jarc:arcv .res:f9res
+    .arc:arcv .jarc:arcv .res:f9res \
+    .szs:named .u8:named .rarc:named .pac:named .mrg:named \
+    .rst:named .car:named .trk:named .lvl:named .idx:named .bin:named
   do
     ext=${spec%%:*}; names=${spec##*:}
     local c="$d/$ext"; rm -rf "$c"; mkdir -p "$c/src.d"
@@ -6411,7 +6413,7 @@ t_container_roundtrip(){
     # round-trip filenames, only bytes and order.
     local want got
     want=$(cd "$c/ref.d" && cat * 2>/dev/null | cksum)
-    got=$(find "$c/out.d" -type f 2>/dev/null | sort | xargs cat 2>/dev/null | cksum)
+    got=$(find "$c/out.d" -type f ! -name wszst-setup.txt 2>/dev/null | sort | xargs cat 2>/dev/null | cksum)
     if [ -z "$want" ] || [ "$want" != "$got" ]; then
       no "$ext container decode" "extracted members differ from the originals"; continue
     fi

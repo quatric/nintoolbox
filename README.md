@@ -53,7 +53,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | Format | Extensions | Decode Tested | Encode Tested | Byte-Exact Roundtrip | Middleware / Engine / Platform Context |
 |---|---|---|---|---|---|
 | **APAK** | `.apak` | ✅ | ✅ | ✅ | Nintendo / Pokémon APAK archive format (Wii U / Switch) |
-| **ARC / U8** | `.arc`, `.szs` | ✅ | ✅ | — | Nintendo standard U8 archive (Wii / GameCube NintendoWare & EAD) |
+| **ARC / U8** | `.arc`, `.szs` | ✅ | ✅ | ✅ | Nintendo standard U8 archive (Wii / GameCube NintendoWare & EAD) |
 | **ARCV** | `.arc` | ✅ | ✅ | ✅ | Namco / Tose Wii archive format |
 | **Arika Archive** | `INFO.DAT`, `GAME.DAT` | ✅ | — | — | Arika DS / DSi / Wii archive system |
 | **AT7** | `.at7` | ✅ | ✅ | ✅ | Koei Tecmo container format (Wii / PS2) |
@@ -68,25 +68,25 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **FSYS** | `.fsys` | ✅ | ✅ | ✅ | Genius Sonority archive system (GameCube / Wii) |
 | **GAR / ZAR** | `.zar`, `.gar` | ✅ | — | — | Grezzo Zelda & Luigi's Mansion archive (*OoT3D*, *MM3D*, *LM3DS*) |
 | **GFA** | `.gfa` | ✅ | ✅ | ✅ | Good-Feel GFAC container (Wii / 3DS) |
-| **Hyrule Warriors** | `.idx`, `.bin` | ✅ | ✅ | — | Koei Tecmo / Omega Force split index archive (3DS) |
+| **Hyrule Warriors** | `.idx`, `.bin` | ✅ | ✅ | ✅ | Koei Tecmo / Omega Force split index archive (3DS) |
 | **JARC** | `.jarc` | ✅ | ✅ | ✅ | Level-5 DS archive container (DS) |
 | **LSPK** | `.lspk` | — | — | — | Level-5 Professor Layton flat package (DS) |
 | **MDR** | `.mdr` | ✅ | ✅ | ✅ | *Dance Dance Revolution Mario Mix* chunk archive with per-chunk zlib streams |
 | **MKGPDX PAC** | `.pac` | ✅ | — | — | *Mario Kart Arcade GP DX* layout archive (`pack`) |
-| **MPBIN** | `.bin` | ✅ | ✅ | — | Hudson Soft Mario Party archive container (GameCube / Wii) |
+| **MPBIN** | `.bin` | ✅ | ✅ | ✅ | Hudson Soft Mario Party archive container (GameCube / Wii) |
 | **MTXT** | `.mtxt` | ✅ | — | — | Nintendo Switch MTXT texture archive (gzip-wrapped XTX) |
 | **NARC** | `.narc` | ✅ | ✅ | ✅ | Nintendo DS Nitro standard archive (DS / DSi) |
 | **NCCARC** | `.nccarc` | ✅ | ✅ | ✅ | Nintendo DS flat blob container |
 | **NDS / SRL / DSI** | `.nds`, `.srl`, `.dsi` | ✅ | — | — | Nintendo DS & DSi ROM images and executables |
 | **NXARC** | `.nxarc` | ✅ | ✅ | ✅ | Nintendo Switch NX archive (`RAXN`) |
-| **PAC / MRG** | `.pac`, `.mrg` | ✅ | ✅ | — | HAL Laboratory / Game Arts Wii archive container |
+| **PAC / MRG** | `.pac`, `.mrg` | ✅ | ✅ | ✅ | HAL Laboratory / Game Arts Wii archive container |
 | **PKG / GPKG / GPAK** | `.pkg`, `.pak` | ✅ | — | — | Sonic Team Storybook series archive (*Secret Rings* / *Black Knight*) |
 | **PKZ** | `.pkz` | ✅ | ✅ | ✅ | PlatinumGames archive format (*Bayonetta*, *Astral Chain*) |
 | **PVOL** | `.pvol` | ✅ | ✅ | ✅ | *Pikmin 1 & 2* model & resource container archive |
-| **RARC** | `.rarc`, `.arc` | ✅ | ✅ | — | Nintendo standard resource archive (GameCube / Wii) |
+| **RARC** | `.rarc`, `.arc` | ✅ | ✅ | ✅ | Nintendo standard resource archive (GameCube / Wii) |
 | **RFL_Res** | `RFL_Res.dat`, `.dat` | ✅ | ✅ | — | Revolution Face Library Mii resource database (Wii / 3DS / Wii U) |
 | **RPAK** | `.rpak`, `.pak` | ✅ | — | — | Retro Studios asset container (*Metroid Prime* / *Donkey Kong Country Returns*) |
-| **RST / TOC** | `.rst`, `.toc` | ✅ | ✅ | — | Monster Games archive & table of contents (*Excite Truck* / *Excitebots*) |
+| **RST / TOC** | `.rst`, `.toc` | ✅ | ✅ | ✅ | Monster Games archive & table of contents (*Excite Truck* / *Excitebots*) |
 | **SARC** | `.sarc`, `.szs` | ✅ | ✅ | ✅ | NintendoWare NW4F & NintendoSDK sorted archive (Wii U / Switch / 3DS) |
 | **SIR0** | `.sir0` | ✅ | — | — | Pokémon Mystery Dungeon resource container (DS / 3DS) |
 | **STPK** | `.srd`, `.stpk` | ✅ | ✅ | ✅ | *Jump Super Stars* & *Jump Ultimate Stars* DS resource archive |
