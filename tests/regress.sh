@@ -7869,6 +7869,52 @@ t_retail_msbt_msbp(){
 }
 t_retail_msbt_msbp
 
+echo "== Retail Sound Archives (BRSAR & SDAT) =="
+t_retail_sound_archives(){
+  local brsar_sample="$PWD_PROJECT/../tests/fixtures/wii_retail/retail_motionplus.brsar"
+  local sdat_sample="$PWD_PROJECT/../tests/fixtures/nitro_samples/retail_mkds.sdat"
+  local d; d=$(mktemp -d /tmp/_r_rsar.XXXXXX) || { no "Retail Sound Archives" "mktemp failed"; return; }
+
+  if [ -f "$brsar_sample" ]; then
+    mkdir -p "$d/brsar_unpack" "$d/brsar_repack.d"
+    if "$B/wbrsar" unpack "$brsar_sample" "$d/brsar_unpack" >/dev/null 2>&1 \
+    && [ "$(find "$d/brsar_unpack" -type f 2>/dev/null | wc -l)" -gt 0 ]; then
+      ok "Retail BRSAR unpack"
+    else
+      no "Retail BRSAR unpack" "failed to unpack members"
+    fi
+    if "$B/wbrsar" pack "$d/brsar_unpack" "$d/re.brsar" >/dev/null 2>&1 \
+    && [ -s "$d/re.brsar" ] \
+    && "$B/wbrsar" unpack "$d/re.brsar" "$d/brsar_repack.d" >/dev/null 2>&1 \
+    && diff -r "$d/brsar_unpack" "$d/brsar_repack.d" >/dev/null 2>&1; then
+      ok "Retail BRSAR pack -> unpack roundtrip"
+    else
+      no "Retail BRSAR roundtrip" "repacked members differ from originals"
+    fi
+  fi
+
+  if [ -f "$sdat_sample" ]; then
+    mkdir -p "$d/sdat_unpack" "$d/sdat_repack.d"
+    if "$B/wbrsar" unpack "$sdat_sample" "$d/sdat_unpack" >/dev/null 2>&1 \
+    && [ "$(find "$d/sdat_unpack" -name '*.sseq' 2>/dev/null | wc -l)" -gt 0 ]; then
+      ok "Retail SDAT unpack"
+    else
+      no "Retail SDAT unpack" "failed to unpack members"
+    fi
+    if "$B/wbrsar" pack "$d/sdat_unpack" "$d/re.sdat" --sdat >/dev/null 2>&1 \
+    && [ -s "$d/re.sdat" ] \
+    && "$B/wbrsar" unpack "$d/re.sdat" "$d/sdat_repack.d" >/dev/null 2>&1 \
+    && [ "$(find "$d/sdat_repack.d" -name '*.sseq' 2>/dev/null | wc -l)" -gt 0 ]; then
+      ok "Retail SDAT pack -> unpack roundtrip"
+    else
+      no "Retail SDAT roundtrip" "failed to repack/unpack SDAT"
+    fi
+  fi
+
+  rm -rf "$d"
+}
+t_retail_sound_archives
+
 echo "== WarioWare DIY .mio format =="
 t_mio(){
   local mio_dir="$PWD_PROJECT/../tests/fixtures/mio_samples"
