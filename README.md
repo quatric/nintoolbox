@@ -180,14 +180,19 @@ BRRES sub-file formats (TEX0, TEX) embed their own name, so the name has to matc
 
 ### Layouts, Text & Game Data
 
-| Format | Extensions | Decode Tested | Encode Tested | Middleware / Engine / Platform Context |
-|---|---|---|---|---|
-| **BCLYT / BCLAN** | `.bclyt`, `.bclan` | — | — | NintendoWare NW4C 2D layout & animation (3DS) |
-| **BFLYT / BFLAN** | `.bflyt`, `.bflan` | ✅ | — | NintendoWare NW4F 2D layout & animation (Wii U) |
-| **BMG** | `.bmg` | ✅ | ✅ | Nintendo standard binary message format (GameCube / Wii) |
-| **BRLYT / BRLAN** | `.brlyt`, `.brlan` | ✅ | — | NintendoWare NW4R 2D layout & animation (Wii) |
-| **BYAML / BYML** | `.byaml`, `.byml` | ✅ | — | Nintendo binary YAML data format (Wii / Wii U / Switch) |
-| **MSBT / MSBP / MSBF** | `.msbt`, `.msbp`, `.msbf` | ✅ | — | Nintendo Message Studio binary text, project & flow (3DS / Wii U / Switch) |
+| Format | Extensions | Decode Tested | Encode Tested | Byte-Exact Roundtrip | Middleware / Engine / Platform Context |
+|---|---|---|---|---|---|
+| **BCLYT / BCLAN** | `.bclyt`, `.bclan` | — | — | — | NintendoWare NW4C 2D layout & animation (3DS) |
+| **BFLYT / BFLAN** | `.bflyt`, `.bflan` | ✅ | ✅ | ✅ | NintendoWare NW4F 2D layout & animation (Wii U) |
+| **BMG** | `.bmg` | ✅ | ✅ | ✅ | Nintendo standard binary message format (GameCube / Wii) |
+| **BRLYT / BRLAN** | `.brlyt`, `.brlan` | ✅ | — | — | NintendoWare NW4R 2D layout & animation (Wii) |
+| **BYAML / BYML** | `.byaml`, `.byml` | ✅ | ✅ | ✅ | Nintendo binary YAML data format (Wii / Wii U / Switch) |
+| **MSBT / MSBP / MSBF** | `.msbt`, `.msbp`, `.msbf` | ✅ | ✅ | ✅ | Nintendo Message Studio binary text, project & flow (3DS / Wii U / Switch) |
+
+`Byte-Exact Roundtrip` = encode → semantic text → re-encode reproduces the file's
+bytes. Exercised by `t_byte_fixed_points()` in `tests/regress.sh`. BRLYT/BRLAN's own
+encode checks need a retail corpus that is not in this repository, so they skip and
+its encode column stays unverified.
 
 ---
 
