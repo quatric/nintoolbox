@@ -52,6 +52,15 @@ bool wux_compress (ccp src, ccp dst);
 // Returns ERR_NOTHING_TO_DO if mobipeg isn't installed.
 enumError PassthruEncodeAudio (ccp wav_path, ccp dest_path, ccp format, s64 loop_start);
 
+// Decode an audio file mobipeg understands into WAV_PATH. Used for streams
+// this project can identify but deliberately does not decode itself: the
+// codec work already exists in mobipeg's adpcm_thp, and a second
+// implementation here would only be a second thing to get subtly wrong.
+// Falls back to a plain ffmpeg when mobipeg is not installed, since the
+// container and codec involved are stock features rather than fork additions.
+// Returns ERR_NOTHING_TO_DO when neither tool is available.
+enumError PassthruDecodeAudio (ccp src_path, ccp wav_path);
+
 // Re-encode an edited media preview back over SOURCE_PATH. The source is
 // probed and also supplied as the audio input, so the replacement keeps the
 // original container/video family, frame rate, average video bitrate and

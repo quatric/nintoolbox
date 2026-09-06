@@ -254,6 +254,66 @@ else
   sk "unattributed formats claim nothing"
 fi
 
+# Monster Games .sfx (Excite Truck / ExciteBots) is a 0x80 header over a plain
+# Nintendo DSP-ADPCM stream. It carries no magic, so it has to identify itself
+# by arithmetic: the payload size must account for the rest of the file and the
+# byte rate must be twice the sample rate. Decoding is handed to mobipeg (or a
+# stock ffmpeg, since GENH and adpcm_thp both predate the fork) rather than
+# reimplemented here.
+sfx_src="$PWD_PROJECT/../tests/fixtures/excite_360_beep.sfx"
+if command -v mobipeg >/dev/null 2>&1 || command -v ffmpeg >/dev/null 2>&1; then
+  sfx_d=$(mktemp -d /tmp/_r_sfx.XXXXXX) || sfx_d=
+  if [ -n "$sfx_d" ]; then
+    if "$B/wszst" FILETYPE "$sfx_src" 2>/dev/null | grep -q "^SFX"; then
+      ok "wszst filetype recognizes .sfx by its own header arithmetic"
+    else
+      no "SFX audio" "filetype did not report SFX"
+    fi
+
+    # 3296 payload bytes is 412 frames of 8 bytes, each carrying 14 samples.
+    if "$B/wszst" EXTRACT "$sfx_src" --dest "$sfx_d/out" >/dev/null 2>&1 \
+    && python3 -c '
+import sys, wave
+w = wave.open(sys.argv[1])
+assert w.getnchannels() == 1, "expected mono"
+assert w.getsampwidth() == 2, "expected 16-bit"
+assert w.getframerate() == 48000, ("wrong rate", w.getframerate())
+assert w.getnframes() == 5768, ("wrong frame count", w.getnframes())
+' "$sfx_d/out/excite_360_beep.sfx.wav"; then
+      ok "SFX -> WAV via the audio pass-through (48 kHz, 5768 frames)"
+    else
+      no "SFX audio" "decode produced no usable wav"
+    fi
+
+    # The GENH handed to the decoder is scratch and must not be left behind.
+    if [ -z "$(find "$sfx_d/out" -name '*.genh' 2>/dev/null)" ]; then
+      ok "SFX decode leaves no staging file behind"
+    else
+      no "SFX audio" "left a .genh in the destination"
+    fi
+
+    # Break the size field so the header no longer accounts for the file.
+    python3 -c '
+import struct, sys
+d = bytearray(open(sys.argv[1], "rb").read())
+struct.pack_into("<I", d, 0, struct.unpack_from("<I", d, 0)[0] + 32)
+open(sys.argv[2], "wb").write(bytes(d))
+' "$sfx_src" "$sfx_d/bad.sfx"
+    rm -rf "$sfx_d/badout"
+    "$B/wszst" EXTRACT "$sfx_d/bad.sfx" --dest "$sfx_d/badout" >/dev/null 2>&1
+    if [ -z "$(find "$sfx_d/badout" -name '*.wav' 2>/dev/null)" ]; then
+      ok "SFX declines a header that does not account for the file"
+    else
+      no "SFX audio" "accepted a .sfx whose payload size disagrees with its size"
+    fi
+    rm -rf "$sfx_d"
+  else
+    sk "SFX audio"
+  fi
+else
+  sk "SFX audio (no mobipeg or ffmpeg)"
+fi
+
 # FileTypeTab[] is indexed by the file_format_t value itself, so a row that
 # drifts out of step with the enum does not fail loudly -- it silently renames
 # every format after it. Adding or removing a format shifts the whole tail, so

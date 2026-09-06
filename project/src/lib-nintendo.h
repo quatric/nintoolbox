@@ -154,7 +154,8 @@ typedef enum nfmt_type_t
 	NFMT_BNSTX,
 	NFMT_AAMP,
 	NFMT_MIO,
-	NFMT_ZDAT
+	NFMT_ZDAT,
+	NFMT_SFX
 } nfmt_type_t;
 
 typedef struct nfmt_info_t
@@ -513,6 +514,7 @@ bool OwnedNameOk (ccp name);
 
 #include "lib-dtls.h"
 #include "lib-mio.h"
+#include "lib-sfx.h"
 #include "lib-smash-arc.h"
 
 #endif

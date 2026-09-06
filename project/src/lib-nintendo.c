@@ -23,7 +23,7 @@ ccp GetNintendoFormatName (nfmt_type_t type)
 		"VLX", "PuCrunch", "LZX", "Diff8", "Diff16", "NSBTX", "NFTR", "BNFR", "BNLL", "BNCL", "BNBL",
 		"LZOvl", "ALAR", "DARC", "SADL", "HSF", "HSD", "BNFM", "XPCK", "XIMG", "ZTAB", "GLG",
 		"MDR", "PERS", "PVOL", "STPK", "G1M", "G1T", "G4PKM", "LMD", "MSH", "MOD", "GAR",
-		"TEX3DS", "BCSTM", "BFSTM", "BCWAV", "BFWAV", "BNSH", "GFBMDL", "GFBANM", "BNSTX", "AAMP", "MIO", "ZDAT" };
+		"TEX3DS", "BCSTM", "BFSTM", "BCWAV", "BFWAV", "BNSH", "GFBMDL", "GFBANM", "BNSTX", "AAMP", "MIO", "ZDAT", "SFX" };
 	return type < sizeof (tab) / sizeof (*tab) ? tab[type] : "UNKNOWN";
 }
 
@@ -127,6 +127,16 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			&& rd_le16 (d + 0x12) > 0
 			&& rd_le16 (d + 0x0a) == 0x20 + rd_le16 (d + 0x12) * 16)
 			return make_info (NFMT_ZDAT, false, false, 0);
+		// Monster Games .sfx audio: no magic, so it must identify itself by
+		// its own arithmetic -- a 0x80 header whose payload size accounts for
+		// the rest of the file, at a rate a console mixer uses, with the byte
+		// rate the decoded 16-bit mono form implies.
+		if (size > 0x80 && rd_le32 (d + 4) == 0x80 && (u64) rd_le32 (d) + 0x80 == size)
+		{
+			const u32 rate = rd_le32 (d + 0x10);
+			if (rate && rate <= 48000 && rd_le32 (d + 0x14) == rate * 2)
+				return make_info (NFMT_SFX, false, false, 0);
+		}
 		if (!memcmp (d, "ZTAB", 4))
 			return make_info (NFMT_ZTAB, true, false, 0);
 		// Next Level Games container (Super Mario Strikers' .glg, Mario

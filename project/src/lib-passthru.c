@@ -303,6 +303,41 @@ static enumError passthru_7z (
 // mobipeg exits with "Requested output format '<x>' is not known" or
 // "Unknown encoder 'adpcm_thp'" rather than not existing). Any other
 // failure is a real encode problem and is reported as such.
+// mobipeg is preferred because it is the build this project targets, but the
+// GENH container and the adpcm_thp decoder both predate the fork, so a stock
+// ffmpeg reads these too and is accepted rather than refusing the job.
+static ccp resolve_mobipeg_or_ffmpeg (void)
+{
+	ccp tool = resolve_mobipeg ();
+	if (tool && *tool)
+		return tool;
+	return find_program ("ffmpeg");
+}
+
+enumError PassthruDecodeAudio (ccp src_path, ccp wav_path)
+{
+	if (opt_no_passthrough)
+		return ERR_NOTHING_TO_DO;
+
+	ccp tool = resolve_mobipeg_or_ffmpeg ();
+	if (!tool || !*tool)
+		return ERR_NOTHING_TO_DO;
+
+	if (verbose > 0 || testmode)
+		fprintf (stdlog, "%sDECODE audio passthrough: %s -> %s (%s)\n", testmode ? "WOULD " : "",
+			src_path, wav_path, tool);
+	if (testmode)
+		return ERR_OK;
+
+	char *argv[] = { (char *)tool, "-hide_banner", "-loglevel", "error", "-i", (char *)src_path,
+		"-y", (char *)wav_path, 0 };
+	const int rc = run_program (argv);
+	if (rc != 0)
+		return ERROR0 (ERR_SUBJOB_FAILED, "audio pass-through failed for %s (exit %d)", src_path,
+			rc);
+	return ERR_OK;
+}
+
 enumError PassthruEncodeAudio (ccp wav_path, ccp dest_path, ccp format, s64 loop_start)
 {
 	ccp tool = resolve_mobipeg ();

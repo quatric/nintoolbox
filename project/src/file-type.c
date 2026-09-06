@@ -1384,6 +1384,15 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, MinusString, MinusString,
 		"Animal Crossing: Pocket Camp asset container (.zdat)" },
 
+	// FF_SFX = 247 (Monster Games DSP-ADPCM audio)
+	// No magic: identified by its header agreeing with the file (see
+	// GetSFXInfo). Decoding is handed to mobipeg, so no decode flag here.
+	{ FF_SFX, FF_SFX, 0, "SFX", ".sfx", ".szs", ".sfx",
+		FFT_VALID | FFT_EXTRACT, 0,
+		{ 0 },
+		0, MinusString, MinusString,
+		"Monster Games DSP-ADPCM audio (.sfx, Excite Truck / ExciteBots)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1565,6 +1574,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_BNSH, "BNSH", 0, 0x3001 },
 	{ FF_MIO, "MIO", 0, 0xe05 },
 	{ FF_ZDAT, "ZDAT", "ZDAT", 0xe05 },
+	{ FF_SFX, "SFX", 0, 0xe05 },
 	{ FF_IQIPACK, "IQIPACK", "PACK", 0xe05 },
 
 	{ 0, 0, 0, 0 }

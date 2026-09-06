@@ -338,6 +338,7 @@ typedef enum file_format_t
 	FF_MIO, // 244 - WarioWare D.I.Y. Game/Comic/Record (.mio)
 	FF_IQIPACK, // 245 - NVIDIA Shield iQiyi PAK archive (.pak / PACK)
 	FF_ZDAT, // 246 - Animal Crossing: Pocket Camp asset container (.zdat / ZDAT)
+	FF_SFX, // 247 - Monster Games DSP-ADPCM audio (.sfx, Excite Truck / ExciteBots)
 
 	//--- number of elements
 
