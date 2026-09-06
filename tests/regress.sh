@@ -1789,9 +1789,9 @@ open('$d/brothership.pak', 'wb').write(body + idx + footer)
     fi
 
     # NUS3AUDIO (Super Smash Bros. Ultimate audio archive)
-    # NOTE: format is not implemented (no FF_NUS3AUDIO, no magic detection in
-    # GetByMagicFF(), no extractor) -- this is an unimplemented feature, not a
-    # regression. Deferred as out of scope; left failing intentionally.
+    # Chunked NUS3 container: ADOF gives each track's offset and size into
+    # PACK, NMOF/TNNM give its name, and the payload's own magic picks the
+    # extension (IDSP here, Opus for the second track).
     python3 -c "
 import struct
 magic = b'NUS3'

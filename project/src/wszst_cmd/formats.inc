@@ -1076,6 +1076,10 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
+	err = ExtractNUS3AudioArchive (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
 	err = ExtractSIR0Archive (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

@@ -3911,3 +3911,142 @@ enumError CreateMKGPDXPacArchive (
 	*dest_size = total;
 	return ERR_OK;
 }
+
+// ----------------------------------------------------------------------------
+// Bandai Namco NUS3AUDIO audio archive (.nus3audio / NUS3)
+//
+// Used by Super Smash Bros. Ultimate (and Namco's other NUS3 middleware
+// titles) to bundle per-track audio streams. Little-endian throughout:
+//
+//   0x00  "NUS3"
+//   0x04  u32 body size
+//   0x08  chunks, each an 8-byte tag (4 characters, NUL-padded) followed by
+//         a u32 size and that many payload bytes:
+//           AUDIINDX  u32 track count
+//           TNID      u32 track id per track
+//           NMOF      u32 offset into TNNM per track
+//           ADOF      u32 offset, u32 size into PACK per track
+//           TNNM      name table: u8 length, name bytes, NUL terminator
+//           PACK      the concatenated track payloads
+//
+// Track payloads are whole audio files. IDSP and Opus are the two that turn
+// up in practice, so name members by their own magic and fall back to .bin.
+// ----------------------------------------------------------------------------
+enumError ExtractNUS3AudioArchive (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext_match (arg, ".nus3audio") && !is_ext_match (arg, ".nus3bank")
+		&& !is_ext_match (arg, ".bin"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false))
+		return ERR_NOTHING_TO_DO;
+
+	if (raw_size < 16 || memcmp (raw, "NUS3", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	const u8 *nmof = 0, *adof = 0, *tnnm = 0;
+	uint nmof_size = 0, adof_size = 0, tnnm_size = 0;
+	const u8 *pack = 0;
+	uint pack_size = 0;
+	u32 n_tracks = 0;
+
+	for (size_t pos = 8; pos + 12 <= raw_size;)
+	{
+		const u8 *tag = raw + pos;
+		const u32 csize = rd_le32 (raw + pos + 8);
+		const size_t payload = pos + 12;
+		if (csize > raw_size - payload)
+			break;
+
+		if (!memcmp (tag, "AUDIINDX", 8) && csize >= 4)
+			n_tracks = rd_le32 (raw + payload);
+		else if (!memcmp (tag, "NMOF", 4))
+			nmof = raw + payload, nmof_size = csize;
+		else if (!memcmp (tag, "ADOF", 4))
+			adof = raw + payload, adof_size = csize;
+		else if (!memcmp (tag, "TNNM", 4))
+			tnnm = raw + payload, tnnm_size = csize;
+		else if (!memcmp (tag, "PACK", 4))
+			pack = raw + payload, pack_size = csize;
+
+		pos = payload + csize;
+	}
+
+	if (!n_tracks || n_tracks > 100000 || !adof || !pack
+		|| adof_size < (u64)n_tracks * 8)
+	{
+		FREE (raw);
+		return ERR_INVALID_DATA;
+	}
+
+	char dest[PATH_MAX];
+	get_dest_dir (dest, sizeof (dest), arg, basedir);
+	CreatePath (dest, true);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT NUS3AUDIO:%s (%u tracks) -> %s/\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, n_tracks, dest);
+
+	for (uint i = 0; i < n_tracks; i++)
+	{
+		const u32 off = rd_le32 (adof + i * 8);
+		const u32 size = rd_le32 (adof + i * 8 + 4);
+		if (off > pack_size || size > pack_size - off)
+			continue;
+		const u8 *data = pack + off;
+
+		// Names are optional: a track without one is keyed by its index.
+		char name[PATH_MAX];
+		name[0] = 0;
+		if (tnnm && nmof && nmof_size >= (u64)(i + 1) * 4)
+		{
+			const u32 noff = rd_le32 (nmof + i * 4);
+			if (noff < tnnm_size)
+			{
+				const uint nlen = tnnm[noff];
+				if (nlen && noff + 1 + nlen <= tnnm_size)
+				{
+					memcpy (name, tnnm + noff + 1, nlen);
+					name[nlen] = 0;
+				}
+			}
+		}
+		// Track names come straight out of the file, so keep them to a
+		// single plain filename rather than letting one escape the
+		// destination directory.
+		bool name_ok = name[0] != 0;
+		for (ccp c = name; name_ok && *c; c++)
+			if (*c == '/' || *c == '\\' || (u8)*c < 0x20)
+				name_ok = false;
+		if (name_ok && (!strcmp (name, ".") || !strcmp (name, "..")))
+			name_ok = false;
+		if (!name_ok)
+			snprintf (name, sizeof (name), "track_%04u", i);
+
+		ccp ext = ".bin";
+		if (size >= 4)
+		{
+			if (!memcmp (data, "IDSP", 4))
+				ext = ".idsp";
+			else if (!memcmp (data, "OPUS", 4) || !memcmp (data, "OpusHead", 4))
+				ext = ".lopus";
+			else if (!memcmp (data, "BNSF", 4))
+				ext = ".bnsf";
+			else if (!memcmp (data, "RIFF", 4))
+				ext = ".wav";
+		}
+
+		char out_path[PATH_MAX];
+		snprintf (out_path, sizeof (out_path), "%s/%s%s", dest, name, ext);
+		if (!testmode && size)
+			SaveFile (out_path, 0, 0, data, size, 0);
+	}
+
+	FREE (raw);
+	return ERR_OK;
+}

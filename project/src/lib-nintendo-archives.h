@@ -86,6 +86,9 @@ enumError ExtractSIR0Archive (ccp arg, ccp basedir, uint depth);
 // data in the same formats TPL wraps.
 enumError ExtractPTLGArchive (ccp arg, ccp basedir, uint depth);
 
+// Extract Bandai Namco NUS3AUDIO Audio Archive (.nus3audio / NUS3)
+enumError ExtractNUS3AudioArchive (ccp arg, ccp basedir, uint depth);
+
 // Repack / Create functions
 enumError CreateXPCKArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 enumError CreateZTABArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
