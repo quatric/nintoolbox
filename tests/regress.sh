@@ -6333,6 +6333,15 @@ with open(sys.argv[1], "wb") as f:
     fno "Nintendo Wii U / Switch Wave Audio" "failed to identify .bfwav sample";
   fi
 
+  # Nintendo Switch Binary Shader (.bnsh / BNSH) test
+  mkdir -p "$d/bnsh_test"
+  printf "BNSH\0\0\0\0" > "$d/bnsh_test/sample.bnsh"
+  if "$B/wszst" filetype "$d/bnsh_test/sample.bnsh" 2>/dev/null | grep -q "BNSH"; then
+    fok "Nintendo Switch Binary Shader (.bnsh / BNSH) identification"
+  else
+    fno "Nintendo Switch Binary Shader" "failed to identify .bnsh sample";
+  fi
+
   # Next Level Games GLG/RLG models: decode to GLB, re-encode, and confirm
   # the second generation is byte-identical to the first. ball.glg is a
   # 74-byte-entry prop, Luigi.glg a 66-byte-entry character (the entry size

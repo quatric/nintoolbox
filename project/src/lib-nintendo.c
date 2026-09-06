@@ -234,6 +234,8 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_BCWAV, true, false, 0);
 		if (!memcmp (d, "FWAV", 4))
 			return make_info (NFMT_BFWAV, true, false, 0);
+		if (!memcmp (d, "BNSH", 4))
+			return make_info (NFMT_BNSH, false, false, 0);
 		if (!memcmp (d, "PLT0", 4))
 			return make_info (NFMT_PLT0, true, false, 0);
 		if (size >= 8 && !memcmp (d, "MsgStdBn", 8))

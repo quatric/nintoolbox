@@ -1318,6 +1318,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 'F', 'W', 'A', 'V' },
 		0, MinusString, MinusString, "Nintendo Wii U / Switch Wave Audio (.bfwav / FWAV)" },
 
+	// FF_BNSH = 237 (Nintendo Switch Binary Shader)
+	{ FF_BNSH, FF_BNSH, 0, "BNSH", ".bnsh", ".szs", ".bnsh",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+		{ 'B', 'N', 'S', 'H' },
+		0, MinusString, MinusString, "Nintendo Switch Binary Shader (.bnsh / BNSH)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1493,6 +1499,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_BFSTM, "BFSTM", "FSTM", 0x3801 },
 	{ FF_BCWAV, "BCWAV", "CWAV", 0x3801 },
 	{ FF_BFWAV, "BFWAV", "FWAV", 0x3801 },
+	{ FF_BNSH, "BNSH", 0, 0x3001 },
 
 	{ 0, 0, 0, 0 }
 };

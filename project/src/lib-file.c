@@ -1322,6 +1322,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x46574156: // "FWAV"
 				return FF_BFWAV;
 
+			// Nintendo Switch Binary Shader (BNSH)
+			case 0x424e5348: // "BNSH"
+				return FF_BNSH;
+
 			// Koei Tecmo 3D Model (G1M_ / _M1G / SM1G / GM1G)
 			case 0x47314d5f: // "G1M_"
 			case 0x47314d00: // "G1M\0"
@@ -1743,6 +1747,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_GAR;
 		case NFMT_TEX3DS:
 			return FF_TEX3DS;
+		case NFMT_BNSH:
+			return FF_BNSH;
 		default:
 			break;
 	}
