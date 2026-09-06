@@ -181,13 +181,18 @@ model_t *ParseNUMSHBSkinned (
 	if (memcmp (m, "HSEM", 4) && memcmp (m, "MESH", 4))
 		return NULL;
 
-	// The field offsets below are version 1.10's. Four of the cart's meshes
-	// are 1.8, whose object record differs -- its attribute array does not
-	// land where this expects and yields nonsense usage/type values -- so
-	// decline rather than misread it.
+	// The field offsets below are version 1.10's. Version 1.8 shares them for
+	// everything read here -- name, counts, buffer offsets, strides and the
+	// bounding box all resolve correctly -- but its attribute array points
+	// into the string table instead of at usable records. The four 1.8 meshes
+	// on the cart are all the same placeholder quad, which is too little to
+	// derive that layout from, so such an object instead falls back to
+	// reading position as a float3 at the start of its vertex buffer, and is
+	// kept only when every position lands inside the bounding box the object
+	// itself declares.
 	const uint major = nsh_rd16 (m + 4);
 	const uint minor = nsh_rd16 (m + 6);
-	if (major != 1 || minor != 10)
+	if (major != 1 || (minor != 10 && minor != 8))
 		return NULL;
 
 	// Relative pointers are taken from the field's own position.
@@ -382,6 +387,48 @@ model_t *ParseNUMSHBSkinned (
 					mesh->texcoords[v].v = nsh_half (nsh_rd16 (p + 2));
 				}
 				mesh->num_texcoords = v_count;
+			}
+		}
+
+		// No position attribute was recognised. Try the plain reading --
+		// float3 at the start of each vertex in buffer 0 -- and accept it
+		// only if the object's own bounding box agrees. That box is written
+		// by the exporter and is independent of anything guessed here, so a
+		// buffer this reading does not actually fit is rejected instead of
+		// being exported as nonsense.
+		if (!mesh->positions && vbuf_count && stride0 >= 12
+			&& (uint64_t)v_off0 + (uint64_t)v_count * stride0 <= vb_size[0])
+		{
+			const uint8_t *vb = data + vb_off[0] + v_off0;
+			int inside = 1;
+			for (uint32_t v = 0; v < v_count && inside; v++)
+			{
+				const uint8_t *p = vb + (size_t)v * stride0;
+				for (int c = 0; c < 3 && inside; c++)
+				{
+					const float lo = nsh_f32 (o + 0x6c + c * 4);
+					const float hi = nsh_f32 (o + 0x78 + c * 4);
+					const float slack = 1e-3f + 1e-3f * (hi - lo);
+					const float x = nsh_f32 (p + c * 4);
+					if (!(hi >= lo && x >= lo - slack && x <= hi + slack))
+						inside = 0;
+				}
+			}
+
+			if (inside)
+			{
+				mesh->positions = calloc (v_count, sizeof (vec3_t));
+				if (mesh->positions)
+				{
+					for (uint32_t v = 0; v < v_count; v++)
+					{
+						const uint8_t *p = vb + (size_t)v * stride0;
+						mesh->positions[v].x = nsh_f32 (p);
+						mesh->positions[v].y = nsh_f32 (p + 4);
+						mesh->positions[v].z = nsh_f32 (p + 8);
+					}
+					mesh->num_positions = v_count;
+				}
 			}
 		}
 

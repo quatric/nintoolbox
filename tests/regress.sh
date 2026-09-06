@@ -7433,20 +7433,56 @@ assert doc["meshes"], "mesh dropped when the skeleton is absent"
     no "NUMSHB mesh" "lost the mesh when no skeleton was present"
   fi
 
-  # Version 1.8 lays its object record out differently and must be declined
-  # rather than read with 1.10 offsets.
+  # Version 1.8 shares 1.10's field offsets but points its attribute array
+  # somewhere this does not read, so positions are recovered straight from
+  # the vertex buffer -- accepted only when they fall inside the bounding box
+  # the object declares. Stamp the version and blank the attribute usage and
+  # type so no attribute is recognised: geometry must still come out.
+  local v18="$d/v18"; rm -rf "$v18"; mkdir -p "$v18"
+  python3 "$PWD_PROJECT/../tests/mk_numshb.py" "$v18/model.numshb" >/dev/null 2>&1
   python3 -c '
 import struct, sys
 d = bytearray(open(sys.argv[1], "rb").read())
 struct.pack_into("<HH", d, 0x14, 1, 8)
+for a in range(3):                              # attributes are 0x30 apart
+    struct.pack_into("<II", d, 0x1D0 + a * 0x30, 0xFF, 0xFF)
 open(sys.argv[1], "wb").write(d)
-' "$d/model.numshb"
-  rm -f "$d/model.glb"
-  "$B/wmdlt" DECODE "$d/model.numshb" --dest "$d/model.glb" --overwrite >/dev/null 2>&1
-  if [ ! -s "$d/model.glb" ]; then
-    ok "NUMSHB declines a MESH version it does not lay out"
+' "$v18/model.numshb"
+  if "$B/wmdlt" DECODE "$v18/model.numshb" --dest "$v18/out.glb" --overwrite >/dev/null 2>&1 \
+  && python3 -c '
+import json, struct, sys
+b = open(sys.argv[1], "rb").read()
+off, doc = 12, None
+while off < len(b):
+    clen, ctype = struct.unpack_from("<II", b, off)
+    if ctype == 0x4E4F534A:
+        doc = json.loads(b[off+8:off+8+clen]); break
+    off += 8 + clen
+a = doc["meshes"][0]["primitives"][0]["attributes"]
+assert "POSITION" in a, "no geometry recovered"
+assert "NORMAL" not in a, "invented a normal attribute"
+p = doc["accessors"][a["POSITION"]]
+assert p["min"] == [0, 0, 0] and p["max"] == [1, 1, 0], p
+' "$v18/out.glb"; then
+    ok "NUMSHB v1.8 recovers positions the bounding box confirms"
   else
-    no "NUMSHB mesh" "parsed an unsupported MESH version"
+    no "NUMSHB mesh" "v1.8 fallback lost the geometry"
+  fi
+
+  # The bounding box is what makes that reading safe: shrink it so the real
+  # positions no longer fit and the object must be dropped, not exported.
+  python3 -c '
+import struct, sys
+d = bytearray(open(sys.argv[1], "rb").read())
+struct.pack_into("<6f", d, 0x100 + 0x6C, 8, 8, 8, 9, 9, 9)
+open(sys.argv[1], "wb").write(d)
+' "$v18/model.numshb"
+  rm -f "$v18/out.glb"
+  "$B/wmdlt" DECODE "$v18/model.numshb" --dest "$v18/out.glb" --overwrite >/dev/null 2>&1
+  if [ ! -s "$v18/out.glb" ]; then
+    ok "NUMSHB v1.8 declines positions its bounding box contradicts"
+  else
+    no "NUMSHB mesh" "exported v1.8 geometry the bounding box rules out"
   fi
   rm -rf "$d"
 }
