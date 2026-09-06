@@ -113,7 +113,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **BCH** | `.bch` | **GLB** | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C H3D binary character model (3DS) |
 | **BMD** | `.bmd`, `.bdhc` | **GLB** | ✅ | ✅ | ✅ | — | Early Nintendo DS 3D model format (DS) |
 | **BNFM** | `.bnfm` | **GLB** | ✅ | ✅ | ✅ | — | Nd Cube Wii U 3D model format (*Animal Crossing: Amiibo Festival*, *Mario Party 10*) |
-| **G1M** | `.g1m` | **GLB** | — | — | — | — | Koei Tecmo 3D model format (*Hyrule Warriors*, *Fire Emblem Warriors*) |
+| **G1M** | `.g1m` | **GLB** | ✅ | — | — | ✅ | Koei Tecmo 3D model format (*Hyrule Warriors*, *Fire Emblem Warriors*). Geometry only — positions and triangles. The vertex attribute table's type and semantic encodings are unresolved, so normals, UVs and skinning are not exported |
 | **G4PKM** | `.g4pkm` | **GLB** | — | — | — | — | Level-5 / Nintendo Pokémon & Yo-kai Watch 3D model format |
 | **GLG / RLG** | `.glg`, `.rlg` | **GLB** | ✅ | ✅ | ✅ | ✅ | Next Level Games 3D model format (*Super Mario Strikers*, *Mario Strikers Charged*) |
 | **HGO** | `.hgo` | **GLB** | — | — | — | — | Camelot 3D model format. The `0OGH` magic this row claims occurs in none of *Mario Golf: Toadstool Tour* (GC), *Mario Power Tennis* (GC & Wii), *We Love Golf!* (Wii) or *Mario Golf: World Tour* (3DS) — neither as a file magic nor embedded anywhere. Camelot ships models as PPC relocatable modules (`elfbin/xcmdl_*.sbn`) instead, so the source of this magic is unidentified |

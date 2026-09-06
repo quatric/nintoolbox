@@ -306,7 +306,7 @@ XOBJ_COMMON	= lib-common.o lib-geohit.o lib-itemslot.o lib-minigame.o lib-objflo
 
 XOBJ_LIB	= analyze.o lib-szs-create.o lib-analyze.o lib-xbmg.o lib-msbt.o \
 			lib-wc24.o lib-bms.o lib-bch.o lib-aes.o lib-bignum.o lib-rsa.o \
-			lib-vc.o lib-sequence.o lib-excite.o lib-glg.o lib-hsf.o lib-bnfm.o lib-nintendo-archives.o \
+			lib-vc.o lib-sequence.o lib-excite.o lib-glg.o lib-g1m.o lib-hsf.o lib-bnfm.o lib-nintendo-archives.o \
 			lib-mdl.o lib-pat.o lib-vis0.o lib-clr.o lib-shp.o lib-scn.o lib-transform.o \
 			lib-brres-anim.o lib-chr.o lib-srt.o \
 			lib-ctcode.o lib-lex.o lib-lecode.o lib-ledis.o \

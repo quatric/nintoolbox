@@ -7312,6 +7312,52 @@ assert any(zlib.decompress(idat)), "decoded to an empty image"
 }
 t_g1t_textures
 
+# Koei Tecmo G1M geometry export. The reader takes positions from the
+# vertex buffer and reads the index buffer as a degenerate-stitched
+# triangle strip; here that is one quad, so two triangles and no stitches.
+t_g1m_geometry(){
+  local d; d=$(mktemp -d /tmp/_r_g1m.XXXXXX) || { no "G1M geometry" "mktemp failed"; return; }
+  python3 "$PWD_PROJECT/../tests/mk_g1m.py" "$d/model.g1m" >/dev/null 2>&1
+  if "$B/wszst" xx "$d/model.g1m" >/dev/null 2>&1 && [ -s "$d/model.glb" ] \
+  && python3 -c '
+import json, struct, sys
+b = open(sys.argv[1], "rb").read()
+assert b[:4] == b"glTF"
+off, doc = 12, None
+while off < len(b):
+    clen, ctype = struct.unpack_from("<II", b, off)
+    if ctype == 0x4E4F534A:
+        doc = json.loads(b[off+8:off+8+clen]); break
+    off += 8 + clen
+assert doc, "no JSON chunk"
+tris = sum(doc["accessors"][p["attributes"]["POSITION"]]["count"] // 3
+           for m in doc["meshes"] for p in m["primitives"])
+assert tris == 2, f"expected 2 triangles, got {tris}"
+' "$d/model.glb"; then
+    ok "G1M -> GLB geometry (strip to triangles)"
+  else
+    no "G1M geometry" "export missing or wrong triangle count"
+  fi
+
+  # A submesh pointing past the buffers must be refused, not read anyway.
+  python3 -c '
+import struct, sys
+d = bytearray(open(sys.argv[1], "rb").read())
+# The submesh record is the last 0x38 bytes; 0x2c into it is its vertex count.
+struct.pack_into("<I", d, len(d) - 0x38 + 0x2c, 0xFFFF)
+open(sys.argv[1], "wb").write(d)
+' "$d/model.g1m"
+  rm -f "$d/model.glb"
+  "$B/wszst" xx "$d/model.g1m" >/dev/null 2>&1
+  if [ ! -s "$d/model.glb" ]; then
+    ok "G1M refuses a submesh range outside its buffers"
+  else
+    no "G1M geometry" "accepted an out-of-range submesh"
+  fi
+  rm -rf "$d"
+}
+t_g1m_geometry
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
