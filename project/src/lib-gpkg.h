@@ -20,5 +20,7 @@ typedef struct gpkg_t
 
 void ResetGPKG (gpkg_t *pkg);
 enumError ScanGPKG (gpkg_t *pkg, const u8 *data, uint size);
+enumError CreateGPKG (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 
 #endif

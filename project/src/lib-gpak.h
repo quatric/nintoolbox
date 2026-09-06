@@ -19,5 +19,7 @@ typedef struct gpak_t
 
 void ResetGPAK (gpak_t *pak);
 enumError ScanGPAK (gpak_t *pak, const u8 *data, uint size);
+enumError CreateGPAK (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 
 #endif

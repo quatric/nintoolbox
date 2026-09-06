@@ -80,7 +80,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **NDS / SRL / DSI** | `.nds`, `.srl`, `.dsi` | ✅ | — | — | Nintendo DS & DSi ROM images and executables |
 | **NXARC** | `.nxarc` | ✅ | ✅ | ✅ | Nintendo Switch NX archive (`RAXN`) |
 | **PAC / MRG** | `.pac`, `.mrg` | ✅ | ✅ | ✅ | HAL Laboratory / Game Arts Wii archive container |
-| **PKG / GPKG / GPAK** | `.pkg`, `.pak` | ✅ | — | — | Sonic Team Storybook series archive (*Secret Rings* / *Black Knight*) |
+| **PKG / GPKG / GPAK** | `.pkg`, `.pak`, `.gpak` | ✅ | ✅ | ✅ | Sonic Team Storybook series archive (*Secret Rings* / *Black Knight*) |
 | **PKZ** | `.pkz` | ✅ | ✅ | ✅ | PlatinumGames archive format (*Bayonetta*, *Astral Chain*) |
 | **PVOL** | `.pvol` | ✅ | ✅ | ✅ | *Pikmin 1 & 2* model & resource container archive |
 | **RARC** | `.rarc`, `.arc` | ✅ | ✅ | ✅ | Nintendo standard resource archive (GameCube / Wii) |

@@ -54,3 +54,40 @@ enumError ScanGPAK (gpak_t *pak, const u8 *data, uint size)
 	pak->n_entries = n;
 	return ERR_OK;
 }
+
+// Writer for the same nameless .pak: a 16-byte big-endian header holding the
+// entry count, then one 16-byte (offset, size) record per member starting at
+// 0x10, then the member data. The reader names members by ordinal
+// ("file_%04u.bin"), so the writer takes them back in that order.
+enumError CreateGPAK (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	if (!dest || !dest_size || !entries || !n_entries)
+		return ERR_INVALID_DATA;
+
+	const u32 data_start = (n_entries + 1) * 16;
+	u32 total = data_start;
+	for (uint i = 0; i < n_entries; i++)
+		total = (total + entries[i].size + 15) & ~15u;
+
+	u8 *buf = CALLOC (total, 1);
+	if (!buf)
+		return ERR_OUT_OF_MEMORY;
+
+	wr_be32 (buf, n_entries);
+
+	u32 off = data_start;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		u8 *h = buf + (i + 1) * 16;
+		wr_be32 (h, off);
+		wr_be32 (h + 4, entries[i].size);
+		if (entries[i].data && entries[i].size)
+			memcpy (buf + off, entries[i].data, entries[i].size);
+		off = (off + entries[i].size + 15) & ~15u;
+	}
+
+	*dest = buf;
+	*dest_size = total;
+	return ERR_OK;
+}

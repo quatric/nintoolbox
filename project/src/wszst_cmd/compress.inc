@@ -1195,6 +1195,29 @@ static enumError create_f9res_dir (ccp source, ccp dest)
 	return err;
 }
 
+static enumError create_gpkg_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+	u8 *data = 0;
+	uint size = 0;
+	if (!err)
+		err = CreateGPKG (&data, &size, list.entry, list.used);
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, source);
+		if (F.f && fwrite (data, 1, size, F.f) != size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+
 static enumError create_mkgpdx_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -2901,6 +2924,102 @@ static enumError create_jarc_dir (ccp source, ccp dest)
 	return err;
 }
 
+// Repack a directory extracted by extract_gpak_file() back into a nameless
+// .pak. Members are ordinal-named, exactly like ARCV and jARC.
+static enumError create_gpak_dir (ccp source, ccp dest)
+{
+	DIR *dir = opendir (source);
+	if (!dir)
+		return ERROR0 (ERR_NOT_EXISTS, "Can't open GPAK input directory: %s\n", source);
+
+	arcv_member_t *list = 0;
+	uint used = 0, size = 0;
+	enumError err = ERR_OK;
+	struct dirent *de;
+	while (!err && (de = readdir (dir)))
+	{
+		uint idx;
+		if (!jarc_member_name_ok (de->d_name, &idx))
+			continue;
+
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/%s", source, de->d_name);
+		struct stat st;
+		if (stat (path, &st) || !S_ISREG (st.st_mode))
+			continue;
+
+		if (used == size)
+		{
+			const uint nsize = size ? 2 * size : 32;
+			void *ptr = REALLOC (list, nsize * sizeof (*list));
+			if (!ptr)
+			{
+				err = ERR_CANT_CREATE;
+				break;
+			}
+			list = ptr;
+			size = nsize;
+		}
+		u8 *data = 0;
+		size_t fsize = 0;
+		err = LoadFileAlloc (path, 0, 0, &data, &fsize, 0, 0, 0, false);
+		if (err)
+		{
+			ERROR0 (err, "Can't load GPAK input: %s\n", path);
+			break;
+		}
+		list[used].index = idx;
+		list[used].data = data;
+		list[used].size = fsize;
+		used++;
+	}
+	closedir (dir);
+
+	if (!err && !used)
+		err = ERR_NOTHING_TO_DO;
+	if (!err)
+		qsort (list, used, sizeof (*list), cmp_arcv_member);
+	for (uint i = 0; !err && i < used; i++)
+		if (list[i].index != i)
+			err = ERROR0 (ERR_INVALID_DATA,
+				"GPAK input directory has a non-contiguous member index: %s/file_%04u*\n",
+				source, list[i].index);
+
+	if (!err && !testmode)
+	{
+		nintendo_sarc_entry_t *ent = CALLOC (used, sizeof (*ent));
+		if (!ent)
+			err = ERR_CANT_CREATE;
+		else
+		{
+			for (uint i = 0; i < used; i++)
+			{
+				ent[i].data = list[i].data;
+				ent[i].size = (uint)list[i].size;
+			}
+			u8 *out = 0;
+			uint out_size = 0;
+			err = CreateGPAK (&out, &out_size, ent, used);
+			if (!err)
+			{
+				File_t F;
+				err = CreateFileOpt (&F, true, dest, false, source);
+				if (F.f && fwrite (out, 1, out_size, F.f) != out_size)
+					err = FILEERROR1 (&F, ERR_WRITE_FAILED,
+						"Writing %u bytes failed: %s\n", out_size, dest);
+				ResetFile (&F, opt_preserve);
+			}
+			FREE (out);
+			FREE (ent);
+		}
+	}
+
+	for (uint i = 0; i < used; i++)
+		FREE (list[i].data);
+	FREE (list);
+	return err;
+}
+
 static bool looks_like_f9res_dir (ccp source)
 {
 	DIR *dir = opendir (source);
@@ -2987,6 +3106,8 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest)
 		return create_zlarc_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".jarc"))
 		return create_jarc_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".gpak"))
+		return create_gpak_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".apak"))
 		return create_apak_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".nxarc"))
@@ -3001,6 +3122,8 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest)
 		return create_mtxt_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".mkgpdx"))
 		return create_mkgpdx_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".pkg") || !strcasecmp (ext, ".gpkg"))
+		return create_gpkg_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".gsh"))
 		return create_gsh_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".sze"))

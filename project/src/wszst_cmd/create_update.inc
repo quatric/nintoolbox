@@ -582,6 +582,34 @@ static enumError cmd_create (bool create)
 			ResetSetupParam (&sp);
 			continue;
 		}
+		if (create && ext && (!strcasecmp (ext, ".pkg") || !strcasecmp (ext, ".gpkg")))
+		{
+			enumError err = create_gpkg_dir (source_dir, dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE GPKG %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", source_dir, dest);
+			if (max_err < err)
+				max_err = err;
+			if (err <= ERR_WARNING && src_len > 2 && !strcasecmp (source_dir + src_len - 2, ".d")
+				&& !testmode)
+				remove_dir_recursive (source_dir);
+			ResetSetupParam (&sp);
+			continue;
+		}
+		if (create && ext && !strcasecmp (ext, ".gpak"))
+		{
+			enumError err = create_gpak_dir (source_dir, dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE GPAK %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", source_dir, dest);
+			if (max_err < err)
+				max_err = err;
+			if (err <= ERR_WARNING && src_len > 2 && !strcasecmp (source_dir + src_len - 2, ".d")
+				&& !testmode)
+				remove_dir_recursive (source_dir);
+			ResetSetupParam (&sp);
+			continue;
+		}
 		if (create && ext && !strcasecmp (ext, ".gsh"))
 		{
 			enumError err = create_gsh_dir (source_dir, dest);
@@ -2683,7 +2711,9 @@ static enumError extract_cod_pak0_file (ccp arg, ccp basedir, uint depth)
 // entries are all literally named "(null)" (see extract_fsys_file() below).
 static enumError extract_gpak_file (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext (arg, ".pak"))
+	// .gpak is the disambiguating extension CREATE writes, since .pak is
+	// shared with Retro Studios' RPAK.
+	if (!is_ext (arg, ".pak") && !is_ext (arg, ".gpak"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;

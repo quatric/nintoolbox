@@ -6384,7 +6384,8 @@ t_container_roundtrip(){
     .arc:arcv .jarc:arcv .res:f9res \
     .szs:named .u8:named .rarc:named .pac:named .mrg:named \
     .rst:named .car:named .trk:named .lvl:named .idx:named .bin:named \
-    .mkgpdx:named
+    .mkgpdx:named .pkg:named \
+    .gpak:arcv
   do
     ext=${spec%%:*}; names=${spec##*:}
     local c="$d/$ext"; rm -rf "$c"; mkdir -p "$c/src.d"
