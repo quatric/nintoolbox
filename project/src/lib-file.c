@@ -868,6 +868,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_CNUT;
 
 		const u64 magic64 = be64 (data);
+		const u64 magic64_le = le64 (data);
+		if (magic64_le == 0xABCDEF9876543210ULL)
+			return FF_SMASH_ARC;
+
 		switch (magic64)
 		{
 			case 0x584d534720100503ULL:

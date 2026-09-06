@@ -4307,7 +4307,6 @@ static enumError extract_msh_file (ccp arg, ccp basedir, uint depth)
 // extracted all 149 of Super Mario Strikers' models and converted none of
 // them. Textures come from the sibling .glt/.rlt PTLG container, which is a
 // plain disc file rather than something this pass produces, so unlike .mod
-// this needs no deferral.
 // Koei Tecmo G1M models (Hyrule Warriors, Fire Emblem Warriors). These sit
 // inside LINKDATA members rather than as standalone files on the cart, so
 // the extension gate is deliberately loose and the magic decides.
@@ -6140,87 +6139,6 @@ static enumError extract_ue4_pak_file (ccp arg, ccp basedir, uint depth)
 	}
 
 	ResetUE4Pak (&pak);
-	FREE (raw);
-
-	if (!err && !testmode)
-	{
-		enumError sub_err = extract_tree_complete (dest, depth + 1);
-		if (err < sub_err)
-			err = sub_err;
-	}
-	return err;
-}
-
-
-
-static enumError extract_smash_arc_file (ccp arg, ccp basedir, uint depth)
-{
-	if (!is_ext (arg, ".arc") && !is_ext (arg, ".bin"))
-		return ERR_NOTHING_TO_DO;
-
-	u8 *raw = 0;
-	size_t raw_size = 0;
-	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
-	if (err)
-		return ERR_NOTHING_TO_DO;
-
-	if (!IsSmashArc (raw, raw_size))
-	{
-		FREE (raw);
-		return ERR_NOTHING_TO_DO;
-	}
-
-	// Say so plainly for a retail data.arc. Declining quietly sent it on to
-	// the remaining probes, and the one that spoke up was the compression
-	// reader -- so a 13 GB Smash Ultimate archive reported "Invalid LZ
-	// magic!", which describes neither the file nor the actual limitation.
-	if (IsRetailSmashArc (raw, raw_size))
-	{
-		FREE (raw);
-		return ERROR0 (ERR_NOT_IMPLEMENTED,
-			"Super Smash Bros. Ultimate data.arc is not supported yet: its"
-			" filesystem is a compressed, hash-indexed block that this"
-			" reader does not implement: %s\n",
-			arg);
-	}
-
-	smash_arc_t arc;
-	err = ScanSmashArc (&arc, raw, raw_size);
-	if (err)
-	{
-		FREE (raw);
-		return ERR_NOTHING_TO_DO;
-	}
-
-	char dest[PATH_MAX];
-	beside_source_dest (dest, sizeof (dest), arg);
-	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT Smash Ultimate data.arc:%s (%u files) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, arc.n_files, dest);
-
-	for (uint i = 0; !err && i < arc.n_files; i++)
-	{
-		if (testmode)
-			continue;
-
-		u8 *file_data = 0;
-		size_t file_sz = 0;
-		enumError aerr = ExtractSmashArcEntry (&arc, i, &file_data, &file_sz);
-		if (aerr || !file_data)
-			continue;
-
-		char path[PATH_MAX];
-		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", arc.files[i].filename);
-
-		File_t F;
-		err = CreateFileOpt (&F, true, path, false, arg);
-		if (F.f && file_sz > 0 && fwrite (file_data, 1, file_sz, F.f) != file_sz)
-			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", file_sz, path);
-		ResetFile (&F, opt_preserve);
-		FREE (file_data);
-	}
-
-	ResetSmashArc (&arc);
 	FREE (raw);
 
 	if (!err && !testmode)

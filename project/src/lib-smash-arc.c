@@ -1,198 +1,519 @@
+#define _GNU_SOURCE 1
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+
 #include "lib-smash-arc.h"
-#include "lib-std.h"
 #include "lib-zstd.h"
+#include "zstd.h"
 
-#define SMASH_ARC_MAGIC 0xABCDEF00u
-
-// The magic a retail Super Smash Bros. Ultimate data.arc actually carries:
-// one little-endian 64-bit word. The 32-bit SMASH_ARC_MAGIC above, and the
-// flat 128-byte-per-file table the reader below expects, match no shipped
-// file -- they describe a simplified container that only this project's own
-// synthetic fixture uses. Recognising the retail magic here lets the tool
-// say so instead of failing further downstream with an unrelated message
-// ("Invalid LZ magic!"), which is what a 13 GB retail data.arc produced.
-#define SMASH_ARC_RETAIL_MAGIC 0xABCDEF9876543210ull
-
-bool IsRetailSmashArc (const u8 *data, size_t size)
+// 8-byte hash lookup entry
+typedef struct hash_to_index_t
 {
-	return data && size >= 0x40 && le64 (data) == SMASH_ARC_RETAIL_MAGIC;
+	u32 hash;
+	u32 length_and_index; // length: 8 bits, index: 24 bits
+} __attribute__((packed)) hash_to_index_t;
+
+static inline u8 h2i_len (const hash_to_index_t *h)
+{
+	return (u8)(h->length_and_index & 0xff);
 }
 
-bool IsSmashArc (const u8 *data, size_t size)
+static inline u32 h2i_idx (const hash_to_index_t *h)
 {
-	if (!data || size < 0x20)
+	return (h->length_and_index >> 8) & 0xffffff;
+}
+
+// SearchFileSystem header (20 bytes at search_offset)
+typedef struct search_fs_header_t
+{
+	u64 size;
+	u32 folder_count;
+	u32 path_index_count;
+	u32 path_count;
+} __attribute__((packed)) search_fs_header_t;
+
+// SearchListEntry (32 bytes)
+typedef struct search_list_entry_t
+{
+	hash_to_index_t path;
+	hash_to_index_t parent;
+	hash_to_index_t file_name;
+	hash_to_index_t ext;
+} __attribute__((packed)) search_list_entry_t;
+
+// V1 FileSystemHeader (68 bytes)
+typedef struct fs_header_v1_t
+{
+	u32 table_size;
+	u32 folder_count;
+	u32 dir_offset_count1;
+	u32 file_information_count;
+	u32 sub_file_count1;
+	u32 unk5;
+	u32 hash_folder_count;
+	u32 unk7;
+	u32 dir_offset_count2;
+	u32 sub_file_count2;
+	u32 unk10;
+	u32 unk11;
+	u32 unk12;
+	u32 unk13;
+	u32 unk14;
+	u32 unk15;
+	u32 unk16;
+} __attribute__((packed)) fs_header_v1_t;
+
+// DirectoryList (52 bytes)
+typedef struct dir_list_v1_t
+{
+	u32 full_path_hash;
+	u32 full_path_length_and_index;
+	u32 name_hash;
+	u32 name_hash_length;
+	u32 parent_folder_hash;
+	u32 parent_folder_hash_length;
+	u32 extra_dis_re;
+	u32 extra_dis_re_length;
+	s32 file_info_start_index;
+	s32 file_info_count;
+	s32 child_dir_start_index;
+	s32 child_dir_count;
+	u32 flags;
+} __attribute__((packed)) dir_list_v1_t;
+
+// DirectoryOffset (28 bytes)
+typedef struct dir_offset_v1_t
+{
+	u32 offset_lo;
+	u32 offset_hi;
+	u32 decomp_size;
+	u32 size;
+	u32 file_start_index;
+	u32 file_count;
+	u32 redirect_index;
+} __attribute__((packed)) dir_offset_v1_t;
+
+// FileInformationV1 (40 bytes)
+typedef struct file_info_v1_t
+{
+	u32 path;
+	u32 directory_index;
+	u32 extension;
+	u32 file_table_flag;
+	u32 parent;
+	u32 unk5;
+	u32 hash2;
+	u32 unk6;
+	u32 sub_file_index;
+	u32 flags;
+} __attribute__((packed)) file_info_v1_t;
+
+// SubFileInfo (16 bytes)
+typedef struct sub_file_info_v1_t
+{
+	u32 offset;
+	u32 comp_size;
+	u32 decomp_size;
+	u32 flags;
+} __attribute__((packed)) sub_file_info_v1_t;
+
+// Extension dictionary mapping common CRC32 hashes to extensions
+typedef struct ext_map_t
+{
+	u32 hash;
+	ccp ext;
+} ext_map_t;
+
+static const ext_map_t s_known_exts[] = {
+	{ 0x1729af51, ".nus3audio" },
+	{ 0x8c004f33, ".nus3bank" },
+	{ 0x09b83ac4, ".tonelabel" },
+	{ 0xe7af4342, ".bntx" },
+	{ 0x62029ad4, ".prc" },
+	{ 0xbe1c9acb, ".msbt" },
+	{ 0x5c156dbc, ".nutexb" },
+	{ 0x236db83a, ".numshb" },
+	{ 0xdab89279, ".numatb" },
+	{ 0x67e93703, ".nusktb" },
+	{ 0x0032c3e4, ".nuanmb" },
+	{ 0x2f6d9b0b, ".eff" },
+	{ 0xd671372b, ".lua" },
+	{ 0xaa275aed, ".bin" },
+	{ 0x08a45257, ".csv" },
+	{ 0x31f4d863, ".xml" },
+	{ 0x6b072545, ".json" },
+	{ 0x7fe65393, ".arc" },
+	{ 0x6b7f2928, ".wav" },
+	{ 0xfd785a32, ".webm" },
+	{ 0xb1c50c22, ".mp4" },
+	{ 0, 0 }
+};
+
+static ccp ResolveKnownExt (u32 hash)
+{
+	for (const ext_map_t *p = s_known_exts; p->ext; p++)
+	{
+		if (p->hash == hash)
+			return p->ext;
+	}
+	return 0;
+}
+
+bool IsSmashARC (const u8 *data, size_t size)
+{
+	if (!data || size < sizeof (smash_arc_header_t))
 		return false;
-	if (IsRetailSmashArc (data, size))
-		return true;
-	u32 m0 = le32 (data);
-	u32 m1 = be32 (data);
-	if (m0 == SMASH_ARC_MAGIC || m1 == SMASH_ARC_MAGIC)
-		return true;
-	if (!memcmp (data, "ARC\0", 4) || !memcmp (data, "\0CRA", 4))
-		return true;
-	return false;
+
+	const smash_arc_header_t *hdr = (const smash_arc_header_t *)data;
+	return le64 (&hdr->magic) == SMASH_ARC_MAGIC;
 }
 
-enumError ScanSmashArc (smash_arc_t *arc, const u8 *data, size_t size)
+bool IsSmashARCFile (ccp filename)
 {
-	if (!arc || !data || size < 0x20 || !IsSmashArc (data, size))
+	if (!filename)
+		return false;
+
+	FILE *f = fopen (filename, "rb");
+	if (!f)
+		return false;
+
+	smash_arc_header_t hdr;
+	const size_t n = fread (&hdr, 1, sizeof (hdr), f);
+	fclose (f);
+
+	return n == sizeof (hdr) && le64 (&hdr.magic) == SMASH_ARC_MAGIC;
+}
+
+// Recursively write a file using direct fseeko / fread / zstd decompression
+static enumError ExtractOneSubFile (FILE *f_arc,
+	u64 file_data_base,
+	const dir_list_v1_t *dirs,
+	uint num_dirs,
+	const dir_offset_v1_t *dir_offsets,
+	uint num_dir_offsets,
+	const file_info_v1_t *file_infos,
+	uint num_file_infos,
+	const sub_file_info_v1_t *sub_files,
+	uint num_sub_files,
+	uint dir_idx,
+	uint fi_idx,
+	int region_index,
+	ccp out_file,
+	uint depth)
+{
+	if (depth > 10 || fi_idx >= num_file_infos)
 		return ERR_INVALID_DATA;
 
-	// A retail archive keeps its file list in a compressed filesystem block
-	// with hash-based lookup, nothing like the flat table below. Decline it
-	// outright rather than running the wrong parser over it: with the retail
-	// header the offset/size checks below happen to fall through to a
-	// success return with zero files, which would report an empty archive as
-	// though it had been read.
-	if (IsRetailSmashArc (data, size))
-		return ERR_NOT_IMPLEMENTED;
+	const file_info_v1_t *fi = &file_infos[fi_idx];
 
-	memset (arc, 0, sizeof (*arc));
-	arc->data = data;
-	arc->size = size;
-
-	arc->music_stream_size = le64 (data + 8);
-	arc->table_offset = le64 (data + 16);
-	arc->table_size = le64 (data + 24);
-
-	if (arc->table_offset == 0 || arc->table_offset + arc->table_size > size)
+	// Check redirect flag (0x00300000)
+	if ((fi->flags & 0x00300000) == 0x00300000)
 	{
-		// Fallback for simple container format: read header entry count
-		uint count = le32 (data + 4);
-		if (count > 0 && count < 100000 && 8 + count * 128 <= size)
+		if (fi->sub_file_index < num_sub_files)
 		{
-			arc->n_files = count;
-			arc->files = CALLOC (count, sizeof (smash_arc_file_t));
-			if (!arc->files)
-				return ERR_OUT_OF_MEMORY;
-
-			const u8 *p = data + 8;
-			for (uint i = 0; i < count; i++)
-			{
-				smash_arc_file_t *f = &arc->files[i];
-				snprintf (f->filename, sizeof (f->filename), "%s", (const char *)p);
-				p += 104;
-				f->offset = le64 (p);
-				p += 8;
-				f->comp_size = le64 (p);
-				p += 8;
-				f->decomp_size = le64 (p);
-				p += 8;
-				if (f->offset + f->comp_size <= size)
-					f->is_zstd = (IsZSTD (data + f->offset, (uint)f->comp_size) > 0);
-			}
-			return ERR_OK;
+			const uint target_fi = sub_files[fi->sub_file_index].flags & 0xFFFFFF;
+			return ExtractOneSubFile (f_arc, file_data_base, dirs, num_dirs,
+				dir_offsets, num_dir_offsets, file_infos, num_file_infos,
+				sub_files, num_sub_files, dir_idx, target_fi, region_index, out_file, depth + 1);
 		}
 		return ERR_INVALID_DATA;
 	}
 
-	// Reached only when the header's table bounds look sane but nothing was
-	// parsed out of them; an empty result is a failure, not a success.
-	return arc->n_files ? ERR_OK : ERR_INVALID_DATA;
-}
-
-void ResetSmashArc (smash_arc_t *arc)
-{
-	if (!arc)
-		return;
-	if (arc->files)
-		FREE (arc->files);
-	memset (arc, 0, sizeof (*arc));
-}
-
-enumError ExtractSmashArcEntry (const smash_arc_t *arc, uint index, u8 **dest, size_t *dest_size)
-{
-	if (!arc || !dest || !dest_size || index >= arc->n_files)
+	if (fi->sub_file_index >= num_sub_files)
 		return ERR_INVALID_DATA;
 
-	const smash_arc_file_t *f = &arc->files[index];
-	if (f->offset + f->comp_size > arc->size)
+	const sub_file_info_v1_t *sf = &sub_files[fi->sub_file_index];
+	if (dir_idx >= num_dirs)
 		return ERR_INVALID_DATA;
 
-	const u8 *src = arc->data + f->offset;
+	const uint doff_idx = dirs[dir_idx].full_path_length_and_index >> 8;
+	if (doff_idx >= num_dir_offsets)
+		return ERR_INVALID_DATA;
 
-	if (f->is_zstd)
+	const dir_offset_v1_t *d_off = &dir_offsets[doff_idx];
+
+	// Handle regional redirection
+	if ((fi->file_table_flag >> 8) > 0)
 	{
-		u8 *decomp = 0;
-		uint written = 0;
-		enumError err = DecodeZSTD (&decomp, &written, src, (uint)f->comp_size);
-		if (err != ERR_OK)
-			return err;
-		*dest = decomp;
-		*dest_size = written;
-		return ERR_OK;
+		const uint reg_sf_idx = (fi->file_table_flag >> 8) + (uint)region_index;
+		const uint reg_doff_idx = doff_idx + 1 + (uint)region_index;
+		if (reg_sf_idx < num_sub_files && reg_doff_idx < num_dir_offsets)
+		{
+			sf = &sub_files[reg_sf_idx];
+			d_off = &dir_offsets[reg_doff_idx];
+		}
 	}
 
-	u8 *out = MALLOC (f->comp_size + 1);
-	if (!out)
-		return ERR_OUT_OF_MEMORY;
-	memcpy (out, src, f->comp_size);
-	out[f->comp_size] = 0;
-	*dest = out;
-	*dest_size = f->comp_size;
+	const u64 folder_offset = ((u64)d_off->offset_hi << 32) | d_off->offset_lo;
+	const u64 abs_offset = file_data_base + folder_offset + ((u64)sf->offset << 2);
+	const u32 comp_size = sf->comp_size;
+	const u32 decomp_size = sf->decomp_size;
+
+	if (!comp_size)
+		return ERR_OK;
+
+	if (testmode)
+		return ERR_OK;
+
+	if (fseeko (f_arc, (off_t)abs_offset, SEEK_SET) != 0)
+		return ERR_READ_FAILED;
+
+	u8 *comp_buf = MALLOC (comp_size);
+	if (!comp_buf)
+		return ERR_CANT_CREATE;
+
+	if (fread (comp_buf, 1, comp_size, f_arc) != comp_size)
+	{
+		FREE (comp_buf);
+		return ERR_READ_FAILED;
+	}
+
+	char *slash = strrchr ((char *)out_file, '/');
+	if (slash)
+	{
+		*slash = 0;
+		CreatePath (out_file, true);
+		*slash = '/';
+	}
+
+	// Decompress if Zstd
+	if (comp_size >= 4 && le32 (comp_buf) == ZSTD_MAGIC_LE)
+	{
+		if (decomp_size > 0)
+		{
+			u8 *decomp_buf = MALLOC (decomp_size);
+			if (decomp_buf)
+			{
+				size_t ret = ZSTD_decompress (decomp_buf, decomp_size, comp_buf, comp_size);
+				if (!ZSTD_isError (ret))
+				{
+					SaveFile (out_file, 0, 0, decomp_buf, (uint)ret, 0);
+					FREE (decomp_buf);
+					FREE (comp_buf);
+					return ERR_OK;
+				}
+				FREE (decomp_buf);
+			}
+		}
+
+		// Fallback: dynamic DecodeZSTD allocation
+		u8 *decomp_buf = 0;
+		uint written = 0;
+		enumError zerr = DecodeZSTD (&decomp_buf, &written, comp_buf, comp_size);
+		if (!zerr && decomp_buf)
+		{
+			SaveFile (out_file, 0, 0, decomp_buf, written, 0);
+			FREE (decomp_buf);
+			FREE (comp_buf);
+			return ERR_OK;
+		}
+	}
+
+	// Uncompressed / raw payload
+	SaveFile (out_file, 0, 0, comp_buf, comp_size, 0);
+
+	FREE (comp_buf);
 	return ERR_OK;
 }
 
-static inline void wr_le32 (u8 *p, u32 v)
+static void get_dest_dir (char *dest, size_t dest_size, ccp arg, ccp basedir)
 {
-	p[0] = (u8)v;
-	p[1] = (u8)(v >> 8);
-	p[2] = (u8)(v >> 16);
-	p[3] = (u8)(v >> 24);
+	if (opt_dest)
+		snprintf (dest, dest_size, "%s", opt_dest);
+	else if (basedir && *basedir)
+		snprintf (dest, dest_size, "%s/%s.d", basedir, FindFilename(arg, 0));
+	else
+		snprintf (dest, dest_size, "%s.d", arg);
 }
 
-static inline void wr_le64 (u8 *p, u64 v)
+enumError ExtractSmashARC (ccp arg, ccp basedir, uint depth)
 {
-	wr_le32 (p, (u32)v);
-	wr_le32 (p + 4, (u32)(v >> 32));
-}
+	if (!arg)
+		return ERR_NOTHING_TO_DO;
 
-enumError CreateSmashArc (u8 **dest, size_t *dest_size, uint n_files,
-	const char *const *paths, const u8 *const *file_data, const size_t *file_sizes)
-{
-	if (!dest || !dest_size || !n_files)
-		return ERR_INVALID_DATA;
+	FILE *f_arc = fopen (arg, "rb");
+	if (!f_arc)
+		return ERR_NOTHING_TO_DO;
 
-	size_t header_size = 8 + n_files * 128;
-	size_t payload_size = 0;
-	for (uint i = 0; i < n_files; i++)
-		payload_size += (file_sizes ? file_sizes[i] : 0);
-
-	size_t total_size = header_size + payload_size;
-	u8 *buf = CALLOC (1, total_size);
-	if (!buf)
-		return ERR_OUT_OF_MEMORY;
-
-	wr_le32 (buf, SMASH_ARC_MAGIC);
-	wr_le32 (buf + 4, n_files);
-
-	u8 *hdr_ptr = buf + 8;
-	u8 *data_ptr = buf + header_size;
-
-	for (uint i = 0; i < n_files; i++)
+	smash_arc_header_t hdr;
+	if (fread (&hdr, 1, sizeof (hdr), f_arc) != sizeof (hdr) || le64 (&hdr.magic) != SMASH_ARC_MAGIC)
 	{
-		size_t fsz = file_sizes ? file_sizes[i] : 0;
-		u64 off = (u64)(data_ptr - buf);
-
-		const char *pth = paths && paths[i] ? paths[i] : "file";
-		size_t plen = strlen (pth);
-		if (plen > 103)
-			plen = 103;
-		memcpy (hdr_ptr, pth, plen);
-		hdr_ptr[plen] = 0;
-
-		wr_le64 (hdr_ptr + 104, off);
-		wr_le64 (hdr_ptr + 112, fsz);
-		wr_le64 (hdr_ptr + 120, fsz);
-
-		if (fsz > 0 && file_data && file_data[i])
-			memcpy (data_ptr, file_data[i], fsz);
-
-		hdr_ptr += 128;
-		data_ptr += fsz;
+		fclose (f_arc);
+		return ERR_NOTHING_TO_DO;
 	}
 
-	*dest = buf;
-	*dest_size = total_size;
+	const u64 file_off = le64 (&hdr.file_section_offset);
+	const u64 fs_off = le64 (&hdr.fs_offset);
+	const u64 search_off = le64 (&hdr.search_offset);
+
+	char dest[PATH_MAX];
+	get_dest_dir (dest, sizeof (dest), arg, basedir);
+	CreatePath (dest, true);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT SMASH-ARC: %s -> %s/\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest);
+
+	// 1. Read SearchFileSystem (paths and folders) if present
+	search_fs_header_t s_hdr;
+	hash_to_index_t *search_folder_lookup = 0;
+	search_list_entry_t *search_folders = 0;
+	hash_to_index_t *search_path_lookup = 0;
+	u32 *search_path_indices = 0;
+	search_list_entry_t *search_paths = 0;
+
+	if (search_off > 0 && fseeko (f_arc, (off_t)search_off, SEEK_SET) == 0)
+	{
+		if (fread (&s_hdr, 1, sizeof (s_hdr), f_arc) == sizeof (s_hdr))
+		{
+			const u32 folder_cnt = s_hdr.folder_count;
+			const u32 pidx_cnt = s_hdr.path_index_count;
+			const u32 path_cnt = s_hdr.path_count;
+
+			search_folder_lookup = MALLOC (folder_cnt * sizeof (hash_to_index_t));
+			search_folders = MALLOC (folder_cnt * sizeof (search_list_entry_t));
+			search_path_lookup = MALLOC (pidx_cnt * sizeof (hash_to_index_t));
+			search_path_indices = MALLOC (pidx_cnt * sizeof (u32));
+			search_paths = MALLOC (path_cnt * sizeof (search_list_entry_t));
+
+			if (search_folder_lookup && search_folders && search_path_lookup
+				&& search_path_indices && search_paths)
+			{
+				fread (search_folder_lookup, sizeof (hash_to_index_t), folder_cnt, f_arc);
+				fread (search_folders, sizeof (search_list_entry_t), folder_cnt, f_arc);
+				fread (search_path_lookup, sizeof (hash_to_index_t), pidx_cnt, f_arc);
+				fread (search_path_indices, sizeof (u32), pidx_cnt, f_arc);
+				fread (search_paths, sizeof (search_list_entry_t), path_cnt, f_arc);
+			}
+		}
+	}
+
+	// 2. Read FileSystem table (V1 retail base game or V2 compressed)
+	if (fseeko (f_arc, (off_t)fs_off, SEEK_SET) != 0)
+	{
+		FREE (search_folder_lookup);
+		FREE (search_folders);
+		FREE (search_path_lookup);
+		FREE (search_path_indices);
+		FREE (search_paths);
+		fclose (f_arc);
+		return ERR_READ_FAILED;
+	}
+
+	fs_header_v1_t fs_hdr;
+	if (fread (&fs_hdr, 1, sizeof (fs_hdr), f_arc) != sizeof (fs_hdr))
+	{
+		FREE (search_folder_lookup);
+		FREE (search_folders);
+		FREE (search_path_lookup);
+		FREE (search_path_indices);
+		FREE (search_paths);
+		fclose (f_arc);
+		return ERR_READ_FAILED;
+	}
+
+	// Seek to start of V1 DirectoryList table (0x1bd24 relative to fs_off)
+	const off_t dir_list_pos = (off_t)(fs_off + 0x1bd24);
+
+	if (fseeko (f_arc, dir_list_pos, SEEK_SET) != 0)
+	{
+		FREE (search_folder_lookup);
+		FREE (search_folders);
+		FREE (search_path_lookup);
+		FREE (search_path_indices);
+		FREE (search_paths);
+		fclose (f_arc);
+		return ERR_READ_FAILED;
+	}
+
+	dir_list_v1_t *dirs = MALLOC (fs_hdr.folder_count * sizeof (dir_list_v1_t));
+	const uint total_dir_offsets = fs_hdr.dir_offset_count1 + fs_hdr.dir_offset_count2;
+	dir_offset_v1_t *dir_offsets = MALLOC (total_dir_offsets * sizeof (dir_offset_v1_t));
+	const uint total_file_infos = fs_hdr.file_information_count;
+	file_info_v1_t *file_infos = MALLOC (total_file_infos * sizeof (file_info_v1_t));
+	const uint total_sub_files = fs_hdr.sub_file_count1 + fs_hdr.sub_file_count2;
+	sub_file_info_v1_t *sub_files = MALLOC (total_sub_files * sizeof (sub_file_info_v1_t));
+
+	if (!dirs || !dir_offsets || !file_infos || !sub_files)
+	{
+		FREE (dirs);
+		FREE (dir_offsets);
+		FREE (file_infos);
+		FREE (sub_files);
+		FREE (search_folder_lookup);
+		FREE (search_folders);
+		FREE (search_path_lookup);
+		FREE (search_path_indices);
+		FREE (search_paths);
+		fclose (f_arc);
+		return ERR_CANT_CREATE;
+	}
+
+	// Read DirectoryList
+	fread (dirs, sizeof (dir_list_v1_t), fs_hdr.folder_count, f_arc);
+
+	// Read DirectoryOffset
+	fread (dir_offsets, sizeof (dir_offset_v1_t), total_dir_offsets, f_arc);
+
+	// Skip HashFolderCount
+	fseeko (f_arc, (off_t)(8 * fs_hdr.hash_folder_count), SEEK_CUR);
+
+	// Read FileInformationV1
+	fread (file_infos, sizeof (file_info_v1_t), total_file_infos, f_arc);
+
+	// Read SubFileInfo
+	fread (sub_files, sizeof (sub_file_info_v1_t), total_sub_files, f_arc);
+
+	// Extraction phase:
+	// Iterate through every directory and its associated files
+	for (uint d = 0; d < fs_hdr.folder_count; d++)
+	{
+		const dir_list_v1_t *dir = &dirs[d];
+		if (dir->file_info_count <= 0)
+			continue;
+
+		char dir_name[PATH_MAX];
+		snprintf (dir_name, sizeof (dir_name), "%s/dir_0x%08x", dest, dir->full_path_hash);
+
+		for (int fi_rel = 0; fi_rel < dir->file_info_count; fi_rel++)
+		{
+			const uint fi_idx = (uint)(dir->file_info_start_index + fi_rel);
+			if (fi_idx >= total_file_infos)
+				continue;
+
+			const file_info_v1_t *fi = &file_infos[fi_idx];
+			ccp ext = ResolveKnownExt (fi->extension);
+			char out_file[PATH_MAX];
+			if (ext)
+				snprintf (out_file, sizeof (out_file), "%s/file_0x%08x%s", dir_name, fi->path, ext);
+			else
+				snprintf (out_file, sizeof (out_file), "%s/file_0x%08x_0x%08x.bin", dir_name, fi->path, fi->extension);
+
+			ExtractOneSubFile (f_arc, file_off,
+				dirs, fs_hdr.folder_count,
+				dir_offsets, total_dir_offsets,
+				file_infos, total_file_infos,
+				sub_files, total_sub_files,
+				d, fi_idx, 0, out_file, 0);
+		}
+	}
+
+	FREE (dirs);
+	FREE (dir_offsets);
+	FREE (file_infos);
+	FREE (sub_files);
+	FREE (search_folder_lookup);
+	FREE (search_folders);
+	FREE (search_path_lookup);
+	FREE (search_path_indices);
+	FREE (search_paths);
+	fclose (f_arc);
+
 	return ERR_OK;
 }

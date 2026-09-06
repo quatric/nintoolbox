@@ -973,9 +973,9 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, MinusString, MinusString, "Unreal Engine 4 archive (Mario & Luigi: Brothership .pak)" },
 
 	// FF_SMASH_ARC = 182 (Smash Ultimate data.arc)
-	{ FF_SMASH_ARC, 0, 0, "ARC", ".arc", ".arc", ".arc",
-		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT | FFT_CREATE, 4,
-		{ 0x00, 0xef, 0xcd, 0xab }, // 0xABCDEF00
+	{ FF_SMASH_ARC, 0, 0, "SMASH-ARC", ".arc", ".arc", ".arc",
+		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT | FFT_CREATE, 8,
+		{ 0x10, 0x32, 0x54, 0x76, 0x98, 0xef, 0xcd, 0xab }, // 0xABCDEF9876543210
 		0, MinusString, MinusString, "Super Smash Bros. Ultimate data.arc archive" },
 
 	// FF_PRC = 183 (Smash Parameter binary)
@@ -1489,7 +1489,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_DTLS, "DTLS", "LS", 0xe05 },
 	{ FF_NUMSHB, "NUMSHB", "SSBH", 0x3001 },
 	{ FF_UE4_PAK, "PAK", "UE4PAK", 0xe05 },
-	{ FF_SMASH_ARC, "ARC", "SMASHARC", 0xe05 },
+	{ FF_SMASH_ARC, "SMASH-ARC", "SMASHARC", 0xe05 },
 	{ FF_PRC, "PRC", "PARAM", 0x3001 },
 	{ FF_CNUT, "CNUT", "SQIR", 0xe05 },
 	{ FF_CMP, "CMP", 0, 0x103 },

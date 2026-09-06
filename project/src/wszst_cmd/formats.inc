@@ -834,6 +834,10 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 													: pas_err;
 	}
 
+	err = ExtractSmashARC (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
 	err = extract_sarc_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
@@ -1189,10 +1193,6 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		return err;
 
 	err = extract_ue4_pak_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-
-	err = extract_smash_arc_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 

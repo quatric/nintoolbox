@@ -513,5 +513,6 @@ bool OwnedNameOk (ccp name);
 
 #include "lib-dtls.h"
 #include "lib-mio.h"
+#include "lib-smash-arc.h"
 
 #endif
