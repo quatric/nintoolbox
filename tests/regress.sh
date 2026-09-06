@@ -4647,11 +4647,16 @@ t_byte_exact_encoders(){
 
   # Classic BMG uses a richer text form with encoding, MID and INF metadata.
   local bmg_text="$PWD_PROJECT/../tests/samples-excitebots/extract/excitebots.d/UPDATE/files/_sys/RVL-WiiSystemmenu-v385.d/00000063.d/message/jpn/sample.bmg.txt"
-  if "$B/wbmgt" ENCODE "$bmg_text" --dest "$d/msg-a/same.bmg" --overwrite >/dev/null 2>&1 \
-  && "$B/wbmgt" ENCODE "$bmg_text" --dest "$d/msg-b/same.bmg" --overwrite >/dev/null 2>&1 \
-  && cmp -s "$d/msg-a/same.bmg" "$d/msg-b/same.bmg"; then
-    bok "BMG same semantic text -> identical encoded bytes"
-  else bno "BMG canonical encoding" "two encodes differ"; fi
+  # This retail corpus is not checked into the repository. Without the
+  # guard its absence was reported as a BMG encoder regression rather
+  # than a skip, which is what made the suite look broken.
+  if [ ! -f "$bmg_text" ]; then sk "BMG canonical encoding"; else
+    if "$B/wbmgt" ENCODE "$bmg_text" --dest "$d/msg-a/same.bmg" --overwrite >/dev/null 2>&1 \
+    && "$B/wbmgt" ENCODE "$bmg_text" --dest "$d/msg-b/same.bmg" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/msg-a/same.bmg" "$d/msg-b/same.bmg"; then
+      bok "BMG same semantic text -> identical encoded bytes"
+    else bno "BMG canonical encoding" "two encodes differ"; fi
+  fi
 
   # Classic BMG encoding matrix:
   printf '#BMG\n@ENDIAN = 0\n@ENCODING = 1\n@BMG-MID = 1\n[0001]\nHello CP1252 world!\n\n[0002]\nSecond string\n' > "$d/source-bmg-cp1252.txt"
@@ -4686,6 +4691,9 @@ t_byte_exact_encoders(){
   # Wii BRLAN/BRLYT semantic encoders retain all sections and padding for
   # their canonical text form, independently of the newer BFLAN/BFLYT pair.
   local legacy_root="$PWD_PROJECT/../tests/samples-excitebots/extract/excitebots.d/UPDATE/files/_sys/RVL-Eulav_US-v2.d/0000000b.d/layout.d/arc"
+  # Same uncommitted corpus as the BMG sample: skip rather than report six
+  # phantom BRLYT/BRLAN regressions when it is not present.
+  [ -d "$legacy_root" ] || sk "legacy BRLYT/BRLAN layouts"
   for spec in 'anim/EULA_ViewerDialog_DialogIn.brlan brlan' \
               'blyt/EULA_ViewerDialog.brlyt brlyt' \
               'blyt/EULA_Viewer_a.brlyt brlyt' \
@@ -4693,6 +4701,7 @@ t_byte_exact_encoders(){
               'blyt/P1_Def.brlyt brlyt' \
               'blyt/P2_Def.brlyt brlyt'; do
     set -- $spec; src="$legacy_root/$1"; ext=$2; local name=$(basename "$1" ".$ext")
+    [ -f "$src" ] || continue
     if "$B/wlayt" decode "$src" "$d/same-$name.tflyt" >/dev/null 2>&1 \
     && "$B/wlayt" encode "$d/same-$name.tflyt" "$d/layout-a/same-$name.$ext" >/dev/null 2>&1 \
     && "$B/wlayt" encode "$d/same-$name.tflyt" "$d/layout-b/same-$name.$ext" >/dev/null 2>&1 \
@@ -5201,12 +5210,17 @@ t_byte_fixed_points(){
   done
 
   local bmg_text="$PWD_PROJECT/../tests/samples-excitebots/extract/excitebots.d/UPDATE/files/_sys/RVL-WiiSystemmenu-v385.d/00000063.d/message/jpn/sample.bmg.txt"
-  if "$B/wbmgt" ENCODE "$bmg_text" --dest "$d/a/same.bmg" --overwrite >/dev/null 2>&1 \
-  && "$B/wbmgt" DECODE "$d/a/same.bmg" --dest "$d/mid.bmg.txt" --overwrite >/dev/null 2>&1 \
-  && "$B/wbmgt" ENCODE "$d/mid.bmg.txt" --dest "$d/b/same.bmg" --overwrite >/dev/null 2>&1 \
-  && cmp -s "$d/a/same.bmg" "$d/b/same.bmg"; then
-    fok "BMG encode -> semantic text -> identical re-encode"
-  else fno "BMG canonical fixed point" "second-generation bytes differ"; fi
+  # This retail corpus is not checked into the repository. Without the
+  # guard its absence was reported as a BMG encoder regression rather
+  # than a skip, which is what made the suite look broken.
+  if [ ! -f "$bmg_text" ]; then sk "BMG canonical fixed point"; else
+    if "$B/wbmgt" ENCODE "$bmg_text" --dest "$d/a/same.bmg" --overwrite >/dev/null 2>&1 \
+    && "$B/wbmgt" DECODE "$d/a/same.bmg" --dest "$d/mid.bmg.txt" --overwrite >/dev/null 2>&1 \
+    && "$B/wbmgt" ENCODE "$d/mid.bmg.txt" --dest "$d/b/same.bmg" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/a/same.bmg" "$d/b/same.bmg"; then
+      fok "BMG encode -> semantic text -> identical re-encode"
+    else fno "BMG canonical fixed point" "second-generation bytes differ"; fi
+  fi
 
   # Classic BMG encoding matrix fixed points:
   printf '#BMG\n@ENDIAN = 0\n@ENCODING = 1\n@BMG-MID = 1\n[0001]\nHello CP1252 world!\n\n[0002]\nSecond string\n' > "$d/source-bmg-cp1252.txt"
@@ -5268,6 +5282,9 @@ t_byte_fixed_points(){
   done
 
   local legacy_root="$PWD_PROJECT/../tests/samples-excitebots/extract/excitebots.d/UPDATE/files/_sys/RVL-Eulav_US-v2.d/0000000b.d/layout.d/arc"
+  # Same uncommitted corpus as the BMG sample: skip rather than report six
+  # phantom BRLYT/BRLAN regressions when it is not present.
+  [ -d "$legacy_root" ] || sk "legacy BRLYT/BRLAN layouts"
   for spec in 'anim/EULA_ViewerDialog_DialogIn.brlan brlan' \
               'blyt/EULA_ViewerDialog.brlyt brlyt' \
               'blyt/EULA_Viewer_a.brlyt brlyt' \
@@ -5275,6 +5292,7 @@ t_byte_fixed_points(){
               'blyt/P1_Def.brlyt brlyt' \
               'blyt/P2_Def.brlyt brlyt'; do
     set -- $spec; src="$legacy_root/$1"; ext=$2; local name=$(basename "$1" ".$ext")
+    [ -f "$src" ] || continue
     if "$B/wlayt" decode "$src" "$d/source-$name.tflyt" >/dev/null 2>&1 \
     && "$B/wlayt" encode "$d/source-$name.tflyt" "$d/layout-a/same-$name.$ext" >/dev/null 2>&1 \
     && "$B/wlayt" decode "$d/layout-a/same-$name.$ext" "$d/mid-$name.tflyt" >/dev/null 2>&1 \
