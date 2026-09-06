@@ -92,7 +92,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **STPK** | `.srd`, `.stpk` | ✅ | ✅ | ✅ | *Jump Super Stars* & *Jump Ultimate Stars* DS resource archive |
 | **SZE** | `.sze` | ✅ | ✅ | ✅ | Nintendo Switch AES-encrypted container (NST / Switch) |
 | **TMPK** | `.pack`, `.tmpk` | ✅ | ✅ | ✅ | *The Legend of Zelda: Twilight Princess HD* archive (`TMPK`) |
-| **VCRA** | `.bin`, `.vcra` | — | — | — | Bandai Namco Museum Remix archive format (Wii) |
+| **VCRA** | `.bin`, `.vcra` | ✅ | ✅ | ✅ | Bandai Namco Museum Remix archive format (Wii) |
 | **VIBS** | `.vibs` | ✅ | ✅ | ✅ | Nintendo Switch Joy-Con vibration archive |
 | **WARC** | `.warc` | ✅ | ✅ | ✅ | Nintendo / Intelligent Systems flat archive (Wii U) |
 | **WUD / WUX** | `.wud`, `.wux` | ✅ | — | — | Nintendo Wii U optical disc images (raw & compressed) |
