@@ -1372,6 +1372,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 },
 		0, MinusString, MinusString, "WarioWare D.I.Y. Game/Comic/Record (.mio)" },
 
+	// FF_IQIPACK = 246 (NVIDIA Shield iQiyi PAK archive)
+	{ FF_IQIPACK, FF_IQIPACK, 0, "IQIPACK", ".pak", ".pak", ".pak",
+		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT | FFT_CREATE, 4,
+		{ 'P', 'A', 'C', 'K' },
+		0, MinusString, MinusString, "NVIDIA Shield iQiyi PAK archive (.pak)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1553,6 +1559,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_BFWAV, "BFWAV", "FWAV", 0x3801 },
 	{ FF_BNSH, "BNSH", 0, 0x3001 },
 	{ FF_MIO, "MIO", 0, 0xe05 },
+	{ FF_IQIPACK, "IQIPACK", "PACK", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

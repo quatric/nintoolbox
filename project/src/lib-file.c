@@ -59,6 +59,7 @@
 #include "lib-bflyt.h"
 #include "lib-rkc.h"
 #include "lib-nintendo.h"
+#include "lib-iqipack.h"
 #include "lib-nsmbw.h"
 #include "lib-koopatlas.h"
 #include "lib-chans.h"
@@ -1050,6 +1051,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case RKCO_MAGIC_NUM:
 				return FF_RKCO;
 			case PACK_MAGIC_NUM:
+				if (IsIQIPack (data, data_size))
+					return FF_IQIPACK;
 				return FF_PACK;
 
 			case BRRES_MAGIC_NUM:

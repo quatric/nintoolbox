@@ -69,6 +69,7 @@
 #include "lib-ue4pak.h"
 #include "lib-nut.h"
 #include "lib-smash-arc.h"
+#include "lib-iqipack.h"
 #include "lib-prc.h"
 #include "lib-cnut.h"
 #include "lib-xmsg.h"

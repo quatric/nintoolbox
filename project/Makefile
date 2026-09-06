@@ -408,7 +408,7 @@ SZS_O		:= lib-std.o lib-file.o lib-numeric.o \
 		   lib-rarc.o lib-pack.o lib-rkc.o lib-brres.o lib-breff.o \
 		   file-type.o db-mkw.o lib-mkw.o lib-dol.o \
 		   sha1dgst.o sha1_one.o lib-bzip2.o lib-lzma.o lib-zstd.o \
-		   lib-ue4pak.o lib-prc.o lib-cnut.o lib-xmsg.o \
+		   lib-ue4pak.o lib-prc.o lib-cnut.o lib-xmsg.o lib-iqipack.o \
 		   lib-nsmbw.o lib-koopatlas.o lib-chans.o \
 		   $(DCLIB_O)
 
