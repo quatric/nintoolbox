@@ -99,5 +99,6 @@ enumError CreateNXARCArchive (u8 **dest, uint *dest_size, const nintendo_sarc_en
 enumError CreatePKZArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 enumError CreateTMPKArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 enumError CreateVIBSArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
+enumError CreateMTXTArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 
 #endif // LIB_NINTENDO_ARCHIVES_H

@@ -3767,3 +3767,70 @@ enumError CreateVIBSArchive (
 	*dest_size = total;
 	return ERR_OK;
 }
+
+// Nintendo Switch MTXT texture archive (.mtxt): a four-byte magic, a flags
+// word, then a gzip stream wrapping one XTX texture container.
+//
+// The reader also slices the XTX's own mip surfaces out into
+// "surface_%04u.bin" side-products for convenience; those are copies of
+// bytes already inside texture.xtx, so the writer consumes only the XTX
+// itself and lets the reader regenerate them.
+enumError CreateMTXTArchive (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	if (!dest || !dest_size || !entries || !n_entries)
+		return ERR_INVALID_DATA;
+
+	const nintendo_sarc_entry_t *xtx = 0;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		ccp name = leaf_name (entries[i].name);
+		if (!strcasecmp (name, "texture.xtx"))
+		{
+			xtx = entries + i;
+			break;
+		}
+	}
+	// Fall back to the sole member when it isn't named texture.xtx, but
+	// never guess between several candidates.
+	if (!xtx && n_entries == 1)
+		xtx = entries;
+	if (!xtx || !xtx->data || !xtx->size)
+		return ERR_NOTHING_TO_DO;
+
+	z_stream zs;
+	memset (&zs, 0, sizeof (zs));
+	// Pin the gzip parameters so the same XTX always deflates to the same
+	// bytes: level 9, the default strategy, and a gzip wrapper.
+	if (deflateInit2 (&zs, 9, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY) != Z_OK)
+		return ERR_CANT_CREATE;
+
+	const uLong bound = deflateBound (&zs, xtx->size);
+	u8 *buf = MALLOC (8 + bound);
+	if (!buf)
+	{
+		deflateEnd (&zs);
+		return ERR_OUT_OF_MEMORY;
+	}
+
+	memcpy (buf, "MTXT", 4);
+	wr_le32 (buf + 4, 0); // flags
+
+	zs.next_in = (Bytef *)xtx->data;
+	zs.avail_in = xtx->size;
+	zs.next_out = buf + 8;
+	zs.avail_out = bound;
+
+	if (deflate (&zs, Z_FINISH) != Z_STREAM_END)
+	{
+		deflateEnd (&zs);
+		FREE (buf);
+		return ERR_CANT_CREATE;
+	}
+	const uint out_size = 8 + (uint)zs.total_out;
+	deflateEnd (&zs);
+
+	*dest = buf;
+	*dest_size = out_size;
+	return ERR_OK;
+}
