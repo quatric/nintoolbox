@@ -843,6 +843,14 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		file_size = data_size;
 
 	const u8 *data8 = (u8 *)data;
+	if (data_size >= 16)
+	{
+		if ((file_size == 65536 || file_size == 14336 || file_size == 8192
+			|| data_size == 65536 || data_size == 14336 || data_size == 8192)
+			&& !memcmp (data8 + 8, "DSMIO_S\0", 8))
+			return FF_MIO;
+	}
+
 	if (data_size >= 8)
 	{
 		if (IsBZ (data, data_size) >= 0)
@@ -1393,6 +1401,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 	{
 		if (!memcmp (data, "PERS-SZP", 8) || (data_size >= 16 && !memcmp (data + 8, "FRAGMENT", 8)) || !memcmp (data, "FRAGMENT", 8))
 			return FF_PERS;
+		if ((file_size == 65536 || file_size == 14336 || file_size == 8192
+			|| data_size == 65536 || data_size == 14336 || data_size == 8192)
+			&& data_size >= 16 && !memcmp (data8 + 8, "DSMIO_S\0", 8))
+			return FF_MIO;
 	}
 
 	const uint bom_len = GetTextBOMLen (data, data_size);

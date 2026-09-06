@@ -1366,6 +1366,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 'B', 'Y' },
 		0, MinusString, MinusString, "Nintendo Binary YAML (.byml / .byaml / BY)" },
 
+	// FF_MIO = 245 (WarioWare D.I.Y. Game/Comic/Record)
+	{ FF_MIO, FF_MIO, 0, "MIO", ".mio", ".szs", ".mio",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
+		{ 0 },
+		0, MinusString, MinusString, "WarioWare D.I.Y. Game/Comic/Record (.mio)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1546,6 +1552,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_BCWAV, "BCWAV", "CWAV", 0x3801 },
 	{ FF_BFWAV, "BFWAV", "FWAV", 0x3801 },
 	{ FF_BNSH, "BNSH", 0, 0x3001 },
+	{ FF_MIO, "MIO", 0, 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

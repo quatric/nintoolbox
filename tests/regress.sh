@@ -7161,6 +7161,58 @@ for p in sys.argv[1:]:
 }
 t_camelot_texbank
 
+echo "== WarioWare DIY .mio format =="
+t_mio(){
+  local mio_dir="$PWD_PROJECT/../tests/fixtures/mio_samples"
+  if [ ! -d "$mio_dir" ]; then
+    skip "WarioWare DIY .mio" "fixtures not found"
+    return
+  fi
+
+  # 1. filetype checks
+  local ft_comic ft_game ft_record
+  ft_comic=$("$B/wszst" filetype "$mio_dir/comic.mio" 2>/dev/null | awk '/^MIO/{print $1; exit}')
+  ft_game=$("$B/wszst" filetype "$mio_dir/game.mio" 2>/dev/null | awk '/^MIO/{print $1; exit}')
+  ft_record=$("$B/wszst" filetype "$mio_dir/record.mio" 2>/dev/null | awk '/^MIO/{print $1; exit}')
+
+  if [ "$ft_comic" = "MIO" ] && [ "$ft_game" = "MIO" ] && [ "$ft_record" = "MIO" ]; then
+    ok "wszst filetype recognizes comic/game/record .mio"
+  else
+    no "wszst filetype MIO" "expected MIO, got: comic=$ft_comic game=$ft_game record=$ft_record"
+  fi
+
+  # 2. extraction checks
+  local d; d=$(mktemp -d /tmp/_r_mio.XXXXXX) || { no "MIO extraction" "mktemp failed"; return; }
+
+  # Comic
+  "$B/wszst" xx "$mio_dir/comic.mio" --dest "$d/comic" --overwrite >/dev/null 2>&1
+  if [ -s "$d/comic/metadata.txt" ] && [ -s "$d/comic/panel_0.png" ] && [ -s "$d/comic/panel_3.png" ]; then
+    ok "wszst xx extracts comic .mio (metadata + 4 panels)"
+  else
+    no "wszst xx comic .mio" "failed to extract comic panels"
+  fi
+
+  # Game
+  "$B/wszst" xx "$mio_dir/game.mio" --dest "$d/game" --overwrite >/dev/null 2>&1
+  if [ -s "$d/game/metadata.txt" ] && [ -s "$d/game/bg.png" ] && [ -s "$d/game/obj00_art0_f0.png" ]; then
+    ok "wszst xx extracts game .mio (metadata + bg + sprites)"
+  else
+    no "wszst xx game .mio" "failed to extract game bg or sprites"
+  fi
+
+  # Record
+  "$B/wszst" xx "$mio_dir/record.mio" --dest "$d/record" --overwrite >/dev/null 2>&1
+  if [ -s "$d/record/metadata.txt" ] && [ -s "$d/record/music.mid" ]; then
+    ok "wszst xx extracts record .mio (metadata + MIDI)"
+  else
+    no "wszst xx record .mio" "failed to extract record MIDI"
+  fi
+
+  rm -rf "$d"
+}
+t_mio
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
+

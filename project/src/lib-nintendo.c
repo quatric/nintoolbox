@@ -22,7 +22,8 @@ ccp GetNintendoFormatName (nfmt_type_t type)
 		"PSDK", "AT7", "CTPK", "BYML", "NARC", "NSCR", "FZIP", "JARC", "jCMP", "BFMA", "Zlib", "MVDK",
 		"VLX", "PuCrunch", "LZX", "Diff8", "Diff16", "NSBTX", "NFTR", "BNFR", "BNLL", "BNCL", "BNBL",
 		"LZOvl", "ALAR", "DARC", "SADL", "HSF", "HSD", "BNFM", "XPCK", "XIMG", "HGO", "ZTAB", "GLG",
-		"MDR", "PERS", "PVOL", "STPK", "G1M", "G1T", "G4PKM", "LMD", "MSH", "MOD", "GAR" };
+		"MDR", "PERS", "PVOL", "STPK", "G1M", "G1T", "G4PKM", "LMD", "MSH", "MOD", "GAR",
+		"TEX3DS", "BCSTM", "BFSTM", "BCWAV", "BFWAV", "BNSH", "GFBMDL", "GFBANM", "BNSTX", "AAMP", "MIO" };
 	return type < sizeof (tab) / sizeof (*tab) ? tab[type] : "UNKNOWN";
 }
 
@@ -40,6 +41,8 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 	if (size >= 4)
 	{
 		ccp ext = filename ? strrchr (filename, '.') : 0;
+		if ((size == 65536 || size == 14336 || size == 8192) && size >= 16 && !memcmp (d + 8, "DSMIO_S\0", 8))
+			return make_info (NFMT_MIO, false, false, (u32)size);
 		if (ext && !strcasecmp (ext, ".romc") && d[0] && !d[1] && !d[2] && (d[3] & 3) == 1)
 			return make_info (NFMT_ROMC, true, true, (u32)d[0] * 4 * 1024 * 1024);
 		const u32 magic = rd_be32 (d);
@@ -250,6 +253,8 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_BNSTX, false, false, 0);
 		if (!memcmp (d, "AAMP", 4))
 			return make_info (NFMT_AAMP, false, false, 0);
+		if ((size == 65536 || size == 14336 || size == 8192) && !memcmp (d + 8, "DSMIO_S\0", 8))
+			return make_info (NFMT_MIO, false, false, (u32)size);
 		// GFA: Good-Feel archive (Wario Land: Shake It!, Kirby's Epic Yarn)
 		if (!memcmp (d, "GFAC", 4))
 			return make_info (NFMT_GFA, false, true, 0);

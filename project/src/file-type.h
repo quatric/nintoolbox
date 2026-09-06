@@ -336,6 +336,7 @@ typedef enum file_format_t
 	FF_BCLIM, // 242 - Nintendo 3DS CLIM Texture (.bclim / CLIM)
 	FF_AAMP, // 243 - Nintendo Binary Parameter Archive (.aamp / AAMP)
 	FF_BYML, // 244 - Nintendo Binary YAML (.byml / .byaml / BY)
+	FF_MIO, // 245 - WarioWare D.I.Y. Game/Comic/Record (.mio)
 
 	//--- number of elements
 

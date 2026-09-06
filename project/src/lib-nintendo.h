@@ -153,7 +153,8 @@ typedef enum nfmt_type_t
 	NFMT_GFBMDL,
 	NFMT_GFBANM,
 	NFMT_BNSTX,
-	NFMT_AAMP
+	NFMT_AAMP,
+	NFMT_MIO
 } nfmt_type_t;
 
 typedef struct nfmt_info_t
@@ -511,5 +512,6 @@ bool OwnedNameOk (ccp name);
 #include "lib-msr.h"
 
 #include "lib-dtls.h"
+#include "lib-mio.h"
 
 #endif
