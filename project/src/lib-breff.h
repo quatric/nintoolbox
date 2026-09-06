@@ -134,6 +134,7 @@ typedef struct breft_image_t
 	u8 mag_filter;
 	u8 reserved;
 	u32 lod_bias; // big-endian float bits
+	u32 reserved2; // always 0; completes BrawlCrate's 0x20-byte REFTImageHeader
 	u8 data[]; // image data, followed by palette data
 } __attribute__ ((packed)) breft_image_t;
 

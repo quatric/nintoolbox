@@ -1098,10 +1098,22 @@ t_accf_breft_indexed(){
   if [ -s "$out/flower.png" ] \
       && grep -q 'BREFT-IMG.C4.PRGB5A3' "$out/decode.log" \
       && python3 - "$out/flower.png" <<'PY'
-import struct, sys
-data = open(sys.argv[1], 'rb').read(24)
-assert data[:8] == b'\x89PNG\r\n\x1a\n'
-assert struct.unpack('>II', data[16:24]) == (8, 16)
+import struct, sys, zlib
+raw = open(sys.argv[1], 'rb').read()
+assert raw[:8] == b'\x89PNG\r\n\x1a\n'
+assert struct.unpack('>II', raw[16:24]) == (8, 16)
+# Check the pixels, not just the geometry. The header is BrawlCrate's
+# 0x20-byte REFTImageHeader; when breft_image_t was 4 bytes short the
+# loader read image and palette data 4 bytes early and the first row came
+# out solid black, which a dimensions-only assertion could not see.
+i, idat = 8, b""
+while i < len(raw):
+    ln = struct.unpack('>I', raw[i:i+4])[0]
+    if raw[i+4:i+8] == b'IDAT':
+        idat += raw[i+8:i+8+ln]
+    i += 12 + ln
+rows = zlib.decompress(idat)
+assert any(rows[1:9]), "first row decoded as solid black"
 PY
   then
     ok "ACCF indexed BREFT texture -> inline RGB5A3 palette"
