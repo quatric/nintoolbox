@@ -293,7 +293,7 @@ jobs:
       - name: Build GUI app (universal2)
         run: |
           chmod +x artifact/wszst
-          python3 -m pip install --quiet pyinstaller
+          python3 -m pip install --quiet pyinstaller sentry-sdk
           BINARY_ARGS=(--add-binary "artifact/wszst:.")
           [ -f extra_tools/wit ] && BINARY_ARGS+=(--add-binary "extra_tools/wit:.")
           [ -f extra_tools/mobipeg ] && BINARY_ARGS+=(--add-binary "extra_tools/mobipeg:.")

@@ -6,6 +6,14 @@ import threading
 import os
 import sys
 import shutil
+import sentry_sdk
+
+sentry_sdk.init(
+    dsn="https://04887b3ebaf8072bdf4bf9287d7bebe0@o107347.ingest.us.sentry.io/4512040246509568",
+    # Add data like request headers and IP for users,
+    # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
+    send_default_pii=True,
+)
 
 SUPPORTED_FAMILIES = [
     ("Wii / GameCube Games", "*.wbfs *.iso *.ciso *.wdf *.wia *.gcz *.gcm *.wad"),
