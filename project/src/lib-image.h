@@ -415,6 +415,20 @@ enumError SaveBTI (Image_t *src_img, // pointer to valid source img
 
 ///////////////////////////////////////////////////////////////////////////////
 
+// Save an indexed TEX0 together with the sibling PLT0 holding its palette.
+// SaveTEX() below strips the palette, which a lone .tex0 on disk has nowhere
+// to keep; inside a BRRES the palette is its own PLT0 resource and most
+// shipped textures are indexed, so a texture rewritten in place comes here
+// instead. The image must already be C4/C8/C14X2 with its palette built.
+enumError SaveTEXwithPLT0 (Image_t *src_img, // valid source img, indexed
+	const MipmapOptions_t *mmo, // NULL or mipmap options
+	ccp tex_fname, // filename of the TEX0
+	ccp plt_fname, // filename of the sibling PLT0
+	bool overwrite // true: force overwriting
+);
+
+///////////////////////////////////////////////////////////////////////////////
+
 enumError SaveTEX (Image_t *src_img, // pointer to valid source img
 	const MipmapOptions_t *mmo, // NULL or mipmap options
 	FILE *f, // output file, if NULL then use fname+overwrite

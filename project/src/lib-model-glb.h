@@ -198,6 +198,18 @@ typedef struct
 	size_t num_channels;
 } model_animation_t;
 
+// A texture carried inside the model file, byte for byte as it was embedded.
+// The GLB exporter copies each material's staged PNG into the glTF binary
+// chunk, so a model edited elsewhere comes back with its textures attached;
+// keeping the bytes lets an encoder compare them against what the parent
+// archive already holds and rewrite only the ones that actually changed.
+typedef struct
+{
+	char name[64]; // matches material_t::textures[] entries
+	uint8_t *data;
+	size_t size;
+} model_image_t;
+
 typedef struct
 {
 	mesh_t *meshes;
@@ -223,6 +235,10 @@ typedef struct
 	// Indexed by GX matrix-node id; empty entries mean "not a skinned node".
 	node_influence_t *node_influences;
 	size_t num_node_influences;
+
+	// Textures embedded in the source file, if it carried any.
+	model_image_t *images;
+	size_t num_images;
 } model_t;
 
 #ifdef __cplusplus

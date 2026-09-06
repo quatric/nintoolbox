@@ -147,6 +147,32 @@ else
   sk "Arika ALZ1 + INFO.DAT/GAME.DAT archive"
 fi
 
+# Almost every texture in a shipped BRRES is indexed -- 154 of the 184 in
+# tests/fixtures are C4 or C8 -- and keeps its colours in a sibling PLT0
+# rather than in the TEX0. SaveTEX() drops the palette, which is right for a
+# lone .tex0 but rewrites an archived texture into a format the game does not
+# expect, so SaveTEXwithPLT0() writes the pair instead. Driven from C because
+# no command-line path reaches it yet.
+plt0_link=$(make -n -W src/wtest.c wtest 2>/dev/null \
+  | awk '{ while (sub(/\\$/,"")) { getline nxt; $0 = $0 nxt } print }' \
+  | grep -- "-o wtest$" | tail -1)
+if [ -n "$plt0_link" ]; then
+  plt0_cmd=${plt0_link/ wtest.o / ../tests/test-plt0-tex.c }
+  plt0_cmd=${plt0_cmd%-o wtest}"-o /tmp/_r_plt0tex"
+  if eval "$plt0_cmd" >/tmp/_r_plt0tex_build.log 2>&1; then
+    if /tmp/_r_plt0tex >/tmp/_r_plt0tex_run.log 2>&1; then
+      ok "indexed TEX0 + sibling PLT0 round trip keeps C4 and its palette"
+    else
+      no "indexed TEX0 + sibling PLT0" \
+        "$(grep -m1 FAIL /tmp/_r_plt0tex_run.log 2>/dev/null || echo 'runtime check failed')"
+    fi
+  else
+    no "indexed TEX0 + sibling PLT0" "$(tail -1 /tmp/_r_plt0tex_build.log 2>/dev/null)"
+  fi
+else
+  sk "indexed TEX0 + sibling PLT0"
+fi
+
 # Retro's Metroid Prime CMPD segments use LZO1X alongside raw and zlib
 # segments. These are hand-authored streams so this remains a decoder test,
 # independent from any external LZO implementation or a self-made encoder.
@@ -4936,6 +4962,194 @@ open(sys.argv[2], "wb").write(bytes(b))
   else
     bno "MDL0 byte-exact roundtrip" \
       "returned the parent for changed geometry ($perturbed of $checked attributes)"
+  fi
+
+  # A paletted texture keeps its colours in a sibling PLT0, so staging one
+  # without that palette wrote the loader's fallback grey ramp into the GLB
+  # instead of the picture. ins_taran is C4 with an RGB5A3 palette whose first
+  # entry is transparent, so the exported image must carry real colours and
+  # real alpha, not 000000/111111/222222...
+  if "$B/wmdlt" DECODE "$PWD_PROJECT/../tests/fixtures/accf_ins_taran.brres" \
+       --dest "$d/tex.glb" --overwrite >/dev/null 2>&1 \
+  && python3 -c '
+import json, struct, sys, zlib
+b = open(sys.argv[1], "rb").read()
+off, doc, binoff = 12, None, None
+while off < len(b):
+    clen, ctype = struct.unpack_from("<II", b, off)
+    if ctype == 0x4E4F534A: doc = json.loads(b[off+8:off+8+clen])
+    elif ctype == 0x004E4942: binoff = off + 8
+    off += 8 + clen
+assert doc.get("images"), "no texture embedded"
+bv = doc["bufferViews"][doc["images"][0]["bufferView"]]
+d = b[binoff + bv.get("byteOffset", 0):][:bv["byteLength"]]
+pos, idat, ctp, w, h = 8, b"", None, 0, 0
+while pos < len(d):
+    ln = struct.unpack_from(">I", d, pos)[0]
+    typ = d[pos+4:pos+8]
+    if typ == b"IHDR": w, h, _bd, ctp = struct.unpack_from(">IIBB", d, pos+8)
+    elif typ == b"PLTE":
+        p = d[pos+8:pos+8+ln]
+        ramp = all(p[i] == p[i+1] == p[i+2] == (i // 3) * 0x11 for i in range(0, ln, 3))
+        assert not ramp, "texture staged against the fallback grey ramp"
+    elif typ == b"IDAT": idat += d[pos+8:pos+8+ln]
+    pos += 12 + ln
+assert ctp == 6, "paletted source with a transparent entry lost its alpha channel"
+raw = zlib.decompress(idat)
+nch, out, prev, p = 4, bytearray(), bytearray(w*4), 0
+for y in range(h):
+    f = raw[p]; p += 1
+    line = bytearray(raw[p:p+w*nch]); p += w*nch
+    for i in range(w*nch):
+        a = line[i-nch] if i >= nch else 0
+        bb = prev[i]
+        c = prev[i-nch] if i >= nch else 0
+        if f == 1: line[i] = (line[i]+a) & 255
+        elif f == 2: line[i] = (line[i]+bb) & 255
+        elif f == 3: line[i] = (line[i]+((a+bb)>>1)) & 255
+        elif f == 4:
+            pa, pb, pc = abs(bb-c), abs(a-c), abs(a+bb-2*c)
+            pr = a if (pa <= pb and pa <= pc) else (bb if pb <= pc else c)
+            line[i] = (line[i]+pr) & 255
+    out += line; prev = line
+assert tuple(out[0:4]) == (0, 17, 17, 0), ("first palette entry wrong", tuple(out[0:4]))
+' "$d/tex.glb"; then
+    ok "paletted BRRES texture reaches the GLB with its real palette and alpha"
+  else
+    no "paletted BRRES texture export" "staged the wrong image for a C4 texture"
+  fi
+
+  # Textures ride inside the GLB, so repacking has to notice when one changed
+  # -- and, just as importantly, leave the archive alone when none did.
+  if "$B/wmdlt" ENCODE "$d/tex.glb" \
+       --parent="$PWD_PROJECT/../tests/fixtures/accf_ins_taran.brres" \
+       --dest "$d/tex-same.brres" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$PWD_PROJECT/../tests/fixtures/accf_ins_taran.brres" "$d/tex-same.brres"; then
+    bok "unchanged textures repack byte identical"
+  else
+    bno "texture write-back" "rewrote a texture that had not changed"
+  fi
+
+  # Paint a red block into the embedded texture; it must come back through the
+  # archive, and the texture must still be C4 rather than promoted to a
+  # direct-colour format several times its size.
+  if python3 -c '
+import json, struct, sys, zlib
+b = open(sys.argv[1], "rb").read()
+off, doc, binoff, blen = 12, None, None, 0
+while off < len(b):
+    clen, ctype = struct.unpack_from("<II", b, off)
+    if ctype == 0x4E4F534A: doc = json.loads(b[off+8:off+8+clen])
+    elif ctype == 0x004E4942: binoff, blen = off + 8, clen
+    off += 8 + clen
+bv = doc["bufferViews"][doc["images"][0]["bufferView"]]
+o, n = bv.get("byteOffset", 0), bv["byteLength"]
+d = b[binoff+o:binoff+o+n]
+pos, idat, w, h = 8, b"", 0, 0
+while pos < len(d):
+    ln = struct.unpack_from(">I", d, pos)[0]
+    typ = d[pos+4:pos+8]
+    if typ == b"IHDR": w, h, _bd, _ct = struct.unpack_from(">IIBB", d, pos+8)
+    elif typ == b"IDAT": idat += d[pos+8:pos+8+ln]
+    pos += 12 + ln
+raw = zlib.decompress(idat)
+nch, out, prev, p = 4, bytearray(), bytearray(w*4), 0
+for y in range(h):
+    f = raw[p]; p += 1
+    line = bytearray(raw[p:p+w*nch]); p += w*nch
+    for i in range(w*nch):
+        a = line[i-nch] if i >= nch else 0
+        bb = prev[i]
+        c = prev[i-nch] if i >= nch else 0
+        if f == 1: line[i] = (line[i]+a) & 255
+        elif f == 2: line[i] = (line[i]+bb) & 255
+        elif f == 3: line[i] = (line[i]+((a+bb)>>1)) & 255
+        elif f == 4:
+            pa, pb, pc = abs(bb-c), abs(a-c), abs(a+bb-2*c)
+            pr = a if (pa <= pb and pa <= pc) else (bb if pb <= pc else c)
+            line[i] = (line[i]+pr) & 255
+    out += line; prev = line
+for y in range(8):
+    for x in range(8):
+        i = (y*w+x)*4
+        out[i:i+4] = bytes((255, 0, 0, 255))
+enc = b"".join(b"\x00" + bytes(out[y*w*4:(y+1)*w*4]) for y in range(h))
+def chunk(t, data):
+    return struct.pack(">I", len(data)) + t + data \
+        + struct.pack(">I", zlib.crc32(t+data) & 0xffffffff)
+png = (b"\x89PNG\r\n\x1a\n"
+    + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0))
+    + chunk(b"IDAT", zlib.compress(enc, 9)) + chunk(b"IEND", b""))
+assert len(png) <= n, "edited png does not fit its slot"
+# Every entry naming this texture gets the edit: the exporter emits one per
+# material layer and a stale copy would otherwise land last.
+binc = bytearray(b[binoff:binoff+blen])
+name = doc["images"][0].get("name")
+for im in doc["images"]:
+    if im.get("name") != name: continue
+    v = doc["bufferViews"][im["bufferView"]]
+    vo = v.get("byteOffset", 0)
+    binc[vo:vo+len(png)] = png
+    v["byteLength"] = len(png)
+js = json.dumps(doc).encode()
+js += b" " * ((4 - len(js) % 4) % 4)
+binc += b"\x00" * ((4 - len(binc) % 4) % 4)
+out_glb = (b"glTF" + struct.pack("<II", 2, 12+8+len(js)+8+len(binc))
+    + struct.pack("<II", len(js), 0x4E4F534A) + js
+    + struct.pack("<II", len(binc), 0x004E4942) + bytes(binc))
+open(sys.argv[2], "wb").write(out_glb)
+' "$d/tex.glb" "$d/tex-edit.glb" \
+  && "$B/wmdlt" ENCODE "$d/tex-edit.glb" \
+       --parent="$PWD_PROJECT/../tests/fixtures/accf_ins_taran.brres" \
+       --dest "$d/tex-edit.brres" --overwrite >/dev/null 2>&1 \
+  && ! cmp -s "$PWD_PROJECT/../tests/fixtures/accf_ins_taran.brres" "$d/tex-edit.brres" \
+  && rm -rf "$d/tex-ex" && mkdir -p "$d/tex-ex" \
+  && "$B/wszst" EXTRACT "$d/tex-edit.brres" --dest "$d/tex-ex" --overwrite >/dev/null 2>&1 \
+  && "$B/wimgt" LIST "$d/tex-ex/Textures(NW4R)/ins_taran" 2>/dev/null \
+       | grep -q "C4" \
+  && "$B/wmdlt" DECODE "$d/tex-edit.brres" --dest "$d/tex-back.glb" --overwrite >/dev/null 2>&1 \
+  && python3 -c '
+import json, struct, sys, zlib
+b = open(sys.argv[1], "rb").read()
+off, doc, binoff = 12, None, None
+while off < len(b):
+    clen, ctype = struct.unpack_from("<II", b, off)
+    if ctype == 0x4E4F534A: doc = json.loads(b[off+8:off+8+clen])
+    elif ctype == 0x004E4942: binoff = off + 8
+    off += 8 + clen
+bv = doc["bufferViews"][doc["images"][0]["bufferView"]]
+d = b[binoff + bv.get("byteOffset", 0):][:bv["byteLength"]]
+pos, idat, w, h, ctp = 8, b"", 0, 0, 6
+while pos < len(d):
+    ln = struct.unpack_from(">I", d, pos)[0]
+    typ = d[pos+4:pos+8]
+    if typ == b"IHDR": w, h, _bd, ctp = struct.unpack_from(">IIBB", d, pos+8)
+    elif typ == b"IDAT": idat += d[pos+8:pos+8+ln]
+    pos += 12 + ln
+raw = zlib.decompress(idat)
+nch = 4 if ctp == 6 else 3
+out, prev, p = bytearray(), bytearray(w*nch), 0
+for y in range(h):
+    f = raw[p]; p += 1
+    line = bytearray(raw[p:p+w*nch]); p += w*nch
+    for i in range(w*nch):
+        a = line[i-nch] if i >= nch else 0
+        bb = prev[i]
+        c = prev[i-nch] if i >= nch else 0
+        if f == 1: line[i] = (line[i]+a) & 255
+        elif f == 2: line[i] = (line[i]+bb) & 255
+        elif f == 3: line[i] = (line[i]+((a+bb)>>1)) & 255
+        elif f == 4:
+            pa, pb, pc = abs(bb-c), abs(a-c), abs(a+bb-2*c)
+            pr = a if (pa <= pb and pa <= pc) else (bb if pb <= pc else c)
+            line[i] = (line[i]+pr) & 255
+    out += line; prev = line
+r, g, bl = out[(2*w+2)*nch], out[(2*w+2)*nch+1], out[(2*w+2)*nch+2]
+assert r > 200 and g < 60 and bl < 60, ("edit did not survive", r, g, bl)
+' "$d/tex-back.glb"; then
+    ok "an edited texture repacks into the archive and stays C4"
+  else
+    no "texture write-back" "the edited texture did not reach the archive"
   fi
 
   local brs="$PWD_PROJECT/../tests/fixtures/accf_ins_taran.brres"

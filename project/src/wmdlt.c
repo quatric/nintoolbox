@@ -47,6 +47,7 @@
 #include "lib-glg.h"
 #include "lib-image.h"
 #include "lib-brres.h"
+#include "lib-plt0.h"
 #include "lib-brres-model.h"
 #include "lib-brres-inject.h"
 #include "lib-nsbmd.h"
@@ -446,10 +447,73 @@ static void staged_tex_cleanup (staged_tex_t *st)
 	st->used = st->size = 0;
 }
 
+// A paletted TEX0 carries only indices; its colours live in a PLT0 of the
+// same name under Palettes(NW4R). Staging one without that palette produced a
+// PNG whose PLTE was the loader's fallback grey ramp -- 000000, 111111,
+// 222222 and so on -- so every C4/C8 texture reached the GLB as a greyscale
+// stand-in rather than the real image. Most textures in a shipped BRRES are
+// indexed, so the archive's palettes are collected first and handed to the
+// TEX0 pass below.
+typedef struct plt0_entry_t
+{
+	char name[128];
+	const u8 *data;
+	uint size;
+
+} plt0_entry_t;
+
+typedef struct plt0_table_t
+{
+	plt0_entry_t *v;
+	uint used, size;
+
+} plt0_table_t;
+
+static int iter_collect_plt0 (struct szs_iterator_t *it, bool term)
+{
+	if (term || it->is_dir)
+		return 0;
+
+	const u8 *data = it->szs->data + it->off;
+	if (it->size < 4 || memcmp (data, "PLT0", 4))
+		return 0;
+
+	plt0_table_t *tab = it->param;
+	if (tab->used == tab->size)
+	{
+		const uint next = tab->size ? tab->size * 2 : 16;
+		void *mem = REALLOC (tab->v, next * sizeof (*tab->v));
+		if (!mem)
+			return 0;
+		tab->v = mem;
+		tab->size = next;
+	}
+
+	ccp name = *it->path ? it->path : "";
+	ccp slash = strrchr (name, '/');
+	if (slash)
+		name = slash + 1;
+
+	plt0_entry_t *e = &tab->v[tab->used++];
+	snprintf (e->name, sizeof (e->name), "%s", name);
+	e->data = data;
+	e->size = it->size;
+	return 0;
+}
+
+static const plt0_entry_t *plt0_table_find (const plt0_table_t *tab, ccp name)
+{
+	for (uint i = 0; i < tab->used; i++)
+		if (!strcmp (tab->v[i].name, name))
+			return &tab->v[i];
+	return 0;
+}
+
 typedef struct tex0_dump_ctx_t
 {
 	ccp dir;
 	staged_tex_t *staged;
+	const plt0_table_t *palettes;
 	uint count;
 
 } tex0_dump_ctx_t;
@@ -486,6 +550,29 @@ static int iter_dump_tex0_png (struct szs_iterator_t *it, bool term)
 
 	Image_t img;
 	const enumError aerr = AssignIMG (&img, 1, data, it->size, 0, false, &be_func, name);
+
+	// Attach the sibling palette before writing, or an indexed texture is
+	// saved against the loader's fallback grey ramp instead of its colours.
+	if (!aerr && (img.iform == IMG_C4 || img.iform == IMG_C8 || img.iform == IMG_C14X2)
+		&& ctx->palettes)
+	{
+		const plt0_entry_t *pe = plt0_table_find (ctx->palettes, name);
+		palette_format_t pform = PAL_INVALID;
+		uint n_pal = 0;
+		const u8 *pal = 0;
+		if (pe && GetRawPLT0 (pe->data, pe->size, &pform, &n_pal, &pal))
+		{
+			if (img.pal && img.pal_alloced)
+				FREE (img.pal);
+			img.pal = MALLOC (n_pal * 2);
+			memcpy (img.pal, pal, n_pal * 2);
+			img.pal_size = n_pal * 2;
+			img.n_pal = n_pal;
+			img.pal_alloced = true;
+			img.pform = pform;
+		}
+	}
+
 	if (!aerr && SaveIMG (&img, FF_PNG, 0, 0, png_path, true) == ERR_OK)
 	{
 		staged_tex_add (ctx->staged, png_path);
@@ -527,7 +614,9 @@ static bool export_mdl0_from_archive (raw_data_t *raw, ccp dest, enumError *err)
 	// all this path needs, and it avoids the scope rules that exist for
 	// recursive archive extraction.
 	staged_tex_t staged = { 0, 0, 0 };
-	tex0_dump_ctx_t tex_ctx = { model_dir, &staged, 0 };
+	plt0_table_t palettes = { 0, 0, 0 };
+	IterateFilesParSZS (&szs, iter_collect_plt0, &palettes, false, false, false, -1, -1, SORT_NONE);
+	tex0_dump_ctx_t tex_ctx = { model_dir, &staged, &palettes, 0 };
 	IterateFilesParSZS (
 		&szs, iter_dump_tex0_png, &tex_ctx, false, false, false, -1, -1, SORT_NONE);
 

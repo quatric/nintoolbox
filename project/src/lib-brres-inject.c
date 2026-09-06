@@ -2,6 +2,8 @@
 #include "lib-szs.h"
 #include "lib-brres.h"
 #include "lib-brres-model.h"
+#include "lib-plt0.h"
+#include "lib-image.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1131,6 +1133,207 @@ static void get_wszst_cmd (char *buf, size_t buf_sz)
 	snprintf (buf, buf_sz, "wszst");
 }
 
+// ---------------------------------------------------------------------------
+// Texture write-back
+// ---------------------------------------------------------------------------
+// A GLB carries its textures inside itself, so a model edited elsewhere comes
+// back with pictures attached. Those used to be dropped in silence: only the
+// image's *name* was read on import, and the archive kept whatever it already
+// had. Repacking now compares each embedded image against the texture of the
+// same name in the extracted tree and rewrites only the ones that differ.
+//
+// Rewriting keeps the parent's own image format. Most textures in a shipped
+// BRRES are indexed and keep their colours in a sibling PLT0, so re-encoding
+// one as direct colour would change the format the game expects and inflate
+// it several times over; SaveTEXwithPLT0() writes the pair back instead.
+
+// Render the archive's own copy of a texture to PNG exactly as extraction
+// does, so the result can be compared against what the model brought back.
+//
+// Comparing decoded pixels instead looked simpler and was wrong: exporting a
+// paletted texture writes an indexed PNG with a PLTE and no tRNS, so a
+// palette holding transparent entries -- RGB5A3 routinely does -- loses its
+// alpha on the way out, and a second decoder disagreed with this one about
+// how to widen 5-bit channels as well. Every untouched texture then looked
+// edited, and "rewriting" it would have thrown the transparency away. Going
+// through the same exporter sidesteps both: an unmodified texture reproduces
+// its staged PNG byte for byte.
+static int brres_export_texture_png (ccp tex_path, ccp plt_path, ccp png_path)
+{
+	u8 *tex_raw = 0;
+	size_t tex_size = 0;
+	if (LoadFileAlloc (tex_path, 0, 0, &tex_raw, &tex_size, 0, 0, 0, false))
+		return 0;
+
+	palette_format_t pform = PAL_INVALID;
+	uint n_pal = 0;
+	const u8 *pal = 0;
+	u8 *plt_raw = 0;
+	size_t plt_size = 0;
+	if (!LoadFileAlloc (plt_path, 0, 0, &plt_raw, &plt_size, 0, 0, 0, false))
+		GetRawPLT0 (plt_raw, plt_size, &pform, &n_pal, &pal);
+
+	uint n_image = 0;
+	const enumError err = ExportPNG (0, png_path, 0, tex_raw, tex_size, 0, false, &n_image,
+		&be_func, 0, true, 0, pform, n_pal, pal);
+
+	FREE (plt_raw);
+	FREE (tex_raw);
+	return !err;
+}
+
+// Compare two PNGs as pictures. Byte comparison is no good here: the exporter
+// stamps tEXt chunks describing where the image came from, so two renderings
+// of the same texture differ in metadata alone. Both files are read back
+// through the same loader, so whatever that loader does with an indexed PNG's
+// palette and alpha it does identically to each, and only a real change to
+// the picture shows up.
+static int png_files_differ (ccp path_a, ccp path_b)
+{
+	Image_t a, b;
+	InitializeIMG (&a);
+	InitializeIMG (&b);
+
+	int differ = -1; // unreadable
+	if (!LoadIMG (&a, true, path_a, 0, false, false, false)
+		&& !LoadIMG (&b, true, path_b, 0, false, false, false)
+		&& !ConvertIMG (&a, false, 0, IMG_X_RGB, PAL_INVALID)
+		&& !ConvertIMG (&b, false, 0, IMG_X_RGB, PAL_INVALID) && a.data && b.data)
+	{
+		if (a.width != b.width || a.height != b.height)
+			differ = 1;
+		else
+		{
+			differ = 0;
+			for (uint y = 0; y < a.height && !differ; y++)
+				if (memcmp (a.data + 4 * (size_t)y * a.xwidth, b.data + 4 * (size_t)y * b.xwidth,
+						(size_t)a.width * 4))
+					differ = 1;
+		}
+	}
+
+	ResetIMG (&b);
+	ResetIMG (&a);
+	return differ;
+}
+
+// Returns the number of textures rewritten.
+static uint brres_write_back_textures (ccp temp_dir, const model_t *model)
+{
+	if (!model->num_images)
+		return 0;
+
+	uint changed = 0;
+	for (size_t i = 0; i < model->num_images; i++)
+	{
+		const model_image_t *img = &model->images[i];
+		if (!img->data || !img->size || !img->name[0])
+			continue;
+
+		// The exporter emits one image entry per material layer, so the same
+		// texture appears more than once. Handle each name a single time:
+		// writing them in turn let a stale duplicate land last and undo an
+		// edit carried by the first.
+		bool seen = false;
+		for (size_t j = 0; j < i && !seen; j++)
+			seen = model->images[j].data && model->images[j].name[0]
+				&& !strcmp (model->images[j].name, img->name);
+		if (seen)
+			continue;
+
+		// The exporter names each image after the texture it was staged from,
+		// sometimes with the ".png" it was written as still attached.
+		char base[128];
+		snprintf (base, sizeof (base), "%s", img->name);
+		const size_t blen = strlen (base);
+		if (blen > 4 && !strcasecmp (base + blen - 4, ".png"))
+			base[blen - 4] = 0;
+
+		char tex_path[PATH_MAX], plt_path[PATH_MAX], png_path[PATH_MAX];
+		snprintf (tex_path, sizeof (tex_path), "%s/Textures(NW4R)/%s", temp_dir, base);
+		snprintf (plt_path, sizeof (plt_path), "%s/Palettes(NW4R)/%s", temp_dir, base);
+		snprintf (png_path, sizeof (png_path), "%s/.inject-%zu.png", temp_dir, i);
+		if (access (tex_path, F_OK))
+			continue;
+
+		if (!brres_export_texture_png (tex_path, plt_path, png_path))
+		{
+			unlink (png_path);
+			continue;
+		}
+
+		// The embedded bytes are a PNG; put them on disk so the same loader
+		// reads both sides.
+		char in_png[PATH_MAX];
+		snprintf (in_png, sizeof (in_png), "%s/.inject-new-%zu.png", temp_dir, i);
+		FILE *pf = fopen (in_png, "wb");
+		if (!pf)
+		{
+			unlink (png_path);
+			continue;
+		}
+		const bool written = fwrite (img->data, 1, img->size, pf) == img->size;
+		fclose (pf);
+
+		int differ = written ? png_files_differ (png_path, in_png) : -1;
+
+		// If this copy matches the archive, another copy of the same texture
+		// may still carry the edit, so look at the rest before concluding
+		// nothing changed.
+		for (size_t j = i + 1; j < model->num_images && differ == 0; j++)
+		{
+			const model_image_t *dup = &model->images[j];
+			if (!dup->data || !dup->size || strcmp (dup->name, img->name))
+				continue;
+			FILE *df = fopen (in_png, "wb");
+			if (!df)
+				break;
+			const bool dw = fwrite (dup->data, 1, dup->size, df) == dup->size;
+			fclose (df);
+			if (dw)
+				differ = png_files_differ (png_path, in_png);
+		}
+		unlink (png_path);
+		if (differ <= 0)
+		{
+			unlink (in_png); // unreadable, or the texture came back unchanged
+			continue;
+		}
+
+		// Re-encode in the format the parent used, so an edited texture stays
+		// the kind of texture the game was built to read: most are indexed and
+		// keep their colours in a sibling PLT0, and promoting one to direct
+		// colour would both change what the hardware expects and inflate it.
+
+		Image_t parent, edited;
+		InitializeIMG (&parent);
+		InitializeIMG (&edited);
+		if (written && !LoadIMG (&parent, true, tex_path, 0, false, false, false)
+			&& !LoadIMG (&edited, true, in_png, 0, false, false, false))
+		{
+			const image_format_t keep_iform = parent.iform;
+			const palette_format_t keep_pform
+				= parent.pform != PAL_INVALID ? parent.pform : PAL_AUTO;
+			const bool indexed = keep_iform == IMG_C4 || keep_iform == IMG_C8
+				|| keep_iform == IMG_C14X2;
+
+			if (!ConvertIMG (&edited, false, 0, keep_iform, keep_pform))
+			{
+				const enumError err = indexed
+					? SaveTEXwithPLT0 (&edited, 0, tex_path, plt_path, true)
+					: SaveTEX (&edited, 0, 0, tex_path, true, false);
+				if (!err)
+					changed++;
+			}
+		}
+		ResetIMG (&edited);
+		ResetIMG (&parent);
+		unlink (in_png);
+	}
+
+	return changed;
+}
+
 int InjectDAEIntoBRRES (const uint8_t *brres_data, size_t brres_size, const model_t *dae_model,
 	uint8_t **out_data, size_t *out_size)
 {
@@ -1247,6 +1450,13 @@ int InjectDAEIntoBRRES (const uint8_t *brres_data, size_t brres_size, const mode
 		}
 	}
 	FREE (mdl_names);
+
+	// Textures the model brought back with it. This runs whether or not the
+	// geometry moved: a model can come back with only its pictures changed,
+	// and those edits used to be discarded without a word.
+	const uint tex_changed = brres_write_back_textures (temp_dir, dae_model);
+	if (tex_changed)
+		injected = true;
 
 	if (!injected)
 	{

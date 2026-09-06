@@ -2044,10 +2044,50 @@ static void convert_animations(cgltf_data *data, model_t *model) {
     }
 }
 
+// Carry the textures the glTF embedded, so an encoder can tell whether the
+// model came back with a picture that changed. The exporter writes each
+// staged PNG straight into the binary chunk (see the images loop in
+// SaveGLB()), and cgltf_load_buffers() has already mapped that chunk by the
+// time this runs. Images referenced only by URI are left alone: their bytes
+// live outside the file and the archive side has nothing to compare against.
+static void convert_images (cgltf_data *data, model_t *model)
+{
+	if (!data->images_count)
+		return;
+
+	model->images = calloc (data->images_count, sizeof (model_image_t));
+	if (!model->images)
+		return;
+
+	for (size_t i = 0; i < data->images_count; i++)
+	{
+		const cgltf_image *src = &data->images[i];
+		const cgltf_buffer_view *bv = src->buffer_view;
+		if (!bv || !bv->buffer || !bv->buffer->data || !bv->size)
+			continue;
+
+		model_image_t *dst = &model->images[model->num_images];
+		if (src->name)
+			snprintf (dst->name, sizeof (dst->name), "%s", src->name);
+		else if (src->uri)
+			snprintf (dst->name, sizeof (dst->name), "%s", src->uri);
+		else
+			snprintf (dst->name, sizeof (dst->name), "image_%zu", i);
+
+		dst->data = malloc (bv->size);
+		if (!dst->data)
+			continue;
+		memcpy (dst->data, (const uint8_t *)bv->buffer->data + bv->offset, bv->size);
+		dst->size = bv->size;
+		model->num_images++;
+	}
+}
+
 static model_t *BuildModelFromCgltf(cgltf_data *data) {
     model_t *model = calloc(1, sizeof(model_t));
     if (!model) return NULL;
     convert_materials(data, model);
+    convert_images(data, model);
     convert_meshes_and_skin(data, model);
     convert_nodes(data, model);
     convert_animations(data, model);

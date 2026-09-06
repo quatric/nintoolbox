@@ -234,6 +234,52 @@ enumError EncodePLT0_RGBA (
 	return ERR_OK;
 }
 
+enumError EncodePLT0_Raw (
+	u8 **dest, uint *dest_size, const u8 *raw_pal, uint num_colors, palette_format_t pform)
+{
+	if (!dest || !dest_size || !raw_pal || !num_colors)
+		return ERR_SEMANTIC;
+	if (num_colors > 65535)
+		num_colors = 65535;
+
+	u32 raw_pform;
+	switch (pform)
+	{
+		case PAL_IA8:
+			raw_pform = 0;
+			break;
+		case PAL_RGB565:
+			raw_pform = 1;
+			break;
+		case PAL_RGB5A3:
+			raw_pform = 2;
+			break;
+		default:
+			return ERR_SEMANTIC;
+	}
+
+	const uint total_size = 0x40 + num_colors * 2;
+	u8 *out = CALLOC (1, total_size);
+	if (!out)
+		return ERR_OUT_OF_MEMORY;
+
+	memcpy (out, "PLT0", 4);
+	out[0x04] = (u8)(total_size >> 24);
+	out[0x05] = (u8)(total_size >> 16);
+	out[0x06] = (u8)(total_size >> 8);
+	out[0x07] = (u8)total_size;
+	out[0x0B] = 1; // version 1
+	out[0x13] = 0x40; // headerLen
+	out[0x1B] = (u8)raw_pform;
+	out[0x1C] = (u8)(num_colors >> 8);
+	out[0x1D] = (u8)num_colors;
+	memcpy (out + 0x40, raw_pal, num_colors * 2);
+
+	*dest = out;
+	*dest_size = total_size;
+	return ERR_OK;
+}
+
 typedef struct plt0_hist_t
 {
 	u16 color16;

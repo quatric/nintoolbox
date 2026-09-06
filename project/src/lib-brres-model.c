@@ -1692,6 +1692,9 @@ void FreeModel (model_t *model)
 	for (size_t i = 0; i < model->num_node_influences; i++)
 		free (model->node_influences[i].weights);
 	free (model->node_influences);
+	for (size_t i = 0; i < model->num_images; i++)
+		free (model->images[i].data);
+	free (model->images);
 	free (model);
 }
 
