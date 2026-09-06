@@ -217,6 +217,29 @@ ifeq ($(HAVE_SHA),1)
 endif
 
 #-------------------------------------------------------------------------------
+# Sentry Native SDK integration
+# To disable Sentry integration, build with NO_SENTRY=1
+ifneq ($(NO_SENTRY),1)
+  SENTRY_DIR := third_party/sentry-native
+  ifeq ($(wildcard $(SENTRY_DIR)/include/sentry.h),)
+    NO_SENTRY := 1
+  endif
+endif
+
+ifeq ($(NO_SENTRY),1)
+  DEFINES1 += -DSENTRY_ENABLED=0
+else
+  DEFINES1 += -DSENTRY_ENABLED=1
+  CFLAGS += -I$(SENTRY_DIR)/include
+  SENTRY_LIBDIR := $(SENTRY_DIR)/build-inproc
+  ifeq ($(SYSTEM),mac)
+    SENTRY_LIBS := $(SENTRY_LIBDIR)/libsentry.a -lcurl -lz
+  else
+    SENTRY_LIBS := $(SENTRY_LIBDIR)/libsentry.a -lcurl -lz -lpthread -ldl
+  endif
+  LIBS += $(SENTRY_LIBS)
+endif
+
 # tools
 
 MAIN_TOOLS	:= wszst wbmgt wctct wimgt wkclt wkmpt wlect wpatt wstrt
@@ -409,7 +432,7 @@ SZS_O		:= lib-std.o lib-file.o lib-numeric.o \
 		   file-type.o db-mkw.o lib-mkw.o lib-dol.o \
 		   sha1dgst.o sha1_one.o lib-bzip2.o lib-lzma.o lib-zstd.o \
 		   lib-ue4pak.o lib-prc.o lib-cnut.o lib-xmsg.o lib-iqipack.o \
-		   lib-nsmbw.o lib-koopatlas.o lib-chans.o \
+		   lib-nsmbw.o lib-koopatlas.o lib-chans.o szs-sentry.o \
 		   $(DCLIB_O)
 
 # object groups
@@ -632,6 +655,20 @@ endif
 
 TOPT_wbrsar	:= $(VGMTRANS_LIBS)
 wbrsar: src/vgmtrans/build/libvgmtrans_core.a
+
+.PHONY: third_party/sentry-native/build-inproc/libsentry.a
+third_party/sentry-native/build-inproc/libsentry.a:
+	@if [ ! -f $@ ]; then \
+		printf "$(LOGFORMAT_TOOL)" build "libsentry.a" "$(MODE)"; \
+		mkdir -p third_party/sentry-native/build-inproc && \
+		cd third_party/sentry-native/build-inproc && \
+		cmake .. -DCMAKE_BUILD_TYPE=Release -DSENTRY_BACKEND=inproc -DSENTRY_BUILD_SHARED_LIBS=OFF -DSENTRY_INTEGRATION_TESTS=OFF -DSENTRY_BUILD_TESTS=OFF -DSENTRY_BUILD_EXAMPLES=OFF >/dev/null && \
+		$(MAKE) sentry; \
+	fi
+
+ifneq ($(NO_SENTRY),1)
+$(ALL_TOOLS_X): third_party/sentry-native/build-inproc/libsentry.a
+endif
 
 #--------------------------
 

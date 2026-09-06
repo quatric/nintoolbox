@@ -65,6 +65,7 @@
 #include "lib-mkw.h"
 #include "db-mkw.h"
 #include "crypt.h"
+#include "szs-sentry.h"
 #include "logo.inc"
 #include "sha1-db.inc"
 
@@ -563,6 +564,8 @@ void SetupLib (int argc, char **argv, ccp tname, ccp tvers, ccp ttitle)
 	//--- misc
 
 	SetupStandardSZS ();
+
+	szs_sentry_init ();
 
 #if LOG_PROGINFO
 	PRINT1 ("PROG2: %s | %s | %s\n", ProgInfo.progname, ProgInfo.progdir, ProgInfo.progpath);

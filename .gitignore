@@ -33,3 +33,5 @@ _trace*
 *.tmp
 /tests/samples-excitebots/
 .claude/
+.sentry-native/
+project/third_party/sentry-native/build*/
