@@ -7333,8 +7333,14 @@ assert doc, "no JSON chunk"
 tris = sum(doc["accessors"][p["attributes"]["POSITION"]]["count"] // 3
            for m in doc["meshes"] for p in m["primitives"])
 assert tris == 2, f"expected 2 triangles, got {tris}"
+# The attribute table declares a normal and a texcoord; both must survive.
+for m in doc["meshes"]:
+    for p in m["primitives"]:
+        a = p["attributes"]
+        assert "NORMAL" in a, "normal attribute dropped"
+        assert "TEXCOORD_0" in a, "texcoord attribute dropped"
 ' "$d/model.glb"; then
-    ok "G1M -> GLB geometry (strip to triangles)"
+    ok "G1M -> GLB geometry with normals and UVs"
   else
     no "G1M geometry" "export missing or wrong triangle count"
   fi

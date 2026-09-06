@@ -9,9 +9,19 @@ import struct, sys
 def sec(t, count, payload):
     return struct.pack("<III", t, 12 + len(payload), count) + payload
 
-verts = b"".join(struct.pack("<3f", x, y, 0.0) for x, y in
+# stride 32: position float3, normal float3, texcoord float2
+verts = b"".join(struct.pack("<3f3f2f", x, y, 0.0, 0.0, 0.0, 1.0, x, y) for x, y in
                  ((0, 0), (1, 0), (0, 1), (1, 1)))
-vbuf = sec(0x00010004, 1, struct.pack("<IIII", 0, 12, 4, 0) + verts)
+vbuf = sec(0x00010004, 1, struct.pack("<IIII", 0, 32, 4, 0) + verts)
+
+# One layout block: header then 8-byte {buffer, offset, type, semantic}
+# records -- position (sem 0, float3), normal (sem 3, float3), texcoord
+# (sem 5, float2).
+layout = struct.pack("<III", 1, 0, 3)
+layout += struct.pack("<HHHH", 0, 0, 2, 0)
+layout += struct.pack("<HHHH", 0, 12, 2, 3)
+layout += struct.pack("<HHHH", 0, 24, 1, 5)
+lbuf = sec(0x00010005, 1, layout)
 
 # A four-index strip: two triangles, no degenerates.
 idx = struct.pack("<4H", 0, 1, 2, 3)
@@ -25,8 +35,8 @@ smesh = sec(0x00010008, 1, bytes(sub))
 body = struct.pack("<4s4sI", b"3DS\0"[::-1], b"\0\0\0\0", 0)[:8]
 g1mg_body = b"3DS\0" + struct.pack("<I", 0)
 g1mg_body += struct.pack("<6f", -1, -1, -1, 2, 2, 2)      # bounding box
-g1mg_body += struct.pack("<I", 3)                          # section count
-g1mg_body += vbuf + ibuf + smesh
+g1mg_body += struct.pack("<I", 4)                          # section count
+g1mg_body += vbuf + lbuf + ibuf + smesh
 g1mg = b"GM1G" + b"4400" + struct.pack("<I", 12 + len(g1mg_body)) + g1mg_body
 
 g1m = b"_M1G" + b"0036" + struct.pack("<I", 0x18 + len(g1mg)) \
