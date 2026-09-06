@@ -23,7 +23,7 @@ ccp GetNintendoFormatName (nfmt_type_t type)
 		"VLX", "PuCrunch", "LZX", "Diff8", "Diff16", "NSBTX", "NFTR", "BNFR", "BNLL", "BNCL", "BNBL",
 		"LZOvl", "ALAR", "DARC", "SADL", "HSF", "HSD", "BNFM", "XPCK", "XIMG", "HGO", "ZTAB", "GLG",
 		"MDR", "PERS", "PVOL", "STPK", "G1M", "G1T", "G4PKM", "LMD", "MSH", "MOD", "GAR",
-		"TEX3DS", "BCSTM", "BFSTM", "BCWAV", "BFWAV", "BNSH", "GFBMDL", "GFBANM", "BNSTX", "AAMP", "MIO" };
+		"TEX3DS", "BCSTM", "BFSTM", "BCWAV", "BFWAV", "BNSH", "GFBMDL", "GFBANM", "BNSTX", "AAMP", "MIO", "ZDAT" };
 	return type < sizeof (tab) / sizeof (*tab) ? tab[type] : "UNKNOWN";
 }
 
@@ -125,6 +125,15 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		// those bytes. The extension is all that is actually known.
 		if (ext && !strcasecmp (ext, ".hgo"))
 			return make_info (NFMT_HGO, true, false, 0);
+		// Animal Crossing: Pocket Camp asset container. Header offsets are
+		// 16-bit: the entry array starts at 0x20 and the names begin directly
+		// after it, so the name offset is fixed by the entry count. Checking
+		// that relationship keeps four common letters from claiming unrelated
+		// data, and holds however many files the container carries.
+		if (size >= 0x30 && !memcmp (d, "ZDAT", 4) && rd_le16 (d + 0x06) == 0x20
+			&& rd_le16 (d + 0x12) > 0
+			&& rd_le16 (d + 0x0a) == 0x20 + rd_le16 (d + 0x12) * 16)
+			return make_info (NFMT_ZDAT, false, false, 0);
 		if (!memcmp (d, "ZTAB", 4))
 			return make_info (NFMT_ZTAB, true, false, 0);
 		// Next Level Games container (Super Mario Strikers' .glg, Mario

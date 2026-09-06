@@ -102,6 +102,12 @@ enumError ExtractG1TArchive (ccp arg, ccp basedir, uint depth);
 // a Yay0 stream.
 enumError ExtractPERSFile (ccp arg, ccp basedir, uint depth);
 
+// Extract an Animal Crossing: Pocket Camp .zdat asset container. Each stored
+// file is a Unity asset bundle obfuscated with a single repeated byte; the key
+// is recovered from the bundle's own "UnityFS" signature, so nothing outside
+// the file is needed to read it.
+enumError ExtractZDATArchive (ccp arg, ccp basedir, uint depth);
+
 // Extract a Camelot GX texture bank (Mario Golf / Mario Power Tennis), whether
 // stored raw or wrapped in Camelot's own LZ codec.
 enumError ExtractCamelotTexBank (ccp arg, ccp basedir, uint depth);

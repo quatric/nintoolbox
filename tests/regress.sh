@@ -147,6 +147,74 @@ else
   sk "Arika ALZ1 + INFO.DAT/GAME.DAT archive"
 fi
 
+# Animal Crossing: Pocket Camp .zdat. A flat container -- header, entry array,
+# names, payloads -- whose stored files are Unity bundles masked with a single
+# repeated byte. Both fixtures come straight off the game's CDN. The bundle
+# records its own total length, so that field is the oracle here: it can only
+# agree with the entry size if the container was walked correctly and the mask
+# recovered, which is what these check rather than any self-made sample.
+zd=$(mktemp -d /tmp/_r_zdat.XXXXXX) || zd=
+if [ -n "$zd" ]; then
+  if "$B/wszst" FILETYPE "$PWD_PROJECT/../tests/fixtures/acpc_1a082b62.zdat" 2>/dev/null \
+       | grep -q "^ZDAT"; then
+    ok "wszst filetype recognizes .zdat"
+  else
+    no "ZDAT container" "filetype did not report ZDAT"
+  fi
+
+  if "$B/wszst" EXTRACT "$PWD_PROJECT/../tests/fixtures/acpc_1a082b62.zdat" \
+       --dest "$zd/one" --overwrite >/dev/null 2>&1 \
+  && [ -s "$zd/one/1a082b62.unity3d" ] \
+  && python3 -c '
+import struct, sys
+d = open(sys.argv[1], "rb").read()
+assert d[:8] == b"UnityFS\0", "payload is not an unmasked Unity bundle"
+o = 12
+for _ in range(2):
+    o = d.index(b"\0", o) + 1
+total = struct.unpack_from(">Q", d, o)[0]
+assert total == len(d), ("bundle disagrees about its own size", total, len(d))
+' "$zd/one/1a082b62.unity3d"; then
+    ok "ZDAT single-entry -> Unity bundle whose own size checks out"
+  else
+    no "ZDAT container" "single-entry extraction failed"
+  fi
+
+  # Seven files, and the names carry the game's own variant tag.
+  if "$B/wszst" EXTRACT "$PWD_PROJECT/../tests/fixtures/acpc_common_multi.zdat" \
+       --dest "$zd/many" --overwrite >/dev/null 2>&1; then
+    zn=$(find "$zd/many" -type f | wc -l | tr -d ' ')
+    zu=$(find "$zd/many" -type f -exec sh -c 'head -c 8 "$1" | grep -q UnityFS && echo y' \
+           _ {} \; | wc -l | tr -d ' ')
+    if [ "$zn" = 7 ] && [ "$zu" = 7 ] && [ -s "$zd/many/f37cb2a3.unity3dcommon" ]; then
+      ok "ZDAT multi-entry extracts all 7 bundles"
+    else
+      no "ZDAT container" "expected 7 unmasked bundles, got $zu of $zn"
+    fi
+  else
+    no "ZDAT container" "multi-entry extraction failed"
+  fi
+
+  # The name table sits directly after the entry array, so the count fixes
+  # where it starts. Claim one entry too many and nothing lines up any more;
+  # that must be declined rather than half-extracted.
+  python3 -c '
+import struct, sys
+d = bytearray(open(sys.argv[1], "rb").read())
+struct.pack_into("<H", d, 0x12, struct.unpack_from("<H", d, 0x12)[0] + 1)
+open(sys.argv[2], "wb").write(bytes(d))
+' "$PWD_PROJECT/../tests/fixtures/acpc_common_multi.zdat" "$zd/bad.zdat"
+  "$B/wszst" EXTRACT "$zd/bad.zdat" --dest "$zd/badout" --overwrite >/dev/null 2>&1
+  if [ ! -d "$zd/badout" ] || [ -z "$(find "$zd/badout" -type f 2>/dev/null)" ]; then
+    ok "ZDAT declines a container whose entry table does not add up"
+  else
+    no "ZDAT container" "extracted a container with an inconsistent entry count"
+  fi
+  rm -rf "$zd"
+else
+  sk "ZDAT container"
+fi
+
 # HGO, G4PKM and LMD were carried in the type table as named formats without
 # anything to back them: HGO matched a "0OGH" magic that occurs in none of the
 # Camelot games it was attributed to -- in any byte order -- while G4PKM and

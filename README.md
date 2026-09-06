@@ -97,6 +97,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **WARC** | `.warc` | ✅ | ✅ | ✅ | — | Nintendo / Intelligent Systems flat archive (Wii U) |
 | **WUD / WUX** | `.wud`, `.wux` | ✅ | — | — | — | Nintendo Wii U optical disc images (raw & compressed) |
 | **XPCK** | `.xc`, `.xpck` | ✅ | ✅ | ✅ | — | Level-5 container archive (*Inazuma Eleven*, *Professor Layton*, *Yo-kai Watch*) |
+| **ZDAT** | `.zdat` | ✅ | — | — | ✅ | Animal Crossing: Pocket Camp asset container (DeNA/Nintendo, mobile). Header, entry array, names, then payloads; each stored file is a Unity `UnityFS` bundle masked with a single repeated byte, recovered from the bundle's own signature rather than from any key. Verified against 31 containers taken from the game's CDN, 1 to 45 entries and 168 files: the entry table closes exactly on the file and every unmasked bundle agrees with the length it records for itself. Extraction stops at the bundle — nothing here reads Unity assets |
 | **ZLARC** | `.zlarc` | ✅ | ✅ | ✅ | — | indieszero compressed package archive (*NES Remix*, *NES Remix 2*, *NES Remix Pack*) |
 | **ZTAB** | `.ztab`, `.tab` | ✅ | ✅ | ✅ | ✅ | Camelot archive table (*Mario Golf: Toadstool Tour*, *Mario Power Tennis*) |
 

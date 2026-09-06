@@ -1390,6 +1390,13 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 'P', 'A', 'C', 'K' },
 		0, MinusString, MinusString, "NVIDIA Shield iQiyi PAK archive (.pak)" },
 
+	// FF_ZDAT = 247 (Animal Crossing: Pocket Camp asset container)
+	{ FF_ZDAT, FF_ZDAT, 0, "ZDAT", ".zdat", ".szs", ".zdat",
+		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT, 4,
+		{ 0x5a, 0x44, 0x41, 0x54 }, // "ZDAT"
+		0, MinusString, MinusString,
+		"Animal Crossing: Pocket Camp asset container (.zdat)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1571,6 +1578,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_BFWAV, "BFWAV", "FWAV", 0x3801 },
 	{ FF_BNSH, "BNSH", 0, 0x3001 },
 	{ FF_MIO, "MIO", 0, 0xe05 },
+	{ FF_ZDAT, "ZDAT", "ZDAT", 0xe05 },
 	{ FF_IQIPACK, "IQIPACK", "PACK", 0xe05 },
 
 	{ 0, 0, 0, 0 }

@@ -338,6 +338,7 @@ typedef enum file_format_t
 	FF_BYML, // 244 - Nintendo Binary YAML (.byml / .byaml / BY)
 	FF_MIO, // 245 - WarioWare D.I.Y. Game/Comic/Record (.mio)
 	FF_IQIPACK, // 246 - NVIDIA Shield iQiyi PAK archive (.pak / PACK)
+	FF_ZDAT, // 247 - Animal Crossing: Pocket Camp asset container (.zdat / ZDAT)
 
 	//--- number of elements
 

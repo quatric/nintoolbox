@@ -154,7 +154,8 @@ typedef enum nfmt_type_t
 	NFMT_GFBANM,
 	NFMT_BNSTX,
 	NFMT_AAMP,
-	NFMT_MIO
+	NFMT_MIO,
+	NFMT_ZDAT
 } nfmt_type_t;
 
 typedef struct nfmt_info_t
