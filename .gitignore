@@ -32,3 +32,4 @@ __pycache__/
 _trace*
 *.tmp
 /tests/samples-excitebots/
+.claude/

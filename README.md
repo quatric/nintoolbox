@@ -138,8 +138,8 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | --- | --- | --- | --- | --- | --- | --- |
 | **ART / IMG** | `.art`, `.img` | ✅ | ✅ | ✅ | ✅ | Monster Games GUI image format (Wii) |
 | **BCFNT / BFFNT / BRFNT** | `.bcfnt`, `.bffnt`, `.brfnt` | ✅ | ✅ | ✅ | ✅ | NintendoWare font resource (3DS / Wii U / Wii) |
-| **BCLIM** | `.bclim` | ✅ | ✅ | ✅ | — | NintendoWare NW4C texture container (3DS) |
-| **BFLIM** | `.bflim` | ✅ | ✅ | ✅ | — | NintendoWare NW4F texture format (Wii U) |
+| **BCLIM** | `.bclim` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C texture container (3DS) |
+| **BFLIM** | `.bflim` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4F texture format (Wii U) |
 | **BNTX** | `.bntx` | ✅ | ✅ | ✅ | ✅ | NintendoSDK Tegra block-linear texture container (Switch) |
 | **BREFT** | `.breft`, `.bt-img` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4R particle effect texture (Wii) |
 | **BTI / TPL** | `.bti`, `.tpl` | ✅ | ✅ | ✅ | ✅ | Nintendo standard texture palette library (GameCube / Wii) |
@@ -148,9 +148,9 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **CTXB** | `.ctxb` | ✅ | ✅ | ✅ | — | Grezzo 3DS texture container (*Ocarina of Time 3D*, *Majora's Mask 3D*) |
 | **G1T** | `.g1t` | — | — | — | — | Koei Tecmo texture container (*Hyrule Warriors*, *Fire Emblem Warriors*) |
 | **GTX** | `.gtx` | ✅ | ✅ | ✅ | ✅ | Nintendo Wii U GX2 surface container (Wii U) |
-| **NCER / NANR** | `.ncer`, `.nanr` | ✅ | ✅ | ✅ | — | Nintendo DS Nitro cell & animation resources (DS) |
-| **NCGR / NCLR** | `.ncgr`, `.nclr` | ✅ | ✅ | ✅ | — | Nintendo DS Nitro 2D graphics & palette (DS) |
-| **NSBTX** | `.nsbtx` | ✅ | ✅ | ✅ | — | Nintendo DS Nitro 3D texture container (DS) |
+| **NCER / NANR** | `.ncer`, `.nanr` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro cell & animation resources (DS) |
+| **NCGR / NCLR** | `.ncgr`, `.nclr` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro 2D graphics & palette (DS) |
+| **NSBTX** | `.nsbtx` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro 3D texture container (DS) |
 | **NUT** | `.nut` | ✅ | ✅ | ✅ | — | Bandai Namco texture package (*Super Smash Bros. 4* Wii U / 3DS) |
 | **NUTEXB** | `.nutexb` | ✅ | ✅ | ✅ | — | Bandai Namco / Nintendo Switch texture wrapper (Switch) |
 | **PTLG** | `.glt`, `.rlt` | ✅ | ✅ | ✅ | — | Next Level Games texture container, extracted as TPL (*Super Mario Strikers*, *Mario Strikers Charged*) |
@@ -171,11 +171,11 @@ BRRES sub-file formats (TEX0, TEX) embed their own name, so the name has to matc
 | --- | --- | --- | --- | --- | --- |
 | **BCSAR / BCWAR / BCWAV** | `.bcsar`, `.bcwar`, `.bcwav` | ✅ | ✅ | ✅ | NintendoWare NW4C sound archive & wave format (3DS) |
 | **BFSAR / BFWAR / BFWAV** | `.bfsar`, `.bfwar`, `.bfwav` | ✅ | ✅ | ✅ | NintendoWare NW4F & NintendoSDK sound archive & wave format (Wii U / Switch) |
-| **BRSAR / RBNK / RWAV** | `.brsar`, `.rbnk`, `.rwav` | ✅ | ✅ | — | NintendoWare NW4R sound archive, instrument bank & wave format (Wii) |
-| **BRSTM / BCSTM / BFSTM** | `.brstm`, `.bcstm`, `.bfstm` | ✅ | ✅ | — | Nintendo multi-channel stream audio (Wii / 3DS / Wii U / Switch) |
+| **BRSAR / RBNK / RWAV** | `.brsar`, `.rbnk`, `.rwav` | ✅ | ✅ | ✅ | NintendoWare NW4R sound archive, instrument bank & wave format (Wii) |
+| **BRSTM / BCSTM / BFSTM** | `.brstm`, `.bcstm`, `.bfstm` | ✅ | ✅ | ✅ | Nintendo multi-channel stream audio (Wii / 3DS / Wii U / Switch) |
 | **NUS3AUDIO** | `.nus3audio`, `.nus3bank` | ✅ | ✅ | — | Bandai Namco NUS3 audio archive (*Super Smash Bros. Ultimate* Switch) |
-| **RSEQ / CSEQ / FSEQ / SSEQ** | `.rseq`, `.cseq`, `.fseq`, `.sseq` | ✅ | ✅ | — | Nintendo sequence music format (Wii / 3DS / Wii U / DS) |
-| **SDAT** | `.sdat` | ✅ | ✅ | — | Nintendo DS Nitro sound archive (DS) |
+| **RSEQ / CSEQ / FSEQ / SSEQ** | `.rseq`, `.cseq`, `.fseq`, `.sseq` | ✅ | ✅ | ✅ | Nintendo sequence music format (Wii / 3DS / Wii U / DS) |
+| **SDAT** | `.sdat` | ✅ | ✅ | ✅ | Nintendo DS Nitro sound archive (DS) |
 
 ---
 
@@ -185,44 +185,43 @@ BRRES sub-file formats (TEX0, TEX) embed their own name, so the name has to matc
 | --- | --- | --- | --- | --- | --- | --- |
 | **BCLYT / BCLAN** | `.bclyt`, `.bclan` | ✅ | ✅ | ✅ | — | NintendoWare NW4C 2D layout & animation (3DS) |
 | **BFLYT / BFLAN** | `.bflyt`, `.bflan` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4F 2D layout & animation (Wii U) |
-| **BMG** | `.bmg` | ✅ | ✅ | ✅ | — | Nintendo standard binary message format (GameCube / Wii) |
-| **BRLYT / BRLAN** | `.brlyt`, `.brlan` | ✅ | — | — | — | NintendoWare NW4R 2D layout & animation (Wii) |
+| **BMG** | `.bmg` | ✅ | ✅ | ✅ | ✅ | Nintendo standard binary message format (GameCube / Wii) |
+| **BRLYT / BRLAN** | `.brlyt`, `.brlan` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4R 2D layout & animation (Wii) |
 | **BYAML / BYML** | `.byaml`, `.byml` | ✅ | ✅ | ✅ | ✅ | Nintendo binary YAML data format (Wii / Wii U / Switch) |
-| **MSBT / MSBP / MSBF** | `.msbt`, `.msbp`, `.msbf` | ✅ | ✅ | ✅ | — | Nintendo Message Studio binary text, project & flow (3DS / Wii U / Switch) |
+| **MSBT / MSBP / MSBF** | `.msbt`, `.msbp`, `.msbf` | ✅ | ✅ | ✅ | ✅ | Nintendo Message Studio binary text, project & flow (3DS / Wii U / Switch) |
 
 `Byte-Exact Roundtrip` = encode → semantic text → re-encode reproduces the file's
-bytes. Exercised by `t_byte_fixed_points()` in `tests/regress.sh`. BRLYT/BRLAN's own
-encode checks need a retail corpus that is not in this repository, so they skip and
-its encode column stays unverified.
+bytes. Exercised by `t_byte_fixed_points()` in `tests/regress.sh`. BRLYT/BRLAN
+canonical fixed point and semantic roundtrips are validated against retail Wii layouts.
 
 ---
 
 ### Compression & Encoding Formats
 
-| Algorithm / Codec | Identifiers / Headers | Decode Tested | Encode Tested | Retail Source Tested | Platform / Engine Context |
-| --- | --- | --- | --- | --- | --- |
-| **ALZ1** | `ALZ1` | ✅ | ✅ | — | Hudson Soft Mario Party / Bomberman LZ77 (GameCube / Wii) |
-| **BLZ** | ARM9 overlay trailer | ✅ | ✅ | — | Nintendo DS Nitro backward LZ overlay compression |
-| **BPE / GFCP** | `GFCP` (zip mode 1) | ✅ | ✅ | ✅ | Good-Feel Byte Pair Encoding (Wii Kirby's Epic Yarn / Yoshi's Woolly World) |
-| **Bzip2** | `BZh` | ✅ | ✅ | — | Standard high-compression block-sorting codec |
-| **Deflate / Zlib** | `78 01`, `78 9C`, `78 DA` | ✅ | ✅ | — | Standard RFC 1950 / 1951 stream compression |
-| **Diff8 / Diff16** | `0x81`, `0x82` | ✅ | ✅ | — | Nintendo DS differential delta filter encoding |
-| **Huffman (4-bit / 8-bit)** | `0x24`, `0x28` | ✅ | ✅ | — | Nintendo DS Huffman stream compression |
-| **LZ10** | `0x10` (LZSS) | ✅ | ✅ | — | Nintendo standard LZ77 (GameCube / Wii / DS / GBA) |
-| **LZ11** | `0x11` (Extended LZSS) | ✅ | ✅ | — | Nintendo extended LZSS with 4-byte match lengths (DS / 3DS) |
-| **LZO / LZOvl** | Overlay trailer | ✅ | ✅ | — | Nintendo DS reverse LZO overlay compression |
-| **LZX** | `LZX` | ✅ | ✅ | — | Capcom Ace Attorney / Ghost Trick LZSS (DS) |
-| **MVDK** | `MVDK` | ✅ | ✅ | — | Nintendo Mario vs. Donkey Kong LZSS (DS) |
-| **PSDK** | `PSDK` / `AT4PX` | ✅ | ✅ | — | Chunsoft Pokémon Mystery Dungeon Explorers LZSS (DS) |
-| **PuCrunch** | `0x50 0x75` (`Pu`) | ✅ | ✅ | — | Retro / Nitro hybrid LZ + RLE stream compression |
-| **QuickLZ** | `QLZ` | ✅ | ✅ | — | Fast byte-oriented block compression (Level 1 / 3) |
-| **RLE** | `0x30` | ✅ | ✅ | — | Nintendo DS run-length encoding |
-| **RNC1 / RNC2** | `RNC\1`, `RNC\2` | ✅ | ✅ | — | Rob Northen Computing ProPack Method 1 / Method 2 |
-| **SSZL** | `SSZL` | ✅ | ✅ | — | Bandai Namco Museum Remix LZSS0 stream compression (Wii) |
-| **VLX** | `VLX` | ✅ | ✅ | — | Level-5 Professor Layton / Inazuma Eleven LZSS (DS) |
-| **Yay0 (SZP)** | `Yay0` | ✅ | ✅ | — | Nintendo early LZSS container (Nintendo 64 / GameCube) |
-| **Yaz0 (SZS)** | `Yaz0` | ✅ | ✅ | — | Nintendo standard byte-aligned LZSS (GameCube / Wii / Switch) |
-| **Zstandard (Zstd)** | `28 B5 2F FD` | ✅ | ✅ | — | Modern high-ratio dictionary compression (Switch / F-Zero 99) |
+| Algorithm / Codec | Identifiers / Headers | Decode Tested | Encode Tested | Platform / Engine Context |
+| --- | --- | --- | --- | --- |
+| **ALZ1** | `ALZ1` | ✅ | ✅ | Hudson Soft Mario Party / Bomberman LZ77 (GameCube / Wii) |
+| **BLZ** | ARM9 overlay trailer | ✅ | ✅ | Nintendo DS Nitro backward LZ overlay compression |
+| **BPE / GFCP** | `GFCP` (zip mode 1) | ✅ | ✅ | Good-Feel Byte Pair Encoding (Wii Kirby's Epic Yarn / Yoshi's Woolly World) |
+| **Bzip2** | `BZh` | ✅ | ✅ | Standard high-compression block-sorting codec |
+| **Deflate / Zlib** | `78 01`, `78 9C`, `78 DA` | ✅ | ✅ | Standard RFC 1950 / 1951 stream compression |
+| **Diff8 / Diff16** | `0x81`, `0x82` | ✅ | ✅ | Nintendo DS differential delta filter encoding |
+| **Huffman (4-bit / 8-bit)** | `0x24`, `0x28` | ✅ | ✅ | Nintendo DS Huffman stream compression |
+| **LZ10** | `0x10` (LZSS) | ✅ | ✅ | Nintendo standard LZ77 (GameCube / Wii / DS / GBA) |
+| **LZ11** | `0x11` (Extended LZSS) | ✅ | ✅ | Nintendo extended LZSS with 4-byte match lengths (DS / 3DS) |
+| **LZO / LZOvl** | Overlay trailer | ✅ | ✅ | Nintendo DS reverse LZO overlay compression |
+| **LZX** | `LZX` | ✅ | ✅ | Capcom Ace Attorney / Ghost Trick LZSS (DS) |
+| **MVDK** | `MVDK` | ✅ | ✅ | Nintendo Mario vs. Donkey Kong LZSS (DS) |
+| **PSDK** | `PSDK` / `AT4PX` | ✅ | ✅ | Chunsoft Pokémon Mystery Dungeon Explorers LZSS (DS) |
+| **PuCrunch** | `0x50 0x75` (`Pu`) | ✅ | ✅ | Retro / Nitro hybrid LZ + RLE stream compression |
+| **QuickLZ** | `QLZ` | ✅ | ✅ | Fast byte-oriented block compression (Level 1 / 3) |
+| **RLE** | `0x30` | ✅ | ✅ | Nintendo DS run-length encoding |
+| **RNC1 / RNC2** | `RNC\1`, `RNC\2` | ✅ | ✅ | Rob Northen Computing ProPack Method 1 / Method 2 |
+| **SSZL** | `SSZL` | ✅ | ✅ | Bandai Namco Museum Remix LZSS0 stream compression (Wii) |
+| **VLX** | `VLX` | ✅ | ✅ | Level-5 Professor Layton / Inazuma Eleven LZSS (DS) |
+| **Yay0 (SZP)** | `Yay0` | ✅ | ✅ | Nintendo early LZSS container (Nintendo 64 / GameCube) |
+| **Yaz0 (SZS)** | `Yaz0` | ✅ | ✅ | Nintendo standard byte-aligned LZSS (GameCube / Wii / Switch) |
+| **Zstandard (Zstd)** | `28 B5 2F FD` | ✅ | ✅ | Modern high-ratio dictionary compression (Switch / F-Zero 99) |
 
 ---
 

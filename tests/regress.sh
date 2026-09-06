@@ -4674,16 +4674,23 @@ t_byte_exact_encoders(){
   done
 
   # Classic BMG uses a richer text form with encoding, MID and INF metadata.
-  local bmg_text="$PWD_PROJECT/../tests/samples-excitebots/extract/excitebots.d/UPDATE/files/_sys/RVL-WiiSystemmenu-v385.d/00000063.d/message/jpn/sample.bmg.txt"
-  # This retail corpus is not checked into the repository. Without the
-  # guard its absence was reported as a BMG encoder regression rather
-  # than a skip, which is what made the suite look broken.
-  if [ ! -f "$bmg_text" ]; then sk "BMG canonical encoding"; else
-    if "$B/wbmgt" ENCODE "$bmg_text" --dest "$d/msg-a/same.bmg" --overwrite >/dev/null 2>&1 \
-    && "$B/wbmgt" ENCODE "$bmg_text" --dest "$d/msg-b/same.bmg" --overwrite >/dev/null 2>&1 \
+  local bmg_retail="$PWD_PROJECT/../tests/fixtures/wii_retail/retail_promotion.bmg"
+  if [ -f "$bmg_retail" ]; then
+    if "$B/wbmgt" DECODE "$bmg_retail" -d "$d/msg-retail.txt" --overwrite >/dev/null 2>&1 \
+    && "$B/wbmgt" ENCODE "$d/msg-retail.txt" --dest "$d/msg-a/same.bmg" --overwrite >/dev/null 2>&1 \
+    && "$B/wbmgt" ENCODE "$d/msg-retail.txt" --dest "$d/msg-b/same.bmg" --overwrite >/dev/null 2>&1 \
     && cmp -s "$d/msg-a/same.bmg" "$d/msg-b/same.bmg"; then
-      bok "BMG same semantic text -> identical encoded bytes"
-    else bno "BMG canonical encoding" "two encodes differ"; fi
+      bok "BMG (retail Wii) same semantic text -> identical encoded bytes"
+    else bno "BMG (retail Wii) canonical encoding" "two encodes differ"; fi
+  else
+    local bmg_text="$PWD_PROJECT/../tests/samples-excitebots/extract/excitebots.d/UPDATE/files/_sys/RVL-WiiSystemmenu-v385.d/00000063.d/message/jpn/sample.bmg.txt"
+    if [ ! -f "$bmg_text" ]; then sk "BMG canonical encoding"; else
+      if "$B/wbmgt" ENCODE "$bmg_text" --dest "$d/msg-a/same.bmg" --overwrite >/dev/null 2>&1 \
+      && "$B/wbmgt" ENCODE "$bmg_text" --dest "$d/msg-b/same.bmg" --overwrite >/dev/null 2>&1 \
+      && cmp -s "$d/msg-a/same.bmg" "$d/msg-b/same.bmg"; then
+        bok "BMG same semantic text -> identical encoded bytes"
+      else bno "BMG canonical encoding" "two encodes differ"; fi
+    fi
   fi
 
   # Classic BMG encoding matrix:
@@ -4718,24 +4725,17 @@ t_byte_exact_encoders(){
 
   # Wii BRLAN/BRLYT semantic encoders retain all sections and padding for
   # their canonical text form, independently of the newer BFLAN/BFLYT pair.
-  local legacy_root="$PWD_PROJECT/../tests/samples-excitebots/extract/excitebots.d/UPDATE/files/_sys/RVL-Eulav_US-v2.d/0000000b.d/layout.d/arc"
-  # Same uncommitted corpus as the BMG sample: skip rather than report six
-  # phantom BRLYT/BRLAN regressions when it is not present.
-  [ -d "$legacy_root" ] || sk "legacy BRLYT/BRLAN layouts"
-  for spec in 'anim/EULA_ViewerDialog_DialogIn.brlan brlan' \
-              'blyt/EULA_ViewerDialog.brlyt brlyt' \
-              'blyt/EULA_Viewer_a.brlyt brlyt' \
-              'blyt/EULA_Viewer_b.brlyt brlyt' \
-              'blyt/P1_Def.brlyt brlyt' \
-              'blyt/P2_Def.brlyt brlyt'; do
-    set -- $spec; src="$legacy_root/$1"; ext=$2; local name=$(basename "$1" ".$ext")
-    [ -f "$src" ] || continue
-    if "$B/wlayt" decode "$src" "$d/same-$name.tflyt" >/dev/null 2>&1 \
-    && "$B/wlayt" encode "$d/same-$name.tflyt" "$d/layout-a/same-$name.$ext" >/dev/null 2>&1 \
-    && "$B/wlayt" encode "$d/same-$name.tflyt" "$d/layout-b/same-$name.$ext" >/dev/null 2>&1 \
-    && cmp -s "$d/layout-a/same-$name.$ext" "$d/layout-b/same-$name.$ext"; then
-      bok "${name}.${ext} same semantic text -> identical encoded bytes"
-    else bno "${name}.${ext} canonical encoding" "two encodes differ"; fi
+  for spec in 'wii_retail/retail_HomeBtn.brlyt brlyt HomeBtn' \
+              'wii_retail/retail_HomeBtn_strt.brlan brlan HomeBtn_strt'; do
+    set -- $spec; src="$PWD_PROJECT/../tests/fixtures/$1"; ext=$2; local name=$3
+    if [ -f "$src" ]; then
+      if "$B/wlayt" decode "$src" "$d/same-$name.tflyt" >/dev/null 2>&1 \
+      && "$B/wlayt" encode "$d/same-$name.tflyt" "$d/layout-a/same-$name.$ext" >/dev/null 2>&1 \
+      && "$B/wlayt" encode "$d/same-$name.tflyt" "$d/layout-b/same-$name.$ext" >/dev/null 2>&1 \
+      && cmp -s "$d/layout-a/same-$name.$ext" "$d/layout-b/same-$name.$ext"; then
+        bok "${name}.${ext} (retail Wii) same semantic text -> identical encoded bytes"
+      else bno "${name}.${ext} (retail Wii) canonical encoding" "two encodes differ"; fi
+    fi
   done
 
   # NintendoWare sequence assembly. Test both endian variants of FSEQ.
@@ -5247,17 +5247,25 @@ t_byte_fixed_points(){
     else fno "${label} canonical fixed point" "second-generation bytes differ"; fi
   done
 
-  local bmg_text="$PWD_PROJECT/../tests/samples-excitebots/extract/excitebots.d/UPDATE/files/_sys/RVL-WiiSystemmenu-v385.d/00000063.d/message/jpn/sample.bmg.txt"
-  # This retail corpus is not checked into the repository. Without the
-  # guard its absence was reported as a BMG encoder regression rather
-  # than a skip, which is what made the suite look broken.
-  if [ ! -f "$bmg_text" ]; then sk "BMG canonical fixed point"; else
-    if "$B/wbmgt" ENCODE "$bmg_text" --dest "$d/a/same.bmg" --overwrite >/dev/null 2>&1 \
-    && "$B/wbmgt" DECODE "$d/a/same.bmg" --dest "$d/mid.bmg.txt" --overwrite >/dev/null 2>&1 \
-    && "$B/wbmgt" ENCODE "$d/mid.bmg.txt" --dest "$d/b/same.bmg" --overwrite >/dev/null 2>&1 \
-    && cmp -s "$d/a/same.bmg" "$d/b/same.bmg"; then
-      fok "BMG encode -> semantic text -> identical re-encode"
-    else fno "BMG canonical fixed point" "second-generation bytes differ"; fi
+  local bmg_retail="$PWD_PROJECT/../tests/fixtures/wii_retail/retail_promotion.bmg"
+  if [ -f "$bmg_retail" ]; then
+    if "$B/wbmgt" DECODE "$bmg_retail" -d "$d/source-bmg-retail.txt" --overwrite >/dev/null 2>&1 \
+    && "$B/wbmgt" ENCODE "$d/source-bmg-retail.txt" --dest "$d/a/same-retail.bmg" --overwrite >/dev/null 2>&1 \
+    && "$B/wbmgt" DECODE "$d/a/same-retail.bmg" --dest "$d/mid-bmg-retail.txt" --overwrite >/dev/null 2>&1 \
+    && "$B/wbmgt" ENCODE "$d/mid-bmg-retail.txt" --dest "$d/b/same-retail.bmg" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/a/same-retail.bmg" "$d/b/same-retail.bmg"; then
+      fok "BMG (retail Wii) encode -> semantic text -> identical re-encode"
+    else fno "BMG (retail Wii) canonical fixed point" "second-generation bytes differ"; fi
+  else
+    local bmg_text="$PWD_PROJECT/../tests/samples-excitebots/extract/excitebots.d/UPDATE/files/_sys/RVL-WiiSystemmenu-v385.d/00000063.d/message/jpn/sample.bmg.txt"
+    if [ ! -f "$bmg_text" ]; then sk "BMG canonical fixed point"; else
+      if "$B/wbmgt" ENCODE "$bmg_text" --dest "$d/a/same.bmg" --overwrite >/dev/null 2>&1 \
+      && "$B/wbmgt" DECODE "$d/a/same.bmg" --dest "$d/mid.bmg.txt" --overwrite >/dev/null 2>&1 \
+      && "$B/wbmgt" ENCODE "$d/mid.bmg.txt" --dest "$d/b/same.bmg" --overwrite >/dev/null 2>&1 \
+      && cmp -s "$d/a/same.bmg" "$d/b/same.bmg"; then
+        fok "BMG encode -> semantic text -> identical re-encode"
+      else fno "BMG canonical fixed point" "second-generation bytes differ"; fi
+    fi
   fi
 
   # Classic BMG encoding matrix fixed points:
@@ -5320,25 +5328,19 @@ t_byte_fixed_points(){
     else fno "${ext}.fzip canonical fixed point" "second-generation bytes differ"; fi
   done
 
-  local legacy_root="$PWD_PROJECT/../tests/samples-excitebots/extract/excitebots.d/UPDATE/files/_sys/RVL-Eulav_US-v2.d/0000000b.d/layout.d/arc"
-  # Same uncommitted corpus as the BMG sample: skip rather than report six
-  # phantom BRLYT/BRLAN regressions when it is not present.
-  [ -d "$legacy_root" ] || sk "legacy BRLYT/BRLAN layouts"
-  for spec in 'anim/EULA_ViewerDialog_DialogIn.brlan brlan' \
-              'blyt/EULA_ViewerDialog.brlyt brlyt' \
-              'blyt/EULA_Viewer_a.brlyt brlyt' \
-              'blyt/EULA_Viewer_b.brlyt brlyt' \
-              'blyt/P1_Def.brlyt brlyt' \
-              'blyt/P2_Def.brlyt brlyt'; do
-    set -- $spec; src="$legacy_root/$1"; ext=$2; local name=$(basename "$1" ".$ext")
-    [ -f "$src" ] || continue
-    if "$B/wlayt" decode "$src" "$d/source-$name.tflyt" >/dev/null 2>&1 \
-    && "$B/wlayt" encode "$d/source-$name.tflyt" "$d/layout-a/same-$name.$ext" >/dev/null 2>&1 \
-    && "$B/wlayt" decode "$d/layout-a/same-$name.$ext" "$d/mid-$name.tflyt" >/dev/null 2>&1 \
-    && "$B/wlayt" encode "$d/mid-$name.tflyt" "$d/layout-b/same-$name.$ext" >/dev/null 2>&1 \
-    && cmp -s "$d/layout-a/same-$name.$ext" "$d/layout-b/same-$name.$ext"; then
-      fok "${name}.${ext} encode -> semantic text -> identical re-encode"
-    else fno "${name}.${ext} canonical fixed point" "second-generation bytes differ"; fi
+  # Wii BRLAN/BRLYT retail fixed point
+  for spec in 'wii_retail/retail_HomeBtn.brlyt brlyt HomeBtn' \
+              'wii_retail/retail_HomeBtn_strt.brlan brlan HomeBtn_strt'; do
+    set -- $spec; src="$PWD_PROJECT/../tests/fixtures/$1"; ext=$2; local name=$3
+    if [ -f "$src" ]; then
+      if "$B/wlayt" decode "$src" "$d/source-$name.tflyt" >/dev/null 2>&1 \
+      && "$B/wlayt" encode "$d/source-$name.tflyt" "$d/layout-a/same-$name.$ext" >/dev/null 2>&1 \
+      && "$B/wlayt" decode "$d/layout-a/same-$name.$ext" "$d/mid-$name.tflyt" >/dev/null 2>&1 \
+      && "$B/wlayt" encode "$d/mid-$name.tflyt" "$d/layout-b/same-$name.$ext" >/dev/null 2>&1 \
+      && cmp -s "$d/layout-a/same-$name.$ext" "$d/layout-b/same-$name.$ext"; then
+        fok "${name}.${ext} (retail Wii) encode -> semantic text -> identical re-encode"
+      else fno "${name}.${ext} (retail Wii) canonical fixed point" "second-generation bytes differ"; fi
+    fi
   done
 
   # PMsh's derived buckets/planes are fully recovered by its GLB path.
@@ -6037,6 +6039,46 @@ with open("'"$d"'/ctxb_test/sample.ctxb", "wb") as f:
     bno "Grezzo 3DS Texture Container" "failed byte-exact re-encode";
   fi
 
+  # Nintendo 3DS CLIM Texture (.bclim) test
+  mkdir -p "$d/bclim_test"
+  local bclim_src="$PWD_PROJECT/../tests/fixtures/audio_samples/retail_coin.bclim"
+  if [ -f "$bclim_src" ]; then
+    if "$B/wimgt" DECODE "$bclim_src" -d "$d/bclim_test/coin.png" --overwrite >/dev/null 2>&1 \
+    && [ -f "$d/bclim_test/coin.png" ]; then
+      fok "Nintendo 3DS CLIM Texture (.bclim) decoding"
+    else
+      fno "Nintendo 3DS CLIM Texture" "failed to decode .bclim sample";
+    fi
+    if "$B/wimgt" ENCODE "$d/bclim_test/coin.png" -d "$d/bclim_test/coin.bclim" --overwrite >/dev/null 2>&1 \
+    && "$B/wimgt" DECODE "$d/bclim_test/coin.bclim" -d "$d/bclim_test/coin_re.png" --overwrite >/dev/null 2>&1 \
+    && "$B/wimgt" ENCODE "$d/bclim_test/coin_re.png" -d "$d/bclim_test/coin_fp.bclim" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/bclim_test/coin.bclim" "$d/bclim_test/coin_fp.bclim"; then
+      bok "Nintendo 3DS CLIM Texture (.bclim) canonical fixed point"
+    else
+      bno "Nintendo 3DS CLIM Texture" "failed canonical fixed point";
+    fi
+  fi
+
+  # Nintendo Wii U FLIM Texture (.bflim) test
+  mkdir -p "$d/bflim_test"
+  local bflim_src="$PWD_PROJECT/../tests/fixtures/audio_samples/retail_sample.bflim"
+  if [ -f "$bflim_src" ]; then
+    if "$B/wimgt" DECODE "$bflim_src" -d "$d/bflim_test/sample.png" --overwrite >/dev/null 2>&1 \
+    && [ -f "$d/bflim_test/sample.png" ]; then
+      fok "Nintendo Wii U FLIM Texture (.bflim) decoding"
+    else
+      fno "Nintendo Wii U FLIM Texture" "failed to decode .bflim sample";
+    fi
+    if "$B/wimgt" ENCODE "$d/bflim_test/sample.png" --transform RGBA8 -d "$d/bflim_test/sample.bflim" --overwrite >/dev/null 2>&1 \
+    && "$B/wimgt" DECODE "$d/bflim_test/sample.bflim" -d "$d/bflim_test/sample_re.png" --overwrite >/dev/null 2>&1 \
+    && "$B/wimgt" ENCODE "$d/bflim_test/sample_re.png" --transform RGBA8 -d "$d/bflim_test/sample_fp.bflim" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/bflim_test/sample.bflim" "$d/bflim_test/sample_fp.bflim"; then
+      bok "Nintendo Wii U FLIM Texture (.bflim) canonical fixed point"
+    else
+      bno "Nintendo Wii U FLIM Texture" "failed canonical fixed point";
+    fi
+  fi
+
   # Twilight Princess HD TMPK Archive (.pack) test
   mkdir -p "$d/tmpk_test"
   python3 -c '
@@ -6454,19 +6496,37 @@ with open(sys.argv[1], "wb") as f:
   fi
 
   # Nintendo 3DS Wave Audio (.bcwav / CWAV) test
-  printf "CWAV\0\0\0\0" > "$d/audio_test/sample.bcwav"
-  if "$B/wszst" filetype "$d/audio_test/sample.bcwav" 2>/dev/null | grep -q "BCWAV"; then
-    fok "Nintendo 3DS Wave Audio (.bcwav / CWAV) identification"
+  local bcwav_sample="$PWD_PROJECT/../tests/fixtures/audio_samples/retail_sample.bcwav"
+  if [ -f "$bcwav_sample" ]; then
+    if "$B/wszst" filetype "$bcwav_sample" 2>/dev/null | grep -q "BCWAV"; then
+      fok "Nintendo 3DS Wave Audio (.bcwav / CWAV) retail sample identification"
+    else
+      fno "Nintendo 3DS Wave Audio" "failed to identify retail .bcwav sample";
+    fi
   else
-    fno "Nintendo 3DS Wave Audio" "failed to identify .bcwav sample";
+    printf "CWAV\0\0\0\0" > "$d/audio_test/sample.bcwav"
+    if "$B/wszst" filetype "$d/audio_test/sample.bcwav" 2>/dev/null | grep -q "BCWAV"; then
+      fok "Nintendo 3DS Wave Audio (.bcwav / CWAV) identification"
+    else
+      fno "Nintendo 3DS Wave Audio" "failed to identify .bcwav sample";
+    fi
   fi
 
   # Nintendo Wii U / Switch Wave Audio (.bfwav / FWAV) test
-  printf "FWAV\0\0\0\0" > "$d/audio_test/sample.bfwav"
-  if "$B/wszst" filetype "$d/audio_test/sample.bfwav" 2>/dev/null | grep -q "BFWAV"; then
-    fok "Nintendo Wii U / Switch Wave Audio (.bfwav / FWAV) identification"
+  local bfwav_sample="$PWD_PROJECT/../tests/fixtures/audio_samples/retail_sample.bfwav"
+  if [ -f "$bfwav_sample" ]; then
+    if "$B/wszst" filetype "$bfwav_sample" 2>/dev/null | grep -q "BFWAV"; then
+      fok "Nintendo Wii U / Switch Wave Audio (.bfwav / FWAV) retail sample identification"
+    else
+      fno "Nintendo Wii U / Switch Wave Audio" "failed to identify retail .bfwav sample";
+    fi
   else
-    fno "Nintendo Wii U / Switch Wave Audio" "failed to identify .bfwav sample";
+    printf "FWAV\0\0\0\0" > "$d/audio_test/sample.bfwav"
+    if "$B/wszst" filetype "$d/audio_test/sample.bfwav" 2>/dev/null | grep -q "BFWAV"; then
+      fok "Nintendo Wii U / Switch Wave Audio (.bfwav / FWAV) identification"
+    else
+      fno "Nintendo Wii U / Switch Wave Audio" "failed to identify .bfwav sample";
+    fi
   fi
 
   # Nintendo Switch Binary Shader (.bnsh / BNSH) test

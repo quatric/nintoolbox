@@ -15,8 +15,10 @@ extern "C" {
 
 extern void trace_free (const char *func, const char *file, unsigned int line, void *ptr);
 extern void *trace_calloc (const char *func, const char *file, unsigned int line, size_t nmemb, size_t size);
+extern void *trace_malloc (const char *func, const char *file, unsigned int line, size_t size);
 #define free(p) trace_free(__FUNCTION__, __FILE__, __LINE__, (p))
 #define calloc(n, s) trace_calloc(__FUNCTION__, __FILE__, __LINE__, (n), (s))
+#define malloc(s) trace_malloc(__FUNCTION__, __FILE__, __LINE__, (s))
 
 int main (void)
 {
@@ -1062,6 +1064,120 @@ int main (void)
 			}
 			ResetOwnedEntries (scanned, n_scanned);
 			free (rfl_data);
+		}
+	}
+
+	// 29. Test retail Nintendo DS Nitro 2D Graphics (NCGR, NCLR, NCER, NANR)
+	{
+		FILE *f_ncgr = fopen("../tests/fixtures/nitro_samples/retail_sample.ncgr", "rb");
+		FILE *f_nclr = fopen("../tests/fixtures/nitro_samples/retail_kart_std_color.nclr", "rb");
+		if (f_ncgr && f_nclr)
+		{
+			fseek(f_ncgr, 0, SEEK_END);
+			uint ncgr_sz = (uint)ftell(f_ncgr);
+			fseek(f_ncgr, 0, SEEK_SET);
+			u8 *ncgr_buf = (u8 *)malloc(ncgr_sz);
+			fread(ncgr_buf, 1, ncgr_sz, f_ncgr);
+			fclose(f_ncgr);
+
+			fseek(f_nclr, 0, SEEK_END);
+			uint nclr_sz = (uint)ftell(f_nclr);
+			fseek(f_nclr, 0, SEEK_SET);
+			u8 *nclr_buf = (u8 *)malloc(nclr_sz);
+			fread(nclr_buf, 1, nclr_sz, f_nclr);
+			fclose(f_nclr);
+
+			nitro_ncgr_t ncgr;
+			nitro_nclr_t nclr;
+			enumError e_ncgr = ScanNitroNCGR(&ncgr, ncgr_buf, ncgr_sz);
+			enumError e_nclr = ScanNitroNCLR(&nclr, nclr_buf, nclr_sz);
+			if (e_ncgr || e_nclr || ncgr.n_tiles == 0 || nclr.n_entries == 0)
+			{
+				printf("  FAIL: ScanNitroNCGR / ScanNitroNCLR on retail samples failed\n");
+				fail++;
+			}
+			else
+			{
+				printf("  PASS: Retail NCGR (%u tiles, %ubpp) and NCLR (%u colors) scanned successfully\n",
+					ncgr.n_tiles, ncgr.bpp, nclr.n_entries);
+			}
+			ResetNitroNCLR(&nclr);
+			free(ncgr_buf);
+			free(nclr_buf);
+		}
+
+		FILE *f_ncer = fopen("../tests/fixtures/nitro_samples/retail_sample.ncer", "rb");
+		if (f_ncer)
+		{
+			fseek(f_ncer, 0, SEEK_END);
+			uint ncer_sz = (uint)ftell(f_ncer);
+			fseek(f_ncer, 0, SEEK_SET);
+			u8 *ncer_buf = (u8 *)malloc(ncer_sz);
+			fread(ncer_buf, 1, ncer_sz, f_ncer);
+			fclose(f_ncer);
+
+			char *txt = 0;
+			enumError e_ncer = DecodeNCER_Text(&txt, ncer_buf, ncer_sz);
+			if (e_ncer || !txt || !strstr(txt, "NCER"))
+			{
+				printf("  FAIL: DecodeNCER_Text on retail sample failed\n");
+				fail++;
+			}
+			else
+			{
+				u8 *re_ncer = 0;
+				uint re_sz = 0;
+				enumError e_enc = EncodeNCER_Text(&re_ncer, &re_sz, txt);
+				if (e_enc || !re_ncer || re_sz == 0)
+				{
+					printf("  FAIL: EncodeNCER_Text from retail text failed\n");
+					fail++;
+				}
+				else
+				{
+					printf("  PASS: Retail NCER decode -> disassemble -> re-encode roundtrip\n");
+				}
+				free(re_ncer);
+			}
+			free(txt);
+			free(ncer_buf);
+		}
+
+		FILE *f_nanr = fopen("../tests/fixtures/nitro_samples/retail_sample.nanr", "rb");
+		if (f_nanr)
+		{
+			fseek(f_nanr, 0, SEEK_END);
+			uint nanr_sz = (uint)ftell(f_nanr);
+			fseek(f_nanr, 0, SEEK_SET);
+			u8 *nanr_buf = (u8 *)malloc(nanr_sz);
+			fread(nanr_buf, 1, nanr_sz, f_nanr);
+			fclose(f_nanr);
+
+			char *txt = 0;
+			enumError e_nanr = DecodeNANR_Text(&txt, nanr_buf, nanr_sz);
+			if (e_nanr || !txt || !strstr(txt, "NANR"))
+			{
+				printf("  FAIL: DecodeNANR_Text on retail sample failed\n");
+				fail++;
+			}
+			else
+			{
+				u8 *re_nanr = 0;
+				uint re_sz = 0;
+				enumError e_enc = EncodeNANR_Text(&re_nanr, &re_sz, txt);
+				if (e_enc || !re_nanr || re_sz == 0)
+				{
+					printf("  FAIL: EncodeNANR_Text from retail text failed\n");
+					fail++;
+				}
+				else
+				{
+					printf("  PASS: Retail NANR decode -> disassemble -> re-encode roundtrip\n");
+				}
+				free(re_nanr);
+			}
+			free(txt);
+			free(nanr_buf);
 		}
 	}
 
