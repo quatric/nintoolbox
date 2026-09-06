@@ -979,7 +979,38 @@ int main (void)
 		}
 	}
 
-	// 27. Test RFL_Res.dat (Revolution Face Library)
+	// 27. Test BPE (Good-Feel Byte Pair Encoding)
+	{
+		const u8 test_data[] = "BPE_TEST_DATA_Good_Feel_Kirby_Epic_Yarn_and_Yoshis_Woolly_World_GFCP_Mode_1_1234567890!_Roundtrip_Verify";
+		const uint len = sizeof (test_data);
+		u8 *enc = 0;
+		uint enc_sz = 0;
+
+		enumError e1 = EncodeBPE (&enc, &enc_sz, test_data, len);
+		if (e1 || !enc || !enc_sz)
+		{
+			printf("  FAIL: EncodeBPE failed\n");
+			fail++;
+		}
+		else
+		{
+			u8 *dec = (u8 *)calloc (1, len);
+			enumError e2 = DecodeBPE (dec, len, enc, enc_sz);
+			if (e2 || memcmp (dec, test_data, len))
+			{
+				printf("  FAIL: DecodeBPE roundtrip mismatch\n");
+				fail++;
+			}
+			else
+			{
+				printf("  PASS: BPE / GFCP encode -> decode roundtrip\n");
+			}
+			free (dec);
+			free (enc);
+		}
+	}
+
+	// 28. Test RFL_Res.dat (Revolution Face Library)
 	{
 		nintendo_sarc_entry_t entries[3] = {
 			{ "beard/000.bin", (const u8 *)"RFL_BEARD_DATA", 14 },

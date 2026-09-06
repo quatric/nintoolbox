@@ -126,6 +126,60 @@ enumError DecodeBPE (u8 *dest, uint dest_size, const u8 *src, uint src_size)
 	return ERR_OK;
 }
 
+enumError EncodeBPE (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
+{
+	if (!dest || !dest_size || !src)
+		return EINVAL;
+
+	// BPE divides data into blocks of up to 0x7FFF bytes.
+	// For each block:
+	//   1. Header: 256 uncompressed byte identity mappings (marker 0, followed by entries 0..255)
+	//      or packed runs. Specifically, marker 128..255 skips unused bytes, or marker <= 127 defines
+	//      entries where table[c] == c.
+	//      A simple identity table: marker 0x7F (128 entries), bytes 0..127; marker 0x7F, bytes 128..255.
+	//   2. Block length (be16)
+	//   3. Raw bytes of the block
+	const uint max_block = 0x7FFF;
+	uint est_size = src_size + (src_size / max_block + 1) * 300;
+	u8 *out = MALLOC (est_size);
+	if (!out)
+		return ERR_OUT_OF_MEMORY;
+
+	uint sp = 0, dp = 0;
+	do
+	{
+		uint cur_block = src_size - sp;
+		if (cur_block > max_block)
+			cur_block = max_block;
+
+		// Emit identity table for 256 bytes:
+		// Two groups of 128 entries (marker 0x7F = 127+1 = 128 entries)
+		out[dp++] = 0x7F;
+		for (uint i = 0; i < 128; i++)
+			out[dp++] = (u8)i;
+
+		out[dp++] = 0x7F;
+		for (uint i = 128; i < 256; i++)
+			out[dp++] = (u8)i;
+
+		// Block length (big-endian 16-bit)
+		out[dp++] = (u8)(cur_block >> 8);
+		out[dp++] = (u8)(cur_block & 0xFF);
+
+		if (cur_block)
+		{
+			memcpy (out + dp, src + sp, cur_block);
+			dp += cur_block;
+			sp += cur_block;
+		}
+	} while (sp < src_size);
+
+	*dest = out;
+	*dest_size = dp;
+	return ERR_OK;
+}
+
+
 void ResetGFA (gfa_t *gfa)
 {
 	if (!gfa)

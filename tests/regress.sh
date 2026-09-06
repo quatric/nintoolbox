@@ -1440,6 +1440,18 @@ t_container_roundtrips(){
     no "GFA create -> extract" "mismatch"
   fi
 
+  # Retail BPE-compressed GFA
+  if [ -f "$PWD_PROJECT/../tests/fixtures/gfa_bean00.gfa" ]; then
+    rm -rf "$d/bpe_gfa.out"
+    if "$B/wszst" EXTRACT "$PWD_PROJECT/../tests/fixtures/gfa_bean00.gfa" --dest "$d/bpe_gfa.out" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/bpe_gfa.out/bean00.brres" ]; then
+      ok "BPE / GFCP decode tested (gfa_bean00.gfa)"
+    else
+      no "BPE / GFCP decode (gfa_bean00.gfa)" "extraction failed"
+    fi
+  fi
+
+
   # RARC
   rm -rf "$d/rarc.out"
   if "$B/wszst" CREATE "$d/tree" --dest "$d/test.rarc" --overwrite >/dev/null 2>&1 \
