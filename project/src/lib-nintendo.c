@@ -382,8 +382,17 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		return make_info (NFMT_BFLIM, true, false, 0);
 	if (size >= 0x28 && !memcmp (d + size - 0x28, "CLIM", 4))
 		return make_info (NFMT_BCLIM, true, false, 0);
-	if (size >= 0x70 && !memcmp (d + size - 7, "XET", 3))
-		return make_info (NFMT_NUTEXB, false, false, 0);
+	if (filename)
+	{
+		ccp ext = strrchr (filename, '.');
+		if (ext)
+		{
+			if (!strcasecmp (ext, ".gfbmdl"))
+				return make_info (NFMT_GFBMDL, false, false, 0);
+			if (!strcasecmp (ext, ".gfbanm"))
+				return make_info (NFMT_GFBANM, false, false, 0);
+		}
+	}
 	return make_info (NFMT_UNKNOWN, true, false, 0);
 }
 

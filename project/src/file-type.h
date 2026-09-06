@@ -329,6 +329,8 @@ typedef enum file_format_t
 	FF_BCWAV, // 235 - Nintendo 3DS Wave Audio (.bcwav / CWAV)
 	FF_BFWAV, // 236 - Nintendo Wii U / Switch Wave Audio (.bfwav / FWAV)
 	FF_BNSH, // 237 - Nintendo Switch Binary Shader (.bnsh / BNSH)
+	FF_GFBMDL, // 238 - Game Freak FlatBuffer Model (.gfbmdl)
+	FF_GFBANM, // 239 - Game Freak FlatBuffer Animation (.gfbanm)
 
 	//--- number of elements
 

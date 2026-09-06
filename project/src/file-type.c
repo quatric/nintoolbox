@@ -1324,6 +1324,18 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 'B', 'N', 'S', 'H' },
 		0, MinusString, MinusString, "Nintendo Switch Binary Shader (.bnsh / BNSH)" },
 
+	// FF_GFBMDL = 238 (Game Freak FlatBuffer Model)
+	{ FF_GFBMDL, FF_GFBMDL, 0, "GFBMDL", ".gfbmdl", ".szs", ".gfbmdl",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
+		{ 0 },
+		0, MinusString, MinusString, "Game Freak FlatBuffer Model (.gfbmdl)" },
+
+	// FF_GFBANM = 239 (Game Freak FlatBuffer Animation)
+	{ FF_GFBANM, FF_GFBANM, 0, "GFBANM", ".gfbanm", ".szs", ".gfbanm",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
+		{ 0 },
+		0, MinusString, MinusString, "Game Freak FlatBuffer Animation (.gfbanm)" },
+
 	// FF_N
 	{ 0 }
 };

@@ -6342,6 +6342,21 @@ with open(sys.argv[1], "wb") as f:
     fno "Nintendo Switch Binary Shader" "failed to identify .bnsh sample";
   fi
 
+  # Game Freak FlatBuffer Model (.gfbmdl) and Animation (.gfbanm) tests
+  mkdir -p "$d/gf_test"
+  touch "$d/gf_test/sample.gfbmdl"
+  touch "$d/gf_test/sample.gfbanm"
+  if "$B/wszst" filetype "$d/gf_test/sample.gfbmdl" 2>/dev/null | grep -q "GFBMDL"; then
+    fok "Game Freak FlatBuffer Model (.gfbmdl) identification"
+  else
+    fno "Game Freak FlatBuffer Model" "failed to identify .gfbmdl sample";
+  fi
+  if "$B/wszst" filetype "$d/gf_test/sample.gfbanm" 2>/dev/null | grep -q "GFBANM"; then
+    fok "Game Freak FlatBuffer Animation (.gfbanm) identification"
+  else
+    fno "Game Freak FlatBuffer Animation" "failed to identify .gfbanm sample";
+  fi
+
   # Next Level Games GLG/RLG models: decode to GLB, re-encode, and confirm
   # the second generation is byte-identical to the first. ball.glg is a
   # 74-byte-entry prop, Luigi.glg a 66-byte-entry character (the entry size

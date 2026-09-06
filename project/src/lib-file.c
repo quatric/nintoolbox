@@ -1749,6 +1749,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_TEX3DS;
 		case NFMT_BNSH:
 			return FF_BNSH;
+		case NFMT_GFBMDL:
+			return FF_GFBMDL;
+		case NFMT_GFBANM:
+			return FF_GFBANM;
 		default:
 			break;
 	}
