@@ -7377,6 +7377,62 @@ assert tris == 1, f"expected 1 triangle, got {tris}"
     no "NUMSHB mesh" "export missing or wrong contents"
   fi
 
+  # With a sibling .nusktb the rigging groups become a real skin: joints,
+  # inverse bind matrices and per-vertex JOINTS_0/WEIGHTS_0.
+  rm -rf "$d/skin"; mkdir -p "$d/skin"
+  python3 "$PWD_PROJECT/../tests/mk_numshb.py" "$d/skin/model.numshb" skinned >/dev/null 2>&1
+  if "$B/wmdlt" DECODE "$d/skin/model.numshb" --dest "$d/skin/out.glb" --overwrite >/dev/null 2>&1 \
+  && python3 -c '
+import json, struct, sys
+b = open(sys.argv[1], "rb").read()
+off, doc, binc = 12, None, None
+while off < len(b):
+    clen, ctype = struct.unpack_from("<II", b, off)
+    if ctype == 0x4E4F534A: doc = json.loads(b[off+8:off+8+clen])
+    elif ctype == 0x004E4942: binc = b[off+8:off+8+clen]
+    off += 8 + clen
+skins = doc.get("skins", [])
+assert len(skins) == 1, f"expected one skin, got {len(skins)}"
+assert len(skins[0]["joints"]) == 2, "expected two joints"
+assert "inverseBindMatrices" in skins[0], "skin has no inverse bind matrices"
+fmt = {5121: "B", 5123: "H", 5126: "f"}
+for m in doc["meshes"]:
+    for p in m["primitives"]:
+        a = p["attributes"]
+        assert "JOINTS_0" in a and "WEIGHTS_0" in a, "skin attributes missing"
+        acc = doc["accessors"][a["WEIGHTS_0"]]
+        bv = doc["bufferViews"][acc["bufferView"]]
+        base = bv.get("byteOffset", 0) + acc.get("byteOffset", 0)
+        f = fmt[acc["componentType"]]
+        for i in range(acc["count"]):
+            w = struct.unpack_from("<" + f * 4, binc, base + i * 4 * struct.calcsize("<" + f))
+            assert abs(sum(w) - 1.0) < 0.02, f"weights do not sum to 1: {w}"
+' "$d/skin/out.glb"; then
+    ok "NUMSHB + .nusktb -> skinned GLB (weights sum to 1)"
+  else
+    no "NUMSHB mesh" "skinning missing or weights wrong"
+  fi
+
+  # Without the skeleton the same mesh must still export, just unskinned.
+  rm -f "$d/skin/model.nusktb" "$d/skin/out.glb"
+  if "$B/wmdlt" DECODE "$d/skin/model.numshb" --dest "$d/skin/out.glb" --overwrite >/dev/null 2>&1 \
+  && python3 -c '
+import json, struct, sys
+b = open(sys.argv[1], "rb").read()
+off, doc = 12, None
+while off < len(b):
+    clen, ctype = struct.unpack_from("<II", b, off)
+    if ctype == 0x4E4F534A:
+        doc = json.loads(b[off+8:off+8+clen]); break
+    off += 8 + clen
+assert not doc.get("skins"), "skinned without a skeleton"
+assert doc["meshes"], "mesh dropped when the skeleton is absent"
+' "$d/skin/out.glb"; then
+    ok "NUMSHB without a skeleton still exports geometry"
+  else
+    no "NUMSHB mesh" "lost the mesh when no skeleton was present"
+  fi
+
   # Version 1.8 lays its object record out differently and must be declined
   # rather than read with 1.10 offsets.
   python3 -c '

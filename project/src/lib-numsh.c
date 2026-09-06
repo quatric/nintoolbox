@@ -52,6 +52,32 @@
 //     897 objects sampled, and only 0.01% of the triangles are degenerate.
 //
 // Tangents (usage 3) and colour sets (usage 4) are parsed but not exported.
+//
+// Skinning lives outside the vertex attributes. The mesh header's last array
+// holds rigging groups, one per mesh object, each naming the object it binds
+// and carrying a list of bone buffers:
+//
+//   rigging group, 0x28 bytes: object name pointer, u64 sub index, u64 flags,
+//                              then a bone buffer array (pointer, count)
+//   bone buffer,   0x18 bytes: bone name pointer, data pointer, u64 size
+//   weight entry,  6 bytes:    u16 vertex index, f32 weight
+//
+// The 6-byte entry is what the sizes say: a bone buffer of 0x45c bytes holds
+// 186 of them exactly, and read that way the first entries of a retail buffer
+// come out (0, 1.0), (1, 1.0), (2, 1.0) rather than the noise an 8-byte
+// stride produces.
+//
+// The bones themselves come from the sibling .nusktb (SKEL v1.0), whose
+// header holds five arrays: bone entries of 0x10 bytes (name pointer, u16
+// index, s16 parent, u32 flags) and then world, inverse world, local and
+// inverse local matrices, 4x4 row-major with the translation in the last
+// row. That order is not assumed: across 151 retail skeletons
+// world[i] == local[i] * world[parent] holds for 97.6% of bones and
+// world * inverse world is the identity for 95.1%, while every other
+// assignment of the four arrays scores far worse.
+//
+// joint_t wants 3x4 affines in the opposite convention, so the upper 3x3 is
+// transposed and the translation moved from the last row to the last column.
 //-----------------------------------------------------------------------------
 
 #include <stdio.h>
@@ -113,7 +139,34 @@ bool IsSSBH (const uint8_t *data, size_t size)
 #define NSH_OBJ_SIZE 0xd0
 #define NSH_ATTR_SIZE 0x30
 
+// Convert one SKEL 4x4 (row-major, translation in the last row) into the
+// 3x4 row-major affine joint_t carries, whose translation is the last column.
+static void nsh_mat_to_joint (const uint8_t *src, float *out)
+{
+	for (int r = 0; r < 3; r++)
+	{
+		for (int c = 0; c < 3; c++)
+			out[r * 4 + c] = nsh_f32 (src + (c * 4 + r) * 4);
+		out[r * 4 + 3] = nsh_f32 (src + (3 * 4 + r) * 4);
+	}
+}
+
+// Bone index by name, or -1.
+static int nsh_bone_by_name (const model_t *model, const char *name)
+{
+	for (size_t i = 0; i < model->num_joints; i++)
+		if (!strcmp (model->joints[i].name, name))
+			return (int)i;
+	return -1;
+}
+
 model_t *ParseNUMSHB (const uint8_t *data, size_t size)
+{
+	return ParseNUMSHBSkinned (data, size, NULL, 0);
+}
+
+model_t *ParseNUMSHBSkinned (
+	const uint8_t *data, size_t size, const uint8_t *skel, size_t skel_size)
 {
 	if (!IsSSBH (data, size) || size < 0x100)
 		return NULL;
@@ -181,6 +234,56 @@ model_t *ParseNUMSHB (const uint8_t *data, size_t size)
 		free (model);
 		return NULL;
 	}
+
+	//--- skeleton, when a sibling .nusktb was supplied
+
+	size_t skel_world = 0, skel_inv = 0;
+	if (skel && skel_size > 0x60 && !memcmp (skel, "HBSS", 4)
+		&& (!memcmp (skel + 0x10, "LEKS", 4) || !memcmp (skel + 0x10, "SKEL", 4)))
+	{
+		#define SREL(off) ((size_t)(off) + nsh_rd64 (skel + (off)))
+		const size_t bone_off = SREL (0x18);
+		const uint64_t bone_count = nsh_rd64 (skel + 0x20);
+		const size_t world_off = SREL (0x28);
+		const size_t inv_off = SREL (0x38);
+		if (bone_count && bone_count <= 0x1000
+			&& bone_off + bone_count * 0x10 <= skel_size
+			&& world_off + bone_count * 64 <= skel_size
+			&& inv_off + bone_count * 64 <= skel_size)
+		{
+			model->joints = calloc (bone_count, sizeof (joint_t));
+			if (model->joints)
+			{
+				model->num_joints = bone_count;
+				skel_world = world_off;
+				skel_inv = inv_off;
+				for (uint64_t b = 0; b < bone_count; b++)
+				{
+					const uint8_t *e = skel + bone_off + b * 0x10;
+					const size_t nm = (size_t)(e - skel) + nsh_rd64 (e);
+					joint_t *j = model->joints + b;
+					if (nm < skel_size)
+						snprintf (j->name, sizeof (j->name), "%.*s",
+							(int)(sizeof (j->name) - 1), (const char *)(skel + nm));
+					const int16_t parent = (int16_t)nsh_rd16 (e + 0x0a);
+					j->parent_idx = parent >= 0 && (uint64_t)parent < bone_count ? parent : -1;
+					j->scale.x = j->scale.y = j->scale.z = 1.0f;
+					nsh_mat_to_joint (skel + world_off + b * 64, j->bind);
+					nsh_mat_to_joint (skel + inv_off + b * 64, j->inverse_bind);
+					j->has_inverse_bind = 1;
+				}
+			}
+		}
+		#undef SREL
+	}
+	(void)skel_world;
+	(void)skel_inv;
+
+	// Rigging groups: one per mesh object, naming the bones that weight it.
+	const size_t rig_off = REL (m + 0xc0);
+	const uint64_t rig_count = nsh_rd64 (m + 0xc8);
+	const int have_rig = model->num_joints && rig_count && rig_count <= 0x4000
+		&& rig_off + rig_count * 0x28 <= size;
 
 	for (uint64_t i = 0; i < obj_count; i++)
 	{
@@ -286,8 +389,107 @@ model_t *ParseNUMSHB (const uint8_t *data, size_t size)
 		{
 			free (mesh->normals);
 			free (mesh->texcoords);
+			free (mesh->position_node);
 			memset (mesh, 0, sizeof (*mesh));
 			continue;
+		}
+
+		//--- skin weights for this object, from its rigging group
+
+		if (have_rig)
+		{
+			const size_t obj_name = REL (o);
+			const uint64_t obj_sub = nsh_rd64 (o + 0x08);
+			for (uint64_t g = 0; g < rig_count; g++)
+			{
+				const uint8_t *rg = data + rig_off + g * 0x28;
+				const size_t rg_name = REL (rg);
+				if (rg_name >= size || obj_name >= size
+					|| strcmp ((const char *)(data + rg_name), (const char *)(data + obj_name))
+					|| nsh_rd64 (rg + 0x08) != obj_sub)
+					continue;
+
+				const size_t bb_off = REL (rg + 0x18);
+				const uint64_t bb_count = nsh_rd64 (rg + 0x20);
+				if (!bb_count || bb_count > 0x1000 || bb_off + bb_count * 0x18 > size)
+					break;
+
+				// One influence node per vertex; the exporter keys weights
+				// off position_node, and a per-vertex node is the direct
+				// expression of a list of (bone, weight) pairs.
+				if (!mesh->position_node)
+				{
+					mesh->position_node = malloc (v_count * sizeof (int));
+					model->node_influences
+						= realloc (model->node_influences,
+							(model->num_node_influences + v_count) * sizeof (node_influence_t));
+					if (!mesh->position_node || !model->node_influences)
+						break;
+					memset (model->node_influences + model->num_node_influences, 0,
+						v_count * sizeof (node_influence_t));
+					for (uint32_t v = 0; v < v_count; v++)
+						mesh->position_node[v] = (int)(model->num_node_influences + v);
+					model->num_node_influences += v_count;
+				}
+				const size_t node_base = (size_t)mesh->position_node[0];
+
+				for (uint64_t b = 0; b < bb_count; b++)
+				{
+					const uint8_t *bb = data + bb_off + b * 0x18;
+					const size_t bn = REL (bb);
+					if (bn >= size)
+						continue;
+					const int joint = nsh_bone_by_name (model, (const char *)(data + bn));
+					if (joint < 0)
+						continue;
+					const size_t wd = REL (bb + 0x08);
+					const uint64_t wsz = nsh_rd64 (bb + 0x10);
+					if (wd + wsz > size)
+						continue;
+					// 6 bytes per entry: u16 vertex index, f32 weight.
+					for (uint64_t w = 0; w + 6 <= wsz; w += 6)
+					{
+						const uint8_t *e = data + wd + w;
+						const uint32_t vi = nsh_rd16 (e);
+						const float weight = nsh_f32 (e + 2);
+						if (vi >= v_count || !(weight > 0.0f))
+							continue;
+						node_influence_t *ni = model->node_influences + node_base + vi;
+						influence_t *grown = realloc (
+							ni->weights, (ni->num_weights + 1) * sizeof (influence_t));
+						if (!grown)
+							continue;
+						ni->weights = grown;
+						ni->weights[ni->num_weights].bone_idx = joint;
+						ni->weights[ni->num_weights].weight = weight;
+						ni->num_weights++;
+					}
+				}
+				break;
+			}
+
+			// A vertex the rigging never mentions follows the object's own
+			// parent bone, which is how a rigid object is attached.
+			if (mesh->position_node)
+			{
+				const size_t pb = REL (o + 0x10);
+				const int parent_joint = pb < size
+					? nsh_bone_by_name (model, (const char *)(data + pb))
+					: -1;
+				const size_t node_base = (size_t)mesh->position_node[0];
+				for (uint32_t v = 0; v < v_count; v++)
+				{
+					node_influence_t *ni = model->node_influences + node_base + v;
+					if (ni->num_weights || parent_joint < 0)
+						continue;
+					ni->weights = calloc (1, sizeof (influence_t));
+					if (!ni->weights)
+						continue;
+					ni->weights[0].bone_idx = parent_joint;
+					ni->weights[0].weight = 1.0f;
+					ni->num_weights = 1;
+				}
+			}
 		}
 
 		// Plain triangle list.
@@ -321,6 +523,7 @@ model_t *ParseNUMSHB (const uint8_t *data, size_t size)
 			free (mesh->positions);
 			free (mesh->normals);
 			free (mesh->texcoords);
+			free (mesh->position_node);
 			memset (mesh, 0, sizeof (*mesh));
 			continue;
 		}

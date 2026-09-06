@@ -988,7 +988,52 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				if (!model && raw.data_size >= 4 && (!memcmp (raw.data, "NDP3", 4) || !memcmp (raw.data, "NDWU", 4)))
 					model = ParseNUD (raw.data, raw.data_size);
 				if (!model && raw.data_size >= 4 && (!memcmp (raw.data, "SSBH", 4) || !memcmp (raw.data, "HBSS", 4)))
-					model = ParseNUMSHB (raw.data, raw.data_size);
+				{
+					// A mesh's bones live in a sibling .nusktb; without it the
+					// model still exports, just unskinned.
+					u8 *skel = 0;
+					size_t skel_size = 0;
+					char dir[PATH_MAX];
+					snprintf (dir, sizeof (dir), "%s", arg);
+					char *slash = strrchr (dir, '/');
+					if (slash)
+					{
+						*slash = 0;
+						DIR *dp = opendir (dir);
+						if (dp)
+						{
+							for (const struct dirent *de; (de = readdir (dp));)
+							{
+								const size_t n = strlen (de->d_name);
+								if (n < 8 || strcasecmp (de->d_name + n - 7, ".nusktb"))
+									continue;
+								char path[PATH_MAX];
+								snprintf (path, sizeof (path), "%s/%s", dir, de->d_name);
+								if (LoadFileAlloc (path, 0, 0, &skel, &skel_size, 0, 0, 0, false))
+								{
+									skel = 0;
+									skel_size = 0;
+									continue;
+								}
+								// The archive names files by hash, so a
+								// ".nusktb" can hold something else entirely
+								// -- a MATL turns up under that name. Keep
+								// looking until one really is a skeleton.
+								if (skel_size > 0x14 && !memcmp (skel, "HBSS", 4)
+									&& (!memcmp (skel + 0x10, "LEKS", 4)
+										|| !memcmp (skel + 0x10, "SKEL", 4)))
+									break;
+								FREE (skel);
+								skel = 0;
+								skel_size = 0;
+							}
+							closedir (dp);
+						}
+					}
+					model = ParseNUMSHBSkinned (
+						raw.data, raw.data_size, skel, skel_size);
+					FREE (skel);
+				}
 				if (model)
 				{
 					if (is_dae)
