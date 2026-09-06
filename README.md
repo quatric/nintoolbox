@@ -134,27 +134,33 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 
 ### Textures & 2D Graphics
 
-| Format | Extensions | Decode Tested | Encode Tested | Middleware / Engine / Platform Context |
-|---|---|---|---|---|
-| **ART / IMG** | `.art`, `.img` | ✅ | — | Monster Games GUI image format (Wii) |
-| **BCFNT / BFFNT / BRFNT** | `.bcfnt`, `.bffnt`, `.brfnt` | ✅ | ✅ | NintendoWare font resource (3DS / Wii U / Wii) |
-| **BCLIM / CTPK** | `.bclim`, `.ctpk` | ✅ | ✅ | NintendoWare NW4C texture container (3DS) |
-| **BFLIM** | `.bflim` | ✅ | — | NintendoWare NW4F texture format (Wii U) |
-| **BNTX** | `.bntx` | ✅ | — | NintendoSDK Tegra block-linear texture container (Switch) |
-| **BREFT** | `.breft` | ✅ | — | NintendoWare NW4R particle effect texture (Wii) |
-| **BTI / TPL** | `.bti`, `.tpl` | ✅ | ✅ | Nintendo standard texture palette library (GameCube / Wii) |
-| **CTXB** | `.ctxb` | ✅ | — | Grezzo 3DS texture container (*Ocarina of Time 3D*, *Majora's Mask 3D*) |
-| **PTLG** | `.glt`, `.rlt` | ✅ | — | Next Level Games texture container, extracted as TPL (*Super Mario Strikers*, *Mario Strikers Charged*) |
-| **TEX3DS** | `.tex` | — | — | Nintendo 3DS proprietary texture (identification only) |
-| **G1T** | `.g1t` | — | — | Koei Tecmo texture container (*Hyrule Warriors*, *Fire Emblem Warriors*) |
-| **GTX** | `.gtx` | ✅ | — | Nintendo Wii U GX2 surface container (Wii U) |
-| **NCGR / NCLR / NCER / NANR** | `.ncgr`, `.nclr`, `.ncer`, `.nanr` | ✅ | — | Nintendo DS Nitro 2D graphics, palette, cell & animation (DS) |
-| **NSBTX** | `.nsbtx` | ✅ | ✅ | Nintendo DS Nitro 3D texture container (DS) |
-| **NUT** | `.nut` | ✅ | — | Bandai Namco texture package (*Super Smash Bros. 4* Wii U / 3DS) |
-| **NUTEXB** | `.nutexb` | ✅ | ✅ | Bandai Namco / Nintendo Switch texture wrapper (Switch) |
-| **TEX** | `.tex` | ✅ | — | Monster Games GX texture format (Wii) |
-| **TEX0** | `.tex0` | ✅ | — | NintendoWare NW4R texture resource (Wii) |
-| **XIMG** | `.xi` | — | — | Level-5 3DS/Switch image & texture container |
+| Format | Extensions | Decode Tested | Encode Tested | Byte-Exact Roundtrip | Middleware / Engine / Platform Context |
+|---|---|---|---|---|---|
+| **ART / IMG** | `.art`, `.img` | ✅ | — | — | Monster Games GUI image format (Wii) |
+| **BCFNT / BFFNT / BRFNT** | `.bcfnt`, `.bffnt`, `.brfnt` | ✅ | ✅ | ✅ | NintendoWare font resource (3DS / Wii U / Wii) |
+| **BCLIM** | `.bclim` | ✅ | ✅ | ✅ | NintendoWare NW4C texture container (3DS) |
+| **BFLIM** | `.bflim` | ✅ | ✅ | ✅ | NintendoWare NW4F texture format (Wii U) |
+| **BNTX** | `.bntx` | ✅ | ✅ | ✅ | NintendoSDK Tegra block-linear texture container (Switch) |
+| **BREFT** | `.breft`, `.bt-img` | ✅ | ✅ | ✅ | NintendoWare NW4R particle effect texture (Wii) |
+| **BTI / TPL** | `.bti`, `.tpl` | ✅ | ✅ | ✅ | Nintendo standard texture palette library (GameCube / Wii) |
+| **CTPK** | `.ctpk` | ✅ | ✅ | — | NintendoWare NW4C texture package (3DS) |
+| **CTXB** | `.ctxb` | ✅ | — | — | Grezzo 3DS texture container (*Ocarina of Time 3D*, *Majora's Mask 3D*) |
+| **G1T** | `.g1t` | — | — | — | Koei Tecmo texture container (*Hyrule Warriors*, *Fire Emblem Warriors*) |
+| **GTX** | `.gtx` | ✅ | ✅ | ✅ | Nintendo Wii U GX2 surface container (Wii U) |
+| **NCER / NANR** | `.ncer`, `.nanr` | ✅ | ✅ | — | Nintendo DS Nitro cell & animation resources (DS) |
+| **NCGR / NCLR** | `.ncgr`, `.nclr` | ✅ | ✅ | ✅ | Nintendo DS Nitro 2D graphics & palette (DS) |
+| **NSBTX** | `.nsbtx` | ✅ | ✅ | — | Nintendo DS Nitro 3D texture container (DS) |
+| **NUT** | `.nut` | ✅ | — | — | Bandai Namco texture package (*Super Smash Bros. 4* Wii U / 3DS) |
+| **NUTEXB** | `.nutexb` | ✅ | ✅ | — | Bandai Namco / Nintendo Switch texture wrapper (Switch) |
+| **PTLG** | `.glt`, `.rlt` | ✅ | — | — | Next Level Games texture container, extracted as TPL (*Super Mario Strikers*, *Mario Strikers Charged*) |
+| **TEX** | `.tex` | ✅ | ✅ | ✅ | Monster Games GX texture format (Wii) |
+| **TEX0** | `.tex0` | ✅ | ✅ | ✅ | NintendoWare NW4R texture resource (Wii) |
+| **TEX3DS** | `.tex` | — | — | — | Nintendo 3DS proprietary texture (identification only) |
+| **XIMG** | `.xi` | — | — | — | Level-5 3DS/Switch image & texture container |
+
+`Byte-Exact Roundtrip` = encode → decode → re-encode to the same destination name
+reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regress.sh`.
+BRRES sub-file formats (TEX0, TEX) embed their own name, so the name has to match.
 
 ---
 

@@ -5017,7 +5017,8 @@ t_byte_fixed_points(){
   mkdir -p "$d/a" "$d/b"
   python3 "$PNGTOOL" write "$d/source.png" 32 32 100 150 200
   local ext
-  for ext in ncgr nclr plt0 tex0 brfnt brfna bcfnt bffnt bclim bflim bntx gtx tpl bti; do
+  for ext in ncgr nclr plt0 tex0 brfnt brfna bcfnt bffnt bclim bflim bntx gtx tpl bti \
+             breft tex; do
     # A previous iteration's DECODE (e.g. TEX0, which has real mipmaps) can
     # leave "mid.mm1.png"/"mid.mm2.png" sidecars that a later format's own
     # ENCODE then picks up by the same naming convention, corrupting this
