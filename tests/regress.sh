@@ -1817,15 +1817,18 @@ body = (b'AUDIINDX' + struct.pack('<I', len(audiindx)) + audiindx +
 hdr = magic + struct.pack('<I', len(body))
 open('$d/smash_audio.nus3audio', 'wb').write(hdr + body)
 " 2>/dev/null
-    rm -rf "$d/nus3_out"
+    rm -rf "$d/nus3_out" "$d/nus3_repack"
     if [ -f "$d/smash_audio.nus3audio" ] \
     && "$B/wszst" xx "$d/smash_audio.nus3audio" --dest "$d/nus3_out" --overwrite >/dev/null 2>&1 \
     && [ -s "$d/nus3_out/bgm_smash_theme.idsp" ] \
-    && [ -s "$d/nus3_out/se_mario_punch.lopus" ]; then
-      ok "NUS3AUDIO (Smash Ultimate audio archive) extract roundtrip"
+    && [ -s "$d/nus3_out/se_mario_punch.lopus" ] \
+    && "$B/wszst" CREATE "$d/nus3_out" --dest "$d/nus3_repack.nus3audio" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/smash_audio.nus3audio" "$d/nus3_repack.nus3audio"; then
+      ok "NUS3AUDIO (Smash Ultimate audio archive) extract -> create roundtrip"
     else
-      no "NUS3AUDIO (Smash Ultimate audio archive) extract" "failed"
+      no "NUS3AUDIO (Smash Ultimate audio archive) extract -> create" "failed"
     fi
+
 
     # NUT (Smash 4 NTP3 texture container)
     python3 -c "
@@ -4943,7 +4946,7 @@ PY
   # member ordering, alignment and payload bytes are compared.
   mkdir -p "$d/tree/sub" "$d/archive-a" "$d/archive-b"
   printf alpha > "$d/tree/a"; printf beta > "$d/tree/sub/b"
-  for ext in narc darc pac gfa rarc sarc sarc.fzip warc warc.fzip ccf nccarc at7 mpbin arc wu8 pack rkc breff breft lta lfl szs wbz ybz wlz ylz; do
+  for ext in narc darc pac gfa rarc sarc sarc.fzip warc warc.fzip ccf nccarc at7 mpbin arc wu8 pack rkc breff breft lta lfl szs wbz ybz wlz ylz nus3audio; do
     if "$B/wszst" CREATE "$d/tree" --dest "$d/archive-a/same.$ext" --overwrite >/dev/null 2>&1 \
     && "$B/wszst" CREATE "$d/tree" --dest "$d/archive-b/same.$ext" --overwrite >/dev/null 2>&1 \
     && cmp -s "$d/archive-a/same.$ext" "$d/archive-b/same.$ext"; then

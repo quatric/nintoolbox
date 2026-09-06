@@ -2008,6 +2008,30 @@ static enumError create_gfa_dir (ccp source, ccp dest)
 	return err;
 }
 
+static enumError create_nus3audio_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+	u8 *data = 0;
+	uint size = 0;
+	if (!err)
+		err = CreateNUS3AudioArchive (&data, &size, list.entry, list.used);
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, source);
+		if (F.f && fwrite (data, 1, size, F.f) != size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+
+
 static enumError create_ccf_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -3441,6 +3465,8 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest)
 	}
 	if (!strcasecmp (ext, ".gfa"))
 		return create_gfa_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".nus3audio") || !strcasecmp (ext, ".nus3bank"))
+		return create_nus3audio_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".rarc"))
 		return create_rarc_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".bcsar") || !strcasecmp (ext, ".csar"))

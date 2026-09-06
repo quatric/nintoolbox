@@ -4336,3 +4336,135 @@ enumError ExtractNUS3AudioArchive (ccp arg, ccp basedir, uint depth)
 	FREE (raw);
 	return ERR_OK;
 }
+
+enumError CreateNUS3AudioArchive (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	if (!dest || !dest_size || !entries || !n_entries)
+		return ERR_INVALID_DATA;
+
+	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
+	if (!sorted)
+		return ERR_OUT_OF_MEMORY;
+	memcpy (sorted, entries, n_entries * sizeof (*sorted));
+	qsort (sorted, n_entries, sizeof (*sorted), compare_archive_entries);
+
+	// Strip directory and extension from each entry to get the track name
+	char (*names)[PATH_MAX] = CALLOC (n_entries, sizeof (*names));
+	if (!names)
+	{
+		FREE (sorted);
+		return ERR_OUT_OF_MEMORY;
+	}
+
+	u32 tnnm_size = 0;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		ccp leaf = leaf_name (sorted[i].name);
+		snprintf (names[i], sizeof (names[i]), "%s", leaf);
+		char *dot = strrchr (names[i], '.');
+		if (dot)
+			*dot = 0;
+		tnnm_size += 1 + (u32)strlen (names[i]) + 1; // 1 byte len + chars + NUL
+	}
+
+	const u32 audiindx_len = 4;
+	const u32 tnid_len = n_entries * 4;
+	const u32 nmof_len = n_entries * 4;
+	const u32 adof_len = n_entries * 8;
+	const u32 tnnm_chunk_len = tnnm_size;
+
+	u32 pack_len = 0;
+	for (uint i = 0; i < n_entries; i++)
+		pack_len += sorted[i].size;
+
+	const u32 body_size = (8 + 4 + audiindx_len)
+		+ (8 + 4 + tnid_len)
+		+ (8 + 4 + nmof_len)
+		+ (8 + 4 + adof_len)
+		+ (8 + 4 + tnnm_chunk_len)
+		+ (8 + 4 + pack_len);
+
+	const u32 total_size = 8 + body_size;
+	u8 *out = CALLOC (1, total_size);
+	if (!out)
+	{
+		FREE (names);
+		FREE (sorted);
+		return ERR_OUT_OF_MEMORY;
+	}
+
+	memcpy (out, "NUS3", 4);
+	wr_le32 (out + 4, body_size);
+
+	u32 pos = 8;
+
+	// 1. AUDIINDX
+	memcpy (out + pos, "AUDIINDX", 8);
+	wr_le32 (out + pos + 8, audiindx_len);
+	wr_le32 (out + pos + 12, n_entries);
+	pos += 12 + audiindx_len;
+
+	// 2. TNID
+	memcpy (out + pos, "TNID\0\0\0\0", 8);
+	wr_le32 (out + pos + 8, tnid_len);
+	for (uint i = 0; i < n_entries; i++)
+		wr_le32 (out + pos + 12 + i * 4, 100 + i);
+	pos += 12 + tnid_len;
+
+	// 3. NMOF
+	memcpy (out + pos, "NMOF\0\0\0\0", 8);
+	wr_le32 (out + pos + 8, nmof_len);
+	u32 cur_tnnm_off = 0;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		wr_le32 (out + pos + 12 + i * 4, cur_tnnm_off);
+		cur_tnnm_off += 1 + (u32)strlen (names[i]) + 1;
+	}
+	pos += 12 + nmof_len;
+
+	// 4. ADOF
+	memcpy (out + pos, "ADOF\0\0\0\0", 8);
+	wr_le32 (out + pos + 8, adof_len);
+	u32 cur_pack_off = 0;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		wr_le32 (out + pos + 12 + i * 8, cur_pack_off);
+		wr_le32 (out + pos + 12 + i * 8 + 4, sorted[i].size);
+		cur_pack_off += sorted[i].size;
+	}
+	pos += 12 + adof_len;
+
+	// 5. TNNM
+	memcpy (out + pos, "TNNM\0\0\0\0", 8);
+	wr_le32 (out + pos + 8, tnnm_chunk_len);
+	u32 tnnm_payload = pos + 12;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		const u8 nlen = (u8)strlen (names[i]);
+		out[tnnm_payload++] = nlen;
+		memcpy (out + tnnm_payload, names[i], nlen);
+		tnnm_payload += nlen;
+		out[tnnm_payload++] = 0; // NUL terminator
+	}
+	pos += 12 + tnnm_chunk_len;
+
+	// 6. PACK
+	memcpy (out + pos, "PACK\0\0\0\0", 8);
+	wr_le32 (out + pos + 8, pack_len);
+	u32 pack_payload = pos + 12;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		if (sorted[i].data && sorted[i].size)
+			memcpy (out + pack_payload, sorted[i].data, sorted[i].size);
+		pack_payload += sorted[i].size;
+	}
+
+	FREE (names);
+	FREE (sorted);
+
+	*dest = out;
+	*dest_size = total_size;
+	return ERR_OK;
+}
+

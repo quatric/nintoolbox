@@ -787,6 +787,20 @@ static enumError cmd_create (bool create)
 			ResetSetupParam (&sp);
 			continue;
 		}
+		if (create && ext && (!strcasecmp (ext, ".nus3audio") || !strcasecmp (ext, ".nus3bank")))
+		{
+			enumError err = create_nus3audio_dir (source_dir, dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE NUS3AUDIO %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", source_dir, dest);
+			if (max_err < err)
+				max_err = err;
+			if (err <= ERR_WARNING && src_len > 2 && !strcasecmp (source_dir + src_len - 2, ".d")
+				&& !testmode)
+				remove_dir_recursive (source_dir);
+			ResetSetupParam (&sp);
+			continue;
+		}
 		if (create && ext && !strcasecmp (ext, ".big"))
 		{
 			enumError err = create_bigf_dir (source_dir, dest);
