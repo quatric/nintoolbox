@@ -27,4 +27,11 @@ body += struct.pack(">HHII", 8, 8, 5, data0) + bytes(4)
 body += struct.pack(">HHII", 8, 8, 4, data1) + bytes(4)
 body += bytes(range(128))                  # RGB5A3 pixels
 body += bytes(range(128, 256))             # RGB565 pixels
-open(sys.argv[1], "wb").write(camelot_compress(bytes(body)))
+# An optional PPC-stub prefix puts the bank at an offset, the way Camelot's
+# own model modules (elfbin/xcmdl_*.sbn) carry their textures inline. Every
+# offset inside a bank is relative to the bank, not the file.
+prefix = b""
+if len(sys.argv) > 2 and sys.argv[2] == "embedded":
+    prefix = bytes.fromhex("00000000" "00000000" "48000000" "3c600000"
+                           "38630000" "4e800020" "00000000" "00000000")
+open(sys.argv[1], "wb").write(camelot_compress(prefix + bytes(body)))

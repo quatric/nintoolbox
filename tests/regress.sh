@@ -7135,6 +7135,19 @@ for p in sys.argv[1:]:
     no "Camelot texture bank" "extraction produced no usable PNGs"
   fi
 
+  # The same bank behind a PPC stub: Camelot's models are relocatable
+  # modules carrying their textures inline, so the magic usually sits at an
+  # offset rather than at the start of the file. Scanning for it is only
+  # safe because every entry is bounds-checked before a bank is accepted.
+  python3 "$PWD_PROJECT/../tests/mk_camelot_tex.py" "$d/embedded" embedded >/dev/null 2>&1
+  rm -rf "$d/embedded.d"
+  if "$B/wszst" xx "$d/embedded" --dest "$d/embedded.d" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/embedded.d/embedded_0000.png" ] && [ -s "$d/embedded.d/embedded_0001.png" ]; then
+    ok "Camelot texture bank found at an offset inside a module"
+  else
+    no "Camelot texture bank" "missed a bank embedded behind a PPC stub"
+  fi
+
   # A bank that is not one must be declined, not half-decoded.
   printf '\x01\x00\x00\x10not a camelot stream at all' > "$d/junk"
   rm -rf "$d/junk.d"

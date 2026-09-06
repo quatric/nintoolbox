@@ -3347,15 +3347,47 @@ static u32 camelot_gx_level_size (u32 format, u32 w, u32 h)
 	return ((w + bw - 1) / bw) * ((h + bh - 1) / bh) * bw * bh * bpp / 8;
 }
 
-// Write every texture in a decompressed bank to "<stem>_%04u.png" in DEST.
-static uint camelot_texbank_to_pngs (const u8 *raw, uint size, ccp dest, ccp stem)
+// True when a bank header at RAW describes entries that all land inside the
+// AVAIL bytes that follow it. Every offset in a bank is relative to the bank
+// itself, not to the file, which is what lets one sit inside a larger module.
+//
+// Camelot's models are PPC relocatable modules (elfbin/xcmdl_*.sbn on Wii)
+// that carry their textures inline, so the magic routinely appears at an
+// offset rather than at the start of a file. Scanning for it needs this
+// check: four bytes alone would false-positive on ordinary code and data.
+static bool camelot_bank_valid (const u8 *raw, uint avail)
 {
-	if (size < 16 || rd_be32 (raw) != CAMELOT_TEXBANK_MAGIC)
+	if (avail < 16 || rd_be32 (raw) != CAMELOT_TEXBANK_MAGIC)
+		return false;
+	const u32 count = rd_be32 (raw + 4);
+	const u32 tbl = rd_be32 (raw + 8);
+	if (!count || count > 0x1000 || (u64)tbl + (u64)count * 8 > avail)
+		return false;
+
+	for (u32 i = 0; i < count; i++)
+	{
+		const u32 eoff = rd_be32 (raw + tbl + i * 8);
+		if ((u64)eoff + 16 > avail)
+			return false;
+		const u32 w = rd_be16 (raw + eoff);
+		const u32 h = rd_be16 (raw + eoff + 2);
+		const u32 format = rd_be32 (raw + eoff + 4);
+		const u32 doff = rd_be32 (raw + eoff + 8);
+		const u32 need = camelot_gx_level_size (format, w, h);
+		if (!w || !h || !need || (u64)doff + need > avail)
+			return false;
+	}
+	return true;
+}
+
+// Write every texture in one bank to "<stem>_%04u.png" in DEST, numbering
+// from *NEXT so a module holding several banks stays consistently numbered.
+static uint camelot_texbank_to_pngs (const u8 *raw, uint size, ccp dest, ccp stem, uint *next)
+{
+	if (!camelot_bank_valid (raw, size))
 		return 0;
 	const u32 count = rd_be32 (raw + 4);
 	const u32 tbl = rd_be32 (raw + 8);
-	if (!count || count > 0x1000 || (u64)tbl + (u64)count * 8 > size)
-		return 0;
 
 	uint written = 0;
 	for (u32 i = 0; i < count; i++)
@@ -3396,7 +3428,7 @@ static uint camelot_texbank_to_pngs (const u8 *raw, uint size, ccp dest, ccp ste
 		memcpy (tpl + tpl_data, raw + doff, need);
 
 		char out[PATH_MAX];
-		snprintf (out, sizeof (out), "%s/%s_%04u.png", dest, stem, i);
+		snprintf (out, sizeof (out), "%s/%s_%04u.png", dest, stem, (*next)++);
 
 		Image_t img;
 		if (AssignIMG (&img, 1, tpl, tpl_data + need, 0, false, &be_func, out) == ERR_OK
@@ -3425,20 +3457,33 @@ enumError ExtractCamelotTexBank (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 	}
 
+	// Decompress first when this is a Camelot stream, then look for banks in
+	// whatever we ended up with.
 	const u8 *bank = raw;
 	uint bank_size = (uint)raw_size;
 	u8 *decoded = 0;
-	if (rd_be32 (raw) != CAMELOT_TEXBANK_MAGIC && (raw[0] == 1 || raw[0] == 2))
+	if (raw[0] == 1 || raw[0] == 2)
 	{
 		uint decoded_size = 0;
 		if (!DecodeCamelot (&decoded, &decoded_size, raw, (uint)raw_size) && decoded
-			&& decoded_size >= 16 && rd_be32 (decoded) == CAMELOT_TEXBANK_MAGIC)
+			&& decoded_size >= 16)
 		{
 			bank = decoded;
 			bank_size = decoded_size;
 		}
 	}
-	if (rd_be32 (bank) != CAMELOT_TEXBANK_MAGIC)
+
+	// Count the banks first so nothing is written for a file that turns out
+	// to hold none. A bank can sit at any 4-byte-aligned offset: Camelot's
+	// models are PPC modules with their textures inline.
+	uint n_banks = 0, n_textures = 0;
+	for (uint off = 0; off + 16 <= bank_size; off += 4)
+		if (camelot_bank_valid (bank + off, bank_size - off))
+		{
+			n_banks++;
+			n_textures += rd_be32 (bank + off + 4);
+		}
+	if (!n_banks)
 	{
 		FREE (decoded);
 		FREE (raw);
@@ -3452,14 +3497,17 @@ enumError ExtractCamelotTexBank (ccp arg, ccp basedir, uint depth)
 	ccp stem = strrchr (arg, '/');
 	stem = stem ? stem + 1 : arg;
 
-	const u32 count = rd_be32 (bank + 4);
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT CAMELOT-TEX:%s (%u textures) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, count, dest);
+		fprintf (stdlog, "%s%sEXTRACT CAMELOT-TEX:%s (%u textures in %u bank%s) -> %s/\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, n_textures, n_banks,
+			n_banks == 1 ? "" : "s", dest);
 
-	uint written = 0;
+	uint written = 0, next = 0;
 	if (!testmode)
-		written = camelot_texbank_to_pngs (bank, bank_size, dest, stem);
+		for (uint off = 0; off + 16 <= bank_size; off += 4)
+			if (camelot_bank_valid (bank + off, bank_size - off))
+				written += camelot_texbank_to_pngs (
+					bank + off, bank_size - off, dest, stem, &next);
 
 	FREE (decoded);
 	FREE (raw);
