@@ -3457,3 +3457,313 @@ enumError CreateZLARCArchive (
 	*dest_size = (uint)comp_len;
 	return ERR_OK;
 }
+
+// ----------------------------------------------------------------------------
+// Archive writers for the container formats above.
+//
+// Each writer emits a canonical layout: entries in sorted name order, the
+// smallest header the reader accepts, and the alignment the format's own
+// files use. Re-encoding an archive that one of these writers produced
+// reproduces its bytes exactly; fields the readers do not surface (padding,
+// vendor-private words) are written as zero.
+// ----------------------------------------------------------------------------
+
+static u32 align_up (u32 value, u32 align)
+{
+	return align > 1 ? (value + align - 1) & ~(align - 1) : value;
+}
+
+// Strip any directory part: these formats store leaf names only.
+static ccp leaf_name (ccp name)
+{
+	if (!name)
+		return "";
+	ccp slash = strrchr (name, '/');
+	return slash ? slash + 1 : name;
+}
+
+// Nintendo APAK Archive (.apak / APAK), big-endian, version 5
+enumError CreateAPAKArchive (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	if (!dest || !dest_size || !entries || !n_entries)
+		return ERR_INVALID_DATA;
+
+	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
+	if (!sorted)
+		return ERR_OUT_OF_MEMORY;
+	memcpy (sorted, entries, n_entries * sizeof (*sorted));
+	qsort (sorted, n_entries, sizeof (*sorted), compare_archive_entries);
+
+	const u32 file_info_size = n_entries * 64;
+	const u32 data_start = align_up (24 + file_info_size, 32);
+
+	u32 total = data_start;
+	for (uint i = 0; i < n_entries; i++)
+		total = align_up (total + sorted[i].size, 32);
+
+	u8 *buf = CALLOC (total, 1);
+	if (!buf)
+	{
+		FREE (sorted);
+		return ERR_OUT_OF_MEMORY;
+	}
+
+	memcpy (buf, "APAK", 4);
+	wr_be16 (buf + 6, 5);
+	wr_be32 (buf + 8, n_entries);
+	wr_be32 (buf + 16, file_info_size);
+
+	u32 data_off = data_start;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		const uint entry_pos = 24 + i * 64;
+		wr_be32 (buf + entry_pos + 4, data_off);
+		wr_be32 (buf + entry_pos + 8, sorted[i].size);
+
+		ccp name = leaf_name (sorted[i].name);
+		strncpy ((char *)buf + entry_pos + 32, name, 32);
+
+		if (sorted[i].data && sorted[i].size)
+			memcpy (buf + data_off, sorted[i].data, sorted[i].size);
+		data_off = align_up (data_off + sorted[i].size, 32);
+	}
+
+	FREE (sorted);
+	*dest = buf;
+	*dest_size = total;
+	return ERR_OK;
+}
+
+// Nintendo Switch NX Archive (.nxarc / RAXN), little-endian
+enumError CreateNXARCArchive (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	if (!dest || !dest_size || !entries || !n_entries)
+		return ERR_INVALID_DATA;
+
+	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
+	if (!sorted)
+		return ERR_OUT_OF_MEMORY;
+	memcpy (sorted, entries, n_entries * sizeof (*sorted));
+	qsort (sorted, n_entries, sizeof (*sorted), compare_archive_entries);
+
+	// Index 0 is the string-table pseudo entry the reader skips.
+	const u32 file_count = n_entries + 1;
+	const u32 header_size = 32;
+	const u32 offset_block = header_size + file_count * 32;
+
+	u32 names_len = 1; // empty name for the pseudo entry
+	for (uint i = 0; i < n_entries; i++)
+		names_len += (u32)strlen (leaf_name (sorted[i].name)) + 1;
+
+	const u32 data_start = align_up (offset_block + names_len, 16);
+	u32 total = data_start;
+	for (uint i = 0; i < n_entries; i++)
+		total = align_up (total + sorted[i].size, 16);
+
+	u8 *buf = CALLOC (total, 1);
+	if (!buf)
+	{
+		FREE (sorted);
+		return ERR_OUT_OF_MEMORY;
+	}
+
+	memcpy (buf, "RAXN", 4);
+	wr_le32 (buf + 12, offset_block);
+	wr_le32 (buf + 16, header_size);
+	wr_le32 (buf + 20, file_count);
+
+	u32 name_pos = offset_block + 1; // pseudo entry already wrote its terminator
+	u32 data_off = data_start;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		ccp name = leaf_name (sorted[i].name);
+		const size_t nlen = strlen (name);
+		memcpy (buf + name_pos, name, nlen + 1);
+		name_pos += (u32)nlen + 1;
+
+		const uint entry_pos = header_size + (i + 1) * 32;
+		wr_le32 (buf + entry_pos, sorted[i].size);
+		wr_le32 (buf + entry_pos + 8, data_off);
+
+		if (sorted[i].data && sorted[i].size)
+			memcpy (buf + data_off, sorted[i].data, sorted[i].size);
+		data_off = align_up (data_off + sorted[i].size, 16);
+	}
+
+	FREE (sorted);
+	*dest = buf;
+	*dest_size = total;
+	return ERR_OK;
+}
+
+// PlatinumGames Archive (.pkz), little-endian, members stored uncompressed
+enumError CreatePKZArchive (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	if (!dest || !dest_size || !entries || !n_entries)
+		return ERR_INVALID_DATA;
+
+	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
+	if (!sorted)
+		return ERR_OUT_OF_MEMORY;
+	memcpy (sorted, entries, n_entries * sizeof (*sorted));
+	qsort (sorted, n_entries, sizeof (*sorted), compare_archive_entries);
+
+	const u32 offset_file_info = 32;
+	const u32 str_table_pos = offset_file_info + n_entries * 32;
+
+	u32 names_len = 0;
+	for (uint i = 0; i < n_entries; i++)
+		names_len += (u32)strlen (leaf_name (sorted[i].name)) + 1;
+
+	const u32 data_start = align_up (str_table_pos + names_len, 16);
+	u32 total = data_start;
+	for (uint i = 0; i < n_entries; i++)
+		total = align_up (total + sorted[i].size, 16);
+
+	u8 *buf = CALLOC (total, 1);
+	if (!buf)
+	{
+		FREE (sorted);
+		return ERR_OUT_OF_MEMORY;
+	}
+
+	memcpy (buf, "pkz\0", 4);
+	wr_le32 (buf + 16, n_entries);
+	wr_le32 (buf + 20, offset_file_info);
+
+	u32 name_rel = 0;
+	u32 data_off = data_start;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		ccp name = leaf_name (sorted[i].name);
+		const size_t nlen = strlen (name);
+		memcpy (buf + str_table_pos + name_rel, name, nlen + 1);
+
+		const uint entry_pos = offset_file_info + i * 32;
+		wr_le32 (buf + entry_pos, name_rel);
+		wr_le32 (buf + entry_pos + 8, sorted[i].size);
+		wr_le32 (buf + entry_pos + 16, data_off);
+		wr_le32 (buf + entry_pos + 24, sorted[i].size); // stored size == raw size
+
+		if (sorted[i].data && sorted[i].size)
+			memcpy (buf + data_off, sorted[i].data, sorted[i].size);
+		data_off = align_up (data_off + sorted[i].size, 16);
+		name_rel += (u32)nlen + 1;
+	}
+
+	FREE (sorted);
+	*dest = buf;
+	*dest_size = total;
+	return ERR_OK;
+}
+
+// Twilight Princess HD Archive (.pack / TMPK), big-endian
+enumError CreateTMPKArchive (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	if (!dest || !dest_size || !entries || !n_entries)
+		return ERR_INVALID_DATA;
+
+	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
+	if (!sorted)
+		return ERR_OUT_OF_MEMORY;
+	memcpy (sorted, entries, n_entries * sizeof (*sorted));
+	qsort (sorted, n_entries, sizeof (*sorted), compare_archive_entries);
+
+	const u32 alignment = 32;
+	const u32 names_start = 16 + n_entries * 16;
+
+	u32 names_len = 0;
+	for (uint i = 0; i < n_entries; i++)
+		names_len += (u32)strlen (leaf_name (sorted[i].name)) + 1;
+
+	const u32 data_start = align_up (names_start + names_len, alignment);
+	u32 total = data_start;
+	for (uint i = 0; i < n_entries; i++)
+		total = align_up (total + sorted[i].size, alignment);
+
+	u8 *buf = CALLOC (total, 1);
+	if (!buf)
+	{
+		FREE (sorted);
+		return ERR_OUT_OF_MEMORY;
+	}
+
+	memcpy (buf, "TMPK", 4);
+	wr_be32 (buf + 4, n_entries);
+	wr_be32 (buf + 8, alignment);
+
+	u32 name_pos = names_start;
+	u32 data_off = data_start;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		ccp name = leaf_name (sorted[i].name);
+		const size_t nlen = strlen (name);
+		memcpy (buf + name_pos, name, nlen + 1);
+
+		const uint entry_pos = 16 + i * 16;
+		wr_be32 (buf + entry_pos, name_pos);
+		wr_be32 (buf + entry_pos + 4, data_off);
+		wr_be32 (buf + entry_pos + 8, sorted[i].size);
+
+		if (sorted[i].data && sorted[i].size)
+			memcpy (buf + data_off, sorted[i].data, sorted[i].size);
+		data_off = align_up (data_off + sorted[i].size, alignment);
+		name_pos += (u32)nlen + 1;
+	}
+
+	FREE (sorted);
+	*dest = buf;
+	*dest_size = total;
+	return ERR_OK;
+}
+
+// Nintendo Switch Joy-Con Vibration Archive (.vibs), little-endian
+enumError CreateVIBSArchive (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	if (!dest || !dest_size || !entries || !n_entries)
+		return ERR_INVALID_DATA;
+
+	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
+	if (!sorted)
+		return ERR_OUT_OF_MEMORY;
+	memcpy (sorted, entries, n_entries * sizeof (*sorted));
+	qsort (sorted, n_entries, sizeof (*sorted), compare_archive_entries);
+
+	const u32 data_start = align_up (8 + n_entries * 44, 16);
+	u32 total = data_start;
+	for (uint i = 0; i < n_entries; i++)
+		total = align_up (total + sorted[i].size, 16);
+
+	u8 *buf = CALLOC (total, 1);
+	if (!buf)
+	{
+		FREE (sorted);
+		return ERR_OUT_OF_MEMORY;
+	}
+
+	wr_le32 (buf, 1); // version
+	wr_le32 (buf + 4, n_entries);
+
+	u32 data_off = data_start;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		const uint entry_pos = 8 + i * 44;
+		strncpy ((char *)buf + entry_pos, leaf_name (sorted[i].name), 24);
+		wr_le32 (buf + entry_pos + 32, sorted[i].size);
+		wr_le32 (buf + entry_pos + 40, data_off);
+
+		if (sorted[i].data && sorted[i].size)
+			memcpy (buf + data_off, sorted[i].data, sorted[i].size);
+		data_off = align_up (data_off + sorted[i].size, 16);
+	}
+
+	FREE (sorted);
+	*dest = buf;
+	*dest_size = total;
+	return ERR_OK;
+}
