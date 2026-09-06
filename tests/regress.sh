@@ -7720,6 +7720,143 @@ for p in sys.argv[1:]:
 }
 t_camelot_texbank
 
+echo "== Camelot LZ / STPL decomp & roundtrip =="
+t_camelot_lz(){
+  local sample="$PWD_PROJECT/../tests/fixtures/gc_samples/camelot_lz02/golf_J.lz02"
+  if [ ! -f "$sample" ]; then
+    skip "Camelot LZ / STPL" "fixture not found"
+    return
+  fi
+  local d; d=$(mktemp -d /tmp/_r_camlz.XXXXXX) || { no "Camelot LZ" "mktemp failed"; return; }
+  cp "$sample" "$d/sample.stpl"
+  if "$B/wszst" decompress "$d/sample.stpl" --dest "$d/sample_dec.bin" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/sample_dec.bin" ]; then
+    ok "Camelot STPL retail decompress"
+  else
+    no "Camelot STPL retail decompress" "decompress failed"; rm -rf "$d"; return
+  fi
+  if "$B/wszst" compress "$d/sample_dec.bin" --dest "$d/sample_re.stpl" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/sample_re.stpl" ]; then
+    ok "Camelot STPL re-compress"
+  else
+    no "Camelot STPL re-compress" "compress failed"; rm -rf "$d"; return
+  fi
+  if "$B/wszst" decompress "$d/sample_re.stpl" --dest "$d/sample_dec2.bin" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/sample_dec.bin" "$d/sample_dec2.bin"; then
+    bok "Camelot STPL compress -> decompress byte-identical roundtrip"
+  else
+    bno "Camelot STPL roundtrip" "decompressed payload differs from original"
+  fi
+  rm -rf "$d"
+}
+t_camelot_lz
+
+echo "== Retail Nintendo DS Nitro NSBTX =="
+t_retail_nsbtx(){
+  local sample="$PWD_PROJECT/../tests/fixtures/nitro_samples/retail_MR_emblem.nsbtx"
+  if [ ! -f "$sample" ]; then
+    skip "Retail NSBTX" "fixture not found"
+    return
+  fi
+  local d; d=$(mktemp -d /tmp/_r_nsbtx.XXXXXX) || { no "Retail NSBTX" "mktemp failed"; return; }
+  if "$B/wimgt" DECODE "$sample" -d "$d/emblem.png" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/emblem.png" ]; then
+    ok "Retail NSBTX decode to PNG"
+  else
+    no "Retail NSBTX decode" "failed to decode NSBTX"; rm -rf "$d"; return
+  fi
+  if "$B/wimgt" ENCODE "$d/emblem.png" -d "$d/emblem_re.nsbtx" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/emblem_re.nsbtx" ]; then
+    ok "NSBTX encode from PNG"
+  else
+    no "NSBTX encode" "failed to encode to NSBTX"; rm -rf "$d"; return
+  fi
+  if "$B/wimgt" DECODE "$d/emblem_re.nsbtx" -d "$d/emblem_re.png" --overwrite >/dev/null 2>&1 \
+  && python3 -c '
+from PIL import Image
+im1 = Image.open("'"$d"'/emblem.png")
+im2 = Image.open("'"$d"'/emblem_re.png")
+assert list(im1.getdata()) == list(im2.getdata())
+' 2>/dev/null; then
+    ok "NSBTX decode -> encode -> decode pixel-identical roundtrip"
+  else
+    no "NSBTX pixel roundtrip" "re-decoded PNG pixels differ"
+  fi
+  rm -rf "$d"
+}
+t_retail_nsbtx
+
+echo "== Retail Message Studio MSBT & MSBP =="
+t_retail_msbt_msbp(){
+  local msbt_sample="$PWD_PROJECT/../tests/fixtures/wii_retail/retail_sample.msbt"
+  local msbp_sample="$PWD_PROJECT/../tests/fixtures/wii_retail/retail_chanpon.msbp"
+  local bmg_sample="$PWD_PROJECT/../tests/fixtures/wii_retail/retail_promotion.bmg"
+  local d; d=$(mktemp -d /tmp/_r_msg.XXXXXX) || { no "Retail MSBT/MSBP" "mktemp failed"; return; }
+
+  if [ -f "$msbt_sample" ]; then
+    if "$B/wbmgt" DECODE "$msbt_sample" --dest "$d/sample.tmsbt" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/sample.tmsbt" ]; then
+      ok "Retail MSBT decode to TMSBT text"
+    else
+      no "Retail MSBT decode" "failed to decode MSBT"
+    fi
+    if "$B/wbmgt" ENCODE "$d/sample.tmsbt" --dest "$d/re.msbt" --overwrite >/dev/null 2>&1 \
+    && "$B/wbmgt" DECODE "$d/re.msbt" --dest "$d/re.tmsbt" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/sample.tmsbt" "$d/re.tmsbt"; then
+      ok "Retail MSBT decode -> encode text roundtrip"
+    else
+      no "Retail MSBT roundtrip" "re-encoded MSBT differs in text content"
+    fi
+    if "$B/wbmgt" ENCODE "$d/re.tmsbt" --dest "$d/re2.msbt" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/re.msbt" "$d/re2.msbt"; then
+      bok "Retail MSBT canonical fixed-point re-encode byte identical"
+    else
+      bno "Retail MSBT canonical fixed point" "two consecutive encodes differ"
+    fi
+  fi
+
+  if [ -f "$msbp_sample" ]; then
+    if "$B/wbmgt" DECODE "$msbp_sample" --dest "$d/chanpon.tmsbp" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/chanpon.tmsbp" ]; then
+      ok "Retail MSBP decode to TMSBP text"
+    else
+      no "Retail MSBP decode" "failed to decode MSBP"
+    fi
+    if "$B/wbmgt" ENCODE "$d/chanpon.tmsbp" --dest "$d/re.msbp" --overwrite >/dev/null 2>&1 \
+    && "$B/wbmgt" DECODE "$d/re.msbp" --dest "$d/re.tmsbp" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/chanpon.tmsbp" "$d/re.tmsbp"; then
+      ok "Retail MSBP decode -> encode text roundtrip"
+    else
+      no "Retail MSBP roundtrip" "re-encoded MSBP differs in text content"
+    fi
+    if "$B/wbmgt" ENCODE "$d/re.tmsbp" --dest "$d/re2.msbp" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/re.msbp" "$d/re2.msbp"; then
+      bok "Retail MSBP canonical fixed-point re-encode byte identical"
+    else
+      bno "Retail MSBP canonical fixed point" "two consecutive encodes differ"
+    fi
+  fi
+
+  if [ -f "$bmg_sample" ]; then
+    if "$B/wbmgt" DECODE "$bmg_sample" --dest "$d/promo.txt" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/promo.txt" ]; then
+      ok "Retail BMG decode to text"
+    else
+      no "Retail BMG decode" "failed to decode BMG"
+    fi
+    if "$B/wbmgt" ENCODE "$d/promo.txt" --dest "$d/re.bmg" --overwrite >/dev/null 2>&1 \
+    && "$B/wbmgt" DECODE "$d/re.bmg" --dest "$d/re.txt" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/promo.txt" "$d/re.txt"; then
+      ok "Retail BMG decode -> encode text roundtrip"
+    else
+      no "Retail BMG roundtrip" "re-encoded BMG differs in text content"
+    fi
+  fi
+
+  rm -rf "$d"
+}
+t_retail_msbt_msbp
+
 echo "== WarioWare DIY .mio format =="
 t_mio(){
   local mio_dir="$PWD_PROJECT/../tests/fixtures/mio_samples"

@@ -637,20 +637,18 @@ enumError ScanNitroTEX0 (nitro_tex0_t *tex0, const u8 *data, uint size)
 
 	if (!memcmp (data, "BTX0", 4) || !memcmp (data, "BMD0", 4))
 	{
-		// Search for TEX0 section
-		const uint total_sz = nrd32 (data + 8);
+		// Search for TEX0 section using section offset table at data + 0x10
 		const uint n_sec = nrd16 (data + 14);
-		uint pos = 0x10;
-		for (uint s = 0; s < n_sec && pos + 8 <= size; s++)
+		for (uint s = 0; s < n_sec && 0x10 + (s + 1) * 4 <= size; s++)
 		{
-			const uint sec_sz = nrd32 (data + pos + 4);
-			if (!memcmp (data + pos, "TEX0", 4))
+			const uint sec_off = nrd32 (data + 0x10 + s * 4);
+			if (sec_off + 8 <= size && !memcmp (data + sec_off, "TEX0", 4))
 			{
-				tex0_hdr = data + pos;
-				tex0_avail = sec_sz && pos + sec_sz <= size ? sec_sz : size - pos;
+				const uint sec_sz = nrd32 (data + sec_off + 4);
+				tex0_hdr = data + sec_off;
+				tex0_avail = sec_sz && sec_off + sec_sz <= size ? sec_sz : size - sec_off;
 				break;
 			}
-			pos += sec_sz ? sec_sz : 8;
 		}
 	}
 	else if (!memcmp (data, "TEX0", 4))
@@ -665,13 +663,44 @@ enumError ScanNitroTEX0 (nitro_tex0_t *tex0, const u8 *data, uint size)
 	tex0->raw_data = data;
 	tex0->raw_size = size;
 
-	const uint tex_info_ofs = nrd32 (tex0_hdr + 0x14);
-	const uint tex_data_ofs = nrd32 (tex0_hdr + 0x18);
+	const uint tex_info_ofs_raw = nrd32 (tex0_hdr + 0x14);
+	const uint tex_data_ofs_raw = nrd32 (tex0_hdr + 0x18);
 	const uint comp_info_ofs = nrd32 (tex0_hdr + 0x1c);
 	const uint comp_data_ofs = nrd32 (tex0_hdr + 0x20);
 	const uint comp_pltt_idx_ofs = nrd32 (tex0_hdr + 0x24);
-	const uint pltt_info_ofs = nrd32 (tex0_hdr + 0x28);
-	const uint pltt_data_ofs = nrd32 (tex0_hdr + 0x2c);
+	const uint pltt_info_ofs_raw = nrd32 (tex0_hdr + 0x28);
+	const uint pltt_data_ofs_raw = nrd32 (tex0_hdr + 0x2c);
+
+	// Standard NNS G3D TEX0 layout vs synthetic format:
+	// In retail SDK files, tex0+0x0e holds the 16-bit offset to the texture dictionary,
+	// and tex0+0x14 holds the 32-bit offset to the texture texel data.
+	// In the synthetic format, tex0+0x14 directly held texInfoOfs (the dict).
+	uint tex_info_ofs = tex_info_ofs_raw;
+	uint tex_data_ofs = tex_data_ofs_raw;
+	uint pltt_info_ofs = pltt_info_ofs_raw;
+	uint pltt_data_ofs = pltt_data_ofs_raw;
+
+	const uint tex_dict_cand = (uint)nrd16 (tex0_hdr + 0x0e);
+	if (tex_dict_cand >= 0x30 && tex_dict_cand < tex0_avail && tex0_hdr[tex_dict_cand] == 0)
+	{
+		dict_entry_t test_dict;
+		if (parse_g3d_dict (&test_dict, tex0_hdr + tex_dict_cand, tex0_avail - tex_dict_cand, 8))
+		{
+			tex_info_ofs = tex_dict_cand;
+			tex_data_ofs = tex_info_ofs_raw; // in standard SDK, 0x14 is texDataOfs
+		}
+	}
+
+	const uint pltt_dict_cand = (uint)nrd16 (tex0_hdr + 0x34);
+	if (pltt_dict_cand >= 0x30 && pltt_dict_cand < tex0_avail && tex0_hdr[pltt_dict_cand] == 0)
+	{
+		dict_entry_t test_dict;
+		if (parse_g3d_dict (&test_dict, tex0_hdr + pltt_dict_cand, tex0_avail - pltt_dict_cand, 4))
+		{
+			pltt_info_ofs = pltt_dict_cand;
+			pltt_data_ofs = nrd32 (tex0_hdr + 0x24); // in standard SDK, 0x24 is plttDataOfs
+		}
+	}
 
 	// 1. Parse Texture Dictionary
 	dict_entry_t tex_dict;
@@ -1000,7 +1029,7 @@ enumError CreateNSBTX (u8 **dest, uint *dest_size, const u8 *rgba, uint width, u
 
 	// Build direct color or simple indexed NSBTX file
 	const uint tex_data_size = width * height * 2; // Direct format 16-bit
-	const uint total_file_size = 0x10 + 0x3c + 0x24 + tex_data_size;
+	const uint total_file_size = 0x14 + 0x3c + 0x24 + tex_data_size;
 
 	u8 *out = CALLOC (1, total_file_size);
 	if (!out)
@@ -1013,11 +1042,12 @@ enumError CreateNSBTX (u8 **dest, uint *dest_size, const u8 *rgba, uint width, u
 	nwr32 (out + 0x08, total_file_size);
 	nwr16 (out + 0x0c, 0x10); // Header size
 	nwr16 (out + 0x0e, 1);    // 1 section
+	nwr32 (out + 0x10, 0x14); // Section 0 offset
 
 	// TEX0 Section
-	u8 *tex0 = out + 0x10;
+	u8 *tex0 = out + 0x14;
 	memcpy (tex0 + 0x00, "TEX0", 4);
-	nwr32 (tex0 + 0x04, total_file_size - 0x10);
+	nwr32 (tex0 + 0x04, total_file_size - 0x14);
 	nwr32 (tex0 + 0x14, 0x3c); // texInfoOfs
 	nwr32 (tex0 + 0x18, 0x3c + 0x24); // texDataOfs
 
