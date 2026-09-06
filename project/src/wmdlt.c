@@ -35,6 +35,9 @@
  *                                                                         *
  ***************************************************************************/
 
+#include <dirent.h>
+#include <unistd.h>
+
 #include "lib-mdl.h"
 #include "lib-szs.h"
 #include "lib-model-glb.h"
@@ -42,6 +45,8 @@
 #include "lib-hsd.h"
 #include "lib-excite.h"
 #include "lib-glg.h"
+#include "lib-image.h"
+#include "lib-brres.h"
 #include "lib-brres-model.h"
 #include "lib-brres-inject.h"
 #include "lib-nsbmd.h"
@@ -323,7 +328,42 @@ static int iter_export_mdl0_glb (struct szs_iterator_t *it, bool term)
 	if (GetByMagicFF (data, it->size, it->size) != FF_MDL)
 		return 0;
 
-	model_t *model = ParseMDL0 (data, it->size);
+	// A BRRES keeps every sub-file's names in one pool shared across the
+	// whole archive, so the raw MDL0 slice carries no strings of its own --
+	// each of its texture-name offsets points past the end of the slice.
+	// Parsing it in place therefore produced materials with no texture names
+	// at all, and every model exported untextured. wszst's own extractor
+	// avoids this by rebuilding a per-sub-file pool and appending it
+	// (see lib-szs-create.c's CollectStringsBRSUB() call), which is exactly
+	// why an extracted .mdl0 exports textured while this path did not.
+	// Rebuild the same self-contained buffer before parsing.
+	u8 *owned = 0;
+	uint owned_size = 0;
+	if (it->szs->fform_arch == FF_BRRES)
+	{
+		szs_file_t sub;
+		InitializeSubSZS (&sub, it->szs, it->off, it->size, FF_UNKNOWN, it->path, false);
+		string_pool_t sp;
+		CollectStringsBRSUB (&sp, true, &sub, true);
+		if (sp.size)
+		{
+			owned_size = sub.size + sp.size;
+			owned = MALLOC (owned_size);
+			if (owned)
+			{
+				memcpy (owned, sub.data, sub.size);
+				memcpy (owned + sub.size, sp.data, sp.size);
+			}
+			else
+				owned_size = 0;
+		}
+		ResetStringPool (&sp);
+		ResetSZS (&sub);
+	}
+
+	model_t *model
+		= owned ? ParseMDL0 (owned, owned_size) : ParseMDL0 (data, it->size);
+	FREE (owned);
 	if (!model)
 	{
 		ctx->err = ERR_INVALID_DATA;
@@ -357,6 +397,104 @@ static int iter_export_mdl0_glb (struct szs_iterator_t *it, bool term)
 	return 0;
 }
 
+// A BRRES carries its own textures in Textures(NW4R), but the GLB writer
+// resolves them purely by file path: it looks for "<name>.png" beside the
+// model or in the tree SetDAETextureSearchRoot() has indexed. Under
+// `wszst xx` that tree exists, because extraction has already written every
+// TEX0 out as a PNG -- but `wmdlt DECODE some.brres` writes a single GLB
+// with nothing beside it, so every material came out untextured even though
+// the archive it was read from held the textures all along.
+//
+// Decode this archive's own TEX0 sub-files into a scratch directory and
+// point the search root at it, so a standalone BRRES exports the same
+// self-contained GLB (images embedded as bufferViews) that the archive
+// walker produces.
+// Textures staged beside the model, tracked so cleanup removes exactly the
+// files this export created and never a pre-existing one.
+typedef struct staged_tex_t
+{
+	char **paths;
+	uint used, size;
+
+} staged_tex_t;
+
+static void staged_tex_add (staged_tex_t *st, ccp path)
+{
+	if (st->used == st->size)
+	{
+		const uint next = st->size ? st->size * 2 : 16;
+		void *mem = REALLOC (st->paths, next * sizeof (*st->paths));
+		if (!mem)
+			return;
+		st->paths = mem;
+		st->size = next;
+	}
+	st->paths[st->used] = STRDUP (path);
+	if (st->paths[st->used])
+		st->used++;
+}
+
+static void staged_tex_cleanup (staged_tex_t *st)
+{
+	for (uint i = 0; i < st->used; i++)
+	{
+		unlink (st->paths[i]);
+		FREE (st->paths[i]);
+	}
+	FREE (st->paths);
+	st->paths = 0;
+	st->used = st->size = 0;
+}
+
+typedef struct tex0_dump_ctx_t
+{
+	ccp dir;
+	staged_tex_t *staged;
+	uint count;
+
+} tex0_dump_ctx_t;
+
+static int iter_dump_tex0_png (struct szs_iterator_t *it, bool term)
+{
+	if (term || it->is_dir)
+		return 0;
+
+	tex0_dump_ctx_t *ctx = it->param;
+	const u8 *data = it->szs->data + it->off;
+	// [[analyse-magic]]
+	if (GetByMagicFF (data, it->size, it->size) != FF_TEX)
+		return 0;
+
+	ccp name = *it->path ? it->path : "texture";
+	ccp slash = strrchr (name, '/');
+	if (slash)
+		name = slash + 1;
+	if (!*name)
+		return 0;
+
+	char png_path[PATH_MAX];
+	snprintf (png_path, sizeof (png_path), "%s/%s.png", ctx->dir, name);
+
+	// Never clobber a PNG the user already had sitting there -- and never
+	// delete it later either, since it is not ours to remove.
+	struct stat st_png;
+	if (!stat (png_path, &st_png))
+	{
+		ctx->count++; // still a resolvable texture, just not one we wrote
+		return 0;
+	}
+
+	Image_t img;
+	const enumError aerr = AssignIMG (&img, 1, data, it->size, 0, false, &be_func, name);
+	if (!aerr && SaveIMG (&img, FF_PNG, 0, 0, png_path, true) == ERR_OK)
+	{
+		staged_tex_add (ctx->staged, png_path);
+		ctx->count++;
+	}
+	ResetIMG (&img);
+	return 0;
+}
+
 // Returns true when 'raw' was handled here (an archive, whether or not it
 // actually contained a model -- callers must not fall through to the
 // bare-MDL0 path below either way).
@@ -367,9 +505,39 @@ static bool export_mdl0_from_archive (raw_data_t *raw, ccp dest, enumError *err)
 
 	szs_file_t szs;
 	AssignSZS (&szs, true, raw->data, raw->data_size, false, raw->fform, raw->fname);
+
+	// Stage the archive's textures first: the exporter reads the search
+	// root while it writes each model, so it has to be populated up front.
+	// They go in the model's own directory rather than a subdirectory,
+	// because dae_shared_texture_scope() only accepts a texture that shares
+	// the model's directory or sits alongside it under a common root -- a
+	// subdirectory below a model at the root is rejected.
+	char model_dir[PATH_MAX];
+	ccp dslash = strrchr (dest, '/');
+	if (dslash)
+		snprintf (model_dir, sizeof (model_dir), "%.*s", (int)(dslash - dest), dest);
+	else
+		snprintf (model_dir, sizeof (model_dir), ".");
+
+	// No SetDAETextureSearchRoot() here on purpose. With the search index
+	// enabled dae_texture_path() *skips* any texture it cannot place inside
+	// the indexed tree; with it disabled the same function falls back to the
+	// bare "<name>.png", which the GLB writer then opens relative to the
+	// model it is writing. Staging the PNGs beside that model is therefore
+	// all this path needs, and it avoids the scope rules that exist for
+	// recursive archive extraction.
+	staged_tex_t staged = { 0, 0, 0 };
+	tex0_dump_ctx_t tex_ctx = { model_dir, &staged, 0 };
+	IterateFilesParSZS (
+		&szs, iter_dump_tex0_png, &tex_ctx, false, false, false, -1, -1, SORT_NONE);
+
 	mdl0_export_ctx_t ctx = { dest, 0, ERR_OK };
 	IterateFilesParSZS (&szs, iter_export_mdl0_glb, &ctx, false, false, false, -1, -1, SORT_NONE);
 	ResetSZS (&szs);
+
+	// The staged PNGs are an implementation detail of this export: the
+	// images they carried are embedded in the GLB by now.
+	staged_tex_cleanup (&staged);
 
 	*err = ctx.count ? ctx.err : ERROR0 (ERR_INVALID_DATA, "No MDL file: %s\n", raw->fname);
 	return true;

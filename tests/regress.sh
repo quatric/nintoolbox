@@ -6969,6 +6969,34 @@ with open('$d/a.nut', 'wb') as f:
 }
 t_nut_roundtrip
 
+# A BRRES keeps every sub-file's names in one archive-wide string pool, so
+# an MDL0 slice read in place has no strings of its own and its texture
+# names resolve to nothing. `wmdlt DECODE some.brres` used to export every
+# model untextured for that reason, while `wszst xx` on the same archive
+# produced textured GLBs -- it extracts each sub-file with a rebuilt pool
+# first. Assert the standalone path now matches, with the image data really
+# embedded rather than a named-but-empty image entry.
+t_brres_standalone_textures(){
+  local src="$PWD_PROJECT/../tests/fixtures/mkw_wanwan.brres"
+  [ -f "$src" ] || { sk "standalone BRRES -> GLB textures"; return; }
+  local d; d=$(mktemp -d /tmp/_r_brrestex.XXXXXX) || { no "standalone BRRES textures" "mktemp failed"; return; }
+  if ! "$B/wmdlt" DECODE "$src" --dest "$d/m.glb" --overwrite >/dev/null 2>&1; then
+    no "standalone BRRES -> GLB textures" "wmdlt DECODE failed"; rm -rf "$d"; return
+  fi
+  # The staged PNGs are an implementation detail and must not survive.
+  if ls "$d" | grep -qv '\.glb$'; then
+    no "standalone BRRES -> GLB textures" "export left scratch files behind"
+    rm -rf "$d"; return
+  fi
+  if python3 "$PWD_PROJECT/../tests/glb_images.py" "$d/m.wanwan.glb" 4; then
+    ok "standalone BRRES -> GLB embeds its own TEX0 textures"
+  else
+    no "standalone BRRES -> GLB textures" "images missing or empty"
+  fi
+  rm -rf "$d"
+}
+t_brres_standalone_textures
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
