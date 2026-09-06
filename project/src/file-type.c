@@ -1537,6 +1537,10 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_SIR0, "SIR0", 0, 0xe05 },
 	{ FF_TEX3DS, "TEX3DS", "TEX", 0x3809 },
 	{ FF_PTLG, "PTLG", "RLT", 0xe05 },
+	// Super Mario Strikers (GameCube) names the same container .glt, which
+	// ExtractPTLGArchive() already accepts; without this the name did not
+	// resolve and nothing could tell that a .glt destination was not PTLG.
+	{ FF_PTLG, "GLT", 0, 0xe05 },
 	{ FF_BCSTM, "BCSTM", "CSTM", 0x3801 },
 	{ FF_BFSTM, "BFSTM", "FSTM", 0x3801 },
 	{ FF_BCWAV, "BCWAV", "CWAV", 0x3801 },

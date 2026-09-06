@@ -1305,6 +1305,28 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		const file_format_t fform = GetImageFF (img.tform_valid ? img.tform_fform : FF_INVALID,
 			FF_INVALID, dest, img.info_fform, cmd_id == CMD_CONVERT, FF_TEX);
 
+		// GetImageFF() falls back to FF_TEX for any destination it can't
+		// place, so asking for an extension this command has no image
+		// writer for quietly produces a TEX0 that its own name contradicts.
+		// The substituted format is named in the line printed below, but it
+		// is easy to read past. Say plainly that the requested format is not
+		// the one being written -- and say it about *this command*, since
+		// some of these formats are containers that wszst CREATE can build
+		// from a directory even though wimgt cannot write one from an image
+		// (PTLG is exactly that case).
+		{
+			ccp d_ext = strrchr (dest, '.');
+			const file_format_t want = d_ext ? GetByNameFF (d_ext + 1) : FF_UNKNOWN;
+			if (want != FF_UNKNOWN && want != fform
+				&& IsImageFF (want, true) == FF_UNKNOWN)
+			{
+				ERROR0 (ERR_WARNING,
+					"wimgt can't write %s images: writing %s instead,"
+					" despite the '%s' extension: %s\n",
+					GetNameFF (0, want), GetNameFF (0, fform), d_ext + 1, dest);
+			}
+		}
+
 		if (fform == FF_PNG)
 			Transform2XIMG (&img);
 		else
