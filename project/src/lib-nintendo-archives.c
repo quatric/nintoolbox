@@ -3364,8 +3364,10 @@ enumError ExtractG1TArchive (ccp arg, ccp basedir, uint depth)
 		if (!w || !h || w > 8192 || h > 8192)
 			continue;
 
-		// 0x47 is 4 bits per pixel, 0x48 is 8: on platform 5 those are ETC1
-		// and ETC1A4 respectively.
+		// Bit depths derived the same way as the layout: for every texture
+		// on the Hyrule Warriors Legends cart, the mip chain at this depth
+		// accounts for exactly the bytes present. 0x47/0x48 are ETC1 and
+		// ETC1A4, 0x09 is RGBA8 in PICA 8x8 tile order.
 		uint bits;
 		switch (format)
 		{
@@ -3375,8 +3377,11 @@ enumError ExtractG1TArchive (ccp arg, ccp basedir, uint depth)
 			case 0x48:
 				bits = 8;
 				break;
+			case 0x09:
+				bits = 32;
+				break;
 			default:
-				continue; // an encoding these samples do not cover
+				continue; // an encoding the retail corpus does not cover
 		}
 
 		const uint need = g1t_mip_pixels (w, h, mips) * bits / 8;
@@ -3393,9 +3398,34 @@ enumError ExtractG1TArchive (ccp arg, ccp basedir, uint depth)
 			continue;
 		// Only the base level is exported; the mip chain follows it.
 		const uint base = w * h * bits / 8;
-		const enumError derr = bits == 4
-			? decode_etc1_tiled (rgba, raw + data_off, w, h, base)
-			: decode_etc1a4_tiled (rgba, raw + data_off, w, h, base);
+		enumError derr = ERR_OK;
+		if (bits == 32)
+		{
+			// PICA stores RGBA8 in 8x8 tiles, morton-ordered within a tile,
+			// and each texel as A,B,G,R.
+			const u8 *src = raw + data_off;
+			for (uint ty = 0; ty < h; ty += 8)
+				for (uint tx = 0; tx < w; tx += 8)
+					for (uint py = 0; py < 8; py++)
+						for (uint px = 0; px < 8; px++)
+						{
+							const uint x = tx + px, y = ty + py;
+							if (x >= w || y >= h)
+								continue;
+							const uint tile = (ty / 8) * (w / 8 ? w / 8 : 1) + tx / 8;
+							const uint idx = (tile * 64 + morton8 (px, py)) * 4;
+							if (idx + 4 > base)
+								continue;
+							u8 *o = rgba + ((size_t)y * w + x) * 4;
+							o[0] = src[idx + 3];
+							o[1] = src[idx + 2];
+							o[2] = src[idx + 1];
+							o[3] = src[idx + 0];
+						}
+		}
+		else
+			derr = bits == 4 ? decode_etc1_tiled (rgba, raw + data_off, w, h, base)
+							 : decode_etc1a4_tiled (rgba, raw + data_off, w, h, base);
 		if (derr)
 		{
 			FREE (rgba);
