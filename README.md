@@ -63,7 +63,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **CCF** | `.ccf` | ✅ | ✅ | ✅ | Nintendo Virtual Console container (Wii / Switch) |
 | **CRAM** | `.arc`, `.cram` | ✅ | ✅ | ✅ | Monolith Soft 3DS flat archive container |
 | **DARC** | `.darc` | ✅ | ✅ | ✅ | NintendoWare NW4C differential archive (3DS) |
-| **DTLS** | `dt00`, `ls00`, `.ls` | ✅ | ✅ | — | Bandai Namco composite package & lookup archive (*Super Smash Bros. 4* Wii U / 3DS) |
+| **DTLS** | `dt00`, `ls00`, `.ls` | ✅ | ✅ | ✅ | Bandai Namco composite package & lookup archive (*Super Smash Bros. 4* Wii U / 3DS) |
 | **F9RES** | `.res` | ✅ | ✅ | ✅ | GameCube resource archive container |
 | **FSYS** | `.fsys` | ✅ | ✅ | ✅ | Genius Sonority archive system (GameCube / Wii) |
 | **GAR / ZAR** | `.zar`, `.gar` | ✅ | ✅ | ✅ | Grezzo Zelda & Luigi's Mansion archive (*OoT3D*, *MM3D*, *LM3DS*) |
@@ -84,7 +84,7 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **PKZ** | `.pkz` | ✅ | ✅ | ✅ | PlatinumGames archive format (*Bayonetta*, *Astral Chain*) |
 | **PVOL** | `.pvol` | ✅ | ✅ | ✅ | *Pikmin 1 & 2* model & resource container archive |
 | **RARC** | `.rarc`, `.arc` | ✅ | ✅ | ✅ | Nintendo standard resource archive (GameCube / Wii) |
-| **RFL_Res** | `RFL_Res.dat`, `.dat` | ✅ | ✅ | — | Revolution Face Library Mii resource database (Wii / 3DS / Wii U) |
+| **RFL_Res** | `RFL_Res.dat`, `.dat` | ✅ | ✅ | ✅ | Revolution Face Library Mii resource database (Wii / 3DS / Wii U) |
 | **RPAK** | `.rpak`, `.pak` | ✅ | — | — | Retro Studios asset container (*Metroid Prime* / *Donkey Kong Country Returns*) |
 | **RST / TOC** | `.rst`, `.toc` | ✅ | ✅ | ✅ | Monster Games archive & table of contents (*Excite Truck* / *Excitebots*) |
 | **SARC** | `.sarc`, `.szs` | ✅ | ✅ | ✅ | NintendoWare NW4F & NintendoSDK sorted archive (Wii U / Switch / 3DS) |
@@ -136,18 +136,18 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 
 | Format | Extensions | Decode Tested | Encode Tested | Byte-Exact Roundtrip | Middleware / Engine / Platform Context |
 |---|---|---|---|---|---|
-| **ART / IMG** | `.art`, `.img` | ✅ | — | — | Monster Games GUI image format (Wii) |
+| **ART / IMG** | `.art`, `.img` | ✅ | ✅ | ✅ | Monster Games GUI image format (Wii) |
 | **BCFNT / BFFNT / BRFNT** | `.bcfnt`, `.bffnt`, `.brfnt` | ✅ | ✅ | ✅ | NintendoWare font resource (3DS / Wii U / Wii) |
 | **BCLIM** | `.bclim` | ✅ | ✅ | ✅ | NintendoWare NW4C texture container (3DS) |
 | **BFLIM** | `.bflim` | ✅ | ✅ | ✅ | NintendoWare NW4F texture format (Wii U) |
 | **BNTX** | `.bntx` | ✅ | ✅ | ✅ | NintendoSDK Tegra block-linear texture container (Switch) |
 | **BREFT** | `.breft`, `.bt-img` | ✅ | ✅ | ✅ | NintendoWare NW4R particle effect texture (Wii) |
 | **BTI / TPL** | `.bti`, `.tpl` | ✅ | ✅ | ✅ | Nintendo standard texture palette library (GameCube / Wii) |
-| **CTPK** | `.ctpk` | ✅ | ✅ | — | NintendoWare NW4C texture package (3DS) |
-| **CTXB** | `.ctxb` | ✅ | — | — | Grezzo 3DS texture container (*Ocarina of Time 3D*, *Majora's Mask 3D*) |
+| **CTPK** | `.ctpk` | ✅ | ✅ | ✅ | NintendoWare NW4C texture package (3DS) |
+| **CTXB** | `.ctxb` | ✅ | ✅ | ✅ | Grezzo 3DS texture container (*Ocarina of Time 3D*, *Majora's Mask 3D*) |
 | **G1T** | `.g1t` | — | — | — | Koei Tecmo texture container (*Hyrule Warriors*, *Fire Emblem Warriors*) |
 | **GTX** | `.gtx` | ✅ | ✅ | ✅ | Nintendo Wii U GX2 surface container (Wii U) |
-| **NCER / NANR** | `.ncer`, `.nanr` | ✅ | ✅ | — | Nintendo DS Nitro cell & animation resources (DS) |
+| **NCER / NANR** | `.ncer`, `.nanr` | ✅ | ✅ | ✅ | Nintendo DS Nitro cell & animation resources (DS) |
 | **NCGR / NCLR** | `.ncgr`, `.nclr` | ✅ | ✅ | ✅ | Nintendo DS Nitro 2D graphics & palette (DS) |
 | **NSBTX** | `.nsbtx` | ✅ | ✅ | — | Nintendo DS Nitro 3D texture container (DS) |
 | **NUT** | `.nut` | ✅ | — | — | Bandai Namco texture package (*Super Smash Bros. 4* Wii U / 3DS) |
@@ -168,13 +168,13 @@ BRRES sub-file formats (TEX0, TEX) embed their own name, so the name has to matc
 
 | Format | Extensions | Decode Tested | Encode Tested | Middleware / Engine / Platform Context |
 |---|---|---|---|---|
-| **BCSAR / BCWAR / BCWAV** | `.bcsar`, `.bcwar`, `.bcwav` | ✅ | — | NintendoWare NW4C sound archive & wave format (3DS) |
-| **BFSAR / BFWAR / BFWAV** | `.bfsar`, `.bfwar`, `.bfwav` | ✅ | — | NintendoWare NW4F & NintendoSDK sound archive & wave format (Wii U / Switch) |
-| **BRSAR / RBNK / RWAV** | `.brsar`, `.rbnk`, `.rwav` | ✅ | — | NintendoWare NW4R sound archive, instrument bank & wave format (Wii) |
-| **BRSTM / BCSTM / BFSTM** | `.brstm`, `.bcstm`, `.bfstm` | ✅ | — | Nintendo multi-channel stream audio (Wii / 3DS / Wii U / Switch) |
+| **BCSAR / BCWAR / BCWAV** | `.bcsar`, `.bcwar`, `.bcwav` | ✅ | ✅ | NintendoWare NW4C sound archive & wave format (3DS) |
+| **BFSAR / BFWAR / BFWAV** | `.bfsar`, `.bfwar`, `.bfwav` | ✅ | ✅ | NintendoWare NW4F & NintendoSDK sound archive & wave format (Wii U / Switch) |
+| **BRSAR / RBNK / RWAV** | `.brsar`, `.rbnk`, `.rwav` | ✅ | ✅ | NintendoWare NW4R sound archive, instrument bank & wave format (Wii) |
+| **BRSTM / BCSTM / BFSTM** | `.brstm`, `.bcstm`, `.bfstm` | ✅ | ✅ | Nintendo multi-channel stream audio (Wii / 3DS / Wii U / Switch) |
 | **NUS3AUDIO** | `.nus3audio`, `.nus3bank` | ✅ | — | Bandai Namco NUS3 audio archive (*Super Smash Bros. Ultimate* Switch) |
 | **RSEQ / CSEQ / FSEQ / SSEQ** | `.rseq`, `.cseq`, `.fseq`, `.sseq` | ✅ | ✅ | Nintendo sequence music format (Wii / 3DS / Wii U / DS) |
-| **SDAT** | `.sdat` | ✅ | — | Nintendo DS Nitro sound archive (DS) |
+| **SDAT** | `.sdat` | ✅ | ✅ | Nintendo DS Nitro sound archive (DS) |
 
 ---
 
@@ -200,7 +200,7 @@ its encode column stays unverified.
 
 | Algorithm / Codec | Identifiers / Headers | Decode Tested | Encode Tested | Platform / Engine Context |
 |---|---|---|---|---|
-| **ALZ1** | `ALZ1` | ✅ | — | Hudson Soft Mario Party / Bomberman LZ77 (GameCube / Wii) |
+| **ALZ1** | `ALZ1` | ✅ | ✅ | Hudson Soft Mario Party / Bomberman LZ77 (GameCube / Wii) |
 | **BLZ** | ARM9 overlay trailer | ✅ | ✅ | Nintendo DS Nitro backward LZ overlay compression |
 | **BPE / GFCP** | `GFCP` (zip mode 1) | — | — | Good-Feel Byte Pair Encoding (Wii Kirby's Epic Yarn / Yoshi's Woolly World) |
 | **Bzip2** | `BZh` | ✅ | ✅ | Standard high-compression block-sorting codec |

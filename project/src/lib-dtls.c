@@ -136,8 +136,19 @@ enumError CreateDTLS (
 		u32 hash = 0;
 		if (entries[i].name)
 		{
-			for (const char *p = entries[i].name; *p; p++)
-				hash = hash * 31 + (u8)*p;
+			ccp fname = entries[i].name;
+			ccp slash = strrchr (fname, '/');
+			if (slash)
+				fname = slash + 1;
+			char *endptr = 0;
+			u32 val = (u32)strtoul (fname, &endptr, 16);
+			if (endptr && (*endptr == '.' || *endptr == '\0') && (endptr - fname) == 8)
+				hash = val;
+			else
+			{
+				for (const char *p = entries[i].name; *p; p++)
+					hash = hash * 31 + (u8)*p;
+			}
 		}
 
 		u8 *payload = (u8 *)entries[i].data;

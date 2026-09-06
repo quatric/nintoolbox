@@ -1930,6 +1930,7 @@ file_format_t IsImageFF (
 		case FF_TEX_CT:
 		case FF_BREFT_IMG:
 		case FF_AJPG:
+		case FF_CTXB:
 			return fform;
 
 		case FF_BREFT:

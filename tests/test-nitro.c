@@ -1015,7 +1015,19 @@ int main (void)
 			}
 			else
 			{
-				printf("  PASS: RFL_Res.dat create -> scan roundtrip (3 members)\n");
+				u8 *rfl_re = 0;
+				uint rfl_re_size = 0;
+				enumError e3 = CreateRFLRes (&rfl_re, &rfl_re_size, scanned, n_scanned);
+				if (e3 || rfl_re_size != rfl_size || memcmp (rfl_re, rfl_data, rfl_size))
+				{
+					printf("  FAIL: RFL_Res.dat re-create byte-exact mismatch\n");
+					fail++;
+				}
+				else
+				{
+					printf("  PASS: RFL_Res.dat create -> scan -> byte-identical re-create (3 members)\n");
+				}
+				free (rfl_re);
 			}
 			ResetOwnedEntries (scanned, n_scanned);
 			free (rfl_data);

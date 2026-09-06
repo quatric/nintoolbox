@@ -1419,6 +1419,51 @@ static enumError create_lspk_dir (ccp source, ccp dest)
 	return err;
 }
 
+static enumError create_dtls_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+	u8 *dest_ls = 0;
+	uint dest_ls_size = 0;
+	u8 *dest_dt = 0;
+	uint dest_dt_size = 0;
+	if (!err)
+		err = CreateDTLS (&dest_ls, &dest_ls_size, &dest_dt, &dest_dt_size,
+			list.entry, list.used, false, true);
+	if (!err && !testmode)
+	{
+		char ls_path[PATH_MAX];
+		char dt_path[PATH_MAX];
+		snprintf (ls_path, sizeof (ls_path), "%s", dest);
+		char *dot = strrchr (ls_path, '.');
+		char *slash = strrchr (ls_path, '/');
+		if (dot && (!slash || dot > slash))
+			*dot = 0;
+		snprintf (dt_path, sizeof (dt_path), "%s.dt", ls_path);
+		snprintf (ls_path + strlen (ls_path), sizeof (ls_path) - strlen (ls_path), ".ls");
+
+		File_t F_ls, F_dt;
+		err = CreateFileOpt (&F_ls, true, ls_path, false, source);
+		if (!err && F_ls.f && fwrite (dest_ls, 1, dest_ls_size, F_ls.f) != dest_ls_size)
+			err = FILEERROR1 (&F_ls, ERR_WRITE_FAILED, "Writing LS failed: %s\n", ls_path);
+		ResetFile (&F_ls, opt_preserve);
+
+		if (!err)
+		{
+			err = CreateFileOpt (&F_dt, true, dt_path, false, source);
+			if (!err && F_dt.f && fwrite (dest_dt, 1, dest_dt_size, F_dt.f) != dest_dt_size)
+				err = FILEERROR1 (&F_dt, ERR_WRITE_FAILED, "Writing DT failed: %s\n", dt_path);
+			ResetFile (&F_dt, opt_preserve);
+		}
+	}
+	FREE (dest_ls);
+	FREE (dest_dt);
+	reset_sarc_build_list (&list);
+	return err;
+}
+
 static enumError create_apak_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };

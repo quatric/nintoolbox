@@ -127,26 +127,24 @@ fi
 # formula (not just self-consistency with this project's own encoder), plus
 # create->extract round trips through the project's own CreateArika/
 # ExtractArika. See tests/test-arika.c for exactly what each case covers.
-# --gc-sections is GNU ld's flag name; some ld64 (macOS) toolchains reject it
-# outright rather than treating it as the -dead_strip alias newer Xcode
-# versions accept, same environment-dependent gap the GX2 standalone tests
-# above already have. Fall back to -dead_strip so this still actually runs
-# there instead of just recording an unrelated toolchain limitation as if it
-# were a bug in this test.
-if ${CC:-cc} -O2 -ffunction-sections -fdata-sections -Isrc -Idclib \
-    ../tests/test-arika.c ./lib-nintendo.o ./lib-sound-archive.o -Wl,--gc-sections \
-    -o /tmp/_r_arika >/tmp/_r_arika_build.log 2>&1 \
-    || ${CC:-cc} -O2 -ffunction-sections -fdata-sections -Isrc -Idclib \
-    ../tests/test-arika.c ./lib-nintendo.o ./lib-sound-archive.o -Wl,-dead_strip \
-    -o /tmp/_r_arika >>/tmp/_r_arika_build.log 2>&1; then
-  if /tmp/_r_arika; then
-    ok "Arika ALZ1 + INFO.DAT/GAME.DAT archive: fixtures, encryption, RF2 grouping"
+arika_link=$(make -n -W src/wtest.c wtest 2>/dev/null \
+  | awk '{ while (sub(/\\$/,"")) { getline nxt; $0 = $0 nxt } print }' \
+  | grep -- "-o wtest$" | tail -1)
+if [ -n "$arika_link" ]; then
+  arika_cmd=${arika_link/ wtest.o / ../tests/test-arika.c }
+  arika_cmd=${arika_cmd%-o wtest}"-o /tmp/_r_arika"
+  if eval "$arika_cmd" >/tmp/_r_arika_build.log 2>&1; then
+    if /tmp/_r_arika >/tmp/_r_arika_run.log 2>&1; then
+      ok "Arika ALZ1 + INFO.DAT/GAME.DAT archive: fixtures, encryption, RF2 grouping"
+    else
+      no "Arika ALZ1 + INFO.DAT/GAME.DAT archive" \
+        "$(grep -m1 FAIL /tmp/_r_arika_run.log 2>/dev/null || echo 'runtime check failed')"
+    fi
   else
-    no "Arika ALZ1 + INFO.DAT/GAME.DAT archive" "runtime check failed, see /tmp/_r_arika output"
+    no "Arika ALZ1 + INFO.DAT/GAME.DAT archive" "$(tail -1 /tmp/_r_arika_build.log 2>/dev/null)"
   fi
 else
-  no "Arika ALZ1 + INFO.DAT/GAME.DAT archive" \
-    "$(tail -1 /tmp/_r_arika_build.log 2>/dev/null)"
+  sk "Arika ALZ1 + INFO.DAT/GAME.DAT archive"
 fi
 
 # Retro's Metroid Prime CMPD segments use LZO1X alongside raw and zlib
@@ -5907,7 +5905,7 @@ struct.pack_into("<4sIIIII", ctxb, 0, b"ctxb", total_sz, 1, 0, 24, tex_data_off)
 struct.pack_into("<4sII", ctxb, 24, b"tex ", 36, 1)
 struct.pack_into("<IHHHHI", ctxb, 36, len(img_data), 0, 0, 8, 8, 0x14016752)
 struct.pack_into("<I", ctxb, 36 + 16, 0)
-ctxb[36+20:36+36] = b"test_texture\x00\x00\x00\x00"
+ctxb[36+20:36+36] = b"sample\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 ctxb[tex_data_off:tex_data_off+len(img_data)] = img_data
 with open("'"$d"'/ctxb_test/sample.ctxb", "wb") as f:
     f.write(ctxb)
@@ -5917,6 +5915,12 @@ with open("'"$d"'/ctxb_test/sample.ctxb", "wb") as f:
     fok "Grezzo 3DS Texture Container (.ctxb) decoding"
   else
     fno "Grezzo 3DS Texture Container" "failed to decode .ctxb sample";
+  fi
+  if "$B/wimgt" ENCODE "$d/ctxb_test/sample.png" -d "$d/ctxb_test/sample.re.ctxb" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/ctxb_test/sample.ctxb" "$d/ctxb_test/sample.re.ctxb"; then
+    bok "Grezzo 3DS Texture Container (.ctxb) byte-exact roundtrip"
+  else
+    bno "Grezzo 3DS Texture Container" "failed byte-exact re-encode";
   fi
 
   # Twilight Princess HD TMPK Archive (.pack) test
@@ -6671,30 +6675,6 @@ t_zar_roundtrip(){
 }
 t_zar_roundtrip
 
-# Arika INFO.DAT / GAME.DAT archive & ALZ1 codec standalone verification
-t_arika_test(){
-  local arika_link=$(make -n -W src/wtest.c wtest 2>/dev/null \
-    | awk '{ while (sub(/\\$/,"")) { getline nxt; $0 = $0 nxt } print }' \
-    | grep -- "-o wtest$" | tail -1)
-  if [ -n "$arika_link" ]; then
-    local arika_cmd=${arika_link/ wtest.o / ../tests/test-arika.c }
-    arika_cmd=${arika_cmd%-o wtest}"-o /tmp/_r_arika"
-    if eval "$arika_cmd" >/tmp/_r_arika_build.log 2>&1; then
-      if /tmp/_r_arika >/tmp/_r_arika_run.log 2>&1; then
-        ok "Arika INFO.DAT/GAME.DAT & ALZ1 roundtrip"
-      else
-        no "Arika INFO.DAT/GAME.DAT" \
-          "$(grep -m1 FAIL /tmp/_r_arika_run.log 2>/dev/null || echo 'runtime check failed')"
-      fi
-    else
-      no "Arika INFO.DAT/GAME.DAT" "$(tail -1 /tmp/_r_arika_build.log 2>/dev/null)"
-    fi
-  else
-    sk "Arika INFO.DAT/GAME.DAT"
-  fi
-}
-t_arika_test
-
 # Level-5 LSPK (.pkh / .pk) container encode, decode, and byte-exact roundtrip
 t_lspk_roundtrip(){
   local d; d=$(mktemp -d /tmp/_r_lspk.XXXXXX) || { no "LSPK roundtrip" "mktemp failed"; return; }
@@ -6726,6 +6706,38 @@ t_lspk_roundtrip(){
   rm -rf "$d"
 }
 t_lspk_roundtrip
+
+# Bandai Namco DTLS (Smash 4 .ls/.dt composite archive) encode, decode, and byte-exact roundtrip
+t_dtls_roundtrip(){
+  local d; d=$(mktemp -d /tmp/_r_dtls.XXXXXX) || { no "DTLS roundtrip" "mktemp failed"; return; }
+  mkdir -p "$d/src.d"
+  printf 'SMASH_BANDAI_NAMCO_DTLS_DATA_1' > "$d/src.d/11223344.bin"
+  printf 'SMASH_BANDAI_NAMCO_DTLS_DATA_2_LONGER' > "$d/src.d/55667788.bin"
+  cp -r "$d/src.d" "$d/ref.d"
+  if "$B/wszst" CREATE "$d/src.d" --dest "$d/a.ls" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/a.ls" ] && [ -s "$d/a.dt" ]; then
+    ok "DTLS encode"
+  else
+    no "DTLS encode" "CREATE produced no archive"; rm -rf "$d"; return
+  fi
+  if "$B/wszst" XX "$d/a.ls" --dest "$d/out.d" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/ref.d/11223344.bin" "$d/out.d/11223344.bin" \
+  && cmp -s "$d/ref.d/55667788.bin" "$d/out.d/55667788.bin"; then
+    ok "DTLS decode"
+  else
+    no "DTLS decode" "extracted members differ from reference"; rm -rf "$d"; return
+  fi
+  cp -r "$d/out.d" "$d/re.d"
+  if "$B/wszst" CREATE "$d/re.d" --dest "$d/b.ls" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/a.ls" "$d/b.ls" \
+  && cmp -s "$d/a.dt" "$d/b.dt"; then
+    bok "DTLS re-encode is byte identical"
+  else
+    bno "DTLS byte-exact" "rebuild differs from the original archive"
+  fi
+  rm -rf "$d"
+}
+t_dtls_roundtrip
 
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
