@@ -6341,7 +6341,10 @@ t_byte_fixed_points
 # was written, so none of it ran. It pulls in enough of the tree (image, GTX,
 # Latte, Mii rendering) that hand-listing objects is unmaintainable -- reuse
 # the link line make itself would use for a tool, swapping in this source.
-nitro_link=$(make -n wtest 2>/dev/null \
+# -W src/wtest.c makes make pretend that source changed, so the link line
+# is printed even when wtest is already up to date (otherwise make -n
+# emits nothing and this check silently skips).
+nitro_link=$(make -n -W src/wtest.c wtest 2>/dev/null \
   | awk '{ while (sub(/\\$/,"")) { getline nxt; $0 = $0 nxt } print }' \
   | grep -- "-o wtest$" | tail -1)
 if [ -n "$nitro_link" ]; then
