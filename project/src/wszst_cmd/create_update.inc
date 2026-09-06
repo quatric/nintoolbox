@@ -6132,6 +6132,20 @@ static enumError extract_smash_arc_file (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 	}
 
+	// Say so plainly for a retail data.arc. Declining quietly sent it on to
+	// the remaining probes, and the one that spoke up was the compression
+	// reader -- so a 13 GB Smash Ultimate archive reported "Invalid LZ
+	// magic!", which describes neither the file nor the actual limitation.
+	if (IsRetailSmashArc (raw, raw_size))
+	{
+		FREE (raw);
+		return ERROR0 (ERR_NOT_IMPLEMENTED,
+			"Super Smash Bros. Ultimate data.arc is not supported yet: its"
+			" filesystem is a compressed, hash-indexed block that this"
+			" reader does not implement: %s\n",
+			arg);
+	}
+
 	smash_arc_t arc;
 	err = ScanSmashArc (&arc, raw, raw_size);
 	if (err)

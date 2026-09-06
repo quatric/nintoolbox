@@ -4,10 +4,26 @@
 
 #define SMASH_ARC_MAGIC 0xABCDEF00u
 
+// The magic a retail Super Smash Bros. Ultimate data.arc actually carries:
+// one little-endian 64-bit word. The 32-bit SMASH_ARC_MAGIC above, and the
+// flat 128-byte-per-file table the reader below expects, match no shipped
+// file -- they describe a simplified container that only this project's own
+// synthetic fixture uses. Recognising the retail magic here lets the tool
+// say so instead of failing further downstream with an unrelated message
+// ("Invalid LZ magic!"), which is what a 13 GB retail data.arc produced.
+#define SMASH_ARC_RETAIL_MAGIC 0xABCDEF9876543210ull
+
+bool IsRetailSmashArc (const u8 *data, size_t size)
+{
+	return data && size >= 0x40 && le64 (data) == SMASH_ARC_RETAIL_MAGIC;
+}
+
 bool IsSmashArc (const u8 *data, size_t size)
 {
 	if (!data || size < 0x20)
 		return false;
+	if (IsRetailSmashArc (data, size))
+		return true;
 	u32 m0 = le32 (data);
 	u32 m1 = be32 (data);
 	if (m0 == SMASH_ARC_MAGIC || m1 == SMASH_ARC_MAGIC)
@@ -21,6 +37,15 @@ enumError ScanSmashArc (smash_arc_t *arc, const u8 *data, size_t size)
 {
 	if (!arc || !data || size < 0x20 || !IsSmashArc (data, size))
 		return ERR_INVALID_DATA;
+
+	// A retail archive keeps its file list in a compressed filesystem block
+	// with hash-based lookup, nothing like the flat table below. Decline it
+	// outright rather than running the wrong parser over it: with the retail
+	// header the offset/size checks below happen to fall through to a
+	// success return with zero files, which would report an empty archive as
+	// though it had been read.
+	if (IsRetailSmashArc (data, size))
+		return ERR_NOT_IMPLEMENTED;
 
 	memset (arc, 0, sizeof (*arc));
 	arc->data = data;
@@ -61,7 +86,9 @@ enumError ScanSmashArc (smash_arc_t *arc, const u8 *data, size_t size)
 		return ERR_INVALID_DATA;
 	}
 
-	return ERR_OK;
+	// Reached only when the header's table bounds look sane but nothing was
+	// parsed out of them; an empty result is a failure, not a success.
+	return arc->n_files ? ERR_OK : ERR_INVALID_DATA;
 }
 
 void ResetSmashArc (smash_arc_t *arc)

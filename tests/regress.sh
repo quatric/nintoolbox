@@ -7212,6 +7212,32 @@ t_mio(){
 }
 t_mio
 
+# A retail Super Smash Bros. Ultimate data.arc must be recognised and
+# refused with an explanation. Its filesystem is a compressed, hash-indexed
+# block, nothing like the flat table the synthetic case above uses, and
+# declining it quietly used to hand it to the compression reader -- so a
+# 13 GB archive came back with "Invalid LZ magic!".
+t_smash_retail_arc(){
+  local d; d=$(mktemp -d /tmp/_r_smasharc.XXXXXX) || { no "retail data.arc" "mktemp failed"; return; }
+  python3 -c '
+import struct, sys
+# Header of a retail data.arc: the 64-bit magic plus the offsets that follow.
+hdr  = struct.pack("<Q", 0xABCDEF9876543210)
+hdr += struct.pack("<QQQQQ", 0x38, 0x87FE38B8, 0x3065FA9A8, 0x35A253FB8, 0x35C701D28)
+hdr += struct.pack("<Q", 0)
+open(sys.argv[1], "wb").write(hdr + bytes(0x400))
+' "$d/data.arc"
+  local out
+  out=$("$B/wszst" xx "$d/data.arc" --dest "$d/out" --overwrite 2>&1)
+  if printf '%s' "$out" | grep -q 'not supported yet'; then
+    ok "retail Smash data.arc is recognised and refused with a reason"
+  else
+    no "retail data.arc" "expected an explicit refusal, got: $(printf '%s' "$out" | tail -1)"
+  fi
+  rm -rf "$d"
+}
+t_smash_retail_arc
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]

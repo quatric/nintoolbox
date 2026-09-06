@@ -29,6 +29,10 @@ typedef struct smash_arc_t
 // Returns true if 'data' is a Smash Ultimate data.arc container.
 bool IsSmashArc (const u8 *data, size_t size);
 
+// True for a retail Super Smash Bros. Ultimate data.arc, whose filesystem
+// this reader does not implement.
+bool IsRetailSmashArc (const u8 *data, size_t size);
+
 // Scans and parses the data.arc structure.
 enumError ScanSmashArc (smash_arc_t *arc, const u8 *data, size_t size);
 
