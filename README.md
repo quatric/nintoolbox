@@ -116,7 +116,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **G1M** | `.g1m` | **GLB** | — | — | — | — | Koei Tecmo 3D model format (*Hyrule Warriors*, *Fire Emblem Warriors*) |
 | **G4PKM** | `.g4pkm` | **GLB** | — | — | — | — | Level-5 / Nintendo Pokémon & Yo-kai Watch 3D model format |
 | **GLG / RLG** | `.glg`, `.rlg` | **GLB** | ✅ | ✅ | ✅ | ✅ | Next Level Games 3D model format (*Super Mario Strikers*, *Mario Strikers Charged*) |
-| **HGO** | `.hgo` | **GLB** | — | — | — | — | Camelot 3D model format. The `0OGH` magic this row claims occurs in none of *Mario Golf: Toadstool Tour* (GC), *Mario Power Tennis* (GC), *Mario Power Tennis* (Wii) or *Mario Golf: World Tour* (3DS) — neither as a file magic nor embedded anywhere. Camelot ships models as PPC relocatable modules (`elfbin/xcmdl_*.sbn`) instead, so the source of this magic is unidentified |
+| **HGO** | `.hgo` | **GLB** | — | — | — | — | Camelot 3D model format. The `0OGH` magic this row claims occurs in none of *Mario Golf: Toadstool Tour* (GC), *Mario Power Tennis* (GC & Wii), *We Love Golf!* (Wii) or *Mario Golf: World Tour* (3DS) — neither as a file magic nor embedded anywhere. Camelot ships models as PPC relocatable modules (`elfbin/xcmdl_*.sbn`) instead, so the source of this magic is unidentified |
 | **HSD** | `.dat` | **GLB** | ✅ | ✅ | ✅ | ✅ | HAL Laboratory `sysdolphin` object graph (GameCube) |
 | **HSF** | `.hsf` | **GLB** | ✅ | ✅ | ✅ | ✅ | Hudson Soft 3D model format (GameCube / Wii) |
 | **LMD** | `.lmd` | **GLB** | — | — | — | — | DeNA / Pokémon Masters 3D model format |
@@ -143,7 +143,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **BNTX** | `.bntx` | ✅ | ✅ | ✅ | ✅ | NintendoSDK Tegra block-linear texture container (Switch) |
 | **BREFT** | `.breft`, `.bt-img` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4R particle effect texture (Wii) |
 | **BTI / TPL** | `.bti`, `.tpl` | ✅ | ✅ | ✅ | ✅ | Nintendo standard texture palette library (GameCube / Wii) |
-| **Camelot GX bank** | *(none)*, `.stpl`, `.sbn` | ✅ | — | — | ✅ | Camelot GX texture bank, standalone or inline in a model module (*Mario Golf: Toadstool Tour*, *Mario Power Tennis* GC & Wii) |
+| **Camelot GX bank** | *(none)*, `.stpl`, `.sbn` | ✅ | — | — | ✅ | Camelot GX texture bank, standalone or inline in a model module (*Mario Golf: Toadstool Tour*, *Mario Power Tennis* GC & Wii, *We Love Golf!*) |
 | **CTPK** | `.ctpk` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C texture package (3DS) |
 | **CTXB** | `.ctxb` | ✅ | ✅ | ✅ | — | Grezzo 3DS texture container (*Ocarina of Time 3D*, *Majora's Mask 3D*) |
 | **G1T** | `.g1t` | — | — | — | — | Koei Tecmo texture container (*Hyrule Warriors*, *Fire Emblem Warriors*) |
