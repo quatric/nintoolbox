@@ -4309,10 +4309,35 @@ enumError cmd_filetype ()
 				else if (fform1 == FF_LZ)
 				{
 					load_full = true;
-					wlz_header_t *wh = (wlz_header_t *)buf1;
-					const file_format_t ff_temp
-						= GetByMagicFF (wh->first_8, sizeof (wh->first_8), be32 (wh->cdata));
-					stat2 = GetNameFF (0, ff_temp);
+					if (bufsize >= 4 && ((u8)buf1[0] == 0x10 || (u8)buf1[0] == 0x11))
+					{
+						u8 *dec = 0;
+						uint wr = 0;
+						if (DecodeLZ10LZ11 (&dec, &wr, (u8 *)buf1, bufsize) != ERR_OK || !dec)
+						{
+							u8 *fbuf = 0;
+							size_t fsize = 0;
+							if (LoadFileAlloc (arg, 0, 0, &fbuf, &fsize, 0, 0, 0, false) == ERR_OK && fbuf)
+							{
+								DecodeLZ10LZ11 (&dec, &wr, fbuf, (uint)fsize);
+								FREE (fbuf);
+							}
+						}
+						if (dec)
+						{
+							fatt.size = wr;
+							fform2 = GetByMagicFF (dec, wr, wr);
+							stat2 = GetNameFF (0, fform2);
+							FREE (dec);
+						}
+					}
+					else
+					{
+						wlz_header_t *wh = (wlz_header_t *)buf1;
+						const file_format_t ff_temp
+							= GetByMagicFF (wh->first_8, sizeof (wh->first_8), be32 (wh->cdata));
+						stat2 = GetNameFF (0, ff_temp);
+					}
 				}
 				else if (fform1 == FF_YLZ)
 				{

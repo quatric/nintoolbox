@@ -9,11 +9,19 @@ enumError DecodeLZ10LZ11 (u8 **dest, uint *dest_size, const u8 *src, uint src_si
 	if (!src || src_size < 4 || (src[0] != 0x10 && src[0] != 0x11))
 		return EINVAL;
 	const bool lz11 = src[0] == 0x11;
-	const u32 out_len = (u32)src[1] | (u32)src[2] << 8 | (u32)src[3] << 16;
+	u32 out_len = (u32)src[1] | (u32)src[2] << 8 | (u32)src[3] << 16;
+	uint sp = 4;
+	if (!out_len)
+	{
+		if (src_size < 8)
+			return EINVAL;
+		out_len = (u32)src[4] | (u32)src[5] << 8 | (u32)src[6] << 16 | (u32)src[7] << 24;
+		sp = 8;
+	}
 	enumError err = AllocOutput (dest, dest_size, out_len);
 	if (err)
 		return err;
-	uint sp = 4, dp = 0;
+	uint dp = 0;
 	while (dp < out_len)
 	{
 		if (sp >= src_size)

@@ -354,8 +354,12 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		if (d[0] == 0x81 && size >= 4)
 			return make_info (NFMT_DIFF16, false, true, (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);
 		if ((d[0] == 0x10 || d[0] == 0x11) && size >= 4)
-			return make_info (d[0] == 0x10 ? NFMT_LZ10 : NFMT_LZ11, false, true,
-				(u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);
+		{
+			u32 usize = (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16;
+			if (!usize && size >= 8)
+				usize = (u32)d[4] | (u32)d[5] << 8 | (u32)d[6] << 16 | (u32)d[7] << 24;
+			return make_info (d[0] == 0x10 ? NFMT_LZ10 : NFMT_LZ11, false, true, usize);
+		}
 		// Some BRRES-family members carry a short, unrecognized tag
 		// immediately before an otherwise standard LZ10/LZ11 stream --
 		// AquaSpace's (WiiWare) BRRES members are prefixed with "CX00",
