@@ -51,6 +51,7 @@
 #include "lib-gtx.h"
 #include "lib-nitro.h"
 #include "lib-nut.h"
+#include "lib-excite.h"
 
 #include "red-36.inc"
 #include "blue-40.inc"
@@ -846,6 +847,16 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 			return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported %s texture: %s\n",
 				GetNintendoFormatName (nfmt.type), fname);
 		AssignDecodedRGBA (img, rgba, width, height, nfmt.big_endian ? &be_func : &le_func, fname);
+		return PatchListIMG (img);
+	}
+
+	if (nfmt.type == NFMT_TM0)
+	{
+		excite_tex_t tex;
+		const enumError err = ScanTM0 (&tex, data, data_size);
+		if (err)
+			return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported TM0 texture: %s\n", fname);
+		AssignDecodedRGBA (img, tex.rgba, tex.width, tex.height, &le_func, fname);
 		return PatchListIMG (img);
 	}
 
