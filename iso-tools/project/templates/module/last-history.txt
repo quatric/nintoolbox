@@ -1,0 +1,19 @@
+wit v@@VERSION@@ r@@REV-NEXT@@ - @@@@-@@-@@
+
+ - New debug command for wit and wwt: ARGTEST: Print all scanned arguments as
+   list. This helps to find out wrong parameters, especially for windows.
+ - File ./sys/bi2.bin is optional now and will be created if missed.
+ - File ./sys/bi2.bin offset 0x30 will be patched for a double layer image
+   if the source was a single layer image.
+ - Bug fix: Command wit edit --ios=NUMBER did not mark the image as modified,
+   so the modified file was not written.
+ - Bug fix: If only recursive sources (option --recurse) but no standard
+   sources were specified, then "wit EXTRACT" was terminated prematurely.
+ - Options --source=PATH and --recurse=PATH support now wildcards. In this
+   case PATH is used as search pattern and all found files are added. In order
+   to use this variant, the calling shell must not interpret the wildcards.
+   Therefore, PATH must usually be enclosed in single or double quotes.
+
+~
+~Known bugs:
+~

@@ -1,0 +1,235 @@
+name: build and release
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# macOS notes: unlike the wiimms-szs-tools-plus fork, this project's only
+# third-party dependency is zstd (zlib/ncurses/etc come from the system SDK,
+# universal by default). zstd has no dependencies of its own and cross-
+# compiles trivially, so instead of building on two separate runners
+# (macos-14/macos-13) and lipo-fusing the resulting binaries afterward -- the
+# approach that struggles for the szs fork, likely because each runner's
+# Homebrew libs are native-arch-only and don't actually produce a portable
+# fat binary when linked in -- this workflow builds a universal libzstd.a
+# once (arm64 + x86_64 static libs fused with lipo) and then compiles the
+# whole tool in a SINGLE clang invocation with `-arch x86_64 -arch arm64`.
+# That produces genuinely universal binaries directly, with no dylib/arch
+# mismatches possible. Verified locally: `file bin/wit` reports a Mach-O
+# universal binary with both slices, and it runs natively on this arm64 Mac.
+env:
+  ZSTD_VERSION: 1.5.6
+
+jobs:
+  build-linux:
+    name: ${{ matrix.target }}
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x86_64
+          - target: linux-arm64
+            foreign_arch: arm64
+            cross_prefix: aarch64-linux-gnu-
+          - target: linux-armhf
+            foreign_arch: armhf
+            cross_prefix: arm-linux-gnueabihf-
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Add foreign dpkg architecture
+        if: matrix.foreign_arch != ''
+        run: |
+          sudo dpkg --add-architecture ${{ matrix.foreign_arch }}
+          sudo sed -i 's/^deb /deb [arch=amd64,i386] /' /etc/apt/sources.list
+          cat <<'EOF' | sudo tee /etc/apt/sources.list.d/ports.list
+          deb [arch=arm64,armhf] http://ports.ubuntu.com/ubuntu-ports jammy main universe
+          deb [arch=arm64,armhf] http://ports.ubuntu.com/ubuntu-ports jammy-updates main universe
+          EOF
+          sudo apt-get update
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get install -y build-essential
+          if [[ -n "${{ matrix.foreign_arch }}" ]]; then
+            case "${{ matrix.foreign_arch }}" in
+              arm64) sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu zlib1g-dev:arm64 libncurses-dev:arm64 libssl-dev:arm64 libzstd-dev:arm64 ;;
+              armhf) sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf zlib1g-dev:armhf libncurses-dev:armhf libssl-dev:armhf libzstd-dev:armhf ;;
+            esac
+          else
+            sudo apt-get install -y zlib1g-dev libncurses-dev libssl-dev libzstd-dev
+          fi
+
+      - name: Build
+        # The committed src/ui/{ui,tab}-*.{c,h,inc}/ui.def outputs are already
+        # correct and don't need regenerating -- see the equivalent step in
+        # the szs-tools-plus fork's workflow for why -o/--assume-old is used
+        # instead of a pre-touch (templated .inc files get fresh mtimes
+        # mid-build, which would otherwise still look stale).
+        run: |
+          old_ui_flags=()
+          for f in project/src/ui/ui-*.c project/src/ui/ui-*.h project/src/ui/ui.def; do
+            old_ui_flags+=(-o "$(basename "$f")")
+          done
+          make -C project \
+            "${old_ui_flags[@]}" \
+            ${{ matrix.cross_prefix && format('PRE={0}', matrix.cross_prefix) || '' }} \
+            -j$(nproc) all
+
+      - name: Smoke test
+        if: matrix.foreign_arch == ''
+        run: |
+          cd project
+          ./bin/wit VERSION
+          ./bin/wdf +VERSION
+
+      - name: Stage binaries
+        run: |
+          mkdir -p dist/${{ matrix.target }}
+          cp project/bin/wit project/bin/wdf project/bin/wtest project/bin/wwt project/bin/wfuse dist/${{ matrix.target }}/ 2>/dev/null || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wit-${{ matrix.target }}
+          path: dist/${{ matrix.target }}
+          if-no-files-found: error
+
+  build-windows:
+    name: windows-x86_64
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: C:\cygwin\bin\bash.exe --login -o igncr '{0}'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cygwin/cygwin-install-action@master
+        with:
+          packages: gcc-core gcc-g++ make zlib-devel libncurses-devel libzstd-devel binutils
+      - name: Build
+        run: |
+          cd "${GITHUB_WORKSPACE}/project"
+          old_ui_flags=()
+          for f in src/ui/ui-*.c src/ui/ui-*.h src/ui/ui.def; do
+            old_ui_flags+=(-o "$(basename "$f")")
+          done
+          make "${old_ui_flags[@]}" -j$(nproc) all
+      - name: Smoke test
+        run: |
+          cd "${GITHUB_WORKSPACE}/project"
+          ./bin/wit VERSION
+      - name: Stage binaries
+        run: |
+          cd "${GITHUB_WORKSPACE}"
+          mkdir -p dist/windows-x86_64
+          cp project/bin/wit.exe project/bin/wdf.exe project/bin/wtest.exe project/bin/wwt.exe dist/windows-x86_64/ 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wit-windows-x86_64
+          path: dist/windows-x86_64
+          if-no-files-found: error
+
+  # Single native runner, single link step -- see the note at the top of this
+  # file for why this replaces the two-runner-plus-lipo approach.
+  build-macos-universal:
+    name: macos-universal
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache universal libzstd
+        id: cache-zstd
+        uses: actions/cache@v4
+        with:
+          path: deps/zstd-universal
+          key: zstd-${{ env.ZSTD_VERSION }}-universal-macos
+
+      - name: Build universal libzstd
+        if: steps.cache-zstd.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL "https://github.com/facebook/zstd/releases/download/v${ZSTD_VERSION}/zstd-${ZSTD_VERSION}.tar.gz" | tar xz
+          cd "zstd-${ZSTD_VERSION}/lib"
+          for arch in arm64 x86_64; do
+            make clean >/dev/null
+            make -j"$(sysctl -n hw.ncpu)" libzstd.a CFLAGS="-arch $arch -O2"
+            mkdir -p "../out-$arch"
+            cp libzstd.a "../out-$arch/"
+          done
+          mkdir -p "${GITHUB_WORKSPACE}/deps/zstd-universal/lib"
+          lipo -create ../out-arm64/libzstd.a ../out-x86_64/libzstd.a -output "${GITHUB_WORKSPACE}/deps/zstd-universal/lib/libzstd.a"
+          cp *.h "${GITHUB_WORKSPACE}/deps/zstd-universal/"
+
+      - name: Build
+        # LDFLAGS is exported as an environment variable rather than passed
+        # as a `make VAR=...` command-line argument on purpose: a command-
+        # line assignment blocks the Makefile's own `LDFLAGS += ...` lines
+        # from taking effect (notably -Wl,-ld_classic, which Xcode 15+'s
+        # newer linker needs to accept some under-aligned dclib data --
+        # without it the link fails with "pointer not aligned" fixup
+        # errors). An exported/environment value doesn't have that problem;
+        # the Makefile's += still appends on top of it normally.
+        run: |
+          ZDIR="${GITHUB_WORKSPACE}/deps/zstd-universal"
+          export LDFLAGS="-L${ZDIR}/lib"
+          make -C project -j"$(sysctl -n hw.ncpu)" \
+            XFLAGS="-arch x86_64 -arch arm64 -I${ZDIR}" \
+            all
+
+      - name: Verify universal
+        run: |
+          for f in project/bin/wit project/bin/wdf project/bin/wtest project/bin/wwt; do
+            lipo -info "$f" | grep -q "x86_64 arm64\|arm64 x86_64" || { echo "$f is not universal"; lipo -info "$f"; exit 1; }
+          done
+
+      - name: Smoke test
+        run: |
+          cd project
+          ./bin/wit VERSION
+          ./bin/wdf +VERSION
+
+      - name: Stage binaries
+        run: |
+          mkdir -p dist/macos-universal
+          cp project/bin/wit project/bin/wdf project/bin/wtest project/bin/wwt project/bin/wfuse dist/macos-universal/ 2>/dev/null || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wit-macos-universal
+          path: dist/macos-universal
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build-linux, build-windows, build-macos-universal]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Create source archive
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          git archive --format=tar.gz --prefix="wiimms-iso-tools-plus-${tag}/" \
+            -o "wiimms-iso-tools-plus-${tag}-source.tar.gz" HEAD
+      - name: Package each target
+        run: |
+          cd dist
+          for d in */; do
+            [ -d "$d" ] || continue
+            tar -czf "../${d%/}.tar.gz" -C "$d" .
+          done
+      - name: Create checksums
+        run: |
+          sha256sum *.tar.gz > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            *.tar.gz
+            SHA256SUMS.txt

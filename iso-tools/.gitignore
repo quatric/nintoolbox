@@ -1,0 +1,25 @@
+*.bak
+cmd.txt
+bin/
+project/bin/
+project/edit-list/
+project/Makefile.setup
+project/Makefile.local
+project/Makefile.user
+
+# build artifacts (previously committed by accident)
+*.o
+*.d
+project/gen-ui
+project/wit
+project/wdf
+project/wdf-cat
+project/wdf-dump
+project/wfuse
+project/wtest
+project/wwt
+project/install.sh
+project/load-titles.sh
+project/config-paths.inc
+project/logo.inc
+project/ui-head.inc

@@ -1,0 +1,5 @@
+*.c linguist-language=C
+*.h linguist-language=C
+*.inc linguist-language=C
+
+* text=auto eol=lf
