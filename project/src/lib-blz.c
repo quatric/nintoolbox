@@ -226,4 +226,3 @@ enumError EncodeBLZ (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 	*dest_size = enc_len;
 	return ERR_OK;
 }
-

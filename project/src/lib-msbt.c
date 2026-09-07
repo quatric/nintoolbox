@@ -1353,8 +1353,8 @@ enumError SaveJSONMSBP (const msbp_file_t *msbp, ccp dest_fname)
 	for (uint i = 0; i < msbp->num_colors; i++)
 	{
 		fprintf (f, "    { \"index\": %u, \"name\": \"%s\", \"rgba\": \"#%02X%02X%02X%02X\" }%s\n",
-			i, msbp->colors[i].name ? msbp->colors[i].name : "",
-			msbp->colors[i].r, msbp->colors[i].g, msbp->colors[i].b, msbp->colors[i].a,
+			i, msbp->colors[i].name ? msbp->colors[i].name : "", msbp->colors[i].r,
+			msbp->colors[i].g, msbp->colors[i].b, msbp->colors[i].a,
 			(i + 1 < msbp->num_colors) ? "," : "");
 	}
 	fprintf (f, "  ]\n}\n");
@@ -1769,8 +1769,8 @@ enumError SaveTextMSBF (const msbf_file_t *msbf, ccp dest_fname)
 			fprintf (f, "])\n");
 		}
 		else if (n->type == MSBF_NODE_EVENT)
-			fprintf (f, "  type = Event (event_id=%u, param=0x%x, next=%u)\n",
-				n->event_id, n->event_param, n->next_node);
+			fprintf (f, "  type = Event (event_id=%u, param=0x%x, next=%u)\n", n->event_id,
+				n->event_param, n->next_node);
 		else if (n->type == MSBF_NODE_ENTRY)
 			fprintf (f, "  type = EntryPoint (next=%u)\n", n->next_node);
 		else

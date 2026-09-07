@@ -26,7 +26,6 @@ static inline void nwr32 (u8 *p, u32 v)
 
 //-----------------------------------------------------------------------------
 
-
 enumError ScanNitroNCGR (nitro_ncgr_t *ncgr, const u8 *data, uint size)
 {
 	if (!ncgr || !data || size < 0x30 || memcmp (data, "RGCN", 4)
@@ -64,8 +63,7 @@ enumError ScanNitroNCLR (nitro_nclr_t *nclr, const u8 *data, uint size)
 	if (!nclr)
 		return EINVAL;
 	memset (nclr, 0, sizeof (*nclr));
-	if (!data || size < 0x28 || memcmp (data, "RLCN", 4)
-		|| memcmp (data + 0x10, "TTLP", 4))
+	if (!data || size < 0x28 || memcmp (data, "RLCN", 4) || memcmp (data + 0x10, "TTLP", 4))
 		return EINVAL;
 
 	const uint data_size = nrd32 (data + 0x20);
@@ -456,7 +454,8 @@ enumError ScanHudsonNCL (nitro_nclr_t *nclr, const u8 *data, uint size)
 		return EINVAL;
 	memset (nclr, 0, sizeof (*nclr));
 	uint offset = 0;
-	if (size >= 8 && (!memcmp (data, "NCL\0", 4) || !memcmp (data, "NCPR", 4) || !memcmp (data, "5PL0", 4)))
+	if (size >= 8
+		&& (!memcmp (data, "NCL\0", 4) || !memcmp (data, "NCPR", 4) || !memcmp (data, "5PL0", 4)))
 		offset = 8;
 	else if (size >= 16 && !memcmp (data, "JNCL", 4))
 		offset = 16;
@@ -490,7 +489,8 @@ enumError ScanHudsonNCG (nitro_ncgr_t *ncgr, const u8 *data, uint size)
 	memset (ncgr, 0, sizeof (*ncgr));
 	uint offset = 0;
 	uint bpp = 4;
-	if (size >= 8 && (!memcmp (data, "NCG\0", 4) || !memcmp (data, "NCBR", 4) || !memcmp (data, "5CG0", 4)))
+	if (size >= 8
+		&& (!memcmp (data, "NCG\0", 4) || !memcmp (data, "NCBR", 4) || !memcmp (data, "5CG0", 4)))
 	{
 		offset = 8;
 		if (size >= 12 && data[4] == 8)
@@ -708,7 +708,8 @@ enumError ScanNitroTEX0 (nitro_tex0_t *tex0, const u8 *data, uint size)
 		&& parse_g3d_dict (&tex_dict, tex0_hdr + tex_info_ofs, tex0_avail - tex_info_ofs, 8))
 	{
 		tex0->n_textures = tex_dict.n_entries;
-		tex0->textures = CALLOC (tex_dict.n_entries ? tex_dict.n_entries : 1, sizeof (*tex0->textures));
+		tex0->textures
+			= CALLOC (tex_dict.n_entries ? tex_dict.n_entries : 1, sizeof (*tex0->textures));
 		for (uint i = 0; i < tex_dict.n_entries; i++)
 		{
 			nitro_tex_entry_t *t = tex0->textures + i;
@@ -759,7 +760,8 @@ enumError ScanNitroTEX0 (nitro_tex0_t *tex0, const u8 *data, uint size)
 		&& parse_g3d_dict (&pltt_dict, tex0_hdr + pltt_info_ofs, tex0_avail - pltt_info_ofs, 4))
 	{
 		tex0->n_palettes = pltt_dict.n_entries;
-		tex0->palettes = CALLOC (pltt_dict.n_entries ? pltt_dict.n_entries : 1, sizeof (*tex0->palettes));
+		tex0->palettes
+			= CALLOC (pltt_dict.n_entries ? pltt_dict.n_entries : 1, sizeof (*tex0->palettes));
 		for (uint i = 0; i < pltt_dict.n_entries; i++)
 		{
 			nitro_pltt_entry_t *p = tex0->palettes + i;
@@ -816,8 +818,8 @@ static inline u32 blend_colors (u32 c1, u32 c2, int factor)
 	return (r & 0xFF) | ((g & 0xFF) << 8) | ((b & 0xFF) << 16) | 0xFF000000;
 }
 
-enumError DecodeNitroTexture_RGBA (u8 **dest, uint *width, uint *height,
-	const nitro_tex0_t *tex0, uint tex_idx, int pltt_idx)
+enumError DecodeNitroTexture_RGBA (
+	u8 **dest, uint *width, uint *height, const nitro_tex0_t *tex0, uint tex_idx, int pltt_idx)
 {
 	if (!dest || !width || !height || !tex0 || tex_idx >= tex0->n_textures)
 		return EINVAL;
@@ -1037,11 +1039,13 @@ enumError CreateNSBTX (u8 **dest, uint *dest_size, const u8 *rgba, uint width, u
 
 	// BTX0 Header
 	memcpy (out + 0x00, "BTX0", 4);
-	out[0x04] = 0xFF; out[0x05] = 0xFE; // BOM LE
-	out[0x06] = 0x00; out[0x07] = 0x01; // Version 1.0
+	out[0x04] = 0xFF;
+	out[0x05] = 0xFE; // BOM LE
+	out[0x06] = 0x00;
+	out[0x07] = 0x01; // Version 1.0
 	nwr32 (out + 0x08, total_file_size);
 	nwr16 (out + 0x0c, 0x10); // Header size
-	nwr16 (out + 0x0e, 1);    // 1 section
+	nwr16 (out + 0x0e, 1); // 1 section
 	nwr32 (out + 0x10, 0x14); // Section 0 offset
 
 	// TEX0 Section
@@ -1063,8 +1067,10 @@ enumError CreateNSBTX (u8 **dest, uint *dest_size, const u8 *rgba, uint width, u
 	nwr16 (dict + 12, 0); // texel offset 0
 	// 16-bit param: fmt=7 (direct)
 	uint w_shift = 0, h_shift = 0;
-	while ((8u << w_shift) < width && w_shift < 7) w_shift++;
-	while ((8u << h_shift) < height && h_shift < 7) h_shift++;
+	while ((8u << w_shift) < width && w_shift < 7)
+		w_shift++;
+	while ((8u << h_shift) < height && h_shift < 7)
+		h_shift++;
 	const u16 param = (7 << 10) | (h_shift << 7) | (w_shift << 4) | 0x2000;
 	nwr16 (dict + 14, param);
 	char name_buf[16] = { 0 };
@@ -1226,7 +1232,8 @@ enumError ScanNitroNFTR (nitro_nftr_t *nftr, const u8 *data, uint size)
 		nftr->cell_w = cglp[0x08];
 		nftr->cell_h = cglp[0x09];
 		nftr->bpp = cglp[0x0c];
-		if (!nftr->bpp) nftr->bpp = 1;
+		if (!nftr->bpp)
+			nftr->bpp = 1;
 		nftr->max_advance = cglp[0x0b];
 		const uint data_sz = nrd32 (cglp + 4) - 0x10;
 		const uint bytes_per_glyph = (nftr->cell_w * nftr->cell_h * nftr->bpp + 7) / 8;
@@ -1235,9 +1242,12 @@ enumError ScanNitroNFTR (nitro_nftr_t *nftr, const u8 *data, uint size)
 		nftr->n_glyphs = bytes_per_glyph ? (data_sz / bytes_per_glyph) : 0;
 	}
 
-	if (!nftr->cell_w) nftr->cell_w = 8;
-	if (!nftr->cell_h) nftr->cell_h = 8;
-	if (!nftr->bpp) nftr->bpp = 1;
+	if (!nftr->cell_w)
+		nftr->cell_w = 8;
+	if (!nftr->cell_h)
+		nftr->cell_h = 8;
+	if (!nftr->bpp)
+		nftr->bpp = 1;
 
 	// Populate basic glyph mapping
 	if (nftr->n_glyphs > 0)
@@ -1256,8 +1266,8 @@ enumError ScanNitroNFTR (nitro_nftr_t *nftr, const u8 *data, uint size)
 	return nftr->n_glyphs ? ERR_OK : EINVAL;
 }
 
-enumError DecodeNFTR_Atlas (u8 **dest_atlas, uint *atlas_w, uint *atlas_h,
-	char **dest_xml, const u8 *data, uint size)
+enumError DecodeNFTR_Atlas (
+	u8 **dest_atlas, uint *atlas_w, uint *atlas_h, char **dest_xml, const u8 *data, uint size)
 {
 	if (!dest_atlas || !atlas_w || !atlas_h || !dest_xml || !data || size < 0x20)
 		return EINVAL;
@@ -1316,7 +1326,9 @@ enumError DecodeNFTR_Atlas (u8 **dest_atlas, uint *atlas_w, uint *atlas_h,
 				const uint dx = gx + px;
 				const uint dy = gy + py;
 				u8 *d = atlas + (dy * aw + dx) * 4;
-				d[0] = 255; d[1] = 255; d[2] = 255;
+				d[0] = 255;
+				d[1] = 255;
+				d[2] = 255;
 				d[3] = (u8)val;
 			}
 	}
@@ -1325,11 +1337,12 @@ enumError DecodeNFTR_Atlas (u8 **dest_atlas, uint *atlas_w, uint *atlas_h,
 	char xml_buf[4096];
 	snprintf (xml_buf, sizeof (xml_buf),
 		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-		"<font format=\"%s\" version=\"0x%04x\" cell_w=\"%u\" cell_h=\"%u\" bpp=\"%u\" linefeed=\"%u\" n_glyphs=\"%u\">\n"
+		"<font format=\"%s\" version=\"0x%04x\" cell_w=\"%u\" cell_h=\"%u\" bpp=\"%u\" "
+		"linefeed=\"%u\" n_glyphs=\"%u\">\n"
 		"  <sheet width=\"%u\" height=\"%u\" columns=\"%u\" rows=\"%u\"/>\n"
 		"</font>\n",
-		nftr.is_bnfr ? "BNFR" : "NFTR", nftr.version, nftr.cell_w, nftr.cell_h,
-		nftr.bpp, nftr.linefeed, nftr.n_glyphs, aw, ah, cols, rows);
+		nftr.is_bnfr ? "BNFR" : "NFTR", nftr.version, nftr.cell_w, nftr.cell_h, nftr.bpp,
+		nftr.linefeed, nftr.n_glyphs, aw, ah, cols, rows);
 
 	*dest_atlas = atlas;
 	*atlas_w = aw;
@@ -1339,8 +1352,8 @@ enumError DecodeNFTR_Atlas (u8 **dest_atlas, uint *atlas_w, uint *atlas_h,
 	return ERR_OK;
 }
 
-enumError EncodeNFTR_Atlas (u8 **dest, uint *dest_size,
-	const u8 *atlas_rgba, uint atlas_w, uint atlas_h, ccp xml_str, bool is_bnfr)
+enumError EncodeNFTR_Atlas (u8 **dest, uint *dest_size, const u8 *atlas_rgba, uint atlas_w,
+	uint atlas_h, ccp xml_str, bool is_bnfr)
 {
 	if (!dest || !dest_size || !atlas_rgba || !atlas_w || !atlas_h)
 		return EINVAL;
@@ -1359,7 +1372,8 @@ enumError EncodeNFTR_Atlas (u8 **dest, uint *dest_size,
 
 	// Header
 	memcpy (out, is_bnfr ? "RNFB" : "RTNF", 4);
-	out[4] = 0xFF; out[5] = 0xFE; // BOM
+	out[4] = 0xFF;
+	out[5] = 0xFE; // BOM
 	nwr16 (out + 6, 0x0102); // Version
 	nwr32 (out + 8, total_sz);
 	nwr16 (out + 12, 0x10);
@@ -1369,13 +1383,19 @@ enumError EncodeNFTR_Atlas (u8 **dest, uint *dest_size,
 	u8 *finf = out + 0x10;
 	memcpy (finf, "FINF", 4);
 	nwr32 (finf + 4, 0x20);
-	finf[8] = 1; finf[9] = (u8)cell_h; finf[14] = (u8)cell_w; finf[15] = (u8)cell_h;
+	finf[8] = 1;
+	finf[9] = (u8)cell_h;
+	finf[14] = (u8)cell_w;
+	finf[15] = (u8)cell_h;
 
 	// CGLP
 	u8 *cglp = out + 0x30;
 	memcpy (cglp, "CGLP", 4);
 	nwr32 (cglp + 4, cglp_sz);
-	cglp[8] = (u8)cell_w; cglp[9] = (u8)cell_h; cglp[11] = (u8)cell_w; cglp[12] = (u8)bpp;
+	cglp[8] = (u8)cell_w;
+	cglp[9] = (u8)cell_h;
+	cglp[11] = (u8)cell_w;
+	cglp[12] = (u8)bpp;
 
 	u8 *gdst = cglp + 0x10;
 	for (uint g = 0; g < n_glyphs; g++)
@@ -1424,7 +1444,10 @@ enumError DecodeBNLL_Text (char **dest_text, const u8 *data, uint size)
 		"version = 0x%04x\n"
 		"sections = %u\n"
 		"size = %u\n",
-		is_bnll ? "BNLL" : is_bncl ? "BNCL" : "BNBL", ver, n_sections, size);
+		is_bnll		  ? "BNLL"
+			: is_bncl ? "BNCL"
+					  : "BNBL",
+		ver, n_sections, size);
 
 	*dest_text = STRDUP (buf);
 	return ERR_OK;
@@ -1441,7 +1464,8 @@ enumError EncodeBNLL_Text (u8 **dest, uint *dest_size, ccp text)
 		return ERR_CANT_CREATE;
 
 	memcpy (out, "LLNB", 4);
-	out[4] = 0xFF; out[5] = 0xFE;
+	out[4] = 0xFF;
+	out[5] = 0xFE;
 	nwr16 (out + 6, 0x0100);
 	nwr32 (out + 8, total);
 	nwr16 (out + 12, 0x10);
@@ -1499,7 +1523,8 @@ enumError EncodeNCER_Text (u8 **dest, uint *dest_size, ccp text)
 
 	// NCER Header
 	memcpy (out, "RECN", 4);
-	out[4] = 0xFF; out[5] = 0xFE;
+	out[4] = 0xFF;
+	out[5] = 0xFE;
 	nwr16 (out + 6, 0x0100);
 	nwr32 (out + 8, total);
 	nwr16 (out + 12, 0x10);
@@ -1564,7 +1589,8 @@ enumError EncodeNANR_Text (u8 **dest, uint *dest_size, ccp text)
 
 	// NANR Header
 	memcpy (out, "RNAN", 4);
-	out[4] = 0xFF; out[5] = 0xFE;
+	out[4] = 0xFF;
+	out[5] = 0xFE;
 	nwr16 (out + 6, 0x0100);
 	nwr32 (out + 8, total);
 	nwr16 (out + 12, 0x10);
@@ -1580,4 +1606,3 @@ enumError EncodeNANR_Text (u8 **dest, uint *dest_size, ccp text)
 	*dest_size = total;
 	return ERR_OK;
 }
-

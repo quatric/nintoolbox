@@ -39,7 +39,7 @@
 
 #include "dclib/dclib-types.h"
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			wit definitions			///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -47,30 +47,27 @@
 struct FileMapItem_t;
 struct FileMap_t;
 
-const struct FileMapItem_t * AppendFileMap
-(
-    // returns the modified or appended item
+const struct FileMapItem_t *AppendFileMap (
+	// returns the modified or appended item
 
-    struct FileMap_t	*fm,		// file map pointer
-    u64			src_off,	// offset of source
-    u64			dest_off,	// offset of dest
-    u64			size		// size
+	struct FileMap_t *fm, // file map pointer
+	u64 src_off, // offset of source
+	u64 dest_off, // offset of dest
+	u64 size // size
 );
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			get file mapping		///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-int GetWinFileMap
-(
-    struct FileMap_t	*fm,		// valid pointer to to map
-    int			fd,		// file descriptor
-    u64			split_off,	// base offset of split file
-    u64			file_size	// file size
+int GetWinFileMap (struct FileMap_t *fm, // valid pointer to to map
+	int fd, // file descriptor
+	u64 split_off, // base offset of split file
+	u64 file_size // file size
 );
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////				END			///////////////
 ///////////////////////////////////////////////////////////////////////////////

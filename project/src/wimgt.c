@@ -401,9 +401,9 @@ static enumError decode_brfnt_atlas (ccp arg, ccp dest)
 	}
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sDECODE %s:%s[%u sheets] -> PNG:%s + XML\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "",
-			!memcmp (raw, "RFNA", 4) ? "BRFNA" : "BRFNT", arg, nsheet, dest);
+		fprintf (stdlog, "%s%sDECODE %s:%s[%u sheets] -> PNG:%s + XML\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", !memcmp (raw, "RFNA", 4) ? "BRFNA" : "BRFNT", arg, nsheet,
+			dest);
 	if (testmode)
 	{
 		FREE (atlas);
@@ -435,9 +435,11 @@ static enumError decode_brfnt_atlas (ccp arg, ccp dest)
 	const uint cells_per_row = be16 (tglp + 0x14);
 	const uint cell_rows = be16 (tglp + 0x16);
 	const uint per_sheet = cells_per_row * cell_rows;
-	fprintf (F.f, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+	fprintf (F.f,
+		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
 		"<font-atlas image=\"%s\" width=\"%u\" height=\"%u\" sheets=\"%u\" "
-		"sheet-width=\"%u\" sheet-height=\"%u\">\n", dest, atlas_w, atlas_h, nsheet, sw, sh);
+		"sheet-width=\"%u\" sheet-height=\"%u\">\n",
+		dest, atlas_w, atlas_h, nsheet, sw, sh);
 
 	// Each CMAP maps Unicode/code-page values to glyph indices.  Methods 0,
 	// 1 and 2 are direct, table and scan mappings respectively.
@@ -487,22 +489,27 @@ static enumError decode_brfnt_atlas (ccp arg, ccp dest)
 				for (uint wi = 0; wi < nsec && wo + 0x10 <= raw_size; wi++)
 				{
 					const uint wl = be32 (raw + wo + 4);
-					if (wl < 8 || wl > raw_size - wo) break;
+					if (wl < 8 || wl > raw_size - wo)
+						break;
 					if (!memcmp (raw + wo, "CWDH", 4) && wl >= 0x10)
 					{
 						const uint wf = be16 (raw + wo + 8), we = be16 (raw + wo + 10);
-						if (glyph >= wf && glyph <= we && 0x10 + (glyph-wf)*3 + 3 <= wl)
+						if (glyph >= wf && glyph <= we && 0x10 + (glyph - wf) * 3 + 3 <= wl)
 						{
-							const u8 *m = raw + wo + 0x10 + (glyph-wf)*3;
-							left = (s8)m[0]; glyph_w = m[1]; advance = m[2]; break;
+							const u8 *m = raw + wo + 0x10 + (glyph - wf) * 3;
+							left = (s8)m[0];
+							glyph_w = m[1];
+							advance = m[2];
+							break;
 						}
 					}
 					wo += wl;
 				}
-				fprintf (F.f, "  <character code=\"U+%04X\" glyph=\"%u\" sheet=\"%u\" "
+				fprintf (F.f,
+					"  <character code=\"U+%04X\" glyph=\"%u\" sheet=\"%u\" "
 					"x=\"%u\" y=\"%u\" width=\"%u\" height=\"%u\" left=\"%d\" "
-					"glyph-width=\"%u\" advance=\"%u\"/>\n", code, glyph, sheet,
-					x, y, cell_w, cell_h, left, glyph_w, advance);
+					"glyph-width=\"%u\" advance=\"%u\"/>\n",
+					code, glyph, sheet, x, y, cell_w, cell_h, left, glyph_w, advance);
 			}
 		}
 		off += len;
@@ -838,8 +845,8 @@ static enumError SavePLT0 (Image_t *img, ccp dest, ccp source)
 		// 2D image: quantize palette to 256 colors using plt0 3-pass quantization
 		u8 *raw_pal = 0;
 		uint pal_size = 0, n_colors = 0;
-		err = QuantizePalette_PLT0 (img->data, img->width, img->height, img->xwidth,
-			img->pform, 256, &raw_pal, &pal_size, &n_colors, 0);
+		err = QuantizePalette_PLT0 (img->data, img->width, img->height, img->xwidth, img->pform,
+			256, &raw_pal, &pal_size, &n_colors, 0);
 		if (err)
 			return ERROR0 (ERR_INVALID_DATA, "Can't quantize PLT0 palette: %s\n", source);
 
@@ -1286,11 +1293,11 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				return err;
 			continue;
 		}
-		if (dot && (!strcasecmp (dot, ".art") || !strcasecmp (dot, ".img")
+		if (dot
+			&& (!strcasecmp (dot, ".art") || !strcasecmp (dot, ".img")
 				|| !strcasecmp (dot, ".ebart") || !strcasecmp (dot, ".ebimg")))
 		{
-			const bool headered
-				= !strcasecmp (dot, ".ebart") || !strcasecmp (dot, ".ebimg");
+			const bool headered = !strcasecmp (dot, ".ebart") || !strcasecmp (dot, ".ebimg");
 			if (verbose >= 0 || testmode)
 				fprintf (stdlog, "%s%s%s %s:%s -> Excite-ART:%s\n", verbose > 0 ? "\n" : "",
 					testmode ? "WOULD " : "", cmd_name, PrintFormat3 (src_f, src_i, src_p), arg,
@@ -1317,8 +1324,7 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		{
 			ccp d_ext = strrchr (dest, '.');
 			const file_format_t want = d_ext ? GetByNameFF (d_ext + 1) : FF_UNKNOWN;
-			if (want != FF_UNKNOWN && want != fform
-				&& IsImageFF (want, true) == FF_UNKNOWN)
+			if (want != FF_UNKNOWN && want != fform && IsImageFF (want, true) == FF_UNKNOWN)
 			{
 				ERROR0 (ERR_WARNING,
 					"wimgt can't write %s images: writing %s instead,"

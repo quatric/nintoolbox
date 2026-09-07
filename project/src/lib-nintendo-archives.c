@@ -70,12 +70,13 @@ enumError ExtractXPCKArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT XPCK:%s (%u files) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, file_count, dest);
+		fprintf (stdlog, "%s%sEXTRACT XPCK:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, file_count, dest);
 
 	// Try reading filename table if present
 	const char *names_ptr = (file_table_offset + filename_table_size <= raw_size)
-		? (const char *)(raw + file_table_offset) : 0;
+		? (const char *)(raw + file_table_offset)
+		: 0;
 	uint name_pos = 0;
 
 	for (uint i = 0; i < file_count; i++)
@@ -150,8 +151,8 @@ enumError ExtractZTABArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT ZTAB:%s (%u entries) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, count, dest);
+		fprintf (stdlog, "%s%sEXTRACT ZTAB:%s (%u entries) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, count, dest);
 
 	for (uint i = 0; i < count; i++)
 	{
@@ -203,7 +204,8 @@ enumError ExtractMDRArchive (ccp arg, ccp basedir, uint depth)
 
 	// Validate first offset
 	const u32 first_off = rd_be32 (raw + 4);
-	if ((uint64_t)first_off < (uint64_t)4 + (uint64_t)count * 4 || (uint64_t)first_off + 16 > raw_size)
+	if ((uint64_t)first_off < (uint64_t)4 + (uint64_t)count * 4
+		|| (uint64_t)first_off + 16 > raw_size)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
@@ -214,8 +216,8 @@ enumError ExtractMDRArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT MDR:%s (%u chunks) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, count, dest);
+		fprintf (stdlog, "%s%sEXTRACT MDR:%s (%u chunks) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, count, dest);
 
 	for (uint i = 0; i < count; i++)
 	{
@@ -241,7 +243,9 @@ enumError ExtractMDRArchive (ccp arg, ccp basedir, uint depth)
 		{
 			u8 *decomp_data = 0;
 			uint decomp_sz = 0;
-			if (comp_sz > 0 && DecodeZlibGrow (&decomp_data, &decomp_sz, raw + off + 16, comp_sz) == ERR_OK && decomp_data)
+			if (comp_sz > 0
+				&& DecodeZlibGrow (&decomp_data, &decomp_sz, raw + off + 16, comp_sz) == ERR_OK
+				&& decomp_data)
 			{
 				SaveFile (out_path, 0, 0, decomp_data, decomp_sz, 0);
 				FREE (decomp_data);
@@ -317,8 +321,8 @@ enumError ExtractPVOLArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT PVOL:%s (%u files) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, fcount - 1, dest);
+		fprintf (stdlog, "%s%sEXTRACT PVOL:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, fcount - 1, dest);
 
 	for (uint i = 0; i < fcount - 1; i++)
 	{
@@ -378,7 +382,8 @@ enumError ExtractSTPKArchive (ccp arg, ccp basedir, uint depth)
 	}
 
 	const u32 resource_count = rd_be32 (raw + 8);
-	if (!resource_count || resource_count > 100000 || (uint64_t)0x10 + (uint64_t)resource_count * 0x30 > raw_size)
+	if (!resource_count || resource_count > 100000
+		|| (uint64_t)0x10 + (uint64_t)resource_count * 0x30 > raw_size)
 	{
 		FREE (raw);
 		return ERR_INVALID_DATA;
@@ -389,8 +394,8 @@ enumError ExtractSTPKArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT STPK:%s (%u resources) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, resource_count, dest);
+		fprintf (stdlog, "%s%sEXTRACT STPK:%s (%u resources) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, resource_count, dest);
 
 	for (uint i = 0; i < resource_count; i++)
 	{
@@ -447,7 +452,8 @@ enumError ExtractF9ResArchive (ccp arg, ccp basedir, uint depth)
 	}
 
 	const u32 chunk_count = rd_be32 (raw + chunks_offset);
-	if (!chunk_count || chunk_count > 100000 || (uint64_t)chunks_offset + 8 + (uint64_t)chunk_count * 20 > raw_size)
+	if (!chunk_count || chunk_count > 100000
+		|| (uint64_t)chunks_offset + 8 + (uint64_t)chunk_count * 20 > raw_size)
 	{
 		FREE (raw);
 		return ERR_INVALID_DATA;
@@ -458,8 +464,8 @@ enumError ExtractF9ResArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT RES:%s (%u chunks) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, chunk_count, dest);
+		fprintf (stdlog, "%s%sEXTRACT RES:%s (%u chunks) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, chunk_count, dest);
 
 	for (uint i = 0; i < chunk_count; i++)
 	{
@@ -467,7 +473,8 @@ enumError ExtractF9ResArchive (ccp arg, ccp basedir, uint depth)
 		char tag[5] = { 0 };
 		memcpy (tag, raw + coff, 4);
 		for (int c = 0; c < 4; c++)
-			if (tag[c] < 32 || tag[c] > 126) tag[c] = '_';
+			if (tag[c] < 32 || tag[c] > 126)
+				tag[c] = '_';
 
 		const u32 off = rd_be32 (raw + coff + 4) + header_offset;
 		u32 sz = rd_be32 (raw + coff + 8);
@@ -982,7 +989,8 @@ enumError ExtractZLARCArchive (ccp arg, ccp basedir, uint depth)
 
 	// Validate first offset
 	const u32 first_off = rd_be32 (raw + 4);
-	if ((uint64_t)first_off < (uint64_t)4 + (uint64_t)count * 4 || (uint64_t)first_off + 12 > raw_size)
+	if ((uint64_t)first_off < (uint64_t)4 + (uint64_t)count * 4
+		|| (uint64_t)first_off + 12 > raw_size)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
@@ -1012,8 +1020,8 @@ enumError ExtractZLARCArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT ZLARC:%s (%u files) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, count, dest);
+		fprintf (stdlog, "%s%sEXTRACT ZLARC:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, count, dest);
 
 	for (uint i = 0; i < count; i++)
 	{
@@ -1109,14 +1117,16 @@ enumError ExtractGARArchive (ccp arg, ccp basedir, uint depth)
 	get_dest_dir (dest, sizeof (dest), arg, basedir);
 	CreatePath (dest, true);
 
-	const bool is_zelda = !memcmp (codename, "queen\0\0\0", 8) || !memcmp (codename, "jenkins\0", 8);
+	const bool is_zelda
+		= !memcmp (codename, "queen\0\0\0", 8) || !memcmp (codename, "jenkins\0", 8);
 	(void)is_zelda;
-	const bool is_system = !memcmp (codename, "agora\0\0\0", 8) || !memcmp (codename, "SYSTEM\0\0", 8);
+	const bool is_system
+		= !memcmp (codename, "agora\0\0\0", 8) || !memcmp (codename, "SYSTEM\0\0", 8);
 
 	if (verbose >= 0 || testmode)
 		fprintf (stdlog, "%s%sEXTRACT GAR/ZAR:%s (%u files, %u groups, %.*s) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, file_count, file_group_count,
-			8, codename, dest);
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, file_count, file_group_count, 8,
+			codename, dest);
 
 	if (is_system)
 	{
@@ -1493,8 +1503,8 @@ enumError ExtractNXARCArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT NXARC:%s (%u files) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, file_count, dest);
+		fprintf (stdlog, "%s%sEXTRACT NXARC:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, file_count, dest);
 
 	// Read zero-terminated strings from offset_block
 	// File 0 is string table entry, actual files start at index 1
@@ -1523,9 +1533,12 @@ enumError ExtractNXARCArchive (ccp arg, ccp basedir, uint depth)
 			break;
 
 		(void)block_size;
-		const u64 size = (u64)rd_le32(raw + entry_pos) | ((u64)rd_le32(raw + entry_pos + 4) << 32);
-		const u64 offset = (u64)rd_le32(raw + entry_pos + 8) | ((u64)rd_le32(raw + entry_pos + 12) << 32);
-		const u64 flag = (u64)rd_le32(raw + entry_pos + 16) | ((u64)rd_le32(raw + entry_pos + 20) << 32);
+		const u64 size
+			= (u64)rd_le32 (raw + entry_pos) | ((u64)rd_le32 (raw + entry_pos + 4) << 32);
+		const u64 offset
+			= (u64)rd_le32 (raw + entry_pos + 8) | ((u64)rd_le32 (raw + entry_pos + 12) << 32);
+		const u64 flag
+			= (u64)rd_le32 (raw + entry_pos + 16) | ((u64)rd_le32 (raw + entry_pos + 20) << 32);
 
 		if (offset >= raw_size || (size_t)size > raw_size - offset)
 			continue;
@@ -1690,8 +1703,8 @@ enumError ExtractPKZArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT PKZ:%s (%u files) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, file_count, dest);
+		fprintf (stdlog, "%s%sEXTRACT PKZ:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, file_count, dest);
 
 	for (uint i = 0; i < file_count; i++)
 	{
@@ -1699,10 +1712,14 @@ enumError ExtractPKZArchive (ccp arg, ccp basedir, uint depth)
 		if (entry_pos + 32 > raw_size)
 			break;
 
-		const u64 name_offset = (u64)rd_le32 (raw + entry_pos) | ((u64)rd_le32 (raw + entry_pos + 4) << 32);
-		const u64 file_size = (u64)rd_le32 (raw + entry_pos + 8) | ((u64)rd_le32 (raw + entry_pos + 12) << 32);
-		const u64 file_offset = (u64)rd_le32 (raw + entry_pos + 16) | ((u64)rd_le32 (raw + entry_pos + 20) << 32);
-		const u64 comp_size = (u64)rd_le32 (raw + entry_pos + 24) | ((u64)rd_le32 (raw + entry_pos + 28) << 32);
+		const u64 name_offset
+			= (u64)rd_le32 (raw + entry_pos) | ((u64)rd_le32 (raw + entry_pos + 4) << 32);
+		const u64 file_size
+			= (u64)rd_le32 (raw + entry_pos + 8) | ((u64)rd_le32 (raw + entry_pos + 12) << 32);
+		const u64 file_offset
+			= (u64)rd_le32 (raw + entry_pos + 16) | ((u64)rd_le32 (raw + entry_pos + 20) << 32);
+		const u64 comp_size
+			= (u64)rd_le32 (raw + entry_pos + 24) | ((u64)rd_le32 (raw + entry_pos + 28) << 32);
 
 		char name[PATH_MAX];
 		const uint full_name_pos = str_table_pos + (uint)name_offset;
@@ -1796,8 +1813,8 @@ enumError ExtractVIBSArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT VIBS:%s (%u files) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, num_entries, dest);
+		fprintf (stdlog, "%s%sEXTRACT VIBS:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, num_entries, dest);
 
 	for (uint i = 0; i < num_entries; i++)
 	{
@@ -1862,9 +1879,8 @@ enumError ExtractPGDATArchive (ccp arg, ccp basedir, uint depth)
 	const u32 offset_file_name_tbl = rd_le32 (raw + 16);
 	const u32 offset_file_size_tbl = rd_le32 (raw + 20);
 
-	if (!file_count || file_count > 100000 ||
-		offset_file_offset_tbl >= raw_size ||
-		offset_file_size_tbl >= raw_size)
+	if (!file_count || file_count > 100000 || offset_file_offset_tbl >= raw_size
+		|| offset_file_size_tbl >= raw_size)
 	{
 		FREE (raw);
 		return ERR_INVALID_DATA;
@@ -1875,8 +1891,8 @@ enumError ExtractPGDATArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT PG-DAT:%s (%u files) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, file_count, dest);
+		fprintf (stdlog, "%s%sEXTRACT PG-DAT:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, file_count, dest);
 
 	u32 str_size = 0;
 	if (offset_file_name_tbl + 4 <= raw_size)
@@ -1884,8 +1900,8 @@ enumError ExtractPGDATArchive (ccp arg, ccp basedir, uint depth)
 
 	for (uint i = 0; i < file_count; i++)
 	{
-		if (offset_file_offset_tbl + (i + 1) * 4 > raw_size ||
-			offset_file_size_tbl + (i + 1) * 4 > raw_size)
+		if (offset_file_offset_tbl + (i + 1) * 4 > raw_size
+			|| offset_file_size_tbl + (i + 1) * 4 > raw_size)
 			break;
 
 		const u32 offset = rd_le32 (raw + offset_file_offset_tbl + i * 4);
@@ -1999,11 +2015,13 @@ enumError ExtractWTAArchive (ccp arg, ccp basedir, uint depth)
 		u32 comp_sz = 0;
 		u32 uncomp_sz = 0;
 
-		if (offset_pos_table >= 32 && offset_pos_table + (i + 1) * 4 <= raw_size &&
-		    offset_size_table >= 32 && offset_size_table + (i + 1) * 4 <= raw_size)
+		if (offset_pos_table >= 32 && offset_pos_table + (i + 1) * 4 <= raw_size
+			&& offset_size_table >= 32 && offset_size_table + (i + 1) * 4 <= raw_size)
 		{
-			cur_data_offset = big ? rd_be32 (raw + offset_pos_table + i * 4) : rd_le32 (raw + offset_pos_table + i * 4);
-			comp_sz = big ? rd_be32 (raw + offset_size_table + i * 4) : rd_le32 (raw + offset_size_table + i * 4);
+			cur_data_offset = big ? rd_be32 (raw + offset_pos_table + i * 4)
+								  : rd_le32 (raw + offset_pos_table + i * 4);
+			comp_sz = big ? rd_be32 (raw + offset_size_table + i * 4)
+						  : rd_le32 (raw + offset_size_table + i * 4);
 			uncomp_sz = comp_sz;
 		}
 		else
@@ -2038,8 +2056,7 @@ enumError ExtractWTAArchive (ccp arg, ccp basedir, uint depth)
 
 			if (!testmode)
 			{
-				if (comp_sz != uncomp_sz && comp_sz >= 2 &&
-					raw[cur_data_offset] == 0x78)
+				if (comp_sz != uncomp_sz && comp_sz >= 2 && raw[cur_data_offset] == 0x78)
 				{
 					u8 *decomp = 0;
 					uint decomp_sz = 0;
@@ -2107,8 +2124,8 @@ enumError ExtractGFPAKArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT GFPAK:%s (%u files) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, file_count, dest);
+		fprintf (stdlog, "%s%sEXTRACT GFPAK:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, file_count, dest);
 
 	for (uint i = 0; i < file_count; i++)
 	{
@@ -2241,7 +2258,8 @@ enumError ExtractBARSArchive (ccp arg, ccp basedir, uint depth)
 		// Check AMTA metadata chunk for filename
 		if (amta_offset + 0x30 <= raw_size && !memcmp (raw + amta_offset, "AMTA", 4))
 		{
-			const u32 name_rel_ptr = big ? rd_be32 (raw + amta_offset + 0x24) : rd_le32 (raw + amta_offset + 0x24);
+			const u32 name_rel_ptr
+				= big ? rd_be32 (raw + amta_offset + 0x24) : rd_le32 (raw + amta_offset + 0x24);
 			const uint name_abs = amta_offset + 0x24 + name_rel_ptr;
 			if (name_abs < raw_size)
 			{
@@ -2270,12 +2288,14 @@ enumError ExtractBARSArchive (ccp arg, ccp basedir, uint depth)
 				if (!memcmp (raw + audio_offset, "BWAV", 4))
 				{
 					ext = ".bwav";
-					audio_sz = big ? rd_be32 (raw + audio_offset + 8) : rd_le32 (raw + audio_offset + 8);
+					audio_sz
+						= big ? rd_be32 (raw + audio_offset + 8) : rd_le32 (raw + audio_offset + 8);
 				}
 				else if (!memcmp (raw + audio_offset, "FWAV", 4))
 				{
 					ext = ".bfwav";
-					audio_sz = big ? rd_be32 (raw + audio_offset + 8) : rd_le32 (raw + audio_offset + 8);
+					audio_sz
+						= big ? rd_be32 (raw + audio_offset + 8) : rd_le32 (raw + audio_offset + 8);
 				}
 			}
 
@@ -2305,7 +2325,8 @@ enumError ExtractBARSArchive (ccp arg, ccp basedir, uint depth)
 		}
 
 		// Also extract AMTA metadata chunk alongside if available
-		if (amta_offset < raw_size && amta_offset + 12 <= raw_size && !memcmp (raw + amta_offset, "AMTA", 4))
+		if (amta_offset < raw_size && amta_offset + 12 <= raw_size
+			&& !memcmp (raw + amta_offset, "AMTA", 4))
 		{
 			u32 amta_sz = big ? rd_be32 (raw + amta_offset + 8) : rd_le32 (raw + amta_offset + 8);
 			if (amta_sz == 0 || amta_offset + amta_sz > raw_size)
@@ -2392,7 +2413,8 @@ enumError ExtractNLGDictArchive (ccp arg, ccp basedir, uint depth)
 	{
 		// LM2 / LM3 Dictionary format
 		// Check LM3 indicator at offset 12: 0x78340300 (or BE equivalent)
-		const bool is_lm3 = (raw_size >= 16 && (rd_be32 (raw + 12) == 0x78340300 || rd_le32 (raw + 12) == 0x78340300));
+		const bool is_lm3 = (raw_size >= 16
+			&& (rd_be32 (raw + 12) == 0x78340300 || rd_le32 (raw + 12) == 0x78340300));
 		const bool is_compressed = (raw[6] == 1);
 
 		uint num_files = 0;
@@ -2413,9 +2435,8 @@ enumError ExtractNLGDictArchive (ccp arg, ccp basedir, uint depth)
 		}
 
 		if (verbose >= 0 || testmode)
-			fprintf (stdlog, "%s%sEXTRACT %s:%s (%u files) -> %s/\n",
-				verbose > 0 ? "\n" : "", testmode ? "WOULD " : "",
-				is_lm3 ? "LM3-DICT" : "LM2-DICT", arg, num_files, dest);
+			fprintf (stdlog, "%s%sEXTRACT %s:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
+				testmode ? "WOULD " : "", is_lm3 ? "LM3-DICT" : "LM2-DICT", arg, num_files, dest);
 
 		for (uint i = 0; i < num_files; i++)
 		{
@@ -2430,7 +2451,8 @@ enumError ExtractNLGDictArchive (ccp arg, ccp basedir, uint depth)
 			if (decomp_size == 0)
 				continue;
 
-			// Source buffer can come from .data file if present, or from .dict itself if within raw_size
+			// Source buffer can come from .data file if present, or from .dict itself if within
+			// raw_size
 			const u8 *src = 0;
 			size_t src_avail = 0;
 			if (data_raw && offset < data_raw_size)
@@ -2455,7 +2477,10 @@ enumError ExtractNLGDictArchive (ccp arg, ccp basedir, uint depth)
 				if (is_compressed && comp_size > 0 && src_avail >= comp_size)
 				{
 					// Check zlib header
-					if (comp_size >= 2 && (src[0] == 0x78 && (src[1] == 0x9c || src[1] == 0xda || src[1] == 0x01 || src[1] == 0x5e)))
+					if (comp_size >= 2
+						&& (src[0] == 0x78
+							&& (src[1] == 0x9c || src[1] == 0xda || src[1] == 0x01
+								|| src[1] == 0x5e)))
 					{
 						u8 *decomp = MALLOC (decomp_size);
 						if (decomp)
@@ -2494,8 +2519,8 @@ enumError ExtractNLGDictArchive (ccp arg, ccp basedir, uint depth)
 		const u32 file_table_size = rd_be32 (raw + 20);
 
 		if (verbose >= 0 || testmode)
-			fprintf (stdlog, "%s%sEXTRACT PO-DICT:%s (%u files) -> %s/\n",
-				verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, num_files, dest);
+			fprintf (stdlog, "%s%sEXTRACT PO-DICT:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
+				testmode ? "WOULD " : "", arg, num_files, dest);
 
 		// Calculate block table offset
 		u32 cur_blk_off = 0;
@@ -2541,15 +2566,21 @@ enumError ExtractNLGDictArchive (ccp arg, ccp basedir, uint depth)
 				const u32 chunk_off = rd_be32 (tbl_src + eoff + 8);
 
 				int blk_idx = -1;
-				if (chunk_flags == 0x12) blk_idx = 0;
-				else if (chunk_flags == 0x25) blk_idx = 1;
-				else if (chunk_flags == 2) blk_idx = 2;
-				else if (chunk_flags == 0x42) blk_idx = 3;
-				else if (chunk_flags == 3) blk_idx = 0;
+				if (chunk_flags == 0x12)
+					blk_idx = 0;
+				else if (chunk_flags == 0x25)
+					blk_idx = 1;
+				else if (chunk_flags == 2)
+					blk_idx = 2;
+				else if (chunk_flags == 0x42)
+					blk_idx = 3;
+				else if (chunk_flags == 3)
+					blk_idx = 0;
 				else
 				{
 					const u8 bf = chunk_flags >> 4;
-					if (bf < 8) blk_idx = bf;
+					if (bf < 8)
+						blk_idx = bf;
 				}
 
 				if (blk_idx < 0 || blk_idx >= 8 || chunk_sz == 0)
@@ -2574,7 +2605,8 @@ enumError ExtractNLGDictArchive (ccp arg, ccp basedir, uint depth)
 
 				const u32 to_write = chunk_sz <= f_avail ? chunk_sz : (u32)f_avail;
 				char out_path[PATH_MAX];
-				snprintf (out_path, sizeof (out_path), "%s/chunk_%04u_type_%04x.bin", dest, i, chunk_type);
+				snprintf (out_path, sizeof (out_path), "%s/chunk_%04u_type_%04x.bin", dest, i,
+					chunk_type);
 
 				if (!testmode && to_write > 0)
 					SaveFile (out_path, 0, 0, f_src, to_write, 0);
@@ -2643,7 +2675,8 @@ enumError ExtractTXTGArchive (ccp arg, ccp basedir, uint depth)
 
 	if (verbose >= 0 || testmode)
 		fprintf (stdlog, "%s%sEXTRACT TXTG:%s (%ux%u, fmt 0x%04x, %u surfaces) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, width, height, fmt, total_surfaces, dest);
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, width, height, fmt,
+			total_surfaces, dest);
 
 	// Surface headers follow header_size
 	// First table: total_surfaces * 4 bytes (u16 ArrayLevel, u8 MipLevel, u8 unk)
@@ -2668,7 +2701,8 @@ enumError ExtractTXTGArchive (ccp arg, ccp basedir, uint depth)
 		if (cur_data_off >= raw_size)
 			break;
 
-		const u32 to_write = cur_data_off + surf_sz <= raw_size ? surf_sz : (u32)(raw_size - cur_data_off);
+		const u32 to_write
+			= cur_data_off + surf_sz <= raw_size ? surf_sz : (u32)(raw_size - cur_data_off);
 
 		char out_path[PATH_MAX];
 		snprintf (out_path, sizeof (out_path), "%s/surface_a%u_m%u.bin", dest, array_lvl, mip_lvl);
@@ -2684,10 +2718,8 @@ enumError ExtractTXTGArchive (ccp arg, ccp basedir, uint depth)
 }
 
 // Extract Nintendo 3DS RomFS Archive (.romfs / IVFC)
-static void RomFS_ReadDirectories (
-	const u8 *raw, size_t raw_size,
-	uint dir_start, uint file_start, uint data_start,
-	uint cur_dir_off, ccp current_path, ccp dest)
+static void RomFS_ReadDirectories (const u8 *raw, size_t raw_size, uint dir_start, uint file_start,
+	uint data_start, uint cur_dir_off, ccp current_path, ccp dest)
 {
 	if (dir_start + cur_dir_off + 24 > raw_size)
 		return;
@@ -2780,11 +2812,13 @@ static void RomFS_ReadDirectories (
 
 	// Read children directories
 	if (first_child_off != 0xFFFFFFFF)
-		RomFS_ReadDirectories (raw, raw_size, dir_start, file_start, data_start, first_child_off, new_path, dest);
+		RomFS_ReadDirectories (
+			raw, raw_size, dir_start, file_start, data_start, first_child_off, new_path, dest);
 
 	// Read next sibling directories
 	if (next_sibling_off != 0xFFFFFFFF)
-		RomFS_ReadDirectories (raw, raw_size, dir_start, file_start, data_start, next_sibling_off, current_path, dest);
+		RomFS_ReadDirectories (
+			raw, raw_size, dir_start, file_start, data_start, next_sibling_off, current_path, dest);
 }
 
 enumError ExtractROMFSArchive (ccp arg, ccp basedir, uint depth)
@@ -2876,8 +2910,8 @@ enumError ExtractROMFSArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT ROMFS:%s -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest);
+		fprintf (stdlog, "%s%sEXTRACT ROMFS:%s -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
 
 	RomFS_ReadDirectories (raw, raw_size, dir_start, file_start, data_start, 0, "", dest);
 
@@ -3131,7 +3165,8 @@ enumError ExtractMTXTArchive (ccp arg, ccp basedir, uint depth)
 						if (abs_payload >= 0 && (size_t)abs_payload + data_size <= decomp_size)
 						{
 							char out_bin[PATH_MAX];
-							snprintf (out_bin, sizeof (out_bin), "%s/surface_%04u.bin", dest, img_idx++);
+							snprintf (
+								out_bin, sizeof (out_bin), "%s/surface_%04u.bin", dest, img_idx++);
 							if (!testmode)
 								SaveFile (out_bin, 0, 0, decomp + abs_payload, (uint)data_size, 0);
 						}
@@ -3201,8 +3236,10 @@ enumError ExtractSIR0Archive (ccp arg, ccp basedir, uint depth)
 
 	// Extract primary data segment (from 0x10 to subheader_offset)
 	// and subheader segment (from subheader_offset to pointer_offsets)
-	u32 data_end = (subheader_offset >= 0x10 && subheader_offset <= raw_size) ? subheader_offset : (u32)raw_size;
-	u32 sub_end = (pointer_offsets >= data_end && pointer_offsets <= raw_size) ? pointer_offsets : (u32)raw_size;
+	u32 data_end = (subheader_offset >= 0x10 && subheader_offset <= raw_size) ? subheader_offset
+																			  : (u32)raw_size;
+	u32 sub_end = (pointer_offsets >= data_end && pointer_offsets <= raw_size) ? pointer_offsets
+																			   : (u32)raw_size;
 
 	if (subheader_offset >= 0x10 && subheader_offset < raw_size && sub_end > subheader_offset)
 	{
@@ -3329,8 +3366,7 @@ enumError ExtractG1TArchive (ccp arg, ccp basedir, uint depth)
 	const u32 tbl = rd_le32 (raw + 0x0c);
 	const u32 count = rd_le32 (raw + 0x10);
 	const u32 platform = rd_le32 (raw + 0x14);
-	if (total != raw_size || !count || count > 0x1000
-		|| (u64)tbl + (u64)count * 4 > raw_size)
+	if (total != raw_size || !count || count > 0x1000 || (u64)tbl + (u64)count * 4 > raw_size)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
@@ -3345,8 +3381,8 @@ enumError ExtractG1TArchive (ccp arg, ccp basedir, uint depth)
 
 	if (verbose >= 0 || testmode)
 		fprintf (stdlog, "%s%sEXTRACT G1T:%s (%u texture%s, platform %u) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, count,
-			count == 1 ? "" : "s", platform, dest);
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, count, count == 1 ? "" : "s",
+			platform, dest);
 
 	uint written = 0;
 	for (u32 i = 0; i < count; i++)
@@ -3489,8 +3525,8 @@ enumError ExtractG1TArchive (ccp arg, ccp basedir, uint depth)
 // size exactly once the key was applied. A wrong key does not survive that.
 #define ZDAT_ENT_SIZE 16
 
-static enumError zdat_read_header (const u8 *data, size_t size, uint *ent_off, uint *name_off,
-	uint *data_off, uint *count)
+static enumError zdat_read_header (
+	const u8 *data, size_t size, uint *ent_off, uint *name_off, uint *data_off, uint *count)
 {
 	if (size < 0x30 || memcmp (data, "ZDAT", 4))
 		return ERR_NOTHING_TO_DO;
@@ -3978,8 +4014,7 @@ enumError ExtractCamelotTexBank (ccp arg, ccp basedir, uint depth)
 	if (!testmode)
 		for (uint off = 0; off + 16 <= bank_size; off += 4)
 			if (camelot_bank_valid (bank + off, bank_size - off))
-				written += camelot_texbank_to_pngs (
-					bank + off, bank_size - off, dest, stem, &next);
+				written += camelot_texbank_to_pngs (bank + off, bank_size - off, dest, stem, &next);
 
 	FREE (decoded);
 	FREE (raw);
@@ -4099,7 +4134,7 @@ enumError ExtractPTLGArchive (ccp arg, ccp basedir, uint depth)
 	// See the layout note above: some builds carry an extra padding word
 	// before the entry table.
 	u32 tab_off = rd_be32 (raw + 0x10) == 0 ? 0x20 : 0x10;
-	if ((u64) tab_off + (u64) n_tex * 16 > raw_size)
+	if ((u64)tab_off + (u64)n_tex * 16 > raw_size)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
@@ -4118,7 +4153,7 @@ enumError ExtractPTLGArchive (ccp arg, ccp basedir, uint depth)
 		const u32 img_off = rd_be32 (ent + 4);
 		const u32 sect_size = rd_be32 (ent + 8);
 
-		const u64 abs = (u64) data_base + img_off;
+		const u64 abs = (u64)data_base + img_off;
 		if (abs + 0x20 > raw_size || !sect_size || abs + sect_size > raw_size)
 			continue;
 
@@ -4152,7 +4187,7 @@ enumError ExtractPTLGArchive (ccp arg, ccp basedir, uint depth)
 			continue;
 
 		// Wrap the GX pixel data in a minimal single-image TPL.
-		const u32 tpl_hdr = sizeof (tpl_header_t);		 // 0x0c
+		const u32 tpl_hdr = sizeof (tpl_header_t); // 0x0c
 		const u32 tpl_tab = tpl_hdr + sizeof (tpl_imgtab_t); // 0x14
 		const u32 tpl_data = tpl_tab + sizeof (tpl_img_header_t);
 		u8 *tpl = CALLOC (tpl_data + img_size, 1);
@@ -4161,7 +4196,7 @@ enumError ExtractPTLGArchive (ccp arg, ccp basedir, uint depth)
 		write_be32 (tpl + 4, 1);
 		write_be32 (tpl + 8, tpl_hdr);
 		write_be32 (tpl + tpl_hdr, tpl_tab); // image_off
-		write_be32 (tpl + tpl_hdr + 4, 0);	 // palette_off
+		write_be32 (tpl + tpl_hdr + 4, 0); // palette_off
 		write_be16 (tpl + tpl_tab, height);
 		write_be16 (tpl + tpl_tab + 2, width);
 		write_be32 (tpl + tpl_tab + 4, iform);
@@ -4279,14 +4314,30 @@ enumError CreatePTLGArchive (
 					u32 iform = be32 (&ti->iform);
 					switch (iform)
 					{
-						case IMG_I4: format = 0x2; break;
-						case IMG_I8: format = 0x3; break;
-						case IMG_IA4: format = 0x4; break;
-						case IMG_RGB5A3: format = 0x5; break;
-						case IMG_CMPR: format = 0x6; break;
-						case IMG_RGB565: format = 0x7; break;
-						case IMG_RGBA32: format = 0x8; break;
-						default: format = 0x3; break;
+						case IMG_I4:
+							format = 0x2;
+							break;
+						case IMG_I8:
+							format = 0x3;
+							break;
+						case IMG_IA4:
+							format = 0x4;
+							break;
+						case IMG_RGB5A3:
+							format = 0x5;
+							break;
+						case IMG_CMPR:
+							format = 0x6;
+							break;
+						case IMG_RGB565:
+							format = 0x7;
+							break;
+						case IMG_RGBA32:
+							format = 0x8;
+							break;
+						default:
+							format = 0x3;
+							break;
 					}
 					u32 d_off = be32 (&ti->data_off);
 					if (d_off < e->size)
@@ -4823,12 +4874,12 @@ enumError CreateGARArchive (
 
 	memcpy (buf, "ZAR\x01", 4);
 	wr_le32 (buf + 4, total);
-	wr_le16 (buf + 8, 1);                  // file_group_count
-	wr_le16 (buf + 10, (u16)n_entries);    // file_count
-	wr_le32 (buf + 12, grp_off);           // file_group_offset
-	wr_le32 (buf + 16, info_off);          // file_info_offset
-	wr_le32 (buf + 20, data_tbl_off);      // data_offset
-	memcpy (buf + 24, "queen\0\0\0", 8);   // codename
+	wr_le16 (buf + 8, 1); // file_group_count
+	wr_le16 (buf + 10, (u16)n_entries); // file_count
+	wr_le32 (buf + 12, grp_off); // file_group_offset
+	wr_le32 (buf + 16, info_off); // file_info_offset
+	wr_le32 (buf + 20, data_tbl_off); // data_offset
+	memcpy (buf + 24, "queen\0\0\0", 8); // codename
 
 	// Group record
 	wr_le32 (buf + grp_off, n_entries);
@@ -5066,8 +5117,7 @@ enumError ExtractNUS3AudioArchive (ccp arg, ccp basedir, uint depth)
 		pos = payload + csize;
 	}
 
-	if (!n_tracks || n_tracks > 100000 || !adof || !pack
-		|| adof_size < (u64)n_tracks * 8)
+	if (!n_tracks || n_tracks > 100000 || !adof || !pack || adof_size < (u64)n_tracks * 8)
 	{
 		FREE (raw);
 		return ERR_INVALID_DATA;
@@ -5078,8 +5128,8 @@ enumError ExtractNUS3AudioArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT NUS3AUDIO:%s (%u tracks) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, n_tracks, dest);
+		fprintf (stdlog, "%s%sEXTRACT NUS3AUDIO:%s (%u tracks) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, n_tracks, dest);
 
 	for (uint i = 0; i < n_tracks; i++)
 	{
@@ -5181,12 +5231,8 @@ enumError CreateNUS3AudioArchive (
 	for (uint i = 0; i < n_entries; i++)
 		pack_len += sorted[i].size;
 
-	const u32 body_size = (8 + 4 + audiindx_len)
-		+ (8 + 4 + tnid_len)
-		+ (8 + 4 + nmof_len)
-		+ (8 + 4 + adof_len)
-		+ (8 + 4 + tnnm_chunk_len)
-		+ (8 + 4 + pack_len);
+	const u32 body_size = (8 + 4 + audiindx_len) + (8 + 4 + tnid_len) + (8 + 4 + nmof_len)
+		+ (8 + 4 + adof_len) + (8 + 4 + tnnm_chunk_len) + (8 + 4 + pack_len);
 
 	const u32 total_size = 8 + body_size;
 	u8 *out = CALLOC (1, total_size);
@@ -5270,4 +5316,3 @@ enumError CreateNUS3AudioArchive (
 	*dest_size = total_size;
 	return ERR_OK;
 }
-

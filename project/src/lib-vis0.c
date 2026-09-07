@@ -12,7 +12,10 @@
 ///////////////////////////////////////////////////////////////////////////////
 // BRRES/VIS0 data is always big endian (Wii).
 
-static inline u16 vis0_rd16 (const u8 *p) { return (u16)p[0] << 8 | p[1]; }
+static inline u16 vis0_rd16 (const u8 *p)
+{
+	return (u16)p[0] << 8 | p[1];
+}
 
 static inline u32 vis0_rd32 (const u8 *p)
 {
@@ -34,7 +37,10 @@ static inline void vis0_w32 (u8 *p, u32 v)
 }
 
 // align 'val' up to a multiple of 'align' (align must be a power of 2)
-static inline uint vis0_align (uint val, uint align) { return (val + align - 1) & ~(align - 1); }
+static inline uint vis0_align (uint val, uint align)
+{
+	return (val + align - 1) & ~(align - 1);
+}
 
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -341,8 +347,8 @@ enumError SaveRawVIS0 (vis0_t *vis, ccp fname, bool set_time)
 		vis0_w32 (entry, name_off[i + 2] - group_off - entry_rel[i]);
 		vis0_w32 (entry + 4, (e->enabled ? 1u : 0) | (e->is_constant ? 2u : 0));
 		if (!e->is_constant && e->bits)
-			memcpy (entry + 8, e->bits,
-				e->n_bits_byte < n_bits_byte ? e->n_bits_byte : n_bits_byte);
+			memcpy (
+				entry + 8, e->bits, e->n_bits_byte < n_bits_byte ? e->n_bits_byte : n_bits_byte);
 	}
 
 	//--- string pool
@@ -351,8 +357,7 @@ enumError SaveRawVIS0 (vis0_t *vis, ccp fname, bool set_time)
 	if (orig_path[0])
 		memcpy (buf + name_off[1], orig_path, strlen (orig_path) + 1);
 	for (uint i = 0; i < vis->n_entry; i++)
-		memcpy (buf + name_off[i + 2], vis->entry[i].name,
-			strlen (vis->entry[i].name) + 1);
+		memcpy (buf + name_off[i + 2], vis->entry[i].name, strlen (vis->entry[i].name) + 1);
 
 	FREE (name_off);
 	FREE (entry_rel);

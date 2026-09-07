@@ -48,9 +48,10 @@ static int cmd_pack (int argc, char *argv[])
 	char out_buf[1024];
 	if (!output_path)
 	{
-		ccp ext = sdat ? ".sdat" : variant == BRSAR_VARIANT_FSAR ? ".bfsar"
-			: variant == BRSAR_VARIANT_CSAR		? ".bcsar"
-												: ".brsar";
+		ccp ext = sdat						? ".sdat"
+			: variant == BRSAR_VARIANT_FSAR ? ".bfsar"
+			: variant == BRSAR_VARIANT_CSAR ? ".bcsar"
+											: ".brsar";
 		size_t len = strlen (input_dir);
 		if (len > 2 && !strcmp (input_dir + len - 2, ".d"))
 			snprintf (out_buf, sizeof (out_buf), "%.*s%s", (int)(len - 2), input_dir, ext);
@@ -62,7 +63,7 @@ static int cmd_pack (int argc, char *argv[])
 	u8 *data = 0;
 	size_t size = 0;
 	enumError err = sdat ? PackSDATDir (&data, &size, input_dir)
-		: PackBRSARDir (&data, &size, input_dir, variant);
+						 : PackBRSARDir (&data, &size, input_dir, variant);
 	if (err)
 	{
 		fprintf (stderr, "wbrsar: pack failed for %s\n", input_dir);
@@ -111,8 +112,8 @@ static int cmd_unpack (int argc, char *argv[])
 		return err;
 	}
 
-	err = raw_size >= 4 && !memcmp (raw, "SDAT", 4)
-		? UnpackSDAT (raw, raw_size, out_dir) : UnpackBRSAR (raw, raw_size, out_dir);
+	err = raw_size >= 4 && !memcmp (raw, "SDAT", 4) ? UnpackSDAT (raw, raw_size, out_dir)
+													: UnpackBRSAR (raw, raw_size, out_dir);
 	FREE (raw);
 	if (err)
 	{

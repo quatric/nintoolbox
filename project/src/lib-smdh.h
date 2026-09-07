@@ -81,7 +81,8 @@ enumError ScanSMDH (smdh_t *smdh, const u8 *data, uint size);
 void ResetSMDH (smdh_t *smdh);
 
 // Decodes the small (24x24) or large (48x48) icon to tightly packed RGBA8.
-enumError DecodeSMDHIcon_RGBA (u8 **dest, uint *width, uint *height, const smdh_t *smdh, bool large);
+enumError DecodeSMDHIcon_RGBA (
+	u8 **dest, uint *width, uint *height, const smdh_t *smdh, bool large);
 
 // Renders a human-readable text summary (all 16 language slots that carry
 // a non-empty title, plus the settings fields) into a malloc'd, NUL-

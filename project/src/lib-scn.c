@@ -32,14 +32,20 @@
 ///////////////////////////////////////////////////////////////////////////////
 // BRRES/SCN0 data is always big endian (Wii).
 
-static inline u16 scn_rd16 (const u8 *p) { return (u16)p[0] << 8 | p[1]; }
+static inline u16 scn_rd16 (const u8 *p)
+{
+	return (u16)p[0] << 8 | p[1];
+}
 
 static inline u32 scn_rd32 (const u8 *p)
 {
 	return (u32)p[0] << 24 | (u32)p[1] << 16 | (u32)p[2] << 8 | p[3];
 }
 
-static inline s32 scn_rds32 (const u8 *p) { return (s32)scn_rd32 (p); }
+static inline s32 scn_rds32 (const u8 *p)
+{
+	return (s32)scn_rd32 (p);
+}
 
 static inline float scn_rdf (const u8 *p)
 {
@@ -93,13 +99,10 @@ typedef struct scn0_slot_t
 
 static const scn0_slot_t scn0_slot_lightset[] = { { 0, 0, 0 } };
 
-static const scn0_slot_t scn0_slot_amblight[] = {
-	{ 0x18, 0x80, 'c' }, // lighting colour
-	{ 0, 0, 0 }
-};
+static const scn0_slot_t scn0_slot_amblight[] = { { 0x18, 0x80, 'c' }, // lighting colour
+	{ 0, 0, 0 } };
 
-static const scn0_slot_t scn0_slot_light[] = {
-	{ 0x24, 0x0008, 'k' }, // start.x
+static const scn0_slot_t scn0_slot_light[] = { { 0x24, 0x0008, 'k' }, // start.x
 	{ 0x28, 0x0010, 'k' }, // start.y
 	{ 0x2c, 0x0020, 'k' }, // start.z
 	{ 0x30, 0x0040, 'c' }, // light colour
@@ -112,18 +115,14 @@ static const scn0_slot_t scn0_slot_light[] = {
 	{ 0x48, 0x2000, 'k' }, // reference brightness
 	{ 0x54, 0x4000, 'c' }, // specular colour
 	{ 0x58, 0x8000, 'k' }, // shininess
-	{ 0, 0, 0 }
-};
+	{ 0, 0, 0 } };
 
-static const scn0_slot_t scn0_slot_fog[] = {
-	{ 0x1c, 0x20, 'k' }, // start
+static const scn0_slot_t scn0_slot_fog[] = { { 0x1c, 0x20, 'k' }, // start
 	{ 0x20, 0x40, 'k' }, // end
 	{ 0x24, 0x80, 'c' }, // colour
-	{ 0, 0, 0 }
-};
+	{ 0, 0, 0 } };
 
-static const scn0_slot_t scn0_slot_camera[] = {
-	{ 0x20, 0x0002, 'k' }, // position.x
+static const scn0_slot_t scn0_slot_camera[] = { { 0x20, 0x0002, 'k' }, // position.x
 	{ 0x24, 0x0004, 'k' }, // position.y
 	{ 0x28, 0x0008, 'k' }, // position.z
 	{ 0x2c, 0x0010, 'k' }, // aspect
@@ -138,11 +137,10 @@ static const scn0_slot_t scn0_slot_camera[] = {
 	{ 0x38, 0x2000, 'k' }, // rotate.x
 	{ 0x3c, 0x4000, 'k' }, // rotate.y
 	{ 0x40, 0x8000, 'k' }, // rotate.z
-	{ 0, 0, 0 }
-};
+	{ 0, 0, 0 } };
 
-static const scn0_slot_t *const scn0_slots[SCN0_N_SECT] = { scn0_slot_lightset,
-	scn0_slot_amblight, scn0_slot_light, scn0_slot_fog, scn0_slot_camera };
+static const scn0_slot_t *const scn0_slots[SCN0_N_SECT]
+	= { scn0_slot_lightset, scn0_slot_amblight, scn0_slot_light, scn0_slot_fog, scn0_slot_camera };
 
 //-----------------------------------------------------------------------------
 
@@ -153,15 +151,15 @@ static u32 GetFixedFlagsSCN0 (scn0_sect_t sect, const u8 *raw)
 {
 	switch (sect)
 	{
-	case SCN0_AMBLIGHT:
-	case SCN0_FOG:
-		return raw[0x14];
-	case SCN0_LIGHT:
-		return scn_rd16 (raw + 0x1c);
-	case SCN0_CAMERA:
-		return scn_rd16 (raw + 0x18);
-	default:
-		return 0;
+		case SCN0_AMBLIGHT:
+		case SCN0_FOG:
+			return raw[0x14];
+		case SCN0_LIGHT:
+			return scn_rd16 (raw + 0x1c);
+		case SCN0_CAMERA:
+			return scn_rd16 (raw + 0x18);
+		default:
+			return 0;
 	}
 }
 
@@ -278,8 +276,8 @@ enumError ScanRawSCN0 (scn0_t *scn, bool init_scn, const void *data, uint data_s
 		return ERROR0 (ERR_INVALID_DATA, "SCN0: bad group offset.\n");
 	const uint n_sect = scn_rd32 (base + group_off + 4);
 	if (n_sect > SCN0_N_SECT)
-		return ERROR0 (ERR_INVALID_DATA, "SCN0: %u sections, at most %u expected.\n", n_sect,
-			SCN0_N_SECT);
+		return ERROR0 (
+			ERR_INVALID_DATA, "SCN0: %u sections, at most %u expected.\n", n_sect, SCN0_N_SECT);
 
 	for (uint g = 0; g < n_sect; g++)
 	{
@@ -338,15 +336,15 @@ enumError ScanRawSCN0 (scn0_t *scn, bool init_scn, const void *data, uint data_s
 				uint size;
 				switch (sl->kind)
 				{
-				case 'k':
-					size = 8 + 12 * (uint)scn_rd16 (base + payload);
-					break;
-				case 'c':
-					size = 4 * (scn->n_frames + 1);
-					break;
-				default: // 'v'
-					size = 4 + scn_rd32 (base + payload);
-					break;
+					case 'k':
+						size = 8 + 12 * (uint)scn_rd16 (base + payload);
+						break;
+					case 'c':
+						size = 4 * (scn->n_frames + 1);
+						break;
+					default: // 'v'
+						size = 4 + scn_rd32 (base + payload);
+						break;
 				}
 				if ((u64)payload + size > data_size)
 					return ERROR0 (ERR_INVALID_DATA, "SCN0: slot payload truncated.\n");
@@ -835,21 +833,21 @@ enumError ScanTextSCN0 (scn0_t *scn, bool init_scn, ccp src_fname)
 	uint bl_fill = 0, bl_alloced = 0, bl_size = 0, bl_off = 0;
 	char bl_kind = 0;
 
-	#define FLUSH_BLOB()                                          \
-		if (bl_kind && cur)                                       \
-		{                                                         \
-			scn0_blob_t *bl = AppendBlobSCN0 (cur);               \
-			bl->slot_off = (u16)bl_off;                           \
-			bl->kind = bl_kind;                                   \
-			bl->size = bl_fill < bl_size ? bl_fill : bl_size;     \
-			bl->data = CALLOC (bl->size ? bl->size : 1, 1);       \
-			if (bl_data && bl->size)                              \
-				memcpy (bl->data, bl_data, bl->size);             \
-		}                                                         \
-		FREE (bl_data);                                           \
-		bl_data = 0;                                              \
-		bl_fill = bl_alloced = bl_size = 0;                       \
-		bl_kind = 0;
+#define FLUSH_BLOB()                                                                               \
+	if (bl_kind && cur)                                                                            \
+	{                                                                                              \
+		scn0_blob_t *bl = AppendBlobSCN0 (cur);                                                    \
+		bl->slot_off = (u16)bl_off;                                                                \
+		bl->kind = bl_kind;                                                                        \
+		bl->size = bl_fill < bl_size ? bl_fill : bl_size;                                          \
+		bl->data = CALLOC (bl->size ? bl->size : 1, 1);                                            \
+		if (bl_data && bl->size)                                                                   \
+			memcpy (bl->data, bl_data, bl->size);                                                  \
+	}                                                                                              \
+	FREE (bl_data);                                                                                \
+	bl_data = 0;                                                                                   \
+	bl_fill = bl_alloced = bl_size = 0;                                                            \
+	bl_kind = 0;
 
 	while (fgets (line, sizeof (line), f))
 	{
@@ -984,7 +982,7 @@ enumError ScanTextSCN0 (scn0_t *scn, bool init_scn, ccp src_fname)
 	}
 
 	FLUSH_BLOB ();
-	#undef FLUSH_BLOB
+#undef FLUSH_BLOB
 
 	fclose (f);
 	return ERR_OK;

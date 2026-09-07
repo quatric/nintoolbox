@@ -100,8 +100,7 @@ enumError DecodeNUTEXB_RGBA (u8 **dest, uint *width, uint *height, const u8 *src
 			// Includes R32G32B32A32_FLOAT (0x0434), which lib-bntx.c's
 			// decoder has no equivalent for -- reported honestly rather
 			// than guessed at.
-			return ERROR0 (ERR_INVALID_IFORM,
-				"Unsupported NUTEXB texture format 0x%04x\n", nutfmt);
+			return ERROR0 (ERR_INVALID_IFORM, "Unsupported NUTEXB texture format 0x%04x\n", nutfmt);
 	}
 
 	// Same block-height-log2 derivation as EncodeBNTX_RGBA, generalized from
@@ -168,7 +167,8 @@ static inline u64 nut_addr_block_linear (
 		+ (u64)((xb % 32) / 16) * 32 + (u64)(y % 2) * 16 + (xb % 16);
 }
 
-enumError EncodeNUTEXB_RGBA (u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height, ccp name)
+enumError EncodeNUTEXB_RGBA (
+	u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height, ccp name)
 {
 	if (!dest || !dest_size || !rgba || !width || !height)
 		return EINVAL;

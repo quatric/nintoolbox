@@ -25,16 +25,20 @@ static void ksb_init (kp_sb_t *s)
 	s->cap = 8192;
 	s->len = 0;
 	s->buf = MALLOC (s->cap);
-	if (s->buf) s->buf[0] = 0;
+	if (s->buf)
+		s->buf[0] = 0;
 }
 
 static void ksb_grow (kp_sb_t *s, size_t extra)
 {
-	if (!s->buf) return;
-	if (s->len + extra + 1 <= s->cap) return;
+	if (!s->buf)
+		return;
+	if (s->len + extra + 1 <= s->cap)
+		return;
 	size_t nc = s->cap * 2 + extra + 128;
 	char *nb = REALLOC (s->buf, nc);
-	if (!nb) return;
+	if (!nb)
+		return;
 	s->buf = nb;
 	s->cap = nc;
 }
@@ -42,23 +46,32 @@ static void ksb_grow (kp_sb_t *s, size_t extra)
 static void ksb_putc (kp_sb_t *s, char c)
 {
 	ksb_grow (s, 1);
-	if (s->buf) { s->buf[s->len++] = c; s->buf[s->len] = 0; }
+	if (s->buf)
+	{
+		s->buf[s->len++] = c;
+		s->buf[s->len] = 0;
+	}
 }
 
 static void ksb_puts (kp_sb_t *s, const char *str)
 {
-	if (!str) return;
+	if (!str)
+		return;
 	size_t l = strlen (str);
 	ksb_grow (s, l);
-	if (s->buf) { memcpy (s->buf + s->len, str, l + 1); s->len += l; }
+	if (s->buf)
+	{
+		memcpy (s->buf + s->len, str, l + 1);
+		s->len += l;
+	}
 }
 
-static void ksb_printf (kp_sb_t *s, const char *fmt, ...)
-	__attribute__ ((format (printf, 2, 3)));
+static void ksb_printf (kp_sb_t *s, const char *fmt, ...) __attribute__ ((format (printf, 2, 3)));
 
 static void ksb_printf (kp_sb_t *s, const char *fmt, ...)
 {
-	if (!s->buf) return;
+	if (!s->buf)
+		return;
 	char tmp[512];
 	va_list ap;
 	va_start (ap, fmt);
@@ -74,62 +87,43 @@ static void ksb_printf (kp_sb_t *s, const char *fmt, ...)
 
 static inline float be_float (const u8 *p)
 {
-	union { u32 u; float f; } u;
+	union
+	{
+		u32 u;
+		float f;
+	} u;
 	u.u = be32 (p);
 	return u.f;
 }
 
 static char *get_string_at (const u8 *data, size_t size, uint off)
 {
-	if (!data || off >= size) return NULL;
-	size_t len = strnlen ((const char*)data + off, size - off);
+	if (!data || off >= size)
+		return NULL;
+	size_t len = strnlen ((const char *)data + off, size - off);
 	char *s = MALLOC (len + 1);
-	if (s) { memcpy (s, data + off, len); s[len] = 0; }
+	if (s)
+	{
+		memcpy (s, data + off, len);
+		s[len] = 0;
+	}
 	return s;
 }
 
-static const char *layer_type_names[] = {
-	"objects",
-	"doodads",
-	"paths"
-};
+static const char *layer_type_names[] = { "objects", "doodads", "paths" };
 
-static const char *node_type_names[] = {
-	"passthrough",
-	"stop",
-	"level",
-	"change",
-	"world_change"
-};
+static const char *node_type_names[] = { "passthrough", "stop", "level", "change", "world_change" };
 
-static const char *anim_type_names[] = {
-	"x_pos",
-	"y_pos",
-	"angle",
-	"x_scale",
-	"y_scale",
-	"opacity"
-};
+static const char *anim_type_names[]
+	= { "x_pos", "y_pos", "angle", "x_scale", "y_scale", "opacity" };
 
-static const char *loop_type_names[] = {
-	"contiguous",
-	"loop",
-	"reverse_loop"
-};
+static const char *loop_type_names[] = { "contiguous", "loop", "reverse_loop" };
 
-static const char *curve_type_names[] = {
-	"linear",
-	"sin",
-	"cos"
-};
+static const char *curve_type_names[] = { "linear", "sin", "cos" };
 
-static const char *path_anim_names[] = {
-	"walk", "walk_sand", "walk_snow", "walk_water",
-	"jump", "jump_sand", "jump_snow", "jump_water",
-	"ladder", "ladder_left", "ladder_right", "fall",
-	"swim", "run", "pipe", "door",
-	"tjumped", "enter_cave_up", "reserved_18", "invisible"
-};
+static const char *path_anim_names[] = { "walk", "walk_sand", "walk_snow", "walk_water", "jump",
+	"jump_sand", "jump_snow", "jump_water", "ladder", "ladder_left", "ladder_right", "fall", "swim",
+	"run", "pipe", "door", "tjumped", "enter_cave_up", "reserved_18", "invisible" };
 
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -154,17 +148,17 @@ enumError ScanKPBin (kpbin_t *kp, const u8 *data, size_t size)
 	if (!data || size < 0x2C || memcmp (data, KPBIN_MAGIC, 4) != 0)
 		return ERR_INVALID_DATA;
 
-	kp->version     = (s32)be32 (data + 4);
-	uint layer_cnt  = be32 (data + 8);
-	uint layer_off  = be32 (data + 12);
-	uint ts_cnt     = be32 (data + 16);
+	kp->version = (s32)be32 (data + 4);
+	uint layer_cnt = be32 (data + 8);
+	uint layer_off = be32 (data + 12);
+	uint ts_cnt = be32 (data + 16);
 	uint unlock_off = be32 (data + 24);
 	uint sector_off = be32 (data + 28);
-	uint bg_off     = be32 (data + 32);
-	uint world_off  = be32 (data + 36);
-	uint world_cnt  = be32 (data + 40);
+	uint bg_off = be32 (data + 32);
+	uint world_off = be32 (data + 36);
+	uint world_cnt = be32 (data + 40);
 
-	kp->n_tilesets  = ts_cnt;
+	kp->n_tilesets = ts_cnt;
 	kp->sector_offs = sector_off;
 	kp->unlock_offs = unlock_off;
 
@@ -206,7 +200,7 @@ enumError ScanKPBin (kpbin_t *kp, const u8 *data, size_t size)
 					for (int b = 0; b < 4; b++)
 					{
 						layer->sector_bounds[b] = (s32)be32 (data + loff + 12 + b * 4);
-						layer->real_bounds[b]   = (s32)be32 (data + loff + 28 + b * 4);
+						layer->real_bounds[b] = (s32)be32 (data + loff + 28 + b * 4);
 					}
 
 					int w = layer->sector_bounds[2] - layer->sector_bounds[0] + 1;
@@ -248,10 +242,10 @@ enumError ScanKPBin (kpbin_t *kp, const u8 *data, size_t size)
 									continue;
 
 								kp_doodad_t *dood = &layer->doodads[d];
-								dood->x     = be_float (data + doff + 0);
-								dood->y     = be_float (data + doff + 4);
-								dood->w     = be_float (data + doff + 8);
-								dood->h     = be_float (data + doff + 12);
+								dood->x = be_float (data + doff + 0);
+								dood->y = be_float (data + doff + 4);
+								dood->w = be_float (data + doff + 8);
+								dood->h = be_float (data + doff + 12);
 								dood->angle = be_float (data + doff + 16);
 								dood->tex_offs = be32 (data + doff + 20);
 
@@ -266,13 +260,13 @@ enumError ScanKPBin (kpbin_t *kp, const u8 *data, size_t size)
 										{
 											const u8 *ap = data + doff + 28 + a * 40;
 											kp_doodad_anim_t *danim = &dood->anims[a];
-											danim->loop         = be32 (ap + 0);
-											danim->curve        = be32 (ap + 4);
-											danim->frame_count  = be32 (ap + 8);
-											danim->type         = be32 (ap + 12);
-											danim->start        = be32 (ap + 16);
-											danim->end          = be32 (ap + 20);
-											danim->delay        = be32 (ap + 24);
+											danim->loop = be32 (ap + 0);
+											danim->curve = be32 (ap + 4);
+											danim->frame_count = be32 (ap + 8);
+											danim->type = be32 (ap + 12);
+											danim->start = be32 (ap + 16);
+											danim->end = be32 (ap + 20);
+											danim->delay = be32 (ap + 24);
 											danim->delay_offset = be32 (ap + 28);
 										}
 									}
@@ -291,10 +285,10 @@ enumError ScanKPBin (kpbin_t *kp, const u8 *data, size_t size)
 				//   loff + 20: pathsOffs (u32)
 				if (loff + 24 <= size)
 				{
-					uint ncnt   = be32 (data + loff + 8);
-					uint noff   = be32 (data + loff + 12);
-					uint pcnt   = be32 (data + loff + 16);
-					uint poff   = be32 (data + loff + 20);
+					uint ncnt = be32 (data + loff + 8);
+					uint noff = be32 (data + loff + 12);
+					uint pcnt = be32 (data + loff + 16);
+					uint poff = be32 (data + loff + 20);
 
 					// Temporary arrays for pointer resolution
 					uint *node_offsets = NULL;
@@ -343,27 +337,30 @@ enumError ScanKPBin (kpbin_t *kp, const u8 *data, size_t size)
 								{
 									for (uint p = 0; p < pcnt; p++)
 										if (path_offsets[p] == exit_off)
-											{ node->exit_paths[ex] = (int)p; break; }
+										{
+											node->exit_paths[ex] = (int)p;
+											break;
+										}
 								}
 							}
 
 							node->tile_layer_off = be32 (data + np_off + 20);
 							node->dood_layer_off = be32 (data + np_off + 24);
-							node->type           = data[np_off + 31];
+							node->type = data[np_off + 31];
 
 							// Extra data after offset 40
 							if (node->type == KP_NODE_LEVEL && np_off + 43 <= size)
 							{
 								node->level_world = data[np_off + 40];
-								node->level_num   = data[np_off + 41];
-								node->has_secret  = data[np_off + 42] != 0;
+								node->level_num = data[np_off + 41];
+								node->has_secret = data[np_off + 42] != 0;
 							}
 							else if (node->type == KP_NODE_CHANGE && np_off + 47 <= size)
 							{
 								uint dm_off = be32 (data + np_off + 40);
 								if (dm_off && dm_off < size)
 									node->dest_map = get_string_at (data, size, dm_off);
-								node->this_id    = data[np_off + 44];
+								node->this_id = data[np_off + 44];
 								node->foreign_id = data[np_off + 45];
 								node->transition = data[np_off + 46];
 							}
@@ -385,25 +382,27 @@ enumError ScanKPBin (kpbin_t *kp, const u8 *data, size_t size)
 
 							kp_path_t *path = &layer->paths[p];
 							u32 start_off = be32 (data + pp_off + 0);
-							u32 end_off   = be32 (data + pp_off + 4);
+							u32 end_off = be32 (data + pp_off + 4);
 
 							path->start_node = -1;
-							path->end_node   = -1;
+							path->end_node = -1;
 							if (node_offsets)
 							{
 								for (uint n = 0; n < ncnt; n++)
 								{
-									if (node_offsets[n] == start_off) path->start_node = (int)n;
-									if (node_offsets[n] == end_off)   path->end_node   = (int)n;
+									if (node_offsets[n] == start_off)
+										path->start_node = (int)n;
+									if (node_offsets[n] == end_off)
+										path->end_node = (int)n;
 								}
 							}
 
 							path->tile_layer_off = be32 (data + pp_off + 8);
 							path->dood_layer_off = be32 (data + pp_off + 12);
-							path->is_available   = data[pp_off + 16];
-							path->is_secret      = data[pp_off + 17];
-							path->speed          = be_float (data + pp_off + 20);
-							path->animation      = be32 (data + pp_off + 24);
+							path->is_available = data[pp_off + 16];
+							path->is_secret = data[pp_off + 17];
+							path->speed = be_float (data + pp_off + 20);
+							path->animation = be32 (data + pp_off + 24);
 						}
 					}
 
@@ -433,14 +432,14 @@ enumError ScanKPBin (kpbin_t *kp, const u8 *data, size_t size)
 				world->fs_text_color[1] = be32 (wp + 8);
 				world->fs_hint_color[0] = be32 (wp + 12);
 				world->fs_hint_color[1] = be32 (wp + 16);
-				world->hud_text_color[0]= be32 (wp + 20);
-				world->hud_text_color[1]= be32 (wp + 24);
+				world->hud_text_color[0] = be32 (wp + 20);
+				world->hud_text_color[1] = be32 (wp + 24);
 
-				world->unique_key     = wp[32];
+				world->unique_key = wp[32];
 				world->music_track_id = wp[33];
-				world->world_id       = wp[34];
-				world->title_world    = wp[35] + 1; // stored as 0-indexed in binary
-				world->title_level    = wp[36] + 1;
+				world->world_id = wp[34];
+				world->title_world = wp[35] + 1; // stored as 0-indexed in binary
+				world->title_level = wp[36] + 1;
 			}
 		}
 	}
@@ -455,7 +454,8 @@ enumError ScanKPBin (kpbin_t *kp, const u8 *data, size_t size)
 
 void ResetKPBin (kpbin_t *kp)
 {
-	if (!kp) return;
+	if (!kp)
+		return;
 	FREE (kp->bg_name);
 
 	if (kp->layers)
@@ -536,12 +536,10 @@ enumError DumpKPBinText (const kpbin_t *kp, char **out, size_t *out_size)
 		{
 			if (layer->tileset_name)
 				ksb_printf (&s, "tileset = \"%s\"\n", layer->tileset_name);
-			ksb_printf (&s, "sector_bounds = [%d, %d, %d, %d]\n",
-				layer->sector_bounds[0], layer->sector_bounds[1],
-				layer->sector_bounds[2], layer->sector_bounds[3]);
-			ksb_printf (&s, "real_bounds   = [%d, %d, %d, %d]\n",
-				layer->real_bounds[0], layer->real_bounds[1],
-				layer->real_bounds[2], layer->real_bounds[3]);
+			ksb_printf (&s, "sector_bounds = [%d, %d, %d, %d]\n", layer->sector_bounds[0],
+				layer->sector_bounds[1], layer->sector_bounds[2], layer->sector_bounds[3]);
+			ksb_printf (&s, "real_bounds   = [%d, %d, %d, %d]\n", layer->real_bounds[0],
+				layer->real_bounds[1], layer->real_bounds[2], layer->real_bounds[3]);
 			ksb_printf (&s, "tile_count    = %u\n", layer->n_tile_indices);
 		}
 		else if (layer->type == KP_LAYER_DOODADS)
@@ -550,16 +548,20 @@ enumError DumpKPBinText (const kpbin_t *kp, char **out, size_t *out_size)
 			for (uint d = 0; d < layer->n_doodads; d++)
 			{
 				const kp_doodad_t *dood = &layer->doodads[d];
-				ksb_printf (&s, "  doodad %3u: pos=(%.1f, %.1f) size=(%.1f, %.1f) angle=%.1f anims=%u\n",
-					d, dood->x, dood->y, dood->w, dood->h, dood->angle, dood->n_anims);
+				ksb_printf (&s,
+					"  doodad %3u: pos=(%.1f, %.1f) size=(%.1f, %.1f) angle=%.1f anims=%u\n", d,
+					dood->x, dood->y, dood->w, dood->h, dood->angle, dood->n_anims);
 				for (uint a = 0; a < dood->n_anims; a++)
 				{
 					const kp_doodad_anim_t *da = &dood->anims[a];
 					const char *at = da->type < 6 ? anim_type_names[da->type] : "custom";
 					const char *lt = da->loop < 3 ? loop_type_names[da->loop] : "custom";
 					const char *ct = da->curve < 3 ? curve_type_names[da->curve] : "custom";
-					ksb_printf (&s, "    anim %u: type=%s loop=%s curve=%s frames=%u range=[%u..%u] delay=%u offset=%u\n",
-						a, at, lt, ct, da->frame_count, da->start, da->end, da->delay, da->delay_offset);
+					ksb_printf (&s,
+						"    anim %u: type=%s loop=%s curve=%s frames=%u range=[%u..%u] delay=%u "
+						"offset=%u\n",
+						a, at, lt, ct, da->frame_count, da->start, da->end, da->delay,
+						da->delay_offset);
 				}
 			}
 		}
@@ -570,9 +572,8 @@ enumError DumpKPBinText (const kpbin_t *kp, char **out, size_t *out_size)
 			{
 				const kp_node_t *node = &layer->nodes[n];
 				const char *ntype = node->type < 5 ? node_type_names[node->type] : "unknown";
-				ksb_printf (&s, "  node %3u: pos=(%5d, %5d) type=%-12s exits=[%d,%d,%d,%d]",
-					n, node->x, node->y, ntype,
-					node->exit_paths[0], node->exit_paths[1],
+				ksb_printf (&s, "  node %3u: pos=(%5d, %5d) type=%-12s exits=[%d,%d,%d,%d]", n,
+					node->x, node->y, ntype, node->exit_paths[0], node->exit_paths[1],
 					node->exit_paths[2], node->exit_paths[3]);
 
 				if (node->type == KP_NODE_LEVEL)
@@ -580,8 +581,7 @@ enumError DumpKPBinText (const kpbin_t *kp, char **out, size_t *out_size)
 						node->has_secret ? " (secret)" : "");
 				else if (node->type == KP_NODE_CHANGE)
 					ksb_printf (&s, " dest=\"%s\" this=%u foreign=%u",
-						node->dest_map ? node->dest_map : "",
-						node->this_id, node->foreign_id);
+						node->dest_map ? node->dest_map : "", node->this_id, node->foreign_id);
 				else if (node->type == KP_NODE_WORLD_CHANGE)
 					ksb_printf (&s, " world=%u", node->world_id);
 				ksb_putc (&s, '\n');
@@ -591,10 +591,12 @@ enumError DumpKPBinText (const kpbin_t *kp, char **out, size_t *out_size)
 			for (uint p = 0; p < layer->n_paths; p++)
 			{
 				const kp_path_t *path = &layer->paths[p];
-				const char *anim = path->animation < 20 ? path_anim_names[path->animation] : "custom";
-				ksb_printf (&s, "  path %3u: nodes %d -> %d  speed=%.1f  anim=%-10s  avail=%u secret=%u\n",
-					p, path->start_node, path->end_node,
-					path->speed, anim, path->is_available, path->is_secret);
+				const char *anim
+					= path->animation < 20 ? path_anim_names[path->animation] : "custom";
+				ksb_printf (&s,
+					"  path %3u: nodes %d -> %d  speed=%.1f  anim=%-10s  avail=%u secret=%u\n", p,
+					path->start_node, path->end_node, path->speed, anim, path->is_available,
+					path->is_secret);
 			}
 		}
 
@@ -604,11 +606,13 @@ enumError DumpKPBinText (const kpbin_t *kp, char **out, size_t *out_size)
 	if (!s.buf)
 	{
 		*out = NULL;
-		if (out_size) *out_size = 0;
+		if (out_size)
+			*out_size = 0;
 		return ERR_OUT_OF_MEMORY;
 	}
 	*out = s.buf;
-	if (out_size) *out_size = s.len;
+	if (out_size)
+		*out_size = s.len;
 	return ERR_OK;
 }
 
@@ -639,7 +643,8 @@ enumError DumpKPBinJson (const kpbin_t *kp, char **out, size_t *out_size)
 		ksb_printf (&s, "      \"name\": \"%s\",\n", world->name ? world->name : "");
 		ksb_printf (&s, "      \"worldID\": %u,\n", world->world_id);
 		ksb_printf (&s, "      \"musicTrackID\": %u,\n", world->music_track_id);
-		ksb_printf (&s, "      \"titleScreenID\": \"%u-%u\"\n", world->title_world, world->title_level);
+		ksb_printf (
+			&s, "      \"titleScreenID\": \"%u-%u\"\n", world->title_world, world->title_level);
 		ksb_printf (&s, "    }%s\n", (w + 1 < kp->n_worlds) ? "," : "");
 	}
 	ksb_puts (&s, "  ],\n");
@@ -656,13 +661,12 @@ enumError DumpKPBinJson (const kpbin_t *kp, char **out, size_t *out_size)
 
 		if (layer->type == KP_LAYER_OBJECTS)
 		{
-			ksb_printf (&s, ",\n      \"tileset\": \"%s\",\n", layer->tileset_name ? layer->tileset_name : "");
-			ksb_printf (&s, "      \"sectorBounds\": [%d, %d, %d, %d],\n",
-				layer->sector_bounds[0], layer->sector_bounds[1],
-				layer->sector_bounds[2], layer->sector_bounds[3]);
-			ksb_printf (&s, "      \"realBounds\": [%d, %d, %d, %d]\n",
-				layer->real_bounds[0], layer->real_bounds[1],
-				layer->real_bounds[2], layer->real_bounds[3]);
+			ksb_printf (&s, ",\n      \"tileset\": \"%s\",\n",
+				layer->tileset_name ? layer->tileset_name : "");
+			ksb_printf (&s, "      \"sectorBounds\": [%d, %d, %d, %d],\n", layer->sector_bounds[0],
+				layer->sector_bounds[1], layer->sector_bounds[2], layer->sector_bounds[3]);
+			ksb_printf (&s, "      \"realBounds\": [%d, %d, %d, %d]\n", layer->real_bounds[0],
+				layer->real_bounds[1], layer->real_bounds[2], layer->real_bounds[3]);
 		}
 		else if (layer->type == KP_LAYER_PATHS)
 		{
@@ -671,11 +675,11 @@ enumError DumpKPBinJson (const kpbin_t *kp, char **out, size_t *out_size)
 			{
 				const kp_node_t *node = &layer->nodes[n];
 				const char *ntype = node->type < 5 ? node_type_names[node->type] : "unknown";
-				ksb_printf (&s, "        { \"x\": %d, \"y\": %d, \"type\": \"%s\"",
-					node->x, node->y, ntype);
+				ksb_printf (&s, "        { \"x\": %d, \"y\": %d, \"type\": \"%s\"", node->x,
+					node->y, ntype);
 				if (node->type == KP_NODE_LEVEL)
-					ksb_printf (&s, ", \"level\": [%u, %u], \"secret\": %s",
-						node->level_world, node->level_num, node->has_secret ? "true" : "false");
+					ksb_printf (&s, ", \"level\": [%u, %u], \"secret\": %s", node->level_world,
+						node->level_num, node->has_secret ? "true" : "false");
 				else if (node->type == KP_NODE_CHANGE)
 					ksb_printf (&s, ", \"dest\": \"%s\", \"thisID\": %u, \"foreignID\": %u",
 						node->dest_map ? node->dest_map : "", node->this_id, node->foreign_id);
@@ -689,10 +693,13 @@ enumError DumpKPBinJson (const kpbin_t *kp, char **out, size_t *out_size)
 			for (uint p = 0; p < layer->n_paths; p++)
 			{
 				const kp_path_t *path = &layer->paths[p];
-				const char *anim = path->animation < 20 ? path_anim_names[path->animation] : "custom";
-				ksb_printf (&s, "        { \"start\": %d, \"end\": %d, \"speed\": %.2f, \"anim\": \"%s\", \"available\": %u, \"secret\": %u }%s\n",
-					path->start_node, path->end_node, path->speed, anim, path->is_available, path->is_secret,
-					(p + 1 < layer->n_paths) ? "," : "");
+				const char *anim
+					= path->animation < 20 ? path_anim_names[path->animation] : "custom";
+				ksb_printf (&s,
+					"        { \"start\": %d, \"end\": %d, \"speed\": %.2f, \"anim\": \"%s\", "
+					"\"available\": %u, \"secret\": %u }%s\n",
+					path->start_node, path->end_node, path->speed, anim, path->is_available,
+					path->is_secret, (p + 1 < layer->n_paths) ? "," : "");
 			}
 			ksb_puts (&s, "      ]\n");
 		}
@@ -709,10 +716,12 @@ enumError DumpKPBinJson (const kpbin_t *kp, char **out, size_t *out_size)
 	if (!s.buf)
 	{
 		*out = NULL;
-		if (out_size) *out_size = 0;
+		if (out_size)
+			*out_size = 0;
 		return ERR_OUT_OF_MEMORY;
 	}
 	*out = s.buf;
-	if (out_size) *out_size = s.len;
+	if (out_size)
+		*out_size = s.len;
 	return ERR_OK;
 }

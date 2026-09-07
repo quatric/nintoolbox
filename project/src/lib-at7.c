@@ -210,8 +210,8 @@ enumError EncodeAT7 (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 
 				if (cpos + 3 <= chunk_end)
 				{
-					uint h = ((uint)src[cpos] << 8) ^ ((uint)src[cpos + 1] << 4)
-						^ (uint)src[cpos + 2];
+					uint h
+						= ((uint)src[cpos] << 8) ^ ((uint)src[cpos + 1] << 4) ^ (uint)src[cpos + 2];
 					h &= 0xFFFF;
 					uint match_pos = head[h];
 

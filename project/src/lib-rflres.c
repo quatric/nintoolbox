@@ -8,29 +8,11 @@
 ///////////////	  (RFL_Res.dat, FFL_Res.dat, CFL_Res.dat, etc.)	///////////////
 //-----------------------------------------------------------------------------
 
-static const char * const mii_arc_names[18] = {
-	"beard",
-	"eye",
-	"eyebrow",
-	"faceline",
-	"face_tex",
-	"fore_head",
-	"glass",
-	"glass_tex",
-	"hair",
-	"mask",
-	"mole",
-	"mouth",
-	"mustache",
-	"nose",
-	"nline",
-	"nline_tex",
-	"cap",
-	"cap_tex"
-};
+static const char *const mii_arc_names[18] = { "beard", "eye", "eyebrow", "faceline", "face_tex",
+	"fore_head", "glass", "glass_tex", "hair", "mask", "mole", "mouth", "mustache", "nose", "nline",
+	"nline_tex", "cap", "cap_tex" };
 
-enumError ScanMiiRes (
-	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
+enumError ScanMiiRes (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
 {
 	if (!entries || !n_entries || !data || size < 8)
 		return EINVAL;
@@ -140,8 +122,10 @@ enumError ScanMiiRes (
 
 		for (uint j = 0; j < num; j++)
 		{
-			const u32 f_off = is_be ? rd_be32 (data + arc_off + 4 + j * 4) : rd_le32 (data + arc_off + 4 + j * 4);
-			const u32 next_off = is_be ? rd_be32 (data + arc_off + 4 + (j + 1) * 4) : rd_le32 (data + arc_off + 4 + (j + 1) * 4);
+			const u32 f_off = is_be ? rd_be32 (data + arc_off + 4 + j * 4)
+									: rd_le32 (data + arc_off + 4 + j * 4);
+			const u32 next_off = is_be ? rd_be32 (data + arc_off + 4 + (j + 1) * 4)
+									   : rd_le32 (data + arc_off + 4 + (j + 1) * 4);
 			if (next_off < f_off || data_base + next_off > size)
 			{
 				ResetOwnedEntries (res, out_idx);
@@ -173,32 +157,28 @@ enumError ScanMiiRes (
 	return ERR_OK;
 }
 
-enumError ScanRFLRes (
-	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
+enumError ScanRFLRes (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
 {
 	return ScanMiiRes (entries, n_entries, data, size);
 }
 
-enumError ScanFFLRes (
-	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
+enumError ScanFFLRes (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
 {
 	return ScanMiiRes (entries, n_entries, data, size);
 }
 
-enumError ScanCFLRes (
-	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
+enumError ScanCFLRes (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
 {
 	return ScanMiiRes (entries, n_entries, data, size);
 }
 
-enumError ScanNFLRes (
-	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
+enumError ScanNFLRes (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
 {
 	return ScanMiiRes (entries, n_entries, data, size);
 }
 
-enumError CreateMiiRes (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries, bool big_endian)
+enumError CreateMiiRes (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries,
+	uint n_entries, bool big_endian)
 {
 	if (!dest || !dest_size || !entries || !n_entries)
 		return EINVAL;
@@ -228,7 +208,8 @@ enumError CreateMiiRes (
 		}
 	}
 
-	typedef struct {
+	typedef struct
+	{
 		uint count;
 		uint alloc;
 		const nintendo_sarc_entry_t **files;

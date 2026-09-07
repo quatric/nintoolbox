@@ -134,13 +134,8 @@ enumError DecodeTrackBANIM (banim_track_t *tr, // destination, initialized here
 	uint frame_limit // frame count incl. loop frame (linear formats)
 );
 
-enumError DecodeTrackBANIM_Ext (banim_track_t *tr,
-	const u8 *data,
-	uint avail,
-	banim_format_t format,
-	uint frame_limit,
-	bool short_header
-);
+enumError DecodeTrackBANIM_Ext (banim_track_t *tr, const u8 *data, uint avail,
+	banim_format_t format, uint frame_limit, bool short_header);
 
 //-----------------------------------------------------------------------------
 

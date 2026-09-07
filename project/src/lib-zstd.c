@@ -41,8 +41,8 @@ ccp GetMessageZSTD (size_t code, ccp unknown_error)
 	return "OK";
 }
 
-enumError EncodeZSTDbuf (void *dest, uint dest_size, uint *dest_written,
-	const void *src, uint src_size, int compr_level)
+enumError EncodeZSTDbuf (
+	void *dest, uint dest_size, uint *dest_written, const void *src, uint src_size, int compr_level)
 {
 	DASSERT (dest);
 	DASSERT (dest_written);
@@ -60,8 +60,8 @@ enumError EncodeZSTDbuf (void *dest, uint dest_size, uint *dest_written,
 	return ERR_OK;
 }
 
-enumError EncodeZSTD (u8 **dest_ptr, uint *dest_written,
-	const void *src, uint src_size, int compr_level)
+enumError EncodeZSTD (
+	u8 **dest_ptr, uint *dest_written, const void *src, uint src_size, int compr_level)
 {
 	DASSERT (dest_ptr);
 	DASSERT (dest_written);
@@ -114,7 +114,8 @@ enumError DecodeZSTD (u8 **dest_ptr, uint *dest_written, const void *src, uint s
 		if (ZSTD_isError (ret))
 		{
 			FREE (dest);
-			return ERROR0 (ERR_INVALID_DATA, "ZSTD decompression error: %s\n", ZSTD_getErrorName (ret));
+			return ERROR0 (
+				ERR_INVALID_DATA, "ZSTD decompression error: %s\n", ZSTD_getErrorName (ret));
 		}
 
 		*dest_ptr = dest;
@@ -146,7 +147,8 @@ enumError DecodeZSTD (u8 **dest_ptr, uint *dest_written, const void *src, uint s
 		{
 			ZSTD_freeDCtx (dctx);
 			FREE (dest);
-			return ERROR0 (ERR_INVALID_DATA, "ZSTD streaming decompression error: %s\n", ZSTD_getErrorName (ret));
+			return ERROR0 (ERR_INVALID_DATA, "ZSTD streaming decompression error: %s\n",
+				ZSTD_getErrorName (ret));
 		}
 
 		if (out.pos == out.size && ret > 0)
@@ -171,8 +173,8 @@ enumError DecodeZSTD (u8 **dest_ptr, uint *dest_written, const void *src, uint s
 	return ERR_OK;
 }
 
-enumError DecodeZSTDpart (void *dest_buf, uint dest_size, uint *dest_written,
-	const void *src, uint src_size)
+enumError DecodeZSTDpart (
+	void *dest_buf, uint dest_size, uint *dest_written, const void *src, uint src_size)
 {
 	DASSERT (dest_buf);
 	DASSERT (dest_written);
@@ -192,7 +194,8 @@ enumError DecodeZSTDpart (void *dest_buf, uint dest_size, uint *dest_written,
 	ZSTD_freeDCtx (dctx);
 
 	if (ZSTD_isError (ret))
-		return ERROR0 (ERR_INVALID_DATA, "ZSTD partial decompression error: %s\n", ZSTD_getErrorName (ret));
+		return ERROR0 (
+			ERR_INVALID_DATA, "ZSTD partial decompression error: %s\n", ZSTD_getErrorName (ret));
 
 	*dest_written = (uint)out.pos;
 	return ret == 0 ? ERR_OK : ERR_WARNING;

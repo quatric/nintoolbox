@@ -340,6 +340,7 @@ typedef enum file_format_t
 	FF_ZDAT, // 246 - Animal Crossing: Pocket Camp asset container (.zdat / ZDAT)
 	FF_SFX, // 247 - Monster Games DSP-ADPCM audio (.sfx, Excite Truck / ExciteBots)
 	FF_VFF, // 248 - Nintendo VFF virtual FAT volume (.vff / "VFF ")
+	FF_NDS_BANNER, // 249 - Nintendo DS ROM banner (banner.bin: icon + titles)
 
 	//--- number of elements
 

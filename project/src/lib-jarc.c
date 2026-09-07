@@ -4,7 +4,6 @@
 #include <string.h>
 #include <errno.h>
 
-
 enumError DecodeJCMP (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 {
 	if (!dest || !dest_size || !src || src_size < 16)
@@ -20,12 +19,14 @@ enumError DecodeJCMP (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 	uint payload_size = src_size >= 16 ? src_size - 16 : 0;
 
 	// Check if header is 20 bytes (e.g. 0x14)
-	if (src_size >= 20 && (src[16] == 0x78 || !memcmp (src + 16, "jARC", 4) || !memcmp (src + 16, "JARC", 4)))
+	if (src_size >= 20
+		&& (src[16] == 0x78 || !memcmp (src + 16, "jARC", 4) || !memcmp (src + 16, "JARC", 4)))
 	{
 		payload = src + 16;
 		payload_size = src_size - 16;
 	}
-	else if (src_size >= 24 && (src[20] == 0x78 || !memcmp (src + 20, "jARC", 4) || !memcmp (src + 20, "JARC", 4)))
+	else if (src_size >= 24
+		&& (src[20] == 0x78 || !memcmp (src + 20, "jARC", 4) || !memcmp (src + 20, "JARC", 4)))
 	{
 		payload = src + 20;
 		payload_size = src_size - 20;
@@ -281,13 +282,15 @@ enumError ScanJARC (jarc_t *jarc, const u8 *data, size_t size)
 				jarc->entries[i].offset = off;
 				const char *ext = infer_jarc_ext (buf + off, len);
 				snprintf (jarc->entries[i].ext, sizeof (jarc->entries[i].ext), "%s", ext);
-				snprintf (jarc->entries[i].name, sizeof (jarc->entries[i].name), "file_%04u.%s", i, ext);
+				snprintf (
+					jarc->entries[i].name, sizeof (jarc->entries[i].name), "file_%04u.%s", i, ext);
 			}
 			else
 			{
 				jarc->entries[i].offset = off;
 				jarc->entries[i].size = 0;
-				snprintf (jarc->entries[i].name, sizeof (jarc->entries[i].name), "file_%04u.bin", i);
+				snprintf (
+					jarc->entries[i].name, sizeof (jarc->entries[i].name), "file_%04u.bin", i);
 			}
 		}
 		return ERR_OK;
@@ -302,17 +305,14 @@ enumError ScanJARC (jarc_t *jarc, const u8 *data, size_t size)
 	for (uint pos = 4; pos + 8 <= bsize; pos += 4)
 	{
 		const u8 *p = buf + pos;
-		if (!memcmp (p, "jMDL", 4) || !memcmp (p, "JMDL", 4)
-			|| !memcmp (p, "jTEX", 4) || !memcmp (p, "JTEX", 4)
-			|| !memcmp (p, "jIMG", 4) || !memcmp (p, "JIMG", 4)
-			|| !memcmp (p, "jMOT", 4) || !memcmp (p, "JMOT", 4)
-			|| !memcmp (p, "jMSG", 4) || !memcmp (p, "JMSG", 4)
-			|| !memcmp (p, "jCLT", 4) || !memcmp (p, "JCLT", 4)
-			|| !memcmp (p, "jEFC", 4) || !memcmp (p, "JEFC", 4)
-			|| !memcmp (p, "jSCN", 4) || !memcmp (p, "JSCN", 4)
-			|| !memcmp (p, "jWAT", 4) || !memcmp (p, "JWAT", 4)
-			|| !memcmp (p, "jSND", 4) || !memcmp (p, "JSND", 4)
-			|| !memcmp (p, "jCMP", 4) || !memcmp (p, "JCMP", 4))
+		if (!memcmp (p, "jMDL", 4) || !memcmp (p, "JMDL", 4) || !memcmp (p, "jTEX", 4)
+			|| !memcmp (p, "JTEX", 4) || !memcmp (p, "jIMG", 4) || !memcmp (p, "JIMG", 4)
+			|| !memcmp (p, "jMOT", 4) || !memcmp (p, "JMOT", 4) || !memcmp (p, "jMSG", 4)
+			|| !memcmp (p, "JMSG", 4) || !memcmp (p, "jCLT", 4) || !memcmp (p, "JCLT", 4)
+			|| !memcmp (p, "jEFC", 4) || !memcmp (p, "JEFC", 4) || !memcmp (p, "jSCN", 4)
+			|| !memcmp (p, "JSCN", 4) || !memcmp (p, "jWAT", 4) || !memcmp (p, "JWAT", 4)
+			|| !memcmp (p, "jSND", 4) || !memcmp (p, "JSND", 4) || !memcmp (p, "jCMP", 4)
+			|| !memcmp (p, "JCMP", 4))
 		{
 			if (n_chunks > 0 && chunks[n_chunks - 1].size == 0)
 				chunks[n_chunks - 1].size = pos - chunks[n_chunks - 1].offset;
@@ -324,7 +324,8 @@ enumError ScanJARC (jarc_t *jarc, const u8 *data, size_t size)
 				chunks[n_chunks].size = 0;
 				const char *ext = infer_jarc_ext (p, bsize - pos);
 				snprintf (chunks[n_chunks].ext, sizeof (chunks[n_chunks].ext), "%s", ext);
-				snprintf (chunks[n_chunks].name, sizeof (chunks[n_chunks].name), "file_%04u.%s", n_chunks, ext);
+				snprintf (chunks[n_chunks].name, sizeof (chunks[n_chunks].name), "file_%04u.%s",
+					n_chunks, ext);
 				n_chunks++;
 			}
 		}

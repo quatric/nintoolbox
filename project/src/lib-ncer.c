@@ -112,4 +112,3 @@ enumError GetNANRAnimation (
 	*frame_records = nanr->frames + off;
 	return ERR_OK;
 }
-

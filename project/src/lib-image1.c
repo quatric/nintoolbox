@@ -512,7 +512,8 @@ void ScanDataIMG (Image_t *img, // destination image
 			if (data_size >= 0x18)
 			{
 				const u32 chunk_offset = rd_le32 ((const u8 *)data + 16);
-				if (chunk_offset + 12 + 12 <= data_size && !memcmp ((const u8 *)data + chunk_offset, "tex ", 4))
+				if (chunk_offset + 12 + 12 <= data_size
+					&& !memcmp ((const u8 *)data + chunk_offset, "tex ", 4))
 				{
 					const u8 *tentry = (const u8 *)data + chunk_offset + 12;
 					img->width = (uint)rd_le16 (tentry + 8);
@@ -2876,8 +2877,8 @@ static enumError create_C_palette (Image_t *img, // valid destination
 	u8 *raw_pal = 0;
 	uint pal_size = 0, n_colors = 0;
 	u16 *indices = 0;
-	err = QuantizePalette_PLT0 (img->data, img->width, img->height, img->xwidth,
-		pform, target_colors, &raw_pal, &pal_size, &n_colors, &indices);
+	err = QuantizePalette_PLT0 (img->data, img->width, img->height, img->xwidth, pform,
+		target_colors, &raw_pal, &pal_size, &n_colors, &indices);
 	if (err)
 		return err;
 

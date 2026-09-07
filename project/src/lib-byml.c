@@ -462,7 +462,8 @@ static enumError byml_print_node (
 				{
 					if (byml_is_visited (ctx, child_val))
 					{
-						fprintf (out, " *%s_0x%x\n", val_type == 0xC0 ? "array" : "dict", child_val);
+						fprintf (
+							out, " *%s_0x%x\n", val_type == 0xC0 ? "array" : "dict", child_val);
 					}
 					else
 					{
@@ -968,8 +969,8 @@ static void yaml_eval_scalar (const char *s, bf_val_t *val)
 					str[out_pos++] = '"';
 				else if (s[i] == '\'')
 					str[out_pos++] = '\'';
-				else if (s[i] == 'x' && i + 2 < len - 1
-					&& isxdigit ((u8)s[i + 1]) && isxdigit ((u8)s[i + 2]))
+				else if (s[i] == 'x' && i + 2 < len - 1 && isxdigit ((u8)s[i + 1])
+					&& isxdigit ((u8)s[i + 2]))
 				{
 					char hex[3] = { s[i + 1], s[i + 2], 0 };
 					str[out_pos++] = (char)(u8)strtoul (hex, 0, 16);
@@ -1020,162 +1021,215 @@ static void yaml_eval_scalar (const char *s, bf_val_t *val)
 
 #include <yaml.h>
 
-static enumError fill_bf_node_from_yaml(yaml_document_t *doc, int node_id, bf_node_t *out_dict);
-static enumError fill_bf_list_from_yaml(yaml_document_t *doc, int node_id, bf_list_t *out_list);
+static enumError fill_bf_node_from_yaml (yaml_document_t *doc, int node_id, bf_node_t *out_dict);
+static enumError fill_bf_list_from_yaml (yaml_document_t *doc, int node_id, bf_list_t *out_list);
 
-static enumError fill_bf_list_from_yaml(yaml_document_t *doc, int node_id, bf_list_t *out_list) {
-    yaml_node_t *node = yaml_document_get_node(doc, node_id);
-    if (!node || node->type != YAML_SEQUENCE_NODE) return ERR_SEMANTIC;
-
-    for (yaml_node_item_t *i = node->data.sequence.items.start; i < node->data.sequence.items.top; i++) {
-        yaml_node_t *item_node = yaml_document_get_node(doc, *i);
-        if (!item_node) continue;
-        
-        if (item_node->type == YAML_SCALAR_NODE) {
-            bf_val_t sval;
-            yaml_eval_scalar((const char *)item_node->data.scalar.value, &sval);
-            if (sval.type == BF_T_STR) { BFListAddStr(out_list, sval.u.s); FREE(sval.u.s); }
-            else if (sval.type == BF_T_INT) BFListAddInt(out_list, sval.u.i);
-            else if (sval.type == BF_T_UINT) {
-                BFListAddInt(out_list, sval.u.i);
-                if (out_list->n) out_list->items[out_list->n - 1].type = BF_T_UINT;
-            }
-            else if (sval.type == BF_T_FLOAT) BFListAddFloat(out_list, sval.u.f);
-            else if (sval.type == BF_T_BOOL) BFListAddBool(out_list, sval.u.b);
-        }
-        else if (item_node->type == YAML_SEQUENCE_NODE) {
-            bf_list_t *cl = BFListAddList(out_list);
-            if (!cl) return ERR_OUT_OF_MEMORY;
-            enumError err = fill_bf_list_from_yaml(doc, *i, cl);
-            if (err) return err;
-        }
-        else if (item_node->type == YAML_MAPPING_NODE) {
-            bf_node_t *cn = BFListAddNode(out_list);
-            if (!cn) return ERR_OUT_OF_MEMORY;
-            enumError err = fill_bf_node_from_yaml(doc, *i, cn);
-            if (err) return err;
-        }
-    }
-    return ERR_OK;
-}
-
-static enumError fill_bf_node_from_yaml(yaml_document_t *doc, int node_id, bf_node_t *out_dict) {
-    yaml_node_t *node = yaml_document_get_node(doc, node_id);
-    if (!node || node->type != YAML_MAPPING_NODE) return ERR_SEMANTIC;
-
-    for (yaml_node_pair_t *p = node->data.mapping.pairs.start; p < node->data.mapping.pairs.top; p++) {
-        yaml_node_t *key_node = yaml_document_get_node(doc, p->key);
-        yaml_node_t *val_node = yaml_document_get_node(doc, p->value);
-        if (!key_node || key_node->type != YAML_SCALAR_NODE || !val_node) continue;
-        const char *key_str = (const char *)key_node->data.scalar.value;
-
-        if (val_node->type == YAML_SCALAR_NODE) {
-            bf_val_t sval;
-            yaml_eval_scalar((const char *)val_node->data.scalar.value, &sval);
-            if (sval.type == BF_T_STR) { BFNodeSetStr(out_dict, key_str, sval.u.s); FREE(sval.u.s); }
-            else if (sval.type == BF_T_INT) BFNodeSetInt(out_dict, key_str, sval.u.i);
-            else if (sval.type == BF_T_UINT) {
-                BFNodeSetInt(out_dict, key_str, sval.u.i);
-                bf_val_t *v = BFNodeGet(out_dict, key_str);
-                if (v) v->type = BF_T_UINT;
-            }
-            else if (sval.type == BF_T_FLOAT) BFNodeSetFloat(out_dict, key_str, sval.u.f);
-            else if (sval.type == BF_T_BOOL) BFNodeSetBool(out_dict, key_str, sval.u.b);
-            else if (sval.type == BF_T_NONE) BFNodeSetNone(out_dict, key_str);
-        }
-        else if (val_node->type == YAML_SEQUENCE_NODE) {
-            bf_list_t *cl = BFNodeSetList(out_dict, key_str);
-            if (!cl) return ERR_OUT_OF_MEMORY;
-            enumError err = fill_bf_list_from_yaml(doc, p->value, cl);
-            if (err) return err;
-        }
-        else if (val_node->type == YAML_MAPPING_NODE) {
-            bf_node_t *cn = BFNodeSetNode(out_dict, key_str);
-            if (!cn) return ERR_OUT_OF_MEMORY;
-            enumError err = fill_bf_node_from_yaml(doc, p->value, cn);
-            if (err) return err;
-        }
-    }
-    return ERR_OK;
-}
-
-enumError EncodeBYML_Text ( u8 **dest, uint *dest_size, const char *text, uint text_len, bool is_le, u16 version )
+static enumError fill_bf_list_from_yaml (yaml_document_t *doc, int node_id, bf_list_t *out_list)
 {
-    if (!dest || !dest_size || !text)
-        return ERR_SEMANTIC;
-    *dest = 0; *dest_size = 0;
+	yaml_node_t *node = yaml_document_get_node (doc, node_id);
+	if (!node || node->type != YAML_SEQUENCE_NODE)
+		return ERR_SEMANTIC;
 
-    yaml_parser_t parser;
-    yaml_document_t document;
-    if (!yaml_parser_initialize(&parser)) return ERR_OUT_OF_MEMORY;
-    yaml_parser_set_input_string(&parser, (const unsigned char *)text, text_len);
-    if (!yaml_parser_load(&parser, &document)) {
-        yaml_parser_delete(&parser);
-        return ERR_SEMANTIC;
-    }
+	for (yaml_node_item_t *i = node->data.sequence.items.start; i < node->data.sequence.items.top;
+		i++)
+	{
+		yaml_node_t *item_node = yaml_document_get_node (doc, *i);
+		if (!item_node)
+			continue;
 
-    bf_node_t root;
-    BFNodeInit(&root);
+		if (item_node->type == YAML_SCALAR_NODE)
+		{
+			bf_val_t sval;
+			yaml_eval_scalar ((const char *)item_node->data.scalar.value, &sval);
+			if (sval.type == BF_T_STR)
+			{
+				BFListAddStr (out_list, sval.u.s);
+				FREE (sval.u.s);
+			}
+			else if (sval.type == BF_T_INT)
+				BFListAddInt (out_list, sval.u.i);
+			else if (sval.type == BF_T_UINT)
+			{
+				BFListAddInt (out_list, sval.u.i);
+				if (out_list->n)
+					out_list->items[out_list->n - 1].type = BF_T_UINT;
+			}
+			else if (sval.type == BF_T_FLOAT)
+				BFListAddFloat (out_list, sval.u.f);
+			else if (sval.type == BF_T_BOOL)
+				BFListAddBool (out_list, sval.u.b);
+		}
+		else if (item_node->type == YAML_SEQUENCE_NODE)
+		{
+			bf_list_t *cl = BFListAddList (out_list);
+			if (!cl)
+				return ERR_OUT_OF_MEMORY;
+			enumError err = fill_bf_list_from_yaml (doc, *i, cl);
+			if (err)
+				return err;
+		}
+		else if (item_node->type == YAML_MAPPING_NODE)
+		{
+			bf_node_t *cn = BFListAddNode (out_list);
+			if (!cn)
+				return ERR_OUT_OF_MEMORY;
+			enumError err = fill_bf_node_from_yaml (doc, *i, cn);
+			if (err)
+				return err;
+		}
+	}
+	return ERR_OK;
+}
 
-    yaml_node_t *root_node = yaml_document_get_root_node(&document);
-    if (root_node) {
-        if (root_node->type == YAML_MAPPING_NODE) {
-            fill_bf_node_from_yaml(&document, yaml_document_get_root_node(&document) - document.nodes.start + 1, &root);
-        } else {
-            // Not a mapping at root, technically BYML requires mapping at root but let's ignore or error.
-            // (If BYML accepts lists at root, we'd have to restructure. Assuming dict at root here.)
-        }
-    }
+static enumError fill_bf_node_from_yaml (yaml_document_t *doc, int node_id, bf_node_t *out_dict)
+{
+	yaml_node_t *node = yaml_document_get_node (doc, node_id);
+	if (!node || node->type != YAML_MAPPING_NODE)
+		return ERR_SEMANTIC;
 
-    yaml_document_delete(&document);
-    yaml_parser_delete(&parser);
+	for (yaml_node_pair_t *p = node->data.mapping.pairs.start; p < node->data.mapping.pairs.top;
+		p++)
+	{
+		yaml_node_t *key_node = yaml_document_get_node (doc, p->key);
+		yaml_node_t *val_node = yaml_document_get_node (doc, p->value);
+		if (!key_node || key_node->type != YAML_SCALAR_NODE || !val_node)
+			continue;
+		const char *key_str = (const char *)key_node->data.scalar.value;
 
-    str_list_t keys, strs;
-    str_list_init(&keys);
-    str_list_init(&strs);
+		if (val_node->type == YAML_SCALAR_NODE)
+		{
+			bf_val_t sval;
+			yaml_eval_scalar ((const char *)val_node->data.scalar.value, &sval);
+			if (sval.type == BF_T_STR)
+			{
+				BFNodeSetStr (out_dict, key_str, sval.u.s);
+				FREE (sval.u.s);
+			}
+			else if (sval.type == BF_T_INT)
+				BFNodeSetInt (out_dict, key_str, sval.u.i);
+			else if (sval.type == BF_T_UINT)
+			{
+				BFNodeSetInt (out_dict, key_str, sval.u.i);
+				bf_val_t *v = BFNodeGet (out_dict, key_str);
+				if (v)
+					v->type = BF_T_UINT;
+			}
+			else if (sval.type == BF_T_FLOAT)
+				BFNodeSetFloat (out_dict, key_str, sval.u.f);
+			else if (sval.type == BF_T_BOOL)
+				BFNodeSetBool (out_dict, key_str, sval.u.b);
+			else if (sval.type == BF_T_NONE)
+				BFNodeSetNone (out_dict, key_str);
+		}
+		else if (val_node->type == YAML_SEQUENCE_NODE)
+		{
+			bf_list_t *cl = BFNodeSetList (out_dict, key_str);
+			if (!cl)
+				return ERR_OUT_OF_MEMORY;
+			enumError err = fill_bf_list_from_yaml (doc, p->value, cl);
+			if (err)
+				return err;
+		}
+		else if (val_node->type == YAML_MAPPING_NODE)
+		{
+			bf_node_t *cn = BFNodeSetNode (out_dict, key_str);
+			if (!cn)
+				return ERR_OUT_OF_MEMORY;
+			enumError err = fill_bf_node_from_yaml (doc, p->value, cn);
+			if (err)
+				return err;
+		}
+	}
+	return ERR_OK;
+}
 
-    bf_val_t root_val;
-    root_val.type = BF_T_NODE;
-    root_val.u.node = &root;
-    collect_byml_symbols(&root_val, &keys, &strs);
+enumError EncodeBYML_Text (
+	u8 **dest, uint *dest_size, const char *text, uint text_len, bool is_le, u16 version)
+{
+	if (!dest || !dest_size || !text)
+		return ERR_SEMANTIC;
+	*dest = 0;
+	*dest_size = 0;
 
-    if (keys.count > 1)
-        qsort(keys.items, keys.count, sizeof(char*), str_cmp_qsort);
-    if (strs.count > 1)
-        qsort(strs.items, strs.count, sizeof(char*), str_cmp_qsort);
+	yaml_parser_t parser;
+	yaml_document_t document;
+	if (!yaml_parser_initialize (&parser))
+		return ERR_OUT_OF_MEMORY;
+	yaml_parser_set_input_string (&parser, (const unsigned char *)text, text_len);
+	if (!yaml_parser_load (&parser, &document))
+	{
+		yaml_parser_delete (&parser);
+		return ERR_SEMANTIC;
+	}
 
-    byml_writer_t w;
-    bw_init(&w, is_le);
-    // Header placeholder: 16 bytes
-    bw_append(&w, 0, 16);
+	bf_node_t root;
+	BFNodeInit (&root);
 
-    uint hash_key_off = write_byml_str_table(&w, &keys);
-    uint str_table_off = write_byml_str_table(&w, &strs);
-    uint root_off = write_byml_node(&w, &root_val, &keys, &strs);
+	yaml_node_t *root_node = yaml_document_get_root_node (&document);
+	if (root_node)
+	{
+		if (root_node->type == YAML_MAPPING_NODE)
+		{
+			fill_bf_node_from_yaml (&document,
+				yaml_document_get_root_node (&document) - document.nodes.start + 1, &root);
+		}
+		else
+		{
+			// Not a mapping at root, technically BYML requires mapping at root but let's ignore or
+			// error. (If BYML accepts lists at root, we'd have to restructure. Assuming dict at
+			// root here.)
+		}
+	}
 
-    // Write header
-    w.buf[0] = is_le ? 'Y' : 'B';
-    w.buf[1] = is_le ? 'B' : 'Y';
-    if (is_le)
-    {
-        wr_le16(w.buf + 2, version ? version : 1);
-        wr_le32(w.buf + 4, hash_key_off);
-        wr_le32(w.buf + 8, str_table_off);
-        wr_le32(w.buf + 12, root_off);
-    }
-    else
-    {
-        wr_be16(w.buf + 2, version ? version : 1);
-        wr_be32(w.buf + 4, hash_key_off);
-        wr_be32(w.buf + 8, str_table_off);
-        wr_be32(w.buf + 12, root_off);
-    }
+	yaml_document_delete (&document);
+	yaml_parser_delete (&parser);
 
-    str_list_free(&keys);
-    str_list_free(&strs);
-    BFNodeFree(&root);
+	str_list_t keys, strs;
+	str_list_init (&keys);
+	str_list_init (&strs);
 
-    *dest = w.buf;
-    *dest_size = w.len;
-    return ERR_OK;
+	bf_val_t root_val;
+	root_val.type = BF_T_NODE;
+	root_val.u.node = &root;
+	collect_byml_symbols (&root_val, &keys, &strs);
+
+	if (keys.count > 1)
+		qsort (keys.items, keys.count, sizeof (char *), str_cmp_qsort);
+	if (strs.count > 1)
+		qsort (strs.items, strs.count, sizeof (char *), str_cmp_qsort);
+
+	byml_writer_t w;
+	bw_init (&w, is_le);
+	// Header placeholder: 16 bytes
+	bw_append (&w, 0, 16);
+
+	uint hash_key_off = write_byml_str_table (&w, &keys);
+	uint str_table_off = write_byml_str_table (&w, &strs);
+	uint root_off = write_byml_node (&w, &root_val, &keys, &strs);
+
+	// Write header
+	w.buf[0] = is_le ? 'Y' : 'B';
+	w.buf[1] = is_le ? 'B' : 'Y';
+	if (is_le)
+	{
+		wr_le16 (w.buf + 2, version ? version : 1);
+		wr_le32 (w.buf + 4, hash_key_off);
+		wr_le32 (w.buf + 8, str_table_off);
+		wr_le32 (w.buf + 12, root_off);
+	}
+	else
+	{
+		wr_be16 (w.buf + 2, version ? version : 1);
+		wr_be32 (w.buf + 4, hash_key_off);
+		wr_be32 (w.buf + 8, str_table_off);
+		wr_be32 (w.buf + 12, root_off);
+	}
+
+	str_list_free (&keys);
+	str_list_free (&strs);
+	BFNodeFree (&root);
+
+	*dest = w.buf;
+	*dest_size = w.len;
+	return ERR_OK;
 }

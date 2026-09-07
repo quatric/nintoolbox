@@ -42,162 +42,136 @@
 
 #include "lib-std.h"
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			  definitions			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 #ifndef _BZLIB_H
-    typedef void BZFILE;
+typedef void BZFILE;
 #endif
 
 //-----------------------------------------------------------------------------
 
 typedef struct BZIP2_t
 {
-    WFile_t		* file;		// IO file
-    BZFILE		* handle;	// bzip2 handle
-    int			compr_level;	// active compression level
+	WFile_t *file; // IO file
+	BZFILE *handle; // bzip2 handle
+	int compr_level; // active compression level
 
 } BZIP2_t;
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			  helpers			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-ccp GetMessageBZIP2
-(
-    int			err,		// error code
-    ccp			unkown_error	// result for unkown error codes
+ccp GetMessageBZIP2 (int err, // error code
+	ccp unkown_error // result for unkown error codes
 );
 
 //-----------------------------------------------------------------------------
 
-int CalcCompressionLevelBZIP2
-(
-    int			compr_level	// valid are 1..9 / 0: use default value
+int CalcCompressionLevelBZIP2 (int compr_level // valid are 1..9 / 0: use default value
 );
 
 //-----------------------------------------------------------------------------
 
-u32 CalcMemoryUsageBZIP2
-(
-    int			compr_level,	// valid are 1..9 / 0: use default value
-    bool		is_writing	// false: reading mode, true: writing mode
+u32 CalcMemoryUsageBZIP2 (int compr_level, // valid are 1..9 / 0: use default value
+	bool is_writing // false: reading mode, true: writing mode
 );
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			BZIP2 writing			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-enumError EncBZIP2_Open
-(
-    BZIP2_t		* bz,		// data structure, will be initialized
-    WFile_t		* file,		// destination file
-    int			compr_level	// valid are 1..9 / 0: use default value
+enumError EncBZIP2_Open (BZIP2_t *bz, // data structure, will be initialized
+	WFile_t *file, // destination file
+	int compr_level // valid are 1..9 / 0: use default value
 );
 
 //-----------------------------------------------------------------------------
 
-enumError EncBZIP2_Write
-(
-    BZIP2_t		* bz,		// created by EncBZIP2_Open()
-    const void		* data,		// data to write
-    size_t		data_size	// size of data to write
+enumError EncBZIP2_Write (BZIP2_t *bz, // created by EncBZIP2_Open()
+	const void *data, // data to write
+	size_t data_size // size of data to write
 );
 
 //-----------------------------------------------------------------------------
 
-enumError EncBZIP2_Close
-(
-    BZIP2_t		* bz,		// NULL or created by EncBZIP2_Open()
-    u32			* bytes_written	// not NULL: store written bytes
+enumError EncBZIP2_Close (BZIP2_t *bz, // NULL or created by EncBZIP2_Open()
+	u32 *bytes_written // not NULL: store written bytes
 );
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			BZIP2 reading			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-enumError DecBZIP2_Open
-(
-    BZIP2_t		* bz,		// data structure, will be initialized
-    WFile_t		* file		// source file
+enumError DecBZIP2_Open (BZIP2_t *bz, // data structure, will be initialized
+	WFile_t *file // source file
 );
 
 //-----------------------------------------------------------------------------
 
-enumError DecBZIP2_Read
-(
-    BZIP2_t		* bz,		// created by DecBZIP2_Open()
-    void		* buf,		// destination buffer
-    size_t		buf_size,	// size of destination buffer
-    u32			* buf_written	// not NULL: store bytes written to buf
+enumError DecBZIP2_Read (BZIP2_t *bz, // created by DecBZIP2_Open()
+	void *buf, // destination buffer
+	size_t buf_size, // size of destination buffer
+	u32 *buf_written // not NULL: store bytes written to buf
 );
 
 //-----------------------------------------------------------------------------
 
-enumError DecBZIP2_Close
-(
-    BZIP2_t		* bz		// NULL or created by DecBZIP2_Open()
+enumError DecBZIP2_Close (BZIP2_t *bz // NULL or created by DecBZIP2_Open()
 );
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////		    BZIP2 memory conversions		///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-enumError EncBZIP2buf
-(
-    void		*dest,		// valid destination buffer
-    uint		dest_size,	// size of 'dest'
-    uint		*dest_written,	// store num bytes written to 'dest', never NULL
+enumError EncBZIP2buf (void *dest, // valid destination buffer
+	uint dest_size, // size of 'dest'
+	uint *dest_written, // store num bytes written to 'dest', never NULL
 
-    const void		*src,		// source buffer
-    uint		src_size,	// size of source buffer
+	const void *src, // source buffer
+	uint src_size, // size of source buffer
 
-    int			compr_level	// valid are 1..9 / 0: use default value
+	int compr_level // valid are 1..9 / 0: use default value
 );
 
 //-----------------------------------------------------------------------------
 
-enumError EncBZIP2
-(
-    u8			**dest_ptr,	// result: store destination buffer addr
-    uint		*dest_written,	// store num bytes written to 'dest', never NULL
-    bool		use_iobuf,	// true: allow thhe usage of 'iobuf'
+enumError EncBZIP2 (u8 **dest_ptr, // result: store destination buffer addr
+	uint *dest_written, // store num bytes written to 'dest', never NULL
+	bool use_iobuf, // true: allow thhe usage of 'iobuf'
 
-    const void		*src,		// source buffer
-    uint		src_size,	// size of source buffer
+	const void *src, // source buffer
+	uint src_size, // size of source buffer
 
-    int			compr_level	// valid are 1..9 / 0: use default value
+	int compr_level // valid are 1..9 / 0: use default value
 );
 
 //-----------------------------------------------------------------------------
 
-enumError DecBZIP2buf
-(
-    void		*dest,		// valid destination buffer
-    uint		dest_size,	// size of 'dest'
-    uint		*dest_written,	// store num bytes written to 'dest', never NULL
+enumError DecBZIP2buf (void *dest, // valid destination buffer
+	uint dest_size, // size of 'dest'
+	uint *dest_written, // store num bytes written to 'dest', never NULL
 
-    const void		*src,		// source buffer
-    uint		src_size	// size of source buffer
+	const void *src, // source buffer
+	uint src_size // size of source buffer
 );
 
 //-----------------------------------------------------------------------------
 
-enumError DecBZIP2
-(
-    u8			**dest_ptr,	// result: store destination buffer addr
-    uint		*dest_written,	// store num bytes written to 'dest', never NULL
-    const void		*src,		// source buffer
-    uint		src_size	// size of source buffer
+enumError DecBZIP2 (u8 **dest_ptr, // result: store destination buffer addr
+	uint *dest_written, // store num bytes written to 'dest', never NULL
+	const void *src, // source buffer
+	uint src_size // size of source buffer
 );
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////		    DecodeBZIP2Manager()		///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -205,31 +179,27 @@ enumError DecBZIP2
 
 typedef struct BZ2Manager_t
 {
-    //--- source
+	//--- source
 
-    cvp		src_data;	// BZ2 is automatically detected and
-				// decoded by DecodeBZIP2. Nver NULL
-    uint	src_size;	// size of 'src_data'
+	cvp src_data; // BZ2 is automatically detected and
+				  // decoded by DecodeBZIP2. Nver NULL
+	uint src_size; // size of 'src_data'
 
-    //--- decoded
+	//--- decoded
 
-    u8		*data;		// NULL or data, alloced if not part of 'src_data'
-    uint	size;		// size of 'data'
-}
-BZ2Manager_t;
+	u8 *data; // NULL or data, alloced if not part of 'src_data'
+	uint size; // size of 'data'
+} BZ2Manager_t;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-enumError DecodeBZIP2Manager
-(
-    BZ2Manager_t	*mgr		// manager data
+enumError DecodeBZIP2Manager (BZ2Manager_t *mgr // manager data
 );
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////				END			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 #endif // !NO_BZIP2
 #endif // WIT_LIB_BZIP2_H 1
-

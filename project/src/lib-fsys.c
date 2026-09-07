@@ -167,8 +167,7 @@ static enumError encode_fsys_lzss_lib (u8 **dest, uint *dest_size, const u8 *src
 	return ERR_OK;
 }
 
-enumError ScanFSYS (
-	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
+enumError ScanFSYS (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
 {
 	if (!entries || !n_entries || !data || size < 0x40 || memcmp (data, "FSYS", 4))
 		return EINVAL;
@@ -265,7 +264,8 @@ enumError CreateFSYS (
 		{
 			u8 *cdata = 0;
 			uint csz = 0;
-			if (encode_fsys_lzss_lib (&cdata, &csz, entries[i].data, uncomp_sz) == ERR_OK && cdata && csz < uncomp_sz)
+			if (encode_fsys_lzss_lib (&cdata, &csz, entries[i].data, uncomp_sz) == ERR_OK && cdata
+				&& csz < uncomp_sz)
 			{
 				payloads[i] = cdata;
 				payload_sizes[i] = csz;
@@ -293,7 +293,8 @@ enumError CreateFSYS (
 	if (total_size > 0x7fffffff)
 	{
 		for (uint i = 0; i < n_files; i++)
-			if (is_compressed[i]) FREE (payloads[i]);
+			if (is_compressed[i])
+				FREE (payloads[i]);
 		FREE (payloads);
 		FREE (payload_sizes);
 		FREE (is_compressed);
@@ -304,7 +305,8 @@ enumError CreateFSYS (
 	if (!out)
 	{
 		for (uint i = 0; i < n_files; i++)
-			if (is_compressed[i]) FREE (payloads[i]);
+			if (is_compressed[i])
+				FREE (payloads[i]);
 		FREE (payloads);
 		FREE (payload_sizes);
 		FREE (is_compressed);

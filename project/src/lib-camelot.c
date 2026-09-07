@@ -169,4 +169,3 @@ enumError EncodeCamelot (u8 **dest, uint *dest_size, const u8 *src, uint src_siz
 		*dest_size = out_pos;
 	return ERR_OK;
 }
-

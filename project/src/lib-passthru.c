@@ -333,8 +333,8 @@ enumError PassthruDecodeAudio (ccp src_path, ccp wav_path)
 		"-y", (char *)wav_path, 0 };
 	const int rc = run_program (argv);
 	if (rc != 0)
-		return ERROR0 (ERR_SUBJOB_FAILED, "audio pass-through failed for %s (exit %d)", src_path,
-			rc);
+		return ERROR0 (
+			ERR_SUBJOB_FAILED, "audio pass-through failed for %s (exit %d)", src_path, rc);
 	return ERR_OK;
 }
 
@@ -434,7 +434,7 @@ enumError PassthruReencodeMedia (ccp preview_path, ccp source_path)
 	// source-controlled video settings that can be recovered from a finished
 	// bitstream. Encoder-only knobs (motion search, multipass, etc.) are not
 	// present in any media file and therefore cannot truthfully be inferred.
-	char fps[64] = {0}, bitrate[64] = {0};
+	char fps[64] = { 0 }, bitrate[64] = { 0 };
 	ccp probe = resolve_ffprobe_for_mobipeg (tool_path);
 	if (probe)
 	{
@@ -449,8 +449,10 @@ enumError PassthruReencodeMedia (ccp preview_path, ccp source_path)
 			FILE *f = fopen (capture, "r");
 			if (f)
 			{
-				if (fgets (fps, sizeof (fps), f)) fps[strcspn (fps, "\r\n")] = 0;
-				if (fgets (bitrate, sizeof (bitrate), f)) bitrate[strcspn (bitrate, "\r\n")] = 0;
+				if (fgets (fps, sizeof (fps), f))
+					fps[strcspn (fps, "\r\n")] = 0;
+				if (fgets (bitrate, sizeof (bitrate), f))
+					bitrate[strcspn (bitrate, "\r\n")] = 0;
 				fclose (f);
 			}
 		}
@@ -459,19 +461,41 @@ enumError PassthruReencodeMedia (ccp preview_path, ccp source_path)
 
 	char temp[PATH_MAX];
 	snprintf (temp, sizeof (temp), "%s.wszst-new", source_path);
-	char *argv[32]; uint n = 0;
-	argv[n++] = tool_path; argv[n++] = "-i"; argv[n++] = (char *)preview_path;
-	argv[n++] = "-i"; argv[n++] = (char *)source_path;
-	argv[n++] = "-map"; argv[n++] = "0:v:0";
-	argv[n++] = "-map"; argv[n++] = "1:a?";
-	argv[n++] = "-c:v"; argv[n++] = (char *)codec;
-	if (mobi_generation) { argv[n++] = "-mobiclip"; argv[n++] = (char *)mobi_generation; }
-	if (*fps && strcmp (fps, "0/0") && strcmp (fps, "N/A")) { argv[n++] = "-r"; argv[n++] = fps; }
+	char *argv[32];
+	uint n = 0;
+	argv[n++] = tool_path;
+	argv[n++] = "-i";
+	argv[n++] = (char *)preview_path;
+	argv[n++] = "-i";
+	argv[n++] = (char *)source_path;
+	argv[n++] = "-map";
+	argv[n++] = "0:v:0";
+	argv[n++] = "-map";
+	argv[n++] = "1:a?";
+	argv[n++] = "-c:v";
+	argv[n++] = (char *)codec;
+	if (mobi_generation)
+	{
+		argv[n++] = "-mobiclip";
+		argv[n++] = (char *)mobi_generation;
+	}
+	if (*fps && strcmp (fps, "0/0") && strcmp (fps, "N/A"))
+	{
+		argv[n++] = "-r";
+		argv[n++] = fps;
+	}
 	if (*bitrate && strcmp (bitrate, "N/A") && strcmp (bitrate, "0"))
-		{ argv[n++] = "-b:v"; argv[n++] = bitrate; }
-	argv[n++] = "-c:a"; argv[n++] = "copy";
-	argv[n++] = "-f"; argv[n++] = (char *)muxer;
-	argv[n++] = "-y"; argv[n++] = temp; argv[n++] = 0;
+	{
+		argv[n++] = "-b:v";
+		argv[n++] = bitrate;
+	}
+	argv[n++] = "-c:a";
+	argv[n++] = "copy";
+	argv[n++] = "-f";
+	argv[n++] = (char *)muxer;
+	argv[n++] = "-y";
+	argv[n++] = temp;
+	argv[n++] = 0;
 	assert (n <= sizeof (argv) / sizeof (*argv));
 
 	if (verbose >= 0 || testmode)
@@ -2259,10 +2283,11 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 	bool is_thp = !memcmp (head, "THP\0", 4) || (!strong_only && is_ext (src, ".thp"));
 	bool is_mobiclip = (head[0] == 'M' && head[1] == 'O' && head[2] == 'C')
 		|| !memcmp (head, "MODS", 4) || !memcmp (head, "VXDS", 4)
-		|| (head[0] == 0x4C && head[1] == 0x32)
-		|| !memcmp (head, "MOFLEX", 6)
+		|| (head[0] == 0x4C && head[1] == 0x32) || !memcmp (head, "MOFLEX", 6)
 		|| !memcmp (head, ".MOC", 4) || !memcmp (head, ".MOD", 4)
-		|| (!strong_only && (is_ext (src, ".mo") || is_ext (src, ".mods") || is_ext (src, ".moflex") || is_ext (src, ".vx")));
+		|| (!strong_only
+			&& (is_ext (src, ".mo") || is_ext (src, ".mods") || is_ext (src, ".moflex")
+				|| is_ext (src, ".vx")));
 	bool is_hvqm = !memcmp (head, "HVQM", 4) || (!strong_only && is_ext (src, ".h4m"));
 	// NOTE: ".bns" is deliberately magic-only here, not extension-fallback
 	// like the siblings above it -- Koei Tecmo's Samurai Warriors 3 also
@@ -2273,11 +2298,12 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 	// stream-audio .bns always starts with the "BNS " magic.
 	bool is_stream_audio = !memcmp (head, "RSTM", 4) || !memcmp (head, "CSTM", 4)
 		|| !memcmp (head, "FSTM", 4) || !memcmp (head, "BNS ", 4)
-		|| (!strong_only && (is_ext (src, ".brstm") || is_ext (src, ".bcstm") || is_ext (src, ".bfstm")
-			|| is_ext (src, ".btsnd") || is_ext (src, ".ast") || is_ext (src, ".dsp")));
-	bool is_other_media = !strong_only && (is_ext (src, ".dpg") || is_ext (src, ".fv")
-		|| is_ext (src, ".ppm") || is_ext (src, ".kwz") || is_ext (src, ".mmstr")
-		|| is_ext (src, ".rvid"));
+		|| (!strong_only
+			&& (is_ext (src, ".brstm") || is_ext (src, ".bcstm") || is_ext (src, ".bfstm")
+				|| is_ext (src, ".btsnd") || is_ext (src, ".ast") || is_ext (src, ".dsp")));
+	bool is_other_media = !strong_only
+		&& (is_ext (src, ".dpg") || is_ext (src, ".fv") || is_ext (src, ".ppm")
+			|| is_ext (src, ".kwz") || is_ext (src, ".mmstr") || is_ext (src, ".rvid"));
 
 	if (is_thp || is_mobiclip || is_hvqm || is_stream_audio || is_other_media)
 	{
@@ -2328,7 +2354,7 @@ enumError PassthruPack (ccp src_dir, ccp dest)
 		char *argv[] = { (char *)tool, "pack", (char *)src_dir, (char *)dest, "--sdat", 0 };
 		const int rc = run_program (argv);
 		return rc ? ERROR0 (ERR_SUBJOB_FAILED, "wbrsar failed packing %s (exit %d)", dest, rc)
-			: ERR_OK;
+				  : ERR_OK;
 	}
 
 	// 1. Wii / GameCube disc images (.wbfs, .iso, .ciso, .wdf, .wia, .gcz, .gcm, .gca, .raw, .img)

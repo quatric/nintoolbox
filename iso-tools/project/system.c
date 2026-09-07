@@ -37,10 +37,9 @@
 #include "dclib/dclib-system.h"
 
 #ifndef PRINT_SYSTEM_SETTINGS
- int main ( int argc, char ** argv )
- {
-    dclibPrintSystem(stdout);
-    return 0;
- }
+int main (int argc, char **argv)
+{
+	dclibPrintSystem (stdout);
+	return 0;
+}
 #endif
-

@@ -26,8 +26,8 @@ enumError EncodePLT0_RGBA (
 // PLT0 container, without re-quantizing it. EncodePLT0_RGBA() above starts
 // from RGBA instead and would round the colours a second time, which loses
 // exactly the entries a texture rewrite is trying to preserve.
-enumError EncodePLT0_Raw (u8 **dest, uint *dest_size, const u8 *raw_pal, uint num_colors,
-	palette_format_t pform);
+enumError EncodePLT0_Raw (
+	u8 **dest, uint *dest_size, const u8 *raw_pal, uint num_colors, palette_format_t pform);
 
 // Quantize RGBA image data to a palette of up to 'target_colors' entries in format 'pform',
 // building the 16-bit raw palette and mapping each pixel to the closest palette color index

@@ -212,7 +212,8 @@ static u8 *utf8_to_utf16be (const char *s, size_t *out_bytes)
 		}
 		else if ((c >> 3) == 30 && i + 3 < len)
 		{
-			cp = ((c & 0x07) << 18) | ((p[i + 1] & 0x3F) << 12) | ((p[i + 2] & 0x3F) << 6) | (p[i + 3] & 0x3F);
+			cp = ((c & 0x07) << 18) | ((p[i + 1] & 0x3F) << 12) | ((p[i + 2] & 0x3F) << 6)
+				| (p[i + 3] & 0x3F);
 			i += 4;
 		}
 		else
@@ -252,12 +253,24 @@ static void xml_escape_append (strbuf_t *sb, const char *s)
 	{
 		switch (*p)
 		{
-			case '&': sb_puts (sb, "&amp;"); break;
-			case '<': sb_puts (sb, "&lt;"); break;
-			case '>': sb_puts (sb, "&gt;"); break;
-			case '\"': sb_puts (sb, "&quot;"); break;
-			case '\'': sb_puts (sb, "&apos;"); break;
-			default: sb_putc (sb, *p); break;
+			case '&':
+				sb_puts (sb, "&amp;");
+				break;
+			case '<':
+				sb_puts (sb, "&lt;");
+				break;
+			case '>':
+				sb_puts (sb, "&gt;");
+				break;
+			case '\"':
+				sb_puts (sb, "&quot;");
+				break;
+			case '\'':
+				sb_puts (sb, "&apos;");
+				break;
+			default:
+				sb_putc (sb, *p);
+				break;
 		}
 	}
 }
@@ -438,7 +451,8 @@ enumError ExtractXMSGXml (const xmsg_t *xmsg, char **out_text, size_t *out_size)
 		sb_printf (&sb, "      <outline>%08x</outline>\n", st->outline);
 		sb_printf (&sb, "      <width>%u</width>\n", st->width);
 		sb_printf (&sb, "      <height>%u</height>\n", st->height);
-		sb_printf (&sb, "      <horizontal_spacing>%u</horizontal_spacing>\n", st->horizontal_spacing);
+		sb_printf (
+			&sb, "      <horizontal_spacing>%u</horizontal_spacing>\n", st->horizontal_spacing);
 		sb_printf (&sb, "      <vertical_spacing>%u</vertical_spacing>\n", st->vertical_spacing);
 		sb_puts (&sb, "      <states>\n");
 		sb_printf (&sb, "        <start>%u</start>\n", st->state_start);
@@ -468,10 +482,10 @@ enumError ExtractXMSGText (const xmsg_t *xmsg, char **out_text, size_t *out_size
 	for (uint i = 0; i < xmsg->n_styles; i++)
 	{
 		const xmsg_style_t *st = &xmsg->styles[i];
-		sb_printf (&sb, "@STYLE[%u] color=#%08x outline=#%08x size=%ux%u spacing=%u,%u states=(%u,%u,%u)\n",
-			i, st->color, st->outline, st->width, st->height,
-			st->horizontal_spacing, st->vertical_spacing,
-			st->state_start, st->state_middle, st->state_end);
+		sb_printf (&sb,
+			"@STYLE[%u] color=#%08x outline=#%08x size=%ux%u spacing=%u,%u states=(%u,%u,%u)\n", i,
+			st->color, st->outline, st->width, st->height, st->horizontal_spacing,
+			st->vertical_spacing, st->state_start, st->state_middle, st->state_end);
 	}
 	if (xmsg->n_styles > 0)
 		sb_putc (&sb, '\n');
@@ -479,11 +493,8 @@ enumError ExtractXMSGText (const xmsg_t *xmsg, char **out_text, size_t *out_size
 	for (uint i = 0; i < xmsg->n_messages; i++)
 	{
 		const xmsg_message_t *m = &xmsg->messages[i];
-		sb_printf (&sb, "[%s] type=\"%s\" style=%u\n%s\n\n",
-			m->name ? m->name : "",
-			m->type ? m->type : "",
-			m->style_index,
-			m->text ? m->text : "");
+		sb_printf (&sb, "[%s] type=\"%s\" style=%u\n%s\n\n", m->name ? m->name : "",
+			m->type ? m->type : "", m->style_index, m->text ? m->text : "");
 	}
 
 	*out_text = sb.buf;

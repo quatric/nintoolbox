@@ -147,9 +147,8 @@ seq_format_t DetectSequenceFormat (const u8 *data, size_t size)
 
 	// Check for raw JAudio BMS bytecode sequence (starts with standard opcodes)
 	if (size >= 4
-		&& (data[0] == SEQ_OP_OPEN_TRACK || data[0] == SEQ_OP_ALLOC_TRACK
-			|| data[0] == SEQ_OP_TEMPO || data[0] == SEQ_OP_TIMEBASE
-			|| data[0] == SEQ_OP_PRG || data[0] == SEQ_OP_WAIT
+		&& (data[0] == SEQ_OP_OPEN_TRACK || data[0] == SEQ_OP_ALLOC_TRACK || data[0] == SEQ_OP_TEMPO
+			|| data[0] == SEQ_OP_TIMEBASE || data[0] == SEQ_OP_PRG || data[0] == SEQ_OP_WAIT
 			|| data[0] == SEQ_OP_VOLUME || data[0] < 0x80))
 		return SEQ_FMT_BMS;
 
@@ -1344,11 +1343,11 @@ enumError SequenceToMIDI (u8 **out_midi, size_t *out_size, const u8 *seq_data, s
 
 	// Sort events in each track and compute delta times
 	struct midi_file mf;
-	midi_file_init(&mf, (active_tracks > 1) ? 1 : 0, 0, 48);
+	midi_file_init (&mf, (active_tracks > 1) ? 1 : 0, 0, 48);
 
 	for (uint t = 0; t < active_tracks; t++)
 	{
-		struct midi_track *mtr = midi_file_append_empty_track(&mf);
+		struct midi_track *mtr = midi_file_append_empty_track (&mf);
 		if (tracks[t].n_events > 1)
 			qsort (
 				tracks[t].events, tracks[t].n_events, sizeof (midi_event_t), compare_midi_events);
@@ -1362,30 +1361,32 @@ enumError SequenceToMIDI (u8 **out_midi, size_t *out_size, const u8 *seq_data, s
 
 			if (e->type == 0xFF) // Meta event
 			{
-				midi_track_write_meta_event_buf(mtr, delta, e->channel, (uint8_t)e->meta_len, e->meta_data);
+				midi_track_write_meta_event_buf (
+					mtr, delta, e->channel, (uint8_t)e->meta_len, e->meta_data);
 			}
 			else if ((e->type & 0xF0) == 0xC0) // Program change
 			{
-				midi_track_write_program_change(mtr, delta, e->channel & 0x0F, e->data1);
+				midi_track_write_program_change (mtr, delta, e->channel & 0x0F, e->data1);
 			}
 			else if ((e->type & 0xF0) == 0xB0) // Control Change
 			{
-				midi_track_write_control_change(mtr, delta, e->channel & 0x0F, e->data1, e->data2);
+				midi_track_write_control_change (mtr, delta, e->channel & 0x0F, e->data1, e->data2);
 			}
 			else if ((e->type & 0xF0) == 0xE0) // Pitch bend
 			{
-				midi_track_write_pitch_bend(mtr, delta, e->channel & 0x0F, ((uint16_t)e->data2 << 7) | e->data1);
+				midi_track_write_pitch_bend (
+					mtr, delta, e->channel & 0x0F, ((uint16_t)e->data2 << 7) | e->data1);
 			}
 			else if ((e->type & 0xF0) == 0x90) // Note On
 			{
-				midi_track_write_note_on(mtr, delta, e->channel & 0x0F, e->data1, e->data2);
+				midi_track_write_note_on (mtr, delta, e->channel & 0x0F, e->data1, e->data2);
 			}
 			else if ((e->type & 0xF0) == 0x80) // Note Off
 			{
-				midi_track_write_note_off(mtr, delta, e->channel & 0x0F, e->data1, e->data2);
+				midi_track_write_note_off (mtr, delta, e->channel & 0x0F, e->data1, e->data2);
 			}
 		}
-		midi_track_write_track_end(mtr, 0);
+		midi_track_write_track_end (mtr, 0);
 	}
 
 	for (uint t = 0; t < active_tracks; t++)
@@ -1397,16 +1398,16 @@ enumError SequenceToMIDI (u8 **out_midi, size_t *out_size, const u8 *seq_data, s
 	FREE (tracks);
 
 	struct buffer buf;
-	buffer_init(&buf);
+	buffer_init (&buf);
 
-	midi_file_write(&mf, midi_buf_write_cb, &buf);
-	midi_file_clear(&mf);
+	midi_file_write (&mf, midi_buf_write_cb, &buf);
+	midi_file_clear (&mf);
 
-	u8 *midi_copy = MALLOC(buf.data_len);
+	u8 *midi_copy = MALLOC (buf.data_len);
 	if (midi_copy)
-		memcpy(midi_copy, buf.data, buf.data_len);
+		memcpy (midi_copy, buf.data, buf.data_len);
 	size_t final_size = buf.data_len;
-	buffer_destroy(&buf);
+	buffer_destroy (&buf);
 
 	*out_midi = midi_copy;
 	if (out_size)
@@ -1414,10 +1415,10 @@ enumError SequenceToMIDI (u8 **out_midi, size_t *out_size, const u8 *seq_data, s
 	return ERR_OK;
 }
 
-
 // Convert MIDI file to binary sequence
 
-struct my_midi_reader {
+struct my_midi_reader
+{
 	struct midi_reader reader;
 	char *txt;
 	size_t txt_len;
@@ -1427,127 +1428,161 @@ struct my_midi_reader {
 	int track_index;
 };
 
-static void txt_append(struct my_midi_reader *my, const char *fmt, ...) {
-	if (my->txt_len + 256 >= my->txt_cap) {
+static void txt_append (struct my_midi_reader *my, const char *fmt, ...)
+{
+	if (my->txt_len + 256 >= my->txt_cap)
+	{
 		my->txt_cap *= 2;
-		my->txt = REALLOC(my->txt, my->txt_cap);
+		my->txt = REALLOC (my->txt, my->txt_cap);
 	}
 	va_list args;
-	va_start(args, fmt);
-	my->txt_len += vsnprintf(my->txt + my->txt_len, my->txt_cap - my->txt_len, fmt, args);
-	va_end(args);
+	va_start (args, fmt);
+	my->txt_len += vsnprintf (my->txt + my->txt_len, my->txt_cap - my->txt_len, fmt, args);
+	va_end (args);
 }
 
-static void my_handle_track(struct midi_reader *h, int number, int length) {
+static void my_handle_track (struct midi_reader *h, int number, int length)
+{
 	struct my_midi_reader *my = (struct my_midi_reader *)h;
 	my->track_index = number;
-	if (number > 0) {
-		txt_append(my, "\n@Track%u:\n", number);
+	if (number > 0)
+	{
+		txt_append (my, "\n@Track%u:\n", number);
 	}
 	my->pending_wait = 0;
 }
 
-static void my_add_wait(struct my_midi_reader *my, int duration) {
-	u32 scaled_delta = (u32)round((double)duration * my->time_scale);
+static void my_add_wait (struct my_midi_reader *my, int duration)
+{
+	u32 scaled_delta = (u32)round ((double)duration * my->time_scale);
 	my->pending_wait += scaled_delta;
 }
 
-static void my_flush_wait(struct my_midi_reader *my) {
-	if (my->pending_wait > 0) {
-		txt_append(my, "    wait %u\n", my->pending_wait);
+static void my_flush_wait (struct my_midi_reader *my)
+{
+	if (my->pending_wait > 0)
+	{
+		txt_append (my, "    wait %u\n", my->pending_wait);
 		my->pending_wait = 0;
 	}
 }
 
-static void my_handle_tempo(struct midi_reader *h, int duration, uint32_t tempo) {
+static void my_handle_tempo (struct midi_reader *h, int duration, uint32_t tempo)
+{
 	struct my_midi_reader *my = (struct my_midi_reader *)h;
-	my_add_wait(my, duration);
-	if (tempo > 0) {
+	my_add_wait (my, duration);
+	if (tempo > 0)
+	{
 		u32 bpm = 60000000 / tempo;
-		my_flush_wait(my);
-		txt_append(my, "    tempo %u\n", bpm);
+		my_flush_wait (my);
+		txt_append (my, "    tempo %u\n", bpm);
 	}
 }
 
-static void my_handle_note_on(struct midi_reader *h, uint8_t channel, int duration, int note, int vel) {
+static void my_handle_note_on (
+	struct midi_reader *h, uint8_t channel, int duration, int note, int vel)
+{
 	struct my_midi_reader *my = (struct my_midi_reader *)h;
-	my_add_wait(my, duration);
-	if (vel > 0) {
-		my_flush_wait(my);
+	my_add_wait (my, duration);
+	if (vel > 0)
+	{
+		my_flush_wait (my);
 		char nstr[16];
-		pitch_to_name(nstr, sizeof(nstr), note);
-		txt_append(my, "    note %s %u 48\n", nstr, vel);
+		pitch_to_name (nstr, sizeof (nstr), note);
+		txt_append (my, "    note %s %u 48\n", nstr, vel);
 	}
 }
 
-static void my_handle_note_off(struct midi_reader *h, uint8_t channel, int duration, int note, int vel) {
+static void my_handle_note_off (
+	struct midi_reader *h, uint8_t channel, int duration, int note, int vel)
+{
 	struct my_midi_reader *my = (struct my_midi_reader *)h;
-	my_add_wait(my, duration);
+	my_add_wait (my, duration);
 }
 
-static void my_handle_program_change(struct midi_reader *h, uint8_t channel, int duration, int program) {
+static void my_handle_program_change (
+	struct midi_reader *h, uint8_t channel, int duration, int program)
+{
 	struct my_midi_reader *my = (struct my_midi_reader *)h;
-	my_add_wait(my, duration);
-	my_flush_wait(my);
-	txt_append(my, "    prg %u\n", program);
+	my_add_wait (my, duration);
+	my_flush_wait (my);
+	txt_append (my, "    prg %u\n", program);
 }
 
-static void my_handle_control_change(struct midi_reader *h, uint8_t channel, int duration, int controller, int value) {
+static void my_handle_control_change (
+	struct midi_reader *h, uint8_t channel, int duration, int controller, int value)
+{
 	struct my_midi_reader *my = (struct my_midi_reader *)h;
-	my_add_wait(my, duration);
-	if (controller == 7) {
-		my_flush_wait(my);
-		txt_append(my, "    vol %u\n", value);
-	} else if (controller == 10) {
-		my_flush_wait(my);
-		txt_append(my, "    pan %u\n", value);
-	} else if (controller == 11) {
-		my_flush_wait(my);
-		txt_append(my, "    expr %u\n", value);
-	} else if (controller == 64) {
-		my_flush_wait(my);
-		txt_append(my, "    dmp %u\n", value);
-	} else if (controller == 91) {
-		my_flush_wait(my);
-		txt_append(my, "    rev %u\n", value);
+	my_add_wait (my, duration);
+	if (controller == 7)
+	{
+		my_flush_wait (my);
+		txt_append (my, "    vol %u\n", value);
+	}
+	else if (controller == 10)
+	{
+		my_flush_wait (my);
+		txt_append (my, "    pan %u\n", value);
+	}
+	else if (controller == 11)
+	{
+		my_flush_wait (my);
+		txt_append (my, "    expr %u\n", value);
+	}
+	else if (controller == 64)
+	{
+		my_flush_wait (my);
+		txt_append (my, "    dmp %u\n", value);
+	}
+	else if (controller == 91)
+	{
+		my_flush_wait (my);
+		txt_append (my, "    rev %u\n", value);
 	}
 }
 
-static void my_handle_pitch_wheel_change(struct midi_reader *h, uint8_t channel, uint32_t duration, uint16_t value) {
+static void my_handle_pitch_wheel_change (
+	struct midi_reader *h, uint8_t channel, uint32_t duration, uint16_t value)
+{
 	struct my_midi_reader *my = (struct my_midi_reader *)h;
-	my_add_wait(my, duration);
+	my_add_wait (my, duration);
 	int bend = ((int)value - 8192) / 64;
-	if (bend < -128) bend = -128;
-	if (bend > 127) bend = 127;
-	my_flush_wait(my);
-	txt_append(my, "    bend %d\n", bend);
+	if (bend < -128)
+		bend = -128;
+	if (bend > 127)
+		bend = 127;
+	my_flush_wait (my);
+	txt_append (my, "    bend %d\n", bend);
 }
 
-static void my_handle_track_end(struct midi_reader *h, int duration) {
+static void my_handle_track_end (struct midi_reader *h, int duration)
+{
 	struct my_midi_reader *my = (struct my_midi_reader *)h;
-	my_add_wait(my, duration);
-	my_flush_wait(my);
-	txt_append(my, "    fin\n");
+	my_add_wait (my, duration);
+	my_flush_wait (my);
+	txt_append (my, "    fin\n");
 }
 
-static void my_handle_meta_event(struct midi_reader *h, int duration, int cmd, int len, uint8_t *data) {
+static void my_handle_meta_event (
+	struct midi_reader *h, int duration, int cmd, int len, uint8_t *data)
+{
 	struct my_midi_reader *my = (struct my_midi_reader *)h;
-	my_add_wait(my, duration);
+	my_add_wait (my, duration);
 }
 
 enumError SequenceFromMIDI (
 	u8 **out_seq, size_t *out_size, const u8 *midi_data, size_t midi_size, seq_format_t target_fmt)
 {
 	struct buffer buf;
-	buf.data = (uint8_t*)midi_data;
+	buf.data = (uint8_t *)midi_data;
 	buf.data_len = midi_size;
 	buf.allocated_len = midi_size;
-	
+
 	struct mem_stream mstream;
-	mem_stream_init(&mstream, &buf);
+	mem_stream_init (&mstream, &buf);
 
 	struct my_midi_reader my;
-	midi_reader_init(&my.reader);
+	midi_reader_init (&my.reader);
 	my.reader.handle_track = my_handle_track;
 	my.reader.handle_tempo = my_handle_tempo;
 	my.reader.handle_note_on = my_handle_note_on;
@@ -1559,43 +1594,47 @@ enumError SequenceFromMIDI (
 	my.reader.handle_meta_event = my_handle_meta_event;
 
 	my.txt_cap = 65536;
-	my.txt = MALLOC(my.txt_cap);
-	if (!my.txt) return ERR_CANT_CREATE;
+	my.txt = MALLOC (my.txt_cap);
+	if (!my.txt)
+		return ERR_CANT_CREATE;
 	my.txt_len = 0;
 	my.pending_wait = 0;
 	my.time_scale = 1.0;
 
-	if (midi_reader_load(&my.reader, &mstream.stream) != 0) {
-		FREE(my.txt);
+	if (midi_reader_load (&my.reader, &mstream.stream) != 0)
+	{
+		FREE (my.txt);
 		return ERR_INVALID_DATA;
 	}
 
-	if (my.reader.ticks_per_quarter_note == 0) my.reader.ticks_per_quarter_note = 48;
+	if (my.reader.ticks_per_quarter_note == 0)
+		my.reader.ticks_per_quarter_note = 48;
 	my.time_scale = 48.0 / (double)my.reader.ticks_per_quarter_note;
 
-	txt_append(&my, "; Converted from Standard MIDI File\ntimebase 48\n");
-	
+	txt_append (&my, "; Converted from Standard MIDI File\ntimebase 48\n");
+
 	u16 num_tracks = my.reader.num_tracks;
 	u16 track_mask = 0;
 	for (uint t = 0; t < num_tracks && t < 16; t++)
 		track_mask |= (1 << t);
 
-	txt_append(&my, "alloc_track 0x%04X\n", track_mask);
-	for (uint t = 1; t < num_tracks && t < 16; t++) {
-		txt_append(&my, "open_track %u @Track%u\n", t, t);
+	txt_append (&my, "alloc_track 0x%04X\n", track_mask);
+	for (uint t = 1; t < num_tracks && t < 16; t++)
+	{
+		txt_append (&my, "open_track %u @Track%u\n", t, t);
 	}
 
-	for (int i = 0; i < my.reader.num_tracks; i++) {
-		midi_reader_read_track(&my.reader, i);
+	for (int i = 0; i < my.reader.num_tracks; i++)
+	{
+		midi_reader_read_track (&my.reader, i);
 	}
 
-	txt_append(&my, "\n");
+	txt_append (&my, "\n");
 
-	enumError err = AssembleSequence(out_seq, out_size, my.txt, target_fmt);
-	FREE(my.txt);
+	enumError err = AssembleSequence (out_seq, out_size, my.txt, target_fmt);
+	FREE (my.txt);
 	return err;
 }
-
 
 // Invert notes in sequence
 enumError InvertSequence (

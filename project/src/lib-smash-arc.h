@@ -15,7 +15,7 @@ typedef struct smash_arc_header_t
 	u64 fs_offset;
 	u64 search_offset;
 	u64 padding;
-} __attribute__((packed)) smash_arc_header_t;
+} __attribute__ ((packed)) smash_arc_header_t;
 
 // Detection & type checks
 bool IsSmashARC (const u8 *data, size_t size);

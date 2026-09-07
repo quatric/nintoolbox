@@ -17,7 +17,7 @@ typedef struct hash_to_index_t
 {
 	u32 hash;
 	u32 length_and_index; // length: 8 bits, index: 24 bits
-} __attribute__((packed)) hash_to_index_t;
+} __attribute__ ((packed)) hash_to_index_t;
 
 static inline u8 h2i_len (const hash_to_index_t *h)
 {
@@ -36,7 +36,7 @@ typedef struct search_fs_header_t
 	u32 folder_count;
 	u32 path_index_count;
 	u32 path_count;
-} __attribute__((packed)) search_fs_header_t;
+} __attribute__ ((packed)) search_fs_header_t;
 
 // SearchListEntry (32 bytes)
 typedef struct search_list_entry_t
@@ -45,7 +45,7 @@ typedef struct search_list_entry_t
 	hash_to_index_t parent;
 	hash_to_index_t file_name;
 	hash_to_index_t ext;
-} __attribute__((packed)) search_list_entry_t;
+} __attribute__ ((packed)) search_list_entry_t;
 
 // V1 FileSystemHeader (68 bytes)
 typedef struct fs_header_v1_t
@@ -67,7 +67,7 @@ typedef struct fs_header_v1_t
 	u32 unk14;
 	u32 unk15;
 	u32 unk16;
-} __attribute__((packed)) fs_header_v1_t;
+} __attribute__ ((packed)) fs_header_v1_t;
 
 // DirectoryList (52 bytes)
 typedef struct dir_list_v1_t
@@ -85,7 +85,7 @@ typedef struct dir_list_v1_t
 	s32 child_dir_start_index;
 	s32 child_dir_count;
 	u32 flags;
-} __attribute__((packed)) dir_list_v1_t;
+} __attribute__ ((packed)) dir_list_v1_t;
 
 // DirectoryOffset (28 bytes)
 typedef struct dir_offset_v1_t
@@ -97,7 +97,7 @@ typedef struct dir_offset_v1_t
 	u32 file_start_index;
 	u32 file_count;
 	u32 redirect_index;
-} __attribute__((packed)) dir_offset_v1_t;
+} __attribute__ ((packed)) dir_offset_v1_t;
 
 // FileInformationV1 (40 bytes)
 typedef struct file_info_v1_t
@@ -112,7 +112,7 @@ typedef struct file_info_v1_t
 	u32 unk6;
 	u32 sub_file_index;
 	u32 flags;
-} __attribute__((packed)) file_info_v1_t;
+} __attribute__ ((packed)) file_info_v1_t;
 
 // SubFileInfo (16 bytes)
 typedef struct sub_file_info_v1_t
@@ -121,7 +121,7 @@ typedef struct sub_file_info_v1_t
 	u32 comp_size;
 	u32 decomp_size;
 	u32 flags;
-} __attribute__((packed)) sub_file_info_v1_t;
+} __attribute__ ((packed)) sub_file_info_v1_t;
 
 // Extension dictionary mapping common CRC32 hashes to extensions
 typedef struct ext_map_t
@@ -130,30 +130,13 @@ typedef struct ext_map_t
 	ccp ext;
 } ext_map_t;
 
-static const ext_map_t s_known_exts[] = {
-	{ 0x1729af51, ".nus3audio" },
-	{ 0x8c004f33, ".nus3bank" },
-	{ 0x09b83ac4, ".tonelabel" },
-	{ 0xe7af4342, ".bntx" },
-	{ 0x62029ad4, ".prc" },
-	{ 0xbe1c9acb, ".msbt" },
-	{ 0x5c156dbc, ".nutexb" },
-	{ 0x236db83a, ".numshb" },
-	{ 0xdab89279, ".numatb" },
-	{ 0x67e93703, ".nusktb" },
-	{ 0x0032c3e4, ".nuanmb" },
-	{ 0x2f6d9b0b, ".eff" },
-	{ 0xd671372b, ".lua" },
-	{ 0xaa275aed, ".bin" },
-	{ 0x08a45257, ".csv" },
-	{ 0x31f4d863, ".xml" },
-	{ 0x6b072545, ".json" },
-	{ 0x7fe65393, ".arc" },
-	{ 0x6b7f2928, ".wav" },
-	{ 0xfd785a32, ".webm" },
-	{ 0xb1c50c22, ".mp4" },
-	{ 0, 0 }
-};
+static const ext_map_t s_known_exts[] = { { 0x1729af51, ".nus3audio" }, { 0x8c004f33, ".nus3bank" },
+	{ 0x09b83ac4, ".tonelabel" }, { 0xe7af4342, ".bntx" }, { 0x62029ad4, ".prc" },
+	{ 0xbe1c9acb, ".msbt" }, { 0x5c156dbc, ".nutexb" }, { 0x236db83a, ".numshb" },
+	{ 0xdab89279, ".numatb" }, { 0x67e93703, ".nusktb" }, { 0x0032c3e4, ".nuanmb" },
+	{ 0x2f6d9b0b, ".eff" }, { 0xd671372b, ".lua" }, { 0xaa275aed, ".bin" }, { 0x08a45257, ".csv" },
+	{ 0x31f4d863, ".xml" }, { 0x6b072545, ".json" }, { 0x7fe65393, ".arc" }, { 0x6b7f2928, ".wav" },
+	{ 0xfd785a32, ".webm" }, { 0xb1c50c22, ".mp4" }, { 0, 0 } };
 
 static ccp ResolveKnownExt (u32 hash)
 {
@@ -191,21 +174,10 @@ bool IsSmashARCFile (ccp filename)
 }
 
 // Recursively write a file using direct fseeko / fread / zstd decompression
-static enumError ExtractOneSubFile (FILE *f_arc,
-	u64 file_data_base,
-	const dir_list_v1_t *dirs,
-	uint num_dirs,
-	const dir_offset_v1_t *dir_offsets,
-	uint num_dir_offsets,
-	const file_info_v1_t *file_infos,
-	uint num_file_infos,
-	const sub_file_info_v1_t *sub_files,
-	uint num_sub_files,
-	uint dir_idx,
-	uint fi_idx,
-	int region_index,
-	ccp out_file,
-	uint depth)
+static enumError ExtractOneSubFile (FILE *f_arc, u64 file_data_base, const dir_list_v1_t *dirs,
+	uint num_dirs, const dir_offset_v1_t *dir_offsets, uint num_dir_offsets,
+	const file_info_v1_t *file_infos, uint num_file_infos, const sub_file_info_v1_t *sub_files,
+	uint num_sub_files, uint dir_idx, uint fi_idx, int region_index, ccp out_file, uint depth)
 {
 	if (depth > 10 || fi_idx >= num_file_infos)
 		return ERR_INVALID_DATA;
@@ -218,9 +190,9 @@ static enumError ExtractOneSubFile (FILE *f_arc,
 		if (fi->sub_file_index < num_sub_files)
 		{
 			const uint target_fi = sub_files[fi->sub_file_index].flags & 0xFFFFFF;
-			return ExtractOneSubFile (f_arc, file_data_base, dirs, num_dirs,
-				dir_offsets, num_dir_offsets, file_infos, num_file_infos,
-				sub_files, num_sub_files, dir_idx, target_fi, region_index, out_file, depth + 1);
+			return ExtractOneSubFile (f_arc, file_data_base, dirs, num_dirs, dir_offsets,
+				num_dir_offsets, file_infos, num_file_infos, sub_files, num_sub_files, dir_idx,
+				target_fi, region_index, out_file, depth + 1);
 		}
 		return ERR_INVALID_DATA;
 	}
@@ -327,7 +299,7 @@ static void get_dest_dir (char *dest, size_t dest_size, ccp arg, ccp basedir)
 	if (opt_dest)
 		snprintf (dest, dest_size, "%s", opt_dest);
 	else if (basedir && *basedir)
-		snprintf (dest, dest_size, "%s/%s.d", basedir, FindFilename(arg, 0));
+		snprintf (dest, dest_size, "%s/%s.d", basedir, FindFilename (arg, 0));
 	else
 		snprintf (dest, dest_size, "%s.d", arg);
 }
@@ -342,7 +314,8 @@ enumError ExtractSmashARC (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 
 	smash_arc_header_t hdr;
-	if (fread (&hdr, 1, sizeof (hdr), f_arc) != sizeof (hdr) || le64 (&hdr.magic) != SMASH_ARC_MAGIC)
+	if (fread (&hdr, 1, sizeof (hdr), f_arc) != sizeof (hdr)
+		|| le64 (&hdr.magic) != SMASH_ARC_MAGIC)
 	{
 		fclose (f_arc);
 		return ERR_NOTHING_TO_DO;
@@ -357,8 +330,8 @@ enumError ExtractSmashARC (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT SMASH-ARC: %s -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest);
+		fprintf (stdlog, "%s%sEXTRACT SMASH-ARC: %s -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
 
 	// 1. Read SearchFileSystem (paths and folders) if present
 	search_fs_header_t s_hdr;
@@ -382,8 +355,8 @@ enumError ExtractSmashARC (ccp arg, ccp basedir, uint depth)
 			search_path_indices = MALLOC (pidx_cnt * sizeof (u32));
 			search_paths = MALLOC (path_cnt * sizeof (search_list_entry_t));
 
-			if (search_folder_lookup && search_folders && search_path_lookup
-				&& search_path_indices && search_paths)
+			if (search_folder_lookup && search_folders && search_path_lookup && search_path_indices
+				&& search_paths)
 			{
 				fread (search_folder_lookup, sizeof (hash_to_index_t), folder_cnt, f_arc);
 				fread (search_folders, sizeof (search_list_entry_t), folder_cnt, f_arc);
@@ -493,14 +466,12 @@ enumError ExtractSmashARC (ccp arg, ccp basedir, uint depth)
 			if (ext)
 				snprintf (out_file, sizeof (out_file), "%s/file_0x%08x%s", dir_name, fi->path, ext);
 			else
-				snprintf (out_file, sizeof (out_file), "%s/file_0x%08x_0x%08x.bin", dir_name, fi->path, fi->extension);
+				snprintf (out_file, sizeof (out_file), "%s/file_0x%08x_0x%08x.bin", dir_name,
+					fi->path, fi->extension);
 
-			ExtractOneSubFile (f_arc, file_off,
-				dirs, fs_hdr.folder_count,
-				dir_offsets, total_dir_offsets,
-				file_infos, total_file_infos,
-				sub_files, total_sub_files,
-				d, fi_idx, 0, out_file, 0);
+			ExtractOneSubFile (f_arc, file_off, dirs, fs_hdr.folder_count, dir_offsets,
+				total_dir_offsets, file_infos, total_file_infos, sub_files, total_sub_files, d,
+				fi_idx, 0, out_file, 0);
 		}
 	}
 

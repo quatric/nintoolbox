@@ -34,10 +34,10 @@
 // Node types
 enum kp_node_type_e
 {
-	KP_NODE_PASSTHROUGH  = 0,
-	KP_NODE_STOP         = 1,
-	KP_NODE_LEVEL        = 2,
-	KP_NODE_CHANGE       = 3,
+	KP_NODE_PASSTHROUGH = 0,
+	KP_NODE_STOP = 1,
+	KP_NODE_LEVEL = 2,
+	KP_NODE_CHANGE = 3,
 	KP_NODE_WORLD_CHANGE = 4
 };
 
@@ -46,15 +46,15 @@ enum kp_layer_type_e
 {
 	KP_LAYER_OBJECTS = 0,
 	KP_LAYER_DOODADS = 1,
-	KP_LAYER_PATHS   = 2
+	KP_LAYER_PATHS = 2
 };
 
 // Animation types for doodads
 enum kp_anim_type_e
 {
-	KP_ANIM_X_POS   = 0,
-	KP_ANIM_Y_POS   = 1,
-	KP_ANIM_ANGLE   = 2,
+	KP_ANIM_X_POS = 0,
+	KP_ANIM_Y_POS = 1,
+	KP_ANIM_ANGLE = 2,
 	KP_ANIM_X_SCALE = 3,
 	KP_ANIM_Y_SCALE = 4,
 	KP_ANIM_OPACITY = 5
@@ -89,20 +89,20 @@ typedef struct kp_node_t
 	u32 tile_layer_off;
 	u32 dood_layer_off;
 	u8 type;
-	u8 level_world;    // if type == KP_NODE_LEVEL
+	u8 level_world; // if type == KP_NODE_LEVEL
 	u8 level_num;
 	bool has_secret;
-	char *dest_map;    // if type == KP_NODE_CHANGE
+	char *dest_map; // if type == KP_NODE_CHANGE
 	u8 this_id;
 	u8 foreign_id;
 	u8 transition;
-	u8 world_id;       // if type == KP_NODE_WORLD_CHANGE
+	u8 world_id; // if type == KP_NODE_WORLD_CHANGE
 } kp_node_t;
 
 typedef struct kp_path_t
 {
-	int start_node;    // index into node array (-1 if unresolvable)
-	int end_node;      // index into node array (-1 if unresolvable)
+	int start_node; // index into node array (-1 if unresolvable)
+	int end_node; // index into node array (-1 if unresolvable)
 	u32 tile_layer_off;
 	u32 dood_layer_off;
 	u8 is_available;
@@ -113,7 +113,7 @@ typedef struct kp_path_t
 
 typedef struct kp_layer_t
 {
-	u32 type;          // KP_LAYER_OBJECTS, DOODADS, or PATHS
+	u32 type; // KP_LAYER_OBJECTS, DOODADS, or PATHS
 	u8 alpha;
 	char *tileset_name;
 	s32 sector_bounds[4];

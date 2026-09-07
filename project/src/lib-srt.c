@@ -29,7 +29,10 @@
 ///////////////			byte order helper		///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-static inline u16 srt_rd16 (const u8 *p) { return (u16)p[0] << 8 | p[1]; }
+static inline u16 srt_rd16 (const u8 *p)
+{
+	return (u16)p[0] << 8 | p[1];
+}
 
 static inline u32 srt_rd32 (const u8 *p)
 {
@@ -163,8 +166,7 @@ srt0_texture_t *AppendTextureSRT0 (srt0_entry_t *entry, bool indirect, uint laye
 
 	// the number of layers per entry is bounded by the two masks, so a plain
 	// exact-size reallocation is cheap enough here
-	entry->texture
-		= REALLOC (entry->texture, (entry->n_texture + 1) * sizeof (*entry->texture));
+	entry->texture = REALLOC (entry->texture, (entry->n_texture + 1) * sizeof (*entry->texture));
 
 	srt0_texture_t *t = entry->texture + entry->n_texture++;
 	memset (t, 0, sizeof (*t));
@@ -311,8 +313,8 @@ enumError ScanRawSRT0 (srt0_t *srt, bool init_srt, const void *data, uint data_s
 				const u64 tex_pos = (u64)entry_pos + rel;
 				slot += 4;
 				if (tex_pos + 4 > data_size)
-					return ERROR0 (ERR_INVALID_DATA,
-						"SRT0: entry '%s' layer offset out of range\n", e->name);
+					return ERROR0 (
+						ERR_INVALID_DATA, "SRT0: entry '%s' layer offset out of range\n", e->name);
 
 				srt0_texture_t *t = AppendTextureSRT0 (e, kind != 0, layer);
 				t->code = srt_rd32 (base + tex_pos);
@@ -321,8 +323,8 @@ enumError ScanRawSRT0 (srt0_t *srt, bool init_srt, const void *data, uint data_s
 				uint chan_slot = (uint)tex_pos + 4;
 				static const uint group_of[SRT0_N_CHANNEL]
 					= { 0, 0, 1, 2, 2 }; // scale, scale, rot, trans, trans
-				static const uint no_bit[3] = { SRT0_BIT_NO_SCALE, SRT0_BIT_NO_ROTATION,
-					SRT0_BIT_NO_TRANSLATION };
+				static const uint no_bit[3]
+					= { SRT0_BIT_NO_SCALE, SRT0_BIT_NO_ROTATION, SRT0_BIT_NO_TRANSLATION };
 
 				for (uint c = 0; c < SRT0_N_CHANNEL; c++)
 				{
@@ -353,15 +355,13 @@ enumError ScanRawSRT0 (srt0_t *srt, bool init_srt, const void *data, uint data_s
 					{
 						ch->is_fixed = false;
 						// SRT0 track offsets are relative to the slot itself
-						const u64 track_pos
-							= (u64)chan_slot + srt_rd32 (base + chan_slot);
+						const u64 track_pos = (u64)chan_slot + srt_rd32 (base + chan_slot);
 						if (track_pos + 8 > data_size)
 							return ERROR0 (ERR_INVALID_DATA,
 								"SRT0: entry '%s' track offset out of range\n", e->name);
 
-						const enumError err = DecodeTrackBANIM (&ch->track,
-							base + track_pos, data_size - (uint)track_pos, BANIM_I12,
-							frame_limit);
+						const enumError err = DecodeTrackBANIM (&ch->track, base + track_pos,
+							data_size - (uint)track_pos, BANIM_I12, frame_limit);
 						if (err)
 							return err;
 					}
@@ -686,8 +686,8 @@ enumError SaveRawSRT0 (srt0_t *srt, ccp fname, bool set_time)
 			srt_w32 (tex, tx->code);
 
 			static const uint group_of[SRT0_N_CHANNEL] = { 0, 0, 1, 2, 2 };
-			static const uint no_bit[3] = { SRT0_BIT_NO_SCALE, SRT0_BIT_NO_ROTATION,
-				SRT0_BIT_NO_TRANSLATION };
+			static const uint no_bit[3]
+				= { SRT0_BIT_NO_SCALE, SRT0_BIT_NO_ROTATION, SRT0_BIT_NO_TRANSLATION };
 
 			uint chan_slot = tex_pos + 4;
 			for (uint c = 0; c < SRT0_N_CHANNEL; c++)
@@ -750,8 +750,7 @@ enumError SaveRawSRT0 (srt0_t *srt, ccp fname, bool set_time)
 //
 // where <channel> is one of scale-x, scale-y, rot, trans-x, trans-y.
 
-static ccp srt_channel_name[SRT0_N_CHANNEL]
-	= { "scale-x", "scale-y", "rot", "trans-x", "trans-y" };
+static ccp srt_channel_name[SRT0_N_CHANNEL] = { "scale-x", "scale-y", "rot", "trans-x", "trans-y" };
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -840,8 +839,8 @@ enumError SaveTextSRT0 (srt0_t *srt, ccp fname, bool set_time)
 		for (uint t = 0; t < e->n_texture; t++)
 		{
 			const srt0_texture_t *tx = e->texture + t;
-			fprintf (F.f, "  layer %s %u code 0x%08x\n", tx->indirect ? "ind" : "tex",
-				tx->layer, tx->code);
+			fprintf (F.f, "  layer %s %u code 0x%08x\n", tx->indirect ? "ind" : "tex", tx->layer,
+				tx->code);
 
 			for (uint c = 0; c < SRT0_N_CHANNEL; c++)
 			{
@@ -850,8 +849,8 @@ enumError SaveTextSRT0 (srt0_t *srt, ccp fname, bool set_time)
 					fprintf (F.f, "    %-7s fixed %.9g\n", srt_channel_name[c], ch->value);
 				else
 				{
-					fprintf (F.f, "    %-7s track %.9g\n", srt_channel_name[c],
-						ch->track.frame_scale);
+					fprintf (
+						F.f, "    %-7s track %.9g\n", srt_channel_name[c], ch->track.frame_scale);
 					for (uint k = 0; k < ch->track.n_key; k++)
 						fprintf (F.f, "      %.9g %.9g %.9g\n", ch->track.key[k].frame,
 							ch->track.key[k].value, ch->track.key[k].tangent);
@@ -901,8 +900,7 @@ enumError ScanTextSRT0 (srt0_t *srt, bool init_srt, ccp src_fname)
 			{
 				fclose (f);
 				ResetSRT0 (srt);
-				return ERROR0 (ERR_WRONG_FILE_TYPE, "Not an SRT0 text file: %s\n",
-					src_fname);
+				return ERROR0 (ERR_WRONG_FILE_TYPE, "Not an SRT0 text file: %s\n", src_fname);
 			}
 			continue;
 		}

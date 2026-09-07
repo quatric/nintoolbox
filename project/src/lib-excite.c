@@ -866,15 +866,22 @@ static uint excite_renderer_code (u8 fmt)
 {
 	switch (fmt)
 	{
-		case GX_I4: return 0x40;
-		case GX_IA4: return 0x41;
-		case GX_CMPR: return 0x42;
-		case GX_RGBA32: return 0x47;
-		case GX_I8: return 0x49;
+		case GX_I4:
+			return 0x40;
+		case GX_IA4:
+			return 0x41;
+		case GX_CMPR:
+			return 0x42;
+		case GX_RGBA32:
+			return 0x47;
+		case GX_I8:
+			return 0x49;
 		case GX_IA8:
 		case GX_RGB565:
-		case GX_RGB5A3: return 0x46;
-		default: return 0;
+		case GX_RGB5A3:
+			return 0x46;
+		default:
+			return 0;
 	}
 }
 
@@ -904,10 +911,8 @@ enumError EncodeExciteHeader_RGBA (u8 **dest, uint *dest_size, const u8 *rgba, u
 	const u8 fmt = (u8)gx_format;
 	if (!renderer_code)
 		renderer_code = excite_renderer_code (fmt);
-	if (renderer_code < 0x40 || renderer_code > 0x4f
-		|| (renderer_code == 0x40 && fmt != GX_I4)
-		|| (renderer_code == 0x41 && fmt != GX_IA4)
-		|| (fmt == GX_I4 && renderer_code != 0x40)
+	if (renderer_code < 0x40 || renderer_code > 0x4f || (renderer_code == 0x40 && fmt != GX_I4)
+		|| (renderer_code == 0x41 && fmt != GX_IA4) || (fmt == GX_I4 && renderer_code != 0x40)
 		|| (fmt == GX_IA4 && renderer_code != 0x41))
 		return ERR_INVALID_DATA;
 	// The decoder has to preserve a retail quirk where (2,0x44) denotes one
@@ -2232,7 +2237,8 @@ static bool mod_read_attr (
 }
 
 // Helper to decode a single NDL chunk into a mesh_t
-static bool mod_decode_ndl_chunk (const u8 *data, uint size, uint m, int mat_idx, uint chunk_idx, mesh_t *out_mesh)
+static bool mod_decode_ndl_chunk (
+	const u8 *data, uint size, uint m, int mat_idx, uint chunk_idx, mesh_t *out_mesh)
 {
 	if (m + 0x38 > size)
 		return false;
@@ -2333,14 +2339,16 @@ static bool mod_decode_ndl_chunk (const u8 *data, uint size, uint m, int mat_idx
 	// documented base instead, the same model gives every coordinate finite
 	// and within 0.2 of the origin.
 	const u32 pos_bytes = n_pos * pos_n * fmt_sz[pos_fmt];
-	const u32 pos_off = (h[9] >= m + 0x40 && h[9] < dl_start && h[9] + pos_bytes <= dl_start)
-		? h[9]
-		: m + 0x40;
+	const u32 pos_off
+		= (h[9] >= m + 0x40 && h[9] < dl_start && h[9] + pos_bytes <= dl_start) ? h[9] : m + 0x40;
 	const u32 second_off = (h[10] >= m + 0x40 && h[10] < dl_start) ? h[10] : 0;
 	const u32 third_off = (h[11] >= m + 0x40 && h[11] < dl_start) ? h[11] : 0;
-	const uint tex_off = third_off ? third_off : (second_off ? second_off : pos_off + n_pos * pos_n * fmt_sz[pos_fmt]);
+	const uint tex_off = third_off
+		? third_off
+		: (second_off ? second_off : pos_off + n_pos * pos_n * fmt_sz[pos_fmt]);
 
-	const bool has_tex = (third_off != 0) || (best_bpv == 3 && second_off != 0 && second_off != tex_off);
+	const bool has_tex
+		= (third_off != 0) || (best_bpv == 3 && second_off != 0 && second_off != tex_off);
 	uint max_tex = 0;
 	for (uint i = 0; i < best_np; i++)
 	{
@@ -2538,7 +2546,7 @@ static bool mod_extract_tex_name (const u8 *data, uint size, uint pos, char *out
 	uint len = end - pos;
 	if (!len)
 		return false;
-	if (len > 4 && !strcasecmp ((const char*)data + pos + len - 4, ".tex"))
+	if (len > 4 && !strcasecmp ((const char *)data + pos + len - 4, ".tex"))
 		len -= 4;
 	if (len >= out_size)
 		len = (uint)out_size - 1;
@@ -2548,8 +2556,8 @@ static bool mod_extract_tex_name (const u8 *data, uint size, uint pos, char *out
 }
 
 // Parse material descriptor at desc_off, extracting texture references
-static int mod_find_or_create_material (
-	const u8 *data, uint size, uint desc_off, material_t *materials, uint *num_materials, uint max_materials)
+static int mod_find_or_create_material (const u8 *data, uint size, uint desc_off,
+	material_t *materials, uint *num_materials, uint max_materials)
 {
 	if (!desc_off || desc_off + 4 > size)
 		return -1;
@@ -2589,15 +2597,18 @@ static int mod_find_or_create_material (
 		{
 			if (mod_extract_tex_name (data, size, desc_off + 20, tex_name, sizeof (tex_name)))
 			{
-				snprintf (mat->textures[mat->num_textures], sizeof (mat->textures[0]), "%s", tex_name);
+				snprintf (
+					mat->textures[mat->num_textures], sizeof (mat->textures[0]), "%s", tex_name);
 				mat->wrap_s[mat->num_textures] = mat->wrap_t[mat->num_textures] = 1;
 				mat->min_filter[mat->num_textures] = mat->mag_filter[mat->num_textures] = 1;
 				mat->num_textures++;
 			}
 			const u32 ptr2 = xrd_le32 (data + desc_off + 12);
-			if (ptr2 < size && mod_extract_tex_name (data, size, ptr2 + 4, tex_name, sizeof (tex_name)))
+			if (ptr2 < size
+				&& mod_extract_tex_name (data, size, ptr2 + 4, tex_name, sizeof (tex_name)))
 			{
-				snprintf (mat->textures[mat->num_textures], sizeof (mat->textures[0]), "%s", tex_name);
+				snprintf (
+					mat->textures[mat->num_textures], sizeof (mat->textures[0]), "%s", tex_name);
 				mat->wrap_s[mat->num_textures] = mat->wrap_t[mat->num_textures] = 1;
 				mat->min_filter[mat->num_textures] = mat->mag_filter[mat->num_textures] = 1;
 				mat->num_textures++;
@@ -2607,7 +2618,8 @@ static int mod_find_or_create_material (
 		{
 			if (mod_extract_tex_name (data, size, desc_off + 24, tex_name, sizeof (tex_name)))
 			{
-				snprintf (mat->textures[mat->num_textures], sizeof (mat->textures[0]), "%s", tex_name);
+				snprintf (
+					mat->textures[mat->num_textures], sizeof (mat->textures[0]), "%s", tex_name);
 				mat->wrap_s[mat->num_textures] = mat->wrap_t[mat->num_textures] = 1;
 				mat->min_filter[mat->num_textures] = mat->mag_filter[mat->num_textures] = 1;
 				mat->num_textures++;
@@ -2615,9 +2627,11 @@ static int mod_find_or_create_material (
 			for (u32 L = 1; L < num_layers && mat->num_textures < 8; L++)
 			{
 				const u32 ptr = xrd_le32 (data + desc_off + 8 + L * 4);
-				if (ptr < size && mod_extract_tex_name (data, size, ptr + 4, tex_name, sizeof (tex_name)))
+				if (ptr < size
+					&& mod_extract_tex_name (data, size, ptr + 4, tex_name, sizeof (tex_name)))
 				{
-					snprintf (mat->textures[mat->num_textures], sizeof (mat->textures[0]), "%s", tex_name);
+					snprintf (mat->textures[mat->num_textures], sizeof (mat->textures[0]), "%s",
+						tex_name);
 					mat->wrap_s[mat->num_textures] = mat->wrap_t[mat->num_textures] = 1;
 					mat->min_filter[mat->num_textures] = mat->mag_filter[mat->num_textures] = 1;
 					mat->num_textures++;
@@ -2640,7 +2654,8 @@ enumError DecodeExciteMOD (const u8 *data, uint size, ccp out_path)
 	const u32 table_off = xrd_le32 (data + 4);
 
 	bool is_multi = false;
-	if (num_entries > 0 && num_entries < 2000 && table_off >= 0x40 && table_off + num_entries * 16 <= size)
+	if (num_entries > 0 && num_entries < 2000 && table_off >= 0x40
+		&& table_off + num_entries * 16 <= size)
 		is_multi = true;
 
 	material_t materials[64];
@@ -2662,8 +2677,8 @@ enumError DecodeExciteMOD (const u8 *data, uint size, ccp out_path)
 			const u32 desc_off = xrd_le32 (data + ent_off + 8);
 			const u32 ndl_off = xrd_le32 (data + ent_off + 12);
 
-			const int mat_idx = mod_find_or_create_material (
-				data, size, desc_off, materials, &num_materials, 64);
+			const int mat_idx
+				= mod_find_or_create_material (data, size, desc_off, materials, &num_materials, 64);
 
 			mesh_t mesh;
 			if (mod_decode_ndl_chunk (data, size, ndl_off, mat_idx, i, &mesh))

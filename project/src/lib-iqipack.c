@@ -12,13 +12,10 @@
 // XXTEA parameters
 #define XXTEA_DELTA 0x9E3779B9U
 
-static const u32 s_fixed_key[4] = {
-	0xA0D0FFB0U, 0x81230089U, 0x12159842U, 0xFF78F3C7U
-};
+static const u32 s_fixed_key[4] = { 0xA0D0FFB0U, 0x81230089U, 0x12159842U, 0xFF78F3C7U };
 
-#define XXTEA_MIX(p_idx) \
-	(((z >> 5 ^ y << 2) + (y >> 3 ^ z << 4)) \
-	^ ((sum ^ y) + (key[((p_idx) & 3) ^ e] ^ z)))
+#define XXTEA_MIX(p_idx)                                                                           \
+	(((z >> 5 ^ y << 2) + (y >> 3 ^ z << 4)) ^ ((sum ^ y) + (key[((p_idx) & 3) ^ e] ^ z)))
 
 static u32 HashString (ccp str, size_t len)
 {
@@ -63,8 +60,7 @@ static void DecryptXXTEA (u32 *data, u32 n, const u32 key[4])
 		y = data[0] -= XXTEA_MIX (0);
 
 		sum -= XXTEA_DELTA;
-	}
-	while (--r);
+	} while (--r);
 }
 
 static void DecryptAsset (ccp name, size_t name_len, u8 *data, u32 length)
@@ -146,7 +142,8 @@ enumError ExtractIQIPack (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 	}
 
-	if (header.magic != IQIPACK_MAGIC || header.header_size == 0 || header.header_size != header.size2)
+	if (header.magic != IQIPACK_MAGIC || header.header_size == 0
+		|| header.header_size != header.size2)
 	{
 		fclose (in);
 		return ERR_NOTHING_TO_DO;
@@ -174,8 +171,8 @@ enumError ExtractIQIPack (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT IQIPACK: %s -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest);
+		fprintf (stdlog, "%s%sEXTRACT IQIPACK: %s -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
 
 	const u8 *ptr = hdr_buf;
 	const u8 *hdr_end = hdr_buf + header_size;

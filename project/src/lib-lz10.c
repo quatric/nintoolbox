@@ -170,4 +170,3 @@ enumError EncodeLZ10Raw (u8 **dest, uint *dest_size, const u8 *src, uint src_siz
 	}
 	return err;
 }
-

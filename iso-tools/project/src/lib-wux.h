@@ -65,30 +65,29 @@
 ///////////////			WUX definitions			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-#define WUX_MAGIC0		0x30585557	// 'WUX0', little endian
-#define WUX_MAGIC1		0x1099d02e
-#define WUX_HEAD_SIZE		0x20
-#define WUX_DEF_SECTOR_SIZE	0x8000		// what retail images use
+#define WUX_MAGIC0 0x30585557 // 'WUX0', little endian
+#define WUX_MAGIC1 0x1099d02e
+#define WUX_HEAD_SIZE 0x20
+#define WUX_DEF_SECTOR_SIZE 0x8000 // what retail images use
 
 // A Wii U disc is 25 GB; refuse anything absurd rather than allocating it.
-#define WUX_MAX_IMAGE_SIZE	(64ull*GiB)
-#define WUX_MIN_SECTOR_SIZE	0x800
-#define WUX_MAX_SECTOR_SIZE	0x100000
+#define WUX_MAX_IMAGE_SIZE (64ull * GiB)
+#define WUX_MIN_SECTOR_SIZE 0x800
+#define WUX_MAX_SECTOR_SIZE 0x100000
 
 ///////////////////////////////////////////////////////////////////////////////
 // [[wux_header_t]]
 
 typedef struct wux_header_t // little endian
 {
-  /* 0x00 */	u32 magic0;		// WUX_MAGIC0
-  /* 0x04 */	u32 magic1;		// WUX_MAGIC1
-  /* 0x08 */	u32 sector_size;	// size of one sector
-  /* 0x0c */	u32 flags;		// unused, always 0
-  /* 0x10 */	u64 image_size;		// size of the uncompressed image
-  /* 0x18 */	u32 unknown[2];		// unused, always 0
-  /* 0x20 */
-}
-__attribute__ ((packed)) wux_header_t;
+	/* 0x00 */ u32 magic0; // WUX_MAGIC0
+	/* 0x04 */ u32 magic1; // WUX_MAGIC1
+	/* 0x08 */ u32 sector_size; // size of one sector
+	/* 0x0c */ u32 flags; // unused, always 0
+	/* 0x10 */ u64 image_size; // size of the uncompressed image
+	/* 0x18 */ u32 unknown[2]; // unused, always 0
+	/* 0x20 */
+} __attribute__ ((packed)) wux_header_t;
 
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -103,45 +102,43 @@ __attribute__ ((packed)) wux_header_t;
 
 typedef struct wux_hash_t
 {
-    u32		sum;			// checksum of the sector
-    u32		sector;			// index of the stored sector
-    int		next;			// next entry of the bucket, -1 = end
-}
-wux_hash_t;
+	u32 sum; // checksum of the sector
+	u32 sector; // index of the stored sector
+	int next; // next entry of the bucket, -1 = end
+} wux_hash_t;
 
 ///////////////////////////////////////////////////////////////////////////////
 // [[WUX_t]]
 
 typedef struct WUX_t
 {
-    FILE	*f;			// open file, not owned by WUX_t
-    ccp		fname;			// file name, for error messages only
+	FILE *f; // open file, not owned by WUX_t
+	ccp fname; // file name, for error messages only
 
-    //--- geometry
+	//--- geometry
 
-    u32		sector_size;		// size of one sector
-    u64		image_size;		// size of the uncompressed image
-    u32		n_index;		// number of image sectors
-    u32		*index;			// index table, alloced, little endian
-    u64		data_offset;		// file offset of the first stored sector
+	u32 sector_size; // size of one sector
+	u64 image_size; // size of the uncompressed image
+	u32 n_index; // number of image sectors
+	u32 *index; // index table, alloced, little endian
+	u64 data_offset; // file offset of the first stored sector
 
-    //--- write support
+	//--- write support
 
-    bool	writing;		// true: opened for writing
-    u32		n_written;		// number of image sectors consumed so far
-    u32		n_stored;		// number of unique sectors stored in the file
+	bool writing; // true: opened for writing
+	u32 n_written; // number of image sectors consumed so far
+	u32 n_stored; // number of unique sectors stored in the file
 
-    int		*hash_tab;		// alloced hash table, -1 = empty bucket
-    uint	hash_size;		// number of buckets
-    wux_hash_t	*hash_list;		// alloced, 'n_stored' used entries
-    uint	hash_used;		// used entries of 'hash_list'
-    uint	hash_alloced;		// alloced entries of 'hash_list'
+	int *hash_tab; // alloced hash table, -1 = empty bucket
+	uint hash_size; // number of buckets
+	wux_hash_t *hash_list; // alloced, 'n_stored' used entries
+	uint hash_used; // used entries of 'hash_list'
+	uint hash_alloced; // alloced entries of 'hash_list'
 
-    u8		*buf;			// alloced sector assembly buffer
-    u32		buf_fill;		// bytes already collected in 'buf'
-    u8		*cmp_buf;		// alloced scratch sector for compares
-}
-WUX_t;
+	u8 *buf; // alloced sector assembly buffer
+	u32 buf_fill; // bytes already collected in 'buf'
+	u8 *cmp_buf; // alloced scratch sector for compares
+} WUX_t;
 
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -151,36 +148,30 @@ WUX_t;
 // Return true if DATA looks like the start of a WUX file.  'data_size' must
 // be at least WUX_HEAD_SIZE, otherwise the result is always false.
 
-bool IsValidWUX
-(
-    const void		*data,		// valid pointer to data
-    uint		data_size,	// size of data to analyze
-    wux_header_t	*head		// not NULL: store header (local endian) here
+bool IsValidWUX (const void *data, // valid pointer to data
+	uint data_size, // size of data to analyze
+	wux_header_t *head // not NULL: store header (local endian) here
 );
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void InitializeWUX ( WUX_t *wux );
-void ResetWUX ( WUX_t *wux );
+void InitializeWUX (WUX_t *wux);
+void ResetWUX (WUX_t *wux);
 
 ///////////////////////////////////////////////////////////////////////////////
 // reading
 
-enumError OpenReadWUX
-(
-    WUX_t		*wux,		// data structure, will be initialized
-    FILE		*f,		// open file, positioned anywhere
-    ccp			fname		// file name for error messages
+enumError OpenReadWUX (WUX_t *wux, // data structure, will be initialized
+	FILE *f, // open file, positioned anywhere
+	ccp fname // file name for error messages
 );
 
 //-----------------------------------------------------------------------------
 
-enumError ReadWUX
-(
-    WUX_t		*wux,		// initialized by OpenReadWUX()
-    u64			off,		// offset into the uncompressed image
-    void		*buf,		// destination buffer
-    size_t		count		// number of bytes to read
+enumError ReadWUX (WUX_t *wux, // initialized by OpenReadWUX()
+	u64 off, // offset into the uncompressed image
+	void *buf, // destination buffer
+	size_t count // number of bytes to read
 );
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -191,31 +182,25 @@ enumError ReadWUX
 // handed over strictly in order by WriteWUX(), and TermWriteWUX() rewrites
 // the header and index table.
 
-enumError OpenWriteWUX
-(
-    WUX_t		*wux,		// data structure, will be initialized
-    FILE		*f,		// open file, must be readable too ("w+b")
-    ccp			fname,		// file name for error messages
-    u64			image_size,	// size of the uncompressed image
-    u32			sector_size	// 0: use WUX_DEF_SECTOR_SIZE
+enumError OpenWriteWUX (WUX_t *wux, // data structure, will be initialized
+	FILE *f, // open file, must be readable too ("w+b")
+	ccp fname, // file name for error messages
+	u64 image_size, // size of the uncompressed image
+	u32 sector_size // 0: use WUX_DEF_SECTOR_SIZE
 );
 
 //-----------------------------------------------------------------------------
 
 // Append the next 'count' bytes of the image.  Data must arrive in order.
 
-enumError WriteWUX
-(
-    WUX_t		*wux,		// initialized by OpenWriteWUX()
-    const void		*buf,		// source buffer
-    size_t		count		// number of bytes to write
+enumError WriteWUX (WUX_t *wux, // initialized by OpenWriteWUX()
+	const void *buf, // source buffer
+	size_t count // number of bytes to write
 );
 
 //-----------------------------------------------------------------------------
 
-enumError TermWriteWUX
-(
-    WUX_t		*wux		// initialized by OpenWriteWUX()
+enumError TermWriteWUX (WUX_t *wux // initialized by OpenWriteWUX()
 );
 
 //

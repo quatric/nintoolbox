@@ -28,7 +28,8 @@ void ReadMIOMetadata (const u8 *data, size_t size, mio_meta_t *meta);
 // Caller owns returned pointer.
 u8 *DecodeMIOComicPanel (const u8 *data, size_t size, uint panel_idx, uint *out_w, uint *out_h);
 u8 *DecodeMIOGameBG (const u8 *data, size_t size, uint *out_w, uint *out_h);
-u8 *DecodeMIOGameSprite (const u8 *data, size_t size, uint obj_idx, uint frame_idx, uint *out_w, uint *out_h);
+u8 *DecodeMIOGameSprite (
+	const u8 *data, size_t size, uint obj_idx, uint frame_idx, uint *out_w, uint *out_h);
 
 // Audio decoder: generates standard Type-1 MIDI file from record tracks.
 // Returns allocated buffer via DCLib MALLOC().

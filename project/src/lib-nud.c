@@ -11,25 +11,54 @@
 #undef realloc
 #undef free
 
+static inline uint16_t rd_be16 (const uint8_t *p)
+{
+	return (uint16_t)p[0] << 8 | p[1];
+}
+static inline uint32_t rd_be32 (const uint8_t *p)
+{
+	return (uint32_t)p[0] << 24 | (uint32_t)p[1] << 16 | (uint32_t)p[2] << 8 | p[3];
+}
+static inline uint16_t rd_le16 (const uint8_t *p)
+{
+	return (uint16_t)p[1] << 8 | p[0];
+}
+static inline uint32_t rd_le32 (const uint8_t *p)
+{
+	return (uint32_t)p[3] << 24 | (uint32_t)p[2] << 16 | (uint32_t)p[1] << 8 | p[0];
+}
 
-static inline uint16_t rd_be16 (const uint8_t *p) { return (uint16_t)p[0] << 8 | p[1]; }
-static inline uint32_t rd_be32 (const uint8_t *p) { return (uint32_t)p[0] << 24 | (uint32_t)p[1] << 16 | (uint32_t)p[2] << 8 | p[3]; }
-static inline uint16_t rd_le16 (const uint8_t *p) { return (uint16_t)p[1] << 8 | p[0]; }
-static inline uint32_t rd_le32 (const uint8_t *p) { return (uint32_t)p[3] << 24 | (uint32_t)p[2] << 16 | (uint32_t)p[1] << 8 | p[0]; }
-
-static inline void wr_be16 (uint8_t *p, uint16_t v) { p[0] = (uint8_t)(v >> 8); p[1] = (uint8_t)v; }
-static inline void wr_be32 (uint8_t *p, uint32_t v) { p[0] = (uint8_t)(v >> 24); p[1] = (uint8_t)(v >> 16); p[2] = (uint8_t)(v >> 8); p[3] = (uint8_t)v; }
+static inline void wr_be16 (uint8_t *p, uint16_t v)
+{
+	p[0] = (uint8_t)(v >> 8);
+	p[1] = (uint8_t)v;
+}
+static inline void wr_be32 (uint8_t *p, uint32_t v)
+{
+	p[0] = (uint8_t)(v >> 24);
+	p[1] = (uint8_t)(v >> 16);
+	p[2] = (uint8_t)(v >> 8);
+	p[3] = (uint8_t)v;
+}
 
 static float rd_f32 (const uint8_t *p, bool is_be)
 {
-	union { uint32_t u; float f; } c;
+	union
+	{
+		uint32_t u;
+		float f;
+	} c;
 	c.u = is_be ? rd_be32 (p) : rd_le32 (p);
 	return c.f;
 }
 
 static void wr_f32 (uint8_t *p, float f, bool is_be)
 {
-	union { uint32_t u; float f; } c;
+	union
+	{
+		uint32_t u;
+		float f;
+	} c;
 	c.f = f;
 	if (is_be)
 		wr_be32 (p, c.u);
@@ -57,15 +86,27 @@ static float rd_f16 (uint16_t h)
 		float m = 1.0f + (float)man / 1024.0f;
 		int e = exp - 15;
 		v = m;
-		while (e > 0) { v *= 2.0f; e--; }
-		while (e < 0) { v /= 2.0f; e++; }
+		while (e > 0)
+		{
+			v *= 2.0f;
+			e--;
+		}
+		while (e < 0)
+		{
+			v /= 2.0f;
+			e++;
+		}
 	}
 	return sign ? -v : v;
 }
 
 static uint16_t wr_f16 (float f)
 {
-	union { uint32_t u; float f; } c;
+	union
+	{
+		uint32_t u;
+		float f;
+	} c;
 	c.f = f;
 	uint32_t x = c.u;
 	uint32_t sign = (x >> 31) & 1;
@@ -110,7 +151,8 @@ model_t *ParseNUD (const uint8_t *data, size_t size)
 	uint16_t max_idx = 0;
 	for (size_t i = 0; i < num_indices; i++)
 	{
-		uint16_t idx = is_be ? rd_be16 (data + tri_start + i * 2) : rd_le16 (data + tri_start + i * 2);
+		uint16_t idx
+			= is_be ? rd_be16 (data + tri_start + i * 2) : rd_le16 (data + tri_start + i * 2);
 		if (idx > max_idx)
 			max_idx = idx;
 	}
@@ -176,8 +218,10 @@ model_t *ParseNUD (const uint8_t *data, size_t size)
 
 		if (stride >= 24 && vp + stride <= size)
 		{
-			uint16_t u_raw = is_be ? rd_be16 (data + vp + (stride - 4)) : rd_le16 (data + vp + (stride - 4));
-			uint16_t v_raw = is_be ? rd_be16 (data + vp + (stride - 2)) : rd_le16 (data + vp + (stride - 2));
+			uint16_t u_raw
+				= is_be ? rd_be16 (data + vp + (stride - 4)) : rd_le16 (data + vp + (stride - 4));
+			uint16_t v_raw
+				= is_be ? rd_be16 (data + vp + (stride - 2)) : rd_le16 (data + vp + (stride - 2));
 			mesh->texcoords[vi].u = rd_f16 (u_raw);
 			mesh->texcoords[vi].v = rd_f16 (v_raw);
 		}
@@ -185,7 +229,8 @@ model_t *ParseNUD (const uint8_t *data, size_t size)
 
 	for (size_t ii = 0; ii < num_indices; ii++)
 	{
-		uint16_t idx = is_be ? rd_be16 (data + tri_start + ii * 2) : rd_le16 (data + tri_start + ii * 2);
+		uint16_t idx
+			= is_be ? rd_be16 (data + tri_start + ii * 2) : rd_le16 (data + tri_start + ii * 2);
 		if (idx < vert_count)
 		{
 			mesh->vertices[ii].position_idx = idx;
@@ -232,21 +277,28 @@ int EncodeModelToNUD (const model_t *model, const char *out_nud_path)
 	wr_be32 (buf + 0x1C, 0); // vert_add_sz
 
 	// Bounding sphere
-	float min_p[3] = {1e9f, 1e9f, 1e9f};
-	float max_p[3] = {-1e9f, -1e9f, -1e9f};
+	float min_p[3] = { 1e9f, 1e9f, 1e9f };
+	float max_p[3] = { -1e9f, -1e9f, -1e9f };
 	for (size_t i = 0; i < vert_count; i++)
 	{
-		if (mesh->positions[i].x < min_p[0]) min_p[0] = mesh->positions[i].x;
-		if (mesh->positions[i].y < min_p[1]) min_p[1] = mesh->positions[i].y;
-		if (mesh->positions[i].z < min_p[2]) min_p[2] = mesh->positions[i].z;
-		if (mesh->positions[i].x > max_p[0]) max_p[0] = mesh->positions[i].x;
-		if (mesh->positions[i].y > max_p[1]) max_p[1] = mesh->positions[i].y;
-		if (mesh->positions[i].z > max_p[2]) max_p[2] = mesh->positions[i].z;
+		if (mesh->positions[i].x < min_p[0])
+			min_p[0] = mesh->positions[i].x;
+		if (mesh->positions[i].y < min_p[1])
+			min_p[1] = mesh->positions[i].y;
+		if (mesh->positions[i].z < min_p[2])
+			min_p[2] = mesh->positions[i].z;
+		if (mesh->positions[i].x > max_p[0])
+			max_p[0] = mesh->positions[i].x;
+		if (mesh->positions[i].y > max_p[1])
+			max_p[1] = mesh->positions[i].y;
+		if (mesh->positions[i].z > max_p[2])
+			max_p[2] = mesh->positions[i].z;
 	}
 	float cx = (min_p[0] + max_p[0]) * 0.5f;
 	float cy = (min_p[1] + max_p[1]) * 0.5f;
 	float cz = (min_p[2] + max_p[2]) * 0.5f;
-	float rad = sqrtf ((max_p[0] - cx)*(max_p[0] - cx) + (max_p[1] - cy)*(max_p[1] - cy) + (max_p[2] - cz)*(max_p[2] - cz));
+	float rad = sqrtf ((max_p[0] - cx) * (max_p[0] - cx) + (max_p[1] - cy) * (max_p[1] - cy)
+		+ (max_p[2] - cz) * (max_p[2] - cz));
 
 	wr_f32 (buf + 0x20, cx, true);
 	wr_f32 (buf + 0x24, cy, true);

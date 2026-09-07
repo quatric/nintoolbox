@@ -16,14 +16,16 @@
 
 extern void trace_free (const char *func, const char *file, unsigned int line, void *ptr);
 extern void *trace_malloc (const char *func, const char *file, unsigned int line, size_t size);
-extern void *trace_calloc (const char *func, const char *file, unsigned int line, size_t nmemb, size_t size);
-extern void *trace_realloc (const char *func, const char *file, unsigned int line, void *ptr, size_t size);
+extern void *trace_calloc (
+	const char *func, const char *file, unsigned int line, size_t nmemb, size_t size);
+extern void *trace_realloc (
+	const char *func, const char *file, unsigned int line, void *ptr, size_t size);
 extern char *trace_strdup (const char *func, const char *file, unsigned int line, const char *str);
-#define free(p) trace_free(__FUNCTION__, __FILE__, __LINE__, (p))
-#define malloc(s) trace_malloc(__FUNCTION__, __FILE__, __LINE__, (s))
-#define calloc(n, s) trace_calloc(__FUNCTION__, __FILE__, __LINE__, (n), (s))
-#define realloc(p, s) trace_realloc(__FUNCTION__, __FILE__, __LINE__, (p), (s))
-#define strdup(s) trace_strdup(__FUNCTION__, __FILE__, __LINE__, (s))
+#define free(p) trace_free (__FUNCTION__, __FILE__, __LINE__, (p))
+#define malloc(s) trace_malloc (__FUNCTION__, __FILE__, __LINE__, (s))
+#define calloc(n, s) trace_calloc (__FUNCTION__, __FILE__, __LINE__, (n), (s))
+#define realloc(p, s) trace_realloc (__FUNCTION__, __FILE__, __LINE__, (p), (s))
+#define strdup(s) trace_strdup (__FUNCTION__, __FILE__, __LINE__, (s))
 
 // Hand-built ALZ1 bitstream vectors, derived directly from GBATEK's
 // decompression pseudocode (not from this project's own EncodeALZ1), to

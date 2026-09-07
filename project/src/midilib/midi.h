@@ -14,11 +14,11 @@
 #define MIDI_DEFAULT_TICKS_PER_QUARTER_NOTE 960
 #define MIDI_DEFAULT_TEMPO 120
 
-const char *midi_file_format_name(uint16_t n);
-const char *midi_note_name(uint8_t n, uint8_t *octave);
-const char *midi_cc_name(uint8_t cc);
-const char *midi_rpn_name(uint16_t rpn);
-void midi_meta_event_string(int cmd, int len, uint8_t *data, char *buf, int buf_size);
+const char *midi_file_format_name (uint16_t n);
+const char *midi_note_name (uint8_t n, uint8_t *octave);
+const char *midi_cc_name (uint8_t cc);
+const char *midi_rpn_name (uint16_t rpn);
+void midi_meta_event_string (int cmd, int len, uint8_t *data, char *buf, int buf_size);
 
-float midi_note_freq(int note, float fraction);
-int midi_pitch_to_note(float pitch_hz, float *fraction);
+float midi_note_freq (int note, float fraction);
+int midi_pitch_to_note (float pitch_hz, float *fraction);

@@ -21,17 +21,17 @@
 
 static inline u16 glg_be16 (const u8 *p)
 {
-	return (u16) p[0] << 8 | p[1];
+	return (u16)p[0] << 8 | p[1];
 }
 
 static inline u32 glg_be32 (const u8 *p)
 {
-	return (u32) p[0] << 24 | (u32) p[1] << 16 | (u32) p[2] << 8 | p[3];
+	return (u32)p[0] << 24 | (u32)p[1] << 16 | (u32)p[2] << 8 | p[3];
 }
 
 static inline s16 glg_be16s (const u8 *p)
 {
-	return (s16) glg_be16 (p);
+	return (s16)glg_be16 (p);
 }
 
 static inline float glg_bef32 (const u8 *p)
@@ -45,7 +45,7 @@ static inline float glg_bef32 (const u8 *p)
 static inline void glg_put16 (u8 *p, u16 v)
 {
 	p[0] = v >> 8;
-	p[1] = (u8) v;
+	p[1] = (u8)v;
 }
 
 static inline void glg_put32 (u8 *p, u32 v)
@@ -53,7 +53,7 @@ static inline void glg_put32 (u8 *p, u32 v)
 	p[0] = v >> 24;
 	p[1] = v >> 16;
 	p[2] = v >> 8;
-	p[3] = (u8) v;
+	p[3] = (u8)v;
 }
 
 //-----------------------------------------------------------------------------
@@ -81,7 +81,7 @@ static glg_chunk_t glg_find_chunk (const u8 *data, u32 size, u32 key, bool is_wi
 	{
 		const u32 tag = glg_be32 (data + off) & 0x00ffffff;
 		const u32 len = glg_be32 (data + off + 4);
-		if (off + 8 + (u64) len > end)
+		if (off + 8 + (u64)len > end)
 			break;
 		if (tag == key)
 		{
@@ -113,7 +113,7 @@ static bool glg_walk_ends_clean (const u8 *data, u32 size, bool is_wii)
 	while (off + 8 <= end)
 	{
 		const u32 len = glg_be32 (data + off + 4);
-		if (off + 8 + (u64) len > end)
+		if (off + 8 + (u64)len > end)
 			return false;
 		off += 8 + len;
 		if (is_wii)
@@ -132,9 +132,9 @@ static bool glg_walk_ends_clean (const u8 *data, u32 size, bool is_wii)
 enum
 {
 	GLG_MESH_SIZE = 0x4a, // GameCube .glg
-	RLG_MESH_SIZE = 48,	  // Wii .rlg
-	GLG_VAPD_SIZE = 6,	  // GameCube .glg
-	RLG_VAPD_SIZE = 8,	  // Wii .rlg (trailing u16 pad)
+	RLG_MESH_SIZE = 48, // Wii .rlg
+	GLG_VAPD_SIZE = 6, // GameCube .glg
+	RLG_VAPD_SIZE = 8, // Wii .rlg (trailing u16 pad)
 
 	// Vertex-attribute "type" byte (StrikersRLG.cs pointer.Type).
 	GLG_ATTR_POSITION = 0,
@@ -145,11 +145,11 @@ enum
 typedef struct glg_mesh_entry_t
 {
 	u16 face_format;
-	u32 face_off;	// byte offset into the 0x1b007 index chunk
+	u32 face_off; // byte offset into the 0x1b007 index chunk
 	u16 face_count; // number of indices
-	u8 face_type;	// GX primitive selector; only 0 confirmed so far
+	u8 face_type; // GX primitive selector; only 0 confirmed so far
 	u8 attr_count;
-	u32 vapd_off;	  // byte offset into the 0x1b005 chunk (GameCube only)
+	u32 vapd_off; // byte offset into the 0x1b005 chunk (GameCube only)
 	u16 vertex_count; // stored directly on Wii; derived from strides on GameCube
 	// PTLG texture hash: GLG binds its textures by the same 32-bit key the
 	// sibling .glt/.rlt container names its entries with (which is why the
@@ -166,8 +166,7 @@ typedef struct glg_mesh_entry_t
 // u16 index count, u8 face type, u8 attr count, u32 vapd offset, ...
 // Wii layout (48 bytes): u32 index offset, u16 index format, u16 index count,
 // u16 vertex count, u8 unknown, u8 attr count, ... (StrikersRLG.cs MeshData)
-static void glg_read_mesh_entry (
-	const u8 *e, uint entry_size, glg_mesh_entry_t *out, bool is_wii)
+static void glg_read_mesh_entry (const u8 *e, uint entry_size, glg_mesh_entry_t *out, bool is_wii)
 {
 	memset (out, 0, sizeof (*out));
 	if (is_wii)
@@ -282,17 +281,19 @@ static void glg_stage_ptlg_textures (ccp src_path, ccp out_glb_path, glg_staged_
 
 	// Note which "<hash>.png" files already exist: those belong to the user
 	// (or to a previous extraction) and must survive this export untouched.
-	u32 n_tex = raw_size >= 8 ? ((u32)raw[4] << 24 | (u32)raw[5] << 16 | (u32)raw[6] << 8 | raw[7]) : 0;
+	u32 n_tex
+		= raw_size >= 8 ? ((u32)raw[4] << 24 | (u32)raw[5] << 16 | (u32)raw[6] << 8 | raw[7]) : 0;
 	bool *pre_existing = n_tex && n_tex <= 0x10000 ? CALLOC (n_tex, sizeof (bool)) : 0;
-	const u32 tab_off = raw_size > 0x14 && !(raw[0x10] | raw[0x11] | raw[0x12] | raw[0x13]) ? 0x20 : 0x10;
+	const u32 tab_off
+		= raw_size > 0x14 && !(raw[0x10] | raw[0x11] | raw[0x12] | raw[0x13]) ? 0x20 : 0x10;
 	if (pre_existing)
 		for (u32 i = 0; i < n_tex; i++)
 		{
 			const size_t eo = (size_t)tab_off + (size_t)i * 16;
 			if (eo + 4 > raw_size)
 				break;
-			const u32 h = (u32)raw[eo] << 24 | (u32)raw[eo + 1] << 16 | (u32)raw[eo + 2] << 8
-				| raw[eo + 3];
+			const u32 h
+				= (u32)raw[eo] << 24 | (u32)raw[eo + 1] << 16 | (u32)raw[eo + 2] << 8 | raw[eo + 3];
 			char path[PATH_MAX];
 			snprintf (path, sizeof (path), "%s/%08x.png", dir, h);
 			struct stat sb;
@@ -313,8 +314,8 @@ static void glg_stage_ptlg_textures (ccp src_path, ccp out_glb_path, glg_staged_
 				const size_t eo = (size_t)tab_off + (size_t)i * 16;
 				if (eo + 4 > raw_size)
 					break;
-				const u32 h = (u32)raw[eo] << 24 | (u32)raw[eo + 1] << 16
-					| (u32)raw[eo + 2] << 8 | raw[eo + 3];
+				const u32 h = (u32)raw[eo] << 24 | (u32)raw[eo + 1] << 16 | (u32)raw[eo + 2] << 8
+					| raw[eo + 3];
 				char path[PATH_MAX];
 				snprintf (path, sizeof (path), "%s/%08x.png", dir, h);
 				struct stat sb;
@@ -372,7 +373,7 @@ enumError DecodeGLG2 (const u8 *data, uint size, ccp src_path, ccp out_glb_path)
 	if (outer_tag == 0x8001b100)
 	{
 		const u32 outer_len = glg_be32 (data + 4);
-		if ((u64) 8 + outer_len > size || outer_len < 8)
+		if ((u64)8 + outer_len > size || outer_len < 8)
 			return ERR_NOTHING_TO_DO;
 		data += 8;
 		size = outer_len;
@@ -472,9 +473,11 @@ enumError DecodeGLG2 (const u8 *data, uint size, ccp src_path, ccp out_glb_path)
 			wii_vapd_off += m->attr_count * RLG_VAPD_SIZE;
 
 		const uint bytes_per_idx = (m->face_format == 0) ? 2 : 1;
-		if ((u64) m->face_off + (u64) m->face_count * bytes_per_idx > idx_chunk.size || m->face_count < 3)
+		if ((u64)m->face_off + (u64)m->face_count * bytes_per_idx > idx_chunk.size
+			|| m->face_count < 3)
 			continue;
-		if ((u64) vapd_mesh_off + (u64) m->attr_count * vapd_entry_size > vapd_chunk.size || !m->attr_count)
+		if ((u64)vapd_mesh_off + (u64)m->attr_count * vapd_entry_size > vapd_chunk.size
+			|| !m->attr_count)
 			continue;
 
 		glg_vapd_t attrs[64];
@@ -487,7 +490,9 @@ enumError DecodeGLG2 (const u8 *data, uint size, ccp src_path, ccp out_glb_path)
 		{
 			if ((attrs[a].type == GLG_ATTR_POSITION || attrs[a].type == 0x67) && !pos_attr)
 				pos_attr = attrs + a;
-			else if ((attrs[a].type == GLG_ATTR_TEXCOORD0 || attrs[a].type == 0x26 || attrs[a].type == 0xcc) && !uv_attr)
+			else if ((attrs[a].type == GLG_ATTR_TEXCOORD0 || attrs[a].type == 0x26
+						 || attrs[a].type == 0xcc)
+				&& !uv_attr)
 				uv_attr = attrs + a;
 			// Only float3 normals are decoded. The packed 3-byte variant the
 			// GameCube build uses is left alone: decoding it as 3x s8 (either
@@ -521,13 +526,14 @@ enumError DecodeGLG2 (const u8 *data, uint size, ccp src_path, ccp out_glb_path)
 				continue;
 			vertex_count = (region_end - pos_attr->offset) / pos_attr->stride;
 		}
-		if (!vertex_count || (u64) pos_attr->offset + (u64) vertex_count * pos_attr->stride > vert_chunk.size)
+		if (!vertex_count
+			|| (u64)pos_attr->offset + (u64)vertex_count * pos_attr->stride > vert_chunk.size)
 			continue;
 
 		vec3_t *positions = MALLOC (vertex_count * sizeof (vec3_t));
 		for (u32 v = 0; v < vertex_count; v++)
 		{
-			const u8 *p = vert_chunk.data + pos_attr->offset + (u64) v * pos_attr->stride;
+			const u8 *p = vert_chunk.data + pos_attr->offset + (u64)v * pos_attr->stride;
 			float x, y, z;
 			if (pos_attr->stride == 12)
 			{
@@ -552,12 +558,12 @@ enumError DecodeGLG2 (const u8 *data, uint size, ccp src_path, ccp out_glb_path)
 
 		vec2_t *texcoords = NULL;
 		if (uv_attr && uv_attr->stride == 4
-			&& (u64) uv_attr->offset + (u64) vertex_count * uv_attr->stride <= vert_chunk.size)
+			&& (u64)uv_attr->offset + (u64)vertex_count * uv_attr->stride <= vert_chunk.size)
 		{
 			texcoords = MALLOC (vertex_count * sizeof (vec2_t));
 			for (u32 v = 0; v < vertex_count; v++)
 			{
-				const u8 *p = vert_chunk.data + uv_attr->offset + (u64) v * uv_attr->stride;
+				const u8 *p = vert_chunk.data + uv_attr->offset + (u64)v * uv_attr->stride;
 				texcoords[v].u = glg_be16 (p) / 1024.0f;
 				texcoords[v].v = glg_be16 (p + 2) / 1024.0f;
 			}
@@ -565,12 +571,12 @@ enumError DecodeGLG2 (const u8 *data, uint size, ccp src_path, ccp out_glb_path)
 
 		vec3_t *normals = NULL;
 		if (nrm_attr
-			&& (u64) nrm_attr->offset + (u64) vertex_count * nrm_attr->stride <= vert_chunk.size)
+			&& (u64)nrm_attr->offset + (u64)vertex_count * nrm_attr->stride <= vert_chunk.size)
 		{
 			normals = MALLOC (vertex_count * sizeof (vec3_t));
 			for (u32 v = 0; v < vertex_count; v++)
 			{
-				const u8 *p = vert_chunk.data + nrm_attr->offset + (u64) v * nrm_attr->stride;
+				const u8 *p = vert_chunk.data + nrm_attr->offset + (u64)v * nrm_attr->stride;
 				// Same -90 deg X rotation the positions get, so normals stay
 				// consistent with the geometry they belong to.
 				const float x = glg_bef32 (p);
@@ -586,7 +592,7 @@ enumError DecodeGLG2 (const u8 *data, uint size, ccp src_path, ccp out_glb_path)
 		snprintf (mesh->name, sizeof (mesh->name), "mesh%u", i);
 		mesh->material_idx = -1;
 
-		vertex_t *verts = MALLOC ((size_t) (m->face_count - 2) * 3 * sizeof (vertex_t));
+		vertex_t *verts = MALLOC ((size_t)(m->face_count - 2) * 3 * sizeof (vertex_t));
 		size_t num_verts = 0;
 
 		// face_type selects the primitive: 0 is a plain triangle list, 1 a
@@ -619,8 +625,8 @@ enumError DecodeGLG2 (const u8 *data, uint size, ccp src_path, ccp out_glb_path)
 			for (uint k = 0; k < 3; k++)
 			{
 				v[k].position_idx = tri_idx[k];
-				v[k].normal_idx = normals ? (int) tri_idx[k] : -1;
-				v[k].texcoord_idx = texcoords ? (int) tri_idx[k] : -1;
+				v[k].normal_idx = normals ? (int)tri_idx[k] : -1;
+				v[k].texcoord_idx = texcoords ? (int)tri_idx[k] : -1;
 				v[k].tangent_idx = v[k].matrix_idx = -1;
 				v[k].color_idx[0] = v[k].color_idx[1] = -1;
 				for (uint j = 0; j < 7; j++)
@@ -688,8 +694,7 @@ enumError DecodeGLG2 (const u8 *data, uint size, ccp src_path, ccp out_glb_path)
 						const u32 hash = m->tex_hash[h];
 						if (!glg_staged_has (&staged, hash))
 							continue;
-						const int idx
-							= glg_find_or_add_material (materials, &num_materials, hash);
+						const int idx = glg_find_or_add_material (materials, &num_materials, hash);
 						meshes[i].material_idx = idx;
 						break;
 					}
@@ -818,7 +823,7 @@ enumError EncodeGLG (const model_t *model, ccp out_path)
 			}
 			if (found == num_welded)
 			{
-				welded[num_welded] = (u32) c;
+				welded[num_welded] = (u32)c;
 				out_pos[num_welded] = mesh->positions[v->position_idx];
 				if (out_uv)
 					out_uv[num_welded] = mesh->texcoords[uv_idx < 0 ? 0 : uv_idx];
@@ -864,9 +869,9 @@ enumError EncodeGLG (const model_t *model, ccp out_path)
 		glg_put16 (entry + 2, 0); // face_format
 		// entry+4 (face_off) and entry+8 (face_count) are patched below,
 		// once the index bytes for this mesh have actually been written.
-		entry[10] = 0;					   // face_type
-		entry[11] = (u8) (out_uv ? 2 : 1);		   // attr_count
-		glg_put32 (entry + 12, vapd_buf.size);		   // vapd_off
+		entry[10] = 0; // face_type
+		entry[11] = (u8)(out_uv ? 2 : 1); // attr_count
+		glg_put32 (entry + 12, vapd_buf.size); // vapd_off
 
 		// VAPD records for this mesh.
 		u8 vapd_pos[6];
@@ -882,9 +887,9 @@ enumError EncodeGLG (const model_t *model, ccp out_path)
 			const float y = -out_pos[v].z;
 			const float z = out_pos[v].y;
 			u8 tmp[6];
-			glg_put16 (tmp, (s16) lroundf (x * 1024.0f));
-			glg_put16 (tmp + 2, (s16) lroundf (y * 1024.0f));
-			glg_put16 (tmp + 4, (s16) lroundf (z * 1024.0f));
+			glg_put16 (tmp, (s16)lroundf (x * 1024.0f));
+			glg_put16 (tmp + 2, (s16)lroundf (y * 1024.0f));
+			glg_put16 (tmp + 4, (s16)lroundf (z * 1024.0f));
 			glg_buf_put (&vert_buf, tmp, 6);
 		}
 
@@ -899,8 +904,8 @@ enumError EncodeGLG (const model_t *model, ccp out_path)
 			for (u32 v = 0; v < num_welded; v++)
 			{
 				u8 tmp[4];
-				glg_put16 (tmp, (u16) lroundf (out_uv[v].u * 1024.0f));
-				glg_put16 (tmp + 2, (u16) lroundf (out_uv[v].v * 1024.0f));
+				glg_put16 (tmp, (u16)lroundf (out_uv[v].u * 1024.0f));
+				glg_put16 (tmp + 2, (u16)lroundf (out_uv[v].v * 1024.0f));
 				glg_buf_put (&vert_buf, tmp, 4);
 			}
 		}
@@ -913,12 +918,12 @@ enumError EncodeGLG (const model_t *model, ccp out_path)
 		// compensation is needed.
 		const u32 face_off = idx_buf.size;
 		for (size_t c = 0; c < num_corners; c++)
-			glg_buf_put16 (&idx_buf, (u16) combined[c]);
+			glg_buf_put16 (&idx_buf, (u16)combined[c]);
 		FREE (combined);
 
 		const u32 face_count = (idx_buf.size - face_off) / 2;
 		glg_put32 (entry + 4, face_off);
-		glg_put16 (entry + 8, (u16) face_count);
+		glg_put16 (entry + 8, (u16)face_count);
 	}
 
 	if (!vert_buf.size || !idx_buf.size)

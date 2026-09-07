@@ -20,15 +20,27 @@ static float bnfm_rd_f16 (u16 h)
 		float m = 1.0f + (float)man / 1024.0f;
 		int e = exp - 15;
 		v = m;
-		while (e > 0) { v *= 2.0f; e--; }
-		while (e < 0) { v /= 2.0f; e++; }
+		while (e > 0)
+		{
+			v *= 2.0f;
+			e--;
+		}
+		while (e < 0)
+		{
+			v /= 2.0f;
+			e++;
+		}
 	}
 	return sign ? -v : v;
 }
 
 static u16 bnfm_wr_f16 (float f)
 {
-	union { u32 u; float f; } c;
+	union
+	{
+		u32 u;
+		float f;
+	} c;
 	c.f = f;
 	u32 x = c.u;
 	u32 sign = (x >> 31) & 1;
@@ -44,18 +56,25 @@ static u16 bnfm_wr_f16 (float f)
 
 static float bnfm_bef32 (const u8 *p)
 {
-	union { u32 u; float f; } c;
+	union
+	{
+		u32 u;
+		float f;
+	} c;
 	c.u = rd_be32 (p);
 	return c.f;
 }
 
 static void bnfm_wr_bef32 (u8 *p, float f)
 {
-	union { u32 u; float f; } c;
+	union
+	{
+		u32 u;
+		float f;
+	} c;
 	c.f = f;
 	wr_be32 (p, c.u);
 }
-
 
 static ccp bnfm_get_str (const u8 *data, uint size, u32 offset)
 {
@@ -129,9 +148,12 @@ enumError DecodeBNFM (const u8 *data, uint size, ccp out_path)
 			j->scale.x = bnfm_bef32 (data + boff + 0x2C);
 			j->scale.y = bnfm_bef32 (data + boff + 0x30);
 			j->scale.z = bnfm_bef32 (data + boff + 0x34);
-			if (j->scale.x == 0.0f) j->scale.x = 1.0f;
-			if (j->scale.y == 0.0f) j->scale.y = 1.0f;
-			if (j->scale.z == 0.0f) j->scale.z = 1.0f;
+			if (j->scale.x == 0.0f)
+				j->scale.x = 1.0f;
+			if (j->scale.y == 0.0f)
+				j->scale.y = 1.0f;
+			if (j->scale.z == 0.0f)
+				j->scale.z = 1.0f;
 
 			// Inverse bind matrix (3x4 affine)
 			if (boff + 0x88 <= size)
@@ -210,7 +232,8 @@ enumError DecodeBNFM (const u8 *data, uint size, ccp out_path)
 			mesh->material_idx = (int)mat_id;
 
 		if (curr_vert_offset + vert_count > num_total_verts)
-			vert_count = num_total_verts > curr_vert_offset ? num_total_verts - curr_vert_offset : 0;
+			vert_count
+				= num_total_verts > curr_vert_offset ? num_total_verts - curr_vert_offset : 0;
 		if (curr_idx_offset + index_count > num_indices)
 			index_count = num_indices > curr_idx_offset ? num_indices - curr_idx_offset : 0;
 
@@ -416,13 +439,15 @@ enumError EncodeModelToBNFM (const model_t *model, ccp out_path)
 	for (uint i = 0; i < mat_count; i++)
 	{
 		const u32 moff = material_offset + i * 0x228;
-		ccp mname = (model->materials && model->materials[i].name[0]) ? model->materials[i].name : "material";
+		ccp mname = (model->materials && model->materials[i].name[0]) ? model->materials[i].name
+																	  : "material";
 		wr_be32 (out + moff, cur_str);
 		const size_t mnlen = strlen (mname);
 		memcpy (out + cur_str, mname, mnlen + 1);
 		cur_str += mnlen + 1;
 
-		if (model->materials && model->materials[i].num_textures > 0 && model->materials[i].textures[0][0])
+		if (model->materials && model->materials[i].num_textures > 0
+			&& model->materials[i].textures[0][0])
 		{
 			ccp tname = model->materials[i].textures[0];
 			wr_be32 (out + moff + 0x114, cur_str);
@@ -483,7 +508,10 @@ enumError EncodeModelToBNFM (const model_t *model, ccp out_path)
 			}
 			else
 			{
-				vp[16] = 0xFF; vp[17] = 0xFF; vp[18] = 0xFF; vp[19] = 0xFF;
+				vp[16] = 0xFF;
+				vp[17] = 0xFF;
+				vp[18] = 0xFF;
+				vp[19] = 0xFF;
 			}
 
 			if (mesh->texcoords)
@@ -504,4 +532,3 @@ enumError EncodeModelToBNFM (const model_t *model, ccp out_path)
 	FREE (out);
 	return err;
 }
-

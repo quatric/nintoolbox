@@ -469,7 +469,8 @@ static int dae_primary_texture (const material_t *mat, const char *dae_path)
 		// Border/noise/mask/envmap layers are normally TEV/reflection details, not the base
 		// color map a single-texture profile_COMMON effect should display.
 		if (strstr (texture, "noise") || strstr (texture, "mask") || strstr (texture, "brd")
-			|| strstr (texture, "envmap") || strstr (texture, "env_map") || strstr (texture, "cenvmap"))
+			|| strstr (texture, "envmap") || strstr (texture, "env_map")
+			|| strstr (texture, "cenvmap"))
 			score -= 100;
 		if (score > best_score)
 		{
@@ -857,22 +858,20 @@ static void write_joint_node (
 	fprintf (f, "%*s</node>\n", indent, "");
 }
 
-
 // ---------------------------------------------------------------------------
 // GLB (glTF 2.0 Binary) Exporter
 // ---------------------------------------------------------------------------
-
 
 int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 {
 	if (!model || !out_glb_file)
 		return -1;
 
-	cgltf_options options = {0};
+	cgltf_options options = { 0 };
 	options.type = cgltf_file_type_glb;
-	cgltf_data data = {0};
-	data.asset.generator = (char*)"wiimms-szs-tools-plus";
-	data.asset.version = (char*)"2.0";
+	cgltf_data data = { 0 };
+	data.asset.generator = (char *)"wiimms-szs-tools-plus";
+	data.asset.version = (char *)"2.0";
 
 	uint8_t *bin_data = NULL;
 	size_t bin_size = 0, bin_cap = 0;
@@ -894,9 +893,11 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 	data.images = calloc (model->num_materials * 8 + 1, sizeof (cgltf_image));
 	data.textures = calloc (model->num_materials * 8 + 1, sizeof (cgltf_texture));
 	data.samplers = calloc (model->num_materials * 8 + 1, sizeof (cgltf_sampler));
-	data.materials = calloc (model->num_materials > 0 ? model->num_materials : 1, sizeof (cgltf_material));
+	data.materials
+		= calloc (model->num_materials > 0 ? model->num_materials : 1, sizeof (cgltf_material));
 	data.meshes = calloc (model->num_meshes > 0 ? model->num_meshes : 1, sizeof (cgltf_mesh));
-	size_t max_nodes = model->num_joints + model->num_meshes + model->num_instances + model->num_cameras + model->num_lights;
+	size_t max_nodes = model->num_joints + model->num_meshes + model->num_instances
+		+ model->num_cameras + model->num_lights;
 	data.nodes = calloc (max_nodes > 0 ? max_nodes : 1, sizeof (cgltf_node));
 	data.scenes_count = 1;
 	data.scenes = calloc (1, sizeof (cgltf_scene));
@@ -905,14 +906,15 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 	data.cameras_count = model->num_cameras;
 	data.lights = calloc (model->num_lights > 0 ? model->num_lights : 1, sizeof (cgltf_light));
 	data.lights_count = model->num_lights;
-	data.animations = calloc (model->num_animations > 0 ? model->num_animations : 1, sizeof (cgltf_animation));
+	data.animations
+		= calloc (model->num_animations > 0 ? model->num_animations : 1, sizeof (cgltf_animation));
 	data.skins = calloc (1, sizeof (cgltf_skin));
 
 	// Pre-allocate extensions arrays if needed. KHR_lights_punctual and KHR_texture_transform
-	data.extensions_used = calloc(2, sizeof(char*));
+	data.extensions_used = calloc (2, sizeof (char *));
 
 	// Node children array for scenes and joints
-	size_t *scene_nodes_idx = calloc(max_nodes, sizeof(size_t));
+	size_t *scene_nodes_idx = calloc (max_nodes, sizeof (size_t));
 	size_t num_scene_nodes = 0;
 
 	// Keep track of texture indices
@@ -923,25 +925,33 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 	{
 		const material_t *mat = &model->materials[m];
 		cgltf_material *gmat = &data.materials[data.materials_count++];
-		gmat->name = (char*)mat->name;
+		gmat->name = (char *)mat->name;
 		gmat->has_pbr_metallic_roughness = 1;
 		gmat->pbr_metallic_roughness.metallic_factor = 0.0f;
-		gmat->pbr_metallic_roughness.roughness_factor = mat->shininess > 0 ? (1.0f - 1.0f / (1.0f + mat->shininess * 0.01f)) * 0.9f : 0.9f;
+		gmat->pbr_metallic_roughness.roughness_factor
+			= mat->shininess > 0 ? (1.0f - 1.0f / (1.0f + mat->shininess * 0.01f)) * 0.9f : 0.9f;
 		gmat->double_sided = 1;
 
 		float r = 0.8f, g = 0.8f, b = 0.8f, a = 1.0f;
 		if (mat->diffuse[0] || mat->diffuse[1] || mat->diffuse[2] || mat->diffuse[3])
 		{
-			r = mat->diffuse[0]; g = mat->diffuse[1]; b = mat->diffuse[2]; a = mat->diffuse[3];
+			r = mat->diffuse[0];
+			g = mat->diffuse[1];
+			b = mat->diffuse[2];
+			a = mat->diffuse[3];
 		}
 		if (mat->num_textures > 0)
 		{
-			// When textures are present, retain explicit diffuse tint if provided, otherwise default to white
+			// When textures are present, retain explicit diffuse tint if provided, otherwise
+			// default to white
 			if (!mat->diffuse[0] && !mat->diffuse[1] && !mat->diffuse[2])
 			{
-				r = 1.0f; g = 1.0f; b = 1.0f;
+				r = 1.0f;
+				g = 1.0f;
+				b = 1.0f;
 			}
-			if (mat->diffuse[3] > 0.0f) a = mat->diffuse[3];
+			if (mat->diffuse[3] > 0.0f)
+				a = mat->diffuse[3];
 		}
 		gmat->pbr_metallic_roughness.base_color_factor[0] = r;
 		gmat->pbr_metallic_roughness.base_color_factor[1] = g;
@@ -954,31 +964,41 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 		gmat->emissive_factor[2] = 0.0f;
 		gmat->pbr_metallic_roughness.metallic_factor = 0.0f;
 		gmat->pbr_metallic_roughness.roughness_factor = 0.8f;
-		gmat->alpha_mode = (mat->has_alpha || (mat->diffuse[3] > 0 && mat->diffuse[3] < 1.0f)) ? cgltf_alpha_mode_blend : cgltf_alpha_mode_opaque;
+		gmat->alpha_mode = (mat->has_alpha || (mat->diffuse[3] > 0 && mat->diffuse[3] < 1.0f))
+			? cgltf_alpha_mode_blend
+			: cgltf_alpha_mode_opaque;
 
-		int primary = dae_primary_texture(mat, out_glb_file);
+		int primary = dae_primary_texture (mat, out_glb_file);
 
 		for (int t = 0; t < mat->num_textures; t++)
 		{
-			if (!mat->textures[t][0]) continue;
+			if (!mat->textures[t][0])
+				continue;
 			char tex_path[PATH_MAX];
-			if (!dae_texture_path (tex_path, sizeof (tex_path), out_glb_file, mat->textures[t])) continue;
+			if (!dae_texture_path (tex_path, sizeof (tex_path), out_glb_file, mat->textures[t]))
+				continue;
 			// dae_localize_texture (tex_path, sizeof (tex_path), out_glb_file);
 
 			char full_png_path[PATH_MAX];
-			if (tex_path[0] == '/') snprintf (full_png_path, sizeof (full_png_path), "%s", tex_path);
-			else {
+			if (tex_path[0] == '/')
+				snprintf (full_png_path, sizeof (full_png_path), "%s", tex_path);
+			else
+			{
 				const char *slash = strrchr (out_glb_file, '/');
-				if (slash) snprintf (full_png_path, sizeof (full_png_path), "%.*s/%s", (int)(slash - out_glb_file), out_glb_file, tex_path);
-				else snprintf (full_png_path, sizeof (full_png_path), "%s", tex_path);
+				if (slash)
+					snprintf (full_png_path, sizeof (full_png_path), "%.*s/%s",
+						(int)(slash - out_glb_file), out_glb_file, tex_path);
+				else
+					snprintf (full_png_path, sizeof (full_png_path), "%s", tex_path);
 			}
 
 			FILE *fp = fopen (full_png_path, "rb");
-			if (!fp) fp = fopen (tex_path, "rb");
-			
+			if (!fp)
+				fp = fopen (tex_path, "rb");
+
 			cgltf_image *gimg = &data.images[data.images_count++];
-			gimg->name = (char*)mat->textures[t];
-			gimg->mime_type = (char*)"image/png";
+			gimg->name = (char *)mat->textures[t];
+			gimg->mime_type = (char *)"image/png";
 
 			if (fp)
 			{
@@ -990,12 +1010,21 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 					uint8_t *img_data = malloc (fsz);
 					if (img_data && fread (img_data, 1, fsz, fp) == (size_t)fsz)
 					{
-						while (bin_size % 4 != 0) {
-							if (bin_size >= bin_cap) { bin_cap = bin_cap ? bin_cap * 2 : 1024; bin_data = realloc(bin_data, bin_cap); }
+						while (bin_size % 4 != 0)
+						{
+							if (bin_size >= bin_cap)
+							{
+								bin_cap = bin_cap ? bin_cap * 2 : 1024;
+								bin_data = realloc (bin_data, bin_cap);
+							}
 							bin_data[bin_size++] = 0;
 						}
-						if (bin_size + fsz > bin_cap) { bin_cap = (bin_size + fsz + 4096) * 2; bin_data = realloc(bin_data, bin_cap); }
-						
+						if (bin_size + fsz > bin_cap)
+						{
+							bin_cap = (bin_size + fsz + 4096) * 2;
+							bin_data = realloc (bin_data, bin_cap);
+						}
+
 						cgltf_buffer_view *bv = &data.buffer_views[data.buffer_views_count++];
 						bv->buffer = &data.buffers[0];
 						bv->offset = bin_size;
@@ -1008,8 +1037,10 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 					free (img_data);
 				}
 				fclose (fp);
-			} else {
-				gimg->uri = strdup(tex_path);
+			}
+			else
+			{
+				gimg->uri = strdup (tex_path);
 			}
 
 			cgltf_sampler *gsmp = &data.samplers[data.samplers_count++];
@@ -1024,19 +1055,30 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 
 			mat_tex_idx[m][t] = data.textures_count - 1;
 
-			if (t == primary) {
+			if (t == primary)
+			{
 				gmat->pbr_metallic_roughness.base_color_texture.texture = gtex;
-				if (mat->has_tex_transform[primary]) {
+				if (mat->has_tex_transform[primary])
+				{
 					gmat->pbr_metallic_roughness.base_color_texture.has_transform = 1;
-					gmat->pbr_metallic_roughness.base_color_texture.transform.offset[0] = mat->tex_translate_s[primary];
-					gmat->pbr_metallic_roughness.base_color_texture.transform.offset[1] = mat->tex_translate_t[primary];
-					gmat->pbr_metallic_roughness.base_color_texture.transform.rotation = mat->tex_rotate[primary];
-					gmat->pbr_metallic_roughness.base_color_texture.transform.scale[0] = mat->tex_scale_s[primary];
-					gmat->pbr_metallic_roughness.base_color_texture.transform.scale[1] = mat->tex_scale_t[primary];
-					
+					gmat->pbr_metallic_roughness.base_color_texture.transform.offset[0]
+						= mat->tex_translate_s[primary];
+					gmat->pbr_metallic_roughness.base_color_texture.transform.offset[1]
+						= mat->tex_translate_t[primary];
+					gmat->pbr_metallic_roughness.base_color_texture.transform.rotation
+						= mat->tex_rotate[primary];
+					gmat->pbr_metallic_roughness.base_color_texture.transform.scale[0]
+						= mat->tex_scale_s[primary];
+					gmat->pbr_metallic_roughness.base_color_texture.transform.scale[1]
+						= mat->tex_scale_t[primary];
+
 					int ext_found = 0;
-					for(size_t e=0; e<data.extensions_used_count; e++) if(!strcmp(data.extensions_used[e], "KHR_texture_transform")) ext_found = 1;
-					if (!ext_found) data.extensions_used[data.extensions_used_count++] = (char*)"KHR_texture_transform";
+					for (size_t e = 0; e < data.extensions_used_count; e++)
+						if (!strcmp (data.extensions_used[e], "KHR_texture_transform"))
+							ext_found = 1;
+					if (!ext_found)
+						data.extensions_used[data.extensions_used_count++]
+							= (char *)"KHR_texture_transform";
 				}
 			}
 		}
@@ -1060,10 +1102,22 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 				if (joint->has_inverse_bind)
 				{
 					const float *inv = joint->inverse_bind;
-					m[0] = inv[0]; m[1] = inv[4]; m[2] = inv[8]; m[3] = 0.0f;
-					m[4] = inv[1]; m[5] = inv[5]; m[6] = inv[9]; m[7] = 0.0f;
-					m[8] = inv[2]; m[9] = inv[6]; m[10] = inv[10]; m[11] = 0.0f;
-					m[12] = inv[3]; m[13] = inv[7]; m[14] = inv[11]; m[15] = 1.0f;
+					m[0] = inv[0];
+					m[1] = inv[4];
+					m[2] = inv[8];
+					m[3] = 0.0f;
+					m[4] = inv[1];
+					m[5] = inv[5];
+					m[6] = inv[9];
+					m[7] = 0.0f;
+					m[8] = inv[2];
+					m[9] = inv[6];
+					m[10] = inv[10];
+					m[11] = 0.0f;
+					m[12] = inv[3];
+					m[13] = inv[7];
+					m[14] = inv[11];
+					m[15] = 1.0f;
 				}
 				else
 				{
@@ -1072,13 +1126,22 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 				}
 			}
 
-			while (bin_size % 4 != 0) {
-				if (bin_size >= bin_cap) { bin_cap = bin_cap ? bin_cap * 2 : 1024; bin_data = realloc(bin_data, bin_cap); }
+			while (bin_size % 4 != 0)
+			{
+				if (bin_size >= bin_cap)
+				{
+					bin_cap = bin_cap ? bin_cap * 2 : 1024;
+					bin_data = realloc (bin_data, bin_cap);
+				}
 				bin_data[bin_size++] = 0;
 			}
-			size_t fsz = model->num_joints * 16 * sizeof(float);
-			if (bin_size + fsz > bin_cap) { bin_cap = (bin_size + fsz + 4096) * 2; bin_data = realloc(bin_data, bin_cap); }
-			
+			size_t fsz = model->num_joints * 16 * sizeof (float);
+			if (bin_size + fsz > bin_cap)
+			{
+				bin_cap = (bin_size + fsz + 4096) * 2;
+				bin_data = realloc (bin_data, bin_cap);
+			}
+
 			cgltf_buffer_view *bv = &data.buffer_views[data.buffer_views_count++];
 			bv->buffer = &data.buffers[0];
 			bv->offset = bin_size;
@@ -1093,7 +1156,7 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 
 			memcpy (bin_data + bin_size, ibm, fsz);
 			bin_size += fsz;
-			free(ibm);
+			free (ibm);
 		}
 	}
 
@@ -1101,20 +1164,22 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 	{
 		const mesh_t *mesh = &model->meshes[m];
 		cgltf_mesh *gmesh = &data.meshes[data.meshes_count++];
-		gmesh->name = (char*)mesh->name;
-		gmesh->primitives = calloc(1, sizeof(cgltf_primitive));
+		gmesh->name = (char *)mesh->name;
+		gmesh->primitives = calloc (1, sizeof (cgltf_primitive));
 		gmesh->primitives_count = 1;
 		cgltf_primitive *prim = &gmesh->primitives[0];
 		prim->type = cgltf_primitive_type_triangles;
-		if (mesh->material_idx >= 0 && (size_t)mesh->material_idx < model->num_materials) {
+		if (mesh->material_idx >= 0 && (size_t)mesh->material_idx < model->num_materials)
+		{
 			prim->material = &data.materials[mesh->material_idx];
 		}
 
-		prim->attributes = calloc(16 + mesh->num_morph_targets, sizeof(cgltf_attribute));
+		prim->attributes = calloc (16 + mesh->num_morph_targets, sizeof (cgltf_attribute));
 		size_t attr_idx = 0;
 
 		const size_t N = mesh->num_vertices;
-		if (!N) continue;
+		if (!N)
+			continue;
 		const int skinned = dae_mesh_is_skinned (model, mesh);
 
 		// POSITION
@@ -1124,71 +1189,122 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 		for (size_t v = 0; v < N; v++)
 		{
 			int pi = mesh->vertices[v].position_idx;
-			vec3_t p = (pi >= 0 && (size_t)pi < mesh->num_positions) ? mesh->positions[pi] : (vec3_t){0,0,0};
+			vec3_t p = (pi >= 0 && (size_t)pi < mesh->num_positions) ? mesh->positions[pi]
+																	 : (vec3_t) { 0, 0, 0 };
 			v_pos[v] = p;
-			if (p.x < min_p[0]) min_p[0] = p.x;
-			if (p.y < min_p[1]) min_p[1] = p.y;
-			if (p.z < min_p[2]) min_p[2] = p.z;
-			if (p.x > max_p[0]) max_p[0] = p.x;
-			if (p.y > max_p[1]) max_p[1] = p.y;
-			if (p.z > max_p[2]) max_p[2] = p.z;
+			if (p.x < min_p[0])
+				min_p[0] = p.x;
+			if (p.y < min_p[1])
+				min_p[1] = p.y;
+			if (p.z < min_p[2])
+				min_p[2] = p.z;
+			if (p.x > max_p[0])
+				max_p[0] = p.x;
+			if (p.y > max_p[1])
+				max_p[1] = p.y;
+			if (p.z > max_p[2])
+				max_p[2] = p.z;
 		}
-		while (bin_size % 4 != 0) {
-			if (bin_size >= bin_cap) { bin_cap = bin_cap ? bin_cap * 2 : 1024; bin_data = realloc(bin_data, bin_cap); }
+		while (bin_size % 4 != 0)
+		{
+			if (bin_size >= bin_cap)
+			{
+				bin_cap = bin_cap ? bin_cap * 2 : 1024;
+				bin_data = realloc (bin_data, bin_cap);
+			}
 			bin_data[bin_size++] = 0;
 		}
-		size_t fsz = N * sizeof(vec3_t);
-		if (bin_size + fsz > bin_cap) { bin_cap = (bin_size + fsz + 4096) * 2; bin_data = realloc(bin_data, bin_cap); }
+		size_t fsz = N * sizeof (vec3_t);
+		if (bin_size + fsz > bin_cap)
+		{
+			bin_cap = (bin_size + fsz + 4096) * 2;
+			bin_data = realloc (bin_data, bin_cap);
+		}
 		cgltf_buffer_view *bv = &data.buffer_views[data.buffer_views_count++];
-		bv->buffer = &data.buffers[0]; bv->offset = bin_size; bv->size = fsz;
+		bv->buffer = &data.buffers[0];
+		bv->offset = bin_size;
+		bv->size = fsz;
 		cgltf_accessor *acc = &data.accessors[data.accessors_count++];
-		acc->buffer_view = bv; acc->component_type = cgltf_component_type_r_32f; acc->type = cgltf_type_vec3; acc->count = N;
-		acc->has_min = 1; acc->has_max = 1;
-		acc->min[0] = min_p[0]; acc->min[1] = min_p[1]; acc->min[2] = min_p[2];
-		acc->max[0] = max_p[0]; acc->max[1] = max_p[1]; acc->max[2] = max_p[2];
-		memcpy (bin_data + bin_size, v_pos, fsz); bin_size += fsz; free(v_pos);
+		acc->buffer_view = bv;
+		acc->component_type = cgltf_component_type_r_32f;
+		acc->type = cgltf_type_vec3;
+		acc->count = N;
+		acc->has_min = 1;
+		acc->has_max = 1;
+		acc->min[0] = min_p[0];
+		acc->min[1] = min_p[1];
+		acc->min[2] = min_p[2];
+		acc->max[0] = max_p[0];
+		acc->max[1] = max_p[1];
+		acc->max[2] = max_p[2];
+		memcpy (bin_data + bin_size, v_pos, fsz);
+		bin_size += fsz;
+		free (v_pos);
 
-		prim->attributes[attr_idx].name = (char*)"POSITION";
+		prim->attributes[attr_idx].name = (char *)"POSITION";
 		prim->attributes[attr_idx].type = cgltf_attribute_type_position;
 		prim->attributes[attr_idx].data = acc;
 		attr_idx++;
 
 		// MORPH TARGETS
-		if (mesh->num_morph_targets > 0) {
-			prim->targets = calloc(mesh->num_morph_targets, sizeof(cgltf_morph_target));
+		if (mesh->num_morph_targets > 0)
+		{
+			prim->targets = calloc (mesh->num_morph_targets, sizeof (cgltf_morph_target));
 			prim->targets_count = mesh->num_morph_targets;
-			gmesh->weights = calloc(mesh->num_morph_targets, sizeof(cgltf_float));
+			gmesh->weights = calloc (mesh->num_morph_targets, sizeof (cgltf_float));
 			gmesh->weights_count = mesh->num_morph_targets;
-			gmesh->target_names = calloc(mesh->num_morph_targets, sizeof(char*));
+			gmesh->target_names = calloc (mesh->num_morph_targets, sizeof (char *));
 			gmesh->target_names_count = mesh->num_morph_targets;
 
-			for (size_t t = 0; t < mesh->num_morph_targets; t++) {
+			for (size_t t = 0; t < mesh->num_morph_targets; t++)
+			{
 				const morph_target_t *mt = mesh->morph_targets + t;
 				gmesh->weights[t] = mesh->morph_weights ? mesh->morph_weights[t] : 0.0f;
-				gmesh->target_names[t] = (char*)mt->name;
-				prim->targets[t].attributes = calloc(1, sizeof(cgltf_attribute));
-				
+				gmesh->target_names[t] = (char *)mt->name;
+				prim->targets[t].attributes = calloc (1, sizeof (cgltf_attribute));
+
 				vec3_t *delta = calloc (N, sizeof (*delta));
-				if (delta && mt->position_deltas && mt->num_positions) {
-					for (size_t v = 0; v < N; v++) {
+				if (delta && mt->position_deltas && mt->num_positions)
+				{
+					for (size_t v = 0; v < N; v++)
+					{
 						int pi = mesh->vertices[v].position_idx;
-						if (pi >= 0 && (size_t)pi < mt->num_positions) delta[v] = mt->position_deltas[pi];
+						if (pi >= 0 && (size_t)pi < mt->num_positions)
+							delta[v] = mt->position_deltas[pi];
 					}
 				}
-				while (bin_size % 4 != 0) {
-					if (bin_size >= bin_cap) { bin_cap = bin_cap ? bin_cap * 2 : 1024; bin_data = realloc(bin_data, bin_cap); }
+				while (bin_size % 4 != 0)
+				{
+					if (bin_size >= bin_cap)
+					{
+						bin_cap = bin_cap ? bin_cap * 2 : 1024;
+						bin_data = realloc (bin_data, bin_cap);
+					}
 					bin_data[bin_size++] = 0;
 				}
-				fsz = N * sizeof(vec3_t);
-				if (bin_size + fsz > bin_cap) { bin_cap = (bin_size + fsz + 4096) * 2; bin_data = realloc(bin_data, bin_cap); }
+				fsz = N * sizeof (vec3_t);
+				if (bin_size + fsz > bin_cap)
+				{
+					bin_cap = (bin_size + fsz + 4096) * 2;
+					bin_data = realloc (bin_data, bin_cap);
+				}
 				bv = &data.buffer_views[data.buffer_views_count++];
-				bv->buffer = &data.buffers[0]; bv->offset = bin_size; bv->size = fsz;
+				bv->buffer = &data.buffers[0];
+				bv->offset = bin_size;
+				bv->size = fsz;
 				acc = &data.accessors[data.accessors_count++];
-				acc->buffer_view = bv; acc->component_type = cgltf_component_type_r_32f; acc->type = cgltf_type_vec3; acc->count = N;
-				if (delta) { memcpy (bin_data + bin_size, delta, fsz); free(delta); }
+				acc->buffer_view = bv;
+				acc->component_type = cgltf_component_type_r_32f;
+				acc->type = cgltf_type_vec3;
+				acc->count = N;
+				if (delta)
+				{
+					memcpy (bin_data + bin_size, delta, fsz);
+					free (delta);
+				}
 				bin_size += fsz;
 
-				prim->targets[t].attributes[0].name = (char*)"POSITION";
+				prim->targets[t].attributes[0].name = (char *)"POSITION";
 				prim->targets[t].attributes[0].type = cgltf_attribute_type_position;
 				prim->targets[t].attributes[0].data = acc;
 				prim->targets[t].attributes_count = 1;
@@ -1199,23 +1315,41 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 		if (mesh->num_normals > 0)
 		{
 			vec3_t *v_nrm = malloc (N * sizeof (vec3_t));
-			for (size_t v = 0; v < N; v++) {
+			for (size_t v = 0; v < N; v++)
+			{
 				int ni = mesh->vertices[v].normal_idx;
-				v_nrm[v] = (ni >= 0 && (size_t)ni < mesh->num_normals) ? mesh->normals[ni] : (vec3_t){0,1,0};
+				v_nrm[v] = (ni >= 0 && (size_t)ni < mesh->num_normals) ? mesh->normals[ni]
+																	   : (vec3_t) { 0, 1, 0 };
 			}
-			while (bin_size % 4 != 0) {
-				if (bin_size >= bin_cap) { bin_cap = bin_cap ? bin_cap * 2 : 1024; bin_data = realloc(bin_data, bin_cap); }
+			while (bin_size % 4 != 0)
+			{
+				if (bin_size >= bin_cap)
+				{
+					bin_cap = bin_cap ? bin_cap * 2 : 1024;
+					bin_data = realloc (bin_data, bin_cap);
+				}
 				bin_data[bin_size++] = 0;
 			}
-			fsz = N * sizeof(vec3_t);
-			if (bin_size + fsz > bin_cap) { bin_cap = (bin_size + fsz + 4096) * 2; bin_data = realloc(bin_data, bin_cap); }
+			fsz = N * sizeof (vec3_t);
+			if (bin_size + fsz > bin_cap)
+			{
+				bin_cap = (bin_size + fsz + 4096) * 2;
+				bin_data = realloc (bin_data, bin_cap);
+			}
 			bv = &data.buffer_views[data.buffer_views_count++];
-			bv->buffer = &data.buffers[0]; bv->offset = bin_size; bv->size = fsz;
+			bv->buffer = &data.buffers[0];
+			bv->offset = bin_size;
+			bv->size = fsz;
 			acc = &data.accessors[data.accessors_count++];
-			acc->buffer_view = bv; acc->component_type = cgltf_component_type_r_32f; acc->type = cgltf_type_vec3; acc->count = N;
-			memcpy (bin_data + bin_size, v_nrm, fsz); bin_size += fsz; free(v_nrm);
-			
-			prim->attributes[attr_idx].name = (char*)"NORMAL";
+			acc->buffer_view = bv;
+			acc->component_type = cgltf_component_type_r_32f;
+			acc->type = cgltf_type_vec3;
+			acc->count = N;
+			memcpy (bin_data + bin_size, v_nrm, fsz);
+			bin_size += fsz;
+			free (v_nrm);
+
+			prim->attributes[attr_idx].name = (char *)"NORMAL";
 			prim->attributes[attr_idx].type = cgltf_attribute_type_normal;
 			prim->attributes[attr_idx].data = acc;
 			attr_idx++;
@@ -1225,23 +1359,41 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 		if (mesh->num_tangents > 0)
 		{
 			vec3_t *v_tan = malloc (N * sizeof (vec3_t));
-			for (size_t v = 0; v < N; v++) {
+			for (size_t v = 0; v < N; v++)
+			{
 				int ti = mesh->vertices[v].tangent_idx;
-				v_tan[v] = (ti >= 0 && (size_t)ti < mesh->num_tangents) ? mesh->tangents[ti] : (vec3_t){1,0,0};
+				v_tan[v] = (ti >= 0 && (size_t)ti < mesh->num_tangents) ? mesh->tangents[ti]
+																		: (vec3_t) { 1, 0, 0 };
 			}
-			while (bin_size % 4 != 0) {
-				if (bin_size >= bin_cap) { bin_cap = bin_cap ? bin_cap * 2 : 1024; bin_data = realloc(bin_data, bin_cap); }
+			while (bin_size % 4 != 0)
+			{
+				if (bin_size >= bin_cap)
+				{
+					bin_cap = bin_cap ? bin_cap * 2 : 1024;
+					bin_data = realloc (bin_data, bin_cap);
+				}
 				bin_data[bin_size++] = 0;
 			}
-			size_t fsz = N * sizeof(vec3_t);
-			if (bin_size + fsz > bin_cap) { bin_cap = (bin_size + fsz + 4096) * 2; bin_data = realloc(bin_data, bin_cap); }
+			size_t fsz = N * sizeof (vec3_t);
+			if (bin_size + fsz > bin_cap)
+			{
+				bin_cap = (bin_size + fsz + 4096) * 2;
+				bin_data = realloc (bin_data, bin_cap);
+			}
 			cgltf_buffer_view *bv = &data.buffer_views[data.buffer_views_count++];
-			bv->buffer = &data.buffers[0]; bv->offset = bin_size; bv->size = fsz;
+			bv->buffer = &data.buffers[0];
+			bv->offset = bin_size;
+			bv->size = fsz;
 			cgltf_accessor *acc = &data.accessors[data.accessors_count++];
-			acc->buffer_view = bv; acc->component_type = cgltf_component_type_r_32f; acc->type = cgltf_type_vec3; acc->count = N;
-			memcpy (bin_data + bin_size, v_tan, fsz); bin_size += fsz; free(v_tan);
-			
-			prim->attributes[attr_idx].name = (char*)"TANGENT";
+			acc->buffer_view = bv;
+			acc->component_type = cgltf_component_type_r_32f;
+			acc->type = cgltf_type_vec3;
+			acc->count = N;
+			memcpy (bin_data + bin_size, v_tan, fsz);
+			bin_size += fsz;
+			free (v_tan);
+
+			prim->attributes[attr_idx].name = (char *)"TANGENT";
 			prim->attributes[attr_idx].type = cgltf_attribute_type_tangent;
 			prim->attributes[attr_idx].data = acc;
 			attr_idx++;
@@ -1251,23 +1403,41 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 		if (mesh->num_texcoords > 0)
 		{
 			vec2_t *v_uv = malloc (N * sizeof (vec2_t));
-			for (size_t v = 0; v < N; v++) {
+			for (size_t v = 0; v < N; v++)
+			{
 				int ti = mesh->vertices[v].texcoord_idx;
-				v_uv[v] = (ti >= 0 && (size_t)ti < mesh->num_texcoords) ? mesh->texcoords[ti] : (vec2_t){0,0};
+				v_uv[v] = (ti >= 0 && (size_t)ti < mesh->num_texcoords) ? mesh->texcoords[ti]
+																		: (vec2_t) { 0, 0 };
 			}
-			while (bin_size % 4 != 0) {
-				if (bin_size >= bin_cap) { bin_cap = bin_cap ? bin_cap * 2 : 1024; bin_data = realloc(bin_data, bin_cap); }
+			while (bin_size % 4 != 0)
+			{
+				if (bin_size >= bin_cap)
+				{
+					bin_cap = bin_cap ? bin_cap * 2 : 1024;
+					bin_data = realloc (bin_data, bin_cap);
+				}
 				bin_data[bin_size++] = 0;
 			}
-			size_t fsz = N * sizeof(vec2_t);
-			if (bin_size + fsz > bin_cap) { bin_cap = (bin_size + fsz + 4096) * 2; bin_data = realloc(bin_data, bin_cap); }
+			size_t fsz = N * sizeof (vec2_t);
+			if (bin_size + fsz > bin_cap)
+			{
+				bin_cap = (bin_size + fsz + 4096) * 2;
+				bin_data = realloc (bin_data, bin_cap);
+			}
 			cgltf_buffer_view *bv = &data.buffer_views[data.buffer_views_count++];
-			bv->buffer = &data.buffers[0]; bv->offset = bin_size; bv->size = fsz;
+			bv->buffer = &data.buffers[0];
+			bv->offset = bin_size;
+			bv->size = fsz;
 			cgltf_accessor *acc = &data.accessors[data.accessors_count++];
-			acc->buffer_view = bv; acc->component_type = cgltf_component_type_r_32f; acc->type = cgltf_type_vec2; acc->count = N;
-			memcpy (bin_data + bin_size, v_uv, fsz); bin_size += fsz; free(v_uv);
-			
-			prim->attributes[attr_idx].name = (char*)"TEXCOORD_0";
+			acc->buffer_view = bv;
+			acc->component_type = cgltf_component_type_r_32f;
+			acc->type = cgltf_type_vec2;
+			acc->count = N;
+			memcpy (bin_data + bin_size, v_uv, fsz);
+			bin_size += fsz;
+			free (v_uv);
+
+			prim->attributes[attr_idx].name = (char *)"TEXCOORD_0";
 			prim->attributes[attr_idx].type = cgltf_attribute_type_texcoord;
 			prim->attributes[attr_idx].index = 0;
 			prim->attributes[attr_idx].data = acc;
@@ -1276,28 +1446,47 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 
 		for (int set = 1; set < 8; set++)
 		{
-			if (mesh->num_extra_texcoords[set - 1] > 0) {
+			if (mesh->num_extra_texcoords[set - 1] > 0)
+			{
 				const size_t num_ex = mesh->num_extra_texcoords[set - 1];
 				const vec2_t *ex_uv = mesh->extra_texcoords[set - 1];
 				vec2_t *v_uv = malloc (N * sizeof (vec2_t));
-				for (size_t v = 0; v < N; v++) {
+				for (size_t v = 0; v < N; v++)
+				{
 					int ti = mesh->vertices[v].extra_texcoord_idx[set - 1];
-					v_uv[v] = (ti >= 0 && (size_t)ti < num_ex) ? ex_uv[ti] : (vec2_t){0,0};
+					v_uv[v] = (ti >= 0 && (size_t)ti < num_ex) ? ex_uv[ti] : (vec2_t) { 0, 0 };
 				}
-				while (bin_size % 4 != 0) {
-					if (bin_size >= bin_cap) { bin_cap = bin_cap ? bin_cap * 2 : 1024; bin_data = realloc(bin_data, bin_cap); }
+				while (bin_size % 4 != 0)
+				{
+					if (bin_size >= bin_cap)
+					{
+						bin_cap = bin_cap ? bin_cap * 2 : 1024;
+						bin_data = realloc (bin_data, bin_cap);
+					}
 					bin_data[bin_size++] = 0;
 				}
-				size_t fsz = N * sizeof(vec2_t);
-				if (bin_size + fsz > bin_cap) { bin_cap = (bin_size + fsz + 4096) * 2; bin_data = realloc(bin_data, bin_cap); }
+				size_t fsz = N * sizeof (vec2_t);
+				if (bin_size + fsz > bin_cap)
+				{
+					bin_cap = (bin_size + fsz + 4096) * 2;
+					bin_data = realloc (bin_data, bin_cap);
+				}
 				cgltf_buffer_view *bv = &data.buffer_views[data.buffer_views_count++];
-				bv->buffer = &data.buffers[0]; bv->offset = bin_size; bv->size = fsz;
+				bv->buffer = &data.buffers[0];
+				bv->offset = bin_size;
+				bv->size = fsz;
 				cgltf_accessor *acc = &data.accessors[data.accessors_count++];
-				acc->buffer_view = bv; acc->component_type = cgltf_component_type_r_32f; acc->type = cgltf_type_vec2; acc->count = N;
-				memcpy (bin_data + bin_size, v_uv, fsz); bin_size += fsz; free(v_uv);
-				
-				char name[32]; snprintf(name, sizeof(name), "TEXCOORD_%d", set);
-				prim->attributes[attr_idx].name = strdup(name);
+				acc->buffer_view = bv;
+				acc->component_type = cgltf_component_type_r_32f;
+				acc->type = cgltf_type_vec2;
+				acc->count = N;
+				memcpy (bin_data + bin_size, v_uv, fsz);
+				bin_size += fsz;
+				free (v_uv);
+
+				char name[32];
+				snprintf (name, sizeof (name), "TEXCOORD_%d", set);
+				prim->attributes[attr_idx].name = strdup (name);
 				prim->attributes[attr_idx].type = cgltf_attribute_type_texcoord;
 				prim->attributes[attr_idx].index = set;
 				prim->attributes[attr_idx].data = acc;
@@ -1309,23 +1498,42 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 		if (mesh->num_colors[0] > 0)
 		{
 			color4_t *v_col = malloc (N * sizeof (color4_t));
-			for (size_t v = 0; v < N; v++) {
+			for (size_t v = 0; v < N; v++)
+			{
 				int ci = mesh->vertices[v].color_idx[0];
-				v_col[v] = (ci >= 0 && (size_t)ci < mesh->num_colors[0]) ? mesh->colors[0][ci] : (color4_t){1,1,1,1};
+				v_col[v] = (ci >= 0 && (size_t)ci < mesh->num_colors[0])
+					? mesh->colors[0][ci]
+					: (color4_t) { 1, 1, 1, 1 };
 			}
-			while (bin_size % 4 != 0) {
-				if (bin_size >= bin_cap) { bin_cap = bin_cap ? bin_cap * 2 : 1024; bin_data = realloc(bin_data, bin_cap); }
+			while (bin_size % 4 != 0)
+			{
+				if (bin_size >= bin_cap)
+				{
+					bin_cap = bin_cap ? bin_cap * 2 : 1024;
+					bin_data = realloc (bin_data, bin_cap);
+				}
 				bin_data[bin_size++] = 0;
 			}
-			size_t fsz = N * sizeof(color4_t);
-			if (bin_size + fsz > bin_cap) { bin_cap = (bin_size + fsz + 4096) * 2; bin_data = realloc(bin_data, bin_cap); }
+			size_t fsz = N * sizeof (color4_t);
+			if (bin_size + fsz > bin_cap)
+			{
+				bin_cap = (bin_size + fsz + 4096) * 2;
+				bin_data = realloc (bin_data, bin_cap);
+			}
 			cgltf_buffer_view *bv = &data.buffer_views[data.buffer_views_count++];
-			bv->buffer = &data.buffers[0]; bv->offset = bin_size; bv->size = fsz;
+			bv->buffer = &data.buffers[0];
+			bv->offset = bin_size;
+			bv->size = fsz;
 			cgltf_accessor *acc = &data.accessors[data.accessors_count++];
-			acc->buffer_view = bv; acc->component_type = cgltf_component_type_r_32f; acc->type = cgltf_type_vec4; acc->count = N;
-			memcpy (bin_data + bin_size, v_col, fsz); bin_size += fsz; free(v_col);
-			
-			prim->attributes[attr_idx].name = (char*)"COLOR_0";
+			acc->buffer_view = bv;
+			acc->component_type = cgltf_component_type_r_32f;
+			acc->type = cgltf_type_vec4;
+			acc->count = N;
+			memcpy (bin_data + bin_size, v_col, fsz);
+			bin_size += fsz;
+			free (v_col);
+
+			prim->attributes[attr_idx].name = (char *)"COLOR_0";
 			prim->attributes[attr_idx].type = cgltf_attribute_type_color;
 			prim->attributes[attr_idx].index = 0;
 			prim->attributes[attr_idx].data = acc;
@@ -1337,56 +1545,97 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 		{
 			uint16_t *v_jnt = calloc (N * 4, sizeof (uint16_t));
 			float *v_wt = calloc (N * 4, sizeof (float));
-			for (size_t v = 0; v < N; v++) {
+			for (size_t v = 0; v < N; v++)
+			{
 				int pi = mesh->vertices[v].position_idx;
 				int node = mesh->position_node ? mesh->position_node[pi] : -1;
-				if (node >= 0 && (size_t)node < model->num_node_influences && model->node_influences[node].num_weights > 0) {
+				if (node >= 0 && (size_t)node < model->num_node_influences
+					&& model->node_influences[node].num_weights > 0)
+				{
 					const node_influence_t *inf = &model->node_influences[node];
 					float total_w = 0.0f;
-					for (size_t w = 0; w < 4 && w < inf->num_weights; w++) {
+					for (size_t w = 0; w < 4 && w < inf->num_weights; w++)
+					{
 						v_jnt[v * 4 + w] = (uint16_t)inf->weights[w].bone_idx;
 						v_wt[v * 4 + w] = inf->weights[w].weight;
 						total_w += inf->weights[w].weight;
 					}
-					if (total_w > 0.0f) {
-						for (size_t w = 0; w < 4; w++) v_wt[v * 4 + w] /= total_w;
+					if (total_w > 0.0f)
+					{
+						for (size_t w = 0; w < 4; w++)
+							v_wt[v * 4 + w] /= total_w;
 					}
-				} else {
-					v_jnt[v * 4 + 0] = 0; v_wt[v * 4 + 0] = 1.0f;
+				}
+				else
+				{
+					v_jnt[v * 4 + 0] = 0;
+					v_wt[v * 4 + 0] = 1.0f;
 				}
 			}
-			
-			while (bin_size % 4 != 0) {
-				if (bin_size >= bin_cap) { bin_cap = bin_cap ? bin_cap * 2 : 1024; bin_data = realloc(bin_data, bin_cap); }
+
+			while (bin_size % 4 != 0)
+			{
+				if (bin_size >= bin_cap)
+				{
+					bin_cap = bin_cap ? bin_cap * 2 : 1024;
+					bin_data = realloc (bin_data, bin_cap);
+				}
 				bin_data[bin_size++] = 0;
 			}
-			size_t fsz = N * 4 * sizeof(uint16_t);
-			if (bin_size + fsz > bin_cap) { bin_cap = (bin_size + fsz + 4096) * 2; bin_data = realloc(bin_data, bin_cap); }
+			size_t fsz = N * 4 * sizeof (uint16_t);
+			if (bin_size + fsz > bin_cap)
+			{
+				bin_cap = (bin_size + fsz + 4096) * 2;
+				bin_data = realloc (bin_data, bin_cap);
+			}
 			cgltf_buffer_view *bv_jnt = &data.buffer_views[data.buffer_views_count++];
-			bv_jnt->buffer = &data.buffers[0]; bv_jnt->offset = bin_size; bv_jnt->size = fsz;
+			bv_jnt->buffer = &data.buffers[0];
+			bv_jnt->offset = bin_size;
+			bv_jnt->size = fsz;
 			cgltf_accessor *acc_jnt = &data.accessors[data.accessors_count++];
-			acc_jnt->buffer_view = bv_jnt; acc_jnt->component_type = cgltf_component_type_r_16u; acc_jnt->type = cgltf_type_vec4; acc_jnt->count = N;
-			memcpy (bin_data + bin_size, v_jnt, fsz); bin_size += fsz; free(v_jnt);
+			acc_jnt->buffer_view = bv_jnt;
+			acc_jnt->component_type = cgltf_component_type_r_16u;
+			acc_jnt->type = cgltf_type_vec4;
+			acc_jnt->count = N;
+			memcpy (bin_data + bin_size, v_jnt, fsz);
+			bin_size += fsz;
+			free (v_jnt);
 
-			prim->attributes[attr_idx].name = (char*)"JOINTS_0";
+			prim->attributes[attr_idx].name = (char *)"JOINTS_0";
 			prim->attributes[attr_idx].type = cgltf_attribute_type_joints;
 			prim->attributes[attr_idx].index = 0;
 			prim->attributes[attr_idx].data = acc_jnt;
 			attr_idx++;
 
-			while (bin_size % 4 != 0) {
-				if (bin_size >= bin_cap) { bin_cap = bin_cap ? bin_cap * 2 : 1024; bin_data = realloc(bin_data, bin_cap); }
+			while (bin_size % 4 != 0)
+			{
+				if (bin_size >= bin_cap)
+				{
+					bin_cap = bin_cap ? bin_cap * 2 : 1024;
+					bin_data = realloc (bin_data, bin_cap);
+				}
 				bin_data[bin_size++] = 0;
 			}
-			fsz = N * 4 * sizeof(float);
-			if (bin_size + fsz > bin_cap) { bin_cap = (bin_size + fsz + 4096) * 2; bin_data = realloc(bin_data, bin_cap); }
+			fsz = N * 4 * sizeof (float);
+			if (bin_size + fsz > bin_cap)
+			{
+				bin_cap = (bin_size + fsz + 4096) * 2;
+				bin_data = realloc (bin_data, bin_cap);
+			}
 			cgltf_buffer_view *bv_wt = &data.buffer_views[data.buffer_views_count++];
-			bv_wt->buffer = &data.buffers[0]; bv_wt->offset = bin_size; bv_wt->size = fsz;
+			bv_wt->buffer = &data.buffers[0];
+			bv_wt->offset = bin_size;
+			bv_wt->size = fsz;
 			cgltf_accessor *acc_wt = &data.accessors[data.accessors_count++];
-			acc_wt->buffer_view = bv_wt; acc_wt->component_type = cgltf_component_type_r_32f; acc_wt->type = cgltf_type_vec4; acc_wt->count = N;
-			memcpy (bin_data + bin_size, v_wt, fsz); bin_size += fsz; free(v_wt);
+			acc_wt->buffer_view = bv_wt;
+			acc_wt->component_type = cgltf_component_type_r_32f;
+			acc_wt->type = cgltf_type_vec4;
+			acc_wt->count = N;
+			memcpy (bin_data + bin_size, v_wt, fsz);
+			bin_size += fsz;
+			free (v_wt);
 
-			prim->attributes[attr_idx].name = (char*)"WEIGHTS_0";
+			prim->attributes[attr_idx].name = (char *)"WEIGHTS_0";
 			prim->attributes[attr_idx].type = cgltf_attribute_type_weights;
 			prim->attributes[attr_idx].index = 0;
 			prim->attributes[attr_idx].data = acc_wt;
@@ -1394,141 +1643,243 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 		}
 
 		// INDICES
-		while (bin_size % 4 != 0) {
-			if (bin_size >= bin_cap) { bin_cap = bin_cap ? bin_cap * 2 : 1024; bin_data = realloc(bin_data, bin_cap); }
+		while (bin_size % 4 != 0)
+		{
+			if (bin_size >= bin_cap)
+			{
+				bin_cap = bin_cap ? bin_cap * 2 : 1024;
+				bin_data = realloc (bin_data, bin_cap);
+			}
 			bin_data[bin_size++] = 0;
 		}
 		cgltf_buffer_view *bv_idx = &data.buffer_views[data.buffer_views_count++];
-		bv_idx->buffer = &data.buffers[0]; bv_idx->offset = bin_size;
+		bv_idx->buffer = &data.buffers[0];
+		bv_idx->offset = bin_size;
 		cgltf_accessor *acc_idx = &data.accessors[data.accessors_count++];
-		acc_idx->buffer_view = bv_idx; acc_idx->type = cgltf_type_scalar; acc_idx->count = N;
-		if (N < 65536) {
-			uint16_t *v_idx = malloc (N * sizeof(uint16_t));
-			for (size_t v=0; v<N; v++) v_idx[v] = (uint16_t)v;
-			size_t fsz = N * sizeof(uint16_t);
-			if (bin_size + fsz > bin_cap) { bin_cap = (bin_size + fsz + 4096) * 2; bin_data = realloc(bin_data, bin_cap); }
-			bv_idx->size = fsz; acc_idx->component_type = cgltf_component_type_r_16u;
-			memcpy(bin_data + bin_size, v_idx, fsz); bin_size += fsz; free(v_idx);
-		} else {
-			uint32_t *v_idx = malloc (N * sizeof(uint32_t));
-			for (size_t v=0; v<N; v++) v_idx[v] = (uint32_t)v;
-			size_t fsz = N * sizeof(uint32_t);
-			if (bin_size + fsz > bin_cap) { bin_cap = (bin_size + fsz + 4096) * 2; bin_data = realloc(bin_data, bin_cap); }
-			bv_idx->size = fsz; acc_idx->component_type = cgltf_component_type_r_32u;
-			memcpy(bin_data + bin_size, v_idx, fsz); bin_size += fsz; free(v_idx);
+		acc_idx->buffer_view = bv_idx;
+		acc_idx->type = cgltf_type_scalar;
+		acc_idx->count = N;
+		if (N < 65536)
+		{
+			uint16_t *v_idx = malloc (N * sizeof (uint16_t));
+			for (size_t v = 0; v < N; v++)
+				v_idx[v] = (uint16_t)v;
+			size_t fsz = N * sizeof (uint16_t);
+			if (bin_size + fsz > bin_cap)
+			{
+				bin_cap = (bin_size + fsz + 4096) * 2;
+				bin_data = realloc (bin_data, bin_cap);
+			}
+			bv_idx->size = fsz;
+			acc_idx->component_type = cgltf_component_type_r_16u;
+			memcpy (bin_data + bin_size, v_idx, fsz);
+			bin_size += fsz;
+			free (v_idx);
+		}
+		else
+		{
+			uint32_t *v_idx = malloc (N * sizeof (uint32_t));
+			for (size_t v = 0; v < N; v++)
+				v_idx[v] = (uint32_t)v;
+			size_t fsz = N * sizeof (uint32_t);
+			if (bin_size + fsz > bin_cap)
+			{
+				bin_cap = (bin_size + fsz + 4096) * 2;
+				bin_data = realloc (bin_data, bin_cap);
+			}
+			bv_idx->size = fsz;
+			acc_idx->component_type = cgltf_component_type_r_32u;
+			memcpy (bin_data + bin_size, v_idx, fsz);
+			bin_size += fsz;
+			free (v_idx);
 		}
 		prim->indices = acc_idx;
-		
+
 		prim->attributes_count = attr_idx;
 	}
 
 	for (size_t a = 0; a < model->num_animations; a++)
 	{
 		cgltf_animation *ganim = &data.animations[data.animations_count++];
-		ganim->name = (char*)model->animations[a].name;
+		ganim->name = (char *)model->animations[a].name;
 		size_t nc = model->animations[a].num_channels;
-		ganim->samplers = calloc(nc, sizeof(cgltf_animation_sampler));
-		ganim->channels = calloc(nc, sizeof(cgltf_animation_channel));
+		ganim->samplers = calloc (nc, sizeof (cgltf_animation_sampler));
+		ganim->channels = calloc (nc, sizeof (cgltf_animation_channel));
 		ganim->samplers_count = nc;
 		ganim->channels_count = nc;
-		
+
 		for (size_t c = 0; c < nc; c++)
 		{
 			const model_anim_channel_t *ch = model->animations[a].channels + c;
-			if (!ch->count || !ch->times || !ch->values) continue;
-			
+			if (!ch->count || !ch->times || !ch->values)
+				continue;
+
 			cgltf_animation_sampler *gsmp = &ganim->samplers[c];
 			cgltf_animation_channel *gch = &ganim->channels[c];
-			
+
 			gsmp->interpolation = cgltf_interpolation_type_linear;
-			
-			while (bin_size % 4 != 0) {
-				if (bin_size >= bin_cap) { bin_cap = bin_cap ? bin_cap * 2 : 1024; bin_data = realloc(bin_data, bin_cap); }
+
+			while (bin_size % 4 != 0)
+			{
+				if (bin_size >= bin_cap)
+				{
+					bin_cap = bin_cap ? bin_cap * 2 : 1024;
+					bin_data = realloc (bin_data, bin_cap);
+				}
 				bin_data[bin_size++] = 0;
 			}
-			size_t fsz = ch->count * sizeof(float);
-			if (bin_size + fsz > bin_cap) { bin_cap = (bin_size + fsz + 4096) * 2; bin_data = realloc(bin_data, bin_cap); }
+			size_t fsz = ch->count * sizeof (float);
+			if (bin_size + fsz > bin_cap)
+			{
+				bin_cap = (bin_size + fsz + 4096) * 2;
+				bin_data = realloc (bin_data, bin_cap);
+			}
 			cgltf_buffer_view *bv_in = &data.buffer_views[data.buffer_views_count++];
-			bv_in->buffer = &data.buffers[0]; bv_in->offset = bin_size; bv_in->size = fsz;
+			bv_in->buffer = &data.buffers[0];
+			bv_in->offset = bin_size;
+			bv_in->size = fsz;
 			cgltf_accessor *acc_in = &data.accessors[data.accessors_count++];
-			acc_in->buffer_view = bv_in; acc_in->component_type = cgltf_component_type_r_32f; acc_in->type = cgltf_type_scalar; acc_in->count = ch->count;
-			acc_in->has_min = 1; acc_in->has_max = 1;
-			acc_in->min[0] = ch->times[0]; acc_in->max[0] = ch->times[ch->count - 1];
-			memcpy(bin_data + bin_size, ch->times, fsz); bin_size += fsz;
+			acc_in->buffer_view = bv_in;
+			acc_in->component_type = cgltf_component_type_r_32f;
+			acc_in->type = cgltf_type_scalar;
+			acc_in->count = ch->count;
+			acc_in->has_min = 1;
+			acc_in->has_max = 1;
+			acc_in->min[0] = ch->times[0];
+			acc_in->max[0] = ch->times[ch->count - 1];
+			memcpy (bin_data + bin_size, ch->times, fsz);
+			bin_size += fsz;
 			gsmp->input = acc_in;
-			
-			while (bin_size % 4 != 0) {
-				if (bin_size >= bin_cap) { bin_cap = bin_cap ? bin_cap * 2 : 1024; bin_data = realloc(bin_data, bin_cap); }
+
+			while (bin_size % 4 != 0)
+			{
+				if (bin_size >= bin_cap)
+				{
+					bin_cap = bin_cap ? bin_cap * 2 : 1024;
+					bin_data = realloc (bin_data, bin_cap);
+				}
 				bin_data[bin_size++] = 0;
 			}
-			fsz = ch->count * ch->components * sizeof(float);
-			if (bin_size + fsz > bin_cap) { bin_cap = (bin_size + fsz + 4096) * 2; bin_data = realloc(bin_data, bin_cap); }
+			fsz = ch->count * ch->components * sizeof (float);
+			if (bin_size + fsz > bin_cap)
+			{
+				bin_cap = (bin_size + fsz + 4096) * 2;
+				bin_data = realloc (bin_data, bin_cap);
+			}
 			cgltf_buffer_view *bv_out = &data.buffer_views[data.buffer_views_count++];
-			bv_out->buffer = &data.buffers[0]; bv_out->offset = bin_size; bv_out->size = fsz;
+			bv_out->buffer = &data.buffers[0];
+			bv_out->offset = bin_size;
+			bv_out->size = fsz;
 			cgltf_accessor *acc_out = &data.accessors[data.accessors_count++];
-			acc_out->buffer_view = bv_out; acc_out->component_type = cgltf_component_type_r_32f; 
-			acc_out->type = ch->path == MODEL_ANIM_WEIGHTS ? cgltf_type_scalar : (ch->components == 4 ? cgltf_type_vec4 : (ch->components == 3 ? cgltf_type_vec3 : cgltf_type_scalar)); 
-			acc_out->count = ch->path == MODEL_ANIM_WEIGHTS ? ch->count * ch->components : ch->count;
-			memcpy(bin_data + bin_size, ch->values, fsz); bin_size += fsz;
+			acc_out->buffer_view = bv_out;
+			acc_out->component_type = cgltf_component_type_r_32f;
+			acc_out->type = ch->path == MODEL_ANIM_WEIGHTS
+				? cgltf_type_scalar
+				: (ch->components == 4
+						  ? cgltf_type_vec4
+						  : (ch->components == 3 ? cgltf_type_vec3 : cgltf_type_scalar));
+			acc_out->count
+				= ch->path == MODEL_ANIM_WEIGHTS ? ch->count * ch->components : ch->count;
+			memcpy (bin_data + bin_size, ch->values, fsz);
+			bin_size += fsz;
 			gsmp->output = acc_out;
-			
+
 			gch->sampler = gsmp;
 			gch->target_node = &data.nodes[ch->node_idx];
-			gch->target_path = ch->path == MODEL_ANIM_TRANSLATION ? cgltf_animation_path_type_translation : (ch->path == MODEL_ANIM_ROTATION ? cgltf_animation_path_type_rotation : (ch->path == MODEL_ANIM_SCALE ? cgltf_animation_path_type_scale : cgltf_animation_path_type_weights));
+			gch->target_path = ch->path == MODEL_ANIM_TRANSLATION
+				? cgltf_animation_path_type_translation
+				: (ch->path == MODEL_ANIM_ROTATION
+						  ? cgltf_animation_path_type_rotation
+						  : (ch->path == MODEL_ANIM_SCALE ? cgltf_animation_path_type_scale
+														  : cgltf_animation_path_type_weights));
 		}
 	}
 
-	for (size_t j = 0; j < model->num_joints; j++) {
-		if (model->joints[j].parent_idx == -1) scene_nodes_idx[num_scene_nodes++] = j;
+	for (size_t j = 0; j < model->num_joints; j++)
+	{
+		if (model->joints[j].parent_idx == -1)
+			scene_nodes_idx[num_scene_nodes++] = j;
 	}
-	for (size_t m = 0; m < model->num_meshes; m++) {
+	for (size_t m = 0; m < model->num_meshes; m++)
+	{
 		bool has_inst = false;
-		for (size_t i = 0; i < model->num_instances; i++) {
-			if (model->instances[i].mesh_idx == m) {
+		for (size_t i = 0; i < model->num_instances; i++)
+		{
+			if (model->instances[i].mesh_idx == m)
+			{
 				has_inst = true;
 				break;
 			}
 		}
-		if (!has_inst) {
+		if (!has_inst)
+		{
 			scene_nodes_idx[num_scene_nodes++] = model->num_joints + m;
 		}
 	}
-	for (size_t i = 0; i < model->num_instances; i++) {
-		if (model->instances[i].parent_idx == -1) scene_nodes_idx[num_scene_nodes++] = model->num_joints + model->num_meshes + i;
+	for (size_t i = 0; i < model->num_instances; i++)
+	{
+		if (model->instances[i].parent_idx == -1)
+			scene_nodes_idx[num_scene_nodes++] = model->num_joints + model->num_meshes + i;
 	}
 	const size_t scene_object_base = model->num_joints + model->num_meshes + model->num_instances;
-	for (size_t i = 0; i < model->num_cameras + model->num_lights; i++) {
+	for (size_t i = 0; i < model->num_cameras + model->num_lights; i++)
+	{
 		scene_nodes_idx[num_scene_nodes++] = scene_object_base + i;
 	}
 
-	data.scenes[0].nodes = calloc(num_scene_nodes > 0 ? num_scene_nodes : 1, sizeof(cgltf_node*));
+	data.scenes[0].nodes
+		= calloc (num_scene_nodes > 0 ? num_scene_nodes : 1, sizeof (cgltf_node *));
 	data.scenes[0].nodes_count = num_scene_nodes;
-	for (size_t i=0; i<num_scene_nodes; i++) data.scenes[0].nodes[i] = &data.nodes[scene_nodes_idx[i]];
+	for (size_t i = 0; i < num_scene_nodes; i++)
+		data.scenes[0].nodes[i] = &data.nodes[scene_nodes_idx[i]];
 
 	for (size_t j = 0; j < model->num_joints; j++)
 	{
 		const joint_t *joint = &model->joints[j];
 		cgltf_node *gnode = &data.nodes[j];
-		gnode->name = (char*)joint->name;
-		
-		const double hx = joint->rotate.x * M_PI / 360.0, hy = joint->rotate.y * M_PI / 360.0, hz = joint->rotate.z * M_PI / 360.0;
-		const double cx = cos (hx), sx = sin (hx), cy = cos (hy), sy = sin (hy), cz = cos (hz), sz = sin (hz);
-		const double qx = sx * cy * cz - cx * sy * sz, qy = cx * sy * cz + sx * cy * sz, qz = cx * cy * sz - sx * sy * cz, qw = cx * cy * cz + sx * sy * sz;
-		
-		gnode->has_translation = 1; gnode->translation[0] = joint->translate.x; gnode->translation[1] = joint->translate.y; gnode->translation[2] = joint->translate.z;
-		gnode->has_rotation = 1; gnode->rotation[0] = qx; gnode->rotation[1] = qy; gnode->rotation[2] = qz; gnode->rotation[3] = qw;
-		gnode->has_scale = 1; gnode->scale[0] = joint->scale.x; gnode->scale[1] = joint->scale.y; gnode->scale[2] = joint->scale.z;
+		gnode->name = (char *)joint->name;
+
+		const double hx = joint->rotate.x * M_PI / 360.0, hy = joint->rotate.y * M_PI / 360.0,
+					 hz = joint->rotate.z * M_PI / 360.0;
+		const double cx = cos (hx), sx = sin (hx), cy = cos (hy), sy = sin (hy), cz = cos (hz),
+					 sz = sin (hz);
+		const double qx = sx * cy * cz - cx * sy * sz, qy = cx * sy * cz + sx * cy * sz,
+					 qz = cx * cy * sz - sx * sy * cz, qw = cx * cy * cz + sx * sy * sz;
+
+		gnode->has_translation = 1;
+		gnode->translation[0] = joint->translate.x;
+		gnode->translation[1] = joint->translate.y;
+		gnode->translation[2] = joint->translate.z;
+		gnode->has_rotation = 1;
+		gnode->rotation[0] = qx;
+		gnode->rotation[1] = qy;
+		gnode->rotation[2] = qz;
+		gnode->rotation[3] = qw;
+		gnode->has_scale = 1;
+		gnode->scale[0] = joint->scale.x;
+		gnode->scale[1] = joint->scale.y;
+		gnode->scale[2] = joint->scale.z;
 
 		size_t num_children = 0;
-		for (size_t c = 0; c < model->num_joints; c++) if (model->joints[c].parent_idx == (int)j) num_children++;
-		for (size_t i = 0; i < model->num_instances; i++) if (model->instances[i].parent_idx == (int)j) num_children++;
-		
-		if (num_children > 0) {
-			gnode->children = calloc(num_children, sizeof(cgltf_node*));
+		for (size_t c = 0; c < model->num_joints; c++)
+			if (model->joints[c].parent_idx == (int)j)
+				num_children++;
+		for (size_t i = 0; i < model->num_instances; i++)
+			if (model->instances[i].parent_idx == (int)j)
+				num_children++;
+
+		if (num_children > 0)
+		{
+			gnode->children = calloc (num_children, sizeof (cgltf_node *));
 			gnode->children_count = num_children;
 			size_t c_idx = 0;
-			for (size_t c = 0; c < model->num_joints; c++) if (model->joints[c].parent_idx == (int)j) gnode->children[c_idx++] = &data.nodes[c];
-			for (size_t i = 0; i < model->num_instances; i++) if (model->instances[i].parent_idx == (int)j) gnode->children[c_idx++] = &data.nodes[model->num_joints + model->num_meshes + i];
+			for (size_t c = 0; c < model->num_joints; c++)
+				if (model->joints[c].parent_idx == (int)j)
+					gnode->children[c_idx++] = &data.nodes[c];
+			for (size_t i = 0; i < model->num_instances; i++)
+				if (model->instances[i].parent_idx == (int)j)
+					gnode->children[c_idx++]
+						= &data.nodes[model->num_joints + model->num_meshes + i];
 		}
 	}
 
@@ -1536,9 +1887,10 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 	{
 		const mesh_t *mesh = &model->meshes[m];
 		cgltf_node *gnode = &data.nodes[model->num_joints + m];
-		gnode->name = (char*)mesh->name;
+		gnode->name = (char *)mesh->name;
 		gnode->mesh = &data.meshes[m];
-		if (dae_mesh_is_skinned (model, mesh) && model->num_joints > 0 && acc_ibm >= 0) {
+		if (dae_mesh_is_skinned (model, mesh) && model->num_joints > 0 && acc_ibm >= 0)
+		{
 			gnode->skin = &data.skins[0];
 		}
 	}
@@ -1547,22 +1899,40 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 	{
 		const model_instance_t *in = model->instances + i;
 		cgltf_node *gnode = &data.nodes[model->num_joints + model->num_meshes + i];
-		gnode->name = (char*)in->name;
+		gnode->name = (char *)in->name;
 		gnode->mesh = &data.meshes[in->mesh_idx];
 		gnode->has_matrix = 1;
-		
-		if (in->has_matrix) {
-			for (int k = 0; k < 16; k++) gnode->matrix[k] = in->matrix[k];
-		} else {
-			const double rx = in->rotate.x * M_PI / 180.0, ry = in->rotate.y * M_PI / 180.0, rz = in->rotate.z * M_PI / 180.0;
-			const double cx = cos (rx), sx = sin (rx), cy = cos (ry), sy = sin (ry), cz = cos (rz), sz = sin (rz);
+
+		if (in->has_matrix)
+		{
+			for (int k = 0; k < 16; k++)
+				gnode->matrix[k] = in->matrix[k];
+		}
+		else
+		{
+			const double rx = in->rotate.x * M_PI / 180.0, ry = in->rotate.y * M_PI / 180.0,
+						 rz = in->rotate.z * M_PI / 180.0;
+			const double cx = cos (rx), sx = sin (rx), cy = cos (ry), sy = sin (ry), cz = cos (rz),
+						 sz = sin (rz);
 			const double r00 = cy * cz, r01 = cz * sx * sy - cx * sz, r02 = sx * sz + cx * cz * sy;
 			const double r10 = cy * sz, r11 = cx * cz + sx * sy * sz, r12 = cx * sy * sz - cz * sx;
 			const double r20 = -sy, r21 = cy * sx, r22 = cx * cy;
-			gnode->matrix[0] = r00 * in->scale.x; gnode->matrix[1] = r10 * in->scale.x; gnode->matrix[2] = r20 * in->scale.x; gnode->matrix[3] = 0;
-			gnode->matrix[4] = r01 * in->scale.y; gnode->matrix[5] = r11 * in->scale.y; gnode->matrix[6] = r21 * in->scale.y; gnode->matrix[7] = 0;
-			gnode->matrix[8] = r02 * in->scale.z; gnode->matrix[9] = r12 * in->scale.z; gnode->matrix[10] = r22 * in->scale.z; gnode->matrix[11] = 0;
-			gnode->matrix[12] = in->translate.x; gnode->matrix[13] = in->translate.y; gnode->matrix[14] = in->translate.z; gnode->matrix[15] = 1;
+			gnode->matrix[0] = r00 * in->scale.x;
+			gnode->matrix[1] = r10 * in->scale.x;
+			gnode->matrix[2] = r20 * in->scale.x;
+			gnode->matrix[3] = 0;
+			gnode->matrix[4] = r01 * in->scale.y;
+			gnode->matrix[5] = r11 * in->scale.y;
+			gnode->matrix[6] = r21 * in->scale.y;
+			gnode->matrix[7] = 0;
+			gnode->matrix[8] = r02 * in->scale.z;
+			gnode->matrix[9] = r12 * in->scale.z;
+			gnode->matrix[10] = r22 * in->scale.z;
+			gnode->matrix[11] = 0;
+			gnode->matrix[12] = in->translate.x;
+			gnode->matrix[13] = in->translate.y;
+			gnode->matrix[14] = in->translate.z;
+			gnode->matrix[15] = 1;
 		}
 	}
 
@@ -1570,13 +1940,14 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 	{
 		const model_camera_t *c = model->cameras + i;
 		cgltf_node *gnode = &data.nodes[scene_object_base + i];
-		gnode->name = (char*)c->name;
+		gnode->name = (char *)c->name;
 		gnode->camera = &data.cameras[i];
 		gnode->has_matrix = 1;
-		for (int k = 0; k < 16; k++) gnode->matrix[k] = c->matrix[k];
-		
+		for (int k = 0; k < 16; k++)
+			gnode->matrix[k] = c->matrix[k];
+
 		cgltf_camera *gcam = &data.cameras[i];
-		gcam->name = (char*)c->name;
+		gcam->name = (char *)c->name;
 		gcam->type = cgltf_camera_type_perspective;
 		gcam->data.perspective.yfov = c->yfov;
 		gcam->data.perspective.znear = c->znear;
@@ -1588,15 +1959,20 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 	{
 		const model_light_t *l = model->lights + i;
 		cgltf_node *gnode = &data.nodes[scene_object_base + model->num_cameras + i];
-		gnode->name = (char*)l->name;
+		gnode->name = (char *)l->name;
 		gnode->light = &data.lights[i];
 		gnode->has_matrix = 1;
-		for (int k = 0; k < 16; k++) gnode->matrix[k] = l->matrix[k];
+		for (int k = 0; k < 16; k++)
+			gnode->matrix[k] = l->matrix[k];
 
 		cgltf_light *glight = &data.lights[i];
-		glight->name = (char*)l->name;
-		glight->type = l->kind == MODEL_LIGHT_DIRECTIONAL ? cgltf_light_type_directional : (l->kind == MODEL_LIGHT_SPOT ? cgltf_light_type_spot : cgltf_light_type_point);
-		glight->color[0] = l->color[0]; glight->color[1] = l->color[1]; glight->color[2] = l->color[2];
+		glight->name = (char *)l->name;
+		glight->type = l->kind == MODEL_LIGHT_DIRECTIONAL
+			? cgltf_light_type_directional
+			: (l->kind == MODEL_LIGHT_SPOT ? cgltf_light_type_spot : cgltf_light_type_point);
+		glight->color[0] = l->color[0];
+		glight->color[1] = l->color[1];
+		glight->color[2] = l->color[2];
 		glight->intensity = l->intensity > 0 ? l->intensity : 1;
 		glight->range = l->range > 0 ? l->range : 0;
 		glight->spot_inner_cone_angle = l->inner_cone;
@@ -1604,444 +1980,612 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 	}
 
 	int has_lights = (model->num_lights > 0);
-	if (has_lights) {
+	if (has_lights)
+	{
 		int ext_found = 0;
-		for(size_t e=0; e<data.extensions_used_count; e++) if(!strcmp(data.extensions_used[e], "KHR_lights_punctual")) ext_found = 1;
-		if (!ext_found) data.extensions_used[data.extensions_used_count++] = (char*)"KHR_lights_punctual";
+		for (size_t e = 0; e < data.extensions_used_count; e++)
+			if (!strcmp (data.extensions_used[e], "KHR_lights_punctual"))
+				ext_found = 1;
+		if (!ext_found)
+			data.extensions_used[data.extensions_used_count++] = (char *)"KHR_lights_punctual";
 	}
 
 	if (any_skin && model->num_joints > 0 && acc_ibm >= 0)
 	{
 		data.skins_count = 1;
 		data.skins[0].inverse_bind_matrices = &data.accessors[acc_ibm];
-		data.skins[0].joints = calloc(model->num_joints, sizeof(cgltf_node*));
+		data.skins[0].joints = calloc (model->num_joints, sizeof (cgltf_node *));
 		data.skins[0].joints_count = model->num_joints;
-		for (size_t j = 0; j < model->num_joints; j++) data.skins[0].joints[j] = &data.nodes[j];
+		for (size_t j = 0; j < model->num_joints; j++)
+			data.skins[0].joints[j] = &data.nodes[j];
 	}
 
 	data.buffers[0].size = bin_size;
 	data.bin = bin_data;
 	data.bin_size = bin_size;
-	
+
 	data.nodes_count = scene_object_base + model->num_cameras + model->num_lights;
 
-	cgltf_result res = cgltf_write_file(&options, out_glb_file, &data);
+	cgltf_result res = cgltf_write_file (&options, out_glb_file, &data);
 
 	// Cleanup
-	for(size_t i=0; i<data.meshes_count; i++) {
-		for(size_t p=0; p<data.meshes[i].primitives_count; p++) {
-			for(size_t a=0; a<data.meshes[i].primitives[p].attributes_count; a++) {
-				if (strncmp(data.meshes[i].primitives[p].attributes[a].name, "TEXCOORD_", 9) == 0 && data.meshes[i].primitives[p].attributes[a].index > 0)
-					free((void*)data.meshes[i].primitives[p].attributes[a].name);
+	for (size_t i = 0; i < data.meshes_count; i++)
+	{
+		for (size_t p = 0; p < data.meshes[i].primitives_count; p++)
+		{
+			for (size_t a = 0; a < data.meshes[i].primitives[p].attributes_count; a++)
+			{
+				if (strncmp (data.meshes[i].primitives[p].attributes[a].name, "TEXCOORD_", 9) == 0
+					&& data.meshes[i].primitives[p].attributes[a].index > 0)
+					free ((void *)data.meshes[i].primitives[p].attributes[a].name);
 			}
-			free(data.meshes[i].primitives[p].attributes);
-			if (data.meshes[i].primitives[p].targets) {
-				for(size_t t=0; t<data.meshes[i].primitives[p].targets_count; t++) free(data.meshes[i].primitives[p].targets[t].attributes);
-				free(data.meshes[i].primitives[p].targets);
+			free (data.meshes[i].primitives[p].attributes);
+			if (data.meshes[i].primitives[p].targets)
+			{
+				for (size_t t = 0; t < data.meshes[i].primitives[p].targets_count; t++)
+					free (data.meshes[i].primitives[p].targets[t].attributes);
+				free (data.meshes[i].primitives[p].targets);
 			}
 		}
-		free(data.meshes[i].primitives);
-		if (data.meshes[i].weights) free(data.meshes[i].weights);
-		if (data.meshes[i].target_names) free(data.meshes[i].target_names);
+		free (data.meshes[i].primitives);
+		if (data.meshes[i].weights)
+			free (data.meshes[i].weights);
+		if (data.meshes[i].target_names)
+			free (data.meshes[i].target_names);
 	}
-	for(size_t a=0; a<data.animations_count; a++) {
-		if (data.animations[a].samplers) free(data.animations[a].samplers);
-		if (data.animations[a].channels) free(data.animations[a].channels);
+	for (size_t a = 0; a < data.animations_count; a++)
+	{
+		if (data.animations[a].samplers)
+			free (data.animations[a].samplers);
+		if (data.animations[a].channels)
+			free (data.animations[a].channels);
 	}
-	for(size_t i=0; i<data.images_count; i++) {
-		if (data.images[i].uri) free((void*)data.images[i].uri);
+	for (size_t i = 0; i < data.images_count; i++)
+	{
+		if (data.images[i].uri)
+			free ((void *)data.images[i].uri);
 	}
-	for(size_t i=0; i<data.nodes_count; i++) if (data.nodes[i].children) free(data.nodes[i].children);
-	if (data.skins && data.skins_count > 0 && data.skins[0].joints) free(data.skins[0].joints);
-	
-	free(data.buffers);
-	free(data.buffer_views);
-	free(data.accessors);
-	free(data.images);
-	free(data.textures);
-	free(data.samplers);
-	free(data.materials);
-	free(data.meshes);
-	free(data.nodes);
-	if (data.scenes && data.scenes[0].nodes) free(data.scenes[0].nodes);
-	free(data.scenes);
-	free(data.cameras);
-	free(data.lights);
-	free(data.animations);
-	free(data.skins);
-	free(data.extensions_used);
-	free(scene_nodes_idx);
-	if (bin_data) free(bin_data);
+	for (size_t i = 0; i < data.nodes_count; i++)
+		if (data.nodes[i].children)
+			free (data.nodes[i].children);
+	if (data.skins && data.skins_count > 0 && data.skins[0].joints)
+		free (data.skins[0].joints);
+
+	free (data.buffers);
+	free (data.buffer_views);
+	free (data.accessors);
+	free (data.images);
+	free (data.textures);
+	free (data.samplers);
+	free (data.materials);
+	free (data.meshes);
+	free (data.nodes);
+	if (data.scenes && data.scenes[0].nodes)
+		free (data.scenes[0].nodes);
+	free (data.scenes);
+	free (data.cameras);
+	free (data.lights);
+	free (data.animations);
+	free (data.skins);
+	free (data.extensions_used);
+	free (scene_nodes_idx);
+	if (bin_data)
+		free (bin_data);
 
 	return (res == cgltf_result_success) ? 0 : -1;
 }
 
-static void convert_materials(cgltf_data *data, model_t *model) {
-    if (!data->materials_count) return;
-    model->materials = calloc(data->materials_count, sizeof(material_t));
-    model->num_materials = data->materials_count;
-    for (size_t i = 0; i < data->materials_count; i++) {
-        cgltf_material *m = &data->materials[i];
-        material_t *dst = &model->materials[i];
-        if (m->name) snprintf(dst->name, sizeof(dst->name), "%s", m->name);
-        else snprintf(dst->name, sizeof(dst->name), "mat_%zu", i);
-        
-        dst->diffuse[0] = dst->diffuse[1] = dst->diffuse[2] = dst->diffuse[3] = 1.0f;
-        
-        if (m->has_pbr_metallic_roughness) {
-            memcpy(dst->diffuse, m->pbr_metallic_roughness.base_color_factor, sizeof(float)*4);
-            if (m->pbr_metallic_roughness.base_color_texture.texture) {
-                cgltf_texture *tex = m->pbr_metallic_roughness.base_color_texture.texture;
-                if (tex->image && tex->image->name) {
-                    snprintf(dst->textures[0], sizeof(dst->textures[0]), "%s", tex->image->name);
-                } else if (tex->image && tex->image->uri) {
-                    snprintf(dst->textures[0], sizeof(dst->textures[0]), "%s", tex->image->uri);
-                }
-                dst->num_textures = 1;
-            }
-        }
-    }
+static void convert_materials (cgltf_data *data, model_t *model)
+{
+	if (!data->materials_count)
+		return;
+	model->materials = calloc (data->materials_count, sizeof (material_t));
+	model->num_materials = data->materials_count;
+	for (size_t i = 0; i < data->materials_count; i++)
+	{
+		cgltf_material *m = &data->materials[i];
+		material_t *dst = &model->materials[i];
+		if (m->name)
+			snprintf (dst->name, sizeof (dst->name), "%s", m->name);
+		else
+			snprintf (dst->name, sizeof (dst->name), "mat_%zu", i);
+
+		dst->diffuse[0] = dst->diffuse[1] = dst->diffuse[2] = dst->diffuse[3] = 1.0f;
+
+		if (m->has_pbr_metallic_roughness)
+		{
+			memcpy (dst->diffuse, m->pbr_metallic_roughness.base_color_factor, sizeof (float) * 4);
+			if (m->pbr_metallic_roughness.base_color_texture.texture)
+			{
+				cgltf_texture *tex = m->pbr_metallic_roughness.base_color_texture.texture;
+				if (tex->image && tex->image->name)
+				{
+					snprintf (dst->textures[0], sizeof (dst->textures[0]), "%s", tex->image->name);
+				}
+				else if (tex->image && tex->image->uri)
+				{
+					snprintf (dst->textures[0], sizeof (dst->textures[0]), "%s", tex->image->uri);
+				}
+				dst->num_textures = 1;
+			}
+		}
+	}
 }
 
-static void convert_meshes_and_skin(cgltf_data *data, model_t *model) {
-    // First, count total primitives
-    size_t num_prims = 0;
-    for (size_t i = 0; i < data->meshes_count; i++) {
-        num_prims += data->meshes[i].primitives_count;
-    }
-    if (!num_prims) return;
-    
-    model->meshes = calloc(num_prims, sizeof(mesh_t));
-    model->num_meshes = 0;
-    
-    // We will accumulate node influences across all meshes.
-    // In lib-model-dae, node_influences is indexed by position_node.
-    // We'll just append each vertex's influence to model->node_influences.
-    size_t cap_influences = 1024;
-    model->node_influences = calloc(cap_influences, sizeof(node_influence_t));
-    model->num_node_influences = 0;
-    
-    for (size_t i = 0; i < data->meshes_count; i++) {
-        cgltf_mesh *m = &data->meshes[i];
-        for (size_t j = 0; j < m->primitives_count; j++) {
-            cgltf_primitive *p = &m->primitives[j];
-            mesh_t *dst = &model->meshes[model->num_meshes++];
-            // As with instances below: only disambiguate with a "_<j>"
-            // suffix when the glTF mesh actually has multiple primitives.
-            // Appending it unconditionally mutates a single-primitive
-            // mesh's name on every decode->encode cycle, breaking the
-            // canonical fixed point.
-            if (m->primitives_count > 1) {
-                if (m->name) snprintf(dst->name, sizeof(dst->name), "%s_%zu", m->name, j);
-                else snprintf(dst->name, sizeof(dst->name), "mesh_%zu_%zu", i, j);
-            } else {
-                if (m->name) snprintf(dst->name, sizeof(dst->name), "%s", m->name);
-                else snprintf(dst->name, sizeof(dst->name), "mesh_%zu", i);
-            }
-            
-            if (p->material) {
-                dst->material_idx = p->material - data->materials;
-            } else {
-                dst->material_idx = -1;
-            }
-            
-            size_t vertex_count = 0;
-            // find position count
-            for (size_t k = 0; k < p->attributes_count; k++) {
-                if (p->attributes[k].type == cgltf_attribute_type_position) {
-                    vertex_count = p->attributes[k].data->count;
-                    break;
-                }
-            }
-            
-            if (!vertex_count) continue;
-            
-            cgltf_accessor *acc_pos = NULL, *acc_norm = NULL, *acc_tex[8] = {NULL}, *acc_col[2] = {NULL};
-            cgltf_accessor *acc_joints = NULL, *acc_weights = NULL;
-            
-            for (size_t k = 0; k < p->attributes_count; k++) {
-                cgltf_attribute *attr = &p->attributes[k];
-                if (attr->type == cgltf_attribute_type_position) acc_pos = attr->data;
-                else if (attr->type == cgltf_attribute_type_normal) acc_norm = attr->data;
-                else if (attr->type == cgltf_attribute_type_texcoord) {
-                    if (attr->index < 8) acc_tex[attr->index] = attr->data;
-                }
-                else if (attr->type == cgltf_attribute_type_color) {
-                    if (attr->index < 2) acc_col[attr->index] = attr->data;
-                }
-                else if (attr->type == cgltf_attribute_type_joints) acc_joints = attr->data;
-                else if (attr->type == cgltf_attribute_type_weights) acc_weights = attr->data;
-            }
-            
-            if (acc_pos) {
-                dst->num_positions = acc_pos->count;
-                dst->positions = calloc(dst->num_positions, sizeof(vec3_t));
-                for (size_t v = 0; v < dst->num_positions; v++) cgltf_accessor_read_float(acc_pos, v, (float*)&dst->positions[v], 3);
-            }
-            if (acc_norm) {
-                dst->num_normals = acc_norm->count;
-                dst->normals = calloc(dst->num_normals, sizeof(vec3_t));
-                for (size_t v = 0; v < dst->num_normals; v++) cgltf_accessor_read_float(acc_norm, v, (float*)&dst->normals[v], 3);
-            }
-            if (acc_tex[0]) {
-                dst->num_texcoords = acc_tex[0]->count;
-                dst->texcoords = calloc(dst->num_texcoords, sizeof(vec2_t));
-                for (size_t v = 0; v < dst->num_texcoords; v++) cgltf_accessor_read_float(acc_tex[0], v, (float*)&dst->texcoords[v], 2);
-            }
-            for (int t = 1; t < 8; t++) {
-                if (acc_tex[t]) {
-                    dst->num_extra_texcoords[t-1] = acc_tex[t]->count;
-                    dst->extra_texcoords[t-1] = calloc(acc_tex[t]->count, sizeof(vec2_t));
-                    for (size_t v = 0; v < acc_tex[t]->count; v++) cgltf_accessor_read_float(acc_tex[t], v, (float*)&dst->extra_texcoords[t-1][v], 2);
-                }
-            }
-            for (int c = 0; c < 2; c++) {
-                if (acc_col[c]) {
-                    dst->num_colors[c] = acc_col[c]->count;
-                    dst->colors[c] = calloc(acc_col[c]->count, sizeof(color4_t));
-                    for (size_t v = 0; v < acc_col[c]->count; v++) {
-                        float col[4] = {1,1,1,1};
-                        cgltf_accessor_read_float(acc_col[c], v, col, 4);
-                        dst->colors[c][v].r = col[0]; dst->colors[c][v].g = col[1];
-                        dst->colors[c][v].b = col[2]; dst->colors[c][v].a = col[3];
-                    }
-                }
-            }
-            
-            // skinning
-            if (acc_joints && acc_weights) {
-                dst->position_node = calloc(dst->num_positions, sizeof(int));
-                for (size_t v = 0; v < dst->num_positions; v++) {
-                    cgltf_uint joints[4] = {0,0,0,0};
-                    float weights[4] = {0,0,0,0};
-                    cgltf_accessor_read_uint(acc_joints, v, joints, 4);
-                    cgltf_accessor_read_float(acc_weights, v, weights, 4);
-                    
-                    if (model->num_node_influences >= cap_influences) {
-                        cap_influences *= 2;
-                        model->node_influences = realloc(model->node_influences, cap_influences * sizeof(node_influence_t));
-                    }
-                    
-                    int inf_idx = model->num_node_influences++;
-                    node_influence_t *inf = &model->node_influences[inf_idx];
-                    inf->weights = calloc(4, sizeof(influence_t));
-                    inf->num_weights = 0;
-                    for (int w = 0; w < 4; w++) {
-                        if (weights[w] > 0.0f) {
-                            inf->weights[inf->num_weights].bone_idx = joints[w];
-                            inf->weights[inf->num_weights].weight = weights[w];
-                            inf->num_weights++;
-                        }
-                    }
-                    dst->position_node[v] = inf_idx;
-                }
-            } else {
-                dst->position_node = calloc(dst->num_positions, sizeof(int));
-                for (size_t v = 0; v < dst->num_positions; v++) {
-                    dst->position_node[v] = -1;
-                }
-            }
-            
-            // Build indices
-            if (p->indices) {
-                dst->num_vertices = p->indices->count;
-                dst->vertices = calloc(dst->num_vertices, sizeof(vertex_t));
-                for (size_t v = 0; v < dst->num_vertices; v++) {
-                    int idx = cgltf_accessor_read_index(p->indices, v);
-                    dst->vertices[v].position_idx = dst->num_positions ? idx : 0;
-                    dst->vertices[v].normal_idx = dst->num_normals ? idx : 0;
-                    dst->vertices[v].texcoord_idx = dst->num_texcoords ? idx : 0;
-                    dst->vertices[v].color_idx[0] = dst->num_colors[0] ? idx : 0;
-                    dst->vertices[v].color_idx[1] = dst->num_colors[1] ? idx : 0;
-                    for (int e = 0; e < 7; e++) dst->vertices[v].extra_texcoord_idx[e] = dst->num_extra_texcoords[e] ? idx : 0;
-                }
-            } else {
-                dst->num_vertices = vertex_count;
-                dst->vertices = calloc(dst->num_vertices, sizeof(vertex_t));
-                for (size_t v = 0; v < dst->num_vertices; v++) {
-                    dst->vertices[v].position_idx = dst->num_positions ? v : 0;
-                    dst->vertices[v].normal_idx = dst->num_normals ? v : 0;
-                    dst->vertices[v].texcoord_idx = dst->num_texcoords ? v : 0;
-                    dst->vertices[v].color_idx[0] = dst->num_colors[0] ? v : 0;
-                    dst->vertices[v].color_idx[1] = dst->num_colors[1] ? v : 0;
-                    for (int e = 0; e < 7; e++) dst->vertices[v].extra_texcoord_idx[e] = dst->num_extra_texcoords[e] ? v : 0;
-                }
-            }
-        }
-    }
+static void convert_meshes_and_skin (cgltf_data *data, model_t *model)
+{
+	// First, count total primitives
+	size_t num_prims = 0;
+	for (size_t i = 0; i < data->meshes_count; i++)
+	{
+		num_prims += data->meshes[i].primitives_count;
+	}
+	if (!num_prims)
+		return;
+
+	model->meshes = calloc (num_prims, sizeof (mesh_t));
+	model->num_meshes = 0;
+
+	// We will accumulate node influences across all meshes.
+	// In lib-model-dae, node_influences is indexed by position_node.
+	// We'll just append each vertex's influence to model->node_influences.
+	size_t cap_influences = 1024;
+	model->node_influences = calloc (cap_influences, sizeof (node_influence_t));
+	model->num_node_influences = 0;
+
+	for (size_t i = 0; i < data->meshes_count; i++)
+	{
+		cgltf_mesh *m = &data->meshes[i];
+		for (size_t j = 0; j < m->primitives_count; j++)
+		{
+			cgltf_primitive *p = &m->primitives[j];
+			mesh_t *dst = &model->meshes[model->num_meshes++];
+			// As with instances below: only disambiguate with a "_<j>"
+			// suffix when the glTF mesh actually has multiple primitives.
+			// Appending it unconditionally mutates a single-primitive
+			// mesh's name on every decode->encode cycle, breaking the
+			// canonical fixed point.
+			if (m->primitives_count > 1)
+			{
+				if (m->name)
+					snprintf (dst->name, sizeof (dst->name), "%s_%zu", m->name, j);
+				else
+					snprintf (dst->name, sizeof (dst->name), "mesh_%zu_%zu", i, j);
+			}
+			else
+			{
+				if (m->name)
+					snprintf (dst->name, sizeof (dst->name), "%s", m->name);
+				else
+					snprintf (dst->name, sizeof (dst->name), "mesh_%zu", i);
+			}
+
+			if (p->material)
+			{
+				dst->material_idx = p->material - data->materials;
+			}
+			else
+			{
+				dst->material_idx = -1;
+			}
+
+			size_t vertex_count = 0;
+			// find position count
+			for (size_t k = 0; k < p->attributes_count; k++)
+			{
+				if (p->attributes[k].type == cgltf_attribute_type_position)
+				{
+					vertex_count = p->attributes[k].data->count;
+					break;
+				}
+			}
+
+			if (!vertex_count)
+				continue;
+
+			cgltf_accessor *acc_pos = NULL, *acc_norm = NULL, *acc_tex[8] = { NULL },
+						   *acc_col[2] = { NULL };
+			cgltf_accessor *acc_joints = NULL, *acc_weights = NULL;
+
+			for (size_t k = 0; k < p->attributes_count; k++)
+			{
+				cgltf_attribute *attr = &p->attributes[k];
+				if (attr->type == cgltf_attribute_type_position)
+					acc_pos = attr->data;
+				else if (attr->type == cgltf_attribute_type_normal)
+					acc_norm = attr->data;
+				else if (attr->type == cgltf_attribute_type_texcoord)
+				{
+					if (attr->index < 8)
+						acc_tex[attr->index] = attr->data;
+				}
+				else if (attr->type == cgltf_attribute_type_color)
+				{
+					if (attr->index < 2)
+						acc_col[attr->index] = attr->data;
+				}
+				else if (attr->type == cgltf_attribute_type_joints)
+					acc_joints = attr->data;
+				else if (attr->type == cgltf_attribute_type_weights)
+					acc_weights = attr->data;
+			}
+
+			if (acc_pos)
+			{
+				dst->num_positions = acc_pos->count;
+				dst->positions = calloc (dst->num_positions, sizeof (vec3_t));
+				for (size_t v = 0; v < dst->num_positions; v++)
+					cgltf_accessor_read_float (acc_pos, v, (float *)&dst->positions[v], 3);
+			}
+			if (acc_norm)
+			{
+				dst->num_normals = acc_norm->count;
+				dst->normals = calloc (dst->num_normals, sizeof (vec3_t));
+				for (size_t v = 0; v < dst->num_normals; v++)
+					cgltf_accessor_read_float (acc_norm, v, (float *)&dst->normals[v], 3);
+			}
+			if (acc_tex[0])
+			{
+				dst->num_texcoords = acc_tex[0]->count;
+				dst->texcoords = calloc (dst->num_texcoords, sizeof (vec2_t));
+				for (size_t v = 0; v < dst->num_texcoords; v++)
+					cgltf_accessor_read_float (acc_tex[0], v, (float *)&dst->texcoords[v], 2);
+			}
+			for (int t = 1; t < 8; t++)
+			{
+				if (acc_tex[t])
+				{
+					dst->num_extra_texcoords[t - 1] = acc_tex[t]->count;
+					dst->extra_texcoords[t - 1] = calloc (acc_tex[t]->count, sizeof (vec2_t));
+					for (size_t v = 0; v < acc_tex[t]->count; v++)
+						cgltf_accessor_read_float (
+							acc_tex[t], v, (float *)&dst->extra_texcoords[t - 1][v], 2);
+				}
+			}
+			for (int c = 0; c < 2; c++)
+			{
+				if (acc_col[c])
+				{
+					dst->num_colors[c] = acc_col[c]->count;
+					dst->colors[c] = calloc (acc_col[c]->count, sizeof (color4_t));
+					for (size_t v = 0; v < acc_col[c]->count; v++)
+					{
+						float col[4] = { 1, 1, 1, 1 };
+						cgltf_accessor_read_float (acc_col[c], v, col, 4);
+						dst->colors[c][v].r = col[0];
+						dst->colors[c][v].g = col[1];
+						dst->colors[c][v].b = col[2];
+						dst->colors[c][v].a = col[3];
+					}
+				}
+			}
+
+			// skinning
+			if (acc_joints && acc_weights)
+			{
+				dst->position_node = calloc (dst->num_positions, sizeof (int));
+				for (size_t v = 0; v < dst->num_positions; v++)
+				{
+					cgltf_uint joints[4] = { 0, 0, 0, 0 };
+					float weights[4] = { 0, 0, 0, 0 };
+					cgltf_accessor_read_uint (acc_joints, v, joints, 4);
+					cgltf_accessor_read_float (acc_weights, v, weights, 4);
+
+					if (model->num_node_influences >= cap_influences)
+					{
+						cap_influences *= 2;
+						model->node_influences = realloc (
+							model->node_influences, cap_influences * sizeof (node_influence_t));
+					}
+
+					int inf_idx = model->num_node_influences++;
+					node_influence_t *inf = &model->node_influences[inf_idx];
+					inf->weights = calloc (4, sizeof (influence_t));
+					inf->num_weights = 0;
+					for (int w = 0; w < 4; w++)
+					{
+						if (weights[w] > 0.0f)
+						{
+							inf->weights[inf->num_weights].bone_idx = joints[w];
+							inf->weights[inf->num_weights].weight = weights[w];
+							inf->num_weights++;
+						}
+					}
+					dst->position_node[v] = inf_idx;
+				}
+			}
+			else
+			{
+				dst->position_node = calloc (dst->num_positions, sizeof (int));
+				for (size_t v = 0; v < dst->num_positions; v++)
+				{
+					dst->position_node[v] = -1;
+				}
+			}
+
+			// Build indices
+			if (p->indices)
+			{
+				dst->num_vertices = p->indices->count;
+				dst->vertices = calloc (dst->num_vertices, sizeof (vertex_t));
+				for (size_t v = 0; v < dst->num_vertices; v++)
+				{
+					int idx = cgltf_accessor_read_index (p->indices, v);
+					dst->vertices[v].position_idx = dst->num_positions ? idx : 0;
+					dst->vertices[v].normal_idx = dst->num_normals ? idx : 0;
+					dst->vertices[v].texcoord_idx = dst->num_texcoords ? idx : 0;
+					dst->vertices[v].color_idx[0] = dst->num_colors[0] ? idx : 0;
+					dst->vertices[v].color_idx[1] = dst->num_colors[1] ? idx : 0;
+					for (int e = 0; e < 7; e++)
+						dst->vertices[v].extra_texcoord_idx[e]
+							= dst->num_extra_texcoords[e] ? idx : 0;
+				}
+			}
+			else
+			{
+				dst->num_vertices = vertex_count;
+				dst->vertices = calloc (dst->num_vertices, sizeof (vertex_t));
+				for (size_t v = 0; v < dst->num_vertices; v++)
+				{
+					dst->vertices[v].position_idx = dst->num_positions ? v : 0;
+					dst->vertices[v].normal_idx = dst->num_normals ? v : 0;
+					dst->vertices[v].texcoord_idx = dst->num_texcoords ? v : 0;
+					dst->vertices[v].color_idx[0] = dst->num_colors[0] ? v : 0;
+					dst->vertices[v].color_idx[1] = dst->num_colors[1] ? v : 0;
+					for (int e = 0; e < 7; e++)
+						dst->vertices[v].extra_texcoord_idx[e]
+							= dst->num_extra_texcoords[e] ? v : 0;
+				}
+			}
+		}
+	}
 }
 
-static void convert_nodes(cgltf_data *data, model_t *model) {
-    if (!data->nodes_count) return;
-    
-    if (data->skins_count > 0) {
-        cgltf_skin *skin = &data->skins[0];
-        model->num_joints = skin->joints_count;
-        model->joints = calloc(model->num_joints, sizeof(joint_t));
-        for (size_t i = 0; i < model->num_joints; i++) {
-            cgltf_node *jn = skin->joints[i];
-            joint_t *dst = &model->joints[i];
-            if (jn->name) snprintf(dst->name, sizeof(dst->name), "%s", jn->name);
-            else snprintf(dst->name, sizeof(dst->name), "joint_%zu", i);
-            
-            if (jn->has_translation) memcpy(&dst->translate, jn->translation, sizeof(vec3_t));
-            if (jn->has_rotation) memcpy(&dst->rotate, jn->rotation, sizeof(vec3_t));
-            if (jn->has_scale) memcpy(&dst->scale, jn->scale, sizeof(vec3_t));
-            else { dst->scale.x = 1.0f; dst->scale.y = 1.0f; dst->scale.z = 1.0f; }
-            
-            if (skin->inverse_bind_matrices) {
-                float ibm[16];
-                cgltf_accessor_read_float(skin->inverse_bind_matrices, i, ibm, 16);
-                dst->inverse_bind[0] = ibm[0]; dst->inverse_bind[1] = ibm[4]; dst->inverse_bind[2] = ibm[8]; dst->inverse_bind[3] = ibm[12];
-                dst->inverse_bind[4] = ibm[1]; dst->inverse_bind[5] = ibm[5]; dst->inverse_bind[6] = ibm[9]; dst->inverse_bind[7] = ibm[13];
-                dst->inverse_bind[8] = ibm[2]; dst->inverse_bind[9] = ibm[6]; dst->inverse_bind[10] = ibm[10]; dst->inverse_bind[11] = ibm[14];
-                dst->has_inverse_bind = 1;
-            }
-            
-            dst->parent_idx = -1;
-            if (jn->parent) {
-                for (size_t p = 0; p < model->num_joints; p++) {
-                    if (skin->joints[p] == jn->parent) {
-                        dst->parent_idx = p;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    
-    // Our own GLB export writes an orphan node holding the raw mesh
-    // definition (glTF node index model->num_joints+m) whenever no instance
-    // references that mesh directly, purely so the mesh has a node slot to
-    // point instances at (see the exporter around scene_object_base). That
-    // node is never reachable from the scene graph (not a scene root, not
-    // anyone's child). Re-importing it as its own instance -- on top of the
-    // real instance nodes that already reference the same mesh -- duplicates
-    // the placement on every decode->encode cycle, breaking the canonical
-    // fixed point. Only mesh-bearing nodes actually reachable from the scene
-    // graph become instances.
-    cgltf_bool *is_root = data->nodes_count ? calloc(data->nodes_count, sizeof(cgltf_bool)) : 0;
-    if (data->scene) {
-        for (size_t s = 0; s < data->scene->nodes_count; s++) {
-            cgltf_node *rn = data->scene->nodes[s];
-            size_t idx = (size_t)(rn - data->nodes);
-            if (idx < data->nodes_count) is_root[idx] = 1;
-        }
-    }
-    #define NODE_REACHABLE(n) ((n)->parent != NULL || is_root[(size_t)((n) - data->nodes)])
+static void convert_nodes (cgltf_data *data, model_t *model)
+{
+	if (!data->nodes_count)
+		return;
 
-    size_t num_inst = 0;
-    for (size_t i = 0; i < data->nodes_count; i++) {
-        if (data->nodes[i].mesh && NODE_REACHABLE(&data->nodes[i])) {
-            num_inst += data->nodes[i].mesh->primitives_count;
-        }
-    }
+	if (data->skins_count > 0)
+	{
+		cgltf_skin *skin = &data->skins[0];
+		model->num_joints = skin->joints_count;
+		model->joints = calloc (model->num_joints, sizeof (joint_t));
+		for (size_t i = 0; i < model->num_joints; i++)
+		{
+			cgltf_node *jn = skin->joints[i];
+			joint_t *dst = &model->joints[i];
+			if (jn->name)
+				snprintf (dst->name, sizeof (dst->name), "%s", jn->name);
+			else
+				snprintf (dst->name, sizeof (dst->name), "joint_%zu", i);
 
-    if (num_inst) {
-        model->instances = calloc(num_inst, sizeof(model_instance_t));
-        model->num_instances = 0;
+			if (jn->has_translation)
+				memcpy (&dst->translate, jn->translation, sizeof (vec3_t));
+			if (jn->has_rotation)
+				memcpy (&dst->rotate, jn->rotation, sizeof (vec3_t));
+			if (jn->has_scale)
+				memcpy (&dst->scale, jn->scale, sizeof (vec3_t));
+			else
+			{
+				dst->scale.x = 1.0f;
+				dst->scale.y = 1.0f;
+				dst->scale.z = 1.0f;
+			}
 
-        for (size_t i = 0; i < data->nodes_count; i++) {
-            cgltf_node *n = &data->nodes[i];
-            if (n->mesh && NODE_REACHABLE(n)) {
-                int base_mesh_idx = -1;
-                for (size_t mi = 0; mi < data->meshes_count; mi++) {
-                    if (&data->meshes[mi] == n->mesh) {
-                        size_t prim_offset = 0;
-                        for (size_t prev = 0; prev < mi; prev++) prim_offset += data->meshes[prev].primitives_count;
-                        base_mesh_idx = prim_offset;
-                        break;
-                    }
-                }
-                
-                for (size_t p = 0; p < n->mesh->primitives_count; p++) {
-                    model_instance_t *dst = &model->instances[model->num_instances++];
-                    // Only disambiguate with a "_<p>" suffix when the node's
-                    // mesh actually has multiple primitives -- appending it
-                    // unconditionally mutates a single-primitive node's name
-                    // on every decode->encode cycle (e.g. "x" -> "x_0" ->
-                    // "x_0_0" ...), breaking the canonical fixed point.
-                    if (n->mesh->primitives_count > 1) {
-                        if (n->name) snprintf(dst->name, sizeof(dst->name), "%s_%zu", n->name, p);
-                        else snprintf(dst->name, sizeof(dst->name), "inst_%zu_%zu", i, p);
-                    } else {
-                        if (n->name) snprintf(dst->name, sizeof(dst->name), "%s", n->name);
-                        else snprintf(dst->name, sizeof(dst->name), "inst_%zu", i);
-                    }
-                    
-                    dst->mesh_idx = base_mesh_idx + p;
-                    dst->parent_idx = -1;
-                    
-                    if (n->has_translation) memcpy(&dst->translate, n->translation, sizeof(vec3_t));
-                    if (n->has_rotation) memcpy(&dst->rotate, n->rotation, sizeof(vec3_t));
-                    if (n->has_scale) memcpy(&dst->scale, n->scale, sizeof(vec3_t));
-                    else { dst->scale.x = 1.0f; dst->scale.y = 1.0f; dst->scale.z = 1.0f; }
-                    
-                    if (n->has_matrix) {
-                        memcpy(dst->matrix, n->matrix, sizeof(float)*16);
-                        dst->has_matrix = 1;
-                    }
-                }
-            }
-        }
-    }
-    #undef NODE_REACHABLE
-    free(is_root);
+			if (skin->inverse_bind_matrices)
+			{
+				float ibm[16];
+				cgltf_accessor_read_float (skin->inverse_bind_matrices, i, ibm, 16);
+				dst->inverse_bind[0] = ibm[0];
+				dst->inverse_bind[1] = ibm[4];
+				dst->inverse_bind[2] = ibm[8];
+				dst->inverse_bind[3] = ibm[12];
+				dst->inverse_bind[4] = ibm[1];
+				dst->inverse_bind[5] = ibm[5];
+				dst->inverse_bind[6] = ibm[9];
+				dst->inverse_bind[7] = ibm[13];
+				dst->inverse_bind[8] = ibm[2];
+				dst->inverse_bind[9] = ibm[6];
+				dst->inverse_bind[10] = ibm[10];
+				dst->inverse_bind[11] = ibm[14];
+				dst->has_inverse_bind = 1;
+			}
+
+			dst->parent_idx = -1;
+			if (jn->parent)
+			{
+				for (size_t p = 0; p < model->num_joints; p++)
+				{
+					if (skin->joints[p] == jn->parent)
+					{
+						dst->parent_idx = p;
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	// Our own GLB export writes an orphan node holding the raw mesh
+	// definition (glTF node index model->num_joints+m) whenever no instance
+	// references that mesh directly, purely so the mesh has a node slot to
+	// point instances at (see the exporter around scene_object_base). That
+	// node is never reachable from the scene graph (not a scene root, not
+	// anyone's child). Re-importing it as its own instance -- on top of the
+	// real instance nodes that already reference the same mesh -- duplicates
+	// the placement on every decode->encode cycle, breaking the canonical
+	// fixed point. Only mesh-bearing nodes actually reachable from the scene
+	// graph become instances.
+	cgltf_bool *is_root = data->nodes_count ? calloc (data->nodes_count, sizeof (cgltf_bool)) : 0;
+	if (data->scene)
+	{
+		for (size_t s = 0; s < data->scene->nodes_count; s++)
+		{
+			cgltf_node *rn = data->scene->nodes[s];
+			size_t idx = (size_t)(rn - data->nodes);
+			if (idx < data->nodes_count)
+				is_root[idx] = 1;
+		}
+	}
+#define NODE_REACHABLE(n) ((n)->parent != NULL || is_root[(size_t)((n) - data->nodes)])
+
+	size_t num_inst = 0;
+	for (size_t i = 0; i < data->nodes_count; i++)
+	{
+		if (data->nodes[i].mesh && NODE_REACHABLE (&data->nodes[i]))
+		{
+			num_inst += data->nodes[i].mesh->primitives_count;
+		}
+	}
+
+	if (num_inst)
+	{
+		model->instances = calloc (num_inst, sizeof (model_instance_t));
+		model->num_instances = 0;
+
+		for (size_t i = 0; i < data->nodes_count; i++)
+		{
+			cgltf_node *n = &data->nodes[i];
+			if (n->mesh && NODE_REACHABLE (n))
+			{
+				int base_mesh_idx = -1;
+				for (size_t mi = 0; mi < data->meshes_count; mi++)
+				{
+					if (&data->meshes[mi] == n->mesh)
+					{
+						size_t prim_offset = 0;
+						for (size_t prev = 0; prev < mi; prev++)
+							prim_offset += data->meshes[prev].primitives_count;
+						base_mesh_idx = prim_offset;
+						break;
+					}
+				}
+
+				for (size_t p = 0; p < n->mesh->primitives_count; p++)
+				{
+					model_instance_t *dst = &model->instances[model->num_instances++];
+					// Only disambiguate with a "_<p>" suffix when the node's
+					// mesh actually has multiple primitives -- appending it
+					// unconditionally mutates a single-primitive node's name
+					// on every decode->encode cycle (e.g. "x" -> "x_0" ->
+					// "x_0_0" ...), breaking the canonical fixed point.
+					if (n->mesh->primitives_count > 1)
+					{
+						if (n->name)
+							snprintf (dst->name, sizeof (dst->name), "%s_%zu", n->name, p);
+						else
+							snprintf (dst->name, sizeof (dst->name), "inst_%zu_%zu", i, p);
+					}
+					else
+					{
+						if (n->name)
+							snprintf (dst->name, sizeof (dst->name), "%s", n->name);
+						else
+							snprintf (dst->name, sizeof (dst->name), "inst_%zu", i);
+					}
+
+					dst->mesh_idx = base_mesh_idx + p;
+					dst->parent_idx = -1;
+
+					if (n->has_translation)
+						memcpy (&dst->translate, n->translation, sizeof (vec3_t));
+					if (n->has_rotation)
+						memcpy (&dst->rotate, n->rotation, sizeof (vec3_t));
+					if (n->has_scale)
+						memcpy (&dst->scale, n->scale, sizeof (vec3_t));
+					else
+					{
+						dst->scale.x = 1.0f;
+						dst->scale.y = 1.0f;
+						dst->scale.z = 1.0f;
+					}
+
+					if (n->has_matrix)
+					{
+						memcpy (dst->matrix, n->matrix, sizeof (float) * 16);
+						dst->has_matrix = 1;
+					}
+				}
+			}
+		}
+	}
+#undef NODE_REACHABLE
+	free (is_root);
 }
 
-static void convert_animations(cgltf_data *data, model_t *model) {
-    if (!data->animations_count) return;
-    model->animations = calloc(data->animations_count, sizeof(model_animation_t));
-    model->num_animations = data->animations_count;
-    
-    for (size_t i = 0; i < data->animations_count; i++) {
-        cgltf_animation *a = &data->animations[i];
-        model_animation_t *dst = &model->animations[i];
-        if (a->name) snprintf(dst->name, sizeof(dst->name), "%s", a->name);
-        else snprintf(dst->name, sizeof(dst->name), "anim_%zu", i);
-        
-        dst->num_channels = a->channels_count;
-        dst->channels = calloc(dst->num_channels, sizeof(model_anim_channel_t));
-        
-        for (size_t c = 0; c < a->channels_count; c++) {
-            cgltf_animation_channel *ch = &a->channels[c];
-            model_anim_channel_t *dst_ch = &dst->channels[c];
-            
-            dst_ch->node_idx = -1;
-            if (data->skins_count > 0 && ch->target_node) {
-                cgltf_skin *skin = &data->skins[0];
-                for (size_t j = 0; j < skin->joints_count; j++) {
-                    if (skin->joints[j] == ch->target_node) {
-                        dst_ch->node_idx = j;
-                        break;
-                    }
-                }
-            }
-            
-            if (ch->target_path == cgltf_animation_path_type_translation) dst_ch->path = MODEL_ANIM_TRANSLATION;
-            else if (ch->target_path == cgltf_animation_path_type_rotation) dst_ch->path = MODEL_ANIM_ROTATION;
-            else if (ch->target_path == cgltf_animation_path_type_scale) dst_ch->path = MODEL_ANIM_SCALE;
-            else if (ch->target_path == cgltf_animation_path_type_weights) dst_ch->path = MODEL_ANIM_WEIGHTS;
-            
-            cgltf_animation_sampler *samp = ch->sampler;
-            if (samp) {
-                dst_ch->count = samp->input->count;
-                dst_ch->times = calloc(dst_ch->count, sizeof(float));
-                for (size_t t = 0; t < dst_ch->count; t++) cgltf_accessor_read_float(samp->input, t, &dst_ch->times[t], 1);
-                
-                size_t comp = 1;
-                if (samp->output->type == cgltf_type_vec2) comp = 2;
-                else if (samp->output->type == cgltf_type_vec3) comp = 3;
-                else if (samp->output->type == cgltf_type_vec4) comp = 4;
-                
-                dst_ch->components = comp;
-                dst_ch->values = calloc(dst_ch->count * comp, sizeof(float));
-                for (size_t t = 0; t < dst_ch->count; t++) {
-                    cgltf_accessor_read_float(samp->output, t, &dst_ch->values[t * comp], comp);
-                }
-            }
-        }
-    }
+static void convert_animations (cgltf_data *data, model_t *model)
+{
+	if (!data->animations_count)
+		return;
+	model->animations = calloc (data->animations_count, sizeof (model_animation_t));
+	model->num_animations = data->animations_count;
+
+	for (size_t i = 0; i < data->animations_count; i++)
+	{
+		cgltf_animation *a = &data->animations[i];
+		model_animation_t *dst = &model->animations[i];
+		if (a->name)
+			snprintf (dst->name, sizeof (dst->name), "%s", a->name);
+		else
+			snprintf (dst->name, sizeof (dst->name), "anim_%zu", i);
+
+		dst->num_channels = a->channels_count;
+		dst->channels = calloc (dst->num_channels, sizeof (model_anim_channel_t));
+
+		for (size_t c = 0; c < a->channels_count; c++)
+		{
+			cgltf_animation_channel *ch = &a->channels[c];
+			model_anim_channel_t *dst_ch = &dst->channels[c];
+
+			dst_ch->node_idx = -1;
+			if (data->skins_count > 0 && ch->target_node)
+			{
+				cgltf_skin *skin = &data->skins[0];
+				for (size_t j = 0; j < skin->joints_count; j++)
+				{
+					if (skin->joints[j] == ch->target_node)
+					{
+						dst_ch->node_idx = j;
+						break;
+					}
+				}
+			}
+
+			if (ch->target_path == cgltf_animation_path_type_translation)
+				dst_ch->path = MODEL_ANIM_TRANSLATION;
+			else if (ch->target_path == cgltf_animation_path_type_rotation)
+				dst_ch->path = MODEL_ANIM_ROTATION;
+			else if (ch->target_path == cgltf_animation_path_type_scale)
+				dst_ch->path = MODEL_ANIM_SCALE;
+			else if (ch->target_path == cgltf_animation_path_type_weights)
+				dst_ch->path = MODEL_ANIM_WEIGHTS;
+
+			cgltf_animation_sampler *samp = ch->sampler;
+			if (samp)
+			{
+				dst_ch->count = samp->input->count;
+				dst_ch->times = calloc (dst_ch->count, sizeof (float));
+				for (size_t t = 0; t < dst_ch->count; t++)
+					cgltf_accessor_read_float (samp->input, t, &dst_ch->times[t], 1);
+
+				size_t comp = 1;
+				if (samp->output->type == cgltf_type_vec2)
+					comp = 2;
+				else if (samp->output->type == cgltf_type_vec3)
+					comp = 3;
+				else if (samp->output->type == cgltf_type_vec4)
+					comp = 4;
+
+				dst_ch->components = comp;
+				dst_ch->values = calloc (dst_ch->count * comp, sizeof (float));
+				for (size_t t = 0; t < dst_ch->count; t++)
+				{
+					cgltf_accessor_read_float (samp->output, t, &dst_ch->values[t * comp], comp);
+				}
+			}
+		}
+	}
 }
 
 // Carry the textures the glTF embedded, so an encoder can tell whether the
@@ -2083,49 +2627,57 @@ static void convert_images (cgltf_data *data, model_t *model)
 	}
 }
 
-static model_t *BuildModelFromCgltf(cgltf_data *data) {
-    model_t *model = calloc(1, sizeof(model_t));
-    if (!model) return NULL;
-    convert_materials(data, model);
-    convert_images(data, model);
-    convert_meshes_and_skin(data, model);
-    convert_nodes(data, model);
-    convert_animations(data, model);
-    return model;
+static model_t *BuildModelFromCgltf (cgltf_data *data)
+{
+	model_t *model = calloc (1, sizeof (model_t));
+	if (!model)
+		return NULL;
+	convert_materials (data, model);
+	convert_images (data, model);
+	convert_meshes_and_skin (data, model);
+	convert_nodes (data, model);
+	convert_animations (data, model);
+	return model;
 }
 
-model_t *ParseGLBFile (const char *filename) {
-    cgltf_options options = {0};
-    cgltf_data* data = NULL;
-    cgltf_result result = cgltf_parse_file(&options, filename, &data);
-    if (result != cgltf_result_success) return NULL;
-    
-    result = cgltf_load_buffers(&options, data, filename);
-    if (result != cgltf_result_success) {
-        cgltf_free(data);
-        return NULL;
-    }
-    
-    model_t *m = BuildModelFromCgltf(data);
-    cgltf_free(data);
-    return m;
+model_t *ParseGLBFile (const char *filename)
+{
+	cgltf_options options = { 0 };
+	cgltf_data *data = NULL;
+	cgltf_result result = cgltf_parse_file (&options, filename, &data);
+	if (result != cgltf_result_success)
+		return NULL;
+
+	result = cgltf_load_buffers (&options, data, filename);
+	if (result != cgltf_result_success)
+	{
+		cgltf_free (data);
+		return NULL;
+	}
+
+	model_t *m = BuildModelFromCgltf (data);
+	cgltf_free (data);
+	return m;
 }
 
-model_t *ParseGLB (const uint8_t *in_data, size_t size) {
-    cgltf_options options = {0};
-    cgltf_data* data = NULL;
-    cgltf_result result = cgltf_parse(&options, in_data, size, &data);
-    if (result != cgltf_result_success) return NULL;
-    
-    result = cgltf_load_buffers(&options, data, NULL);
-    if (result != cgltf_result_success) {
-        cgltf_free(data);
-        return NULL;
-    }
-    
-    model_t *m = BuildModelFromCgltf(data);
-    cgltf_free(data);
-    return m;
+model_t *ParseGLB (const uint8_t *in_data, size_t size)
+{
+	cgltf_options options = { 0 };
+	cgltf_data *data = NULL;
+	cgltf_result result = cgltf_parse (&options, in_data, size, &data);
+	if (result != cgltf_result_success)
+		return NULL;
+
+	result = cgltf_load_buffers (&options, data, NULL);
+	if (result != cgltf_result_success)
+	{
+		cgltf_free (data);
+		return NULL;
+	}
+
+	model_t *m = BuildModelFromCgltf (data);
+	cgltf_free (data);
+	return m;
 }
 
 // ---------------------------------------------------------------------------
@@ -2286,5 +2838,3 @@ static int *dae_parse_ints (const char *start, const char *end, size_t *out_coun
 	*out_count = count;
 	return arr;
 }
-
-

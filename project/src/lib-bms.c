@@ -1386,8 +1386,8 @@ enumError RunBmsScript (ccp script_path, ccp infile, ccp outdir)
 	{
 		static char bundled[PATH_MAX];
 		if (ProgInfo.progdir && *ProgInfo.progdir)
-			snprintf (bundled, sizeof (bundled), "%s/third_party/quickbms/quickbms",
-				ProgInfo.progdir);
+			snprintf (
+				bundled, sizeof (bundled), "%s/third_party/quickbms/quickbms", ProgInfo.progdir);
 		else
 			strcpy (bundled, "third_party/quickbms/quickbms");
 		if (!access (bundled, X_OK))

@@ -20,18 +20,13 @@ static const u32 mio_palette[16] = {
 	0x808080FF, // 12: Dark Grey
 	0xC0C0C0FF, // 13: Light Grey
 	0xFFFFFFFF, // 14: White
-	0x4A9CADFF  // 15: Teal / Hidden Color
+	0x4A9CADFF // 15: Teal / Hidden Color
 };
 
 // General MIDI Instrument mapping for WarioWare DIY 48 instruments
-static const u8 mio_gm_instruments[48] = {
-	0,  18,  6, 22, 73, 56, 65, 75,
-	24, 29, 106, 33, 40, 13, 11, 47,
-	72, 78, 17, 38, 77, 59, 126, 124,
-	60, 61, 62, 123, 66, 125, 68, 122,
-	53, 54, 52, 49, 67, 121, 119, 48,
-	83, 84, 85, 86, 87, 88, 89, 90
-};
+static const u8 mio_gm_instruments[48] = { 0, 18, 6, 22, 73, 56, 65, 75, 24, 29, 106, 33, 40, 13,
+	11, 47, 72, 78, 17, 38, 77, 59, 126, 124, 60, 61, 62, 123, 66, 125, 68, 122, 53, 54, 52, 49, 67,
+	121, 119, 48, 83, 84, 85, 86, 87, 88, 89, 90 };
 
 // General MIDI Drum note mapping for DIY drum sounds (0..7)
 static const u8 mio_gm_drums[8] = {
@@ -42,7 +37,7 @@ static const u8 mio_gm_drums[8] = {
 	45, // 4: Low Tom
 	48, // 5: High-Mid Tom
 	49, // 6: Crash Cymbal
-	51  // 7: Ride Cymbal
+	51 // 7: Ride Cymbal
 };
 
 bool IsMIO (const u8 *data, size_t size)
@@ -174,7 +169,8 @@ u8 *DecodeMIOGameBG (const u8 *data, size_t size, uint *out_w, uint *out_h)
 	{
 		for (uint x = 0; x < w; x++)
 		{
-			const size_t byte_idx = bg_offset + (y / 8) * 0x300 + (x / 8) * 0x20 + (y % 8) * 4 + (x % 8) / 2;
+			const size_t byte_idx
+				= bg_offset + (y / 8) * 0x300 + (x / 8) * 0x20 + (y % 8) * 4 + (x % 8) / 2;
 			const u8 b = data[byte_idx];
 			const uint c_idx = (x % 2 != 0) ? ((b >> 4) & 0x0F) : (b & 0x0F);
 			const u32 color = mio_palette[c_idx];
@@ -189,7 +185,8 @@ u8 *DecodeMIOGameBG (const u8 *data, size_t size, uint *out_w, uint *out_h)
 // ----------------------------------------------------------------------------
 // Game Sprite Decoder (16x16, 32x32, 48x48, 64x64, 4bpp indexed)
 // ----------------------------------------------------------------------------
-u8 *DecodeMIOGameSprite (const u8 *data, size_t size, uint obj_idx, uint frame_idx, uint *out_w, uint *out_h)
+u8 *DecodeMIOGameSprite (
+	const u8 *data, size_t size, uint obj_idx, uint frame_idx, uint *out_w, uint *out_h)
 {
 	if (!data || size < 65536 || obj_idx >= 15)
 		return 0;
@@ -562,11 +559,11 @@ enumError ExtractMIOArchive (ccp arg, ccp basedir, uint depth)
 
 	if (verbose >= 0 || testmode)
 	{
-		ccp type_str = (mtype == MIO_TYPE_GAME) ? "GAME" :
-		               (mtype == MIO_TYPE_COMIC) ? "COMIC" : "RECORD";
-		fprintf (stdlog, "%s%sEXTRACT MIO (%s): %s (\"%s\") -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "",
-			type_str, arg, meta.name[0] ? meta.name : "unnamed", dest);
+		ccp type_str = (mtype == MIO_TYPE_GAME) ? "GAME"
+			: (mtype == MIO_TYPE_COMIC)			? "COMIC"
+												: "RECORD";
+		fprintf (stdlog, "%s%sEXTRACT MIO (%s): %s (\"%s\") -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", type_str, arg, meta.name[0] ? meta.name : "unnamed", dest);
 	}
 
 	if (testmode)
@@ -582,10 +579,11 @@ enumError ExtractMIOArchive (ccp arg, ccp basedir, uint depth)
 	snprintf (meta_path, sizeof (meta_path), "%s/%smetadata.txt", dest, basedir ? basedir : "");
 	char meta_buf[1024];
 	int meta_len = snprintf (meta_buf, sizeof (meta_buf),
-		"Title: %s\nBrand: %s\nCreator: %s\nDescription: %s\nType: %s\n",
-		meta.name, meta.brand, meta.creator, meta.desc,
-		(mtype == MIO_TYPE_GAME) ? "Game" :
-		(mtype == MIO_TYPE_COMIC) ? "Comic" : "Record");
+		"Title: %s\nBrand: %s\nCreator: %s\nDescription: %s\nType: %s\n", meta.name, meta.brand,
+		meta.creator, meta.desc,
+		(mtype == MIO_TYPE_GAME)		? "Game"
+			: (mtype == MIO_TYPE_COMIC) ? "Comic"
+										: "Record");
 	if (meta_len > 0)
 		SaveFile (meta_path, 0, 0, meta_buf, (uint)meta_len, 0);
 
@@ -599,8 +597,8 @@ enumError ExtractMIOArchive (ccp arg, ccp basedir, uint depth)
 			if (rgba)
 			{
 				char png_path[PATH_MAX];
-				snprintf (png_path, sizeof (png_path), "%s/%spanel_%u.png",
-					dest, basedir ? basedir : "", p);
+				snprintf (png_path, sizeof (png_path), "%s/%spanel_%u.png", dest,
+					basedir ? basedir : "", p);
 				SaveDecodedRGBAToPNG (rgba, pw, ph, &be_func, png_path, 0, true);
 			}
 		}
@@ -637,8 +635,8 @@ enumError ExtractMIOArchive (ccp arg, ccp basedir, uint depth)
 					if (sp_rgba)
 					{
 						char sp_path[PATH_MAX];
-						snprintf (sp_path, sizeof (sp_path), "%s/%sobj%02u_art%u_f%u.png",
-							dest, basedir ? basedir : "", obj, art, f);
+						snprintf (sp_path, sizeof (sp_path), "%s/%sobj%02u_art%u_f%u.png", dest,
+							basedir ? basedir : "", obj, art, f);
 						SaveDecodedRGBAToPNG (sp_rgba, sw, sh, &be_func, sp_path, 0, true);
 					}
 				}

@@ -134,9 +134,9 @@ enumError EncodeBPE (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 	// BPE divides data into blocks of up to 0x7FFF bytes.
 	// For each block:
 	//   1. Header: 256 uncompressed byte identity mappings (marker 0, followed by entries 0..255)
-	//      or packed runs. Specifically, marker 128..255 skips unused bytes, or marker <= 127 defines
-	//      entries where table[c] == c.
-	//      A simple identity table: marker 0x7F (128 entries), bytes 0..127; marker 0x7F, bytes 128..255.
+	//      or packed runs. Specifically, marker 128..255 skips unused bytes, or marker <= 127
+	//      defines entries where table[c] == c. A simple identity table: marker 0x7F (128 entries),
+	//      bytes 0..127; marker 0x7F, bytes 128..255.
 	//   2. Block length (be16)
 	//   3. Raw bytes of the block
 	const uint max_block = 0x7FFF;
@@ -178,7 +178,6 @@ enumError EncodeBPE (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 	*dest_size = dp;
 	return ERR_OK;
 }
-
 
 void ResetGFA (gfa_t *gfa)
 {

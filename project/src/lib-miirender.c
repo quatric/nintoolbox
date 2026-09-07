@@ -12,13 +12,13 @@ bool IsMiiData (const u8 *data, uint size, ccp filename)
 		ccp ext = strrchr (filename, '.');
 		if (ext)
 		{
-			if (!strcasecmp (ext, ".ffsd") || !strcasecmp (ext, ".ffcd") ||
-			    !strcasecmp (ext, ".rsd") || !strcasecmp (ext, ".rcd") ||
-			    !strcasecmp (ext, ".cflsd") || !strcasecmp (ext, ".cfcd") ||
-			    !strcasecmp (ext, ".aflsd") || !strcasecmp (ext, ".afcd") ||
-			    !strcasecmp (ext, ".nflsd") || !strcasecmp (ext, ".nfcd") ||
-			    !strcasecmp (ext, ".miigsd") || !strcasecmp (ext, ".mii") ||
-			    !strcasecmp (ext, ".mnms"))
+			if (!strcasecmp (ext, ".ffsd") || !strcasecmp (ext, ".ffcd")
+				|| !strcasecmp (ext, ".rsd") || !strcasecmp (ext, ".rcd")
+				|| !strcasecmp (ext, ".cflsd") || !strcasecmp (ext, ".cfcd")
+				|| !strcasecmp (ext, ".aflsd") || !strcasecmp (ext, ".afcd")
+				|| !strcasecmp (ext, ".nflsd") || !strcasecmp (ext, ".nfcd")
+				|| !strcasecmp (ext, ".miigsd") || !strcasecmp (ext, ".mii")
+				|| !strcasecmp (ext, ".mnms"))
 				return true;
 		}
 	}
@@ -56,7 +56,9 @@ enumError RenderMiiPNG (u8 **dest_png, uint *dest_size, const u8 *data, uint siz
 
 	char cmd[4096];
 	uint w = width ? width : 512;
-	snprintf (cmd, sizeof (cmd), "curl -s -f \"https://mii-unsecure.ariankordi.net/miis/image.png?data=%s&width=%u\"", hex, w);
+	snprintf (cmd, sizeof (cmd),
+		"curl -s -f \"https://mii-unsecure.ariankordi.net/miis/image.png?data=%s&width=%u\"", hex,
+		w);
 	FREE (hex);
 
 	FILE *p = popen (cmd, "r");
@@ -120,7 +122,8 @@ enumError RenderMiiGLB (u8 **dest_glb, uint *dest_size, const u8 *data, uint siz
 	hex[size * 2] = '\0';
 
 	char cmd[4096];
-	snprintf (cmd, sizeof (cmd), "curl -s -f \"https://mii-unsecure.ariankordi.net/miis/image.glb?data=%s\"", hex);
+	snprintf (cmd, sizeof (cmd),
+		"curl -s -f \"https://mii-unsecure.ariankordi.net/miis/image.glb?data=%s\"", hex);
 	FREE (hex);
 
 	FILE *p = popen (cmd, "r");

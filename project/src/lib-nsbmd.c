@@ -699,7 +699,8 @@ model_t *ParseEarlyDSBMD (const uint8_t *data, size_t size)
 	{
 		uint32_t sz = rd32 (data + off);
 		uint32_t dloff = rd32 (data + off + 4);
-		if (dloff >= shapes_base && sz >= 16 && sz <= size && dloff <= size - sz && dloff + 4 <= size)
+		if (dloff >= shapes_base && sz >= 16 && sz <= size && dloff <= size - sz
+			&& dloff + 4 <= size)
 		{
 			const uint8_t *w = data + dloff;
 			if ((w[0] == 0x40 || w[1] == 0x40 || w[2] == 0x40 || w[3] == 0x40)

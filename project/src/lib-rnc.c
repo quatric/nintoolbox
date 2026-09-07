@@ -4,7 +4,6 @@
 #include <errno.h>
 #include <limits.h>
 
-
 //-----------------------------------------------------------------------------
 // RNC (Rob Northen Compression) decoder, RNC1/RNC2 methods.
 //
@@ -344,7 +343,6 @@ static void rnc_unpack_data_m1 (rnc_state_t *v)
 		}
 	}
 }
-
 
 enumError DecodeRNC (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 {
@@ -844,4 +842,3 @@ enumError EncodeRNC (u8 **dest, uint *dest_size, const u8 *src, uint src_size, i
 	*dest_size = out_total;
 	return ERR_OK;
 }
-

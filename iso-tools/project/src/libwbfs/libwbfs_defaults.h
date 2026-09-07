@@ -34,24 +34,24 @@
  *   See file gpl-2.0.txt or http://www.gnu.org/licenses/gpl-2.0.txt       *
  *                                                                         *
  ***************************************************************************/
-  
+
 #ifndef LIBWBFS_DEFAULTS_H
 #define LIBWBFS_DEFAULTS_H
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			define error messages		///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 #ifndef WD_ERROR
-    #define WD_ERROR(...) wd_print_error(__FUNCTION__,__FILE__,__LINE__,__VA_ARGS__)
+#define WD_ERROR(...) wd_print_error (__FUNCTION__, __FILE__, __LINE__, __VA_ARGS__)
 #endif
 
 #ifndef OUT_OF_MEMORY
-    #define OUT_OF_MEMORY WD_ERROR(ERR_OUT_OF_MEMORY,"Out of memory")
+#define OUT_OF_MEMORY WD_ERROR (ERR_OUT_OF_MEMORY, "Out of memory")
 #endif
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			define trace macros		///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -59,90 +59,90 @@
 // If not already defined => define them as empty macros
 
 #ifndef PRINT
-    #define PRINT(...)
+#define PRINT(...)
 #endif
 
 #ifndef PRINT_IF
-    #define PRINT_IF(cond,...)
+#define PRINT_IF(cond, ...)
 #endif
 
 #ifndef BINGO
-    #define BINGO
+#define BINGO
 #endif
 
 #ifndef TRACE
-    #define TRACE(...)
+#define TRACE(...)
 #endif
 
 #ifndef TRACE_IF
-    #define TRACE_IF(cond,...)
+#define TRACE_IF(cond, ...)
 #endif
 
 #ifndef TRACELINE
-    #define TRACELINE
+#define TRACELINE
 #endif
 
 #ifndef TRACE_SIZEOF
-    #define TRACE_SIZEOF(t)
+#define TRACE_SIZEOF(t)
 #endif
 
 #ifndef HEXDUMP
-    #define HEXDUMP(i,a,af,rl,d,c)
+#define HEXDUMP(i, a, af, rl, d, c)
 #endif
 
 #ifndef HEXDUMP16
-    #define HEXDUMP16(a,i,d,c)
+#define HEXDUMP16(a, i, d, c)
 #endif
 
 #ifndef TRACE_HEXDUMP
-    #define TRACE_HEXDUMP(i,a,af,rl,d,c)
+#define TRACE_HEXDUMP(i, a, af, rl, d, c)
 #endif
 
 #ifndef TRACE_HEXDUMP16
-    #define TRACE_HEXDUMP16(i,a,d,c)
+#define TRACE_HEXDUMP16(i, a, d, c)
 #endif
 
 #ifndef ASSERT
-    #define ASSERT(cond)
+#define ASSERT(cond)
 #endif
 
 #ifndef ASSERT_MSG
-    #define ASSERT_MSG(a,...)
+#define ASSERT_MSG(a, ...)
 #endif
 
 #ifndef DASSERT
-    #define DASSERT(cond)
+#define DASSERT(cond)
 #endif
 
 #ifndef DASSERT_MSG
-    #define DASSERT_MSG(a,...)
+#define DASSERT_MSG(a, ...)
 #endif
 
 #ifndef noTRACE
-    #define noTRACE(...)
+#define noTRACE(...)
 #endif
 
 #ifndef noTRACE_IF
-    #define noTRACE_IF(cond,...)
+#define noTRACE_IF(cond, ...)
 #endif
 
 #ifndef noTRACELINE
-    #define noTRACELINE
+#define noTRACELINE
 #endif
 
 #ifndef noTRACE_SIZEOF
-    #define noTRACE_SIZEOF(t)
+#define noTRACE_SIZEOF(t)
 #endif
 
 #ifndef noASSERT
-    #define noASSERT(cond)
+#define noASSERT(cond)
 #endif
 
 #ifndef noASSERT_MSG
-    #define noASSERT_MSG(cond,...)
+#define noASSERT_MSG(cond, ...)
 #endif
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////				E N D			///////////////
 ///////////////////////////////////////////////////////////////////////////////

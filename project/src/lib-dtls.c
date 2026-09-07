@@ -4,9 +4,8 @@
 #include <zlib.h>
 #include <errno.h>
 
-enumError ScanDTLS (
-	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *ls_data, uint ls_size,
-	const u8 *dt_data, uint dt_size)
+enumError ScanDTLS (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *ls_data,
+	uint ls_size, const u8 *dt_data, uint dt_size)
 {
 	if (!entries || !n_entries || !ls_data || ls_size < 8)
 		return EINVAL;
@@ -98,8 +97,7 @@ enumError ScanDTLS (
 	return ERR_OK;
 }
 
-enumError CreateDTLS (
-	u8 **out_ls, uint *out_ls_size, u8 **out_dt, uint *out_dt_size,
+enumError CreateDTLS (u8 **out_ls, uint *out_ls_size, u8 **out_dt, uint *out_dt_size,
 	const nintendo_sarc_entry_t *entries, uint n_entries, bool compress, bool big_endian)
 {
 	if (!out_ls || !out_ls_size || !out_dt || !out_dt_size || !entries || !n_entries)
@@ -161,7 +159,8 @@ enumError CreateDTLS (
 		{
 			uLongf bound = compressBound (entries[i].size);
 			u8 *comp = MALLOC (bound);
-			if (comp && compress2 (comp, &bound, entries[i].data, entries[i].size, 6) == Z_OK && bound < entries[i].size)
+			if (comp && compress2 (comp, &bound, entries[i].data, entries[i].size, 6) == Z_OK
+				&& bound < entries[i].size)
 			{
 				payload = comp;
 				comp_sz = (uint)bound;
@@ -178,8 +177,10 @@ enumError CreateDTLS (
 			u8 *new_dt = REALLOC (dt, dt_capacity);
 			if (!new_dt)
 			{
-				if (is_alloced) FREE (payload);
-				FREE (ls); FREE (dt);
+				if (is_alloced)
+					FREE (payload);
+				FREE (ls);
+				FREE (dt);
 				return ERR_CANT_CREATE;
 			}
 			dt = new_dt;

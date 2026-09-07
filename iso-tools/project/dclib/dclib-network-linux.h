@@ -36,123 +36,98 @@
 #define DCLIB_NETWORK_LINUX_H 1
 
 #ifndef DCLIB_NETWORK_H
-  #include "dclib-network.h"
+#include "dclib-network.h"
 #endif
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			    IP/UDP			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t ReceiveUDPv4
-(
-    int			sock,		// valid socket
-    void		*buf,		// buffer tostore incoming data
-    size_t		buf_size,	// size of buffer
-    int			flags,		// flags for recffrom() or recvmsg()
-    struct sockaddr_in	*src_addr,	// not NULL: stire source address
-    in_addr_t		*dest_addr	// not NULL: store destination IPv4 (NBO)
+ssize_t ReceiveUDPv4 (int sock, // valid socket
+	void *buf, // buffer tostore incoming data
+	size_t buf_size, // size of buffer
+	int flags, // flags for recffrom() or recvmsg()
+	struct sockaddr_in *src_addr, // not NULL: stire source address
+	in_addr_t *dest_addr // not NULL: store destination IPv4 (NBO)
 );
 
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t SendUDPv4
-(
-    int			sock,		// valid socket
-    const void		*data,		// data to send
-    size_t		data_size,	// size of data
-    int			flags,		// flags for sendto() or sendmsg()
-    struct sockaddr_in	*dest_addr,	// destination address (NULL possible)
-    in_addr_t		src_addr	// not 0: source IPv4 (NBO)
+ssize_t SendUDPv4 (int sock, // valid socket
+	const void *data, // data to send
+	size_t data_size, // size of data
+	int flags, // flags for sendto() or sendmsg()
+	struct sockaddr_in *dest_addr, // destination address (NULL possible)
+	in_addr_t src_addr // not 0: source IPv4 (NBO)
 );
 
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t recvfrom2
-(
-    int			sock,
-    void		*buf,
-    size_t		buf_size,
-    int			flags,
-    struct sockaddr	*src_addr,
-    socklen_t		*src_addrlen,
-    struct sockaddr	*dest_addr,
-    socklen_t		*dest_addrlen
-);
+ssize_t recvfrom2 (int sock, void *buf, size_t buf_size, int flags, struct sockaddr *src_addr,
+	socklen_t *src_addrlen, struct sockaddr *dest_addr, socklen_t *dest_addrlen);
 
 //-----------------------------------------------------------------------------
 
-ssize_t sendto2
-(
-    int			sock,
-    const void		*buf,
-    size_t		buf_size,
-    int			flags,
-    struct sockaddr	*dest_addr,
-    socklen_t		dest_addrlen,
-    struct sockaddr_in	*src_addr,
-    socklen_t		src_addrlen
-);
+ssize_t sendto2 (int sock, const void *buf, size_t buf_size, int flags, struct sockaddr *dest_addr,
+	socklen_t dest_addrlen, struct sockaddr_in *src_addr, socklen_t src_addrlen);
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			SendRawUDP()			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-enumError SendRawUDP
-(
-    // Capability CAP_NET_RAW needed (or effective user ID of 0).
+enumError SendRawUDP (
+	// Capability CAP_NET_RAW needed (or effective user ID of 0).
 
-    int		sock,		// RAW socket to use,
-				// if -1: open and close private socket
+	int sock, // RAW socket to use,
+			  // if -1: open and close private socket
 
-    ccp		send_addr,	// NULL or sender address:port
-    u32		send_ip4,	// fall back IP4, if 'send_addr' empty
-    u16		send_port,	// default sender port
+	ccp send_addr, // NULL or sender address:port
+	u32 send_ip4, // fall back IP4, if 'send_addr' empty
+	u16 send_port, // default sender port
 
-    ccp		recv_addr,	// NULL or receiver address:port
-    u32		recv_ip4,	// fall back IP4, if 'recv_addr' empty
-    u16		recv_port,	// default receiver port
+	ccp recv_addr, // NULL or receiver address:port
+	u32 recv_ip4, // fall back IP4, if 'recv_addr' empty
+	u16 recv_port, // default receiver port
 
-    const void	*data,		// data to send
-    uint	size,		// size of 'data'
-    uint	log_mode	// 0:silent, >0:print errors,
-				// >=0x10: hexdump data, 'lmode' bytes max
+	const void *data, // data to send
+	uint size, // size of 'data'
+	uint log_mode // 0:silent, >0:print errors,
+				  // >=0x10: hexdump data, 'lmode' bytes max
 );
 
 //-----------------------------------------------------------------------------
 
-enumError SendRawUDPsa
-(
-    // Capability CAP_NET_RAW needed (or effective user ID of 0).
+enumError SendRawUDPsa (
+	// Capability CAP_NET_RAW needed (or effective user ID of 0).
 
-    int			sock,		// RAW socket to use,
-					// if -1: open and close private socket
+	int sock, // RAW socket to use,
+			  // if -1: open and close private socket
 
-    struct sockaddr_in	*sa_send,	// sockaddr of sender
-    struct sockaddr_in	*sa_recv,	// sockaddr of receiver
+	struct sockaddr_in *sa_send, // sockaddr of sender
+	struct sockaddr_in *sa_recv, // sockaddr of receiver
 
-    const void		*data,		// data to send
-    uint		size,		// size of 'data'
-    uint		log_mode	// 0:silent, >0:print errors,
-					// >=0x10: hexdump data, 'lmode' bytes max
+	const void *data, // data to send
+	uint size, // size of 'data'
+	uint log_mode // 0:silent, >0:print errors,
+				  // >=0x10: hexdump data, 'lmode' bytes max
 );
 
 //-----------------------------------------------------------------------------
 
-uint SetupRawUDPsa
-(
-    // returns total packet len (mabe with limited 'size')
+uint SetupRawUDPsa (
+	// returns total packet len (mabe with limited 'size')
 
-    udp_packet_t	*pkt,		// paket header to setup (cleared and written)
+	udp_packet_t *pkt, // paket header to setup (cleared and written)
 
-    struct sockaddr_in	*sa_send,	// sockaddr of sender
-    struct sockaddr_in	*sa_recv,	// sockaddr of receiver
-    const void		*data,		// data to send
-    uint		size		// size of 'data'
+	struct sockaddr_in *sa_send, // sockaddr of sender
+	struct sockaddr_in *sa_recv, // sockaddr of receiver
+	const void *data, // data to send
+	uint size // size of 'data'
 );
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			Routing Support			///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -160,67 +135,58 @@ uint SetupRawUDPsa
 
 typedef struct RouteIP4_t
 {
-    //--- returned data
+	//--- returned data
 
-    int	  index;	// entry index, starts with 0, incremented for each found
-			//  -1: invalid data
+	int index; // entry index, starts with 0, incremented for each found
+			   //  -1: invalid data
 
-    char  *iface;	// pointer into 'buf': interface name
-    u32	  dest;		// destination address, network byte order
-    u32	  mask;		// destination network mask, network byte order
-    u32	  gate;		// gateway address, network byte order
-    u32	  flags;	// routing flags
+	char *iface; // pointer into 'buf': interface name
+	u32 dest; // destination address, network byte order
+	u32 mask; // destination network mask, network byte order
+	u32 gate; // gateway address, network byte order
+	u32 flags; // routing flags
 
-    //--- internal data
+	//--- internal data
 
-    FILE  *f;		// open file
-    uint  col_iface;	// column index for 'iface'
-    uint  col_dest;	// column index for 'dest'
-    uint  col_mask;	// column index for 'mask'
-    uint  col_gate;	// column index for 'gate'
-    uint  col_flags;	// column index for 'flags'
-    char  buf[200];	// line buffer for /proc/net/route
-}
-RouteIP4_t;
+	FILE *f; // open file
+	uint col_iface; // column index for 'iface'
+	uint col_dest; // column index for 'dest'
+	uint col_mask; // column index for 'mask'
+	uint col_gate; // column index for 'gate'
+	uint col_flags; // column index for 'flags'
+	char buf[200]; // line buffer for /proc/net/route
+} RouteIP4_t;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-bool OpenRouteScanIP4
-(
-    // returns TRUE on success and FALSE if no element is found
-    RouteIP4_t	*rt	// valid data, will be initialized
+bool OpenRouteScanIP4 (
+	// returns TRUE on success and FALSE if no element is found
+	RouteIP4_t *rt // valid data, will be initialized
 );
 
-bool NextRouteScanIP4
-(
-    // returns TRUE on success and FALSE if no more element is found
-    RouteIP4_t	*rt	// valid data
+bool NextRouteScanIP4 (
+	// returns TRUE on success and FALSE if no more element is found
+	RouteIP4_t *rt // valid data
 );
 
-void CloseRouteScanIP4
-(
-    RouteIP4_t	*rt	// valid data
+void CloseRouteScanIP4 (RouteIP4_t *rt // valid data
 );
 
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FindGatewayIP4
-(
-			// returns TRUE if gateway found
-    RouteIP4_t	*rt,	// valid data, will be initialized
-    u32		ip4	// search gateway for this address (network byte order)
+bool FindGatewayIP4 (
+	// returns TRUE if gateway found
+	RouteIP4_t *rt, // valid data, will be initialized
+	u32 ip4 // search gateway for this address (network byte order)
 );
 
-u32 GetIP4ByInterface
-(			// return 0 or IP4 in network byte order
-    ccp		iface	// interface name. If NULL: Use default gateway
+u32 GetIP4ByInterface ( // return 0 or IP4 in network byte order
+	ccp iface // interface name. If NULL: Use default gateway
 );
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			    E N D			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 #endif // DCLIB_NETWORK_LINUX_H
-
-

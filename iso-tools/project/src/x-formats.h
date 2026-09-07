@@ -52,47 +52,46 @@
 
 //--- Wii U (x-wiiu.c)
 
-enumError XInfoWiiU    ( ccp source, xformat_t format );
-enumError XConvertWiiU ( ccp source, xformat_t src_format,
-			 ccp dest,   xformat_t dest_format );
-enumError XExtractWiiU ( ccp source, xformat_t format, ccp dest );
+enumError XInfoWiiU (ccp source, xformat_t format);
+enumError XConvertWiiU (ccp source, xformat_t src_format, ccp dest, xformat_t dest_format);
+enumError XExtractWiiU (ccp source, xformat_t format, ccp dest);
 
 //--- Nintendo DS (x-nds.c)
 
-enumError XInfoNDS     ( ccp source );
-enumError XExtractNDS  ( ccp source, ccp dest );
-enumError XCreateNDS   ( ccp source, ccp dest );
+enumError XInfoNDS (ccp source);
+enumError XExtractNDS (ccp source, ccp dest);
+enumError XCreateNDS (ccp source, ccp dest);
 
 //--- Wii WAD (x-wad.c)
 
-enumError XInfoWAD     ( ccp source );
-enumError XExtractWAD  ( ccp source, ccp dest );
-enumError XCreateWAD   ( ccp source, ccp dest );
+enumError XInfoWAD (ccp source);
+enumError XExtractWAD (ccp source, ccp dest);
+enumError XCreateWAD (ccp source, ccp dest);
 
 //--- NKit restore: GameCube (x-nkit.c) and Wii (x-nkit-wii.c)
 
-enumError XExtractNKitGC  ( ccp source, ccp dest );
-enumError XExtractNKitWii ( ccp source, ccp dest );
+enumError XExtractNKitGC (ccp source, ccp dest);
+enumError XExtractNKitWii (ccp source, ccp dest);
 
 //--- 3DS: CCI cartridges and CIA titles (x-3ds.c)
 
-enumError XInfoCCI     ( ccp source );
-enumError XExtractCCI  ( ccp source, ccp dest );
-enumError XCreateCCI   ( ccp source, ccp dest );
+enumError XInfoCCI (ccp source);
+enumError XExtractCCI (ccp source, ccp dest);
+enumError XCreateCCI (ccp source, ccp dest);
 
-enumError XInfoCIA     ( ccp source );
-enumError XExtractCIA  ( ccp source, ccp dest );
-enumError XCreateCIA   ( ccp source, ccp dest );
+enumError XInfoCIA (ccp source);
+enumError XExtractCIA (ccp source, ccp dest);
+enumError XCreateCIA (ccp source, ccp dest);
 
 //--- Switch: XCI cartridges and NSP packages (x-switch.c)
 
-enumError XInfoXCI     ( ccp source );
-enumError XExtractXCI  ( ccp source, ccp dest );
-enumError XCreateXCI   ( ccp source, ccp dest );
+enumError XInfoXCI (ccp source);
+enumError XExtractXCI (ccp source, ccp dest);
+enumError XCreateXCI (ccp source, ccp dest);
 
-enumError XInfoNSP     ( ccp source );
-enumError XExtractNSP  ( ccp source, ccp dest );
-enumError XCreateNSP   ( ccp source, ccp dest );
+enumError XInfoNSP (ccp source);
+enumError XExtractNSP (ccp source, ccp dest);
+enumError XCreateNSP (ccp source, ccp dest);
 
 //
 ///////////////////////////////////////////////////////////////////////////////

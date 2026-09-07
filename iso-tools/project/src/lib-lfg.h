@@ -51,31 +51,31 @@
 
 //-----------------------------------------------------------------------------
 
-#define LFG_K		521			// state size in 32 bit words
-#define LFG_J		 32			// lag
-#define LFG_SEED_WORDS	 17			// words of seed data
-#define LFG_SEED_SIZE	 (LFG_SEED_WORDS*4)	// = 68 bytes of seed data
-#define LFG_STATE_SIZE	 (LFG_K*4)		// = 2084 bytes per regeneration
+#define LFG_K 521 // state size in 32 bit words
+#define LFG_J 32 // lag
+#define LFG_SEED_WORDS 17 // words of seed data
+#define LFG_SEED_SIZE (LFG_SEED_WORDS * 4) // = 68 bytes of seed data
+#define LFG_STATE_SIZE (LFG_K * 4) // = 2084 bytes per regeneration
 
 // [[lfg_t]]
 
 typedef struct lfg_t
 {
-    u32		buf[LFG_K];	// generator state, host endian
-    u32		pos;		// byte position within 'buf', 0..LFG_STATE_SIZE
+	u32 buf[LFG_K]; // generator state, host endian
+	u32 pos; // byte position within 'buf', 0..LFG_STATE_SIZE
 
 } lfg_t;
 
 //-----------------------------------------------------------------------------
 
 // Initialize LFG with 68 bytes of big endian seed data, as stored in RVZ.
-void InitializeLFG ( lfg_t * lfg, const void * seed );
+void InitializeLFG (lfg_t *lfg, const void *seed);
 
 // Skip 'count' bytes of output.  Cheap for small counts, but still O(count)
 // because the generator has no closed form; RVZ only ever needs < 32 KiB.
-void ForwardLFG ( lfg_t * lfg, u32 count );
+void ForwardLFG (lfg_t *lfg, u32 count);
 
 // Write 'size' bytes of generated data to 'dest'.
-void GetBytesLFG ( lfg_t * lfg, void * dest, u32 size );
+void GetBytesLFG (lfg_t *lfg, void *dest, u32 size);
 
 #endif // WIT_LIB_LFG_H

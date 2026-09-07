@@ -41,47 +41,47 @@
 #include "libwbfs.h"
 #include "lib-std.h"
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			   CISO options			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 typedef enum enumChunkMode
 {
-	CHUNK_MODE_ANY,		// allow any values
-	CHUNK_MODE_32KIB,	// force multiple of 32KiB
-	CHUNK_MODE_POW2,	// force multiple of 32KiB and power of 2
-	CHUNK_MODE_ISO,		// force values good for iso images and loaders
+	CHUNK_MODE_ANY, // allow any values
+	CHUNK_MODE_32KIB, // force multiple of 32KiB
+	CHUNK_MODE_POW2, // force multiple of 32KiB and power of 2
+	CHUNK_MODE_ISO, // force values good for iso images and loaders
 
 } enumChunkMode;
 
 extern enumChunkMode opt_chunk_mode;
-extern u32  opt_chunk_size;
+extern u32 opt_chunk_size;
 extern bool force_chunk_size;
-extern u32  opt_max_chunks;
+extern u32 opt_max_chunks;
 
- // returns '1' on error, '0' else
-int ScanChunkMode ( ccp source );
-int ScanMaxChunks ( ccp source );
-int ScanChunkSize ( ccp source );
+// returns '1' on error, '0' else
+int ScanChunkMode (ccp source);
+int ScanMaxChunks (ccp source);
+int ScanChunkSize (ccp source);
 
-u32 CalcBlockSizeCISO ( u32 * result_n_blocks, off_t file_size );
+u32 CalcBlockSizeCISO (u32 *result_n_blocks, off_t file_size);
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			   CISO support			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 enum // some constants
 {
-    CISO_HEAD_SIZE		= 0x8000,		// total header size
-    CISO_MAP_SIZE		= CISO_HEAD_SIZE - 8,	// map size
-    CISO_MIN_BLOCK_SIZE		= WII_SECTOR_SIZE,	// minimal allowed block size
-    CISO_MAX_BLOCK_SIZE		= 0x80000000,		// maximal allowed block size
+	CISO_HEAD_SIZE = 0x8000, // total header size
+	CISO_MAP_SIZE = CISO_HEAD_SIZE - 8, // map size
+	CISO_MIN_BLOCK_SIZE = WII_SECTOR_SIZE, // minimal allowed block size
+	CISO_MAX_BLOCK_SIZE = 0x80000000, // maximal allowed block size
 
-    CISO_WR_MIN_BLOCK_SIZE	= 1*MiB,		// minimal block size if writing
-    CISO_WR_MAX_BLOCK		= 0x2000,		// maximal blocks if writing
-    CISO_WR_MIN_HOLE_SIZE	= 0x1000,		// min hole size for sparse cheking
+	CISO_WR_MIN_BLOCK_SIZE = 1 * MiB, // minimal block size if writing
+	CISO_WR_MAX_BLOCK = 0x2000, // maximal blocks if writing
+	CISO_WR_MIN_HOLE_SIZE = 0x1000, // min hole size for sparse cheking
 };
 
 typedef u16 CISO_Map_t;
@@ -91,9 +91,9 @@ typedef u16 CISO_Map_t;
 
 typedef struct CISO_Head_t
 {
-	u8  magic[4];		// "CISO"
-	u32 block_size;		// stored as litte endian (not network byte order)
-	u8  map[CISO_MAP_SIZE];	// 0=unused, 1=used
+	u8 magic[4]; // "CISO"
+	u32 block_size; // stored as litte endian (not network byte order)
+	u8 map[CISO_MAP_SIZE]; // 0=unused, 1=used
 
 } __attribute__ ((packed)) CISO_Head_t;
 
@@ -101,29 +101,29 @@ typedef struct CISO_Head_t
 
 typedef struct CISO_Info_t
 {
-	u32 block_size;		// the block size
-	u32 used_blocks;	// number of used blocks
-	u32 needed_blocks;	// number of needed blocks
-	u32 map_size;		// number of alloced elements for 'map'
-	CISO_Map_t * map;	// NULL or map with 'map_size' elements
-	off_t max_file_off;	// maximal file offset
-	off_t max_virt_off;	// maximal virtiual iso offset
+	u32 block_size; // the block size
+	u32 used_blocks; // number of used blocks
+	u32 needed_blocks; // number of needed blocks
+	u32 map_size; // number of alloced elements for 'map'
+	CISO_Map_t *map; // NULL or map with 'map_size' elements
+	off_t max_file_off; // maximal file offset
+	off_t max_virt_off; // maximal virtiual iso offset
 
 } CISO_Info_t;
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////              interface for CISO files           ///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 // Initialize CISO_Info_t, copy and validate data from CISO_Head_t if not NULL
-enumError InitializeCISO ( CISO_Info_t * ci, CISO_Head_t * ch );
+enumError InitializeCISO (CISO_Info_t *ci, CISO_Head_t *ch);
 
 // Setup CISO_Info_t, copy and validate data from CISO_Head_t if not NULL
-enumError SetupCISO ( CISO_Info_t * ci, CISO_Head_t * ch );
+enumError SetupCISO (CISO_Info_t *ci, CISO_Head_t *ch);
 
 // free all dynamic data and Clear data
-void ResetCISO ( CISO_Info_t * ci );
+void ResetCISO (CISO_Info_t *ci);
 
 //-----------------------------------------------------------------------------
 
@@ -132,23 +132,22 @@ void ResetCISO ( CISO_Info_t * ci );
 SUPERFILE;
 
 // CISO reading support
-enumError SetupReadCISO	( SUPERFILE * sf );
-enumError ReadCISO	( SUPERFILE * sf, off_t off, void * buf, size_t size );
-off_t     DataBlockCISO	( SUPERFILE * sf, off_t off, size_t hint_align, off_t * block_size );
+enumError SetupReadCISO (SUPERFILE *sf);
+enumError ReadCISO (SUPERFILE *sf, off_t off, void *buf, size_t size);
+off_t DataBlockCISO (SUPERFILE *sf, off_t off, size_t hint_align, off_t *block_size);
 
 // CISO writing support
-enumError SetupWriteCISO ( SUPERFILE * sf );
-enumError TermWriteCISO	 ( SUPERFILE * sf );
-enumError WriteCISO	 ( SUPERFILE * sf, off_t off, const void * buf, size_t size );
-enumError WriteSparseCISO( SUPERFILE * sf, off_t off, const void * buf, size_t size );
-enumError WriteZeroCISO	 ( SUPERFILE * sf, off_t off, size_t size );
+enumError SetupWriteCISO (SUPERFILE *sf);
+enumError TermWriteCISO (SUPERFILE *sf);
+enumError WriteCISO (SUPERFILE *sf, off_t off, const void *buf, size_t size);
+enumError WriteSparseCISO (SUPERFILE *sf, off_t off, const void *buf, size_t size);
+enumError WriteZeroCISO (SUPERFILE *sf, off_t off, size_t size);
 
 #undef SUPERFILE
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////                          END                    ///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 #endif // WIT_LIB_CISO_H
-

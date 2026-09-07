@@ -10,23 +10,23 @@
 #define SQ_BYTECODE_STREAM_TAG 0xFAFA
 
 // Squirrel object type tags
-#define SQ_RT_NULL        0x0001
-#define SQ_RT_INTEGER     0x0002
-#define SQ_RT_FLOAT       0x0004
-#define SQ_RT_BOOL        0x0008
-#define SQ_RT_STRING      0x0010
-#define SQ_RT_TABLE       0x0020
-#define SQ_RT_ARRAY       0x0040
-#define SQ_RT_USERDATA    0x0080
-#define SQ_RT_CLOSURE     0x0100
-#define SQ_RT_NATCLOSURE  0x0200
-#define SQ_RT_GENERATOR   0x0400
+#define SQ_RT_NULL 0x0001
+#define SQ_RT_INTEGER 0x0002
+#define SQ_RT_FLOAT 0x0004
+#define SQ_RT_BOOL 0x0008
+#define SQ_RT_STRING 0x0010
+#define SQ_RT_TABLE 0x0020
+#define SQ_RT_ARRAY 0x0040
+#define SQ_RT_USERDATA 0x0080
+#define SQ_RT_CLOSURE 0x0100
+#define SQ_RT_NATCLOSURE 0x0200
+#define SQ_RT_GENERATOR 0x0400
 #define SQ_RT_USERPOINTER 0x0800
-#define SQ_RT_THREAD      0x1000
-#define SQ_RT_FUNCPROTO   0x2000
-#define SQ_RT_CLASS       0x4000
-#define SQ_RT_INSTANCE    0x8000
-#define SQ_RT_WEAKREF     0x00010000
+#define SQ_RT_THREAD 0x1000
+#define SQ_RT_FUNCPROTO 0x2000
+#define SQ_RT_CLASS 0x4000
+#define SQ_RT_INSTANCE 0x8000
+#define SQ_RT_WEAKREF 0x00010000
 
 typedef struct cnut_object_t
 {
@@ -121,6 +121,7 @@ enumError ExtractCNUTStrings (const cnut_t *cnut, char **out_text, size_t *out_s
 
 // Creates a basic compiled CNUT (SQIR) script containing string table and instructions.
 enumError CreateCNUT (u8 **dest, size_t *dest_size, const char *source_name, const char *func_name,
-	uint n_strings, const char *const *strings, uint n_instructions, const cnut_instruction_t *instructions);
+	uint n_strings, const char *const *strings, uint n_instructions,
+	const cnut_instruction_t *instructions);
 
 #endif // SZS_LIB_CNUT_H

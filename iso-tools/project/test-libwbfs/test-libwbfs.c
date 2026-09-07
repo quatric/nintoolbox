@@ -21,22 +21,21 @@
 #include "libwbfs.h"
 #include "wiidisc.h"
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-int main ( int argc, char ** argv )
+int main (int argc, char **argv)
 {
-    printf("hello world\n");
+	printf ("hello world\n");
 
- #if 1 // test warnings
-    wbfs_warning(0);
-    wbfs_warning("%d Warning",1);
-    wbfs_error("Error");
-    OUT_OF_MEMORY;
-    wbfs_fatal("should not reached");
- #endif
+#if 1 // test warnings
+	wbfs_warning (0);
+	wbfs_warning ("%d Warning", 1);
+	wbfs_error ("Error");
+	OUT_OF_MEMORY;
+	wbfs_fatal ("should not reached");
+#endif
 
-    return 0;
+	return 0;
 }
-

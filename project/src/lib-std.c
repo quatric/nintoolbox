@@ -4317,7 +4317,8 @@ enumError cmd_filetype ()
 						{
 							u8 *fbuf = 0;
 							size_t fsize = 0;
-							if (LoadFileAlloc (arg, 0, 0, &fbuf, &fsize, 0, 0, 0, false) == ERR_OK && fbuf)
+							if (LoadFileAlloc (arg, 0, 0, &fbuf, &fsize, 0, 0, 0, false) == ERR_OK
+								&& fbuf)
 							{
 								DecodeLZ10LZ11 (&dec, &wr, fbuf, (uint)fsize);
 								FREE (fbuf);

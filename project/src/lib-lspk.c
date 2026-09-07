@@ -10,8 +10,7 @@ void ResetLSPK (lspk_t *pak)
 	memset (pak, 0, sizeof (*pak));
 }
 
-enumError ScanLSPK (
-	lspk_t *pak, const u8 *pkh_data, uint pkh_size, const u8 *pk_data, uint pk_size)
+enumError ScanLSPK (lspk_t *pak, const u8 *pkh_data, uint pkh_size, const u8 *pk_data, uint pk_size)
 {
 	if (!pak || !pkh_data || pkh_size < 4 || !pk_data)
 		return ERR_NOTHING_TO_DO;
@@ -114,8 +113,7 @@ static u32 lspk_hash_name (ccp name)
 	return h;
 }
 
-enumError CreateLSPKArchive (
-	u8 **dest_pkh, uint *dest_pkh_size, u8 **dest_pk, uint *dest_pk_size,
+enumError CreateLSPKArchive (u8 **dest_pkh, uint *dest_pkh_size, u8 **dest_pk, uint *dest_pk_size,
 	const nintendo_sarc_entry_t *entries, uint n_entries)
 {
 	if (!dest_pkh || !dest_pkh_size || !dest_pk || !dest_pk_size || !entries || !n_entries)
@@ -164,8 +162,8 @@ enumError CreateLSPKArchive (
 		u8 *h = pkh + 4 + i * 16;
 		wr_be32 (h + 0, hash);
 		wr_be32 (h + 4, off);
-		wr_be32 (h + 8, size);  // dec_size
-		wr_be32 (h + 12, 0);    // com_size (0 = uncompressed raw)
+		wr_be32 (h + 8, size); // dec_size
+		wr_be32 (h + 12, 0); // com_size (0 = uncompressed raw)
 
 		if (sorted[i].data && size > 0)
 			memcpy (pk + off, sorted[i].data, size);

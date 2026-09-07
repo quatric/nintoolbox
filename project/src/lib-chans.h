@@ -46,10 +46,10 @@
 
 typedef struct chans_method_t
 {
-	u32 offset;         // offset in FDS bytecode
-	u16 symbol_id;      // index into exported symbols (Table 4)
-	u8  param_count;
-	u8  temp_count;
+	u32 offset; // offset in FDS bytecode
+	u16 symbol_id; // index into exported symbols (Table 4)
+	u8 param_count;
+	u8 temp_count;
 } chans_method_t;
 
 typedef struct chans_symbol_t

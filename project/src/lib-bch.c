@@ -480,7 +480,8 @@ void *ParseBCH (const u8 *data, uint size)
 					mat->min_filter[0] = 1;
 					mat->mag_filter[0] = 1;
 
-					// H3D colors at 0x64 (emission), 0x68 (ambient), 0x6c (diffuse), 0x78 (constant0)
+					// H3D colors at 0x64 (emission), 0x68 (ambient), 0x6c (diffuse), 0x78
+					// (constant0)
 					const u8 *c_amb = b + m_addr + 0x68;
 					const u8 *c_dif = b + m_addr + 0x6c;
 					const u8 *c_c0 = b + m_addr + 0x78;

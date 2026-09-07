@@ -34,7 +34,6 @@
  *                                                                         *
  ***************************************************************************/
 
-
 #include <string.h>
 
 #include "lib-lfg.h"
@@ -46,18 +45,18 @@
 
 // Advance the state by one full buffer length (LFG_K words).
 
-static void regenerate ( lfg_t * lfg )
+static void regenerate (lfg_t *lfg)
 {
-    DASSERT(lfg);
+	DASSERT (lfg);
 
-    uint i;
-    for ( i = 0; i < LFG_J; i++ )
-	lfg->buf[i] ^= lfg->buf[i+LFG_K-LFG_J];
+	uint i;
+	for (i = 0; i < LFG_J; i++)
+		lfg->buf[i] ^= lfg->buf[i + LFG_K - LFG_J];
 
-    for ( i = LFG_J; i < LFG_K; i++ )
-	lfg->buf[i] ^= lfg->buf[i-LFG_J];
+	for (i = LFG_J; i < LFG_K; i++)
+		lfg->buf[i] ^= lfg->buf[i - LFG_J];
 
-    lfg->pos = 0;
+	lfg->pos = 0;
 }
 
 //
@@ -65,65 +64,63 @@ static void regenerate ( lfg_t * lfg )
 ///////////////			    interface			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-void InitializeLFG ( lfg_t * lfg, const void * seed )
+void InitializeLFG (lfg_t *lfg, const void *seed)
 {
-    DASSERT(lfg);
-    DASSERT(seed);
+	DASSERT (lfg);
+	DASSERT (seed);
 
-    const u8 * src = seed;
-    uint i;
-    for ( i = 0; i < LFG_SEED_WORDS; i++, src += 4 )
-	lfg->buf[i] = be32(src);
+	const u8 *src = seed;
+	uint i;
+	for (i = 0; i < LFG_SEED_WORDS; i++, src += 4)
+		lfg->buf[i] = be32 (src);
 
-    for ( i = LFG_SEED_WORDS; i < LFG_K; i++ )
-	lfg->buf[i] = lfg->buf[i-17] << 23
-		    ^ lfg->buf[i-16] >>  9
-		    ^ lfg->buf[i- 1];
+	for (i = LFG_SEED_WORDS; i < LFG_K; i++)
+		lfg->buf[i] = lfg->buf[i - 17] << 23 ^ lfg->buf[i - 16] >> 9 ^ lfg->buf[i - 1];
 
-    // The generator must be advanced 4 times before the first byte is valid.
-    for ( i = 0; i < 4; i++ )
-	regenerate(lfg);
+	// The generator must be advanced 4 times before the first byte is valid.
+	for (i = 0; i < 4; i++)
+		regenerate (lfg);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void ForwardLFG ( lfg_t * lfg, u32 count )
+void ForwardLFG (lfg_t *lfg, u32 count)
 {
-    DASSERT(lfg);
+	DASSERT (lfg);
 
-    while ( count )
-    {
-	if ( lfg->pos >= LFG_STATE_SIZE )
-	    regenerate(lfg);
+	while (count)
+	{
+		if (lfg->pos >= LFG_STATE_SIZE)
+			regenerate (lfg);
 
-	const u32 avail = LFG_STATE_SIZE - lfg->pos;
-	const u32 step  = count < avail ? count : avail;
-	lfg->pos += step;
-	count    -= step;
-    }
+		const u32 avail = LFG_STATE_SIZE - lfg->pos;
+		const u32 step = count < avail ? count : avail;
+		lfg->pos += step;
+		count -= step;
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void GetBytesLFG ( lfg_t * lfg, void * dest, u32 size )
+void GetBytesLFG (lfg_t *lfg, void *dest, u32 size)
 {
-    DASSERT(lfg);
-    DASSERT( dest || !size );
+	DASSERT (lfg);
+	DASSERT (dest || !size);
 
-    // The 4 bytes of a state word are *not* a plain big endian store: the
-    // second byte is taken from bits 18..25, not 16..23.  This overlap is a
-    // property of Nintendo's generator, not a typo.
-    static const u8 shift_tab[4] = { 24, 18, 8, 0 };
+	// The 4 bytes of a state word are *not* a plain big endian store: the
+	// second byte is taken from bits 18..25, not 16..23.  This overlap is a
+	// property of Nintendo's generator, not a typo.
+	static const u8 shift_tab[4] = { 24, 18, 8, 0 };
 
-    u8 * out = dest;
-    while ( size )
-    {
-	if ( lfg->pos >= LFG_STATE_SIZE )
-	    regenerate(lfg);
+	u8 *out = dest;
+	while (size)
+	{
+		if (lfg->pos >= LFG_STATE_SIZE)
+			regenerate (lfg);
 
-	const u32 word = lfg->buf[ lfg->pos/4 ];
-	*out++ = word >> shift_tab[ lfg->pos & 3 ];
-	lfg->pos++;
-	size--;
-    }
+		const u32 word = lfg->buf[lfg->pos / 4];
+		*out++ = word >> shift_tab[lfg->pos & 3];
+		lfg->pos++;
+		size--;
+	}
 }

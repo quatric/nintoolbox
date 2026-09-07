@@ -174,7 +174,7 @@ typedef struct nfmt_info_t
 } nfmt_info_t;
 
 // Detect formats by their stable magic/header fields. Never reads past SIZE.
-__attribute__((weak)) nfmt_info_t DetectNintendoFormat (const void *data, uint size, ccp filename);
+__attribute__ ((weak)) nfmt_info_t DetectNintendoFormat (const void *data, uint size, ccp filename);
 ccp GetNintendoFormatName (nfmt_type_t type);
 
 enumError AllocOutput (u8 **dest, uint *dest_size, u32 size);
@@ -500,8 +500,7 @@ enumError CreateArika (u8 **dest_info, uint *dest_info_size, u8 **dest_game, uin
 // buffer).  Free with ResetOwnedEntries().
 
 void ResetOwnedEntries (nintendo_sarc_entry_t *entries, uint n_entries);
-bool OwnedEntryAdd (
-	nintendo_sarc_entry_t *entries, uint idx, ccp name, const u8 *data, uint size);
+bool OwnedEntryAdd (nintendo_sarc_entry_t *entries, uint idx, ccp name, const u8 *data, uint size);
 bool OwnedNameOk (ccp name);
 
 #include "lib-sfzdat.h"

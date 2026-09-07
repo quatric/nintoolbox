@@ -362,8 +362,7 @@ static int iter_export_mdl0_glb (struct szs_iterator_t *it, bool term)
 		ResetSZS (&sub);
 	}
 
-	model_t *model
-		= owned ? ParseMDL0 (owned, owned_size) : ParseMDL0 (data, it->size);
+	model_t *model = owned ? ParseMDL0 (owned, owned_size) : ParseMDL0 (data, it->size);
 	FREE (owned);
 	if (!model)
 	{
@@ -617,8 +616,7 @@ static bool export_mdl0_from_archive (raw_data_t *raw, ccp dest, enumError *err)
 	plt0_table_t palettes = { 0, 0, 0 };
 	IterateFilesParSZS (&szs, iter_collect_plt0, &palettes, false, false, false, -1, -1, SORT_NONE);
 	tex0_dump_ctx_t tex_ctx = { model_dir, &staged, &palettes, 0 };
-	IterateFilesParSZS (
-		&szs, iter_dump_tex0_png, &tex_ctx, false, false, false, -1, -1, SORT_NONE);
+	IterateFilesParSZS (&szs, iter_dump_tex0_png, &tex_ctx, false, false, false, -1, -1, SORT_NONE);
 
 	mdl0_export_ctx_t ctx = { dest, 0, ERR_OK };
 	IterateFilesParSZS (&szs, iter_export_mdl0_glb, &ctx, false, false, false, -1, -1, SORT_NONE);
@@ -676,7 +674,9 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		const bool is_hsd = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".dat");
 		const bool is_msh = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".msh");
 		const bool is_mod = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".mod");
-		const bool is_glg = dest_len > 4 && (!strcasecmp (dest + dest_len - 4, ".glg") || !strcasecmp (dest + dest_len - 4, ".rlg"));
+		const bool is_glg = dest_len > 4
+			&& (!strcasecmp (dest + dest_len - 4, ".glg")
+				|| !strcasecmp (dest + dest_len - 4, ".rlg"));
 		const bool is_bfres = dest_len > 6 && !strcasecmp (dest + dest_len - 6, ".bfres");
 		const bool is_nud = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".nud");
 		const bool is_bnfm = dest_len > 5 && !strcasecmp (dest + dest_len - 5, ".bnfm");
@@ -909,8 +909,9 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 			= is_ext (arg, ".bnfm") || (raw.data_size >= 4 && !memcmp (raw.data, "BNFM", 4));
 		const bool is_hsd_in = is_ext (arg, ".dat")
 			|| (raw.data_size >= 0x40 && IsHSD (raw.data, (uint)raw.data_size));
-		const bool is_msh_in
-			= is_ext (arg, ".msh") || (raw.data_size >= 4 && (!memcmp (raw.data, "PMsh", 4) || !memcmp (raw.data, "hsMP", 4)));
+		const bool is_msh_in = is_ext (arg, ".msh")
+			|| (raw.data_size >= 4
+				&& (!memcmp (raw.data, "PMsh", 4) || !memcmp (raw.data, "hsMP", 4)));
 		const bool is_mod_in = is_ext (arg, ".mod")
 			|| (raw.data_size >= 4
 				&& (!memcmp (raw.data, "NDL3", 4) || !memcmp (raw.data, "3LDN", 4)
@@ -921,8 +922,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				&& (!memcmp (raw.data, "NDP3", 4) || !memcmp (raw.data, "NDWU", 4)));
 
 		const bool is_glg_in = is_ext (arg, ".glg") || is_ext (arg, ".rlg")
-			|| (raw.data_size >= 4 && raw.data[0] == 0x80 && raw.data[1] == 0
-				&& raw.data[2] == 0xb0 && (raw.data[3] == 0 || raw.data[3] == 1));
+			|| (raw.data_size >= 4 && raw.data[0] == 0x80 && raw.data[1] == 0 && raw.data[2] == 0xb0
+				&& (raw.data[3] == 0 || raw.data[3] == 1));
 
 		if (is_model_dest && is_glg_in)
 		{
@@ -1074,9 +1075,11 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 					: ParseBFRES (raw.data, raw.data_size);
 				if (!model && raw.data_size >= 4 && !memcmp (raw.data, "FRES", 4))
 					model = ParseBFRESSwitch (raw.data, raw.data_size);
-				if (!model && raw.data_size >= 4 && (!memcmp (raw.data, "NDP3", 4) || !memcmp (raw.data, "NDWU", 4)))
+				if (!model && raw.data_size >= 4
+					&& (!memcmp (raw.data, "NDP3", 4) || !memcmp (raw.data, "NDWU", 4)))
 					model = ParseNUD (raw.data, raw.data_size);
-				if (!model && raw.data_size >= 4 && (!memcmp (raw.data, "SSBH", 4) || !memcmp (raw.data, "HBSS", 4)))
+				if (!model && raw.data_size >= 4
+					&& (!memcmp (raw.data, "SSBH", 4) || !memcmp (raw.data, "HBSS", 4)))
 				{
 					// A mesh's bones live in a sibling .nusktb; without it the
 					// model still exports, just unskinned.
@@ -1119,8 +1122,7 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 							closedir (dp);
 						}
 					}
-					model = ParseNUMSHBSkinned (
-						raw.data, raw.data_size, skel, skel_size);
+					model = ParseNUMSHBSkinned (raw.data, raw.data_size, skel, skel_size);
 					FREE (skel);
 				}
 				if (model)

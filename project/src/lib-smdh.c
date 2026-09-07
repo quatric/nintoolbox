@@ -130,7 +130,8 @@ enumError ScanSMDH (smdh_t *smdh, const u8 *data, uint size)
 	memset (smdh, 0, sizeof (*smdh));
 
 	if (!data || size < SMDH_SIZE || memcmp (data, "SMDH", 4))
-		return ERROR0 (ERR_INVALID_IFORM, "Not a SMDH file (bad magic or size < 0x%x)\n", SMDH_SIZE);
+		return ERROR0 (
+			ERR_INVALID_IFORM, "Not a SMDH file (bad magic or size < 0x%x)\n", SMDH_SIZE);
 
 	smdh->version = srd16 (data + 4);
 
@@ -317,13 +318,16 @@ static void smdh_utf8_to_utf16le (u8 *dest, uint max_u16, ccp src)
 		else if ((*s & 0xe0) == 0xc0)
 		{
 			cp = (*s++ & 0x1f) << 6;
-			if (*s) cp |= (*s++ & 0x3f);
+			if (*s)
+				cp |= (*s++ & 0x3f);
 		}
 		else if ((*s & 0xf0) == 0xe0)
 		{
 			cp = (*s++ & 0x0f) << 12;
-			if (*s) cp |= (*s++ & 0x3f) << 6;
-			if (*s) cp |= (*s++ & 0x3f);
+			if (*s)
+				cp |= (*s++ & 0x3f) << 6;
+			if (*s)
+				cp |= (*s++ & 0x3f);
 		}
 		else
 		{

@@ -2,7 +2,7 @@
 // Decodes U8-arc tilesets: RGB4A3 texture, tile behaviour, object definitions.
 
 #include "lib-nsmbw.h"
-#include "lib-xmsg.h"    // strbuf helpers (sb_init, sb_putf, etc.) defined below locally
+#include "lib-xmsg.h" // strbuf helpers (sb_init, sb_putf, etc.) defined below locally
 #include "lib-lz10.h"
 #include "lib-std.h"
 
@@ -27,16 +27,20 @@ static void nsb_init (nsmbw_sb_t *s)
 	s->cap = 8192;
 	s->len = 0;
 	s->buf = MALLOC (s->cap);
-	if (s->buf) s->buf[0] = 0;
+	if (s->buf)
+		s->buf[0] = 0;
 }
 
 static void nsb_grow (nsmbw_sb_t *s, size_t extra)
 {
-	if (!s->buf) return;
-	if (s->len + extra + 1 <= s->cap) return;
+	if (!s->buf)
+		return;
+	if (s->len + extra + 1 <= s->cap)
+		return;
 	size_t nc = s->cap * 2 + extra + 128;
 	char *nb = REALLOC (s->buf, nc);
-	if (!nb) return;
+	if (!nb)
+		return;
 	s->buf = nb;
 	s->cap = nc;
 }
@@ -44,15 +48,24 @@ static void nsb_grow (nsmbw_sb_t *s, size_t extra)
 static void nsb_putc (nsmbw_sb_t *s, char c)
 {
 	nsb_grow (s, 1);
-	if (s->buf) { s->buf[s->len++] = c; s->buf[s->len] = 0; }
+	if (s->buf)
+	{
+		s->buf[s->len++] = c;
+		s->buf[s->len] = 0;
+	}
 }
 
 static void nsb_puts (nsmbw_sb_t *s, const char *str)
 {
-	if (!str) return;
+	if (!str)
+		return;
 	size_t l = strlen (str);
 	nsb_grow (s, l);
-	if (s->buf) { memcpy (s->buf + s->len, str, l + 1); s->len += l; }
+	if (s->buf)
+	{
+		memcpy (s->buf + s->len, str, l + 1);
+		s->len += l;
+	}
 }
 
 static void nsb_printf (nsmbw_sb_t *s, const char *fmt, ...)
@@ -60,7 +73,8 @@ static void nsb_printf (nsmbw_sb_t *s, const char *fmt, ...)
 
 static void nsb_printf (nsmbw_sb_t *s, const char *fmt, ...)
 {
-	if (!s->buf) return;
+	if (!s->buf)
+		return;
 	char tmp[512];
 	va_list ap;
 	va_start (ap, fmt);
@@ -81,12 +95,11 @@ bool IsNSMBWTilesetArc (const char *const *paths, uint n_paths)
 	for (uint i = 0; i < n_paths; i++)
 	{
 		const char *p = paths[i];
-		if (!p) continue;
-		if (strncmp (p, "BG_tex/", 7) == 0 &&
-			strstr (p, "_tex.bin"))
+		if (!p)
+			continue;
+		if (strncmp (p, "BG_tex/", 7) == 0 && strstr (p, "_tex.bin"))
 			have_tex = true;
-		if (strncmp (p, "BG_chk/", 7) == 0 &&
-			strstr (p, "d_bgchk_"))
+		if (strncmp (p, "BG_chk/", 7) == 0 && strstr (p, "d_bgchk_"))
 			have_chk = true;
 	}
 	return have_tex && have_chk;
@@ -116,18 +129,25 @@ static inline u32 rgb4a3_word_to_argb (u16 w)
 	if (w & 0x8000)
 	{
 		// RGB555 – fully opaque
-		u32 r = (w >> 10) & 0x1F; r = (r << 3) | (r >> 2);
-		u32 g = (w >>  5) & 0x1F; g = (g << 3) | (g >> 2);
-		u32 b = (w      ) & 0x1F; b = (b << 3) | (b >> 2);
+		u32 r = (w >> 10) & 0x1F;
+		r = (r << 3) | (r >> 2);
+		u32 g = (w >> 5) & 0x1F;
+		g = (g << 3) | (g >> 2);
+		u32 b = (w) & 0x1F;
+		b = (b << 3) | (b >> 2);
 		return 0xFF000000u | (r << 16) | (g << 8) | b;
 	}
 	else
 	{
 		// RGB4A3
-		u32 a = (w >> 12) & 0x7; a = (a << 5) | (a << 2) | (a >> 1);
-		u32 r = (w >>  8) & 0xF; r *= 17;
-		u32 g = (w >>  4) & 0xF; g *= 17;
-		u32 b = (w      ) & 0xF; b *= 17;
+		u32 a = (w >> 12) & 0x7;
+		a = (a << 5) | (a << 2) | (a >> 1);
+		u32 r = (w >> 8) & 0xF;
+		r *= 17;
+		u32 g = (w >> 4) & 0xF;
+		g *= 17;
+		u32 b = (w) & 0xF;
+		b *= 17;
 		return (a << 24) | (r << 16) | (g << 8) | b;
 	}
 }
@@ -150,8 +170,8 @@ void DecodeRGB4A3 (u8 *dst, const u8 *src, uint src_size)
 
 	for (uint i = 0; i < words; i++)
 	{
-		uint x_blk = (i / 16) % (W / 4);       // block column
-		uint y_blk = (i / 16) / (W / 4);       // block row
+		uint x_blk = (i / 16) % (W / 4); // block column
+		uint y_blk = (i / 16) / (W / 4); // block row
 		uint in_blk = i % 16;
 		uint px = x_blk * 4 + (in_blk % 4);
 		uint py = y_blk * 4 + (in_blk / 4);
@@ -161,8 +181,8 @@ void DecodeRGB4A3 (u8 *dst, const u8 *src, uint src_size)
 
 		u8 *p = dst + (py * W + px) * 4;
 		p[0] = (argb >> 16) & 0xFF; // R
-		p[1] = (argb >>  8) & 0xFF; // G
-		p[2] = (argb      ) & 0xFF; // B
+		p[1] = (argb >> 8) & 0xFF; // G
+		p[2] = (argb) & 0xFF; // B
 		p[3] = (argb >> 24) & 0xFF; // A
 	}
 }
@@ -214,7 +234,7 @@ void EncodeRGB4A3 (u8 *dst, const u8 *src)
 
 		const u8 *p = src + (py * W + px) * 4;
 		u16 w = argb_to_rgb4a3_word (p[0], p[1], p[2], p[3]);
-		dst[i * 2]     = (u8)(w >> 8);
+		dst[i * 2] = (u8)(w >> 8);
 		dst[i * 2 + 1] = (u8)(w & 0xFF);
 	}
 }
@@ -226,15 +246,15 @@ void EncodeRGB4A3 (u8 *dst, const u8 *src)
 
 static void free_object (nsmbw_obj_t *obj)
 {
-	if (!obj) return;
+	if (!obj)
+		return;
 	for (uint r = 0; r < obj->n_rows; r++)
 		FREE (obj->rows[r].tiles);
 	FREE (obj->rows);
 }
 
-static enumError parse_objects (nsmbw_tileset_t *ts,
-	const u8 *unt, uint unt_size,
-	const u8 *unt_hd, uint unt_hd_size)
+static enumError parse_objects (
+	nsmbw_tileset_t *ts, const u8 *unt, uint unt_size, const u8 *unt_hd, uint unt_hd_size)
 {
 	if (!unt || !unt_hd || unt_hd_size < 4)
 		return ERR_OK;
@@ -249,11 +269,11 @@ static enumError parse_objects (nsmbw_tileset_t *ts,
 	{
 		const u8 *meta = unt_hd + o * 4;
 		uint offset = (uint)meta[0] << 8 | meta[1];
-		uint width  = meta[2];
+		uint width = meta[2];
 		uint height = meta[3];
 
 		nsmbw_obj_t *obj = &ts->objects[o];
-		obj->width  = width;
+		obj->width = width;
 		obj->height = height;
 
 		// Parse object definition stream starting at unt[offset].
@@ -264,7 +284,8 @@ static enumError parse_objects (nsmbw_tileset_t *ts,
 		// First pass: count rows.
 		uint n_rows = 1;
 		for (uint i = offset; i < unt_size && unt[i] != 0xFF; i++)
-			if (unt[i] == 0xFE) n_rows++;
+			if (unt[i] == 0xFE)
+				n_rows++;
 
 		obj->rows = CALLOC (n_rows, sizeof (nsmbw_obj_row_t));
 		if (!obj->rows)
@@ -313,16 +334,16 @@ static enumError parse_objects (nsmbw_tileset_t *ts,
 					if (row->n_tiles >= row_alloc)
 					{
 						row_alloc *= 2;
-						nsmbw_obj_tile_t *nr = REALLOC (row->tiles,
-							row_alloc * sizeof (nsmbw_obj_tile_t));
+						nsmbw_obj_tile_t *nr
+							= REALLOC (row->tiles, row_alloc * sizeof (nsmbw_obj_tile_t));
 						if (nr)
 							row->tiles = nr;
 					}
 					if (row->n_tiles < row_alloc)
 					{
 						row->tiles[row->n_tiles].flags = unt[i];
-						row->tiles[row->n_tiles].tile  = unt[i + 1];
-						row->tiles[row->n_tiles].slot  = unt[i + 2];
+						row->tiles[row->n_tiles].tile = unt[i + 1];
+						row->tiles[row->n_tiles].slot = unt[i + 2];
 						row->n_tiles++;
 					}
 				}
@@ -341,19 +362,15 @@ static enumError parse_objects (nsmbw_tileset_t *ts,
 ////////////////////////  ScanNSMBWTileset  ///////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-enumError ScanNSMBWTileset (nsmbw_tileset_t *ts,
-	const u8 *tex_lz, uint tex_lz_size,
-	const u8 *chk, uint chk_size,
-	const u8 *unt, uint unt_size,
-	const u8 *unt_hd, uint unt_hd_size)
+enumError ScanNSMBWTileset (nsmbw_tileset_t *ts, const u8 *tex_lz, uint tex_lz_size, const u8 *chk,
+	uint chk_size, const u8 *unt, uint unt_size, const u8 *unt_hd, uint unt_hd_size)
 {
 	memset (ts, 0, sizeof (*ts));
 
 	// Decompress texture
 	if (tex_lz && tex_lz_size > 0)
 	{
-		enumError err = DecodeLZ10LZ11 (&ts->tex_raw, &ts->tex_raw_size,
-			tex_lz, tex_lz_size);
+		enumError err = DecodeLZ10LZ11 (&ts->tex_raw, &ts->tex_raw_size, tex_lz, tex_lz_size);
 		if (!err && ts->tex_raw && ts->tex_raw_size >= 524288)
 		{
 			ts->argb = MALLOC (1024 * 256 * 4);
@@ -382,7 +399,8 @@ enumError ScanNSMBWTileset (nsmbw_tileset_t *ts,
 
 void ResetNSMBWTileset (nsmbw_tileset_t *ts)
 {
-	if (!ts) return;
+	if (!ts)
+		return;
 	FREE (ts->tex_raw);
 	FREE (ts->argb);
 	if (ts->objects)
@@ -401,18 +419,18 @@ void ResetNSMBWTileset (nsmbw_tileset_t *ts)
 
 // Behaviour bit meanings based on Puzzle-Updated documentation.
 static const char *beh_byte0_flags[] = {
-	"solid",           // 0x01
-	"solid_top",       // 0x02
-	"slope",           // 0x04
-	"spike",           // 0x08
-	"climbable",       // 0x10
-	"lava",            // 0x20
-	"passthrough",     // 0x40
-	"quicksand",       // 0x80
+	"solid", // 0x01
+	"solid_top", // 0x02
+	"slope", // 0x04
+	"spike", // 0x08
+	"climbable", // 0x10
+	"lava", // 0x20
+	"passthrough", // 0x40
+	"quicksand", // 0x80
 };
 
-enumError DumpNSMBWBehaviour (const nsmbw_tileset_t *ts,
-	char **out, size_t *out_size, ccp tileset_name)
+enumError DumpNSMBWBehaviour (
+	const nsmbw_tileset_t *ts, char **out, size_t *out_size, ccp tileset_name)
 {
 	if (!ts || !out)
 		return ERR_MISSING_PARAM;
@@ -422,13 +440,14 @@ enumError DumpNSMBWBehaviour (const nsmbw_tileset_t *ts,
 
 	nsb_printf (&s, "# NSMBW Tileset Behaviour Table: %s\n", tileset_name ? tileset_name : "?");
 	nsb_puts (&s, "# 256 tiles, 8 bytes each (big-endian)\n");
-	nsb_puts (&s, "# Format: tile_idx [byte0 byte1 byte2 byte3 byte4 byte5 byte6 byte7]  flags\n\n");
+	nsb_puts (
+		&s, "# Format: tile_idx [byte0 byte1 byte2 byte3 byte4 byte5 byte6 byte7]  flags\n\n");
 
 	for (uint i = 0; i < 256; i++)
 	{
 		const u8 *b = ts->beh[i].byte;
-		nsb_printf (&s, "tile %3u  [%02X %02X %02X %02X %02X %02X %02X %02X]",
-			i, b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]);
+		nsb_printf (&s, "tile %3u  [%02X %02X %02X %02X %02X %02X %02X %02X]", i, b[0], b[1], b[2],
+			b[3], b[4], b[5], b[6], b[7]);
 
 		// Decode byte 0 flags
 		bool any = false;
@@ -449,11 +468,13 @@ enumError DumpNSMBWBehaviour (const nsmbw_tileset_t *ts,
 	if (!s.buf)
 	{
 		*out = NULL;
-		if (out_size) *out_size = 0;
+		if (out_size)
+			*out_size = 0;
 		return ERR_OUT_OF_MEMORY;
 	}
 	*out = s.buf;
-	if (out_size) *out_size = s.len;
+	if (out_size)
+		*out_size = s.len;
 	return ERR_OK;
 }
 
@@ -462,8 +483,8 @@ enumError DumpNSMBWBehaviour (const nsmbw_tileset_t *ts,
 /////////////////////  DumpNSMBWObjects  //////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-enumError DumpNSMBWObjects (const nsmbw_tileset_t *ts,
-	char **out, size_t *out_size, ccp tileset_name)
+enumError DumpNSMBWObjects (
+	const nsmbw_tileset_t *ts, char **out, size_t *out_size, ccp tileset_name)
 {
 	if (!ts || !out)
 		return ERR_MISSING_PARAM;
@@ -490,9 +511,7 @@ enumError DumpNSMBWObjects (const nsmbw_tileset_t *ts,
 			nsb_printf (&s, "  ROW %u:", r);
 			for (uint t = 0; t < row->n_tiles; t++)
 			{
-				nsb_printf (&s, " (f=%02X,tile=%u,Pa%u)",
-					row->tiles[t].flags,
-					row->tiles[t].tile,
+				nsb_printf (&s, " (f=%02X,tile=%u,Pa%u)", row->tiles[t].flags, row->tiles[t].tile,
 					row->tiles[t].slot);
 			}
 			nsb_putc (&s, '\n');
@@ -503,11 +522,13 @@ enumError DumpNSMBWObjects (const nsmbw_tileset_t *ts,
 	if (!s.buf)
 	{
 		*out = NULL;
-		if (out_size) *out_size = 0;
+		if (out_size)
+			*out_size = 0;
 		return ERR_OUT_OF_MEMORY;
 	}
 	*out = s.buf;
-	if (out_size) *out_size = s.len;
+	if (out_size)
+		*out_size = s.len;
 	return ERR_OK;
 }
 
@@ -516,8 +537,7 @@ enumError DumpNSMBWObjects (const nsmbw_tileset_t *ts,
 /////////////////////  ExportNSMBWTexARGB  ////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-enumError ExportNSMBWTexARGB (const nsmbw_tileset_t *ts,
-	u8 **out, size_t *out_size)
+enumError ExportNSMBWTexARGB (const nsmbw_tileset_t *ts, u8 **out, size_t *out_size)
 {
 	if (!ts || !out)
 		return ERR_MISSING_PARAM;
@@ -530,7 +550,8 @@ enumError ExportNSMBWTexARGB (const nsmbw_tileset_t *ts,
 		return ERR_OUT_OF_MEMORY;
 	memcpy (buf, ts->argb, sz);
 	*out = buf;
-	if (out_size) *out_size = sz;
+	if (out_size)
+		*out_size = sz;
 	return ERR_OK;
 }
 
@@ -539,8 +560,7 @@ enumError ExportNSMBWTexARGB (const nsmbw_tileset_t *ts,
 /////////////////////  EncodeNSMBWTexLZ  //////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-enumError EncodeNSMBWTexLZ (const nsmbw_tileset_t *ts,
-	u8 **out, uint *out_size)
+enumError EncodeNSMBWTexLZ (const nsmbw_tileset_t *ts, u8 **out, uint *out_size)
 {
 	if (!ts || !out || !ts->argb)
 		return ERR_MISSING_PARAM;
@@ -560,7 +580,8 @@ enumError EncodeNSMBWTexLZ (const nsmbw_tileset_t *ts,
 		return err;
 
 	*out = lz;
-	if (out_size) *out_size = lz_size;
+	if (out_size)
+		*out_size = lz_size;
 	return ERR_OK;
 }
 
@@ -631,9 +652,9 @@ enumError ScanNWRLevelInfo (nwr_levelinfo_t *li, const u8 *data, size_t size)
 			u8 f_level = ep[1];
 			u8 d_world = ep[2];
 			u8 d_level = ep[3];
-			u8 t_len   = ep[4];
-			u16 flags  = be16 (ep + 6);
-			u32 t_off  = be32 (ep + 8);
+			u8 t_len = ep[4];
+			u16 flags = be16 (ep + 6);
+			u32 t_off = be32 (ep + 8);
 
 			if (t_off < min_text_offs)
 				min_text_offs = t_off;
@@ -692,7 +713,8 @@ enumError ScanNWRLevelInfo (nwr_levelinfo_t *li, const u8 *data, size_t size)
 
 void ResetNWRLevelInfo (nwr_levelinfo_t *li)
 {
-	if (!li) return;
+	if (!li)
+		return;
 	FREE (li->comments);
 	if (li->worlds)
 	{
@@ -739,8 +761,7 @@ enumError DumpNWRLevelInfoText (const nwr_levelinfo_t *li, char **out, size_t *o
 		{
 			const nwr_level_entry_t *lvl = &world->levels[l];
 			nsb_printf (&s, "  level %u-%u (file: %02u-%02u, flags: 0x%04X) = \"%s\"\n",
-				lvl->display_world, lvl->display_level,
-				lvl->file_world, lvl->file_level,
+				lvl->display_world, lvl->display_level, lvl->file_world, lvl->file_level,
 				lvl->flags, lvl->name ? lvl->name : "");
 		}
 		nsb_putc (&s, '\n');
@@ -749,11 +770,13 @@ enumError DumpNWRLevelInfoText (const nwr_levelinfo_t *li, char **out, size_t *o
 	if (!s.buf)
 	{
 		*out = NULL;
-		if (out_size) *out_size = 0;
+		if (out_size)
+			*out_size = 0;
 		return ERR_OUT_OF_MEMORY;
 	}
 	*out = s.buf;
-	if (out_size) *out_size = s.len;
+	if (out_size)
+		*out_size = s.len;
 	return ERR_OK;
 }
 
@@ -772,8 +795,10 @@ enumError CreateNWRLevelInfo (u8 **dest, size_t *dest_size, const nwr_levelinfo_
 		offset += 4; // world offset
 		offset += 4; // num levels
 		const nwr_world_t *world = &li->worlds[w];
-		if (world->has_left) offset += 12;
-		if (world->has_right) offset += 12;
+		if (world->has_left)
+			offset += 12;
+		if (world->has_right)
+			offset += 12;
 		offset += world->n_levels * 12;
 	}
 
@@ -788,8 +813,8 @@ enumError CreateNWRLevelInfo (u8 **dest, size_t *dest_size, const nwr_levelinfo_
 	memcpy (buf, NWRP_MAGIC, 4);
 	buf[4] = (num_worlds >> 24) & 0xFF;
 	buf[5] = (num_worlds >> 16) & 0xFF;
-	buf[6] = (num_worlds >>  8) & 0xFF;
-	buf[7] = (num_worlds      ) & 0xFF;
+	buf[6] = (num_worlds >> 8) & 0xFF;
+	buf[7] = (num_worlds) & 0xFF;
 
 	uint cur_world_off = 8 + num_worlds * 4;
 	uint cur_text_off = text_start;
@@ -804,17 +829,19 @@ enumError CreateNWRLevelInfo (u8 **dest, size_t *dest_size, const nwr_levelinfo_
 		uint world_off_slot = 8 + w * 4;
 		buf[world_off_slot + 0] = (cur_world_off >> 24) & 0xFF;
 		buf[world_off_slot + 1] = (cur_world_off >> 16) & 0xFF;
-		buf[world_off_slot + 2] = (cur_world_off >>  8) & 0xFF;
-		buf[world_off_slot + 3] = (cur_world_off      ) & 0xFF;
+		buf[world_off_slot + 2] = (cur_world_off >> 8) & 0xFF;
+		buf[world_off_slot + 3] = (cur_world_off) & 0xFF;
 
 		uint total_entries = world->n_levels;
-		if (world->has_left) total_entries++;
-		if (world->has_right) total_entries++;
+		if (world->has_left)
+			total_entries++;
+		if (world->has_right)
+			total_entries++;
 
 		buf[cur_world_off + 0] = (total_entries >> 24) & 0xFF;
 		buf[cur_world_off + 1] = (total_entries >> 16) & 0xFF;
-		buf[cur_world_off + 2] = (total_entries >>  8) & 0xFF;
-		buf[cur_world_off + 3] = (total_entries      ) & 0xFF;
+		buf[cur_world_off + 2] = (total_entries >> 8) & 0xFF;
+		buf[cur_world_off + 3] = (total_entries) & 0xFF;
 		cur_world_off += 4;
 
 		// Write world left header if present
@@ -823,19 +850,27 @@ enumError CreateNWRLevelInfo (u8 **dest, size_t *dest_size, const nwr_levelinfo_
 			ccp name = world->name_left ? world->name_left : "";
 			uint nlen = (uint)strlen (name);
 			u8 *ep = buf + cur_world_off;
-			ep[0] = 98; ep[1] = 98;
-			ep[2] = world->world_number; ep[3] = 100;
-			ep[4] = nlen; ep[5] = 0;
-			ep[6] = 0; ep[7] = 0; // flags
+			ep[0] = 98;
+			ep[1] = 98;
+			ep[2] = world->world_number;
+			ep[3] = 100;
+			ep[4] = nlen;
+			ep[5] = 0;
+			ep[6] = 0;
+			ep[7] = 0; // flags
 			ep[8] = (cur_text_off >> 24) & 0xFF;
 			ep[9] = (cur_text_off >> 16) & 0xFF;
 			ep[10] = (cur_text_off >> 8) & 0xFF;
-			ep[11] = (cur_text_off     ) & 0xFF;
+			ep[11] = (cur_text_off) & 0xFF;
 			cur_world_off += 12;
 
 			for (uint c = 0; c < nlen; c++)
 			{
-				if (text_len + 2 > text_cap) { text_cap *= 2; text_buf = REALLOC (text_buf, text_cap); }
+				if (text_len + 2 > text_cap)
+				{
+					text_cap *= 2;
+					text_buf = REALLOC (text_buf, text_cap);
+				}
 				text_buf[text_len++] = (u8)((name[c] - 0x30) & 0xFF);
 			}
 			text_buf[text_len++] = 0;
@@ -848,19 +883,27 @@ enumError CreateNWRLevelInfo (u8 **dest, size_t *dest_size, const nwr_levelinfo_
 			ccp name = world->name_right ? world->name_right : "";
 			uint nlen = (uint)strlen (name);
 			u8 *ep = buf + cur_world_off;
-			ep[0] = 98; ep[1] = 98;
-			ep[2] = world->world_number; ep[3] = 101;
-			ep[4] = nlen; ep[5] = 0;
-			ep[6] = 0x04; ep[7] = 0; // flags (0x0400 = right)
+			ep[0] = 98;
+			ep[1] = 98;
+			ep[2] = world->world_number;
+			ep[3] = 101;
+			ep[4] = nlen;
+			ep[5] = 0;
+			ep[6] = 0x04;
+			ep[7] = 0; // flags (0x0400 = right)
 			ep[8] = (cur_text_off >> 24) & 0xFF;
 			ep[9] = (cur_text_off >> 16) & 0xFF;
 			ep[10] = (cur_text_off >> 8) & 0xFF;
-			ep[11] = (cur_text_off     ) & 0xFF;
+			ep[11] = (cur_text_off) & 0xFF;
 			cur_world_off += 12;
 
 			for (uint c = 0; c < nlen; c++)
 			{
-				if (text_len + 2 > text_cap) { text_cap *= 2; text_buf = REALLOC (text_buf, text_cap); }
+				if (text_len + 2 > text_cap)
+				{
+					text_cap *= 2;
+					text_buf = REALLOC (text_buf, text_cap);
+				}
 				text_buf[text_len++] = (u8)((name[c] - 0x30) & 0xFF);
 			}
 			text_buf[text_len++] = 0;
@@ -881,16 +924,20 @@ enumError CreateNWRLevelInfo (u8 **dest, size_t *dest_size, const nwr_levelinfo_
 			ep[4] = nlen;
 			ep[5] = 0;
 			ep[6] = (lvl->flags >> 8) & 0xFF;
-			ep[7] = (lvl->flags     ) & 0xFF;
+			ep[7] = (lvl->flags) & 0xFF;
 			ep[8] = (cur_text_off >> 24) & 0xFF;
 			ep[9] = (cur_text_off >> 16) & 0xFF;
 			ep[10] = (cur_text_off >> 8) & 0xFF;
-			ep[11] = (cur_text_off     ) & 0xFF;
+			ep[11] = (cur_text_off) & 0xFF;
 			cur_world_off += 12;
 
 			for (uint c = 0; c < nlen; c++)
 			{
-				if (text_len + 2 > text_cap) { text_cap *= 2; text_buf = REALLOC (text_buf, text_cap); }
+				if (text_len + 2 > text_cap)
+				{
+					text_cap *= 2;
+					text_buf = REALLOC (text_buf, text_cap);
+				}
 				text_buf[text_len++] = (u8)((name[c] - 0x30) & 0xFF);
 			}
 			text_buf[text_len++] = 0;
@@ -913,7 +960,8 @@ enumError CreateNWRLevelInfo (u8 **dest, size_t *dest_size, const nwr_levelinfo_
 	FREE (text_buf);
 
 	*dest = buf;
-	if (dest_size) *dest_size = text_start + text_len;
+	if (dest_size)
+		*dest_size = text_start + text_len;
 	return ERR_OK;
 }
 
@@ -948,10 +996,10 @@ enumError ScanNWRAnimTiles (nwr_animtiles_t *at, const u8 *data, size_t size)
 	{
 		const u8 *ep = data + 8 + i * 8;
 		u16 tex_name_off = be16 (ep + 0);
-		u16 delay_off    = be16 (ep + 2);
-		u16 tile_num     = be16 (ep + 4);
-		u8 tileset_num   = ep[6];
-		u8 reverse       = ep[7];
+		u16 delay_off = be16 (ep + 2);
+		u16 tile_num = be16 (ep + 4);
+		u8 tileset_num = ep[6];
+		u8 reverse = ep[7];
 
 		nwr_animtile_entry_t *entry = &at->entries[i];
 		entry->tile_num = tile_num;
@@ -960,7 +1008,7 @@ enumError ScanNWRAnimTiles (nwr_animtiles_t *at, const u8 *data, size_t size)
 
 		if (tex_name_off < size)
 		{
-			size_t nlen = strnlen ((const char*)data + tex_name_off, size - tex_name_off);
+			size_t nlen = strnlen ((const char *)data + tex_name_off, size - tex_name_off);
 			entry->tex_name = MALLOC (nlen + 1);
 			if (entry->tex_name)
 			{
@@ -971,7 +1019,7 @@ enumError ScanNWRAnimTiles (nwr_animtiles_t *at, const u8 *data, size_t size)
 
 		if (delay_off < size)
 		{
-			size_t dlen = strnlen ((const char*)data + delay_off, size - delay_off);
+			size_t dlen = strnlen ((const char *)data + delay_off, size - delay_off);
 			entry->frame_delays = MALLOC (dlen + 1);
 			if (entry->frame_delays)
 			{
@@ -986,7 +1034,8 @@ enumError ScanNWRAnimTiles (nwr_animtiles_t *at, const u8 *data, size_t size)
 
 void ResetNWRAnimTiles (nwr_animtiles_t *at)
 {
-	if (!at) return;
+	if (!at)
+		return;
 	if (at->entries)
 	{
 		for (uint i = 0; i < at->n_entries; i++)
@@ -1014,20 +1063,20 @@ enumError DumpNWRAnimTilesText (const nwr_animtiles_t *at, char **out, size_t *o
 	for (uint i = 0; i < at->n_entries; i++)
 	{
 		const nwr_animtile_entry_t *e = &at->entries[i];
-		nsb_printf (&s, "0x%04X      Pa%u      %d        %-28s %s\n",
-			e->tile_num, e->tileset_num, e->reverse,
-			e->tex_name ? e->tex_name : "",
-			e->frame_delays ? e->frame_delays : "");
+		nsb_printf (&s, "0x%04X      Pa%u      %d        %-28s %s\n", e->tile_num, e->tileset_num,
+			e->reverse, e->tex_name ? e->tex_name : "", e->frame_delays ? e->frame_delays : "");
 	}
 
 	if (!s.buf)
 	{
 		*out = NULL;
-		if (out_size) *out_size = 0;
+		if (out_size)
+			*out_size = 0;
 		return ERR_OUT_OF_MEMORY;
 	}
 	*out = s.buf;
-	if (out_size) *out_size = s.len;
+	if (out_size)
+		*out_size = s.len;
 	return ERR_OK;
 }
 
@@ -1046,8 +1095,8 @@ enumError CreateNWRAnimTiles (u8 **dest, size_t *dest_size, const nwr_animtiles_
 	memcpy (buf, NWRA_MAGIC, 4);
 	buf[4] = (num_entries >> 24) & 0xFF;
 	buf[5] = (num_entries >> 16) & 0xFF;
-	buf[6] = (num_entries >>  8) & 0xFF;
-	buf[7] = (num_entries      ) & 0xFF;
+	buf[6] = (num_entries >> 8) & 0xFF;
+	buf[7] = (num_entries) & 0xFF;
 
 	uint cur_str_off = header_size;
 	for (uint i = 0; i < num_entries; i++)
@@ -1074,17 +1123,18 @@ enumError CreateNWRAnimTiles (u8 **dest, size_t *dest_size, const nwr_animtiles_
 
 		u8 *ep = buf + 8 + i * 8;
 		ep[0] = (tex_off >> 8) & 0xFF;
-		ep[1] = (tex_off     ) & 0xFF;
+		ep[1] = (tex_off) & 0xFF;
 		ep[2] = (del_off >> 8) & 0xFF;
-		ep[3] = (del_off     ) & 0xFF;
+		ep[3] = (del_off) & 0xFF;
 		ep[4] = (e->tile_num >> 8) & 0xFF;
-		ep[5] = (e->tile_num     ) & 0xFF;
+		ep[5] = (e->tile_num) & 0xFF;
 		ep[6] = e->tileset_num;
 		ep[7] = e->reverse;
 	}
 
 	*dest = buf;
-	if (dest_size) *dest_size = cur_str_off;
+	if (dest_size)
+		*dest_size = cur_str_off;
 	return ERR_OK;
 }
 
@@ -1093,4 +1143,3 @@ bool IsNSMBWChk (const u8 *data, size_t size)
 	// 256 entries * 8 bytes = 2048 bytes
 	return data && size == 2048;
 }
-

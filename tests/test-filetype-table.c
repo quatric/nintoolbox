@@ -6,16 +6,17 @@
 #include <stdio.h>
 #include <string.h>
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 #include "types.h"
 #include "file-type.h"
 #ifdef __cplusplus
 }
 #endif
-extern void trace_free (const char*, const char*, unsigned int, void*);
-extern void *trace_calloc (const char*, const char*, unsigned int, size_t, size_t);
-extern void *trace_malloc (const char*, const char*, unsigned int, size_t);
+extern void trace_free (const char *, const char *, unsigned int, void *);
+extern void *trace_calloc (const char *, const char *, unsigned int, size_t, size_t);
+extern void *trace_malloc (const char *, const char *, unsigned int, size_t);
 
 int main (void)
 {
@@ -26,8 +27,8 @@ int main (void)
 		checked++;
 		if ((int)ft->fform != i)
 		{
-			printf ("FAIL row %d holds fform %d (%s)\n", i, (int)ft->fform,
-				ft->name ? ft->name : "?");
+			printf (
+				"FAIL row %d holds fform %d (%s)\n", i, (int)ft->fform, ft->name ? ft->name : "?");
 			fail = 1;
 		}
 		else if (!ft->name || !*ft->name)

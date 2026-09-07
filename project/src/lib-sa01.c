@@ -84,8 +84,7 @@ enumError DecodeSA01Container (u8 **dest, uint *dest_size, const u8 *src, uint s
 //
 // The scripts read Mii Maker big-endian but `endian guess` the amiibo one,
 // so the word order is recovered here from the file count instead of assumed.
-enumError ScanSA01 (
-	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
+enumError ScanSA01 (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
 {
 	if (!entries || !n_entries || !data || size < 12)
 		return EINVAL;
@@ -178,9 +177,8 @@ static enumError nintendo_compress_zlib (u8 **dest, uint *dest_size, const u8 *s
 	return ERR_OK;
 }
 
-enumError CreateSA01 (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries,
-	bool compress, bool big_endian)
+enumError CreateSA01 (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries,
+	uint n_entries, bool compress, bool big_endian)
 {
 	if (!dest || !dest_size || !entries || !n_entries || n_entries > 0x10000)
 		return EINVAL;
@@ -292,9 +290,8 @@ enumError CreateSA01 (
 	return ERR_OK;
 }
 
-enumError CreateCA01 (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries,
-	bool compress, bool big_endian)
+enumError CreateCA01 (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries,
+	uint n_entries, bool compress, bool big_endian)
 {
 	if (!dest || !dest_size || !entries || !n_entries || n_entries > 0x10000)
 		return EINVAL;
@@ -398,4 +395,3 @@ enumError CreateCA01 (
 	*dest_size = (uint)total_size;
 	return ERR_OK;
 }
-

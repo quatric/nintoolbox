@@ -84,7 +84,8 @@
 #include <stdlib.h>
 #include <string.h>
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 #include "types.h"
 #include "lib-nintendo.h"
@@ -93,7 +94,10 @@ extern "C" {
 }
 #endif
 
-static uint16_t nsh_rd16 (const uint8_t *p) { return (uint16_t)p[1] << 8 | p[0]; }
+static uint16_t nsh_rd16 (const uint8_t *p)
+{
+	return (uint16_t)p[1] << 8 | p[0];
+}
 static uint32_t nsh_rd32 (const uint8_t *p)
 {
 	return (uint32_t)p[3] << 24 | (uint32_t)p[2] << 16 | (uint32_t)p[1] << 8 | p[0];
@@ -195,8 +199,8 @@ model_t *ParseNUMSHBSkinned (
 	if (major != 1 || (minor != 10 && minor != 8))
 		return NULL;
 
-	// Relative pointers are taken from the field's own position.
-	#define REL(field) ((size_t)((field) - data) + nsh_rd64 (field))
+// Relative pointers are taken from the field's own position.
+#define REL(field) ((size_t)((field) - data) + nsh_rd64 (field))
 
 	const uint8_t *obj_ptr_f = m + 0x78;
 	const uint8_t *vbuf_ptr_f = m + 0xa0;
@@ -246,15 +250,13 @@ model_t *ParseNUMSHBSkinned (
 	if (skel && skel_size > 0x60 && !memcmp (skel, "HBSS", 4)
 		&& (!memcmp (skel + 0x10, "LEKS", 4) || !memcmp (skel + 0x10, "SKEL", 4)))
 	{
-		#define SREL(off) ((size_t)(off) + nsh_rd64 (skel + (off)))
+#define SREL(off) ((size_t)(off) + nsh_rd64 (skel + (off)))
 		const size_t bone_off = SREL (0x18);
 		const uint64_t bone_count = nsh_rd64 (skel + 0x20);
 		const size_t world_off = SREL (0x28);
 		const size_t inv_off = SREL (0x38);
-		if (bone_count && bone_count <= 0x1000
-			&& bone_off + bone_count * 0x10 <= skel_size
-			&& world_off + bone_count * 64 <= skel_size
-			&& inv_off + bone_count * 64 <= skel_size)
+		if (bone_count && bone_count <= 0x1000 && bone_off + bone_count * 0x10 <= skel_size
+			&& world_off + bone_count * 64 <= skel_size && inv_off + bone_count * 64 <= skel_size)
 		{
 			model->joints = calloc (bone_count, sizeof (joint_t));
 			if (model->joints)
@@ -268,8 +270,8 @@ model_t *ParseNUMSHBSkinned (
 					const size_t nm = (size_t)(e - skel) + nsh_rd64 (e);
 					joint_t *j = model->joints + b;
 					if (nm < skel_size)
-						snprintf (j->name, sizeof (j->name), "%.*s",
-							(int)(sizeof (j->name) - 1), (const char *)(skel + nm));
+						snprintf (j->name, sizeof (j->name), "%.*s", (int)(sizeof (j->name) - 1),
+							(const char *)(skel + nm));
 					const int16_t parent = (int16_t)nsh_rd16 (e + 0x0a);
 					j->parent_idx = parent >= 0 && (uint64_t)parent < bone_count ? parent : -1;
 					j->scale.x = j->scale.y = j->scale.z = 1.0f;
@@ -279,7 +281,7 @@ model_t *ParseNUMSHBSkinned (
 				}
 			}
 		}
-		#undef SREL
+#undef SREL
 	}
 	(void)skel_world;
 	(void)skel_inv;
@@ -467,9 +469,8 @@ model_t *ParseNUMSHBSkinned (
 				if (!mesh->position_node)
 				{
 					mesh->position_node = malloc (v_count * sizeof (int));
-					model->node_influences
-						= realloc (model->node_influences,
-							(model->num_node_influences + v_count) * sizeof (node_influence_t));
+					model->node_influences = realloc (model->node_influences,
+						(model->num_node_influences + v_count) * sizeof (node_influence_t));
 					if (!mesh->position_node || !model->node_influences)
 						break;
 					memset (model->node_influences + model->num_node_influences, 0,
@@ -502,8 +503,8 @@ model_t *ParseNUMSHBSkinned (
 						if (vi >= v_count || !(weight > 0.0f))
 							continue;
 						node_influence_t *ni = model->node_influences + node_base + vi;
-						influence_t *grown = realloc (
-							ni->weights, (ni->num_weights + 1) * sizeof (influence_t));
+						influence_t *grown
+							= realloc (ni->weights, (ni->num_weights + 1) * sizeof (influence_t));
 						if (!grown)
 							continue;
 						ni->weights = grown;
@@ -520,9 +521,8 @@ model_t *ParseNUMSHBSkinned (
 			if (mesh->position_node)
 			{
 				const size_t pb = REL (o + 0x10);
-				const int parent_joint = pb < size
-					? nsh_bone_by_name (model, (const char *)(data + pb))
-					: -1;
+				const int parent_joint
+					= pb < size ? nsh_bone_by_name (model, (const char *)(data + pb)) : -1;
 				const size_t node_base = (size_t)mesh->position_node[0];
 				for (uint32_t v = 0; v < v_count; v++)
 				{
@@ -579,7 +579,7 @@ model_t *ParseNUMSHBSkinned (
 		model->num_meshes++;
 	}
 
-	#undef REL
+#undef REL
 
 	if (!model->num_meshes)
 	{

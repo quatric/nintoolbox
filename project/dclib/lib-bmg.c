@@ -161,7 +161,8 @@ static const endian_func_t *get_endian_by_bh (const bmg_header_t *bh, uint size)
 	const u32 be_sz = be_func.n2hl (bh->size);
 	if (be_n >= 1 && be_n <= BMG_MAX_SECTIONS)
 	{
-		if (be_sz <= size || (size >= sizeof (bmg_header_t) && (be_sz - size <= 0x1000 || size >= 32)))
+		if (be_sz <= size
+			|| (size >= sizeof (bmg_header_t) && (be_sz - size <= 0x1000 || size >= 32)))
 		{
 			const bmg_section_t *sec = (const bmg_section_t *)(bh + 1);
 			if (!memcmp (sec->magic, "INF", 3) || !memcmp (sec->magic, "DAT", 3)
@@ -176,7 +177,8 @@ static const endian_func_t *get_endian_by_bh (const bmg_header_t *bh, uint size)
 	const u32 le_sz = le_func.n2hl (bh->size);
 	if (le_n >= 1 && le_n <= BMG_MAX_SECTIONS)
 	{
-		if (le_sz <= size || (size >= sizeof (bmg_header_t) && (le_sz - size <= 0x1000 || size >= 32)))
+		if (le_sz <= size
+			|| (size >= sizeof (bmg_header_t) && (le_sz - size <= 0x1000 || size >= 32)))
 		{
 			const bmg_section_t *sec = (const bmg_section_t *)(bh + 1);
 			if (!memcmp (sec->magic, "INF", 3) || !memcmp (sec->magic, "DAT", 3)
@@ -1219,7 +1221,8 @@ bmg_sect_list_t *ScanSectionsBMG (cvp data, uint size, const endian_func_t *endi
 		si.sect = sect;
 		si.info = "?";
 
-		if (!memcmp (sect->magic, BMG_INF_MAGIC, sizeof (sect->magic)) || !memcmp (sect->magic, "INF2", 4))
+		if (!memcmp (sect->magic, BMG_INF_MAGIC, sizeof (sect->magic))
+			|| !memcmp (sect->magic, "INF2", 4))
 		{
 			sl.pinf = (bmg_inf_t *)sect;
 			si.head_size = sizeof (bmg_inf_t);
@@ -1227,7 +1230,8 @@ bmg_sect_list_t *ScanSectionsBMG (cvp data, uint size, const endian_func_t *endi
 			si.n_elem_head = endian->n2hs (sl.pinf->n_msg);
 			si.known = true;
 			si.supported = true;
-			si.info = !memcmp (sect->magic, "INF2", 4) ? "offset & attributes (v2)" : "offset & attributes";
+			si.info = !memcmp (sect->magic, "INF2", 4) ? "offset & attributes (v2)"
+													   : "offset & attributes";
 		}
 		else if (!memcmp (sect->magic, BMG_DAT_MAGIC, sizeof (sect->magic)))
 		{
@@ -2900,7 +2904,8 @@ enumError ScanTextBMG (bmg_t *bmg)
 				bmg->have_mid = str2ul (start, 0, 10) > 0;
 			else if (!strcmp (namebuf, "INF-MAGIC"))
 			{
-				ScanEscapedString (bmg->inf_magic, sizeof (bmg->inf_magic), start, ptr - start, false, -1, 0);
+				ScanEscapedString (
+					bmg->inf_magic, sizeof (bmg->inf_magic), start, ptr - start, false, -1, 0);
 			}
 			else if (!strcmp (namebuf, "INF-SIZE"))
 				AssignInfSizeBMG (bmg, str2ul (start, 0, 10));

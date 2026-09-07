@@ -6,11 +6,10 @@
 
 static const u8 default_sze_key[16] = {
 	0x46, 0x5a, 0x45, 0x52, 0x4f, 0x39, 0x39, 0x5f, // "FZERO99_"
-	0x4e, 0x53, 0x54, 0x5f, 0x53, 0x5a, 0x45, 0x31  // "NST_SZE1"
+	0x4e, 0x53, 0x54, 0x5f, 0x53, 0x5a, 0x45, 0x31 // "NST_SZE1"
 };
 
-enumError DecodeSZE (
-	u8 **dest, uint *dest_size, const u8 *data, uint size, const u8 key[16])
+enumError DecodeSZE (u8 **dest, uint *dest_size, const u8 *data, uint size, const u8 key[16])
 {
 	if (!dest || !dest_size || !data || size < 32)
 		return EINVAL;
@@ -57,8 +56,8 @@ enumError DecodeSZE (
 	return ERR_OK;
 }
 
-enumError EncodeSZE (
-	u8 **dest, uint *dest_size, const u8 *data, uint size, const u8 key[16], const u8 iv[16], uint mode)
+enumError EncodeSZE (u8 **dest, uint *dest_size, const u8 *data, uint size, const u8 key[16],
+	const u8 iv[16], uint mode)
 {
 	if (!dest || !dest_size || !data)
 		return EINVAL;

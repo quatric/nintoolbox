@@ -402,9 +402,9 @@ static void hsf_build_animations (
 		model_animation_t *an = model->animations + m;
 		hsf_safe_name (
 			an->name, sizeof (an->name), hsf_str (data, size, str_off, hsf_be32 (h)), "motion");
-		an->channels = CALLOC (
-			model->num_joints * 3 + model->num_instances * 3 + model->num_meshes * 4,
-			sizeof (*an->channels));
+		an->channels
+			= CALLOC (model->num_joints * 3 + model->num_instances * 3 + model->num_meshes * 4,
+				sizeof (*an->channels));
 		if (!an->channels)
 			continue;
 		for (size_t j = 0; j < model->num_joints; j++)
@@ -2470,10 +2470,7 @@ enumError DecodeHSF (const u8 *data, uint size, ccp out_path)
 		hsf_build_animations (&model, data, size, entry_off, entry_cnt, str_off);
 		const uint path_len = strlen (out_path);
 		const bool is_dae = path_len > 4 && !strcasecmp (out_path + path_len - 4, ".dae");
-		rc = (ExportModelToGLB (&model, out_path))
-				== 0
-			? ERR_OK
-			: ERR_CANT_CREATE;
+		rc = (ExportModelToGLB (&model, out_path)) == 0 ? ERR_OK : ERR_CANT_CREATE;
 		for (size_t i = 0; i < model.num_node_influences; i++)
 			FREE (model.node_influences[i].weights);
 		FREE (model.node_influences);
@@ -2617,7 +2614,8 @@ enumError EncodeModelToHSF (const model_t *model, ccp out_path)
 		// the difference on every decode->encode cycle.
 		ccp full = model->instances[i].name;
 		ccp mesh_nm = model->instances[i].mesh_idx >= 0 && (u32)model->instances[i].mesh_idx < nm
-			? model->meshes[model->instances[i].mesh_idx].name : "";
+			? model->meshes[model->instances[i].mesh_idx].name
+			: "";
 		size_t full_len = strlen (full), mesh_len = strlen (mesh_nm);
 		if (mesh_len && full_len > mesh_len + 1 && full[full_len - mesh_len - 1] == '_'
 			&& !strcmp (full + full_len - mesh_len, mesh_nm))
@@ -2821,7 +2819,8 @@ enumError EncodeModelToHSF (const model_t *model, ccp out_path)
 		char rn[64];
 		ccp full = model->instances[i].name;
 		ccp mesh_nm = model->instances[i].mesh_idx >= 0 && (u32)model->instances[i].mesh_idx < nm
-			? model->meshes[model->instances[i].mesh_idx].name : "";
+			? model->meshes[model->instances[i].mesh_idx].name
+			: "";
 		size_t full_len = strlen (full), mesh_len = strlen (mesh_nm);
 		if (mesh_len && full_len > mesh_len + 1 && full[full_len - mesh_len - 1] == '_'
 			&& !strcmp (full + full_len - mesh_len, mesh_nm))

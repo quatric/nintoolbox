@@ -1504,8 +1504,7 @@ static int hsd_read_mobj (hsd_model_ctx_t *ctx, u32 mobj_off)
 // Populates ctx->node_influences and fills per-position weights into the
 // mesh's position_node array.  Returns true if at least one envelope was read.
 //--------------------------------------------------------------------------
-static uint hsd_read_pobj_envelope (
-	hsd_model_ctx_t *ctx, u32 pobj_off, uint *out_ni, uint max_env)
+static uint hsd_read_pobj_envelope (hsd_model_ctx_t *ctx, u32 pobj_off, uint *out_ni, uint max_env)
 {
 	const hsd_t *hsd = ctx->hsd;
 	// The union at +0x14 is a relocated pointer to a NULL-terminated array
@@ -2148,7 +2147,8 @@ int ExportHSDModel (const hsd_t *hsd, ccp out_glb_file)
 				for (size_t vi = 0; vi < mesh->num_vertices; vi++)
 				{
 					const int ni = (mesh->position_node && vi < mesh->num_positions)
-						? mesh->position_node[vi] : -1;
+						? mesh->position_node[vi]
+						: -1;
 					if (ni < 0 || (size_t)ni >= model.num_node_influences)
 						continue;
 
@@ -2183,9 +2183,7 @@ int ExportHSDModel (const hsd_t *hsd, ccp out_glb_file)
 
 		const uint path_len = strlen (out_glb_file);
 		const bool is_dae = path_len > 4 && !strcasecmp (out_glb_file + path_len - 4, ".dae");
-		written = (ExportModelToGLB (&model, out_glb_file)) == 0
-			? (int)ctx.n_meshes
-			: -1;
+		written = (ExportModelToGLB (&model, out_glb_file)) == 0 ? (int)ctx.n_meshes : -1;
 	}
 
 	for (uint i = 0; i < ctx.n_meshes; i++)

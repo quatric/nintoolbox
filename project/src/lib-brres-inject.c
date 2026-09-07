@@ -395,7 +395,7 @@ static int mdl0_close (float a, float b, float scale)
 // An attribute is present only when its index is in range of a non-empty
 // array: a mesh without texcoords still carries texcoord_idx 0 on every
 // corner, so the index alone does not say whether the attribute exists.
-#define MDL0_ATTR(m, arr, cnt, idx) \
+#define MDL0_ATTR(m, arr, cnt, idx)                                                                \
 	((idx) >= 0 && (size_t)(idx) < (m)->cnt ? &(m)->arr[(idx)] : NULL)
 
 static int mdl0_vec3_eq (const vec3_t *a, const vec3_t *b)
@@ -403,8 +403,7 @@ static int mdl0_vec3_eq (const vec3_t *a, const vec3_t *b)
 	if (!a || !b)
 		return a == b;
 	const float s = fabsf (a->x) + fabsf (a->y) + fabsf (a->z);
-	return mdl0_close (a->x, b->x, s) && mdl0_close (a->y, b->y, s)
-		&& mdl0_close (a->z, b->z, s);
+	return mdl0_close (a->x, b->x, s) && mdl0_close (a->y, b->y, s) && mdl0_close (a->z, b->z, s);
 }
 
 // One triangle corner of each mesh, resolved through its index tuple.
@@ -1314,8 +1313,8 @@ static uint brres_write_back_textures (ccp temp_dir, const model_t *model)
 			const image_format_t keep_iform = parent.iform;
 			const palette_format_t keep_pform
 				= parent.pform != PAL_INVALID ? parent.pform : PAL_AUTO;
-			const bool indexed = keep_iform == IMG_C4 || keep_iform == IMG_C8
-				|| keep_iform == IMG_C14X2;
+			const bool indexed
+				= keep_iform == IMG_C4 || keep_iform == IMG_C8 || keep_iform == IMG_C14X2;
 
 			if (!ConvertIMG (&edited, false, 0, keep_iform, keep_pform))
 			{
@@ -1432,8 +1431,7 @@ int InjectDAEIntoBRRES (const uint8_t *brres_data, size_t brres_size, const mode
 			size_t new_mdl0_sz = 0;
 			if (InjectDAEIntoMDL0 (mdl_raw, mdl_sz, dae_model, &new_mdl0, &new_mdl0_sz))
 			{
-				const bool unchanged
-					= new_mdl0_sz == mdl_sz && !memcmp (new_mdl0, mdl_raw, mdl_sz);
+				const bool unchanged = new_mdl0_sz == mdl_sz && !memcmp (new_mdl0, mdl_raw, mdl_sz);
 				if (!prefer_unchanged || unchanged)
 				{
 					FILE *mf = fopen (mdl_file_path, "wb");
@@ -3001,7 +2999,8 @@ int InjectDAEIntoNSBMD (const uint8_t *nsbmd_data, size_t nsbmd_size, const mode
 					{
 						uint32_t s_info_hdr = 8 + (4 + n_shapes * 4);
 						uint32_t item_size = RDL16 (sbase + s_info_hdr);
-						uint32_t sh_rel = item_size >= 8 ? RDL32 (sbase + s_info_hdr + 4 + 4) : RDL32 (sbase + s_info_hdr + 4);
+						uint32_t sh_rel = item_size >= 8 ? RDL32 (sbase + s_info_hdr + 4 + 4)
+														 : RDL32 (sbase + s_info_hdr + 4);
 						const uint8_t *sh = sbase + sh_rel;
 						uint32_t orig_dl_off = RDL32 (sh + 12);
 						size_t orig_pos = (size_t)(sh - nsbmd_data) + orig_dl_off;
@@ -3051,7 +3050,8 @@ int InjectDAEIntoNSBMD (const uint8_t *nsbmd_data, size_t nsbmd_size, const mode
 					{
 						uint32_t s_info_hdr = 8 + (4 + n_shapes * 4);
 						uint32_t item_size = RDL16 (sbase + s_info_hdr);
-						uint32_t sh_rel = item_size >= 8 ? RDL32 (sbase + s_info_hdr + 4 + 4) : RDL32 (sbase + s_info_hdr + 4);
+						uint32_t sh_rel = item_size >= 8 ? RDL32 (sbase + s_info_hdr + 4 + 4)
+														 : RDL32 (sbase + s_info_hdr + 4);
 						uint8_t *sh = sbase + sh_rel;
 						// Update dl_size (at sh + 8) and dl_off (at sh + 12)
 						WRL32 (sh + 8, (uint32_t)dl_bytes);

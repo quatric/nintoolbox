@@ -367,4 +367,3 @@ enumError EncodeNintendoHuff (
 	*dest_size = total_out;
 	return ERR_OK;
 }
-

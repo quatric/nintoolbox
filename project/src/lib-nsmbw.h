@@ -40,9 +40,9 @@ typedef struct nsmbw_tile_beh_t
 // One tile row in an object: (flags, tileset_tile, tileset_slot)
 typedef struct nsmbw_obj_tile_t
 {
-	u8 flags;      // combination flags (special rendering)
-	u8 tile;       // tile index within the tileset texture (0-255)
-	u8 slot;       // Pa0-Pa3 slot (0-3)
+	u8 flags; // combination flags (special rendering)
+	u8 tile; // tile index within the tileset texture (0-255)
+	u8 slot; // Pa0-Pa3 slot (0-3)
 } nsmbw_obj_tile_t;
 
 // One row of tiles within an object definition
@@ -57,8 +57,8 @@ typedef struct nsmbw_obj_t
 {
 	uint width;
 	uint height;
-	uint upper_slope;  // 0 = none
-	uint lower_slope;  // 0 = none
+	uint upper_slope; // 0 = none
+	uint lower_slope; // 0 = none
 	uint n_rows;
 	nsmbw_obj_row_t *rows;
 } nsmbw_obj_t;
@@ -100,32 +100,27 @@ void EncodeRGB4A3 (u8 *dst, const u8 *src);
 //   chk:     raw bytes of the d_bgchk_*.bin file (may be NULL)
 //   unt:     raw bytes of the *.bin object-def file (may be NULL)
 //   unt_hd:  raw bytes of the *_hd.bin metadata file (may be NULL)
-enumError ScanNSMBWTileset (nsmbw_tileset_t *ts,
-	const u8 *tex_lz, uint tex_lz_size,
-	const u8 *chk, uint chk_size,
-	const u8 *unt, uint unt_size,
-	const u8 *unt_hd, uint unt_hd_size);
+enumError ScanNSMBWTileset (nsmbw_tileset_t *ts, const u8 *tex_lz, uint tex_lz_size, const u8 *chk,
+	uint chk_size, const u8 *unt, uint unt_size, const u8 *unt_hd, uint unt_hd_size);
 
 // Free all allocations inside ts.
 void ResetNSMBWTileset (nsmbw_tileset_t *ts);
 
 // Dump behaviour table to human-readable text.
-enumError DumpNSMBWBehaviour (const nsmbw_tileset_t *ts,
-	char **out, size_t *out_size, ccp tileset_name);
+enumError DumpNSMBWBehaviour (
+	const nsmbw_tileset_t *ts, char **out, size_t *out_size, ccp tileset_name);
 
 // Dump object definitions to human-readable text.
-enumError DumpNSMBWObjects (const nsmbw_tileset_t *ts,
-	char **out, size_t *out_size, ccp tileset_name);
+enumError DumpNSMBWObjects (
+	const nsmbw_tileset_t *ts, char **out, size_t *out_size, ccp tileset_name);
 
 // Write the decoded texture as a raw ARGB8 .bin file (for use with wimgt).
 // Returns an ALLOC'd buffer with 1024*256*4 bytes ARGB8 data.
-enumError ExportNSMBWTexARGB (const nsmbw_tileset_t *ts,
-	u8 **out, size_t *out_size);
+enumError ExportNSMBWTexARGB (const nsmbw_tileset_t *ts, u8 **out, size_t *out_size);
 
 // Re-encode the tileset (ARGB8 tex + beh table + object defs) and return the
 // packed _tex.bin.LZ buffer.  The caller is responsible for repacking the arc.
-enumError EncodeNSMBWTexLZ (const nsmbw_tileset_t *ts,
-	u8 **out, uint *out_size);
+enumError EncodeNSMBWTexLZ (const nsmbw_tileset_t *ts, u8 **out, uint *out_size);
 
 // High-level helper: detect, decode, and write output files for an NSMBW
 // tileset arc that has already been extracted to a directory.
@@ -143,12 +138,12 @@ enumError ExtractNSMBWTilesetArc (ccp arc_path, ccp dest_dir);
 
 typedef struct nwr_level_entry_t
 {
-	u8 file_world;       // 1-indexed (in file 0-indexed)
-	u8 file_level;       // 1-indexed (in file 0-indexed)
+	u8 file_world; // 1-indexed (in file 0-indexed)
+	u8 file_level; // 1-indexed (in file 0-indexed)
 	u8 display_world;
-	u8 display_level;    // >= 100 is world header (100 = left, 101 = right)
-	u16 flags;           // 0x0002 star coins, 0x0010 normal exit, 0x0020 secret exit, 0x0400 right side
-	char *name;          // level / world name
+	u8 display_level; // >= 100 is world header (100 = left, 101 = right)
+	u16 flags; // 0x0002 star coins, 0x0010 normal exit, 0x0020 secret exit, 0x0400 right side
+	char *name; // level / world name
 } nwr_level_entry_t;
 
 typedef struct nwr_world_t
@@ -185,11 +180,11 @@ enumError CreateNWRLevelInfo (u8 **dest, size_t *dest_size, const nwr_levelinfo_
 
 typedef struct nwr_animtile_entry_t
 {
-	char *tex_name;       // e.g. "water_fall_tex.bin"
-	char *frame_delays;   // e.g. delay string or sequence
-	u16 tile_num;         // tile ID
-	u8 tileset_num;       // Pa0-Pa3 (0-3)
-	u8 reverse;           // 0 or 1
+	char *tex_name; // e.g. "water_fall_tex.bin"
+	char *frame_delays; // e.g. delay string or sequence
+	u16 tile_num; // tile ID
+	u8 tileset_num; // Pa0-Pa3 (0-3)
+	u8 reverse; // 0 or 1
 } nwr_animtile_entry_t;
 
 typedef struct nwr_animtiles_t

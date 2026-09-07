@@ -19,8 +19,7 @@
 // name checksum's algorithm is not recovered and could not be confirmed
 // against a retail sample, so writing a file with fabricated checksums would
 // be a guess.
-enumError ScanCramARC (
-	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
+enumError ScanCramARC (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
 {
 	if (!entries || !n_entries || !data || size < 16 || memcmp (data, "cram", 4))
 		return EINVAL;
@@ -165,4 +164,3 @@ enumError CreateCramARC (
 	*dest_size = (uint)total_size;
 	return ERR_OK;
 }
-

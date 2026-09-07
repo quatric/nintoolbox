@@ -227,36 +227,85 @@ enumError DecodeFLIM_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, 
 		uint gx2_fmt = 0;
 		switch (bflim_fmt)
 		{
-			case 0: gx2_fmt = 0x0001; break; // L8
-			case 1: gx2_fmt = 0x0001; break; // A8
-			case 2: gx2_fmt = 0x0002; break; // LA4
-			case 3: gx2_fmt = 0x0007; break; // LA8
-			case 4: gx2_fmt = 0x0007; break; // HILO8
-			case 5: gx2_fmt = 0x0008; break; // RGB565
-			case 6: gx2_fmt = 0x001a; break; // B8G8R8A8
-			case 7: gx2_fmt = 0x000a; break; // RGBA5551
-			case 8: gx2_fmt = 0x000b; break; // RGBA4
-			case 9: gx2_fmt = 0x001a; break; // RGBA8
-			case 10: gx2_fmt = 0x0031; break; // ETC1
-			case 11: gx2_fmt = 0x0031; break; // ETC1_A4
-			case 12: gx2_fmt = 0x0031; break; // BC1
-			case 13: gx2_fmt = 0x0032; break; // BC2
-			case 14: gx2_fmt = 0x0033; break; // BC3
-			case 15: gx2_fmt = 0x0034; break; // BC4
-			case 16: gx2_fmt = 0x0034; break; // BC4_A
-			case 17: gx2_fmt = 0x0035; break; // BC5
-			case 18: gx2_fmt = 0x0002; break; // L4
-			case 19: gx2_fmt = 0x0002; break; // A4
-			case 20: gx2_fmt = 0x041a; break; // RGBA8_SRGB
-			case 21: gx2_fmt = 0x0431; break; // BC1_SRGB
-			case 22: gx2_fmt = 0x0432; break; // BC2_SRGB
-			case 23: gx2_fmt = 0x0433; break; // BC3_SRGB
-			default: return EINVAL;
+			case 0:
+				gx2_fmt = 0x0001;
+				break; // L8
+			case 1:
+				gx2_fmt = 0x0001;
+				break; // A8
+			case 2:
+				gx2_fmt = 0x0002;
+				break; // LA4
+			case 3:
+				gx2_fmt = 0x0007;
+				break; // LA8
+			case 4:
+				gx2_fmt = 0x0007;
+				break; // HILO8
+			case 5:
+				gx2_fmt = 0x0008;
+				break; // RGB565
+			case 6:
+				gx2_fmt = 0x001a;
+				break; // B8G8R8A8
+			case 7:
+				gx2_fmt = 0x000a;
+				break; // RGBA5551
+			case 8:
+				gx2_fmt = 0x000b;
+				break; // RGBA4
+			case 9:
+				gx2_fmt = 0x001a;
+				break; // RGBA8
+			case 10:
+				gx2_fmt = 0x0031;
+				break; // ETC1
+			case 11:
+				gx2_fmt = 0x0031;
+				break; // ETC1_A4
+			case 12:
+				gx2_fmt = 0x0031;
+				break; // BC1
+			case 13:
+				gx2_fmt = 0x0032;
+				break; // BC2
+			case 14:
+				gx2_fmt = 0x0033;
+				break; // BC3
+			case 15:
+				gx2_fmt = 0x0034;
+				break; // BC4
+			case 16:
+				gx2_fmt = 0x0034;
+				break; // BC4_A
+			case 17:
+				gx2_fmt = 0x0035;
+				break; // BC5
+			case 18:
+				gx2_fmt = 0x0002;
+				break; // L4
+			case 19:
+				gx2_fmt = 0x0002;
+				break; // A4
+			case 20:
+				gx2_fmt = 0x041a;
+				break; // RGBA8_SRGB
+			case 21:
+				gx2_fmt = 0x0431;
+				break; // BC1_SRGB
+			case 22:
+				gx2_fmt = 0x0432;
+				break; // BC2_SRGB
+			case 23:
+				gx2_fmt = 0x0433;
+				break; // BC3_SRGB
+			default:
+				return EINVAL;
 		}
 
 		uint out_w = 0, out_h = 0;
-		enumError err = DecodeGX2SurfaceSlice_RGBA (dest, &out_w, &out_h, 1, w, h, 1,
-			gx2_fmt, 0, tile_mode, 0, swizzle, 0, 0, src, data_size);
+		enumError err = DecodeGX2SurfaceSlice_RGBA (dest, &out_w, &out_h, 1, w, h, 1, gx2_fmt, 0,
+			tile_mode, 0, swizzle, 0, 0, src, data_size);
 		if (!err)
 		{
 			*width = out_w;

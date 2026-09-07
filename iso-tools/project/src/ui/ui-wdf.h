@@ -39,13 +39,12 @@
  *                                                                         *
  ***************************************************************************/
 
-
 #ifndef SZS_UI_WDF_H
 #define SZS_UI_WDF_H
 #include "dclib-basics.h"
 #include "dclib-ui.h"
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////                enum enumOptions                 ///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -111,14 +110,14 @@ typedef enum enumOptions
 
 } enumOptions;
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////               enum enumOptionsBit               ///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 //	*****  only for verification  *****
 
-//typedef enum enumOptionsBit
+// typedef enum enumOptionsBit
 //{
 //	//----- command specific options -----
 //
@@ -204,9 +203,9 @@ typedef enum enumOptions
 //				| OB_LONG
 //				| OB_MINUS1,
 //
-//} enumOptionsBit;
+// } enumOptionsBit;
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////                enum enumCommands                ///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -228,38 +227,38 @@ typedef enum enumCommands
 
 } enumCommands;
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////                   enumGetOpt                    ///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 typedef enum enumGetOpt
 {
-	GO_MINUS1		= '1',
+	GO_MINUS1 = '1',
 
-	GO__ERR			= '?',
+	GO__ERR = '?',
 
-	GO_CISO			= 'C',
-	GO_DEST2		= 'D',
-	GO_LOGGING		= 'L',
-	GO_VERSION		= 'V',
-	GO_WDF			= 'W',
-	GO_SPLIT_SIZE		= 'Z',
+	GO_CISO = 'C',
+	GO_DEST2 = 'D',
+	GO_LOGGING = 'L',
+	GO_VERSION = 'V',
+	GO_WDF = 'W',
+	GO_SPLIT_SIZE = 'Z',
 
-	GO_STDOUT		= 'c',
-	GO_DEST			= 'd',
-	GO_HELP			= 'h',
-	GO_KEEP			= 'k',
-	GO_LONG			= 'l',
-	GO_OVERWRITE		= 'o',
-	GO_PRESERVE		= 'p',
-	GO_QUIET		= 'q',
-	GO_SUFFIX		= 's',
-	GO_TEST			= 't',
-	GO_VERBOSE		= 'v',
-	GO_SPLIT		= 'z',
+	GO_STDOUT = 'c',
+	GO_DEST = 'd',
+	GO_HELP = 'h',
+	GO_KEEP = 'k',
+	GO_LONG = 'l',
+	GO_OVERWRITE = 'o',
+	GO_PRESERVE = 'p',
+	GO_QUIET = 'q',
+	GO_SUFFIX = 's',
+	GO_TEST = 't',
+	GO_VERBOSE = 'v',
+	GO_SPLIT = 'z',
 
-	GO_XHELP		= 0x80,
+	GO_XHELP = 0x80,
 	GO_WIDTH,
 	GO_COLOR,
 	GO_COLOR_256,
@@ -288,25 +287,24 @@ typedef enum enumGetOpt
 
 } enumGetOpt;
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////                  external vars                  ///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-//extern const InfoOption_t OptionInfo[OPT__N_TOTAL+1];
-//extern const KeywordTab_t CommandTab[];
-//extern const char OptionShort[];
-//extern const struct option OptionLong[];
-//extern u8 OptionUsed[OPT__N_TOTAL+1];
-//extern const OptionIndex_t OptionIndex[UIOPT_INDEX_SIZE];
-//UIOPT_INDEX_SIZE := 0x100 = 256
-//extern const InfoCommand_t CommandInfo[CMD__N+1];
+// extern const InfoOption_t OptionInfo[OPT__N_TOTAL+1];
+// extern const KeywordTab_t CommandTab[];
+// extern const char OptionShort[];
+// extern const struct option OptionLong[];
+// extern u8 OptionUsed[OPT__N_TOTAL+1];
+// extern const OptionIndex_t OptionIndex[UIOPT_INDEX_SIZE];
+// UIOPT_INDEX_SIZE := 0x100 = 256
+// extern const InfoCommand_t CommandInfo[CMD__N+1];
 extern const InfoUI_t InfoUI_wdf;
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////                       END                       ///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 #endif // SZS_UI_WDF_H
-

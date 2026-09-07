@@ -39,13 +39,12 @@
  *                                                                         *
  ***************************************************************************/
 
-
 #ifndef SZS_UI_WFUSE_H
 #define SZS_UI_WFUSE_H
 #include "dclib-basics.h"
 #include "dclib-ui.h"
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////                enum enumOptions                 ///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -74,7 +73,7 @@ typedef enum enumOptions
 
 } enumOptions;
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////                enum enumCommands                ///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -86,53 +85,52 @@ typedef enum enumCommands
 
 } enumCommands;
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////                   enumGetOpt                    ///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 typedef enum enumGetOpt
 {
-	GO__ERR			= '?',
+	GO__ERR = '?',
 
-	GO_HELP_FUSE		= 'H',
-	GO_ALLOW_OTHER		= 'O',
-	GO_VERSION		= 'V',
+	GO_HELP_FUSE = 'H',
+	GO_ALLOW_OTHER = 'O',
+	GO_VERSION = 'V',
 
-	GO_CREATE		= 'c',
-	GO_HELP			= 'h',
-	GO_LAZY			= 'l',
-	GO_OPTION		= 'o',
-	GO_PARAM		= 'p',
-	GO_QUIET		= 'q',
-	GO_REMOUNT		= 'r',
-	GO_UMOUNT		= 'u',
-	GO_VERBOSE		= 'v',
+	GO_CREATE = 'c',
+	GO_HELP = 'h',
+	GO_LAZY = 'l',
+	GO_OPTION = 'o',
+	GO_PARAM = 'p',
+	GO_QUIET = 'q',
+	GO_REMOUNT = 'r',
+	GO_UMOUNT = 'u',
+	GO_VERBOSE = 'v',
 
-	GO_XHELP		= 0x80,
+	GO_XHELP = 0x80,
 	GO_WIDTH,
 	GO_IO,
 
 } enumGetOpt;
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////                  external vars                  ///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-//extern const InfoOption_t OptionInfo[OPT__N_TOTAL+1];
-//extern const char OptionShort[];
-//extern const struct option OptionLong[];
-//extern u8 OptionUsed[OPT__N_TOTAL+1];
-//extern const OptionIndex_t OptionIndex[UIOPT_INDEX_SIZE];
-//UIOPT_INDEX_SIZE := 0x100 = 256
-//extern const InfoCommand_t CommandInfo[CMD__N+1];
+// extern const InfoOption_t OptionInfo[OPT__N_TOTAL+1];
+// extern const char OptionShort[];
+// extern const struct option OptionLong[];
+// extern u8 OptionUsed[OPT__N_TOTAL+1];
+// extern const OptionIndex_t OptionIndex[UIOPT_INDEX_SIZE];
+// UIOPT_INDEX_SIZE := 0x100 = 256
+// extern const InfoCommand_t CommandInfo[CMD__N+1];
 extern const InfoUI_t InfoUI_wfuse;
 
-//
+//
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////                       END                       ///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 #endif // SZS_UI_WFUSE_H
-

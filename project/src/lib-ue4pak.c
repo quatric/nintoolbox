@@ -343,7 +343,8 @@ enumError ExtractUE4PakEntry (const ue4_pak_t *pak, uint index, u8 **dest, size_
 		if (is_zstd)
 		{
 			uint block_written = 0;
-			enumError zerr = DecodeZSTDpart (out + dst_off, (uint)expected_dst, &block_written, csrc, (uint)clen);
+			enumError zerr = DecodeZSTDpart (
+				out + dst_off, (uint)expected_dst, &block_written, csrc, (uint)clen);
 			if (zerr != ERR_OK)
 			{
 				FREE (out);
@@ -388,8 +389,8 @@ enumError ExtractUE4PakEntry (const ue4_pak_t *pak, uint index, u8 **dest, size_
 	return ERR_OK;
 }
 
-enumError CreateUE4Pak (u8 **dest, size_t *dest_size, const char *mount_point,
-	uint n_files, const char *const *rel_paths, const u8 *const *file_data, const size_t *file_sizes)
+enumError CreateUE4Pak (u8 **dest, size_t *dest_size, const char *mount_point, uint n_files,
+	const char *const *rel_paths, const u8 *const *file_data, const size_t *file_sizes)
 {
 	if (!dest || !dest_size || (!n_files && rel_paths))
 		return ERR_INVALID_DATA;

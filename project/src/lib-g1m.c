@@ -302,9 +302,12 @@ enumError DecodeG1M (const u8 *data, uint size, ccp out_glb_path)
 		size_t nv = 0;
 		for (u32 k = 0; k + 2 < i_count; k++)
 		{
-			const u32 a = idata[(size_t)(i_start + k) * 2] | (u32)idata[(size_t)(i_start + k) * 2 + 1] << 8;
-			const u32 b = idata[(size_t)(i_start + k + 1) * 2] | (u32)idata[(size_t)(i_start + k + 1) * 2 + 1] << 8;
-			const u32 c = idata[(size_t)(i_start + k + 2) * 2] | (u32)idata[(size_t)(i_start + k + 2) * 2 + 1] << 8;
+			const u32 a
+				= idata[(size_t)(i_start + k) * 2] | (u32)idata[(size_t)(i_start + k) * 2 + 1] << 8;
+			const u32 b = idata[(size_t)(i_start + k + 1) * 2]
+				| (u32)idata[(size_t)(i_start + k + 1) * 2 + 1] << 8;
+			const u32 c = idata[(size_t)(i_start + k + 2) * 2]
+				| (u32)idata[(size_t)(i_start + k + 2) * 2 + 1] << 8;
 			if (a == b || b == c || a == c)
 				continue;
 			if (a >= n_vert || b >= n_vert || c >= n_vert)

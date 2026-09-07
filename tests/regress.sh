@@ -7717,6 +7717,59 @@ assert im.getpixel((0, 0)) == (255, 255, 255), f"expected white, got {im.getpixe
   fi
 
 
+  # Nintendo DS ROM banner (banner.bin): the 32x32 4bpp icon decodes to PNG
+  # with palette entry 0 transparent, and `wszst XX` writes the per-language
+  # titles as a text sidecar. The banner has no magic, so detection hangs on
+  # the stored CRC16 -- computed here, not hardcoded, so the fixture stays
+  # valid if the layout below is ever edited.
+  mkdir -p "$d/nds_banner_test"
+  python3 -c '
+import struct
+def crc16(b):
+    c = 0xffff
+    for x in b:
+        c ^= x
+        for _ in range(8):
+            c = (c >> 1) ^ 0xa001 if c & 1 else c >> 1
+    return c
+
+body = bytearray(0x840 - 0x20)
+# icon: color index 1 in the top-left 8x8 tile, index 0 (transparent) elsewhere
+for i in range(32):
+    body[i] = 0x11
+# palette: entry 0 = white but transparent, entry 1 = pure red in BGR555
+struct.pack_into("<H", body, 0x200, 0x7fff)
+struct.pack_into("<H", body, 0x202, 0x001f)
+titles = ["Test Banner\nRegression Suite", "Test Banner EN\nRegression Suite"]
+for i, t in enumerate(titles):
+    u = t.encode("utf-16-le")
+    body[0x220 + i * 0x100 : 0x220 + i * 0x100 + len(u)] = u
+
+hdr = bytearray(0x20)
+struct.pack_into("<H", hdr, 0, 1)
+struct.pack_into("<H", hdr, 2, crc16(bytes(body)))
+with open("'"$d"'/nds_banner_test/banner.bin", "wb") as f:
+    f.write(hdr + body)
+'
+  if "$B/wimgt" DECODE "$d/nds_banner_test/banner.bin" \
+	--dest "$d/nds_banner_test/icon.png" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/nds_banner_test/icon.png" ] \
+  && python3 -c '
+from PIL import Image
+im = Image.open("'"$d"'/nds_banner_test/icon.png").convert("RGBA")
+assert im.size == (32, 32), f"expected 32x32, got {im.size}"
+assert im.getpixel((0, 0)) == (255, 0, 0, 255), f"expected opaque red, got {im.getpixel((0,0))}"
+assert im.getpixel((31, 31))[3] == 0, "palette entry 0 must decode as transparent"
+' 2>/dev/null \
+  && "$B/wszst" FILETYPE "$d/nds_banner_test/banner.bin" 2>/dev/null | grep -q NDS-BANNER \
+  && "$B/wszst" XX "$d/nds_banner_test/banner.bin" >/dev/null 2>&1 \
+  && grep -q "Regression Suite" "$d/nds_banner_test/banner.bin.txt" \
+  && grep -q "^\[English\]" "$d/nds_banner_test/banner.bin.txt"; then
+    fok "Nintendo DS ROM banner (banner.bin) icon + titles"
+  else
+    fno "Nintendo DS ROM banner" "failed to decode NDS banner icon or titles";
+  fi
+
   # Next Level Games GLG/RLG models: decode to GLB, re-encode, and confirm
   # the second generation is byte-identical to the first. ball.glg is a
   # 74-byte-entry prop, Luigi.glg a 66-byte-entry character (the entry size

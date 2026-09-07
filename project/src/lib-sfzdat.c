@@ -30,8 +30,7 @@
 // interpretation does not fit inside the section.
 //
 // Entry names are emitted as "<ext>/<name>", matching the script.
-enumError ScanSFZDAT (
-	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
+enumError ScanSFZDAT (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
 {
 	if (!entries || !n_entries || !data || size < 32 || memcmp (data, "DAT\0", 4))
 		return EINVAL;
@@ -57,8 +56,7 @@ enumError ScanSFZDAT (
 	// packed NUL-terminated strings when the strided array does not fit.
 	u32 name_stride = rd_be32 (data + off_names);
 	const u32 names_base = off_names + 4;
-	if (!name_stride || name_stride > 256
-		|| (u64)names_base + (u64)files * name_stride > size)
+	if (!name_stride || name_stride > 256 || (u64)names_base + (u64)files * name_stride > size)
 		name_stride = 0;
 
 	// Extensions are 4-byte records in every known file; same fallback.
@@ -300,4 +298,3 @@ enumError CreateSFZDAT (
 	*dest_size = (uint)total;
 	return ERR_OK;
 }
-

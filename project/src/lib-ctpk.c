@@ -386,4 +386,3 @@ enumError CreateCTPK (
 	*dest_size = total_size;
 	return ERR_OK;
 }
-

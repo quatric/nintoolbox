@@ -5,9 +5,8 @@ bool IsNUT (const u8 *data, size_t size)
 {
 	if (!data || size < 16)
 		return false;
-	return !memcmp (data, "NTP3", 4) || !memcmp (data, "3PTN", 4)
-		|| !memcmp (data, "NTWU", 4) || !memcmp (data, "UWTM", 4)
-		|| !memcmp (data, "NUT\0", 4) || !memcmp (data, "\0TUN", 4);
+	return !memcmp (data, "NTP3", 4) || !memcmp (data, "3PTN", 4) || !memcmp (data, "NTWU", 4)
+		|| !memcmp (data, "UWTM", 4) || !memcmp (data, "NUT\0", 4) || !memcmp (data, "\0TUN", 4);
 }
 
 enumError ScanNUT (nut_t *nut, const u8 *data, size_t size)
@@ -23,7 +22,8 @@ enumError ScanNUT (nut_t *nut, const u8 *data, size_t size)
 	u16 c_be = be16 (data + 6);
 	u16 v_le = le16 (data + 4);
 
-	if (c_be > 0 && c_be <= 4096 && (v_be == 0x0200 || v_be == 0x0100 || v_be == 0x0002 || v_be == 0x0001))
+	if (c_be > 0 && c_be <= 4096
+		&& (v_be == 0x0200 || v_be == 0x0100 || v_be == 0x0002 || v_be == 0x0001))
 		nut->is_big_endian = (v_be == 0x0200 || v_be == 0x0100);
 	else
 		nut->is_big_endian = (v_le == 0x0002 || v_le == 0x0001);
@@ -79,7 +79,8 @@ enumError ScanNUT (nut_t *nut, const u8 *data, size_t size)
 		size_t adv = t->header_size >= 32 ? t->header_size : 48;
 		if (t->data_offset == (u32)(p - data + adv))
 			adv += t->data_size;
-		else if (t->total_size > adv && (size_t)(p - data) + t->total_size <= size && t->data_offset == 0)
+		else if (t->total_size > adv && (size_t)(p - data) + t->total_size <= size
+			&& t->data_offset == 0)
 			adv = t->total_size;
 
 		p += adv;
@@ -121,7 +122,8 @@ static inline void wr_le32 (u8 *p, u32 v)
 	p[3] = (u8)(v >> 24);
 }
 
-enumError ExtractNUTTexture (const nut_t *nut, uint index, u8 **dest, size_t *dest_size, char *ext_out, size_t ext_max)
+enumError ExtractNUTTexture (
+	const nut_t *nut, uint index, u8 **dest, size_t *dest_size, char *ext_out, size_t ext_max)
 {
 	if (!nut || !dest || !dest_size || index >= nut->n_textures)
 		return ERR_INVALID_DATA;
@@ -144,7 +146,8 @@ enumError ExtractNUTTexture (const nut_t *nut, uint index, u8 **dest, size_t *de
 
 		memcpy (dds, "DDS ", 4);
 		wr_le32 (dds + 4, 124); // header size
-		wr_le32 (dds + 8, 0x00081007); // DDSD_CAPS | DDSD_HEIGHT | DDSD_WIDTH | DDSD_PIXELFORMAT | DDSD_MIPMAPCOUNT
+		wr_le32 (dds + 8, 0x00081007); // DDSD_CAPS | DDSD_HEIGHT | DDSD_WIDTH | DDSD_PIXELFORMAT |
+									   // DDSD_MIPMAPCOUNT
 		wr_le32 (dds + 12, t->height);
 		wr_le32 (dds + 16, t->width);
 		wr_le32 (dds + 20, t->data_size); // linear size
@@ -242,7 +245,8 @@ static void decode_bc1_block (const uint8_t *src, uint8_t *dst, uint32_t stride)
 	}
 }
 
-int DecodeNUTTextureToRGBA (const nut_texture_t *tex, uint8_t **out_rgba, uint32_t *out_w, uint32_t *out_h)
+int DecodeNUTTextureToRGBA (
+	const nut_texture_t *tex, uint8_t **out_rgba, uint32_t *out_w, uint32_t *out_h)
 {
 	if (!tex || !tex->data || !tex->width || !tex->height || !out_rgba)
 		return 0;
@@ -277,7 +281,8 @@ int DecodeNUTTextureToRGBA (const nut_texture_t *tex, uint8_t **out_rgba, uint32
 			}
 		}
 	}
-	else if (tex->pixel_format == 8 || tex->pixel_format == 14 || tex->pixel_format == 0x0014) // RGBA8
+	else if (tex->pixel_format == 8 || tex->pixel_format == 14
+		|| tex->pixel_format == 0x0014) // RGBA8
 	{
 		memcpy (rgba, tex->data, (size_t)w * h * 4);
 	}
@@ -288,13 +293,15 @@ int DecodeNUTTextureToRGBA (const nut_texture_t *tex, uint8_t **out_rgba, uint32
 	}
 
 	*out_rgba = rgba;
-	if (out_w) *out_w = w;
-	if (out_h) *out_h = h;
+	if (out_w)
+		*out_w = w;
+	if (out_h)
+		*out_h = h;
 	return 1;
 }
 
-enumError CreateNUT (u8 **dest, size_t *dest_size, uint n_textures,
-	const u16 *widths, const u16 *heights, const u32 *formats, const u8 *const *tex_data, const size_t *tex_sizes)
+enumError CreateNUT (u8 **dest, size_t *dest_size, uint n_textures, const u16 *widths,
+	const u16 *heights, const u32 *formats, const u8 *const *tex_data, const size_t *tex_sizes)
 {
 	if (!dest || !dest_size || !n_textures)
 		return ERR_INVALID_DATA;

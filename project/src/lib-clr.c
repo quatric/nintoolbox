@@ -32,7 +32,10 @@
 ///////////////////////////////////////////////////////////////////////////////
 // BRRES/CLR0 data is always big endian (Wii).
 
-static inline u16 clr_rd16 (const u8 *p) { return (u16)p[0] << 8 | p[1]; }
+static inline u16 clr_rd16 (const u8 *p)
+{
+	return (u16)p[0] << 8 | p[1];
+}
 
 static inline u32 clr_rd32 (const u8 *p)
 {
@@ -259,8 +262,8 @@ enumError ScanRawCLR0 (clr0_t *clr, bool init_clr, const void *data, uint data_s
 
 			const size_t trec_off = (size_t)(trec - base);
 			if (trec_off + 8 > data_size)
-				return ERROR0 (ERR_INVALID_DATA,
-					"CLR0: target record of entry #%u exceeds file size\n", i);
+				return ERROR0 (
+					ERR_INVALID_DATA, "CLR0: target record of entry #%u exceeds file size\n", i);
 
 			clr0_target_t *tg = e->target + t;
 			tg->exists = true;
@@ -275,8 +278,8 @@ enumError ScanRawCLR0 (clr0_t *clr, bool init_clr, const void *data, uint data_s
 				const u64 color_at = (u64)trec_off + tdata + 4;
 				if (color_at + (u64)n_color * 4 > data_size)
 					return ERROR0 (ERR_INVALID_DATA,
-						"CLR0: color array of entry #%u target %s exceeds file size\n",
-						i, clr0_target_name[t]);
+						"CLR0: color array of entry #%u target %s exceeds file size\n", i,
+						clr0_target_name[t]);
 				tg->n_color = n_color;
 				tg->color_list = MALLOC (n_color * sizeof (*tg->color_list));
 				for (uint c = 0; c < n_color; c++)

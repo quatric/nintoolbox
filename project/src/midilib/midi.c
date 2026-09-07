@@ -6,25 +6,25 @@
 #include <math.h>
 #include "midi.h"
 
-const char *midi_file_format_name(uint16_t n) {
-	const char *format_names[] = {
-		"single-track",
-		"multiple tracks, synchronous",
-		"multiple tracks, asynchronous"
-	};
-	if(n < 3) return format_names[n];
+const char *midi_file_format_name (uint16_t n)
+{
+	const char *format_names[]
+		= { "single-track", "multiple tracks, synchronous", "multiple tracks, asynchronous" };
+	if (n < 3)
+		return format_names[n];
 	return "unknown";
 }
 
-const char *midi_note_name(uint8_t n, uint8_t *octave) {
-	const char *note_names[] = {
-		"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
-	};
-	if(octave) *octave = n / 12 - 1;
+const char *midi_note_name (uint8_t n, uint8_t *octave)
+{
+	const char *note_names[] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+	if (octave)
+		*octave = n / 12 - 1;
 	return note_names[n % 12];
 }
 
-const char *midi_cc_name(uint8_t cc) {
+const char *midi_cc_name (uint8_t cc)
+{
 	const char *cc_names[] = {
 		"Bank select",
 		"Modulation",
@@ -158,7 +158,8 @@ const char *midi_cc_name(uint8_t cc) {
 	return cc_names[cc & 0x7f];
 }
 
-const char *midi_rpn_name(uint16_t rpn) {
+const char *midi_rpn_name (uint16_t rpn)
+{
 	const char *names[] = {
 		"Pitch Bend Sensitivity",
 		"Fine Tuning",
@@ -166,51 +167,89 @@ const char *midi_rpn_name(uint16_t rpn) {
 		"Tuning Program Select",
 		"Tuning Bank Select",
 	};
-	if(rpn < 5) return names[rpn];
+	if (rpn < 5)
+		return names[rpn];
 	return "Unknown";
 }
 
-float midi_note_freq(int note, float fraction) {
-	return 440.0 * pow(2, (note + fraction - 69.0) / 12.0);
+float midi_note_freq (int note, float fraction)
+{
+	return 440.0 * pow (2, (note + fraction - 69.0) / 12.0);
 }
 
-int midi_pitch_to_note(float pitch_hz, float *fraction) {
-	float f = 12 * log(pitch_hz / 220.0) / log(2.0);
-	int note = round(f);
-	if(note > 70) note = 70;
-	if(note < -57) note = -57;
-	if(fraction) *fraction = f - note;
+int midi_pitch_to_note (float pitch_hz, float *fraction)
+{
+	float f = 12 * log (pitch_hz / 220.0) / log (2.0);
+	int note = round (f);
+	if (note > 70)
+		note = 70;
+	if (note < -57)
+		note = -57;
+	if (fraction)
+		*fraction = f - note;
 	return (int)note + 57;
 }
 
-void midi_meta_event_string(int cmd, int len, uint8_t *data, char *buf, int buf_size) {
+void midi_meta_event_string (int cmd, int len, uint8_t *data, char *buf, int buf_size)
+{
 	const char *mlive_tags[] = {
-		"genre", "artist", "composer",
-		"duration (seconds)", "bpm (tempo)",
+		"genre",
+		"artist",
+		"composer",
+		"duration (seconds)",
+		"bpm (tempo)",
 	};
-	switch(cmd) {
-		case 0x00: {
-			if(len == 0)
-				snprintf(buf, buf_size, "Sequence number (no data bytes)");
-			else if(len == 2)
-				snprintf(buf, buf_size, "Sequence number %d", data[0] | data[1] << 8);
+	switch (cmd)
+	{
+		case 0x00:
+		{
+			if (len == 0)
+				snprintf (buf, buf_size, "Sequence number (no data bytes)");
+			else if (len == 2)
+				snprintf (buf, buf_size, "Sequence number %d", data[0] | data[1] << 8);
 			else
-				snprintf(buf, buf_size, "Sequence number (invalid length %d)", len);
+				snprintf (buf, buf_size, "Sequence number (invalid length %d)", len);
 			break;
 		}
-		case 0x01: snprintf(buf, buf_size, "Text \"%.*s\"", len, data); break;
-		case 0x02: snprintf(buf, buf_size, "Copyright \"%.*s\"", len, data); break;
-		case 0x03: snprintf(buf, buf_size, "Track name \"%.*s\"", len, data); break;
-		case 0x04: snprintf(buf, buf_size, "Instrument name \"%.*s\"", len, data); break;
-		case 0x05: snprintf(buf, buf_size, "Lyric \"%.*s\"", len, data); break;
-		case 0x06: snprintf(buf, buf_size, "Marker \"%.*s\"", len, data); break;
-		case 0x07: snprintf(buf, buf_size, "Cue point \"%.*s\"", len, data); break;
-		case 0x2f: snprintf(buf, buf_size, "End of Track"); break;
-		case 0x4b: snprintf(buf, buf_size, "M-Live Tag tag=%d (%s) \"%.*s\"", data[0], data[0] < sizeof(mlive_tags) / sizeof(mlive_tags[0]) ? mlive_tags[data[0]] : "-", len - 1, data + 1); break;
-		case 0x58: {
-			if(len == 2) snprintf(buf, buf_size, "Time signature %d/%d", data[0], data[1]);
-			else if(len == 4) snprintf(buf, buf_size, "Time signature %d/%d %d clocks/click %d 32nd notes per quarter note", data[0], data[1], data[2], data[3]);
-			else snprintf(buf, buf_size, "Time signature (invalid length %d)", len);
+		case 0x01:
+			snprintf (buf, buf_size, "Text \"%.*s\"", len, data);
+			break;
+		case 0x02:
+			snprintf (buf, buf_size, "Copyright \"%.*s\"", len, data);
+			break;
+		case 0x03:
+			snprintf (buf, buf_size, "Track name \"%.*s\"", len, data);
+			break;
+		case 0x04:
+			snprintf (buf, buf_size, "Instrument name \"%.*s\"", len, data);
+			break;
+		case 0x05:
+			snprintf (buf, buf_size, "Lyric \"%.*s\"", len, data);
+			break;
+		case 0x06:
+			snprintf (buf, buf_size, "Marker \"%.*s\"", len, data);
+			break;
+		case 0x07:
+			snprintf (buf, buf_size, "Cue point \"%.*s\"", len, data);
+			break;
+		case 0x2f:
+			snprintf (buf, buf_size, "End of Track");
+			break;
+		case 0x4b:
+			snprintf (buf, buf_size, "M-Live Tag tag=%d (%s) \"%.*s\"", data[0],
+				data[0] < sizeof (mlive_tags) / sizeof (mlive_tags[0]) ? mlive_tags[data[0]] : "-",
+				len - 1, data + 1);
+			break;
+		case 0x58:
+		{
+			if (len == 2)
+				snprintf (buf, buf_size, "Time signature %d/%d", data[0], data[1]);
+			else if (len == 4)
+				snprintf (buf, buf_size,
+					"Time signature %d/%d %d clocks/click %d 32nd notes per quarter note", data[0],
+					data[1], data[2], data[3]);
+			else
+				snprintf (buf, buf_size, "Time signature (invalid length %d)", len);
 			break;
 		}
 	}

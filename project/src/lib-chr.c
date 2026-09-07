@@ -29,7 +29,10 @@
 ///////////////			byte order helper		///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-static inline u16 chr_rd16 (const u8 *p) { return (u16)p[0] << 8 | p[1]; }
+static inline u16 chr_rd16 (const u8 *p)
+{
+	return (u16)p[0] << 8 | p[1];
+}
 
 static inline u32 chr_rd32 (const u8 *p)
 {
@@ -120,7 +123,10 @@ static inline void chr_wf (u8 *p, float f)
 
 // bit position of the rotation format field; scale sits 2 bits below it and
 // translation 3 bits above it
-static inline uint chr_rot_format_shift (uint version) { return version < 4 ? 25 : 27; }
+static inline uint chr_rot_format_shift (uint version)
+{
+	return version < 4 ? 25 : 27;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -131,9 +137,15 @@ static banim_format_t chr_get_format (u32 code, uint version, uint grp)
 	uint fmt;
 	switch (grp)
 	{
-		case 0: fmt = code >> (rot - 2) & 3; break;
-		case 1: fmt = code >> rot & 7; break;
-		default: fmt = code >> (rot + 3) & 3; break;
+		case 0:
+			fmt = code >> (rot - 2) & 3;
+			break;
+		case 1:
+			fmt = code >> rot & 7;
+			break;
+		default:
+			fmt = code >> (rot + 3) & 3;
+			break;
 	}
 
 	// scale and translation only ever use I12 in the retail data we could
@@ -149,7 +161,10 @@ static banim_format_t chr_get_format (u32 code, uint version, uint grp)
 
 // true: this version stores I6 tracks with an 8 byte header instead of the
 // 16 byte header BrawlLib documents
-static inline bool chr_i6_header_8 (uint version) { return version < 4; }
+static inline bool chr_i6_header_8 (uint version)
+{
+	return version < 4;
+}
 
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -337,12 +352,11 @@ enumError ScanRawCHR0 (chr0_t *chr, bool init_chr, const void *data, uint data_s
 			{
 				const uint axis = g->isotropic ? 2 : s;
 				const uint chan = grp * 3 + (g->isotropic ? 0 : s);
-				const bool fixed
-					= (e->code >> (CHR0_BIT_FIXED + grp * 3 + axis) & 1) != 0;
+				const bool fixed = (e->code >> (CHR0_BIT_FIXED + grp * 3 + axis) & 1) != 0;
 
 				if (slot + 4 > data_size)
-					return ERROR0 (ERR_INVALID_DATA,
-						"CHR0: entry '%s' slot exceeds file size\n", e->name);
+					return ERROR0 (
+						ERR_INVALID_DATA, "CHR0: entry '%s' slot exceeds file size\n", e->name);
 
 				chr0_channel_t *ch = e->channel + chan;
 				if (fixed)
@@ -361,8 +375,8 @@ enumError ScanRawCHR0 (chr0_t *chr, bool init_chr, const void *data, uint data_s
 
 					const banim_format_t fmt = g->format;
 
-					const enumError err = DecodeTrackBANIM_Ext (&ch->track,
-						base + track_pos, data_size - (uint)track_pos, fmt, frame_limit,
+					const enumError err = DecodeTrackBANIM_Ext (&ch->track, base + track_pos,
+						data_size - (uint)track_pos, fmt, frame_limit,
 						fmt == BANIM_I6 && chr_i6_header_8 (version));
 					if (err)
 						return err;
@@ -680,9 +694,8 @@ enumError SaveRawCHR0 (chr0_t *chr, ccp fname, bool set_time)
 // verbatim so that a decode/encode round trip reproduces the original
 // grouping and format selection exactly.
 
-static ccp chr_channel_name[CHR0_N_CHANNEL]
-	= { "scale-x", "scale-y", "scale-z", "rot-x", "rot-y", "rot-z", "trans-x", "trans-y",
-		"trans-z" };
+static ccp chr_channel_name[CHR0_N_CHANNEL] = { "scale-x", "scale-y", "scale-z", "rot-x", "rot-y",
+	"rot-z", "trans-x", "trans-y", "trans-z" };
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -782,12 +795,12 @@ enumError SaveTextCHR0 (chr0_t *chr, ccp fname, bool set_time)
 				else
 				{
 					const banim_track_t *tr = &ch->track;
-					fprintf (F.f, "  %-7s track %s %.9g %.9g %.9g %u\n",
-						chr_channel_name[chan], GetFormatNameBANIM (tr->format),
-						tr->frame_scale, tr->step, tr->base, tr->unknown);
+					fprintf (F.f, "  %-7s track %s %.9g %.9g %.9g %u\n", chr_channel_name[chan],
+						GetFormatNameBANIM (tr->format), tr->frame_scale, tr->step, tr->base,
+						tr->unknown);
 					for (uint k = 0; k < tr->n_key; k++)
-						fprintf (F.f, "    %.9g %.9g %.9g\n", tr->key[k].frame,
-							tr->key[k].value, tr->key[k].tangent);
+						fprintf (F.f, "    %.9g %.9g %.9g\n", tr->key[k].frame, tr->key[k].value,
+							tr->key[k].tangent);
 				}
 			}
 		}
@@ -921,8 +934,8 @@ enumError ScanTextCHR0 (chr0_t *chr, bool init_chr, ccp src_fname)
 						double fs = 0, st = 0, bs = 0;
 						uint unk = 0;
 						ccp p = strstr (s, fmtname);
-						if (p && sscanf (p + strlen (fmtname), "%lf %lf %lf %u", &fs, &st,
-								&bs, &unk)
+						if (p
+							&& sscanf (p + strlen (fmtname), "%lf %lf %lf %u", &fs, &st, &bs, &unk)
 								>= 3)
 						{
 							ch->track.frame_scale = (float)fs;

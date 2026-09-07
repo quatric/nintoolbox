@@ -141,4 +141,3 @@ enumError CreateHWLegends (u8 **dest_idx, uint *dest_idx_size, u8 **dest_bin, ui
 	*dest_bin_size = (uint)bin_total;
 	return ERR_OK;
 }
-

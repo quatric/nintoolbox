@@ -32,9 +32,15 @@
 ///////////////////////////////////////////////////////////////////////////////
 // BRRES/SHP0 data is always big endian (Wii).
 
-static inline u16 shp_rd16 (const u8 *p) { return (u16)p[0] << 8 | p[1]; }
+static inline u16 shp_rd16 (const u8 *p)
+{
+	return (u16)p[0] << 8 | p[1];
+}
 
-static inline s16 shp_rds16 (const u8 *p) { return (s16)(u16)((u16)p[0] << 8 | p[1]); }
+static inline s16 shp_rds16 (const u8 *p)
+{
+	return (s16)(u16)((u16)p[0] << 8 | p[1]);
+}
 
 static inline u32 shp_rd32 (const u8 *p)
 {
@@ -70,7 +76,10 @@ static inline void shp_wf (u8 *p, float f)
 	shp_w32 (p, v);
 }
 
-static inline uint shp_align (uint v, uint a) { return v + a - 1 & ~(a - 1); }
+static inline uint shp_align (uint v, uint a)
+{
+	return v + a - 1 & ~(a - 1);
+}
 
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -655,8 +664,7 @@ enumError SaveTextSHP0 (shp0_t *shp, ccp fname, bool set_time)
 				fprintf (F.f, "  track %d fixed %.9g\n", tr->vertex_idx, tr->fixed);
 				continue;
 			}
-			fprintf (F.f, "  track %d keys %u recip %.9g\n", tr->vertex_idx, tr->n_key,
-				tr->recip);
+			fprintf (F.f, "  track %d keys %u recip %.9g\n", tr->vertex_idx, tr->n_key, tr->recip);
 			for (uint k = 0; k < tr->n_key; k++)
 				fprintf (F.f, "    %.9g %.9g %.9g\n", tr->key[k].frame, tr->key[k].value,
 					tr->key[k].tangent);

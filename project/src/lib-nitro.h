@@ -70,14 +70,14 @@ enumError ScanISScreen (nitro_nscr_t *nscr, const u8 *data, uint size);
 
 typedef enum nitro_texfmt_t
 {
-	NITRO_TEXFMT_NONE    = 0,
-	NITRO_TEXFMT_A3I5    = 1, // 3-bit alpha, 5-bit palette index (32 colors)
-	NITRO_TEXFMT_PLTT4   = 2, // 2-bit palette index (4 colors)
-	NITRO_TEXFMT_PLTT16  = 3, // 4-bit palette index (16 colors)
+	NITRO_TEXFMT_NONE = 0,
+	NITRO_TEXFMT_A3I5 = 1, // 3-bit alpha, 5-bit palette index (32 colors)
+	NITRO_TEXFMT_PLTT4 = 2, // 2-bit palette index (4 colors)
+	NITRO_TEXFMT_PLTT16 = 3, // 4-bit palette index (16 colors)
 	NITRO_TEXFMT_PLTT256 = 4, // 8-bit palette index (256 colors)
-	NITRO_TEXFMT_TEX4x4  = 5, // 4x4 texel compressed
-	NITRO_TEXFMT_A5I3    = 6, // 5-bit alpha, 3-bit palette index (8 colors)
-	NITRO_TEXFMT_DIRECT  = 7  // 16-bit direct color (BGR555 + 1-bit alpha)
+	NITRO_TEXFMT_TEX4x4 = 5, // 4x4 texel compressed
+	NITRO_TEXFMT_A5I3 = 6, // 5-bit alpha, 3-bit palette index (8 colors)
+	NITRO_TEXFMT_DIRECT = 7 // 16-bit direct color (BGR555 + 1-bit alpha)
 } nitro_texfmt_t;
 
 typedef struct nitro_tex_entry_t
@@ -118,8 +118,8 @@ void ResetNitroTEX0 (nitro_tex0_t *tex0);
 enumError ScanNitroTEX0 (nitro_tex0_t *tex0, const u8 *data, uint size);
 
 // Decodes a specific texture index from TEX0 into RGBA8 buffer.
-enumError DecodeNitroTexture_RGBA (u8 **dest, uint *width, uint *height,
-	const nitro_tex0_t *tex0, uint tex_idx, int pltt_idx);
+enumError DecodeNitroTexture_RGBA (
+	u8 **dest, uint *width, uint *height, const nitro_tex0_t *tex0, uint tex_idx, int pltt_idx);
 
 // Decodes the first/primary texture in a standalone NSBTX / NSBMD file.
 enumError DecodeNSBTX_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, uint size);
@@ -167,12 +167,12 @@ void ResetNitroNFTR (nitro_nftr_t *nftr);
 enumError ScanNitroNFTR (nitro_nftr_t *nftr, const u8 *data, uint size);
 
 // Decodes NFTR/BNFR into a consolidated PNG font atlas + XML metrics descriptor.
-enumError DecodeNFTR_Atlas (u8 **dest_atlas, uint *atlas_w, uint *atlas_h,
-	char **dest_xml, const u8 *data, uint size);
+enumError DecodeNFTR_Atlas (
+	u8 **dest_atlas, uint *atlas_w, uint *atlas_h, char **dest_xml, const u8 *data, uint size);
 
 // Encodes PNG font atlas + XML metrics descriptor into binary NFTR / BNFR file.
-enumError EncodeNFTR_Atlas (u8 **dest, uint *dest_size,
-	const u8 *atlas_rgba, uint atlas_w, uint atlas_h, ccp xml_str, bool is_bnfr);
+enumError EncodeNFTR_Atlas (u8 **dest, uint *dest_size, const u8 *atlas_rgba, uint atlas_w,
+	uint atlas_h, ccp xml_str, bool is_bnfr);
 
 //-----------------------------------------------------------------------------
 // 4. Nitro 2D Layout Formats (BNLL / BNCL / BNBL)

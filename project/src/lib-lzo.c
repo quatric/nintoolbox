@@ -29,7 +29,7 @@ enumError DecodeLZO1XGrow (u8 **dest, uint *dest_size, const u8 *src, uint src_s
 			goto bad;                                                                              \
 		const uint lzo_want_ = op + lzo_need_;                                                     \
 		if (lzo_want_ > cap)                                                                       \
-			{                                                                                      \
+		{                                                                                          \
 			uint lzo_cap_ = cap;                                                                   \
 			while (lzo_cap_ < lzo_want_)                                                           \
 			{                                                                                      \

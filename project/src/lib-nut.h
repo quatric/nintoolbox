@@ -49,13 +49,15 @@ void ResetNUT (nut_t *nut);
 void FreeNUT (nut_t *nut);
 
 // Extracts a single texture as DDS or raw binary payload.
-enumError ExtractNUTTexture (const nut_t *nut, uint index, u8 **dest, size_t *dest_size, char *ext_out, size_t ext_max);
+enumError ExtractNUTTexture (
+	const nut_t *nut, uint index, u8 **dest, size_t *dest_size, char *ext_out, size_t ext_max);
 
 // Decodes a NUT texture to RGBA32 bitmap.
-int DecodeNUTTextureToRGBA (const nut_texture_t *tex, uint8_t **out_rgba, uint32_t *out_w, uint32_t *out_h);
+int DecodeNUTTextureToRGBA (
+	const nut_texture_t *tex, uint8_t **out_rgba, uint32_t *out_w, uint32_t *out_h);
 
 // Creates a basic uncompressed NUT (NTP3) container from RGBA8 or raw texture streams.
-enumError CreateNUT (u8 **dest, size_t *dest_size, uint n_textures,
-	const u16 *widths, const u16 *heights, const u32 *formats, const u8 *const *tex_data, const size_t *tex_sizes);
+enumError CreateNUT (u8 **dest, size_t *dest_size, uint n_textures, const u16 *widths,
+	const u16 *heights, const u32 *formats, const u8 *const *tex_data, const size_t *tex_sizes);
 
 #endif // SZS_LIB_NUT_H

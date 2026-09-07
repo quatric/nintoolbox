@@ -1,16 +1,13 @@
 #include "lib-cnut.h"
 #include "lib-std.h"
 
-static const char *const sq_opnames[] = {
-	"LINE", "LOAD", "LOADINT", "LOADFLOAT", "DLOAD", "TAILCALL", "CALL",
-	"PREPCALL", "PREPCALLK", "GETK", "MOVE", "NEWSLOT", "DELETE", "SET",
-	"GET", "EQ", "NE", "ARITH", "BITW", "RETURN", "LOADNULLS", "LOADROOTTABLE",
-	"LOADBOOL", "DMOVE", "JMP", "JCMP", "JZ", "SETOUTER", "GETOUTER",
-	"NEWOBJ", "APPENDARRAY", "COMPARITH", "INC", "INCL", "PINC", "PINCL",
-	"CMP", "EXISTS", "INSTANCEOF", "AND", "OR", "NEG", "NOT", "BWNOT",
-	"CLOSURE", "YIELD", "RESUME", "FOREACH", "POSTFOREACH", "CLONE",
-	"TYPEOF", "PUSHTRAP", "POPTRAP", "THROW", "NEWSLOTA", "GETBASE", "CLOSE"
-};
+static const char *const sq_opnames[] = { "LINE", "LOAD", "LOADINT", "LOADFLOAT", "DLOAD",
+	"TAILCALL", "CALL", "PREPCALL", "PREPCALLK", "GETK", "MOVE", "NEWSLOT", "DELETE", "SET", "GET",
+	"EQ", "NE", "ARITH", "BITW", "RETURN", "LOADNULLS", "LOADROOTTABLE", "LOADBOOL", "DMOVE", "JMP",
+	"JCMP", "JZ", "SETOUTER", "GETOUTER", "NEWOBJ", "APPENDARRAY", "COMPARITH", "INC", "INCL",
+	"PINC", "PINCL", "CMP", "EXISTS", "INSTANCEOF", "AND", "OR", "NEG", "NOT", "BWNOT", "CLOSURE",
+	"YIELD", "RESUME", "FOREACH", "POSTFOREACH", "CLONE", "TYPEOF", "PUSHTRAP", "POPTRAP", "THROW",
+	"NEWSLOTA", "GETBASE", "CLOSE" };
 
 #define SQ_NUM_OPNAMES (sizeof (sq_opnames) / sizeof (sq_opnames[0]))
 
@@ -317,7 +314,8 @@ static enumError parse_proto (const u8 **pos_ptr, const u8 *end, cnut_funcproto_
 				return err;
 			if (lv_obj.str)
 			{
-				snprintf (proto->localvars[i].name, sizeof (proto->localvars[i].name), "%s", lv_obj.str);
+				snprintf (
+					proto->localvars[i].name, sizeof (proto->localvars[i].name), "%s", lv_obj.str);
 				free_object (&lv_obj);
 			}
 			if (p + 12 > end)
@@ -517,10 +515,11 @@ static void disasm_proto (strbuf_t *sb, const cnut_funcproto_t *proto, int depth
 	sb_printf (sb, "%sfunction %s (", ind, proto->func_name[0] ? proto->func_name : "main");
 	for (uint i = 0; i < proto->n_parameters; i++)
 	{
-		sb_printf (sb, "%s%s", i > 0 ? ", " : "", proto->parameters[i] ? proto->parameters[i] : "arg");
+		sb_printf (
+			sb, "%s%s", i > 0 ? ", " : "", proto->parameters[i] ? proto->parameters[i] : "arg");
 	}
-	sb_printf (sb, ") // source: \"%s\", stack: %u, instructions: %u\n",
-		proto->source_name, proto->stacksize, proto->n_instructions);
+	sb_printf (sb, ") // source: \"%s\", stack: %u, instructions: %u\n", proto->source_name,
+		proto->stacksize, proto->n_instructions);
 
 	if (proto->n_literals > 0)
 	{
@@ -556,13 +555,15 @@ static void disasm_proto (strbuf_t *sb, const cnut_funcproto_t *proto, int depth
 			else if (lit->type == SQ_RT_INTEGER)
 				snprintf (comment, sizeof (comment), " // %d", lit->ival);
 		}
-		else if (!strcmp (opname, "CLOSURE") && inst->arg1 >= 0 && (uint)inst->arg1 < proto->n_functions)
+		else if (!strcmp (opname, "CLOSURE") && inst->arg1 >= 0
+			&& (uint)inst->arg1 < proto->n_functions)
 		{
-			snprintf (comment, sizeof (comment), " // function %s", proto->functions[inst->arg1].func_name);
+			snprintf (comment, sizeof (comment), " // function %s",
+				proto->functions[inst->arg1].func_name);
 		}
 
-		sb_printf (sb, "%s  [%04u] %-14s r%u, %d, r%u, %u%s\n",
-			ind, i, opname, inst->arg0, inst->arg1, inst->arg2, inst->arg3, comment);
+		sb_printf (sb, "%s  [%04u] %-14s r%u, %d, r%u, %u%s\n", ind, i, opname, inst->arg0,
+			inst->arg1, inst->arg2, inst->arg3, comment);
 	}
 
 	for (uint i = 0; i < proto->n_functions; i++)
@@ -618,7 +619,8 @@ enumError ExtractCNUTStrings (const cnut_t *cnut, char **out_text, size_t *out_s
 }
 
 enumError CreateCNUT (u8 **dest, size_t *dest_size, const char *source_name, const char *func_name,
-	uint n_strings, const char *const *strings, uint n_instructions, const cnut_instruction_t *instructions)
+	uint n_strings, const char *const *strings, uint n_instructions,
+	const cnut_instruction_t *instructions)
 {
 	if (!dest || !dest_size)
 		return ERR_INVALID_DATA;
@@ -651,8 +653,7 @@ enumError CreateCNUT (u8 **dest, size_t *dest_size, const char *source_name, con
 		+ 4 // PART7 (lines)
 		+ 4 // PART8 (defaultparams)
 		+ 4 // PART9 (instructions)
-		+ (n_instructions * 8)
-		+ 4 // PART10 (functions)
+		+ (n_instructions * 8) + 4 // PART10 (functions)
 		+ 6 // stacksize, bgen, varparams
 		+ 4; // TAIL
 
@@ -663,25 +664,36 @@ enumError CreateCNUT (u8 **dest, size_t *dest_size, const char *source_name, con
 	u8 *p = buf;
 
 	// 1. Header
-	wr_be16 (p, SQ_BYTECODE_STREAM_TAG); p += 2;
-	memcpy (p, "SQIR", 4); p += 4;
-	wr_be32 (p, 1); p += 4; // sizeof SQChar
+	wr_be16 (p, SQ_BYTECODE_STREAM_TAG);
+	p += 2;
+	memcpy (p, "SQIR", 4);
+	p += 4;
+	wr_be32 (p, 1);
+	p += 4; // sizeof SQChar
 
 	// 2. PART tag
-	memcpy (p, "PART", 4); p += 4;
+	memcpy (p, "PART", 4);
+	p += 4;
 
 	// sourcename string object
-	wr_be32 (p, 0x08000010); p += 4;
-	wr_be32 (p, (u32)src_len); p += 4;
-	memcpy (p, src_nm, src_len); p += src_len;
+	wr_be32 (p, 0x08000010);
+	p += 4;
+	wr_be32 (p, (u32)src_len);
+	p += 4;
+	memcpy (p, src_nm, src_len);
+	p += src_len;
 
 	// funcname string object
-	wr_be32 (p, 0x08000010); p += 4;
-	wr_be32 (p, (u32)fn_len); p += 4;
-	memcpy (p, fn_nm, fn_len); p += fn_len;
+	wr_be32 (p, 0x08000010);
+	p += 4;
+	wr_be32 (p, (u32)fn_len);
+	p += 4;
+	memcpy (p, fn_nm, fn_len);
+	p += fn_len;
 
 	// PART2 tag
-	memcpy (p, "PART", 4); p += 4;
+	memcpy (p, "PART", 4);
+	p += 4;
 
 	wr_be32 (p + 0, n_strings); // n_literals
 	wr_be32 (p + 4, 1); // n_parameters ("this")
@@ -694,36 +706,49 @@ enumError CreateCNUT (u8 **dest, size_t *dest_size, const char *source_name, con
 	p += 32;
 
 	// PART3 tag (literals)
-	memcpy (p, "PART", 4); p += 4;
+	memcpy (p, "PART", 4);
+	p += 4;
 	for (uint i = 0; i < n_strings; i++)
 	{
 		const char *s = strings && strings[i] ? strings[i] : "";
 		size_t slen = strlen (s);
-		wr_be32 (p, 0x08000010); p += 4;
-		wr_be32 (p, (u32)slen); p += 4;
-		memcpy (p, s, slen); p += slen;
+		wr_be32 (p, 0x08000010);
+		p += 4;
+		wr_be32 (p, (u32)slen);
+		p += 4;
+		memcpy (p, s, slen);
+		p += slen;
 	}
 
 	// PART4 tag (parameters)
-	memcpy (p, "PART", 4); p += 4;
-	wr_be32 (p, 0x08000010); p += 4;
-	wr_be32 (p, 4); p += 4;
-	memcpy (p, "this", 4); p += 4;
+	memcpy (p, "PART", 4);
+	p += 4;
+	wr_be32 (p, 0x08000010);
+	p += 4;
+	wr_be32 (p, 4);
+	p += 4;
+	memcpy (p, "this", 4);
+	p += 4;
 
 	// PART5 tag (outers)
-	memcpy (p, "PART", 4); p += 4;
+	memcpy (p, "PART", 4);
+	p += 4;
 
 	// PART6 tag (locals)
-	memcpy (p, "PART", 4); p += 4;
+	memcpy (p, "PART", 4);
+	p += 4;
 
 	// PART7 tag (lines)
-	memcpy (p, "PART", 4); p += 4;
+	memcpy (p, "PART", 4);
+	p += 4;
 
 	// PART8 tag (defaultparams)
-	memcpy (p, "PART", 4); p += 4;
+	memcpy (p, "PART", 4);
+	p += 4;
 
 	// PART9 tag (instructions)
-	memcpy (p, "PART", 4); p += 4;
+	memcpy (p, "PART", 4);
+	p += 4;
 	for (uint i = 0; i < n_instructions; i++)
 	{
 		wr_be32 (p + 0, instructions ? (u32)instructions[i].arg1 : 0);
@@ -735,15 +760,18 @@ enumError CreateCNUT (u8 **dest, size_t *dest_size, const char *source_name, con
 	}
 
 	// PART10 tag (functions)
-	memcpy (p, "PART", 4); p += 4;
+	memcpy (p, "PART", 4);
+	p += 4;
 
 	// Metadata
-	wr_be32 (p, 10); p += 4; // stacksize
+	wr_be32 (p, 10);
+	p += 4; // stacksize
 	*p++ = 0; // bgenerator
 	*p++ = 0; // varparams
 
 	// TAIL tag
-	memcpy (p, "TAIL", 4); p += 4;
+	memcpy (p, "TAIL", 4);
+	p += 4;
 
 	*dest = buf;
 	*dest_size = (size_t)(p - buf);

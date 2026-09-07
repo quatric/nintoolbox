@@ -2,7 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 #include "types.h"
 #include "lib-nintendo.h"
@@ -14,20 +15,22 @@ extern "C" {
 #endif
 
 extern void trace_free (const char *func, const char *file, unsigned int line, void *ptr);
-extern void *trace_calloc (const char *func, const char *file, unsigned int line, size_t nmemb, size_t size);
+extern void *trace_calloc (
+	const char *func, const char *file, unsigned int line, size_t nmemb, size_t size);
 extern void *trace_malloc (const char *func, const char *file, unsigned int line, size_t size);
-#define free(p) trace_free(__FUNCTION__, __FILE__, __LINE__, (p))
-#define calloc(n, s) trace_calloc(__FUNCTION__, __FILE__, __LINE__, (n), (s))
-#define malloc(s) trace_malloc(__FUNCTION__, __FILE__, __LINE__, (s))
+#define free(p) trace_free (__FUNCTION__, __FILE__, __LINE__, (p))
+#define calloc(n, s) trace_calloc (__FUNCTION__, __FILE__, __LINE__, (n), (s))
+#define malloc(s) trace_malloc (__FUNCTION__, __FILE__, __LINE__, (s))
 
 int main (void)
 {
 	int fail = 0;
-	printf("=== Testing NitroPaint additions ===\n");
+	printf ("=== Testing NitroPaint additions ===\n");
 
 	// 1. Test Diff8 / Diff16
 	{
-		const u8 test_data[] = "Hello World! This is a differential compression test sequence 1234567890.";
+		const u8 test_data[]
+			= "Hello World! This is a differential compression test sequence 1234567890.";
 		const uint len = sizeof (test_data);
 		u8 *enc8 = 0, *dec8 = 0;
 		uint enc8_sz = 0, dec8_sz = 0;
@@ -36,14 +39,15 @@ int main (void)
 		enumError e2 = DecodeDiff8 (&dec8, &dec8_sz, enc8, enc8_sz);
 		if (e1 || e2 || dec8_sz != len || memcmp (dec8, test_data, len))
 		{
-			printf("  FAIL: Diff8 encode/decode mismatch\n");
+			printf ("  FAIL: Diff8 encode/decode mismatch\n");
 			fail++;
 		}
 		else
 		{
-			printf("  PASS: Diff8 encode/decode roundtrip\n");
+			printf ("  PASS: Diff8 encode/decode roundtrip\n");
 		}
-		free (enc8); free (dec8);
+		free (enc8);
+		free (dec8);
 
 		u8 *enc16 = 0, *dec16 = 0;
 		uint enc16_sz = 0, dec16_sz = 0;
@@ -51,19 +55,21 @@ int main (void)
 		e2 = DecodeDiff16 (&dec16, &dec16_sz, enc16, enc16_sz);
 		if (e1 || e2 || dec16_sz < len || memcmp (dec16, test_data, len))
 		{
-			printf("  FAIL: Diff16 encode/decode mismatch\n");
+			printf ("  FAIL: Diff16 encode/decode mismatch\n");
 			fail++;
 		}
 		else
 		{
-			printf("  PASS: Diff16 encode/decode roundtrip\n");
+			printf ("  PASS: Diff16 encode/decode roundtrip\n");
 		}
-		free (enc16); free (dec16);
+		free (enc16);
+		free (dec16);
 	}
 
 	// 2. Test PuCrunch
 	{
-		const u8 test_data[] = "The quick brown fox jumps over the lazy dog. AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ";
+		const u8 test_data[] = "The quick brown fox jumps over the lazy dog. "
+							   "AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ";
 		const uint len = sizeof (test_data);
 		u8 *enc_pc = 0, *dec_pc = 0;
 		uint enc_sz = 0, dec_sz = 0;
@@ -71,7 +77,7 @@ int main (void)
 		enumError e1 = EncodePuCrunch (&enc_pc, &enc_sz, test_data, len);
 		if (e1 || !CxIsCompressedPuCrunch (enc_pc, enc_sz))
 		{
-			printf("  FAIL: PuCrunch encode failed\n");
+			printf ("  FAIL: PuCrunch encode failed\n");
 			fail++;
 		}
 		else
@@ -79,12 +85,12 @@ int main (void)
 			enumError e2 = DecodePuCrunch (&dec_pc, &dec_sz, enc_pc, enc_sz);
 			if (e2 || dec_sz != len || memcmp (dec_pc, test_data, len))
 			{
-				printf("  FAIL: PuCrunch decode mismatch\n");
+				printf ("  FAIL: PuCrunch decode mismatch\n");
 				fail++;
 			}
 			else
 			{
-				printf("  PASS: PuCrunch encode/decode roundtrip\n");
+				printf ("  PASS: PuCrunch encode/decode roundtrip\n");
 			}
 			free (dec_pc);
 		}
@@ -93,7 +99,8 @@ int main (void)
 
 	// 3. Test LZX
 	{
-		const u8 test_data[] = "LZX compression format test: repeating patterns repeating patterns repeating patterns 12345 12345!";
+		const u8 test_data[] = "LZX compression format test: repeating patterns repeating patterns "
+							   "repeating patterns 12345 12345!";
 		const uint len = sizeof (test_data);
 		u8 *enc_lzx = 0, *dec_lzx = 0;
 		uint enc_sz = 0, dec_sz = 0;
@@ -101,7 +108,7 @@ int main (void)
 		enumError e1 = EncodeLZX (&enc_lzx, &enc_sz, test_data, len);
 		if (e1 || !CxIsCompressedLZX (enc_lzx, enc_sz))
 		{
-			printf("  FAIL: LZX encode failed\n");
+			printf ("  FAIL: LZX encode failed\n");
 			fail++;
 		}
 		else
@@ -109,12 +116,12 @@ int main (void)
 			enumError e2 = DecodeLZX (&dec_lzx, &dec_sz, enc_lzx, enc_sz);
 			if (e2 || dec_sz != len || memcmp (dec_lzx, test_data, len))
 			{
-				printf("  FAIL: LZX decode mismatch\n");
+				printf ("  FAIL: LZX decode mismatch\n");
 				fail++;
 			}
 			else
 			{
-				printf("  PASS: LZX encode/decode roundtrip\n");
+				printf ("  PASS: LZX encode/decode roundtrip\n");
 			}
 			free (dec_lzx);
 		}
@@ -123,7 +130,8 @@ int main (void)
 
 	// 4. Test VLX
 	{
-		const u8 test_data[] = "VLX format test: Pac-Man World DS namco compression literal and repeat stream test abcdef";
+		const u8 test_data[] = "VLX format test: Pac-Man World DS namco compression literal and "
+							   "repeat stream test abcdef";
 		const uint len = sizeof (test_data);
 		u8 *enc_vlx = 0, *dec_vlx = 0;
 		uint enc_sz = 0, dec_sz = 0;
@@ -131,7 +139,7 @@ int main (void)
 		enumError e1 = EncodeVLX (&enc_vlx, &enc_sz, test_data, len);
 		if (e1 || !CxIsCompressedVlx (enc_vlx, enc_sz))
 		{
-			printf("  FAIL: VLX encode failed\n");
+			printf ("  FAIL: VLX encode failed\n");
 			fail++;
 		}
 		else
@@ -139,12 +147,12 @@ int main (void)
 			enumError e2 = DecodeVLX (&dec_vlx, &dec_sz, enc_vlx, enc_sz);
 			if (e2 || dec_sz != len || memcmp (dec_vlx, test_data, len))
 			{
-				printf("  FAIL: VLX decode mismatch\n");
+				printf ("  FAIL: VLX decode mismatch\n");
 				fail++;
 			}
 			else
 			{
-				printf("  PASS: VLX encode/decode roundtrip\n");
+				printf ("  PASS: VLX encode/decode roundtrip\n");
 			}
 			free (dec_vlx);
 		}
@@ -166,10 +174,11 @@ int main (void)
 
 		u8 *btx = 0;
 		uint btx_sz = 0;
-		enumError e1 = CreateNSBTX (&btx, &btx_sz, rgba_in, w, h, NITRO_TEXFMT_DIRECT, "test_tex", 0);
+		enumError e1
+			= CreateNSBTX (&btx, &btx_sz, rgba_in, w, h, NITRO_TEXFMT_DIRECT, "test_tex", 0);
 		if (e1 || !btx || btx_sz < 0x20)
 		{
-			printf("  FAIL: CreateNSBTX failed\n");
+			printf ("  FAIL: CreateNSBTX failed\n");
 			fail++;
 		}
 		else
@@ -177,7 +186,7 @@ int main (void)
 			nfmt_info_t nfmt = DetectNintendoFormat (btx, btx_sz, "test.nsbtx");
 			if (nfmt.type != NFMT_NSBTX)
 			{
-				printf("  FAIL: DetectNintendoFormat failed for NSBTX\n");
+				printf ("  FAIL: DetectNintendoFormat failed for NSBTX\n");
 				fail++;
 			}
 			else
@@ -187,12 +196,13 @@ int main (void)
 				enumError e2 = DecodeNSBTX_RGBA (&rgba_out, &out_w, &out_h, btx, btx_sz);
 				if (e2 || out_w != w || out_h != h || !rgba_out)
 				{
-					printf("  FAIL: DecodeNSBTX_RGBA failed\n");
+					printf ("  FAIL: DecodeNSBTX_RGBA failed\n");
 					fail++;
 				}
 				else
 				{
-					printf("  PASS: NSBTX create -> detect -> decode roundtrip (%ux%u)\n", out_w, out_h);
+					printf ("  PASS: NSBTX create -> detect -> decode roundtrip (%ux%u)\n", out_w,
+						out_h);
 				}
 				free (rgba_out);
 			}
@@ -214,7 +224,7 @@ int main (void)
 		enumError e1 = EncodeNFTR_Atlas (&nftr, &nftr_sz, atlas_in, aw, ah, 0, false);
 		if (e1 || !nftr || nftr_sz < 0x20)
 		{
-			printf("  FAIL: EncodeNFTR_Atlas failed\n");
+			printf ("  FAIL: EncodeNFTR_Atlas failed\n");
 			fail++;
 		}
 		else
@@ -222,7 +232,7 @@ int main (void)
 			nfmt_info_t nfmt = DetectNintendoFormat (nftr, nftr_sz, "font.nftr");
 			if (nfmt.type != NFMT_NFTR)
 			{
-				printf("  FAIL: DetectNintendoFormat failed for NFTR\n");
+				printf ("  FAIL: DetectNintendoFormat failed for NFTR\n");
 				fail++;
 			}
 			else
@@ -230,15 +240,17 @@ int main (void)
 				u8 *atlas_out = 0;
 				uint out_w = 0, out_h = 0;
 				char *xml_out = 0;
-				enumError e2 = DecodeNFTR_Atlas (&atlas_out, &out_w, &out_h, &xml_out, nftr, nftr_sz);
+				enumError e2
+					= DecodeNFTR_Atlas (&atlas_out, &out_w, &out_h, &xml_out, nftr, nftr_sz);
 				if (e2 || out_w != aw || out_h != ah || !atlas_out || !xml_out)
 				{
-					printf("  FAIL: DecodeNFTR_Atlas failed\n");
+					printf ("  FAIL: DecodeNFTR_Atlas failed\n");
 					fail++;
 				}
 				else
 				{
-					printf("  PASS: NFTR font encode -> detect -> decode atlas (%ux%u)\n", out_w, out_h);
+					printf ("  PASS: NFTR font encode -> detect -> decode atlas (%ux%u)\n", out_w,
+						out_h);
 				}
 				free (atlas_out);
 				free (xml_out);
@@ -265,7 +277,7 @@ int main (void)
 		enumError e1 = Encode5TX_RGBA (&fivetx, &fivetx_sz, rgba_in, w, h);
 		if (e1 || !fivetx || fivetx_sz < 16)
 		{
-			printf("  FAIL: Encode5TX_RGBA failed\n");
+			printf ("  FAIL: Encode5TX_RGBA failed\n");
 			fail++;
 		}
 		else
@@ -275,12 +287,12 @@ int main (void)
 			enumError e2 = Decode5TX_RGBA (&rgba_out, &out_w, &out_h, fivetx, fivetx_sz);
 			if (e2 || out_w != w || out_h != h || !rgba_out)
 			{
-				printf("  FAIL: Decode5TX_RGBA failed\n");
+				printf ("  FAIL: Decode5TX_RGBA failed\n");
 				fail++;
 			}
 			else
 			{
-				printf("  PASS: 5TX image encode -> decode (%ux%u)\n", out_w, out_h);
+				printf ("  PASS: 5TX image encode -> decode (%ux%u)\n", out_w, out_h);
 			}
 			free (rgba_out);
 			free (fivetx);
@@ -294,7 +306,7 @@ int main (void)
 		enumError e1 = EncodeBNLL_Text (&bnll, &bnll_sz, "layout text");
 		if (e1 || !bnll || bnll_sz < 0x10)
 		{
-			printf("  FAIL: EncodeBNLL_Text failed\n");
+			printf ("  FAIL: EncodeBNLL_Text failed\n");
 			fail++;
 		}
 		else
@@ -303,12 +315,12 @@ int main (void)
 			enumError e2 = DecodeBNLL_Text (&txt, bnll, bnll_sz);
 			if (e2 || !txt || !strstr (txt, "BNLL"))
 			{
-				printf("  FAIL: DecodeBNLL_Text failed\n");
+				printf ("  FAIL: DecodeBNLL_Text failed\n");
 				fail++;
 			}
 			else
 			{
-				printf("  PASS: BNLL layout encode -> disassemble text\n");
+				printf ("  PASS: BNLL layout encode -> disassemble text\n");
 			}
 			free (txt);
 			free (bnll);
@@ -317,7 +329,8 @@ int main (void)
 
 	// 9. Test LZOvl (NDS Overlay reverse compression)
 	{
-		const u8 test_data[] = "Reverse LZ overlay compression test payload for ARM9 overlay 0123456789";
+		const u8 test_data[]
+			= "Reverse LZ overlay compression test payload for ARM9 overlay 0123456789";
 		const uint len = sizeof (test_data);
 		u8 *enc_ovl = 0, *dec_ovl = 0;
 		uint enc_sz = 0, dec_sz = 0;
@@ -325,7 +338,7 @@ int main (void)
 		enumError e1 = EncodeLZOvl (&enc_ovl, &enc_sz, test_data, len);
 		if (e1 || !enc_ovl || enc_sz < 8)
 		{
-			printf("  FAIL: EncodeLZOvl failed\n");
+			printf ("  FAIL: EncodeLZOvl failed\n");
 			fail++;
 		}
 		else
@@ -333,12 +346,12 @@ int main (void)
 			enumError e2 = DecodeLZOvl (&dec_ovl, &dec_sz, enc_ovl, enc_sz);
 			if (e2 || dec_sz != len || memcmp (dec_ovl, test_data, len))
 			{
-				printf("  FAIL: DecodeLZOvl roundtrip mismatch\n");
+				printf ("  FAIL: DecodeLZOvl roundtrip mismatch\n");
 				fail++;
 			}
 			else
 			{
-				printf("  PASS: LZOvl reverse compression roundtrip\n");
+				printf ("  PASS: LZOvl reverse compression roundtrip\n");
 			}
 			free (dec_ovl);
 			free (enc_ovl);
@@ -361,12 +374,12 @@ int main (void)
 		enumError e1 = DecodeALAR (&out, &out_sz, alar_buf, sizeof (alar_buf));
 		if (e1 || out_sz != 12 || memcmp (out, "hello alar!", 12))
 		{
-			printf("  FAIL: DecodeALAR failed\n");
+			printf ("  FAIL: DecodeALAR failed\n");
 			fail++;
 		}
 		else
 		{
-			printf("  PASS: ALAR archive unpack\n");
+			printf ("  PASS: ALAR archive unpack\n");
 		}
 		free (out);
 	}
@@ -387,12 +400,12 @@ int main (void)
 		enumError e1 = DecodeDARC (&out, &out_sz, darc_buf, sizeof (darc_buf));
 		if (e1 || out_sz != 12 || memcmp (out, "hello darc!", 12))
 		{
-			printf("  FAIL: DecodeDARC failed\n");
+			printf ("  FAIL: DecodeDARC failed\n");
 			fail++;
 		}
 		else
 		{
-			printf("  PASS: DARC archive unpack\n");
+			printf ("  PASS: DARC archive unpack\n");
 		}
 		free (out);
 	}
@@ -411,12 +424,12 @@ int main (void)
 		enumError e1 = DecodeSADL_WAV (&wav, &wav_sz, sadl_buf, sizeof (sadl_buf));
 		if (e1 || wav_sz < 44 || memcmp (wav, "RIFF", 4))
 		{
-			printf("  FAIL: DecodeSADL_WAV failed\n");
+			printf ("  FAIL: DecodeSADL_WAV failed\n");
 			fail++;
 		}
 		else
 		{
-			printf("  PASS: SADL audio -> WAV decode\n");
+			printf ("  PASS: SADL audio -> WAV decode\n");
 		}
 		free (wav);
 	}
@@ -428,7 +441,7 @@ int main (void)
 		enumError e1 = EncodeNCER_Text (&ncer, &ncer_sz, "cell text");
 		if (e1 || !ncer || ncer_sz < 0x20)
 		{
-			printf("  FAIL: EncodeNCER_Text failed\n");
+			printf ("  FAIL: EncodeNCER_Text failed\n");
 			fail++;
 		}
 		else
@@ -437,12 +450,12 @@ int main (void)
 			enumError e2 = DecodeNCER_Text (&txt, ncer, ncer_sz);
 			if (e2 || !txt || !strstr (txt, "NCER"))
 			{
-				printf("  FAIL: DecodeNCER_Text failed\n");
+				printf ("  FAIL: DecodeNCER_Text failed\n");
 				fail++;
 			}
 			else
 			{
-				printf("  PASS: NCER 2D cell encode -> disassemble text\n");
+				printf ("  PASS: NCER 2D cell encode -> disassemble text\n");
 			}
 			free (txt);
 			free (ncer);
@@ -453,7 +466,7 @@ int main (void)
 		e1 = EncodeNANR_Text (&nanr, &nanr_sz, "anim text");
 		if (e1 || !nanr || nanr_sz < 0x20)
 		{
-			printf("  FAIL: EncodeNANR_Text failed\n");
+			printf ("  FAIL: EncodeNANR_Text failed\n");
 			fail++;
 		}
 		else
@@ -462,12 +475,12 @@ int main (void)
 			enumError e2 = DecodeNANR_Text (&txt, nanr, nanr_sz);
 			if (e2 || !txt || !strstr (txt, "NANR"))
 			{
-				printf("  FAIL: DecodeNANR_Text failed\n");
+				printf ("  FAIL: DecodeNANR_Text failed\n");
 				fail++;
 			}
 			else
 			{
-				printf("  PASS: NANR 2D animation encode -> disassemble text\n");
+				printf ("  PASS: NANR 2D animation encode -> disassemble text\n");
 			}
 			free (txt);
 			free (nanr);
@@ -476,7 +489,8 @@ int main (void)
 
 	// 14. Test PSDK (Prosonic SDK LZ)
 	{
-		const u8 psdk_test[] = "PSDK Prosonic SDK compression test payload with some repeating repeating text 123456789";
+		const u8 psdk_test[] = "PSDK Prosonic SDK compression test payload with some repeating "
+							   "repeating text 123456789";
 		const uint len = sizeof (psdk_test);
 		u8 *enc = 0, *dec = 0;
 		uint enc_sz = 0, dec_sz = 0;
@@ -484,7 +498,7 @@ int main (void)
 		enumError e1 = EncodePSDK (&enc, &enc_sz, psdk_test, len);
 		if (e1 || !enc || enc_sz < 8)
 		{
-			printf("  FAIL: EncodePSDK failed\n");
+			printf ("  FAIL: EncodePSDK failed\n");
 			fail++;
 		}
 		else
@@ -492,12 +506,12 @@ int main (void)
 			enumError e2 = DecodePSDK (&dec, &dec_sz, enc, enc_sz);
 			if (e2 || dec_sz != len || memcmp (dec, psdk_test, len))
 			{
-				printf("  FAIL: DecodePSDK roundtrip mismatch\n");
+				printf ("  FAIL: DecodePSDK roundtrip mismatch\n");
 				fail++;
 			}
 			else
 			{
-				printf("  PASS: PSDK encode -> decode roundtrip\n");
+				printf ("  PASS: PSDK encode -> decode roundtrip\n");
 			}
 			free (dec);
 			free (enc);
@@ -506,7 +520,8 @@ int main (void)
 
 	// 15. Test MVDK (Mario vs. Donkey Kong compression)
 	{
-		const u8 mvdk_test[] = "Mario vs Donkey Kong custom LZ compression test payload string 0123456789";
+		const u8 mvdk_test[]
+			= "Mario vs Donkey Kong custom LZ compression test payload string 0123456789";
 		const uint len = sizeof (mvdk_test);
 		u8 *enc = 0, *dec = 0;
 		uint enc_sz = 0, dec_sz = 0;
@@ -514,7 +529,7 @@ int main (void)
 		enumError e1 = EncodeMVDK (&enc, &enc_sz, mvdk_test, len);
 		if (e1 || !enc || enc_sz < 4)
 		{
-			printf("  FAIL: EncodeMVDK failed\n");
+			printf ("  FAIL: EncodeMVDK failed\n");
 			fail++;
 		}
 		else
@@ -522,12 +537,12 @@ int main (void)
 			enumError e2 = DecodeMVDK (&dec, &dec_sz, enc, enc_sz);
 			if (e2 || dec_sz != len || memcmp (dec, mvdk_test, len))
 			{
-				printf("  FAIL: DecodeMVDK roundtrip mismatch\n");
+				printf ("  FAIL: DecodeMVDK roundtrip mismatch\n");
 				fail++;
 			}
 			else
 			{
-				printf("  PASS: MVDK encode -> decode roundtrip\n");
+				printf ("  PASS: MVDK encode -> decode roundtrip\n");
 			}
 			free (dec);
 			free (enc);
@@ -544,7 +559,7 @@ int main (void)
 		enumError e1 = EncodeSSZL (&enc, &enc_sz, sszl_test, len);
 		if (e1 || !enc || enc_sz < 16)
 		{
-			printf("  FAIL: EncodeSSZL failed\n");
+			printf ("  FAIL: EncodeSSZL failed\n");
 			fail++;
 		}
 		else
@@ -552,12 +567,12 @@ int main (void)
 			enumError e2 = DecodeSSZL (&dec, &dec_sz, enc, enc_sz);
 			if (e2 || dec_sz != len || memcmp (dec, sszl_test, len))
 			{
-				printf("  FAIL: DecodeSSZL roundtrip mismatch\n");
+				printf ("  FAIL: DecodeSSZL roundtrip mismatch\n");
 				fail++;
 			}
 			else
 			{
-				printf("  PASS: SSZL encode -> decode roundtrip\n");
+				printf ("  PASS: SSZL encode -> decode roundtrip\n");
 			}
 			free (dec);
 			free (enc);
@@ -580,7 +595,7 @@ int main (void)
 		enumError e1 = EncodeSMDH (&enc, &enc_sz, &smdh);
 		if (e1 || !enc || enc_sz != SMDH_SIZE)
 		{
-			printf("  FAIL: EncodeSMDH failed\n");
+			printf ("  FAIL: EncodeSMDH failed\n");
 			fail++;
 		}
 		else
@@ -592,12 +607,12 @@ int main (void)
 				|| strcmp (parsed.title[SMDH_LANG_ENGLISH].publisher, "Nintendo")
 				|| parsed.region_lock != 0x7fffffff)
 			{
-				printf("  FAIL: ScanSMDH roundtrip mismatch\n");
+				printf ("  FAIL: ScanSMDH roundtrip mismatch\n");
 				fail++;
 			}
 			else
 			{
-				printf("  PASS: SMDH encode -> scan roundtrip\n");
+				printf ("  PASS: SMDH encode -> scan roundtrip\n");
 			}
 			ResetSMDH (&parsed);
 			free (enc);
@@ -617,7 +632,7 @@ int main (void)
 		enumError e1 = EncodeNUTEXB_RGBA (&enc, &enc_sz, rgba_in, w, h, "test_tex");
 		if (e1 || !enc || enc_sz < 0x70)
 		{
-			printf("  FAIL: EncodeNUTEXB_RGBA failed\n");
+			printf ("  FAIL: EncodeNUTEXB_RGBA failed\n");
 			fail++;
 		}
 		else
@@ -625,12 +640,12 @@ int main (void)
 			enumError e2 = DecodeNUTEXB_RGBA (&dec, &dec_w, &dec_h, enc, enc_sz);
 			if (e2 || dec_w != w || dec_h != h || memcmp (dec, rgba_in, sizeof (rgba_in)))
 			{
-				printf("  FAIL: DecodeNUTEXB_RGBA roundtrip mismatch\n");
+				printf ("  FAIL: DecodeNUTEXB_RGBA roundtrip mismatch\n");
 				fail++;
 			}
 			else
 			{
-				printf("  PASS: NUTEXB encode -> decode roundtrip (16x16)\n");
+				printf ("  PASS: NUTEXB encode -> decode roundtrip (16x16)\n");
 			}
 			free (dec);
 			free (enc);
@@ -653,7 +668,7 @@ int main (void)
 		enumError e1 = CreateBG4 (&bg4_blob, &bg4_sz, entries, 2);
 		if (e1 || !bg4_blob || bg4_sz < 16)
 		{
-			printf("  FAIL: CreateBG4 failed\n");
+			printf ("  FAIL: CreateBG4 failed\n");
 			fail++;
 		}
 		else
@@ -661,20 +676,18 @@ int main (void)
 			nintendo_sarc_entry_t *scanned = 0;
 			uint n_scanned = 0;
 			enumError e2 = ScanBG4 (&scanned, &n_scanned, bg4_blob, bg4_sz);
-			if (e2 || n_scanned != 2
-				|| strcmp (scanned[0].name, "file1.txt")
+			if (e2 || n_scanned != 2 || strcmp (scanned[0].name, "file1.txt")
 				|| scanned[0].size != entries[0].size
 				|| memcmp (scanned[0].data, entries[0].data, entries[0].size)
-				|| strcmp (scanned[1].name, "sub/file2.bin")
-				|| scanned[1].size != entries[1].size
+				|| strcmp (scanned[1].name, "sub/file2.bin") || scanned[1].size != entries[1].size
 				|| memcmp (scanned[1].data, entries[1].data, entries[1].size))
 			{
-				printf("  FAIL: ScanBG4 roundtrip mismatch\n");
+				printf ("  FAIL: ScanBG4 roundtrip mismatch\n");
 				fail++;
 			}
 			else
 			{
-				printf("  PASS: BG4 create -> scan roundtrip (2 members)\n");
+				printf ("  PASS: BG4 create -> scan roundtrip (2 members)\n");
 			}
 			ResetOwnedEntries (scanned, n_scanned);
 			free (bg4_blob);
@@ -697,7 +710,7 @@ int main (void)
 		enumError e1 = CreateSA01 (&sa_blob, &sa_sz, entries, 2, true, true);
 		if (e1 || !sa_blob || sa_sz < 8)
 		{
-			printf("  FAIL: CreateSA01 failed\n");
+			printf ("  FAIL: CreateSA01 failed\n");
 			fail++;
 		}
 		else
@@ -707,7 +720,7 @@ int main (void)
 			enumError e_dec = DecodeSA01Container (&inner, &inner_sz, sa_blob, sa_sz);
 			if (e_dec || !inner || inner_sz < 12)
 			{
-				printf("  FAIL: DecodeSA01Container failed on created SA01\n");
+				printf ("  FAIL: DecodeSA01Container failed on created SA01\n");
 				fail++;
 			}
 			else
@@ -715,20 +728,19 @@ int main (void)
 				nintendo_sarc_entry_t *scanned = 0;
 				uint n_scanned = 0;
 				enumError e2 = ScanSA01 (&scanned, &n_scanned, inner, inner_sz);
-				if (e2 || n_scanned != 2
-					|| strcmp (scanned[0].name, "mii_head.dat")
+				if (e2 || n_scanned != 2 || strcmp (scanned[0].name, "mii_head.dat")
 					|| scanned[0].size != entries[0].size
 					|| memcmp (scanned[0].data, entries[0].data, entries[0].size)
 					|| strcmp (scanned[1].name, "mii_body.dat")
 					|| scanned[1].size != entries[1].size
 					|| memcmp (scanned[1].data, entries[1].data, entries[1].size))
 				{
-					printf("  FAIL: ScanSA01 roundtrip mismatch\n");
+					printf ("  FAIL: ScanSA01 roundtrip mismatch\n");
 					fail++;
 				}
 				else
 				{
-					printf("  PASS: SA01 create -> decode -> scan roundtrip (2 members)\n");
+					printf ("  PASS: SA01 create -> decode -> scan roundtrip (2 members)\n");
 				}
 				ResetOwnedEntries (scanned, n_scanned);
 				free (inner);
@@ -751,7 +763,7 @@ int main (void)
 		enumError e1 = CreateCA01 (&ca_blob, &ca_sz, entries, 2, true, false);
 		if (e1 || !ca_blob || ca_sz < 0x80)
 		{
-			printf("  FAIL: CreateCA01 failed\n");
+			printf ("  FAIL: CreateCA01 failed\n");
 			fail++;
 		}
 		else
@@ -761,7 +773,7 @@ int main (void)
 			enumError e_dec = DecodeSA01Container (&inner, &inner_sz, ca_blob, ca_sz);
 			if (e_dec || !inner || inner_sz < 12)
 			{
-				printf("  FAIL: DecodeSA01Container failed on created CA01\n");
+				printf ("  FAIL: DecodeSA01Container failed on created CA01\n");
 				fail++;
 			}
 			else
@@ -769,18 +781,17 @@ int main (void)
 				nintendo_sarc_entry_t *scanned = 0;
 				uint n_scanned = 0;
 				enumError e2 = ScanSA01 (&scanned, &n_scanned, inner, inner_sz);
-				if (e2 || n_scanned != 2
-					|| scanned[0].size != entries[0].size
+				if (e2 || n_scanned != 2 || scanned[0].size != entries[0].size
 					|| memcmp (scanned[0].data, entries[0].data, entries[0].size)
 					|| scanned[1].size != entries[1].size
 					|| memcmp (scanned[1].data, entries[1].data, entries[1].size))
 				{
-					printf("  FAIL: ScanCA01 roundtrip mismatch\n");
+					printf ("  FAIL: ScanCA01 roundtrip mismatch\n");
 					fail++;
 				}
 				else
 				{
-					printf("  PASS: CA01 create -> decode -> scan roundtrip (2 members)\n");
+					printf ("  PASS: CA01 create -> decode -> scan roundtrip (2 members)\n");
 				}
 				ResetOwnedEntries (scanned, n_scanned);
 				free (inner);
@@ -805,7 +816,7 @@ int main (void)
 		enumError e1 = CreateCramARC (&cram_blob, &cram_sz, entries, 2);
 		if (e1 || !cram_blob || cram_sz < 16)
 		{
-			printf("  FAIL: CreateCramARC failed\n");
+			printf ("  FAIL: CreateCramARC failed\n");
 			fail++;
 		}
 		else
@@ -813,20 +824,18 @@ int main (void)
 			nintendo_sarc_entry_t *scanned = 0;
 			uint n_scanned = 0;
 			enumError e2 = ScanCramARC (&scanned, &n_scanned, cram_blob, cram_sz);
-			if (e2 || n_scanned != 2
-				|| strcmp (scanned[0].name, "model.bcmdl")
+			if (e2 || n_scanned != 2 || strcmp (scanned[0].name, "model.bcmdl")
 				|| scanned[0].size != entries[0].size
 				|| memcmp (scanned[0].data, entries[0].data, entries[0].size)
-				|| strcmp (scanned[1].name, "texture.bctex")
-				|| scanned[1].size != entries[1].size
+				|| strcmp (scanned[1].name, "texture.bctex") || scanned[1].size != entries[1].size
 				|| memcmp (scanned[1].data, entries[1].data, entries[1].size))
 			{
-				printf("  FAIL: ScanCramARC roundtrip mismatch\n");
+				printf ("  FAIL: ScanCramARC roundtrip mismatch\n");
 				fail++;
 			}
 			else
 			{
-				printf("  PASS: cram ARC create -> scan roundtrip (2 members)\n");
+				printf ("  PASS: cram ARC create -> scan roundtrip (2 members)\n");
 			}
 			ResetOwnedEntries (scanned, n_scanned);
 			free (cram_blob);
@@ -849,7 +858,7 @@ int main (void)
 		enumError e1 = CreateFSYS (&fsys_blob, &fsys_sz, entries, 2, true);
 		if (e1 || !fsys_blob || fsys_sz < 0x40)
 		{
-			printf("  FAIL: CreateFSYS failed\n");
+			printf ("  FAIL: CreateFSYS failed\n");
 			fail++;
 		}
 		else
@@ -857,18 +866,17 @@ int main (void)
 			nintendo_sarc_entry_t *scanned = 0;
 			uint n_scanned = 0;
 			enumError e2 = ScanFSYS (&scanned, &n_scanned, fsys_blob, fsys_sz);
-			if (e2 || n_scanned != 2
-				|| scanned[0].size != entries[0].size
+			if (e2 || n_scanned != 2 || scanned[0].size != entries[0].size
 				|| memcmp (scanned[0].data, entries[0].data, entries[0].size)
 				|| scanned[1].size != entries[1].size
 				|| memcmp (scanned[1].data, entries[1].data, entries[1].size))
 			{
-				printf("  FAIL: ScanFSYS roundtrip mismatch\n");
+				printf ("  FAIL: ScanFSYS roundtrip mismatch\n");
 				fail++;
 			}
 			else
 			{
-				printf("  PASS: FSYS create -> scan roundtrip (2 members)\n");
+				printf ("  PASS: FSYS create -> scan roundtrip (2 members)\n");
 			}
 			ResetOwnedEntries (scanned, n_scanned);
 			free (fsys_blob);
@@ -877,15 +885,14 @@ int main (void)
 
 	// 24. Test GSH (Gfx2 shader container encode -> scan)
 	{
-		const char *latte_src =
-			"RAW[0000] word0=0x00000000 word1=0x00000000\n"
-			"RAW[0001] word0=0x12345678 word1=0x9abcdef0\n";
+		const char *latte_src = "RAW[0000] word0=0x00000000 word1=0x00000000\n"
+								"RAW[0001] word0=0x12345678 word1=0x9abcdef0\n";
 		u8 *gsh_blob = 0;
 		uint gsh_sz = 0;
 		enumError e1 = EncodeGSHFromLatte (&gsh_blob, &gsh_sz, latte_src, GTX_SHADER_VERTEX);
 		if (e1 || !gsh_blob || gsh_sz < 64)
 		{
-			printf("  FAIL: EncodeGSHFromLatte failed\n");
+			printf ("  FAIL: EncodeGSHFromLatte failed\n");
 			fail++;
 		}
 		else
@@ -896,12 +903,12 @@ int main (void)
 				|| gtx.shaders[0].program->data_size != 16
 				|| gtx.shaders[0].stage != GTX_SHADER_VERTEX)
 			{
-				printf("  FAIL: ScanGTX on generated GSH failed\n");
+				printf ("  FAIL: ScanGTX on generated GSH failed\n");
 				fail++;
 			}
 			else
 			{
-				printf("  PASS: GSH shader encode -> scan roundtrip\n");
+				printf ("  PASS: GSH shader encode -> scan roundtrip\n");
 			}
 			ResetGTX (&gtx);
 			free (gsh_blob);
@@ -924,7 +931,7 @@ int main (void)
 		enumError e1 = CreateHWLegends (&idx_blob, &idx_sz, &bin_blob, &bin_sz, entries, 2);
 		if (e1 || !idx_blob || !bin_blob || idx_sz != 16)
 		{
-			printf("  FAIL: CreateHWLegends failed\n");
+			printf ("  FAIL: CreateHWLegends failed\n");
 			fail++;
 		}
 		else
@@ -932,18 +939,17 @@ int main (void)
 			nintendo_sarc_entry_t *scanned = 0;
 			uint n_scanned = 0;
 			enumError e2 = ScanHWLegends (&scanned, &n_scanned, idx_blob, idx_sz, bin_blob, bin_sz);
-			if (e2 || n_scanned != 2
-				|| scanned[0].size != entries[0].size
+			if (e2 || n_scanned != 2 || scanned[0].size != entries[0].size
 				|| memcmp (scanned[0].data, entries[0].data, entries[0].size)
 				|| scanned[1].size != entries[1].size
 				|| memcmp (scanned[1].data, entries[1].data, entries[1].size))
 			{
-				printf("  FAIL: ScanHWLegends roundtrip mismatch\n");
+				printf ("  FAIL: ScanHWLegends roundtrip mismatch\n");
 				fail++;
 			}
 			else
 			{
-				printf("  PASS: HWLegends .idx/.bin create -> scan roundtrip (2 members)\n");
+				printf ("  PASS: HWLegends .idx/.bin create -> scan roundtrip (2 members)\n");
 			}
 			ResetOwnedEntries (scanned, n_scanned);
 			free (idx_blob);
@@ -961,7 +967,7 @@ int main (void)
 		enumError e1 = EncodeSZE (&enc, &enc_sz, test_data, len, 0, 0, 1);
 		if (e1 || !enc || enc_sz < 32 + len)
 		{
-			printf("  FAIL: EncodeSZE failed\n");
+			printf ("  FAIL: EncodeSZE failed\n");
 			fail++;
 		}
 		else
@@ -969,12 +975,12 @@ int main (void)
 			enumError e2 = DecodeSZE (&dec, &dec_sz, enc, enc_sz, 0);
 			if (e2 || dec_sz != len || memcmp (dec, test_data, len))
 			{
-				printf("  FAIL: DecodeSZE roundtrip mismatch\n");
+				printf ("  FAIL: DecodeSZE roundtrip mismatch\n");
 				fail++;
 			}
 			else
 			{
-				printf("  PASS: SZE (F-Zero 99) encode -> decode roundtrip\n");
+				printf ("  PASS: SZE (F-Zero 99) encode -> decode roundtrip\n");
 			}
 			free (dec);
 			free (enc);
@@ -983,7 +989,8 @@ int main (void)
 
 	// 27. Test BPE (Good-Feel Byte Pair Encoding)
 	{
-		const u8 test_data[] = "BPE_TEST_DATA_Good_Feel_Kirby_Epic_Yarn_and_Yoshis_Woolly_World_GFCP_Mode_1_1234567890!_Roundtrip_Verify";
+		const u8 test_data[] = "BPE_TEST_DATA_Good_Feel_Kirby_Epic_Yarn_and_Yoshis_Woolly_World_"
+							   "GFCP_Mode_1_1234567890!_Roundtrip_Verify";
 		const uint len = sizeof (test_data);
 		u8 *enc = 0;
 		uint enc_sz = 0;
@@ -991,7 +998,7 @@ int main (void)
 		enumError e1 = EncodeBPE (&enc, &enc_sz, test_data, len);
 		if (e1 || !enc || !enc_sz)
 		{
-			printf("  FAIL: EncodeBPE failed\n");
+			printf ("  FAIL: EncodeBPE failed\n");
 			fail++;
 		}
 		else
@@ -1000,12 +1007,12 @@ int main (void)
 			enumError e2 = DecodeBPE (dec, len, enc, enc_sz);
 			if (e2 || memcmp (dec, test_data, len))
 			{
-				printf("  FAIL: DecodeBPE roundtrip mismatch\n");
+				printf ("  FAIL: DecodeBPE roundtrip mismatch\n");
 				fail++;
 			}
 			else
 			{
-				printf("  PASS: BPE / GFCP encode -> decode roundtrip\n");
+				printf ("  PASS: BPE / GFCP encode -> decode roundtrip\n");
 			}
 			free (dec);
 			free (enc);
@@ -1014,17 +1021,15 @@ int main (void)
 
 	// 28. Test RFL_Res.dat (Revolution Face Library)
 	{
-		nintendo_sarc_entry_t entries[3] = {
-			{ "beard/000.bin", (const u8 *)"RFL_BEARD_DATA", 14 },
+		nintendo_sarc_entry_t entries[3] = { { "beard/000.bin", (const u8 *)"RFL_BEARD_DATA", 14 },
 			{ "faceline/000.bin", (const u8 *)"RFL_FACELINE_GEOMETRY_MODEL_DATA", 32 },
-			{ "eye/000.bin", (const u8 *)"RFL_EYE_TEXTURE_RESOURCE", 24 }
-		};
+			{ "eye/000.bin", (const u8 *)"RFL_EYE_TEXTURE_RESOURCE", 24 } };
 		u8 *rfl_data = 0;
 		uint rfl_size = 0;
 		enumError e1 = CreateRFLRes (&rfl_data, &rfl_size, entries, 3);
 		if (e1 || !rfl_data || rfl_size < 32)
 		{
-			printf("  FAIL: CreateRFLRes failed\n");
+			printf ("  FAIL: CreateRFLRes failed\n");
 			fail++;
 		}
 		else
@@ -1032,8 +1037,7 @@ int main (void)
 			nintendo_sarc_entry_t *scanned = 0;
 			uint n_scanned = 0;
 			enumError e2 = ScanRFLRes (&scanned, &n_scanned, rfl_data, rfl_size);
-			if (e2 || n_scanned != 3
-				|| strcmp (scanned[0].name, entries[0].name)
+			if (e2 || n_scanned != 3 || strcmp (scanned[0].name, entries[0].name)
 				|| scanned[0].size != entries[0].size
 				|| memcmp (scanned[0].data, entries[0].data, entries[0].size)
 				|| strcmp (scanned[1].name, entries[2].name) // eye is arc index 1
@@ -1043,7 +1047,7 @@ int main (void)
 				|| scanned[2].size != entries[1].size
 				|| memcmp (scanned[2].data, entries[1].data, entries[1].size))
 			{
-				printf("  FAIL: ScanRFLRes roundtrip mismatch (n_scanned=%u)\n", n_scanned);
+				printf ("  FAIL: ScanRFLRes roundtrip mismatch (n_scanned=%u)\n", n_scanned);
 				fail++;
 			}
 			else
@@ -1053,12 +1057,13 @@ int main (void)
 				enumError e3 = CreateRFLRes (&rfl_re, &rfl_re_size, scanned, n_scanned);
 				if (e3 || rfl_re_size != rfl_size || memcmp (rfl_re, rfl_data, rfl_size))
 				{
-					printf("  FAIL: RFL_Res.dat re-create byte-exact mismatch\n");
+					printf ("  FAIL: RFL_Res.dat re-create byte-exact mismatch\n");
 					fail++;
 				}
 				else
 				{
-					printf("  PASS: RFL_Res.dat create -> scan -> byte-identical re-create (3 members)\n");
+					printf ("  PASS: RFL_Res.dat create -> scan -> byte-identical re-create (3 "
+							"members)\n");
 				}
 				free (rfl_re);
 			}
@@ -1069,118 +1074,119 @@ int main (void)
 
 	// 29. Test retail Nintendo DS Nitro 2D Graphics (NCGR, NCLR, NCER, NANR)
 	{
-		FILE *f_ncgr = fopen("../tests/fixtures/nitro_samples/retail_sample.ncgr", "rb");
-		FILE *f_nclr = fopen("../tests/fixtures/nitro_samples/retail_kart_std_color.nclr", "rb");
+		FILE *f_ncgr = fopen ("../tests/fixtures/nitro_samples/retail_sample.ncgr", "rb");
+		FILE *f_nclr = fopen ("../tests/fixtures/nitro_samples/retail_kart_std_color.nclr", "rb");
 		if (f_ncgr && f_nclr)
 		{
-			fseek(f_ncgr, 0, SEEK_END);
-			uint ncgr_sz = (uint)ftell(f_ncgr);
-			fseek(f_ncgr, 0, SEEK_SET);
-			u8 *ncgr_buf = (u8 *)malloc(ncgr_sz);
-			fread(ncgr_buf, 1, ncgr_sz, f_ncgr);
-			fclose(f_ncgr);
+			fseek (f_ncgr, 0, SEEK_END);
+			uint ncgr_sz = (uint)ftell (f_ncgr);
+			fseek (f_ncgr, 0, SEEK_SET);
+			u8 *ncgr_buf = (u8 *)malloc (ncgr_sz);
+			fread (ncgr_buf, 1, ncgr_sz, f_ncgr);
+			fclose (f_ncgr);
 
-			fseek(f_nclr, 0, SEEK_END);
-			uint nclr_sz = (uint)ftell(f_nclr);
-			fseek(f_nclr, 0, SEEK_SET);
-			u8 *nclr_buf = (u8 *)malloc(nclr_sz);
-			fread(nclr_buf, 1, nclr_sz, f_nclr);
-			fclose(f_nclr);
+			fseek (f_nclr, 0, SEEK_END);
+			uint nclr_sz = (uint)ftell (f_nclr);
+			fseek (f_nclr, 0, SEEK_SET);
+			u8 *nclr_buf = (u8 *)malloc (nclr_sz);
+			fread (nclr_buf, 1, nclr_sz, f_nclr);
+			fclose (f_nclr);
 
 			nitro_ncgr_t ncgr;
 			nitro_nclr_t nclr;
-			enumError e_ncgr = ScanNitroNCGR(&ncgr, ncgr_buf, ncgr_sz);
-			enumError e_nclr = ScanNitroNCLR(&nclr, nclr_buf, nclr_sz);
+			enumError e_ncgr = ScanNitroNCGR (&ncgr, ncgr_buf, ncgr_sz);
+			enumError e_nclr = ScanNitroNCLR (&nclr, nclr_buf, nclr_sz);
 			if (e_ncgr || e_nclr || ncgr.n_tiles == 0 || nclr.n_entries == 0)
 			{
-				printf("  FAIL: ScanNitroNCGR / ScanNitroNCLR on retail samples failed\n");
+				printf ("  FAIL: ScanNitroNCGR / ScanNitroNCLR on retail samples failed\n");
 				fail++;
 			}
 			else
 			{
-				printf("  PASS: Retail NCGR (%u tiles, %ubpp) and NCLR (%u colors) scanned successfully\n",
+				printf ("  PASS: Retail NCGR (%u tiles, %ubpp) and NCLR (%u colors) scanned "
+						"successfully\n",
 					ncgr.n_tiles, ncgr.bpp, nclr.n_entries);
 			}
-			ResetNitroNCLR(&nclr);
-			free(ncgr_buf);
-			free(nclr_buf);
+			ResetNitroNCLR (&nclr);
+			free (ncgr_buf);
+			free (nclr_buf);
 		}
 
-		FILE *f_ncer = fopen("../tests/fixtures/nitro_samples/retail_sample.ncer", "rb");
+		FILE *f_ncer = fopen ("../tests/fixtures/nitro_samples/retail_sample.ncer", "rb");
 		if (f_ncer)
 		{
-			fseek(f_ncer, 0, SEEK_END);
-			uint ncer_sz = (uint)ftell(f_ncer);
-			fseek(f_ncer, 0, SEEK_SET);
-			u8 *ncer_buf = (u8 *)malloc(ncer_sz);
-			fread(ncer_buf, 1, ncer_sz, f_ncer);
-			fclose(f_ncer);
+			fseek (f_ncer, 0, SEEK_END);
+			uint ncer_sz = (uint)ftell (f_ncer);
+			fseek (f_ncer, 0, SEEK_SET);
+			u8 *ncer_buf = (u8 *)malloc (ncer_sz);
+			fread (ncer_buf, 1, ncer_sz, f_ncer);
+			fclose (f_ncer);
 
 			char *txt = 0;
-			enumError e_ncer = DecodeNCER_Text(&txt, ncer_buf, ncer_sz);
-			if (e_ncer || !txt || !strstr(txt, "NCER"))
+			enumError e_ncer = DecodeNCER_Text (&txt, ncer_buf, ncer_sz);
+			if (e_ncer || !txt || !strstr (txt, "NCER"))
 			{
-				printf("  FAIL: DecodeNCER_Text on retail sample failed\n");
+				printf ("  FAIL: DecodeNCER_Text on retail sample failed\n");
 				fail++;
 			}
 			else
 			{
 				u8 *re_ncer = 0;
 				uint re_sz = 0;
-				enumError e_enc = EncodeNCER_Text(&re_ncer, &re_sz, txt);
+				enumError e_enc = EncodeNCER_Text (&re_ncer, &re_sz, txt);
 				if (e_enc || !re_ncer || re_sz == 0)
 				{
-					printf("  FAIL: EncodeNCER_Text from retail text failed\n");
+					printf ("  FAIL: EncodeNCER_Text from retail text failed\n");
 					fail++;
 				}
 				else
 				{
-					printf("  PASS: Retail NCER decode -> disassemble -> re-encode roundtrip\n");
+					printf ("  PASS: Retail NCER decode -> disassemble -> re-encode roundtrip\n");
 				}
-				free(re_ncer);
+				free (re_ncer);
 			}
-			free(txt);
-			free(ncer_buf);
+			free (txt);
+			free (ncer_buf);
 		}
 
-		FILE *f_nanr = fopen("../tests/fixtures/nitro_samples/retail_sample.nanr", "rb");
+		FILE *f_nanr = fopen ("../tests/fixtures/nitro_samples/retail_sample.nanr", "rb");
 		if (f_nanr)
 		{
-			fseek(f_nanr, 0, SEEK_END);
-			uint nanr_sz = (uint)ftell(f_nanr);
-			fseek(f_nanr, 0, SEEK_SET);
-			u8 *nanr_buf = (u8 *)malloc(nanr_sz);
-			fread(nanr_buf, 1, nanr_sz, f_nanr);
-			fclose(f_nanr);
+			fseek (f_nanr, 0, SEEK_END);
+			uint nanr_sz = (uint)ftell (f_nanr);
+			fseek (f_nanr, 0, SEEK_SET);
+			u8 *nanr_buf = (u8 *)malloc (nanr_sz);
+			fread (nanr_buf, 1, nanr_sz, f_nanr);
+			fclose (f_nanr);
 
 			char *txt = 0;
-			enumError e_nanr = DecodeNANR_Text(&txt, nanr_buf, nanr_sz);
-			if (e_nanr || !txt || !strstr(txt, "NANR"))
+			enumError e_nanr = DecodeNANR_Text (&txt, nanr_buf, nanr_sz);
+			if (e_nanr || !txt || !strstr (txt, "NANR"))
 			{
-				printf("  FAIL: DecodeNANR_Text on retail sample failed\n");
+				printf ("  FAIL: DecodeNANR_Text on retail sample failed\n");
 				fail++;
 			}
 			else
 			{
 				u8 *re_nanr = 0;
 				uint re_sz = 0;
-				enumError e_enc = EncodeNANR_Text(&re_nanr, &re_sz, txt);
+				enumError e_enc = EncodeNANR_Text (&re_nanr, &re_sz, txt);
 				if (e_enc || !re_nanr || re_sz == 0)
 				{
-					printf("  FAIL: EncodeNANR_Text from retail text failed\n");
+					printf ("  FAIL: EncodeNANR_Text from retail text failed\n");
 					fail++;
 				}
 				else
 				{
-					printf("  PASS: Retail NANR decode -> disassemble -> re-encode roundtrip\n");
+					printf ("  PASS: Retail NANR decode -> disassemble -> re-encode roundtrip\n");
 				}
-				free(re_nanr);
+				free (re_nanr);
 			}
-			free(txt);
-			free(nanr_buf);
+			free (txt);
+			free (nanr_buf);
 		}
 	}
 
-	printf("=== Results: %s (failures: %d) ===\n", fail == 0 ? "ALL PASSED" : "SOME FAILED", fail);
+	printf ("=== Results: %s (failures: %d) ===\n", fail == 0 ? "ALL PASSED" : "SOME FAILED", fail);
 	return fail;
 }

@@ -27,7 +27,10 @@
 ///////////////////////////////////////////////////////////////////////////////
 // BRRES animation data is always big endian (Wii).
 
-static inline u16 banim_rd16 (const u8 *p) { return (u16)p[0] << 8 | p[1]; }
+static inline u16 banim_rd16 (const u8 *p)
+{
+	return (u16)p[0] << 8 | p[1];
+}
 
 static inline u32 banim_rd32 (const u8 *p)
 {
@@ -83,13 +86,20 @@ ccp GetFormatNameBANIM (banim_format_t fmt)
 {
 	switch (fmt)
 	{
-		case BANIM_NONE: return "NONE";
-		case BANIM_I4: return "I4";
-		case BANIM_I6: return "I6";
-		case BANIM_I12: return "I12";
-		case BANIM_L1: return "L1";
-		case BANIM_L2: return "L2";
-		case BANIM_L4: return "L4";
+		case BANIM_NONE:
+			return "NONE";
+		case BANIM_I4:
+			return "I4";
+		case BANIM_I6:
+			return "I6";
+		case BANIM_I12:
+			return "I12";
+		case BANIM_L1:
+			return "L1";
+		case BANIM_L2:
+			return "L2";
+		case BANIM_L4:
+			return "L4";
 	}
 	return "?";
 }
@@ -167,8 +177,8 @@ banim_key_t *AppendKeyBANIM (banim_track_t *tr, float frame, float value, float 
 ///////////////			DecodeTrackBANIM		///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-enumError DecodeTrackBANIM (banim_track_t *tr, const u8 *data, uint avail,
-	banim_format_t format, uint frame_limit)
+enumError DecodeTrackBANIM (
+	banim_track_t *tr, const u8 *data, uint avail, banim_format_t format, uint frame_limit)
 {
 	return DecodeTrackBANIM_Ext (tr, data, avail, format, frame_limit, false);
 }
@@ -205,8 +215,7 @@ enumError DecodeTrackBANIM_Ext (banim_track_t *tr, const u8 *data, uint avail,
 				const uint step = v >> 12 & 0xfff;
 				// sign extend the low 12 bits
 				const int tan = (int)(v << 20) >> 20;
-				AppendKeyBANIM (tr, (float)index, tr->base + step * tr->step,
-					tan / 32.0f);
+				AppendKeyBANIM (tr, (float)index, tr->base + step * tr->step, tan / 32.0f);
 			}
 			break;
 		}
@@ -240,8 +249,7 @@ enumError DecodeTrackBANIM_Ext (banim_track_t *tr, const u8 *data, uint avail,
 				const uint index = banim_rd16 (e) >> 5;
 				const uint step = banim_rd16 (e + 2);
 				const int tan = (s16)banim_rd16 (e + 4);
-				AppendKeyBANIM (tr, (float)index, tr->base + step * tr->step,
-					tan / 256.0f);
+				AppendKeyBANIM (tr, (float)index, tr->base + step * tr->step, tan / 256.0f);
 			}
 			break;
 		}
@@ -302,8 +310,7 @@ enumError DecodeTrackBANIM_Ext (banim_track_t *tr, const u8 *data, uint avail,
 		}
 
 		default:
-			return ERROR0 (ERR_INVALID_DATA, "BRRES anim: invalid track format %u\n",
-				(uint)format);
+			return ERROR0 (ERR_INVALID_DATA, "BRRES anim: invalid track format %u\n", (uint)format);
 	}
 
 	return ERR_OK;
@@ -319,13 +326,20 @@ uint GetEncodedSizeBANIM (const banim_track_t *tr, uint frame_limit)
 	DASSERT (tr);
 	switch (tr->format)
 	{
-		case BANIM_I4: return 16 + tr->n_key * 4;
-		case BANIM_I6: return 16 + tr->n_key * 6;
-		case BANIM_I12: return 8 + tr->n_key * 12;
-		case BANIM_L1: return 8 + frame_limit;
-		case BANIM_L2: return 8 + frame_limit * 2;
-		case BANIM_L4: return frame_limit * 4;
-		default: return 0;
+		case BANIM_I4:
+			return 16 + tr->n_key * 4;
+		case BANIM_I6:
+			return 16 + tr->n_key * 6;
+		case BANIM_I12:
+			return 8 + tr->n_key * 12;
+		case BANIM_L1:
+			return 8 + frame_limit;
+		case BANIM_L2:
+			return 8 + frame_limit * 2;
+		case BANIM_L4:
+			return frame_limit * 4;
+		default:
+			return 0;
 	}
 }
 
@@ -366,8 +380,7 @@ uint EncodeTrackBANIM (const banim_track_t *tr, u8 *dest, uint frame_limit)
 				const uint index = (uint)banim_clamp (banim_round (k->frame), 0, 0xff);
 				const uint step = banim_quantize (k->value, tr->base, tr->step) & 0xfff;
 				const int tan = banim_clamp (banim_round (k->tangent * 32.0f), -2048, 2047);
-				banim_w32 (dest + 16 + i * 4,
-					index << 24 | step << 12 | ((u32)tan & 0xfff));
+				banim_w32 (dest + 16 + i * 4, index << 24 | step << 12 | ((u32)tan & 0xfff));
 			}
 			return 16 + tr->n_key * 4;
 		}
@@ -421,9 +434,8 @@ uint EncodeTrackBANIM (const banim_track_t *tr, u8 *dest, uint frame_limit)
 			{
 				// linear tracks store exactly one value per frame; a short
 				// track repeats its last value rather than writing garbage
-				const banim_key_t *k = tr->n_key
-					? tr->key + (i < tr->n_key ? i : tr->n_key - 1)
-					: 0;
+				const banim_key_t *k
+					= tr->n_key ? tr->key + (i < tr->n_key ? i : tr->n_key - 1) : 0;
 				const uint raw = k ? banim_quantize (k->value, tr->base, tr->step) : 0;
 				if (width == 1)
 					dest[8 + i] = (u8)(raw > 0xff ? 0xff : raw);
@@ -437,9 +449,8 @@ uint EncodeTrackBANIM (const banim_track_t *tr, u8 *dest, uint frame_limit)
 		{
 			for (uint i = 0; i < frame_limit; i++)
 			{
-				const banim_key_t *k = tr->n_key
-					? tr->key + (i < tr->n_key ? i : tr->n_key - 1)
-					: 0;
+				const banim_key_t *k
+					= tr->n_key ? tr->key + (i < tr->n_key ? i : tr->n_key - 1) : 0;
 				banim_wf (dest + i * 4, k ? k->value : 0.0f);
 			}
 			return frame_limit * 4;
@@ -564,4 +575,3 @@ void WritePoolSortedBANIM (u8 *file_base, ccp *names, uint n_names, uint pool_st
 	FREE (sorted);
 	FREE (ord);
 }
-

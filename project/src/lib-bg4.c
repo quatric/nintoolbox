@@ -19,8 +19,7 @@
 // offset==0 marks an unused slot.  Bit 31 of offset marks a BLZ ("backward
 // LZSS", the DS/3DS ARM-binary compression) member; the flag is masked off
 // and the payload decompressed with this tool's existing DecodeBLZ.
-enumError ScanBG4 (
-	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
+enumError ScanBG4 (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
 {
 	if (!entries || !n_entries || !data || size < 16 || memcmp (data, "BG4\0", 4))
 		return EINVAL;
@@ -173,4 +172,3 @@ enumError CreateBG4 (
 	*dest_size = (uint)total_size;
 	return ERR_OK;
 }
-
