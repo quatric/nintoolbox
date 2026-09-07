@@ -2321,7 +2321,21 @@ static bool mod_decode_ndl_chunk (const u8 *data, uint size, uint m, int mat_idx
 		return false;
 	}
 
-	const u32 pos_off = (h[9] >= m + 0x40 && h[9] < dl_start) ? h[9] : m + 0x40;
+	// h[9..11] name the attribute arrays in NDL3. NDL2's header is shorter and
+	// those words hold whatever the 0xe3 filler and neighbouring fields leave
+	// there, yet they can still land between the geometry base and the display
+	// list and be taken for offsets: Excite Truck's Off36F_1 has h[9] = 0xdc0,
+	// which passed that test and put the positions 1728 bytes into their own
+	// array, reading coordinates of 2.6e38 out of unrelated bytes.
+	//
+	// An offset is only usable if the array it names actually fits in the
+	// space before the display list, so that is what decides. Read from the
+	// documented base instead, the same model gives every coordinate finite
+	// and within 0.2 of the origin.
+	const u32 pos_bytes = n_pos * pos_n * fmt_sz[pos_fmt];
+	const u32 pos_off = (h[9] >= m + 0x40 && h[9] < dl_start && h[9] + pos_bytes <= dl_start)
+		? h[9]
+		: m + 0x40;
 	const u32 second_off = (h[10] >= m + 0x40 && h[10] < dl_start) ? h[10] : 0;
 	const u32 third_off = (h[11] >= m + 0x40 && h[11] < dl_start) ? h[11] : 0;
 	const uint tex_off = third_off ? third_off : (second_off ? second_off : pos_off + n_pos * pos_n * fmt_sz[pos_fmt]);

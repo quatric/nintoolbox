@@ -254,27 +254,16 @@ else
   sk "unattributed formats claim nothing"
 fi
 
-# The .mod vertex width is recovered by brute force, and a wrong width can
-# still consume the display list into well-formed opcodes -- so "it parsed" is
-# not evidence it parsed correctly. Every Excite Truck model that used to
-# convert carried coordinates around 1e38; known-good models from Excitebots
-# and Excitebike sit within 2.4 units of the origin. A misparse must produce
-# nothing rather than a model made of noise.
+# NDL3 names its attribute arrays in the header; NDL2's header is shorter, and
+# those words hold filler that can still look like plausible offsets. Excite
+# Truck's models were read that way and exported coordinates around 1e38 --
+# they appeared to convert, which is why nothing caught it. An attribute array
+# is only where the header says if it fits in the space before the display
+# list; this fixture is one of the models that used to come out as noise.
 mod_d=$(mktemp -d /tmp/_r_modsane.XXXXXX) || mod_d=
 if [ -n "$mod_d" ]; then
-  rm -f "$mod_d/out.glb"
-  "$B/wmdlt" DECODE "$PWD_PROJECT/../tests/fixtures/excitetruck_misparse.mod" \
-    --dest "$mod_d/out.glb" --overwrite >/dev/null 2>&1
-  if [ ! -s "$mod_d/out.glb" ]; then
-    ok "a misparsed .mod is declined rather than exported as noise"
-  else
-    no "MOD position sanity" "exported a model the display list does not support"
-  fi
-
-  # And a model that does parse must still come out at a sane scale.
-  rm -f "$mod_d/good.glb"
-  if "$B/wmdlt" DECODE "$PWD_PROJECT/../tests/fixtures/excite_gpmesh.msh" \
-       --dest "$mod_d/good.glb" --overwrite >/dev/null 2>&1 && [ -s "$mod_d/good.glb" ] \
+  if "$B/wmdlt" DECODE "$PWD_PROJECT/../tests/fixtures/excitetruck_misparse.mod" \
+       --dest "$mod_d/out.glb" --overwrite >/dev/null 2>&1 && [ -s "$mod_d/out.glb" ] \
   && python3 -c '
 import json, struct, sys
 b = open(sys.argv[1], "rb").read()
@@ -288,11 +277,44 @@ for m in doc["meshes"]:
     for p in m["primitives"]:
         a = doc["accessors"][p["attributes"]["POSITION"]]
         worst = max(worst, max(abs(v) for v in a["min"] + a["max"]))
-assert worst < 1.0e9, ("model exported at an impossible scale", worst)
-' "$mod_d/good.glb"; then
-    ok "a model that does parse exports at a plausible scale"
+assert worst < 100.0, ("exported at an impossible scale", worst)
+assert worst > 0.0, "exported an empty model"
+' "$mod_d/out.glb"; then
+    ok "NDL2 model reads its geometry from the right place"
   else
-    no "MOD position sanity" "a known-good model stopped converting"
+    no "MOD position sanity" "the model that used to export 1e38 is still wrong"
+  fi
+
+  # The width of a vertex is not stored, only guessed, so a wrong guess can
+  # still walk the display list cleanly. Whatever the guess, a model exported
+  # at an impossible scale is a misparse and must not be written at all.
+  python3 -c '
+import sys
+d = bytearray(open(sys.argv[1], "rb").read())
+i = d.find(b"2LDN")
+# Point the attribute arrays into the display list, where nothing valid lives.
+for w in (9, 10, 11):
+    d[i+w*4:i+w*4+4] = (0xe3e3e3e3).to_bytes(4, "little")
+open(sys.argv[2], "wb").write(bytes(d))
+' "$PWD_PROJECT/../tests/fixtures/excitetruck_misparse.mod" "$mod_d/broken.mod"
+  rm -f "$mod_d/broken.glb"
+  "$B/wmdlt" DECODE "$mod_d/broken.mod" --dest "$mod_d/broken.glb" --overwrite >/dev/null 2>&1
+  if [ ! -s "$mod_d/broken.glb" ] || python3 -c '
+import json, struct, sys
+b = open(sys.argv[1], "rb").read()
+off, doc = 12, None
+while off < len(b):
+    clen, ctype = struct.unpack_from("<II", b, off)
+    if ctype == 0x4E4F534A: doc = json.loads(b[off+8:off+8+clen])
+    off += 8 + clen
+for m in doc["meshes"]:
+    for p in m["primitives"]:
+        a = doc["accessors"][p["attributes"]["POSITION"]]
+        assert max(abs(v) for v in a["min"] + a["max"]) < 1.0e9
+' "$mod_d/broken.glb" 2>/dev/null; then
+    ok "a model whose geometry cannot be located is not exported as noise"
+  else
+    no "MOD position sanity" "exported a model at an impossible scale"
   fi
   rm -rf "$mod_d"
 else
