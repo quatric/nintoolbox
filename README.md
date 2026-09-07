@@ -42,6 +42,12 @@ wimgt ENCODE texture.png --dest texture.tpl
 wbrsar unpack Sound.brsar --dest Sound.d
 wbrstm DECODE music.brstm --dest music.wav
 wseqt DECODE sequence.sseq --dest sequence.mid
+
+# 6. Convert a whole sound archive to a playable SoundFont + MIDI set
+#    (BRSAR / BFSAR / BCSAR / SDAT -> one .sf2 plus every sequence as .mid)
+wbrsar Sound.brsar --dest Sound.d
+wbrsar Sound.sdat --dls --dest Sound.d      # DLS instead of SF2
+wbrsar Sound.sdat --both --dest Sound.d
 ```
 
 ---
