@@ -41,6 +41,14 @@ enumError DecodeGXTexture_RGBA (u8 **dest, uint width, uint height, uint gx_form
 // Excite .tex payload.
 enumError ScanTEX (excite_tex_t *tex, const u8 *data, uint size);
 
+// Recognise and decode a .tm0 texture: the high-resolution counterpart of a
+// .tex, with an explicit 128-byte header at offset 0x80 and one or two CMPR
+// mip chains at 0x100 (colour, plus a stencil chain that supplies the alpha
+// channel). Unlike .tex this layout is fully self-describing, so nothing is
+// guessed -- and ScanTEX() must not be used on it, since its heuristic
+// classifier reads the payload as one oversized chain. See lib-excite.c.
+enumError ScanTM0 (excite_tex_t *tex, const u8 *data, uint size);
+
 // Same recovery for GUI art (.art/.img), including both the older zero-footer
 // representation and ExciteBots' explicit header representation. In the
 // older form dimensions and format are recovered from tile-seam continuity.

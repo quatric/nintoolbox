@@ -7766,6 +7766,83 @@ with open("'"$d"'/imet_test/opening.bnr", "wb") as f:
     fno "Wii channel banner" "failed to unwrap IMET/IMD5 banner sample";
   fi
 
+  # Excite Truck .tm0: 128 unchecked bytes, the explicit 128-byte header at
+  # 0x80 (w, h, levels, renderer code), then a CMPR colour mip chain and --
+  # for renderer code 0x44 -- an I4 stencil chain supplying the alpha. Both
+  # chains are 4bpp over 8x8 tiles and therefore the same length, so only the
+  # decode distinguishes them; the trailing chain is 128 bytes short.
+  mkdir -p "$d/tm0_test"
+  python3 -c '
+import struct
+W = H = 64
+LEVELS = 7
+def cmpr_chain(nbytes):          # solid opaque red: color0 == color1, index 0
+    blk = struct.pack(">HH", 0xf800, 0xf800) + b"\x00" * 4
+    return (blk * (nbytes // 8 + 1))[:nbytes]
+def chain_size(levels):          # CMPR: 4bpp, 8x8 tiles, so >=32 bytes/level
+    t = 0
+    for i in range(levels):
+        w = max(W >> i, 1); h = max(H >> i, 1)
+        tw = (w + 7) // 8 * 8; th = (h + 7) // 8 * 8
+        t += tw * th // 2
+    return t
+chain = chain_size(LEVELS)
+for name, stencil in (("opaque", 0xff), ("clear", 0x00)):
+    body = cmpr_chain(chain) + bytes([stencil]) * (chain - 128)
+    h = bytearray(0x100)
+    struct.pack_into("<HH", h, 0x80, W, H)
+    h[0x84] = LEVELS
+    h[0x85] = 0x44
+    open("'"$d"'/tm0_test/%s.tm0" % name, "wb").write(bytes(h) + body)
+'
+  if "$B/wszst" XX "$d/tm0_test/opaque.tm0" >/dev/null 2>&1 \
+  && "$B/wszst" XX "$d/tm0_test/clear.tm0" >/dev/null 2>&1 \
+  && python3 -c '
+import struct, zlib
+def rgba(path):
+    d = open(path, "rb").read()
+    i, idat = 8, b""
+    while i < len(d):
+        ln = struct.unpack(">I", d[i:i + 4])[0]
+        t, b = d[i + 4:i + 8], d[i + 8:i + 8 + ln]
+        i += 12 + ln
+        if t == b"IHDR": w, h, bd, ct = struct.unpack(">IIBB", b[:10])
+        elif t == b"IDAT": idat += b
+    n = {0: 1, 2: 3, 4: 2, 6: 4}[ct]
+    raw = zlib.decompress(idat)
+    st = w * n
+    prev = bytearray(st); p = 0; first = None
+    for y in range(h):
+        f = raw[p]; p += 1
+        line = bytearray(raw[p:p + st]); p += st
+        for x in range(st):
+            a = line[x - n] if x >= n else 0
+            bb = prev[x]
+            c = prev[x - n] if x >= n else 0
+            if f == 1: line[x] = (line[x] + a) & 255
+            elif f == 2: line[x] = (line[x] + bb) & 255
+            elif f == 3: line[x] = (line[x] + (a + bb) // 2) & 255
+            elif f == 4:
+                pp = a + bb - c
+                pa, pb, pc = abs(pp - a), abs(pp - bb), abs(pp - c)
+                pr = a if (pa <= pb and pa <= pc) else (bb if pb <= pc else c)
+                line[x] = (line[x] + pr) & 255
+        prev = line
+        if first is None: first = bytes(line[:n])
+    return w, h, n, first
+w, h, n, px = rgba("'"$d"'/tm0_test/opaque.png")
+assert (w, h) == (64, 64), (w, h)
+assert px[0] > 240 and px[1] < 16 and px[2] < 16, px   # solid red
+assert n == 3 or px[3] == 255, px                      # I4 stencil 0xf -> opaque
+w, h, n, px = rgba("'"$d"'/tm0_test/clear.png")
+assert (w, h) == (64, 64), (w, h)
+assert n == 4 and px[3] == 0, px                       # I4 stencil 0x0 -> clear
+'; then
+    fok "Excite Truck .tm0 (CMPR colour + I4 stencil)"
+  else
+    fno "Excite Truck .tm0" "failed to decode .tm0 sample";
+  fi
+
   # Wii save banner (WIBN): a fixed header with a 192x64 RGB5A3 banner and
   # 1..8 48x48 icon frames, all in GameCube 4x4 tile order. The frame count
   # is implied by the file size, and trailing all-zero frames are padding --

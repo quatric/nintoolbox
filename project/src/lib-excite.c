@@ -1460,6 +1460,100 @@ static enumError scan_excite_header (excite_tex_t *tex, const u8 *data, uint siz
 	return ERR_OK;
 }
 
+//-----------------------------------------------------------------------------
+///////////////		.tm0 textures (CMPR colour + I4 stencil)	///////////////
+//-----------------------------------------------------------------------------
+
+// .tm0 is Excite Truck's high-resolution counterpart to a .tex of the same
+// name: where the .tex holds, say, a 128x128 CMPR chain, the .tm0 holds the
+// same artwork at 256x128. Its layout is NOT the unheadered .tex one, so
+// ScanTEX()'s heuristic classifier must not be pointed at it -- it happily
+// reads the whole payload as one oversized CMPR chain and produces noise.
+//
+// The real layout, consistent across all 58 .tm0 resources in Excite Truck:
+//
+//   0x000  128 bytes that are zero in most files but hold leftover data in a
+//          few (Elimin.tm0, RavDecal.tm0, wolflton.tm0), so they are not
+//          checked
+//   0x080  the same explicit 128-byte header ExciteBots uses (see
+//          scan_excite_header): u16 width, u16 height, u8 levels,
+//          u8 renderer code
+//   0x100  a CMPR colour mip chain, and for renderer code 0x44 an I4
+//          stencil chain after it
+//
+// Renderer code 0x44 stores a colour chain followed by a stencil chain (the
+// same colour/stencil pairing ScanART() already has to undo, just as two
+// chains instead of one double-height image); 0x42 stores the colour chain
+// alone. CMPR and I4 are both 4bpp over 8x8 tiles, so the two chains are
+// byte-for-byte the same length and nothing in the header distinguishes
+// them -- reading the stencil as CMPR gives noise, which is how the I4
+// reading was found.
+// The trailing chain is always 128 bytes shorter than a full chain of the
+// stated dimensions -- exactly, in every sample -- which is what pins the
+// pairing down, since a "colour + colour" reading would need 128 bytes more
+// than the files actually have.
+#define TM0_HEADER_OFFSET 0x80
+#define TM0_PIXEL_OFFSET 0x100
+// How much shorter the trailing (stencil, or sole) chain is than a full one.
+#define TM0_TAIL_CHAIN_SHORTFALL 128
+
+enumError ScanTM0 (excite_tex_t *tex, const u8 *data, uint size)
+{
+	if (!tex || !data || size <= TM0_PIXEL_OFFSET)
+		return ERR_NOTHING_TO_DO;
+	const u8 *hdr = data + TM0_HEADER_OFFSET;
+	const uint w = xrd_le16 (hdr), h = xrd_le16 (hdr + 2);
+	const uint levels = hdr[4];
+	const uint code = hdr[5];
+	if (!is_gx_dim (w) || !is_gx_dim (h) || levels < 1 || levels > 10 || code < 0x40 || code > 0x4f)
+		return ERR_NOTHING_TO_DO;
+
+	const u8 *px = data + TM0_PIXEL_OFFSET;
+	const uint psize = size - TM0_PIXEL_OFFSET;
+	const u64 chain = gx_chain_size (GX_CMPR, w, h, levels);
+	if (chain <= TM0_TAIL_CHAIN_SHORTFALL)
+		return ERR_NOTHING_TO_DO;
+	const u64 tail = chain - TM0_TAIL_CHAIN_SHORTFALL;
+
+	uint n_chain;
+	if (psize == chain + tail)
+		n_chain = 2;
+	else if (psize == tail)
+		n_chain = 1;
+	else
+		return ERR_NOTHING_TO_DO;
+
+	memset (tex, 0, sizeof (*tex));
+	u8 *rgba = gx_decode (GX_CMPR, w, h, px, gx_level_size (GX_CMPR, w, h));
+	if (!rgba)
+		return ERR_CANT_CREATE;
+
+	if (n_chain == 2)
+	{
+		// The stencil chain carries the real alpha channel. It is I4, not
+		// CMPR: both are 4bpp over 8x8 tiles, so the two chains have exactly
+		// the same byte count and only the decode tells them apart -- reading
+		// the stencil as CMPR yields noise. I4 decodes to greyscale, so the
+		// red channel is the coverage value.
+		u8 *mask = gx_decode (GX_I4, w, h, px + chain, gx_level_size (GX_I4, w, h));
+		if (!mask)
+		{
+			FREE (rgba);
+			return ERR_CANT_CREATE;
+		}
+		for (uint i = 0; i < w * h; i++)
+			rgba[4 * i + 3] = mask[4 * i];
+		FREE (mask);
+	}
+
+	tex->rgba = rgba;
+	tex->width = w;
+	tex->height = h;
+	tex->gx_format = GX_CMPR;
+	tex->score = 0;
+	return ERR_OK;
+}
+
 enumError ScanTEX (excite_tex_t *tex, const u8 *data, uint size)
 {
 	if (!tex || !data || size < 64)

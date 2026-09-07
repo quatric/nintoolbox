@@ -3904,7 +3904,8 @@ static enumError decode_romc_if_possible (ccp arg)
 // dimensions) via mip-chain-consistency scoring; see lib-excite.c.
 static enumError extract_tex_file (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext (arg, ".tex"))
+	const bool is_tm0 = is_ext (arg, ".tm0");
+	if (!is_tm0 && !is_ext (arg, ".tex"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;
@@ -3919,7 +3920,7 @@ static enumError extract_tex_file (ccp arg, ccp basedir, uint depth)
 	}
 
 	excite_tex_t tex;
-	err = ScanTEX (&tex, raw, (uint)raw_size);
+	err = is_tm0 ? ScanTM0 (&tex, raw, (uint)raw_size) : ScanTEX (&tex, raw, (uint)raw_size);
 	FREE (raw);
 	if (err)
 		return ERR_NOTHING_TO_DO;
@@ -3927,8 +3928,8 @@ static enumError extract_tex_file (ccp arg, ccp basedir, uint depth)
 	char dest[PATH_MAX];
 	beside_source_image_dest (dest, sizeof (dest), arg);
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT TEX:%s (%ux%u) -> PNG:%s\n", verbose > 0 ? "\n" : "",
-			testmode ? "WOULD " : "", arg, tex.width, tex.height, dest);
+		fprintf (stdlog, "%s%sEXTRACT %s:%s (%ux%u) -> PNG:%s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", is_tm0 ? "TM0" : "TEX", arg, tex.width, tex.height, dest);
 
 	if (testmode)
 		ResetExciteTEX (&tex);

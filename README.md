@@ -184,6 +184,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **PTLG** | `.glt`, `.rlt` | ✅ | ✅ | ✅ | — | Next Level Games texture container, extracted as TPL (*Super Mario Strikers*, *Mario Strikers Charged*) |
 | **SMDH** | `.smdh` | ✅ | — | — | ✅ | Nintendo 3DS application icon, publisher info & title metadata |
 | **TEX** | `.tex` | ✅ | ✅ | ✅ | ✅ | Monster Games GX texture format (Wii) |
+| **TM0** | `.tm0` | ✅ | — | — | ✅ | Monster Games high-resolution texture (*Excite Truck*, Wii): an explicit header at 0x80 followed by a CMPR colour mip chain and, for renderer code 0x44, an I4 stencil chain that supplies the alpha. Both chains are 4bpp over 8x8 tiles and so identical in length, and nothing in the header names them apart. ExciteBots ships a headerless variant of the same container, which is not decoded yet |
 | **TEX0** | `.tex0` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4R texture resource (Wii) |
 | **TEX3DS** | `.tex` | — | — | — | — | Nintendo 3DS proprietary texture (identification only) |
 | **XIMG** | `.xi` | — | — | — | — | Level-5 3DS/Switch image & texture container |
