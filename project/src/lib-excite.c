@@ -2380,122 +2380,161 @@ static bool mod_decode_ndl_chunk (
 	u32 best_vat[256];
 	u8 best_vat_set[256];
 	static const uint candidate_bpvs[] = { 3, 2, 4, 5, 6, 7, 8, 1 };
-	for (uint b = 0; b < 8; b++)
-	{
-		const uint bpv = candidate_bpvs[b];
-		mod_prim_t *prims;
-		uint np, total;
-		if (!mod_try_parse_dl (dl, dl_size, bpv, &prims, &np, &total, vat, vat_set))
-			continue;
-		if (total > best_total)
-		{
-			FREE (best_prims);
-			best_prims = prims;
-			best_np = np;
-			best_total = total;
-			best_bpv = bpv;
-			memcpy (best_vat, vat, sizeof (vat));
-			memcpy (best_vat_set, vat_set, sizeof (vat_set));
-		}
-		else
-			FREE (prims);
-	}
-	if (!best_prims)
-		return false;
-	if (!best_vat_set[0x70])
-	{
-		FREE (best_prims);
-		return false;
-	}
 
-	const u32 va = best_vat[0x70];
-	const uint pos_elem = (va >> 0) & 1, pos_fmt = (va >> 1) & 7, pos_shft = (va >> 4) & 0x1f;
-	const uint tex_elem = (va >> 21) & 1, tex_fmt = (va >> 22) & 7, tex_shft = (va >> 25) & 0x1f;
-	const uint pos_n = pos_elem ? 3 : 2;
-	const uint tex_n = tex_elem ? 2 : 1;
-
-	static const uint fmt_sz[5] = { 1, 1, 2, 2, 4 };
-	if (pos_fmt > 4)
-	{
-		FREE (best_prims);
-		return false;
-	}
-
-	// h[9..11] name the attribute arrays in NDL3. NDL2's header is shorter and
-	// those words hold whatever the 0xe3 filler and neighbouring fields leave
-	// there, yet they can still land between the geometry base and the display
-	// list and be taken for offsets: Excite Truck's Off36F_1 has h[9] = 0xdc0,
-	// which passed that test and put the positions 1728 bytes into their own
-	// array, reading coordinates of 2.6e38 out of unrelated bytes.
-	//
-	// An offset is only usable if the array it names actually fits in the
-	// space before the display list, so that is what decides. Read from the
-	// documented base instead, the same model gives every coordinate finite
-	// and within 0.2 of the origin.
-	const u32 pos_bytes = n_pos * pos_n * fmt_sz[pos_fmt];
-	const u32 pos_off
-		= (h[9] >= m + 0x40 && h[9] < dl_start && h[9] + pos_bytes <= dl_start) ? h[9] : m + 0x40;
-	const u32 second_off = (h[10] >= m + 0x40 && h[10] < dl_start) ? h[10] : 0;
-	const u32 third_off = (h[11] >= m + 0x40 && h[11] < dl_start) ? h[11] : 0;
-	const uint tex_off = third_off
-		? third_off
-		: (second_off ? second_off : pos_off + n_pos * pos_n * fmt_sz[pos_fmt]);
-
-	const bool has_tex
-		= (third_off != 0) || (best_bpv == 3 && second_off != 0 && second_off != tex_off);
-	uint max_tex = 0;
-	for (uint i = 0; i < best_np; i++)
-	{
-		const mod_prim_t *pr = best_prims + i;
-		for (uint v = 0; v < pr->cnt; v++)
-		{
-			const u8 *vp = dl + pr->dl_off + v * best_bpv;
-			uint ti = 0;
-			if (best_bpv == 3 && (third_off != 0 || (second_off != 0 && second_off != tex_off)))
-				ti = vp[2];
-			else if (best_bpv == 5)
-				ti = vp[4];
-			if (ti > max_tex)
-				max_tex = ti;
-		}
-	}
-	const uint n_tex = max_tex + 1;
-
+	uint pos_n = 0, tex_n = 0, n_tex = 0;
+	u32 pos_off = 0, tex_off = 0;
+	uint pos_fmt = 0, pos_shft = 0, tex_fmt = 0, tex_shft = 0;
 	float *pos_f = 0, *tex_f = 0;
-	if (!mod_read_attr (data, size, pos_off, n_pos, pos_fmt, pos_n, pos_shft, &pos_f)
-		|| (tex_fmt <= 4 && n_tex > 0
-			&& !mod_read_attr (data, size, tex_off, n_tex, tex_fmt, tex_n, tex_shft, &tex_f)))
+	static const uint fmt_sz[5] = { 1, 1, 2, 2, 4 };
+
+	// The vertex width is recovered by brute force, and a wrong width can
+	// still consume the display list into well-formed opcodes -- self-
+	// validation narrows the field but does not decide it. Rather than
+	// betting everything on the single candidate with the highest opcode
+	// total, retry with that bpv excluded whenever the resulting positions
+	// fail the plausibility check below: two duplicate sub-meshes in
+	// Mako.car.d/Low1.mod (same n_pos, same dl_size, appearing twice) were
+	// both misread as bpv=3 with coordinates in the tens of millions, while
+	// a smaller-total candidate for the very same bytes decoded cleanly.
+	bool excluded[9] = { 0 }; // indexed by bpv (1..8); [0] unused
+	bool ok = false;
+	for (uint retry = 0; retry < 8 && !ok; retry++)
+	{
+		FREE (best_prims);
+		best_prims = 0;
+		best_np = best_total = best_bpv = 0;
+		FREE (pos_f);
+		pos_f = 0;
+		FREE (tex_f);
+		tex_f = 0;
+
+		for (uint b = 0; b < 8; b++)
+		{
+			const uint bpv = candidate_bpvs[b];
+			if (excluded[bpv])
+				continue;
+			mod_prim_t *prims;
+			uint np, total;
+			if (!mod_try_parse_dl (dl, dl_size, bpv, &prims, &np, &total, vat, vat_set))
+				continue;
+			if (total > best_total)
+			{
+				FREE (best_prims);
+				best_prims = prims;
+				best_np = np;
+				best_total = total;
+				best_bpv = bpv;
+				memcpy (best_vat, vat, sizeof (vat));
+				memcpy (best_vat_set, vat_set, sizeof (vat_set));
+			}
+			else
+				FREE (prims);
+		}
+		if (!best_prims)
+			return false; // no candidate bpv parses at all; excluding more won't help
+		if (!best_vat_set[0x70])
+		{
+			excluded[best_bpv] = true;
+			continue;
+		}
+
+		const u32 va = best_vat[0x70];
+		const uint pos_elem = (va >> 0) & 1;
+		pos_fmt = (va >> 1) & 7;
+		pos_shft = (va >> 4) & 0x1f;
+		const uint tex_elem = (va >> 21) & 1;
+		tex_fmt = (va >> 22) & 7;
+		tex_shft = (va >> 25) & 0x1f;
+		pos_n = pos_elem ? 3 : 2;
+		tex_n = tex_elem ? 2 : 1;
+
+		if (pos_fmt > 4)
+		{
+			excluded[best_bpv] = true;
+			continue;
+		}
+
+		// h[9..11] name the attribute arrays in NDL3. NDL2's header is shorter
+		// and those words hold whatever the 0xe3 filler and neighbouring
+		// fields leave there, yet they can still land between the geometry
+		// base and the display list and be taken for offsets: Excite Truck's
+		// Off36F_1 has h[9] = 0xdc0, which passed that test and put the
+		// positions 1728 bytes into their own array, reading coordinates of
+		// 2.6e38 out of unrelated bytes.
+		//
+		// An offset is only usable if the array it names actually fits in the
+		// space before the display list, so that is what decides. Read from
+		// the documented base instead, the same model gives every coordinate
+		// finite and within 0.2 of the origin.
+		const u32 pos_bytes = n_pos * pos_n * fmt_sz[pos_fmt];
+		pos_off = (h[9] >= m + 0x40 && h[9] < dl_start && h[9] + pos_bytes <= dl_start) ? h[9]
+																						 : m + 0x40;
+		const u32 second_off = (h[10] >= m + 0x40 && h[10] < dl_start) ? h[10] : 0;
+		const u32 third_off = (h[11] >= m + 0x40 && h[11] < dl_start) ? h[11] : 0;
+		tex_off = third_off
+			? third_off
+			: (second_off ? second_off : pos_off + n_pos * pos_n * fmt_sz[pos_fmt]);
+
+		uint max_tex = 0;
+		for (uint i = 0; i < best_np; i++)
+		{
+			const mod_prim_t *pr = best_prims + i;
+			for (uint v = 0; v < pr->cnt; v++)
+			{
+				const u8 *vp = dl + pr->dl_off + v * best_bpv;
+				uint ti = 0;
+				if (best_bpv == 3 && (third_off != 0 || (second_off != 0 && second_off != tex_off)))
+					ti = vp[2];
+				else if (best_bpv == 5)
+					ti = vp[4];
+				if (ti > max_tex)
+					max_tex = ti;
+			}
+		}
+		n_tex = max_tex + 1;
+
+		if (!mod_read_attr (data, size, pos_off, n_pos, pos_fmt, pos_n, pos_shft, &pos_f)
+			|| (tex_fmt <= 4 && n_tex > 0
+				&& !mod_read_attr (data, size, tex_off, n_tex, tex_fmt, tex_n, tex_shft, &tex_f)))
+		{
+			excluded[best_bpv] = true;
+			continue;
+		}
+
+		// The header's +0x18 float looks like a bounding radius and is not a
+		// usable absolute bound: across known-good models the ratio between
+		// it and the real extent runs from 0.1 to 187000. What does separate
+		// good decodes from broken ones is scale alone -- those models all
+		// sit within 2.4 units of the origin, while a misread reaches 1e22
+		// and beyond. MOD_POS_LIMIT leaves nine orders of margin above
+		// anything genuine and thirteen below anything seen broken, so it
+		// rejects a misparse without judging what a model may contain; the
+		// radius-ratio check (rounded up from the documented 187000 for
+		// margin) catches the smaller-magnitude misreads MOD_POS_LIMIT alone
+		// lets through, without needing a tighter absolute cutoff that could
+		// just as easily reject a genuine oversized model.
+		const float radius = xrd_f32le (data + m + 0x18);
+		float max_abs = 0;
+		ok = true;
+		for (uint i = 0; i < n_pos * pos_n && ok; i++)
+		{
+			const float v = pos_f[i];
+			if (!isfinite (v) || v < -MOD_POS_LIMIT || v > MOD_POS_LIMIT)
+				ok = false;
+			else if (fabsf (v) > max_abs)
+				max_abs = fabsf (v);
+		}
+		if (ok && isfinite (radius) && radius > 1.0e-6f && max_abs / radius > 200000.0f)
+			ok = false;
+		if (!ok)
+			excluded[best_bpv] = true;
+	}
+	if (!ok)
 	{
 		FREE (best_prims);
 		FREE (pos_f);
 		FREE (tex_f);
 		return false;
-	}
-
-	// The vertex width is recovered by brute force, and a wrong width can
-	// still consume the display list into well-formed opcodes -- self-
-	// validation narrows the field but does not decide it. When it picks
-	// wrongly the positions are read from the wrong bytes, and the result was
-	// exported without complaint: every Excite Truck model that "converted"
-	// carried coordinates around 1e38.
-	//
-	// The header's +0x18 float looks like a bounding radius and is not a
-	// usable bound: across known-good models the ratio between it and the
-	// real extent runs from 0.1 to 187000. What does separate them is scale
-	// alone -- those models all sit within 2.4 units of the origin, while a
-	// misread reaches 1e22 and beyond. The limit below leaves nine orders of
-	// margin above anything genuine and thirteen below anything seen broken,
-	// so it rejects a misparse without judging what a model may contain.
-	for (uint i = 0; i < n_pos * pos_n; i++)
-	{
-		const float v = pos_f[i];
-		if (!isfinite (v) || v < -MOD_POS_LIMIT || v > MOD_POS_LIMIT)
-		{
-			FREE (best_prims);
-			FREE (pos_f);
-			FREE (tex_f);
-			return false;
-		}
 	}
 
 	memset (out_mesh, 0, sizeof (*out_mesh));
