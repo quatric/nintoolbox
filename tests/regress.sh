@@ -602,6 +602,21 @@ else
   sk "BCFNT (3DS)"
 fi
 
+f_rfnt="$PWD_PROJECT/../tests/fixtures/wanpaku_30_I4.brfnt"
+if [ -f "$f_rfnt" ]; then
+  rm -f /tmp/_r_brfnt.xml /tmp/_r_brfnt.png /tmp/_r_brfnt.sheet*.xml
+  "$B/wimgt" DECODE "$f_rfnt" --dest /tmp/_r_brfnt.png --overwrite >/dev/null 2>&1
+  psz=$(fsize_of /tmp/_r_brfnt.png); psz=${psz:-0}
+  g=$(grep -c '<font-atlas ' /tmp/_r_brfnt.xml 2>/dev/null || echo 0)
+  if [ "$psz" -gt 100 ] && [ "$g" -gt 0 ]; then
+    ok "BRFNT (Wii) -> structure XML + multi-sheet PNG ($f_rfnt)"
+  else
+    no "BRFNT (Wii) -> structure XML + multi-sheet PNG" "decode failed (size=$psz, font-atlas=$g)"
+  fi
+else
+  sk "BRFNT (Wii)"
+fi
+
 echo "== textures =="
 t_img "BNTX (Switch)" "BNTX"
 t_img "GTX (Wii U)" "Gfx2"
@@ -5954,15 +5969,18 @@ with open('$d/sample.nud', 'wb') as f:
       fok "$ctpk_name create -> extract -> identical re-create"
     else fno "$ctpk_name canonical fixed point" "second-generation bytes differ"; fi
   done
-  local gfa_path="$PWD_PROJECT/../tests/fixtures/gfa_bean00.gfa"
-  mkdir -p "$d/ext-gfa"
-  "$B/wszst" EXTRACT "$gfa_path" --dest "$d/ext-gfa" --overwrite >/dev/null 2>&1
-  if "$B/wszst" CREATE "$d/ext-gfa" --dest "$d/archive-a/same.gfa" --overwrite >/dev/null 2>&1 \
-  && "$B/wszst" EXTRACT "$d/archive-a/same.gfa" --dest "$d/gfa-mid" --overwrite >/dev/null 2>&1 \
-  && "$B/wszst" CREATE "$d/gfa-mid" --dest "$d/archive-b/same.gfa" --overwrite >/dev/null 2>&1 \
-  && cmp -s "$d/archive-a/same.gfa" "$d/archive-b/same.gfa"; then
-    fok "gfa_bean00.gfa create -> extract -> identical re-create"
-  else fno "gfa_bean00.gfa canonical fixed point" "second-generation bytes differ"; fi
+  for gfa_file in "$PWD_PROJECT/../tests/fixtures/gfa_bean00.gfa" "$PWD_PROJECT/../tests/fixtures/3ds_samples/gfa"/*.gfa; do
+    [ -f "$gfa_file" ] || continue
+    local gfa_bname=$(basename "$gfa_file")
+    mkdir -p "$d/ext-$gfa_bname"
+    "$B/wszst" EXTRACT "$gfa_file" --dest "$d/ext-$gfa_bname" --overwrite >/dev/null 2>&1
+    if "$B/wszst" CREATE "$d/ext-$gfa_bname" --dest "$d/archive-a/same-$gfa_bname" --overwrite >/dev/null 2>&1 \
+    && "$B/wszst" EXTRACT "$d/archive-a/same-$gfa_bname" --dest "$d/gfa-mid-$gfa_bname" --overwrite >/dev/null 2>&1 \
+    && "$B/wszst" CREATE "$d/gfa-mid-$gfa_bname" --dest "$d/archive-b/same-$gfa_bname" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/archive-a/same-$gfa_bname" "$d/archive-b/same-$gfa_bname"; then
+      fok "$gfa_bname create -> extract -> identical re-create"
+    else fno "$gfa_bname canonical fixed point" "second-generation bytes differ"; fi
+  done
   local narc_path="$PWD_PROJECT/../tests/fixtures/sm3dl_shaders.narc"
   if [ -f "$narc_path" ]; then
     mkdir -p "$d/ext-narc"
@@ -6670,6 +6688,20 @@ with open(sys.argv[1], "wb") as f:
     fno "PlatinumGames DAT Archive" "failed to extract .dat sample";
   fi
 
+  # Animal Crossing: Pocket Camp ZDAT Archive (.zdat) retail tests
+  for zdat_name in acpc_1a082b62.zdat acpc_common_multi.zdat; do
+    local zdat_retail="$PWD_PROJECT/../tests/fixtures/$zdat_name"
+    if [ -f "$zdat_retail" ]; then
+      mkdir -p "$d/zdat_retail_${zdat_name%.*}"
+      if "$B/wszst" X "$zdat_retail" -d "$d/zdat_retail_${zdat_name%.*}" --overwrite >/dev/null 2>&1 \
+      && [ "$(find "$d/zdat_retail_${zdat_name%.*}" -type f 2>/dev/null | wc -l)" -gt 0 ]; then
+        fok "Animal Crossing: Pocket Camp (.zdat) retail extraction ($zdat_name)"
+      else
+        fno "Animal Crossing: Pocket Camp (.zdat)" "failed to extract retail $zdat_name";
+      fi
+    fi
+  done
+
   # PlatinumGames WT Archive (.wta / WTA ) test
   mkdir -p "$d/wta_test"
   python3 -c '
@@ -7023,6 +7055,20 @@ with open(sys.argv[1], "wb") as f:
     fi
   fi
 
+  # Nintendo DS Nitro Sequence Music (.sseq / SSEQ) retail test
+  local sseq_sample="$PWD_PROJECT/../tests/fixtures/nitro_samples/retail_select.sseq"
+  if [ -f "$sseq_sample" ]; then
+    rm -f "$d/audio_test/retail_select.mid" "$d/audio_test/retail_select.txt"
+    if "$B/wseqt" to_midi "$sseq_sample" "$d/audio_test/retail_select.mid" >/dev/null 2>&1 \
+    && [ -s "$d/audio_test/retail_select.mid" ] \
+    && "$B/wseqt" disasm "$sseq_sample" "$d/audio_test/retail_select.txt" >/dev/null 2>&1 \
+    && [ -s "$d/audio_test/retail_select.txt" ]; then
+      fok "Nintendo DS Sequence Music (.sseq / SSEQ) retail decode (MIDI + text)"
+    else
+      fno "Nintendo DS Sequence Music" "failed to decode retail .sseq sample";
+    fi
+  fi
+
   # Nintendo Wii U / Switch Wave Audio (.bfwav / FWAV) test
   local bfwav_sample="$PWD_PROJECT/../tests/fixtures/audio_samples/retail_sample.bfwav"
   if [ -f "$bfwav_sample" ]; then
@@ -7052,29 +7098,33 @@ with open(sys.argv[1], "wb") as f:
     fi
   fi
 
-  # Nintendo 3DS Zelda BCH retail model test
-  local bch_retail="$PWD_PROJECT/../tests/fixtures/3ds_samples/zelda_bch/HookshotR.bch"
-  if [ -f "$bch_retail" ]; then
-    if "$B/wmdlt" ENCODE "$bch_retail" -d "$d/hookshot.glb" --overwrite >/dev/null 2>&1 \
-    && [ -s "$d/hookshot.glb" ] \
-    && [ "$(python3 "$PWD_PROJECT/../tests/gltf_count.py" "$d/hookshot.glb" geometry 2>/dev/null)" -gt 0 ]; then
-      fok "Nintendo 3DS BCH retail model decode (HookshotR.bch -> GLB)"
-    else
-      fno "Nintendo 3DS BCH retail model" "failed to decode retail HookshotR.bch";
+  # Nintendo 3DS Zelda BCH retail model tests
+  for bch_name in HookshotR.bch FlatLinkLv1.bch HeartContainer.bch GtEvSwordD.bch; do
+    local bch_retail="$PWD_PROJECT/../tests/fixtures/3ds_samples/zelda_bch/$bch_name"
+    if [ -f "$bch_retail" ]; then
+      if "$B/wmdlt" ENCODE "$bch_retail" -d "$d/${bch_name%.*}.glb" --overwrite >/dev/null 2>&1 \
+      && [ -s "$d/${bch_name%.*}.glb" ] \
+      && [ "$(python3 "$PWD_PROJECT/../tests/gltf_count.py" "$d/${bch_name%.*}.glb" geometry 2>/dev/null)" -gt 0 ]; then
+        fok "Nintendo 3DS BCH retail model decode ($bch_name -> GLB)"
+      else
+        fno "Nintendo 3DS BCH retail model" "failed to decode retail $bch_name";
+      fi
     fi
-  fi
+  done
 
-  # Good-Feel GFAC Archive (.gfa) retail test
-  local gfa_retail="$PWD_PROJECT/../tests/fixtures/3ds_samples/gfa/mapdata.gfa"
-  if [ -f "$gfa_retail" ]; then
-    mkdir -p "$d/gfa_retail_test"
-    if "$B/wszst" X "$gfa_retail" -d "$d/gfa_retail_test" --overwrite >/dev/null 2>&1 \
-    && [ "$(find "$d/gfa_retail_test" -name "StageList.bson" 2>/dev/null | wc -l)" -gt 0 ]; then
-      fok "Good-Feel GFAC Archive (.gfa) retail extraction"
-    else
-      fno "Good-Feel GFAC Archive" "failed to extract retail .gfa sample";
+  # Good-Feel GFAC Archive (.gfa) retail tests
+  for gfa_name in mapdata.gfa C_demo_yoshi_01.gfa; do
+    local gfa_retail="$PWD_PROJECT/../tests/fixtures/3ds_samples/gfa/$gfa_name"
+    if [ -f "$gfa_retail" ]; then
+      mkdir -p "$d/gfa_retail_${gfa_name%.*}"
+      if "$B/wszst" X "$gfa_retail" -d "$d/gfa_retail_${gfa_name%.*}" --overwrite >/dev/null 2>&1 \
+      && [ "$(find "$d/gfa_retail_${gfa_name%.*}" -type f 2>/dev/null | wc -l)" -gt 0 ]; then
+        fok "Good-Feel GFAC Archive (.gfa) retail extraction ($gfa_name)"
+      else
+        fno "Good-Feel GFAC Archive" "failed to extract retail $gfa_name";
+      fi
     fi
-  fi
+  done
 
   # WarioWare: D.I.Y. Made in Ore (.mio) retail test
   local mio_retail="$PWD_PROJECT/../tests/fixtures/mio_samples/game.mio"
@@ -7088,17 +7138,47 @@ with open(sys.argv[1], "wb") as f:
     fi
   fi
 
-  # Next Level Games Mario Strikers Charged (.rlg) retail model decode test
-  local rlg_retail="$PWD_PROJECT/../tests/fixtures/wii_samples/charged_rlg/mario.rlg"
-  if [ -f "$rlg_retail" ]; then
-    if "$B/wszst" xx "$rlg_retail" --dest "$d/mario_charged.glb" --overwrite >/dev/null 2>&1 \
-    && [ -s "$d/mario_charged.glb" ] \
-    && [ "$(python3 "$PWD_PROJECT/../tests/gltf_count.py" "$d/mario_charged.glb" geometry 2>/dev/null)" -gt 0 ]; then
-      fok "Next Level Games Wii RLG retail model decode (mario.rlg -> GLB)"
-    else
-      fno "Next Level Games Wii RLG retail model" "failed to decode retail mario.rlg";
+  # Next Level Games Mario Strikers Charged (.rlg) retail model decode tests
+  for rlg_name in mario.rlg bowser.rlg peach.rlg crowdshyguyblack.rlg; do
+    local rlg_retail="$PWD_PROJECT/../tests/fixtures/wii_samples/charged_rlg/$rlg_name"
+    if [ -f "$rlg_retail" ]; then
+      if "$B/wszst" xx "$rlg_retail" --dest "$d/${rlg_name%.*}.glb" --overwrite >/dev/null 2>&1 \
+      && [ -s "$d/${rlg_name%.*}.glb" ] \
+      && [ "$(python3 "$PWD_PROJECT/../tests/gltf_count.py" "$d/${rlg_name%.*}.glb" geometry 2>/dev/null)" -gt 0 ]; then
+        fok "Next Level Games Wii RLG retail model decode ($rlg_name -> GLB)"
+      else
+        fno "Next Level Games Wii RLG retail model" "failed to decode retail $rlg_name";
+      fi
     fi
-  fi
+  done
+
+  # Next Level Games Super Mario Strikers (.glg) retail model decode tests
+  for glg_name in Luigi.glg ball.glg chainchomp.glg; do
+    local glg_retail="$PWD_PROJECT/../tests/fixtures/gc_samples/strikers_glg/$glg_name"
+    if [ -f "$glg_retail" ]; then
+      if "$B/wszst" xx "$glg_retail" --dest "$d/${glg_name%.*}.glb" --overwrite >/dev/null 2>&1 \
+      && [ -s "$d/${glg_name%.*}.glb" ] \
+      && [ "$(python3 "$PWD_PROJECT/../tests/gltf_count.py" "$d/${glg_name%.*}.glb" geometry 2>/dev/null)" -gt 0 ]; then
+        fok "Next Level Games GameCube GLG retail model decode ($glg_name -> GLB)"
+      else
+        fno "Next Level Games GameCube GLG retail model" "failed to decode retail $glg_name";
+      fi
+    fi
+  done
+
+  # Koei Tecmo G1T Texture Archive (.g1t) retail extraction tests
+  for g1t_name in sample_09014.g1t sample_10545.g1t; do
+    local g1t_retail="$PWD_PROJECT/../tests/fixtures/3ds_samples/koei_g1t/$g1t_name"
+    if [ -f "$g1t_retail" ]; then
+      mkdir -p "$d/g1t_retail_${g1t_name%.*}"
+      if "$B/wszst" X "$g1t_retail" -d "$d/g1t_retail_${g1t_name%.*}" --overwrite >/dev/null 2>&1 \
+      && [ "$(find "$d/g1t_retail_${g1t_name%.*}" -name '*.png' 2>/dev/null | wc -l)" -gt 0 ]; then
+        fok "Koei Tecmo G1T (.g1t) retail extraction ($g1t_name -> PNG)"
+      else
+        fno "Koei Tecmo G1T" "failed to extract retail $g1t_name";
+      fi
+    fi
+  done
 
   # Nintendo Switch Binary Shader (.bnsh / BNSH) test
   mkdir -p "$d/bnsh_test"
