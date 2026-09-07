@@ -83,6 +83,7 @@
 #include "lib-breff.h"
 #include "lib-image.h"
 #include "lib-nds-banner.h"
+#include "lib-wii-banner.h"
 #include "lib-common.h"
 #include "lib-rkg.h"
 #include "lib-model-glb.h"
