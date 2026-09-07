@@ -426,7 +426,7 @@ VPATH		+= $(DCLIB_DIR)
 CFLAGS		+= -I$(DCLIB_DIR)
 
 # other objects
-SZS_O		:= lib-std.o lib-file.o lib-numeric.o \
+SZS_O		:= lib-std.o lib-file.o lib-numeric.o lib-nds-banner.o \
 		   lib-szs.o lib-checksum.o lib-nintendo.o \
 		   lib-rarc.o lib-pack.o lib-rkc.o lib-brres.o lib-breff.o \
 		   file-type.o db-mkw.o lib-mkw.o lib-dol.o \

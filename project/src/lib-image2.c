@@ -46,6 +46,7 @@
 #include "ajpg/ajpg.h"
 #include "lib-bntx.h"
 #include "lib-smdh.h"
+#include "lib-nds-banner.h"
 #include "lib-gtx.h"
 #include "lib-nitro.h"
 #include "lib-nut.h"
@@ -156,14 +157,14 @@ static void AssignDecodedRGBA (Image_t *img, // pointer to valid img
 // the earlier Puyo Tools research.
 static inline u8 GVRScale (uint value, uint max)
 {
-	return (u8)( value * 255 / max );
+	return (u8)(value * 255 / max);
 }
 
 static void GVRStore (u8 *rgba, uint width, uint height, uint x, uint y, u8 r, u8 g, u8 b, u8 a)
 {
 	if (x < width && y < height)
 	{
-		u8 *dest = rgba + ( (size_t)y * width + x ) * 4;
+		u8 *dest = rgba + ((size_t)y * width + x) * 4;
 		dest[0] = r;
 		dest[1] = g;
 		dest[2] = b;
@@ -179,7 +180,8 @@ static void GVRDecode565 (u16 pixel, u8 *rgba)
 	rgba[3] = 255;
 }
 
-static enumError DecodeGVR_RGBA (u8 **rgba_ptr, uint *width_ptr, uint *height_ptr, const u8 *data, uint data_size)
+static enumError DecodeGVR_RGBA (
+	u8 **rgba_ptr, uint *width_ptr, uint *height_ptr, const u8 *data, uint data_size)
 {
 	*rgba_ptr = 0;
 	*width_ptr = *height_ptr = 0;
@@ -190,14 +192,20 @@ static enumError DecodeGVR_RGBA (u8 **rgba_ptr, uint *width_ptr, uint *height_pt
 	const uint format = data[0x1b];
 	const uint width = be_func.rd16 (data + 0x1c);
 	const uint height = be_func.rd16 (data + 0x1e);
-	if (!width || !height || width > 16384 || height > 16384 || (size_t)width * height > UINT_MAX / 4)
+	if (!width || !height || width > 16384 || height > 16384
+		|| (size_t)width * height > UINT_MAX / 4)
 		return ERR_INVALID_DATA;
 	if (flags & 0x0b) // mipmaps or palettes require a separately selected level/palette
 		return ERR_INVALID_DATA;
 
 	u8 *rgba = MALLOC ((size_t)width * height * 4);
 	const u8 *src = data + 0x20, *end = data + data_size;
-	#define GVR_NEED(n) do { if ((size_t)(end-src) < (n)) goto invalid_gvr; } while(0)
+#define GVR_NEED(n)                                                                                \
+	do                                                                                             \
+	{                                                                                              \
+		if ((size_t)(end - src) < (n))                                                             \
+			goto invalid_gvr;                                                                      \
+	} while (0)
 
 	if (format == 0 || format == 1 || format == 2 || format == 3)
 	{
@@ -218,11 +226,20 @@ static enumError DecodeGVR_RGBA (u8 **rgba_ptr, uint *width_ptr, uint *height_pt
 						{
 							GVR_NEED (format == 3 ? 2 : 1);
 							i = *src++;
-							if (format == 2) { a = GVRScale (i >> 4, 15); i = GVRScale (i & 15, 15); }
-							else if (format == 3) { a = i; i = *src++; }
+							if (format == 2)
+							{
+								a = GVRScale (i >> 4, 15);
+								i = GVRScale (i & 15, 15);
+							}
+							else if (format == 3)
+							{
+								a = i;
+								i = *src++;
+							}
 						}
-						if (format == 0) i = GVRScale (i, 15);
-						GVRStore (rgba, width, height, bx+x, by+y, i, i, i, a);
+						if (format == 0)
+							i = GVRScale (i, 15);
+						GVRStore (rgba, width, height, bx + x, by + y, i, i, i, a);
 					}
 	}
 	else if (format == 4 || format == 5)
@@ -233,21 +250,27 @@ static enumError DecodeGVR_RGBA (u8 **rgba_ptr, uint *width_ptr, uint *height_pt
 					for (uint x = 0; x < 4; x++)
 					{
 						GVR_NEED (2);
-						const u16 p = be_func.rd16 (src); src += 2;
+						const u16 p = be_func.rd16 (src);
+						src += 2;
 						u8 out[4];
 						if (format == 4)
 							GVRDecode565 (p, out);
 						else if (p & 0x8000)
 						{
-							out[0] = GVRScale (p >> 10 & 31, 31); out[1] = GVRScale (p >> 5 & 31, 31);
-							out[2] = GVRScale (p & 31, 31); out[3] = 255;
+							out[0] = GVRScale (p >> 10 & 31, 31);
+							out[1] = GVRScale (p >> 5 & 31, 31);
+							out[2] = GVRScale (p & 31, 31);
+							out[3] = 255;
 						}
 						else
 						{
-							out[0] = GVRScale (p >> 8 & 15, 15); out[1] = GVRScale (p >> 4 & 15, 15);
-							out[2] = GVRScale (p & 15, 15); out[3] = GVRScale (p >> 12 & 7, 7);
+							out[0] = GVRScale (p >> 8 & 15, 15);
+							out[1] = GVRScale (p >> 4 & 15, 15);
+							out[2] = GVRScale (p & 15, 15);
+							out[3] = GVRScale (p >> 12 & 7, 7);
 						}
-						GVRStore (rgba, width, height, bx+x, by+y, out[0], out[1], out[2], out[3]);
+						GVRStore (
+							rgba, width, height, bx + x, by + y, out[0], out[1], out[2], out[3]);
 					}
 	}
 	else if (format == 6)
@@ -259,8 +282,9 @@ static enumError DecodeGVR_RGBA (u8 **rgba_ptr, uint *width_ptr, uint *height_pt
 				for (uint y = 0; y < 4; y++)
 					for (uint x = 0; x < 4; x++)
 					{
-						const uint i = ( y * 4 + x ) * 2;
-						GVRStore (rgba, width, height, bx+x, by+y, src[i+1], src[32+i], src[33+i], src[i]);
+						const uint i = (y * 4 + x) * 2;
+						GVRStore (rgba, width, height, bx + x, by + y, src[i + 1], src[32 + i],
+							src[33 + i], src[i]);
 					}
 				src += 64;
 			}
@@ -272,25 +296,48 @@ static enumError DecodeGVR_RGBA (u8 **rgba_ptr, uint *width_ptr, uint *height_pt
 				for (uint sy = 0; sy < 8; sy += 4)
 					for (uint sx = 0; sx < 8; sx += 4)
 					{
-						GVR_NEED (8); u8 pal[4][4];
-						GVRDecode565 (be_func.rd16(src), pal[0]); GVRDecode565 (be_func.rd16(src+2), pal[1]);
-						const u16 p0 = be_func.rd16(src), p1 = be_func.rd16(src+2); src += 4;
+						GVR_NEED (8);
+						u8 pal[4][4];
+						GVRDecode565 (be_func.rd16 (src), pal[0]);
+						GVRDecode565 (be_func.rd16 (src + 2), pal[1]);
+						const u16 p0 = be_func.rd16 (src), p1 = be_func.rd16 (src + 2);
+						src += 4;
 						for (uint c = 0; c < 3; c++)
-							if (p0 > p1) { pal[2][c]=(2*pal[0][c]+pal[1][c])/3; pal[3][c]=(pal[0][c]+2*pal[1][c])/3; }
-							else { pal[2][c]=(pal[0][c]+pal[1][c])/2; pal[3][c]=0; }
-						pal[2][3] = 255; pal[3][3] = p0 > p1 ? 255 : 0;
-						for (uint y = 0; y < 4; y++) { const u8 row = *src++; for (uint x = 0; x < 4; x++) { const u8 *p = pal[row >> (6-2*x) & 3]; GVRStore(rgba,width,height,bx+sx+x,by+sy+y,p[0],p[1],p[2],p[3]); } }
+							if (p0 > p1)
+							{
+								pal[2][c] = (2 * pal[0][c] + pal[1][c]) / 3;
+								pal[3][c] = (pal[0][c] + 2 * pal[1][c]) / 3;
+							}
+							else
+							{
+								pal[2][c] = (pal[0][c] + pal[1][c]) / 2;
+								pal[3][c] = 0;
+							}
+						pal[2][3] = 255;
+						pal[3][3] = p0 > p1 ? 255 : 0;
+						for (uint y = 0; y < 4; y++)
+						{
+							const u8 row = *src++;
+							for (uint x = 0; x < 4; x++)
+							{
+								const u8 *p = pal[row >> (6 - 2 * x) & 3];
+								GVRStore (rgba, width, height, bx + sx + x, by + sy + y, p[0], p[1],
+									p[2], p[3]);
+							}
+						}
 					}
 	}
 	else
 		goto invalid_gvr;
 
-	#undef GVR_NEED
-	*rgba_ptr = rgba; *width_ptr = width; *height_ptr = height;
+#undef GVR_NEED
+	*rgba_ptr = rgba;
+	*width_ptr = width;
+	*height_ptr = height;
 	return ERR_OK;
 
 invalid_gvr:
-	#undef GVR_NEED
+#undef GVR_NEED
 	FREE (rgba);
 	return ERR_INVALID_DATA;
 }
@@ -588,6 +635,25 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		return PatchListIMG (img);
 	}
 
+	if (IsNDSBanner (data, data_size))
+	{
+		// Nintendo DS ROM banner ("banner.bin"): decode the static 32x32 icon.
+		// A DSi banner's animated icon frames and the per-language titles come
+		// out of `wszst XX`'s banner sidecar (extract_nds_banner_metadata()),
+		// not through this single-image path.
+		nds_banner_t banner;
+		if (ScanNDSBanner (&banner, data, data_size))
+			return ERROR0 (ERR_INVALID_IFORM, "Invalid NDS banner: %s\n", fname);
+		u8 *rgba = 0;
+		uint w = 0, h = 0;
+		const enumError berr = DecodeNDSBannerIcon_RGBA (&rgba, &w, &h, &banner, NDS_BANNER_ICON_STATIC);
+		ResetNDSBanner (&banner);
+		if (berr)
+			return berr;
+		AssignDecodedRGBA (img, rgba, w, h, &le_func, fname);
+		return PatchListIMG (img);
+	}
+
 	if (data_size >= 4 && !memcmp (data, "Gfx2", 4))
 	{
 		// Wii U GX2 texture container: decode its first texture. Multi-
@@ -856,18 +922,42 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 				uint pica_fmt = 0;
 				switch (ctxb_fmt)
 				{
-					case 0x14016756: pica_fmt = 8; break;  // A8
-					case 0x0000675A: pica_fmt = 12; break; // ETC1
-					case 0x0000675B: pica_fmt = 13; break; // ETC1A4
-					case 0x67616757: pica_fmt = 10; break; // L4
-					case 0x14016757: pica_fmt = 7; break;  // L8
-					case 0x14016758: pica_fmt = 5; break;  // LA8
-					case 0x83636754: pica_fmt = 3; break;  // RGB565
-					case 0x80336752: pica_fmt = 4; break;  // RGBA4444
-					case 0x80346752: pica_fmt = 2; break;  // RGBA5551
-					case 0x14016752: pica_fmt = 0; break;  // RGBA8
-					case 0x14016754: pica_fmt = 1; break;  // RGB8
-					default: pica_fmt = 0; break;
+					case 0x14016756:
+						pica_fmt = 8;
+						break; // A8
+					case 0x0000675A:
+						pica_fmt = 12;
+						break; // ETC1
+					case 0x0000675B:
+						pica_fmt = 13;
+						break; // ETC1A4
+					case 0x67616757:
+						pica_fmt = 10;
+						break; // L4
+					case 0x14016757:
+						pica_fmt = 7;
+						break; // L8
+					case 0x14016758:
+						pica_fmt = 5;
+						break; // LA8
+					case 0x83636754:
+						pica_fmt = 3;
+						break; // RGB565
+					case 0x80336752:
+						pica_fmt = 4;
+						break; // RGBA4444
+					case 0x80346752:
+						pica_fmt = 2;
+						break; // RGBA5551
+					case 0x14016752:
+						pica_fmt = 0;
+						break; // RGBA8
+					case 0x14016754:
+						pica_fmt = 1;
+						break; // RGB8
+					default:
+						pica_fmt = 0;
+						break;
 				}
 
 				const u32 tex_start = tex_data_offset + data_rel_off;
@@ -875,8 +965,8 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 				{
 					const uint avail = data_size - tex_start;
 					const uint use_size = img_size <= avail ? img_size : avail;
-					enumError derr = DecodePicaTexture (&rgba, &width, &height,
-						data + tex_start, width, height, pica_fmt, use_size);
+					enumError derr = DecodePicaTexture (&rgba, &width, &height, data + tex_start,
+						width, height, pica_fmt, use_size);
 					if (!derr && rgba)
 					{
 						found_tex = true;
@@ -923,10 +1013,13 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 			uint tex_idx = img_index < nut.n_textures ? img_index : 0;
 			u8 *rgba = 0;
 			u32 width = 0, height = 0;
-			if (DecodeNUTTextureToRGBA (&nut.textures[tex_idx], &rgba, &width, &height) && rgba && width && height)
+			if (DecodeNUTTextureToRGBA (&nut.textures[tex_idx], &rgba, &width, &height) && rgba
+				&& width && height)
 			{
 				const uint xwidth = EXPAND8 (width), xheight = EXPAND8 (height);
-				u8 *padded = (xwidth == width && xheight == height) ? rgba : CALLOC (1, xwidth * xheight * 4);
+				u8 *padded = (xwidth == width && xheight == height)
+					? rgba
+					: CALLOC (1, xwidth * xheight * 4);
 				if (padded != rgba)
 				{
 					for (uint y = 0; y < height; y++)
@@ -966,14 +1059,16 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 	}
 
 	if (nfmt.type == NFMT_NFTR || nfmt.type == NFMT_BNFR
-		|| (data_size >= 4 && (!memcmp (data, "RTNF", 4) || !memcmp (data, "FNTR", 4)
-			|| !memcmp (data, "RNFB", 4) || !memcmp (data, "BNFR", 4))))
+		|| (data_size >= 4
+			&& (!memcmp (data, "RTNF", 4) || !memcmp (data, "FNTR", 4) || !memcmp (data, "RNFB", 4)
+				|| !memcmp (data, "BNFR", 4))))
 	{
 		u8 *atlas = 0;
 		uint width = 0, height = 0;
 		char *xml = 0;
 		const enumError err = DecodeNFTR_Atlas (&atlas, &width, &height, &xml, data, data_size);
-		if (xml) FREE (xml);
+		if (xml)
+			FREE (xml);
 		if (err)
 			return ERROR0 (ERR_INVALID_IFORM, "Invalid Nitro font resource: %s\n", fname);
 		AssignDecodedRGBA (img, atlas, width, height, &le_func, fname);
@@ -1160,7 +1255,8 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		const uint ptr_glyph = BCF32 (data + bcfnt_hdr + 0x14);
 		if (ptr_glyph < 8 || ptr_glyph - 8 + 0x20 > data_size
 			|| memcmp (data + ptr_glyph - 8, "TGLP", 4))
-			return ERR_NOTHING_TO_DO; // Outline, scalable, or glyph-only font without raster TGLP sheets
+			return ERR_NOTHING_TO_DO; // Outline, scalable, or glyph-only font without raster TGLP
+									  // sheets
 		const u8 *btglp = data + (ptr_glyph - 8);
 		const uint bsheet_sz = BCF32 (btglp + 0x0C);
 		const uint bsheet_cnt = BCF16 (btglp + 0x10);
@@ -2659,17 +2755,20 @@ static enumError SaveNSBTX (Image_t *img, FILE *fo, ccp path, bool overwrite)
 		memcpy (raw_rgba + y * width * 4, src + y * img->xwidth * 4, width * 4);
 
 	ccp fname = FindFilename (path, 0);
-	if (!fname) fname = "tex0";
+	if (!fname)
+		fname = "tex0";
 	char tname[16];
 	memset (tname, 0, sizeof (tname));
 	char *dot = strchr (fname, '.');
 	size_t flen = dot ? (size_t)(dot - fname) : strlen (fname);
-	if (flen > 15) flen = 15;
+	if (flen > 15)
+		flen = 15;
 	memcpy (tname, fname, flen);
 
 	u8 *btx_data = 0;
 	uint btx_size = 0;
-	err = CreateNSBTX (&btx_data, &btx_size, raw_rgba, width, height, NITRO_TEXFMT_DIRECT, tname, 0);
+	err = CreateNSBTX (
+		&btx_data, &btx_size, raw_rgba, width, height, NITRO_TEXFMT_DIRECT, tname, 0);
 	FREE (raw_rgba);
 
 	if (err || !btx_data)
@@ -2766,7 +2865,7 @@ static enumError SaveCTXB (Image_t *img, FILE *fo, ccp path, bool overwrite)
 
 	memcpy (ctxb, "ctxb", 4);
 	wr_le32 (ctxb + 4, total_sz);
-	wr_le32 (ctxb + 8, 1);  // chunk count
+	wr_le32 (ctxb + 8, 1); // chunk count
 	wr_le32 (ctxb + 12, 0);
 	wr_le32 (ctxb + 16, hdr_size); // chunk offset
 	wr_le32 (ctxb + 20, tex_data_offset); // tex data offset
@@ -2774,7 +2873,7 @@ static enumError SaveCTXB (Image_t *img, FILE *fo, ccp path, bool overwrite)
 	u8 *chunk = ctxb + hdr_size;
 	memcpy (chunk, "tex ", 4);
 	wr_le32 (chunk + 4, 36); // sec size
-	wr_le32 (chunk + 8, 1);  // tex count
+	wr_le32 (chunk + 8, 1); // tex count
 
 	u8 *tentry = chunk + 12;
 	wr_le32 (tentry + 0, img_data_size);
@@ -2783,15 +2882,17 @@ static enumError SaveCTXB (Image_t *img, FILE *fo, ccp path, bool overwrite)
 	wr_le16 (tentry + 8, (u16)width);
 	wr_le16 (tentry + 10, (u16)height);
 	wr_le32 (tentry + 12, 0x14016752); // RGBA8
-	wr_le32 (tentry + 16, 0);          // data rel offset
+	wr_le32 (tentry + 16, 0); // data rel offset
 
 	ccp fname = FindFilename (path, 0);
-	if (!fname) fname = "texture";
+	if (!fname)
+		fname = "texture";
 	char tname[16];
 	memset (tname, 0, sizeof (tname));
 	char *dot = strchr (fname, '.');
 	size_t flen = dot ? (size_t)(dot - fname) : strlen (fname);
-	if (flen > 15) flen = 15;
+	if (flen > 15)
+		flen = 15;
 	memcpy (tname, fname, flen);
 	memcpy (tentry + 20, tname, 16);
 
@@ -3231,8 +3332,8 @@ abort:
 //
 // The image must already be in an indexed format with its palette built (see
 // create_C_palette() in lib-image1.c); this only packages what it holds.
-enumError SaveTEXwithPLT0 (Image_t *src_img, const MipmapOptions_t *mmo, ccp tex_fname,
-	ccp plt_fname, bool overwrite)
+enumError SaveTEXwithPLT0 (
+	Image_t *src_img, const MipmapOptions_t *mmo, ccp tex_fname, ccp plt_fname, bool overwrite)
 {
 	DASSERT (src_img);
 	DASSERT (tex_fname);
@@ -3292,8 +3393,7 @@ enumError SaveTEXwithPLT0 (Image_t *src_img, const MipmapOptions_t *mmo, ccp tex
 	// leave the archive with indexed pixels and no colours to read them with.
 	uint plt_size = 0;
 	err = EncodePLT0_Raw (&plt, &plt_size, mmi.img.pal ? mmi.img.pal : src_img->pal,
-		mmi.img.pal ? mmi.img.n_pal : src_img->n_pal,
-		mmi.img.pal ? mmi.img.pform : src_img->pform);
+		mmi.img.pal ? mmi.img.n_pal : src_img->n_pal, mmi.img.pal ? mmi.img.pform : src_img->pform);
 	if (err)
 		goto abort;
 
@@ -4258,8 +4358,7 @@ const KeywordTab_t cmdtab_transform[] = { //--- file formats
 	{ FF_BREFT_IMG, "BREFT-IMG", "BREFTIMG", TM_IDX_FILE },
 	{ FF_BREFT_IMG, "REFT-IMG", "REFTIMG", TM_IDX_FILE },
 	{ FF_BREFT_IMG, "BT-IMG", "BTIMG", TM_IDX_FILE }, { FF_PNG, "PNG", 0, TM_IDX_FILE },
-	{ FF_AJPG, "AJPG", 0, TM_IDX_FILE },
-	{ FF_CTXB, "CTXB", 0, TM_IDX_FILE },
+	{ FF_AJPG, "AJPG", 0, TM_IDX_FILE }, { FF_CTXB, "CTXB", 0, TM_IDX_FILE },
 
 	//--- image formats
 
@@ -4579,13 +4678,13 @@ bool Transform2InternIMG (Image_t *img)
 			// Prefer the alpha-less format automatically if the source has
 			// no real alpha data: it gives more precision for the same size
 			// instead of wasting bits on an alpha channel nobody set.
-			img->tform_iform = img->tform_noalpha || CheckAlphaIMG(img,false) < 0
-					? IMG_I8 : IMG_IA4;
+			img->tform_iform
+				= img->tform_noalpha || CheckAlphaIMG (img, false) < 0 ? IMG_I8 : IMG_IA4;
 			return img->tform_exec = true;
 
 		case IMG_X_RGB:
-			img->tform_iform = img->tform_noalpha || CheckAlphaIMG(img,false) < 0
-					? IMG_RGB565 : IMG_RGB5A3;
+			img->tform_iform
+				= img->tform_noalpha || CheckAlphaIMG (img, false) < 0 ? IMG_RGB565 : IMG_RGB5A3;
 			return img->tform_exec = true;
 
 		case IMG_X_PAL4:

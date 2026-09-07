@@ -57,6 +57,7 @@
 #include "lib-kcl.h"
 #include "lib-kmp.h"
 #include "lib-bflyt.h"
+#include "lib-nds-banner.h"
 #include "lib-rkc.h"
 #include "lib-nintendo.h"
 #include "lib-iqipack.h"
@@ -846,8 +847,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 	const u8 *data8 = (u8 *)data;
 	if (data_size >= 16)
 	{
-		if ((file_size == 65536 || file_size == 14336 || file_size == 8192
-			|| data_size == 65536 || data_size == 14336 || data_size == 8192)
+		if ((file_size == 65536 || file_size == 14336 || file_size == 8192 || data_size == 65536
+				|| data_size == 14336 || data_size == 8192)
 			&& !memcmp (data8 + 8, "DSMIO_S\0", 8))
 			return FF_MIO;
 	}
@@ -865,7 +866,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		if (IsXZ (data, data_size) >= 0)
 			return FF_XZ;
 
-		if (data_size >= 6 && data8[0] == 0xfa && data8[1] == 0xfa && !memcmp (data8 + 2, "SQIR", 4))
+		if (data_size >= 6 && data8[0] == 0xfa && data8[1] == 0xfa
+			&& !memcmp (data8 + 2, "SQIR", 4))
 			return FF_CNUT;
 
 		const u64 magic64 = be64 (data);
@@ -1400,13 +1402,20 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 
 	if (data_size >= 8)
 	{
-		if (!memcmp (data, "PERS-SZP", 8) || (data_size >= 16 && !memcmp (data + 8, "FRAGMENT", 8)) || !memcmp (data, "FRAGMENT", 8))
+		if (!memcmp (data, "PERS-SZP", 8) || (data_size >= 16 && !memcmp (data + 8, "FRAGMENT", 8))
+			|| !memcmp (data, "FRAGMENT", 8))
 			return FF_PERS;
-		if ((file_size == 65536 || file_size == 14336 || file_size == 8192
-			|| data_size == 65536 || data_size == 14336 || data_size == 8192)
+		if ((file_size == 65536 || file_size == 14336 || file_size == 8192 || data_size == 65536
+				|| data_size == 14336 || data_size == 8192)
 			&& data_size >= 16 && !memcmp (data8 + 8, "DSMIO_S\0", 8))
 			return FF_MIO;
 	}
+
+	// Nintendo DS ROM banner: no magic at all, just a u16 version -- but the
+	// version's own CRC16 has to match, which makes this a real check rather
+	// than a guess (see IsNDSBanner).
+	if (IsNDSBanner (data8, data_size))
+		return FF_NDS_BANNER;
 
 	const uint bom_len = GetTextBOMLen (data, data_size);
 	if (bom_len > 0)
@@ -1816,7 +1825,10 @@ file_format_t GetFileTypeByMagic (
 			return FF_DIRECTORY;
 
 		ccp ext = fname ? strrchr (fname, '.') : 0;
-		if (ext && (!strcasecmp (ext, ".msh") || !strcasecmp (ext, ".mod") || !strcasecmp (ext, ".glg") || !strcasecmp (ext, ".rlg") || !strcasecmp (ext, ".pers") || !strcasecmp (ext, ".tvol") || !strcasecmp (ext, ".txe")))
+		if (ext
+			&& (!strcasecmp (ext, ".msh") || !strcasecmp (ext, ".mod") || !strcasecmp (ext, ".glg")
+				|| !strcasecmp (ext, ".rlg") || !strcasecmp (ext, ".pers")
+				|| !strcasecmp (ext, ".tvol") || !strcasecmp (ext, ".txe")))
 		{
 			const file_type_t *ft = GetFileTypeByExt (ext, false);
 			if (ft)
