@@ -1,0 +1,8 @@
+# These files are @@TOKEN@@ substitution templates, not compilable C: the
+# generated version.h comes from templates.sed rewriting the tokens at build
+# time. clang-format rewrites `@@BETA-VERSION@@` into `@ @BETA - VERSION @ @`,
+# which silently breaks every build until version.h is regenerated from a
+# restored template (this happened once -- see the commit that added this
+# file). Formatting is off for the whole directory.
+DisableFormat: true
+SortIncludes: false
