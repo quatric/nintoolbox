@@ -169,6 +169,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **GVR** | `.gvr` | ✅ | — | — | — | Sega GameCube & Wii texture container (GCIX / GVRT) |
 | **NDS banner** | `banner.bin` | ✅ | — | — | ✅ | Nintendo DS ROM banner: 32x32 icon (plus DSi animated icon frames) and per-language titles (DS / DSi) |
 | **Wii banner** | `opening.bnr`, `IMET`, `IMD5` | ✅ | — | — | ✅ | Wii channel/disc banner: IMET header (per-language titles, MD5 verified) plus the inner U8 whose IMD5 (and optional `LZ77`) wrapped members expand to BRLYT/BRLAN/TPL/BNS |
+| **WIBN** | `banner.bin`, `.bnr` | ✅ | — | — | — | Wii *save game* banner: a 192x64 RGB5A3 banner image plus up to 8 48x48 icon animation frames, with the title/subtitle pair; the frame count follows from the file size, and trailing all-zero frames are padding |
 | **NCER / NANR** | `.ncer`, `.nanr` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro cell & animation resources (DS) |
 | **NCGR / NCLR** | `.ncgr`, `.nclr` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro 2D graphics & palette (DS) |
 | **NSBTX** | `.nsbtx` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro 3D texture container (DS) |

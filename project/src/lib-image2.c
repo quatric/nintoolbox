@@ -47,6 +47,7 @@
 #include "lib-bntx.h"
 #include "lib-smdh.h"
 #include "lib-nds-banner.h"
+#include "lib-wii-banner.h"
 #include "lib-gtx.h"
 #include "lib-nitro.h"
 #include "lib-nut.h"
@@ -631,6 +632,24 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		ResetSMDH (&smdh);
 		if (serr)
 			return serr;
+		AssignDecodedRGBA (img, rgba, w, h, &le_func, fname);
+		return PatchListIMG (img);
+	}
+
+	if (IsWIBN (data, data_size))
+	{
+		// Wii save banner ("WIBN"): decode the 192x64 banner image. The 48x48
+		// icon frames and the title/subtitle come out of `wszst XX`'s sidecar
+		// (extract_wibn_metadata()), not through this single-image path.
+		wibn_t wibn;
+		if (ScanWIBN (&wibn, data, data_size))
+			return ERROR0 (ERR_INVALID_IFORM, "Invalid WIBN save banner: %s\n", fname);
+		u8 *rgba = 0;
+		uint w = 0, h = 0;
+		const enumError werr = DecodeWIBNImage_RGBA (&rgba, &w, &h, &wibn, WIBN_IMAGE_BANNER);
+		ResetWIBN (&wibn);
+		if (werr)
+			return werr;
 		AssignDecodedRGBA (img, rgba, w, h, &le_func, fname);
 		return PatchListIMG (img);
 	}

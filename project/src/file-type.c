@@ -1333,6 +1333,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, MinusString, MinusString,
 		"Wii resource wrapper: IMD5 header + optional LZ77 (banner.bin, icon.bin)" },
 
+	// FF_WIBN = 252 (Wii save banner)
+	{ FF_WIBN, 0, 0, "WIBN", ".bnr", ".bnr", ".bnr", FFT_VALID | FFT_GRAPHIC | FFT_DECODE, 4,
+		{ 0x57, 0x49, 0x42, 0x4e }, // "WIBN"
+		0, MinusString, MinusString,
+		"Wii save banner (WIBN: 192x64 banner + up to 8 48x48 icon frames)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1466,7 +1472,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_BFSTM, "BFSTM", "FSTM", 0x3801 }, { FF_BCWAV, "BCWAV", "CWAV", 0x3801 },
 	{ FF_BFWAV, "BFWAV", "FWAV", 0x3801 }, { FF_BNSH, "BNSH", 0, 0x3001 },
 	{ FF_NDS_BANNER, "NDS-BANNER", "NDSBANNER", 0x3009 }, { FF_IMET, "IMET", 0, 0xe05 },
-	{ FF_IMD5, "IMD5", 0, 0x9 }, { FF_MIO, "MIO", 0, 0xe05 },
+	{ FF_IMD5, "IMD5", 0, 0x9 }, { FF_WIBN, "WIBN", 0, 0x3009 }, { FF_MIO, "MIO", 0, 0xe05 },
 	{ FF_ZDAT, "ZDAT", "ZDAT", 0xe05 }, { FF_SFX, "SFX", 0, 0xe05 },
 	{ FF_VFF, "VFF", "VFF", 0xe05 }, { FF_IQIPACK, "IQIPACK", "PACK", 0xe05 },
 

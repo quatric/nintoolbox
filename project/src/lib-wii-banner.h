@@ -100,4 +100,57 @@ enumError ScanIMD5 (imd5_t *imd5, const u8 *data, uint size);
 enumError UnwrapWiiBannerFile (
 	u8 **dest, uint *dest_size, bool *was_compressed, const u8 *data, uint size);
 
+//-----------------------------------------------------------------------------
+// WIBN: the banner of a Wii *save game* rather than a channel.  It lives at
+// the start of a save's decrypted banner.bin / data.bin and, unlike the
+// channel banner above, holds finished bitmaps instead of a layout archive:
+//
+//   0x0000 "WIBN", 0x0004 u32 flags, 0x0008 u16 animation speed,
+//   0x000a 22 reserved bytes,
+//   0x0020 title    -- 32 UTF-16BE code units
+//   0x0060 subtitle -- 32 UTF-16BE code units
+//   0x00a0 banner   -- 192x64 RGB5A3, GameCube 4x4 tile order
+//   0x60a0 icons    -- 1..8 frames of 48x48 RGB5A3, same tile order
+//
+// The icon count is not stored: it follows from the file size, and trailing
+// all-zero frames are padding rather than real animation steps.
+//-----------------------------------------------------------------------------
+
+#define WIBN_MAGIC_NUM 0x5749424e // "WIBN"
+#define WIBN_BANNER_OFFSET 0xa0
+#define WIBN_BANNER_WIDTH 192
+#define WIBN_BANNER_HEIGHT 64
+#define WIBN_ICON_WIDTH 48
+#define WIBN_ICON_HEIGHT 48
+#define WIBN_BANNER_DATA_SIZE (WIBN_BANNER_WIDTH * WIBN_BANNER_HEIGHT * 2)
+#define WIBN_ICON_DATA_SIZE (WIBN_ICON_WIDTH * WIBN_ICON_HEIGHT * 2)
+#define WIBN_ICONS_OFFSET (WIBN_BANNER_OFFSET + WIBN_BANNER_DATA_SIZE)
+#define WIBN_MAX_ICONS 8
+
+#define WIBN_FLAG_NOCOPY 0x01 // save is marked as not copyable
+
+// Passed to DecodeWIBNImage_RGBA() instead of an icon index.
+#define WIBN_IMAGE_BANNER (~(uint) 0)
+
+typedef struct wibn_t
+{
+	uint flags;
+	uint anim_speed;
+	ccp title; // malloc'd UTF-8, never NULL (may be empty)
+	ccp subtitle; // ditto
+	uint n_icons; // 1..WIBN_MAX_ICONS, trailing zero frames excluded
+	const u8 *data; // borrowed source pointer
+	uint size;
+} wibn_t;
+
+bool IsWIBN (const u8 *data, uint size);
+enumError ScanWIBN (wibn_t *wibn, const u8 *data, uint size);
+void ResetWIBN (wibn_t *wibn);
+char *TextWIBN (const wibn_t *wibn);
+
+// Decode the banner (FRAME == WIBN_IMAGE_BANNER) or icon frame FRAME to
+// RGBA. The caller owns *DEST on success.
+enumError DecodeWIBNImage_RGBA (
+	u8 **dest, uint *width, uint *height, const wibn_t *wibn, uint frame);
+
 #endif

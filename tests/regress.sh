@@ -7766,6 +7766,59 @@ with open("'"$d"'/imet_test/opening.bnr", "wb") as f:
     fno "Wii channel banner" "failed to unwrap IMET/IMD5 banner sample";
   fi
 
+  # Wii save banner (WIBN): a fixed header with a 192x64 RGB5A3 banner and
+  # 1..8 48x48 icon frames, all in GameCube 4x4 tile order. The frame count
+  # is implied by the file size, and trailing all-zero frames are padding --
+  # this sample has three real frames followed by two zero-filled ones, so a
+  # count taken straight from the size would emit two blank PNGs.
+  mkdir -p "$d/wibn_test"
+  python3 -c '
+import struct
+def tile(w, h, px):
+    out = bytearray()
+    for by in range(h // 4):
+        for bx in range(w // 4):
+            for y in range(4):
+                for x in range(4):
+                    out += struct.pack(">H", px(4 * bx + x, 4 * by + y))
+    return bytes(out)
+h = bytearray(0xa0)
+h[0:4] = b"WIBN"
+struct.pack_into(">I", h, 4, 1)      # flags: no-copy
+struct.pack_into(">H", h, 8, 0x1e)   # animation speed
+t = "WIBN Test".encode("utf-16-be"); h[0x20:0x20 + len(t)] = t
+u = "Slot 1".encode("utf-16-be");    h[0x60:0x60 + len(u)] = u
+# opaque (bit 15 set) gradient banner, translucent icons
+banner = tile(192, 64, lambda x, y: 0x8000 | 0x7c00)
+icons = b""
+for i in range(3):
+    icons += tile(48, 48, lambda x, y, i=i: ((3 - i) << 12) | 0x0f0)
+icons += bytes(0x1200) * 2
+open("'"$d"'/wibn_test/banner.bin", "wb").write(bytes(h) + banner + icons)
+'
+  if "$B/wszst" FILETYPE "$d/wibn_test/banner.bin" 2>/dev/null | grep -q WIBN \
+  && "$B/wimgt" DECODE "$d/wibn_test/banner.bin" \
+	--dest "$d/wibn_test/banner.png" --overwrite >/dev/null 2>&1 \
+  && "$B/wszst" XX "$d/wibn_test/banner.bin" >/dev/null 2>&1 \
+  && grep -q "^  WIBN Test" "$d/wibn_test/banner.bin.txt" \
+  && grep -q "^  Slot 1" "$d/wibn_test/banner.bin.txt" \
+  && grep -q "icons       = 3 x 48x48" "$d/wibn_test/banner.bin.txt" \
+  && [ -f "$d/wibn_test/banner.bin.icon2.png" ] \
+  && [ ! -f "$d/wibn_test/banner.bin.icon3.png" ] \
+  && python3 -c '
+import struct, sys
+def size(p):
+    d = open(p, "rb").read(24)
+    assert d[:8] == b"\x89PNG\r\n\x1a\n", p
+    return struct.unpack(">II", d[16:24])
+assert size("'"$d"'/wibn_test/banner.png") == (192, 64)
+assert size("'"$d"'/wibn_test/banner.bin.icon0.png") == (48, 48)
+'; then
+    fok "Wii save banner (WIBN) banner + icon frames"
+  else
+    fno "Wii save banner" "failed to decode WIBN sample";
+  fi
+
   # Nintendo DS ROM banner (banner.bin): the 32x32 4bpp icon decodes to PNG
   # with palette entry 0 transparent, and `wszst XX` writes the per-language
   # titles as a text sidecar. The banner has no magic, so detection hangs on

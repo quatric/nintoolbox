@@ -1130,6 +1130,14 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x494d4435: // "IMD5"
 				return FF_IMD5;
 
+			// WIBN: the banner of a Wii save game (fixed header + bitmaps).
+			// IsWIBN() also checks that the trailing icon frames are whole,
+			// so a file that merely starts with the magic is not claimed.
+			case 0x5749424e: // "WIBN"
+				if (IsWIBN (data8, data_size))
+					return FF_WIBN;
+				break;
+
 			// SMDH: 3DS application icon/title metadata block, fixed 0x36c0 size
 			case 0x534d4448: // "SMDH"
 				return FF_SMDH;

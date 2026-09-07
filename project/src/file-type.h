@@ -343,6 +343,7 @@ typedef enum file_format_t
 	FF_NDS_BANNER, // 249 - Nintendo DS ROM banner (banner.bin: icon + titles)
 	FF_IMET, // 250 - Wii channel banner header (opening.bnr / IMET)
 	FF_IMD5, // 251 - Wii resource wrapper (banner.bin / icon.bin / IMD5)
+	FF_WIBN, // 252 - Wii save banner (WIBN: 192x64 banner + 48x48 icons)
 
 	//--- number of elements
 

@@ -388,3 +388,167 @@ enumError UnwrapWiiBannerFile (
 	*dest_size = body_size;
 	return ERR_OK;
 }
+
+//-----------------------------------------------------------------------------
+///////////////			WIBN (Wii save banner)			///////////////
+//-----------------------------------------------------------------------------
+
+// GameCube/Wii RGB5A3 in the usual 4x4 tile order. Same texel decode as
+// DecodeBNR_RGBA(), generalised over the image size so the 192x64 banner and
+// the 48x48 icon frames share it (both dimensions are multiples of 4, so no
+// partial tiles are possible).
+static void wibn_decode_rgb5a3 (u8 *rgba, const u8 *src, uint width, uint height)
+{
+	for (uint by = 0; by < height / 4; by++)
+		for (uint bx = 0; bx < width / 4; bx++)
+			for (uint y = 0; y < 4; y++)
+				for (uint x = 0; x < 4; x++)
+				{
+					const uint pi = 16 * (by * (width / 4) + bx) + 4 * y + x;
+					const u16 c = rd_be16 (src + 2 * pi);
+					u8 *d = rgba + 4 * ((4 * by + y) * width + 4 * bx + x);
+					if (c & 0x8000)
+					{
+						d[0] = expand5 (c >> 10 & 31);
+						d[1] = expand5 (c >> 5 & 31);
+						d[2] = expand5 (c & 31);
+						d[3] = 255;
+					}
+					else
+					{
+						d[0] = (c >> 8 & 15) * 17;
+						d[1] = (c >> 4 & 15) * 17;
+						d[2] = (c & 15) * 17;
+						d[3] = (c >> 12 & 7) * 255 / 7;
+					}
+				}
+}
+
+// The icon count is implied by the file size. Reject anything that is not an
+// exact number of whole frames: a WIBN is always stored as the fixed header
+// plus 1..8 complete icons, so a partial trailing frame means the data is
+// truncated or this is not really a save banner.
+static uint wibn_count_icons (const u8 *data, uint size)
+{
+	if (size < WIBN_ICONS_OFFSET + WIBN_ICON_DATA_SIZE)
+		return 0;
+	const uint rest = size - WIBN_ICONS_OFFSET;
+	if (rest % WIBN_ICON_DATA_SIZE)
+		return 0;
+	const uint n = rest / WIBN_ICON_DATA_SIZE;
+	return n <= WIBN_MAX_ICONS ? n : 0;
+}
+
+bool IsWIBN (const u8 *data, uint size)
+{
+	return data && size >= 4 && wb_rd32 (data) == WIBN_MAGIC_NUM && wibn_count_icons (data, size);
+}
+
+enumError ScanWIBN (wibn_t *wibn, const u8 *data, uint size)
+{
+	if (!wibn || !IsWIBN (data, size))
+		return EINVAL;
+
+	memset (wibn, 0, sizeof (*wibn));
+	wibn->data = data;
+	wibn->size = size;
+	wibn->flags = wb_rd32 (data + 4);
+	wibn->anim_speed = rd_be16 (data + 8);
+	wibn->title = wb_utf16be_to_utf8 (data + 0x20, 32);
+	wibn->subtitle = wb_utf16be_to_utf8 (data + 0x60, 32);
+
+	// A save that animates fewer than the stored number of frames leaves the
+	// unused slots all zero. Those are padding, not black frames -- keeping
+	// them would emit duplicate blank PNGs for most retail saves.
+	uint n = wibn_count_icons (data, size);
+	while (n > 1)
+	{
+		const u8 *p = data + WIBN_ICONS_OFFSET + (n - 1) * WIBN_ICON_DATA_SIZE;
+		uint i = 0;
+		while (i < WIBN_ICON_DATA_SIZE && !p[i])
+			i++;
+		if (i < WIBN_ICON_DATA_SIZE)
+			break;
+		n--;
+	}
+	wibn->n_icons = n;
+	return ERR_OK;
+}
+
+void ResetWIBN (wibn_t *wibn)
+{
+	if (!wibn)
+		return;
+	FREE ((char *)wibn->title);
+	FREE ((char *)wibn->subtitle);
+	memset (wibn, 0, sizeof (*wibn));
+}
+
+char *TextWIBN (const wibn_t *wibn)
+{
+	if (!wibn)
+		return 0;
+
+	FastBuf_t fb;
+	InitializeFastBufAlloc (&fb, 0x400);
+	char line[0x200];
+
+	int n = snprintf (line, sizeof (line),
+		"# Wii save banner (WIBN)\n"
+		"flags       = 0x%x%s\n"
+		"anim_speed  = %u\n"
+		"banner      = %ux%u\n"
+		"icons       = %u x %ux%u\n"
+		"\n"
+		"[Title]\n"
+		"  %s\n"
+		"\n"
+		"[Subtitle]\n"
+		"  %s\n",
+		wibn->flags, wibn->flags & WIBN_FLAG_NOCOPY ? "  # no-copy" : "", wibn->anim_speed,
+		WIBN_BANNER_WIDTH, WIBN_BANNER_HEIGHT, wibn->n_icons, WIBN_ICON_WIDTH, WIBN_ICON_HEIGHT,
+		wibn->title ? wibn->title : "", wibn->subtitle ? wibn->subtitle : "");
+	AppendFastBuf (&fb, line, n);
+
+	char *out = STRDUP (GetFastBufString (&fb));
+	ResetFastBuf (&fb);
+	return out;
+}
+
+enumError DecodeWIBNImage_RGBA (
+	u8 **dest, uint *width, uint *height, const wibn_t *wibn, uint frame)
+{
+	if (!dest || !wibn || !wibn->data)
+		return EINVAL;
+
+	uint w, h, offset;
+	if (frame == WIBN_IMAGE_BANNER)
+	{
+		w = WIBN_BANNER_WIDTH;
+		h = WIBN_BANNER_HEIGHT;
+		offset = WIBN_BANNER_OFFSET;
+	}
+	else if (frame < wibn->n_icons)
+	{
+		w = WIBN_ICON_WIDTH;
+		h = WIBN_ICON_HEIGHT;
+		offset = WIBN_ICONS_OFFSET + frame * WIBN_ICON_DATA_SIZE;
+	}
+	else
+		return EINVAL;
+
+	if (offset + w * h * 2 > wibn->size)
+		return ERR_INVALID_DATA;
+
+	u8 *rgba = MALLOC ((size_t)w * h * 4);
+	if (!rgba)
+		return ERR_CANT_CREATE;
+	wibn_decode_rgb5a3 (rgba, wibn->data + offset, w, h);
+
+	*dest = rgba;
+	if (width)
+		*width = w;
+	if (height)
+		*height = h;
+	return ERR_OK;
+}
