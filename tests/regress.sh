@@ -9156,6 +9156,53 @@ open(sys.argv[1], "wb").write(d)
 }
 t_numshb_mesh
 
+t_nsbca_sibling(){
+  # NSBCA joints must ride along when the sibling NSBMD is exported to GLB:
+  # the sibling import walks the directory for *.nsbca/.nsbta/.nsbtp/.nsbva/
+  # .nsbma, so the fixtures need identical basenames in one scratch dir, and
+  # the resulting GLB must carry a rotation animation whose sampler spans the
+  # full NSBCA frame count (coin01_get: 61 frames, node 1 rotation, scale
+  # starting at 1.0).
+  local d="$PWD_PROJECT/../tests/fixtures"
+  local md="$d/synthetic_nsbmd_coin.nsbmd"
+  local ca="$d/synthetic_nsbca_coin.nsbca"
+  [ -f "$md" ] && [ -f "$ca" ] || { sk "NSBCA sibling import -> GLB animation"; return; }
+  local t; t=$(mktemp -d); trap 'rm -rf "$t"' RETURN
+  cp "$md" "$t/coin.nsbmd"
+  cp "$ca" "$t/coin.nsbca"
+  if "$B/wmdlt" ENCODE "$t/coin.nsbmd" --dest "$t/out.glb" --overwrite >/dev/null 2>&1 \
+  && python3 -c '
+import json, struct, sys
+b = open(sys.argv[1], "rb").read()
+off, doc = 12, None
+while off < len(b):
+    clen, ctype = struct.unpack_from("<II", b, off)
+    if ctype == 0x4E4F534A:
+        doc = json.loads(b[off+8:off+8+clen]); break
+    off += 8 + clen
+assert doc, "no JSON chunk"
+anims = doc["animations"]
+assert len(anims) == 1, "expected the one sibling NSBCA animation"
+paths = set(
+    (c["target"].get("path"), c["target"].get("node"))
+    for c in anims[0]["channels"]
+)
+assert ("rotation", 1) in paths, paths       # node 1 R channel
+assert ("scale", 1) in paths, paths          # node 1 S channel
+assert ("rotation", 3) in paths, paths       # node 3 R channel
+for c in anims[0]["channels"]:
+    s = anims[0]["samplers"][c["sampler"]]
+    a = doc["accessors"][s["input"]]
+    assert a["count"] == 61, a["count"]      # full NSBCA frame count
+    assert a["componentType"] == 5126       # f32 times
+' "$t/out.glb"; then
+    ok "NSBCA sibling import -> GLB animation (rotation + scale, 61 frames)"
+  else
+    no "NSBCA sibling import -> GLB animation" "no animation or wrong channels from $ca"
+  fi
+}
+t_nsbca_sibling
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]

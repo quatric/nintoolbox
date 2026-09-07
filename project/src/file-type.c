@@ -1364,10 +1364,10 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		"Nintendo DS 3D model (NSBMD)" },
 
 	// FF_NSBCA
-	{ FF_NSBCA, 0, 0, "NSBCA", ".nsbca", ".nsbca", ".nsbca", FFT_VALID, 4,
+	{ FF_NSBCA, 0, 0, "NSBCA", ".nsbca", ".nsbca", ".nsbca", FFT_VALID | FFT_DECODE, 4,
 		{ 0x42, 0x43, 0x41, 0x30 }, // "BCA0"
 		0, MinusString, MinusString,
-		"Nintendo DS joint animation (NSBCA); not decoded yet" },
+		"Nintendo DS joint animation (NSBCA)" },
 
 	// FF_NSBTA
 	{ FF_NSBTA, 0, 0, "NSBTA", ".nsbta", ".nsbta", ".nsbta", FFT_VALID, 4,

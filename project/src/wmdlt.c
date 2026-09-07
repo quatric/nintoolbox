@@ -51,6 +51,7 @@
 #include "lib-brres-model.h"
 #include "lib-brres-inject.h"
 #include "lib-nsbmd.h"
+#include "lib-nsbanim.h"
 #include "lib-bcres.h"
 #include "lib-bch.h"
 #include "lib-bfres.h"
@@ -1068,11 +1069,15 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				else if (is_bmd)
 					ExportEarlyDSBMDTextures (raw.data, raw.data_size, dest);
 
-				model_t *model = is_bmd				? ParseNSBMD (raw.data, raw.data_size)
-					: !memcmp (raw.data, "CGFX", 4) ? ParseBCRES (raw.data, raw.data_size)
-					: !memcmp (raw.data, "BCH\0", 4)
-					? (model_t *)ParseBCH (raw.data, (uint)raw.data_size)
-					: ParseBFRES (raw.data, raw.data_size);
+model_t *model = is_bmd				? ParseNSBMD (raw.data, raw.data_size)
+				: !memcmp (raw.data, "CGFX", 4) ? ParseBCRES (raw.data, raw.data_size)
+				: !memcmp (raw.data, "BCH\0", 4)
+				? (model_t *)ParseBCH (raw.data, (uint)raw.data_size)
+				: ParseBFRES (raw.data, raw.data_size);
+			// A DS NSBMD is stored next to its NSB* animation captures; fold
+			// them into the model so the exported GLB carries the animations.
+			if (model && is_bmd)
+				ImportNSBAnimSiblings (model, arg);
 				if (!model && raw.data_size >= 4 && !memcmp (raw.data, "FRES", 4))
 					model = ParseBFRESSwitch (raw.data, raw.data_size);
 				if (!model && raw.data_size >= 4

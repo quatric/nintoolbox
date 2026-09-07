@@ -338,7 +338,7 @@ XOBJ_LIB	= analyze.o lib-szs-create.o lib-analyze.o lib-xbmg.o lib-msbt.o \
 			$(XOBJ_OBJECT) $(XOBJ_PARSER) $(XOBJ_IMAGE) lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-brres-inject.o lib-dtls.o lib-mio.o lib-smash-arc.o lib-warc.o lib-nccarc.o lib-fsys.o lib-gfa.o lib-pac.o lib-darc.o lib-narc.o lib-byml.o lib-sound-archive.o lib-jarc.o lib-lzo.o lib-gpkg.o lib-gpak.o lib-bns.o lib-rpak.o lib-lspk.o lib-sfzdat.o lib-bg4.o lib-hwl.o lib-cram.o lib-sze.o lib-rflres.o lib-sa01.o lib-msr.o lib-miirender.o
 
 TOBJ_gen-ui	= $(XOBJ_OBJECT)
-TOBJ_wszst	= $(XOBJ_LIB) lib-hsd.o lib-halbank.o lib-bcres.o lib-bfres.o lib-nsbmd.o lib-nud.o lib-numsh.o lib-passthru.o $(WRAPPER_OBJ) lzh8_cmp.o lzh8_dec.o lzh8_util.o
+TOBJ_wszst	= $(XOBJ_LIB) lib-hsd.o lib-halbank.o lib-bcres.o lib-bfres.o lib-nsbmd.o lib-nsbanim.o lib-nud.o lib-numsh.o lib-passthru.o $(WRAPPER_OBJ) lzh8_cmp.o lzh8_dec.o lzh8_util.o
 TOBJ_wbmgt	= lib-xbmg.o lib-msbt.o $(XOBJ_OBJECT)
 TOBJ_wctct	= $(XOBJ_LIB)
 TOBJ_wimgt	= lib-aes.o $(XOBJ_IMAGE) lib-excite.o lib-model-glb.o cgltf_impl.o lib-brres-model.o $(XOBJ_OBJECT)
@@ -347,7 +347,7 @@ TOBJ_wkmpt	= lib-aes.o $(XOBJ_KMP) lib-transform.o \
 			$(XOBJ_KCL) lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-kcl-image.o \
 			$(XOBJ_IMAGE) lib-excite.o $(XOBJ_PARSER) $(XOBJ_OBJECT)
 TOBJ_wlect	= $(XOBJ_LIB)
-TOBJ_wmdlt	= $(XOBJ_LIB) lib-hsd.o lib-bcres.o lib-bfres.o lib-nsbmd.o lib-nud.o lib-numsh.o
+TOBJ_wmdlt	= $(XOBJ_LIB) lib-hsd.o lib-bcres.o lib-bfres.o lib-nsbmd.o lib-nsbanim.o lib-nud.o lib-numsh.o
 TOBJ_wpatt	= lib-pat.o $(XOBJ_PARSER) $(XOBJ_OBJECT)
 TOBJ_wstrt	= lib-staticr.o db-dol.o db-ctcode.o $(XOBJ_OBJECT)
 TOBJ_wtest	= $(XOBJ_LIB)

@@ -21,9 +21,11 @@
 #include "lib-nsbanim.h"
 #include "lib-model-glb.h"
 #include "lib-std.h"
+#include "dclib-file.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <dirent.h>
 #include <math.h>
 
 #undef calloc
@@ -690,13 +692,46 @@ uint8_t *EncodeNSBTP (const model_t *model, size_t *out_size)
 
 //-----------------------------------------------------------------------------
 // Sibling import: merge NSB* animation files that sit next to an NSBMD into
-// the same model, mirroring import_chr0_siblings_for_mdl0.  The directory
-// scan itself lives on the wszst side (see create_update.inc), which opens
-// each sibling file, calls the matching ParseNSB*IntoModel, and frees the
-// buffer; nothing is needed here beyond the per-format parsers above.
+// the same model, mirroring import_chr0_siblings_for_mdl0.  NDS games keep
+// one flat directory per archive: "<dir>/<name>.nsbmd", "<dir>/<name>.nsbca",
+// "<dir>/<name>.nsbta", ... are all siblings of the same capture.
 //-----------------------------------------------------------------------------
 
 void ImportNSBAnimSiblings (model_t *model, const char *nsbmd_path)
 {
-	(void)model; (void)nsbmd_path;
+	if (!model || !nsbmd_path || !*nsbmd_path)
+		return;
+
+	char base[PATH_MAX];
+	snprintf (base, sizeof (base), "%s", nsbmd_path);
+	const char *slash = strrchr (base, '/');
+	char *dot = slash ? strrchr (slash + 1, '.') : strrchr (base, '.');
+	if (dot)
+		*dot = 0;
+
+	const char *kinds[] = { ".nsbca", ".nsbta", ".nsbtp", ".nsbva", ".nsbma",
+		".bca", ".bta", ".btp", ".bva", ".bma", 0 };
+	for (int k = 0; kinds[k]; k++)
+	{
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s%s", base, kinds[k]);
+		u8 *data = 0;
+		size_t size = 0;
+		if (LoadFileAlloc (path, 0, 0, &data, &size, 0, 2, 0, false))
+			continue;
+		if (size >= 4)
+		{
+			if (!memcmp (data, "BCA0", 4))
+				ParseNSBCAIntoModel (model, data, size, path);
+			else if (!memcmp (data, "BTA0", 4))
+				ParseNSBTAIntoModel (model, data, size, path);
+			else if (!memcmp (data, "BTP0", 4))
+				ParseNSBTPIntoModel (model, data, size, path);
+			else if (!memcmp (data, "BVA0", 4))
+				ParseNSBVAIntoModel (model, data, size, path);
+			else if (!memcmp (data, "BMA0", 4))
+				ParseNSBMAIntoModel (model, data, size, path);
+		}
+		FREE (data);
+	}
 }

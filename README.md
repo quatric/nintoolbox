@@ -179,7 +179,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **NCER / NANR** | `.ncer`, `.nanr` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro cell & animation resources (DS) |
 | **NCGR / NCLR** | `.ncgr`, `.nclr` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro 2D graphics & palette (DS) |
 | **NSCR** | `.nscr` | ✅ | — | — | ✅ | Nintendo DS Nitro screen/tilemap resource, rendered against its NCGR tiles and NCLR palette (DS) |
-| **NSBCA / NSBTA / NSBTP / NSBVA / NSBMA** | `.nsbca`, `.nsbta`, `.nsbtp`, `.nsbva`, `.nsbma` | — | — | — | ✅ | Nintendo DS Nitro animation family (joint, texture SRT, texture pattern, visibility, material colour). Identified and passed through unchanged; not converted yet |
+| **NSBCA / NSBTA / NSBTP / NSBVA / NSBMA** | `.nsbca`, `.nsbta`, `.nsbtp`, `.nsbva`, `.nsbma` | **GLB** *(NSBCA, via NSBMD siblings)* | ✅ | — | — | ✅ | Nintendo DS Nitro animation family (joint, texture SRT, texture pattern, visibility, material colour). NSBCA joints decode to a GLB animation when the sibling NSBMD is exported, keyframes verified against the Nitro SDK animation engine; the other four are validated structurally and passed through unchanged |
 | **NSBTX** | `.nsbtx` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro 3D texture container (DS) |
 | **NUT** | `.nut` | ✅ | ✅ | ✅ | — | Bandai Namco texture package (*Super Smash Bros. 4* Wii U / 3DS) |
 | **NUTEXB** | `.nutexb` | ✅ | ✅ | ✅ | — | Bandai Namco / Nintendo Switch texture wrapper (Switch) |
