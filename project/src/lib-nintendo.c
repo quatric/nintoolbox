@@ -1965,6 +1965,60 @@ enumError ExtractRST (nintendo_sarc_entry_t **out_entries, uint *out_n_entries, 
 		}
 	}
 
+	// Excite Truck's RST predates Excitebots': its TOC keeps each name inline
+	// in a fixed 32-byte field at the head of a 68-byte record, with no
+	// separate string pool, and its file offsets are absolute within the
+	// archive rather than relative to a decompressed payload -- that archive
+	// carries no QuickLZ stream at all, so there is nothing to be relative to.
+	// Read with the later layout it yielded 44 of 350 files under names taken
+	// from the wrong place, some of which then collided.
+	//
+	// The layout identifies itself rather than being inferred from a version
+	// number: the header, the records and the count have to account for the
+	// TOC exactly, which the later layout never does.
+	if (toc_data && toc_size == 0x28 + (u64)files_count * 0x44)
+	{
+		nintendo_sarc_entry_t *entries = CALLOC (files_count, sizeof (nintendo_sarc_entry_t));
+		if (!entries)
+		{
+			if (decompressed_payload)
+				FREE (decompressed_payload);
+			return ENOMEM;
+		}
+		uint count = 0;
+
+		for (uint i = 0; i < files_count; i++)
+		{
+			const u8 *e = toc_data + 0x28 + (size_t)i * 0x44;
+			const u32 fsize = rd_le32 (e + 0x28);
+			const u32 foff = rd_le32 (e + 0x2c);
+			if (!fsize) // a declared but absent resource
+				continue;
+			if ((u64)foff + fsize > car_size)
+				continue;
+
+			char name[33];
+			memcpy (name, e, 32);
+			name[32] = 0;
+			if (!*name)
+				continue;
+
+			entries[count].name = STRDUP (name);
+			entries[count].size = fsize;
+			entries[count].data = MALLOC (fsize);
+			if (!entries[count].data)
+				break;
+			memcpy ((void *)entries[count].data, car_data + foff, fsize);
+			count++;
+		}
+
+		if (decompressed_payload)
+			FREE (decompressed_payload);
+		*out_entries = entries;
+		*out_n_entries = count;
+		return ERR_OK;
+	}
+
 	if (toc_data && toc_size >= 0x0C + (files_count + 1) * 0x28)
 	{
 		const bool compact_toc = rd_le32 (toc_data) == 3 && toc_size >= 0x20;

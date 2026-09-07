@@ -254,6 +254,43 @@ else
   sk "unattributed formats claim nothing"
 fi
 
+# Excite Truck's RST archive predates Excitebots'. Its payload carries no
+# QuickLZ stream, so file offsets are absolute in the archive rather than
+# relative to a decompressed block, and its TOC stores each name inline in a
+# 32-byte field at the head of a 68-byte record instead of in a string pool.
+# Read with the later layout, race.res gave 44 of its 350 files under names
+# taken from the wrong place; uimem.res here is the same shape in miniature.
+et_res="$PWD_PROJECT/../tests/fixtures/excitetruck_uimem.res"
+et_d=$(mktemp -d /tmp/_r_ettoc.XXXXXX) || et_d=
+if [ -n "$et_d" ]; then
+  if "$B/wszst" EXTRACT "$et_res" --dest "$et_d/out" >/dev/null 2>&1 \
+  && [ -s "$et_d/out/ps2butns.img" ] && [ -s "$et_d/out/ps2butns.tab" ] \
+  && [ -s "$et_d/out/xbbutns.img" ] && [ -s "$et_d/out/xbbutns.tab" ] \
+  && [ "$(find "$et_d/out" -type f | wc -l | tr -d ' ')" = 4 ]; then
+    ok "uncompressed RST with inline TOC names extracts all four entries"
+  else
+    no "Excite Truck RST" \
+      "expected 4 named entries, got $(find "$et_d/out" -type f 2>/dev/null | wc -l | tr -d ' ')"
+  fi
+
+  # The layout is claimed by arithmetic, not by a version number: the header,
+  # the records and the count must account for the TOC exactly. Grow the TOC
+  # and that no longer holds, so this must not be read with the inline layout.
+  cp "$et_res" "$et_d/x.res"
+  cat "$PWD_PROJECT/../tests/fixtures/excitetruck_uimem.toc" > "$et_d/x.toc"
+  printf '\0\0\0\0' >> "$et_d/x.toc"
+  rm -rf "$et_d/badout"
+  "$B/wszst" EXTRACT "$et_d/x.res" --dest "$et_d/badout" >/dev/null 2>&1
+  if [ "$(find "$et_d/badout" -type f 2>/dev/null | wc -l | tr -d ' ')" != 4 ]; then
+    ok "RST inline-TOC layout is claimed only when the arithmetic closes"
+  else
+    no "Excite Truck RST" "read a TOC whose size does not fit the record layout"
+  fi
+  rm -rf "$et_d"
+else
+  sk "Excite Truck RST"
+fi
+
 # Monster Games .sfx (Excite Truck / ExciteBots) is a 0x80 header over a plain
 # Nintendo DSP-ADPCM stream. It carries no magic, so it has to identify itself
 # by arithmetic: the payload size must account for the rest of the file and the

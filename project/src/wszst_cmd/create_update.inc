@@ -1645,6 +1645,35 @@ static void beside_source_dest_ext (char *dest, uint dest_size, ccp arg, ccp new
 	snprintf (dest, dest_size, "%s%s", base, new_ext);
 }
 
+// Two different sources in one archive can share a stem -- Excite Truck ships
+// betatex2.art beside betatex2.tex -- and both decode to an image, so swapping
+// the extension alone points them at the same PNG and the second one is lost
+// with a "file already exists". Keep the plain name when it is free and fall
+// back to carrying the source extension through when it is not, so the common
+// case still reads <stem>.png.
+static void beside_source_image_dest (char *dest, uint dest_size, ccp arg)
+{
+	beside_source_dest_ext (dest, dest_size, arg, ".png");
+	if (access (dest, F_OK))
+		return;
+
+	// Taken: reproduce the source's own name and add the suffix.
+	char taken[PATH_MAX];
+	StringCopyS (taken, sizeof (taken), dest);
+
+	if (opt_dest)
+	{
+		ccp slash = strrchr (arg, '/');
+		snprintf (dest, dest_size, "%s/%s.png", opt_dest, slash ? slash + 1 : arg);
+	}
+	else
+		snprintf (dest, dest_size, "%s.png", arg);
+
+	// Nothing gained if that is the same path; leave the original in place.
+	if (!strcmp (dest, taken))
+		StringCopyS (dest, dest_size, taken);
+}
+
 // Sonic and the Secret Rings / Sonic and the Black Knight use a small
 // big-endian ONE archive around PRS-compressed assets.  It has no magic:
 // header[1] is always the 0x10 entry-table offset and header[3] is 0 (Secret
@@ -3891,7 +3920,7 @@ static enumError extract_tex_file (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 
 	char dest[PATH_MAX];
-	beside_source_dest_ext (dest, sizeof (dest), arg, ".png");
+	beside_source_image_dest (dest, sizeof (dest), arg);
 	if (verbose >= 0 || testmode)
 		fprintf (stdlog, "%s%sEXTRACT TEX:%s (%ux%u) -> PNG:%s\n", verbose > 0 ? "\n" : "",
 			testmode ? "WOULD " : "", arg, tex.width, tex.height, dest);
@@ -4253,7 +4282,7 @@ static enumError extract_art_file (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 
 	char dest[PATH_MAX];
-	beside_source_dest_ext (dest, sizeof (dest), arg, ".png");
+	beside_source_image_dest (dest, sizeof (dest), arg);
 	if (verbose >= 0 || testmode)
 		fprintf (stdlog, "%s%sEXTRACT ART:%s (%ux%u) -> PNG:%s\n", verbose > 0 ? "\n" : "",
 			testmode ? "WOULD " : "", arg, tex.width, tex.height, dest);
