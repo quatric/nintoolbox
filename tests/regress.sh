@@ -6028,6 +6028,7 @@ with open('$d/sample.nud', 'wb') as f:
   # Canonical BRSARs retain names for every asset kind, including RWSD/RWAR
   # members that lack a retail sound/bank name-table association.
   local retail_brsar="$PWD_PROJECT/../tests/samples-excitebots/extract/excitebots.d/UPDATE/files/_sys/RVL-Eulav_US-v2.d/0000000b.d/sound/eulaSound.brsar"
+  [ -f "$retail_brsar" ] || retail_brsar="$PWD_PROJECT/../tests/fixtures/wii_retail/retail_motionplus.brsar"
   if [ ! -f "$retail_brsar" ]; then
     sk "BRSAR/BCSAR/BFSAR canonical fixed point (retail corpus absent)"
   else
@@ -6379,6 +6380,14 @@ with open("'"$d"'/gar_test/sample.zar", "wb") as f:
     fok "Grezzo ZAR Archive (.zar) extraction"
   else
     fno "Grezzo ZAR Archive" "failed to extract .zar sample";
+  fi
+  if "$B/wszst" CREATE "$d/gar_test/out" --dest "$d/gar_test/same.zar" --overwrite >/dev/null 2>&1 \
+  && "$B/wszst" EXTRACT "$d/gar_test/same.zar" --dest "$d/gar_test/mid" --overwrite >/dev/null 2>&1 \
+  && "$B/wszst" CREATE "$d/gar_test/mid" --dest "$d/gar_test/re.zar" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/gar_test/same.zar" "$d/gar_test/re.zar"; then
+    bok "Grezzo ZAR Archive (.zar) canonical fixed point"
+  else
+    bno "Grezzo ZAR Archive" "failed canonical fixed point";
   fi
 
   # Mario Kart Arcade GP DX Layout Archive (.pac / pack) test
