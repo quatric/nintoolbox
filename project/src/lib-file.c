@@ -1781,6 +1781,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_ZDAT;
 		case NFMT_SFX:
 			return FF_SFX;
+		case NFMT_VFF:
+			return FF_VFF;
 		case NFMT_AAMP:
 			return FF_AAMP;
 		case NFMT_BYML:

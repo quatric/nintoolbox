@@ -1393,6 +1393,13 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, MinusString, MinusString,
 		"Monster Games DSP-ADPCM audio (.sfx, Excite Truck / ExciteBots)" },
 
+	// FF_VFF = 248 (Nintendo VFF virtual FAT volume)
+	{ FF_VFF, FF_VFF, 0, "VFF", ".vff", ".szs", ".vff",
+		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT, 4,
+		{ 0x56, 0x46, 0x46, 0x20 }, // "VFF "
+		0, MinusString, MinusString,
+		"Nintendo VFF virtual FAT volume (PrFILE2, Wii channel & save data)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1575,6 +1582,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_MIO, "MIO", 0, 0xe05 },
 	{ FF_ZDAT, "ZDAT", "ZDAT", 0xe05 },
 	{ FF_SFX, "SFX", 0, 0xe05 },
+	{ FF_VFF, "VFF", "VFF", 0xe05 },
 	{ FF_IQIPACK, "IQIPACK", "PACK", 0xe05 },
 
 	{ 0, 0, 0, 0 }

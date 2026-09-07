@@ -384,6 +384,71 @@ else
   sk "Excite Truck RST"
 fi
 
+# A VFF is a PrFILE2 (eSOL) virtual FAT volume: a 0x20-byte big-endian wrapper
+# over an ordinary little-endian FAT12/FAT16 image with no boot sector, which
+# is why an off-the-shelf FAT tool cannot open one. Both fixtures had their
+# filesystems built by mtools rather than by this project, so the directory
+# entries and cluster chains being read here are somebody else's work; the
+# payloads must come back byte for byte.
+vff_d=$(mktemp -d /tmp/_r_vff.XXXXXX) || vff_d=
+if [ -n "$vff_d" ]; then
+  if "$B/wszst" FILETYPE "$PWD_PROJECT/../tests/fixtures/vff_fat16.vff" 2>/dev/null \
+       | grep -q "^VFF"; then
+    ok "wszst filetype recognizes a VFF volume"
+  else
+    no "VFF volume" "filetype did not report VFF"
+  fi
+
+  # FAT16: a subdirectory, a short file, and one of 5000 bytes that spans ten
+  # clusters, so the chain has to be followed rather than read straight through.
+  if "$B/wszst" EXTRACT "$PWD_PROJECT/../tests/fixtures/vff_fat16.vff" \
+       --dest "$vff_d/f16" >/dev/null 2>&1 \
+  && cmp -s "$vff_d/f16/A.TXT" "$PWD_PROJECT/../tests/fixtures/vff_expect_a.txt" \
+  && cmp -s "$vff_d/f16/BIG.BIN" "$PWD_PROJECT/../tests/fixtures/vff_expect_big.bin" \
+  && cmp -s "$vff_d/f16/SUB/INNER.TXT" "$PWD_PROJECT/../tests/fixtures/vff_expect_a.txt"; then
+    ok "VFF FAT16 volume extracts its tree, multi-cluster file included"
+  else
+    no "VFF volume" "FAT16 extraction did not reproduce the original files"
+  fi
+
+  # FAT12 packs three nibbles per two entries, a separate path through the FAT.
+  if "$B/wszst" EXTRACT "$PWD_PROJECT/../tests/fixtures/vff_fat12.vff" \
+       --dest "$vff_d/f12" >/dev/null 2>&1 \
+  && [ -s "$vff_d/f12/S.TXT" ]; then
+    ok "VFF FAT12 volume extracts through the packed FAT"
+  else
+    no "VFF volume" "FAT12 extraction produced nothing"
+  fi
+
+  # A file keeps its type from its magic, as every other format here does, so
+  # a damaged volume is still reported as a VFF. What must not happen is that
+  # it is read: the byte-order mark has to agree and the geometry has to
+  # account for the volume before a single cluster is touched.
+  python3 -c '
+import struct, sys
+d = bytearray(open(sys.argv[1], "rb").read()[:0x40000])
+struct.pack_into(">H", d, 4, 0x1234)   # not a byte-order mark
+open(sys.argv[2], "wb").write(bytes(d))
+d2 = bytearray(open(sys.argv[1], "rb").read()[:0x40000])
+struct.pack_into(">I", d2, 8, 0xffffff)  # volume size that fits no cluster count
+open(sys.argv[3], "wb").write(bytes(d2))
+' "$PWD_PROJECT/../tests/fixtures/vff_fat12.vff" "$vff_d/bom.vff" "$vff_d/geom.vff"
+  bad=0
+  for f in "$vff_d/bom.vff" "$vff_d/geom.vff"; do
+    rm -rf "$vff_d/negout"
+    "$B/wszst" EXTRACT "$f" --dest "$vff_d/negout" >/dev/null 2>&1
+    [ -n "$(find "$vff_d/negout" -type f 2>/dev/null)" ] && bad=1
+  done
+  if [ "$bad" = 0 ]; then
+    ok "VFF reads nothing from a header whose fields do not agree"
+  else
+    no "VFF volume" "read a volume whose header does not describe it"
+  fi
+  rm -rf "$vff_d"
+else
+  sk "VFF volume"
+fi
+
 # Monster Games .sfx (Excite Truck / ExciteBots) is a 0x80 header over a plain
 # Nintendo DSP-ADPCM stream. It carries no magic, so it has to identify itself
 # by arithmetic: the payload size must account for the rest of the file and the

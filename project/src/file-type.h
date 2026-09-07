@@ -339,6 +339,7 @@ typedef enum file_format_t
 	FF_IQIPACK, // 245 - NVIDIA Shield iQiyi PAK archive (.pak / PACK)
 	FF_ZDAT, // 246 - Animal Crossing: Pocket Camp asset container (.zdat / ZDAT)
 	FF_SFX, // 247 - Monster Games DSP-ADPCM audio (.sfx, Excite Truck / ExciteBots)
+	FF_VFF, // 248 - Nintendo VFF virtual FAT volume (.vff / "VFF ")
 
 	//--- number of elements
 

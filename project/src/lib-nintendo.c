@@ -23,7 +23,7 @@ ccp GetNintendoFormatName (nfmt_type_t type)
 		"VLX", "PuCrunch", "LZX", "Diff8", "Diff16", "NSBTX", "NFTR", "BNFR", "BNLL", "BNCL", "BNBL",
 		"LZOvl", "ALAR", "DARC", "SADL", "HSF", "HSD", "BNFM", "XPCK", "XIMG", "ZTAB", "GLG",
 		"MDR", "PERS", "PVOL", "STPK", "G1M", "G1T", "G4PKM", "LMD", "MSH", "MOD", "GAR",
-		"TEX3DS", "BCSTM", "BFSTM", "BCWAV", "BFWAV", "BNSH", "GFBMDL", "GFBANM", "BNSTX", "AAMP", "MIO", "ZDAT", "SFX" };
+		"TEX3DS", "BCSTM", "BFSTM", "BCWAV", "BFWAV", "BNSH", "GFBMDL", "GFBANM", "BNSTX", "AAMP", "MIO", "ZDAT", "SFX", "VFF" };
 	return type < sizeof (tab) / sizeof (*tab) ? tab[type] : "UNKNOWN";
 }
 
@@ -137,6 +137,11 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			if (rate && rate <= 48000 && rd_le32 (d + 0x14) == rate * 2)
 				return make_info (NFMT_SFX, false, false, 0);
 		}
+		// A VFF volume: the magic plus a byte-order mark, checked together so
+		// the four letters alone cannot claim a file.
+		if (size > 0x20 && !memcmp (d, "VFF ", 4)
+			&& (rd_be16 (d + 4) == 0xfeff || rd_be16 (d + 4) == 0xfffe))
+			return make_info (NFMT_VFF, true, false, 0);
 		if (!memcmp (d, "ZTAB", 4))
 			return make_info (NFMT_ZTAB, true, false, 0);
 		// Next Level Games container (Super Mario Strikers' .glg, Mario
