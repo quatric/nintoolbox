@@ -23,6 +23,7 @@ This document presents the compressed output file sizes, compression ratios, and
 | **Huffman 8-bit (Nintendo DS)** | 2,021 B | 58.21% | 41.79% | Nintendo DS Nitro SDK font and sound resource trees |
 | **LZ10 (Nintendo standard LZ77)** | 926 B | 26.67% | 73.33% | GameCube, Wii, Nintendo DS, GBA BIOS & game engines |
 | **LZ11 (Nintendo extended LZSS / CMP)** | 940 B | 27.07% | 72.93% | Nintendo DS, DSi, 3DS, HAL Laboratory (Kirby) |
+| **LZ4 (Standard frame stream)** | 1,390 B | 40.03% | 59.97% | Modern high-throughput real-time stream compression (Switch / PC) |
 | **LZMA (Raw stream)** | 752 B | 21.66% | 78.34% | Universal high-ratio Lempel-Ziv-Markov chain stream |
 | **LZ / WLZ (Wiimms LZMA Container)** | 768 B | 22.12% | 77.88% | Wiimms LZMA track archive format |
 | **LZH8 / LH** | 884 B | 25.46% | 74.54% | Hudson Soft / Retro game engines |
@@ -68,6 +69,7 @@ This document presents the compressed output file sizes, compression ratios, and
 | **Huffman 8-bit (Nintendo DS)** | 10,317 B | 60.77% | 39.23% | Nintendo DS Nitro SDK font and sound resource trees |
 | **LZ10 (Nintendo standard LZ77)** | 4,210 B | 24.80% | 75.20% | GameCube, Wii, Nintendo DS, GBA BIOS & game engines |
 | **LZ11 (Nintendo extended LZSS / CMP)** | 4,371 B | 25.75% | 74.25% | Nintendo DS, DSi, 3DS, HAL Laboratory (Kirby) |
+| **LZ4 (Standard frame stream)** | 5,850 B | 34.46% | 65.54% | Modern high-throughput real-time stream compression (Switch / PC) |
 | **LZMA (Raw stream)** | 3,035 B | 17.88% | 82.12% | Universal high-ratio Lempel-Ziv-Markov chain stream |
 | **LZ / WLZ (Wiimms LZMA Container)** | 3,051 B | 17.97% | 82.03% | Wiimms LZMA track archive format |
 | **LZH8 / LH** | 3,456 B | 20.36% | 79.64% | Hudson Soft / Retro game engines |
@@ -113,6 +115,7 @@ This document presents the compressed output file sizes, compression ratios, and
 | **Huffman 8-bit (Nintendo DS)** | 104,547 B | 59.98% | 40.02% | Nintendo DS Nitro SDK font and sound resource trees |
 | **LZ10 (Nintendo standard LZ77)** | 81,510 B | 46.76% | 53.24% | GameCube, Wii, Nintendo DS, GBA BIOS & game engines |
 | **LZ11 (Nintendo extended LZSS / CMP)** | 81,822 B | 46.94% | 53.06% | Nintendo DS, DSi, 3DS, HAL Laboratory (Kirby) |
+| **LZ4 (Standard frame stream)** | 99,866 B | 57.29% | 42.71% | Modern high-throughput real-time stream compression (Switch / PC) |
 | **LZMA (Raw stream)** | 54,217 B | 31.10% | 68.90% | Universal high-ratio Lempel-Ziv-Markov chain stream |
 | **LZ / WLZ (Wiimms LZMA Container)** | 54,233 B | 31.11% | 68.89% | Wiimms LZMA track archive format |
 | **LZH8 / LH** | 62,692 B | 35.97% | 64.03% | Hudson Soft / Retro game engines |
@@ -158,6 +161,7 @@ This document presents the compressed output file sizes, compression ratios, and
 | **Huffman 8-bit (Nintendo DS)** | 411,151 B | 57.28% | 42.72% | Nintendo DS Nitro SDK font and sound resource trees |
 | **LZ10 (Nintendo standard LZ77)** | 361,464 B | 50.36% | 49.64% | GameCube, Wii, Nintendo DS, GBA BIOS & game engines |
 | **LZ11 (Nintendo extended LZSS / CMP)** | 361,846 B | 50.41% | 49.59% | Nintendo DS, DSi, 3DS, HAL Laboratory (Kirby) |
+| **LZ4 (Standard frame stream)** | 440,538 B | 61.37% | 38.63% | Modern high-throughput real-time stream compression (Switch / PC) |
 | **LZMA (Raw stream)** | 213,534 B | 29.75% | 70.25% | Universal high-ratio Lempel-Ziv-Markov chain stream |
 | **LZ / WLZ (Wiimms LZMA Container)** | 213,550 B | 29.75% | 70.25% | Wiimms LZMA track archive format |
 | **LZH8 / LH** | 270,428 B | 37.68% | 62.32% | Hudson Soft / Retro game engines |
@@ -203,6 +207,7 @@ This document presents the compressed output file sizes, compression ratios, and
 | **Huffman 8-bit (Nintendo DS)** | 2,584,975 B | 58.01% | 41.99% | Nintendo DS Nitro SDK font and sound resource trees |
 | **LZ10 (Nintendo standard LZ77)** | 1,887,486 B | 42.36% | 57.64% | GameCube, Wii, Nintendo DS, GBA BIOS & game engines |
 | **LZ11 (Nintendo extended LZSS / CMP)** | 1,895,887 B | 42.55% | 57.45% | Nintendo DS, DSi, 3DS, HAL Laboratory (Kirby) |
+| **LZ4 (Standard frame stream)** | 2,307,096 B | 51.78% | 48.22% | Modern high-throughput real-time stream compression (Switch / PC) |
 | **LZMA (Raw stream)** | 1,706,192 B | 38.29% | 61.71% | Universal high-ratio Lempel-Ziv-Markov chain stream |
 | **LZ / WLZ (Wiimms LZMA Container)** | 1,706,208 B | 38.29% | 61.71% | Wiimms LZMA track archive format |
 | **LZH8 / LH** | 1,423,588 B | 31.95% | 68.05% | Hudson Soft / Retro game engines |
