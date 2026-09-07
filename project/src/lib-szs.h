@@ -1469,6 +1469,9 @@ int IsZlib (cvp data, uint size);
 enumError DecompressZSTD (szs_file_t *szs, bool rm_compressed);
 enumError CompressZSTD (szs_file_t *szs, int compr, bool remove_uncompressed);
 
+enumError DecompressLZ4 (szs_file_t *szs, bool rm_compressed);
+enumError CompressLZ4 (szs_file_t *szs, int compr, bool remove_uncompressed);
+
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			BRASD support			///////////////

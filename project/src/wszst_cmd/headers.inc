@@ -55,6 +55,7 @@
 #include "lib-hsf.h"
 #include "lib-quicklz.h"
 #include "lib-zstd.h"
+#include "lib-lz4.h"
 #include "lib-brres.h"
 #include "lib-xbmg.h"
 #include "lib-msbt.h"

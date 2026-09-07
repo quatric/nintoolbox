@@ -1393,6 +1393,11 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, MinusString, MinusString,
 		"Nintendo DS material colour animation (NSBMA); not decoded yet" },
 
+	// FF_LZ4 = 262 (LZ4 compression)
+	{ FF_LZ4, 0, 0, "LZ4", ".lz4", ".lz4", ".lz4", FFT_VALID | FFT_COMPRESS | FFT_TRACK, 4,
+		{ 0x04, 0x22, 0x4d, 0x18 }, // LZ4 frame magic 0x184D2204
+		0, MinusString, MinusString, "LZ4 compression (.lz4)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1484,6 +1489,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_BFMA, "BFMA", "BFMA", 0xe05 }, { FF_ZLIB, "ZLIB", "ZLIB", 0x103 },
 	{ FF_ZLIB, "DEFLATE", 0, 0x103 }, { FF_ZSTD, "ZSTD", "ZSTD", 0x103 },
 	{ FF_ZSTD, "ZST", "ZST", 0x103 }, { FF_ZSTD, "ZS", "ZS", 0x103 },
+	{ FF_LZ4, "LZ4", "LZ4", 0x103 },
 	{ FF_NSBTX, "NSBTX", "BTX0", 0x3829 }, { FF_NFTR, "NFTR", "FNTR", 0x3809 },
 	{ FF_BNFR, "BNFR", "RNFB", 0x3809 }, { FF_BNLL, "BNLL", "LLNB", 0x3001 },
 	{ FF_BNCL, "BNCL", "LCNB", 0x3001 }, { FF_BNBL, "BNBL", "LBNB", 0x3001 },

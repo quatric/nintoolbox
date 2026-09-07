@@ -52,6 +52,7 @@
 #include "lib-bzip2.h"
 #include "lib-lzma.h"
 #include "lib-zstd.h"
+#include "lib-lz4.h"
 #include "lib-checksum.h"
 #include "lib-nintendo.h"
 #include "lib-lz10.h"
@@ -895,6 +896,8 @@ enumError DecompressSZS (szs_file_t *szs, // valid SZS source, use cdata
 			return DecompressZLIB (szs, rm_compressed);
 		case FF_ZSTD:
 			return DecompressZSTD (szs, rm_compressed);
+		case FF_LZ4:
+			return DecompressLZ4 (szs, rm_compressed);
 		case FF_CMP:
 		{
 			u8 *data = 0;
@@ -1744,6 +1747,8 @@ enumError CompressWith (
 			return CompressZLIB (szs, compr, rm_uncompr);
 		case FF_ZSTD:
 			return CompressZSTD (szs, compr, rm_uncompr);
+		case FF_LZ4:
+			return CompressLZ4 (szs, compr, rm_uncompr);
 		default:
 			break;
 	}
@@ -3136,6 +3141,71 @@ enumError CompressZSTD (szs_file_t *szs, int compr, bool remove_uncompressed)
 	szs->csize = csize;
 	szs->cdata_alloced = true;
 	szs->fform_file = FF_ZSTD;
+
+	ClearContainerSZS (szs);
+	if (remove_uncompressed)
+		ClearUncompressedSZS (szs);
+	return ERR_OK;
+}
+
+enumError DecompressLZ4 (szs_file_t *szs, bool rm_compressed)
+{
+	PRINT ("DecompressLZ4(%p,%d)\n", szs, rm_compressed);
+	DASSERT (szs);
+
+	if (!szs->csize || !szs->cdata || szs->data)
+		return ERR_OK;
+
+	u8 *data = 0;
+	uint size = 0;
+	enumError err = DecodeLZ4 (&data, &size, szs->cdata, szs->csize);
+	if (err)
+		return err;
+
+	szs->data = data;
+	szs->size = size;
+	szs->file_size = size;
+	szs->data_alloced = true;
+	szs->fform_arch = szs->fform_current = GetByMagicFF (data, size, size);
+	szs->ff_attrib = GetAttribFF (szs->fform_arch);
+	szs->ff_version = GetVersionFF (szs->fform_arch, szs->data, szs->size, 0);
+
+	ClearContainerSZS (szs);
+	if (rm_compressed)
+		ClearCompressedSZS (szs);
+
+	if (IsCompressedFF (szs->fform_arch))
+	{
+		szs->cdata = szs->data;
+		szs->csize = szs->size;
+		szs->cdata_alloced = szs->data_alloced;
+		szs->data = 0;
+		szs->size = 0;
+		szs->data_alloced = false;
+		szs->fform_file = szs->fform_arch;
+		return DecompressSZS (szs, rm_compressed, 0);
+	}
+	return ERR_OK;
+}
+
+enumError CompressLZ4 (szs_file_t *szs, int compr, bool remove_uncompressed)
+{
+	PRINT ("CompressLZ4(%p,%d,%d)\n", szs, compr, remove_uncompressed);
+	DASSERT (szs);
+
+	if (!szs->size || !szs->data || szs->cdata)
+		return ERR_OK;
+
+	u8 *cdata = 0;
+	uint csize = 0;
+	enumError err = EncodeLZ4 (&cdata, &csize, szs->data, szs->size, compr);
+	if (err)
+		return err;
+
+	szs->cdata = cdata;
+	szs->csize = csize;
+	szs->cdata_alloced = true;
+	szs->fform_file = FF_LZ4;
 
 	ClearContainerSZS (szs);
 	if (remove_uncompressed)

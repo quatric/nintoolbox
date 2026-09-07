@@ -163,6 +163,7 @@ enum
 	ERR_XZ = ERU_ERROR2_03,
 	ERR_PNG = ERU_ERROR2_04,
 	ERR_ZSTD = ERU_ERROR2_05,
+	ERR_LZ4 = ERU_ERROR2_06,
 };
 
 //-----------------------------------------------------------------------------

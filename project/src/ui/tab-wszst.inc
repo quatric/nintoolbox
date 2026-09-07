@@ -2249,6 +2249,10 @@
 		0,
 		"If creating a compressed file, create a Zstandard (ZSTD) compatible file." },
 
+  { T_OPT_G,	"LZ4",		"lz4",
+		0,
+		"If creating a compressed file, create a LZ4 compatible file." },
+
   { T_OPT_G,	"CYLZ",		"cylz",
 		0,
 		"If creating a compressed file, force YLZ compression"

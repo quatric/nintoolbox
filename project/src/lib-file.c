@@ -66,6 +66,7 @@
 #include "lib-koopatlas.h"
 #include "lib-chans.h"
 #include "lib-zstd.h"
+#include "lib-lz4.h"
 #include "lib-rkg.h"
 #include "lib-image.h"
 #include "lib-staticr.h"
@@ -1749,6 +1750,9 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 
 	if (data_size >= 4 && IsZSTD (data, data_size) >= 0)
 		return FF_ZSTD;
+
+	if (data_size >= 4 && IsLZ4 (data, data_size) >= 0)
+		return FF_LZ4;
 
 	const nfmt_info_t nfmt = DetectNintendoFormat (data, data_size, 0);
 	switch (nfmt.type)

@@ -355,6 +355,7 @@ typedef enum file_format_t
 	FF_NSBTP, // 259 - Nintendo DS texture pattern animation (.nsbtp / BTP0)
 	FF_NSBVA, // 260 - Nintendo DS visibility animation (.nsbva / BVA0)
 	FF_NSBMA, // 261 - Nintendo DS material colour animation (.nsbma / BMA0)
+	FF_LZ4, // 262 - LZ4 compression (.lz4)
 
 	//--- number of elements
 

@@ -424,6 +424,9 @@ static enumError CheckOptions (int argc, char **argv, bool is_env)
 			case GO_ZSTD:
 				SetCompressionFF (FF_INVALID, FF_ZSTD);
 				break;
+			case GO_LZ4:
+				SetCompressionFF (FF_INVALID, FF_LZ4);
+				break;
 			case GO_CYLZ:
 				SetCompressionFF (FF_INVALID, FF_YLZ);
 				break;

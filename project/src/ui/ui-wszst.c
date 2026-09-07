@@ -1518,6 +1518,9 @@ static const InfoOption_t OptionInfo[OPT__N_TOTAL + 1] = {
 		"If creating a compressed file, create a Zstandard (ZSTD) compatible"
 		" file." },
 
+	{ OPT_LZ4, false, false, false, false, false, 0, "lz4", 0,
+		"If creating a compressed file, create a LZ4 compatible file." },
+
 	{ OPT_CYLZ, false, false, false, false, false, 0, "cylz", 0,
 		"If creating a compressed file, force YLZ compression (YAZ0 file"
 		" header, but LZMA compression), but don't change the payload." },
@@ -2102,7 +2105,7 @@ static const struct option OptionLong[] = { { "version", 0, 0, 'V' }, { "help", 
 	{ "xyz", 0, 0, GO_XYZ }, { "bz", 0, 0, GO_BZ }, { "bzip2", 0, 0, GO_BZIP2 },
 	{ "bz2", 0, 0, GO_BZIP2 }, { "cybz", 0, 0, GO_CYBZ }, { "ybz", 0, 0, GO_YBZ },
 	{ "lz", 0, 0, GO_LZ }, { "lzma", 0, 0, GO_LZMA }, { "zstd", 0, 0, GO_ZSTD },
-	{ "zs", 0, 0, GO_ZSTD }, { "cylz", 0, 0, GO_CYLZ }, { "ylz", 0, 0, GO_YLZ },
+	{ "zs", 0, 0, GO_ZSTD }, { "lz4", 0, 0, GO_LZ4 }, { "cylz", 0, 0, GO_CYLZ }, { "ylz", 0, 0, GO_YLZ },
 	{ "sh", 0, 0, GO_SH }, { "bash", 0, 0, GO_BASH }, { "json", 0, 0, GO_JSON },
 	{ "php", 0, 0, GO_PHP }, { "makedoc", 0, 0, GO_MAKEDOC }, { "var", 1, 0, GO_VAR },
 	{ "array", 0, 0, GO_ARRAY }, { "avar", 1, 0, GO_AVAR }, { "case", 1, 0, GO_CASE },
@@ -3228,8 +3231,8 @@ static const InfoOption_t *option_tab_tool[] = { OptionInfo + OPT_VERSION, Optio
 	OptionInfo + OPT_TEST, OptionInfo + OPT_FORCE, OptionInfo + OPT_REPAIR_MAGICS,
 	OptionInfo + OPT_TINY, OptionInfo + OPT_YAZ0, OptionInfo + OPT_YAZ1, OptionInfo + OPT_XYZ,
 	OptionInfo + OPT_BZ, OptionInfo + OPT_BZIP2, OptionInfo + OPT_CYBZ, OptionInfo + OPT_YBZ,
-	OptionInfo + OPT_LZ, OptionInfo + OPT_LZMA, OptionInfo + OPT_ZSTD, OptionInfo + OPT_CYLZ,
-	OptionInfo + OPT_YLZ,
+	OptionInfo + OPT_LZ, OptionInfo + OPT_LZMA, OptionInfo + OPT_ZSTD, OptionInfo + OPT_LZ4,
+	OptionInfo + OPT_CYLZ, OptionInfo + OPT_YLZ,
 
 	OptionInfo + OPT_NONE, // separator
 

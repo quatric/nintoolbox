@@ -60,6 +60,7 @@
 #include "lib-bzip2.h"
 #include "lib-lzma.h"
 #include "lib-zstd.h"
+#include "lib-lz4.h"
 #include "dclib-utf8.h"
 #include "dclib-ui.h"
 #include "lib-mkw.h"
@@ -770,6 +771,8 @@ ccp LibGetErrorName (int stat, ccp ret_not_found)
 			return "PNG ERROR";
 		case ERR_ZSTD:
 			return "ZSTD ERROR";
+		case ERR_LZ4:
+			return "LZ4 ERROR";
 	}
 	return ret_not_found;
 }
@@ -796,6 +799,8 @@ ccp LibGetErrorText (int stat, ccp ret_not_found)
 			return "PNG error";
 		case ERR_ZSTD:
 			return "ZSTD error";
+		case ERR_LZ4:
+			return "LZ4 error";
 	}
 	return ret_not_found;
 }
@@ -3133,6 +3138,9 @@ int GetComprByFF (file_format_t ff, int compr)
 		case FF_ZSTD:
 			return compr >= 1 && compr <= 22 ? compr : ZSTD_DEFAULT_COMPR;
 
+		case FF_LZ4:
+			return compr >= 1 && compr <= 12 ? compr : LZ4_DEFAULT_COMPR;
+
 		default:
 			return compr < 1 ? 9 : compr;
 	}
@@ -4387,6 +4395,19 @@ enumError cmd_filetype ()
 					u8 *dec = 0;
 					uint wr = 0;
 					if (DecodeZSTD (&dec, &wr, (u8 *)buf1, bufsize) == ERR_OK && dec)
+					{
+						fatt.size = wr;
+						fform2 = GetByMagicFF (dec, wr, wr);
+						stat2 = GetNameFF (0, fform2);
+						FREE (dec);
+					}
+					load_full = true;
+				}
+				else if (fform1 == FF_LZ4)
+				{
+					u8 *dec = 0;
+					uint wr = 0;
+					if (DecodeLZ4 (&dec, &wr, (u8 *)buf1, bufsize) == ERR_OK && dec)
 					{
 						fatt.size = wr;
 						fform2 = GetByMagicFF (dec, wr, wr);
