@@ -254,6 +254,77 @@ else
   sk "unattributed formats claim nothing"
 fi
 
+# The .mod vertex width is recovered by brute force, and a wrong width can
+# still consume the display list into well-formed opcodes -- so "it parsed" is
+# not evidence it parsed correctly. Every Excite Truck model that used to
+# convert carried coordinates around 1e38; known-good models from Excitebots
+# and Excitebike sit within 2.4 units of the origin. A misparse must produce
+# nothing rather than a model made of noise.
+mod_d=$(mktemp -d /tmp/_r_modsane.XXXXXX) || mod_d=
+if [ -n "$mod_d" ]; then
+  rm -f "$mod_d/out.glb"
+  "$B/wmdlt" DECODE "$PWD_PROJECT/../tests/fixtures/excitetruck_misparse.mod" \
+    --dest "$mod_d/out.glb" --overwrite >/dev/null 2>&1
+  if [ ! -s "$mod_d/out.glb" ]; then
+    ok "a misparsed .mod is declined rather than exported as noise"
+  else
+    no "MOD position sanity" "exported a model the display list does not support"
+  fi
+
+  # And a model that does parse must still come out at a sane scale.
+  rm -f "$mod_d/good.glb"
+  if "$B/wmdlt" DECODE "$PWD_PROJECT/../tests/fixtures/excite_gpmesh.msh" \
+       --dest "$mod_d/good.glb" --overwrite >/dev/null 2>&1 && [ -s "$mod_d/good.glb" ] \
+  && python3 -c '
+import json, struct, sys
+b = open(sys.argv[1], "rb").read()
+off, doc = 12, None
+while off < len(b):
+    clen, ctype = struct.unpack_from("<II", b, off)
+    if ctype == 0x4E4F534A: doc = json.loads(b[off+8:off+8+clen])
+    off += 8 + clen
+worst = 0.0
+for m in doc["meshes"]:
+    for p in m["primitives"]:
+        a = doc["accessors"][p["attributes"]["POSITION"]]
+        worst = max(worst, max(abs(v) for v in a["min"] + a["max"]))
+assert worst < 1.0e9, ("model exported at an impossible scale", worst)
+' "$mod_d/good.glb"; then
+    ok "a model that does parse exports at a plausible scale"
+  else
+    no "MOD position sanity" "a known-good model stopped converting"
+  fi
+  rm -rf "$mod_d"
+else
+  sk "MOD position sanity"
+fi
+
+# A Camelot texture bank is found by scanning for its signature, because the
+# discs store banks inside relocatable modules that announce nothing. That scan
+# must not run over a file that does announce itself: a U8 archive from Excite
+# Truck matched 59 times and was "extracted" as 59 textures, hiding its real
+# contents.
+cam_d=$(mktemp -d /tmp/_r_camu8.XXXXXX) || cam_d=
+if [ -n "$cam_d" ]; then
+  python3 -c '
+import struct, sys
+# Minimal U8: magic, first-node offset, header, one root node, one file.
+name = b"a.bin\0"
+nodes = struct.pack(">III", 0x01000000, 0, 2) + struct.pack(">III", len(name) << 8, 0x60, 4)
+data = b"\xe3" * 4096   # the byte the Camelot scan keys on, in bulk
+hdr = struct.pack(">IIII", 0x55AA382D, 0x20, len(nodes) + len(name), 0x60) + b"\0" * 16
+open(sys.argv[1], "wb").write(hdr + nodes + name + b"\0" * (0x60 - 0x20 - len(nodes) - len(name)) + data)
+' "$cam_d/fake.arc"
+  rm -rf "$cam_d/out"
+  "$B/wszst" EXTRACT "$cam_d/fake.arc" --dest "$cam_d/out" >/dev/null 2>&1
+  if [ -z "$(find "$cam_d/out" -name '*_0000.png' 2>/dev/null)" ]; then
+    ok "Camelot bank scan leaves a file that carries its own magic alone"
+  else
+    no "Camelot texture bank" "claimed a U8 archive as texture banks"
+  fi
+  rm -rf "$cam_d"
+fi
+
 # Excite Truck's RST archive predates Excitebots'. Its payload carries no
 # QuickLZ stream, so file offsets are absolute in the archive rather than
 # relative to a decompressed block, and its TOC stores each name inline in a

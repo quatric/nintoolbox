@@ -2025,6 +2025,9 @@ enumError EncodeExciteMSH (const model_t *model, ccp out_path)
 // specially detected, since none of the validated corpus used them.
 //-----------------------------------------------------------------------------
 
+// Positions beyond this are a misparse, not a model; see mod_decode_ndl_chunk.
+#define MOD_POS_LIMIT 1.0e9f
+
 static inline u32 xrd_be32 (const u8 *p)
 {
 	return (u32)p[0] << 24 | (u32)p[1] << 16 | (u32)p[2] << 8 | p[3];
@@ -2351,6 +2354,32 @@ static bool mod_decode_ndl_chunk (const u8 *data, uint size, uint m, int mat_idx
 		FREE (pos_f);
 		FREE (tex_f);
 		return false;
+	}
+
+	// The vertex width is recovered by brute force, and a wrong width can
+	// still consume the display list into well-formed opcodes -- self-
+	// validation narrows the field but does not decide it. When it picks
+	// wrongly the positions are read from the wrong bytes, and the result was
+	// exported without complaint: every Excite Truck model that "converted"
+	// carried coordinates around 1e38.
+	//
+	// The header's +0x18 float looks like a bounding radius and is not a
+	// usable bound: across known-good models the ratio between it and the
+	// real extent runs from 0.1 to 187000. What does separate them is scale
+	// alone -- those models all sit within 2.4 units of the origin, while a
+	// misread reaches 1e22 and beyond. The limit below leaves nine orders of
+	// margin above anything genuine and thirteen below anything seen broken,
+	// so it rejects a misparse without judging what a model may contain.
+	for (uint i = 0; i < n_pos * pos_n; i++)
+	{
+		const float v = pos_f[i];
+		if (!isfinite (v) || v < -MOD_POS_LIMIT || v > MOD_POS_LIMIT)
+		{
+			FREE (best_prims);
+			FREE (pos_f);
+			FREE (tex_f);
+			return false;
+		}
 	}
 
 	memset (out_mesh, 0, sizeof (*out_mesh));

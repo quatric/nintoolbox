@@ -3908,6 +3908,21 @@ enumError ExtractCamelotTexBank (ccp arg, ccp basedir, uint depth)
 	size_t raw_size = 0;
 	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false))
 		return ERR_NOTHING_TO_DO;
+
+	// A bank is found by scanning for its signature, because Camelot stores
+	// banks inside relocatable modules that announce nothing themselves. That
+	// scan has no business running over a file that does announce itself: a
+	// 432 KB U8 archive from Excite Truck matched the signature 59 times and
+	// was extracted as "59 textures in 59 banks", displacing the archive's
+	// real contents. Anything carrying a known magic is left to the handler
+	// for that format.
+	// [[analyse-magic]]
+	if (raw_size >= 8 && GetByMagicFF (raw, (uint)raw_size, (uint)raw_size) != FF_UNKNOWN)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
 	if (raw_size < 16 || raw_size > UINT_MAX)
 	{
 		FREE (raw);
