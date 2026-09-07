@@ -1398,6 +1398,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x04, 0x22, 0x4d, 0x18 }, // LZ4 frame magic 0x184D2204
 		0, MinusString, MinusString, "LZ4 compression (.lz4)" },
 
+	// FF_TM0 = 263 (Monster Games high-res GX texture)
+	{ FF_TM0, FF_TM0, 0, "TM0", ".tm0", ".png", ".tm0", FFT_VALID | FFT_CUT | FFT_DECODE, 0,
+		{ 0 }, // no fixed magic, identified by ScanTM0() header+chain-size math
+		0, MinusString, MinusString,
+		"Monster Games high-res GX texture (Excite Truck .tm0)" },
+
 	// FF_N
 	{ 0 }
 };

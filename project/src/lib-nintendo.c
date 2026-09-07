@@ -186,6 +186,47 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		if (size > 0x20 && !memcmp (d, "VFF ", 4)
 			&& (rd_be16 (d + 4) == 0xfeff || rd_be16 (d + 4) == 0xfffe))
 			return make_info (NFMT_VFF, true, false, 0);
+		// Monster Games .tm0 texture: no magic either, so it is identified
+		// the same way ScanTM0() in lib-excite.c does -- a header at 0x80
+		// (u16 width, u16 height, u8 levels, u8 renderer code) whose CMPR
+		// mip-chain size (one chain for renderer code 0x42, two -- colour
+		// plus a same-size I4 stencil chain, each 128 bytes shorter than a
+		// full chain -- for 0x44) exactly accounts for the remaining
+		// payload. Duplicated here (rather than calling ScanTM0()) since
+		// this detector must stay self-contained, not pull the image
+		// decoder into every tool that links this file.
+		if (size > 0x100)
+		{
+			static const uint tm0_dims[] = { 4, 8, 16, 32, 64, 128, 256, 512, 1024 };
+			const u8 *hdr = d + 0x80;
+			const uint w = rd_le16 (hdr), h = rd_le16 (hdr + 2);
+			const uint levels = hdr[4], code = hdr[5];
+			bool wok = false, hok = false;
+			for (uint i = 0; i < sizeof (tm0_dims) / sizeof (tm0_dims[0]); i++)
+			{
+				if (tm0_dims[i] == w)
+					wok = true;
+				if (tm0_dims[i] == h)
+					hok = true;
+			}
+			if (wok && hok && levels >= 1 && levels <= 10 && code >= 0x40 && code <= 0x4f)
+			{
+				u64 chain = 0;
+				for (uint i = 0; i < levels; i++)
+				{
+					const uint lw = w >> i ? w >> i : 1, lh = h >> i ? h >> i : 1;
+					const uint tw = (lw + 7) / 8 * 8, th = (lh + 7) / 8 * 8;
+					chain += (u64)tw * th / 2; // CMPR: 4bpp over 8x8 tiles
+				}
+				if (chain > 0x80)
+				{
+					const u64 tail = chain - 0x80;
+					const u64 psize = size - 0x100;
+					if (psize == tail || psize == chain + tail)
+						return make_info (NFMT_TM0, false, false, 0);
+				}
+			}
+		}
 		if (!memcmp (d, "ZTAB", 4))
 			return make_info (NFMT_ZTAB, true, false, 0);
 		// Next Level Games container (Super Mario Strikers' .glg, Mario
