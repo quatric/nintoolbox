@@ -565,11 +565,6 @@ int ParseNSBCAIntoModel (model_t *model, const uint8_t *data, size_t size, const
 									si[0] = fx12 (rds32le (arr + idx * 8));
 									si[1] = fx12 (rds32le (arr + idx * 8 + 4));
 								}
-#ifdef DEBUG_NSBANIM
-								if (node == 1 && f == 0 && ax == 0)
-									fprintf (stderr, "S node1 ax%d off=%x info=%x arrrel=%x idx=%u fx16=%d v=%g\n",
-										ax, off[ax], info[ax], (unsigned)(arr - data), idx, !!(info[ax] & XFX16), si[0]);
-#endif
 								v[ax] = si[0];
 							}
 							if (bad)
