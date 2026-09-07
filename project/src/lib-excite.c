@@ -3096,3 +3096,214 @@ enumError EncodeExciteMOD (const model_t *model, ccp out_path)
 
 //-----------------------------------------------------------------------------
 ///////////////		end of Excite Truck / ExciteBots	///////////////
+
+//-----------------------------------------------------------------------------
+///////////////		.can skeletal animations		///////////////
+//-----------------------------------------------------------------------------
+
+// A Monster Games .can ("nAhC" in the RST/TOC type table) is a little-endian
+// skeletal animation with no magic of its own:
+//
+//   0x00 u32 node count
+//   0x04 f32 duration in seconds
+//   0x08 u32 (equals the node count on 17 of the 30 retail files)
+//   0x0c u32 offset of the node table, always 0x18
+//   0x10 u32 version-ish tag (0, 1 or 4 across the corpus)
+//   0x14 u32 offset of the key data, always 0x18 + count * 0x64
+//
+// then one 0x64-byte node record each:
+//
+//   0x00 char name[32]      (may be empty)
+//   0x20 u32                (1..90; unused here)
+//   0x24 s32 parent index   (-1 for a root; every retail value is in range)
+//   0x28 f32 rot[9]         rest orientation, COLUMN-major
+//   0x4c f32 translate[3]   rest translation
+//   0x58 u32 key count
+//   0x5c u32 first key offset
+//   0x60 u32 end-of-keys offset  (always first + count * 36)
+//
+// and 36 bytes per key: quaternion x,y,z,w -- then translation x,y,z, a
+// single uniform scale, and the key's time in seconds.
+//
+// The quaternion component order and the matrix's column-major storage were
+// pinned down together: turning each key-0 quaternion into a rotation matrix
+// reproduces the record's rest matrix *transposed* for every one of the 335
+// retail nodes whose rest matrix is asymmetric (and, of course, either way
+// for the symmetric ones). Reading the quaternion as w,x,y,z instead matches
+// none of them. The rest pose is genuinely a separate pose, not a copy of
+// key 0: only 479 of 973 nodes have a rest translation equal to their first
+// key's.
+#define CAN_HEADER_SIZE 0x18
+#define CAN_NODE_SIZE 0x64
+#define CAN_KEY_SIZE 36
+#define CAN_MAX_NODES 4096
+
+static inline float can_f32 (const u8 *p)
+{
+	u32 v = xrd_le32 (p);
+	float f;
+	memcpy (&f, &v, sizeof (f));
+	return f;
+}
+
+// Rest matrix -> the Euler angles in degrees that joint_t carries.
+// ExportModelToGLB() turns those back into a quaternion with
+// q = Rz * Ry * Rx (X applied first), so the matrix has to be taken apart in
+// that order; using the more common X*Y*Z convention here gets 565 of the 973
+// retail rest poses wrong.
+static void can_matrix_to_euler_deg (const float m[9], float *out_x, float *out_y, float *out_z)
+{
+	// m is column-major, so element (row,col) is m[col * 3 + row].
+#define M(r, c) m[(c) * 3 + (r)]
+	double sy = -(double)M (2, 0);
+	if (sy < -1.0)
+		sy = -1.0;
+	else if (sy > 1.0)
+		sy = 1.0;
+	const double y = asin (sy);
+	double x, z;
+	if (fabs (sy) < 0.999999)
+	{
+		x = atan2 (M (2, 1), M (2, 2));
+		z = atan2 (M (1, 0), M (0, 0));
+	}
+	else
+	{
+		// Gimbal lock: only x-z (sy == 1) or x+z (sy == -1) is determined,
+		// so put the whole thing in X.
+		x = sy > 0 ? atan2 (M (0, 1), M (1, 1)) : atan2 (-M (0, 1), M (1, 1));
+		z = 0;
+	}
+#undef M
+	const double deg = 180.0 / M_PI;
+	*out_x = (float)(x * deg);
+	*out_y = (float)(y * deg);
+	*out_z = (float)(z * deg);
+}
+
+enumError DecodeExciteCAN (const u8 *data, uint size, ccp out_path)
+{
+	if (!data || size < CAN_HEADER_SIZE)
+		return ERR_NOTHING_TO_DO;
+
+	const u32 n_node = xrd_le32 (data);
+	const float duration = can_f32 (data + 4);
+	const u32 node_off = xrd_le32 (data + 0x0c);
+	const u32 key_off = xrd_le32 (data + 0x14);
+
+	if (!n_node || n_node > CAN_MAX_NODES || node_off != CAN_HEADER_SIZE
+		|| key_off != node_off + n_node * CAN_NODE_SIZE || key_off > size
+		|| !(duration > 0.0f && duration < 1e6f))
+		return ERR_NOTHING_TO_DO;
+
+	// Validate every record before allocating anything: an extension-gated
+	// format with no magic must not half-convert a file that merely ends in
+	// ".can".
+	for (uint i = 0; i < n_node; i++)
+	{
+		const u8 *r = data + node_off + i * CAN_NODE_SIZE;
+		const s32 parent = (s32)xrd_le32 (r + 0x24);
+		const u32 n_key = xrd_le32 (r + 0x58);
+		const u32 kbeg = xrd_le32 (r + 0x5c), kend = xrd_le32 (r + 0x60);
+		if (parent < -1 || parent >= (s32)n_node || parent == (s32)i)
+			return ERR_NOTHING_TO_DO;
+		if (!n_key || kbeg < key_off || kend != kbeg + n_key * CAN_KEY_SIZE || kend > size)
+			return ERR_NOTHING_TO_DO;
+	}
+
+	joint_t *joints = CALLOC (n_node, sizeof (joint_t));
+	model_anim_channel_t *chan = CALLOC (3 * (size_t)n_node, sizeof (model_anim_channel_t));
+	if (!joints || !chan)
+	{
+		FREE (joints);
+		FREE (chan);
+		return ERR_CANT_CREATE;
+	}
+
+	uint n_chan = 0;
+	for (uint i = 0; i < n_node; i++)
+	{
+		const u8 *r = data + node_off + i * CAN_NODE_SIZE;
+		joint_t *j = joints + i;
+		memcpy (j->name, r, 32);
+		j->name[32] = 0;
+		if (!j->name[0])
+			snprintf (j->name, sizeof (j->name), "node%u", i);
+		j->parent_idx = (s32)xrd_le32 (r + 0x24);
+
+		float m[9];
+		for (uint k = 0; k < 9; k++)
+			m[k] = can_f32 (r + 0x28 + 4 * k);
+		can_matrix_to_euler_deg (m, &j->rotate.x, &j->rotate.y, &j->rotate.z);
+		j->translate.x = can_f32 (r + 0x4c);
+		j->translate.y = can_f32 (r + 0x50);
+		j->translate.z = can_f32 (r + 0x54);
+		j->scale.x = j->scale.y = j->scale.z = 1.0f;
+
+		const u32 n_key = xrd_le32 (r + 0x58);
+		const u8 *keys = data + xrd_le32 (r + 0x5c);
+
+		// One rotation, one translation and one scale channel per node. The
+		// stored scale is a single uniform factor, expanded to the vec3 glTF
+		// wants.
+		static const uint comps[3] = { 4, 3, 3 };
+		static const model_anim_path_t paths[3]
+			= { MODEL_ANIM_ROTATION, MODEL_ANIM_TRANSLATION, MODEL_ANIM_SCALE };
+		for (uint c = 0; c < 3; c++)
+		{
+			model_anim_channel_t *ch = chan + n_chan;
+			ch->node_idx = (int)i;
+			ch->path = paths[c];
+			ch->count = n_key;
+			ch->components = comps[c];
+			ch->times = MALLOC (n_key * sizeof (float));
+			ch->values = MALLOC ((size_t)n_key * comps[c] * sizeof (float));
+			if (!ch->times || !ch->values)
+			{
+				FREE (ch->times);
+				FREE (ch->values);
+				memset (ch, 0, sizeof (*ch));
+				break;
+			}
+			for (uint k = 0; k < n_key; k++)
+			{
+				const u8 *p = keys + k * CAN_KEY_SIZE;
+				ch->times[k] = can_f32 (p + 32);
+				float *v = ch->values + (size_t)k * comps[c];
+				if (c == 0)
+					for (uint q = 0; q < 4; q++)
+						v[q] = can_f32 (p + 4 * q);
+				else if (c == 1)
+					for (uint q = 0; q < 3; q++)
+						v[q] = can_f32 (p + 16 + 4 * q);
+				else
+					v[0] = v[1] = v[2] = can_f32 (p + 28);
+			}
+			n_chan++;
+		}
+	}
+
+	model_animation_t anim;
+	memset (&anim, 0, sizeof (anim));
+	StringCopyS (anim.name, sizeof (anim.name), "can");
+	anim.channels = chan;
+	anim.num_channels = n_chan;
+
+	model_t model;
+	memset (&model, 0, sizeof (model));
+	model.joints = joints;
+	model.num_joints = n_node;
+	model.animations = &anim;
+	model.num_animations = 1;
+
+	const enumError rc = ExportModelToGLB (&model, out_path) == 0 ? ERR_OK : ERR_CANT_CREATE;
+
+	for (uint c = 0; c < n_chan; c++)
+	{
+		FREE (chan[c].times);
+		FREE (chan[c].values);
+	}
+	FREE (chan);
+	FREE (joints);
+	return rc;
+}

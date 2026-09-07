@@ -4421,6 +4421,44 @@ static enumError extract_glg_file (ccp arg, ccp basedir, uint depth)
 	return err;
 }
 
+// A .can is a skeletal animation, not geometry, so unlike .mod it carries no
+// texture references and needs no deferred pass -- it converts on sight.
+static enumError extract_can_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".can"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+	if (raw_size > UINT_MAX)
+	{
+		FREE (raw);
+		return ERR_FILE_TOO_BIG;
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest_ext (dest, sizeof (dest), arg, ".glb");
+
+	if (testmode)
+	{
+		FREE (raw);
+		fprintf (stdlog, "WOULD EXTRACT CAN:%s -> GLB:%s\n", arg, dest);
+		return ERR_OK;
+	}
+
+	err = DecodeExciteCAN (raw, (uint)raw_size, dest);
+	FREE (raw);
+	if (err)
+		return err;
+
+	if (verbose >= 0)
+		fprintf (stdlog, "%sEXTRACT CAN:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, dest);
+	return err;
+}
+
 static enumError extract_mod_file (ccp arg, ccp basedir, uint depth)
 {
 	if (!is_ext (arg, ".mod"))

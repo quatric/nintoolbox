@@ -185,6 +185,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **SMDH** | `.smdh` | ✅ | — | — | ✅ | Nintendo 3DS application icon, publisher info & title metadata |
 | **TEX** | `.tex` | ✅ | ✅ | ✅ | ✅ | Monster Games GX texture format (Wii) |
 | **TM0** | `.tm0` | ✅ | — | — | ✅ | Monster Games high-resolution texture (*Excite Truck*, Wii): an explicit header at 0x80 followed by a CMPR colour mip chain and, for renderer code 0x44, an I4 stencil chain that supplies the alpha. Both chains are 4bpp over 8x8 tiles and so identical in length, and nothing in the header names them apart. ExciteBots ships a headerless variant of the same container, which is not decoded yet |
+| **CAN** | `.can` | ✅ | — | — | ✅ | Monster Games skeletal animation (*Excite Truck* / *ExciteBots*, Wii), converted to a GLB with the node hierarchy and one rotation/translation/scale channel per node. No magic: a little-endian header, 0x64-byte node records with a column-major rest matrix, and 36-byte keys of quaternion + translation + uniform scale + time. Verified across all 973 nodes of the 29 non-empty retail animations: hierarchy, rest pose, key values and duration all reproduced |
 | **TEX0** | `.tex0` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4R texture resource (Wii) |
 | **TEX3DS** | `.tex` | — | — | — | — | Nintendo 3DS proprietary texture (identification only) |
 | **XIMG** | `.xi` | — | — | — | — | Level-5 3DS/Switch image & texture container |

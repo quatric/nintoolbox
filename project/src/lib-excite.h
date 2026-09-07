@@ -146,4 +146,17 @@ enumError DecodeExciteMOD (const u8 *data, uint size, ccp out_path);
 // EncodeExciteMOD() in lib-excite.c for details.
 enumError EncodeExciteMOD (const model_t *model, ccp out_path);
 
+//-----------------------------------------------------------------------------
+///////////////		.can skeletal animations		///////////////
+//-----------------------------------------------------------------------------
+
+// Decode a Monster Games .can skeletal animation (Excite Truck / ExciteBots)
+// to a GLB at OUT_PATH: a node hierarchy carrying the rest pose plus one
+// rotation, translation and scale channel per node. The format has no magic,
+// so every record is validated before anything is written; returns
+// ERR_NOTHING_TO_DO when the header and record offsets do not add up. See the
+// comment above DecodeExciteCAN() in lib-excite.c for the layout and for how
+// the quaternion order and matrix storage were established.
+enumError DecodeExciteCAN (const u8 *data, uint size, ccp out_path);
+
 #endif // LIB_EXCITE_H

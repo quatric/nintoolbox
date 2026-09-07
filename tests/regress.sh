@@ -7766,6 +7766,82 @@ with open("'"$d"'/imet_test/opening.bnr", "wb") as f:
     fno "Wii channel banner" "failed to unwrap IMET/IMD5 banner sample";
   fi
 
+  # Monster Games .can: a magic-less little-endian skeletal animation. Header
+  # (node count, duration, node-table and key offsets), 0x64-byte node
+  # records (name, parent, column-major rest matrix, rest translation, key
+  # range) and 36-byte keys of quaternion + translation + uniform scale +
+  # time. Converted to a GLB with one animation and three channels per node.
+  mkdir -p "$d/can_test"
+  python3 -c '
+import struct
+NODES = [("root", -1, 0.0, 0.0, 0.0), ("child", 0, 1.0, 2.0, 3.0)]
+KEYS = 3
+DURATION = 0.5
+key_off = 0x18 + len(NODES) * 0x64
+out = bytearray()
+out += struct.pack("<IfIIII", len(NODES), DURATION, len(NODES), 0x18, 1, key_off)
+keys = bytearray()
+for i, (name, parent, tx, ty, tz) in enumerate(NODES):
+    rec = bytearray(0x64)
+    rec[0:len(name)] = name.encode()
+    struct.pack_into("<I", rec, 0x20, 1)
+    struct.pack_into("<i", rec, 0x24, parent)
+    # identity rest orientation (column-major, so also its own transpose)
+    for k, v in enumerate((1, 0, 0, 0, 1, 0, 0, 0, 1)):
+        struct.pack_into("<f", rec, 0x28 + 4 * k, float(v))
+    struct.pack_into("<3f", rec, 0x4c, tx, ty, tz)
+    struct.pack_into("<I", rec, 0x58, KEYS)
+    struct.pack_into("<I", rec, 0x5c, key_off + len(keys))
+    struct.pack_into("<I", rec, 0x60, key_off + len(keys) + KEYS * 36)
+    for k in range(KEYS):
+        # rotate about Z by 0, 45 and 90 degrees
+        import math
+        a = math.radians(45.0 * k) / 2
+        keys += struct.pack("<9f", 0.0, 0.0, math.sin(a), math.cos(a),
+                            tx, ty, tz, 1.0 + i, DURATION * k / (KEYS - 1))
+    out += rec
+open("'"$d"'/can_test/anim.can", "wb").write(bytes(out) + bytes(keys))
+'
+  if "$B/wszst" XX "$d/can_test/anim.can" >/dev/null 2>&1 \
+  && python3 -c '
+import struct, json, math
+d = open("'"$d"'/can_test/anim.glb", "rb").read()
+assert d[:4] == b"glTF", d[:4]
+total = struct.unpack_from("<I", d, 8)[0]
+o, js, bin_ = 12, None, None
+while o < total:
+    ln, ty = struct.unpack_from("<I4s", d, o)
+    body = d[o + 8:o + 8 + ln]
+    o += 8 + ln
+    if ty == b"JSON": js = json.loads(body)
+    elif ty.startswith(b"BIN"): bin_ = body
+assert [n["name"] for n in js["nodes"]] == ["root", "child"], js["nodes"]
+assert js["nodes"][0].get("children") == [1], js["nodes"][0]
+assert js["nodes"][1]["translation"] == [1.0, 2.0, 3.0], js["nodes"][1]
+assert len(js["animations"]) == 1
+chans = js["animations"][0]["channels"]
+assert len(chans) == 6, len(chans)
+paths = sorted(c["target"]["path"] for c in chans)
+assert paths == ["rotation"] * 2 + ["scale"] * 2 + ["translation"] * 2, paths
+for c, s_ in zip(chans, js["animations"][0]["samplers"]):
+    acc = js["accessors"][s_["output"]]
+    bv = js["bufferViews"][acc["bufferView"]]
+    n = {"VEC4": 4, "VEC3": 3}[acc["type"].upper()]
+    v = struct.unpack_from("<%df" % (acc["count"] * n), bin_, bv.get("byteOffset", 0))
+    if c["target"]["path"] == "rotation":
+        # last key is 90 degrees about Z
+        assert abs(v[-2] - math.sin(math.radians(45))) < 1e-6, v[-4:]
+    elif c["target"]["path"] == "scale":
+        want = 1.0 + c["target"]["node"]
+        assert all(abs(x - want) < 1e-6 for x in v), (want, v)
+    ti = js["accessors"][s_["input"]]
+    assert abs(ti["max"][0] - 0.5) < 1e-6, ti
+'; then
+    fok "Monster Games .can skeletal animation -> GLB"
+  else
+    fno "Monster Games .can" "failed to convert .can sample";
+  fi
+
   # Excite Truck .tm0: 128 unchecked bytes, the explicit 128-byte header at
   # 0x80 (w, h, levels, renderer code), then a CMPR colour mip chain and --
   # for renderer code 0x44 -- an I4 stencil chain supplying the alpha. Both
