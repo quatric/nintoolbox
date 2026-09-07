@@ -8,7 +8,7 @@ This document presents the compressed output file sizes, compression ratios, and
 | Compression Format / Codec | Output Size | Compression Ratio | Space Saved (%) | Where It Is Used / Platform Context |
 |---|---|---|---|---|
 | **ALZ1 (Mario Party / Bomberman LZ77)** | 894 B | 25.75% | 74.25% | Hudson Soft Mario Party / Bomberman (GameCube / Wii) |
-| **ASH0 (Nintendo Huffman+LZSS)** | 4,628 B | 133.29% | -33.29% | Wii System Menu, Animal Crossing: City Folk, My Pokémon Ranch |
+| **ASH0 (Nintendo Huffman+LZSS)** | 1,032 B | 29.72% | 70.28% | Wii System Menu, Animal Crossing: City Folk, My Pokémon Ranch |
 | **BLZ (DS Nitro ARM9 backward LZ)** | 922 B | 26.56% | 73.44% | Nintendo DS Nitro ARM9/ARM7 executable overlays |
 | **BPE / GFCP (Good-Feel Byte Pair)** | 894 B | 25.75% | 74.25% | Good-Feel Kirby's Epic Yarn, Yoshi's Woolly World (Wii) |
 | **Bzip2 (Raw stream)** | 717 B | 20.65% | 79.35% | Standard high-compression block-sorting stream format |
@@ -54,7 +54,7 @@ This document presents the compressed output file sizes, compression ratios, and
 | Compression Format / Codec | Output Size | Compression Ratio | Space Saved (%) | Where It Is Used / Platform Context |
 |---|---|---|---|---|
 | **ALZ1 (Mario Party / Bomberman LZ77)** | 4,165 B | 24.53% | 75.47% | Hudson Soft Mario Party / Bomberman (GameCube / Wii) |
-| **ASH0 (Nintendo Huffman+LZSS)** | 19,820 B | 116.75% | -16.75% | Wii System Menu, Animal Crossing: City Folk, My Pokémon Ranch |
+| **ASH0 (Nintendo Huffman+LZSS)** | 4,532 B | 26.69% | 73.31% | Wii System Menu, Animal Crossing: City Folk, My Pokémon Ranch |
 | **BLZ (DS Nitro ARM9 backward LZ)** | 4,300 B | 25.33% | 74.67% | Nintendo DS Nitro ARM9/ARM7 executable overlays |
 | **BPE / GFCP (Good-Feel Byte Pair)** | 4,165 B | 24.53% | 75.47% | Good-Feel Kirby's Epic Yarn, Yoshi's Woolly World (Wii) |
 | **Bzip2 (Raw stream)** | 2,981 B | 17.56% | 82.44% | Standard high-compression block-sorting stream format |
@@ -100,7 +100,7 @@ This document presents the compressed output file sizes, compression ratios, and
 | Compression Format / Codec | Output Size | Compression Ratio | Space Saved (%) | Where It Is Used / Platform Context |
 |---|---|---|---|---|
 | **ALZ1 (Mario Party / Bomberman LZ77)** | 81,325 B | 46.66% | 53.34% | Hudson Soft Mario Party / Bomberman (GameCube / Wii) |
-| **ASH0 (Nintendo Huffman+LZSS)** | 196,820 B | 112.91% | -12.91% | Wii System Menu, Animal Crossing: City Folk, My Pokémon Ranch |
+| **ASH0 (Nintendo Huffman+LZSS)** | 76,968 B | 44.16% | 55.84% | Wii System Menu, Animal Crossing: City Folk, My Pokémon Ranch |
 | **BLZ (DS Nitro ARM9 backward LZ)** | 81,302 B | 46.64% | 53.36% | Nintendo DS Nitro ARM9/ARM7 executable overlays |
 | **BPE / GFCP (Good-Feel Byte Pair)** | 81,325 B | 46.66% | 53.34% | Good-Feel Kirby's Epic Yarn, Yoshi's Woolly World (Wii) |
 | **Bzip2 (Raw stream)** | 48,911 B | 28.06% | 71.94% | Standard high-compression block-sorting stream format |
@@ -146,7 +146,7 @@ This document presents the compressed output file sizes, compression ratios, and
 | Compression Format / Codec | Output Size | Compression Ratio | Space Saved (%) | Where It Is Used / Platform Context |
 |---|---|---|---|---|
 | **ALZ1 (Mario Party / Bomberman LZ77)** | 361,213 B | 50.32% | 49.68% | Hudson Soft Mario Party / Bomberman (GameCube / Wii) |
-| **ASH0 (Nintendo Huffman+LZSS)** | 808,228 B | 112.60% | -12.60% | Wii System Menu, Animal Crossing: City Folk, My Pokémon Ranch |
+| **ASH0 (Nintendo Huffman+LZSS)** | 328,992 B | 45.83% | 54.17% | Wii System Menu, Animal Crossing: City Folk, My Pokémon Ranch |
 | **BLZ (DS Nitro ARM9 backward LZ)** | 360,630 B | 50.24% | 49.76% | Nintendo DS Nitro ARM9/ARM7 executable overlays |
 | **BPE / GFCP (Good-Feel Byte Pair)** | 361,213 B | 50.32% | 49.68% | Good-Feel Kirby's Epic Yarn, Yoshi's Woolly World (Wii) |
 | **Bzip2 (Raw stream)** | 191,001 B | 26.61% | 73.39% | Standard high-compression block-sorting stream format |
@@ -192,7 +192,7 @@ This document presents the compressed output file sizes, compression ratios, and
 | Compression Format / Codec | Output Size | Compression Ratio | Space Saved (%) | Where It Is Used / Platform Context |
 |---|---|---|---|---|
 | **ALZ1 (Mario Party / Bomberman LZ77)** | 4,476,541 B | 100.46% | -0.46% | Hudson Soft Mario Party / Bomberman (GameCube / Wii) |
-| **ASH0 (Nintendo Huffman+LZSS)** | 5,013,664 B | 112.52% | -12.52% | Wii System Menu, Animal Crossing: City Folk, My Pokémon Ranch |
+| **ASH0 (Nintendo Huffman+LZSS)** | 1,735,572 B | 38.95% | 61.05% | Wii System Menu, Animal Crossing: City Folk, My Pokémon Ranch |
 | **BLZ (DS Nitro ARM9 backward LZ)** | 1,882,148 B | 42.24% | 57.76% | Nintendo DS Nitro ARM9/ARM7 executable overlays |
 | **BPE / GFCP (Good-Feel Byte Pair)** | 4,476,541 B | 100.46% | -0.46% | Good-Feel Kirby's Epic Yarn, Yoshi's Woolly World (Wii) |
 | **Bzip2 (Raw stream)** | 1,852,363 B | 41.57% | 58.43% | Standard high-compression block-sorting stream format |
