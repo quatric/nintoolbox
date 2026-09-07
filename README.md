@@ -52,6 +52,8 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 
 | Format | Extensions | Decode Tested | Encode Tested | Byte-Exact Roundtrip | Retail Source Tested | Middleware / Engine / Platform Context |
 | --- | --- | --- | --- | --- | --- | --- |
+| **ABE BigFile** | `.bf` | ✅ | — | — | — | Ubisoft *Rabbids Go Home* BigFile archive (ABE\0 with segmented LZO1X chunks) |
+| **ALAR** | `.alar` | ✅ | — | — | — | Nintendo DS Nitro ALAR archive (*Jump Ultimate Stars*) |
 | **APAK** | `.apak` | ✅ | ✅ | ✅ | — | Nintendo / Pokémon APAK archive format (Wii U / Switch) |
 | **ARC / U8** | `.arc`, `.szs` | ✅ | ✅ | ✅ | — | Nintendo standard U8 archive (Wii / GameCube NintendoWare & EAD) |
 | **ARCV** | `.arc` | ✅ | ✅ | ✅ | — | Namco / Tose Wii archive format |
@@ -59,8 +61,11 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **AT7** | `.at7` | ✅ | ✅ | ✅ | — | Koei Tecmo container format (Wii / PS2) |
 | **BG4** | `.bg4` | ✅ | ✅ | ✅ | — | AlphaDream 3DS flat archive with BLZ member compression |
 | **BIGF** | `.big` | ✅ | ✅ | ✅ | — | Electronic Arts Wii asset archive |
+| **BNS Archive** | `.bns` | ✅ | — | — | — | Koei Tecmo *Samurai Warriors 3* multi-file asset archive (`LINKDATA*.BNS`) |
 | **CA01 / SA01** | `.ca01`, `.sa01` | ✅ | ✅ | ✅ | — | Nintendo Network Mii & amiibo system archive (3DS / Wii U) |
 | **CCF** | `.ccf` | ✅ | ✅ | ✅ | — | Nintendo Virtual Console container (Wii / Switch) |
+| **CNUT** | `.cnut` | ✅ | ✅ | ✅ | — | *Wii Party* compiled Squirrel script & message container (`SQIR`) |
+| **COD PAK0** | `.pak` | ✅ | — | — | — | *Call of Duty: Black Ops* / *MW3* (Wii) sound archive (`PAK0`) |
 | **CRAM** | `.arc`, `.cram` | ✅ | ✅ | ✅ | — | Monolith Soft 3DS flat archive container |
 | **DARC** | `.darc` | ✅ | ✅ | ✅ | — | NintendoWare NW4C differential archive (3DS) |
 | **DTLS** | `dt00`, `ls00`, `.ls` | ✅ | ✅ | ✅ | — | Bandai Namco composite package & lookup archive (*Super Smash Bros. 4* Wii U / 3DS) |
@@ -75,22 +80,26 @@ wseqt DECODE sequence.sseq --dest sequence.mid
 | **MDR** | `.mdr` | ✅ | ✅ | ✅ | — | *Dance Dance Revolution Mario Mix* chunk archive with per-chunk zlib streams |
 | **MKGPDX PAC** | `.pac`, `.mkgpdx` | ✅ | ✅ | ✅ | — | *Mario Kart Arcade GP DX* layout archive (`pack`) |
 | **MPBIN** | `.bin` | ✅ | ✅ | ✅ | ✅ | Hudson Soft Mario Party archive container (GameCube / Wii) |
+| **MSR** | `.bin` | 🟡 | — | — | — | *Metroid: Samus Returns* (3DS) flat archive container |
 | **MTXT** | `.mtxt` | ✅ | ✅ | ✅ | — | Nintendo Switch MTXT texture archive (gzip-wrapped XTX) |
 | **NARC** | `.narc` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro standard archive (DS / DSi) |
 | **NCCARC** | `.nccarc` | ✅ | ✅ | ✅ | — | Nintendo DS flat blob container |
 | **NDS / SRL / DSI** | `.nds`, `.srl`, `.dsi` | ✅ | — | — | — | Nintendo DS & DSi ROM images and executables |
 | **NXARC** | `.nxarc` | ✅ | ✅ | ✅ | — | Nintendo Switch NX archive (`RAXN`) |
 | **PAC / MRG** | `.pac`, `.mrg` | ✅ | ✅ | ✅ | — | HAL Laboratory / Game Arts Wii archive container |
-| **PKG / GPKG / GPAK** | `.pkg`, `.pak`, `.gpak` | ✅ | ✅ | ✅ | — | Sonic Team Storybook series archive (*Secret Rings* / *Black Knight*) |
+| **PKG / GPKG / GPAK** | `.pkg`, `.pak`, `.gpak` | ✅ | ✅ | ✅ | — | Sonic Team Storybook series archive (*Secret Rings* / *Black Knight*), Gorilla Games *Bonsai Barber* PKG, and 2D Boy *World of Goo* GPAK |
 | **PKZ** | `.pkz` | ✅ | ✅ | ✅ | — | PlatinumGames archive format (*Bayonetta*, *Astral Chain*) |
+| **PRC** | `.prc` | ✅ | — | — | — | *Super Smash Bros. 4* parameter binary (`para`) |
 | **PVOL** | `.pvol` | ✅ | ✅ | ✅ | — | *Pikmin 1 & 2* model & resource container archive |
 | **RARC** | `.rarc`, `.arc` | ✅ | ✅ | ✅ | — | Nintendo standard resource archive (GameCube / Wii) |
 | **RFL_Res** | `RFL_Res.dat`, `.dat` | ✅ | ✅ | ✅ | — | Revolution Face Library Mii resource database (Wii / 3DS / Wii U) |
 | **RPAK** | `.rpak`, `.pak` | ✅ | — | — | — | Retro Studios asset container (*Metroid Prime* / *Donkey Kong Country Returns*) |
 | **RST / TOC** | `.rst`, `.toc` | ✅ | ✅ | ✅ | — | Monster Games archive & table of contents (*Excite Truck* / *Excitebots*) |
 | **SARC** | `.sarc`, `.szs` | ✅ | ✅ | ✅ | — | NintendoWare NW4F & NintendoSDK sorted archive (Wii U / Switch / 3DS) |
+| **SFZDAT** | `.dat` | ✅ | 🟡 | — | — | *Star Fox Zero* (Wii U) flat archive (`DAT\0`) |
 | **SIR0** | `.sir0` | ✅ | ✅ | ✅ | — | Pokémon Mystery Dungeon resource container (DS / 3DS) |
 | **STPK** | `.srd`, `.stpk` | ✅ | ✅ | ✅ | — | *Jump Super Stars* & *Jump Ultimate Stars* DS resource archive |
+| **Storybook ONE** | `.one` | ✅ | — | — | — | Sonic Team *Sonic and the Secret Rings* / *Black Knight* PRS-compressed container |
 | **SZE** | `.sze` | ✅ | ✅ | ✅ | — | Nintendo Switch AES-encrypted container (NST / Switch) |
 | **TMPK** | `.pack`, `.tmpk` | ✅ | ✅ | ✅ | — | *The Legend of Zelda: Twilight Princess HD* archive (`TMPK`) |
 | **VCRA** | `.bin`, `.vcra` | ✅ | ✅ | ✅ | — | Bandai Namco Museum Remix archive format (Wii) |
@@ -114,6 +123,9 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | **BCH** | `.bch` | **GLB** | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C H3D binary character model (3DS) |
 | **BCMDL / CGFX** | `.bcmdl`, `.cgfx` | **GLB** | ✅ | — | — | ✅ | NintendoWare NW4C CGFX 3D model resource (3DS) |
+| **BCRES** | `.bcres` | **GLB** | ✅ | — | — | ✅ | NintendoWare NW4C CGFX 3D graphics and model resource container (3DS) |
+| **BFRES** | `.bfres` | **GLB** | ✅ | — | — | ✅ | Nintendo GX2 / NintendoSDK 3D model & surface resource archive (Wii U / Switch) |
+| **BIKE (MKAGPDX)** | `.bin` | **GLB** | ✅ | — | — | — | Mario Kart Arcade GP DX 3D vehicle model (`BIKE`) |
 | **BMD** | `.bmd`, `.bdhc` | **GLB** | ✅ | ✅ | ✅ | — | Early Nintendo DS 3D model format (DS) |
 | **BNFM** | `.bnfm` | **GLB** | ✅ | ✅ | ✅ | — | Nd Cube Wii U 3D model format (*Animal Crossing: Amiibo Festival*, *Mario Party 10*) |
 | **G1M** | `.g1m` | **GLB** | ✅ | — | — | ✅ | Koei Tecmo 3D model format (*Hyrule Warriors*, *Fire Emblem Warriors*). Positions, normals and UVs. Vertex colour is parsed but not exported; all 600 models checked carry a single bone and no blend attributes, so there is no skinning in this corpus to export |
@@ -160,6 +172,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **NUT** | `.nut` | ✅ | ✅ | ✅ | — | Bandai Namco texture package (*Super Smash Bros. 4* Wii U / 3DS) |
 | **NUTEXB** | `.nutexb` | ✅ | ✅ | ✅ | — | Bandai Namco / Nintendo Switch texture wrapper (Switch) |
 | **PTLG** | `.glt`, `.rlt` | ✅ | ✅ | ✅ | — | Next Level Games texture container, extracted as TPL (*Super Mario Strikers*, *Mario Strikers Charged*) |
+| **SMDH** | `.smdh` | ✅ | — | — | ✅ | Nintendo 3DS application icon, publisher info & title metadata |
 | **TEX** | `.tex` | ✅ | ✅ | ✅ | ✅ | Monster Games GX texture format (Wii) |
 | **TEX0** | `.tex0` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4R texture resource (Wii) |
 | **TEX3DS** | `.tex` | — | — | — | — | Nintendo 3DS proprietary texture (identification only) |
@@ -175,12 +188,14 @@ BRRES sub-file formats (TEX0, TEX) embed their own name, so the name has to matc
 
 | Format | Extensions | Decode Tested | Encode Tested | Retail Source Tested | Middleware / Engine / Platform Context |
 | --- | --- | --- | --- | --- | --- |
+| **BARS** | `.bars` | ✅ | — | — | Nintendo Binary Audio Resource Archive (Wii U / Switch) |
 | **BCSAR / BCWAR / BCWAV** | `.bcsar`, `.bcwar`, `.bcwav` | ✅ | ✅ | ✅ | NintendoWare NW4C sound archive & wave format (3DS) |
 | **BFSAR / BFWAR / BFWAV** | `.bfsar`, `.bfwar`, `.bfwav` | ✅ | ✅ | ✅ | NintendoWare NW4F & NintendoSDK sound archive & wave format (Wii U / Switch) |
 | **BRSAR / RBNK / RWAV** | `.brsar`, `.rbnk`, `.rwav` | ✅ | ✅ | ✅ | NintendoWare NW4R sound archive, instrument bank & wave format (Wii) |
 | **BRSTM / BCSTM / BFSTM** | `.brstm`, `.bcstm`, `.bfstm` | ✅ | ✅ | ✅ | Nintendo multi-channel stream audio (Wii / 3DS / Wii U / Switch) |
 | **NUS3AUDIO** | `.nus3audio`, `.nus3bank` | ✅ | ✅ | — | Bandai Namco NUS3 audio archive (*Super Smash Bros. Ultimate* Switch) |
 | **RSEQ / CSEQ / FSEQ / SSEQ** | `.rseq`, `.cseq`, `.fseq`, `.sseq` | ✅ | ✅ | ✅ | Nintendo sequence music format (Wii / 3DS / Wii U / DS) |
+| **SADL** | `.sad`, `.sadl` | ✅ | — | ✅ | Level-5 / *Professor Layton* audio stream container (DS) |
 | **SDAT** | `.sdat` | ✅ | ✅ | ✅ | Nintendo DS Nitro sound archive (DS) |
 
 ---
@@ -215,6 +230,7 @@ canonical fixed point and semantic roundtrips are validated against retail Wii l
 | **Camelot LZ** | `0x01` / `0x02` prefix | ✅ | ✅ | Camelot Software Planning LZ77 compression (*Mario Golf*, *Mario Tennis* GameCube / Wii) |
 | **Deflate / Zlib** | `78 01`, `78 9C`, `78 DA` | ✅ | ✅ | Standard RFC 1950 / 1951 stream compression |
 | **Diff8 / Diff16** | `0x81`, `0x82` | ✅ | ✅ | Nintendo DS differential delta filter encoding |
+| **FZIP** | `FZIP` | ✅ | ✅ | *Game & Wario* Zlib stream container (Wii U) |
 | **Huffman (4-bit / 8-bit)** | `0x24`, `0x28` | ✅ | ✅ | Nintendo DS Huffman stream compression |
 | **LZ10** | `0x10` (LZSS) | ✅ | ✅ | Nintendo standard LZ77 (GameCube / Wii / DS / GBA) |
 | **LZ11** | `0x11` (Extended LZSS) | ✅ | ✅ | Nintendo extended LZSS with 4-byte match lengths (DS / 3DS) |

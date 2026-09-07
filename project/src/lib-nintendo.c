@@ -177,8 +177,6 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_MOD, false, false, 0);
 		if (ext && !strcasecmp (ext, ".tex") && size >= 0x80)
 			return make_info (NFMT_TEX3DS, false, false, 0);
-		if (CxIsCompressedLZOvl (d, size))
-			return make_info (NFMT_LZOVL, false, true, 0);
 
 		// WarioWare: D.I.Y. Showcase / "WarioWare Snapped!" (DSiWare, NTR-KUWE)
 		// wraps every Nitro graphics resource (NCGR/NCLR/NCER/NANR) it stores
@@ -397,6 +395,8 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		if ((d[0] == 1 || d[0] == 2) && filename
 			&& (strstr (filename, ".stpl") || strstr (filename, ".camelot")))
 			return make_info (NFMT_STPL, true, true, ((u32)d[1] << 16) | ((u32)d[2] << 8) | d[3]);
+		if (CxIsCompressedLZOvl (d, size))
+			return make_info (NFMT_LZOVL, false, true, 0);
 	}
 	if (size >= 0x28 && !memcmp (d + size - 0x28, "FLIM", 4))
 		return make_info (NFMT_BFLIM, true, false, 0);
@@ -4484,17 +4484,19 @@ int CxIsCompressedLZOvl (const unsigned char *src, unsigned int size)
 		return 0;
 	if (!memcmp (src, "Yaz0", 4) || !memcmp (src, "Yay0", 4) || !memcmp (src, "YAY0", 4)
 		|| !memcmp (src, "\x55\xaa\x38\x2d", 4) || !memcmp (src, "MESG", 4) || !memcmp (src, "RARC", 4)
-		|| !memcmp (src, "RFNT", 4) || !memcmp (src, "RFNA", 4) || !memcmp (src, "CFNT", 4))
+		|| !memcmp (src, "RFNT", 4) || !memcmp (src, "RFNA", 4) || !memcmp (src, "CFNT", 4)
+		|| !memcmp (src, "glTF", 4) || !memcmp (src, "NARC", 4) || !memcmp (src, "CRAN", 4)
+		|| !memcmp (src, "0TSR", 4) || !memcmp (src, "BMD0", 4) || !memcmp (src, "BTX0", 4))
 		return 0;
 	const u32 extra = (u32)src[size - 4] | ((u32)src[size - 3] << 8)
 		| ((u32)src[size - 2] << 16) | ((u32)src[size - 1] << 24);
 	if (extra == 0 || extra > NFMT_MAX_OUTPUT)
 		return 0;
 	const u8 hdr_len = src[size - 5];
-	if (hdr_len < 8 || hdr_len > size)
+	if (hdr_len < 8 || hdr_len > 11 || size <= hdr_len)
 		return 0;
 	const u32 comp_len = (u32)src[size - 8] | ((u32)src[size - 7] << 8) | ((u32)src[size - 6] << 16);
-	if (comp_len > size - hdr_len)
+	if (comp_len < hdr_len || comp_len > size - hdr_len)
 		return 0;
 	return 1;
 }
