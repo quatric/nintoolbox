@@ -2783,28 +2783,54 @@ enumError DecodeExciteMOD (const u8 *data, uint size, ccp out_path)
 	}
 	else
 	{
-		// Single NDL fallback
-		uint m = 0;
-		bool found = false;
-		for (; m + 4 <= size; m++)
-		{
-			if (!memcmp (data + m, "3LDN", 4) || !memcmp (data + m, "2LDN", 4))
-			{
-				found = true;
-				break;
-			}
-		}
-		if (!found || m + 0x38 > size)
-			return ERR_NOTHING_TO_DO;
-
-		meshes = CALLOC (1, sizeof (mesh_t));
+		// No valid entry table (num_entries==0, as when the leading
+		// texture-filename table this format sometimes carries is absent
+		// and the whole file starts zeroed up to the first chunk): scan for
+		// every embedded "3LDN"/"2LDN" chunk instead of just the first.
+		// Real files like this shape (e.g. Excite Truck's own Low-LOD .mod
+		// files) pack one chunk per sub-part with no table at all, and
+		// stopping at the first chunk silently dropped every part after it
+		// -- the exported model was just that first sub-part, sitting in
+		// its own small local coordinate space instead of the full mesh.
+		uint cap = 16;
+		meshes = CALLOC (cap, sizeof (mesh_t));
 		if (!meshes)
 			return ERR_CANT_CREATE;
 
-		mesh_t mesh;
-		if (mod_decode_ndl_chunk (data, size, m, -1, 0, &mesh))
+		for (uint m = 0; m + 0x38 <= size; m++)
 		{
-			meshes[num_meshes++] = mesh;
+			if (memcmp (data + m, "3LDN", 4) && memcmp (data + m, "2LDN", 4))
+				continue;
+
+			if (num_meshes == cap)
+			{
+				cap *= 2;
+				mesh_t *grown = REALLOC (meshes, cap * sizeof (mesh_t));
+				if (!grown)
+					break;
+				meshes = grown;
+			}
+
+			mesh_t mesh;
+			if (mod_decode_ndl_chunk (data, size, m, -1, num_meshes, &mesh))
+				meshes[num_meshes++] = mesh;
+
+			// Skip past this chunk's own display-list/geometry bytes before
+			// resuming the scan, so a coincidental magic-like byte pattern
+			// inside its data can't be mistaken for the next chunk's header.
+			u32 skip = 0x38;
+			u32 dl_end = xrd_le32 (data + m + 4);
+			if ((dl_end >> 16) == 0xe3e3)
+				dl_end &= 0xffff; // NDL2 u16 quirk, see mod_decode_ndl_chunk
+			if (dl_end > skip)
+				skip = dl_end;
+			m += skip - 1; // -1: the for loop's own m++ covers the last byte
+		}
+
+		if (!num_meshes)
+		{
+			FREE (meshes);
+			return ERR_NOTHING_TO_DO;
 		}
 	}
 
