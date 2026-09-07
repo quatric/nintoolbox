@@ -1194,7 +1194,8 @@ enumError ScanNitroNFTR (nitro_nftr_t *nftr, const u8 *data, uint size)
 	InitializeNitroNFTR (nftr);
 
 	const bool is_bnfr = !memcmp (data, "RNFB", 4) || !memcmp (data, "BNFR", 4);
-	const bool is_nftr = !memcmp (data, "RTNF", 4) || !memcmp (data, "FNTR", 4);
+	const bool is_nftr = !memcmp (data, "RTNF", 4) || !memcmp (data, "FNTR", 4)
+		|| !memcmp (data, "RTFN", 4) || !memcmp (data, "NFTR", 4);
 	if (!is_bnfr && !is_nftr)
 		return EINVAL;
 
@@ -1231,12 +1232,13 @@ enumError ScanNitroNFTR (nitro_nftr_t *nftr, const u8 *data, uint size)
 	{
 		nftr->cell_w = cglp[0x08];
 		nftr->cell_h = cglp[0x09];
-		nftr->bpp = cglp[0x0c];
+		nftr->bpp = cglp[0x0e] ? cglp[0x0e] : cglp[0x0c];
 		if (!nftr->bpp)
 			nftr->bpp = 1;
 		nftr->max_advance = cglp[0x0b];
+		const uint cell_sz = nrd16 (cglp + 0x0a);
 		const uint data_sz = nrd32 (cglp + 4) - 0x10;
-		const uint bytes_per_glyph = (nftr->cell_w * nftr->cell_h * nftr->bpp + 7) / 8;
+		const uint bytes_per_glyph = cell_sz ? cell_sz : (nftr->cell_w * nftr->cell_h * nftr->bpp + 7) / 8;
 		nftr->glyph_data = cglp + 0x10;
 		nftr->glyph_data_size = data_sz;
 		nftr->n_glyphs = bytes_per_glyph ? (data_sz / bytes_per_glyph) : 0;
@@ -1289,7 +1291,9 @@ enumError DecodeNFTR_Atlas (
 		return ERR_CANT_CREATE;
 	}
 
-	const uint bytes_per_glyph = (nftr.cell_w * nftr.cell_h * nftr.bpp + 7) / 8;
+	const uint bytes_per_glyph = (nftr.glyph_data_size && nftr.n_glyphs)
+		? (nftr.glyph_data_size / nftr.n_glyphs)
+		: (nftr.cell_w * nftr.cell_h * nftr.bpp + 7) / 8;
 
 	for (uint g = 0; g < nftr.n_glyphs; g++)
 	{
@@ -1311,6 +1315,14 @@ enumError DecodeNFTR_Atlas (
 				{
 					val = (gsrc[bitpos / 8] >> (6 - (bitpos & 6))) & 3;
 					val = (val * 255) / 3;
+				}
+				else if (nftr.bpp == 3)
+				{
+					uint bstart = bitpos / 8;
+					uint boff = bitpos & 7;
+					uint raw_val = (gsrc[bstart] << 8) | (bstart + 1 < bytes_per_glyph ? gsrc[bstart + 1] : 0);
+					val = (raw_val >> (16 - 3 - boff)) & 7;
+					val = (val * 255) / 7;
 				}
 				else if (nftr.bpp == 4)
 				{

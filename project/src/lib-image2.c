@@ -1090,8 +1090,9 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 
 	if (nfmt.type == NFMT_NFTR || nfmt.type == NFMT_BNFR
 		|| (data_size >= 4
-			&& (!memcmp (data, "RTNF", 4) || !memcmp (data, "FNTR", 4) || !memcmp (data, "RNFB", 4)
-				|| !memcmp (data, "BNFR", 4))))
+			&& (!memcmp (data, "RTNF", 4) || !memcmp (data, "FNTR", 4)
+				|| !memcmp (data, "RTFN", 4) || !memcmp (data, "NFTR", 4)
+				|| !memcmp (data, "RNFB", 4) || !memcmp (data, "BNFR", 4))))
 	{
 		u8 *atlas = 0;
 		uint width = 0, height = 0;

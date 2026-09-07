@@ -124,7 +124,8 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_NSCR, true, false, 0);
 		if (!memcmp (d, "BTX0", 4) || !memcmp (d, "BMD0", 4))
 			return make_info (NFMT_NSBTX, true, false, 0);
-		if (!memcmp (d, "RTNF", 4) || !memcmp (d, "FNTR", 4))
+		if (!memcmp (d, "RTNF", 4) || !memcmp (d, "FNTR", 4)
+			|| !memcmp (d, "RTFN", 4) || !memcmp (d, "NFTR", 4))
 			return make_info (NFMT_NFTR, true, false, 0);
 		if (!memcmp (d, "RNFB", 4) || !memcmp (d, "BNFR", 4))
 			return make_info (NFMT_BNFR, true, false, 0);

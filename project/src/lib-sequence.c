@@ -1177,6 +1177,7 @@ enumError SequenceToMIDI (u8 **out_midi, size_t *out_size, const u8 *seq_data, s
 	// Track targets: up to 16 tracks
 	u32 track_offsets[16] = { 0 };
 	uint active_tracks = 1;
+	u16 ppq = 48;
 
 	size_t pos = 0;
 	while (pos < code_size)
@@ -1207,6 +1208,11 @@ enumError SequenceToMIDI (u8 **out_midi, size_t *out_size, const u8 *seq_data, s
 		{
 			pos += 2;
 		}
+		else if (op == SEQ_OP_TIMEBASE)
+		{
+			if (pos < code_size)
+				ppq = code[pos++];
+		}
 		else if (op == SEQ_OP_FIN)
 		{
 			break;
@@ -1216,7 +1222,7 @@ enumError SequenceToMIDI (u8 **out_midi, size_t *out_size, const u8 *seq_data, s
 			// skip other opcodes in header scan
 			if (op == SEQ_OP_WAIT || op == SEQ_OP_PRG)
 				read_vlq (code, code_size, &pos);
-			else if (op == SEQ_OP_TEMPO || op == SEQ_OP_TIMEBASE || op == SEQ_OP_MOD_DELAY)
+			else if (op == SEQ_OP_TEMPO || op == SEQ_OP_MOD_DELAY)
 				pos += 2;
 			else if (op == SEQ_OP_JUMP || op == SEQ_OP_CALL)
 				pos += 3;
@@ -1225,6 +1231,7 @@ enumError SequenceToMIDI (u8 **out_midi, size_t *out_size, const u8 *seq_data, s
 		}
 	}
 
+	midi_track_build_t conductor_track = { 0 };
 	midi_track_build_t *tracks = CALLOC (active_tracks, sizeof (midi_track_build_t));
 	if (!tracks)
 		return ERR_CANT_CREATE;
@@ -1300,18 +1307,18 @@ enumError SequenceToMIDI (u8 **out_midi, size_t *out_size, const u8 *seq_data, s
 				{
 					u16 tempo = is_le ? read_le16 (code + t_pos) : read_be16 (code + t_pos);
 					t_pos += 2;
-					// Add tempo on track 0
+					// Add tempo on conductor track
 					if (tempo > 0)
 					{
 						u32 us_pqn = 60000000 / tempo;
-						if (tracks[0].n_events >= tracks[0].alloc_events)
+						if (conductor_track.n_events >= conductor_track.alloc_events)
 						{
-							tracks[0].alloc_events
-								= tracks[0].alloc_events ? tracks[0].alloc_events * 2 : 128;
-							tracks[0].events = REALLOC (
-								tracks[0].events, tracks[0].alloc_events * sizeof (midi_event_t));
+							conductor_track.alloc_events
+								= conductor_track.alloc_events ? conductor_track.alloc_events * 2 : 128;
+							conductor_track.events = REALLOC (
+								conductor_track.events, conductor_track.alloc_events * sizeof (midi_event_t));
 						}
-						midi_event_t *me = &tracks[0].events[tracks[0].n_events++];
+						midi_event_t *me = &conductor_track.events[conductor_track.n_events++];
 						me->time = cur_time;
 						me->type = 0xFF; // Meta
 						me->channel = 0x51; // Set Tempo
@@ -1341,13 +1348,40 @@ enumError SequenceToMIDI (u8 **out_midi, size_t *out_size, const u8 *seq_data, s
 		}
 	}
 
-	// Sort events in each track and compute delta times
+	// Always emit Standard MIDI Format 1 with Track 0 dedicated to conductor/tempo map
 	struct midi_file mf;
-	midi_file_init (&mf, (active_tracks > 1) ? 1 : 0, 0, 48);
+	midi_file_init (&mf, 1, 0, ppq ? ppq : 48);
 
+	// Write Track 0: Conductor track (tempo map and track name)
+	{
+		struct midi_track *mtr = midi_file_append_empty_track (&mf);
+		midi_track_write_track_name (mtr, 0, "Conductor Track", 15);
+		midi_track_write_time_signature (mtr, 0, 4, 2, 24, 8); // 4/4
+
+		if (conductor_track.n_events > 1)
+			qsort (
+				conductor_track.events, conductor_track.n_events, sizeof (midi_event_t), compare_midi_events);
+
+		u32 last_time = 0;
+		for (uint i = 0; i < conductor_track.n_events; i++)
+		{
+			const midi_event_t *e = &conductor_track.events[i];
+			u32 delta = (e->time >= last_time) ? (e->time - last_time) : 0;
+			last_time = e->time;
+			midi_track_write_meta_event_buf (
+				mtr, delta, e->channel, (uint8_t)e->meta_len, e->meta_data);
+		}
+		midi_track_write_track_end (mtr, 0);
+	}
+
+	// Write tracks 1..N: Musical sequence tracks
 	for (uint t = 0; t < active_tracks; t++)
 	{
 		struct midi_track *mtr = midi_file_append_empty_track (&mf);
+		char trk_name[32];
+		snprintf (trk_name, sizeof (trk_name), "Track %u", t);
+		midi_track_write_track_name (mtr, 0, trk_name, (int)strlen (trk_name));
+
 		if (tracks[t].n_events > 1)
 			qsort (
 				tracks[t].events, tracks[t].n_events, sizeof (midi_event_t), compare_midi_events);
@@ -1388,6 +1422,10 @@ enumError SequenceToMIDI (u8 **out_midi, size_t *out_size, const u8 *seq_data, s
 		}
 		midi_track_write_track_end (mtr, 0);
 	}
+
+	for (uint i = 0; i < conductor_track.n_events; i++)
+		FREE (conductor_track.events[i].meta_data);
+	FREE (conductor_track.events);
 
 	for (uint t = 0; t < active_tracks; t++)
 	{

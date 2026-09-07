@@ -427,8 +427,6 @@ static enumError decode_image_if_possible (ccp arg)
 		is_image = true;
 	else if (!memcmp (head, "RECN", 4) || !memcmp (head, "NCER", 4) || is_ext (arg, ".ncer"))
 		is_image = true;
-	else if (!memcmp (head, "RNAN", 4) || !memcmp (head, "NANR", 4) || is_ext (arg, ".nanr"))
-		is_image = true;
 	else if (!memcmp (head, "RCSN", 4) || !memcmp (head, "NSCR", 4) || is_ext (arg, ".nscr"))
 		is_image = true;
 	else if (!memcmp (head, "BNTX", 4) || is_ext (arg, ".bntx"))
@@ -448,6 +446,9 @@ static enumError decode_image_if_possible (ccp arg)
 		is_image = true;
 	else if (nfmt.type == NFMT_BFLIM || nfmt.type == NFMT_BCLIM || is_ext (arg, ".bflim")
 		|| is_ext (arg, ".bclim"))
+		is_image = true;
+	else if (nfmt.type == NFMT_NFTR || nfmt.type == NFMT_BRFNT || is_ext (arg, ".nftr")
+		|| is_ext (arg, ".zftr") || is_ext (arg, ".brfnt") || is_ext (arg, ".bffnt"))
 		is_image = true;
 	else if (fform == FF_TPL || is_ext (arg, ".tpl"))
 		is_image = true;
@@ -1429,7 +1430,7 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		// decodes to a finished WAV, which no container probe claims, so
 		// this discard used to delete every decoded wave the extractor
 		// produced -- BFWAV/BCWAV/BRWAV conversion never left a file behind.
-		if (!opt_export_raw && !decompressed_is_final)
+		if (!opt_export_raw && !decompressed_is_final && depth > 0)
 		{
 			struct stat st_leftover;
 			if (!stat (decompressed_path, &st_leftover) && S_ISREG (st_leftover.st_mode))

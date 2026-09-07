@@ -213,6 +213,21 @@ int main (int argc, char *argv[])
 	int err = VgmtransConvertFileExt (in_file, out_dir, format_flags);
 	if (err)
 	{
+		u8 *raw = 0;
+		size_t raw_size = 0;
+		enumError lerr = LoadFileAlloc (in_file, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+		if (!lerr && raw)
+		{
+			enumError uerr = raw_size >= 4 && !memcmp (raw, "SDAT", 4)
+				? UnpackSDAT (raw, raw_size, out_dir)
+				: UnpackBRSAR (raw, raw_size, out_dir);
+			FREE (raw);
+			if (!uerr)
+			{
+				printf ("wbrsar: unpacked raw sound assets %s -> %s\n", in_file, out_dir);
+				return 0;
+			}
+		}
 		fprintf (stderr, "wbrsar: conversion failed for %s\n", in_file);
 		return err;
 	}

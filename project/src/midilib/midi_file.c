@@ -26,7 +26,11 @@ int midi_file_init (
 int midi_file_clear (struct midi_file *f)
 {
 	if (f->tracks)
+	{
+		for (int i = 0; i < f->num_tracks; i++)
+			buffer_destroy (&f->tracks[i].buffer);
 		free (f->tracks);
+	}
 	if (errno)
 		return errno;
 	f->tracks = NULL;
