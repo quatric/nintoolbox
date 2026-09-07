@@ -1751,6 +1751,55 @@ else
   no "romc type-1 encode/decode round-trip" "mismatch"
 fi
 
+# ASH0 15-bit distance tree fallback (My Pokémon Ranch format variant)
+if command -v python3 >/dev/null 2>&1; then
+  python3 -c "
+class BitWriter:
+    def __init__(self):
+        self.bytes = bytearray(); self.curr = 0; self.bits = 0
+    def write(self, val, n):
+        for i in range(n - 1, -1, -1):
+            self.curr = (self.curr << 1) | ((val >> i) & 1)
+            self.bits += 1
+            if self.bits == 32:
+                self.bytes.extend(self.curr.to_bytes(4, 'big'))
+                self.curr = 0; self.bits = 0
+    def flush(self):
+        if self.bits > 0:
+            self.curr <<= (32 - self.bits)
+            self.bytes.extend(self.curr.to_bytes(4, 'big'))
+            self.curr = 0; self.bits = 0
+
+def write_tree(bw, depth, max_d, val):
+    if depth == max_d:
+        bw.write(0, 1); bw.write(val, max_d); return
+    bw.write(1, 1); write_tree(bw, depth + 1, max_d, val << 1); write_tree(bw, depth + 1, max_d, (val << 1) | 1)
+
+bw_sym = BitWriter(); write_tree(bw_sym, 0, 9, 0)
+payload = b'ASH0_15BIT_TEST_DATA_' * 8
+for b in payload[:21]: bw_sym.write(b, 9)
+for _ in range(7): bw_sym.write(256 + 21 - 3, 9)
+bw_sym.flush()
+
+bw_dist = BitWriter()
+bw_dist.write(1, 1); bw_dist.write(0, 1); bw_dist.write(20, 15); bw_dist.write(0, 1); bw_dist.write(100, 15)
+for _ in range(7): bw_dist.write(0, 1)
+bw_dist.flush()
+
+sym_b = bytes(bw_sym.bytes); dist_off = 12 + len(sym_b)
+ash_data = b'ASH0' + len(payload).to_bytes(4, 'big') + dist_off.to_bytes(4, 'big') + sym_b + bytes(bw_dist.bytes)
+open('/tmp/_r_ash15.ash0', 'wb').write(ash_data)
+open('/tmp/_r_ash15_exp.bin', 'wb').write(payload)
+" 2>/dev/null
+  if $B/wszst DECOMPRESS /tmp/_r_ash15.ash0 --dest /tmp/_r_ash15.out --overwrite >/dev/null 2>&1 \
+  && cmp -s /tmp/_r_ash15_exp.bin /tmp/_r_ash15.out; then
+    ok "ASH0 15-bit distance tree fallback decompression"
+  else
+    no "ASH0 15-bit distance tree fallback decompression" "mismatch"
+  fi
+  rm -f /tmp/_r_ash15.ash0 /tmp/_r_ash15_exp.bin /tmp/_r_ash15.out
+fi
+
 echo "== container creation round-trips =="
 t_container_roundtrips(){
   local d; d=$(mktemp -d)

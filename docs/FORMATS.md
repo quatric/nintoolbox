@@ -14,7 +14,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **Arika (INFO.DAT/GAME.DAT)** | DS/DSi / Archive | ✅ | ✅ | Obfuscated directory decryption and member decompression |
 | **ARCV** | Wii / Archive | ✅ | ✅ | Pac-Man Party (Wii) archive; byte-exact round-trip |
 | **ART / IMG** | Wii / Texture | ✅ | ✅ | Monster Games GUI image format |
-| **ASH0** | GameCube/Wii / Compression | ✅ | ✅ | Nintendo ASH0 compression |
+| **ASH0** | GameCube/Wii / Compression | ✅ | ✅ | Nintendo ASH0 compression (System Menu, Animal Crossing, My Pokémon Ranch; automatic 11/15-bit distance tree fallback) |
 | **AT7** | PS2/Wii / Archive | ✅ | ✅ | Koei Tecmo container |
 | **BCFNT** | 3DS / Font | ✅ | ✅ | 3DS bitmap font to PNG atlas |
 | **BCH** | 3DS / Model | ✅ | ✅ | CTR H3D model container |
