@@ -1221,6 +1221,33 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x4e414e52: // "NANR"
 				return FF_NANR;
 
+			// Nitro tile graphics / palette / tilemap (NCGR / NCLR / NSCR).
+			// All three are decoded elsewhere in the toolset (lib-ncgr,
+			// lib-nclr, lib-nitro) but had no file type of their own, so
+			// FILETYPE reported them as unknown.
+			case 0x5247434e: // "RGCN"
+				return FF_NCGR;
+			case 0x524c434e: // "RLCN"
+				return FF_NCLR;
+			case 0x5243534e: // "RCSN"
+				return FF_NSCR;
+
+			// Nitro 3D model and the NSB* animation family. Only the model
+			// is converted (lib-nsbmd -> GLB); the animations are named so
+			// they stop showing up as unknown, and pass through unchanged.
+			case 0x424d4430: // "BMD0"
+				return FF_NSBMD;
+			case 0x42434130: // "BCA0"
+				return FF_NSBCA;
+			case 0x42544130: // "BTA0"
+				return FF_NSBTA;
+			case 0x42545030: // "BTP0"
+				return FF_NSBTP;
+			case 0x42564130: // "BVA0"
+				return FF_NSBVA;
+			case 0x424d4130: // "BMA0"
+				return FF_NSBMA;
+
 			// Mario Party HSF
 			case 0x48534656: // "HSFV"
 			case 0x48534600: // "HSF\0"

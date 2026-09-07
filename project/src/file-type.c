@@ -1339,6 +1339,60 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, MinusString, MinusString,
 		"Wii save banner (WIBN: 192x64 banner + up to 8 48x48 icon frames)" },
 
+	// FF_NCGR
+	{ FF_NCGR, 0, 0, "NCGR", ".ncgr", ".ncgr", ".ncgr", FFT_VALID | FFT_GRAPHIC | FFT_DECODE, 4,
+		{ 0x52, 0x47, 0x43, 0x4e }, // "RGCN"
+		0, MinusString, MinusString,
+		"Nintendo DS character/tile graphics (NCGR)" },
+
+	// FF_NCLR
+	{ FF_NCLR, 0, 0, "NCLR", ".nclr", ".nclr", ".nclr", FFT_VALID | FFT_GRAPHIC | FFT_DECODE, 4,
+		{ 0x52, 0x4c, 0x43, 0x4e }, // "RLCN"
+		0, MinusString, MinusString,
+		"Nintendo DS palette resource (NCLR)" },
+
+	// FF_NSCR
+	{ FF_NSCR, 0, 0, "NSCR", ".nscr", ".nscr", ".nscr", FFT_VALID | FFT_GRAPHIC | FFT_DECODE, 4,
+		{ 0x52, 0x43, 0x53, 0x4e }, // "RCSN"
+		0, MinusString, MinusString,
+		"Nintendo DS screen/tilemap resource (NSCR)" },
+
+	// FF_NSBMD
+	{ FF_NSBMD, 0, 0, "NSBMD", ".nsbmd", ".nsbmd", ".nsbmd", FFT_VALID | FFT_DECODE, 4,
+		{ 0x42, 0x4d, 0x44, 0x30 }, // "BMD0"
+		0, MinusString, MinusString,
+		"Nintendo DS 3D model (NSBMD)" },
+
+	// FF_NSBCA
+	{ FF_NSBCA, 0, 0, "NSBCA", ".nsbca", ".nsbca", ".nsbca", FFT_VALID, 4,
+		{ 0x42, 0x43, 0x41, 0x30 }, // "BCA0"
+		0, MinusString, MinusString,
+		"Nintendo DS joint animation (NSBCA); not decoded yet" },
+
+	// FF_NSBTA
+	{ FF_NSBTA, 0, 0, "NSBTA", ".nsbta", ".nsbta", ".nsbta", FFT_VALID, 4,
+		{ 0x42, 0x54, 0x41, 0x30 }, // "BTA0"
+		0, MinusString, MinusString,
+		"Nintendo DS texture SRT animation (NSBTA); not decoded yet" },
+
+	// FF_NSBTP
+	{ FF_NSBTP, 0, 0, "NSBTP", ".nsbtp", ".nsbtp", ".nsbtp", FFT_VALID, 4,
+		{ 0x42, 0x54, 0x50, 0x30 }, // "BTP0"
+		0, MinusString, MinusString,
+		"Nintendo DS texture pattern animation (NSBTP); not decoded yet" },
+
+	// FF_NSBVA
+	{ FF_NSBVA, 0, 0, "NSBVA", ".nsbva", ".nsbva", ".nsbva", FFT_VALID, 4,
+		{ 0x42, 0x56, 0x41, 0x30 }, // "BVA0"
+		0, MinusString, MinusString,
+		"Nintendo DS visibility animation (NSBVA); not decoded yet" },
+
+	// FF_NSBMA
+	{ FF_NSBMA, 0, 0, "NSBMA", ".nsbma", ".nsbma", ".nsbma", FFT_VALID, 4,
+		{ 0x42, 0x4d, 0x41, 0x30 }, // "BMA0"
+		0, MinusString, MinusString,
+		"Nintendo DS material colour animation (NSBMA); not decoded yet" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1472,7 +1526,12 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_BFSTM, "BFSTM", "FSTM", 0x3801 }, { FF_BCWAV, "BCWAV", "CWAV", 0x3801 },
 	{ FF_BFWAV, "BFWAV", "FWAV", 0x3801 }, { FF_BNSH, "BNSH", 0, 0x3001 },
 	{ FF_NDS_BANNER, "NDS-BANNER", "NDSBANNER", 0x3009 }, { FF_IMET, "IMET", 0, 0xe05 },
-	{ FF_IMD5, "IMD5", 0, 0x9 }, { FF_WIBN, "WIBN", 0, 0x3009 }, { FF_MIO, "MIO", 0, 0xe05 },
+	{ FF_IMD5, "IMD5", 0, 0x9 }, { FF_WIBN, "WIBN", 0, 0x3009 },
+	{ FF_NCGR, "NCGR", "RGCN", 0x3009 }, { FF_NCLR, "NCLR", "RLCN", 0x3009 },
+	{ FF_NSCR, "NSCR", "RCSN", 0x3009 }, { FF_NSBMD, "NSBMD", "BMD0", 0x9 },
+	{ FF_NSBCA, "NSBCA", "BCA0", 0x1 }, { FF_NSBTA, "NSBTA", "BTA0", 0x1 },
+	{ FF_NSBTP, "NSBTP", "BTP0", 0x1 }, { FF_NSBVA, "NSBVA", "BVA0", 0x1 },
+	{ FF_NSBMA, "NSBMA", "BMA0", 0x1 }, { FF_MIO, "MIO", 0, 0xe05 },
 	{ FF_ZDAT, "ZDAT", "ZDAT", 0xe05 }, { FF_SFX, "SFX", 0, 0xe05 },
 	{ FF_VFF, "VFF", "VFF", 0xe05 }, { FF_IQIPACK, "IQIPACK", "PACK", 0xe05 },
 

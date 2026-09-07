@@ -7766,6 +7766,29 @@ with open("'"$d"'/imet_test/opening.bnr", "wb") as f:
     fno "Wii channel banner" "failed to unwrap IMET/IMD5 banner sample";
   fi
 
+  # Nintendo DS Nitro resources the toolset already decodes (NCGR/NCLR/NSCR
+  # pixels, NSBMD models) or extracts and passes through (the NSB* animation
+  # family) but never named, so FILETYPE reported every one of them as "?".
+  # Registration only -- the extraction pipeline is unchanged.
+  mkdir -p "$d/nds_ff"
+  nds_ff_bad=""
+  for nds_ff_pair in RGCN:NCGR RLCN:NCLR RCSN:NSCR BMD0:NSBMD BCA0:NSBCA \
+	BTA0:NSBTA BTP0:NSBTP BVA0:NSBVA BMA0:NSBMA; do
+    nds_ff_magic=${nds_ff_pair%%:*}
+    nds_ff_want=${nds_ff_pair##*:}
+    { printf '%s' "$nds_ff_magic"; head -c 256 /dev/zero; } \
+      > "$d/nds_ff/$nds_ff_want.bin"
+    nds_ff_got=$("$B/wszst" FILETYPE "$d/nds_ff/$nds_ff_want.bin" 2>/dev/null \
+      | sed -n '4p' | awk '{print $1}')
+    [ "$nds_ff_got" = "$nds_ff_want" ] \
+      || nds_ff_bad="$nds_ff_bad $nds_ff_want($nds_ff_got)"
+  done
+  if [ -z "$nds_ff_bad" ]; then
+    fok "Nitro NCGR/NCLR/NSCR/NSBMD/NSB* file types are named"
+  else
+    fno "Nitro file type names" "unrecognized:$nds_ff_bad";
+  fi
+
   # Monster Games .can: a magic-less little-endian skeletal animation. Header
   # (node count, duration, node-table and key offsets), 0x64-byte node
   # records (name, parent, column-major rest matrix, rest translation, key

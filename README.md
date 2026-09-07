@@ -178,6 +178,8 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **WIBN** | `banner.bin`, `.bnr` | ✅ | — | — | — | Wii *save game* banner: a 192x64 RGB5A3 banner image plus up to 8 48x48 icon animation frames, with the title/subtitle pair; the frame count follows from the file size, and trailing all-zero frames are padding |
 | **NCER / NANR** | `.ncer`, `.nanr` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro cell & animation resources (DS) |
 | **NCGR / NCLR** | `.ncgr`, `.nclr` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro 2D graphics & palette (DS) |
+| **NSCR** | `.nscr` | ✅ | — | — | ✅ | Nintendo DS Nitro screen/tilemap resource, rendered against its NCGR tiles and NCLR palette (DS) |
+| **NSBCA / NSBTA / NSBTP / NSBVA / NSBMA** | `.nsbca`, `.nsbta`, `.nsbtp`, `.nsbva`, `.nsbma` | — | — | — | ✅ | Nintendo DS Nitro animation family (joint, texture SRT, texture pattern, visibility, material colour). Identified and passed through unchanged; not converted yet |
 | **NSBTX** | `.nsbtx` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro 3D texture container (DS) |
 | **NUT** | `.nut` | ✅ | ✅ | ✅ | — | Bandai Namco texture package (*Super Smash Bros. 4* Wii U / 3DS) |
 | **NUTEXB** | `.nutexb` | ✅ | ✅ | ✅ | — | Bandai Namco / Nintendo Switch texture wrapper (Switch) |

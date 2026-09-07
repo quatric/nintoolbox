@@ -344,6 +344,17 @@ typedef enum file_format_t
 	FF_IMET, // 250 - Wii channel banner header (opening.bnr / IMET)
 	FF_IMD5, // 251 - Wii resource wrapper (banner.bin / icon.bin / IMD5)
 	FF_WIBN, // 252 - Wii save banner (WIBN: 192x64 banner + 48x48 icons)
+	// Nintendo DS Nitro resources the toolset already decodes or extracts but
+	// never named, so `FILETYPE` reported them as unknown.
+	FF_NCGR, // 253 - Nintendo DS character/tile graphics (.ncgr / RGCN)
+	FF_NCLR, // 254 - Nintendo DS palette resource (.nclr / RLCN)
+	FF_NSCR, // 255 - Nintendo DS screen/tilemap resource (.nscr / RCSN)
+	FF_NSBMD, // 256 - Nintendo DS 3D model (.nsbmd / BMD0)
+	FF_NSBCA, // 257 - Nintendo DS joint animation (.nsbca / BCA0)
+	FF_NSBTA, // 258 - Nintendo DS texture SRT animation (.nsbta / BTA0)
+	FF_NSBTP, // 259 - Nintendo DS texture pattern animation (.nsbtp / BTP0)
+	FF_NSBVA, // 260 - Nintendo DS visibility animation (.nsbva / BVA0)
+	FF_NSBMA, // 261 - Nintendo DS material colour animation (.nsbma / BMA0)
 
 	//--- number of elements
 
