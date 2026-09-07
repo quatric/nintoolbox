@@ -7408,6 +7408,179 @@ with open(sys.argv[1], "wb") as f:
     fno "Nintendo Binary YAML" "failed to identify .byml sample";
   fi
 
+  # NVIDIA Shield iQiyi PAK Archive (.pak / PACK) test
+  mkdir -p "$d/iqipack_test"
+  python3 -c '
+import struct
+
+def hash_str(s):
+    h = 0x1505
+    for c in s.encode("latin1"):
+        h = ((h * 33) & 0xFFFFFFFF) ^ c
+    return h
+
+def gen_key(s, length, offset):
+    fixed = [0xA0D0FFB0, 0x81230089, 0x12159842, 0xFF78F3C7]
+    base = (length ^ offset) ^ hash_str(s)
+    return [(base & f) & 0xFFFFFFFF for f in fixed]
+
+def encrypt_xxtea(v, key):
+    n = len(v)
+    if n <= 1:
+        return v
+    rounds = 6 + (52 // n)
+    total_sum = 0
+    DELTA = 0x9E3779B9
+    z = v[n - 1]
+    for _ in range(rounds):
+        total_sum = (total_sum + DELTA) & 0xFFFFFFFF
+        e = (total_sum >> 2) & 3
+        for p in range(n):
+            y = v[(p + 1) % n]
+            mix = (((z >> 5 ^ (y << 2 & 0xFFFFFFFF)) + ((y >> 3) ^ (z << 4 & 0xFFFFFFFF))) & 0xFFFFFFFF) ^ (((total_sum ^ y) + (key[(p & 3) ^ e] ^ z)) & 0xFFFFFFFF)
+            v[p] = (v[p] + mix) & 0xFFFFFFFF
+            z = v[p]
+    return v
+
+def enc_asset(name, data):
+    b = bytearray(data)
+    length = len(b)
+    for i in range(0, length, 0x2000):
+        rem = min(length - i, 0x2000)
+        nw = rem // 4
+        if nw > 1:
+            k = gen_key(name, length, i)
+            words = list(struct.unpack_from(f"<{nw}I", b, i))
+            enc_words = encrypt_xxtea(words, k)
+            struct.pack_into(f"<{nw}I", b, i, *enc_words)
+    return bytes(b)
+
+file_name = "sub/iqiyi_sample.bin"
+file_data = b"IQIYI_SHIELD_PAYLOAD_TEST_DATA!" * 4
+enc_file_data = enc_asset(file_name, file_data)
+
+hdr_inner = bytearray()
+hdr_inner.extend(struct.pack("<I", 1))
+hdr_inner.extend(struct.pack("<I", len(file_name)))
+hdr_inner.extend(file_name.encode("latin1"))
+hdr_inner.extend(struct.pack("<III", len(file_data), len(file_data), 0))
+hdr_inner.extend(b"\x00" * 16)
+
+while len(hdr_inner) % 4 != 0 or len(hdr_inner) < 8:
+    hdr_inner.append(0)
+
+enc_hdr = enc_asset("header", hdr_inner)
+main_hdr = struct.pack("<II12sII12s", 0x4B434150, 1, b"\x00"*12, len(enc_hdr), len(enc_hdr), b"\x00"*12)
+
+with open("'"$d"'/iqipack_test/sample.pak", "wb") as f:
+    f.write(main_hdr + enc_hdr + enc_file_data)
+'
+  if "$B/wszst" filetype "$d/iqipack_test/sample.pak" 2>/dev/null | grep -q "IQIPACK" \
+  && "$B/wszst" xx "$d/iqipack_test/sample.pak" --dest "$d/iqipack_test/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/iqipack_test/out/sub/iqiyi_sample.bin" ] \
+  && [ "$(cat "$d/iqipack_test/out/sub/iqiyi_sample.bin")" = "$(python3 -c 'print("IQIYI_SHIELD_PAYLOAD_TEST_DATA!" * 4, end="")')" ]; then
+    fok "NVIDIA Shield iQiyi PAK Archive (.pak / PACK) extraction & XXTEA decrypt"
+  else
+    fno "NVIDIA Shield iQiyi PAK Archive" "failed to extract or decrypt .pak sample";
+  fi
+
+  # ActImagine AJPG / ODH Still Image (.ajpg) test
+  mkdir -p "$d/ajpg_test"
+  python3 -c '
+from PIL import Image
+im = Image.new("RGBA", (32, 32), (240, 10, 20, 255))
+im.save("'"$d"'/ajpg_test/in.png")
+'
+  if "$B/wimgt" ENCODE "$d/ajpg_test/in.png" --dest "$d/ajpg_test/sample.ajpg" --overwrite >/dev/null 2>&1 \
+  && "$B/wszst" filetype "$d/ajpg_test/sample.ajpg" 2>/dev/null | grep -q "AJPG" \
+  && "$B/wimgt" DECODE "$d/ajpg_test/sample.ajpg" --dest "$d/ajpg_test/out.png" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/ajpg_test/out.png" ] \
+  && python3 -c '
+from PIL import Image
+im = Image.open("'"$d"'/ajpg_test/out.png")
+assert im.size == (32, 32), f"expected 32x32, got {im.size}"
+assert im.getpixel((0, 0))[0] > 200, f"expected reddish color, got {im.getpixel((0, 0))}"
+' 2>/dev/null; then
+    fok "ActImagine AJPG Still Image (.ajpg) encode & decode"
+  else
+    fno "ActImagine AJPG Still Image" "failed encode or decode";
+  fi
+
+  # Sega GameCube/Wii GVR Texture Container (.gvr / GCIX / GVRT) test
+  mkdir -p "$d/gvr_test"
+  python3 -c '
+import struct
+w, h = 8, 8
+hdr = b"GCIX" + b"\x00"*12 + b"GVRT" + b"\x00"*6 + struct.pack(">BBHH", 0, 4, w, h)
+pixels = [struct.pack(">H", 0x07E0) for _ in range(w * h)] # Green in RGB565
+with open("'"$d"'/gvr_test/sample.gvr", "wb") as f:
+    f.write(hdr + b"".join(pixels))
+'
+  if "$B/wszst" filetype "$d/gvr_test/sample.gvr" 2>/dev/null | grep -q "GVR" \
+  && "$B/wimgt" DECODE "$d/gvr_test/sample.gvr" --dest "$d/gvr_test/out.png" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/gvr_test/out.png" ] \
+  && python3 -c '
+from PIL import Image
+im = Image.open("'"$d"'/gvr_test/out.png")
+assert im.size == (8, 8), f"expected 8x8, got {im.size}"
+assert im.getpixel((0, 0)) == (0, 255, 0), f"expected green, got {im.getpixel((0, 0))}"
+' 2>/dev/null; then
+    fok "Sega GameCube/Wii GVR Texture (.gvr / GCIX / GVRT) decode"
+  else
+    fno "Sega GVR Texture" "failed to decode .gvr sample";
+  fi
+
+  # Animal Crossing DS Menu Texture (.bin / TXTR DSB) test
+  mkdir -p "$d/dsb_test"
+  python3 -c '
+import struct
+w, h = 16, 16
+hdr = bytearray(0x60)
+hdr[:4] = b"TXTR"
+struct.pack_into("<H", hdr, 0x20, 0x7C00) # Color 0: Blue in RGB555 (bits 10-14 = 0x1F << 10 = 0x7C00)
+texels = bytearray(w * h)
+for i in range(len(texels)):
+    texels[i] = 0xE0 | 0 # Max alpha (0xE0) | color index 0
+with open("'"$d"'/dsb_test/sample_dsb.bin", "wb") as f:
+    f.write(hdr + texels)
+'
+  if "$B/wimgt" DECODE "$d/dsb_test/sample_dsb.bin" --dest "$d/dsb_test/out.png" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/dsb_test/out.png" ] \
+  && python3 -c '
+from PIL import Image
+im = Image.open("'"$d"'/dsb_test/out.png")
+assert im.size == (16, 16), f"expected 16x16, got {im.size}"
+assert im.getpixel((0, 0)) == (0, 0, 255), f"expected blue, got {im.getpixel((0, 0))}"
+' 2>/dev/null; then
+    fok "Animal Crossing DS Menu Texture (TXTR / DSB) decode"
+  else
+    fno "Animal Crossing DS Menu Texture" "failed to decode DSB TXTR sample";
+  fi
+
+  # Nintendo Wii Opening Banner (.bnr / BNR1) test
+  mkdir -p "$d/bnr_test"
+  python3 -c '
+hdr = bytearray(0x1960)
+hdr[:4] = b"BNR1"
+for i in range(0x20, 0x20 + 96*32*2, 2):
+    hdr[i:i+2] = b"\xFF\xFF" # white in RGB5A3
+with open("'"$d"'/bnr_test/opening.bnr", "wb") as f:
+    f.write(hdr)
+'
+  if "$B/wimgt" DECODE "$d/bnr_test/opening.bnr" --dest "$d/bnr_test/banner.png" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/bnr_test/banner.png" ] \
+  && python3 -c '
+from PIL import Image
+im = Image.open("'"$d"'/bnr_test/banner.png")
+assert im.size == (96, 32), f"expected 96x32, got {im.size}"
+assert im.getpixel((0, 0)) == (255, 255, 255), f"expected white, got {im.getpixel((0, 0))}"
+' 2>/dev/null; then
+    fok "Nintendo Wii Opening Banner (.bnr / BNR1) decode"
+  else
+    fno "Nintendo Wii Opening Banner" "failed to decode .bnr sample";
+  fi
+
+
   # Next Level Games GLG/RLG models: decode to GLB, re-encode, and confirm
   # the second generation is byte-identical to the first. ball.glg is a
   # 74-byte-entry prop, Luigi.glg a 66-byte-entry character (the entry size
