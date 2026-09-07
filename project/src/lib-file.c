@@ -58,6 +58,7 @@
 #include "lib-kmp.h"
 #include "lib-bflyt.h"
 #include "lib-nds-banner.h"
+#include "lib-wii-banner.h"
 #include "lib-rkc.h"
 #include "lib-nintendo.h"
 #include "lib-iqipack.h"
@@ -1124,6 +1125,11 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x424e5458: // "BNTX"
 				return FF_BNTX;
 
+			// IMD5: the Wii resource wrapper in front of banner.bin, icon.bin
+			// and sound.bin inside a channel banner
+			case 0x494d4435: // "IMD5"
+				return FF_IMD5;
+
 			// SMDH: 3DS application icon/title metadata block, fixed 0x36c0 size
 			case 0x534d4448: // "SMDH"
 				return FF_SMDH;
@@ -1410,6 +1416,11 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			&& data_size >= 16 && !memcmp (data8 + 8, "DSMIO_S\0", 8))
 			return FF_MIO;
 	}
+
+	// Wii channel banner: the IMET magic sits behind 0x40 zero bytes, and the
+	// U8 archive right after the header is what confirms it.
+	if (IsIMET (data8, data_size))
+		return FF_IMET;
 
 	// Nintendo DS ROM banner: no magic at all, just a u16 version -- but the
 	// version's own CRC16 has to match, which makes this a real check rather

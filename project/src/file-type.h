@@ -341,6 +341,8 @@ typedef enum file_format_t
 	FF_SFX, // 247 - Monster Games DSP-ADPCM audio (.sfx, Excite Truck / ExciteBots)
 	FF_VFF, // 248 - Nintendo VFF virtual FAT volume (.vff / "VFF ")
 	FF_NDS_BANNER, // 249 - Nintendo DS ROM banner (banner.bin: icon + titles)
+	FF_IMET, // 250 - Wii channel banner header (opening.bnr / IMET)
+	FF_IMD5, // 251 - Wii resource wrapper (banner.bin / icon.bin / IMD5)
 
 	//--- number of elements
 

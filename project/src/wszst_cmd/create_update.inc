@@ -7636,6 +7636,17 @@ static enumError extract_imet_file (ccp arg, ccp basedir, uint depth)
 		const enumError sub_err = extract_one_file (u8dest, basedir, depth + 1);
 		if (sub_err != ERR_NOTHING_TO_DO && err < sub_err)
 			err = sub_err;
+
+		// The staged U8 is scaffolding, not a deliverable: its members are on
+		// disk now.  Leaving it behind would let a later CREATE sweep the
+		// whole banner back in as one bogus extra file -- the same hygiene
+		// decompress_nintendo_file3()'s callers apply to their intermediates.
+		if (!opt_export_raw)
+		{
+			struct stat st;
+			if (!stat (u8dest, &st) && S_ISREG (st.st_mode))
+				unlink (u8dest);
+		}
 	}
 	return err;
 }

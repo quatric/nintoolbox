@@ -7717,6 +7717,55 @@ assert im.getpixel((0, 0)) == (255, 255, 255), f"expected white, got {im.getpixe
   fi
 
 
+  # Wii channel banner (opening.bnr): an IMET header -- whose MD5 covers the
+  # whole 0x600 header including its 0x40 zero padding, with the MD5 field
+  # itself zeroed -- in front of a U8 archive whose members carry IMD5
+  # headers. `wszst XX` must write the per-language titles, expand the U8,
+  # unwrap the IMD5 members, and leave no staged intermediate behind.
+  mkdir -p "$d/imet_test/src/meta"
+  python3 -c '
+import hashlib, struct
+payload = b"hello banner payload\n" * 8
+imd5 = bytearray(0x20)
+imd5[0:4] = b"IMD5"
+struct.pack_into(">I", imd5, 4, len(payload))
+imd5[0x10:0x20] = hashlib.md5(payload).digest()
+with open("'"$d"'/imet_test/src/meta/icon.bin", "wb") as f:
+    f.write(bytes(imd5) + payload)
+'
+  if "$B/wszst" CREATE "$d/imet_test/src" --u8 --dest "$d/imet_test/inner.szs" \
+	--overwrite >/dev/null 2>&1 \
+  && "$B/wszst" DECOMPRESS "$d/imet_test/inner.szs" \
+	--dest "$d/imet_test/inner.u8" --overwrite >/dev/null 2>&1 \
+  && python3 -c '
+import hashlib, struct
+u8 = open("'"$d"'/imet_test/inner.u8", "rb").read()
+h = bytearray(0x600)
+h[0x40:0x44] = b"IMET"
+struct.pack_into(">I", h, 0x44, 0x600)   # header size
+struct.pack_into(">I", h, 0x48, 3)       # file count
+struct.pack_into(">III", h, 0x4c, len(u8), 0, 0)
+for i, t in enumerate(["IMET Test JA", "IMET Test EN"]):
+    u = t.encode("utf-16-be")
+    h[0x5c + i * 0x54 : 0x5c + i * 0x54 + len(u)] = u
+h[0x5f0:0x600] = hashlib.md5(bytes(h)).digest()
+with open("'"$d"'/imet_test/opening.bnr", "wb") as f:
+    f.write(bytes(h) + u8)
+' \
+  && "$B/wszst" FILETYPE "$d/imet_test/opening.bnr" 2>/dev/null | grep -q IMET \
+  && "$B/wszst" XX "$d/imet_test/opening.bnr" >/dev/null 2>&1 \
+  && grep -q "md5           = ok" "$d/imet_test/opening.bnr.txt" \
+  && grep -q "^\[English\]" "$d/imet_test/opening.bnr.txt" \
+  && [ ! -f "$d/imet_test/opening.bnr.u8" ] \
+  && cp "$d/imet_test/opening.bnr" "$d/imet_test/raw.bnr" \
+  && "$B/wszst" XX "$d/imet_test/raw.bnr" --export-raw >/dev/null 2>&1 \
+  && grep -q "hello banner payload" \
+	"$d/imet_test/raw.bnr.d/meta/icon.bin.bin" 2>/dev/null; then
+    fok "Wii channel banner (IMET + U8 + IMD5) unwrap"
+  else
+    fno "Wii channel banner" "failed to unwrap IMET/IMD5 banner sample";
+  fi
+
   # Nintendo DS ROM banner (banner.bin): the 32x32 4bpp icon decodes to PNG
   # with palette entry 0 transparent, and `wszst XX` writes the per-language
   # titles as a text sidecar. The banner has no magic, so detection hangs on

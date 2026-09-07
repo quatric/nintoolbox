@@ -1320,6 +1320,19 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		FFT_VALID | FFT_GRAPHIC | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Nintendo DS ROM banner (banner.bin: 32x32 icon + per-language titles)" },
 
+	// FF_IMET = 250 (Wii channel banner header)
+	// The magic sits at 0x40, not at 0, so the table's magic field stays
+	// empty and IsIMET() does the work (see lib-file.c).
+	{ FF_IMET, 0, 0, "IMET", ".bnr", ".bnr", ".bnr", FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Wii channel banner: IMET header + U8 archive (opening.bnr)" },
+
+	// FF_IMD5 = 251 (Wii resource wrapper)
+	{ FF_IMD5, 0, 0, "IMD5", ".bin", ".bin", ".bin", FFT_VALID | FFT_DECODE, 4,
+		{ 0x49, 0x4d, 0x44, 0x35 }, // "IMD5"
+		0, MinusString, MinusString,
+		"Wii resource wrapper: IMD5 header + optional LZ77 (banner.bin, icon.bin)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1452,7 +1465,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_PTLG, "GLT", 0, 0xe05 }, { FF_BCSTM, "BCSTM", "CSTM", 0x3801 },
 	{ FF_BFSTM, "BFSTM", "FSTM", 0x3801 }, { FF_BCWAV, "BCWAV", "CWAV", 0x3801 },
 	{ FF_BFWAV, "BFWAV", "FWAV", 0x3801 }, { FF_BNSH, "BNSH", 0, 0x3001 },
-	{ FF_NDS_BANNER, "NDS-BANNER", "NDSBANNER", 0x3009 }, { FF_MIO, "MIO", 0, 0xe05 },
+	{ FF_NDS_BANNER, "NDS-BANNER", "NDSBANNER", 0x3009 }, { FF_IMET, "IMET", 0, 0xe05 },
+	{ FF_IMD5, "IMD5", 0, 0x9 }, { FF_MIO, "MIO", 0, 0xe05 },
 	{ FF_ZDAT, "ZDAT", "ZDAT", 0xe05 }, { FF_SFX, "SFX", 0, 0xe05 },
 	{ FF_VFF, "VFF", "VFF", 0xe05 }, { FF_IQIPACK, "IQIPACK", "PACK", 0xe05 },
 
