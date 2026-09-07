@@ -426,8 +426,12 @@ VPATH		+= $(DCLIB_DIR)
 CFLAGS		+= -I$(DCLIB_DIR)
 
 # other objects
-SZS_O		:= lib-std.o lib-file.o lib-numeric.o lib-nds-banner.o \
+SZS_O		:= lib-std.o lib-file.o lib-numeric.o lib-nds-banner.o lib-wii-banner.o \
 		   lib-szs.o lib-checksum.o lib-nintendo.o \
+		   lib-dsb.o lib-bnr.o lib-brfnt.o lib-brfna.o lib-bcfnt.o \
+		   lib-ncgr.o lib-nclr.o lib-sarc.o lib-nw4r.o lib-rst.o lib-thp.o \
+		   lib-owned-entries.o lib-mvdk.o lib-vlx.o lib-pucrunch.o lib-lzx.o \
+		   lib-diff.o lib-lzovl.o lib-alar.o lib-sadl.o lib-psdk.o lib-sszl.o \
 		   lib-rarc.o lib-pack.o lib-rkc.o lib-brres.o lib-breff.o \
 		   file-type.o db-mkw.o lib-mkw.o lib-dol.o \
 		   sha1dgst.o sha1_one.o lib-bzip2.o lib-lzma.o lib-zstd.o \
@@ -1271,8 +1275,11 @@ st:
 	@svn diff | grep ^+ | wc -l
 
 .PHONY : test-nitro
-test-nitro: lib-nintendo.o lib-nitro.o lib-smdh.o lib-bntx.o lib-gtx.o lib-aes.o file-type.o lib-file.o src/astc/astc_decomp.o src/astc/astc_wrapper.o $(BCN_CXX_OBJS) $(LATTE_CXX_OBJS)
-	@$(CC) -O2 -ffunction-sections -fdata-sections -Isrc -Idclib ../tests/test-nitro.c lib-nitro.o lib-nintendo.o lib-smdh.o lib-bntx.o lib-gtx.o lib-aes.o src/astc/astc_decomp.o src/astc/astc_wrapper.o $(BCN_CXX_OBJS) $(LATTE_CXX_OBJS) lib-szs.o lib-quicklz.o qlz120.o qlz140.o lzh8_dec.o lzh8_cmp.o lzh8_util.o dclib*.o -lcurses -lz -lc++ -Wl,-dead_strip -o bin/test-nitro
+NITRO_SPLIT_O	= lib-darc.o lib-diff.o lib-lzovl.o lib-lzx.o lib-mvdk.o lib-psdk.o \
+		  lib-pucrunch.o lib-sadl.o lib-sszl.o lib-vlx.o lib-alar.o lib-owned-entries.o
+
+test-nitro: lib-nintendo.o lib-nitro.o lib-smdh.o lib-bntx.o lib-gtx.o lib-aes.o file-type.o lib-file.o $(NITRO_SPLIT_O) src/astc/astc_decomp.o src/astc/astc_wrapper.o $(BCN_CXX_OBJS) $(LATTE_CXX_OBJS)
+	@$(CC) -O2 -ffunction-sections -fdata-sections -Isrc -Idclib ../tests/test-nitro.c lib-nitro.o lib-nintendo.o lib-smdh.o lib-bntx.o lib-gtx.o lib-aes.o $(NITRO_SPLIT_O) src/astc/astc_decomp.o src/astc/astc_wrapper.o $(BCN_CXX_OBJS) $(LATTE_CXX_OBJS) lib-szs.o lib-quicklz.o qlz120.o qlz140.o lzh8_dec.o lzh8_cmp.o lzh8_util.o dclib*.o -lcurses -lz -lc++ -Wl,-dead_strip -o bin/test-nitro
 	@./bin/test-nitro
 
 .PHONY : test

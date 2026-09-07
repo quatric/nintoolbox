@@ -416,3 +416,38 @@ enumError CreateDARC (
 	*dest_size = total_file_size;
 	return ERR_OK;
 }
+
+//-----------------------------------------------------------------------------
+///////////////		Level-5 / Layton Archive (DARC)			///////////////
+//-----------------------------------------------------------------------------
+
+enumError DecodeDARC (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
+{
+	if (!dest || !dest_size || !src || src_size < 12 || memcmp (src, "DARC", 4))
+		return EINVAL;
+
+	const uint num_files
+		= (uint)src[4] | ((uint)src[5] << 8) | ((uint)src[6] << 16) | ((uint)src[7] << 24);
+	if (!num_files || 8 + num_files * 4 > src_size)
+		return EINVAL;
+
+	const uint rel_ofs0
+		= (uint)src[8] | ((uint)src[9] << 8) | ((uint)src[10] << 16) | ((uint)src[11] << 24);
+	const uint abs_ofs0 = 8 + 4 + rel_ofs0;
+	if (abs_ofs0 >= 4 && abs_ofs0 <= src_size)
+	{
+		const uint sz0 = (uint)src[abs_ofs0 - 4] | ((uint)src[abs_ofs0 - 3] << 8)
+			| ((uint)src[abs_ofs0 - 2] << 16) | ((uint)src[abs_ofs0 - 1] << 24);
+		if (abs_ofs0 + sz0 <= src_size && sz0 > 0)
+		{
+			u8 *out = MALLOC (sz0);
+			if (!out)
+				return ERR_CANT_CREATE;
+			memcpy (out, src + abs_ofs0, sz0);
+			*dest = out;
+			*dest_size = sz0;
+			return ERR_OK;
+		}
+	}
+	return EINVAL;
+}
