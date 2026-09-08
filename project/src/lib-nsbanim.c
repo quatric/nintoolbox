@@ -1655,6 +1655,288 @@ uint8_t *BuildNSBVA (const nsb_vis_t *vis, const char *clip_name, size_t *out_si
 	return out;
 }
 
+//-----------------------------------------------------------------------------
+// BTP0 (PAT0) texture pattern animation
+//
+// "BTP0" container with a "PAT0" block holding a NNSG3dResTexPatAnmSet: an
+// outer dict names each clip, and each clip is a NNSG3dResTexPatAnm unit.  A
+// unit is a 12-byte header followed by an inner dict whose per-material
+// entries are NNSG3dResDictTexPatAnmData, each pointing (unit-relative) to an
+// FV table of NNSG3dResTexPatAnmFV {u16 idxFrame, u8 idTex, u8 idPltt}.
+//
+//   u8  category0       0x00
+//   u8  revision        0x01
+//   u16 category1       0x02
+//   u16 numFrame        0x04
+//   u8  numTex          0x06
+//   u8  numPltt         0x07
+//   u16 ofsTexName      0x08   (unit-relative, NNSG3dResName[numTex])
+//   u16 ofsPlttName     0x0a   (unit-relative, NNSG3dResName[numPltt])
+//   dict                0x0c   (entries stride = sizeUnit + 4 = 12 bytes)
+//
+// NSBTP_Lookup mirrors NNSi_G3dGetTexPatAnmFV: start the search at
+// frame * ratioDataFrame >> 16, then clamp to the last keyframe <= frame.
+//-----------------------------------------------------------------------------
+
+int DecodeNSBTP_Clip (nsb_tp_clip_t *clip, const uint8_t *data, size_t size, uint32_t clip_idx)
+{
+	if (!clip || !data || size < 0x30)
+		return 0;
+	nsb_container_t c;
+	if (!nsb_container (&c, data, size))
+		return 0;
+	uint32_t blk_off, blk_size;
+	if (!nsb_block_off (&c, 0, &blk_off, &blk_size)
+		|| (size_t)blk_off + blk_size > size
+		|| blk_size < 0x30
+		|| memcmp (data + blk_off, "PAT0", 4))
+		return 0;
+
+	// Outer dict: clip name -> unit offset (relative to the block).
+	nsb_dict_t d_outer;
+	if (!nsb_dict (&c, blk_off + 8, &d_outer) || clip_idx >= d_outer.n)
+		return 0;
+	uint32_t eo = d_outer.ofs_entry + clip_idx * 8;
+	if (eo + 8 > c.file_size)
+		return 0;
+	const size_t unit = (size_t)blk_off + rd32le (c.file + eo + 4);
+	if (unit + 0x14 > c.file_size)
+		return 0;
+	const uint32_t num_frame = rd16le (c.file + unit + 4);
+	const uint32_t num_tex = c.file[unit + 6];
+	const uint32_t num_pltt = c.file[unit + 7];
+	if (!num_frame)
+		return 0;
+
+	// Inner dict: entry (material) data at stride 12.
+	nsb_dict_t d;
+	if (!nsb_dict (&c, (uint32_t)unit + 0x0c, &d) || clip_idx >= d.n)
+		return 0;
+	eo = d.ofs_entry + clip_idx * 12;
+	if (eo + 12 > c.file_size)
+		return 0;
+	const uint32_t num_keys = rd16le (c.file + eo + 4);
+	const uint32_t ratio = rd16le (c.file + eo + 8);
+	const uint32_t fv_off = rd16le (c.file + eo + 0x0a);
+	if (!num_keys || (size_t)fv_off + (size_t)num_keys * 4 > c.file_size - unit)
+		return 0;
+	clip->num_frame = num_frame;
+	clip->num_tex = num_tex;
+	clip->num_pltt = num_pltt;
+	clip->num_keys = num_keys;
+	clip->ratio_fx16 = ratio;
+	clip->keys = c.file + unit + fv_off;
+	return 1;
+}
+
+int NSBTP_Lookup (const nsb_tp_clip_t *clip, uint32_t frame, uint32_t *tex, uint32_t *pltt)
+{
+	if (!clip || !clip->keys || !clip->num_keys || frame >= clip->num_frame)
+		return 0;
+	uint32_t idx = (uint32_t)((uint64_t)clip->ratio_fx16 * frame >> 16);
+	if (idx >= clip->num_keys)
+		idx = clip->num_keys - 1;
+	while (idx > 0 && rd16le (clip->keys + idx * 4) >= frame)
+		idx--;
+	while (idx + 1 < clip->num_keys && rd16le (clip->keys + (idx + 1) * 4) <= frame)
+		idx++;
+	const uint32_t kt = clip->keys[idx * 4 + 2];
+	const uint32_t kp = clip->keys[idx * 4 + 3];
+	if (kt >= clip->num_tex || (kp != 0xff && kp >= clip->num_pltt))
+		return 0;
+	if (tex) *tex = kt;
+	if (pltt) *pltt = kp;
+	return 1;
+}
+
+static void nsb_write_name16 (uint8_t *dst, const char *name)
+{
+	memset (dst, 0, 16);
+	const char *s = name ? name : "";
+	for (int i = 0; i < 15 && s[i]; i++)
+		dst[i] = (uint8_t)s[i];
+}
+
+uint8_t *BuildNSBTP (uint32_t num_frame, uint32_t num_tex, uint32_t num_pltt,
+	const nsb_tp_clip_spec_t *clips, size_t num_clips, size_t *out_size)
+{
+	if (out_size)
+		*out_size = 0;
+	if (!clips || !num_frame || num_clips == 0 || num_clips > 15)
+		return 0;
+	size_t total_keys = 0;
+	for (size_t i = 0; i < num_clips; i++)
+	{
+		const nsb_tp_clip_spec_t *s = &clips[i];
+		if (!s->name || !s->keys || !s->num_keys)
+			return 0;
+		for (uint32_t k = 0; k < s->num_keys; k++)
+		{
+			if (s->keys[k].frame >= num_frame || s->keys[k].tex >= num_tex
+				|| (s->keys[k].pltt != 0xff && s->keys[k].pltt >= num_pltt))
+				return 0;
+			if (k && s->keys[k].frame < s->keys[k - 1].frame)
+				return 0;
+		}
+		total_keys += s->num_keys;
+	}
+
+	const uint32_t n = (uint32_t)num_clips;
+
+	// Outer block dict: clip name -> unit offset (8-byte entries).
+	const uint32_t odict_len = 8 + 4 * n + 8 * n + 16 * n; // hdr + nodes + entries + names
+	const uint32_t ONODE = 8 + 4 * n;
+	const uint32_t OENT = ONODE + 8 * n;
+
+	// Inner unit dict (at unit + 12): entry data stride 12, names 16.
+	const uint32_t idict_len = 8 + 4 * n + 12 * n + 16 * n;
+	const uint32_t INODE = 8 + 4 * n;
+	const uint32_t names_off = 0x0c + idict_len;
+	const uint32_t pltt_names_off = names_off + num_tex * 16;
+	const uint32_t fv_start = pltt_names_off + num_pltt * 16;
+	if ((uint64_t)fv_start + total_keys * 4 > 0xff00)
+		return 0;
+
+	// Unit (header + inner dict + tex/pltt names + FV tables).
+	nb_t c = { 0 };
+	int ok = 1;
+	ok = ok && nb_u8 (&c, 'T') && nb_u8 (&c, 0) && nb_u16 (&c, 0);
+	ok = ok && nb_u16 (&c, (uint16_t)num_frame);
+	ok = ok && nb_u8 (&c, (uint8_t)num_tex) && nb_u8 (&c, (uint8_t)num_pltt);
+	ok = ok && nb_u16 (&c, (uint16_t)names_off);
+	ok = ok && nb_u16 (&c, (uint16_t)pltt_names_off);
+	ok = ok && nb_u8 (&c, 0) && nb_u8 (&c, (uint8_t)n);
+	ok = ok && nb_u16 (&c, (uint16_t)idict_len);
+	ok = ok && nb_u16 (&c, 0x08); // ofsNode
+	ok = ok && nb_u16 (&c, (uint16_t)INODE); // ofsEntry
+	for (uint32_t i = 0; i < n && ok; i++)
+		ok = nb_u32 (&c, i); // unused nodes (numEntry < 16 -> linear scan)
+	uint32_t fv_off = fv_start;
+	for (size_t i = 0; i < num_clips && ok; i++)
+	{
+		const nsb_tp_clip_spec_t *s = &clips[i];
+		const uint32_t ratio = (uint16_t)(((uint64_t)s->num_keys << 16) / num_frame);
+		ok = ok && nb_u16 (&c, 8); // sizeUnit
+		ok = ok && nb_u16 (&c, (uint16_t)(12 * n)); // ofsName
+		ok = ok && nb_u16 (&c, (uint16_t)s->num_keys); // numFV
+		ok = ok && nb_u16 (&c, 0); // flag
+		ok = ok && nb_u16 (&c, (uint16_t)ratio); // ratioDataFrame
+		ok = ok && nb_u16 (&c, (uint16_t)fv_off); // offset (unit-relative)
+		fv_off += s->num_keys * 4;
+	}
+	for (size_t i = 0; i < num_clips && ok; i++)
+	{
+		uint8_t name16[16];
+		nsb_write_name16 (name16, clips[i].name);
+		ok = ok && nb_bytes (&c, name16, 16);
+	}
+	for (uint32_t i = 0; i < num_tex && ok; i++)
+	{
+		uint8_t name16[16];
+		char nm[8];
+		snprintf (nm, sizeof (nm), "Tex%02u", i);
+		nsb_write_name16 (name16, nm);
+		ok = ok && nb_bytes (&c, name16, 16);
+	}
+	for (uint32_t i = 0; i < num_pltt && ok; i++)
+	{
+		uint8_t name16[16];
+		char nm[8];
+		snprintf (nm, sizeof (nm), "Pltt%02u", i);
+		nsb_write_name16 (name16, nm);
+		ok = ok && nb_bytes (&c, name16, 16);
+	}
+	for (size_t i = 0; i < num_clips && ok; i++)
+		for (uint32_t k = 0; k < clips[i].num_keys && ok; k++)
+			ok = ok && nb_u16 (&c, (uint16_t)clips[i].keys[k].frame)
+				&& nb_u8 (&c, (uint8_t)clips[i].keys[k].tex)
+				&& nb_u8 (&c, (uint8_t)clips[i].keys[k].pltt);
+	if (!ok)
+	{
+		free (c.b);
+		return 0;
+	}
+
+	// Assemble the PAT0 block and the BTP0 container.
+	const uint32_t block_size = 8 + odict_len + (uint32_t)c.len;
+	const uint32_t file_size = 0x14 + block_size;
+	uint8_t *out = malloc (file_size);
+	if (!out)
+	{
+		free (c.b);
+		return 0;
+	}
+	memset (out, 0, file_size);
+	memcpy (out + 0x00, "BTP0", 4);
+	out[0x04] = 0xff; out[0x05] = 0xfe;
+	out[0x06] = 0x01; out[0x07] = 0x00;
+	out[0x08] = (uint8_t)(file_size & 0xff);
+	out[0x09] = (uint8_t)((file_size >> 8) & 0xff);
+	out[0x0a] = (uint8_t)((file_size >> 16) & 0xff);
+	out[0x0b] = (uint8_t)((file_size >> 24) & 0xff);
+	out[0x0c] = 0x10; out[0x0d] = 0x00;
+	out[0x0e] = 0x01; out[0x0f] = 0x00;
+	out[0x10] = 0x14; out[0x11] = 0x00; out[0x12] = 0x00; out[0x13] = 0x00;
+	memcpy (out + 0x14, "PAT0", 4);
+	out[0x18] = (uint8_t)(block_size & 0xff);
+	out[0x19] = (uint8_t)((block_size >> 8) & 0xff);
+	out[0x1a] = (uint8_t)((block_size >> 16) & 0xff);
+	out[0x1b] = (uint8_t)((block_size >> 24) & 0xff);
+	const uint32_t dc = 0x1c;
+	{
+		out[dc + 0] = 0;          // revision
+		out[dc + 1] = (uint8_t)n; // numEntry
+		out[dc + 2] = (uint8_t)(odict_len & 0xff);
+		out[dc + 3] = (uint8_t)((odict_len >> 8) & 0xff);
+		out[dc + 4] = 8;          // ofsNode
+		out[dc + 5] = 0;
+		out[dc + 6] = (uint8_t)(ONODE & 0xff); // ofsEntry
+		out[dc + 7] = (uint8_t)((ONODE >> 8) & 0xff);
+		for (uint32_t i = 0; i < n; i++)
+		{
+			out[dc + 8 + i * 4 + 0] = 0; // refBit
+			out[dc + 8 + i * 4 + 1] = 0; // idxLeft
+			out[dc + 8 + i * 4 + 2] = 0; // idxRight
+			out[dc + 8 + i * 4 + 3] = (uint8_t)i; // idxEntry
+		}
+		for (uint32_t i = 0; i < n; i++)
+		{
+			uint32_t eo = dc + ONODE + i * 8;
+			out[eo + 0] = 4; // sizeUnit
+			out[eo + 1] = 0;
+			out[eo + 2] = (uint8_t)((8 * n) & 0xff); // ofsName (rel. entry base)
+			out[eo + 3] = (uint8_t)(((8 * n) >> 8) & 0xff);
+			out[eo + 4] = 0; // ofsUnit low (patched)
+			out[eo + 5] = 0;
+			out[eo + 6] = 0;
+			out[eo + 7] = 0;
+		}
+		const uint32_t nb = dc + OENT;
+		for (size_t i = 0; i < num_clips; i++)
+		{
+			uint8_t name16[16];
+			nsb_write_name16 (name16, clips[i].name);
+			memcpy (out + nb + i * 16, name16, 16);
+		}
+	}
+	// Unit is placed right after the block dict.
+	memcpy (out + dc + odict_len, c.b, c.len);
+	// Patch the outer dict's ofsUnit to the unit's block-relative offset.
+	for (uint32_t i = 0; i < n; i++)
+	{
+		uint32_t eo = dc + ONODE + i * 8;
+		const uint32_t unit_rel = 8 + odict_len;
+		out[eo + 4] = (uint8_t)(unit_rel & 0xff);
+		out[eo + 5] = (uint8_t)((unit_rel >> 8) & 0xff);
+		out[eo + 6] = (uint8_t)((unit_rel >> 16) & 0xff);
+		out[eo + 7] = (uint8_t)((unit_rel >> 24) & 0xff);
+	}
+	free (c.b);
+	if (out_size)
+		*out_size = file_size;
+	return out;
+}
+
 // Encoders
 //
 // BVA0/BMA0/BTA0/BTP0 have no glTF representation, so a model can only carry

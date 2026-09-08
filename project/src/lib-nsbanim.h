@@ -44,6 +44,51 @@ int NSBVA_Visible (const nsb_vis_t *vis, uint32_t frame, uint32_t node);
 // bitfield.  Returns a malloc'd buffer (free by caller), sets *out_size.
 uint8_t *BuildNSBVA (const nsb_vis_t *vis, const char *clip_name, size_t *out_size);
 
+// BTP0 texture-pattern animation.  A BTP0 holds one NNSG3dResTexPatAnm unit
+// per clip (material); each unit has a dict whose per-material entries point
+// to NNSG3dResDictTexPatAnmData {numFV, flag, ratioDataFrame, offset}.  The
+// values are the FV table of NNSG3dResTexPatAnmFV records, the texture and
+// palette ids applied at each keyframe.  NSBTP_Lookup reproduces the SDK's
+// NNSi_G3dGetTexPatAnmFV keyframe search (frame * ratioDataFrame >> 16, then
+// clamped to the last keyframe whose frame <= frame).
+typedef struct
+{
+	uint16_t frame; // keyframe
+	uint8_t tex; // idTex (index into the unit's texture-name table)
+	uint8_t pltt; // idPltt (0xFF = none)
+} nsb_tp_key_t;
+
+typedef struct
+{
+	uint32_t num_frame;
+	uint32_t num_tex;
+	uint32_t num_pltt;
+	uint32_t num_keys; // NNSG3dResDictTexPatAnmData::numFV
+	uint32_t ratio_fx16; // NNSG3dResDictTexPatAnmData::ratioDataFrame (Q16)
+	const uint8_t *keys; // num_keys * 4 bytes of nsb_tp_key_t (u16 frame LE),
+			     // points into the caller's buffer, sorted by frame
+} nsb_tp_clip_t;
+
+// Decode clip `clip_idx` of a BTP0 into `clip`. Returns 1 on success, 0 on
+// invalid data or a missing clip.
+int DecodeNSBTP_Clip (nsb_tp_clip_t *clip, const uint8_t *data, size_t size, uint32_t clip_idx);
+
+// Keyframe the SDK applies at `frame` of a decoded clip.  Returns 1 and sets
+// *tex/*pltt, or 0 when out of range or the key's ids exceed the tables.
+int NSBTP_Lookup (const nsb_tp_clip_t *clip, uint32_t frame, uint32_t *tex, uint32_t *pltt);
+
+typedef struct
+{
+	const char *name; // clip (material) name, up to 15 chars
+	const nsb_tp_key_t *keys; // num_keys entries, sorted by frame
+	uint32_t num_keys;
+} nsb_tp_clip_spec_t;
+
+// Build a fresh BTP0 from a set of clips.  Returns a malloc'd buffer (free
+// by caller), sets *out_size.  Up to 15 clips.
+uint8_t *BuildNSBTP (uint32_t num_frame, uint32_t num_tex, uint32_t num_pltt,
+	const nsb_tp_clip_spec_t *clips, size_t num_clips, size_t *out_size);
+
 // Encode model animations back to NSB* binary.
 // Returns a malloc'd buffer (free by caller), sets *out_size. NULL on error.
 uint8_t *EncodeNSBCA (const model_t *model, size_t *out_size);

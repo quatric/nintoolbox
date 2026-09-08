@@ -1279,6 +1279,109 @@ int main (void)
 		free (bits);
 	}
 
+	// BTP0 (PAT0) texture-pattern animation: build two keyframe clips, decode
+	// them back and exercise NSBTP_Lookup at sample frames, then push the clip
+	// through the parse-into-model -> encode raw pass-through (byte-exact).
+	{
+		const uint nfr_tp = 40, ntex = 2, npltt = 3;
+		nsb_tp_key_t k0[4] = { { 0, 0, 0 }, { 10, 1, 1 }, { 25, 0, 0xff }, { 39, 1, 2 } };
+		nsb_tp_key_t k1[1] = { { 0, 0, 0 } };
+		nsb_tp_clip_spec_t specs[2] = {
+			{ "Mat0", k0, 4 },
+			{ "Mat1", k1, 1 }
+		};
+		size_t btp_sz = 0;
+		u8 *btp = BuildNSBTP (nfr_tp, ntex, npltt, specs, 2, &btp_sz);
+		if (!btp || btp_sz == 0)
+		{
+			printf ("  FAIL: BuildNSBTP failed\n");
+			fail++;
+		}
+		else
+		{
+			const uint32_t exp_ratio = (uint32_t)(((uint64_t)4 << 16) / nfr_tp);
+			int bad = 0;
+			nsb_tp_clip_t clip;
+			if (!DecodeNSBTP_Clip (&clip, btp, btp_sz, 0))
+			{
+				printf ("  FAIL: DecodeNSBTP_Clip(0) failed\n");
+				fail++;
+				bad = 1;
+			}
+			else if (clip.num_frame != nfr_tp || clip.num_tex != ntex || clip.num_pltt != npltt
+				|| clip.num_keys != 4 || clip.ratio_fx16 != exp_ratio)
+			{
+				printf ("  FAIL: BTP0 clip dims/ratio wrong\n");
+				fail++;
+				bad = 1;
+			}
+			static const uint chks[7][3] = {
+				{ 0, 0, 0 }, { 9, 0, 0 }, { 10, 1, 1 }, { 24, 1, 1 },
+				{ 25, 0, 0xff }, { 38, 0, 0xff }, { 39, 1, 2 }
+			};
+			for (uint i = 0; i < 7 && !bad; i++)
+			{
+				uint tex = 99, pltt = 99;
+				if (!NSBTP_Lookup (&clip, chks[i][0], &tex, &pltt)
+					|| tex != chks[i][1] || pltt != chks[i][2])
+				{
+					printf ("  FAIL: BTP0 lookup frame %u -> %u,%u (want %u,%u)\n",
+						chks[i][0], tex, pltt, chks[i][1], chks[i][2]);
+					fail++;
+					bad = 1;
+				}
+			}
+			nsb_tp_clip_t clip1;
+			if (!bad && !DecodeNSBTP_Clip (&clip1, btp, btp_sz, 1))
+			{
+				printf ("  FAIL: DecodeNSBTP_Clip(1) failed\n");
+				fail++;
+				bad = 1;
+			}
+			else if (!bad)
+			{
+				uint tex = 99, pltt = 99;
+				if (!NSBTP_Lookup (&clip1, 37, &tex, &pltt) || tex != 0 || pltt != 0)
+				{
+					printf ("  FAIL: BTP0 clip1 lookup failed\n");
+					fail++;
+					bad = 1;
+				}
+			}
+			if (!bad && DecodeNSBTP_Clip (&clip, btp, btp_sz, 2))
+			{
+				printf ("  FAIL: DecodeNSBTP_Clip out-of-range should fail\n");
+				fail++;
+				bad = 1;
+			}
+			model_t m;
+			memset (&m, 0, sizeof (m));
+			if (!bad && !ParseNSBTPIntoModel (&m, btp, btp_sz, "Patterns"))
+			{
+				printf ("  FAIL: ParseNSBTPIntoModel failed\n");
+				fail++;
+				bad = 1;
+			}
+			else if (!bad)
+			{
+				size_t re_sz = 0;
+				u8 *re_btp = EncodeNSBTP (&m, &re_sz);
+				if (!re_btp || re_sz != btp_sz || memcmp (re_btp, btp, btp_sz))
+				{
+					printf ("  FAIL: BTP0 model round-trip not byte-exact\n");
+					fail++;
+				}
+				else
+					printf ("  PASS: BTP0 build -> decode -> model raw round-trip\n");
+				free (re_btp);
+			}
+			for (size_t i = 0; i < m.num_nsb_raw; i++)
+				free (m.nsb_raw[i].data);
+			free (m.nsb_raw);
+			free (btp);
+		}
+	}
+
 	printf ("=== Results: %s (failures: %d) ===\n", fail == 0 ? "ALL PASSED" : "SOME FAILED", fail);
 	return fail;
 }
