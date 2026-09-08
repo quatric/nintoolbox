@@ -709,6 +709,51 @@ failures as always, one fewer than earlier sessions in this log because
 a concurrent session's NSB/animation work independently fixed the
 `ball.glg` regression along the way.
 
+## 15. 2026-09-08 — Retail-source verification attempt: SFZDAT / Star Fox Zero (Wii U) — ❌ blocked, README corrected
+
+Extracted `"Star Fox Zero (USA) (En,Fr,Es).wux"` via the same
+`wszst XX ... --dest /tmp/szs-sfz --overwrite` Wii U disc pipeline
+(6,709 files, 4.9 GiB extracted, ~2:40 wall time; the extraction itself
+completed cleanly with no errors of its own). Searched the entire
+extracted tree for `.dat` files and for the literal `DAT\0` magic
+string in every file: zero hits for either. The extracted tree is
+almost entirely manual/BFLYT assets (224 `.bflyt`, 964 `.bin`, 4,997
+Wwise `.wem`) plus `code/PRJ_030.rpx`; none of it is game content.
+
+All of the actual game data instead lives in four CRIWARE CPK archives
+under `content/`: `data000.cpk` (1.2 GB), `data001.cpk` (2.5 MB),
+`data002.cpk` (863 MB), `data003.cpk` (864 MB). `wszst FILETYPE`
+reports these as unrecognised (`?`) -- this project has no CPK support
+at all, registered or otherwise. Running `strings` over each CPK's
+embedded UTF directory table (CPK stores its filename list in the
+clear even when file payloads are compressed) confirms the game does
+ship real `.dat` members matching this format's expected shape:
+`data000.cpk` alone lists 463 of them (`ba0001.dat`, `0804.dat`, ...),
+`data001.cpk` lists 7 (`face_fox.dat`, `shader.dat`, `ShaderSign.dat`,
+...), `data002.cpk` and `data003.cpk` list 25 and 160 respectively
+(`r200.dat`, `r100.dat`, ...). One raw `DAT\0` byte match was found by
+brute-force scanning `data001.cpk`'s own bytes, but manually walking
+its header fields (files/offset-table/ext-table/names/sizes offsets)
+produced garbage on the second pass -- the header-shaped arithmetic
+that looked consistent at first (each offset delta cleanly divisible
+by the row count) turned out to be a false positive: CPK entries are
+stored CRI-compressed, so the surrounding bytes are high-entropy, and
+a 4-byte `DAT\0` match is expected to turn up by chance repeatedly
+across ~2 GB of such data. Recovering the real, decoded `.dat` bytes
+needs a CPK container reader plus CRILAYLA decompression, neither of
+which exists in this codebase; adding either is out of scope for a
+verification-only pass.
+
+Net result: no fixture could be harvested, no new `tests/regress.sh`
+function was added. `README.md`'s SFZDAT row is corrected: "Retail
+Source Tested" is marked ❌, and the description now records the exact
+member counts/names found via the CPK strings scan and the CPK/CRILAYLA
+gap, so the next session doesn't repeat the same byte-scan dead end.
+Scratch tree `/tmp/szs-sfz` removed after this game's cycle completed.
+`bash tests/regress.sh` was re-run afterward purely to confirm no
+regressions were introduced by this (code-free) investigation; it
+shows the same pre-existing unrelated failures as the rest of this log.
+
 ## Suggested order
 
 1. §2 (mechanical, minutes) + §8 (concrete bug, real user pain).
