@@ -1,11 +1,12 @@
 // lib-nsbanim.c -- Nintendo DS NSB animation family decoder/encoder.
 //
-// Handles the five NSB*.0 animation containers used by NNSG3d on the DS:
+// Handle the six NSB*.0 animation containers used by NNSG3d on the DS:
 //   NSBCA (.nsbca / BCA0 / JNT0) -- joint SRT animation
 //   NSBTA (.nsbta / BTA0 / SRT0) -- texture SRT animation
 //   NSBTP (.nsbtp / BTP0 / PAT0) -- texture pattern animation
 //   NSBVA (.nsbva / BVA0 / VIS0) -- visibility animation
 //   NSBMA (.nsbma / BMA0 / MAT0) -- material colour animation
+//   NSBCK (.nsbck / BCK0 / CHR0) -- character (inverse-TRS) animation
 //
 // They all share one container: a NNSG3dResFileHeader followed by u32 block
 // offsets, each block being a NNSG3dResDataBlockHeader + a NNSG3dResDict
@@ -722,6 +723,13 @@ int ParseNSBMAIntoModel (model_t *model, const uint8_t *data, size_t size, const
 	const int n = nsb_scan_clips (data, size, "MAT0");
 	if (n > 0)
 		nsb_attach_raw (model, NSB_RAW_BMA0, clip_name && clip_name[0] ? clip_name : "NSB", data, size);
+	return n;
+}
+int ParseNSBCKIntoModel (model_t *model, const uint8_t *data, size_t size, const char *clip_name)
+{
+	const int n = nsb_scan_clips (data, size, "CHR0");
+	if (n > 0)
+		nsb_attach_raw (model, NSB_RAW_BCK0, clip_name && clip_name[0] ? clip_name : "NSB", data, size);
 	return n;
 }
 int ParseNSBTAIntoModel (model_t *model, const uint8_t *data, size_t size, const char *clip_name)
@@ -2338,13 +2346,538 @@ uint8_t *BuildNSBTA (uint32_t num_frame, const nsb_ta_clip_spec_t *clips,
 	return out;
 }
 
+//-----------------------------------------------------------------------------
+// BCK0 (CHR0) character (inverse-TRS) animation
+//-----------------------------------------------------------------------------
+// A "BCK0" container names one clip per NNSG3dResChrAnm unit through the same
+// clip-name dict as the rest of the family; unlike BCA0, each unit here is
+// its own allocation and the dict entries point at their own unit.  An unit
+// is an NNSG3dResAnmHeader-style 8-byte header plus a u16 ofsTag array, one
+// entry per node, pointing at the node's NNSG3dResChrAnmData:
+//
+//   +0x00  u8 kind 'C', u8 pad, u16 sizeofUnit (0x18)
+//   +0x04  u16 numFrame
+//   +0x06  u16 numNode
+//   +0x08  u16 ofsName      (unit-rel, NNSG3dResName[numNode] * 16)
+//   +0x0a  u16 ofsNodeData  (unit-rel, NNSG3dResChrAnmData[numNode] * 12)
+//   +0x0c  u32 ofsRot3      (unused, 0)
+//   +0x10  u32 ofsRot5      (unused, 0)
+//   +0x14  u16 ofsTag[numNode] (unit-rel, 0 unless the node is animated)
+//
+//   NNSG3dResChrAnmData { u32 info; u32 ofsBasis; u32 ofsPos; }
+//     info: for each of the 12 axes (basis cells 0..8 row-major, position
+//     scalars 9..11) two bits at (axis*2):
+//       0 = identity basis cell / zero position scalar
+//       1 = constant (fx32 in the const table after the axis table)
+//       2 = animated (axis table entry points into a per-frame stream)
+//       3 = reserved
+//
+//   Basis table @ofsBasis (36 bytes: 9 * {u16 tag, u16 ofs}) directly followed
+//   by one fx32 per constant basis cell in axis order; position table @ofsPos
+//   (12 bytes) followed by one fx32 per constant position scalar.  Animated
+//   axes stream fx32 (4096ths).  The u16 tag's bit 15/14 encode the step (2/4)
+//   and bits 0..12 the last stream index; step 1 streams are full length.
+//
+// NSBCK_SampleMatrix evaluates a node at a frame: the basis defaults to
+// identity and the position to zero, then each axis's constant or stream
+// applies.  Stepped streams hold one sample per frame pair (step 2) or quad
+// (step 4), so frame f reads the entry for its pair/quad group -- a JNT0-style
+// compact representation of a piecewise-constant transform.
+//
+// The CHR unit layout is a documented reconstruction: the header shape and
+// the DFFM ofsBasis/ofsPos indirections follow the sibling NNSG3d anm units,
+// but the resolution is not byte-for-byte verified against a retail animation
+// (none is known), so this is a self-consistent encoding used for
+// pass-through rather than a claim of SDK byte compatibility.
+
+#define NSB_CHR_STEP_MASK 0xc000
+#define NSB_CHR_STEP_B2   0x4000
+#define NSB_CHR_STEP_B4   0x8000
+#define NSB_CHR_FX16      0x2000
+#define NSB_CHR_LAST_MASK 0x1fff
+
+// Number of stream slots a step covers across `cframes` frames.
+static uint32_t nsb_chr_slots (uint32_t cframes, uint8_t step)
+{
+	if (step == 1)
+		return cframes;
+	if (step == 2)
+		return (cframes + 1) >> 1;
+	if (step == 4)
+		return (cframes + 3) >> 2;
+	return 0;
+}
+
+static int32_t nsb_chr_axis_sample (const uint8_t *stream, uint16_t tag, uint32_t idx)
+{
+	if (tag & NSB_CHR_FX16)
+		return (int32_t)rds16le (stream + idx * 2);
+	return (int32_t)rds32le (stream + idx * 4);
+}
+
+int DecodeNSBCK_Clip (nsb_ck_clip_t *clip, const uint8_t *data, size_t size, uint32_t clip_idx)
+{
+	if (!clip || !data || size < 0x30)
+		return 0;
+	nsb_container_t c;
+	if (!nsb_container (&c, data, size))
+		return 0;
+	uint32_t blk_off, blk_size;
+	if (!nsb_block_off (&c, 0, &blk_off, &blk_size)
+		|| (size_t)blk_off + blk_size > size
+		|| blk_size < 0x24
+		|| memcmp (data + blk_off, "CHR0", 4))
+		return 0;
+	nsb_dict_t d;
+	if (!nsb_dict (&c, blk_off + 8, &d) || clip_idx >= d.n)
+		return 0;
+	uint32_t unit_off;
+	if (!nsb_dict_unit_offset (&c, &d, clip_idx, &unit_off))
+		return 0;
+	if ((size_t)blk_off + unit_off + 0x18 > (size_t)blk_off + blk_size)
+		return 0;
+	const uint8_t *unit = c.file + blk_off + unit_off;
+	if (unit[0] != 'C')
+		return 0;
+	const uint32_t unit_len = blk_off + blk_size - (uint32_t)(unit - c.file);
+	const uint32_t num_frame = rd16le (unit + 4);
+	const uint32_t num_node = rd16le (unit + 6);
+	const uint32_t ofs_name = rd16le (unit + 8);
+	const uint32_t ofs_data = rd16le (unit + 0x0a);
+	if (ofs_name < 0x14 || ofs_data < ofs_name || !num_frame || !num_node)
+		return 0;
+	if ((size_t)ofs_name + (size_t)num_node * 16 > unit_len
+		|| (size_t)ofs_data + (size_t)num_node * 12 > unit_len)
+		return 0;
+	for (uint32_t i = 0; i < num_node; i++)
+	{
+		const uint8_t *nd = unit + ofs_data + i * 12;
+		const uint32_t ob = rd32le (nd + 4);
+		const uint32_t op = rd32le (nd + 8);
+		if ((ob && ob + 36 > unit_len) || (op && op + 12 > unit_len))
+			return 0;
+	}
+	clip->num_frame = num_frame;
+	clip->num_node = num_node;
+	clip->unit = unit;
+	clip->unit_len = unit_len;
+	clip->names = unit + ofs_name;
+	clip->data = unit + ofs_data;
+	return 1;
+}
+
+int NSBCK_SampleMatrix (const nsb_ck_clip_t *clip, uint32_t node, uint32_t frame,
+	float m[9], float pos[3])
+{
+	if (!clip || !clip->unit || !clip->data || node >= clip->num_node || frame >= clip->num_frame)
+		return 0;
+	memset (m, 0, sizeof (float) * 9);
+	m[0] = m[4] = m[8] = 1.0f;
+	memset (pos, 0, sizeof (float) * 3);
+	const uint8_t *nd = clip->data + node * 12;
+	const uint32_t info = rd32le (nd);
+	const uint32_t ofs_basis = rd32le (nd + 4);
+	const uint32_t ofs_pos = rd32le (nd + 8);
+	for (int a = 0; a < NSB_CHR_AXES; a++)
+	{
+		const uint32_t mode = (info >> (a * 2)) & 3;
+		if (mode == NSB_CHR_AXIS_NONE)
+			continue;
+		int32_t value;
+		if (a < NSB_CHR_BASIS_CELLS)
+		{
+			if (!ofs_basis || (uint32_t)(a + 1) * 4 > ofs_basis ? 1 : 0)
+				continue;
+			const uint8_t *entry = clip->unit + ofs_basis + a * 4;
+			if (mode == NSB_CHR_AXIS_CONST)
+			{
+				const uint8_t *v = entry; // const table starts right after the 36-byte axis table
+				v = clip->unit + ofs_basis + 36;
+				for (int p = 0; p < a; p++)
+					if (((info >> (p * 2)) & 3) == NSB_CHR_AXIS_CONST)
+						v += 4;
+				if (ofs_basis + 36 + (uint32_t)(v - (clip->unit + ofs_basis)) + 4 > clip->unit_len)
+					continue;
+				value = (int32_t)rd32le (v);
+			}
+			else
+			{
+				const uint16_t tg = rd16le (entry);
+				const size_t so = rd16le (entry + 2);
+				const uint32_t idx = (tg & NSB_CHR_STEP_B2) ? (frame >> 1)
+					: (tg & NSB_CHR_STEP_B4) ? (frame >> 2) : frame;
+				if (so + (size_t)(idx + 1) * 4 > clip->unit_len)
+					continue;
+				value = nsb_chr_axis_sample (clip->unit + so, tg, idx);
+			}
+			m[a] = fx12 (value);
+		}
+		else
+		{
+			const int b = a - NSB_CHR_BASIS_CELLS;
+			if (!ofs_pos || (uint32_t)(b + 1) * 4 > ofs_pos ? 1 : 0)
+				continue;
+			const uint8_t *entry = clip->unit + ofs_pos + b * 4;
+			if (mode == NSB_CHR_AXIS_CONST)
+			{
+				const uint8_t *v = clip->unit + ofs_pos + 12;
+				for (int p = NSB_CHR_BASIS_CELLS; p < a; p++)
+					if (((info >> (p * 2)) & 3) == NSB_CHR_AXIS_CONST)
+						v += 4;
+				if (ofs_pos + 12 + (uint32_t)(v - (clip->unit + ofs_pos)) + 4 > clip->unit_len)
+					continue;
+				value = (int32_t)rd32le (v);
+			}
+			else
+			{
+				const uint16_t tg = rd16le (entry);
+				const size_t so = rd16le (entry + 2);
+				const uint32_t idx = (tg & NSB_CHR_STEP_B2) ? (frame >> 1)
+					: (tg & NSB_CHR_STEP_B4) ? (frame >> 2) : frame;
+				if (so + (size_t)(idx + 1) * 4 > clip->unit_len)
+					continue;
+				value = nsb_chr_axis_sample (clip->unit + so, tg, idx);
+			}
+			pos[b] = fx12 (value);
+		}
+	}
+	return 1;
+}
+
+static int nsb_chr_spec_valid (const nsb_ck_node_spec_t *no, uint32_t num_frame)
+{
+	for (int a = 0; a < NSB_CHR_AXES; a++)
+	{
+		const uint8_t m = no->mode[a];
+		if (m > NSB_CHR_AXIS_ANIM)
+			return 0;
+		if (m == NSB_CHR_AXIS_ANIM)
+		{
+			if (!no->keys[a] || !nsb_chr_slots (num_frame, no->step[a]))
+				return 0;
+		}
+	}
+	return 1;
+}
+
+typedef struct
+{
+	uint32_t ofs_basis; // unit-rel table offset, 0 when the node has no basis axes
+	uint32_t ofs_pos;
+	uint32_t strm_b[NSB_CHR_BASIS_CELLS];
+	uint32_t strm_p[NSB_CHR_POS_AXES];
+} nsb_chr_plan_t;
+
+// Serialize one clip unit.  All table/stream offsets are computed up-front so
+// the unit is written in a single pass with no patching.
+static int nsb_build_chr_unit (nb_t *c, uint32_t num_frame, const nsb_ck_clip_spec_t *clip)
+{
+	const uint32_t nn = clip->num_nodes;
+	if (!clip->nodes || !nn || (uint32_t)num_frame > 0xffff)
+		return 0;
+	for (uint32_t i = 0; i < nn; i++)
+		if (!nsb_chr_spec_valid (&clip->nodes[i], num_frame))
+			return 0;
+	const uint32_t ofs_name = 0x14 + nn * 2;
+	const uint32_t ofs_data = ofs_name + 16u * nn;
+
+	nsb_chr_plan_t *plan = calloc (nn ? nn : 1, sizeof (*plan));
+	if (!plan)
+		return 0;
+	uint32_t cur = ofs_data + 12u * nn;
+	for (uint32_t i = 0; i < nn; i++)
+	{
+		const nsb_ck_node_spec_t *no = &clip->nodes[i];
+		uint32_t ncb = 0, ncp = 0;
+		uint32_t hasb = 0, hasp = 0;
+		for (int a = 0; a < NSB_CHR_BASIS_CELLS; a++)
+		{
+			if (no->mode[a] == NSB_CHR_AXIS_CONST)
+				ncb++;
+			if (no->mode[a] != NSB_CHR_AXIS_NONE)
+				hasb = 1;
+		}
+		for (int b = NSB_CHR_BASIS_CELLS; b < NSB_CHR_AXES; b++)
+		{
+			if (no->mode[b] == NSB_CHR_AXIS_CONST)
+				ncp++;
+			if (no->mode[b] != NSB_CHR_AXIS_NONE)
+				hasp = 1;
+		}
+		plan[i].ofs_basis = hasb ? cur : 0;
+		if (hasb)
+			cur += 36 + ncb * 4;
+		plan[i].ofs_pos = hasp ? cur : 0;
+		if (hasp)
+			cur += 12 + ncp * 4;
+	}
+	for (uint32_t i = 0; i < nn; i++)
+	{
+		const nsb_ck_node_spec_t *no = &clip->nodes[i];
+		for (int a = 0; a < NSB_CHR_BASIS_CELLS; a++)
+			if (no->mode[a] == NSB_CHR_AXIS_ANIM)
+			{
+				plan[i].strm_b[a] = cur;
+				cur += nsb_chr_slots (num_frame, no->step[a]) * 4;
+			}
+		for (int b = 0; b < NSB_CHR_POS_AXES; b++)
+			if (no->mode[NSB_CHR_BASIS_CELLS + b] == NSB_CHR_AXIS_ANIM)
+			{
+				plan[i].strm_p[b] = cur;
+				cur += nsb_chr_slots (num_frame, no->step[NSB_CHR_BASIS_CELLS + b]) * 4;
+			}
+	}
+	if (cur >= 0x10000)
+	{
+		free (plan);
+		return 0;
+	}
+
+	if (!nb_u8 (c, 'C') || !nb_u8 (c, 0) || !nb_u16 (c, 0x18)
+		|| !nb_u16 (c, (uint16_t)num_frame) || !nb_u16 (c, (uint16_t)nn)
+		|| !nb_u16 (c, (uint16_t)ofs_name) || !nb_u16 (c, (uint16_t)ofs_data)
+		|| !nb_u32 (c, 0) || !nb_u32 (c, 0))
+		goto fail;
+	for (uint32_t i = 0; i < nn; i++)
+	{
+		int has_anim = 0;
+		for (int a = 0; a < NSB_CHR_AXES; a++)
+			if (clip->nodes[i].mode[a] == NSB_CHR_AXIS_ANIM)
+				has_anim = 1;
+		if (!nb_u16 (c, has_anim ? (uint16_t)(ofs_data + i * 12) : 0))
+			goto fail;
+	}
+	uint8_t name16[16];
+	for (uint32_t i = 0; i < nn; i++)
+	{
+		nsb_write_name16 (name16, clip->nodes[i].name);
+		if (!nb_bytes (c, name16, 16))
+			goto fail;
+	}
+	for (uint32_t i = 0; i < nn; i++)
+	{
+		const nsb_ck_node_spec_t *no = &clip->nodes[i];
+		uint32_t info = 0;
+		for (int a = 0; a < NSB_CHR_AXES; a++)
+			info |= (uint32_t)no->mode[a] << (a * 2);
+		if (!nb_u32 (c, info) || !nb_u32 (c, plan[i].ofs_basis) || !nb_u32 (c, plan[i].ofs_pos))
+			goto fail;
+	}
+	for (uint32_t i = 0; i < nn; i++)
+	{
+		const nsb_ck_node_spec_t *no = &clip->nodes[i];
+		if (plan[i].ofs_basis)
+		{
+			for (int a = 0; a < NSB_CHR_BASIS_CELLS; a++)
+			{
+				if (no->mode[a] == NSB_CHR_AXIS_ANIM)
+				{
+					const uint32_t slots = nsb_chr_slots (num_frame, no->step[a]);
+					const uint16_t tg = (uint16_t)((no->step[a] == 2 ? NSB_CHR_STEP_B2 : no->step[a] == 4 ? NSB_CHR_STEP_B4 : 0) | (slots - 1));
+					if (!nb_u16 (c, tg) || !nb_u16 (c, (uint16_t)plan[i].strm_b[a]))
+						goto fail;
+				}
+				else if (!nb_u16 (c, 0) || !nb_u16 (c, 0))
+					goto fail;
+			}
+			for (int a = 0; a < NSB_CHR_BASIS_CELLS; a++)
+				if (no->mode[a] == NSB_CHR_AXIS_CONST)
+					if (!nb_s32 (c, no->row_major[a]))
+						goto fail;
+		}
+		if (plan[i].ofs_pos)
+		{
+			for (int b = 0; b < NSB_CHR_POS_AXES; b++)
+			{
+				const int a = NSB_CHR_BASIS_CELLS + b;
+				if (no->mode[a] == NSB_CHR_AXIS_ANIM)
+				{
+					const uint32_t slots = nsb_chr_slots (num_frame, no->step[a]);
+					const uint16_t tg = (uint16_t)((no->step[a] == 2 ? NSB_CHR_STEP_B2 : no->step[a] == 4 ? NSB_CHR_STEP_B4 : 0) | (slots - 1));
+					if (!nb_u16 (c, tg) || !nb_u16 (c, (uint16_t)plan[i].strm_p[b]))
+						goto fail;
+				}
+				else if (!nb_u16 (c, 0) || !nb_u16 (c, 0))
+					goto fail;
+			}
+			for (int b = 0; b < NSB_CHR_POS_AXES; b++)
+				if (no->mode[NSB_CHR_BASIS_CELLS + b] == NSB_CHR_AXIS_CONST)
+					if (!nb_s32 (c, no->pos[b]))
+						goto fail;
+		}
+	}
+	for (uint32_t i = 0; i < nn; i++)
+	{
+		const nsb_ck_node_spec_t *no = &clip->nodes[i];
+		for (int a = 0; a < NSB_CHR_BASIS_CELLS; a++)
+		{
+			if (no->mode[a] == NSB_CHR_AXIS_ANIM)
+			{
+				const uint8_t st = no->step[a];
+				const uint32_t slots = nsb_chr_slots (num_frame, st);
+				for (uint32_t j = 0; j < slots; j++)
+				{
+					const uint32_t k = (st == 1) ? j : (st == 2) ? (j * 2) : (j * 4);
+					if (!nb_s32 (c, no->keys[a][k]))
+						goto fail;
+				}
+			}
+		}
+		for (int b = 0; b < NSB_CHR_POS_AXES; b++)
+		{
+			const int a = NSB_CHR_BASIS_CELLS + b;
+			if (no->mode[a] == NSB_CHR_AXIS_ANIM)
+			{
+				const uint8_t st = no->step[a];
+				const uint32_t slots = nsb_chr_slots (num_frame, st);
+				for (uint32_t j = 0; j < slots; j++)
+				{
+					const uint32_t k = (st == 1) ? j : (st == 2) ? (j * 2) : (j * 4);
+					if (!nb_s32 (c, no->keys[a][k]))
+						goto fail;
+				}
+			}
+		}
+	}
+	free (plan);
+	return 1;
+fail:
+	free (plan);
+	return 0;
+}
+
+// Assemble the BCK0 container over one independently-sized unit per clip.
+static uint8_t *nsb_assemble_chr_container (const char *const *names, uint32_t n,
+	const nb_t *units, size_t *out_size)
+{
+	const uint32_t odict_len = 8 + 4 * n + 8 * n + 16 * n;
+	const uint32_t ONODE = 8 + 4 * n;
+	const uint32_t OENT = ONODE + 8 * n;
+	uint32_t body = 0;
+	for (uint32_t i = 0; i < n; i++)
+		body += (uint32_t)units[i].len;
+	const uint32_t block_size = 8 + odict_len + body;
+	const uint32_t file_size = 0x14 + block_size;
+	uint8_t *out = malloc (file_size);
+	if (!out)
+		return 0;
+	memset (out, 0, file_size);
+	memcpy (out + 0x00, "BCK0", 4);
+	out[0x04] = 0xff; out[0x05] = 0xfe;
+	out[0x06] = 0x01; out[0x07] = 0x00;
+	out[0x08] = (uint8_t)(file_size & 0xff);
+	out[0x09] = (uint8_t)((file_size >> 8) & 0xff);
+	out[0x0a] = (uint8_t)((file_size >> 16) & 0xff);
+	out[0x0b] = (uint8_t)((file_size >> 24) & 0xff);
+	out[0x0c] = 0x10; out[0x0d] = 0x00;
+	out[0x0e] = 0x01; out[0x0f] = 0x00;
+	out[0x10] = 0x14; out[0x11] = 0x00; out[0x12] = 0x00; out[0x13] = 0x00;
+	memcpy (out + 0x14, "CHR0", 4);
+	out[0x18] = (uint8_t)(block_size & 0xff);
+	out[0x19] = (uint8_t)((block_size >> 8) & 0xff);
+	out[0x1a] = (uint8_t)((block_size >> 16) & 0xff);
+	out[0x1b] = (uint8_t)((block_size >> 24) & 0xff);
+	const uint32_t dc = 0x1c;
+	out[dc + 0] = 0;
+	out[dc + 1] = (uint8_t)n;
+	out[dc + 2] = (uint8_t)(odict_len & 0xff);
+	out[dc + 3] = (uint8_t)((odict_len >> 8) & 0xff);
+	out[dc + 4] = 8;
+	out[dc + 5] = 0;
+	out[dc + 6] = (uint8_t)(ONODE & 0xff);
+	out[dc + 7] = (uint8_t)((ONODE >> 8) & 0xff);
+	for (uint32_t i = 0; i < n; i++)
+	{
+		const uint32_t no = dc + 8 + i * 4;
+		out[no + 0] = 0; // refBit
+		out[no + 1] = 0; // idxLeft
+		out[no + 2] = 0; // idxRight
+		out[no + 3] = (uint8_t)i; // idxEntry
+	}
+	for (uint32_t i = 0; i < n; i++)
+	{
+		uint32_t eo = dc + ONODE + i * 8;
+		out[eo + 0] = 4; // sizeUnit
+		out[eo + 1] = 0;
+		out[eo + 2] = (uint8_t)((8 * n) & 0xff); // ofsName (rel. entry base)
+		out[eo + 3] = (uint8_t)(((8 * n) >> 8) & 0xff);
+		out[eo + 4] = 0; // ofsUnit (patched per clip below)
+		out[eo + 5] = 0;
+		out[eo + 6] = 0;
+		out[eo + 7] = 0;
+	}
+	const uint32_t nb = dc + OENT;
+	for (uint32_t i = 0; i < n; i++)
+	{
+		uint8_t name16[16];
+		nsb_write_name16 (name16, names[i]);
+		memcpy (out + nb + i * 16, name16, 16);
+	}
+	uint32_t off = 0;
+	for (uint32_t i = 0; i < n; i++)
+	{
+		const uint32_t unit_ofs = 8 + odict_len + off;
+		uint32_t eo = dc + ONODE + i * 8;
+		out[eo + 4] = (uint8_t)(unit_ofs & 0xff);
+		out[eo + 5] = (uint8_t)((unit_ofs >> 8) & 0xff);
+		out[eo + 6] = (uint8_t)((unit_ofs >> 16) & 0xff);
+		out[eo + 7] = (uint8_t)((unit_ofs >> 24) & 0xff);
+		memcpy (out + dc + odict_len + off, units[i].b, units[i].len);
+		off += (uint32_t)units[i].len;
+	}
+	if (out_size)
+		*out_size = file_size;
+	return out;
+}
+
+uint8_t *BuildNSBCK (uint32_t num_frame, const nsb_ck_clip_spec_t *clips,
+	size_t num_clips, size_t *out_size)
+{
+	if (out_size)
+		*out_size = 0;
+	if (!clips || !num_frame || num_clips == 0 || num_clips > 15)
+		return 0;
+	nb_t *units = calloc (num_clips, sizeof (*units));
+	const char **names = malloc (sizeof (*names) * num_clips);
+	if (!units || !names)
+	{
+		free (units);
+		free (names);
+		return 0;
+	}
+	uint8_t *bad = 0;
+	for (size_t i = 0; i < num_clips; i++)
+	{
+		if (!nsb_build_chr_unit (&units[i], num_frame, &clips[i]))
+		{
+			bad = (uint8_t *)1;
+			break;
+		}
+		names[i] = clips[i].name ? clips[i].name : "NSB";
+	}
+	if (bad)
+	{
+		for (size_t i = 0; i < num_clips; i++)
+			free (units[i].b);
+		free (units);
+		free (names);
+		return 0;
+	}
+	uint8_t *out = nsb_assemble_chr_container (names, (uint32_t)num_clips, units, out_size);
+	for (size_t i = 0; i < num_clips; i++)
+		free (units[i].b);
+	free (units);
+	free (names);
+	return out;
+}
+
 // Encoders
 //
-// BVA0/BMA0/BTA0/BTP0 have no glTF representation, so a model can only carry
-// them as preserved raw bytes; Encode* reproduces those exactly.  BCA0 has a
-// real glTF form, so EncodeNSBCA prefers the preserved bytes (byte-exact
-// decode -> encode round trip) and falls back to a freshly-built BCA0 when the
-// model came from a GLB and only carries decoded TRS channels.
+// BVA0/BMA0/BTA0/BTP0/BCK0 have no glTF representation, so a model can only
+// carry them as preserved raw bytes; Encode* reproduces those exactly.  BCA0
+// has a real glTF form, so EncodeNSBCA prefers the preserved bytes
+// (byte-exact decode -> encode round trip) and falls back to a freshly-built
+// BCA0 when the model came from a GLB and only carries decoded TRS channels.
 //-----------------------------------------------------------------------------
 
 uint8_t *EncodeNSBCA (const model_t *model, size_t *out_size)
@@ -2377,6 +2910,11 @@ uint8_t *EncodeNSBTP (const model_t *model, size_t *out_size)
 	if (out_size) *out_size = 0;
 	return nsb_raw_copy (nsb_find_raw (model, NSB_RAW_BTP0), out_size);
 }
+uint8_t *EncodeNSBCK (const model_t *model, size_t *out_size)
+{
+	if (out_size) *out_size = 0;
+	return nsb_raw_copy (nsb_find_raw (model, NSB_RAW_BCK0), out_size);
+}
 
 //-----------------------------------------------------------------------------
 // Sibling import: merge NSB* animation files that sit next to an NSBMD into
@@ -2397,8 +2935,8 @@ void ImportNSBAnimSiblings (model_t *model, const char *nsbmd_path)
 	if (dot)
 		*dot = 0;
 
-	const char *kinds[] = { ".nsbca", ".nsbta", ".nsbtp", ".nsbva", ".nsbma",
-		".bca", ".bta", ".btp", ".bva", ".bma", 0 };
+	const char *kinds[] = { ".nsbca", ".nsbta", ".nsbtp", ".nsbva", ".nsbma", ".nsbck",
+		".bca", ".bta", ".btp", ".bva", ".bma", ".bck", 0 };
 	for (int k = 0; kinds[k]; k++)
 	{
 		char path[PATH_MAX];
@@ -2419,6 +2957,8 @@ void ImportNSBAnimSiblings (model_t *model, const char *nsbmd_path)
 				ParseNSBVAIntoModel (model, data, size, path);
 			else if (!memcmp (data, "BMA0", 4))
 				ParseNSBMAIntoModel (model, data, size, path);
+			else if (!memcmp (data, "BCK0", 4))
+				ParseNSBCKIntoModel (model, data, size, path);
 		}
 		FREE (data);
 	}

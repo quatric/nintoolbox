@@ -1393,6 +1393,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, MinusString, MinusString,
 		"Nintendo DS material colour animation (NSBMA); not decoded yet" },
 
+	// FF_NSBCK
+	{ FF_NSBCK, 0, 0, "NSBCK", ".nsbck", ".nsbck", ".nsbck", FFT_VALID, 4,
+		{ 0x42, 0x43, 0x4b, 0x30 }, // "BCK0"
+		0, MinusString, MinusString,
+		"Nintendo DS character animation (NSBCK); not decoded yet" },
+
 	// FF_LZ4 = 262 (LZ4 compression)
 	{ FF_LZ4, 0, 0, "LZ4", ".lz4", ".lz4", ".lz4", FFT_VALID | FFT_COMPRESS | FFT_TRACK, 4,
 		{ 0x04, 0x22, 0x4d, 0x18 }, // LZ4 frame magic 0x184D2204

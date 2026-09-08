@@ -21,6 +21,9 @@ int ParseNSBVAIntoModel (model_t *model, const uint8_t *data, size_t size, const
 // Parse NSBMA (BMA0) material colour animation and append to model.
 int ParseNSBMAIntoModel (model_t *model, const uint8_t *data, size_t size, const char *clip_name);
 
+// Parse NSBCK (BCK0) character animation and append to model.
+int ParseNSBCKIntoModel (model_t *model, const uint8_t *data, size_t size, const char *clip_name);
+
 // A decoded VIS0 clip (BVA0 visibility animation).  Visibility is a dense
 // bitfield: bit (frame * numNode + node) of `bits` is node's visibility at
 // frame, numFrame * numNode bits packed LSB-first into u32 words exactly as
@@ -166,6 +169,68 @@ int NSBTA_Lookup (const nsb_ta_clip_t *clip, uint32_t frame,
 uint8_t *BuildNSBTA (uint32_t num_frame, const nsb_ta_clip_spec_t *clips,
 	size_t num_clips, size_t *out_size);
 
+// BCK0 (CHR0) character (inverse-TRS) animation.  Each clip unit animates a
+// named skeleton: per node a 3x3 basis matrix (row-major) plus a translation
+// vector.  An NNSG3dResChrAnm "C" unit carries per-node data with, for each
+// of the 9 basis cells and 3 position scalars, one of three axis modes:
+// identity/zero, a single constant fx32, or a per-frame stream.  Streams use
+// the JNT0-style step2/step4 / fx16 codec shared with NSBCA.  The basis is a
+// full 3x3 matrix (not SRT-decomposable), so CHR0 has no glTF form here and
+// only round-trips as preserved raw bytes.  Note: the on-disk layout below is
+// a documented reconstruction (kind/basis/pos structure verified against the
+// BCA0 sibling codec, not byte-for-byte against a retail animation).
+#define NSB_CHR_BASIS_CELLS 9
+#define NSB_CHR_POS_AXES 3
+#define NSB_CHR_AXES 12 // basis cells 0..8, position scalars 9..11
+
+typedef enum
+{
+	NSB_CHR_AXIS_NONE = 0, // identity basis cell / zero position scalar
+	NSB_CHR_AXIS_CONST,    // single fx32 value
+	NSB_CHR_AXIS_ANIM      // per-frame fx32 stream (see step)
+} nsb_chr_axis_mode_t;
+
+typedef struct
+{
+	const char *name; // node name (skeleton bone), up to 15 chars
+	uint8_t mode[NSB_CHR_AXES]; // per-axis NSB_CHR_AXIS_*
+	int32_t row_major[9]; // fx32 const basis matrix (used per CONST axis)
+	int32_t pos[3]; // fx32 const position (used per CONST axis)
+	// ANIM keys are per-frame fx32 samples (at least num_frame entries);
+	// step selects how they are compacted into the stream:
+	//   1 = one per frame, 2 = one per frame pair, 4 = one per quad frame.
+	const int32_t *keys[NSB_CHR_AXES];
+	uint8_t step[NSB_CHR_AXES]; // 1, 2 or 4 (ignored unless ANIM)
+} nsb_ck_node_spec_t;
+
+typedef struct
+{
+	const char *name; // clip name, up to 15 chars
+	const nsb_ck_node_spec_t *nodes; // num_nodes entries
+	uint32_t num_nodes;
+} nsb_ck_clip_spec_t;
+
+typedef struct
+{
+	uint32_t num_frame;
+	uint32_t num_node;
+	const uint8_t *unit; // clip unit base (resolves unit-relative offsets)
+	uint32_t unit_len; // unit buffer length (bounds the offsets above)
+	const uint8_t *names; // num_node * 16-byte NNSG3dResName
+	const uint8_t *data; // num_node * 12 bytes (info, ofsBasis, ofsPos)
+} nsb_ck_clip_t;
+
+int DecodeNSBCK_Clip (nsb_ck_clip_t *clip, const uint8_t *data, size_t size, uint32_t clip_idx);
+
+// Sample a decoded clip's node transform at `frame`: 3x3 basis matrix `m`
+// (row-major, identity by default) and translation `pos` (zero by default).
+// Returns 1 on success, 0 when node/frame is out of range.
+int NSBCK_SampleMatrix (const nsb_ck_clip_t *clip, uint32_t node, uint32_t frame,
+	float m[9], float pos[3]);
+
+uint8_t *BuildNSBCK (uint32_t num_frame, const nsb_ck_clip_spec_t *clips,
+	size_t num_clips, size_t *out_size);
+
 // Encode model animations back to NSB* binary.
 // Returns a malloc'd buffer (free by caller), sets *out_size. NULL on error.
 uint8_t *EncodeNSBCA (const model_t *model, size_t *out_size);
@@ -173,6 +238,7 @@ uint8_t *EncodeNSBTA (const model_t *model, size_t *out_size);
 uint8_t *EncodeNSBTP (const model_t *model, size_t *out_size);
 uint8_t *EncodeNSBVA (const model_t *model, size_t *out_size);
 uint8_t *EncodeNSBMA (const model_t *model, size_t *out_size);
+uint8_t *EncodeNSBCK (const model_t *model, size_t *out_size);
 
 // Scan a directory for NSB* animation files that are siblings of the given
 // NSBMD path and merge them into the model.  The directory layout expected

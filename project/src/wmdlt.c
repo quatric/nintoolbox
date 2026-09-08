@@ -641,6 +641,7 @@ static bool export_mdl0_from_archive (raw_data_t *raw, ccp dest, enumError *err)
 #define NSB_DEST_BFLAG_BTP 0x04
 #define NSB_DEST_BFLAG_BVA 0x08
 #define NSB_DEST_BFLAG_BMA 0x10
+#define NSB_DEST_BFLAG_BCK 0x20
 
 static bool save_nsb_dest (const model_t *model, ccp dest, unsigned bflags)
 {
@@ -655,6 +656,8 @@ static bool save_nsb_dest (const model_t *model, ccp dest, unsigned bflags)
 		enc = EncodeNSBVA;
 	else if (bflags & NSB_DEST_BFLAG_BMA)
 		enc = EncodeNSBMA;
+	else if (bflags & NSB_DEST_BFLAG_BCK)
+		enc = EncodeNSBCK;
 	else
 		return false;
 	uint8_t *created = 0;
@@ -723,11 +726,13 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		const bool is_nsbtp_dest = dest_len > 6 && !strcasecmp (dest + dest_len - 6, ".nsbtp");
 		const bool is_nsbva_dest = dest_len > 6 && !strcasecmp (dest + dest_len - 6, ".nsbva");
 		const bool is_nsbma_dest = dest_len > 6 && !strcasecmp (dest + dest_len - 6, ".nsbma");
+		const bool is_nsbck_dest = dest_len > 6 && !strcasecmp (dest + dest_len - 6, ".nsbck");
 		const unsigned nsb_dest_flags = is_nsbca_dest ? NSB_DEST_BFLAG_BCA
 			: is_nsbta_dest ? NSB_DEST_BFLAG_BTA
 			: is_nsbtp_dest ? NSB_DEST_BFLAG_BTP
 			: is_nsbva_dest ? NSB_DEST_BFLAG_BVA
-			: is_nsbma_dest ? NSB_DEST_BFLAG_BMA : 0;
+			: is_nsbma_dest ? NSB_DEST_BFLAG_BMA
+			: is_nsbck_dest ? NSB_DEST_BFLAG_BCK : 0;
 		const bool is_nsb_dest = nsb_dest_flags != 0;
 
 		const int arg_len = strlen (arg);
@@ -1114,14 +1119,15 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		// NSB* animation destination.  A bare NSB* input is parsed only to
 		// carry the original bytes into the model (byte-exact pass-through);
 		// a DS NSBMD first folds in its sibling .nsbca/.nsbta/.nsbtp/.nsbva/
-		// .nsbma captures, so the .nsbca output is again byte-exact, while a
-		// model that only holds decoded TRS (from a GLB) is rebuilt freshly.
+		// .nsbma/.nsbck captures, so the .nsbca output is again byte-exact,
+		// while a model that only holds decoded TRS (from a GLB) is rebuilt
+		// freshly.
 		if (is_nsb_dest
 			&& (is_bmd
 				|| (raw.data_size >= 4
 					&& (!memcmp (raw.data, "BCA0", 4) || !memcmp (raw.data, "BTA0", 4)
 						|| !memcmp (raw.data, "BTP0", 4) || !memcmp (raw.data, "BVA0", 4)
-						|| !memcmp (raw.data, "BMA0", 4)))))
+						|| !memcmp (raw.data, "BMA0", 4) || !memcmp (raw.data, "BCK0", 4)))))
 		{
 			if (!testmode)
 			{
@@ -1137,6 +1143,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 					ok = ParseNSBVAIntoModel (model, raw.data, (uint)raw.data_size, arg) > 0;
 				else if (raw.data_size >= 4 && !memcmp (raw.data, "BMA0", 4))
 					ok = ParseNSBMAIntoModel (model, raw.data, (uint)raw.data_size, arg) > 0;
+				else if (raw.data_size >= 4 && !memcmp (raw.data, "BCK0", 4))
+					ok = ParseNSBCKIntoModel (model, raw.data, (uint)raw.data_size, arg) > 0;
 				else
 				{
 					FreeModel (model);

@@ -1604,6 +1604,128 @@ int main (void)
 		}
 	}
 
+	// 12. Test BCK0 (CHR0) character animation: build, sample, pass-through
+	{
+		const uint32_t nfr_ck = 16;
+		int32_t arm_s1[16];
+		for (uint i = 0; i < nfr_ck; i++)
+			arm_s1[i] = (int32_t)(4096 + i * 32);
+		static const int32_t arm_s2[16]
+			= { 4096, 4096, 3000, 3000, 2000, 2000, 1000, 1000, 200, 200, 100, 100, 50, 50, 25, 25 };
+		static const int32_t head_s4[16]
+			= { 4096, 4096, 4096, 4096, 2048, 2048, 2048, 2048, 0, 0, 0, 0, -2048, -2048, -2048, -2048 };
+
+		nsb_ck_node_spec_t arm_node, head_node;
+		memset (&arm_node, 0, sizeof (arm_node));
+		arm_node.name = "Arm";
+		arm_node.mode[0] = NSB_CHR_AXIS_ANIM; arm_node.step[0] = 1; arm_node.keys[0] = arm_s1;
+		arm_node.mode[4] = NSB_CHR_AXIS_ANIM; arm_node.step[4] = 2; arm_node.keys[4] = arm_s2;
+		arm_node.mode[8] = NSB_CHR_AXIS_CONST; arm_node.row_major[8] = 1024;
+		arm_node.mode[9] = NSB_CHR_AXIS_CONST; arm_node.pos[0] = 512;
+		memset (&head_node, 0, sizeof (head_node));
+		head_node.name = "Head";
+		head_node.mode[0] = NSB_CHR_AXIS_ANIM; head_node.step[0] = 4; head_node.keys[0] = head_s4;
+		head_node.mode[9] = NSB_CHR_AXIS_CONST; head_node.pos[0] = 128;
+
+		nsb_ck_clip_spec_t clips[2];
+		memset (clips, 0, sizeof (clips));
+		clips[0].name = "Walk"; clips[0].nodes = &arm_node; clips[0].num_nodes = 1;
+		clips[1].name = "Jump"; clips[1].nodes = &head_node; clips[1].num_nodes = 1;
+
+		size_t ck_sz = 0;
+		u8 *bck = BuildNSBCK (nfr_ck, clips, 2, &ck_sz);
+		if (!bck || !ck_sz)
+		{
+			printf ("  FAIL: BuildNSBCK failed\n");
+			fail++;
+		}
+		else
+		{
+			int bad = 0;
+			nsb_ck_clip_t clip, clip1;
+			if (!DecodeNSBCK_Clip (&clip, bck, ck_sz, 0)
+				|| clip.num_frame != nfr_ck || clip.num_node != 1)
+			{
+				printf ("  FAIL: DecodeNSBCK_Clip(0) failed\n");
+				fail++;
+				bad = 1;
+			}
+			float m[9], pos[3];
+			// Arm f3: axis0 ramp 4192, axis4 pair (2,3)->3000, axis8 const,
+			// axis9 const; off-diagonal basis cells stay identity/zero.
+			if (!bad && (!NSBCK_SampleMatrix (&clip, 0, 3, m, pos)
+				|| m[0] != 4192.0f / 4096.0f || m[4] != 3000.0f / 4096.0f
+				|| m[8] != 1024.0f / 4096.0f || pos[0] != 512.0f / 4096.0f
+				|| m[1] != 0.0f || m[3] != 0.0f || pos[1] != 0.0f || pos[2] != 0.0f))
+			{
+				printf ("  FAIL: NSBCK_SampleMatrix(Arm,f3) mismatch\n");
+				fail++;
+				bad = 1;
+			}
+			// step2 compression: f5 -> pair 2 (2000), f0 -> pair 0 (4096)
+			if (!bad && (!NSBCK_SampleMatrix (&clip, 0, 5, m, pos)
+				|| m[4] != 2000.0f / 4096.0f))
+			{
+				printf ("  FAIL: NSBCK_SampleMatrix(Arm,f5) mismatch\n");
+				fail++;
+				bad = 1;
+			}
+			// step4 compression: Head f12/f13 -> quad 3 (-2048), f4 -> quad 1
+			if (!bad && (!DecodeNSBCK_Clip (&clip1, bck, ck_sz, 1)
+				|| !NSBCK_SampleMatrix (&clip1, 0, 12, m, pos)
+				|| m[0] != -2048.0f / 4096.0f || pos[0] != 128.0f / 4096.0f))
+			{
+				printf ("  FAIL: NSBCK_SampleMatrix(Head,f12) mismatch\n");
+				fail++;
+				bad = 1;
+			}
+			if (!bad && (!NSBCK_SampleMatrix (&clip1, 0, 13, m, pos)
+				|| m[0] != -2048.0f / 4096.0f
+				|| !NSBCK_SampleMatrix (&clip1, 0, 4, m, pos)
+				|| m[0] != 2048.0f / 4096.0f))
+			{
+				printf ("  FAIL: NSBCK_SampleMatrix(Head,step4) mismatch\n");
+				fail++;
+				bad = 1;
+			}
+			if (!bad && (DecodeNSBCK_Clip (&clip, bck, ck_sz, 2)
+				|| NSBCK_SampleMatrix (&clip, 5, 0, m, pos)
+				|| NSBCK_SampleMatrix (&clip, 0, nfr_ck, m, pos)))
+			{
+				printf ("  FAIL: BCK0 out-of-range should fail\n");
+				fail++;
+				bad = 1;
+			}
+			if (!bad)
+				printf ("  PASS: BCK0 build -> decode -> sample\n");
+			model_t m2;
+			memset (&m2, 0, sizeof (m2));
+			if (!bad && !ParseNSBCKIntoModel (&m2, bck, ck_sz, "CHRs"))
+			{
+				printf ("  FAIL: ParseNSBCKIntoModel failed\n");
+				fail++;
+				bad = 1;
+			}
+			else if (!bad)
+			{
+				size_t re_sz = 0;
+				u8 *re_bck = EncodeNSBCK (&m2, &re_sz);
+				if (!re_bck || re_sz != ck_sz || memcmp (re_bck, bck, ck_sz))
+				{
+					printf ("  FAIL: BCK0 model round-trip not byte-exact\n");
+					fail++;
+				}
+				else
+					printf ("  PASS: BCK0 build -> decode -> model raw round-trip\n");
+				free (re_bck);
+			}
+			for (size_t i = 0; i < m2.num_nsb_raw; i++)
+				free (m2.nsb_raw[i].data);
+			free (m2.nsb_raw);
+			free (bck);
+		}
+	}
+
 	printf ("=== Results: %s (failures: %d) ===\n", fail == 0 ? "ALL PASSED" : "SOME FAILED", fail);
 	return fail;
 }

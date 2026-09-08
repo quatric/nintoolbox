@@ -1248,6 +1248,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 				return FF_NSBVA;
 			case 0x424d4130: // "BMA0"
 				return FF_NSBMA;
+			case 0x42434b30: // "BCK0"
+				return FF_NSBCK;
 
 			// Mario Party HSF
 			case 0x48534656: // "HSFV"

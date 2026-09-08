@@ -221,7 +221,8 @@ typedef enum
 	NSB_RAW_BTA0,
 	NSB_RAW_BTP0,
 	NSB_RAW_BVA0,
-	NSB_RAW_BMA0
+	NSB_RAW_BMA0,
+	NSB_RAW_BCK0
 } model_nsb_kind_t;
 
 typedef struct
