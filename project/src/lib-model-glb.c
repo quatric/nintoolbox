@@ -2539,15 +2539,31 @@ static void convert_animations (cgltf_data *data, model_t *model)
 			model_anim_channel_t *dst_ch = &dst->channels[c];
 
 			dst_ch->node_idx = -1;
-			if (data->skins_count > 0 && ch->target_node)
+			if (ch->target_node)
 			{
-				cgltf_skin *skin = &data->skins[0];
-				for (size_t j = 0; j < skin->joints_count; j++)
+				if (data->skins_count > 0)
 				{
-					if (skin->joints[j] == ch->target_node)
+					cgltf_skin *skin = &data->skins[0];
+					for (size_t j = 0; j < skin->joints_count; j++)
 					{
-						dst_ch->node_idx = j;
-						break;
+						if (skin->joints[j] == ch->target_node)
+						{
+							dst_ch->node_idx = (int)j;
+							break;
+						}
+					}
+				}
+				if (dst_ch->node_idx < 0)
+				{
+					// No skin: the node's own index is the model node index
+					// (the GLB exporter writes joint j as glTF node j).
+					for (size_t j = 0; j < data->nodes_count; j++)
+					{
+						if (data->nodes + j == ch->target_node)
+						{
+							dst_ch->node_idx = (int)j;
+							break;
+						}
 					}
 				}
 			}

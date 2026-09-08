@@ -210,6 +210,28 @@ typedef struct
 	size_t size;
 } model_image_t;
 
+// Raw NSB* animation resources preserved byte-for-byte from their source
+// file. The DS's NSBCA/BTA0/BTP0/BVA0/BMA0 parse into model channels but
+// BCA0 is the only one with a glTF representation; keeping the original
+// bytes lets the EncodeNSB* encoders reproduce an unchanged animation
+// byte-exactly (pass-through) instead of re-quantizing it.
+typedef enum
+{
+	NSB_RAW_BCA0,
+	NSB_RAW_BTA0,
+	NSB_RAW_BTP0,
+	NSB_RAW_BVA0,
+	NSB_RAW_BMA0
+} model_nsb_kind_t;
+
+typedef struct
+{
+	model_nsb_kind_t kind;
+	char name[64]; // clip name from the source path
+	uint8_t *data;
+	size_t size;
+} model_nsb_raw_t;
+
 typedef struct
 {
 	mesh_t *meshes;
@@ -239,6 +261,10 @@ typedef struct
 	// Textures embedded in the source file, if it carried any.
 	model_image_t *images;
 	size_t num_images;
+
+	// NSB* animation resources preserved from the source file.
+	model_nsb_raw_t *nsb_raw;
+	size_t num_nsb_raw;
 } model_t;
 
 #ifdef __cplusplus

@@ -631,6 +631,42 @@ static bool export_mdl0_from_archive (raw_data_t *raw, ccp dest, enumError *err)
 	return true;
 }
 
+// NSB* animation destinations (.nsbca/.nsbta/.nsbtp/.nsbva/.nsbma): the
+// model is re-encoded through the matching EncodeNSB* (byte-exact when the
+// model carries the preserved original animation bytes, freshly built BCA0
+// when it only holds decoded TRS channels).  Returns true if a file was
+// written.
+#define NSB_DEST_BFLAG_BCA 0x01
+#define NSB_DEST_BFLAG_BTA 0x02
+#define NSB_DEST_BFLAG_BTP 0x04
+#define NSB_DEST_BFLAG_BVA 0x08
+#define NSB_DEST_BFLAG_BMA 0x10
+
+static bool save_nsb_dest (const model_t *model, ccp dest, unsigned bflags)
+{
+	uint8_t *(*enc) (const model_t *, size_t *) = 0;
+	if (bflags & NSB_DEST_BFLAG_BCA)
+		enc = EncodeNSBCA;
+	else if (bflags & NSB_DEST_BFLAG_BTA)
+		enc = EncodeNSBTA;
+	else if (bflags & NSB_DEST_BFLAG_BTP)
+		enc = EncodeNSBTP;
+	else if (bflags & NSB_DEST_BFLAG_BVA)
+		enc = EncodeNSBVA;
+	else if (bflags & NSB_DEST_BFLAG_BMA)
+		enc = EncodeNSBMA;
+	else
+		return false;
+	uint8_t *created = 0;
+	size_t created_size = 0;
+	created = enc (model, &created_size);
+	if (!created || !created_size)
+		return false;
+	SaveFILE (dest, 0, true, created, (uint)created_size, 0);
+	FREE (created);
+	return true;
+}
+
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////		  command encode/decode			///////////////
@@ -682,6 +718,17 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		const bool is_nud = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".nud");
 		const bool is_bnfm = dest_len > 5 && !strcasecmp (dest + dest_len - 5, ".bnfm");
 		const bool is_model_dest = is_dae || is_glb;
+		const bool is_nsbca_dest = dest_len > 6 && !strcasecmp (dest + dest_len - 6, ".nsbca");
+		const bool is_nsbta_dest = dest_len > 6 && !strcasecmp (dest + dest_len - 6, ".nsbta");
+		const bool is_nsbtp_dest = dest_len > 6 && !strcasecmp (dest + dest_len - 6, ".nsbtp");
+		const bool is_nsbva_dest = dest_len > 6 && !strcasecmp (dest + dest_len - 6, ".nsbva");
+		const bool is_nsbma_dest = dest_len > 6 && !strcasecmp (dest + dest_len - 6, ".nsbma");
+		const unsigned nsb_dest_flags = is_nsbca_dest ? NSB_DEST_BFLAG_BCA
+			: is_nsbta_dest ? NSB_DEST_BFLAG_BTA
+			: is_nsbtp_dest ? NSB_DEST_BFLAG_BTP
+			: is_nsbva_dest ? NSB_DEST_BFLAG_BVA
+			: is_nsbma_dest ? NSB_DEST_BFLAG_BMA : 0;
+		const bool is_nsb_dest = nsb_dest_flags != 0;
 
 		const int arg_len = strlen (arg);
 		const bool is_glb_input = (arg_len > 4 && !strcasecmp (arg + arg_len - 4, ".glb"))
@@ -774,6 +821,20 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 							fprintf (stdlog, "%sENCODE BNFM:%s -> %s\n", verbose > 0 ? "\n" : "",
 								arg, dest);
 						continue;
+					}
+					if (is_nsb_dest)
+					{
+						if (save_nsb_dest (in_model, dest, nsb_dest_flags))
+						{
+							FreeModel (in_model);
+							if (verbose >= 0)
+								fprintf (stdlog, "%sENCODE NSB:%s -> %s\n", verbose > 0 ? "\n" : "",
+									arg, dest);
+							continue;
+						}
+						FreeModel (in_model);
+						ERROR0 (ERR_INVALID_DATA, "No NSB animation to write from %s: %s\n", arg, dest);
+						return ERR_INVALID_DATA;
 					}
 					if (is_bfres && (!opt_parent || !*opt_parent))
 					{
@@ -1050,6 +1111,58 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		// they must be dispatched to their own parsers *before* that call
 		const bool is_bmd
 			= is_ext (arg, ".bmd") || (raw.data_size >= 4 && !memcmp (raw.data, "BMD0", 4));
+		// NSB* animation destination.  A bare NSB* input is parsed only to
+		// carry the original bytes into the model (byte-exact pass-through);
+		// a DS NSBMD first folds in its sibling .nsbca/.nsbta/.nsbtp/.nsbva/
+		// .nsbma captures, so the .nsbca output is again byte-exact, while a
+		// model that only holds decoded TRS (from a GLB) is rebuilt freshly.
+		if (is_nsb_dest
+			&& (is_bmd
+				|| (raw.data_size >= 4
+					&& (!memcmp (raw.data, "BCA0", 4) || !memcmp (raw.data, "BTA0", 4)
+						|| !memcmp (raw.data, "BTP0", 4) || !memcmp (raw.data, "BVA0", 4)
+						|| !memcmp (raw.data, "BMA0", 4)))))
+		{
+			if (!testmode)
+			{
+				model_t *model = CALLOC (1, sizeof (model_t));
+				int ok = 0;
+				if (raw.data_size >= 4 && !memcmp (raw.data, "BCA0", 4))
+					ok = ParseNSBCAIntoModel (model, raw.data, (uint)raw.data_size, arg) > 0;
+				else if (raw.data_size >= 4 && !memcmp (raw.data, "BTA0", 4))
+					ok = ParseNSBTAIntoModel (model, raw.data, (uint)raw.data_size, arg) > 0;
+				else if (raw.data_size >= 4 && !memcmp (raw.data, "BTP0", 4))
+					ok = ParseNSBTPIntoModel (model, raw.data, (uint)raw.data_size, arg) > 0;
+				else if (raw.data_size >= 4 && !memcmp (raw.data, "BVA0", 4))
+					ok = ParseNSBVAIntoModel (model, raw.data, (uint)raw.data_size, arg) > 0;
+				else if (raw.data_size >= 4 && !memcmp (raw.data, "BMA0", 4))
+					ok = ParseNSBMAIntoModel (model, raw.data, (uint)raw.data_size, arg) > 0;
+				else
+				{
+					FreeModel (model);
+					model = 0;
+					if (is_bmd)
+					{
+						model = ParseNSBMD (raw.data, raw.data_size);
+						if (model)
+							ImportNSBAnimSiblings (model, arg);
+						ok = model != 0;
+					}
+				}
+				if (model && ok && save_nsb_dest (model, dest, nsb_dest_flags))
+				{
+					FreeModel (model);
+					if (verbose >= 0)
+						fprintf (stdlog, "%sENCODE NSB:%s -> %s\n", verbose > 0 ? "\n" : "",
+							arg, dest);
+					continue;
+				}
+				FreeModel (model);
+				ERROR0 (ERR_INVALID_DATA, "No NSB animation to write from %s: %s\n", arg, dest);
+				return ERR_INVALID_DATA;
+			}
+			continue;
+		}
 		// SSBH belongs in this list too: the ParseNUMSHB() call further down
 		// was unreachable without it, so a .numshb fell through to
 		// ScanRawDataMDL() and came back as "No MDL file".

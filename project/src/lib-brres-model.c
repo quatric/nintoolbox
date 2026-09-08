@@ -1695,6 +1695,9 @@ void FreeModel (model_t *model)
 	for (size_t i = 0; i < model->num_images; i++)
 		free (model->images[i].data);
 	free (model->images);
+	for (size_t i = 0; i < model->num_nsb_raw; i++)
+		free (model->nsb_raw[i].data);
+	free (model->nsb_raw);
 	free (model);
 }
 

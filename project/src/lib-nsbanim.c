@@ -185,11 +185,14 @@ static void rot_by_idx (const uint8_t *jt, uint32_t ofs_rot3, uint32_t ofs_rot5,
 		int16_t B = rds16le (p + 4);
 		uint32_t pv = (uint32_t)d0 & 0xf;
 		memset (m, 0, sizeof (float) * 9);
+		// SDK getRotDataByIdx_: A/B are fx16 -> fx32 (FX12) matrix cells read
+		// straight into the (fx12) result; the pivot diagonal is +/-FX32_ONE.
+		// In float terms the cells stay across the diagonal at +/-(1/4096).
 		m[pv] = (d0 & 0x10) ? -1.0f : 1.0f;
-		m[pivot_util_[pv][0]] = A;
-		m[pivot_util_[pv][1]] = B;
-		m[pivot_util_[pv][2]] = (d0 & 0x20) ? (float)-B : (float)B;
-		m[pivot_util_[pv][3]] = (d0 & 0x40) ? (float)-A : (float)A;
+		m[pivot_util_[pv][0]] = fx12 (A);
+		m[pivot_util_[pv][1]] = fx12 (B);
+		m[pivot_util_[pv][2]] = (d0 & 0x20) ? -fx12 (B) : fx12 (B);
+		m[pivot_util_[pv][3]] = (d0 & 0x40) ? -fx12 (A) : fx12 (A);
 	}
 	else
 	{
@@ -206,7 +209,9 @@ static void rot_by_idx (const uint8_t *jt, uint32_t ofs_rot3, uint32_t ofs_rot5,
 		_12 = (int16_t)((_12 << 3) | (d3 & 7));
 		int16_t m10 = (int16_t)(d3 >> 3);
 		int16_t m12 = (int16_t)((int16_t)(_12 << 3) >> 3);
-		float a0 = m00, a1 = m01, a2 = m02, b0 = m10, b1 = m11, b2 = m12;
+		// Cells are signed 13-bit FX12 like the SDK reads them; convert to
+		// float before the row-2 cross product (which then needs no shift).
+		float a0 = fx12 (m00), a1 = fx12 (m01), a2 = fx12 (m02), b0 = fx12 (m10), b1 = fx12 (m11), b2 = fx12 (m12);
 		m[0] = a0; m[1] = a1; m[2] = a2;
 		m[3] = b0; m[4] = b1; m[5] = b2;
 		m[6] = a1 * b2 - a2 * b1;
@@ -297,6 +302,65 @@ static model_anim_channel_t *anim_add_channel (model_animation_t *a, int node_id
 	return c;
 }
 
+//-----------------------------------------------------------------------------
+// Raw-byte retention (pass-through encode support)
+//-----------------------------------------------------------------------------
+//
+// Every Parse*IntoModel keeps a copy of the source bytes on the model so the
+// matching Encode* can reproduce an unchanged animation byte-exactly.  The
+// copy is attached with the clip's name; a duplicate (same kind + name) is
+// ignored -- the first capture wins.
+//-----------------------------------------------------------------------------
+
+static int nsb_attach_raw (model_t *model, model_nsb_kind_t kind, const char *clip_name,
+	const uint8_t *data, size_t size)
+{
+	if (!model || !data || !size)
+		return 0;
+	for (size_t i = 0; i < model->num_nsb_raw; i++)
+		if (model->nsb_raw[i].kind == kind
+			&& !strcmp (model->nsb_raw[i].name, clip_name && clip_name[0] ? clip_name : "NSB"))
+			return 1;
+	model_nsb_raw_t *n = realloc (model->nsb_raw, (model->num_nsb_raw + 1) * sizeof (model_nsb_raw_t));
+	if (!n)
+		return 0;
+	model->nsb_raw = n;
+	model_nsb_raw_t *r = &model->nsb_raw[model->num_nsb_raw];
+	memset (r, 0, sizeof (*r));
+	r->kind = kind;
+	snprintf (r->name, sizeof (r->name), "%s", clip_name && clip_name[0] ? clip_name : "NSB");
+	r->data = malloc (size);
+	if (!r->data)
+		return 0;
+	memcpy (r->data, data, size);
+	r->size = size;
+	model->num_nsb_raw++;
+	return 1;
+}
+
+static const model_nsb_raw_t *nsb_find_raw (const model_t *model, model_nsb_kind_t kind)
+{
+	if (!model)
+		return 0;
+	for (size_t i = 0; i < model->num_nsb_raw; i++)
+		if (model->nsb_raw[i].kind == kind)
+			return &model->nsb_raw[i];
+	return 0;
+}
+
+static uint8_t *nsb_raw_copy (const model_nsb_raw_t *r, size_t *out_size)
+{
+	if (!r || !r->data || !r->size)
+		return 0;
+	uint8_t *b = malloc (r->size);
+	if (!b)
+		return 0;
+	memcpy (b, r->data, r->size);
+	if (out_size)
+		*out_size = r->size;
+	return b;
+}
+
 int ParseNSBCAIntoModel (model_t *model, const uint8_t *data, size_t size, const char *clip_name)
 {
 	if (!model || !data || size < 0x10)
@@ -307,6 +371,10 @@ int ParseNSBCAIntoModel (model_t *model, const uint8_t *data, size_t size, const
 	uint32_t blk_off, blk_size;
 	if (!nsb_block_off (&c, 0, &blk_off, &blk_size) || memcmp (c.file + blk_off, "JNT0", 4))
 		return 0;
+
+	// Keep the source bytes for byte-exact pass-through re-encoding.
+	nsb_attach_raw (model, NSB_RAW_BCA0,
+		clip_name && clip_name[0] ? clip_name : "NSB", data, size);
 
 	nsb_dict_t top;
 	if (!nsb_dict (&c, blk_off + 8, &top))
@@ -426,6 +494,9 @@ int ParseNSBCAIntoModel (model_t *model, const uint8_t *data, size_t size, const
 					if (p + 4 <= size)
 					{
 						uint16_t ridx = (uint16_t)rd32le (data + p);
+						// Const rotation stores one full RIDX (4 bytes); the
+						// SDK advances past it (pData += 1 in the const case).
+						p += 4;
 						float m[9], q[4];
 						rot_by_idx (data + ja, ofs_rot3, ofs_rot5, ridx, m);
 						quat_from_mat (m, q);
@@ -641,48 +712,828 @@ static int nsb_scan_clips (const uint8_t *data, size_t size, const char *expect_
 
 int ParseNSBVAIntoModel (model_t *model, const uint8_t *data, size_t size, const char *clip_name)
 {
-	(void)model; (void)clip_name;
-	return nsb_scan_clips (data, size, "VIS0");
+	const int n = nsb_scan_clips (data, size, "VIS0");
+	if (n > 0)
+		nsb_attach_raw (model, NSB_RAW_BVA0, clip_name && clip_name[0] ? clip_name : "NSB", data, size);
+	return n;
 }
 int ParseNSBMAIntoModel (model_t *model, const uint8_t *data, size_t size, const char *clip_name)
 {
-	(void)model; (void)clip_name;
-	return nsb_scan_clips (data, size, "MAT0");
+	const int n = nsb_scan_clips (data, size, "MAT0");
+	if (n > 0)
+		nsb_attach_raw (model, NSB_RAW_BMA0, clip_name && clip_name[0] ? clip_name : "NSB", data, size);
+	return n;
 }
 int ParseNSBTAIntoModel (model_t *model, const uint8_t *data, size_t size, const char *clip_name)
 {
-	(void)model; (void)clip_name;
-	return nsb_scan_clips (data, size, "SRT0");
+	const int n = nsb_scan_clips (data, size, "SRT0");
+	if (n > 0)
+		nsb_attach_raw (model, NSB_RAW_BTA0, clip_name && clip_name[0] ? clip_name : "NSB", data, size);
+	return n;
 }
 int ParseNSBTPIntoModel (model_t *model, const uint8_t *data, size_t size, const char *clip_name)
 {
-	(void)model; (void)clip_name;
-	return nsb_scan_clips (data, size, "PAT0");
+	const int n = nsb_scan_clips (data, size, "PAT0");
+	if (n > 0)
+		nsb_attach_raw (model, NSB_RAW_BTP0, clip_name && clip_name[0] ? clip_name : "NSB", data, size);
+	return n;
 }
+
+//-----------------------------------------------------------------------------
+// BCA0 writer (fresh joint SRT animation)
+//
+// A one-clip BCA0 (the NDS tree layout) is a container with a single JNT0
+// block: a dict naming the clip, then a NNSG3dResJntAnm unit.  The writer
+// mirrors its input channels by snapping times to integer 60-fps frames and
+// packing per-node SRT with the same flag scheme the decoder reads: constant
+// axes inline, animated axes as an (info, offset) pair into a fx32 array;
+// scale always advances in (scale, invscale) pairs; rotation is a const RIDX
+// or an animated u16 RID array over shared PIVOT/ROT5 pools picked per-frame
+// (PIVOT when the matrix matches a single-axis rotation).
+//-----------------------------------------------------------------------------
+
+typedef struct
+{
+	uint8_t *b;
+	size_t len, cap;
+} nb_t;
+
+static int nb_reserve (nb_t *c, size_t extra)
+{
+	if (c->len + extra <= c->cap)
+		return 1;
+	size_t nc = c->cap ? c->cap : 1024;
+	while (nc < c->len + extra)
+		nc *= 2;
+	uint8_t *nb = realloc (c->b, nc);
+	if (!nb)
+		return 0;
+	c->b = nb;
+	c->cap = nc;
+	return 1;
+}
+static int nb_bytes (nb_t *c, const void *p, size_t n)
+{
+	if (!nb_reserve (c, n))
+		return 0;
+	memcpy (c->b + c->len, p, n);
+	c->len += n;
+	return 1;
+}
+static int nb_u8 (nb_t *c, uint8_t v)
+{
+	return nb_bytes (c, &v, 1);
+}
+static int nb_u32 (nb_t *c, uint32_t v)
+{
+	uint8_t t[4] = { (uint8_t)v, (uint8_t)(v >> 8), (uint8_t)(v >> 16), (uint8_t)(v >> 24) };
+	return nb_bytes (c, t, 4);
+}
+static int nb_s32 (nb_t *c, int32_t v)
+{
+	return nb_u32 (c, (uint32_t)v);
+}
+static int nb_u16 (nb_t *c, uint16_t v)
+{
+	uint8_t t[2] = { (uint8_t)v, (uint8_t)(v >> 8) };
+	return nb_bytes (c, t, 2);
+}
+static int nb_s16 (nb_t *c, int16_t v)
+{
+	return nb_u16 (c, (uint16_t)v);
+}
+
+static int32_t fx12_roundf (float v)
+{
+	return (int32_t)lroundf (v * 4096.0f);
+}
+
+static void bca_quat_to_mat (const float q[4], float m[9])
+{
+	const float x = q[1], y = q[2], z = q[3], w = q[0];
+	const float x2 = x * x, y2 = y * y, z2 = z * z;
+	m[0] = 1.0f - 2.0f * (y2 + z2);
+	m[1] = 2.0f * (x * y - w * z);
+	m[2] = 2.0f * (x * z + w * y);
+	m[3] = 2.0f * (x * y + w * z);
+	m[4] = 1.0f - 2.0f * (x2 + z2);
+	m[5] = 2.0f * (y * z - w * x);
+	m[6] = 2.0f * (x * z - w * y);
+	m[7] = 2.0f * (y * z + w * x);
+	m[8] = 1.0f - 2.0f * (x2 + y2);
+}
+
+static int bca_quat_identity (const float q[4])
+{
+	return fabsf (q[0] - 1.0f) < 2e-3f && fabsf (q[1]) < 2e-3f
+		&& fabsf (q[2]) < 2e-3f && fabsf (q[3]) < 2e-3f;
+}
+
+static int bca_quat_identity_seq (const float *qf, uint32_t nframe)
+{
+	for (uint32_t f = 0; f < nframe; f++)
+		if (!bca_quat_identity (qf + f * 4))
+			return 0;
+	return 1;
+}
+
+// Inverts the PIVOT decode in rot_by_idx(): the stored entry is a single +-1
+// diagonal element plus a 2x2 minor, one slot signed (sign_c/sign_d).  Each
+// pivot is scored by how well its reconstructed matrix matches, and only a
+// near-exact single-axis rotation qualifies (threshold ~1e-3 in matrix L1);
+// otherwise the caller falls back to ROT5.
+static int bca_piv_encode (const float m[9], uint16_t *d0, int16_t *A, int16_t *B)
+{
+	int best = -1;
+	float best_err = 1e9f;
+	for (int pv = 0; pv < 9; pv++)
+	{
+		const uint8_t *u = pivot_util_[pv];
+		const int minus = m[pv] < 0.0f;
+		const int sc = (m[u[2]] < 0.0f) != (m[u[1]] < 0.0f);
+		const int sd = (m[u[3]] < 0.0f) != (m[u[0]] < 0.0f);
+		float cand[9];
+		memset (cand, 0, sizeof (cand));
+		cand[pv] = minus ? -1.0f : 1.0f;
+		cand[u[0]] = m[u[0]];
+		cand[u[1]] = m[u[1]];
+		cand[u[2]] = sc ? -m[u[1]] : m[u[1]];
+		cand[u[3]] = sd ? -m[u[0]] : m[u[0]];
+		float err = 0.0f;
+		for (int i = 0; i < 9; i++)
+			err += fabsf (m[i] - cand[i]);
+		if (err < best_err)
+		{
+			best_err = err;
+			best = pv;
+		}
+	}
+	if (best < 0 || best_err > 1e-3f)
+		return 0;
+	const uint8_t *u = pivot_util_[best];
+	*d0 = (uint16_t)best
+		| ((m[best] < 0.0f) ? 0x10 : 0)
+		| (((m[u[2]] < 0.0f) != (m[u[1]] < 0.0f)) ? 0x20 : 0)
+		| (((m[u[3]] < 0.0f) != (m[u[0]] < 0.0f)) ? 0x40 : 0);
+	int Aq = fx12_roundf (m[u[0]]);
+	int Bq = fx12_roundf (m[u[1]]);
+	if (Aq > 32767) Aq = 32767;
+	if (Aq < -32768) Aq = -32768;
+	if (Bq > 32767) Bq = 32767;
+	if (Bq < -32768) Bq = -32768;
+	*A = (int16_t)Aq;
+	*B = (int16_t)Bq;
+	return 1;
+}
+
+static void bca_rot5_encode (const float m[9], uint16_t d[5])
+{
+	// Matches the ROT5 decode: rows 0/1 stored as 13-bit signed fx12
+	// (m00..m02,m10,m11 in d0..d4), with the m12 value (not used by the
+	// decoder, which re-derives row 2 by cross product) spread across the
+	// leftover 3 bits of every u16.
+	int q[6];
+	for (int i = 0; i < 5; i++)
+	{
+		int v = fx12_roundf (m[i]);
+		if (v > 4095) v = 4095;
+		if (v < -4095) v = -4095;
+		q[i] = v;
+	}
+	const uint32_t _12 = (uint32_t)(fx12_roundf (m[8]) & 0x1fff);
+	d[0] = (uint16_t)(((uint32_t)(q[0] & 0x1fff) << 3) | (_12 & 7));
+	d[1] = (uint16_t)(((uint32_t)(q[1] & 0x1fff) << 3) | ((_12 >> 3) & 7));
+	d[2] = (uint16_t)(((uint32_t)(q[2] & 0x1fff) << 3) | ((_12 >> 6) & 7));
+	d[3] = (uint16_t)(((uint32_t)(q[3] & 0x1fff) << 3) | ((_12 >> 9) & 7));
+	d[4] = (uint16_t)(((uint32_t)(q[4] & 0x1fff) << 3) | ((_12 >> 12) & 7));
+}
+
+typedef struct
+{
+	uint16_t d0;
+	int16_t A, B;
+} bca_piv_t;
+typedef struct
+{
+	uint16_t d[5];
+} bca_rot5_t;
+
+typedef struct
+{
+	bca_piv_t *p;
+	size_t np;
+	bca_rot5_t *r5;
+	size_t nr5;
+} bca_pools_t;
+
+static uint16_t bca_pool_add_matrix (bca_pools_t *pools, const float m[9])
+{
+	uint16_t d0;
+	int16_t A, B;
+	if (bca_piv_encode (m, &d0, &A, &B))
+	{
+		bca_piv_t e = { d0, A, B };
+		for (size_t i = 0; i < pools->np; i++)
+			if (!memcmp (&pools->p[i], &e, sizeof (e)))
+				return (uint16_t)(0x8000u | i);
+		if (pools->np >= 0x7fff)
+			return 0xffff;
+		bca_piv_t *n = realloc (pools->p, (pools->np + 1) * sizeof (bca_piv_t));
+		if (!n)
+			return 0xffff;
+		pools->p = n;
+		pools->p[pools->np++] = e;
+		return (uint16_t)(pools->np - 1) | 0x8000u;
+	}
+	uint16_t d[5];
+	bca_rot5_encode (m, d);
+	bca_rot5_t e;
+	memcpy (e.d, d, sizeof (d));
+	for (size_t i = 0; i < pools->nr5; i++)
+		if (!memcmp (&pools->r5[i], &e, sizeof (e)))
+			return (uint16_t)i;
+	if (pools->nr5 >= 0x7fff)
+		return 0xffff;
+	bca_rot5_t *n = realloc (pools->r5, (pools->nr5 + 1) * sizeof (bca_rot5_t));
+	if (!n)
+		return 0xffff;
+	pools->r5 = n;
+	pools->r5[pools->nr5++] = e;
+	return (uint16_t)(pools->nr5 - 1);
+}
+
+typedef enum { AREF_TRANS, AREF_RIDX, AREF_SCALE } bca_aref_kind_t;
+typedef struct
+{
+	uint32_t off_pos;  // position inside the node block of the u32 "offset"
+	uint32_t node_ndx;
+	uint8_t ax;
+	uint8_t kind;
+} bca_aref_t;
+
+static int bca_axis_const (const float *p, uint32_t nframe, int stride, int ax)
+{
+	const float v = p[ax];
+	for (uint32_t f = 1; f < nframe; f++)
+		if (p[f * stride + ax] != v)
+			return 0;
+	return 1;
+}
+
+static uint8_t bca_refbit (const uint8_t name16[16])
+{
+	for (int i = 15; i >= 0; i--)
+		if (name16[i])
+			for (int b = 7; b >= 0; b--)
+				if (name16[i] & (1u << b))
+					return (uint8_t)(i * 8 + b);
+	return 0x7f;
+}
+
+static uint8_t *nsb_build_bca0 (const model_animation_t *anim, size_t *out_size)
+{
+	if (out_size)
+		*out_size = 0;
+	if (!anim || !anim->num_channels)
+		return 0;
+
+	uint8_t name16[16];
+	memset (name16, 0, sizeof (name16));
+	const char *nm = anim->name[0] ? anim->name : "NSB";
+	size_t nl = strlen (nm);
+	if (nl > sizeof (name16) - 1)
+		nl = sizeof (name16) - 1;
+	memcpy (name16, nm, nl);
+
+	// Integer 60-fps frame density: each channel's samples are snapped to the
+	// nearest frame; the clip spans frames [0, nframe).
+	uint32_t nframe = 1;
+	for (size_t ci = 0; ci < anim->num_channels; ci++)
+	{
+		const model_anim_channel_t *ch = &anim->channels[ci];
+		for (size_t i = 0; i < ch->count; i++)
+		{
+			int f = (int)floorf (ch->times[i] * 60.0f + 0.5f);
+			if (f < 0)
+				f = 0;
+			if ((uint32_t)f + 1 > nframe)
+				nframe = (uint32_t)f + 1;
+		}
+	}
+
+	// Distinct node (joint) indices, ascending.
+	int *nodes = malloc (sizeof (int) * anim->num_channels);
+	if (!nodes)
+		return 0;
+	size_t nn = 0;
+	for (size_t ci = 0; ci < anim->num_channels; ci++)
+	{
+		const int idx = anim->channels[ci].node_idx;
+		if (idx < 0 || idx > 255)
+		{
+			free (nodes);
+			return 0;
+		}
+		size_t k;
+		for (k = 0; k < nn; k++)
+			if (nodes[k] == idx)
+				break;
+		if (k == nn)
+			nodes[nn++] = idx;
+	}
+	for (size_t i = 1; i < nn; i++)
+	{
+		const int v = nodes[i];
+		size_t j = i;
+		while (j > 0 && nodes[j - 1] > v)
+		{
+			nodes[j] = nodes[j - 1];
+			j--;
+		}
+		nodes[j] = v;
+	}
+
+	typedef struct
+	{
+		int node_idx;
+		int has_t, has_r, has_s;
+		float *t, *r, *s;
+	} bca_node_t;
+	bca_node_t *nd = calloc (nn, sizeof (bca_node_t));
+	if (!nd)
+	{
+		free (nodes);
+		return 0;
+	}
+	for (size_t i = 0; i < nn; i++)
+		nd[i].node_idx = nodes[i];
+	free (nodes);
+
+	int om = 0;
+	for (size_t i = 0; i < nn && !om; i++)
+	{
+		nd[i].s = malloc (sizeof (float) * (size_t)nframe * 3);
+		if (!nd[i].s)
+			om = 1;
+		else
+			for (uint32_t f = 0; f < nframe; f++)
+			{
+				nd[i].s[f * 3 + 0] = 1.0f;
+				nd[i].s[f * 3 + 1] = 1.0f;
+				nd[i].s[f * 3 + 2] = 1.0f;
+			}
+	}
+	if (om)
+	{
+		for (size_t i = 0; i < nn; i++)
+			free (nd[i].s);
+		free (nd);
+		return 0;
+	}
+
+	// Fill per-node frame data from channels.
+	for (size_t ci = 0; ci < anim->num_channels; ci++)
+	{
+		const model_anim_channel_t *ch = &anim->channels[ci];
+		size_t k;
+		for (k = 0; k < nn; k++)
+			if (nd[k].node_idx == ch->node_idx)
+				break;
+		if (k == nn)
+			continue;
+		bca_node_t *ph = &nd[k];
+		for (size_t i = 0; i < ch->count; i++)
+		{
+			int f = (int)floorf (ch->times[i] * 60.0f + 0.5f);
+			if (f < 0)
+				f = 0;
+			const uint32_t uf = (uint32_t)f;
+			if (uf >= nframe)
+				continue;
+			if (ch->path == MODEL_ANIM_SCALE && ch->components >= 3)
+			{
+				ph->has_s = 1;
+				for (int ax = 0; ax < 3; ax++)
+					ph->s[uf * 3 + ax] = ch->values[i * ch->components + ax];
+			}
+			else if (ch->path == MODEL_ANIM_TRANSLATION && ch->components >= 3)
+			{
+				if (!ph->t)
+				{
+					ph->t = calloc ((size_t)nframe * 3, sizeof (float));
+					ph->has_t = 1;
+				}
+				if (ph->t)
+					for (int ax = 0; ax < 3; ax++)
+						ph->t[uf * 3 + ax] = ch->values[i * ch->components + ax];
+			}
+			else if (ch->path == MODEL_ANIM_ROTATION && ch->components >= 4)
+			{
+				if (!ph->r)
+				{
+					ph->r = malloc (sizeof (float) * (size_t)nframe * 4);
+					ph->has_r = 1;
+					if (ph->r)
+						for (uint32_t qf = 0; qf < nframe; qf++)
+						{
+							ph->r[qf * 4 + 0] = 1.0f;
+							ph->r[qf * 4 + 1] = 0.0f;
+							ph->r[qf * 4 + 2] = 0.0f;
+							ph->r[qf * 4 + 3] = 0.0f;
+						}
+				}
+				if (ph->r)
+					for (int qa = 0; qa < 4; qa++)
+						ph->r[uf * 4 + qa] = ch->values[i * ch->components + qa];
+			}
+		}
+	}
+
+	// --- build the JntAnm unit ---
+	nb_t c = { 0 };
+	bca_pools_t pools = { 0 };
+	bca_aref_t *arefs = 0;
+	size_t narefs = 0;
+
+	// 20-byte header + ofsTag[nn] placeholders, patched at the end.
+	int ok = 1;
+	ok = ok && nb_u8 (&c, 'J') && nb_u8 (&c, 0) && nb_u8 (&c, 'A') && nb_u8 (&c, 'C');
+	ok = ok && nb_u16 (&c, (uint16_t)nframe);
+	ok = ok && nb_u16 (&c, (uint16_t)nn);
+	ok = ok && nb_s32 (&c, 0); // dataOfs
+	const size_t rot3_at = c.len;
+	ok = ok && nb_s32 (&c, 0); // ofsRot3
+	const size_t rot5_at = c.len;
+	ok = ok && nb_s32 (&c, 0); // ofsRot5
+	for (size_t i = 0; i < nn && ok; i++)
+		ok = ok && nb_u16 (&c, 0);
+
+	uint32_t *node_rel = malloc (sizeof (uint32_t) * nn);
+	if (!node_rel)
+		ok = 0;
+
+	if (!ok)
+		goto nnfail;
+
+	for (size_t i = 0; i < nn; i++)
+	{
+		bca_node_t *ph = &nd[i];
+		uint32_t flags = (uint32_t)ph->node_idx << 24;
+
+		// Translation section.
+		int t_identity = 1;
+		if (ph->has_t)
+			for (uint32_t f = 0; f < nframe && t_identity; f++)
+				if (ph->t[f * 3 + 0] != 0.0f || ph->t[f * 3 + 1] != 0.0f || ph->t[f * 3 + 2] != 0.0f)
+					t_identity = 0;
+		if (t_identity)
+			flags |= SRT_IDENTITY_T;
+		else
+		{
+			const int cax[3] = { bca_axis_const (ph->t, nframe, 3, 0),
+				bca_axis_const (ph->t, nframe, 3, 1), bca_axis_const (ph->t, nframe, 3, 2) };
+			flags |= (cax[0] ? SRT_CONST_TX : 0) | (cax[1] ? SRT_CONST_TY : 0) | (cax[2] ? SRT_CONST_TZ : 0);
+		}
+
+		// Rotation section.
+		int r_animated = 0;
+		if (ph->has_r)
+		{
+			const int is_id = bca_quat_identity_seq (ph->r, nframe);
+			int is_const = 1;
+			for (uint32_t f = 1; f < nframe && is_const; f++)
+				for (int qa = 0; qa < 4; qa++)
+					if (ph->r[f * 4 + qa] != ph->r[qa])
+						is_const = 0;
+			if (is_id)
+				flags |= SRT_IDENTITY_R;
+			else if (is_const)
+				flags |= SRT_CONST_R;
+			else
+				r_animated = 1;
+		}
+		else
+			flags |= SRT_IDENTITY_R;
+
+		// Scale section.
+		int s_identity = 1;
+		if (ph->has_s)
+			for (uint32_t f = 0; f < nframe && s_identity; f++)
+				if (ph->s[f * 3 + 0] != 1.0f || ph->s[f * 3 + 1] != 1.0f || ph->s[f * 3 + 2] != 1.0f)
+					s_identity = 0;
+		if (s_identity)
+			flags |= SRT_IDENTITY_S;
+		else
+		{
+			const int cax[3] = { bca_axis_const (ph->s, nframe, 3, 0),
+				bca_axis_const (ph->s, nframe, 3, 1), bca_axis_const (ph->s, nframe, 3, 2) };
+			flags |= (cax[0] ? SRT_CONST_SX : 0) | (cax[1] ? SRT_CONST_SY : 0) | (cax[2] ? SRT_CONST_SZ : 0);
+		}
+
+		// Emit the tag and the section data into a scratch block.
+		nb_t blk = { 0 };
+		int bok = nb_u32 (&blk, flags);
+		if (!t_identity && bok)
+		{
+			for (int ax = 0; ax < 3 && bok; ax++)
+			{
+				if (flags & (ax == 0 ? SRT_CONST_TX : ax == 1 ? SRT_CONST_TY : SRT_CONST_TZ))
+					bok = nb_s32 (&blk, fx12_roundf (ph->t[ax]));
+				else
+				{
+					bok = bok && nb_u32 (&blk, 0) && nb_u32 (&blk, 0);
+					if (bok)
+					{
+						bca_aref_t *a2 = realloc (arefs, (narefs + 1) * sizeof (bca_aref_t));
+						if (a2)
+						{
+							arefs = a2;
+							arefs[narefs].off_pos = (uint32_t)(blk.len - 4);
+							arefs[narefs].node_ndx = (uint32_t)i;
+							arefs[narefs].ax = (uint8_t)ax;
+							arefs[narefs].kind = AREF_TRANS;
+							narefs++;
+						}
+						else
+							bok = 0;
+					}
+				}
+			}
+		}
+		if ((flags & SRT_CONST_R) && bok)
+		{
+			float m[9];
+			bca_quat_to_mat (ph->r, m);
+			uint16_t ridx = bca_pool_add_matrix (&pools, m);
+			if (ridx == 0xffff)
+				bok = 0;
+			else
+				bok = nb_u32 (&blk, ridx);
+		}
+		else if (r_animated && bok)
+		{
+			bok = bok && nb_u32 (&blk, 0) && nb_u32 (&blk, 0);
+			if (bok)
+			{
+				bca_aref_t *a2 = realloc (arefs, (narefs + 1) * sizeof (bca_aref_t));
+				if (a2)
+				{
+					arefs = a2;
+					arefs[narefs].off_pos = (uint32_t)(blk.len - 4);
+					arefs[narefs].node_ndx = (uint32_t)i;
+					arefs[narefs].ax = 0;
+					arefs[narefs].kind = AREF_RIDX;
+					narefs++;
+				}
+				else
+					bok = 0;
+			}
+		}
+		if (!s_identity && bok)
+		{
+			for (int ax = 0; ax < 3 && bok; ax++)
+			{
+				if (flags & (ax == 0 ? SRT_CONST_SX : ax == 1 ? SRT_CONST_SY : SRT_CONST_SZ))
+				{
+					const float sv = ph->s[ax];
+					const int32_t inv = sv != 0.0f ? fx12_roundf (1.0f / sv) : 0;
+					bok = nb_s32 (&blk, fx12_roundf (sv)) && nb_s32 (&blk, inv);
+				}
+				else
+				{
+					bok = bok && nb_u32 (&blk, 0) && nb_u32 (&blk, 0);
+					if (bok)
+					{
+						bca_aref_t *a2 = realloc (arefs, (narefs + 1) * sizeof (bca_aref_t));
+						if (a2)
+						{
+							arefs = a2;
+							arefs[narefs].off_pos = (uint32_t)(blk.len - 4);
+							arefs[narefs].node_ndx = (uint32_t)i;
+							arefs[narefs].ax = (uint8_t)ax;
+							arefs[narefs].kind = AREF_SCALE;
+							narefs++;
+						}
+						else
+							bok = 0;
+					}
+				}
+			}
+		}
+
+		if (!bok)
+		{
+			free (blk.b);
+			goto nnfail;
+		}
+		node_rel[i] = (uint32_t)c.len;
+		{
+			const size_t tag_pos = 20 + i * 2;
+			if (tag_pos + 2 > c.len)
+			{
+				free (blk.b);
+				goto nnfail;
+			}
+			c.b[tag_pos] = (uint8_t)(node_rel[i] & 0xff);
+			c.b[tag_pos + 1] = (uint8_t)((node_rel[i] >> 8) & 0xff);
+		}
+		if (!nb_bytes (&c, blk.b, blk.len))
+		{
+			free (blk.b);
+			goto nnfail;
+		}
+		free (blk.b);
+	}
+
+	// Append the per-frame arrays and patch the (info, offset) pairs.
+	for (size_t i = 0; i < narefs; i++)
+	{
+		const bca_aref_t *a = &arefs[i];
+		bca_node_t *ph = &nd[a->node_ndx];
+		const uint32_t rel = (uint32_t)c.len;
+		switch (a->kind)
+		{
+			case AREF_TRANS:
+				for (uint32_t f = 0; f < nframe; f++)
+					if (!nb_s32 (&c, fx12_roundf (ph->t[f * 3 + a->ax])))
+						goto nnfail;
+				break;
+			case AREF_SCALE:
+				for (uint32_t f = 0; f < nframe; f++)
+				{
+					const float sv = ph->s[f * 3 + a->ax];
+					const int32_t inv = sv != 0.0f ? fx12_roundf (1.0f / sv) : 0;
+					if (!nb_s32 (&c, fx12_roundf (sv)) || !nb_s32 (&c, inv))
+						goto nnfail;
+				}
+				break;
+			case AREF_RIDX:
+				for (uint32_t f = 0; f < nframe; f++)
+				{
+					float m[9];
+					bca_quat_to_mat (ph->r + f * 4, m);
+					uint16_t ridx = bca_pool_add_matrix (&pools, m);
+					if (ridx == 0xffff || !nb_u16 (&c, ridx))
+						goto nnfail;
+				}
+				break;
+		}
+		const size_t pos = (size_t)node_rel[a->node_ndx] + a->off_pos;
+		if (pos + 4 > c.len)
+			goto nnfail;
+		c.b[pos + 0] = (uint8_t)(rel & 0xff);
+		c.b[pos + 1] = (uint8_t)((rel >> 8) & 0xff);
+		c.b[pos + 2] = (uint8_t)((rel >> 16) & 0xff);
+		c.b[pos + 3] = (uint8_t)((rel >> 24) & 0xff);
+	}
+
+	// Rotation pools.
+	const uint32_t piv_rel = (uint32_t)c.len;
+	for (size_t i = 0; i < pools.np; i++)
+		if (!nb_u16 (&c, pools.p[i].d0) || !nb_s16 (&c, pools.p[i].A) || !nb_s16 (&c, pools.p[i].B))
+			goto nnfail;
+	const uint32_t rot5_rel = (uint32_t)c.len;
+	for (size_t i = 0; i < pools.nr5; i++)
+		for (int k = 0; k < 5; k++)
+			if (!nb_u16 (&c, pools.r5[i].d[k]))
+				goto nnfail;
+
+	{
+		const uint32_t piv_patch = piv_rel ? piv_rel : (uint32_t)c.len;
+		const uint32_t rot5_patch = rot5_rel ? rot5_rel : (uint32_t)c.len;
+		c.b[rot3_at] = (uint8_t)(piv_patch & 0xff);
+		c.b[rot3_at + 1] = (uint8_t)((piv_patch >> 8) & 0xff);
+		c.b[rot3_at + 2] = (uint8_t)((piv_patch >> 16) & 0xff);
+		c.b[rot3_at + 3] = (uint8_t)((piv_patch >> 24) & 0xff);
+		c.b[rot5_at] = (uint8_t)(rot5_patch & 0xff);
+		c.b[rot5_at + 1] = (uint8_t)((rot5_patch >> 8) & 0xff);
+		c.b[rot5_at + 2] = (uint8_t)((rot5_patch >> 16) & 0xff);
+		c.b[rot5_at + 3] = (uint8_t)((rot5_patch >> 24) & 0xff);
+	}
+
+	// Assemble the JNT0 block and the BCA0 container.
+	const uint32_t dict_len = 8 + 4 * 2 + 8 + 16; // header + 2n nodes + entry + 16-byte name
+	const uint32_t block_size = 8 + dict_len + (uint32_t)c.len;
+	const uint32_t file_size = 0x14 + block_size;
+	uint8_t *out = malloc (file_size);
+	if (!out)
+		goto nnfail;
+	memset (out, 0, file_size);
+	memcpy (out + 0x00, "BCA0", 4);
+	out[0x04] = 0xff; out[0x05] = 0xfe;
+	out[0x06] = 0x01; out[0x07] = 0x00;
+	out[0x08] = (uint8_t)(file_size & 0xff);
+	out[0x09] = (uint8_t)((file_size >> 8) & 0xff);
+	out[0x0a] = (uint8_t)((file_size >> 16) & 0xff);
+	out[0x0b] = (uint8_t)((file_size >> 24) & 0xff);
+	out[0x0c] = 0x10; out[0x0d] = 0x00;
+	out[0x0e] = 0x01; out[0x0f] = 0x00;
+	out[0x10] = 0x14; out[0x11] = 0x00; out[0x12] = 0x00; out[0x13] = 0x00;
+	memcpy (out + 0x14, "JNT0", 4);
+	out[0x18] = (uint8_t)(block_size & 0xff);
+	out[0x19] = (uint8_t)((block_size >> 8) & 0xff);
+	out[0x1a] = (uint8_t)((block_size >> 16) & 0xff);
+	out[0x1b] = (uint8_t)((block_size >> 24) & 0xff);
+	const uint32_t dc = 0x1c;
+	{
+		out[dc + 0] = 0;          // revision
+		out[dc + 1] = 1;          // numEntry
+		out[dc + 2] = 0x28;       // sizeDictBlk
+		out[dc + 3] = 0;
+		out[dc + 4] = 8;          // ofsNode
+		out[dc + 5] = 0;
+		out[dc + 6] = 0x10;       // ofsEntry
+		out[dc + 7] = 0;
+		out[dc + 8] = 0x7f;       // root node refBit
+		out[dc + 9] = 1;          // root idxLeft -> leaf
+		out[dc + 10] = 0;
+		out[dc + 11] = 0;
+		out[dc + 12] = bca_refbit (name16); // leaf refBit
+		out[dc + 13] = 0;
+		out[dc + 14] = 1;         // leaf idxRight -> self
+		out[dc + 15] = 0;
+		out[dc + 16] = 4;         // sizeUnit
+		out[dc + 17] = 0;
+		out[dc + 18] = 8;         // ofsName
+		out[dc + 19] = 0;
+		out[dc + 20] = (uint8_t)((8 + dict_len) & 0xff); // ofsUnit (rel to block)
+		out[dc + 21] = (uint8_t)(((8 + dict_len) >> 8) & 0xff);
+		out[dc + 22] = 0;
+		out[dc + 23] = 0;
+		memcpy (out + dc + 24, name16, 16);
+	}
+	memcpy (out + dc + dict_len, c.b, c.len);
+
+	for (size_t i = 0; i < nn; i++)
+	{
+		free (nd[i].t);
+		free (nd[i].r);
+		free (nd[i].s);
+	}
+	free (nd);
+	free (pools.p);
+	free (pools.r5);
+	free (arefs);
+	free (node_rel);
+	free (c.b);
+	if (out_size)
+		*out_size = file_size;
+	return out;
+
+nnfail:
+	for (size_t i = 0; i < nn; i++)
+	{
+		free (nd[i].t);
+		free (nd[i].r);
+		free (nd[i].s);
+	}
+	free (nd);
+	free (pools.p);
+	free (pools.r5);
+	free (arefs);
+	free (node_rel);
+	free (c.b);
+	if (out_size)
+		*out_size = 0;
+	return 0;
+}// Encoders
+//
+// BVA0/BMA0/BTA0/BTP0 have no glTF representation, so a model can only carry
+// them as preserved raw bytes; Encode* reproduces those exactly.  BCA0 has a
+// real glTF form, so EncodeNSBCA prefers the preserved bytes (byte-exact
+// decode -> encode round trip) and falls back to a freshly-built BCA0 when the
+// model came from a GLB and only carries decoded TRS channels.
+//-----------------------------------------------------------------------------
 
 uint8_t *EncodeNSBCA (const model_t *model, size_t *out_size)
 {
-	(void)model;
 	if (out_size) *out_size = 0;
-	// BCA0 re-encoding from an edited model is not supported yet; the
-	// pass-through path (decode -> keep original bytes -> encode) still wins.
-	return 0;
+	const model_nsb_raw_t *r = nsb_find_raw (model, NSB_RAW_BCA0);
+	if (r)
+		return nsb_raw_copy (r, out_size);
+	if (!model || !model->num_animations)
+		return 0;
+	return nsb_build_bca0 (&model->animations[0], out_size);
 }
 uint8_t *EncodeNSBVA (const model_t *model, size_t *out_size)
 {
-	(void)model; (void)out_size; return 0;
+	if (out_size) *out_size = 0;
+	return nsb_raw_copy (nsb_find_raw (model, NSB_RAW_BVA0), out_size);
 }
 uint8_t *EncodeNSBMA (const model_t *model, size_t *out_size)
 {
-	(void)model; (void)out_size; return 0;
+	if (out_size) *out_size = 0;
+	return nsb_raw_copy (nsb_find_raw (model, NSB_RAW_BMA0), out_size);
 }
 uint8_t *EncodeNSBTA (const model_t *model, size_t *out_size)
 {
-	(void)model; (void)out_size; return 0;
+	if (out_size) *out_size = 0;
+	return nsb_raw_copy (nsb_find_raw (model, NSB_RAW_BTA0), out_size);
 }
 uint8_t *EncodeNSBTP (const model_t *model, size_t *out_size)
 {
-	(void)model; (void)out_size; return 0;
+	if (out_size) *out_size = 0;
+	return nsb_raw_copy (nsb_find_raw (model, NSB_RAW_BTP0), out_size);
 }
 
 //-----------------------------------------------------------------------------
