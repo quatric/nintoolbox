@@ -128,7 +128,7 @@ enumError DecodeLZO1XGrow (u8 **dest, uint *dest_size, const u8 *src, uint src_s
 				goto bad;
 			const uint d = src[ip] | (uint)src[ip + 1] << 8;
 			ip += 2;
-			dist = 16384 + ((token & 8) << 11) + d;
+			dist = 16384 + ((token & 8) << 11) + (d >> 2);
 			state = d & 3;
 			if (dist == 16384)
 			{
@@ -146,7 +146,7 @@ enumError DecodeLZO1XGrow (u8 **dest, uint *dest_size, const u8 *src, uint src_s
 				goto bad;
 			const uint d = src[ip] | (uint)src[ip + 1] << 8;
 			ip += 2;
-			dist = d + 1;
+			dist = (d >> 2) + 1;
 			state = d & 3;
 		}
 		else if (token < 128)

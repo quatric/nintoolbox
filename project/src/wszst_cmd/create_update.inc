@@ -2000,7 +2000,7 @@ static enumError extract_abe_file (ccp arg, ccp basedir, uint depth)
 	FILE *in = fopen (arg, "rb");
 	if (!in)
 		return ERR_NOT_EXISTS;
-	if (!read_abe_at (in, 0, header, sizeof(header)) || memcmp (header, "ABE\\0", 4)
+	if (!read_abe_at (in, 0, header, sizeof(header)) || memcmp (header, "ABE\0", 4)
 		|| get_le32(header+4) != 4)
 	{
 		fclose (in);
@@ -2019,7 +2019,7 @@ static enumError extract_abe_file (ccp arg, ccp basedir, uint depth)
 	char dest[PATH_MAX];
 	beside_source_dest (dest, sizeof(dest), arg);
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT ABE:%s (%u files) -> %s/\\n", verbose > 0 ? "\\n" : "",
+		fprintf (stdlog, "%s%sEXTRACT ABE:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
 			testmode ? "WOULD " : "", arg, nfile, dest);
 
 	enumError err = ERR_OK;
@@ -2031,18 +2031,27 @@ static enumError extract_abe_file (ccp arg, ccp basedir, uint depth)
 		const u32 count = get_le32(th);
 		const u32 link = get_le32(th+4);
 		const u32 next = get_le32(th+8);
-		if (count > nfile - emitted || tab > UINT_MAX - 12ULL - (u64)count * 0x80)
+		if (count > nfile - emitted || tab > UINT_MAX - 12ULL - (u64)count * 0xc8)
 			{ err = ERR_INVALID_DATA; break; }
 		for (u32 i = 0; !err && i < count; i++, emitted++)
 		{
-			u8 entry[0x80], engine[0x20];
-			if (!read_abe_at(in,tab+12ULL+(u64)i*0x80,entry,sizeof(entry)))
+			u8 entry[0xc8], engine[0x20];
+			if (!read_abe_at(in,tab+12ULL+(u64)i*0xc8,entry,sizeof(entry)))
 				{ err = ERR_INVALID_DATA; break; }
-			char name[65];
-			memcpy(name,entry,64); name[64] = 0;
-			if (!valid_abe_name(name))
+			// The 64-byte name area holds two NUL-terminated strings back to
+			// back: the base name, then the extension (e.g. "fbf01f48\0bin\0").
+			char base[65];
+			memcpy(base,entry,64); base[64] = 0;
+			if (!valid_abe_name(base))
 				{ err = ERR_INVALID_DATA; break; }
-			const u64 data_off = get_le32(entry+0x68);
+			const size_t base_len = strlen(base);
+			ccp ext = base_len < 63 ? base + base_len + 1 : "";
+			char name[130];
+			if (*ext && valid_abe_name(ext))
+				snprintf(name,sizeof(name),"%s.%s",base,ext);
+			else
+				snprintf(name,sizeof(name),"%s",base);
+			const u64 data_off = get_le32(entry+0x6c);
 			char path[PATH_MAX];
 			snprintf(path,sizeof(path),"%s/%s",dest,name);
 			if (testmode)
