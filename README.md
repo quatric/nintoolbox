@@ -86,7 +86,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **MDR** | `.mdr` | ✅ | ✅ | ✅ | — | *Dance Dance Revolution Mario Mix* chunk archive with per-chunk zlib streams |
 | **MKGPDX PAC** | `.pac`, `.mkgpdx` | ✅ | ✅ | ✅ | — | *Mario Kart Arcade GP DX* layout archive (`pack`) |
 | **MPBIN** | `.bin` | ✅ | ✅ | ✅ | ✅ | Hudson Soft Mario Party archive container (GameCube / Wii) |
-| **MSR** | `.bin` | 🟡 | — | — | — | *Metroid: Samus Returns* (3DS) flat archive container |
+| **MSR** | `.bin` | 🟡 | — | — | 🟡 | *Metroid: Samus Returns* (3DS) flat archive container. Verified against the retail romfs: `.bctex` textures (MTXT) decode cleanly with no errors, but no dedicated top-level flat-archive decode was exercised -- the retail cart's romfs already ships as loose named files under a `files.toc` index, not a single packed blob |
 | **MTXT** | `.mtxt` | ✅ | ✅ | ✅ | — | Nintendo Switch MTXT texture archive (gzip-wrapped XTX) |
 | **NARC** | `.narc` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro standard archive (DS / DSi) |
 | **NCCARC** | `.nccarc` | ✅ | ✅ | ✅ | — | Nintendo DS flat blob container |
@@ -104,7 +104,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **SARC** | `.sarc`, `.szs` | ✅ | ✅ | ✅ | — | NintendoWare NW4F & NintendoSDK sorted archive (Wii U / Switch / 3DS) |
 | **SFZDAT** | `.dat` | ✅ | 🟡 | — | — | *Star Fox Zero* (Wii U) flat archive (`DAT\0`) |
 | **SIR0** | `.sir0` | ✅ | ✅ | ✅ | — | Pokémon Mystery Dungeon resource container (DS / 3DS) |
-| **STPK** | `.srd`, `.stpk` | ✅ | ✅ | ✅ | — | *Jump Super Stars* & *Jump Ultimate Stars* DS resource archive |
+| **STPK** | `.srd`, `.stpk` | ✅ | ✅ | ✅ | 🟡 | *Jump Super Stars* & *Jump Ultimate Stars* DS resource archive. No `STPK`-tagged file was found anywhere in the retail *Jump Ultimate Stars* cart's reachable tree; its likely home is inside the game's per-character ALAR archives, most of which are the type-2 variant this pass couldn't get past (see the ALAR row) |
 | **Storybook ONE** | `.one` | ✅ | — | — | ✅ | Sonic Team *Sonic and the Secret Rings* / *Black Knight* PRS-compressed container. The size-limit check used `out_size > opt_max_file_size` where 0 means "no limit" everywhere else in this codebase, so every real member (any nonzero size) was rejected unless `--max-file-size` happened to be set on the command line -- fixed and verified against a retail `.one` (33 members) |
 | **SZE** | `.sze` | ✅ | ✅ | ✅ | — | Nintendo Switch AES-encrypted container (NST / Switch) |
 | **TMPK** | `.pack`, `.tmpk` | ✅ | ✅ | ✅ | — | *The Legend of Zelda: Twilight Princess HD* archive (`TMPK`) |
@@ -112,7 +112,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **VIBS** | `.vibs` | ✅ | ✅ | ✅ | — | Nintendo Switch Joy-Con vibration archive |
 | **WARC** | `.warc` | ✅ | ✅ | ✅ | — | Nintendo / Intelligent Systems flat archive (Wii U) |
 | **WUD / WUX** | `.wud`, `.wux` | ✅ | — | — | — | Nintendo Wii U optical disc images (raw & compressed) |
-| **XPCK** | `.xc`, `.xpck` | ✅ | ✅ | ✅ | — | Level-5 container archive (*Inazuma Eleven*, *Professor Layton*, *Yo-kai Watch*) |
+| **XPCK** | `.xc`, `.xpck` | ✅ | ✅ | ✅ | 🟡 | Level-5 container archive (*Inazuma Eleven*, *Professor Layton*, *Yo-kai Watch*). No `.xc`/`.xpck` file exists in the retail *Yo-Kai Watch* cart at all: its actual game data is one 386 MB `ARC0`-tagged flat archive (`yw1_a.fa`) that this project doesn't recognize in any form, and this pass didn't reach far enough into *Inazuma Eleven*/*Professor Layton* (see LSPK, ALAR, and G4PKM rows) to find a real XPCK sample either |
 | **VFF** | `.vff` | ✅ | — | — | — | Nintendo VFF virtual FAT volume (PrFILE2 / eSOL), used by Wii channels and save data. A 0x20-byte big-endian wrapper over an ordinary little-endian FAT12/FAT16 image with the boot sector omitted, so a normal FAT tool cannot open one: two cluster-aligned FAT copies, a fixed 0x1000-byte root directory, then the clusters. Verified against volumes whose filesystems were built by mtools rather than by this project, subdirectories and multi-cluster files included |
 | **ZDAT** | `.zdat` | ✅ | — | — | ✅ | Animal Crossing: Pocket Camp asset container (DeNA/Nintendo, mobile). Header, entry array, names, then payloads; each stored file is a Unity `UnityFS` bundle masked with a single repeated byte, recovered from the bundle's own signature rather than from any key. Verified against 31 containers taken from the game's CDN, 1 to 45 entries and 168 files: the entry table closes exactly on the file and every unmasked bundle agrees with the length it records for itself. Extraction stops at the bundle — nothing here reads Unity assets |
 | **ZLARC** | `.zlarc` | ✅ | ✅ | ✅ | — | indieszero compressed package archive (*NES Remix*, *NES Remix 2*, *NES Remix Pack*) |
@@ -169,7 +169,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **Camelot GX bank** | *(none)*, `.stpl`, `.sbn` | ✅ | — | — | ✅ | Camelot GX texture bank, standalone or inline in a model module (*Mario Golf: Toadstool Tour*, *Mario Power Tennis* GC & Wii, *We Love Golf!*) |
 | **CTPK** | `.ctpk` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C texture package (3DS) |
 | **CTXB** | `.ctxb` | ✅ | ✅ | ✅ | ✅ | Grezzo 3DS texture container (*Ocarina of Time 3D*, *Majora's Mask 3D*). A standalone `.ctxb` -- the common case, since these ship loose in `romfs/` rather than inside a GAR/ZAR -- never reached the decoder at all before this pass (wrong dispatch entirely, not a decode bug); fixed and verified against the retail romfs (1666 files). Note: the decoder itself still only recovers the first texture of the first `tex ` chunk, and a GAR/ZAR's own extraction doesn't self-cascade into its output the way ABE/BNS/RST/RPAK do, so an embedded `.ctxb` only decodes on a second pass over that output directory |
-| **DSB / TXTR** | `.bin` | ✅ | — | — | — | Animal Crossing: Wild World DS menu texture (RGB555 + A3I5) |
+| **DSB / TXTR** | `.bin` | 🟡 | — | — | — | Animal Crossing: Wild World DS menu texture (RGB555 + A3I5). No standalone file carrying the `TXTR` magic turned up anywhere across the retail cart's ~18,100 extracted files, so this pass couldn't confirm it against real data; it may only ever appear embedded in ARM9/overlay code rather than as its own file |
 | **G1T** | `.g1t` | ✅ | — | — | ✅ | Koei Tecmo texture container (*Hyrule Warriors*, *Fire Emblem Warriors*). 3DS ETC1/ETC1A4/RGBA8 — 2602 of the 2603 textures on the *Hyrule Warriors Legends* cart; the one holdout uses an 8bpp encoding no other file exercises |
 | **GTX** | `.gtx` | ✅ | ✅ | ✅ | ✅ | Nintendo Wii U GX2 surface container (Wii U) |
 | **GVR** | `.gvr` | ✅ | — | — | — | Sega GameCube & Wii texture container (GCIX / GVRT) |
