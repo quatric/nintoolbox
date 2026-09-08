@@ -2230,11 +2230,19 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 		return passthru_archive_or_bms (
 			src, basedir, stage, staged_dir, staged_dir_size, false, false, false, false, true);
 
-	// 7-Zip / RAR / Tar archives (strong pass)
+	// 7-Zip / RAR / Tar / gzip archives (strong pass)
 	bool is_7z_magic = !memcmp (head, "7z\xBC\xAF\x27\x1C", 6);
 	bool is_rar_magic = !memcmp (head, "Rar!\x1A\x07", 6);
 	bool is_tar_magic = !memcmp (head + 257, "ustar", 5);
-	if (is_7z_magic || is_rar_magic || is_tar_magic)
+	// A bare gzip stream (magic 1f 8b, deflate method 08) is not a
+	// container by itself -- unlike .tgz/.tbz2/.txz, whose payload is a
+	// tar archive, a standalone .gz just wraps one arbitrary file (e.g. a
+	// retail Wii U TMPK shipped pre-compressed as "shaders.pack.gz").
+	// 7z already knows how to unwrap a lone gzip stream to that one file,
+	// so route it the same way as the other compressed-archive formats
+	// above rather than adding a second, redundant zlib/gzip path here.
+	bool is_gzip_magic = head[0] == 0x1f && head[1] == 0x8b && head[2] == 0x08;
+	if (is_7z_magic || is_rar_magic || is_tar_magic || is_gzip_magic)
 		return passthru_7z (src, basedir, stage, staged_dir, staged_dir_size);
 
 	// ----- claimed by extension alone (weak path only) -----
@@ -2272,11 +2280,11 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 		return passthru_archive_or_bms (
 			src, basedir, stage, staged_dir, staged_dir_size, false, false, true, false, false);
 
-	// 7-Zip / RAR / Tar archives (by extension)
+	// 7-Zip / RAR / Tar / gzip archives (by extension)
 	if (!strong_only
 		&& (is_ext (src, ".7z") || is_ext (src, ".rar") || is_ext (src, ".cb7")
 			|| is_ext (src, ".tar") || is_ext (src, ".tgz") || is_ext (src, ".tbz2")
-			|| is_ext (src, ".txz")))
+			|| is_ext (src, ".txz") || is_ext (src, ".gz")))
 		return passthru_7z (src, basedir, stage, staged_dir, staged_dir_size);
 
 	// Media files (THP, Mobiclip, BRSTM, BCSTM, BFSTM, BNS, BTSND, AST, DSP, HVQM4, etc.)

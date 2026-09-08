@@ -4017,6 +4017,31 @@ t_zstd_and_7z_roundtrips(){
 }
 t_zstd_and_7z_roundtrips
 
+t_gzip_passthru(){
+  # A bare gzip stream (magic 1f 8b 08) is not itself a container -- unlike
+  # .tgz/.tbz2/.txz, whose payload is a tar archive, a lone .gz just wraps
+  # one arbitrary file. Some Wii U retail titles ship assets this way
+  # (e.g. Twilight Princess HD's Shaders.pack.gz), and until now neither
+  # the magic nor the ".gz" extension routed to passthru_7z() at all, so
+  # wszst silently did nothing with such a file.
+  if ! command -v 7z >/dev/null 2>&1 && ! command -v 7zz >/dev/null 2>&1 && ! command -v 7za >/dev/null 2>&1; then
+    sk "gzip pass-through extraction"
+    return
+  fi
+  local d; d=$(mktemp -d)
+  printf "gzip pass-through payload\n" > "$d/payload.txt"
+  gzip -c "$d/payload.txt" > "$d/payload.txt.gz"
+  rm -rf "$d/out"
+  local ok=1
+  "$B/wszst" EXTRACT "$d/payload.txt.gz" --dest "$d/out" --overwrite >/dev/null 2>&1 || ok=0
+  local recovered; recovered=$(find "$d/out" -type f -name payload.txt 2>/dev/null | head -1)
+  [ -n "$recovered" ] && cmp -s "$d/payload.txt" "$recovered" || ok=0
+  rm -rf "$d"
+  [ "$ok" = 1 ] && ok "gzip pass-through extraction (magic + .gz extension)" \
+    || no "gzip pass-through extraction" "wszst EXTRACT on a bare .gz did not recover the wrapped file"
+}
+t_gzip_passthru
+
 t_bzip2_roundtrip(){
   local d; d=$(mktemp -d)
   local ok=1
