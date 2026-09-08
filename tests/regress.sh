@@ -9203,6 +9203,50 @@ for c in anims[0]["channels"]:
 }
 t_nsbca_sibling
 
+t_zlarc_wiiu_nes_remix(){
+  # ZLARC (Wii U, NES Remix Pack): retail-verified ground truth. The four
+  # *.zlarc files shipped in "NES Remix Pack (USA) (En,Fr,Es).wux"
+  # (content/Heri{1,2}/cmn/miiverse/HankoTga*.zlarc,
+  # content/Heri{1,2}/emu/vew/AllVewKey*.zlarc) are all plain zlib streams
+  # (magic 78 da) whose decompressed payload is a flat offset/data blob --
+  # NOT a U8/RARC/other recognized container. `wszst FILETYPE` on the
+  # decompressed payload reports "U8" for all four, but that is a false
+  # positive from the generic heuristic scorer: the payload does NOT start
+  # with the required U8_MAGIC_NUM (0x55AA382D, see lib-szs.h) and
+  # `wszst EXTRACT` on it produces nothing but a bare wszst-setup.txt (no
+  # members), confirming there is no real container structure. So for this
+  # title "ZLARC" documents nothing more than "zlib-compressed data" --
+  # there is no distinct sub-format to decode, and no bug in the ZLIB
+  # decompressor itself (round-trips correctly).
+  #
+  # Fixture: tests/fixtures/zlarc_wiiu_nes_remix_pack_hankotga.zlarc
+  # (37,882 bytes), a verbatim copy of
+  # content/Heri1/cmn/miiverse/HankoTga.zlarc, the smallest of the four.
+  # It decompresses to exactly 4,968,395 bytes.
+  local f="$PWD_PROJECT/../tests/fixtures/zlarc_wiiu_nes_remix_pack_hankotga.zlarc"
+  if [ ! -f "$f" ]; then
+    sk "ZLARC (Wii U, NES Remix Pack)"
+    return
+  fi
+  local magic; magic=$(od -An -tx1 -N2 "$f" 2>/dev/null | tr -d ' ')
+  if [ "$magic" != "78da" ]; then
+    no "ZLARC (Wii U, NES Remix Pack)" "fixture $f does not start with zlib magic 78da (got $magic)"
+    return
+  fi
+  rm -f /tmp/_r.zlarc.out
+  if "$B/wszst" DECOMPRESS "$f" -d /tmp/_r.zlarc.out --overwrite >/dev/null 2>&1; then
+    local sz; sz=$(fsize_of /tmp/_r.zlarc.out)
+    if [ "$sz" = "4968395" ]; then
+      ok "ZLARC (Wii U, NES Remix Pack) -> zlib payload (4,968,395 bytes, $f)"
+    else
+      no "ZLARC (Wii U, NES Remix Pack)" "expected 4968395 decompressed bytes, got $sz"
+    fi
+  else
+    no "ZLARC (Wii U, NES Remix Pack)" "wszst DECOMPRESS failed on $f"
+  fi
+}
+t_zlarc_wiiu_nes_remix
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]

@@ -551,6 +551,47 @@ Supported QuickBMS script chaining directly in `wszst xx` via the `--bms` CLI op
 - Fixed `read_head()` in `lib-passthru.c` to support containers smaller than 1056 bytes.
 - Added automated end-to-end regression test `t_wszst_bms` in `tests/regress.sh`.
 
+## 11. 2026-09-08 — Retail-source verification: ZLARC / NES Remix Pack (Wii U) — ✅ done
+
+Re-extracted `"NES Remix Pack (USA) (En,Fr,Es).wux"` via `wszst XX ... --dest
+/tmp/szs-nrp --overwrite` (Wii U disc pipeline, already validated working
+per an earlier session) and located all four `.zlarc` files the title
+ships: `content/Heri1/cmn/miiverse/HankoTga.zlarc` (37,882 bytes),
+`content/Heri1/emu/vew/AllVewKey.zlarc` (20,614,540 bytes),
+`content/Heri2/emu/vew/AllVewKeyUSEU.zlarc` (15,091,430 bytes), and
+`content/Heri2/cmn/miiverse/HankoTgaUSEU.zlarc` (59,768 bytes). All four
+start with plain zlib magic `78 da` and `wszst DECOMPRESS` succeeds on
+every one, producing 4,968,395 / 182,444,641 / 120,734,071 / 7,129,667
+bytes of output respectively. Ground truth: the decompressed payload is a
+flat offset-table blob, not a recognized container. `wszst FILETYPE`
+reports the payload as `U8` for all four samples, but this is a false
+positive from the generic heuristic scorer in `file-type.c` — the payload
+doesn't start with `U8_MAGIC_NUM` (`55 AA 38 2D`, see `lib-szs.h`), and
+`wszst EXTRACT` on the payload produces nothing but a bare
+`wszst-setup.txt` with zero members, confirming there's no real U8
+directory to find. So for this title, "ZLARC" as documented in this
+project is correctly just "zlib-compressed data" — no fictitious inner
+container was invented to force a test past. (The `U8` misdetection on
+non-magic data is a minor pre-existing heuristic quirk in
+`GetByMagicFT`/`file-type.c`'s scoring table, not something this session's
+scope covers fixing — noted here for whoever picks it up next.)
+
+Spot-checked `.bflim`, `.bflyt`, `.msbt`, `.bfwav`, and a zlib-wrapped
+`.arc` (`meta/Manual.bfma.d/USA_fr_jpeg.arc`) pulled from the same
+extraction tree against `wszst FILETYPE`: all five identified correctly
+(`BFLIM`, `BFLYT`, `MSBT`, `BFWAV`, `ZLIB`), confirming the existing
+decoders handle this title's real retail data with no regressions.
+
+Committed the smallest sample as
+`tests/fixtures/zlarc_wiiu_nes_remix_pack_hankotga.zlarc` (byte-identical
+to the retail `HankoTga.zlarc`, verified with `cmp`) and added
+`t_zlarc_wiiu_nes_remix()` to `tests/regress.sh`, asserting the exact
+4,968,395-byte decompressed size. Full `bash tests/regress.sh` run is
+green with no new failures. `README.md`'s ZLARC row's "Retail Source
+Tested" column is flipped to ✅ with these exact numbers cited. Scratch
+tree `/tmp/szs-nrp` removed after this game's cycle completed, per the
+"only one game's scratch tree on disk at a time" rule.
+
 ## Suggested order
 
 1. §2 (mechanical, minutes) + §8 (concrete bug, real user pain).
