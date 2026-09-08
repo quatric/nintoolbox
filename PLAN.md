@@ -592,6 +592,65 @@ Tested" column is flipped to ✅ with these exact numbers cited. Scratch
 tree `/tmp/szs-nrp` removed after this game's cycle completed, per the
 "only one game's scratch tree on disk at a time" rule.
 
+## 12. 2026-09-08 — Retail-source verification attempt: BNFM / Animal Crossing: Amiibo Festival (Wii U) — ❌ blocked, README corrected
+
+Extracted `"Animal Crossing - Amiibo Festival (USA) (En,Fr,Es).wux"` via the
+same `wszst XX ... --dest /tmp/szs-accf --overwrite` Wii U disc pipeline
+(2.2 GiB extracted, ~2:38 wall time; five pre-existing, unrelated
+`ERROR #38 [INVALID IMAGE FORMAT]` "Invalid TGLP geometry" failures on
+`bbq_no.bffnt` / `bbq_no_f.bffnt` / `bbq_system.bffnt` were the only
+errors, and don't touch BNFM). Searched the entire extracted tree for
+`.bnfm` files and for the literal `BNFM` magic string in every file:
+zero hits. This title ships no bare `.bnfm` anywhere on the disc, which
+contradicts the README's prior claim that BNFM was Nd Cube's format for
+this specific game.
+
+All of this game's character/item/field model data instead lives under
+`content/common/bin/{ch_base/chara,item,bd,insect,indoor,strc,fish,robj}/**/*.bin`
+(3,101 such `.bin` files, 873 MiB total) as an undocumented container:
+magic `PAC\0`, unregistered anywhere in `file-type.c` (`wszst FILETYPE`
+reports it as `?`, and `wszst XX` correctly leaves it untouched rather
+than inventing a decode). Manually reverse-engineered just enough of the
+container's own layout to confirm what's inside it, without adding any
+new decoder to the codebase: header offsets at file offset 0x38/0x3c/0x40
+give the entries-table offset, string-table offset, and data-area offset;
+the entries table is a flat array of 0x30-byte records, each holding an
+absolute name offset into the string table plus a data offset (relative
+to the data area) and a size. Walking that table for one real sample,
+`content/common/bin/ch_base/chara/cat/cat00.bin` (196,608 bytes, 20
+entries), lists a member literally named
+`common/ch_base/chara/cat/cat00/cat00.bnfm` (offset 0x2b9e7, size 45,296
+bytes) alongside sixteen `.gtx` textures, a `.mcf`, and a `.gmo` sibling.
+So BNFM genuinely is one of this game's model formats -- it's just never
+exposed as a standalone file.
+
+The payload bytes at that recorded offset are high-entropy and do not
+start with the `BNFM` magic; they also fail to inflate under both zlib
+and LZMA. Spot-checking one of the plain `.gtx` texture members from the
+same container (which should start with GX2's `Gfx2` magic in the clear)
+shows the identical high-entropy pattern, confirming the whole data
+region of this `PAC` container is encrypted -- not merely a different
+compression this codebase doesn't yet speak. Recovering real BNFM bytes
+from this title therefore needs a new `PAC` container decoder plus
+whatever key/algorithm unwraps its data region, which is out of scope
+for a verification-only pass (per this project's standing rule against
+inventing new decoders mid-verification).
+
+Net result: no fixture could be harvested, no new `tests/regress.sh`
+function was added, and the retail source used in this pass was
+Animal Crossing: Amiibo Festival, not Mario Party 10, so the BNFM row's
+existing ✅ decode/encode/roundtrip columns (presumably earned against a
+Mario Party 10 sample) are left untouched. `README.md`'s BNFM row is
+corrected: "Retail Source Tested" for *this* title is marked ❌, the
+*Animal Crossing: Amiibo Festival* attribution is dropped from the
+format's game list, and the description now documents the encrypted
+`PAC\0` container finding above so the next session doesn't re-walk the
+same dead end. Scratch tree `/tmp/szs-accf` removed after this game's
+cycle completed. `bash tests/regress.sh` was re-run afterward purely to
+confirm no regressions were introduced by this (code-free) investigation;
+it still shows only the same 8 pre-existing unrelated failures from
+§11/this file's history.
+
 ## Suggested order
 
 1. §2 (mechanical, minutes) + §8 (concrete bug, real user pain).
