@@ -1993,6 +1993,138 @@ static bool is_littlest_pet_shop_rpk (ccp arg)
 		&& !memcmp(head + 7, "STRM\0", 5);
 }
 
+// Jump Ultimate Stars / Jump Super Stars "ALAR" archive. FF_ALAR carries
+// FFT_ARCHIVE and is meant to go through the generic member iterator
+// (ExtractFilesSZS -> IterateFilesParSZS), but GetIteratorFunction() has no
+// entry for it at all -- ifunc comes back NULL and the iterator silently
+// walks zero members, for every real .aar on a retail DS cart regardless of
+// its sub-type. Two sub-formats share the "ALAR" magic, selected by the byte
+// at offset 4:
+//   type 2: exactly one raw blob. offset/size are plain LE32 at +20/+24.
+//   type 3: a name-based table. A u16 at +6 gives the file count n; a table
+//     of n+1 u16s at +16 gives, at index 0, the size of the whole name+
+//     record region, and at indices 1..n, each member's name offset
+//     relative to byte 18 (i.e. two bytes past the table's own first u16).
+//     Each name is a NUL-terminated path; the record immediately following
+//     it (2-byte aligned) is { u16 index, u16 tag, u32 offset, u32 size,
+//     u32 flags, ... }, offset/size locating that member's raw bytes
+//     directly in the file. Reconstructed from Jump Ultimate Stars'
+//     info.aar (4 named members, offsets/sizes verified to tile the file
+//     exactly) -- the tag and flags fields are still not understood, but
+//     extraction only needs the name, offset and size.
+static enumError extract_alar_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false))
+		return ERR_NOTHING_TO_DO;
+	if (raw_size < 32 || raw_size > UINT_MAX || memcmp (raw, "ALAR", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	const u8 type = raw[4];
+	if (type != 2 && type != 3)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	enumError err = ERR_OK;
+	uint emitted = 0;
+
+	if (type == 2)
+	{
+		const u32 off = le32 (raw + 20), size = le32 (raw + 24);
+		if (!size || (u64)off + size > raw_size)
+		{
+			FREE (raw);
+			return ERR_NOTHING_TO_DO;
+		}
+		if (verbose >= 0 || testmode)
+			fprintf (stdlog, "%s%sEXTRACT ALAR:%s (1 file) -> %s/\n", verbose > 0 ? "\n" : "",
+				testmode ? "WOULD " : "", arg, dest);
+		if (!testmode)
+		{
+			char path[PATH_MAX];
+			snprintf (path, sizeof (path), "%s/%sfile0.bin", dest, basedir ? basedir : "");
+			File_t F;
+			err = CreateFileOpt (&F, true, path, false, arg);
+			if (F.f && fwrite (raw + off, 1, size, F.f) != size)
+				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, path);
+			ResetFile (&F, opt_preserve);
+		}
+		emitted = 1;
+	}
+	else
+	{
+		if (raw_size < 8)
+		{
+			FREE (raw);
+			return ERR_NOTHING_TO_DO;
+		}
+		const uint n = le16 (raw + 6);
+		if (!n || n > 0x4000 || 16 + 2ULL * (n + 1) > raw_size)
+		{
+			FREE (raw);
+			return ERR_NOTHING_TO_DO;
+		}
+		if (verbose >= 0 || testmode)
+			fprintf (stdlog, "%s%sEXTRACT ALAR:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
+				testmode ? "WOULD " : "", arg, n, dest);
+
+		for (uint i = 0; !err && i < n; i++)
+		{
+			const u64 name_off = 18ULL + le16 (raw + 16 + 2 * (i + 1));
+			if (name_off >= raw_size)
+				continue;
+			const u8 *name = raw + name_off;
+			u64 len = 0;
+			while (name_off + len < raw_size && name[len])
+				len++;
+			if (name_off + len >= raw_size || !len || !valid_sarc_path ((ccp)name))
+				continue;
+
+			u64 meta = name_off + len + 1;
+			if (meta & 1)
+				meta++;
+			if (meta + 16 > raw_size)
+				continue;
+			const u32 off = le32 (raw + meta + 4), size = le32 (raw + meta + 8);
+			if (!size || (u64)off + size > raw_size)
+				continue;
+
+			if (testmode)
+			{
+				emitted++;
+				continue;
+			}
+			char path[PATH_MAX];
+			snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", (ccp)name);
+			File_t F;
+			err = CreateFileOpt (&F, true, path, false, arg);
+			if (F.f && fwrite (raw + off, 1, size, F.f) != size)
+				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, path);
+			ResetFile (&F, opt_preserve);
+			emitted++;
+		}
+	}
+
+	FREE (raw);
+	if (!emitted)
+		return ERR_NOTHING_TO_DO;
+	if (!err && !testmode)
+	{
+		enumError sub = extract_tree_complete (dest, depth + 1);
+		if (err < sub)
+			err = sub;
+	}
+	return err;
+}
+
 static enumError extract_abe_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)basedir;
