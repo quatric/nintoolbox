@@ -58,7 +58,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 
 | Format | Extensions | Decode Tested | Encode Tested | Byte-Exact Roundtrip | Retail Source Tested | Middleware / Engine / Platform Context |
 | --- | --- | --- | --- | --- | --- | --- |
-| **ABE BigFile** | `.bf` | ✅ | — | — | — | Ubisoft *Rabbids Go Home* BigFile archive (ABE\0 with segmented LZO1X chunks) |
+| **ABE BigFile** | `.bf` | ✅ | — | — | ✅ | Ubisoft *Rabbids Go Home* BigFile archive (ABE\0 with segmented LZO1X chunks). Verified against the retail RGH.BF (~1 GiB, 8710 members): the magic check, the 200-byte entry stride, and the LZO1X M2/M3 distance decode were all wrong before this pass and are now byte-exact against liblzo2 |
 | **ALAR** | `.alar` | ✅ | — | — | — | Nintendo DS Nitro ALAR archive (*Jump Ultimate Stars*) |
 | **APAK** | `.apak` | ✅ | ✅ | ✅ | — | Nintendo / Pokémon APAK archive format (Wii U / Switch) |
 | **ARC / U8** | `.arc`, `.szs` | ✅ | ✅ | ✅ | — | Nintendo standard U8 archive (Wii / GameCube NintendoWare & EAD) |
@@ -67,11 +67,11 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **AT7** | `.at7` | ✅ | ✅ | ✅ | — | Koei Tecmo container format (Wii / PS2) |
 | **BG4** | `.bg4` | ✅ | ✅ | ✅ | — | AlphaDream 3DS flat archive with BLZ member compression |
 | **BIGF** | `.big` | ✅ | ✅ | ✅ | — | Electronic Arts Wii asset archive |
-| **BNS Archive** | `.bns` | ✅ | — | — | — | Koei Tecmo *Samurai Warriors 3* multi-file asset archive (`LINKDATA*.BNS`) |
+| **BNS Archive** | `.bns` | ✅ | — | — | ✅ | Koei Tecmo *Samurai Warriors 3* multi-file asset archive (`LINKDATA*.BNS`). Verified against the retail LINKDATA.BNS (~1.5 GiB): all 6022 members extract intact |
 | **CA01 / SA01** | `.ca01`, `.sa01` | ✅ | ✅ | ✅ | — | Nintendo Network Mii & amiibo system archive (3DS / Wii U) |
 | **CCF** | `.ccf` | ✅ | ✅ | ✅ | — | Nintendo Virtual Console container (Wii / Switch) |
 | **CNUT** | `.cnut` | ✅ | ✅ | ✅ | — | *Wii Party* compiled Squirrel script & message container (`SQIR`) |
-| **COD PAK0** | `.pak` | ✅ | — | — | — | *Call of Duty: Black Ops* / *MW3* (Wii) sound archive (`PAK0`) |
+| **COD PAK0** | `.pak` | 🟡 | — | — | 🟡 | *Call of Duty: Black Ops* / *MW3* (Wii) sound archive (`PAK0`). Checked against every retail `.pak` in MW3 (including `sound.pak`, ~1.1 GiB): the CRC/offset/size table splits every member out at the right bytes, but the assumption that each member is a headerless raw DSP stream is wrong -- every member actually opens with a `43 21 00 02` tag, a nibble count, and a big-endian offset table before the real audio data starts, so the current pass-through can't turn any of them into playable audio yet |
 | **CRAM** | `.arc`, `.cram` | ✅ | ✅ | ✅ | — | Monolith Soft 3DS flat archive container |
 | **DARC** | `.darc` | ✅ | ✅ | ✅ | — | NintendoWare NW4C differential archive (3DS) |
 | **DTLS** | `dt00`, `ls00`, `.ls` | ✅ | ✅ | ✅ | — | Bandai Namco composite package & lookup archive (*Super Smash Bros. 4* Wii U / 3DS) |
@@ -99,7 +99,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **PVOL** | `.pvol` | ✅ | ✅ | ✅ | — | *Pikmin 1 & 2* model & resource container archive |
 | **RARC** | `.rarc`, `.arc` | ✅ | ✅ | ✅ | — | Nintendo standard resource archive (GameCube / Wii) |
 | **RFL_Res** | `RFL_Res.dat`, `.dat` | ✅ | ✅ | ✅ | — | Revolution Face Library Mii resource database (Wii / 3DS / Wii U) |
-| **RPAK** | `.rpak`, `.pak` | ✅ | — | — | — | Retro Studios asset container (*Metroid Prime* / *Donkey Kong Country Returns*) |
+| **RPAK** | `.rpak`, `.pak` | ✅ | — | — | ✅ | Retro Studios asset container (*Donkey Kong Country Returns*, Wii). Verified against a retail level pak (3672 entries); the original GameCube *Metroid Prime* (2002) uses an older, unrelated PAK layout without this format's STRG/RSHD header, so it doesn't apply here despite the similar extension |
 | **RST / TOC** | `.rst`, `.toc` | ✅ | ✅ | ✅ | — | Monster Games archive & table of contents (*Excite Truck* / *Excitebots*) |
 | **SARC** | `.sarc`, `.szs` | ✅ | ✅ | ✅ | — | NintendoWare NW4F & NintendoSDK sorted archive (Wii U / Switch / 3DS) |
 | **SFZDAT** | `.dat` | ✅ | 🟡 | — | — | *Star Fox Zero* (Wii U) flat archive (`DAT\0`) |
@@ -108,7 +108,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **Storybook ONE** | `.one` | ✅ | — | — | — | Sonic Team *Sonic and the Secret Rings* / *Black Knight* PRS-compressed container |
 | **SZE** | `.sze` | ✅ | ✅ | ✅ | — | Nintendo Switch AES-encrypted container (NST / Switch) |
 | **TMPK** | `.pack`, `.tmpk` | ✅ | ✅ | ✅ | — | *The Legend of Zelda: Twilight Princess HD* archive (`TMPK`) |
-| **VCRA** | `.bin`, `.vcra` | ✅ | ✅ | ✅ | — | Bandai Namco Museum Remix archive format (Wii) |
+| **VCRA** | `.bin`, `.vcra` | ✅ | ✅ | ✅ | ✅ | Bandai Namco Museum Remix archive format (Wii). Verified against the retail `resident.arc`: all 65 members extract and cascade correctly into nested BRRES/TPL/BRFNT decoding |
 | **VIBS** | `.vibs` | ✅ | ✅ | ✅ | — | Nintendo Switch Joy-Con vibration archive |
 | **WARC** | `.warc` | ✅ | ✅ | ✅ | — | Nintendo / Intelligent Systems flat archive (Wii U) |
 | **WUD / WUX** | `.wud`, `.wux` | ✅ | — | — | — | Nintendo Wii U optical disc images (raw & compressed) |
