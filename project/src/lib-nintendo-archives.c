@@ -3310,14 +3310,14 @@ static image_format_t ptlg_image_format (u8 format)
 // ----------------------------------------------------------------------------
 // Koei Tecmo G1T texture container (Hyrule Warriors, Fire Emblem Warriors)
 //
-// Little-endian:
+// Little-endian (3DS), and the big-endian (Wii U) variant:
 //
-//   0x00  "GT1G"
+//   0x00  "GT1G"  (3DS, little-endian fields) / "G1TG" (Wii U, big-endian)
 //   0x04  char[4] version, "0600" on the 3DS samples
 //   0x08  u32 total file size
 //   0x0c  u32 offset of the texture-offset table
 //   0x10  u32 texture count
-//   0x14  u32 platform (5 = 3DS)
+//   0x14  u32 platform (5 = 3DS; Wii U members carry GX2 encodings)
 //   table: count * u32, each relative to the offset-table position
 //   texture header:
 //     0x00  u8  (mip count << 4) | system id
@@ -3326,13 +3326,20 @@ static image_format_t ptlg_image_format (u8 format)
 //     0x03  u8  flags
 //     0x04  12 bytes of extended header, then the pixel data
 //
+// The per-texture headers are pure bytes, so only the four header fields and
+// the offset table differ between the two byte orders; the reader is selected
+// once from the signature.
+//
 // Derived from the two retail 3DS samples in tests/fixtures: for both, the
 // declared total matches the real file size exactly, and the mip chain
 // implied by the geometry accounts for every remaining byte at the format's
 // bit depth -- 0x47 at 4bpp (ETC1) and 0x48 at 8bpp (ETC1A4), which is what
 // platform 5 uses. The 12-byte extension is what makes both files come out
 // exact; a file where it does not is retried without it rather than being
-// decoded at the wrong offset.
+// decoded at the wrong offset. Big-endian support is verified with the
+// byte-swapped synthetic fixtures under /tmp (real Wii U G1Ts have not been
+// observed); members whose pixel format is not one of the 3DS set are not
+// pixel-decodable and are exported raw as *.bin instead.
 // ----------------------------------------------------------------------------
 
 static uint g1t_mip_pixels (uint w, uint h, uint mips)
@@ -3356,16 +3363,20 @@ enumError ExtractG1TArchive (ccp arg, ccp basedir, uint depth)
 	size_t raw_size = 0;
 	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false))
 		return ERR_NOTHING_TO_DO;
-	if (raw_size < 0x24 || memcmp (raw, "GT1G", 4))
+	// The Wii U (PowerPC) variant opens with the byte-reversed signature
+	// "G1TG" and stores every multi-byte field big-endian; the 3DS (ARM)
+	// variant writes "GT1G" little-endian.
+	const bool be = raw_size >= 4 && !memcmp (raw, "G1TG", 4);
+	if (raw_size < 0x24 || (memcmp (raw, "GT1G", 4) && !be))
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
 	}
 
-	const u32 total = rd_le32 (raw + 8);
-	const u32 tbl = rd_le32 (raw + 0x0c);
-	const u32 count = rd_le32 (raw + 0x10);
-	const u32 platform = rd_le32 (raw + 0x14);
+	const u32 total = be ? rd_be32 (raw + 8) : rd_le32 (raw + 8);
+	const u32 tbl = be ? rd_be32 (raw + 0x0c) : rd_le32 (raw + 0x0c);
+	const u32 count = be ? rd_be32 (raw + 0x10) : rd_le32 (raw + 0x10);
+	const u32 platform = be ? rd_be32 (raw + 0x14) : rd_le32 (raw + 0x14);
 	if (total != raw_size || !count || count > 0x1000 || (u64)tbl + (u64)count * 4 > raw_size)
 	{
 		FREE (raw);
@@ -3387,7 +3398,7 @@ enumError ExtractG1TArchive (ccp arg, ccp basedir, uint depth)
 	uint written = 0;
 	for (u32 i = 0; i < count; i++)
 	{
-		const u32 rel = rd_le32 (raw + tbl + i * 4);
+		const u32 rel = be ? rd_be32 (raw + tbl + i * 4) : rd_le32 (raw + tbl + i * 4);
 		const u64 hdr = (u64)tbl + rel;
 		if (hdr + 8 > raw_size)
 			continue;
@@ -3404,26 +3415,47 @@ enumError ExtractG1TArchive (ccp arg, ccp basedir, uint depth)
 		// on the Hyrule Warriors Legends cart, the mip chain at this depth
 		// accounts for exactly the bytes present. 0x47/0x48 are ETC1 and
 		// ETC1A4, 0x09 is RGBA8 in PICA 8x8 tile order.
+		bool known_format;
 		uint bits;
 		switch (format)
 		{
 			case 0x47:
-				bits = 4;
-				break;
 			case 0x48:
-				bits = 8;
+				known_format = true;
+				bits = format == 0x47 ? 4 : 8;
 				break;
 			case 0x09:
+				known_format = true;
 				bits = 32;
 				break;
 			default:
-				continue; // an encoding the retail corpus does not cover
+				// Unknown encoding (expected for real Wii U GX2 members).
+				// The member bytes are still exported raw so the game
+				// content stays reachable.
+				known_format = false;
+				bits = 0;
+				break;
 		}
 
-		const uint need = g1t_mip_pixels (w, h, mips) * bits / 8;
 		// Prefer the 12-byte extended header, fall back to none, and take
 		// whichever actually accounts for the bytes that are there.
 		u64 data_off = hdr + 8 + 12;
+		if (data_off >= raw_size)
+			data_off = hdr + 8;
+		if (data_off >= raw_size)
+			continue;
+
+		if (!known_format)
+		{
+			char raw_out[PATH_MAX];
+			snprintf (raw_out, sizeof (raw_out), "%s/%s_%04u.bin", dest, stem, i);
+			if (SaveFile (raw_out, 0, 0, raw + data_off, (uint)(raw_size - (size_t)data_off), 0))
+				continue;
+			written++;
+			continue;
+		}
+
+		const uint need = g1t_mip_pixels (w, h, mips) * bits / 8;
 		if (data_off + need > raw_size)
 			data_off = hdr + 8;
 		if (data_off + need > raw_size)

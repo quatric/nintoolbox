@@ -754,7 +754,7 @@ Scratch tree `/tmp/szs-sfz` removed after this game's cycle completed.
 regressions were introduced by this (code-free) investigation; it
 shows the same pre-existing unrelated failures as the rest of this log.
 
-## 16. 2026-09-08 — Retail-source verification attempt: G1M / G1T / Hyrule Warriors (Wii U) — ❌ blocked, README corrected
+## 16. 2026-09-08 — Retail-source verification attempt: G1M / G1T / Hyrule Warriors (Wii U) — ⚠️ big-endian `.g1t` container fixed (synthetic verif.), Wii U decode / `.gz` wrapper still blocked; README corrected
 
 Extracted `"Hyrule Warriors (USA) (En,Fr,Es).wux"` via the same
 `wszst XX ... --dest /tmp/szs-hw --overwrite` Wii U disc pipeline
@@ -822,6 +822,39 @@ verifies (G1M: never found; G1T: found but blocked by the endian bug).
 Scratch tree `/tmp/szs-hw` removed after this game's cycle completed.
 `bash tests/regress.sh` was re-run afterward purely to confirm no
 regressions were introduced by this (code-free) investigation.
+
+### Follow-up (same date): big-endian `G1TG` container support added
+
+`ExtractG1TArchive()` (`project/src/lib-nintendo-archives.c:3350`) now
+accepts both signatures: `"GT1G"` (3DS, little-endian) and `"G1TG"`
+(Wii U, big-endian). The four header u32s (total, table offset, count,
+platform) and the relative-offset table entries are read with `rd_be32`
+for the `G1TG` variant; the per-texture headers are pure bytes and are
+shared by both paths. Additionally, members whose pixel format is not
+in the 3DS set (0x47/0x48/0x09 -- i.e. any real Wii U GX2 encoding)
+are now exported raw as `<stem>_NNNN.bin` instead of being silently
+skipped, so genuine Wii U `.g1t` files yield data before any GX2
+decoder exists.
+
+Verified synthetically (no real Wii U sample is reachable by this repo):
+- The two retail 3DS fixtures (`sample_09014.g1t`, 64x256 ETC1A4;
+  `sample_10545.g1t`, 128x256) were byte-swapped by hand into
+  `/tmp/sample_09014_be.g1t` / `/tmp/sample_10545_be.g1t` (magic →
+  `G1TG`, BE u32s in the header and table).
+- The BE variants now extract to PNGs byte-identical to the LE ones
+  (`cmp` clean), via a small test harness linked directly against the
+  rebuilt `lib-nintendo-archives.o` (the real `wszst` binary cannot be
+  rebuilt in-tree right now because the other lane's uncommitted
+  `ui-wszst` edits break `wszst.o` -- the harness sidesteps it).
+- A `G1TG` copy with the member format byte forced to 0xff exports the
+  member payload as `<stem>_0000.bin`, byte-identical to the source
+  range `0x38..EOF` (21504 bytes).
+
+Limitations recorded: pixel-level decode is only proven for the 3DS
+formats; real Wii U texture encodings are exported raw. The `*.g1t.gz`
+proprietary wrapper, the plan-requester's `README.md` /
+`docs/FORMATS.md` G1T rows, and any GX2 decode work all remain out of
+scope.
 
 ## Suggested order
 
