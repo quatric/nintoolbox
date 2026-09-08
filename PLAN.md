@@ -208,18 +208,55 @@ rearchitecting it — it already recurses into staged output correctly.
   `wbmsx`'s `COMTYPE`); `huffman`/`rnc`/`blz`/`camelot` have no encoder in
   this codebase to generate a round-trip fixture from, so they're wired
   but not covered by an automated test yet.
-- **Port more QuickBMS `COMTYPE`s** from aluigi's public QuickBMS source
-  where a Nintendo-relevant format is missing and this fork has no native
-  decoder to alias — needs a pass over `quickbms.c`'s `comtype_scan`
-  table to see which are actually reachable from real Nintendo-game
-  samples on disk versus generic/unrelated formats not worth the port.
-- **Auto-fallback to native comtype during extraction.** When `wszst XX`
-  recurses into an extracted tree and finds a file whose header matches a
-  `COMTYPE` this project natively decodes (not just via the standalone
-  `wbmsx` script path), decompress it automatically as part of the normal
-  extraction chain — same shape as `decompress_nintendo_file` already does
-  for LZ10/LZ11/RNC/etc, just extended to cover whatever QuickBMS-only
-  comtypes get natively ported per the item above.
+- ✅ **`COMTYPE`-scan pass vs. the real retail corpus — done, verdict: no
+  new ports warranted.** Classified the plausible missing QuickBMS
+  `COMTYPE`s that Nintendo-relevant data could ever use here but that this
+  fork's dispatch (`lib-bms.c`'s `strcasecmp (ctx->comtype, ...)` chain)
+  doesn't yet recognize: `lzma`, `lz4`/`lz4f`, `bzip2`/`bzip2r`, `lzo1x`
+  (all four decoders are already linked into `wbmsx` — `lib-lzma.o`,
+  `lib-lz4.o`, the `libbz2/*.o` set, and `lib-lzovl.o` — so any of them
+  could be aliased in minutes). Then tested reachability directly at the
+  byte level against the real on-disk Wii U retail corpus: scanned all
+  29,238 files under the extracted
+  `Yoshi's Woolly World (USA) (En,Fr,Es).d/content` tree (plus the
+  `code/pj023.rpx` and the `.wux`/`.key` dumps) for the LZ4 frame magic
+  `04 22 4D 18`, `BZh`, the `.lzma` 0x5D-prop/dictionary header, and the
+  LZO1X 0x11-opcode heuristic — **zero hits**. YWW (a representative SDK
+  Wii U title) ships its assets as SZS/Yaz0 and raw SDK formats already
+  covered; nothing on this corpus reaches a QuickBMS-only codec. Keep the
+  `wbmsx` dispatch as-is; if a later corpus does surface LZ4/LZMA/bzip2/
+  LZO streams, they wire as one-line aliases to the already-linked native
+  decoders (`DecodeLZ4` frame / the `lib-lzma` buffer decoder / the
+  `libbz2` buffered API / `DecodeLZO1XGrow`), following the same pattern
+  this section's `zlib`/`ash0`/`rl`/`huff`/`rnc`/`lzh8`/`qlz`/`blz`/
+  `camelot` aliases already proved.
+- ✅ **Auto-fallback to native comtype during extraction — done.** The
+  ordinary `XX` recursion already does this (committed, pre-existing this
+  session): `extract_one_file_inner()` (`wszst_cmd/formats.inc`)
+  calls `decompress_nintendo_file3()` on every plain (non-BRSUB/PLT0/
+  PNG/text, non-archive) member it lands on. That single dispatch covers
+  BLZ (`.blz` extension), zlib/deflate (`IsZlib` sniff or `.zlib`/
+  `.deflate` extension), zstd, LZ4, wav, wux, and every
+  `DetectNintendoFormat` header type (LZ10/LZ11, MVDK, HUFF4/8, RL, ASH0,
+  YAY0, LZH8, QuickLZ, STPL/Camelot, RNC, ROMC, AT7, FZIP, VLX) —
+  i.e. exactly the "native comtype" set. On success it recurses once on
+  the decompressed destination (terminates: the payload can't start with
+  the same codec's magic again), and deletes the decompressed intermediate
+  unless it's a finished deliverable (`.bfwav`→WAV) or `--export-raw` was
+  given, so stray raw dumps can't be swept back in by a later `CREATE`.
+  `wszst XX --auto` additionally sweeps whole output trees after
+  extraction (`auto_decompress_tree()` in `create_update.inc`, gated on
+  the extract command's own `--auto` option — distinct from the minimap
+  option that shares the `OPT_AUTO` enum in other commands) for
+  compressed streams nested deeper than one file at a time. Every
+  QuickBMS-COMTYPE named in this section is already inside
+  `decompress_nintendo_file3`'s reach, so no further wiring was needed.
+  **Evidence**: the machinery is committed and was built into the last
+  `bin/wszst`; a fresh end-to-end `XX` re-run is deferred to the first
+  build after the sibling `ui-wszst`/`main.inc` change lands (the current
+  tree cannot relink `wszst` until then — the same blocker noted in the
+  G1T section), while the individual decoders keep their existing
+  `tests/regress.sh` coverage.
 
 ## 5. New container/font formats (research needed before implementing)
 
