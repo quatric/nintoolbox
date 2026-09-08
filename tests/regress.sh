@@ -9286,6 +9286,69 @@ t_nsbca_bare_passthrough(){
 }
 t_nsbca_bare_passthrough
 
+t_nsbca_conformant_fixture(){
+  # The NSBCA coin fixture must be a *real* SDK-conformant joint animation
+  # (produced by this tool's own BCA0 encoder, so its pivot/ROT5 FX12 pools
+  # follow the Nitro SDK bit layout), and its decode must reproduce an
+  # exact, pinned animation. The pinned values below are the fixture's
+  # decode ground truth: any coordinated drift in the encoder + decoder
+  # pair (e.g. an FX12 shift applied in both directions at once) would
+  # still pass the self-consistent round-trip tests above but must fail
+  # here against these absolute keyframes.
+  local d="$PWD_PROJECT/../tests/fixtures"
+  local md="$d/synthetic_nsbmd_coin.nsbmd"
+  local ca="$d/synthetic_nsbca_coin.nsbca"
+  [ -f "$md" ] && [ -f "$ca" ] || { sk "NSBCA SDK-conformant fixture pins"; return; }
+  local t; t=$(mktemp -d); trap 'rm -rf "$t"' RETURN
+  cp "$md" "$t/coin.nsbmd"
+  cp "$ca" "$t/coin.nsbca"
+  if "$B/wmdlt" ENCODE "$t/coin.nsbmd" --dest "$t/out.glb" --overwrite >/dev/null 2>&1 \
+  && python3 -c '
+import json, struct, sys
+b = open(sys.argv[1], "rb").read()
+off, doc, bs = 12, None, None
+while off < len(b):
+    clen, ctype = struct.unpack_from("<II", b, off)
+    if ctype == 0x4E4F534A: doc = json.loads(b[off+8:off+8+clen])
+    if ctype == 0x4E4942: bs = off + 8
+    off += 8 + clen
+assert doc is not None and bs is not None, "no GLB chunks"
+b = b[bs:bs+struct.unpack_from("<I", b, bs-4)[0]]
+def chans(node, path):
+    for a in doc["animations"]:
+        for c in a["channels"]:
+            if c["target"].get("node") == node and c["target"].get("path") == path:
+                s = a["samplers"][c["sampler"]]
+                acc = doc["accessors"][s["output"]]
+                n = {"VEC3": 3, "VEC4": 4}[acc["type"]]
+                assert acc["count"] == 61, (node, path, acc["count"])
+                return [struct.unpack_from("<" + "f" * n, b, acc.get("byteOffset", 0) + k * n * 4)
+                        for k in range(acc["count"])]
+    return None
+def close(a, c, eps=1e-4):
+    assert len(a) == len(c) and max(abs(x - y) for x, y in zip(a, c)) < eps, (a, c)
+# node 1 rotation, frames 0/15/30/45/60 -- pinned SDK-decode ground truth.
+r1 = chans(1, "rotation"); assert r1 is not None, "node 1 rotation missing"
+close(r1[0],  (0.462890625, 0.267333984, 0.0, 0.469726562))
+close(r1[15], (0.0, -0.542236328, 0.0, 0.267333984))
+close(r1[30], (-0.542236328, 0.0, 0.0, -0.534423828))
+close(r1[45], (0.0, 0.534423828, 0.0, 0.0))
+close(r1[60], (0.476318359, -0.274902344, 0.0, 0.542236328))
+# node 1 scale, same frames.
+s1 = chans(1, "scale"); assert s1 is not None, "node 1 scale missing"
+close(s1[0],  (0.462890625, 0.267333984, 0.0))
+close(s1[15], (0.462890625, -0.267333984, 0.0))
+close(s1[30], (-0.267333984, -0.462890625, 0.0))
+close(s1[45], (-0.534423828, 0.0, 0.0))
+close(s1[60], (0.0, 0.534423828, 0.0))
+' "$t/out.glb"; then
+    ok "NSBCA SDK-conformant fixture pins absolute SDK-decode keyframes"
+  else
+    no "NSBCA SDK-conformant fixture" "decode drifted from the pinned fixture keyframes"
+  fi
+}
+t_nsbca_conformant_fixture
+
 t_zlarc_wiiu_nes_remix(){
   # ZLARC (Wii U, NES Remix Pack): retail-verified ground truth. The four
   # *.zlarc files shipped in "NES Remix Pack (USA) (En,Fr,Es).wux"
