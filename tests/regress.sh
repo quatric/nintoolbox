@@ -9453,6 +9453,40 @@ t_fzip_wiiu_game_and_wario(){
 }
 t_fzip_wiiu_game_and_wario
 
+t_tmpk_wiiu_twilight_princess_hd(){
+  # TMPK ("TMPK" magic): The Legend of Zelda: Twilight Princess HD (Wii U)
+  # flat archive, `.pack`/`.tmpk` extension. Retail-verified:
+  # content/Shaders.pack.gz from "Legend of Zelda, The - Twilight Princess
+  # HD (USA) (En,Fr,Es) (Rev 2).wux" is a plain gzip stream (unrelated to
+  # this project's own compression formats) wrapping a 10,402,512-byte
+  # TMPK archive that extracts via wszst EXTRACT to exactly 1568 non-empty
+  # members under Shaders/. Committed gzipped verbatim (2,275,927 bytes) as
+  # tests/fixtures/tmpk_wiiu_twilight_princess_hd_shaders.pack.gz, same
+  # style as t_fzip_wiiu_game_and_wario: prefer the deterministic fixture,
+  # skip if it's ever missing (no dedicated find_magic scan -- .pack/.tmpk
+  # aren't in the extension index).
+  local gz="$PWD_PROJECT/../tests/fixtures/tmpk_wiiu_twilight_princess_hd_shaders.pack.gz"
+  [ -f "$gz" ] || { sk "TMPK (Wii U, Twilight Princess HD)"; return; }
+  rm -rf /tmp/_r_tmpk; mkdir -p /tmp/_r_tmpk
+  if ! gunzip -c "$gz" > /tmp/_r_tmpk/Shaders.pack 2>/tmp/_r_tmpk.gunzip.log; then
+    no "TMPK (Wii U, Twilight Princess HD)" "gunzip failed on $gz"
+    return
+  fi
+  local sz; sz=$(fsize_of /tmp/_r_tmpk/Shaders.pack)
+  if [ "$sz" != "10402512" ]; then
+    no "TMPK (Wii U, Twilight Princess HD)" "expected 10402512 decompressed bytes, got $sz"
+    return
+  fi
+  $B/wszst EXTRACT /tmp/_r_tmpk/Shaders.pack --dest "/tmp/_r_tmpk/x/\1N" --overwrite >/tmp/_r_tmpk.log 2>&1
+  local n; n=$(find /tmp/_r_tmpk/x -type f -size +0c 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$n" = "1568" ] && ! grep -q "INVALID" /tmp/_r_tmpk.log; then
+    ok "TMPK (Wii U, Twilight Princess HD) -> 1568 non-empty member(s) ($gz)"
+  else
+    no "TMPK (Wii U, Twilight Princess HD)" "expected 1568 non-empty members, got $n"
+  fi
+}
+t_tmpk_wiiu_twilight_princess_hd
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]

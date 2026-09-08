@@ -674,6 +674,41 @@ no such column). Full regress suite re-run afterward: only the same 8
 pre-existing unrelated failures from §11/§12, no new failures. Scratch
 tree removed after the cycle completed.
 
+## 14. 2026-09-08 — Retail-source verification: TMPK / Twilight Princess HD (Wii U), plus a real gzip pass-through gap — ✅ done
+
+Extracted `"Legend of Zelda, The - Twilight Princess HD (USA) (En,Fr,Es) (Rev 2).wux"`
+via the same Wii U disc pipeline. `content/Shaders.pack.gz` turned out to
+be a plain gzip stream wrapping a `Shaders.pack` TMPK archive -- and
+tracing that through `wszst EXTRACT` surfaced a real gap in
+`passthru_7z()`'s dispatch in `project/src/lib-passthru.c`: neither the
+gzip magic (`1f 8b 08`) nor the `.gz` extension routed to it at all
+(only `.tgz`/`.tbz2`/`.txz`, whose payload is a tar archive, were
+wired up), so a bare `.gz` silently did nothing. Fixed by adding both
+the magic and extension checks alongside the existing 7z/rar/tar ones,
+since 7z already knows how to unwrap a lone gzip stream to its one
+contained file. Confirmed end to end: `Shaders.pack.gz` (2,275,927
+bytes) unwraps to a 10,402,512-byte TMPK archive that extracts to
+exactly 1568 non-empty members, cascading correctly into the existing
+`.gsh` Latte shader decoder for the members checked.
+
+Committed gzipped as `tests/fixtures/tmpk_wiiu_twilight_princess_hd_shaders.pack.gz`
+(keeping it compressed exercises the new gzip pass-through as part of
+the TMPK test, rather than testing TMPK alone). Added `t_gzip_passthru`
+(a synthetic round-trip, independent of any Wii U fixture) and
+`t_tmpk_wiiu_twilight_princess_hd` (the real retail sample) to
+`tests/regress.sh`. `README.md` updated: TMPK's row cites the retail
+counts above, and the "7-Zip / RAR / Tar Archives" row is renamed
+"7-Zip / RAR / Tar / Gzip Archives" with `.gz` added to its extension
+list. First draft of the gzip test asserted the wrong output path
+(assumed 7z drops the file straight into the destination directory; it
+actually nests it one level deeper under `<name>.d/`) and failed
+against the real binary -- caught by re-running the full suite before
+committing, not by the manual spot-check that had passed. Full regress
+suite: `PASS=387 FAIL=7 SKIP=2`, the same pre-existing unrelated
+failures as always, one fewer than earlier sessions in this log because
+a concurrent session's NSB/animation work independently fixed the
+`ball.glg` regression along the way.
+
 ## Suggested order
 
 1. §2 (mechanical, minutes) + §8 (concrete bug, real user pain).
