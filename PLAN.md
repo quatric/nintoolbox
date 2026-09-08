@@ -754,6 +754,75 @@ Scratch tree `/tmp/szs-sfz` removed after this game's cycle completed.
 regressions were introduced by this (code-free) investigation; it
 shows the same pre-existing unrelated failures as the rest of this log.
 
+## 16. 2026-09-08 — Retail-source verification attempt: G1M / G1T / Hyrule Warriors (Wii U) — ❌ blocked, README corrected
+
+Extracted `"Hyrule Warriors (USA) (En,Fr,Es).wux"` via the same
+`wszst XX ... --dest /tmp/szs-hw --overwrite` Wii U disc pipeline
+(18,569 files, ~7.0 GiB extracted). This is the Wii U original, not
+the 3DS *Hyrule Warriors Legends* spinoff the existing G1M/G1T rows
+were verified against, so its container/encoding choices needed
+checking independently rather than assumed to match.
+
+Two negative findings:
+
+1. **No split `.idx`/`.bin` archive and no bare `.g1m` anywhere.**
+   Zero files with either name exist on the disc at all -- the
+   Koei Tecmo/Omega Force split-index archive row currently marked
+   "(3DS)" is confirmed 3DS-only; the Wii U original doesn't use it.
+
+2. **Almost the whole asset corpus is wrapped in an undocumented,
+   proprietary chunked container that isn't gzip despite the `.gz`
+   extension.** 5,720 files end in `.gz` (`*.g1t.gz`, `*.bin.gz`,
+   etc.); zero of them start with the real gzip magic (`1f 8b`).
+   Their actual layout is `BE32 chunk_size(=65536) | BE32 num_chunks |
+   BE32 total_decompressed_size`, followed by a `BE32[num_chunks]`
+   table of per-chunk compressed sizes -- e.g. `still_menu_EUENG.g1t.gz`
+   declares chunk_size 65536, 161 chunks, and a 10,485,844-byte
+   decompressed total (161 * 65536 ≈ that total, confirming the header
+   read), but the chunk payloads that follow are neither zlib/deflate
+   (raw or wrapped, all `wbits` variants tried) nor LZMA -- some
+   confirmed-nonzero-size chunks even decode to all-zero bytes under no
+   transform, so this is some in-house Omega Force compressor this
+   project has no reader for. Every texture (`.g1t.gz`) and most
+   scripted/battle data (`.bin.gz`) on the cart lives behind this
+   wrapper, so their *G1T contents* (and any `.g1m` that might be
+   packed inside) are unreachable without reverse-engineering it --
+   out of scope for a verification-only pass.
+
+One real, additional finding along the way: **3 genuine, unwrapped
+`.g1t` files do exist** (`content/data/deferred/rain.g1t`,
+`content/data/gallery/GalleryEnvMap.g1t`,
+`content/data/posteffect/BlurWeight.g1t`) and `wszst FILETYPE`
+correctly tags them `G1T`, but `wszst X`/`XX` extracts none of them --
+each produces only the empty `wszst-setup.txt`. Root cause identified
+in `ExtractG1TArchive()` (`project/src/lib-nintendo-archives.c:3350`):
+it requires `memcmp (raw, "GT1G", 4) == 0`, matching the 3DS samples'
+byte order (`47 54 31 47`, i.e. `GT1G0600...`), but all three Wii U
+files open with the fully byte-reversed `G1TG0060...`
+(`47 31 54 47`) -- the same header, stored big-endian on Wii U's
+PowerPC target instead of little-endian on the 3DS's ARM target. Every
+multi-byte field the function reads after the magic check (`rd_le32`
+at offsets 0x08/0x0c/0x10/0x14, and the relative-offset table) would
+need the matching `rd_be32` path for this variant. Not fixed here:
+adding big-endian support is effectively a second decode path, and
+this project's own instructions for this pass draw the line at
+verification, not new decoder work -- documented instead so a future
+session doesn't have to rediscover it. `wszst X` on the existing 3DS
+`tests/fixtures/3ds_samples/koei_g1t/*.g1t` fixtures still passes,
+confirming this is a Wii U-only gap, not a regression.
+
+Net result: no fixture could be harvested (the real content is either
+absent, in an unread-able proprietary compression, or blocked by the
+endian gap above), no new `tests/regress.sh` function was added.
+`README.md`'s Hyrule Warriors `.idx`/`.bin` row is unchanged (it
+already correctly scopes itself to "(3DS)"); the G1M and G1T rows'
+"Retail Source Tested" columns are corrected from ✅ to ❌ with the
+findings above, since neither format's *Wii U* retail source actually
+verifies (G1M: never found; G1T: found but blocked by the endian bug).
+Scratch tree `/tmp/szs-hw` removed after this game's cycle completed.
+`bash tests/regress.sh` was re-run afterward purely to confirm no
+regressions were introduced by this (code-free) investigation.
+
 ## Suggested order
 
 1. §2 (mechanical, minutes) + §8 (concrete bug, real user pain).
