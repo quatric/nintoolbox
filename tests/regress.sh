@@ -9487,6 +9487,35 @@ t_tmpk_wiiu_twilight_princess_hd(){
 }
 t_tmpk_wiiu_twilight_princess_hd
 
+t_gfa_wiiu_yoshis_woolly_world(){
+  # GFA (Good-Feel GFAC container, BPE-compressed): Yoshi's Woolly World
+  # (Wii U). Retail-verified: content/message_image/msgbox008_00k.gfa
+  # (148,877 bytes) extracts via wszst EXTRACT to a 2-member SARC
+  # (msgbox008_00k.arc) that in turn cascades into a real BFLIM texture
+  # (timg/MsgBoxImage000^q.bflim) and BFLYT layout (blyt/msgbox008_00k.bflyt)
+  # -- the same decoder path already fixed and verified against Kirby's
+  # Epic Yarn's retail WBFS in PLAN.md's "## 0. Baseline check" section,
+  # now confirmed on a second Good-Feel title and platform.
+  #
+  # Aside not exercised by this test: many of this disc's smaller .gfa
+  # files (named like test_fujiwara.gfa, testmap901.gfa -- evidently dev
+  # leftovers) have a zero-entry info table and a zero-length GFCP payload;
+  # ScanGFA() (lib-gfa.c) rejects both as EINVAL, which is arguably correct
+  # for a container with nothing in it, not a decode bug.
+  local f="$PWD_PROJECT/../tests/fixtures/gfa_wiiu_yoshis_woolly_world_msgbox008_00k.gfa"
+  [ -f "$f" ] || { sk "GFA (Wii U, Yoshi's Woolly World)"; return; }
+  rm -rf /tmp/_r_gfa_ywwd
+  $B/wszst EXTRACT "$f" --dest "/tmp/_r_gfa_ywwd/\1N" --overwrite >/tmp/_r_gfa_ywwd.log 2>&1
+  local bflim; bflim=$(find /tmp/_r_gfa_ywwd -type f -name '*.bflim' -size +0c 2>/dev/null | head -1)
+  local bflyt; bflyt=$(find /tmp/_r_gfa_ywwd -type f -name '*.bflyt' -size +0c 2>/dev/null | head -1)
+  if [ -n "$bflim" ] && [ -n "$bflyt" ] && ! grep -q "INVALID" /tmp/_r_gfa_ywwd.log; then
+    ok "GFA (Wii U, Yoshi's Woolly World) -> SARC -> BFLIM + BFLYT ($f)"
+  else
+    no "GFA (Wii U, Yoshi's Woolly World)" "expected a decoded .bflim and .bflyt under /tmp/_r_gfa_ywwd"
+  fi
+}
+t_gfa_wiiu_yoshis_woolly_world
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]

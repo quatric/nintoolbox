@@ -79,7 +79,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **F9RES** | `.res` | ✅ | ✅ | ✅ | — | GameCube resource archive container |
 | **FSYS** | `.fsys` | ✅ | ✅ | ✅ | — | Genius Sonority archive system (GameCube / Wii) |
 | **GAR / ZAR** | `.zar`, `.gar` | ✅ | ✅ | ✅ | — | Grezzo Zelda & Luigi's Mansion archive (*OoT3D*, *MM3D*, *LM3DS*) |
-| **GFA** | `.gfa` | ✅ | ✅ | ✅ | ✅ | Good-Feel GFAC container (Wii / 3DS) |
+| **GFA** | `.gfa` | ✅ | ✅ | ✅ | ✅ | Good-Feel GFAC container (Wii / 3DS / Wii U). Also verified against the retail *Yoshi's Woolly World* (Wii U): `content/message_image/msgbox008_00k.gfa` (148,877 bytes) extracts to a 2-member SARC that cascades into a real BFLIM texture and BFLYT layout. Committed as `tests/fixtures/gfa_wiiu_yoshis_woolly_world_msgbox008_00k.gfa` |
 | **Hyrule Warriors** | `.idx`, `.bin` | ✅ | ✅ | ✅ | — | Koei Tecmo / Omega Force split index archive (3DS) |
 | **IQIPACK** | `.pak` | ✅ | — | — | — | NVIDIA Shield iQiyi PAK archive with XXTEA encryption |
 | **JARC** | `.jarc` | ✅ | ✅ | ✅ | — | Level-5 DS archive container (DS) |

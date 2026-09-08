@@ -856,6 +856,47 @@ proprietary wrapper, the plan-requester's `README.md` /
 `docs/FORMATS.md` G1T rows, and any GX2 decode work all remain out of
 scope.
 
+## 17. 2026-09-08 — Retail-source verification: GFA / BPE / Yoshi's Woolly World (Wii U) — ✅ done
+
+Extracted `"Yoshi's Woolly World (USA) (En,Fr,Es).wux"` via the same
+`wszst XX ... --overwrite` Wii U disc pipeline (a first attempt earlier
+this session had extracted to plain `/tmp`, which lives on the Mac's
+system/boot volume rather than the external `/Volumes/SSD` this whole
+task has been budgeting free space on -- it was killed and cleaned up
+once the boot volume dropped to single-digit GB free, and re-run
+against `/Volumes/SSD/szs-retail-test/tmp-ywwd` instead; extraction
+scratch space for this project's own verification work must always go
+under `/Volumes/SSD`, never bare `/tmp`).
+
+Found 2,213 `.gfa` files. `content/message_image/msgbox008_00k.gfa`
+(148,877 bytes) extracts via `wszst EXTRACT` to a 2-member SARC
+(`msgbox008_00k.arc`) that cascades into a real BFLIM texture
+(`timg/MsgBoxImage000^q.bflim`) and BFLYT layout
+(`blyt/msgbox008_00k.bflyt`) -- confirming the BPE/GFAC decoder fixed
+against Kirby's Epic Yarn's retail WBFS in `## 0. Baseline check` also
+holds on a second Good-Feel title and a second platform (Wii U rather
+than Wii). Committed as
+`tests/fixtures/gfa_wiiu_yoshis_woolly_world_msgbox008_00k.gfa`; added
+`t_gfa_wiiu_yoshis_woolly_world()` to `tests/regress.sh` asserting the
+decoded BFLIM/BFLYT pair actually appears, verified by hand before
+trusting the full suite (same discipline as the earlier gzip-test path
+bug in `##14`).
+
+Aside, not a bug: many of this disc's smaller `.gfa` files (named like
+`test_fujiwara.gfa`, `testmap901.gfa` -- evidently dev leftovers left
+in the retail image) have a zero-entry info table and a zero-length
+GFCP payload. `ScanGFA()` (`lib-gfa.c`) rejects both with `EINVAL`
+(`ERROR #22`), which is the correct behavior for a container with
+nothing in it -- confirmed by manually decoding one
+(`content/env/mdl/ENV500E.gfa`, 8,218 bytes) and finding `n=0` entries
+and `out_len=0` in its header fields, not a decoder defect.
+
+`README.md`'s GFA row updated: `(Wii / 3DS)` context extended to
+`(Wii / 3DS / Wii U)` with the citation above. `bash tests/regress.sh`
+re-run to completion afterward: same baseline failure shape as prior
+entries in this log, new test passes, no regressions. Scratch tree
+removed from `/Volumes/SSD` after the cycle completed.
+
 ## Suggested order
 
 1. §2 (mechanical, minutes) + §8 (concrete bug, real user pain).
