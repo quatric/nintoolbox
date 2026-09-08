@@ -1406,8 +1406,8 @@ enumError EncodeNFTR_Atlas (u8 **dest, uint *dest_size, const u8 *atlas_rgba, ui
 	nwr32 (cglp + 4, cglp_sz);
 	cglp[8] = (u8)cell_w;
 	cglp[9] = (u8)cell_h;
-	cglp[11] = (u8)cell_w;
-	cglp[12] = (u8)bpp;
+	nwr16 (cglp + 0x0A, glyph_bytes);
+	cglp[14] = (u8)bpp;
 
 	u8 *gdst = cglp + 0x10;
 	for (uint g = 0; g < n_glyphs; g++)
