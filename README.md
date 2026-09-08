@@ -59,7 +59,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | Format | Extensions | Decode Tested | Encode Tested | Byte-Exact Roundtrip | Retail Source Tested | Middleware / Engine / Platform Context |
 | --- | --- | --- | --- | --- | --- | --- |
 | **ABE BigFile** | `.bf` | ✅ | — | — | ✅ | Ubisoft *Rabbids Go Home* BigFile archive (ABE\0 with segmented LZO1X chunks). Verified against the retail RGH.BF (~1 GiB, 8710 members): the magic check, the 200-byte entry stride, and the LZO1X M2/M3 distance decode were all wrong before this pass and are now byte-exact against liblzo2 |
-| **ALAR** | `.alar` | ✅ | — | — | — | Nintendo DS Nitro ALAR archive (*Jump Ultimate Stars*) |
+| **ALAR** | `.alar` | 🟡 | — | — | 🟡 | Nintendo DS Nitro ALAR archive (*Jump Ultimate Stars*). Verified against the retail cart's type-3 archives (`info.aar`: 317 members). Type-2 archives (the `chr/*.aar` per-character files) extract zero members instead -- `GetIteratorFunction` has no entry for `FF_ALAR` at all, so whatever unwraps type-3 into something the generic U8 iterator can walk evidently doesn't run for type-2, though the file itself parses fine offline (a plain `DecodeALAR` reproduces a valid 9908-byte payload from the sample checked) |
 | **APAK** | `.apak` | ✅ | ✅ | ✅ | — | Nintendo / Pokémon APAK archive format (Wii U / Switch) |
 | **ARC / U8** | `.arc`, `.szs` | ✅ | ✅ | ✅ | — | Nintendo standard U8 archive (Wii / GameCube NintendoWare & EAD) |
 | **ARCV** | `.arc` | ✅ | ✅ | ✅ | — | Namco / Tose Wii archive format |
@@ -82,7 +82,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **Hyrule Warriors** | `.idx`, `.bin` | ✅ | ✅ | ✅ | — | Koei Tecmo / Omega Force split index archive (3DS) |
 | **IQIPACK** | `.pak` | ✅ | — | — | — | NVIDIA Shield iQiyi PAK archive with XXTEA encryption |
 | **JARC** | `.jarc` | ✅ | ✅ | ✅ | — | Level-5 DS archive container (DS) |
-| **LSPK** | `.pk`, `.pkh`, `.lspk` | ✅ | ✅ | ✅ | — | Level-5 / Mistwalker flat package (*The Last Story*) |
+| **LSPK** | `.pk`, `.pkh`, `.lspk` | ✅ | ✅ | ✅ | ✅ | Level-5 / Mistwalker flat package (*The Last Story*). Verified against the retail `levels.pk`/`.pkh` pair (2626 members). Unrelated to the DS *Inazuma Eleven*'s own `.pkh`/`.pkb` files, which open with a `PackNum` text header this format doesn't expect and are still unrecognized (see the G4PKM row) |
 | **MDR** | `.mdr` | ✅ | ✅ | ✅ | — | *Dance Dance Revolution Mario Mix* chunk archive with per-chunk zlib streams |
 | **MKGPDX PAC** | `.pac`, `.mkgpdx` | ✅ | ✅ | ✅ | — | *Mario Kart Arcade GP DX* layout archive (`pack`) |
 | **MPBIN** | `.bin` | ✅ | ✅ | ✅ | ✅ | Hudson Soft Mario Party archive container (GameCube / Wii) |
@@ -96,7 +96,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **PKG / GPKG / GPAK** | `.pkg`, `.pak`, `.gpak` | ✅ | ✅ | ✅ | — | Sonic Team Storybook series archive (*Secret Rings* / *Black Knight*), Gorilla Games *Bonsai Barber* PKG, and 2D Boy *World of Goo* GPAK |
 | **PKZ** | `.pkz` | ✅ | ✅ | ✅ | — | PlatinumGames archive format (*Bayonetta*, *Astral Chain*) |
 | **PRC** | `.prc` | ✅ | — | — | — | *Super Smash Bros. 4* parameter binary (`para`) |
-| **PVOL** | `.pvol` | ✅ | ✅ | ✅ | — | *Pikmin 1 & 2* model & resource container archive |
+| **PVOL** | `.pvol` | 🟡 | ✅ | ✅ | 🟡 | *Pikmin 1 & 2* model & resource container archive. The retail carts ship this content as `dataDir/archives/*.arc` (e.g. `water.arc`), not `.pvol` -- the extractor's `is_ext_match(arg,".pvol")` gate never matches, and the real header (BE32 count, then named length-prefixed entries: `objects/water/motion`, `wait.dca`, ...) doesn't match the LE32 offset-table layout `ExtractPVOLArchive` assumes either, so no sample in this corpus decodes |
 | **RARC** | `.rarc`, `.arc` | ✅ | ✅ | ✅ | — | Nintendo standard resource archive (GameCube / Wii) |
 | **RFL_Res** | `RFL_Res.dat`, `.dat` | ✅ | ✅ | ✅ | — | Revolution Face Library Mii resource database (Wii / 3DS / Wii U) |
 | **RPAK** | `.rpak`, `.pak` | ✅ | — | — | ✅ | Retro Studios asset container (*Donkey Kong Country Returns*, Wii). Verified against a retail level pak (3672 entries); the original GameCube *Metroid Prime* (2002) uses an older, unrelated PAK layout without this format's STRG/RSHD header, so it doesn't apply here despite the similar extension |
@@ -105,7 +105,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **SFZDAT** | `.dat` | ✅ | 🟡 | — | — | *Star Fox Zero* (Wii U) flat archive (`DAT\0`) |
 | **SIR0** | `.sir0` | ✅ | ✅ | ✅ | — | Pokémon Mystery Dungeon resource container (DS / 3DS) |
 | **STPK** | `.srd`, `.stpk` | ✅ | ✅ | ✅ | — | *Jump Super Stars* & *Jump Ultimate Stars* DS resource archive |
-| **Storybook ONE** | `.one` | ✅ | — | — | — | Sonic Team *Sonic and the Secret Rings* / *Black Knight* PRS-compressed container |
+| **Storybook ONE** | `.one` | ✅ | — | — | ✅ | Sonic Team *Sonic and the Secret Rings* / *Black Knight* PRS-compressed container. The size-limit check used `out_size > opt_max_file_size` where 0 means "no limit" everywhere else in this codebase, so every real member (any nonzero size) was rejected unless `--max-file-size` happened to be set on the command line -- fixed and verified against a retail `.one` (33 members) |
 | **SZE** | `.sze` | ✅ | ✅ | ✅ | — | Nintendo Switch AES-encrypted container (NST / Switch) |
 | **TMPK** | `.pack`, `.tmpk` | ✅ | ✅ | ✅ | — | *The Legend of Zelda: Twilight Princess HD* archive (`TMPK`) |
 | **VCRA** | `.bin`, `.vcra` | ✅ | ✅ | ✅ | ✅ | Bandai Namco Museum Remix archive format (Wii). Verified against the retail `resident.arc`: all 65 members extract and cascade correctly into nested BRRES/TPL/BRFNT decoding |

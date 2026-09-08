@@ -1784,7 +1784,7 @@ static enumError extract_storybook_one_file (ccp arg, ccp basedir, uint depth)
 		name[32] = 0;
 		const uint offset = be32 (entry + 36), size = be32 (entry + 40), out_size = be32 (entry + 44);
 		if (!valid_sarc_path (name) || !*name || offset < data || offset > raw_size || size > raw_size - offset
-			|| !out_size || out_size > opt_max_file_size)
+			|| !out_size || (opt_max_file_size && out_size > opt_max_file_size))
 		{
 			err = ERR_INVALID_DATA;
 			break;
