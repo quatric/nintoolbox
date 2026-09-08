@@ -1496,7 +1496,166 @@ nnfail:
 	if (out_size)
 		*out_size = 0;
 	return 0;
-}// Encoders
+}
+
+//-----------------------------------------------------------------------------
+// BVA0 (VIS0) visibility animation
+//
+// A VIS0 block is a NNSG3dResVisAnmSet: an 8-byte block header (kind "VIS0"
+// plus size), a dict naming each clip, then per-clip NNSG3dResVisAnm units.
+// A unit is a 12-byte header followed by a dense bitfield:
+//
+//   u8  category0     0x00
+//   u8  revision      0x01
+//   u16 category1     0x02
+//   u16 numFrame      0x04
+//   u16 numNode       0x06
+//   u16 size          0x08   (byte length of the bitfield, words * 4)
+//   u16 dummy         0x0a
+//   u32 visData[]     0x0c
+//
+// bit (frame * numNode + node) holds node's visibility at frame, following
+// the SDK's NNSi_G3dAnmCalcNsBva index math (pos = frame * numNode + dataIdx).
+//-----------------------------------------------------------------------------
+
+int DecodeNSBVA_Clip (nsb_vis_t *vis, const uint8_t *data, size_t size, uint32_t clip_idx)
+{
+	if (!vis || !data || size < 0x1c)
+		return 0;
+	nsb_container_t c;
+	if (!nsb_container (&c, data, size))
+		return 0;
+	uint32_t blk_off, blk_size;
+	if (!nsb_block_off (&c, 0, &blk_off, &blk_size)
+		|| (size_t)blk_off + blk_size > size
+		|| blk_size < 0x20
+		|| memcmp (data + blk_off, "VIS0", 4))
+		return 0;
+	nsb_dict_t d;
+	if (!nsb_dict (&c, blk_off + 8, &d) || clip_idx >= d.n)
+		return 0;
+	uint32_t unit_rel;
+	if (!nsb_dict_unit_offset (&c, &d, clip_idx, &unit_rel))
+		return 0;
+	const size_t unit = (size_t)blk_off + unit_rel;
+	if (unit + 0x0c + 4 > size)
+		return 0;
+	const uint32_t num_frame = rd16le (data + unit + 4);
+	const uint32_t num_node = rd16le (data + unit + 6);
+	const uint32_t size_field = rd16le (data + unit + 8);
+	if (!num_frame || !num_node)
+		return 0;
+	const uint32_t words = (num_frame * num_node + 31) / 32;
+	if (size_field != words * 4 || unit + 0x0c + size_field > size)
+		return 0;
+	vis->num_frame = num_frame;
+	vis->num_node = num_node;
+	vis->words = words;
+	vis->bits = data + unit + 0x0c;
+	return 1;
+}
+
+int NSBVA_Visible (const nsb_vis_t *vis, uint32_t frame, uint32_t node)
+{
+	if (!vis || !vis->bits || !vis->num_node || frame >= vis->num_frame || node >= vis->num_node)
+		return 0;
+	const uint32_t pos = frame * vis->num_node + node;
+	return (vis->bits[pos >> 3] >> (pos & 7)) & 1;
+}
+
+uint8_t *BuildNSBVA (const nsb_vis_t *vis, const char *clip_name, size_t *out_size)
+{
+	if (out_size)
+		*out_size = 0;
+	if (!vis || !vis->bits || !vis->num_frame || !vis->num_node)
+		return 0;
+	const uint32_t words = (vis->num_frame * vis->num_node + 31) / 32;
+	const uint32_t size_field = words * 4;
+
+	uint8_t name16[16];
+	memset (name16, 0, sizeof (name16));
+	const char *nm = clip_name && clip_name[0] ? clip_name : "NSB";
+	size_t nl = strlen (nm);
+	if (nl > sizeof (name16) - 1)
+		nl = sizeof (name16) - 1;
+	memcpy (name16, nm, nl);
+
+	// One-clip VIS0 unit.
+	nb_t c = { 0 };
+	int ok = 1;
+	ok = ok && nb_u8 (&c, 'V') && nb_u8 (&c, 0);
+	ok = ok && nb_u16 (&c, 0);
+	ok = ok && nb_u16 (&c, (uint16_t)vis->num_frame);
+	ok = ok && nb_u16 (&c, (uint16_t)vis->num_node);
+	ok = ok && nb_u16 (&c, size_field);
+	ok = ok && nb_u16 (&c, 0);
+	for (uint32_t i = 0; i < words && ok; i++)
+		ok = nb_u32 (&c, rd32le (vis->bits + i * 4));
+	if (!ok)
+		return 0;
+
+	// Assemble the VIS0 block and the BVA0 container.
+	const uint32_t dict_len = 8 + 4 * 2 + 8 + 16;
+	const uint32_t block_size = 8 + dict_len + (uint32_t)c.len;
+	const uint32_t file_size = 0x14 + block_size;
+	uint8_t *out = malloc (file_size);
+	if (!out)
+	{
+		free (c.b);
+		return 0;
+	}
+	memset (out, 0, file_size);
+	memcpy (out + 0x00, "BVA0", 4);
+	out[0x04] = 0xff; out[0x05] = 0xfe;
+	out[0x06] = 0x01; out[0x07] = 0x00;
+	out[0x08] = (uint8_t)(file_size & 0xff);
+	out[0x09] = (uint8_t)((file_size >> 8) & 0xff);
+	out[0x0a] = (uint8_t)((file_size >> 16) & 0xff);
+	out[0x0b] = (uint8_t)((file_size >> 24) & 0xff);
+	out[0x0c] = 0x10; out[0x0d] = 0x00;
+	out[0x0e] = 0x01; out[0x0f] = 0x00;
+	out[0x10] = 0x14; out[0x11] = 0x00; out[0x12] = 0x00; out[0x13] = 0x00;
+	memcpy (out + 0x14, "VIS0", 4);
+	out[0x18] = (uint8_t)(block_size & 0xff);
+	out[0x19] = (uint8_t)((block_size >> 8) & 0xff);
+	out[0x1a] = (uint8_t)((block_size >> 16) & 0xff);
+	out[0x1b] = (uint8_t)((block_size >> 24) & 0xff);
+	const uint32_t dc = 0x1c;
+	{
+		out[dc + 0] = 0;          // revision
+		out[dc + 1] = 1;          // numEntry
+		out[dc + 2] = 0x28;       // sizeDictBlk
+		out[dc + 3] = 0;
+		out[dc + 4] = 8;          // ofsNode
+		out[dc + 5] = 0;
+		out[dc + 6] = 0x10;       // ofsEntry
+		out[dc + 7] = 0;
+		out[dc + 8] = 0x7f;       // root node refBit
+		out[dc + 9] = 1;          // root idxLeft -> leaf
+		out[dc + 10] = 0;
+		out[dc + 11] = 0;
+		out[dc + 12] = bca_refbit (name16); // leaf refBit
+		out[dc + 13] = 0;
+		out[dc + 14] = 1;         // leaf idxRight -> self
+		out[dc + 15] = 0;
+		out[dc + 16] = 4;         // sizeUnit
+		out[dc + 17] = 0;
+		out[dc + 18] = 8;         // ofsName
+		out[dc + 19] = 0;
+		out[dc + 20] = (uint8_t)((8 + dict_len) & 0xff); // ofsUnit (rel to block)
+		out[dc + 21] = (uint8_t)(((8 + dict_len) >> 8) & 0xff);
+		out[dc + 22] = 0;
+		out[dc + 23] = 0;
+		memcpy (out + dc + 24, name16, 16);
+	}
+	memcpy (out + dc + dict_len, c.b, c.len);
+	free (c.b);
+	if (out_size)
+		*out_size = file_size;
+	return out;
+}
+
+// Encoders
 //
 // BVA0/BMA0/BTA0/BTP0 have no glTF representation, so a model can only carry
 // them as preserved raw bytes; Encode* reproduces those exactly.  BCA0 has a

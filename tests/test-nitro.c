@@ -10,6 +10,7 @@ extern "C"
 #include "lib-nitro.h"
 #include "lib-smdh.h"
 #include "lib-gtx.h"
+#include "lib-nsbanim.h"
 #ifdef __cplusplus
 }
 #endif
@@ -1185,6 +1186,97 @@ int main (void)
 			free (txt);
 			free (nanr_buf);
 		}
+	}
+
+	// BVA0 (VIS0) visibility-animation decode + build.  Build a synthetic
+	// bitfield, serialize it, decode it back and compare every bit, then push
+	// it through the parse-into-model -> encode raw pass-through.
+	{
+		const uint nfr = 60, nn = 5;
+		const uint words_b = (nfr * nn + 31) / 32;
+		nsb_vis_t src = { 0 };
+		src.num_frame = nfr;
+		src.num_node = nn;
+		src.words = words_b;
+		u8 *bits = (u8 *)calloc (words_b, 4);
+		if (!bits)
+		{
+			printf ("  FAIL: BVA0 test OOM\n");
+			fail++;
+		}
+		else
+		{
+			for (uint f = 0; f < nfr; f++)
+				for (uint n = 0; n < nn; n++)
+					if ((f * 7 + n * 3) % 5 < 2)
+						bits[(f * nn + n) >> 3] |= (u8)(1u << ((f * nn + n) & 7));
+			src.bits = bits;
+
+			size_t bva_sz = 0;
+			u8 *bva = BuildNSBVA (&src, "VisibilityOne", &bva_sz);
+			if (!bva || bva_sz == 0)
+			{
+				printf ("  FAIL: BuildNSBVA failed\n");
+				fail++;
+			}
+			else
+			{
+				int bad = 0;
+				nsb_vis_t vis;
+				if (!DecodeNSBVA_Clip (&vis, bva, bva_sz, 0))
+				{
+					printf ("  FAIL: DecodeNSBVA_Clip failed\n");
+					fail++;
+					bad = 1;
+				}
+				else if (vis.num_frame != nfr || vis.num_node != nn || vis.words != words_b)
+				{
+					printf ("  FAIL: DecodeNSBVA_Clip dims (%u,%u,%u) != (%u,%u,%u)\n",
+						vis.num_frame, vis.num_node, vis.words, nfr, nn, words_b);
+					fail++;
+					bad = 1;
+				}
+				for (uint f = 0; f < nfr && !bad; f++)
+					for (uint n = 0; n < nn; n++)
+					{
+						const int expect = ((f * 7 + n * 3) % 5 < 2) ? 1 : 0;
+						if (NSBVA_Visible (&vis, f, n) != expect)
+						{
+							printf ("  FAIL: BVA0 bit mismatch frame %u node %u\n", f, n);
+							fail++;
+							bad = 1;
+							break;
+						}
+					}
+
+				model_t m;
+				memset (&m, 0, sizeof (m));
+				if (!bad && !ParseNSBVAIntoModel (&m, bva, bva_sz, "VisibilityOne"))
+				{
+					printf ("  FAIL: ParseNSBVAIntoModel failed\n");
+					fail++;
+					bad = 1;
+				}
+				else if (!bad)
+				{
+					size_t re_sz = 0;
+					u8 *re_bva = EncodeNSBVA (&m, &re_sz);
+					if (!re_bva || re_sz != bva_sz || memcmp (re_bva, bva, bva_sz))
+					{
+						printf ("  FAIL: BVA0 model round-trip not byte-exact\n");
+						fail++;
+					}
+					else
+						printf ("  PASS: BVA0 build -> decode -> model raw round-trip\n");
+					free (re_bva);
+				}
+				for (size_t i = 0; i < m.num_nsb_raw; i++)
+					free (m.nsb_raw[i].data);
+				free (m.nsb_raw);
+				free (bva);
+			}
+		}
+		free (bits);
 	}
 
 	printf ("=== Results: %s (failures: %d) ===\n", fail == 0 ? "ALL PASSED" : "SOME FAILED", fail);

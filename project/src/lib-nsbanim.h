@@ -21,6 +21,29 @@ int ParseNSBVAIntoModel (model_t *model, const uint8_t *data, size_t size, const
 // Parse NSBMA (BMA0) material colour animation and append to model.
 int ParseNSBMAIntoModel (model_t *model, const uint8_t *data, size_t size, const char *clip_name);
 
+// A decoded VIS0 clip (BVA0 visibility animation).  Visibility is a dense
+// bitfield: bit (frame * numNode + node) of `bits` is node's visibility at
+// frame, numFrame * numNode bits packed LSB-first into u32 words exactly as
+// the SDK's NNSi_G3dAnmCalcNsBva indexes them.
+typedef struct
+{
+	uint32_t num_frame;
+	uint32_t num_node;
+	uint32_t words; // u32 words of bitfield data
+	const uint8_t *bits; // points into the caller's buffer, words * 4 bytes
+} nsb_vis_t;
+
+// Decode clip `clip_idx` of a BVA0 container into `vis`. Returns 1 on
+// success, 0 on invalid data or a missing clip.
+int DecodeNSBVA_Clip (nsb_vis_t *vis, const uint8_t *data, size_t size, uint32_t clip_idx);
+
+// Visibility of one node at one frame of a decoded clip (0 or 1).
+int NSBVA_Visible (const nsb_vis_t *vis, uint32_t frame, uint32_t node);
+
+// Build a fresh one-clip BVA0 (the NDS tree layout) from a visibility
+// bitfield.  Returns a malloc'd buffer (free by caller), sets *out_size.
+uint8_t *BuildNSBVA (const nsb_vis_t *vis, const char *clip_name, size_t *out_size);
+
 // Encode model animations back to NSB* binary.
 // Returns a malloc'd buffer (free by caller), sets *out_size. NULL on error.
 uint8_t *EncodeNSBCA (const model_t *model, size_t *out_size);
