@@ -878,6 +878,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	enumError err = extract_tex_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_ctxb_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_art_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

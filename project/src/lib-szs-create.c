@@ -5881,6 +5881,16 @@ enumError ExtractFilesSZS (szs_file_t *szs, // valid szs file
 	const int cut_files = is_cutting ? 1 : recurse_level || IsArchiveFF (szs->fform_arch) ? -1 : 0;
 	PRINT ("cut_files=%d\n", cut_files);
 
+	// A hierarchical archive (U8 etc.) always yields its own root as an
+	// is_dir entry to extract_func(), which creates 'dest' as a side effect
+	// before any member is written. A single-file container wrapped as an
+	// SZS (e.g. a standalone CTXB texture) has no such root entry, so
+	// nothing would otherwise create 'dest' before its one member is
+	// written -- CreateFileOpt() then fails because the directory is
+	// missing. Create it here unconditionally so both cases work the same.
+	if (!testmode && !sdir)
+		CreatePath (dest, true);
+
 	IterateFilesParSZS (
 		szs, collect_plt0_func, &ep.pal_cache, true, false, false, 0, -1, SORT_NONE);
 	IterateFilesParSZS (

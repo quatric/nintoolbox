@@ -100,7 +100,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **RARC** | `.rarc`, `.arc` | ✅ | ✅ | ✅ | — | Nintendo standard resource archive (GameCube / Wii) |
 | **RFL_Res** | `RFL_Res.dat`, `.dat` | ✅ | ✅ | ✅ | — | Revolution Face Library Mii resource database (Wii / 3DS / Wii U) |
 | **RPAK** | `.rpak`, `.pak` | ✅ | — | — | ✅ | Retro Studios asset container (*Donkey Kong Country Returns*, Wii). Verified against a retail level pak (3672 entries); the original GameCube *Metroid Prime* (2002) uses an older, unrelated PAK layout without this format's STRG/RSHD header, so it doesn't apply here despite the similar extension |
-| **RST / TOC** | `.rst`, `.toc` | ✅ | ✅ | ✅ | — | Monster Games archive & table of contents (*Excite Truck* / *Excitebots*) |
+| **RST / TOC** | `.rst`, `.toc` | ✅ | ✅ | ✅ | ✅ | Monster Games archive & table of contents (*Excite Truck* / *Excitebots*). Verified against the retail `race.res`/`race.toc` pair on both discs (the archive itself carries the `0TSR` magic; `.toc` is the paired index) -- cascades correctly into MOD/GLB, TEX/TM0/PNG, CAN and SFX exports |
 | **SARC** | `.sarc`, `.szs` | ✅ | ✅ | ✅ | — | NintendoWare NW4F & NintendoSDK sorted archive (Wii U / Switch / 3DS) |
 | **SFZDAT** | `.dat` | ✅ | 🟡 | — | — | *Star Fox Zero* (Wii U) flat archive (`DAT\0`) |
 | **SIR0** | `.sir0` | ✅ | ✅ | ✅ | — | Pokémon Mystery Dungeon resource container (DS / 3DS) |
@@ -168,7 +168,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **BTI / TPL** | `.bti`, `.tpl` | ✅ | ✅ | ✅ | ✅ | Nintendo standard texture palette library (GameCube / Wii) |
 | **Camelot GX bank** | *(none)*, `.stpl`, `.sbn` | ✅ | — | — | ✅ | Camelot GX texture bank, standalone or inline in a model module (*Mario Golf: Toadstool Tour*, *Mario Power Tennis* GC & Wii, *We Love Golf!*) |
 | **CTPK** | `.ctpk` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C texture package (3DS) |
-| **CTXB** | `.ctxb` | ✅ | ✅ | ✅ | — | Grezzo 3DS texture container (*Ocarina of Time 3D*, *Majora's Mask 3D*) |
+| **CTXB** | `.ctxb` | ✅ | ✅ | ✅ | ✅ | Grezzo 3DS texture container (*Ocarina of Time 3D*, *Majora's Mask 3D*). A standalone `.ctxb` -- the common case, since these ship loose in `romfs/` rather than inside a GAR/ZAR -- never reached the decoder at all before this pass (wrong dispatch entirely, not a decode bug); fixed and verified against the retail romfs (1666 files). Note: the decoder itself still only recovers the first texture of the first `tex ` chunk, and a GAR/ZAR's own extraction doesn't self-cascade into its output the way ABE/BNS/RST/RPAK do, so an embedded `.ctxb` only decodes on a second pass over that output directory |
 | **DSB / TXTR** | `.bin` | ✅ | — | — | — | Animal Crossing: Wild World DS menu texture (RGB555 + A3I5) |
 | **G1T** | `.g1t` | ✅ | — | — | ✅ | Koei Tecmo texture container (*Hyrule Warriors*, *Fire Emblem Warriors*). 3DS ETC1/ETC1A4/RGBA8 — 2602 of the 2603 textures on the *Hyrule Warriors Legends* cart; the one holdout uses an 8bpp encoding no other file exercises |
 | **GTX** | `.gtx` | ✅ | ✅ | ✅ | ✅ | Nintendo Wii U GX2 surface container (Wii U) |
