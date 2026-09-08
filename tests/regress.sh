@@ -1680,7 +1680,16 @@ t_warc(){
   # WARC ("WARC" magic): Game & Wario (Wii U) flat archive, big-endian,
   # uncompressed, unrelated to Excite's TOC/RES despite the naming
   # coincidence. Ported from aluigi's game_wario.bms.
-  local f; f=$(find_magic "WARC"); [ -n "$f" ] || { sk "WARC (Game & Wario archive)"; return; }
+  #
+  # Retail-verified: content/Puzzle/Bmp/Bmp.warc from "Game & Wario (USA)
+  # (En,Fr,Es).wux" (106,880 bytes) extracts to exactly 93 non-empty .bmp
+  # members via wszst EXTRACT. Committed verbatim as
+  # tests/fixtures/warc_wiiu_game_and_wario_bmp.warc, same style as
+  # t_bfres_wiiu: prefer the deterministic fixture, fall back to the
+  # dynamic find_magic scan if it's ever missing.
+  local f="$PWD_PROJECT/../tests/fixtures/warc_wiiu_game_and_wario_bmp.warc"
+  [ -f "$f" ] || f=$(find_magic "WARC")
+  [ -n "$f" ] || { sk "WARC (Game & Wario archive)"; return; }
   rm -rf /tmp/_r_warc; mkdir -p /tmp/_r_warc
   $B/wszst EXTRACT "$f" --dest "/tmp/_r_warc/\1N" --overwrite >/tmp/_r_warc.log 2>&1
   local n; n=$(find /tmp/_r_warc -type f -size +0c 2>/dev/null | wc -l | tr -d ' ')
@@ -9203,6 +9212,80 @@ for c in anims[0]["channels"]:
 }
 t_nsbca_sibling
 
+t_nsbca_fresh_encode_roundtrip(){
+  # The GLB -> NSBCA encoder rebuilds a fresh JNT0 animation, and the NSBCA ->
+  # GLB decoder must reproduce it. Drive both directions and compare every
+  # rotation/scale keyframe (61 frames x node 1..3). This guards the SDK
+  # pivot/ROT5 FX12 semantics and the first-frame-identity handling (node 1
+  # frame 0 is identity; if any frame is checked as "identity" at the pack
+  # stage the rotation channel would silently drop).
+  local d="$PWD_PROJECT/../tests/fixtures"
+  local md="$d/synthetic_nsbmd_coin.nsbmd"
+  local ca="$d/synthetic_nsbca_coin.nsbca"
+  [ -f "$md" ] && [ -f "$ca" ] || { sk "NSBCA fresh encode -> decode round-trip"; return; }
+  local t; t=$(mktemp -d); trap 'rm -rf "$t"' RETURN
+  cp "$md" "$t/coin.nsbmd"
+  cp "$ca" "$t/coin.nsbca"
+  if "$B/wmdlt" ENCODE "$t/coin.nsbmd" --dest "$t/ref.glb" --overwrite >/dev/null 2>&1 \
+  && "$B/wmdlt" ENCODE "$t/ref.glb" --dest "$t/fresh.nsbca" --overwrite >/dev/null 2>&1 \
+  && cp "$t/fresh.nsbca" "$t/coin.nsbca" \
+  && "$B/wmdlt" ENCODE "$t/coin.nsbmd" --dest "$t/rt.glb" --overwrite >/dev/null 2>&1 \
+  && python3 -c '
+import json, struct, sys
+def glb(path):
+    b = open(path, "rb").read()
+    off, doc, bs = 12, None, None
+    while off < len(b):
+        clen, ctype = struct.unpack_from("<II", b, off)
+        if ctype == 0x4E4F534A: doc = json.loads(b[off+8:off+8+clen])
+        if ctype == 0x4E4942: bs = off + 8
+        off += 8 + clen
+    assert doc is not None and bs is not None, "no GLB chunks"
+    return doc, b[bs:bs+struct.unpack_from("<I", b, bs-4)[0]]
+def chans(path):
+    doc, b = glb(path)
+    out = {}
+    for c in doc["animations"][0]["channels"]:
+        s = doc["animations"][0]["samplers"][c["sampler"]]
+        a = doc["accessors"][s["output"]]
+        n = {"VEC3": 3, "VEC4": 4}[a["type"]]
+        out[(c["target"]["node"], c["target"]["path"])] = [
+            struct.unpack_from("<" + "f" * n, b, a.get("byteOffset", 0) + k * n * 4)
+            for k in range(a["count"])
+        ]
+    return out
+ref, rt = chans(sys.argv[1]), chans(sys.argv[2])
+assert set(ref) == set(rt), (set(ref), set(rt))
+for k in sorted(ref):
+    assert len(ref[k]) == 61, (k, len(ref[k]))
+    for a, c in zip(ref[k], rt[k]):
+        assert max(abs(x - y) for x, y in zip(a, c)) < 1e-3, (k, a, c)
+' "$t/ref.glb" "$t/rt.glb"; then
+    ok "NSBCA fresh encode -> decode round-trip (61 frames, byte-faithful)"
+  else
+    no "NSBCA fresh encode -> decode round-trip" "fresh build or SDK decode diverged"
+  fi
+}
+t_nsbca_fresh_encode_roundtrip
+
+t_nsbca_bare_passthrough(){
+  # A lone bare .nsbca going to a .nsbca destination is a byte-exact
+  # pass-through (no sibling model to re-target): the fixture bytes must come
+  # out unmodified.
+  local d="$PWD_PROJECT/../tests/fixtures"
+  local ca="$d/synthetic_nsbca_coin.nsbca"
+  [ -f "$ca" ] || { sk "NSBCA bare pass-through encode"; return; }
+  local t; t=$(mktemp -d); trap 'rm -rf "$t"' RETURN
+  cp "$ca" "$t/coin.nsbca"
+  if "$B/wmdlt" ENCODE "$t/coin.nsbca" --dest "$t/out.nsbca" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$t/coin.nsbca" "$t/out.nsbca"; then
+    ok "NSBCA bare pass-through encode (byte-identical)"
+  else
+    no "NSBCA bare pass-through encode" "bytes changed for a single .nsbca input"
+  fi
+}
+t_nsbca_bare_passthrough
+
 t_zlarc_wiiu_nes_remix(){
   # ZLARC (Wii U, NES Remix Pack): retail-verified ground truth. The four
   # *.zlarc files shipped in "NES Remix Pack (USA) (En,Fr,Es).wux"
@@ -9246,6 +9329,41 @@ t_zlarc_wiiu_nes_remix(){
   fi
 }
 t_zlarc_wiiu_nes_remix
+
+t_fzip_wiiu_game_and_wario(){
+  # FZIP ("FZIP" magic): Game & Wario (Wii U) Zlib stream container --
+  # a small fixed header (magic + sizes) wrapping one raw zlib deflate
+  # stream, unrelated to the ZIP format despite the name. Retail-verified:
+  # content/Common/Script.warc.fzip from "Game & Wario (USA) (En,Fr,Es).wux"
+  # (76,945 bytes) decompresses via wszst DECOMPRESS to a 771,575-byte
+  # payload that is itself a valid WARC archive (see t_warc above) --
+  # wszst EXTRACT on the decompressed payload yields 241 non-empty
+  # members (Script/*.sttxt). Committed verbatim as
+  # tests/fixtures/fzip_wiiu_game_and_wario_script.warc.fzip.
+  local f="$PWD_PROJECT/../tests/fixtures/fzip_wiiu_game_and_wario_script.warc.fzip"
+  if [ ! -f "$f" ]; then
+    sk "FZIP (Wii U, Game & Wario)"
+    return
+  fi
+  local magic; magic=$(head -c 4 "$f" 2>/dev/null)
+  if [ "$magic" != "FZIP" ]; then
+    no "FZIP (Wii U, Game & Wario)" "fixture $f does not start with FZIP magic (got $magic)"
+    return
+  fi
+  rm -rf /tmp/_r_fzip_gw; mkdir -p /tmp/_r_fzip_gw
+  if "$B/wszst" DECOMPRESS "$f" -d /tmp/_r_fzip_gw/out.warc --overwrite >/dev/null 2>&1; then
+    $B/wszst EXTRACT /tmp/_r_fzip_gw/out.warc --dest "/tmp/_r_fzip_gw/x/\1N" --overwrite >/tmp/_r_fzip_gw.log 2>&1
+    local n; n=$(find /tmp/_r_fzip_gw/x -type f -size +0c 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$n" -gt 0 ] && ! grep -q "INVALID" /tmp/_r_fzip_gw.log; then
+      ok "FZIP (Wii U, Game & Wario) -> WARC payload -> $n non-empty member(s) ($f)"
+    else
+      no "FZIP (Wii U, Game & Wario)" "decompressed payload from $f did not extract cleanly"
+    fi
+  else
+    no "FZIP (Wii U, Game & Wario)" "wszst DECOMPRESS failed on $f"
+  fi
+}
+t_fzip_wiiu_game_and_wario
 
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
