@@ -651,6 +651,29 @@ confirm no regressions were introduced by this (code-free) investigation;
 it still shows only the same 8 pre-existing unrelated failures from
 §11/this file's history.
 
+## 13. 2026-09-08 — Retail-source verification: WARC / FZIP / Game & Wario (Wii U) — ✅ done
+
+Extracted `"Game & Wario (USA) (En,Fr,Es).wux"` via the same
+`wszst XX ... --dest --overwrite` Wii U disc pipeline. Found real WARC and
+FZIP samples: `content/Puzzle/Bmp/Bmp.warc` (106,880 bytes) extracts
+cleanly via `wszst EXTRACT` to exactly 93 non-empty `.bmp` members, and
+`content/Common/Script.warc.fzip` (76,945 bytes) decompresses via
+`wszst DECOMPRESS` to a 771,575-byte payload that is itself a valid WARC
+archive, extracting to 241 non-empty `.sttxt` members. Both samples
+committed verbatim as `tests/fixtures/warc_wiiu_game_and_wario_bmp.warc`
+and `tests/fixtures/fzip_wiiu_game_and_wario_script.warc.fzip`.
+
+`t_warc()` in `tests/regress.sh` updated to prefer the committed fixture
+first (same deterministic-pick pattern as `t_bfres_wiiu`), falling back
+to the dynamic `find_magic` scan only if the fixture is missing. Added a
+new `t_fzip_wiiu_game_and_wario()` test asserting the FZIP fixture
+decompresses to a WARC payload that extracts to a non-empty member set.
+`README.md`'s WARC and FZIP rows updated with these citation sentences
+and WARC's "Retail Source Tested" column flipped to ✅ (FZIP's table has
+no such column). Full regress suite re-run afterward: only the same 8
+pre-existing unrelated failures from §11/§12, no new failures. Scratch
+tree removed after the cycle completed.
+
 ## Suggested order
 
 1. §2 (mechanical, minutes) + §8 (concrete bug, real user pain).
