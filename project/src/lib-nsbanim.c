@@ -1937,6 +1937,407 @@ uint8_t *BuildNSBTP (uint32_t num_frame, uint32_t num_tex, uint32_t num_pltt,
 	return out;
 }
 
+//-----------------------------------------------------------------------------
+// BMA0 (MAT0) material-colour animation and BTA0 (SRT0) texture-SRT animation
+//
+// Both reuse the BTP0 container scaffolding: an outer dict maps clip names to
+// one NNSG3dResMatCAnm / NNSG3dResTexSRTAnm unit, and each unit holds an inner
+// dict whose per-clip entries carry NNSG3dResDictMatCAnmData-style records
+// {numFV, flag, ratioDataFrame, offset}; the offset points at the keyframe
+// table.  The two differ only in the key payload:
+//
+//   BMA0 key  {u16 idxFrame, u32 color[5]} (0xaarrggbb each):
+//             diffuse, ambient, specular, emission, polygon alpha.
+//   BTA0 key  {u16 idxFrame, s16 v[5]}      (fx1.10.5 each):
+//             scale X, scale Y, rotation, translation X, translation Y.
+//
+// Lookup walks the same ratioDataFrame-seeded search as NSBTP_Lookup, then
+// linearly interpolates between the surrounding keys (per colour component for
+// BMA0, per parameter for BTA0) at fx1.14 precision.  The layout is a
+// reconstructed SDK-struct-style form verified by round-trip tests; see the
+// header for the fidelity note.
+//-----------------------------------------------------------------------------
+
+static int nsb_dc_keyed_clip (const uint8_t *data, size_t size, const char *blkmagic,
+	uint32_t clip_idx, uint32_t key_stride, uint32_t *num_frame, uint32_t *num_keys,
+	uint32_t *ratio, const uint8_t **keys)
+{
+	if (!data || size < 0x30)
+		return 0;
+	nsb_container_t c;
+	if (!nsb_container (&c, data, size))
+		return 0;
+	uint32_t blk_off, blk_size;
+	if (!nsb_block_off (&c, 0, &blk_off, &blk_size)
+		|| (size_t)blk_off + blk_size > size
+		|| blk_size < 0x30
+		|| memcmp (data + blk_off, blkmagic, 4))
+		return 0;
+	nsb_dict_t d_outer;
+	if (!nsb_dict (&c, blk_off + 8, &d_outer) || clip_idx >= d_outer.n)
+		return 0;
+	const uint32_t eo_outer = d_outer.ofs_entry + clip_idx * 8;
+	if (eo_outer + 8 > c.file_size)
+		return 0;
+	const size_t a_unit = (size_t)blk_off + rd32le (c.file + eo_outer + 4);
+	if (a_unit + 0x18 > c.file_size)
+		return 0;
+	const uint32_t a_num_frame = rd16le (c.file + a_unit + 4);
+	if (!a_num_frame)
+		return 0;
+	nsb_dict_t d;
+	if (!nsb_dict (&c, (uint32_t)a_unit + 8, &d) || clip_idx >= d.n)
+		return 0;
+	const uint32_t eo = d.ofs_entry + clip_idx * 12;
+	if (eo + 12 > c.file_size)
+		return 0;
+	const uint32_t a_num_keys = rd16le (c.file + eo + 4);
+	const uint32_t a_ratio = rd16le (c.file + eo + 8);
+	const uint32_t kofs = rd16le (c.file + eo + 0x0a);
+	if (!a_num_keys || (size_t)kofs + (size_t)a_num_keys * (size_t)key_stride > c.file_size - a_unit)
+		return 0;
+	*num_frame = a_num_frame;
+	*num_keys = a_num_keys;
+	*ratio = a_ratio;
+	*keys = c.file + a_unit + kofs;
+	return 1;
+}
+
+int DecodeNSBMA_Clip (nsb_ma_clip_t *clip, const uint8_t *data, size_t size, uint32_t clip_idx)
+{
+	uint32_t num_frame, num_keys, ratio;
+	const uint8_t *keys;
+	if (!clip || !nsb_dc_keyed_clip (data, size, "MAT0", clip_idx, 22,
+		&num_frame, &num_keys, &ratio, &keys))
+		return 0;
+	clip->num_frame = num_frame;
+	clip->num_channels = NSB_MATCOL_CHANNELS;
+	clip->num_keys = num_keys;
+	clip->ratio_fx16 = ratio;
+	clip->keys = keys;
+	return 1;
+}
+
+int DecodeNSBTA_Clip (nsb_ta_clip_t *clip, const uint8_t *data, size_t size, uint32_t clip_idx)
+{
+	uint32_t num_frame, num_keys, ratio;
+	const uint8_t *keys;
+	if (!clip || !nsb_dc_keyed_clip (data, size, "SRT0", clip_idx, 12,
+		&num_frame, &num_keys, &ratio, &keys))
+		return 0;
+	clip->num_frame = num_frame;
+	clip->num_keys = num_keys;
+	clip->ratio_fx16 = ratio;
+	clip->keys = keys;
+	return 1;
+}
+
+static int nsb_key_segment (uint32_t num_keys, uint32_t ratio, const uint8_t *keys,
+	uint32_t stride, uint32_t frame, uint32_t *lo, uint32_t *hi, uint32_t *t)
+{
+	uint32_t idx = (uint32_t)((uint64_t)ratio * frame >> 16);
+	if (idx >= num_keys)
+		idx = num_keys - 1;
+	while (idx > 0 && rd16le (keys + idx * stride) >= frame)
+		idx--;
+	while (idx + 1 < num_keys && rd16le (keys + (idx + 1) * stride) <= frame)
+		idx++;
+	*lo = idx;
+	*t = 0;
+	if (idx + 1 >= num_keys)
+	{
+		*hi = idx;
+		return 1;
+	}
+	const uint32_t f0 = rd16le (keys + idx * stride);
+	const uint32_t f1 = rd16le (keys + (idx + 1) * stride);
+	*hi = idx + 1;
+	if (f1 > f0)
+		*t = (uint32_t)(((uint64_t)(frame - f0) << 14) / (f1 - f0));
+	return 1;
+}
+
+int NSBMA_Lookup (const nsb_ma_clip_t *clip, uint32_t channel,
+	uint32_t frame, uint32_t *color)
+{
+	if (!clip || !clip->keys || !clip->num_keys || channel >= NSB_MATCOL_CHANNELS
+		|| frame >= clip->num_frame)
+		return 0;
+	uint32_t lo, hi, t;
+	if (!nsb_key_segment (clip->num_keys, clip->ratio_fx16, clip->keys, 22, frame, &lo, &hi, &t))
+		return 0;
+	const uint8_t *a = clip->keys + lo * 22 + 2 + channel * 4;
+	const uint8_t *b = clip->keys + hi * 22 + 2 + channel * 4;
+	uint8_t out[4];
+	for (int i = 0; i < 4; i++)
+		out[i] = (uint8_t)(((uint32_t)a[i] * (16384 - t) + (uint32_t)b[i] * t) >> 14);
+	*color = rd32le (out);
+	return 1;
+}
+
+int NSBTA_Lookup (const nsb_ta_clip_t *clip, uint32_t frame,
+	int16_t v[NSB_TEXSRT_PARAMS])
+{
+	if (!clip || !clip->keys || !clip->num_keys || frame >= clip->num_frame)
+		return 0;
+	uint32_t lo, hi, t;
+	if (!nsb_key_segment (clip->num_keys, clip->ratio_fx16, clip->keys, 12, frame, &lo, &hi, &t))
+		return 0;
+	for (int i = 0; i < NSB_TEXSRT_PARAMS; i++)
+	{
+		const int32_t a = rds16le (clip->keys + lo * 12 + 2 + i * 2);
+		const int32_t b = rds16le (clip->keys + hi * 12 + 2 + i * 2);
+		v[i] = (int16_t)((a * (int32_t)(16384 - t) + b * (int32_t)t) >> 14);
+	}
+	return 1;
+}
+
+// Assemble a BTP0-style container: block header, clip-name dict (stride-8
+// entries, ofsUnit relative to the block) and the prepared unit buffer.
+static uint8_t *nsb_assemble_clip_container (const char *container_magic,
+	const char *block_magic, const char *const *names, uint32_t n,
+	const nb_t *unit, size_t *out_size)
+{
+	const uint32_t odict_len = 8 + 4 * n + 8 * n + 16 * n;
+	const uint32_t ONODE = 8 + 4 * n;
+	const uint32_t OENT = ONODE + 8 * n;
+	const uint32_t block_size = 8 + odict_len + (uint32_t)unit->len;
+	const uint32_t file_size = 0x14 + block_size;
+	uint8_t *out = malloc (file_size);
+	if (!out)
+		return 0;
+	memset (out, 0, file_size);
+	memcpy (out + 0x00, container_magic, 4);
+	out[0x04] = 0xff; out[0x05] = 0xfe;
+	out[0x06] = 0x01; out[0x07] = 0x00;
+	out[0x08] = (uint8_t)(file_size & 0xff);
+	out[0x09] = (uint8_t)((file_size >> 8) & 0xff);
+	out[0x0a] = (uint8_t)((file_size >> 16) & 0xff);
+	out[0x0b] = (uint8_t)((file_size >> 24) & 0xff);
+	out[0x0c] = 0x10; out[0x0d] = 0x00;
+	out[0x0e] = 0x01; out[0x0f] = 0x00;
+	out[0x10] = 0x14; out[0x11] = 0x00; out[0x12] = 0x00; out[0x13] = 0x00;
+	memcpy (out + 0x14, block_magic, 4);
+	out[0x18] = (uint8_t)(block_size & 0xff);
+	out[0x19] = (uint8_t)((block_size >> 8) & 0xff);
+	out[0x1a] = (uint8_t)((block_size >> 16) & 0xff);
+	out[0x1b] = (uint8_t)((block_size >> 24) & 0xff);
+	const uint32_t dc = 0x1c;
+	out[dc + 0] = 0;          // revision
+	out[dc + 1] = (uint8_t)n; // numEntry
+	out[dc + 2] = (uint8_t)(odict_len & 0xff);
+	out[dc + 3] = (uint8_t)((odict_len >> 8) & 0xff);
+	out[dc + 4] = 8;          // ofsNode
+	out[dc + 5] = 0;
+	out[dc + 6] = (uint8_t)(ONODE & 0xff); // ofsEntry
+	out[dc + 7] = (uint8_t)((ONODE >> 8) & 0xff);
+	for (uint32_t i = 0; i < n; i++)
+	{
+		out[dc + 8 + i * 4 + 0] = 0; // refBit
+		out[dc + 8 + i * 4 + 1] = 0; // idxLeft
+		out[dc + 8 + i * 4 + 2] = 0; // idxRight
+		out[dc + 8 + i * 4 + 3] = (uint8_t)i; // idxEntry
+	}
+	for (uint32_t i = 0; i < n; i++)
+	{
+		uint32_t eo = dc + ONODE + i * 8;
+		out[eo + 0] = 4; // sizeUnit
+		out[eo + 1] = 0;
+		out[eo + 2] = (uint8_t)((8 * n) & 0xff); // ofsName (rel. entry base)
+		out[eo + 3] = (uint8_t)(((8 * n) >> 8) & 0xff);
+		out[eo + 4] = 0; // ofsUnit low (patched)
+		out[eo + 5] = 0;
+		out[eo + 6] = 0;
+		out[eo + 7] = 0;
+	}
+	const uint32_t nb = dc + OENT;
+	for (uint32_t i = 0; i < n; i++)
+	{
+		uint8_t name16[16];
+		nsb_write_name16 (name16, names[i]);
+		memcpy (out + nb + i * 16, name16, 16);
+	}
+	memcpy (out + dc + odict_len, unit->b, unit->len);
+	for (uint32_t i = 0; i < n; i++)
+	{
+		uint32_t eo = dc + ONODE + i * 8;
+		const uint32_t unit_rel = 8 + odict_len;
+		out[eo + 4] = (uint8_t)(unit_rel & 0xff);
+		out[eo + 5] = (uint8_t)((unit_rel >> 8) & 0xff);
+		out[eo + 6] = (uint8_t)((unit_rel >> 16) & 0xff);
+		out[eo + 7] = (uint8_t)((unit_rel >> 24) & 0xff);
+	}
+	if (out_size)
+		*out_size = file_size;
+	return out;
+}
+
+uint8_t *BuildNSBMA (uint32_t num_frame, const nsb_ma_clip_spec_t *clips,
+	size_t num_clips, size_t *out_size)
+{
+	if (out_size)
+		*out_size = 0;
+	if (!clips || !num_frame || num_clips == 0 || num_clips > 15)
+		return 0;
+	size_t total_keys = 0;
+	for (size_t i = 0; i < num_clips; i++)
+	{
+		const nsb_ma_clip_spec_t *s = &clips[i];
+		if (!s->name || !s->keys || !s->num_keys)
+			return 0;
+		for (uint32_t k = 0; k < s->num_keys; k++)
+		{
+			if (s->keys[k].frame >= num_frame)
+				return 0;
+			if (k && s->keys[k].frame < s->keys[k - 1].frame)
+				return 0;
+		}
+		total_keys += s->num_keys;
+	}
+	const uint32_t n = (uint32_t)num_clips;
+	const uint32_t idict_len = 8 + 4 * n + 12 * n + 16 * n;
+	const uint32_t koff = 0x08 + idict_len; // unit-relative key start
+	if ((uint64_t)koff + total_keys * 22 > 0xff00)
+		return 0;
+	nb_t c = { 0 };
+	int ok = 1;
+	ok = ok && nb_u8 (&c, 'M') && nb_u8 (&c, 0) && nb_u16 (&c, 0x4341);
+	ok = ok && nb_u16 (&c, (uint16_t)num_frame);
+	ok = ok && nb_u8 (&c, (uint8_t)NSB_MATCOL_CHANNELS) && nb_u8 (&c, 0);
+	ok = ok && nb_u8 (&c, 0) && nb_u8 (&c, (uint8_t)n);
+	ok = ok && nb_u16 (&c, (uint16_t)idict_len);
+	ok = ok && nb_u16 (&c, 0x08);             // ofsNode
+	ok = ok && nb_u16 (&c, (uint16_t)(8 + 4 * n)); // ofsEntry
+	for (uint32_t i = 0; i < n && ok; i++)
+		ok = nb_u32 (&c, i);
+	uint32_t ko = koff;
+	for (size_t i = 0; i < num_clips && ok; i++)
+	{
+		const nsb_ma_clip_spec_t *s = &clips[i];
+		const uint32_t ratio = (uint16_t)(((uint64_t)s->num_keys << 16) / num_frame);
+		ok = ok && nb_u16 (&c, 8);                       // sizeUnit
+		ok = ok && nb_u16 (&c, (uint16_t)(12 * n));      // ofsName
+		ok = ok && nb_u16 (&c, (uint16_t)s->num_keys);   // numFV
+		ok = ok && nb_u16 (&c, 0);                       // flag
+		ok = ok && nb_u16 (&c, (uint16_t)ratio);         // ratioDataFrame
+		ok = ok && nb_u16 (&c, (uint16_t)ko);            // offset (unit-relative)
+		ko += s->num_keys * 22;
+	}
+	for (size_t i = 0; i < num_clips && ok; i++)
+	{
+		uint8_t name16[16];
+		nsb_write_name16 (name16, clips[i].name);
+		ok = ok && nb_bytes (&c, name16, 16);
+	}
+	for (size_t i = 0; i < num_clips && ok; i++)
+		for (uint32_t k = 0; k < clips[i].num_keys && ok; k++)
+		{
+			ok = ok && nb_u16 (&c, (uint16_t)clips[i].keys[k].frame);
+			for (int ch = 0; ch < NSB_MATCOL_CHANNELS && ok; ch++)
+				ok = ok && nb_u32 (&c, clips[i].keys[k].color[ch]);
+		}
+	if (!ok)
+	{
+		free (c.b);
+		return 0;
+	}
+	const char **names = malloc (sizeof (*names) * n);
+	if (!names)
+	{
+		free (c.b);
+		return 0;
+	}
+	for (size_t i = 0; i < num_clips; i++)
+		names[i] = clips[i].name;
+	uint8_t *out = nsb_assemble_clip_container ("BMA0", "MAT0", names, n, &c, out_size);
+	free (c.b);
+	free (names);
+	return out;
+}
+
+uint8_t *BuildNSBTA (uint32_t num_frame, const nsb_ta_clip_spec_t *clips,
+	size_t num_clips, size_t *out_size)
+{
+	if (out_size)
+		*out_size = 0;
+	if (!clips || !num_frame || num_clips == 0 || num_clips > 15)
+		return 0;
+	size_t total_keys = 0;
+	for (size_t i = 0; i < num_clips; i++)
+	{
+		const nsb_ta_clip_spec_t *s = &clips[i];
+		if (!s->name || !s->keys || !s->num_keys)
+			return 0;
+		for (uint32_t k = 0; k < s->num_keys; k++)
+		{
+			if (s->keys[k].frame >= num_frame)
+				return 0;
+			if (k && s->keys[k].frame < s->keys[k - 1].frame)
+				return 0;
+		}
+		total_keys += s->num_keys;
+	}
+	const uint32_t n = (uint32_t)num_clips;
+	const uint32_t idict_len = 8 + 4 * n + 12 * n + 16 * n;
+	const uint32_t koff = 0x08 + idict_len; // unit-relative key start
+	if ((uint64_t)koff + total_keys * 12 > 0xff00)
+		return 0;
+	nb_t c = { 0 };
+	int ok = 1;
+	ok = ok && nb_u8 (&c, 'T') && nb_u8 (&c, 0) && nb_u16 (&c, 0x4341);
+	ok = ok && nb_u16 (&c, (uint16_t)num_frame);
+	ok = ok && nb_u8 (&c, 0) && nb_u8 (&c, 0); // flag, texMtxMode
+	ok = ok && nb_u8 (&c, 0) && nb_u8 (&c, (uint8_t)n);
+	ok = ok && nb_u16 (&c, (uint16_t)idict_len);
+	ok = ok && nb_u16 (&c, 0x08);             // ofsNode
+	ok = ok && nb_u16 (&c, (uint16_t)(8 + 4 * n)); // ofsEntry
+	for (uint32_t i = 0; i < n && ok; i++)
+		ok = nb_u32 (&c, i);
+	uint32_t ko = koff;
+	for (size_t i = 0; i < num_clips && ok; i++)
+	{
+		const nsb_ta_clip_spec_t *s = &clips[i];
+		const uint32_t ratio = (uint16_t)(((uint64_t)s->num_keys << 16) / num_frame);
+		ok = ok && nb_u16 (&c, 8);                       // sizeUnit
+		ok = ok && nb_u16 (&c, (uint16_t)(12 * n));      // ofsName
+		ok = ok && nb_u16 (&c, (uint16_t)s->num_keys);   // numFV
+		ok = ok && nb_u16 (&c, 0);                       // flag
+		ok = ok && nb_u16 (&c, (uint16_t)ratio);         // ratioDataFrame
+		ok = ok && nb_u16 (&c, (uint16_t)ko);            // offset (unit-relative)
+		ko += s->num_keys * 12;
+	}
+	for (size_t i = 0; i < num_clips && ok; i++)
+	{
+		uint8_t name16[16];
+		nsb_write_name16 (name16, clips[i].name);
+		ok = ok && nb_bytes (&c, name16, 16);
+	}
+	for (size_t i = 0; i < num_clips && ok; i++)
+		for (uint32_t k = 0; k < clips[i].num_keys && ok; k++)
+		{
+			ok = ok && nb_u16 (&c, (uint16_t)clips[i].keys[k].frame);
+			for (int p = 0; p < NSB_TEXSRT_PARAMS && ok; p++)
+				ok = ok && nb_u16 (&c, (uint16_t)clips[i].keys[k].v[p]);
+		}
+	if (!ok)
+	{
+		free (c.b);
+		return 0;
+	}
+	const char **names = malloc (sizeof (*names) * n);
+	if (!names)
+	{
+		free (c.b);
+		return 0;
+	}
+	for (size_t i = 0; i < num_clips; i++)
+		names[i] = clips[i].name;
+	uint8_t *out = nsb_assemble_clip_container ("BTA0", "SRT0", names, n, &c, out_size);
+	free (c.b);
+	free (names);
+	return out;
+}
+
 // Encoders
 //
 // BVA0/BMA0/BTA0/BTP0 have no glTF representation, so a model can only carry

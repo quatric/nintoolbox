@@ -1382,6 +1382,228 @@ int main (void)
 		}
 	}
 
+	// BMA0 (MAT0) material-colour animation: two clips, interpolated lookup
+	// per colour channel and a byte-exact model raw pass-through.
+	{
+		const uint nfr_ma = 30;
+		nsb_ma_key_t k0[3] = {
+			{ 0,  { 0xffffffff, 0xff808080, 0xff222222, 0xff000000, 0x000000ff } },
+			{ 15, { 0xff0000ff, 0xff00ff00, 0xffff0000, 0xffffffff, 0x00800000 } },
+			{ 29, { 0xff123456, 0xffffffff, 0xffabcdef, 0xff102030, 0x0000ff00 } }
+		};
+		nsb_ma_key_t k1[1] = {
+			{ 0, { 0x00123456, 0x00112233, 0x00445566, 0x00778899, 0x00aabbcc } }
+		};
+		nsb_ma_clip_spec_t specs[2] = { { "MatA", k0, 3 }, { "MatB", k1, 1 } };
+		size_t bma_sz = 0;
+		u8 *bma = BuildNSBMA (nfr_ma, specs, 2, &bma_sz);
+		if (!bma || bma_sz == 0)
+		{
+			printf ("  FAIL: BuildNSBMA failed\n");
+			fail++;
+		}
+		else
+		{
+			const uint32_t exp_ratio = (uint32_t)(((uint64_t)3 << 16) / nfr_ma);
+			int bad = 0;
+			nsb_ma_clip_t clip;
+			if (!DecodeNSBMA_Clip (&clip, bma, bma_sz, 0))
+			{
+				printf ("  FAIL: DecodeNSBMA_Clip(0) failed\n");
+				fail++;
+				bad = 1;
+			}
+			else if (clip.num_frame != nfr_ma || clip.num_channels != 5
+				|| clip.num_keys != 3 || clip.ratio_fx16 != exp_ratio)
+			{
+				printf ("  FAIL: BMA0 clip dims/ratio wrong\n");
+				fail++;
+				bad = 1;
+			}
+			// exact keys and a midpoint channel blend (frame 7 sits halfway
+			// between key 0 and key 1, so each byte averages the two)
+			static const uint chk[4][2] = { { 0, 0 }, { 15, 2 }, { 29, 4 }, { 7, 0 } };
+			static const uint32_t want[4] = {
+				0xffffffff, 0xffff0000, 0x0000ff00, 0xff8888ff
+			};
+			for (uint i = 0; i < 4 && !bad; i++)
+			{
+				uint32_t col = 0;
+				if (!NSBMA_Lookup (&clip, chk[i][1], chk[i][0], &col) || col != want[i])
+				{
+					printf ("  FAIL: BMA0 lookup f%u ch%u = %08x (want %08x)\n",
+						chk[i][0], chk[i][1], col, want[i]);
+					fail++;
+					bad = 1;
+				}
+			}
+			// single-key clip: any frame returns its key's colours
+			nsb_ma_clip_t clip1;
+			if (!bad && !DecodeNSBMA_Clip (&clip1, bma, bma_sz, 1))
+			{
+				printf ("  FAIL: DecodeNSBMA_Clip(1) failed\n");
+				fail++;
+				bad = 1;
+			}
+			else if (!bad)
+			{
+				uint32_t col = 0;
+				if (!NSBMA_Lookup (&clip1, 4, 29, &col) || col != 0x00aabbcc)
+				{
+					printf ("  FAIL: BMA0 clip1 lookup failed\n");
+					fail++;
+					bad = 1;
+				}
+			}
+			uint32_t col = 0;
+			if (!bad && DecodeNSBMA_Clip (&clip, bma, bma_sz, 2))
+			{
+				printf ("  FAIL: DecodeNSBMA_Clip out-of-range should fail\n");
+				fail++;
+				bad = 1;
+			}
+			if (!bad && NSBMA_Lookup (&clip, 0, nfr_ma, &col))
+			{
+				printf ("  FAIL: NSBMA_Lookup out-of-range frame should fail\n");
+				fail++;
+				bad = 1;
+			}
+			model_t m;
+			memset (&m, 0, sizeof (m));
+			if (!bad && !ParseNSBMAIntoModel (&m, bma, bma_sz, "Mats"))
+			{
+				printf ("  FAIL: ParseNSBMAIntoModel failed\n");
+				fail++;
+				bad = 1;
+			}
+			else if (!bad)
+			{
+				size_t re_sz = 0;
+				u8 *re_bma = EncodeNSBMA (&m, &re_sz);
+				if (!re_bma || re_sz != bma_sz || memcmp (re_bma, bma, bma_sz))
+				{
+					printf ("  FAIL: BMA0 model round-trip not byte-exact\n");
+					fail++;
+				}
+				else
+					printf ("  PASS: BMA0 build -> decode -> model raw round-trip\n");
+				free (re_bma);
+			}
+			for (size_t i = 0; i < m.num_nsb_raw; i++)
+				free (m.nsb_raw[i].data);
+			free (m.nsb_raw);
+			free (bma);
+		}
+	}
+
+	// BTA0 (SRT0) texture-SRT animation: fx1.10.5 parameters, interpolated
+	// lookup and a byte-exact model raw pass-through.
+	{
+		const uint nfr_ta = 24;
+		nsb_ta_key_t k0[3] = {
+			{ 0,  { 32, 32, 0, -64, 64 } },
+			{ 12, { 32, 64, 16, 0, 32 } },
+			{ 23, { 32, 32, -16, 64, 0 } }
+		};
+		nsb_ta_key_t k1[1] = { { 0, { 32, 32, 0, 0, 0 } } };
+		nsb_ta_clip_spec_t specs[2] = { { "Tex0", k0, 3 }, { "Tex1", k1, 1 } };
+		size_t bta_sz = 0;
+		u8 *bta = BuildNSBTA (nfr_ta, specs, 2, &bta_sz);
+		if (!bta || bta_sz == 0)
+		{
+			printf ("  FAIL: BuildNSBTA failed\n");
+			fail++;
+		}
+		else
+		{
+			const uint32_t exp_ratio = (uint32_t)(((uint64_t)3 << 16) / nfr_ta);
+			int bad = 0;
+			nsb_ta_clip_t clip;
+			if (!DecodeNSBTA_Clip (&clip, bta, bta_sz, 0))
+			{
+				printf ("  FAIL: DecodeNSBTA_Clip(0) failed\n");
+				fail++;
+				bad = 1;
+			}
+			else if (clip.num_frame != nfr_ta || clip.num_keys != 3
+				|| clip.ratio_fx16 != exp_ratio)
+			{
+				printf ("  FAIL: BTA0 clip dims/ratio wrong\n");
+				fail++;
+				bad = 1;
+			}
+			// frame 0 and 12 are exact keys; frame 6 is the exact midpoint,
+			// so each parameter averages the two surrounding keys
+			static const uint chk[3][6] = {
+				{ 0,  32, 32, 0, -64, 64 },
+				{ 12, 32, 64, 16, 0, 32 },
+				{ 6,  32, 48, 8, -32, 48 }
+			};
+			for (uint i = 0; i < 3 && !bad; i++)
+			{
+				int16_t v[5];
+				if (!NSBTA_Lookup (&clip, chk[i][0], v)
+					|| v[0] != (int16_t)chk[i][1] || v[1] != (int16_t)chk[i][2]
+					|| v[2] != (int16_t)chk[i][3] || v[3] != (int16_t)chk[i][4]
+					|| v[4] != (int16_t)chk[i][5])
+				{
+					printf ("  FAIL: BTA0 lookup frame %u got %d,%d,%d,%d,%d (want %u,%u,%u,%u,%u)\n",
+						chk[i][0], v[0], v[1], v[2], v[3], v[4],
+						chk[i][1], chk[i][2], chk[i][3], chk[i][4], chk[i][5]);
+					fail++;
+					bad = 1;
+				}
+			}
+			// last key holds for frames 23..23 (frame 23 is the final key)
+			int16_t v[5];
+			if (!bad && !NSBTA_Lookup (&clip, 23, v))
+			{
+				printf ("  FAIL: BTA0 last-key lookup failed\n");
+				fail++;
+				bad = 1;
+			}
+			nsb_ta_clip_t clip1;
+			if (!bad && !DecodeNSBTA_Clip (&clip1, bta, bta_sz, 1))
+			{
+				printf ("  FAIL: DecodeNSBTA_Clip(1) failed\n");
+				fail++;
+				bad = 1;
+			}
+			if (!bad && (DecodeNSBTA_Clip (&clip, bta, bta_sz, 2)
+				|| NSBTA_Lookup (&clip, nfr_ta, v)))
+			{
+				printf ("  FAIL: BTA0 out-of-range should fail\n");
+				fail++;
+				bad = 1;
+			}
+			model_t m;
+			memset (&m, 0, sizeof (m));
+			if (!bad && !ParseNSBTAIntoModel (&m, bta, bta_sz, "SRTs"))
+			{
+				printf ("  FAIL: ParseNSBTAIntoModel failed\n");
+				fail++;
+				bad = 1;
+			}
+			else if (!bad)
+			{
+				size_t re_sz = 0;
+				u8 *re_bta = EncodeNSBTA (&m, &re_sz);
+				if (!re_bta || re_sz != bta_sz || memcmp (re_bta, bta, bta_sz))
+				{
+					printf ("  FAIL: BTA0 model round-trip not byte-exact\n");
+					fail++;
+				}
+				else
+					printf ("  PASS: BTA0 build -> decode -> model raw round-trip\n");
+				free (re_bta);
+			}
+			for (size_t i = 0; i < m.num_nsb_raw; i++)
+				free (m.nsb_raw[i].data);
+			free (m.nsb_raw);
+			free (bta);
+		}
+	}
+
 	printf ("=== Results: %s (failures: %d) ===\n", fail == 0 ? "ALL PASSED" : "SOME FAILED", fail);
 	return fail;
 }
