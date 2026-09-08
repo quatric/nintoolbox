@@ -132,7 +132,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **BCMDL / CGFX** | `.bcmdl`, `.cgfx` | **GLB** | ✅ | — | — | ✅ | NintendoWare NW4C CGFX 3D model resource (3DS) |
 | **BCRES** | `.bcres` | **GLB** | ✅ | — | — | ✅ | NintendoWare NW4C CGFX 3D graphics and model resource container (3DS) |
 | **BFRES** | `.bfres` | **GLB** | ✅ | — | — | ✅ | Nintendo GX2 / NintendoSDK 3D model & surface resource archive (Wii U / Switch) |
-| **BIKE (MKAGPDX)** | `.bin` | **GLB** | ✅ | — | — | — | Mario Kart Arcade GP DX 3D vehicle model (`BIKE`) |
+| **BIKE (MKAGPDX)** | `.bin` | **GLB** | ❌ | — | — | ❌ | Mario Kart Arcade GP DX 3D vehicle model (`BIKE`). The `BIKE` magic is registered for file-type detection, but no decoder exists anywhere in the codebase to back the "Decode Tested" this row claimed -- `wszst xx` on a real retail `BIKE` file (confirmed present and correctly identified as `MKAGPDX-MDL`) writes zero output |
 | **BMD** | `.bmd`, `.bdhc` | **GLB** | ✅ | ✅ | ✅ | — | Early Nintendo DS 3D model format (DS) |
 | **BNFM** | `.bnfm` | **GLB** | ✅ | ✅ | ✅ | — | Nd Cube Wii U 3D model format (*Animal Crossing: Amiibo Festival*, *Mario Party 10*) |
 | **G1M** | `.g1m` | **GLB** | ✅ | — | — | ✅ | Koei Tecmo 3D model format (*Hyrule Warriors*, *Fire Emblem Warriors*). Positions, normals and UVs. Vertex colour is parsed but not exported; all 600 models checked carry a single bone and no blend attributes, so there is no skinning in this corpus to export |
