@@ -87,9 +87,21 @@ typedef struct nds_banner_t
 
 	// All of these point into the buffer passed to ScanNDSBanner(), which
 	// must outlive the nds_banner_t.
-	const u8 *bitmap[NDS_BANNER_DSI_FRAMES]; // [0] is the static icon
-	const u8 *palette[NDS_BANNER_DSI_FRAMES]; // [0] is the static palette
-	uint n_bitmaps; // 1, or 8 when animated
+
+	// The classic single icon at 0x20/0x220: what a DS -- and every non-DSi
+	// reader, including the DSi's own "DS mode" -- shows, for every version.
+	// Always set for a valid banner, animated or not.
+	const u8 *static_bitmap;
+	const u8 *static_palette;
+
+	// The 8 DSi animated-icon bitmap/palette slots at 0x1240/0x2240. Only
+	// valid when `animated` is true; a frame names one of each independently
+	// (see nds_banner_frame_t), and neither is a variation on static_bitmap/
+	// static_palette above -- they're a wholly separate image pair, often
+	// drawn or colored differently for the DSi's animated HOME Menu tile.
+	const u8 *bitmap[NDS_BANNER_DSI_FRAMES];
+	const u8 *palette[NDS_BANNER_DSI_FRAMES];
+	uint n_bitmaps; // 0, or 8 when animated
 	nds_banner_frame_t frame[NDS_BANNER_DSI_SEQ_LEN];
 	uint n_frames; // 0 unless animated
 } nds_banner_t;
@@ -105,11 +117,12 @@ enumError ScanNDSBanner (nds_banner_t *banner, const u8 *data, uint size);
 void ResetNDSBanner (nds_banner_t *banner);
 
 // Decodes one 32x32 icon to tightly packed RGBA8, palette entry 0 fully
-// transparent. FRAME is NDS_BANNER_ICON_STATIC for the static icon at 0x20
-// (what a DS -- and every non-DSi reader -- shows, and the only icon a
-// non-animated banner has), or an index into banner->frame[] for one step of
-// a DSi animated icon, which is a separate bitmap+palette pair and generally
-// does NOT match the static icon. Caller FREEs *dest.
+// transparent. FRAME is NDS_BANNER_ICON_STATIC for the classic static icon
+// at 0x20/0x220 (what a DS -- and every non-DSi reader -- shows, and the
+// only icon a non-animated banner has), or an index into banner->frame[]
+// for one step of a DSi animated icon, which is a separate bitmap+palette
+// pair pulled from banner->bitmap[]/palette[] and generally does NOT match
+// the static icon. Caller FREEs *dest.
 enumError DecodeNDSBannerIcon_RGBA (
 	u8 **dest, uint *width, uint *height, const nds_banner_t *banner, uint frame);
 

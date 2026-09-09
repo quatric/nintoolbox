@@ -8157,6 +8157,88 @@ assert (w, h) == (32, 32), f"got {w}x{h}"
 }
 t_byte_fixed_points
 
+t_nds_dsi_banner_static_vs_animated(){
+  # A DSi-animated banner (version 0x103) carries two INDEPENDENT icons: the
+  # classic static one at 0x20/0x220 (what a plain DS, or the DSi's own "DS
+  # mode", shows) and a separate 8-frame animated icon at 0x1240/0x2240 (the
+  # DSi HOME Menu tile). ScanNDSBanner() used to special-case bitmap[0]/
+  # palette[0] as "the static icon", but then unconditionally overwrote
+  # index 0 with the first DSi animation frame whenever the animated block
+  # was present -- so NDS_BANNER_ICON_STATIC silently returned the DSi
+  # frame-0 icon instead of the true 0x20 one for every animated banner,
+  # contradicting this project's own documented contract (see
+  # lib-nds-banner.h's comment on DecodeNDSBannerIcon_RGBA). Fixed by giving
+  # the static icon its own dedicated static_bitmap/static_palette fields,
+  # always populated from 0x20/0x220 regardless of animation.
+  #
+  # This fixture makes the bug directly observable: the static palette's
+  # entry 1 is pure red, the DSi frame-0 palette's entry 1 is pure blue, and
+  # both bitmaps mark every pixel as that one color index. A build with the
+  # bug decodes the "static" icon as blue (frame 0's color); the fix decodes
+  # it as red (the true 0x20 icon).
+  local d; d=$(mktemp -d)
+  mkdir -p "$d/dsi_banner_test"
+  python3 -c '
+import struct
+def crc16(b):
+    c = 0xffff
+    for x in b:
+        c ^= x
+        for _ in range(8):
+            c = (c >> 1) ^ 0xa001 if c & 1 else c >> 1
+    return c
+
+size = 0x23c0
+buf = bytearray(size)
+struct.pack_into("<H", buf, 0, 0x0103)  # version: DSi animated
+
+# static icon at 0x20: every pixel color index 1
+for i in range(0x200):
+    buf[0x20 + i] = 0x11
+# static palette at 0x220: entry 1 = pure red (BGR555)
+struct.pack_into("<H", buf, 0x220 + 2, 0x001f)
+
+# DSi frame 0 bitmap at 0x1240: every pixel color index 1 too (same shape,
+# different color, so a mismatch can only come from the wrong PALETTE)
+for i in range(0x200):
+    buf[0x1240 + i] = 0x11
+# DSi frame 0 palette at 0x2240: entry 1 = pure blue (BGR555)
+struct.pack_into("<H", buf, 0x2240 + 2, 0x7c00)
+
+# animation: one token, duration 1, bitmap 0, palette 0, no flip
+buf[0x2340] = 1
+buf[0x2340 + 1] = 0
+
+# CRC16 offsets, per lib-nds-banner.c nds_banner_crc_ok(): 0x02 = v1
+# (0x20..0x840), 0x04 = v2 (0x20..0x940), 0x06 = v3 (0x20..0xa40) -- only
+# this last one gates IsNDSBanner() acceptance at version 0x103 -- and 0x08
+# = the DSi animated block (0x1240..0x23c0), checked separately by
+# ScanNDSBanner() to set banner->animated. Offset 0x00 is the version field
+# itself and must not be touched here.
+for crc_off, start, end in ((0x02, 0x20, 0x840), (0x04, 0x20, 0x940), (0x06, 0x20, 0xa40), (0x08, 0x1240, 0x23c0)):
+    struct.pack_into("<H", buf, crc_off, crc16(bytes(buf[start:end])))
+
+with open("'"$d"'/dsi_banner_test/banner.bin", "wb") as f:
+    f.write(buf)
+'
+  local ok=1
+  "$B/wimgt" DECODE "$d/dsi_banner_test/banner.bin" \
+    --dest "$d/dsi_banner_test/static.png" --overwrite >/dev/null 2>&1 || ok=0
+  python3 -c '
+from PIL import Image
+im = Image.open("'"$d"'/dsi_banner_test/static.png").convert("RGBA")
+px = im.getpixel((0, 0))
+assert px[0] > 200 and px[2] < 50, f"expected opaque red (the true 0x20 icon), got {px}"
+' 2>/dev/null || ok=0
+  rm -rf "$d"
+  if [ "$ok" = 1 ]; then
+    ok "NDS DSi banner: static icon (0x20) is independent of the animated frame (0x1240)"
+  else
+    no "NDS DSi banner static vs animated" "NDS_BANNER_ICON_STATIC returned the wrong icon"
+  fi
+}
+t_nds_dsi_banner_static_vs_animated
+
 # tests/test-nitro.c exercises the NitroPaint-derived codecs and the RFL_Res
 # writer: Diff8/Diff16, PuCrunch, LZX, VLX, PSDK, MVDK and SSZL round-trips,
 # plus a create -> scan check on RFL_Res.dat. It has existed unbuilt since it

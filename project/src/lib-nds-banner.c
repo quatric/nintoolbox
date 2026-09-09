@@ -188,9 +188,8 @@ enumError ScanNDSBanner (nds_banner_t *banner, const u8 *data, uint size)
 		banner->title[i] = nds_utf16le_to_utf8 (
 			data + 0x240 + i * NDS_BANNER_TITLE_SIZE, NDS_BANNER_TITLE_SIZE / 2);
 
-	banner->bitmap[0] = data + 0x20;
-	banner->palette[0] = data + 0x220;
-	banner->n_bitmaps = 1;
+	banner->static_bitmap = data + 0x20;
+	banner->static_palette = data + 0x220;
 
 	// The animated block is optional even at version 0x103 (see IsNDSBanner):
 	// only claim it when the whole region is present and its own CRC16 holds.
@@ -244,13 +243,13 @@ static inline u8 nb_expand5b (uint v)
 enumError DecodeNDSBannerIcon_RGBA (
 	u8 **dest, uint *width, uint *height, const nds_banner_t *banner, uint frame)
 {
-	if (!dest || !banner || !banner->bitmap[0])
+	if (!dest || !banner || !banner->static_bitmap)
 		return EINVAL;
 
 	// The static icon and the DSi animated icon are independent images: an
 	// animation step names its own bitmap and palette out of the 0x1240 block
 	// and is not a variation on the 0x20 one.
-	const u8 *bitmap = banner->bitmap[0], *palette = banner->palette[0];
+	const u8 *bitmap = banner->static_bitmap, *palette = banner->static_palette;
 	bool flip_h = false, flip_v = false;
 	if (frame != NDS_BANNER_ICON_STATIC)
 	{
