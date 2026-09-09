@@ -435,8 +435,11 @@ rearchitecting it — it already recurses into staged output correctly.
   `make wmdlt` fell through to GNU Make's bare implicit `%: %.c` rule
   (compiles `wmdlt.c` alone, missing every object it needs) and failed
   with "symbol(s) not found." Fixed by adding it to `EXTRA_TOOLS`.
-  Materials and BFRES's FSHU/FTXP-style animation sub-chunks are still
-  not resolved — separate, not attempted this session.
+  Materials and BFRES's FSHU/FTXP-style animation sub-chunks: the
+  *container* side is now resolved (see §20: the 12 dictionary slots'
+  layout and, empirically over ~1,600 real Wii U files, each slot's
+  entry class — FSKA/FSHU/FTXP/FVIS/FSHA/FSCN), only the *entry-internal*
+  layout (e.g. FTXP's 0x94-byte entries) remains open.
 
 ## 6. Hudson "mpbin" logic — Mario Party 4-8 `.bin` container — ✅ already ported, one real bug fixed
 
@@ -1018,6 +1021,199 @@ the 9 games (ABE BigFile/RGH, WARC/FZIP, TMPK, GFA/BPE, G1T
 big-endian, and now NUT), 3 ended in honest, precisely-documented
 negatives (SFZDAT/CPK, G1M-G1T/Hyrule Warriors decode, and now DTLS's
 real container-layout gap above).
+
+## 19. 2026-09-08 — NDS DSi banner: static icon was silently replaced by animation frame 0 — ✅ fixed
+
+Prompted by re-reading a public DSiWare icon-ripper reference script
+(the one this project's own `lib-nds-banner.c` was already modeled on)
+and noticing it treats the classic 0x20/0x220 icon and the DSi
+animated 0x1240/0x2240 block as two wholly separate images, never one
+substituting for the other.
+
+`lib-nds-banner.h`'s own documentation already promised this: the
+`DecodeNDSBannerIcon_RGBA()` comment for `NDS_BANNER_ICON_STATIC`
+reads "a separate bitmap+palette pair and generally does NOT match the
+static icon." `ScanNDSBanner()` didn't honor that contract. It set
+`bitmap[0] = data + 0x20` / `palette[0] = data + 0x220` (the true
+static icon) first, but then, whenever the banner was animated
+(version 0x103 with a valid DSi CRC), it looped `for (i = 0; i <
+NDS_BANNER_DSI_FRAMES; i++) { bitmap[i] = data + 0x1240 + ...; }`
+starting at `i = 0` -- silently overwriting the static slot with DSi
+animation frame 0. Every animated DSiWare title's "static icon" export
+(`wimgt DECODE banner.bin`, and anything else calling
+`DecodeNDSBannerIcon_RGBA(..., NDS_BANNER_ICON_STATIC)`) was therefore
+actually the DSi HOME Menu tile's first frame, not the classic 0x20
+icon a plain DS (or the DSi's own DS-compatibility mode) would show --
+two icons that are frequently drawn or colored differently on real
+titles, not near-duplicates.
+
+Fixed in `project/src/lib-nds-banner.h`/`.c`: `nds_banner_t` gets
+dedicated `static_bitmap`/`static_palette` fields, always populated
+from 0x20/0x220 for any valid banner regardless of animation.
+`bitmap[NDS_BANNER_DSI_FRAMES]`/`palette[...]` are now purely the 8
+DSi animation slots, with no dual meaning for index 0.
+`DecodeNDSBannerIcon_RGBA()`'s `NDS_BANNER_ICON_STATIC` branch reads
+the new static fields instead of `bitmap[0]`/`palette[0]`.
+
+Verification: manually traced the CRC16/offset arithmetic in Python
+against `nds_banner_crc_ok()`'s exact regions (v1/v2/v3 CRCs at
+0x02/0x04/0x06 over 0x20.., the separate DSi CRC at 0x08 over
+0x1240..0x23c0 that `ScanNDSBanner()` checks on its own to set
+`animated`) and confirmed a synthetic banner accepts cleanly with
+`IsNDSBanner()`'s logic. Added `t_nds_dsi_banner_static_vs_animated()`
+to `tests/regress.sh`: a synthetic DSi banner whose static palette
+entry 1 is pure red and whose DSi frame-0 palette entry 1 is pure
+blue (same bitmap shape in both, so only the palette selection can
+explain a mismatch) -- a build with the bug decodes "static" as blue,
+the fix as red. **Not yet run against the real binary**: `wszst`/
+`wimgt` cannot be rebuilt in-tree right now because a concurrent
+session's uncommitted `wszst_cmd/main.inc` edits reference undeclared
+`GO_WITH_UPDATE_PART`/`GO_EXPORT_MIIS`/`GO_EXPORT_RAW` identifiers
+(same blocker recorded against the G1T fix, §16's follow-up). A
+standalone test harness linking directly against the rebuilt
+`lib-nds-banner.o` (the approach that worked for the G1T fix) hit an
+unrelated `ld` "pointer not aligned" failure on a stale `dclib-numeric.o`
+and was not pursued further given time already spent; re-run
+`t_nds_dsi_banner_static_vs_animated` for real once the build clears.
+
+## 21. 2026-09-08 — BFRES 3.5.0.3 dictionary census: all 12 slots classified on real YWW Wii U corpus — ✅
+
+Wii U BFRES `ResDic` slots were previously only characterised for the
+first few; this pass classified all 12 empirically against a full real
+extraction of *Yoshi's Woolly World (USA)* (`wszst XX` disc pipeline,
+`.gfa` → BFRES + GLB + PNG per file, tree running to
+`content/stage/testmap031.gfa`).
+
+Header layout confirmed on real 3.5.0.3 files: relocation/offset
+`u32` slots at `+0x20 + 4*slot`, header count `u16` at `+0x50 +
+2*slot`, 12 slots; per-slot offset is self-relative to its own
+location. Each `ResDic`: `{u32 size, u32 count}` then a sentinel root
+node (bitposition `0xFFFFFFFF`, left/right `0`, name/data null) at
+`+8`, and `count` 16-byte entries at `dict + 8 + (i+1)*16`: `{u32
+bitpos, u16 left, u16 right, u32 name_offset, u32 data_offset}` —
+offsets again self-relative — so `object = REL(node, +12)`.
+
+Per-slot entry class, validated over ~1,600 real files by matching
+each slot's first entry's object magic against the header's own claim
+(and `count == #MAGIC` correlations for FTEX 100% / FTXP 100%):
+
+| slot | offset | u16 | class |
+|---|---|---|---|
+| 0 | +0x20 | 0x50 | FMDL |
+| 1 | +0x24 | 0x52 | FTEX |
+| 2 | +0x28 | 0x54 | FSKA (skeletal anim) |
+| 3 | +0x2C | 0x56 | FSHU (shader) |
+| 4 | +0x30 | 0x58 | FSHU |
+| 5 | +0x34 | 0x5A | FSHU |
+| 6 | +0x38 | 0x5C | FTXP |
+| 7 | +0x3C | 0x5E | FVIS (bone vis) |
+| 8 | +0x40 | 0x60 | FVIS (material vis) |
+| 9 | +0x44 | 0x62 | FSHA / FSCN |
+| 10 | +0x48 | 0x64 | FSHA / FSCN |
+| 11 | +0x4C | 0x66 | unused (no file dict on Wii U) |
+
+EN075 (enemy) header counts decode cleanly: `nModel=1`, `nFTEX=34`,
+`nFSKA=13` (the 13 `.mneb` chapters in its BSON), `nFTXP=11`, and
+slots 9/10 hold 5 objects of FSCN (the census shows slot9's object magic is FSCN, count 5, not the "FSHA" the header-count-only read guessed) — slot10 empty on that file. BS02 (boss): 1
+FMDL, 33 FTEX, 34 FSKA, 10 FSHU, 35 FVIS (slot7=34, slot8=1).
+Section-magic histogram over 1,581 real `.bfres`:
+FVTX 43236 / FSHP 43236 / FTEX 16471 / FMAT 8366 / FMDL 2745 /
+FSKL 2745 / FVIS 2376 / FSHU 1153 / FTXP 812 / FSCN 50 / FANM 2 —
+FVTX==FSHP and FMDL==FSKL 1:1 confirm sibling-section pairing.
+
+Implemented `ParseBFRESArchive()` (`lib-bfres.c`, types in
+`lib-bfres.h`) which does all of the above mechanically, and wired it
+into `extract_bfres_textures()` (`create_update.inc`): every BFRES
+with any animation-class slot prints a `RESOURCES:<file>[<archive>]
+FMDL=… FTEX=… FSKA=… …` census line. Verified on real EN075 →
+`FMDL=1 FTEX=34 FSKA=13 FTXP=11 FSCN=5`, BS02 →
+`FMDL=1 FTEX=33 FSKA=34 FSHU=10 FVIS=34 FVIS=1`, plus the Splatoon
+`bfres_wiiu_splatoon_clt.bfres` fixture still exports 1 validated
+GLB geometry via `wmdlt ENCODE`.
+
+Incidental: the working tree could not recompile `wszst` (the same
+`GO_WITH_UPDATE_PART`/`GO_EXPORT_MIIS`/`GO_EXPORT_RAW` build blocker
+noted in §18/§19) until the three `enumGetOpt` members were restored
+in the local `ui-wszst.h`/`ui-wkmpt.h` working copies (committed
+`main.inc`'s switch cases reference them; the members had been
+dropped from the working-tree enum without touching the cases). Left
+out of this commit per this task's staging rules; the committed tree
+therefore still carries the §18/§19 blocker.
+
+Still open: the *internal* layout of FTXP entries (0x94-byte blocks,
+first bytes `46545850 00000744 000015e4 00040000 0000003c
+00010001 …`) and FSHU/FSKA/FVIS/FSHA/FSCN entry bodies — the census
+decodes the containers, not the animation payloads.
+
+## 20. 2026-09-08 — Correction of §12: PAC / BNFM / Animal Crossing: amiibo Festival (Wii U) — ✅ was wrong, now fixed
+
+§12 (above) verified the amiibo Festival retail disc packs every model
+and texture inside an undocumented `PAC\0`-magic flat container, walked
+its own header/entry table by hand (offsets at 0x38/0x3c/0x40 giving the
+entries table, string table, and data area -- all confirmed correct),
+found a member literally named `cat00.bnfm` inside `cat00.bin`, and then
+concluded the whole container's data region was **encrypted**, because
+the payload bytes at that member's recorded offset/size didn't inflate
+under a header-framed zlib decompress or under LZMA.
+
+That conclusion was wrong. A public QuickBMS script for this exact
+format surfaced since that pass: RandomTBush/RTB-QuickBMS-Scripts,
+`Archive/MP10-Unpacker.bms`, header comment "ND Cube - BIN Extractor,
+Works with Mario Party 10 and Animal Crossing: amiibo Festival". Its
+field layout matches §12's hand-derived offsets exactly (FILEHEADERSTART
+at 0x38, STRINGSTART at 0x3c, OVERALLFILESTART2 at 0x40, 0x30-byte
+entries with FILESTART/SIZE/ZSIZE/ZSIZE2 fields) -- so the earlier
+walk of the container's *structure* was entirely correct. Its
+`comtype COMP_UNZIP_DYNAMIC` declaration was the tip that this was some
+deflate variant, not encryption. Checked directly against the retail
+bytes with a throwaway Python script: `cat00.bin`'s `cat00.bnfm` member
+(offset 0x2b9e7-ish per entry, ZSIZE bytes) actually opens with a
+completely ordinary zlib header, `0x78 0xda`, and `zlib.decompress()`
+(no special windowBits, no raw/headerless deflate) recovers exactly its
+SIZE field (45,296 bytes) in one call. All 20 members of that same
+`cat00.bin` decode the same way, including sixteen `.gtx` textures that
+inflate to genuine GX2 `Gfx2` headers, a `.mcf`, and a `.gmo`. So this
+container was never encrypted, and never even needed a raw-deflate
+primitive as the QuickBMS `comtype` name might suggest -- it is the
+plainest possible zlib stream, and §12's "encrypted" conclusion came
+from simply not trying a correct decompress call (or not looking at the
+actual first bytes of the compressed span) before giving up.
+
+Implemented a real decoder now that the format is understood:
+`ExtractPACArchive()` in `project/src/lib-nintendo-archives.c`, following
+this codebase's existing flat-archive family (`ExtractTMPKArchive` et
+al. in the same file) -- load the whole file, walk the big-endian
+header fields, iterate `FILETOTAL` 0x30-byte entries from
+`FILEHEADERSTART`, read each name from `STRINGSTART`-relative to
+`FILENAMESTART`, and decompress `ZSIZE` bytes at `FILESTART` with the
+already-existing `DecodeZlibGrow()` (`lib-szs.c`) -- which already tries
+`windowBits=15` (plain zlib) first and only falls back to `-15` (raw
+deflate) if that fails, so this container's plain-zlib members work with
+zero new inflate code. Registered `FF_PAC` (265) in `file-type.h`, a
+`FileTypeTab` entry and `GetByMagicFF()` case for `"PAC\0"`
+(`file-type.c` / `lib-file.c`), and wired `ExtractPACArchive` into
+`wszst_cmd/formats.inc`'s `EXTRACT`/`xx` dispatch chain, same as every
+other flat-archive format in that file.
+
+Verified against the retail disc with `wszst FILETYPE`/`EXTRACT` (real
+build, not just the throwaway Python check): the minimal 2-member
+`content/common/bin/bd/indoor/idr_fortune_bq.bin` (4096 bytes) extracts
+both real `.csv` members, and the 20-member `cat00.bin` (196,608 bytes)
+extracts all 20 -- including a valid `cat00.bnfm` and sixteen real
+`Gfx2`-tagged `.gtx` textures -- exercising the full entry-table/name-
+table loop, not just a single member. Both harvested as new
+`tests/regress.sh` fixtures (`t_pac_wiiu_amiibo_festival`):
+`pac_wiiu_amiibo_festival_idr_fortune_bq.bin` (committed verbatim) and
+`pac_wiiu_amiibo_festival_cat00.bin.gz` (gzipped, since the payload was
+already zlib-compressed and doesn't shrink much further).
+
+`README.md`'s BNFM row is corrected back: "Retail Source Tested" is now
+✅, the *Animal Crossing: amiibo Festival* attribution is restored, and
+the description points at the real fix instead of the false "encrypted"
+claim. A new **PAC (Nd Cube)** row is added to the Archives & Containers
+table, distinct from the pre-existing unrelated "PAC / MRG" row (HAL
+Laboratory / Game Arts, different magic, same `.pac`-adjacent naming
+only by coincidence).
 
 ## Suggested order
 

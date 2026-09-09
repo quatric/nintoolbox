@@ -8816,6 +8816,36 @@ static enumError extract_bfres_textures (ccp arg, ccp basedir, uint depth)
 			FREE (rgba);
 	}
 
+	// Archive-level resource census: the header's 12 dictionary slots register
+	// not just the FMDL (slot 0) / FTEX (slot 1) objects but the animation-class
+	// ones too -- FSKA (skeletal), FSHU (shader param), FTXP, FVIS (visibility),
+	// FSHA (shape), FSCN (scene). Printed only when that extra catalogue is
+	// non-empty, so plain geometry/texture archives stay quiet.
+	bfres_archive_t arch;
+	if (ParseBFRESArchive (raw, raw_size, &arch))
+	{
+		bool interesting = false;
+		for (uint8_t i = 0; i < arch.n_slots; i++)
+			if (memcmp (arch.slots[i].magic, "FMDL", 4) && memcmp (arch.slots[i].magic, "FTEX", 4))
+				interesting = true;
+		if (interesting)
+		{
+			fprintf (stdlog, "%s%sRESOURCES:%s[%s]", verbose > 0 ? "\n" : "",
+				testmode ? "WOULD " : "", arg, arch.name);
+			for (uint8_t i = 0; i < arch.n_slots; i++)
+			{
+				bool printable = true;
+				for (uint8_t j = 0; j < 4; j++)
+					if (arch.slots[i].magic[j] < 32 || arch.slots[i].magic[j] > 126)
+						printable = false;
+				if (printable)
+					fprintf (stdlog, " %.*s=%u", 4, arch.slots[i].magic,
+						(unsigned)arch.slots[i].count_dict);
+			}
+			fprintf (stdlog, "\n");
+		}
+	}
+
 	(void)depth;
 	FREE (raw);
 	return ERR_NOTHING_TO_DO;

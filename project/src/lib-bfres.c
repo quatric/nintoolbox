@@ -1660,3 +1660,48 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 
 	return out;
 }
+
+int ParseBFRESArchive (const uint8_t *data, size_t size, bfres_archive_t *out)
+{
+	if (!data || !out || size < 0x70 || memcmp (data, "FRES", 4))
+		return 0;
+	if (rb16 (data + 8) != 0xFEFF || data[4] != 3)
+		return 0;
+
+	memset (out, 0, sizeof (*out));
+
+	const char *aname = rel_string (data, size, 0x14);
+	snprintf (out->name, sizeof (out->name), "%s", aname && *aname ? aname : "archive");
+
+	for (uint8_t slot = 0; slot < 12; slot++)
+	{
+		const uint32_t dict_off = rb32 (data + 0x20 + 4 * (size_t)slot);
+		const uint16_t n_meta = rb16 (data + 0x50 + 2 * (size_t)slot);
+		if (!dict_off || !n_meta)
+			continue;
+
+		const size_t dict = REL (data, 0x20 + 4 * (size_t)slot);
+		if (dict + 8 > size)
+			continue;
+		const uint32_t n_obj = rb32 (data + dict + 4);
+		if (!n_obj || n_obj > 0x10000 || dict + 8 + (size_t)(n_obj + 1) * 16 > size)
+			continue;
+
+		bfres_slot_census_t *s = out->slots + out->n_slots++;
+		s->slot = slot;
+		s->count_meta = n_meta;
+		s->count_dict = (uint16_t)n_obj;
+		out->n_objects += n_obj;
+
+		// First object (dict node 1; node 0 is the -1 sentinel root).
+		const size_t nd = dict + 8 + 16;
+		if (nd + 12 <= size)
+		{
+			const size_t obj = REL (data, nd + 12);
+			if (obj + 4 <= size)
+				memcpy (s->magic, data + obj, 4);
+		}
+	}
+
+	return 1;
+}
