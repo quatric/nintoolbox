@@ -8921,6 +8921,67 @@ t_smash_retail_arc(){
 }
 t_smash_retail_arc
 
+# Super Smash Bros. 4 (Wii U) retail NUT texture, carved out of the game's
+# real content/dt00 + content/ls DTLS composite (retail disc, WUX extracted).
+# content/ls is a lookup table this codebase's ScanDTLS() does NOT recognise
+# in its current form: real header is a 4-byte tag ("of\x02\x00", not the
+# assumed "LS\0\0"/"\0\0SL") + a little-endian u32 count, followed by
+# 16-byte little-endian entries (hash, dt-file offset, dt-file span size,
+# an unidentified 4th field) -- not the 24-byte big/little-endian entries
+# ScanDTLS decodes. Confirmed by hand against the real 104664-byte content/ls
+# (8 + 6541*16 == 104664 exactly) and cross-checked: many entries' payloads
+# begin with a real zlib stream (0x78 0x9c) that inflates to known Namco/
+# Bandai magics (NUS3, VAT\0, SQB\0), one of which is a real NTP3 (NUT)
+# texture -- proving the offset/size fields are correct even though the
+# container itself isn't accepted yet. That NUT payload is fixtured here
+# byte-for-byte (inflated, not the raw DTLS bytes) so the already-supported
+# NUT decoder can be exercised against genuine Wii U retail content.
+t_smash4_wiiu_nut(){
+  local d; d=$(mktemp -d) || { no "Smash4 Wii U retail NUT" "mktemp failed"; return; }
+  cp "$PWD_PROJECT/../tests/fixtures/nut_wiiu_smash4_texture.nut" "$d/" 2>/dev/null
+  if [ ! -s "$d/nut_wiiu_smash4_texture.nut" ]; then
+    no "Smash4 Wii U retail NUT" "fixture missing"; rm -rf "$d"; return
+  fi
+  if "$B/wszst" FILETYPE "$d/nut_wiiu_smash4_texture.nut" 2>/dev/null | grep -q '^NUT'; then
+    ok "retail Smash4 (Wii U) NUT is recognised (NTP3)"
+  else
+    no "retail Smash4 (Wii U) NUT" "not recognised"
+  fi
+  rm -rf "$d/out"
+  if "$B/wszst" xx "$d/nut_wiiu_smash4_texture.nut" --dest "$d/out" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/out/texture_000.dds" ]; then
+    ok "retail Smash4 (Wii U) NUT extracts a real DDS texture"
+  else
+    no "retail Smash4 (Wii U) NUT extract" "failed"
+  fi
+  rm -rf "$d"
+}
+t_smash4_wiiu_nut
+
+# The real content/ls DTLS lookup table (gzipped fixture) is kept purely as
+# documentation of the header/entry layout above -- ScanDTLS() does not
+# accept it, so this only records the honest state (see PLAN.md), it does
+# not exercise wszst.
+t_smash4_wiiu_ls_layout(){
+  local d; d=$(mktemp -d) || { sk "Smash4 Wii U content/ls layout"; return; }
+  gunzip -c "$PWD_PROJECT/../tests/fixtures/dtls_wiiu_smash4_content_ls.gz" > "$d/ls" 2>/dev/null
+  if [ ! -s "$d/ls" ]; then
+    sk "Smash4 Wii U content/ls layout"; rm -rf "$d"; return
+  fi
+  # header: 4-byte tag + LE32 count; body: count * 16-byte entries
+  local size count expect
+  size=$(stat -f%z "$d/ls" 2>/dev/null || stat -c%s "$d/ls" 2>/dev/null)
+  count=$(python3 -c "import struct;d=open('$d/ls','rb').read();print(struct.unpack_from('<I',d,4)[0])" 2>/dev/null)
+  expect=$(( 8 + count * 16 ))
+  if [ -n "$count" ] && [ "$expect" = "$size" ]; then
+    ok "Smash4 Wii U content/ls: 8-byte header + $count * 16-byte entries == $size bytes (real retail layout, not yet decoded by ScanDTLS)"
+  else
+    no "Smash4 Wii U content/ls layout" "expected 8+count*16==size, got count=$count size=$size"
+  fi
+  rm -rf "$d"
+}
+t_smash4_wiiu_ls_layout
+
 # Pokemon Stadium (N64) PERS-SZP: a 24-byte header wrapping a Yay0 stream.
 # The header states the payload size independently of the stream's own, so a
 # mismatch is a rejection rather than a partial extraction.

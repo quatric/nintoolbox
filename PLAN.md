@@ -934,6 +934,91 @@ re-run to completion afterward: same baseline failure shape as prior
 entries in this log, new test passes, no regressions. Scratch tree
 removed from `/Volumes/SSD` after the cycle completed.
 
+## 18. 2026-09-08 — Retail-source verification: NUT / DTLS / Super Smash Bros. for Wii U — ⚠️ NUT verified ✅, DTLS honest gap documented ❌
+
+Last of the 9 planned Wii U retail-source verification passes.
+
+Extracted the retail Wii U disc image (`Super Smash Bros. for Wii U
+(USA) (En,Fr,Es).wux`, 13.7 GiB) with `wszst XX` to
+`/Volumes/SSD/szs-retail-test/tmp-smash` (~12 GiB unpacked). Found the
+game's `content/dt00` (4,083,470,592 bytes), `content/dt01`
+(2,409,697,069 bytes) and `content/ls` (104,664 bytes) — exactly the
+DTLS composite-package layout `README.md` already named (`dt00`/`ls`),
+i.e. this is the *un-verified* half of that row (only the 3DS side had
+ever been checked, per this task's brief).
+
+`wszst FILETYPE` declined all three files (`?`). Manual byte analysis
+of the real `content/ls` (Python, cross-checked against `content/dt00`)
+found:
+
+- Header: 4-byte tag `"of\x02\x00"` (not `"LS\0\0"`/`"\0\0SL"`, the two
+  magics `ScanDTLS()` in `project/src/lib-dtls.c` checks for) followed
+  by a little-endian `u32` entry count. Real file: count = 6541.
+- Body: 6541 entries of **16** bytes each (not the 24 bytes every path
+  in `ScanDTLS()` assumes, including its magic-less BE/LE fallback),
+  laid out as `{ u32 hash; u32 dt_offset; u32 dt_span_size; u32 ? }` —
+  the header + `count * 16` matches `content/ls`'s real size exactly
+  (`8 + 6541*16 == 104664`).
+- The offset/size fields are correct: reading `dt00` at each entry's
+  offset for its size recovers real content for 4342/6541 entries —
+  genuine zlib streams (`0x78 0x9c`) that inflate to known Namco/Bandai
+  magics (`NUS3` ×110, `VAT\0` ×44, `SQB\0` ×43, and one `NTP3`, i.e. a
+  NUT texture); the other 2199 entries are unpopulated holes (`0xCC`
+  fill, the disc's own empty-sector pattern, not decoder failures).
+  The unidentified 4th `u32` field is not a simple "compressed" flag
+  (many zero-flag entries are genuine zlib streams too), so it wasn't
+  chased further this session.
+
+This is a real, reproducible container-format gap: `ScanDTLS()` needs a
+fourth branch for this 16-byte/`"of\x02\x00"` variant to accept real
+Wii U retail `content/ls` files at all. It was **not** fixed this
+session: `project/bin/wszst` could not be rebuilt to verify any fix,
+because a concurrent session had left `wszst_cmd/main.inc` referencing
+undeclared `GO_WITH_UPDATE_PART`/`GO_EXPORT_MIIS`/`GO_EXPORT_RAW`
+identifiers (their WIP, not this task's to touch) — shipping an
+unverified binary-format change without being able to compile and test
+it against the real sample would break this project's verification
+discipline, so it's documented here instead, precisely enough to
+implement and verify later.
+
+The one inflated `NTP3` payload found by the above analysis (offset
+2,351,399,296 in `content/dt00`, comp size 178,953, decompresses to a
+real 65,632-byte NUT file) *is* independently useful: it exercises the
+already-implemented NUT decoder (`FF_NUT`, magic `NTP3`) against real
+Wii U retail content, which had never been verified for either the Wii
+U or 3DS side of this row before. `wszst FILETYPE`/`wszst xx` both
+handle it correctly, extracting a real `texture_000.dds`. Fixtured as
+`tests/fixtures/nut_wiiu_smash4_texture.nut` (the inflated NUT bytes,
+not the raw DTLS container bytes). The raw `content/ls` table itself
+is fixtured too, gzipped, as
+`tests/fixtures/dtls_wiiu_smash4_content_ls.gz`, purely so the
+8+count*16 layout claim above is checked mechanically rather than only
+asserted in prose.
+
+`README.md` updated: NUT's Retail-Source column flipped `— → ✅` with
+the citation above; DTLS's flipped `— → ❌` with the precise gap
+description (the 3DS-side numbers for both rows are left untouched —
+this pass only had a Wii U sample to check).
+
+`tests/regress.sh` gained two tests next to the existing (Ultimate,
+Switch) `t_smash_retail_arc()`: `t_smash4_wiiu_nut()` decodes and
+extracts the real NUT fixture; `t_smash4_wiiu_ls_layout()` mechanically
+checks the `content/ls` fixture's `8 + count*16 == size` layout claim
+(documentation, not a `wszst` exercise — `ScanDTLS()` still declines
+the file). Full suite re-run to completion afterward: same baseline
+failure shape as every prior entry in this log (VFF volume, ash0,
+wbmsx COMTYPE, NintendoWare sequence, BCSAR/BFSAR canonical ×2, Wii
+channel banner), both new tests pass, no regressions. Scratch tree
+(`/Volumes/SSD/szs-retail-test/tmp-smash`, ~12 GiB) removed after the
+cycle completed.
+
+This closes the planned 9-game Wii U retail-source verification effort
+for this task: 6 formats got a real byte-exact/behavioral pass across
+the 9 games (ABE BigFile/RGH, WARC/FZIP, TMPK, GFA/BPE, G1T
+big-endian, and now NUT), 3 ended in honest, precisely-documented
+negatives (SFZDAT/CPK, G1M-G1T/Hyrule Warriors decode, and now DTLS's
+real container-layout gap above).
+
 ## Suggested order
 
 1. §2 (mechanical, minutes) + §8 (concrete bug, real user pain).
