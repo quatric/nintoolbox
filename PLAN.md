@@ -1145,6 +1145,52 @@ first bytes `46545850 00000744 000015e4 00040000 0000003c
 00010001 …`) and FSHU/FSKA/FVIS/FSHA/FSCN entry bodies — the census
 decodes the containers, not the animation payloads.
 
+## 22. 2026-09-08 — DTLS gap from §18 now closed: Wii U `"of\x02\x00"` / 16-byte-entry variant accepted — ✅
+
+§18 documented the real Super Smash Bros. for Wii U `content/ls`
+layout (`"of\x02\x00"` + LE count, then `count * 16`-byte entries
+`{ u32 hash; u32 dt_offset; u32 dt_span_size; u32 ? }`) and left the
+fix "precisely enough to implement and verify later" — blocked then
+by the same `GO_*` build problem both §18 and §19 recorded (the
+`enumGetOpt` members dropped from the working-tree `ui-wszst.h`/
+`ui-wkmpt.h` while committed `main.inc` still switches on them; §21
+restored them locally so the tree compiles again).
+
+Implemented this session:
+
+- `ScanDTLS()` (`lib-dtls.c`) gained the fourth branch §18 asked for:
+  `"of\x02\x00"` header → little-endian count, `entry_sz = 16`, entry
+  fields `hash/off/span` read LE, `flags = 0`. The 16-byte variant has
+  no per-entry compressed flag or decompressed-size field, so entries
+  are exposed as raw `dt00` slices (some are genuine zlib streams per
+  §18's byte analysis; deciding which to inflate without a stored
+  decompressed size is deliberately left to callers rather than
+  guessing). Verified live against the gzipped retail fixture
+  (`tests/fixtures/dtls_wiiu_smash4_content_ls.gz`): $n = 6541,
+  $8 + 6541·16 = 104664 = file size, offset spans land exactly inside
+  `content/dt00`'s 4,083,470,592 bytes (max off+span
+  4,083,470,580), and the first entries chain 0/128, 128/128, 256/128
+  as expected.
+- `GetByMagicFF()` (`lib-file.c`) added `case 0x6F660200: // "of\x02\x00"`
+  → `FF_DTLS`, so a real retail `content/ls` now answers
+  `DTLS` to `wszst FILETYPE` (previously `?`). `wszst xx` on the real
+  file then routes through `extract_dtls_file()` (prints
+  `EXTRACT DTLS:… -> …/` and writes the raw `%08X.bin` slices once the
+  sibling `dt00`/`dt01` is present; extraction itself was already
+  wired in §18-era code). Not changed: the classic `LS\0\0` /
+  `\0\0SL` / `SL\0\0` branches (`entry_sz` stays 24 unless the 16-byte
+  variant matches), and `CreateDTLS()`.
+
+Side note: this pull's `lib-file.c` hunk is strictly the DTLS row.
+Adjoining in the working tree (not committed here) sits §20's
+orphaned `case 0x50414300: // "PAC\0"` → `FF_PAC` row — same
+function, adjacent lines, whose fixtures/tests landed in that session
+but whose magic row was never staged for a commit. The §19
+`t_nds_dsi_banner_static_vs_animated` regression likewise remains
+uncommitted in the working tree (`tests/regress.sh` carries that
+session's unfinished banner test); the full-suite re-run this cycle
+exercises it regardless.
+
 ## 20. 2026-09-08 — Correction of §12: PAC / BNFM / Animal Crossing: amiibo Festival (Wii U) — ✅ was wrong, now fixed
 
 §12 (above) verified the amiibo Festival retail disc packs every model

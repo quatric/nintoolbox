@@ -1298,6 +1298,9 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x4150414b: // "APAK"
 				return FF_APAK;
 
+			case 0x6F660200: // "of\x02\x00" -- Wii U retail DTLS lookup (real Smash 4 content/ls)
+				return FF_DTLS;
+
 			// PlatinumGames Archive (pkz\0)
 			case 0x706b7a00: // "pkz\0"
 				return FF_PKZ;

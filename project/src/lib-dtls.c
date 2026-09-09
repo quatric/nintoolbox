@@ -15,7 +15,19 @@ enumError ScanDTLS (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *
 	uint entry_sz = 24;
 	size_t table_off = 8;
 
-	if (!memcmp (ls_data, "LS\0\0", 4))
+	if (!memcmp (ls_data, "of\x02\x00", 4))
+	{
+		// Wii U retail variant (real Smash 4 content/ls): header "of\x02\x00"
+		// + little-endian count, then 16-byte entries
+		// { u32 hash; u32 dt_offset; u32 dt_span_size; u32 ? } -- no flags /
+		// decompressed-size fields, so entries are passed through as raw
+		// dt00 slices (some are genuine zlib streams; deciding which to
+		// inflate without a stored decompressed size is left to the caller).
+		is_be = false;
+		count = rd_le32 (ls_data + 4);
+		entry_sz = 16;
+	}
+	else if (!memcmp (ls_data, "LS\0\0", 4))
 	{
 		is_be = true;
 		count = rd_be32 (ls_data + 4);
@@ -57,10 +69,10 @@ enumError ScanDTLS (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *
 	{
 		const u8 *e = ls_data + table_off + i * entry_sz;
 		const u32 hash = is_be ? rd_be32 (e) : rd_le32 (e);
-		const u16 flags = is_be ? rd_be16 (e + 6) : rd_le16 (e + 6);
-		const u32 off = is_be ? rd_be32 (e + 8) : rd_le32 (e + 8);
-		const u32 comp_sz = is_be ? rd_be32 (e + 12) : rd_le32 (e + 12);
-		const u32 decomp_sz = is_be ? rd_be32 (e + 16) : rd_le32 (e + 16);
+		const u32 off = entry_sz == 16 ? rd_le32 (e + 4) : (is_be ? rd_be32 (e + 8) : rd_le32 (e + 8));
+		const u32 comp_sz = entry_sz == 16 ? rd_le32 (e + 8) : (is_be ? rd_be32 (e + 12) : rd_le32 (e + 12));
+		const u32 decomp_sz = entry_sz == 16 ? comp_sz : (is_be ? rd_be32 (e + 16) : rd_le32 (e + 16));
+		const u16 flags = entry_sz == 16 ? 0 : (is_be ? rd_be16 (e + 6) : rd_le16 (e + 6));
 
 		char name[64];
 		snprintf (name, sizeof (name), "%08X.bin", hash ? hash : i);
