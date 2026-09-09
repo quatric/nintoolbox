@@ -1261,6 +1261,37 @@ table, distinct from the pre-existing unrelated "PAC / MRG" row (HAL
 Laboratory / Game Arts, different magic, same `.pac`-adjacent naming
 only by coincidence).
 
+## 23. 2026-09-09 — BCFNT/BFFNT: real Wii U fonts are ETC1 (CTR fmt 12); the TGLP "geometry" clamp now reports the truth — ✅
+
+**Finding (via the live YWW `wszst xx` campaign).** Extraction kept
+soft-noting `Invalid TGLP geometry in BCFNT/BFFNT` for
+`content/debug/MS_Gothic_16.bffnt` and `DynaFont_NW_Demo.bffnt`. Probing
+the real bytes showed why: the TGLP stores `sheetSize=0x80000`,
+`sheetCount=14`, `width=height=1024`, `sheetFormat=0xc`, `dataOffset=0x2000`
+(section spans 0x34..0x182000, CWDH follows). CTR format 12 = **ETC1**, and
+for ETC1 the per-sheet size IS the true compressed size (512 KB = one
+1024×1024 ETC1 sheet) — but the 14 sheets are packed tighter than
+`sheetSize*count`, so the plain "all sheets fit the file" sanity check
+rejected a perfectly valid retail font as "Invalid TGLP geometry".
+
+**Fix (lib-image2.c, the NFMT_BCFNT AssignIMG branch).** The format-support
+decision now runs BEFORE the sheet-space check: `ctr_to_gx[]` is hoisted to
+the top of the branch, and an unsupported format (incl. ETC1/ETC1A4, and
+the RGB8/RGBA5551/RGBA4444/HL8/A8/A4 no-GX-equivalent ids) returns the
+honest `BCFNT/BFFNT: unsupported sheet format %u` error; the "doesn't fit"
+check is kept for the formats we actually decode (where full-size sheets
+are genuinely required). Bonus: the early return happens before any sheet
+data is dereferenced, so a corrupt `sheetSz` can't cause an out-of-bounds
+read on a format we never decode.
+
+**Verified.** `wimgt DECODE` on both retail fonts now reports `unsupported
+sheet format 12` instead of bogus geometry corruption; the fork's own
+synthetic RGBA8 `.bffnt`/`.bcfnt` still decode to PNG; full regression
+re-run stays at the clean baseline. ETC1/ETC1A4 sheet *decoding* remains
+unimplemented (out of scope — a codec port, documented here for whoever
+wants it; the structure XML sidecar already exports the correct sheet
+layout).
+
 ## Suggested order
 
 1. §2 (mechanical, minutes) + §8 (concrete bug, real user pain).

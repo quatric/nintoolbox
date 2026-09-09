@@ -1295,8 +1295,41 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		const uint bwidth = BCF16 (btglp + 0x18);
 		const uint bheight = BCF16 (btglp + 0x1A);
 		const uint bdata_off = BCF32 (btglp + 0x1C);
-		if (!bsheet_sz || !bsheet_cnt || !bwidth || !bheight || bdata_off >= data_size
-			|| (uint64_t)bsheet_sz * bsheet_cnt > data_size - bdata_off)
+		// Map CTR format id → Wii GX image_format_t. -1 = no equivalent. CTR:
+		// 3=RGB565 5=IA8/LA8 7=I8/L8 9=IA4/LA4 10=I4/L4; 12/13 = ETC1/ETC1A4
+		// (not supported here), the rest are encodings with no GX match.
+		static const int8_t ctr_to_gx[14] = {
+			/* 0 RGBA8    */ IMG_RGBA32, // linear; handled below, listed for completeness
+			/* 1 RGB8     */ -1,
+			/* 2 RGBA5551 */ -1, // RGBA5551 ≠ GX RGB5A3 (different alpha encoding)
+			/* 3 RGB565   */ IMG_RGB565,
+			/* 4 RGBA4444 */ -1,
+			/* 5 IA8/LA8  */ IMG_IA8,
+			/* 6 HL8      */ -1,
+			/* 7 I8/L8    */ IMG_I8,
+			/* 8 A8       */ -1,
+			/* 9 IA4/LA4  */ IMG_IA4,
+			/*10 I4/L4    */ IMG_I4,
+			/*11 A4       */ -1,
+			/*12 ETC1     */ -1,
+			/*13 ETC1A4   */ -1,
+		};
+		const int gx_iform = (bctr_fmt < 14) ? ctr_to_gx[bctr_fmt] : -1;
+		if (!bsheet_sz || !bsheet_cnt || !bwidth || !bheight || bdata_off >= data_size)
+			return ERROR0 (ERR_INVALID_IFORM, "Invalid TGLP geometry in BCFNT/BFFNT: %s\n", fname);
+		// Decide format support before the sheet-space test below: real Wii U
+		// fonts store ETC1 sheets (seen: YWW MS_Gothic_16 / DynaFont_NW_Demo,
+		// fmt 12) whose per-sheet size is the true compressed size but whose
+		// N sheets pack tighter than sheetSz*N, so the plain "all sheets fit
+		// the file" test would wrongly reject perfectly valid retail fonts as
+		// corrupt geometry. Unsupported formats must report "unsupported"
+		// instead. This also runs before any sheet data is dereferenced, so a
+		// corrupt sheetSz cannot cause an out-of-bounds read on a format we
+		// never decode.
+		if (gx_iform < 0)
+			return ERROR0 (ERR_INVALID_IFORM, "BCFNT/BFFNT: unsupported sheet format %u: %s\n",
+				bctr_fmt, fname);
+		if ((uint64_t)bsheet_sz * bsheet_cnt > data_size - bdata_off)
 			return ERROR0 (ERR_INVALID_IFORM, "Invalid TGLP geometry in BCFNT/BFFNT: %s\n", fname);
 		if (img_index >= bsheet_cnt)
 			return ERROR0 (ERR_INVALID_IFORM, "Sheet index %u >= sheet count %u in %s\n", img_index,
@@ -1328,28 +1361,7 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		}
 		else
 		{
-			// Map CTR format id → Wii GX image_format_t. -1 = no equivalent.
-			// CTR: 3=RGB565 5=IA8/LA8 7=I8/L8 9=IA4/LA4 10=I4/L4
-			static const int8_t ctr_to_gx[14] = {
-				/* 0 RGBA8    */ IMG_RGBA32, // linear; handled above, listed for completeness
-				/* 1 RGB8     */ -1,
-				/* 2 RGBA5551 */ -1, // RGBA5551 ≠ GX RGB5A3 (different alpha encoding)
-				/* 3 RGB565   */ IMG_RGB565,
-				/* 4 RGBA4444 */ -1,
-				/* 5 IA8/LA8  */ IMG_IA8,
-				/* 6 HL8      */ -1,
-				/* 7 I8/L8    */ IMG_I8,
-				/* 8 A8       */ -1,
-				/* 9 IA4/LA4  */ IMG_IA4,
-				/*10 I4/L4    */ IMG_I4,
-				/*11 A4       */ -1,
-				/*12 ETC1     */ -1,
-				/*13 ETC1A4   */ -1,
-			};
-			const int gx_iform = (bctr_fmt < 14) ? ctr_to_gx[bctr_fmt] : -1;
-			if (gx_iform < 0)
-				return ERROR0 (ERR_INVALID_IFORM, "BCFNT/BFFNT: unsupported sheet format %u: %s\n",
-					bctr_fmt, fname);
+			// (gx_iform decided above, before the geometry sanity checks.)
 			const ImageGeometry_t *geo = GetImageGeometry ((image_format_t)gx_iform);
 			if (!geo)
 				return ERROR0 (ERR_INVALID_IFORM,
