@@ -907,7 +907,10 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 		return NULL;
 	if (data[4] != 3)
 		return NULL;
-	const uint32_t bfr_version = rb32 (data + 8);
+	// The version lives at +4 (e.g. 3.5.0.3 = 0x03050003); +8 is the
+	// byte-order marker (0xFEFF) plus platform flags, so reading the layout
+	// version from +8 would always look "new".
+	const uint32_t bfr_version = rb32 (data + 4);
 
 	const uint8_t *d = data;
 
