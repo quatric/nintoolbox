@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
 
 extern int DecodeFZIP (
 	uint8_t **dest, unsigned int *dest_size, const uint8_t *src, unsigned int src_size);
@@ -32,6 +33,17 @@ static uint32_t rb32 (const uint8_t *p)
 static int32_t rbs32 (const uint8_t *p)
 {
 	return (int32_t)rb32 (p);
+}
+
+static inline float read_be32f (const uint8_t *p)
+{
+	union
+	{
+		uint32_t u;
+		float f;
+	} c;
+	c.u = rb32 (p);
+	return c.f;
 }
 
 // Half-precision float, as used by the 16-bit vertex attribute formats.
@@ -370,6 +382,503 @@ static int read_fvtx (const uint8_t *d, size_t size, size_t fv, fvtx_t *out)
 	return out->pos != NULL;
 }
 
+//-----------------------------------------------------------------------------
+// FSKA (skeletal animation) parsing for Wii U models.
+//
+// Layouts and key semantics were reverse-engineered from KillzXGaming's
+// BfresLibrary (AnimCurve.cs, SkeletalAnim.cs, BoneAnim.cs) and verified
+// byte-for-byte against in-game data (YWW AMBBASE00). Curves are resampled at
+// every integer frame -- conveniently, exactly the points the exporter's
+// linear channel interpolation needs, with none of the file's Hermite-style
+// input coefficients leaking into glTF.  Un-animated TRS components of an
+// animated joint are left at the animation's base values where present, else
+// at the skeleton's bind value.
+//-----------------------------------------------------------------------------
+
+static int bfres_find_joint (const model_t *model, const char *name)
+{
+	for (size_t i = 0; i < model->num_joints; i++)
+		if (name && !strcmp (model->joints[i].name, name))
+			return (int)i;
+	return -1;
+}
+
+// FSKA's Euler rotations are actual radians (unlike CHR0's degrees), so this
+// uses half-angle sine/cosine of the raw value.
+static void bfres_euler_rad_to_quat (float rx, float ry, float rz, float q[4])
+{
+	const double hx = (double)rx / 2.0;
+	const double hy = (double)ry / 2.0;
+	const double hz = (double)rz / 2.0;
+	const double cx = cos (hx), sx = sin (hx);
+	const double cy = cos (hy), sy = sin (hy);
+	const double cz = cos (hz), sz = sin (hz);
+	q[0] = (float)(sx * cy * cz - cx * sy * sz);
+	q[1] = (float)(cx * sy * cz + sx * cy * sz);
+	q[2] = (float)(cx * cy * sz - sx * sy * cz);
+	q[3] = (float)(cx * cy * cz + sx * sy * sz);
+}
+
+// Inverse of the above, for converting an FSKL bone whose rotation is stored
+// as a quaternion into the half-angle-Euler convention joint_t::rotate uses.
+static void bfres_quat_to_euler (float qx, float qy, float qz, float qw,
+	float *rx, float *ry, float *rz)
+{
+	const double x = qx, y = qy, z = qz, w = qw;
+	const double xx = x * x, yy = y * y, zz = z * z;
+	const double m02 = 2.0 * (x * z + y * w);
+	const double m12 = 2.0 * (y * z - x * w);
+	const double s = m02 >= 0.0 ? 1.0 : -1.0;
+	*ry = (float)(s * M_PI / 2.0);
+	*rx = (float)atan2 (-m12, 1.0 - 2.0 * (xx + yy));
+	const double m10 = 2.0 * (x * y + z * w);
+	const double m11 = 1.0 - 2.0 * (xx + zz);
+	if (fabs (m02) < 1e-4) // roll-pitch degenerate near the poles: fold Z in
+		*rz = (float)atan2 (m10, m11);
+	else
+		*rz = 0.0f;
+}
+
+static void bfres_anim_add_channel (model_animation_t *anim, int node_idx, model_anim_path_t path,
+	float *times, float *values, size_t count, size_t components)
+{
+	model_anim_channel_t *ch = realloc (anim->channels, sizeof (*ch) * (anim->num_channels + 1));
+	if (!ch)
+	{
+		free (times);
+		free (values);
+		return;
+	}
+	anim->channels = ch;
+	model_anim_channel_t *c = &anim->channels[anim->num_channels++];
+	c->node_idx = node_idx;
+	c->path = path;
+	c->times = times;
+	c->values = values;
+	c->count = count;
+	c->components = components;
+}
+
+typedef struct
+{
+	float *frames;   // decoded keyframe times, num_keys entries
+	float **keys;    // num_keys * elems_per_key decoded key coefficients
+	int num_keys;
+	int elems_per_key;
+	int frame_type;  // 0=Single, 1=Decimal10x5, 2=Byte
+	int key_type;    // 0=Single, 1=Int16, 2=SByte
+	int curve_type;  // 0=Cubic, 1=Linear, 2=BakedFloat, 4=StepInt, 5=BakedInt, 6=StepBool
+	float scale, offset;
+	uint32_t target; // AnimDataOffset this curve animates
+} bfres_curve_t;
+
+static void bfres_curve_free (bfres_curve_t *c)
+{
+	if (c->keys)
+		for (int i = 0; i < c->num_keys; i++)
+			free (c->keys[i]);
+	free (c->keys);
+	free (c->frames);
+	memset (c, 0, sizeof (*c));
+}
+
+// Reads one AnimCurve record. Wii U curve records are 0x24 bytes for
+// FRES >= 0x03040000 (explicit Delta), 0x20 before that.
+static int bfres_curve_read (const uint8_t *d, size_t size, size_t c,
+	int new_layout, bfres_curve_t *out)
+{
+	const size_t rec = new_layout ? 0x24 : 0x20;
+	memset (out, 0, sizeof (*out));
+	if (c + rec > size)
+		return 0;
+
+	const uint16_t flags = rb16 (d + c);
+	const uint16_t num_key = rb16 (d + c + 2);
+	if (!num_key)
+		return 0;
+
+	out->frame_type = flags & 0x3;
+	out->key_type = (flags >> 2) & 0x3;
+	out->curve_type = (flags >> 4) & 0x7;
+	if (out->frame_type > 2 || out->key_type > 2)
+		return 0;
+	out->target = rb32 (d + c + 4);
+	out->scale = read_be32f (d + c + 0x10);
+	out->offset = read_be32f (d + c + 0x14);
+	out->elems_per_key = out->curve_type == 0 ? 4 : (out->curve_type == 1 ? 2 : 1);
+	out->num_keys = num_key;
+
+	// Skip 0x1C/0x18 frame pointer into the frame array, then the key array.
+	const size_t fa = REL (d, c + (new_layout ? 0x1C : 0x18));
+	const size_t ka = REL (d, c + (new_layout ? 0x20 : 0x1C));
+	if (fa < c || ka < c || fa > size || ka > size)
+		return 0;
+
+	const size_t fw = out->frame_type == 0 ? 4 : (out->frame_type == 1 ? 2 : 1);
+	const size_t kw = out->key_type == 0 ? 4 : (out->key_type == 1 ? 2 : 1);
+
+	out->frames = malloc (sizeof (float) * num_key);
+	out->keys = malloc (sizeof (float *) * num_key);
+	if (!out->frames || !out->keys)
+	{
+		bfres_curve_free (out);
+		return 0;
+	}
+
+	for (uint16_t i = 0; i < num_key; i++)
+	{
+		const size_t p = fa + (size_t)i * fw;
+		if (p + fw > size)
+		{
+			bfres_curve_free (out);
+			return 0;
+		}
+		if (out->frame_type == 0)
+			out->frames[i] = read_be32f (d + p);
+		else if (out->frame_type == 1)
+			out->frames[i] = (float)(int16_t)rb16 (d + p) / 32.0f; // Decimal10x5
+		else
+			out->frames[i] = (float)d[p];
+	}
+
+	for (uint16_t i = 0; i < num_key; i++)
+	{
+		out->keys[i] = calloc (out->elems_per_key, sizeof (float));
+		if (!out->keys[i])
+		{
+			bfres_curve_free (out);
+			return 0;
+		}
+		for (int j = 0; j < out->elems_per_key; j++)
+		{
+			const size_t p = ka + ((size_t)i * out->elems_per_key + (size_t)j) * kw;
+			if (p + kw > size)
+			{
+				bfres_curve_free (out);
+				return 0;
+			}
+			if (out->key_type == 0)
+			{
+				// StepInt / StepBool store UInt32 bit patterns; everything
+				// else stores raw Single. Keep the 32-bit pattern either way
+				// and only interpret it as float for the float curve types.
+				out->keys[i][j] = read_be32f (d + p);
+			}
+			else if (out->key_type == 1)
+				out->keys[i][j] = (float)(int16_t)rb16 (d + p);
+			else
+				out->keys[i][j] = (float)(int8_t)d[p];
+		}
+	}
+
+	// Key coefficients are already in value units: KeyCount fixes the whole
+	// Delta, so a quadratic/step curve needs no fixed-point rescaling. Keep
+	// the raw stored int16/sbyte numbers, multiplied by scale at evaluation.
+	return 1;
+}
+
+static int32_t bfres_int_key (const bfres_curve_t *c, float stored)
+{
+	if (c->key_type == 0)
+	{
+		union
+		{
+			uint32_t u;
+			float f;
+		} uf;
+		uf.f = stored;
+		return (int32_t)uf.u; // UInt32-pattern keys (StepInt / StepBool)
+	}
+	return (int32_t)stored;
+}
+
+static int32_t bfres_int_offset (const bfres_curve_t *c)
+{
+	union
+	{
+		uint32_t u;
+		float f;
+	} uf;
+	uf.f = c->offset;
+	return (int32_t)uf.u; // Offset is a raw DWord for integer curve types
+}
+
+static float bfres_key_value (const bfres_curve_t *c, float stored)
+{
+	switch (c->curve_type)
+	{
+		case 4:
+		case 5:
+		case 6: // StepInt / BakedInt / StepBool: integer semantics, no scale
+			return (float)(bfres_int_key (c, stored) + bfres_int_offset (c));
+		case 2: // BakedFloat
+		default:
+			return stored * c->scale + c->offset;
+	}
+}
+
+static float bfres_eval_curve (const bfres_curve_t *c, float t)
+{
+	const int hi = c->num_keys - 1;
+	if (t <= c->frames[0])
+		return bfres_key_value (c, c->keys[0][0]);
+	if (t >= c->frames[hi])
+		return bfres_key_value (c, c->keys[hi][0]);
+
+	int i = 0;
+	while (i < hi && t >= c->frames[i + 1])
+		i++;
+
+	const float f0 = c->frames[i];
+	const float dt = c->frames[i + 1] - f0;
+	if (dt <= 0.0f)
+		return bfres_key_value (c, c->keys[i][0]);
+
+	switch (c->curve_type)
+	{
+		case 0: // cubic: P(u) = c0 + c1*u + c2*u^2 + c3*u^3, u in [0,1)
+		{
+			const float u = (t - f0) / dt;
+			const float c0 = c->keys[i][0] * c->scale + c->offset;
+			return c0 + u * (c->keys[i][1] * c->scale
+				+ u * (c->keys[i][2] * c->scale + u * (c->keys[i][3] * c->scale)));
+		}
+		case 1: // linear: v = K0*scale + offset + (K1*scale) * (t - frame)
+			return c->keys[i][0] * c->scale + c->offset
+				+ c->keys[i][1] * c->scale * (t - f0);
+		default: // step / baked: constant per segment
+			return bfres_key_value (c, c->keys[i][0]);
+	}
+}
+
+// Parses one FSKA object and appends one model_animation_t. Returns 1 when
+// at least one channel was produced.
+static int parse_fska_into_model (model_t *model, const uint8_t *d, size_t size,
+	uint32_t fr_version, size_t fs, const char *clip_name)
+{
+	if (fr_version >= 0x03040000)
+	{
+		if (fs + 0x30 > size)
+			return 0;
+	}
+	else if (fs + 0x24 > size)
+		return 0;
+
+	const uint32_t flags = rb32 (d + fs + 0x0C);
+	const int euler_rot = (flags & 0x1000) != 0; // bit 0x1000 = EulerXYZ mode
+	const int num_frames_hdr = fr_version >= 0x03040000
+		? rbs32 (d + fs + 0x10) : (int)rb16 (d + fs + 0x10);
+	const uint16_t num_bone_anim = fr_version >= 0x03040000
+		? rb16 (d + fs + 0x14) : rb16 (d + fs + 0x12);
+	const int num_frames = num_frames_hdr + (((flags & 0x2) != 0) ? 1 : 0); // loop pad
+	if (num_bone_anim == 0 || num_frames <= 0 || num_frames > 100000)
+		return 0;
+
+	const size_t bone_anims = fs + 0x24 <= size ? REL (d, fs + 0x20) : 0;
+	if (!bone_anims || bone_anims + (size_t)num_bone_anim * 0x18 > size)
+		return 0;
+
+	model_animation_t anim = { 0 };
+	snprintf (anim.name, sizeof (anim.name), "%s",
+		clip_name && *clip_name ? clip_name : "fska");
+
+	const int new_curve_layout = fr_version >= 0x03040000;
+	int any = 0;
+
+	for (uint16_t bi = 0; bi < num_bone_anim; bi++)
+	{
+		const size_t ba = bone_anims + (size_t)bi * 0x18;
+		const uint32_t bflags = rb32 (d + ba);
+		const char *bname = rel_string (d, size, ba + 4);
+		const uint8_t num_curve = d[ba + 0xA];
+		if (num_curve == 0)
+			continue;
+		const int joint_idx = bfres_find_joint (model, bname);
+		if (joint_idx < 0)
+			continue;
+		const joint_t *joint = &model->joints[joint_idx];
+
+		// Curves are laid out contiguously after the BoneAnim record, one
+		// record per bone (BfresLibrary: loader.LoadList<AnimCurve>(numCurve)).
+		const size_t curve_base = REL (d, ba + 0x10);
+		if (!curve_base || curve_base + (size_t)num_curve * (new_curve_layout ? 0x24 : 0x20) > size)
+			continue;
+
+		bfres_curve_t curves[9];
+		memset (curves, 0, sizeof (curves));
+		int nread = 0;
+		for (uint8_t k = 0; k < num_curve && k < 9; k++)
+		{
+			if (bfres_curve_read (d, size, curve_base + (size_t)k * (new_curve_layout ? 0x24 : 0x20),
+					new_curve_layout, &curves[k]))
+				nread++;
+		}
+		if (!nread)
+			continue;
+
+		// Base (bind-affect) values present in the BoneAnim; the game applies
+		// these to the whole TRS set before curves override single components.
+		const uint32_t base_flags = bflags & 0x38; // 0x8=scale 0x10=rotate 0x20=translate
+		float base[3][4] = { { 1, 1, 1, 1 }, { 0, 0, 0, 1 }, { 0, 0, 0, 1 } };
+		const int base_present[3] = { (base_flags & 0x8) != 0, (base_flags & 0x10) != 0, (base_flags & 0x20) != 0 };
+		const size_t base_off = REL (d, ba + 0x14);
+		if (base_off && base_off + 0x28 <= size)
+		{
+			size_t p = base_off;
+			if (base_present[0])
+				for (int e = 0; e < 3; e++)
+					base[0][e] = read_be32f (d + p + (size_t)e * 4);
+			p += 3 * 4;
+			if (base_present[1])
+				for (int e = 0; e < 4; e++)
+					base[1][e] = read_be32f (d + p + (size_t)e * 4);
+			p += 4 * 4;
+			if (base_present[2])
+				for (int e = 0; e < 3; e++)
+					base[2][e] = read_be32f (d + p + (size_t)e * 4);
+		}
+
+		// Gather which curve targets each TRS component.
+		//   scale    0x04 0x08 0x0C
+		//   rotate   0x20 0x24 0x28 (+0x2C W for quaternion mode)
+		//   translate 0x10 0x14 0x18
+		int curve_of[3][4] =
+		{
+			{ -1, -1, -1, -1 },
+			{ -1, -1, -1, -1 },
+			{ -1, -1, -1, -1 }
+		};
+		for (int k = 0; k < nread; k++)
+		{
+			const uint32_t tgt = curves[k].target & 0xFFFFFFFC;
+			switch (tgt & 0xF0)
+			{
+				case 0x00: if (tgt >= 0x04 && tgt <= 0x0C) curve_of[0][(tgt - 4) / 4] = k; break;
+				case 0x10: if (tgt >= 0x10 && tgt <= 0x18) curve_of[2][(tgt - 0x10) / 4] = k; break;
+				case 0x20: if (tgt >= 0x20 && tgt <= 0x2C) curve_of[1][(tgt - 0x20) / 4] = k; break;
+			}
+		}
+
+		const float fps = 60.0f;
+		const model_anim_path_t paths[3] = { MODEL_ANIM_SCALE, MODEL_ANIM_ROTATION, MODEL_ANIM_TRANSLATION };
+
+		// Scale (3 components) and translation (3 components): a plane channel.
+		for (int set = 0; set < 3; set += 2)
+		{
+			if (curve_of[set][0] < 0 && curve_of[set][1] < 0 && curve_of[set][2] < 0)
+				continue;
+			const int comps = 3;
+			float *times = malloc (sizeof (float) * num_frames);
+			float *values = malloc (sizeof (float) * num_frames * comps);
+			if (!times || !values)
+			{
+				free (times);
+				free (values);
+				continue;
+			}
+			for (int f = 0; f < num_frames; f++)
+			{
+				const float t = (float)f;
+				times[f] = t / fps;
+				for (int e = 0; e < comps; e++)
+				{
+					float v;
+					if (curve_of[set][e] >= 0)
+						v = bfres_eval_curve (&curves[curve_of[set][e]], t);
+					else if (base_present[set])
+						v = base[set][e];
+					else
+					{
+						const vec3_t *b = set == 0 ? &joint->scale : &joint->translate;
+						v = e == 0 ? b->x : (e == 1 ? b->y : b->z);
+					}
+					values[f * comps + e] = v;
+				}
+			}
+			bfres_anim_add_channel (&anim, joint_idx, paths[set], times, values, num_frames, comps);
+			any = 1;
+		}
+
+		// Rotation. Euler (bit 0x1000): assemble XYZ then convert to a
+		// quaternion channel. Quaternion mode: use the base/curve components.
+		if (curve_of[1][0] >= 0 || curve_of[1][1] >= 0 || curve_of[1][2] >= 0 || curve_of[1][3] >= 0)
+		{
+			const int comps = 4;
+			float *times = malloc (sizeof (float) * num_frames);
+			float *values = malloc (sizeof (float) * num_frames * comps);
+			if (times && values)
+			{
+				for (int f = 0; f < num_frames; f++)
+				{
+					const float t = (float)f;
+					times[f] = t / fps;
+					float v[4];
+					if (euler_rot)
+					{
+						const float *base_r = base[1];
+						const vec3_t *jb = &joint->rotate;
+						float e[3];
+						for (int e2 = 0; e2 < 3; e2++)
+						{
+							if (curve_of[1][e2] >= 0)
+								e[e2] = bfres_eval_curve (&curves[curve_of[1][e2]], t);
+							else if (base_present[1])
+								e[e2] = base_r[e2];
+							else
+								e[e2] = e2 == 0 ? jb->x : (e2 == 1 ? jb->y : jb->z);
+						}
+						bfres_euler_rad_to_quat (e[0], e[1], e[2], v);
+					}
+					else
+					{
+						for (int e2 = 0; e2 < 4; e2++)
+						{
+							if (curve_of[1][e2] >= 0)
+								v[e2] = bfres_eval_curve (&curves[curve_of[1][e2]], t);
+							else if (base_present[1])
+								v[e2] = base[1][e2];
+							else
+								v[e2] = e2 == 3 ? 1.0f : 0.0f;
+						}
+					}
+					memcpy (values + f * comps, v, sizeof (v));
+				}
+				bfres_anim_add_channel (&anim, joint_idx, MODEL_ANIM_ROTATION, times, values, num_frames, comps);
+				any = 1;
+			}
+			else
+			{
+				free (times);
+				free (values);
+			}
+		}
+
+		for (int k = 0; k < nread; k++)
+			bfres_curve_free (&curves[k]);
+	}
+
+	if (!any)
+	{
+		free (anim.channels);
+		return 0;
+	}
+
+	model_animation_t *na = realloc (model->animations, sizeof (*na) * (model->num_animations + 1));
+	if (!na)
+	{
+		for (size_t c = 0; c < anim.num_channels; c++)
+		{
+			free (anim.channels[c].times);
+			free (anim.channels[c].values);
+		}
+		free (anim.channels);
+		return 0;
+	}
+	model->animations = na;
+	model->animations[model->num_animations++] = anim;
+	return 1;
+}
+
 model_t *ParseBFRES (const uint8_t *data, size_t size)
 {
 	if (!data || size < 8)
@@ -398,6 +907,7 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 		return NULL;
 	if (data[4] != 3)
 		return NULL;
+	const uint32_t bfr_version = rb32 (data + 8);
 
 	const uint8_t *d = data;
 
@@ -670,6 +1180,90 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 			if (fvtx.extra_uv[e])
 				mesh->num_extra_texcoords[e] = n;
 		out->num_meshes++;
+	}
+
+	// Skeleton (FSKL): the FMDL references it via a self-relative pointer at
+	// FMDL+0x0C. Bones are 0x40-byte records: name, index, parent, smooth /
+	// rigid / billboard indices, flags and bind TRS. A rotation stored as a
+	// quaternion (bone flag bit 0x1000 clear) is converted to the
+	// half-angle-Euler convention used by the exporter; everything else is
+	// already XYZ Euler in radians.
+	{
+		const size_t sk = REL (d, m + 0x0C);
+		if (sk + 8 <= size && !memcmp (d + sk, "FSKL", 4))
+		{
+			const uint16_t n_bones = rb16 (d + sk + 8);
+			const size_t bone_arr = sk + 0x18 <= size ? REL (d, sk + 0x14) : 0;
+			if (n_bones && n_bones < 4096 && bone_arr
+				&& bone_arr + (size_t)n_bones * 0x40 <= size)
+			{
+				out->num_joints = n_bones;
+				out->joints = calloc (n_bones, sizeof (joint_t));
+				if (out->joints)
+				{
+					for (uint b = 0; b < n_bones; b++)
+					{
+						const size_t boff = bone_arr + (size_t)b * 0x40;
+						joint_t *j = out->joints + b;
+						j->parent_idx = -1;
+
+						const char *bname = rel_string (d, size, boff);
+						if (bname && *bname)
+							snprintf (j->name, sizeof (j->name), "%s", bname);
+
+						const int16_t parent = (int16_t)rb16 (d + boff + 6);
+						if (parent >= 0 && (uint16_t)parent < n_bones)
+							j->parent_idx = (int)parent;
+
+						j->scale.x = read_be32f (d + boff + 0x14);
+						j->scale.y = read_be32f (d + boff + 0x18);
+						j->scale.z = read_be32f (d + boff + 0x1C);
+						if (rb32 (d + boff + 0x10) & 0x1000)
+						{
+							j->rotate.x = read_be32f (d + boff + 0x20);
+							j->rotate.y = read_be32f (d + boff + 0x24);
+							j->rotate.z = read_be32f (d + boff + 0x28);
+						}
+						else
+						{
+							float rx, ry, rz;
+							bfres_quat_to_euler (
+								read_be32f (d + boff + 0x20), read_be32f (d + boff + 0x24),
+								read_be32f (d + boff + 0x28), read_be32f (d + boff + 0x2C),
+								&rx, &ry, &rz);
+							j->rotate.x = rx;
+							j->rotate.y = ry;
+							j->rotate.z = rz;
+						}
+						j->translate.x = read_be32f (d + boff + 0x30);
+						j->translate.y = read_be32f (d + boff + 0x34);
+						j->translate.z = read_be32f (d + boff + 0x38);
+					}
+				}
+			}
+		}
+	}
+
+	// Skeletal animations (FSKA): index group 2 at d+0x28. Every FSKA object
+	// in the group is turned into one animation clip; each animation targets
+	// joints by name, so animations referencing a joint that isn't in the
+	// (single) exported skeleton are skipped.
+	{
+		const size_t fska_grp = REL (d, 0x28);
+		const uint32_t fska_entries = fska_grp + 8 <= size ? rb32 (d + fska_grp + 4) : 0;
+		if (fska_entries && fska_entries <= 0x10000
+			&& fska_grp + 8 + (size_t)(fska_entries + 1) * 16 <= size)
+		{
+			for (uint32_t fi = 1; fi <= fska_entries; fi++)
+			{
+				const size_t fe = fska_grp + 8 + (size_t)fi * 16;
+				const size_t fs = REL (d, fe + 12);
+				if (fs + 0x30 > size || memcmp (d + fs, "FSKA", 4))
+					continue;
+				const char *clip = rel_string (d, size, fe + 8);
+				parse_fska_into_model (out, d, size, bfr_version, fs, clip);
+			}
+		}
 	}
 
 	if (!out->num_meshes)
