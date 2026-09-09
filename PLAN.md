@@ -1292,6 +1292,38 @@ unimplemented (out of scope — a codec port, documented here for whoever
 wants it; the structure XML sidecar already exports the correct sheet
 layout).
 
+## 24. 2026-09-09 — Yoshi's Woolly World: full-title pass COMPLETE, full BFRES resource census collected — ✅
+
+**The campaign pass on YWW finished cleanly.** `wszst xx` on the 8.8 GB
+`.wux` walks the whole disc: 30 GB `.d` tree (code/meta/content), 139,661
+log lines, every `.gfa`/`.bflim`/`.bffnt` unpacked, every `.bfres` model
+exported to `.glb` (incl. the worldmap/covers), all 23 content areas done.
+Only decoder-level notes: 36× `ERROR #38 INVALID IMAGE FORMAT` (the two
+ETC1 debug fonts from §23, plus `[file type=LZOVL]`, `[file type=...]`
+image cases — all correctly identified-but-unsupported, not crashes).
+
+**Operational lesson (cost 5h):** `wszst xx` terminates with **rc=28
+"finished, but warnings were produced"** on *successful-but-noisy*
+extractions — the tool does NOT crash at the end; an auto-restart watchdog
+backing onto `rc != 0` silently deleted five complete/rebuilt trees in a
+row. Decision rule for future passes: treat **rc=28 = PASS with notes**;
+only `rc != 28 && rc != 0` is a real abort. (The default `stdcli` exit
+table puts exit code 28 on "warnings present".)
+
+**Full-corpus BFRES census (plus-build `xx` per `.bfres`, 1768 archives).**
+All 1768 decode without blocking errors; 1018 carry non-(FMDL/FTEX)
+"animation-class" slots and printed a census line. Totals:
+
+```
+FMDL=3645  FTEX=16574  FSKA=5183  FSHU=1495  FVIS=2808  FTXP=816  FSHA=438  FSCN=26
+```
+
+Archive counts per animation resource class: FSKA 794, FSHU 427, FVIS 426,
+FSHA 109, FTXP 48, FSCN 11. No unexpected 4CCs slipped through — the
+BFRES v8/v9 header dict path handles every slot class YWW contains.
+(FSCN=26 scene resources is the rarest class and the one with no decoder
+yet — a natural next target if scene/animation research continues.)
+
 ## Suggested order
 
 1. §2 (mechanical, minutes) + §8 (concrete bug, real user pain).
