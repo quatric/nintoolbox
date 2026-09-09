@@ -41,6 +41,10 @@ enumError ExtractNXARCArchive (ccp arg, ccp basedir, uint depth);
 // Extract Nintendo APAK Archive (.apak / APAK)
 enumError ExtractAPAKArchive (ccp arg, ccp basedir, uint depth);
 
+// Extract Nd Cube Wii U flat container (.bin / "PAC\0", Mario Party 10 /
+// Animal Crossing: amiibo Festival); members are ordinary zlib-compressed data (0x78 0xda header), not encrypted
+enumError ExtractPACArchive (ccp arg, ccp basedir, uint depth);
+
 // Extract PlatinumGames Archive (.pkz / pkz)
 enumError ExtractPKZArchive (ccp arg, ccp basedir, uint depth);
 

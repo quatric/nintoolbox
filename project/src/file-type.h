@@ -358,6 +358,7 @@ typedef enum file_format_t
 	FF_NSBCK, // 262 - Nintendo DS character animation (.nsbck / BCK0)
 	FF_LZ4, // 263 - LZ4 compression (.lz4)
 	FF_TM0, // 264 - Monster Games high-res GX texture (.tm0, Excite Truck)
+	FF_PAC, // 265 - Nd Cube Wii U flat container (.bin / "PAC\0", Mario Party 10 / Amiibo Festival)
 
 	//--- number of elements
 

@@ -9659,6 +9659,72 @@ t_gfa_wiiu_yoshis_woolly_world(){
 }
 t_gfa_wiiu_yoshis_woolly_world
 
+t_pac_wiiu_amiibo_festival(){
+  # PAC (Nd Cube flat container, "PAC\0"): Animal Crossing: amiibo Festival
+  # (Wii U). A prior verification pass (PLAN.md, retail-source verification
+  # attempt #12) found this exact container packing every model/texture on
+  # the disc, walked its own header/entry table correctly, but concluded
+  # the payload bytes were "encrypted" because it only tried a header-
+  # framed zlib/LZMA decompress on the wrong assumption of what the bytes
+  # were. A public QuickBMS script for this format later surfaced
+  # (RandomTBush/RTB-QuickBMS-Scripts "MP10-Unpacker.bms", header comment:
+  # "ND Cube - BIN Extractor, Works with Mario Party 10 and Animal
+  # Crossing: amiibo Festival") and its `comtype COMP_UNZIP_DYNAMIC` line
+  # was the clue that broke this open. Verified directly against the
+  # retail bytes: every member actually opens with a completely ordinary
+  # zlib header (0x78 0xda) and decompresses via plain zlib inflate to
+  # exactly its header's SIZE field -- not encrypted, and not even raw/
+  # headerless deflate, just standard zlib the prior pass never actually
+  # tried against the right byte range. ExtractPACArchive() (lib-nintendo-
+  # archives.c) is the new decoder; DecodeZlibGrow() already handles plain
+  # zlib decompression, so no new inflate primitive was needed.
+  #
+  # Fixture 1: content/common/bin/bd/indoor/idr_fortune_bq.bin (4096 bytes,
+  # committed verbatim) -- a small 2-member container (two .csv members),
+  # exercising the loop/entry-table logic on a minimal real sample.
+  local f1="$PWD_PROJECT/../tests/fixtures/pac_wiiu_amiibo_festival_idr_fortune_bq.bin"
+  [ -f "$f1" ] || { sk "PAC (Wii U, amiibo Festival) minimal"; return; }
+  if "$B/wszst" FILETYPE "$f1" 2>/dev/null | grep -q '^PAC'; then
+    ok "retail amiibo Festival (Wii U) PAC container is recognised"
+  else
+    no "retail amiibo Festival (Wii U) PAC container" "not recognised as PAC"
+  fi
+  rm -rf /tmp/_r_pac1
+  "$B/wszst" xx "$f1" --dest "/tmp/_r_pac1" --overwrite >/tmp/_r_pac1.log 2>&1
+  local n1; n1=$(find /tmp/_r_pac1 -type f -size +0c 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$n1" = "2" ] \
+  && find /tmp/_r_pac1 -name 'idr_fortune_bq_camera.csv' -size +0c 2>/dev/null | grep -q . \
+  && find /tmp/_r_pac1 -name 'idr_fortune_bq_locator.csv' -size +0c 2>/dev/null | grep -q .; then
+    ok "PAC (Wii U, amiibo Festival) minimal container -> 2 real .csv members"
+  else
+    no "PAC (Wii U, amiibo Festival) minimal container" "expected 2 named .csv members, got $n1 file(s)"
+  fi
+
+  # Fixture 2: content/common/bin/ch_base/chara/cat/cat00.bin (196,608
+  # bytes, gzipped as *.bin.gz), the very sample the earlier "encrypted"
+  # investigation walked by hand -- 20 members: sixteen .gtx GX2 textures
+  # (real "Gfx2" magic once decompressed), a .mcf, a .gmo, and the
+  # cat00.bnfm model member itself. Exercises the multi-member loop
+  # (language block + full entry table) against real model/texture data,
+  # not just a 2-entry minimal case.
+  local gz="$PWD_PROJECT/../tests/fixtures/pac_wiiu_amiibo_festival_cat00.bin.gz"
+  [ -f "$gz" ] || { sk "PAC (Wii U, amiibo Festival) cat00"; return; }
+  rm -rf /tmp/_r_pac2; mkdir -p /tmp/_r_pac2
+  gunzip -c "$gz" > /tmp/_r_pac2/cat00.bin 2>/dev/null
+  "$B/wszst" xx /tmp/_r_pac2/cat00.bin --dest "/tmp/_r_pac2/x" --overwrite >/tmp/_r_pac2.log 2>&1
+  local n2; n2=$(find /tmp/_r_pac2/x -type f -size +0c 2>/dev/null | wc -l | tr -d ' ')
+  local bnfm; bnfm=$(find /tmp/_r_pac2/x -name 'cat00.bnfm' -size +0c 2>/dev/null | head -1)
+  local gtx; gtx=$(find /tmp/_r_pac2/x -name '*.gtx' -size +0c 2>/dev/null | head -1)
+  if [ "$n2" = "20" ] && [ -n "$bnfm" ] && [ -n "$gtx" ] \
+  && [ "$(head -c4 "$bnfm" | wc -c | tr -d ' ')" = "4" ] \
+  && [ "$(head -c4 "$gtx")" = "Gfx2" ]; then
+    ok "PAC (Wii U, amiibo Festival) cat00.bin -> 20 real members, incl. BNFM model + real GX2 (Gfx2) textures"
+  else
+    no "PAC (Wii U, amiibo Festival) cat00.bin" "expected 20 members incl. cat00.bnfm + *.gtx starting 'Gfx2', got $n2 file(s)"
+  fi
+}
+t_pac_wiiu_amiibo_festival
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]

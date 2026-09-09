@@ -1298,6 +1298,12 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x4150414b: // "APAK"
 				return FF_APAK;
 
+			// Nd Cube ("ND Cube - BIN Extractor") flat PAC container --
+			// Mario Party 10 / Animal Crossing: amiibo Festival (Wii U);
+			// members (BNFM models, GTX textures) are ordinary zlib-
+			// compressed data inside, not encrypted -- see ExtractPACArchive()
+			case 0x50414300: // "PAC\0"
+				return FF_PAC;
 			case 0x6F660200: // "of\x02\x00" -- Wii U retail DTLS lookup (real Smash 4 content/ls)
 				return FF_DTLS;
 

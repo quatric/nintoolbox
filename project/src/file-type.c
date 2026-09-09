@@ -1410,6 +1410,13 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, MinusString, MinusString,
 		"Monster Games high-res GX texture (Excite Truck .tm0)" },
 
+	// FF_PAC = 265 (Nd Cube Wii U flat container)
+	{ FF_PAC, FF_PAC, 0, "PAC", ".bin", ".szs", ".bin",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 'P', 'A', 'C', 0 }, 0, MinusString, MinusString,
+		"Nd Cube Wii U flat container (.bin / \"PAC\\0\"); members are ordinary "
+		"zlib-compressed data, not encrypted (Mario Party 10 / Animal Crossing: amiibo Festival)" },
+
 	// FF_N
 	{ 0 }
 };
