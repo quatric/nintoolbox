@@ -423,7 +423,10 @@ if [ -n "$vff_d" ]; then
   # A file keeps its type from its magic, as every other format here does, so
   # a damaged volume is still reported as a VFF. What must not happen is that
   # it is read: the byte-order mark has to agree and the geometry has to
-  # account for the volume before a single cluster is touched.
+  # account for the volume before a single cluster is touched. Once every
+  # native probe has declined the file the generic fallback still writes its
+  # bare wszst-setup.txt into the freshly-created destination (see the ZLARC
+  # test), so only a real member file counts as a read.
   python3 -c '
 import struct, sys
 d = bytearray(open(sys.argv[1], "rb").read()[:0x40000])
@@ -437,7 +440,7 @@ open(sys.argv[3], "wb").write(bytes(d2))
   for f in "$vff_d/bom.vff" "$vff_d/geom.vff"; do
     rm -rf "$vff_d/negout"
     "$B/wszst" EXTRACT "$f" --dest "$vff_d/negout" >/dev/null 2>&1
-    [ -n "$(find "$vff_d/negout" -type f 2>/dev/null)" ] && bad=1
+    [ -n "$(find "$vff_d/negout" -type f ! -name 'wszst-setup.txt' 2>/dev/null)" ] && bad=1
   done
   if [ "$bad" = 0 ]; then
     ok "VFF reads nothing from a header whose fields do not agree"

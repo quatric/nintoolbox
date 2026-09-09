@@ -16,7 +16,7 @@ static bool ash_feed (ash_bits_t *br)
 		return false;
 	br->word = rd_be32 (br->src + br->pos);
 	br->pos += 4;
-	br->used = 0;
+	br->used = 32;
 	return true;
 }
 
@@ -27,7 +27,8 @@ static bool ash_init (ash_bits_t *br, const u8 *src, uint size, uint pos)
 	br->src = src;
 	br->size = size;
 	br->pos = pos;
-	br->word = br->used = 0;
+	br->word = 0;
+	br->used = 0;
 	return ash_feed (br);
 }
 
@@ -38,14 +39,17 @@ static bool ash_read (ash_bits_t *br, uint n, uint *value)
 	uint val = 0;
 	while (n--)
 	{
-		val = val << 1 | br->word >> 31;
-		if (++br->used == 32)
+		if (!br->used)
 		{
+			// Current word is exhausted; only fail if a bit is actually
+			// needed past the end of the available stream, not merely
+			// because a fully-consumed 32-bit word has been delivered.
 			if (!ash_feed (br))
 				return false;
 		}
-		else
-			br->word <<= 1;
+		val = val << 1 | br->word >> 31;
+		br->word <<= 1;
+		br->used--;
 	}
 	*value = val;
 	return true;
