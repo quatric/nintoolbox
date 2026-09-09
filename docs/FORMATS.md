@@ -91,6 +91,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **SSZL / VCRA** | Wii / Compression & Archive | ✅ | ✅ | Namco Museum Remix container |
 | **SZE** | Switch / Encrypted Archive | ✅ | ✅ | F-Zero 99 AES-encrypted container |
 | **TEX** | Wii / Texture | ✅ | ✅ | Monster Games GX texture |
+| **TMPK** | Wii U / Archive | ✅ | ✅ | *The Legend of Zelda: Twilight Princess HD* flat archive. Verified against the retail `content/Shaders.pack.gz`: a plain gzip stream wraps a 10,402,512-byte TMPK archive that extracts to exactly 1568 non-empty members |
 | **WARC** | Wii U / Archive | ✅ | ✅ | Game & Wario flat archive |
 | **WUD / WUX** | Wii U / Disc Image | ✅ | ✅ | Wii U disc extraction & compression |
 | **Yay0 / Yaz0** | Compression | ✅ | ✅ | Nintendo standard LZ77 compression |

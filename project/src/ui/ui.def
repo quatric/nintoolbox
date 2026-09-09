@@ -1847,6 +1847,10 @@
 	"If creating a compressed file, create a Zstandard (ZSTD) compatible" \
 	" file." )
 
+#:def_opt( "LZ4", "lz4", "G", \
+	"", \
+	"If creating a compressed file, create a LZ4 compatible file." )
+
 #:def_opt( "CYLZ", "cylz", "G", \
 	"", \
 	"If creating a compressed file, force YLZ compression (YAZ0 file" \

@@ -156,6 +156,25 @@ static ccp resolve_7z (void)
 	return 0;
 }
 
+// RAR is a proprietary compression format -- this project has no decoder
+// of its own for it and never will, so it always shells out. p7zip's
+// bundled RAR plugin is frequently outdated or missing RAR5 support
+// entirely; RARLab's own "unrar" freeware extractor (not open source, but
+// freely redistributable for extraction) handles both reliably where 7z's
+// plugin doesn't. Tried only for RAR specifically -- resolve_7z() above
+// still governs every other archive type this same passthrough serves
+// (.7z/.tar/.tgz/.tbz2/.txz/.gz), where a working 7z/7za install stays
+// preferred and "unrar" would not even understand the format.
+static ccp resolve_rar (void)
+{
+	if (opt_with_7z && *opt_with_7z)
+		return find_program (opt_with_7z);
+	ccp found = find_program ("unrar");
+	if (found)
+		return found;
+	return resolve_7z ();
+}
+
 // Spawn a program with ARGV (NULL-terminated).  ARGV[0] is used as path.
 // STDOUT/STDERR are inherited so the user sees the tool's own messages.
 // Returns the exit code or 127 on exec failure (like a shell).
@@ -235,9 +254,9 @@ static enumError passthru_media (
 }
 
 static enumError passthru_7z (
-	ccp src, ccp basedir, ccp stage, char *staged_dir, uint staged_dir_size)
+	ccp src, ccp basedir, ccp stage, char *staged_dir, uint staged_dir_size, bool is_rar)
 {
-	ccp tool = resolve_7z ();
+	ccp tool = is_rar ? resolve_rar () : resolve_7z ();
 	if (!tool || !*tool)
 	{
 		*staged_dir = 0;
@@ -261,7 +280,20 @@ static enumError passthru_7z (
 	char *argv[10];
 	int argc = 0;
 	argv[argc++] = (char *)tool;
-	if (strstr (tool, "unar"))
+	if (strstr (tool, "unrar"))
+	{
+		// unrar takes the destination as a bare trailing path (trailing
+		// slash required so it's unambiguously a directory, not an
+		// output filename) rather than a "-o"-prefixed flag like 7z, and
+		// "x" extracts with full stored paths the same way "7z x" does.
+		argv[argc++] = "x";
+		argv[argc++] = "-y";
+		argv[argc++] = (char *)src;
+		snprintf (out_arg, sizeof (out_arg), "%s/", stage);
+		argv[argc++] = out_arg;
+		argv[argc] = 0;
+	}
+	else if (strstr (tool, "unar"))
 	{
 		argv[argc++] = "-o";
 		argv[argc++] = (char *)stage;
@@ -2243,7 +2275,7 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 	// above rather than adding a second, redundant zlib/gzip path here.
 	bool is_gzip_magic = head[0] == 0x1f && head[1] == 0x8b && head[2] == 0x08;
 	if (is_7z_magic || is_rar_magic || is_tar_magic || is_gzip_magic)
-		return passthru_7z (src, basedir, stage, staged_dir, staged_dir_size);
+		return passthru_7z (src, basedir, stage, staged_dir, staged_dir_size, is_rar_magic);
 
 	// ----- claimed by extension alone (weak path only) -----
 
@@ -2285,7 +2317,7 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 		&& (is_ext (src, ".7z") || is_ext (src, ".rar") || is_ext (src, ".cb7")
 			|| is_ext (src, ".tar") || is_ext (src, ".tgz") || is_ext (src, ".tbz2")
 			|| is_ext (src, ".txz") || is_ext (src, ".gz")))
-		return passthru_7z (src, basedir, stage, staged_dir, staged_dir_size);
+		return passthru_7z (src, basedir, stage, staged_dir, staged_dir_size, is_ext (src, ".rar"));
 
 	// Media files (THP, Mobiclip, BRSTM, BCSTM, BFSTM, BNS, BTSND, AST, DSP, HVQM4, etc.)
 	bool is_thp = !memcmp (head, "THP\0", 4) || (!strong_only && is_ext (src, ".thp"));
