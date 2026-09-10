@@ -1195,6 +1195,154 @@ static void gm_visit (void *vctx, const wiiu_fst_t *fst, uint idx, ccp full_path
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+///////////////	    rebuild data for XCREATE (lossless)		///////////////
+///////////////////////////////////////////////////////////////////////////////
+
+// The exploded file tree above is lossy: it drops the pre-TOC disc header, the
+// tickets/TMDs and every partition's FST/hash-tree layout, so it can not be
+// turned back into a byte-exact image.  To make `wit XCREATE dir out.wud`
+// possible anyway, extraction also drops a `.wud-rebuild/` sidecar next to the
+// tree:
+//
+//   meta.txt        image_size / sector_size / partition list (offset,size,name)
+//   head.bin        image bytes [0 .. first partition), verbatim (still on-disc)
+//   part<i>.dec     partition <i>, disc-key decrypted (zero IV per 0x8000)
+//
+// XCreateWiiU() re-encrypts each part<i>.dec with the disc key, lays it back at
+// its recorded offset behind head.bin and WUX/WUD-packs the result.  AES-CBC
+// over whole 0x8000 clusters is an exact inverse, so the round trip reproduces
+// the original image bit for bit.  Set $WIIU_NO_REBUILD_DATA to skip the
+// sidecar (it is about as large as the decrypted image).
+
+#define WIIU_REBUILD_DIR ".wud-rebuild"
+
+typedef struct wiiu_rpart_t
+{
+	char name[0x30];
+	u64 offset;
+	u64 size;
+} wiiu_rpart_t;
+
+static int cmp_rpart (const void *a, const void *b)
+{
+	const u64 oa = ((const wiiu_rpart_t *)a)->offset;
+	const u64 ob = ((const wiiu_rpart_t *)b)->offset;
+	return oa < ob ? -1 : oa > ob ? 1 : 0;
+}
+
+static enumError write_wiiu_rebuild_data (wiiu_src_t *src, const aes_key_t *akey,
+	const wiiu_part_t *part_list, uint n_part, u64 image_size, u32 sector_size, ccp dest)
+{
+	if (!n_part)
+		return ERROR0 (ERR_INVALID_DATA, "No partitions to record for rebuild\n");
+
+	wiiu_rpart_t *part = CALLOC (n_part, sizeof (*part));
+	for (uint i = 0; i < n_part; i++)
+	{
+		StringCopyS (part[i].name, sizeof (part[i].name), part_list[i].name);
+		part[i].offset = part_list[i].offset;
+	}
+	qsort (part, n_part, sizeof (*part), cmp_rpart);
+	for (uint i = 0; i < n_part; i++)
+	{
+		const u64 end = i + 1 < n_part ? part[i + 1].offset : image_size;
+		if (end < part[i].offset)
+		{
+			FREE (part);
+			return ERROR0 (ERR_INVALID_DATA, "Partition %s runs past the next one\n", part[i].name);
+		}
+		part[i].size = end - part[i].offset;
+	}
+
+	char dir[PATH_MAX], path[PATH_MAX];
+	PathCatPP (dir, sizeof (dir), dest, WIIU_REBUILD_DIR);
+	if (CreatePath (dir, true))
+	{
+		FREE (part);
+		return ERROR1 (ERR_CANT_CREATE, "Can't create directory: %s\n", dir);
+	}
+
+	//--- meta.txt
+
+	PathCatPP (path, sizeof (path), dir, "meta.txt");
+	FILE *mf = fopen (path, "wb");
+	if (!mf)
+	{
+		FREE (part);
+		return ERROR1 (ERR_CANT_CREATE, "Can't create file: %s\n", path);
+	}
+	fprintf (mf, "image_size %llu\n", (unsigned long long)image_size);
+	fprintf (mf, "sector_size %u\n", sector_size);
+	fprintf (mf, "part_count %u\n", n_part);
+	for (uint i = 0; i < n_part; i++)
+		fprintf (mf, "part %u %llu %llu %s\n", i, (unsigned long long)part[i].offset,
+			(unsigned long long)part[i].size, part[i].name);
+	const bool meta_ok = !ferror (mf);
+	fclose (mf);
+	if (!meta_ok)
+	{
+		FREE (part);
+		return ERROR1 (ERR_WRITE_FAILED, "Write failed: %s\n", path);
+	}
+
+	//--- head.bin: everything before the first partition, verbatim
+
+	const u64 head_size = part[0].offset;
+	PathCatPP (path, sizeof (path), dir, "head.bin");
+	FILE *hf = fopen (path, "wb");
+	if (!hf)
+	{
+		FREE (part);
+		return ERROR1 (ERR_CANT_CREATE, "Can't create file: %s\n", path);
+	}
+	enumError err = ERR_OK;
+	{
+		u8 *buf = MALLOC (WIIU_XFER_SIZE);
+		u64 done = 0;
+		while (done < head_size && !err)
+		{
+			const u64 rest = head_size - done;
+			const size_t now = rest < WIIU_XFER_SIZE ? (size_t)rest : WIIU_XFER_SIZE;
+			src->offset = done;
+			err = read_src (src, buf, now);
+			if (!err && fwrite (buf, 1, now, hf) != now)
+				err = ERROR1 (ERR_WRITE_FAILED, "Write failed: %s\n", path);
+			done += now;
+		}
+		FREE (buf);
+	}
+	fclose (hf);
+	if (err)
+	{
+		FREE (part);
+		return err;
+	}
+
+	//--- part<i>.dec: each partition, disc-key decrypted
+
+	if (verbose >= 0)
+		printf ("  rebuild data -> %s (set $WIIU_NO_REBUILD_DATA to skip)\n", dir);
+
+	for (uint i = 0; i < n_part && !err; i++)
+	{
+		snprintf (path, sizeof (path), "%s/part%u.dec", dir, i);
+		FILE *pf = fopen (path, "wb");
+		if (!pf)
+		{
+			err = ERROR1 (ERR_CANT_CREATE, "Can't create file: %s\n", path);
+			break;
+		}
+		err = decrypt_partition (src, part[i].offset, part[i].size, akey, pf);
+		fclose (pf);
+		if (err)
+			unlink (path);
+	}
+
+	FREE (part);
+	return err;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 
 enumError XExtractWiiU (ccp source, xformat_t format, ccp dest)
 {
@@ -1225,6 +1373,20 @@ enumError XExtractWiiU (ccp source, xformat_t format, ccp dest)
 		FREE (part_list);
 		close_src (&src);
 		return ERROR1 (ERR_CANT_CREATE, "Can't create directory: %s\n", dest);
+	}
+
+	// Byte-exact rebuild sidecar (see write_wiiu_rebuild_data); opt out with
+	// $WIIU_NO_REBUILD_DATA.
+	if (!getenv ("WIIU_NO_REBUILD_DATA"))
+	{
+		err = write_wiiu_rebuild_data (&src, &akey, part_list, n_part, src.image_size,
+			src.is_wux ? src.wux.sector_size : 0, dest);
+		if (err)
+		{
+			FREE (part_list);
+			close_src (&src);
+			return err;
+		}
 	}
 
 	// Pass 1: the SI partition carries every GM partition's title.tik/tmd/cert.
@@ -1379,6 +1541,190 @@ enumError XExtractWiiU (ccp source, xformat_t format, ccp dest)
 	FREE (sctx.list);
 	FREE (part_list);
 	close_src (&src);
+	return err;
+}
+
+//
+///////////////////////////////////////////////////////////////////////////////
+///////////////			   XCREATE			///////////////
+///////////////////////////////////////////////////////////////////////////////
+
+// Rebuild a byte-exact .wud/.wux from the `.wud-rebuild/` sidecar that
+// XExtractWiiU wrote.  Needs the same disc key extraction used (WIIU_DISC_KEY
+// or a "<source>.key" sidecar file).
+
+typedef struct wiiu_out_t
+{
+	FILE *f;
+	WUX_t *wux;
+	bool is_wux;
+} wiiu_out_t;
+
+static enumError wiiu_out_put (wiiu_out_t *o, const void *data, size_t size)
+{
+	if (o->is_wux)
+		return WriteWUX (o->wux, data, size);
+	return fwrite (data, 1, size, o->f) == size ? ERR_OK
+												: ERROR1 (ERR_WRITE_FAILED, "Write failed\n");
+}
+
+enumError XCreateWiiU (ccp source, ccp dest, xformat_t format)
+{
+	char dir[PATH_MAX], path[PATH_MAX];
+	PathCatPP (dir, sizeof (dir), source, WIIU_REBUILD_DIR);
+
+	PathCatPP (path, sizeof (path), dir, "meta.txt");
+	FILE *mf = fopen (path, "rb");
+	if (!mf)
+		return ERROR0 (ERR_CANT_OPEN,
+			"No rebuild data in %s.\nRe-extract the image without $WIIU_NO_REBUILD_DATA first"
+			" (expected %s).\n",
+			source, path);
+
+	u64 image_size = 0;
+	u32 sector_size = 0;
+	uint n_part = 0;
+	wiiu_rpart_t part[64];
+	memset (part, 0, sizeof (part));
+
+	char line[PATH_MAX];
+	uint got_part = 0;
+	while (fgets (line, sizeof (line), mf))
+	{
+		unsigned long long a, b;
+		uint idx;
+		char nm[0x30];
+		if (sscanf (line, "image_size %llu", &a) == 1)
+			image_size = a;
+		else if (sscanf (line, "sector_size %u", &idx) == 1)
+			sector_size = idx;
+		else if (sscanf (line, "part_count %u", &idx) == 1)
+			n_part = idx;
+		else if (sscanf (line, "part %u %llu %llu %47s", &idx, &a, &b, nm) == 4 && idx < 64)
+		{
+			part[idx].offset = a;
+			part[idx].size = b;
+			StringCopyS (part[idx].name, sizeof (part[idx].name), nm);
+			if (idx + 1 > got_part)
+				got_part = idx + 1;
+		}
+	}
+	fclose (mf);
+
+	if (!image_size || !n_part || n_part > 64 || got_part != n_part)
+		return ERROR0 (ERR_INVALID_DATA, "Corrupt rebuild meta.txt: %s\n", path);
+	qsort (part, n_part, sizeof (part[0]), cmp_rpart);
+
+	u8 disc_key[16];
+	enumError err = load_disc_key (source, disc_key);
+	if (err)
+		return err;
+	aes_key_t akey;
+	wd_aes_set_key (&akey, disc_key);
+
+	FILE *out = fopen (dest, format == XF_WUX ? "w+b" : "wb");
+	if (!out)
+		return ERROR1 (ERR_CANT_CREATE, "Can't create file: %s\n", dest);
+
+	WUX_t wux;
+	InitializeWUX (&wux);
+	wiiu_out_t o = { .f = out, .wux = &wux, .is_wux = format == XF_WUX };
+	if (o.is_wux && (err = OpenWriteWUX (&wux, out, dest, image_size, sector_size)))
+		goto abort;
+
+	//--- head.bin, verbatim
+
+	PathCatPP (path, sizeof (path), dir, "head.bin");
+	{
+		FILE *hf = fopen (path, "rb");
+		struct stat st;
+		if (!hf || fstat (fileno (hf), &st))
+		{
+			if (hf)
+				fclose (hf);
+			err = ERROR1 (ERR_CANT_OPEN, "Can't open file: %s\n", path);
+			goto abort;
+		}
+		if ((u64)st.st_size != part[0].offset)
+		{
+			fclose (hf);
+			err = ERROR0 (ERR_INVALID_DATA,
+				"head.bin is %llu bytes but the first partition starts at %llu\n",
+				(unsigned long long)st.st_size, (unsigned long long)part[0].offset);
+			goto abort;
+		}
+		u8 *buf = MALLOC (WIIU_XFER_SIZE);
+		size_t n;
+		while ((n = fread (buf, 1, WIIU_XFER_SIZE, hf)) > 0 && !err)
+			err = wiiu_out_put (&o, buf, n);
+		FREE (buf);
+		fclose (hf);
+		if (err)
+			goto abort;
+	}
+
+	//--- each partition, re-encrypted with the disc key
+
+	static const u8 zero_iv[16] = { 0 };
+	u64 pos = part[0].offset;
+	for (uint i = 0; i < n_part && !err; i++)
+	{
+		if (pos != part[i].offset)
+		{
+			err = ERROR0 (ERR_INVALID_DATA, "Partition %s: gap at 0x%llx (expected 0x%llx)\n",
+				part[i].name, (unsigned long long)pos, (unsigned long long)part[i].offset);
+			break;
+		}
+		snprintf (path, sizeof (path), "%s/part%u.dec", dir, i);
+		FILE *pf = fopen (path, "rb");
+		if (!pf)
+		{
+			err = ERROR1 (ERR_CANT_OPEN, "Can't open file: %s\n", path);
+			break;
+		}
+
+		u8 *plain = MALLOC (WIIU_SECTOR_SIZE);
+		u8 *enc = MALLOC (WIIU_SECTOR_SIZE);
+		u64 done = 0;
+		while (done < part[i].size && !err)
+		{
+			const u64 rest = part[i].size - done;
+			const size_t now = rest < WIIU_SECTOR_SIZE ? (size_t)rest : WIIU_SECTOR_SIZE;
+			if (fread (plain, 1, now, pf) != now)
+			{
+				err = ERROR1 (ERR_READ_FAILED, "Short read: %s\n", path);
+				break;
+			}
+			if (now < WIIU_SECTOR_SIZE)
+				memset (plain + now, 0, WIIU_SECTOR_SIZE - now);
+			wd_aes_encrypt (&akey, zero_iv, plain, enc, WIIU_SECTOR_SIZE);
+			err = wiiu_out_put (&o, enc, now);
+			done += now;
+		}
+		FREE (plain);
+		FREE (enc);
+		fclose (pf);
+		pos += part[i].size;
+	}
+	if (!err && pos != image_size)
+		err = ERROR0 (ERR_INVALID_DATA, "Rebuilt %llu bytes, image should be %llu\n",
+			(unsigned long long)pos, (unsigned long long)image_size);
+
+	if (!err && o.is_wux)
+		err = TermWriteWUX (&wux);
+
+abort:
+	ResetWUX (&wux);
+	fclose (out);
+	if (err)
+		unlink (dest);
+	else if (verbose >= 0)
+	{
+		struct stat st;
+		if (!stat (dest, &st))
+			printf ("  %s created: %llu MiB (image %llu MiB)\n", xformat_info[format].name,
+				(u64)st.st_size / MiB, image_size / MiB);
+	}
 	return err;
 }
 

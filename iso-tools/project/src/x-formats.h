@@ -55,6 +55,7 @@
 enumError XInfoWiiU (ccp source, xformat_t format);
 enumError XConvertWiiU (ccp source, xformat_t src_format, ccp dest, xformat_t dest_format);
 enumError XExtractWiiU (ccp source, xformat_t format, ccp dest);
+enumError XCreateWiiU (ccp source, ccp dest, xformat_t format); // dir -> .wud/.wux
 
 //--- Nintendo DS (x-nds.c)
 
@@ -67,6 +68,12 @@ enumError XCreateNDS (ccp source, ccp dest);
 enumError XInfoWAD (ccp source);
 enumError XExtractWAD (ccp source, ccp dest);
 enumError XCreateWAD (ccp source, ccp dest);
+
+//--- Wii U "Wii Virtual Console" NFS content (x-nfs.c)
+
+enumError XInfoNFS (ccp source);
+enumError XExtractNFS (ccp source, ccp dest); // nfs -> iso
+enumError XCreateNFS (ccp source, ccp dest); // iso -> nfs
 
 //--- NKit restore: GameCube (x-nkit.c) and Wii (x-nkit-wii.c)
 

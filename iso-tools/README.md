@@ -40,6 +40,7 @@ them into that pipeline they get their own four commands — `XINFO`, `XEXTRACT`
 | BrawlBuilder | Mod / Disc Patching | ✅ | ✅ | Brawl/PW4/PMEX code-mod pipeline: PatchFile injection, Gecko codes, module relocation via `wit BRAWLBUILDER` |
 | ISO / WDF / CISO / WBFS / WIA / GCZ / FST | Disc image | ✅ | ✅ | Upstream WIT commands |
 | NDS | Disc image | ✅ | ✅ | DS/DSi; full file system, both CPU binaries, overlays and banner via `XINFO`, `XEXTRACT` and `XCREATE` |
+| NFS (`hif_*.nfs`) | Wii-VC content | ✅ | ✅ | Wii U "Wii Virtual Console" content; `XEXTRACT` rebuilds a Dolphin-loadable Wii ISO, `XCREATE` rebuilds the `.nfs` set (port of nfs2iso2nfs). Needs the per-title `htk` key; see below |
 | NKit (`.nkit.iso`) | Disc image | ✅ | ⛔ | Restore via `XCONVERT`; Wii is byte exact against the header CRC32; GameCube is implemented but still unverified against a real sample |
 | Riivolution | Mod / Disc Patching | ✅ | ✅ | Full XML spec: file/folder replacement, DOL memory patching, dynamic sections, variable substitution, multi-choice selection via `wit RIIVOLUTION` |
 | RVZ | Disc image | ✅ | ✅ | Dolphin's WIA derivative; all normal WIT read/write commands; Zstandard, sub-2 MiB chunks and losslessly packed pseudo-random padding on decode; encoding writes plain zstd-compressed groups without Dolphin's junk-data repacking (still spec-valid, larger output) |
@@ -127,6 +128,41 @@ thing that can tell you the key was right.  `XCREATE` re-encrypts them, updates
 the TMD sizes and hashes, and fake signs the TMD — but only if a content
 actually changed, so extracting and repacking an untouched WAD gives back the
 original file byte for byte and a genuinely signed title keeps its signature.
+
+### Wii Virtual Console (NFS)
+
+The Wii U downloads its "Wii Virtual Console" games as a set of `hif_000000.nfs`,
+`hif_000001.nfs`, … files (in the title's `content/` directory) plus a
+`rvlt.tik` / `rvlt.tmd` pair.  This is a port of
+[nfs2iso2nfs](https://github.com/sabykos/nfs2iso2nfs).
+
+```
+wit XINFO    content/hif_000000.nfs
+wit XEXTRACT content/hif_000000.nfs game.iso          # NFS  -> Wii ISO
+wit XCREATE  game.iso  out/hif_000000.nfs             # Wii ISO -> NFS set
+```
+
+`XEXTRACT` peels off the outer AES layer, expands the sparse "EGGS" mapping and
+re-encrypts each game partition with the title key from its own ticket, so the
+result is a standard, Dolphin-loadable Wii ISO.  `XCREATE` reverses every step
+and writes the `hif_*.nfs` files (split at 250 MiB, header on the first one)
+into the directory of the named file.
+
+The per-title outer key ("htk", normally shipped as `code/htk.bin`) is **not**
+built in.  It is looked up, first hit wins, as:
+
+* `$WIT_NFS_KEY` — 32 hex digits, or a path to a 16-byte key file;
+* `htk.bin`, `code/htk.bin` or `../code/htk.bin` next to the `.nfs` files
+  (extract) or next to the source ISO and the output directory (create);
+* `./htk.bin`.
+
+The Wii common key needed for the partition layer is the one already built into
+`libwbfs`, so no `wii_common_key.bin` file is required.
+
+On `XCREATE`, `wit` also patches `fw.img`'s fakesign hash check in place (same
+spots and same idempotent one-byte edit as nfs2iso2nfs) when it finds one at
+`$WIT_NFS_FWIMG` or `fw.img` / `code/fw.img` / `../code/fw.img` near the output
+or source.  Set `$WIT_NFS_LEGIT` to skip that entirely.
 
 ### NKit
 

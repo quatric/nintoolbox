@@ -54,10 +54,11 @@
 const xformat_info_t xformat_info[XF__N] = {
 	{ XF_UNKNOWN, "-", "", "unknown container", 0, 0, 0 },
 
-	{ XF_WUD, "WUD", ".wud", "Wii U disc image", 1, 0, 1 },
-	{ XF_WUX, "WUX", ".wux", "Wii U disc image, sparse", 1, 0, 1 },
+	{ XF_WUD, "WUD", ".wud", "Wii U disc image", 1, 1, 1 },
+	{ XF_WUX, "WUX", ".wux", "Wii U disc image, sparse", 1, 1, 1 },
 	{ XF_NDS, "NDS", ".nds", "Nintendo DS/DSi cartridge", 1, 1, 0 },
 	{ XF_WAD, "WAD", ".wad", "installable Wii title", 1, 1, 0 },
+	{ XF_NFS, "NFS", ".nfs", "Wii U Wii-VC content <-> Wii ISO", 1, 1, 0 },
 	{ XF_CCI, "CCI", ".3ds", "3DS cartridge image", 1, 0, 0 },
 	{ XF_CIA, "CIA", ".cia", "3DS installable title", 1, 0, 0 },
 	{ XF_XCI, "XCI", ".xci", "Switch cartridge image", 1, 0, 0 },
@@ -145,6 +146,13 @@ xformat_t AnalyzeXFormat (const void *data, // valid pointer to the file start
 		if (type == 0x49730000 || type == 0x69620000) // 'Is\0\0' / 'ib\0\0'
 			return XF_WAD;
 	}
+
+	//--- Wii U "Wii Virtual Console" NFS content
+	// hif_000000.nfs opens with the "EGGS" header; the other hif_*.nfs have no
+	// magic and are only meaningful alongside the first one.
+
+	if (be32 (d) == 0x45474753) // "EGGS"
+		return XF_NFS;
 
 	//--- Nintendo DS
 	// No magic either.  The header holds a CRC16 over the 156 byte Nintendo
@@ -239,6 +247,9 @@ enumError XInfo (ccp source)
 		case XF_WAD:
 			return XInfoWAD (source);
 
+		case XF_NFS:
+			return XInfoNFS (source);
+
 		case XF_CCI:
 			return XInfoCCI (source);
 
@@ -283,6 +294,8 @@ enumError XExtract (ccp source, ccp dest)
 			return XExtractNDS (source, dest);
 		case XF_WAD:
 			return XExtractWAD (source, dest);
+		case XF_NFS:
+			return XExtractNFS (source, dest);
 		case XF_CCI:
 			return XExtractCCI (source, dest);
 		case XF_CIA:
@@ -321,6 +334,11 @@ enumError XCreate (ccp source, ccp dest, xformat_t format)
 			return XCreateNDS (source, dest);
 		case XF_WAD:
 			return XCreateWAD (source, dest);
+		case XF_NFS:
+			return XCreateNFS (source, dest);
+		case XF_WUD:
+		case XF_WUX:
+			return XCreateWiiU (source, dest, format);
 		default:
 			return ERROR0 (ERR_INTERNAL, 0);
 	}
