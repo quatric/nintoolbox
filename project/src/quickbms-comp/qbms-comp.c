@@ -82,6 +82,27 @@ extern int lzfx_decompress ( const void *ibuf, unsigned int ilen, void *obuf, un
 // one QuickBMS links (MP_U32 == unsigned int, MP_U8 == unsigned char).
 extern int lzmat_decode ( unsigned char *pbOut, unsigned int *pcbOut, unsigned char *pbIn, unsigned int cbIn );
 
+extern int unsixpack ( unsigned char *in, int insz, unsigned char *out, int outsz );
+extern unsigned int unlzw  ( unsigned char *outbuff, unsigned int maxsize, unsigned char *in, unsigned int insize );
+extern unsigned int unlzwx ( unsigned char *outbuff, unsigned int maxsize, unsigned char *in, unsigned int insize );
+
+// codecs/qbms_lzh8.c -- upstream compression/lzh8_dec.c, function renamed to
+// avoid colliding with the FILE*-based analyze_LZH8() in src/lzh8_dec.c.
+extern int qbms_analyze_LZH8 ( unsigned char *infile, unsigned char *outbuf, int uncompressed_length );
+
+// scexpand.c: QuickBMS calls this for COMTYPE SCPACK / SCPACK0.  The last
+// argument selects the pair table: 1 => first embedded SCPACK table,
+// 0 => table stored in the first 256 bytes of the stream.
+extern int strexpand ( unsigned char *dest, unsigned char *source, int sourcelen,
+	int maxlen, unsigned char *input_pairtable, int input_pairtable_default );
+
+// refpack.c: safe EA RefPack decoder.  skip_header == 0 => parse the 10 FB
+// stream header; success is a 0 return with the byte count in *written.
+extern int refpack_decompress_safe ( const unsigned char *indata, size_t insize,
+	size_t *bytes_read_out, unsigned char *outdata, size_t outsize,
+	size_t *bytes_written_out, unsigned int *compressed_size_out,
+	unsigned int *decompressed_size_out, int skip_header );
+
 //
 // ---------------------------------------------------------------------------
 // COMTYPE table.  Each name maps to a codec kind; the dispatch below turns a
@@ -92,7 +113,8 @@ extern int lzmat_decode ( unsigned char *pbOut, unsigned int *pcbOut, unsigned c
 enum {
 	K_LZSS, K_LZSS0, K_LZARI, K_LZH, K_LZX, K_DMC, K_Q3HUFF, K_SHRINK,
 	K_YUKE_BPE, K_SPLAY, K_FASTLZ, K_SHRINKER, K_SMAZ, K_LZ4X, K_LZFX,
-	K_LZMAT
+	K_LZMAT, K_SIXPACK, K_LZW, K_LZWX, K_LZH8, K_SCPACK, K_SCPACK0,
+	K_REFPACK
 };
 
 typedef struct {
@@ -120,6 +142,16 @@ static const comtype_row_t comtype_table[] = {
 	{ "lz4x",           K_LZ4X     },
 	{ "lzfx",           K_LZFX     },
 	{ "lzmat",          K_LZMAT    },
+	{ "sixpack",        K_SIXPACK  },
+	{ "unlzw",          K_LZW      },
+	{ "lzw",            K_LZW      },
+	{ "unlzwx",         K_LZWX     },
+	{ "lzwx",           K_LZWX     },
+	{ "lzh8",           K_LZH8     },
+	{ "nlzh8",          K_LZH8     },
+	{ "scpack",         K_SCPACK   },
+	{ "scpack0",        K_SCPACK0  },
+	{ "refpack",        K_REFPACK  },
 };
 
 #define COMTYPE_TABLE_LEN ( (int)(sizeof(comtype_table)/sizeof(comtype_table[0])) )
@@ -211,6 +243,42 @@ static long run_codec ( int kind, const unsigned char *src, unsigned int insz,
 			unsigned int olen = dstsz;
 			int rc = lzmat_decode ( dst, &olen, in, insz );
 			return rc == 0 ? (long) olen : -1;
+		}
+
+		case K_SIXPACK:
+			return unsixpack ( in, (int) insz, dst, (int) dstsz );
+
+		case K_LZW:
+		{
+			unsigned int n = unlzw ( dst, dstsz, in, insz );
+			return n > 0 ? (long) n : -1;
+		}
+
+		case K_LZWX:
+		{
+			// unlzwx() consumes a two-byte trailer; guard the subtraction.
+			unsigned int n;
+			if ( insz < 2 )
+				return -1;
+			n = unlzwx ( dst, dstsz, in, insz );
+			return n > 0 ? (long) n : -1;
+		}
+
+		case K_LZH8:
+			return qbms_analyze_LZH8 ( in, dst, (int) dstsz );
+
+		case K_SCPACK:
+			return strexpand ( dst, in, (int) insz, (int) dstsz, NULL, 1 );
+
+		case K_SCPACK0:
+			return strexpand ( dst, in, (int) insz, (int) dstsz, NULL, 0 );
+
+		case K_REFPACK:
+		{
+			size_t written = 0;
+			int rc = refpack_decompress_safe ( in, insz, NULL, dst, dstsz,
+				&written, NULL, NULL, 0 );
+			return rc == 0 ? (long) written : -1;
 		}
 	}
 	return -1;

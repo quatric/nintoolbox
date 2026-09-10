@@ -34,6 +34,14 @@ Files
   lz4x.c              LZ4X (small LZ4-compatible coder, Ilya Muravyov)
   Shrinker.c/.h       Shrinker LZ (Sergey Lyubka)
   smaz.c/.h           SMAZ short-string compressor (Salvatore Sanfilippo)
+  sixpack.c           SIXPACK LZ + adaptive Huffman (Philip G. Gage)
+  unlzw.c             Unix compress(1) / LZW_lib .Z-style LZW decoder
+  unlzwx.c            LZWX variable-width LZW decoder
+  qbms_lzh8.c         Nintendo LZH8 decoder (upstream lzh8_dec.c; entry point
+                      renamed qbms_analyze_LZH8 to avoid clashing with the
+                      FILE*-based analyze_LZH8 in src/lzh8_dec.c)
+  scexpand.c          SCPACK byte-pair "strexpand" decoder (Star Control style)
+  refpack.c           EA RefPack (10 FB) safe decoder
 
 To add another upstream codec: copy its .c/.h here, fix includes so it
 builds standalone, then add a prototype + table row + run_codec() case in
