@@ -344,6 +344,13 @@ enumError ScanJARC (jarc_t *jarc, const u8 *data, size_t size)
 	return EINVAL;
 }
 
-//-----------------------------------------------------------------------------
-///////////////	  QuickBMS-derived flat archive ports		///////////////
-//-----------------------------------------------------------------------------
+void ResetJARC (jarc_t *jarc)
+{
+	if (!jarc)
+		return;
+	if (jarc->entries)
+		FREE (jarc->entries);
+	if (jarc->decomp_buffer)
+		FREE (jarc->decomp_buffer);
+	memset (jarc, 0, sizeof (*jarc));
+}

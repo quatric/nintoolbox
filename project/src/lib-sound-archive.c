@@ -1030,17 +1030,3 @@ enumError CreateSoundArchive (u8 **dest, uint *dest_size, const sound_archive_t 
 	*dest_size = total_size;
 	return ERR_OK;
 }
-
-//-----------------------------------------------------------------------------
-// JARC / jCMP (Ganbarion archive & compression container, Wii / Wii U / 3DS)
-
-void ResetJARC (jarc_t *jarc)
-{
-	if (!jarc)
-		return;
-	if (jarc->entries)
-		FREE (jarc->entries);
-	if (jarc->decomp_buffer)
-		FREE (jarc->decomp_buffer);
-	memset (jarc, 0, sizeof (*jarc));
-}
