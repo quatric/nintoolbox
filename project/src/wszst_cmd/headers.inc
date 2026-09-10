@@ -123,6 +123,7 @@ static ccp opt_parent = 0;
 #include "lib-brres-model.h"
 #include "lib-nsbmd.h"
 #include "lib-kensaku.h"
+#include "lib-wimg.h"
 #include "lib-bfres.h"
 #include "lib-gtx.h"
 #include "lib-vc.h"
