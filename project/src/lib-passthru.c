@@ -2341,32 +2341,45 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 		|| (!strong_only
 			&& (is_ext (src, ".brstm") || is_ext (src, ".bcstm") || is_ext (src, ".bfstm")
 				|| is_ext (src, ".btsnd") || is_ext (src, ".ast") || is_ext (src, ".dsp")));
-	bool is_other_media = !strong_only
-		&& (is_ext (src, ".dpg") || is_ext (src, ".fv") || is_ext (src, ".ppm")
-			|| is_ext (src, ".kwz") || is_ext (src, ".mmstr") || is_ext (src, ".rvid"));
-
-	// .bwav (Switch "BWAV" audio) and .vid (Mobiclip video container) are
-	// claimed by extension only when the header magic confirms a stream the
-	// downstream muxer can actually open -- both extensions are also used by
-	// unrelated formats, and an extension-only claim would hand mobipeg /
-	// ffmpeg a file it cannot decode and abort the whole extraction.
-	bool is_bwav_magic = !memcmp (head, "BWAV", 4);
-	bool is_media_magic = is_bwav_magic || !memcmp (head, "THP\0", 4)
-		|| !memcmp (head, "RSTM", 4) || !memcmp (head, "CSTM", 4)
-		|| !memcmp (head, "FSTM", 4) || !memcmp (head, "BNS ", 4)
-		|| !memcmp (head, "HVQM", 4)
-		|| (head[0] == 'M' && head[1] == 'O' && head[2] == 'C')
-		|| !memcmp (head, "MODS", 4) || !memcmp (head, "VXDS", 4)
-		|| !memcmp (head, "MOFLEX", 6) || !memcmp (head, ".MOC", 4)
+	// The remaining media types share an extension with unrelated data often
+	// enough that claiming them by name alone hands mobipeg a file it cannot
+	// open and aborts the whole extraction. Each is gated on the exact header
+	// signature mobipeg's own demuxer probes for (libavformat/{dpg,fvdec,
+	// ppmflipdec,kwzdec,rvid,brstm}.c in the sibling 'mobipeg' repo):
+	//   .dpg   "DPG0".."DPG4"
+	//   .fv    "FVDS"
+	//   .ppm   "PARA"          (Flipnote Studio animation, not the netpbm image)
+	//   .kwz   "KFH" | "KIC"
+	//   .rvid  "RVID" + version 5
+	//   .bwav  "BWAV" + UTF-16 BOM  (mobipeg routes .bwav through its bfstm
+	//          demuxer, which ignores the tag but requires the 0xFEFF/0xFFFE
+	//          BOM word at offset 4)
+	//   .vid   any Mobiclip container magic (same set as is_mobiclip)
+	// .mmstr has no header magic at all -- mobipeg's gbavideo demuxer probes
+	// it structurally -- so it stays an extension-only claim.
+	const bool bom_ok = !memcmp (head + 4, "\xff\xfe", 2) || !memcmp (head + 4, "\xfe\xff", 2);
+	const bool is_mobiclip_magic
+		= (head[0] == 'M' && head[1] == 'O' && head[2] == 'C') || !memcmp (head, "MODS", 4)
+		|| !memcmp (head, "VXDS", 4) || !memcmp (head, "MOFLEX", 6) || !memcmp (head, ".MOC", 4)
 		|| !memcmp (head, ".MOD", 4) || (head[0] == 0x4C && head[1] == 0x32);
-	bool is_magic_media_ext = !strong_only && is_media_magic
-		&& (is_ext (src, ".bwav") || is_ext (src, ".vid"));
+	const bool is_bwav_magic = !memcmp (head, "BWAV", 4) && bom_ok;
 
-	if (is_bwav_magic)
+	bool is_other_media = !strong_only
+		&& ((is_ext (src, ".dpg") && !memcmp (head, "DPG", 3) && head[3] >= '0' && head[3] <= '4')
+			|| (is_ext (src, ".fv") && !memcmp (head, "FVDS", 4))
+			|| (is_ext (src, ".ppm") && !memcmp (head, "PARA", 4))
+			|| (is_ext (src, ".kwz") && (!memcmp (head, "KFH", 3) || !memcmp (head, "KIC", 3)))
+			|| (is_ext (src, ".rvid") && !memcmp (head, "RVID", 4)
+				&& le32 (head + 4) == 5)
+			|| (is_ext (src, ".bwav") && is_bwav_magic)
+			|| (is_ext (src, ".vid") && is_mobiclip_magic)
+			|| is_ext (src, ".mmstr"));
+
+	// .bwav decodes to a WAV like the other stream-audio siblings.
+	if (is_bwav_magic && is_ext (src, ".bwav"))
 		is_stream_audio = true;
 
-	if (is_thp || is_mobiclip || is_hvqm || is_stream_audio || is_other_media
-		|| is_magic_media_ext)
+	if (is_thp || is_mobiclip || is_hvqm || is_stream_audio || is_other_media)
 	{
 		ccp mobipeg = resolve_mobipeg ();
 		if (mobipeg)
