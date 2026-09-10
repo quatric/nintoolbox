@@ -2345,7 +2345,28 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 		&& (is_ext (src, ".dpg") || is_ext (src, ".fv") || is_ext (src, ".ppm")
 			|| is_ext (src, ".kwz") || is_ext (src, ".mmstr") || is_ext (src, ".rvid"));
 
-	if (is_thp || is_mobiclip || is_hvqm || is_stream_audio || is_other_media)
+	// .bwav (Switch "BWAV" audio) and .vid (Mobiclip video container) are
+	// claimed by extension only when the header magic confirms a stream the
+	// downstream muxer can actually open -- both extensions are also used by
+	// unrelated formats, and an extension-only claim would hand mobipeg /
+	// ffmpeg a file it cannot decode and abort the whole extraction.
+	bool is_bwav_magic = !memcmp (head, "BWAV", 4);
+	bool is_media_magic = is_bwav_magic || !memcmp (head, "THP\0", 4)
+		|| !memcmp (head, "RSTM", 4) || !memcmp (head, "CSTM", 4)
+		|| !memcmp (head, "FSTM", 4) || !memcmp (head, "BNS ", 4)
+		|| !memcmp (head, "HVQM", 4)
+		|| (head[0] == 'M' && head[1] == 'O' && head[2] == 'C')
+		|| !memcmp (head, "MODS", 4) || !memcmp (head, "VXDS", 4)
+		|| !memcmp (head, "MOFLEX", 6) || !memcmp (head, ".MOC", 4)
+		|| !memcmp (head, ".MOD", 4) || (head[0] == 0x4C && head[1] == 0x32);
+	bool is_magic_media_ext = !strong_only && is_media_magic
+		&& (is_ext (src, ".bwav") || is_ext (src, ".vid"));
+
+	if (is_bwav_magic)
+		is_stream_audio = true;
+
+	if (is_thp || is_mobiclip || is_hvqm || is_stream_audio || is_other_media
+		|| is_magic_media_ext)
 	{
 		ccp mobipeg = resolve_mobipeg ();
 		if (mobipeg)

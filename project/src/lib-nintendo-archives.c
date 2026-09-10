@@ -3965,13 +3965,18 @@ static uint camelot_texbank_to_pngs (const u8 *raw, uint size, ccp dest, ccp ste
 	return written;
 }
 
-// Detection is deliberately structural rather than name- or first-byte-based:
-// a Camelot LZ stream only announces itself with a 1 or 2 in byte 0, far too
-// weak on its own (which is why GetNintendoFormat() only accepts it for an
-// explicit .stpl/.camelot name). Requiring the decompressed result to carry
-// the bank magic is the strong signal, and costs one bounded decode.
+// A Camelot LZ stream only announces itself with a 1 or 2 in byte 0, and a
+// texture bank is located by scanning a relocatable module for its signature
+// -- both far too weak to run on autodetect. Even the "decompress, then
+// require the bank magic" guard below still false-matched real archives (a
+// 432 KB Excite Truck U8 came out as "59 textures in 59 banks"). So this is
+// now claimed only for a file the user explicitly named .stpl / .camelot;
+// everything else is left to its own handler.
 enumError ExtractCamelotTexBank (ccp arg, ccp basedir, uint depth)
 {
+	if (!arg || (!strstr (arg, ".stpl") && !strstr (arg, ".camelot")))
+		return ERR_NOTHING_TO_DO;
+
 	u8 *raw = 0;
 	size_t raw_size = 0;
 	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false))
