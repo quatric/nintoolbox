@@ -1485,6 +1485,28 @@ version (mirrored, no sample), VARIABLE/RANDOM MIDI value semantics
 (midpoint/0 documented simplifications), real-RSEQ header shape
 (block-first with legacy fallback; no retail sample to confirm).
 
+## 28. 2026-09-10 — BFSAR Sound->File names were plausible-but-wrong; string stride fixed ✅
+
+`wszst xx` on retail YWW `pj023.bfsar` produced 2448 files with
+convincing names (`0001_STRM_BGM72.bfseq`, ...) -- every one of them
+suspicious on close inspection (a STREAM sound naming an FSEQ file;
+`0800.bfseq` left unnamed despite carrying a real `SD_BGM_MUTYO13`
+sequence). Root cause in `lib-sound-archive.c`'s STRG walk: 8-byte
+record stride where the true layout (same 12-byte
+`{type,offset,size}` records `lib-bfsar.c` already used, string bytes
+at block+offset+24) is 12. Entry 0 resolves either way, so the bug
+was invisible on trivial samples; past it, every lookup aliased onto
+a nearby real string -- wrong file, right-looking name. Verified by
+replicating the exact read path in Python (sound 114's bogus index
+lands on the true `STRM_BGM72` bytes) and by the corrected tree:
+`0001_SD_OK1` (sibling of the file's own `SD_OK2` label),
+`0002_SD_GOAL1` (exact match with its LABL), 2434/2448 names changed.
+Fix is one stride + bounds change; guarded by a pj023-pinned
+regress assertion (`*_SD_GOAL1.bfseq` exists -- absent under the old
+code). FWAR-internal waves needed no work: `0818.bfwar.d/*.bfwav`
+decode to valid 32 kHz WAVs bit-identical to the previous campaign's
+output.
+
 ## Suggested order
 
 1. §2 (mechanical, minutes) + §8 (concrete bug, real user pain).

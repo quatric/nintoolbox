@@ -3688,6 +3688,30 @@ t_bcsar_bfsar(){
       else
         no "BFSAR repack" "$repack_bfsar"
       fi
+      # Sound->File names come from the STRG pool: an 8-byte record stride
+      # here misaligns past entry 0 and aliases plausible-but-wrong names
+      # (12-byte records are the verified layout). pj023.bfsar pins it:
+      # file 2 is SD_GOAL1's sequence (its own LABL agrees); the old code
+      # named it SD_SHOT4_P1 and produced no SD_GOAL1 file at all.
+      case "$(basename "$bfsar_cand")" in
+        pj023.bfsar)
+          if find "$out_bfsar" -type f -name "*_SD_GOAL1.bfseq" 2>/dev/null | grep -q .; then
+            ok "BFSAR sound names (pj023 SD_GOAL1 correctly mapped)"
+          else
+            no "BFSAR sound names" "no SD_GOAL1 sequence in $out_bfsar"
+          fi
+          ;;
+        sample.bfsar)
+          # Same bug, fixture-pinned (runs everywhere): the old stride
+          # named file 0 SE_HTML_ZOOM_UP and left file 1 unnamed.
+          if find "$out_bfsar" -type f -name "0000_SE_APP_START.bfseq" 2>/dev/null | grep -q . \
+            && find "$out_bfsar" -type f -name "0001_SE_COMMON_SELECT.bfseq" 2>/dev/null | grep -q .; then
+            ok "BFSAR sound names (sample fixture correctly mapped)"
+          else
+            no "BFSAR sound names" "misnamed files in $out_bfsar"
+          fi
+          ;;
+      esac
     else
       no "BFSAR extract" "no expected files found in $out_bfsar"
     fi

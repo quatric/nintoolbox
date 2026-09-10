@@ -213,7 +213,13 @@ enumError ScanSoundArchive (sound_archive_t *sar, const u8 *data, size_t size)
 	}
 
 	// Handle CSAR / BFSAR (Sound Archive)
-	// 1. Read String Table if present
+	// 1. Read String Table if present.
+	// Records are 12 bytes ({type, offset, size}; offset relative to the
+	// STRG block, string bytes at block+offset+24 with size including the
+	// NUL) -- verified entry-by-entry on a real Wii U archive (967/967
+	// names resolve to real sound/bank/player labels), matching the
+	// independent STRG walk in lib-bfsar.c. An 8-byte stride here
+	// misaligns past entry 0 and aliases plausible-but-wrong names.
 	char **string_pool = 0;
 	uint n_strings = 0;
 	if (strg_off && strg_size > 16)
@@ -229,12 +235,18 @@ enumError ScanSoundArchive (sound_archive_t *sar, const u8 *data, size_t size)
 				string_pool = CALLOC (n_strings, sizeof (char *));
 				for (uint s = 0; s < n_strings; s++)
 				{
-					s32 s_off = sar_rs32 (str_tab + 4 + s * 8 + 4, be);
-					if (s_off >= 0 && (uint)s_off < strg_size)
+					s32 s_off = sar_rs32 (str_tab + 4 + s * 12 + 4, be);
+					u32 s_sz = sar_r32 (str_tab + 4 + s * 12 + 8, be);
+					if (s_off >= 0 && s_sz > 1 && s_sz < strg_size
+						&& (u64)s_off + 24ull + s_sz <= strg_size)
 					{
-						ccp str_ptr = (ccp)(str_tab + s_off);
-						if (str_ptr < (ccp)(data + strg_off + strg_size))
-							string_pool[s] = STRDUP (str_ptr);
+						ccp str_ptr = (ccp)(data + strg_off + s_off + 24);
+						string_pool[s] = MALLOC (s_sz);
+						if (string_pool[s])
+						{
+							memcpy (string_pool[s], str_ptr, s_sz - 1);
+							string_pool[s][s_sz - 1] = 0;
+						}
 					}
 				}
 			}
