@@ -1,19 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
+// The Nintendo-fork archive formats that once lived here have each been split
+// into their own lib-<format>.c / lib-<format>.h pair. This translation unit
+// is now just an umbrella include so the lib-nintendo-archives.o slot in the
+// build keeps resolving. See lib-nintendo-archives.h.
 #include "lib-nintendo-archives.h"
-#include "lib-archive-util.h"
-#include "lib-nintendo.h"
-#include "lib-image.h" // TPL headers, for re-emitting PTLG textures
-#include "lib-camelot.h"
-#include "lib-yay0.h"
-#include "lib-flim.h"
-#include "lib-szs.h"
-#include "lib-std.h"
-#include "lib-zstd.h"
-#include <string.h>
-
-// ----------------------------------------------------------------------------
-// Repacking / Creation Implementations
-// ----------------------------------------------------------------------------
-
-#include <zlib.h>
-#include <stdlib.h>

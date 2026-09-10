@@ -1,187 +1,44 @@
 // SPDX-License-Identifier: GPL-2.0+
+// Umbrella header. Every archive format that used to be declared here now
+// lives in its own lib-<format>.h / lib-<format>.c pair; this header just
+// re-exports them so existing includers keep working unchanged.
 #ifndef LIB_NINTENDO_ARCHIVES_H
 #define LIB_NINTENDO_ARCHIVES_H 1
 
 #include "types.h"
 #include "lib-nintendo.h"
-#include "lib-ndcubepac.h"
-#include "lib-nus3audio.h"
-#include "lib-camtexbank.h"
-#include "lib-pers.h"
-#include "lib-zdat.h"
-#include "lib-g1t.h"
-#include "lib-ptlg.h"
-#include "lib-sir0.h"
-#include "lib-mtxt.h"
-#include "lib-tvol.h"
-#include "lib-xtx.h"
-#include "lib-romfs.h"
-#include "lib-txtg.h"
-#include "lib-nlgdict.h"
-#include "lib-bars.h"
-#include "lib-gfpak.h"
-#include "lib-wta.h"
-#include "lib-pgdat.h"
-#include "lib-vibs.h"
-#include "lib-pkz.h"
-#include "lib-apak.h"
-#include "lib-nxarc.h"
-#include "lib-tmpk.h"
-#include "lib-mkgpdxpac.h"
-#include "lib-gar.h"
-#include "lib-zlarc.h"
-#include "lib-f9res.h"
-#include "lib-stpk.h"
-#include "lib-pvol.h"
-#include "lib-mdr.h"
-#include "lib-ztab.h"
+
 #include "lib-xpck.h"
-
-// Extract Level-5 3DS/Switch Container Archive (.xc / .xpck / XPCK / XPC2)
-enumError ExtractXPCKArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract Camelot GameCube/Wii Archive Table (.ztab / ZTAB)
-enumError ExtractZTABArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract Dance Dance Revolution Mario Mix Chunk Archive (.mdr)
-enumError ExtractMDRArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract Pikmin 1 & 2 Model/Archive Container (.pvol)
-enumError ExtractPVOLArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract Jump Super Stars / Jump Ultimate Stars DS Archive (.srd / .stpk / STPK)
-enumError ExtractSTPKArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract GameCube Resource Archive (.res / res\n)
-enumError ExtractF9ResArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract NES Remix indieszero Archive (.zlarc)
-enumError ExtractZLARCArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract Grezzo Zelda / Luigi's Mansion 3DS Archive (.zar / .gar / ZAR\x01 / GAR\x02..GAR\x05)
-enumError ExtractGARArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract Mario Kart Arcade GP DX Layout Archive (.pac / pack)
-enumError ExtractMKGPDXPacArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract Twilight Princess HD / Zelda TMPK Archive (.pack / TMPK)
-enumError ExtractTMPKArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract Nintendo Switch NX Archive (.nxarc / RAXN)
-enumError ExtractNXARCArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract Nintendo APAK Archive (.apak / APAK)
-enumError ExtractAPAKArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract Nd Cube Wii U flat container (.bin / "PAC\0", Mario Party 10 /
-// Animal Crossing: amiibo Festival); members are ordinary zlib-compressed data (0x78 0xda header), not encrypted
-enumError ExtractPACArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract PlatinumGames Archive (.pkz / pkz)
-enumError ExtractPKZArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract Nintendo Switch Joy-Con Vibration Archive (.vibs)
-enumError ExtractVIBSArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract PlatinumGames DAT Archive (.dat / .pkz / DAT)
-enumError ExtractPGDATArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract PlatinumGames WT Archive (.wta / WTA )
-enumError ExtractWTAArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract Game Freak Pokemon Archive (.gfpak / GFLXPACK)
-enumError ExtractGFPAKArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract Nintendo Binary Audio Resource Archive (.bars / BARS)
-enumError ExtractBARSArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract Next Level Games Dictionary Archive (.dict / LM2 / LM3 / Punch-Out!!)
-enumError ExtractNLGDictArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract Next Level Games Texture To Go (.txtg / 6PK0)
-enumError ExtractTXTGArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract Nintendo 3DS RomFS Archive (.romfs / IVFC)
-enumError ExtractROMFSArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract Nintendo Switch XTX Texture Container (.xtx / DFvN)
-enumError ExtractXTXArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract Koei Tecmo / Gust Texture Volume Archive (.tvol)
-enumError ExtractTVOLArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract Nintendo Switch MTXT Texture Archive (.mtxt / MTXT)
-enumError ExtractMTXTArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract Pokemon Mystery Dungeon Resource Container (.sir0 / SIR0)
-enumError ExtractSIR0Archive (ccp arg, ccp basedir, uint depth);
-
-// Extract Next Level Games PTLG texture container (.glt / .rlt), as used by
-// Super Mario Strikers (GameCube) and Mario Strikers Charged (Wii). Each
-// texture is written as a standalone TPL, since PTLG stores plain GX pixel
-// data in the same formats TPL wraps.
-enumError ExtractPTLGArchive (ccp arg, ccp basedir, uint depth);
-
-// Decode every texture in a PTLG container to "<hash>.png" in DEST_DIR, the
-// names GLG/RLG models bind their textures by.
-enumError DecodePTLGToPNGDir (const u8 *data, uint size, ccp dest_dir, uint *n_written);
-enumError CreatePTLGArchive (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries, bool is_gc);
-
-// Extract Bandai Namco NUS3AUDIO Audio Archive (.nus3audio / NUS3)
-enumError ExtractNUS3AudioArchive (ccp arg, ccp basedir, uint depth);
-enumError CreateNUS3AudioArchive (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
-
-// Extract a Koei Tecmo G1T texture container to PNGs.
-enumError ExtractG1TArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract a Pokemon Stadium (N64) PERS-SZP container: a small header around
-// a Yay0 stream.
-enumError ExtractPERSFile (ccp arg, ccp basedir, uint depth);
-
-// Extract an Animal Crossing: Pocket Camp .zdat asset container. Each stored
-// file is a Unity asset bundle obfuscated with a single repeated byte; the key
-// is recovered from the bundle's own "UnityFS" signature, so nothing outside
-// the file is needed to read it.
-enumError ExtractZDATArchive (ccp arg, ccp basedir, uint depth);
-
-// Extract a Camelot GX texture bank (Mario Golf / Mario Power Tennis), whether
-// stored raw or wrapped in Camelot's own LZ codec.
-enumError ExtractCamelotTexBank (ccp arg, ccp basedir, uint depth);
-
-// Repack / Create functions
-enumError CreateXPCKArchive (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
-enumError CreateZTABArchive (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
-enumError CreateMDRArchive (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
-enumError CreatePVOLArchive (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
-enumError CreateSTPKArchive (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
-enumError CreateF9ResArchive (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
-enumError CreateZLARCArchive (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
-enumError CreateAPAKArchive (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
-enumError CreateNXARCArchive (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
-enumError CreatePKZArchive (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
-enumError CreateTMPKArchive (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
-enumError CreateVIBSArchive (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
-enumError CreateMTXTArchive (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
-enumError CreateMKGPDXPacArchive (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
-enumError CreateSIR0Archive (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
-enumError CreateGARArchive (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
+#include "lib-ztab.h"
+#include "lib-mdr.h"
+#include "lib-pvol.h"
+#include "lib-stpk.h"
+#include "lib-f9res.h"
+#include "lib-zlarc.h"
+#include "lib-gar.h"
+#include "lib-mkgpdxpac.h"
+#include "lib-tmpk.h"
+#include "lib-nxarc.h"
+#include "lib-apak.h"
+#include "lib-pkz.h"
+#include "lib-vibs.h"
+#include "lib-pgdat.h"
+#include "lib-wta.h"
+#include "lib-gfpak.h"
+#include "lib-bars.h"
+#include "lib-nlgdict.h"
+#include "lib-txtg.h"
+#include "lib-romfs.h"
+#include "lib-xtx.h"
+#include "lib-tvol.h"
+#include "lib-mtxt.h"
+#include "lib-sir0.h"
+#include "lib-ptlg.h"
+#include "lib-g1t.h"
+#include "lib-zdat.h"
+#include "lib-pers.h"
+#include "lib-camtexbank.h"
+#include "lib-nus3audio.h"
+#include "lib-ndcubepac.h"
 
 #endif // LIB_NINTENDO_ARCHIVES_H
