@@ -16,7 +16,18 @@ int CxIsCompressedLZOvl (const unsigned char *src, unsigned int size)
 		|| !memcmp (src, "RARC", 4) || !memcmp (src, "RFNT", 4) || !memcmp (src, "RFNA", 4)
 		|| !memcmp (src, "CFNT", 4) || !memcmp (src, "glTF", 4) || !memcmp (src, "NARC", 4)
 		|| !memcmp (src, "CRAN", 4) || !memcmp (src, "0TSR", 4) || !memcmp (src, "BMD0", 4)
-		|| !memcmp (src, "BTX0", 4))
+		|| !memcmp (src, "BTX0", 4)
+		// LZOvl is raw NDS overlay data with no magic of its own; it is
+		// recognised purely from a plausible trailer, so any well-known
+		// container whose tail bytes happen to satisfy that pattern must be
+		// excluded here.  BWAV (Nintendo binary wave, Splatoon 2 onward and
+		// the Tomodachi Life remake) and its CTR/NX audio siblings have no
+		// leading-'B' magic table entry elsewhere and were being misread as
+		// LZOvl streams.
+		|| !memcmp (src, "BWAV", 4) || !memcmp (src, "FWAV", 4)
+		|| !memcmp (src, "FSTM", 4) || !memcmp (src, "FSTP", 4)
+		|| !memcmp (src, "CWAV", 4) || !memcmp (src, "CSTM", 4)
+		|| !memcmp (src, "FSAR", 4) || !memcmp (src, "BNTX", 4))
 		return 0;
 	const u32 extra = (u32)src[size - 4] | ((u32)src[size - 3] << 8) | ((u32)src[size - 2] << 16)
 		| ((u32)src[size - 1] << 24);
