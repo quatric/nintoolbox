@@ -42,6 +42,20 @@ Files
                       FILE*-based analyze_LZH8 in src/lzh8_dec.c)
   scexpand.c          SCPACK byte-pair "strexpand" decoder (Star Control style)
   refpack.c           EA RefPack (10 FB) safe decoder
+  blast.c/.h          PKWARE DCL "explode" decoder (Mark Adler).  A small
+                      blast_mem2mem() buffer shim was appended for this build;
+                      the decoder body is upstream-verbatim.
+  lzrw1.c lzrw1-a.c   Ross Williams' LZRW1 / LZRW1-A decompressors (need no
+                      working memory)
+  lzrw2.c lzrw3.c     LZRW2 / LZRW3 / LZRW3-A / LZRW5 decompressors.  Their
+  lzrw3-a.c lzrw5.c   ULONG_ALIGN_UP() macro was widened to uintptr_t so the
+                      work-buffer pointer survives on 64-bit; otherwise verbatim.
+  lzrw1kh.c           Kurt Haenen's LZRW1/KH (LZ + RLE) decompressor
+  lzv1.c              Hermann Vogt's LZV1 decompressor
+
+NOTE: the LZRW* and lzrw1kh decoders, like the pre-existing lz4x / sixpack
+entries, do not bound-check their output; qbms-comp.c mitigates this by
+decompressing into a generously over-allocated buffer and retrying on failure.
 
 To add another upstream codec: copy its .c/.h here, fix includes so it
 builds standalone, then add a prototype + table row + run_codec() case in

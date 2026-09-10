@@ -103,6 +103,27 @@ extern int refpack_decompress_safe ( const unsigned char *indata, size_t insize,
 	size_t *bytes_written_out, unsigned int *compressed_size_out,
 	unsigned int *decompressed_size_out, int skip_header );
 
+// blast.c: PKWARE Data Compression Library ("explode") decoder.  The mem2mem
+// wrapper is a wszst addition (see codecs/blast.c); returns bytes or -1.
+extern long blast_mem2mem ( const unsigned char *src, unsigned srclen,
+	unsigned char *dst, unsigned dstcap );
+
+// lzrw*.c: Ross Williams' LZRW family, decompress-only "old" variants. Each is
+// (work_mem, src, src_len, dst, &dst_len) and writes the length back through
+// the last argument. LZRW1/1a ignore work_mem; 2/3/3a/5 need scratch space.
+extern void lzrw1_compress_decompress  ( unsigned char *w, unsigned char *s, unsigned int sl, unsigned char *d, unsigned int *dl );
+extern void lzrw1a_compress_decompress ( unsigned char *w, unsigned char *s, unsigned int sl, unsigned char *d, unsigned int *dl );
+extern void lzrw2_compress_decompress  ( unsigned char *w, unsigned char *s, unsigned int sl, unsigned char *d, unsigned int *dl );
+extern void lzrw3_compress_decompress  ( unsigned char *w, unsigned char *s, unsigned int sl, unsigned char *d, unsigned int *dl );
+extern void lzrw3a_compress_decompress ( unsigned char *w, unsigned char *s, unsigned int sl, unsigned char *d, unsigned int *dl );
+extern void lzrw5_compress_decompress  ( unsigned char *w, unsigned char *s, unsigned int sl, unsigned char *d, unsigned int *dl );
+
+// lzrw1kh.c: Kurt Haenen's LZRW1/KH (LZ + RLE); (src, dst, src_len) -> size.
+extern unsigned int lzrw1kh_Decompression ( unsigned char *src, unsigned char *dst, unsigned int slen );
+
+// lzv1.c: Hermann Vogt's LZV1; (src, dst, in_len, out_len) -> size, 0 on error.
+extern int rLZV1 ( unsigned char *in, unsigned char *out, int ilen, int len );
+
 //
 // ---------------------------------------------------------------------------
 // COMTYPE table.  Each name maps to a codec kind; the dispatch below turns a
@@ -114,7 +135,8 @@ enum {
 	K_LZSS, K_LZSS0, K_LZARI, K_LZH, K_LZX, K_DMC, K_Q3HUFF, K_SHRINK,
 	K_YUKE_BPE, K_SPLAY, K_FASTLZ, K_SHRINKER, K_SMAZ, K_LZ4X, K_LZFX,
 	K_LZMAT, K_SIXPACK, K_LZW, K_LZWX, K_LZH8, K_SCPACK, K_SCPACK0,
-	K_REFPACK
+	K_REFPACK, K_BLAST, K_LZRW1, K_LZRW1A, K_LZRW2, K_LZRW3, K_LZRW3A,
+	K_LZRW5, K_LZRW1KH, K_LZV1
 };
 
 typedef struct {
@@ -152,6 +174,19 @@ static const comtype_row_t comtype_table[] = {
 	{ "scpack",         K_SCPACK   },
 	{ "scpack0",        K_SCPACK0  },
 	{ "refpack",        K_REFPACK  },
+	{ "blast",          K_BLAST    },
+	{ "explode",        K_BLAST    },
+	{ "pkware",         K_BLAST    },
+	{ "pkware_dcl",     K_BLAST    },
+	{ "dcl_implode",    K_BLAST    },
+	{ "lzrw1",          K_LZRW1    },
+	{ "lzrw1a",         K_LZRW1A   },
+	{ "lzrw2",          K_LZRW2    },
+	{ "lzrw3",          K_LZRW3    },
+	{ "lzrw3a",         K_LZRW3A   },
+	{ "lzrw5",          K_LZRW5    },
+	{ "lzrw1kh",        K_LZRW1KH  },
+	{ "lzv1",           K_LZV1     },
 };
 
 #define COMTYPE_TABLE_LEN ( (int)(sizeof(comtype_table)/sizeof(comtype_table[0])) )
@@ -279,6 +314,61 @@ static long run_codec ( int kind, const unsigned char *src, unsigned int insz,
 			int rc = refpack_decompress_safe ( in, insz, NULL, dst, dstsz,
 				&written, NULL, NULL, 0 );
 			return rc == 0 ? (long) written : -1;
+		}
+
+		case K_BLAST:
+			return blast_mem2mem ( src, insz, dst, dstsz );
+
+		case K_LZRW1:
+		{
+			unsigned int dl = dstsz;
+			lzrw1_compress_decompress ( NULL, in, insz, dst, &dl );
+			return dl > 0 && dl <= dstsz ? (long) dl : -1;
+		}
+
+		case K_LZRW1A:
+		{
+			unsigned int dl = dstsz;
+			lzrw1a_compress_decompress ( NULL, in, insz, dst, &dl );
+			return dl > 0 && dl <= dstsz ? (long) dl : -1;
+		}
+
+		case K_LZRW2:
+		case K_LZRW3:
+		case K_LZRW3A:
+		case K_LZRW5:
+		{
+			// Scratch sizes mirror QuickBMS's perform.c (64-bit pointer math).
+			unsigned int wsz =
+				  kind == K_LZRW2  ? 4096u * ( sizeof (void *) + sizeof (unsigned short) ) + 100u
+				: kind == K_LZRW5  ? 786752u
+				:                    4096u * sizeof (void *) + 16u;
+			unsigned char *wrk = calloc ( 1, wsz );
+			if ( !wrk )
+				return -1;
+			unsigned int dl = dstsz;
+			if ( kind == K_LZRW2 )
+				lzrw2_compress_decompress ( wrk, in, insz, dst, &dl );
+			else if ( kind == K_LZRW3 )
+				lzrw3_compress_decompress ( wrk, in, insz, dst, &dl );
+			else if ( kind == K_LZRW3A )
+				lzrw3a_compress_decompress ( wrk, in, insz, dst, &dl );
+			else
+				lzrw5_compress_decompress ( wrk, in, insz, dst, &dl );
+			free ( wrk );
+			return dl > 0 && dl <= dstsz ? (long) dl : -1;
+		}
+
+		case K_LZRW1KH:
+		{
+			unsigned int n = lzrw1kh_Decompression ( in, dst, insz );
+			return n > 0 && n <= dstsz ? (long) n : -1;
+		}
+
+		case K_LZV1:
+		{
+			int n = rLZV1 ( in, dst, (int) insz, (int) dstsz );
+			return n > 0 ? (long) n : -1;
 		}
 	}
 	return -1;
