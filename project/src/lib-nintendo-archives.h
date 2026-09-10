@@ -4,6 +4,7 @@
 
 #include "types.h"
 #include "lib-nintendo.h"
+#include "lib-pgdat.h"
 #include "lib-vibs.h"
 #include "lib-pkz.h"
 #include "lib-apak.h"
