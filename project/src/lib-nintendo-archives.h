@@ -4,6 +4,7 @@
 
 #include "types.h"
 #include "lib-nintendo.h"
+#include "lib-sir0.h"
 #include "lib-mtxt.h"
 #include "lib-tvol.h"
 #include "lib-xtx.h"
