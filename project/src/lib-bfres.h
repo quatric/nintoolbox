@@ -35,4 +35,24 @@ typedef struct {
 
 int ParseBFRESArchive (const uint8_t *data, size_t size, bfres_archive_t *out);
 
+// Wii U BFRES animation entry bodies (FSKA/FSHU/FTXP/FVIS/FSHA/FSCN).
+// Returns the number of parsed animation entries across dictionary slots
+// 2..10 and stores a malloc'd array in *out_entries (free() it; NULL when
+// the count is 0). Each entry carries its class magic, name, frame count
+// (FSCN has none: frames is -1), sub-object count (bones / materials /
+// patterns / targets / vertex-shapes / camera+light+fog), and its curve
+// totals: n_curve as declared, n_curve_ok as validated by
+// bfres_curve_read(). Only structural decode + curve validation -- of
+// these classes only FSKA maps onto node TRS channels for GLB export.
+typedef struct {
+	char cls[8];      // entry block magic, e.g. "FSHU"
+	char name[128];   // entry name from its dict node
+	int32_t frames;   // numFrame, or -1 when the class has none (FSCN)
+	uint32_t n_sub;   // class sub-object count (see above)
+	uint32_t n_curve; // declared curve count
+	uint32_t n_curve_ok; // curves passing bfres_curve_read()
+} bfres_anim_entry_t;
+
+int ParseBFRESAnims (const uint8_t *data, size_t size, bfres_anim_entry_t **out_entries);
+
 #endif
