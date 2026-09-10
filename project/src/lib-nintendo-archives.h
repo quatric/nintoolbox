@@ -4,6 +4,7 @@
 
 #include "types.h"
 #include "lib-nintendo.h"
+#include "lib-gar.h"
 #include "lib-zlarc.h"
 #include "lib-f9res.h"
 #include "lib-stpk.h"
