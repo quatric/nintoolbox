@@ -204,9 +204,10 @@ typedef enum enumOptions
 	OPT_CUT,
 	OPT_ALL,
 	OPT_RAW,
+	OPT_EXPORT_RAW,
 	OPT_SECTIONS,
 
-	OPT__N_SPECIFIC, // == 150
+	OPT__N_SPECIFIC, // == 151
 
 	//----- global options -----
 
@@ -316,7 +317,7 @@ typedef enum enumOptions
 	OPT_NEW,
 	OPT_EXTRACT,
 
-	OPT__N_TOTAL // == 255
+	OPT__N_TOTAL // == 256
 
 } enumOptions;
 
@@ -479,6 +480,7 @@ typedef enum enumOptions
 //	OB_CUT			= 1llu << OPT_CUT,
 //	OB_ALL			= 1llu << OPT_ALL,
 //	OB_RAW			= 1llu << OPT_RAW,
+//	OB_EXPORT_RAW		= 1llu << OPT_EXPORT_RAW,
 //	OB_SECTIONS		= 1llu << OPT_SECTIONS,
 //
 //	//----- group & command options -----

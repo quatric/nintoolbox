@@ -424,8 +424,8 @@ void DumpText (FILE *f, // output file, if NULL: 'pbuf' must be set
 						uint code = 0;
 						switch (text[1])
 						{
-							case '\xab': // «
-							case '\xbb': // »
+							case '\xab': // ï¿½
+							case '\xbb': // ï¿½
 								code = text[1];
 								break;
 						}
@@ -440,11 +440,11 @@ void DumpText (FILE *f, // output file, if NULL: 'pbuf' must be set
 						ccp str = 0;
 						switch (text[1])
 						{
-							case '\xab': // «
+							case '\xab': // ï¿½
 								str = "&raquo;";
 								break;
 
-							case '\xbb': // »
+							case '\xbb': // ï¿½
 								str = "&laquo;";
 								break;
 						}

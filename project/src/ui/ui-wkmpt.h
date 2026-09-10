@@ -567,9 +567,6 @@ typedef enum enumGetOpt
 	GO_EXTRACT,
 	GO_NUMBER,
 	GO_SECTIONS,
-	GO_WITH_UPDATE_PART,
-	GO_EXPORT_MIIS,
-	GO_EXPORT_RAW,
 
 } enumGetOpt;
 

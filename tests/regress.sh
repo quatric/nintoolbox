@@ -3588,14 +3588,11 @@ t_bcsar_bfsar(){
     local sub_bcwav_count; sub_bcwav_count=$(find "$out_bcsar" -type f -iname "*.bcwav" 2>/dev/null | wc -l | tr -d ' ')
     if [ "$cseq_count" -ge 1 ] && [ "$sub_bcwav_count" -ge 1 ]; then
       ok "BCSAR extract + recursive BCWAR ($bcsar_cand)"
-      local first_sub; first_sub=$(find "$out_bcsar" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | head -1)
-      if [ -n "$first_sub" ]; then
-        $B/wszst create "$first_sub" --dest "$repack_bcsar" >/dev/null 2>&1
-        if [ -s "$repack_bcsar" ] && [ "$(head -c4 "$repack_bcsar")" = "CSAR" ]; then
-          ok "BCSAR repack (wszst create -> CSAR)"
-        else
-          no "BCSAR repack" "$repack_bcsar"
-        fi
+      $B/wszst create "$out_bcsar" --dest "$repack_bcsar" >/dev/null 2>&1
+      if [ -s "$repack_bcsar" ] && [ "$(head -c4 "$repack_bcsar")" = "CSAR" ]; then
+        ok "BCSAR repack (wszst create -> CSAR)"
+      else
+        no "BCSAR repack" "$repack_bcsar"
       fi
     else
       no "BCSAR extract" "no expected files found in $out_bcsar"
@@ -3614,14 +3611,11 @@ t_bcsar_bfsar(){
     local sub_bfwav_count; sub_bfwav_count=$(find "$out_bfsar" -type f -iname "*.bfwav" 2>/dev/null | wc -l | tr -d ' ')
     if [ "$fseq_count" -ge 1 ] && [ "$sub_bfwav_count" -ge 1 ]; then
       ok "BFSAR extract + recursive BFWAR ($bfsar_cand)"
-      local first_sub; first_sub=$(find "$out_bfsar" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | head -1)
-      if [ -n "$first_sub" ]; then
-        $B/wszst create "$first_sub" --dest "$repack_bfsar" >/dev/null 2>&1
-        if [ -s "$repack_bfsar" ] && [ "$(head -c4 "$repack_bfsar")" = "FSAR" ]; then
-          ok "BFSAR repack (wszst create -> FSAR)"
-        else
-          no "BFSAR repack" "$repack_bfsar"
-        fi
+      $B/wszst create "$out_bfsar" --dest "$repack_bfsar" >/dev/null 2>&1
+      if [ -s "$repack_bfsar" ] && [ "$(head -c4 "$repack_bfsar")" = "FSAR" ]; then
+        ok "BFSAR repack (wszst create -> FSAR)"
+      else
+        no "BFSAR repack" "$repack_bfsar"
       fi
     else
       no "BFSAR extract" "no expected files found in $out_bfsar"
@@ -5290,14 +5284,13 @@ EOF
   && cmp -s "$d/brsar-a/same.brsar" "$d/brsar-b/same.brsar"; then
     bok "BRSAR same member tree -> identical encoded bytes"
   else bno "BRSAR canonical encoding" "two packs differ"; fi
-  local typ out sub label
+  local typ out label
   for typ in bc bf; do
     [ "$typ" = bc ] && label=BCSAR || label=BFSAR
     out="$d/${typ}sar-extract"
     "$B/wszst" xx "$PWD_PROJECT/../tests/fixtures/sample.${typ}sar" --dest "$out" >/dev/null 2>&1
-    sub=$(find "$out" -mindepth 1 -maxdepth 1 -type d | head -1)
     mkdir -p "$d/${typ}sar-a" "$d/${typ}sar-b"
-    cp -a "$sub" "$d/${typ}sar-a/input"; cp -a "$sub" "$d/${typ}sar-b/input"
+    cp -a "$out" "$d/${typ}sar-a/input"; cp -a "$out" "$d/${typ}sar-b/input"
     if "$B/wszst" CREATE "$d/${typ}sar-a/input" --dest "$d/${typ}sar-a/same.${typ}sar" --overwrite >/dev/null 2>&1 \
     && "$B/wszst" CREATE "$d/${typ}sar-b/input" --dest "$d/${typ}sar-b/same.${typ}sar" --overwrite >/dev/null 2>&1 \
     && cmp -s "$d/${typ}sar-a/same.${typ}sar" "$d/${typ}sar-b/same.${typ}sar"; then

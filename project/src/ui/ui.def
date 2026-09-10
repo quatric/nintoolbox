@@ -2290,6 +2290,12 @@
 	"Extract BRRES sub file in raw mode and do not adjust string pointers" \
 	" and other offsets." )
 
+#:def_opt( "EXPORT_RAW", "export-raw|exportraw", "C", \
+	"", \
+	"Keep raw extraction results on disk. Normal extraction discards" \
+	" staged intermediates and unclaimed decompressed dumps; this option" \
+	" keeps them so they can be inspected or swept up by a later build." )
+
 #:def_opt( "SECTIONS", "sections", "C", \
 	"", \
 	"Print in machine readable sections and parameter lines." )

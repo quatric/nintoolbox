@@ -2807,6 +2807,12 @@
 		"Extract BRRES sub file in raw mode and do not adjust"
 		" string pointers and other offsets." },
 
+  { T_OPT_C,	"EXPORT_RAW",	"export-raw|exportraw",
+		0,
+		"Keep raw extraction results on disk. Normal extraction discards"
+		" staged intermediates and unclaimed decompressed dumps; this option"
+		" keeps them so they can be inspected or swept up by a later build." },
+
   { T_SEP_OPT,	0,0,0,0 }, //----- separator -----
 
   { T_OPT_C,	"SECTIONS",	"sections",
