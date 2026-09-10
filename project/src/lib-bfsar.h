@@ -19,13 +19,18 @@
 //
 // Scope, deliberately: this parses the archive's real *directory* --
 // every Sound/Bank/Player/WaveArchive/SoundGroup/Group entry's index, Id,
-// and real name (via the STRG binary trie) -- but does not yet decode
-// each entry's own internal fields (a sound entry's player/volume/detail
-// reference into its stream/sequence/wave-data sub-structure, a bank's
-// RBNK-shaped instrument tree, etc.). That is real further work on top of
-// this, not a shortcut taken here: the directory alone is already useful
-// (it's what answers "what's in this archive"), and every offset it
-// reports is verified against real bytes.
+// and real name (via the STRG binary trie) -- plus each File entry's
+// pool-relative image offset/size (FileInfo record +16/+20, the embedded
+// InternalFileInfo image reference per the NintendoWare sound archive
+// headers, verified entry-by-entry on a real Wii U file: 821/821
+// non-empty entries resolve to known container magics). It does not yet
+// decode each entry's own internal fields (a sound entry's player/volume/
+// detail reference into its stream/sequence/wave-data sub-structure, a
+// bank's RBNK-shaped instrument tree, etc.). That is real further work on
+// top of this, not a shortcut taken here: the directory plus the file
+// pool map is already useful (it's what answers "what's in this archive"
+// and recovers every asset's bytes), and every offset it reports is
+// verified against real bytes.
 
 typedef enum bfsar_sound_type_t
 {
@@ -43,6 +48,12 @@ typedef struct bfsar_entry_t
 	u32 id; // 0xTTIIIIII (TT: bfsar_sound_type_t, IIIIII: index)
 	bool present; // false: this slot's reference offset was NULL_PTR (-1)
 	ccp name; // resolved via STRG's lookup trie, or NULL if not found
+	// FILE-pool image location (File table only): pool-relative offset and
+	// size from the entry's FileInfo record (+16/+20: the embedded
+	// InternalFileInfo's image reference, per the NintendoWare sound
+	// archive headers). Both 0 when the entry is empty.
+	u32 file_off;
+	u32 file_size;
 } bfsar_entry_t;
 
 typedef struct bfsar_table_t
@@ -63,6 +74,11 @@ typedef struct bfsar_t
 	uint n_table;
 	bfsar_table_t table[BFSAR_MAX_TABLE];
 
+	// Absolute file offset of the FILE block's data pool (block + 8);
+	// entry file_off values are relative to here. 0 when the archive
+	// has no FILE block.
+	u32 file_pool_off;
+
 	// owns the STRG string data referenced by every entry->name above
 	char **strings;
 	uint n_strings;
@@ -70,6 +86,13 @@ typedef struct bfsar_t
 
 enumError ScanBFSAR (bfsar_t *bfsar, const u8 *data, uint size);
 void ResetBFSAR (bfsar_t *bfsar);
+
+// Carve every non-empty File-table entry out of the FILE pool as
+// file%04u<ext> (extension by container magic, .bin fallback) plus a
+// files.txt manifest. Returns ERR_OK and stores the file count in
+// *out_n (may be NULL). Needs the scanned bfsar AND the raw bytes.
+enumError ExtractBFSARFiles (const bfsar_t *bfsar, const u8 *data, uint size,
+	ccp out_dir, uint *out_n);
 
 // Dump as a lossless-structure XML, same convention as wrbnk's DumpRBNK_XML().
 enumError DumpBFSAR_XML (const bfsar_t *bfsar, FILE *f, ccp source_name);

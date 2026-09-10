@@ -1,5 +1,7 @@
 #include "lib-bfsar.h"
 #include <string.h>
+#include <stdio.h>
+#include <sys/stat.h>
 
 static u32 rd_u32e (const u8 *p, bool le)
 {
@@ -175,6 +177,19 @@ static enumError scan_info (const u8 *data, uint size, const u8 *block, bool le,
 			e->name = t->type != BFSAR_TYPE_NONE
 				? lookup_name (leaves, n_leaves, strings, n_strings, e->id)
 				: 0;
+			// File table: entry offsets are relative to the table itself
+			// (ReferenceTable::GetReferedItem adds them to `this`), and
+			// each record carries the embedded InternalFileInfo image
+			// reference at +16/+20 (pool-relative offset + size).
+			if (t->type == BFSAR_TYPE_NONE && e->present && !strcmp (t->type_name, "File"))
+			{
+				const u8 *rec = table + eoff;
+				if ((u64)(rec - data) + 24 <= size)
+				{
+					e->file_off = rd_u32e (rec + 16, le);
+					e->file_size = rd_u32e (rec + 20, le);
+				}
+			}
 		}
 	}
 
@@ -232,6 +247,7 @@ enumError ScanBFSAR (bfsar_t *bfsar, const u8 *data, uint size)
 			ERR_INVALID_DATA, "ScanBFSAR: block table exceeds buffer (%u blocks)\n", n_blocks);
 
 	const u8 *strg = 0, *info = 0;
+	u32 file_pool = 0;
 	for (uint i = 0; i < n_blocks; i++)
 	{
 		const u8 *r = data + 0x14 + 12 * i;
@@ -243,8 +259,10 @@ enumError ScanBFSAR (bfsar_t *bfsar, const u8 *data, uint size)
 			strg = blk;
 		else if (!memcmp (blk, "INFO", 4))
 			info = blk;
-		// FILE block (raw sample-data pool) and any unknown block types are
-		// intentionally not parsed here -- see lib-bfsar.h scope note.
+		else if (!memcmp (blk, "FILE", 4))
+			file_pool = off + 8; // pool images start past the block header
+		// Any unknown block types are intentionally not parsed here --
+		// see lib-bfsar.h scope note.
 	}
 
 	if (!strg)
@@ -269,6 +287,7 @@ enumError ScanBFSAR (bfsar_t *bfsar, const u8 *data, uint size)
 
 	bfsar->is_ctr = is_ctr;
 	bfsar->little_endian = le;
+	bfsar->file_pool_off = file_pool;
 	bfsar->version_major = vmaj;
 	bfsar->version_minor = vmin;
 	bfsar->version_revision = vrev;
@@ -347,4 +366,109 @@ enumError DumpBFSAR_XML (const bfsar_t *bfsar, FILE *f, ccp source_name)
 
 	fprintf (f, "</bfsar>\n");
 	return ERR_OK;
+}
+
+// -----------------------------------------------------------------------------
+/////////////		    FILE pool asset extraction		///////////////
+// -----------------------------------------------------------------------------
+// File entry locations come from ScanBFSAR (pool-relative offset + size per
+// the embedded InternalFileInfo image reference). Extensions follow the
+// same magic convention lib-sound-archive.c uses for these containers.
+
+static ccp bfsar_asset_ext (const u8 *data, size_t size, bool is_ctr)
+{
+	if (size < 4)
+		return ".bin";
+	if (!memcmp (data, "RSEQ", 4))
+		return ".rseq";
+	if (!memcmp (data, "CSEQ", 4))
+		return ".bcseq";
+	if (!memcmp (data, "FSEQ", 4))
+		return ".bfseq";
+	if (!memcmp (data, "SSEQ", 4))
+		return ".sseq";
+	if (!memcmp (data, "CBNK", 4))
+		return ".bcbnk";
+	if (!memcmp (data, "FBNK", 4))
+		return ".bfbnk";
+	if (!memcmp (data, "CWAR", 4))
+		return ".bcwar";
+	if (!memcmp (data, "FWAR", 4))
+		return ".bfwar";
+	if (!memcmp (data, "CWSD", 4))
+		return ".bcwsd";
+	if (!memcmp (data, "FWSD", 4))
+		return ".bfwsd";
+	if (!memcmp (data, "CGRP", 4))
+		return ".bcgrp";
+	if (!memcmp (data, "FGRP", 4))
+		return ".bfgrp";
+	if (!memcmp (data, "CWAV", 4))
+		return ".bcwav";
+	if (!memcmp (data, "FWAV", 4))
+		return ".bfwav";
+	if (!memcmp (data, "CSTM", 4))
+		return ".bcstm";
+	if (!memcmp (data, "FSTM", 4))
+		return ".bfstm";
+	(void)is_ctr;
+	return ".bin";
+}
+
+enumError ExtractBFSARFiles (const bfsar_t *bfsar, const u8 *data, uint size,
+	ccp out_dir, uint *out_n)
+{
+	if (out_n)
+		*out_n = 0;
+	if (!bfsar || !data || !out_dir || !size)
+		return ERROR0 (ERR_INVALID_DATA, "ExtractBFSARFiles: bad arguments\n");
+	if (!bfsar->file_pool_off || (u64)bfsar->file_pool_off > size)
+		return ERROR0 (ERR_INVALID_DATA, "ExtractBFSARFiles: archive has no FILE pool\n");
+
+	const bfsar_table_t *ft = 0;
+	for (uint t = 0; t < bfsar->n_table; t++)
+		if (!strcmp (bfsar->table[t].type_name, "File"))
+		{
+			ft = bfsar->table + t;
+			break;
+		}
+	if (!ft || !ft->n_entry)
+		return ERROR0 (ERR_INVALID_DATA, "ExtractBFSARFiles: archive has no File table\n");
+
+	if (mkdir (out_dir, 0755) && errno != EEXIST)
+		return ERROR0 (ERR_CANT_CREATE, "ExtractBFSARFiles: cannot create %s\n", out_dir);
+
+	uint extracted = 0;
+	char path[PATH_MAX];
+	char manifest[PATH_MAX];
+	snprintf (manifest, sizeof (manifest), "%s/files.txt", out_dir);
+	FILE *mf = fopen (manifest, "w");
+	for (uint i = 0; i < ft->n_entry; i++)
+	{
+		const bfsar_entry_t *e = ft->entry + i;
+		if (!e->present || !e->file_size)
+			continue;
+		u64 start = (u64)bfsar->file_pool_off + e->file_off;
+		if (start + e->file_size > size)
+			continue;
+		const u8 *bytes = data + start;
+		ccp ext = bfsar_asset_ext (bytes, e->file_size, bfsar->is_ctr);
+		snprintf (path, sizeof (path), "%s/file%04u%s", out_dir, i, ext);
+		File_t F;
+		enumError ferr = CreateFileOpt (&F, true, path, false, out_dir);
+		if (F.f && fwrite (bytes, 1, e->file_size, F.f) != e->file_size)
+			ferr = FILEERROR1 (
+				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", e->file_size, path);
+		ResetFile (&F, 0);
+		if (ferr)
+			continue;
+		extracted++;
+		if (mf)
+			fprintf (mf, "%04u %s %u bytes @pool+0x%x\n", i, path, e->file_size, e->file_off);
+	}
+	if (mf)
+		fclose (mf);
+	if (out_n)
+		*out_n = extracted;
+	return extracted ? ERR_OK : ERROR0 (ERR_INVALID_DATA, "ExtractBFSARFiles: no assets extracted\n");
 }
