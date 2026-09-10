@@ -38,6 +38,8 @@ We acknowledge and credit the following tools and authors whose research, format
   * Reference implementations and documentation for Nintendo 2D layout formats (BRLYT, BFLYT, BCLYT, BRLAN, BFLAN, BCLAN).
 * **Sharpii & libWiiSharp** by **Treeki & Leathl**
   * Reference tools for Wii container and system formats (U8, TPL, BMG, DOL, WAD, TMD, Ticket).
+* **nfs2iso2nfs** ([sabykos/nfs2iso2nfs](https://github.com/sabykos/nfs2iso2nfs))
+  * Reference implementation for the Wii U "Wii Virtual Console" NFS/EGGS container; `wit`'s `x-nfs.c` is a direct C port of its `nfs2iso` / `iso2nfs` logic.
 * **QuickBMS** by **Luigi Auriemma** (<http://aluigi.altervista.org/quickbms.htm>)
   * Format documentation, decompression algorithms, and container specifications used for various flat archives.
 * **LibMobiclip / FastVideoDS** by **Gericom**

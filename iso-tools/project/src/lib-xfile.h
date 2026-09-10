@@ -67,6 +67,7 @@ typedef enum xformat_t
 	XF_WUX, // Wii U disc image, sparse (WUX0)
 	XF_NDS, // Nintendo DS / DSi cartridge dump
 	XF_WAD, // installable Wii title (WAD)
+	XF_NFS, // Wii U "Wii Virtual Console" content (hif_*.nfs, "EGGS" header)
 	XF_CCI, // 3DS cartridge dump (NCSD, aka .3ds / .cci)
 	XF_CIA, // 3DS installable title
 	XF_XCI, // Switch cartridge dump

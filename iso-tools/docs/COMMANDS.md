@@ -10,9 +10,9 @@ For the upstream command reference (for standard Wii and GameCube ISO, WBFS, and
 
 | Command | Aliases | Primary Focus | Input Containers | Output Targets | Key Capabilities |
 |---|---|---|---|---|---|
-| **`wit XINFO`** | `XI` | Container Identification & Metadata | WUD, WUX, NDS, WAD, 3DS (CCI/CIA), Switch (XCI/NSP), NKit | Text / Stdout | Fast magic sniffing, partition layout display, container geometry inspection |
-| **`wit XEXTRACT`** | `XX` | Non-Wii Container Unpacking | NDS, WAD, WUD, WUX, CCI, CIA, XCI, NSP | Extracted Directory | Extracts ROM binaries, overlays, decrypted file systems, and installable title contents |
-| **`wit XCREATE`** | `XC` | Non-Wii Container Repacking | Extracted Directory | NDS, WAD | Rebuilds compact NDS cartridges (FNT/FAT generation) and re-encrypts Wii WADs |
+| **`wit XINFO`** | `XI` | Container Identification & Metadata | WUD, WUX, NDS, WAD, NFS, 3DS (CCI/CIA), Switch (XCI/NSP), NKit | Text / Stdout | Fast magic sniffing, partition layout display, container geometry inspection |
+| **`wit XEXTRACT`** | `XX` | Non-Wii Container Unpacking | NDS, WAD, NFS, WUD, WUX, CCI, CIA, XCI, NSP | Extracted Directory (NFS: a Wii ISO) | Extracts ROM binaries, overlays, decrypted file systems, installable title contents; NFS is rebuilt into a Wii ISO |
+| **`wit XCREATE`** | `XC` | Non-Wii Container Repacking | Extracted Directory (NFS: a Wii ISO) | NDS, WAD, NFS | Rebuilds compact NDS cartridges (FNT/FAT generation), re-encrypts Wii WADs, and rebuilds Wii-VC `hif_*.nfs` sets from a Wii ISO |
 | **`wit XCONVERT`** | `XV` | Container Transcoding & NKit Restoration | WUD, WUX, NKit (`.nkit.iso`) | WUD, WUX, ISO (GC / Wii) | Sparse WUX $\leftrightarrow$ WUD conversion; byte-exact 1:1 NKit restore with H0–H3 and CRC validation |
 | **`wit RIIVOLUTION`** | `RIIV`, `RII` | Riivolution Mod Engine & ISO Builder | Disc image (WBFS, ISO, WDF) or FST dir + Mod XML | Patched image (WBFS, ISO, etc.) or patched FST dir | Full XML spec: file/folder replacement, DOL memory patching, dynamic sections, GCT injection |
 | **`wit BRAWLBUILDER`** | `BRAWL-BUILDER`, `BRAWL` | Smash Bros. Brawl Mod Builder | Brawl image (RSBE01.wbfs/.iso) or FST dir + Mod folder | Patched image (WBFS, ISO, etc.) or patched FST dir | Project M/Project+/Brawl- pipeline: stage padding, REL duplication, Subspace removal, DOL hooks |
@@ -34,6 +34,7 @@ wit XI <source>...
 - **Wii U Optical Disc Images**: `.wud` (raw uncompressed disc) and `.wux` (sparse deduplicated disc). Displays internal sector size, total sectors, deduplicated block counts, and compression savings.
 - **Nintendo DS / DSi Cartridges**: `.nds`, `.srl`, `.dsi`. Displays game title, game code, maker code, unit code, ROM size, arm9/arm7 entry points and load addresses, and overlay table counts.
 - **Wii Installable Titles (WAD)**: `.wad`. Displays WAD type, certificate size, ticket size, TMD size, number of contents, and boot index.
+- **Wii U "Wii Virtual Console" content (NFS)**: `hif_*.nfs` (the `hif_000000.nfs` file carries the `EGGS` header). Displays the EGGS version, the sparse-image data runs, and the total payload size.
 - **Nintendo 3DS Containers**: `.3ds`, `.cci`, `.cia`. Detects NCSD partition headers, partition IDs, and CIA component structures.
 - **Nintendo Switch Packages**: `.xci`, `.nsp`. Detects HFS0 cartridge partitions and PFS0 packages.
 - **NKit Images**: `.nkit.iso`. Detects whether the payload is GameCube or Wii, reads the NKit version, and extracts the target Redump CRC32.
@@ -118,10 +119,26 @@ Re-encrypts and packages `source_dir/` into a `.wad` archive:
 - Recalculates content sizes and SHA-1 hashes and updates `tmd.bin`.
 - **Conditional Signing**: If no content files were modified, the original TMD signature is preserved verbatim. If files were modified, the TMD is fake-signed automatically.
 
+#### Wii U "Wii Virtual Console" content (`.nfs`)
+Rebuilds the `hif_*.nfs` set from a standard Wii ISO (`source` here is the ISO,
+not a directory; `dest` names the first `.nfs` file and its directory receives
+the whole set):
+- Strips the inner Wii partition AES from every game partition, re-lays the
+  sparse `EGGS` mapping, then re-applies the outer per-title AES layer.
+- Splits the result into `hif_000000.nfs`, `hif_000001.nfs`, … at 250 MiB.
+- Needs the per-title `htk` key (`$WIT_NFS_KEY`, or `htk.bin` / `code/htk.bin`
+  near the ISO or output). The Wii common key is built in.
+- Also patches `fw.img`'s fakesign hash check in place when one is found
+  (`$WIT_NFS_FWIMG`, or `fw.img` / `code/fw.img` nearby); `$WIT_NFS_LEGIT`
+  skips it. Port of [nfs2iso2nfs](https://github.com/sabykos/nfs2iso2nfs).
+
 ### Examples
 ```bash
 # Rebuild an edited DS game:
 wit XCREATE game.d/ modified_game.nds --overwrite
+
+# Rebuild a Wii-VC .nfs set from a Wii ISO:
+wit XCREATE game.iso out/hif_000000.nfs --overwrite
 
 # Rebuild an edited Wii WAD:
 wit XCREATE channel.d/ modified_channel.wad
