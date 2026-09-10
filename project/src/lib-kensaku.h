@@ -28,5 +28,7 @@ typedef struct kensaku_t
 
 void ResetKensaku (kensaku_t *k);
 enumError ScanKensakuRZ (kensaku_t *k, const u8 *data, uint size);
+// Same, but for an uncompressed ".res" file that is already a raw "Pres" blob.
+enumError ScanKensakuRes (kensaku_t *k, const u8 *data, uint size);
 
 #endif
