@@ -122,8 +122,7 @@ size_t mem_stream_seek (struct stream *stream, long offset, int whence)
 int mem_stream_eof (struct stream *stream)
 {
 	struct mem_stream *mem_stream = (struct mem_stream *)stream;
-	stream->position = stream->position >= mem_stream->buffer->data_len;
-	return stream->position;
+	return stream->position >= mem_stream->buffer->data_len;
 }
 
 long mem_stream_tell (struct stream *stream)
