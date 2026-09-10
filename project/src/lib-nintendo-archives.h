@@ -4,6 +4,7 @@
 
 #include "types.h"
 #include "lib-nintendo.h"
+#include "lib-ztab.h"
 #include "lib-xpck.h"
 
 // Extract Level-5 3DS/Switch Container Archive (.xc / .xpck / XPCK / XPC2)
