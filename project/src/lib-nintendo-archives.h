@@ -4,6 +4,7 @@
 
 #include "types.h"
 #include "lib-nintendo.h"
+#include "lib-nus3audio.h"
 #include "lib-camtexbank.h"
 #include "lib-pers.h"
 #include "lib-zdat.h"
