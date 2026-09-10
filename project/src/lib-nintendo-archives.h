@@ -4,6 +4,7 @@
 
 #include "types.h"
 #include "lib-nintendo.h"
+#include "lib-nlgdict.h"
 #include "lib-bars.h"
 #include "lib-gfpak.h"
 #include "lib-wta.h"
