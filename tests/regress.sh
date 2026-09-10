@@ -818,6 +818,55 @@ t_fseq_wiiu_roundtrip(){
 }
 t_fseq_wiiu_roundtrip
 
+t_rseq_wii_roundtrip(){
+  # Wii RSEQ (retail system-menu music, carved from Wii BRSARs): the real
+  # container uses direct DATA/LABL offsets (not the block table) and a
+  # compact LabelInfo -- all verified here. Assert zero unknown opcodes,
+  # real LABEL-block names in the text, code-exact reassembly (the
+  # assembler drops the LABL block for legacy shapes, so full-file
+  # equality is not expected), and valid MIDI with all tracks present.
+  local fail=0
+  for f in rseq_wii_menu_bgm.rseq rseq_wii_menu_bgm2.rseq; do
+    local src="$PWD_PROJECT/../tests/fixtures/$f"
+    [ -f "$src" ] || { sk "RSEQ roundtrip ($f)"; continue; }
+    rm -f /tmp/_r_rseq.txt /tmp/_r_rseq.re
+    $B/wseqt disasm "$src" /tmp/_r_rseq.txt --overwrite >/dev/null 2>&1 \
+      || { no "RSEQ disasm ($f)" "disassemble failed"; fail=1; continue; }
+    if grep -q "raw 0x" /tmp/_r_rseq.txt; then
+      no "RSEQ no-unknown ($f)" "raw opcode lines present"; fail=1; continue
+    fi
+    if ! grep -q '^label "SMF_' /tmp/_r_rseq.txt; then
+      no "RSEQ labels ($f)" "no real LABEL-block names"; fail=1; continue
+    fi
+    $B/wseqt asm /tmp/_r_rseq.txt /tmp/_r_rseq.re --overwrite >/dev/null 2>&1 \
+      || { no "RSEQ asm ($f)" "reassemble failed"; fail=1; continue; }
+    python3 - "$src" /tmp/_r_rseq.re <<'PYEOF'
+import struct,sys
+a=open(sys.argv[1],'rb').read(); b=open(sys.argv[2],'rb').read()
+def code(d):
+    di=d.find(b'DATA'); sz=struct.unpack('>I',d[di+4:di+8])[0]
+    return d[di+8:di+sz].rstrip(b'\x00')
+sys.exit(0 if code(a)==code(b) else 1)
+PYEOF
+    if [ $? -eq 0 ]; then
+      ok "RSEQ code-exact roundtrip ($f)"
+    else
+      no "RSEQ roundtrip ($f)" "reassembled code differs"; fail=1; continue
+    fi
+    rm -f /tmp/_r_rseq.mid
+    $B/wseqt to_midi "$src" /tmp/_r_rseq.mid >/dev/null 2>&1 \
+      || { no "RSEQ to MIDI ($f)" "conversion failed"; fail=1; continue; }
+    if [ "$(head -c4 /tmp/_r_rseq.mid)" = "MThd" ]; then
+      ok "RSEQ to MIDI ($f)"
+    else
+      no "RSEQ to MIDI ($f)" "no MThd header"; fail=1
+    fi
+  done
+  rm -f /tmp/_r_rseq.txt /tmp/_r_rseq.re /tmp/_r_rseq.mid
+  return $fail
+}
+t_rseq_wii_roundtrip
+
 t_bfres_texture(){
   # BFRES (Wii U) material -> FTEX texture binding: wszst xx must decode
   # the referenced FTEX to a sibling PNG AND the exported DAE must

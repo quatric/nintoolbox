@@ -277,6 +277,36 @@ static int seq_find_blocks (const u8 *data, size_t size, bool is_le,
 	bool file_le = read_be16 (data + 4) == 0xFFFE;
 	if (file_le != is_le)
 		return 0;
+	// Wii RSEQ (older container, ver 0x0100) stores direct block
+	// offsets instead of a reference table: DATA at +0x10/+0x14,
+	// LABEL at +0x18/+0x1C. Verified on retail Wii system-menu RSEQ.
+	if (!memcmp (data, "RSEQ", 4) && size >= 0x20)
+	{
+		u32 doff = read_be32 (data + 0x10);
+		u32 dsz = read_be32 (data + 0x14);
+		u32 loff = read_be32 (data + 0x18);
+		u32 lsz = read_be32 (data + 0x1C);
+		if (doff + 8 > size || memcmp (data + doff, "DATA", 4))
+			return 0;
+		if (loff && (loff + 8 > size || memcmp (data + loff, "LABL", 4)))
+			return 0;
+		if (dsz < 8 || doff + dsz > size || (loff && loff + lsz > size))
+			return 0;
+		// Unlike FSEQ's bare {sig,size}+code DATA block, RSEQ keeps the
+		// legacy base-offset word: code starts at DATA+base_off.
+		u32 base = read_be32 (data + doff + 8);
+		if (base > dsz)
+			return 0;
+		if (code_out)
+			*code_out = data + doff + base;
+		if (code_size_out)
+			*code_size_out = dsz - base;
+		if (labl_out)
+			*labl_out = loff ? data + loff : 0;
+		if (labl_size_out)
+			*labl_size_out = loff ? lsz : 0;
+		return 1;
+	}
 	u16 nblk = file_le ? read_le16 (data + 16) : read_be16 (data + 16);
 	if (!nblk || nblk > 16 || 20 + 12u * nblk > size)
 		return 0;
@@ -325,7 +355,7 @@ static int seq_find_blocks (const u8 *data, size_t size, bool is_le,
 // the DATA body) + u32 length + NUL-padded name; entries are 8-byte
 // table references. Anything malformed is skipped, never fatal.
 static void seq_read_labels (const u8 *labl, size_t labl_size, bool is_le, label_map_t **labels,
-	uint *n_labels, uint *alloc_labels)
+	uint *n_labels, uint *alloc_labels, bool is_rseq)
 {
 	if (!labl || labl_size < 12 || memcmp (labl, "LABL", 4))
 		return;
@@ -340,15 +370,22 @@ static void seq_read_labels (const u8 *labl, size_t labl_size, bool is_le, label
 		if (eoff < 0 || (u64)8 + (u64)eoff + 16 > labl_size)
 			continue;
 		size_t li = 8 + (size_t)eoff; // LabelInfo, table-relative
-		u32 data_off = is_le ? read_le32 (labl + li + 4) : read_be32 (labl + li + 4);
-		u32 len = is_le ? read_le32 (labl + li + 8) : read_be32 (labl + li + 8);
-		if (len > 64 || li + 12 + len > labl_size)
+		// RSEQ (older container, ver 0x0100) stores a compact
+		// LabelInfo {data_off, len, name}; FSEQ stores the full
+		// {ref, len, name} with an 8-byte data reference up front.
+		u32 data_off = is_rseq ? (is_le ? read_le32 (labl + li) : read_be32 (labl + li))
+							   : (is_le ? read_le32 (labl + li + 4)
+										: read_be32 (labl + li + 4));
+		u32 len = is_rseq ? (is_le ? read_le32 (labl + li + 4) : read_be32 (labl + li + 4))
+						  : (is_le ? read_le32 (labl + li + 8) : read_be32 (labl + li + 8));
+		size_t name_at = li + (is_rseq ? 8 : 12);
+		if (len > 64 || name_at + len > labl_size)
 			continue;
 		char name[64];
 		size_t k = 0;
 		while (k < len && k + 1 < sizeof (name))
 		{
-			char c = (char)labl[li + 12 + k];
+			char c = (char)labl[name_at + k];
 			if (!c)
 				break;
 			name[k++] = c;
@@ -774,7 +811,8 @@ enumError DisassembleSequence (char **out_text, size_t *out_size, const u8 *data
 
 	// Seed real names from the sequence LABEL block first so they win
 	// over synthesized ones for the same offsets.
-	seq_read_labels (labl, labl_size, is_le, &labels, &n_labels, &alloc_labels);
+	seq_read_labels (labl, labl_size, is_le, &labels, &n_labels, &alloc_labels,
+		fmt == SEQ_FMT_RSEQ);
 	// Snapshot: entries below this count came from the block (pass 1
 	// only appends synthesized ones afterwards); directives print just
 	// these so the assembler rebuilds the LABL block exactly.

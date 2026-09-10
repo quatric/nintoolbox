@@ -1507,6 +1507,31 @@ code). FWAR-internal waves needed no work: `0818.bfwar.d/*.bfwav`
 decode to valid 32 kHz WAVs bit-identical to the previous campaign's
 output.
 
+## 29. 2026-09-10 — Real Wii RSEQ verified; Switch NSP opened, no FSEQ inside ✅/❌
+
+**Wii RSEQ ✅.** Three retail Wii-system BRSARs (`IplSound`, `1`,
+`IplSoundz`) unpack to three unique real RSEQ sequences (Wii menu
+music). Findings: (1) real RSEQ uses direct DATA/LABL offsets
+(+0x10/+0x14/+0x18/+0x1C), not the FSEQ block table -- the reader now
+tries the table first and falls back, so synth files keep working;
+(2) RSEQ LabelInfos are compact `{data_off,len,name}` (vs FSEQ's
+`{ref,len,name}`), now read (real `SMF_1_Track_*` names in output);
+(3) all three disassemble with zero unknown opcodes and reassemble
+code-exact (the legacy assembler shape drops the LABL block, whose
+entry first-word semantics stay undetermined -- documented, not
+guessed); (4) 16-track MIDI renders complete (75 KB from the menu
+BGM). Two fixtures (`rseq_wii_menu_bgm*.rseq`, 7/16 KB) with a
+`t_rseq_wii_roundtrip` case asserting no-raw + real labels +
+code-exactness + MIDI validity.
+
+**Switch NSP ❌ (for sequences).** F-ZERO 99 unpacks cleanly with the
+available hactool+keys (PFS0 -> NCA -> romfs, 1.1 GB): no BFRES
+anywhere, and SoundData holds only metadata BFSARs (FSAR LE v2.6.0,
+which dump with real names). LE structural parsing confirmed on the
+same files. Zero FSEQ anywhere on the disc; the Switch FSEQ_LE
+header version stays unverified, as does anything needing a Switch
+BFRES sample (v10, skinning).
+
 ## Suggested order
 
 1. §2 (mechanical, minutes) + §8 (concrete bug, real user pain).
