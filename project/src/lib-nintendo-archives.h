@@ -4,6 +4,7 @@
 
 #include "types.h"
 #include "lib-nintendo.h"
+#include "lib-xtx.h"
 #include "lib-romfs.h"
 #include "lib-txtg.h"
 #include "lib-nlgdict.h"
