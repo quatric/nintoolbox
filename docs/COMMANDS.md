@@ -190,7 +190,7 @@ wszst xx <source> [--dest <dir>] [--auto] [--overwrite] [delegation options]
 #### Newly Supported Archive Formats
 `wszst xx` and `wszst EXTRACT` natively recognize and extract:
 - Nintendo standard: **SARC** (Big-Endian & Little-Endian), **DARC**, **PAC / MRG**, **RARC**
-- GameCube / Wii: **FSYS** (Pokémon Colosseum/XD), **F9RES**, **MDR** (DDR Mario Mix), **PVOL** (Pikmin), **MPBIN** (Mario Party), **ZTAB** (Camelot), **ARCV** (Pac-Man Party), **AT7** (Koei Tecmo), **BIGF** (EA), **VCRA**
+- GameCube / Wii: **FSYS** (Pokémon Colosseum/XD), **F9RES**, **MDR** (DDR Mario Mix), **PVOL** (Pikmin), **MPBIN** (Mario Party), **ZTAB** (Camelot), **ARCV** (Pac-Man Party), **AT7** (Koei Tecmo), **BIGF** (EA), **VCRA**, **VID1** (Factor 5 DivX movies: demuxed to raw `frame_*.vidd` / `audio_*.audd` payloads, no pixel decode)
 - Nintendo DS / 3DS / Wii U: **GFA** / **BPE** (Good-Feel), **XPCK** (Level-5), **STPK** (Jump Super Stars), **ZLARC** (NES Remix), **BG4** (Mario & Luigi), **CRAM** (Xenoblade 3D), **WARC** (Game & Wario), **CA01** / **SA01** (Mii Maker)
 
 ---

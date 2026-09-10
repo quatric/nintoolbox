@@ -2319,7 +2319,7 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 			|| is_ext (src, ".txz") || is_ext (src, ".gz")))
 		return passthru_7z (src, basedir, stage, staged_dir, staged_dir_size, is_ext (src, ".rar"));
 
-	// Media files (THP, Mobiclip, BRSTM, BCSTM, BFSTM, BNS, BTSND, AST, DSP, HVQM4, etc.)
+	// Media files (THP, Mobiclip, BRSTM, BCSTM, BFSTM, BNS, BTSND, AST, DSP, HVQM4, VID1, etc.)
 	bool is_thp = !memcmp (head, "THP\0", 4) || (!strong_only && is_ext (src, ".thp"));
 	bool is_mobiclip = (head[0] == 'M' && head[1] == 'O' && head[2] == 'C')
 		|| !memcmp (head, "MODS", 4) || !memcmp (head, "VXDS", 4)
@@ -2344,8 +2344,16 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 	bool is_other_media = !strong_only
 		&& (is_ext (src, ".dpg") || is_ext (src, ".fv") || is_ext (src, ".ppm")
 			|| is_ext (src, ".kwz") || is_ext (src, ".mmstr") || is_ext (src, ".rvid"));
+	// Factor 5 VID1 DivX (.vid, GameCube) is claimed WEAK-only (never by
+	// magic in the strong pass): no ffmpeg/mobipeg build demuxes VID1's
+	// FRAM/VIDD container, so the native ExtractVID1() demuxer above must
+	// get first refusal on real VID1 files. The weak claim still gives
+	// misnamed/plain-AVI .vid files an mp4-preview attempt after every
+	// native probe has declined them.
+	bool is_vid1 = !strong_only
+		&& (!memcmp (head, "VID1", 4) || is_ext (src, ".vid"));
 
-	if (is_thp || is_mobiclip || is_hvqm || is_stream_audio || is_other_media)
+	if (is_thp || is_mobiclip || is_hvqm || is_stream_audio || is_other_media || is_vid1)
 	{
 		ccp mobipeg = resolve_mobipeg ();
 		if (mobipeg)

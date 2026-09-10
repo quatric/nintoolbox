@@ -3425,6 +3425,52 @@ open('$d/test.thp', 'wb').write(thp_bytes)
 }
 t_thp_extract
 
+echo "== Factor 5 VID1 DivX Video Demux =="
+t_vid1_extract(){
+  command -v python3 >/dev/null || { sk "VID1 video demux"; return; }
+  local d; d=$(mktemp -d)
+  python3 -c "
+import struct
+def chunk(tag, body):
+    return tag + struct.pack('>I', 8 + len(body)) + body
+vidh_body = (bytes(4) + struct.pack('>HH', 320, 240) + struct.pack('>I', 2)
+    + bytes(4) + struct.pack('>I', 30) + struct.pack('>H', 1) + bytes(10))
+assert len(vidh_body) == 0x20
+head = chunk(b'HEAD', bytes(4) + chunk(b'VIDH', vidh_body))
+frams = b''
+for i in range(2):
+    vpayload = bytes([i + 1]) * 64
+    apayload = bytes([0xA0 + i]) * 32
+    fram_body = (bytes(24) + chunk(b'VIDD', vpayload) + chunk(b'AUDD', apayload))
+    frams += chunk(b'FRAM', fram_body)
+open('$d/test.vid', 'wb').write(chunk(b'VID1', b'') + head + frams)
+open('$d/trunc.vid', 'wb').write(open('$d/test.vid','rb').read()[:20])
+"
+  local ok=1
+  "$B/wszst" FILETYPE "$d/test.vid" 2>/dev/null | grep -q "^VID1" || ok=0
+  "$B/wszst" EXTRACT "$d/test.vid" --dest "$d/vid_out" --no-passthrough --overwrite >/dev/null 2>&1
+  local out_dir="$d/vid_out/test"
+  [ -d "$out_dir" ] || out_dir="$d/vid_out"
+  [ -s "$out_dir/frame_00000.vidd" ] || ok=0
+  [ -s "$out_dir/frame_00001.vidd" ] || ok=0
+  [ -s "$out_dir/audio_00000.audd" ] || ok=0
+  [ -s "$out_dir/audio_00001.audd" ] || ok=0
+  grep -q "320x240" "$out_dir/info.txt" 2>/dev/null || ok=0
+  python3 -c "
+import sys
+raw = open('$out_dir/frame_00001.vidd','rb').read()
+sys.exit(0 if raw == bytes([2]) * 64 else 1)
+" 2>/dev/null || ok=0
+  # truncated container must fail cleanly (no crash, no frame output)
+  if "$B/wszst" EXTRACT "$d/trunc.vid" --dest "$d/trunc_out" --no-passthrough --overwrite >/dev/null 2>&1; then
+    ok=0
+  fi
+  rm -rf "$d"
+  [ "$ok" = 1 ] && ok "VID1 demux (FILETYPE + wszst EXTRACT + trunc reject)" \
+    || no "VID1 demux" "payload mismatch or truncated file accepted"
+}
+t_vid1_extract
+
 echo "== recursive folder traversal (dclib ** wildcard) =="
 # "recursive extraction" turned out to mean recursive directory traversal of
 # CLI args, not recursing into nested archives. dclib's SearchPaths() already

@@ -1581,3 +1581,29 @@ via the shared `is_image` probe. `tests/regress.sh`: synthetic RGBA8
 decode + byte-exact re-encode, C8 indexed decode, synthetic RFRM/mode-0
 Tropical decode with gradient pixel asserts. Full suite green
 (PASS=411, only 2 pre-existing unrelated audio FAILs).
+
+## 31. 2026-09-10 — Factor 5 VID1 DivX demux (GameCube `.vid`) ✅ container / ❌ pixels
+
+**Container** (`VID1` root + `HEAD`/`VIDH` + `FRAM` chunks with `VIDD`
+video + `AUDD` audio payloads, all BE sizes): new `lib-vid1.c`
+(`ScanVID1`/`ExtractVID1`, same entries-shape as `ExtractTHP`), new
+`FF_VID1` file-type entry (`VID1` magic, `.vid`), `extract_vid1_file`
+hooked after `extract_thp_file` in `formats.inc`, `lib-vid1.o` in
+`SZS_O`. `wszst FILETYPE` reports `VID1`; `wszst EXTRACT` demuxes to
+`frame_*.vidd` + `audio_*.audd` + `info.txt` (dims/fps/counts).
+Pass-through is weak-only by design: no ffmpeg/mobipeg build demuxes
+VID1's FRAM container, so a magic-strong claim would route real files
+to a tool that can't read them and shadow the native demuxer — native
+gets first refusal, plain-AVI `.vid` files still get an mp4 attempt.
+
+**Not done**: VIDD pixel decode (cut-down MPEG-4 Part 2, DivX 5.02
+based with I/P/B/S frames + GMC — a full video codec, out of scope),
+AUDD Vorbis reconstruction. Structure per the MultimediaWiki
+"Factor 5 VID1" page + `Vid1VideoFile.cs` offsets (HEAD children at
++0x0C, VIDH dims/count/rate fields, FRAM children at +0x20);
+`tests/regress.sh`: synthetic 2-frame fixture (FILETYPE tag,
+byte-exact `frame_00001.vidd` payload, `info.txt` dims, truncated
+file rejected). **No retail `.vid` sample checked yet** — offsets
+need confirmation against real data (e.g. Tony Hawk's Underground
+1/2, Enter the Matrix) before pixel work starts.
+

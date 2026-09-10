@@ -335,6 +335,29 @@ enumError CreateRST (u8 **dest_car, uint *dest_car_size, u8 **dest_toc, uint *de
 enumError ExtractTHP (
 	nintendo_sarc_entry_t **out_entries, uint *out_n_entries, const u8 *thp_data, uint thp_size);
 
+// Factor 5 VID1 DivX movie container (GameCube .vid). Container layout
+// per the MultimediaWiki "Factor 5 VID1" page and the offsets in
+// slfx77/neversoft-multitool's Vid1VideoFile.cs (ported from Factor 5's
+// GameCube M4Decoder); only the container is demuxed (VIDD video is a
+// cut-down MPEG-4 Part 2 bitstream with no decoder in this tree).
+#define VID1_MAX_FRAMES 100000
+typedef struct vid1_info_t
+{
+	uint width, height;
+	uint frame_count; // VIDH header declaration
+	uint fps_num, fps_den;
+	uint n_vidd, n_audd;
+	uint vidd_off[VID1_MAX_FRAMES];
+	uint vidd_size[VID1_MAX_FRAMES];
+	uint audd_off[VID1_MAX_FRAMES];
+	uint audd_size[VID1_MAX_FRAMES];
+} vid1_info_t;
+
+bool IsVID1 (const u8 *data, uint size);
+enumError ScanVID1 (vid1_info_t *info, const u8 *data, uint size);
+enumError ExtractVID1 (
+	nintendo_sarc_entry_t **out_entries, uint *out_n_entries, const u8 *vid_data, uint vid_size);
+
 #include "lib-gfa.h"
 #include "lib-pac.h"
 
