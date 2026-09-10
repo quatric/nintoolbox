@@ -6286,28 +6286,21 @@ static enumError extract_mpbin_file (ccp arg, ccp basedir, uint depth)
 // ModelParser.Read()/ShapeParser.Read()/MaterialParser.Load() sequential
 // field order 1:1.
 //
-// What is still NOT done, and NOT claimed to be fixed: the actual
-// vertex/index *data* location. BfresLibrary's ResFileParser reads a
-// `BufferInfo` offset near the end of the main header, and that struct's
-// own +0x08 field is documented (in BfresLibrary's C# source) to hold the
-// absolute file offset of the shared buffer pool all per-shape index/
-// vertex data lives in. An attempt was made to port that field read here
-// too (mirroring ResFileParser.Load()'s exact field sequence up to
-// `BufferInfo`), but it did NOT check out against real data: on
-// AirBubble.bfres the computed struct address landed in a run of zero
-// bytes, not a plausible `unk/Size/BufferOffset` triple. Either an earlier
-// field in that same sequence (the anim-dict block, MemoryPool, or the
-// version>=9 32-byte reserved block) has a wrong size for real retail
-// files, or BfresLibrary's C# `ResFileParser` takes a conditional branch
-// (e.g. the version>=10 external-flags/external-GPU handling seen in its
-// source) that shifts things around in a way not accounted for here. Per
-// this fork's "don't ship an unverified guess" rule, that attempt was
-// pulled rather than shipped as a buffer-pool-base="..." field that looked
-// plausible but wasn't checked. Locating the buffer pool -- and then the
-// much larger job of unpacking per-attribute component formats
-// (GX2AttribFormat-style float16/snorm8/unorm10_10_10_2/etc, a table this
-// fork doesn't have yet) and walking mesh index buffers/submeshes/LODs --
-// remains a real, open gap; see PLAN.md.
+// Buffer pool location: BfresLibrary's ResFileParser reads a `BufferInfo`
+// offset near the end of the main header, and that struct's own +0x08
+// field holds the absolute file offset of the shared pool all per-shape
+// index/vertex data lives in. The version>=9 header inserts a 32-byte
+// reserved block ahead of it, so the pointer sits at +0xB0 on v9+ files
+// (v8 keeps it at +0x90); Male.bfres (v9) has 0 at +0x90 and a valid
+// {unk=36, size=40960, pool=122880} triple at +0xB0, with header+0xA8 ==
+// pool+size as an independent cross-check. ParseBFRESSwitch() in
+// lib-bfres.c therefore reads the pointer version-gated (+0x90 for v8,
+// +0xB0 for v9+, either slot accepted when its struct validates) and
+// decodes full geometry from the pool -- verified on Male.bfres (both
+// shapes: human-scale bboxes, index max = vcount-1, full vertex coverage;
+// wmdlt emits a 2-mesh GLB) with no synthetic-v8 round-trip regression.
+// Unverified: v10 files, skinning on real Switch data, and exotic
+// component formats; mesh LODs beyond LOD0 are still skipped. See PLAN.md.
 static const char *rel_bfres_switch_string (const u8 *d, size_t size, s64 off)
 {
 	if (off < 2 || (size_t)off + 2 > size)
@@ -8843,6 +8836,43 @@ static enumError extract_bfres_textures (ccp arg, ccp basedir, uint depth)
 						(unsigned)arch.slots[i].count_dict);
 			}
 			fprintf (stdlog, "\n");
+		}
+	}
+
+	// Animation entry bodies (FSKA/FSHU/FTXP/FVIS/FSHA/FSCN): one compact
+	// per-class summary line per file. Entry layouts per the NintendoWare
+	// G3D SDK headers; see ParseBFRESAnims() in lib-bfres.c.
+	{
+		bfres_anim_entry_t *anims = NULL;
+		const int n_anims = ParseBFRESAnims (raw, raw_size, &anims);
+		if (n_anims > 0 && anims)
+		{
+			static const char *const classes[6]
+				= { "FSKA", "FSHU", "FTXP", "FVIS", "FSHA", "FSCN" };
+			fprintf (stdlog, "%s%sANIM:%s[%s]", verbose > 0 ? "\n" : "",
+				testmode ? "WOULD " : "", arg, arch.name);
+			for (int ci = 0; ci < 6; ci++)
+			{
+				uint n = 0, fmin = 0, fmax = 0, nc = 0, ok = 0;
+				for (int i = 0; i < n_anims; i++)
+					if (!memcmp (anims[i].cls, classes[ci], 4))
+					{
+						n++;
+						if (anims[i].frames >= 0
+							&& (!fmax || (uint)anims[i].frames < fmin))
+							fmin = (uint)anims[i].frames;
+						if (anims[i].frames >= 0
+							&& (uint)anims[i].frames > fmax)
+							fmax = (uint)anims[i].frames;
+						nc += anims[i].n_curve;
+						ok += anims[i].n_curve_ok;
+					}
+				if (n)
+					fprintf (stdlog, " %s n=%u frames=%u-%u curves=%u/%u", classes[ci],
+						n, fmin, fmax, ok, nc);
+			}
+			fprintf (stdlog, "\n");
+			FREE (anims);
 		}
 	}
 

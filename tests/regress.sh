@@ -747,6 +747,36 @@ t_bfres_wiiu(){
 }
 t_bfres_wiiu
 
+t_bfres_anims(){
+  # Wii U BFRES animation entry bodies (FSKA/FSHU/FTXP/FVIS/FSHA/FSCN):
+  # wszst xx prints one ANIM summary line per file with per-class entry
+  # counts, frame ranges and validated/total curve counts. Entry layouts
+  # per the NintendoWare G3D SDK headers (nw/g3d/res/g3d_Res*Anim.h);
+  # expected strings below were verified against the SDK's own
+  # effectDemoCar.bfres plus Yoshi's Woolly World retail samples.
+  local d; d=$(mktemp -d /tmp/_r_bfres_anims.XXXXXX) || { no "BFRES anims" "mktemp failed"; return; }
+  local fail=0
+  check_anim(){
+    # $1 = fixture name, $2 = expected "CLS n=.. frames=.. curves=../.." fragment
+    # NB: run on a copy: FTEX siblings land beside the source, which must
+    # not be tests/fixtures/ (same reason t_bfres_texture copies first).
+    cp "$PWD_PROJECT/../tests/fixtures/$1" "$d/" || { no "BFRES anims ($1)" "copy failed"; fail=1; return; }
+    local out; out=$($B/wszst XX "$d/$1" --dest "$d/out" --overwrite 2>&1 | grep -E "^ANIM" || true)
+    case "$out" in
+      *"$2"*) ok "BFRES anims ($1 -> $2)" ;;
+      *) no "BFRES anims ($1)" "expected [$2], got [$out]"; fail=1 ;;
+    esac
+  }
+  check_anim bfres_anim_sdk_effectdemocar.bfres "FSKA n=1 frames=440-440 curves=7/7"
+  check_anim bfres_anim_yww_gmk308t02.bfres "FSHU n=1 frames=600-600 curves=2/2"
+  check_anim bfres_anim_yww_roomegg000.bfres "FTXP n=2 frames=1-1 curves=0/0"
+  check_anim bfres_anim_yww_roombgg000.bfres "FVIS n=1 frames=100-100 curves=1/1"
+  check_anim bfres_anim_yww_gmk165t03.bfres "FSHA n=1 frames=150-150 curves=5/5"
+  rm -rf "$d"
+  return $fail
+}
+t_bfres_anims
+
 t_bfres_texture(){
   # BFRES (Wii U) material -> FTEX texture binding: wszst xx must decode
   # the referenced FTEX to a sibling PNG AND the exported DAE must

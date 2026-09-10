@@ -1140,10 +1140,12 @@ dropped from the working-tree enum without touching the cases). Left
 out of this commit per this task's staging rules; the committed tree
 therefore still carries the §18/§19 blocker.
 
-Still open: the *internal* layout of FTXP entries (0x94-byte blocks,
+Still open at the time: the *internal* layout of FTXP entries (0x94-byte blocks,
 first bytes `46545850 00000744 000015e4 00040000 0000003c
 00010001 …`) and FSHU/FSKA/FVIS/FSHA/FSCN entry bodies — the census
-decodes the containers, not the animation payloads.
+decodes the containers, not the animation payloads. (Closed later: see
+§26 — entry bodies for all six classes now decode with per-curve
+validation against the SDK headers.)
 
 ## 22. 2026-09-08 — DTLS gap from §18 now closed: Wii U `"of\x02\x00"` / 16-byte-entry variant accepted — ✅
 
@@ -1370,6 +1372,60 @@ this is a real format-table gap, not a decoder bug:
   or another transform, as the code's own tiling-caveat comment
   already suspected). Fixing that needs a Cafe GPU format oracle
   (SDK docs or a hardware-swizzle reference), not more guessing here.
+
+## 26. 2026-09-09 — BFRES Switch vertex data ✅ fixed; Wii U anim entry bodies ✅ decoded (SDK headers); BCFNA/BFFNA ❌ no such format
+
+The NintendoSDK dump on disk (`sdk-develop`, Siglo repo) turned out to
+hold the actual NintendoWare G3D resource headers
+(`Programs/Iris/Include/nw/g3d/res/g3d_Res*Anim.h` — ResFile, ResCommon
+(Offset/BinString/BinaryFileHeader), ResDictionary (Patricia),
+ResAnimCurve, and all six animation entry layouts) plus five real Wii U
+BFRES 3.5.0.3 samples (`Tests/.../EftSandbox/Resorce/g3d/*.bfres`,
+with a `ConvertG3d.bat` showing the `.fmdb`+`.ftxb`(+`.fskb`) ->
+`NW4F_g3dbincvtr.exe` build workflow). The `.fmdb`/`.fskb`/`.ftxb`
+sidecars are 59-byte Git-external-storage pointers, not data -- but the
+`.bfres` outputs are real. No `nn/g3d` (Switch) headers and no Switch
+`.bfres` anywhere in the dump; the Switch side stayed a
+Male.bfres-driven RE job.
+
+**Switch vertex data ✅.** `ParseBFRESSwitch()` failed every v9 file
+(`wmdlt` on Male.bfres: hard "Failed to parse 3D model") because the
+BufferInfo pointer it read at header+0x90 is 0 there -- v9 inserts the
+documented 32-byte reserved block ahead of it, moving the pointer to
++0xB0 (v8 keeps +0x90). Verified structurally, not assumed: +0xB0 aims
+at a valid {unk=36, size=40960, pool=122880} triple with header+0xA8 ==
+pool+size, the FMDL->FSHP->FVTX chain resolves with zero slack
+(530×20=10600, 692×20=13840), both vertex bboxes are human-scale on
+all three axes, and both index buffers max out at vcount-1 with full
+vertex coverage. The reader now takes either slot version-gated, with
+struct-bounds validation. Male.bfres -> real 2-mesh GLB; synthetic-v8
+round-trip unaffected. Still open: v10 files, skinning on real Switch
+data, exotic component formats, LODs past LOD0.
+
+**Wii U anim entry bodies ✅.** Our `bfres_curve_read()` matches the
+SDK's `ResAnimCurveData` field-for-field (flag bits, S10.5 frames,
+cubic/linear eval), and the entry/dict/curve-array address math in
+`ParseBFRESAnims()` (new, `lib-bfres.c`) was checked entry-by-entry
+against real files before it was written -- including two self-inflicted
+probe bugs it caught along the way (BinStrings are 4 bytes, not 8;
+MatAnim/VertexShapeAnim curve arrays sit at sub-offset index 2, not 1).
+`wszst XX` now prints one `ANIM:` summary line per file (class counts,
+frame ranges, validated/total curves); every curve validates 100% on
+all samples tried (BS02: 1611 FSKA + 19 FSHU + 37 FVIS; EN075: 293
+FSKA, 11 constant-only FTXP, 5 empty FSCN stubs; ENV303: 32 FSHA;
+SDK effectDemoCar: 7/7 FSKA). Five fixtures committed
+(`tests/fixtures/bfres_anim_*.bfres`, ~480 KB total) with a `t_bfres_anims`
+regress case asserting the exact summary strings. No GLB export for the
+non-FSKA classes -- none of them map onto node TRS channels (material
+params, visibility bits, texture swaps, morph weights, scene cameras),
+so structural decode is the honest stopping point; FSCN has no
+non-empty sample anywhere (all five EN075 entries are zero-count stubs)
+and gets parser coverage without a dedicated fixture.
+
+**BCFNA/BFFNA ❌ closed, no such format.** Zero references anywhere in
+the SDK dump (Programs + Documents); the archived-font concept exists
+only as Wii BRFNA. Not implementing phantoms -- the earlier "not
+started" note is retired, not worked.
 
 ## Suggested order
 

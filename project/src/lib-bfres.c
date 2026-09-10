@@ -1726,17 +1726,38 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 	if (fmdl_arr <= 0 || (size_t)fmdl_arr + 0x60 > size || memcmp (d + fmdl_arr, "FMDL", 4))
 		return NULL;
 
-	// BufferInfo pointer: see the long comment above this section for the
-	// byte-by-byte derivation of offset 0x90 (verified against real data,
-	// not assumed).
-	if (size < 0x90 + 8)
-		return NULL;
-	const int64_t bufinfo = les64 (d + 0x90);
-	if (bufinfo <= 0 || (size_t)bufinfo + 16 > size)
-		return NULL;
-	const int64_t pool_base = les64 (d + bufinfo + 8);
+	// BufferInfo pointer: version-gated. v8 keeps it at +0x90 (matches the
+	// v8 files CreateSwitchBFRES writes); v9+ moves it to +0xB0 -- the
+	// 32-byte reserved block BfresLibrary documents for version>=9 sits in
+	// front of it. Verified on real data: Male.bfres (v9) has 0 at +0x90
+	// and a valid {unk=36, size=40960, pool=122880} triple at +0xB0, with
+	// header+0xA8 == pool+size as an independent cross-check; both shapes'
+	// vertex bboxes are human-scale and both index buffers max out at
+	// vcount-1 with full vertex coverage. Either slot is accepted when its
+	// struct validates (bounds-checked triple), so unknown versions fall
+	// back gracefully instead of failing outright.
+	int64_t bufinfo = -1, pool_base = -1;
+	{
+		const int64_t cands[2] = { vmajor >= 9 ? 0xB0 : 0x90, vmajor >= 9 ? 0x90 : 0xB0 };
+		for (int ci = 0; ci < 2 && pool_base <= 0; ci++)
+		{
+			const size_t pf = (size_t)cands[ci];
+			if (pf + 8 > size)
+				continue;
+			const int64_t bi = les64 (d + pf);
+			if (bi <= 0 || (size_t)bi + 16 > size)
+				continue;
+			const uint32_t pool_size = le32 (d + bi + 4);
+			const int64_t pb = les64 (d + bi + 8);
+			if (pb <= 0 || pool_size == 0 || (uint64_t)pb + pool_size > size)
+				continue;
+			bufinfo = bi;
+			pool_base = pb;
+		}
+	}
 	if (pool_base <= 0 || (size_t)pool_base >= size)
 		return NULL;
+	(void)bufinfo;
 
 	const uint fhdr = bfres_switch_hdr_extra (vmajor);
 	// name(8) + path(8) + skeleton(8) + vertex-buffer array(8) precede the
@@ -2301,4 +2322,273 @@ int ParseBFRESArchive (const uint8_t *data, size_t size, bfres_archive_t *out)
 	}
 
 	return 1;
+}
+
+//-----------------------------------------------------------------------------
+// Wii U BFRES animation entry bodies.
+//
+// Field layouts per the NintendoWare G3D SDK resource headers
+// (nw/g3d/res/g3d_ResSkeletalAnim.h, g3d_ResShaderParamAnim.h,
+// g3d_ResTexPatternAnim.h, g3d_ResVisibilityAnim.h, g3d_ResShapeAnim.h,
+// g3d_ResSceneAnim.h): every entry opens with its 4-byte block magic and
+// BinString name/path, then class-specific counts; curves everywhere share
+// the 36/32-byte ResAnimCurve record bfres_curve_read() already decodes.
+// Verified entry-by-entry against real data: effectDemoCar.bfres (SDK,
+// FSKA "Car": 440 frames, 11 bones, 7/7 curves) and Yoshi's Woolly World
+// retail (BS02.bfres: 10 FSHU incl. "BS02_0910" with 2/2 U8-frame cubic
+// curves via 2 ParamInfos, 34+1 FVIS incl. 92 named targets + base bit
+// array; EN075.bfres: 11 constant-only FTXP, 5 empty FSCN stubs;
+// ENV303.bfres: 2 FSHA incl. 32/32 validated curves).
+//-----------------------------------------------------------------------------
+
+static int bfres_anim_count_curves (const uint8_t *d, size_t size,
+	size_t arr, uint32_t n, int new_layout, uint32_t *ok)
+{
+	uint32_t good = 0;
+	const size_t rec = new_layout ? 0x24 : 0x20;
+	for (uint32_t k = 0; k < n; k++)
+	{
+		if (arr + (size_t)(k + 1) * rec > size)
+			break;
+		bfres_curve_t c;
+		if (bfres_curve_read (d, size, arr + (size_t)k * rec, new_layout, &c))
+		{
+			good++;
+			bfres_curve_free (&c);
+		}
+	}
+	if (ok)
+		*ok = good;
+	return 1;
+}
+
+int ParseBFRESAnims (const uint8_t *data, size_t size, bfres_anim_entry_t **out_entries)
+{
+	if (out_entries)
+		*out_entries = NULL;
+	if (!data || !out_entries || size < 0x70 || memcmp (data, "FRES", 4))
+		return 0;
+	if (rb16 (data + 8) != 0xFEFF || data[4] != 3)
+		return 0;
+	const int new_layout = rb32 (data + 4) >= 0x03040000;
+	const uint8_t *d = data;
+
+	size_t cap = 64, n = 0;
+	bfres_anim_entry_t *list = calloc (cap, sizeof (*list));
+	if (!list)
+		return 0;
+
+	for (uint8_t slot = 2; slot <= 10; slot++)
+	{
+		const uint32_t dict_off = rb32 (d + 0x20 + 4 * (size_t)slot);
+		if (!dict_off)
+			continue;
+		const size_t dict = REL (d, 0x20 + 4 * (size_t)slot);
+		if (dict + 8 > size)
+			continue;
+		const uint32_t n_obj = rb32 (d + dict + 4);
+		if (!n_obj || n_obj > 0x10000 || dict + 8 + (size_t)(n_obj + 1) * 16 > size)
+			continue;
+
+		for (uint32_t fi = 1; fi <= n_obj; fi++)
+		{
+			const size_t fe = dict + 8 + (size_t)fi * 16;
+			const size_t fs = REL (d, fe + 12);
+			if (fs + 8 > size)
+				continue;
+			char magic[5];
+			memcpy (magic, d + fs, 4);
+			magic[4] = 0;
+			if (memcmp (magic, "FSKA", 4) && memcmp (magic, "FSHU", 4)
+				&& memcmp (magic, "FTXP", 4) && memcmp (magic, "FVIS", 4)
+				&& memcmp (magic, "FSHA", 4) && memcmp (magic, "FSCN", 4))
+				continue;
+
+			if (n >= cap)
+			{
+				size_t ncap = cap * 2;
+				bfres_anim_entry_t *nl = realloc (list, ncap * sizeof (*nl));
+				if (!nl)
+					break;
+				memset (nl + cap, 0, (ncap - cap) * sizeof (*nl));
+				list = nl;
+				cap = ncap;
+			}
+			bfres_anim_entry_t *e = list + n;
+			memcpy (e->cls, magic, 5);
+			const char *nm = rel_string (d, size, fe + 8);
+			snprintf (e->name, sizeof (e->name), "%s", nm && *nm ? nm : "?");
+			e->frames = -1;
+
+			if (!memcmp (magic, "FSKA", 4))
+			{
+				// ResSkeletalAnimData: flag@12 numFrame@16 nBone@20
+				// nUser@22 nCurve@24 baked@28 + 4 offsets@32.
+				if (fs + 48 > size)
+					continue;
+				e->frames = rbs32 (d + fs + 16);
+				const uint16_t nba = rb16 (d + fs + 20);
+				e->n_sub = nba;
+				e->n_curve = (uint32_t)rbs32 (d + fs + 24);
+				if (!nba || nba > 4096)
+					continue;
+				// ResBoneAnimData is 0x18 bytes; curve array at +0x10,
+				// count (u8) at +0x0A -- same walk parse_fska_into_model().
+				const size_t ba = REL (d, fs + 32);
+				if (!ba || ba + (size_t)nba * 0x18 > size)
+					continue;
+				uint32_t tot = 0, ok = 0;
+				for (uint16_t b = 0; b < nba; b++)
+				{
+					const size_t bo = ba + (size_t)b * 0x18;
+					const uint8_t nk = d[bo + 0x0A];
+					const size_t cb = REL (d, bo + 0x10);
+					if (!nk || !cb)
+						continue;
+					tot += nk;
+					uint32_t g = 0;
+					bfres_anim_count_curves (d, size, cb, nk, new_layout, &g);
+					ok += g;
+				}
+				if (!e->n_curve)
+					e->n_curve = tot;
+				e->n_curve_ok = ok;
+			}
+			else if (!memcmp (magic, "FSHU", 4))
+			{
+				// ResShaderParamAnimData (52B): flag@12 numFrame@16
+				// nMat@20 nUser@22 nParam@24 nCurve@28 baked@32
+				// + 4 offsets@36 (model, index, matArray, userDic).
+				// ResShaderParamMatAnimData (32B): counts@0 begins@8
+				// name@16 paramInfo@20 curve@24 const@28.
+				if (fs + 52 > size)
+					continue;
+				e->frames = rbs32 (d + fs + 16);
+				const uint16_t nmat = rb16 (d + fs + 20);
+				e->n_sub = nmat;
+				e->n_curve = (uint32_t)rbs32 (d + fs + 28);
+				if (!nmat || nmat > 4096)
+					continue;
+				const size_t ma = REL (d, fs + 44);
+				if (!ma || ma + (size_t)nmat * 32 > size)
+					continue;
+				uint32_t tot = 0, ok = 0;
+				for (uint16_t m = 0; m < nmat; m++)
+				{
+					const size_t mo = ma + (size_t)m * 32;
+					const uint16_t nc = rb16 (d + mo + 2);
+					const size_t ca = REL (d, mo + 24);
+					if (!nc || !ca)
+						continue;
+					tot += nc;
+					uint32_t g = 0;
+					bfres_anim_count_curves (d, size, ca, nc, new_layout, &g);
+					ok += g;
+				}
+				if (!e->n_curve)
+					e->n_curve = tot;
+				e->n_curve_ok = ok;
+			}
+			else if (!memcmp (magic, "FTXP", 4))
+			{
+				// ResTexPatternAnimData (60B): flag@12 nUser@14
+				// numFrame@16 nTexRef@20 nMat@22 nPat@24 nCurve@28
+				// baked@32 + 5 offsets@36. ResTexPatternMatAnimData
+				// (28B): counts@0 begins@4 name@12 pat@16 curve@20
+				// base@24.
+				if (fs + 60 > size)
+					continue;
+				e->frames = rbs32 (d + fs + 16);
+				const uint16_t nmat = rb16 (d + fs + 22);
+				e->n_sub = nmat;
+				e->n_curve = (uint32_t)rbs32 (d + fs + 28);
+				if (!nmat || nmat > 4096)
+					continue;
+				const size_t ma = REL (d, fs + 44);
+				if (!ma || ma + (size_t)nmat * 28 > size)
+					continue;
+				uint32_t tot = 0, ok = 0;
+				for (uint16_t m = 0; m < nmat; m++)
+				{
+					const size_t mo = ma + (size_t)m * 28;
+					const uint16_t nc = rb16 (d + mo + 2);
+					const size_t ca = REL (d, mo + 20);
+					if (!nc || !ca)
+						continue;
+					tot += nc;
+					uint32_t g = 0;
+					bfres_anim_count_curves (d, size, ca, nc, new_layout, &g);
+					ok += g;
+				}
+				if (!e->n_curve)
+					e->n_curve = tot;
+				e->n_curve_ok = ok;
+			}
+			else if (!memcmp (magic, "FVIS", 4))
+			{
+				// ResVisibilityAnimData (60B): flag@12 nUser@14
+				// numFrame@16 nAnim@20 nCurve@22 baked@24
+				// + 6 offsets@28. Curves (if any) at ofs[3].
+				if (fs + 60 > size)
+					continue;
+				e->frames = rbs32 (d + fs + 16);
+				const uint16_t nan = rb16 (d + fs + 20);
+				e->n_sub = nan;
+				e->n_curve = rb16 (d + fs + 22);
+				const size_t ca = REL (d, fs + 40);
+				uint32_t ok = 0;
+				if (e->n_curve && ca)
+					bfres_anim_count_curves (d, size, ca, e->n_curve, new_layout, &ok);
+				e->n_curve_ok = ok;
+			}
+			else if (!memcmp (magic, "FSHA", 4))
+			{
+				// ResShapeAnimData (56B): flag@12 nUser@14 numFrame@16
+				// nVShape@20 nKey@22 nCurve@24 rsvd@26 baked@28
+				// + 4 offsets@32. ResVertexShapeAnimData (28B):
+				// counts@0 begins@4 name@12 keyInfo@16 curve@20
+				// base@24.
+				if (fs + 56 > size)
+					continue;
+				e->frames = rbs32 (d + fs + 16);
+				const uint16_t nvs = rb16 (d + fs + 20);
+				e->n_sub = nvs;
+				e->n_curve = rb16 (d + fs + 24);
+				if (!nvs || nvs > 4096)
+					continue;
+				const size_t va = REL (d, fs + 40);
+				if (!va || va + (size_t)nvs * 28 > size)
+					continue;
+				uint32_t tot = 0, ok = 0;
+				for (uint16_t v = 0; v < nvs; v++)
+				{
+					const size_t vo = va + (size_t)v * 28;
+					const uint16_t nc = rb16 (d + vo);
+					const size_t ca = REL (d, vo + 20);
+					if (!nc || !ca)
+						continue;
+					tot += nc;
+					uint32_t g = 0;
+					bfres_anim_count_curves (d, size, ca, nc, new_layout, &g);
+					ok += g;
+				}
+				if (!e->n_curve)
+					e->n_curve = tot;
+				e->n_curve_ok = ok;
+			}
+			else /* FSCN */
+			{
+				// ResSceneAnimData (44B): nUser@12 nCam@14 nLight@16
+				// nFog@18 + 4 dict offsets@20. No frame count.
+				if (fs + 44 > size)
+					continue;
+				e->n_sub = (uint32_t)rb16 (d + fs + 14)
+					+ (uint32_t)rb16 (d + fs + 16) + (uint32_t)rb16 (d + fs + 18);
+			}
+			n++;
+		}
+	}
+
+	*out_entries = list;
+	return (int)n;
 }
