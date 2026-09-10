@@ -4,6 +4,7 @@
 
 #include "types.h"
 #include "lib-nintendo.h"
+#include "lib-nxarc.h"
 #include "lib-tmpk.h"
 #include "lib-mkgpdxpac.h"
 #include "lib-gar.h"
