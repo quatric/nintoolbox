@@ -497,7 +497,12 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		if ((d[0] == 1 || d[0] == 2) && filename
 			&& (strstr (filename, ".stpl") || strstr (filename, ".camelot")))
 			return make_info (NFMT_STPL, true, true, ((u32)d[1] << 16) | ((u32)d[2] << 8) | d[3]);
-		if (CxIsCompressedLZOvl (d, size))
+		// LZOvl (NDS reverse-overlay LZSS) has no magic of its own and is
+		// recognised purely from a plausible trailer, so the content heuristic
+		// misfires on unrelated files far too often to run unconditionally.
+		// Only trust it when the filename explicitly asks for it.
+		if (filename && (strstr (filename, ".ovl") || strstr (filename, ".OVL"))
+			&& CxIsCompressedLZOvl (d, size))
 			return make_info (NFMT_LZOVL, false, true, 0);
 	}
 	if (size >= 0x28 && !memcmp (d + size - 0x28, "FLIM", 4))
