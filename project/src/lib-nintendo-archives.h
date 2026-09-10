@@ -4,6 +4,7 @@
 
 #include "types.h"
 #include "lib-nintendo.h"
+#include "lib-mdr.h"
 #include "lib-ztab.h"
 #include "lib-xpck.h"
 
