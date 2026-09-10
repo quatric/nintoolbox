@@ -52,6 +52,7 @@
 #include "lib-nitro.h"
 #include "lib-nut.h"
 #include "lib-excite.h"
+#include "lib-retro-txtr.h"
 
 #include "red-36.inc"
 #include "blue-40.inc"
@@ -587,6 +588,33 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		if (err)
 			return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported DSB texture: %s\n", fname);
 		AssignDecodedRGBA (img, rgba, width, height, &le_func, fname);
+		return PatchListIMG (img);
+	}
+
+	// Retro Studios TXTR revisions (Metroid Prime/DKCR + Tropical Freeze).
+	// Neither shares the DSB "TXTR" magic tested above, so there is no
+	// collision here; IsRetroTXTR() additionally rejects both magics
+	// itself. Tropical (RFRM form) is tested before old Retro (bare
+	// header) so a truncated probe can never misroute.
+	if (IsTropicalTXTR (data, data_size))
+	{
+		u8 *rgba = 0;
+		uint width = 0, height = 0;
+		const enumError err = DecodeTropicalTXTR_RGBA (&rgba, &width, &height, data, data_size);
+		if (err)
+			return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported Tropical TXTR texture: %s\n", fname);
+		AssignDecodedRGBA (img, rgba, width, height, &le_func, fname);
+		return PatchListIMG (img);
+	}
+
+	if (IsRetroTXTR (data, data_size))
+	{
+		u8 *rgba = 0;
+		uint width = 0, height = 0;
+		const enumError err = DecodeRetroTXTR_RGBA (&rgba, &width, &height, data, data_size);
+		if (err)
+			return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported Retro TXTR texture: %s\n", fname);
+		AssignDecodedRGBA (img, rgba, width, height, &be_func, fname);
 		return PatchListIMG (img);
 	}
 

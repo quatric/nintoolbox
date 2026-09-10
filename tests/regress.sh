@@ -7895,6 +7895,97 @@ assert im.getpixel((0, 0)) == (0, 0, 255), f"expected blue, got {im.getpixel((0,
     fno "Animal Crossing DS Menu Texture" "failed to decode DSB TXTR sample";
   fi
 
+  # Retro Studios TXTR, old revision (Metroid Prime 1-3 / DKCR, Wii):
+  # BE header + GX tiles. Synthetic 8x8 RGBA8 solid red must decode to
+  # red pixels and re-encode byte-exact (single mip, same format).
+  mkdir -p "$d/retro_txtr_test"
+  python3 -c '
+import struct
+w, h = 8, 8
+hdr = struct.pack(">IHHI", 9, w, h, 1) # RGBA8, 8x8, 1 mip
+pix = bytearray()
+for _ in range(4): # 8x8 = four 4x4 GX blocks: 16x(A,R) then 16x(G,B)
+    pix += bytes([255, 255] * 16)
+    pix += bytes([0, 0] * 16)
+with open("'"$d"'/retro_txtr_test/sample.txtr", "wb") as f:
+    f.write(hdr + pix)
+'
+  if "$B/wimgt" DECODE "$d/retro_txtr_test/sample.txtr" --dest "$d/retro_txtr_test/out.png" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/retro_txtr_test/out.png" ] \
+  && python3 -c '
+from PIL import Image
+im = Image.open("'"$d"'/retro_txtr_test/out.png")
+assert im.size == (8, 8), f"expected 8x8, got {im.size}"
+assert im.getpixel((0, 0))[:3] == (255, 0, 0), f"expected red, got {im.getpixel((0, 0))}"
+' 2>/dev/null \
+  && "$B/wimgt" ENCODE "$d/retro_txtr_test/out.png" --dest "$d/retro_txtr_test/rt.txtr" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/retro_txtr_test/sample.txtr" "$d/retro_txtr_test/rt.txtr"; then
+    fok "Retro Studios TXTR old revision (Metroid Prime / DKCR) decode + byte-exact re-encode"
+  else
+    fno "Retro Studios TXTR old revision" "failed to decode/re-encode synthetic RGBA8 sample";
+  fi
+
+  # Retro Studios TXTR, old revision, indexed C8 path: palette index 7 is
+  # opaque white, so the sheet must decode white.
+  python3 -c '
+import struct
+w, h = 8, 4
+hdr = struct.pack(">IHHI", 5, w, h, 1) # C8, 8x4, 1 mip
+palh = struct.pack(">IHH", 2, 256, 1) # RGB5A3, 256x1
+pal = b"".join(struct.pack(">H", 0xFFFF if i == 7 else 0x8000) for i in range(256))
+with open("'"$d"'/retro_txtr_test/sample_c8.txtr", "wb") as f:
+    f.write(hdr + palh + pal + bytes([7]) * (w * h))
+'
+  if "$B/wimgt" DECODE "$d/retro_txtr_test/sample_c8.txtr" --dest "$d/retro_txtr_test/out_c8.png" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/retro_txtr_test/out_c8.png" ] \
+  && python3 -c '
+from PIL import Image
+im = Image.open("'"$d"'/retro_txtr_test/out_c8.png")
+assert im.size == (8, 4), f"expected 8x4, got {im.size}"
+assert im.getpixel((0, 0))[:3] == (255, 255, 255), f"expected white, got {im.getpixel((0, 0))}"
+' 2>/dev/null; then
+    fok "Retro Studios TXTR old revision (C8 indexed) decode"
+  else
+    fno "Retro Studios TXTR old revision (C8)" "failed to decode synthetic C8 sample";
+  fi
+
+  # Retro Studios TXTR, new revision (Tropical Freeze, Wii U): synthetic
+  # RFRM form with one mode-0 (stored) GPU buffer holding linear 8x8
+  # RGBA8 must decode to the gradient pixels.
+  python3 -c '
+import struct
+def chunk(magic, body):
+    return magic + struct.pack(">Q", len(body)) + struct.pack(">I", 1) + struct.pack(">Q", 0) + body
+raw = bytearray()
+for y in range(8):
+    for x in range(8):
+        raw += bytes([x * 32, y * 32, 0, 255])
+comp = bytes([0, 0, 0, 0]) + bytes(raw)
+gpu = chunk(b"GPU ", comp)
+head_body = struct.pack(">8I", 1, 0x0C, 8, 8, 1, 1, 0, 1) + struct.pack(">I", 256) + struct.pack(">I", 0) + bytes([1, 0, 0, 0])
+head = chunk(b"HEAD", head_body)
+gpu_start = 0x20 + 0x18 + len(head_body)
+gpu_data_start = gpu_start + 0x18
+meta_body = bytes(8) + struct.pack(">5I", gpu_start, 512, gpu_data_start, 0x18 + len(comp), 1) + struct.pack(">3I", 256, len(comp), 0)
+meta = chunk(b"META", meta_body)
+rfrm = b"RFRM" + struct.pack(">Q", len(head) + len(gpu) + len(meta)) + struct.pack(">Q", 0) + b"TXTR" + struct.pack(">II", 1, 1)
+with open("'"$d"'/retro_txtr_test/sample_tf.txtr", "wb") as f:
+    f.write(rfrm + head + gpu + meta)
+'
+  if "$B/wimgt" DECODE "$d/retro_txtr_test/sample_tf.txtr" --dest "$d/retro_txtr_test/out_tf.png" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/retro_txtr_test/out_tf.png" ] \
+  && python3 -c '
+from PIL import Image
+im = Image.open("'"$d"'/retro_txtr_test/out_tf.png")
+assert im.size == (8, 8), f"expected 8x8, got {im.size}"
+assert im.getpixel((0, 0))[:3] == (0, 0, 0), f"expected black, got {im.getpixel((0, 0))}"
+assert im.getpixel((7, 7))[:3] == (224, 224, 0), f"expected gradient end, got {im.getpixel((7, 7))}"
+' 2>/dev/null; then
+    fok "Retro Studios TXTR Tropical Freeze revision decode"
+  else
+    fno "Retro Studios TXTR Tropical Freeze" "failed to decode synthetic RFRM sample";
+  fi
+
   # Nintendo Wii Opening Banner (.bnr / BNR1) test
   mkdir -p "$d/bnr_test"
   python3 -c '

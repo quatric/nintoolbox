@@ -22,7 +22,7 @@ For format specifications, see **[FORMATS.md](FORMATS.md)**. For the recursive u
 | **`wbmsx`** | QuickBMS Script Runner | Scripted Binary Extraction | `<script.bms> <input> <dest>` | Embedded QuickBMS interpreter for arbitrary formats |
 | **`wmpbdump`** | Mario Party Archive Unpacker | Chunked Archive Extraction | `<input.bin> [output_dir]` | Hudson Soft GameCube/Wii Mario Party chunk archives |
 | **`wmpbpack`** | Mario Party Archive Packer | Chunked Archive Repacking | `<input_dir> <output.bin>` | Hudson Soft GameCube/Wii Mario Party chunk archives |
-| **`wimgt`** | Wiimms Image Tool | Textures & 2D Graphics | `DECODE`, `ENCODE`, `CONVERT` | BNTX, NUTEXB, BFLIM, GTX, BCLIM, CTPK, NCGR/NCLR, NSBTX, DSB, AJPG, NUT, XIMG, G1T, etc. |
+| **`wimgt`** | Wiimms Image Tool | Textures & 2D Graphics | `DECODE`, `ENCODE`, `CONVERT` | BNTX, NUTEXB, BFLIM, GTX, BCLIM, CTPK, NCGR/NCLR, NSBTX, DSB, Retro TXTR, Tropical TXTR, AJPG, NUT, XIMG, G1T, etc. |
 | **`wbmgt`** | Wiimms Binary Message Tool | In-Game Text & Message Flow | `DECODE`, `ENCODE`, `LIST`, `CAT` | MSBT (with LBL1 labels), MSBP, MSBF, and extended BMG (FLI/FLW flow sections) |
 
 ---
@@ -536,6 +536,7 @@ wmpbpack <input_dir> <output.bin>
 - **Nintendo Wii U**: `BFLIM` (GX2 formats: BC1, BC2, BC3, BC4, BC5, RGBA8), `GTX`
 - **Nintendo 3DS**: `BCLIM` (CTR formats: L8, A8, LA4, LA8, RGB565, RGB8, RGBA8, ETC1, ETC1A4), `CTPK`
 - **Nintendo DS**: `NCGR` (tile sheets with palette integration), `NCLR` (palettes), `NSBTX` (3D textures), `DSB` (Animal Crossing Wild World), `AJPG` / `AJJPG`
+- **Retro Studios**: `TXTR` old revision (*Metroid Prime 1-3* / *DKCR*, Wii: decode + encode) and Tropical Freeze revision (Wii U: decode-only)
 - **Bandai Namco**: `NUT` (Super Smash Bros. 4)
 - **Monster Games**: `ART` / `IMG` GUI textures, `TEX` GX textures
 - **Wii System**: `BNR1` (opening banner icons and sound wrappers), `BREFT`, `BRFNT` glyph sheets (TGLP)

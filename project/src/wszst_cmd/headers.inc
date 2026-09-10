@@ -48,6 +48,7 @@
 #include "lib-szs.h"
 #include "lib-nintendo.h"
 #include "lib-excite.h"
+#include "lib-retro-txtr.h"
 #include "lib-nintendo-archives.h"
 #include "lib-gtx.h"
 #include "lib-g1m.h"

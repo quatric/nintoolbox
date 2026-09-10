@@ -1542,3 +1542,42 @@ BFRES sample (v10, skinning).
 4. §5/§6/§7 — each needs a research pass (samples + oracle) before any
    code gets written, per this project's verification discipline. Don't
    start implementing until that research step is done for each one.
+
+## 30. 2026-09-10 — Retro Studios TXTR support (issue #63) ✅ decode both / ✅ encode old
+
+**Old revision** (*Metroid Prime 1-3*, *DKCR*, Wii): BE header (u32 GX
+format 0-0xA, u16 w/h, u32 mip count), optional palette header for
+C4/C8/C14X2, then GX-tiled mip data — no file magic of its own.
+Spec from the Retro Modding Wiki TXTR (Metroid Prime) page;
+encode/decode semantics cross-checked against xchellx/txtrtool's
+TXTR_Read/TXTR_Decode (header/palette layout, mip halving, indexed
+formats). Pixel codec reuses this tree's own `DecodeGXTexture_RGBA`
+(lib-excite.c), so no new tile code; the encoder (`EncodeRetroTXTR_RGBA`)
+is the exact inverse tile walk (CMPR via the existing `CMPR_wiimm`
+block encoder). C14X2 has no decoder anywhere in this tree and fails
+cleanly (no official texture uses it per the wiki).
+
+**New revision** (*Tropical Freeze*, Wii U): RFRM form (`TXTR` id at
+0x14) + HEAD chunk (type/format/dims/tilemode/swizzle/mipmaps) + GPU
+chunk (LZSS modes 0-3 per the wiki's LZSS_Compression C reference,
+zlib fallback mirroring the reference `lzz_decompress.py`) + META
+buffer table, decoded through the existing GX2 detiler. Retro format
+ids map to GX2 base formats (storage footprint is what the detiler
+needs); pitch prefers the reference's alignment/2 derivation but falls
+back to the GX2 minimum pitch when it overshoots the buffer (caught by
+a synthetic 8x8 test where alignment/2 = 256 vs width 8). 2D depth-1
+only; encode not implemented (GX2 re-tile + RFRM/LZSS rebuild).
+
+**Name-collision handling**: all three "TXTR" formats coexist — DSB
+(`TXTR` magic) keeps priority in `AssignIMG`/`DetectNintendoFormat`,
+Tropical keys off `RFRM`+id, old Retro off a header heuristic that
+rejects both magics. New `NFMT_RETRO_TXTR`/`NFMT_TROPICAL_TXTR`
+registry entries; no new `FF` (matches the DSB precedent — `FILETYPE`
+still reports `?`, as it already did for DSB). Link placement follows
+the `IsQuickLZ` weak-stub pattern: parsers live in XOBJ_IMAGE
+(`lib-retro-txtr.o`), SZS_O-only helpers keep working via stubs.
+`wimgt DECODE`/`ENCODE` (`.txtr` → old-revision encode) + `wszst xx`
+via the shared `is_image` probe. `tests/regress.sh`: synthetic RGBA8
+decode + byte-exact re-encode, C8 indexed decode, synthetic RFRM/mode-0
+Tropical decode with gradient pixel asserts. Full suite green
+(PASS=411, only 2 pre-existing unrelated audio FAILs).

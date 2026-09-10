@@ -442,6 +442,15 @@ static enumError decode_image_if_possible (ccp arg)
 		is_image = true;
 	else if (!memcmp (head, "TXTR", 4) || is_ext (arg, ".dsb"))
 		is_image = true;
+	// Retro Studios TXTR: Tropical Freeze is an RFRM form with the TXTR
+	// form id at 0x14 (RFRM alone is generic to many Tropical formats, so
+	// the id must match); old Retro (Metroid Prime/DKCR) has no magic, so
+	// tiny textures are content-sniffed while the rest arrive via the
+	// .txtr extension (the 256-byte probe rarely holds a full base level).
+	else if (
+		(!memcmp (head, "RFRM", 4) && n_head >= 0x18 && !memcmp (head + 0x14, "TXTR", 4))
+		|| IsRetroTXTR (head, (uint)n_head) || is_ext (arg, ".txtr"))
+		is_image = true;
 	else if (fform == FF_GVR || is_ext (arg, ".gvr"))
 		is_image = true;
 	else if (nfmt.type == NFMT_BFLIM || nfmt.type == NFMT_BCLIM || is_ext (arg, ".bflim")

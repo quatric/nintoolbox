@@ -1,6 +1,7 @@
 #include <zlib.h>
 #include "lib-std.h"
 #include "lib-nintendo.h"
+#include "lib-retro-txtr.h"
 #include "lib-quicklz.h"
 #include "lib-bflyt.h"
 #include "lib-bntx.h"
@@ -13,7 +14,23 @@ __attribute__ ((weak)) bool IsQuickLZ (const u8 *src, uint src_size)
 	(void)src_size;
 	return false;
 }
-__attribute__ ((weak)) enumError DecodeQuickLZ (
+
+// Retro Studios TXTR sniffers live in lib-retro-txtr.o (XOBJ_IMAGE), which
+// not every link target pulls in (cf. IsQuickLZ above). These stubs keep
+// SZS_O-only helpers linkable; image tools override them with the real
+// parsers and therefore report the real NFMT.
+__attribute__ ((weak)) bool IsRetroTXTR (const u8 *data, uint size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
+__attribute__ ((weak)) bool IsTropicalTXTR (const u8 *data, uint size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}__attribute__ ((weak)) enumError DecodeQuickLZ (
 	u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 {
 	(void)dest;
@@ -62,7 +79,7 @@ ccp GetNintendoFormatName (nfmt_type_t type)
 		"BNLL", "BNCL", "BNBL", "LZOvl", "ALAR", "DARC", "SADL", "HSF", "HSD", "BNFM", "XPCK",
 		"XIMG", "ZTAB", "GLG", "MDR", "PERS", "PVOL", "STPK", "G1M", "G1T", "G4PKM", "LMD", "MSH",
 		"MOD", "GAR", "TEX3DS", "BCSTM", "BFSTM", "BCWAV", "BFWAV", "BNSH", "GFBMDL", "GFBANM",
-		"BNSTX", "AAMP", "MIO", "ZDAT", "SFX", "VFF" };
+		"BNSTX", "AAMP", 		"MIO", "ZDAT", "SFX", "VFF", "TM0", "RETRO-TXTR", "TROPICAL-TXTR" };
 	return type < sizeof (tab) / sizeof (*tab) ? tab[type] : "UNKNOWN";
 }
 
@@ -98,6 +115,15 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_ZLIB, false, true, 0);
 		if (!memcmp (d, "TXTR", 4))
 			return make_info (NFMT_DSB, true, false, 0);
+		// Retro Studios TXTR revisions share the name but neither magic
+		// with the DSB format above: Tropical Freeze opens with an RFRM
+		// form ("TXTR" form id at 0x14), the Metroid Prime/DKCR revision
+		// with a bare BE header. DSB is tested first so its magic keeps
+		// its meaning; IsRetroTXTR() itself also rejects both magics.
+		if (!memcmp (d, "RFRM", 4) && IsTropicalTXTR (d, size))
+			return make_info (NFMT_TROPICAL_TXTR, true, false, 0);
+		if (IsRetroTXTR (d, size))
+			return make_info (NFMT_RETRO_TXTR, true, false, 0);
 		if (magic == 0x0020af30)
 			return make_info (NFMT_TPL, true, false, 0);
 		if (!memcmp (d, "SARC", 4))
