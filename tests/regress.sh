@@ -777,6 +777,47 @@ t_bfres_anims(){
 }
 t_bfres_anims
 
+t_fseq_wiiu_roundtrip(){
+  # Wii U FSEQ (sequence bytecode in a SYMB-less BFSAR): disassemble with
+  # wseqt, reassemble with --format FSEQ, require byte-identical output
+  # and zero "raw" (unknown opcode) lines. Fixtures are two tiny real
+  # sequences carved from Yoshi's Woolly World pj023.bfsar (see
+  # t_bfsar_extract below): one minimal JINGLE-like clip, one with
+  # extended (F0) commands, IF prefixes and a real LABEL block.
+  # Covers the EX/prefix/block-table/LABL work, which the pre-existing
+  # synthetic RSEQ round-trip never exercised (real files put DATA at
+  # 0x40 via the block table, not at the legacy +0x10 offset).
+  local fail=0
+  for f in fseq_wiiu_yww_0000.bfseq fseq_wiiu_yww_0800.bfseq; do
+    local src="$PWD_PROJECT/../tests/fixtures/$f"
+    [ -f "$src" ] || { sk "FSEQ roundtrip ($f)"; continue; }
+    rm -f /tmp/_r_fseq.txt /tmp/_r_fseq.re
+    $B/wseqt disasm "$src" /tmp/_r_fseq.txt --overwrite >/dev/null 2>&1 \
+      || { no "FSEQ disasm ($f)" "disassemble failed"; fail=1; continue; }
+    if grep -q "raw 0x" /tmp/_r_fseq.txt; then
+      no "FSEQ no-unknown ($f)" "raw opcode lines present"; fail=1; continue
+    fi
+    $B/wseqt asm /tmp/_r_fseq.txt /tmp/_r_fseq.re --format FSEQ --overwrite >/dev/null 2>&1 \
+      || { no "FSEQ asm ($f)" "reassemble failed"; fail=1; continue; }
+    if cmp -s "$src" /tmp/_r_fseq.re; then
+      ok "FSEQ roundtrip byte-exact ($f)"
+    else
+      no "FSEQ roundtrip ($f)" "reassembly differs"; fail=1
+    fi
+    rm -f /tmp/_r_fseq.mid
+    $B/wseqt to_midi "$src" /tmp/_r_fseq.mid >/dev/null 2>&1 \
+      || { no "FSEQ to MIDI ($f)" "conversion failed"; fail=1; continue; }
+    if [ "$(head -c4 /tmp/_r_fseq.mid)" = "MThd" ]; then
+      ok "FSEQ to MIDI ($f)"
+    else
+      no "FSEQ to MIDI ($f)" "no MThd header"; fail=1
+    fi
+  done
+  rm -f /tmp/_r_fseq.txt /tmp/_r_fseq.re /tmp/_r_fseq.mid
+  return $fail
+}
+t_fseq_wiiu_roundtrip
+
 t_bfres_texture(){
   # BFRES (Wii U) material -> FTEX texture binding: wszst xx must decode
   # the referenced FTEX to a sibling PNG AND the exported DAE must

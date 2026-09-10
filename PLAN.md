@@ -518,6 +518,15 @@ substantial task on its own, and should still follow this project's
 "verify against real playback" discipline (Dolphin or real console) before
 calling it done — not attempted this session.
 
+**Update 2026-09-10 (see §27):** the port has since landed as `wseqt`
+(disasm/asm/to_midi/from_midi/invert/info over RSEQ/CSEQ/FSEQ/FSEQ_LE/
+SSEQ/BMS) and is now verified end to end: synthetic MIDI -> RSEQ ->
+MIDI preserves every pitch/velocity in order, disasm -> asm is
+byte-exact, and 811/811 retail Wii U FSEQ sequences round-trip
+byte-exact with zero unknown opcodes. What remains is coverage, not
+existence (Switch FSEQ_LE header version, RANDOM/VARIABLE MIDI value
+semantics, real-RSEQ header shape).
+
 ## 8. Animal Crossing: City Folk texture bug — ✅ mostly fixed, real gap remains
 
 Root cause found (not a "wrong palette format" bug — the earlier framing
@@ -1426,6 +1435,55 @@ and gets parser coverage without a dedicated fixture.
 the SDK dump (Programs + Documents); the archived-font concept exists
 only as Wii BRFNA. Not implementing phantoms -- the earlier "not
 started" note is retired, not worked.
+
+## 27. 2026-09-10 — SYMB-less Wii U BFSAR asset extraction ✅; sequence fidelity overhaul ✅ (SDK MML oracle)
+
+Two related pieces, both grounded in the SDK dump's `nw/snd` headers
+*and* sources (`snd_MmlParser.cpp`, `snd_SoundArchiveFile*.{h,cpp}`).
+
+**BFSAR extraction ✅.** `wbrsar` on retail YWW `pj023.bfsar` (12 MB,
+FSAR v2.2.0, no SYMB section) failed twice over: vgmtrans has no FSAR
+support and `UnpackBRSAR` demands SYMB. The directory side already
+worked (`wbfsar dump`: 7 tables, 1898 named entries). The missing link
+was the INFO File table -> FILE pool mapping: entry offsets are
+relative to their ReferenceTable (`GetReferedItem` adds to `this`),
+and each record carries the embedded InternalFileInfo image reference
+at +16/+20 (pool-relative offset + size). Verified on all 926 entries:
+821/821 non-empty ones resolve to known container magics. New
+`wbfsar extract` carves them as `fileNNNN.<ext>` (magic convention
+mirroring lib-sound-archive.c) plus `files.txt`: 811 FSEQ, 4 FBNK,
+5 FWAR, 1 FWSD. Every FSEQ converts to a valid MIDI. Not yet mapped:
+Sound -> File name linkage (needs sound-item internals), FWAR-internal
+wave extraction (FWARs carve intact; waves decode once unwrapped).
+
+**Sequence fidelity ✅.** Extracting 811 real FSEQ sequences exposed
+that the RSEQ-family walker had never actually worked on real files:
+(1) DATA lives at 0x40 via the file block table
+(`SoundFileHeader` + `BlockReferenceTable`, DATA 0x5000 / LABEL
+0x5001), not at the legacy +0x10 offset the reader assumed -- every
+real FSEQ disassembly started mid-header; (2) the 0xF0 extended
+command had no skip/parse anywhere, desyncing every file that uses it
+(948 hits); (3) A0-A5 are *prefixes* wrapping the next command
+(IF/TIME/RANDOM/VARIABLE per `MmlParser::Parse`), not standalone
+commands -- misreading them desyncs too (953 hits); (4) the assembler
+emitted an RSEQ-shaped header (ver 0x0001, no LABL) under the FSEQ
+magic; (5) `#` comment-stripping ate sharps in note names (all 35
+round-trip failures were sharp-containing files). All fixed per the
+SDK sources, including exact operand widths (notes: vel u8 + VMIDI
+gate; EX subs: u8+s16 / u8 / s16 by high nibble; s16/robot args
+endian-aware; s16pair RANDOM bounds). The disassembler prints
+`ex`/`if`/`random`/`variable`/`time*` forms plus all 30 previously
+unprinted u8/s16 commands and real LABEL-block names as `label`
+directives; the assembler parses them back and emits the true
+BinaryFileHeader container (ver 0x20000, 32-padded DATA/LABL).
+Measured on all 811: **zero unknown opcodes, 811/811 byte-exact
+round-trips, 811/811 valid MIDIs** (MIDI also walks past FIN/RET
+subroutine terminators now instead of stopping at the first one).
+Two tiny fixtures (`fseq_wiiu_yww_0000/0800.bfseq`, 160/608 bytes)
+with a `t_fseq_wiiu_roundtrip` case. Still open: Switch FSEQ_LE header
+version (mirrored, no sample), VARIABLE/RANDOM MIDI value semantics
+(midpoint/0 documented simplifications), real-RSEQ header shape
+(block-first with legacy fallback; no retail sample to confirm).
 
 ## Suggested order
 
