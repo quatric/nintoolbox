@@ -14,10 +14,17 @@
 //
 // Not implemented: CallDLL/CALLFUNCTION (would need a full expression VM
 // plus dynamic library loading), the ~100-algorithm crypto suite behind
-// ENCRYPTION (registered as a no-op passthrough), CRC/hashing opcodes,
-// array opcodes (GetArray/PutArray/SortArray/SearchArray), and most of
-// the ~200 ComType-specific compression plugins beyond what this fork's
-// own native decoders already cover. This is not a full QuickBMS clone.
+// ENCRYPTION (registered as a no-op passthrough), CRC/hashing opcodes, and
+// array opcodes (GetArray/PutArray/SortArray/SearchArray). This is not a
+// full QuickBMS clone.
+//
+// COMTYPE coverage is deliberately split: a handful of formats real Nintendo
+// archives use (LZ10/11, Yaz0/Yay0, zlib/deflate, ASH0, Nintendo RL/Huffman,
+// RNC, LZH8, QuickLZ, BLZ, Camelot, AT7) are decoded natively here; every
+// other algorithm is left to a real `quickbms` executable, which
+// RunBmsScript runs in preference to this interpreter whenever one is
+// installed. With no engine available an unrecognised COMTYPE span is
+// copied through untouched (after a wrapped-SZS check).
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,7 +40,6 @@
 #include "lib-nintendo.h"
 #include "lib-quicklz.h"
 #include "lib-bms.h"
-#include "quickbms-comp/qbms-comp.h"
 
 #define MAX_VARS 1024
 #define MAX_LINES 8192
@@ -447,6 +453,58 @@ static enumError decode_zlib_comtype (
 	}
 }
 
+// Locate an external QuickBMS executable, once per run:
+//   1. $WBMSX_QUICKBMS (explicit override, used verbatim)
+//   2. third_party/quickbms/quickbms next to the running binary
+//   3. quickbms / quickbms_4gb_files found on $PATH
+// Returns NULL when none of those are executable.
+static ccp find_quickbms_engine (void)
+{
+	static char cached[PATH_MAX];
+	static int done = 0;
+	if (done)
+		return cached[0] ? cached : 0;
+	done = 1;
+
+	const char *env = getenv ("WBMSX_QUICKBMS");
+	if (env && *env)
+	{
+		snprintf (cached, sizeof (cached), "%s", env);
+		return cached;
+	}
+
+	if (ProgInfo.progdir && *ProgInfo.progdir)
+	{
+		snprintf (cached, sizeof (cached), "%s/third_party/quickbms/quickbms", ProgInfo.progdir);
+		if (!access (cached, X_OK))
+			return cached;
+	}
+
+	const char *pathenv = getenv ("PATH");
+	if (pathenv && *pathenv)
+	{
+		static const char *const names[] = { "quickbms", "quickbms_4gb_files", 0 };
+		char buf[8192];
+		for (int i = 0; names[i]; i++)
+		{
+			snprintf (buf, sizeof (buf), "%s", pathenv);
+			for (char *tok = strtok (buf, ":"); tok; tok = strtok (0, ":"))
+			{
+				char cand[PATH_MAX];
+				snprintf (cand, sizeof (cand), "%s/%s", tok, names[i]);
+				if (!access (cand, X_OK))
+				{
+					snprintf (cached, sizeof (cached), "%s", cand);
+					return cached;
+				}
+			}
+		}
+	}
+
+	cached[0] = 0;
+	return 0;
+}
+
 static void clog_span (bms_ctx_t *ctx, const char *name, const uint8_t *file, size_t file_size,
 	size_t off, size_t comp_size, size_t uncomp_size)
 {
@@ -520,31 +578,17 @@ static void clog_span (bms_ctx_t *ctx, const char *name, const uint8_t *file, si
 	else if (!strcasecmp (ctx->comtype, "at7") || !strcasecmp (ctx->comtype, "at7p")
 		|| !strcasecmp (ctx->comtype, "pmd"))
 		err = DecodeAT7 (&dest, &dest_size, src, (uint)comp_size);
-	// Vendored QuickBMS codec registry (src/quickbms-comp/): a curated set of
-	// upstream QuickBMS compression plugins -- LZSS/LZARI/LZH/LZX/DMC/Q3HUFF/
-	// FastLZ/LZ4X/LZFX/LZMAT/Shrinker/SMAZ/... -- so scripts naming these run
-	// natively instead of falling through to raw copy below.  The buffer it
-	// returns is plain malloc()'d; copy it into the MALLOC() arena this
-	// function frees with FREE().
-	else if (QbmsHandlesCompType (ctx->comtype))
-	{
-		u8 *qb = 0;
-		uint qn = 0;
-		if (QbmsDecompress (ctx->comtype, src, (uint)comp_size, (uint)uncomp_size, &qb, &qn))
-		{
-			dest = MALLOC (qn ? qn : 1);
-			memcpy (dest, qb, qn);
-			dest_size = qn;
-			err = ERR_OK;
-		}
-		if (qb)
-			FREE (qb);
-	}
+	// Everything else is not decoded in-process.  A real QuickBMS executable,
+	// when one is installed, already handles the whole script (see
+	// RunBmsScript, which runs the external engine in preference to this
+	// native interpreter); this fallback only runs when no such engine was
+	// found, so the best it can do is recognise a wrapped SZS/Yaz0 container
+	// and otherwise copy the span through untouched.
 	else
 	{
 		szs_file_t szs;
 		InitializeSZS (&szs);
-		szs.fname = name;
+		szs.fname = STRDUP (name ? name : "");
 		szs.cdata = (u8 *)src;
 		szs.csize = comp_size;
 		szs.file_size = comp_size;
@@ -1402,20 +1446,12 @@ static enumError RunNativeBmsScript (ccp script_path, ccp infile, ccp outdir)
 // the second path makes an in-tree build work without installation.
 enumError RunBmsScript (ccp script_path, ccp infile, ccp outdir)
 {
-	const char *engine = getenv ("WBMSX_QUICKBMS");
-	if (!engine || !*engine)
-	{
-		static char bundled[PATH_MAX];
-		if (ProgInfo.progdir && *ProgInfo.progdir)
-			snprintf (
-				bundled, sizeof (bundled), "%s/third_party/quickbms/quickbms", ProgInfo.progdir);
-		else
-			strcpy (bundled, "third_party/quickbms/quickbms");
-		if (!access (bundled, X_OK))
-			engine = bundled;
-		else
-			engine = "quickbms";
-	}
+	// Same discovery as the COMTYPE passthrough; fall back to the bare name so
+	// execlp() can still find one on $PATH (and RunNativeBmsScript can take
+	// over if it cannot).
+	const char *engine = find_quickbms_engine ();
+	if (!engine)
+		engine = "quickbms";
 
 	pid_t pid = fork ();
 	if (pid < 0)

@@ -396,12 +396,12 @@ LIB_ZSTD_OBJ	= $(patsubst %.c,%.o,$(LIB_ZSTD_SRC))
 LIB_LZ4_SRC	= $(wildcard src/liblz4/*.c)
 LIB_LZ4_OBJ	= $(patsubst %.c,%.o,$(LIB_LZ4_SRC))
 
-# quickbms-comp: vendored QuickBMS decompression codecs reached from lib-bms.c
-LIB_QBMSCOMP_SRC = $(wildcard src/quickbms-comp/*.c) $(wildcard src/quickbms-comp/codecs/*.c)
-LIB_QBMSCOMP_OBJ = $(patsubst %.c,%.o,$(LIB_QBMSCOMP_SRC))
+# Non-native BMS COMTYPEs are handled by running a real `quickbms` executable
+# (see RunBmsScript / find_quickbms_engine in src/lib-bms.c); nothing to build
+# here.
 
-LIB_LIST	+= libbz2 liblzma mxml ajpg libyaml midilib libzstd liblz4 quickbms-comp
-LIB_OBJECTS	+= $(LIB_BZ2_OBJ) $(LIB_LZMA_OBJ) $(LIB_MXML_OBJ) $(LIB_BENZIN_OBJ) $(LIB_YAML_OBJ) $(LIB_MIDILIB_OBJ) $(LIB_ZSTD_OBJ) $(LIB_LZ4_OBJ) $(LIB_QBMSCOMP_OBJ)
+LIB_LIST	+= libbz2 liblzma mxml ajpg libyaml midilib libzstd liblz4
+LIB_OBJECTS	+= $(LIB_BZ2_OBJ) $(LIB_LZMA_OBJ) $(LIB_MXML_OBJ) $(LIB_BENZIN_OBJ) $(LIB_YAML_OBJ) $(LIB_MIDILIB_OBJ) $(LIB_ZSTD_OBJ) $(LIB_LZ4_OBJ)
 # benzin: layout (BRLYT/BFLYT/BCLYT + BRLAN/BFLAN/BCLAN) support is native,
 # see lib-bflyt.c; no external interpreter needed.
 LIB_BENZIN_SRC	=
@@ -413,7 +413,6 @@ LIB_BENZIN_OBJ	= $(patsubst %,%.o,$(basename $(LIB_BENZIN_SRC)))
 LIB_LIST	+= libbz2 liblzma mxml ajpg libzstd liblz4
 LIB_OBJECTS	+= $(LIB_BZ2_OBJ) $(LIB_LZMA_OBJ) $(LIB_MXML_OBJ) $(LIB_BENZIN_OBJ) $(LIB_ZSTD_OBJ) $(LIB_LZ4_OBJ)
 RM_FILES	+= $(foreach l,$(LIB_LIST),src/$(l)/*.{d,o})
-RM_FILES	+= src/quickbms-comp/codecs/*.{d,o}
 
 #-------------------------------------------------------------------------------
 # object files
@@ -784,12 +783,6 @@ $(LIB_ZSTD_OBJ): %.o: %.c Makefile
 $(LIB_LZ4_OBJ): %.o: %.c Makefile
 	@printf "$(LOGFORMAT_CC)" object "$(subst src/liblz4/,,$@)" "$(MODE) [lz4]"
 	@$(CC) $(CFLAGS) $(DEPFLAGS) $(DEFINES) -c $< -o $@
-
-# Vendored QuickBMS codecs: upstream third-party sources, compiled -w; the
-# dispatch shim lives in src/quickbms-comp/.
-$(LIB_QBMSCOMP_OBJ): %.o: %.c Makefile
-	@printf "$(LOGFORMAT_CC)" object "$(subst src/quickbms-comp/,,$@)" "$(MODE) [qbms]"
-	@$(CC) $(CFLAGS) $(DEPFLAGS) $(DEFINES) -w -c $< -o $@
 
 #
 ###############################################################################
