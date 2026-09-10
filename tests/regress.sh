@@ -6781,6 +6781,34 @@ with open("'"$d"'/ctxb_test/sample.ctxb", "wb") as f:
     bno "Grezzo 3DS Texture Container" "failed byte-exact re-encode";
   fi
 
+  # Grezzo CTXB with a bogus first entry: the decoder must walk every
+  # 36-byte entry in the chunk, not just entry 0 (real romfs files pack
+  # several textures per "tex " chunk; entry 0 is not always decodable).
+  python3 -c '
+import struct
+img_data = b"\xff\x00\x00\xff" * 64
+tex_data_off = 24 + 12 + 72
+total_sz = tex_data_off + len(img_data)
+c2 = bytearray(total_sz)
+struct.pack_into("<4sIIIII", c2, 0, b"ctxb", total_sz, 1, 0, 24, tex_data_off)
+struct.pack_into("<4sII", c2, 24, b"tex ", 72, 2)
+struct.pack_into("<IHHHHI", c2, 36, 0, 0, 0, 0, 0, 0x14016752)
+struct.pack_into("<I", c2, 36 + 16, 0)
+c2[36+20:36+36] = b"bogus\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+struct.pack_into("<IHHHHI", c2, 72, len(img_data), 0, 0, 8, 8, 0x14016752)
+struct.pack_into("<I", c2, 72 + 16, 0)
+c2[72+20:72+36] = b"valid\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+c2[tex_data_off:tex_data_off+len(img_data)] = img_data
+with open("'"$d"'/ctxb_test/multi.ctxb", "wb") as f:
+    f.write(c2)
+'
+  if "$B/wimgt" DECODE "$d/ctxb_test/multi.ctxb" -d "$d/ctxb_test/multi.png" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/ctxb_test/multi.png" ]; then
+    fok "Grezzo CTXB (.ctxb) decoding with bogus first entry"
+  else
+    fno "Grezzo CTXB multi-entry" "failed to decode past bogus entry 0";
+  fi
+
   # Nintendo 3DS CLIM Texture (.bclim) test
   mkdir -p "$d/bclim_test"
   local bclim_src="$PWD_PROJECT/../tests/fixtures/audio_samples/retail_coin.bclim"

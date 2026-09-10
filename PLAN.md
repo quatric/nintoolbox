@@ -1324,6 +1324,53 @@ BFRES v8/v9 header dict path handles every slot class YWW contains.
 (FSCN=26 scene resources is the rarest class and the one with no decoder
 yet — a natural next target if scene/animation research continues.)
 
+## 25. 2026-09-09 — NintendoWare gaps: CTXB multi-entry ✅ fixed; Cafe BFFNT sheet formats ❌ blocked with evidence
+
+Two gaps from the format-table review this session, one closed and one
+honestly blocked:
+
+**CTXB ✅ fixed.** `AssignIMG()`'s `ctxb` branch (`lib-image2.c`) only
+ever tried texture entry 0 of each `tex ` chunk. Real romfs CTXB files
+pack several 36-byte entries per chunk and entry 0 is not guaranteed
+decodable, so such files failed outright with "Failed decoding CTXB
+texture". The branch now walks every entry (`t` in `0..tex_count-1`,
+per-entry bounds check) across all chunks via the same
+`DecodePicaTexture()` call — single-entry files behave byte-identically
+to before. Proven by old-vs-new binary comparison on a synthetic
+2-entry fixture (bogus entry 0 with `w=h=0`, valid RGBA8 entry 1):
+old `wimgt` fails, new `wimgt` decodes. Guarded by a new
+`tests/regress.sh` case ("decoding with bogus first entry") next to
+the existing single-entry CTXB test. Full suite green afterwards
+(`PASS=399 FAIL=0`).
+
+**Cafe (Wii U) BFFNT sheet pixel formats ❌ blocked — implemented,
+visually checked, then reverted.** The hypothesis was that Wii U
+`fmt 0x0c` sheets are CTR-table ETC1 (the 3DS meaning of 12) decodable
+through the already-verified `DecodePicaTexture()` path. An ETC1
+branch was written and run against the real retail YWW debug fonts
+(`content/debug/MS_Gothic_16.bffnt`, 1024×1024, 14 declared sheets;
+`DynaFont_NW_Demo.bffnt`, 128×1024) — and the output was saturated
+colour noise under all four ETC1 variants tried (LE/BE block words ×
+linear/Morton-8×8 block order, checked with an independent Python
+ETC1 implementation), not glyph atlases. The branch was reverted
+rather than ship wrong pixels; `wimgt DECODE` on these files is back
+to the honest `unsupported sheet format 12` error. Evidence that
+this is a real format-table gap, not a decoder bug:
+
+- Latte (Wii U GPU) is AMD-based and has no ETC1 hardware — a Wii U
+  sheet is unlikely to be ETC1 at all; `0x0c`/`0x0e` (the latter seen
+  on `content/font/ALL/Font02/03/04.bffnt`, beyond the CTR table's
+  0–13 range entirely) belong to a Cafe-specific enum this codebase
+  has no oracle for.
+- Even the RGBA8 retail font (`Font00.bffnt`, `fmt 0x0`, sheet size
+  exactly `64*1024*4`) fails the branch's own `sheetSz*cnt ≤ file`
+  geometry check (22 declared sheets vs ~1 stored) and a raw linear
+  read of its sheet 0 renders as yellow striping, not glyphs — so
+  retail Cafe sheets are not plain-linear either (micro-tile swizzle
+  or another transform, as the code's own tiling-caveat comment
+  already suspected). Fixing that needs a Cafe GPU format oracle
+  (SDK docs or a hardware-swizzle reference), not more guessing here.
+
 ## Suggested order
 
 1. §2 (mechanical, minutes) + §8 (concrete bug, real user pain).

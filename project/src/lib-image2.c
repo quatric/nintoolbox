@@ -926,7 +926,7 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		if (chunk_offset >= data_size || tex_data_offset >= data_size)
 			return ERROR0 (ERR_INVALID_IFORM, "Invalid CTXB container: %s\n", fname);
 
-		// Read first chunk ("tex ") and its first texture
+		// Scan "tex " chunks for the first decodable texture
 		uint cur_chunk_off = chunk_offset;
 		bool found_tex = false;
 		u8 *rgba = 0;
@@ -939,71 +939,82 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 			const u32 sec_size = rd_le32 (data + cur_chunk_off + 4);
 			const u32 tex_count = rd_le32 (data + cur_chunk_off + 8);
 
-			if (tex_count > 0 && cur_chunk_off + 12 + 36 <= data_size)
+			if (tex_count > 0)
 			{
-				const u8 *tentry = data + cur_chunk_off + 12;
-				const u32 img_size = rd_le32 (tentry);
-				width = (uint)rd_le16 (tentry + 8);
-				height = (uint)rd_le16 (tentry + 10);
-				const u32 ctxb_fmt = rd_le32 (tentry + 12);
-				const u32 data_rel_off = rd_le32 (tentry + 16);
-
-				// Map CTXB texture format to CTR PICA format
-				uint pica_fmt = 0;
-				switch (ctxb_fmt)
+				// Walk every texture entry in this chunk (36 bytes each), not
+				// just the first: real romfs CTXB files pack several textures
+				// per "tex " chunk and the first entry is not guaranteed to
+				// be a decodable format.
+				for (uint t = 0; t < tex_count; t++)
 				{
-					case 0x14016756:
-						pica_fmt = 8;
-						break; // A8
-					case 0x0000675A:
-						pica_fmt = 12;
-						break; // ETC1
-					case 0x0000675B:
-						pica_fmt = 13;
-						break; // ETC1A4
-					case 0x67616757:
-						pica_fmt = 10;
-						break; // L4
-					case 0x14016757:
-						pica_fmt = 7;
-						break; // L8
-					case 0x14016758:
-						pica_fmt = 5;
-						break; // LA8
-					case 0x83636754:
-						pica_fmt = 3;
-						break; // RGB565
-					case 0x80336752:
-						pica_fmt = 4;
-						break; // RGBA4444
-					case 0x80346752:
-						pica_fmt = 2;
-						break; // RGBA5551
-					case 0x14016752:
-						pica_fmt = 0;
-						break; // RGBA8
-					case 0x14016754:
-						pica_fmt = 1;
-						break; // RGB8
-					default:
-						pica_fmt = 0;
+					if (cur_chunk_off + 12 + (uint64_t)(t + 1) * 36 > data_size)
 						break;
-				}
+					const u8 *tentry = data + cur_chunk_off + 12 + t * 36;
+					const u32 img_size = rd_le32 (tentry);
+					width = (uint)rd_le16 (tentry + 8);
+					height = (uint)rd_le16 (tentry + 10);
+					const u32 ctxb_fmt = rd_le32 (tentry + 12);
+					const u32 data_rel_off = rd_le32 (tentry + 16);
 
-				const u32 tex_start = tex_data_offset + data_rel_off;
-				if (tex_start < data_size)
-				{
-					const uint avail = data_size - tex_start;
-					const uint use_size = img_size <= avail ? img_size : avail;
-					enumError derr = DecodePicaTexture (&rgba, &width, &height, data + tex_start,
-						width, height, pica_fmt, use_size);
-					if (!derr && rgba)
+					// Map CTXB texture format to CTR PICA format
+					uint pica_fmt = 0;
+					switch (ctxb_fmt)
 					{
-						found_tex = true;
-						break;
+						case 0x14016756:
+							pica_fmt = 8;
+							break; // A8
+						case 0x0000675A:
+							pica_fmt = 12;
+							break; // ETC1
+						case 0x0000675B:
+							pica_fmt = 13;
+							break; // ETC1A4
+						case 0x67616757:
+							pica_fmt = 10;
+							break; // L4
+						case 0x14016757:
+							pica_fmt = 7;
+							break; // L8
+						case 0x14016758:
+							pica_fmt = 5;
+							break; // LA8
+						case 0x83636754:
+							pica_fmt = 3;
+							break; // RGB565
+						case 0x80336752:
+							pica_fmt = 4;
+							break; // RGBA4444
+						case 0x80346752:
+							pica_fmt = 2;
+							break; // RGBA5551
+						case 0x14016752:
+							pica_fmt = 0;
+							break; // RGBA8
+						case 0x14016754:
+							pica_fmt = 1;
+							break; // RGB8
+						default:
+							pica_fmt = 0;
+							break;
+					}
+
+					const u32 tex_start = tex_data_offset + data_rel_off;
+					if (tex_start < data_size)
+					{
+						const uint avail = data_size - tex_start;
+						const uint use_size = img_size <= avail ? img_size : avail;
+						enumError derr = DecodePicaTexture (&rgba, &width, &height, data + tex_start,
+							width, height, pica_fmt, use_size);
+						if (!derr && rgba)
+						{
+							found_tex = true;
+							break;
+						}
 					}
 				}
 			}
+			if (found_tex)
+				break;
 			cur_chunk_off += 12 + sec_size;
 		}
 
