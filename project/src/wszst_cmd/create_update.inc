@@ -5178,6 +5178,72 @@ static enumError extract_gfa_file (ccp arg, ccp basedir, uint depth)
 	return err;
 }
 
+// And-Kensaku ".rz": whole-stream Nintendo LZ77 wrapping a "Pres" archive.
+// See lib-kensaku.c; ported from Luigi Auriemma's and_kensaku.bms.
+static enumError extract_rz_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".rz"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+	if (raw_size > UINT_MAX)
+	{
+		FREE (raw);
+		return ERR_FILE_TOO_BIG;
+	}
+	if (raw_size < 4 || (raw[0] != 0x10 && raw[0] != 0x11))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	kensaku_t k;
+	err = ScanKensakuRZ (&k, raw, raw_size);
+	FREE (raw);
+	if (err)
+		// A non-Pres LZ77 payload is not ours; let the generic Nintendo
+		// decompressor further down the chain handle it.
+		return ERR_NOTHING_TO_DO;
+
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT RZ:%s (%u entries, LZ%02X) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, k.n_entries, k.compression, dest);
+
+	for (uint i = 0; !err && i < k.n_entries; i++)
+	{
+		const kensaku_entry_t *e = k.entries + i;
+		char rel[PATH_MAX];
+		snprintf (rel, sizeof (rel), "%s", e->name);
+		if (!valid_sarc_path (rel))
+			snprintf (rel, sizeof (rel), "file_%04u.bin", i);
+		if (testmode)
+			continue;
+
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", rel);
+		File_t F;
+		err = CreateFileOpt (&F, true, path, false, arg);
+		if (F.f && fwrite (k.blob + e->offset, 1, e->size, F.f) != e->size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", e->size, path);
+		ResetFile (&F, opt_preserve);
+	}
+
+	ResetKensaku (&k);
+	if (!err && !testmode)
+	{
+		enumError sub_err = extract_tree_complete (dest, depth + 1);
+		if (err < sub_err)
+			err = sub_err;
+	}
+	return err;
+}
+
 static enumError extract_rst_file (ccp arg, ccp basedir, uint depth)
 {
 	FILE *f = fopen (arg, "rb");
