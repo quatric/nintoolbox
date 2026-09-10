@@ -335,7 +335,7 @@ XOBJ_LIB	= analyze.o lib-szs-create.o lib-analyze.o lib-xbmg.o lib-msbt.o \
 			lib-ctcode.o lib-lex.o lib-lecode.o lib-ledis.o \
 			lib-staticr.o db-dol.o db-ctcode.o getopt.o \
 			$(XOBJ_KMP) $(XOBJ_COMMON) $(XOBJ_KCL) lib-kcl-image.o lib-rkg.o \
-			$(XOBJ_OBJECT) $(XOBJ_PARSER) $(XOBJ_IMAGE) lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-brres-inject.o lib-dtls.o lib-mio.o lib-smash-arc.o lib-warc.o lib-nccarc.o lib-fsys.o lib-gfa.o lib-pac.o lib-darc.o lib-narc.o lib-byml.o lib-sound-archive.o lib-jarc.o lib-lzo.o lib-gpkg.o lib-gpak.o lib-bns.o lib-rpak.o lib-lspk.o lib-sfzdat.o lib-bg4.o lib-hwl.o lib-cram.o lib-sze.o lib-rflres.o lib-sa01.o lib-msr.o lib-miirender.o
+			$(XOBJ_OBJECT) $(XOBJ_PARSER) $(XOBJ_IMAGE) lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-brres-inject.o lib-dtls.o lib-mio.o lib-smash-arc.o lib-warc.o lib-nccarc.o lib-fsys.o lib-gfa.o lib-pac.o lib-darc.o lib-narc.o lib-byml.o lib-sound-archive.o lib-jarc.o lib-lzo.o lib-gpkg.o lib-gpak.o lib-bns.o lib-rpak.o lib-lspk.o lib-sfzdat.o lib-bg4.o lib-hwl.o lib-cram.o lib-sze.o lib-rflres.o lib-sa01.o lib-msr.o lib-miirender.o lib-kensaku.o
 
 TOBJ_gen-ui	= $(XOBJ_OBJECT)
 TOBJ_wszst	= $(XOBJ_LIB) lib-hsd.o lib-halbank.o lib-bcres.o lib-bfres.o lib-nsbmd.o lib-nsbanim.o lib-nud.o lib-numsh.o lib-passthru.o $(WRAPPER_OBJ) lzh8_cmp.o lzh8_dec.o lzh8_util.o
@@ -395,8 +395,12 @@ LIB_ZSTD_OBJ	= $(patsubst %.c,%.o,$(LIB_ZSTD_SRC))
 LIB_LZ4_SRC	= $(wildcard src/liblz4/*.c)
 LIB_LZ4_OBJ	= $(patsubst %.c,%.o,$(LIB_LZ4_SRC))
 
-LIB_LIST	+= libbz2 liblzma mxml ajpg libyaml midilib libzstd liblz4
-LIB_OBJECTS	+= $(LIB_BZ2_OBJ) $(LIB_LZMA_OBJ) $(LIB_MXML_OBJ) $(LIB_BENZIN_OBJ) $(LIB_YAML_OBJ) $(LIB_MIDILIB_OBJ) $(LIB_ZSTD_OBJ) $(LIB_LZ4_OBJ)
+# quickbms-comp: vendored QuickBMS decompression codecs reached from lib-bms.c
+LIB_QBMSCOMP_SRC = $(wildcard src/quickbms-comp/*.c) $(wildcard src/quickbms-comp/codecs/*.c)
+LIB_QBMSCOMP_OBJ = $(patsubst %.c,%.o,$(LIB_QBMSCOMP_SRC))
+
+LIB_LIST	+= libbz2 liblzma mxml ajpg libyaml midilib libzstd liblz4 quickbms-comp
+LIB_OBJECTS	+= $(LIB_BZ2_OBJ) $(LIB_LZMA_OBJ) $(LIB_MXML_OBJ) $(LIB_BENZIN_OBJ) $(LIB_YAML_OBJ) $(LIB_MIDILIB_OBJ) $(LIB_ZSTD_OBJ) $(LIB_LZ4_OBJ) $(LIB_QBMSCOMP_OBJ)
 # benzin: layout (BRLYT/BFLYT/BCLYT + BRLAN/BFLAN/BCLAN) support is native,
 # see lib-bflyt.c; no external interpreter needed.
 LIB_BENZIN_SRC	=
@@ -408,6 +412,7 @@ LIB_BENZIN_OBJ	= $(patsubst %,%.o,$(basename $(LIB_BENZIN_SRC)))
 LIB_LIST	+= libbz2 liblzma mxml ajpg libzstd liblz4
 LIB_OBJECTS	+= $(LIB_BZ2_OBJ) $(LIB_LZMA_OBJ) $(LIB_MXML_OBJ) $(LIB_BENZIN_OBJ) $(LIB_ZSTD_OBJ) $(LIB_LZ4_OBJ)
 RM_FILES	+= $(foreach l,$(LIB_LIST),src/$(l)/*.{d,o})
+RM_FILES	+= src/quickbms-comp/codecs/*.{d,o}
 
 #-------------------------------------------------------------------------------
 # object files
@@ -778,6 +783,12 @@ $(LIB_ZSTD_OBJ): %.o: %.c Makefile
 $(LIB_LZ4_OBJ): %.o: %.c Makefile
 	@printf "$(LOGFORMAT_CC)" object "$(subst src/liblz4/,,$@)" "$(MODE) [lz4]"
 	@$(CC) $(CFLAGS) $(DEPFLAGS) $(DEFINES) -c $< -o $@
+
+# Vendored QuickBMS codecs: upstream third-party sources, compiled -w; the
+# dispatch shim lives in src/quickbms-comp/.
+$(LIB_QBMSCOMP_OBJ): %.o: %.c Makefile
+	@printf "$(LOGFORMAT_CC)" object "$(subst src/quickbms-comp/,,$@)" "$(MODE) [qbms]"
+	@$(CC) $(CFLAGS) $(DEPFLAGS) $(DEFINES) -w -c $< -o $@
 
 #
 ###############################################################################

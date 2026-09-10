@@ -33,6 +33,7 @@
 #include "lib-nintendo.h"
 #include "lib-quicklz.h"
 #include "lib-bms.h"
+#include "quickbms-comp/qbms-comp.h"
 
 #define MAX_VARS 1024
 #define MAX_LINES 8192
@@ -519,6 +520,26 @@ static void clog_span (bms_ctx_t *ctx, const char *name, const uint8_t *file, si
 	else if (!strcasecmp (ctx->comtype, "at7") || !strcasecmp (ctx->comtype, "at7p")
 		|| !strcasecmp (ctx->comtype, "pmd"))
 		err = DecodeAT7 (&dest, &dest_size, src, (uint)comp_size);
+	// Vendored QuickBMS codec registry (src/quickbms-comp/): a curated set of
+	// upstream QuickBMS compression plugins -- LZSS/LZARI/LZH/LZX/DMC/Q3HUFF/
+	// FastLZ/LZ4X/LZFX/LZMAT/Shrinker/SMAZ/... -- so scripts naming these run
+	// natively instead of falling through to raw copy below.  The buffer it
+	// returns is plain malloc()'d; copy it into the MALLOC() arena this
+	// function frees with FREE().
+	else if (QbmsHandlesCompType (ctx->comtype))
+	{
+		u8 *qb = 0;
+		uint qn = 0;
+		if (QbmsDecompress (ctx->comtype, src, (uint)comp_size, (uint)uncomp_size, &qb, &qn))
+		{
+			dest = MALLOC (qn ? qn : 1);
+			memcpy (dest, qb, qn);
+			dest_size = qn;
+			err = ERR_OK;
+		}
+		if (qb)
+			FREE (qb);
+	}
 	else
 	{
 		szs_file_t szs;

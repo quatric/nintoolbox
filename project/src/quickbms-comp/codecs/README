@@ -1,0 +1,41 @@
+Vendored QuickBMS compression codecs
+====================================
+
+Source : quickbms-src-0.12.0.zip  (https://aluigi.altervista.org/quickbms.htm)
+         src/compression/ and src/extra/ from that archive.
+
+These files are the upstream QuickBMS codec sources, imported verbatim except
+for #include path adjustments so they build outside the QuickBMS tree
+(e.g. "../extra/mem2mem.h" -> "mem2mem.h").  They are compiled into the
+wszst / wbmsx binaries and reached through ../qbms-comp.c, which the native
+BMS interpreter (src/lib-bms.c) calls for COMTYPE / CLOG directives naming
+one of these algorithms.
+
+QuickBMS is licensed GPL-2.0, the same licence as this project.  Individual
+codec files additionally carry their original authors' notices; those are
+preserved in each file's header.  Nothing here changes the licensing of the
+combined work, which remains GPL-2.0.
+
+Files
+-----
+  mem2mem.c/.h        Luigi Auriemma  -- in-memory stdio shim used by splay.c
+  lzss.c              Haruhiko Okumura LZSS (configurable window)
+  lzari.c             Haruhiko Okumura LZARI (LZSS + arithmetic coding)
+  lzhuf.c             Haruhiko Okumura LZHUF (LZSS + adaptive Huffman)
+  unlzx.c             Amiga LZX archive stream decoder
+  undmc.c             DMC (dynamic Markov compression) decoder
+  unq3huff.c          Quake III adaptive Huffman decoder
+  unshrink.c          PKWARE "shrink" (LZW) decoder
+  yuke_bpe.c          Yuke's byte-pair-encoding decoder
+  splay.c             CompressLib splay-tree decoder
+  fastlz.c/.h         FastLZ (Ariya Hidayat)
+  lzfx.c/.h           LZF-derived "lzfx"
+  lzmat_dec.c/lzmat.h LZMAT decoder (Vitaly Evseenko)
+  lz4x.c              LZ4X (small LZ4-compatible coder, Ilya Muravyov)
+  Shrinker.c/.h       Shrinker LZ (Sergey Lyubka)
+  smaz.c/.h           SMAZ short-string compressor (Salvatore Sanfilippo)
+
+To add another upstream codec: copy its .c/.h here, fix includes so it
+builds standalone, then add a prototype + table row + run_codec() case in
+../qbms-comp.c.  The Makefile picks up new files in this directory
+automatically.
