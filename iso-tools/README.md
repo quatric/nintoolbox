@@ -45,6 +45,7 @@ them into that pipeline they get their own four commands — `XINFO`, `XEXTRACT`
 | Riivolution | Mod / Disc Patching | ✅ | ✅ | Full XML spec: file/folder replacement, DOL memory patching, dynamic sections, variable substitution, multi-choice selection via `wit RIIVOLUTION` |
 | RVZ | Disc image | ✅ | ✅ | Dolphin's WIA derivative; all normal WIT read/write commands; Zstandard, sub-2 MiB chunks and losslessly packed pseudo-random padding on decode; encoding writes plain zstd-compressed groups without Dolphin's junk-data repacking (still spec-valid, larger output) |
 | Switch XCI / NSP | Disc/package | 🔍 | ⛔ | Identified by `XINFO`, not yet unpacked |
+| Switch XCZ / NSZ | Disc/package | 🔍 | ⛔ | zstd-compressed XCI/NSP; `XINFO`/`XEXTRACT` transparently decompress to XCI/NSP by shelling out to the external [`nsz`](https://github.com/nicoboss/nsz) tool (must be on `$PATH`; needs `~/.switch/prod.keys`), then run the XCI/NSP path |
 | WAD | Installable title | ✅ | ✅ | Wii; contents decrypted and re-encrypted via `XINFO`, `XEXTRACT` and `XCREATE`; TMD re-signed only when something changed |
 | WUX / WUD | Disc image | ✅ | ✅ | Wii U; container conversion via `XINFO` and `XCONVERT`; file-system unpacking needs the per-disc key and is not implemented |
 

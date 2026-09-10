@@ -134,6 +134,158 @@ static enumError save_file (ccp fname, const void *data, size_t size)
 
 //
 ///////////////////////////////////////////////////////////////////////////////
+///////////////	   NSZ / XCZ passthrough (external "nsz" tool)	///////////////
+///////////////////////////////////////////////////////////////////////////////
+
+// .nsz / .xcz are ordinary NSP / XCI containers whose bulky NCAs have been
+// replaced with zstd-compressed .ncz blobs by the homebrew "nsz" tool
+// (https://github.com/nicoboss/nsz). Nothing in this file understands that
+// zstd stream, so a .nsz/.xcz is handled by transparently shelling out to
+// "nsz -D" to restore the plain .nsp/.xci into a temporary directory and
+// then running the normal NSP/XCI back end on the result. This needs "nsz"
+// on $PATH and the usual ~/.switch/prod.keys (nsz itself re-encrypts the
+// decompressed sections and cannot do so without the keys).
+
+#define SW_NSZ_TOOL "nsz"
+
+///////////////////////////////////////////////////////////////////////////////
+
+static void sw_rm_rf (ccp path)
+{
+	if (path && *path)
+	{
+		char cmd[PATH_MAX+16];
+		snprintf (cmd, sizeof (cmd), "rm -rf \"%s\"", path);
+		if (system (cmd)) {/* best effort */}
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+// Decompress SOURCE (.nsz or .xcz) with the external "nsz" tool. On success
+// TMP_DIR receives the temp directory the caller must remove once done, and
+// OUT_PATH receives the restored .nsp/.xci inside it.
+
+static enumError sw_nsz_decompress
+(
+	ccp	source,		// the .nsz/.xcz input
+	bool	want_xci,	// true: expect .xci out, false: .nsp
+	char	*out_path,	// >= PATH_MAX: restored container path
+	char	*tmp_dir	// >= PATH_MAX: temp dir to clean up afterwards
+)
+{
+	*out_path = *tmp_dir = 0;
+
+	if (system ("command -v " SW_NSZ_TOOL " >/dev/null 2>&1") != 0)
+		return ERROR0 (ERR_NOT_IMPLEMENTED,
+			"'%s' is required to decompress %s files but was not found on"
+			" $PATH.\nInstall it from https://github.com/nicoboss/nsz\n",
+			SW_NSZ_TOOL, want_xci ? "XCZ" : "NSZ");
+
+	ccp tmpenv = getenv ("TMPDIR");
+	if (!tmpenv || !*tmpenv)
+		tmpenv = "/tmp";
+	snprintf (tmp_dir, PATH_MAX, "%s/wit-nsz-XXXXXX", tmpenv);
+	if (!mkdtemp (tmp_dir))
+	{
+		*tmp_dir = 0;
+		return ERROR1 (ERR_CANT_CREATE,
+			"Can't create temporary directory: %s\n", tmp_dir);
+	}
+
+	char cmd[2*PATH_MAX+128];
+	snprintf (cmd, sizeof (cmd), "%s -D -w -o \"%s\" \"%s\"%s",
+		SW_NSZ_TOOL, tmp_dir, source,
+		verbose >= 1 ? "" : " >/dev/null 2>&1");
+	if (system (cmd) != 0)
+	{
+		sw_rm_rf (tmp_dir);
+		*tmp_dir = 0;
+		return ERROR0 (ERR_CANT_CREATE,
+			"'%s -D' failed to decompress: %s\n", SW_NSZ_TOOL, source);
+	}
+
+	// "nsz" writes "<source stem>.nsp" / ".xci" into the output directory.
+	ccp base = strrchr (source, '/');
+	base = base ? base+1 : source;
+	char stem[PATH_MAX];
+	snprintf (stem, sizeof (stem), "%s", base);
+	char *dot = strrchr (stem, '.');
+	if (dot)
+		*dot = 0;
+	snprintf (out_path, PATH_MAX, "%s/%s%s",
+		tmp_dir, stem, want_xci ? ".xci" : ".nsp");
+
+	struct stat st;
+	if (stat (out_path, &st) || !S_ISREG (st.st_mode))
+	{
+		sw_rm_rf (tmp_dir);
+		*tmp_dir = *out_path = 0;
+		return ERROR0 (ERR_CANT_CREATE,
+			"'%s -D' produced no %s output for: %s\n",
+			SW_NSZ_TOOL, want_xci ? ".xci" : ".nsp", source);
+	}
+	return ERR_OK;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+enumError XInfoNSZ (ccp source)
+{
+	char out_path[PATH_MAX], tmp_dir[PATH_MAX];
+	enumError err = sw_nsz_decompress (source, false, out_path, tmp_dir);
+	if (!err)
+	{
+		printf ("      zstd-compressed NSP; decompressed via '%s -D'\n",
+			SW_NSZ_TOOL);
+		err = XInfoNSP (out_path);
+	}
+	sw_rm_rf (tmp_dir);
+	return err;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+enumError XInfoXCZ (ccp source)
+{
+	char out_path[PATH_MAX], tmp_dir[PATH_MAX];
+	enumError err = sw_nsz_decompress (source, true, out_path, tmp_dir);
+	if (!err)
+	{
+		printf ("      zstd-compressed XCI; decompressed via '%s -D'\n",
+			SW_NSZ_TOOL);
+		err = XInfoXCI (out_path);
+	}
+	sw_rm_rf (tmp_dir);
+	return err;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+enumError XExtractNSZ (ccp source, ccp dest)
+{
+	char out_path[PATH_MAX], tmp_dir[PATH_MAX];
+	enumError err = sw_nsz_decompress (source, false, out_path, tmp_dir);
+	if (!err)
+		err = XExtractNSP (out_path, dest);
+	sw_rm_rf (tmp_dir);
+	return err;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+enumError XExtractXCZ (ccp source, ccp dest)
+{
+	char out_path[PATH_MAX], tmp_dir[PATH_MAX];
+	enumError err = sw_nsz_decompress (source, true, out_path, tmp_dir);
+	if (!err)
+		err = XExtractXCI (out_path, dest);
+	sw_rm_rf (tmp_dir);
+	return err;
+}
+
+//
+///////////////////////////////////////////////////////////////////////////////
 ///////////////		     prod.keys (informational only)		///////////////
 ///////////////////////////////////////////////////////////////////////////////
 

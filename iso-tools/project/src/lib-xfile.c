@@ -63,6 +63,8 @@ const xformat_info_t xformat_info[XF__N] = {
 	{ XF_CIA, "CIA", ".cia", "3DS installable title", 1, 0, 0 },
 	{ XF_XCI, "XCI", ".xci", "Switch cartridge image", 1, 0, 0 },
 	{ XF_NSP, "NSP", ".nsp", "Switch package", 1, 0, 0 },
+	{ XF_XCZ, "XCZ", ".xcz", "Switch cartridge image, zstd-compressed (nsz)", 1, 0, 0 },
+	{ XF_NSZ, "NSZ", ".nsz", "Switch package, zstd-compressed (nsz)", 1, 0, 0 },
 	{ XF_NKIT_GC, "NKIT", ".iso", "NKit-compressed GC image (restore only)", 0, 0, 1 },
 	{ XF_NKIT_WII, "NKIT", ".iso", "NKit-compressed Wii image (restore only)", 0, 0, 1 },
 };
@@ -211,7 +213,19 @@ xformat_t AnalyzeXFile (ccp fname, // file to analyze
 	const size_t read_size = fread (head, 1, sizeof (head), f);
 	fclose (f);
 
-	const xformat_t fform = AnalyzeXFormat (head, (uint)read_size, (u64)st.st_size);
+	xformat_t fform = AnalyzeXFormat (head, (uint)read_size, (u64)st.st_size);
+
+	// A .nsz/.xcz is byte-for-byte a PFS0/HFS0 container (so the sniffer sees
+	// NSP, or nothing at all for XCZ whose root sits past the head buffer);
+	// the zstd payload inside is handled by the external "nsz" passthrough,
+	// which is keyed purely off the file extension.
+	if (fform == XF_UNKNOWN || fform == XF_NSP || fform == XF_XCI)
+	{
+		const xformat_t byext = format_by_ext (fname);
+		if (byext == XF_NSZ || byext == XF_XCZ)
+			fform = byext;
+	}
+
 	if (fform != XF_UNKNOWN && file_size)
 		*file_size = st.st_size;
 	return fform;
@@ -262,6 +276,12 @@ enumError XInfo (ccp source)
 		case XF_NSP:
 			return XInfoNSP (source);
 
+		case XF_XCZ:
+			return XInfoXCZ (source);
+
+		case XF_NSZ:
+			return XInfoNSZ (source);
+
 		default:
 			// Detected, but nothing beyond the one line above is known yet.
 			printf ("      %s\n", info->info);
@@ -304,6 +324,10 @@ enumError XExtract (ccp source, ccp dest)
 			return XExtractXCI (source, dest);
 		case XF_NSP:
 			return XExtractNSP (source, dest);
+		case XF_XCZ:
+			return XExtractXCZ (source, dest);
+		case XF_NSZ:
+			return XExtractNSZ (source, dest);
 		default:
 			return ERROR0 (ERR_INTERNAL, 0);
 	}
