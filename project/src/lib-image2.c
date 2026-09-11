@@ -591,11 +591,14 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		return PatchListIMG (img);
 	}
 
-	// Retro Studios TXTR revisions (Metroid Prime/DKCR + Tropical Freeze).
-	// Neither shares the DSB "TXTR" magic tested above, so there is no
-	// collision here; IsRetroTXTR() additionally rejects both magics
-	// itself. Tropical (RFRM form) is tested before old Retro (bare
-	// header) so a truncated probe can never misroute.
+	// Retro Studios TXTR revisions (Metroid Prime/DKCR + Tropical Freeze +
+	// Metroid Prime Remastered). None share the DSB "TXTR" magic tested
+	// above, so there is no collision here; IsRetroTXTR() additionally
+	// rejects both RFRM-shell magics itself. Tropical and MPR share the
+	// exact same RFRM+"TXTR" shell (big-endian vs little-endian, told
+	// apart by ScanMPRTXTR()'s version-pair check), so Tropical is tried
+	// first and MPR only once that BE parse fails; old Retro (bare header)
+	// is tried last so a truncated probe can never misroute.
 	if (IsTropicalTXTR (data, data_size))
 	{
 		u8 *rgba = 0;
@@ -603,6 +606,17 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		const enumError err = DecodeTropicalTXTR_RGBA (&rgba, &width, &height, data, data_size);
 		if (err)
 			return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported Tropical TXTR texture: %s\n", fname);
+		AssignDecodedRGBA (img, rgba, width, height, &le_func, fname);
+		return PatchListIMG (img);
+	}
+
+	if (IsMPRTXTR (data, data_size))
+	{
+		u8 *rgba = 0;
+		uint width = 0, height = 0;
+		const enumError err = DecodeMPRTXTR_RGBA (&rgba, &width, &height, data, data_size);
+		if (err)
+			return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported MPR TXTR texture: %s\n", fname);
 		AssignDecodedRGBA (img, rgba, width, height, &le_func, fname);
 		return PatchListIMG (img);
 	}

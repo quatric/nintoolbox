@@ -3,8 +3,11 @@
 #include "lib-nintendo.h"
 #include "lib-excite.h"
 #include "lib-gtx.h"
+#include "lib-bntx.h"
 #include "lib-image.h"
 #include "lib-retro-txtr.h"
+#include "astc/astc_wrapper.h"
+#include "bcn-decoder/bcn_wrapper.h"
 #include <string.h>
 
 //-----------------------------------------------------------------------------
@@ -861,6 +864,512 @@ enumError DecodeTropicalTXTR_RGBA (
 	FREE (raw);
 	if (err)
 		return err;
+	*dest = rgba;
+	*width = w;
+	*height = h;
+	return ERR_OK;
+}
+
+//-----------------------------------------------------------------------------
+// Metroid Prime Remastered TXTR (Switch)
+//-----------------------------------------------------------------------------
+
+#define MPR_MAX_DIM 16384
+#define MPR_MAX_MIPS 16
+#define MPR_MAX_BUFFERS 64
+#define MPR_MAX_INFOS 64
+
+static inline uint mpr_div_round_up (uint n, uint d)
+{
+	return d ? (n + d - 1) / d : 0;
+}
+
+// Same RFRM-form / chunk record shape as lib-mpr-pak.c's read_form() /
+// read_chunk(), just little-endian throughout; duplicated here (both are
+// tiny and static) rather than shared across translation units.
+static bool mpr_read_form (const u8 *data, uint size, uint off, char id[4], u32 *rver, u32 *wver,
+	u64 *body_size, uint *body_off)
+{
+	if (!data || (u64)off + 0x20 > size || memcmp (data + off, "RFRM", 4))
+		return false;
+	const u64 fsize = rd_le64 (data + off + 4);
+	if (fsize > size || (u64)off + 0x20 + fsize > size)
+		return false;
+	memcpy (id, data + off + 0x14, 4);
+	if (rver)
+		*rver = rd_le32 (data + off + 0x18);
+	if (wver)
+		*wver = rd_le32 (data + off + 0x1c);
+	if (body_size)
+		*body_size = fsize;
+	if (body_off)
+		*body_off = off + 0x20;
+	return true;
+}
+
+static bool mpr_read_chunk (const u8 *data, uint size, uint off, char id[4], u64 *body_size,
+	uint *body_off)
+{
+	if (!data || (u64)off + 0x18 > size)
+		return false;
+	memcpy (id, data + off, 4);
+	const u64 csize = rd_le64 (data + off + 4);
+	const u64 skip = rd_le64 (data + off + 0x10);
+	if (csize > size || skip > size || (u64)off + 0x18 + skip + csize > size)
+		return false;
+	if (body_size)
+		*body_size = csize;
+	if (body_off)
+		*body_off = off + 0x18 + (uint)skip;
+	return true;
+}
+
+enumError ScanMPRTXTR (mpr_txtr_info_t *info, const u8 *data, uint size)
+{
+	if (!info || !data || size < 0x20)
+		return EINVAL;
+	memset (info, 0, sizeof (*info));
+
+	//--- outer "TXTR" form ---
+	char fid[4];
+	u32 rver, wver;
+	u64 fsize;
+	uint fbody;
+	if (!mpr_read_form (data, size, 0, fid, &rver, &wver, &fsize, &fbody) || memcmp (fid, "TXTR", 4))
+		return EINVAL;
+	// The discriminator against Tropical Freeze, which shares this exact
+	// RFRM+"TXTR" shell byte-for-byte but never sets this pair: retrotool's
+	// txtr.rs hard-asserts reader/writer version 47/51 for MPR.
+	if (rver != 47 || wver != 51)
+		return EINVAL;
+	const uint txtr_end = fbody + (uint)fsize;
+
+	//--- HEAD chunk ---
+	char hid[4];
+	u64 hsize;
+	uint hbody;
+	if (!mpr_read_chunk (data, size, fbody, hid, &hsize, &hbody) || memcmp (hid, "HEAD", 4)
+		|| hsize < 0x20 + 10 || (u64)hbody + hsize > txtr_end)
+		return EINVAL;
+
+	const u8 *hb = data + hbody;
+	const uint tex_type = rd_le32 (hb + 0x00);
+	const uint tex_format = rd_le32 (hb + 0x04);
+	const uint w = rd_le32 (hb + 0x08);
+	const uint h = rd_le32 (hb + 0x0c);
+	const uint layers = rd_le32 (hb + 0x10);
+	const uint mip_count = rd_le32 (hb + 0x1c);
+	if (!w || !h || w > MPR_MAX_DIM || h > MPR_MAX_DIM || !layers || layers > 2048 || !mip_count
+		|| mip_count > MPR_MAX_MIPS)
+		return EINVAL;
+	// STextureHeader body: 8 LE u32s (0x20), mip_count LE u32 mip sizes,
+	// then a 10-byte sampler_data record.
+	if ((u64)0x20 + (u64)mip_count * 4 + 10 > hsize)
+		return EINVAL;
+
+	//--- GPU chunk (its bytes are addressed via META's absolute file
+	// offsets below, not by walking through here; only its presence and
+	// bounds matter to the scan) ---
+	char gid[4];
+	u64 gsize;
+	uint gbody;
+	if (!mpr_read_chunk (data, size, hbody + (uint)hsize, gid, &gsize, &gbody)
+		|| memcmp (gid, "GPU ", 4) || (u64)gbody + gsize > txtr_end)
+		return EINVAL;
+
+	//--- FOOT form: a sibling top-level RFRM immediately after the TXTR
+	// form (not nested inside it -- the TXTR form's own size does not
+	// cover it), holding an AINF chunk and then the META chunk we need. ---
+	char footid[4];
+	u32 frver, fwver;
+	u64 footsize;
+	uint footbody;
+	if (!mpr_read_form (data, size, txtr_end, footid, &frver, &fwver, &footsize, &footbody))
+		return EINVAL;
+	const uint foot_end = footbody + (uint)footsize;
+
+	const u8 *meta = 0;
+	uint meta_size = 0;
+	for (uint pos = footbody; pos < foot_end;)
+	{
+		char cid[4];
+		u64 csize;
+		uint cbody;
+		if (!mpr_read_chunk (data, size, pos, cid, &csize, &cbody) || (u64)cbody + csize > foot_end)
+			return EINVAL;
+		if (!memcmp (cid, "META", 4))
+		{
+			meta = data + cbody;
+			meta_size = (uint)csize;
+			break;
+		}
+		pos = cbody + (uint)csize;
+	}
+	if (!meta)
+		return EINVAL;
+
+	//--- META payload: unk1,unk2,alloc_category,gpu_offset,align,
+	// decompressed_size,info_count, info[info_count] (u8 index + LE u32
+	// offset + LE u32 size, 9 bytes each), buffer_count, buffers[
+	// buffer_count] (5 LE u32: index,offset,size,dest_offset,dest_size,
+	// 20 bytes each). All absolute offsets below are into the whole file. ---
+	if (meta_size < 28)
+		return EINVAL;
+	const u32 decomp_size = rd_le32 (meta + 20);
+	const u32 info_count = rd_le32 (meta + 24);
+	if (!decomp_size || decomp_size > RETRO_TXTR_MAX_OUTPUT || info_count > MPR_MAX_INFOS)
+		return EINVAL;
+	uint p = 28;
+	if ((u64)p + (u64)info_count * 9 + 4 > meta_size)
+		return EINVAL;
+	const u8 *info_arr = meta + p;
+	p += info_count * 9;
+	const u32 buf_count = rd_le32 (meta + p);
+	p += 4;
+	if (!buf_count || buf_count > MPR_MAX_BUFFERS || (u64)p + (u64)buf_count * 20 > meta_size)
+		return EINVAL;
+	const u8 *buf_arr = meta + p;
+
+	for (uint i = 0; i < buf_count; i++)
+	{
+		const u8 *b = buf_arr + i * 20;
+		const uint b_index = rd_le32 (b + 0);
+		const uint b_offset = rd_le32 (b + 4);
+		const uint b_size = rd_le32 (b + 8);
+		const uint dest_offset = rd_le32 (b + 12);
+		const uint dest_size = rd_le32 (b + 16);
+		if (!b_size || !dest_size || (u64)dest_offset + dest_size > decomp_size)
+			return EINVAL;
+
+		const u8 *found = 0;
+		for (uint j = 0; j < info_count; j++)
+		{
+			const u8 *ie = info_arr + j * 9;
+			if (ie[0] == b_index)
+			{
+				found = ie;
+				break;
+			}
+		}
+		if (!found)
+			return EINVAL;
+		const uint i_offset = rd_le32 (found + 1);
+		const uint i_size = rd_le32 (found + 5);
+		if ((u64)b_offset + b_size > i_size || (u64)i_offset + b_offset + b_size > size)
+			return EINVAL;
+	}
+
+	info->tex_type = tex_type;
+	info->tex_format = tex_format;
+	info->width = w;
+	info->height = h;
+	info->depth = layers;
+	info->mip_count = mip_count;
+	info->decomp_size = decomp_size;
+	info->meta = meta;
+	info->meta_size = meta_size;
+	return ERR_OK;
+}
+
+bool IsMPRTXTR (const u8 *data, uint size)
+{
+	if (!data || size < 0x20 || memcmp (data, "RFRM", 4))
+		return false;
+	mpr_txtr_info_t info;
+	return ScanMPRTXTR (&info, data, size) == ERR_OK;
+}
+
+// retrotool ETextureFormat id -> decode kind + block geometry. Covers the
+// uncompressed/BC/ASTC formats actually seen in shipped textures; anything
+// else (float/depth/exotic swizzle formats) fails cleanly.
+enum
+{
+	MPR_K_R8,
+	MPR_K_RGBA8,
+	MPR_K_BC1,
+	MPR_K_BC2,
+	MPR_K_BC3,
+	MPR_K_BC4,
+	MPR_K_BC5,
+	MPR_K_BC6,
+	MPR_K_BC7,
+	MPR_K_ASTC
+};
+
+static bool mpr_format_info (uint fmt, uint *bpp, uint *blk_w, uint *blk_h, uint *kind,
+	bool *is_signed)
+{
+	static const u8 astc_dim[14][2] = { { 4, 4 }, { 5, 4 }, { 5, 5 }, { 6, 5 }, { 6, 6 }, { 8, 5 },
+		{ 8, 6 }, { 8, 8 }, { 10, 5 }, { 10, 6 }, { 10, 8 }, { 10, 10 }, { 12, 10 }, { 12, 12 } };
+
+	*is_signed = false;
+	switch (fmt)
+	{
+		case 0: // R8Unorm
+			*bpp = 1;
+			*blk_w = *blk_h = 1;
+			*kind = MPR_K_R8;
+			return true;
+		case 12: // Rgba8Unorm
+		case 13: // Rgba8Srgb
+			*bpp = 4;
+			*blk_w = *blk_h = 1;
+			*kind = MPR_K_RGBA8;
+			return true;
+		case 20: // RgbaBc1Unorm
+		case 21: // RgbaBc1Srgb
+			*bpp = 8;
+			*blk_w = *blk_h = 4;
+			*kind = MPR_K_BC1;
+			return true;
+		case 22: // RgbaBc2Unorm
+		case 23: // RgbaBc2Srgb
+			*bpp = 16;
+			*blk_w = *blk_h = 4;
+			*kind = MPR_K_BC2;
+			return true;
+		case 24: // RgbaBc3Unorm
+		case 25: // RgbaBc3Srgb
+			*bpp = 16;
+			*blk_w = *blk_h = 4;
+			*kind = MPR_K_BC3;
+			return true;
+		case 26: // RgbaBc4Unorm
+		case 27: // RgbaBc4Snorm
+			*bpp = 8;
+			*blk_w = *blk_h = 4;
+			*kind = MPR_K_BC4;
+			*is_signed = fmt == 27;
+			return true;
+		case 28: // RgbaBc5Unorm
+		case 29: // RgbaBc5Snorm
+			*bpp = 16;
+			*blk_w = *blk_h = 4;
+			*kind = MPR_K_BC5;
+			*is_signed = fmt == 29;
+			return true;
+		case 81: // BptcUfloat (BC6H unsigned)
+		case 82: // BptcSfloat (BC6H signed)
+			*bpp = 16;
+			*blk_w = *blk_h = 4;
+			*kind = MPR_K_BC6;
+			*is_signed = fmt == 82;
+			return true;
+		case 83: // BptcUnorm (BC7)
+		case 84: // BptcUnormSrgb
+			*bpp = 16;
+			*blk_w = *blk_h = 4;
+			*kind = MPR_K_BC7;
+			return true;
+		default:
+			if (fmt >= 53 && fmt <= 80)
+			{
+				const uint idx = fmt < 67 ? fmt - 53 : fmt - 67;
+				*bpp = 16;
+				*blk_w = astc_dim[idx][0];
+				*blk_h = astc_dim[idx][1];
+				*kind = MPR_K_ASTC;
+				return true;
+			}
+			return false;
+	}
+}
+
+// Ported from tegra_swizzle's blockheight.rs (block_height_mip0(), itself
+// ported from Ryujinx's driver-matching C#). Only mip level 0 is decoded
+// here, so the mip_block_height() shrink-for-smaller-mips step is not
+// needed -- mip 0 always starts fresh from this value.
+static uint mpr_block_height_mip0 (uint height_in_blocks)
+{
+	const uint hh = height_in_blocks + height_in_blocks / 2;
+	return hh >= 128 ? 16 : hh >= 64 ? 8 : hh >= 32 ? 4 : hh >= 16 ? 2 : 1;
+}
+
+static uint mpr_log2_pow2 (uint v)
+{
+	uint log2 = 0;
+	while (v > 1)
+	{
+		v >>= 1;
+		log2++;
+	}
+	return log2;
+}
+
+enumError DecodeMPRTXTR_RGBA (
+	u8 **dest, uint *width, uint *height, const u8 *src, uint src_size)
+{
+	if (!dest || !width || !height)
+		return EINVAL;
+	*dest = 0;
+	*width = *height = 0;
+	mpr_txtr_info_t info;
+	if (ScanMPRTXTR (&info, src, src_size))
+		return EINVAL;
+	if (info.tex_type != 1 || info.depth != 1)
+		return EINVAL; // 2D only; cubemaps/arrays/3D fail cleanly
+
+	uint bpp, blk_w, blk_h, kind;
+	bool is_signed;
+	if (!mpr_format_info (info.tex_format, &bpp, &blk_w, &blk_h, &kind, &is_signed))
+		return EINVAL;
+
+	// Re-walk the META buffer table (Scan already bounds-checked every
+	// field used here).
+	const u8 *meta = info.meta;
+	const u32 info_count = rd_le32 (meta + 24);
+	uint p = 28;
+	const u8 *info_arr = meta + p;
+	p += info_count * 9;
+	const u32 buf_count = rd_le32 (meta + p);
+	p += 4;
+	const u8 *buf_arr = meta + p;
+
+	u8 *raw = CALLOC (1, info.decomp_size);
+	if (!raw)
+		return ERR_CANT_CREATE;
+	enumError err = ERR_OK;
+	for (uint i = 0; i < buf_count && !err; i++)
+	{
+		const u8 *b = buf_arr + i * 20;
+		const uint b_index = rd_le32 (b + 0);
+		const uint b_offset = rd_le32 (b + 4);
+		const uint b_size = rd_le32 (b + 8);
+		const uint dest_offset = rd_le32 (b + 12);
+		const uint dest_size = rd_le32 (b + 16);
+
+		const u8 *found = 0;
+		for (uint j = 0; j < info_count; j++)
+		{
+			const u8 *ie = info_arr + j * 9;
+			if (ie[0] == b_index)
+			{
+				found = ie;
+				break;
+			}
+		}
+		if (!found)
+		{
+			err = EINVAL;
+			break;
+		}
+		const uint i_offset = rd_le32 (found + 1);
+		const u8 *comp = src + i_offset + b_offset;
+
+		u8 *dec = 0;
+		uint dec_sz = 0;
+		err = tropical_lzss (&dec, &dec_sz, comp, b_size, dest_size);
+		if (err)
+		{
+			FREE (dec);
+			break;
+		}
+		memcpy (raw + dest_offset, dec, dest_size);
+		FREE (dec);
+	}
+	if (err)
+	{
+		FREE (raw);
+		return err;
+	}
+
+	// Mip level 0's block-height parameter, then the same Tegra X1
+	// block-linear GOB detiler this tree already uses for BNTX.
+	const uint bh_blocks = mpr_div_round_up (info.height, blk_h);
+	const uint block_height_log2 = mpr_log2_pow2 (mpr_block_height_mip0 (bh_blocks));
+
+	u8 *linear = 0;
+	uint linear_size = 0;
+	err = BntxDeswizzle (&linear, &linear_size, raw, info.decomp_size, info.width, info.height,
+		blk_w, blk_h, bpp, 0, block_height_log2, true);
+	FREE (raw);
+	if (err)
+		return err;
+
+	const uint w = info.width, h = info.height;
+	if ((u64)w * h > RETRO_TXTR_MAX_OUTPUT / 4)
+	{
+		FREE (linear);
+		return EFBIG;
+	}
+	u8 *rgba = CALLOC (1, (size_t)w * h * 4);
+	if (!rgba)
+	{
+		FREE (linear);
+		return ERR_CANT_CREATE;
+	}
+
+	if (blk_w == 1 && blk_h == 1)
+	{
+		for (uint y = 0; y < h; y++)
+			for (uint x = 0; x < w; x++)
+			{
+				const u8 *sp = linear + ((size_t)y * w + x) * bpp;
+				u8 *dp = rgba + 4 * ((size_t)y * w + x);
+				if (kind == MPR_K_R8)
+				{
+					dp[0] = dp[1] = dp[2] = sp[0];
+					dp[3] = 255;
+				}
+				else // MPR_K_RGBA8
+					memcpy (dp, sp, 4);
+			}
+	}
+	else if (kind == MPR_K_BC6 || kind == MPR_K_BC7)
+	{
+		const int ok = kind == MPR_K_BC6 ? szs_decode_bc6 (linear, w, h, is_signed, rgba)
+										  : szs_decode_bc7 (linear, w, h, rgba);
+		if (!ok)
+		{
+			FREE (rgba);
+			FREE (linear);
+			return ERR_INVALID_DATA;
+		}
+	}
+	else
+	{
+		const uint bwc = mpr_div_round_up (w, blk_w), bhc = mpr_div_round_up (h, blk_h);
+		for (uint by = 0; by < bhc; by++)
+			for (uint bx = 0; bx < bwc; bx++)
+			{
+				const u8 *blk = linear + ((size_t)by * bwc + bx) * bpp;
+				u8 px[12 * 12 * 4];
+				switch (kind)
+				{
+					case MPR_K_BC1:
+						decode_bc1_block (blk, px, true);
+						break;
+					case MPR_K_BC2:
+						decode_bc2_block (blk, px);
+						break;
+					case MPR_K_BC3:
+						decode_bc3_block (blk, px);
+						break;
+					case MPR_K_BC4:
+						is_signed ? decode_bc4_signed_block (blk, px) : decode_bc4_block (blk, px);
+						break;
+					case MPR_K_BC5:
+						is_signed ? decode_bc5_signed_block (blk, px) : decode_bc5_block (blk, px);
+						break;
+					case MPR_K_ASTC:
+						astc_decompress_block (px, blk, blk_w, blk_h);
+						break;
+					default:
+						memset (px, 0, sizeof (px));
+						break;
+				}
+				for (uint iy = 0; iy < blk_h; iy++)
+					for (uint ix = 0; ix < blk_w; ix++)
+					{
+						const uint x = bx * blk_w + ix, y = by * blk_h + iy;
+						if (x >= w || y >= h)
+							continue;
+						memcpy (rgba + 4 * ((size_t)y * w + x), px + 4 * (iy * blk_w + ix), 4);
+					}
+			}
+	}
+
+	FREE (linear);
 	*dest = rgba;
 	*width = w;
 	*height = h;
