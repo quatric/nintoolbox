@@ -747,6 +747,39 @@ t_bfres_wiiu(){
 }
 t_bfres_wiiu
 
+t_bfres_switch_v10(){
+  # Switch BFRES v10 (Tomodachi Life retail): FSKL skeleton layout
+  # follows BfresLibrary's Skeleton.cs (bone array/materials/counts),
+  # v10 bones are 0x58 stride, skin indices live in _i0. The penguin is
+  # fully rigged (8 joints incl. symmetric limbs, 1 skin); SceneMaterial
+  # covers quaternion rotation mode. Versions below come from the
+  # verified retail bytes, not the old Wexos guess (which read every
+  # FSKL field 8 bytes late and never matched).
+  local d; d=$(mktemp -d /tmp/_r_bfres_sw10.XXXXXX) || { no "BFRES Switch v10" "mktemp failed"; return; }
+  local fail=0
+  rm -f "$d/p.glb"
+  $B/wmdlt ENCODE "$PWD_PROJECT/../tests/fixtures/bfres_switch_tomodachi_penguin.bfres" -d "$d/p.glb" --overwrite >/dev/null 2>&1
+  local g; g=$(python3 "$GLTF_COUNT" "$d/p.glb" geometry 2>/dev/null || true); g=${g:-0}
+  local j; j=$(python3 "$GLTF_COUNT" "$d/p.glb" joints 2>/dev/null || true); j=${j:-0}
+  local s; s=$(python3 "$GLTF_COUNT" "$d/p.glb" skins 2>/dev/null || true); s=${s:-0}
+  if [ "$g" -ge 1 ] 2>/dev/null && [ "$j" -eq 8 ] 2>/dev/null && [ "$s" -eq 1 ] 2>/dev/null; then
+    ok "BFRES Switch v10 skinned ($g geometries, $j joints, $s skin)"
+  else
+    no "BFRES Switch v10" "got geometries=$g joints=$j skins=$s, want 1+/8/1"; fail=1
+  fi
+  rm -f "$d/s.glb"
+  $B/wmdlt ENCODE "$PWD_PROJECT/../tests/fixtures/bfres_switch_tomodachi_scenemat.bfres" -d "$d/s.glb" --overwrite >/dev/null 2>&1
+  local g2; g2=$(python3 "$GLTF_COUNT" "$d/s.glb" geometry 2>/dev/null || true); g2=${g2:-0}
+  if [ "$g2" -ge 1 ] 2>/dev/null; then
+    ok "BFRES Switch v10 quat-mode decodes ($g2 geometries)"
+  else
+    no "BFRES Switch v10 quat-mode" "no geometry"; fail=1
+  fi
+  rm -rf "$d"
+  return $fail
+}
+t_bfres_switch_v10
+
 t_bfres_anims(){
   # Wii U BFRES animation entry bodies (FSKA/FSHU/FTXP/FVIS/FSHA/FSCN):
   # wszst xx prints one ANIM summary line per file with per-class entry

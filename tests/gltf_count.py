@@ -34,6 +34,10 @@ def count_glb(path, kind):
         return len(doc.get('images', []))
     if kind == 'triangles':
         return sum(len(m.get('primitives', [])) for m in doc.get('meshes', []))
+    if kind == 'skins':
+        return len(doc.get('skins', []))
+    if kind == 'joints':
+        return sum(len(s.get('joints', [])) for s in doc.get('skins', []))
     return 0
 
 def count_dae(path, kind):

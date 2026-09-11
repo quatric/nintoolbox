@@ -6529,9 +6529,11 @@ static enumError extract_mpbin_file (ccp arg, ccp basedir, uint depth)
 // +0xB0 for v9+, either slot accepted when its struct validates) and
 // decodes full geometry from the pool -- verified on Male.bfres (both
 // shapes: human-scale bboxes, index max = vcount-1, full vertex coverage;
-// wmdlt emits a 2-mesh GLB) with no synthetic-v8 round-trip regression.
-// Unverified: v10 files, skinning on real Switch data, and exotic
-// component formats; mesh LODs beyond LOD0 are still skipped. See PLAN.md.
+// wmdlt emits a 2-mesh GLB) with no synthetic-v8 round-trip regression,
+// and since on 2284 Tomodachi Life v10 files (2043/2043 with geometry
+// decode; skeleton + skinning via the FSKL/_i0 work in lib-bfres.c).
+// Unverified: exotic component formats; mesh LODs beyond LOD0 are still
+// skipped. See PLAN.md.
 static const char *rel_bfres_switch_string (const u8 *d, size_t size, s64 off)
 {
 	if (off < 2 || (size_t)off + 2 > size)

@@ -1540,6 +1540,7 @@ static int attr_read_uint8_switch (const uint8_t *p, size_t avail, uint32_t fmt,
 	switch (fmt)
 	{
 		case 0x000b: // 8_8_8_8 uint
+		case 0x030b: // 8_8_8_8 uint (per-vertex bone indices; same layout)
 			if (avail < 4)
 				return 0;
 			for (int i = 0; i < 4; i++)
@@ -1700,6 +1701,15 @@ static int read_fvtx_switch (
 			out->stride_bone = stride;
 			out->avail_bone = avail;
 		}
+		else if (!strncmp (name, "_i", 2) && !out->bone)
+		{
+			// v10 files store the 4 bone indices per vertex in _i0
+			// (Format_8_8_8_8_UInt) instead of _b0; same handling.
+			out->bone = p;
+			out->fmt_bone = fmt;
+			out->stride_bone = stride;
+			out->avail_bone = avail;
+		}
 		else if (!strncmp (name, "_w", 2) && !out->wt)
 		{
 			out->wt = p;
@@ -1798,29 +1808,58 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 		return NULL;
 	}
 
-	// Parse FSKL skeleton -- per Wexos's Wiki: FSKL pointer at FMDL+0x18
-	// (v>=9) or FMDL+0x20 (v<9). Contains bone array + inverse bind matrices.
+	// Parse FSKL skeleton -- FSKL pointer at FMDL+0x18 (v>=9) or
+	// FMDL+0x20 (v<9). Field layout per BfresLibrary's Skeleton.cs
+	// (BoneDict@+8, BoneArray@+16, MatrixToBoneList@+24,
+	// InverseModelMatrices@+32, userPtr@+40, mirror@+48,
+	// numBone/smooth/rigid u16s@+56), verified byte-for-byte on real
+	// v9 (Male.bfres: 27-bone TopL/EffectL/all_root/... hierarchy)
+	// and v10 (Tomodachi PenguinBaby: 8-bone Root/Skl_Root/Body/...
+	// hierarchy with bilateral symmetry) files. Bones are 0x60 stride
+	// on v8/v9 but 0x58 on v10+ (Bone.cs seeks 8, not 16, after the
+	// two UserData offsets), with parent/TRS shifted accordingly;
+	// rotation is euler XYZ (3 floats) or quaternion (4 floats) per
+	// the FSKL flags mode bits.
 	{
 		const int64_t fskl_off = les64 (d + fmdl_arr + 4 + fhdr + 16);
 		if (fskl_off > 0 && (size_t)fskl_off + 0x40 <= size && !memcmp (d + fskl_off, "FSKL", 4))
 		{
 			const uint skdr = bfres_switch_hdr_extra (vmajor);
 			const int64_t sk_base = fskl_off + 4 + skdr;
+			int64_t bone_arr = 0, matrix_off = 0;
+			uint16_t n_bones = 0, n_smooth = 0;
+			size_t bone_stride = 0x60, parent_off = 0x2A, trs_off = 0x38;
+			int rot_quat = 0;
+			if (vmajor >= 9)
+			{
+				bone_arr = les64 (d + fskl_off + 0x10);
+				matrix_off = les64 (d + fskl_off + 0x20);
+				n_bones = le16 (d + fskl_off + 0x38);
+				n_smooth = le16 (d + fskl_off + 0x3A);
+				rot_quat = ((le32 (d + fskl_off + 4) >> 12) & 7) == 0;
+				if (vmajor >= 10)
+				{
+					bone_stride = 0x58;
+					parent_off = 0x22;
+					trs_off = 0x30;
+				}
+			}
+			else
+			{
+				// For v<9:  sk_base+0x10=bone array, sk_base+0x28=matrix, sk_base+0x4C=num bones
+				bone_arr = (size_t)sk_base + 0x18 <= size ? les64 (d + sk_base + 0x10) : 0;
+				matrix_off
+					= (size_t)sk_base + 0x28 <= size ? les64 (d + sk_base + 0x20) : 0;
+				n_bones = (size_t)sk_base + 0x4E <= size ? le16 (d + sk_base + 0x4C) : 0;
+				n_smooth = n_bones;
+			}
 			// For v>=9: sk_base+0x10=bone array, sk_base+0x20=matrix, sk_base+0x38=num bones
-			// For v<9:  sk_base+0x10=bone array, sk_base+0x28=matrix, sk_base+0x4C=num bones
-			const int64_t bone_arr
-				= (size_t)sk_base + 0x18 <= size ? les64 (d + sk_base + 0x10) : 0;
-			const int64_t matrix_off
-				= (size_t)sk_base + 0x28 <= size ? les64 (d + sk_base + 0x20) : 0;
-			const uint16_t n_bones = vmajor >= 9
-				? ((size_t)sk_base + 0x3A <= size ? le16 (d + sk_base + 0x38) : 0)
-				: ((size_t)sk_base + 0x4E <= size ? le16 (d + sk_base + 0x4C) : 0);
+			// (superseded by the BfresLibrary layout above; kept as comment
+			// for provenance -- the old guess read every field 8 bytes late
+			// and never matched retail).
 
 			if (bone_arr > 0 && n_bones > 0 && n_bones < 4096)
 			{
-				// Bone struct size: 0x60 for v>=8, 0x48 for v<8 (use v>=8
-				// since all Switch BFRES are v>=8)
-				const size_t bone_stride = vmajor >= 8 ? 0x60 : 0x48;
 				if ((size_t)bone_arr + n_bones * bone_stride > size)
 				{ /* skip skeleton */
 				}
@@ -1840,33 +1879,60 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 							if (bname && *bname)
 								snprintf (j->name, sizeof (j->name), "%s", bname);
 
-							// Parent index at bone+0x2A (v>=8)
-							if (vmajor >= 8 && boff + 0x2C <= size)
-								j->parent_idx = (int)(int16_t)le16 (d + boff + 0x2A);
+							// Parent index (s16)
+							if (boff + parent_off + 2 <= size)
+								j->parent_idx = (int)(int16_t)le16 (d + boff + parent_off);
 
-							// TRS at bone+0x38..0x5F (v>=8)
-							if (vmajor >= 8 && boff + 0x60 <= size)
+							// TRS: scale 3f at base, rotation (euler 3f or
+							// quaternion 4f) 12 bytes later, position 16
+							// after that. Stored as euler radians, matching
+							// the Wii U path (quaternions converted).
+							if (boff + trs_off + 40 <= size)
 							{
-								j->scale.x = read_le32f (d + boff + 0x38);
-								j->scale.y = read_le32f (d + boff + 0x3C);
-								j->scale.z = read_le32f (d + boff + 0x40);
-								j->rotate.x = read_le32f (d + boff + 0x44);
-								j->rotate.y = read_le32f (d + boff + 0x48);
-								j->rotate.z = read_le32f (d + boff + 0x4C);
-								j->translate.x = read_le32f (d + boff + 0x54);
-								j->translate.y = read_le32f (d + boff + 0x58);
-								j->translate.z = read_le32f (d + boff + 0x5C);
+								j->scale.x = read_le32f (d + boff + trs_off);
+								j->scale.y = read_le32f (d + boff + trs_off + 4);
+								j->scale.z = read_le32f (d + boff + trs_off + 8);
+								if (rot_quat)
+								{
+									float qx = read_le32f (d + boff + trs_off + 12);
+									float qy = read_le32f (d + boff + trs_off + 16);
+									float qz = read_le32f (d + boff + trs_off + 20);
+									float qw = read_le32f (d + boff + trs_off + 24);
+									bfres_quat_to_euler (qx, qy, qz, qw, &j->rotate.x,
+										&j->rotate.y, &j->rotate.z);
+								}
+								else
+								{
+									j->rotate.x = read_le32f (d + boff + trs_off + 12);
+									j->rotate.y = read_le32f (d + boff + trs_off + 16);
+									j->rotate.z = read_le32f (d + boff + trs_off + 20);
+								}
+								j->translate.x = read_le32f (d + boff + trs_off + 28);
+								j->translate.y = read_le32f (d + boff + trs_off + 32);
+								j->translate.z = read_le32f (d + boff + trs_off + 36);
 							}
 
-							// Inverse bind matrix: 3x4 float (12 floats)
-							if (matrix_off > 0)
+							// Inverse bind matrix: the array holds NumSmooth
+							// entries; each bone names its own via its
+							// smooth-matrix index (s16 right after parent).
+							if (matrix_off > 0 && n_smooth > 0)
 							{
-								const size_t moff = (size_t)matrix_off + b * 48;
-								if (moff + 48 <= size)
+								const size_t sidx_off = boff + parent_off + 2;
+								if (sidx_off + 2 <= size)
 								{
-									for (int k = 0; k < 12; k++)
-										j->inverse_bind[k] = read_le32f (d + moff + k * 4);
-									j->has_inverse_bind = 1;
+									int sidx = (int)(int16_t)le16 (d + sidx_off);
+									if (sidx >= 0)
+									{
+										const size_t moff
+											= (size_t)matrix_off + (size_t)sidx * 48;
+										if (moff + 48 <= size)
+										{
+											for (int k = 0; k < 12; k++)
+												j->inverse_bind[k]
+													= read_le32f (d + moff + k * 4);
+											j->has_inverse_bind = 1;
+										}
+									}
 								}
 							}
 						}
@@ -2218,6 +2284,44 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 								ni_idx = (int)n_node_inf++;
 							}
 						}
+					}
+					else if (out->num_joints > 0)
+					{
+						// No usable influence (all weights zero, e.g. the
+						// format's 0xFF-unbound marker): bind rigidly to
+						// joint 0 so the mesh still exports skinned instead
+						// of dropping every other vertex's skin data. This
+						// matches the GLB exporter's own default for
+						// unbound vertices.
+						influence_t one;
+						one.bone_idx = 0;
+						one.weight = 1.0f;
+						int found = -1;
+						for (size_t ii = 0; ii < n_node_inf; ii++)
+							if (node_inf[ii].num_weights == 1
+								&& node_inf[ii].weights[0].bone_idx == 0
+								&& node_inf[ii].weights[0].weight == 1.0f)
+							{
+								found = (int)ii;
+								break;
+							}
+						if (found < 0)
+						{
+							if (n_node_inf == cap_node_inf)
+							{
+								cap_node_inf = cap_node_inf ? cap_node_inf * 2 : 256;
+								node_inf = realloc (node_inf, cap_node_inf * sizeof (*node_inf));
+							}
+							influence_t *wl = calloc (1, sizeof (*wl));
+							if (wl)
+							{
+								wl[0] = one;
+								node_inf[n_node_inf].weights = wl;
+								node_inf[n_node_inf].num_weights = 1;
+								found = (int)n_node_inf++;
+							}
+						}
+						ni_idx = found;
 					}
 					ms->position_node[n] = ni_idx;
 				}

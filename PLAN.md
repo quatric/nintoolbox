@@ -1532,6 +1532,27 @@ same files. Zero FSEQ anywhere on the disc; the Switch FSEQ_LE
 header version stays unverified, as does anything needing a Switch
 BFRES sample (v10, skinning).
 
+## 30. 2026-09-10 — Switch v10 skeletons + skinning via Tomodachi Life ✅
+
+Tomodachi Life (Switch, 2026) ships 2284 zstd-packed BFRES v10 files;
+all decompress and all 2043 with geometry decode (241 skips are
+legitimately empty: 235 anim-only, 6 skeleton/placeholder-only).
+Skeletons had never worked (0 joints anywhere): the old FSKL field
+map read every v9+ field 8 bytes late. Per BfresLibrary's
+Skeleton.cs/Bone.cs, verified byte-for-byte on real v9 (Male: 27-bone
+TopL hierarchy) and v10 (penguin: 8-bone Root hierarchy with
+bilateral symmetry): prologue is flags/dict/array/mtxlist/invmtx/
+user/mirror/counts, bones are 0x58 stride on v10+ (extra Seek(8) vs
+Seek(16)) with parent/TRS shifted and euler-or-quaternion rotation
+(2047 euler files vs 1 quaternion file in-corpus; both handled).
+Skinning needed two more retail facts: indices live in `_i0`
+(8_8_8_8_UInt), not `_b0`, and zero-weight verts carry the 0xFF
+unbound marker (bound rigidly to joint 0, matching the exporter's own
+default, so one mesh's 24 such verts don't veto the other 848).
+Result: 383/383 files with complete skin data export skins with
+in-bounds joints. Two fixtures (penguin + quat-mode SceneMaterial)
+with a `t_bfres_switch_v10` case (8 joints, 1 skin).
+
 ## Suggested order
 
 1. §2 (mechanical, minutes) + §8 (concrete bug, real user pain).
