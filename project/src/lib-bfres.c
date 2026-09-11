@@ -879,6 +879,7 @@ static int parse_fska_into_model (model_t *model, const uint8_t *d, size_t size,
 	return 1;
 }
 
+
 model_t *ParseBFRES (const uint8_t *data, size_t size)
 {
 	if (!data || size < 8)
@@ -1510,6 +1511,338 @@ static inline float read_le32f (const uint8_t *p)
 	return c.f;
 }
 
+// Reads one Switch (NX) AnimCurve record: 0x30 bytes, all offsets absolute
+// 64-bit (not self-relative like Wii U). Field order/layout per BfresLibrary
+// (KillzXGaming/BfresLibrary, Shared/Common/AnimCurve.cs, IsSwitch branch):
+//   +0x00 FrameArrayOffset (u64)   +0x08 KeyArrayOffset (u64)
+//   +0x10 flags (u16)              +0x12 numKey (u16)
+//   +0x14 AnimDataOffset (u32)     +0x18 StartFrame (f32)
+//   +0x1C EndFrame (f32)           +0x20 Scale (f32)
+//   +0x24 Offset (u32/f32)         +0x28 Delta (f32, unused here)
+//   +0x2C padding (u32)
+// Verified byte-for-byte against tests/fixtures/bfres_switch_tomodachi_penguin.bfres
+// (Body bone's translateY curve at file offset 0x2310: frame_off=0x2340,
+// key_off=0x2368, flags=0x4c05 -> frameType=1/Decimal10x5, keyType=1/Int16,
+// curveType=0/Cubic, numKey=18, AnimDataOffset=0x14/TranslateY).
+static int bfres_curve_read_switch (const uint8_t *d, size_t size, size_t c, bfres_curve_t *out)
+{
+	const size_t rec = 0x30;
+	memset (out, 0, sizeof (*out));
+	if (c + rec > size)
+		return 0;
+
+	const int64_t fa = les64 (d + c);
+	const int64_t ka = les64 (d + c + 8);
+	const uint16_t flags = le16 (d + c + 0x10);
+	const uint16_t num_key = le16 (d + c + 0x12);
+	if (!num_key)
+		return 0;
+
+	out->frame_type = flags & 0x3;
+	out->key_type = (flags >> 2) & 0x3;
+	out->curve_type = (flags >> 4) & 0x7;
+	if (out->frame_type > 2 || out->key_type > 2)
+		return 0;
+	out->target = le32 (d + c + 0x14);
+	out->scale = read_le32f (d + c + 0x20);
+	out->offset = read_le32f (d + c + 0x24);
+	out->elems_per_key = out->curve_type == 0 ? 4 : (out->curve_type == 1 ? 2 : 1);
+	out->num_keys = num_key;
+
+	if (fa <= 0 || ka <= 0 || (size_t)fa > size || (size_t)ka > size)
+		return 0;
+	const size_t fa_ = (size_t)fa, ka_ = (size_t)ka;
+
+	const size_t fw = out->frame_type == 0 ? 4 : (out->frame_type == 1 ? 2 : 1);
+	const size_t kw = out->key_type == 0 ? 4 : (out->key_type == 1 ? 2 : 1);
+
+	out->frames = malloc (sizeof (float) * num_key);
+	out->keys = malloc (sizeof (float *) * num_key);
+	if (!out->frames || !out->keys)
+	{
+		bfres_curve_free (out);
+		return 0;
+	}
+
+	for (uint16_t i = 0; i < num_key; i++)
+	{
+		const size_t p = fa_ + (size_t)i * fw;
+		if (p + fw > size)
+		{
+			bfres_curve_free (out);
+			return 0;
+		}
+		if (out->frame_type == 0)
+			out->frames[i] = read_le32f (d + p);
+		else if (out->frame_type == 1)
+			out->frames[i] = (float)(int16_t)le16 (d + p) / 32.0f; // Decimal10x5
+		else
+			out->frames[i] = (float)d[p];
+	}
+
+	for (uint16_t i = 0; i < num_key; i++)
+	{
+		out->keys[i] = calloc (out->elems_per_key, sizeof (float));
+		if (!out->keys[i])
+		{
+			bfres_curve_free (out);
+			return 0;
+		}
+		for (int j = 0; j < out->elems_per_key; j++)
+		{
+			const size_t p = ka_ + ((size_t)i * out->elems_per_key + (size_t)j) * kw;
+			if (p + kw > size)
+			{
+				bfres_curve_free (out);
+				return 0;
+			}
+			if (out->key_type == 0)
+				out->keys[i][j] = read_le32f (d + p); // StepInt/StepBool: UInt32 bit pattern
+			else if (out->key_type == 1)
+				out->keys[i][j] = (float)(int16_t)le16 (d + p);
+			else
+				out->keys[i][j] = (float)(int8_t)d[p];
+		}
+	}
+	return 1;
+}
+
+// Parses one Switch FSKA object (fixed-layout header verified against
+// tests/fixtures/bfres_switch_tomodachi_penguin.bfres, which stores 6 FSKA
+// entries 0x50 bytes apart starting at file offset 0x168) and appends a
+// model_animation_t. Header layout per BfresLibrary's SkeletalAnim.cs
+// (IsSwitch, VersionMajor >= 9 branch):
+//   +0x00 "FSKA"                +0x04 flags (u32)
+//   +0x08 Name offset (u64)     +0x10 Path offset (u64)
+//   +0x18 BindSkeleton off(u64) +0x20 BindIndexArray off (u64)
+//   +0x28 BoneAnimArray off(u64)+0x30 UserData values off (u64)
+//   +0x38 UserData dict off(u64)+0x40 FrameCount (i32)
+//   +0x44 numCurve (i32)        +0x48 BakedSize (u32)
+//   +0x4C numBoneAnim (u16)     +0x4E numUserData (u16)     -- total 0x50
+// BoneAnim records (BfresLibrary BoneAnim.cs, IsSwitch/VersionMajor>=9) are
+// 0x38 bytes: Name off(8) CurveOffset(8) BaseDataOffset(8) unk1(8) unk2(8)
+// flags(4) BeginRotate(1) BeginTranslate(1) numCurve(1) BeginBaseTranslate(1)
+// BeginCurve(4) padding(4). AnimCurve records use the same AnimDataOffset
+// target scheme as Wii U's BoneAnimData (Scale 0x4/0x8/0xC, Translate
+// 0x10/0x14/0x18, Rotate 0x20/0x24/0x28/0x2C), so bfres_eval_curve() and the
+// TRS assembly logic are shared with parse_fska_into_model() verbatim.
+static int parse_fska_into_model_switch (model_t *model, const uint8_t *d, size_t size,
+	size_t fs, const char *clip_name)
+{
+	if (fs + 0x50 > size)
+		return 0;
+
+	const int frame_count = (int32_t)le32 (d + fs + 0x40);
+	const uint16_t num_bone_anim = le16 (d + fs + 0x4C);
+	if (num_bone_anim == 0 || frame_count <= 0 || frame_count > 100000)
+		return 0;
+
+	const int64_t bone_anims = les64 (d + fs + 0x28);
+	if (bone_anims <= 0 || (size_t)bone_anims + (size_t)num_bone_anim * 0x38 > size)
+		return 0;
+
+	model_animation_t anim = { 0 };
+	snprintf (anim.name, sizeof (anim.name), "%s",
+		clip_name && *clip_name ? clip_name : "fska");
+
+	int any = 0;
+	const float fps = 60.0f;
+	const model_anim_path_t paths[3] = { MODEL_ANIM_SCALE, MODEL_ANIM_ROTATION, MODEL_ANIM_TRANSLATION };
+
+	for (uint16_t bi = 0; bi < num_bone_anim; bi++)
+	{
+		const size_t ba = (size_t)bone_anims + (size_t)bi * 0x38;
+		if (ba + 0x38 > size)
+			break;
+		const int64_t name_off = les64 (d + ba);
+		const char *bname = rel_string_switch (d, size, name_off);
+		const uint32_t bflags = le32 (d + ba + 0x28);
+		const uint8_t num_curve = d[ba + 0x2E];
+		if (num_curve == 0 || !bname || !*bname)
+			continue;
+		const int joint_idx = bfres_find_joint (model, bname);
+		if (joint_idx < 0)
+			continue;
+		const joint_t *joint = &model->joints[joint_idx];
+
+		const int64_t curve_off = les64 (d + ba + 8);
+		if (curve_off <= 0 || (size_t)curve_off + (size_t)num_curve * 0x30 > size)
+			continue;
+
+		bfres_curve_t curves[10];
+		memset (curves, 0, sizeof (curves));
+		int nread = 0;
+		for (uint8_t k = 0; k < num_curve && k < 10; k++)
+		{
+			if (bfres_curve_read_switch (d, size, (size_t)curve_off + (size_t)k * 0x30, &curves[k]))
+				nread++;
+		}
+		if (!nread)
+			continue;
+
+		const uint32_t base_flags = bflags & 0x38; // 0x8=scale 0x10=rotate 0x20=translate
+		float base[3][4] = { { 1, 1, 1, 1 }, { 0, 0, 0, 1 }, { 0, 0, 0, 1 } };
+		const int base_present[3] = { (base_flags & 0x8) != 0, (base_flags & 0x10) != 0, (base_flags & 0x20) != 0 };
+		const int64_t base_off = les64 (d + ba + 0x10);
+		if (base_off > 0 && (size_t)base_off + 0x28 <= size)
+		{
+			size_t p = (size_t)base_off;
+			if (base_present[0])
+				for (int e = 0; e < 3; e++)
+					base[0][e] = read_le32f (d + p + (size_t)e * 4);
+			p += 3 * 4;
+			if (base_present[1])
+				for (int e = 0; e < 4; e++)
+					base[1][e] = read_le32f (d + p + (size_t)e * 4);
+			p += 4 * 4;
+			if (base_present[2])
+				for (int e = 0; e < 3; e++)
+					base[2][e] = read_le32f (d + p + (size_t)e * 4);
+		}
+
+		int curve_of[3][4] =
+		{
+			{ -1, -1, -1, -1 },
+			{ -1, -1, -1, -1 },
+			{ -1, -1, -1, -1 }
+		};
+		for (int k = 0; k < nread; k++)
+		{
+			const uint32_t tgt = curves[k].target & 0xFFFFFFFC;
+			switch (tgt & 0xF0)
+			{
+				case 0x00: if (tgt >= 0x04 && tgt <= 0x0C) curve_of[0][(tgt - 4) / 4] = k; break;
+				case 0x10: if (tgt >= 0x10 && tgt <= 0x18) curve_of[2][(tgt - 0x10) / 4] = k; break;
+				case 0x20: if (tgt >= 0x20 && tgt <= 0x2C) curve_of[1][(tgt - 0x20) / 4] = k; break;
+			}
+		}
+
+		for (int set = 0; set < 3; set += 2)
+		{
+			if (curve_of[set][0] < 0 && curve_of[set][1] < 0 && curve_of[set][2] < 0)
+				continue;
+			const int comps = 3;
+			float *times = malloc (sizeof (float) * frame_count);
+			float *values = malloc (sizeof (float) * frame_count * comps);
+			if (!times || !values)
+			{
+				free (times);
+				free (values);
+				continue;
+			}
+			for (int f = 0; f < frame_count; f++)
+			{
+				const float t = (float)f;
+				times[f] = t / fps;
+				for (int e = 0; e < comps; e++)
+				{
+					float v;
+					if (curve_of[set][e] >= 0)
+						v = bfres_eval_curve (&curves[curve_of[set][e]], t);
+					else if (base_present[set])
+						v = base[set][e];
+					else
+					{
+						const vec3_t *b = set == 0 ? &joint->scale : &joint->translate;
+						v = e == 0 ? b->x : (e == 1 ? b->y : b->z);
+					}
+					values[f * comps + e] = v;
+				}
+			}
+			bfres_anim_add_channel (&anim, joint_idx, paths[set], times, values, frame_count, comps);
+			any = 1;
+		}
+
+		if (curve_of[1][0] >= 0 || curve_of[1][1] >= 0 || curve_of[1][2] >= 0 || curve_of[1][3] >= 0)
+		{
+			const int comps = 4;
+			float *times = malloc (sizeof (float) * frame_count);
+			float *values = malloc (sizeof (float) * frame_count * comps);
+			if (times && values)
+			{
+				for (int f = 0; f < frame_count; f++)
+				{
+					const float t = (float)f;
+					times[f] = t / fps;
+					float v[4];
+					for (int e2 = 0; e2 < 4; e2++)
+					{
+						if (curve_of[1][e2] >= 0)
+							v[e2] = bfres_eval_curve (&curves[curve_of[1][e2]], t);
+						else if (base_present[1])
+							v[e2] = base[1][e2];
+						else
+							v[e2] = e2 == 3 ? 1.0f : 0.0f;
+					}
+					memcpy (values + f * comps, v, sizeof (v));
+				}
+				bfres_anim_add_channel (&anim, joint_idx, MODEL_ANIM_ROTATION, times, values, frame_count, comps);
+				any = 1;
+			}
+			else
+			{
+				free (times);
+				free (values);
+			}
+		}
+
+		for (int k = 0; k < nread; k++)
+			bfres_curve_free (&curves[k]);
+	}
+
+	if (!any)
+	{
+		free (anim.channels);
+		return 0;
+	}
+
+	model_animation_t *na = realloc (model->animations, sizeof (*na) * (model->num_animations + 1));
+	if (!na)
+	{
+		for (size_t c = 0; c < anim.num_channels; c++)
+		{
+			free (anim.channels[c].times);
+			free (anim.channels[c].values);
+		}
+		free (anim.channels);
+		return 0;
+	}
+	model->animations = na;
+	model->animations[model->num_animations++] = anim;
+	return 1;
+}
+
+// Scans the Switch ResFile's SkeletalAnim array (values offset stored at
+// header+0x58 for VersionMajor>=9, header+0x38 otherwise -- right after the
+// Name/Model offsets at +0x20/+0x28/+0x30, with a 32-byte reserved block
+// inserted for v>=9 per BfresLibrary's Switch/ResFileParser.cs) for FSKA
+// entries and imports each as a model_animation_t. Entries are packed with
+// a fixed 0x50-byte stride (no per-entry pointer indirection -- BfresLibrary
+// reads them with LoadList(), i.e. sequential inline Load() calls), verified
+// against the 6 back-to-back FSKA magics 0x50 bytes apart in
+// tests/fixtures/bfres_switch_tomodachi_penguin.bfres starting at file
+// offset 0x168 (== the value found at header+0x58 for that v10 file).
+static void bfres_switch_parse_anims (model_t *model, const uint8_t *d, size_t size, uint vmajor)
+{
+	const size_t hdr_field = vmajor >= 9 ? 0x58 : 0x38;
+	if (hdr_field + 8 > size)
+		return;
+	const int64_t values_off = les64 (d + hdr_field);
+	if (values_off <= 0 || (size_t)values_off + 4 > size)
+		return;
+
+	size_t pos = (size_t)values_off;
+	while (pos + 0x50 <= size && !memcmp (d + pos, "FSKA", 4))
+	{
+		char clip[64];
+		const int64_t name_off = les64 (d + pos + 8);
+		const char *nm = rel_string_switch (d, size, name_off);
+		snprintf (clip, sizeof (clip), "%s", nm && *nm ? nm : "fska");
+		parse_fska_into_model_switch (model, d, size, pos, clip);
+		pos += 0x50;
+	}
+}
+
 typedef struct
 {
 	const uint8_t *pos, *nrm, *uv, *clr, *bone, *wt;
@@ -1941,6 +2274,10 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 			}
 		}
 	}
+
+	// Import FSKA skeletal animations, if any, now that joints are named.
+	if (out->num_joints > 0)
+		bfres_switch_parse_anims (out, d, size, vmajor);
 
 	// Parse FMAT materials if present so DAE materials and texture bindings resolve
 	const int64_t mat_val_field = shapes_val_field + 16;
