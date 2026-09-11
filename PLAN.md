@@ -1883,3 +1883,10 @@ retail dumps not on disk). The run first showed 2 FAILs, both the
 (extractor gated to `.stpl`/`.camelot`, test still used extensionless
 files), not from this session; test updated to the intended gate,
 second full run green.
+
+**Robustness fuzz 2026-09-11.** ~360 seeded truncation/mutation cases
+through the new decoders, all clean (decline, never crash/hang):
+CMDL truncations (17) + 3-byte mutations (120), SMDL mutations
+(120), DTLS `ls` mutations (60), MPR PACK mutations (40, covering
+PACK+TXTR+cascade+CMDL paths). 20/120 CMDL mutants still decode
+(structurally valid survivors). No bugs found; no code changed.
