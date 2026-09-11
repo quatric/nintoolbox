@@ -212,7 +212,9 @@ static float mpr_cmdl_half (u16 h)
 }
 
 // Walk the MESH chunk exactly (reference SMeshLoadInformation). Returns
-// false on any bound violation or trailing garbage.
+// false on any bound violation or trailing garbage. The u16 array after
+// the entries (nshort values, ~1.5-2x the mesh count, often exceeding the
+// SKHD bone count) has no known semantics and is skipped, not interpreted.
 static bool mpr_cmdl_scan_mesh (const u8 *b, uint size, uint *mesh_count)
 {
 	if (size < 4)

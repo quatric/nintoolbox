@@ -1848,7 +1848,9 @@ validates both (indices < count, finite weights, row sums ≤ 1.1)
 and skips meshes that fail, without exporting skins — no oracle
 for bone transforms exists anywhere checked. Full 866-file
 re-sweep after: 866/866 non-empty, 5034 meshes total, 51-mesh
-reference scene intact.
+reference scene intact. (The MESH u16 tail array is opaque —
+~1.5-2x mesh count, values often above the bone count — so it is
+skipped, not interpreted.)
 
 **Follow-up 2026-09-11 — DIFT textures resolve.** MTRL `DIFT` uuids
 (3/3 sampled match uuid-named TXTR members) are stored as
