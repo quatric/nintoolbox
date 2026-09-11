@@ -8061,6 +8061,32 @@ assert im.getpixel((7, 7))[:3] == (224, 224, 0), f"expected gradient end, got {i
     fno "Retro Studios TXTR Tropical Freeze" "failed to decode synthetic RFRM sample";
   fi
 
+  # Metroid Prime Remastered TXTR (Switch): the real TXTR inside the
+  # committed MiscData.pak must decode to its 232x232 R8 surface with
+  # full tonal range, and the RFRM form must not be misdetected as an
+  # LZ10/LZ11 stream (which used to abort image decode).
+  mkdir -p "$d/mpr_txtr_test"
+  if "$B/wszst" xx "$PWD_PROJECT/../tests/fixtures/mpr_pack_miscdata.pak" --dest "$d/mpr_txtr_test/pak" --overwrite >/dev/null 2>&1; then
+    txtr=$(find "$d/mpr_txtr_test/pak" -name '*.TXTR' -size +0c 2>/dev/null | head -1)
+    if [ -n "$txtr" ] \
+    && ! "$B/wszst" FILETYPE "$txtr" 2>/dev/null | grep -q "LZ1" \
+    && "$B/wimgt" DECODE "$txtr" --dest "$d/mpr_txtr_test/out.png" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/mpr_txtr_test/out.png" ] \
+    && python3 -c '
+from PIL import Image
+im = Image.open("'"$d"'/mpr_txtr_test/out.png").convert("RGB")
+assert im.size == (232, 232), f"expected 232x232, got {im.size}"
+assert im.getpixel((0, 0)) == (0, 0, 0), f"expected black corner, got {im.getpixel((0, 0))}"
+assert sum(1 for v in im.histogram()[0:256] if v > 0) == 256, "expected full tonal range"
+' 2>/dev/null; then
+      fok "Metroid Prime Remastered TXTR (retail MiscData.pak) decode 232x232, no LZ misdetect"
+    else
+      fno "Metroid Prime Remastered TXTR" "failed to decode retail TXTR from MiscData.pak";
+    fi
+  else
+    fno "Metroid Prime Remastered TXTR" "failed to extract MiscData.pak fixture";
+  fi
+
   # Nintendo Wii Opening Banner (.bnr / BNR1) test
   mkdir -p "$d/bnr_test"
   python3 -c '
@@ -10092,15 +10118,18 @@ t_mpr_pack(){
   [ -f "$f2" ] || { sk "MPR PACK (Remastered) miscdata"; return; }
   rm -rf /tmp/_r_mpr2
   "$B/wszst" xx "$f2" --dest "/tmp/_r_mpr2" --overwrite >/tmp/_r_mpr2.log 2>&1
-  local n2; n2=$(find /tmp/_r_mpr2 -type f -size +0c 2>/dev/null | wc -l | tr -d ' ')
-  local txtr; txtr=$(find /tmp/_r_mpr2 -name '*.TXTR' -size +0c 2>/dev/null | head -1)
+  # Member count excludes derived images: the TXTR decoder now also
+  # leaves a cascade-exported .TXTR.png next to the raw member.
+  local n2; n2=$(find /tmp/_r_mpr2 -type f -size +0c ! -name '*.png' 2>/dev/null | wc -l | tr -d ' ')
+  local txtr; txtr=$(find /tmp/_r_mpr2 -name '*.TXTR' -size +0c ! -name '*.png' 2>/dev/null | head -1)
+  local txtrpng; txtrpng=$(find /tmp/_r_mpr2 -name '*.TXTR.png' -size +0c 2>/dev/null | head -1)
   local shnt; shnt=$(find /tmp/_r_mpr2 -name '*.SHNT' -size +0c 2>/dev/null | head -1)
-  if [ "$n2" = "11" ] && [ -n "$txtr" ] && [ -n "$shnt" ] \
+  if [ "$n2" = "11" ] && [ -n "$txtr" ] && [ -n "$txtrpng" ] && [ -n "$shnt" ] \
   && [ "$(head -c4 "$txtr")" = "RFRM" ] && [ "$(head -c4 "$shnt")" = "RFRM" ] \
   && grep -q "FOOT" "$txtr" 2>/dev/null; then
-    ok "MPR PACK (Remastered) miscdata -> 11 members incl. TXTR + compressed SHNT, all RFRM+FOOT"
+    ok "MPR PACK (Remastered) miscdata -> 11 members incl. TXTR + compressed SHNT, all RFRM+FOOT (+ TXTR cascade PNG)"
   else
-    no "MPR PACK (Remastered) miscdata" "expected 11 RFRM+FOOT members incl. TXTR/SHNT, got $n2 file(s)"
+    no "MPR PACK (Remastered) miscdata" "expected 11 RFRM+FOOT members incl. TXTR/SHNT + TXTR.png, got $n2 member(s)"
   fi
 }
 t_mpr_pack

@@ -53,6 +53,7 @@
 #include "lib-nut.h"
 #include "lib-excite.h"
 #include "lib-retro-txtr.h"
+#include "lib-mpr-txtr.h"
 
 #include "red-36.inc"
 #include "blue-40.inc"
@@ -629,6 +630,20 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		if (err)
 			return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported Retro TXTR texture: %s\n", fname);
 		AssignDecodedRGBA (img, rgba, width, height, &be_func, fname);
+		return PatchListIMG (img);
+	}
+
+	// Metroid Prime Remastered TXTR (LE RFRM form + FOOT META). Disjoint
+	// from all three probes above (DSB magic, Tropical BE parse, bare
+	// old-Retro header), tested last.
+	if (IsMPRTXTR (data, data_size))
+	{
+		u8 *rgba = 0;
+		uint width = 0, height = 0;
+		const enumError err = DecodeMPRTXTR_RGBA (&rgba, &width, &height, data, data_size);
+		if (err)
+			return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported MPR TXTR texture: %s\n", fname);
+		AssignDecodedRGBA (img, rgba, width, height, &le_func, fname);
 		return PatchListIMG (img);
 	}
 

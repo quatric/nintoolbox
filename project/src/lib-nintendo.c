@@ -30,7 +30,16 @@ __attribute__ ((weak)) bool IsTropicalTXTR (const u8 *data, uint size)
 	(void)data;
 	(void)size;
 	return false;
-}__attribute__ ((weak)) enumError DecodeQuickLZ (
+}
+// Same pattern for the Remastered TXTR probe (lib-mpr-txtr.o is
+// XOBJ_IMAGE, like lib-retro-txtr.o above).
+__attribute__ ((weak)) bool IsMPRTXTR (const u8 *data, uint size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
+__attribute__ ((weak)) enumError DecodeQuickLZ (
 	u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 {
 	(void)dest;
@@ -80,7 +89,8 @@ ccp GetNintendoFormatName (nfmt_type_t type)
 		"XIMG", "ZTAB", "GLG", "MDR", "PERS", "PVOL", "STPK", "G1M", "G1T", "G4PKM", "LMD", "MSH",
 		"MOD", "GAR", "TEX3DS", "BCSTM", "BFSTM", "BCWAV", "BFWAV", "BNSH", "GFBMDL", "GFBANM",
 		"BNSTX", "AAMP", 		"MIO", "ZDAT", "SFX", "VFF", "TM0", "RETRO-TXTR", "TROPICAL-TXTR",
-		"MPR-PACK" };
+		"MPR-PACK",
+		"MPR-TXTR" };
 	return type < sizeof (tab) / sizeof (*tab) ? tab[type] : "UNKNOWN";
 }
 
@@ -116,20 +126,26 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_ZLIB, false, true, 0);
 		if (!memcmp (d, "TXTR", 4))
 			return make_info (NFMT_DSB, true, false, 0);
-		// Retro Studios TXTR revisions share the name but neither magic
-		// with the DSB format above: Tropical Freeze opens with an RFRM
-		// form ("TXTR" form id at 0x14), the Metroid Prime/DKCR revision
-		// with a bare BE header. DSB is tested first so its magic keeps
-		// its meaning; IsRetroTXTR() itself also rejects both magics.
-		if (!memcmp (d, "RFRM", 4) && IsTropicalTXTR (d, size))
-			return make_info (NFMT_TROPICAL_TXTR, true, false, 0);
-		// Metroid Prime Remastered PACK: LE RFRM form with the PACK id
-		// at 0x14. Disjoint from the Tropical id above; IsMPRPACK()
-		// runs the full structural scan (PACK v1 / TOCC v3 / per-entry
-		// RFRM agreement), so no magic-only claim happens here.
-		if (!memcmp (d, "RFRM", 4) && size >= 0x20 && !memcmp (d + 0x14, "PACK", 4)
-			&& IsMPRPACK (d, size))
-			return make_info (NFMT_MPR_PACK, false, false, 0);
+		// RFRM is a strong 4-byte magic owned by Retro Studios'
+		// form family (Tropical Freeze + Remastered resources and
+		// containers). Resolve it here, completely, and never let it
+		// fall through to the single-byte compression guesses below:
+		// an RFRM form size with 0x10/0x11/0x40 in its low byte trips
+		// the CX00-prefix LZ10/LZ11 and LZH8 checks (found live: real
+		// Remastered TXTRs misreported as LZ10/LZ11 streams, aborting
+		// image decode). No genuine compressed stream starts with
+		// RFRM, so UNKNOWN is the honest answer for anything the
+		// family probes decline.
+		if (!memcmp (d, "RFRM", 4))
+		{
+			if (IsTropicalTXTR (d, size))
+				return make_info (NFMT_TROPICAL_TXTR, true, false, 0);
+			if (size >= 0x20 && !memcmp (d + 0x14, "PACK", 4) && IsMPRPACK (d, size))
+				return make_info (NFMT_MPR_PACK, false, false, 0);
+			if (IsMPRTXTR (d, size))
+				return make_info (NFMT_MPR_TXTR, false, false, 0);
+			return make_info (NFMT_UNKNOWN, true, false, 0);
+		}
 		if (IsRetroTXTR (d, size))
 			return make_info (NFMT_RETRO_TXTR, true, false, 0);
 		if (magic == 0x0020af30)

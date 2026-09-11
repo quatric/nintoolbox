@@ -160,7 +160,8 @@ typedef enum nfmt_type_t
 	NFMT_TM0,
 	NFMT_RETRO_TXTR,
 	NFMT_TROPICAL_TXTR,
-	NFMT_MPR_PACK
+	NFMT_MPR_PACK,
+	NFMT_MPR_TXTR
 } nfmt_type_t;
 
 typedef struct nfmt_info_t
