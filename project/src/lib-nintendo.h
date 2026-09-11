@@ -451,6 +451,7 @@ bool OwnedNameOk (ccp name);
 #include "lib-msr.h"
 
 #include "lib-dtls.h"
+#include "lib-cpk.h"
 #include "lib-mio.h"
 #include "lib-sfx.h"
 #include "lib-vff.h"

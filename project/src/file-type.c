@@ -1417,6 +1417,13 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		"Nd Cube Wii U flat container (.bin / \"PAC\\0\"); members are ordinary "
 		"zlib-compressed data, not encrypted (Mario Party 10 / Animal Crossing: amiibo Festival)" },
 
+	// FF_CPK = 266 (CRIWARE CPK archive)
+	{ FF_CPK, FF_CPK, 0, "CPK", ".cpk", ".szs", ".cpk",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 'C', 'P', 'K', ' ' }, 0, MinusString, MinusString,
+		"CRIWARE CPK archive (.cpk / \"CPK \"); UTF tables (optionally XOR-encrypted), "
+		"CRILAYLA-compressed members (Star Fox Zero)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1559,6 +1566,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_NSBMA, "NSBMA", "BMA0", 0x1 }, { FF_MIO, "MIO", 0, 0xe05 },
 	{ FF_ZDAT, "ZDAT", "ZDAT", 0xe05 }, { FF_SFX, "SFX", 0, 0xe05 },
 	{ FF_VFF, "VFF", "VFF", 0xe05 }, { FF_IQIPACK, "IQIPACK", "PACK", 0xe05 },
+	{ FF_CPK, "CPK", 0, 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

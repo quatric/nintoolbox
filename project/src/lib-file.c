@@ -1309,6 +1309,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x6F660100: // "of\x01\x00" -- 3DS retail DTLS lookup (real Smash 4 romfs/ls)
 				return FF_DTLS;
 
+			// CRIWARE CPK archive (Star Fox Zero Wii U content/*.cpk)
+			case 0x43504b20: // "CPK "
+				return FF_CPK;
+
 			// PlatinumGames Archive (pkz\0)
 			case 0x706b7a00: // "pkz\0"
 				return FF_PKZ;

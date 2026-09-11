@@ -10293,6 +10293,96 @@ assert not doc.get("skins"), "SMDL must export unskinned (no skeleton oracle)"
 }
 t_mpr_cmdl
 
+t_cpk(){
+  # CRIWARE CPK (Star Fox Zero, Wii U): `CPK ` packet with a UTF header
+  # (TocOffset/ContentOffset/Files/Align), a `TOC ` packet with one row
+  # per member, CRILAYLA-compressed payloads. Both fixtures are built
+  # synthetically here (fully understood layout, no retail bytes except
+  # the 880-byte CRILAYLA span asserting the real decoder).
+  local d; d=$(mktemp -d /tmp/_r_cpk.XXXXXX) || { no "CPK synth" "mktemp failed"; return; }
+  python3 -c '
+import struct
+def utf_table(cols, rows, name=b"CPK"):
+    strings = bytearray(b"\x00" + name + b"\x00")
+    stroffs = {}
+    def intern(s):
+        if s not in stroffs:
+            stroffs[s] = len(strings)
+            strings.extend(s + b"\x00")
+        return stroffs[s]
+    colbin = bytearray()
+    for fl, nm in cols:
+        colbin.append(fl)
+        colbin.extend(struct.pack(">I", intern(nm)))
+    rowbin = bytearray()
+    for r in rows:
+        for (fl, _), v in zip(cols, r):
+            ty = fl & 0x0f
+            if ty in (0, 1): rowbin.append(v)
+            elif ty in (2, 3): rowbin.extend(struct.pack(">H", v))
+            elif ty in (4, 5): rowbin.extend(struct.pack(">I", v))
+            elif ty in (6, 7): rowbin.extend(struct.pack(">Q", v))
+            elif ty == 0x0a: rowbin.extend(struct.pack(">I", intern(v)))
+            else: raise AssertionError(fl)
+    rl = len(rowbin) // max(len(rows), 1)
+    cols_off = 32
+    rows_off = cols_off + len(colbin)
+    strings_off = rows_off + len(rowbin)
+    hdr = bytearray(b"@UTF" + b"\x00" * 28)
+    table_size = 32 - 8 + len(colbin) + len(rowbin) + len(strings)
+    struct.pack_into(">I", hdr, 4, table_size)
+    struct.pack_into(">III", hdr, 8, rows_off - 8, strings_off - 8, strings_off - 8)
+    struct.pack_into(">IHHI", hdr, 20, 1, len(cols), rl, len(rows))
+    return bytes(hdr) + bytes(colbin) + bytes(rowbin) + bytes(strings)
+def packet(magic, payload):
+    return magic + struct.pack("<iQ", 0, len(payload)) + payload
+m1 = b"STORED_MEMBER_ONE"
+m2 = b"second-member-bytes-here!"
+cpk_hdr = utf_table([(0x56, b"TocOffset"), (0x56, b"ContentOffset"), (0x54, b"Files"), (0x52, b"Align")],
+    [[0x800, 0x1000, 2, 2048]])
+toc_hdr = utf_table([(0x5a, b"DirName"), (0x5a, b"FileName"), (0x54, b"FileSize"), (0x54, b"ExtractSize"), (0x56, b"FileOffset")],
+    [[b"sub", b"one.dat", len(m1), len(m1), 0x1000 - 0x800], [b"", b"two.bin", len(m2), len(m2), 0x1000 + len(m1) - 0x800]])
+cpk = packet(b"CPK ", cpk_hdr)
+while len(cpk) < 0x800: cpk += b"\x00"
+cpk += packet(b"TOC ", toc_hdr)
+while len(cpk) < 0x1000: cpk += b"\x00"
+cpk += m1 + m2
+open("'"$d"'/stored.cpk", "wb").write(cpk)
+span = open("'"$PWD_PROJECT"'/../tests/fixtures/cpk_crilayla_bxm.bin", "rb").read()
+assert span[:8] == b"CRILAYLA" and len(span) == 880
+m3 = b"plain-bytes"
+cpk2_hdr = utf_table([(0x56, b"TocOffset"), (0x56, b"ContentOffset"), (0x54, b"Files"), (0x52, b"Align")],
+    [[0x800, 0x1000, 2, 2048]])
+toc2_hdr = utf_table([(0x5a, b"DirName"), (0x5a, b"FileName"), (0x54, b"FileSize"), (0x54, b"ExtractSize"), (0x56, b"FileOffset")],
+    [[b"", b"graphic.bxm", 880, 1484, 0x1000 - 0x800], [b"", b"note.txt", len(m3), len(m3), 0x1000 + 880 - 0x800]])
+cpk2 = packet(b"CPK ", cpk2_hdr)
+while len(cpk2) < 0x800: cpk2 += b"\x00"
+cpk2 += packet(b"TOC ", toc2_hdr)
+while len(cpk2) < 0x1000: cpk2 += b"\x00"
+cpk2 += span + m3
+open("'"$d"'/crilayla.cpk", "wb").write(cpk2)
+' 2>/dev/null
+  if "$B/wszst" FILETYPE "$d/stored.cpk" 2>/dev/null | grep -q '^CPK' \
+  && "$B/wszst" xx "$d/stored.cpk" --dest "$d/sout" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/sout/sub/one.dat" <(printf 'STORED_MEMBER_ONE') \
+  && cmp -s "$d/sout/two.bin" <(printf 'second-member-bytes-here!'); then
+    ok "CPK synthetic stored members -> byte-exact paths + bytes"
+  else
+    no "CPK synthetic stored" "failed to extract synthetic CPK"
+  fi
+  if "$B/wszst" xx "$d/crilayla.cpk" --dest "$d/cout" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/cout/graphic.bxm" ] \
+  && [ "$(head -c4 "$d/cout/graphic.bxm")" = "BXM" ] \
+  && [ "$(stat -f%z "$d/cout/graphic.bxm" 2>/dev/null || stat -c%s "$d/cout/graphic.bxm" 2>/dev/null)" = "1484" ] \
+  && cmp -s "$d/cout/note.txt" <(printf 'plain-bytes'); then
+    ok "CPK synthetic CRILAYLA member -> BXM magic, exact 1484 bytes"
+  else
+    no "CPK synthetic CRILAYLA" "failed to decode CRILAYLA member"
+  fi
+  rm -rf "$d"
+}
+t_cpk
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]

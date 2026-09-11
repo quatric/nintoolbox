@@ -1902,3 +1902,24 @@ CMDL truncations (17) + 3-byte mutations (120), SMDL mutations
 (120), DTLS `ls` mutations (60), MPR PACK mutations (40, covering
 PACK+TXTR+cascade+CMDL paths). 20/120 CMDL mutants still decode
 (structurally valid survivors). No bugs found; no code changed.
+
+## 34. 2026-09-11 — CRIWARE CPK + CRILAYLA (Star Fox Zero): §15 unblocked ✅
+
+Pulled the retail WUX from mcubewiiu (6.6 GB) with the local title
+key, extracted to tmp-sfzero (content/data000-003.cpk: 1.26 GB /
+2.5 MB / 863 MB / 864 MB). Layout per esperknight/CriPakTools CPK.cs
+(MIT, re-implemented) and proven byte-exact in Python first: `CPK `
+packet + UTF header (TocOffset/ContentOffset/Files/Align), `TOC `
+packet rows (DirName/FileName/FileSize/ExtractSize/FileOffset, offsets
+rebased by min(Content,Toc)), CRILAYLA payloads (`usize + 0x100 ==
+ExtractSize` on every sample checked). New `lib-cpk.c` (`ScanCPK` with
+XOR-UTF support, `DecodeCRILAYLA` backwards bitstream, both
+bounds-checked; malloc-owned entries sharing `write_owned_entries`),
+`FF_CPK` registry, `extract_cpk_file`, `t_cpk` (synthetic stored +
+real 880B CRILAYLA span fixtures). Verified: 705/705 retail members
+extract with real names, zero skips; `face_fox.dat` C output is
+byte-identical to the Python reference; the pre-existing SFZDAT
+extractor cascades with no changes (shader.dat → 664 entries).
+README SFZDAT row flipped to retail-verified, CPK row added. ITOC-only
+layouts declined (none here); repack not implemented. Scratch WUX kept
+at szs-retail-test/tmp-sfzero (11 GB) until the corpus is fully mined.
