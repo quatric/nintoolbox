@@ -100,6 +100,16 @@ enumError XInfoNSP (ccp source);
 enumError XExtractNSP (ccp source, ccp dest);
 enumError XCreateNSP (ccp source, ccp dest);
 
+// .xcz / .nsz: zstd-compressed XCI / NSP, decompressed on the fly by shelling
+// out to the external "nsz" tool (https://github.com/nicoboss/nsz) and then
+// reusing the XCI / NSP back end above.
+
+enumError XInfoXCZ (ccp source);
+enumError XExtractXCZ (ccp source, ccp dest);
+
+enumError XInfoNSZ (ccp source);
+enumError XExtractNSZ (ccp source, ccp dest);
+
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////                          END                    ///////////////

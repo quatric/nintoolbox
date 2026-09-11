@@ -72,6 +72,8 @@ typedef enum xformat_t
 	XF_CIA, // 3DS installable title
 	XF_XCI, // Switch cartridge dump
 	XF_NSP, // Switch package (PFS0)
+	XF_XCZ, // Switch cartridge dump, zstd-compressed (nsz passthrough)
+	XF_NSZ, // Switch package, zstd-compressed (nsz passthrough)
 	XF_NKIT_GC, // NKit-compressed GameCube disc image (.nkit.iso); see x-nkit.c
 	XF_NKIT_WII, // NKit-compressed Wii disc image (.nkit.iso); see x-nkit-wii.c
 
