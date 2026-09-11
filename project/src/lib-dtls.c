@@ -27,6 +27,18 @@ enumError ScanDTLS (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *
 		count = rd_le32 (ls_data + 4);
 		entry_sz = 16;
 	}
+	else if (!memcmp (ls_data, "of\x01\x00", 4))
+	{
+		// 3DS retail variant (real Smash 4 romfs/ls): header "of\x01\x00"
+		// + little-endian count, then 12-byte entries
+		// { u32 hash; u32 dt_offset; u32 dt_span_size }. Spans open with
+		// alignment padding and pack concatenated zlib streams (no flags
+		// or decompressed sizes stored), so like the Wii U variant they
+		// pass through raw; all-CC spans are alignment sentinels.
+		is_be = false;
+		count = rd_le32 (ls_data + 4);
+		entry_sz = 12;
+	}
 	else if (!memcmp (ls_data, "LS\0\0", 4))
 	{
 		is_be = true;
@@ -68,11 +80,15 @@ enumError ScanDTLS (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *
 	for (uint i = 0; i < count; i++)
 	{
 		const u8 *e = ls_data + table_off + i * entry_sz;
+		const bool raw = entry_sz != 24;
+		const uint off_field = entry_sz == 12 ? 4 : 8;
+		const uint sz_field = entry_sz == 12 ? 8 : 12;
 		const u32 hash = is_be ? rd_be32 (e) : rd_le32 (e);
-		const u32 off = entry_sz == 16 ? rd_le32 (e + 4) : (is_be ? rd_be32 (e + 8) : rd_le32 (e + 8));
-		const u32 comp_sz = entry_sz == 16 ? rd_le32 (e + 8) : (is_be ? rd_be32 (e + 12) : rd_le32 (e + 12));
-		const u32 decomp_sz = entry_sz == 16 ? comp_sz : (is_be ? rd_be32 (e + 16) : rd_le32 (e + 16));
-		const u16 flags = entry_sz == 16 ? 0 : (is_be ? rd_be16 (e + 6) : rd_le16 (e + 6));
+		const u32 off = raw ? rd_le32 (e + off_field) : (is_be ? rd_be32 (e + 8) : rd_le32 (e + 8));
+		const u32 comp_sz = raw ? rd_le32 (e + sz_field)
+			: (is_be ? rd_be32 (e + 12) : rd_le32 (e + 12));
+		const u32 decomp_sz = raw ? comp_sz : (is_be ? rd_be32 (e + 16) : rd_le32 (e + 16));
+		const u16 flags = raw ? 0 : (is_be ? rd_be16 (e + 6) : rd_le16 (e + 6));
 
 		char name[64];
 		snprintf (name, sizeof (name), "%08X.bin", hash ? hash : i);

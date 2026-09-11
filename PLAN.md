@@ -1052,6 +1052,23 @@ deleted header made `make` abort before compiling anything (leaving a
 stale binary that masked the fix) — worth `rm`-ing orphan `.d` files
 after deleting a header.
 
+**Follow-up 2026-09-11 — 3DS DTLS variant + ctrtool verified.** The
+§3 ctrtool pass-through proved itself on a real 2 GB Smash 3DS cart
+(`exefs`/`romfs` out, incl. a media cascade), and the cart's
+`romfs/ls` turned out to be a THIRD DTLS layout: `of\x01\x00` tag +
+LE count + 12-byte LE entries (8+4513*12 == 54164 bytes exactly),
+all 4513 spans in-bounds against the real 781 MB `romfs/dt`.
+`ScanDTLS()` + FILETYPE dispatch extended (entries pass through raw
+like the Wii U 16-byte form); the extensionless-`ls` sibling lookup
+now tries `dt00` then `dt`. Span forensics: members open with CC
+alignment padding and pack concatenated zlib streams (plural per
+span — one span held 10+ `ATKD`/`AIPD` streams; all-CC spans are
+alignment sentinels), so no sub-container is invented — spans
+extract raw and the structure is documented, not decoded. Synthetic
+`t_smash3ds_ls` (byte-exact member via sibling `dt`) added; real
+pair verified by hand (4513 members, 115/300 sampled with zlib near
+head). README DTLS row covers both retail variants now.
+
 ## 19. 2026-09-08 — NDS DSi banner: static icon was silently replaced by animation frame 0 — ✅ fixed
 
 Prompted by re-reading a public DSiWare icon-ripper reference script

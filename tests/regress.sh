@@ -9432,6 +9432,38 @@ t_smash4_wiiu_ls_layout(){
 }
 t_smash4_wiiu_ls_layout
 
+t_smash3ds_ls(){
+  # Smash 4 (3DS) retail lookup: `of\x01\x00` tag + LE32 count + 12-byte
+  # LE entries {hash, dt offset, span size} (8+count*12 bytes total).
+  # Spans open with alignment padding and pack concatenated zlib
+  # streams, so members extract raw. Synthetic pair exercises the
+  # field offsets plus the extensionless `ls` + sibling `dt` lookup
+  # (no `dt00` here).
+  local d; d=$(mktemp -d) || { sk "Smash3DS romfs/ls layout"; return; }
+  python3 -c '
+import struct
+payload = b"SMASH3DS_DTLS_PAYLOAD_0123456789"
+with open("'"$d"'/dt", "wb") as f:
+    f.write(b"\xCC" * 32 + payload)
+ls = b"of\x01\x00" + struct.pack("<I", 1) + struct.pack("<III", 0x12345678, 32, len(payload))
+with open("'"$d"'/ls", "wb") as f:
+    f.write(ls)
+' 2>/dev/null
+  local size
+  size=$(stat -f%z "$d/ls" 2>/dev/null || stat -c%s "$d/ls" 2>/dev/null)
+  if [ "$size" = "20" ] \
+  && "$B/wszst" FILETYPE "$d/ls" 2>/dev/null | grep -q '^DTLS' \
+  && "$B/wszst" xx "$d/ls" --dest "$d/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/out/12345678.bin" ] \
+  && cmp -s "$d/out/12345678.bin" <(printf 'SMASH3DS_DTLS_PAYLOAD_0123456789'); then
+    ok "Smash3DS romfs/ls (of01 + 12-byte entries) -> byte-exact member via sibling dt"
+  else
+    no "Smash3DS romfs/ls" "expected byte-exact 12345678.bin member"
+  fi
+  rm -rf "$d"
+}
+t_smash3ds_ls
+
 # Pokemon Stadium (N64) PERS-SZP: a 24-byte header wrapping a Yay0 stream.
 # The header states the payload size independently of the stream's own, so a
 # mismatch is a rejection rather than a partial extraction.

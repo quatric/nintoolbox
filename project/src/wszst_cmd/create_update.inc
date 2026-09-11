@@ -5184,11 +5184,16 @@ static enumError extract_dtls_file (ccp arg, ccp basedir, uint depth)
 	char *ls_pos = strstr (dt_path, "ls00");
 	if (!strcmp (fname, "ls"))
 	{
-		// Retail Smash 4 layout: extensionless `content/ls` beside
-		// `content/dt00` in the same directory.
+		// Retail Smash 4 layout: extensionless lookup beside its data
+		// file in the same directory (`content/ls` + `content/dt00` on
+		// Wii U, `romfs/ls` + `romfs/dt` on 3DS).
 		char *slash = strrchr (dt_path, '/');
 		char *base = slash ? slash + 1 : dt_path;
-		snprintf (base, sizeof (dt_path) - (size_t)(base - dt_path), "dt00");
+		size_t room = sizeof (dt_path) - (size_t)(base - dt_path);
+		snprintf (base, room, "dt00");
+		struct stat dt_st;
+		if (stat (dt_path, &dt_st) != 0 || !S_ISREG (dt_st.st_mode))
+			snprintf (base, room, "dt");
 	}
 	else if (ls_pos)
 		memcpy (ls_pos, "dt00", 4);

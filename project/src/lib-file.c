@@ -1306,6 +1306,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 				return FF_PAC;
 			case 0x6F660200: // "of\x02\x00" -- Wii U retail DTLS lookup (real Smash 4 content/ls)
 				return FF_DTLS;
+			case 0x6F660100: // "of\x01\x00" -- 3DS retail DTLS lookup (real Smash 4 romfs/ls)
+				return FF_DTLS;
 
 			// PlatinumGames Archive (pkz\0)
 			case 0x706b7a00: // "pkz\0"
