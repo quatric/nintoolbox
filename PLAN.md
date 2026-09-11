@@ -479,6 +479,11 @@ research," which was wrong; should have checked the tree first.
 - `.atb` (2D image) / `.hsf` (3D model) sub-format *decoding* is still not
   done — `wszst xx` and `wmpbdump` recover the raw sub-file bytes correctly, but
   don't parse the interior HSF/ATB structures yet. Separate follow-up.
+  **Update 2026-09-11:** HSF interior is done (parse + GLB export, incl.
+  byte-exact re-encode — see the README HSF row, ✅✅✅✅, verified
+  again this session: `mp4_mariomdl0.bin` → 2 HSF members → valid
+  1.5 MB GLB). Only `.atb` remains, with no ATB sample or reference
+  anywhere on disk to build against.
 
 ## 7. GotaSequenceCmd — MIDI → BRSAR sequence encoding
 
@@ -1797,3 +1802,30 @@ yield valid glTF (98/98 sampled pass `validate-glb.py`), incl. a
 precedent), `extract_mpr_cmdl_file` + `wmdlt` fallback, `t_mpr_cmdl`
 (unit-cube fixture + xx/wmdlt byte-agreement). SMDL skinning +
 TXTR-uuid material resolution are phase 2.
+
+## 33. 2026-09-11 — "All of PLAN" sweep: closed what was closable, verified every block
+
+Systematic pass over every open thread in this log:
+
+- **DTLS Wii U extensionless `content/ls`** (gap left by `dfb3a6e`): fixed —
+  name gate + sibling `dt00` resolution, 6541 members, test + docs.
+- **DTLS 3DS variant** (new, found via the §3 ctrtool verification below):
+  `of\x01\x00` + 12-byte entries, 4513 spans vs the real 781 MB `dt`,
+  synthetic test + docs.
+- **BNFM §12**: confirmed already fixed (§20); added the PAC→BNFM→GLB
+  end-to-end lock-in test.
+- **MPR CMDL** (§32 Next): implemented, 687/687 retail members to valid
+  glTF, test + docs (see above).
+- **§3 ctrtool**: verified on a real 2 GB Smash 3DS cart (exefs/romfs +
+  media cascade). hactool was already proven (§29 F-Zero 99).
+- **§6 HSF**: verified done (valid 1.5 MB GLB from the retail sample);
+  only ATB left, no samples.
+- **§5 FTXP**: verified closed by §26 (entry-internal decode present).
+
+Verified still blocked (prerequisites checked, not assumed): G1T Wii U
+(no Hyrule Warriors dump on disk), MDL0 palette pairing (no ACCF disc),
+SFZDAT/CPK (no CPK tooling), Cafe BFFNT (no GPU oracle), BFSAR/BCSAR
+(no samples), Switch FSEQ/coverage (§7/§29: Tomodachi + F-Zero 99
+romfs trees contain zero sequence files), ATB (no samples).
+SMDL skinning + MTRL/TXTR-uuid material resolution deliberately left
+as CMDL phase 2 (samples exist: 179 SMDL + MTRL/TXTR members).
