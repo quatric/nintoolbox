@@ -54,9 +54,12 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **CRAM (.arc)** | 3DS / Archive | ✅ | ✅ | Xenoblade Chronicles 3D archive |
 | **CTPK** | 3DS / Texture | ✅ | ✅ | CTR texture container |
 | **DARC** | 3DS / Archive | ✅ | ✅ | Differential archive container |
+| **DSB (TXTR)** | DS / Texture | 🟡 | ❌ | Animal Crossing: Wild World menu texture (no retail sample on disk) |
+| **Retro TXTR** | Wii / Texture | ✅ | ✅ | Retro Studios texture (*Metroid Prime 1-3*, *DKCR*): GX-tiled, indexed + direct |
+| **Tropical TXTR** | Wii U / Texture | ✅ | ❌ | Retro Studios texture (*Tropical Freeze*): RFRM form, GX2 detile |
 | **DAT (Star Fox Zero)** | Wii U / Archive | ✅ | 🟡 | Big-endian flat archive |
 | **Deflate** | Compression | ✅ | ✅ | Standard Deflate / Zlib streams |
-| **DTLS (dt00/ls00)** | Wii U / 3DS / Archive | ✅ | ✅ | Super Smash Bros. 4 composite resource package & lookup |
+| **DTLS (dt00/ls00)** | Wii U / 3DS / Archive | ✅ | ✅ | Super Smash Bros. 4 composite resource package & lookup (Wii U `of02` 16-byte + 3DS `of01` 12-byte retail variants included) |
 | **FSYS** | GameCube / Archive | ✅ | ✅ | Genius Sonority Pokémon archive |
 | **FZIP** | Wii U / Compression | ✅ | ✅ | Game & Wario Zlib container |
 | **GFA** | 3DS / Archive | ✅ | ✅ | GFAC archive |
@@ -66,6 +69,9 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **HSF** | GameCube / Wii / Model | ✅ | ✅ | Hudson Mario Party 3D model |
 | **Hyrule Warriors Legends** | 3DS / Archive | ✅ | ✅ | Split `.idx` / `.bin` archive pair |
 | **MOD (NDL3/NDL2)** | Wii / Model | ✅ | ✅ | Monster Games 3D model container |
+| **MPR CMDL / SMDL** | Switch / Model | ✅ | ❌ | Retro Studios model (*Metroid Prime Remastered*): static CMDL v114/125 and skinned SMDL v127/133 (decoded unskinned, skinning validated); named materials |
+| **MPR PACK** | Switch / Archive | ✅ | ❌ | Retro Studios asset container (*Metroid Prime Remastered*): LE RFRM PACK v1 + TOCC v3, LZSS members |
+| **MPR TXTR** | Switch / Texture | ✅ | ❌ | Retro Studios texture (*Metroid Prime Remastered*): LE RFRM TXTR v47/51, Tegra detile, BC1-7/ASTC |
 | **MSH (PMsh)** | Wii / Model | ✅ | ✅ | Monster Games collision mesh |
 | **MSBF / MSBP / MSBT** | Wii/3DS/Wii U/Switch / Text | ✅ | ✅ | Message Studio Binary Text and Flow |
 | **MSR** | 3DS / Archive | 🟡 | ⛔ | Metroid: Samus Returns archive |
