@@ -5062,7 +5062,7 @@ static enumError extract_numshb_file (ccp arg, ccp basedir, uint depth)
 
 static enumError extract_mpr_cmdl_file (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext (arg, ".cmdl"))
+	if (!is_ext (arg, ".cmdl") && !is_ext (arg, ".smdl"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;

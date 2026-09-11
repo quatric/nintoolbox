@@ -1803,6 +1803,22 @@ precedent), `extract_mpr_cmdl_file` + `wmdlt` fallback, `t_mpr_cmdl`
 (unit-cube fixture + xx/wmdlt byte-agreement). SMDL skinning +
 TXTR-uuid material resolution are phase 2.
 
+**Follow-up 2026-09-11 — SMDL geometry + material names ✅.**
+Skinned SMDL (v127/133, SKHD chunk) decodes unskinned through the
+same path: 179/179 retail members yield valid glTF (bone transforms
+live outside the files and no skeleton oracle exists anywhere
+checked — not retrotool either — so weights export as future work,
+asserted skinless in the test). MTRL material walk cracked against
+all 866 files (names + shader/guid + type FourCCs + render types +
+(id,type) pairs + (id,type,inner) triples incl. layered CPLX and
+nil-conditional texture usage; 2167 names, 8592 TXTR uuids, exact
+chunk-end every time) and names are exported + bound per-mesh
+(verified: 51-mesh scene, prim→material 18, `ruins_..._mat12`).
+`t_mpr_cmdl` extended (material-name/binding asserts, SMDL
+fixture + skinless assert). Genuine walk bugs caught along the way:
+a missing types-array skip, a (type,id) misread, and a pair check
+that ignored inner sizes past t=0.
+
 ## 33. 2026-09-11 — "All of PLAN" sweep: closed what was closable, verified every block
 
 Systematic pass over every open thread in this log:

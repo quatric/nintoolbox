@@ -8,10 +8,11 @@
 // plus a trailing FOOT form whose META table locates each buffer.
 // Layout per PrimeDecomp/retrotool's cmdl.rs (MIT/Apache-2.0,
 // re-implemented) and verified against 687 retail CMDL members.
-// Static meshes only in this pass: skinned SMDL (SKHD, versions
-// 127/133) is declined, as is material/texture resolution (meshes
-// export untextured with their retail material index preserved in
-// the mesh name).
+// Static CMDL (114/125) and skinned SMDL (127/133, SKHD chunk):
+// SMDL decodes unskinned here — bone transforms live outside either
+// file (no skeleton asset is known) — and material/texture resolution
+// is future work (meshes export untextured with their retail material
+// index preserved in the mesh name).
 //-----------------------------------------------------------------------------
 #ifndef SZS_LIB_MPR_CMDL_H
 #define SZS_LIB_MPR_CMDL_H 1

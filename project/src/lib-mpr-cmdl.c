@@ -114,6 +114,7 @@ typedef struct mpr_cmdl_t
 {
 	const u8 *src;
 	uint size;
+	bool skinned; // SMDL form (SKHD present); CMDL otherwise
 	// chunk bodies
 	const u8 *head;
 	uint head_size;
@@ -303,14 +304,30 @@ static enumError mpr_cmdl_scan (mpr_cmdl_t *m, const u8 *data, uint size)
 	u32 rver, wver;
 	u64 fsize;
 	uint fbody;
-	if (!mpr_cmdl_form (data, size, 0, fid, &rver, &wver, &fsize, &fbody)
-		|| memcmp (fid, "CMDL", 4) || rver != 114 || wver != 125)
+	if (!mpr_cmdl_form (data, size, 0, fid, &rver, &wver, &fsize, &fbody))
+		return EINVAL;
+	// Static CMDL (114/125) and skinned SMDL (127/133) share every
+	// chunk but SKHD; bone transforms live outside either file (no
+	// skeleton asset is known), so SMDL decodes unskinned here.
+	if (!memcmp (fid, "CMDL", 4))
+	{
+		if (rver != 114 || wver != 125)
+			return EINVAL;
+		m->skinned = false;
+	}
+	else if (!memcmp (fid, "SMDL", 4))
+	{
+		if (rver != 127 || wver != 133)
+			return EINVAL;
+		m->skinned = true;
+	}
+	else
 		return EINVAL;
 	const uint fend = fbody + (uint)fsize;
 
 	uint pos = fbody;
-	bool have_head = false, have_mtrl = false, have_mesh = false, have_vbuf = false,
-		 have_ibuf = false, have_gpu = false;
+	bool have_skhd = false, have_head = false, have_mtrl = false, have_mesh = false,
+		 have_vbuf = false, have_ibuf = false, have_gpu = false;
 	while (pos < fend)
 	{
 		char cid[4];
@@ -326,6 +343,15 @@ static enumError mpr_cmdl_scan (mpr_cmdl_t *m, const u8 *data, uint size)
 			m->head = data + cbody;
 			m->head_size = (uint)csize;
 			have_head = true;
+		}
+		else if (!memcmp (cid, "SKHD", 4))
+		{
+			// Skeleton header: (0, bone_count, hash, ?, 1, 0, 0) u32s
+			// plus a few trailing bytes on some files. Bone transforms
+			// are not stored here, so only size and singularity gate.
+			if (have_skhd || csize < 20 || csize > 4096)
+				return EINVAL;
+			have_skhd = true;
 		}
 		else if (!memcmp (cid, "MTRL", 4))
 		{
@@ -381,6 +407,8 @@ static enumError mpr_cmdl_scan (mpr_cmdl_t *m, const u8 *data, uint size)
 		pos = cbody + (uint)csize;
 	}
 	if (!have_head || !have_mtrl || !have_mesh || !have_vbuf || !have_ibuf || !have_gpu)
+		return EINVAL;
+	if (m->skinned != have_skhd)
 		return EINVAL;
 
 	// VBUF entries must walk exactly; count their buffers.
@@ -627,6 +655,132 @@ static bool mpr_cmdl_finite3 (const float v[4])
 	return true;
 }
 
+// MTRL data-item inner sizes by FourCC type. Returns 0 for unknown.
+// TXTR/CPLX-layered texture tokens carry a LE uuid plus a 20-byte usage
+// record unless the uuid is nil; CPLX is only ever the layered form
+// (BCRL/MTLL/NRML) in the verified corpus.
+static bool mpr_cmdl_data_skip (const u8 *d, uint size, uint *pos, const u8 ty[4])
+{
+	uint p = *pos;
+	if (!memcmp (ty, "TXTR", 4))
+	{
+		if ((u64)p + 16 > size)
+			return false;
+		bool nil = true;
+		for (uint i = 0; i < 16; i++)
+			if (d[p + i])
+			{
+				nil = false;
+				break;
+			}
+		p += nil ? 16 : 36;
+	}
+	else if (!memcmp (ty, "COLR", 4) || !memcmp (ty, "INT4", 4))
+		p += 16;
+	else if (!memcmp (ty, "SCLR", 4) || !memcmp (ty, "INT1", 4))
+		p += 4;
+	else if (!memcmp (ty, "MAT4", 4))
+		p += 64;
+	else if (!memcmp (ty, "CPLX", 4))
+	{
+		if ((u64)p + 53 > size)
+			return false;
+		p += 53;
+		for (uint k = 0; k < 3; k++)
+		{
+			if ((u64)p + 16 > size)
+				return false;
+			bool nil = true;
+			for (uint i = 0; i < 16; i++)
+				if (d[p + i])
+				{
+					nil = false;
+					break;
+				}
+			p += nil ? 16 : 36;
+		}
+	}
+	else
+		return false;
+	if (p > size)
+		return false;
+	*pos = p;
+	return true;
+}
+
+// Extract MTRL material names (CMaterialCache walk per retrotool's
+// cmdl.rs: name, shader/guid, type FourCCs, render types, (id,type)
+// pairs, then (id,type,inner) triples). Any anomaly aborts with
+// false; the caller then exports unnamed materials instead of
+// failing the file.
+static bool mpr_cmdl_materials (const mpr_cmdl_t *m, model_t *model)
+{
+	const u8 *d = m->mtrl;
+	const uint size = m->mtrl_size;
+	uint p = 8;
+	model->materials = CALLOC (m->mtrl_count, sizeof (*model->materials));
+	if (!model->materials)
+		return false;
+	for (uint i = 0; i < m->mtrl_count; i++)
+	{
+		if ((u64)p + 4 > size)
+			goto bad;
+		const uint nl = rd_le32 (d + p);
+		p += 4;
+		if (!nl || nl > 256 || (u64)p + nl + 40 > size)
+			goto bad;
+		for (uint k = 0; k < nl; k++)
+			if (d[p + k] < 32 || d[p + k] >= 127)
+				goto bad;
+		snprintf (model->materials[i].name, sizeof (model->materials[i].name), "%.*s", nl,
+			d + p);
+		p += nl + 16 + 16 + 4 + 4;
+		if ((u64)p + 4 > size)
+			goto bad;
+		const uint nt = rd_le32 (d + p);
+		p += 4;
+		if (nt > 1024 || (u64)p + (u64)nt * 4 > size)
+			goto bad;
+		p += nt * 4;
+		if ((u64)p + 4 > size)
+			goto bad;
+		const uint nrt = rd_le32 (d + p);
+		p += 4;
+		if (nrt > 1024 || (u64)p + (u64)nrt * 10 > size)
+			goto bad;
+		p += nrt * 10;
+		if ((u64)p + 4 > size)
+			goto bad;
+		const uint nd = rd_le32 (d + p);
+		p += 4;
+		if (nd > 4096 || (u64)p + (u64)nd * 8 > size)
+			goto bad;
+		// Triples repeat their (id,type) header verbatim from the
+		// pairs array; each header is verified as it is walked.
+		const u8 *pairs = d + p;
+		p += nd * 8;
+		for (uint t = 0; t < nd; t++)
+		{
+			u8 ty[4];
+			if ((u64)p + 8 > size || memcmp (d + p, pairs + (size_t)t * 8, 8))
+				goto bad;
+			memcpy (ty, d + p + 4, 4);
+			p += 8;
+			if (!mpr_cmdl_data_skip (d, size, &p, ty))
+				goto bad;
+		}
+	}
+	if (p != size)
+		goto bad;
+	model->num_materials = m->mtrl_count;
+	return true;
+
+bad:
+	FREE (model->materials);
+	model->materials = 0;
+	return false;
+}
+
 model_t *ParseMPRCMDL (const u8 *data, size_t size)
 {
 	if (!data || !size || size > UINT_MAX)
@@ -717,6 +871,10 @@ model_t *ParseMPRCMDL (const u8 *data, size_t size)
 		model = 0;
 		goto fail_meshes;
 	}
+
+	// Material names (best effort: any walk anomaly exports unnamed
+	// materials instead of failing the file).
+	const bool have_materials = mpr_cmdl_materials (&m, model);
 
 	// AABB with a small tolerance for quantization noise.
 	float tol = 1.0f;
@@ -823,7 +981,7 @@ model_t *ParseMPRCMDL (const u8 *data, size_t size)
 
 		mesh_t *mesh = model->meshes + model->num_meshes;
 		snprintf (mesh->name, sizeof (mesh->name), "mesh%u_mat%u", mi, mat);
-		mesh->material_idx = -1;
+		mesh->material_idx = have_materials ? (int)mat : -1;
 		mesh->positions = CALLOC (vc, sizeof (*mesh->positions));
 		if (!mesh->positions)
 			continue;

@@ -10205,6 +10205,9 @@ assert typ == 0x4E4F534A, "first chunk is not JSON"
 doc = json.loads(b[20:20+ln])
 assert len(doc.get("meshes", [])) == 1, "expected exactly 1 mesh"
 assert doc["meshes"][0]["primitives"], "mesh has no primitives"
+assert len(doc.get("materials", [])) == 1, "expected exactly 1 material"
+assert doc["materials"][0].get("name"), "material has no name"
+assert doc["meshes"][0]["primitives"][0].get("material") == 0, "prim not bound to material 0"
 ' 2>/dev/null; then
     ok "MPR CMDL (Remastered) unit cube -> valid 1-mesh glTF"
   else
@@ -10217,6 +10220,27 @@ assert doc["meshes"][0]["primitives"], "mesh has no primitives"
     ok "MPR CMDL (Remastered) wszst xx agrees byte-exact with wmdlt"
   else
     no "MPR CMDL (Remastered) wszst xx" "extract path differs from wmdlt"
+  fi
+  # Skinned SMDL form (v127/133 + SKHD): decodes unskinned through the
+  # same path — bone transforms live outside the file, so no skeleton
+  # is expected, just valid geometry.
+  local fs="$PWD_PROJECT/../tests/fixtures/mpr_smdl_small.smdl"
+  [ -f "$fs" ] || { sk "MPR SMDL (Remastered) small"; return; }
+  if "$B/wmdlt" DECODE "$fs" --dest "/tmp/_r_mprcmdl/skin.glb" --overwrite >/dev/null 2>&1 \
+  && [ -s /tmp/_r_mprcmdl/skin.glb ] \
+  && [ "$(head -c4 /tmp/_r_mprcmdl/skin.glb)" = "glTF" ] \
+  && python3 ../tests/validate-glb.py /tmp/_r_mprcmdl/skin.glb >/dev/null 2>&1 \
+  && python3 -c '
+import json, struct
+b = open("/tmp/_r_mprcmdl/skin.glb", "rb").read()
+ln, typ = struct.unpack_from("<II", b, 12)
+doc = json.loads(b[20:20+ln])
+assert doc.get("meshes"), "no meshes in SMDL GLB"
+assert not doc.get("skins"), "SMDL must export unskinned (no skeleton oracle)"
+' 2>/dev/null; then
+    ok "MPR SMDL (Remastered) small -> valid unskinned glTF"
+  else
+    no "MPR SMDL (Remastered) small" "wmdlt DECODE did not yield a valid unskinned glTF"
   fi
 }
 t_mpr_cmdl

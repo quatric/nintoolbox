@@ -152,7 +152,9 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 				return make_info (NFMT_MPR_PACK, false, false, 0);
 			if (IsMPRTXTR (d, size))
 				return make_info (NFMT_MPR_TXTR, false, false, 0);
-			if (size >= 0x20 && !memcmp (d + 0x14, "CMDL", 4) && IsMPRCMDL (d, size))
+			if (size >= 0x20
+				&& (!memcmp (d + 0x14, "CMDL", 4) || !memcmp (d + 0x14, "SMDL", 4))
+				&& IsMPRCMDL (d, size))
 				return make_info (NFMT_MPR_CMDL, false, false, 0);
 			return make_info (NFMT_UNKNOWN, true, false, 0);
 		}
