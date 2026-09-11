@@ -1521,6 +1521,66 @@ static enumError passthru_archive (
 	}
 	else if (is_switch)
 	{
+		// find_program() returns a pointer into its own static buffer, and
+		// TOOL (resolved above, before this branch) still points into that
+		// same buffer -- looking up a *second* tool (nsz, right below) would
+		// silently overwrite TOOL's backing storage with nsz's path. Copy it
+		// out to a local buffer first so TOOL keeps naming hactool for the
+		// rest of this branch.
+		char hactool_buf[PATH_MAX];
+		snprintf (hactool_buf, sizeof (hactool_buf), "%s", tool);
+		tool = hactool_buf;
+
+		// NSZ/XCZ (nsz-compressed NSP/XCI): the top-level PFS0/XCI header
+		// survives compression -- only the *.nca payloads are swapped for
+		// *.ncz (SciresM's NCZ format), which hactool has no idea how to
+		// read. That is exactly the "PFS0 is corrupt!" hactool reports for
+		// these files: the container claim above (header-based) already
+		// routes them here, but hactool can only ever work on the plain
+		// .nsp/.xci underneath. Decompress with the 'nsz' tool (nicoboss/nsz,
+		// looked up on PATH like every other pass-through tool) into STAGE
+		// first, then let the rest of this branch treat the result as if it
+		// had been the source all along -- staged files are cleaned up with
+		// STAGE like everything else this function produces.
+		ccp effective_src = src;
+		char nsz_out[PATH_MAX] = "";
+		if (is_ext (src, ".nsz") || is_ext (src, ".xcz"))
+		{
+			ccp nsz_tool_p = find_program ("nsz");
+			if (!nsz_tool_p)
+				return ERROR0 (ERR_SUBJOB_FAILED,
+					"pass-through: 'nsz' not found in PATH (required to decompress %s)", src);
+			char nsz_tool[PATH_MAX];
+			snprintf (nsz_tool, sizeof (nsz_tool), "%s", nsz_tool_p);
+
+			// unlike hactool below, which only ever gets pointed at
+			// subdirectories of STAGE (so STAGE itself is created as a side
+			// effect of CreatePath()'s parent-dir walk), nsz's -o is STAGE
+			// itself -- CreatePath(stage,false) above only ever created
+			// STAGE's *parent*, so create STAGE itself here.
+			if (CreatePath (stage, true))
+				return ERROR0 (ERR_CANT_CREATE_DIR, "Cannot create dest dir: %s", stage);
+
+			char *argv[]
+				= { (char *)nsz_tool, "-D", "-w", "-o", (char *)stage, (char *)src, 0 };
+			const int rc = run_program (argv);
+			if (rc != 0)
+				return ERROR0 (
+					ERR_SUBJOB_FAILED, "pass-through 'nsz -D' failed for %s (exit %d)", src, rc);
+
+			ccp base = strrchr (src, '/');
+			base = base ? base + 1 : src;
+			ccp dot = strrchr (base, '.');
+			uint stem_len = dot ? (uint)(dot - base) : (uint)strlen (base);
+			ccp decompressed_ext = is_ext (src, ".xcz") ? ".xci" : ".nsp";
+			snprintf (nsz_out, sizeof (nsz_out), "%s/%.*s%s", stage, stem_len, base,
+				decompressed_ext);
+			if (access (nsz_out, R_OK))
+				return ERROR0 (ERR_SUBJOB_FAILED,
+					"pass-through 'nsz -D' did not produce the expected %s for %s", nsz_out, src);
+			effective_src = nsz_out;
+		}
+
 		const char *home = getenv ("HOME");
 		char prod_keys[PATH_MAX] = "";
 		if (home)
@@ -1547,7 +1607,7 @@ static enumError passthru_archive (
 			argv[argc++] = prod_keys;
 		}
 
-		if (is_ext (src, ".nca") || is_ext (src, ".cnmt.nca"))
+		if (is_ext (effective_src, ".nca") || is_ext (effective_src, ".cnmt.nca"))
 		{
 			is_nca = true;
 			argv[argc++] = "-x";
@@ -1566,15 +1626,15 @@ static enumError passthru_archive (
 			argv[argc++] = exefs_dir;
 			argv[argc++] = sec0_dir;
 
-			find_nca_titlekey (src, tkey, sizeof (tkey));
+			find_nca_titlekey (effective_src, tkey, sizeof (tkey));
 			if (*tkey)
 			{
 				snprintf (titlekey_opt, sizeof (titlekey_opt), "--titlekey=%s", tkey);
 				argv[argc++] = titlekey_opt;
 			}
-			precreate_romfs_dirs (tool, prod_keys, tkey, src, romfs_path);
+			precreate_romfs_dirs (tool, prod_keys, tkey, effective_src, romfs_path);
 		}
-		else if (is_ext (src, ".xci"))
+		else if (is_ext (effective_src, ".xci"))
 		{
 			argv[argc++] = "-x";
 			snprintf (xci_dir, sizeof (xci_dir), "--outdir=%s", stage);
@@ -1590,7 +1650,7 @@ static enumError passthru_archive (
 			argv[argc++] = pfs0_dir;
 		}
 
-		argv[argc++] = (char *)src;
+		argv[argc++] = (char *)effective_src;
 		argv[argc] = 0;
 
 		// A titlekey-crypto NCA can fail its hash check with a *wrong but
@@ -1608,7 +1668,7 @@ static enumError passthru_archive (
 		if (rc == 0 && is_nca && *tkey && capture_shows_corruption (capture_path))
 		{
 			char alt_tkey[64] = "";
-			if (find_nca_titlekey_from_titlekeys_file (src, alt_tkey, sizeof (alt_tkey))
+			if (find_nca_titlekey_from_titlekeys_file (effective_src, alt_tkey, sizeof (alt_tkey))
 				&& strcasecmp (alt_tkey, tkey) != 0)
 			{
 				fprintf (stdlog,
@@ -1616,7 +1676,7 @@ static enumError passthru_archive (
 					" retrying with the ~/.switch/title.keys entry for this Rights ID\n",
 					src);
 				snprintf (titlekey_opt, sizeof (titlekey_opt), "--titlekey=%s", alt_tkey);
-				precreate_romfs_dirs (tool, prod_keys, alt_tkey, src, romfs_path);
+				precreate_romfs_dirs (tool, prod_keys, alt_tkey, effective_src, romfs_path);
 				unlink (capture_path);
 				rc = run_program_capture (argv, capture_path);
 			}
@@ -2457,8 +2517,13 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 		return passthru_archive_or_bms (
 			src, basedir, stage, staged_dir, staged_dir_size, false, true, false, false, false);
 
-	// Switch NCA / NSP / XCI (by extension)
-	if (!strong_only && (is_ext (src, ".nca") || is_ext (src, ".nsp") || is_ext (src, ".xci")))
+	// Switch NCA / NSP / XCI, and their nsz-compressed NCZ/NSZ/XCZ variants
+	// (by extension; the header claim above also catches XCZ/NSZ, since
+	// compression only swaps the inner *.nca for *.ncz and leaves the
+	// outer PFS0/XCI container header intact)
+	if (!strong_only
+		&& (is_ext (src, ".nca") || is_ext (src, ".nsp") || is_ext (src, ".xci")
+			|| is_ext (src, ".nsz") || is_ext (src, ".xcz")))
 		return passthru_archive_or_bms (
 			src, basedir, stage, staged_dir, staged_dir_size, false, false, false, false, true);
 
