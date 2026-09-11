@@ -317,7 +317,6 @@ XOBJ_IMAGE	= lib-image1.o lib-image2.o lib-image3.o lib-plt0.o lib-bntx.o \
 		lib-gtx.o \
 		lib-nitro.o \
 		lib-retro-txtr.o \
-		lib-mpr-txtr.o \
 			$(LATTE_CXX_OBJS) $(BCN_CXX_OBJS) \
 			lib-quicklz.o qlz120.o qlz140.o src/ajpg/odh_core.o lib-bflyt.o \
 			src/astc/astc_decomp.o src/astc/astc_wrapper.o lib-at7.o lib-ash0.o lib-camelot.o lib-rnc.o \

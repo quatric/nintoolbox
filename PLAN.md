@@ -1722,18 +1722,18 @@ assembled from FOOT-META buffer descriptors, detiled with the BNTX
 Tegra block-linear path (`BntxDeswizzle`) and pixel-decoded via the
 existing BCn/ASTC codecs (formats 20-29 BC1-5, 53-84 ASTC, 81-84
 BC6H/BC7 per retrotool's `txtr.rs`). Real sample already in hand
-(`MiscData.pak` TXTR: 232×232 R8Unorm).~~ DONE (2026-09-11):
-`lib-mpr-txtr.c` (`IsMPRTXTR`/`ScanMPRTXTR`/`DecodeMPRTXTR_RGBA`,
-`NFMT_MPR_TXTR`) hooked into `AssignIMG` + `DetectNintendoFormat`
-(`wimgt DECODE` + `wszst xx` incl. PACK-extract cascade PNG); the
-RFRM family now resolves completely (Tropical → PACK → MPR TXTR →
-UNKNOWN) so real TXTRs no longer misreport as LZ10/LZ11 streams.
-Perf: read-index direct-hit with linear fallback, only mip 0
-deswizzled (smaller mips validated arithmetically), BC6H/BC7 decode
-straight into the destination. Tests: new retail `t_mpr_txtr`-style
-block (232×232, black corner, full tonal range, no-LZ FILETYPE) next
-to the Retro/Tropical tests, `t_mpr_pack` counts members minus
-derived PNGs and asserts the cascade PNG. Smash Ultimate reverified
-same pass: NUMSHB (incl. v1.8 bbox paths) green, NUTEXB/NUS3AUDIO
-unchanged, `data.arc` retail correctly SKIP (15 GB cart not local).
-CMDL models after that.
+(`MiscData.pak` TXTR: 232×232 R8Unorm).~~ DONE (2026-09-11, two
+parallel sessions converged): `890f30c` implemented the decode in
+`lib-retro-txtr.c` (`IsMPRTXTR`/`ScanMPRTXTR`/`DecodeMPRTXTR_RGBA`,
+verified against real ASTC 5×5/8×5 + BC7 textures); a second pass
+added `DetectNintendoFormat` RFRM-family resolution (Tropical →
+PACK → MPR TXTR → UNKNOWN, `NFMT_MPR_TXTR`, so real TXTRs no longer
+misreport as LZ10/LZ11 streams), a retail regression block
+(232×232, black corner, full tonal range, no-LZ FILETYPE),
+`T_mpr_pack` member counting minus derived PNGs plus a cascade-PNG
+assert, the README row, and a direct-index META read shortcut. A
+duplicate standalone `lib-mpr-txtr.c` from the second pass was
+removed again in favour of the `lib-retro-txtr.c` home. Smash
+Ultimate reverified same pass: NUMSHB (incl. v1.8 bbox paths)
+green, NUTEXB/NUS3AUDIO unchanged, `data.arc` retail correctly SKIP
+(15 GB cart not local). CMDL models after that.

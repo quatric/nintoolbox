@@ -1239,7 +1239,12 @@ enumError DecodeMPRTXTR_RGBA (
 		const uint dest_size = rd_le32 (b + 16);
 
 		const u8 *found = 0;
-		for (uint j = 0; j < info_count; j++)
+		// The buffer's read index normally equals its own position:
+		// direct-index that common case, keep the linear scan as
+		// fallback so an exotic file decodes exactly as before.
+		if (b_index < info_count && info_arr[9 * (u64)b_index] == b_index)
+			found = info_arr + 9 * (u64)b_index;
+		for (uint j = 0; !found && j < info_count; j++)
 		{
 			const u8 *ie = info_arr + j * 9;
 			if (ie[0] == b_index)
