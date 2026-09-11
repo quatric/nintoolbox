@@ -1819,6 +1819,18 @@ fixture + skinless assert). Genuine walk bugs caught along the way:
 a missing types-array skip, a (type,id) misread, and a pair check
 that ignored inner sizes past t=0.
 
+**Follow-up 2026-09-11 — SMDL skin validation.** SKHD word 1 is the
+bone count, confirmed empirically across 30 spot-checked files
+(max `BoneIndices` value == count-1 almost everywhere; `BoneWeights`
+rows sum to 1.00): indices are uniformly u8x4, weights half-x4
+(288/290 comps) or float-x4 (one file initially misread as corrupt
+until the float form was recognized). The decoder parses and
+validates both (indices < count, finite weights, row sums ≤ 1.1)
+and skips meshes that fail, without exporting skins — no oracle
+for bone transforms exists anywhere checked. Full 866-file
+re-sweep after: 866/866 non-empty, 5034 meshes total, 51-mesh
+reference scene intact.
+
 ## 33. 2026-09-11 — "All of PLAN" sweep: closed what was closable, verified every block
 
 Systematic pass over every open thread in this log:

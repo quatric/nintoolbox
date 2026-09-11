@@ -10,9 +10,13 @@
 // re-implemented) and verified against 687 retail CMDL members.
 // Static CMDL (114/125) and skinned SMDL (127/133, SKHD chunk):
 // SMDL decodes unskinned here — bone transforms live outside either
-// file (no skeleton asset is known) — and material/texture resolution
-// is future work (meshes export untextured with their retail material
-// index preserved in the mesh name).
+// file (no skeleton asset is known) — but its skinning data is parsed
+// and validated, never trusted blindly: SKHD field 1 is the bone
+// count (every BoneIndices u8x4 value is below it corpus-wide),
+// BoneWeights (half-x4 or float-x4) rows must be finite and sum to
+// ~=1, and meshes failing either are skipped like any other corrupt
+// geometry. MTRL material names are exported and bound per-mesh;
+// texture-uuid resolution is future work.
 //-----------------------------------------------------------------------------
 #ifndef SZS_LIB_MPR_CMDL_H
 #define SZS_LIB_MPR_CMDL_H 1

@@ -107,6 +107,8 @@ enum
 	MC_TEXCOORD2 = 7,
 	MC_TEXCOORD3 = 8,
 	MC_COLOR = 9,
+	MC_BONE_INDICES = 10,
+	MC_BONE_WEIGHTS = 11,
 };
 
 // Parsed-file view shared by Scan and Parse (all pointers into src).
@@ -130,6 +132,10 @@ typedef struct mpr_cmdl_t
 	uint ibuf_size;
 	const u8 *meta;
 	uint meta_size;
+	// SKHD bone count (SMDL only; 0 for CMDL). Verified corpus-wide:
+	// every BoneIndices value is below it and every BoneWeights
+	// row sums to ~1 (half or float quads).
+	uint sk_bones;
 	// HEAD AABB
 	float bb_min[3];
 	float bb_max[3];
@@ -348,8 +354,13 @@ static enumError mpr_cmdl_scan (mpr_cmdl_t *m, const u8 *data, uint size)
 		{
 			// Skeleton header: (0, bone_count, hash, ?, 1, 0, 0) u32s
 			// plus a few trailing bytes on some files. Bone transforms
-			// are not stored here, so only size and singularity gate.
+			// are not stored here, so only size and singularity gate;
+			// the count itself is validated against the skinning
+			// components at decode time.
 			if (have_skhd || csize < 20 || csize > 4096)
+				return EINVAL;
+			m->sk_bones = rd_le32 (data + cbody + 4);
+			if (m->sk_bones > 1000000)
 				return EINVAL;
 			have_skhd = true;
 		}
@@ -940,7 +951,7 @@ model_t *ParseMPRCMDL (const u8 *data, size_t size)
 			continue;
 		const uint first = entry_first[vei];
 		mpr_cmdl_attr_t pos = { 0, 0, 0 }, nor = { 0, 0, 0 }, uv = { 0, 0, 0 },
-						  col = { 0, 0, 0 };
+						  col = { 0, 0, 0 }, skb = { 0, 0, 0 }, skw = { 0, 0, 0 };
 		uint uv_comp = 0;
 		bool bad = false;
 		for (uint c = 0; c < cc && !bad; c++)
@@ -972,12 +983,67 @@ model_t *ParseMPRCMDL (const u8 *data, size_t size)
 			}
 			else if (comp == MC_COLOR && !col.data)
 				col = a;
+			else if (comp == MC_BONE_INDICES && !skb.data)
+			{
+				// u8x4 bone indices (the only encoding seen corpus-wide).
+				if (fmt != 22)
+				{
+					bad = true;
+					break;
+				}
+				skb = a;
+			}
+			else if (comp == MC_BONE_WEIGHTS && !skw.data)
+			{
+				// Half-x4 or float-x4 weights (both seen corpus-wide).
+				if (fmt != 34 && fmt != 40)
+				{
+					bad = true;
+					break;
+				}
+				skw = a;
+			}
 		}
 		if (bad || !pos.data)
+			continue;
+		if (!!skb.data != !!skw.data)
 			continue;
 		float probe[4];
 		if (!mpr_cmdl_read_attr (probe, pos.data, pos.format, MC_POSITION))
 			continue;
+		// Skinning validates but does not export (no skeleton oracle):
+		// every index must address a real SKHD bone and every weight
+		// row must be finite and sum to ~=1 (zero rows = unbound).
+		if (skb.data)
+		{
+			bool skin_ok = true;
+			for (uint v = 0; v < vc && skin_ok; v++)
+			{
+				const u8 *bp = skb.data + (size_t)v * skb.stride;
+				const u8 *wp = skw.data + (size_t)v * skw.stride;
+				float sum = 0;
+				for (uint k = 0; k < 4; k++)
+				{
+					if (bp[k] >= m.sk_bones)
+					{
+						skin_ok = false;
+						break;
+					}
+					float w = skw.format == 40 ? mpr_cmdl_f32 (wp + 4 * k)
+											   : mpr_cmdl_half (rd_le16 (wp + 2 * k));
+					if (!(w >= 0.0f && w <= 1.05f))
+					{
+						skin_ok = false;
+						break;
+					}
+					sum += w;
+				}
+				if (sum > 1.1f)
+					skin_ok = false;
+			}
+			if (!skin_ok)
+				continue;
+		}
 
 		mesh_t *mesh = model->meshes + model->num_meshes;
 		snprintf (mesh->name, sizeof (mesh->name), "mesh%u_mat%u", mi, mat);
