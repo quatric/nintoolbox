@@ -2311,13 +2311,44 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 					matname && *matname ? matname : "material");
 
 				// Read all textures from this material's texture name array.
-				// Per Wexos's Wiki: texture name array at mp+0x30 (v>=9) or
-				// mp+0x38 (v<9); num textures at mp+0x9D (v>=9) or mp+0xAD (v<9).
-				const int64_t tex_name_arr = vmajor >= 9
-					? ((size_t)mp + 0x38 <= size ? les64 (d + mp + 0x30) : 0)
-					: ((size_t)mp + 0x40 <= size ? les64 (d + mp + 0x38) : 0);
-				const uint8_t n_tex = vmajor >= 9 ? ((size_t)mp + 0x9D < size ? d[mp + 0x9D] : 0)
-												  : ((size_t)mp + 0xAD < size ? d[mp + 0xAD] : 0);
+				// FMAT field layout (relative to mp_base) verified byte-for-byte
+				// against tests/fixtures/bfres_switch_tomodachi_penguin.bfres
+				// (v10 retail): the texture-name-array pointer at mp_base+0x18
+				// resolves to an array whose [0] points to the string
+				// "Antarctic00_PenguinBaby_Body_Alb", and the sampler/texture
+				// counts at mp_base+0x9A/0x9B read 3/3, matching the 3 textures
+				// actually present. This supersedes the old Wexos's-Wiki-derived
+				// mp+0x30/mp+0x9D guess (verified wrong for v10: those offsets
+				// land on unrelated fields for this layout). Ported from
+				// KillzXGaming/BfresLibrary's Switch/Model/MaterialParserV10.cs
+				// (ShaderInfo/ShaderAssignV10 field order), cross-checked against
+				// the fixture's raw bytes rather than trusted blindly. Only
+				// applied for vmajor>=10; v9's simpler (non-V10) struct is a
+				// different layout entirely and is left on the old formula since
+				// no v9 Switch fixture exists here to verify against.
+				int64_t tex_name_arr = 0;
+				uint8_t n_tex = 0;
+				int64_t shader_info = 0, shader_assign = 0;
+				if (vmajor >= 10 && (size_t)mp_base + 0xA4 <= size)
+				{
+					tex_name_arr = les64 (d + mp_base + 0x18);
+					n_tex = d[mp_base + 0x9B];
+					shader_info = les64 (d + mp_base + 0x08);
+					if (shader_info > 0 && (size_t)shader_info + 8 <= size)
+						shader_assign = les64 (d + shader_info);
+				}
+				else if (vmajor == 9)
+				{
+					// Unverified (no v9 fixture available); kept as-is from the
+					// prior Wexos's-Wiki-derived guess.
+					tex_name_arr = (size_t)mp + 0x38 <= size ? les64 (d + mp + 0x30) : 0;
+					n_tex = (size_t)mp + 0x9D < size ? d[mp + 0x9D] : 0;
+				}
+				else
+				{
+					tex_name_arr = (size_t)mp + 0x40 <= size ? les64 (d + mp + 0x38) : 0;
+					n_tex = (size_t)mp + 0xAD < size ? d[mp + 0xAD] : 0;
+				}
 				if (tex_name_arr > 0 && n_tex > 0)
 				{
 					for (uint t = 0; t < n_tex && t < 8; t++)
@@ -2331,6 +2362,59 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 							snprintf (mat->textures[t], sizeof (mat->textures[t]), "%s", tname);
 							mat->texture_coord[t] = (int)t;
 							mat->num_textures = (int)(t + 1);
+						}
+					}
+				}
+
+				// ShaderParam colours: ShaderAssignV10 (at *shader_info+0x00)
+				// holds shaderParamOffset (name/type table, at +0x20) and
+				// ParamCount (u16 at +0x4A); the FMAT header's SourceParamOffset
+				// (mp_base+0x50) is where the raw per-parameter bytes live, each
+				// parameter's byte range running from its DataOffset to the next
+				// parameter's DataOffset. Verified against the penguin fixture:
+				// "const_color_albedo" (24 bytes into a 34-param, 300-byte table)
+				// decodes to (1.0,1.0,1.0) -- an intentional default-white tint
+				// (the actual albedo comes from the _Alb texture), and
+				// "const_single_roughness" decodes to 1.0. Texture SRT
+				// ("tex_mtx0..2"/"tex_mtx_user0/1", 24 bytes each) is present in
+				// the same table but every instance in both available fixtures
+				// is the identity transform, so the field order within those 24
+				// bytes (scale/rotate/translate vs. rotate/scale/translate)
+				// cannot be distinguished from real data -- left unimplemented
+				// rather than guess.
+				if (shader_assign > 0 && (size_t)shader_assign + 0x50 <= size)
+				{
+					const int64_t param_list = les64 (d + shader_assign + 0x20);
+					const uint16_t param_count = (size_t)shader_assign + 0x4C <= size
+						? le16 (d + shader_assign + 0x4A) : 0;
+					const int64_t param_data = les64 (d + mp_base + 0x50);
+					if (param_list > 0 && param_data > 0 && param_count > 0 && param_count < 256)
+					{
+						for (uint p = 0; p < param_count; p++)
+						{
+							const size_t pe = (size_t)param_list + p * 24;
+							if (pe + 24 > size)
+								break;
+							const char *pname = rel_string_switch (d, size, les64 (d + pe + 8));
+							if (!pname)
+								continue;
+							const uint16_t doff = le16 (d + pe + 16);
+							const size_t fo = (size_t)param_data + doff;
+							if (!strcmp (pname, "const_color_albedo") && fo + 12 <= size)
+							{
+								mat->diffuse[0] = read_le32f (d + fo);
+								mat->diffuse[1] = read_le32f (d + fo + 4);
+								mat->diffuse[2] = read_le32f (d + fo + 8);
+								mat->diffuse[3] = 1.0f;
+							}
+							else if (!strcmp (pname, "const_single_roughness") && fo + 4 <= size)
+							{
+								// Roughness -> glTF/GLB-style shininess heuristic,
+								// matching the same (1-roughness)-based curve the
+								// GLB writer already applies via mat->shininess.
+								const float roughness = read_le32f (d + fo);
+								mat->shininess = (1.0f - roughness) * 100.0f;
+							}
 						}
 					}
 				}
@@ -2968,8 +3052,41 @@ int ParseBFRESAnims (const uint8_t *data, size_t size, bfres_anim_entry_t **out_
 			else if (!memcmp (magic, "FVIS", 4))
 			{
 				// ResVisibilityAnimData (60B): flag@12 nUser@14
-				// numFrame@16 nAnim@20 nCurve@22 baked@24
-				// + 6 offsets@28. Curves (if any) at ofs[3].
+				// numFrame@16 nAnim@20 nCurve@22 baked@24 + 6 offsets@28:
+				// BindModel@28, BindIndices@32 (u16[nAnim], 0xFFFF = model
+				// root / unbound), Names@36 (BinString ptr[nAnim], parallel
+				// to BindIndices), Curves@40 (flat ResAnimCurve[nCurve] --
+				// *not* one array per target; see below), BaseDataList@44
+				// (bit-packed bool[nAnim], initial visibility, 1 bit/target,
+				// 32 targets/word), UserData dict@48. Matches
+				// BfresLibrary's Shared/VisibilityAnim/VisibilityAnim.cs
+				// field order (Name/Path/flags/counts/BindModel/
+				// BindIndices/Names/Curves/BaseDataList/UserData).
+				//
+				// Unlike FSKA/FSHU/FTXP/FSHA, there is no per-target
+				// sub-entry struct owning its own curve slice: Curves is one
+				// flat array shared by all nAnim targets, and each curve's
+				// existing `target` field (bfres_curve_t::target, read from
+				// AnimCurve+4) *is* the 0-based index into BindIndices/
+				// Names/BaseDataList -- not every target need have a curve
+				// (a target with none keeps whatever BaseDataList says).
+				// Verified against tests/fixtures/bfres_anim_yww_roombgg000.bfres:
+				// nAnim=3 ("ROOMBGG000_0000"/"result_gauge"/"result_gauge_sh",
+				// all BindIndices=0xFFFF i.e. unbound-to-skeleton scene
+				// nodes), nCurve=1, and that one curve's target field reads
+				// 1, i.e. it animates "result_gauge" (BaseDataList bit 1 is
+				// its static/initial value: 0); frame_type=Byte,
+				// curve_type=StepBool (6), key_type packs the on/off bit
+				// pattern raw per bfres_curve_read()'s existing handling.
+				//
+				// Not wired into model_animation_t/GLB export: glTF core has
+				// no per-node visibility animation channel (only
+				// KHR_animation_pointer, which lib-model-glb.c's writer does
+				// not implement), and approximating it by animating a node's
+				// scale to/from zero would misrepresent a boolean
+				// show/hide as a continuous transform, corrupting anything
+				// that inspects the curve's intermediate values. Left
+				// unimplemented rather than land that guess.
 				if (fs + 60 > size)
 					continue;
 				e->frames = rbs32 (d + fs + 16);
