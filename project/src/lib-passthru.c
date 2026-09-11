@@ -51,6 +51,10 @@ static enumError passthru_archive (ccp src, ccp basedir, ccp stage, char *staged
 static enumError passthru_archive_or_bms (ccp src, ccp basedir, ccp stage, char *staged_dir,
 	uint staged_dir_size, bool is_ds, bool is_ctr, bool is_wad, bool is_disc, bool is_switch);
 
+static enumError passthru_nsz (
+	ccp src, ccp basedir, ccp stage, char *staged_dir, uint staged_dir_size);
+static bool is_ext (ccp src, ccp ext);
+
 static int run_program_capture (char *const argv[], ccp capture_path);
 static void dump_capture (ccp capture_path);
 static const char *find_program (ccp name);
@@ -410,6 +414,63 @@ static enumError passthru_7z (
 	const int rc = run_program (argv);
 	if (rc != 0)
 		return ERROR0 (ERR_SUBJOB_FAILED, "pass-through 7z failed for %s (exit %d)", src, rc);
+
+	snprintf (staged_dir, staged_dir_size, "%s", stage);
+	return ERR_OK;
+}
+
+// .nsz / .xcz are ordinary NSP / XCI containers whose bulky NCAs have been
+// swapped for zstd-compressed .ncz blobs by the homebrew "nsz" tool
+// (https://github.com/nicoboss/nsz). Nothing here understands that stream,
+// so the file is handed to "nsz" -- looked up on $PATH -- which restores the
+// plain .nsp/.xci into STAGE; the normal recursive walk then feeds that to
+// hactool like any other Switch container. "nsz" re-encrypts the sections it
+// decompresses and needs ~/.switch/prod.keys to do so.
+static enumError passthru_nsz (
+	ccp src, ccp basedir, ccp stage, char *staged_dir, uint staged_dir_size)
+{
+	(void)basedir;
+
+	ccp tool = find_program ("nsz");
+	if (!tool || !*tool)
+	{
+		*staged_dir = 0;
+		return make_stage_dir (stage, true);
+	}
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT nsz passthrough: %s -> %s (%s)\n", testmode ? "WOULD " : "",
+			verbose > 0 ? "\n" : "", src, stage, tool);
+
+	if (testmode)
+	{
+		snprintf (staged_dir, staged_dir_size, "%s", stage);
+		return ERR_OK;
+	}
+
+	if (CreatePath (stage, false))
+		return ERROR0 (ERR_CANT_CREATE_DIR, "Cannot create dest dir: %s", stage);
+
+	char out_arg[PATH_MAX];
+	snprintf (out_arg, sizeof (out_arg), "%s", stage);
+	char *argv[] = { (char *)tool, "-D", "-w", "-o", out_arg, (char *)src, 0 };
+	const int rc = run_program (argv);
+	if (rc != 0)
+		return ERROR0 (ERR_SUBJOB_FAILED, "pass-through nsz failed for %s (exit %d)", src, rc);
+
+	// Make sure a container actually came out -- otherwise the recursive
+	// walk would just find an empty directory and report nothing.
+	bool got = false;
+	DIR *d = opendir (stage);
+	if (d)
+	{
+		struct dirent *de;
+		while (!got && (de = readdir (d)))
+			got = is_ext (de->d_name, ".nsp") || is_ext (de->d_name, ".xci");
+		closedir (d);
+	}
+	if (!got)
+		return ERROR0 (ERR_SUBJOB_FAILED, "nsz -D produced no .nsp/.xci for %s", src);
 
 	snprintf (staged_dir, staged_dir_size, "%s", stage);
 	return ERR_OK;
@@ -2319,6 +2380,15 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 		return passthru_archive_or_bms (
 			src, basedir, stage, staged_dir, staged_dir_size, false, true, false, false, false);
 
+	// Switch .nsz / .xcz: a PFS0 / XCI whose NCAs are zstd-compressed .ncz
+	// blobs. Caught here -- before the plain PFS0/HEAD checks below, which a
+	// .nsz would also satisfy -- and restored to a real .nsp/.xci by the
+	// external "nsz" tool on $PATH. The recovered container is then picked
+	// up by the recursive walk and routed to hactool like any other.
+	if ((is_ext (src, ".nsz") && !memcmp (head, "PFS0", 4))
+		|| (is_ext (src, ".xcz") && !memcmp (head + 0x100, "HEAD", 4)))
+		return passthru_nsz (src, basedir, stage, staged_dir, staged_dir_size);
+
 	// Switch NSP/XCI/NCA (strong pass):
 	// PFS0 (offset 0), XCI "HEAD" tag (offset 0x100), and NCA magic (offset 0x200 or 0)
 	// Real NCA magic is 4 bytes, "NCA2" or "NCA3" (the two versions ever
@@ -2437,9 +2507,34 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 		|| (!strong_only
 			&& (is_ext (src, ".brstm") || is_ext (src, ".bcstm") || is_ext (src, ".bfstm")
 				|| is_ext (src, ".btsnd") || is_ext (src, ".ast") || is_ext (src, ".dsp")));
+	// These extensions collide with unrelated data often enough that a
+	// name-only claim hands mobipeg a file it cannot open and aborts the
+	// whole extraction, so each is gated on the exact header signature
+	// mobipeg's own demuxer probes for (libavformat/{dpg,fvdec,ppmflipdec,
+	// kwzdec,rvid,brstm}.c in the sibling 'mobipeg' repo):
+	//   .dpg   "DPG0".."DPG4"
+	//   .fv    "FVDS"
+	//   .ppm   "PARA"      (Flipnote Studio animation, not the netpbm image)
+	//   .kwz   "KFH" | "KIC"
+	//   .rvid  "RVID" + version 5
+	//   .bwav  "BWAV" + UTF-16 BOM  (mobipeg routes .bwav through its bfstm
+	//          demuxer, which ignores the tag but wants the BOM at offset 4)
+	// .mmstr has no header magic at all -- mobipeg's gbavideo demuxer probes
+	// it structurally -- so it stays an extension-only claim.
+	const bool bom_ok = !memcmp (head + 4, "\xff\xfe", 2) || !memcmp (head + 4, "\xfe\xff", 2);
+	const bool is_bwav_magic = !memcmp (head, "BWAV", 4) && bom_ok;
 	bool is_other_media = !strong_only
-		&& (is_ext (src, ".dpg") || is_ext (src, ".fv") || is_ext (src, ".ppm")
-			|| is_ext (src, ".kwz") || is_ext (src, ".mmstr") || is_ext (src, ".rvid"));
+		&& ((is_ext (src, ".dpg") && !memcmp (head, "DPG", 3) && head[3] >= '0' && head[3] <= '4')
+			|| (is_ext (src, ".fv") && !memcmp (head, "FVDS", 4))
+			|| (is_ext (src, ".ppm") && !memcmp (head, "PARA", 4))
+			|| (is_ext (src, ".kwz") && (!memcmp (head, "KFH", 3) || !memcmp (head, "KIC", 3)))
+			|| (is_ext (src, ".rvid") && !memcmp (head, "RVID", 4) && le32 (head + 4) == 5)
+			|| (is_ext (src, ".bwav") && is_bwav_magic)
+			|| is_ext (src, ".mmstr"));
+
+	// .bwav decodes to a WAV like the other stream-audio siblings.
+	if (is_bwav_magic && is_ext (src, ".bwav"))
+		is_stream_audio = true;
 	// Factor 5 VID1 DivX (.vid, GameCube): magic-identified files go to
 	// the dedicated external VID1 decoder only -- stock ffmpeg/mobipeg
 	// builds cannot read the VIDD macroblock stream (verified: a remuxed
