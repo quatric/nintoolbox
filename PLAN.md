@@ -1850,6 +1850,16 @@ for bone transforms exists anywhere checked. Full 866-file
 re-sweep after: 866/866 non-empty, 5034 meshes total, 51-mesh
 reference scene intact.
 
+**Follow-up 2026-09-11 — DIFT textures resolve.** MTRL `DIFT` uuids
+(3/3 sampled match uuid-named TXTR members) are stored as
+`<uuid>.TXTR.png` material texture names; CMDL export defers like
+MOD/HSF so `export_models_tree()` converts with the tree-wide PNG
+index ready, and a new `export_model_if_possible()` RFRM branch
+covers the deferred pass. Verified: planted-UUID PNG embeds
+byte-exact (`--require-images` valid, baseColorTexture bound).
+`t_mpr_cmdl` extended; single-file runs still agree byte-exact
+(both sides emit the same external URI when no PNG is around).
+
 ## 33. 2026-09-11 — "All of PLAN" sweep: closed what was closable, verified every block
 
 Systematic pass over every open thread in this log:

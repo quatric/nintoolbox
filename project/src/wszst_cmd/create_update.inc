@@ -5085,6 +5085,16 @@ static enumError extract_mpr_cmdl_file (ccp arg, ccp basedir, uint depth)
 		return ERR_OK;
 	}
 
+	// Texture PNGs resolve through the tree-wide index built after
+	// extraction completes: defer exactly like the MOD/HSF extractors so
+	// export_models_tree() converts with the index ready. Direct
+	// single-file runs (flag off) still convert immediately.
+	if (g_in_model_deferred_pass)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
 	model_t *model = ParseMPRCMDL (raw, raw_size);
 	FREE (raw);
 	if (!model)
@@ -8660,7 +8670,8 @@ static enumError export_model_if_possible (ccp arg)
 	const bool is_bmd_file = is_ext (arg, ".bmd");
 	if (n_magic != sizeof (magic)
 		|| (memcmp (magic, "BMD0", 4) && memcmp (magic, "CGFX", 4) && memcmp (magic, "BCH\0", 4)
-			&& memcmp (magic, "FRES", 4) && memcmp (magic, "MDL0", 4) && !is_bmd_file))
+			&& memcmp (magic, "FRES", 4) && memcmp (magic, "MDL0", 4) && memcmp (magic, "RFRM", 4)
+			&& !is_bmd_file))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *data = 0;
@@ -8715,6 +8726,8 @@ static enumError export_model_if_possible (ccp arg)
 		if (model)
 			import_chr0_siblings_for_mdl0 (model, arg);
 	}
+	else if (size >= 0x20 && !memcmp (data, "RFRM", 4) && IsMPRCMDL (data, size))
+		model = ParseMPRCMDL (data, size);
 	FREE (data);
 	if (!model)
 		return ERR_NOTHING_TO_DO;

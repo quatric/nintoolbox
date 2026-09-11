@@ -10254,6 +10254,21 @@ assert doc["meshes"][0]["primitives"][0].get("material") == 0, "prim not bound t
   else
     no "MPR CMDL (Remastered) wszst xx" "extract path differs from wmdlt"
   fi
+  # Textured end-to-end: the unit cube's DIFT uuid planted as a sibling
+  # <uuid>.TXTR.png must embed through the deferred tree-wide PNG index
+  # when a whole directory is extracted.
+  mkdir -p /tmp/_r_mprcmdl/tex
+  cp "$f" /tmp/_r_mprcmdl/tex/cube.cmdl
+  python3 -c '
+from PIL import Image
+Image.new("RGB", (2, 2), (255, 0, 0)).save("/tmp/_r_mprcmdl/tex/a6cc3300-3888-40cb-965e-6858d39db8c6.TXTR.png")
+' 2>/dev/null
+  if "$B/wszst" xx /tmp/_r_mprcmdl/tex --dest /tmp/_r_mprcmdl/texout --overwrite >/dev/null 2>&1 \
+  && python3 ../tests/validate-glb.py --require-images /tmp/_r_mprcmdl/tex/cube.cmdl.glb >/dev/null 2>&1; then
+    ok "MPR CMDL (Remastered) DIFT uuid resolves to embedded PNG via tree walk"
+  else
+    no "MPR CMDL (Remastered) textured" "planted DIFT PNG did not embed"
+  fi
   # Skinned SMDL form (v127/133 + SKHD): decodes unskinned through the
   # same path — bone transforms live outside the file, so no skeleton
   # is expected, just valid geometry.

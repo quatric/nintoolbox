@@ -768,14 +768,42 @@ static bool mpr_cmdl_materials (const mpr_cmdl_t *m, model_t *model)
 			goto bad;
 		// Triples repeat their (id,type) header verbatim from the
 		// pairs array; each header is verified as it is walked.
+		// The first diffuse (DIFT) texture uuid becomes the material's
+		// texture name: the deferred PNG index resolves "<uuid>.TXTR.png"
+		// to embedded image bytes when the texture was extracted beside
+		// the model (PACK cascade), else it stays an external URI.
 		const u8 *pairs = d + p;
 		p += nd * 8;
+		bool have_dift = false;
 		for (uint t = 0; t < nd; t++)
 		{
 			u8 ty[4];
 			if ((u64)p + 8 > size || memcmp (d + p, pairs + (size_t)t * 8, 8))
 				goto bad;
 			memcpy (ty, d + p + 4, 4);
+			if (!have_dift && !memcmp (d + p, "DIFT", 4) && !memcmp (ty, "TXTR", 4)
+				&& (u64)p + 8 + 16 <= size)
+			{
+				bool nil = true;
+				for (uint k = 0; k < 16; k++)
+					if (d[p + 8 + k])
+					{
+						nil = false;
+						break;
+					}
+				if (!nil)
+				{
+					char guid[37];
+					FormatMPRGUID (guid, d + p + 8);
+					snprintf (model->materials[i].textures[0],
+						sizeof (model->materials[i].textures[0]), "%s.TXTR.png", guid);
+					model->materials[i].num_textures = 1;
+					model->materials[i].texture_coord[0] = 0;
+					model->materials[i].wrap_s[0] = model->materials[i].wrap_t[0] = 1;
+					model->materials[i].min_filter[0] = model->materials[i].mag_filter[0] = 1;
+					have_dift = true;
+				}
+			}
 			p += 8;
 			if (!mpr_cmdl_data_skip (d, size, &p, ty))
 				goto bad;
