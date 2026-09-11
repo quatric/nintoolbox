@@ -9416,9 +9416,17 @@ t_smash4_wiiu_ls_layout(){
   count=$(python3 -c "import struct;d=open('$d/ls','rb').read();print(struct.unpack_from('<I',d,4)[0])" 2>/dev/null)
   expect=$(( 8 + count * 16 ))
   if [ -n "$count" ] && [ "$expect" = "$size" ]; then
-    ok "Smash4 Wii U content/ls: 8-byte header + $count * 16-byte entries == $size bytes (real retail layout, not yet decoded by ScanDTLS)"
+    ok "Smash4 Wii U content/ls: 8-byte header + $count * 16-byte entries == $size bytes (real retail layout)"
   else
     no "Smash4 Wii U content/ls layout" "expected 8+count*16==size, got count=$count size=$size"
+  fi
+  # The retail lookup ships as an extensionless `content/ls` (no dt00
+  # here): extraction must still yield one member per entry.
+  if "$B/wszst" xx "$d/ls" --dest "$d/out" --overwrite >/dev/null 2>&1 \
+  && [ "$(find "$d/out" -type f | wc -l | tr -d ' ')" = "$count" ]; then
+    ok "Smash4 Wii U extensionless content/ls extracts $count members without dt00"
+  else
+    no "Smash4 Wii U content/ls extract" "expected $count members"
   fi
   rm -rf "$d"
 }
@@ -10081,6 +10089,16 @@ t_pac_wiiu_amiibo_festival(){
     ok "PAC (Wii U, amiibo Festival) cat00.bin -> 20 real members, incl. BNFM model + real GX2 (Gfx2) textures"
   else
     no "PAC (Wii U, amiibo Festival) cat00.bin" "expected 20 members incl. cat00.bnfm + *.gtx starting 'Gfx2', got $n2 file(s)"
+  fi
+  # End-to-end lock-in for PLAN §12: the extracted BNFM member must
+  # decode to a real glTF model (PAC -> BNFM -> GLB chain).
+  if [ -n "$bnfm" ] \
+  && "$B/wmdlt" DECODE "$bnfm" --dest /tmp/_r_pac2/cat00.glb --overwrite >/dev/null 2>&1 \
+  && [ -s /tmp/_r_pac2/cat00.glb ] \
+  && [ "$(head -c4 /tmp/_r_pac2/cat00.glb)" = "glTF" ]; then
+    ok "BNFM (Wii U, amiibo Festival) cat00.bnfm -> real glTF GLB"
+  else
+    no "BNFM (Wii U, amiibo Festival) cat00.bnfm" "wmdlt DECODE did not yield a glTF"
   fi
 }
 t_pac_wiiu_amiibo_festival

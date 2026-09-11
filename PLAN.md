@@ -1031,6 +1031,27 @@ big-endian, and now NUT), 3 ended in honest, precisely-documented
 negatives (SFZDAT/CPK, G1M-G1T/Hyrule Warriors decode, and now DTLS's
 real container-layout gap above).
 
+**Follow-up 2026-09-11 — DTLS gap closed.** `dfb3a6e` added the fourth
+`ScanDTLS()` branch (`"of\x02\x00"` + LE count + 16-byte entries) and
+`lib-file.c` FILETYPE dispatch, but two things were still missing and
+are now done: (1) `extract_dtls_file` declined the real retail name —
+an extensionless `content/ls` matches no `ls00`/`ls01`/`.ls` gate, so
+`wszst xx` wrote zero members; the gate now accepts the exact `ls`
+basename and resolves sibling `content/dt00` (stat-first, so a missing
+4 GB companion stays silent instead of printing ERROR #78);
+extensionless `ls` now extracts all 6541 members even with `dt00`
+absent. (2) The 16-byte trailer word was analyzed across all 6541
+entries: only 5 distinct values (high u16 ∈ {0,2,4}, low ∈ {0,1});
+low=1 entries skew smaller (median 74 KB vs 447 KB), consistent with
+a compression flag matching the observed zlib payloads, but without
+`dt00` bytes that stays a hypothesis — documented as such in the
+README row, whose Retail-Source column is now ✅. Regression test
+extended with an extensionless-extract member-count assert. A build
+lesson from the same session: a stale `lib-image2.d` referencing a
+deleted header made `make` abort before compiling anything (leaving a
+stale binary that masked the fix) — worth `rm`-ing orphan `.d` files
+after deleting a header.
+
 ## 19. 2026-09-08 — NDS DSi banner: static icon was silently replaced by animation frame 0 — ✅ fixed
 
 Prompted by re-reading a public DSiWare icon-ripper reference script

@@ -5129,7 +5129,10 @@ static enumError extract_nut_file (ccp arg, ccp basedir, uint depth)
 static enumError extract_dtls_file (ccp arg, ccp basedir, uint depth)
 {
 	ccp fname = FindFilename (arg, 0);
-	if (!fname || (!strstr (fname, "ls00") && !strstr (fname, "ls01") && !is_ext (arg, ".ls")))
+	// Retail Smash 4 ships the lookup as an extensionless `content/ls`
+	// beside `content/dt00`; accept that exact basename too.
+	if (!fname || (!strstr (fname, "ls00") && !strstr (fname, "ls01") && !is_ext (arg, ".ls")
+		&& strcmp (fname, "ls")))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *ls_raw = 0;
@@ -5141,7 +5144,15 @@ static enumError extract_dtls_file (ccp arg, ccp basedir, uint depth)
 	char dt_path[PATH_MAX];
 	snprintf (dt_path, sizeof (dt_path), "%s", arg);
 	char *ls_pos = strstr (dt_path, "ls00");
-	if (ls_pos)
+	if (!strcmp (fname, "ls"))
+	{
+		// Retail Smash 4 layout: extensionless `content/ls` beside
+		// `content/dt00` in the same directory.
+		char *slash = strrchr (dt_path, '/');
+		char *base = slash ? slash + 1 : dt_path;
+		snprintf (base, sizeof (dt_path) - (size_t)(base - dt_path), "dt00");
+	}
+	else if (ls_pos)
 		memcpy (ls_pos, "dt00", 4);
 	else
 	{
@@ -5158,7 +5169,11 @@ static enumError extract_dtls_file (ccp arg, ccp basedir, uint depth)
 
 	u8 *dt_raw = 0;
 	size_t dt_size = 0;
-	LoadFileAlloc (dt_path, 0, 0, &dt_raw, &dt_size, 0, 0, 0, false);
+	// The dt companion is optional (retail dt00 is 4 GB and usually
+	// absent); stat first so a missing file doesn't print an error.
+	struct stat dt_st;
+	if (stat (dt_path, &dt_st) == 0 && S_ISREG (dt_st.st_mode))
+		LoadFileAlloc (dt_path, 0, 0, &dt_raw, &dt_size, 0, 0, 0, false);
 
 	nintendo_sarc_entry_t *entries = 0;
 	uint n_entries = 0;
