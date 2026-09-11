@@ -359,7 +359,6 @@ typedef enum file_format_t
 	FF_LZ4, // 263 - LZ4 compression (.lz4)
 	FF_TM0, // 264 - Monster Games high-res GX texture (.tm0, Excite Truck)
 	FF_PAC, // 265 - Nd Cube Wii U flat container (.bin / "PAC\0", Mario Party 10 / Amiibo Festival)
-	FF_VID1, // 266 - Factor 5 DivX video (.vid / VID1, GameCube)
 
 	//--- number of elements
 

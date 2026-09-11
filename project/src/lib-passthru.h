@@ -67,6 +67,16 @@ enumError PassthruDecodeAudio (ccp src_path, ccp wav_path);
 // encoded audio stream instead of silently falling back to mobipeg defaults.
 enumError PassthruReencodeMedia (ccp preview_path, ccp source_path);
 
+// Decode a Factor 5 VID1 GameCube movie (SRC_PATH, ".vid") to DEST_MP4 via
+// an external VID1 decoder (NeversoftMultitool, VID1DEC=/path/to/binary or
+// on PATH). The VIDD macroblock stream is proprietary -- per-macroblock type and code tables
+// live in Factor 5-specific control words, so no stock ffmpeg/mobipeg
+// build can turn it into pixels; a second in-process implementation here
+// would only be a second thing to get subtly wrong (same rationale as
+// PassthruDecodeAudio above). Returns ERR_NOTHING_TO_DO when no decoder
+// is available, in which case the file is skipped.
+enumError PassthruDecodeVID1 (ccp src_path, ccp dest_mp4);
+
 // Repack an extracted container directory back into a container file using
 // external tools (wit COPY, ndstool -c, sharpii WAD -p, wux_compress).
 enumError PassthruPack (ccp src_dir, ccp dest);

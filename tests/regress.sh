@@ -3458,51 +3458,47 @@ open('$d/test.thp', 'wb').write(thp_bytes)
 }
 t_thp_extract
 
-echo "== Factor 5 VID1 DivX Video Demux =="
-t_vid1_extract(){
-  command -v python3 >/dev/null || { sk "VID1 video demux"; return; }
-  local d; d=$(mktemp -d)
-  python3 -c "
-import struct
-def chunk(tag, body):
-    return tag + struct.pack('>I', 8 + len(body)) + body
-vidh_body = (bytes(4) + struct.pack('>HH', 320, 240) + struct.pack('>I', 2)
-    + bytes(4) + struct.pack('>I', 30) + struct.pack('>H', 1) + bytes(10))
-assert len(vidh_body) == 0x20
-head = chunk(b'HEAD', bytes(4) + chunk(b'VIDH', vidh_body))
-frams = b''
-for i in range(2):
-    vpayload = bytes([i + 1]) * 64
-    apayload = bytes([0xA0 + i]) * 32
-    fram_body = (bytes(24) + chunk(b'VIDD', vpayload) + chunk(b'AUDD', apayload))
-    frams += chunk(b'FRAM', fram_body)
-open('$d/test.vid', 'wb').write(chunk(b'VID1', b'') + head + frams)
-open('$d/trunc.vid', 'wb').write(open('$d/test.vid','rb').read()[:20])
-"
+echo "== Factor 5 VID1 pixel preview (external decoder) =="
+t_vid1dec_preview(){
+  # VID1 pixels come from an external decoder (VID1DEC= path, else
+  # NeversoftMultitool on PATH). A stub standing in for the tool proves
+  # the plumbing: magic-identified .vid -> staged .mp4 preview; with no
+  # tool the file skips cleanly instead of failing.
+  local d; d=$(mktemp -d) || { no "VID1 preview" "mktemp failed"; return; }
+  mkdir -p "$d/stub"
+  cat > "$d/stub/NeversoftMultitool" <<'STUB_EOF'
+#!/bin/sh
+# stub: vid <indir> --output <outdir> -> <stem>.mp4 per .vid input
+if [ "$1" = vid ]; then
+  indir="$2"; outdir=""
+  while [ $# -gt 0 ]; do
+    if [ "$1" = --output ]; then outdir="$2"; fi
+    shift
+  done
+  for f in "$indir"/*.vid; do
+    [ -f "$f" ] || continue
+    stem=$(basename "$f" .vid)
+    printf 'FAKE-MP4:%s' "$stem" > "$outdir/$stem.mp4"
+  done
+fi
+STUB_EOF
+  chmod +x "$d/stub/NeversoftMultitool"
+  printf 'VID1\000\000\000\010' > "$d/in.vid"
   local ok=1
-  "$B/wszst" FILETYPE "$d/test.vid" 2>/dev/null | grep -q "^VID1" || ok=0
-  "$B/wszst" EXTRACT "$d/test.vid" --dest "$d/vid_out" --no-passthrough --overwrite >/dev/null 2>&1
-  local out_dir="$d/vid_out/test"
-  [ -d "$out_dir" ] || out_dir="$d/vid_out"
-  [ -s "$out_dir/frame_00000.vidd" ] || ok=0
-  [ -s "$out_dir/frame_00001.vidd" ] || ok=0
-  [ -s "$out_dir/audio_00000.audd" ] || ok=0
-  [ -s "$out_dir/audio_00001.audd" ] || ok=0
-  grep -q "320x240" "$out_dir/info.txt" 2>/dev/null || ok=0
-  python3 -c "
-import sys
-raw = open('$out_dir/frame_00001.vidd','rb').read()
-sys.exit(0 if raw == bytes([2]) * 64 else 1)
-" 2>/dev/null || ok=0
-  # truncated container must fail cleanly (no crash, no frame output)
-  if "$B/wszst" EXTRACT "$d/trunc.vid" --dest "$d/trunc_out" --no-passthrough --overwrite >/dev/null 2>&1; then
-    ok=0
-  fi
+  VID1DEC="$d/stub/NeversoftMultitool" \
+    "$B/wszst" EXTRACT "$d/in.vid" --dest "$d/out" --overwrite >/dev/null 2>&1
+  local mp4; mp4=$(find "$d/out" -name "in.mp4" | head -n 1)
+  [ -n "$mp4" ] && [ -s "$mp4" ] || ok=0
+  grep -q "FAKE-MP4:in" "$mp4" 2>/dev/null || ok=0
+  # no decoder anywhere: clean skip, exit 0, no preview written
+  VID1DEC= PATH=/usr/bin:/bin \
+    "$B/wszst" EXTRACT "$d/in.vid" --dest "$d/out2" --overwrite >/dev/null 2>&1
+  [ -z "$(find "$d/out2" -name '*.mp4' 2>/dev/null)" ] || ok=0
   rm -rf "$d"
-  [ "$ok" = 1 ] && ok "VID1 demux (FILETYPE + wszst EXTRACT + trunc reject)" \
-    || no "VID1 demux" "payload mismatch or truncated file accepted"
+  [ "$ok" = 1 ] && ok "VID1 preview (stub decoder -> .mp4, clean skip)" \
+    || no "VID1 preview" "stub .mp4 missing/wrong or no-tool skip failed"
 }
-t_vid1_extract
+t_vid1dec_preview
 
 echo "== recursive folder traversal (dclib ** wildcard) =="
 # "recursive extraction" turned out to mean recursive directory traversal of

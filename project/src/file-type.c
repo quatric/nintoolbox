@@ -1417,14 +1417,6 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		"Nd Cube Wii U flat container (.bin / \"PAC\\0\"); members are ordinary "
 		"zlib-compressed data, not encrypted (Mario Party 10 / Animal Crossing: amiibo Festival)" },
 
-	// FF_VID1 = 266 (Factor 5 DivX video, GameCube)
-	{ FF_VID1, FF_VID1, 0, "VID1", ".vid", ".vid", ".vid",
-		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT, 4,
-		{ 0x56, 0x49, 0x44, 0x31 }, // "VID1"
-		0, MinusString, MinusString,
-		"Factor 5 DivX video (GameCube .vid: VID1/HEAD/VIDH/FRAM container "
-		"with VIDD MPEG-4 Part 2 video + AUDD audio payloads)" },
-
 	// FF_N
 	{ 0 }
 };
@@ -1567,7 +1559,6 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_NSBMA, "NSBMA", "BMA0", 0x1 }, { FF_MIO, "MIO", 0, 0xe05 },
 	{ FF_ZDAT, "ZDAT", "ZDAT", 0xe05 }, { FF_SFX, "SFX", 0, 0xe05 },
 	{ FF_VFF, "VFF", "VFF", 0xe05 }, { FF_IQIPACK, "IQIPACK", "PACK", 0xe05 },
-	{ FF_VID1, "VID1", "VID1", 0x3801 },
 
 	{ 0, 0, 0, 0 }
 };

@@ -1603,7 +1603,19 @@ decode + byte-exact re-encode, C8 indexed decode, synthetic RFRM/mode-0
 Tropical decode with gradient pixel asserts. Full suite green
 (PASS=411, only 2 pre-existing unrelated audio FAILs).
 
-## 31. 2026-09-10 — Factor 5 VID1 DivX demux (GameCube `.vid`) ✅ container / ❌ pixels
+## 31. 2026-09-10 — Factor 5 VID1 DivX demux — REVERTED
+
+The native demuxer described below was removed the same day it landed:
+video decoding is mobipeg's job, not wszst's. `lib-vid1.c`,
+`FF_VID1`, `extract_vid1_file` and the regress fixture are gone;
+`.vid` files route to the mobipeg/ffmpeg media pass-through
+(weak claim, unchanged) and are otherwise left untouched. The
+MultimediaWiki "Factor 5 VID1" notes are preserved here in case
+mobipeg-side work ever needs them: `VID1` root + `HEAD`/`VIDH` +
+`FRAM` chunks with `VIDD` (cut-down MPEG-4 Part 2, DivX 5.02 based)
+video + `AUDD` audio payloads, all BE sizes.
+
+(Original entry, kept for provenance — implementation reverted:)
 
 **Container** (`VID1` root + `HEAD`/`VIDH` + `FRAM` chunks with `VIDD`
 video + `AUDD` audio payloads, all BE sizes): new `lib-vid1.c`
@@ -1627,4 +1639,54 @@ byte-exact `frame_00001.vidd` payload, `info.txt` dims, truncated
 file rejected). **No retail `.vid` sample checked yet** — offsets
 need confirmation against real data (e.g. Tony Hawk's Underground
 1/2, Enter the Matrix) before pixel work starts.
+
+## 32. 2026-09-10 — VID1: native demux reverted, pixels via external decoder ✅
+
+**Direction change**: the `lib-vid1.c`/`FF_VID1`/`extract_vid1_file`
+native demux from §31 was reverted out of the tree (passthrough-only
+for `.vid`, same as every other video format here). What stays is a
+pixel path with no in-process codec: `PassthruDecodeVID1()` +
+`VID1DEC=`/`NeversoftMultitool`-on-PATH resolution, called from the
+weak pass-through for `VID1`-magic files (never mobipeg/ffmpeg for
+magic files — see below); bare-`.vid` files with no magic stay in the
+generic media group.
+
+**Retail verification** (*Carmen Sandiego: Secret of the Stolen
+Drums*, GameCube, `P-G3DE/files/Movies/*.vid` — A2M/BAM game using
+the Factor 5 DivX SDK): the §31 container layout holds exactly —
+`VID1` root (0x20) → `HEAD` at root.end → children at HEAD+0x0C →
+`VIDH` (640x480, 1801 frames, 2997/100 fps) → 1801 `FRAM`s from
+HEAD.end, children at FRAM+0x20, exactly 1801 `VIDD` + 1801 `AUDD`.
+All 21 I-frames carry the optional header, 1780 P, zero B/S, no
+custom quant matrices anywhere, coded offset uniformly 12.
+
+**Why external, not a remux**: a standards-conformant MPEG-4 VOL +
+per-frame VOP headers around the raw macroblock payloads was built
+and probed (this found two real spec details: start codes must be
+byte-aligned after the 5-bit VO section, and the stream needs a
+video-object start code or ffmpeg's m4v probe scores it 0). The
+remux OPENS and every VOP header hand-parses clean — but decodes to
+noise, because per-macroblock type/code tables live in Factor 5
+control words, not in the payload. A full in-process decoder would be
+a ~20-file port of neversoft-multitool's validated C# pipeline
+(VLC tables, control prefixes, IDCT, motion/GMC) — out of scope;
+their tool instead runs as the backend here.
+
+**Pixels proven**: their `vid` CLI on retail `Demo.vid` (18 MB)
+yields perfect 640x480/29.97 cutscene frames (viewed: jungle-fortress
+fight, "19" collectible UI); `wszst EXTRACT Bam.vid` with
+`VID1DEC=` set writes `Bam.d/Bam.mp4` end-to-end (5 s ident,
+BAM logo frame verified); without the tool the file skips cleanly
+(exit 0). Carmen `AUDD` is 1880-byte packets with no Vorbis/Ogg
+magic — not the THAW custom-Vorbis their audio path converts, so
+previews are video-only; audio stays open.
+
+**Option note**: no `--with-vid1dec` CLI flag — `src/ui/ui.def`
+currently cannot regenerate (committed `ui/ui-wszst.*` contain
+`GO_WITH_UPDATE_PART`/`GO_EXPORT_MIIS`, but HEAD's `ui.def` never
+defined them, so running `./gen-ui` now *drops* those enums and
+breaks the build; also an empty stray `project/gen-ui.c` shadowed
+the real `src/ui/gen-ui.c` until removed). Config is
+`VID1DEC=/path/to/binary` or PATH auto-detect until the UI tables
+are unfrozen.
 

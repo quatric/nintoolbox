@@ -57,6 +57,8 @@ static const char *find_program (ccp name);
 
 static ccp resolve_mobipeg (void);
 
+static ccp resolve_vid1dec (void);
+
 static ccp resolve_ffprobe_for_mobipeg (ccp mobipeg)
 {
 	ccp slash = strrchr (mobipeg, '/');
@@ -118,7 +120,6 @@ static ccp resolve_mobipeg (void)
 	ccp found = find_program ("mobipeg");
 	if (found)
 		return found;
-
 	const char *home = getenv ("HOME");
 	if (home)
 	{
@@ -135,6 +136,24 @@ static ccp resolve_mobipeg (void)
 			return prog_buf;
 	}
 	return 0;
+}
+
+// External Factor 5 VID1 pixel decoder (NeversoftMultitool's `vid`
+// command, verified against retail Carmen Sandiego GameCube .vid).
+// VID1DEC=/path/to/binary wins; otherwise try both known binary casings
+// on PATH (the .NET build emits `NeversoftMultitool`). No --with-* flag:
+// the generated option tables are currently frozen (see ui.def drift
+// note in PLAN.md) -- revisit if they are regenerated.
+static ccp resolve_vid1dec (void)
+{
+	ccp env = getenv ("VID1DEC");
+	if (env && *env)
+		return find_program (env);
+
+	ccp found = find_program ("NeversoftMultitool");
+	if (found)
+		return found;
+	return find_program ("neversoft-multitool");
 }
 
 static ccp resolve_7z (void)
@@ -250,6 +269,83 @@ static enumError passthru_media (
 	}
 
 	snprintf (staged_dir, staged_dir_size, "%s", stage);
+	return ERR_OK;
+}
+
+// Decode a Factor 5 VID1 GameCube movie to a watchable .mp4 preview via
+// an external VID1 decoder (NeversoftMultitool `vid`, VID1DEC=/path or on
+// PATH).
+// DEST_MP4 must live in an existing directory and carry SRC_PATH's own
+// stem, since the tool names its output after the input file. Returns
+// ERR_NOTHING_TO_DO when no decoder is installed, in which case the
+// file is skipped (there is no native VIDD decoder anywhere in this
+// tree, deliberately).
+enumError PassthruDecodeVID1 (ccp src_path, ccp dest_mp4)
+{
+	if (opt_no_passthrough)
+		return ERR_NOTHING_TO_DO;
+
+	ccp tool = resolve_vid1dec ();
+	char tool_copy[PATH_MAX];
+	if (!tool || !*tool)
+		return ERR_NOTHING_TO_DO;
+	snprintf (tool_copy, sizeof (tool_copy), "%s", tool);
+	tool = tool_copy;
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT VID1 pixels: %s -> %s (%s)\n", testmode ? "WOULD " : "",
+			verbose > 0 ? "\n" : "", src_path, dest_mp4, tool);
+
+	if (testmode)
+		return ERR_OK;
+
+	// The decoder takes a directory of .vid files, not a bare file, so
+	// stage a copy under /tmp (copy, not symlink: the tree also builds
+	// for Windows, where symlinks need privileges).
+	char in_dir[PATH_MAX], in_file[PATH_MAX];
+	snprintf (in_dir, sizeof (in_dir), "/tmp/wszst-vid1dec-%d", (int)getpid ());
+	snprintf (in_file, sizeof (in_file), "%s/%s", in_dir,
+		strrchr (src_path, '/') ? strrchr (src_path, '/') + 1 : src_path);
+	if (CreatePath (in_dir, true))
+		return ERROR0 (ERR_CANT_CREATE_DIR, "Cannot create dest dir: %s", in_dir);
+	enumError copy_err = CopyFileTemp (src_path, in_file, 0644);
+	if (copy_err)
+	{
+		remove_dir_recursive (in_dir);
+		return copy_err;
+	}
+
+	char out_dir[PATH_MAX];
+	snprintf (out_dir, sizeof (out_dir), "%s", dest_mp4);
+	char *slash = strrchr (out_dir, '/');
+	if (slash)
+		*slash = 0;
+	else
+		snprintf (out_dir, sizeof (out_dir), ".");
+	tool = tool_copy;
+
+	char *argv[] = { tool_copy, "vid", in_dir, "--output", out_dir, 0 };
+	const int rc = run_program (argv);
+	remove_dir_recursive (in_dir);
+	if (rc != 0)
+		return ERROR0 (ERR_SUBJOB_FAILED, "VID1 decoder failed for %s (exit %d)", src_path, rc);
+
+	struct stat mp4_stat;
+	if (stat (dest_mp4, &mp4_stat) != 0 || !S_ISREG (mp4_stat.st_mode) || !mp4_stat.st_size)
+		return ERROR0 (ERR_SUBJOB_FAILED, "VID1 decoder produced no preview: %s", dest_mp4);
+
+	// Give the preview the source's time so a later CREATE can tell a
+	// generated file from a user edit (same convention as passthru_media).
+	struct stat src_stat;
+	if (!stat (src_path, &src_stat))
+	{
+#ifdef __APPLE__
+		struct timespec times[2] = { src_stat.st_atimespec, src_stat.st_mtimespec };
+#else
+		struct timespec times[2] = { src_stat.st_atim, src_stat.st_mtim };
+#endif
+		utimensat (AT_FDCWD, dest_mp4, times, 0);
+	}
 	return ERR_OK;
 }
 
@@ -2344,16 +2440,43 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 	bool is_other_media = !strong_only
 		&& (is_ext (src, ".dpg") || is_ext (src, ".fv") || is_ext (src, ".ppm")
 			|| is_ext (src, ".kwz") || is_ext (src, ".mmstr") || is_ext (src, ".rvid"));
-	// Factor 5 VID1 DivX (.vid, GameCube) is claimed WEAK-only (never by
-	// magic in the strong pass): no ffmpeg/mobipeg build demuxes VID1's
-	// FRAM/VIDD container, so the native ExtractVID1() demuxer above must
-	// get first refusal on real VID1 files. The weak claim still gives
-	// misnamed/plain-AVI .vid files an mp4-preview attempt after every
-	// native probe has declined them.
-	bool is_vid1 = !strong_only
-		&& (!memcmp (head, "VID1", 4) || is_ext (src, ".vid"));
+	// Factor 5 VID1 DivX (.vid, GameCube): magic-identified files go to
+	// the dedicated external VID1 decoder only -- stock ffmpeg/mobipeg
+	// builds cannot read the VIDD macroblock stream (verified: a remuxed
+	// standard-MPEG-4 container around real retail payloads opens but
+	// decodes to noise, since per-macroblock type/code tables live in
+	// Factor 5-specific control words), so sending them to passthru_media
+	// would only turn a clean skip into a subjob failure. There is
+	// deliberately no native demuxer in this tree; without the decoder
+	// tool these files are skipped. A bare `.vid' extension with no VID1
+	// magic stays in the generic media group below (plain AVIs).
+	bool is_vid1_magic = !memcmp (head, "VID1", 4);
+	bool is_vid1_ext = !strong_only && !is_vid1_magic && is_ext (src, ".vid");
 
-	if (is_thp || is_mobiclip || is_hvqm || is_stream_audio || is_other_media || is_vid1)
+	if (is_vid1_magic)
+	{
+		char stem[PATH_MAX], out_mp4[PATH_MAX];
+		ccp slash = strrchr (src, '/');
+		ccp fn = slash ? slash + 1 : src;
+		snprintf (stem, sizeof (stem), "%s", fn);
+		char *dot = strrchr (stem, '.');
+		if (dot)
+			*dot = 0;
+		snprintf (out_mp4, sizeof (out_mp4), "%s/%s.mp4", stage, stem);
+		if (!CreatePath (stage, true))
+		{
+			const enumError vid_err = PassthruDecodeVID1 (src, out_mp4);
+			if (vid_err == ERR_NOTHING_TO_DO)
+				return ERR_NOTHING_TO_DO;
+			if (vid_err)
+				return vid_err;
+			snprintf (staged_dir, staged_dir_size, "%s", stage);
+			return ERR_OK;
+		}
+		return ERROR0 (ERR_CANT_CREATE_DIR, "Cannot create dest dir: %s", stage);
+	}
+
+	if (is_thp || is_mobiclip || is_hvqm || is_stream_audio || is_other_media || is_vid1_ext)
 	{
 		ccp mobipeg = resolve_mobipeg ();
 		if (mobipeg)
