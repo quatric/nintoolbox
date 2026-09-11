@@ -589,6 +589,15 @@ material's texture references, which for indexed formats carry the paired
 palette name directly) feeding the same `ext_pform/ext_n_pal/ext_pal`
 plumbing already built — a bigger, separate task, not a quick follow-up.
 
+**Update 2026-09-11 — closed.** That MDL0 pass has since been built
+(`collect_mdl0_palette_func` + `collect_mdl0_linked_palettes`: per-
+material texture/palette ref pairs via `mdl0_ref_name`, plus a pooled-
+string compat path for unresolved `_pltOffset`s), and the two
+"uncloseable" examples from above are covered too (`glow31→glow28`
+by the glow-family fallback, `tex_treeC_*` by a dedicated rule, plus
+single-PLT0, `palette_name_score`, and `.0`-frame inheritance).
+`t_brres_tex_plt0` guards it; full suite green.
+
 ## 9. Codec Consolidation — `wajpg` and `wlzh8` folded into `wimgt` / `wszst` — ✅ done
 
 Standalone `wajpg` and `wlzh8` binaries have been dropped from the build:
@@ -809,6 +818,16 @@ regressions were introduced by this (code-free) investigation; it
 shows the same pre-existing unrelated failures as the rest of this log.
 
 ## 16. 2026-09-08 — Retail-source verification attempt: G1M / G1T / Hyrule Warriors (Wii U) — ⚠️ big-endian `.g1t` container fixed (synthetic verif.), Wii U decode / `.gz` wrapper still blocked; README corrected
+
+**Update 2026-09-11 — BE branch pinned.** The big-endian `G1TG`
+container path (`ExtractG1TArchive`, since moved to `lib-g1t.c`)
+was implemented but had no regression coverage (the "verified with
+byte-swapped fixtures under /tmp" note left nothing committed). New
+test byte-swaps a retail LE fixture's header/table fields and
+asserts the BE extract is PNG byte-identical to the LE extract.
+README row corrected (it still claimed LE-only + cited the old
+`lib-nintendo-archives.c` path). The `.gz` wrapper and Wii U GX2
+pixel formats remain genuinely blocked (no dump on disk).
 
 Extracted `"Hyrule Warriors (USA) (En,Fr,Es).wux"` via the same
 `wszst XX ... --dest /tmp/szs-hw --overwrite` Wii U disc pipeline

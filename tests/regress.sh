@@ -7770,6 +7770,37 @@ with open(sys.argv[1], "wb") as f:
     fi
   done
 
+  # Wii U big-endian G1T: byte-swap a retail LE fixture's multibyte
+  # header/table fields (magic GT1G -> G1TG). Real Wii U members carry
+  # GX2 pixel formats this tree exports raw, but the container walk is
+  # identical, so the swapped 3DS fixture (ETC1 -> PNG) pins the BE
+  # branch end to end.
+  local g1t_le="$PWD_PROJECT/../tests/fixtures/3ds_samples/koei_g1t/sample_09014.g1t"
+  if [ -f "$g1t_le" ]; then
+    python3 -c '
+import struct, sys
+d = bytearray(open(sys.argv[1], "rb").read())
+assert d[:4] == b"GT1G"
+d[:4] = b"G1TG"
+for off in (8, 0x0c, 0x10, 0x14):
+    d[off:off+4] = struct.pack(">I", struct.unpack("<I", d[off:off+4])[0])
+tbl = struct.unpack(">I", d[0x0c:0x10])[0]
+cnt = struct.unpack(">I", d[0x10:0x14])[0]
+for i in range(cnt):
+    o = tbl + i * 4
+    d[o:o+4] = struct.pack(">I", struct.unpack("<I", d[o:o+4])[0])
+open(sys.argv[2], "wb").write(d)
+' "$g1t_le" "$d/g1t_be.g1t" 2>/dev/null
+    mkdir -p "$d/g1t_be"
+    if "$B/wszst" X "$d/g1t_be.g1t" -d "$d/g1t_be" --overwrite >/dev/null 2>&1 \
+    && [ "$(find "$d/g1t_be" -name '*.png' 2>/dev/null | wc -l)" -gt 0 ] \
+    && cmp -s "$d/g1t_be/g1t_be.g1t_0000.png" "$d/g1t_retail_sample_09014/sample_09014.g1t_0000.png"; then
+      fok "Koei Tecmo G1T big-endian container (G1TG -> PNG, byte-identical to LE)"
+    else
+      fno "Koei Tecmo G1T big-endian" "failed to extract byte-swapped fixture";
+    fi
+  fi
+
   # Nintendo Switch Binary Shader (.bnsh / BNSH) test
   mkdir -p "$d/bnsh_test"
   printf "BNSH\0\0\0\0" > "$d/bnsh_test/sample.bnsh"
