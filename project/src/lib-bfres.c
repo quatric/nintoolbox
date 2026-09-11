@@ -2715,8 +2715,41 @@ int ParseBFRESAnims (const uint8_t *data, size_t size, bfres_anim_entry_t **out_
 			else if (!memcmp (magic, "FVIS", 4))
 			{
 				// ResVisibilityAnimData (60B): flag@12 nUser@14
-				// numFrame@16 nAnim@20 nCurve@22 baked@24
-				// + 6 offsets@28. Curves (if any) at ofs[3].
+				// numFrame@16 nAnim@20 nCurve@22 baked@24 + 6 offsets@28:
+				// BindModel@28, BindIndices@32 (u16[nAnim], 0xFFFF = model
+				// root / unbound), Names@36 (BinString ptr[nAnim], parallel
+				// to BindIndices), Curves@40 (flat ResAnimCurve[nCurve] --
+				// *not* one array per target; see below), BaseDataList@44
+				// (bit-packed bool[nAnim], initial visibility, 1 bit/target,
+				// 32 targets/word), UserData dict@48. Matches
+				// BfresLibrary's Shared/VisibilityAnim/VisibilityAnim.cs
+				// field order (Name/Path/flags/counts/BindModel/
+				// BindIndices/Names/Curves/BaseDataList/UserData).
+				//
+				// Unlike FSKA/FSHU/FTXP/FSHA, there is no per-target
+				// sub-entry struct owning its own curve slice: Curves is one
+				// flat array shared by all nAnim targets, and each curve's
+				// existing `target` field (bfres_curve_t::target, read from
+				// AnimCurve+4) *is* the 0-based index into BindIndices/
+				// Names/BaseDataList -- not every target need have a curve
+				// (a target with none keeps whatever BaseDataList says).
+				// Verified against tests/fixtures/bfres_anim_yww_roombgg000.bfres:
+				// nAnim=3 ("ROOMBGG000_0000"/"result_gauge"/"result_gauge_sh",
+				// all BindIndices=0xFFFF i.e. unbound-to-skeleton scene
+				// nodes), nCurve=1, and that one curve's target field reads
+				// 1, i.e. it animates "result_gauge" (BaseDataList bit 1 is
+				// its static/initial value: 0); frame_type=Byte,
+				// curve_type=StepBool (6), key_type packs the on/off bit
+				// pattern raw per bfres_curve_read()'s existing handling.
+				//
+				// Not wired into model_animation_t/GLB export: glTF core has
+				// no per-node visibility animation channel (only
+				// KHR_animation_pointer, which lib-model-glb.c's writer does
+				// not implement), and approximating it by animating a node's
+				// scale to/from zero would misrepresent a boolean
+				// show/hide as a continuous transform, corrupting anything
+				// that inspects the curve's intermediate values. Left
+				// unimplemented rather than land that guess.
 				if (fs + 60 > size)
 					continue;
 				e->frames = rbs32 (d + fs + 16);
