@@ -437,7 +437,7 @@ CFLAGS		+= -I$(DCLIB_DIR)
 # other objects
 SZS_O		:= lib-std.o lib-file.o lib-numeric.o lib-nds-banner.o lib-wii-banner.o \
 		   lib-szs.o lib-checksum.o lib-nintendo.o \
-		   lib-dsb.o lib-bnr.o lib-brfnt.o lib-brfna.o lib-bcfnt.o \
+		   lib-dsb.o lib-bnr.o lib-brfnt.o lib-brfna.o lib-bcfnt.o lib-mpr-pak.o \
 		   lib-ncgr.o lib-nclr.o lib-sarc.o lib-nw4r.o lib-rst.o lib-thp.o \
 		   lib-owned-entries.o lib-mvdk.o lib-vlx.o lib-pucrunch.o lib-lzx.o \
 		   lib-diff.o lib-lzovl.o lib-alar.o lib-sadl.o lib-psdk.o lib-sszl.o \

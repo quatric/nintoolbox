@@ -10059,6 +10059,52 @@ t_pac_wiiu_amiibo_festival(){
 }
 t_pac_wiiu_amiibo_festival
 
+t_mpr_pack(){
+  # MPR PACK (Metroid Prime Remastered, Switch): LE RFRM form (PACK v1)
+  # with a TOCC v3 directory (ADIR 52-byte entries + META + STRG).
+  # Layout per PrimeDecomp/retrotool's pack.rs, verified byte-identical
+  # against retrotool's own `pak extract` output (names, guids, FOOT).
+  #
+  # Fixture 1: Preload/MPR1/GameplayOverrides.pak (448 bytes, committed
+  # verbatim) -- 2 stored entries (LDTA + DGRP) with STRG names
+  # "CameraOverrides" / "PreloadResources_DGRP".
+  local f1="$PWD_PROJECT/../tests/fixtures/mpr_pack_gameplay_overrides.pak"
+  [ -f "$f1" ] || { sk "MPR PACK (Remastered) minimal"; return; }
+  rm -rf /tmp/_r_mpr1
+  "$B/wszst" xx "$f1" --dest "/tmp/_r_mpr1" --overwrite >/tmp/_r_mpr1.log 2>&1
+  local ldta=/tmp/_r_mpr1/CameraOverrides.LDTA dgrp=/tmp/_r_mpr1/PreloadResources_DGRP.DGRP
+  dd if="$f1" of=/tmp/_r_mpr1.want bs=1 skip=364 count=58 2>/dev/null
+  head -c 58 "$ldta" > /tmp/_r_mpr1.got 2>/dev/null
+  if [ -s "$ldta" ] && [ -s "$dgrp" ] \
+  && [ "$(head -c4 "$ldta")" = "RFRM" ] && [ "$(head -c4 "$dgrp")" = "RFRM" ] \
+  && grep -q "FOOT" "$ldta" 2>/dev/null \
+  && cmp -s /tmp/_r_mpr1.want /tmp/_r_mpr1.got; then
+    ok "MPR PACK (Remastered) minimal -> 2 named members + FOOT, resource bytes exact"
+  else
+    no "MPR PACK (Remastered) minimal" "expected CameraOverrides.LDTA + PreloadResources_DGRP.DGRP with FOOT"
+  fi
+
+  # Fixture 2: MiscData.pak (62,528 bytes, committed verbatim) -- 11
+  # entries incl. LZSS-compressed SHNT/FONT members, a TXTR texture and
+  # META/STRG tables. Exercises the decompress path and FOOT META
+  # on real data, not just the stored minimal case.
+  local f2="$PWD_PROJECT/../tests/fixtures/mpr_pack_miscdata.pak"
+  [ -f "$f2" ] || { sk "MPR PACK (Remastered) miscdata"; return; }
+  rm -rf /tmp/_r_mpr2
+  "$B/wszst" xx "$f2" --dest "/tmp/_r_mpr2" --overwrite >/tmp/_r_mpr2.log 2>&1
+  local n2; n2=$(find /tmp/_r_mpr2 -type f -size +0c 2>/dev/null | wc -l | tr -d ' ')
+  local txtr; txtr=$(find /tmp/_r_mpr2 -name '*.TXTR' -size +0c 2>/dev/null | head -1)
+  local shnt; shnt=$(find /tmp/_r_mpr2 -name '*.SHNT' -size +0c 2>/dev/null | head -1)
+  if [ "$n2" = "11" ] && [ -n "$txtr" ] && [ -n "$shnt" ] \
+  && [ "$(head -c4 "$txtr")" = "RFRM" ] && [ "$(head -c4 "$shnt")" = "RFRM" ] \
+  && grep -q "FOOT" "$txtr" 2>/dev/null; then
+    ok "MPR PACK (Remastered) miscdata -> 11 members incl. TXTR + compressed SHNT, all RFRM+FOOT"
+  else
+    no "MPR PACK (Remastered) miscdata" "expected 11 RFRM+FOOT members incl. TXTR/SHNT, got $n2 file(s)"
+  fi
+}
+t_mpr_pack
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]

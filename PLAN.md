@@ -1690,3 +1690,36 @@ the real `src/ui/gen-ui.c` until removed). Config is
 `VID1DEC=/path/to/binary` or PATH auto-detect until the UI tables
 are unfrozen.
 
+
+## 32. 2026-09-10 — Metroid Prime Remastered PACK container (Switch `.pak`) ✅ extract
+
+Retail romfs available (6.7 GB: per-area paks, `DuplicateData.pak`
+1.6 GB, `MaterialArchive.arc`). The `.pak` is a new LE RFRM-family
+container, unrelated to the Wii RPAK: `PACK` v1 form → `TOCC` v3 with
+`ADIR` (u32 count + 52-byte LE entries: FourCC, LE uuid, versions,
+absolute offset, decompressed + stored sizes), `META` (uuid → blob)
+and `STRG` (byteswapped-FourCC + uuid + name) chunks. Members are raw
+RFRM resources, stored or LZSS mode 0-3 (u32 LE mode word, same group
+math as the Tropical stream). Layout per PrimeDecomp/retrotool's
+`pack.rs` (MIT/Apache-2.0, re-implemented) and verified byte-for-byte
+against retrotool's own `pak extract` binary (built from source):
+`GameplayOverrides.pak` (2 stored members) and `MiscData.pak`
+(11 members incl. real LZSS SHNT/FONT) both extract identical trees.
+
+New `lib-mpr-pak.c` (`ScanMPRPACK` — PACK/TOCC versions, per-entry
+bounds + stored-entry inner-RFRM agreement, no decompression at scan
+so big paks probe fast; `GetMPRPACKEntry` decompresses then
+re-validates the inner RFRM; `BuildMPRPACKFoot` appends retrotool's
+FOOT/AINF/META/NAME footer), `NFMT_MPR_PACK`, `extract_mpr_pack_file`
+(`<name>.<TYPE>`, guid fallback, `..`-safe, parents created) hooked
+after RPAK, `t_mpr_pack` with two committed retail fixtures
+(`mpr_pack_gameplay_overrides.pak` 448 B, `mpr_pack_miscdata.pak`
+62 KB). Repack direction not implemented.
+
+**Next**: MPR TXTR decode — TXTR form v47/51 + HEAD (`STextureHeader`:
+kind/format/dims/layers/tile/swizzle/mips/sampler) with GPU bytes
+assembled from FOOT-META buffer descriptors, detiled with the BNTX
+Tegra block-linear path (`BntxDeswizzle`) and pixel-decoded via the
+existing BCn/ASTC codecs (formats 20-29 BC1-5, 53-84 ASTC, 81-84
+BC6H/BC7 per retrotool's `txtr.rs`). Real sample already in hand
+(`MiscData.pak` TXTR: 232×232 R8Unorm). CMDL models after that.

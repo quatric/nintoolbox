@@ -79,7 +79,8 @@ ccp GetNintendoFormatName (nfmt_type_t type)
 		"BNLL", "BNCL", "BNBL", "LZOvl", "ALAR", "DARC", "SADL", "HSF", "HSD", "BNFM", "XPCK",
 		"XIMG", "ZTAB", "GLG", "MDR", "PERS", "PVOL", "STPK", "G1M", "G1T", "G4PKM", "LMD", "MSH",
 		"MOD", "GAR", "TEX3DS", "BCSTM", "BFSTM", "BCWAV", "BFWAV", "BNSH", "GFBMDL", "GFBANM",
-		"BNSTX", "AAMP", 		"MIO", "ZDAT", "SFX", "VFF", "TM0", "RETRO-TXTR", "TROPICAL-TXTR" };
+		"BNSTX", "AAMP", 		"MIO", "ZDAT", "SFX", "VFF", "TM0", "RETRO-TXTR", "TROPICAL-TXTR",
+		"MPR-PACK" };
 	return type < sizeof (tab) / sizeof (*tab) ? tab[type] : "UNKNOWN";
 }
 
@@ -122,6 +123,13 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		// its meaning; IsRetroTXTR() itself also rejects both magics.
 		if (!memcmp (d, "RFRM", 4) && IsTropicalTXTR (d, size))
 			return make_info (NFMT_TROPICAL_TXTR, true, false, 0);
+		// Metroid Prime Remastered PACK: LE RFRM form with the PACK id
+		// at 0x14. Disjoint from the Tropical id above; IsMPRPACK()
+		// runs the full structural scan (PACK v1 / TOCC v3 / per-entry
+		// RFRM agreement), so no magic-only claim happens here.
+		if (!memcmp (d, "RFRM", 4) && size >= 0x20 && !memcmp (d + 0x14, "PACK", 4)
+			&& IsMPRPACK (d, size))
+			return make_info (NFMT_MPR_PACK, false, false, 0);
 		if (IsRetroTXTR (d, size))
 			return make_info (NFMT_RETRO_TXTR, true, false, 0);
 		if (magic == 0x0020af30)

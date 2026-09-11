@@ -159,7 +159,8 @@ typedef enum nfmt_type_t
 	NFMT_VFF,
 	NFMT_TM0,
 	NFMT_RETRO_TXTR,
-	NFMT_TROPICAL_TXTR
+	NFMT_TROPICAL_TXTR,
+	NFMT_MPR_PACK
 } nfmt_type_t;
 
 typedef struct nfmt_info_t
@@ -344,6 +345,7 @@ enumError ExtractTHP (
 #include "lib-bns.h"
 #include "lib-rpak.h"
 #include "lib-lspk.h"
+#include "lib-mpr-pak.h"
 
 enumError DecodeZlibGrow (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 int IsZlib (cvp data, uint size);
