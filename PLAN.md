@@ -1845,3 +1845,10 @@ SFZDAT/CPK (no CPK tooling), Cafe BFFNT (no GPU oracle), BFSAR/BCSAR
 romfs trees contain zero sequence files), ATB (no samples).
 SMDL skinning + MTRL/TXTR-uuid material resolution deliberately left
 as CMDL phase 2 (samples exist: 179 SMDL + MTRL/TXTR members).
+
+Full suite after the sweep: PASS=424 FAIL=0 SKIP=2 (both SKIP need
+retail dumps not on disk). The run first showed 2 FAILs, both the
+`t_camelot_texbank` cases — pre-existing breakage from `f899793`
+(extractor gated to `.stpl`/`.camelot`, test still used extensionless
+files), not from this session; test updated to the intended gate,
+second full run green.

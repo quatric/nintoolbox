@@ -9062,10 +9062,12 @@ t_glg_ptlg_textures
 # Build one bank of two textures, compressed the way the discs store them.
 t_camelot_texbank(){
   local d; d=$(mktemp -d /tmp/_r_camtex.XXXXXX) || { no "Camelot texture bank" "mktemp failed"; return; }
-  python3 "$PWD_PROJECT/../tests/mk_camelot_tex.py" "$d/bank" >/dev/null 2>&1
+  # Explicit .stpl: the extractor only claims that extension since the
+  # U8-misdetect fix (an extensionless file is declined by design).
+  python3 "$PWD_PROJECT/../tests/mk_camelot_tex.py" "$d/bank.stpl" >/dev/null 2>&1
   rm -rf "$d/bank.d"
-  if "$B/wszst" xx "$d/bank" --dest "$d/bank.d" --overwrite >/dev/null 2>&1 \
-  && [ -s "$d/bank.d/bank_0000.png" ] && [ -s "$d/bank.d/bank_0001.png" ] \
+  if "$B/wszst" xx "$d/bank.stpl" --dest "$d/bank.d" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/bank.d/bank.stpl_0000.png" ] && [ -s "$d/bank.d/bank.stpl_0001.png" ] \
   && python3 -c '
 import struct, sys
 for p in sys.argv[1:]:
@@ -9073,7 +9075,7 @@ for p in sys.argv[1:]:
     assert d[:8] == b"\x89PNG\r\n\x1a\n", p
     w, h = struct.unpack(">II", d[16:24])
     assert (w, h) == (8, 8), (p, w, h)
-' "$d/bank.d/bank_0000.png" "$d/bank.d/bank_0001.png"; then
+' "$d/bank.d/bank.stpl_0000.png" "$d/bank.d/bank.stpl_0001.png"; then
     ok "Camelot GX texture bank -> PNG (LZ-wrapped, 2 textures)"
   else
     no "Camelot texture bank" "extraction produced no usable PNGs"
@@ -9083,10 +9085,10 @@ for p in sys.argv[1:]:
   # modules carrying their textures inline, so the magic usually sits at an
   # offset rather than at the start of the file. Scanning for it is only
   # safe because every entry is bounds-checked before a bank is accepted.
-  python3 "$PWD_PROJECT/../tests/mk_camelot_tex.py" "$d/embedded" embedded >/dev/null 2>&1
+  python3 "$PWD_PROJECT/../tests/mk_camelot_tex.py" "$d/embedded.stpl" embedded >/dev/null 2>&1
   rm -rf "$d/embedded.d"
-  if "$B/wszst" xx "$d/embedded" --dest "$d/embedded.d" --overwrite >/dev/null 2>&1 \
-  && [ -s "$d/embedded.d/embedded_0000.png" ] && [ -s "$d/embedded.d/embedded_0001.png" ]; then
+  if "$B/wszst" xx "$d/embedded.stpl" --dest "$d/embedded.d" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/embedded.d/embedded.stpl_0000.png" ] && [ -s "$d/embedded.d/embedded.stpl_0001.png" ]; then
     ok "Camelot texture bank found at an offset inside a module"
   else
     no "Camelot texture bank" "missed a bank embedded behind a PPC stub"
