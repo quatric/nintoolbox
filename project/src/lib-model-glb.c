@@ -963,7 +963,9 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 		gmat->emissive_factor[1] = 0.0f;
 		gmat->emissive_factor[2] = 0.0f;
 		gmat->pbr_metallic_roughness.metallic_factor = 0.0f;
-		gmat->pbr_metallic_roughness.roughness_factor = 0.8f;
+		// NB: roughness_factor was already set above from mat->shininess (or
+		// the 0.9-glossiness default); it used to be unconditionally clobbered
+		// with a hardcoded 0.8f here, silently discarding that computation.
 		gmat->alpha_mode = (mat->has_alpha || (mat->diffuse[3] > 0 && mat->diffuse[3] < 1.0f))
 			? cgltf_alpha_mode_blend
 			: cgltf_alpha_mode_opaque;
