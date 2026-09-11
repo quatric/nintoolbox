@@ -1756,5 +1756,27 @@ assert, the README row, and a direct-index META read shortcut. A
 duplicate standalone `lib-mpr-txtr.c` from the second pass was
 removed again in favour of the `lib-retro-txtr.c` home. Smash
 Ultimate reverified same pass: NUMSHB (incl. v1.8 bbox paths)
-green, NUTEXB/NUS3AUDIO unchanged, `data.arc` retail correctly SKIP
+green, NUTEXB/NUS3AUDIO unchanged,   `data.arc` retail correctly SKIP
 (15 GB cart not local). CMDL models after that.
+
+**Follow-up 2026-09-11 — MPR CMDL decode ✅.** New `lib-mpr-cmdl.c`
+(`IsMPRCMDL`/`ScanMPRCMDL`/`ParseMPRCMDL` → `model_t` →
+`ExportModelToGLB`): RFRM `CMDL` v114/125 chunk walk
+(HEAD/MTRL/MESH/VBUF/IBUF/GPU + trailing FOOT/META), META dialect
+with separate vtx/idx buffer tables, GPU buffers via `DecodeMPR_LZSS`
+(mode-0 stored included), vertex components per retrotool's
+`EVertexDataFormat`/`EVertexComponent` (float + half positions,
+normals, UVs, colours), per-entry-relative buffer indices with a
+sequential META cursor (confirmed on multi-entry files), positions
+required finite and inside the HEAD AABB (bad meshes skipped, never
+emitted). Two real bugs found by testing, not review: half-float
+positions initially rejected (retail quantizes positions to Rgba16F),
+and the MESH `has_lod_rules` field takes values {0,1,2} corpus-wide
+(2 = no payload, 3 files — the reference also only reads rules for
+exactly 1). Verified against all 687 retail CMDL members: 687/687
+yield valid glTF (98/98 sampled pass `validate-glb.py`), incl. a
+51-mesh scene byte-identical between `wmdlt DECODE` and `wszst xx`.
+`NFMT_MPR_CMDL` registry entry (no new `FF`, RFRM-shared-magic
+precedent), `extract_mpr_cmdl_file` + `wmdlt` fallback, `t_mpr_cmdl`
+(unit-cube fixture + xx/wmdlt byte-agreement). SMDL skinning +
+TXTR-uuid material resolution are phase 2.

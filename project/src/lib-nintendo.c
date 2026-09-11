@@ -31,9 +31,16 @@ __attribute__ ((weak)) bool IsTropicalTXTR (const u8 *data, uint size)
 	(void)size;
 	return false;
 }
-// Same pattern for the Remastered TXTR probe (lib-mpr-txtr.o is
-// XOBJ_IMAGE, like lib-retro-txtr.o above).
+// Same pattern for the Remastered TXTR probe (also lib-retro-txtr.o).
 __attribute__ ((weak)) bool IsMPRTXTR (const u8 *data, uint size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
+// Same pattern for the Remastered CMDL probe (lib-mpr-cmdl.o lives in
+// XOBJ_LIB with the other model parsers, likewise not linked everywhere).
+__attribute__ ((weak)) bool IsMPRCMDL (const u8 *data, uint size)
 {
 	(void)data;
 	(void)size;
@@ -90,7 +97,8 @@ ccp GetNintendoFormatName (nfmt_type_t type)
 		"MOD", "GAR", "TEX3DS", "BCSTM", "BFSTM", "BCWAV", "BFWAV", "BNSH", "GFBMDL", "GFBANM",
 		"BNSTX", "AAMP", 		"MIO", "ZDAT", "SFX", "VFF", "TM0", "RETRO-TXTR", "TROPICAL-TXTR",
 		"MPR-PACK",
-		"MPR-TXTR" };
+		"MPR-TXTR",
+		"MPR-CMDL" };
 	return type < sizeof (tab) / sizeof (*tab) ? tab[type] : "UNKNOWN";
 }
 
@@ -144,6 +152,8 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 				return make_info (NFMT_MPR_PACK, false, false, 0);
 			if (IsMPRTXTR (d, size))
 				return make_info (NFMT_MPR_TXTR, false, false, 0);
+			if (size >= 0x20 && !memcmp (d + 0x14, "CMDL", 4) && IsMPRCMDL (d, size))
+				return make_info (NFMT_MPR_CMDL, false, false, 0);
 			return make_info (NFMT_UNKNOWN, true, false, 0);
 		}
 		if (IsRetroTXTR (d, size))

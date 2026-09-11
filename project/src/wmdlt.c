@@ -58,6 +58,7 @@
 #include "lib-nud.h"
 #include "lib-bnfm.h"
 #include "lib-numsh.h"
+#include "lib-mpr-cmdl.h"
 #include "ui.h" // [[dclib]] wrapper
 #include "ui-wmdlt.c"
 
@@ -1179,7 +1180,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				|| (raw.data_size >= 4
 					&& (!memcmp (raw.data, "CGFX", 4) || !memcmp (raw.data, "FRES", 4)
 						|| !memcmp (raw.data, "BCH\0", 4) || !memcmp (raw.data, "SSBH", 4)
-						|| !memcmp (raw.data, "HBSS", 4)))))
+						|| !memcmp (raw.data, "HBSS", 4)))
+				|| (raw.data_size >= 0x20 && IsMPRCMDL (raw.data, raw.data_size))))
 		{
 			if (!testmode)
 			{
@@ -1251,6 +1253,8 @@ model_t *model = is_bmd				? ParseNSBMD (raw.data, raw.data_size)
 					model = ParseNUMSHBSkinned (raw.data, raw.data_size, skel, skel_size);
 					FREE (skel);
 				}
+				if (!model && raw.data_size >= 0x20 && IsMPRCMDL (raw.data, raw.data_size))
+					model = ParseMPRCMDL (raw.data, raw.data_size);
 				if (model)
 				{
 					if (is_dae)

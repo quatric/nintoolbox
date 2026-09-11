@@ -10152,6 +10152,43 @@ t_mpr_pack(){
 }
 t_mpr_pack
 
+t_mpr_cmdl(){
+  # MPR CMDL (Metroid Prime Remastered, Switch): LE RFRM form (CMDL
+  # v114/125) with HEAD/MTRL/MESH/VBUF/IBUF/GPU chunks plus a trailing
+  # FOOT/META buffer table; GPU buffers are Retro LZSS mode 0-3.
+  # Fixture is a 1002-byte retail member: 1 mesh, 16 verts, 24 indices
+  # (unit cube, half-float positions).
+  local f="$PWD_PROJECT/../tests/fixtures/mpr_cmdl_unit_cube.cmdl"
+  [ -f "$f" ] || { sk "MPR CMDL (Remastered) unit cube"; return; }
+  rm -rf /tmp/_r_mprcmdl; mkdir -p /tmp/_r_mprcmdl
+  if "$B/wmdlt" DECODE "$f" --dest "/tmp/_r_mprcmdl/cube.glb" --overwrite >/tmp/_r_mprcmdl.log 2>&1 \
+  && [ -s /tmp/_r_mprcmdl/cube.glb ] \
+  && [ "$(head -c4 /tmp/_r_mprcmdl/cube.glb)" = "glTF" ] \
+  && python3 ../tests/validate-glb.py /tmp/_r_mprcmdl/cube.glb >/dev/null 2>&1 \
+  && python3 -c '
+import json, struct
+b = open("/tmp/_r_mprcmdl/cube.glb", "rb").read()
+ln, typ = struct.unpack_from("<II", b, 12)
+assert typ == 0x4E4F534A, "first chunk is not JSON"
+doc = json.loads(b[20:20+ln])
+assert len(doc.get("meshes", [])) == 1, "expected exactly 1 mesh"
+assert doc["meshes"][0]["primitives"], "mesh has no primitives"
+' 2>/dev/null; then
+    ok "MPR CMDL (Remastered) unit cube -> valid 1-mesh glTF"
+  else
+    no "MPR CMDL (Remastered) unit cube" "wmdlt DECODE did not yield a valid 1-mesh glTF"
+  fi
+  # Same file through the wszst xx extract path (PACK-member cascade).
+  if "$B/wszst" xx "$f" --dest "/tmp/_r_mprcmdl/x.glb" --overwrite >/dev/null 2>&1 \
+  && [ -s /tmp/_r_mprcmdl/x.glb ] \
+  && cmp -s /tmp/_r_mprcmdl/cube.glb /tmp/_r_mprcmdl/x.glb; then
+    ok "MPR CMDL (Remastered) wszst xx agrees byte-exact with wmdlt"
+  else
+    no "MPR CMDL (Remastered) wszst xx" "extract path differs from wmdlt"
+  fi
+}
+t_mpr_cmdl
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]

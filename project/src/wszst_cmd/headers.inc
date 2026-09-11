@@ -93,6 +93,7 @@
 #include "lib-nud.h"
 #include "lib-nut.h"
 #include "lib-numsh.h"
+#include "lib-mpr-cmdl.h"
 #include "lib-bntx.h"
 #include "lib-vc.h"
 #include "lib-sequence.h"
