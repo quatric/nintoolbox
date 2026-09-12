@@ -10712,6 +10712,38 @@ t_gpkg_retail_bonsai_barber(){
 }
 t_gpkg_retail_bonsai_barber
 
+t_gvr_retail_sonic(){
+  # GVR (Sega GameCube / Wii texture container, GCIX / GVRT): 0x20 header
+  # followed by tiled texture data (CMPR / RGBA8 / RGB5A3 / IA8 / IA4 / etc).
+  #
+  # Fixture: DATA/files/Now/st_02_p_light.gvr (160 bytes, 16x16 CMPR) extracted
+  # from the retail Sonic and the Secret Rings (USA) WBFS disc.
+  # Verified: wimgt recognizes format as GVR and decodes to a 16x16 PNG image.
+  local f="$PWD_PROJECT/../tests/fixtures/wii_retail/retail_st_02_p_light.gvr"
+  [ -f "$f" ] || { sk "GVR retail (Sonic and the Secret Rings)"; return; }
+  local d="/tmp/_r_gvr"
+  rm -rf "$d"
+  mkdir -p "$d"
+  if "$B/wimgt" FILETYPE "$f" 2>/dev/null | grep -q '^GVR'; then
+    ok "retail GVR texture (Sonic and the Secret Rings) is recognised"
+  else
+    no "retail GVR texture" "not recognised as GVR"
+  fi
+  if "$B/wimgt" DECODE "$f" --dest "$d/light.png" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/light.png" ] \
+  && python3 -c '
+from PIL import Image
+im = Image.open("'"$d"'/light.png")
+assert im.size == (16, 16)
+' 2>/dev/null; then
+    ok "retail GVR decode -> 16x16 PNG valid image"
+  else
+    no "retail GVR decode" "failed to decode GVR to PNG"
+  fi
+  rm -rf "$d"
+}
+t_gvr_retail_sonic
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
