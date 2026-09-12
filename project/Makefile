@@ -173,9 +173,13 @@ ifeq ($(SYSTEM),mac)
   CFLAGS	+= -I$(HOMEBREW_PREFIX)/include -Wno-typedef-redefinition -Wno-gnu-variable-sized-type-not-at-end
   LDFLAGS	+= -L$(HOMEBREW_PREFIX)/lib
  endif
- ifeq ($(shell uname -m),arm64)
-  LDFLAGS	+= -Wl,-ld_classic
- endif
+ifeq ($(shell uname -m),arm64)
+ # -ld_classic was removed by Apple in Sep 2026 (Xcode 27): the driver
+ # now ignores it and the new linker enforces segment alignment, so
+ # leaving the dead flag only produces noise. The classic linker is
+ # gone; over-aligned commons below had to be fixed instead (see
+ # dclib-numeric.c SRT_UsageCount handling).
+endif
 endif
 
 ifeq ($(SYSTEM_LINUX),1)

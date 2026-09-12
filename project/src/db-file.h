@@ -139,11 +139,11 @@ extern const DbFile_t DbFile[N_DB_FILE + 1];
 ///////////////////////////////////////////////////////////////////////////////
 
 // [[DbFileSZS_t]]
-// Host-side lookup table: szs_name is a native pointer and must retain its
-// natural alignment for arm64 Mach-O relocations.
+// Deliberately not packed: szs_name is a native pointer and needs its natural
+// 8-byte alignment in this host-side lookup table.
 typedef struct DbFileSZS_t
 {
-	s16 ref; // index into table 'DbFileRefSZS'
+	s16 ref; // index into table 'DbFileSZS'
 	char id[6]; // alpha numeric ID of track
 	ccp szs_name; // szs filename
 	s16 idx; // -1 or index

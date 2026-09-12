@@ -6925,6 +6925,10 @@ typedef enum SaveRestoreType_t
 
 ///////////////////////////////////////////////////////////////////////////////
 // [[SaveRestoreTab_t]]
+// Deliberately NOT packed (unlike the scalar-only tables above): the
+// ccp member needs 8-byte alignment, and packing the struct puts array
+// elements' pointers at 4-mod-8 offsets -- latent UB that Apple's
+// post-Sep-2026 linker rejects outright ("pointer not aligned").
 
 // This is an in-memory metadata table, not an on-disk layout. Keep native
 // pointer alignment: packed entries place every other `name` relocation at an
