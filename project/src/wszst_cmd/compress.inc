@@ -2079,6 +2079,13 @@ static enumError create_sar_dir (ccp source, ccp dest, ccp magic_type)
 
 static enumError create_rst_dir (ccp source, ccp dest)
 {
+	// A nested RST rebuild writes back to the raw sibling that produced this
+	// `.d` tree.  That is an intentional in-place replacement; passing the
+	// directory as CreateFileOpt's source otherwise makes the existing .trk
+	// (and its .toc) look like an unrelated destination collision.
+	const size_t source_len = strlen (source);
+	const bool replace_source = source_len > 2 && !strcasecmp (source + source_len - 2, ".d")
+		&& !strncmp (source, dest, source_len - 2) && !dest[source_len - 2];
 	sarc_build_list_t list = { 0 };
 	enumError err = collect_sarc_dir (&list, source, "");
 	if (!err && !list.used)
@@ -2093,7 +2100,7 @@ static enumError create_rst_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, replace_source ? dest : source);
 		if (F.f && fwrite (car_data, 1, car_size, F.f) != car_size)
 			err = FILEERROR1 (
 				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", car_size, dest);
@@ -2108,7 +2115,7 @@ static enumError create_rst_dir (ccp source, ccp dest)
 			snprintf (toc_dest + strlen (toc_dest), sizeof (toc_dest) - strlen (toc_dest), ".toc");
 
 		File_t Ftoc;
-		err = CreateFileOpt (&Ftoc, true, toc_dest, false, source);
+		err = CreateFileOpt (&Ftoc, true, toc_dest, false, replace_source ? toc_dest : source);
 		if (Ftoc.f && fwrite (toc_data, 1, toc_size, Ftoc.f) != toc_size)
 			err = FILEERROR1 (
 				&Ftoc, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", toc_size, toc_dest);
