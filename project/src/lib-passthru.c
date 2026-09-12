@@ -14,6 +14,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <utime.h>
 
 #include "dclib-basics.h"
 #include "dclib-color.h"
@@ -820,6 +821,186 @@ static bool read_head (ccp src, u8 *buf, uint n)
 	return ok;
 }
 
+// ndstool does not emit the header template, banner, or overlay tables when
+// extracting a cart.  They are not optional on a retail rebuild: without
+// them `ndstool -c` silently makes a homebrew-style header and drops the
+// banner.  Preserve these opaque records beside its normal staging output so
+// the matching pack invocation can give them straight back to ndstool.
+static bool copy_nds_region (FILE *src, off_t off, size_t size, ccp dest)
+{
+	if (!size || fseeko (src, off, SEEK_SET))
+		return false;
+	u8 *buf = MALLOC(size);
+	const bool ok = fread(buf, 1, size, src) == size;
+	if (ok)
+	{
+		FILE *out = fopen(dest, "wb");
+		if (out)
+		{
+			bool wrote = fwrite(buf, 1, size, out) == size;
+			wrote = fclose(out) == 0 && wrote;
+			FREE(buf);
+			return wrote;
+		}
+	}
+	FREE(buf);
+	return false;
+}
+
+static void stage_nds_metadata (ccp rom, ccp stage)
+{
+	FILE *src = fopen(rom, "rb");
+	if (!src)
+		return;
+	u8 hdr[0x200];
+	if (fread(hdr, 1, sizeof(hdr), src) != sizeof(hdr))
+	{
+		fclose(src);
+		return;
+	}
+
+	const u32 header_size = le32(hdr + 0x84);
+	char path[PATH_MAX];
+	if (header_size >= 0x200 && header_size <= 0x10000)
+	{
+		snprintf(path, sizeof(path), "%s/header.bin", stage);
+		copy_nds_region(src, 0, header_size, path);
+	}
+
+	const u32 banner_off = le32(hdr + 0x68);
+	if (banner_off)
+	{
+		u8 version_buf[2] = {0};
+		if (!fseeko(src, banner_off, SEEK_SET) && fread(version_buf, 1, 2, src) == 2)
+		{
+			const u16 version = version_buf[0] | version_buf[1] << 8;
+			const size_t banner_size = version >= 3 ? 0xa40 : version >= 2 ? 0x940 : 0x840;
+			snprintf(path, sizeof(path), "%s/banner.bin", stage);
+			copy_nds_region(src, banner_off, banner_size, path);
+		}
+	}
+
+	const struct { uint off_field, size_field; ccp name; } tables[] = {
+		{ 0x50, 0x54, "y9.bin" }, { 0x58, 0x5c, "y7.bin" },
+	};
+	for (uint i = 0; i < sizeof(tables)/sizeof(*tables); i++)
+	{
+		const u32 off = le32(hdr + tables[i].off_field);
+		const u32 size = le32(hdr + tables[i].size_field);
+		if (off && size && size <= 0x1000000)
+		{
+			snprintf(path, sizeof(path), "%s/%s", stage, tables[i].name);
+			copy_nds_region(src, off, size, path);
+		}
+	}
+	fclose(src);
+}
+
+// Native decoders create a foo.d tree after ndstool has already written its
+// sibling foo file.  Without normalizing the generated files' timestamps,
+// every untouched embedded container appears newer than its source and gets
+// repacked on the first CREATE.  Preserve the source timestamp across that
+// decode boundary; a real later edit naturally receives a newer timestamp.
+static void stamp_tree_mtime (ccp path, time_t stamp)
+{
+	DIR *dir = opendir(path);
+	if (!dir)
+		return;
+	struct dirent *de;
+	while ((de = readdir(dir)))
+	{
+		if (!strcmp(de->d_name,".") || !strcmp(de->d_name,".."))
+			continue;
+		char child[PATH_MAX];
+		snprintf(child,sizeof(child),"%s/%s",path,de->d_name);
+		struct stat st;
+		if (lstat(child,&st))
+			continue;
+		if (S_ISDIR(st.st_mode))
+			stamp_tree_mtime(child,stamp);
+		else if (S_ISREG(st.st_mode))
+		{
+			struct utimbuf ut = { stamp, stamp };
+			utime(child,&ut);
+		}
+	}
+	closedir(dir);
+	struct utimbuf ut = { stamp, stamp };
+	utime(path,&ut);
+}
+
+void normalize_ds_nested_mtimes (ccp root)
+{
+	DIR *dir = opendir(root);
+	if (!dir)
+		return;
+	struct dirent *de;
+	while ((de = readdir(dir)))
+	{
+		if (!strcmp(de->d_name,".") || !strcmp(de->d_name,".."))
+			continue;
+		char path[PATH_MAX];
+		snprintf(path,sizeof(path),"%s/%s",root,de->d_name);
+		struct stat st;
+		if (lstat(path,&st) || !S_ISDIR(st.st_mode))
+			continue;
+		const size_t len = strlen(de->d_name);
+		if (len > 2 && !strcasecmp(de->d_name+len-2,".d"))
+		{
+			char source[PATH_MAX];
+			snprintf(source,sizeof(source),"%s/%.*s",root,(int)len-2,de->d_name);
+			struct stat src_st;
+			bool found = !stat(source,&src_st) && S_ISREG(src_st.st_mode);
+			// ndstool stages an embedded "165.srl" as "165.d", dropping
+			// the executable extension just as it does for a top-level ROM.
+			// Recover that sibling before deciding this is a new user edit.
+			for (uint i = 0; !found && i < 2; i++)
+			{
+				static const char * const suffix[] = { ".nds", ".srl" };
+				snprintf(source,sizeof(source),"%s/%.*s%s",root,(int)len-2,de->d_name,suffix[i]);
+				found = !stat(source,&src_st) && S_ISREG(src_st.st_mode);
+			}
+			if (found)
+			{
+				stamp_tree_mtime(path,src_st.st_mtime);
+				continue;
+			}
+		}
+		normalize_ds_nested_mtimes(path);
+	}
+	closedir(dir);
+}
+
+// Older extracted trees predate the timestamp marker/cache support. A full
+// title extraction can leave decoder products several minutes newer than the
+// untouched container. Keep a deliberately bounded migration window so a
+// subsequently edited file is still recognized as newer.
+void normalize_legacy_tree_mtimes (ccp root, time_t source_mtime)
+{
+	DIR *dir = opendir(root);
+	if (!dir)
+		return;
+	struct dirent *de;
+	while ((de = readdir(dir)))
+	{
+		if (!strcmp(de->d_name,".") || !strcmp(de->d_name,".."))
+			continue;
+		char path[PATH_MAX];
+		snprintf(path,sizeof(path),"%s/%s",root,de->d_name);
+		struct stat st;
+		if (lstat(path,&st))
+			continue;
+		if (S_ISDIR(st.st_mode))
+			normalize_legacy_tree_mtimes(path,source_mtime);
+		if ((S_ISREG(st.st_mode) || S_ISDIR(st.st_mode)) && st.st_mtime <= source_mtime + 600)
+		{
+			struct utimbuf ut = { source_mtime, source_mtime };
+			utime(path,&ut);
+		}
+	}
+	closedir(dir);
+}
+
 static bool is_ext (ccp src, ccp ext)
 {
 	const uint n = strlen (src);
@@ -1465,6 +1646,10 @@ static enumError passthru_archive (
 					"pass-through 'ndstool -x' failed for %s (exit %d)", src, rc);
 		}
 
+		// Keep the records ndstool intentionally leaves out of its ordinary
+		// -x output. They are consumed by the -h/-t/-y9/-y7 arguments below.
+		stage_nds_metadata (src, stage);
+
 		// Both tools preserve BLZ-compressed executables/overlays as stored.
 		// DecodeBLZ() is the structural gate against modifying plain files.
 		try_decompress_blz_inplace (arm9);
@@ -1816,6 +2001,9 @@ static enumError passthru_archive (
 			}
 		}
 	}
+
+	if (is_ds)
+		normalize_ds_nested_mtimes(stage);
 
 	snprintf (staged_dir, staged_dir_size, "%s", stage);
 	return ERR_OK;

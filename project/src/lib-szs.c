@@ -2464,6 +2464,11 @@ enumError DecompressLZ (szs_file_t *szs, bool rm_compressed)
 	const wlz_header_t *wh = (wlz_header_t *)szs->cdata;
 	if (memcmp (wh->magic, LZ_MAGIC, sizeof (wh->magic)))
 	{
+		// FF_LZ can be selected by a heuristic for an embedded payload. Do not
+		// turn an ordinary Storybook asset into a hard extraction error merely
+		// because it is not either of the Nintendo raw-LZ signatures.
+		if (szs->cdata[0] != 0x10 && szs->cdata[0] != 0x11)
+			return ERR_NOTHING_TO_DO;
 		u8 *data = 0;
 		uint size = 0;
 		if (DecodeLZ10LZ11 (&data, &size, szs->cdata, szs->csize) == ERR_OK && data)
@@ -2480,7 +2485,11 @@ enumError DecompressLZ (szs_file_t *szs, bool rm_compressed)
 				ClearCompressedSZS (szs);
 			return ERR_OK;
 		}
-		return ERROR0 (ERR_INVALID_DATA, "Invalid LZ magic!\n");
+		// A few opaque game resources happen to begin with 0x10/0x11 but do
+		// not contain a complete raw-LZ stream. This branch is reached from a
+		// format heuristic, so retain such data verbatim rather than emitting
+		// a false corruption diagnostic or blocking the surrounding extract.
+		return ERR_NOTHING_TO_DO;
 	}
 
 	u8 *data;

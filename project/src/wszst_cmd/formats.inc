@@ -1747,6 +1747,10 @@ static enumError extract_tree (ccp root, uint depth)
 	}
 	closedir (dir);
 	opt_dest = saved_dest;
+	// Pass-through extraction can create nested native .d trees while this
+	// walk is running. Normalize their generated timestamps only after the
+	// whole subtree has been peeled, so the first CREATE remains incremental.
+	normalize_ds_nested_mtimes (root);
 	return max_err;
 }
 

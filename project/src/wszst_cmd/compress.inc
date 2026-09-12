@@ -3536,7 +3536,7 @@ static bool looks_like_f9res_dir (ccp source)
 	return found;
 }
 
-static enumError create_archive_from_dir (ccp source_dir, ccp dest)
+static enumError create_archive_from_dir (ccp source_dir, ccp dest, int known_lz_type)
 {
 	ccp ext = strrchr (dest, '.');
 	if (!ext)
@@ -3554,7 +3554,11 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest)
 		return ERR_NOTHING_TO_DO;
 	}
 
-	enumError pas_err = PassthruPack (source_dir, dest);
+	// .lz is a wrapper around an archive rather than a standalone passthrough
+	// format. Let the generic archive path below rebuild its decoded content.
+	const bool is_raw_lz_ext = !strcasecmp(ext,".lz") || !strcasecmp(ext,".lz10")
+		|| !strcasecmp(ext,".lz11");
+	enumError pas_err = is_raw_lz_ext ? ERR_NOTHING_TO_DO : PassthruPack (source_dir, dest);
 	if (pas_err != ERR_NOTHING_TO_DO)
 		return pas_err;
 
@@ -3676,7 +3680,32 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest)
 	if (!strcasecmp (ext, ".arc") && looks_like_arcv_dir (source_dir))
 		return create_arcv_dir (source_dir, dest);
 
-	// Default: U8/Yaz0/BRRES/ARC archive via CreateSZS
+	// Default: U8/Yaz0/BRRES/ARC archive via CreateSZS. If the source is a
+	// raw Nintendo LZ stream, rebuild its inner archive and restore the same
+	// LZ10/LZ11 wrapper instead of replacing it with bare archive bytes.
+	bool lz_wrapped = known_lz_type == 0x10 || known_lz_type == 0x11;
+	bool lz11 = known_lz_type == 0x11;
+	ccp dest_ext = strrchr (dest, '.');
+	const bool ash_wrapped = dest_ext && (!strcasecmp(dest_ext,".ash") || !strcasecmp(dest_ext,".ash0"));
+	if (!lz_wrapped && dest_ext && (!strcasecmp (dest_ext, ".lz") || !strcasecmp (dest_ext, ".lz10")
+			|| !strcasecmp (dest_ext, ".lz11")))
+	{
+		// Default before opening the file. CREATE can truncate its destination
+		// before reaching this helper, and Wii's unsuffixed .lz convention is LZ11.
+		lz_wrapped = true;
+		lz11 = strcasecmp(dest_ext,".lz10") != 0;
+		u8 type = 0;
+		FILE *in = fopen (dest, "rb");
+		if (in && fread (&type, 1, 1, in) == 1 && (type == 0x10 || type == 0x11))
+		{
+			lz11 = type == 0x11;
+		}
+		if (in)
+			fclose (in);
+		// A direct CREATE may have already opened an existing destination for
+		// output.  The explicit suffix still conveys the two unambiguous cases;
+		// plain .lz is conventionally LZ11 for these Wii resources.
+	}
 	SetupParam_t sp;
 	InitializeSetupParam (&sp);
 	ScanSetupParam (&sp, true, source_dir, SZS_SETUP_FILE, 0, true);
@@ -3694,10 +3723,22 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest)
 			SetFileAttrib (&F.fatt, &szs.fatt, 0);
 			const u8 *data = szs.cdata ? szs.cdata : szs.data;
 			const size_t size = szs.cdata ? szs.csize : szs.size;
-			const size_t wstat = fwrite (data, 1, size, F.f);
-			if (wstat != size)
-				err = FILEERROR1 (
-					&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", size, dest);
+			u8 *packed = 0;
+			uint packed_size = 0;
+			if (ash_wrapped)
+				err = EncodeASH0 (&packed, &packed_size, data, size);
+			else if (lz_wrapped)
+				err = EncodeLZ10LZ11 (&packed, &packed_size, data, size, lz11);
+			if (err <= ERR_WARNING)
+			{
+				const u8 *output = packed ? packed : data;
+				const size_t output_size = packed ? packed_size : size;
+				const size_t wstat = fwrite (output, 1, output_size, F.f);
+				if (wstat != output_size)
+					err = FILEERROR1 (
+						&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", output_size, dest);
+			}
+			FREE (packed);
 		}
 		ResetFile (&F, opt_preserve);
 		LinkCacheSZS (&szs, dest);
@@ -3714,6 +3755,15 @@ static const char *cand_archive_exts[] = { ".wbfs", ".iso", ".ciso", ".wdf", ".w
 	".bcgrp", ".bfgrp", ".rst", ".car", ".res", ".trk", ".lvl", ".wu8", ".wbz", ".wlz", ".bntx",
 	".bcres", ".bfres", ".bch", ".big", ".xc", ".xpck", ".ztab", ".tab", ".mdr", ".vff", ".pvol",
 	".srd", ".stpk", ".zlarc", 0 };
+
+// A number of retail Wii titles keep otherwise ordinary BRRES/U8 resources
+// in a raw Nintendo LZ10/LZ11 stream, conventionally named "*.lz".  The
+// extracted directory is named after the decompressed member (for example
+// `foo.brres.d` beside `foo.brres.lz`), so this list is deliberately kept
+// separate from archive suffixes: the compression wrapper must be restored
+// after rebuilding, not mistaken for the archive's own format.
+static const char *cand_lz_exts[] = { ".lz", ".lz10", ".lz11", 0 };
+static const char *cand_ash_exts[] = { ".ash", ".ash0", 0 };
 
 static bool is_archive_dir_name (ccp dir, size_t len)
 {
@@ -3855,7 +3905,7 @@ static void cleanup_extracted_artifacts (ccp root, bool is_root)
 					|| !strcasecmp (de->d_name + nlen - 4, ".dae")))
 			{
 				static const char *m_exts[] = { ".brres", ".bmd", ".bch", ".bcres", ".bfres",
-					".mdl0", ".hsf", ".msh", ".mod", 0 };
+					".mdl0", ".hsf", ".msh", ".mod", ".glg", ".rlg", 0 };
 				const size_t stem_len = strlen (path) - 4;
 				bool did_unlink = false;
 				for (int k = 0; m_exts[k]; k++)
@@ -3975,6 +4025,7 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 {
 	if (depth > 32)
 		return ERR_FILE_TOO_BIG;
+
 	DIR *dir = opendir (root);
 	if (!dir)
 		return ERR_NOT_EXISTS;
@@ -3994,6 +4045,20 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 			continue;
 		if (S_ISDIR (st.st_mode))
 		{
+			// Switch hactool staging deliberately exposes the selected Program
+			// NCA twice: once as the canonical top-level romfs/exefs tree used
+			// by hacbrewpack, and once under its hexadecimal *.nca.d mirror.
+			// Never recurse into that mirror when the canonical tree exists;
+			// doing so independently rebuilds every nested SZS before the real
+			// NSP pack even begins.
+			const size_t dlen = strlen(de->d_name);
+			if (dlen > 6 && !strcasecmp(de->d_name+dlen-6,".nca.d"))
+			{
+				char canonical_romfs[PATH_MAX];
+				snprintf(canonical_romfs,sizeof(canonical_romfs),"%s/romfs",root);
+				if (IsDirectory(canonical_romfs,false))
+					continue;
+			}
 			enumError err = repack_tree_bottom_up (path, depth + 1);
 			if (max_err < err)
 				max_err = err;
@@ -4092,7 +4157,7 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 			bool found_sibling = false; // a recognised parent model exists, even if left untouched
 										// (unmodified preview)
 			static const char *model_exts[] = { ".brres", ".bmd", ".bch", ".bcres", ".bfres",
-				".mdl0", ".hsf", ".msh", ".mod", 0 };
+				".mdl0", ".hsf", ".msh", ".mod", ".glg", ".rlg", 0 };
 
 			// wmdlt DECODE names a multi-model archive's per-model exports
 			// "<archive-stem>.<modelname>.glb" (see wmdlt.c: "%s.%s.glb"). A plain
@@ -4392,6 +4457,51 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 						break;
 					}
 				}
+				for (int c = 0; !target_exists && cand_lz_exts[c]; c++)
+				{
+					char cand[PATH_MAX];
+					snprintf (cand, sizeof (cand), "%s%s", target_file, cand_lz_exts[c]);
+					if (stat (cand, &st_target) == 0 && S_ISREG (st_target.st_mode))
+					{
+						snprintf (target_file, sizeof (target_file), "%s", cand);
+						target_exists = true;
+					}
+				}
+				for (int c = 0; !target_exists && cand_ash_exts[c]; c++)
+				{
+					char cand[PATH_MAX];
+					snprintf(cand,sizeof(cand),"%s%s",target_file,cand_ash_exts[c]);
+					if (stat(cand,&st_target) == 0 && S_ISREG(st_target.st_mode))
+					{
+						snprintf(target_file,sizeof(target_file),"%s",cand);
+						target_exists = true;
+					}
+				}
+				// Directory names often omit the inner archive suffix: foo.d can
+				// correspond to foo.arc.lz, not merely foo.lz. Try each known
+				// archive suffix under the raw LZ wrapper as well.
+				for (int a = 0; !target_exists && cand_archive_exts[a]; a++)
+					for (int l = 0; !target_exists && cand_lz_exts[l]; l++)
+					{
+						char cand[PATH_MAX];
+						snprintf(cand,sizeof(cand),"%s%s%s",target_file,cand_archive_exts[a],cand_lz_exts[l]);
+						if (stat(cand,&st_target) == 0 && S_ISREG(st_target.st_mode))
+						{
+							snprintf(target_file,sizeof(target_file),"%s",cand);
+							target_exists = true;
+						}
+					}
+				for (int a = 0; !target_exists && cand_archive_exts[a]; a++)
+					for (int x = 0; !target_exists && cand_ash_exts[x]; x++)
+					{
+						char cand[PATH_MAX];
+						snprintf(cand,sizeof(cand),"%s%s%s",target_file,cand_archive_exts[a],cand_ash_exts[x]);
+						if (stat(cand,&st_target) == 0 && S_ISREG(st_target.st_mode))
+						{
+							snprintf(target_file,sizeof(target_file),"%s",cand);
+							target_exists = true;
+						}
+					}
 			}
 
 			// Check wszst-setup.txt inside path to deduce format if not found
@@ -4477,14 +4587,29 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 			if (stat (setup_path, &st_setup) == 0)
 				ref_mtime = st_setup.st_mtime;
 			else if (target_exists)
+			{
 				ref_mtime = st_target.st_mtime;
+				normalize_legacy_tree_mtimes(path,ref_mtime);
+			}
 
 			bool need_rebuild
 				= !target_exists || (ref_mtime > 0 ? is_dir_newer_than (path, ref_mtime) : true);
 
 			if (need_rebuild)
 			{
-				enumError err = create_archive_from_dir (path, target_file);
+				int lz_type = 0;
+				if (target_exists)
+				{
+					FILE *in = fopen(target_file,"rb");
+					if (in)
+					{
+						u8 type = 0;
+						if (fread(&type,1,1,in) == 1 && (type == 0x10 || type == 0x11))
+							lz_type = type;
+						fclose(in);
+					}
+				}
+				enumError err = create_archive_from_dir (path, target_file, lz_type);
 				if (err <= ERR_WARNING)
 				{
 					if (verbose >= 0)

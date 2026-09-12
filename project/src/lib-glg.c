@@ -263,6 +263,11 @@ static void glg_stage_ptlg_textures (ccp src_path, ccp out_glb_path, glg_staged_
 	for (uint i = 0; ext[i]; i++)
 	{
 		snprintf (ptlg, sizeof (ptlg), "%.*s%s", (int)(dot - src_path), src_path, ext[i]);
+		// Most stage models deliberately share a texture bank elsewhere.
+		// Missing same-stem companions are therefore ordinary, not an I/O
+		// failure worth emitting for every model during a whole-disc extract.
+		if (access(ptlg,R_OK))
+			continue;
 		if (!LoadFileAlloc (ptlg, 0, 0, &loaded, &raw_size, 0, 0, 0, false) && loaded)
 		{
 			raw = loaded;

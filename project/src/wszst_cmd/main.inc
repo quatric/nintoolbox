@@ -662,12 +662,6 @@ static enumError CheckOptions (int argc, char **argv, bool is_env)
 			case GO_DECODE:
 				opt_decode = true;
 				break;
-			case GO_WITH_UPDATE_PART:
-				opt_with_update_part = true;
-				break;
-			case GO_EXPORT_MIIS:
-				opt_export_miis = true;
-				break;
 			case GO_EXPORT_RAW:
 				opt_export_raw = true;
 				break;

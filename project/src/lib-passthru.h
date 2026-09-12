@@ -85,5 +85,7 @@ bool IsDiscExt (ccp path);
 // Helpers for incremental builds & directory tree cleanup
 void remove_dir_recursive (ccp dir);
 bool is_dir_newer_than (ccp dirpath, time_t target_mtime);
+void normalize_ds_nested_mtimes (ccp root);
+void normalize_legacy_tree_mtimes (ccp root, time_t source_mtime);
 
 #endif
