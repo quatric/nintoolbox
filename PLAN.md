@@ -1955,17 +1955,25 @@ agreement). A transient xx/wmdlt mismatch during development
 was proven to be a stale binary (md5-verified rebuilds from here on),
 not a code bug.
 
-**Follow-up 2026-09-11 — WMB skinning.** Bone parent list + relative
+**Follow-up 2026-09-11 — WMB skinning & materials.** Bone parent list + relative
 positions decode to anonymous joints (`bone%03d`) with binds derived
 via `ComputeModelTRSBinds`; per-batch remap applied to the validated
 u8 weights (247k verts probed: zero zero-weight rows, so the rigid
 fallback never fires on this corpus). Verified: 490/627 files
 skinned (3707 joints), 2903 meshes intact, exported WEIGHTS_0 rows
 sum to exactly 1.0; `t_wmb` asserts 1 joint + unit sums on a 1056B
-fixture. Untextured for now: batch texID reads 0 on every sampled
-batch and batch ids overrun the material count (3 ids vs 1 material),
-so no field yet maps batches to wmbMat entries — binding would be
-guesswork. Full suite: PASS=431 FAIL=0.
+fixture.
+
+**Follow-up 2026-09-12 — WMB material mapping.** Analysis of the 627-file
+corpus showed that batch `b+6` (u16) is the material index addressing
+the material table defined at header 0x44 (num_materials), 0x48 (offsets),
+0x4c (base address). Across all 3,116 batches in the 627 retail models,
+`bmat < num_materials` holds with zero overruns. Materials decode shader
+names from the 0x70 table, texture hashes from slot 1 (`mp+4`), and linear
+diffuse RGBA from `mp+24..36`. Added retail multi-material fixture
+`tests/fixtures/wmb_sfzero_bm0068.wmb` (2,976 B, 3 materials, 3 batches)
+and expanded `t_wmb` to assert 3 materials mapped 1:1 to primitives.
+Full suite: PASS=431 FAIL=0.
 
 ## 35. Retail Regression & Format Verification (3DS, Wii, Arcade, DS)
 

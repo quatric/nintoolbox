@@ -10494,6 +10494,25 @@ assert found, "no WEIGHTS_0 attribute found"
   else
     no "WMB (SFZ) skinned" "failed to export skinned fixture"
   fi
+  # Multi-material member (3 materials, 3 batches): material mapping test.
+  local fm="$PWD_PROJECT/../tests/fixtures/wmb_sfzero_bm0068.wmb"
+  if [ -f "$fm" ]; then
+    if "$B/wmdlt" DECODE "$fm" --dest "$d/multimat.glb" --overwrite >/dev/null 2>&1 \
+    && python3 ../tests/validate-glb.py "$d/multimat.glb" >/dev/null 2>&1 \
+    && python3 -c '
+import json, struct, sys
+b = open(sys.argv[1], "rb").read()
+ln, typ = struct.unpack_from("<II", b, 12)
+doc = json.loads(b[20:20+ln])
+assert len(doc.get("materials", [])) == 3, f"expected 3 materials, got {len(doc.get(\"materials\", []))}"
+prims_mats = [p.get("material") for m in doc.get("meshes", []) for p in m.get("primitives", [])]
+assert prims_mats == [0, 1, 2], f"material mapping mismatch: {prims_mats}"
+' "$d/multimat.glb" 2>/dev/null; then
+      ok "WMB (SFZ) multi-material member -> 3 materials mapped 1:1 to batches"
+    else
+      no "WMB (SFZ) multi-material" "failed to map materials to batches"
+    fi
+  fi
   rm -rf "$d"
 }
 t_wmb

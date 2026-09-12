@@ -32,6 +32,7 @@ extern "C"
 #define WMB_MAX_VERTS (16u << 20)
 #define WMB_MAX_INDICES (64u << 20)
 #define WMB_MAX_BONES 100000
+#define WMB_MAX_MATERIALS 4096
 
 // Verified (vertexFormat, numMapping, unknownD) layouts. stride covers
 // the interleaved vertex; ex_size the extension block (colour, UV2).
@@ -136,6 +137,12 @@ typedef struct wmb_file_t
 	uint num_bones;
 	const u8 *bone_hie; // s16 parent per bone, -1 root
 	const u8 *bone_rel; // float3 local translation per bone
+	uint num_materials;
+	const u8 *mat_ofs;  // u32 relative offset table
+	const u8 *mat_base; // base address for materials
+	const u8 *shd_base; // optional shader name table
+	uint num_textures;
+	const u8 *tex_base; // optional texture entry list (u32 hash, u32 type)
 	uint num_meshes;
 	const u8 *mesh_base;
 	uint mesh_ofs_pos;
@@ -192,6 +199,41 @@ static enumError wmb_scan (wmb_file_t *m, const u8 *data, uint size)
 		if ((u64)mbase + mo + 0x40 > size)
 			return EINVAL;
 	}
+
+	const uint nmats = rd_be32 (data + 0x44);
+	if (nmats > WMB_MAX_MATERIALS)
+		return EINVAL;
+	if (nmats)
+	{
+		const uint mat_ofs = rd_be32 (data + 0x48), mat_base = rd_be32 (data + 0x4c);
+		if (mat_ofs > size || mat_base > size || (u64)mat_ofs + (u64)nmats * 4 > size)
+			return EINVAL;
+		for (uint i = 0; i < nmats; i++)
+		{
+			const uint ro = rd_be32 (data + mat_ofs + i * 4);
+			if ((u64)mat_base + ro + 0x38 > size)
+				return EINVAL;
+		}
+		m->num_materials = nmats;
+		m->mat_ofs = data + mat_ofs;
+		m->mat_base = data + mat_base;
+
+		const uint shd_ofs = rd_be32 (data + 0x70);
+		if (shd_ofs && (u64)shd_ofs + (u64)nmats * 16 <= size)
+			m->shd_base = data + shd_ofs;
+	}
+
+	const uint tex_ofs = rd_be32 (data + 0x74);
+	if (tex_ofs && tex_ofs + 4 <= size)
+	{
+		const uint ntex = rd_be32 (data + tex_ofs);
+		if (ntex <= 4096 && (u64)tex_ofs + 4 + (u64)ntex * 8 <= size)
+		{
+			m->num_textures = ntex;
+			m->tex_base = data + tex_ofs + 4;
+		}
+	}
+
 	m->layout = lay;
 	m->num_verts = nv;
 	m->verts = data + ov;
@@ -289,6 +331,71 @@ model_t *ParsePlatinumWMB (const u8 *data, size_t size)
 	}
 	bool have_skin = false;
 
+	// Materials: parse descriptors from material offset table
+	if (m.num_materials)
+	{
+		model->materials = CALLOC (m.num_materials, sizeof (*model->materials));
+		if (model->materials)
+		{
+			model->num_materials = m.num_materials;
+			for (uint i = 0; i < m.num_materials; i++)
+			{
+				material_t *mat = model->materials + i;
+				if (m.shd_base)
+				{
+					char shd[17];
+					memcpy (shd, m.shd_base + i * 16, 16);
+					shd[16] = 0;
+					// Trim trailing spaces / non-printables
+					for (int k = 15; k >= 0; k--)
+					{
+						if ((u8)shd[k] <= 32)
+							shd[k] = 0;
+						else
+							break;
+					}
+					if (shd[0])
+						snprintf (mat->name, sizeof (mat->name), "%s_%u", shd, i);
+					else
+						snprintf (mat->name, sizeof (mat->name), "mat%03u", i);
+				}
+				else
+					snprintf (mat->name, sizeof (mat->name), "mat%03u", i);
+
+				const uint ro = rd_be32 (m.mat_ofs + i * 4);
+				const u8 *mp = m.mat_base + ro;
+
+				// Slot 1 texture hash
+				const u32 tex_hash = rd_be32 (mp + 4);
+				if (tex_hash)
+				{
+					snprintf (mat->textures[0], sizeof (mat->textures[0]), "%08x", tex_hash);
+					mat->num_textures = 1;
+				}
+
+				// Diffuse color from material floats (words 6..9)
+				float r = wmb_f32be (mp + 24);
+				float g = wmb_f32be (mp + 28);
+				float b = wmb_f32be (mp + 32);
+				float a = wmb_f32be (mp + 36);
+				if (r >= 0.0f && r <= 1.0f && g >= 0.0f && g <= 1.0f && b >= 0.0f && b <= 1.0f)
+				{
+					mat->diffuse[0] = r;
+					mat->diffuse[1] = g;
+					mat->diffuse[2] = b;
+					mat->diffuse[3] = (a >= 0.0f && a <= 1.0f) ? a : 1.0f;
+				}
+				else
+				{
+					mat->diffuse[0] = 0.8f;
+					mat->diffuse[1] = 0.8f;
+					mat->diffuse[2] = 0.8f;
+					mat->diffuse[3] = 1.0f;
+				}
+			}
+		}
+	}
+
 	for (uint mi = 0; mi < m.num_meshes; mi++)
 	{
 		const uint mo = rd_be32 (data + m.mesh_ofs_pos + mi * 4);
@@ -340,7 +447,8 @@ model_t *ParsePlatinumWMB (const u8 *data, size_t size)
 			else
 				continue;
 			snprintf (mesh->name, sizeof (mesh->name), "%s_%u", mname, bi);
-			mesh->material_idx = -1;
+			const uint bmat = rd_be16 (b + 6);
+			mesh->material_idx = (bmat < model->num_materials) ? (int)bmat : -1;
 			const uint vc = ve - vs;
 			if (!vc)
 				continue;
