@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <math.h>
 
 typedef struct
 {
@@ -248,6 +249,7 @@ model_t *ParseBCRES (const uint8_t *data, size_t size)
 	model_t *out = CALLOC (1, sizeof (model_t));
 	if (!out)
 		return NULL;
+
 	out->meshes = CALLOC (n_mesh, sizeof (mesh_t));
 	if (!out->meshes)
 	{
@@ -282,6 +284,20 @@ model_t *ParseBCRES (const uint8_t *data, size_t size)
 					const size_t mtob = cg_ptr (g, me + 12);
 					if (mtob && cg_ok (g, mtob, 0x20) && !memcmp (data + mtob + 4, "MTOB", 4))
 					{
+						if (cg_ok (g, mtob, 0x50))
+						{
+							out->materials[mi].ambient[0] = cg_f32 (g, mtob + 0x24);
+							out->materials[mi].ambient[1] = cg_f32 (g, mtob + 0x28);
+							out->materials[mi].ambient[2] = cg_f32 (g, mtob + 0x2c);
+							out->materials[mi].diffuse[0] = cg_f32 (g, mtob + 0x30);
+							out->materials[mi].diffuse[1] = cg_f32 (g, mtob + 0x34);
+							out->materials[mi].diffuse[2] = cg_f32 (g, mtob + 0x38);
+							out->materials[mi].diffuse[3] = cg_f32 (g, mtob + 0x3c);
+							out->materials[mi].specular[0] = cg_f32 (g, mtob + 0x40);
+							out->materials[mi].specular[1] = cg_f32 (g, mtob + 0x44);
+							out->materials[mi].specular[2] = cg_f32 (g, mtob + 0x48);
+						}
+
 						// Scan for TXOB samplers inside MTOB
 						const size_t scan_end = (mtob + 0x600 < size) ? (mtob + 0x600) : size;
 						for (size_t off = mtob; off + 0x20 <= scan_end; off += 4)
@@ -559,6 +575,62 @@ model_t *ParseBCRES (const uint8_t *data, size_t size)
 		out->num_meshes++;
 	}
 
+	const size_t p_sobj = cg_ptr (g, cmdl + 0xe0);
+	if (p_sobj && cg_ok (g, p_sobj, 0x2c) && !memcmp (data + p_sobj + 4, "SOBJ", 4))
+	{
+		const uint32_t n_bones = cg_u32 (g, p_sobj + 0x18);
+		const size_t p_bdict = cg_ptr (g, p_sobj + 0x1c);
+		if (n_bones && n_bones <= 0x1000 && p_bdict && cg_ok (g, p_bdict, 0x10)
+			&& !memcmp (data + p_bdict, "DICT", 4))
+		{
+			out->joints = CALLOC (n_bones, sizeof (joint_t));
+			if (out->joints)
+			{
+				out->num_joints = n_bones;
+				for (uint32_t bi = 0; bi < n_bones; bi++)
+				{
+					const size_t bnode = p_bdict + 0x0c + (size_t)(bi + 1) * 16;
+					if (!cg_ok (g, bnode, 16))
+						break;
+					const size_t bname_ptr = cg_ptr (g, bnode + 8);
+					if (bname_ptr && cg_ok (g, bname_ptr, 1) && data[bname_ptr])
+						snprintf (out->joints[bi].name, sizeof (out->joints[bi].name), "%s",
+							(const char *)(data + bname_ptr));
+					else
+						snprintf (out->joints[bi].name, sizeof (out->joints[bi].name), "bone_%u", bi);
+
+					const size_t bp = cg_ptr (g, bnode + 12);
+					if (bp && cg_ok (g, bp, 0xd0))
+					{
+						out->joints[bi].parent_idx = cg_s32 (g, bp + 0x0c);
+						out->joints[bi].scale.x = cg_f32 (g, bp + 0x20);
+						out->joints[bi].scale.y = cg_f32 (g, bp + 0x24);
+						out->joints[bi].scale.z = cg_f32 (g, bp + 0x28);
+						if (out->joints[bi].scale.x == 0.0f && out->joints[bi].scale.y == 0.0f
+							&& out->joints[bi].scale.z == 0.0f)
+						{
+							out->joints[bi].scale.x = 1.0f;
+							out->joints[bi].scale.y = 1.0f;
+							out->joints[bi].scale.z = 1.0f;
+						}
+						out->joints[bi].rotate.x = cg_f32 (g, bp + 0x2c) * (180.0f / (float)M_PI);
+						out->joints[bi].rotate.y = cg_f32 (g, bp + 0x30) * (180.0f / (float)M_PI);
+						out->joints[bi].rotate.z = cg_f32 (g, bp + 0x34) * (180.0f / (float)M_PI);
+						out->joints[bi].translate.x = cg_f32 (g, bp + 0x38);
+						out->joints[bi].translate.y = cg_f32 (g, bp + 0x3c);
+						out->joints[bi].translate.z = cg_f32 (g, bp + 0x40);
+
+						for (int m = 0; m < 12; m++)
+							out->joints[bi].bind[m] = cg_f32 (g, bp + 0x74 + m * 4);
+						for (int m = 0; m < 12; m++)
+							out->joints[bi].inverse_bind[m] = cg_f32 (g, bp + 0xa4 + m * 4);
+						out->joints[bi].has_inverse_bind = 1;
+					}
+				}
+			}
+		}
+	}
+
 	// No geometry is a failure, not an empty success: returning an empty
 	// model_t would make the caller write a valid-looking but empty DAE.
 	if (!out->num_meshes)
@@ -789,3 +861,1029 @@ enumError ExportBCRESTexturesFromData (const u8 *data, size_t size, const char *
 	ResetCGFX (&cgfx);
 	return err;
 }
+
+//-----------------------------------------------------------------------------
+///////////////			CGFX / BCRES encoding				   ///////////////
+//-----------------------------------------------------------------------------
+
+typedef struct
+{
+	uint8_t *data;
+	size_t size;
+	size_t cap;
+} bcres_buf_t;
+
+static void bc_buf_init (bcres_buf_t *b)
+{
+	b->cap = 8192;
+	b->size = 0;
+	b->data = CALLOC (1, b->cap);
+}
+
+static void bc_buf_free (bcres_buf_t *b)
+{
+	if (b->data)
+		FREE (b->data);
+	b->data = NULL;
+	b->size = b->cap = 0;
+}
+
+static size_t bc_buf_reserve (bcres_buf_t *b, size_t len)
+{
+	if (b->size + len > b->cap)
+	{
+		while (b->size + len > b->cap)
+			b->cap *= 2;
+		b->data = REALLOC (b->data, b->cap);
+		memset (b->data + b->size, 0, b->cap - b->size);
+	}
+	size_t pos = b->size;
+	b->size += len;
+	return pos;
+}
+
+static size_t bc_buf_align (bcres_buf_t *b, size_t alignment)
+{
+	size_t rem = b->size % alignment;
+	if (rem != 0)
+	{
+		size_t pad = alignment - rem;
+		bc_buf_reserve (b, pad);
+	}
+	return b->size;
+}
+
+static void bc_w16 (bcres_buf_t *b, size_t pos, uint16_t v)
+{
+	b->data[pos + 0] = (uint8_t)v;
+	b->data[pos + 1] = (uint8_t)(v >> 8);
+}
+
+static void bc_w32 (bcres_buf_t *b, size_t pos, uint32_t v)
+{
+	b->data[pos + 0] = (uint8_t)v;
+	b->data[pos + 1] = (uint8_t)(v >> 8);
+	b->data[pos + 2] = (uint8_t)(v >> 16);
+	b->data[pos + 3] = (uint8_t)(v >> 24);
+}
+
+static void bc_wf32 (bcres_buf_t *b, size_t pos, float v)
+{
+	uint32_t u;
+	memcpy (&u, &v, sizeof (float));
+	bc_w32 (b, pos, u);
+}
+
+static void bc_rel_ptr (bcres_buf_t *b, size_t pos, size_t target)
+{
+	if (target == 0)
+		bc_w32 (b, pos, 0);
+	else
+	{
+		int32_t rel = (int32_t)((int64_t)target - (int64_t)pos);
+		bc_w32 (b, pos, (uint32_t)rel);
+	}
+}
+
+typedef struct
+{
+	char *data;
+	size_t size;
+	size_t cap;
+} bcres_strpool_t;
+
+static void bc_strpool_init (bcres_strpool_t *p)
+{
+	p->cap = 1024;
+	p->size = 0;
+	p->data = CALLOC (1, p->cap);
+}
+
+static void bc_strpool_free (bcres_strpool_t *p)
+{
+	if (p->data)
+		FREE (p->data);
+	p->data = NULL;
+	p->size = p->cap = 0;
+}
+
+static size_t bc_strpool_add (bcres_strpool_t *p, const char *str)
+{
+	if (!str || !*str)
+		str = "default";
+	size_t len = strlen (str);
+	if (p->size > 0)
+	{
+		size_t pos = 0;
+		while (pos < p->size)
+		{
+			if (!strcmp (p->data + pos, str))
+				return pos;
+			pos += strlen (p->data + pos) + 1;
+		}
+	}
+	while (p->size + len + 1 > p->cap)
+	{
+		p->cap *= 2;
+		p->data = REALLOC (p->data, p->cap);
+	}
+	size_t off = p->size;
+	memcpy (p->data + off, str, len + 1);
+	p->size += len + 1;
+	return off;
+}
+
+typedef struct
+{
+	const char *name;
+	uint32_t ref_bit;
+	uint16_t left;
+	uint16_t right;
+	size_t name_pool_off;
+	size_t data_off;
+} bcres_patricia_node_t;
+
+static bool bc_get_bit (const char *name, uint32_t bit)
+{
+	if (!name)
+		return false;
+	uint32_t pos = bit >> 3;
+	uint32_t cbit = bit & 7;
+	size_t len = strlen (name);
+	if (pos < len)
+		return ((name[pos] >> cbit) & 1) != 0;
+	return false;
+}
+
+static uint16_t bc_patricia_traverse (
+	const char *name, const bcres_patricia_node_t *nodes, uint16_t *out_root, uint32_t bit)
+{
+	uint16_t root_idx = 0;
+	uint16_t out_idx = nodes[0].left;
+	uint16_t left_idx = out_idx;
+
+	while (nodes[root_idx].ref_bit > nodes[left_idx].ref_bit && nodes[left_idx].ref_bit > bit)
+	{
+		if (bc_get_bit (name, nodes[left_idx].ref_bit))
+			out_idx = nodes[left_idx].right;
+		else
+			out_idx = nodes[left_idx].left;
+
+		root_idx = left_idx;
+		left_idx = out_idx;
+	}
+
+	if (out_root)
+		*out_root = root_idx;
+	return out_idx;
+}
+
+static void bc_build_patricia_tree (bcres_patricia_node_t *nodes, uint32_t count)
+{
+	if (!nodes || count == 0)
+		return;
+	nodes[0].ref_bit = 0xFFFFFFFF;
+	nodes[0].left = count > 1 ? 1 : 0;
+	nodes[0].right = 0;
+	nodes[0].name = NULL;
+
+	if (count <= 1)
+		return;
+
+	size_t max_len = 0;
+	for (uint32_t i = 1; i < count; i++)
+	{
+		size_t l = strlen (nodes[i].name);
+		if (l > max_len)
+			max_len = l;
+	}
+
+	for (uint32_t i = 1; i < count; i++)
+	{
+		const char *name = nodes[i].name;
+		uint32_t bit = (uint32_t)((max_len << 3) - 1);
+		uint16_t root_dummy;
+		uint16_t idx = bc_patricia_traverse (name, nodes, &root_dummy, 0);
+
+		while (bc_get_bit (nodes[idx].name, bit) == bc_get_bit (name, bit))
+		{
+			if (bit == 0)
+				break;
+			bit--;
+		}
+		nodes[i].ref_bit = bit;
+
+		if (bc_get_bit (name, bit))
+		{
+			nodes[i].left = bc_patricia_traverse (name, nodes, &root_dummy, bit);
+			nodes[i].right = (uint16_t)i;
+		}
+		else
+		{
+			nodes[i].left = (uint16_t)i;
+			nodes[i].right = bc_patricia_traverse (name, nodes, &root_dummy, bit);
+		}
+
+		uint16_t root_idx;
+		bc_patricia_traverse (name, nodes, &root_idx, bit);
+		if (bc_get_bit (name, nodes[root_idx].ref_bit))
+			nodes[root_idx].right = (uint16_t)i;
+		else
+			nodes[root_idx].left = (uint16_t)i;
+	}
+}
+
+static void bc_write_dict (bcres_buf_t *b, size_t dict_pos, const bcres_patricia_node_t *nodes,
+	uint32_t count, size_t strtab_base)
+{
+	memcpy (b->data + dict_pos, "DICT", 4);
+	uint32_t tree_len = count * 16 + 12;
+	bc_w32 (b, dict_pos + 4, tree_len);
+	bc_w32 (b, dict_pos + 8, count > 1 ? count - 1 : 0);
+
+	for (uint32_t i = 0; i < count; i++)
+	{
+		size_t np = dict_pos + 12 + i * 16;
+		bc_w32 (b, np + 0, nodes[i].ref_bit);
+		bc_w16 (b, np + 4, nodes[i].left);
+		bc_w16 (b, np + 6, nodes[i].right);
+		if (i == 0)
+		{
+			bc_w32 (b, np + 8, 0);
+			bc_w32 (b, np + 12, 0);
+		}
+		else
+		{
+			bc_rel_ptr (b, np + 8, strtab_base + nodes[i].name_pool_off);
+			bc_rel_ptr (b, np + 12, nodes[i].data_off);
+		}
+	}
+}
+
+static void bc_joint_trs (float out[12], const joint_t *joint)
+{
+	const double dx = (double)joint->rotate.x * (M_PI / 180.0);
+	const double dy = (double)joint->rotate.y * (M_PI / 180.0);
+	const double dz = (double)joint->rotate.z * (M_PI / 180.0);
+	const float cx = (float)cos (dx), sx = (float)sin (dx);
+	const float cy = (float)cos (dy), sy = (float)sin (dy);
+	const float cz = (float)cos (dz), sz = (float)sin (dz);
+	const float rot[12] = { cz * cy, cz * sy * sx - sz * cx, cz * sy * cx + sz * sx, 0.0f,
+		sz * cy, sz * sy * sx + cz * cx, sz * sy * cx - cz * sx, 0.0f, -sy, cy * sx, cy * cx,
+		0.0f };
+	float sx_val = joint->scale.x != 0.0f ? joint->scale.x : 1.0f;
+	float sy_val = joint->scale.y != 0.0f ? joint->scale.y : 1.0f;
+	float sz_val = joint->scale.z != 0.0f ? joint->scale.z : 1.0f;
+	for (unsigned r = 0; r < 3; r++)
+	{
+		out[r * 4 + 0] = rot[r * 4 + 0] * sx_val;
+		out[r * 4 + 1] = rot[r * 4 + 1] * sy_val;
+		out[r * 4 + 2] = rot[r * 4 + 2] * sz_val;
+	}
+	out[3] = joint->translate.x;
+	out[7] = joint->translate.y;
+	out[11] = joint->translate.z;
+}
+
+static void bc_mul43 (float out[12], const float a[12], const float b[12])
+{
+	for (unsigned r = 0; r < 3; r++)
+	{
+		for (unsigned c = 0; c < 3; c++)
+			out[r * 4 + c]
+				= a[r * 4 + 0] * b[c + 0] + a[r * 4 + 1] * b[c + 4] + a[r * 4 + 2] * b[c + 8];
+		out[r * 4 + 3]
+			= a[r * 4 + 0] * b[3] + a[r * 4 + 1] * b[7] + a[r * 4 + 2] * b[11] + a[r * 4 + 3];
+	}
+}
+
+static int bc_invert43 (float out[12], const float m[12])
+{
+	const double det = (double)m[0] * (m[5] * m[10] - m[6] * m[9])
+		- (double)m[1] * (m[4] * m[10] - m[6] * m[8]) + (double)m[2] * (m[4] * m[9] - m[5] * m[8]);
+	if (fabs (det) < 1e-20)
+	{
+		memset (out, 0, 12 * sizeof (float));
+		out[0] = out[5] = out[10] = 1.0f;
+		return 0;
+	}
+	const float d = (float)(1.0 / det);
+	out[0] = (m[5] * m[10] - m[6] * m[9]) * d;
+	out[1] = (m[2] * m[9] - m[1] * m[10]) * d;
+	out[2] = (m[1] * m[6] - m[2] * m[5]) * d;
+	out[4] = (m[6] * m[8] - m[4] * m[10]) * d;
+	out[5] = (m[0] * m[10] - m[2] * m[8]) * d;
+	out[6] = (m[2] * m[4] - m[0] * m[6]) * d;
+	out[8] = (m[4] * m[9] - m[5] * m[8]) * d;
+	out[9] = (m[1] * m[8] - m[0] * m[9]) * d;
+	out[10] = (m[0] * m[5] - m[1] * m[4]) * d;
+	out[3] = -(out[0] * m[3] + out[1] * m[7] + out[2] * m[11]);
+	out[7] = -(out[4] * m[3] + out[5] * m[7] + out[6] * m[11]);
+	out[11] = -(out[8] * m[3] + out[9] * m[7] + out[10] * m[11]);
+	return 1;
+}
+
+int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
+{
+	if (!model || !model->num_meshes || !out_data || !out_size)
+		return 0;
+
+	const uint32_t n_mesh = (uint32_t)model->num_meshes;
+	const uint32_t n_mat = model->num_materials > 0 ? (uint32_t)model->num_materials : 1;
+	const uint32_t n_bones = (uint32_t)model->num_joints;
+	const bool has_skeleton = (n_bones > 0);
+	const char *model_name = "Model";
+
+	// Step 1: Collect strings into string pool
+	bcres_strpool_t strpool;
+	bc_strpool_init (&strpool);
+	size_t model_name_str = bc_strpool_add (&strpool, model_name);
+	size_t skeleton_name_str = has_skeleton ? bc_strpool_add (&strpool, "Skeleton") : 0;
+
+	size_t *mesh_name_str = CALLOC (n_mesh, sizeof (size_t));
+	size_t *shape_name_str = CALLOC (n_mesh, sizeof (size_t));
+	for (uint32_t m = 0; m < n_mesh; m++)
+	{
+		char def_name[64];
+		const char *mname = model->meshes[m].name[0] ? model->meshes[m].name : NULL;
+		if (!mname)
+		{
+			snprintf (def_name, sizeof (def_name), "mesh%u", m);
+			mname = def_name;
+		}
+		mesh_name_str[m] = bc_strpool_add (&strpool, mname);
+
+		char sname[64];
+		snprintf (sname, sizeof (sname), "shape%u", m);
+		shape_name_str[m] = bc_strpool_add (&strpool, sname);
+	}
+
+	size_t *mat_name_str = CALLOC (n_mat, sizeof (size_t));
+	size_t (*tex_name_str)[8] = CALLOC (n_mat, sizeof (*tex_name_str));
+	for (uint32_t mi = 0; mi < n_mat; mi++)
+	{
+		if (model->materials && mi < model->num_materials)
+		{
+			const char *mat_name = model->materials[mi].name[0] ? model->materials[mi].name : "material";
+			mat_name_str[mi] = bc_strpool_add (&strpool, mat_name);
+			for (int t = 0; t < model->materials[mi].num_textures && t < 8; t++)
+			{
+				if (model->materials[mi].textures[t][0])
+					tex_name_str[mi][t] = bc_strpool_add (&strpool, model->materials[mi].textures[t]);
+			}
+		}
+		else
+		{
+			mat_name_str[mi] = bc_strpool_add (&strpool, "default_mat");
+		}
+	}
+
+	size_t *bone_name_str = has_skeleton ? CALLOC (n_bones, sizeof (size_t)) : NULL;
+	if (has_skeleton)
+	{
+		for (uint32_t bi = 0; bi < n_bones; bi++)
+		{
+			char bdef[64];
+			const char *bname = model->joints[bi].name[0] ? model->joints[bi].name : NULL;
+			if (!bname)
+			{
+				snprintf (bdef, sizeof (bdef), "bone%u", bi);
+				bname = bdef;
+			}
+			bone_name_str[bi] = bc_strpool_add (&strpool, bname);
+		}
+	}
+
+	// Step 2: Prepare bone hierarchy and transforms
+	int *first_child = has_skeleton ? MALLOC (n_bones * sizeof (int)) : NULL;
+	int *prev_sib = has_skeleton ? MALLOC (n_bones * sizeof (int)) : NULL;
+	int *next_sib = has_skeleton ? MALLOC (n_bones * sizeof (int)) : NULL;
+	float (*bone_local)[12] = has_skeleton ? CALLOC (n_bones, sizeof (*bone_local)) : NULL;
+	float (*bone_world)[12] = has_skeleton ? CALLOC (n_bones, sizeof (*bone_world)) : NULL;
+	float (*bone_inv)[12] = has_skeleton ? CALLOC (n_bones, sizeof (*bone_inv)) : NULL;
+	int root_bone_idx = 0;
+
+	if (has_skeleton)
+	{
+		for (uint32_t i = 0; i < n_bones; i++)
+		{
+			first_child[i] = -1;
+			prev_sib[i] = -1;
+			next_sib[i] = -1;
+		}
+
+		for (uint32_t i = 0; i < n_bones; i++)
+		{
+			int p = model->joints[i].parent_idx;
+			if (p >= 0 && (uint32_t)p < n_bones)
+			{
+				if (first_child[p] == -1)
+					first_child[p] = (int)i;
+				else
+				{
+					int cur = first_child[p];
+					while (next_sib[cur] != -1)
+						cur = next_sib[cur];
+					next_sib[cur] = (int)i;
+					prev_sib[i] = cur;
+				}
+			}
+			else
+				root_bone_idx = (int)i;
+		}
+
+		for (uint32_t i = 0; i < n_bones; i++)
+		{
+			bc_joint_trs (bone_local[i], &model->joints[i]);
+			if (model->joints[i].has_inverse_bind)
+			{
+				memcpy (bone_world[i], model->joints[i].bind, 12 * sizeof (float));
+				memcpy (bone_inv[i], model->joints[i].inverse_bind, 12 * sizeof (float));
+			}
+			else
+			{
+				int p = model->joints[i].parent_idx;
+				if (p >= 0 && (uint32_t)p < n_bones)
+					bc_mul43 (bone_world[i], bone_world[p], bone_local[i]);
+				else
+					memcpy (bone_world[i], bone_local[i], 12 * sizeof (float));
+				bc_invert43 (bone_inv[i], bone_world[i]);
+			}
+		}
+	}
+
+	// Step 3: Build buffer with bb_t
+	bcres_buf_t bb;
+	bc_buf_init (&bb);
+
+	// 0x00: CGFX header (0x14)
+	bc_buf_reserve (&bb, 0x14);
+	// 0x14: DATA section header (8 bytes)
+	bc_buf_reserve (&bb, 8);
+	memcpy (bb.data + 0x14, "DATA", 4);
+
+	// 0x1C: 16 Dict slots table (16 * 8 = 128 = 0x80 bytes)
+	bc_buf_reserve (&bb, 0x80);
+
+	// Models DICT at 0x9C
+	size_t models_dict_off = bb.size;
+	bc_buf_reserve (&bb, 0x2C);
+	bc_w32 (&bb, 0x1C, 1); // count = 1
+	bc_rel_ptr (&bb, 0x20, models_dict_off);
+
+	// CMDL Object
+	size_t cmdl_off = bb.size;
+	size_t cmdl_size = has_skeleton ? 0xE4 : 0xE0;
+	bc_buf_reserve (&bb, cmdl_size);
+
+	bb.data[cmdl_off + 0] = has_skeleton ? 0x92 : 0x12;
+	bb.data[cmdl_off + 1] = 0x00;
+	bb.data[cmdl_off + 2] = 0x00;
+	bb.data[cmdl_off + 3] = 0x40;
+	memcpy (bb.data + cmdl_off + 4, "CMDL", 4);
+	bc_w32 (&bb, cmdl_off + 8, 0x09000000);
+	bc_w32 (&bb, cmdl_off + 0x18, 1); // BranchVisible
+	bc_w32 (&bb, cmdl_off + 0x1C, 1); // IsBranchVisible
+
+	bc_wf32 (&bb, cmdl_off + 0x30, 1.0f);
+	bc_wf32 (&bb, cmdl_off + 0x34, 1.0f);
+	bc_wf32 (&bb, cmdl_off + 0x38, 1.0f);
+	// 3x4 identity matrix for local transform
+	bc_wf32 (&bb, cmdl_off + 0x54, 1.0f);
+	bc_wf32 (&bb, cmdl_off + 0x68, 1.0f);
+	bc_wf32 (&bb, cmdl_off + 0x7C, 1.0f);
+	// 3x4 identity matrix for world transform
+	bc_wf32 (&bb, cmdl_off + 0x84, 1.0f);
+	bc_wf32 (&bb, cmdl_off + 0x98, 1.0f);
+	bc_wf32 (&bb, cmdl_off + 0xAC, 1.0f);
+
+	bc_w32 (&bb, cmdl_off + 0xB4, n_mesh);
+	bc_w32 (&bb, cmdl_off + 0xBC, n_mat);
+	bc_w32 (&bb, cmdl_off + 0xC4, n_mesh);
+	bc_w32 (&bb, cmdl_off + 0xD4, 1); // Flags = IsVisible
+
+	// Tables for mesh & shape pointers
+	size_t mesh_ptrs_table = bb.size;
+	bc_buf_reserve (&bb, n_mesh * 4);
+	bc_rel_ptr (&bb, cmdl_off + 0xB8, mesh_ptrs_table);
+
+	size_t shape_ptrs_table = bb.size;
+	bc_buf_reserve (&bb, n_mesh * 4);
+	bc_rel_ptr (&bb, cmdl_off + 0xC8, shape_ptrs_table);
+
+	// Materials DICT
+	size_t mat_dict_off = bb.size;
+	size_t mat_dict_size = (n_mat + 1) * 16 + 12;
+	bc_buf_reserve (&bb, mat_dict_size);
+	bc_rel_ptr (&bb, cmdl_off + 0xC0, mat_dict_off);
+
+	// Material objects (MTOB)
+	size_t *mtob_off = CALLOC (n_mat, sizeof (size_t));
+	for (uint32_t mi = 0; mi < n_mat; mi++)
+	{
+		mtob_off[mi] = bb.size;
+		int num_tex = (model->materials && mi < model->num_materials)
+			? model->materials[mi].num_textures : 0;
+		if (num_tex > 8)
+			num_tex = 8;
+		size_t mtob_size = 0x80 + num_tex * 0x30;
+		bc_buf_reserve (&bb, mtob_size);
+
+		size_t mo = mtob_off[mi];
+		bc_w32 (&bb, mo + 0x00, 0x08000000);
+		memcpy (bb.data + mo + 0x04, "MTOB", 4);
+		bc_w32 (&bb, mo + 0x08, 0x06000003);
+		bc_w32 (&bb, mo + 0x18, (uint32_t)num_tex);
+
+		float amb[3] = { 0.2f, 0.2f, 0.2f };
+		float diff[4] = { 0.8f, 0.8f, 0.8f, 1.0f };
+		float spec[3] = { 0.0f, 0.0f, 0.0f };
+		if (model->materials && mi < model->num_materials)
+		{
+			if (model->materials[mi].ambient[0] || model->materials[mi].ambient[1]
+				|| model->materials[mi].ambient[2])
+			{
+				amb[0] = model->materials[mi].ambient[0];
+				amb[1] = model->materials[mi].ambient[1];
+				amb[2] = model->materials[mi].ambient[2];
+			}
+			if (model->materials[mi].diffuse[0] || model->materials[mi].diffuse[1]
+				|| model->materials[mi].diffuse[2] || model->materials[mi].diffuse[3])
+			{
+				diff[0] = model->materials[mi].diffuse[0];
+				diff[1] = model->materials[mi].diffuse[1];
+				diff[2] = model->materials[mi].diffuse[2];
+				diff[3] = model->materials[mi].diffuse[3];
+			}
+			if (model->materials[mi].specular[0] || model->materials[mi].specular[1]
+				|| model->materials[mi].specular[2])
+			{
+				spec[0] = model->materials[mi].specular[0];
+				spec[1] = model->materials[mi].specular[1];
+				spec[2] = model->materials[mi].specular[2];
+			}
+		}
+		bc_wf32 (&bb, mo + 0x24, amb[0]);
+		bc_wf32 (&bb, mo + 0x28, amb[1]);
+		bc_wf32 (&bb, mo + 0x2C, amb[2]);
+		bc_wf32 (&bb, mo + 0x30, diff[0]);
+		bc_wf32 (&bb, mo + 0x34, diff[1]);
+		bc_wf32 (&bb, mo + 0x38, diff[2]);
+		bc_wf32 (&bb, mo + 0x3C, diff[3]);
+		bc_wf32 (&bb, mo + 0x40, spec[0]);
+		bc_wf32 (&bb, mo + 0x44, spec[1]);
+		bc_wf32 (&bb, mo + 0x48, spec[2]);
+		bc_wf32 (&bb, mo + 0x4C, 1.0f);
+		bc_wf32 (&bb, mo + 0x5C, 1.0f);
+		bc_wf32 (&bb, mo + 0x6C, 1.0f);
+
+		for (int t = 0; t < num_tex; t++)
+		{
+			size_t txo = mo + 0x80 + t * 0x30;
+			bc_w32 (&bb, txo + 0x00, 0x20000004);
+			memcpy (bb.data + txo + 0x04, "TXOB", 4);
+			bc_w32 (&bb, txo + 0x08, 0x05000000);
+			bc_w32 (&bb, txo + 0x20, 0x80000000);
+			bc_w32 (&bb, txo + 0x24, 0xFFFFFF90);
+			bc_w32 (&bb, txo + 0x28, 1);
+		}
+	}
+
+	// Meshes (GfxMesh)
+	size_t *mesh_off = CALLOC (n_mesh, sizeof (size_t));
+	for (uint32_t m = 0; m < n_mesh; m++)
+	{
+		mesh_off[m] = bb.size;
+		bc_buf_reserve (&bb, 0x30);
+		bc_rel_ptr (&bb, mesh_ptrs_table + m * 4, mesh_off[m]);
+
+		size_t mo = mesh_off[m];
+		bc_w32 (&bb, mo + 0x00, 0x01000000); // CGFX_TC_MESH
+		memcpy (bb.data + mo + 0x04, "SOBJ", 4);
+		bc_w32 (&bb, mo + 0x18, m); // ShapeIndex
+		int mat_idx = model->meshes[m].material_idx;
+		if (mat_idx < 0 || (uint32_t)mat_idx >= n_mat)
+			mat_idx = 0;
+		bc_w32 (&bb, mo + 0x1C, (uint32_t)mat_idx);
+		bc_rel_ptr (&bb, mo + 0x20, cmdl_off); // Parent back-pointer to CMDL!
+		bc_w32 (&bb, mo + 0x24, 0x00010001); // Visible = 1
+	}
+
+	// Shapes (GfxShape)
+	size_t *shape_off = CALLOC (n_mesh, sizeof (size_t));
+	size_t *bbox_off = CALLOC (n_mesh, sizeof (size_t));
+	size_t *submesh_tbl_off = CALLOC (n_mesh, sizeof (size_t));
+	size_t *submesh_off = CALLOC (n_mesh, sizeof (size_t));
+	size_t *face_tbl_off = CALLOC (n_mesh, sizeof (size_t));
+	size_t *face_off = CALLOC (n_mesh, sizeof (size_t));
+	size_t *fd_tbl_off = CALLOC (n_mesh, sizeof (size_t));
+	size_t *fd_off = CALLOC (n_mesh, sizeof (size_t));
+	size_t *vb_tbl_off = CALLOC (n_mesh, sizeof (size_t));
+	size_t *vb_off = CALLOC (n_mesh, sizeof (size_t));
+	size_t *attr_tbl_off = CALLOC (n_mesh, sizeof (size_t));
+	size_t (*attr_off)[3] = CALLOC (n_mesh, sizeof (*attr_off));
+
+	for (uint32_t m = 0; m < n_mesh; m++)
+	{
+		shape_off[m] = bb.size;
+		bc_buf_reserve (&bb, 0x48);
+		bc_rel_ptr (&bb, shape_ptrs_table + m * 4, shape_off[m]);
+
+		size_t so = shape_off[m];
+		bc_w32 (&bb, so + 0x00, 0x10000001); // CGFX_TC_SHAPE
+		memcpy (bb.data + so + 0x04, "SOBJ", 4);
+		bc_w32 (&bb, so + 0x2C, 1); // n_sub = 1
+		bc_w32 (&bb, so + 0x38, 1); // n_vb = 1
+
+		// BoundingBox
+		bbox_off[m] = bb.size;
+		bc_buf_reserve (&bb, 0x3C);
+		bc_rel_ptr (&bb, so + 0x1C, bbox_off[m]);
+
+		const mesh_t *mesh = &model->meshes[m];
+		float min_x = 1e30f, min_y = 1e30f, min_z = 1e30f;
+		float max_x = -1e30f, max_y = -1e30f, max_z = -1e30f;
+		size_t num_v = mesh->num_positions > 0 ? mesh->num_positions : mesh->num_vertices;
+		for (size_t vi = 0; vi < num_v && mesh->positions; vi++)
+		{
+			float x = mesh->positions[vi].x;
+			float y = mesh->positions[vi].y;
+			float z = mesh->positions[vi].z;
+			if (x < min_x) min_x = x;
+			if (x > max_x) max_x = x;
+			if (y < min_y) min_y = y;
+			if (y > max_y) max_y = y;
+			if (z < min_z) min_z = z;
+			if (z > max_z) max_z = z;
+		}
+		if (min_x > max_x)
+		{
+			min_x = min_y = min_z = -1.0f;
+			max_x = max_y = max_z = 1.0f;
+		}
+		bc_wf32 (&bb, bbox_off[m] + 0x00, (min_x + max_x) * 0.5f);
+		bc_wf32 (&bb, bbox_off[m] + 0x04, (min_y + max_y) * 0.5f);
+		bc_wf32 (&bb, bbox_off[m] + 0x08, (min_z + max_z) * 0.5f);
+		bc_wf32 (&bb, bbox_off[m] + 0x0C, 1.0f);
+		bc_wf32 (&bb, bbox_off[m] + 0x1C, 1.0f);
+		bc_wf32 (&bb, bbox_off[m] + 0x2C, 1.0f);
+		bc_wf32 (&bb, bbox_off[m] + 0x30, (max_x - min_x) > 0 ? (max_x - min_x) : 1.0f);
+		bc_wf32 (&bb, bbox_off[m] + 0x34, (max_y - min_y) > 0 ? (max_y - min_y) : 1.0f);
+		bc_wf32 (&bb, bbox_off[m] + 0x38, (max_z - min_z) > 0 ? (max_z - min_z) : 1.0f);
+
+		// SubMesh table & SubMesh
+		submesh_tbl_off[m] = bb.size;
+		bc_buf_reserve (&bb, 4);
+		bc_rel_ptr (&bb, so + 0x30, submesh_tbl_off[m]);
+
+		submesh_off[m] = bb.size;
+		bc_buf_reserve (&bb, 0x20);
+		bc_rel_ptr (&bb, submesh_tbl_off[m], submesh_off[m]);
+		bc_w32 (&bb, submesh_off[m] + 0x00, has_skeleton ? 2 : 0);
+		bc_w32 (&bb, submesh_off[m] + 0x0C, 1); // nf = 1
+
+		// Face table & Face
+		face_tbl_off[m] = bb.size;
+		bc_buf_reserve (&bb, 4);
+		bc_rel_ptr (&bb, submesh_off[m] + 0x10, face_tbl_off[m]);
+
+		face_off[m] = bb.size;
+		bc_buf_reserve (&bb, 8);
+		bc_rel_ptr (&bb, face_tbl_off[m], face_off[m]);
+		bc_w32 (&bb, face_off[m] + 0x00, 1); // nfd = 1
+
+		// FaceDescriptor table & FaceDescriptor
+		fd_tbl_off[m] = bb.size;
+		bc_buf_reserve (&bb, 4);
+		bc_rel_ptr (&bb, face_off[m] + 0x04, fd_tbl_off[m]);
+
+		fd_off[m] = bb.size;
+		bc_buf_reserve (&bb, 0x2C);
+		bc_rel_ptr (&bb, fd_tbl_off[m], fd_off[m]);
+		bc_w32 (&bb, fd_off[m] + 0x00, 0x1403); // GL_UNSIGNED_SHORT_
+		bc_w32 (&bb, fd_off[m] + 0x04, 0x00000100);
+		uint32_t total_idx = (uint32_t)mesh->num_vertices;
+		bc_w32 (&bb, fd_off[m] + 0x08, total_idx * 2); // ilen
+
+		// VertexBuffer table & VertexBuffer
+		vb_tbl_off[m] = bb.size;
+		bc_buf_reserve (&bb, 4);
+		bc_rel_ptr (&bb, so + 0x3C, vb_tbl_off[m]);
+
+		vb_off[m] = bb.size;
+		bc_buf_reserve (&bb, 0x30);
+		bc_rel_ptr (&bb, vb_tbl_off[m], vb_off[m]);
+		bc_w32 (&bb, vb_off[m] + 0x00, 0x40000002); // CGFX_TC_INTERLEAVED
+		bc_w32 (&bb, vb_off[m] + 0x14, total_idx * 32); // rawlen
+		bc_w32 (&bb, vb_off[m] + 0x24, 32); // vstride = 32
+		bc_w32 (&bb, vb_off[m] + 0x28, 3); // na = 3
+
+		// Attribute table & Attributes
+		attr_tbl_off[m] = bb.size;
+		bc_buf_reserve (&bb, 3 * 4);
+		bc_rel_ptr (&bb, vb_off[m] + 0x2C, attr_tbl_off[m]);
+
+		for (int a = 0; a < 3; a++)
+		{
+			attr_off[m][a] = bb.size;
+			bc_buf_reserve (&bb, 0x34);
+			bc_rel_ptr (&bb, attr_tbl_off[m] + a * 4, attr_off[m][a]);
+
+			size_t ao = attr_off[m][a];
+			bc_w32 (&bb, ao + 0x00, 0x40000001); // CGFX_TC_ATTRIBUTE
+			bc_w32 (&bb, ao + 0x24, 0x1406); // GL_FLOAT
+			bc_wf32 (&bb, ao + 0x2C, 1.0f); // scale = 1.0f
+			if (a == 0)
+			{
+				bc_w32 (&bb, ao + 0x04, 0); // Position
+				bc_w32 (&bb, ao + 0x28, 3); // elements
+				bc_w32 (&bb, ao + 0x30, 0); // offset
+			}
+			else if (a == 1)
+			{
+				bc_w32 (&bb, ao + 0x04, 1); // Normal
+				bc_w32 (&bb, ao + 0x28, 3); // elements
+				bc_w32 (&bb, ao + 0x30, 12); // offset
+			}
+			else
+			{
+				bc_w32 (&bb, ao + 0x04, 4); // TexCoord0
+				bc_w32 (&bb, ao + 0x28, 2); // elements
+				bc_w32 (&bb, ao + 0x30, 24); // offset
+			}
+		}
+	}
+
+	// Skeleton (SOBJ) & Bones
+	size_t sobj_off = 0;
+	size_t bones_dict_off = 0;
+	size_t *bone_off = has_skeleton ? CALLOC (n_bones, sizeof (size_t)) : NULL;
+
+	if (has_skeleton)
+	{
+		sobj_off = bb.size;
+		bc_buf_reserve (&bb, 0x2C);
+		bc_rel_ptr (&bb, cmdl_off + 0xE0, sobj_off);
+
+		bc_w32 (&bb, sobj_off + 0x00, 0x02000000);
+		memcpy (bb.data + sobj_off + 0x04, "SOBJ", 4);
+		bc_w32 (&bb, sobj_off + 0x18, n_bones);
+		bc_w32 (&bb, sobj_off + 0x24, 1); // ScalingRule = Standard
+		bc_w32 (&bb, sobj_off + 0x28, 2); // Flags = IsTranslationAnimEnabled
+
+		bones_dict_off = bb.size;
+		size_t bones_dict_size = (n_bones + 1) * 16 + 12;
+		bc_buf_reserve (&bb, bones_dict_size);
+		bc_rel_ptr (&bb, sobj_off + 0x1C, bones_dict_off);
+
+		for (uint32_t bi = 0; bi < n_bones; bi++)
+		{
+			bone_off[bi] = bb.size;
+			bc_buf_reserve (&bb, 0xE0);
+		}
+
+		// RootBone pointer in SOBJ!
+		bc_rel_ptr (&bb, sobj_off + 0x20, bone_off[root_bone_idx]);
+
+		for (uint32_t bi = 0; bi < n_bones; bi++)
+		{
+			size_t bo = bone_off[bi];
+			bc_w32 (&bb, bo + 0x04, 0x19F);
+			bc_w32 (&bb, bo + 0x08, bi);
+			int p_idx = model->joints[bi].parent_idx;
+			bc_w32 (&bb, bo + 0x0C, (uint32_t)p_idx);
+
+			if (p_idx >= 0 && (uint32_t)p_idx < n_bones)
+				bc_rel_ptr (&bb, bo + 0x10, bone_off[p_idx]);
+			if (first_child[bi] >= 0)
+				bc_rel_ptr (&bb, bo + 0x14, bone_off[first_child[bi]]);
+			if (prev_sib[bi] >= 0)
+				bc_rel_ptr (&bb, bo + 0x18, bone_off[prev_sib[bi]]);
+			if (next_sib[bi] >= 0)
+				bc_rel_ptr (&bb, bo + 0x1C, bone_off[next_sib[bi]]);
+
+			float sx = model->joints[bi].scale.x != 0.0f ? model->joints[bi].scale.x : 1.0f;
+			float sy = model->joints[bi].scale.y != 0.0f ? model->joints[bi].scale.y : 1.0f;
+			float sz = model->joints[bi].scale.z != 0.0f ? model->joints[bi].scale.z : 1.0f;
+			bc_wf32 (&bb, bo + 0x20, sx);
+			bc_wf32 (&bb, bo + 0x24, sy);
+			bc_wf32 (&bb, bo + 0x28, sz);
+
+			// Rotate in radians
+			bc_wf32 (&bb, bo + 0x2C, model->joints[bi].rotate.x * ((float)M_PI / 180.0f));
+			bc_wf32 (&bb, bo + 0x30, model->joints[bi].rotate.y * ((float)M_PI / 180.0f));
+			bc_wf32 (&bb, bo + 0x34, model->joints[bi].rotate.z * ((float)M_PI / 180.0f));
+
+			bc_wf32 (&bb, bo + 0x38, model->joints[bi].translate.x);
+			bc_wf32 (&bb, bo + 0x3C, model->joints[bi].translate.y);
+			bc_wf32 (&bb, bo + 0x40, model->joints[bi].translate.z);
+
+			for (int m = 0; m < 12; m++)
+				bc_wf32 (&bb, bo + 0x44 + m * 4, bone_local[bi][m]);
+			for (int m = 0; m < 12; m++)
+				bc_wf32 (&bb, bo + 0x74 + m * 4, bone_world[bi][m]);
+			for (int m = 0; m < 12; m++)
+				bc_wf32 (&bb, bo + 0xA4 + m * 4, bone_inv[bi][m]);
+		}
+	}
+
+	// String table
+	bc_buf_align (&bb, 4);
+	size_t strtab_off = bb.size;
+	size_t spos = bc_buf_reserve (&bb, strpool.size);
+	memcpy (bb.data + spos, strpool.data, strpool.size);
+	bc_buf_align (&bb, 4);
+
+	size_t data_sec_end = bb.size;
+	size_t data_sec_len = data_sec_end - 0x14;
+	bc_w32 (&bb, 0x18, (uint32_t)data_sec_len);
+
+	// Connect string pointers
+	bc_rel_ptr (&bb, cmdl_off + 0x0C, strtab_off + model_name_str);
+	if (has_skeleton)
+		bc_rel_ptr (&bb, sobj_off + 0x0C, strtab_off + skeleton_name_str);
+
+	for (uint32_t m = 0; m < n_mesh; m++)
+	{
+		bc_rel_ptr (&bb, mesh_off[m] + 0x0C, strtab_off + mesh_name_str[m]);
+		bc_rel_ptr (&bb, shape_off[m] + 0x0C, strtab_off + shape_name_str[m]);
+	}
+
+	for (uint32_t mi = 0; mi < n_mat; mi++)
+	{
+		size_t mo = mtob_off[mi];
+		bc_rel_ptr (&bb, mo + 0x0C, strtab_off + mat_name_str[mi]);
+		int num_tex = (model->materials && mi < model->num_materials)
+			? model->materials[mi].num_textures : 0;
+		if (num_tex > 8)
+			num_tex = 8;
+		for (int t = 0; t < num_tex; t++)
+		{
+			size_t txo = mo + 0x80 + t * 0x30;
+			bc_rel_ptr (&bb, txo + 0x0C, strtab_off + mat_name_str[mi]);
+			bc_rel_ptr (&bb, txo + 0x18, strtab_off + tex_name_str[mi][t]);
+		}
+	}
+
+	if (has_skeleton)
+	{
+		for (uint32_t bi = 0; bi < n_bones; bi++)
+			bc_rel_ptr (&bb, bone_off[bi] + 0x00, strtab_off + bone_name_str[bi]);
+	}
+
+	// Build & write DICTs
+	// 1. Models DICT
+	bcres_patricia_node_t model_nodes[2];
+	memset (model_nodes, 0, sizeof (model_nodes));
+	model_nodes[0].ref_bit = 0xFFFFFFFF;
+	model_nodes[0].left = 1;
+	model_nodes[0].right = 0;
+	model_nodes[1].name = model_name;
+	model_nodes[1].ref_bit = (uint32_t)((strlen (model_name) << 3) - 1);
+	model_nodes[1].left = 0;
+	model_nodes[1].right = 1;
+	model_nodes[1].name_pool_off = model_name_str;
+	model_nodes[1].data_off = cmdl_off;
+	bc_write_dict (&bb, models_dict_off, model_nodes, 2, strtab_off);
+
+	// 2. Materials DICT
+	bcres_patricia_node_t *mat_nodes = CALLOC (n_mat + 1, sizeof (bcres_patricia_node_t));
+	for (uint32_t mi = 0; mi < n_mat; mi++)
+	{
+		mat_nodes[mi + 1].name = strpool.data + mat_name_str[mi];
+		mat_nodes[mi + 1].name_pool_off = mat_name_str[mi];
+		mat_nodes[mi + 1].data_off = mtob_off[mi];
+	}
+	bc_build_patricia_tree (mat_nodes, n_mat + 1);
+	bc_write_dict (&bb, mat_dict_off, mat_nodes, n_mat + 1, strtab_off);
+	FREE (mat_nodes);
+
+	// 3. Bones DICT
+	if (has_skeleton)
+	{
+		bcres_patricia_node_t *bone_nodes = CALLOC (n_bones + 1, sizeof (bcres_patricia_node_t));
+		for (uint32_t bi = 0; bi < n_bones; bi++)
+		{
+			bone_nodes[bi + 1].name = strpool.data + bone_name_str[bi];
+			bone_nodes[bi + 1].name_pool_off = bone_name_str[bi];
+			bone_nodes[bi + 1].data_off = bone_off[bi];
+		}
+		bc_build_patricia_tree (bone_nodes, n_bones + 1);
+		bc_write_dict (&bb, bones_dict_off, bone_nodes, n_bones + 1, strtab_off);
+		FREE (bone_nodes);
+	}
+
+	// Step 4: IMAG Section & Raw Buffers
+	size_t imag_sec_start = bb.size;
+	bc_buf_reserve (&bb, 8);
+	memcpy (bb.data + imag_sec_start, "IMAG", 4);
+
+	for (uint32_t m = 0; m < n_mesh; m++)
+	{
+		const mesh_t *mesh = &model->meshes[m];
+		uint32_t total_idx = (uint32_t)mesh->num_vertices;
+
+		// Raw index buffer
+		bc_buf_align (&bb, 4);
+		size_t raw_idx_off = bb.size;
+		bc_rel_ptr (&bb, fd_off[m] + 0x0C, raw_idx_off);
+
+		size_t idx_bytes = total_idx * 2;
+		size_t ipos = bc_buf_reserve (&bb, idx_bytes);
+		for (uint32_t v = 0; v < total_idx; v++)
+			bc_w16 (&bb, ipos + v * 2, (uint16_t)v);
+
+		// Raw vertex buffer
+		bc_buf_align (&bb, 4);
+		size_t raw_vtx_off = bb.size;
+		bc_rel_ptr (&bb, vb_off[m] + 0x18, raw_vtx_off);
+
+		size_t vtx_bytes = total_idx * 32;
+		size_t vpos = bc_buf_reserve (&bb, vtx_bytes);
+
+		for (uint32_t v = 0; v < total_idx; v++)
+		{
+			int pi = mesh->vertices ? mesh->vertices[v].position_idx : (int)v;
+			int ni = mesh->vertices ? mesh->vertices[v].normal_idx : (int)v;
+			int ti = mesh->vertices ? mesh->vertices[v].texcoord_idx : (int)v;
+
+			vec3_t p = (pi >= 0 && (size_t)pi < mesh->num_positions && mesh->positions)
+				? mesh->positions[pi] : (vec3_t){ 0, 0, 0 };
+			vec3_t n = (ni >= 0 && (size_t)ni < mesh->num_normals && mesh->normals)
+				? mesh->normals[ni] : (vec3_t){ 0, 1.0f, 0 };
+			vec2_t uv = (ti >= 0 && (size_t)ti < mesh->num_texcoords && mesh->texcoords)
+				? mesh->texcoords[ti] : (vec2_t){ 0, 0 };
+
+			bc_wf32 (&bb, vpos + v * 32 + 0, p.x);
+			bc_wf32 (&bb, vpos + v * 32 + 4, p.y);
+			bc_wf32 (&bb, vpos + v * 32 + 8, p.z);
+			bc_wf32 (&bb, vpos + v * 32 + 12, n.x);
+			bc_wf32 (&bb, vpos + v * 32 + 16, n.y);
+			bc_wf32 (&bb, vpos + v * 32 + 20, n.z);
+			bc_wf32 (&bb, vpos + v * 32 + 24, uv.u);
+			bc_wf32 (&bb, vpos + v * 32 + 28, uv.v);
+		}
+	}
+
+	bc_buf_align (&bb, 4);
+	size_t imag_sec_end = bb.size;
+	size_t imag_sec_len = imag_sec_end - imag_sec_start;
+	bc_w32 (&bb, imag_sec_start + 4, (uint32_t)imag_sec_len);
+
+	// Finalize CGFX Header at 0x00
+	memcpy (bb.data, "CGFX", 4);
+	bc_w16 (&bb, 4, 0xFEFF);
+	bc_w16 (&bb, 6, 0x0014);
+	bc_w32 (&bb, 8, 0x05000000);
+	bc_w32 (&bb, 0x0C, (uint32_t)imag_sec_end); // file length
+	bc_w32 (&bb, 0x10, 2); // 2 sections: DATA and IMAG
+
+	// Clean up temp arrays
+	FREE (mesh_name_str);
+	FREE (shape_name_str);
+	FREE (mat_name_str);
+	FREE (tex_name_str);
+	if (bone_name_str) FREE (bone_name_str);
+	if (first_child) FREE (first_child);
+	if (prev_sib) FREE (prev_sib);
+	if (next_sib) FREE (next_sib);
+	if (bone_local) FREE (bone_local);
+	if (bone_world) FREE (bone_world);
+	if (bone_inv) FREE (bone_inv);
+	FREE (mtob_off);
+	FREE (mesh_off);
+	FREE (shape_off);
+	FREE (bbox_off);
+	FREE (submesh_tbl_off);
+	FREE (submesh_off);
+	FREE (face_tbl_off);
+	FREE (face_off);
+	FREE (fd_tbl_off);
+	FREE (fd_off);
+	FREE (vb_tbl_off);
+	FREE (vb_off);
+	FREE (attr_tbl_off);
+	FREE (attr_off);
+	if (bone_off) FREE (bone_off);
+	bc_strpool_free (&strpool);
+
+	*out_data = bb.data;
+	*out_size = bb.size;
+	return 1;
+}
+
+enumError EncodeModelToBCRES (const model_t *model, const char *out_path)
+{
+	if (!model || !model->num_meshes || !out_path)
+		return ERR_INVALID_DATA;
+
+	uint8_t *data = NULL;
+	size_t size = 0;
+	if (!CreateBCRES (model, &data, &size) || !data || !size)
+		return ERR_CANT_CREATE;
+
+	enumError rc = SaveFILE (out_path, 0, true, data, (uint)size, 0);
+	FREE (data);
+	return rc;
+}
+

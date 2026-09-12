@@ -720,6 +720,9 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 			&& (!strcasecmp (dest + dest_len - 4, ".glg")
 				|| !strcasecmp (dest + dest_len - 4, ".rlg"));
 		const bool is_bfres = dest_len > 6 && !strcasecmp (dest + dest_len - 6, ".bfres");
+		const bool is_bcres = (dest_len > 6 && !strcasecmp (dest + dest_len - 6, ".bcres"))
+			|| (dest_len > 5 && !strcasecmp (dest + dest_len - 5, ".cgfx"))
+			|| (dest_len > 6 && !strcasecmp (dest + dest_len - 6, ".bcmdl"));
 		const bool is_nud = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".nud");
 		const bool is_bnfm = dest_len > 5 && !strcasecmp (dest + dest_len - 5, ".bnfm");
 		const bool is_model_dest = is_dae || is_glb;
@@ -857,6 +860,17 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 									verbose > 0 ? "\n" : "", arg, dest);
 							continue;
 						}
+					}
+					if (is_bcres && (!opt_parent || !*opt_parent))
+					{
+						err = EncodeModelToBCRES (in_model, dest);
+						FreeModel (in_model);
+						if (err > ERR_WARNING)
+							ERROR0 (err, "Failed to encode BCRES: %s\n", dest);
+						else if (verbose >= 0)
+							fprintf (stdlog, "%sENCODE BCRES:%s -> %s\n",
+								verbose > 0 ? "\n" : "", arg, dest);
+						continue;
 					}
 
 					char parent_path[PATH_MAX] = "";
