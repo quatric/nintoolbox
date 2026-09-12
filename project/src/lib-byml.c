@@ -504,6 +504,131 @@ static enumError byml_print_node (
 	return ERR_OK;
 }
 
+// Build a YAML document and let LibYAML serialize it.  Keeping the document
+// construction here (rather than formatting YAML ourselves) means strings,
+// keys, escaping, and nested collections are always emitted as valid YAML.
+static int byml_yaml_string (yaml_document_t *doc, const char *str)
+{
+	if (!str)
+		str = "";
+	if (is_valid_utf8(str))
+		return yaml_document_add_scalar(doc,(yaml_char_t *)YAML_STR_TAG,
+			(const yaml_char_t *)str,-1,YAML_DOUBLE_QUOTED_SCALAR_STYLE);
+
+	// YAML requires UTF-8. Preserve invalid BYML bytes as the decoder's
+	// reversible literal \\xNN representation before passing them to LibYAML.
+	size_t len = strlen(str);
+	char *escaped = CALLOC(1,len*4+1), *dest = escaped;
+	for (const u8 *src = (const u8 *)str; *src; src++)
+		if (*src < 0x20 || *src >= 0x80)
+		{
+			snprintf(dest,5,"\\x%02x",*src);
+			dest += 4;
+		}
+		else
+			*dest++ = *src;
+	int node = yaml_document_add_scalar(doc,(yaml_char_t *)YAML_STR_TAG,
+		(const yaml_char_t *)escaped,-1,YAML_DOUBLE_QUOTED_SCALAR_STYLE);
+	FREE(escaped);
+	return node;
+}
+
+static int byml_yaml_scalar (yaml_document_t *doc, const char *tag, const char *value)
+{
+	return yaml_document_add_scalar(doc,(yaml_char_t *)tag,
+		(const yaml_char_t *)value,-1,YAML_PLAIN_SCALAR_STYLE);
+}
+
+static int byml_yaml_node (yaml_document_t *doc, byml_ctx_t *ctx, u8 type, u32 val, int depth)
+{
+	char buf[80];
+	if (depth > 128)
+		return byml_yaml_string(doc,"<BYML nesting limit>");
+	switch (type)
+	{
+		case 0xa0: case 0x20:
+			return byml_yaml_string(doc,val < ctx->n_strings && ctx->strings[val] ? ctx->strings[val] : "");
+		case 0xa1: case 0x21:
+			snprintf(buf,sizeof(buf),"<blob_idx_%u>",val);
+			return byml_yaml_string(doc,buf);
+		case 0xd0: return byml_yaml_scalar(doc,YAML_BOOL_TAG,val ? "true" : "false");
+		case 0xd1:
+			snprintf(buf,sizeof(buf),"%d",(int32_t)val);
+			return byml_yaml_scalar(doc,YAML_INT_TAG,buf);
+		case 0xd2:
+			snprintf(buf,sizeof(buf),"%u",val);
+			return byml_yaml_scalar(doc,YAML_INT_TAG,buf);
+		case 0xd3:
+		{
+			float f;
+			memcpy(&f,&val,sizeof(f));
+			if (isnan(f)) return byml_yaml_scalar(doc,YAML_FLOAT_TAG,".nan");
+			if (isinf(f)) return byml_yaml_scalar(doc,YAML_FLOAT_TAG,f < 0 ? "-.inf" : ".inf");
+			snprintf(buf,sizeof(buf),"%.8g",f);
+			if (!strchr(buf,'.') && !strchr(buf,'e') && !strchr(buf,'E')) strcat(buf,".0");
+			return byml_yaml_scalar(doc,YAML_FLOAT_TAG,buf);
+		}
+		case 0xd4:
+			snprintf(buf,sizeof(buf),"%lld",val+8 <= ctx->size ? (long long)byml_u64(ctx->data+val,ctx->is_le) : 0ll);
+			return byml_yaml_scalar(doc,YAML_INT_TAG,buf);
+		case 0xd5:
+			snprintf(buf,sizeof(buf),"%llu",val+8 <= ctx->size ? (unsigned long long)byml_u64(ctx->data+val,ctx->is_le) : 0ull);
+			return byml_yaml_scalar(doc,YAML_INT_TAG,buf);
+		case 0xd6:
+		{
+			double d = 0.0;
+			if (val+8 <= ctx->size)
+			{
+				u64 u = byml_u64(ctx->data+val,ctx->is_le);
+				memcpy(&d,&u,sizeof(d));
+			}
+			if (isnan(d)) return byml_yaml_scalar(doc,YAML_FLOAT_TAG,".nan");
+			if (isinf(d)) return byml_yaml_scalar(doc,YAML_FLOAT_TAG,d < 0 ? "-.inf" : ".inf");
+			snprintf(buf,sizeof(buf),"%.16g",d);
+			if (!strchr(buf,'.') && !strchr(buf,'e') && !strchr(buf,'E')) strcat(buf,".0");
+			return byml_yaml_scalar(doc,YAML_FLOAT_TAG,buf);
+		}
+		case 0xff: return byml_yaml_scalar(doc,YAML_NULL_TAG,"null");
+	}
+	if (type != 0xc0 && type != 0xc1)
+	{
+		snprintf(buf,sizeof(buf),"<unknown_0x%02x_%u>",type,val);
+		return byml_yaml_string(doc,buf);
+	}
+
+	int node = type == 0xc0
+		? yaml_document_add_sequence(doc,(yaml_char_t *)YAML_SEQ_TAG,YAML_BLOCK_SEQUENCE_STYLE)
+		: yaml_document_add_mapping(doc,(yaml_char_t *)YAML_MAP_TAG,YAML_BLOCK_MAPPING_STYLE);
+	if (!node || val+4 > ctx->size || ctx->data[val] != type || byml_is_visited(ctx,val))
+		return node;
+	uint count = byml_u24(ctx->data+val+1,ctx->is_le);
+	if (type == 0xc0 && (val+4+count > ctx->size || val+4+((count+3)&~3)+count*4 > ctx->size)) count=0;
+	if (type == 0xc1 && val+4+count*8 > ctx->size) count=0;
+	if (ctx->visited_depth >= sizeof(ctx->visited_stack)/sizeof(*ctx->visited_stack)) return node;
+	ctx->visited_stack[ctx->visited_depth++] = val;
+	if (type == 0xc0)
+	{
+		const u8 *tags = ctx->data+val+4;
+		u32 vals = val+4+((count+3)&~3);
+		for (uint i=0; i<count; i++)
+		{
+			int item=byml_yaml_node(doc,ctx,tags[i],byml_u32(ctx->data+vals+i*4,ctx->is_le),depth+1);
+			if (!item || !yaml_document_append_sequence_item(doc,node,item)) { ctx->visited_depth--; return 0; }
+		}
+	}
+	else for (uint i=0; i<count; i++)
+	{
+		const u8 *entry=ctx->data+val+4+i*8;
+		uint key=byml_u24(entry,ctx->is_le);
+		snprintf(buf,sizeof(buf),"key_%u",key);
+		int k=byml_yaml_string(doc,key < ctx->n_hash_keys && ctx->hash_keys[key] ? ctx->hash_keys[key] : buf);
+		int item=byml_yaml_node(doc,ctx,entry[3],byml_u32(entry+4,ctx->is_le),depth+1);
+		if (!k || !item || !yaml_document_append_mapping_pair(doc,node,k,item)) { ctx->visited_depth--; return 0; }
+	}
+	ctx->visited_depth--;
+	return node;
+}
+
 enumError DecodeBYML_YAML (FILE *out, const u8 *data, size_t size)
 {
 	if (!out || !data || size < 16)
@@ -541,14 +666,35 @@ enumError DecodeBYML_YAML (FILE *out, const u8 *data, size_t size)
 		return err;
 	}
 
-	if (root_node_off < size)
-	{
-		u8 root_tag = data[root_node_off];
-		err = byml_print_node (out, &ctx, root_tag, root_node_off, 0, 0);
-	}
+	yaml_document_t document;
+	if (!yaml_document_initialize(&document,0,0,0,1,1))
+		err = ERR_OUT_OF_MEMORY;
 	else
 	{
-		fprintf (out, "{}\n");
+		int root = root_node_off < size
+			? byml_yaml_node(&document,&ctx,data[root_node_off],root_node_off,0)
+			: yaml_document_add_mapping(&document,(yaml_char_t *)YAML_MAP_TAG,YAML_BLOCK_MAPPING_STYLE);
+		if (!root)
+		{
+			yaml_document_delete(&document);
+			err = ERR_OUT_OF_MEMORY;
+		}
+		else
+		{
+			yaml_emitter_t emitter;
+			if (!yaml_emitter_initialize(&emitter))
+			{
+				yaml_document_delete(&document);
+				err = ERR_OUT_OF_MEMORY;
+			}
+			else
+			{
+				yaml_emitter_set_output_file(&emitter,out);
+				if (!yaml_emitter_dump(&emitter,&document))
+					err = ERR_WRITE_FAILED;
+				yaml_emitter_delete(&emitter);
+			}
+		}
 	}
 
 	FREE (ctx.hash_keys);
@@ -1019,6 +1165,22 @@ static void yaml_eval_scalar (const char *s, bf_val_t *val)
 	val->u.s = STRDUP (s);
 }
 
+static void yaml_eval_node (const yaml_node_t *node, bf_val_t *val)
+{
+	const char *value = node && node->type == YAML_SCALAR_NODE
+		? (const char *)node->data.scalar.value : "";
+	// The parser has already resolved quotes and escapes.  Its tag is the
+	// authoritative type information: a quoted "true" is a YAML string, not a
+	// boolean to be guessed again from its text.
+	if (node && node->tag && !strcmp((const char *)node->tag,YAML_STR_TAG))
+	{
+		val->type = BF_T_STR;
+		val->u.s = STRDUP(value);
+		return;
+	}
+	yaml_eval_scalar(value,val);
+}
+
 #include <yaml.h>
 
 static enumError fill_bf_node_from_yaml (yaml_document_t *doc, int node_id, bf_node_t *out_dict);
@@ -1040,7 +1202,7 @@ static enumError fill_bf_list_from_yaml (yaml_document_t *doc, int node_id, bf_l
 		if (item_node->type == YAML_SCALAR_NODE)
 		{
 			bf_val_t sval;
-			yaml_eval_scalar ((const char *)item_node->data.scalar.value, &sval);
+			yaml_eval_node (item_node, &sval);
 			if (sval.type == BF_T_STR)
 			{
 				BFListAddStr (out_list, sval.u.s);
@@ -1099,7 +1261,7 @@ static enumError fill_bf_node_from_yaml (yaml_document_t *doc, int node_id, bf_n
 		if (val_node->type == YAML_SCALAR_NODE)
 		{
 			bf_val_t sval;
-			yaml_eval_scalar ((const char *)val_node->data.scalar.value, &sval);
+			yaml_eval_node (val_node, &sval);
 			if (sval.type == BF_T_STR)
 			{
 				BFNodeSetStr (out_dict, key_str, sval.u.s);

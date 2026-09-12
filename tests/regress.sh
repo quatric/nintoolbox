@@ -1966,10 +1966,11 @@ t_byml(){
   local d; d=$(mktemp -d)
   cp "$f" "$d/input.byml"
   if "$B/wszst" XX "$d/input.byml" --overwrite >/dev/null 2>&1 \
-  && [ -s "$d/input.byml.yml" ]; then
-    ok "BYML XX -> .yml sidecar"
+  && [ -s "$d/input.byml.yml" ] \
+  && python3 -c "import yaml; yaml.safe_load(open('$d/input.byml.yml', encoding='utf-8'))" 2>/dev/null; then
+    ok "BYML XX -> valid .yml sidecar"
   else
-    no "BYML XX -> .yml sidecar" "$f"
+    no "BYML XX -> valid .yml sidecar" "$f"
   fi
 }
 t_byml
