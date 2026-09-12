@@ -1279,6 +1279,29 @@ static enumError create_mdr_dir (ccp source, ccp dest)
 	return err;
 }
 
+static enumError create_vff_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+	u8 *data = 0;
+	uint size = 0;
+	if (!err)
+		err = CreateVFFArchive (&data, &size, list.entry, list.used);
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, source);
+		if (F.f && fwrite (data, 1, size, F.f) != size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+
 static enumError create_pvol_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -3553,6 +3576,8 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest)
 		return create_ztab_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".mdr"))
 		return create_mdr_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".vff"))
+		return create_vff_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".pvol"))
 		return create_pvol_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".stpk") || !strcasecmp (ext, ".srd"))
@@ -3674,8 +3699,8 @@ static const char *cand_archive_exts[] = { ".wbfs", ".iso", ".ciso", ".wdf", ".w
 	".rpx", ".rpl", ".nsp", ".xci", ".nca", ".szs", ".carc", ".arc", ".brres", ".sarc", ".narc",
 	".darc", ".pac", ".pcs", ".gfa", ".rarc", ".warc", ".bcsar", ".bfsar", ".bcwar", ".bfwar",
 	".bcgrp", ".bfgrp", ".rst", ".car", ".res", ".trk", ".lvl", ".wu8", ".wbz", ".wlz", ".bntx",
-	".bcres", ".bfres", ".bch", ".big", ".xc", ".xpck", ".ztab", ".tab", ".mdr", ".pvol", ".srd",
-	".stpk", ".zlarc", 0 };
+	".bcres", ".bfres", ".bch", ".big", ".xc", ".xpck", ".ztab", ".tab", ".mdr", ".vff", ".pvol",
+	".srd", ".stpk", ".zlarc", 0 };
 
 static bool is_archive_dir_name (ccp dir, size_t len)
 {

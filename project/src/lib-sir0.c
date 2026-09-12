@@ -65,6 +65,21 @@ enumError ExtractSIR0Archive (ccp arg, ccp basedir, uint depth)
 	if (!testmode && data_end > 0x10)
 		SaveFile (out_file, 0, 0, raw + 0x10, data_end - 0x10, 0);
 
+	// The bytes from pointer_offsets to EOF are the SIR0 pointer-offset
+	// table: a game-specific variable-length delta list of the pointer
+	// locations inside data.bin that need relocation, followed by 0xAA
+	// padding to the next 16-byte boundary. There is no generic way to
+	// re-derive this table from data.bin alone, so it is saved verbatim
+	// here and copied back unchanged by CreateSIR0Archive() -- that is
+	// what makes a retail SIR0 file byte-for-byte reproducible.
+	if (sub_end < raw_size)
+	{
+		char ptr_file[PATH_MAX];
+		snprintf (ptr_file, sizeof (ptr_file), "%s/pointers.bin", dest);
+		if (!testmode)
+			SaveFile (ptr_file, 0, 0, raw + sub_end, raw_size - sub_end, 0);
+	}
+
 	FREE (raw);
 	return ERR_OK;
 }
@@ -79,6 +94,7 @@ enumError CreateSIR0Archive (
 
 	const nintendo_sarc_entry_t *data_ent = 0;
 	const nintendo_sarc_entry_t *sub_ent = 0;
+	const nintendo_sarc_entry_t *ptr_ent = 0;
 
 	for (uint i = 0; i < n_entries; i++)
 	{
@@ -87,6 +103,8 @@ enumError CreateSIR0Archive (
 			data_ent = entries + i;
 		else if (!strcasecmp (name, "subheader.bin") || !strcasecmp (name, "subheader"))
 			sub_ent = entries + i;
+		else if (!strcasecmp (name, "pointers.bin") || !strcasecmp (name, "pointers"))
+			ptr_ent = entries + i;
 	}
 
 	if (!data_ent && n_entries >= 1)
@@ -96,10 +114,16 @@ enumError CreateSIR0Archive (
 
 	const u32 data_sz = data_ent ? data_ent->size : 0;
 	const u32 sub_sz = sub_ent ? sub_ent->size : 0;
+	const u32 ptr_sz = ptr_ent ? ptr_ent->size : 16;
 
 	const u32 sub_offset = 0x10 + data_sz;
 	const u32 pointer_offsets = sub_offset + sub_sz;
-	const u32 total = pointer_offsets + 16; // trailing padding/pointer table
+	// pointers.bin holds the exact pointer-offset table bytes captured by
+	// ExtractSIR0Archive(); writing it back verbatim (rather than
+	// re-deriving it) is what makes a retail archive byte-for-byte
+	// reproducible. Fall back to 16 zero bytes when absent (e.g. a
+	// hand-built data.bin/subheader.bin pair with no captured table).
+	const u32 total = pointer_offsets + ptr_sz;
 
 	u8 *buf = CALLOC (total, 1);
 	if (!buf)
@@ -114,6 +138,8 @@ enumError CreateSIR0Archive (
 		memcpy (buf + 0x10, data_ent->data, data_sz);
 	if (sub_ent && sub_ent->data && sub_sz)
 		memcpy (buf + sub_offset, sub_ent->data, sub_sz);
+	if (ptr_ent && ptr_ent->data && ptr_sz)
+		memcpy (buf + pointer_offsets, ptr_ent->data, ptr_sz);
 
 	*dest = buf;
 	*dest_size = total;

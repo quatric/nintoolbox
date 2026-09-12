@@ -419,6 +419,20 @@ static enumError cmd_create (bool create)
 			ResetSetupParam (&sp);
 			continue;
 		}
+		if (create && ext && !strcasecmp (ext, ".vff"))
+		{
+			enumError err = create_vff_dir (source_dir, dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE VFF %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", source_dir, dest);
+			if (max_err < err)
+				max_err = err;
+			if (err <= ERR_WARNING && src_len > 2 && !strcasecmp (source_dir + src_len - 2, ".d")
+				&& !testmode)
+				remove_dir_recursive (source_dir);
+			ResetSetupParam (&sp);
+			continue;
+		}
 		if (create && ext && !strcasecmp (ext, ".pvol"))
 		{
 			enumError err = create_pvol_dir (source_dir, dest);

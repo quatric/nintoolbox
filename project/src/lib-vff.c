@@ -26,8 +26,11 @@
 
 #include "lib-vff.h"
 #include "lib-std.h"
+#include "lib-archive-util.h"
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
+#include <stdlib.h>
 
 #define VFF_HEADER_SIZE 0x20
 #define VFF_ROOT_SIZE 0x1000
@@ -310,5 +313,298 @@ enumError ExtractVFFArchive (ccp arg, ccp basedir, uint depth)
 
 	if (!count)
 		return ERR_INVALID_DATA;
+	return ERR_OK;
+}
+
+
+// ----------------------------------------------------------------------------
+// VFF creation. Builds a minimal FAT12/FAT16 volume with no slack space: one
+// data cluster per file (plus one per directory's own 32-byte-entry table),
+// numbered contiguously from 2, so cluster_count is exactly "2 + clusters
+// used" and the physical file ends the moment the last cluster does -- the
+// same shape ExtractVFFArchive()/vff_open() already accept (a real VFF may
+// carry unused trailing clusters that are simply absent from the file, since
+// nothing ever reads a cluster that no chain points to).
+//
+// Long filenames are not supported (matching the extractor, which skips
+// 0x0f "long-name fragment" entries rather than reassembling them): a name's
+// base and extension are truncated to 8.3 and upper-cased.
+// ----------------------------------------------------------------------------
+
+typedef struct vff_node_t
+{
+	char name83[11]; // space-padded, not NUL-terminated
+	bool is_dir;
+	const u8 *data;
+	uint size;
+	struct vff_node_t **child;
+	uint n_child, cap_child;
+	uint start_cluster; // 0 == no chain (empty file, or not yet assigned)
+	uint n_cluster;
+
+} vff_node_t;
+
+static vff_node_t *vff_node_new (bool is_dir)
+{
+	vff_node_t *n = CALLOC (1, sizeof (*n));
+	n->is_dir = is_dir;
+	return n;
+}
+
+static void vff_node_free (vff_node_t *n)
+{
+	if (!n)
+		return;
+	for (uint i = 0; i < n->n_child; i++)
+		vff_node_free (n->child[i]);
+	FREE (n->child);
+	FREE (n);
+}
+
+static void vff_to_83 (ccp name, char *out11)
+{
+	memset (out11, ' ', 11);
+	ccp dot = strrchr (name, '.');
+	uint baselen = dot ? (uint)(dot - name) : (uint)strlen (name);
+	if (baselen > 8)
+		baselen = 8;
+	for (uint i = 0; i < baselen; i++)
+		out11[i] = toupper ((u8)name[i]);
+	if (dot)
+	{
+		ccp ext = dot + 1;
+		uint extlen = (uint)strlen (ext);
+		if (extlen > 3)
+			extlen = 3;
+		for (uint i = 0; i < extlen; i++)
+			out11[8 + i] = toupper ((u8)ext[i]);
+	}
+}
+
+// Find (or create, for directories) the child of "parent" named by the
+// first path component of "path", and recurse for the rest.
+static vff_node_t *vff_insert (vff_node_t *parent, ccp path, const u8 *data, uint size)
+{
+	ccp slash = strchr (path, '/');
+	const uint complen = slash ? (uint)(slash - path) : (uint)strlen (path);
+
+	char comp[PATH_MAX];
+	if (complen >= sizeof (comp))
+		return 0;
+	memcpy (comp, path, complen);
+	comp[complen] = 0;
+
+	vff_node_t *child = 0;
+	for (uint i = 0; i < parent->n_child; i++)
+	{
+		char n83[11];
+		vff_to_83 (comp, n83);
+		if (!memcmp (parent->child[i]->name83, n83, 11))
+		{
+			child = parent->child[i];
+			break;
+		}
+	}
+
+	if (!child)
+	{
+		child = vff_node_new (slash != 0);
+		vff_to_83 (comp, child->name83);
+		if (parent->n_child == parent->cap_child)
+		{
+			parent->cap_child = parent->cap_child ? parent->cap_child * 2 : 8;
+			parent->child = REALLOC (parent->child, parent->cap_child * sizeof (*parent->child));
+		}
+		parent->child[parent->n_child++] = child;
+	}
+
+	if (!slash)
+	{
+		child->data = data;
+		child->size = size;
+		return child;
+	}
+
+	child->is_dir = true;
+	return vff_insert (child, slash + 1, data, size);
+}
+
+// Bottom-up: a directory needs one cluster per (32 * n_child) bytes rounded
+// up; a file needs one cluster per cluster_size bytes rounded up (0 for an
+// empty file, which the extractor writes without ever walking a chain).
+static void vff_size_node (vff_node_t *n, uint cluster_size)
+{
+	if (n->is_dir)
+	{
+		for (uint i = 0; i < n->n_child; i++)
+			vff_size_node (n->child[i], cluster_size);
+		const uint tbl = n->n_child * 32;
+		n->n_cluster = tbl ? (tbl + cluster_size - 1) / cluster_size : 1;
+	}
+	else
+		n->n_cluster = n->size ? (n->size + cluster_size - 1) / cluster_size : 0;
+}
+
+// Assign contiguous cluster numbers (root's own children only need their
+// numbers; the root table itself is not cluster-chained, see below).
+static void vff_assign_clusters (vff_node_t *n, uint *next)
+{
+	if (n->n_cluster)
+	{
+		n->start_cluster = *next;
+		*next += n->n_cluster;
+	}
+	if (n->is_dir)
+		for (uint i = 0; i < n->n_child; i++)
+			vff_assign_clusters (n->child[i], next);
+}
+
+// Write one 32-byte directory entry for "n" into buf+pos.
+static void vff_write_entry (u8 *buf, vff_node_t *n)
+{
+	memcpy (buf, n->name83, 11);
+	buf[11] = n->is_dir ? 0x10 : 0x20; // directory / archive
+	// bytes 12..25 (reserved, time, date) stay zero
+	wr_le16 (buf + 26, (u16)n->start_cluster);
+	wr_le32 (buf + 28, n->is_dir ? 0 : n->size);
+}
+
+// Write a directory's own entry table (root: directly into the fixed root
+// area; subdirectory: into its already-allocated cluster chain).
+static void vff_write_dir_table (u8 *table, uint table_size, vff_node_t *n)
+{
+	memset (table, 0, table_size);
+	for (uint i = 0; i < n->n_child && i * 32 + 32 <= table_size; i++)
+		vff_write_entry (table + i * 32, n->child[i]);
+}
+
+static void vff_wr_fat (u8 *fat, uint fat_bits, uint idx, uint value)
+{
+	if (fat_bits == 16)
+	{
+		wr_le16 (fat + idx * 2, (u16)value);
+		return;
+	}
+	const uint off = (idx / 2) * 3;
+	if (idx & 1)
+	{
+		fat[off + 1] = (u8)((fat[off + 1] & 0x0f) | ((value & 0x0f) << 4));
+		fat[off + 2] = (u8)(value >> 4);
+	}
+	else
+	{
+		fat[off] = (u8)value;
+		fat[off + 1] = (u8)((fat[off + 1] & 0xf0) | ((value >> 8) & 0x0f));
+	}
+}
+
+// Write "n"'s own cluster chain (its directory table, or its file bytes)
+// into the data area, and its FAT links; then recurse into subdirectories.
+static void vff_write_node (
+	vff_node_t *n, u8 *fat, uint fat_bits, uint fat_eoc, u8 *data_area, uint cluster_size)
+{
+	if (n->n_cluster)
+	{
+		u8 *buf = 0;
+		if (n->is_dir)
+			buf = CALLOC (n->n_cluster, cluster_size);
+		for (uint c = 0; c < n->n_cluster; c++)
+		{
+			const uint cluster_no = n->start_cluster + c;
+			u8 *dst = data_area + (u64)(cluster_no - 2) * cluster_size;
+			if (n->is_dir)
+			{
+				if (c == 0)
+					vff_write_dir_table (buf, n->n_cluster * cluster_size, n);
+				memcpy (dst, buf + (u64)c * cluster_size, cluster_size);
+			}
+			else
+			{
+				const u64 off = (u64)c * cluster_size;
+				const uint want = off + cluster_size <= n->size ? cluster_size : (uint)(n->size - off);
+				memset (dst, 0, cluster_size);
+				memcpy (dst, n->data + off, want);
+			}
+			vff_wr_fat (fat, fat_bits, cluster_no,
+				c + 1 < n->n_cluster ? cluster_no + 1 : fat_eoc);
+		}
+		FREE (buf);
+	}
+
+	if (n->is_dir)
+		for (uint i = 0; i < n->n_child; i++)
+			vff_write_node (n->child[i], fat, fat_bits, fat_eoc, data_area, cluster_size);
+}
+
+enumError CreateVFFArchive (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	if (!dest || !dest_size || !entries || !n_entries)
+		return ERR_INVALID_DATA;
+
+	vff_node_t *root = vff_node_new (true);
+	for (uint i = 0; i < n_entries; i++)
+	{
+		ccp name = entries[i].name;
+		while (*name == '/')
+			name++;
+		if (!*name || !vff_insert (root, name, entries[i].data, entries[i].size))
+		{
+			vff_node_free (root);
+			return ERR_INVALID_DATA;
+		}
+	}
+
+	const uint cluster_size = 512;
+	for (uint i = 0; i < root->n_child; i++)
+		vff_size_node (root->child[i], cluster_size);
+
+	uint next_cluster = 2;
+	for (uint i = 0; i < root->n_child; i++)
+		vff_assign_clusters (root->child[i], &next_cluster);
+	const uint n_data_clusters = next_cluster - 2;
+
+	const uint cluster_count = next_cluster; // == 2 + n_data_clusters
+	const uint fat_bits = cluster_count > VFF_FAT12_LIMIT ? 16 : 12;
+	const uint fat_eoc = fat_bits == 16 ? 0xffff : 0xfff;
+	const uint raw_fat = fat_bits == 16 ? cluster_count * 2 : ((cluster_count + 1) / 2) * 3;
+	const uint fat_size = (raw_fat + cluster_size - 1) & ~(cluster_size - 1);
+
+	const uint head = VFF_HEADER_SIZE + 2 * fat_size + VFF_ROOT_SIZE;
+	const u64 total = (u64)head + (u64)n_data_clusters * cluster_size;
+	if (total > UINT_MAX)
+	{
+		vff_node_free (root);
+		return ERR_FILE_TOO_BIG;
+	}
+
+	u8 *buf = CALLOC ((uint)total, 1);
+	if (!buf)
+	{
+		vff_node_free (root);
+		return ERR_OUT_OF_MEMORY;
+	}
+
+	memcpy (buf, "VFF ", 4);
+	buf[4] = 0xfe;
+	buf[5] = 0xff; // big-endian byte-order mark
+	wr_be32 (buf + 8, cluster_count * cluster_size);
+	wr_be16 (buf + 12, (u16)(cluster_size / 16));
+
+	u8 *fat0 = buf + VFF_HEADER_SIZE;
+	u8 *fat1 = fat0 + fat_size;
+	u8 *root_area = fat1 + fat_size;
+	u8 *data_area = root_area + VFF_ROOT_SIZE;
+
+	vff_write_dir_table (root_area, VFF_ROOT_SIZE, root);
+	for (uint i = 0; i < root->n_child; i++)
+		vff_write_node (root->child[i], fat0, fat_bits, fat_eoc, data_area, cluster_size);
+
+	// The volume carries two identical copies of the FAT.
+	memcpy (fat1, fat0, fat_size);
+
+	vff_node_free (root);
+	*dest = buf;
+	*dest_size = (uint)total;
 	return ERR_OK;
 }

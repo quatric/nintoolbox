@@ -20,7 +20,7 @@
 // ----------------------------------------------------------------------------
 enumError ExtractMDRArchive (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext_match (arg, ".mdr"))
+	if (!is_ext_match (arg, ".mdr") && !is_ext_match (arg, ".bin"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;
@@ -76,22 +76,25 @@ enumError ExtractMDRArchive (ccp arg, ccp basedir, uint depth)
 		if (off + 16 + comp_sz > raw_size)
 			continue;
 
-		char out_path[PATH_MAX];
-		snprintf (out_path, sizeof (out_path), "%s/chunk_%02u_flags_%08x.bin", dest, i, flags);
-
 		if (!testmode)
 		{
 			u8 *decomp_data = 0;
 			uint decomp_sz = 0;
+			char out_path[PATH_MAX];
 			if (comp_sz > 0
 				&& DecodeZlibGrow (&decomp_data, &decomp_sz, raw + off + 16, comp_sz) == ERR_OK
 				&& decomp_data)
 			{
+				snprintf (out_path, sizeof (out_path), "%s/chunk_%02u_flags_%08x_zlib.bin", dest, i, flags);
 				SaveFile (out_path, 0, 0, decomp_data, decomp_sz, 0);
 				FREE (decomp_data);
 			}
 			else if (comp_sz > 0)
 			{
+				// Not valid zlib data -- the chunk is stored raw/uncompressed.
+				// Marked "_raw" so CreateMDRArchive() can store it back verbatim
+				// instead of zlib-compressing it, keeping retail files byte-exact.
+				snprintf (out_path, sizeof (out_path), "%s/chunk_%02u_flags_%08x_raw.bin", dest, i, flags);
 				SaveFile (out_path, 0, 0, raw + off + 16, comp_sz, 0);
 			}
 		}
@@ -135,31 +138,48 @@ enumError CreateMDRArchive (
 		if (fpos)
 			sscanf (fpos + 6, "%x", &flags[i]);
 
+		// "_raw" chunks came from a retail archive whose bytes were stored
+		// uncompressed (ExtractMDRArchive's zlib-decode fallback); store them
+		// back verbatim instead of zlib-compressing so the rebuild stays
+		// byte-exact against the original. Anything else is re-deflated.
+		const bool is_raw = strstr (name, "_raw.") != 0;
+
 		if (sorted[i].size > 0 && sorted[i].data)
 		{
-			uLongf bound = compressBound (sorted[i].size);
-			comp_chunks[i] = MALLOC (bound);
-			uLongf actual = bound;
-			if (compress (comp_chunks[i], &actual, sorted[i].data, sorted[i].size) == Z_OK)
+			if (is_raw)
 			{
-				comp_sizes[i] = (u32)actual;
+				comp_chunks[i] = MALLOC (sorted[i].size);
+				memcpy (comp_chunks[i], sorted[i].data, sorted[i].size);
+				comp_sizes[i] = sorted[i].size;
 			}
 			else
 			{
-				FREE (comp_chunks[i]);
-				comp_chunks[i] = 0;
-				comp_sizes[i] = 0;
+				uLongf bound = compressBound (sorted[i].size);
+				comp_chunks[i] = MALLOC (bound);
+				uLongf actual = bound;
+				if (compress (comp_chunks[i], &actual, sorted[i].data, sorted[i].size) == Z_OK)
+				{
+					comp_sizes[i] = (u32)actual;
+				}
+				else
+				{
+					FREE (comp_chunks[i]);
+					comp_chunks[i] = 0;
+					comp_sizes[i] = 0;
+				}
 			}
 		}
 	}
 
-	const u32 header_sz = (4 + n_entries * 4 + 15) & ~15;
+	// Chunks are only 2-byte (even) aligned in retail files (not 16),
+	// confirmed against the real DDR Mario Mix mgconst.mdr byte offsets.
+	const u32 header_sz = (4 + n_entries * 4 + 1) & ~1u;
 	u32 cur_off = header_sz;
 	u32 *chunk_ptrs = CALLOC (n_entries, sizeof (u32));
 	for (uint i = 0; i < n_entries; i++)
 	{
 		chunk_ptrs[i] = cur_off;
-		cur_off = (cur_off + 16 + comp_sizes[i] + 15) & ~15;
+		cur_off = (cur_off + 16 + comp_sizes[i] + 1) & ~1u;
 	}
 
 	u8 *buf = CALLOC (cur_off, 1);
@@ -182,9 +202,11 @@ enumError CreateMDRArchive (
 	for (uint i = 0; i < n_entries; i++)
 	{
 		const u32 coff = chunk_ptrs[i];
+		// The field at +8 mirrors the decompressed size at +0 in every
+		// observed retail chunk (not a separate "unknown"/reserved value).
 		wr_be32 (buf + coff, sorted[i].size);
 		wr_be32 (buf + coff + 4, flags[i]);
-		wr_be32 (buf + coff + 8, 0);
+		wr_be32 (buf + coff + 8, sorted[i].size);
 		wr_be32 (buf + coff + 12, comp_sizes[i]);
 
 		if (comp_chunks[i] && comp_sizes[i] > 0)
