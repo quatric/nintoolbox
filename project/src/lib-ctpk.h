@@ -36,4 +36,13 @@ enumError EncodeCTPK (
 enumError CreateCTPK (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 
+// Rebuild a CTPK byte-for-byte from a preserved prefix (everything up to
+// texture_offset: header, entry table, and whatever undocumented bytes and
+// string table sit between them, captured verbatim by the extractor rather
+// than re-derived) plus each entry's own untouched raw pixel payload. See
+// lib-ctpk.c for why this sidesteps needing to understand those fields at
+// all: byte-for-byte fidelity only requires that neither half changed.
+enumError RebuildCTPKFromPrefix (u8 **dest, uint *dest_size, const u8 *prefix, uint prefix_size,
+	const nintendo_sarc_entry_t *payload_entries, uint n_payload_entries);
+
 #endif

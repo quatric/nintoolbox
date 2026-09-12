@@ -1,8 +1,10 @@
 #include "lib-std.h"
 #include "lib-ctpk.h"
 #include "lib-flim.h"
+#include "lib-archive-util.h"
 #include <string.h>
 #include <errno.h>
+#include <stdio.h>
 
 enumError ScanCTPK (nintendo_ctpk_t *ctpk, const u8 *data, uint size)
 {
@@ -384,5 +386,63 @@ enumError CreateCTPK (
 
 	*dest = out;
 	*dest_size = total_size;
+	return ERR_OK;
+}
+
+
+// See lib-ctpk.h: a CTPK entry carries at least two fields with no known
+// derivation -- a per-entry counter (0x18, 0x19, ... across a whole game's
+// asset database, not restartable per archive) and what look like Unix
+// build timestamps circa mid-2011 (consistent with Mario Kart 7's dev
+// window) at +28. Both are almost certainly the original tool's own
+// bookkeeping, not something derivable from the pixel data or the archive
+// itself. Rather than guess at their meaning, the extractor captures the
+// entire prefix -- header, entry table, and whatever else the format
+// carries between them, verbatim -- and this function replays it unchanged,
+// substituting only each entry's own (also-verbatim, when untouched) pixel
+// payload at the offset the prefix itself already records. That is what
+// makes an unmodified retail CTPK reproduce byte for byte without this
+// code ever needing to know what those fields mean.
+enumError RebuildCTPKFromPrefix (u8 **dest, uint *dest_size, const u8 *prefix, uint prefix_size,
+	const nintendo_sarc_entry_t *payload_entries, uint n_payload_entries)
+{
+	if (!dest || !dest_size || !prefix || prefix_size < 0x20 || memcmp (prefix, "CTPK", 4))
+		return ERR_INVALID_DATA;
+
+	const u32 tex_off = rd_le32 (prefix + 8);
+	const u32 tex_size = rd_le32 (prefix + 12);
+	const u16 n_entries = rd_le16 (prefix + 6);
+	if (tex_off != prefix_size || 0x20 + (u64)0x20 * n_entries > prefix_size)
+		return ERR_INVALID_DATA;
+
+	const u64 total = (u64)tex_off + tex_size;
+	if (total > UINT_MAX)
+		return ERR_FILE_TOO_BIG;
+
+	u8 *buf = CALLOC ((uint)total, 1);
+	if (!buf)
+		return ERR_OUT_OF_MEMORY;
+	memcpy (buf, prefix, prefix_size);
+
+	for (uint i = 0; i < n_payload_entries; i++)
+	{
+		ccp name = payload_entries[i].name ? leaf_name (payload_entries[i].name) : "";
+		const size_t nlen = strlen (name);
+		uint idx;
+		if (nlen < 8 || strcmp (name + nlen - 8, ".ctpktex")
+			|| sscanf (name, "%u_", &idx) != 1 || idx >= n_entries)
+			continue;
+
+		const u8 *einfo = prefix + 0x20 + 0x20 * idx;
+		const u32 data_size = rd_le32 (einfo + 4);
+		const u32 data_off = rd_le32 (einfo + 8);
+		const u32 sz = payload_entries[i].size < data_size ? payload_entries[i].size : data_size;
+
+		if (payload_entries[i].data && (u64)tex_off + data_off + sz <= total)
+			memcpy (buf + tex_off + data_off, payload_entries[i].data, sz);
+	}
+
+	*dest = buf;
+	*dest_size = (uint)total;
 	return ERR_OK;
 }

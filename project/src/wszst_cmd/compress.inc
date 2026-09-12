@@ -2281,6 +2281,46 @@ static enumError create_ctpk_dir (ccp source, ccp dest)
 		return err;
 	}
 
+	// If this tree came straight from EXTRACT (see extract_ctpk_mem in
+	// create_update.inc), it carries the original prefix bytes plus each
+	// entry's untouched raw payload -- rebuild byte-exact from those
+	// instead of re-encoding every PNG through the lossy RGBA8-only path
+	// below (which cannot reproduce a block-compressed format like the
+	// ETC1A4 real CTPK archives typically use).
+	const nintendo_sarc_entry_t *prefix_ent = 0;
+	for (uint i = 0; i < list.used; i++)
+	{
+		ccp name = list.entry[i].name ? list.entry[i].name : "";
+		ccp slash = strrchr (name, '/');
+		if (slash)
+			name = slash + 1;
+		size_t nlen = strlen (name);
+		if (nlen >= 16 && !strcmp (name + nlen - 16, "_ctpk_prefix.bin"))
+		{
+			prefix_ent = list.entry + i;
+			break;
+		}
+	}
+	if (prefix_ent)
+	{
+		u8 *out = 0;
+		uint total_size = 0;
+		err = RebuildCTPKFromPrefix (
+			&out, &total_size, prefix_ent->data, prefix_ent->size, list.entry, list.used);
+		if (!err && !testmode)
+		{
+			File_t F;
+			err = CreateFileOpt (&F, true, dest, false, source);
+			if (F.f && fwrite (out, 1, total_size, F.f) != total_size)
+				err = FILEERROR1 (
+					&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", total_size, dest);
+			ResetFile (&F, opt_preserve);
+		}
+		FREE (out);
+		reset_sarc_build_list (&list);
+		return err;
+	}
+
 	typedef struct
 	{
 		char name[PATH_MAX];

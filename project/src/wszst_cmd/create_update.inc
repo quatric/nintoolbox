@@ -2511,6 +2511,19 @@ static enumError extract_ctpk_mem (ccp arg, ccp basedir, uint depth, const u8 *r
 		fprintf (stdlog, "%s%sEXTRACT CTPK:%s (%u textures) -> %s/\n", verbose > 0 ? "\n" : "",
 			testmode ? "WOULD " : "", arg, ctpk.n_entries, dest);
 
+	// Everything up to texture_offset -- header, entry table, and the
+	// undocumented bytes/string table between them -- is captured verbatim
+	// so create_ctpk_dir() can rebuild a byte-exact archive later without
+	// this code needing to understand any of it (see RebuildCTPKFromPrefix
+	// in lib-ctpk.c).
+	if (!testmode && ctpk.texture_offset <= raw_size)
+	{
+		char prefix_path[PATH_MAX];
+		snprintf (prefix_path, sizeof (prefix_path), "%s/%s_ctpk_prefix.bin", dest,
+			basedir ? basedir : "");
+		SaveFile (prefix_path, 0, 0, raw, ctpk.texture_offset, 0);
+	}
+
 	for (uint i = 0; !err && i < ctpk.n_entries; i++)
 	{
 		nintendo_ctpk_entry_t entry;
@@ -2524,7 +2537,7 @@ static enumError extract_ctpk_mem (ccp arg, ccp basedir, uint depth, const u8 *r
 		if (err)
 			continue;
 
-		char sub_name[PATH_MAX];
+		char clean_base[PATH_MAX];
 		if (entry.name[0])
 		{
 			ccp slash = strrchr (entry.name, '/');
@@ -2533,20 +2546,31 @@ static enumError extract_ctpk_mem (ccp arg, ccp basedir, uint depth, const u8 *r
 				: slash				   ? slash + 1
 				: bslash			   ? bslash + 1
 									   : entry.name;
-			char clean_base[PATH_MAX];
 			snprintf (clean_base, sizeof (clean_base), "%s", base);
 			char *dot = strrchr (clean_base, '.');
 			if (dot)
 				*dot = 0;
-			snprintf (sub_name, sizeof (sub_name), "%s.png", clean_base);
 		}
 		else
 		{
-			snprintf (sub_name, sizeof (sub_name), "tex_%03u.png", i);
+			snprintf (clean_base, sizeof (clean_base), "tex_%03u", i);
 		}
+
+		char sub_name[PATH_MAX];
+		snprintf (sub_name, sizeof (sub_name), "%s.png", clean_base);
 
 		char out_path[PATH_MAX];
 		snprintf (out_path, sizeof (out_path), "%s/%s%s", dest, basedir ? basedir : "", sub_name);
+
+		// The entry's raw (undecoded) pixel bytes, saved verbatim beside the
+		// viewable PNG so a rebuild can restore them exactly instead of
+		// re-encoding through DecodeCTPKTexture_RGBA/EncodeCTPK, which is
+		// lossy for every block-compressed format (ETC1/ETC1A4 included).
+		// The leading index ties it back to its entry regardless of name.
+		char raw_path[PATH_MAX];
+		snprintf (raw_path, sizeof (raw_path), "%s/%s%03u_%s.ctpktex", dest, basedir ? basedir : "",
+			i, clean_base);
+		SaveFile (raw_path, 0, 0, entry.data, entry.data_size, 0);
 
 		Image_t img;
 		InitializeIMG (&img);
