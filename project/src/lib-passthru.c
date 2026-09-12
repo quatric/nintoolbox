@@ -954,9 +954,13 @@ void normalize_ds_nested_mtimes (ccp root)
 			// ndstool stages an embedded "165.srl" as "165.d", dropping
 			// the executable extension just as it does for a top-level ROM.
 			// Recover that sibling before deciding this is a new user edit.
-			for (uint i = 0; !found && i < 2; i++)
+			for (uint i = 0; !found && i < 3; i++)
 			{
-				static const char * const suffix[] = { ".nds", ".srl" };
+				// NSBTX decoding uses a raw sidecar name such as
+				// "wall_25.nsbtx.bin.d".  Its native sibling is
+				// "wall_25.nsbtx.bin.nsbtx", so include that recovered
+				// archive suffix alongside ndstool's extension-less ROM names.
+				static const char * const suffix[] = { ".nds", ".srl", ".nsbtx" };
 				snprintf(source,sizeof(source),"%s/%.*s%s",root,(int)len-2,de->d_name,suffix[i]);
 				found = !stat(source,&src_st) && S_ISREG(src_st.st_mode);
 			}
