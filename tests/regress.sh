@@ -10462,6 +10462,38 @@ assert ag > 0 and bad == 0, f"winding/normals disagree: {ag} agree, {bad} disagr
   else
     no "WMB (SFZ) wszst xx" "extract path differs from wmdlt"
   fi
+  # Skinned member (1 bone): joints + unit weight sums must survive.
+  local fs="$PWD_PROJECT/../tests/fixtures/wmb_sfzero_ba0031.wmb"
+  [ -f "$fs" ] || { sk "WMB (SFZ) skinned fixture"; return; }
+  if "$B/wmdlt" DECODE "$fs" --dest "$d/skin.glb" --overwrite >/dev/null 2>&1 \
+  && python3 ../tests/validate-glb.py "$d/skin.glb" >/dev/null 2>&1 \
+  && python3 -c '
+import json, struct
+b = open("'"$d"'/skin.glb", "rb").read()
+ln, typ = struct.unpack_from("<II", b, 12)
+doc = json.loads(b[20:20+ln])
+assert len(doc.get("skins", [])) == 1, "expected exactly 1 skin"
+assert len(doc["skins"][0].get("joints", [])) == 1, "expected exactly 1 joint"
+blen, btyp = struct.unpack_from("<II", b, 20+ln)
+boff = 20+ln+8
+acc = doc["accessors"]; bv = doc["bufferViews"]
+found = False
+for m in doc["meshes"]:
+    for p in m["primitives"]:
+        if "WEIGHTS_0" not in p["attributes"]: continue
+        wa = acc[p["attributes"]["WEIGHTS_0"]]; w = bv[wa["bufferView"]]
+        n = wa["count"]
+        assert n > 0
+        for i in range(n):
+            s = sum(struct.unpack_from("<4f", b, boff+w.get("byteOffset",0)+wa.get("byteOffset",0)+i*16))
+            assert 0.99 <= s <= 1.01, f"weight sum {s}"
+        found = True
+assert found, "no WEIGHTS_0 attribute found"
+' 2>/dev/null; then
+    ok "WMB (SFZ) skinned member -> 1 joint, unit weight sums"
+  else
+    no "WMB (SFZ) skinned" "failed to export skinned fixture"
+  fi
   rm -rf "$d"
 }
 t_wmb

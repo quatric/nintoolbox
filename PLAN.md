@@ -1951,7 +1951,16 @@ strip→triangles), mesh names, `FF_WMB` + `wmdlt`/`xx` hooks,
 testing: batch-relative (not absolute) index base, degenerate-strip
 stitch markers must be kept for the multiple-of-3 count, and stored
 backward winding must flip (0/1618 → 1618/1618 face/normal
-agreement). Unskinned/untextured; bone tables bounds-checked for a
-later skinning pass. A transient xx/wmdlt mismatch during development
+agreement). A transient xx/wmdlt mismatch during development
 was proven to be a stale binary (md5-verified rebuilds from here on),
 not a code bug.
+
+**Follow-up 2026-09-11 — WMB skinning.** Bone parent list + relative
+positions decode to anonymous joints (`bone%03d`) with binds derived
+via `ComputeModelTRSBinds`; per-batch remap applied to the validated
+u8 weights (247k verts probed: zero zero-weight rows, so the rigid
+fallback never fires on this corpus). Verified: 490/627 files
+skinned (3707 joints), 2903 meshes intact, exported WEIGHTS_0 rows
+sum to exactly 1.0; `t_wmb` asserts 1 joint + unit sums on a 1056B
+fixture. Untextured (wmbMat texture indices reference per-model lists
+outside this pass).

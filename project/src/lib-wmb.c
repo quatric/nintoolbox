@@ -134,6 +134,8 @@ typedef struct wmb_file_t
 	const u8 *verts;
 	const u8 *verts_ex;
 	uint num_bones;
+	const u8 *bone_hie; // s16 parent per bone, -1 root
+	const u8 *bone_rel; // float3 local translation per bone
 	uint num_meshes;
 	const u8 *mesh_base;
 	uint mesh_ofs_pos;
@@ -175,6 +177,8 @@ static enumError wmb_scan (wmb_file_t *m, const u8 *data, uint size)
 		if (!hie || !da || !db || (u64)hie + (u64)nbones * 2 > size
 			|| (u64)da + (u64)nbones * 12 > size || (u64)db + (u64)nbones * 12 > size)
 			return EINVAL;
+		m->bone_hie = data + hie;
+		m->bone_rel = data + da;
 	}
 	const uint nmesh = rd_be32 (data + 0x50);
 	if (!nmesh || nmesh > WMB_MAX_MESHES)
@@ -240,6 +244,50 @@ model_t *ParsePlatinumWMB (const u8 *data, size_t size)
 		return 0;
 	}
 	size_t mesh_cap = m.num_meshes * 4 + 1;
+
+	// Skeleton: anonymous joints from the parent list + relative
+	// translations (reference Model_Bayo_CreateBones). Binds derive
+	// via ComputeModelTRSBinds once meshes exist; any failure below
+	// degrades to unskinned geometry, never to no geometry.
+	bool have_bones = false;
+	if (m.num_bones)
+	{
+		model->joints = CALLOC (m.num_bones, sizeof (*model->joints));
+		if (model->joints)
+		{
+			uint i = 0;
+			for (; i < m.num_bones; i++)
+			{
+				const int parent = (int)(int16_t)rd_be16 (m.bone_hie + i * 2);
+				if (parent < -1 || parent >= (int)m.num_bones)
+					break;
+				float tx = wmb_f32be (m.bone_rel + i * 12);
+				float ty = wmb_f32be (m.bone_rel + i * 12 + 4);
+				float tz = wmb_f32be (m.bone_rel + i * 12 + 8);
+				if (!(tx > -1e9f && tx < 1e9f && ty > -1e9f && ty < 1e9f
+						&& tz > -1e9f && tz < 1e9f))
+					break;
+				joint_t *j = model->joints + i;
+				snprintf (j->name, sizeof (j->name), "bone%03u", i);
+				j->parent_idx = parent;
+				j->translate.x = tx;
+				j->translate.y = ty;
+				j->translate.z = tz;
+				j->scale.x = j->scale.y = j->scale.z = 1.0f;
+			}
+			if (i == m.num_bones)
+			{
+				model->num_joints = m.num_bones;
+				have_bones = true;
+			}
+			else
+			{
+				FREE (model->joints);
+				model->joints = 0;
+			}
+		}
+	}
+	bool have_skin = false;
 
 	for (uint mi = 0; mi < m.num_meshes; mi++)
 	{
@@ -474,6 +522,103 @@ model_t *ParsePlatinumWMB (const u8 *data, size_t size)
 			}
 			mesh->vertices = verts;
 			mesh->num_vertices = nv;
+			// Skin influences from the vertex buffer (raw index remapped
+			// per batch, weights are u8/255). Zero-sum rows bind rigidly
+			// to joint 0 like the reference's unbound-vertex default.
+			if (have_bones && lay->bones)
+			{
+				mesh->position_node = CALLOC (vc, sizeof (*mesh->position_node));
+				if (mesh->position_node)
+				{
+					bool weights_ok = true;
+					for (uint v = 0; v < vc && weights_ok; v++)
+					{
+						mesh->position_node[v] =
+							(int)(model->num_node_influences + v);
+					}
+					node_influence_t *grown = REALLOC (model->node_influences,
+						(model->num_node_influences + vc) * sizeof (*grown));
+					if (!grown)
+						weights_ok = false;
+					else
+					{
+						model->node_influences = grown;
+						memset (model->node_influences + model->num_node_influences, 0,
+							vc * sizeof (*grown));
+						for (uint v = 0; v < vc && weights_ok; v++)
+						{
+							const u8 *bp = m.verts + (size_t)(vs + v) * lay->stride + 24;
+							const u8 *wp = m.verts + (size_t)(vs + v) * lay->stride + 28;
+							node_influence_t *ni = model->node_influences
+								+ model->num_node_influences + v;
+							float wsum = 0;
+							for (uint k = 0; k < 4; k++)
+							{
+								uint raw = bp[k];
+								if (raw >= (nremap ? nremap : m.num_bones))
+								{
+									weights_ok = false;
+									break;
+								}
+								const uint joint =
+									nremap ? b[0x3c + raw] : raw;
+								if (joint >= m.num_bones)
+								{
+									weights_ok = false;
+									break;
+								}
+								const float w = wp[k] / 255.0f;
+								wsum += w;
+								if (w <= 0.0f)
+									continue;
+								influence_t *ig = REALLOC (ni->weights,
+									(ni->num_weights + 1) * sizeof (*ig));
+								if (!ig)
+								{
+									weights_ok = false;
+									break;
+								}
+								ni->weights = ig;
+								ni->weights[ni->num_weights].bone_idx = (int)joint;
+								ni->weights[ni->num_weights].weight = w;
+								ni->num_weights++;
+							}
+							if (weights_ok && wsum <= 0.0f)
+							{
+								influence_t *ig = REALLOC (ni->weights, sizeof (*ig));
+								if (!ig)
+									weights_ok = false;
+								else
+								{
+									ni->weights = ig;
+									ni->weights[0].bone_idx = 0;
+									ni->weights[0].weight = 1.0f;
+									ni->num_weights = 1;
+								}
+							}
+						}
+						if (weights_ok)
+						{
+							model->num_node_influences += vc;
+							have_skin = true;
+						}
+					}
+					if (!weights_ok)
+					{
+						// Leave the geometry; drop this mesh's skin data.
+						for (uint v = 0; v < vc; v++)
+						{
+							node_influence_t *ni = model->node_influences
+								+ model->num_node_influences + v;
+							FREE (ni->weights);
+							ni->weights = 0;
+							ni->num_weights = 0;
+						}
+						FREE (mesh->position_node);
+						mesh->position_node = 0;
+					}
+				}
+			}
 			model->num_meshes++;
 		}
 	}
@@ -482,6 +627,29 @@ model_t *ParsePlatinumWMB (const u8 *data, size_t size)
 	{
 		FreeModel (model);
 		return 0;
+	}
+	if (have_skin && !ComputeModelTRSBinds (model))
+	{
+		// Bad bind chain: keep the geometry, drop the skinning.
+		for (size_t i = 0; i < model->num_meshes; i++)
+		{
+			FREE (model->meshes[i].position_node);
+			model->meshes[i].position_node = 0;
+		}
+		for (size_t i = 0; i < model->num_node_influences; i++)
+			FREE (model->node_influences[i].weights);
+		FREE (model->node_influences);
+		model->node_influences = 0;
+		model->num_node_influences = 0;
+		FREE (model->joints);
+		model->joints = 0;
+		model->num_joints = 0;
+	}
+	else if (!have_skin)
+	{
+		FREE (model->joints);
+		model->joints = 0;
+		model->num_joints = 0;
 	}
 	return model;
 }
