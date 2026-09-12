@@ -10744,6 +10744,42 @@ assert im.size == (16, 16)
 }
 t_gvr_retail_sonic
 
+t_nsbmd_retail_acww(){
+  # NSBMD (Nintendo DS Nitro 3D model format): "BMD0" container carrying
+  # MDL0 (model dictionary, bones, materials, shape display lists) and optional
+  # TEX0 (textures and palettes).
+  #
+  # Fixture: data/insect/51/bug53.nsbmd (1,524 bytes, 1 mesh, 4 nodes)
+  # extracted from retail Animal Crossing: Wild World (USA) NDS ROM.
+  # Verified: wszst recognizes format as NSBMD and wmdlt exports a valid GLB.
+  local f="$PWD_PROJECT/../tests/fixtures/nitro_samples/retail_bug53.nsbmd"
+  [ -f "$f" ] || { sk "NSBMD retail (Animal Crossing: Wild World)"; return; }
+  local d="/tmp/_r_nsbmd"
+  rm -rf "$d"
+  mkdir -p "$d"
+  if "$B/wszst" FILETYPE "$f" 2>/dev/null | grep -q '^NSBMD'; then
+    ok "retail NSBMD model (Animal Crossing: Wild World) is recognised"
+  else
+    no "retail NSBMD model" "not recognised as NSBMD"
+  fi
+  if "$B/wmdlt" ENCODE "$f" --dest "$d/bug53.glb" --overwrite >/dev/null 2>&1 \
+  && python3 ../tests/validate-glb.py "$d/bug53.glb" >/dev/null 2>&1 \
+  && python3 -c '
+import json, struct
+b = open("'"$d"'/bug53.glb", "rb").read()
+ln, = struct.unpack_from("<I", b, 12)
+doc = json.loads(b[20:20+ln])
+assert len(doc.get("meshes", [])) >= 1, "expected >= 1 mesh"
+assert len(doc.get("nodes", [])) >= 1, "expected >= 1 node"
+' 2>/dev/null; then
+    ok "retail NSBMD decode -> valid GLB with meshes and node hierarchy"
+  else
+    no "retail NSBMD decode" "failed to decode NSBMD to valid GLB"
+  fi
+  rm -rf "$d"
+}
+t_nsbmd_retail_acww
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
