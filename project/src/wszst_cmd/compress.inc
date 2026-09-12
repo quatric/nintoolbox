@@ -4115,8 +4115,8 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 			// etc.
 			if (!found_target)
 			{
-				static const char *cand_img_exts[] = { ".tpl", ".tex0", ".tm0", ".bti", ".bflim", ".bclim",
-					".ncgr", ".nclr", ".bntx", ".dsb", ".plt0", ".breft", 0 };
+				static const char *cand_img_exts[] = { ".tpl", ".tex0", ".tex", ".tm0", ".bti", ".bflim", ".bclim",
+					".ncgr", ".nclr", ".bntx", ".dsb", ".plt0", ".breft", ".art", ".img", 0 };
 				for (int k = 0; cand_img_exts[k]; k++)
 				{
 					char cand[PATH_MAX];
@@ -4149,6 +4149,13 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 					enumError err = encode_image_from_png (path, target_img);
 					if (err <= ERR_WARNING)
 					{
+						// Keep the edited preview's timestamp on the native result. The
+						// parent archive uses that timestamp to decide whether its .d
+						// tree changed; SaveTEX() otherwise stamps the result with
+						// "now", which legacy-tree normalization can mistake for a
+						// decoder by-product and reset before the parent sees it.
+						struct utimbuf edited_time = { st.st_atime, st.st_mtime };
+						utime (target_img, &edited_time);
 						if (verbose >= 0)
 							fprintf (stdlog, "REPACK IMAGE %s -> %s\n", path, target_img);
 					}
