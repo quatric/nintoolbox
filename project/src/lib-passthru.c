@@ -627,6 +627,7 @@ enumError PassthruReencodeMedia (ccp preview_path, ccp source_path)
 	// bitstream. Encoder-only knobs (motion search, multipass, etc.) are not
 	// present in any media file and therefore cannot truthfully be inferred.
 	char fps[64] = { 0 }, bitrate[64] = { 0 }, width[32] = { 0 }, height[32] = { 0 };
+	ccp mo_audio = 0;
 	ccp probe = resolve_ffprobe_for_mobipeg (tool_path);
 	if (probe)
 	{
@@ -664,6 +665,41 @@ enumError PassthruReencodeMedia (ccp preview_path, ccp source_path)
 		unlink (capture);
 	}
 
+	// The MO muxer defaults to ADPCM even when the source carries PCM.
+	// Recover its explicit audio-family setting so an edited video preserves
+	// the original soundtrack representation as well as its samples.
+	if (mobi_generation && *mobi_generation == '0' && probe)
+	{
+		char capture[PATH_MAX];
+		snprintf (capture, sizeof (capture), "/tmp/wszst-mobipeg-audio-%d.log", (int)getpid ());
+		char *pargv[] = { (char *)probe, "-v", "error", "-select_streams", "a:0", "-show_entries",
+			"stream=codec_name", "-of", "default=nw=0:nk=0", (char *)source_path, 0 };
+		if (!run_program_capture (pargv, capture))
+		{
+			FILE *f = fopen (capture, "r");
+			char line[128];
+			while (f && fgets (line, sizeof (line), f))
+			{
+				if (strncmp (line, "codec_name=", 11))
+					continue;
+				char *value = line + 11;
+				value[strcspn (value, "\r\n")] = 0;
+				if (!strcmp (value, "pcm_s16le"))
+					mo_audio = "pcm";
+				else if (!strcmp (value, "fastaudio"))
+					mo_audio = "fastaudio";
+				else if (!strcmp (value, "vorbis"))
+					mo_audio = "vorbis";
+				else if (strstr (value, "adpcm"))
+					mo_audio = "adpcm";
+				break;
+			}
+			if (f)
+				fclose (f);
+		}
+		unlink (capture);
+	}
+
 	char temp[PATH_MAX];
 	snprintf (temp, sizeof (temp), "%s.wszst-new", source_path);
 	char *argv[32];
@@ -691,6 +727,11 @@ enumError PassthruReencodeMedia (ccp preview_path, ccp source_path)
 	{
 		argv[n++] = "-mobiclip";
 		argv[n++] = (char *)mobi_generation;
+	}
+	if (mo_audio)
+	{
+		argv[n++] = "-mo_audio";
+		argv[n++] = (char *)mo_audio;
 	}
 	if (*fps && strcmp (fps, "0/0") && strcmp (fps, "N/A"))
 	{
