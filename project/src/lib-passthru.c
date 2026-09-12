@@ -951,6 +951,16 @@ void normalize_ds_nested_mtimes (ccp root)
 			snprintf(source,sizeof(source),"%s/%.*s",root,(int)len-2,de->d_name);
 			struct stat src_st;
 			bool found = !stat(source,&src_st) && S_ISREG(src_st.st_mode);
+			// A decompressor appends .bin before the native decoder adds .d:
+			// "wall_25.nsbtx" -> "wall_25.nsbtx.bin.d".  Prefer the
+			// original native file rather than treating the decoded tree as a
+			// new archive with a fabricated ".bin.nsbtx" name.
+			const size_t source_len = strlen(source);
+			if (!found && source_len > 4 && !strcasecmp(source + source_len - 4, ".bin"))
+			{
+				source[source_len - 4] = 0;
+				found = !stat(source,&src_st) && S_ISREG(src_st.st_mode);
+			}
 			// ndstool stages an embedded "165.srl" as "165.d", dropping
 			// the executable extension just as it does for a top-level ROM.
 			// Recover that sibling before deciding this is a new user edit.

@@ -4446,6 +4446,21 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 				= (stat (target_file, &st_target) == 0 && S_ISREG (st_target.st_mode));
 			if (!target_exists)
 			{
+				// Native decoders operate on a decompressed "*.bin" sidecar, but
+				// the real sibling is normally the pre-decompression name.  Resolve
+				// "foo.nsbtx.bin.d" back to "foo.nsbtx" before trying to invent
+				// candidates such as "foo.nsbtx.bin.nsbtx".
+				const size_t target_len = strlen(target_file);
+				if (target_len > 4 && !strcasecmp(target_file + target_len - 4, ".bin"))
+				{
+					char raw_target[PATH_MAX];
+					snprintf(raw_target,sizeof(raw_target),"%.*s",(int)target_len-4,target_file);
+					if (stat(raw_target,&st_target) == 0 && S_ISREG(st_target.st_mode))
+					{
+						snprintf(target_file,sizeof(target_file),"%s",raw_target);
+						target_exists = true;
+					}
+				}
 				for (int c = 0; cand_archive_exts[c]; c++)
 				{
 					char cand[PATH_MAX];
