@@ -3354,6 +3354,40 @@ static enumError extract_mpr_pack_file (ccp arg, ccp basedir, uint depth)
 	return err;
 }
 
+// RPAK has no magic at byte zero.  Its STRG/RSHD layout is sufficiently
+// distinctive to recognize it cheaply without decoding every member.
+static bool is_rpak_file (ccp arg)
+{
+	if (!is_ext(arg,".pak"))
+		return false;
+	u8 head[0x84];
+	FILE *f = fopen(arg,"rb");
+	const size_t got = f ? fread(head,1,sizeof(head),f) : 0;
+	if (!f || got != sizeof(head))
+	{
+		if (f) fclose(f);
+		return false;
+	}
+	const u32 strg_length = rd_be32(head+0x48);
+	const u32 rshd_length = rd_be32(head+0x50);
+	if (!strg_length && !rshd_length)
+	{
+		fclose(f);
+		return false;
+	}
+	const u64 entries_off = (u64)0x80 + strg_length;
+	if (entries_off > LONG_MAX || fseek(f,(long)entries_off,SEEK_SET))
+	{
+		fclose(f);
+		return false;
+	}
+	u8 count[4];
+	const bool valid = fread(count,1,sizeof(count),f) == sizeof(count)
+		&& rd_be32(count) > 0 && rd_be32(count) <= 0x1000000;
+	fclose(f);
+	return valid;
+}
+
 static enumError extract_rpak_file (ccp arg, ccp basedir, uint depth)
 {
 	if (!is_ext (arg, ".pak"))

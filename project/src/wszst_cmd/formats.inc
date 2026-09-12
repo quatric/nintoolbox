@@ -1005,10 +1005,13 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
-	err = extract_rpak_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-
+	// Retro Studios RPAK has a decoder but no lossless encoder yet.  Leaving
+	// it opaque is essential: expanding it into a .d directory makes an
+	// unchanged retail game appear editable even though CREATE cannot put its
+	// entry table, compression flags, and alignment back byte-for-byte.
+	// Keep the original .pak in the staged tree until the paired encoder exists.
+	if (is_rpak_file(arg))
+		return ERR_OK;
 	err = extract_mpr_pack_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
