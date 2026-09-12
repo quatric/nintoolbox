@@ -1205,12 +1205,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	{ FF_TXE, FF_TXE, 0, "TXE", ".txe", ".png", ".txe", FFT_VALID | FFT_CUT | FFT_DECODE, 0, { 0 },
 		0, MinusString, MinusString, "Pikmin 1 Texture (.txe)" },
 
-	// FF_MKAGPDX_MDL = 227 (Mario Kart Arcade GP DX Model)
-	{ FF_MKAGPDX_MDL, FF_MKAGPDX_MDL, 0, "MKAGPDX-MDL", ".bin", ".szs", ".bin",
-		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 'B', 'I', 'K', 'E' }, 0, MinusString, MinusString,
-		"Mario Kart Arcade GP DX Model (.bin / BIKE)" },
-
-	// FF_MTXT = 228 (Nintendo Switch MTXT Texture Archive)
+	// FF_MTXT = 227 (Nintendo Switch MTXT Texture Archive)
 	{ FF_MTXT, FF_MTXT, 0, "MTXT", ".mtxt", ".szs", ".mtxt",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4, { 'M', 'T', 'X', 'T' }, 0,
 		MinusString, MinusString, "Nintendo Switch MTXT Texture Archive (.mtxt / MTXT)" },
@@ -1560,7 +1555,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_NLOC, "NLOC", 0, 0x3001 }, { FF_XLNK, "XLNK", "BSLNK", 0x3001 },
 	{ FF_ROMFS, "ROMFS", "IVFC", 0xe05 }, { FF_XTX, "XTX", "DFVN", 0xe05 },
 	{ FF_TVOL, "TVOL", 0, 0xe05 }, { FF_TXE, "TXE", 0, 0x3809 },
-	{ FF_MKAGPDX_MDL, "MKAGPDX-MDL", "BIKE", 0x3001 }, { FF_MTXT, "MTXT", 0, 0xe05 },
+	{ FF_MTXT, "MTXT", 0, 0xe05 },
 	{ FF_SIR0, "SIR0", 0, 0xe05 }, { FF_TEX3DS, "TEX3DS", "TEX", 0x3809 },
 	{ FF_PTLG, "PTLG", "RLT", 0xe05 },
 	// Super Mario Strikers (GameCube) names the same container .glt, which

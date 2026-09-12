@@ -1368,10 +1368,6 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x4446764e: // "DFvN"
 				return FF_XTX;
 
-			// Mario Kart Arcade GP DX Model (BIKE)
-			case 0x42494b45: // "BIKE"
-				return FF_MKAGPDX_MDL;
-
 			// Nintendo Switch MTXT Texture Archive (MTXT)
 			case 0x4d545854: // "MTXT"
 				return FF_MTXT;

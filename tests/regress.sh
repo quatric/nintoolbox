@@ -7569,15 +7569,6 @@ with open(sys.argv[1], "wb") as f:
     fno "Pikmin 1 Texture" "failed to identify .txe sample";
   fi
 
-  # Mario Kart Arcade GP DX Model (.bin / BIKE) test
-  mkdir -p "$d/mkagpdx_mdl_test"
-  printf "BIKE%0.s\0" {1..28} > "$d/mkagpdx_mdl_test/sample.bin"
-  if "$B/wszst" filetype "$d/mkagpdx_mdl_test/sample.bin" 2>/dev/null | grep -q "MKAGPDX-MDL"; then
-    fok "Mario Kart Arcade GP DX Model (.bin / BIKE) identification"
-  else
-    fno "Mario Kart Arcade GP DX Model" "failed to identify .bin sample";
-  fi
-
   # Nintendo Switch MTXT Texture Archive (.mtxt / MTXT) test
   mkdir -p "$d/mtxt_test"
   python3 -c '
@@ -8731,7 +8722,7 @@ t_container_roundtrip(){
   # "ext:naming" -- named containers keep member names, ordinal ones do not.
   for spec in \
     .sarc:named .narc:named .darc:named .warc:named .bg4:named .sa01:named \
-    .cram:named .gfa:named .ccf:named .at7:named .sze:named .big:named \
+    .cram:named .gfa:named .ccf:named .at7:named .big:named \
     .xc:named .pvol:named .stpk:named .zlarc:named .apak:named .nxarc:named \
     .pkz:named .tmpk:named .vibs:named \
     .ca01:ordinal .fsys:ordinal .mdr:ordinal .nccarc:ordinal .ztab:ordinal \
@@ -11195,4 +11186,3 @@ t_rfl_res_retail_wiiparty
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
-

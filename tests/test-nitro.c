@@ -958,37 +958,7 @@ int main (void)
 		}
 	}
 
-	// 26. Test SZE (F-Zero 99 Encrypted SZS container)
-	{
-		const u8 test_data[] = "FZERO_99_VEHICLE_DATA_ENCRYPTED_ARCHIVE_TEST_PAYLOAD_123456789";
-		const uint len = sizeof (test_data);
-		u8 *enc = 0, *dec = 0;
-		uint enc_sz = 0, dec_sz = 0;
-
-		enumError e1 = EncodeSZE (&enc, &enc_sz, test_data, len, 0, 0, 1);
-		if (e1 || !enc || enc_sz < 32 + len)
-		{
-			printf ("  FAIL: EncodeSZE failed\n");
-			fail++;
-		}
-		else
-		{
-			enumError e2 = DecodeSZE (&dec, &dec_sz, enc, enc_sz, 0);
-			if (e2 || dec_sz != len || memcmp (dec, test_data, len))
-			{
-				printf ("  FAIL: DecodeSZE roundtrip mismatch\n");
-				fail++;
-			}
-			else
-			{
-				printf ("  PASS: SZE (F-Zero 99) encode -> decode roundtrip\n");
-			}
-			free (dec);
-			free (enc);
-		}
-	}
-
-	// 27. Test BPE (Good-Feel Byte Pair Encoding)
+	// 26. Test BPE (Good-Feel Byte Pair Encoding)
 	{
 		const u8 test_data[] = "BPE_TEST_DATA_Good_Feel_Kirby_Epic_Yarn_and_Yoshis_Woolly_World_"
 							   "GFCP_Mode_1_1234567890!_Roundtrip_Verify";

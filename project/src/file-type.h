@@ -318,7 +318,6 @@ typedef enum file_format_t
 	FF_XTX, // 224 - Nintendo Switch XTX Texture Container (.xtx / DFvN)
 	FF_TVOL, // 225 - Koei Tecmo / Gust Texture Volume Archive (.tvol)
 	FF_TXE, // 226 - Pikmin 1 Texture (.txe)
-	FF_MKAGPDX_MDL, // 227 - Mario Kart Arcade GP DX Model (.bin / BIKE)
 	FF_MTXT, // 228 - Nintendo Switch MTXT Texture Archive (.mtxt / MTXT)
 	FF_SIR0, // 229 - Pokemon Mystery Dungeon Resource Container (.sir0 / SIR0)
 	FF_TEX3DS, // 230 - Nintendo 3DS Proprietary Texture (.tex)

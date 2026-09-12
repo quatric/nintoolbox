@@ -742,20 +742,6 @@ static enumError cmd_create (bool create)
 			ResetSetupParam (&sp);
 			continue;
 		}
-		if (create && ext && !strcasecmp (ext, ".sze"))
-		{
-			enumError err = create_sze_dir (source_dir, dest);
-			if (verbose >= 0 || testmode)
-				fprintf (stdlog, "%s%sCREATE SZE %s/ -> %s\n", verbose > 0 ? "\n" : "",
-					testmode ? "WOULD " : "", source_dir, dest);
-			if (max_err < err)
-				max_err = err;
-			if (err <= ERR_WARNING && src_len > 2 && !strcasecmp (source_dir + src_len - 2, ".d")
-				&& !testmode)
-				remove_dir_recursive (source_dir);
-			ResetSetupParam (&sp);
-			continue;
-		}
 		if (create && ext && !strcasecmp (ext, ".dat") && looks_like_sfzdat_dir (source_dir))
 		{
 			enumError err = create_sfzdat_dir (source_dir, dest);
@@ -4480,81 +4466,6 @@ static enumError extract_gsh_shaders (ccp arg, ccp basedir, uint depth)
 	ResetGTX (&gtx);
 	FREE (raw);
 	return written ? err : ERR_NOTHING_TO_DO;
-}
-
-static enumError extract_sze_file (ccp arg, ccp basedir, uint depth)
-{
-	if (!is_ext (arg, ".sze"))
-		return ERR_NOTHING_TO_DO;
-
-	u8 *raw = 0;
-	size_t raw_size = 0;
-	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
-	if (err || raw_size < 32)
-	{
-		FREE (raw);
-		return ERR_NOTHING_TO_DO;
-	}
-
-	u8 *dec = 0;
-	uint dec_size = 0;
-	err = DecodeSZE (&dec, &dec_size, raw, (uint)raw_size, 0);
-	FREE (raw);
-	if (err || !dec || !dec_size)
-	{
-		FREE (dec);
-		return ERR_NOTHING_TO_DO;
-	}
-
-	char dest[PATH_MAX];
-	beside_source_dest (dest, sizeof (dest), arg);
-	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT SZE:%s -> %s/\n", verbose > 0 ? "\n" : "",
-			testmode ? "WOULD " : "", arg, dest);
-
-	if (!testmode)
-	{
-		nintendo_sarc_t sarc;
-		enumError serr = ScanSARC (&sarc, dec, dec_size);
-		if (!serr && sarc.n_entries)
-		{
-			for (uint i = 0; i < sarc.n_entries; i++)
-			{
-				ccp name = 0;
-				const u8 *edata = 0;
-				uint esize = 0;
-				if (GetSARCEntry (&sarc, i, &name, &edata, &esize) == ERR_OK)
-				{
-					char path[PATH_MAX];
-					snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", name ? name : "unknown.bin");
-					File_t F;
-					CreateFileOpt (&F, true, path, false, arg);
-					if (F.f && esize)
-						fwrite (edata, 1, esize, F.f);
-					ResetFile (&F, opt_preserve);
-				}
-			}
-		}
-		else
-		{
-			char path[PATH_MAX];
-			snprintf (path, sizeof (path), "%s/%sdecrypted.szs", dest, basedir ? basedir : "");
-			File_t F;
-			CreateFileOpt (&F, true, path, false, arg);
-			if (F.f)
-				fwrite (dec, 1, dec_size, F.f);
-			ResetFile (&F, opt_preserve);
-		}
-	}
-
-	FREE (dec);
-	if (!err && !testmode)
-	{
-		enumError sub = extract_tree_complete (dest, depth + 1);
-		if (err < sub)
-			err = sub;
-	}
-	return err;
 }
 
 // Mii resource archives (RFL_Res.dat & co) store several of their 18

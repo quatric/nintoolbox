@@ -1938,38 +1938,6 @@ static enumError create_hwl_dir (ccp source, ccp dest)
 	return err;
 }
 
-static enumError create_sze_dir (ccp source, ccp dest)
-{
-	sarc_build_list_t list = { 0 };
-	enumError err = collect_sarc_dir (&list, source, "");
-	if (!err && !list.used)
-		err = ERR_NOTHING_TO_DO;
-
-	u8 *sarc_data = 0;
-	uint sarc_size = 0;
-	if (!err)
-		err = CreateSARC (&sarc_data, &sarc_size, list.entry, list.used, false);
-
-	u8 *sze_data = 0;
-	uint sze_size = 0;
-	if (!err && sarc_data && sarc_size)
-		err = EncodeSZE (&sze_data, &sze_size, sarc_data, sarc_size, 0, 0, 1);
-
-	FREE (sarc_data);
-
-	if (!err && !testmode)
-	{
-		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
-		if (F.f && fwrite (sze_data, 1, sze_size, F.f) != sze_size)
-			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", sze_size, dest);
-		ResetFile (&F, opt_preserve);
-	}
-	FREE (sze_data);
-	reset_sarc_build_list (&list);
-	return err;
-}
-
 static bool looks_like_rflres_dir (ccp dir)
 {
 	char test[PATH_MAX];
@@ -3650,8 +3618,6 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest)
 		return create_gpkg_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".gsh"))
 		return create_gsh_dir (source_dir, dest);
-	if (!strcasecmp (ext, ".sze"))
-		return create_sze_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".dat") && looks_like_sfzdat_dir (source_dir))
 		return create_sfzdat_dir (source_dir, dest);
 	if ((!strcasecmp (ext, ".dat") || !strcasecmp (ext, ".rflres") || !strcasecmp (ext, ".rfl")
