@@ -3986,7 +3986,7 @@ static void cleanup_extracted_artifacts (ccp root, bool is_root)
 				bool has_target = false;
 				if (stem_ext
 					&& (!strcasecmp (stem_ext, ".tpl") || !strcasecmp (stem_ext, ".tex0")
-						|| !strcasecmp (stem_ext, ".tex") || !strcasecmp (stem_ext, ".bti")
+						|| !strcasecmp (stem_ext, ".tex") || !strcasecmp (stem_ext, ".tm0") || !strcasecmp (stem_ext, ".bti")
 						|| !strcasecmp (stem_ext, ".bflim") || !strcasecmp (stem_ext, ".bclim")
 						|| !strcasecmp (stem_ext, ".ncgr") || !strcasecmp (stem_ext, ".nclr")
 						|| !strcasecmp (stem_ext, ".bntx") || !strcasecmp (stem_ext, ".dsb")
@@ -3999,7 +3999,7 @@ static void cleanup_extracted_artifacts (ccp root, bool is_root)
 				if (!has_target)
 				{
 					static const char *cand_img_exts[]
-						= { ".tpl", ".tex0", ".bti", ".bflim", ".bclim", ".ncgr", ".nclr", ".bntx",
+						= { ".tpl", ".tex0", ".tm0", ".bti", ".bflim", ".bclim", ".ncgr", ".nclr", ".bntx",
 							  ".dsb", ".plt0", ".breft", ".tex", ".art", ".img", 0 };
 					for (int k = 0; cand_img_exts[k]; k++)
 					{
@@ -4091,7 +4091,7 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 			ccp stem_ext = strrchr (stem, '.');
 			if (stem_ext
 				&& (!strcasecmp (stem_ext, ".tpl") || !strcasecmp (stem_ext, ".tex0")
-					|| !strcasecmp (stem_ext, ".tex") || !strcasecmp (stem_ext, ".bti")
+					|| !strcasecmp (stem_ext, ".tex") || !strcasecmp (stem_ext, ".tm0") || !strcasecmp (stem_ext, ".bti")
 					|| !strcasecmp (stem_ext, ".bflim") || !strcasecmp (stem_ext, ".bclim")
 					|| !strcasecmp (stem_ext, ".ncgr") || !strcasecmp (stem_ext, ".nclr")
 					|| !strcasecmp (stem_ext, ".bntx") || !strcasecmp (stem_ext, ".dsb")
@@ -4108,7 +4108,7 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 			// etc.
 			if (!found_target)
 			{
-				static const char *cand_img_exts[] = { ".tpl", ".tex0", ".bti", ".bflim", ".bclim",
+				static const char *cand_img_exts[] = { ".tpl", ".tex0", ".tm0", ".bti", ".bflim", ".bclim",
 					".ncgr", ".nclr", ".bntx", ".dsb", ".plt0", ".breft", 0 };
 				for (int k = 0; cand_img_exts[k]; k++)
 				{
