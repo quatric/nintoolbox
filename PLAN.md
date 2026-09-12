@@ -1962,5 +1962,7 @@ u8 weights (247k verts probed: zero zero-weight rows, so the rigid
 fallback never fires on this corpus). Verified: 490/627 files
 skinned (3707 joints), 2903 meshes intact, exported WEIGHTS_0 rows
 sum to exactly 1.0; `t_wmb` asserts 1 joint + unit sums on a 1056B
-fixture. Untextured (wmbMat texture indices reference per-model lists
-outside this pass).
+fixture. Untextured for now: batch texID reads 0 on every sampled
+batch and batch ids overrun the material count (3 ids vs 1 material),
+so no field yet maps batches to wmbMat entries — binding would be
+guesswork. Full suite: PASS=431 FAIL=0.
