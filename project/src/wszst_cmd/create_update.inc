@@ -4515,6 +4515,23 @@ static void export_rflres_tex_png_if_possible (ccp bin_path)
 
 static enumError extract_rflres_file (ccp arg, ccp basedir, uint depth)
 {
+	// Mii resource archives have no magic; their small count-and-offset
+	// header can occur by chance in unrelated binary data.  In particular,
+	// Pilotwings Resort's Monster Games .mod/.shd resources satisfy the
+	// structural probe often enough to be unpacked as bogus Mii archives.
+	// Restrict the automatic probe to the filename family used by the Mii
+	// Face Library.  This mirrors the repack dispatch below and keeps an
+	// extension-less/foreign model from gaining a destructive-looking .d
+	// sibling merely because its first few words resemble an offset table.
+	ccp ext = strrchr (arg, '.');
+	if (!ext || (strcasecmp (ext, ".dat") && strcasecmp (ext, ".rflres")
+				 && strcasecmp (ext, ".rfl") && strcasecmp (ext, ".fflres")
+				 && strcasecmp (ext, ".ffl") && strcasecmp (ext, ".cflres")
+				 && strcasecmp (ext, ".cfl") && strcasecmp (ext, ".aflres")
+				 && strcasecmp (ext, ".afl") && strcasecmp (ext, ".nflres")
+				 && strcasecmp (ext, ".nfl") && strcasecmp (ext, ".nfl_res")))
+		return ERR_NOTHING_TO_DO;
+
 	u8 *raw = 0;
 	size_t raw_size = 0;
 	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
