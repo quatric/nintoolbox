@@ -9,6 +9,13 @@
 // Parses a CGFX model's skeleton, geometry, materials and texture bindings into a model_t.
 model_t *ParseBCRES (const uint8_t *data, size_t size);
 
+// Encodes a model_t into a full NintendoWare NW4C CGFX ("BCRES") binary.
+// Allocates *out_data (free with FREE()); returns 1 on success, 0 on failure.
+int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size);
+
+// Encodes a model_t into a .bcres / .cgfx / .bcmdl file on disk.
+enumError EncodeModelToBCRES (const model_t *model, const char *out_path);
+
 // CGFX ("BCRES") container enumeration: the DATA block holds a series of
 // (count, DICT offset) pairs, one per resource kind. All offsets in a CGFX
 // are self-relative.
