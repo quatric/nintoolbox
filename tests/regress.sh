@@ -1913,6 +1913,38 @@ t_ctpk_img(){
 }
 t_ctpk_img
 
+t_cmab(){
+  # This compact fixture contains two named 8x8 RGBA8 PICA textures in a
+  # Grezzo CMAB txpt table. Keep the binary base64-encoded in git so the
+  # fixture remains reviewable and is not mangled by text-only transports.
+  local fixture="$PWD_PROJECT/../tests/fixtures/synthetic_cmab_multi.cmab.b64"
+  [ -f "$fixture" ] || { sk "CMAB embedded texture decode"; return; }
+  local d; d=$(mktemp -d /tmp/_r_cmab.XXXXXX)
+  base64 -d "$fixture" > "$d/sample.cmab" || { no "CMAB fixture setup" "base64 decode failed"; return; }
+
+  if "$B/wimgt" FILETYPE "$d/sample.cmab" 2>/dev/null | grep -q 'CMAB' \
+  && "$B/wimgt" DECODE "$d/sample.cmab" -d "$d/cmab.png" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/cmab.img000.png" ] && [ -s "$d/cmab.img001.png" ] \
+  && ! cmp -s "$d/cmab.img000.png" "$d/cmab.img001.png"; then
+    ok "CMAB txpt fixture -> two distinct PNG textures"
+  else
+    no "CMAB txpt fixture decode" "$fixture"
+    return
+  fi
+
+  # CMAB is read-only, so its practical image roundtrip is CMAB -> PNG ->
+  # CTPK -> PNG. This catches both the PICA format mapping and the tiled-pixel
+  # order used by the CMAB decoder without claiming CMAB binary creation.
+  if "$B/wimgt" ENCODE "$d/cmab.img000.png" --dest "$d/roundtrip.ctpk" --overwrite >/dev/null 2>&1 \
+  && "$B/wimgt" DECODE "$d/roundtrip.ctpk" -d "$d/roundtrip.png" --overwrite >/dev/null 2>&1 \
+  && python3 "$PNGTOOL" cmp "$d/cmab.img000.png" "$d/roundtrip.png" 2>/dev/null; then
+    ok "CMAB texture -> PNG -> CTPK -> PNG roundtrip"
+  else
+    no "CMAB texture image roundtrip" "CMAB -> PNG -> CTPK -> PNG mismatch"
+  fi
+}
+t_cmab
+
 t_byml(){
   # BYML (Binary YAML parameter format, 3DS / Wii U / Switch):
   # Decodes to valid human-readable YAML and re-encodes back to BYML.
