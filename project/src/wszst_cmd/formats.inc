@@ -461,7 +461,15 @@ static enumError decode_image_if_possible (ccp arg)
 		|| IsRetroTXTR (head, (uint)n_head) || is_ext (arg, ".txtr"))
 		is_image = true;
 	else if (fform == FF_GVR || is_ext (arg, ".gvr"))
-		is_image = true;
+	{
+		// GVR covers more Sega texture encodings than LoadIMG currently
+		// implements.  Leave an unknown variant opaque: it remains perfectly
+		// round-trippable as its raw member, whereas sending it to LoadIMG()
+		// produces one hard error for every non-editable asset in Sonic games.
+		const uint gvr_format = n_head > 0x1b ? head[0x1b] : 0xff;
+		is_image = n_head >= 0x20 && !(head[0x1a] & 0x0b)
+			&& (gvr_format <= 6 || gvr_format == 0x0e);
+	}
 	else if (nfmt.type == NFMT_BFLIM || nfmt.type == NFMT_BCLIM || is_ext (arg, ".bflim")
 		|| is_ext (arg, ".bclim"))
 		is_image = true;
