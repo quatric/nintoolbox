@@ -4133,7 +4133,11 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 					ref_img_mtime = st_s.st_mtime;
 
 				// Only re-encode if the PNG was actually modified by the user
-				if (st.st_mtime > ref_img_mtime + 2)
+				// Extraction preserves the native file timestamp on its PNG preview.
+				// A two-second grace period used to suppress genuine edits made right
+				// after extraction, so compare directly: unchanged previews retain
+				// the exact source timestamp, while any later save is actionable.
+				if (st.st_mtime > ref_img_mtime)
 				{
 					enumError err = encode_image_from_png (path, target_img);
 					if (err <= ERR_WARNING)
