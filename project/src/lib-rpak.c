@@ -3,6 +3,7 @@
 #include "lib-lzo.h"
 #include "lib-rpak.h"
 #include <string.h>
+#include <zlib.h>
 
 void ResetRPAK (rpak_t *pak)
 {
@@ -189,5 +190,180 @@ u8 *DecompressRPAKEntry (const u8 *data, uint size, uint *res_size)
 	}
 
 	*res_size = total;
+	return out;
+}
+
+//-----------------------------------------------------------------------------
+
+// CMPD-wrap one entry's payload as a single block, matching the layout
+// DecompressRPAKEntry() parses: "CMPD" + block_count(1) + one 8-byte block
+// header (flag byte + 24-bit BE stored_size + 32-bit BE uncompressed_size)
+// followed by the stored bytes. Falls back to a raw stored block (flag 0x00,
+// stored_size==uncompressed_size) whenever zlib doesn't shrink the data, the
+// same mix of stored/compressed blocks real retail archives carry.
+static u8 *CompressRPAKEntry (const u8 *data, uint size, uint *res_size)
+{
+	u8 *zdata = 0;
+	uint zsize = 0;
+	if (size)
+	{
+		z_stream strm;
+		memset (&strm, 0, sizeof (strm));
+		if (deflateInit2 (&strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15, 8, Z_DEFAULT_STRATEGY)
+			== Z_OK)
+		{
+			uLongf bound = compressBound ((uLong)size) + 64;
+			zdata = MALLOC (bound);
+			if (zdata)
+			{
+				strm.next_in = (Bytef *)data;
+				strm.avail_in = size;
+				strm.next_out = zdata;
+				strm.avail_out = (uInt)bound;
+				if (deflate (&strm, Z_FINISH) == Z_STREAM_END)
+					zsize = (uint)strm.total_out;
+				else
+				{
+					FREE (zdata);
+					zdata = 0;
+				}
+			}
+			deflateEnd (&strm);
+		}
+	}
+
+	const bool use_zlib = zdata && zsize < size;
+	const u8 *stored = use_zlib ? zdata : data;
+	const uint stored_size = use_zlib ? zsize : size;
+
+	u8 *out = MALLOC (8 + 8 + stored_size);
+	if (!out)
+	{
+		FREE (zdata);
+		return 0;
+	}
+
+	memcpy (out, "CMPD", 4);
+	wr_be32 (out + 4, 1);
+	out[8] = use_zlib ? 0xc0 : 0x00;
+	out[9] = (u8)(stored_size >> 16);
+	out[10] = (u8)(stored_size >> 8);
+	out[11] = (u8)(stored_size);
+	wr_be32 (out + 12, size);
+	if (stored_size)
+		memcpy (out + 16, stored, stored_size);
+
+	FREE (zdata);
+	*res_size = 16 + stored_size;
+	return out;
+}
+
+u8 *CreateRPAK (const rpak_entry_t *entries, uint n_entries, uint *res_size)
+{
+	if (!res_size)
+		return 0;
+	*res_size = 0;
+	if (!entries && n_entries)
+		return 0;
+
+	u8 **payload = CALLOC (n_entries, sizeof (*payload));
+	uint *payload_size = CALLOC (n_entries, sizeof (*payload_size));
+	if (!payload || !payload_size)
+	{
+		FREE (payload);
+		FREE (payload_size);
+		return 0;
+	}
+
+	u64 data_size = 0;
+	bool ok = true;
+	for (uint i = 0; ok && i < n_entries; i++)
+	{
+		const rpak_entry_t *e = entries + i;
+		if (e->compressed)
+			payload[i] = CompressRPAKEntry (e->data, e->size, payload_size + i);
+		else if (e->size)
+		{
+			payload[i] = MALLOC (e->size);
+			if (payload[i])
+			{
+				memcpy (payload[i], e->data, e->size);
+				payload_size[i] = e->size;
+			}
+		}
+		else
+		{
+			// Zero-length stored entries are valid: leave payload[i]==0 but
+			// still succeed, matching a zero-byte fwrite() on extraction.
+			payload_size[i] = 0;
+			continue;
+		}
+		if (!payload[i])
+			ok = false;
+		else
+			data_size += payload_size[i];
+	}
+
+	u64 total_size = 0;
+	u8 *out = 0;
+	if (ok && (u64)4 + (u64)n_entries * 24 > UINT_MAX)
+		ok = false;
+	if (ok)
+	{
+		const u32 strg_length = 4;
+		const u32 rshd_length = 4 + n_entries * 24;
+		const u64 data_base = (u64)0x80 + strg_length + rshd_length;
+		total_size = data_base + data_size;
+		if (total_size > UINT_MAX)
+			ok = false;
+		else
+		{
+			out = MALLOC (total_size);
+			if (!out)
+				ok = false;
+			else
+			{
+				memset (out, 0, total_size);
+				wr_be32 (out + 0x48, strg_length);
+				wr_be32 (out + 0x50, rshd_length);
+				wr_be32 (out + 0x58, (u32)data_size);
+
+				// STRG section: 0 strings, never needed for extraction.
+				wr_be32 (out + 0x80, 0);
+
+				u8 *rshd = out + 0x80 + strg_length;
+				wr_be32 (rshd, n_entries);
+				u8 *table = rshd + 4;
+				u64 opos = 0;
+				for (uint i = 0; i < n_entries; i++)
+				{
+					const rpak_entry_t *e = entries + i;
+					u8 *row = table + (u64)i * 24;
+					wr_be32 (row, e->compressed ? 1 : 0);
+					wr_be32 (row + 4, e->magic);
+					wr_be32 (row + 8, e->id_hi);
+					wr_be32 (row + 0xc, e->id_lo);
+					wr_be32 (row + 0x10, payload_size[i]);
+					wr_be32 (row + 0x14, (u32)opos);
+					if (payload_size[i])
+						memcpy (out + data_base + opos, payload[i], payload_size[i]);
+					opos += payload_size[i];
+				}
+			}
+		}
+	}
+
+	for (uint i = 0; i < n_entries; i++)
+		FREE (payload[i]);
+	FREE (payload);
+	FREE (payload_size);
+
+	if (!ok)
+	{
+		FREE (out);
+		return 0;
+	}
+
+	*res_size = (uint)total_size;
 	return out;
 }

@@ -2085,3 +2085,40 @@ Extended verification against retail discs, RomFS, and cart dumps from `/Volumes
   fixture `tests/fixtures/wii_retail/retail_rfl_beard.dat` (1,800 bytes, 4 member models) and verified
   `wszst FILETYPE` recognition, `wszst EXTRACT`, and `wszst CREATE` roundtrip byte preservation.
   Added regression test `t_rfl_res_retail_wiiparty`.
+
+## 37. Retail Regression & Format Verification Round 3 (3DS Camera & Electronic Manual CIAs)
+
+Systematic analysis and verification against retail 3DS CIAs: `0004001000021400.0000001d Nintendo 3DS Camera (CTR-N-HEPE) (U).standard.cia` and `0004001000021500.0000000d (CTR-P-CTAP).standard.cia`:
+
+- **SMDH 3DS Application Icon & Metadata (3DS)**: Extracted retail `icon.bin` (14,016 B) from ExeFS of *Nintendo 3DS Camera*. Confirmed `wszst FILETYPE` identifies `SMDH` and `wimgt DECODE` decodes the 48x48 RGB PNG icon. Added retail fixture `tests/fixtures/3ds_samples/smdh/retail_camera_icon.smdh` and regression test `t_smdh_retail_3ds`.
+- **DARC Directory Archives (3DS)**: Extracted and decompressed `lyt/P_Retro.arc.LZ` (1,192 B) from *Nintendo 3DS Camera* RomFS. Resolved case-sensitivity bug where DARC magic was checked only as uppercase `"DARC"` in `GetByMagicFF` and `DetectNintendoFormat` while Nintendo CTR-SDK/Cafe-SDK archives use lowercase `"darc"` (`0x64617263`). Fixed `FileTypeTab`, `lib-file.c`, and `lib-nintendo.c`. Confirmed `wszst FILETYPE` identifies `DARC`, `wszst EXTRACT` unpacks `blyt/P_Retro.bclyt` and `timg/P_Fnd_Retro.bclim`, and `wszst CREATE` repacks with byte-for-byte member preservation. Added fixture `tests/fixtures/3ds_samples/darc/retail_retro.arc` and regression test `t_darc_retail_3ds`.
+- **BCMA 3DS Electronic Manual Archives (3DS)**: Extracted retail `Manual.bcma` (973,235 B) from RomFS of electronic manual title `CTR-P-CTAP`. Registered `FF_BCMA` (format 269) for 3DS manual archives. Extracted compact member `BcmaInfo.arc` (2,372 B decompressed), verified `wszst EXTRACT` unpacks `blyt/BcmaInfo.bclyt`, and `wszst CREATE` creates `.bcma` identified as `BCMA` with roundtrip member preservation. Added fixture `tests/fixtures/3ds_samples/bcma/retail_bcmainfo.arc` and regression test `t_bcma_retail_3ds`.
+- **BCFNT Fonts & TGLP Pointer Offset Fix (3DS)**: Extracted and decompressed `res/HudNOTES.bcfnt.LZ` (66,268 B) from *Nintendo 3DS Camera* RomFS. Identified structural difference between 3DS `BCFNT` (`CFNT`) and Wii U `BFFNT` (`FFNT`): on 3DS, `ptrGlyph` is located at `FINF + 0x10`, whereas on Wii U it is at `FINF + 0x14`. Updated `lib-image2.c` and `create_update.inc` to dynamically resolve `ptrGlyph`. Registered `FF_BCFNT` (format 270) in `file-type.c` and `lib-file.c`. Confirmed `wszst FILETYPE` identifies `BCFNT` and `wszst EXTRACT` extracts valid XML manifest with 4-sheet 24x24 IA4 `TGLP`. Added fixture `tests/fixtures/3ds_samples/bcfnt/retail_hudnotes.bcfnt` and regression test `t_bcfnt_retail_3ds`.
+- **BCWAV Audio (3DS)**: Extracted retail `sound/b_str_dog1_32k.imaadpcm.bcwav` (11,050 B) from *Nintendo 3DS Camera* RomFS. Confirmed `wszst FILETYPE` identifies `BCWAV` and `wszst DECOMPRESS` decodes IMA-ADPCM stereo 44.1kHz audio to standard Microsoft PCM WAV (42,756 B) with sample variance > 10,000. Added fixture `tests/fixtures/3ds_samples/bcwav/retail_dog_adpcm.bcwav` and regression test `t_bcwav_retail_3ds`.
+- **BCRES / BCENV Environment Models (3DS)**: Extracted and decompressed `res/demo_fragment_light.bcenv.LZ` (1,177 B) from *Nintendo 3DS Camera* RomFS. Confirmed `wszst FILETYPE` identifies `BCRES`. Added fixture `tests/fixtures/3ds_samples/bcres/retail_demo_light.bcenv` and regression test `t_bcres_retail_3ds`.
+
+## 38. 2026-09-12 — Retro Studios RPAK encoder (*Donkey Kong Country Returns*, Wii)
+
+`ScanRPAK()`/`DecompressRPAKEntry()` (`project/src/lib-rpak.c`) only ever decoded this
+format; no encoder existed for either RPAK or any of the codebase's other extract-only
+Retro/Ganbarion-style containers (JARC, GPAK, etc.). Added `CreateRPAK()`, building a
+fresh archive from a caller-supplied `rpak_entry_t` list: 0x80-byte header (`strg_length`
+at 0x48, `rshd_length` at 0x50, `data_length` at 0x58, all else zero -- version/hash are
+documented as unverified/not needed for extraction), an empty 4-byte STRG section (count
+0), the RSHD entry table (24 bytes/entry: compressed flag, magic, id_hi/id_lo, stored
+data_length, pointer), and the concatenated payload data. Per-entry payload is either
+copied raw or CMPD-wrapped as a single zlib block (`deflateInit2` with a 15-bit window,
+the same zlib-with-header form `DecompressRPAKEntry()` expects) with a raw-stored
+fallback (block flag 0x00, stored_size==uncompressed_size) when zlib doesn't shrink the
+data -- mirrors the mix of stored/compressed blocks real retail files carry side by side.
+
+Not verified against a real retail file (no reverse-engineered value exists for the
+version/hash header fields or a real STRG section to reproduce byte-exact), but verified
+synthetically: encoded a 2-entry archive (one compressed, one raw) with `CreateRPAK()`
+and round-tripped it byte-for-byte back through the real `ScanRPAK()`/
+`DecompressRPAKEntry()` decoder logic (both entries recovered identical to the source
+buffers). `project/src/lib-rpak.c` builds clean standalone; the full `wszst` binary link
+was pre-broken by unrelated in-progress `ui-wszst`/`main.inc` changes already present in
+the working tree before this change, so the isolated decode/encode round-trip above (a
+plain-C copy of the exact `CreateRPAK`/`ScanRPAK`/`DecompressRPAKEntry` logic linked only
+against zlib) stood in for it.
