@@ -3894,12 +3894,16 @@ static void cleanup_extracted_artifacts (ccp root, bool is_root)
 				if (stat (cand, &st_c) == 0 && S_ISREG (st_c.st_mode))
 					unlink (path);
 			}
-			// BFLYT/BCLYT/BRLYT/BRLAN (layout/animation) decode to *.tflyt,
-			// not *.xml -- see decode_bflyt_if_possible()/cmd_convert().
-			if (nlen > 6 && !strcasecmp (de->d_name + nlen - 6, ".tflyt"))
+			// BFLYT/BCLYT/BRLYT/BRLAN layouts and animations decode to *.xml.
+			if (nlen > 10 && (!strcasecmp (de->d_name + nlen - 10, ".bflyt.xml")
+				|| !strcasecmp (de->d_name + nlen - 10, ".bflan.xml")
+				|| !strcasecmp (de->d_name + nlen - 10, ".bclyt.xml")
+				|| !strcasecmp (de->d_name + nlen - 10, ".bclan.xml")
+				|| !strcasecmp (de->d_name + nlen - 10, ".brlyt.xml")
+				|| !strcasecmp (de->d_name + nlen - 10, ".brlan.xml")))
 			{
 				char cand[PATH_MAX];
-				snprintf (cand, sizeof (cand), "%.*s", (int)(strlen (path) - 6), path);
+				snprintf (cand, sizeof (cand), "%.*s", (int)(strlen (path) - 4), path);
 				struct stat st_c;
 				if (stat (cand, &st_c) == 0 && S_ISREG (st_c.st_mode))
 					unlink (path);

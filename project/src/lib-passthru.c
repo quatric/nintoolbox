@@ -2124,14 +2124,21 @@ bool is_dir_newer_than (ccp dirpath, time_t target_mtime)
 				continue;
 
 			// Suffix-based tool-generated companion files:
-			//   *.tflyt      -- layout text companion (brlan/brlyt decode)
-			//   *.byml.yaml  -- byml text companion
+			//   *.{bf,bc,br}l[yt|an].xml -- layout XML companion
+			//   *.byml.yml   -- byml text companion
 			//   *.ncer.xml   -- ncer text companion
 			//   *.nanr.xml   -- nanr text companion
 			//   *.kcl.obj    -- kcl mesh companion
 			//   *.kcl.mtl    -- kcl material companion
 			//   *.glb / .dae -- model mesh companion
-			if (nlen > 6 && !strcasecmp (de->d_name + nlen - 6, ".tflyt"))
+			if (nlen > 10 && (!strcasecmp (de->d_name + nlen - 10, ".bflyt.xml")
+				|| !strcasecmp (de->d_name + nlen - 10, ".bflan.xml")
+				|| !strcasecmp (de->d_name + nlen - 10, ".bclyt.xml")
+				|| !strcasecmp (de->d_name + nlen - 10, ".bclan.xml")
+				|| !strcasecmp (de->d_name + nlen - 10, ".brlyt.xml")
+				|| !strcasecmp (de->d_name + nlen - 10, ".brlan.xml")))
+				continue;
+			if (nlen > 9 && !strcasecmp (de->d_name + nlen - 9, ".byml.yml"))
 				continue;
 			if (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".byml.yaml"))
 				continue;

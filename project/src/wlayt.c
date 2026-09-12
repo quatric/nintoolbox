@@ -10,12 +10,6 @@
 #include "dclib-file.h"
 #include "lib-bflyt.h"
 
-static bool has_ext (ccp path, ccp ext)
-{
-	ccp dot = strrchr (path, '.');
-	return dot && !strcasecmp (dot, ext);
-}
-
 static ccp GetDefaultDest (ccp src, bool to_text)
 {
 	static char buf[PATH_MAX];
@@ -53,10 +47,9 @@ static int do_decode (ccp src, ccp dest)
 	}
 
 	ccp out = dest ? dest : GetDefaultDest (src, true);
-	// .tflyt remains available for benzin-compatible scripts, but normal
-	// decoding and every other output name use the XML representation.
-	err = has_ext (out, ".tflyt") ? SaveTextBFLYT (&bflyt, out, true)
-		: SaveXMLBFLYT (&bflyt, out, true);
+	// Binary layouts and animations always decode as XML.  The input parser
+	// continues to accept legacy txtree files for backward-compatible encoding.
+	err = SaveXMLBFLYT (&bflyt, out, true);
 	ResetBFLYT (&bflyt);
 	if (err)
 	{

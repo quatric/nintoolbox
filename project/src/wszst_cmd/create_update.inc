@@ -8111,7 +8111,7 @@ static enumError decode_cfnt_if_possible (ccp arg)
 // a game's LZ-compressed romfs .bin -- already plain by the time this runs,
 // decompress_nintendo_file() ran first) was previously left as an undecoded
 // binary blob; nothing in the XX/EXTRACT tree walk called ScanBFLYT()/
-// SaveTextBFLYT(). Only runs when export_count>0 (XX aliases to XEXPORT),
+// SaveXMLBFLYT(). Only runs when export_count>0 (XX aliases to XEXPORT),
 // matching the gate used by decode_brfnt_if_possible()/export_model_if_possible().
 static enumError decode_bflyt_if_possible (ccp arg)
 {

@@ -2345,8 +2345,8 @@ t_container_roundtrips(){
   # BRLAN layout animation
   local f_lan; f_lan=$(find_magic "RLAN")
   if [ -n "$f_lan" ]; then
-    if "$B/wlayt" decode "$f_lan" "$d/anim.tflyt" >/dev/null 2>&1 \
-    && "$B/wlayt" encode "$d/anim.tflyt" "$d/anim.brlan" >/dev/null 2>&1 \
+    if "$B/wlayt" decode "$f_lan" "$d/anim.xml" >/dev/null 2>&1 \
+    && "$B/wlayt" encode "$d/anim.xml" "$d/anim.brlan" >/dev/null 2>&1 \
     && cmp -s "$f_lan" "$d/anim.brlan"; then
       ok "BRLAN decode -> encode roundtrip ($f_lan)"
       bok "BRLAN retail decode -> encode preserves complete file bytes"
@@ -2358,8 +2358,8 @@ t_container_roundtrips(){
   # BRLYT layout
   local f_lyt; f_lyt=$(find_magic "RLYT")
   if [ -n "$f_lyt" ]; then
-    if "$B/wlayt" decode "$f_lyt" "$d/layout.tflyt" >/dev/null 2>&1 \
-    && "$B/wlayt" encode "$d/layout.tflyt" "$d/layout.brlyt" >/dev/null 2>&1 \
+    if "$B/wlayt" decode "$f_lyt" "$d/layout.xml" >/dev/null 2>&1 \
+    && "$B/wlayt" encode "$d/layout.xml" "$d/layout.brlyt" >/dev/null 2>&1 \
     && cmp -s "$f_lyt" "$d/layout.brlyt"; then
       ok "BRLYT decode -> encode roundtrip ($f_lyt)"
       bok "BRLYT retail decode -> encode preserves complete file bytes"
@@ -2371,20 +2371,20 @@ t_container_roundtrips(){
   # Wii U BFLAN/BFLYT use semantic text round-trips: legal encodings may
   # relocate pointed-to strings/sections while preserving the same tree.
   local f_bflan="$PWD_PROJECT/../tests/fixtures/splatoon_cmn_bg_out.bflan"
-  if "$B/wlayt" decode "$f_bflan" "$d/anim-wiiu.tflyt" >/dev/null 2>&1 \
-  && "$B/wlayt" encode "$d/anim-wiiu.tflyt" "$d/anim-wiiu.bflan" >/dev/null 2>&1 \
-  && "$B/wlayt" decode "$d/anim-wiiu.bflan" "$d/anim-wiiu-2.tflyt" >/dev/null 2>&1 \
-  && cmp -s "$d/anim-wiiu.tflyt" "$d/anim-wiiu-2.tflyt"; then
+  if "$B/wlayt" decode "$f_bflan" "$d/anim-wiiu.xml" >/dev/null 2>&1 \
+  && "$B/wlayt" encode "$d/anim-wiiu.xml" "$d/anim-wiiu.bflan" >/dev/null 2>&1 \
+  && "$B/wlayt" decode "$d/anim-wiiu.bflan" "$d/anim-wiiu-2.xml" >/dev/null 2>&1 \
+  && cmp -s "$d/anim-wiiu.xml" "$d/anim-wiiu-2.xml"; then
     ok "BFLAN semantic decode -> encode -> decode roundtrip"
   else
     no "BFLAN semantic roundtrip" "$f_bflan"
   fi
 
   local f_bflyt="$PWD_PROJECT/../tests/fixtures/splatoon_cmn_seq_drc_option.bflyt"
-  if "$B/wlayt" decode "$f_bflyt" "$d/layout-wiiu.tflyt" >/dev/null 2>&1 \
-  && "$B/wlayt" encode "$d/layout-wiiu.tflyt" "$d/layout-wiiu.bflyt" >/dev/null 2>&1 \
-  && "$B/wlayt" decode "$d/layout-wiiu.bflyt" "$d/layout-wiiu-2.tflyt" >/dev/null 2>&1 \
-  && cmp -s "$d/layout-wiiu.tflyt" "$d/layout-wiiu-2.tflyt"; then
+  if "$B/wlayt" decode "$f_bflyt" "$d/layout-wiiu.xml" >/dev/null 2>&1 \
+  && "$B/wlayt" encode "$d/layout-wiiu.xml" "$d/layout-wiiu.bflyt" >/dev/null 2>&1 \
+  && "$B/wlayt" decode "$d/layout-wiiu.bflyt" "$d/layout-wiiu-2.xml" >/dev/null 2>&1 \
+  && cmp -s "$d/layout-wiiu.xml" "$d/layout-wiiu-2.xml"; then
     ok "BFLYT semantic decode -> encode -> decode roundtrip"
   else
     no "BFLYT semantic roundtrip" "$f_bflyt"
@@ -3005,8 +3005,8 @@ EOF
   local bflyt_src="$PWD_PROJECT/../tests/fixtures/splatoon_cmn_seq_drc_option.bflyt"
   if [ -f "$bflyt_src" ] \
   && "$B/wszst" COMPRESS "$bflyt_src" --dest "$d/sample.bflyt.fzip" --overwrite >/dev/null 2>&1 \
-  && "$B/wlayt" decode "$d/sample.bflyt.fzip" "$d/dec.tflyt" >/dev/null 2>&1 \
-  && [ -s "$d/dec.tflyt" ]; then
+  && "$B/wlayt" decode "$d/sample.bflyt.fzip" "$d/dec.xml" >/dev/null 2>&1 \
+  && [ -s "$d/dec.xml" ]; then
     ok "wlayt transparently decode .bflyt.fzip"
   else
     no "wlayt decode .bflyt.fzip" "failed"
@@ -5405,19 +5405,24 @@ t_byte_exact_encoders(){
       bok "$magic XML decode -> encode round trip"
     else bno "$magic XML decode -> encode round trip" "failed"; fi
   done
+  # A caller-provided legacy-looking suffix must not change decoded syntax.
+  if "$B/wlayt" decode "$PWD_PROJECT/../tests/fixtures/synthetic_sample.bclan" "$d/no-legacy.tflyt" >/dev/null 2>&1 \
+  && grep -q '^<?xml ' "$d/no-legacy.tflyt"; then
+    bok "binary layout decode ignores legacy text suffix"
+  else bno "binary layout decode ignores legacy text suffix" "not XML"; fi
   local spec src
   for spec in 'splatoon_cmn_bg_out.bflan bflan' 'splatoon_cmn_seq_drc_option.bflyt bflyt' \
               'synthetic_sample.bclan bclan' 'synthetic_sample.bclyt bclyt'; do
     set -- $spec; src="$PWD_PROJECT/../tests/fixtures/$1"; ext=$2
-    if "$B/wlayt" decode "$src" "$d/same-$ext.tflyt" >/dev/null 2>&1 \
-    && "$B/wlayt" encode "$d/same-$ext.tflyt" "$d/layout-a/same.$ext" >/dev/null 2>&1 \
-    && "$B/wlayt" encode "$d/same-$ext.tflyt" "$d/layout-b/same.$ext" >/dev/null 2>&1 \
+    if "$B/wlayt" decode "$src" "$d/same-$ext.xml" >/dev/null 2>&1 \
+    && "$B/wlayt" encode "$d/same-$ext.xml" "$d/layout-a/same.$ext" >/dev/null 2>&1 \
+    && "$B/wlayt" encode "$d/same-$ext.xml" "$d/layout-b/same.$ext" >/dev/null 2>&1 \
     && cmp -s "$d/layout-a/same.$ext" "$d/layout-b/same.$ext"; then
       bok "${ext} same semantic text -> identical encoded bytes"
     else bno "${ext} canonical encoding" "two encodes differ"; fi
 
-    if "$B/wlayt" decode "$src" "$d/same-$ext.tflyt" >/dev/null 2>&1 \
-    && "$B/wlayt" encode "$d/same-$ext.tflyt" "$d/layout-raw.bin" >/dev/null 2>&1 \
+    if "$B/wlayt" decode "$src" "$d/same-$ext.xml" >/dev/null 2>&1 \
+    && "$B/wlayt" encode "$d/same-$ext.xml" "$d/layout-raw.bin" >/dev/null 2>&1 \
     && "$B/wszst" COMPRESS "$d/layout-raw.bin" --dest "$d/layout-a/same.$ext.fzip" --overwrite >/dev/null 2>&1 \
     && "$B/wszst" COMPRESS "$d/layout-raw.bin" --dest "$d/layout-b/same.$ext.fzip" --overwrite >/dev/null 2>&1 \
     && cmp -s "$d/layout-a/same.$ext.fzip" "$d/layout-b/same.$ext.fzip"; then
@@ -5526,9 +5531,9 @@ t_byte_exact_encoders(){
               'wii_retail/retail_HomeBtn_strt.brlan brlan HomeBtn_strt'; do
     set -- $spec; src="$PWD_PROJECT/../tests/fixtures/$1"; ext=$2; local name=$3
     if [ -f "$src" ]; then
-      if "$B/wlayt" decode "$src" "$d/same-$name.tflyt" >/dev/null 2>&1 \
-      && "$B/wlayt" encode "$d/same-$name.tflyt" "$d/layout-a/same-$name.$ext" >/dev/null 2>&1 \
-      && "$B/wlayt" encode "$d/same-$name.tflyt" "$d/layout-b/same-$name.$ext" >/dev/null 2>&1 \
+      if "$B/wlayt" decode "$src" "$d/same-$name.xml" >/dev/null 2>&1 \
+      && "$B/wlayt" encode "$d/same-$name.xml" "$d/layout-a/same-$name.$ext" >/dev/null 2>&1 \
+      && "$B/wlayt" encode "$d/same-$name.xml" "$d/layout-b/same-$name.$ext" >/dev/null 2>&1 \
       && cmp -s "$d/layout-a/same-$name.$ext" "$d/layout-b/same-$name.$ext"; then
         bok "${name}.${ext} (retail Wii) same semantic text -> identical encoded bytes"
       else bno "${name}.${ext} (retail Wii) canonical encoding" "two encodes differ"; fi
@@ -6346,19 +6351,19 @@ t_byte_fixed_points(){
   for spec in 'splatoon_cmn_bg_out.bflan bflan' 'splatoon_cmn_seq_drc_option.bflyt bflyt' \
               'synthetic_sample.bclan bclan' 'synthetic_sample.bclyt bclyt'; do
     set -- $spec; src="$PWD_PROJECT/../tests/fixtures/$1"; ext=$2
-    if "$B/wlayt" decode "$src" "$d/source-$ext.tflyt" >/dev/null 2>&1 \
-    && "$B/wlayt" encode "$d/source-$ext.tflyt" "$d/layout-a/same.$ext" >/dev/null 2>&1 \
-    && "$B/wlayt" decode "$d/layout-a/same.$ext" "$d/mid-$ext.tflyt" >/dev/null 2>&1 \
-    && "$B/wlayt" encode "$d/mid-$ext.tflyt" "$d/layout-b/same.$ext" >/dev/null 2>&1 \
+    if "$B/wlayt" decode "$src" "$d/source-$ext.xml" >/dev/null 2>&1 \
+    && "$B/wlayt" encode "$d/source-$ext.xml" "$d/layout-a/same.$ext" >/dev/null 2>&1 \
+    && "$B/wlayt" decode "$d/layout-a/same.$ext" "$d/mid-$ext.xml" >/dev/null 2>&1 \
+    && "$B/wlayt" encode "$d/mid-$ext.xml" "$d/layout-b/same.$ext" >/dev/null 2>&1 \
     && cmp -s "$d/layout-a/same.$ext" "$d/layout-b/same.$ext"; then
       fok "${ext} encode -> semantic text -> identical re-encode"
     else fno "${ext} canonical fixed point" "second-generation bytes differ"; fi
 
-    if "$B/wlayt" decode "$src" "$d/source-$ext.tflyt" >/dev/null 2>&1 \
-    && "$B/wlayt" encode "$d/source-$ext.tflyt" "$d/layout-raw.bin" >/dev/null 2>&1 \
+    if "$B/wlayt" decode "$src" "$d/source-$ext.xml" >/dev/null 2>&1 \
+    && "$B/wlayt" encode "$d/source-$ext.xml" "$d/layout-raw.bin" >/dev/null 2>&1 \
     && "$B/wszst" COMPRESS "$d/layout-raw.bin" --dest "$d/layout-a/same.$ext.fzip" --overwrite >/dev/null 2>&1 \
-    && "$B/wlayt" decode "$d/layout-a/same.$ext.fzip" "$d/mid-$ext.tflyt" >/dev/null 2>&1 \
-    && "$B/wlayt" encode "$d/mid-$ext.tflyt" "$d/layout-raw2.bin" >/dev/null 2>&1 \
+    && "$B/wlayt" decode "$d/layout-a/same.$ext.fzip" "$d/mid-$ext.xml" >/dev/null 2>&1 \
+    && "$B/wlayt" encode "$d/mid-$ext.xml" "$d/layout-raw2.bin" >/dev/null 2>&1 \
     && "$B/wszst" COMPRESS "$d/layout-raw2.bin" --dest "$d/layout-b/same.$ext.fzip" --overwrite >/dev/null 2>&1 \
     && cmp -s "$d/layout-a/same.$ext.fzip" "$d/layout-b/same.$ext.fzip"; then
       fok "${ext}.fzip encode -> semantic text -> identical re-encode"
@@ -6370,10 +6375,10 @@ t_byte_fixed_points(){
               'wii_retail/retail_HomeBtn_strt.brlan brlan HomeBtn_strt'; do
     set -- $spec; src="$PWD_PROJECT/../tests/fixtures/$1"; ext=$2; local name=$3
     if [ -f "$src" ]; then
-      if "$B/wlayt" decode "$src" "$d/source-$name.tflyt" >/dev/null 2>&1 \
-      && "$B/wlayt" encode "$d/source-$name.tflyt" "$d/layout-a/same-$name.$ext" >/dev/null 2>&1 \
-      && "$B/wlayt" decode "$d/layout-a/same-$name.$ext" "$d/mid-$name.tflyt" >/dev/null 2>&1 \
-      && "$B/wlayt" encode "$d/mid-$name.tflyt" "$d/layout-b/same-$name.$ext" >/dev/null 2>&1 \
+      if "$B/wlayt" decode "$src" "$d/source-$name.xml" >/dev/null 2>&1 \
+      && "$B/wlayt" encode "$d/source-$name.xml" "$d/layout-a/same-$name.$ext" >/dev/null 2>&1 \
+      && "$B/wlayt" decode "$d/layout-a/same-$name.$ext" "$d/mid-$name.xml" >/dev/null 2>&1 \
+      && "$B/wlayt" encode "$d/mid-$name.xml" "$d/layout-b/same-$name.$ext" >/dev/null 2>&1 \
       && cmp -s "$d/layout-a/same-$name.$ext" "$d/layout-b/same-$name.$ext"; then
         fok "${name}.${ext} (retail Wii) encode -> semantic text -> identical re-encode"
       else fno "${name}.${ext} (retail Wii) canonical fixed point" "second-generation bytes differ"; fi
