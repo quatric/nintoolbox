@@ -316,14 +316,18 @@ enumError DecodeFLIM_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, 
 	}
 
 	const uint w = r16 (foot + 0x1c), h = r16 (foot + 0x1e);
-	// Layout after the "imag" sub-header (all LE): u16 width, u16 height,
-	// u16 count/orientation (unused here), u8 format, u8 flags (bit0-4 =
-	// tile mode). The format byte sits at +0x22, not +0x20 -- +0x20 is the
-	// count field, so reading it there was decoding every CTR BCLIM/BFLIM
-	// as whatever format happens to be encoded in the low byte of "count"
-	// (always 1 = A8) instead of the real pixel format written by the
-	// encoder at +0x22.
-	const uint fmt = foot[0x22], tile_mode = 1;
+	// The original CTR BCLIM trailer stores a 32-bit PICA texture format at
+	// +0x20 (0..13).  Later CLIM files emitted by this tool and all BFLIM
+	// files use the Wii U image header instead: alignment at +0x20, format at
+	// +0x22 and tile mode at +0x23.  Accept both variants.  In particular,
+	// camera's A4 textures use legacy format 13 and have no BFLIM tile-mode
+	// byte to read.
+	const uint ctr_fmt = r32 (foot + 0x20);
+	const bool ctr_clim = !memcmp (foot, "CLIM", 4) && ctr_fmt <= 13;
+	// The later FLIM-style image header is: u16 width, u16 height, u16
+	// alignment, u8 format, u8 flags.  Its format byte is at +0x22; +0x20
+	// is the alignment field.
+	const uint fmt = ctr_clim ? ctr_fmt : foot[0x22], tile_mode = 1;
 	const uint data_size = r32 (src + src_size - 4);
 
 	if (fmt == 10 || fmt == 11) // ETC1 (fmt 10, opaque) / ETC1A4 (fmt 11): block-compressed
@@ -448,7 +452,13 @@ enumError DecodeFLIM_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, 
 				const u8 byte = src[pos >> 1];
 				const u8 nib = (pos & 1) ? (byte >> 4) : (byte & 0xF);
 				const u8 v = (u8)(nib * 17);
-				d[0] = d[1] = d[2] = d[3] = v;
+				if (ctr_clim && fmt == 13) // CTR A4: white RGB with 4-bit alpha
+				{
+					d[0] = d[1] = d[2] = 255;
+					d[3] = v;
+				}
+				else
+					d[0] = d[1] = d[2] = d[3] = v;
 				continue;
 			}
 			const u8 *p = src + pos * bpp;

@@ -7083,6 +7083,27 @@ with open("'"$d"'/ctxb_test/multi.ctxb", "wb") as f:
     fi
   fi
 
+  # Original CTR BCLIM trailers carry a 32-bit PICA format at IMAG+0x0c,
+  # unlike the later FLIM-style CLIM header above. This camera UI asset is
+  # A4 (format 13) and makes the distinction observable: the payload is
+  # 256x64x4bpp, so treating its format byte as L8 cannot succeed.
+  local ctr_bclim_src="$PWD_PROJECT/../tests/fixtures/camera_ctr_a4.bclim"
+  if [ -f "$ctr_bclim_src" ]; then
+    if "$B/wimgt" DECODE "$ctr_bclim_src" -d "$d/bclim_test/ctr-a4.png" --overwrite >/dev/null 2>&1 \
+    && python3 - "$d/bclim_test/ctr-a4.png" <<'PY'
+import struct, sys
+with open(sys.argv[1], 'rb') as f:
+    png = f.read(24)
+assert png[:8] == b'\x89PNG\r\n\x1a\n'
+assert struct.unpack('>II', png[16:24]) == (256, 64)
+PY
+    then
+      fok "Nintendo 3DS legacy CLIM A4 camera texture decoding"
+    else
+      fno "Nintendo 3DS legacy CLIM A4" "failed to decode camera fixture";
+    fi
+  fi
+
   # Nintendo Wii U FLIM Texture (.bflim) test
   mkdir -p "$d/bflim_test"
   local bflim_src="$PWD_PROJECT/../tests/fixtures/audio_samples/retail_sample.bflim"
