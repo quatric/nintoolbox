@@ -608,9 +608,11 @@ enumError PassthruReencodeMedia (ccp preview_path, ccp source_path)
 	snprintf (tool_path, sizeof (tool_path), "%s", tool);
 
 	ccp ext = strrchr (source_path, '.');
-	ccp codec = 0, muxer = 0, mobi_generation = 0;
+	ccp codec = 0, muxer = 0, mobi_generation = 0, quality = 0;
 	if (ext && !strcasecmp (ext, ".thp"))
-		codec = "thp", muxer = "thp";
+		// THP is a container around intra-MJPEG video, not a video codec
+		// named "thp".  mobipeg's THP muxer accepts MJPEG packets.
+		codec = "mjpeg", muxer = "thp", quality = "2";
 	else if (ext && !strcasecmp (ext, ".mo"))
 		codec = "mobiclip", muxer = "mobiclip_mo", mobi_generation = "0";
 	else if (ext && !strcasecmp (ext, ".moflex"))
@@ -624,7 +626,7 @@ enumError PassthruReencodeMedia (ccp preview_path, ccp source_path)
 	// source-controlled video settings that can be recovered from a finished
 	// bitstream. Encoder-only knobs (motion search, multipass, etc.) are not
 	// present in any media file and therefore cannot truthfully be inferred.
-	char fps[64] = { 0 }, bitrate[64] = { 0 };
+	char fps[64] = { 0 }, bitrate[64] = { 0 }, width[32] = { 0 }, height[32] = { 0 };
 	ccp probe = resolve_ffprobe_for_mobipeg (tool_path);
 	if (probe)
 	{
@@ -633,16 +635,29 @@ enumError PassthruReencodeMedia (ccp preview_path, ccp source_path)
 		char capture[PATH_MAX];
 		snprintf (capture, sizeof (capture), "/tmp/wszst-mobipeg-probe-%d.log", (int)getpid ());
 		char *pargv[] = { probe_path, "-v", "error", "-select_streams", "v:0", "-show_entries",
-			"stream=avg_frame_rate,bit_rate", "-of", "default=nw=1:nk=1", (char *)source_path, 0 };
+			"stream=avg_frame_rate,bit_rate,width,height", "-of", "default=nw=0:nk=0", (char *)source_path, 0 };
 		if (!run_program_capture (pargv, capture))
 		{
 			FILE *f = fopen (capture, "r");
 			if (f)
 			{
-				if (fgets (fps, sizeof (fps), f))
-					fps[strcspn (fps, "\r\n")] = 0;
-				if (fgets (bitrate, sizeof (bitrate), f))
-					bitrate[strcspn (bitrate, "\r\n")] = 0;
+				char line[128];
+				while (fgets (line, sizeof (line), f))
+				{
+					char *value = strchr (line, '=');
+					if (!value)
+						continue;
+					*value++ = 0;
+					value[strcspn (value, "\r\n")] = 0;
+					if (!strcmp (line, "avg_frame_rate"))
+						snprintf (fps, sizeof (fps), "%s", value);
+					else if (!strcmp (line, "bit_rate"))
+						snprintf (bitrate, sizeof (bitrate), "%s", value);
+					else if (!strcmp (line, "width"))
+						snprintf (width, sizeof (width), "%s", value);
+					else if (!strcmp (line, "height"))
+						snprintf (height, sizeof (height), "%s", value);
+				}
 				fclose (f);
 			}
 		}
@@ -664,6 +679,14 @@ enumError PassthruReencodeMedia (ccp preview_path, ccp source_path)
 	argv[n++] = "1:a?";
 	argv[n++] = "-c:v";
 	argv[n++] = (char *)codec;
+	if (quality)
+	{
+		// mobipeg's THP encoder uses qscale 2 by default.  ffmpeg's generic
+		// MJPEG default is much lower quality and cannot be inferred from a
+		// THP stream that reports no video bitrate.
+		argv[n++] = "-q:v";
+		argv[n++] = (char *)quality;
+	}
 	if (mobi_generation)
 	{
 		argv[n++] = "-mobiclip";
@@ -678,6 +701,15 @@ enumError PassthruReencodeMedia (ccp preview_path, ccp source_path)
 	{
 		argv[n++] = "-b:v";
 		argv[n++] = bitrate;
+	}
+	// The editable MP4 may have been resized. Keep the original coded frame
+	// size, alongside the source FPS/bitrate and copied source audio above.
+	char scale[80];
+	if (strtoul (width, 0, 10) && strtoul (height, 0, 10))
+	{
+		snprintf (scale, sizeof (scale), "scale=%s:%s", width, height);
+		argv[n++] = "-vf";
+		argv[n++] = scale;
 	}
 	argv[n++] = "-c:a";
 	argv[n++] = "copy";
@@ -2825,13 +2857,11 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 	bool is_vid1_magic = !memcmp (head, "VID1", 4);
 	bool is_vid1_ext = !strong_only && !is_vid1_magic && is_ext (src, ".vid");
 
-	// Every external media decoder below produces a preview (WAV or MP4),
-	// while CREATE has no reciprocal directory builder for those previews.
-	// Keep ordinary decoded game trees lossless and packable; --export/XEXPORT
-	// is the explicit inspection mode for the derived media instead.
+	// Only THP and Mobiclip have reciprocal mobipeg builders. Keep the other
+	// derived media previews out of regular staging trees; --export/XEXPORT is
+	// the explicit inspection mode for them.
 	if ( export_count <= 0
-		&& ( is_vid1_magic || is_thp || is_mobiclip || is_hvqm || is_stream_audio
-			|| is_other_media || is_vid1_ext ))
+		&& ( is_vid1_magic || is_hvqm || is_stream_audio || is_other_media || is_vid1_ext ))
 		return ERR_NOTHING_TO_DO;
 
 	if (is_vid1_magic)
