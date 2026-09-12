@@ -10,6 +10,12 @@
 #include "dclib-file.h"
 #include "lib-bflyt.h"
 
+static bool has_ext (ccp path, ccp ext)
+{
+	ccp dot = strrchr (path, '.');
+	return dot && !strcasecmp (dot, ext);
+}
+
 static ccp GetDefaultDest (ccp src, bool to_text)
 {
 	static char buf[PATH_MAX];
@@ -18,7 +24,7 @@ static ccp GetDefaultDest (ccp src, bool to_text)
 	if (baselen >= sizeof (buf) - 8)
 		baselen = sizeof (buf) - 8;
 	memcpy (buf, src, baselen);
-	ccp ext = to_text ? ".txt" : ".bin";
+	ccp ext = to_text ? ".xml" : ".bin";
 	strcpy (buf + baselen, ext);
 	return buf;
 }
@@ -47,7 +53,10 @@ static int do_decode (ccp src, ccp dest)
 	}
 
 	ccp out = dest ? dest : GetDefaultDest (src, true);
-	err = SaveTextBFLYT (&bflyt, out, true);
+	// .tflyt remains available for benzin-compatible scripts, but normal
+	// decoding and every other output name use the XML representation.
+	err = has_ext (out, ".tflyt") ? SaveTextBFLYT (&bflyt, out, true)
+		: SaveXMLBFLYT (&bflyt, out, true);
 	ResetBFLYT (&bflyt);
 	if (err)
 	{
@@ -97,7 +106,7 @@ int main (int argc, char *argv[])
 	if (argc < 3)
 	{
 		printf ("wlayt - Wiimms Layout Tool\n"
-				"Native BRLYT/BFLYT/BCLYT + BRLAN/BFLAN/BCLAN <-> text converter.\n"
+			"Native BRLYT/BFLYT/BCLYT + BRLAN/BFLAN/BCLAN <-> XML converter.\n"
 				"Usage: %s decode <input> [output]\n"
 				"       %s encode <input> [output]\n",
 			argv[0], argv[0]);

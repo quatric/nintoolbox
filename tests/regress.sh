@@ -5357,7 +5357,7 @@ t_byte_exact_encoders(){
   for spec in 'synthetic_sample.bclyt CLYT' 'synthetic_sample.bclan CLAN'; do
     set -- $spec; src="$PWD_PROJECT/../tests/fixtures/$1"; magic=$2
     if "$B/wlayt" decode "$src" "$d/$magic.xml" >/dev/null 2>&1 \
-    && grep -q "<layout .*magic=\"$magic\"" "$d/$magic.xml" \
+    && grep -q "magic=\"$magic\"" "$d/$magic.xml" \
     && "$B/wlayt" encode "$d/$magic.xml" "$d/$magic.bin" >/dev/null 2>&1 \
     && cmp -s "$src" "$d/$magic.bin"; then
       bok "$magic XML decode -> encode round trip"

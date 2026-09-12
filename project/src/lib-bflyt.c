@@ -21,6 +21,7 @@
 #include "lib-bflyt.h"
 #include "lib-std.h"
 #include "lib-szs.h"
+#include "mxml.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1491,6 +1492,203 @@ enumError BFTreeLoad (const char *text, uint len, bf_node_t *root)
 	buf[len] = 0;
 	enumError err = load_container (buf, false, false, 0, root, 0, 0);
 	FREE (buf);
+	return err;
+}
+
+//
+///////////////////////////////////////////////////////////////////////////////
+///////////////			lossless XML tree			///////////////
+///////////////////////////////////////////////////////////////////////////////
+
+// XML is the public text representation.  Deliberately keep this a generic
+// ordered tree: the binary formats have fields which are not XML names, and a
+// generic representation keeps unknown fields lossless as the formats evolve.
+
+static ccp xml_type_name (bf_val_type_t type)
+{
+	switch (type)
+	{
+		case BF_T_NONE: return "none";
+		case BF_T_BOOL: return "bool";
+		case BF_T_INT: return "int";
+		case BF_T_UINT: return "uint";
+		case BF_T_FLOAT: return "float";
+		case BF_T_STR: return "string";
+		case BF_T_BYTES: return "bytes";
+		case BF_T_NODE: return "node";
+		case BF_T_LIST: return "list";
+	}
+	return "none";
+}
+
+static enumError xml_add_value (mxml_node_t *parent, ccp tag, ccp name, const bf_val_t *v);
+
+static enumError xml_add_node (mxml_node_t *parent, const bf_node_t *node)
+{
+	for (uint i = 0; i < node->n; i++)
+		if (strncmp (node->kv[i].key, "__", 2))
+			BFE (xml_add_value (parent, "field", node->kv[i].key, &node->kv[i].val));
+	return ERR_OK;
+}
+
+static enumError xml_add_list (mxml_node_t *parent, const bf_list_t *list)
+{
+	for (uint i = 0; i < list->n; i++)
+		BFE (xml_add_value (parent, "item", 0, list->items + i));
+	return ERR_OK;
+}
+
+static enumError xml_add_value (mxml_node_t *parent, ccp tag, ccp name, const bf_val_t *v)
+{
+	mxml_node_t *elem = mxmlNewElement (parent, tag);
+	if (!elem)
+		return ERR_OUT_OF_MEMORY;
+	if (name)
+		mxmlElementSetAttr (elem, "name", name);
+	mxmlElementSetAttr (elem, "type", xml_type_name (v->type));
+	if (v->type == BF_T_NODE)
+	{
+		mxml_node_t *n = mxmlNewElement (elem, "node");
+		return n ? xml_add_node (n, v->u.node) : ERR_OUT_OF_MEMORY;
+	}
+	if (v->type == BF_T_LIST)
+	{
+		mxml_node_t *l = mxmlNewElement (elem, "list");
+		return l ? xml_add_list (l, v->u.list) : ERR_OUT_OF_MEMORY;
+	}
+
+	char value[64];
+	ccp text = value;
+	switch (v->type)
+	{
+		case BF_T_NONE: text = ""; break;
+		case BF_T_BOOL: text = v->u.b ? "true" : "false"; break;
+		case BF_T_INT: snprintf (value, sizeof (value), "%d", v->u.i); break;
+		case BF_T_UINT: snprintf (value, sizeof (value), "%u", (uint)v->u.i); break;
+		case BF_T_FLOAT: fmt_double (v->u.f, value, sizeof (value)); break;
+		case BF_T_STR: text = v->u.s; break;
+		case BF_T_BYTES:
+		{
+			char *hex = MALLOC (v->u.by.n * 2 + 1);
+			if (!hex)
+				return ERR_OUT_OF_MEMORY;
+			for (uint i = 0; i < v->u.by.n; i++)
+				snprintf (hex + i * 2, 3, "%02x", v->u.by.d[i]);
+			mxml_node_t *t = mxmlNewText (elem, 0, hex);
+			FREE (hex);
+			return t ? ERR_OK : ERR_OUT_OF_MEMORY;
+		}
+		default: return ERR_INVALID_DATA;
+	}
+	return mxmlNewText (elem, 0, text) ? ERR_OK : ERR_OUT_OF_MEMORY;
+}
+
+static mxml_node_t *xml_child (mxml_node_t *parent, ccp name)
+{
+	for (mxml_node_t *n = mxmlGetFirstChild (parent); n; n = mxmlGetNextSibling (n))
+	{
+		ccp elem = mxmlGetElement (n);
+		if (elem && !strcmp (elem, name))
+			return n;
+	}
+	return 0;
+}
+
+static ccp xml_text (mxml_node_t *elem)
+{
+	for (mxml_node_t *n = mxmlGetFirstChild (elem); n; n = mxmlGetNextSibling (n))
+	{
+		int ws;
+		ccp text = mxmlGetText (n, &ws);
+		if (text)
+			return text;
+	}
+	return "";
+}
+
+static int xml_hex (int c)
+{
+	return c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10
+		: c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
+}
+
+static enumError xml_load_value (mxml_node_t *elem, bf_val_t *out);
+
+static enumError xml_load_node (mxml_node_t *elem, bf_node_t *node)
+{
+	for (mxml_node_t *f = mxmlGetFirstChild (elem); f; f = mxmlGetNextSibling (f))
+	{
+		ccp tag = mxmlGetElement (f);
+		if (!tag || strcmp (tag, "field"))
+			continue;
+		ccp name = mxmlElementGetAttr (f, "name");
+		bf_val_t *slot;
+		if (!name || bf_node_alloc (node, name, &slot))
+			return name ? ERR_OUT_OF_MEMORY : ERR_SYNTAX;
+		BFE (xml_load_value (f, slot));
+	}
+	return ERR_OK;
+}
+
+static enumError xml_load_list (mxml_node_t *elem, bf_list_t *list)
+{
+	for (mxml_node_t *i = mxmlGetFirstChild (elem); i; i = mxmlGetNextSibling (i))
+	{
+		ccp tag = mxmlGetElement (i);
+		if (!tag || strcmp (tag, "item"))
+			continue;
+		bf_val_t *slot;
+		BFE (bf_list_alloc (list, &slot));
+		BFE (xml_load_value (i, slot));
+	}
+	return ERR_OK;
+}
+
+static enumError xml_load_value (mxml_node_t *elem, bf_val_t *out)
+{
+	ccp type = mxmlElementGetAttr (elem, "type");
+	ccp text = xml_text (elem);
+	if (!type)
+		return ERR_SYNTAX;
+	if (!strcmp (type, "none")) out->type = BF_T_NONE;
+	else if (!strcmp (type, "bool")) { out->type = BF_T_BOOL; out->u.b = !strcmp (text, "true"); }
+	else if (!strcmp (type, "int")) { out->type = BF_T_INT; out->u.i = strtol (text, 0, 0); }
+	else if (!strcmp (type, "uint")) { out->type = BF_T_UINT; out->u.i = (int)strtoul (text, 0, 0); }
+	else if (!strcmp (type, "float")) { out->type = BF_T_FLOAT; out->u.f = strtod (text, 0); }
+	else if (!strcmp (type, "string")) { out->type = BF_T_STR; out->u.s = bf_strdup (text); if (!out->u.s) return ERR_OUT_OF_MEMORY; }
+	else if (!strcmp (type, "bytes"))
+	{
+		uint n = strlen (text);
+		if (n & 1) return ERR_SYNTAX;
+		out->type = BF_T_BYTES; out->u.by.n = n / 2; out->u.by.d = n ? MALLOC (n / 2) : 0;
+		if (n && !out->u.by.d) return ERR_OUT_OF_MEMORY;
+		for (uint i = 0; i < n; i += 2) { int hi = xml_hex (text[i]), lo = xml_hex (text[i+1]); if (hi < 0 || lo < 0) return ERR_SYNTAX; out->u.by.d[i/2] = hi << 4 | lo; }
+	}
+	else if (!strcmp (type, "node"))
+	{
+		mxml_node_t *n = xml_child (elem, "node"); if (!n) return ERR_SYNTAX;
+		out->type = BF_T_NODE; out->u.node = CALLOC (1, sizeof (*out->u.node)); if (!out->u.node) return ERR_OUT_OF_MEMORY;
+		return xml_load_node (n, out->u.node);
+	}
+	else if (!strcmp (type, "list"))
+	{
+		mxml_node_t *l = xml_child (elem, "list"); if (!l) return ERR_SYNTAX;
+		out->type = BF_T_LIST; out->u.list = CALLOC (1, sizeof (*out->u.list)); if (!out->u.list) return ERR_OUT_OF_MEMORY;
+		return xml_load_list (l, out->u.list);
+	}
+	else return ERR_SYNTAX;
+	return ERR_OK;
+}
+
+static enumError BFTreeLoadXML (ccp text, bf_node_t *root)
+{
+	mxml_node_t *doc = mxmlLoadString (0, text, MXML_TEXT_CALLBACK);
+	if (!doc)
+		return ERR_SYNTAX;
+	mxml_node_t *layout = xml_child (doc, "layout");
+	mxml_node_t *node = layout ? xml_child (layout, "node") : 0;
+	enumError err = node ? xml_load_node (node, root) : ERR_SYNTAX;
+	mxmlDelete (doc);
 	return err;
 }
 
@@ -5179,10 +5377,14 @@ enumError ScanBFLYT (bflyt_t *bflyt, bool init, const u8 *data, uint data_size)
 		|| fmagic == BCLYT_MAGIC_CLAN || fmagic == BRLYT_MAGIC_RLYT || fmagic == BRLYT_MAGIC_RLAN)
 		return parse_binary (bflyt, data, data_size);
 
-	// txtree text?
-	if (is_text_data (data, data_size))
+	// XML or legacy txtree text?
+	ccp first = (ccp)data;
+	while (isspace ((u8)*first))
+		first++;
+	if (*first == '<' || is_text_data (data, data_size))
 	{
-		enumError err = BFTreeLoad ((ccp)data, data_size, &bflyt->tree);
+		enumError err = *first == '<' ? BFTreeLoadXML (first, &bflyt->tree)
+			: BFTreeLoad ((ccp)data, data_size, &bflyt->tree);
 		if (err)
 			return err;
 		bf_val_t *magic_v = BFNodeGet (&bflyt->tree, "magic");
@@ -5266,5 +5468,47 @@ enumError SaveTextBFLYT (const bflyt_t *bflyt, ccp fname, bool set_time)
 		return FILEERROR1 (&F, ERR_WRITE_FAILED, "Write failed: %s\n", fname);
 	}
 	FREE (full);
+	return ResetFile (&F, set_time);
+}
+
+enumError SaveXMLBFLYT (const bflyt_t *bflyt, ccp fname, bool set_time)
+{
+	DASSERT (bflyt);
+	DASSERT (fname);
+	mxml_node_t *doc = mxmlNewXML ("1.0");
+	mxml_node_t *layout = doc ? mxmlNewElement (doc, "layout") : 0;
+	mxml_node_t *node = layout ? mxmlNewElement (layout, "node") : 0;
+	if (!node)
+	{
+		if (doc)
+			mxmlDelete (doc);
+		return ERR_OUT_OF_MEMORY;
+	}
+	mxmlElementSetAttr (layout, "schema", "bflyt-tree");
+	bf_val_t *magic_v = BFNodeGet ((bf_node_t *)&bflyt->tree, "magic");
+	if (magic_v && magic_v->type == BF_T_STR)
+		mxmlElementSetAttr (layout, "magic", magic_v->u.s);
+	enumError err = xml_add_node (node, &bflyt->tree);
+	char *xml = err ? 0 : mxmlSaveAllocString (doc, MXML_NO_CALLBACK);
+	mxmlDelete (doc);
+	if (err)
+		return err;
+	if (!xml)
+		return ERR_OUT_OF_MEMORY;
+
+	File_t F;
+	err = CreateFileOpt (&F, true, fname, testmode, fname);
+	if (err > ERR_WARNING || !F.f)
+	{
+		FREE (xml);
+		return err;
+	}
+	uint xml_size = strlen (xml);
+	if (fwrite (xml, 1, xml_size, F.f) != xml_size)
+	{
+		FREE (xml);
+		return FILEERROR1 (&F, ERR_WRITE_FAILED, "Write failed: %s\n", fname);
+	}
+	FREE (xml);
 	return ResetFile (&F, set_time);
 }

@@ -8102,7 +8102,7 @@ static enumError decode_cfnt_if_possible (ccp arg)
 	return max_err;
 }
 
-// Convert a BFLYT/BCLYT/BRLYT/BRLAN layout or animation to text (.tflyt)
+// Convert a BFLYT/BCLYT/BRLYT/BRLAN layout or animation to XML (.xml)
 // during "wszst XX", mirroring what `wszst TEXT` already does for a single
 // file (see cmd_convert()'s "Handle layout formats" branch a few hundred
 // lines below). A layout/anim member found inside an extracted tree (e.g.
@@ -8125,10 +8125,13 @@ static enumError decode_bflyt_if_possible (ccp arg)
 
 	const bool is_lyt_magic = n_magic == sizeof (magic)
 		&& (!memcmp (magic, "FLYT", 4) || !memcmp (magic, "CLYT", 4)
+			|| !memcmp (magic, "FLAN", 4) || !memcmp (magic, "CLAN", 4)
 			|| !memcmp (magic, "RLYT", 4) || !memcmp (magic, "RLAN", 4));
 	const bool is_lyt_ext = is_ext (arg, ".bflyt") || is_ext (arg, ".bclyt")
 		|| is_ext (arg, ".brlyt") || is_ext (arg, ".brlan")
-		|| is_ext (arg, ".flyt") || is_ext (arg, ".clyt");
+		|| is_ext (arg, ".bflan") || is_ext (arg, ".bclan")
+		|| is_ext (arg, ".flyt") || is_ext (arg, ".clyt")
+		|| is_ext (arg, ".flan") || is_ext (arg, ".clan");
 
 	if (!is_lyt_magic && !is_lyt_ext)
 		return ERR_NOTHING_TO_DO;
@@ -8150,9 +8153,9 @@ static enumError decode_bflyt_if_possible (ccp arg)
 
 	char dest[PATH_MAX];
 	if (opt_dest)
-		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".tflyt", false);
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".xml", false);
 	else
-		snprintf (dest, sizeof (dest), "%s.tflyt", arg);
+		snprintf (dest, sizeof (dest), "%s.xml", arg);
 	if (verbose >= 0 || testmode)
 		fprintf (stdlog, "%s%sCREATE/TEXT %s:%s -> %s\n", verbose > 0 ? "\n" : "",
 			testmode ? "WOULD " : "", GetNameFF (raw.fform, 0), arg, dest);
@@ -8166,7 +8169,7 @@ static enumError decode_bflyt_if_possible (ccp arg)
 	InitializeBFLYT (&bflyt);
 	err = ScanBFLYT (&bflyt, false, raw.data, raw.data_size);
 	if (!err)
-		err = SaveTextBFLYT (&bflyt, dest, true);
+		err = SaveXMLBFLYT (&bflyt, dest, true);
 	ResetBFLYT (&bflyt);
 	ResetRawData (&raw);
 	return err ? err : ERR_OK;

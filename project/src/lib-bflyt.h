@@ -154,13 +154,16 @@ typedef struct bflyt_t
 void InitializeBFLYT (bflyt_t *bflyt);
 void ResetBFLYT (bflyt_t *bflyt);
 
-// Detect magic (FLYT/CLYT/FLAN/CLAN) or the txtree text format.
+// Detect magic (FLYT/CLYT/FLAN/CLAN), XML, or the legacy txtree text format.
 enumError ScanBFLYT (bflyt_t *bflyt, bool init, const u8 *data, uint data_size);
 
 // Build a complete binary layout from the model tree. *DEST is malloc owned.
 enumError BuildBFLYT (const bflyt_t *bflyt, u8 **dest, uint *dest_size);
 
 enumError SaveRawBFLYT (const bflyt_t *bflyt, ccp fname, bool set_time);
+// The normal human-editable representation. It is a lossless generic XML tree.
+enumError SaveXMLBFLYT (const bflyt_t *bflyt, ccp fname, bool set_time);
+// Legacy benzin txtree representation, retained for existing .tflyt workflows.
 enumError SaveTextBFLYT (const bflyt_t *bflyt, ccp fname, bool set_time);
 
 #endif // SZS_LIB_BFLYT_H
