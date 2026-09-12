@@ -447,6 +447,22 @@ open(sys.argv[3], "wb").write(bytes(d2))
   else
     no "VFF volume" "read a volume whose header does not describe it"
   fi
+
+  # CreateVFFArchive() builds a fresh volume from an extracted tree rather
+  # than reproducing mtools' own bytes (a different cluster size/geometry is
+  # fine as long as the contents round-trip): EXTRACT -> CREATE -> EXTRACT
+  # must reproduce every file, subdirectory included, byte for byte.
+  if "$B/wszst" EXTRACT "$PWD_PROJECT/../tests/fixtures/vff_fat16.vff" \
+       --dest "$vff_d/rt_src" >/dev/null 2>&1 \
+  && "$B/wszst" CREATE "$vff_d/rt_src" --dest "$vff_d/rt.vff" --overwrite >/dev/null 2>&1 \
+  && "$B/wszst" EXTRACT "$vff_d/rt.vff" --dest "$vff_d/rt_out" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$PWD_PROJECT/../tests/fixtures/vff_expect_a.txt" "$vff_d/rt_out/A.TXT" \
+  && cmp -s "$PWD_PROJECT/../tests/fixtures/vff_expect_big.bin" "$vff_d/rt_out/BIG.BIN" \
+  && cmp -s "$PWD_PROJECT/../tests/fixtures/vff_expect_a.txt" "$vff_d/rt_out/SUB/INNER.TXT"; then
+    ok "VFF create round-trip (FAT16 tree, subdirectory included, byte-exact contents)"
+  else
+    no "VFF volume" "CREATE -> EXTRACT did not reproduce the original tree"
+  fi
   rm -rf "$vff_d"
 else
   sk "VFF volume"
@@ -8801,6 +8817,83 @@ t_sir0_roundtrip(){
   rm -rf "$d"
 }
 t_sir0_roundtrip
+
+# SIR0 against a real retail sample (Pokemon Mystery Dungeon: Explorers of Sky
+# GROUND/a001.wan, an animated sprite that carries a genuine SIR0 header).
+# The retail file ships as .wan, not .sir0/.bin -- ExtractSIR0Archive() gates
+# on is_ext_match(arg,".sir0")/".bin" before even checking the magic, so a
+# real .wan is silently skipped (ERR_NOTHING_TO_DO) despite FILETYPE
+# correctly identifying it as SIR0 by magic. The fixture below is the same
+# bytes saved under a .sir0 name so the gate passes.
+#
+# The second half is a full byte-for-byte round trip: XX the real a001.wan,
+# CREATE it back from the extracted members, and compare against the
+# original retail bytes. ExtractSIR0Archive() also captures the trailing
+# pointer-offset table as pointers.bin (game-specific relocation data with
+# no generic re-derivation), and CreateSIR0Archive() writes it back
+# verbatim -- that round trip is what is being verified here.
+t_sir0_retail(){
+  local f="$PWD_PROJECT/../tests/fixtures/sir0_ds_pmdexplorersofsky_a001.sir0"
+  [ -s "$f" ] || { sk "SIR0 retail (PMD Explorers of Sky a001.wan)"; sk "SIR0 retail round-trip (PMD Explorers of Sky a001.wan)"; return; }
+  local d; d=$(mktemp -d /tmp/_r_sir0retail.XXXXXX) || { no "SIR0 retail" "mktemp failed"; return; }
+  if "$B/wszst" XX "$f" --dest "$d/out.d" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/out.d/data.bin" ] && [ -s "$d/out.d/subheader.bin" ] \
+  && [ "$(fsize_of "$d/out.d/data.bin")" = "2448" ] \
+  && [ "$(fsize_of "$d/out.d/subheader.bin")" = "16" ]; then
+    ok "SIR0 retail (PMD Explorers of Sky a001.wan, data.bin=2448 subheader.bin=16)"
+  else
+    no "SIR0 retail" "extraction of real a001.wan payload did not match expected sizes"
+  fi
+  if "$B/wszst" XX "$f" --dest "$d/out.d" --overwrite >/dev/null 2>&1 \
+  && "$B/wszst" CREATE "$d/out.d" --dest "$d/rebuilt.sir0" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$f" "$d/rebuilt.sir0"; then
+    ok "SIR0 retail round-trip (PMD Explorers of Sky a001.wan, byte-exact rebuild)"
+  else
+    no "SIR0 retail round-trip" "rebuilt .sir0 did not match the original retail bytes"
+  fi
+  rm -rf "$d"
+}
+t_sir0_retail
+
+# MDR against a real retail sample (Dance Dance Revolution: Mario Mix,
+# P-GWZE/files/data/mgconst.bin). The disc ships this chunk archive under a
+# plain .bin name with no distinguishing extension -- ExtractMDRArchive()
+# now also accepts .bin (matching the rest of this codebase's fallback
+# convention) so the real file is recognised. All 11 chunks are genuinely
+# zlib-deflated at level 6 (extraction names them "_zlib"), decompressed
+# sizes 2176/2176/2176/2176/2176/2176/1664/49280/12416/6784/960 bytes.
+#
+# The round-trip checks that EXTRACT -> CREATE reproduces the original file
+# byte for byte: this requires the 2-byte (not 16-byte) chunk alignment,
+# the decompressed-size duplicate at header+8, and re-deflating at zlib's
+# default level (6), all confirmed against this exact retail file.
+t_mdr_retail(){
+  local f="$PWD_PROJECT/../tests/fixtures/mdr_gc_ddrmariomix_mgconst.mdr"
+  [ -s "$f" ] || { sk "MDR retail (DDR Mario Mix mgconst.bin)"; sk "MDR retail round-trip (DDR Mario Mix mgconst.bin)"; return; }
+  local d; d=$(mktemp -d /tmp/_r_mdrretail.XXXXXX) || { no "MDR retail" "mktemp failed"; return; }
+  if "$B/wszst" EXTRACT "$f" -d "$d/out.d" --overwrite >/dev/null 2>&1; then
+    local want="2176 2176 2176 2176 2176 2176 1664 49280 12416 6784 960"
+    local got; got=$(for i in 00 01 02 03 04 05 06 07 08 09 10; do
+      fsize_of "$d/out.d/chunk_${i}_flags_00000007_zlib.bin"
+    done | tr '\n' ' ' | sed 's/ $//')
+    if [ "$got" = "$want" ]; then
+      ok "MDR retail (DDR Mario Mix mgconst.bin, 11 chunks)"
+    else
+      no "MDR retail" "chunk sizes '$got' != expected '$want'"
+    fi
+  else
+    no "MDR retail" "EXTRACT failed on real mgconst.mdr"
+  fi
+  if "$B/wszst" EXTRACT "$f" -d "$d/out.d" --overwrite >/dev/null 2>&1 \
+  && "$B/wszst" CREATE "$d/out.d" --dest "$d/rebuilt.mdr" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$f" "$d/rebuilt.mdr"; then
+    ok "MDR retail round-trip (DDR Mario Mix mgconst.bin, byte-exact rebuild)"
+  else
+    no "MDR retail round-trip" "rebuilt .mdr did not match the original retail bytes"
+  fi
+  rm -rf "$d"
+}
+t_mdr_retail
 
 # Grezzo ZAR container encode, decode, and byte-exact roundtrip
 t_zar_roundtrip(){
