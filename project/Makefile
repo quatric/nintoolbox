@@ -325,7 +325,7 @@ XOBJ_IMAGE	= lib-image1.o lib-image2.o lib-image3.o lib-plt0.o lib-bntx.o \
 			lib-quicklz.o qlz120.o qlz140.o src/ajpg/odh_core.o lib-bflyt.o \
 			src/astc/astc_decomp.o src/astc/astc_wrapper.o lib-at7.o lib-ash0.o lib-camelot.o lib-rnc.o \
 			lib-lz10.o lib-huff.o lib-nintendo-rl.o lib-blz.o lib-yay0.o lib-lzh8.o lib-ncer.o \
-			lib-flim.o lib-nutexb.o lib-ctpk.o lib-nut.o
+			lib-flim.o lib-nutexb.o lib-ctpk.o lib-cmab.o lib-nut.o
 XOBJ_PARSER	= lib-parser.o lib-parser-func.o
 XOBJ_OBJECT	= lib-object.o db-object.o db-file.o lib-bmg.o
 XOBJ_KCL	= lib-kcl.o db-kcl.o
