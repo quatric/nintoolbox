@@ -36,6 +36,7 @@ wmdlt ENCODE Mario.glb --dest Mario.hsf
 # 4. Convert Nintendo textures to PNG
 wimgt DECODE texture.tpl --dest texture.png
 wimgt DECODE texture.bntx --dest texture.png
+wimgt DECODE animation.cmab --dest texture.png # emits one PNG per embedded texture
 wimgt ENCODE texture.png --dest texture.tpl
 
 # 5. Extract sound archives and convert audio streams
@@ -175,6 +176,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **BTGA / LGA** | `.btga`, `.lga` | ✅ | — | — | — | Nintendo 3DS PICA texture wrapper used by Lego titles; all SDK pixel formats and mip level 0 decode |
 | **Camelot GX bank** | *(none)*, `.stpl`, `.sbn` | ✅ | — | — | ✅ | Camelot GX texture bank, standalone or inline in a model module (*Mario Golf: Toadstool Tour*, *Mario Power Tennis* GC & Wii, *We Love Golf!*) |
 | **CMB** | `.cmb` | ✅ | — | — | — | Grezzo Nintendo 3DS model container; texture chunk image 0 decodes (*Ocarina of Time 3D*, *Majora's Mask 3D*, *Ever Oasis*, *Luigi's Mansion 3D*) |
+| **CMAB** | `.cmab` | ✅ | — | — | — | Grezzo Nintendo 3DS material animation with embedded `txpt` PICA textures (*Ocarina of Time 3D*, *Majora's Mask 3D*). `wimgt DECODE` writes every embedded texture as `*.imgNNN.png`; RGBA8/RGB8, 16-bit, luminance/alpha, ETC1, and ETC1A4 formats decode. CMAB creation is not implemented; the regression fixture validates CMAB → PNG → CTPK → PNG pixels |
 | **CTPK** | `.ctpk` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C texture package (3DS) |
 | **CTXB** | `.ctxb` | ✅ | ✅ | ✅ | ✅ | Grezzo 3DS texture container (*Ocarina of Time 3D*, *Majora's Mask 3D*). A standalone `.ctxb` -- the common case, since these ship loose in `romfs/` rather than inside a GAR/ZAR -- never reached the decoder at all before this pass (wrong dispatch entirely, not a decode bug); fixed and verified against the retail romfs (1666 files). The decoder walks every texture entry in each `tex ` chunk, not just entry 0 (real romfs files pack several per chunk and entry 0 is not always decodable). Note: the decoder itself still only recovers the first texture of the first `tex ` chunk, and a GAR/ZAR's own extraction doesn't self-cascade into its output the way ABE/BNS/RST/RPAK do, so an embedded `.ctxb` only decodes on a second pass over that output directory |
 | **DSB / TXTR** | `.bin` | 🟡 | — | — | — | Animal Crossing: Wild World DS menu texture (RGB555 + A3I5). No standalone file carrying the `TXTR` magic turned up anywhere across the retail cart's ~18,100 extracted files, so this pass couldn't confirm it against real data; it may only ever appear embedded in ARM9/overlay code rather than as its own file |
