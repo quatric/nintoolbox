@@ -1966,3 +1966,39 @@ fixture. Untextured for now: batch texID reads 0 on every sampled
 batch and batch ids overrun the material count (3 ids vs 1 material),
 so no field yet maps batches to wmbMat entries — binding would be
 guesswork. Full suite: PASS=431 FAIL=0.
+
+## 35. Retail Regression & Format Verification (3DS, Wii, Arcade, DS)
+
+Systematic verification against retail images from the external SSD corpus
+(`szs-retail-test/`):
+
+- **GAR / ZAR (3DS)**: Verified against 3 retail RomFS corpora: SYSTEM variant
+  (Luigi's Mansion 3DS, `GAR\x02`-`\x05`), queen variant (OoT3D, `ZAR\x01`), and
+  jenkins variant (MM3D actor-info). Added retail fixtures (`event37.gar` 352 B,
+  `zelda_mir_ray.zar` 3,836 B, `z2_kajiya_info.gar` 1,060 B) and regression
+  tests `t_gar_lm3ds`, `t_zar_oot3d`, `t_gar_mm3d`.
+- **SIR0 (DS)**: Verified against retail *Pokémon Mystery Dungeon: Explorers of
+  Sky* (USA) NDS ROM. Extracted `data/BALANCE/item_s_p.bin` (3,856 B), confirmed
+  `FILETYPE` detection and subheader segment extraction. Added `t_sir0_ds_retail`.
+- **BCSTM (3DS)**: Verified against retail *Yo-Kai Watch* (USA) 3DS RomFS.
+  Extracted `ev01_0020_01.dspadpcm.bcstm` (5,728 B), confirmed `FILETYPE` and
+  WAV decode via `bfstm` demuxer pass-through. Added `t_bcstm_3ds_retail`.
+- **MKGPDX PAC (Arcade)**: Verified against retail *Mario Kart Arcade GP DX*
+  v1.10 arcade image. Extracted `Data/flash/data_jp/bun_bg/bun_bg.pac` (12,501 B),
+  confirmed 5 layout members extracted, repacked to `.mkgpdx`, and verified
+  roundtrip re-extraction. Added `t_mkgpdx_pac_retail`.
+- **Gorilla Games PKG / World of Goo GPAK (WiiWare)**: Verified against retail
+  *Bonsai Barber* WiiWare WAD (`bb_text.pkg`, 237,568 B; extracts 97 files,
+  repacks to `.pkg`, roundtrips byte-for-byte) and *World of Goo* (`master.pak`,
+  37 MB GPAK, 1,731 files). Added `t_gpkg_retail_bonsai_barber`.
+- **GVR Textures (Wii)**: Verified against retail *Sonic and the Secret Rings*
+  (USA) Wii WBFS disc. Extracted `st_02_p_light.gvr` (160 B, 16x16 CMPR),
+  confirmed `FILETYPE` and PNG decode. Added `t_gvr_retail_sonic`.
+- **NSBMD Models (DS)**: Verified against retail *Animal Crossing: Wild World*
+  (USA) NDS ROM. Extracted `bug53.nsbmd` (1,524 B decompressed, 1 mesh, 4 nodes),
+  confirmed `FILETYPE` and GLB export with valid meshes and node hierarchy.
+  Added `t_nsbmd_retail_acww`.
+- **Table formatting**: Fixed WMB placement (moved from 7-col Archives table to
+  8-col 3D Models table with Target Output GLB), cleaned up table-splitting link
+  in Compression table, aligned NSBCA row columns in Textures table. Validated all
+  README tables with automated check (0 mismatches).
