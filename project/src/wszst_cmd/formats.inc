@@ -793,6 +793,11 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth);
 // it with its own adpcm_thp, which is deliberately not reimplemented here.
 static enumError extract_sfx_file (ccp arg, ccp basedir, uint depth)
 {
+	// This extractor emits a decoded WAV preview with no reciprocal packer.
+	// Keep it out of normal staging trees; XEXPORT is the explicit preview mode.
+	if (export_count <= 0)
+		return ERR_NOTHING_TO_DO;
+
 	u8 *raw = 0;
 	size_t raw_size = 0;
 	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false))

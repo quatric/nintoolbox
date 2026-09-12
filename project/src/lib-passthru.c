@@ -2811,6 +2811,15 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 	bool is_vid1_magic = !memcmp (head, "VID1", 4);
 	bool is_vid1_ext = !strong_only && !is_vid1_magic && is_ext (src, ".vid");
 
+	// Every external media decoder below produces a preview (WAV or MP4),
+	// while CREATE has no reciprocal directory builder for those previews.
+	// Keep ordinary decoded game trees lossless and packable; --export/XEXPORT
+	// is the explicit inspection mode for the derived media instead.
+	if ( export_count <= 0
+		&& ( is_vid1_magic || is_thp || is_mobiclip || is_hvqm || is_stream_audio
+			|| is_other_media || is_vid1_ext ))
+		return ERR_NOTHING_TO_DO;
+
 	if (is_vid1_magic)
 	{
 		char stem[PATH_MAX], out_mp4[PATH_MAX];
@@ -2833,15 +2842,6 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 		}
 		return ERROR0 (ERR_CANT_CREATE_DIR, "Cannot create dest dir: %s", stage);
 	}
-
-	// Stream-audio passthrough writes a WAV preview into a .d directory, but
-	// CREATE has no reciprocal media-directory builder.  Do not put one-way
-	// previews into an ordinary game staging tree: they consume substantial
-	// space on retail discs and make a seemingly editable asset get silently
-	// ignored on repack.  --export/XEXPORT is the explicit inspection mode
-	// for those previews.
-	if (is_stream_audio && export_count <= 0)
-		return ERR_NOTHING_TO_DO;
 
 	if (is_thp || is_mobiclip || is_hvqm || is_stream_audio || is_other_media || is_vid1_ext)
 	{

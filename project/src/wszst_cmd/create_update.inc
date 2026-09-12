@@ -5955,6 +5955,12 @@ static enumError extract_arika_file (ccp arg, ccp basedir, uint depth)
 
 static enumError extract_thp_file (ccp arg, ccp basedir, uint depth)
 {
+	// THP is extracted as JPEG frames and raw audio chunks, but this command
+	// has no corresponding THP builder.  Do not replace a packable game asset
+	// with one-way previews during normal staging; XEXPORT is inspection mode.
+	if (export_count <= 0)
+		return ERR_NOTHING_TO_DO;
+
 	FILE *f = fopen (arg, "rb");
 	if (!f)
 		return ERR_NOTHING_TO_DO;
