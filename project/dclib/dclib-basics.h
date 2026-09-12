@@ -6926,6 +6926,9 @@ typedef enum SaveRestoreType_t
 ///////////////////////////////////////////////////////////////////////////////
 // [[SaveRestoreTab_t]]
 
+// This is an in-memory metadata table, not an on-disk layout. Keep native
+// pointer alignment: packed entries place every other `name` relocation at an
+// unaligned address, which modern arm64 Mach-O linkers reject.
 typedef struct SaveRestoreTab_t
 {
 	uint offset; // offset of variable
@@ -6943,7 +6946,7 @@ typedef struct SaveRestoreTab_t
 		};
 		// struct SaveRestoreTab_t *ref;
 	};
-} __attribute__ ((packed)) SaveRestoreTab_t;
+} SaveRestoreTab_t;
 
 //-----------------------------------------------------------------------------
 
