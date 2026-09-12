@@ -2834,6 +2834,15 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 		return ERROR0 (ERR_CANT_CREATE_DIR, "Cannot create dest dir: %s", stage);
 	}
 
+	// Stream-audio passthrough writes a WAV preview into a .d directory, but
+	// CREATE has no reciprocal media-directory builder.  Do not put one-way
+	// previews into an ordinary game staging tree: they consume substantial
+	// space on retail discs and make a seemingly editable asset get silently
+	// ignored on repack.  --export/XEXPORT is the explicit inspection mode
+	// for those previews.
+	if (is_stream_audio && export_count <= 0)
+		return ERR_NOTHING_TO_DO;
+
 	if (is_thp || is_mobiclip || is_hvqm || is_stream_audio || is_other_media || is_vid1_ext)
 	{
 		ccp mobipeg = resolve_mobipeg ();
