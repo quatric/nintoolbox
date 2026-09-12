@@ -238,12 +238,12 @@ static enumError DecodeScarletSTEX (u8 **dest, uint *width, uint *height, const 
 
 static enumError DecodeScarletDMPBM (u8 **dest, uint *width, uint *height, const u8 *data, uint size)
 {
-	if (!dest || !width || !height || size < 18 || memcmp (data, "DMPBM", 5))
+	if (!dest || !width || !height || size < 14 || memcmp (data, "DMPBM", 5))
 		return EINVAL;
 	const uint fmt = data[5], w = rd_le32 (data + 6), h = rd_le32 (data + 10);
 	if (!w || !h || w > 16384 || h > 16384 || fmt > 4)
 		return EINVAL;
-	const uint pixel_off = fmt == 4 ? 18 + 512 : 18;
+	const uint pixel_off = fmt == 4 ? 14 + 512 : 14;
 	if (pixel_off > size)
 		return EINVAL;
 	if (fmt != 4)
@@ -266,7 +266,7 @@ static enumError DecodeScarletDMPBM (u8 **dest, uint *width, uint *height, const
 		for (uint x = 0; x < w; x++)
 		{
 			const uint pos = ((y / 8) * (tw / 8) + x / 8) * 64 + morton8 (x & 7, y & 7);
-			const u16 c = rd_le16 (data + 18 + 2 * data[pixel_off + pos]); // A1B5G5R5
+			const u16 c = rd_le16 (data + 14 + 2 * data[pixel_off + pos]); // A1B5G5R5
 			u8 *d = rgba + 4 * ((size_t)y * w + x);
 			d[0] = expand5 (c);
 			d[1] = expand5 (c >> 5);

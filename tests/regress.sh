@@ -9145,6 +9145,37 @@ with open('$d/a.ctxb', 'wb') as f:
 }
 t_ctxb_roundtrip
 
+# Scarlet's remaining Nintendo 3DS image wrappers do not have encoders.  The
+# fixtures are hand-built, public-domain 8x8 PICA tiles; decode each wrapper,
+# move it through the canonical CTPK encoder, decode again, and require exact
+# PNG pixels at both ends.  This protects the format-specific headers and the
+# shared PICA handoff without pretending their original wrapper bytes can be
+# regenerated.
+t_scarlet_3ds_image_roundtrips(){
+  local root="$PWD_PROJECT/../tests/fixtures" d f expected name
+  d=$(mktemp -d /tmp/_r_scarlet_3ds.XXXXXX) || { no "Scarlet 3DS image fixtures" "mktemp failed"; return; }
+  local specs=(
+    "scarlet_3ds.btga:224 32 16 255:BTGA"
+    "scarlet_3ds.dmpbm:16 192 48 255:DMPBM"
+    "scarlet_3ds.stex:32 64 224 255:STEX"
+    "scarlet_3ds.cmb:208 144 32 255:CMB"
+  )
+  for spec in "${specs[@]}"; do
+    f=${spec%%:*}; expected=${spec#*:}; expected=${expected%%:*}; name=${spec##*:}
+    if "$B/wimgt" DECODE "$root/$f" --dest "$d/$f.png" --overwrite >/dev/null 2>&1 \
+    && python3 "$PNGTOOL" pixel "$d/$f.png" 0 0 $expected 2>/dev/null \
+    && "$B/wimgt" ENCODE "$d/$f.png" --dest "$d/$f.ctpk" --overwrite >/dev/null 2>&1 \
+    && "$B/wimgt" DECODE "$d/$f.ctpk" --dest "$d/$f.roundtrip.png" --overwrite >/dev/null 2>&1 \
+    && python3 "$PNGTOOL" cmp "$d/$f.png" "$d/$f.roundtrip.png" 2>/dev/null; then
+      ok "$name fixture decode -> CTPK -> PNG pixel roundtrip"
+    else
+      no "$name fixture roundtrip" "decode or pixel comparison failed"
+    fi
+  done
+  rm -rf "$d"
+}
+t_scarlet_3ds_image_roundtrips
+
 # Bandai Namco NUT (.nut / NTP3) texture container encode, decode, and byte-exact roundtrip
 t_nut_roundtrip(){
   local d; d=$(mktemp -d /tmp/_r_nut.XXXXXX) || { no "NUT roundtrip" "mktemp failed"; return; }

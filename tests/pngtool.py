@@ -133,7 +133,16 @@ def cmd_cmp(args):
     sys.exit(0)
 
 
+def cmd_pixel(args):
+    path, x, y, r, g, b, a = args
+    w, h, _, rgba = _read_png(path)
+    x, y = int(x), int(y)
+    expected = tuple(int(v) for v in (r, g, b, a))
+    if x < 0 or y < 0 or x >= w or y >= h or rgba(x, y) != expected:
+        sys.exit(1)
+
+
 if __name__ == '__main__':
     cmds = {'write': cmd_write, 'colors': cmd_colors,
-            'alphacheck': cmd_alphacheck, 'cmp': cmd_cmp}
+            'alphacheck': cmd_alphacheck, 'cmp': cmd_cmp, 'pixel': cmd_pixel}
     cmds[sys.argv[1]](sys.argv[2:])
