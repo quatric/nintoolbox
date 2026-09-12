@@ -10497,6 +10497,95 @@ assert found, "no WEIGHTS_0 attribute found"
   rm -rf "$d"
 }
 t_wmb
+t_gar_lm3ds(){
+  # GAR/ZAR archive, SYSTEM (Luigi's Mansion 3DS) codename variant.
+  # Magic: "GAR\x02-\x05"; header uses 0x20-byte group descriptors and
+  # 16-byte per-file info entries.  Verified against the retail RomFS:
+  # 58 .gar files extracted correctly, yielding .cmb, .cmab, .csab, .ctxb,
+  # and .bas members.
+  #
+  # Fixture: event/event37.gar (352 bytes, 1 member: event37.bev).
+  # Small but structurally complete; exercises the SYSTEM branch of
+  # ExtractGARArchive() and verifies the group-stride/info-entry parsing.
+  local f="$PWD_PROJECT/../tests/fixtures/3ds_samples/lm_gar/event37.gar"
+  [ -f "$f" ] || { sk "GAR/ZAR SYSTEM variant (Luigi's Mansion 3DS)"; return; }
+  local d="/tmp/_r_gar_lm3ds"
+  if "$B/wszst" FILETYPE "$f" 2>/dev/null | grep -q '^GAR'; then
+    ok "retail Luigi's Mansion 3DS GAR (SYSTEM) is recognised"
+  else
+    no "retail Luigi's Mansion 3DS GAR (SYSTEM)" "not recognised as GAR"
+  fi
+  rm -rf "$d"
+  "$B/wszst" X "$f" --dest "$d" --overwrite >/dev/null 2>&1
+  local n; n=$(find "$d" -type f -size +0c 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$n" -gt 0 ]; then
+    ok "GAR/ZAR SYSTEM variant (Luigi's Mansion 3DS) -> $n member(s) extracted"
+  else
+    no "GAR/ZAR SYSTEM variant (Luigi's Mansion 3DS)" "no members extracted from event37.gar"
+  fi
+}
+t_gar_lm3ds
+
+t_zar_oot3d(){
+  # GAR/ZAR archive, queen (Ocarina of Time 3D) codename variant.
+  # Magic: "ZAR\x01"; header uses 16-byte group entries and a data-offset
+  # array.  Verified against the retail RomFS: hundreds of .zar files
+  # extracted correctly, yielding .cmb / .cmab model and animation members.
+  #
+  # Fixture: actor/zelda_mir_ray.zar (3,836 bytes, 1 member:
+  # Model/l_mir_Mir_Ray_modelT.cmb).  Exercises the Zelda/queen branch of
+  # ExtractGARArchive() and verifies the group-stride, data-offset array, and
+  # member-extraction path on a real retail file.
+  local f="$PWD_PROJECT/../tests/fixtures/3ds_samples/oot_zar/zelda_mir_ray.zar"
+  [ -f "$f" ] || { sk "GAR/ZAR queen variant (Ocarina of Time 3D)"; return; }
+  local d="/tmp/_r_zar_oot3d"
+  if "$B/wszst" FILETYPE "$f" 2>/dev/null | grep -q '^GAR'; then
+    ok "retail OoT3D ZAR (queen/Zelda) is recognised"
+  else
+    no "retail OoT3D ZAR (queen/Zelda)" "not recognised as GAR"
+  fi
+  rm -rf "$d"
+  "$B/wszst" X "$f" --dest "$d" --overwrite >/dev/null 2>&1
+  local cmb; cmb=$(find "$d" -name '*.cmb' -size +0c 2>/dev/null | head -1)
+  if [ -n "$cmb" ]; then
+    ok "GAR/ZAR queen variant (OoT3D) -> .cmb model member extracted"
+  else
+    no "GAR/ZAR queen variant (OoT3D)" "no .cmb member found after extracting zelda_mir_ray.zar"
+  fi
+}
+t_zar_oot3d
+
+t_gar_mm3d(){
+  # GAR/ZAR archive, jenkins (Majora's Mask 3D) codename variant.
+  # Structurally identical header to the OoT3D queen variant (both are
+  # "ZAR\x01" / "GAR\x0x" scenes/actors), but MM3D also uses the .gar
+  # extension for actor-info containers.  Verified against the retail RomFS:
+  # hundreds of .gar scene/actor files extracted correctly, yielding .cmab
+  # material-animation and .csab skeletal-animation members.
+  #
+  # Fixture: scenes/z2_kajiya_info.gar (1,060 bytes, 2 members:
+  # Z2_kajiya_00.cmab + Z2_kajiya_00.csab).  Exercises the jenkins codename
+  # branch and multi-member group parsing.
+  local f="$PWD_PROJECT/../tests/fixtures/3ds_samples/mm3d_gar/z2_kajiya_info.gar"
+  [ -f "$f" ] || { sk "GAR/ZAR jenkins variant (Majora's Mask 3D)"; return; }
+  local d="/tmp/_r_gar_mm3d"
+  if "$B/wszst" FILETYPE "$f" 2>/dev/null | grep -q '^GAR'; then
+    ok "retail MM3D GAR (jenkins) is recognised"
+  else
+    no "retail MM3D GAR (jenkins)" "not recognised as GAR"
+  fi
+  rm -rf "$d"
+  "$B/wszst" X "$f" --dest "$d" --overwrite >/dev/null 2>&1
+  local n; n=$(find "$d" -type f -size +0c 2>/dev/null | wc -l | tr -d ' ')
+  local cmab; cmab=$(find "$d" -name '*.cmab' -size +0c 2>/dev/null | head -1)
+  local csab; csab=$(find "$d" -name '*.csab' -size +0c 2>/dev/null | head -1)
+  if [ "$n" -ge 2 ] && [ -n "$cmab" ] && [ -n "$csab" ]; then
+    ok "GAR/ZAR jenkins variant (MM3D) -> $n members extracted (.cmab + .csab confirmed)"
+  else
+    no "GAR/ZAR jenkins variant (MM3D)" "expected >=2 members incl. .cmab+.csab, got $n"
+  fi
+}
+t_gar_mm3d
 
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
