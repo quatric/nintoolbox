@@ -453,6 +453,7 @@ bool OwnedNameOk (ccp name);
 #include "lib-dtls.h"
 #include "lib-cpk.h"
 #include "lib-wta.h"
+#include "lib-wmb.h"
 #include "lib-mio.h"
 #include "lib-sfx.h"
 #include "lib-vff.h"

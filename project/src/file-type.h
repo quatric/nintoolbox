@@ -360,6 +360,7 @@ typedef enum file_format_t
 	FF_TM0, // 264 - Monster Games high-res GX texture (.tm0, Excite Truck)
 	FF_PAC, // 265 - Nd Cube Wii U flat container (.bin / "PAC\0", Mario Party 10 / Amiibo Festival)
 	FF_CPK, // 266 - CRIWARE CPK archive (.cpk / "CPK ", Star Fox Zero)
+	FF_WMB, // 267 - PlatinumGames WMB model (.wmb / "\0BMW", Star Fox Zero)
 
 	//--- number of elements
 

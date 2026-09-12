@@ -59,6 +59,7 @@
 #include "lib-bnfm.h"
 #include "lib-numsh.h"
 #include "lib-mpr-cmdl.h"
+#include "lib-wmb.h"
 #include "ui.h" // [[dclib]] wrapper
 #include "ui-wmdlt.c"
 
@@ -1181,7 +1182,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 					&& (!memcmp (raw.data, "CGFX", 4) || !memcmp (raw.data, "FRES", 4)
 						|| !memcmp (raw.data, "BCH\0", 4) || !memcmp (raw.data, "SSBH", 4)
 						|| !memcmp (raw.data, "HBSS", 4)))
-				|| (raw.data_size >= 0x20 && IsMPRCMDL (raw.data, raw.data_size))))
+				|| (raw.data_size >= 0x20 && IsMPRCMDL (raw.data, raw.data_size))
+				|| (raw.data_size >= 0x80 && IsPlatinumWMB (raw.data, raw.data_size))))
 		{
 			if (!testmode)
 			{
@@ -1255,6 +1257,8 @@ model_t *model = is_bmd				? ParseNSBMD (raw.data, raw.data_size)
 				}
 				if (!model && raw.data_size >= 0x20 && IsMPRCMDL (raw.data, raw.data_size))
 					model = ParseMPRCMDL (raw.data, raw.data_size);
+				if (!model && raw.data_size >= 0x80 && IsPlatinumWMB (raw.data, raw.data_size))
+					model = ParsePlatinumWMB (raw.data, raw.data_size);
 				if (model)
 				{
 					if (is_dae)

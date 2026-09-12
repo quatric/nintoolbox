@@ -1940,3 +1940,18 @@ tree for the retail `wta/`+`wtp/` split), `FF_WTA` magic case,
 2600 textures → 2600 PNGs, 100% cascade, sampled pixel-diverse.
 README row added. WMB/MOT (627/897) mapped next, references located
 (Kerilk Noesis plugin covers Star Fox Zero) but not started.
+
+**Follow-up 2026-09-11 — WMB models.** New `lib-wmb.c`
+(`IsPlatinumWMB`/`ParsePlatinumWMB` → `model_t`): `\0BMW` header, 7
+verified (format, mapping, unkD) layouts, float positions, 10-10-10
+normals (Bayo2 variant, 300/300 unit), half UVs, u16 indices (list +
+strip→triangles), mesh names, `FF_WMB` + `wmdlt`/`xx` hooks,
+`t_wmb` (fixture + winding-agreement assert). Verified: 627 files →
+2903 meshes, 48/48 sampled valid. Three genuine bugs caught by
+testing: batch-relative (not absolute) index base, degenerate-strip
+stitch markers must be kept for the multiple-of-3 count, and stored
+backward winding must flip (0/1618 → 1618/1618 face/normal
+agreement). Unskinned/untextured; bone tables bounds-checked for a
+later skinning pass. A transient xx/wmdlt mismatch during development
+was proven to be a stale binary (md5-verified rebuilds from here on),
+not a code bug.

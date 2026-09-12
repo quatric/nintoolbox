@@ -1312,6 +1312,9 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			// CRIWARE CPK archive (Star Fox Zero Wii U content/*.cpk)
 			case 0x43504b20: // "CPK "
 				return FF_CPK;
+			// PlatinumGames WMB model (Star Fox Zero Wii U, big-endian)
+			case 0x00424d57: // "\0BMW"
+				return FF_WMB;
 
 			// PlatinumGames Archive (pkz\0)
 			case 0x706b7a00: // "pkz\0"

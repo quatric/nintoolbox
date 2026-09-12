@@ -1424,6 +1424,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		"CRIWARE CPK archive (.cpk / \"CPK \"); UTF tables (optionally XOR-encrypted), "
 		"CRILAYLA-compressed members (Star Fox Zero)" },
 
+	// FF_WMB = 267 (PlatinumGames WMB model)
+	{ FF_WMB, FF_WMB, 0, "WMB", ".wmb", ".szs", ".wmb",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+		{ 0, 'B', 'M', 'W' }, 0, MinusString, MinusString,
+		"PlatinumGames WMB model (.wmb / \"\\0BMW\", Star Fox Zero)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1567,6 +1573,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_ZDAT, "ZDAT", "ZDAT", 0xe05 }, { FF_SFX, "SFX", 0, 0xe05 },
 	{ FF_VFF, "VFF", "VFF", 0xe05 }, { FF_IQIPACK, "IQIPACK", "PACK", 0xe05 },
 	{ FF_CPK, "CPK", 0, 0xe05 },
+	{ FF_WMB, "WMB", 0, 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

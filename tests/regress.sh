@@ -10413,6 +10413,59 @@ assert len(set(px)) > 100, "suspiciously flat texture"
 }
 t_wta
 
+t_wmb(){
+  # PlatinumGames WMB model, Wii U big-endian form (`\0BMW`; Star Fox
+  # Zero). Fixture is a 1056-byte retail member (1 mesh). Faces must
+  # agree with the vertex normals (stored backward-wound; sample the
+  # first 200 triangles), not just form valid triangles.
+  local f="$PWD_PROJECT/../tests/fixtures/wmb_sfzero_et0001.wmb"
+  [ -f "$f" ] || { sk "WMB (SFZ) fixture"; return; }
+  local d; d=$(mktemp -d /tmp/_r_wmb.XXXXXX) || { no "WMB (SFZ)" "mktemp failed"; return; }
+  if "$B/wszst" FILETYPE "$f" 2>/dev/null | grep -q '^WMB' \
+  && "$B/wmdlt" DECODE "$f" --dest "$d/model.glb" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/model.glb" ] \
+  && python3 ../tests/validate-glb.py "$d/model.glb" >/dev/null 2>&1 \
+  && python3 -c '
+import json, struct, math, sys
+b = open(sys.argv[1], "rb").read()
+ln, typ = struct.unpack_from("<II", b, 12)
+doc = json.loads(b[20:20+ln])
+assert len(doc.get("meshes", [])) == 1, "expected exactly 1 mesh"
+blen, btyp = struct.unpack_from("<II", b, 20+ln)
+boff = 20+ln+8
+acc = doc["accessors"]; bv = doc["bufferViews"]
+m = doc["meshes"][0]; p = m["primitives"][0]
+pa = acc[p["attributes"]["POSITION"]]; na = acc[p["attributes"]["NORMAL"]]
+va = bv[pa["bufferView"]]; vn = bv[na["bufferView"]]
+n = pa["count"]
+pos = [struct.unpack_from("<3f", b, boff+va.get("byteOffset",0)+pa.get("byteOffset",0)+i*12) for i in range(n)]
+nor = [struct.unpack_from("<3f", b, boff+vn.get("byteOffset",0)+na.get("byteOffset",0)+i*12) for i in range(n)]
+ag = bad = 0
+for t in range(min(n // 3, 200)):
+    ax, ay, az = pos[3*t]; bx, by, bz = pos[3*t+1]; cx, cy, cz = pos[3*t+2]
+    nx, ny, nz = (by-ay)*(cz-az)-(bz-az)*(cy-ay), (bz-az)*(cx-ax)-(bx-ax)*(cz-az), (bx-ax)*(cy-ay)-(by-ay)*(cx-ax)
+    nl = math.sqrt(nx*nx+ny*ny+nz*nz)
+    if nl == 0: continue
+    qx, qy, qz = nor[3*t]
+    if (nx/nl)*qx+(ny/nl)*qy+(nz/nl)*qz > 0: ag += 1
+    else: bad += 1
+assert ag > 0 and bad == 0, f"winding/normals disagree: {ag} agree, {bad} disagree"
+' "$d/model.glb" 2>/dev/null; then
+    ok "WMB (SFZ) retail member -> valid 1-mesh glTF, faces agree with normals"
+  else
+    no "WMB (SFZ)" "failed to decode retail fixture"
+  fi
+  # Same file through wszst xx (PACK-member cascade path).
+  if "$B/wszst" xx "$f" --dest "$d/x.glb" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/model.glb" "$d/x.glb"; then
+    ok "WMB (SFZ) wszst xx agrees byte-exact with wmdlt"
+  else
+    no "WMB (SFZ) wszst xx" "extract path differs from wmdlt"
+  fi
+  rm -rf "$d"
+}
+t_wmb
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
