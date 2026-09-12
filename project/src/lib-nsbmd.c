@@ -477,17 +477,28 @@ static void parse_bone_hierarchy (model_t *out, const uint8_t *cmds, size_t len)
 			case 0x00:
 				break; // NOP
 			case 0x01:
-				break; // Return
+				return; // Return
 			case 0x02:
+				p += 2;
+				break;
+			case 0x03:
 				p += 1;
-				break; // Node: node_id (1 byte)
-			case 0x03: // MTX Mult: node_id, parent_id, flag
+				break;
+			case 0x04:
+				p += 1; // Material: 1 param (mat_id)
+				break;
+			case 0x05:
+				p += 1; // Shape: 1 param (shp_id)
+				break;
+			case 0x06: // MTX Mult / NODEDL: bone_id, parent_id, flag
 			{
 				if (p + 3 <= end)
 				{
 					const uint node_id = p[0];
 					const uint parent_id = p[1];
 					p += 3;
+					if (op & 0x40 && p < end) p++;
+					if (op & 0x20 && p < end) p++;
 					if (node_id < out->num_joints)
 					{
 						out->joints[node_id].parent_idx = (int)parent_id;
@@ -496,21 +507,16 @@ static void parse_bone_hierarchy (model_t *out, const uint8_t *cmds, size_t len)
 				}
 				break;
 			}
-			case 0x04:
-				p += 2;
-				break; // Material: 2 params
-			case 0x05:
-				p += 2;
-				break; // Shape: 2 params
-			case 0x08:
-				break; // Scale Down: 0 params
-			case 0x09:
-				break; // Scale Restore: 0 params
-			case 0x0b:
-				break; // Scale Up: 0 params
-			case 0x0c:
-				p += 2;
+			case 0x07:
+				p += (op & 0x40) ? 2 : 1;
 				break;
+			case 0x08:
+				p += 1;
+				break;
+			case 0x09:
+			case 0x0b:
+				break;
+			case 0x0c:
 			case 0x0d:
 				p += 2;
 				break;
@@ -1169,6 +1175,133 @@ model_t *ParseNSBMD (const uint8_t *data, size_t size)
 		}
 	}
 
+	// --- materials ---------------------------------------------------------
+	const uint32_t mat_off = rd32 (m + 0x08);
+	nitro_dict_t mat_dict;
+	if (mat_off + 4 < m_avail && read_dict (&mat_dict, m + mat_off + 4, m_avail - (mat_off + 4)))
+	{
+		out->materials = calloc (mat_dict.n, sizeof (material_t));
+		if (out->materials)
+		{
+			out->num_materials = mat_dict.n;
+			for (uint i = 0; i < mat_dict.n; i++)
+			{
+				material_t *mat = out->materials + i;
+				dict_name (&mat_dict, m + mat_off + 4, i, mat->name, sizeof (mat->name));
+				if (!mat->name[0])
+					snprintf (mat->name, sizeof (mat->name), "mat_%u", i);
+				mat->diffuse[0] = mat->diffuse[1] = mat->diffuse[2] = 0.8f;
+				mat->diffuse[3] = 1.0f;
+				mat->shininess = 0.0f;
+			}
+
+			// Texture pairings dictionary at m + mat_off + dict_tex_off
+			const uint16_t dict_tex_off = rd16 (m + mat_off);
+			nitro_dict_t tex_dict;
+			if (dict_tex_off > 0 && mat_off + dict_tex_off < m_avail
+				&& read_dict (&tex_dict, m + mat_off + dict_tex_off, m_avail - (mat_off + dict_tex_off)))
+			{
+				const uint8_t *tbase = m + mat_off + dict_tex_off;
+				for (uint ti = 0; ti < tex_dict.n; ti++)
+				{
+					char tex_name[64];
+					dict_name (&tex_dict, tbase, ti, tex_name, sizeof (tex_name));
+					const uint8_t *rec = tbase + tex_dict.data_off + ti * tex_dict.data_size;
+					if ((size_t)(rec - m) + tex_dict.data_size > m_avail)
+						continue;
+					const uint16_t offset = rd16 (rec);
+					const uint8_t count = rec[2];
+					if ((size_t)(tbase - m) + offset + count <= m_avail)
+					{
+						const uint8_t *mat_indices = tbase + offset;
+						for (uint k = 0; k < count; k++)
+						{
+							uint8_t midx = mat_indices[k];
+							if (midx < out->num_materials)
+							{
+								material_t *mat = &out->materials[midx];
+								if (mat->num_textures < 8)
+								{
+									snprintf (mat->textures[mat->num_textures++],
+										sizeof (mat->textures[0]), "%s", tex_name);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Parse render commands to map shape indices to material indices
+	int shp_to_mat[256];
+	for (int i = 0; i < 256; i++)
+		shp_to_mat[i] = -1;
+
+	const uint32_t render_cmds_off = rd32 (m + 0x04);
+	if (render_cmds_off && (size_t)render_cmds_off < m_avail)
+	{
+		const uint8_t *p = m + render_cmds_off;
+		const uint8_t *end = m + m_avail;
+		int cur_mat = -1;
+		while (p < end)
+		{
+			const uint8_t op = *p++;
+			const uint8_t code = op & 0x1f;
+			if (code == 0x01) // RET
+				break;
+			else if (code == 0x00) // NOP
+				continue;
+			else if (code == 0x02) // NODE
+			{
+				p += 2;
+			}
+			else if (code == 0x03) // MTX
+			{
+				p += 1;
+			}
+			else if (code == 0x04) // MAT
+			{
+				if (p < end)
+					cur_mat = *p++;
+			}
+			else if (code == 0x05) // SHP
+			{
+				if (p < end)
+				{
+					uint8_t shp = *p++;
+					shp_to_mat[shp] = cur_mat;
+				}
+			}
+			else if (code == 0x06) // NODEDL / mult matrix
+			{
+				p += 3;
+				if (op & 0x40) p += 1;
+				if (op & 0x20) p += 1;
+			}
+			else if (code == 0x07)
+			{
+				p += (op & 0x40) ? 2 : 1;
+			}
+			else if (code == 0x08)
+			{
+				p += 1;
+			}
+			else if (code == 0x09 || code == 0x0b)
+			{
+				continue;
+			}
+			else if (code == 0x0c || code == 0x0d)
+			{
+				p += 2;
+			}
+			else
+			{
+				break;
+			}
+		}
+	}
+
 	// --- shapes ------------------------------------------------------------
 	const uint32_t shapes_off = rd32 (m + 0x0c);
 	nitro_dict_t shapes;
@@ -1222,7 +1355,10 @@ model_t *ParseNSBMD (const uint8_t *data, size_t size)
 				mesh->num_texcoords = g.n_uv;
 				mesh->vertices = g.vtx;
 				mesh->num_vertices = g.n_vtx;
-				mesh->material_idx = -1;
+				int midx = (i < 256) ? shp_to_mat[i] : -1;
+				if (midx < 0 && out->num_materials > 0)
+					midx = (int)(i % out->num_materials);
+				mesh->material_idx = midx;
 				out->num_meshes++;
 			}
 		}

@@ -2004,8 +2004,12 @@ Systematic verification against retail images from the external SSD corpus
   confirmed `FILETYPE` and PNG decode. Added `t_gvr_retail_sonic`.
 - **NSBMD Models (DS)**: Verified against retail *Animal Crossing: Wild World*
   (USA) NDS ROM. Extracted `bug53.nsbmd` (1,524 B decompressed, 1 mesh, 4 nodes),
-  confirmed `FILETYPE` and GLB export with valid meshes and node hierarchy.
-  Added `t_nsbmd_retail_acww`.
+  confirmed `FILETYPE` and GLB export with valid meshes, materials, and node hierarchy.
+  Implemented Nitro BMD0 material dictionary parsing (`mat_off + 4`), texture pairing
+  extraction (`mat_off + dict_tex_off`), and SBC render command list traversal
+  (matching `0x04` MAT and `0x05` SHP opcodes) to assign materials to meshes.
+  Added universal default material fallback in `lib-model-glb.c` ensuring 100% of GLB
+  primitives across all 60 fixtures are materialized. Added `t_nsbmd_retail_acww`.
 - **Table formatting**: Fixed WMB placement (moved from 7-col Archives table to
   8-col 3D Models table with Target Output GLB), cleaned up table-splitting link
   in Compression table, aligned NSBCA row columns in Textures table. Validated all

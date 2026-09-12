@@ -894,7 +894,7 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 	data.textures = calloc (model->num_materials * 8 + 1, sizeof (cgltf_texture));
 	data.samplers = calloc (model->num_materials * 8 + 1, sizeof (cgltf_sampler));
 	data.materials
-		= calloc (model->num_materials > 0 ? model->num_materials : 1, sizeof (cgltf_material));
+		= calloc (model->num_materials + 1, sizeof (cgltf_material));
 	data.meshes = calloc (model->num_meshes > 0 ? model->num_meshes : 1, sizeof (cgltf_mesh));
 	size_t max_nodes = model->num_joints + model->num_meshes + model->num_instances
 		+ model->num_cameras + model->num_lights;
@@ -1086,6 +1086,30 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 		}
 	}
 
+	cgltf_material *default_mat = NULL;
+	for (size_t m = 0; m < model->num_meshes; m++)
+	{
+		const mesh_t *mesh = &model->meshes[m];
+		if (mesh->material_idx < 0 || (size_t)mesh->material_idx >= model->num_materials)
+		{
+			if (!default_mat)
+			{
+				default_mat = &data.materials[data.materials_count++];
+				default_mat->name = (char *)"default_material";
+				default_mat->has_pbr_metallic_roughness = 1;
+				default_mat->pbr_metallic_roughness.metallic_factor = 0.0f;
+				default_mat->pbr_metallic_roughness.roughness_factor = 0.9f;
+				default_mat->pbr_metallic_roughness.base_color_factor[0] = 0.8f;
+				default_mat->pbr_metallic_roughness.base_color_factor[1] = 0.8f;
+				default_mat->pbr_metallic_roughness.base_color_factor[2] = 0.8f;
+				default_mat->pbr_metallic_roughness.base_color_factor[3] = 1.0f;
+				default_mat->double_sided = 1;
+				default_mat->alpha_mode = cgltf_alpha_mode_opaque;
+			}
+			break;
+		}
+	}
+
 	int acc_ibm = -1;
 	int any_skin = 0;
 	for (size_t i = 0; i < model->num_meshes; i++)
@@ -1154,9 +1178,8 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 			acc->component_type = cgltf_component_type_r_32f;
 			acc->type = cgltf_type_mat4;
 			acc->count = model->num_joints;
-			acc_ibm = data.accessors_count - 1;
-
 			memcpy (bin_data + bin_size, ibm, fsz);
+			acc_ibm = (int)data.accessors_count - 1;
 			bin_size += fsz;
 			free (ibm);
 		}
@@ -1174,6 +1197,10 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 		if (mesh->material_idx >= 0 && (size_t)mesh->material_idx < model->num_materials)
 		{
 			prim->material = &data.materials[mesh->material_idx];
+		}
+		else if (default_mat)
+		{
+			prim->material = default_mat;
 		}
 
 		prim->attributes = calloc (16 + mesh->num_morph_targets, sizeof (cgltf_attribute));

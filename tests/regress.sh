@@ -10790,10 +10790,15 @@ ln, = struct.unpack_from("<I", b, 12)
 doc = json.loads(b[20:20+ln])
 assert len(doc.get("meshes", [])) >= 1, "expected >= 1 mesh"
 assert len(doc.get("nodes", [])) >= 1, "expected >= 1 node"
+assert len(doc.get("materials", [])) >= 1, "expected >= 1 material"
+assert doc["materials"][0].get("name") == "bug50", "expected material name bug50"
+for m in doc.get("meshes", []):
+    for prim in m.get("primitives", []):
+        assert "material" in prim, "expected all primitives to have material assigned"
 ' 2>/dev/null; then
-    ok "retail NSBMD decode -> valid GLB with meshes and node hierarchy"
+    ok "retail NSBMD decode -> valid GLB with meshes, nodes, and materials (bug50)"
   else
-    no "retail NSBMD decode" "failed to decode NSBMD to valid GLB"
+    no "retail NSBMD decode" "failed to decode NSBMD to valid GLB with materials"
   fi
   rm -rf "$d"
 }
