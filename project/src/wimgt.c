@@ -734,6 +734,38 @@ static enumError SaveRetroTXTR (Image_t *img, ccp dest, ccp source)
 	return err;
 }
 
+// MPR and the older Retro TXTR revision both conventionally use .txtr.
+// Keep the established old-Retro target as .txtr and use .mpr.txtr for the
+// explicitly requested Remastered container.
+static enumError SaveMPRTXTR (Image_t *img, ccp dest, ccp source)
+{
+	Transform2XIMG (img);
+	if (img->iform != IMG_X_RGB)
+		return ERROR0 (ERR_INVALID_DATA, "Can't convert image to RGBA: %s\n", source);
+
+	const uint rgba_size = img->width * img->height * 4;
+	if (!rgba_size)
+		return ERROR0 (ERR_INVALID_DATA, "Empty image: %s\n", source);
+	u8 *rgba = MALLOC (rgba_size);
+	if (!rgba)
+		return ERR_CANT_CREATE;
+	for (uint y = 0; y < img->height; y++)
+		memcpy (rgba + 4 * y * img->width, img->data + 4 * y * img->xwidth, 4 * img->width);
+	u8 *data = 0;
+	uint size = 0;
+	enumError err = EncodeMPRTXTR_RGBA (&data, &size, rgba, img->width, img->height);
+	FREE (rgba);
+	if (err)
+		return ERROR0 (ERR_INVALID_DATA, "Can't encode MPR TXTR image: %s\n", source);
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, source);
+	if (F.f && fwrite (data, 1, size, F.f) != size)
+		err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
+	ResetFile (&F, opt_preserve);
+	FREE (data);
+	return err;
+}
+
 static enumError SaveFLIM (Image_t *img, ccp dest, ccp source, bool bclim)
 {
 	Transform2XIMG (img);
@@ -1184,6 +1216,20 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 					dest);
 			if (!testmode)
 				err = SaveDSB (&img, dest, arg);
+			ResetIMG (&img);
+			if (err > ERR_WARNING)
+				return err;
+			continue;
+		}
+		const size_t dest_len = strlen (dest);
+		if (dest_len >= 9 && !strcasecmp (dest + dest_len - 9, ".mpr.txtr"))
+		{
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%s%s %s:%s -> MPR-TXTR:%s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", cmd_name, PrintFormat3 (src_f, src_i, src_p), arg,
+					dest);
+			if (!testmode)
+				err = SaveMPRTXTR (&img, dest, arg);
 			ResetIMG (&img);
 			if (err > ERR_WARNING)
 				return err;

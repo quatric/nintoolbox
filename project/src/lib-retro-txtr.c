@@ -1380,3 +1380,145 @@ enumError DecodeMPRTXTR_RGBA (
 	*height = h;
 	return ERR_OK;
 }
+
+//-----------------------------------------------------------------------------
+// MPR TXTR encoder
+//-----------------------------------------------------------------------------
+
+static inline uint mpr_round_up (uint v, uint align)
+{
+	return align ? (v + align - 1) / align * align : v;
+}
+
+static inline void mpr_wr_le64 (u8 *p, u64 v)
+{
+	wr_le32 (p, (u32)v);
+	wr_le32 (p + 4, (u32)(v >> 32));
+}
+
+// The inverse of lib-bntx.c's addr_block_linear(). Keep this local instead of
+// exposing a generic BNTX writer API: MPR needs only this one RGBA8 surface.
+static u64 mpr_block_linear_addr (uint x, uint y, uint width, uint bpp, uint block_height)
+{
+	const uint width_in_gobs = mpr_div_round_up (width * bpp, 64);
+	const u64 gob = (u64)(y / (8 * block_height)) * 512 * block_height * width_in_gobs
+		+ (u64)(x * bpp / 64) * 512 * block_height
+		+ (u64)((y % (8 * block_height)) / 8) * 512;
+	const uint xb = x * bpp;
+	return gob + (u64)((xb % 64) / 32) * 256 + (u64)((y % 8) / 2) * 64
+		+ (u64)((xb % 32) / 16) * 32 + (u64)(y % 2) * 16 + xb % 16;
+}
+
+enumError EncodeMPRTXTR_RGBA (
+	u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height)
+{
+	if (!dest || !dest_size || !rgba || !width || !height || width > MPR_MAX_DIM || height > MPR_MAX_DIM)
+		return EINVAL;
+	*dest = 0;
+	*dest_size = 0;
+
+	const uint bpp = 4;
+	const uint block_height = mpr_block_height_mip0 (height);
+	const uint pitch = mpr_round_up (width * bpp, 64);
+	const uint surf_h = mpr_round_up (height, block_height * 8);
+	const u64 raw_size64 = (u64)pitch * surf_h;
+	if (!raw_size64 || raw_size64 > RETRO_TXTR_MAX_OUTPUT)
+		return EFBIG;
+	const uint raw_size = (uint)raw_size64;
+
+	u8 *raw = CALLOC (1, raw_size);
+	if (!raw)
+		return ERR_CANT_CREATE;
+	for (uint y = 0; y < height; y++)
+		for (uint x = 0; x < width; x++)
+		{
+			const u64 pos = mpr_block_linear_addr (x, y, width, bpp, block_height);
+			if (pos + bpp <= raw_size)
+				memcpy (raw + pos, rgba + 4 * ((size_t)y * width + x), bpp);
+		}
+
+	// HEAD is eight u32s, one base-mip size, and the 10-byte sampler record.
+	// The sampler values are the minimal 2D defaults; decoding does not depend
+	// on them, but keeping a complete record makes the file acceptable to MPR
+	// tooling rather than merely to this decoder.
+	const uint head_size = 0x20 + 4 + 10;
+	const uint gpu_size = 4 + raw_size; // mode-0 LZSS header + stored surface
+	const uint txtr_body = 0x18 + head_size + 0x18 + gpu_size;
+	const uint meta_size = 28 + 9 + 4 + 20; // one read-info and one buffer
+	const uint foot_body = 0x18 + 28 + 0x18 + meta_size;
+	const u64 total64 = 0x20ull + txtr_body + 0x20ull + foot_body;
+	if (total64 > RETRO_TXTR_MAX_OUTPUT)
+	{
+		FREE (raw);
+		return EFBIG;
+	}
+	const uint total = (uint)total64;
+	u8 *out = CALLOC (1, total);
+	if (!out)
+	{
+		FREE (raw);
+		return ERR_CANT_CREATE;
+	}
+
+	// Outer TXTR form and HEAD/GPU chunks.
+	memcpy (out, "RFRM", 4);
+	mpr_wr_le64 (out + 4, txtr_body);
+	memcpy (out + 0x14, "TXTR", 4);
+	wr_le32 (out + 0x18, 47);
+	wr_le32 (out + 0x1c, 51);
+	uint pos = 0x20;
+	memcpy (out + pos, "HEAD", 4);
+	mpr_wr_le64 (out + pos + 4, head_size);
+	wr_le32 (out + pos + 12, 1);
+	pos += 0x18;
+	wr_le32 (out + pos + 0x00, 1); // 2D
+	wr_le32 (out + pos + 0x04, 12); // Rgba8Unorm
+	wr_le32 (out + pos + 0x08, width);
+	wr_le32 (out + pos + 0x0c, height);
+	wr_le32 (out + pos + 0x10, 1); // one layer
+	wr_le32 (out + pos + 0x1c, 1); // one mip
+	wr_le32 (out + pos + 0x20, raw_size);
+	out[pos + 0x24] = 1; // sampler dimensionality: 2D
+	pos += head_size;
+	memcpy (out + pos, "GPU ", 4);
+	mpr_wr_le64 (out + pos + 4, gpu_size);
+	wr_le32 (out + pos + 12, 1);
+	pos += 0x18;
+	const uint gpu_data_off = pos;
+	// Four zero bytes select the mode-0 (stored) Retro LZSS buffer.
+	memcpy (out + pos + 4, raw, raw_size);
+	FREE (raw);
+	pos += gpu_size;
+
+	// FOOT with an empty AINF and one META entry addressing the GPU bytes.
+	memcpy (out + pos, "RFRM", 4);
+	mpr_wr_le64 (out + pos + 4, foot_body);
+	memcpy (out + pos + 0x14, "FOOT", 4);
+	wr_le32 (out + pos + 0x18, 1);
+	wr_le32 (out + pos + 0x1c, 1);
+	pos += 0x20;
+	memcpy (out + pos, "AINF", 4);
+	mpr_wr_le64 (out + pos + 4, 28);
+	pos += 0x18 + 28;
+	memcpy (out + pos, "META", 4);
+	mpr_wr_le64 (out + pos + 4, meta_size);
+	pos += 0x18;
+	wr_le32 (out + pos + 20, raw_size);
+	wr_le32 (out + pos + 24, 1);
+	pos += 28;
+	out[pos] = 0; // read-info index
+	wr_le32 (out + pos + 1, gpu_data_off);
+	wr_le32 (out + pos + 5, gpu_size);
+	pos += 9;
+	wr_le32 (out + pos, 1);
+	pos += 4;
+	wr_le32 (out + pos + 0, 0); // read-info index
+	wr_le32 (out + pos + 4, 0); // offset inside that info
+	wr_le32 (out + pos + 8, gpu_size);
+	wr_le32 (out + pos + 12, 0);
+	wr_le32 (out + pos + 16, raw_size);
+
+	*dest = out;
+	*dest_size = total;
+	return ERR_OK;
+}

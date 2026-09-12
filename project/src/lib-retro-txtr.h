@@ -175,4 +175,11 @@ enumError ScanMPRTXTR (mpr_txtr_info_t *info, const u8 *data, uint size);
 enumError DecodeMPRTXTR_RGBA (
 	u8 **dest, uint *width, uint *height, const u8 *src, uint src_size);
 
+// Encode one width*height RGBA8 image as a single-mip Metroid Prime
+// Remastered TXTR. The result uses the version-47/51 little-endian RFRM
+// layout, a Tegra block-linear RGBA8 surface, and a mode-0 (stored) GPU
+// buffer so it can be used without an LZSS encoder.
+enumError EncodeMPRTXTR_RGBA (u8 **dest, uint *dest_size, const u8 *rgba, uint width,
+	uint height);
+
 #endif

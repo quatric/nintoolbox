@@ -8262,6 +8262,26 @@ assert sum(1 for v in im.histogram()[0:256] if v > 0) == 256, "expected full ton
     fno "Metroid Prime Remastered TXTR" "failed to extract MiscData.pak fixture";
   fi
 
+  # The MPR writer deliberately has a distinct .mpr.txtr suffix because
+  # ordinary .txtr remains the old Wii Retro TXTR target. It emits RGBA8,
+  # one mip and a stored block-linear GPU buffer; decode must recover every
+  # source pixel exactly, including a non-power-of-two 232x232 surface.
+  if [ -s "$d/mpr_txtr_test/out.png" ] \
+  && "$B/wimgt" ENCODE "$d/mpr_txtr_test/out.png" --dest "$d/mpr_txtr_test/roundtrip.mpr.txtr" --overwrite >/dev/null 2>&1 \
+  && [ "$(head -c4 "$d/mpr_txtr_test/roundtrip.mpr.txtr")" = "RFRM" ] \
+  && "$B/wimgt" DECODE "$d/mpr_txtr_test/roundtrip.mpr.txtr" --dest "$d/mpr_txtr_test/roundtrip.png" --overwrite >/dev/null 2>&1 \
+  && python3 -c '
+from PIL import Image, ImageChops
+a = Image.open("'"$d"'/mpr_txtr_test/out.png").convert("RGBA")
+b = Image.open("'"$d"'/mpr_txtr_test/roundtrip.png").convert("RGBA")
+assert a.size == b.size == (232, 232)
+assert not ImageChops.difference(a, b).getbbox(), "MPR TXTR round-trip pixels differ"
+' 2>/dev/null; then
+    fok "Metroid Prime Remastered TXTR encode RGBA8 -> exact decode"
+  else
+    fno "Metroid Prime Remastered TXTR encode" "failed RGBA8 encode/decode round trip";
+  fi
+
   # Nintendo Wii Opening Banner (.bnr / BNR1) test
   mkdir -p "$d/bnr_test"
   python3 -c '

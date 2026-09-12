@@ -71,7 +71,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **MOD (NDL3/NDL2)** | Wii / Model | ✅ | ✅ | Monster Games 3D model container |
 | **MPR CMDL / SMDL** | Switch / Model | ✅ | ❌ | Retro Studios model (*Metroid Prime Remastered*): static CMDL v114/125 and skinned SMDL v127/133 (decoded unskinned, skinning validated); named materials |
 | **MPR PACK** | Switch / Archive | ✅ | ❌ | Retro Studios asset container (*Metroid Prime Remastered*): LE RFRM PACK v1 + TOCC v3, LZSS members |
-| **MPR TXTR** | Switch / Texture | ✅ | ❌ | Retro Studios texture (*Metroid Prime Remastered*): LE RFRM TXTR v47/51, Tegra detile, BC1-7/ASTC |
+| **MPR TXTR** | Switch / Texture | ✅ | ✅ | Retro Studios texture (*Metroid Prime Remastered*): LE RFRM TXTR v47/51, Tegra detile, BC1-7/ASTC; `wimgt ENCODE` writes single-mip RGBA8 with a `.mpr.txtr` destination |
 | **MSH (PMsh)** | Wii / Model | ✅ | ✅ | Monster Games collision mesh |
 | **MSBF / MSBP / MSBT** | Wii/3DS/Wii U/Switch / Text | ✅ | ✅ | Message Studio Binary Text and Flow |
 | **MSR** | 3DS / Archive | 🟡 | ⛔ | Metroid: Samus Returns archive |
