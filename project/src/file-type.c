@@ -788,7 +788,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, MinusString, MinusString, "Sega GameCube/Wii texture (GCIX/GVRT)" },
 
 	// FF_SMDH = 148 (3DS icon/title metadata)
-	{ FF_SMDH, 0, 0, "SMDH", ".smdh", ".smdh", ".smdh", FFT_VALID | FFT_GRAPHIC | FFT_DECODE, 4,
+	{ FF_SMDH, 0, 0, "SMDH", ".smdh", ".smdh", ".smdh", FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE, 4,
 		{ 0x53, 0x4d, 0x44, 0x48 }, // "SMDH"
 		0, MinusString, MinusString, "3DS application icon/title metadata (SMDH)" },
 
@@ -1437,6 +1437,15 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, MinusString, MinusString,
 		"Grezzo 3DS material animation with embedded PICA textures (.cmab)" },
 
+	{ FF_BTGA, 0, 0, "BTGA", ".btga", ".btga", ".btga", FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE,
+		0, { 0 }, 0, MinusString, MinusString, "Nintendo 3DS PICA texture wrapper (.btga/.lga)" },
+	{ FF_DMPBM, 0, 0, "DMPBM", ".dmpbm", ".dmpbm", ".dmpbm", FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE,
+		5, { 'D', 'M', 'P', 'B', 'M' }, 0, MinusString, MinusString, "Atlus Nintendo 3DS PICA bitmap (.dmpbm)" },
+	{ FF_STEX, 0, 0, "STEX", ".stex", ".stex", ".stex", FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE,
+		4, { 'S', 'T', 'E', 'X' }, 0, MinusString, MinusString, "Atlus Nintendo 3DS PICA texture (.stex)" },
+	{ FF_CMB, 0, 0, "CMB", ".cmb", ".cmb", ".cmb", FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE,
+		4, { 'c', 'm', 'b', ' ' }, 0, MinusString, MinusString, "Grezzo Nintendo 3DS model texture container (.cmb)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1583,6 +1592,9 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_CPK, "CPK", 0, 0xe05 },
 	{ FF_WMB, "WMB", 0, 0xe05 },
 	{ FF_RFL_RES, "RFL-RES", "RFLRES", 0xe05 },
+	{ FF_BTGA, "BTGA", 0, 0x3809 }, { FF_BTGA, "LGA", 0, 0x3809 },
+	{ FF_DMPBM, "DMPBM", 0, 0x3809 }, { FF_STEX, "STEX", 0, 0x3809 },
+	{ FF_CMB, "CMB", 0, 0x3809 },
 
 	{ 0, 0, 0, 0 }
 };

@@ -173,14 +173,14 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **BNTX** | `.bntx` | ✅ | ✅ | ✅ | ✅ | NintendoSDK Tegra block-linear texture container (Switch) |
 | **BREFT** | `.breft`, `.bt-img` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4R particle effect texture (Wii) |
 | **BTI / TPL** | `.bti`, `.tpl` | ✅ | ✅ | ✅ | ✅ | Nintendo standard texture palette library (GameCube / Wii) |
-| **BTGA / LGA** | `.btga`, `.lga` | ✅ | — | — | — | Nintendo 3DS PICA texture wrapper used by Lego titles; all SDK pixel formats and mip level 0 decode. **Regression complete:** synthetic fixture verifies source pixels and `PNG → CTPK → PNG` pixel identity |
+| **BTGA / LGA** | `.btga`, `.lga` | ✅ | ✅ | — | — | Nintendo 3DS PICA texture wrapper used by Lego titles; all SDK pixel formats and mip level 0 decode. **Regression complete:** canonical `decode → PNG → BTGA → PNG` preserves fixture pixels |
 | **Camelot GX bank** | *(none)*, `.stpl`, `.sbn` | ✅ | — | — | ✅ | Camelot GX texture bank, standalone or inline in a model module (*Mario Golf: Toadstool Tour*, *Mario Power Tennis* GC & Wii, *We Love Golf!*) |
-| **CMB** | `.cmb` | ✅ | — | — | — | Grezzo Nintendo 3DS model container; texture chunk image 0 decodes (*Ocarina of Time 3D*, *Majora's Mask 3D*, *Ever Oasis*, *Luigi's Mansion 3D*). **Regression complete:** synthetic fixture verifies source pixels and `PNG → CTPK → PNG` pixel identity |
+| **CMB** | `.cmb` | ✅ | ✅ | — | — | Grezzo Nintendo 3DS model container; texture chunk image 0 decodes (*Ocarina of Time 3D*, *Majora's Mask 3D*, *Ever Oasis*, *Luigi's Mansion 3D*). **Regression complete:** canonical `decode → PNG → CMB → PNG` preserves fixture pixels |
 | **CMAB** | `.cmab` | ✅ | — | — | — | Grezzo Nintendo 3DS material animation with embedded `txpt` PICA textures (*Ocarina of Time 3D*, *Majora's Mask 3D*). `wimgt DECODE` writes every embedded texture as `*.imgNNN.png`; RGBA8/RGB8, 16-bit, luminance/alpha, ETC1, and ETC1A4 formats decode. CMAB creation is not implemented; the regression fixture validates CMAB → PNG → CTPK → PNG pixels |
 | **CTPK** | `.ctpk` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C texture package (3DS) |
 | **CTXB** | `.ctxb` | ✅ | ✅ | ✅ | ✅ | Grezzo 3DS texture container (*Ocarina of Time 3D*, *Majora's Mask 3D*). A standalone `.ctxb` -- the common case, since these ship loose in `romfs/` rather than inside a GAR/ZAR -- never reached the decoder at all before this pass (wrong dispatch entirely, not a decode bug); fixed and verified against the retail romfs (1666 files). The decoder walks every texture entry in each `tex ` chunk, not just entry 0 (real romfs files pack several per chunk and entry 0 is not always decodable). Note: the decoder itself still only recovers the first texture of the first `tex ` chunk, and a GAR/ZAR's own extraction doesn't self-cascade into its output the way ABE/BNS/RST/RPAK do, so an embedded `.ctxb` only decodes on a second pass over that output directory |
 | **DSB / TXTR** | `.dsb` | ✅ | ✅ | ✅ | — | Animal Crossing: Wild World DS menu texture: 32-entry RGB555 palette + A3I5 texels. `wimgt DECODE` and `ENCODE` support the 128×128 layout; regression uses the retail `raccoon.dsb` extracted from *Animal Crossing Calculator* (USA), and checks pixel-exact decode → encode → decode. The encoder canonicalizes reserved header bytes and unused palette entries, so a container byte match is not expected |
-| **DMPBM** | `.dmpbm` | ✅ | — | — | — | Atlus Nintendo 3DS tiled bitmap (*Shin Megami Tensei: Devil Survivor Overclocked*), including indexed A1B5G5R5 palettes. **Regression complete:** synthetic fixture verifies source pixels and `PNG → CTPK → PNG` pixel identity |
+| **DMPBM** | `.dmpbm` | ✅ | ✅ | — | — | Atlus Nintendo 3DS tiled bitmap (*Shin Megami Tensei: Devil Survivor Overclocked*), including indexed A1B5G5R5 palettes. **Regression complete:** canonical `decode → PNG → DMPBM → PNG` preserves fixture pixels |
 | **Retro TXTR** | `.txtr` | ✅ | ✅ | ✅ | ✅ | Retro Studios texture, old revision (*Metroid Prime 1-3*, *Donkey Kong Country Returns*, Wii): BE header (GX format 0-0xA, dimensions, mip count), optional palette header, GX-tiled mip chain. Non-indexed formats decode via the shared GX tile codec and re-encode byte-exact (single mip); C4/C8 indexed decode via the sibling palette, C14X2 is rejected. Verified against retail *Donkey Kong Country Returns* (Wii) WBFS disc: 55 retail `.txtr` textures extracted from `MiscData.pak`, decoding 16x16 CMPR cleanly to PNG. Fixture: `tests/fixtures/wii_retail/retail_0005_16x16.txtr` (140 bytes) |
 | **Tropical TXTR** | `.txtr` | ✅ | — | — | — | Retro Studios texture, new revision (*Donkey Kong Country: Tropical Freeze*, Wii U): RFRM form (`TXTR` id) with HEAD parameters and LZSS-compressed (modes 0-3, zlib fallback) GX2 surface data. Decodes 2D depth-1 surfaces via the GX2 detiler (base mip); cubemaps/arrays and Tropical re-encode are not implemented. `wimgt DECODE` + `wszst xx` |
 | **MPR TXTR** | `.txtr` / `.mpr.txtr` | ✅ | ✅ | ✅ | ✅ | Retro Studios texture, Remastered revision (*Metroid Prime Remastered*, Switch): LE RFRM form (`TXTR` v47/51) + HEAD + GPU buffers assembled from the FOOT META table, detiled with the Tegra block-linear path and pixel-decoded incl. BC1-7/ASTC. `wimgt ENCODE` selects this revision with a `.mpr.txtr` destination and writes single-mip RGBA8 with a stored GPU buffer; it round-trips pixels exactly at the retail 232×232 dimensions. Verified against the retail `MiscData.pak` TXTR (232x232 R8Unorm) plus real ASTC/BC7 game textures. `wimgt DECODE` + `wszst xx` (PACK extract leaves a cascade `.TXTR.png`). An `RFRM` form nothing in the family claims reports UNKNOWN rather than falling through to the LZ10/LZ11 single-byte guesses (real TXTRs used to misreport as LZ streams, aborting image decode) |
@@ -198,8 +198,8 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **NUT** | `.nut` | ✅ | ✅ | ✅ | ✅ | Bandai Namco texture package (*Super Smash Bros. 4* Wii U / 3DS). Verified against the retail Wii U disc: an `NTP3` texture carved out of `content/dt00` (addressed via `content/ls`, zlib-inflated) decodes to a real DDS (`tests/fixtures/nut_wiiu_smash4_texture.nut`) |
 | **NUTEXB** | `.nutexb` | ✅ | ✅ | ✅ | — | Bandai Namco / Nintendo Switch texture wrapper (Switch) |
 | **PTLG** | `.glt`, `.rlt` | ✅ | ✅ | ✅ | ✅ | Next Level Games texture container, extracted as TPL (*Super Mario Strikers*, *Mario Strikers Charged*). Verified against retail *Mario Strikers Charged* (Wii) WBFS disc: `characterballoon.rlt` (2,784 bytes) extracts `8ffc5fbe.tpl` and decodes to 64x64 CMPR PNG. Fixture: `tests/fixtures/wii_retail/retail_characterballoon.rlt` |
-| **SMDH** | `.smdh` | ✅ | — | — | ✅ | Nintendo 3DS application icon, publisher info & title metadata |
-| **STEX** | `.stex` | ✅ | — | — | — | Atlus Nintendo 3DS PICA texture (*Etrian Odyssey IV*, *Shin Megami Tensei IV*). **Regression complete:** synthetic fixture verifies source pixels and `PNG → CTPK → PNG` pixel identity |
+| **SMDH** | `.smdh` | ✅ | ✅ | — | ✅ | Nintendo 3DS application icon, publisher info & title metadata. **Regression complete:** canonical icon-only `decode → PNG → SMDH → PNG` preserves fixture pixels; PNG input cannot retain titles or publisher data |
+| **STEX** | `.stex` | ✅ | ✅ | — | — | Atlus Nintendo 3DS PICA texture (*Etrian Odyssey IV*, *Shin Megami Tensei IV*). **Regression complete:** canonical `decode → PNG → STEX → PNG` preserves fixture pixels |
 | **TEX** | `.tex` | ✅ | ✅ | ✅ | ✅ | Monster Games GX texture format (Wii) |
 | **TM0** | `.tm0` | ✅ | — | — | ✅ | Monster Games high-resolution texture (*Excite Truck*, Wii): an explicit header at 0x80 followed by a CMPR colour mip chain and, for renderer code 0x44, an I4 stencil chain that supplies the alpha. Both chains are 4bpp over 8x8 tiles and so identical in length, and nothing in the header names them apart. ExciteBots ships a headerless variant of the same container, which is not decoded yet |
 | **CAN** | `.can` | ✅ | — | — | ✅ | Monster Games skeletal animation (*Excite Truck* / *ExciteBots*, Wii), converted to a GLB with the node hierarchy and one rotation/translation/scale channel per node. No magic: a little-endian header, 0x64-byte node records with a column-major rest matrix, and 36-byte keys of quaternion + translation + uniform scale + time. Verified across all 973 nodes of the 29 non-empty retail animations: hierarchy, rest pose, key values and duration all reproduced |
@@ -211,12 +211,12 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regress.sh`.
 BRRES sub-file formats (TEX0, TEX) embed their own name, so the name has to match.
 
-Scarlet-derived 3DS wrappers (**BTGA**, **DMPBM**, **STEX**, and **CMB**) use
-the public-domain fixtures `tests/fixtures/scarlet_3ds.{btga,dmpbm,stex,cmb}`.
-Their regression first asserts the decoded source pixel, then checks a
-pixel-identical `decode → CTPK → decode` conversion. The original wrappers
-remain decode-only, so a byte-exact wrapper roundtrip is intentionally not
-claimed.
+Scarlet-derived 3DS wrappers (**BTGA**, **DMPBM**, **STEX**, and **CMB**) and
+the 3DS **SMDH** icon use public-domain fixtures in `tests/fixtures/`. Their
+regression first asserts a decoded source pixel, then checks a pixel-identical
+`decode → PNG → same container → decode` conversion. The encoders use
+canonical RGBA8 or RGB565 representations, so byte-exact source wrappers and
+SMDH title metadata roundtrips are intentionally not claimed.
 
 ---
 

@@ -49,13 +49,33 @@ def cmb():
     return bytes(out)
 
 
+def morton8(x, y):
+    return sum(((x >> bit) & 1) << (2 * bit) | ((y >> bit) & 1) << (2 * bit + 1)
+               for bit in range(3))
+
+
+def smdh():
+    # RGB565 values that decode exactly to (248, 252, 248); this validates the
+    # standard large icon used by wimgt and the companion small icon.
+    out = bytearray(0x36C0)
+    out[:4] = b'SMDH'
+    color = (31 << 11) | (63 << 5) | 31
+    for dim, offset in ((24, 0x2040), (48, 0x24C0)):
+        for y in range(dim):
+            for x in range(dim):
+                pos = offset + ((y // 8) * (dim // 8) + x // 8) * 128 + morton8(x & 7, y & 7) * 2
+                struct.pack_into('<H', out, pos, color)
+    return bytes(out)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--output', required=True)
     args = ap.parse_args()
     os.makedirs(args.output, exist_ok=True)
     fixtures = {'scarlet_3ds.btga': btga(), 'scarlet_3ds.dmpbm': dmpbm(),
-                'scarlet_3ds.stex': stex(), 'scarlet_3ds.cmb': cmb()}
+                'scarlet_3ds.stex': stex(), 'scarlet_3ds.cmb': cmb(),
+                'scarlet_3ds.smdh': smdh()}
     for name, data in fixtures.items():
         with open(os.path.join(args.output, name), 'wb') as fp:
             fp.write(data)

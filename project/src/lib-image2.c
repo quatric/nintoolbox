@@ -3236,6 +3236,173 @@ static enumError SaveCTXB (Image_t *img, FILE *fo, ccp path, bool overwrite)
 	return err;
 }
 
+//-----------------------------------------------------------------------------
+
+static enumError SaveImageBuffer ( Image_t *img, FILE *fo, ccp path, bool overwrite,
+		const u8 *data, uint size, ccp format )
+{
+	enumError err;
+	File_t f;
+	if (fo)
+	{
+		InitializeFile (&f);
+		f.f = fo;
+		f.is_writing = true;
+	}
+	else
+	{
+		err = CreateFileOpt (&f, true, path, testmode, overwrite ? path : 0);
+		if (err || !f.f)
+		{
+			ResetFile (&f, 0);
+			return err;
+		}
+	}
+
+	if (fwrite (data, 1, size, f.f) != size)
+	{
+		err = ERROR0 (ERR_WRITE_FAILED, "Error while writing %s data: %s\n", format, path);
+		RegisterFileError (&f, ERR_WRITE_FAILED);
+	}
+	else
+		err = ERR_OK;
+
+	if (opt_preserve)
+		memcpy (&f.fatt, &img->fatt, sizeof (f.fatt));
+	if (fo)
+		f.f = 0;
+	return ResetFile (&f, opt_preserve) ?: err;
+}
+
+//-----------------------------------------------------------------------------
+
+static enumError CreateScarletPicaRGBA8 ( Image_t *img, bool flip_y,
+		u8 **dest, uint *dest_size )
+{
+	*dest = 0;
+	*dest_size = 0;
+	if ( img->iform != IMG_X_RGB && ConvertToRGB (img, img, PAL_AUTO) )
+		return ERR_INVALID_DATA;
+	if (!img->width || !img->height || img->width > 0xffff || img->height > 0xffff)
+		return ERROR0 (ERR_INVALID_DATA, "Invalid PICA texture dimensions: %ux%u\n", img->width, img->height);
+
+	const uint tw = (img->width + 7) & ~7u;
+	const uint th = (img->height + 7) & ~7u;
+	const uint size = tw * th * 4;
+	u8 *raw = CALLOC (1, size);
+	if (!raw)
+		return ERR_CANT_CREATE;
+
+	for (uint y = 0; y < img->height; y++)
+		for (uint x = 0; x < img->width; x++)
+		{
+			const uint py = flip_y ? img->height - 1 - y : y;
+			const uint pos = ((y / 8) * (tw / 8) + x / 8) * 64 + morton8 (x & 7, y & 7);
+			memcpy (raw + 4 * pos, img->data + (py * img->xwidth + x) * 4, 4);
+		}
+
+	*dest = raw;
+	*dest_size = size;
+	return ERR_OK;
+}
+
+//-----------------------------------------------------------------------------
+
+static enumError SaveScarlet3DS (Image_t *img, file_format_t fform,
+		FILE *fo, ccp path, bool overwrite)
+{
+	const bool flip_y = fform == FF_BTGA || fform == FF_DMPBM;
+	u8 *raw;
+	uint raw_size;
+	enumError err = CreateScarletPicaRGBA8 (img, flip_y, &raw, &raw_size);
+	if (err)
+		return err;
+
+	uint head_size;
+	switch (fform)
+	{
+		case FF_BTGA: head_size = 0x38; break;
+		case FF_DMPBM: head_size = 14; break;
+		case FF_STEX: head_size = 0x80; break;
+		case FF_CMB: head_size = 0x80; break;
+		default: FREE(raw); return ERR_INVALID_DATA;
+	}
+	const uint total_size = head_size + raw_size;
+	u8 *out = CALLOC (1, total_size);
+	if (!out)
+	{
+		FREE(raw);
+		return ERR_CANT_CREATE;
+	}
+
+	if (fform == FF_BTGA)
+	{
+		wr_le32 (out, 1); wr_le32 (out+4, 0x20); wr_le32 (out+8, 0x20);
+		wr_le16 (out+12, img->width); wr_le16 (out+14, img->height);
+		wr_le16 (out+20, 0); wr_le32 (out+24, 1);
+	}
+	else if (fform == FF_DMPBM)
+	{
+		memcpy (out, "DMPBM", 5); out[5] = 3;
+		wr_le32 (out+6, img->width); wr_le32 (out+10, img->height);
+	}
+	else if (fform == FF_STEX)
+	{
+		memcpy (out, "STEX", 4); wr_le32 (out+12, img->width); wr_le32 (out+16, img->height);
+		wr_le32 (out+20, 0x1401); wr_le32 (out+24, 0x6752); wr_le32 (out+28, raw_size);
+		wr_le32 (out+32, head_size);
+	}
+	else
+	{
+		memcpy (out, "cmb ", 4); wr_le32 (out+4, total_size); wr_le32 (out+8, 6);
+		wr_le32 (out+0x24+2*4, 0x50); wr_le32 (out+0x24+6*4+4, head_size);
+		memcpy (out+0x50, "tex ", 4); wr_le32 (out+0x54, 36); wr_le32 (out+0x58, 1);
+		u8 *te = out + 0x5c;
+		wr_le32 (te, raw_size); wr_le16 (te+8, img->width); wr_le16 (te+10, img->height);
+		wr_le16 (te+12, 0x6752); wr_le16 (te+14, 0x1401);
+		ccp base = FindFilename (path, 0); size_t n = base ? strcspn (base,".") : 0;
+		if (n > 15) n = 15; if (n) memcpy (te+20, base, n);
+	}
+	memcpy (out + head_size, raw, raw_size);
+	FREE(raw);
+	err = SaveImageBuffer (img, fo, path, overwrite, out, total_size, GetNameFF(0,fform));
+	FREE(out);
+	return err;
+}
+
+//-----------------------------------------------------------------------------
+
+static void EncodeSMDHIcon (u8 *dest, uint dim, const Image_t *img)
+{
+	for (uint y = 0; y < dim; y++)
+		for (uint x = 0; x < dim; x++)
+		{
+			const u8 *s = img->data + ((y * img->height / dim) * img->xwidth + x * img->width / dim) * 4;
+			const u16 c = ((s[0] * 31 + 127) / 255 << 11) | ((s[1] * 63 + 127) / 255 << 5) | (s[2] * 31 + 127) / 255;
+			const uint pos = ((y / 8) * (dim / 8) + x / 8) * 128 + morton8 (x & 7, y & 7) * 2;
+			wr_le16 (dest + pos, c);
+		}
+}
+
+static enumError SaveSMDH (Image_t *img, FILE *fo, ccp path, bool overwrite)
+{
+	if ( img->iform != IMG_X_RGB && ConvertToRGB (img, img, PAL_AUTO) )
+		return ERR_INVALID_DATA;
+	u8 small[SMDH_SMALL_ICON_SIZE], large[SMDH_LARGE_ICON_SIZE], *out;
+	memset (small, 0, sizeof(small)); memset (large, 0, sizeof(large));
+	EncodeSMDHIcon (small, 24, img); EncodeSMDHIcon (large, 48, img);
+	smdh_t smdh;
+	memset (&smdh, 0, sizeof(smdh)); smdh.small_icon = small; smdh.large_icon = large;
+	uint size;
+	enumError err = EncodeSMDH (&out, &size, &smdh);
+	if (!err)
+	{
+		err = SaveImageBuffer (img, fo, path, overwrite, out, size, "SMDH");
+		FREE(out);
+	}
+	return err;
+}
+
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			SaveIMG()			///////////////
@@ -3277,6 +3444,13 @@ enumError SaveIMG (Image_t *img, // pointer to valid img
 			return SaveAJPG (img, f, fname, 0, overwrite);
 		case FF_CTXB:
 			return SaveCTXB (img, f, fname, overwrite);
+		case FF_BTGA:
+		case FF_DMPBM:
+		case FF_STEX:
+		case FF_CMB:
+			return SaveScarlet3DS (img, fform, f, fname, overwrite);
+		case FF_SMDH:
+			return SaveSMDH (img, f, fname, overwrite);
 		case FF_NUT:
 			return SaveNUT (img, f, fname, overwrite);
 		case FF_NSBTX:

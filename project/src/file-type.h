@@ -362,6 +362,10 @@ typedef enum file_format_t
 	FF_WMB, // 267 - PlatinumGames WMB model (.wmb / "\0BMW", Star Fox Zero)
 	FF_RFL_RES, // 268 - Revolution Face Library Mii resource database (RFL_Res.dat)
 	FF_CMAB, // 269 - Grezzo 3DS material animation with embedded textures (.cmab)
+	FF_BTGA, // 270 - Lego Nintendo 3DS texture (.btga/.lga)
+	FF_DMPBM, // 271 - Atlus Nintendo 3DS bitmap (.dmpbm)
+	FF_STEX, // 272 - Atlus Nintendo 3DS texture (.stex)
+	FF_CMB, // 273 - Grezzo Nintendo 3DS model texture chunk (.cmb)
 
 	//--- number of elements
 

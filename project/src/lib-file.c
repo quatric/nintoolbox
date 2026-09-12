@@ -2048,6 +2048,11 @@ file_format_t IsImageFF (
 		case FF_AJPG:
 		case FF_CTXB:
 		case FF_CMAB:
+		case FF_BTGA:
+		case FF_DMPBM:
+		case FF_STEX:
+		case FF_CMB:
+		case FF_SMDH:
 		case FF_NUT:
 		case FF_NSBTX:
 			return fform;
