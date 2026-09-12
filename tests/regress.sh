@@ -1961,6 +1961,16 @@ t_byml(){
   else
     no "BYML parameter decode" "$f"
   fi
+
+  # XX must produce an editable YML sidecar as it walks extracted trees.
+  local d; d=$(mktemp -d)
+  cp "$f" "$d/input.byml"
+  if "$B/wszst" XX "$d/input.byml" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/input.byml.yml" ]; then
+    ok "BYML XX -> .yml sidecar"
+  else
+    no "BYML XX -> .yml sidecar" "$f"
+  fi
 }
 t_byml
 

@@ -413,7 +413,7 @@ static enumError decode_image_if_possible (ccp arg)
 
 	// Don't decode already decoded PNGs, XMLs, YAMLs, GLBs, etc.
 	if (!memcmp (head, "\x89PNG", 4) || is_ext (arg, ".png") || is_ext (arg, ".xml")
-		|| is_ext (arg, ".yaml") || is_ext (arg, ".tflyt") || is_ext (arg, ".dae")
+		|| is_ext (arg, ".yaml") || is_ext (arg, ".yml") || is_ext (arg, ".tflyt") || is_ext (arg, ".dae")
 		|| is_ext (arg, ".glb"))
 		return ERR_NOTHING_TO_DO;
 

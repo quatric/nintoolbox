@@ -50,7 +50,8 @@ static enumError cmd_create (bool create)
 				max_err = xml_err;
 			continue;
 		}
-		if (create && arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".byml.yaml"))
+		if (create && ((arg_len > 9 && !strcasecmp (arg + arg_len - 9, ".byml.yml"))
+			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".byml.yaml"))))
 		{
 			char y_dest[PATH_MAX];
 			if (opt_dest)
@@ -58,7 +59,8 @@ static enumError cmd_create (bool create)
 			else
 			{
 				snprintf (y_dest, sizeof (y_dest), "%s", arg);
-				y_dest[arg_len - 5] = 0;
+				// Strip .yml (preferred) or the older .yaml sidecar suffix.
+				y_dest[arg_len - (is_ext (arg, ".yml") ? 4 : 5)] = 0;
 			}
 			const enumError y_err = encode_byml_file (arg, y_dest);
 			if (verbose >= 0 || testmode)
@@ -8249,12 +8251,12 @@ static enumError decode_byml_if_possible (ccp arg)
 
 	char dest[PATH_MAX];
 	if (opt_dest)
-		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".yaml", false);
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".yml", false);
 	else
-		snprintf (dest, sizeof (dest), "%s.yaml", arg);
+		snprintf (dest, sizeof (dest), "%s.yml", arg);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sDECODE BYML:%s -> YAML:%s\n", verbose > 0 ? "\n" : "",
+		fprintf (stdlog, "%s%sDECODE BYML:%s -> YML:%s\n", verbose > 0 ? "\n" : "",
 			testmode ? "WOULD " : "", arg, dest);
 	if (testmode)
 	{
