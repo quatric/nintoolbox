@@ -7150,6 +7150,26 @@ with open("'"$d"'/ctxb_test/multi.ctxb", "wb") as f:
     fi
   fi
 
+  # This ETC1A4 camera button has a 92x64 visible rectangle stored in a
+  # 128x64 CTR power-of-two surface. It catches a stride error that otherwise
+  # scrambles every 8-pixel row after the first tile band.
+  local ctr_etc1a4_src="$PWD_PROJECT/../tests/fixtures/camera_ctr_etc1a4_pow2.bclim"
+  if [ -f "$ctr_etc1a4_src" ]; then
+    if "$B/wimgt" DECODE "$ctr_etc1a4_src" -d "$d/bclim_test/ctr-etc1a4.png" --overwrite >/dev/null 2>&1 \
+    && python3 - "$d/bclim_test/ctr-etc1a4.png" <<'PY'
+import struct, sys
+with open(sys.argv[1], 'rb') as f:
+    png = f.read(24)
+assert png[:8] == b'\x89PNG\r\n\x1a\n'
+assert struct.unpack('>II', png[16:24]) == (92, 64)
+PY
+    then
+      fok "Nintendo 3DS legacy CLIM ETC1A4 power-of-two camera texture decoding"
+    else
+      fno "Nintendo 3DS legacy CLIM ETC1A4" "failed to decode camera fixture";
+    fi
+  fi
+
   # Original CTR BCLIM trailers carry a 32-bit PICA format at IMAG+0x0c,
   # unlike the later FLIM-style CLIM header above. This camera UI asset is
   # A4 (format 13) and makes the distinction observable: the payload is
@@ -11210,6 +11230,36 @@ assert im.size == (16, 16)
   fi
   rm -rf "$d"
 }
+t_dsb_retail_animal_crossing_calculator(){
+  local f="$PWD_PROJECT/../tests/fixtures/ds_samples/animal_crossing_calculator/retail_raccoon.dsb"
+  [ -f "$f" ] || { sk "DSB retail (Animal Crossing Calculator)"; return; }
+  local d="/tmp/_r_dsb"
+  rm -rf "$d"
+  mkdir -p "$d"
+
+  # Animal Crossing: Wild World's menu textures are TXTR-magic DSB files:
+  # a 32-entry RGB555 palette followed by A3I5 texels. Encoding necessarily
+  # canonicalizes unused palette entries and reserved header bytes, so verify
+  # an exact pixel round trip rather than a byte-identical container.
+  if "$B/wimgt" DECODE "$f" --dest "$d/source.png" --overwrite >/dev/null 2>&1 \
+  && "$B/wimgt" ENCODE "$d/source.png" --dest "$d/reencoded.dsb" --overwrite >/dev/null 2>&1 \
+  && "$B/wimgt" DECODE "$d/reencoded.dsb" --dest "$d/roundtrip.png" --overwrite >/dev/null 2>&1 \
+  && python3 -c '
+from PIL import Image, ImageChops
+source = Image.open("'"$d"'/source.png").convert("RGBA")
+roundtrip = Image.open("'"$d"'/roundtrip.png").convert("RGBA")
+assert source.size == (128, 128), source.size
+assert roundtrip.size == source.size, roundtrip.size
+assert ImageChops.difference(source, roundtrip).getbbox() is None
+' 2>/dev/null; then
+    ok "retail DSB/TXTR decode -> encode -> exact pixels (Animal Crossing Calculator)"
+  else
+    no "retail DSB/TXTR" "failed to round-trip Animal Crossing Calculator raccoon.dsb"
+  fi
+  rm -rf "$d"
+}
+t_dsb_retail_animal_crossing_calculator
+
 t_sarc_retail_wiiu(){
   local f="$PWD_PROJECT/../tests/fixtures/wiiu_retail/retail_bfmainfo.sarc"
   [ -f "$f" ] || { sk "SARC retail (Wii U, Animal Crossing: amiibo Festival)"; return; }

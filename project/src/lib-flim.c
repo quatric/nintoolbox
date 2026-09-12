@@ -94,12 +94,12 @@ static void decode_etc1_block (const u8 data[8], u8 *out)
 }
 
 // Decodes a plain ETC1 (BFLIM fmt 10, no alpha block -- opaque) tiled
-// texture into RGBA8. Same block/tile arrangement as decode_etc1a4_tiled,
-// just an 8-byte color-only block instead of 16 bytes.
-enumError decode_etc1_tiled (u8 *rgba, const u8 *src, uint w, uint h, uint data_size)
+// texture into RGBA8. storage_w/storage_h describe the padded GPU surface;
+// CTR BCLIM stores these as powers of two even when the visible size is not.
+static enumError decode_etc1_tiled_surface (
+	u8 *rgba, const u8 *src, uint w, uint h, uint storage_w, uint storage_h, uint data_size)
 {
-	const uint tw = (w + 7) & ~7u, th = (h + 7) & ~7u;
-	const uint bw = (tw + 3) / 4, bh = (th + 3) / 4;
+	const uint bw = (storage_w + 3) / 4, bh = (storage_h + 3) / 4;
 	if ((u64)bw * bh * 8 > data_size)
 		return EINVAL;
 	for (uint by = 0; by < bh; by++)
@@ -125,10 +125,10 @@ enumError decode_etc1_tiled (u8 *rgba, const u8 *src, uint w, uint h, uint data_
 // Decodes an ETC1A4 (BFLIM fmt 11) tiled texture into RGBA8. Block
 // arrangement follows the same 8x8-tile Morton scheme as this file's other
 // tiled BFLIM formats (morton8), applied at 4x4-block granularity.
-enumError decode_etc1a4_tiled (u8 *rgba, const u8 *src, uint w, uint h, uint data_size)
+static enumError decode_etc1a4_tiled_surface (
+	u8 *rgba, const u8 *src, uint w, uint h, uint storage_w, uint storage_h, uint data_size)
 {
-	const uint tw = (w + 7) & ~7u, th = (h + 7) & ~7u;
-	const uint bw = (tw + 3) / 4, bh = (th + 3) / 4; // blocks across/down (tile-padded)
+	const uint bw = (storage_w + 3) / 4, bh = (storage_h + 3) / 4;
 	if ((u64)bw * bh * 16 > data_size)
 		return EINVAL;
 	for (uint by = 0; by < bh; by++)
@@ -160,6 +160,18 @@ enumError decode_etc1a4_tiled (u8 *rgba, const u8 *src, uint w, uint h, uint dat
 				}
 		}
 	return ERR_OK;
+}
+
+enumError decode_etc1_tiled (u8 *rgba, const u8 *src, uint w, uint h, uint data_size)
+{
+	return decode_etc1_tiled_surface (
+		rgba, src, w, h, (w + 7) & ~7u, (h + 7) & ~7u, data_size);
+}
+
+enumError decode_etc1a4_tiled (u8 *rgba, const u8 *src, uint w, uint h, uint data_size)
+{
+	return decode_etc1a4_tiled_surface (
+		rgba, src, w, h, (w + 7) & ~7u, (h + 7) & ~7u, data_size);
 }
 
 static void bc1_block_wrap (const u8 *b, u8 *out)
@@ -339,8 +351,20 @@ enumError DecodeFLIM_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, 
 		u8 *rgba = MALLOC (w * h * 4);
 		if (!rgba)
 			return ERR_CANT_CREATE;
-		enumError err = fmt == 11 ? decode_etc1a4_tiled (rgba, src, w, h, data_size)
-								  : decode_etc1_tiled (rgba, src, w, h, data_size);
+		// CTR surfaces are padded to a power of two. P_BtnO_Shoot is 92x64,
+		// but its 128x64 ETC1A4 surface is 8192 bytes; using only 96 columns
+		// shifts every row of 8x8 tiles and visibly corrupts the button.
+		uint storage_w = (w + 7) & ~7u, storage_h = (h + 7) & ~7u;
+		if (ctr_clim)
+		{
+			storage_w = 8;
+			storage_h = 8;
+			while (storage_w < w) storage_w <<= 1;
+			while (storage_h < h) storage_h <<= 1;
+		}
+		enumError err = fmt == 11
+			? decode_etc1a4_tiled_surface (rgba, src, w, h, storage_w, storage_h, data_size)
+			: decode_etc1_tiled_surface (rgba, src, w, h, storage_w, storage_h, data_size);
 		if (err)
 		{
 			FREE (rgba);
