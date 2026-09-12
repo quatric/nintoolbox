@@ -1923,3 +1923,20 @@ extractor cascades with no changes (shader.dat → 664 entries).
 README SFZDAT row flipped to retail-verified, CPK row added. ITOC-only
 layouts declined (none here); repack not implemented. Scratch WUX kept
 at szs-retail-test/tmp-sfzero (11 GB) until the corpus is fully mined.
+
+**Follow-up 2026-09-11 — WTA/WTP textures.** Same disc: 828 `\0BTW`
+bundles (+698 `.wtp` payloads; 130 lonely indices decline cleanly).
+Layout per RandomTBush's Bayo2-SF0-SFG_WTA-WTP.bms (re-implemented
+field by field after catching two transcription slips — a `Gxx2`
+typo and mis-split BLK words — via byte-identity against proven
+decoder output): BE header (total + 5 table offsets), start/size
+tables, members wrapped as Gfx2/GTX for the existing cascade.
+New `ScanWTA` merged into the pre-existing `lib-wta.c` (whose PC-
+style `ExtractWTAArchive` was found orphaned-but-working and left
+intact — an early `write` clobber was caught and reverted before
+commit), sibling-`.wtp` search (same-dir, then bounded parent
+tree for the retail `wta/`+`wtp/` split), `FF_WTA` magic case,
+`t_wta` (retail 128x128 pair fixture). Verified: 828 bundles →
+2600 textures → 2600 PNGs, 100% cascade, sampled pixel-diverse.
+README row added. WMB/MOT (627/897) mapped next, references located
+(Kerilk Noesis plugin covers Star Fox Zero) but not started.

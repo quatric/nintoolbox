@@ -1324,6 +1324,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			// PlatinumGames WT Archive (WTA )
 			case 0x57544120: // "WTA "
 				return FF_WTA;
+			// PlatinumGames WTA texture bundle, Wii U big-endian form
+			// (Star Fox Zero .wta; pairs with a sibling .wtp)
+			case 0x00425457: // "\0BTW"
+				return FF_WTA;
 
 			// Nintendo Binary Audio Resource Archive (BARS)
 			case 0x42415253: // "BARS"

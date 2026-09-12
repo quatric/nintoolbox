@@ -10383,6 +10383,36 @@ open("'"$d"'/crilayla.cpk", "wb").write(cpk2)
 }
 t_cpk
 
+t_wta(){
+  # PlatinumGames WTA/WTP texture bundle, Wii U big-endian form
+  # (`\0BTW` + sibling .wtp payloads; Star Fox Zero). Members wrap as
+  # .gtx and cascade through the normal GTX->PNG path. Fixture pair is
+  # a 1-texture retail sample (128x128).
+  local wa="$PWD_PROJECT/../tests/fixtures/wta_sfzero_wp0006.wta"
+  local wp="$PWD_PROJECT/../tests/fixtures/wta_sfzero_wp0006.wtp"
+  if [ ! -f "$wa" ] || [ ! -f "$wp" ]; then sk "WTA/WTP (SFZ) fixtures"; return; fi
+  local d; d=$(mktemp -d /tmp/_r_wta.XXXXXX) || { no "WTA/WTP (SFZ)" "mktemp failed"; return; }
+  cp "$wa" "$d/a.wta"; cp "$wp" "$d/a.wtp"
+  if "$B/wszst" FILETYPE "$d/a.wta" 2>/dev/null | grep -q '^WTA' \
+  && "$B/wszst" xx "$d/a.wta" --dest "$d/out" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/out/0000.gtx" ] \
+  && [ "$(head -c4 "$d/out/0000.gtx")" = "Gfx2" ] \
+  && [ -s "$d/out/0000.gtx.png" ] \
+  && python3 -c '
+from PIL import Image
+im = Image.open("'"$d"'/out/0000.gtx.png").convert("RGB")
+assert im.size == (128, 128), f"expected 128x128, got {im.size}"
+px = list(im.getdata())
+assert len(set(px)) > 100, "suspiciously flat texture"
+' 2>/dev/null; then
+    ok "WTA/WTP (SFZ) retail pair -> Gfx2 member -> 128x128 PNG"
+  else
+    no "WTA/WTP (SFZ)" "failed to extract retail fixture pair"
+  fi
+  rm -rf "$d"
+}
+t_wta
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
