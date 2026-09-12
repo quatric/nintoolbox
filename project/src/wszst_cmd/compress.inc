@@ -221,8 +221,12 @@ static enumError decompress_nintendo_file3 (
 		return err;
 	}
 
+	// A zlib stream has a compact but self-describing header.  Do not make
+	// recursive XX depend on its filename: archive members are routinely
+	// named .bin (or have no extension at all).  DecodeZlib() remains the
+	// final validation, so a coincidental RFC 1950 header is left untouched.
 	if ((src_ext && (!strcasecmp (src_ext, ".zlib") || !strcasecmp (src_ext, ".deflate")))
-		|| (size >= 6 && IsZlib (data, size) >= 0 && !dest_out))
+		|| (size >= 6 && IsZlib (data, size) >= 0))
 	{
 		const bool raw_deflate = src_ext && !strcasecmp (src_ext, ".deflate");
 		err = DecodeZlib (&decoded, &decoded_size, data, size, raw_deflate);
@@ -375,8 +379,11 @@ static enumError decompress_nintendo_file3 (
 		return err;
 	}
 
+	// LZ4 frame and skippable-frame magics are unambiguous.  As with zstd
+	// above, use them at every XX recursion level rather than requiring a
+	// .lz4 suffix on an extracted member.
 	if ((src_ext && !strcasecmp (src_ext, ".lz4"))
-		|| (size >= 4 && IsLZ4 (data, size) > 0 && !dest_out))
+		|| (size >= 4 && IsLZ4 (data, size) > 0))
 	{
 		err = DecodeLZ4 (&decoded, &decoded_size, data, size);
 		FREE (data);

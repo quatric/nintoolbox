@@ -1510,39 +1510,15 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 													: pas_err;
 	}
 
-	if (depth > 0)
-	{
-		// +1 and zeroed: GetByMagicFF() includes text-format sniffing (e.g.
-		// Wavefront OBJ) that scans for a terminator/delimiter byte -- an
-		// un-terminated 8-byte probe let that scan run past this buffer
-		// (ASAN stack-buffer-overflow, real SSBB data reliably triggers it;
-		// GetByMagicFF() itself is now also bounds-checked, but keeping this
-		// probe NUL-terminated is a cheap second guard against the same
-		// class of bug in any future heuristic added there).
-		u8 head[9] = { 0 };
-		FILE *probe = fopen (arg, "rb");
-		size_t n = probe ? fread (head, 1, sizeof (head) - 1, probe) : 0;
-		if (probe)
-			fclose (probe);
-		bool is_arch = false;
-		if (n >= 4)
-		{
-			const file_format_t ff = GetByMagicFF (head, (uint)n, 0);
-			if (IsArchiveFF (ff) || IsBRSUB (ff) || ff == FF_YAZ0 || ff == FF_YAZ1
-				|| !memcmp (head, "Yaz0", 4) || !memcmp (head, "Yaz1", 4)
-				|| !memcmp (head, "SARC", 4) || !memcmp (head, "NARC", 4)
-				|| !memcmp (head, "CRAN", 4) || !memcmp (head, "CTPK", 4) || is_ext (arg, ".szs")
-				|| is_ext (arg, ".arc") || is_ext (arg, ".carc") || is_ext (arg, ".sarc")
-				|| is_ext (arg, ".bfma") || is_ext (arg, ".narc") || is_ext (arg, ".ctpk")
-				|| is_ext (arg, ".pack") || is_ext (arg, ".barc") || is_ext (arg, ".rarc")
-				|| is_ext (arg, ".brres") || is_ext (arg, ".bres")
-				|| is_ext (arg, ".breff") || is_ext (arg, ".breft")
-				|| !memcmp (head, "REFF", 4) || !memcmp (head, "REFT", 4))
-				is_arch = true;
-		}
-		if (!is_arch)
-			return ERR_OK;
-	}
+	// Do not use a shallow magic or filename filter to decide whether a
+	// nested member deserves the generic parser. Every format-specific probe
+	// above has already had first refusal; this final path lets LoadCreateSZS()
+	// run its complete structural validation for every remaining member.
+	// A FourCC, ID string, or codec byte is only a candidate marker -- those
+	// markers collide in real game data, while valid formats can keep their
+	// identifying data away from offset zero. At recursive depth an unclaimed
+	// or invalid member is quietly ignored below, so this is both exhaustive
+	// and safe.
 
 	szs_file_t szs;
 	InitializeSZS (&szs);
@@ -2291,7 +2267,7 @@ static bool ConvertHelper (const u8 *data, // valid data
 				if (!*err)
 					*err = testmode	  ? ERR_OK
 						: binary_dest ? SaveRawBFLYT (&bflyt, dest_fname, true)
-									  : SaveTextBFLYT (&bflyt, dest_fname, true);
+							  : SaveXMLBFLYT (&bflyt, dest_fname, true);
 				ResetBFLYT (&bflyt);
 			}
 			return true;
@@ -2335,7 +2311,13 @@ static enumError cmd_convert (bool binary) // cmd_binary() cmd_text()
 			return err;
 		}
 
+		const bool is_bflyt = raw.fform == FF_BFLYT || raw.fform == FF_BCLYT
+			|| raw.fform == FF_BRLYT || raw.fform == FF_BRLAN;
 		file_format_t ff_dest = binary ? GetBinFF (raw.fform) : GetTextFF (raw.fform);
+		// Layout's former text type is the legacy .tflyt syntax.  Route normal
+		// TEXT conversion through the XML path instead.
+		if (!binary && is_bflyt)
+			ff_dest = FF_UNKNOWN;
 
 		// Handle layout formats (BFLYT / BCLYT / BRLYT / BRLAN)
 		if (!ff_dest
@@ -2345,7 +2327,7 @@ static enumError cmd_convert (bool binary) // cmd_binary() cmd_text()
 			if (binary)
 				SubstDest (dest, sizeof (dest), arg, opt_dest, "\\1P/\\1N.bflyt", ".bflyt", false);
 			else
-				SubstDest (dest, sizeof (dest), arg, opt_dest, "\\1P/\\1N.tflyt", ".tflyt", false);
+				SubstDest (dest, sizeof (dest), arg, opt_dest, "\\1P/\\1N.xml", ".xml", false);
 			if (verbose >= 0)
 			{
 				fprintf (stdlog, "%sCREATE/TEXT %s:%s => %s\n", verbose > 0 ? "\n" : "",
@@ -2359,7 +2341,7 @@ static enumError cmd_convert (bool binary) // cmd_binary() cmd_text()
 				err = ScanBFLYT (&bflyt, false, raw.data, raw.data_size);
 				if (!err)
 					err = binary ? SaveRawBFLYT (&bflyt, dest, true)
-								 : SaveTextBFLYT (&bflyt, dest, true);
+								 : SaveXMLBFLYT (&bflyt, dest, true);
 				ResetBFLYT (&bflyt);
 			}
 			if (err && max_err < err)

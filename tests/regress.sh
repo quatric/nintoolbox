@@ -5352,6 +5352,17 @@ t_byte_exact_encoders(){
   # Semantic Wii U layouts may relocate strings relative to retail sources,
   # but their own encoder must still choose one deterministic representation.
   mkdir -p "$d/layout-a" "$d/layout-b"
+  # XML is the normal decoded representation for both layouts and animations;
+  # it must remain a lossless input to the encoder.
+  for spec in 'synthetic_sample.bclyt CLYT' 'synthetic_sample.bclan CLAN'; do
+    set -- $spec; src="$PWD_PROJECT/../tests/fixtures/$1"; magic=$2
+    if "$B/wlayt" decode "$src" "$d/$magic.xml" >/dev/null 2>&1 \
+    && grep -q "<layout .*magic=\"$magic\"" "$d/$magic.xml" \
+    && "$B/wlayt" encode "$d/$magic.xml" "$d/$magic.bin" >/dev/null 2>&1 \
+    && cmp -s "$src" "$d/$magic.bin"; then
+      bok "$magic XML decode -> encode round trip"
+    else bno "$magic XML decode -> encode round trip" "failed"; fi
+  done
   local spec src
   for spec in 'splatoon_cmn_bg_out.bflan bflan' 'splatoon_cmn_seq_drc_option.bflyt bflyt' \
               'synthetic_sample.bclan bclan' 'synthetic_sample.bclyt bclyt'; do
@@ -6752,6 +6763,30 @@ with open('$d/sample.nud', 'wb') as f:
   && { [ -f "$d/manual_xx/page_00.arc.d/inner/text.txt" ] || [ -f "$d/manual_xx/page_00.d/inner/text.txt" ]; }; then
     fok "BFMA create -> XX recursive unpack with zlib ARC decompression"
   else fno "BFMA recursive extraction" "failed to extract manual.bfma and its internal zlib .arc files"; fi
+
+  # XX must identify nested files by their bytes, not by the member name.
+  # Put zlib, LZ11, and SARC (FourCC) containers under unrelated .bin names
+  # inside a U8. Each unwraps to another U8, proving that recursive dispatch
+  # follows codec headers and ID strings rather than filename extensions. A
+  # malformed SARC-prefixed blob must still be declined after full validation.
+  mkdir -p "$d/magic-payload" "$d/magic-outer"
+  printf 'magic-selected recursive member\n' > "$d/magic-payload/leaf.txt"
+  if "$B/wszst" CREATE "$d/magic-payload" --dest "$d/magic-payload.u8" --overwrite >/dev/null 2>&1 \
+  && "$B/wszst" COMPRESS "$d/magic-payload.u8" --dest "$d/magic-member.zlib" --overwrite >/dev/null 2>&1 \
+  && "$B/wszst" COMPRESS "$d/magic-payload.u8" --dest "$d/magic-member.lz11" --overwrite >/dev/null 2>&1 \
+  && "$B/wszst" CREATE "$d/magic-payload" --dest "$d/magic-member.sarc" --overwrite >/dev/null 2>&1 \
+  && cp "$d/magic-member.zlib" "$d/magic-outer/zlib-under-bin.bin" \
+  && cp "$d/magic-member.lz11" "$d/magic-outer/lz11-under-bin.bin" \
+  && cp "$d/magic-member.sarc" "$d/magic-outer/fourcc-under-bin.bin" \
+  && printf 'SARC misleading marker, not an archive\n' > "$d/magic-outer/deceptive.bin" \
+  && "$B/wszst" CREATE "$d/magic-outer" --dest "$d/magic-outer.u8" --overwrite >/dev/null 2>&1 \
+  && "$B/wszst" XX "$d/magic-outer.u8" --dest "$d/magic-xx" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/magic-payload/leaf.txt" "$d/magic-xx/zlib-under-bin.bin.d/leaf.txt" \
+  && cmp -s "$d/magic-payload/leaf.txt" "$d/magic-xx/lz11-under-bin.bin.d/leaf.txt" \
+  && cmp -s "$d/magic-payload/leaf.txt" "$d/magic-xx/fourcc-under-bin.bin.d/leaf.txt" \
+  && [ ! -e "$d/magic-xx/deceptive.bin.d" ]; then
+    fok "XX recursively unpacks marked files by magic"
+  else fno "XX magic-first recursive files" "misnamed marker was missed or a false marker was accepted"; fi
 
   # Wii Party CNUT test
   local cnut_sample=""

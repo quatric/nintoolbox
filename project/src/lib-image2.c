@@ -151,6 +151,156 @@ static void AssignDecodedRGBA (Image_t *img, // pointer to valid img
 	img->seq_num = ++image_seq_num;
 }
 
+// Scarlet (xdanieldzd/Scarlet) documents these four small 3DS texture
+// wrappers.  They all use the PICA200 8x8 Morton layout, so keep their
+// container parsing here and hand the pixels to the common PICA decoder.
+static uint ScarletPicaFormat (u32 type, u32 format)
+{
+	if (format == 0x675a)
+		return 12; // ETC1
+	if (format == 0x675b)
+		return 13; // ETC1+A4
+	if (format == 0x6752) // RGBA
+		return type == 0x8033 ? 4 : type == 0x8034 ? 2 : 0;
+	if (format == 0x6754) // RGB
+		return type == 0x8363 ? 3 : 1;
+	if (format == 0x6756) // alpha
+		return type == 0x6761 ? 11 : 8;
+	if (format == 0x6757) // luminance
+		return type == 0x6761 ? 10 : 7;
+	if (format == 0x6758) // luminance + alpha
+		return type == 0x6760 ? 9 : 5;
+	return UINT_MAX;
+}
+
+static void ScarletFlipRGBA (u8 *rgba, uint width, uint height)
+{
+	for (uint y = 0; y < height / 2; y++)
+	{
+		u8 *top = rgba + (size_t)y * width * 4;
+		u8 *bottom = rgba + (size_t)(height - 1 - y) * width * 4;
+		for (uint x = 0; x < width * 4; x++)
+		{
+			const u8 temp = top[x];
+			top[x] = bottom[x];
+			bottom[x] = temp;
+		}
+	}
+}
+
+static bool ScarletFilenameExt (ccp fname, ccp ext)
+{
+	if (!fname || !ext)
+		return false;
+	const char *dot = strrchr (fname, '.');
+	return dot && !strcasecmp (dot, ext);
+}
+
+static enumError DecodeScarletBTGA (u8 **dest, uint *width, uint *height, const u8 *data, uint size)
+{
+	if (!dest || !width || !height || size < 0x38)
+		return EINVAL;
+	const u32 kind = rd_le32 (data);
+	const uint w = kind == 1 ? rd_le16 (data + 0x0c) : kind == 0x400 ? rd_le16 (data + 0x18) : 0;
+	const uint h = kind == 1 ? rd_le16 (data + 0x0e) : kind == 0x400 ? rd_le16 (data + 0x1a) : 0;
+	const uint fmt = kind == 1 ? rd_le16 (data + 0x14) : kind == 0x400 ? rd_le16 (data + 0x20) : UINT_MAX;
+	if (!w || !h || fmt > 13)
+		return EINVAL;
+	uint pica_fmt = fmt;
+	u8 *rgba = 0;
+	enumError err = DecodePicaTexture (&rgba, width, height, data + 0x38, w, h, pica_fmt, size - 0x38);
+	if (!err)
+		ScarletFlipRGBA (rgba, *width, *height);
+	*dest = rgba;
+	return err;
+}
+
+static enumError DecodeScarletSTEX (u8 **dest, uint *width, uint *height, const u8 *data, uint size)
+{
+	if (!dest || !width || !height || size < 0x20 || memcmp (data, "STEX", 4))
+		return EINVAL;
+	const uint w = rd_le32 (data + 0x0c), h = rd_le32 (data + 0x10);
+	const uint pica_fmt = ScarletPicaFormat (rd_le32 (data + 0x14), rd_le32 (data + 0x18));
+	const uint image_size = rd_le32 (data + 0x1c);
+	const uint image_off = rd_le32 (data + 0x20) == 0x80 ? 0x80 : 0x20;
+	if (!w || !h || pica_fmt == UINT_MAX || image_off >= size)
+		return EINVAL;
+	const uint available = size - image_off;
+	return DecodePicaTexture (dest, width, height, data + image_off, w, h, pica_fmt,
+		image_size && image_size <= available ? image_size : available);
+}
+
+static enumError DecodeScarletDMPBM (u8 **dest, uint *width, uint *height, const u8 *data, uint size)
+{
+	if (!dest || !width || !height || size < 18 || memcmp (data, "DMPBM", 5))
+		return EINVAL;
+	const uint fmt = data[5], w = rd_le32 (data + 6), h = rd_le32 (data + 10);
+	if (!w || !h || w > 16384 || h > 16384 || fmt > 4)
+		return EINVAL;
+	const uint pixel_off = fmt == 4 ? 18 + 512 : 18;
+	if (pixel_off > size)
+		return EINVAL;
+	if (fmt != 4)
+	{
+		static const uint pica[] = { 8, 2, 4, 0 };
+		enumError err = DecodePicaTexture (dest, width, height, data + pixel_off, w, h, pica[fmt],
+			size - pixel_off);
+		if (!err)
+			ScarletFlipRGBA (*dest, *width, *height);
+		return err;
+	}
+
+	const uint tw = EXPAND8 (w), th = EXPAND8 (h);
+	if ((u64)tw * th > size - pixel_off)
+		return EINVAL;
+	u8 *rgba = MALLOC ((size_t)w * h * 4);
+	if (!rgba)
+		return ERR_CANT_CREATE;
+	for (uint y = 0; y < h; y++)
+		for (uint x = 0; x < w; x++)
+		{
+			const uint pos = ((y / 8) * (tw / 8) + x / 8) * 64 + morton8 (x & 7, y & 7);
+			const u16 c = rd_le16 (data + 18 + 2 * data[pixel_off + pos]); // A1B5G5R5
+			u8 *d = rgba + 4 * ((size_t)y * w + x);
+			d[0] = expand5 (c);
+			d[1] = expand5 (c >> 5);
+			d[2] = expand5 (c >> 10);
+			d[3] = c & 0x8000 ? 255 : 0;
+		}
+	ScarletFlipRGBA (rgba, w, h);
+	*dest = rgba;
+	*width = w;
+	*height = h;
+	return ERR_OK;
+}
+
+static enumError DecodeScarletCMB (u8 **dest, uint *width, uint *height, const u8 *data, uint size)
+{
+	if (!dest || !width || !height || size < 0x38 || memcmp (data, "cmb ", 4))
+		return EINVAL;
+	const u32 revision = rd_le32 (data + 8);
+	const uint chunks = revision == 6 ? 6 : revision == 10 || revision == 12 || revision == 15 ? 7 : 0;
+	const uint tex_index = revision == 6 ? 2 : 3;
+	const uint raw_count = revision == 6 ? 2 : chunks ? 3 : 0;
+	if (!chunks || 0x24 + 4 * (chunks + raw_count) > size)
+		return EINVAL;
+	const uint tex_chunk = rd_le32 (data + 0x24 + 4 * tex_index);
+	const uint tex_data = rd_le32 (data + 0x24 + 4 * chunks + 4); // raw-data slot 1
+	if (!tex_data || tex_chunk > size || tex_data > size || tex_chunk + 0x30 > size
+		|| memcmp (data + tex_chunk, "tex ", 4))
+		return EINVAL;
+	const uint count = rd_le32 (data + tex_chunk + 8);
+	if (!count || tex_chunk + 12 + 36 > size)
+		return EINVAL;
+	const u8 *entry = data + tex_chunk + 12; // first texture, matching Scarlet's image 0
+	const uint bytes = rd_le32 (entry), w = rd_le16 (entry + 8), h = rd_le16 (entry + 10);
+	const uint pica_fmt = ScarletPicaFormat (rd_le16 (entry + 14), rd_le16 (entry + 12));
+	const uint rel = rd_le32 (entry + 16);
+	if (!w || !h || pica_fmt == UINT_MAX || rel > size - tex_data || bytes > size - tex_data - rel)
+		return EINVAL;
+	return DecodePicaTexture (dest, width, height, data + tex_data + rel, w, h, pica_fmt, bytes);
+}
+
 // GVR is Sega's GameCube/Wii texture wrapper.  The texture body uses the GX
 // tile layouts, but has its own tiny GCIX/GVRT header.  This decoder covers
 // the non-paletted formats used by Super Monkey Ball: Banana Blitz.
@@ -877,6 +1027,30 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		img->path = fname;
 		img->seq_num = ++image_seq_num;
 		return PatchListIMG (img);
+	}
+
+	// Nintendo 3DS image wrappers implemented by Scarlet.  Keep them before
+	// generic Nintendo detection: BTGA has no reliable four-byte magic.
+	{
+		u8 *rgba = 0;
+		uint width = 0, height = 0;
+		enumError serr = ERR_NOTHING_TO_DO;
+		if (data_size >= 4 && (!memcmp (data, "STEX", 4)))
+			serr = DecodeScarletSTEX (&rgba, &width, &height, data, data_size);
+		else if (data_size >= 5 && !memcmp (data, "DMPBM", 5))
+			serr = DecodeScarletDMPBM (&rgba, &width, &height, data, data_size);
+		else if (data_size >= 4 && !memcmp (data, "cmb ", 4))
+			serr = DecodeScarletCMB (&rgba, &width, &height, data, data_size);
+		else if (data_size >= 0x38 && (rd_le32 (data) == 1 || rd_le32 (data) == 0x400)
+			&& (ScarletFilenameExt (fname, ".btga") || ScarletFilenameExt (fname, ".lga")))
+			serr = DecodeScarletBTGA (&rgba, &width, &height, data, data_size);
+		if (serr != ERR_NOTHING_TO_DO)
+		{
+			if (serr || !rgba)
+				return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported 3DS texture: %s\n", fname);
+			AssignDecodedRGBA (img, rgba, width, height, &le_func, fname);
+			return PatchListIMG (img);
+		}
 	}
 
 	const nfmt_info_t nfmt = DetectNintendoFormat (data, data_size, fname);
