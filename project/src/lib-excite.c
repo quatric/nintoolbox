@@ -2445,7 +2445,13 @@ static bool mod_decode_ndl_chunk (
 		const uint tex_elem = (va >> 21) & 1;
 		tex_fmt = (va >> 22) & 7;
 		tex_shft = (va >> 25) & 0x1f;
-		pos_n = pos_elem ? 3 : 2;
+		const bool is_ndl2 = !memcmp (data + m, "2LDN", 4);
+		// NDL2 stores the GX XYZ position as a padded four-float tuple. The
+		// fourth float is not part of the exported position but must be
+		// consumed to retain alignment. Reading it as tightly packed XYZ
+		// made Low1.mod drift into its following attribute data, producing
+		// coordinates in the millions.
+		pos_n = is_ndl2 ? 4 : (pos_elem ? 3 : 2);
 		tex_n = tex_elem ? 2 : 1;
 
 		if (pos_fmt > 4)
@@ -2454,23 +2460,20 @@ static bool mod_decode_ndl_chunk (
 			continue;
 		}
 
-		// h[9..11] name the attribute arrays in NDL3. NDL2's header is shorter
-		// and those words hold whatever the 0xe3 filler and neighbouring
-		// fields leave there, yet they can still land between the geometry
-		// base and the display list and be taken for offsets: Excite Truck's
-		// Off36F_1 has h[9] = 0xdc0, which passed that test and put the
-		// positions 1728 bytes into their own array, reading coordinates of
-		// 2.6e38 out of unrelated bytes.
-		//
-		// An offset is only usable if the array it names actually fits in the
-		// space before the display list, so that is what decides. Read from
-		// the documented base instead, the same model gives every coordinate
-		// finite and within 0.2 of the origin.
+		// h[9..11] name the attribute arrays in NDL3. NDL2 has no position
+		// pointer there: its positions always start immediately after the
+		// 0x40-byte header. In particular, Low1.mod's h[9] points into a
+		// later auxiliary stream, which happens to look like mostly plausible
+		// floats before eventually producing multi-million-unit coordinates.
+		// Do not apply NDL3's pointer convention to the older container.
 		const u32 pos_bytes = n_pos * pos_n * fmt_sz[pos_fmt];
-		pos_off = (h[9] >= m + 0x40 && h[9] < dl_start && h[9] + pos_bytes <= dl_start) ? h[9]
-																						 : m + 0x40;
-		const u32 second_off = (h[10] >= m + 0x40 && h[10] < dl_start) ? h[10] : 0;
-		const u32 third_off = (h[11] >= m + 0x40 && h[11] < dl_start) ? h[11] : 0;
+		pos_off = !is_ndl2 && h[9] >= m + 0x40 && h[9] < dl_start && h[9] + pos_bytes <= dl_start
+			? h[9]
+			: m + 0x40;
+		const u32 second_off
+			= !is_ndl2 && h[10] >= m + 0x40 && h[10] < dl_start ? h[10] : 0;
+		const u32 third_off
+			= !is_ndl2 && h[11] >= m + 0x40 && h[11] < dl_start ? h[11] : 0;
 		tex_off = third_off
 			? third_off
 			: (second_off ? second_off : pos_off + n_pos * pos_n * fmt_sz[pos_fmt]);
