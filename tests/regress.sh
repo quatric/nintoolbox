@@ -9187,7 +9187,7 @@ t_scarlet_3ds_image_roundtrips(){
     && "$B/wimgt" ENCODE "$d/$f.png" --dest "$d/$f.ctpk" --overwrite >/dev/null 2>&1 \
     && "$B/wimgt" DECODE "$d/$f.ctpk" --dest "$d/$f.roundtrip.png" --overwrite >/dev/null 2>&1 \
     && python3 "$PNGTOOL" cmp "$d/$f.png" "$d/$f.roundtrip.png" 2>/dev/null; then
-      ok "$name fixture decode -> CTPK -> PNG pixel roundtrip"
+      ok "$name fixture regression complete: decode -> CTPK -> PNG pixel roundtrip"
     else
       no "$name fixture roundtrip" "decode or pixel comparison failed"
     fi
