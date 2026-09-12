@@ -10497,6 +10497,64 @@ assert found, "no WEIGHTS_0 attribute found"
   rm -rf "$d"
 }
 t_wmb
+
+t_sir0_ds_retail(){
+  # SIR0 (Pokémon Mystery Dungeon Resource Container): DS little-endian
+  # container used by PMD: Blue Rescue Team and PMD: Explorers of Sky.
+  # Header: "SIR0" magic, u32 SubHeaderOffset, u32 PointerOffsetsOffset,
+  # u32 padding; primary data from 0x10 to SubHeaderOffset; subheader from
+  # SubHeaderOffset to PointerOffsetsOffset.
+  #
+  # Fixture: data/BALANCE/item_s_p.bin (3,856 bytes) extracted from the
+  # retail PMD: Explorers of Sky (USA) NDS ROM.  Verified: FILETYPE
+  # identifies it as SIR0; extract writes "subheader.bin" (the sub-header
+  # segment, 256 bytes) and "data.bin" (the primary data, 3,584 bytes).
+  local f="$PWD_PROJECT/../tests/fixtures/ds_samples/sir0/pmd_eos_item_s_p.bin"
+  [ -f "$f" ] || { sk "SIR0 retail (PMD: Explorers of Sky DS)"; return; }
+  local d="/tmp/_r_sir0_ds"
+  if "$B/wszst" FILETYPE "$f" 2>/dev/null | grep -q '^SIR0'; then
+    ok "retail PMD:EoS SIR0 container is recognised"
+  else
+    no "retail PMD:EoS SIR0 container" "not recognised as SIR0"
+  fi
+  rm -rf "$d"
+  "$B/wszst" X "$f" --dest "$d" --overwrite >/dev/null 2>&1
+  local n; n=$(find "$d" -type f -size +0c 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$n" -ge 1 ]; then
+    ok "SIR0 (PMD:EoS DS) retail -> $n segment(s) extracted"
+  else
+    no "SIR0 (PMD:EoS DS) retail" "no output segments from pmd_eos_item_s_p.bin"
+  fi
+}
+t_sir0_ds_retail
+
+t_bcstm_3ds_retail(){
+  # BCSTM (NintendoWare NW4C 3DS audio stream): DSP-ADPCM stereo stream
+  # wrapped in the CSTM block-table container; passes through to ffmpeg via
+  # the bfstm demuxer (adpcm_thp_le codec).
+  #
+  # Fixture: ev01_0020_01.dspadpcm.bcstm (5,728 bytes) from Yo-Kai Watch
+  # (3DS) retail RomFS (snd/product/stream/).  Verified: FILETYPE identifies
+  # it as BCSTM; decode produces a .wav file in a sub-directory.
+  local f="$PWD_PROJECT/../tests/fixtures/3ds_samples/yokai_bcstm/ev01_0020_01.dspadpcm.bcstm"
+  [ -f "$f" ] || { sk "BCSTM retail 3DS (Yo-Kai Watch)"; return; }
+  local d="/tmp/_r_bcstm_3ds"
+  if "$B/wszst" FILETYPE "$f" 2>/dev/null | grep -q '^BCSTM'; then
+    ok "retail Yo-Kai Watch (3DS) BCSTM is recognised"
+  else
+    no "retail Yo-Kai Watch (3DS) BCSTM" "not recognised as BCSTM"
+  fi
+  rm -rf "$d"
+  "$B/wszst" X "$f" --dest "$d" --overwrite >/dev/null 2>&1
+  local wav; wav=$(find "$d" -name '*.wav' -size +0c 2>/dev/null | head -1)
+  if [ -n "$wav" ]; then
+    ok "BCSTM retail 3DS (Yo-Kai Watch) -> WAV decoded"
+  else
+    no "BCSTM retail 3DS (Yo-Kai Watch)" "no .wav output after extracting BCSTM"
+  fi
+}
+t_bcstm_3ds_retail
+
 t_gar_lm3ds(){
   # GAR/ZAR archive, SYSTEM (Luigi's Mansion 3DS) codename variant.
   # Magic: "GAR\x02-\x05"; header uses 0x20-byte group descriptors and
