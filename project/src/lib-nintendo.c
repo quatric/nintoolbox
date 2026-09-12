@@ -46,6 +46,14 @@ __attribute__ ((weak)) bool IsMPRCMDL (const u8 *data, uint size)
 	(void)size;
 	return false;
 }
+// Same pattern for the G1T wrapper probe (lib-g1t.o lives in XOBJ_LIB
+// with the other archive formats, likewise not linked everywhere).
+__attribute__ ((weak)) bool IsG1TGZ (const u8 *data, uint size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
 __attribute__ ((weak)) enumError DecodeQuickLZ (
 	u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 {
@@ -321,7 +329,9 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			|| !memcmp (d, "SM1G", 4) || !memcmp (d, "GM1G", 4))
 			return make_info (NFMT_G1M, false, false, 0);
 		if (!memcmp (d, "G1T_", 4) || !memcmp (d, "G1T\0", 4) || !memcmp (d, "_T1G", 4)
-			|| !memcmp (d, "GT1G", 4))
+			|| !memcmp (d, "GT1G", 4) || !memcmp (d, "G1TG", 4))
+			return make_info (NFMT_G1T, false, false, 0);
+		if (IsG1TGZ (d, size))
 			return make_info (NFMT_G1T, false, false, 0);
 		if (ext && !strcasecmp (ext, ".g4pkm"))
 			return make_info (NFMT_G4PKM, false, false, 0);

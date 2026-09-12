@@ -62,16 +62,245 @@ static uint g1t_mip_pixels (uint w, uint h, uint mips)
 	return total;
 }
 
+//-----------------------------------------------------------------------------
+// Wii U chunked wrapper (.g1t.gz, Hyrule Warriors). Layout reverse
+// engineered against 3857 retail files (all exact): u32 magic 0x10000
+// (BE) + u32 stream count + u32 decompressed size + u32[count] table,
+// then size-prefixed zlib streams (u32 BE length + payload) with zero
+// padding between them. table[i] always equals stream i's byte length
+// + 4; a trailing entry with no stream left appends that many zero
+// bytes instead. Total output must equal the declared size.
+//-----------------------------------------------------------------------------
+
+#define G1TGZ_MAX_STREAMS 100000
+#define G1TGZ_MAX_OUTPUT NFMT_MAX_OUTPUT
+#define G1TGZ_MAX_SCAN 65536
+
+static bool g1tgz_probe (const u8 *src, uint size, uint *count, uint *decomp)
+{
+	if (!src || size < 12 || rd_be32 (src) != 0x10000)
+		return false;
+	const uint n = rd_be32 (src + 4);
+	const uint dec = rd_be32 (src + 8);
+	if (!n || n > G1TGZ_MAX_STREAMS || !dec || dec > G1TGZ_MAX_OUTPUT)
+		return false;
+	if ((u64)12 + (u64)n * 4 > size)
+		return false;
+	if (count)
+		*count = n;
+	if (decomp)
+		*decomp = dec;
+	return true;
+}
+
+bool IsG1TGZ (const u8 *data, uint size);
+
+// One size-prefixed stream at *pos: validates table[i], inflates
+// exactly, advances past it. Returns false on any violation.
+static bool g1tgz_stream (const u8 *src, uint size, uint *pos, uint want, u8 **out, uint *out_len,
+	uint *out_cap)
+{
+	uint p = *pos;
+	if (p + 4 > size)
+		return false;
+	const uint sz = rd_be32 (src + p);
+	if (!sz || (u64)p + 4 + sz > size)
+		return false;
+	if (want != sz + 4)
+		return false;
+	if (src[p + 4] != 0x78)
+		return false;
+
+	z_stream strm;
+	memset (&strm, 0, sizeof (strm));
+	strm.next_in = (Bytef *)(src + p + 4);
+	strm.avail_in = sz;
+	if (inflateInit (&strm) != Z_OK)
+		return false;
+	// Grow like DecodeZlibGrow, but require exact framing: the stream
+	// must end exactly at its declared size.
+	uint cap = sz * 4 + 4096;
+	if (cap > (64u << 20))
+		cap = 64u << 20;
+	bool ok = false;
+	for (;;)
+	{
+		if (*out_len + cap > *out_cap)
+		{
+			if (*out_len + cap > G1TGZ_MAX_OUTPUT)
+				break;
+			u8 *grown = REALLOC (*out, *out_len + cap);
+			if (!grown)
+				break;
+			*out = grown;
+			*out_cap = *out_len + cap;
+		}
+		strm.next_out = *out + *out_len;
+		strm.avail_out = *out_cap - *out_len;
+		const uint before = *out_len;
+		const int ret = inflate (&strm, Z_FINISH);
+		*out_len += (uint)(strm.next_out - (*out + before));
+		if (ret == Z_STREAM_END)
+		{
+			ok = strm.avail_in == 0 && *out_len > before;
+			break;
+		}
+		if (ret != Z_OK && ret != Z_BUF_ERROR)
+			break;
+		if (cap >= (64u << 20))
+			break;
+		cap *= 2;
+	}
+	inflateEnd (&strm);
+	if (!ok)
+		return false;
+	*pos = p + 4 + sz;
+	return true;
+}
+
+enumError DecodeG1TGZ (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
+{
+	if (!dest || !dest_size || !src)
+		return EINVAL;
+	*dest = 0;
+	*dest_size = 0;
+	uint n = 0, decomp = 0;
+	if (!g1tgz_probe (src, src_size, &n, &decomp))
+		return EINVAL;
+
+	u8 *out = 0;
+	uint out_len = 0, out_cap = 0;
+	uint pos = 12 + n * 4;
+	bool ok = true;
+	bool used_sparse = false;
+	for (uint i = 0; ok && i < n; i++)
+	{
+		// Skip zero padding between streams (bounded per gap): size
+		// words start with zero bytes themselves, so validate per
+		// position instead of skipping blindly.
+		bool placed = false;
+		const uint gap0 = pos;
+		while (pos + 6 <= src_size && pos - gap0 < G1TGZ_MAX_SCAN)
+		{
+			const uint sz = rd_be32 (src + pos);
+			const uint want = rd_be32 (src + 12 + i * 4);
+			if (sz && sz < src_size && src[pos + 4] == 0x78 && want == sz + 4)
+			{
+				placed = true;
+				break;
+			}
+			if (src[pos] != 0)
+				break;
+			pos++;
+		}
+		if (!placed)
+		{
+			// Trailing sparse block: no stream left for the last
+			// entry (verified: single-texture event_text files whose
+			// tail is zeros plus a 128B per-file blob, possibly a
+			// signature). The entry counts zero output bytes; anything
+			// after it is outside payload accounting and is accepted
+			// only here, never for mid-file entries.
+			if (i != n - 1)
+			{
+				ok = false;
+				break;
+			}
+			used_sparse = true;
+			const uint want = rd_be32 (src + 12 + i * 4);
+			if ((u64)out_len + want > G1TGZ_MAX_OUTPUT)
+				ok = false;
+			else
+			{
+				u8 *grown = REALLOC (out, out_len + want);
+				if (!grown)
+					ok = false;
+				else
+				{
+					out = grown;
+					memset (out + out_len, 0, want);
+					out_len += want;
+					out_cap = out_len;
+				}
+			}
+			break;
+		}
+		if (!g1tgz_stream (src, src_size, &pos, rd_be32 (src + 12 + i * 4), &out, &out_len,
+				&out_cap))
+			ok = false;
+	}
+	if (ok)
+	{
+		// Streams-only files must end exactly (modulo zero padding);
+		// sparse-tail files already validated every payload byte and
+		// carry an unverified trailer past it.
+		if (!used_sparse)
+		{
+			while (pos < src_size && src[pos] == 0)
+				pos++;
+			if (pos != src_size)
+				ok = false;
+		}
+		if (out_len != decomp)
+			ok = false;
+	}
+	if (!ok)
+	{
+		FREE (out);
+		return EINVAL;
+	}
+	*dest = out;
+	*dest_size = out_len;
+	return ERR_OK;
+}
+
+bool IsG1TGZ (const u8 *data, uint size)
+{
+	if (!data || size < 12 + 4)
+		return false;
+	uint n = 0, decomp = 0;
+	if (!g1tgz_probe (data, size, &n, &decomp))
+		return false;
+	// First size word must validate (bounds the false-positive rate
+	// of the 4-byte magic on its own).
+	uint pos = 12 + n * 4;
+	while (pos + 6 <= size && (uint)(pos - (12 + n * 4)) < 1024)
+	{
+		const uint sz = rd_be32 (data + pos);
+		if (sz && sz < size && data[pos + 4] == 0x78 && rd_be32 (data + 12) == sz + 4)
+			return true;
+		if (data[pos] != 0)
+			return false;
+		pos++;
+	}
+	return false;
+}
+
 
 enumError ExtractG1TArchive (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext_match (arg, ".g1t"))
+	if (!is_ext_match (arg, ".g1t") && !is_ext_match (arg, ".g1t.gz"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;
 	size_t raw_size = 0;
 	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false))
 		return ERR_NOTHING_TO_DO;
+	// Wii U members ship in the chunked wrapper; unwrap first so the
+	// container parse below sees a plain G1T either way.
+	if (is_ext_match (arg, ".g1t.gz") && raw_size <= UINT_MAX)
+	{
+		u8 *dec = 0;
+		uint dec_size = 0;
+		if (DecodeG1TGZ (&dec, &dec_size, raw, (uint)raw_size))
+		{
+			FREE (raw);
+			return ERR_NOTHING_TO_DO;
+		}
+		FREE (raw);
+		raw = dec;
+		raw_size = dec_size;
+	}
 	// The Wii U (PowerPC) variant opens with the byte-reversed signature
 	// "G1TG" and stores every multi-byte field big-endian; the 3DS (ARM)
 	// variant writes "GT1G" little-endian.

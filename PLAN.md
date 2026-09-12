@@ -825,6 +825,27 @@ was implemented but had no regression coverage (the "verified with
 byte-swapped fixtures under /tmp" note left nothing committed). New
 test byte-swaps a retail LE fixture's header/table fields and
 asserts the BE extract is PNG byte-identical to the LE extract.
+
+**Update 2026-09-11 — `.g1t.gz` wrapper cracked, full Wii U corpus
+green.** Pulled the retail WUX (mcubewiiu, 8.5 GB) with the local
+title key (plus a lesson: a killed first run's partial tree fooled
+the title-folder detector — wipe and re-run, don't resume). Layout
+reverse engineered against all 3857 files (every one exact): BE u32
+magic `0x10000` + stream count + decompressed size + u32 table, then
+size-prefixed zlib streams (`table[i]` = bytes + 4) with zero padding
+between them and, on single-texture event_text files, a trailing
+sparse entry (no stream; that many zero bytes) plus a 128B per-file
+blob (possibly a signature — unverified, accepted only there after
+full payload validation). New `DecodeG1TGZ` (+ `IsG1TGZ` probe,
+`NFMT_G1T` routing, `.g1t.gz` extraction hook, and a 7z-carve-out so
+the weak extension passthrough stops mis-unpacking these as lzma).
+Real bugs caught: a scan window anchored at table start instead of
+per-gap (died past 64 KB into every file), and display truncation
+that repeatedly faked "missing" message fields. Verified: 3857/3857
+yield containers; 3DS-format members inside decode to real pixels;
+`t_g1tgz` (fully synthetic byte-exact test). Wii U GX2 member pixel
+formats (`0x60`/`0x62`) still export raw — their dimension bytes
+don't follow the 3DS exponent packing, a separate RE pass.
 README row corrected (it still claimed LE-only + cited the old
 `lib-nintendo-archives.c` path). The `.gz` wrapper and Wii U GX2
 pixel formats remain genuinely blocked (no dump on disk).

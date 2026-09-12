@@ -10611,6 +10611,48 @@ assert prims_mats == [0, 1, 2], f"material mapping mismatch: {prims_mats}"
 }
 t_wmb
 
+t_g1tgz(){
+  # Koei Tecmo G1T chunked wrapper (.g1t.gz, Hyrule Warriors Wii U):
+  # BE u32 magic 0x10000 + count + decompressed size + u32 table, then
+  # size-prefixed zlib streams (table[i] = bytes + 4) with zero padding
+  # between them. Fully synthetic: python zlib builds two streams around
+  # padding, wrapping a minimal 1-texture LE container with an unknown
+  # pixel format (raw .bin member path); member bytes asserted exact.
+  local d; d=$(mktemp -d /tmp/_r_g1tgz.XXXXXX) || { no "G1TGZ wrapper" "mktemp failed"; return; }
+  python3 -c '
+import struct, zlib
+payload = b"RAW_G1T_MEMBER_PAYLOAD_BYTES...."
+# GT1G + ver + total + tbl(48) + count + platform + 24B gap + table + theader + ext12 + payload
+rel = struct.pack("<I", 4)
+theader = bytes([0x01, 0xFF, 0x33, 0x00]) + bytes(4)
+body0 = rel + theader + bytes(12) + payload
+total_len = 48 + len(body0)
+container = (b"GT1G" + b"0600" + struct.pack("<III", total_len, 48, 1)
+    + struct.pack("<I", 5) + bytes(24) + body0)
+assert len(container) == total_len
+halves = [container[:60], container[60:]]
+streams = b""
+for h in halves:
+    c = zlib.compress(h, 6)
+    streams += struct.pack(">I", len(c)) + c
+s1 = zlib.compress(halves[0], 6); s2 = zlib.compress(halves[1], 6)
+body = struct.pack(">I", len(s1)) + s1 + b"\x00" * 24 + struct.pack(">I", len(s2)) + s2 + b"\x00" * 40
+hdr = struct.pack(">III", 0x10000, 2, total_len)
+tab = struct.pack(">II", len(s1) + 4, len(s2) + 4)
+open("'"$d"'/sample.g1t.gz", "wb").write(hdr + tab + body)
+open("'"$d"'/want.bin", "wb").write(container[72:])
+' 2>/dev/null
+  if "$B/wszst" FILETYPE "$d/sample.g1t.gz" 2>/dev/null | grep -q '^G1T' \
+  && "$B/wszst" xx "$d/sample.g1t.gz" --dest "$d/out" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/out/sample.g1t.gz_0000.bin" "$d/want.bin"; then
+    ok "G1TGZ wrapper -> container -> byte-exact raw member (synthetic)"
+  else
+    no "G1TGZ wrapper" "failed to unwrap synthetic container"
+  fi
+  rm -rf "$d"
+}
+t_g1tgz
+
 t_sir0_ds_retail(){
   # SIR0 (Pokémon Mystery Dungeon Resource Container): DS little-endian
   # container used by PMD: Blue Rescue Team and PMD: Explorers of Sky.

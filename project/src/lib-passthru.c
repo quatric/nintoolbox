@@ -2543,11 +2543,14 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 		return passthru_archive_or_bms (
 			src, basedir, stage, staged_dir, staged_dir_size, false, false, true, false, false);
 
-	// 7-Zip / RAR / Tar / gzip archives (by extension)
+	// 7-Zip / RAR / Tar / gzip archives (by extension). Koei Tecmo
+	// .g1t.gz files are not gzip streams at all (chunked wrapper with
+	// its own magic); the native G1T extractor takes them below, so
+	// keep 7z from mis-unpacking them as lzma garbage first.
 	if (!strong_only
 		&& (is_ext (src, ".7z") || is_ext (src, ".rar") || is_ext (src, ".cb7")
 			|| is_ext (src, ".tar") || is_ext (src, ".tgz") || is_ext (src, ".tbz2")
-			|| is_ext (src, ".txz") || is_ext (src, ".gz")))
+			|| is_ext (src, ".txz") || (is_ext (src, ".gz") && !is_ext (src, ".g1t.gz"))))
 		return passthru_7z (src, basedir, stage, staged_dir, staged_dir_size, is_ext (src, ".rar"));
 
 	// Media files (THP, Mobiclip, BRSTM, BCSTM, BFSTM, BNS, BTSND, AST, DSP, HVQM4, VID1, etc.)
