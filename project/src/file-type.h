@@ -361,6 +361,7 @@ typedef enum file_format_t
 	FF_CPK, // 266 - CRIWARE CPK archive (.cpk / "CPK ", Star Fox Zero)
 	FF_WMB, // 267 - PlatinumGames WMB model (.wmb / "\0BMW", Star Fox Zero)
 	FF_RFL_RES, // 268 - Revolution Face Library Mii resource database (RFL_Res.dat)
+	FF_CMAB, // 269 - Grezzo 3DS material animation with embedded textures (.cmab)
 
 	//--- number of elements
 

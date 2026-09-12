@@ -1160,6 +1160,9 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x43474658: // "CGFX"
 				return FF_BCRES;
 
+			case 0x636d6162: // "cmab" (Grezzo material animation)
+				return FF_CMAB;
+
 			// BRLYT / BRLAN (Wii layouts) - magic is "RLYT" or "RLAN" (without 'B' prefix)
 			case 0x524c5954: // "RLYT"
 				return FF_BRLYT;
@@ -2044,6 +2047,7 @@ file_format_t IsImageFF (
 		case FF_BREFT_IMG:
 		case FF_AJPG:
 		case FF_CTXB:
+		case FF_CMAB:
 		case FF_NUT:
 		case FF_NSBTX:
 			return fform;

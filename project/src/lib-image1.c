@@ -38,6 +38,7 @@
 #include "lib-std.h"
 #include "lib-image.h"
 #include "lib-breff.h"
+#include "lib-cmab.h"
 #include "lib-plt0.h"
 
 //
@@ -521,6 +522,21 @@ void ScanDataIMG (Image_t *img, // destination image
 					img->iform = img->info_iform = IMG_X_RGB;
 					img->info_n_image = 1;
 				}
+			}
+		}
+		break;
+
+		case FF_CMAB:
+		{
+			cmab_t cmab;
+			cmab_entry_t entry;
+			if (!ScanCMAB (&cmab, data, data_size) && cmab.texture_count
+				&& !GetCMABEntry (&cmab, 0, &entry))
+			{
+				img->width = entry.width;
+				img->height = entry.height;
+				img->iform = img->info_iform = IMG_X_RGB;
+				img->info_n_image = cmab.texture_count;
 			}
 		}
 		break;

@@ -566,7 +566,8 @@ static enumError cmd_decode ()
 		// rather than a mip chain.  Native BRFNT handling leaves the file format
 		// unknown intentionally, so recognize its multiple-record metadata here.
 		const uint record_images
-			= IsTplFF (img.info_fform) || img.info_fform == FF_UNKNOWN && img.info_n_image > 1
+			= IsTplFF (img.info_fform) || img.info_fform == FF_CMAB
+				|| img.info_fform == FF_UNKNOWN && img.info_n_image > 1
 			? img.info_n_image
 			: 1;
 		if (record_images > 1)

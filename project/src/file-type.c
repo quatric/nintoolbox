@@ -1431,6 +1431,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Revolution Face Library Mii resource database (RFL_Res.dat)" },
 
+	// FF_CMAB = 269 (Grezzo 3DS material animation with embedded textures)
+	{ FF_CMAB, 0, 0, "CMAB", ".cmab", ".cmab", ".cmab", FFT_VALID | FFT_GRAPHIC | FFT_DECODE,
+		4, { 0x63, 0x6d, 0x61, 0x62 }, // "cmab"
+		0, MinusString, MinusString,
+		"Grezzo 3DS material animation with embedded PICA textures (.cmab)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1508,6 +1514,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_BRLAN, "BRLAN", 0, 0x3001 }, { FF_BFLYT, "BFLYT", 0, 0x3001 },
 	{ FF_BCLYT, "BCLYT", 0, 0x3001 }, { FF_BNTX, "BNTX", 0, 0x3001 }, { FF_GFA, "GFA", 0, 0x3001 },
 	{ FF_BCH, "BCH", 0, 0x3001 }, { FF_BCRES, "BCRES", "CGFX", 0x3001 },
+	{ FF_CMAB, "CMAB", 0, 0x3809 },
 	{ FF_AJPG, "AJPG", "AJPG", 0x0100 }, { FF_RST, "RST", "0TSR", 0xe05 },
 	{ FF_RST_TOC, "RST-TOC", "0SERCOTE", 0xc05 }, { FF_THP, "THP", "THP", 0x3801 },
 	{ FF_MSBT, "MSBT", "MSGSTDBN", 0x3001 }, { FF_MSBP, "MSBP", "MSGPRJBN", 0x3001 },

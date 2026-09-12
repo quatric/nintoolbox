@@ -53,6 +53,8 @@
 #include "lib-nut.h"
 #include "lib-excite.h"
 #include "lib-retro-txtr.h"
+#include "lib-ctpk.h"
+#include "lib-cmab.h"
 
 #include "red-36.inc"
 #include "blue-40.inc"
@@ -150,6 +152,10 @@ static void AssignDecodedRGBA (Image_t *img, // pointer to valid img
 	img->path = fname;
 	img->seq_num = ++image_seq_num;
 }
+
+// Kept local so this decoder remains independent from higher-level CTPK parsing.
+enumError DecodePicaTexture (u8 **dest, uint *width, uint *height, const u8 *src, uint w, uint h,
+	uint format, uint src_size);
 
 // Scarlet (xdanieldzd/Scarlet) documents these four small 3DS texture
 // wrappers.  They all use the PICA200 8x8 Morton layout, so keep their
@@ -1129,6 +1135,30 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		img->endian = &le_func;
 		img->path = fname;
 		img->seq_num = ++image_seq_num;
+		return PatchListIMG (img);
+	}
+
+	if (data_size >= 4 && !memcmp (data, "cmab", 4))
+	{
+		cmab_t cmab;
+		enumError err = ScanCMAB (&cmab, data, data_size);
+		if (err)
+			return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported CMAB container: %s\n", fname);
+		if (img_index >= cmab.texture_count)
+			return ERROR0 (ERR_INVALID_IFORM, "CMAB texture index %u is out of range: %s\n", img_index,
+				fname);
+		cmab_entry_t entry;
+		err = GetCMABEntry (&cmab, img_index, &entry);
+		if (err)
+			return ERROR0 (ERR_INVALID_IFORM, "Invalid CMAB texture entry %u: %s\n", img_index, fname);
+		u8 *rgba = 0;
+		uint width = 0, height = 0;
+		err = DecodeCMABTexture_RGBA (&rgba, &width, &height, &entry);
+		if (err)
+			return ERROR0 (ERR_INVALID_IFORM, "Failed decoding CMAB texture %u: %s\n", img_index, fname);
+		AssignDecodedRGBA (img, rgba, width, height, &le_func, fname);
+		img->info_fform = FF_CMAB;
+		img->info_n_image = cmab.texture_count;
 		return PatchListIMG (img);
 	}
 
