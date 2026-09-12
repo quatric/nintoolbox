@@ -10597,7 +10597,8 @@ import json, struct, sys
 b = open(sys.argv[1], "rb").read()
 ln, typ = struct.unpack_from("<II", b, 12)
 doc = json.loads(b[20:20+ln])
-assert len(doc.get("materials", [])) == 3, f"expected 3 materials, got {len(doc.get(\"materials\", []))}"
+mats = doc.get("materials", [])
+assert len(mats) == 3, f"expected 3 materials, got {len(mats)}"
 prims_mats = [p.get("material") for m in doc.get("meshes", []) for p in m.get("primitives", [])]
 assert prims_mats == [0, 1, 2], f"material mapping mismatch: {prims_mats}"
 ' "$d/multimat.glb" 2>/dev/null; then
