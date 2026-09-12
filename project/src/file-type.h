@@ -366,6 +366,8 @@ typedef enum file_format_t
 	FF_DMPBM, // 271 - Atlus Nintendo 3DS bitmap (.dmpbm)
 	FF_STEX, // 272 - Atlus Nintendo 3DS texture (.stex)
 	FF_CMB, // 273 - Grezzo Nintendo 3DS model texture chunk (.cmb)
+	FF_BCMA, // 274 - Nintendo 3DS manual archive (.bcma)
+	FF_BCFNT, // 275 - Nintendo 3DS / Wii U binary font (.bcfnt / .bffnt / CFNT / FFNT)
 
 	//--- number of elements
 

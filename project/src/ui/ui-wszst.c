@@ -3444,8 +3444,9 @@ static const OptionIndex_t OptionIndex[UIOPT_INDEX_SIZE] =
 	/* 0x156   */	OPT_CMPR_DEFAULT,
 	/* 0x157   */	OPT_CUT,
 	/* 0x158   */	OPT_RAW,
-	/* 0x159   */	OPT_SECTIONS,
-	/* 0x15a   */	 0,0,OPT_EXPORT_RAW,0,0,0,
+	/* 0x159   */	OPT_EXPORT_RAW,
+	/* 0x15a   */	OPT_SECTIONS,
+	/* 0x15b   */	 0,0,0,0, 0,
 	/* 0x160   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
 	/* 0x170   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
 	/* 0x180   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
@@ -4122,8 +4123,9 @@ static u8 option_allowed_cmd_EXTRACT[151] = // cmd #67
     1,1,1,1,1, 1,1,0,1,0,  0,1,1,1,1, 1,1,1,1,0,  0,0,0,0,0, 0,0,1,1,1,
     1,0,1,1,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,1,1,  0,0,0,0,0, 1,1,0,0,0,
     1,1,1,1,1, 1,0,1,1,1,  1,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,1,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,1, 1,1,1,1,1,  1,0,0,0,1, 1,1,1,1,1,
-    1};
+    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,1, 1,1,1,1,1,  1,0,0,0,1, 1,1,1,1,0,
+    0
+};
 
 static u8 option_allowed_cmd_XDECODE[151] = // cmd #68
 {
@@ -4131,8 +4133,9 @@ static u8 option_allowed_cmd_XDECODE[151] = // cmd #68
     1,1,1,1,1, 1,1,0,1,0,  0,1,1,1,1, 1,1,1,1,0,  0,0,0,0,0, 0,0,1,1,1,
     1,0,1,1,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,1,1,  0,0,0,0,0, 1,1,0,0,0,
     1,1,1,1,1, 1,0,1,1,1,  1,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,1,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,1, 1,1,1,1,1,  1,0,0,0,1, 1,1,1,1,1,
-    1};
+    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,1, 1,1,1,1,1,  1,0,0,0,1, 1,1,1,1,0,
+    0
+};
 
 static u8 option_allowed_cmd_XEXPORT[151] = // cmd #69
 {
@@ -4140,8 +4143,9 @@ static u8 option_allowed_cmd_XEXPORT[151] = // cmd #69
     1,1,1,1,1, 1,1,0,1,0,  0,1,1,1,1, 1,1,1,1,0,  0,0,0,0,0, 0,0,1,1,1,
     1,0,1,1,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,1,1,  0,0,0,0,0, 1,1,0,0,0,
     1,1,1,1,1, 1,0,1,1,1,  1,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,1,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,1, 1,1,1,1,1,  1,0,0,0,1, 1,1,1,1,1,
-    1};
+    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,1, 1,1,1,1,1,  1,0,0,0,1, 1,1,1,1,0,
+    0
+};
 
 static u8 option_allowed_cmd_XALL[151] = // cmd #70
 {
@@ -4149,8 +4153,9 @@ static u8 option_allowed_cmd_XALL[151] = // cmd #70
     1,1,1,1,1, 1,1,0,1,0,  0,1,1,1,1, 1,1,1,1,0,  0,0,0,0,0, 0,0,1,1,1,
     1,0,1,1,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,1,1,  0,0,0,0,0, 1,1,0,0,0,
     1,1,1,1,1, 1,0,1,1,1,  1,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,1,0,0,0,
-    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,1, 1,1,1,1,1,  1,0,0,0,1, 1,1,1,1,1,
-    1};
+    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,1, 1,1,1,1,1,  1,0,0,0,1, 1,1,1,1,0,
+    0
+};
 
 static u8 option_allowed_cmd_XCOMMON[151] = // cmd #71
 {
@@ -7557,7 +7562,6 @@ static const InfoOption_t * option_tab_cmd_EXTRACT[] =
 	OptionInfo + OPT_NO_PARAM,
 	OptionInfo + OPT_NO_CHECK,
 	OptionInfo + OPT_RAW,
-	OptionInfo + OPT_EXPORT_RAW,
 
 	OptionInfo + OPT_NONE, // separator
 
@@ -7657,7 +7661,6 @@ static const InfoOption_t * option_tab_cmd_XDECODE[] =
 	OptionInfo + OPT_NO_PARAM,
 	OptionInfo + OPT_NO_CHECK,
 	OptionInfo + OPT_RAW,
-	OptionInfo + OPT_EXPORT_RAW,
 
 	OptionInfo + OPT_NONE, // separator
 
@@ -7757,7 +7760,6 @@ static const InfoOption_t * option_tab_cmd_XEXPORT[] =
 	OptionInfo + OPT_NO_PARAM,
 	OptionInfo + OPT_NO_CHECK,
 	OptionInfo + OPT_RAW,
-	OptionInfo + OPT_EXPORT_RAW,
 
 	OptionInfo + OPT_NONE, // separator
 
@@ -7857,7 +7859,6 @@ static const InfoOption_t * option_tab_cmd_XALL[] =
 	OptionInfo + OPT_NO_PARAM,
 	OptionInfo + OPT_NO_CHECK,
 	OptionInfo + OPT_RAW,
-	OptionInfo + OPT_EXPORT_RAW,
 
 	OptionInfo + OPT_NONE, // separator
 
@@ -9561,7 +9562,7 @@ static const InfoCommand_t CommandInfo[CMD__N+1] =
 	" pipe characters are parsed, see https://szs.wiimm.de/doc/wildcards"
 	" for details.",
 	0,
-	85,
+	84,
 	option_tab_cmd_EXTRACT,
 	option_allowed_cmd_EXTRACT
     },
@@ -9579,7 +9580,7 @@ static const InfoCommand_t CommandInfo[CMD__N+1] =
 	" '%P/%N.d/'. Wildcards and pipe characters are parsed, see"
 	" https://szs.wiimm.de/doc/wildcards for details.",
 	0,
-	85,
+	84,
 	option_tab_cmd_XDECODE,
 	option_allowed_cmd_XDECODE
     },
@@ -9598,7 +9599,7 @@ static const InfoCommand_t CommandInfo[CMD__N+1] =
 	" characters are parsed, see https://szs.wiimm.de/doc/wildcards for"
 	" details.",
 	0,
-	85,
+	84,
 	option_tab_cmd_XEXPORT,
 	option_allowed_cmd_XEXPORT
     },
@@ -9616,7 +9617,7 @@ static const InfoCommand_t CommandInfo[CMD__N+1] =
 	" is '%P/%N.d/'. Wildcards and pipe characters are parsed, see"
 	" https://szs.wiimm.de/doc/wildcards for details.",
 	0,
-	85,
+	84,
 	option_tab_cmd_XALL,
 	option_allowed_cmd_XALL
     },

@@ -3572,7 +3572,7 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest, int known_lz
 		return create_sarc_dir (source_dir, dest, !sarc_le);
 	if (!strcasecmp (ext, ".narc"))
 		return create_narc_dir (source_dir, dest, true);
-	if (!strcasecmp (ext, ".darc"))
+	if (!strcasecmp (ext, ".darc") || !strcasecmp (ext, ".bcma"))
 		return create_darc_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".pac") || !strcasecmp (ext, ".pcs"))
 		return create_pac_dir (source_dir, dest);

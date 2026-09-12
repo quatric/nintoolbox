@@ -909,10 +909,10 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE, 4, { 0x41, 0x4c, 0x41, 0x52 }, // "ALAR"
 		0, "4,(*)", "1", "Jump Ultimate Stars archive" },
 
-	// FF_DARC = 172 (Level-5 / Layton archive)
+	// FF_DARC = 172 (Nintendo 3DS / Level-5 archive)
 	{ FF_DARC, FF_DARC, 0, "DARC", ".darc", ".szs", ".darc",
-		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE, 4, { 0x44, 0x41, 0x52, 0x43 }, // "DARC"
-		0, "4,(*)", "1", "Level-5 / Layton archive" },
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE, 4, { 0x64, 0x61, 0x72, 0x63 }, // "darc"
+		0, "4,(*)", "1", "Nintendo 3DS / Level-5 archive (DARC)" },
 
 	// FF_SADL = 173 (Level-5 / Layton SADL sound archive)
 	{ FF_SADL, FF_SADL, 0, "SADL", ".sad", ".szs", ".sadl", FFT_VALID | FFT_CUT | FFT_DECODE, 4,
@@ -1446,6 +1446,16 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	{ FF_CMB, 0, 0, "CMB", ".cmb", ".cmb", ".cmb", FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE,
 		4, { 'c', 'm', 'b', ' ' }, 0, MinusString, MinusString, "Grezzo Nintendo 3DS model texture container (.cmb)" },
 
+	// FF_BCMA = 274 (Nintendo 3DS manual archive)
+	{ FF_BCMA, 0, 0, "BCMA", ".bcma", ".bcma", ".bcma",
+		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT | FFT_CREATE, 4, { 0x64, 0x61, 0x72, 0x63 }, // "darc"
+		0, MinusString, MinusString, "Nintendo 3DS manual archive (BCMA)" },
+
+	// FF_BCFNT = 275 (Nintendo 3DS / Wii U binary font)
+	{ FF_BCFNT, 0, 0, "BCFNT", ".bcfnt", ".bcfnt", ".bcfnt",
+		FFT_VALID | FFT_GRAPHIC | FFT_DECODE, 4, { 0x43, 0x46, 0x4e, 0x54 }, // "CFNT"
+		0, MinusString, MinusString, "Nintendo 3DS / Wii U binary font (BCFNT / BFFNT)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1595,6 +1605,9 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_BTGA, "BTGA", 0, 0x3809 }, { FF_BTGA, "LGA", 0, 0x3809 },
 	{ FF_DMPBM, "DMPBM", 0, 0x3809 }, { FF_STEX, "STEX", 0, 0x3809 },
 	{ FF_CMB, "CMB", 0, 0x3809 },
+	{ FF_BCMA, "BCMA", "BCMA", 0xe05 },
+	{ FF_BCFNT, "BCFNT", "CFNT", 0x3009 },
+	{ FF_BCFNT, "BFFNT", "FFNT", 0x3009 },
 
 	{ 0, 0, 0, 0 }
 };

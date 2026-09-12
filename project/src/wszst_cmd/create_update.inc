@@ -264,12 +264,12 @@ static enumError cmd_create (bool create)
 			ResetSetupParam (&sp);
 			continue;
 		}
-		if (create && ext && !strcasecmp (ext, ".darc"))
+		if (create && ext && (!strcasecmp (ext, ".darc") || !strcasecmp (ext, ".bcma")))
 		{
 			enumError err = create_darc_dir (source_dir, dest);
 			if (verbose >= 0 || testmode)
-				fprintf (stdlog, "%s%sCREATE DARC %s/ -> %s\n", verbose > 0 ? "\n" : "",
-					testmode ? "WOULD " : "", source_dir, dest);
+				fprintf (stdlog, "%s%sCREATE %s %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", !strcasecmp (ext, ".bcma") ? "BCMA" : "DARC", source_dir, dest);
 			if (max_err < err)
 				max_err = err;
 			if (err <= ERR_WARNING && src_len > 2 && !strcasecmp (source_dir + src_len - 2, ".d")
@@ -6148,7 +6148,8 @@ static enumError extract_narc_file (ccp arg, ccp basedir, uint depth)
 // whatever directory is now on top of the stack, not to the root.
 static enumError extract_darc_file (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext (arg, ".darc") && !is_ext (arg, ".arc") && !is_ext (arg, ".bin"))
+	if (!is_ext (arg, ".darc") && !is_ext (arg, ".arc") && !is_ext (arg, ".bin")
+		&& !is_ext (arg, ".bcma"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;
@@ -7958,10 +7959,15 @@ static enumError extract_cfnt_manifest (ccp arg)
 		"-->\n<%s font-type=\"%u\">\n",
 		is_cfnt ? "BCFNT" : "BFFNT", is_cfnt ? "bcfnt" : "bffnt", font_type);
 
-	if (font_type == 1 && finf_len >= 0x20 && (size_t)finf + 0x18 <= size)
+	if (font_type == 1 && finf_len >= 0x1C && (size_t)finf + 0x14 <= size)
 	{
-		const uint ptr_glyph = CF32 (d + finf + 0x14);
-		const size_t tglp = (size_t)ptr_glyph - 8;
+		uint ptr_glyph = CF32 (d + finf + 0x10);
+		size_t tglp = (ptr_glyph >= 8) ? (size_t)ptr_glyph - 8 : (size_t)-1;
+		if (tglp + 0x20 > size || memcmp (d + tglp, "TGLP", 4))
+		{
+			ptr_glyph = (finf_len >= 0x20 && (size_t)finf + 0x18 <= size) ? CF32 (d + finf + 0x14) : 0;
+			tglp = (ptr_glyph >= 8) ? (size_t)ptr_glyph - 8 : (size_t)-1;
+		}
 		if (ptr_glyph >= 8 && tglp + 0x20 <= size && !memcmp (d + tglp, "TGLP", 4))
 		{
 			fprintf (F.f,

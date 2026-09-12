@@ -124,6 +124,9 @@ enumError DecodeNitroTexture_RGBA (
 // Decodes the first/primary texture in a standalone NSBTX / NSBMD file.
 enumError DecodeNSBTX_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, uint size);
 
+// Exports all textures from a TEX0 block (or container with TEX0, like NSBMD / NSBTX) as PNGs.
+enumError ExportNitroTEX0Textures (const u8 *data, uint size, const char *dest_path_or_dir);
+
 // Creates a complete binary NSBTX (BTX0) archive from RGBA image pixels.
 enumError CreateNSBTX (u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height,
 	nitro_texfmt_t fmt, ccp tex_name, ccp pltt_name);

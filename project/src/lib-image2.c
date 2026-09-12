@@ -1540,11 +1540,15 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		const uint finf_len = BCF32 (data + bcfnt_hdr + 4);
 		if ((finf_len < 0x1C) || bcfnt_hdr + finf_len > data_size)
 			return ERROR0 (ERR_INVALID_IFORM, "Invalid FINF in BCFNT/BFFNT: %s\n", fname);
-		const uint ptr_glyph = BCF32 (data + bcfnt_hdr + 0x14);
+		uint ptr_glyph = BCF32 (data + bcfnt_hdr + 0x10);
 		if (ptr_glyph < 8 || ptr_glyph - 8 + 0x20 > data_size
 			|| memcmp (data + ptr_glyph - 8, "TGLP", 4))
-			return ERR_NOTHING_TO_DO; // Outline, scalable, or glyph-only font without raster TGLP
-									  // sheets
+		{
+			ptr_glyph = BCF32 (data + bcfnt_hdr + 0x14);
+			if (ptr_glyph < 8 || ptr_glyph - 8 + 0x20 > data_size
+				|| memcmp (data + ptr_glyph - 8, "TGLP", 4))
+				return ERR_NOTHING_TO_DO; // Outline, scalable, or glyph-only font without raster TGLP sheets
+		}
 		const u8 *btglp = data + (ptr_glyph - 8);
 		const uint bsheet_sz = BCF32 (btglp + 0x0C);
 		const uint bsheet_cnt = BCF16 (btglp + 0x10);

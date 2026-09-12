@@ -11367,6 +11367,162 @@ t_rfl_res_retail_wiiparty(){
 }
 t_rfl_res_retail_wiiparty
 
+t_smdh_retail_3ds(){
+  local f="$PWD_PROJECT/../tests/fixtures/3ds_samples/smdh/retail_camera_icon.smdh"
+  [ -f "$f" ] || { sk "SMDH retail (Nintendo 3DS Camera)"; return; }
+  local d="/tmp/_r_smdh"
+  rm -rf "$d"
+  mkdir -p "$d"
+
+  if "$B/wszst" FILETYPE "$f" | grep -q "SMDH"; then
+    ok "retail SMDH FILETYPE recognition (3DS Camera)"
+  else
+    no "retail SMDH" "FILETYPE failed to recognize SMDH"
+  fi
+
+  if "$B/wimgt" DECODE "$f" --dest "$d/icon.png" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/icon.png" ] \
+  && python3 -c '
+from PIL import Image
+im = Image.open("'"$d"'/icon.png")
+assert im.size == (48, 48)
+' 2>/dev/null; then
+    ok "retail SMDH decode -> 48x48 PNG icon (Nintendo 3DS Camera)"
+  else
+    no "retail SMDH" "failed to decode retail SMDH icon to PNG"
+  fi
+  rm -rf "$d"
+}
+t_smdh_retail_3ds
+
+t_darc_retail_3ds(){
+  local f="$PWD_PROJECT/../tests/fixtures/3ds_samples/darc/retail_retro.arc"
+  [ -f "$f" ] || { sk "DARC retail (Nintendo 3DS Camera)"; return; }
+  local d="/tmp/_r_darc"
+  rm -rf "$d"
+  mkdir -p "$d"
+
+  if "$B/wszst" FILETYPE "$f" | grep -q "DARC"; then
+    ok "retail DARC FILETYPE recognition (3DS Camera)"
+  else
+    no "retail DARC" "FILETYPE failed to recognize DARC"
+  fi
+
+  if "$B/wszst" EXTRACT "$f" --dest "$d/ext" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/ext/blyt/P_Retro.bclyt" ] \
+  && [ -f "$d/ext/timg/P_Fnd_Retro.bclim" ]; then
+    ok "retail DARC extract members (blyt/P_Retro.bclyt, timg/P_Fnd_Retro.bclim)"
+  else
+    no "retail DARC" "failed to extract retail DARC members"
+  fi
+
+  # Roundtrip test: CREATE DARC and verify member byte-for-byte preservation
+  if "$B/wszst" CREATE "$d/ext" --dest "$d/repack.darc" --overwrite >/dev/null 2>&1 \
+  && "$B/wszst" EXTRACT "$d/repack.darc" --dest "$d/repack_ext" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/ext/blyt/P_Retro.bclyt" "$d/repack_ext/blyt/P_Retro.bclyt" \
+  && cmp -s "$d/ext/timg/P_Fnd_Retro.bclim" "$d/repack_ext/timg/P_Fnd_Retro.bclim"; then
+    ok "retail DARC create -> extract preserves members byte-for-byte"
+  else
+    no "retail DARC" "roundtrip creation failed or member mismatch"
+  fi
+  rm -rf "$d"
+}
+t_darc_retail_3ds
+
+t_bcma_retail_3ds(){
+  local f="$PWD_PROJECT/../tests/fixtures/3ds_samples/bcma/retail_bcmainfo.arc"
+  [ -f "$f" ] || { sk "BCMA retail (Nintendo 3DS Electronic Manual)"; return; }
+  local d="/tmp/_r_bcma"
+  rm -rf "$d"
+  mkdir -p "$d"
+
+  if "$B/wszst" EXTRACT "$f" --dest "$d/ext" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/ext/blyt/BcmaInfo.bclyt" ]; then
+    ok "retail BCMA member extract (blyt/BcmaInfo.bclyt)"
+  else
+    no "retail BCMA" "failed to extract BcmaInfo member"
+  fi
+
+  # Roundtrip: repacking to .bcma sets BCMA filetype and roundtrips members
+  if "$B/wszst" CREATE "$d/ext" --dest "$d/repack.bcma" --overwrite >/dev/null 2>&1 \
+  && "$B/wszst" FILETYPE "$d/repack.bcma" | grep -q "BCMA" \
+  && "$B/wszst" EXTRACT "$d/repack.bcma" --dest "$d/repack_ext" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/ext/blyt/BcmaInfo.bclyt" "$d/repack_ext/blyt/BcmaInfo.bclyt"; then
+    ok "retail BCMA create -> FILETYPE recognition + member roundtrip"
+  else
+    no "retail BCMA" "repack .bcma failed or member mismatch"
+  fi
+  rm -rf "$d"
+}
+t_bcma_retail_3ds
+
+t_bcfnt_retail_3ds(){
+  local f="$PWD_PROJECT/../tests/fixtures/3ds_samples/bcfnt/retail_hudnotes.bcfnt"
+  [ -f "$f" ] || { sk "BCFNT retail (Nintendo 3DS Camera)"; return; }
+  local d="/tmp/_r_bcfnt"
+  rm -rf "$d"
+  mkdir -p "$d"
+
+  if "$B/wszst" FILETYPE "$f" | grep -q "BCFNT"; then
+    ok "retail BCFNT FILETYPE recognition (3DS Camera)"
+  else
+    no "retail BCFNT" "FILETYPE failed to recognize BCFNT"
+  fi
+
+  if "$B/wszst" EXTRACT "$f" --dest "$d/manifest.xml" --overwrite >/dev/null 2>&1 \
+  && grep -q 'cell-width="24"' "$d/manifest.xml" \
+  && grep -q 'sheet-format="0x9"' "$d/manifest.xml" \
+  && grep -q 'sheet-count="4"' "$d/manifest.xml"; then
+    ok "retail BCFNT extract manifest (TGLP 24x24, 4 sheets, IA4)"
+  else
+    no "retail BCFNT" "failed to extract BCFNT manifest or TGLP mismatch"
+  fi
+  rm -rf "$d"
+}
+t_bcfnt_retail_3ds
+
+t_bcwav_retail_3ds(){
+  local f="$PWD_PROJECT/../tests/fixtures/3ds_samples/bcwav/retail_dog_adpcm.bcwav"
+  [ -f "$f" ] || { sk "BCWAV retail (Nintendo 3DS Camera)"; return; }
+  local d="/tmp/_r_bcwav"
+  rm -rf "$d"
+  mkdir -p "$d"
+
+  if "$B/wszst" FILETYPE "$f" | grep -q "BCWAV"; then
+    ok "retail BCWAV FILETYPE recognition (3DS Camera)"
+  else
+    no "retail BCWAV" "FILETYPE failed to recognize BCWAV"
+  fi
+
+  if "$B/wszst" DECOMPRESS "$f" --dest "$d/out.wav" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/out.wav" ] \
+  && python3 -c '
+import wave, struct
+w = wave.open("'"$d"'/out.wav", "rb")
+data = w.readframes(w.getnframes())
+samples = struct.unpack("<%dh" % (len(data)//2), data)
+assert len(set(samples)) > 100
+' 2>/dev/null; then
+    ok "retail BCWAV decompress -> Microsoft PCM WAV audio (variance > 100)"
+  else
+    no "retail BCWAV" "failed to decompress BCWAV audio"
+  fi
+  rm -rf "$d"
+}
+t_bcwav_retail_3ds
+
+t_bcres_retail_3ds(){
+  local f="$PWD_PROJECT/../tests/fixtures/3ds_samples/bcres/retail_demo_light.bcenv"
+  [ -f "$f" ] || { sk "BCRES retail (Nintendo 3DS Camera)"; return; }
+
+  if "$B/wszst" FILETYPE "$f" | grep -q "BCRES"; then
+    ok "retail BCRES FILETYPE recognition (3DS Camera .bcenv)"
+  else
+    no "retail BCRES" "FILETYPE failed to recognize BCRES"
+  fi
+}
+t_bcres_retail_3ds
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]

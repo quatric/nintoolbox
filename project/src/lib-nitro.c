@@ -1,7 +1,15 @@
-// Nintendo DS ("Nitro") sprite compositing -- see lib-nitro.h.
-
 #include "lib-std.h"
+#include "lib-image.h"
 #include "lib-nitro.h"
+
+static inline bool is_ext (ccp src, ccp ext)
+{
+	if (!src || !ext)
+		return false;
+	const size_t slen = strlen (src);
+	const size_t elen = strlen (ext);
+	return slen >= elen && !strcasecmp (src + slen - elen, ext);
+}
 
 static inline u16 nrd16 (const u8 *p)
 {
@@ -1021,6 +1029,78 @@ enumError DecodeNSBTX_RGBA (u8 **dest, uint *width, uint *height, const u8 *data
 	err = DecodeNitroTexture_RGBA (dest, width, height, &tex0, 0, -1);
 	ResetNitroTEX0 (&tex0);
 	return err;
+}
+
+enumError ExportNitroTEX0Textures (const u8 *data, uint size, const char *dest_path_or_dir)
+{
+	if (!data || size < 0x20 || !dest_path_or_dir)
+		return EINVAL;
+
+	nitro_tex0_t tex0;
+	enumError err = ScanNitroTEX0 (&tex0, data, size);
+	if (err)
+		return err;
+
+	char dir[PATH_MAX];
+	snprintf (dir, sizeof (dir), "%s", dest_path_or_dir);
+	if (is_ext (dir, ".dae") || is_ext (dir, ".glb"))
+	{
+		char *slash = strrchr (dir, '/');
+		if (slash)
+			*slash = 0;
+		else
+			snprintf (dir, sizeof (dir), ".");
+	}
+	CreatePath (dir, true);
+
+	enumError max_err = ERR_OK;
+	for (uint i = 0; i < tex0.n_textures; i++)
+	{
+		u8 *rgba = 0;
+		uint w = 0, h = 0;
+		err = DecodeNitroTexture_RGBA (&rgba, &w, &h, &tex0, i, -1);
+		if (err || !rgba || !w || !h)
+			continue;
+
+		char clean_name[128];
+		if (tex0.textures[i].name[0])
+			snprintf (clean_name, sizeof (clean_name), "%s", tex0.textures[i].name);
+		else
+			snprintf (clean_name, sizeof (clean_name), "tex_%03u", i);
+
+		char out_path[PATH_MAX];
+		snprintf (out_path, sizeof (out_path), "%s/%s.png", dir, clean_name);
+
+		Image_t img;
+		InitializeIMG (&img);
+		const uint xw = EXPAND8 (w), xh = EXPAND8 (h);
+		u8 *padded = (xw == w && xh == h) ? rgba : CALLOC (1, xw * xh * 4);
+		if (padded != rgba)
+		{
+			for (uint y = 0; y < h; y++)
+				memcpy (padded + (size_t)y * xw * 4, rgba + (size_t)y * w * 4, (size_t)w * 4);
+			FREE (rgba);
+		}
+		img.data = padded;
+		img.data_alloced = true;
+		img.data_size = xw * xh * 4;
+		img.width = w;
+		img.xwidth = xw;
+		img.height = h;
+		img.xheight = xh;
+		img.iform = img.info_iform = IMG_X_RGB;
+		img.info_fform = FF_PNG;
+		img.info_n_image = 1;
+		img.endian = &le_func;
+
+		err = SavePNG (&img, false, 0, out_path, 0, 0, true, 0);
+		ResetIMG (&img);
+		if (err && max_err < err)
+			max_err = err;
+	}
+
+	ResetNitroTEX0 (&tex0);
+	return max_err;
 }
 
 enumError CreateNSBTX (u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height,

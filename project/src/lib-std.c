@@ -4245,9 +4245,13 @@ enumError cmd_filetype ()
 			else
 			{
 				fform1 = GetByMagicFF (buf1, bufsize, fatt.size);
-				if (fform1 == FF_UNKNOWN)
+				ccp ext = arg ? strrchr (arg, '.') : 0;
+				if (fform1 == FF_SARC && ext && !strcasecmp (ext, ".bfma"))
+					fform1 = FF_BFMA;
+				else if (fform1 == FF_DARC && ext && !strcasecmp (ext, ".bcma"))
+					fform1 = FF_BCMA;
+				else if (fform1 == FF_UNKNOWN)
 				{
-					ccp ext = arg ? strrchr (arg, '.') : 0;
 					// Same ".tex" disambiguation as GetFileTypeByMagic():
 					// TEX0/TEX+CT carry a magic and are resolved above, so a
 					// magic-less .tex of plausible size is the headerless 3DS

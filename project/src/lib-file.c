@@ -1208,9 +1208,15 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x414c4152: // "ALAR"
 				return FF_ALAR;
 
-			// Level-5 Layton Archive (DARC)
+			// Nintendo 3DS / Level-5 Archive (DARC)
+			case 0x64617263: // "darc"
 			case 0x44415243: // "DARC"
 				return FF_DARC;
+
+			// Nintendo 3DS / Wii U binary font (BCFNT / BFFNT)
+			case 0x43464e54: // "CFNT"
+			case 0x46464e54: // "FFNT"
+				return FF_BCFNT;
 
 			// Level-5 Layton Sound (SADL)
 			case 0x5341444c: // "SADL"
@@ -1876,6 +1882,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_AAMP;
 		case NFMT_BYML:
 			return FF_BYML;
+		case NFMT_BCFNT:
+			return FF_BCFNT;
 		default:
 			break;
 	}
@@ -1917,6 +1925,8 @@ file_format_t GetFileTypeByMagic (
 		file_format_t ff = GetByMagicFF (buf, sizeof (buf), fatt->size);
 		if (ff == FF_SARC && ext && !strcasecmp (ext, ".bfma"))
 			return FF_BFMA;
+		if (ff == FF_DARC && ext && !strcasecmp (ext, ".bcma"))
+			return FF_BCMA;
 		// ".tex" is claimed by three formats: NintendoWare TEX0 (Wii BRRES)
 		// and TEX+CT both carry a real magic and are resolved above, so a
 		// magic-less .tex of plausible size is the headerless 3DS texture.
