@@ -2078,6 +2078,10 @@ Extended verification against retail discs, RomFS, and cart dumps from `/Volumes
   decompressed) from *Animal Crossing: amiibo Festival* (USA) WUX disc image. Confirmed
   `wszst FILETYPE` identifies `SARC`, `wszst EXTRACT` unpacks `blyt/BfmaInfo.bflyt`, and
   `wszst CREATE` repacks to identical member content. Added fixture
-  `tests/fixtures/wiiu_retail/retail_bfmainfo.sarc` and regression test `t_sarc_retail_wiiu`.
-
-
+- **RFL_Res Mii Resource Archives (Wii)**: Extracted retail `DATA/files/RFL/Resource/RFLRes01.arc.lz`
+  from *Wii Party* (USA) WBFS disc. Decompressed LZ11 to 686,372-byte `RFL_Res.dat` containing
+  472 model parts across 18 categories (`beard`, `hair`, `mouth`, etc.). Registered `FF_RFL_RES`
+  and detection in `project/src/file-type.c` and `project/src/lib-file.c` (`RFL-RES`). Sliced compact
+  fixture `tests/fixtures/wii_retail/retail_rfl_beard.dat` (1,800 bytes, 4 member models) and verified
+  `wszst FILETYPE` recognition, `wszst EXTRACT`, and `wszst CREATE` roundtrip byte preservation.
+  Added regression test `t_rfl_res_retail_wiiparty`.

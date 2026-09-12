@@ -58,6 +58,7 @@
 #include "lib-kmp.h"
 #include "lib-bflyt.h"
 #include "lib-nds-banner.h"
+#include "lib-rflres.h"
 #include "lib-wii-banner.h"
 #include "lib-rkc.h"
 #include "lib-nintendo.h"
@@ -1487,6 +1488,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 	// than a guess (see IsNDSBanner).
 	if (IsNDSBanner (data8, data_size))
 		return FF_NDS_BANNER;
+
+	// Revolution Face Library Mii resource archive (RFL_Res.dat / FFL_Res.dat)
+	if (IsMiiRes (data8, data_size))
+		return FF_RFL_RES;
 
 	const uint bom_len = GetTextBOMLen (data, data_size);
 	if (bom_len > 0)

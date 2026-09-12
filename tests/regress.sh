@@ -11113,7 +11113,44 @@ t_sarc_retail_wiiu(){
 
   rm -rf "$d"
 }
-t_sarc_retail_wiiu
+t_rfl_res_retail_wiiparty(){
+  local f="$PWD_PROJECT/../tests/fixtures/wii_retail/retail_rfl_beard.dat"
+  [ -f "$f" ] || { sk "RFL_Res retail (Wii Party)"; return; }
+  local d="/tmp/_r_rfl"
+  rm -rf "$d"
+  mkdir -p "$d"
+
+  if "$B/wszst" FILETYPE "$f" | grep -q "RFL-RES"; then
+    ok "retail RFL_Res FILETYPE recognition (Wii Party)"
+  else
+    no "retail RFL_Res" "FILETYPE failed to recognize RFL-RES"
+  fi
+
+  if "$B/wszst" EXTRACT "$f" --dest "$d/ext" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/ext/beard/000.bin" ] \
+  && [ -f "$d/ext/beard/001.bin" ] \
+  && [ -f "$d/ext/beard/002.bin" ] \
+  && [ -f "$d/ext/beard/003.bin" ]; then
+    ok "retail RFL_Res extract members (beard/000..003.bin)"
+  else
+    no "retail RFL_Res" "failed to extract retail members"
+  fi
+
+  # Roundtrip test: CREATE MiiRes and verify members preserve byte-for-byte
+  if "$B/wszst" CREATE "$d/ext" --dest "$d/repack.dat" --overwrite >/dev/null 2>&1 \
+  && "$B/wszst" EXTRACT "$d/repack.dat" --dest "$d/repack_ext" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/ext/beard/000.bin" "$d/repack_ext/beard/000.bin" \
+  && cmp -s "$d/ext/beard/001.bin" "$d/repack_ext/beard/001.bin" \
+  && cmp -s "$d/ext/beard/002.bin" "$d/repack_ext/beard/002.bin" \
+  && cmp -s "$d/ext/beard/003.bin" "$d/repack_ext/beard/003.bin"; then
+    ok "retail RFL_Res create -> extract preserves members byte-for-byte"
+  else
+    no "retail RFL_Res" "roundtrip creation failed or member mismatch"
+  fi
+
+  rm -rf "$d"
+}
+t_rfl_res_retail_wiiparty
 
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"

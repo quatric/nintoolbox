@@ -5,6 +5,7 @@
 
 // Scan any Mii Face Library resource archive (RFL_Res, FFL_Res, CFL_Res, AFL_Res, NFL_Res)
 // Auto-detects Big Endian (Wii RFL, Wii U FFL) and Little Endian (DS NFL, 3DS CFL, Switch FFL/AFL).
+bool IsMiiRes (const u8 *data, uint size);
 enumError ScanMiiRes (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size);
 enumError ScanRFLRes (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size);
 enumError ScanFFLRes (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size);

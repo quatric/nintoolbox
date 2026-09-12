@@ -361,6 +361,7 @@ typedef enum file_format_t
 	FF_PAC, // 265 - Nd Cube Wii U flat container (.bin / "PAC\0", Mario Party 10 / Amiibo Festival)
 	FF_CPK, // 266 - CRIWARE CPK archive (.cpk / "CPK ", Star Fox Zero)
 	FF_WMB, // 267 - PlatinumGames WMB model (.wmb / "\0BMW", Star Fox Zero)
+	FF_RFL_RES, // 268 - Revolution Face Library Mii resource database (RFL_Res.dat)
 
 	//--- number of elements
 

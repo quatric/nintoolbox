@@ -12,6 +12,64 @@ static const char *const mii_arc_names[18] = { "beard", "eye", "eyebrow", "facel
 	"fore_head", "glass", "glass_tex", "hair", "mask", "mole", "mouth", "mustache", "nose", "nline",
 	"nline_tex", "cap", "cap_tex" };
 
+bool IsMiiRes (const u8 *data, uint size)
+{
+	if (!data || size < 8)
+		return false;
+
+	// Check Big-Endian (Wii RFL_Res, Wii U FFL_Res)
+	const u16 be_arc = rd_be16 (data);
+	if (be_arc >= 1 && be_arc <= 128 && 4 + (uint)be_arc * 4 <= size)
+	{
+		bool ok = true;
+		u32 prev = 0;
+		for (uint i = 0; i < be_arc; i++)
+		{
+			const u32 off = rd_be32 (data + 4 + i * 4);
+			if (off < 4 + (uint)be_arc * 4 || off + 4 > size || (i > 0 && off < prev))
+			{
+				ok = false;
+				break;
+			}
+			prev = off;
+		}
+		if (ok)
+		{
+			const u32 a0 = rd_be32 (data + 4);
+			const u16 n0 = rd_be16 (data + a0);
+			if (a0 + 4 + ((uint)n0 + 1) * 4 <= size)
+				return true;
+		}
+	}
+
+	// Check Little-Endian (3DS CFL_Res, Switch FFL_Res / AFL_Res)
+	const u16 le_arc = rd_le16 (data);
+	if (le_arc >= 1 && le_arc <= 128 && 4 + (uint)le_arc * 4 <= size)
+	{
+		bool ok = true;
+		u32 prev = 0;
+		for (uint i = 0; i < le_arc; i++)
+		{
+			const u32 off = rd_le32 (data + 4 + i * 4);
+			if (off < 4 + (uint)le_arc * 4 || off + 4 > size || (i > 0 && off < prev))
+			{
+				ok = false;
+				break;
+			}
+			prev = off;
+		}
+		if (ok)
+		{
+			const u32 a0 = rd_le32 (data + 4);
+			const u16 n0 = rd_le16 (data + a0);
+			if (a0 + 4 + ((uint)n0 + 1) * 4 <= size)
+				return true;
+		}
+	}
+
+	return false;
+}
+
 enumError ScanMiiRes (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
 {
 	if (!entries || !n_entries || !data || size < 8)

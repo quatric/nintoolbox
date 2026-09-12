@@ -1430,6 +1430,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0, 'B', 'M', 'W' }, 0, MinusString, MinusString,
 		"PlatinumGames WMB model (.wmb / \"\\0BMW\", Star Fox Zero)" },
 
+	// FF_RFL_RES = 268 (Revolution Face Library Mii resource database)
+	{ FF_RFL_RES, FF_RFL_RES, 0, "RFL-RES", ".dat", ".szs", ".dat",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Revolution Face Library Mii resource database (RFL_Res.dat)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1574,6 +1580,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_VFF, "VFF", "VFF", 0xe05 }, { FF_IQIPACK, "IQIPACK", "PACK", 0xe05 },
 	{ FF_CPK, "CPK", 0, 0xe05 },
 	{ FF_WMB, "WMB", 0, 0xe05 },
+	{ FF_RFL_RES, "RFL-RES", "RFLRES", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };
