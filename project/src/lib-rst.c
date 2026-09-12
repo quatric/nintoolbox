@@ -86,7 +86,23 @@ enumError ExtractRST (nintendo_sarc_entry_t **out_entries, uint *out_n_entries, 
 	// The layout identifies itself rather than being inferred from a version
 	// number: the header, the records and the count have to account for the
 	// TOC exactly, which the later layout never does.
-	if (toc_data && toc_size == 0x28 + (u64)files_count * 0x44)
+	// `tocres.res` in Excite Truck is an old-style TOC stored directly after
+	// its RST header.  It has no sibling .toc, but uses the same 0x44-byte
+	// records as a standalone old-style TOC.  Treating that record table as
+	// the newer compact payload makes every type field ("COTE") look like a
+	// filename and consequently collapses the whole archive onto one file.
+	const u8 *old_toc = toc_data;
+	uint old_toc_size = toc_size;
+	uint old_records_off = 0x28;
+	if (!old_toc && car_size >= 0x80 + (u64)files_count * 0x44)
+	{
+		old_toc = car_data + 0x80;
+		old_toc_size = car_size - 0x80;
+		old_records_off = 0;
+	}
+	if ( ( toc_data && toc_size == 0x28 + (u64)files_count * 0x44 )
+		|| ( !toc_data && old_toc
+			&& old_toc_size >= old_records_off + (u64)files_count * 0x44 ))
 	{
 		nintendo_sarc_entry_t *entries = CALLOC (files_count, sizeof (nintendo_sarc_entry_t));
 		if (!entries)
@@ -99,7 +115,7 @@ enumError ExtractRST (nintendo_sarc_entry_t **out_entries, uint *out_n_entries, 
 
 		for (uint i = 0; i < files_count; i++)
 		{
-			const u8 *e = toc_data + 0x28 + (size_t)i * 0x44;
+			const u8 *e = old_toc + old_records_off + (size_t)i * 0x44;
 			const u32 fsize = rd_le32 (e + 0x28);
 			const u32 foff = rd_le32 (e + 0x2c);
 			if (!fsize) // a declared but absent resource
