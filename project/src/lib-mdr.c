@@ -50,6 +50,33 @@ enumError ExtractMDRArchive (ccp arg, ccp basedir, uint depth)
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
 	}
+	if ((uint64_t)first_off + 16 + rd_be32(raw + first_off + 12) > raw_size)
+	{
+		FREE(raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	// MDR has no magic. Validate that at least one complete chunk survives
+	// the same 64-bit bounds checks used below before claiming a generic .bin.
+	// Otherwise arbitrary compressed data can be expanded into a bogus tree.
+	bool have_chunk = false;
+	for (uint i = 0; i < count; i++)
+	{
+		const u32 off = rd_be32(raw + 4 + i * 4);
+		if ((uint64_t)off + 16 > raw_size)
+			continue;
+		const u32 comp_sz = rd_be32(raw + off + 12);
+		if ((uint64_t)off + 16 + comp_sz <= raw_size)
+		{
+			have_chunk = true;
+			break;
+		}
+	}
+	if (!have_chunk)
+	{
+		FREE(raw);
+		return ERR_NOTHING_TO_DO;
+	}
 
 	char dest[PATH_MAX];
 	get_dest_dir (dest, sizeof (dest), arg, basedir);
@@ -65,7 +92,7 @@ enumError ExtractMDRArchive (ccp arg, ccp basedir, uint depth)
 		if (chunk_ptr_off + 4 > raw_size)
 			break;
 		const u32 off = rd_be32 (raw + chunk_ptr_off);
-		if (off + 16 > raw_size)
+		if ((uint64_t)off + 16 > raw_size)
 			continue;
 
 		const u32 decom_sz = rd_be32 (raw + off);
@@ -73,7 +100,10 @@ enumError ExtractMDRArchive (ccp arg, ccp basedir, uint depth)
 		const u32 flags = rd_be32 (raw + off + 4);
 		const u32 comp_sz = rd_be32 (raw + off + 12);
 
-		if (off + 16 + comp_sz > raw_size)
+		// All three operands are 32-bit on retail files.  Promote before
+		// adding: a random payload can otherwise wrap this bounds check and be
+		// misidentified as MDR, as World of Goo's master.pak member was.
+		if ((uint64_t)off + 16 + comp_sz > raw_size)
 			continue;
 
 		if (!testmode)
