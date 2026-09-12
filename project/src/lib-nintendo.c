@@ -130,6 +130,13 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		if (ext && !strcasecmp (ext, ".romc") && d[0] && !d[1] && !d[2] && (d[3] & 3) == 1)
 			return make_info (NFMT_ROMC, true, true, (u32)d[0] * 4 * 1024 * 1024);
 		const u32 magic = rd_be32 (d);
+		// BRRES is an archive/container, not a compression stream.  Let the
+		// archive extractor claim its lowercase "bres" header directly instead
+		// of feeding its bytes to generic compression probes.  In particular,
+		// the header can resemble MVDK/VLX metadata and make their validators
+		// scan an arbitrary declared output size.
+		if (!memcmp (d, "bres", 4))
+			return make_info (NFMT_UNKNOWN, true, false, 0);
 		if (!memcmp (d, "jCMP", 4) || !memcmp (d, "JCMP", 4))
 			return make_info (NFMT_JCMP, true, true, size >= 8 ? rd_be32 (d + 4) : 0);
 		if (!memcmp (d, "jARC", 4) || !memcmp (d, "JARC", 4))

@@ -1216,12 +1216,18 @@ static int CxiMvdkIsValidDeflate (const unsigned char *buffer, unsigned int size
 
 	while (dest < end)
 	{
-		dest = CxiDecompressDeflateChunk (work, destBase, &pos, dest, end, buffer + size, 0);
-		if (dest == NULL)
+		unsigned char *next
+			= CxiDecompressDeflateChunk (work, destBase, &pos, dest, end, buffer + size, 0);
+		// Validation must be bounded even for arbitrary input. A malformed
+		// bitstream can otherwise return the unchanged destination pointer,
+		// turning this probe into an infinite loop before a real container
+		// recognizer gets a chance to claim the file.
+		if (!next || next <= dest)
 		{
 			free (work);
 			return 0;
 		}
+		dest = next;
 	}
 	free (work);
 
@@ -1342,6 +1348,12 @@ int CxIsCompressedMvDK (const unsigned char *buffer, unsigned int size)
 
 	uint32_t uncompSize = (*(uint32_t *)buffer) >> 2;
 	int type = CxiMvdkGetCompressionType (buffer, size);
+	// The LZ/RLE validators below adapt the MVDK stream to Nitro's 24-bit
+	// length header.  Do not truncate a 30-bit MVDK size into that header:
+	// arbitrary data such as a BRRES "bres" magic can otherwise masquerade
+	// as RLE and make the Nitro validator walk a bogus multi-megabyte output.
+	if ((type == MVDK_LZ || type == MVDK_RLE) && uncompSize > 0x00ffffff)
+		return 0;
 	switch (type)
 	{
 		case MVDK_DUMMY:
