@@ -672,7 +672,7 @@ t_cgfx(){
     local g; g=$(python3 "$GLTF_COUNT" /tmp/_r.glb geometry 2>/dev/null || true); g=${g:-0}
     if [ "$g" -gt 0 ] 2>/dev/null; then
       ok "CGFX (3DS) -> GLB ($g geometries, validated, $f)"
-      rm -f /tmp/_r_roundtrip.bcres /tmp/_r_roundtrip.glb
+      rm -f /tmp/_r_roundtrip.bcres /tmp/_r_roundtrip.glb /tmp/_r_cgfx_source.glb /tmp/_r_cgfx_source.bcmdl
       $B/wmdlt ENCODE /tmp/_r.glb -d /tmp/_r_roundtrip.bcres --overwrite >/dev/null 2>&1
       $B/wmdlt ENCODE /tmp/_r_roundtrip.bcres -d /tmp/_r_roundtrip.glb --overwrite >/dev/null 2>&1
       local g2; g2=$(python3 "$GLTF_COUNT" /tmp/_r_roundtrip.glb geometry 2>/dev/null || true); g2=${g2:-0}
@@ -680,6 +680,16 @@ t_cgfx(){
         ok "CGFX (3DS) roundtrip GLB -> BCRES -> GLB ($g2 geometries validated)"
       else
         no "CGFX (3DS) roundtrip GLB -> BCRES -> GLB" "geometry mismatch: expected $g, got $g2"
+      fi
+      # A GLB exported from a CGFX retains the opaque original container in
+      # asset.extras. An unchanged model must therefore return bit-for-bit,
+      # including resources the generic geometry encoder does not understand.
+      $B/wmdlt ENCODE "$f" -d /tmp/_r_cgfx_source.glb --overwrite >/dev/null 2>&1
+      $B/wmdlt ENCODE /tmp/_r_cgfx_source.glb -d /tmp/_r_cgfx_source.bcmdl --overwrite >/dev/null 2>&1
+      if cmp -s "$f" /tmp/_r_cgfx_source.bcmdl; then
+        bok "CGFX (3DS) byte-exact GLB -> BCRES roundtrip"
+      else
+        bno "CGFX (3DS) byte-exact GLB -> BCRES roundtrip" "$f"
       fi
       return
     fi
