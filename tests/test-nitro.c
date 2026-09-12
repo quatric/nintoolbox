@@ -990,6 +990,38 @@ int main (void)
 		}
 	}
 
+	// 27. Test SZE (F-Zero 99 Encrypted SZS container). Guards the codec
+	// (retail .sze files are headerless and need unknown keys, so only
+	// the roundtrip is asserted, not retail bytes).
+	{
+		const u8 test_data[] = "FZERO_99_VEHICLE_DATA_ENCRYPTED_ARCHIVE_TEST_PAYLOAD_123456789";
+		const uint len = sizeof (test_data);
+		u8 *enc = 0, *dec = 0;
+		uint enc_sz = 0, dec_sz = 0;
+
+		enumError e1 = EncodeSZE (&enc, &enc_sz, test_data, len, 0, 0, 1);
+		if (e1 || !enc || enc_sz < 32 + len)
+		{
+			printf ("  FAIL: EncodeSZE failed\n");
+			fail++;
+		}
+		else
+		{
+			enumError e2 = DecodeSZE (&dec, &dec_sz, enc, enc_sz, 0);
+			if (e2 || dec_sz != len || memcmp (dec, test_data, len))
+			{
+				printf ("  FAIL: DecodeSZE roundtrip mismatch\n");
+				fail++;
+			}
+			else
+			{
+				printf ("  PASS: SZE (F-Zero 99) encode -> decode roundtrip\n");
+			}
+			free (dec);
+			free (enc);
+		}
+	}
+
 	// 28. Test RFL_Res.dat (Revolution Face Library)
 	{
 		nintendo_sarc_entry_t entries[3] = { { "beard/000.bin", (const u8 *)"RFL_BEARD_DATA", 14 },
