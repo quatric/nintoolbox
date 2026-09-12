@@ -169,6 +169,100 @@ model_t *ParseNUMSHB (const uint8_t *data, size_t size)
 	return ParseNUMSHBSkinned (data, size, NULL, 0);
 }
 
+bool LocateNUMSHBBuffers (const uint8_t *data, size_t size, nshb_buffer_loc_t *loc)
+{
+	memset (loc, 0, sizeof (*loc));
+	if (!IsSSBH (data, size) || size < 0x100)
+		return false;
+
+	const size_t sub = 0x10;
+	if (sub + 0xc0 > size)
+		return false;
+	const uint8_t *m = data + sub;
+	if (memcmp (m, "HSEM", 4) && memcmp (m, "MESH", 4))
+		return false;
+
+	const uint major = nsh_rd16 (m + 4);
+	const uint minor = nsh_rd16 (m + 6);
+	if (major != 1 || (minor != 10 && minor != 8))
+		return false;
+
+#define REL(field) ((size_t)((field) - data) + nsh_rd64 (field))
+
+	const uint8_t *vbuf_ptr_f = m + 0xa0;
+	const uint8_t *ibuf_ptr_f = m + 0xb0;
+	if ((size_t)(ibuf_ptr_f - data) + 16 > size)
+		return false;
+
+	const size_t vbuf_off = REL (vbuf_ptr_f);
+	const uint64_t vbuf_count = nsh_rd64 (vbuf_ptr_f + 8);
+	const size_t ibuf_off = REL (ibuf_ptr_f);
+	const uint64_t ibuf_size = nsh_rd64 (ibuf_ptr_f + 8);
+
+	if (vbuf_count > NSH_MAX_VBUF || ibuf_off > size || ibuf_off + ibuf_size > size)
+		return false;
+
+	for (uint64_t i = 0; i < vbuf_count; i++)
+	{
+		const uint8_t *e = data + vbuf_off + i * 16;
+		if ((size_t)(e - data) + 16 > size)
+			return false;
+		const size_t off = REL (e);
+		const uint64_t sz = nsh_rd64 (e + 8);
+		if (off > size || off + sz > size)
+			return false;
+		loc->vtx_off[i] = off;
+		loc->vtx_size[i] = sz;
+	}
+	loc->n_vtx = (uint)vbuf_count;
+	loc->idx_off = ibuf_off;
+	loc->idx_size = ibuf_size;
+
+#undef REL
+
+	return true;
+}
+
+uint8_t *ExtractNUMSHBPrefix (const uint8_t *data, size_t size)
+{
+	nshb_buffer_loc_t loc;
+	uint8_t *out = malloc (size);
+	if (!out)
+		return NULL;
+	memcpy (out, data, size);
+
+	if (LocateNUMSHBBuffers (data, size, &loc))
+	{
+		for (uint i = 0; i < loc.n_vtx; i++)
+			memset (out + loc.vtx_off[i], 0, loc.vtx_size[i]);
+		memset (out + loc.idx_off, 0, loc.idx_size);
+	}
+	return out;
+}
+
+uint8_t *RebuildNUMSHB (const uint8_t *prefix, size_t prefix_size, const nshb_buffer_loc_t *loc,
+	const uint8_t *const vtx[], const uint8_t *idx)
+{
+	for (uint i = 0; i < loc->n_vtx; i++)
+		if (loc->vtx_off[i] + loc->vtx_size[i] > prefix_size)
+			return NULL;
+	if (loc->idx_off + loc->idx_size > prefix_size)
+		return NULL;
+
+	uint8_t *out = malloc (prefix_size);
+	if (!out)
+		return NULL;
+	memcpy (out, prefix, prefix_size);
+
+	for (uint i = 0; i < loc->n_vtx; i++)
+		if (vtx && vtx[i])
+			memcpy (out + loc->vtx_off[i], vtx[i], loc->vtx_size[i]);
+	if (idx)
+		memcpy (out + loc->idx_off, idx, loc->idx_size);
+
+	return out;
+}
+
 model_t *ParseNUMSHBSkinned (
 	const uint8_t *data, size_t size, const uint8_t *skel, size_t skel_size)
 {
