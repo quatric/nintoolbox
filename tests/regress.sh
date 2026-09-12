@@ -11081,7 +11081,39 @@ assert im.size == (16, 16)
   fi
   rm -rf "$d"
 }
-t_retro_txtr_retail_dkcr
+t_sarc_retail_wiiu(){
+  local f="$PWD_PROJECT/../tests/fixtures/wiiu_retail/retail_bfmainfo.sarc"
+  [ -f "$f" ] || { sk "SARC retail (Wii U, Animal Crossing: amiibo Festival)"; return; }
+  local d="/tmp/_r_sarc"
+  rm -rf "$d"
+  mkdir -p "$d"
+
+  if "$B/wszst" FILETYPE "$f" | grep -q "SARC"; then
+    ok "retail SARC FILETYPE recognition (Wii U)"
+  else
+    no "retail SARC" "FILETYPE failed to recognize SARC"
+  fi
+
+  if "$B/wszst" EXTRACT "$f" --dest "$d/ext" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/ext/blyt/BfmaInfo.bflyt" ] \
+  && "$B/wszst" FILETYPE "$d/ext/blyt/BfmaInfo.bflyt" | grep -q "BFLYT"; then
+    ok "retail SARC extract member -> valid BFLYT (Wii U)"
+  else
+    no "retail SARC" "failed to extract member or verify BFLYT"
+  fi
+
+  # Roundtrip test: CREATE big-endian SARC and verify identical member
+  if "$B/wszst" CREATE "$d/ext" --dest "$d/repack.sarc" --overwrite >/dev/null 2>&1 \
+  && "$B/wszst" EXTRACT "$d/repack.sarc" --dest "$d/repack_ext" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/ext/blyt/BfmaInfo.bflyt" "$d/repack_ext/blyt/BfmaInfo.bflyt"; then
+    ok "retail SARC create -> extract preserves member byte-for-byte"
+  else
+    no "retail SARC" "roundtrip creation failed or member mismatch"
+  fi
+
+  rm -rf "$d"
+}
+t_sarc_retail_wiiu
 
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"

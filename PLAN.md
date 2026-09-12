@@ -2074,4 +2074,10 @@ Extended verification against retail discs, RomFS, and cart dumps from `/Volumes
   (USA) WBFS disc (`MiscData.pak`). Confirmed `wimgt DECODE` decodes valid 16x16 CMPR PNG.
   Added fixture `tests/fixtures/wii_retail/retail_0005_16x16.txtr` and regression test
   `t_retro_txtr_retail_dkcr`.
+- **SARC Archives (Wii U)**: Extracted retail `meta/Manual.bfma.d/BfmaInfo.arc` (2,204 bytes
+  decompressed) from *Animal Crossing: amiibo Festival* (USA) WUX disc image. Confirmed
+  `wszst FILETYPE` identifies `SARC`, `wszst EXTRACT` unpacks `blyt/BfmaInfo.bflyt`, and
+  `wszst CREATE` repacks to identical member content. Added fixture
+  `tests/fixtures/wiiu_retail/retail_bfmainfo.sarc` and regression test `t_sarc_retail_wiiu`.
+
 
