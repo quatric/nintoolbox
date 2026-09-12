@@ -54,7 +54,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **CRAM (.arc)** | 3DS / Archive | ✅ | ✅ | Xenoblade Chronicles 3D archive |
 | **CTPK** | 3DS / Texture | ✅ | ✅ | CTR texture container |
 | **DARC** | 3DS / Archive | ✅ | ✅ | Differential archive container |
-| **DSB (TXTR)** | DS / Texture | 🟡 | ❌ | Animal Crossing: Wild World menu texture (no retail sample on disk) |
+| **DSB (TXTR)** | DS / Texture | ✅ | ✅ | Animal Crossing: Wild World menu texture (RGB555 palette + A3I5 texels); retail regression covers decode → encode → decode pixels |
 | **Retro TXTR** | Wii / Texture | ✅ | ✅ | Retro Studios texture (*Metroid Prime 1-3*, *DKCR*): GX-tiled, indexed + direct |
 | **Tropical TXTR** | Wii U / Texture | ✅ | ❌ | Retro Studios texture (*Tropical Freeze*): RFRM form, GX2 detile |
 | **DAT (Star Fox Zero)** | Wii U / Archive | ✅ | 🟡 | Big-endian flat archive |
