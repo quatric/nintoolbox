@@ -10645,6 +10645,73 @@ t_gar_mm3d(){
 }
 t_gar_mm3d
 
+t_mkgpdx_pac_retail(){
+  # Mario Kart Arcade GP DX layout archive (.pac / "pack" magic).
+  # 20-byte LE header (pack magic, file count, string pool offset,
+  # alignment, file type) followed by 16-byte entry records and an aligned
+  # data block containing the string pool and member data.
+  #
+  # Fixture: Data/flash/data_jp/bun_bg/bun_bg.pac (12,501 bytes) extracted
+  # from the retail Mario Kart Arcade GP DX v1.10 arcade image. Verified:
+  # extracts 5 files (BUN_BG_01, BUN_BG_02, BUN_BG_MAP, ROOT_BUN_BG,
+  # SW_BUN_BG), creates a .mkgpdx archive with the same contents, and
+  # re-extraction is content-identical.
+  local f="$PWD_PROJECT/../tests/fixtures/arcade_samples/mkgpdx_bun_bg.pac"
+  [ -f "$f" ] || { sk "MKGPDX PAC retail (Mario Kart Arcade GP DX)"; return; }
+  local d="/tmp/_r_mkgpdx"
+  rm -rf "$d"
+  mkdir -p "$d/extracted" "$d/re_extracted"
+  "$B/wszst" X "$f" --dest "$d/extracted" --overwrite >/dev/null 2>&1
+  local n; n=$(find "$d/extracted" -type f -size +0c 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$n" -eq 5 ] && [ -s "$d/extracted/SW_BUN_BG" ]; then
+    ok "MKGPDX PAC retail -> 5 members extracted (incl. SW_BUN_BG)"
+  else
+    no "MKGPDX PAC retail extract" "expected 5 members, got $n"
+  fi
+  if "$B/wszst" create "$d/extracted" --dest "$d/rebuilt.mkgpdx" --overwrite >/dev/null 2>&1 \
+  && "$B/wszst" X "$d/rebuilt.mkgpdx" --dest "$d/re_extracted" --overwrite >/dev/null 2>&1 \
+  && diff -rq "$d/extracted" "$d/re_extracted" >/dev/null 2>&1; then
+    ok "MKGPDX PAC retail create (.mkgpdx) -> extract roundtrip content-identical"
+  else
+    no "MKGPDX PAC retail roundtrip" "re-extracted members differ"
+  fi
+  rm -rf "$d"
+}
+t_mkgpdx_pac_retail
+
+t_gpkg_retail_bonsai_barber(){
+  # Gorilla Games PKG archive (.pkg): whole package is a zlib stream (0x78)
+  # with a 0x14-byte header and 0x28-byte entry table (0x20-byte name, offset,
+  # size). Used by Bonsai Barber and other Gorilla Games WiiWare titles.
+  #
+  # Fixture: bb_text.pkg (237,568 bytes) extracted from the retail
+  # Bonsai Barber (USA) WiiWare WAD (00000006.app). Verified: extracts 97
+  # non-empty files (text, fonts, UI assets), repacks with wszst create to
+  # .pkg, and re-extraction is content-identical across all 97 members.
+  local f="$PWD_PROJECT/../tests/fixtures/wii_retail/bonsai_barber_bb_text.pkg"
+  [ -f "$f" ] || { sk "Gorilla Games PKG retail (Bonsai Barber)"; return; }
+  local d="/tmp/_r_gpkg_bb"
+  rm -rf "$d"
+  mkdir -p "$d/extracted" "$d/re_extracted"
+  "$B/wszst" X "$f" --dest "$d/extracted" --overwrite >/dev/null 2>&1
+  local local_extracted="$d/extracted/bonsai_barber_bb_text"
+  local n; n=$(find "$local_extracted" -type f -size +0c 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$n" -ge 97 ] && [ -s "$local_extracted/barber_text" ]; then
+    ok "Gorilla Games PKG (Bonsai Barber) retail -> $n members extracted"
+  else
+    no "Gorilla Games PKG retail extract" "expected >=97 members, got $n"
+  fi
+  if "$B/wszst" create "$local_extracted" --dest "$d/rebuilt.pkg" --overwrite >/dev/null 2>&1 \
+  && "$B/wszst" X "$d/rebuilt.pkg" --dest "$d/re_extracted" --overwrite >/dev/null 2>&1 \
+  && diff -rq "$local_extracted" "$d/re_extracted/rebuilt" >/dev/null 2>&1; then
+    ok "Gorilla Games PKG retail create (.pkg) -> extract roundtrip content-identical"
+  else
+    no "Gorilla Games PKG retail roundtrip" "re-extracted members differ"
+  fi
+  rm -rf "$d"
+}
+t_gpkg_retail_bonsai_barber
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
