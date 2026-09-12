@@ -421,6 +421,15 @@ static enumError decode_image_if_possible (ccp arg)
 	const file_format_t fform = GetByMagicFF (head, (uint)n_head, 0);
 	const nfmt_info_t nfmt = DetectNintendoFormat (head, (uint)n_head, arg);
 
+	// NFTR/BRFNT decoding emits sheet PNGs, but no lossless sheet injector
+	// exists: the standalone encoder constructs a new font and cannot retain
+	// the original character map, widths, or multiple TGLP sheets.  Keep game
+	// fonts opaque in recursive game-image staging rather than accepting edits
+	// that CREATE would silently discard.
+	if (nfmt.type == NFMT_NFTR || nfmt.type == NFMT_BRFNT || is_ext(arg,".nftr")
+		|| is_ext(arg,".zftr") || is_ext(arg,".brfnt") || is_ext(arg,".bffnt"))
+		return ERR_NOTHING_TO_DO;
+
 	if (!memcmp (head, "RGCN", 4) || !memcmp (head, "NCGR", 4) || is_ext (arg, ".ncgr"))
 		is_image = true;
 	else if (!memcmp (head, "RLCN", 4) || !memcmp (head, "NCLR", 4) || is_ext (arg, ".nclr"))
@@ -455,9 +464,6 @@ static enumError decode_image_if_possible (ccp arg)
 		is_image = true;
 	else if (nfmt.type == NFMT_BFLIM || nfmt.type == NFMT_BCLIM || is_ext (arg, ".bflim")
 		|| is_ext (arg, ".bclim"))
-		is_image = true;
-	else if (nfmt.type == NFMT_NFTR || nfmt.type == NFMT_BRFNT || is_ext (arg, ".nftr")
-		|| is_ext (arg, ".zftr") || is_ext (arg, ".brfnt") || is_ext (arg, ".bffnt"))
 		is_image = true;
 	else if (fform == FF_TPL || is_ext (arg, ".tpl"))
 		is_image = true;
