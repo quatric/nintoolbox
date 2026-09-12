@@ -8008,6 +8008,12 @@ static enumError extract_cfnt_manifest (ccp arg)
 // its own PNG.
 static enumError decode_brfnt_if_possible (ccp arg)
 {
+	// The sheet exporter is useful for an explicit wimgt inspection, but game
+	// staging has no corresponding lossless sheet injector. Do not add PNGs
+	// here: CREATE would otherwise remove an edited sheet and retain the old
+	// BRFNT member without reporting that the edit was dropped.
+	return ERR_NOTHING_TO_DO;
+
 	u8 magic[4];
 	FILE *probe = fopen (arg, "rb");
 	if (!probe)
