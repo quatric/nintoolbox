@@ -211,6 +211,13 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regress.sh`.
 BRRES sub-file formats (TEX0, TEX) embed their own name, so the name has to match.
 
+Scarlet-derived 3DS wrappers (**BTGA**, **DMPBM**, **STEX**, and **CMB**) use
+the public-domain fixtures `tests/fixtures/scarlet_3ds.{btga,dmpbm,stex,cmb}`.
+Their regression first asserts the decoded source pixel, then checks a
+pixel-identical `decode → CTPK → decode` conversion. The original wrappers
+remain decode-only, so a byte-exact wrapper roundtrip is intentionally not
+claimed.
+
 ---
 
 ### Audio, Sound & Music
