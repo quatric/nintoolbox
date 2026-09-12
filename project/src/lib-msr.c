@@ -33,23 +33,33 @@ enumError ScanMetroidSR (
 
 	if (!files || files > 0x100000)
 		return EINVAL;
-	if ((u64)12 + (u64)files * 12 != info_size)
-		return EINVAL;
-	if ((u64)info_size + data_size != size)
+
+	const u64 table_end = 12 + (u64)files * 12;
+	if (table_end > size)
 		return EINVAL;
 
-	u32 prev = info_size;
+	// In synthetic fixtures: 12 + files*12 == info_size and info_size + data_size == size.
+	// In retail 3DS files: header and table are padded to a multiple of 4 or block alignment,
+	// so table_end <= info_size + 4, and (info_size + 4) + data_size == size (or <= size).
+	if (!((u64)info_size + data_size == size
+		|| (u64)info_size + 4 + data_size == size
+		|| (table_end <= (u64)info_size + 4 && (u64)info_size + data_size <= size)))
+		return EINVAL;
+
+	const u32 first_off = rd_le32 (data + 12 + 4);
+	if (first_off < table_end || first_off > size)
+		return EINVAL;
+
+	u32 prev = table_end;
 	for (u32 i = 0; i < files; i++)
 	{
 		const u8 *e = data + 12 + (u64)i * 12;
 		const u32 off = rd_le32 (e + 4);
 		const u32 end = rd_le32 (e + 8);
-		if (off < info_size || end < off || end > size || off < prev)
+		if (off < table_end || end < off || end > size || off < prev)
 			return EINVAL;
 		prev = end;
 	}
-	if (rd_le32 (data + 12 + 4) != info_size)
-		return EINVAL; // members must begin immediately after the table
 
 	nintendo_sarc_entry_t *out = CALLOC (files, sizeof (*out));
 	if (!out)

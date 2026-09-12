@@ -10940,6 +10940,149 @@ for m in doc.get("meshes", []):
 }
 t_nsbmd_retail_acww
 
+t_msr_3ds_retail(){
+  local f="$PWD_PROJECT/../tests/fixtures/3ds_samples/msr/retail_s000_mainmenu_discardables.pkg"
+  [ -f "$f" ] || { sk "MSR retail (Metroid: Samus Returns)"; return; }
+  local d="/tmp/_r_msr"
+  rm -rf "$d"
+  mkdir -p "$d"
+
+  if "$B/wszst" xx "$f" --dest "$d/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/out/00000.bin" ] && [ -f "$d/out/00006.bin" ]; then
+    ok "retail MSR package extraction (Metroid: Samus Returns 3DS, 7 members)"
+  else
+    no "retail MSR extraction" "failed to extract retail MSR .pkg members"
+  fi
+  rm -rf "$d"
+}
+t_msr_3ds_retail
+
+t_nds_banner_retail(){
+  local f="$PWD_PROJECT/../tests/fixtures/ds_samples/banner/retail_pmd_eos_banner.bin"
+  [ -f "$f" ] || { sk "NDS banner retail (Pokemon Mystery Dungeon: Explorers of Sky)"; return; }
+  local d="/tmp/_r_banner"
+  rm -rf "$d"
+  mkdir -p "$d"
+
+  if "$B/wszst" FILETYPE "$f" | grep -q "NDS-BANNER"; then
+    ok "retail NDS banner FILETYPE recognition"
+  else
+    no "retail NDS banner" "FILETYPE failed to recognize NDS-BANNER"
+  fi
+
+  if "$B/wimgt" DECODE "$f" --dest "$d/banner.png" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/banner.png" ] \
+  && python3 -c '
+from PIL import Image
+im = Image.open("'"$d"'/banner.png")
+assert im.size == (32, 32)
+' 2>/dev/null; then
+    ok "retail NDS banner decode -> 32x32 PNG"
+  else
+    no "retail NDS banner" "failed to decode banner.bin to 32x32 PNG"
+  fi
+  rm -rf "$d"
+}
+t_nds_banner_retail
+
+t_cnut_retail_wiiparty(){
+  local f="$PWD_PROJECT/../tests/fixtures/wii_retail/retail_digits.cnut"
+  [ -f "$f" ] || { sk "CNUT retail (Wii Party)"; return; }
+  local d="/tmp/_r_cnut"
+  rm -rf "$d"
+  mkdir -p "$d"
+
+  if "$B/wszst" FILETYPE "$f" | grep -q "CNUT"; then
+    ok "retail CNUT FILETYPE recognition (Wii Party)"
+  else
+    no "retail CNUT" "FILETYPE failed to recognize CNUT"
+  fi
+
+  if "$B/wszst" xx "$f" --dest "$d/out" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/out" ]; then
+    ok "retail CNUT script extraction"
+  else
+    no "retail CNUT" "failed to extract CNUT script"
+  fi
+  rm -rf "$d"
+}
+t_cnut_retail_wiiparty
+
+t_cod_pak0_retail(){
+  local f="$PWD_PROJECT/../tests/fixtures/wii_retail/retail_int_escape.pak"
+  [ -f "$f" ] || { sk "COD PAK0 retail (Call of Duty: Black Ops)"; return; }
+  local d="/tmp/_r_codpak"
+  rm -rf "$d"
+  mkdir -p "$d"
+
+  if "$B/wszst" FILETYPE "$f" | grep -q "PAK"; then
+    ok "retail COD PAK0 FILETYPE recognition (Call of Duty: Black Ops)"
+  else
+    no "retail COD PAK0" "FILETYPE failed to recognize PAK0"
+  fi
+
+  if "$B/wszst" EXTRACT "$f" --dest "$d" --no-passthrough --overwrite >/dev/null 2>&1 \
+  && { [ -f "$d/retail_int_escape/retail_int_escape_0x1e78d28c.dsp" ] || [ -f "$d/retail_int_escape_0x1e78d28c.dsp" ]; }; then
+    ok "retail COD PAK0 sound stream extraction (1 DSP stream)"
+  else
+    no "retail COD PAK0" "failed to extract DSP from COD PAK0 archive"
+  fi
+  rm -rf "$d"
+}
+t_cod_pak0_retail
+
+t_ptlg_retail_mario_strikers(){
+  local f="$PWD_PROJECT/../tests/fixtures/wii_retail/retail_characterballoon.rlt"
+  [ -f "$f" ] || { sk "PTLG retail (Mario Strikers Charged)"; return; }
+  local d="/tmp/_r_ptlg"
+  rm -rf "$d"
+  mkdir -p "$d"
+
+  if "$B/wszst" FILETYPE "$f" | grep -q "PTLG"; then
+    ok "retail PTLG FILETYPE recognition (Mario Strikers Charged)"
+  else
+    no "retail PTLG" "FILETYPE failed to recognize PTLG"
+  fi
+
+  if "$B/wszst" xx "$f" --dest "$d/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/out/8ffc5fbe.tpl" ] \
+  && "$B/wimgt" DECODE "$d/out/8ffc5fbe.tpl" --dest "$d/balloon.png" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/balloon.png" ] \
+  && python3 -c '
+from PIL import Image
+im = Image.open("'"$d"'/balloon.png")
+assert im.size == (64, 64)
+' 2>/dev/null; then
+    ok "retail PTLG extract TPL -> decode 64x64 PNG"
+  else
+    no "retail PTLG" "failed to extract and decode PTLG texture"
+  fi
+  rm -rf "$d"
+}
+t_ptlg_retail_mario_strikers
+
+t_retro_txtr_retail_dkcr(){
+  local f="$PWD_PROJECT/../tests/fixtures/wii_retail/retail_0005_16x16.txtr"
+  [ -f "$f" ] || { sk "Retro TXTR retail (Donkey Kong Country Returns)"; return; }
+  local d="/tmp/_r_txtr"
+  rm -rf "$d"
+  mkdir -p "$d"
+
+  if "$B/wimgt" DECODE "$f" --dest "$d/out.png" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/out.png" ] \
+  && python3 -c '
+from PIL import Image
+im = Image.open("'"$d"'/out.png")
+assert im.size == (16, 16)
+' 2>/dev/null; then
+    ok "retail Retro TXTR decode -> 16x16 PNG (Donkey Kong Country Returns)"
+  else
+    no "retail Retro TXTR" "failed to decode retail TXTR to PNG"
+  fi
+  rm -rf "$d"
+}
+t_retro_txtr_retail_dkcr
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]

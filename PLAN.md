@@ -2035,3 +2035,43 @@ Systematic verification against retail images from the external SSD corpus
   8-col 3D Models table with Target Output GLB), cleaned up table-splitting link
   in Compression table, aligned NSBCA row columns in Textures table. Validated all
   README tables with automated check (0 mismatches).
+
+## 36. Retail Regression & Format Verification Round 2 (MSR, NDS Banner, CNUT, COD PAK0, PTLG, Retro TXTR)
+
+Extended verification against retail discs, RomFS, and cart dumps from `/Volumes/SSD/szs-retail-test/`:
+
+- **MSR Package (`.pkg`) (3DS)**: Audited all 368 retail `.pkg` packages in
+  *Metroid: Samus Returns* RomFS. Identified and resolved scanner discrepancy in
+  `ScanMetroidSR()` (`lib-msr.c`): synthetic tests previously assumed strict unpadded
+  equality `12 + files*12 == info_size` and `info_size + data_size == size`, whereas
+  all 345 populated retail packages pad tables to 4-byte / block alignments and align
+  entry offsets (so `table_end <= info_size + 4` and `(info_size + 4) + data_size == size`).
+  Updated parser bounds checks; verified 345/345 retail packages extract cleanly. Added
+  retail fixture `tests/fixtures/3ds_samples/msr/retail_s000_mainmenu_discardables.pkg`
+  (1,036 bytes, 7 entries) and regression test `t_msr_3ds_retail`.
+- **NDS Banner (`banner.bin`) (DS)**: Extracted retail `banner.bin` (2,560 B) from
+  *Pokémon Mystery Dungeon: Explorers of Sky* (USA) NDS ROM. Verified `wszst FILETYPE`
+  reports `NDS-BANNER` and `wimgt DECODE` decodes 32x32 RGB PNG icon. Added fixture
+  `tests/fixtures/ds_samples/banner/retail_pmd_eos_banner.bin` and regression test
+  `t_nds_banner_retail`.
+- **CNUT Scripts (Wii)**: Extracted retail `DATA/files/scripts/mr011/digits.cnut.lz`
+  from *Wii Party* (USA) WBFS disc. Decompressed via LZ11 to 2,350-byte `digits.cnut`.
+  Confirmed `wszst FILETYPE` identifies `CNUT` and `wszst xx` extracts script payload.
+  Added fixture `tests/fixtures/wii_retail/retail_digits.cnut` and regression test
+  `t_cnut_retail_wiiparty`.
+- **COD PAK0 Sound Archives (Wii)**: Extracted retail `DATA/files/int_escape.pak`
+  (4,096 bytes) from *Call of Duty: Black Ops* (USA) WBFS disc. Confirmed `wszst FILETYPE`
+  identifies `PAK` and `wszst EXTRACT --no-passthrough` extracts member DSP audio stream
+  `retail_int_escape_0x1e78d28c.dsp`. Added fixture
+  `tests/fixtures/wii_retail/retail_int_escape.pak` and regression test `t_cod_pak0_retail`.
+- **PTLG Textures (Wii)**: Extracted retail `DATA/files/Art/objects/gameplay/characterballoon.rlt`
+  (2,784 bytes) from *Mario Strikers Charged* (USA) WBFS disc. Confirmed `wszst FILETYPE`
+  identifies `PTLG`, `wszst xx` extracts `8ffc5fbe.tpl`, and `wimgt DECODE` decodes valid
+  64x64 CMPR PNG. Added fixture `tests/fixtures/wii_retail/retail_characterballoon.rlt` and
+  regression test `t_ptlg_retail_mario_strikers`.
+- **Retro TXTR Textures (Wii)**: Recompiled stale `wimgt` binary to link `lib-retro-txtr.o`.
+  Extracted retail `0005_3c82de78a77d8a3f.txtr` (140 bytes) from *Donkey Kong Country Returns*
+  (USA) WBFS disc (`MiscData.pak`). Confirmed `wimgt DECODE` decodes valid 16x16 CMPR PNG.
+  Added fixture `tests/fixtures/wii_retail/retail_0005_16x16.txtr` and regression test
+  `t_retro_txtr_retail_dkcr`.
+
