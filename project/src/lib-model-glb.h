@@ -266,6 +266,12 @@ typedef struct
 	// NSB* animation resources preserved from the source file.
 	model_nsb_raw_t *nsb_raw;
 	size_t num_nsb_raw;
+
+	// Original CGFX/BCRES container retained while it passes through GLB.
+	// This is deliberately separate from model geometry: a retail CGFX has
+	// resources which the generic model representation does not describe.
+	uint8_t *bcres_raw;
+	size_t bcres_raw_size;
 } model_t;
 
 #ifdef __cplusplus

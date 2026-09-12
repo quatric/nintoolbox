@@ -638,6 +638,16 @@ model_t *ParseBCRES (const uint8_t *data, size_t size)
 		FreeModel (out);
 		return NULL;
 	}
+	// The model abstraction intentionally covers only the renderable subset of
+	// CGFX. Keep the original container too, so an untouched GLB can return to
+	// its retail byte stream without discarding dictionaries, textures, and
+	// other resources not represented by model_t.
+	out->bcres_raw = MALLOC (size);
+	if (out->bcres_raw)
+	{
+		memcpy (out->bcres_raw, data, size);
+		out->bcres_raw_size = size;
+	}
 	return out;
 }
 
@@ -1185,7 +1195,18 @@ static int bc_invert43 (float out[12], const float m[12])
 
 int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 {
-	if (!model || !model->num_meshes || !out_data || !out_size)
+	if (!model || !out_data || !out_size)
+		return 0;
+	if (model->bcres_raw && model->bcres_raw_size)
+	{
+		*out_data = MALLOC (model->bcres_raw_size);
+		if (!*out_data)
+			return 0;
+		memcpy (*out_data, model->bcres_raw, model->bcres_raw_size);
+		*out_size = model->bcres_raw_size;
+		return 1;
+	}
+	if (!model->num_meshes)
 		return 0;
 
 	const uint32_t n_mesh = (uint32_t)model->num_meshes;
@@ -1886,4 +1907,3 @@ enumError EncodeModelToBCRES (const model_t *model, const char *out_path)
 	FREE (data);
 	return rc;
 }
-

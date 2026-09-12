@@ -20,6 +20,64 @@ typedef struct
 	char *path;
 } dae_texture_entry_t;
 
+static const char b64_alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+static char *base64_encode (const uint8_t *src, size_t size)
+{
+	if (size > (SIZE_MAX - 4) / 4 * 3)
+		return NULL;
+	const size_t out_size = (size + 2) / 3 * 4;
+	char *out = malloc (out_size + 1);
+	if (!out)
+		return NULL;
+	for (size_t i = 0, j = 0; i < size; i += 3)
+	{
+		const unsigned v = (unsigned)src[i] << 16
+			| (unsigned)(i + 1 < size ? src[i + 1] : 0) << 8
+			| (unsigned)(i + 2 < size ? src[i + 2] : 0);
+		out[j++] = b64_alphabet[v >> 18];
+		out[j++] = b64_alphabet[(v >> 12) & 63];
+		out[j++] = i + 1 < size ? b64_alphabet[(v >> 6) & 63] : '=';
+		out[j++] = i + 2 < size ? b64_alphabet[v & 63] : '=';
+	}
+	out[out_size] = 0;
+	return out;
+}
+
+static int base64_value (char c)
+{
+	if (c >= 'A' && c <= 'Z') return c - 'A';
+	if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+	if (c >= '0' && c <= '9') return c - '0' + 52;
+	if (c == '+') return 62;
+	if (c == '/') return 63;
+	return -1;
+}
+
+static uint8_t *base64_decode (const char *src, size_t size, size_t *out_size)
+{
+	if (!src || size % 4)
+		return NULL;
+	const size_t padding = size && src[size-1] == '=' ? 1 + (size > 1 && src[size-2] == '=') : 0;
+	uint8_t *out = malloc (size / 4 * 3 - padding);
+	if (!out)
+		return NULL;
+	for (size_t i = 0, j = 0; i < size; i += 4)
+	{
+		int a = base64_value (src[i]), b = base64_value (src[i+1]);
+		int c = src[i+2] == '=' ? 0 : base64_value (src[i+2]);
+		int d = src[i+3] == '=' ? 0 : base64_value (src[i+3]);
+		if (a < 0 || b < 0 || c < 0 || d < 0 || (src[i+2] == '=' && i + 4 != size))
+		{ free (out); return NULL; }
+		unsigned v = (unsigned)a << 18 | (unsigned)b << 12 | (unsigned)c << 6 | (unsigned)d;
+		out[j++] = v >> 16;
+		if (src[i+2] != '=') out[j++] = v >> 8;
+		if (src[i+3] != '=') out[j++] = v;
+	}
+	*out_size = size / 4 * 3 - padding;
+	return out;
+}
+
 static dae_texture_entry_t *dae_texture_index;
 static size_t dae_texture_index_used;
 static size_t dae_texture_index_size;
@@ -872,6 +930,24 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 	cgltf_data data = { 0 };
 	data.asset.generator = (char *)"wiimms-szs-tools-plus";
 	data.asset.version = (char *)"2.0";
+	// Preserve opaque CGFX resources in standard glTF metadata.  This keeps a
+	// decode -> GLB -> encode cycle byte exact without making the GLB depend on
+	// a sidecar file.  Other glTF consumers safely ignore asset.extras.
+	if (model->bcres_raw && model->bcres_raw_size)
+	{
+		char *encoded = base64_encode (model->bcres_raw, model->bcres_raw_size);
+		if (!encoded)
+			return -1;
+		const size_t need = strlen (encoded) + sizeof ("{\"wszst_bcres_raw\":\"\"}");
+		data.asset.extras.data = malloc (need);
+		if (!data.asset.extras.data)
+		{
+			free (encoded);
+			return -1;
+		}
+		snprintf (data.asset.extras.data, need, "{\"wszst_bcres_raw\":\"%s\"}", encoded);
+		free (encoded);
+	}
 
 	uint8_t *bin_data = NULL;
 	size_t bin_size = 0, bin_cap = 0;
@@ -2098,6 +2174,7 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 	free (data.skins);
 	free (data.extensions_used);
 	free (scene_nodes_idx);
+	free (data.asset.extras.data);
 	if (bin_data)
 		free (bin_data);
 
@@ -2682,6 +2759,19 @@ static model_t *BuildModelFromCgltf (cgltf_data *data)
 	convert_meshes_and_skin (data, model);
 	convert_nodes (data, model);
 	convert_animations (data, model);
+
+	// cgltf leaves extras as its original JSON fragment. Only accept the exact
+	// one-key object emitted above; this is metadata, not an input parser for
+	// arbitrary JSON.
+	const char *extra = data->asset.extras.data;
+	const char prefix[] = "{\"wszst_bcres_raw\":\"";
+	if (extra && !strncmp (extra, prefix, sizeof(prefix)-1))
+	{
+		const char *payload = extra + sizeof(prefix) - 1;
+		const char *end = strchr (payload, '\"');
+		if (end && !strcmp (end, "\"}"))
+			model->bcres_raw = base64_decode (payload, (size_t)(end - payload), &model->bcres_raw_size);
+	}
 	return model;
 }
 
