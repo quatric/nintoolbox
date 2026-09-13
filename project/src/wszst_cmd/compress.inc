@@ -847,7 +847,7 @@ static enumError collect_sarc_dir (sarc_build_list_t *list, ccp root, ccp rel)
 		// EXTRACT-ed rarc/nccarc/etc. tree used to balloon or corrupt the
 		// second-generation archive.
 		if (!strcmp (name, SZS_SETUP_FILE) || !strcmp (name, ".wszst-cache.txt")
-			|| !strcmp (name, SZS_MTIME_BASELINE_FILE))
+			|| !strcmp (name, SZS_MTIME_BASELINE_FILE) || !strcmp (name, ZDAT_CACHE_FILE))
 			continue;
 		const uint dlen = strlen (name);
 		if (dlen >= 2 && name[dlen - 1] == 'd' && name[dlen - 2] == '.')
@@ -992,16 +992,220 @@ static enumError create_darc_dir (ccp source, ccp dest)
 	return err;
 }
 
+// Nd Cube Wii U PAC ("PAC\0"): does the *existing destination* hold this
+// container? Then rebuild it -- a byte-exact round trip when every entry
+// still matches a tree member 1:1 by name and decompressed content (the
+// archive is copied as-is), otherwise a fresh valid PAC that compresses
+// the members with zlib again. A destination with any other magic (or none
+// at all) falls through to the ARC "CreatePAC" Brawl builder below; the two
+// formats only share the ".pac"/".pcs" name here.
+static bool ndcube_pac_dest (ccp dest)
+{
+	FILE *f = fopen (dest, "rb");
+	bool is = false;
+	if (f)
+	{
+		char m[4] = { 0 };
+		is = fread (m, 1, 4, f) == 4 && !memcmp (m, "PAC\0", 4);
+		fclose (f);
+	}
+	return is;
+}
+
+// Fresh Nd Cube "PAC\0": header + entries table + name strings + zlib
+// deflate payloads. LANGUAGECOUNT is left at 0 (the extractor keys the
+// member count off FILETOTAL, never the language blocks), and every
+// payload gets a real 0x78.x zlib stream -- even empty members -- so each
+// one decodes on the way back out.
+static enumError create_ndcube_pac (u8 **data, uint *size, sarc_build_list_t *list)
+{
+	const uint n = list->used;
+	if (!n || n > 200000)
+		return EINVAL;
+
+	u8 **comp = CALLOC (n, sizeof (*comp));
+	u32 *csize = CALLOC (n, sizeof (*csize));
+	u32 *usize = CALLOC (n, sizeof (*usize));
+	u32 *fstart = CALLOC (n, sizeof (*fstart));
+	if (!comp || !csize || !usize || !fstart)
+	{
+		FREE (comp); FREE (csize); FREE (usize); FREE (fstart);
+		return ERR_CANT_CREATE;
+	}
+
+	uint names_len = 0;
+	enumError err = ERR_OK;
+	for (uint i = 0; i < n; i++)
+	{
+		usize[i] = list->entry[i].size;
+		names_len += strlen (list->entry[i].name) + 1;
+		uLongf bound = compressBound (usize[i]);
+		comp[i] = CALLOC (1, bound);
+		if (!comp[i])
+		{
+			err = ERR_CANT_CREATE;
+			break;
+		}
+		uLongf out_len = bound;
+		if (compress2 (comp[i], &out_len, list->entry[i].data, usize[i], 9) != Z_OK)
+		{
+			err = ERR_CANT_CREATE;
+			break;
+		}
+		csize[i] = (u32)out_len;
+	}
+	if (!err)
+	{
+		const u32 entries_off = 0x44;
+		u32 strings_off = entries_off + n * 0x30;
+		strings_off = (strings_off + 3) & ~3u;
+		uint data_off = strings_off + names_len;
+		data_off = (data_off + 15) & ~15u;
+
+		uint total = data_off;
+		for (uint i = 0; i < n; i++)
+		{
+			fstart[i] = total;
+			total += csize[i];
+			total = (total + 0x1f) & ~0x1fu;
+		}
+
+		u8 *out = CALLOC (1, total);
+		if (!out)
+			err = ERR_CANT_CREATE;
+		else
+		{
+			memcpy (out, "PAC\0", 4);
+			wr_be32 (out + 0x04, 0x44);            // HEADERLENGTH
+			wr_be32 (out + 0x0c, data_off);        // OVERALLFILESTART
+			wr_be32 (out + 0x10, total);           // PACSIZE
+			wr_be32 (out + 0x14, 0);               // LANGUAGECOUNT
+			wr_be32 (out + 0x20, n);               // FILETOTAL
+			wr_be32 (out + 0x34, entries_off);     // LANGUAGESTART
+			wr_be32 (out + 0x38, entries_off);     // FILEHEADERSTART
+			wr_be32 (out + 0x3c, strings_off);     // STRINGSTART
+			wr_be32 (out + 0x40, data_off);        // OVERALLFILESTART2
+
+			uint name_off = strings_off;
+			for (uint i = 0; i < n; i++)
+			{
+				u8 *e = out + entries_off + i * 0x30;
+				wr_be32 (e + 0x00, name_off);      // FILENAMESTART
+				wr_be32 (e + 0x10, fstart[i]);     // FILESTART
+				wr_be32 (e + 0x14, usize[i]);      // SIZE
+				wr_be32 (e + 0x18, csize[i]);      // ZSIZE
+				wr_be32 (e + 0x1c, csize[i]);      // ZSIZE2
+				ccp name = list->entry[i].name;
+				const uint nlen = strlen (name) + 1;
+				memcpy (out + name_off, name, nlen);
+				name_off += nlen;
+				if (csize[i])
+					memcpy (out + fstart[i], comp[i], csize[i]);
+			}
+
+			*data = out;
+			*size = total;
+		}
+	}
+
+	for (uint i = 0; i < n; i++)
+		FREE (comp[i]);
+	FREE (comp); FREE (csize); FREE (usize); FREE (fstart);
+	return err;
+}
+
 static enumError create_pac_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
 	enumError err = collect_sarc_dir (&list, source, "");
 	if (!err && !list.used)
 		err = ERR_NOTHING_TO_DO;
+
 	u8 *data = 0;
 	uint size = 0;
-	if (!err)
+
+	if (!err && ndcube_pac_dest (dest))
+	{
+		// Byte-exact round trip: every entry of the existing PAC still has a
+		// tree member with the same name whose bytes inflate to the same
+		// content, so the original archive is reproduced unchanged (header,
+		// language blocks, entry metadata, name table and payloads alike).
+		u8 *raw = 0;
+		size_t raw_size = 0;
+		if (!LoadFileAlloc (dest, 0, 0, &raw, &raw_size, 0, 0, 0, false)
+			&& raw_size >= 0x44 && raw_size <= UINT_MAX && !memcmp (raw, "PAC\0", 4))
+		{
+			const u32 n = rd_be32 (raw + 0x20);
+			const u32 fhs = rd_be32 (raw + 0x38);
+			bool reusable = n && n <= 200000 && n == list.used
+				&& fhs <= raw_size - (u64)n * 0x30;
+			bool *used_member = reusable ? CALLOC (list.used, 1) : 0;
+			if (reusable && !used_member)
+				reusable = false;
+			if (reusable)
+			{
+				for (uint i = 0; reusable && i < n; i++)
+				{
+					const u8 *e = raw + fhs + i * 0x30;
+					const u32 noff = rd_be32 (e);
+					const u32 fstart = rd_be32 (e + 0x10);
+					const u32 zsize = rd_be32 (e + 0x18);
+					char name[PATH_MAX];
+					reusable = noff < raw_size && zsize && fstart <= raw_size - zsize;
+					if (reusable)
+					{
+						const size_t nlen = strnlen ((const char *)(raw + noff), sizeof (name) - 1);
+						memcpy (name, raw + noff, nlen);
+						name[nlen] = 0;
+					}
+					int hit = -1;
+					for (uint k = 0; reusable && hit < 0 && k < list.used; k++)
+						if (!used_member[k] && !strcmp (list.entry[k].name, name))
+							hit = (int)k;
+					if (reusable && hit < 0)
+						reusable = false;
+					if (reusable)
+					{
+						u8 *decomp = 0;
+						uint ds = 0;
+						if (DecodeZlibGrow (&decomp, &ds, raw + fstart, zsize) != ERR_OK)
+							reusable = false;
+						else if (ds != list.entry[hit].size
+							|| (ds && memcmp (decomp, list.entry[hit].data, ds)))
+							reusable = false;
+						FREE (decomp);
+					}
+					if (reusable)
+						used_member[hit] = true;
+				}
+			}
+			FREE (used_member);
+			if (reusable)
+			{
+				u8 *out = MALLOC (raw_size);
+				if (!out)
+					err = ERR_CANT_CREATE;
+				else
+				{
+					memcpy (out, raw, raw_size);
+					data = out;
+					size = (uint)raw_size;
+				}
+			}
+		}
+		FREE (raw);
+		if (err)
+		{
+			FREE (data);
+			data = 0;
+			size = 0;
+		}
+		if (!data)
+			err = create_ndcube_pac (&data, &size, &list);
+	}
+	else if (!err)
 		err = CreatePAC (&data, &size, list.entry, list.used);
+
 	if (!err && !testmode)
 	{
 		File_t F;
@@ -1076,6 +1280,195 @@ static enumError create_sfzdat_dir (ccp source, ccp dest)
 	{
 		File_t F;
 		err = CreateFileOpt (&F, true, dest, false, dest);
+		if (F.f && fwrite (data, 1, size, F.f) != size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+
+// Animal Crossing: Pocket Camp ZDAT. EXTRACT writes .zdat-cache.txt next to
+// the members so a CREATE can restore the original bytes: the XOR key is not
+// recoverable from the unmasked files on disk, and the archive's own entry
+// order (which is not alphabetical) is remembered the same way.
+static enumError read_zdat_cache (ccp source, ccp *const **names_out, u8 **keys_out, uint *n_out)
+{
+	*names_out = 0;
+	*keys_out = 0;
+	*n_out = 0;
+
+	char path[PATH_MAX];
+	snprintf (path, sizeof (path), "%s/%s", source, ZDAT_CACHE_FILE);
+	FILE *f = fopen (path, "r");
+	if (!f)
+		return ERR_NOTHING_TO_DO;
+
+	ccp *names = 0;
+	u8 *keys = 0;
+	uint n = 0, cap = 0;
+	char line[PATH_MAX];
+	while (fgets (line, sizeof (line), f))
+	{
+		char *p = line;
+		while (*p == ' ' || *p == '\t')
+			p++;
+		if (*p == '#' || !*p)
+			continue;
+		// <name>[TAB]<key>
+		char *tab = strchr (p, '\t');
+		if (tab)
+			*tab = 0;
+		char *end = p + strlen (p);
+		while (end > p && (end[-1] == '\r' || end[-1] == '\n' || end[-1] == ' ' || end[-1] == '\t'))
+			*--end = 0;
+		if (!*p)
+			continue;
+		unsigned key = 0;
+		if (!tab || !*p || sscanf (tab + 1, "%u", &key) != 1 || key > 255)
+			continue;
+		if (n == cap)
+		{
+			cap = cap ? cap * 2 : 16;
+			names = REALLOC (names, cap * sizeof (*names));
+			keys = REALLOC (keys, cap);
+		}
+		names[n] = STRDUP (p);
+		keys[n] = (u8)key;
+		n++;
+	}
+	fclose (f);
+
+	if (!n)
+	{
+		FREE (names);
+		FREE (keys);
+		return ERR_NOTHING_TO_DO;
+	}
+	*names_out = names;
+	*keys_out = keys;
+	*n_out = n;
+	return ERR_OK;
+}
+
+// Anonymous entries (never written into the directory) mean the container
+// cannot be reproduced byte for byte; they are still zipped up in sorted
+// order so nothing is silently dropped.
+static enumError create_zdat_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+
+	ccp *cache_names = 0;
+	u8 *cache_keys = 0;
+	uint n_cache = 0;
+	if (!err)
+	{
+		enumError c_err = read_zdat_cache (source, &cache_names, &cache_keys, &n_cache);
+		if (c_err != ERR_NOTHING_TO_DO && c_err != ERR_OK)
+			err = c_err;
+	}
+
+	u8 *data = 0;
+	uint size = 0;
+	if (!err)
+	{
+		// Reorder the (sorted) collected entries to match the original
+		// archive: every cached name first, in cache order, then any
+		// uncached member in sorted order with an all-zero mask.
+		nintendo_sarc_entry_t *ordered = CALLOC (list.used, sizeof (*ordered));
+		u8 *keys = CALLOC (list.used, 1);
+		bool *done = CALLOC (list.used, 1);
+		if (!ordered || !keys || !done)
+			err = ERR_OUT_OF_MEMORY;
+		uint out_count = 0;
+		if (!err)
+		{
+			for (uint c = 0; c < n_cache; c++)
+				for (uint i = 0; i < list.used; i++)
+				{
+					if (done[i] || strcmp (list.entry[i].name, cache_names[c]))
+						continue;
+					done[i] = true;
+					ordered[out_count] = list.entry[i];
+					keys[out_count] = cache_keys[c];
+					list.entry[i].name = 0;
+					list.entry[i].data = 0;
+					out_count++;
+					break;
+				}
+			for (uint i = 0; i < list.used; i++)
+			{
+				if (done[i])
+					continue;
+				ordered[out_count] = list.entry[i];
+				keys[out_count] = 0;
+				list.entry[i].name = 0;
+				list.entry[i].data = 0;
+				out_count++;
+			}
+			err = CreateZDATArchive (&data, &size, ordered, out_count, keys);
+		}
+		for (uint i = 0; i < out_count; i++)
+		{
+			FREE ((void *)ordered[i].name);
+			FREE ((void *)ordered[i].data);
+		}
+		FREE (ordered);
+		FREE (keys);
+		FREE (done);
+	}
+	for (uint i = 0; i < n_cache; i++)
+		FREE ((void *)cache_names[i]);
+	FREE (cache_names);
+	FREE (cache_keys);
+
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, source);
+		if (F.f && fwrite (data, 1, size, F.f) != size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+
+// Sonic Storybook ONE. Compresses every member with EncodeStorybookPRS.
+// Reuses the original archive's marker byte (0 = Secret Rings, -1 = Black
+// Knight) when the destination already holds one; brand-new containers are
+// written for Secret Rings.
+static enumError create_one_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+
+	u32 marker = 0;
+	FILE *in = fopen (dest, "rb");
+	if (in)
+	{
+		u8 head[16];
+		const u32 marker_be = fread (head, 1, 16, in) == 16 ? be32 (head + 12) : 0;
+		if (marker_be == 0 || marker_be == 0xffffffff)
+			marker = marker_be;
+		fclose (in);
+	}
+
+	u8 *data = 0;
+	uint size = 0;
+	if (!err)
+		err = CreateONEArchive (&data, &size, list.entry, list.used, marker);
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, source);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -2174,9 +2567,144 @@ static enumError create_nus3audio_dir (ccp source, ccp dest)
 	enumError err = collect_sarc_dir (&list, source, "");
 	if (!err && !list.used)
 		err = ERR_NOTHING_TO_DO;
+
 	u8 *data = 0;
 	uint size = 0;
+
 	if (!err)
+	{
+		// Byte-exact round trip: when the destination already holds a NUS3
+		// whose tracks still match the tree (every member carries the name
+		// its TNNM entry extracts to, with an unchanged size), reproduce the
+		// original file and only overwrite each PACK payload with the current
+		// member bytes. Everything else -- header, TNID ids, chunk order,
+		// inter-chunk slack and trailing data -- is copied as-is, unlike a
+		// first-time build which has to synthesise all of it.
+		u8 *raw = 0;
+		size_t raw_size = 0;
+		if (!LoadFileAlloc (dest, 0, 0, &raw, &raw_size, 0, 0, 0, false)
+			&& raw_size >= 16 && raw_size <= UINT_MAX && !memcmp (raw, "NUS3", 4))
+		{
+			const u8 *nmof = 0, *adof = 0, *tnnm = 0, *pack = 0;
+			uint nmof_size = 0, adof_size = 0, tnnm_size = 0, pack_size = 0;
+			u32 n_tracks = 0;
+			for (size_t pos = 8; pos + 12 <= raw_size;)
+			{
+				const u8 *tag = raw + pos;
+				const u32 csize = rd_le32 (raw + pos + 8);
+				const size_t payload = pos + 12;
+				if (csize > raw_size - payload)
+					break;
+				if (!memcmp (tag, "AUDIINDX", 8) && csize >= 4)
+					n_tracks = rd_le32 (raw + payload);
+				else if (!memcmp (tag, "NMOF", 4))
+					nmof = raw + payload, nmof_size = csize;
+				else if (!memcmp (tag, "ADOF", 4))
+					adof = raw + payload, adof_size = csize;
+				else if (!memcmp (tag, "TNNM", 4))
+					tnnm = raw + payload, tnnm_size = csize;
+				else if (!memcmp (tag, "PACK", 4))
+					pack = raw + payload, pack_size = csize;
+				pos = payload + csize;
+			}
+
+			bool reusable = n_tracks && n_tracks <= 100000 && adof && pack
+				&& adof_size >= (u64)n_tracks * 8;
+			uint *match = reusable ? CALLOC (n_tracks, sizeof (*match)) : 0;
+			if (reusable && !match)
+				reusable = false;
+			if (reusable)
+			{
+				bool *used_member = CALLOC (list.used, sizeof (*used_member));
+				if (!used_member)
+					reusable = false;
+				else
+				{
+					uint n_matched = 0;
+					for (uint i = 0; i < n_tracks; i++)
+					{
+						// Skip tracks the extractor would have skipped, and
+						// name every other one exactly as it does, so the
+						// tree entries can be matched back 1:1.
+						const u32 off = rd_le32 (adof + i * 8);
+						const u32 tsize = rd_le32 (adof + i * 8 + 4);
+						match[i] = UINT_MAX;
+						if (off > pack_size || tsize > pack_size - off)
+							continue;
+						char name[PATH_MAX];
+						name[0] = 0;
+						if (tnnm && nmof && nmof_size >= (u64)(i + 1) * 4)
+						{
+							const u32 noff = rd_le32 (nmof + i * 4);
+							if (noff < tnnm_size)
+							{
+								const uint nlen = tnnm[noff];
+								if (nlen && noff + 1 + nlen <= tnnm_size)
+								{
+									memcpy (name, tnnm + noff + 1, nlen);
+									name[nlen] = 0;
+								}
+							}
+						}
+						bool name_ok = name[0] != 0;
+						for (ccp c = name; name_ok && *c; c++)
+							if (*c == '/' || *c == '\\' || (u8)*c < 0x20)
+								name_ok = false;
+						if (name_ok && (!strcmp (name, ".") || !strcmp (name, "..")))
+							name_ok = false;
+						if (!name_ok)
+							snprintf (name, sizeof (name), "track_%04u", i);
+
+						for (uint k = 0; k < list.used; k++)
+						{
+							if (used_member[k])
+								continue;
+							nintendo_sarc_entry_t *e = &list.entry[k];
+							ccp leaf = strrchr (e->name, '/');
+							leaf = leaf ? leaf + 1 : e->name;
+							char base[PATH_MAX];
+							snprintf (base, sizeof (base), "%s", leaf);
+							char *dot = strrchr (base, '.');
+							if (dot)
+								*dot = 0;
+							if (strcmp (base, name) || e->size != tsize)
+								continue;
+							used_member[k] = true;
+							match[i] = k;
+							n_matched++;
+							break;
+						}
+					}
+					FREE (used_member);
+					if (n_matched != n_tracks)
+						reusable = false;
+				}
+			}
+
+			if (reusable)
+			{
+				u8 *out = MALLOC (raw_size);
+				if (!out)
+					err = ERR_CANT_CREATE;
+				else
+				{
+					memcpy (out, raw, raw_size);
+					const size_t pack_off = (size_t)(pack - raw);
+					for (uint i = 0; i < n_tracks; i++)
+					{
+						const u32 off = rd_le32 (adof + i * 8);
+						const u32 tsize = rd_le32 (adof + i * 8 + 4);
+						memcpy (out + pack_off + off, list.entry[match[i]].data, tsize);
+					}
+					data = out;
+					size = (uint)raw_size;
+				}
+			}
+		}
+		FREE (raw);
+	}
+
+	if (!err && !data)
 		err = CreateNUS3AudioArchive (&data, &size, list.entry, list.used);
 	if (!err && !testmode)
 	{
@@ -2534,6 +3062,16 @@ static enumError create_mpbin_dir (ccp source, ccp dest)
 	}
 	FREE (out);
 	return err;
+}
+
+// ".bin" spans several creators, so the destination decides: an existing
+// Nd Cube Wii U "PAC\0" file gets rebuilt as that container (byte-exact via
+// create_pac_dir), anything else stays the Hudson MPBIN table format.
+static enumError create_bin_dir (ccp source, ccp dest)
+{
+	if (ndcube_pac_dest (dest))
+		return create_pac_dir (source, dest);
+	return create_mpbin_dir (source, dest);
 }
 
 typedef struct ncer_xml_cell_t
@@ -3371,6 +3909,265 @@ static enumError create_jarc_dir (ccp source, ccp dest)
 	return err;
 }
 
+// Call of Duty: Black Ops / Modern Warfare 3 (Wii) PAK0 sound archive
+// (see extract_cod_pak0_file()). Members carry no names in the format, only
+// a CRC, so the extractor writes them as "<stem>_0x%08x.dsp" with the CRC in
+// the filename; the writer parses it back out. When the target .pak already
+// holds the same tree (every member still has the entry size recorded for
+// its CRC) the original layout -- the header's +4 dword, multiplier,
+// data_start and the full entry table with its offsets and padding -- is
+// reused wholesale, so an unedited round trip reproduces the archive byte
+// for byte. A brand-new or edited tree gets a fresh valid PAK0 with
+// multiplier 1 and the members stored back to back in CRC order.
+typedef struct
+{
+	uint crc;
+	nintendo_sarc_entry_t *e;
+} cod_pak_member_t;
+
+// Extract the member CRC out of an extracted member's basename. Returns
+// false when the name is not "<anything>_0x%08x.dsp".
+static bool parse_cod_pak_crc (ccp name, uint *crc)
+{
+	const size_t len = strlen (name);
+	if (len < 15 || memcmp (name + len - 15, "_0x", 3)
+		|| strcasecmp (name + len - 4, ".dsp"))
+		return false;
+	uint v = 0;
+	for (uint i = 0; i < 8; i++)
+	{
+		const char c = name[len - 12 + i];
+		uint d;
+		if (c >= '0' && c <= '9')
+			d = (uint)(c - '0');
+		else if (c >= 'a' && c <= 'f')
+			d = (uint)(c - 'a' + 10);
+		else if (c >= 'A' && c <= 'F')
+			d = (uint)(c - 'A' + 10);
+		else
+			return false;
+		v = (v << 4) | d;
+	}
+	if (crc)
+		*crc = v;
+	return true;
+}
+
+// Heuristic used to route CREATE *.pak.d trees between the PAK0 and GPAK
+// builders (".pak" is shared by both formats; see extract_gpak_file()).
+static bool looks_like_cod_pak_dir (ccp source)
+{
+	DIR *dir = opendir (source);
+	if (!dir)
+		return false;
+	bool found = false;
+	struct dirent *de;
+	while ((de = readdir (dir)))
+	{
+		if (*de->d_name == '.' || !strcmp (de->d_name, SZS_SETUP_FILE)
+			|| !strcmp (de->d_name, ".wszst-cache.txt"))
+			continue;
+		if (parse_cod_pak_crc (de->d_name, 0))
+		{
+			found = true;
+			break;
+		}
+	}
+	closedir (dir);
+	return found;
+}
+
+// True when the directory has ordinal "file_%04u*" members (GPAK).
+static bool looks_like_gpak_dir (ccp source)
+{
+	DIR *dir = opendir (source);
+	if (!dir)
+		return false;
+	bool found = false;
+	struct dirent *de;
+	while ((de = readdir (dir)))
+	{
+		uint idx;
+		if (jarc_member_name_ok (de->d_name, &idx))
+		{
+			found = true;
+			break;
+		}
+	}
+	closedir (dir);
+	return found;
+}
+
+static int cmp_cod_pak (const void *a, const void *b)
+{
+	const cod_pak_member_t *const ma = a, *const mb = b;
+	return ma->crc < mb->crc ? -1 : ma->crc > mb->crc ? 1 : 0;
+}
+
+static enumError create_cod_pak_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+
+	// Only the CRC-named .dsp files are PAK0 members; drop any non-member
+	// litter the tree happens to carry.
+	uint used = 0;
+	for (uint i = 0; !err && i < list.used; i++)
+	{
+		ccp base = list.entry[i].name;
+		ccp slash = base ? strrchr (base, '/') : 0;
+		ccp nm = slash ? slash + 1 : base;
+		if (!parse_cod_pak_crc (nm, 0))
+		{
+			FREE ((void *)list.entry[i].name);
+			FREE (list.entry[i].data);
+			continue;
+		}
+		if (used != i)
+			list.entry[used] = list.entry[i];
+		used++;
+	}
+	list.used = used;
+	if (!err && !used)
+		err = ERR_NOTHING_TO_DO;
+
+	cod_pak_member_t *m = 0;
+	if (!err)
+	{
+		m = CALLOC (used, sizeof (*m));
+		if (!m)
+			err = ERR_CANT_CREATE;
+		else
+		{
+			for (uint i = 0; i < used; i++)
+			{
+				ccp base = list.entry[i].name;
+				ccp slash = base ? strrchr (base, '/') : 0;
+				m[i].crc = 0;
+				parse_cod_pak_crc (slash ? slash + 1 : base, &m[i].crc);
+				m[i].e = &list.entry[i];
+			}
+			qsort (m, used, sizeof (*m), cmp_cod_pak);
+			for (uint i = 1; !err && i < used; i++)
+				if (m[i].crc == m[i - 1].crc)
+					err = ERROR0 (ERR_INVALID_DATA,
+						"PAK0 input has duplicate member CRC 0x%08x: %s\n", m[i].crc, source);
+		}
+	}
+
+	u8 *out = 0;
+	size_t out_len = 0;
+	if (!err)
+	{
+		// Reuse the existing target's layout for a byte-exact round trip when
+		// it is a valid PAK0 with exactly our members and unchanged sizes.
+		u8 *raw = 0;
+		size_t raw_size = 0;
+		if (!LoadFileAlloc (dest, 0, 0, &raw, &raw_size, 0, 0, 0, false)
+			&& raw_size >= 20 && !memcmp (raw, "PAK0", 4))
+		{
+			const uint n = rd_le32 (raw + 8);
+			const uint mult = rd_le32 (raw + 12);
+			const uint dstart = rd_le32 (raw + 16);
+			const size_t table_end = 20 + (size_t)n * 12;
+			bool reusable = n && mult && n == used && n <= (raw_size - 20) / 12
+				&& dstart >= table_end && dstart <= raw_size;
+			for (uint i = 0; reusable && i < n; i++)
+			{
+				const uint e_crc = rd_le32 (raw + 20 + i * 12 + 0);
+				const uint e_off = rd_le32 (raw + 20 + i * 12 + 4);
+				const uint e_size = rd_le32 (raw + 20 + i * 12 + 8);
+				const uint64_t pos = (uint64_t)e_off * mult + dstart;
+				if (pos > raw_size || e_size > raw_size - pos)
+					reusable = false;
+				cod_pak_member_t *match = 0;
+				for (uint k = 0; !match && k < used; k++)
+					if (m[k].crc == e_crc)
+						match = &m[k];
+				if (!match || match->e->size != e_size)
+					reusable = false;
+			}
+			if (reusable)
+			{
+				out = MALLOC (raw_size);
+				if (!out)
+					err = ERR_CANT_CREATE;
+				else
+				{
+					memcpy (out, raw, raw_size);
+					for (uint i = 0; i < n; i++)
+					{
+						const uint e_crc = rd_le32 (raw + 20 + i * 12 + 0);
+						const uint e_off = rd_le32 (raw + 20 + i * 12 + 4);
+						const uint e_size = rd_le32 (raw + 20 + i * 12 + 8);
+						const uint64_t pos = (uint64_t)e_off * mult + dstart;
+						for (uint k = 0; k < used; k++)
+							if (m[k].crc == e_crc)
+							{
+								memcpy (out + pos, m[k].e->data, (size_t)e_size);
+								break;
+							}
+					}
+					out_len = raw_size;
+				}
+			}
+		}
+		FREE (raw);
+	}
+
+	if (!err && !out)
+	{
+		const uint n = used;
+		uint64_t total = (20 + (uint64_t)n * 12 + 15) & ~(uint64_t)15;
+		const uint dstart = (uint)total;
+		for (uint i = 0; i < n; i++)
+			total += m[i].e->size;
+		if (total > UINT_MAX)
+			err = ERR_FILE_TOO_BIG;
+		else
+		{
+			out = CALLOC (1, (size_t)total);
+			if (!out)
+				err = ERR_CANT_CREATE;
+			else
+			{
+				out_len = (size_t)total;
+				memcpy (out, "PAK0", 4);
+				wr_le32 (out + 4, 0); // no known salt to carry for a new archive
+				wr_le32 (out + 8, n);
+				wr_le32 (out + 12, 1); // multiplier
+				wr_le32 (out + 16, dstart);
+				for (uint i = 0, off = 0; i < n; i++)
+				{
+					// With multiplier 1 the entry offset is the member's byte
+					// distance from DATASTART; pack the payloads back to back.
+					wr_le32 (out + 20 + i * 12 + 0, m[i].crc);
+					wr_le32 (out + 20 + i * 12 + 4, off);
+					wr_le32 (out + 20 + i * 12 + 8, m[i].e->size);
+					memcpy (out + dstart + off, m[i].e->data, m[i].e->size);
+					off += m[i].e->size;
+				}
+			}
+		}
+	}
+
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, dest);
+		if (F.f && fwrite (out, 1, out_len, F.f) != out_len)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", out_len, dest);
+		ResetFile (&F, opt_preserve);
+	}
+
+	FREE (out);
+	FREE (m);
+	reset_sarc_build_list (&list);
+	return err;
+}
+
 // Repack a directory extracted by extract_gpak_file() back into a nameless
 // .pak. Members are ordinal-named, exactly like ARCV and jARC.
 static enumError create_gpak_dir (ccp source, ccp dest)
@@ -3634,6 +4431,18 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest, int known_lz
 		return create_jarc_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".gpak"))
 		return create_gpak_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".pak"))
+	{
+		// .pak is shared by Call of Duty PAK0 sound archives (CRC-named .dsp
+		// members) and 2D Boy GPAK files (ordinal file_%04u members); pick
+		// the builder from the tree's shape.
+		if (looks_like_cod_pak_dir (source_dir))
+			return create_cod_pak_dir (source_dir, dest);
+		if (looks_like_gpak_dir (source_dir))
+			return create_gpak_dir (source_dir, dest);
+		return ERROR0 (ERR_INVALID_DATA,
+			"No PAK0 or GPAK members found in: %s\n", source_dir);
+	}
 	if (!strcasecmp (ext, ".vcra"))
 		return create_vcra_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".apak"))
@@ -3656,6 +4465,10 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest, int known_lz
 		return create_gsh_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".dat") && looks_like_sfzdat_dir (source_dir))
 		return create_sfzdat_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".zdat"))
+		return create_zdat_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".one"))
+		return create_one_dir (source_dir, dest);
 	if ((!strcasecmp (ext, ".dat") || !strcasecmp (ext, ".rflres") || !strcasecmp (ext, ".rfl")
 		|| !strcasecmp (ext, ".fflres") || !strcasecmp (ext, ".ffl")
 		|| !strcasecmp (ext, ".cflres") || !strcasecmp (ext, ".cfl")
@@ -3699,7 +4512,7 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest, int known_lz
 	if (!strcasecmp (ext, ".idx"))
 		return create_hwl_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".bin"))
-		return create_mpbin_dir (source_dir, dest);
+		return create_bin_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".big"))
 		return create_bigf_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".arc") && looks_like_arcv_dir (source_dir))
@@ -3779,7 +4592,7 @@ static const char *cand_archive_exts[] = { ".wbfs", ".iso", ".ciso", ".wdf", ".w
 	".darc", ".pac", ".pcs", ".gfa", ".rarc", ".warc", ".bcsar", ".bfsar", ".bcwar", ".bfwar",
 	".bcgrp", ".bfgrp", ".rst", ".car", ".res", ".trk", ".lvl", ".wu8", ".wbz", ".wlz", ".bntx",
 	".bcres", ".bfres", ".bch", ".big", ".xc", ".xpck", ".ztab", ".tab", ".mdr", ".vff", ".pvol",
-	".srd", ".stpk", ".zlarc", 0 };
+	".srd", ".stpk", ".zlarc", ".zdat", ".one", 0 };
 
 // A number of retail Wii titles keep otherwise ordinary BRRES/U8 resources
 // in a raw Nintendo LZ10/LZ11 stream, conventionally named "*.lz".  The

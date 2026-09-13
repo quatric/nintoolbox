@@ -210,6 +210,42 @@ open(sys.argv[2], "wb").write(bytes(d))
   else
     no "ZDAT container" "extracted a container with an inconsistent entry count"
   fi
+
+  # CREATE must repack byte-for-byte: the extractor caches each member's
+  # original order and XOR key in .zdat-cache.txt, and create_zdat_dir feeds
+  # that back to CreateZDATArchive. Both fixtures round-trip exactly.
+  "$B/wszst" CREATE "$zd/one" --dest "$zd/rt-one.zdat" --overwrite >/dev/null 2>&1
+  if cmp -s "$PWD_PROJECT/../tests/fixtures/acpc_1a082b62.zdat" "$zd/rt-one.zdat"; then
+    ok "ZDAT single-entry -> byte-exact round trip"
+  else
+    no "ZDAT container" "single-entry repack differs from the fixture"
+  fi
+  "$B/wszst" CREATE "$zd/many" --dest "$zd/rt-many.zdat" --overwrite >/dev/null 2>&1
+  if cmp -s "$PWD_PROJECT/../tests/fixtures/acpc_common_multi.zdat" "$zd/rt-many.zdat"; then
+    ok "ZDAT multi-entry -> byte-exact round trip (order + masks restored)"
+  else
+    no "ZDAT container" "multi-entry repack differs from the fixture"
+  fi
+
+  # Sonic Storybook ONE is a private PRS+LZ77 container with no magic; CREATE
+  # builds one from a plain directory and EXTRACT must recover every byte of
+  # the payloads (sizes span the short/long match paths of the compressor).
+  if [ -d "$zd" ] && [ -x "$B/wszst" ]; then
+    mkdir -p "$zd/onesrc"
+    head -c 30000 /dev/urandom > "$zd/onesrc/blob.bin"
+    head -c 4096 /dev/urandom > "$zd/onesrc/mid.bin"
+    printf 'hello one %s\n' "$(seq 1 200)" > "$zd/onesrc/tiny.txt"
+    if "$B/wszst" CREATE "$zd/onesrc" --dest "$zd/test.one" --overwrite >/dev/null 2>&1 \
+    && "$B/wszst" EXTRACT "$zd/test.one" --dest "$zd/oneout" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$zd/onesrc/blob.bin" "$zd/oneout/blob.bin" \
+    && cmp -s "$zd/onesrc/mid.bin" "$zd/oneout/mid.bin" \
+    && cmp -s "$zd/onesrc/tiny.txt" "$zd/oneout/tiny.txt"; then
+      ok "ONE create/extract round trip preserves all members"
+    else
+      no "ONE container" "create/extract round trip failed"
+    fi
+  fi
+
   rm -rf "$zd"
 else
   sk "ZDAT container"
@@ -690,6 +726,46 @@ t_cgfx(){
         bok "CGFX (3DS) byte-exact GLB -> BCRES roundtrip"
       else
         bno "CGFX (3DS) byte-exact GLB -> BCRES roundtrip" "$f"
+      fi
+      # An actual edit to the GLB geometry must invalidate the embedded
+      # original: re-encoding must rebuild the container from the edited
+      # model instead of silently returning the untouched source bytes.
+      # Patch the first POSITION vertex component to a sentinel value.
+      rm -f /tmp/_r_edit.glb /tmp/_r_edit.bcres /tmp/_r_edit_out.glb
+      python3 - /tmp/_r_cgfx_source.glb /tmp/_r_edit.glb >/dev/null 2>&1 <<'PY'
+import json, struct, sys
+d = bytearray(open(sys.argv[1], 'rb').read())
+jl = struct.unpack('<I', d[12:16])[0]
+j = json.loads(d[20:20 + jl])
+acc = j['accessors'][0]
+bv = j['bufferViews'][acc['bufferView']]
+off = 20 + jl + 8 + bv['byteOffset'] + acc.get('byteOffset', 0)
+struct.pack_into('<f', d, off, 123.125)
+open(sys.argv[2], 'wb').write(bytes(d))
+PY
+      $B/wmdlt ENCODE /tmp/_r_edit.glb -d /tmp/_r_edit.bcres --overwrite >/dev/null 2>&1
+      if [ ! -s /tmp/_r_edit.bcres ]; then
+        no "CGFX (3DS) edited geometry -> rebuilt container" "encode produced no output"
+      elif cmp -s "$f" /tmp/_r_edit.bcres; then
+        bno "CGFX (3DS) edited geometry -> rebuilt container" \
+          "re-encode returned the untouched original bytes"
+      else
+        bok "CGFX (3DS) edited geometry -> rebuilt container"
+        $B/wmdlt ENCODE /tmp/_r_edit.bcres -d /tmp/_r_edit_out.glb --overwrite >/dev/null 2>&1
+        local e; e=$(python3 -c "
+import json, struct
+d = open('/tmp/_r_edit_out.glb', 'rb').read()
+jl = struct.unpack('<I', d[12:16])[0]
+j = json.loads(d[20:20 + jl])
+acc = j['accessors'][0]
+bv = j['bufferViews'][acc['bufferView']]
+off = 20 + jl + 8 + bv['byteOffset'] + acc.get('byteOffset', 0)
+print(struct.unpack_from('<1f', d, off)[0])" 2>/dev/null || true)
+        if [ "$e" = "123.125" ] 2>/dev/null; then
+          ok "CGFX (3DS) edited geometry survived roundtrip (v0.x = $e)"
+        else
+          no "CGFX (3DS) edited geometry survived roundtrip" "expected v0.x=123.125, got '$e'"
+        fi
       fi
       return
     fi
@@ -2560,6 +2636,167 @@ open('$d/smash_audio.nus3audio', 'wb').write(hdr + body)
       no "NUS3AUDIO (Smash Ultimate audio archive) extract -> create" "failed"
     fi
 
+    # NUS3AUDIO byte-exact CREATE: a retail-style source whose chunk order,
+    # TNID ids and trailing bytes a fresh build could never reproduce. When
+    # the destination still holds the same tracks, create copies the original
+    # layout and only overwrites the PACK payloads.
+    python3 -c "
+import struct
+magic = b'NUS3'
+def ck(tag, p): return tag.ljust(8, b'\x00') + struct.pack('<I', len(p)) + p
+t1_name = b'theme.stage'          # dotted name -> extra.bits-style base
+t1_data = b'IDSP' + struct.pack('>I', 64) + b'Z'*56
+t2_name = b'punch'
+t2_data = b'OPUS' + b'Q'*60
+t3_name = b'extra.bits'
+t3_data = b'\x12\x34\x56\x78' + b'R'*33  # unknown magic -> .bin
+s1 = struct.pack('B', len(t1_name)) + t1_name + b'\x00'
+s2 = struct.pack('B', len(t2_name)) + t2_name + b'\x00'
+s3 = struct.pack('B', len(t3_name)) + t3_name + b'\x00'
+tnnm = s1 + s2 + s3
+nmof = struct.pack('<III', 0, len(s1), len(s1) + len(s2))
+offs = [0, len(t1_data), len(t1_data) + len(t2_data)]
+adof = struct.pack('<IIIIII', offs[0], len(t1_data), offs[1], len(t2_data), offs[2], len(t3_data))
+pack = t1_data + t2_data + t3_data
+body = (ck(b'AUDIINDX', struct.pack('<I', 3))
+        + ck(b'TNID', struct.pack('<III', 42, 777, 3))
+        + ck(b'PACK', pack)          # PACK before ADOF: non-canonical order
+        + ck(b'NMOF', nmof)
+        + ck(b'ADOF', adof)
+        + ck(b'TNNM', tnnm)
+        + b'JUNK_TRAILING_BYTES_123')
+open('$d/retail_like.nus3audio', 'wb').write(magic + struct.pack('<I', len(body)) + body)
+" 2>/dev/null
+    rm -rf "$d/nus3_rl_out"
+    if [ -f "$d/retail_like.nus3audio" ] \
+    && cp "$d/retail_like.nus3audio" "$d/retail_like_orig.bin" \
+    && "$B/wszst" xx "$d/retail_like.nus3audio" --dest "$d/nus3_rl_out" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/nus3_rl_out/theme.stage.idsp" ] \
+    && [ -s "$d/nus3_rl_out/punch.lopus" ] \
+    && [ -s "$d/nus3_rl_out/extra.bits.bin" ] \
+    && "$B/wszst" CREATE "$d/nus3_rl_out" --dest "$d/retail_like.nus3audio" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/retail_like_orig.bin" "$d/retail_like.nus3audio"; then
+      ok "NUS3AUDIO (retail-style chunk order/TNID/trailing bytes) byte-exact CREATE roundtrip"
+    else
+      no "NUS3AUDIO (retail-style chunk order/TNID/trailing bytes) byte-exact CREATE" "failed"
+    fi
+
+    # Same-size edit: the layout must be reused, rewriting only the edited
+    # track's PACK payload and keeping chunk order and trailing bytes.
+    if python3 -c "
+d = bytearray(open('$d/nus3_rl_out/punch.lopus','rb').read())
+assert len(d) == 64
+d[4:] = b'X'*60
+open('$d/nus3_rl_out/punch.lopus','wb').write(bytes(d))
+" 2>/dev/null \
+    && "$B/wszst" CREATE "$d/nus3_rl_out" --dest "$d/retail_like.nus3audio" --overwrite >/dev/null 2>&1 \
+    && python3 -c "
+import struct
+d = open('$d/retail_like.nus3audio','rb').read()
+pos, pack_off, adof_payload, order = 8, None, None, []
+while pos + 12 <= len(d):
+    tag = d[pos:pos+4]
+    c = struct.unpack('<I', d[pos+8:pos+12])[0]
+    order.append(tag)
+    if tag == b'PACK' and pack_off is None: pack_off = pos + 12
+    if tag == b'ADOF': adof_payload = d[pos+12:pos+12+c]
+    pos = pos + 12 + c
+o, s = struct.unpack('<II', adof_payload[8:16])
+seg = d[pack_off+o:pack_off+o+s]
+assert seg[4:] == b'X'*60, 'edited payload not rewritten in place'
+assert d.endswith(b'JUNK_TRAILING_BYTES_123'), 'trailing bytes lost'
+assert order[:6] == [b'AUDI', b'TNID', b'PACK', b'NMOF', b'ADOF', b'TNNM'], 'chunk order changed'
+" 2>/dev/null; then
+      ok "NUS3AUDIO (retail-style) same-size edit keeps layout byte-exact"
+    else
+      no "NUS3AUDIO (retail-style) same-size edit keeps layout byte-exact" "failed"
+    fi
+
+    # PAC (Nd Cube): "PAC\0" Wii U flat container (Mario Party 10 / AC
+    # amiibo Festival). Members are zlib streams; CREATing onto the existing
+    # archive must reuse it byte-exact while an edit falls back to a fresh
+    # zlib rebuild that still round-trips.
+    python3 -c "
+import struct
+u32 = lambda v: struct.pack('>I', v)
+m1 = b'gfx2' + struct.pack('>I', 0x100) + b'A'*80
+m2 = b'bnfm' + struct.pack('>I', 0x200) + b'B'*40
+import zlib
+z1 = zlib.compress(m1, 6)   # level 6 -> 0x78 0x9c header
+z2 = zlib.compress(m2, 9)   # level 9 -> 0x78 0xda header
+name1 = b'chara/cat00.bnfm'  # nested name -> subdirectory
+name2 = b'chara/cat00.tex'
+n = 2
+langstart = 0x44
+fileheaderstart = 0x60       # after header (0x44) + one 16-byte language block
+strings_off = fileheaderstart + n*0x30
+names_blob = name1 + b'\x00' + name2 + b'\x00'
+data_off = (strings_off + len(names_blob) + 0x1f) & ~0x1f
+fstart1 = data_off + 17      # deliberately unaligned
+fstart2 = fstart1 + len(z1)
+total = (fstart2 + len(z2) + 0x1f) & ~0x1f
+def entry(name_off, fstart, fsize, zsize):
+    return (u32(name_off)+u32(0)+u32(0)+u32(0)+u32(fstart)+u32(fsize)
+            +u32(zsize)+u32(zsize)+u32(0)+u32(0)+u32(0)+u32(0))
+entries = (entry(strings_off, fstart1, len(m1), len(z1))
+           + entry(strings_off + len(name1) + 1, fstart2, len(m2), len(z2)))
+out = bytearray(total + 22)
+def place(off, blob): out[off:off+len(blob)] = blob
+place(0x00, b'PAC\x00')
+place(0x04, u32(0x44))               # HEADERLENGTH
+place(0x0c, u32(data_off))           # OVERALLFILESTART
+place(0x10, u32(total))              # PACSIZE
+place(0x14, u32(1))                  # LANGUAGECOUNT
+place(0x20, u32(n))                  # FILETOTAL
+place(0x30, u32(0))
+place(0x34, u32(langstart))          # LANGUAGESTART
+place(0x38, u32(fileheaderstart))    # FILEHEADERSTART
+place(0x3c, u32(strings_off))        # STRINGSTART
+place(0x40, u32(data_off))           # OVERALLFILESTART2
+place(langstart, u32(1)+u32(0)+u32(n)+u32(fileheaderstart))  # language block
+place(fileheaderstart, entries)
+place(strings_off, names_blob)
+place(fstart1, z1)
+place(fstart2, z2)
+place(total, b'PAC_TRAILING_JUNK')
+open('$d/cat00.bin', 'wb').write(bytes(out))
+" 2>/dev/null
+    rm -rf "$d/pac_tree"
+    if [ -f "$d/cat00.bin" ] \
+    && cp "$d/cat00.bin" "$d/cat00_orig.bin" \
+    && "$B/wszst" xx "$d/cat00.bin" --dest "$d/pac_tree" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/pac_tree/chara/cat00.bnfm" ] \
+    && [ -s "$d/pac_tree/chara/cat00.tex" ] \
+    && "$B/wszst" CREATE "$d/pac_tree" --dest "$d/cat00.bin" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/cat00_orig.bin" "$d/cat00.bin"; then
+      ok "PAC (Nd Cube) byte-exact CREATE roundtrip (header/lang/trailing kept)"
+    else
+      no "PAC (Nd Cube) byte-exact CREATE roundtrip" "failed"
+    fi
+
+    # Edit a member: create must fall back to a fresh zlib rebuild that
+    # still extracts to the edited content. Also: a missing .pac destination
+    # still builds the unrelated Brawl "ARC" container unchanged.
+    if python3 -c "
+d = bytearray(open('$d/pac_tree/chara/cat00.bnfm','rb').read())
+d[4:] = b'Z'*80
+open('$d/pac_tree/chara/cat00.bnfm','wb').write(bytes(d))
+" 2>/dev/null \
+    && "$B/wszst" CREATE "$d/pac_tree" --dest "$d/cat00.bin" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -l 4 -p "$d/cat00.bin")" = "50414300" ] \
+    && rm -rf "$d/pac_tree2" \
+    && "$B/wszst" xx "$d/cat00.bin" --dest "$d/pac_tree2" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/pac_tree/chara/cat00.bnfm" "$d/pac_tree2/chara/cat00.bnfm" \
+    && cmp -s "$d/pac_tree/chara/cat00.tex" "$d/pac_tree2/chara/cat00.tex" \
+    && mkdir -p "$d/pac_arc" \
+    && printf 'hello world data' > "$d/pac_arc/foo.txt" \
+    && "$B/wszst" CREATE "$d/pac_arc" --dest "$d/pac_arc_new.pac" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -l 4 -p "$d/pac_arc_new.pac")" = "41524300" ]; then
+      ok "PAC (Nd Cube) edited rebuild round-trips + absent .pac stays ARC (Brawl)"
+    else
+      no "PAC (Nd Cube) edited rebuild / ARC fallback" "failed"
+    fi
+
 
     # NUT (Smash 4 NTP3 texture container)
     python3 -c "
@@ -3076,6 +3313,30 @@ open('$d/sound.pak', 'wb').write(raw)
     ok "Call of Duty Wii PAK0 extraction (wszst xx)"
   else
     no "Call of Duty Wii PAK0 extraction" "DSP member mismatch or missing"
+  fi
+
+  # CREATE round-trip: repack the extracted tree back over the original and
+  # expect byte-for-byte equality, including the reserved header dword, the
+  # multiplier/DATASTART layout and the inter-member padding.
+  if cp "$d/sound.pak" "$d/orig.pak" \
+  && "$B/wszst" create "$d/out" --dest "$d/sound.pak" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/sound.pak" "$d/orig.pak"; then
+    ok "Call of Duty Wii PAK0 create round-trip (byte-exact)"
+  else
+    no "Call of Duty Wii PAK0 create" "create did not reproduce the original bytes"
+  fi
+
+  # Edited tree -> fresh valid PAK0 (multiplier 1, CRC-sorted, cumulative
+  # offsets): the writer must not reuse the stale layout, and the result must
+  # extract back to the edited member contents.
+  printf 'EDITED' > "$d/out/sound_0x11223344.dsp"
+  if "$B/wszst" create "$d/out" --dest "$d/fresh.pak" >/dev/null 2>&1 \
+  && "$B/wszst" xx "$d/fresh.pak" --no-passthrough --dest "$d/fresh_x" --overwrite >/dev/null 2>&1 \
+  && [ "$(cat "$d/fresh_x/fresh_0x11223344.dsp" 2>/dev/null)" = "EDITED" ] \
+  && [ "$(cat "$d/fresh_x/fresh_0xaabbccdd.dsp" 2>/dev/null)" = "DSP-AUDIO-TWO" ]; then
+    ok "Call of Duty Wii PAK0 fresh-layout create (edited tree)"
+  else
+    no "Call of Duty Wii PAK0 fresh-layout" "edited member did not round-trip"
   fi
   rm -rf "$d"
 }
@@ -11206,11 +11467,25 @@ t_cod_pak0_retail(){
     no "retail COD PAK0" "FILETYPE failed to recognize PAK0"
   fi
 
-  if "$B/wszst" EXTRACT "$f" --dest "$d" --no-passthrough --overwrite >/dev/null 2>&1 \
-  && { [ -f "$d/retail_int_escape/retail_int_escape_0x1e78d28c.dsp" ] || [ -f "$d/retail_int_escape_0x1e78d28c.dsp" ]; }; then
+  if "$B/wszst" EXTRACT "$f" --dest "$d/out" --no-passthrough --overwrite >/dev/null 2>&1 \
+  && { [ -f "$d/out/retail_int_escape/retail_int_escape_0x1e78d28c.dsp" ] || [ -f "$d/out/retail_int_escape_0x1e78d28c.dsp" ]; }; then
     ok "retail COD PAK0 sound stream extraction (1 DSP stream)"
   else
     no "retail COD PAK0" "failed to extract DSP from COD PAK0 archive"
+  fi
+
+  # Byte-exact CREATE round-trip against the retail fixture: copy it into the
+  # scratch area, extract it, repack back over the copy; the writer must
+  # reproduce the original bytes, header dword, multiplier and DATASTART.
+  if cp "$f" "$d/rt.pak" \
+  && "$B/wszst" EXTRACT "$d/rt.pak" --dest "$d/rt" --no-passthrough --overwrite >/dev/null 2>&1 \
+  && local m && m=$(find "$d/rt" -name '*_0x1e78d28c.dsp' 2>/dev/null | head -1) \
+  && [ -n "$m" ] \
+  && "$B/wszst" CREATE "$(dirname "$m")" --dest "$d/rt.pak" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/rt.pak" "$f"; then
+    ok "retail COD PAK0 create round-trip (byte-exact)"
+  else
+    no "retail COD PAK0 create" "create did not reproduce the retail bytes"
   fi
   rm -rf "$d"
 }

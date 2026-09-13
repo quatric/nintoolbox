@@ -36,6 +36,7 @@
 #include "lib-ptlg.h"
 #include "lib-g1t.h"
 #include "lib-zdat.h"
+#include "lib-one.h"
 #include "lib-pers.h"
 #include "lib-camtexbank.h"
 #include "lib-nus3audio.h"

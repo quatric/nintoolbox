@@ -716,6 +716,44 @@ static enumError cmd_create (bool create)
 			ResetSetupParam (&sp);
 			continue;
 		}
+		if (create && ext && !strcasecmp (ext, ".pak"))
+		{
+			// .pak is shared by Call of Duty PAK0 sound archives (CRC-named
+			// .dsp members) and 2D Boy GPAK files (ordinal file_%04u members).
+			if (looks_like_cod_pak_dir (source_dir))
+			{
+				enumError err = create_cod_pak_dir (source_dir, dest);
+				if (verbose >= 0 || testmode)
+					fprintf (stdlog, "%s%sCREATE COD PAK0 %s/ -> %s\n", verbose > 0 ? "\n" : "",
+						testmode ? "WOULD " : "", source_dir, dest);
+				if (max_err < err)
+					max_err = err;
+				if (err <= ERR_WARNING && src_len > 2
+					&& !strcasecmp (source_dir + src_len - 2, ".d") && !testmode)
+					remove_dir_recursive (source_dir);
+			}
+			else if (looks_like_gpak_dir (source_dir))
+			{
+				enumError err = create_gpak_dir (source_dir, dest);
+				if (verbose >= 0 || testmode)
+					fprintf (stdlog, "%s%sCREATE GPAK %s/ -> %s\n", verbose > 0 ? "\n" : "",
+						testmode ? "WOULD " : "", source_dir, dest);
+				if (max_err < err)
+					max_err = err;
+				if (err <= ERR_WARNING && src_len > 2
+					&& !strcasecmp (source_dir + src_len - 2, ".d") && !testmode)
+					remove_dir_recursive (source_dir);
+			}
+			else
+			{
+				const enumError err = ERROR0 (ERR_INVALID_DATA,
+					"No PAK0 or GPAK members found in: %s\n", source_dir);
+				if (max_err < err)
+					max_err = err;
+			}
+			ResetSetupParam (&sp);
+			continue;
+		}
 		if (create && ext && !strcasecmp (ext, ".vcra"))
 		{
 			enumError err = create_vcra_dir (source_dir, dest);
@@ -1007,6 +1045,34 @@ static enumError cmd_create (bool create)
 			ResetSetupParam (&sp);
 			continue;
 		}
+		if (create && ext && !strcasecmp (ext, ".zdat"))
+		{
+			enumError err = create_zdat_dir (source_dir, dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE ZDAT %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", source_dir, dest);
+			if (max_err < err)
+				max_err = err;
+			if (err <= ERR_WARNING && src_len > 2 && !strcasecmp (source_dir + src_len - 2, ".d")
+				&& !testmode)
+				remove_dir_recursive (source_dir);
+			ResetSetupParam (&sp);
+			continue;
+		}
+		if (create && ext && !strcasecmp (ext, ".one"))
+		{
+			enumError err = create_one_dir (source_dir, dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE ONE %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", source_dir, dest);
+			if (max_err < err)
+				max_err = err;
+			if (err <= ERR_WARNING && src_len > 2 && !strcasecmp (source_dir + src_len - 2, ".d")
+				&& !testmode)
+				remove_dir_recursive (source_dir);
+			ResetSetupParam (&sp);
+			continue;
+		}
 		if (create && ext && !strcasecmp (ext, ".idx"))
 		{
 			enumError err = create_hwl_dir (source_dir, dest);
@@ -1020,10 +1086,11 @@ static enumError cmd_create (bool create)
 		}
 		if (create && ext && !strcasecmp (ext, ".bin"))
 		{
-			enumError err = create_mpbin_dir (source_dir, dest);
+			enumError err = create_bin_dir (source_dir, dest);
 			if (verbose >= 0 || testmode)
-				fprintf (stdlog, "%s%sCREATE MPBIN %s/ -> %s\n", verbose > 0 ? "\n" : "",
-					testmode ? "WOULD " : "", source_dir, dest);
+				fprintf (stdlog, "%s%sCREATE %s %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", ndcube_pac_dest (dest) ? "PAC (NDCUBE)" : "MPBIN",
+					source_dir, dest);
 			if (max_err < err)
 				max_err = err;
 			ResetSetupParam (&sp);
