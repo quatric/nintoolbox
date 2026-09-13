@@ -325,9 +325,80 @@ enumError PeekGFACompression (ccp path, uint *compression)
 	return ERR_OK;
 }
 
+// GFA's 16-byte entry record carries an opaque 4-byte value at rec+0 that
+// ScanGFA() never reads -- it just walks entries linearly by index -- but
+// which is not a standard 0x65 SARC-style name hash (verified against
+// retail files: computed hashes don't match, and entries aren't even sorted
+// by it), so its exact meaning/derivation is unknown. Whatever it is, the
+// game apparently *does* care about it: repacking an archive that zeroed it
+// out (the previous behavior of CreateGFA, since 'entries' here has nowhere
+// to carry it) reportedly crashes the game when it accesses the rebuilt
+// content. Since we can't recompute it, the only safe option is to carry the
+// existing value over unchanged for entries that already existed in the
+// archive being replaced -- see ReadGFAHashHints() and its use in
+// create_gfa_dir() (compress.inc). New entries that have no prior record
+// get 0, same as before; that's a pre-existing limitation, not a regression.
+enumError ReadGFAHashHints (ccp path, ParamField_t *out)
+{
+	if (!path || !out)
+		return EINVAL;
+
+	FILE *f = fopen (path, "rb");
+	if (!f)
+		return ERR_CANT_OPEN;
+
+	enumError err = EINVAL;
+	u8 *data = 0;
+	do
+	{
+		if (fseeko (f, 0, SEEK_END))
+			break;
+		const off_t fsize = ftello (f);
+		if (fsize < 0x1c || fseeko (f, 0, SEEK_SET))
+			break;
+
+		u8 head[0x1c];
+		if (fread (head, 1, sizeof (head), f) < sizeof (head) || memcmp (head, "GFAC", 4))
+			break;
+
+		const u32 info_off = rd_le32 (head + 0x0c);
+		const u32 data_off = rd_le32 (head + 0x14);
+		if ((u64)info_off + 4 > (u64)fsize || (u64)data_off > (u64)fsize)
+			break;
+
+		// Read everything up to the compressed data blob: that's the info
+		// table plus the name table, all we need without decompressing.
+		const uint head_size = data_off;
+		data = MALLOC (head_size);
+		if (!data || fseeko (f, 0, SEEK_SET) || fread (data, 1, head_size, f) < head_size)
+			break;
+
+		const u32 n = rd_le32 (data + info_off);
+		if (!n || n > 0x100000 || (u64)info_off + 4 + (u64)n * 16 > head_size)
+			break;
+
+		const u8 *rec = data + info_off + 4;
+		for (uint i = 0; i < n; i++, rec += 16)
+		{
+			const u32 hash = rd_le32 (rec + 0);
+			u32 name_off = rd_le32 (rec + 4) & 0x00ffffff;
+			if (!name_off || name_off >= head_size)
+				continue;
+			if (!memchr (data + name_off, 0, head_size - name_off))
+				continue;
+			InsertParamField (out, (ccp)data + name_off, false, hash, 0);
+		}
+		err = ERR_OK;
+	} while (0);
+
+	FREE (data);
+	fclose (f);
+	return err;
+}
+
 enumError CreateGFA (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries,
-	uint compression)
+	uint compression, const ParamField_t *hash_hint)
 {
 	if (!dest || !dest_size || !entries || !n_entries || n_entries > 0x100000)
 		return EINVAL;
@@ -400,15 +471,18 @@ enumError CreateGFA (
 	current_offset = 0;
 	for (uint i = 0; i < n_entries; i++)
 	{
+		const nintendo_sarc_entry_t *e = entries + i;
 		u8 *rec = out + info_off + 4 + 16 * i;
+		const ParamFieldItem_t *hint = hash_hint ? FindParamField (hash_hint, e->name) : 0;
+		wr_le32 (rec + 0, hint ? hint->num : 0);
 		wr_le32 (rec + 4, names_off + name_pos);
-		wr_le32 (rec + 8, entries[i].size);
+		wr_le32 (rec + 8, e->size);
 		wr_le32 (rec + 12, data_off + current_offset);
 
-		size_t nlen = strlen (entries[i].name) + 1;
-		memcpy (out + names_off + name_pos, entries[i].name, nlen);
+		size_t nlen = strlen (e->name) + 1;
+		memcpy (out + names_off + name_pos, e->name, nlen);
 		name_pos += nlen;
-		current_offset += entries[i].size;
+		current_offset += e->size;
 	}
 
 	u8 *gfcp = out + data_off;

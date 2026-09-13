@@ -2144,7 +2144,16 @@ static enumError create_gfa_dir (ccp source, ccp dest)
 		// 'dest' (a brand new archive) falls back to CreateGFA's own default.
 		uint compression = 0;
 		PeekGFACompression (dest, &compression);
-		err = CreateGFA (&data, &size, list.entry, list.used, compression);
+
+		// See CreateGFA's 'hash_hint' doc in lib-gfa.h: rec+0 of each entry
+		// carries an opaque value the game apparently needs but that isn't a
+		// recomputable name hash, so it must be carried over from the
+		// archive being replaced rather than left zeroed.
+		ParamField_t hash_hint;
+		InitializeParamField (&hash_hint);
+		ReadGFAHashHints (dest, &hash_hint);
+		err = CreateGFA (&data, &size, list.entry, list.used, compression, &hash_hint);
+		ResetParamField (&hash_hint);
 	}
 	if (!err && !testmode)
 	{
