@@ -727,6 +727,46 @@ t_cgfx(){
       else
         bno "CGFX (3DS) byte-exact GLB -> BCRES roundtrip" "$f"
       fi
+      # An actual edit to the GLB geometry must invalidate the embedded
+      # original: re-encoding must rebuild the container from the edited
+      # model instead of silently returning the untouched source bytes.
+      # Patch the first POSITION vertex component to a sentinel value.
+      rm -f /tmp/_r_edit.glb /tmp/_r_edit.bcres /tmp/_r_edit_out.glb
+      python3 - /tmp/_r_cgfx_source.glb /tmp/_r_edit.glb >/dev/null 2>&1 <<'PY'
+import json, struct, sys
+d = bytearray(open(sys.argv[1], 'rb').read())
+jl = struct.unpack('<I', d[12:16])[0]
+j = json.loads(d[20:20 + jl])
+acc = j['accessors'][0]
+bv = j['bufferViews'][acc['bufferView']]
+off = 20 + jl + 8 + bv['byteOffset'] + acc.get('byteOffset', 0)
+struct.pack_into('<f', d, off, 123.125)
+open(sys.argv[2], 'wb').write(bytes(d))
+PY
+      $B/wmdlt ENCODE /tmp/_r_edit.glb -d /tmp/_r_edit.bcres --overwrite >/dev/null 2>&1
+      if [ ! -s /tmp/_r_edit.bcres ]; then
+        no "CGFX (3DS) edited geometry -> rebuilt container" "encode produced no output"
+      elif cmp -s "$f" /tmp/_r_edit.bcres; then
+        bno "CGFX (3DS) edited geometry -> rebuilt container" \
+          "re-encode returned the untouched original bytes"
+      else
+        bok "CGFX (3DS) edited geometry -> rebuilt container"
+        $B/wmdlt ENCODE /tmp/_r_edit.bcres -d /tmp/_r_edit_out.glb --overwrite >/dev/null 2>&1
+        local e; e=$(python3 -c "
+import json, struct
+d = open('/tmp/_r_edit_out.glb', 'rb').read()
+jl = struct.unpack('<I', d[12:16])[0]
+j = json.loads(d[20:20 + jl])
+acc = j['accessors'][0]
+bv = j['bufferViews'][acc['bufferView']]
+off = 20 + jl + 8 + bv['byteOffset'] + acc.get('byteOffset', 0)
+print(struct.unpack_from('<1f', d, off)[0])" 2>/dev/null || true)
+        if [ "$e" = "123.125" ] 2>/dev/null; then
+          ok "CGFX (3DS) edited geometry survived roundtrip (v0.x = $e)"
+        else
+          no "CGFX (3DS) edited geometry survived roundtrip" "expected v0.x=123.125, got '$e'"
+        fi
+      fi
       return
     fi
     no "CGFX (3DS) -> GLB" "no valid geometry from $f"

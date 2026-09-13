@@ -1193,11 +1193,145 @@ static int bc_invert43 (float out[12], const float m[12])
 	return 1;
 }
 
+static bool bcres_float_close (float a, float b)
+{
+	float d = a - b;
+	if (d < 0.0f)
+		d = -d;
+	return d < 0.001f;
+}
+
+static bool bcres_vec_close (const vec3_t *a, const vec3_t *b)
+{
+	return bcres_float_close (a->x, b->x) && bcres_float_close (a->y, b->y)
+		&& bcres_float_close (a->z, b->z);
+}
+
+static bool bcres_vec2_close (const vec2_t *a, const vec2_t *b)
+{
+	return bcres_float_close (a->u, b->u) && bcres_float_close (a->v, b->v);
+}
+
+// True when a re-parse of the embedded original BCRES describes the same
+// content as the model being encoded. The GLB pipeline passes through the
+// exact floating-point values it decoded (f32 exports, no re-quantization),
+// so the tiny tolerance only absorbs round-trip jitter while a real edit --
+// a different vertex count, moved vertices, or an edited material/skeleton
+// name set -- fails the comparison and forces a fresh build instead of
+// silently returning the untouched original bytes.
+static bool bcres_model_matches (const model_t *ref, const model_t *cur)
+{
+	if (!ref || !cur)
+		return false;
+	if (!ref->num_meshes || ref->num_meshes != cur->num_meshes)
+		return false;
+	if (ref->num_materials != cur->num_materials)
+		return false;
+
+	// A skeleton only survives the GLB pipeline when the mesh is actually
+	// skinned; an unweighted CGFX skeleton (e.g. an SOBJ with no bindings)
+	// is dropped on export and re-imports as zero joints. Only when the
+	// GLB model actually carries joints are they worth comparing against
+	// the original -- the digest of an unchanged model is zero there too.
+	// A model that GAINED joints on the GLB side must have been edited, so
+	// that case does not short-circuit to "unchanged".
+	if (cur->num_joints > 0)
+	{
+		if (ref->num_joints != cur->num_joints)
+			return false;
+		for (size_t i = 0; i < ref->num_joints; i++)
+			if (ref->joints[i].parent_idx != cur->joints[i].parent_idx
+				|| strcmp (ref->joints[i].name, cur->joints[i].name))
+				return false;
+	}
+
+	for (size_t m = 0; m < ref->num_meshes; m++)
+	{
+		const mesh_t *a = &ref->meshes[m];
+		const mesh_t *b = &cur->meshes[m];
+		if (a->num_vertices != b->num_vertices || a->num_positions != b->num_positions
+			|| a->num_normals != b->num_normals || a->num_texcoords != b->num_texcoords
+			|| a->material_idx != b->material_idx)
+			return false;
+
+		// The GLB pipeline stores positions/normals/texcoords in index
+		// order and re-assembles them back through vertices[].position_idx
+		// (etc.) on import, so the two arrays are only directly comparable
+		// through that mapping. If the underlying index permutation was
+		// preserved -- vertices have not diverged in count or in the
+		// data they reference -- the model is still the original one.
+		for (size_t v = 0; v < a->num_vertices; v++)
+		{
+			int ap = a->vertices[v].position_idx;
+			int bp = b->vertices[v].position_idx;
+			int an = a->vertices[v].normal_idx;
+			int bn = b->vertices[v].normal_idx;
+			int at = a->vertices[v].texcoord_idx;
+			int bt = b->vertices[v].texcoord_idx;
+			if (ap != bp || an != bn || at != bt)
+				return false;
+			if ((ap >= 0 && bp >= 0) && (a->positions && b->positions)
+				&& !bcres_vec_close (&a->positions[ap], &b->positions[bp]))
+				return false;
+			if ((an >= 0 && bn >= 0) && (a->normals && b->normals)
+				&& !bcres_vec_close (&a->normals[an], &b->normals[bn]))
+				return false;
+			if ((at >= 0 && bt >= 0) && (a->texcoords && b->texcoords)
+				&& !bcres_vec2_close (&a->texcoords[at], &b->texcoords[bt]))
+				return false;
+		}
+	}
+
+	for (size_t i = 0; i < ref->num_materials; i++)
+	{
+		const material_t *a = &ref->materials[i];
+		const material_t *b = &cur->materials[i];
+
+		// The GLB pipeline may collapse a material's multiple texture
+		// references down to the one it can express, so counts are not
+		// directly comparable. Every texture the GLB material still
+		// references must exist in the original, or the material was
+		// edited. The GLB path names textures after the original (with
+		// optional image extension stripped), so exact string match
+		// against the original set is the right test.
+		for (int t = 0; t < b->num_textures; t++)
+		{
+			bool found = false;
+			for (int u = 0; u < a->num_textures; u++)
+			{
+				if (!strcmp (a->textures[u], b->textures[t]))
+				{
+					found = true;
+					break;
+				}
+			}
+			if (!found)
+				return false;
+		}
+	}
+
+	return true;
+}
+
+// Reuse the embedded original container only when the model being encoded
+// genuinely still describes it. Any mismatch routes to a fresh build.
+static bool bcres_raw_matches (const model_t *model)
+{
+	if (!model->bcres_raw || !model->bcres_raw_size)
+		return false;
+	model_t *ref = ParseBCRES (model->bcres_raw, model->bcres_raw_size);
+	if (!ref)
+		return false;
+	const bool ok = bcres_model_matches (ref, model);
+	FreeModel (ref);
+	return ok;
+}
+
 int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 {
 	if (!model || !out_data || !out_size)
 		return 0;
-	if (model->bcres_raw && model->bcres_raw_size)
+	if (model->bcres_raw && model->bcres_raw_size && bcres_raw_matches (model))
 	{
 		*out_data = MALLOC (model->bcres_raw_size);
 		if (!*out_data)
