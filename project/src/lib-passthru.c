@@ -1757,11 +1757,24 @@ static enumError passthru_archive (
 		snprintf (exefsdir_arg, sizeof (exefsdir_arg), "--exefsdir=%s", exefs_path);
 		snprintf (romfsdir_arg, sizeof (romfsdir_arg), "--romfsdir=%s", romfs_path);
 
+		// makerom's NCCH rebuild mode (see the repack side of this pair,
+		// below) takes '-exheader <file>' and '-romfs <file>' -- single
+		// binaries, not directories -- so dump those pristine blobs
+		// alongside the exploded trees ctrtool also writes for editing.
+		// There's no romfs *builder* on this machine (3dstool or
+		// equivalent), so repack can only replay this untouched romfs.bin
+		// verbatim; a romfs/ tree edit has nothing to rebuild it from yet.
+		char exheader_arg[PATH_MAX], romfsbin_arg[PATH_MAX];
+		snprintf (exheader_arg, sizeof (exheader_arg), "--exheader=%s/exheader.bin", stage);
+		snprintf (romfsbin_arg, sizeof (romfsbin_arg), "--romfs=%s/romfs.bin", stage);
+
 		char *argv[16];
 		int argc = 0;
 		argv[argc++] = (char *)tool;
 		argv[argc++] = exefsdir_arg;
 		argv[argc++] = romfsdir_arg;
+		argv[argc++] = exheader_arg;
+		argv[argc++] = romfsbin_arg;
 		argv[argc++] = "--decompresscode";
 		argv[argc++] = (char *)src;
 		argv[argc] = 0;
@@ -3208,10 +3221,21 @@ enumError PassthruPack (ccp src_dir, ccp dest)
 			if (testmode)
 				return ERR_OK;
 
-			char romfs_dir[PATH_MAX], exefs_dir[PATH_MAX], icon_path[PATH_MAX],
-				banner_path[PATH_MAX];
-			snprintf (romfs_dir, sizeof (romfs_dir), "%s/romfs", src_dir);
-			snprintf (exefs_dir, sizeof (exefs_dir), "%s/exefs", src_dir);
+			// makerom's rebuild mode (confirmed against its own -help, not
+			// guessed) takes single files, not directories: '-code' wants
+			// the decompressed ExeFS ".code" binary, '-exheader'/'-romfs'
+			// want the raw blobs ctrtool's extraction side now dumps
+			// alongside the exploded trees (see the matching comment
+			// there). There is no romfs *builder* on this machine, so an
+			// edit made inside the exploded romfs/ tree has nothing to
+			// rebuild romfs.bin from -- this can only replay the pristine
+			// dump verbatim, same documented limitation as the DS
+			// arm9/arm7 "functional, not always 1:1" cases elsewhere here.
+			char code_path[PATH_MAX], exheader_path[PATH_MAX], romfs_path[PATH_MAX],
+				icon_path[PATH_MAX], banner_path[PATH_MAX];
+			snprintf (code_path, sizeof (code_path), "%s/exefs/code.bin", src_dir);
+			snprintf (exheader_path, sizeof (exheader_path), "%s/exheader.bin", src_dir);
+			snprintf (romfs_path, sizeof (romfs_path), "%s/romfs.bin", src_dir);
 			snprintf (icon_path, sizeof (icon_path), "%s/exefs/icon.bin", src_dir);
 			snprintf (banner_path, sizeof (banner_path), "%s/exefs/banner.bin", src_dir);
 
@@ -3224,15 +3248,20 @@ enumError PassthruPack (ccp src_dir, ccp dest)
 			argv[argc++] = (char *)dest;
 
 			struct stat st;
-			if (stat (romfs_dir, &st) == 0 && S_ISDIR (st.st_mode))
+			if (stat (code_path, &st) == 0 && S_ISREG (st.st_mode))
+			{
+				argv[argc++] = "-code";
+				argv[argc++] = code_path;
+			}
+			if (stat (exheader_path, &st) == 0 && S_ISREG (st.st_mode))
+			{
+				argv[argc++] = "-exheader";
+				argv[argc++] = exheader_path;
+			}
+			if (stat (romfs_path, &st) == 0 && S_ISREG (st.st_mode))
 			{
 				argv[argc++] = "-romfs";
-				argv[argc++] = romfs_dir;
-			}
-			if (stat (exefs_dir, &st) == 0 && S_ISDIR (st.st_mode))
-			{
-				argv[argc++] = "-exefsdir";
-				argv[argc++] = exefs_dir;
+				argv[argc++] = romfs_path;
 			}
 			if (stat (icon_path, &st) == 0 && S_ISREG (st.st_mode))
 			{
@@ -3253,6 +3282,12 @@ enumError PassthruPack (ccp src_dir, ccp dest)
 					remove_dir_recursive (src_dir);
 				return ERR_OK;
 			}
+			// makerom ran and failed: don't fall through to the generic
+			// archive path below -- that would silently write a plain U8
+			// archive at DEST's .3ds/.cia/.cci path, a file that looks
+			// like a real repack but isn't one.
+			return ERROR0 (ERR_SUBJOB_FAILED, "pass-through 'makerom' failed for %s (exit %d)",
+				dest, rc);
 		}
 
 		if (dst_exists)
