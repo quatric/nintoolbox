@@ -2672,6 +2672,91 @@ assert order[:6] == [b'AUDI', b'TNID', b'PACK', b'NMOF', b'ADOF', b'TNNM'], 'chu
       no "NUS3AUDIO (retail-style) same-size edit keeps layout byte-exact" "failed"
     fi
 
+    # PAC (Nd Cube): "PAC\0" Wii U flat container (Mario Party 10 / AC
+    # amiibo Festival). Members are zlib streams; CREATing onto the existing
+    # archive must reuse it byte-exact while an edit falls back to a fresh
+    # zlib rebuild that still round-trips.
+    python3 -c "
+import struct
+u32 = lambda v: struct.pack('>I', v)
+m1 = b'gfx2' + struct.pack('>I', 0x100) + b'A'*80
+m2 = b'bnfm' + struct.pack('>I', 0x200) + b'B'*40
+import zlib
+z1 = zlib.compress(m1, 6)   # level 6 -> 0x78 0x9c header
+z2 = zlib.compress(m2, 9)   # level 9 -> 0x78 0xda header
+name1 = b'chara/cat00.bnfm'  # nested name -> subdirectory
+name2 = b'chara/cat00.tex'
+n = 2
+langstart = 0x44
+fileheaderstart = 0x60       # after header (0x44) + one 16-byte language block
+strings_off = fileheaderstart + n*0x30
+names_blob = name1 + b'\x00' + name2 + b'\x00'
+data_off = (strings_off + len(names_blob) + 0x1f) & ~0x1f
+fstart1 = data_off + 17      # deliberately unaligned
+fstart2 = fstart1 + len(z1)
+total = (fstart2 + len(z2) + 0x1f) & ~0x1f
+def entry(name_off, fstart, fsize, zsize):
+    return (u32(name_off)+u32(0)+u32(0)+u32(0)+u32(fstart)+u32(fsize)
+            +u32(zsize)+u32(zsize)+u32(0)+u32(0)+u32(0)+u32(0))
+entries = (entry(strings_off, fstart1, len(m1), len(z1))
+           + entry(strings_off + len(name1) + 1, fstart2, len(m2), len(z2)))
+out = bytearray(total + 22)
+def place(off, blob): out[off:off+len(blob)] = blob
+place(0x00, b'PAC\x00')
+place(0x04, u32(0x44))               # HEADERLENGTH
+place(0x0c, u32(data_off))           # OVERALLFILESTART
+place(0x10, u32(total))              # PACSIZE
+place(0x14, u32(1))                  # LANGUAGECOUNT
+place(0x20, u32(n))                  # FILETOTAL
+place(0x30, u32(0))
+place(0x34, u32(langstart))          # LANGUAGESTART
+place(0x38, u32(fileheaderstart))    # FILEHEADERSTART
+place(0x3c, u32(strings_off))        # STRINGSTART
+place(0x40, u32(data_off))           # OVERALLFILESTART2
+place(langstart, u32(1)+u32(0)+u32(n)+u32(fileheaderstart))  # language block
+place(fileheaderstart, entries)
+place(strings_off, names_blob)
+place(fstart1, z1)
+place(fstart2, z2)
+place(total, b'PAC_TRAILING_JUNK')
+open('$d/cat00.bin', 'wb').write(bytes(out))
+" 2>/dev/null
+    rm -rf "$d/pac_tree"
+    if [ -f "$d/cat00.bin" ] \
+    && cp "$d/cat00.bin" "$d/cat00_orig.bin" \
+    && "$B/wszst" xx "$d/cat00.bin" --dest "$d/pac_tree" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/pac_tree/chara/cat00.bnfm" ] \
+    && [ -s "$d/pac_tree/chara/cat00.tex" ] \
+    && "$B/wszst" CREATE "$d/pac_tree" --dest "$d/cat00.bin" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/cat00_orig.bin" "$d/cat00.bin"; then
+      ok "PAC (Nd Cube) byte-exact CREATE roundtrip (header/lang/trailing kept)"
+    else
+      no "PAC (Nd Cube) byte-exact CREATE roundtrip" "failed"
+    fi
+
+    # Edit a member: create must fall back to a fresh zlib rebuild that
+    # still extracts to the edited content. Also: a missing .pac destination
+    # still builds the unrelated Brawl "ARC" container unchanged.
+    if python3 -c "
+d = bytearray(open('$d/pac_tree/chara/cat00.bnfm','rb').read())
+d[4:] = b'Z'*80
+open('$d/pac_tree/chara/cat00.bnfm','wb').write(bytes(d))
+" 2>/dev/null \
+    && "$B/wszst" CREATE "$d/pac_tree" --dest "$d/cat00.bin" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -l 4 -p "$d/cat00.bin")" = "50414300" ] \
+    && rm -rf "$d/pac_tree2" \
+    && "$B/wszst" xx "$d/cat00.bin" --dest "$d/pac_tree2" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/pac_tree/chara/cat00.bnfm" "$d/pac_tree2/chara/cat00.bnfm" \
+    && cmp -s "$d/pac_tree/chara/cat00.tex" "$d/pac_tree2/chara/cat00.tex" \
+    && mkdir -p "$d/pac_arc" \
+    && printf 'hello world data' > "$d/pac_arc/foo.txt" \
+    && "$B/wszst" CREATE "$d/pac_arc" --dest "$d/pac_arc_new.pac" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -l 4 -p "$d/pac_arc_new.pac")" = "41524300" ]; then
+      ok "PAC (Nd Cube) edited rebuild round-trips + absent .pac stays ARC (Brawl)"
+    else
+      no "PAC (Nd Cube) edited rebuild / ARC fallback" "failed"
+    fi
+
 
     # NUT (Smash 4 NTP3 texture container)
     python3 -c "

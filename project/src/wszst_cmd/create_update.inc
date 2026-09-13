@@ -1086,10 +1086,11 @@ static enumError cmd_create (bool create)
 		}
 		if (create && ext && !strcasecmp (ext, ".bin"))
 		{
-			enumError err = create_mpbin_dir (source_dir, dest);
+			enumError err = create_bin_dir (source_dir, dest);
 			if (verbose >= 0 || testmode)
-				fprintf (stdlog, "%s%sCREATE MPBIN %s/ -> %s\n", verbose > 0 ? "\n" : "",
-					testmode ? "WOULD " : "", source_dir, dest);
+				fprintf (stdlog, "%s%sCREATE %s %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", ndcube_pac_dest (dest) ? "PAC (NDCUBE)" : "MPBIN",
+					source_dir, dest);
 			if (max_err < err)
 				max_err = err;
 			ResetSetupParam (&sp);
