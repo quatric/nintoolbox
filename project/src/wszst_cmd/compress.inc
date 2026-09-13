@@ -4568,7 +4568,7 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 				// entries the game never expected. Delete it; a future EXTRACT
 				// regenerates the same preview on demand.
 				unlink (path);
-				if (verbose >= 0)
+				if (verbose > 0)
 					fprintf (stdlog, "SKIP PREVIEW %s\n", path);
 			}
 		}
