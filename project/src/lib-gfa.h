@@ -27,12 +27,15 @@ enumError ScanGFA (gfa_t *gfa, const u8 *data, uint size);
 enumError CreateGFA (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries,
 	uint compression, // GFCP compression id to re-encode with: 1=BPE, 2 or 3=raw LZ10.
-		// Any other value (including 0, "unknown") falls back to LZ10 (3), the
-		// long-standing default -- but a caller repacking an existing archive
-		// should always pass the id it actually read back from that archive's
-		// own GFCP header (see peek_gfa_compression() in compress.inc), not 0,
-		// or every re-CREATE of a BPE-compressed source silently converts it to
-		// LZ10 even though nothing about its content changed.
+		// Any other value (including 0, "unknown") falls back to BPE (1) --
+		// every retail .gfa checked against this format uses BPE, so that's
+		// the realistic default for a brand new archive. A caller repacking
+		// an existing archive should still always pass the id it actually
+		// read back from that archive's own GFCP header (see
+		// peek_gfa_compression() in compress.inc), not 0, or every re-CREATE
+		// whose original compression can't be peeked (destination doesn't
+		// exist yet, or was renamed) silently changes format even though
+		// nothing about its content changed.
 	const ParamField_t *hash_hint); // NULL, or a name->value table (see
 		// ReadGFAHashHints()) supplying the opaque per-entry value that goes
 		// in each 16-byte record's first 4 bytes. That value isn't a
