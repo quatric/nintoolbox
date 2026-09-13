@@ -846,7 +846,8 @@ static enumError collect_sarc_dir (sarc_build_list_t *list, ccp root, ccp rel)
 		// including it here as a member is why re-CREATE-ing an
 		// EXTRACT-ed rarc/nccarc/etc. tree used to balloon or corrupt the
 		// second-generation archive.
-		if (!strcmp (name, SZS_SETUP_FILE) || !strcmp (name, ".wszst-cache.txt"))
+		if (!strcmp (name, SZS_SETUP_FILE) || !strcmp (name, ".wszst-cache.txt")
+			|| !strcmp (name, SZS_MTIME_BASELINE_FILE))
 			continue;
 		const uint dlen = strlen (name);
 		if (dlen >= 2 && name[dlen - 1] == 'd' && name[dlen - 2] == '.')
@@ -932,7 +933,7 @@ static enumError create_sarc_dir (ccp source, ccp dest, bool big_endian)
 		if (!err)
 		{
 			File_t F;
-			err = CreateFileOpt (&F, true, dest, false, source);
+			err = CreateFileOpt (&F, true, dest, false, dest);
 			if (F.f && fwrite (final_data, 1, final_size, F.f) != final_size)
 				err = FILEERROR1 (
 					&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", final_size, dest);
@@ -958,7 +959,7 @@ static enumError create_narc_dir (ccp source, ccp dest, bool is_le)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -981,7 +982,7 @@ static enumError create_darc_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1004,7 +1005,7 @@ static enumError create_pac_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1074,7 +1075,7 @@ static enumError create_sfzdat_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1112,7 +1113,7 @@ static enumError create_warc_dir (ccp source, ccp dest)
 		if (!err)
 		{
 			File_t F;
-			err = CreateFileOpt (&F, true, dest, false, source);
+			err = CreateFileOpt (&F, true, dest, false, dest);
 			if (F.f && fwrite (final_data, 1, final_size, F.f) != final_size)
 				err = FILEERROR1 (
 					&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", final_size, dest);
@@ -1138,7 +1139,7 @@ static enumError create_bg4_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1161,7 +1162,7 @@ static enumError create_sa01_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1184,7 +1185,7 @@ static enumError create_ca01_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1207,7 +1208,7 @@ static enumError create_cram_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1230,7 +1231,7 @@ static enumError create_xpck_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1253,7 +1254,7 @@ static enumError create_ztab_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1276,7 +1277,7 @@ static enumError create_mdr_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1299,7 +1300,7 @@ static enumError create_vff_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1322,7 +1323,7 @@ static enumError create_pvol_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1345,7 +1346,7 @@ static enumError create_stpk_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1368,7 +1369,7 @@ static enumError create_f9res_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1391,7 +1392,7 @@ static enumError create_gpkg_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1414,7 +1415,7 @@ static enumError create_mkgpdx_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1437,7 +1438,7 @@ static enumError create_mtxt_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1460,7 +1461,7 @@ static enumError create_sir0_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1483,7 +1484,7 @@ static enumError create_gar_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1644,7 +1645,7 @@ static enumError create_ptlg_dir (ccp source, ccp dest, bool is_gc)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (!err && F.f && fwrite (dest_ptlg, 1, dest_ptlg_size, F.f) != dest_ptlg_size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing PTLG failed: %s\n", dest);
 		ResetFile (&F, opt_preserve);
@@ -1667,7 +1668,7 @@ static enumError create_apak_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1690,7 +1691,7 @@ static enumError create_nxarc_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1713,7 +1714,7 @@ static enumError create_pkz_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1736,7 +1737,7 @@ static enumError create_tmpk_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1759,7 +1760,7 @@ static enumError create_vibs_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1782,7 +1783,7 @@ static enumError create_zlarc_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1805,7 +1806,7 @@ static enumError create_fsys_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -1890,7 +1891,7 @@ static enumError create_gsh_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -2002,7 +2003,7 @@ static enumError create_rflres_dir (ccp source, ccp dest, bool big_endian)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -2025,7 +2026,7 @@ static enumError create_rarc_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -2066,7 +2067,7 @@ static enumError create_sar_dir (ccp source, ccp dest, ccp magic_type)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -2136,11 +2137,19 @@ static enumError create_gfa_dir (ccp source, ccp dest)
 	u8 *data = 0;
 	uint size = 0;
 	if (!err)
-		err = CreateGFA (&data, &size, list.entry, list.used);
+	{
+		// Re-encode with whatever compression the archive being replaced
+		// already used (BPE vs raw LZ10), so a plain content edit doesn't
+		// also silently flip the archive's compression format. No existing
+		// 'dest' (a brand new archive) falls back to CreateGFA's own default.
+		uint compression = 0;
+		PeekGFACompression (dest, &compression);
+		err = CreateGFA (&data, &size, list.entry, list.used, compression);
+	}
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -2163,7 +2172,7 @@ static enumError create_nus3audio_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -2187,7 +2196,7 @@ static enumError create_ccf_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -2210,7 +2219,7 @@ static enumError create_nccarc_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -2235,7 +2244,7 @@ static enumError create_at7_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -2292,7 +2301,7 @@ static enumError create_ctpk_dir (ccp source, ccp dest)
 		if (!err && !testmode)
 		{
 			File_t F;
-			err = CreateFileOpt (&F, true, dest, false, source);
+			err = CreateFileOpt (&F, true, dest, false, dest);
 			if (F.f && fwrite (out, 1, total_size, F.f) != total_size)
 				err = FILEERROR1 (
 					&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", total_size, dest);
@@ -2442,7 +2451,7 @@ static enumError create_ctpk_dir (ccp source, ccp dest)
 	if (!testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (out, 1, total_size, F.f) != total_size)
 			err = FILEERROR1 (
 				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", total_size, dest);
@@ -2509,7 +2518,7 @@ static enumError create_mpbin_dir (ccp source, ccp dest)
 	if (!testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (out, 1, cur_off, F.f) != cur_off)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", cur_off, dest);
 		ResetFile (&F, opt_preserve);
@@ -2812,7 +2821,7 @@ static enumError encode_sequence_file (ccp source, ccp dest)
 	if (!err && out && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (out, 1, out_size, F.f) != out_size)
 			err = FILEERROR1 (
 				&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", out_size, dest);
@@ -3048,7 +3057,7 @@ static enumError create_bigf_dir (ccp source, ccp dest)
 			memcpy (table, "L234", 4);
 
 			File_t F;
-			err = CreateFileOpt (&F, true, dest, false, source);
+			err = CreateFileOpt (&F, true, dest, false, dest);
 			if (F.f && fwrite (data, 1, total_size, F.f) != total_size)
 				err = FILEERROR1 (
 					&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n",
@@ -3214,7 +3223,7 @@ static enumError create_arcv_dir (ccp source, ccp dest)
 				}
 
 				File_t F;
-				err = CreateFileOpt (&F, true, dest, false, source);
+				err = CreateFileOpt (&F, true, dest, false, dest);
 				if (F.f && fwrite (out, 1, total_size, F.f) != total_size)
 					err = FILEERROR1 (&F, ERR_WRITE_FAILED,
 						"Writing %llu bytes failed: %s\n", (unsigned long long)total_size, dest);
@@ -3337,7 +3346,7 @@ static enumError create_jarc_dir (ccp source, ccp dest)
 				}
 
 				File_t F;
-				err = CreateFileOpt (&F, true, dest, false, source);
+				err = CreateFileOpt (&F, true, dest, false, dest);
 				if (F.f && fwrite (out, 1, total_size, F.f) != total_size)
 					err = FILEERROR1 (&F, ERR_WRITE_FAILED,
 						"Writing %llu bytes failed: %s\n", (unsigned long long)total_size, dest);
@@ -3432,7 +3441,7 @@ static enumError create_gpak_dir (ccp source, ccp dest)
 			if (!err)
 			{
 				File_t F;
-				err = CreateFileOpt (&F, true, dest, false, source);
+				err = CreateFileOpt (&F, true, dest, false, dest);
 				if (F.f && fwrite (out, 1, out_size, F.f) != out_size)
 					err = FILEERROR1 (&F, ERR_WRITE_FAILED,
 						"Writing %u bytes failed: %s\n", out_size, dest);
@@ -3512,7 +3521,7 @@ static enumError create_vcra_dir (ccp source, ccp dest)
 	if (!err && !testmode)
 	{
 		File_t F;
-		err = CreateFileOpt (&F, true, dest, false, source);
+		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (out, 1, total, F.f) != total)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", total, dest);
 		ResetFile (&F, opt_preserve);
@@ -4810,7 +4819,27 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 			else if (target_exists)
 			{
 				ref_mtime = st_target.st_mtime;
-				normalize_legacy_tree_mtimes(path,ref_mtime);
+
+				// normalize_legacy_tree_mtimes() folds in the one-time clock skew
+				// between a container and decoder output it never got a
+				// wszst-setup.txt marker for (GFA/PAC/SARC/etc. extraction doesn't
+				// write one). Without a guard this reruns on every CREATE and
+				// re-stamps every member's mtime down to ref_mtime each time --
+				// which also erases a genuine edit made shortly (<600s) after the
+				// last build, so the very next CREATE sees "nothing newer" and
+				// silently skips rebuilding a sub-archive that did change. Run it
+				// at most once per tree and leave a marker behind.
+				char baseline_marker[PATH_MAX];
+				snprintf (baseline_marker, sizeof (baseline_marker), "%s/%s",
+					path, SZS_MTIME_BASELINE_FILE);
+				struct stat st_marker;
+				if (stat (baseline_marker, &st_marker) != 0)
+				{
+					normalize_legacy_tree_mtimes(path,ref_mtime);
+					FILE *mf = fopen (baseline_marker, "w");
+					if (mf)
+						fclose (mf);
+				}
 			}
 
 			bool need_rebuild

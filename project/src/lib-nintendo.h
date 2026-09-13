@@ -320,7 +320,8 @@ enumError CreateRARC (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 
 enumError CreateGFA (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries,
+	uint compression);
 
 enumError CreateNCCARC (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);

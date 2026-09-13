@@ -5592,6 +5592,28 @@ static enumError extract_gfa_file (ccp arg, ccp basedir, uint depth)
 		enumError sub_err = extract_tree_complete (dest, depth + 1);
 		if (err < sub_err)
 			err = sub_err;
+
+		// GFA extraction (unlike the generic SZS pipeline) never writes a
+		// wszst-setup.txt marker into 'dest', so CREATE's staleness check
+		// falls back to normalize_legacy_tree_mtimes(), which folds any
+		// container/decoder clock skew into a single baseline by stamping
+		// every member's mtime down to the archive's own mtime. Do that fold
+		// once, right now, before the user can touch anything: a later CREATE
+		// run then only ever finds this baseline already in place (see the
+		// SZS_MTIME_BASELINE_FILE guard in compress.inc) and compares a real
+		// edit's mtime against it untouched, instead of re-running the fold
+		// and silently erasing the very edit it's supposed to detect.
+		struct stat st_arg;
+		if (!stat (arg, &st_arg))
+		{
+			normalize_legacy_tree_mtimes (dest, st_arg.st_mtime);
+			char baseline_marker[PATH_MAX];
+			snprintf (baseline_marker, sizeof (baseline_marker), "%s/%s",
+				dest, SZS_MTIME_BASELINE_FILE);
+			FILE *mf = fopen (baseline_marker, "w");
+			if (mf)
+				fclose (mf);
+		}
 	}
 	return err;
 }
@@ -8609,6 +8631,57 @@ static enumError extract_nds_banner_metadata (ccp arg)
 	}
 
 	ResetNDSBanner (&banner);
+	FREE (data);
+	return err;
+}
+
+// 3DS SMDH (icon.bin / *.smdh, standalone or unpacked from a CIA/3DSX/CCI):
+// write the per-language title/publisher sidecar. The small/large icons
+// themselves are an ordinary wimgt input (AssignIMG claims SMDH), so they
+// are not duplicated here.
+static enumError extract_smdh_metadata (ccp arg)
+{
+	u8 *data = 0;
+	size_t file_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &data, &file_size, 0, 0, 0, false))
+		return ERR_NOTHING_TO_DO;
+	if (file_size < SMDH_SIZE || memcmp (data, "SMDH", 4))
+	{
+		FREE (data);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	smdh_t smdh;
+	if (ScanSMDH (&smdh, data, (uint)file_size))
+	{
+		FREE (data);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT SMDH titles:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	enumError err = ERR_OK;
+	if (!testmode)
+	{
+		char *text = TextSMDH (&smdh);
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, arg);
+		if (F.f)
+		{
+			fputs (text, F.f);
+			ResetFile (&F, 0);
+		}
+		FREE (text);
+	}
+
+	ResetSMDH (&smdh);
 	FREE (data);
 	return err;
 }

@@ -103,6 +103,10 @@ void LogSHA1 (ccp func, ccp file, uint line, cvp data, uint size, ccp info);
 #define SZS_HASH_CACHE_FILE ".wszst-cache.txt" // per-member content-hash cache for CREATE;
 // dot-prefixed so it's hidden and so scan_data()'s
 // existing "skip dotfiles" rule excludes it for free
+#define SZS_MTIME_BASELINE_FILE ".wszst-mtime-baseline" // marks that the one-time
+// legacy mtime migration (normalize_legacy_tree_mtimes) already ran for this
+// extracted tree, so later CREATE runs never re-clobber a genuine edit's
+// timestamp back down to the container's own mtime
 #define NODE_LIST_FILE "node-list.bin"
 #define EXT_LIST_FILE "ext-list.bin"
 #define CHECK_FILE_SIZE 0x800

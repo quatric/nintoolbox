@@ -2410,7 +2410,8 @@ bool is_dir_newer_than (ccp dirpath, time_t target_mtime)
 			if (!strcmp (de->d_name, "wszst-setup.txt") || !strcmp (de->d_name, "setup.txt")
 				|| !strcmp (de->d_name, "setup.bat") || !strcmp (de->d_name, "setup.sh")
 				|| !strcmp (de->d_name, "align-files.txt") || !strcmp (de->d_name, ".DS_Store")
-				|| !strcmp (de->d_name, SZS_HASH_CACHE_FILE) || strstr (de->d_name, "string-pool"))
+				|| !strcmp (de->d_name, SZS_HASH_CACHE_FILE)
+				|| !strcmp (de->d_name, SZS_MTIME_BASELINE_FILE) || strstr (de->d_name, "string-pool"))
 				continue;
 
 			// Suffix-based tool-generated companion files:
@@ -2459,7 +2460,14 @@ bool is_dir_newer_than (ccp dirpath, time_t target_mtime)
 				}
 			}
 
-			if (st.st_mtime > target_mtime + 2)
+			// No grace window here: the companion types above are already fully
+			// excluded (continue) or individually time-checked against their
+			// native sibling (PNG). Anything reaching this point is genuine
+			// user content or a freshly rebuilt sub-archive, and even a 1-2s
+			// edit-then-repack cycle (or a bottom-up rebuild cascading through
+			// multiple levels within the same process run) must still count
+			// as newer.
+			if (st.st_mtime > target_mtime)
 				newer = true;
 		}
 	}

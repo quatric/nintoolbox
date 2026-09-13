@@ -290,8 +290,44 @@ enumError ScanGFA (gfa_t *gfa, const u8 *data, uint size)
 	return ERR_OK;
 }
 
+// Read just the GFCP compression id (1=BPE, 2/3=raw LZ10) from an existing
+// on-disk .gfa file's header, without decompressing its payload. Used so a
+// re-CREATE can re-encode with the same scheme the original used instead of
+// always forcing LZ10 (see the CreateGFA 'compression' parameter).
+enumError PeekGFACompression (ccp path, uint *compression)
+{
+	if (!path || !compression)
+		return EINVAL;
+
+	FILE *f = fopen (path, "rb");
+	if (!f)
+		return ERR_CANT_OPEN;
+
+	u8 head[0x1c];
+	const size_t n = fread (head, 1, sizeof (head), f);
+	if (n < sizeof (head) || memcmp (head, "GFAC", 4))
+	{
+		fclose (f);
+		return EINVAL;
+	}
+
+	const u32 data_off = rd_le32 (head + 0x14);
+	u8 gfcp[20];
+	if (fseeko (f, data_off, SEEK_SET) || fread (gfcp, 1, sizeof (gfcp), f) < sizeof (gfcp)
+		|| memcmp (gfcp, "GFCP", 4))
+	{
+		fclose (f);
+		return EINVAL;
+	}
+	fclose (f);
+
+	*compression = rd_le32 (gfcp + 8);
+	return ERR_OK;
+}
+
 enumError CreateGFA (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries,
+	uint compression)
 {
 	if (!dest || !dest_size || !entries || !n_entries || n_entries > 0x100000)
 		return EINVAL;
@@ -320,9 +356,20 @@ enumError CreateGFA (
 		}
 	}
 
+	// Preserve whatever scheme the source archive actually used (see the
+	// 'compression' parameter doc in lib-gfa.h): re-encoding a BPE archive
+	// as LZ10 on every CREATE just because LZ10 was this function's original
+	// hardcoded default silently changes every repacked file's compression
+	// format even though nothing in its content changed.
+	const bool use_bpe = compression == 1;
+	if (compression != 1 && compression != 2 && compression != 3)
+		compression = 3; // no/invalid hint (e.g. brand new archive): default to LZ10, as before
+
 	u8 *zdata = 0;
 	uint zsize = 0;
-	enumError err = EncodeLZ10Raw (&zdata, &zsize, payload, payload_size);
+	enumError err = use_bpe
+		? EncodeBPE (&zdata, &zsize, payload, payload_size)
+		: EncodeLZ10Raw (&zdata, &zsize, payload, payload_size);
 	FREE (payload);
 	if (err)
 		return err;
@@ -366,7 +413,7 @@ enumError CreateGFA (
 
 	u8 *gfcp = out + data_off;
 	memcpy (gfcp, "GFCP", 4);
-	wr_le32 (gfcp + 8, 3);
+	wr_le32 (gfcp + 8, compression);
 	wr_le32 (gfcp + 12, payload_size);
 	wr_le32 (gfcp + 16, zsize);
 	memcpy (gfcp + 20, zdata, zsize);
