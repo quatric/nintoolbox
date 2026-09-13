@@ -11726,6 +11726,63 @@ t_wiiware_repack "World of Goo" "/Volumes/SSD/szs-retail-test/WiiWare/World of G
 t_wiiware_repack "Bonsai Barber" "/Volumes/SSD/szs-retail-test/WiiWare/Bonsai Barber (USA) (WiiWare).wad"
 t_wiiware_repack "My Pokemon Ranch" "/Volumes/SSD/szs-retail-test/WiiWare/My Pokemon Ranch (USA) (WiiWare).wad"
 
+# GameCube: real retail titles are commonly stored as .rvz (Dolphin's
+# compressed disc format, native decoder in lib-rvz.c). Extract via the
+# transparent .rvz->ISO decode, edit a byte in main.dol, selective repack
+# through wszst CREATE (to a plain .iso -- re-compressing back to .rvz is
+# not implemented, only decode), wit VERIFY, re-extract, confirm only the
+# edited byte changed.
+t_gamecube_rvz_repack(){
+  local title="$1" rvz="$2"
+  local label="GameCube packing round-trip ($title, main.dol byte edit)"
+  [ -f "$rvz" ] || { sk "$label"; return; }
+  command -v wit >/dev/null 2>&1 || { sk "$label (no wit binary)"; return; }
+
+  local d; d=$(mktemp -d "/tmp/_r_gcrvz_XXXXXX") || { no "$label" "mktemp failed"; return; }
+  "$B/wszst" xx "$rvz" --dest "$d/rom.d" --overwrite >"$d/xx1.log" 2>&1
+  local dol; dol=$(find "$d/rom.d" -iname 'main.dol' | head -1)
+  if [ -z "$dol" ]; then no "$label" "no main.dol in extracted disc (see xx1.log)"; rm -rf "$d"; return; fi
+  local romd; romd=$(dirname "$(dirname "$dol")")
+
+  cp "$dol" "$d/dol_orig.bin"
+  python3 -c "
+d = bytearray(open('$dol','rb').read())
+d[5000] ^= 0xFF
+open('$dol','wb').write(d)
+"
+  sleep 3
+  touch "$dol"
+
+  local out="$d/rebuilt.iso"
+  "$B/wszst" CREATE "$romd" --dest "$out" --overwrite >"$d/create.log" 2>&1
+  if [ ! -f "$out" ]; then no "$label" "CREATE did not produce $out (see create.log)"; rm -rf "$d"; return; fi
+  if ! wit VERIFY "$out" >"$d/verify.log" 2>&1; then
+    no "$label" "wit VERIFY failed on rebuilt disc"; rm -rf "$d"; return
+  fi
+
+  "$B/wszst" xx "$out" --dest "$d/reext" --overwrite >"$d/xx2.log" 2>&1
+  local dol2; dol2=$(find "$d/reext" -iname 'main.dol' | head -1)
+  if [ -z "$dol2" ]; then no "$label" "no main.dol after re-extraction"; rm -rf "$d"; return; fi
+
+  if python3 -c "
+a = open('$d/dol_orig.bin','rb').read()
+b = open('$dol2','rb').read()
+diffs = [i for i in range(min(len(a), len(b))) if a[i] != b[i]]
+import sys
+sys.exit(0 if diffs == [5000] and len(a) == len(b) else 1)
+" 2>/dev/null; then
+    ok "$label"
+  else
+    no "$label" "edited byte missing or unrelated bytes changed after repack"
+  fi
+  rm -rf "$d"
+}
+t_gamecube_rvz_repack "Pikmin" "/Volumes/SSD/szs-retail-test/GameCube/Pikmin (USA).rvz"
+t_gamecube_rvz_repack "Metroid Prime" "/Volumes/SSD/szs-retail-test/GameCube/Metroid Prime (USA).rvz"
+t_gamecube_rvz_repack "Pikmin 2" "/Volumes/SSD/szs-retail-test/GameCube/Pikmin 2 (USA).rvz"
+t_gamecube_rvz_repack "Super Mario Strikers" "/Volumes/SSD/szs-retail-test/GameCube/Super Mario Strikers (USA).rvz"
+t_gamecube_rvz_repack "Dance Dance Revolution - Mario Mix" "/Volumes/SSD/szs-retail-test/GameCube/Dance Dance Revolution - Mario Mix (USA) (Rev 1).rvz"
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]

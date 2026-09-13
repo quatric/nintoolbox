@@ -24,6 +24,7 @@
 #include "lib-nintendo.h"
 #include "lib-bms.h"
 #include "lib-aes.h"
+#include "lib-rvz.h"
 
 // option state, bound in tab-wszst.inc / CheckOptions() of wszst.c
 bool opt_no_passthrough = false; // --no-passthrough: disable pass-through
@@ -1102,7 +1103,8 @@ static bool is_disc_ext (ccp src)
 {
 	return is_ext (src, ".wbfs") || is_ext (src, ".wdf") || is_ext (src, ".ciso")
 		|| is_ext (src, ".iso") || is_ext (src, ".gcm") || is_ext (src, ".gca")
-		|| is_ext (src, ".wia") || is_ext (src, ".raw") || is_ext (src, ".img");
+		|| is_ext (src, ".wia") || is_ext (src, ".rvz") || is_ext (src, ".raw")
+		|| is_ext (src, ".img");
 }
 
 // True for the file extensions a real, not-yet-extracted DS ROM image is
@@ -2688,6 +2690,27 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 	//         uses 0xc2339f3d at 0x1c) right after the 0x18 byte title
 	//         / game code area.  XML-disc images skip the 0x400 byte
 	//         prefix, so probe 0x400 instead of 0 for those.
+	// Dolphin's compressed WIA/RVZ disc format: decode to a plain temp ISO
+	// first, then fall into the exact same wit-based disc claim below --
+	// wit itself has no RVZ/WIA support, but everything downstream of a
+	// plain raw ISO already works once one exists on disk. GameCube-only
+	// (DecodeRVZFile() rejects Wii/other-compression files cleanly).
+	if (IsRVZ (head, sizeof (head)) && is_disc_ext (src))
+	{
+		char rvz_iso[PATH_MAX];
+		snprintf (rvz_iso, sizeof (rvz_iso), "%s.rvz-decoded.iso", stage);
+		if (CreatePath (rvz_iso, false))
+			return ERROR0 (ERR_CANT_CREATE_DIR, "Cannot create dest dir for: %s", rvz_iso);
+		const enumError rvz_err = DecodeRVZFile (src, rvz_iso);
+		if (rvz_err > ERR_WARNING)
+			return rvz_err;
+		const enumError claim_err
+			= passthru_archive_or_bms (rvz_iso, basedir, stage, staged_dir, staged_dir_size, false,
+				false, false, true, false);
+		remove (rvz_iso);
+		return claim_err;
+	}
+
 	bool is_wbfs = !memcmp (head, "WBFS", 4);
 	bool is_wdf = !memcmp (head, "WDF\0", 4);
 	bool is_ciso = !memcmp (head, "CISO", 4);
