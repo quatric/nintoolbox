@@ -11523,6 +11523,93 @@ t_bcres_retail_3ds(){
 }
 t_bcres_retail_3ds
 
+echo "== Whole-game disc packing regression (extract -> edit -> selective repack -> wit verify) =="
+
+# Full disc-level packing workflow against real retail Wii .wbfs images, not
+# synthetic data: extract the whole disc via the wit pass-through, flip a
+# pixel inside the channel banner's Wii-U8 payload, run CREATE pointed
+# directly at the disc staging tree (the exact "disc-root over-repack"
+# and "IMET/IMD5 wrapper dropped" bugs this project has hit before), then
+# wit VERIFY the rebuilt .wbfs and re-extract to confirm only the touched
+# banner member changed. Gated on an external retail corpus -- skips
+# cleanly on any machine that doesn't have it.
+t_disc_banner_repack(){
+  local title="$1" wbfs="$2"
+  local label="disc packing round-trip ($title, opening.bnr edit)"
+  [ -f "$wbfs" ] || { sk "$label"; return; }
+  command -v wit >/dev/null 2>&1 || { sk "$label (no wit binary)"; return; }
+
+  local d; d=$(mktemp -d "/tmp/_r_discpack_XXXXXX") || { no "$label" "mktemp failed"; return; }
+  wit EXTRACT "$wbfs" --dest "$d/disc" --overwrite >"$d/wit_extract.log" 2>&1
+  local bnr; bnr=$(find "$d/disc" -iname 'opening.bnr' | head -1)
+  if [ -z "$bnr" ]; then no "$label" "no opening.bnr in extracted disc"; rm -rf "$d"; return; fi
+
+  "$B/wszst" xx "$bnr" --dest "$bnr.d" --overwrite >"$d/xx1.log" 2>&1
+  # is_dir_newer_than() (lib-passthru.c) requires a >2 second gap over the
+  # reference mtime by design (a grace period so auto-generated companion
+  # files don't make a directory look "newer" than it really is) -- clear
+  # that margin before editing, or the repack silently treats the edit as
+  # not-newer and just deletes the staging dir without ever repacking it.
+  sleep 3
+  local png; png=$(find "$bnr.d" -iname '*.tpl.png' | sort | head -1)
+  if [ -z "$png" ]; then no "$label" "no .tpl.png inside banner"; rm -rf "$d"; return; fi
+
+  # CREATE consumes and deletes this source .png once it's repacked back into
+  # the .tpl, so the expected pixel value must be captured now, not re-read
+  # from this same path afterward. Alpha is left untouched: some GX texture
+  # formats quantize alpha to far fewer than 8 bits, which would make an
+  # alpha edit fail this check on lossy grounds unrelated to packing
+  # correctness -- RGB is what this test cares about.
+  python3 -c "
+from PIL import Image
+im = Image.open('$png').convert('RGBA')
+px = im.load()
+r,g,b,a = px[0,0]
+px[0,0] = (255-r, 255-g, 255-b, a)
+im.save('$png')
+open('$d/expect_pixel.txt','w').write(repr(px[0,0][:3]))
+" 2>"$d/pil.log" || { sk "$label (no Pillow)"; rm -rf "$d"; return; }
+  # Force an unambiguously-newer mtime: the repack "needs rebuild?" checks
+  # compare whole-second mtimes, and a plain touch can land in the same
+  # second as the just-extracted container it must beat.
+  touch -t 203001010000 "$png"
+
+  local out="$d/rebuilt.wbfs"
+  # wit EXTRACT writes DATA/UPDATE directly under the --dest dir (no game-name
+  # wrapper directory the way wszst's own XX creates one).
+  local disc_root="$d/disc"
+  "$B/wszst" CREATE "$disc_root" --dest "$out" --overwrite >"$d/create.log" 2>&1
+  if [ ! -f "$out" ]; then no "$label" "CREATE did not produce $out (see create.log)"; rm -rf "$d"; return; fi
+
+  if ! wit VERIFY "$out" >"$d/verify.log" 2>&1; then
+    no "$label" "wit VERIFY failed on rebuilt disc"; rm -rf "$d"; return
+  fi
+
+  wit EXTRACT "$out" --dest "$d/reext" --overwrite >"$d/wit_reextract.log" 2>&1
+  local bnr2; bnr2=$(find "$d/reext" -iname 'opening.bnr' | head -1)
+  if [ -z "$bnr2" ]; then no "$label" "no opening.bnr in rebuilt disc"; rm -rf "$d"; return; fi
+  "$B/wszst" xx "$bnr2" --dest "$bnr2.d" --overwrite >"$d/xx2.log" 2>&1
+  # Same selection rule as the original pick above (sorted first *.tpl.png),
+  # not a basename match: banner.bin.d and icon.bin.d can share filenames.
+  local png2; png2=$(find "$bnr2.d" -iname '*.tpl.png' | sort | head -1)
+
+  if [ -n "$png2" ] && python3 -c "
+from PIL import Image
+b = Image.open('$png2').convert('RGBA').load()[0,0][:3]
+expect = eval(open('$d/expect_pixel.txt').read())
+import sys; sys.exit(0 if expect == b else 1)
+" 2>/dev/null; then
+    ok "$label"
+  else
+    no "$label" "edited pixel did not survive disc round-trip"
+  fi
+  rm -rf "$d"
+}
+t_disc_banner_repack "Namco Museum Remix" "/Volumes/SSD/szs-retail-test/Wii/Namco Museum Remix (USA).wbfs"
+t_disc_banner_repack "Excite Truck" "/Volumes/SSD/szs-retail-test/Wii/Excite Truck (USA).wbfs"
+t_disc_banner_repack "ExciteBots" "/Volumes/SSD/szs-retail-test/Wii/ExciteBots - Trick Racing (USA).wbfs"
+t_disc_banner_repack "Sonic and the Black Knight" "/Volumes/SSD/szs-retail-test/Wii/Sonic and the Black Knight (USA) (En,Ja,Fr,De,Es,It).wbfs"
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]

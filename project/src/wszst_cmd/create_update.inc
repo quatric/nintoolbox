@@ -8450,7 +8450,15 @@ static enumError extract_imet_file (ccp arg, ccp basedir, uint depth)
 
 	char dest[PATH_MAX];
 	if (opt_dest)
+	{
 		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+		// A plain literal --dest (no \1 substitution codes) comes back from
+		// SubstDest() unchanged: that's the same path this function also
+		// wants for the .u8 scaffold and for the final extraction directory
+		// below, so appending nothing here would make all three collide.
+		if (!strcmp (dest, opt_dest))
+			snprintf (dest, sizeof (dest), "%s.txt", opt_dest);
+	}
 	else
 		snprintf (dest, sizeof (dest), "%s.txt", arg);
 	if (verbose >= 0 || testmode)
@@ -8473,7 +8481,11 @@ static enumError extract_imet_file (ccp arg, ccp basedir, uint depth)
 
 	char u8dest[PATH_MAX];
 	if (opt_dest)
+	{
 		SubstDest (u8dest, sizeof (u8dest), arg, opt_dest, 0, ".u8", false);
+		if (!strcmp (u8dest, opt_dest))
+			snprintf (u8dest, sizeof (u8dest), "%s.u8", opt_dest);
+	}
 	else
 		snprintf (u8dest, sizeof (u8dest), "%s.u8", arg);
 	const uint u8_size = (uint)raw_size - imet.u8_offset;
