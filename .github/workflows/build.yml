@@ -70,7 +70,7 @@ jobs:
               armhf) sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf libpng-dev:armhf zlib1g-dev:armhf libncurses-dev:armhf libssl-dev:armhf ;;
             esac
           else
-            sudo apt-get install -y cmake libpng-dev zlib1g-dev libncurses-dev libglib2.0-dev
+            sudo apt-get install -y cmake libpng-dev zlib1g-dev libncurses-dev libglib2.0-dev libcurl4-openssl-dev
           fi
 
       - name: Build
@@ -195,22 +195,41 @@ jobs:
       - name: Install Rosetta
         run: softwareupdate --install-rosetta --agree-to-license
 
-      - name: Cache x86_64 Homebrew
-        id: cache-x86-brew
+      # The "second Homebrew under Rosetta" trick used to get an x86_64
+      # libpng.a no longer works: Homebrew's installer now refuses outright
+      # ("Homebrew on macOS is only supported on Apple Silicon processors!")
+      # rather than just warning, even under `arch -x86_64`. Build libpng
+      # from source instead, cross-compiled with clang -target, and drop the
+      # static lib straight into /usr/local -- setup.sh already prefers
+      # $HOMEBREW_PREFIX/lib/libpng.a (static) over -lpng when it exists, so
+      # mac-x86_64's HOMEBREW_PREFIX=/usr/local picks it up with no other
+      # changes needed.
+      - name: Cache x86_64 libpng build
+        id: cache-x86-libpng
         uses: actions/cache@v4
         with:
-          path: /usr/local/Homebrew
-          key: x86_64-homebrew-libpng-macos14-v1
+          path: ~/libpng-x86_64-install
+          key: x86_64-libpng-1.6.58-macos14-v1
 
-      - name: Install x86_64 Homebrew + libpng under Rosetta
-        if: steps.cache-x86-brew.outputs.cache-hit != 'true'
+      - name: Build x86_64 libpng from source
+        if: steps.cache-x86-libpng.outputs.cache-hit != 'true'
         run: |
-          arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" </dev/null
-          arch -x86_64 /usr/local/bin/brew install libpng
+          set -euo pipefail
+          curl -fsSL -o libpng.tar.gz https://github.com/pnggroup/libpng/archive/refs/tags/v1.6.58.tar.gz
+          tar xzf libpng.tar.gz
+          cd libpng-1.6.58
+          CC="clang -target x86_64-apple-macos14.0" ./configure \
+            --host=x86_64-apple-darwin --disable-shared --enable-static \
+            --prefix="$HOME/libpng-x86_64-install"
+          make -j"$(sysctl -n hw.ncpu)"
+          make install
+          ln -sf libpng16.a "$HOME/libpng-x86_64-install/lib/libpng.a"
 
-      - name: Relink x86_64 Homebrew (cache restore)
-        if: steps.cache-x86-brew.outputs.cache-hit == 'true'
-        run: arch -x86_64 /usr/local/bin/brew link --overwrite libpng
+      - name: Install x86_64 libpng to /usr/local
+        run: |
+          mkdir -p /usr/local/include /usr/local/lib
+          cp -R "$HOME/libpng-x86_64-install/include/." /usr/local/include/
+          cp -R "$HOME/libpng-x86_64-install/lib/." /usr/local/lib/
 
       - name: Build universal binaries
         # Homebrew bottles on this runner are built for macOS 14. Building
