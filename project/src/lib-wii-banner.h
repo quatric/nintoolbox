@@ -100,6 +100,25 @@ enumError ScanIMD5 (imd5_t *imd5, const u8 *data, uint size);
 enumError UnwrapWiiBannerFile (
 	u8 **dest, uint *dest_size, bool *was_compressed, const u8 *data, uint size);
 
+// Inverse of UnwrapWiiBannerFile(): optionally LZ-compresses PAYLOAD
+// ("LZ77" + stream, LZ11 iff LZ11 is set) and prepends an IMD5 header with
+// a fresh payload MD5.  On success *DEST is a fresh buffer the caller FREEs.
+enumError WrapWiiBannerFile (
+	u8 **dest, uint *dest_size, const u8 *payload, uint payload_size,
+	bool compress, bool lz11);
+
+// Re-wraps a rebuilt U8 payload with the caller's original IMET header:
+// the header bytes (channel titles, file count, padding form) are preserved
+// verbatim from ORIG, the three member sizes are replaced, and the header
+// MD5 is recomputed.  ICON_SIZE etc. are the unwrapped payload sizes of
+// meta/icon.bin, meta/banner.bin and meta/sound.bin in that order.
+// Returns ERR_INVALID_DATA if ORIG is not an IMET file.  On success *DEST
+// is a fresh buffer the caller FREEs.
+enumError CreateIMET (u8 **dest, uint *dest_size,
+	const u8 *u8_data, uint u8_size,
+	const u8 *orig, uint orig_size,
+	uint icon_size, uint banner_size, uint sound_size);
+
 //-----------------------------------------------------------------------------
 // WIBN: the banner of a Wii *save game* rather than a channel.  It lives at
 // the start of a save's decrypted banner.bin / data.bin and, unlike the

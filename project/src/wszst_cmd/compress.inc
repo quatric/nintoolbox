@@ -4028,6 +4028,183 @@ static void cleanup_extracted_artifacts (ccp root, bool is_root)
 	closedir (dir);
 }
 
+// A Wii disc/ROM staging tree (wit/ndstool/ctrtool/hactool output) is packed
+// by its companion tool, never as a generic archive.  If CREATE is pointed
+// one level too high, the bottom-up walk below would otherwise "repack" the
+// staging dir into a brand-new U8 file and delete the tree, leaving the
+// companion with no valid source.  Refuse to invent a container for it.
+static bool is_passthrough_staging_dir (ccp dir)
+{
+	struct stat st;
+	char check[PATH_MAX];
+	snprintf (check, sizeof (check), "%s/DATA/sys/main.dol", dir);
+	if (!stat (check, &st) && S_ISREG (st.st_mode))
+		return true;
+	snprintf (check, sizeof (check), "%s/sys/main.dol", dir);
+	if (!stat (check, &st) && S_ISREG (st.st_mode))
+		return true;
+	snprintf (check, sizeof (check), "%s/arm9.bin", dir);
+	if (!stat (check, &st) && S_ISREG (st.st_mode))
+		return true;
+	snprintf (check, sizeof (check), "%s/romfs", dir);
+	if (!stat (check, &st) && S_ISDIR (st.st_mode))
+		return true;
+	snprintf (check, sizeof (check), "%s/exefs", dir);
+	if (!stat (check, &st) && S_ISDIR (st.st_mode))
+		return true;
+	snprintf (check, sizeof (check), "%s/control/control.nacp", dir);
+	if (!stat (check, &st) && S_ISREG (st.st_mode))
+		return true;
+	snprintf (check, sizeof (check), "%s/tmd.bin", dir);
+	if (!stat (check, &st) && S_ISREG (st.st_mode))
+		return true;
+	snprintf (check, sizeof (check), "%s/cert.bin", dir);
+	if (!stat (check, &st) && S_ISREG (st.st_mode))
+		return true;
+	snprintf (check, sizeof (check), "%s/setup.txt", dir);
+	if (!stat (check, &st) && S_ISREG (st.st_mode))
+		return true;
+	return false;
+}
+
+// Unwrapped size of a Wii banner member (meta/icon.bin etc.): the IMD5/LZ77
+// payload size when wrapped, the file size when stored plain.  Missing files
+// fall back to the recorded size so one absent member cannot break the
+// whole banner rebuild.
+static uint wii_banner_member_size (ccp path, uint fallback)
+{
+	u8 *data = 0;
+	size_t size = 0;
+	if (LoadFileAlloc (path, 0, 0, &data, &size, UINT_MAX, 2, 0, false) || !data)
+		return fallback;
+	uint result = fallback;
+	u8 *unwrapped = 0;
+	uint unwrapped_size = 0;
+	if (!UnwrapWiiBannerFile (&unwrapped, &unwrapped_size, 0, data, (uint)size))
+		result = unwrapped_size;
+	else if (size <= UINT_MAX)
+		result = (uint)size;
+	FREE (unwrapped);
+	FREE (data);
+	return result;
+}
+
+// Wii channel banners (opening.bnr: IMET over U8 over IMD5/LZ77 members)
+// decode to a plain U8 tree but must be re-wrapped on repack: a bare U8
+// write silently drops the channel titles and the integrity hashes, and
+// balloons members that were LZ-compressed.  Rebuilds the inner U8 to a
+// temp file, then re-wraps it with the existing target's own wrapper.
+// Returns ERR_NOTHING_TO_DO if TARGET_FILE is not a banner wrapper, so the
+// caller falls through to the generic archive path.
+static enumError repack_wii_banner_dir (ccp source_d, ccp target_file)
+{
+	u8 *orig = 0;
+	size_t orig_size = 0;
+	if (LoadFileAlloc (target_file, 0, 0, &orig, &orig_size, UINT_MAX, 2, 0, false) || !orig
+		|| orig_size > UINT_MAX)
+	{
+		FREE (orig);
+		return ERR_NOTHING_TO_DO;
+	}
+	const uint osize = (uint)orig_size;
+	const bool want_imet = IsIMET (orig, osize);
+	const bool want_imd5 = !want_imet && IsIMD5 (orig, osize);
+	const bool want_lz = !want_imet && !want_imd5 && osize > 8 && !memcmp (orig, "LZ77", 4);
+	if (!want_imet && !want_imd5 && !want_lz)
+	{
+		FREE (orig);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	if (testmode)
+	{
+		if (verbose >= 0)
+			fprintf (stdlog, "WOULD REPACK %s %s/ -> %s\n",
+				want_imet ? "IMET" : want_imd5 ? "IMD5" : "LZ77", source_d, target_file);
+		FREE (orig);
+		return ERR_OK;
+	}
+
+	char tmp[PATH_MAX];
+	snprintf (tmp, sizeof (tmp), "%s.tmp-u8", target_file);
+	enumError err = create_archive_from_dir (source_d, tmp, 0);
+	if (err > ERR_WARNING)
+	{
+		FREE (orig);
+		return err;
+	}
+	u8 *u8data = 0;
+	size_t u8size = 0;
+	err = LoadFileAlloc (tmp, 0, 0, &u8data, &u8size, UINT_MAX, 2, 0, false);
+	remove (tmp);
+	if (err || !u8data || u8size > UINT_MAX)
+	{
+		FREE (u8data);
+		FREE (orig);
+		return err ? err : ERR_CANT_CREATE;
+	}
+
+	u8 *out = 0;
+	uint out_size = 0;
+	if (want_imet)
+	{
+		char member[PATH_MAX];
+		imet_t tmpl;
+		uint icon_sz = 0, banner_sz = 0, sound_sz = 0;
+		if (!ScanIMET (&tmpl, orig, osize))
+		{
+			icon_sz = tmpl.icon_size;
+			banner_sz = tmpl.banner_size;
+			sound_sz = tmpl.sound_size;
+			ResetIMET (&tmpl);
+		}
+		snprintf (member, sizeof (member), "%s/meta/icon.bin", source_d);
+		icon_sz = wii_banner_member_size (member, icon_sz);
+		snprintf (member, sizeof (member), "%s/meta/banner.bin", source_d);
+		banner_sz = wii_banner_member_size (member, banner_sz);
+		snprintf (member, sizeof (member), "%s/meta/sound.bin", source_d);
+		sound_sz = wii_banner_member_size (member, sound_sz);
+		err = CreateIMET (&out, &out_size, u8data, (uint)u8size,
+			orig, osize, icon_sz, banner_sz, sound_sz);
+	}
+	else
+	{
+		const u8 *body = orig;
+		uint body_size = osize;
+		if (want_imd5)
+		{
+			body = orig + IMD5_SIZE;
+			body_size = osize - IMD5_SIZE;
+		}
+		const bool compress = body_size > 8 && !memcmp (body, "LZ77", 4);
+		bool lz11 = false;
+		if (compress)
+		{
+			if (body[4] != 0x10 && body[4] != 0x11)
+			{
+				FREE (u8data);
+				FREE (orig);
+				return ERR_INVALID_DATA;
+			}
+			lz11 = body[4] == 0x11;
+		}
+		err = WrapWiiBannerFile (&out, &out_size, u8data, (uint)u8size, compress, lz11);
+	}
+	FREE (u8data);
+	FREE (orig);
+	if (err > ERR_WARNING)
+		return err;
+	err = SaveFILE (target_file, 0, true, out, out_size, 0);
+	FREE (out);
+	if (err > ERR_WARNING)
+		return err;
+	if (verbose >= 0)
+		fprintf (stdlog, "REPACK %s %s/ -> %s\n",
+			want_imet ? "IMET" : want_imd5 ? "IMD5" : "LZ77", source_d, target_file);
+	remove_dir_recursive (source_d);
+	return ERR_OK;
+}
+
 static enumError repack_tree_bottom_up (ccp root, uint depth)
 {
 	if (depth > 32)
@@ -4562,6 +4739,17 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 			if (!target_exists && !is_archive_dir_name (path, strlen (path)))
 				continue;
 
+			// A companion-tool staging tree is never a generic archive, even
+			// though is_archive_dir_name() claims it (see
+			// is_passthrough_staging_dir()).  Repacking it here would invent
+			// a bogus container and delete the tree the companion needs.
+			if (!target_exists && is_passthrough_staging_dir (path))
+			{
+				if (verbose >= 0)
+					fprintf (stdlog, "SKIP STAGING %s/ (needs explicit --dest)\n", path);
+				continue;
+			}
+
 			// Media extraction produces one editable MP4 preview. If its content is
 			// newer than the source, send it back through mobipeg using settings
 			// recovered from the source; otherwise discard the preview directory.
@@ -4642,12 +4830,20 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 						fclose(in);
 					}
 				}
-				enumError err = create_archive_from_dir (path, target_file, lz_type);
-				if (err <= ERR_WARNING)
+				// Wii banner wrappers (IMET / IMD5+"LZ77") decode to a plain
+				// U8 tree: re-wrap the rebuilt U8 instead of writing it bare.
+				enumError err = repack_wii_banner_dir (path, target_file);
+				if (err == ERR_NOTHING_TO_DO)
 				{
-					if (verbose >= 0)
-						fprintf (stdlog, "REPACK %s/ -> %s\n", path, target_file);
-					remove_dir_recursive (path);
+					err = create_archive_from_dir (path, target_file, lz_type);
+					if (err <= ERR_WARNING)
+					{
+						if (verbose >= 0)
+							fprintf (stdlog, "REPACK %s/ -> %s\n", path, target_file);
+						remove_dir_recursive (path);
+					}
+					else if (max_err < err)
+						max_err = err;
 				}
 				else if (max_err < err)
 					max_err = err;

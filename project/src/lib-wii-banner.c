@@ -389,6 +389,124 @@ enumError UnwrapWiiBannerFile (
 	return ERR_OK;
 }
 
+static inline void wb_wr32 (u8 *p, u32 v)
+{
+	p[0] = (u8)(v >> 24);
+	p[1] = (u8)(v >> 16);
+	p[2] = (u8)(v >> 8);
+	p[3] = (u8)v;
+}
+
+enumError WrapWiiBannerFile (u8 **dest, uint *dest_size,
+	const u8 *payload, uint payload_size, bool compress, bool lz11)
+{
+	if (!dest || !dest_size || (!payload && payload_size))
+		return EINVAL;
+
+	u8 *body = 0;
+	uint body_size = 0;
+	if (compress)
+	{
+		u8 *enc = 0;
+		uint enc_size = 0;
+		enumError enc_err = EncodeLZ10LZ11 (&enc, &enc_size, payload, payload_size, lz11);
+		if (enc_err > ERR_WARNING || !enc)
+		{
+			FREE (enc);
+			return enc_err > ERR_WARNING ? enc_err : ERR_CANT_CREATE;
+		}
+		if ((u64)enc_size + 4 > UINT_MAX)
+		{
+			FREE (enc);
+			return ERR_FILE_TOO_BIG;
+		}
+		body_size = 4 + enc_size;
+		body = MALLOC (body_size);
+		if (!body)
+		{
+			FREE (enc);
+			return ERR_CANT_CREATE;
+		}
+		memcpy (body, "LZ77", 4);
+		memcpy (body + 4, enc, enc_size);
+		FREE (enc);
+	}
+	else
+	{
+		body = MEMDUP (payload, payload_size ? payload_size : 1);
+		if (!body)
+			return ERR_CANT_CREATE;
+		body_size = payload_size;
+	}
+
+	if ((u64)body_size + IMD5_SIZE > UINT_MAX)
+	{
+		FREE (body);
+		return ERR_FILE_TOO_BIG;
+	}
+	u8 *out = MALLOC (IMD5_SIZE + body_size);
+	if (!out)
+	{
+		FREE (body);
+		return ERR_CANT_CREATE;
+	}
+	memcpy (out, "IMD5", 4);
+	wb_wr32 (out + 4, body_size);
+	memset (out + 8, 0, 8);
+	md5_calc (out + 0x10, body, body_size);
+	memcpy (out + IMD5_SIZE, body, body_size);
+	FREE (body);
+
+	*dest = out;
+	*dest_size = IMD5_SIZE + body_size;
+	return ERR_OK;
+}
+
+enumError CreateIMET (u8 **dest, uint *dest_size,
+	const u8 *u8_data, uint u8_size,
+	const u8 *orig, uint orig_size, uint icon_size, uint banner_size, uint sound_size)
+{
+	if (!dest || !dest_size || !orig || (!u8_data && u8_size))
+		return EINVAL;
+	if (u8_size < 4 || wb_rd32 (u8_data) != 0x55aa382d)
+		return ERR_INVALID_DATA; // not a U8 payload, refuse to wrap it
+
+	imet_t tmpl;
+	enumError serr = ScanIMET (&tmpl, orig, orig_size);
+	if (serr)
+		return serr;
+	const uint hoff = tmpl.header_offset;
+	const uint stored_hsize = tmpl.header_size;
+	ResetIMET (&tmpl);
+
+	// The stored size is constant on every real sample; the payload must
+	// start exactly where the header says it does, otherwise players read
+	// garbage.  Bail rather than emit a misaligned banner.
+	if (stored_hsize != IMET_SIZE)
+		return ERR_INVALID_DATA;
+	const uint hdr_len = hoff ? IMET_SIZE : IMET_SIZE - IMET_MAGIC_OFFSET;
+	if ((u64)hdr_len + u8_size > UINT_MAX)
+		return ERR_FILE_TOO_BIG;
+
+	u8 *out = MALLOC (hdr_len + u8_size);
+	if (!out)
+		return ERR_CANT_CREATE;
+	memcpy (out, orig, hdr_len);
+	wb_wr32 (out + hoff + 0x0c, icon_size);
+	wb_wr32 (out + hoff + 0x10, banner_size);
+	wb_wr32 (out + hoff + 0x14, sound_size);
+	const uint md5_pos = hoff ? IMET_MD5_OFFSET : IMET_MD5_OFFSET - IMET_MAGIC_OFFSET;
+	memset (out + md5_pos, 0, 16);
+	u8 calc[16];
+	md5_calc (calc, out, hdr_len);
+	memcpy (out + md5_pos, calc, 16);
+	memcpy (out + hdr_len, u8_data, u8_size);
+
+	*dest = out;
+	*dest_size = hdr_len + u8_size;
+	return ERR_OK;
+}
+
 //-----------------------------------------------------------------------------
 ///////////////			WIBN (Wii save banner)			///////////////
 //-----------------------------------------------------------------------------
