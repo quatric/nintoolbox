@@ -4874,6 +4874,16 @@ static enumError extract_can_file (ccp arg, ccp basedir, uint depth)
 	char dest[PATH_MAX];
 	beside_source_dest_ext (dest, sizeof (dest), arg, ".glb");
 
+	// A car model ships e.g. low1t.can next to low1t.mod, and both would map
+	// to the same low1t.glb. The .mod side wins that race -- its own GLB
+	// write happens later, in the deferred export_models_tree() pass -- and
+	// silently overwrites the animation this call just produced. Route .can
+	// to <stem>.can.glb whenever such a sibling .mod exists, so both survive.
+	char sibling_mod[PATH_MAX];
+	beside_source_dest_ext (sibling_mod, sizeof (sibling_mod), arg, ".mod");
+	if (!access (sibling_mod, F_OK))
+		beside_source_dest_ext (dest, sizeof (dest), arg, ".can.glb");
+
 	if (testmode)
 	{
 		FREE (raw);
