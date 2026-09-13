@@ -181,7 +181,7 @@ wszst xx <source> [--dest <dir>] [--auto] [--overwrite] [delegation options]
   - `--with-wit=<path>`: Custom path to `wit` (Wii/GameCube disc extraction).
   - `--with-mobipeg=<path>`: Custom path to `mobipeg` (MobiClip & DSP-ADPCM processing).
   - `--with-ndstool=<path>`: Custom path to `ndstool` (Nintendo DS ROM extraction).
-  - `--with-ctrtool=<path>`: Custom path to `ctrtool` (Nintendo 3DS CIA/NCCH/RomFS extraction).
+  - `--with-ctrtool=<path>`: Custom path to `ctrtool` (Nintendo 3DS CIA/NCCH/RomFS extraction). A build of `ctrtool` ships alongside the other binaries (vendored under `project/third_party/ctrtool`), so this is only needed to override it.
   - `--with-hactool=<path>`: Custom path to `hactool` (Nintendo Switch NCA/PFS0 extraction).
   - `--with-hacbrewpack=<path>`: Custom path to `hacbrewpack`.
   - `--with-sharpii=<path>`: Custom path to `sharpii` (Wii WAD unpacking).

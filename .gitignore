@@ -35,3 +35,6 @@ _trace*
 .claude/
 .sentry-native/
 project/third_party/sentry-native/build*/
+project/third_party/ctrtool/bin/
+project/third_party/ctrtool/deps/*/bin/
+project/third_party/ctrtool/**/*.o

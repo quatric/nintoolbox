@@ -133,6 +133,25 @@ static ccp resolve_tool (ccp with_val, ccp deflt)
 	return find_program (deflt);
 }
 
+// Like resolve_tool(), but for a tool this project ships a bundled build of
+// (see third_party/ctrtool) alongside wszst: check next to the running
+// binary first, so that bundled copy wins over an unrelated same-named tool
+// elsewhere on PATH. An explicit --with-<tool> still overrides both.
+static ccp resolve_bundled_tool (ccp with_val, ccp deflt)
+{
+	if (with_val && *with_val)
+		return find_program (with_val);
+
+	ccp dir = ProgramDirectory ();
+	if (dir && *dir)
+	{
+		snprintf (prog_buf, sizeof (prog_buf), "%s/%s", dir, deflt);
+		if (!access (prog_buf, X_OK))
+			return prog_buf;
+	}
+	return find_program (deflt);
+}
+
 static ccp resolve_mobipeg (void)
 {
 	if (opt_with_mobipeg && *opt_with_mobipeg)
@@ -1653,7 +1672,7 @@ static enumError passthru_archive (
 	}
 	else if (is_ctr)
 	{
-		tool = resolve_tool (opt_with_ctrtool, "ctrtool");
+		tool = resolve_bundled_tool (opt_with_ctrtool, "ctrtool");
 		toolname = "ctrtool";
 	}
 	else if (is_switch)

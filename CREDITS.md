@@ -119,6 +119,13 @@ We acknowledge and credit the following tools and authors whose research, format
 ### 11. midilib
 * **Description:** Standard MIDI File (SMF 0/1/2) stream reader, event tracker, and file synthesis for Nintendo sequence conversion.
 
+### 12. ctrtool
+* **Author:** jakcron / Project_CTR contributors
+* **Website:** <https://github.com/OfficialPixelBrush/Project_CTR> (fork of <https://github.com/3DSGuy/Project_CTR>)
+* **License:** No explicit license file in the upstream repository for ctrtool itself; its bundled dependency libraries below carry their own stated licenses.
+* **Description:** Nintendo 3DS CIA/CCI/NCCH/ExeFS/RomFS reader and extractor. Vendored under `project/third_party/ctrtool` and built as a companion binary shipped alongside `wszst`, so its 3DS pass-through extraction (`lib-passthru.c`) works without a separately installed copy on `PATH`.
+  * Bundles **libmbedtls** (Apache License 2.0, Mbed-TLS/ARM contributors), **{fmt}** (MIT License, Victor Zverovich), and Project_CTR's own **libtoolchain**, **libnintendo-n3ds**, and **libbroadon-es** (MIT License).
+
 ---
 
 ## Community & Research Credits

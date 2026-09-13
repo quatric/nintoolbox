@@ -688,6 +688,44 @@ ifneq ($(NO_SENTRY),1)
 $(ALL_TOOLS_X): third_party/sentry-native/build-inproc/libsentry.a
 endif
 
+#-------------------------------------------------------------------------------
+# Bundled ctrtool (3DS CIA/CCI/NCCH tool), vendored from
+# https://github.com/OfficialPixelBrush/Project_CTR so lib-passthru.c's 3DS
+# extraction path (resolve_bundled_tool()) has something to run without the
+# user installing ctrtool separately. It's a standalone companion binary,
+# not a linked library: built via its own recursive makefile (deps, then the
+# tool itself) and copied to bin/ alongside the rest of ALL_TOOLS.
+#
+# Not cross-compile aware (its makefile picks CC/CXX from the host, same gap
+# sentry-native above has), so skip it under a cross build (PRE set) the same
+# way NO_VGMTRANS skips wbrsar there. To disable outright, build with
+# NO_CTRTOOL=1.
+ifneq ($(NO_CTRTOOL),1)
+  CTRTOOL_DIR := third_party/ctrtool
+  ifneq ($(PRE),)
+    NO_CTRTOOL := 1
+  endif
+  ifeq ($(wildcard $(CTRTOOL_DIR)/makefile),)
+    NO_CTRTOOL := 1
+  endif
+endif
+
+ifneq ($(NO_CTRTOOL),1)
+.PHONY: third_party/ctrtool/bin/ctrtool
+third_party/ctrtool/bin/ctrtool:
+	@if [ ! -f $@ ]; then \
+		printf "$(LOGFORMAT_TOOL)" build "ctrtool" "$(MODE)"; \
+		$(MAKE) -C $(CTRTOOL_DIR) deps >/dev/null && \
+		$(MAKE) -C $(CTRTOOL_DIR) >/dev/null; \
+	fi
+
+bin/ctrtool: third_party/ctrtool/bin/ctrtool
+	@mkdir -p bin
+	@cp -p $< $@
+
+all: bin/ctrtool
+endif
+
 #--------------------------
 
 $(UI_OBJECTS): %.o: %.c ui-%.c ui-%.h version.h Makefile
