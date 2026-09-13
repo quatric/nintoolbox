@@ -504,6 +504,64 @@ static void dae_normalize_resource_name (char *out, size_t out_size, const char 
 	out[used] = 0;
 }
 
+// Many source formats (I4/I8/CMPR without a punch-through key, etc.) carry no real
+// per-pixel transparency; the exported PNG for those textures is opaque even when the
+// material's blend/XLU flag is set (that flag can be driven by other GX blend needs).
+// Trusting the flag alone makes viewers render such materials as blended over an
+// all-opaque texture, which some glTF viewers show as fully invisible. Inspect the
+// PNG's own IHDR color type (and tRNS presence for palette images) so BLEND is only
+// requested when the texture can actually produce a non-1.0 alpha value.
+static int png_has_real_alpha (const char *path)
+{
+	FILE *fp = fopen (path, "rb");
+	if (!fp)
+		return 1; // unknown: don't override the material's own alpha flag
+
+	uint8_t hdr[33];
+	size_t n = fread (hdr, 1, sizeof (hdr), fp);
+	int result = 1;
+	if (n == sizeof (hdr) && !memcmp (hdr, "\x89PNG\r\n\x1a\n", 8)
+		&& !memcmp (hdr + 12, "IHDR", 4))
+	{
+		uint8_t color_type = hdr[25];
+		switch (color_type)
+		{
+			case 0: // grayscale
+			case 2: // truecolor
+				result = 0;
+				break;
+			case 3: // palette: only has alpha if a tRNS chunk follows
+			{
+				uint8_t chunk[8];
+				result = 0;
+				while (fread (chunk, 1, sizeof (chunk), fp) == sizeof (chunk))
+				{
+					uint32_t len = ((uint32_t)chunk[0] << 24) | ((uint32_t)chunk[1] << 16)
+						| ((uint32_t)chunk[2] << 8) | chunk[3];
+					if (!memcmp (chunk + 4, "tRNS", 4))
+					{
+						result = 1;
+						break;
+					}
+					if (!memcmp (chunk + 4, "IDAT", 4) || !memcmp (chunk + 4, "IEND", 4))
+						break;
+					if (fseek (fp, len + 4, SEEK_CUR) != 0) // skip data + CRC
+						break;
+				}
+				break;
+			}
+			case 4: // grayscale + alpha
+			case 6: // truecolor + alpha
+				result = 1;
+				break;
+			default:
+				result = 1;
+		}
+	}
+	fclose (fp);
+	return result;
+}
+
 static int dae_primary_texture (const material_t *mat, const char *dae_path)
 {
 	if (!mat->num_textures)
@@ -1042,11 +1100,18 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 		// NB: roughness_factor was already set above from mat->shininess (or
 		// the 0.9-glossiness default); it used to be unconditionally clobbered
 		// with a hardcoded 0.8f here, silently discarding that computation.
-		gmat->alpha_mode = (mat->has_alpha || (mat->diffuse[3] > 0 && mat->diffuse[3] < 1.0f))
-			? cgltf_alpha_mode_blend
-			: cgltf_alpha_mode_opaque;
-
 		int primary = dae_primary_texture (mat, out_glb_file);
+
+		int wants_blend = mat->has_alpha || (mat->diffuse[3] > 0 && mat->diffuse[3] < 1.0f);
+		if (wants_blend && primary >= 0)
+		{
+			char primary_path[PATH_MAX];
+			if (dae_texture_path (primary_path, sizeof (primary_path), out_glb_file,
+					mat->textures[primary])
+				&& !png_has_real_alpha (primary_path))
+				wants_blend = 0;
+		}
+		gmat->alpha_mode = wants_blend ? cgltf_alpha_mode_blend : cgltf_alpha_mode_opaque;
 
 		for (int t = 0; t < mat->num_textures; t++)
 		{
