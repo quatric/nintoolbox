@@ -133,7 +133,13 @@ enumError EncodeExciteMSH (const model_t *model, ccp out_path);
 // DecodeExciteMOD() in lib-excite.c for the exact format and validation
 // against the full retail corpus of both games. Returns ERR_NOTHING_TO_DO
 // if 'data' isn't a recognisable NDL3/NDL2 .mod file.
-enumError DecodeExciteMOD (const u8 *data, uint size, ccp out_path);
+// can_data/can_size are optional (pass 0/0 to skip): when given a valid
+// sibling .can buffer (same format DecodeExciteCAN() reads), its skeleton and
+// animation are embedded in the same GLB as this mesh, unskinned -- see the
+// comment beside that call in DecodeExciteMOD() for why it doesn't animate
+// the mesh itself. An invalid can_data is silently ignored, not an error.
+enumError DecodeExciteMOD (
+	const u8 *data, uint size, const u8 *can_data, uint can_size, ccp out_path);
 
 // Encode a parsed model (COLLADA/GLB input, as produced by DecodeExciteMOD())
 // as a geometry-only "3LDN" .mod file -- the inverse of DecodeExciteMOD().

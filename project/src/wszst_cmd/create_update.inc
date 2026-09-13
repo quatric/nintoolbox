@@ -4860,6 +4860,16 @@ static enumError extract_can_file (ccp arg, ccp basedir, uint depth)
 	if (!is_ext (arg, ".can"))
 		return ERR_NOTHING_TO_DO;
 
+	// A car model ships e.g. low1t.can next to low1t.mod. extract_mod_file()
+	// picks up this same sibling in its own deferred pass and embeds it in
+	// low1t.glb alongside the mesh, so producing our own GLB here would just
+	// be a redundant, animation-only duplicate of the same data. Skip and let
+	// that later pass do the one real write.
+	char sibling_mod[PATH_MAX];
+	beside_source_dest_ext (sibling_mod, sizeof (sibling_mod), arg, ".mod");
+	if (!access (sibling_mod, F_OK))
+		return ERR_NOTHING_TO_DO;
+
 	u8 *raw = 0;
 	size_t raw_size = 0;
 	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
@@ -4873,16 +4883,6 @@ static enumError extract_can_file (ccp arg, ccp basedir, uint depth)
 
 	char dest[PATH_MAX];
 	beside_source_dest_ext (dest, sizeof (dest), arg, ".glb");
-
-	// A car model ships e.g. low1t.can next to low1t.mod, and both would map
-	// to the same low1t.glb. The .mod side wins that race -- its own GLB
-	// write happens later, in the deferred export_models_tree() pass -- and
-	// silently overwrites the animation this call just produced. Route .can
-	// to <stem>.can.glb whenever such a sibling .mod exists, so both survive.
-	char sibling_mod[PATH_MAX];
-	beside_source_dest_ext (sibling_mod, sizeof (sibling_mod), arg, ".mod");
-	if (!access (sibling_mod, F_OK))
-		beside_source_dest_ext (dest, sizeof (dest), arg, ".can.glb");
 
 	if (testmode)
 	{
@@ -4932,20 +4932,36 @@ static enumError extract_mod_file (ccp arg, ccp basedir, uint depth)
 	char dest[PATH_MAX];
 	beside_source_dest_ext (dest, sizeof (dest), arg, ".glb");
 
+	// A sibling .can (see extract_can_file(), which defers to this pass
+	// rather than write its own animation-only GLB) is the skeletal
+	// animation for this same part; embed it in the one GLB this call
+	// writes instead of leaving it as a second file.
+	char sibling_can[PATH_MAX];
+	beside_source_dest_ext (sibling_can, sizeof (sibling_can), arg, ".can");
+	u8 *can_raw = 0;
+	size_t can_raw_size = 0;
+	const bool have_can = !access (sibling_can, F_OK)
+		&& !LoadFileAlloc (sibling_can, 0, 0, &can_raw, &can_raw_size, 0, 0, 0, false)
+		&& can_raw_size <= UINT_MAX;
+
 	if (testmode)
 	{
 		FREE (raw);
+		FREE (can_raw);
 		fprintf (stdlog, "WOULD EXTRACT MOD:%s -> GLB:%s\n", arg, dest);
 		return ERR_OK;
 	}
 
-	err = DecodeExciteMOD (raw, (uint)raw_size, dest);
+	err = DecodeExciteMOD (
+		raw, (uint)raw_size, have_can ? can_raw : 0, have_can ? (uint)can_raw_size : 0, dest);
 	FREE (raw);
+	FREE (can_raw);
 	if (err)
 		return err;
 
 	if (verbose >= 0)
-		fprintf (stdlog, "%sEXTRACT MOD:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, dest);
+		fprintf (stdlog, "%sEXTRACT MOD:%s -> GLB:%s%s\n", verbose > 0 ? "\n" : "", arg, dest,
+			have_can ? " (+CAN)" : "");
 	return err;
 }
 

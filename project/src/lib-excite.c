@@ -2781,7 +2781,15 @@ static int mod_find_or_create_material (const u8 *data, uint size, uint desc_off
 	return idx;
 }
 
-enumError DecodeExciteMOD (const u8 *data, uint size, ccp out_path)
+// Forward declarations: the .can parser lives further down, beside its own
+// format comment, but DecodeExciteMOD() below needs it to embed a sibling
+// animation straight into the mesh's GLB.
+static enumError decode_can_to_joints_anim (
+	const u8 *data, uint size, joint_t **out_joints, uint *out_n_joints, model_animation_t *out_anim);
+static void free_can_anim (model_animation_t *anim);
+
+enumError DecodeExciteMOD (
+	const u8 *data, uint size, const u8 *can_data, uint can_size, ccp out_path)
 {
 	if (!data || size < 0x40)
 		return ERR_NOTHING_TO_DO;
@@ -2889,7 +2897,38 @@ enumError DecodeExciteMOD (const u8 *data, uint size, ccp out_path)
 	model.materials = num_materials ? materials : 0;
 	model.num_materials = num_materials;
 
+	// A sibling .car.d/<stem>.can is a skeletal animation for this same part
+	// (e.g. low1t.mod + low1t.can): its nodes have no vertex-weight binding
+	// to this mesh (DecodeExciteMOD never produces skinned geometry -- see
+	// the format comment on DecodeExciteCAN), so this does not make the mesh
+	// deform. It does put both pieces of data the retail file actually has
+	// into one GLB instead of two, which is what a sibling .can used to
+	// produce on its own (see extract_can_file()/extract_mod_file() in
+	// wszst_cmd/create_update.inc for why that split existed and why it
+	// still exists whenever no .mod claims the file stem).
+	joint_t *can_joints = 0;
+	uint n_can_joints = 0;
+	model_animation_t can_anim;
+	memset (&can_anim, 0, sizeof (can_anim));
+	const bool have_can
+		= can_data
+		&& decode_can_to_joints_anim (can_data, can_size, &can_joints, &n_can_joints, &can_anim)
+			== ERR_OK;
+	if (have_can)
+	{
+		model.joints = can_joints;
+		model.num_joints = n_can_joints;
+		model.animations = &can_anim;
+		model.num_animations = 1;
+	}
+
 	const enumError rc = (ExportModelToGLB (&model, out_path) == 0) ? ERR_OK : ERR_CANT_CREATE;
+
+	if (have_can)
+	{
+		free_can_anim (&can_anim);
+		FREE (can_joints);
+	}
 
 	for (uint i = 0; i < num_meshes; i++)
 	{
@@ -3249,7 +3288,15 @@ static void can_matrix_to_euler_deg (const float m[9], float *out_x, float *out_
 	*out_z = (float)(z * deg);
 }
 
-enumError DecodeExciteCAN (const u8 *data, uint size, ccp out_path)
+// Parses a .can buffer (see the format comment above) into a joint array and
+// a single animation, without touching a model_t or exporting anything --
+// shared by DecodeExciteCAN() (its own <stem>.can.glb, when no sibling .mod
+// claims the same node hierarchy) and DecodeExciteMOD() (embedding the
+// animation straight into the mesh's own GLB). On ERR_OK the caller owns
+// *out_joints and every channel's times/values plus the channel array itself
+// (free_can_anim() below frees the latter).
+static enumError decode_can_to_joints_anim (
+	const u8 *data, uint size, joint_t **out_joints, uint *out_n_joints, model_animation_t *out_anim)
 {
 	if (!data || size < CAN_HEADER_SIZE)
 		return ERR_NOTHING_TO_DO;
@@ -3351,27 +3398,44 @@ enumError DecodeExciteCAN (const u8 *data, uint size, ccp out_path)
 		}
 	}
 
+	memset (out_anim, 0, sizeof (*out_anim));
+	StringCopyS (out_anim->name, sizeof (out_anim->name), "can");
+	out_anim->channels = chan;
+	out_anim->num_channels = n_chan;
+	*out_joints = joints;
+	*out_n_joints = n_node;
+	return ERR_OK;
+}
+
+static void free_can_anim (model_animation_t *anim)
+{
+	for (uint c = 0; c < anim->num_channels; c++)
+	{
+		FREE (anim->channels[c].times);
+		FREE (anim->channels[c].values);
+	}
+	FREE (anim->channels);
+}
+
+enumError DecodeExciteCAN (const u8 *data, uint size, ccp out_path)
+{
+	joint_t *joints;
+	uint n_joints;
 	model_animation_t anim;
-	memset (&anim, 0, sizeof (anim));
-	StringCopyS (anim.name, sizeof (anim.name), "can");
-	anim.channels = chan;
-	anim.num_channels = n_chan;
+	const enumError perr = decode_can_to_joints_anim (data, size, &joints, &n_joints, &anim);
+	if (perr != ERR_OK)
+		return perr;
 
 	model_t model;
 	memset (&model, 0, sizeof (model));
 	model.joints = joints;
-	model.num_joints = n_node;
+	model.num_joints = n_joints;
 	model.animations = &anim;
 	model.num_animations = 1;
 
 	const enumError rc = ExportModelToGLB (&model, out_path) == 0 ? ERR_OK : ERR_CANT_CREATE;
 
-	for (uint c = 0; c < n_chan; c++)
-	{
-		FREE (chan[c].times);
-		FREE (chan[c].values);
-	}
-	FREE (chan);
+	free_can_anim (&anim);
 	FREE (joints);
 	return rc;
 }

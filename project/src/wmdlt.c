@@ -1117,7 +1117,7 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		{
 			if (!testmode)
 			{
-				err = DecodeExciteMOD (raw.data, (uint)raw.data_size, dest);
+				err = DecodeExciteMOD (raw.data, (uint)raw.data_size, 0, 0, dest);
 				if (err > ERR_WARNING)
 				{
 					ERROR0 (err, "Failed to decode MOD: %s\n", arg);
