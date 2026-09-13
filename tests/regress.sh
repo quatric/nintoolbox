@@ -3113,6 +3113,30 @@ open('$d/sound.pak', 'wb').write(raw)
   else
     no "Call of Duty Wii PAK0 extraction" "DSP member mismatch or missing"
   fi
+
+  # CREATE round-trip: repack the extracted tree back over the original and
+  # expect byte-for-byte equality, including the reserved header dword, the
+  # multiplier/DATASTART layout and the inter-member padding.
+  if cp "$d/sound.pak" "$d/orig.pak" \
+  && "$B/wszst" create "$d/out" --dest "$d/sound.pak" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/sound.pak" "$d/orig.pak"; then
+    ok "Call of Duty Wii PAK0 create round-trip (byte-exact)"
+  else
+    no "Call of Duty Wii PAK0 create" "create did not reproduce the original bytes"
+  fi
+
+  # Edited tree -> fresh valid PAK0 (multiplier 1, CRC-sorted, cumulative
+  # offsets): the writer must not reuse the stale layout, and the result must
+  # extract back to the edited member contents.
+  printf 'EDITED' > "$d/out/sound_0x11223344.dsp"
+  if "$B/wszst" create "$d/out" --dest "$d/fresh.pak" >/dev/null 2>&1 \
+  && "$B/wszst" xx "$d/fresh.pak" --no-passthrough --dest "$d/fresh_x" --overwrite >/dev/null 2>&1 \
+  && [ "$(cat "$d/fresh_x/fresh_0x11223344.dsp" 2>/dev/null)" = "EDITED" ] \
+  && [ "$(cat "$d/fresh_x/fresh_0xaabbccdd.dsp" 2>/dev/null)" = "DSP-AUDIO-TWO" ]; then
+    ok "Call of Duty Wii PAK0 fresh-layout create (edited tree)"
+  else
+    no "Call of Duty Wii PAK0 fresh-layout" "edited member did not round-trip"
+  fi
   rm -rf "$d"
 }
 t_cod_pak0
@@ -11242,11 +11266,25 @@ t_cod_pak0_retail(){
     no "retail COD PAK0" "FILETYPE failed to recognize PAK0"
   fi
 
-  if "$B/wszst" EXTRACT "$f" --dest "$d" --no-passthrough --overwrite >/dev/null 2>&1 \
-  && { [ -f "$d/retail_int_escape/retail_int_escape_0x1e78d28c.dsp" ] || [ -f "$d/retail_int_escape_0x1e78d28c.dsp" ]; }; then
+  if "$B/wszst" EXTRACT "$f" --dest "$d/out" --no-passthrough --overwrite >/dev/null 2>&1 \
+  && { [ -f "$d/out/retail_int_escape/retail_int_escape_0x1e78d28c.dsp" ] || [ -f "$d/out/retail_int_escape_0x1e78d28c.dsp" ]; }; then
     ok "retail COD PAK0 sound stream extraction (1 DSP stream)"
   else
     no "retail COD PAK0" "failed to extract DSP from COD PAK0 archive"
+  fi
+
+  # Byte-exact CREATE round-trip against the retail fixture: copy it into the
+  # scratch area, extract it, repack back over the copy; the writer must
+  # reproduce the original bytes, header dword, multiplier and DATASTART.
+  if cp "$f" "$d/rt.pak" \
+  && "$B/wszst" EXTRACT "$d/rt.pak" --dest "$d/rt" --no-passthrough --overwrite >/dev/null 2>&1 \
+  && local m && m=$(find "$d/rt" -name '*_0x1e78d28c.dsp' 2>/dev/null | head -1) \
+  && [ -n "$m" ] \
+  && "$B/wszst" CREATE "$(dirname "$m")" --dest "$d/rt.pak" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/rt.pak" "$f"; then
+    ok "retail COD PAK0 create round-trip (byte-exact)"
+  else
+    no "retail COD PAK0 create" "create did not reproduce the retail bytes"
   fi
   rm -rf "$d"
 }
