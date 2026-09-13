@@ -11675,6 +11675,57 @@ sys.exit(0 if diffs == [1000] and len(a) == len(b) else 1)
 t_ds_rom_repack "Bomberman" "/Volumes/SSD/szs-retail-test/DS/Bomberman (USA).zip"
 t_ds_rom_repack "Animal Crossing - Wild World" "/Volumes/SSD/szs-retail-test/DS/Animal Crossing - Wild World (USA) (Rev 1).zip"
 
+# WiiWare: the sharpii WAD pass-through equivalent -- extract a real retail
+# .wad, edit a pixel buried inside a nested LZ77/.arc member, selective
+# repack, re-extract, and confirm the edit survived.
+t_wiiware_repack(){
+  local title="$1" wad="$2"
+  local label="WiiWare packing round-trip ($title, nested TPL pixel edit)"
+  [ -f "$wad" ] || { sk "$label"; return; }
+  command -v sharpii >/dev/null 2>&1 || { sk "$label (no sharpii binary)"; return; }
+
+  local d; d=$(mktemp -d "/tmp/_r_wwpack_XXXXXX") || { no "$label" "mktemp failed"; return; }
+  "$B/wszst" xx "$wad" --dest "$d/rom.d" --overwrite >"$d/xx1.log" 2>&1
+  local romd; romd=$(find "$d/rom.d" -maxdepth 1 -mindepth 1 -type d | head -1)
+  local png; png=$([ -n "$romd" ] && find "$romd" -iname '*.tpl.png' | sort | head -1)
+  if [ -z "$png" ]; then no "$label" "no .tpl.png inside extracted WAD"; rm -rf "$d"; return; fi
+
+  python3 -c "
+from PIL import Image
+im = Image.open('$png').convert('RGBA')
+px = im.load()
+r,g,b,a = px[0,0]
+px[0,0] = (255-r, 255-g, 255-b, a)
+im.save('$png')
+open('$d/expect_pixel.txt','w').write(repr(px[0,0][:3]))
+" 2>"$d/pil.log" || { sk "$label (no Pillow)"; rm -rf "$d"; return; }
+  sleep 3
+  touch "$png"
+
+  local out="$d/rebuilt.wad"
+  "$B/wszst" CREATE "$romd" --dest "$out" --overwrite >"$d/create.log" 2>&1
+  if [ ! -f "$out" ]; then no "$label" "CREATE did not produce $out (see create.log)"; rm -rf "$d"; return; fi
+
+  "$B/wszst" xx "$out" --dest "$d/reext" --overwrite >"$d/xx2.log" 2>&1
+  # Same selection rule as the original pick above (sorted first *.tpl.png).
+  local png2; png2=$(find "$d/reext" -iname '*.tpl.png' | sort | head -1)
+
+  if [ -n "$png2" ] && python3 -c "
+from PIL import Image
+b = Image.open('$png2').convert('RGBA').load()[0,0][:3]
+expect = eval(open('$d/expect_pixel.txt').read())
+import sys; sys.exit(0 if all(abs(e-a) <= 4 for e, a in zip(expect, b)) else 1)
+" 2>/dev/null; then
+    ok "$label"
+  else
+    no "$label" "edited pixel did not survive WAD round-trip"
+  fi
+  rm -rf "$d"
+}
+t_wiiware_repack "World of Goo" "/Volumes/SSD/szs-retail-test/WiiWare/World of Goo (USA) (WiiWare).wad"
+t_wiiware_repack "Bonsai Barber" "/Volumes/SSD/szs-retail-test/WiiWare/Bonsai Barber (USA) (WiiWare).wad"
+t_wiiware_repack "My Pokemon Ranch" "/Volumes/SSD/szs-retail-test/WiiWare/My Pokemon Ranch (USA) (WiiWare).wad"
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
