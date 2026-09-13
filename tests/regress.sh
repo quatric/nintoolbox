@@ -2596,6 +2596,82 @@ open('$d/smash_audio.nus3audio', 'wb').write(hdr + body)
       no "NUS3AUDIO (Smash Ultimate audio archive) extract -> create" "failed"
     fi
 
+    # NUS3AUDIO byte-exact CREATE: a retail-style source whose chunk order,
+    # TNID ids and trailing bytes a fresh build could never reproduce. When
+    # the destination still holds the same tracks, create copies the original
+    # layout and only overwrites the PACK payloads.
+    python3 -c "
+import struct
+magic = b'NUS3'
+def ck(tag, p): return tag.ljust(8, b'\x00') + struct.pack('<I', len(p)) + p
+t1_name = b'theme.stage'          # dotted name -> extra.bits-style base
+t1_data = b'IDSP' + struct.pack('>I', 64) + b'Z'*56
+t2_name = b'punch'
+t2_data = b'OPUS' + b'Q'*60
+t3_name = b'extra.bits'
+t3_data = b'\x12\x34\x56\x78' + b'R'*33  # unknown magic -> .bin
+s1 = struct.pack('B', len(t1_name)) + t1_name + b'\x00'
+s2 = struct.pack('B', len(t2_name)) + t2_name + b'\x00'
+s3 = struct.pack('B', len(t3_name)) + t3_name + b'\x00'
+tnnm = s1 + s2 + s3
+nmof = struct.pack('<III', 0, len(s1), len(s1) + len(s2))
+offs = [0, len(t1_data), len(t1_data) + len(t2_data)]
+adof = struct.pack('<IIIIII', offs[0], len(t1_data), offs[1], len(t2_data), offs[2], len(t3_data))
+pack = t1_data + t2_data + t3_data
+body = (ck(b'AUDIINDX', struct.pack('<I', 3))
+        + ck(b'TNID', struct.pack('<III', 42, 777, 3))
+        + ck(b'PACK', pack)          # PACK before ADOF: non-canonical order
+        + ck(b'NMOF', nmof)
+        + ck(b'ADOF', adof)
+        + ck(b'TNNM', tnnm)
+        + b'JUNK_TRAILING_BYTES_123')
+open('$d/retail_like.nus3audio', 'wb').write(magic + struct.pack('<I', len(body)) + body)
+" 2>/dev/null
+    rm -rf "$d/nus3_rl_out"
+    if [ -f "$d/retail_like.nus3audio" ] \
+    && cp "$d/retail_like.nus3audio" "$d/retail_like_orig.bin" \
+    && "$B/wszst" xx "$d/retail_like.nus3audio" --dest "$d/nus3_rl_out" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/nus3_rl_out/theme.stage.idsp" ] \
+    && [ -s "$d/nus3_rl_out/punch.lopus" ] \
+    && [ -s "$d/nus3_rl_out/extra.bits.bin" ] \
+    && "$B/wszst" CREATE "$d/nus3_rl_out" --dest "$d/retail_like.nus3audio" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/retail_like_orig.bin" "$d/retail_like.nus3audio"; then
+      ok "NUS3AUDIO (retail-style chunk order/TNID/trailing bytes) byte-exact CREATE roundtrip"
+    else
+      no "NUS3AUDIO (retail-style chunk order/TNID/trailing bytes) byte-exact CREATE" "failed"
+    fi
+
+    # Same-size edit: the layout must be reused, rewriting only the edited
+    # track's PACK payload and keeping chunk order and trailing bytes.
+    if python3 -c "
+d = bytearray(open('$d/nus3_rl_out/punch.lopus','rb').read())
+assert len(d) == 64
+d[4:] = b'X'*60
+open('$d/nus3_rl_out/punch.lopus','wb').write(bytes(d))
+" 2>/dev/null \
+    && "$B/wszst" CREATE "$d/nus3_rl_out" --dest "$d/retail_like.nus3audio" --overwrite >/dev/null 2>&1 \
+    && python3 -c "
+import struct
+d = open('$d/retail_like.nus3audio','rb').read()
+pos, pack_off, adof_payload, order = 8, None, None, []
+while pos + 12 <= len(d):
+    tag = d[pos:pos+4]
+    c = struct.unpack('<I', d[pos+8:pos+12])[0]
+    order.append(tag)
+    if tag == b'PACK' and pack_off is None: pack_off = pos + 12
+    if tag == b'ADOF': adof_payload = d[pos+12:pos+12+c]
+    pos = pos + 12 + c
+o, s = struct.unpack('<II', adof_payload[8:16])
+seg = d[pack_off+o:pack_off+o+s]
+assert seg[4:] == b'X'*60, 'edited payload not rewritten in place'
+assert d.endswith(b'JUNK_TRAILING_BYTES_123'), 'trailing bytes lost'
+assert order[:6] == [b'AUDI', b'TNID', b'PACK', b'NMOF', b'ADOF', b'TNNM'], 'chunk order changed'
+" 2>/dev/null; then
+      ok "NUS3AUDIO (retail-style) same-size edit keeps layout byte-exact"
+    else
+      no "NUS3AUDIO (retail-style) same-size edit keeps layout byte-exact" "failed"
+    fi
+
 
     # NUT (Smash 4 NTP3 texture container)
     python3 -c "
