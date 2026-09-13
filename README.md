@@ -1,4 +1,4 @@
-# Wiimms SZS Tools Plus
+# nintoolbox
 
 A fast, unified command-line toolkit to extract, modify, convert, and rebuild game archives, textures, 3D models, audio, and layouts across **GameCube, Wii, Nintendo DS, 3DS, Wii U, and Nintendo Switch**.
 

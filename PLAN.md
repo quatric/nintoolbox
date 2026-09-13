@@ -1,4 +1,4 @@
-# Roadmap: wiimms-szs-tools-plus
+# Roadmap: nintoolbox
 
 > This is an engineering log, not user documentation. Start with
 > [README.md](README.md) for the format index and

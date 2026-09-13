@@ -1,6 +1,6 @@
 # Credits & Attributions
 
-`wiimms-szs-tools-plus` builds upon, incorporates, and interfaces with various open-source projects, libraries, reverse-engineering tools, and community research. We gratefully acknowledge and credit all original authors, contributors, and reverse-engineering pioneers below.
+`nintoolbox` builds upon, incorporates, and interfaces with various open-source projects, libraries, reverse-engineering tools, and community research. We gratefully acknowledge and credit all original authors, contributors, and reverse-engineering pioneers below.
 
 ---
 
