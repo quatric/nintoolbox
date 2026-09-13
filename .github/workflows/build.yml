@@ -88,6 +88,11 @@ jobs:
         # which is the bare filename (ui-wbmgt.c, not src/ui/ui-wbmgt.c) --
         # the Makefile finds it via VPATH. A full-path argument silently
         # doesn't match anything and -o becomes a no-op.
+        #
+        # NO_CTRTOOL rides on the same no_vgmtrans flag: arm64/armhf already
+        # skip the bundled ctrtool via PRE (see project/Makefile), but the
+        # i386 leg cross-compiles via plain -m32 with no cross_prefix/PRE, so
+        # it needs the same opt-out spelled out explicitly here.
         run: |
           old_ui_flags=()
           for f in project/src/ui/ui-*.c project/src/ui/ui-*.h project/src/ui/ui.def; do
@@ -97,6 +102,7 @@ jobs:
             "${old_ui_flags[@]}" \
             ${{ matrix.cross_prefix && format('PRE={0}', matrix.cross_prefix) || '' }} \
             ${{ matrix.no_vgmtrans && 'NO_VGMTRANS=1' || '' }} \
+            ${{ matrix.no_vgmtrans && 'NO_CTRTOOL=1' || '' }} \
             ${{ matrix.cflags && format('XFLAGS={0}', matrix.cflags) || '' }} \
             -j$(nproc) all
 
@@ -140,13 +146,18 @@ jobs:
         # here instead of a pre-touch: templated .inc files get regenerated
         # with fresh mtimes during the build itself, which would otherwise
         # still make the committed ui-*.c/h look stale partway through.
+        #
+        # NO_CTRTOOL=1: the bundled ctrtool's own makefile detects native
+        # Windows (OS=Windows_NT, which Cygwin also sets) and takes its
+        # MSVC-oriented WIN32 branch instead of a plain POSIX one, untested
+        # under Cygwin's gcc -- skip it here rather than guess.
         run: |
           cd "${GITHUB_WORKSPACE}/project"
           old_ui_flags=()
           for f in src/ui/ui-*.c src/ui/ui-*.h src/ui/ui.def; do
             old_ui_flags+=(-o "$(basename "$f")")
           done
-          make "${old_ui_flags[@]}" NO_VGMTRANS=1 -j$(nproc) all
+          make "${old_ui_flags[@]}" NO_VGMTRANS=1 NO_CTRTOOL=1 -j$(nproc) all
       - name: Smoke test
         run: |
           cd "${GITHUB_WORKSPACE}/project"
