@@ -11593,11 +11593,15 @@ open('$d/expect_pixel.txt','w').write(repr(px[0,0][:3]))
   # not a basename match: banner.bin.d and icon.bin.d can share filenames.
   local png2; png2=$(find "$bnr2.d" -iname '*.tpl.png' | sort | head -1)
 
+  # Some banner sheets are stored in a lossy GX format (RGB565: 5/6/5 bits
+  # per channel), so a rebuilt pixel can land within a rounding step of the
+  # value written -- that's the format's inherent precision, not a packing
+  # defect. Allow a small per-channel tolerance rather than exact equality.
   if [ -n "$png2" ] && python3 -c "
 from PIL import Image
 b = Image.open('$png2').convert('RGBA').load()[0,0][:3]
 expect = eval(open('$d/expect_pixel.txt').read())
-import sys; sys.exit(0 if expect == b else 1)
+import sys; sys.exit(0 if all(abs(e-a) <= 4 for e, a in zip(expect, b)) else 1)
 " 2>/dev/null; then
     ok "$label"
   else
@@ -11609,6 +11613,67 @@ t_disc_banner_repack "Namco Museum Remix" "/Volumes/SSD/szs-retail-test/Wii/Namc
 t_disc_banner_repack "Excite Truck" "/Volumes/SSD/szs-retail-test/Wii/Excite Truck (USA).wbfs"
 t_disc_banner_repack "ExciteBots" "/Volumes/SSD/szs-retail-test/Wii/ExciteBots - Trick Racing (USA).wbfs"
 t_disc_banner_repack "Sonic and the Black Knight" "/Volumes/SSD/szs-retail-test/Wii/Sonic and the Black Knight (USA) (En,Ja,Fr,De,Es,It).wbfs"
+t_disc_banner_repack "Wii Party" "/Volumes/SSD/szs-retail-test/Wii/Wii Party (USA) (En,Fr,Es).wbfs"
+t_disc_banner_repack "Kirby's Epic Yarn" "/Volumes/SSD/szs-retail-test/Wii/Kirby's Epic Yarn (USA) (En,Fr,Es).wbfs"
+t_disc_banner_repack "Mario Strikers Charged" "/Volumes/SSD/szs-retail-test/Wii/Mario Strikers Charged (USA) (En,Fr,Es) (Rev 1).wbfs"
+
+# Nintendo DS: the ndstool pass-through equivalent of the Wii disc test above
+# -- extract a real retail ROM, flip a byte inside arm9.bin (the DS analogue
+# of a disc-root file), selective-repack via `wszst CREATE` pointed at the
+# ndstool staging tree, then re-extract and confirm exactly the touched byte
+# changed and nothing else moved.
+t_ds_rom_repack(){
+  local title="$1" zip="$2"
+  local label="DS ROM packing round-trip ($title, arm9.bin byte edit)"
+  [ -f "$zip" ] || { sk "$label"; return; }
+  command -v ndstool >/dev/null 2>&1 || { sk "$label (no ndstool binary)"; return; }
+
+  local d; d=$(mktemp -d "/tmp/_r_dsrompack_XXXXXX") || { no "$label" "mktemp failed"; return; }
+  unzip -q -o "$zip" -d "$d/src" >"$d/unzip.log" 2>&1
+  local nds; nds=$(find "$d/src" -iname '*.nds' | head -1)
+  if [ -z "$nds" ]; then no "$label" "no .nds inside zip"; rm -rf "$d"; return; fi
+
+  "$B/wszst" xx "$nds" --dest "$d/rom.d" --overwrite >"$d/xx1.log" 2>&1
+  local romd; romd=$(find "$d/rom.d" -maxdepth 1 -mindepth 1 -type d | head -1)
+  if [ -z "$romd" ] || [ ! -f "$romd/arm9.bin" ]; then
+    no "$label" "no arm9.bin in extracted ROM"; rm -rf "$d"; return
+  fi
+
+  python3 -c "
+d = bytearray(open('$romd/arm9.bin','rb').read())
+d[1000] ^= 0xFF
+open('$romd/arm9.bin','wb').write(d)
+"
+  sleep 3
+  touch "$romd/arm9.bin"
+
+  local out="$d/rebuilt.nds"
+  "$B/wszst" CREATE "$romd" --dest "$out" --overwrite >"$d/create.log" 2>&1
+  if [ ! -f "$out" ]; then no "$label" "CREATE did not produce $out (see create.log)"; rm -rf "$d"; return; fi
+
+  "$B/wszst" xx "$nds" --dest "$d/orig_check.d" --overwrite >"$d/xx_orig.log" 2>&1
+  "$B/wszst" xx "$out" --dest "$d/reext.d" --overwrite >"$d/xx2.log" 2>&1
+  local orig_arm9; orig_arm9=$(find "$d/orig_check.d" -iname 'arm9.bin' | head -1)
+  local reext_arm9; reext_arm9=$(find "$d/reext.d" -iname 'arm9.bin' | head -1)
+  if [ -z "$orig_arm9" ] || [ -z "$reext_arm9" ]; then
+    no "$label" "arm9.bin missing after re-extraction"; rm -rf "$d"; return
+  fi
+
+  if python3 -c "
+a = open('$orig_arm9','rb').read()
+b = open('$reext_arm9','rb').read()
+diffs = [i for i in range(min(len(a), len(b))) if a[i] != b[i]]
+import sys
+sys.exit(0 if diffs == [1000] and len(a) == len(b) else 1)
+" 2>/dev/null; then
+    ok "$label"
+  else
+    no "$label" "edited byte missing or unrelated bytes changed after repack"
+  fi
+  rm -rf "$d"
+}
+t_ds_rom_repack "Bomberman" "/Volumes/SSD/szs-retail-test/DS/Bomberman (USA).zip"
+t_ds_rom_repack "Animal Crossing - Wild World" "/Volumes/SSD/szs-retail-test/DS/Animal Crossing - Wild World (USA) (Rev 1).zip"
 
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
