@@ -847,7 +847,7 @@ static enumError collect_sarc_dir (sarc_build_list_t *list, ccp root, ccp rel)
 		// EXTRACT-ed rarc/nccarc/etc. tree used to balloon or corrupt the
 		// second-generation archive.
 		if (!strcmp (name, SZS_SETUP_FILE) || !strcmp (name, ".wszst-cache.txt")
-			|| !strcmp (name, SZS_MTIME_BASELINE_FILE))
+			|| !strcmp (name, SZS_MTIME_BASELINE_FILE) || !strcmp (name, ZDAT_CACHE_FILE))
 			continue;
 		const uint dlen = strlen (name);
 		if (dlen >= 2 && name[dlen - 1] == 'd' && name[dlen - 2] == '.')
@@ -1076,6 +1076,195 @@ static enumError create_sfzdat_dir (ccp source, ccp dest)
 	{
 		File_t F;
 		err = CreateFileOpt (&F, true, dest, false, dest);
+		if (F.f && fwrite (data, 1, size, F.f) != size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+
+// Animal Crossing: Pocket Camp ZDAT. EXTRACT writes .zdat-cache.txt next to
+// the members so a CREATE can restore the original bytes: the XOR key is not
+// recoverable from the unmasked files on disk, and the archive's own entry
+// order (which is not alphabetical) is remembered the same way.
+static enumError read_zdat_cache (ccp source, ccp *const **names_out, u8 **keys_out, uint *n_out)
+{
+	*names_out = 0;
+	*keys_out = 0;
+	*n_out = 0;
+
+	char path[PATH_MAX];
+	snprintf (path, sizeof (path), "%s/%s", source, ZDAT_CACHE_FILE);
+	FILE *f = fopen (path, "r");
+	if (!f)
+		return ERR_NOTHING_TO_DO;
+
+	ccp *names = 0;
+	u8 *keys = 0;
+	uint n = 0, cap = 0;
+	char line[PATH_MAX];
+	while (fgets (line, sizeof (line), f))
+	{
+		char *p = line;
+		while (*p == ' ' || *p == '\t')
+			p++;
+		if (*p == '#' || !*p)
+			continue;
+		// <name>[TAB]<key>
+		char *tab = strchr (p, '\t');
+		if (tab)
+			*tab = 0;
+		char *end = p + strlen (p);
+		while (end > p && (end[-1] == '\r' || end[-1] == '\n' || end[-1] == ' ' || end[-1] == '\t'))
+			*--end = 0;
+		if (!*p)
+			continue;
+		unsigned key = 0;
+		if (!tab || !*p || sscanf (tab + 1, "%u", &key) != 1 || key > 255)
+			continue;
+		if (n == cap)
+		{
+			cap = cap ? cap * 2 : 16;
+			names = REALLOC (names, cap * sizeof (*names));
+			keys = REALLOC (keys, cap);
+		}
+		names[n] = STRDUP (p);
+		keys[n] = (u8)key;
+		n++;
+	}
+	fclose (f);
+
+	if (!n)
+	{
+		FREE (names);
+		FREE (keys);
+		return ERR_NOTHING_TO_DO;
+	}
+	*names_out = names;
+	*keys_out = keys;
+	*n_out = n;
+	return ERR_OK;
+}
+
+// Anonymous entries (never written into the directory) mean the container
+// cannot be reproduced byte for byte; they are still zipped up in sorted
+// order so nothing is silently dropped.
+static enumError create_zdat_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+
+	ccp *cache_names = 0;
+	u8 *cache_keys = 0;
+	uint n_cache = 0;
+	if (!err)
+	{
+		enumError c_err = read_zdat_cache (source, &cache_names, &cache_keys, &n_cache);
+		if (c_err != ERR_NOTHING_TO_DO && c_err != ERR_OK)
+			err = c_err;
+	}
+
+	u8 *data = 0;
+	uint size = 0;
+	if (!err)
+	{
+		// Reorder the (sorted) collected entries to match the original
+		// archive: every cached name first, in cache order, then any
+		// uncached member in sorted order with an all-zero mask.
+		nintendo_sarc_entry_t *ordered = CALLOC (list.used, sizeof (*ordered));
+		u8 *keys = CALLOC (list.used, 1);
+		bool *done = CALLOC (list.used, 1);
+		if (!ordered || !keys || !done)
+			err = ERR_OUT_OF_MEMORY;
+		uint out_count = 0;
+		if (!err)
+		{
+			for (uint c = 0; c < n_cache; c++)
+				for (uint i = 0; i < list.used; i++)
+				{
+					if (done[i] || strcmp (list.entry[i].name, cache_names[c]))
+						continue;
+					done[i] = true;
+					ordered[out_count] = list.entry[i];
+					keys[out_count] = cache_keys[c];
+					list.entry[i].name = 0;
+					list.entry[i].data = 0;
+					out_count++;
+					break;
+				}
+			for (uint i = 0; i < list.used; i++)
+			{
+				if (done[i])
+					continue;
+				ordered[out_count] = list.entry[i];
+				keys[out_count] = 0;
+				list.entry[i].name = 0;
+				list.entry[i].data = 0;
+				out_count++;
+			}
+			err = CreateZDATArchive (&data, &size, ordered, out_count, keys);
+		}
+		for (uint i = 0; i < out_count; i++)
+		{
+			FREE ((void *)ordered[i].name);
+			FREE ((void *)ordered[i].data);
+		}
+		FREE (ordered);
+		FREE (keys);
+		FREE (done);
+	}
+	for (uint i = 0; i < n_cache; i++)
+		FREE ((void *)cache_names[i]);
+	FREE (cache_names);
+	FREE (cache_keys);
+
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, source);
+		if (F.f && fwrite (data, 1, size, F.f) != size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+
+// Sonic Storybook ONE. Compresses every member with EncodeStorybookPRS.
+// Reuses the original archive's marker byte (0 = Secret Rings, -1 = Black
+// Knight) when the destination already holds one; brand-new containers are
+// written for Secret Rings.
+static enumError create_one_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+
+	u32 marker = 0;
+	FILE *in = fopen (dest, "rb");
+	if (in)
+	{
+		u8 head[16];
+		const u32 marker_be = fread (head, 1, 16, in) == 16 ? be32 (head + 12) : 0;
+		if (marker_be == 0 || marker_be == 0xffffffff)
+			marker = marker_be;
+		fclose (in);
+	}
+
+	u8 *data = 0;
+	uint size = 0;
+	if (!err)
+		err = CreateONEArchive (&data, &size, list.entry, list.used, marker);
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, source);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
@@ -3656,6 +3845,10 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest, int known_lz
 		return create_gsh_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".dat") && looks_like_sfzdat_dir (source_dir))
 		return create_sfzdat_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".zdat"))
+		return create_zdat_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".one"))
+		return create_one_dir (source_dir, dest);
 	if ((!strcasecmp (ext, ".dat") || !strcasecmp (ext, ".rflres") || !strcasecmp (ext, ".rfl")
 		|| !strcasecmp (ext, ".fflres") || !strcasecmp (ext, ".ffl")
 		|| !strcasecmp (ext, ".cflres") || !strcasecmp (ext, ".cfl")
@@ -3779,7 +3972,7 @@ static const char *cand_archive_exts[] = { ".wbfs", ".iso", ".ciso", ".wdf", ".w
 	".darc", ".pac", ".pcs", ".gfa", ".rarc", ".warc", ".bcsar", ".bfsar", ".bcwar", ".bfwar",
 	".bcgrp", ".bfgrp", ".rst", ".car", ".res", ".trk", ".lvl", ".wu8", ".wbz", ".wlz", ".bntx",
 	".bcres", ".bfres", ".bch", ".big", ".xc", ".xpck", ".ztab", ".tab", ".mdr", ".vff", ".pvol",
-	".srd", ".stpk", ".zlarc", 0 };
+	".srd", ".stpk", ".zlarc", ".zdat", ".one", 0 };
 
 // A number of retail Wii titles keep otherwise ordinary BRRES/U8 resources
 // in a raw Nintendo LZ10/LZ11 stream, conventionally named "*.lz".  The

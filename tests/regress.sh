@@ -210,6 +210,42 @@ open(sys.argv[2], "wb").write(bytes(d))
   else
     no "ZDAT container" "extracted a container with an inconsistent entry count"
   fi
+
+  # CREATE must repack byte-for-byte: the extractor caches each member's
+  # original order and XOR key in .zdat-cache.txt, and create_zdat_dir feeds
+  # that back to CreateZDATArchive. Both fixtures round-trip exactly.
+  "$B/wszst" CREATE "$zd/one" --dest "$zd/rt-one.zdat" --overwrite >/dev/null 2>&1
+  if cmp -s "$PWD_PROJECT/../tests/fixtures/acpc_1a082b62.zdat" "$zd/rt-one.zdat"; then
+    ok "ZDAT single-entry -> byte-exact round trip"
+  else
+    no "ZDAT container" "single-entry repack differs from the fixture"
+  fi
+  "$B/wszst" CREATE "$zd/many" --dest "$zd/rt-many.zdat" --overwrite >/dev/null 2>&1
+  if cmp -s "$PWD_PROJECT/../tests/fixtures/acpc_common_multi.zdat" "$zd/rt-many.zdat"; then
+    ok "ZDAT multi-entry -> byte-exact round trip (order + masks restored)"
+  else
+    no "ZDAT container" "multi-entry repack differs from the fixture"
+  fi
+
+  # Sonic Storybook ONE is a private PRS+LZ77 container with no magic; CREATE
+  # builds one from a plain directory and EXTRACT must recover every byte of
+  # the payloads (sizes span the short/long match paths of the compressor).
+  if [ -d "$zd" ] && [ -x "$B/wszst" ]; then
+    mkdir -p "$zd/onesrc"
+    head -c 30000 /dev/urandom > "$zd/onesrc/blob.bin"
+    head -c 4096 /dev/urandom > "$zd/onesrc/mid.bin"
+    printf 'hello one %s\n' "$(seq 1 200)" > "$zd/onesrc/tiny.txt"
+    if "$B/wszst" CREATE "$zd/onesrc" --dest "$zd/test.one" --overwrite >/dev/null 2>&1 \
+    && "$B/wszst" EXTRACT "$zd/test.one" --dest "$zd/oneout" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$zd/onesrc/blob.bin" "$zd/oneout/blob.bin" \
+    && cmp -s "$zd/onesrc/mid.bin" "$zd/oneout/mid.bin" \
+    && cmp -s "$zd/onesrc/tiny.txt" "$zd/oneout/tiny.txt"; then
+      ok "ONE create/extract round trip preserves all members"
+    else
+      no "ONE container" "create/extract round trip failed"
+    fi
+  fi
+
   rm -rf "$zd"
 else
   sk "ZDAT container"
