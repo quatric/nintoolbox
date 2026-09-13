@@ -4763,7 +4763,14 @@ static enumError extract_msh_file (ccp arg, ccp basedir, uint depth)
 			testmode ? "WOULD " : "", arg, dest);
 
 	if (!testmode)
+	{
 		err = DecodeExciteMSH (raw, (uint)raw_size, dest);
+		// An unedited .msh must not look newer than its .glb on the next
+		// CREATE -- see StampFileMtime()'s doc comment -- or every model in
+		// a tree gets needlessly re-encoded and repacked.
+		if (!err)
+			StampFileMtime (dest, arg);
+	}
 	FREE (raw);
 	return err;
 }
@@ -4959,6 +4966,12 @@ static enumError extract_mod_file (ccp arg, ccp basedir, uint depth)
 	if (err)
 		return err;
 
+	// An unedited .mod must not look newer than its .glb on the next CREATE
+	// -- see StampFileMtime()'s doc comment -- or every model in a tree gets
+	// needlessly re-encoded and repacked (that's what compress.inc's repack
+	// pass compares against; it never inspects the sibling .can).
+	StampFileMtime (dest, arg);
+
 	if (verbose >= 0)
 		fprintf (stdlog, "%sEXTRACT MOD:%s -> GLB:%s%s\n", verbose > 0 ? "\n" : "", arg, dest,
 			have_can ? " (+CAN)" : "");
@@ -5006,6 +5019,11 @@ static enumError extract_hsf_file (ccp arg, ccp basedir, uint depth)
 	FREE (raw);
 	if (err)
 		return err;
+
+	// An unedited .hsf must not look newer than its .glb on the next CREATE
+	// -- see StampFileMtime()'s doc comment -- or every model in a tree gets
+	// needlessly re-encoded and repacked.
+	StampFileMtime (dest, arg);
 
 	if (verbose >= 0)
 		fprintf (stdlog, "%sEXTRACT HSF:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, dest);

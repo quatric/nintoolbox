@@ -20,6 +20,15 @@
 
 #define IMET_SIZE 0x600 // full header, including the 0x40 leading zeros
 #define IMET_MAGIC_OFFSET 0x40
+
+// A title extracted from NAND (e.g. a WiiWare channel's 00000000.app, as
+// opposed to a disc's /opening.bnr) carries an extra 0x40-byte NAND content
+// header -- an internal build/content tag such as "mio_us_nand_F..." -- in
+// front of the usual 0x40 zero-padding, so the IMET magic sits at 0x80
+// instead of 0x40. The header fields and U8 archive that follow are laid
+// out exactly as in the disc case; only the base offset differs.
+#define IMET_NAND_MAGIC_OFFSET 0x80
+
 #define IMET_N_TITLES 10
 #define IMET_TITLE_SIZE 0x54 // 42 UTF-16BE code units per language
 #define IMET_MD5_OFFSET 0x5f0
@@ -43,7 +52,7 @@ typedef enum imet_lang_t
 
 typedef struct imet_t
 {
-	uint header_offset; // 0x40 normally; 0 for a header without the padding
+	uint header_offset; // 0x40 normally; 0 without padding; 0x80 behind a NAND content header
 	uint header_size; // the stored size, normally IMET_SIZE
 	uint n_files; // the stored count, always 3 on real titles
 
@@ -60,8 +69,10 @@ typedef struct imet_t
 	uint u8_offset; // where the embedded U8 archive starts
 } imet_t;
 
-// True if DATA carries an IMET header (magic at 0x40, or at 0 for the
-// rare unpadded variant) and the embedded U8 archive is present.
+// True if DATA carries an IMET header -- magic at 0x40 (disc /opening.bnr),
+// at 0 (the rare unpadded variant), or at IMET_NAND_MAGIC_OFFSET (a NAND
+// content's 00000000.app, behind its extra content header) -- and the
+// embedded U8 archive is present.
 bool IsIMET (const u8 *data, uint size);
 
 enumError ScanIMET (imet_t *imet, const u8 *data, uint size);

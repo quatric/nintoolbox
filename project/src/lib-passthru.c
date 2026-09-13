@@ -80,6 +80,21 @@ static ccp resolve_ffprobe_for_mobipeg (ccp mobipeg)
 static enumError passthru_media (
 	ccp src, ccp basedir, ccp stage, char *staged_dir, uint staged_dir_size, bool is_audio);
 
+void StampFileMtime (ccp dest_path, ccp source_path)
+{
+	struct stat src_stat;
+	if (stat (source_path, &src_stat))
+		return;
+	// st_atim/st_mtim are the POSIX.1-2008 names; Darwin spells them
+	// st_atimespec/st_mtimespec
+#ifdef __APPLE__
+	struct timespec times[2] = { src_stat.st_atimespec, src_stat.st_mtimespec };
+#else
+	struct timespec times[2] = { src_stat.st_atim, src_stat.st_mtim };
+#endif
+	utimensat (AT_FDCWD, dest_path, times, 0);
+}
+
 // Turn a possibly relative tool name/path into an absolute one by scanning
 // PATH.  Returns the resolved name or NULL when not found.
 static const char *find_program (ccp name)
@@ -261,18 +276,7 @@ static enumError passthru_media (
 
 	// Extraction itself can take minutes. Give the preview the source's time so
 	// a later CREATE can distinguish that generated file from a user edit.
-	struct stat src_stat;
-	if (!stat (src, &src_stat))
-	{
-		// st_atim/st_mtim are the POSIX.1-2008 names; Darwin spells them
-		// st_atimespec/st_mtimespec
-#ifdef __APPLE__
-		struct timespec times[2] = { src_stat.st_atimespec, src_stat.st_mtimespec };
-#else
-		struct timespec times[2] = { src_stat.st_atim, src_stat.st_mtim };
-#endif
-		utimensat (AT_FDCWD, out_file, times, 0);
-	}
+	StampFileMtime (out_file, src);
 
 	snprintf (staged_dir, staged_dir_size, "%s", stage);
 	return ERR_OK;
@@ -342,16 +346,7 @@ enumError PassthruDecodeVID1 (ccp src_path, ccp dest_mp4)
 
 	// Give the preview the source's time so a later CREATE can tell a
 	// generated file from a user edit (same convention as passthru_media).
-	struct stat src_stat;
-	if (!stat (src_path, &src_stat))
-	{
-#ifdef __APPLE__
-		struct timespec times[2] = { src_stat.st_atimespec, src_stat.st_mtimespec };
-#else
-		struct timespec times[2] = { src_stat.st_atim, src_stat.st_mtim };
-#endif
-		utimensat (AT_FDCWD, dest_mp4, times, 0);
-	}
+	StampFileMtime (dest_mp4, src_path);
 	return ERR_OK;
 }
 

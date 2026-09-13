@@ -179,14 +179,36 @@ static char *wb_utf16be_to_utf8 (const u8 *p, uint n_u16)
 //-----------------------------------------------------------------------------
 
 // An IMET header normally sits behind 0x40 zero bytes; a few tools emit it
-// without that padding, so accept both and remember which.
+// without that padding; and a NAND content (e.g. a WiiWare channel's
+// 00000000.app) carries an extra 0x40-byte content header in front of that
+// same padding, pushing the magic to 0x80. Accept all three and remember
+// which.
 static uint imet_header_offset (const u8 *data, uint size)
 {
+	if (size >= IMET_NAND_MAGIC_OFFSET + 4 && !memcmp (data + IMET_NAND_MAGIC_OFFSET, "IMET", 4))
+		return IMET_NAND_MAGIC_OFFSET;
 	if (size >= IMET_MAGIC_OFFSET + 4 && !memcmp (data + IMET_MAGIC_OFFSET, "IMET", 4))
 		return IMET_MAGIC_OFFSET;
 	if (size >= 4 && !memcmp (data, "IMET", 4))
 		return 0;
 	return ~(uint)0;
+}
+
+// Where the conventional 0x40-byte zero padding would begin, relative to
+// DATA, for a header found at HOFF: at HOFF-0x40 when that padding is
+// actually present (HOFF >= 0x40), or at DATA itself when it's missing
+// entirely (HOFF == 0, the unpadded variant) -- in which case *DEFICIT
+// reports how many of the conventional 0x600 header bytes aren't there to
+// hash, so callers can shrink the hashed range accordingly.
+static uint imet_pad_start (uint hoff, uint *deficit)
+{
+	if (hoff >= IMET_MAGIC_OFFSET)
+	{
+		*deficit = 0;
+		return hoff - IMET_MAGIC_OFFSET;
+	}
+	*deficit = IMET_MAGIC_OFFSET - hoff;
+	return 0;
 }
 
 bool IsIMET (const u8 *data, uint size)
@@ -203,7 +225,8 @@ bool IsIMET (const u8 *data, uint size)
 	const uint hsize = wb_rd32 (data + hoff + 4);
 	if (hsize < 0x40 || hsize > 0x10000)
 		return false;
-	const uint u8_off = hoff ? hsize : hsize - IMET_MAGIC_OFFSET;
+	uint deficit;
+	const uint u8_off = imet_pad_start (hoff, &deficit) + hsize - deficit;
 	return (size_t)u8_off + 4 <= size && wb_rd32 (data + u8_off) == 0x55aa382d;
 }
 
@@ -222,7 +245,9 @@ enumError ScanIMET (imet_t *imet, const u8 *data, uint size)
 	imet->icon_size = wb_rd32 (h + 0x0c);
 	imet->banner_size = wb_rd32 (h + 0x10);
 	imet->sound_size = wb_rd32 (h + 0x14);
-	imet->u8_offset = hoff ? imet->header_size : imet->header_size - IMET_MAGIC_OFFSET;
+	uint deficit;
+	const uint pad_start = imet_pad_start (hoff, &deficit);
+	imet->u8_offset = pad_start + imet->header_size - deficit;
 
 	for (uint i = 0; i < IMET_N_TITLES; i++)
 	{
@@ -234,14 +259,16 @@ enumError ScanIMET (imet_t *imet, const u8 *data, uint size)
 
 	// MD5 over the whole header including the leading padding, with the MD5
 	// field itself zeroed (see the file comment: this differs from the range
-	// WiiBrew documents, and matches every real sample).
-	const uint md5_pos = hoff ? IMET_MD5_OFFSET : IMET_MD5_OFFSET - IMET_MAGIC_OFFSET;
-	const uint hashed = hoff ? IMET_SIZE : IMET_SIZE - IMET_MAGIC_OFFSET;
-	if ((size_t)md5_pos + 16 <= size && hashed <= size)
+	// WiiBrew documents, and matches every real sample). A NAND content's
+	// extra content header sits before the padding and is never hashed, so
+	// the hashed range starts at pad_start, not at the start of DATA.
+	const uint md5_pos = pad_start + IMET_MD5_OFFSET - deficit;
+	const uint hashed = IMET_SIZE - deficit;
+	if ((size_t)md5_pos + 16 <= size && (size_t)pad_start + hashed <= size)
 	{
 		memcpy (imet->md5, data + md5_pos, 16);
-		u8 *tmp = MEMDUP (data, hashed);
-		memset (tmp + md5_pos, 0, 16);
+		u8 *tmp = MEMDUP (data + pad_start, hashed);
+		memset (tmp + (md5_pos - pad_start), 0, 16);
 		u8 calc[16];
 		md5_calc (calc, tmp, hashed);
 		FREE (tmp);
@@ -484,21 +511,24 @@ enumError CreateIMET (u8 **dest, uint *dest_size,
 	// garbage.  Bail rather than emit a misaligned banner.
 	if (stored_hsize != IMET_SIZE)
 		return ERR_INVALID_DATA;
-	const uint hdr_len = hoff ? IMET_SIZE : IMET_SIZE - IMET_MAGIC_OFFSET;
+	uint deficit;
+	const uint pad_start = imet_pad_start (hoff, &deficit);
+	const uint hashed = IMET_SIZE - deficit;
+	const uint hdr_len = pad_start + hashed; // == header offset of the U8 archive
 	if ((u64)hdr_len + u8_size > UINT_MAX)
 		return ERR_FILE_TOO_BIG;
 
 	u8 *out = MALLOC (hdr_len + u8_size);
 	if (!out)
 		return ERR_CANT_CREATE;
-	memcpy (out, orig, hdr_len);
+	memcpy (out, orig, hdr_len); // includes any NAND content header verbatim
 	wb_wr32 (out + hoff + 0x0c, icon_size);
 	wb_wr32 (out + hoff + 0x10, banner_size);
 	wb_wr32 (out + hoff + 0x14, sound_size);
-	const uint md5_pos = hoff ? IMET_MD5_OFFSET : IMET_MD5_OFFSET - IMET_MAGIC_OFFSET;
+	const uint md5_pos = pad_start + IMET_MD5_OFFSET - deficit;
 	memset (out + md5_pos, 0, 16);
 	u8 calc[16];
-	md5_calc (calc, out, hdr_len);
+	md5_calc (calc, out + pad_start, hashed);
 	memcpy (out + md5_pos, calc, 16);
 	memcpy (out + hdr_len, u8_data, u8_size);
 

@@ -3790,6 +3790,16 @@ static const char *cand_archive_exts[] = { ".wbfs", ".iso", ".ciso", ".wdf", ".w
 static const char *cand_lz_exts[] = { ".lz", ".lz10", ".lz11", 0 };
 static const char *cand_ash_exts[] = { ".ash", ".ash0", 0 };
 
+// stage_dir_of() names a media passthrough's staging directory after the
+// source's stem (extension stripped: "attract.thp" -> "attract.d"), unlike
+// every archive format above where the directory keeps the full name
+// ("foo.brres.d"). None of the candidate lists above ever try these
+// extensions, so target_file/target_exists never resolved for a THP/
+// Mobiclip preview directory -- the ".thp"/".moflex"/".mo"/".mods" re-encode
+// check further down (which needs target_file's extension) was unreachable,
+// silently dropping an edited preview on CREATE.
+static const char *cand_media_exts[] = { ".thp", ".moflex", ".mo", ".mods", 0 };
+
 static bool is_archive_dir_name (ccp dir, size_t len)
 {
 	struct stat st;
@@ -4683,6 +4693,16 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 						snprintf (target_file, sizeof (target_file), "%s", cand);
 						target_exists = true;
 						break;
+					}
+				}
+				for (int c = 0; !target_exists && cand_media_exts[c]; c++)
+				{
+					char cand[PATH_MAX];
+					snprintf (cand, sizeof (cand), "%s%s", target_file, cand_media_exts[c]);
+					if (stat (cand, &st_target) == 0 && S_ISREG (st_target.st_mode))
+					{
+						snprintf (target_file, sizeof (target_file), "%s", cand);
+						target_exists = true;
 					}
 				}
 				for (int c = 0; !target_exists && cand_lz_exts[c]; c++)

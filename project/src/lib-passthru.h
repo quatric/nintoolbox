@@ -88,4 +88,11 @@ bool is_dir_newer_than (ccp dirpath, time_t target_mtime);
 void normalize_ds_nested_mtimes (ccp root);
 void normalize_legacy_tree_mtimes (ccp root, time_t source_mtime);
 
+// Give DEST_PATH SOURCE_PATH's mtime/atime. Used after decoding a sibling
+// preview (GLB, MP4, ...) from a source file, so an unedited source's
+// derived file doesn't look newer than it on the next CREATE and trigger a
+// needless re-encode of untouched content. Silent no-op if either stat
+// fails.
+void StampFileMtime (ccp dest_path, ccp source_path);
+
 #endif
