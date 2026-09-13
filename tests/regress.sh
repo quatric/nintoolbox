@@ -767,6 +767,18 @@ print(struct.unpack_from('<1f', d, off)[0])" 2>/dev/null || true)
           no "CGFX (3DS) edited geometry survived roundtrip" "expected v0.x=123.125, got '$e'"
         fi
       fi
+      # `wszst XEXPORT` on the raw CGFX frame must drop its texture PNGs
+      # next to the model. A dirname regression used to produce an empty
+      # directory component for bare filenames, which made the writer aim
+      # at "/<name>.png" (filesystem root) instead of the destination.
+      rm -rf /tmp/_r_cgfx_texdir
+      $B/wszst XX "$f" --dest /tmp/_r_cgfx_texdir --overwrite >/tmp/_r_cgfx_tex.log 2>&1
+      local tex; tex=$(find /tmp/_r_cgfx_texdir -maxdepth 1 -name '*.png' 2>/dev/null | head -1)
+      if [ -n "$tex" ] && ! grep -q "Can't create file: /" /tmp/_r_cgfx_tex.log; then
+        ok "CGFX (3DS) XEXPORT textures beside model ($(basename "$tex"), root writes absent)"
+      else
+        no "CGFX (3DS) XEXPORT textures beside model" "texture PNGs missing or written to filesystem root"
+      fi
       return
     fi
     no "CGFX (3DS) -> GLB" "no valid geometry from $f"
