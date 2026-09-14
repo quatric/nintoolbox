@@ -580,19 +580,14 @@ jobs:
 
   # Windows and Linux GUI packages: this project's own tools (wszst and
   # everything else in project/bin/*, already staged wholesale by the
-  # build-windows/build-linux jobs) plus the setup scripts, wrapped in
-  # nintoolbox.py the same way as gui-macos-universal.
-  #
-  # NOT included here yet: the companion passthrough tools (wit, mobipeg,
-  # sharpii, nsz, ndstool, hactool, ...) that gui-macos-universal builds
-  # from source. Doing that for Windows means Cygwin equivalents of every
-  # one of those source builds (several of which -- mobipeg's ~8-dependency
-  # FFmpeg pipeline, sharpii's dotnet publish, wit's own zstd/Makefile
-  # dance -- were only verified on macOS runners); for Linux it means
-  # native (non-mac) versions of the same. wszst/wbrsar/etc. still work
-  # standalone without them (see lib-passthru.c's per-tool fallbacks), so
-  # this is a real, working GUI package today -- just without every
-  # passthrough tool bundled. Revisit as a follow-up.
+  # build-windows/build-linux jobs) plus the setup scripts, plus best-effort
+  # native builds of the same companion passthrough tools gui-macos-universal
+  # bundles from source (wit, mobipeg, sharpii, nsz, makerom, wud2app, 7zz,
+  # ndstool, hactool, hacbrewpack, gba-mus-ripper), wrapped in nintoolbox.py
+  # the same way as gui-macos-universal. Every fetch/build below is
+  # best-effort and warns-and-skips on failure rather than failing the job,
+  # same as the macOS companion-tools step -- wszst/wbrsar/etc. still work
+  # standalone without any of them (see lib-passthru.c's per-tool fallbacks).
   build-gui-windows:
     name: gui-windows-x86_64
     needs: build-windows
@@ -609,26 +604,153 @@ jobs:
         with:
           python-version: '3.12'
 
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '7.0.x'
+
+      - uses: cygwin/cygwin-install-action@master
+        with:
+          packages: gcc-core gcc-g++ make autoconf automake libtool zlib-devel libyaml-devel binutils
+
+      # Companion tools that are plain C/C++ and build fine under Cygwin
+      # (same toolchain family build-windows already uses for wszst itself).
+      # mbedtls/libblz for makerom are vendored+built by its own Makefile via
+      # `make deps`, same as the macOS job.
+      - name: Fetch and build companion passthrough tools for bundling (best-effort)
+        shell: C:\cygwin\bin\bash.exe --login -o igncr '{0}'
+        run: |
+          cd "${GITHUB_WORKSPACE}"
+          mkdir -p extra_tools
+
+          # 1. wit (quatric/wiimms-iso-tools-plus) -- same Makefile family as
+          # this repo, so build it the same way build-windows builds wszst.
+          if git clone --depth 1 https://github.com/quatric/wiimms-iso-tools-plus.git /tmp/wit-src 2>/dev/null; then
+            (cd /tmp/wit-src/iso-tools/project && make -j"$(nproc)" NO_ZSTD=1 all && \
+              for t in wit wwt wdf wtest wfuse; do
+                [ -f "bin/$t" ] && cp -p "bin/$t" "$GITHUB_WORKSPACE/extra_tools/$t.exe"
+              done) || echo "::warning::wit source build failed -- skipping"
+          fi
+          if [ -x extra_tools/wit.exe ]; then
+            mkdir -p extra_tools/share
+            if curl -fsSL http://gametdb.com/titles.txt | extra_tools/wit.exe titles / - > extra_tools/share/titles.txt && [ -s extra_tools/share/titles.txt ]; then
+              cp extra_tools/share/titles.txt extra_tools/titles.txt
+            else
+              echo "::warning::titles.txt fetch/reformat failed -- skipping"
+              rm -f extra_tools/share/titles.txt
+            fi
+          fi
+
+          # 2. mobipeg (quatric/mobipeg) -- fetch its Windows release build.
+          if curl -fsSL -o /tmp/mobipeg-win.zip https://github.com/quatric/mobipeg/releases/latest/download/mobipeg-windows-x86_64.zip; then
+            unzip -q -o /tmp/mobipeg-win.zip -d extra_tools && \
+              [ -f extra_tools/ffmpeg.exe ] && mv extra_tools/ffmpeg.exe extra_tools/mobipeg.exe
+          else
+            echo "::warning::no mobipeg Windows release asset found -- skipping"
+          fi
+
+          # 5. makerom (3DSGuy/Project_CTR)
+          if git clone --depth 1 https://github.com/3DSGuy/Project_CTR.git /tmp/project-ctr-src 2>/dev/null; then
+            (cd /tmp/project-ctr-src/makerom && make -j"$(nproc)" deps && make -j"$(nproc)" && \
+              cp bin/makerom.exe "$GITHUB_WORKSPACE/extra_tools/" 2>/dev/null || cp bin/makerom "$GITHUB_WORKSPACE/extra_tools/makerom.exe") || \
+              echo "::warning::makerom source build failed -- skipping"
+          fi
+
+          # 6. wud2app (PAK-VIN/wud2app-macOS) -- plain C, portable despite the name
+          if git clone --depth 1 https://github.com/PAK-VIN/wud2app-macOS.git /tmp/wud2app-src 2>/dev/null; then
+            (cd /tmp/wud2app-src && gcc -Wall -Wextra -O3 main.c wudparts.c rijndael.c sha1.c -o "$GITHUB_WORKSPACE/extra_tools/wud2app.exe") || \
+              echo "::warning::wud2app source build failed -- skipping"
+          fi
+
+          # 7. 7zz / 7z (ip7z/7zip) -- official Windows release binary
+          if curl -fsSL -o /tmp/7z.zip https://github.com/ip7z/7zip/releases/download/26.03/7z2603-x64.zip; then
+            unzip -q -o /tmp/7z.zip -d /tmp/7z-extracted 7z.exe 7za.exe 2>/dev/null || true
+            [ -f /tmp/7z-extracted/7z.exe ] && cp /tmp/7z-extracted/7z.exe extra_tools/7zz.exe
+            [ -f /tmp/7z-extracted/7za.exe ] && cp /tmp/7z-extracted/7za.exe extra_tools/7z.exe
+          fi
+
+          # 8. ndstool (devkitPro/ndstool)
+          if git clone --depth 1 https://github.com/devkitPro/ndstool.git /tmp/ndstool-src; then
+            (cd /tmp/ndstool-src && ./autogen.sh && ./configure && make -j"$(nproc)" && \
+              cp ndstool.exe "$GITHUB_WORKSPACE/extra_tools/" 2>/dev/null || cp ndstool "$GITHUB_WORKSPACE/extra_tools/ndstool.exe") || \
+              echo "::warning::ndstool source build failed -- skipping"
+          fi
+
+          # 9. hactool (SciresM/hactool)
+          if git clone --depth 1 https://github.com/SciresM/hactool.git /tmp/hactool-src; then
+            (cd /tmp/hactool-src && cp config.mk.template config.mk && make -j"$(nproc)" && \
+              cp hactool.exe "$GITHUB_WORKSPACE/extra_tools/" 2>/dev/null || cp hactool "$GITHUB_WORKSPACE/extra_tools/hactool.exe") || \
+              echo "::warning::hactool source build failed -- skipping"
+          fi
+
+          # 10. hacbrewpack (pplatoon/hacBrewPack)
+          if git clone --depth 1 https://github.com/pplatoon/hacBrewPack.git /tmp/hacbrewpack-src; then
+            (cd /tmp/hacbrewpack-src && cp config.mk.template config.mk && make -j"$(nproc)" && \
+              cp hacbrewpack.exe "$GITHUB_WORKSPACE/extra_tools/" 2>/dev/null || cp hacbrewpack "$GITHUB_WORKSPACE/extra_tools/hacbrewpack.exe") || \
+              echo "::warning::hacbrewpack source build failed -- skipping"
+          fi
+
+          # 11. gba-mus-ripper -- its own makefile already targets mingw's
+          # CPPC/CC, which is exactly Cygwin's toolchain here, so build it
+          # unmodified rather than overriding compiler flags as the macOS
+          # job has to.
+          if git clone --depth 1 https://github.com/berg8793/gba-mus-ripper.git /tmp/gba-mus-ripper-src; then
+            (cd /tmp/gba-mus-ripper-src && make -j"$(nproc)" && \
+              cp out/gba_mus_ripper.exe "$GITHUB_WORKSPACE/extra_tools/" 2>/dev/null || cp out/gba_mus_ripper "$GITHUB_WORKSPACE/extra_tools/gba-mus-ripper.exe") || \
+              echo "::warning::gba-mus-ripper source build failed -- skipping"
+          fi
+
+          chmod +x extra_tools/* 2>/dev/null || true
+          ls -la extra_tools
+
+      # sharpii (TheShadowEevee/Sharpii-NetCore) -- self-contained single-file
+      # publish, native Windows dotnet rather than Cygwin (dotnet isn't a
+      # Cygwin package).
+      - name: Build sharpii
+        shell: bash
+        run: |
+          if git clone --depth 1 https://github.com/TheShadowEevee/Sharpii-NetCore.git /tmp/sharpii-src 2>/dev/null; then
+            (cd /tmp/sharpii-src && \
+              dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true && \
+              cp bin/Release/net7.0/win-x64/publish/Sharpii.exe "$GITHUB_WORKSPACE/extra_tools/sharpii.exe") || \
+              echo "::warning::sharpii source build failed -- skipping"
+          fi
+
+      # nsz (nicoboss/nsz) -- pure-Python, standalone pyinstaller build.
+      - name: Build nsz
+        shell: bash
+        run: |
+          if git clone --depth 1 https://github.com/nicoboss/nsz.git /tmp/nsz-src 2>/dev/null; then
+            (cd /tmp/nsz-src && \
+              python3 -m pip install --quiet -r requirements.txt pyinstaller && \
+              pyinstaller --onefile --name nsz nsz.py && \
+              cp dist/nsz.exe "$GITHUB_WORKSPACE/extra_tools/nsz.exe") || \
+              echo "::warning::nsz source build failed -- skipping"
+          fi
+
       - name: Build GUI app
         shell: bash
         run: |
+          mkdir -p extra_tools
+          chmod +x extra_tools/* 2>/dev/null || true
           python3 -m pip install --quiet pyinstaller sentry-sdk nsz
           BINARY_ARGS=()
-          for f in artifact/*; do
+          for f in artifact/* extra_tools/*; do
             [ -f "$f" ] && BINARY_ARGS+=(--add-binary "$f:.")
           done
+          DATA_ARGS=(--add-data logo.png:.)
+          [ -d extra_tools/share ] && DATA_ARGS+=(--add-data extra_tools/share:share)
           pyinstaller --name nintoolbox --windowed \
-            "${BINARY_ARGS[@]}" \
-            --add-data logo.png:. \
+            "${BINARY_ARGS[@]}" "${DATA_ARGS[@]}" \
             --distpath pyinst_dist nintoolbox.py
           mkdir -p dist/gui-windows-x86_64
           # Standalone cli/ folder (loose .exes + installer/install.ps1) for
           # anyone who just wants the command-line tools -- the GUI itself
           # also has an in-app "Install CLI Tools to PATH..." button.
           mkdir -p pyinst_dist/cli
-          for f in artifact/*; do
+          for f in artifact/* extra_tools/*; do
             [ -f "$f" ] && cp -p "$f" pyinst_dist/cli/
           done
+          [ -d extra_tools/share ] && cp -R extra_tools/share pyinst_dist/cli/share
           cp installer/install.ps1 pyinst_dist/cli/install.ps1
           cd pyinst_dist && 7z a -r -bd ../dist/gui-windows-x86_64/nintoolbox-windows-x86_64.zip nintoolbox cli >/dev/null 2>&1 || \
             (cd .. && cd dist/gui-windows-x86_64 && powershell -Command "Compress-Archive -Path '../../pyinst_dist/nintoolbox','../../pyinst_dist/cli' -DestinationPath 'nintoolbox-windows-x86_64.zip'")
@@ -655,29 +777,144 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install Tk (tkinter's runtime library)
-        run: sudo apt-get update && sudo apt-get install -y python3-tk
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '7.0.x'
+
+      - name: Install Tk (tkinter's runtime library) and native build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk build-essential autoconf automake libtool zlib1g-dev libyaml-dev libzstd-dev p7zip-full
+
+      # Same companion tools as gui-macos-universal (see that job's comments
+      # for per-tool background), built natively for Linux instead of
+      # cross-compiled/universal.
+      - name: Fetch and build companion passthrough tools for bundling (best-effort)
+        run: |
+          mkdir -p extra_tools
+
+          # 1. wit (quatric/wiimms-iso-tools-plus)
+          if git clone --depth 1 https://github.com/quatric/wiimms-iso-tools-plus.git /tmp/wit-src 2>/dev/null; then
+            (cd /tmp/wit-src/iso-tools/project && make -j"$(nproc)" all && \
+              for t in wit wwt wdf wtest wfuse; do
+                [ -f "bin/$t" ] && cp -p "bin/$t" "$GITHUB_WORKSPACE/extra_tools/$t"
+              done) || echo "::warning::wit source build failed -- skipping"
+          fi
+          if [ -x extra_tools/wit ]; then
+            mkdir -p extra_tools/share
+            if curl -fsSL http://gametdb.com/titles.txt | extra_tools/wit titles / - > extra_tools/share/titles.txt && [ -s extra_tools/share/titles.txt ]; then
+              cp extra_tools/share/titles.txt extra_tools/titles.txt
+            else
+              echo "::warning::titles.txt fetch/reformat failed -- skipping"
+              rm -f extra_tools/share/titles.txt
+            fi
+          fi
+
+          # 2. mobipeg (quatric/mobipeg) -- fetch its Linux release build
+          if curl -fsSL -o /tmp/mobipeg-linux.tar.gz https://github.com/quatric/mobipeg/releases/latest/download/mobipeg-linux-x86_64.tar.gz; then
+            tar -xzf /tmp/mobipeg-linux.tar.gz -C extra_tools && \
+              [ -f extra_tools/ffmpeg ] && mv extra_tools/ffmpeg extra_tools/mobipeg
+          else
+            echo "::warning::no mobipeg Linux release asset found -- skipping"
+          fi
+
+          # 3. sharpii (TheShadowEevee/Sharpii-NetCore)
+          if git clone --depth 1 https://github.com/TheShadowEevee/Sharpii-NetCore.git /tmp/sharpii-src 2>/dev/null; then
+            (cd /tmp/sharpii-src && \
+              dotnet publish -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true && \
+              cp bin/Release/net7.0/linux-x64/publish/Sharpii "$GITHUB_WORKSPACE/extra_tools/sharpii") || \
+              echo "::warning::sharpii source build failed -- skipping"
+          fi
+
+          # 4. nsz (nicoboss/nsz)
+          if git clone --depth 1 https://github.com/nicoboss/nsz.git /tmp/nsz-src 2>/dev/null; then
+            (cd /tmp/nsz-src && \
+              python3 -m pip install --quiet -r requirements.txt pyinstaller && \
+              pyinstaller --onefile --name nsz nsz.py && \
+              cp dist/nsz "$GITHUB_WORKSPACE/extra_tools/nsz") || \
+              echo "::warning::nsz source build failed -- skipping"
+          fi
+
+          # 5. makerom (3DSGuy/Project_CTR)
+          if git clone --depth 1 https://github.com/3DSGuy/Project_CTR.git /tmp/project-ctr-src 2>/dev/null; then
+            (cd /tmp/project-ctr-src/makerom && make -j"$(nproc)" deps && make -j"$(nproc)" && \
+              cp bin/makerom "$GITHUB_WORKSPACE/extra_tools/") || \
+              echo "::warning::makerom source build failed -- skipping"
+          fi
+
+          # 6. wud2app (PAK-VIN/wud2app-macOS) -- plain C, portable despite the name
+          if git clone --depth 1 https://github.com/PAK-VIN/wud2app-macOS.git /tmp/wud2app-src 2>/dev/null; then
+            (cd /tmp/wud2app-src && gcc -Wall -Wextra -O3 main.c wudparts.c rijndael.c sha1.c -o "$GITHUB_WORKSPACE/extra_tools/wud2app") || \
+              echo "::warning::wud2app source build failed -- skipping"
+          fi
+
+          # 7. 7zz / 7z (ip7z/7zip) -- official Linux release binary
+          if curl -fsSL -o /tmp/7z.tar.xz https://github.com/ip7z/7zip/releases/download/26.03/7z2603-linux-x64.tar.xz; then
+            tar -xf /tmp/7z.tar.xz -C extra_tools 7zz 2>/dev/null || true
+            [ -f extra_tools/7zz ] && cp extra_tools/7zz extra_tools/7z
+          fi
+
+          # 8. ndstool (devkitPro/ndstool)
+          if git clone --depth 1 https://github.com/devkitPro/ndstool.git /tmp/ndstool-src; then
+            (cd /tmp/ndstool-src && ./autogen.sh && ./configure && make -j"$(nproc)" && \
+              cp ndstool "$GITHUB_WORKSPACE/extra_tools/") || \
+              echo "::warning::ndstool source build failed -- skipping"
+          fi
+
+          # 9. hactool (SciresM/hactool)
+          if git clone --depth 1 https://github.com/SciresM/hactool.git /tmp/hactool-src; then
+            (cd /tmp/hactool-src && cp config.mk.template config.mk && make -j"$(nproc)" && \
+              cp hactool "$GITHUB_WORKSPACE/extra_tools/") || \
+              echo "::warning::hactool source build failed -- skipping"
+          fi
+
+          # 10. hacbrewpack (pplatoon/hacBrewPack)
+          if git clone --depth 1 https://github.com/pplatoon/hacBrewPack.git /tmp/hacbrewpack-src; then
+            (cd /tmp/hacbrewpack-src && cp config.mk.template config.mk && make -j"$(nproc)" && \
+              cp hacbrewpack "$GITHUB_WORKSPACE/extra_tools/") || \
+              echo "::warning::hacbrewpack source build failed -- skipping"
+          fi
+
+          # 11. gba-mus-ripper -- native g++ build, same C++11 default-arg
+          # patch the macOS job needs (a genuine upstream conformance bug,
+          # not mingw-specific), but no mingw CPPC/CC/-static overrides.
+          if git clone --depth 1 https://github.com/berg8793/gba-mus-ripper.git /tmp/gba-mus-ripper-src; then
+            (cd /tmp/gba-mus-ripper-src && \
+              sed -i 's/SF2::SF2(unsigned int sample_rate = 22050) :/SF2::SF2(unsigned int sample_rate) :/' sf2.cpp && \
+              make CPPC="g++ -std=gnu++11" CC=gcc WHOLE="-s -fwhole-program" -j"$(nproc)" && \
+              cp out/gba_mus_ripper "$GITHUB_WORKSPACE/extra_tools/gba-mus-ripper") || \
+              echo "::warning::gba-mus-ripper source build failed -- skipping"
+          fi
+
+          # 12. vgmtrans: NOT bundled, same reasoning as gui-macos-universal
+          # (no batch CLI target exists upstream -- see that job's comment).
+
+          chmod +x extra_tools/* 2>/dev/null || true
+          ls -la extra_tools
 
       - name: Build GUI app
         run: |
           chmod +x artifact/* 2>/dev/null || true
+          chmod +x extra_tools/* 2>/dev/null || true
           python3 -m pip install --quiet pyinstaller sentry-sdk nsz
           BINARY_ARGS=()
-          for f in artifact/*; do
+          for f in artifact/* extra_tools/*; do
             [ -f "$f" ] && [ -x "$f" ] && BINARY_ARGS+=(--add-binary "$f:.")
           done
+          DATA_ARGS=(--add-data logo.png:.)
+          [ -d extra_tools/share ] && DATA_ARGS+=(--add-data extra_tools/share:share)
           pyinstaller --name nintoolbox \
-            "${BINARY_ARGS[@]}" \
-            --add-data logo.png:. \
+            "${BINARY_ARGS[@]}" "${DATA_ARGS[@]}" \
             --distpath pyinst_dist nintoolbox.py
           mkdir -p dist/gui-linux-x86_64
           # Standalone cli/ folder (loose binaries + installer/install.sh)
           # for anyone who just wants the command-line tools -- the GUI
           # itself also has an in-app "Install CLI Tools to PATH..." button.
           mkdir -p pyinst_dist/cli
-          for f in artifact/*; do
+          for f in artifact/* extra_tools/*; do
             [ -f "$f" ] && [ -x "$f" ] && cp -p "$f" pyinst_dist/cli/
           done
+          [ -d extra_tools/share ] && cp -R extra_tools/share pyinst_dist/cli/share
           cp installer/install.sh pyinst_dist/cli/install.sh
           chmod +x pyinst_dist/cli/install.sh
           cd pyinst_dist && tar -czf ../dist/gui-linux-x86_64/nintoolbox-linux-x86_64.tar.gz nintoolbox cli
