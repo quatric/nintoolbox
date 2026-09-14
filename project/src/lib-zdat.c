@@ -339,7 +339,7 @@ enumError CreateZDATArchive (
 // the members so a CREATE can restore the original bytes: the XOR key is not
 // recoverable from the unmasked files on disk, and the archive's own entry
 // order (which is not alphabetical) is remembered the same way.
-enumError read_zdat_cache (ccp source, ccp *const **names_out, u8 **keys_out, uint *n_out)
+enumError read_zdat_cache (ccp source, ccp **names_out, u8 **keys_out, uint *n_out)
 {
 	*names_out = 0;
 	*keys_out = 0;

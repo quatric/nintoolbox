@@ -318,7 +318,7 @@ jobs:
             echo "fetching ${url}"
             if curl -fsSL -o "/tmp/${asset}" "$url"; then
               case "$asset" in
-                *.7z) 7z x -y -o extra_tools "/tmp/${asset}" >/dev/null ;;
+                *.7z) 7z x -y -oextra_tools "/tmp/${asset}" >/dev/null ;;
                 *.tar.gz|*.tgz) tar -xzf "/tmp/${asset}" -C extra_tools ;;
                 *.tar.xz) tar -xf "/tmp/${asset}" -C extra_tools ;;
                 *.zip) unzip -q -o "/tmp/${asset}" -d extra_tools ;;
