@@ -814,7 +814,15 @@ endif
 
 TOPT_wgba	:= $(GBAMUS_CXX_OBJS) $(GBAMUS_LIBS)
 wgba: $(GBAMUS_CXX_OBJS) Makefile
-wbrsar:
+# wbrsar already has its compile/link recipe from the generic $(ALL_TOOLS_X)
+# rule above -- a second recipe here for this same target would make GNU
+# Make emit an "overriding commands" warning and silently drop the real
+# compile/link step in favor of this one, leaving no wbrsar binary at all.
+# Hook the raw-file copy in as an order-only prerequisite instead so both
+# run.
+wbrsar: | copy-gbamus-raw
+.PHONY: copy-gbamus-raw
+copy-gbamus-raw:
 	@mkdir -p bin bin/$(SYSTEM2)
 	@cp -p src/gbamus/psg_data.raw src/gbamus/goldensun_synth.raw bin/ 2>/dev/null || true
 	@cp -p src/gbamus/psg_data.raw src/gbamus/goldensun_synth.raw bin/$(SYSTEM2)/ 2>/dev/null || true
