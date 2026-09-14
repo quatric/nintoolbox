@@ -129,7 +129,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: szs-${{ matrix.target }}
+          name: nintoolbox-${{ matrix.target }}
           path: dist/${{ matrix.target }}
           if-no-files-found: error
 
@@ -185,7 +185,7 @@ jobs:
           cp project/bin/* dist/windows-x86_64/ || true
       - uses: actions/upload-artifact@v4
         with:
-          name: szs-windows-x86_64
+          name: nintoolbox-windows-x86_64
           path: dist/windows-x86_64
           if-no-files-found: error
 
@@ -277,7 +277,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: szs-macos-universal
+          name: nintoolbox-macos-universal
           path: dist/macos-universal
           if-no-files-found: error
 
@@ -294,7 +294,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: szs-macos-universal
+          name: nintoolbox-macos-universal
           path: artifact
 
       - uses: actions/setup-python@v5
@@ -602,7 +602,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: szs-windows-x86_64
+          name: nintoolbox-windows-x86_64
           path: artifact
 
       - uses: actions/setup-python@v5
@@ -648,7 +648,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: szs-linux-x86_64
+          name: nintoolbox-linux-x86_64
           path: artifact
 
       - uses: actions/setup-python@v5
