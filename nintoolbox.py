@@ -160,6 +160,15 @@ class NintoolboxGUI(tk.Tk):
         self.notebook.add(self.pack_frame, text="Pack / Rebuild Game (CREATE)")
         self.setup_pack_tab()
 
+        # --- INSTALL CLI TOOLS ---
+        install_bar = ttk.Frame(self)
+        install_bar.pack(fill=tk.X, pady=(8, 0))
+        ttk.Button(
+            install_bar,
+            text="Install CLI Tools to PATH…",
+            command=self.install_cli_tools,
+        ).pack(side=tk.LEFT)
+
         # --- CONSOLE ---
         ttk.Label(self, text="Console Output:").pack(anchor="w", pady=(10, 0))
         console_frame = ttk.Frame(self)
@@ -405,6 +414,85 @@ class NintoolboxGUI(tk.Tk):
         )
         if filename:
             self.pack_target_var.set(filename)
+
+    def install_cli_tools(self):
+        """Copy every bundled CLI tool (and share/ data) onto the user's
+        PATH, and add the destination to PATH if it isn't already there.
+        Mirrors installer/install.sh and installer/install.ps1, but as a
+        one-click in-app action instead of a script the user runs by hand.
+        """
+        bundle_dir = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+        gui_names = {"nintoolbox", "nintoolbox.exe"}
+
+        if sys.platform == "win32":
+            dest = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "nintoolbox", "bin")
+            is_exe = lambda p: p.lower().endswith(".exe")
+        else:
+            dest = os.path.expanduser("~/.local/bin")
+            is_exe = lambda p: os.access(p, os.X_OK)
+
+        try:
+            os.makedirs(dest, exist_ok=True)
+            installed = []
+            for name in sorted(os.listdir(bundle_dir)):
+                if name in gui_names or name == "share":
+                    continue
+                src = os.path.join(bundle_dir, name)
+                if not os.path.isfile(src) or not is_exe(src):
+                    continue
+                shutil.copy2(src, os.path.join(dest, name))
+                installed.append(name)
+
+            share_src = os.path.join(bundle_dir, "share")
+            if os.path.isdir(share_src):
+                share_dest = os.path.join(os.path.dirname(dest), "share")
+                os.makedirs(share_dest, exist_ok=True)
+                for name in os.listdir(share_src):
+                    shutil.copy2(os.path.join(share_src, name), os.path.join(share_dest, name))
+
+            if not installed:
+                messagebox.showwarning(
+                    "Install CLI Tools",
+                    "No bundled CLI tools were found next to this app -- nothing installed.",
+                )
+                return
+
+            path_note = self._add_to_path(dest)
+            self.append_console(
+                "Installed to %s:\n  %s\n%s\n" % (dest, "\n  ".join(installed), path_note)
+            )
+            messagebox.showinfo(
+                "Install CLI Tools",
+                "Installed %d tool(s) to:\n%s\n\n%s" % (len(installed), dest, path_note),
+            )
+        except Exception as exc:
+            messagebox.showerror("Install CLI Tools", "Installation failed:\n%s" % exc)
+
+    def _add_to_path(self, dest):
+        """Add dest to the user's PATH. Returns a one-line status message."""
+        if sys.platform == "win32":
+            try:
+                import winreg
+
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment", 0, winreg.KEY_READ | winreg.KEY_WRITE) as key:
+                    try:
+                        current, _ = winreg.QueryValueEx(key, "Path")
+                    except FileNotFoundError:
+                        current = ""
+                    parts = [p for p in current.split(";") if p]
+                    if dest in parts:
+                        return "%s is already on your PATH." % dest
+                    winreg.SetValueEx(key, "Path", 0, winreg.REG_EXPAND_SZ, ";".join(parts + [dest]))
+                return "Added %s to your user PATH. Open a new terminal for it to take effect." % dest
+            except Exception as exc:
+                return "Could not update PATH automatically (%s). Add %s to PATH manually." % (exc, dest)
+        else:
+            if dest in os.environ.get("PATH", "").split(os.pathsep):
+                return "%s is already on your PATH." % dest
+            return (
+                "Add this to your shell profile (~/.zshrc, ~/.bashrc, etc.) to use it "
+                "from a terminal:\n  export PATH=\"%s:$PATH\"" % dest
+            )
 
     def append_console(self, text):
         self.console.config(state="normal")

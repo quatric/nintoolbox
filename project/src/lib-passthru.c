@@ -1786,6 +1786,28 @@ static enumError passthru_archive (
 		snprintf (exheader_arg, sizeof (exheader_arg), "--exheader=%s/exheader.bin", stage);
 		snprintf (romfsbin_arg, sizeof (romfsbin_arg), "--romfs=%s/romfs.bin", stage);
 
+		// Many post-2015 3DS titles (confirmed against a real retail CIA:
+		// ctrtool's -i output reported "uses seed crypto, but no seed is
+		// set, unable to decrypt" and silently produced no romfs at all --
+		// not an error, just an empty extraction) encrypt RomFS with an
+		// additional per-title "seed" that isn't in the NCCH header;
+		// ctrtool needs a seeddb.bin (titleid -> seed map, the same
+		// community database Citra/GodMode9 use) to decrypt those. Same
+		// auto-detect convention as ~/.switch/prod.keys below.
+		char seeddb[PATH_MAX] = "";
+		{
+			ccp home = getenv ("HOME");
+			if (home)
+			{
+				snprintf (seeddb, sizeof (seeddb), "%s/.3ds/seeddb.bin", home);
+				if (access (seeddb, R_OK))
+					seeddb[0] = '\0';
+			}
+		}
+		char seeddb_arg[PATH_MAX + 16] = "";
+		if (*seeddb)
+			snprintf (seeddb_arg, sizeof (seeddb_arg), "--seeddb=%s", seeddb);
+
 		char *argv[16];
 		int argc = 0;
 		argv[argc++] = (char *)tool;
@@ -1794,6 +1816,8 @@ static enumError passthru_archive (
 		argv[argc++] = exheader_arg;
 		argv[argc++] = romfsbin_arg;
 		argv[argc++] = "--decompresscode";
+		if (*seeddb_arg)
+			argv[argc++] = seeddb_arg;
 		argv[argc++] = (char *)src;
 		argv[argc] = 0;
 

@@ -556,15 +556,134 @@ jobs:
             --target-architecture universal2 nintoolbox.py
           file pyinst_dist/nintoolbox.app/Contents/MacOS/nintoolbox
           mkdir -p dist/gui-macos-universal
-          # Bundle the setup/install scripts alongside the .app, same as
-          # upstream wit/wszst release tarballs (setup/install.sh).
-          cp -R project/setup pyinst_dist/setup
-          cd pyinst_dist && zip -r -q ../dist/gui-macos-universal/nintoolbox-macos-universal.zip nintoolbox.app setup
+          # Alongside the .app (which has its own in-app "Install CLI Tools
+          # to PATH..." button), also ship a standalone cli/ folder with the
+          # loose binaries + installer/install.sh for anyone who just wants
+          # the command-line tools without the GUI -- same shape as
+          # upstream wit/wszst release tarballs.
+          mkdir -p pyinst_dist/cli
+          for f in artifact/* extra_tools/*; do
+            [ -f "$f" ] && [ -x "$f" ] && cp -p "$f" pyinst_dist/cli/
+          done
+          [ -d extra_tools/share ] && cp -R extra_tools/share pyinst_dist/cli/share
+          cp installer/install.sh pyinst_dist/cli/install.sh
+          chmod +x pyinst_dist/cli/install.sh
+          cd pyinst_dist && zip -r -q ../dist/gui-macos-universal/nintoolbox-macos-universal.zip nintoolbox.app cli
 
       - uses: actions/upload-artifact@v4
         with:
           name: nintoolbox-gui-macos-universal
           path: dist/gui-macos-universal
+          if-no-files-found: error
+
+  # Windows and Linux GUI packages: this project's own tools (wszst and
+  # everything else in project/bin/*, already staged wholesale by the
+  # build-windows/build-linux jobs) plus the setup scripts, wrapped in
+  # nintoolbox.py the same way as gui-macos-universal.
+  #
+  # NOT included here yet: the companion passthrough tools (wit, mobipeg,
+  # sharpii, nsz, ndstool, hactool, ...) that gui-macos-universal builds
+  # from source. Doing that for Windows means Cygwin equivalents of every
+  # one of those source builds (several of which -- mobipeg's ~8-dependency
+  # FFmpeg pipeline, sharpii's dotnet publish, wit's own zstd/Makefile
+  # dance -- were only verified on macOS runners); for Linux it means
+  # native (non-mac) versions of the same. wszst/wbrsar/etc. still work
+  # standalone without them (see lib-passthru.c's per-tool fallbacks), so
+  # this is a real, working GUI package today -- just without every
+  # passthrough tool bundled. Revisit as a follow-up.
+  build-gui-windows:
+    name: gui-windows-x86_64
+    needs: build-windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: szs-windows-x86_64
+          path: artifact
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build GUI app
+        shell: bash
+        run: |
+          python3 -m pip install --quiet pyinstaller sentry-sdk nsz
+          BINARY_ARGS=()
+          for f in artifact/*; do
+            [ -f "$f" ] && BINARY_ARGS+=(--add-binary "$f:.")
+          done
+          pyinstaller --name nintoolbox --windowed \
+            "${BINARY_ARGS[@]}" \
+            --add-data logo.png:. \
+            --distpath pyinst_dist nintoolbox.py
+          mkdir -p dist/gui-windows-x86_64
+          # Standalone cli/ folder (loose .exes + installer/install.ps1) for
+          # anyone who just wants the command-line tools -- the GUI itself
+          # also has an in-app "Install CLI Tools to PATH..." button.
+          mkdir -p pyinst_dist/cli
+          for f in artifact/*; do
+            [ -f "$f" ] && cp -p "$f" pyinst_dist/cli/
+          done
+          cp installer/install.ps1 pyinst_dist/cli/install.ps1
+          cd pyinst_dist && 7z a -r -bd ../dist/gui-windows-x86_64/nintoolbox-windows-x86_64.zip nintoolbox cli >/dev/null 2>&1 || \
+            (cd .. && cd dist/gui-windows-x86_64 && powershell -Command "Compress-Archive -Path '../../pyinst_dist/nintoolbox','../../pyinst_dist/cli' -DestinationPath 'nintoolbox-windows-x86_64.zip'")
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nintoolbox-gui-windows-x86_64
+          path: dist/gui-windows-x86_64
+          if-no-files-found: error
+
+  build-gui-linux:
+    name: gui-linux-x86_64
+    needs: build-linux
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: szs-linux-x86_64
+          path: artifact
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Tk (tkinter's runtime library)
+        run: sudo apt-get update && sudo apt-get install -y python3-tk
+
+      - name: Build GUI app
+        run: |
+          chmod +x artifact/* 2>/dev/null || true
+          python3 -m pip install --quiet pyinstaller sentry-sdk nsz
+          BINARY_ARGS=()
+          for f in artifact/*; do
+            [ -f "$f" ] && [ -x "$f" ] && BINARY_ARGS+=(--add-binary "$f:.")
+          done
+          pyinstaller --name nintoolbox \
+            "${BINARY_ARGS[@]}" \
+            --add-data logo.png:. \
+            --distpath pyinst_dist nintoolbox.py
+          mkdir -p dist/gui-linux-x86_64
+          # Standalone cli/ folder (loose binaries + installer/install.sh)
+          # for anyone who just wants the command-line tools -- the GUI
+          # itself also has an in-app "Install CLI Tools to PATH..." button.
+          mkdir -p pyinst_dist/cli
+          for f in artifact/*; do
+            [ -f "$f" ] && [ -x "$f" ] && cp -p "$f" pyinst_dist/cli/
+          done
+          cp installer/install.sh pyinst_dist/cli/install.sh
+          chmod +x pyinst_dist/cli/install.sh
+          cd pyinst_dist && tar -czf ../dist/gui-linux-x86_64/nintoolbox-linux-x86_64.tar.gz nintoolbox cli
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nintoolbox-gui-linux-x86_64
+          path: dist/gui-linux-x86_64
           if-no-files-found: error
 
   release:
