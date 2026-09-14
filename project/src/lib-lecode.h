@@ -601,7 +601,7 @@ static inline bool IsBuildModeTest (char ch)
 
 static inline bool IsBuildModeUnknown (char ch)
 {
-	return ch != 'R' || ch != 'T' || ch != 'D' || ch != 'X';
+	return ch != 'R' && ch != 'T' && ch != 'D' && ch != 'X';
 }
 
 ///////////////////////////////////////////////////////////////////////////////
