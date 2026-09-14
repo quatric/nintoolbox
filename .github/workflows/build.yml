@@ -93,6 +93,10 @@ jobs:
         # skip the bundled ctrtool via PRE (see project/Makefile), but the
         # i386 leg cross-compiles via plain -m32 with no cross_prefix/PRE, so
         # it needs the same opt-out spelled out explicitly here.
+        #
+        # NO_SENTRY also rides on no_vgmtrans: the dependency step above only
+        # installs libcurl-dev for the native (non-cross) leg, so sentry-native's
+        # cmake configure (which needs CURL) fails on every cross target.
         run: |
           old_ui_flags=()
           for f in project/src/ui/ui-*.c project/src/ui/ui-*.h project/src/ui/ui.def; do
@@ -103,6 +107,7 @@ jobs:
             ${{ matrix.cross_prefix && format('PRE={0}', matrix.cross_prefix) || '' }} \
             ${{ matrix.no_vgmtrans && 'NO_VGMTRANS=1' || '' }} \
             ${{ matrix.no_vgmtrans && 'NO_CTRTOOL=1' || '' }} \
+            ${{ matrix.no_vgmtrans && 'NO_SENTRY=1' || '' }} \
             ${{ matrix.cflags && format('XFLAGS={0}', matrix.cflags) || '' }} \
             -j$(nproc) all
 
