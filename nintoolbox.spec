@@ -1,12 +1,28 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
+
+# Bundle every CLI tool this repo builds (project/bin/*) plus every
+# companion passthrough tool staged in extra_tools/ (wit, mobipeg, sharpii,
+# nsz, makerom, ...), same set the CI GUI jobs add via --add-binary. Both
+# directories are optional here so this spec still works for a bare local
+# build that only has project/bin/wszst.
+binaries = []
+for src_dir in ('project/bin', 'extra_tools'):
+    if os.path.isdir(src_dir):
+        for name in sorted(os.listdir(src_dir)):
+            path = os.path.join(src_dir, name)
+            if os.path.isfile(path) and os.access(path, os.X_OK):
+                binaries.append((path, '.'))
+
+datas = [('logo.png', '.')]
+if os.path.isdir('extra_tools/share'):
+    datas.append(('extra_tools/share', 'share'))
 
 a = Analysis(
     ['nintoolbox.py'],
     pathex=[],
-    binaries=[
-        ('project/bin/wszst', '.'),
-    ],
-    datas=[('logo.png', '.')],
+    binaries=binaries,
+    datas=datas,
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
