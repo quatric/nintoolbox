@@ -109,12 +109,14 @@ class WszstGUI(tk.Tk):
         self.configure(padx=15, pady=15)
 
         self.wszst_path = find_wszst_binary()
-        # wit (wiimms-iso-tools-plus) handles disc/DS/WAD pass-through and
-        # mobipeg handles video/model transcoding; wszst shells out to both
-        # by bare name via PATH only, so an explicit --with-* is the only
-        # way a bundled copy actually gets used (see find_companion_tool).
+        # wit (wiimms-iso-tools-plus) handles disc/DS/WAD pass-through,
+        # mobipeg handles video/model transcoding, and sharpii handles Wii
+        # WAD pass-through; wszst shells out to all three by bare name via
+        # PATH only, so an explicit --with-* is the only way a bundled copy
+        # actually gets used (see find_companion_tool).
         self.wit_path = find_companion_tool("wit", self.wszst_path)
         self.mobipeg_path = find_companion_tool("mobipeg", self.wszst_path)
+        self.sharpii_path = find_companion_tool("sharpii", self.wszst_path)
 
         try:
             base_path = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
@@ -430,14 +432,16 @@ class WszstGUI(tk.Tk):
         threading.Thread(target=run_thread, daemon=True).start()
 
     def with_companion_tool_flags(self):
-        """--with-wit/--with-mobipeg for whatever companion tools were found
-        bundled alongside wszst; harmless to pass even for operations that
-        don't need them."""
+        """--with-wit/--with-mobipeg/--with-sharpii for whatever companion
+        tools were found bundled alongside wszst; harmless to pass even for
+        operations that don't need them."""
         flags = []
         if self.wit_path:
             flags.append(f"--with-wit={self.wit_path}")
         if self.mobipeg_path:
             flags.append(f"--with-mobipeg={self.mobipeg_path}")
+        if self.sharpii_path:
+            flags.append(f"--with-sharpii={self.sharpii_path}")
         return flags
 
     def run_unpack(self):

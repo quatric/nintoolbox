@@ -295,14 +295,21 @@ jobs:
         with:
           python-version: '3.12'
 
-      # wszst shells out to wit (disc/DS/WAD pass-through) and mobipeg
-      # (video/model transcoding) by bare name on PATH; bundling them means
-      # those features work out of the box instead of needing a separate
-      # manual install. Both come from a sibling repo's tagged release, not
-      # this build, so fetch is best-effort: if a repo has no release yet
-      # (e.g. mobipeg before its first tag), skip it and still ship wszst
-      # alone rather than failing the whole GUI build.
-      - name: Fetch wit and mobipeg for bundling (best-effort)
+      # wszst shells out to wit (disc/DS/WAD pass-through), mobipeg
+      # (video/model transcoding) and sharpii (Wii WAD pass-through) by bare
+      # name on PATH; bundling them means those features work out of the box
+      # instead of needing a separate manual install. wit/mobipeg come from
+      # quatric's own sibling repos' tagged releases, not this build, so
+      # fetch is best-effort: if a repo has no release yet (e.g. mobipeg
+      # before its first tag), skip it and still ship wszst alone rather
+      # than failing the whole GUI build. sharpii is upstream
+      # TheShadowEevee/Sharpii-NetCore's own macOS release, distributed as a
+      # 7z archive rather than tar.gz -- ndstool, hactool and hacbrewpack are
+      # deliberately NOT bundled here: as of this writing devkitpro/ndstool
+      # and pplatoon/hacBrewPack publish no binary release assets at all,
+      # and SciresM/hactool's latest release ships a Windows-only zip, so
+      # there's nothing real to fetch for any of the three on macOS.
+      - name: Fetch wit, mobipeg and sharpii for bundling (best-effort)
         run: |
           mkdir -p extra_tools
           fetch() {
@@ -310,18 +317,26 @@ jobs:
             local url="https://github.com/${repo}/releases/latest/download/${asset}"
             echo "fetching ${url}"
             if curl -fsSL -o "/tmp/${asset}" "$url"; then
-              tar -xzf "/tmp/${asset}" -C extra_tools
+              case "$asset" in
+                *.7z) 7z x -y -o extra_tools "/tmp/${asset}" >/dev/null ;;
+                *) tar -xzf "/tmp/${asset}" -C extra_tools ;;
+              esac
             else
               echo "::warning::no release asset ${asset} found for ${repo} -- skipping, GUI will build without it"
             fi
           }
+          brew install p7zip
           fetch quatric/wiimms-iso-tools-plus wit-macos-universal.tar.gz
           fetch quatric/mobipeg mobipeg-macos-universal.tar.gz
+          fetch TheShadowEevee/Sharpii-NetCore Sharpii-Net-Core-v1.1.11-MacOSX-Combined.7z
           # mobipeg's binary is literally named "ffmpeg" (it's a patched
           # ffmpeg fork); wszst's --with-mobipeg= only cares about the path
           # it's given, so rename the bundled copy to what wszst_gui.py
           # looks for (find_companion_tool("mobipeg", ...)).
           [ -f extra_tools/ffmpeg ] && mv extra_tools/ffmpeg extra_tools/mobipeg
+          # Sharpii's archive nests the binary under a "Sharpii" dir; flatten
+          # it the same way for find_companion_tool("sharpii", ...).
+          find extra_tools -iname 'sharpii*' -type f -exec mv {} extra_tools/sharpii \; 2>/dev/null || true
           chmod +x extra_tools/* 2>/dev/null || true
           ls -la extra_tools
 
@@ -332,6 +347,7 @@ jobs:
           BINARY_ARGS=(--add-binary "artifact/wszst:.")
           [ -f extra_tools/wit ] && BINARY_ARGS+=(--add-binary "extra_tools/wit:.")
           [ -f extra_tools/mobipeg ] && BINARY_ARGS+=(--add-binary "extra_tools/mobipeg:.")
+          [ -f extra_tools/sharpii ] && BINARY_ARGS+=(--add-binary "extra_tools/sharpii:.")
           pyinstaller --name wszst-gui --windowed \
             "${BINARY_ARGS[@]}" \
             --add-data logo.png:. --icon=logo.icns \
