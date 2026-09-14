@@ -9429,7 +9429,7 @@ static enumError extract_bfres_textures (ccp arg, ccp basedir, uint depth)
 	if (slash)
 		*slash = 0;
 	else
-		dest[0] = 0;
+		snprintf (dest, sizeof (dest), ".");
 
 	// Switch BFRES (FRES with BOM 0xFEFF at offset 0x0C): decode embedded BNTX texture containers
 	if (raw_size >= 0x10 && (u16)(raw[0x0C] | (raw[0x0D] << 8)) == 0xFEFF)
@@ -9694,7 +9694,7 @@ static enumError extract_bcres_textures (ccp arg, ccp basedir, uint depth)
 	if (slash)
 		*slash = 0;
 	else
-		dest[0] = 0;
+		snprintf (dest, sizeof (dest), ".");
 
 	if (!testmode)
 		ExportBCRESTexturesFromData (raw, raw_size, dest);
