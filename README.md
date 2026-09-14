@@ -20,7 +20,7 @@ Compiled binaries (`wszst`, `wimgt`, `wmdlt`, `wbrsar`, `wbmgt`, `wlayt`, `wctct
 
 ## Common Commands
 
-**This program lets you unpack a whole game recursively (with wszst xx) and then pack it back up recursively (with wszst CREATE)**
+**This program lets you unpack a whole game recursively (with wszst xx) and then pack it back up recursively (with wszst CREATE). Note that the latter functionality is quite experimental**
 
 ```bash
 # 1. Extract any archive or ROM (SZS, U8, RARC, SARC, NARC, DARC, NDS, etc.)
