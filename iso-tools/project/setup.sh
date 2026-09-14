@@ -81,7 +81,16 @@ GCC_VERSION="$( ${PRE}gcc --version | head -n1 | sed 's/([^)]*)//'|awk '{print $
 # the host's plain gcc -- otherwise SYSTEM/ARCH come out as the build
 # machine's, and makefiles-local/Makefile.local.$(SYSTEM) then injects
 # host-specific flags (e.g. -march=x86-64) into a cross-arm64/armhf build.
+#
+# Apple clang's -E (unlike GNU cpp) emits all of system.c's result_* macro
+# expansions on a single physical line instead of one per line, which used
+# to make the awk filter below fold every assignment after the first into
+# garbage appended to result_SYSTEM (e.g. "SYSTEM := mac result_SYSTEM2 =
+# ..."), silently defeating every ifeq($(SYSTEM),mac) check in the
+# Makefile. Split on " result_" first so each assignment gets its own line
+# regardless of which preprocessor produced the input.
 ${PRE}gcc $xflags -E -DPRINT_SYSTEM_SETTINGS system.c \
+	| sed 's/ result_/\nresult_/g' \
 	| awk -F= '/^result_/ { gsub(/"/,"",$2); printf("%s := %s\n",substr($1,8),$2) }' \
 	> Makefile.setup
 
