@@ -712,7 +712,7 @@ jobs:
       # publish, native Windows dotnet rather than Cygwin (dotnet isn't a
       # Cygwin package).
       - name: Build sharpii
-        shell: bash
+        shell: C:\cygwin\bin\bash.exe --login -o igncr '{0}'
         run: |
           if git clone --depth 1 https://github.com/TheShadowEevee/Sharpii-NetCore.git /tmp/sharpii-src 2>/dev/null; then
             (cd /tmp/sharpii-src && \
@@ -723,7 +723,7 @@ jobs:
 
       # nsz (nicoboss/nsz) -- pure-Python, standalone pyinstaller build.
       - name: Build nsz
-        shell: bash
+        shell: C:\cygwin\bin\bash.exe --login -o igncr '{0}'
         run: |
           if git clone --depth 1 https://github.com/nicoboss/nsz.git /tmp/nsz-src 2>/dev/null; then
             (cd /tmp/nsz-src && \
@@ -734,7 +734,7 @@ jobs:
           fi
 
       - name: Build GUI app
-        shell: bash
+        shell: C:\cygwin\bin\bash.exe --login -o igncr '{0}'
         run: |
           mkdir -p extra_tools
           chmod +x extra_tools/* 2>/dev/null || true
