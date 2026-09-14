@@ -235,11 +235,34 @@ ifeq ($(NO_SENTRY),1)
 else
   DEFINES1 += -DSENTRY_ENABLED=1
   CFLAGS += -I$(SENTRY_DIR)/include
-  SENTRY_LIBDIR := $(SENTRY_DIR)/build-inproc
+  # On mac, XFLAGS carries "-target <arch>-apple-macos<ver>" for the
+  # cross-arch halves of the universal build (see makefiles-local/Makefile.
+  # local.mac). cmake ignores XFLAGS/CC entirely and always configures for
+  # the host's native arch, so a single shared build-inproc dir built by
+  # whichever arch runs first gets reused, unchanged, by the other arch --
+  # producing a libsentry.a with the wrong architecture and a link failure
+  # ("found architecture 'arm64', required architecture 'x86_64'"). Key the
+  # build dir (and the arch/deployment-target cmake gets told to target) off
+  # the arch actually named in XFLAGS so each half gets its own build.
+  SENTRY_ARCH := $(shell echo "$(XFLAGS)" | sed -n 's/.*-target \([a-z0-9_]*\)-apple-macos\([0-9.]*\).*/\1/p')
+  SENTRY_DEPLOY_TARGET := $(shell echo "$(XFLAGS)" | sed -n 's/.*-target \([a-z0-9_]*\)-apple-macos\([0-9.]*\).*/\2/p')
+  ifneq ($(SENTRY_ARCH),)
+    SENTRY_BUILD_DIR := build-inproc-$(SENTRY_ARCH)
+    SENTRY_CMAKE_ARCH_FLAGS := -DCMAKE_OSX_ARCHITECTURES=$(SENTRY_ARCH) -DCMAKE_OSX_DEPLOYMENT_TARGET=$(SENTRY_DEPLOY_TARGET)
+  else
+    SENTRY_BUILD_DIR := build-inproc
+    SENTRY_CMAKE_ARCH_FLAGS :=
+  endif
+  SENTRY_LIBDIR := $(SENTRY_DIR)/$(SENTRY_BUILD_DIR)
   ifeq ($(SYSTEM),mac)
     SENTRY_LIBS := $(SENTRY_LIBDIR)/libsentry.a -lcurl -lz
   else
-    SENTRY_LIBS := $(SENTRY_LIBDIR)/libsentry.a -lcurl -lz -lpthread -ldl
+    # On Linux, sentry's inproc backend uses a vendored libunwind for stack
+    # unwinding (vendor/libunwind, CMake target "unwind"). CMake only links
+    # it PRIVATE into the "sentry" target, so its static archive never ends
+    # up inside libsentry.a -- link it explicitly or every tool fails with
+    # undefined references to _ULx86_64_* at the final link step.
+    SENTRY_LIBS := $(SENTRY_LIBDIR)/libsentry.a $(SENTRY_LIBDIR)/vendor/libunwind/libunwind.a -lcurl -lz -lpthread -ldl
   endif
   LIBS += $(SENTRY_LIBS)
 endif
@@ -679,18 +702,18 @@ TOPT_wbrsar	:= $(VGMTRANS_LIBS)
 wbrsar: src/vgmtrans/build/libvgmtrans_core.a
 endif
 
-.PHONY: third_party/sentry-native/build-inproc/libsentry.a
-third_party/sentry-native/build-inproc/libsentry.a:
+.PHONY: $(SENTRY_LIBDIR)/libsentry.a
+$(SENTRY_LIBDIR)/libsentry.a:
 	@if [ ! -f $@ ]; then \
 		printf "$(LOGFORMAT_TOOL)" build "libsentry.a" "$(MODE)"; \
-		mkdir -p third_party/sentry-native/build-inproc && \
-		cd third_party/sentry-native/build-inproc && \
-		cmake .. -DCMAKE_BUILD_TYPE=Release -DSENTRY_BACKEND=inproc -DSENTRY_BUILD_SHARED_LIBS=OFF -DSENTRY_INTEGRATION_TESTS=OFF -DSENTRY_BUILD_TESTS=OFF -DSENTRY_BUILD_EXAMPLES=OFF >/dev/null && \
+		mkdir -p $(SENTRY_LIBDIR) && \
+		cd $(SENTRY_LIBDIR) && \
+		cmake .. -DCMAKE_BUILD_TYPE=Release -DSENTRY_BACKEND=inproc -DSENTRY_BUILD_SHARED_LIBS=OFF -DSENTRY_INTEGRATION_TESTS=OFF -DSENTRY_BUILD_TESTS=OFF -DSENTRY_BUILD_EXAMPLES=OFF $(SENTRY_CMAKE_ARCH_FLAGS) >/dev/null && \
 		$(MAKE) sentry; \
 	fi
 
 ifneq ($(NO_SENTRY),1)
-$(ALL_TOOLS_X): third_party/sentry-native/build-inproc/libsentry.a
+$(ALL_TOOLS_X): $(SENTRY_LIBDIR)/libsentry.a
 endif
 
 #-------------------------------------------------------------------------------
@@ -772,6 +795,29 @@ src/astc/astc_wrapper.o: src/astc/astc_wrapper.cpp src/astc/astc_wrapper.h src/a
 $(BCN_CXX_OBJS): %.o: %.cpp Makefile
 	@printf "$(LOGFORMAT_CC)" object "$@" "$(MODE) [bcn]"
 	@$(CXX) $(filter-out -std=gnu99,$(CFLAGS)) -std=gnu++11 $(DEPFLAGS) $(DEFINES) -c $< -o $@
+
+# Vendored gba-mus-ripper core (see src/gbamus/, from berg8793's fork of
+# Bregalad's GBA SongRipper/SoundFontRipper: (c) 2012-2015 Bregalad,
+# (c) 2017-2018 CaptainSwag101).  Linked into wgba (src/wgba.c) as a static
+# library of objects -- no cmake, no external glib; the C++ runtime is pulled
+# in through TOPT_wgba below.  psg_data.raw / goldensun_synth.raw are runtime
+# sample data and are copied to the bin/ directories the same way tools are.
+GBAMUS_CXX_OBJS := src/gbamus/gba_mus_ripper.o src/gbamus/song_ripper.o \
+	src/gbamus/sound_font_ripper.o src/gbamus/midi.o src/gbamus/sf2.o \
+	src/gbamus/gba_instr.o src/gbamus/gba_samples.o
+
+ifeq ($(SYSTEM),mac)
+  GBAMUS_LIBS	:= -lc++
+else
+  GBAMUS_LIBS	:= -lstdc++
+endif
+
+TOPT_wgba	:= $(GBAMUS_CXX_OBJS) $(GBAMUS_LIBS)
+wgba: $(GBAMUS_CXX_OBJS) Makefile
+wbrsar: src/vgmtrans/build/libvgmtrans_core.a
+	@mkdir -p bin bin/$(SYSTEM2)
+	@cp -p src/gbamus/psg_data.raw src/gbamus/goldensun_synth.raw bin/ 2>/dev/null || true
+	@cp -p src/gbamus/psg_data.raw src/gbamus/goldensun_synth.raw bin/$(SYSTEM2)/ 2>/dev/null || true
 
 latte-grammar.h: src/latte-decaf/assembler/resources/grammar.txt
 	@awk 'BEGIN { print "static const char LatteGrammar[] = R\"LATTE(" } \

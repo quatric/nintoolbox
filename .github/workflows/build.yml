@@ -156,13 +156,21 @@ jobs:
         # Windows (OS=Windows_NT, which Cygwin also sets) and takes its
         # MSVC-oriented WIN32 branch instead of a plain POSIX one, untested
         # under Cygwin's gcc -- skip it here rather than guess.
+        #
+        # NO_SENTRY=1: the cygwin-install-action package list above installs
+        # neither cmake nor libcurl-devel, both of which sentry-native's
+        # configure needs; without them `make sentry` fails inside its own
+        # build directory (the outer cmake configure step succeeds against
+        # whatever's on PATH, but produces a Makefile missing the "sentry"
+        # target). Skip it here rather than provision an unverified Cygwin
+        # cmake/curl toolchain blind.
         run: |
           cd "${GITHUB_WORKSPACE}/project"
           old_ui_flags=()
           for f in src/ui/ui-*.c src/ui/ui-*.h src/ui/ui.def; do
             old_ui_flags+=(-o "$(basename "$f")")
           done
-          make "${old_ui_flags[@]}" NO_VGMTRANS=1 NO_CTRTOOL=1 -j$(nproc) all
+          make "${old_ui_flags[@]}" NO_VGMTRANS=1 NO_CTRTOOL=1 NO_SENTRY=1 -j$(nproc) all
       - name: Smoke test
         run: |
           cd "${GITHUB_WORKSPACE}/project"
