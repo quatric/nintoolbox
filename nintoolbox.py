@@ -8,6 +8,12 @@ import sys
 import shutil
 import sentry_sdk
 
+try:
+    from tkinterdnd2 import TkinterDnD, DND_FILES
+except ImportError:
+    TkinterDnD = None
+    DND_FILES = None
+
 sentry_sdk.init(
     dsn="https://04887b3ebaf8072bdf4bf9287d7bebe0@o107347.ingest.us.sentry.io/4512040246509568",
     # Add data like request headers and IP for users,
@@ -105,7 +111,20 @@ class CollapsibleSection(ttk.Frame):
             self.body.grid_remove()
 
 
-class NintoolboxGUI(tk.Tk):
+def _parse_dnd_path(data):
+    """Extract the first path from a <<Drop>> event's data string. Tkdnd
+    wraps any path containing a space in {curly braces} and space-separates
+    multiple dropped paths; only the first dropped item is used here since
+    every input field takes a single file/directory.
+    """
+    data = data.strip()
+    if data.startswith("{"):
+        end = data.find("}")
+        return data[1:end] if end != -1 else data[1:]
+    return data.split()[0] if data else ""
+
+
+class NintoolboxGUI(TkinterDnD.Tk if TkinterDnD else tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("nintoolbox — Nintendo Toolbox")
@@ -199,9 +218,9 @@ class NintoolboxGUI(tk.Tk):
             row=0, column=0, sticky="e", padx=5, pady=5
         )
         self.unpack_input_var = tk.StringVar()
-        ttk.Entry(self.unpack_frame, textvariable=self.unpack_input_var).grid(
-            row=0, column=1, sticky="ew", padx=5, pady=5
-        )
+        unpack_input_entry = ttk.Entry(self.unpack_frame, textvariable=self.unpack_input_var)
+        unpack_input_entry.grid(row=0, column=1, sticky="ew", padx=5, pady=5)
+        self.enable_drop(unpack_input_entry, self.unpack_input_var)
         ttk.Button(
             self.unpack_frame,
             text="Browse...",
@@ -304,9 +323,9 @@ class NintoolboxGUI(tk.Tk):
             row=0, column=0, sticky="e", padx=5, pady=5
         )
         self.pack_input_var = tk.StringVar()
-        ttk.Entry(self.pack_frame, textvariable=self.pack_input_var).grid(
-            row=0, column=1, sticky="ew", padx=5, pady=5
-        )
+        pack_input_entry = ttk.Entry(self.pack_frame, textvariable=self.pack_input_var)
+        pack_input_entry.grid(row=0, column=1, sticky="ew", padx=5, pady=5)
+        self.enable_drop(pack_input_entry, self.pack_input_var)
         ttk.Button(
             self.pack_frame,
             text="Browse...",
@@ -401,6 +420,15 @@ class NintoolboxGUI(tk.Tk):
         directory = filedialog.askdirectory()
         if directory:
             var.set(directory)
+
+    def enable_drop(self, widget, var):
+        """Let WIDGET accept a dragged-in file/folder and write its path into
+        VAR. No-op if tkinterdnd2 isn't available (e.g. it failed to bundle).
+        """
+        if DND_FILES is None:
+            return
+        widget.drop_target_register(DND_FILES)
+        widget.dnd_bind("<<Drop>>", lambda e: var.set(_parse_dnd_path(e.data)))
 
     def browse_save_pack(self):
         current = self.pack_target_var.get().strip()

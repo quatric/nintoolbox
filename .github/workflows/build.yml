@@ -545,7 +545,7 @@ jobs:
         run: |
           chmod +x artifact/* 2>/dev/null || true
           chmod +x extra_tools/* 2>/dev/null || true
-          python3 -m pip install --quiet pyinstaller sentry-sdk nsz
+          python3 -m pip install --quiet pyinstaller pyinstaller-hooks-contrib sentry-sdk nsz tkinterdnd2
           BINARY_ARGS=()
           for f in artifact/* extra_tools/*; do
             [ -f "$f" ] && [ -x "$f" ] && BINARY_ARGS+=(--add-binary "$f:.")
@@ -738,7 +738,7 @@ jobs:
         run: |
           mkdir -p extra_tools
           chmod +x extra_tools/* 2>/dev/null || true
-          python3 -m pip install --quiet pyinstaller sentry-sdk nsz
+          python3 -m pip install --quiet pyinstaller pyinstaller-hooks-contrib sentry-sdk nsz tkinterdnd2
           BINARY_ARGS=()
           for f in artifact/* extra_tools/*; do
             [ -f "$f" ] && BINARY_ARGS+=(--add-binary "$f:.")
@@ -902,7 +902,7 @@ jobs:
         run: |
           chmod +x artifact/* 2>/dev/null || true
           chmod +x extra_tools/* 2>/dev/null || true
-          python3 -m pip install --quiet pyinstaller sentry-sdk nsz
+          python3 -m pip install --quiet pyinstaller pyinstaller-hooks-contrib sentry-sdk nsz tkinterdnd2
           BINARY_ARGS=()
           for f in artifact/* extra_tools/*; do
             [ -f "$f" ] && [ -x "$f" ] && BINARY_ARGS+=(--add-binary "$f:.")
