@@ -1622,23 +1622,27 @@ static int bfres_curve_read_switch (const uint8_t *d, size_t size, size_t c, bfr
 // BoneAnim records (BfresLibrary BoneAnim.cs, IsSwitch/VersionMajor>=9) are
 // 0x38 bytes: Name off(8) CurveOffset(8) BaseDataOffset(8) unk1(8) unk2(8)
 // flags(4) BeginRotate(1) BeginTranslate(1) numCurve(1) BeginBaseTranslate(1)
-// BeginCurve(4) padding(4). AnimCurve records use the same AnimDataOffset
+// BeginCurve(4) padding(4). In VersionMajor < 9 (as originally implemented
+// in KillzXGaming/BFRES-Viewer FSKA.cs), unk1/unk2 are absent, making BoneAnim
+// 0x28 bytes with flags at +0x18. AnimCurve records use the same AnimDataOffset
 // target scheme as Wii U's BoneAnimData (Scale 0x4/0x8/0xC, Translate
 // 0x10/0x14/0x18, Rotate 0x20/0x24/0x28/0x2C), so bfres_eval_curve() and the
 // TRS assembly logic are shared with parse_fska_into_model() verbatim.
 static int parse_fska_into_model_switch (model_t *model, const uint8_t *d, size_t size,
-	size_t fs, const char *clip_name)
+	size_t fs, const char *clip_name, uint vmajor)
 {
-	if (fs + 0x50 > size)
+	const size_t fhdr_min = vmajor >= 9 ? 0x50 : 0x60;
+	if (fs + fhdr_min > size)
 		return 0;
 
-	const int frame_count = (int32_t)le32 (d + fs + 0x40);
-	const uint16_t num_bone_anim = le16 (d + fs + 0x4C);
+	const int frame_count = (int32_t)le32 (d + fs + (vmajor >= 9 ? 0x40 : 0x4C));
+	const uint16_t num_bone_anim = le16 (d + fs + (vmajor >= 9 ? 0x4C : 0x58));
 	if (num_bone_anim == 0 || frame_count <= 0 || frame_count > 100000)
 		return 0;
 
-	const int64_t bone_anims = les64 (d + fs + 0x28);
-	if (bone_anims <= 0 || (size_t)bone_anims + (size_t)num_bone_anim * 0x38 > size)
+	const size_t bone_stride = vmajor >= 9 ? 0x38 : 0x28;
+	const int64_t bone_anims = les64 (d + fs + (vmajor >= 9 ? 0x28 : 0x30));
+	if (bone_anims <= 0 || (size_t)bone_anims + (size_t)num_bone_anim * bone_stride > size)
 		return 0;
 
 	model_animation_t anim = { 0 };
@@ -1651,13 +1655,14 @@ static int parse_fska_into_model_switch (model_t *model, const uint8_t *d, size_
 
 	for (uint16_t bi = 0; bi < num_bone_anim; bi++)
 	{
-		const size_t ba = (size_t)bone_anims + (size_t)bi * 0x38;
-		if (ba + 0x38 > size)
+		const size_t ba = (size_t)bone_anims + (size_t)bi * bone_stride;
+		if (ba + bone_stride > size)
 			break;
 		const int64_t name_off = les64 (d + ba);
 		const char *bname = rel_string_switch (d, size, name_off);
-		const uint32_t bflags = le32 (d + ba + 0x28);
-		const uint8_t num_curve = d[ba + 0x2E];
+		const size_t bflags_off = ba + (vmajor >= 9 ? 0x28 : 0x18);
+		const uint32_t bflags = le32 (d + bflags_off);
+		const uint8_t num_curve = d[bflags_off + 6];
 		if (num_curve == 0 || !bname || !*bname)
 			continue;
 		const int joint_idx = bfres_find_joint (model, bname);
@@ -1831,15 +1836,16 @@ static void bfres_switch_parse_anims (model_t *model, const uint8_t *d, size_t s
 	if (values_off <= 0 || (size_t)values_off + 4 > size)
 		return;
 
+	const size_t fska_stride = vmajor >= 9 ? 0x50 : 0x60;
 	size_t pos = (size_t)values_off;
-	while (pos + 0x50 <= size && !memcmp (d + pos, "FSKA", 4))
+	while (pos + fska_stride <= size && !memcmp (d + pos, "FSKA", 4))
 	{
 		char clip[64];
-		const int64_t name_off = les64 (d + pos + 8);
+		const int64_t name_off = les64 (d + pos + (vmajor >= 9 ? 8 : 0x10));
 		const char *nm = rel_string_switch (d, size, name_off);
 		snprintf (clip, sizeof (clip), "%s", nm && *nm ? nm : "fska");
-		parse_fska_into_model_switch (model, d, size, pos, clip);
-		pos += 0x50;
+		parse_fska_into_model_switch (model, d, size, pos, clip, vmajor);
+		pos += fska_stride;
 	}
 }
 
@@ -2337,17 +2343,24 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 					if (shader_info > 0 && (size_t)shader_info + 8 <= size)
 						shader_assign = les64 (d + shader_info);
 				}
-				else if (vmajor == 9)
+				else if (vmajor == 9 && (size_t)mp_base + 0x98 <= size)
 				{
-					// Unverified (no v9 fixture available); kept as-is from the
-					// prior Wexos's-Wiki-derived guess.
-					tex_name_arr = (size_t)mp + 0x38 <= size ? les64 (d + mp + 0x30) : 0;
-					n_tex = (size_t)mp + 0x9D < size ? d[mp + 0x9D] : 0;
+					// Layout per BfresLibrary MaterialParser.cs: TextureNameArray
+					// is at mp_base+0x28, numTextureRef at mp_base+0x94, and
+					// ShaderAssign is at mp_base+0x18.
+					tex_name_arr = les64 (d + mp_base + 0x28);
+					n_tex = d[mp_base + 0x94];
+					shader_assign = les64 (d + mp_base + 0x18);
 				}
-				else
+				else if ((size_t)mp_base + 0x9C <= size) // vmajor < 9 (e.g. v8)
 				{
-					tex_name_arr = (size_t)mp + 0x40 <= size ? les64 (d + mp + 0x38) : 0;
-					n_tex = (size_t)mp + 0xAD < size ? d[mp + 0xAD] : 0;
+					// Layout per BfresLibrary MaterialParser.cs & BFRES-Viewer:
+					// TextureNameArray is at mp_base+0x28, numTextureRef at
+					// mp_base+0x98 (after 4-byte Flags at +0x90), ShaderAssign
+					// at mp_base+0x18.
+					tex_name_arr = les64 (d + mp_base + 0x28);
+					n_tex = d[mp_base + 0x98];
+					shader_assign = les64 (d + mp_base + 0x18);
 				}
 				if (tex_name_arr > 0 && n_tex > 0)
 				{
@@ -2366,7 +2379,7 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 					}
 				}
 
-				// ShaderParam colours: ShaderAssignV10 (at *shader_info+0x00)
+				// ShaderParam colours & TexSrt: ShaderAssignV10 (at *shader_info+0x00)
 				// holds shaderParamOffset (name/type table, at +0x20) and
 				// ParamCount (u16 at +0x4A); the FMAT header's SourceParamOffset
 				// (mp_base+0x50) is where the raw per-parameter bytes live, each
@@ -2376,12 +2389,9 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 				// decodes to (1.0,1.0,1.0) -- an intentional default-white tint
 				// (the actual albedo comes from the _Alb texture), and
 				// "const_single_roughness" decodes to 1.0. Texture SRT
-				// ("tex_mtx0..2"/"tex_mtx_user0/1", 24 bytes each) is present in
-				// the same table but every instance in both available fixtures
-				// is the identity transform, so the field order within those 24
-				// bytes (scale/rotate/translate vs. rotate/scale/translate)
-				// cannot be distinguished from real data -- left unimplemented
-				// rather than guess.
+				// ("tex_mtx0..2"/"tex_mtx_user0/1", 24 bytes each) layout follows
+				// BfresLibrary's TexSrt (SrtStructs.cs): Mode (u32) + Scaling (2xf32)
+				// + Rotation (f32) + Translation (2xf32).
 				if (shader_assign > 0 && (size_t)shader_assign + 0x50 <= size)
 				{
 					const int64_t param_list = les64 (d + shader_assign + 0x20);
@@ -2414,6 +2424,32 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 								// GLB writer already applies via mat->shininess.
 								const float roughness = read_le32f (d + fo);
 								mat->shininess = (1.0f - roughness) * 100.0f;
+							}
+							else if (!strcmp (pname, "const_color_specular") && fo + 12 <= size)
+							{
+								mat->specular[0] = read_le32f (d + fo);
+								mat->specular[1] = read_le32f (d + fo + 4);
+								mat->specular[2] = read_le32f (d + fo + 8);
+							}
+							else if (!strncmp (pname, "tex_mtx", 7) && fo + 24 <= size)
+							{
+								int tidx = 0;
+								if (pname[7] >= '0' && pname[7] <= '7')
+									tidx = pname[7] - '0';
+								const float sx = read_le32f (d + fo + 4);
+								const float sy = read_le32f (d + fo + 8);
+								const float rot = read_le32f (d + fo + 12);
+								const float tx = read_le32f (d + fo + 16);
+								const float ty = read_le32f (d + fo + 20);
+								if (sx != 1.0f || sy != 1.0f || rot != 0.0f || tx != 0.0f || ty != 0.0f)
+								{
+									mat->tex_scale_s[tidx] = sx;
+									mat->tex_scale_t[tidx] = sy;
+									mat->tex_rotate[tidx] = rot;
+									mat->tex_translate_s[tidx] = tx;
+									mat->tex_translate_t[tidx] = ty;
+									mat->has_tex_transform[tidx] = 1;
+								}
 							}
 						}
 					}
@@ -2808,6 +2844,58 @@ int ParseBFRESArchive (const uint8_t *data, size_t size, bfres_archive_t *out)
 {
 	if (!data || !out || size < 0x70 || memcmp (data, "FRES", 4))
 		return 0;
+
+	// Switch flavour (little-endian BOM 0xFEFF at +0x0C)
+	if (le16 (data + 0x0C) == 0xFEFF)
+	{
+		memset (out, 0, sizeof (*out));
+		const uint32_t version = le32 (data + 8);
+		const uint vmajor = (version >> 16) & 0xFFFF;
+		const int64_t name_off = les64 (data + 0x20);
+		const char *aname = rel_string_switch (data, size, name_off);
+		snprintf (out->name, sizeof (out->name), "%s", aname && *aname ? aname : "archive");
+
+		const size_t dict_fields[6] = {
+			0x30,
+			vmajor >= 9 ? 0x60 : 0x40,
+			vmajor >= 9 ? 0x70 : 0x50,
+			vmajor >= 9 ? 0x80 : 0x60,
+			vmajor >= 9 ? 0x90 : 0x70,
+			vmajor >= 9 ? 0xA0 : 0x80
+		};
+		const size_t val_fields[6] = {
+			0x28,
+			vmajor >= 9 ? 0x58 : 0x38,
+			vmajor >= 9 ? 0x68 : 0x48,
+			vmajor >= 9 ? 0x78 : 0x58,
+			vmajor >= 9 ? 0x88 : 0x68,
+			vmajor >= 9 ? 0x98 : 0x78
+		};
+
+		for (uint8_t slot = 0; slot < 6; slot++)
+		{
+			if (dict_fields[slot] + 8 > size)
+				continue;
+			const int64_t dict = les64 (data + dict_fields[slot]);
+			if (dict <= 0 || (size_t)dict + 8 > size)
+				continue;
+			const uint32_t n_obj = le32 (data + dict + 4);
+			if (!n_obj || n_obj > 0x10000)
+				continue;
+
+			bfres_slot_census_t *s = out->slots + out->n_slots++;
+			s->slot = slot;
+			s->count_meta = (uint16_t)n_obj;
+			s->count_dict = (uint16_t)n_obj;
+			out->n_objects += n_obj;
+
+			const int64_t val = les64 (data + val_fields[slot]);
+			if (val > 0 && (size_t)val + 4 <= size)
+				memcpy (s->magic, data + val, 4);
+		}
+		return 1;
+	}
+
 	if (rb16 (data + 8) != 0xFEFF || data[4] != 3)
 		return 0;
 
@@ -2893,6 +2981,90 @@ int ParseBFRESAnims (const uint8_t *data, size_t size, bfres_anim_entry_t **out_
 		*out_entries = NULL;
 	if (!data || !out_entries || size < 0x70 || memcmp (data, "FRES", 4))
 		return 0;
+
+	// Switch flavour (little-endian BOM 0xFEFF at +0x0C)
+	if (le16 (data + 0x0C) == 0xFEFF)
+	{
+		const uint32_t version = le32 (data + 8);
+		const uint vmajor = (version >> 16) & 0xFFFF;
+		const size_t dict_field = vmajor >= 9 ? 0x60 : 0x40;
+		const size_t val_field = vmajor >= 9 ? 0x58 : 0x38;
+		if (dict_field + 8 > size || val_field + 8 > size)
+			return 0;
+		const int64_t dict = les64 (data + dict_field);
+		const int64_t values_off = les64 (data + val_field);
+		if (dict <= 0 || values_off <= 0 || (size_t)dict + 8 > size)
+			return 0;
+		const uint32_t n_obj = le32 (data + dict + 4);
+		if (!n_obj || n_obj > 0x10000)
+			return 0;
+
+		size_t cap = 64, n = 0;
+		bfres_anim_entry_t *list = calloc (cap, sizeof (*list));
+		if (!list)
+			return 0;
+
+		const size_t fska_stride = vmajor >= 9 ? 0x50 : 0x60;
+		const size_t bone_stride = vmajor >= 9 ? 0x38 : 0x28;
+
+		for (uint32_t fi = 0; fi < n_obj; fi++)
+		{
+			const size_t fs = (size_t)values_off + fi * fska_stride;
+			if (fs + fska_stride > size || memcmp (data + fs, "FSKA", 4))
+				continue;
+
+			if (n >= cap)
+			{
+				size_t ncap = cap * 2;
+				bfres_anim_entry_t *nl = realloc (list, ncap * sizeof (*nl));
+				if (!nl)
+					break;
+				memset (nl + cap, 0, (ncap - cap) * sizeof (*nl));
+				list = nl;
+				cap = ncap;
+			}
+			bfres_anim_entry_t *e = list + n;
+			memcpy (e->cls, "FSKA", 4);
+			const int64_t name_off = les64 (data + fs + (vmajor >= 9 ? 8 : 0x10));
+			const char *nm = rel_string_switch (data, size, name_off);
+			snprintf (e->name, sizeof (e->name), "%s", nm && *nm ? nm : "?");
+
+			e->frames = (int32_t)le32 (data + fs + (vmajor >= 9 ? 0x40 : 0x4C));
+			const uint16_t nba = le16 (data + fs + (vmajor >= 9 ? 0x4C : 0x58));
+			e->n_sub = nba;
+			e->n_curve = le32 (data + fs + (vmajor >= 9 ? 0x44 : 0x50));
+
+			const int64_t bone_anims = les64 (data + fs + (vmajor >= 9 ? 0x28 : 0x30));
+			if (bone_anims > 0 && (size_t)bone_anims + (size_t)nba * bone_stride <= size)
+			{
+				uint32_t ok = 0;
+				for (uint16_t b = 0; b < nba; b++)
+				{
+					const size_t ba = (size_t)bone_anims + (size_t)b * bone_stride;
+					const size_t bflags_off = ba + (vmajor >= 9 ? 0x28 : 0x18);
+					const uint8_t nk = data[bflags_off + 6];
+					const int64_t cb = les64 (data + ba + 8);
+					if (cb > 0 && (size_t)cb + (size_t)nk * 0x30 <= size)
+					{
+						for (uint8_t k = 0; k < nk; k++)
+						{
+							bfres_curve_t c;
+							if (bfres_curve_read_switch (data, size, (size_t)cb + (size_t)k * 0x30, &c))
+							{
+								ok++;
+								bfres_curve_free (&c);
+							}
+						}
+					}
+				}
+				e->n_curve_ok = ok;
+			}
+			n++;
+		}
+		*out_entries = list;
+		return (int)n;
+	}
+
 	if (rb16 (data + 8) != 0xFEFF || data[4] != 3)
 		return 0;
 	const int new_layout = rb32 (data + 4) >= 0x03040000;

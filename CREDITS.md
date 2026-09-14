@@ -22,8 +22,12 @@ We acknowledge and credit the following tools and authors whose research, format
   * Reference implementation and deep technical research for Nintendo DS graphics, palettes, cell/animation systems, and 3D formats (NCGR, NCLR, NCER, NANR, NSBMD, etc.).
 * **Nintendo DS Decompressors** by **CUE**
   * Reference implementations and algorithm specifications for Nintendo compression formats (LZ77 0x10, LZ11 0x11, Huffman 0x24/0x28, RLE 0x30, Difference filter 0x80).
-* **Switch Toolbox** by **KillzXGaming** ([Switch-Toolbox](https://github.com/KillzXGaming/Switch-Toolbox))
-  * Technical reference for Switch, Wii U, and 3DS format structures (BFRES, BNTX, BCA, BMA, BNXP, SARC, BYML, and texture compression layouts).
+* **Switch Toolbox, BfresLibrary & BFRES-Viewer** by **KillzXGaming** ([Switch-Toolbox](https://github.com/KillzXGaming/Switch-Toolbox), [BfresLibrary](https://github.com/KillzXGaming/BfresLibrary), [BFRES-Viewer](https://github.com/KillzXGaming/BFRES-Viewer))
+  * Technical reference, reverse engineering, and format specifications for Nintendo Switch, Wii U, and 3DS format structures (BFRES, BNTX, BCA, BMA, BNXP, SARC, BYML, and texture compression layouts). Reference models and layouts for Wii U and Switch NintendoWare BFRES models, FSKL skeletons, FMDL geometry, FVTX vertex buffers, version-gated BufferInfo memory pools, TexSrt texture matrix transformations, material structures, and FSKA skeletal animation curves across versions (v8, v9, v10+).
+* **Scarlet** by **xdanieldzd** ([Scarlet](https://github.com/xdanieldzd/Scarlet))
+  * Reference implementation and format specifications for Nintendo 3DS, DS, and console image, container, and compression formats (including PICA200 texture containers BTGA, CTXB, DMPBM, STEX, and CMB texture chunks).
+* **ASH0-tools** by **NinjaCheetah & Garhoogin** ([ASH0-tools](https://github.com/NinjaCheetah/ASH0-tools))
+  * Reference implementation and format specifications for Nintendo Wii ASH0 Huffman/LZ compression and decompression algorithms.
 * **Kuriimu / Kuriimu2** by **IcySon55, FanTranslatorsInternational** ([Kuriimu](https://github.com/FanTranslatorsInternational/Kuriimu))
   * Research and reference implementation for game translation tools, text archives (MSBT, BMG, MSBP, MSBF), and container formats across Nintendo platforms.
 * **BrawlCrate & BrawlLib** by **soopercool101, BrawlCrate Team, Kryal, BlackJax96** ([BrawlCrate](https://github.com/soopercool101/BrawlCrate))
@@ -42,8 +46,8 @@ We acknowledge and credit the following tools and authors whose research, format
   * Reference implementation for the Wii U "Wii Virtual Console" NFS/EGGS container; `wit`'s `x-nfs.c` is a direct C port of its `nfs2iso` / `iso2nfs` logic.
 * **QuickBMS** by **Luigi Auriemma** (<http://aluigi.altervista.org/quickbms.htm>)
   * Format documentation, decompression algorithms, and container specifications used for various flat archives.
-* **LibMobiclip / FastVideoDS** by **Gericom**
-  * Video playback, codec reverse engineering, and format specifications for Nintendo DS / Wii Mobiclip video streams.
+* **EveryFileExplorer** by **Gericom** ([EveryFileExplorer](https://github.com/Gericom/EveryFileExplorer))
+  * Multi-format reverse engineering, specifications, and reference implementations for Nintendo 3DS, DS, Wii, and GameCube file systems, 2D/3D graphics, audio, container formats, and Mobiclip / FastVideoDS video codecs.
 
 ---
 
