@@ -441,27 +441,39 @@ jobs:
           fi
 
           # 8. ndstool (Nintendo DS ROM tool, universal build)
-          if git clone --depth 1 https://github.com/devkitPro/ndstool.git /tmp/ndstool-src 2>/dev/null; then
-            (cd /tmp/ndstool-src && ./autogen.sh && ./configure CFLAGS="-arch arm64 -arch x86_64" CXXFLAGS="-arch arm64 -arch x86_64" LDFLAGS="-arch arm64 -arch x86_64" && make -j"$(sysctl -n hw.ncpu)" && cp ndstool "$GITHUB_WORKSPACE/extra_tools/") || true
+          if git clone --depth 1 https://github.com/devkitPro/ndstool.git /tmp/ndstool-src; then
+            (cd /tmp/ndstool-src && ./autogen.sh && ./configure CFLAGS="-arch arm64 -arch x86_64" CXXFLAGS="-arch arm64 -arch x86_64 -std=gnu++11" LDFLAGS="-arch arm64 -arch x86_64" && make -j"$(sysctl -n hw.ncpu)" && cp ndstool "$GITHUB_WORKSPACE/extra_tools/") || \
+              echo "::warning::ndstool source build failed -- skipping"
+          else
+            echo "::warning::ndstool clone failed -- skipping"
           fi
 
           # 9. hactool (Nintendo Switch NCA/XCI/PFS0 tool, universal build)
-          if git clone --depth 1 https://github.com/SciresM/hactool.git /tmp/hactool-src 2>/dev/null; then
-            (cd /tmp/hactool-src && cp config.mk.template config.mk && make CC="clang -arch arm64 -arch x86_64" -j"$(sysctl -n hw.ncpu)" && cp hactool "$GITHUB_WORKSPACE/extra_tools/") || true
+          if git clone --depth 1 https://github.com/SciresM/hactool.git /tmp/hactool-src; then
+            (cd /tmp/hactool-src && cp config.mk.template config.mk && make CC="clang -arch arm64 -arch x86_64" -j"$(sysctl -n hw.ncpu)" && cp hactool "$GITHUB_WORKSPACE/extra_tools/") || \
+              echo "::warning::hactool source build failed -- skipping"
+          else
+            echo "::warning::hactool clone failed -- skipping"
           fi
 
           # 10. hacbrewpack (Nintendo Switch Homebrew NSP pack tool, universal build)
-          if git clone --depth 1 https://github.com/pplatoon/hacBrewPack.git /tmp/hacbrewpack-src 2>/dev/null; then
-            (cd /tmp/hacbrewpack-src && cp config.mk.template config.mk && make CC="clang -arch arm64 -arch x86_64" -j"$(sysctl -n hw.ncpu)" && cp hacbrewpack "$GITHUB_WORKSPACE/extra_tools/") || true
+          if git clone --depth 1 https://github.com/pplatoon/hacBrewPack.git /tmp/hacbrewpack-src; then
+            (cd /tmp/hacbrewpack-src && cp config.mk.template config.mk && make CC="clang -arch arm64 -arch x86_64" -j"$(sysctl -n hw.ncpu)" && cp hacbrewpack "$GITHUB_WORKSPACE/extra_tools/") || \
+              echo "::warning::hacbrewpack source build failed -- skipping"
+          else
+            echo "::warning::hacbrewpack clone failed -- skipping"
           fi
 
           # 11. gba-mus-ripper (GBA Sappy/MP2K music/soundfont ripper), universal
           # build. wszst shells out to this as a passthrough for GBA titles the
           # same way it does for wit/mobipeg -- no vendored copy in src/.
-          if git clone --depth 1 https://github.com/berg8793/gba-mus-ripper.git /tmp/gba-mus-ripper-src 2>/dev/null; then
+          if git clone --depth 1 https://github.com/berg8793/gba-mus-ripper.git /tmp/gba-mus-ripper-src; then
             (cd /tmp/gba-mus-ripper-src && make CXX="clang++ -arch arm64 -arch x86_64" CC="clang -arch arm64 -arch x86_64" -j"$(sysctl -n hw.ncpu)" && \
               found="$(find . -maxdepth 1 -type f -perm -u+x ! -name '*.sh' | head -n1)" && \
-              [ -n "$found" ] && cp "$found" "$GITHUB_WORKSPACE/extra_tools/gba-mus-ripper") || true
+              [ -n "$found" ] && cp "$found" "$GITHUB_WORKSPACE/extra_tools/gba-mus-ripper") || \
+              echo "::warning::gba-mus-ripper source build failed -- skipping"
+          else
+            echo "::warning::gba-mus-ripper clone failed -- skipping"
           fi
 
           # 12. vgmtrans-cli (magcius/vgmtrans, siiva branch), universal build.
@@ -469,12 +481,15 @@ jobs:
           # external vgmtrans binary (see project/src/wbrsar.c) -- no copy
           # is vendored or linked in-process. Bundling this binary lets
           # wbrsar's --with-vgmtrans/PATH-relative lookup find it.
-          if git clone --depth 1 --branch siiva https://github.com/magcius/vgmtrans.git /tmp/vgmtrans-src 2>/dev/null; then
+          if git clone --depth 1 --branch siiva https://github.com/magcius/vgmtrans.git /tmp/vgmtrans-src; then
             (cd /tmp/vgmtrans-src && mkdir build && cd build && \
               cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DVGMTRANS_QT=OFF >/dev/null && \
               cmake --build . --target vgmtrans_cli -j"$(sysctl -n hw.ncpu)" && \
               found="$(find . -maxdepth 3 -type f -name 'vgmtrans_cli*' -perm -u+x | head -n1)" && \
-              [ -n "$found" ] && cp "$found" "$GITHUB_WORKSPACE/extra_tools/vgmtrans") || true
+              [ -n "$found" ] && cp "$found" "$GITHUB_WORKSPACE/extra_tools/vgmtrans") || \
+              echo "::warning::vgmtrans-cli source build failed -- skipping"
+          else
+            echo "::warning::vgmtrans-cli clone failed -- skipping"
           fi
 
           chmod +x extra_tools/* 2>/dev/null || true
