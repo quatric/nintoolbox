@@ -259,6 +259,10 @@ enumError EncodeBRFNT_RGBA (
 
 enumError EncodeBRFNA_RGBA (
 	u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height, uint cell_w, uint cell_h);
+// Decompress one archived-font (.brfna) TGLP sheet (see the [[brfna-compress]]
+// comment at the definition). Returns false on an unsupported opcode or a
+// truncated/malformed stream.
+bool DecompressBRFNASheet (const u8 *comp, uint comp_size, u8 *dest, uint dest_size);
 // Encode an RGBA sheet to a 3DS/Wii U bitmap font (BCFNT / BFFNT).
 enumError EncodeBCFNT_RGBA (u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height,
 	uint cell_w, uint cell_h, bool is_wiiu);
@@ -306,6 +310,7 @@ enumError GetSARCEntry (
 // sorted by the standard 0x65 SFAT hash; the returned buffer is malloc-owned.
 enumError CreateSARC (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries,
 	uint n_entries, bool big_endian);
+enumError create_sarc_dir (ccp source, ccp dest, bool big_endian);
 
 enumError CreateNARC (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries, bool is_le);
@@ -331,6 +336,7 @@ enumError ExtractRST (nintendo_sarc_entry_t **out_entries, uint *out_n_entries, 
 
 enumError CreateRST (u8 **dest_car, uint *dest_car_size, u8 **dest_toc, uint *dest_toc_size,
 	const nintendo_sarc_entry_t *entries, uint n_entries, bool compress, bool big_endian);
+enumError create_rst_dir (ccp source, ccp dest, bool compress);
 
 enumError ExtractTHP (
 	nintendo_sarc_entry_t **out_entries, uint *out_n_entries, const u8 *thp_data, uint thp_size);

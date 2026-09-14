@@ -125,4 +125,6 @@ int IterateFilesRARC (struct szs_iterator_t *it, // iterator struct with all inf
 ///////////////			    END				///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
+enumError create_rarc_dir (ccp source, ccp dest);
+
 #endif // SZS_LIB_RARC_H

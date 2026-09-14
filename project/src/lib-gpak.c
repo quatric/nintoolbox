@@ -1,6 +1,9 @@
 #include "lib-std.h"
 #include "lib-gpak.h"
+#include "lib-arcv.h"
+#include "lib-jarc.h"
 #include <string.h>
+#include <dirent.h>
 
 void ResetGPAK (gpak_t *pak)
 {
@@ -91,3 +94,123 @@ enumError CreateGPAK (
 	*dest_size = total;
 	return ERR_OK;
 }
+
+
+// True when the directory has ordinal "file_%04u*" members (GPAK).
+bool looks_like_gpak_dir (ccp source)
+{
+	DIR *dir = opendir (source);
+	if (!dir)
+		return false;
+	bool found = false;
+	struct dirent *de;
+	while ((de = readdir (dir)))
+	{
+		uint idx;
+		if (jarc_member_name_ok (de->d_name, &idx))
+		{
+			found = true;
+			break;
+		}
+	}
+	closedir (dir);
+	return found;
+}
+
+
+// Repack a directory extracted by extract_gpak_file() back into a nameless
+// .pak. Members are ordinal-named, exactly like ARCV and jARC.
+enumError create_gpak_dir (ccp source, ccp dest)
+{
+	DIR *dir = opendir (source);
+	if (!dir)
+		return ERROR0 (ERR_NOT_EXISTS, "Can't open GPAK input directory: %s\n", source);
+
+	arcv_member_t *list = 0;
+	uint used = 0, size = 0;
+	enumError err = ERR_OK;
+	struct dirent *de;
+	while (!err && (de = readdir (dir)))
+	{
+		uint idx;
+		if (!jarc_member_name_ok (de->d_name, &idx))
+			continue;
+
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/%s", source, de->d_name);
+		struct stat st;
+		if (stat (path, &st) || !S_ISREG (st.st_mode))
+			continue;
+
+		if (used == size)
+		{
+			const uint nsize = size ? 2 * size : 32;
+			void *ptr = REALLOC (list, nsize * sizeof (*list));
+			if (!ptr)
+			{
+				err = ERR_CANT_CREATE;
+				break;
+			}
+			list = ptr;
+			size = nsize;
+		}
+		u8 *data = 0;
+		size_t fsize = 0;
+		err = LoadFileAlloc (path, 0, 0, &data, &fsize, 0, 0, 0, false);
+		if (err)
+		{
+			ERROR0 (err, "Can't load GPAK input: %s\n", path);
+			break;
+		}
+		list[used].index = idx;
+		list[used].data = data;
+		list[used].size = fsize;
+		used++;
+	}
+	closedir (dir);
+
+	if (!err && !used)
+		err = ERR_NOTHING_TO_DO;
+	if (!err)
+		qsort (list, used, sizeof (*list), cmp_arcv_member);
+	for (uint i = 0; !err && i < used; i++)
+		if (list[i].index != i)
+			err = ERROR0 (ERR_INVALID_DATA,
+				"GPAK input directory has a non-contiguous member index: %s/file_%04u*\n",
+				source, list[i].index);
+
+	if (!err && !testmode)
+	{
+		nintendo_sarc_entry_t *ent = CALLOC (used, sizeof (*ent));
+		if (!ent)
+			err = ERR_CANT_CREATE;
+		else
+		{
+			for (uint i = 0; i < used; i++)
+			{
+				ent[i].data = list[i].data;
+				ent[i].size = (uint)list[i].size;
+			}
+			u8 *out = 0;
+			uint out_size = 0;
+			err = CreateGPAK (&out, &out_size, ent, used);
+			if (!err)
+			{
+				File_t F;
+				err = CreateFileOpt (&F, true, dest, false, dest);
+				if (F.f && fwrite (out, 1, out_size, F.f) != out_size)
+					err = FILEERROR1 (&F, ERR_WRITE_FAILED,
+						"Writing %u bytes failed: %s\n", out_size, dest);
+				ResetFile (&F, opt_preserve);
+			}
+			FREE (out);
+			FREE (ent);
+		}
+	}
+
+	for (uint i = 0; i < used; i++)
+		FREE (list[i].data);
+	FREE (list);
+	return err;
+}
+

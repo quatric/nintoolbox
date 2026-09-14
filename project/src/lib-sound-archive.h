@@ -30,4 +30,6 @@ void ResetSoundArchive (sound_archive_t *sar);
 enumError ScanSoundArchive (sound_archive_t *sar, const u8 *data, size_t size);
 enumError CreateSoundArchive (u8 **dest, uint *dest_size, const sound_archive_t *sar);
 
+enumError create_sar_dir (ccp source, ccp dest, ccp magic_type);
+
 #endif

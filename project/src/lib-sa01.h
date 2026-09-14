@@ -10,4 +10,7 @@ enumError CreateSA01 (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *e
 enumError CreateCA01 (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries,
 	uint n_entries, bool compress, bool big_endian);
 
+enumError create_sa01_dir (ccp source, ccp dest);
+enumError create_ca01_dir (ccp source, ccp dest);
+
 #endif

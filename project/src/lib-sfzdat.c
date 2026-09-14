@@ -1,4 +1,5 @@
 #include "lib-std.h"
+#include "lib-archive-util.h"
 #include "lib-sfzdat.h"
 #include <string.h>
 #include <errno.h>
@@ -298,3 +299,76 @@ enumError CreateSFZDAT (
 	*dest_size = (uint)total;
 	return ERR_OK;
 }
+
+
+// Star Fox Zero DAT (Wii U). Names keep the "<ext>/<name>" folder shape the
+// extractor writes, which CreateSFZDAT turns back into the type section.
+// ".dat" is already spoken for on this tool's extract side (HAL's HSD and A2
+// bank archives both use it), so CREATE only routes a directory to the Star
+// Fox Zero builder when the directory actually has that container's shape:
+// every top-level entry is a short type/extension folder, which is exactly
+// what extract_sfzdat_file writes and nothing else here produces.
+bool looks_like_sfzdat_dir (ccp source)
+{
+	DIR *dir = opendir (source);
+	if (!dir)
+		return false;
+	uint n_type_dirs = 0;
+	bool ok = true;
+	for (const struct dirent *de; ok && (de = readdir (dir));)
+	{
+		ccp nm = de->d_name;
+		if (*nm == '.' || !strcmp (nm, "wszst-setup.txt") || !strcmp (nm, ".wszst-cache.txt"))
+			continue;
+		const uint len = (uint)strlen (nm);
+		if (len < 1 || len > 4)
+		{
+			ok = false;
+			break;
+		}
+		for (uint i = 0; i < len; i++)
+			if (!isalnum ((int)(u8)nm[i]))
+			{
+				ok = false;
+				break;
+			}
+		if (!ok)
+			break;
+		char sub[PATH_MAX];
+		snprintf (sub, sizeof (sub), "%s/%s", source, nm);
+		struct stat st;
+		if (stat (sub, &st) || !S_ISDIR (st.st_mode))
+		{
+			ok = false;
+			break;
+		}
+		n_type_dirs++;
+	}
+	closedir (dir);
+	return ok && n_type_dirs > 0;
+}
+
+
+enumError create_sfzdat_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+	u8 *data = 0;
+	uint size = 0;
+	if (!err)
+		err = CreateSFZDAT (&data, &size, list.entry, list.used);
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, dest);
+		if (F.f && fwrite (data, 1, size, F.f) != size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+

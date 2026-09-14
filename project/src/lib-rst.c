@@ -1,6 +1,7 @@
 // Excite Truck RST archive format -- split out of lib-nintendo.c.
 
 #include "lib-std.h"
+#include "lib-archive-util.h"
 #include "lib-nintendo.h"
 #include "lib-quicklz.h"
 
@@ -470,3 +471,54 @@ enumError CreateRST (u8 **dest_car, uint *dest_car_size, u8 **dest_toc, uint *de
 	*dest_toc_size = total_toc_size;
 	return ERR_OK;
 }
+
+
+enumError create_rst_dir (ccp source, ccp dest, bool compress)
+{
+	// A nested RST rebuild writes back to the raw sibling that produced this
+	// `.d` tree.  That is an intentional in-place replacement; passing the
+	// directory as CreateFileOpt's source otherwise makes the existing .trk
+	// (and its .toc) look like an unrelated destination collision.
+	const size_t source_len = strlen (source);
+	const bool replace_source = source_len > 2 && !strcasecmp (source + source_len - 2, ".d")
+		&& !strncmp (source, dest, source_len - 2) && !dest[source_len - 2];
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+	u8 *car_data = 0, *toc_data = 0;
+	uint car_size = 0, toc_size = 0;
+	bool big_endian = false;
+	if (!err)
+		err = CreateRST (&car_data, &car_size, &toc_data, &toc_size, list.entry, list.used,
+			compress, big_endian);
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, replace_source ? dest : source);
+		if (F.f && fwrite (car_data, 1, car_size, F.f) != car_size)
+			err = FILEERROR1 (
+				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", car_size, dest);
+		ResetFile (&F, opt_preserve);
+
+		char toc_dest[PATH_MAX];
+		snprintf (toc_dest, sizeof (toc_dest), "%s", dest);
+		char *dot = strrchr (toc_dest, '.');
+		if (dot)
+			snprintf (dot, sizeof (toc_dest) - (dot - toc_dest), ".toc");
+		else
+			snprintf (toc_dest + strlen (toc_dest), sizeof (toc_dest) - strlen (toc_dest), ".toc");
+
+		File_t Ftoc;
+		err = CreateFileOpt (&Ftoc, true, toc_dest, false, replace_source ? toc_dest : source);
+		if (Ftoc.f && fwrite (toc_data, 1, toc_size, Ftoc.f) != toc_size)
+			err = FILEERROR1 (
+				&Ftoc, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", toc_size, toc_dest);
+		ResetFile (&Ftoc, opt_preserve);
+	}
+	FREE (car_data);
+	FREE (toc_data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+

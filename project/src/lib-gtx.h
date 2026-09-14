@@ -181,4 +181,6 @@ enumError EncodeGSHShaders (
 enumError EncodeGSHFromLatte (
 	u8 **dest, uint *dest_size, const char *latte_text, gtx_shader_stage_t stage);
 
+enumError create_gsh_dir (ccp source, ccp dest);
+
 #endif

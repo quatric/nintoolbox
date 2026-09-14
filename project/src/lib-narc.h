@@ -26,4 +26,6 @@ enumError ScanNARC (narc_t *narc, const u8 *data, size_t size);
 enumError CreateNARC (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries, bool is_le);
 
+enumError create_narc_dir (ccp source, ccp dest, bool is_le);
+
 #endif

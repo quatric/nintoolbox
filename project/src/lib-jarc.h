@@ -27,4 +27,7 @@ void ResetJARC (jarc_t *jarc);
 enumError DecodeJCMP (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 enumError ScanJARC (jarc_t *jarc, const u8 *data, size_t size);
 
+bool jarc_member_name_ok (ccp nm, uint *idx);
+enumError create_jarc_dir (ccp source, ccp dest);
+
 #endif

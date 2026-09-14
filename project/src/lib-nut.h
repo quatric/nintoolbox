@@ -3,6 +3,7 @@
 
 #include "types.h"
 #include "file-type.h"
+#include "lib-image.h"
 
 // Namco Texture container format (.nut / NTP3 / NTWU) used in Super Smash Bros. for 3DS
 // and Super Smash Bros. for Wii U.
@@ -59,5 +60,8 @@ int DecodeNUTTextureToRGBA (
 // Creates a basic uncompressed NUT (NTP3) container from RGBA8 or raw texture streams.
 enumError CreateNUT (u8 **dest, size_t *dest_size, uint n_textures, const u16 *widths,
 	const u16 *heights, const u32 *formats, const u8 *const *tex_data, const size_t *tex_sizes);
+
+// Bandai Namco NUT texture package -- Image_t save glue (see lib-nut.c).
+enumError SaveNUT (Image_t *img, FILE *fo, ccp path, bool overwrite);
 
 #endif // SZS_LIB_NUT_H

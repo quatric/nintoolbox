@@ -10,4 +10,6 @@ enumError DecodePTLGToPNGDir (const u8 *data, uint size, ccp dest_dir, uint *n_w
 enumError CreatePTLGArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries, bool is_gc);
 
+enumError create_ptlg_dir (ccp source, ccp dest, bool is_gc);
+
 #endif // LIB_PTLG_H

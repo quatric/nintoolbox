@@ -7,4 +7,6 @@ enumError ScanCramARC (nintendo_sarc_entry_t **entries, uint *n_entries, const u
 enumError CreateCramARC (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 
+enumError create_cram_dir (ccp source, ccp dest);
+
 #endif

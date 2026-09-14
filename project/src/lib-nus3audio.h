@@ -9,4 +9,6 @@ enumError ExtractNUS3AudioArchive (ccp arg, ccp basedir, uint depth);
 enumError CreateNUS3AudioArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 
+enumError create_nus3audio_dir (ccp source, ccp dest);
+
 #endif // LIB_NUS3AUDIO_H

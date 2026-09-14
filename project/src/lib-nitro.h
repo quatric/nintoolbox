@@ -3,6 +3,7 @@
 
 #include "types.h"
 #include "lib-nintendo.h"
+#include "lib-image.h"
 
 // Nintendo DS ("Nitro") graphics, texture, font, and layout subsystems.
 // Reference implementations and format research from NitroPaint (Garhoogin).
@@ -189,5 +190,10 @@ enumError EncodeNCER_Text (u8 **dest, uint *dest_size, ccp text);
 
 enumError DecodeNANR_Text (char **dest_text, const u8 *data, uint size);
 enumError EncodeNANR_Text (u8 **dest, uint *dest_size, ccp text);
+
+// Nitro NSBTX 3D texture container -- Image_t save glue (see lib-nitro.c).
+enumError SaveNSBTX (Image_t *img, FILE *fo, ccp path, bool overwrite);
+
+enumError create_nanr_xml (ccp source, ccp dest);
 
 #endif // SZS_LIB_NITRO_H

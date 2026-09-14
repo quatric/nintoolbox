@@ -3198,3 +3198,54 @@ enumError InvertSequence (
 		*out_size = seq_size;
 	return ERR_OK;
 }
+
+
+enumError encode_sequence_file (ccp source, ccp dest)
+{
+	ccp ext = strrchr (dest, '.');
+	seq_format_t fmt = SEQ_FMT_RSEQ;
+	if (ext)
+	{
+		if (!strcasecmp (ext, ".cseq") || !strcasecmp (ext, ".bcseq"))
+			fmt = SEQ_FMT_CSEQ;
+		else if (!strcasecmp (ext, ".fseq") || !strcasecmp (ext, ".bfseq"))
+			fmt = SEQ_FMT_FSEQ_BE;
+		else if (!strcasecmp (ext, ".sseq"))
+			fmt = SEQ_FMT_SSEQ;
+		else if (!strcasecmp (ext, ".bms") || !strcasecmp (ext, ".bmc"))
+			fmt = SEQ_FMT_BMS;
+	}
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (source, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return err;
+
+	u8 *out = 0;
+	size_t out_size = 0;
+
+	ccp src_ext = strrchr (source, '.');
+	if (src_ext && !strcasecmp (src_ext, ".mid"))
+	{
+		err = SequenceFromMIDI (&out, &out_size, raw, raw_size, fmt);
+	}
+	else
+	{
+		err = AssembleSequence (&out, &out_size, (const char *)raw, fmt);
+	}
+	FREE (raw);
+
+	if (!err && out && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, dest);
+		if (F.f && fwrite (out, 1, out_size, F.f) != out_size)
+			err = FILEERROR1 (
+				&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", out_size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (out);
+	return err;
+}
+

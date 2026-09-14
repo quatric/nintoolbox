@@ -107,4 +107,6 @@ seq_format_t DetectSequenceFormat (const u8 *data, size_t size);
 seq_format_t ParseSequenceFormatName (const char *name);
 const char *GetSequenceFormatName (seq_format_t fmt);
 
+enumError encode_sequence_file (ccp source, ccp dest);
+
 #endif // SZS_LIB_SEQUENCE_H

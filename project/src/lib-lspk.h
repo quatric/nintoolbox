@@ -25,4 +25,6 @@ enumError ScanLSPK (
 enumError CreateLSPKArchive (u8 **dest_pkh, uint *dest_pkh_size, u8 **dest_pk, uint *dest_pk_size,
 	const nintendo_sarc_entry_t *entries, uint n_entries);
 
+enumError create_lspk_dir (ccp source, ccp dest);
+
 #endif

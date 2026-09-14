@@ -2,6 +2,7 @@
 #define SZS_LIB_SMDH_H 1
 
 #include "types.h"
+#include "lib-image.h"
 
 // SMDH ("System Menu Data Header"): the 3DS application icon + title
 // metadata block. Present standalone (icon.bin/*.smdh, as produced by
@@ -91,5 +92,8 @@ char *TextSMDH (const smdh_t *smdh);
 
 // Serializes SMDH to a valid binary SMDH buffer (SMDH_SIZE bytes). Caller FREEs *dest.
 enumError EncodeSMDH (u8 **dest, uint *dest_size, const smdh_t *smdh);
+
+// 3DS application icon -- Image_t save glue (see lib-smdh.c).
+enumError SaveSMDH (Image_t *img, FILE *fo, ccp path, bool overwrite);
 
 #endif

@@ -1,4 +1,5 @@
 #include "lib-std.h"
+#include "lib-archive-util.h"
 #include "lib-bg4.h"
 #include <zlib.h>
 #include <string.h>
@@ -172,3 +173,28 @@ enumError CreateBG4 (
 	*dest_size = (uint)total_size;
 	return ERR_OK;
 }
+
+
+enumError create_bg4_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+	u8 *data = 0;
+	uint size = 0;
+	if (!err)
+		err = CreateBG4 (&data, &size, list.entry, list.used);
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, dest);
+		if (F.f && fwrite (data, 1, size, F.f) != size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+

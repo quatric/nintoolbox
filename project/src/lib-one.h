@@ -13,4 +13,6 @@ enumError CreateONEArchive (
 // bit format that the tool's own decoder (decode_storybook_prs) accepts.
 enumError EncodeStorybookPRS (u8 **dest, uint *dest_size, const u8 *data, uint size);
 
+enumError create_one_dir (ccp source, ccp dest);
+
 #endif // LIB_ONE_H

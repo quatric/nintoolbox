@@ -1,4 +1,5 @@
 #include "lib-std.h"
+#include "lib-archive-util.h"
 #include "lib-gfa.h"
 #include <string.h>
 #include <errno.h>
@@ -467,7 +468,7 @@ enumError PeekGFACompression (ccp path, uint *compression)
 // content. Since we can't recompute it, the only safe option is to carry the
 // existing value over unchanged for entries that already existed in the
 // archive being replaced -- see ReadGFAHashHints() and its use in
-// create_gfa_dir() (compress.inc). New entries that have no prior record
+// create_gfa_dir() (wszst_cmd/create_archive_formats.inc). New entries that have no prior record
 // get 0, same as before; that's a pre-existing limitation, not a regression.
 enumError ReadGFAHashHints (ccp path, ParamField_t *out)
 {
@@ -632,3 +633,45 @@ enumError CreateGFA (
 	*dest_size = total_size;
 	return ERR_OK;
 }
+
+
+enumError create_gfa_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+	u8 *data = 0;
+	uint size = 0;
+	if (!err)
+	{
+		// Re-encode with whatever compression the archive being replaced
+		// already used (BPE vs raw LZ10), so a plain content edit doesn't
+		// also silently flip the archive's compression format. No existing
+		// 'dest' (a brand new archive) falls back to CreateGFA's own default.
+		uint compression = 0;
+		PeekGFACompression (dest, &compression);
+
+		// See CreateGFA's 'hash_hint' doc in lib-gfa.h: rec+0 of each entry
+		// carries an opaque value the game apparently needs but that isn't a
+		// recomputable name hash, so it must be carried over from the
+		// archive being replaced rather than left zeroed.
+		ParamField_t hash_hint;
+		InitializeParamField (&hash_hint);
+		ReadGFAHashHints (dest, &hash_hint);
+		err = CreateGFA (&data, &size, list.entry, list.used, compression, &hash_hint);
+		ResetParamField (&hash_hint);
+	}
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, dest);
+		if (F.f && fwrite (data, 1, size, F.f) != size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+

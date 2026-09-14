@@ -1,6 +1,7 @@
 // Nintendo SARC archive format -- split out of lib-nintendo.c.
 
 #include "lib-std.h"
+#include "lib-archive-util.h"
 #include "lib-nintendo.h"
 
 static inline u16 sarc16 (const nintendo_sarc_t *s, const u8 *p)
@@ -183,3 +184,50 @@ enumError CreateSARC (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *e
 	*dest_size = total;
 	return ERR_OK;
 }
+
+
+// The conventional .sarc spelling keeps Nintendo's big-endian form.  The
+// explicit suffixes make it possible to create the Wii U/Switch-style little
+// endian variant without adding a global option whose meaning would leak into
+// all existing archive formats.
+enumError create_sarc_dir (ccp source, ccp dest, bool big_endian)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+	u8 *data = 0;
+	uint size = 0;
+	if (!err)
+		err = CreateSARC (&data, &size, list.entry, list.used, big_endian);
+	if (!err && !testmode)
+	{
+		u8 *final_data = data;
+		uint final_size = size;
+		u8 *comp_data = 0;
+		uint comp_size = 0;
+		if (is_ext_match (dest, ".fzip"))
+		{
+			err = EncodeFZIP (&comp_data, &comp_size, data, size);
+			if (!err)
+			{
+				final_data = comp_data;
+				final_size = comp_size;
+			}
+		}
+		if (!err)
+		{
+			File_t F;
+			err = CreateFileOpt (&F, true, dest, false, dest);
+			if (F.f && fwrite (final_data, 1, final_size, F.f) != final_size)
+				err = FILEERROR1 (
+					&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", final_size, dest);
+			ResetFile (&F, opt_preserve);
+		}
+		FREE (comp_data);
+	}
+	FREE (data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+

@@ -409,7 +409,7 @@ static enumError scan_excite_header (excite_tex_t *tex, const u8 *data, uint siz
 // the same pixels through the unmodified decoder. CMPR is the one format
 // that isn't a simple per-pixel inverse (it's a block compressor); rather
 // than reinvent one, it reuses this codebase's existing DXT1-style block
-// encoder (CMPR_wiimm()/CMPR_close_info() in lib-image1.c, the same one
+// encoder (CMPR_wiimm()/CMPR_close_info() in lib-image-convert.c, the same one
 // wimgt's own CMPR conversion uses) -- its vector format (16 raster-order
 // RGBA8 pixels per 4x4 block) matches our buffers exactly, no shuffling
 // needed.

@@ -333,3 +333,156 @@ enumError CreateZDATArchive (
 	*dest_size = (uint)cur;
 	return ERR_OK;
 }
+
+
+// Animal Crossing: Pocket Camp ZDAT. EXTRACT writes .zdat-cache.txt next to
+// the members so a CREATE can restore the original bytes: the XOR key is not
+// recoverable from the unmasked files on disk, and the archive's own entry
+// order (which is not alphabetical) is remembered the same way.
+enumError read_zdat_cache (ccp source, ccp *const **names_out, u8 **keys_out, uint *n_out)
+{
+	*names_out = 0;
+	*keys_out = 0;
+	*n_out = 0;
+
+	char path[PATH_MAX];
+	snprintf (path, sizeof (path), "%s/%s", source, ZDAT_CACHE_FILE);
+	FILE *f = fopen (path, "r");
+	if (!f)
+		return ERR_NOTHING_TO_DO;
+
+	ccp *names = 0;
+	u8 *keys = 0;
+	uint n = 0, cap = 0;
+	char line[PATH_MAX];
+	while (fgets (line, sizeof (line), f))
+	{
+		char *p = line;
+		while (*p == ' ' || *p == '\t')
+			p++;
+		if (*p == '#' || !*p)
+			continue;
+		// <name>[TAB]<key>
+		char *tab = strchr (p, '\t');
+		if (tab)
+			*tab = 0;
+		char *end = p + strlen (p);
+		while (end > p && (end[-1] == '\r' || end[-1] == '\n' || end[-1] == ' ' || end[-1] == '\t'))
+			*--end = 0;
+		if (!*p)
+			continue;
+		unsigned key = 0;
+		if (!tab || !*p || sscanf (tab + 1, "%u", &key) != 1 || key > 255)
+			continue;
+		if (n == cap)
+		{
+			cap = cap ? cap * 2 : 16;
+			names = REALLOC (names, cap * sizeof (*names));
+			keys = REALLOC (keys, cap);
+		}
+		names[n] = STRDUP (p);
+		keys[n] = (u8)key;
+		n++;
+	}
+	fclose (f);
+
+	if (!n)
+	{
+		FREE (names);
+		FREE (keys);
+		return ERR_NOTHING_TO_DO;
+	}
+	*names_out = names;
+	*keys_out = keys;
+	*n_out = n;
+	return ERR_OK;
+}
+
+
+// Anonymous entries (never written into the directory) mean the container
+// cannot be reproduced byte for byte; they are still zipped up in sorted
+// order so nothing is silently dropped.
+enumError create_zdat_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+
+	ccp *cache_names = 0;
+	u8 *cache_keys = 0;
+	uint n_cache = 0;
+	if (!err)
+	{
+		enumError c_err = read_zdat_cache (source, &cache_names, &cache_keys, &n_cache);
+		if (c_err != ERR_NOTHING_TO_DO && c_err != ERR_OK)
+			err = c_err;
+	}
+
+	u8 *data = 0;
+	uint size = 0;
+	if (!err)
+	{
+		// Reorder the (sorted) collected entries to match the original
+		// archive: every cached name first, in cache order, then any
+		// uncached member in sorted order with an all-zero mask.
+		nintendo_sarc_entry_t *ordered = CALLOC (list.used, sizeof (*ordered));
+		u8 *keys = CALLOC (list.used, 1);
+		bool *done = CALLOC (list.used, 1);
+		if (!ordered || !keys || !done)
+			err = ERR_OUT_OF_MEMORY;
+		uint out_count = 0;
+		if (!err)
+		{
+			for (uint c = 0; c < n_cache; c++)
+				for (uint i = 0; i < list.used; i++)
+				{
+					if (done[i] || strcmp (list.entry[i].name, cache_names[c]))
+						continue;
+					done[i] = true;
+					ordered[out_count] = list.entry[i];
+					keys[out_count] = cache_keys[c];
+					list.entry[i].name = 0;
+					list.entry[i].data = 0;
+					out_count++;
+					break;
+				}
+			for (uint i = 0; i < list.used; i++)
+			{
+				if (done[i])
+					continue;
+				ordered[out_count] = list.entry[i];
+				keys[out_count] = 0;
+				list.entry[i].name = 0;
+				list.entry[i].data = 0;
+				out_count++;
+			}
+			err = CreateZDATArchive (&data, &size, ordered, out_count, keys);
+		}
+		for (uint i = 0; i < out_count; i++)
+		{
+			FREE ((void *)ordered[i].name);
+			FREE ((void *)ordered[i].data);
+		}
+		FREE (ordered);
+		FREE (keys);
+		FREE (done);
+	}
+	for (uint i = 0; i < n_cache; i++)
+		FREE ((void *)cache_names[i]);
+	FREE (cache_names);
+	FREE (cache_keys);
+
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, source);
+		if (F.f && fwrite (data, 1, size, F.f) != size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+

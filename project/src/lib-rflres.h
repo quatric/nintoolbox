@@ -26,4 +26,7 @@ enumError CreateAFLRes (
 enumError CreateNFLRes (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 
+bool looks_like_rflres_dir (ccp dir);
+enumError create_rflres_dir (ccp source, ccp dest, bool big_endian);
+
 #endif

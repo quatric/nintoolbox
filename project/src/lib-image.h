@@ -559,6 +559,11 @@ enumError SavePNG (Image_t *img, // pointer to valid img
 enumError SaveDecodedRGBAToPNG (u8 *rgba, uint width, uint height, const endian_func_t *endian,
 	ccp path1, ccp path2, bool overwrite);
 
+// Load a PNG and re-encode it to whatever format dest_path's extension
+// names, inheriting the target's own pixel/palette format when it already
+// exists. See lib-image-save.c.
+enumError encode_image_from_png (ccp png_path, ccp dest_path);
+
 ///////////////////////////////////////////////////////////////////////////////
 
 enumError ExportPNG (ccp path1, // NULL or part #1 of path

@@ -16,6 +16,7 @@
 #include <sys/stat.h>
 #include "lib-std.h"
 #include "lib-brsar.h"
+#include "lib-sdat.h"
 #include "vgmtrans_bridge.h"
 
 static int cmd_pack (int argc, char *argv[])

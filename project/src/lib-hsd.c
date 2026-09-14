@@ -234,7 +234,7 @@ static u32 get_blob_size (const hsd_t *hsd, u32 off)
 //
 // The GX texture format numbering is identical to this project's own
 // image_format_t (IMG_I4=0 .. IMG_CMPR=0x0e), so the raw value is used as-is
-// and the existing GameCube/Wii pixel decoders in lib-image1.c do the work.
+// and the existing GameCube/Wii pixel decoders in lib-image-convert.c do the work.
 //
 // Melee stores the format as a plain big-endian int32 at +0x08.  The Wii
 // channel "TV no Tomo" uses a compacted variant of the same struct that packs
@@ -498,7 +498,7 @@ static uint find_textures (const hsd_t *hsd, hsd_tex_t **ret_tex)
 			is_hsd_tlut (hsd, first, min_pal, &pal_off, &pform, &n_pal);
 		}
 
-		// lib-image1.c TransformPalette() sizes its working palette by the
+		// lib-image-convert.c TransformPalette() sizes its working palette by the
 		// index width of the target IMG_X_PAL* format, so more entries than
 		// the indices can address must not be handed over; sysdolphin does
 		// store oversized TLUTs (TV no Tomo pairs 256-color tables with CI4
@@ -572,7 +572,7 @@ int ExportHSDTextures (const hsd_t *hsd, ccp dest_dir, ccp basename)
 
 		Image_t img;
 		InitializeIMG (&img);
-		// The native decoders in lib-image1.c walk whole blocks and the
+		// The native decoders in lib-image-convert.c walk whole blocks and the
 		// palette helpers peek one entry past the used range (they normally
 		// operate on a pointer into a much larger loaded file), so both
 		// buffers get zero padding instead of an exact-size copy.

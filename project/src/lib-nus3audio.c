@@ -280,3 +280,163 @@ enumError CreateNUS3AudioArchive (
 	*dest_size = total_size;
 	return ERR_OK;
 }
+
+
+enumError create_nus3audio_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+
+	u8 *data = 0;
+	uint size = 0;
+
+	if (!err)
+	{
+		// Byte-exact round trip: when the destination already holds a NUS3
+		// whose tracks still match the tree (every member carries the name
+		// its TNNM entry extracts to, with an unchanged size), reproduce the
+		// original file and only overwrite each PACK payload with the current
+		// member bytes. Everything else -- header, TNID ids, chunk order,
+		// inter-chunk slack and trailing data -- is copied as-is, unlike a
+		// first-time build which has to synthesise all of it.
+		u8 *raw = 0;
+		size_t raw_size = 0;
+		if (!LoadFileAlloc (dest, 0, 0, &raw, &raw_size, 0, 0, 0, false)
+			&& raw_size >= 16 && raw_size <= UINT_MAX && !memcmp (raw, "NUS3", 4))
+		{
+			const u8 *nmof = 0, *adof = 0, *tnnm = 0, *pack = 0;
+			uint nmof_size = 0, adof_size = 0, tnnm_size = 0, pack_size = 0;
+			u32 n_tracks = 0;
+			for (size_t pos = 8; pos + 12 <= raw_size;)
+			{
+				const u8 *tag = raw + pos;
+				const u32 csize = rd_le32 (raw + pos + 8);
+				const size_t payload = pos + 12;
+				if (csize > raw_size - payload)
+					break;
+				if (!memcmp (tag, "AUDIINDX", 8) && csize >= 4)
+					n_tracks = rd_le32 (raw + payload);
+				else if (!memcmp (tag, "NMOF", 4))
+					nmof = raw + payload, nmof_size = csize;
+				else if (!memcmp (tag, "ADOF", 4))
+					adof = raw + payload, adof_size = csize;
+				else if (!memcmp (tag, "TNNM", 4))
+					tnnm = raw + payload, tnnm_size = csize;
+				else if (!memcmp (tag, "PACK", 4))
+					pack = raw + payload, pack_size = csize;
+				pos = payload + csize;
+			}
+
+			bool reusable = n_tracks && n_tracks <= 100000 && adof && pack
+				&& adof_size >= (u64)n_tracks * 8;
+			uint *match = reusable ? CALLOC (n_tracks, sizeof (*match)) : 0;
+			if (reusable && !match)
+				reusable = false;
+			if (reusable)
+			{
+				bool *used_member = CALLOC (list.used, sizeof (*used_member));
+				if (!used_member)
+					reusable = false;
+				else
+				{
+					uint n_matched = 0;
+					for (uint i = 0; i < n_tracks; i++)
+					{
+						// Skip tracks the extractor would have skipped, and
+						// name every other one exactly as it does, so the
+						// tree entries can be matched back 1:1.
+						const u32 off = rd_le32 (adof + i * 8);
+						const u32 tsize = rd_le32 (adof + i * 8 + 4);
+						match[i] = UINT_MAX;
+						if (off > pack_size || tsize > pack_size - off)
+							continue;
+						char name[PATH_MAX];
+						name[0] = 0;
+						if (tnnm && nmof && nmof_size >= (u64)(i + 1) * 4)
+						{
+							const u32 noff = rd_le32 (nmof + i * 4);
+							if (noff < tnnm_size)
+							{
+								const uint nlen = tnnm[noff];
+								if (nlen && noff + 1 + nlen <= tnnm_size)
+								{
+									memcpy (name, tnnm + noff + 1, nlen);
+									name[nlen] = 0;
+								}
+							}
+						}
+						bool name_ok = name[0] != 0;
+						for (ccp c = name; name_ok && *c; c++)
+							if (*c == '/' || *c == '\\' || (u8)*c < 0x20)
+								name_ok = false;
+						if (name_ok && (!strcmp (name, ".") || !strcmp (name, "..")))
+							name_ok = false;
+						if (!name_ok)
+							snprintf (name, sizeof (name), "track_%04u", i);
+
+						for (uint k = 0; k < list.used; k++)
+						{
+							if (used_member[k])
+								continue;
+							nintendo_sarc_entry_t *e = &list.entry[k];
+							ccp leaf = strrchr (e->name, '/');
+							leaf = leaf ? leaf + 1 : e->name;
+							char base[PATH_MAX];
+							snprintf (base, sizeof (base), "%s", leaf);
+							char *dot = strrchr (base, '.');
+							if (dot)
+								*dot = 0;
+							if (strcmp (base, name) || e->size != tsize)
+								continue;
+							used_member[k] = true;
+							match[i] = k;
+							n_matched++;
+							break;
+						}
+					}
+					FREE (used_member);
+					if (n_matched != n_tracks)
+						reusable = false;
+				}
+			}
+
+			if (reusable)
+			{
+				u8 *out = MALLOC (raw_size);
+				if (!out)
+					err = ERR_CANT_CREATE;
+				else
+				{
+					memcpy (out, raw, raw_size);
+					const size_t pack_off = (size_t)(pack - raw);
+					for (uint i = 0; i < n_tracks; i++)
+					{
+						const u32 off = rd_le32 (adof + i * 8);
+						const u32 tsize = rd_le32 (adof + i * 8 + 4);
+						memcpy (out + pack_off + off, list.entry[match[i]].data, tsize);
+					}
+					data = out;
+					size = (uint)raw_size;
+				}
+			}
+		}
+		FREE (raw);
+	}
+
+	if (!err && !data)
+		err = CreateNUS3AudioArchive (&data, &size, list.entry, list.used);
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, dest);
+		if (F.f && fwrite (data, 1, size, F.f) != size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+

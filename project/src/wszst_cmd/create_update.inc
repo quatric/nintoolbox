@@ -976,7 +976,7 @@ static enumError cmd_create (bool create)
 			&& (!strcasecmp (ext, ".car") || !strcasecmp (ext, ".res") || !strcasecmp (ext, ".trk")
 				|| !strcasecmp (ext, ".lvl") || !strcasecmp (ext, ".rst")))
 		{
-			enumError err = create_rst_dir (source_dir, dest);
+			enumError err = create_rst_dir (source_dir, dest, !OptionUsed[OPT_NO_COMPRESS]);
 			if (verbose >= 0 || testmode)
 				fprintf (stdlog, "%s%sCREATE RST %s/ -> %s\n", verbose > 0 ? "\n" : "",
 					testmode ? "WOULD " : "", source_dir, dest);
@@ -5035,8 +5035,8 @@ static enumError extract_mod_file (ccp arg, ccp basedir, uint depth)
 
 	// An unedited .mod must not look newer than its .glb on the next CREATE
 	// -- see StampFileMtime()'s doc comment -- or every model in a tree gets
-	// needlessly re-encoded and repacked (that's what compress.inc's repack
-	// pass compares against; it never inspects the sibling .can).
+	// needlessly re-encoded and repacked (that's what create_archive_dispatch.inc's
+	// repack pass compares against; it never inspects the sibling .can).
 	StampFileMtime (dest, arg);
 
 	if (verbose >= 0)
@@ -5711,7 +5711,7 @@ static enumError extract_gfa_file (ccp arg, ccp basedir, uint depth)
 		// every member's mtime down to the archive's own mtime. Do that fold
 		// once, right now, before the user can touch anything: a later CREATE
 		// run then only ever finds this baseline already in place (see the
-		// SZS_MTIME_BASELINE_FILE guard in compress.inc) and compares a real
+		// SZS_MTIME_BASELINE_FILE guard in create_archive_dispatch.inc) and compares a real
 		// edit's mtime against it untouched, instead of re-running the fold
 		// and silently erasing the very edit it's supposed to detect.
 		struct stat st_arg;
@@ -7996,7 +7996,7 @@ static enumError extract_bfres_switch_manifest (ccp arg)
 // Export the structural half of a 3DS/Wii U bitmap font (BCFNT/BFFNT) as
 // XML. Wii's own font family (RFNT/RFNA, container magic "RFNT"/"RFNA") is
 // already fully decoded to PNG via the TGLP branch in AssignIMG() --
-// lib-image2.c. The 3DS/Wii U family reuses the exact same FINF/TGLP
+// lib-image-load.c. The 3DS/Wii U family reuses the exact same FINF/TGLP
 // section shapes (confirmed field-for-field against hadashisora/NintyFont's
 // from-source CFNT/FINF/TGLP reader for the container header and TGLP
 // itself), but is NOT simply "BRFNT with a different container magic":
@@ -8144,7 +8144,7 @@ static enumError extract_cfnt_manifest (ccp arg)
 
 // Decode a Wii bitmap font (BRFNT/BRFNA, container magic "RFNT"/"RFNA") to
 // PNG sheet(s) during "wszst XX". The pixel decode itself already exists --
-// AssignIMG()'s TGLP branch in lib-image2.c fully understands it (see the
+// AssignIMG()'s TGLP branch in lib-image-load.c fully understands it (see the
 // comment above extract_cfnt_manifest()) -- but nothing in the XX/EXTRACT
 // tree walk ever called it; only an explicit `wimgt DECODE some.brfnt` did,
 // so a real font found inside an extracted disc was left as an undecoded
@@ -8227,7 +8227,7 @@ static enumError decode_brfnt_if_possible (ccp arg)
 }
 
 // Decode a 3DS/Wii U bitmap font (BCFNT/BFFNT) to PNG sheet(s) during
-// "wszst XX". AssignIMG()'s NFMT_BCFNT branch in lib-image2.c handles the
+// "wszst XX". AssignIMG()'s NFMT_BCFNT branch in lib-image-load.c handles the
 // pixel decode. Mirrors decode_brfnt_if_possible() sheet-iteration logic:
 // each TGLP glyph sheet is an independent atlas, so info_n_image > 1 gets
 // one PNG per sheet.

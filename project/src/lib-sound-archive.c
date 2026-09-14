@@ -1,4 +1,5 @@
 #include "lib-std.h"
+#include "lib-archive-util.h"
 #include "lib-sound-archive.h"
 #include <string.h>
 #include <errno.h>
@@ -1030,3 +1031,47 @@ enumError CreateSoundArchive (u8 **dest, uint *dest_size, const sound_archive_t 
 	*dest_size = total_size;
 	return ERR_OK;
 }
+
+
+enumError create_sar_dir (ccp source, ccp dest, ccp magic_type)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+
+	sound_archive_t sar;
+	memset (&sar, 0, sizeof (sar));
+	bool is_cafe = (magic_type[0] == 'F');
+	sar.is_cafe_or_switch = is_cafe;
+	sar.is_big_endian = is_cafe;
+	snprintf (sar.magic, sizeof (sar.magic), "%s", magic_type);
+
+	sar.n_entries = list.used;
+	sar.entries = CALLOC (list.used, sizeof (sar_file_entry_t));
+	for (uint i = 0; i < list.used; i++)
+	{
+		sar.entries[i].file_id = i;
+		sar.entries[i].data = list.entry[i].data;
+		sar.entries[i].size = list.entry[i].size;
+		sar.entries[i].name = STRDUP (list.entry[i].name);
+	}
+
+	u8 *data = 0;
+	uint size = 0;
+	if (!err)
+		err = CreateSoundArchive (&data, &size, &sar);
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, dest);
+		if (F.f && fwrite (data, 1, size, F.f) != size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (data);
+	ResetSoundArchive (&sar);
+	reset_sarc_build_list (&list);
+	return err;
+}
+

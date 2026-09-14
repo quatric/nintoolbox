@@ -24,4 +24,6 @@ enumError ScanDARC (darc_t *darc, const u8 *data, uint size);
 enumError CreateDARC (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 
+enumError create_darc_dir (ccp source, ccp dest);
+
 #endif

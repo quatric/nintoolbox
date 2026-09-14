@@ -1395,3 +1395,34 @@ enumError EncodeBYML_Text (
 	*dest_size = w.len;
 	return ERR_OK;
 }
+
+
+enumError encode_byml_file (ccp source, ccp dest)
+{
+	u8 *text = 0;
+	size_t text_len = 0;
+	enumError err = LoadFileAlloc (source, 0, 0, &text, &text_len, 16 << 20, 0, 0, false);
+	if (err)
+		return err;
+	u8 *byml = 0;
+	uint byml_size = 0;
+	ccp ext = strrchr (dest, '.');
+	bool is_le = true;
+	if (ext && !strcasecmp (ext, ".be"))
+		is_le = false;
+	err = EncodeBYML_Text (&byml, &byml_size, (const char *)text, (uint)text_len, is_le, 1);
+	FREE (text);
+	if (err)
+		return err;
+	if (!testmode)
+	{
+		File_t F;
+		CreateFILE (&F, true, dest, testmode, false, true, false, false);
+		if (F.f && fwrite (byml, 1, byml_size, F.f) != byml_size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing BYML failed: %s\n", dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (byml);
+	return err;
+}
+

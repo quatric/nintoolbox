@@ -22,4 +22,7 @@ enumError ScanGPAK (gpak_t *pak, const u8 *data, uint size);
 enumError CreateGPAK (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 
+bool looks_like_gpak_dir (ccp source);
+enumError create_gpak_dir (ccp source, ccp dest);
+
 #endif

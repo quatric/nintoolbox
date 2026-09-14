@@ -1,4 +1,5 @@
 #include "lib-std.h"
+#include "lib-archive-util.h"
 #include "lib-rflres.h"
 #include <string.h>
 #include <errno.h>
@@ -445,3 +446,73 @@ enumError CreateNFLRes (
 {
 	return CreateMiiRes (dest, dest_size, entries, n_entries, false);
 }
+
+
+bool looks_like_rflres_dir (ccp dir)
+{
+	char test[PATH_MAX];
+	snprintf (test, sizeof (test), "%s/beard", dir);
+	struct stat st;
+	if (stat (test, &st) == 0 && S_ISDIR (st.st_mode))
+		return true;
+	snprintf (test, sizeof (test), "%s/faceline", dir);
+	if (stat (test, &st) == 0 && S_ISDIR (st.st_mode))
+		return true;
+	snprintf (test, sizeof (test), "%s/eye", dir);
+	if (stat (test, &st) == 0 && S_ISDIR (st.st_mode))
+		return true;
+	snprintf (test, sizeof (test), "%s/hair", dir);
+	if (stat (test, &st) == 0 && S_ISDIR (st.st_mode))
+		return true;
+	return false;
+}
+
+
+enumError create_rflres_dir (ccp source, ccp dest, bool big_endian)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+
+	// Extraction may have dropped a viewable ".png" companion beside a
+	// texture entry's raw ".bin" (see export_rflres_tex_png_if_possible());
+	// those companions are display-only and must never become archive
+	// entries of their own on repack.
+	uint kept = 0;
+	for (uint i = 0; i < list.used; i++)
+	{
+		ccp name = list.entry[i].name;
+		const size_t len = name ? strlen (name) : 0;
+		if (len > 4 && !strcasecmp (name + len - 4, ".png"))
+		{
+			FREE ((void *)list.entry[i].name);
+			FREE ((void *)list.entry[i].data);
+			continue;
+		}
+		if (kept != i)
+			list.entry[kept] = list.entry[i];
+		kept++;
+	}
+	list.used = kept;
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+
+	u8 *data = 0;
+	uint size = 0;
+	if (!err)
+		err = CreateMiiRes (&data, &size, list.entry, list.used, big_endian);
+
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, dest);
+		if (F.f && fwrite (data, 1, size, F.f) != size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+

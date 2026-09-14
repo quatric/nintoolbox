@@ -28,4 +28,6 @@ enumError ScanNANR (nintendo_nanr_t *nanr, const u8 *data, uint size);
 enumError GetNANRAnimation (
 	const nintendo_nanr_t *nanr, uint index, uint *n_frames, const u8 **frame_records);
 
+enumError create_ncer_xml (ccp source, ccp dest);
+
 #endif

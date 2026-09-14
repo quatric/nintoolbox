@@ -51,4 +51,6 @@ enumError CreateCCF (u8 **dest, uint *dest_size, const struct nintendo_sarc_entr
 enumError DecodeRomC (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 enumError EncodeRomC (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 
+enumError create_ccf_dir (ccp source, ccp dest);
+
 #endif

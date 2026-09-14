@@ -1,5 +1,6 @@
 #include "lib-nut.h"
 #include "lib-std.h"
+#include "lib-image.h"
 
 bool IsNUT (const u8 *data, size_t size)
 {
@@ -352,4 +353,79 @@ enumError CreateNUT (u8 **dest, size_t *dest_size, uint n_textures, const u16 *w
 	*dest = buf;
 	*dest_size = total_size;
 	return ERR_OK;
+}
+
+enumError SaveNUT (Image_t *img, FILE *fo, ccp path, bool overwrite)
+{
+	DASSERT (img);
+	DASSERT (path);
+
+	enumError err = ERR_OK;
+	if (img->iform != IMG_X_RGB)
+	{
+		err = ConvertToRGB (img, img, PAL_AUTO);
+		if (err)
+			return err;
+	}
+
+	const uint width = img->width;
+	const uint height = img->height;
+	const size_t raw_sz = (size_t)width * height * 4;
+	u8 *raw_rgba = CALLOC (1, raw_sz);
+	if (!raw_rgba)
+		return ERR_CANT_CREATE;
+
+	const u8 *src = img->data;
+	for (uint y = 0; y < height; y++)
+		memcpy (raw_rgba + y * width * 4, src + y * img->xwidth * 4, width * 4);
+
+	u16 w16 = (u16)width;
+	u16 h16 = (u16)height;
+	u32 fmt = 0x0014; // RGBA8
+	const u8 *tex_ptrs[1] = { raw_rgba };
+	const size_t tex_szs[1] = { raw_sz };
+
+	u8 *nut_data = 0;
+	size_t nut_size = 0;
+	err = CreateNUT (&nut_data, &nut_size, 1, &w16, &h16, &fmt, tex_ptrs, tex_szs);
+	FREE (raw_rgba);
+
+	if (err || !nut_data)
+		return err ? err : ERR_CANT_CREATE;
+
+	File_t f;
+	if (fo)
+	{
+		InitializeFile (&f);
+		f.f = fo;
+		f.is_writing = true;
+	}
+	else
+	{
+		err = CreateFileOpt (&f, true, path, testmode, overwrite ? path : 0);
+		if (err || !f.f)
+		{
+			ResetFile (&f, 0);
+			FREE (nut_data);
+			return err;
+		}
+	}
+
+	size_t stat = fwrite (nut_data, 1, nut_size, f.f);
+	FREE (nut_data);
+
+	if (stat != nut_size)
+	{
+		err = ERROR0 (ERR_WRITE_FAILED, "Error while writing NUT data: %s\n", path);
+		RegisterFileError (&f, ERR_WRITE_FAILED);
+	}
+
+	if (opt_preserve)
+		memcpy (&f.fatt, &img->fatt, sizeof (f.fatt));
+
+	if (fo)
+		f.f = 0;
+	err = ResetFile (&f, opt_preserve);
+
+	return err;
 }

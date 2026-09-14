@@ -7,4 +7,6 @@ enumError ScanBG4 (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 enumError CreateBG4 (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 
+enumError create_bg4_dir (ccp source, ccp dest);
+
 #endif

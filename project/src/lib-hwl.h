@@ -8,4 +8,6 @@ enumError ScanHWLegends (nintendo_sarc_entry_t **entries, uint *n_entries, const
 enumError CreateHWLegends (u8 **dest_idx, uint *dest_idx_size, u8 **dest_bin, uint *dest_bin_size,
 	const nintendo_sarc_entry_t *entries, uint n_entries);
 
+enumError create_hwl_dir (ccp source, ccp dest);
+
 #endif

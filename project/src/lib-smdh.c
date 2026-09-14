@@ -8,6 +8,8 @@
 
 #include "lib-std.h"
 #include "lib-smdh.h"
+#include "lib-image-internal.h"
+#include "lib-nintendo.h"
 
 static inline u16 srd16 (const u8 *p)
 {
@@ -390,3 +392,39 @@ enumError EncodeSMDH (u8 **dest, uint *dest_size, const smdh_t *smdh)
 	*dest_size = SMDH_SIZE;
 	return ERR_OK;
 }
+
+static void EncodeSMDHIcon (u8 *dest, uint dim, const Image_t *img)
+{
+	for (uint y = 0; y < dim; y++)
+		for (uint x = 0; x < dim; x++)
+		{
+			const u8 *s = img->data + ((y * img->height / dim) * img->xwidth + x * img->width / dim) * 4;
+			const u16 c = ((s[0] * 31 + 127) / 255 << 11) | ((s[1] * 63 + 127) / 255 << 5) | (s[2] * 31 + 127) / 255;
+			const uint pos = ((y / 8) * (dim / 8) + x / 8) * 128 + morton8 (x & 7, y & 7) * 2;
+			wr_le16 (dest + pos, c);
+		}
+}
+
+enumError SaveSMDH (Image_t *img, FILE *fo, ccp path, bool overwrite)
+{
+	if ( img->iform != IMG_X_RGB && ConvertToRGB (img, img, PAL_AUTO) )
+		return ERR_INVALID_DATA;
+	u8 small[SMDH_SMALL_ICON_SIZE], large[SMDH_LARGE_ICON_SIZE], *out;
+	memset (small, 0, sizeof(small)); memset (large, 0, sizeof(large));
+	EncodeSMDHIcon (small, 24, img); EncodeSMDHIcon (large, 48, img);
+	smdh_t smdh;
+	memset (&smdh, 0, sizeof(smdh)); smdh.small_icon = small; smdh.large_icon = large;
+	uint size;
+	enumError err = EncodeSMDH (&out, &size, &smdh);
+	if (!err)
+	{
+		err = SaveImageBuffer (img, fo, path, overwrite, out, size, "SMDH");
+		FREE(out);
+	}
+	return err;
+}
+
+//
+///////////////////////////////////////////////////////////////////////////////
+///////////////			SaveIMG()			///////////////
+

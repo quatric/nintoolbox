@@ -61,4 +61,6 @@ enumError EncodeLZ10Raw (u8 **dest, uint *dest_size, const u8 *src, uint src_siz
 enumError DecodeBPE (u8 *dest, uint dest_size, const u8 *src, uint src_size);
 enumError EncodeBPE (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 
+enumError create_gfa_dir (ccp source, ccp dest);
+
 #endif

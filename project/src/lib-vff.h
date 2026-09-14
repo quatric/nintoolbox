@@ -19,4 +19,6 @@ enumError ExtractVFFArchive (ccp arg, ccp basedir, uint depth);
 enumError CreateVFFArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 
+enumError create_vff_dir (ccp source, ccp dest);
+
 #endif // SZS_LIB_VFF_H

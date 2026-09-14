@@ -2,9 +2,19 @@
 #include "lib-ctpk.h"
 #include "lib-flim.h"
 #include "lib-archive-util.h"
+#include "lib-image.h"
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
+
+// A second, differently-ordered 8x8 Z-order swizzle used only by
+// create_ctpk_dir()'s encoder below; kept distinct from morton8() (used by
+// the decoders above) rather than assuming they're interchangeable.
+static inline uint morton8_swz (uint x, uint y)
+{
+	return (x & 1) | ((y & 1) << 1) | ((x & 2) << 1) | ((y & 2) << 2) | ((x & 4) << 2)
+		| ((y & 4) << 3);
+}
 
 enumError ScanCTPK (nintendo_ctpk_t *ctpk, const u8 *data, uint size)
 {
@@ -446,3 +456,206 @@ enumError RebuildCTPKFromPrefix (u8 **dest, uint *dest_size, const u8 *prefix, u
 	*dest_size = (uint)total;
 	return ERR_OK;
 }
+
+
+enumError create_ctpk_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+	if (err)
+	{
+		reset_sarc_build_list (&list);
+		return err;
+	}
+
+	// If this tree came straight from EXTRACT (see extract_ctpk_mem in
+	// create_update.inc), it carries the original prefix bytes plus each
+	// entry's untouched raw payload -- rebuild byte-exact from those
+	// instead of re-encoding every PNG through the lossy RGBA8-only path
+	// below (which cannot reproduce a block-compressed format like the
+	// ETC1A4 real CTPK archives typically use).
+	const nintendo_sarc_entry_t *prefix_ent = 0;
+	for (uint i = 0; i < list.used; i++)
+	{
+		ccp name = list.entry[i].name ? list.entry[i].name : "";
+		ccp slash = strrchr (name, '/');
+		if (slash)
+			name = slash + 1;
+		size_t nlen = strlen (name);
+		if (nlen >= 16 && !strcmp (name + nlen - 16, "_ctpk_prefix.bin"))
+		{
+			prefix_ent = list.entry + i;
+			break;
+		}
+	}
+	if (prefix_ent)
+	{
+		u8 *out = 0;
+		uint total_size = 0;
+		err = RebuildCTPKFromPrefix (
+			&out, &total_size, prefix_ent->data, prefix_ent->size, list.entry, list.used);
+		if (!err && !testmode)
+		{
+			File_t F;
+			err = CreateFileOpt (&F, true, dest, false, dest);
+			if (F.f && fwrite (out, 1, total_size, F.f) != total_size)
+				err = FILEERROR1 (
+					&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", total_size, dest);
+			ResetFile (&F, opt_preserve);
+		}
+		FREE (out);
+		reset_sarc_build_list (&list);
+		return err;
+	}
+
+	typedef struct
+	{
+		char name[PATH_MAX];
+		u8 *tex_data;
+		uint data_size;
+		uint width;
+		uint height;
+	} ctpk_item_t;
+
+	ctpk_item_t *items = CALLOC (list.used, sizeof (ctpk_item_t));
+	if (!items)
+	{
+		reset_sarc_build_list (&list);
+		return ERR_CANT_CREATE;
+	}
+
+	for (uint i = 0; i < list.used; i++)
+	{
+		ccp name = list.entry[i].name ? list.entry[i].name : "tex";
+		ccp slash = strrchr (name, '/');
+		if (slash)
+			name = slash + 1;
+		snprintf (items[i].name, sizeof (items[i].name), "%s", name);
+
+		if (list.entry[i].size >= 8 && !memcmp (list.entry[i].data, "\x89PNG\r\n\x1a\n", 8))
+		{
+			char full_path[PATH_MAX];
+			snprintf (full_path, sizeof (full_path), "%s/%s", source, list.entry[i].name);
+			Image_t img;
+			if (LoadPNG (&img, true, false, full_path, 0) == ERR_OK && img.data && img.width
+				&& img.height)
+			{
+				uint w = img.width, h = img.height;
+				uint tw = (w + 7) & ~7u, th = (h + 7) & ~7u;
+				uint image_size = 4 * tw * th;
+				u8 *tex_data = CALLOC (1, image_size);
+				if (tex_data)
+				{
+					const u8 *rgba = img.data;
+					for (uint y = 0; y < h; y++)
+						for (uint x = 0; x < w; x++)
+						{
+							uint pos
+								= ((y / 8) * (tw / 8) + (x / 8)) * 64 + morton8_swz (x & 7, y & 7);
+							const u8 *s = rgba + 4 * (y * img.xwidth + x);
+							u8 *d = tex_data + 4 * pos;
+							d[0] = s[0];
+							d[1] = s[1];
+							d[2] = s[2];
+							d[3] = s[3];
+						}
+					items[i].tex_data = tex_data;
+					items[i].data_size = image_size;
+					items[i].width = w;
+					items[i].height = h;
+				}
+				ResetIMG (&img);
+			}
+		}
+		else
+		{
+			items[i].tex_data = MALLOC (list.entry[i].size);
+			if (items[i].tex_data)
+			{
+				memcpy (items[i].tex_data, list.entry[i].data, list.entry[i].size);
+				items[i].data_size = list.entry[i].size;
+				items[i].width = 64;
+				items[i].height = 64;
+			}
+		}
+	}
+
+	uint names_size = 0;
+	for (uint i = 0; i < list.used; i++)
+		names_size += (uint)strlen (items[i].name) + 1;
+
+	uint header_size = 0x20;
+	uint entries_size = 0x20 * list.used;
+	uint string_table_size = (names_size + 3) & ~3u;
+	uint texture_offset = (header_size + entries_size + string_table_size + 0x7F) & ~0x7Fu;
+
+	uint total_tex_size = 0;
+	for (uint i = 0; i < list.used; i++)
+	{
+		total_tex_size += items[i].data_size;
+		total_tex_size = (total_tex_size + 0x7F) & ~0x7Fu;
+	}
+
+	uint total_size = texture_offset + total_tex_size;
+	u8 *out = CALLOC (1, total_size);
+	if (!out)
+	{
+		for (uint i = 0; i < list.used; i++)
+			FREE (items[i].tex_data);
+		FREE (items);
+		reset_sarc_build_list (&list);
+		return ERR_CANT_CREATE;
+	}
+
+	memcpy (out, "CTPK", 4);
+	wr_le16 (out + 4, 1);
+	wr_le16 (out + 6, (u16)list.used);
+	wr_le32 (out + 8, texture_offset);
+	wr_le32 (out + 12, total_tex_size);
+
+	uint str_off = header_size + entries_size;
+	uint data_off = 0;
+
+	for (uint i = 0; i < list.used; i++)
+	{
+		u8 *e = out + header_size + i * 0x20;
+		size_t nlen = strlen (items[i].name);
+
+		wr_le32 (e + 0, str_off);
+		wr_le32 (e + 4, items[i].data_size);
+		wr_le32 (e + 8, data_off);
+		wr_le32 (e + 12, 0); // format = RGBA8
+		wr_le16 (e + 16, (u16)items[i].width);
+		wr_le16 (e + 18, (u16)items[i].height);
+		e[20] = 1;
+		e[21] = 0;
+
+		memcpy (out + str_off, items[i].name, nlen + 1);
+		str_off += (uint)nlen + 1;
+
+		if (items[i].data_size > 0 && items[i].tex_data)
+			memcpy (out + texture_offset + data_off, items[i].tex_data, items[i].data_size);
+
+		data_off += items[i].data_size;
+		data_off = (data_off + 0x7F) & ~0x7Fu;
+
+		FREE (items[i].tex_data);
+	}
+	FREE (items);
+	reset_sarc_build_list (&list);
+
+	if (!testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, dest);
+		if (F.f && fwrite (out, 1, total_size, F.f) != total_size)
+			err = FILEERROR1 (
+				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", total_size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (out);
+	return err;
+}
+

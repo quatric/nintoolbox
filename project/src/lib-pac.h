@@ -28,4 +28,7 @@ enumError ScanPAC (pac_t *pac, const u8 *data, uint size);
 enumError CreatePAC (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 
+bool ndcube_pac_dest (ccp dest);
+enumError create_pac_dir (ccp source, ccp dest);
+
 #endif

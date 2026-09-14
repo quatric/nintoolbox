@@ -7,6 +7,7 @@
 // extract_storybook_one_file); this file is the write side, emiting the same
 // bit format so CREATE -> EXTRACT is a content-exact round trip.
 #include "lib-std.h"
+#include "lib-archive-util.h"
 #include "lib-one.h"
 #include <string.h>
 #include <errno.h>
@@ -356,3 +357,43 @@ enumError CreateONEArchive (
 	*dest_size = (uint)cur;
 	return ERR_OK;
 }
+
+// Sonic Storybook ONE. Compresses every member with EncodeStorybookPRS.
+// Reuses the original archive's marker byte (0 = Secret Rings, -1 = Black
+// Knight) when the destination already holds one; brand-new containers are
+// written for Secret Rings.
+enumError create_one_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+
+	u32 marker = 0;
+	FILE *in = fopen (dest, "rb");
+	if (in)
+	{
+		u8 head[16];
+		const u32 marker_be = fread (head, 1, 16, in) == 16 ? be32 (head + 12) : 0;
+		if (marker_be == 0 || marker_be == 0xffffffff)
+			marker = marker_be;
+		fclose (in);
+	}
+
+	u8 *data = 0;
+	uint size = 0;
+	if (!err)
+		err = CreateONEArchive (&data, &size, list.entry, list.used, marker);
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, source);
+		if (F.f && fwrite (data, 1, size, F.f) != size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+

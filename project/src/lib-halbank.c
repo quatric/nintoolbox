@@ -172,7 +172,7 @@ void ResetHALBank (halbank_t *bank)
 // For the colour-indexed formats the token is the index format immediately
 // followed by the palette format, "C8"+"RGB5A3".  The tokens map 1:1 onto
 // this project's own image_format_t / palette_format_t, so the existing
-// GameCube/Wii decoders in lib-image1.c do all the pixel work.
+// GameCube/Wii decoders in lib-image-convert.c do all the pixel work.
 //
 // Verified against A2Texture.dat, where the payload sizes match exactly:
 //	replay.C8RGB5A3_160_40.tex  payload 6912 = 160*40 + 2*256
@@ -452,7 +452,7 @@ int ExportHALBankTextures (const halbank_t *bank, ccp dest_dir, ccp basename)
 			n_pal = (e->data_size - img_size) / 2;
 			if (!n_pal)
 				continue;
-			// lib-image1.c's TransformPalette() sizes its working palette by
+			// lib-image-convert.c's TransformPalette() sizes its working palette by
 			// the index width of the target format, so never hand it more
 			// colours than the indices can address (same trap as in lib-hsd.c)
 			if (n_pal > max_pal)

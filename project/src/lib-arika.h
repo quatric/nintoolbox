@@ -74,4 +74,6 @@ enumError ExtractArika (nintendo_sarc_entry_t **out_entries, uint *out_n_entries
 enumError CreateArika (u8 **dest_info, uint *dest_info_size, u8 **dest_game, uint *dest_game_size,
 	const nintendo_sarc_entry_t *entries, uint n_entries, ccp title, bool compress);
 
+enumError create_arika_dir (ccp source, ccp dest);
+
 #endif

@@ -26,6 +26,7 @@
 // verified benefit).
 
 #include "lib-std.h"
+#include "lib-archive-util.h"
 #include "lib-gtx.h"
 #include "lib-bntx.h"
 #include "latte-decaf/latte_bridge.h"
@@ -1877,3 +1878,90 @@ enumError EncodeGSHFromLatte (
 	FREE (prog);
 	return err;
 }
+
+
+enumError create_gsh_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+
+	gsh_shader_input_t *inputs = 0;
+	uint n_inputs = 0;
+	if (!err)
+	{
+		inputs = CALLOC (list.used, sizeof (*inputs));
+		if (!inputs)
+			err = ERR_CANT_CREATE;
+	}
+
+	for (uint i = 0; !err && i < list.used; i++)
+	{
+		ccp name = list.entry[i].name ? list.entry[i].name : "";
+		gtx_shader_stage_t stage = GTX_SHADER_VERTEX;
+		if (strcasestr (name, "pixel") || strcasestr (name, "frag") || strcasestr (name, ".ps"))
+			stage = GTX_SHADER_PIXEL;
+		else if (strcasestr (name, "geom") || strcasestr (name, ".gs"))
+			stage = GTX_SHADER_GEOMETRY;
+		else if (strcasestr (name, "comp") || strcasestr (name, ".cs"))
+			stage = GTX_SHADER_COMPUTE;
+
+		u8 *prog = 0;
+		uint prog_sz = 0;
+		if (list.entry[i].size && is_ext_match (name, ".latte"))
+		{
+			char *text = MALLOC (list.entry[i].size + 1);
+			if (text)
+			{
+				memcpy (text, list.entry[i].data, list.entry[i].size);
+				text[list.entry[i].size] = 0;
+				err = AssembleLatteCF (&prog, &prog_sz, text);
+				FREE (text);
+			}
+		}
+		else
+		{
+			prog = MALLOC (list.entry[i].size);
+			if (prog)
+			{
+				memcpy (prog, list.entry[i].data, list.entry[i].size);
+				prog_sz = list.entry[i].size;
+			}
+		}
+
+		if (err || !prog)
+		{
+			FREE (prog);
+			err = ERR_INVALID_DATA;
+			break;
+		}
+
+		inputs[n_inputs].stage = stage;
+		inputs[n_inputs].program_data = prog;
+		inputs[n_inputs].program_size = prog_sz;
+		n_inputs++;
+	}
+
+	u8 *data = 0;
+	uint size = 0;
+	if (!err && n_inputs)
+		err = EncodeGSHShaders (&data, &size, inputs, n_inputs);
+
+	for (uint i = 0; i < n_inputs; i++)
+		FREE ((void *)inputs[i].program_data);
+	FREE (inputs);
+
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, dest);
+		if (F.f && fwrite (data, 1, size, F.f) != size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+

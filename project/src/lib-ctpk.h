@@ -45,4 +45,6 @@ enumError CreateCTPK (
 enumError RebuildCTPKFromPrefix (u8 **dest, uint *dest_size, const u8 *prefix, uint prefix_size,
 	const nintendo_sarc_entry_t *payload_entries, uint n_payload_entries);
 
+enumError create_ctpk_dir (ccp source, ccp dest);
+
 #endif

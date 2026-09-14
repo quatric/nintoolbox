@@ -23,4 +23,6 @@ enumError ScanGPKG (gpkg_t *pkg, const u8 *data, uint size);
 enumError CreateGPKG (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
 
+enumError create_gpkg_dir (ccp source, ccp dest);
+
 #endif

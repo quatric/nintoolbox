@@ -1,4 +1,5 @@
 #include "lib-std.h"
+#include "lib-archive-util.h"
 #include "lib-arika.h"
 #include <string.h>
 #include <errno.h>
@@ -424,3 +425,53 @@ enumError CreateArika (u8 **dest_info, uint *dest_info_size, u8 **dest_game, uin
 	*dest_game_size = (uint)game_size;
 	return ERR_OK;
 }
+
+
+enumError create_arika_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+	u8 *dest_info = 0;
+	uint dest_info_size = 0;
+	u8 *dest_game = 0;
+	uint dest_game_size = 0;
+	if (!err)
+		err = CreateArika (&dest_info, &dest_info_size, &dest_game, &dest_game_size,
+			list.entry, list.used, "*Dr.Mario-DSi!!!", true);
+	if (!err && !testmode)
+	{
+		char info_path[PATH_MAX];
+		char game_path[PATH_MAX];
+		ccp slash = strrchr (dest, '/');
+		if (slash)
+		{
+			snprintf (info_path, sizeof (info_path), "%.*s/INFO.DAT", (int)(slash - dest), dest);
+			snprintf (game_path, sizeof (game_path), "%.*s/GAME.DAT", (int)(slash - dest), dest);
+		}
+		else
+		{
+			snprintf (info_path, sizeof (info_path), "INFO.DAT");
+			snprintf (game_path, sizeof (game_path), "GAME.DAT");
+		}
+		File_t F_info, F_game;
+		err = CreateFileOpt (&F_info, true, info_path, false, source);
+		if (!err && F_info.f && fwrite (dest_info, 1, dest_info_size, F_info.f) != dest_info_size)
+			err = FILEERROR1 (&F_info, ERR_WRITE_FAILED, "Writing INFO.DAT failed: %s\n", info_path);
+		ResetFile (&F_info, opt_preserve);
+
+		if (!err)
+		{
+			err = CreateFileOpt (&F_game, true, game_path, false, source);
+			if (!err && F_game.f && fwrite (dest_game, 1, dest_game_size, F_game.f) != dest_game_size)
+				err = FILEERROR1 (&F_game, ERR_WRITE_FAILED, "Writing GAME.DAT failed: %s\n", game_path);
+			ResetFile (&F_game, opt_preserve);
+		}
+	}
+	FREE (dest_info);
+	FREE (dest_game);
+	reset_sarc_build_list (&list);
+	return err;
+}
+

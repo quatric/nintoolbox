@@ -1861,7 +1861,7 @@ t_brfna(){
   # isn't raw GX texture data at all -- it's compressed with a proprietary,
   # undocumented codec (three opcodes: LZSS, RLE, and a self-contained
   # canonical-Huffman bit-walk), decompiled from nw4r_fontcvtr.exe via Ghidra
-  # and implemented natively in lib-image2.c's DecodeBRFNA_LZSS/RLE/Huffman +
+  # and implemented natively in lib-image-load.c's DecodeBRFNA_LZSS/RLE/Huffman +
   # DecompressBRFNASheet. Declared sheet counts also routinely exceed what's
   # physically embedded (e.g. RVL_SDK wbf1.brfna declares 70, and now that
   # decompression works all 70 really are present as separate compressed
