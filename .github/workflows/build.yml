@@ -477,30 +477,40 @@ jobs:
           # 11. gba-mus-ripper (GBA Sappy/MP2K music/soundfont ripper), universal
           # build. wszst shells out to this as a passthrough for GBA titles the
           # same way it does for wit/mobipeg -- no vendored copy in src/.
+          #
+          # Its own makefile hardcodes a mingw (Windows) toolchain in the CPPC/
+          # CC variables (not CXX/CC, which our override used to target
+          # uselessly), and a WHOLE="-s -fwhole-program -static" link flag set
+          # that assumes glibc -- macOS has no static libc/crt0.o, so -static
+          # fails to link outright. Override CPPC/CC and drop -static. Also
+          # patch a genuine upstream C++ conformance bug (sf2.cpp redeclares a
+          # default argument already given in sf2.hpp, which every C++11+
+          # compiler but the old mingw g++ this was written for rejects).
           if git clone --depth 1 https://github.com/berg8793/gba-mus-ripper.git /tmp/gba-mus-ripper-src; then
-            (cd /tmp/gba-mus-ripper-src && make CXX="clang++ -arch arm64 -arch x86_64" CC="clang -arch arm64 -arch x86_64" -j"$(sysctl -n hw.ncpu)" && \
-              found="$(find . -maxdepth 1 -type f -perm -u+x ! -name '*.sh' | head -n1)" && \
-              [ -n "$found" ] && cp "$found" "$GITHUB_WORKSPACE/extra_tools/gba-mus-ripper") || \
+            (cd /tmp/gba-mus-ripper-src && \
+              sed -i '' 's/SF2::SF2(unsigned int sample_rate = 22050) :/SF2::SF2(unsigned int sample_rate) :/' sf2.cpp && \
+              make CPPC="clang++ -arch arm64 -arch x86_64 -std=gnu++11 -Wno-c++11-narrowing" CC="clang -arch arm64 -arch x86_64" WHOLE="-fwhole-program" -j"$(sysctl -n hw.ncpu)" && \
+              cp out/gba_mus_ripper "$GITHUB_WORKSPACE/extra_tools/gba-mus-ripper") || \
               echo "::warning::gba-mus-ripper source build failed -- skipping"
           else
             echo "::warning::gba-mus-ripper clone failed -- skipping"
           fi
 
-          # 12. vgmtrans-cli (magcius/vgmtrans, siiva branch), universal build.
-          # wbrsar always delegates BRSAR/BFSAR/BCSAR conversion to an
-          # external vgmtrans binary (see project/src/wbrsar.c) -- no copy
-          # is vendored or linked in-process. Bundling this binary lets
-          # wbrsar's --with-vgmtrans/PATH-relative lookup find it.
-          if git clone --depth 1 --branch siiva https://github.com/magcius/vgmtrans.git /tmp/vgmtrans-src; then
-            (cd /tmp/vgmtrans-src && mkdir build && cd build && \
-              cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DVGMTRANS_QT=OFF >/dev/null && \
-              cmake --build . --target vgmtrans_cli -j"$(sysctl -n hw.ncpu)" && \
-              found="$(find . -maxdepth 3 -type f -name 'vgmtrans_cli*' -perm -u+x | head -n1)" && \
-              [ -n "$found" ] && cp "$found" "$GITHUB_WORKSPACE/extra_tools/vgmtrans") || \
-              echo "::warning::vgmtrans-cli source build failed -- skipping"
-          else
-            echo "::warning::vgmtrans-cli clone failed -- skipping"
-          fi
+          # 12. vgmtrans: NOT bundled. wbrsar always delegates BRSAR/BFSAR/
+          # BCSAR conversion to an external vgmtrans binary via --with-
+          # vgmtrans/PATH lookup (see project/src/wbrsar.c) if one is
+          # present, but no batch CLI target actually exists to fetch or
+          # build here: magcius/vgmtrans's "siiva" branch (previously used)
+          # has no vgmtrans_cli target at all -- it's the plain Qt GUI
+          # (find_package(Qt5Widgets REQUIRED) fails outright without Qt
+          # installed). The actively-maintained vgmtrans/vgmtrans does have
+          # a non-GUI target (ENABLE_SHELL's vgmtrans-shell), but it's an
+          # interactive REPL (see src/ui/shell/vgmtrans-shell.cpp's main),
+          # not a one-shot "convert this file" tool -- bundling it as
+          # "vgmtrans" would make wbrsar's execv(tool, {in_file, out_dir})
+          # hang against an interactive prompt instead of just falling back
+          # to the raw asset dump it already does when no external tool is
+          # found. Revisit if either project ships a real batch CLI.
 
           chmod +x extra_tools/* 2>/dev/null || true
           ls -la extra_tools
