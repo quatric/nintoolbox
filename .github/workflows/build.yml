@@ -301,6 +301,10 @@ jobs:
         with:
           python-version: '3.12'
 
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '7.0.x'
+
       # wszst shells out to external passthrough companion tools: wit (disc/DS/WAD),
       # mobipeg (video/audio transcoding), sharpii (Wii WADs), nsz (Switch NSZ/XCZ),
       # makerom (3DS repacking), wud2app (Wii U WUD extraction), 7zz/7z (archives),
@@ -308,7 +312,11 @@ jobs:
       # gba-mus-ripper (GBA music/soundfont ripping), and vgmtrans (BRSAR/other
       # sound-bank conversion, external fallback for wbrsar).
       # Bundling them alongside wszst in the application bundle enables all
-      # features out of the box without manual external installation.
+      # features out of the box without manual external installation. Every
+      # one of them is built from its own upstream source here rather than
+      # fetched as a prebuilt release asset -- release asset names/paths
+      # drift (see wit below, which 404s against its current release) and a
+      # source build lets us pick exactly the target macOS/arch we need.
       - name: Fetch and build companion passthrough tools for bundling (best-effort)
         run: |
           mkdir -p extra_tools
@@ -330,52 +338,118 @@ jobs:
           }
           brew install p7zip autoconf automake libtool
 
-          # 1. wit & mobipeg (quatric)
-          fetch quatric/wiimms-iso-tools-plus wit-macos-universal.tar.gz
+          # 1. wit (quatric/wiimms-iso-tools-plus), universal build. Same
+          # Makefile family as this project -- see iso-tools/project's own
+          # macos-universal CI job, replicated here: a vendored universal
+          # libzstd (its only non-Homebrew dependency) plus a single
+          # `-arch x86_64 -arch arm64` compile (unlike this repo's wszst,
+          # wit doesn't link a Homebrew dylib per-arch, so one pass works).
+          if git clone --depth 1 https://github.com/quatric/wiimms-iso-tools-plus.git /tmp/wit-src 2>/dev/null; then
+            ( set -e
+              ZSTD_VERSION=1.5.6
+              cd /tmp/wit-src
+              curl -fsSL "https://github.com/facebook/zstd/releases/download/v${ZSTD_VERSION}/zstd-${ZSTD_VERSION}.tar.gz" | tar xz
+              cd "zstd-${ZSTD_VERSION}/lib"
+              for arch in arm64 x86_64; do
+                make clean >/dev/null
+                make -j"$(sysctl -n hw.ncpu)" libzstd.a CFLAGS="-arch $arch -O2"
+                mkdir -p "../../deps/out-$arch"
+                cp libzstd.a "../../deps/out-$arch/"
+              done
+              cd /tmp/wit-src
+              mkdir -p deps/zstd-universal/lib
+              lipo -create deps/out-arm64/libzstd.a deps/out-x86_64/libzstd.a -output deps/zstd-universal/lib/libzstd.a
+              cp zstd-${ZSTD_VERSION}/lib/*.h deps/zstd-universal/
+              ZDIR="/tmp/wit-src/deps/zstd-universal"
+              export LDFLAGS="-L${ZDIR}/lib"
+              make -C iso-tools/project -j"$(sysctl -n hw.ncpu)" XFLAGS="-arch x86_64 -arch arm64 -I${ZDIR}" all
+              cp iso-tools/project/bin/wit "$GITHUB_WORKSPACE/extra_tools/wit"
+            ) || echo "::warning::wit source build failed -- skipping"
+          fi
+
+          # 2. mobipeg (quatric/mobipeg, an FFmpeg fork with Mobiclip
+          # decoding). Its own macOS CI job builds a universal binary
+          # against ~8 vendored codec dependencies (vorbis, opus, lame,
+          # speex, theora, webp, dav1d, x264) plus sentry -- replicating
+          # that whole pipeline inline here would triple this job's runtime
+          # and duplicate a build that's already exercised and cached in
+          # mobipeg's own repo. Fetch its release build instead; if the
+          # asset name has drifted (as with wit above) this step warns and
+          # mobipeg is simply left out of the bundle rather than failing
+          # the whole job.
           fetch quatric/mobipeg mobipeg-macos-universal.tar.gz
           [ -f extra_tools/ffmpeg ] && mv extra_tools/ffmpeg extra_tools/mobipeg
 
-          # 2. sharpii (Wii WAD)
-          fetch TheShadowEevee/Sharpii-NetCore Sharpii-Net-Core-v1.1.11-MacOSX-Combined.7z
-          find extra_tools -iname 'sharpii*' -type f -exec mv {} extra_tools/sharpii \; 2>/dev/null || true
-
-          # 3. nsz (Switch NSZ/XCZ)
-          fetch nicoboss/nsz nsz-cli-macos-arm64
-          [ -f extra_tools/nsz-cli-macos-arm64 ] && mv extra_tools/nsz-cli-macos-arm64 extra_tools/nsz
-
-          # 4. makerom (3DS repacking)
-          if curl -fsSL -o /tmp/makerom.zip https://github.com/3DSGuy/Project_CTR/releases/download/makerom-v0.18/makerom-v0.18-macos_x86_64.zip; then
-            unzip -q -o /tmp/makerom.zip -d extra_tools/ || true
+          # 3. sharpii (TheShadowEevee/Sharpii-NetCore), universal build. A
+          # self-contained single-file .NET publish per RID is itself a
+          # real Mach-O executable with its managed payload embedded, so
+          # lipo-ing the two RID outputs together produces a genuine
+          # universal binary (the same technique dotnet's own docs use for
+          # macOS "universal" self-contained apps).
+          if git clone --depth 1 https://github.com/TheShadowEevee/Sharpii-NetCore.git /tmp/sharpii-src 2>/dev/null; then
+            ( set -e
+              cd /tmp/sharpii-src
+              dotnet publish -c Release -r osx-arm64 --self-contained true -p:PublishSingleFile=true
+              dotnet publish -c Release -r osx-x64 --self-contained true -p:PublishSingleFile=true
+              lipo -create \
+                bin/Release/net7.0/osx-arm64/publish/Sharpii \
+                bin/Release/net7.0/osx-x64/publish/Sharpii \
+                -output "$GITHUB_WORKSPACE/extra_tools/sharpii"
+            ) || echo "::warning::sharpii source build failed -- skipping"
           fi
 
-          # 5. wud2app (Wii U WUD extraction)
-          if curl -fsSL -o /tmp/wud2app-arm64 https://github.com/PAK-VIN/wud2app-macOS/releases/download/macOS/wud2app-macOS-AppleSilicon && \
-             curl -fsSL -o /tmp/wud2app-x86_64 https://github.com/PAK-VIN/wud2app-macOS/releases/download/macOS/wud2app-macOS-64bitIntel; then
-            lipo -create -output extra_tools/wud2app /tmp/wud2app-arm64 /tmp/wud2app-x86_64 2>/dev/null || cp /tmp/wud2app-arm64 extra_tools/wud2app
+          # 4. nsz (nicoboss/nsz), a pure-Python Switch NSZ/XCZ tool. Build
+          # a standalone binary from its own source with pyinstaller
+          # instead of fetching its release CLI binary.
+          if git clone --depth 1 https://github.com/nicoboss/nsz.git /tmp/nsz-src 2>/dev/null; then
+            ( set -e
+              cd /tmp/nsz-src
+              python3 -m pip install --quiet -r requirements.txt pyinstaller
+              pyinstaller --onefile --name nsz nsz.py
+              cp dist/nsz "$GITHUB_WORKSPACE/extra_tools/nsz"
+            ) || echo "::warning::nsz source build failed -- skipping"
           fi
 
-          # 6. 7zz / 7z (7-Zip archive passthrough)
+          # 5. makerom (3DSGuy/Project_CTR), 3DS CIA/CCI repacking. Plain C,
+          # universal build.
+          if git clone --depth 1 https://github.com/3DSGuy/Project_CTR.git /tmp/project-ctr-src 2>/dev/null; then
+            (cd /tmp/project-ctr-src/makerom && make CC="clang -arch arm64 -arch x86_64" -j"$(sysctl -n hw.ncpu)" && cp makerom "$GITHUB_WORKSPACE/extra_tools/") || \
+              echo "::warning::makerom source build failed -- skipping"
+          fi
+
+          # 6. wud2app (PAK-VIN/wud2app-macOS), Wii U WUD extraction. Plain
+          # C with its own universal-aware Makefile.
+          if git clone --depth 1 https://github.com/PAK-VIN/wud2app-macOS.git /tmp/wud2app-src 2>/dev/null; then
+            (cd /tmp/wud2app-src && clang -Wall -Wextra -O3 -arch arm64 -arch x86_64 main.c wudparts.c rijndael.c sha1.c -o "$GITHUB_WORKSPACE/extra_tools/wud2app") || \
+              echo "::warning::wud2app source build failed -- skipping"
+          fi
+
+          # 7. 7zz / 7z (ip7z/7zip). Building 7-Zip's C++/asm core from
+          # source is a much larger, separate undertaking (its own
+          # multi-platform build system) than the other tools here, and the
+          # official prebuilt binary is the standard way virtually every
+          # project consumes 7-Zip -- fetch it rather than vendor a build.
           if curl -fsSL -o /tmp/7z.tar.xz https://github.com/ip7z/7zip/releases/download/26.03/7z2603-mac.tar.xz; then
             tar -xf /tmp/7z.tar.xz -C extra_tools/ 7zz 2>/dev/null || true
             [ -f extra_tools/7zz ] && cp extra_tools/7zz extra_tools/7z
           fi
 
-          # 7. ndstool (Nintendo DS ROM tool, universal build)
+          # 8. ndstool (Nintendo DS ROM tool, universal build)
           if git clone --depth 1 https://github.com/devkitPro/ndstool.git /tmp/ndstool-src 2>/dev/null; then
             (cd /tmp/ndstool-src && ./autogen.sh && ./configure CFLAGS="-arch arm64 -arch x86_64" CXXFLAGS="-arch arm64 -arch x86_64" LDFLAGS="-arch arm64 -arch x86_64" && make -j"$(sysctl -n hw.ncpu)" && cp ndstool "$GITHUB_WORKSPACE/extra_tools/") || true
           fi
 
-          # 8. hactool (Nintendo Switch NCA/XCI/PFS0 tool, universal build)
+          # 9. hactool (Nintendo Switch NCA/XCI/PFS0 tool, universal build)
           if git clone --depth 1 https://github.com/SciresM/hactool.git /tmp/hactool-src 2>/dev/null; then
             (cd /tmp/hactool-src && cp config.mk.template config.mk && make CC="clang -arch arm64 -arch x86_64" -j"$(sysctl -n hw.ncpu)" && cp hactool "$GITHUB_WORKSPACE/extra_tools/") || true
           fi
 
-          # 9. hacbrewpack (Nintendo Switch Homebrew NSP pack tool, universal build)
+          # 10. hacbrewpack (Nintendo Switch Homebrew NSP pack tool, universal build)
           if git clone --depth 1 https://github.com/pplatoon/hacBrewPack.git /tmp/hacbrewpack-src 2>/dev/null; then
             (cd /tmp/hacbrewpack-src && cp config.mk.template config.mk && make CC="clang -arch arm64 -arch x86_64" -j"$(sysctl -n hw.ncpu)" && cp hacbrewpack "$GITHUB_WORKSPACE/extra_tools/") || true
           fi
 
-          # 10. gba-mus-ripper (GBA Sappy/MP2K music/soundfont ripper), universal
+          # 11. gba-mus-ripper (GBA Sappy/MP2K music/soundfont ripper), universal
           # build. wszst shells out to this as a passthrough for GBA titles the
           # same way it does for wit/mobipeg -- no vendored copy in src/.
           if git clone --depth 1 https://github.com/berg8793/gba-mus-ripper.git /tmp/gba-mus-ripper-src 2>/dev/null; then
@@ -384,7 +458,7 @@ jobs:
               [ -n "$found" ] && cp "$found" "$GITHUB_WORKSPACE/extra_tools/gba-mus-ripper") || true
           fi
 
-          # 11. vgmtrans-cli (magcius/vgmtrans, siiva branch), universal build.
+          # 12. vgmtrans-cli (magcius/vgmtrans, siiva branch), universal build.
           # wbrsar always delegates BRSAR/BFSAR/BCSAR conversion to an
           # external vgmtrans binary (see project/src/wbrsar.c) -- no copy
           # is vendored or linked in-process. Bundling this binary lets
