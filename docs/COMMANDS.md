@@ -186,6 +186,8 @@ wszst xx <source> [--dest <dir>] [--auto] [--overwrite] [delegation options]
   - `--with-hacbrewpack=<path>`: Custom path to `hacbrewpack`.
   - `--with-sharpii=<path>`: Custom path to `sharpii` (Wii WAD unpacking).
   - `--with-7z=<path>`: Custom path to `7z` / `7zz`.
+  - `--with-nsz=<path>`: Custom path to `nsz` (Nintendo Switch NSZ/XCZ decompressor).
+  - `--with-vgmtrans=<path>`: Custom path to `vgmtrans` (BRSAR/SDAT sound archive translator).
 
 #### Newly Supported Archive Formats
 `wszst xx` and `wszst EXTRACT` natively recognize and extract:

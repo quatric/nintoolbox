@@ -296,20 +296,16 @@ jobs:
           python-version: '3.12'
 
       # wszst shells out to wit (disc/DS/WAD pass-through), mobipeg
-      # (video/model transcoding) and sharpii (Wii WAD pass-through) by bare
-      # name on PATH; bundling them means those features work out of the box
-      # instead of needing a separate manual install. wit/mobipeg come from
-      # quatric's own sibling repos' tagged releases, not this build, so
-      # fetch is best-effort: if a repo has no release yet (e.g. mobipeg
-      # before its first tag), skip it and still ship wszst alone rather
-      # than failing the whole GUI build. sharpii is upstream
-      # TheShadowEevee/Sharpii-NetCore's own macOS release, distributed as a
-      # 7z archive rather than tar.gz -- ndstool, hactool and hacbrewpack are
-      # deliberately NOT bundled here: as of this writing devkitpro/ndstool
-      # and pplatoon/hacBrewPack publish no binary release assets at all,
-      # and SciresM/hactool's latest release ships a Windows-only zip, so
-      # there's nothing real to fetch for any of the three on macOS.
-      - name: Fetch wit, mobipeg and sharpii for bundling (best-effort)
+      # (video/model transcoding), sharpii (Wii WAD pass-through), and nsz
+      # (Switch NSZ/XCZ decompressor) by bare name on PATH; bundling them means
+      # those features work out of the box instead of needing a separate manual
+      # install. wit/mobipeg come from quatric's own sibling repos' tagged
+      # releases, not this build, so fetch is best-effort: if a repo has no
+      # release yet (e.g. mobipeg before its first tag), skip it and still
+      # ship wszst alone rather than failing the whole GUI build. sharpii is
+      # upstream TheShadowEevee/Sharpii-NetCore's release, and nsz is upstream
+      # nicoboss/nsz's standalone macOS CLI binary.
+      - name: Fetch wit, mobipeg, sharpii and nsz for bundling (best-effort)
         run: |
           mkdir -p extra_tools
           fetch() {
@@ -319,7 +315,8 @@ jobs:
             if curl -fsSL -o "/tmp/${asset}" "$url"; then
               case "$asset" in
                 *.7z) 7z x -y -o extra_tools "/tmp/${asset}" >/dev/null ;;
-                *) tar -xzf "/tmp/${asset}" -C extra_tools ;;
+                *.tar.gz|*.tgz) tar -xzf "/tmp/${asset}" -C extra_tools ;;
+                *) cp "/tmp/${asset}" "extra_tools/${asset}" ;;
               esac
             else
               echo "::warning::no release asset ${asset} found for ${repo} -- skipping, GUI will build without it"
@@ -329,6 +326,7 @@ jobs:
           fetch quatric/wiimms-iso-tools-plus wit-macos-universal.tar.gz
           fetch quatric/mobipeg mobipeg-macos-universal.tar.gz
           fetch TheShadowEevee/Sharpii-NetCore Sharpii-Net-Core-v1.1.11-MacOSX-Combined.7z
+          fetch nicoboss/nsz nsz-cli-macos-arm64
           # mobipeg's binary is literally named "ffmpeg" (it's a patched
           # ffmpeg fork); wszst's --with-mobipeg= only cares about the path
           # it's given, so rename the bundled copy to what wszst_gui.py
@@ -337,17 +335,19 @@ jobs:
           # Sharpii's archive nests the binary under a "Sharpii" dir; flatten
           # it the same way for find_companion_tool("sharpii", ...).
           find extra_tools -iname 'sharpii*' -type f -exec mv {} extra_tools/sharpii \; 2>/dev/null || true
+          [ -f extra_tools/nsz-cli-macos-arm64 ] && mv extra_tools/nsz-cli-macos-arm64 extra_tools/nsz
           chmod +x extra_tools/* 2>/dev/null || true
           ls -la extra_tools
 
       - name: Build GUI app (universal2)
         run: |
           chmod +x artifact/wszst
-          python3 -m pip install --quiet pyinstaller sentry-sdk
+          python3 -m pip install --quiet pyinstaller sentry-sdk nsz
           BINARY_ARGS=(--add-binary "artifact/wszst:.")
           [ -f extra_tools/wit ] && BINARY_ARGS+=(--add-binary "extra_tools/wit:.")
           [ -f extra_tools/mobipeg ] && BINARY_ARGS+=(--add-binary "extra_tools/mobipeg:.")
           [ -f extra_tools/sharpii ] && BINARY_ARGS+=(--add-binary "extra_tools/sharpii:.")
+          [ -f extra_tools/nsz ] && BINARY_ARGS+=(--add-binary "extra_tools/nsz:.")
           pyinstaller --name wszst-gui --windowed \
             "${BINARY_ARGS[@]}" \
             --add-data logo.png:. --icon=logo.icns \

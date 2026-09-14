@@ -628,6 +628,12 @@ static enumError CheckOptions (int argc, char **argv, bool is_env)
 			case GO_WITH_7Z:
 				opt_with_7z = optarg;
 				break;
+			case GO_WITH_NSZ:
+				opt_with_nsz = optarg;
+				break;
+			case GO_WITH_VGMTRANS:
+				opt_with_vgmtrans = optarg;
+				break;
 
 			case GO_ENCODE_ALL:
 				opt_encode_all = true;

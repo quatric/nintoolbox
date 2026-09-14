@@ -48,6 +48,8 @@ We acknowledge and credit the following tools and authors whose research, format
   * Format documentation, decompression algorithms, and container specifications used for various flat archives.
 * **EveryFileExplorer** by **Gericom** ([EveryFileExplorer](https://github.com/Gericom/EveryFileExplorer))
   * Multi-format reverse engineering, specifications, and reference implementations for Nintendo 3DS, DS, Wii, and GameCube file systems, 2D/3D graphics, audio, container formats, and Mobiclip / FastVideoDS video codecs.
+* **VGMTrans (Magcius fork)** by **Jasper St. Pierre (Magcius)** ([magcius/vgmtrans](https://github.com/magcius/vgmtrans))
+  * Cross-platform modernized VGMTrans engine, CMake build infrastructure, and CLI driver for video game music translation (Wii BRSAR, NDS SDAT, and sequence/instrument bank extraction).
 
 ---
 
@@ -86,10 +88,11 @@ We acknowledge and credit the following tools and authors whose research, format
   * **cnl:** John McFarlane (Boost Software License 1.0)
 
 ### 5. VGMTrans
-* **Authors / Project:** Mike and the VGMTrans Team
-* **Website:** <https://github.com/vgmtrans/vgmtrans>
+* **Authors / Projects:** 
+  * Mike and the VGMTrans Team (<https://github.com/vgmtrans/vgmtrans>)
+  * Jasper St. Pierre / Magcius (<https://github.com/magcius/vgmtrans>)
 * **License:** zlib/libpng License
-* **Description:** Video game music translation engine used for NDS SDAT sequence, instrument bank, and soundfont extraction.
+* **Description:** Video game music translation engine and architecture used for Wii BRSAR and NDS SDAT sequence, instrument bank, sample collection, and soundfont extraction. Integrated via vendored core in `wbrsar` and supported via external `vgmtrans` CLI invocation.
 
 ### 6. bcn-decoder & bcn-support
 * **Author:** K0lb3

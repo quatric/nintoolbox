@@ -19,6 +19,8 @@ extern ccp opt_with_hactool; // --with-hactool=path|name
 extern ccp opt_with_hacbrewpack; // --with-hacbrewpack=path|name
 extern ccp opt_with_bms; // --with-bms=path|--bms=path
 extern ccp opt_with_7z; // --with-7z=path|name
+extern ccp opt_with_nsz; // --with-nsz=path|name
+extern ccp opt_with_vgmtrans; // --with-vgmtrans=path|name
 
 // Try to pass an unrecognized SRC through to an external unpacker or to an
 // in-process decoder.  STAGED_DIR is filled with the directory (relative to

@@ -9196,15 +9196,32 @@ static enumError convert_brsar_if_possible (ccp arg)
 
 	// Prefer the wbrsar built alongside this binary (same install/build dir)
 	// over whatever a bare PATH search might turn up first.
+	// If wbrsar is not available or if --with-vgmtrans is set, fall back to
+	// external vgmtrans (magcius/vgmtrans).
 	char tool[PATH_MAX] = { 0 };
+	bool using_vgmtrans = false;
+
+	if (opt_with_vgmtrans && *opt_with_vgmtrans)
+	{
+		if (!access (opt_with_vgmtrans, X_OK))
+		{
+			snprintf (tool, sizeof (tool), "%s", opt_with_vgmtrans);
+			using_vgmtrans = true;
+		}
+	}
+
 	char mypath[PATH_MAX];
 	GetProgramPath (mypath, sizeof (mypath), true, 0);
 	ccp slash = strrchr (mypath, '/');
-	if (slash)
+
+	if (!*tool)
 	{
-		snprintf (tool, sizeof (tool), "%.*s/wbrsar", (int)(slash - mypath), mypath);
-		if (access (tool, X_OK))
-			*tool = 0;
+		if (slash)
+		{
+			snprintf (tool, sizeof (tool), "%.*s/wbrsar", (int)(slash - mypath), mypath);
+			if (access (tool, X_OK))
+				*tool = 0;
+		}
 	}
 	if (!*tool)
 	{
@@ -9224,7 +9241,51 @@ static enumError convert_brsar_if_possible (ccp arg)
 		}
 	}
 	if (!*tool)
-		return ERROR0 (ERR_WARNING, "wbrsar not found; cannot convert %s to MIDI+SF2: %s\n",
+	{
+		// Fall back to external vgmtrans binary (magcius/vgmtrans)
+		if (slash)
+		{
+			snprintf (tool, sizeof (tool), "%.*s/vgmtrans", (int)(slash - mypath), mypath);
+			if (access (tool, X_OK))
+			{
+				snprintf (tool, sizeof (tool), "%.*s/vgmtrans-cli", (int)(slash - mypath), mypath);
+				if (access (tool, X_OK))
+					*tool = 0;
+			}
+			if (*tool)
+				using_vgmtrans = true;
+		}
+		if (!*tool)
+		{
+			ccp dirs = getenv ("PATH");
+			while (dirs && *dirs && !*tool)
+			{
+				ccp end = strchr (dirs, ':');
+				const uint len = end ? (uint)(end - dirs) : (uint)strlen (dirs);
+				if (len)
+				{
+					char cand[PATH_MAX];
+					snprintf (cand, sizeof (cand), "%.*s/vgmtrans", (int)len, dirs);
+					if (!access (cand, X_OK))
+					{
+						snprintf (tool, sizeof (tool), "%s", cand);
+						using_vgmtrans = true;
+						break;
+					}
+					snprintf (cand, sizeof (cand), "%.*s/vgmtrans-cli", (int)len, dirs);
+					if (!access (cand, X_OK))
+					{
+						snprintf (tool, sizeof (tool), "%s", cand);
+						using_vgmtrans = true;
+						break;
+					}
+				}
+				dirs = end ? end + 1 : 0;
+			}
+		}
+	}
+	if (!*tool)
+		return ERROR0 (ERR_WARNING, "wbrsar / vgmtrans not found; cannot convert %s to MIDI+SF2: %s\n",
 			is_sdat || is_ext (arg, ".sdat") ? "SDAT" : "BRSAR", arg);
 
 	// Same "<stem>.d" staging convention every other extractor in this
@@ -9239,9 +9300,9 @@ static enumError convert_brsar_if_possible (ccp arg)
 		return ERR_OK;
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXPORT %s:%s -> %s (wbrsar)\n", verbose > 0 ? "\n" : "",
+		fprintf (stdlog, "%s%sEXPORT %s:%s -> %s (%s)\n", verbose > 0 ? "\n" : "",
 			testmode ? "WOULD " : "", is_sdat || is_ext (arg, ".sdat") ? "SDAT" : "BRSAR", arg,
-			dest);
+			dest, using_vgmtrans ? "vgmtrans" : "wbrsar");
 	if (testmode)
 		return ERR_OK;
 
@@ -9252,13 +9313,14 @@ static enumError convert_brsar_if_possible (ccp arg)
 	if (pid == 0)
 	{
 		execv (tool, child_argv);
+		execvp (tool, child_argv);
 		_Exit (127); // execv failed
 	}
 	int status = 0;
 	while (waitpid (pid, &status, 0) < 0 && errno == EINTR)
 		;
 	if (!WIFEXITED (status) || WEXITSTATUS (status) != 0)
-		return ERROR0 (ERR_WARNING, "wbrsar failed for %s\n", arg);
+		return ERROR0 (ERR_WARNING, "%s failed for %s\n", using_vgmtrans ? "vgmtrans" : "wbrsar", arg);
 	return ERR_OK;
 }
 

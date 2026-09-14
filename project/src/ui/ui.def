@@ -1740,6 +1740,18 @@
 	"Set the external 7-Zip extraction tool (7z, 7zz, 7za, unar). Default:" \
 	" '7z'." )
 
+#:def_opt( "WITH_NSZ", "with-nsz|withnsz|nsz", "GP", \
+	"path", \
+	"Define the external nsz tool to use for decompressing .nsz and .xcz" \
+	" Switch packages into .nsp/.xci containers before extraction. Default" \
+	" is 'nsz' on PATH." )
+
+#:def_opt( "WITH_VGMTRANS", "with-vgmtrans|withvgmtrans|vgmtrans", "GP", \
+	"path", \
+	"Define the external VGMTrans tool (vgmtrans/magcius) to use for" \
+	" translating BRSAR and SDAT sound archives to MIDI and SoundFont." \
+	" Default is 'vgmtrans' on PATH." )
+
 #:def_opt( "TRANSFORM", "x|transform", "CP", \
 	"list", \
 	"Convert image formats. A comma separated list with terms is expected." \

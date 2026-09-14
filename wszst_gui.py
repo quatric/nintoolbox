@@ -110,13 +110,16 @@ class WszstGUI(tk.Tk):
 
         self.wszst_path = find_wszst_binary()
         # wit (wiimms-iso-tools-plus) handles disc/DS/WAD pass-through,
-        # mobipeg handles video/model transcoding, and sharpii handles Wii
-        # WAD pass-through; wszst shells out to all three by bare name via
-        # PATH only, so an explicit --with-* is the only way a bundled copy
-        # actually gets used (see find_companion_tool).
+        # mobipeg handles video/model transcoding, sharpii handles Wii
+        # WAD pass-through, nsz handles Switch NSZ/XCZ decompression, and
+        # vgmtrans handles BRSAR/SDAT sound archive translation; wszst shells
+        # out to all by bare name via PATH only, so an explicit --with-* is the
+        # only way a bundled copy actually gets used (see find_companion_tool).
         self.wit_path = find_companion_tool("wit", self.wszst_path)
         self.mobipeg_path = find_companion_tool("mobipeg", self.wszst_path)
         self.sharpii_path = find_companion_tool("sharpii", self.wszst_path)
+        self.nsz_path = find_companion_tool("nsz", self.wszst_path)
+        self.vgmtrans_path = find_companion_tool("vgmtrans", self.wszst_path)
 
         try:
             base_path = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
@@ -432,9 +435,9 @@ class WszstGUI(tk.Tk):
         threading.Thread(target=run_thread, daemon=True).start()
 
     def with_companion_tool_flags(self):
-        """--with-wit/--with-mobipeg/--with-sharpii for whatever companion
-        tools were found bundled alongside wszst; harmless to pass even for
-        operations that don't need them."""
+        """--with-wit/--with-mobipeg/--with-sharpii/--with-nsz/--with-vgmtrans for
+        whatever companion tools were found bundled alongside wszst; harmless to
+        pass even for operations that don't need them."""
         flags = []
         if self.wit_path:
             flags.append(f"--with-wit={self.wit_path}")
@@ -442,6 +445,10 @@ class WszstGUI(tk.Tk):
             flags.append(f"--with-mobipeg={self.mobipeg_path}")
         if self.sharpii_path:
             flags.append(f"--with-sharpii={self.sharpii_path}")
+        if self.nsz_path:
+            flags.append(f"--with-nsz={self.nsz_path}")
+        if self.vgmtrans_path:
+            flags.append(f"--with-vgmtrans={self.vgmtrans_path}")
         return flags
 
     def run_unpack(self):

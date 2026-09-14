@@ -247,14 +247,9 @@ endif
 # tools
 
 MAIN_TOOLS	:= wszst wbmgt wctct wimgt wkclt wkmpt wlect wpatt wstrt
-# wbrsar links the vendored vgmtrans core, which needs cmake and glib.  Set
-# NO_VGMTRANS=1 to drop it -- used by CI for cross-compiled targets where
-# those are not available for the host architecture.
-ifeq ($(NO_VGMTRANS),1)
-  TEST_TOOLS	:= wtest wlayt wwc24crypt wbmsx wseqt wbrstm wrbnk wbfsar
-else
-  TEST_TOOLS	:= wtest wlayt wbrsar wwc24crypt wbmsx wseqt wbrstm wrbnk wbfsar
-endif
+# wbrsar links the vendored vgmtrans core when available, or wires to
+# an external vgmtrans CLI binary (magcius/vgmtrans) when NO_VGMTRANS=1.
+TEST_TOOLS	:= wtest wlayt wbrsar wwc24crypt wbmsx wseqt wbrstm wrbnk wbfsar
 # wmdlt already has TOBJ_wmdlt/TOPT_wmdlt (matching the generic
 # $(ALL_TOOLS_X) build rule's expectations) but was never actually listed
 # in MAIN_TOOLS/TEST_TOOLS/EXTRA_TOOLS, so `make wmdlt` fell through to
@@ -663,6 +658,10 @@ VGMTRANS_LIBDIR	:= src/vgmtrans/build
 # .brsar sample tried ("no collections found") failed identically -- not
 # a format-parsing bug, wbrsar's BRSAR support had literally never
 # executed since it was added to this fork.
+ifeq ($(NO_VGMTRANS),1)
+  DEFINES1	+= -DNO_VGMTRANS=1
+  TOPT_wbrsar	:=
+else
 ifeq ($(SYSTEM),mac)
   VGMTRANS_LIBS	:= -Wl,-force_load,$(VGMTRANS_LIBDIR)/libvgmtrans_core.a -lz \
 		   $(if $(HOMEBREW_PREFIX),$(HOMEBREW_PREFIX)/opt/glib,$(shell brew --prefix glib 2>/dev/null))/lib/libglib-2.0.dylib \
@@ -678,6 +677,7 @@ endif
 
 TOPT_wbrsar	:= $(VGMTRANS_LIBS)
 wbrsar: src/vgmtrans/build/libvgmtrans_core.a
+endif
 
 .PHONY: third_party/sentry-native/build-inproc/libsentry.a
 third_party/sentry-native/build-inproc/libsentry.a:

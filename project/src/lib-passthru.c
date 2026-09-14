@@ -37,6 +37,8 @@ ccp opt_with_hacbrewpack = 0; // --with-hacbrewpack=path|name
 ccp opt_with_bms = 0; // --with-bms=path|--bms=path
 ccp opt_with_mobipeg = 0; // --with-mobipeg=path|name
 ccp opt_with_7z = 0; // --with-7z=path|name
+ccp opt_with_nsz = 0; // --with-nsz=path|name
+ccp opt_with_vgmtrans = 0; // --with-vgmtrans=path|name
 
 // Curried static result buffer, only valid until the next call.  Reasonable
 // here since these helpers are used from single-threaded option parsing.
@@ -447,7 +449,7 @@ static enumError passthru_nsz (
 {
 	(void)basedir;
 
-	ccp tool = find_program ("nsz");
+	ccp tool = resolve_tool (opt_with_nsz, "nsz");
 	if (!tool || !*tool)
 	{
 		*staged_dir = 0;
@@ -1847,7 +1849,7 @@ static enumError passthru_archive (
 		char nsz_out[PATH_MAX] = "";
 		if (is_ext (src, ".nsz") || is_ext (src, ".xcz"))
 		{
-			ccp nsz_tool_p = find_program ("nsz");
+			ccp nsz_tool_p = resolve_tool (opt_with_nsz, "nsz");
 			if (!nsz_tool_p)
 				return ERROR0 (ERR_SUBJOB_FAILED,
 					"pass-through: 'nsz' not found in PATH (required to decompress %s)", src);
