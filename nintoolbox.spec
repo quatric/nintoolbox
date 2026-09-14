@@ -1,10 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 a = Analysis(
-    ['wszst_gui.py'],
+    ['nintoolbox.py'],
     pathex=[],
     binaries=[
-        ('project/wszst', '.'),
+        ('project/bin/wszst', '.'),
     ],
     datas=[('logo.png', '.')],
     hiddenimports=[],
@@ -22,7 +22,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='wszst-gui',
+    name='nintoolbox',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -42,12 +42,12 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='wszst-gui',
+    name='nintoolbox',
 )
 app = BUNDLE(
     coll,
-    name='wszst-gui.app',
+    name='nintoolbox.app',
     icon='logo.icns',
-    bundle_identifier=None,
+    bundle_identifier='net.quatric.nintoolbox',
     version='1.0',
 )

@@ -39,10 +39,12 @@ FILETYPES = (
 
 
 def find_wszst_binary():
-    """Locate the wszst binary next to the script, in project/, or in PATH."""
+    """Locate the wszst or nintoolbox binary next to the script, in project/bin/, or in PATH."""
     base_dir = os.path.dirname(os.path.abspath(__file__))
     candidates = [
+        os.path.join(base_dir, "nintoolbox"),
         os.path.join(base_dir, "wszst"),
+        os.path.join(base_dir, "project", "bin", "wszst"),
         os.path.join(base_dir, "project", "wszst"),
         os.path.join(base_dir, "bin", "wszst"),
         "/usr/local/bin/wszst",
@@ -50,7 +52,7 @@ def find_wszst_binary():
     for c in candidates:
         if os.path.isfile(c) and os.access(c, os.X_OK):
             return c
-    found = shutil.which("wszst")
+    found = shutil.which("wszst") or shutil.which("nintoolbox")
     if found:
         return found
     return "wszst"
@@ -58,17 +60,20 @@ def find_wszst_binary():
 
 def find_companion_tool(name, wszst_path):
     """Look for NAME bundled alongside the resolved wszst binary first (how
-    the .app/PyInstaller build stages wit/mobipeg next to wszst -- see
-    wszst-gui.spec / build.yml's build-gui-macos job), then fall back to
-    PATH. wszst itself only ever searches PATH by bare name (find_program()
-    in lib-passthru.c has no "next to my own binary" fallback), so passing
-    an absolute path via --with-wit=/--with-mobipeg= is what actually makes
-    a bundled copy usable instead of silently being ignored.
+    the .app/PyInstaller build stages companion tools next to wszst -- see
+    nintoolbox.spec / build.yml's build-gui-macos job), then fall back to
+    PATH. wszst itself searches PATH by bare name (find_program() in
+    lib-passthru.c), so passing an explicit absolute path via --with-<tool>=
+    guarantees the bundled copy is always preferred.
     """
     wszst_dir = os.path.dirname(os.path.abspath(wszst_path))
     candidate = os.path.join(wszst_dir, name)
     if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
         return candidate
+    base_dir = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    meipass_candidate = os.path.join(base_dir, name)
+    if os.path.isfile(meipass_candidate) and os.access(meipass_candidate, os.X_OK):
+        return meipass_candidate
     return shutil.which(name)
 
 
@@ -100,26 +105,31 @@ class CollapsibleSection(ttk.Frame):
             self.body.grid_remove()
 
 
-class WszstGUI(tk.Tk):
+class NintoolboxGUI(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("wszst-gui — Wiimms SZS Tools Plus")
+        self.title("nintoolbox — Nintendo Toolbox")
         self.geometry("760x680")
         self.minsize(660, 520)
         self.configure(padx=15, pady=15)
 
         self.wszst_path = find_wszst_binary()
-        # wit (wiimms-iso-tools-plus) handles disc/DS/WAD pass-through,
-        # mobipeg handles video/model transcoding, sharpii handles Wii
-        # WAD pass-through, nsz handles Switch NSZ/XCZ decompression, and
-        # vgmtrans handles BRSAR/SDAT sound archive translation; wszst shells
-        # out to all by bare name via PATH only, so an explicit --with-* is the
-        # only way a bundled copy actually gets used (see find_companion_tool).
+        # Companion tools: wit (disc images), mobipeg (video/audio transcoding),
+        # sharpii (Wii WADs), nsz (Switch NSZ/XCZ), vgmtrans/wbrsar (audio archives),
+        # ctrtool (3DS containers), ndstool (DS ROMs), hactool/hacbrewpack (Switch),
+        # 7zz/7z (archives), makerom (3DS repacking), and wud2app (Wii U WUDs).
         self.wit_path = find_companion_tool("wit", self.wszst_path)
         self.mobipeg_path = find_companion_tool("mobipeg", self.wszst_path)
         self.sharpii_path = find_companion_tool("sharpii", self.wszst_path)
         self.nsz_path = find_companion_tool("nsz", self.wszst_path)
         self.vgmtrans_path = find_companion_tool("vgmtrans", self.wszst_path)
+        self.ctrtool_path = find_companion_tool("ctrtool", self.wszst_path)
+        self.ndstool_path = find_companion_tool("ndstool", self.wszst_path)
+        self.hactool_path = find_companion_tool("hactool", self.wszst_path)
+        self.hacbrewpack_path = find_companion_tool("hacbrewpack", self.wszst_path)
+        self.sevenz_path = find_companion_tool("7zz", self.wszst_path) or find_companion_tool("7z", self.wszst_path)
+        self.makerom_path = find_companion_tool("makerom", self.wszst_path)
+        self.wud2app_path = find_companion_tool("wud2app", self.wszst_path)
 
         try:
             base_path = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
@@ -409,6 +419,10 @@ class WszstGUI(tk.Tk):
         self.console.config(state="disabled")
         self.append_console(f"$ {' '.join(cmd)}\n\n")
 
+        wszst_dir = os.path.dirname(os.path.abspath(self.wszst_path))
+        env = dict(os.environ)
+        env["PATH"] = f"{wszst_dir}:{env.get('PATH', '')}"
+
         def run_thread():
             try:
                 process = subprocess.Popen(
@@ -417,6 +431,7 @@ class WszstGUI(tk.Tk):
                     stderr=subprocess.STDOUT,
                     text=True,
                     bufsize=1,
+                    env=env,
                 )
                 for line in process.stdout:
                     self.after(0, self.append_console, line)
@@ -435,9 +450,10 @@ class WszstGUI(tk.Tk):
         threading.Thread(target=run_thread, daemon=True).start()
 
     def with_companion_tool_flags(self):
-        """--with-wit/--with-mobipeg/--with-sharpii/--with-nsz/--with-vgmtrans for
-        whatever companion tools were found bundled alongside wszst; harmless to
-        pass even for operations that don't need them."""
+        """--with-wit/--with-mobipeg/--with-sharpii/--with-nsz/--with-vgmtrans/--with-ctrtool/
+        --with-ndstool/--with-hactool/--with-hacbrewpack/--with-7z for whatever
+        companion tools were found bundled alongside wszst; harmless to pass even
+        for operations that don't need them."""
         flags = []
         if self.wit_path:
             flags.append(f"--with-wit={self.wit_path}")
@@ -449,6 +465,16 @@ class WszstGUI(tk.Tk):
             flags.append(f"--with-nsz={self.nsz_path}")
         if self.vgmtrans_path:
             flags.append(f"--with-vgmtrans={self.vgmtrans_path}")
+        if self.ctrtool_path:
+            flags.append(f"--with-ctrtool={self.ctrtool_path}")
+        if self.ndstool_path:
+            flags.append(f"--with-ndstool={self.ndstool_path}")
+        if self.hactool_path:
+            flags.append(f"--with-hactool={self.hactool_path}")
+        if self.hacbrewpack_path:
+            flags.append(f"--with-hacbrewpack={self.hacbrewpack_path}")
+        if self.sevenz_path:
+            flags.append(f"--with-7z={self.sevenz_path}")
         return flags
 
     def run_unpack(self):
@@ -500,6 +526,9 @@ class WszstGUI(tk.Tk):
         self.execute_cmd(cmd, self.pack_run_btn)
 
 
+# Backward-compatible alias
+WszstGUI = NintoolboxGUI
+
 if __name__ == "__main__":
-    app = WszstGUI()
+    app = NintoolboxGUI()
     app.mainloop()
