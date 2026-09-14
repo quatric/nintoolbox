@@ -410,10 +410,16 @@ jobs:
             ) || echo "::warning::nsz source build failed -- skipping"
           fi
 
-          # 5. makerom (3DSGuy/Project_CTR), 3DS CIA/CCI repacking. Plain C,
-          # universal build.
+          # 5. makerom (3DSGuy/Project_CTR), 3DS CIA/CCI repacking. Same
+          # recursive-Makefile framework as the vendored third_party/ctrtool
+          # (see below): its own local deps (libmbedtls, libblz, libyaml)
+          # must be built first via `make deps`, or the final link fails
+          # with "search path ... not found" for each of them.
           if git clone --depth 1 https://github.com/3DSGuy/Project_CTR.git /tmp/project-ctr-src 2>/dev/null; then
-            (cd /tmp/project-ctr-src/makerom && make CC="clang -arch arm64 -arch x86_64" -j"$(sysctl -n hw.ncpu)" && cp makerom "$GITHUB_WORKSPACE/extra_tools/") || \
+            (cd /tmp/project-ctr-src/makerom && \
+              make CC="clang -arch arm64 -arch x86_64" -j"$(sysctl -n hw.ncpu)" deps && \
+              make CC="clang -arch arm64 -arch x86_64" -j"$(sysctl -n hw.ncpu)" && \
+              cp makerom "$GITHUB_WORKSPACE/extra_tools/") || \
               echo "::warning::makerom source build failed -- skipping"
           fi
 
