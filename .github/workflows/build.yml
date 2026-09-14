@@ -647,9 +647,14 @@ jobs:
           fi
 
           # 2. mobipeg (quatric/mobipeg) -- fetch its Windows release build.
-          if curl -fsSL -o /tmp/mobipeg-win.zip https://github.com/quatric/mobipeg/releases/latest/download/mobipeg-windows-x86_64.zip; then
-            unzip -q -o /tmp/mobipeg-win.zip -d extra_tools && \
+          # Downloaded under $GITHUB_WORKSPACE (not /tmp): curl/git on this
+          # runner are native Windows tools, which resolve an absolute /tmp
+          # path differently than Cygwin's bash does, so a file written by
+          # one is invisible to the other.
+          if curl -fsSL -o mobipeg-win.zip https://github.com/quatric/mobipeg/releases/latest/download/mobipeg-windows-x86_64.zip; then
+            unzip -q -o mobipeg-win.zip -d extra_tools && \
               [ -f extra_tools/ffmpeg.exe ] && mv extra_tools/ffmpeg.exe extra_tools/mobipeg.exe
+            rm -f mobipeg-win.zip
           else
             echo "::warning::no mobipeg Windows release asset found -- skipping"
           fi
