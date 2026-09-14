@@ -50,6 +50,8 @@ We acknowledge and credit the following tools and authors whose research, format
   * Multi-format reverse engineering, specifications, and reference implementations for Nintendo 3DS, DS, Wii, and GameCube file systems, 2D/3D graphics, audio, container formats, and Mobiclip / FastVideoDS video codecs.
 * **VGMTrans (Magcius fork)** by **Jasper St. Pierre (Magcius)** ([magcius/vgmtrans](https://github.com/magcius/vgmtrans))
   * Cross-platform modernized VGMTrans engine, CMake build infrastructure, and CLI driver for video game music translation (Wii BRSAR, NDS SDAT, and sequence/instrument bank extraction).
+* **retrotool** by **PrimeDecomp** ([PrimeDecomp/retrotool](https://github.com/PrimeDecomp/retrotool))
+  * Reverse engineering, format specifications, and reference implementations for Retro Studios game formats, notably *Metroid Prime Remastered* (PAK package containers, RFRM chunk layouts, CMDL 3D model geometry and vertex/index buffer layouts, TXTR textures, and Retro LZSS compression modes).
 
 ---
 
