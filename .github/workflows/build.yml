@@ -570,7 +570,13 @@ jobs:
           [ -d extra_tools/share ] && cp -R extra_tools/share pyinst_dist/cli/share
           cp installer/install.sh pyinst_dist/cli/install.sh
           chmod +x pyinst_dist/cli/install.sh
-          cd pyinst_dist && zip -r -q ../dist/gui-macos-universal/nintoolbox-macos-universal.zip nintoolbox.app cli
+          # -y: store symlinks as symlinks instead of dereferencing them --
+          # PyInstaller's macOS .app layout relocates binaries into
+          # Contents/Frameworks and leaves a symlink for them under
+          # Contents/Resources (or vice versa) for compatibility; without -y,
+          # zip follows that symlink and bakes in a full second physical copy
+          # of every bundled binary.
+          cd pyinst_dist && zip -ry -q ../dist/gui-macos-universal/nintoolbox-macos-universal.zip nintoolbox.app cli
 
       - uses: actions/upload-artifact@v4
         with:
