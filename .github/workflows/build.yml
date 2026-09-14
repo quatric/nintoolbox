@@ -363,8 +363,32 @@ jobs:
               ZDIR="/tmp/wit-src/deps/zstd-universal"
               export LDFLAGS="-L${ZDIR}/lib"
               make -C iso-tools/project -j"$(sysctl -n hw.ncpu)" XFLAGS="-arch x86_64 -arch arm64 -I${ZDIR}" all
-              cp iso-tools/project/bin/wit "$GITHUB_WORKSPACE/extra_tools/wit"
+              # wit's own MAIN_TOOLS is wit/wwt/wdf (plus wtest, wfuse where
+              # available) -- bundle all of them, not just wit itself.
+              for t in wit wwt wdf wtest wfuse; do
+                [ -f "iso-tools/project/bin/$t" ] && cp "iso-tools/project/bin/$t" "$GITHUB_WORKSPACE/extra_tools/$t"
+              done
             ) || echo "::warning::wit source build failed -- skipping"
+          fi
+
+          # 1b. GameTDB titles.txt, the game-title database wit's own
+          # setup/load-titles.sh fetches and caches (see wit --help's
+          # "titles" command and iso-tools/project/Makefile's own `make
+          # titles`). Baking it into the bundle means wit shows real game
+          # titles out of the box instead of raw IDs. Reproduces that
+          # script's core `wit titles / -` reformat step directly rather
+          # than templating the script itself (which needs @@INSTALL-PATH@@
+          # etc. substituted by iso-tools' own Makefile). Placed both next
+          # to wit and under share/ since wit's search path checks both its
+          # own directory and a sibling share/ directory for title files.
+          if [ -x extra_tools/wit ]; then
+            mkdir -p extra_tools/share
+            if curl -fsSL http://gametdb.com/titles.txt | extra_tools/wit titles / - > extra_tools/share/titles.txt && [ -s extra_tools/share/titles.txt ]; then
+              cp extra_tools/share/titles.txt extra_tools/titles.txt
+            else
+              echo "::warning::titles.txt fetch/reformat failed -- skipping"
+              rm -f extra_tools/share/titles.txt
+            fi
           fi
 
           # 2. mobipeg (quatric/mobipeg, an FFmpeg fork with Mobiclip
@@ -524,14 +548,18 @@ jobs:
           for f in artifact/* extra_tools/*; do
             [ -f "$f" ] && [ -x "$f" ] && BINARY_ARGS+=(--add-binary "$f:.")
           done
+          DATA_ARGS=(--add-data logo.png:.)
+          [ -d extra_tools/share ] && DATA_ARGS+=(--add-data extra_tools/share:share)
           pyinstaller --name nintoolbox --windowed \
-            "${BINARY_ARGS[@]}" \
-            --add-data logo.png:. --icon=logo.icns \
+            "${BINARY_ARGS[@]}" "${DATA_ARGS[@]}" --icon=logo.icns \
             --distpath pyinst_dist \
             --target-architecture universal2 nintoolbox.py
           file pyinst_dist/nintoolbox.app/Contents/MacOS/nintoolbox
           mkdir -p dist/gui-macos-universal
-          cd pyinst_dist && zip -r -q ../dist/gui-macos-universal/nintoolbox-macos-universal.zip nintoolbox.app
+          # Bundle the setup/install scripts alongside the .app, same as
+          # upstream wit/wszst release tarballs (setup/install.sh).
+          cp -R project/setup pyinst_dist/setup
+          cd pyinst_dist && zip -r -q ../dist/gui-macos-universal/nintoolbox-macos-universal.zip nintoolbox.app setup
 
       - uses: actions/upload-artifact@v4
         with:
