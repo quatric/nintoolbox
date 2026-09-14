@@ -628,12 +628,20 @@ jobs:
           cd "${GITHUB_WORKSPACE}"
           mkdir -p extra_tools
 
+          # All git clone/curl calls below use $GITHUB_WORKSPACE-relative
+          # paths rather than /tmp: git/curl on this runner are native
+          # Windows tools, which resolve an absolute /tmp path differently
+          # than Cygwin's bash does, so a file written by one is invisible
+          # to the other (same issue the mobipeg fetch below had).
+          TMP="$GITHUB_WORKSPACE/tmp_build"
+          mkdir -p "$TMP"
+
           # 1. wit (quatric/wiimms-iso-tools-plus) -- same Makefile family as
           # this repo, so build it the same way build-windows builds wszst.
-          if git clone --depth 1 https://github.com/quatric/wiimms-iso-tools-plus.git /tmp/wit-src 2>/dev/null; then
-            (cd /tmp/wit-src/iso-tools/project && make -j"$(nproc)" NO_ZSTD=1 all && \
+          if git clone --depth 1 https://github.com/quatric/wiimms-iso-tools-plus.git "$TMP/wit-src" 2>/dev/null; then
+            (cd "$TMP/wit-src/iso-tools/project" && make -j"$(nproc)" NO_ZSTD=1 all && \
               for t in wit wwt wdf wtest wfuse; do
-                [ -f "bin/$t" ] && cp -p "bin/$t" "$GITHUB_WORKSPACE/extra_tools/$t.exe"
+                if [ -f "bin/$t" ]; then cp -p "bin/$t" "$GITHUB_WORKSPACE/extra_tools/$t.exe"; fi
               done) || echo "::warning::wit source build failed -- skipping"
           fi
           if [ -x extra_tools/wit.exe ]; then
@@ -660,42 +668,42 @@ jobs:
           fi
 
           # 5. makerom (3DSGuy/Project_CTR)
-          if git clone --depth 1 https://github.com/3DSGuy/Project_CTR.git /tmp/project-ctr-src 2>/dev/null; then
-            (cd /tmp/project-ctr-src/makerom && make -j"$(nproc)" deps && make -j"$(nproc)" && \
+          if git clone --depth 1 https://github.com/3DSGuy/Project_CTR.git "$TMP/project-ctr-src" 2>/dev/null; then
+            (cd "$TMP/project-ctr-src/makerom" && make -j"$(nproc)" deps && make -j"$(nproc)" && \
               cp bin/makerom.exe "$GITHUB_WORKSPACE/extra_tools/" 2>/dev/null || cp bin/makerom "$GITHUB_WORKSPACE/extra_tools/makerom.exe") || \
               echo "::warning::makerom source build failed -- skipping"
           fi
 
           # 6. wud2app (PAK-VIN/wud2app-macOS) -- plain C, portable despite the name
-          if git clone --depth 1 https://github.com/PAK-VIN/wud2app-macOS.git /tmp/wud2app-src 2>/dev/null; then
-            (cd /tmp/wud2app-src && gcc -Wall -Wextra -O3 main.c wudparts.c rijndael.c sha1.c -o "$GITHUB_WORKSPACE/extra_tools/wud2app.exe") || \
+          if git clone --depth 1 https://github.com/PAK-VIN/wud2app-macOS.git "$TMP/wud2app-src" 2>/dev/null; then
+            (cd "$TMP/wud2app-src" && gcc -Wall -Wextra -O3 main.c wudparts.c rijndael.c sha1.c -o "$GITHUB_WORKSPACE/extra_tools/wud2app.exe") || \
               echo "::warning::wud2app source build failed -- skipping"
           fi
 
           # 7. 7zz / 7z (ip7z/7zip) -- official Windows release binary
-          if curl -fsSL -o /tmp/7z.zip https://github.com/ip7z/7zip/releases/download/26.03/7z2603-x64.zip; then
-            unzip -q -o /tmp/7z.zip -d /tmp/7z-extracted 7z.exe 7za.exe 2>/dev/null || true
-            [ -f /tmp/7z-extracted/7z.exe ] && cp /tmp/7z-extracted/7z.exe extra_tools/7zz.exe
-            [ -f /tmp/7z-extracted/7za.exe ] && cp /tmp/7z-extracted/7za.exe extra_tools/7z.exe
+          if curl -fsSL -o "$TMP/7z.zip" https://github.com/ip7z/7zip/releases/download/26.03/7z2603-x64.zip; then
+            unzip -q -o "$TMP/7z.zip" -d "$TMP/7z-extracted" 7z.exe 7za.exe 2>/dev/null || true
+            [ -f "$TMP/7z-extracted/7z.exe" ] && cp "$TMP/7z-extracted/7z.exe" extra_tools/7zz.exe
+            [ -f "$TMP/7z-extracted/7za.exe" ] && cp "$TMP/7z-extracted/7za.exe" extra_tools/7z.exe
           fi
 
           # 8. ndstool (devkitPro/ndstool)
-          if git clone --depth 1 https://github.com/devkitPro/ndstool.git /tmp/ndstool-src; then
-            (cd /tmp/ndstool-src && ./autogen.sh && ./configure && make -j"$(nproc)" && \
+          if git clone --depth 1 https://github.com/devkitPro/ndstool.git "$TMP/ndstool-src"; then
+            (cd "$TMP/ndstool-src" && ./autogen.sh && ./configure && make -j"$(nproc)" && \
               cp ndstool.exe "$GITHUB_WORKSPACE/extra_tools/" 2>/dev/null || cp ndstool "$GITHUB_WORKSPACE/extra_tools/ndstool.exe") || \
               echo "::warning::ndstool source build failed -- skipping"
           fi
 
           # 9. hactool (SciresM/hactool)
-          if git clone --depth 1 https://github.com/SciresM/hactool.git /tmp/hactool-src; then
-            (cd /tmp/hactool-src && cp config.mk.template config.mk && make -j"$(nproc)" && \
+          if git clone --depth 1 https://github.com/SciresM/hactool.git "$TMP/hactool-src"; then
+            (cd "$TMP/hactool-src" && cp config.mk.template config.mk && make -j"$(nproc)" && \
               cp hactool.exe "$GITHUB_WORKSPACE/extra_tools/" 2>/dev/null || cp hactool "$GITHUB_WORKSPACE/extra_tools/hactool.exe") || \
               echo "::warning::hactool source build failed -- skipping"
           fi
 
           # 10. hacbrewpack (pplatoon/hacBrewPack)
-          if git clone --depth 1 https://github.com/pplatoon/hacBrewPack.git /tmp/hacbrewpack-src; then
-            (cd /tmp/hacbrewpack-src && cp config.mk.template config.mk && make -j"$(nproc)" && \
+          if git clone --depth 1 https://github.com/pplatoon/hacBrewPack.git "$TMP/hacbrewpack-src"; then
+            (cd "$TMP/hacbrewpack-src" && cp config.mk.template config.mk && make -j"$(nproc)" && \
               cp hacbrewpack.exe "$GITHUB_WORKSPACE/extra_tools/" 2>/dev/null || cp hacbrewpack "$GITHUB_WORKSPACE/extra_tools/hacbrewpack.exe") || \
               echo "::warning::hacbrewpack source build failed -- skipping"
           fi
@@ -704,8 +712,8 @@ jobs:
           # CPPC/CC, which is exactly Cygwin's toolchain here, so build it
           # unmodified rather than overriding compiler flags as the macOS
           # job has to.
-          if git clone --depth 1 https://github.com/berg8793/gba-mus-ripper.git /tmp/gba-mus-ripper-src; then
-            (cd /tmp/gba-mus-ripper-src && make -j"$(nproc)" && \
+          if git clone --depth 1 https://github.com/berg8793/gba-mus-ripper.git "$TMP/gba-mus-ripper-src"; then
+            (cd "$TMP/gba-mus-ripper-src" && make -j"$(nproc)" && \
               cp out/gba_mus_ripper.exe "$GITHUB_WORKSPACE/extra_tools/" 2>/dev/null || cp out/gba_mus_ripper "$GITHUB_WORKSPACE/extra_tools/gba-mus-ripper.exe") || \
               echo "::warning::gba-mus-ripper source build failed -- skipping"
           fi
@@ -719,8 +727,10 @@ jobs:
       - name: Build sharpii
         shell: C:\cygwin\bin\bash.exe --login -o igncr '{0}'
         run: |
-          if git clone --depth 1 https://github.com/TheShadowEevee/Sharpii-NetCore.git /tmp/sharpii-src 2>/dev/null; then
-            (cd /tmp/sharpii-src && \
+          TMP="$GITHUB_WORKSPACE/tmp_build"
+          mkdir -p "$TMP"
+          if git clone --depth 1 https://github.com/TheShadowEevee/Sharpii-NetCore.git "$TMP/sharpii-src" 2>/dev/null; then
+            (cd "$TMP/sharpii-src" && \
               dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true && \
               cp bin/Release/net7.0/win-x64/publish/Sharpii.exe "$GITHUB_WORKSPACE/extra_tools/sharpii.exe") || \
               echo "::warning::sharpii source build failed -- skipping"
@@ -730,8 +740,10 @@ jobs:
       - name: Build nsz
         shell: C:\cygwin\bin\bash.exe --login -o igncr '{0}'
         run: |
-          if git clone --depth 1 https://github.com/nicoboss/nsz.git /tmp/nsz-src 2>/dev/null; then
-            (cd /tmp/nsz-src && \
+          TMP="$GITHUB_WORKSPACE/tmp_build"
+          mkdir -p "$TMP"
+          if git clone --depth 1 https://github.com/nicoboss/nsz.git "$TMP/nsz-src" 2>/dev/null; then
+            (cd "$TMP/nsz-src" && \
               python3 -m pip install --quiet -r requirements.txt pyinstaller && \
               pyinstaller --onefile --name nsz nsz.py && \
               cp dist/nsz.exe "$GITHUB_WORKSPACE/extra_tools/nsz.exe") || \
@@ -809,7 +821,7 @@ jobs:
           if git clone --depth 1 https://github.com/quatric/wiimms-iso-tools-plus.git /tmp/wit-src 2>/dev/null; then
             (cd /tmp/wit-src/iso-tools/project && make -j"$(nproc)" all && \
               for t in wit wwt wdf wtest wfuse; do
-                [ -f "bin/$t" ] && cp -p "bin/$t" "$GITHUB_WORKSPACE/extra_tools/$t"
+                if [ -f "bin/$t" ]; then cp -p "bin/$t" "$GITHUB_WORKSPACE/extra_tools/$t"; fi
               done) || echo "::warning::wit source build failed -- skipping"
           fi
           if [ -x extra_tools/wit ]; then
