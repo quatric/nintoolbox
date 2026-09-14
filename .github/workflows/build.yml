@@ -429,7 +429,7 @@ jobs:
             (cd /tmp/project-ctr-src/makerom && \
               make CC="clang -arch arm64" -j"$(sysctl -n hw.ncpu)" deps && \
               make CC="clang -arch arm64" -j"$(sysctl -n hw.ncpu)" && \
-              cp makerom "$GITHUB_WORKSPACE/extra_tools/") || \
+              cp bin/makerom "$GITHUB_WORKSPACE/extra_tools/") || \
               echo "::warning::makerom source build failed -- skipping"
           fi
 
