@@ -162,7 +162,12 @@ typedef enum nfmt_type_t
 	NFMT_TROPICAL_TXTR,
 	NFMT_MPR_PACK,
 	NFMT_MPR_TXTR,
-	NFMT_MPR_CMDL
+	NFMT_MPR_CMDL,
+	NFMT_MPR_SKEL,
+	NFMT_BFSHA,
+	NFMT_SHARC,
+	NFMT_SHARCFB,
+	NFMT_VFXB
 } nfmt_type_t;
 
 typedef struct nfmt_info_t

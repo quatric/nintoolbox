@@ -73,6 +73,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **BG4** | `.bg4` | ✅ | ✅ | ✅ | — | AlphaDream 3DS flat archive with BLZ member compression |
 | **BIGF** | `.big` | ✅ | ✅ | ✅ | — | Electronic Arts Wii asset archive |
 | **BNS Archive** | `.bns` | ✅ | — | — | ✅ | Koei Tecmo *Samurai Warriors 3* multi-file asset archive (`LINKDATA*.BNS`). |
+| **BFSHA / BNSH** | `.bfsha`, `.bnsh` | ✅ | — | — | ✅ | NintendoWare shader archive (Wii U / Switch). |
 | **CA01 / SA01** | `.ca01`, `.sa01` | ✅ | ✅ | ✅ | — | Nintendo Network Mii & amiibo system archive (3DS / Wii U) |
 | **CCF** | `.ccf` | ✅ | ✅ | ✅ | — | Nintendo Virtual Console container (Wii / Switch) |
 | **CNUT** | `.cnut` | ✅ | ✅ | ✅ | ✅ | *Wii Party* compiled Squirrel script & message container (`SQIR`). |
@@ -96,6 +97,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **MTXT** | `.mtxt` | ✅ | ✅ | ✅ | — | Nintendo Switch MTXT texture archive (gzip-wrapped XTX). |
 | **NARC** | `.narc` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro standard archive (DS / DSi) |
 | **NCCARC** | `.nccarc` | ✅ | ✅ | ✅ | — | Nintendo DS flat blob container |
+| **NLG DICT** | `.dict`, `.data` | ✅ | — | — | ✅ | Next Level Games dictionary archive (*Metroid Prime: Federation Force*, *Luigi's Mansion: Dark Moon* / LM2HD, *Luigi's Mansion 3*, *Mario Strikers: Battle League Football*). |
 | **NDS / SRL / DSI** | `.nds`, `.srl`, `.dsi` | ✅ | — | — | — | Nintendo DS & DSi ROM images and executables |
 | **NXARC** | `.nxarc` | ✅ | ✅ | ✅ | — | Nintendo Switch NX archive (`RAXN`) |
 | **PAC (Nd Cube)** | `.bin` | ✅ | ✅ | ✅ | ✅ | Nd Cube Wii U flat container (`PAC\0`, *Mario Party 10* / *Animal Crossing: amiibo Festival*). |
@@ -111,11 +113,13 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **SARC** | `.sarc`, `.szs` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4F & NintendoSDK sorted archive (Wii U / Switch / 3DS). |
 | **SFZDAT** | `.dat` | ✅ | 🟡 | — | ✅ | *Star Fox Zero* (Wii U) flat archive (`DAT\0`). |
 | **CPK** | `.cpk` | ✅ | — | — | ✅ | CRIWARE CPK archive (*Star Fox Zero*, Wii U) |
+| **SHARC / SHARCFB** | `.sharc`, `.sharcfb` | ✅ | — | — | ✅ | NintendoWare shader source & binary archive (Wii U / Switch). |
 | **SIR0** | `.sir0` | ✅ | ✅ | ✅ | ✅ | Pokémon Mystery Dungeon resource container (DS / 3DS). |
 | **STPK** | `.srd`, `.stpk` | ✅ | ✅ | ✅ | 🟡 | *Jump Super Stars* & *Jump Ultimate Stars* DS resource archive. |
 | **Storybook ONE** | `.one` | ✅ | ✅ | — | ✅ | Sonic Team *Sonic and the Secret Rings* / *Black Knight* PRS-compressed container. |
 | **TMPK** | `.pack`, `.tmpk` | ✅ | ✅ | ✅ | ✅ | *The Legend of Zelda: Twilight Princess HD* archive (`TMPK`). |
 | **VCRA** | `.bin`, `.vcra` | ✅ | ✅ | ✅ | ✅ | Bandai Namco Museum Remix archive format (Wii). |
+| **VFXB / PTCL** | `.ptcl`, `.eset`, `.vfxb` | ✅ | — | — | ✅ | NintendoWare particle effect binary archive (Wii U / Switch). |
 | **VIBS** | `.vibs` | ✅ | ✅ | ✅ | — | Nintendo Switch Joy-Con vibration archive |
 | **WARC** | `.warc` | ✅ | ✅ | ✅ | ✅ | Nintendo / Intelligent Systems flat archive (Wii U). |
 | **WTA / WTP** | `.wta` + `.wtp` | ✅ | — | — | ✅ | PlatinumGames texture bundle (*Star Fox Zero*, Wii U) |
@@ -152,9 +156,10 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **MOD** | `.mod` | **GLB** | ✅ | ✅ | ✅ | ✅ | Monster Games NDL3/NDL2 display list model (Wii) |
 | **MSH (PMsh)** | `.msh` | **GLB** | ✅ | ✅ | ✅ | ✅ | Monster Games collision mesh format (Wii) |
 | **NSBMD** | `.nsbmd`, `.bmd` | **GLB** | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro 3D model format (DS). |
-| **NUD** | `.nud` | **GLB** | ✅ | ✅ | ✅ | — | Bandai Namco 3D model format (*Super Smash Bros. 4* Wii U / 3DS) |
+| **NUD** | `.nud` | **GLB** | ✅ | ✅ | ✅ | ✅ | Bandai Namco 3D model format (*Super Smash Bros. 4* Wii U / 3DS, *Pokkén Tournament* NDP3/NDWU/NDWD multi-mesh/submesh geometry). |
 | **NUMSHB** | `.numshb` | **GLB** | ✅ | — | — | ✅ | Bandai Namco SSBH 3D mesh model (*Super Smash Bros. Ultimate*, Switch) |
-| **MPR CMDL** | `.cmdl` | **GLB** | ✅ | — | — | ✅ | Retro Studios static model (*Metroid Prime Remastered*, Switch) |
+| **MPR CMDL / SMDL / WMDL** | `.cmdl`, `.smdl`, `.wmdl` | **GLB** | ✅ | — | — | ✅ | Retro Studios static, skinned & world models (*Metroid Prime Remastered*, Switch; *DKCTF*). |
+| **MPR SKEL** | `.skel` | **GLB** | ✅ | — | — | ✅ | Retro Studios skeletal hierarchy (*Metroid Prime Remastered*, Switch; *DKCTF*). |
 | **PERS** | `.pers` | *(raw payload)* | ✅ | — | — | ✅ | Pokémon Stadium (N64) PERS-SZP container |
 | **WMB** | `.wmb` | **GLB** | ✅ | — | — | ✅ | PlatinumGames model (*Star Fox Zero*, Wii U) |
 
@@ -237,7 +242,7 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | **BCLYT / BCLAN** | `.bclyt`, `.bclan` | ✅ | ✅ | ✅ | — | NintendoWare NW4C 2D layout & animation (3DS) |
 | **BFLYT / BFLAN** | `.bflyt`, `.bflan` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4F 2D layout & animation (Wii U) |
 | **BMG** | `.bmg` | ✅ | ✅ | ✅ | ✅ | Nintendo standard binary message format (GameCube / Wii) |
-| **BRLYT / BRLAN** | `.brlyt`, `.brlan` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4R 2D layout & animation (Wii) |
+| **BRLYT / BRLAN** | `.brlyt`, `.brlan` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4R 2D layout & animation (Wii; *Super Mario 3D All-Stars* TYLR/NALR reversed definitions) |
 | **BYAML / BYML** | `.byaml`, `.byml` | ✅ | ✅ | ✅ | ✅ | Nintendo binary YAML data format (Wii / Wii U / Switch) |
 | **MIO** | `.mio` | ✅ | — | — | ✅ | *WarioWare: D.I.Y.* / *Made in Ore* Game, Comic & Record data (DS / Wii) |
 | **MSBT / MSBP / MSBF** | `.msbt`, `.msbp`, `.msbf` | ✅ | ✅ | ✅ | ✅ | Nintendo Message Studio binary text, project & flow (3DS / Wii U / Switch) |

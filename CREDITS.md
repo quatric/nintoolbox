@@ -24,6 +24,28 @@ We acknowledge and credit the following tools and authors whose research, format
   * Reference implementations and algorithm specifications for Nintendo compression formats (LZ77 0x10, LZ11 0x11, Huffman 0x24/0x28, RLE 0x30, Difference filter 0x80).
 * **Switch Toolbox, BfresLibrary & BFRES-Viewer** by **KillzXGaming** ([Switch-Toolbox](https://github.com/KillzXGaming/Switch-Toolbox), [BfresLibrary](https://github.com/KillzXGaming/BfresLibrary), [BFRES-Viewer](https://github.com/KillzXGaming/BFRES-Viewer))
   * Technical reference, reverse engineering, and format specifications for Nintendo Switch, Wii U, and 3DS format structures (BFRES, BNTX, BCA, BMA, BNXP, SARC, BYML, and texture compression layouts). Reference models and layouts for Wii U and Switch NintendoWare BFRES models, FSKL skeletons, FMDL geometry, FVTX vertex buffers, version-gated BufferInfo memory pools, TexSrt texture matrix transformations, material structures, and FSKA skeletal animation curves across versions (v8, v9, v10+).
+* **Smash-Forge** by **KillzXGaming, jam1garner, Ploaj, SMG, and contributors** ([Smash-Forge](https://github.com/KillzXGaming/Smash-Forge))
+  * Super Smash Bros. 4 (Wii U / 3DS) and *Pokkén Tournament* 3D model formats (NDP3, NDWU, and NDWD little-endian NUD specifications, ObjectData and PolyData mesh and vertex parsing, vertex attribute configurations, and NUT texture formats).
+* **PartyPatcher & MPLibrary** by **KillzXGaming** ([PartyPatcher](https://github.com/KillzXGaming/PartyPatcher), [MPLibrary](https://github.com/KillzXGaming/MPLibrary))
+  * Technical reference and specifications for Hudson Soft GameCube and Wii *Mario Party* formats, including HSF 3D models and MPBIN archive containers.
+* **BFRES-Shader-Maker & ShaderLibrary** by **KillzXGaming** ([BFRES-Shader-Maker](https://github.com/KillzXGaming/BFRES-Shader-Maker), [ShaderLibrary](https://github.com/KillzXGaming/ShaderLibrary))
+  * Technical reference for NintendoWare shader archive architectures (BFSHA / FSHA, BNSH, and SHARC / SHARCFB source and bytecode binary structures).
+* **Blender-GCN-Mario-Party-Plugin** by **KillzXGaming** ([Blender-GCN-Mario-Party-Plugin](https://github.com/KillzXGaming/Blender-GCN-Mario-Party-Plugin))
+  * Mario Party GameCube HSF model and BIN asset import/export specifications.
+* **LayoutLibrary** by **KillzXGaming** ([LayoutLibrary](https://github.com/KillzXGaming/LayoutLibrary))
+  * Reference implementation and specifications for NintendoWare 2D layout and pane animation formats (BFLYT, BFLAN, BCLYT, BCLAN, BRLYT, BRLAN, and Super Mario 3D All-Stars reversed TYLR/NALR definitions).
+* **ImageLibrary** by **KillzXGaming** ([ImageLibrary](https://github.com/KillzXGaming/ImageLibrary))
+  * Reference implementations for cross-platform Nintendo texture formats, ASTC codecs, swizzling, and decoding routines.
+* **LegacySwitchLibraries** by **KillzXGaming** ([LegacySwitchLibraries](https://github.com/KillzXGaming/LegacySwitchLibraries))
+  * Foundational Switch format reverse engineering (Syroot.NintenTools.Bfres and Syroot.NintenTools.Bntx).
+* **Metroid-Fed-Force-Dumper** by **KillzXGaming** ([Metroid-Fed-Force-Dumper](https://github.com/KillzXGaming/Metroid-Fed-Force-Dumper))
+  * Technical reference and specifications for Next Level Games dictionary archives (*Metroid Prime: Federation Force*, *Luigi's Mansion: Dark Moon* / LM2HD, *Luigi's Mansion 3*, and *Mario Strikers: Battle League Football*).
+* **MPR-Model-Dumper** by **KillzXGaming** ([MPR-Model-Dumper](https://github.com/KillzXGaming/MPR-Model-Dumper))
+  * Technical reference for Retro Studios RFRM format specifications (*Metroid Prime Remastered* and *Donkey Kong Country: Tropical Freeze* CMDL, SMDL, WMDL world model geometry, and SKEL skeleton hierarchies).
+* **EffectLibrary** by **KillzXGaming** ([EffectLibrary](https://github.com/KillzXGaming/EffectLibrary))
+  * NintendoWare particle effect systems (EFT1, EFT2, and VFXB `.ptcl`/`.eset` archives).
+* **Metanoia** by **Ploaj** ([Metanoia](https://github.com/Ploaj/Metanoia))
+  * Multi-platform reverse engineering, format analysis, and 3D model exploration tool for Nintendo formats across GameCube, Wii, 3DS, DS, and Switch (including HSF, HSD, GLG, BNFM, and proprietary console asset containers).
 * **Scarlet** by **xdanieldzd** ([Scarlet](https://github.com/xdanieldzd/Scarlet))
   * Reference implementation and format specifications for Nintendo 3DS, DS, and console image, container, and compression formats (including PICA200 texture containers BTGA, CTXB, DMPBM, STEX, and CMB texture chunks).
 * **ASH0-tools** by **NinjaCheetah & Garhoogin** ([ASH0-tools](https://github.com/NinjaCheetah/ASH0-tools))

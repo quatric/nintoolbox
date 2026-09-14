@@ -329,6 +329,11 @@ static enumError mpr_cmdl_scan (mpr_cmdl_t *m, const u8 *data, uint size)
 			return EINVAL;
 		m->skinned = true;
 	}
+	else if (!memcmp (fid, "WMDL", 4))
+	{
+		// Metroid Prime Remastered / DKCTF World Model
+		m->skinned = false;
+	}
 	else
 		return EINVAL;
 	const uint fend = fbody + (uint)fsize;
@@ -1271,5 +1276,220 @@ fail_meshes:
 	FREE (vbuf_sz);
 	FREE (ibuf_sz);
 	FREE (ibuf_elsz);
+	return 0;
+}
+
+bool IsMPRSKEL (const u8 *data, size_t size)
+{
+	if (!data || size < 8)
+		return false;
+	if (size >= 0x20 && !memcmp (data, "RFRM", 4) && !memcmp (data + 0x14, "SKEL", 4))
+		return true;
+	if (size >= 4)
+	{
+		u16 ver_le = rd_le16 (data + 2);
+		u16 ver_be = rd_be16 (data + 2);
+		if (ver_le == 0x9e22 || ver_be == 0x9e22)
+			return true;
+	}
+	return false;
+}
+
+model_t *ParseMPRSKEL (const u8 *data, size_t size)
+{
+	if (!IsMPRSKEL (data, size))
+		return 0;
+
+	size_t p = 0;
+	bool is_be = false;
+	if (size >= 0x20 && !memcmp (data, "RFRM", 4) && !memcmp (data + 0x14, "SKEL", 4))
+		p = 0x20;
+
+	if (p + 4 > size)
+		return 0;
+
+	u16 ver_le = rd_le16 (data + p + 2);
+	u16 ver_be = rd_be16 (data + p + 2);
+	if (ver_le == 0x9e22)
+		is_be = false;
+	else if (ver_be == 0x9e22)
+		is_be = true;
+	else
+		return 0;
+
+	p += 4; // skip CAssetHeader
+
+	// Read CJointNameArray
+	if (p + 8 > size)
+		return 0;
+	p += 4; // field_0
+	uint name_count = is_be ? rd_be32 (data + p) : rd_le32 (data + p);
+	p += 4;
+	if (name_count > 4096)
+		return 0;
+
+	char **joint_names = CALLOC (name_count, sizeof (char *));
+	for (uint i = 0; i < name_count && p < size; i++)
+	{
+		uint str_start = (uint)p;
+		while (p < size && data[p] != 0)
+			p++;
+		if (p < size)
+			p++;
+		uint slen = (uint)p - 1 - str_start;
+		joint_names[i] = CALLOC (slen + 1, 1);
+		if (joint_names[i])
+			memcpy (joint_names[i], data + str_start, slen);
+	}
+	if (p + 4 > size)
+		goto fail_skel;
+	p += 4; // unk2
+
+	if (p + 11 > size)
+		goto fail_skel;
+	p += 2; // num_total_joints
+	uint num_joints = is_be ? rd_be16 (data + p) : rd_le16 (data + p);
+	p += 2;
+	uint num_skinned_joints = is_be ? rd_be16 (data + p) : rd_le16 (data + p);
+	p += 2;
+	uint num_joint_sets = is_be ? rd_be16 (data + p) : rd_le16 (data + p);
+	p += 2;
+	uint num_unk_e = is_be ? rd_be16 (data + p) : rd_le16 (data + p);
+	p += 2;
+	bool has_skeleton_map = data[p++];
+
+	if (num_joints == 0 || num_joints > 4096)
+		goto fail_skel;
+
+	if (has_skeleton_map)
+	{
+		if (p + 4 > size)
+			goto fail_skel;
+		uint num_remap = is_be ? rd_be16 (data + p) : rd_le16 (data + p);
+		p += 2;
+		uint num_unk1 = data[p++];
+		uint num_unk2 = data[p++];
+		size_t skip = (size_t)num_remap + (size_t)num_remap * 4 + (size_t)num_unk1 * 4
+			+ (size_t)num_unk2 * 2 + 4;
+		if (p + skip > size)
+			goto fail_skel;
+		p += skip;
+	}
+
+	if (p >= size)
+		goto fail_skel;
+	bool has_anim_attrs = data[p++];
+	if (has_anim_attrs)
+	{
+		if (p >= size)
+			goto fail_skel;
+		bool has_vis_name_group = data[p++];
+		if (has_vis_name_group)
+		{
+			if (p + 8 > size)
+				goto fail_skel;
+			p += 4;
+			uint v_count = is_be ? rd_be32 (data + p) : rd_le32 (data + p);
+			p += 4;
+			for (uint i = 0; i < v_count && p < size; i++)
+			{
+				while (p < size && data[p] != 0)
+					p++;
+				if (p < size)
+					p++;
+			}
+			p += 4;
+		}
+		p += 8;
+		if (p < size && data[p++])
+		{
+			if (p + 8 <= size)
+			{
+				p += 4;
+				uint a_count = is_be ? rd_be32 (data + p) : rd_le32 (data + p);
+				p += 4;
+				for (uint i = 0; i < a_count && p < size; i++)
+				{
+					while (p < size && data[p] != 0)
+						p++;
+					if (p < size)
+						p++;
+				}
+				p += 4;
+				if (p + 4 <= size)
+				{
+					uint num_att = is_be ? rd_be32 (data + p) : rd_le32 (data + p);
+					p += 4;
+					for (uint i = 0; i < num_att && p + 4 <= size; i++)
+					{
+						uint flg = is_be ? rd_be32 (data + p) : rd_le32 (data + p);
+						p += 4;
+						if (flg == 1 && p + 8 <= size)
+							p += 8;
+					}
+				}
+			}
+		}
+	}
+
+	if (p + num_joints > size)
+		goto fail_skel;
+	const u8 *parenting_indices = data + p;
+	p += num_joints;
+	p += num_skinned_joints;
+	p += num_joints; // unkA
+	p += num_unk_e;
+	p += (size_t)num_joint_sets * 4;
+
+	if (p + (size_t)num_joints * 40 > size)
+		goto fail_skel;
+
+	model_t *model = CALLOC (1, sizeof (model_t));
+	if (!model)
+		goto fail_skel;
+
+	model->joints = CALLOC (num_joints, sizeof (joint_t));
+	if (!model->joints)
+	{
+		FREE (model);
+		goto fail_skel;
+	}
+	model->num_joints = num_joints;
+
+	for (uint i = 0; i < num_joints; i++)
+	{
+		joint_t *j = &model->joints[i];
+		if (i < name_count && joint_names[i] && joint_names[i][0])
+			snprintf (j->name, sizeof (j->name), "%s", joint_names[i]);
+		else
+			snprintf (j->name, sizeof (j->name), "joint_%u", i);
+
+		u8 parent = parenting_indices[i];
+		j->parent_idx = (parent < num_joints && parent != i) ? (int)parent : -1;
+
+		const u8 *jp = data + p + i * 40;
+		j->rotate.x = mpr_cmdl_f32 (jp + 0);
+		j->rotate.y = mpr_cmdl_f32 (jp + 4);
+		j->rotate.z = mpr_cmdl_f32 (jp + 8);
+		j->scale.x = mpr_cmdl_f32 (jp + 16);
+		j->scale.y = mpr_cmdl_f32 (jp + 20);
+		j->scale.z = mpr_cmdl_f32 (jp + 24);
+		j->translate.x = mpr_cmdl_f32 (jp + 28);
+		j->translate.y = mpr_cmdl_f32 (jp + 32);
+		j->translate.z = mpr_cmdl_f32 (jp + 36);
+	}
+
+	for (uint i = 0; i < name_count; i++)
+		FREE (joint_names[i]);
+	FREE (joint_names);
+	return model;
+
+fail_skel:
+	if (joint_names)
+	{
+		for (uint i = 0; i < name_count; i++)
+			FREE (joint_names[i]);
+		FREE (joint_names);
+	}
 	return 0;
 }

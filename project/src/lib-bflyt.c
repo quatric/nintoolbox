@@ -3725,7 +3725,8 @@ static enumError parse_binary (bflyt_t *bflyt, const u8 *data, uint data_size)
 {
 	bf_node_t *tree = &bflyt->tree;
 	u32 fmagic = ((u32)data[0] << 24) | ((u32)data[1] << 16) | ((u32)data[2] << 8) | (u32)data[3];
-	bool is_rlyt = (fmagic == BRLYT_MAGIC_RLYT || fmagic == BRLYT_MAGIC_RLAN);
+	bool is_rlyt = (fmagic == BRLYT_MAGIC_RLYT || fmagic == BRLYT_MAGIC_RLAN
+		|| fmagic == BRLYT_MAGIC_TYLR || fmagic == BRLYT_MAGIC_NALR);
 	if (data_size < (is_rlyt ? 16u : 20u))
 		return ERR_INVALID_DATA;
 	bool be = !(data[4] == 0xFF && data[5] == 0xFE);
@@ -3744,9 +3745,9 @@ static enumError parse_binary (bflyt_t *bflyt, const u8 *data, uint data_size)
 		magic_str = "FLAN";
 	else if (fmagic == BCLYT_MAGIC_CLAN)
 		magic_str = "CLAN";
-	else if (fmagic == BRLYT_MAGIC_RLYT)
+	else if (fmagic == BRLYT_MAGIC_RLYT || fmagic == BRLYT_MAGIC_TYLR)
 		magic_str = "RLYT";
-	else if (fmagic == BRLYT_MAGIC_RLAN)
+	else if (fmagic == BRLYT_MAGIC_RLAN || fmagic == BRLYT_MAGIC_NALR)
 		magic_str = "RLAN";
 	else
 	{
@@ -5374,7 +5375,8 @@ enumError ScanBFLYT (bflyt_t *bflyt, bool init, const u8 *data, uint data_size)
 	// binary magic?
 	u32 fmagic = ((u32)data[0] << 24) | ((u32)data[1] << 16) | ((u32)data[2] << 8) | (u32)data[3];
 	if (fmagic == BFLYT_MAGIC_FLYT || fmagic == BCLYT_MAGIC_CLYT || fmagic == BFLYT_MAGIC_FLAN
-		|| fmagic == BCLYT_MAGIC_CLAN || fmagic == BRLYT_MAGIC_RLYT || fmagic == BRLYT_MAGIC_RLAN)
+		|| fmagic == BCLYT_MAGIC_CLAN || fmagic == BRLYT_MAGIC_RLYT || fmagic == BRLYT_MAGIC_RLAN
+		|| fmagic == BRLYT_MAGIC_TYLR || fmagic == BRLYT_MAGIC_NALR)
 		return parse_binary (bflyt, data, data_size);
 
 	// XML or legacy txtree text?

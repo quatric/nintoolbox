@@ -9141,6 +9141,8 @@ static enumError export_model_if_possible (ccp arg)
 	}
 	else if (size >= 0x20 && !memcmp (data, "RFRM", 4) && IsMPRCMDL (data, size))
 		model = ParseMPRCMDL (data, size);
+	else if (size >= 8 && IsMPRSKEL (data, size))
+		model = ParseMPRSKEL (data, size);
 	FREE (data);
 	if (!model)
 		return ERR_NOTHING_TO_DO;

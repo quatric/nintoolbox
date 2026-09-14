@@ -368,6 +368,10 @@ typedef enum file_format_t
 	FF_CMB, // 273 - Grezzo Nintendo 3DS model texture chunk (.cmb)
 	FF_BCMA, // 274 - Nintendo 3DS manual archive (.bcma)
 	FF_BCFNT, // 275 - Nintendo 3DS / Wii U binary font (.bcfnt / .bffnt / CFNT / FFNT)
+	FF_BFSHA, // 276 - NintendoWare Shader Archive (.bfsha / FSHA)
+	FF_SHARC, // 277 - NintendoWare Shader Source Archive (.sharc / AAHS / SHAA)
+	FF_SHARCFB, // 278 - NintendoWare Shader Binary Archive (.sharcfb / BAHS / SHAB)
+	FF_VFXB, // 279 - NintendoWare Particle Effect Archive (.ptcl / .eset / VFXB)
 
 	//--- number of elements
 

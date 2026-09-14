@@ -46,6 +46,12 @@ __attribute__ ((weak)) bool IsMPRCMDL (const u8 *data, uint size)
 	(void)size;
 	return false;
 }
+__attribute__ ((weak)) bool IsMPRSKEL (const u8 *data, size_t size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
 // Same pattern for the G1T wrapper probe (lib-g1t.o lives in XOBJ_LIB
 // with the other archive formats, likewise not linked everywhere).
 __attribute__ ((weak)) bool IsG1TGZ (const u8 *data, uint size)
@@ -106,7 +112,12 @@ ccp GetNintendoFormatName (nfmt_type_t type)
 		"BNSTX", "AAMP", 		"MIO", "ZDAT", "SFX", "VFF", "TM0", "RETRO-TXTR", "TROPICAL-TXTR",
 		"MPR-PACK",
 		"MPR-TXTR",
-		"MPR-CMDL" };
+		"MPR-CMDL",
+		"MPR-SKEL",
+		"BFSHA",
+		"SHARC",
+		"SHARCFB",
+		"VFXB" };
 	return type < sizeof (tab) / sizeof (*tab) ? tab[type] : "UNKNOWN";
 }
 
@@ -168,9 +179,12 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			if (IsMPRTXTR (d, size))
 				return make_info (NFMT_MPR_TXTR, false, false, 0);
 			if (size >= 0x20
-				&& (!memcmp (d + 0x14, "CMDL", 4) || !memcmp (d + 0x14, "SMDL", 4))
+				&& (!memcmp (d + 0x14, "CMDL", 4) || !memcmp (d + 0x14, "SMDL", 4)
+					|| !memcmp (d + 0x14, "WMDL", 4))
 				&& IsMPRCMDL (d, size))
 				return make_info (NFMT_MPR_CMDL, false, false, 0);
+			if (size >= 0x20 && !memcmp (d + 0x14, "SKEL", 4) && IsMPRSKEL (d, size))
+				return make_info (NFMT_MPR_SKEL, false, false, 0);
 			return make_info (NFMT_UNKNOWN, true, false, 0);
 		}
 		if (IsRetroTXTR (d, size))
@@ -438,6 +452,14 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_BNSTX, false, false, 0);
 		if (!memcmp (d, "AAMP", 4))
 			return make_info (NFMT_AAMP, false, false, 0);
+		if (!memcmp (d, "FSHA", 4))
+			return make_info (NFMT_BFSHA, false, false, 0);
+		if (!memcmp (d, "AAHS", 4) || !memcmp (d, "SHAA", 4))
+			return make_info (NFMT_SHARC, false, false, 0);
+		if (!memcmp (d, "BAHS", 4) || !memcmp (d, "SHAB", 4))
+			return make_info (NFMT_SHARCFB, false, false, 0);
+		if (!memcmp (d, "VFXB", 4))
+			return make_info (NFMT_VFXB, false, false, 0);
 		if ((size == 65536 || size == 14336 || size == 8192) && !memcmp (d + 8, "DSMIO_S\0", 8))
 			return make_info (NFMT_MIO, false, false, (u32)size);
 		// GFA: Good-Feel archive (Wario Land: Shake It!, Kirby's Epic Yarn)

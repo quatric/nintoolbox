@@ -33,6 +33,9 @@ extern "C"
 bool IsMPRCMDL (const u8 *data, uint size);
 model_t *ParseMPRCMDL (const u8 *data, size_t size);
 
+bool IsMPRSKEL (const u8 *data, size_t size);
+model_t *ParseMPRSKEL (const u8 *data, size_t size);
+
 #ifdef __cplusplus
 }
 #endif

@@ -1416,6 +1416,24 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x424e5348: // "BNSH"
 				return FF_BNSH;
 
+			// NintendoWare Shader Archive (BFSHA)
+			case 0x46534841: // "FSHA"
+				return FF_BFSHA;
+
+			// NintendoWare Shader Source Archive (SHARC)
+			case 0x41414853: // "AAHS"
+			case 0x53484141: // "SHAA"
+				return FF_SHARC;
+
+			// NintendoWare Shader Binary Archive (SHARCFB)
+			case 0x42414853: // "BAHS"
+			case 0x53484142: // "SHAB"
+				return FF_SHARCFB;
+
+			// NintendoWare Particle Effect Archive (VFXB)
+			case 0x56465842: // "VFXB"
+				return FF_VFXB;
+
 			// Koei Tecmo 3D Model (G1M_ / _M1G / SM1G / GM1G)
 			case 0x47314d5f: // "G1M_"
 			case 0x47314d00: // "G1M\0"
@@ -1884,6 +1902,14 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_BYML;
 		case NFMT_BCFNT:
 			return FF_BCFNT;
+		case NFMT_BFSHA:
+			return FF_BFSHA;
+		case NFMT_SHARC:
+			return FF_SHARC;
+		case NFMT_SHARCFB:
+			return FF_SHARCFB;
+		case NFMT_VFXB:
+			return FF_VFXB;
 		default:
 			break;
 	}

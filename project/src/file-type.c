@@ -1456,6 +1456,26 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		FFT_VALID | FFT_GRAPHIC | FFT_DECODE, 4, { 0x43, 0x46, 0x4e, 0x54 }, // "CFNT"
 		0, MinusString, MinusString, "Nintendo 3DS / Wii U binary font (BCFNT / BFFNT)" },
 
+	// FF_BFSHA = 276 (NintendoWare Shader Archive)
+	{ FF_BFSHA, 0, 0, "BFSHA", ".bfsha", ".bfsha", ".bfsha",
+		FFT_VALID | FFT_ARCHIVE, 4, { 0x46, 0x53, 0x48, 0x41 }, // "FSHA"
+		0, MinusString, MinusString, "NintendoWare Shader Archive (BFSHA)" },
+
+	// FF_SHARC = 277 (NintendoWare Shader Source Archive)
+	{ FF_SHARC, 0, 0, "SHARC", ".sharc", ".sharc", ".sharc",
+		FFT_VALID | FFT_ARCHIVE, 4, { 0x41, 0x41, 0x48, 0x53 }, // "AAHS" / "SHAA"
+		0, MinusString, MinusString, "NintendoWare Shader Source Archive (SHARC)" },
+
+	// FF_SHARCFB = 278 (NintendoWare Shader Binary Archive)
+	{ FF_SHARCFB, 0, 0, "SHARCFB", ".sharcfb", ".sharcfb", ".sharcfb",
+		FFT_VALID | FFT_ARCHIVE, 4, { 0x42, 0x41, 0x48, 0x53 }, // "BAHS" / "SHAB"
+		0, MinusString, MinusString, "NintendoWare Shader Binary Archive (SHARCFB)" },
+
+	// FF_VFXB = 279 (NintendoWare Particle Effect Archive)
+	{ FF_VFXB, 0, 0, "VFXB", ".ptcl", ".ptcl", ".ptcl",
+		FFT_VALID | FFT_ARCHIVE, 4, { 0x56, 0x46, 0x58, 0x42 }, // "VFXB"
+		0, MinusString, MinusString, "NintendoWare Particle Effect Archive (VFXB / .ptcl / .eset)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1608,6 +1628,10 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_BCMA, "BCMA", "BCMA", 0xe05 },
 	{ FF_BCFNT, "BCFNT", "CFNT", 0x3009 },
 	{ FF_BCFNT, "BFFNT", "FFNT", 0x3009 },
+	{ FF_BFSHA, "BFSHA", "FSHA", 0xe05 },
+	{ FF_SHARC, "SHARC", "SHAA", 0xe05 },
+	{ FF_SHARCFB, "SHARCFB", "SHAB", 0xe05 },
+	{ FF_VFXB, "VFXB", "VFXB", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

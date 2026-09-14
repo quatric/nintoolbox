@@ -69,20 +69,28 @@ enumError ExtractNLGDictArchive (ccp arg, ccp basedir, uint depth)
 
 	if (is_lm)
 	{
-		// LM2 / LM3 Dictionary format
-		// Check LM3 indicator at offset 12: 0x78340300 (or BE equivalent)
+		// LM2 / LM3 / Federation Force / StrikersBLF Dictionary format
+		// Check LM3 indicator at offset 12: 0x78340300
 		const bool is_lm3 = (raw_size >= 16
 			&& (rd_be32 (raw + 12) == 0x78340300 || rd_le32 (raw + 12) == 0x78340300));
+		// Metroid Prime: Federation Force indicator at offset 16: 0x297B947A
+		const bool is_fed = (raw_size >= 20
+			&& (rd_be32 (raw + 16) == 0x297B947A || rd_le32 (raw + 16) == 0x297B947A));
+		// Mario Strikers: Battle League Football indicator at offset 0x40
+		const bool is_strikers = (raw_size >= 0x48
+			&& (rd_be32 (raw + 0x40) == 4247762216u || rd_le32 (raw + 0x40) == 4247762216u));
+		const bool is_lm2hd = (!is_lm3 && !is_fed && !is_strikers && raw_size >= 9 && (raw[8] % 7 == 0));
 		const bool is_compressed = (raw[6] == 1);
 
 		uint num_files = 0;
 		uint file_table_offset = 0;
 
-		if (is_lm3)
+		if (is_lm3 || is_fed)
 		{
-			num_files = raw[16];
-			const uint num_chunk_infos = raw[17];
-			file_table_offset = 20 + num_chunk_infos * 24;
+			const uint ref_size = is_fed ? 16 : 24;
+			num_files = raw[12] > 0 ? raw[12] : raw[16];
+			const uint num_chunk_infos = raw[13] > 0 ? raw[13] : raw[17];
+			file_table_offset = 20 + num_chunk_infos * ref_size;
 		}
 		else
 		{
@@ -92,9 +100,14 @@ enumError ExtractNLGDictArchive (ccp arg, ccp basedir, uint depth)
 			file_table_offset = 0x2C + num_files;
 		}
 
+		ccp dict_name = is_fed ? "FEDFORCE-DICT"
+			: (is_lm3 ? "LM3-DICT"
+					  : (is_lm2hd ? "LM2HD-DICT"
+								  : (is_strikers ? "STRIKERS-DICT" : "LM2-DICT")));
+
 		if (verbose >= 0 || testmode)
 			fprintf (stdlog, "%s%sEXTRACT %s:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
-				testmode ? "WOULD " : "", is_lm3 ? "LM3-DICT" : "LM2-DICT", arg, num_files, dest);
+				testmode ? "WOULD " : "", dict_name, arg, num_files, dest);
 
 		for (uint i = 0; i < num_files; i++)
 		{
@@ -134,6 +147,23 @@ enumError ExtractNLGDictArchive (ccp arg, ccp basedir, uint depth)
 			{
 				if (is_compressed && comp_size > 0 && src_avail >= comp_size)
 				{
+					// Check Zstandard header first
+					if (comp_size >= 4 && IsZSTD (src, comp_size) > 0)
+					{
+						u8 *decomp = MALLOC (decomp_size);
+						if (decomp)
+						{
+							uint written = 0;
+							if (DecodeZSTDpart (decomp, decomp_size, &written, src, comp_size) == ERR_OK)
+							{
+								SaveFile (out_path, 0, 0, decomp, written, 0);
+								extracted_count++;
+								FREE (decomp);
+								continue;
+							}
+							FREE (decomp);
+						}
+					}
 					// Check zlib header
 					if (comp_size >= 2
 						&& (src[0] == 0x78

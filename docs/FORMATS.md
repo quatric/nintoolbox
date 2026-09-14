@@ -68,8 +68,9 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **HSD (.dat)** | GameCube / Model | ✅ | ✅ | HAL Laboratory sysdolphin object graph |
 | **HSF** | GameCube / Wii / Model | ✅ | ✅ | Hudson Mario Party 3D model |
 | **Hyrule Warriors Legends** | 3DS / Archive | ✅ | ✅ | Split `.idx` / `.bin` archive pair |
-| **MOD (NDL3/NDL2)** | Wii / Model | ✅ | ✅ | Monster Games 3D model container |
-| **MPR CMDL / SMDL** | Switch / Model | ✅ | ❌ | Retro Studios model (*Metroid Prime Remastered*): static CMDL v114/125 and skinned SMDL v127/133 (decoded unskinned, skinning validated); named materials |
+| **BFSHA** | Wii U / Switch / Shader Archive | ✅ | ❌ | NintendoWare shader archive (FSHA) |
+| **MPR CMDL / SMDL / WMDL** | Switch / Model | ✅ | ❌ | Retro Studios static CMDL, skinned SMDL, and world WMDL models (*Metroid Prime Remastered*, *DKCTF*) |
+| **MPR SKEL** | Switch / Skeleton | ✅ | ❌ | Retro Studios skeletal hierarchy (*Metroid Prime Remastered*, *DKCTF*) |
 | **MPR PACK** | Switch / Archive | ✅ | ❌ | Retro Studios asset container (*Metroid Prime Remastered*): LE RFRM PACK v1 + TOCC v3, LZSS members |
 | **MPR TXTR** | Switch / Texture | ✅ | ✅ | Retro Studios texture (*Metroid Prime Remastered*): LE RFRM TXTR v47/51, Tegra detile, BC1-7/ASTC; `wimgt ENCODE` writes single-mip RGBA8 with a `.mpr.txtr` destination |
 | **MSH (PMsh)** | Wii / Model | ✅ | ✅ | Monster Games collision mesh |
@@ -79,9 +80,12 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **NDS / SRL / DSI** | DS / ROM Archive | ✅ | ✅ | Nitro ROM pass-through & unpacking |
 | **NANR / NCER / NCGR / NCLR** | DS / 2D Graphics | ✅ | ✅ | Nitro 2D cell, sprites, palettes |
 | **NCCARC** | DS / Archive | ✅ | ✅ | WarioWare: Touched! container |
+| **NLG DICT** | 3DS / Switch / Archive | ✅ | ❌ | Next Level Games dictionary archive (*Metroid Prime: Federation Force*, *Luigi's Mansion 2 HD*, *Luigi's Mansion 3*, *Mario Strikers: Battle League Football*) |
 | **NSBMD / NSBTX** | DS / 3D Graphics | ✅ | ✅ | Nitro 3D models and textures |
-| **NUD** | Wii U / 3DS / Model | ✅ | ❌ | Bandai Namco 3D model container (Smash 4) |
+| **NUD** | Wii U / 3DS / Model | ✅ | ✅ | Bandai Namco 3D model container (Smash 4 NDP3/NDWU and Pokkén NDWD multi-mesh) |
 | **NUMSHB** | Switch / Model | ✅ | ❌ | Bandai Namco SSBH 3D mesh model (Smash Ultimate) |
+| **SHARC / SHARCFB** | Wii U / Switch / Shader Archive | ✅ | ❌ | NintendoWare shader source and binary archive |
+| **VFXB** | Wii U / Switch / Effect Archive | ✅ | ❌ | NintendoWare particle effect binary archive |
 | **NUT** | Wii U / 3DS / Texture | ✅ | ❌ | Bandai Namco texture package (Smash 4) |
 | **NUTEXB** | Switch / Texture | ✅ | ✅ | Super Smash Bros. Ultimate texture container |
 | **PAC** | Wii / Archive | ✅ | ✅ | Super Smash Bros. Brawl archive |
