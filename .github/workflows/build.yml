@@ -366,7 +366,9 @@ jobs:
               # wit's own MAIN_TOOLS is wit/wwt/wdf (plus wtest, wfuse where
               # available) -- bundle all of them, not just wit itself.
               for t in wit wwt wdf wtest wfuse; do
-                [ -f "iso-tools/project/bin/$t" ] && cp "iso-tools/project/bin/$t" "$GITHUB_WORKSPACE/extra_tools/$t"
+                if [ -f "iso-tools/project/bin/$t" ]; then
+                  cp "iso-tools/project/bin/$t" "$GITHUB_WORKSPACE/extra_tools/$t"
+                fi
               done
             ) || echo "::warning::wit source build failed -- skipping"
           fi
