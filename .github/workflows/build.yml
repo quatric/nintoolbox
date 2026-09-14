@@ -11,10 +11,13 @@ permissions:
 # Target matrix mirrors the mobipeg fork's: native and cross Linux, Windows
 # via mingw, and macOS on both architectures plus a universal binary.
 #
-# wbrsar links the vendored vgmtrans core, which pulls in cmake and glib for
-# the *target* architecture. Those are only reasonably available on native
-# runners, so cross-compiled targets set NO_VGMTRANS=1 and ship the other
-# 16 tools rather than failing the whole build.
+# ctrtool and sentry-native each configure via cmake and need dependencies
+# (curl, for sentry) that are only installed for the native (non-cross)
+# Linux leg below. Cross-compiled targets set NO_CTRTOOL=1 NO_SENTRY=1 and
+# ship the other tools rather than failing the whole build. wbrsar itself
+# has no such restriction -- it always delegates to an external vgmtrans
+# CLI binary at runtime (see project/src/wbrsar.c), so it builds fine on
+# every leg here.
 #
 # Verification status: the macOS jobs run the same build that is exercised
 # locally on every commit. The Linux cross jobs and the Cygwin job have NOT
@@ -35,15 +38,15 @@ jobs:
           - target: linux-x86
             foreign_arch: i386
             cflags: -m32
-            no_vgmtrans: "1"
+            cross: "1"
           - target: linux-arm64
             foreign_arch: arm64
             cross_prefix: aarch64-linux-gnu-
-            no_vgmtrans: "1"
+            cross: "1"
           - target: linux-armhf
             foreign_arch: armhf
             cross_prefix: arm-linux-gnueabihf-
-            no_vgmtrans: "1"
+            cross: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -70,7 +73,7 @@ jobs:
               armhf) sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf libpng-dev:armhf zlib1g-dev:armhf libncurses-dev:armhf libssl-dev:armhf ;;
             esac
           else
-            sudo apt-get install -y cmake libpng-dev zlib1g-dev libncurses-dev libglib2.0-dev libcurl4-openssl-dev
+            sudo apt-get install -y cmake libpng-dev zlib1g-dev libncurses-dev libcurl4-openssl-dev
           fi
 
       - name: Build
@@ -89,12 +92,12 @@ jobs:
         # the Makefile finds it via VPATH. A full-path argument silently
         # doesn't match anything and -o becomes a no-op.
         #
-        # NO_CTRTOOL rides on the same no_vgmtrans flag: arm64/armhf already
-        # skip the bundled ctrtool via PRE (see project/Makefile), but the
-        # i386 leg cross-compiles via plain -m32 with no cross_prefix/PRE, so
-        # it needs the same opt-out spelled out explicitly here.
+        # NO_CTRTOOL rides on the cross flag: arm64/armhf already skip the
+        # bundled ctrtool via PRE (see project/Makefile), but the i386 leg
+        # cross-compiles via plain -m32 with no cross_prefix/PRE, so it
+        # needs the same opt-out spelled out explicitly here.
         #
-        # NO_SENTRY also rides on no_vgmtrans: the dependency step above only
+        # NO_SENTRY also rides on cross: the dependency step above only
         # installs libcurl-dev for the native (non-cross) leg, so sentry-native's
         # cmake configure (which needs CURL) fails on every cross target.
         run: |
@@ -105,9 +108,8 @@ jobs:
           make -C project \
             "${old_ui_flags[@]}" \
             ${{ matrix.cross_prefix && format('PRE={0}', matrix.cross_prefix) || '' }} \
-            ${{ matrix.no_vgmtrans && 'NO_VGMTRANS=1' || '' }} \
-            ${{ matrix.no_vgmtrans && 'NO_CTRTOOL=1' || '' }} \
-            ${{ matrix.no_vgmtrans && 'NO_SENTRY=1' || '' }} \
+            ${{ matrix.cross && 'NO_CTRTOOL=1' || '' }} \
+            ${{ matrix.cross && 'NO_SENTRY=1' || '' }} \
             ${{ matrix.cflags && format('XFLAGS={0}', matrix.cflags) || '' }} \
             -j$(nproc) all
 
@@ -170,7 +172,7 @@ jobs:
           for f in src/ui/ui-*.c src/ui/ui-*.h src/ui/ui.def; do
             old_ui_flags+=(-o "$(basename "$f")")
           done
-          make "${old_ui_flags[@]}" NO_VGMTRANS=1 NO_CTRTOOL=1 NO_SENTRY=1 -j$(nproc) all
+          make "${old_ui_flags[@]}" NO_CTRTOOL=1 NO_SENTRY=1 -j$(nproc) all
       - name: Smoke test
         run: |
           cd "${GITHUB_WORKSPACE}/project"
@@ -195,18 +197,13 @@ jobs:
   #
   # The x86_64 half is still built as a genuinely separate compile (not a
   # single `-arch x86_64 -arch arm64` invocation, unlike iso-tools) because
-  # this project links Homebrew dylibs (libpng, and glib for wbrsar) rather
-  # than vendoring universal static libs -- Homebrew doesn't ship universal
-  # bottles, so we install a second, x86_64-only Homebrew under Rosetta at
-  # /usr/local alongside the native arm64 one at /opt/homebrew, and build
-  # each arch against its own prefix (Makefile's HOMEBREW_PREFIX override --
-  # see project/Makefile and makefiles-local/Makefile.local.mac) before
+  # this project links a Homebrew dylib (libpng) rather than vendoring
+  # universal static libs -- Homebrew doesn't ship universal bottles, so we
+  # install a second, x86_64-only Homebrew under Rosetta at /usr/local
+  # alongside the native arm64 one at /opt/homebrew, and build each arch
+  # against its own prefix (Makefile's HOMEBREW_PREFIX override -- see
+  # project/Makefile and makefiles-local/Makefile.local.mac) before
   # lipo-ing the results together via `make mac2`.
-  #
-  # wbrsar (vgmtrans/glib) is dropped from the x86_64 leg via NO_VGMTRANS=1
-  # and shipped arm64-only in the universal set -- same tradeoff the Linux
-  # cross jobs above already make, and mac2's lipo step already knows to
-  # fall back to the arm64-only binary when no x86_64 half exists.
   build-macos-universal:
     name: macos-universal
     runs-on: macos-14
@@ -214,7 +211,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install native (arm64) dependencies
-        run: brew install cmake libpng glib ncurses
+        run: brew install cmake libpng ncurses
 
       - name: Install Rosetta
         run: softwareupdate --install-rosetta --agree-to-license
@@ -388,11 +385,10 @@ jobs:
           fi
 
           # 11. vgmtrans-cli (magcius/vgmtrans, siiva branch), universal build.
-          # wbrsar links a vendored copy in-process when it's available (see
-          # project/src/vgmtrans, project/Makefile's NO_VGMTRANS), but that
-          # vendored path is dropped on cross-compiled/CI legs -- bundling this
-          # binary lets wbrsar's --external/--with-vgmtrans fall back to it via
-          # its own PATH/argv0-relative lookup instead.
+          # wbrsar always delegates BRSAR/BFSAR/BCSAR conversion to an
+          # external vgmtrans binary (see project/src/wbrsar.c) -- no copy
+          # is vendored or linked in-process. Bundling this binary lets
+          # wbrsar's --with-vgmtrans/PATH-relative lookup find it.
           if git clone --depth 1 --branch siiva https://github.com/magcius/vgmtrans.git /tmp/vgmtrans-src 2>/dev/null; then
             (cd /tmp/vgmtrans-src && mkdir build && cd build && \
               cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DVGMTRANS_QT=OFF >/dev/null && \

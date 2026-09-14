@@ -145,7 +145,7 @@ DEFINES1	+= -DDEBUG_ASSERT		# enable ASSERTions in release version too
 DEFINES1	+= -DEXTENDED_ERRORS=1		# enable extended error messages (function,line,file)
 DEFINES1	+= -DUIOPT_INDEX_SIZE=400	# define max number of options (default 0x100)
 
-CFLAGS		+= $(DCLIB_CFLAGS) -Isrc/mxml -Isrc/libyaml -Isrc/midilib -Isrc/libzstd -Isrc/liblz4 -Isrc/vgmtrans/src/ui/cli
+CFLAGS		+= $(DCLIB_CFLAGS) -Isrc/mxml -Isrc/libyaml -Isrc/midilib -Isrc/libzstd -Isrc/liblz4
 CFLAGS		+= -std=gnu99 -D_GNU_SOURCE -fomit-frame-pointer -fno-strict-aliasing -funroll-loops
 CFLAGS		+= -Wall -Wno-parentheses -Wno-unused-function
 CFLAGS		+= -Wno-deprecated-declarations
@@ -270,8 +270,9 @@ endif
 # tools
 
 MAIN_TOOLS	:= wszst wbmgt wctct wimgt wkclt wkmpt wlect wpatt wstrt
-# wbrsar links the vendored vgmtrans core when available, or wires to
-# an external vgmtrans CLI binary (magcius/vgmtrans) when NO_VGMTRANS=1.
+# wbrsar always delegates BRSAR/BFSAR/BCSAR conversion to an external
+# vgmtrans CLI binary (magcius/vgmtrans) via --with-vgmtrans/PATH lookup --
+# see src/wbrsar.c. No vgmtrans source is vendored or linked in-process.
 TEST_TOOLS	:= wtest wlayt wbrsar wwc24crypt wbmsx wseqt wbrstm wrbnk wbfsar
 # wmdlt already has TOBJ_wmdlt/TOPT_wmdlt (matching the generic
 # $(ALL_TOOLS_X) build rule's expectations) but was never actually listed
@@ -639,10 +640,9 @@ $(ALL_TOOLS_X): %: %.o $(ALL_OBJECTS) $(TOBJ_ALL) Makefile | $(HELPER_TOOLS) $(U
 		$(ALL_OBJECTS) $(TOBJ_$@) $(LIBS) $(TOPT_$@) -o $@
 	@if test -f $@.exe; then $(STRIP) $@.exe; else $(STRIP) $@; fi
 	@# stripping invalidates the linker-embedded ad-hoc code signature; on
-	@# macOS this is silently tolerated for plain tools but taskgated
-	@# SIGKILLs ("Code Signature Invalid") any binary that links Cocoa/
-	@# Carbon frameworks (e.g. wbrsar, via vgmtrans) unless it is re-signed
-	@# after stripping. codesign is a no-op on non-macOS/non-existent here.
+	@# macOS this can be taskgated ("Code Signature Invalid") for a binary
+	@# linking certain frameworks unless it is re-signed after stripping.
+	@# codesign is a no-op on non-macOS/non-existent here.
 	@if command -v codesign >/dev/null 2>&1; then \
 		codesign -s - --force $@ 2>/dev/null || true; \
 	fi
@@ -661,46 +661,10 @@ $(HELPER_TOOLS): %: %.o $(ALL_OBJECTS) $(TOBJ_NO_WRAPPER) $(UI_TABS) Makefile
 
 #--------------------------
 
-# Static vgmtrans core (BRSAR + other format scanners, SF2/MIDI exporters).
-# This is linked directly into the wbrsar binary; no separate executable
-# is produced or invoked at runtime.
-.PHONY: src/vgmtrans/build/libvgmtrans_core.a
-src/vgmtrans/build/libvgmtrans_core.a:
-	@printf "$(LOGFORMAT_TOOL)" build "libvgmtrans_core.a" "$(MODE)"
-	@mkdir -p src/vgmtrans/build && cd src/vgmtrans/build && cmake .. >/dev/null && $(MAKE) vgmtrans_core
-
-VGMTRANS_LIBDIR	:= src/vgmtrans/build
-# Every format scanner (RSARScanner et al) self-registers purely as a
-# global-constructor side effect (see Format.h's DECLARE_FORMAT macro) --
-# nothing in the rest of the program calls into these .o files by symbol
-# reference. A plain static-library link only pulls in .o members that
-# resolve an unresolved symbol, so without forcing the whole archive in,
-# the linker silently drops every one of these files and their
-# registration constructors never run: confirmed by `nm`, the resulting
-# wbrsar binary had zero RSARScanner symbols at all, and every real
-# .brsar sample tried ("no collections found") failed identically -- not
-# a format-parsing bug, wbrsar's BRSAR support had literally never
-# executed since it was added to this fork.
-ifeq ($(NO_VGMTRANS),1)
-  DEFINES1	+= -DNO_VGMTRANS=1
-  TOPT_wbrsar	:=
-else
-ifeq ($(SYSTEM),mac)
-  VGMTRANS_LIBS	:= -Wl,-force_load,$(VGMTRANS_LIBDIR)/libvgmtrans_core.a -lz \
-		   $(if $(HOMEBREW_PREFIX),$(HOMEBREW_PREFIX)/opt/glib,$(shell brew --prefix glib 2>/dev/null))/lib/libglib-2.0.dylib \
-		   -lc++
-  VGMTRANS_LIBS	+= -framework AppKit -framework Carbon -framework CoreMIDI \
-		   -framework CoreAudio -framework AudioUnit \
-		   -framework CoreFoundation -framework CoreServices -framework IOKit
-else
-  VGMTRANS_LIBS	:= -Wl,--whole-archive $(VGMTRANS_LIBDIR)/libvgmtrans_core.a -Wl,--no-whole-archive -lz \
-		   $(shell pkg-config --libs glib-2.0 2>/dev/null || echo -lglib-2.0) \
-		   -lstdc++
-endif
-
-TOPT_wbrsar	:= $(VGMTRANS_LIBS)
-wbrsar: src/vgmtrans/build/libvgmtrans_core.a
-endif
+# wbrsar has no vgmtrans build dependency of its own: BRSAR/BFSAR/BCSAR
+# conversion is always delegated to an external vgmtrans CLI binary at
+# runtime (found via --with-vgmtrans=PATH or PATH/argv0-relative lookup --
+# see src/wbrsar.c), so there is nothing to compile or link here.
 
 .PHONY: $(SENTRY_LIBDIR)/libsentry.a
 $(SENTRY_LIBDIR)/libsentry.a:
@@ -725,9 +689,8 @@ endif
 # tool itself) and copied to bin/ alongside the rest of ALL_TOOLS.
 #
 # Not cross-compile aware (its makefile picks CC/CXX from the host, same gap
-# sentry-native above has), so skip it under a cross build (PRE set) the same
-# way NO_VGMTRANS skips wbrsar there. To disable outright, build with
-# NO_CTRTOOL=1.
+# sentry-native above has), so skip it under a cross build (PRE set).
+# To disable outright, build with NO_CTRTOOL=1.
 ifneq ($(NO_CTRTOOL),1)
   CTRTOOL_DIR := third_party/ctrtool
   ifneq ($(PRE),)

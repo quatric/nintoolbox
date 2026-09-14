@@ -56,11 +56,6 @@ mac2:
 	@echo
 	@echo "----- building universal binaries -----"
 
-# wbrsar is arm64-only here: the x86_64 leg builds with NO_VGMTRANS=1 (see
-# mac-x86_64 below) because its vgmtrans/glib dependency needs an x86_64
-# Homebrew slice that isn't guaranteed to exist, so bin/x86_64/wbrsar never
-# gets produced. Fall back to shipping the arm64 slice alone for it instead
-# of failing the whole universal build.
 	@for i in $(ALL_TOOLS); do \
 	    if [ -f bin/x86_64/$${i} ]; then \
 	        lipo -create bin/x86_64/$${i} bin/arm/$${i} -output $${i}; \
@@ -103,18 +98,15 @@ mac-x86_64:
 	@echo
 	@echo "----- building X86-64 [SDK $(SDKVERSION)] -----"
 #	@XFLAGS="-arch x86_64 -mfpmath=sse" make clean all
-# NO_VGMTRANS=1 and HOMEBREW_PREFIX=/usr/local: cross-compiling x86_64 on an
-# arm64 host must not resolve libpng/glib against the native arm64 Homebrew
-# at /opt/homebrew (the default search path finds it first and the link
-# fails with "not found for architecture x86_64"). /usr/local is where a
-# Rosetta-run `brew install` puts real x86_64 slices; if it isn't present
-# (no such Homebrew installed) vgmtrans/wbrsar is skipped for this arch
-# rather than failing the whole build -- see mac2's lipo step, which ships
-# an arm64-only wbrsar in that case.
-	@NO_VGMTRANS=1 HOMEBREW_PREFIX=/usr/local XFLAGS="-target x86_64-apple-macos$(MACOS_X86_64_TARGET)" $(MAKE) --no-print-directory clean
-	@NO_VGMTRANS=1 HOMEBREW_PREFIX=/usr/local XFLAGS="-target x86_64-apple-macos$(MACOS_X86_64_TARGET)" $(MAKE) --no-print-directory all
+# HOMEBREW_PREFIX=/usr/local: cross-compiling x86_64 on an arm64 host must
+# not resolve libpng against the native arm64 Homebrew at /opt/homebrew
+# (the default search path finds it first and the link fails with "not
+# found for architecture x86_64"). /usr/local is where a Rosetta-run
+# `brew install` puts real x86_64 slices.
+	@HOMEBREW_PREFIX=/usr/local XFLAGS="-target x86_64-apple-macos$(MACOS_X86_64_TARGET)" $(MAKE) --no-print-directory clean
+	@HOMEBREW_PREFIX=/usr/local XFLAGS="-target x86_64-apple-macos$(MACOS_X86_64_TARGET)" $(MAKE) --no-print-directory all
 	@mkdir -p bin/x86_64
-	@mv $(filter-out wbrsar,$(ALL_TOOLS)) bin/x86_64
+	@mv $(ALL_TOOLS) bin/x86_64
 
 #-----------------------------------------------------------------------------
 

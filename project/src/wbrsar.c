@@ -5,10 +5,10 @@
 // files (see lib-brsar.h for the pack/unpack implementation and its
 // documented field-layout provenance -- RSAR is verified against vgmtrans'
 // reader, FSAR/CSAR are an extrapolation with no independent reference).
-// The vgmtrans BRSAR scanner/sequence/instrument logic used for the MIDI/
-// SF2 conversion path is statically linked into this binary (see
-// src/vgmtrans/src/ui/cli/vgmtrans_bridge.cpp) -- no external process is
-// spawned at runtime.
+// The MIDI/SF2 conversion path always delegates to an external vgmtrans CLI
+// binary (magcius/vgmtrans), found via --with-vgmtrans=PATH or a PATH/
+// argv0-relative lookup (find_vgmtrans_tool() below) -- no vgmtrans source
+// is vendored or linked into this binary.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,13 +20,6 @@
 #include "lib-std.h"
 #include "lib-brsar.h"
 #include "lib-sdat.h"
-#if !defined(NO_VGMTRANS) || !NO_VGMTRANS
-#include "vgmtrans_bridge.h"
-#else
-#define VGMTRANS_FMT_SF2  0x01
-#define VGMTRANS_FMT_DLS  0x02
-#define VGMTRANS_FMT_BOTH (VGMTRANS_FMT_SF2 | VGMTRANS_FMT_DLS)
-#endif
 
 static const char *find_vgmtrans_tool (const char *explicit_path, const char *argv0)
 {
@@ -218,9 +211,7 @@ int main (int argc, char *argv[])
 
 	const char *in_file = NULL;
 	const char *out_dir = NULL;
-	int format_flags = VGMTRANS_FMT_SF2;
 	const char *opt_with_vgmtrans = NULL;
-	bool force_external = false;
 
 	for (int i = 1; i < argc; i++)
 	{
@@ -229,17 +220,12 @@ int main (int argc, char *argv[])
 		{
 			printf (
 				"wbrsar - Wiimms BRSAR/BFSAR/BCSAR Tool\n"
-				"Converts a BRSAR (or other vgmtrans-recognized) sound bank to MIDI + SF2/DLS.\n"
-				"Extracts all MIDI sequences and exactly 1 copy of the soundfont for the "
-				"archive.\n\n"
+				"Converts a BRSAR (or other vgmtrans-recognized) sound bank to MIDI + SF2/DLS\n"
+				"via an external vgmtrans CLI binary (magcius/vgmtrans).\n\n"
 				"Usage: %s [options] <input.brsar> [output_dir]\n"
 				"       %s pack   <input_dir> [output] [--bfsar|--bcsar|--sdat]\n"
 				"       %s unpack <input.brsar|.bfsar|.bcsar|.sdat> [output_dir]\n\n"
 				"Options:\n"
-				"  --sf2              Export SoundFont 2 (.sf2) [default]\n"
-				"  --dls              Export DLS (.dls)\n"
-				"  --both             Export both .sf2 and .dls\n"
-				"  --external         Force using external vgmtrans binary\n"
 				"  --with-vgmtrans=P  Specify path to external vgmtrans tool\n"
 				"  -d, --dest <dir>   Specify destination directory\n"
 				"  -h, --help         Show this help\n\n"
@@ -255,14 +241,6 @@ int main (int argc, char *argv[])
 				argv[0], argv[0], argv[0]);
 			return 0;
 		}
-		else if (!strcmp (arg, "--sf2"))
-			format_flags = VGMTRANS_FMT_SF2;
-		else if (!strcmp (arg, "--dls"))
-			format_flags = VGMTRANS_FMT_DLS;
-		else if (!strcmp (arg, "--both"))
-			format_flags = VGMTRANS_FMT_BOTH;
-		else if (!strcmp (arg, "--external"))
-			force_external = true;
 		else if (!strncmp (arg, "--with-vgmtrans=", 16))
 			opt_with_vgmtrans = arg + 16;
 		else if (!strcmp (arg, "--with-vgmtrans"))
@@ -308,52 +286,32 @@ int main (int argc, char *argv[])
 	if (stat (out_dir, &st) != 0)
 		mkdir (out_dir, 0755);
 
-	int err = -1;
-#if !defined(NO_VGMTRANS) || !NO_VGMTRANS
-	if (!force_external)
-		err = VgmtransConvertFileExt (in_file, out_dir, format_flags);
-#else
-	(void)format_flags;
-#endif
-	if (err != 0 || force_external)
+	const char *ext_tool = find_vgmtrans_tool (opt_with_vgmtrans, argv[0]);
+	if (ext_tool && run_external_vgmtrans (ext_tool, in_file, out_dir) == 0)
 	{
-		const char *ext_tool = find_vgmtrans_tool (opt_with_vgmtrans, argv[0]);
-		if (ext_tool)
+		printf ("wbrsar: converted %s -> %s (external %s)\n", in_file, out_dir, ext_tool);
+		return 0;
+	}
+
+	// No (working) external vgmtrans available -- fall back to a raw asset
+	// dump (same result as `wbrsar unpack`) instead of failing outright.
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError lerr = LoadFileAlloc (in_file, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (!lerr && raw)
+	{
+		enumError uerr = raw_size >= 4 && !memcmp (raw, "SDAT", 4)
+			? UnpackSDAT (raw, raw_size, out_dir)
+			: UnpackBRSAR (raw, raw_size, out_dir);
+		FREE (raw);
+		if (!uerr)
 		{
-			if (run_external_vgmtrans (ext_tool, in_file, out_dir) == 0)
-			{
-				printf ("wbrsar: converted %s -> %s (external %s)\n", in_file, out_dir, ext_tool);
-				return 0;
-			}
-		}
-		if (force_external)
-		{
-			fprintf (stderr, "wbrsar: external vgmtrans conversion failed for %s\n", in_file);
-			return 1;
+			printf ("wbrsar: unpacked raw sound assets %s -> %s\n", in_file, out_dir);
+			return 0;
 		}
 	}
-	if (err)
-	{
-		u8 *raw = 0;
-		size_t raw_size = 0;
-		enumError lerr = LoadFileAlloc (in_file, 0, 0, &raw, &raw_size, 0, 0, 0, false);
-		if (!lerr && raw)
-		{
-			enumError uerr = raw_size >= 4 && !memcmp (raw, "SDAT", 4)
-				? UnpackSDAT (raw, raw_size, out_dir)
-				: UnpackBRSAR (raw, raw_size, out_dir);
-			FREE (raw);
-			if (!uerr)
-			{
-				printf ("wbrsar: unpacked raw sound assets %s -> %s\n", in_file, out_dir);
-				return 0;
-			}
-		}
-		fprintf (stderr, "wbrsar: conversion failed for %s\n", in_file);
-		return err;
-	}
-	printf ("wbrsar: converted %s -> %s\n", in_file, out_dir);
-	return 0;
+	fprintf (stderr, "wbrsar: conversion failed for %s\n", in_file);
+	return 1;
 }
 
 bool DefineIntVar (VarMap_t *vm, ccp varname, int value)
