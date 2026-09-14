@@ -307,7 +307,9 @@ jobs:
       # wszst shells out to external passthrough companion tools: wit (disc/DS/WAD),
       # mobipeg (video/audio transcoding), sharpii (Wii WADs), nsz (Switch NSZ/XCZ),
       # makerom (3DS repacking), wud2app (Wii U WUD extraction), 7zz/7z (archives),
-      # ndstool (NDS ROMs), hactool (Switch packages), and hacbrewpack (Switch NSP).
+      # ndstool (NDS ROMs), hactool (Switch packages), hacbrewpack (Switch NSP),
+      # gba-mus-ripper (GBA music/soundfont ripping), and vgmtrans (BRSAR/other
+      # sound-bank conversion, external fallback for wbrsar).
       # Bundling them alongside wszst in the application bundle enables all
       # features out of the box without manual external installation.
       - name: Fetch and build companion passthrough tools for bundling (best-effort)
@@ -374,6 +376,29 @@ jobs:
           # 9. hacbrewpack (Nintendo Switch Homebrew NSP pack tool, universal build)
           if git clone --depth 1 https://github.com/pplatoon/hacBrewPack.git /tmp/hacbrewpack-src 2>/dev/null; then
             (cd /tmp/hacbrewpack-src && cp config.mk.template config.mk && make CC="clang -arch arm64 -arch x86_64" -j"$(sysctl -n hw.ncpu)" && cp hacbrewpack "$GITHUB_WORKSPACE/extra_tools/") || true
+          fi
+
+          # 10. gba-mus-ripper (GBA Sappy/MP2K music/soundfont ripper), universal
+          # build. wszst shells out to this as a passthrough for GBA titles the
+          # same way it does for wit/mobipeg -- no vendored copy in src/.
+          if git clone --depth 1 https://github.com/berg8793/gba-mus-ripper.git /tmp/gba-mus-ripper-src 2>/dev/null; then
+            (cd /tmp/gba-mus-ripper-src && make CXX="clang++ -arch arm64 -arch x86_64" CC="clang -arch arm64 -arch x86_64" -j"$(sysctl -n hw.ncpu)" && \
+              found="$(find . -maxdepth 1 -type f -perm -u+x ! -name '*.sh' | head -n1)" && \
+              [ -n "$found" ] && cp "$found" "$GITHUB_WORKSPACE/extra_tools/gba-mus-ripper") || true
+          fi
+
+          # 11. vgmtrans-cli (magcius/vgmtrans, siiva branch), universal build.
+          # wbrsar links a vendored copy in-process when it's available (see
+          # project/src/vgmtrans, project/Makefile's NO_VGMTRANS), but that
+          # vendored path is dropped on cross-compiled/CI legs -- bundling this
+          # binary lets wbrsar's --external/--with-vgmtrans fall back to it via
+          # its own PATH/argv0-relative lookup instead.
+          if git clone --depth 1 --branch siiva https://github.com/magcius/vgmtrans.git /tmp/vgmtrans-src 2>/dev/null; then
+            (cd /tmp/vgmtrans-src && mkdir build && cd build && \
+              cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DVGMTRANS_QT=OFF >/dev/null && \
+              cmake --build . --target vgmtrans_cli -j"$(sysctl -n hw.ncpu)" && \
+              found="$(find . -maxdepth 3 -type f -name 'vgmtrans_cli*' -perm -u+x | head -n1)" && \
+              [ -n "$found" ] && cp "$found" "$GITHUB_WORKSPACE/extra_tools/vgmtrans") || true
           fi
 
           chmod +x extra_tools/* 2>/dev/null || true
