@@ -243,7 +243,8 @@ jobs:
 
       - name: Install x86_64 libpng to /usr/local
         run: |
-          mkdir -p /usr/local/include /usr/local/lib
+          sudo mkdir -p /usr/local/include /usr/local/lib
+          sudo chown -R "$(whoami)" /usr/local/include /usr/local/lib
           cp -R "$HOME/libpng-x86_64-install/include/." /usr/local/include/
           cp -R "$HOME/libpng-x86_64-install/lib/." /usr/local/lib/
 
