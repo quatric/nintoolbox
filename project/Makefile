@@ -713,7 +713,7 @@ $(SENTRY_LIBDIR)/libsentry.a:
 	fi
 
 ifneq ($(NO_SENTRY),1)
-$(ALL_TOOLS_X): $(SENTRY_LIBDIR)/libsentry.a
+$(ALL_TOOLS_X) gen-ui: $(SENTRY_LIBDIR)/libsentry.a
 endif
 
 #-------------------------------------------------------------------------------
@@ -814,7 +814,7 @@ endif
 
 TOPT_wgba	:= $(GBAMUS_CXX_OBJS) $(GBAMUS_LIBS)
 wgba: $(GBAMUS_CXX_OBJS) Makefile
-wbrsar: src/vgmtrans/build/libvgmtrans_core.a
+wbrsar:
 	@mkdir -p bin bin/$(SYSTEM2)
 	@cp -p src/gbamus/psg_data.raw src/gbamus/goldensun_synth.raw bin/ 2>/dev/null || true
 	@cp -p src/gbamus/psg_data.raw src/gbamus/goldensun_synth.raw bin/$(SYSTEM2)/ 2>/dev/null || true
