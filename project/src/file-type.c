@@ -1476,6 +1476,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		FFT_VALID | FFT_ARCHIVE, 4, { 0x56, 0x46, 0x58, 0x42 }, // "VFXB"
 		0, MinusString, MinusString, "NintendoWare Particle Effect Archive (VFXB / .ptcl / .eset)" },
 
+	// FF_BEA = 280 (Nintendo EAD Bezel Engine Archive)
+	{ FF_BEA, FF_BEA, 0, "BEA", ".bea", ".szs", ".bea",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 'S', 'C', 'N', 'E' }, 0, MinusString, MinusString,
+		"Nintendo EAD Bezel Engine Archive (.bea / .nx.bea, WarioWare/Mario Party)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1632,6 +1638,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_SHARC, "SHARC", "SHAA", 0xe05 },
 	{ FF_SHARCFB, "SHARCFB", "SHAB", 0xe05 },
 	{ FF_VFXB, "VFXB", "VFXB", 0xe05 },
+	{ FF_BEA, "BEA", "SCNE", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

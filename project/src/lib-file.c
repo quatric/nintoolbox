@@ -1434,6 +1434,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x56465842: // "VFXB"
 				return FF_VFXB;
 
+			// Nintendo EAD Bezel Engine Archive (SCNE)
+			case 0x53434e45: // "SCNE"
+				return IsBEA (data8, data_size) ? FF_BEA : FF_UNKNOWN;
+
 			// Koei Tecmo 3D Model (G1M_ / _M1G / SM1G / GM1G)
 			case 0x47314d5f: // "G1M_"
 			case 0x47314d00: // "G1M\0"

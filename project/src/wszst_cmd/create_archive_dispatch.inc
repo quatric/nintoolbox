@@ -156,6 +156,8 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest, int known_lz
 			&& strcasecmp (ext, ".nfl") && strcasecmp (ext, ".nflres") && strcasecmp (ext, ".nfl_res");
 		return create_rflres_dir (source_dir, dest, be);
 	}
+	if (!strcasecmp (ext, ".bea") && looks_like_bea_dir (source_dir))
+		return create_bea_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".gfa"))
 		return create_gfa_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".nus3audio") || !strcasecmp (ext, ".nus3bank"))
