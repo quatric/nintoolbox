@@ -1697,9 +1697,13 @@ static enumError passthru_archive (
 		return ERR_OK;
 	}
 
-	// the external tools require an existing destination directory ("-D" of
-	// wit would create it too, but ndstool/sharpii/ctrtool need it upfront)
-	if (CreatePath (stage, false))
+	// ndstool/sharpii/ctrtool/hactool need the destination directory to
+	// already exist. wit is the odd one out: its own "-D" auto-creates the
+	// path, and if STAGE already exists as a directory, wit treats it as a
+	// container and nests its own auto-named "<title>.d" folder inside it
+	// instead of using STAGE as the literal target -- so it must NOT be
+	// pre-created here.
+	if (!is_disc && CreatePath (stage, false))
 		return ERROR0 (ERR_CANT_CREATE_DIR, "Cannot create dest dir: %s", stage);
 
 	if (is_disc)
