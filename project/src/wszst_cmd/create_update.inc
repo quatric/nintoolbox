@@ -2571,6 +2571,9 @@ static enumError extract_ctpk_mem (ccp arg, ccp basedir, uint depth, const u8 *r
 	// so create_ctpk_dir() can rebuild a byte-exact archive later without
 	// this code needing to understand any of it (see RebuildCTPKFromPrefix
 	// in lib-ctpk.c).
+	if (!testmode && CreatePath (dest, true))
+		return ERROR0 (ERR_CANT_CREATE_DIR, "Cannot create dest dir: %s", dest);
+
 	if (!testmode && ctpk.texture_offset <= raw_size)
 	{
 		char prefix_path[PATH_MAX];
