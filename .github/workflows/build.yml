@@ -183,6 +183,27 @@ jobs:
           cd "${GITHUB_WORKSPACE}"
           mkdir -p dist/windows-x86_64
           cp project/bin/* dist/windows-x86_64/ || true
+
+          # wszst and friends are dynamically linked against the Cygwin
+          # runtime (cygwin1.dll, cygpng16-16.dll, cygz-1.dll, ...) -- without
+          # those DLLs next to the .exe, Windows refuses to start it at all
+          # ("the code execution cannot proceed because X.dll was not
+          # found"). The official szs.wiimm.de Windows build ships the same
+          # DLLs alongside its .exe files for this reason. cygcheck lists
+          # every DLL each binary loads; keep only the ones it resolves from
+          # the Cygwin install itself (.../bin/cyg*.dll) -- plain system DLLs
+          # like kernel32.dll are already on every Windows machine and don't
+          # need bundling.
+          cd project
+          for f in bin/*; do
+            [ -f "$f" ] && [ -x "$f" ] && cygcheck "$f" 2>/dev/null
+          done \
+            | tr -d '\r' | tr '\\' '/' | sed -E 's|^[[:space:]]+||' \
+            | grep -iE '/bin/cyg[^/]*\.dll$' | sort -u \
+            | while IFS= read -r dll; do
+                cp -u "$(cygpath -u "$dll")" "${GITHUB_WORKSPACE}/dist/windows-x86_64/" 2>/dev/null || true
+              done
+          ls "${GITHUB_WORKSPACE}/dist/windows-x86_64"
       - uses: actions/upload-artifact@v4
         with:
           name: nintoolbox-windows-x86_64
@@ -790,22 +811,26 @@ jobs:
           python3 -m pip install --quiet pyinstaller pyinstaller-hooks-contrib sentry-sdk nsz tkinterdnd2
           BINARY_ARGS=()
           for f in artifact/* extra_tools/*; do
-            [ -f "$f" ] && BINARY_ARGS+=(--add-binary "$f:.")
+            [ -f "$f" ] && BINARY_ARGS+=(--add-binary "$f:bin")
           done
           DATA_ARGS=(--add-data logo.png:.)
-          [ -d extra_tools/share ] && DATA_ARGS+=(--add-data extra_tools/share:share)
-          DATA_ARGS+=(--add-data project/third_party/prod.keys:.)
-          DATA_ARGS+=(--add-data project/third_party/title.keys:.)
+          [ -d extra_tools/share ] && DATA_ARGS+=(--add-data extra_tools/share:bin/share)
+          DATA_ARGS+=(--add-data project/third_party/prod.keys:bin)
+          DATA_ARGS+=(--add-data project/third_party/title.keys:bin)
           pyinstaller --name nintoolbox --windowed \
             "${BINARY_ARGS[@]}" "${DATA_ARGS[@]}" \
-            --contents-directory . \
             --distpath pyinst_dist nintoolbox.py
           mkdir -p dist/gui-windows-x86_64
-          # --contents-directory . keeps every --add-binary tool flat in
-          # pyinst_dist/nintoolbox, right next to nintoolbox.exe (instead of
-          # nested under nintoolbox/_internal), so the same single copy the
-          # GUI uses also serves as the CLI-only install source -- no second
-          # "cli/" copy of the same binaries.
+          # Every CLI tool (wszst.exe, the Cygwin runtime DLLs it needs, the
+          # companion passthrough tools, prod.keys/title.keys, share/) lands
+          # under pyinst_dist/nintoolbox/bin, next to each other -- Windows
+          # resolves DLL dependencies by looking in the loading .exe's own
+          # directory, so keeping the tools and their DLLs together in bin/
+          # still works, it's just not scattered into the top-level app
+          # folder alongside nintoolbox.exe and PyInstaller's own _internal/
+          # runtime. That bin/ folder also serves as the CLI-only install
+          # source (see install.ps1, updated to look under bin/) -- no
+          # second copy of the same binaries.
           cp installer/install.ps1 pyinst_dist/nintoolbox/install.ps1
           cd pyinst_dist && 7z a -r -bd ../dist/gui-windows-x86_64/nintoolbox-windows-x86_64.zip nintoolbox >/dev/null 2>&1 || \
             (cd .. && cd dist/gui-windows-x86_64 && powershell -Command "Compress-Archive -Path '../../pyinst_dist/nintoolbox' -DestinationPath 'nintoolbox-windows-x86_64.zip'")

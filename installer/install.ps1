@@ -1,24 +1,29 @@
-# Installs the CLI tools bundled next to this script onto your user PATH.
+# Installs the CLI tools bundled with this script onto your user PATH.
 #
 # Usage: .\install.ps1 [-Dest <path>]
 #   Dest defaults to $env:LOCALAPPDATA\nintoolbox\bin.
 #
-# Copies every .exe next to this script (skipping the GUI app and share\)
-# into Dest, copies share\ (titles.txt etc.) alongside it, and adds Dest to
-# the current user's PATH (via the registry, so it persists across
-# sessions) if it isn't already there.
+# Copies every .exe and .dll from the bin\ folder next to this script
+# (skipping the GUI app) into Dest, copies bin\share\ (titles.txt etc.)
+# alongside it, and adds Dest to the current user's PATH (via the registry,
+# so it persists across sessions) if it isn't already there.
 
 param(
     [string]$Dest = "$env:LOCALAPPDATA\nintoolbox\bin"
 )
 
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
+$binSrc = Join-Path $here "bin"
+if (-not (Test-Path $binSrc)) {
+    # Fall back to $here itself, for older bundles that shipped everything flat.
+    $binSrc = $here
+}
 
 New-Item -ItemType Directory -Force -Path $Dest | Out-Null
 
 Write-Host "Installing to $Dest"
 $installed = 0
-Get-ChildItem -Path $here -Filter *.exe -File | Where-Object {
+Get-ChildItem -Path $binSrc -Include *.exe, *.dll -File -Recurse | Where-Object {
     $_.Name -ne "nintoolbox.exe"
 } | ForEach-Object {
     Copy-Item $_.FullName -Destination (Join-Path $Dest $_.Name) -Force
@@ -27,11 +32,11 @@ Get-ChildItem -Path $here -Filter *.exe -File | Where-Object {
 }
 
 if ($installed -eq 0) {
-    Write-Warning "No .exe files found next to this script -- nothing installed."
+    Write-Warning "No .exe/.dll files found under $binSrc -- nothing installed."
     exit 1
 }
 
-$shareSrc = Join-Path $here "share"
+$shareSrc = Join-Path $binSrc "share"
 if (Test-Path $shareSrc) {
     $shareDest = Join-Path (Split-Path -Parent $Dest) "share"
     New-Item -ItemType Directory -Force -Path $shareDest | Out-Null
