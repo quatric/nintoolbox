@@ -2108,6 +2108,14 @@
 		" Any unrecognized container file is extracted via the specified"
 		" BMS script and the unpacked directory is recursively processed." },
 
+  { T_OPT_GP,	"WITH_MOBIPEG",	"with-mobipeg|withmobipeg|mobipeg",
+		"path|name",
+		"Define the path or name of the external {mobipeg} tool (this"
+		" project's FFmpeg fork) for BRSTM/DSP-ADPCM audio encoding."
+		" If the value contains no slash, it is searched in the"
+		" directories of the environment variable @'PATH'@."
+		" Default is the name @'mobipeg'@." },
+
   { T_OPT_GP,	"WITH_7Z",	"with-7z|7z",
 		"path",
 		"Set the external 7-Zip extraction tool (7z, 7zz, 7za, unar). Default: '7z'." },

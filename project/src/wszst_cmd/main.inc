@@ -625,6 +625,9 @@ static enumError CheckOptions (int argc, char **argv, bool is_env)
 			case GO_WITH_BMS:
 				opt_with_bms = optarg;
 				break;
+			case GO_WITH_MOBIPEG:
+				opt_with_mobipeg = optarg;
+				break;
 			case GO_WITH_7Z:
 				opt_with_7z = optarg;
 				break;

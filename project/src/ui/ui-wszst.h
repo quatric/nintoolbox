@@ -283,6 +283,7 @@ typedef enum enumOptions
 	OPT_WITH_HACTOOL,
 	OPT_WITH_HACBREWPACK,
 	OPT_WITH_BMS,
+	OPT_WITH_MOBIPEG,
 	OPT_WITH_7Z,
 	OPT_WITH_NSZ,
 	OPT_WITH_VGMTRANS,
@@ -319,7 +320,7 @@ typedef enum enumOptions
 	OPT_NEW,
 	OPT_EXTRACT,
 
-	OPT__N_TOTAL // == 258
+	OPT__N_TOTAL // == 259
 
 } enumOptions;
 
@@ -1416,6 +1417,7 @@ typedef enum enumGetOpt
 	GO_WITH_HACTOOL,
 	GO_WITH_HACBREWPACK,
 	GO_WITH_BMS,
+	GO_WITH_MOBIPEG,
 	GO_WITH_7Z,
 	GO_WITH_NSZ,
 	GO_WITH_VGMTRANS,

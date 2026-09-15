@@ -18,6 +18,7 @@ extern ccp opt_with_sharpii; // --with-sharpii=path|name
 extern ccp opt_with_hactool; // --with-hactool=path|name
 extern ccp opt_with_hacbrewpack; // --with-hacbrewpack=path|name
 extern ccp opt_with_bms; // --with-bms=path|--bms=path
+extern ccp opt_with_mobipeg; // --with-mobipeg=path|name
 extern ccp opt_with_7z; // --with-7z=path|name
 extern ccp opt_with_nsz; // --with-nsz=path|name
 extern ccp opt_with_vgmtrans; // --with-vgmtrans=path|name
