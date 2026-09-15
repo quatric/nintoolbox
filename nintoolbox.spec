@@ -18,6 +18,15 @@ datas = [('logo.png', '.')]
 if os.path.isdir('extra_tools/share'):
     datas.append(('extra_tools/share', 'share'))
 
+# Bundled data files resolved next to the running tool by lib-passthru.c
+# (seeddb.bin for ctrtool, prod.keys/title.keys for the Switch tools -- see
+# resolve_bundled_tool()/locate_switch_key()): flat via --contents-directory .
+# so the lookup that checks ProgramDirectory() first finds them.
+for name in ('seeddb.bin', 'prod.keys', 'title.keys'):
+    path = os.path.join('project', 'third_party', name)
+    if os.path.isfile(path):
+        datas.append((path, '.'))
+
 a = Analysis(
     ['nintoolbox.py'],
     pathex=[],

@@ -154,6 +154,36 @@ static ccp resolve_bundled_tool (ccp with_val, ccp deflt)
 	return find_program (deflt);
 }
 
+// Locate a Switch keyset file (prod.keys / title.keys -- the Lockpick_RCM
+// ~/.switch/ convention every Switch tool used here honors). Same
+// bundled-resource rule as resolve_bundled_tool()/seeddb.bin: a copy shipped
+// next to the running binary wins over the user's own ~/.switch file, so the
+// bundled canonicalized keyset (see project/third_party/prod.keys) keeps
+// hactool/hacbrewpack/nsz working even when an older ~/.switch copy sits in a
+// format hactool rejects (e.g. the nicoboss 34-hex-digit "master_kek_source"
+// values that make hactool abort with "must be 32 hex digits!"). Fills BUF
+// and returns true when either location has the file, ""/false otherwise.
+static bool locate_switch_key (ccp name, char *buf, size_t size)
+{
+	buf[0] = '\0';
+	ccp dir = ProgramDirectory ();
+	if (dir && *dir)
+	{
+		snprintf (buf, size, "%s/%s", dir, name);
+		if (!access (buf, R_OK))
+			return true;
+	}
+	const char *home = getenv ("HOME");
+	if (home)
+	{
+		snprintf (buf, size, "%s/.switch/%s", home, name);
+		if (!access (buf, R_OK))
+			return true;
+	}
+	buf[0] = '\0';
+	return false;
+}
+
 static ccp resolve_mobipeg (void)
 {
 	if (opt_with_mobipeg && *opt_with_mobipeg)
@@ -442,8 +472,9 @@ static enumError passthru_7z (
 // (https://github.com/nicoboss/nsz). Nothing here understands that stream,
 // so the file is handed to "nsz" -- looked up on $PATH -- which restores the
 // plain .nsp/.xci into STAGE; the normal recursive walk then feeds that to
-// hactool like any other Switch container. "nsz" re-encrypts the sections it
-// decompresses and needs ~/.switch/prod.keys to do so.
+// hactool like any other Switch container. "nsz" handles the re-encryption
+// itself; it is pointed at the located prod.keys (see locate_switch_key())
+// via --keys so it doesn't only rely on its own ~/.switch default.
 static enumError passthru_nsz (
 	ccp src, ccp basedir, ccp stage, char *staged_dir, uint staged_dir_size)
 {
@@ -471,7 +502,26 @@ static enumError passthru_nsz (
 
 	char out_arg[PATH_MAX];
 	snprintf (out_arg, sizeof (out_arg), "%s", stage);
-	char *argv[] = { (char *)tool, "-D", "-w", "-o", out_arg, (char *)src, 0 };
+
+	// nsz only consults ~/.switch/prod.keys itself at *fix* time (it also
+	// looks next to the --keys file); hand it the same located keyset so the
+	// decompress of an NSZ/XCZ doesn't depend on a home-dir copy existing.
+	char keys_arg[PATH_MAX + 8] = "";
+	char pk_buf[PATH_MAX] = "";
+	if (locate_switch_key ("prod.keys", pk_buf, sizeof (pk_buf)))
+		snprintf (keys_arg, sizeof (keys_arg), "--keys=%s", pk_buf);
+
+	char *argv[8];
+	int argc = 0;
+	argv[argc++] = (char *)tool;
+	argv[argc++] = "-D";
+	argv[argc++] = "-w";
+	argv[argc++] = "-o";
+	argv[argc++] = out_arg;
+	if (*keys_arg)
+		argv[argc++] = keys_arg;
+	argv[argc++] = (char *)src;
+	argv[argc] = 0;
 	const int rc = run_program (argv);
 	if (rc != 0)
 		return ERROR0 (ERR_SUBJOB_FAILED, "pass-through nsz failed for %s (exit %d)", src, rc);
@@ -1339,23 +1389,23 @@ static bool read_nca_rights_id (ccp nca_path, u8 rights_id[16], char rights_hex[
 	return true;
 }
 
-// Look up RIGHTS_HEX in ~/.switch/title.keys (Lockpick_RCM/hactool-database
-// convention: "rights_id = titlekek-encrypted_titlekey", the same raw form
-// hactool's --titlekey option expects -- see the comment on
-// find_nca_titlekey() below about why that raw form matters). Returns true
-// and fills OUT_TITLEKEY on a match.
+// Look up RIGHTS_HEX in the Switch title.keys database (Lockpick_RCM /
+// hactool-database convention: "rights_id = titlekek-encrypted_titlekey", the
+// same raw form hactool's --titlekey option expects -- see the comment on
+// find_nca_titlekey() below about why that raw form matters). The file is
+// located bundled-first via locate_switch_key(): a title.keys shipped next to
+// the running binary wins over the user's own ~/.switch/title.keys. Returns
+// true and fills OUT_TITLEKEY on a match.
 static bool lookup_titlekeys_file (ccp rights_hex, char *out_titlekey, size_t out_size)
 {
 	out_titlekey[0] = '\0';
 	if (!rights_hex || !*rights_hex)
 		return false;
 
-	const char *home = getenv ("HOME");
-	if (!home)
+	char tkeys_path[PATH_MAX];
+	if (!locate_switch_key ("title.keys", tkeys_path, sizeof (tkeys_path)))
 		return false;
 
-	char tkeys_path[PATH_MAX];
-	snprintf (tkeys_path, sizeof (tkeys_path), "%s/.switch/title.keys", home);
 	FILE *tkf = fopen (tkeys_path, "r");
 	if (!tkf)
 		return false;
@@ -1413,7 +1463,7 @@ static bool lookup_titlekeys_file (ccp rights_hex, char *out_titlekey, size_t ou
 // with it and see whether the result hash-verifies. So this function still
 // prefers the .tik (matches the common case and every previously-verified
 // sample), but the caller (passthru_archive's is_switch branch) now detects
-// a "section is corrupted" result and retries with the ~/.switch/title.keys
+// a "section is corrupted" result and retries with the title.keys
 // entry for the same Rights ID via lookup_titlekeys_file() above -- a
 // separately curated database that isn't subject to a given NSP's own
 // (possibly nonstandard) ticket encoding. Confirmed live on both of this
@@ -1497,14 +1547,16 @@ static void find_nca_titlekey (ccp nca_path, char *out_titlekey, size_t out_size
 		}
 	}
 
-	// 2. Check ~/.switch/title.keys
+	// 2. Check the located title.keys (bundled copy next to the running
+	//    binary first, then ~/.switch/title.keys) -- lookup_titlekeys_file()
 	if (has_rights)
 		lookup_titlekeys_file (rights_hex, out_titlekey, out_size);
 }
 
 // Retry-path lookup used by passthru_archive's is_switch branch when the
 // .tik-derived key from find_nca_titlekey() above produced a "section is
-// corrupted" result. Consults ~/.switch/title.keys only, skipping the
+// corrupted" result. Consults the located title.keys only (bundled copy next
+// to the running binary first, then ~/.switch), skipping the
 // sibling .tik entirely -- see the CORRECTION comment on find_nca_titlekey()
 // for why the two can legitimately disagree for a given NSP. Returns true
 // and fills OUT_TITLEKEY on a match.
@@ -1925,14 +1977,8 @@ static enumError passthru_archive (
 			effective_src = nsz_out;
 		}
 
-		const char *home = getenv ("HOME");
 		char prod_keys[PATH_MAX] = "";
-		if (home)
-		{
-			snprintf (prod_keys, sizeof (prod_keys), "%s/.switch/prod.keys", home);
-			if (access (prod_keys, R_OK))
-				prod_keys[0] = '\0';
-		}
+		locate_switch_key ("prod.keys", prod_keys, sizeof (prod_keys));
 
 		char titlekey_opt[128] = "";
 		char romfs_dir[PATH_MAX], exefs_dir[PATH_MAX], sec0_dir[PATH_MAX];
@@ -1981,6 +2027,14 @@ static enumError passthru_archive (
 		else if (is_ext (effective_src, ".xci"))
 		{
 			argv[argc++] = "-x";
+			// hactool's magic-based autodetect does not classify an XCI in
+			// extraction (-x) mode -- it falls through and tries to read the
+			// container as an NCA ("Invalid NCA header! Are keys correct?")
+			// even with keys supplied (reproduced against hactool master
+			// 2026-09-15). Pin the type explicitly, mirroring the -t pfs0
+			// handling for the .nsp branch below.
+			argv[argc++] = "-t";
+			argv[argc++] = "xci";
 			snprintf (xci_dir, sizeof (xci_dir), "--outdir=%s", stage);
 			argv[argc++] = xci_dir;
 		}
@@ -2017,7 +2071,7 @@ static enumError passthru_archive (
 			{
 				fprintf (stdlog,
 					"%s: .tik-derived titlekey produced a corrupted section;"
-					" retrying with the ~/.switch/title.keys entry for this Rights ID\n",
+					" retrying with the located title.keys entry for this Rights ID\n",
 					src);
 				snprintf (titlekey_opt, sizeof (titlekey_opt), "--titlekey=%s", alt_tkey);
 				precreate_romfs_dirs (tool, prod_keys, alt_tkey, effective_src, romfs_path);
@@ -3410,8 +3464,8 @@ enumError PassthruPack (ccp src_dir, ccp dest)
 	// extraction didn't produce one instead of letting hacbrewpack fail
 	// deeper into the run.
 	// Needs the same prod.keys as the extract side (header_key +
-	// key_area_key_application_xx); hacbrewpack looks for
-	// ~/.switch/prod.keys itself by default, same convention already used
+	// key_area_key_application_xx); it is located bundled-first via
+	// locate_switch_key(), with hacbrewpack's native
 	// for hactool elsewhere in this file.
 	// 5a-xci. Switch .xci: hacbrewpack has no XCI output mode at all (see
 	// its --help; only --nspdir exists) and there's no keyless way here to
@@ -3493,14 +3547,8 @@ enumError PassthruPack (ccp src_dir, ccp dest)
 		snprintf (nspdir, sizeof (nspdir), "%s.hacbrewpack_nsp.%d", src_dir, (int)getpid ());
 		(void)CreatePath (nspdir, false);
 
-		const char *home = getenv ("HOME");
 		char prod_keys[PATH_MAX] = "";
-		if (home)
-		{
-			snprintf (prod_keys, sizeof (prod_keys), "%s/.switch/prod.keys", home);
-			if (access (prod_keys, R_OK))
-				prod_keys[0] = '\0';
-		}
+		locate_switch_key ("prod.keys", prod_keys, sizeof (prod_keys));
 
 		char exefs_arg[PATH_MAX + 16], romfs_arg[PATH_MAX + 16], nspdir_arg[PATH_MAX + 16];
 		char logo_arg[PATH_MAX + 16] = "", control_arg[PATH_MAX + 16];

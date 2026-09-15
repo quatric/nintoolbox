@@ -49,6 +49,18 @@ if (( installed == 0 )); then
 	exit 1
 fi
 
+# Bundled data files resolved next to the running tool by lib-passthru.c:
+# seeddb.bin for ctrtool's 3DS seed-crypto RomFS, prod.keys/title.keys for the
+# Switch tools (see resolve_bundled_tool()/locate_switch_key()). They are
+# non-executable so the loop above skips them -- copy them explicitly so the
+# installed CLI tools keep working out of the box.
+for data in seeddb.bin prod.keys title.keys; do
+	if [[ -f "$HERE/$data" ]]; then
+		cp -p "$HERE/$data" "$DEST/$data"
+		echo "  $data"
+	fi
+done
+
 if [[ -d "$HERE/share" ]]; then
 	SHARE_DEST="$DEST/../share/nintoolbox"
 	mkdir -p "$SHARE_DEST"

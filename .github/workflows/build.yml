@@ -280,6 +280,16 @@ jobs:
           # so ship it alongside wszst/ctrtool here too.
           cp project/third_party/seeddb.bin dist/macos-universal/seeddb.bin
 
+          # prod.keys/title.keys (Switch keysets, canonicalized for hactool's
+          # strict 32-hex key parsing -- see third_party/prod.keys): wszst's
+          # locate_switch_key() checks next to the running binary first (see
+          # lib-passthru.c), so ship them alongside the tools for out-of-the-box
+          # XCI/NSP/NCA extraction and hacbrewpack repack. This canonicalized
+          # bundled copy also survives the common "34-hex master_kek_source" key
+          # files that make hactool abort.
+          cp project/third_party/prod.keys dist/macos-universal/prod.keys
+          cp project/third_party/title.keys dist/macos-universal/title.keys
+
       - uses: actions/upload-artifact@v4
         with:
           name: nintoolbox-macos-universal
@@ -561,6 +571,10 @@ jobs:
           # on post-2015 3DS titles using seed crypto. Flat next to ctrtool via
           # --contents-directory . below, matching resolve_bundled_tool()'s lookup.
           DATA_ARGS+=(--add-data project/third_party/seeddb.bin:.)
+          # prod.keys/title.keys (Switch keysets): flat next to the tools via
+          # --contents-directory . below, matching locate_switch_key()'s lookup.
+          DATA_ARGS+=(--add-data project/third_party/prod.keys:.)
+          DATA_ARGS+=(--add-data project/third_party/title.keys:.)
           pyinstaller --name nintoolbox --windowed \
             "${BINARY_ARGS[@]}" "${DATA_ARGS[@]}" --icon=logo.icns \
             --contents-directory . \
@@ -780,6 +794,8 @@ jobs:
           done
           DATA_ARGS=(--add-data logo.png:.)
           [ -d extra_tools/share ] && DATA_ARGS+=(--add-data extra_tools/share:share)
+          DATA_ARGS+=(--add-data project/third_party/prod.keys:.)
+          DATA_ARGS+=(--add-data project/third_party/title.keys:.)
           pyinstaller --name nintoolbox --windowed \
             "${BINARY_ARGS[@]}" "${DATA_ARGS[@]}" \
             --contents-directory . \
@@ -942,6 +958,8 @@ jobs:
           done
           DATA_ARGS=(--add-data logo.png:.)
           [ -d extra_tools/share ] && DATA_ARGS+=(--add-data extra_tools/share:share)
+          DATA_ARGS+=(--add-data project/third_party/prod.keys:.)
+          DATA_ARGS+=(--add-data project/third_party/title.keys:.)
           pyinstaller --name nintoolbox \
             "${BINARY_ARGS[@]}" "${DATA_ARGS[@]}" \
             --contents-directory . \
