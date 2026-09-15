@@ -35,6 +35,7 @@
 #define _GNU_SOURCE 1
 
 #include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
 #include <stdio.h>
@@ -198,6 +199,17 @@ void SetupProgname (int argc, char **argv, ccp tname, ccp tvers, ccp ttitle)
 	}
 	else
 		ProgInfo.progname = ProgInfo.toolname && *ProgInfo.toolname ? ProgInfo.toolname : "?";
+
+	// Without this, libc's own getopt_long() error messages (e.g. for an
+	// unrecognized option) print the raw argv[0] -- which can be a very
+	// long path when the OS relaunches the binary from a translocated or
+	// otherwise relocated location (e.g. macOS app translocation).
+	#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
+		setprogname (ProgInfo.progname);
+	#elif defined(__GLIBC__)
+		program_invocation_name = (char*)ProgInfo.progname;
+		program_invocation_short_name = (char*)ProgInfo.progname;
+	#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////
