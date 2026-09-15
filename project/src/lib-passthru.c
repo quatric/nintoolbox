@@ -104,7 +104,14 @@ static const char *find_program (ccp name)
 	if (!name)
 		return 0;
 
-	if (strchr (name, '/'))
+	// Accept a native Windows-style path (backslash separator) as an
+	// explicit path too, not just POSIX/Cygwin forward-slash paths: a
+	// --with-<tool>=<path> value built by a native Windows caller (e.g.
+	// nintoolbox.py's os.path.join()) always uses backslashes, and without
+	// this check it fell through to the PATH scan below, which then failed
+	// to find the bundled tool at all (reported as "Pass-through tool not
+	// found" even though --with-<tool> pointed right at it).
+	if (strchr (name, '/') || strchr (name, '\\'))
 		return (ccp)strcpy (prog_buf, name);
 
 	const char *dirs = getenv ("PATH");
