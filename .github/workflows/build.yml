@@ -646,7 +646,12 @@ jobs:
           fi
           if [ -x extra_tools/wit.exe ]; then
             mkdir -p extra_tools/share
-            if curl -fsSL http://gametdb.com/titles.txt | extra_tools/wit.exe titles / - > extra_tools/share/titles.txt && [ -s extra_tools/share/titles.txt ]; then
+            # Download to a file rather than piping curl straight into
+            # wit.exe: curl here is the native Windows tool, and its pipe
+            # doesn't talk cleanly to a Cygwin-built binary's stdin.
+            if curl -fsSL -o "$TMP/titles-raw.txt" http://gametdb.com/titles.txt && \
+               extra_tools/wit.exe titles / "$TMP/titles-raw.txt" > extra_tools/share/titles.txt && \
+               [ -s extra_tools/share/titles.txt ]; then
               cp extra_tools/share/titles.txt extra_tools/titles.txt
             else
               echo "::warning::titles.txt fetch/reformat failed -- skipping"
