@@ -554,29 +554,25 @@ jobs:
           [ -d extra_tools/share ] && DATA_ARGS+=(--add-data extra_tools/share:share)
           pyinstaller --name nintoolbox --windowed \
             "${BINARY_ARGS[@]}" "${DATA_ARGS[@]}" --icon=logo.icns \
+            --contents-directory . \
             --distpath pyinst_dist \
             --target-architecture universal2 nintoolbox.py
           file pyinst_dist/nintoolbox.app/Contents/MacOS/nintoolbox
           mkdir -p dist/gui-macos-universal
-          # Alongside the .app (which has its own in-app "Install CLI Tools
-          # to PATH..." button), also ship a standalone cli/ folder with the
-          # loose binaries + installer/install.sh for anyone who just wants
-          # the command-line tools without the GUI -- same shape as
-          # upstream wit/wszst release tarballs.
-          mkdir -p pyinst_dist/cli
-          for f in artifact/* extra_tools/*; do
-            [ -f "$f" ] && [ -x "$f" ] && cp -p "$f" pyinst_dist/cli/
-          done
-          [ -d extra_tools/share ] && cp -R extra_tools/share pyinst_dist/cli/share
-          cp installer/install.sh pyinst_dist/cli/install.sh
-          chmod +x pyinst_dist/cli/install.sh
+          # --contents-directory . keeps every --add-binary tool flat in
+          # Contents/MacOS, right next to the main executable (instead of
+          # nested under Contents/MacOS/_internal), so the same single copy
+          # the GUI uses also serves as the CLI-only install source -- no
+          # second "cli/" copy of the same binaries.
+          cp installer/install.sh pyinst_dist/nintoolbox.app/Contents/MacOS/install.sh
+          chmod +x pyinst_dist/nintoolbox.app/Contents/MacOS/install.sh
           # -y: store symlinks as symlinks instead of dereferencing them --
           # PyInstaller's macOS .app layout relocates binaries into
           # Contents/Frameworks and leaves a symlink for them under
           # Contents/Resources (or vice versa) for compatibility; without -y,
           # zip follows that symlink and bakes in a full second physical copy
           # of every bundled binary.
-          cd pyinst_dist && zip -ry -q ../dist/gui-macos-universal/nintoolbox-macos-universal.zip nintoolbox.app cli
+          cd pyinst_dist && zip -ry -q ../dist/gui-macos-universal/nintoolbox-macos-universal.zip nintoolbox.app
 
       - uses: actions/upload-artifact@v4
         with:
@@ -777,19 +773,17 @@ jobs:
           [ -d extra_tools/share ] && DATA_ARGS+=(--add-data extra_tools/share:share)
           pyinstaller --name nintoolbox --windowed \
             "${BINARY_ARGS[@]}" "${DATA_ARGS[@]}" \
+            --contents-directory . \
             --distpath pyinst_dist nintoolbox.py
           mkdir -p dist/gui-windows-x86_64
-          # Standalone cli/ folder (loose .exes + installer/install.ps1) for
-          # anyone who just wants the command-line tools -- the GUI itself
-          # also has an in-app "Install CLI Tools to PATH..." button.
-          mkdir -p pyinst_dist/cli
-          for f in artifact/* extra_tools/*; do
-            [ -f "$f" ] && cp -p "$f" pyinst_dist/cli/
-          done
-          [ -d extra_tools/share ] && cp -R extra_tools/share pyinst_dist/cli/share
-          cp installer/install.ps1 pyinst_dist/cli/install.ps1
-          cd pyinst_dist && 7z a -r -bd ../dist/gui-windows-x86_64/nintoolbox-windows-x86_64.zip nintoolbox cli >/dev/null 2>&1 || \
-            (cd .. && cd dist/gui-windows-x86_64 && powershell -Command "Compress-Archive -Path '../../pyinst_dist/nintoolbox','../../pyinst_dist/cli' -DestinationPath 'nintoolbox-windows-x86_64.zip'")
+          # --contents-directory . keeps every --add-binary tool flat in
+          # pyinst_dist/nintoolbox, right next to nintoolbox.exe (instead of
+          # nested under nintoolbox/_internal), so the same single copy the
+          # GUI uses also serves as the CLI-only install source -- no second
+          # "cli/" copy of the same binaries.
+          cp installer/install.ps1 pyinst_dist/nintoolbox/install.ps1
+          cd pyinst_dist && 7z a -r -bd ../dist/gui-windows-x86_64/nintoolbox-windows-x86_64.zip nintoolbox >/dev/null 2>&1 || \
+            (cd .. && cd dist/gui-windows-x86_64 && powershell -Command "Compress-Archive -Path '../../pyinst_dist/nintoolbox' -DestinationPath 'nintoolbox-windows-x86_64.zip'")
 
       - uses: actions/upload-artifact@v4
         with:
@@ -941,19 +935,17 @@ jobs:
           [ -d extra_tools/share ] && DATA_ARGS+=(--add-data extra_tools/share:share)
           pyinstaller --name nintoolbox \
             "${BINARY_ARGS[@]}" "${DATA_ARGS[@]}" \
+            --contents-directory . \
             --distpath pyinst_dist nintoolbox.py
           mkdir -p dist/gui-linux-x86_64
-          # Standalone cli/ folder (loose binaries + installer/install.sh)
-          # for anyone who just wants the command-line tools -- the GUI
-          # itself also has an in-app "Install CLI Tools to PATH..." button.
-          mkdir -p pyinst_dist/cli
-          for f in artifact/* extra_tools/*; do
-            [ -f "$f" ] && [ -x "$f" ] && cp -p "$f" pyinst_dist/cli/
-          done
-          [ -d extra_tools/share ] && cp -R extra_tools/share pyinst_dist/cli/share
-          cp installer/install.sh pyinst_dist/cli/install.sh
-          chmod +x pyinst_dist/cli/install.sh
-          cd pyinst_dist && tar -czf ../dist/gui-linux-x86_64/nintoolbox-linux-x86_64.tar.gz nintoolbox cli
+          # --contents-directory . keeps every --add-binary tool flat in
+          # pyinst_dist/nintoolbox, right next to the nintoolbox executable
+          # (instead of nested under nintoolbox/_internal), so the same
+          # single copy the GUI uses also serves as the CLI-only install
+          # source -- no second "cli/" copy of the same binaries.
+          cp installer/install.sh pyinst_dist/nintoolbox/install.sh
+          chmod +x pyinst_dist/nintoolbox/install.sh
+          cd pyinst_dist && tar -czf ../dist/gui-linux-x86_64/nintoolbox-linux-x86_64.tar.gz nintoolbox
 
       - uses: actions/upload-artifact@v4
         with:

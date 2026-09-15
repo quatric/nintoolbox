@@ -44,42 +44,73 @@ FILETYPES = (
 )
 
 
+def bundle_dir():
+    """The single folder every companion tool is staged into: the PyInstaller
+    onefile extraction dir (sys._MEIPASS) when frozen, otherwise the folder
+    this script lives in. All tools -- wszst and every --with-<tool> --
+    are bundled into this one place (see nintoolbox.spec); nothing is
+    duplicated into a second location, so this is the only directory
+    find_wszst_binary()/find_companion_tool() ever need to search."""
+    return getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+
+
+def _exe_variants(path):
+    """PyInstaller stages Windows binaries with their '.exe' suffix intact,
+    but bare-name existence checks (os.path.isfile) don't auto-resolve that
+    the way shell PATH lookup does. Try both spellings."""
+    if os.name == "nt" and not path.lower().endswith(".exe"):
+        return [path + ".exe", path]
+    return [path]
+
+
+def _find_executable(path):
+    for candidate in _exe_variants(path):
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+    return None
+
+
 def find_wszst_binary():
-    """Locate the wszst or nintoolbox binary next to the script, in project/bin/, or in PATH."""
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    candidates = [
-        os.path.join(base_dir, "nintoolbox"),
+    """Locate the wszst binary bundled in bundle_dir(), or fall back to PATH.
+    Deliberately never matches this GUI's own executable: on Windows, an
+    absent/misplaced wszst used to fall through to shutil.which("nintoolbox"),
+    which matches the running .exe itself (Python's shutil.which prepends the
+    current directory on Windows) and re-launches the GUI instead of running
+    the tool.
+    """
+    base_dir = bundle_dir()
+    for candidate in (
         os.path.join(base_dir, "wszst"),
         os.path.join(base_dir, "project", "bin", "wszst"),
         os.path.join(base_dir, "project", "wszst"),
         os.path.join(base_dir, "bin", "wszst"),
         "/usr/local/bin/wszst",
-    ]
-    for c in candidates:
-        if os.path.isfile(c) and os.access(c, os.X_OK):
-            return c
-    found = shutil.which("wszst") or shutil.which("nintoolbox")
+    ):
+        found = _find_executable(candidate)
+        if found:
+            return found
+    found = shutil.which("wszst")
     if found:
         return found
     return "wszst"
 
 
 def find_companion_tool(name, wszst_path):
-    """Look for NAME bundled alongside the resolved wszst binary first (how
-    the .app/PyInstaller build stages companion tools next to wszst -- see
-    nintoolbox.spec / build.yml's build-gui-macos job), then fall back to
+    """Look for NAME in bundle_dir(), the one folder every companion tool is
+    staged into alongside wszst (see nintoolbox.spec), then fall back to
     PATH. wszst itself searches PATH by bare name (find_program() in
     lib-passthru.c), so passing an explicit absolute path via --with-<tool>=
     guarantees the bundled copy is always preferred.
     """
+    found = _find_executable(os.path.join(bundle_dir(), name))
+    if found:
+        return found
+    # wszst_path may point outside bundle_dir() (PATH/system install); check
+    # alongside it too before giving up to PATH search.
     wszst_dir = os.path.dirname(os.path.abspath(wszst_path))
-    candidate = os.path.join(wszst_dir, name)
-    if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
-        return candidate
-    base_dir = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-    meipass_candidate = os.path.join(base_dir, name)
-    if os.path.isfile(meipass_candidate) and os.access(meipass_candidate, os.X_OK):
-        return meipass_candidate
+    found = _find_executable(os.path.join(wszst_dir, name))
+    if found:
+        return found
     return shutil.which(name)
 
 
@@ -449,7 +480,7 @@ class NintoolboxGUI(TkinterDnD.Tk if TkinterDnD else tk.Tk):
         Mirrors installer/install.sh and installer/install.ps1, but as a
         one-click in-app action instead of a script the user runs by hand.
         """
-        bundle_dir = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+        tools_dir = bundle_dir()
         gui_names = {"nintoolbox", "nintoolbox.exe"}
 
         if sys.platform == "win32":
@@ -462,16 +493,16 @@ class NintoolboxGUI(TkinterDnD.Tk if TkinterDnD else tk.Tk):
         try:
             os.makedirs(dest, exist_ok=True)
             installed = []
-            for name in sorted(os.listdir(bundle_dir)):
+            for name in sorted(os.listdir(tools_dir)):
                 if name in gui_names or name == "share":
                     continue
-                src = os.path.join(bundle_dir, name)
+                src = os.path.join(tools_dir, name)
                 if not os.path.isfile(src) or not is_exe(src):
                     continue
                 shutil.copy2(src, os.path.join(dest, name))
                 installed.append(name)
 
-            share_src = os.path.join(bundle_dir, "share")
+            share_src = os.path.join(tools_dir, "share")
             if os.path.isdir(share_src):
                 share_dest = os.path.join(os.path.dirname(dest), "share")
                 os.makedirs(share_dest, exist_ok=True)

@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
-# Installs the CLI tools bundled next to this script onto your PATH.
+# Installs the CLI tools bundled next to this script onto your PATH. This
+# script ships inside the GUI's own app/dist folder (built with PyInstaller's
+# --contents-directory . so everything lands flat, right next to the main
+# executable) -- there is no separate "CLI-only" copy of these binaries.
 #
 # Usage: ./install.sh [DEST_DIR]
 #   DEST_DIR defaults to /usr/local/bin (needs sudo) if writable or run as
 #   root; otherwise falls back to ~/.local/bin (created if missing).
 #
 # Copies every executable file next to this script (skipping this script,
-# the GUI app, and the share/ directory) into DEST_DIR, and copies share/
-# (titles.txt etc.) to DEST_DIR/../share/nintoolbox if present.
+# the GUI app/its support libraries, and the share/ directory) into DEST_DIR,
+# and copies share/ (titles.txt etc.) to DEST_DIR/../share/nintoolbox if
+# present.
 
 set -euo pipefail
 
@@ -29,7 +33,10 @@ installed=0
 for f in "$HERE"/*; do
 	name="$(basename "$f")"
 	case "$name" in
-		install.sh|*.app|share) continue ;;
+		install.sh|nintoolbox|*.app|share) continue ;;
+		# PyInstaller's own support libraries land flat alongside the tools
+		# under --contents-directory . -- never CLI tools, always skip.
+		*.so|*.so.*|*.dylib|*.dll) continue ;;
 	esac
 	[[ -f "$f" && -x "$f" ]] || continue
 	cp -p "$f" "$DEST/$name"
