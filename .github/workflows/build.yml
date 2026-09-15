@@ -616,7 +616,7 @@ jobs:
 
       - uses: cygwin/cygwin-install-action@master
         with:
-          packages: gcc-core gcc-g++ make autoconf automake libtool zlib-devel libyaml-devel binutils
+          packages: gcc-core gcc-g++ make autoconf automake libtool zlib-devel libyaml-devel libncurses-devel binutils
 
       # Companion tools that are plain C/C++ and build fine under Cygwin
       # (same toolchain family build-windows already uses for wszst itself).
@@ -667,16 +667,23 @@ jobs:
             echo "::warning::no mobipeg Windows release asset found -- skipping"
           fi
 
-          # 5. makerom (3DSGuy/Project_CTR)
+          # 5. makerom (3DSGuy/Project_CTR) -- force PROJECT_PLATFORM=GNU:
+          # its Makefile auto-detects Windows_NT (true under Cygwin too) and
+          # defaults to cross-compiling with mingw, which isn't installed
+          # here; GNU mode uses plain gcc/g++, i.e. Cygwin's own toolchain.
           if git clone --depth 1 https://github.com/3DSGuy/Project_CTR.git "$TMP/project-ctr-src" 2>/dev/null; then
-            (cd "$TMP/project-ctr-src/makerom" && make -j"$(nproc)" deps && make -j"$(nproc)" && \
+            (cd "$TMP/project-ctr-src/makerom" && make -j"$(nproc)" PROJECT_PLATFORM=GNU deps && make -j"$(nproc)" PROJECT_PLATFORM=GNU && \
               cp bin/makerom.exe "$GITHUB_WORKSPACE/extra_tools/" 2>/dev/null || cp bin/makerom "$GITHUB_WORKSPACE/extra_tools/makerom.exe") || \
               echo "::warning::makerom source build failed -- skipping"
           fi
 
-          # 6. wud2app (PAK-VIN/wud2app-macOS) -- plain C, portable despite the name
+          # 6. wud2app (PAK-VIN/wud2app-macOS) -- plain C, portable despite the
+          # name. Its source calls glibc-only fseeko64/ftello64, which
+          # Cygwin's newlib doesn't provide (its own off_t is already 64-bit,
+          # so fseeko/ftello are equivalent) -- remap them via -D rather than
+          # patching the vendored source.
           if git clone --depth 1 https://github.com/PAK-VIN/wud2app-macOS.git "$TMP/wud2app-src" 2>/dev/null; then
-            (cd "$TMP/wud2app-src" && gcc -Wall -Wextra -O3 main.c wudparts.c rijndael.c sha1.c -o "$GITHUB_WORKSPACE/extra_tools/wud2app.exe") || \
+            (cd "$TMP/wud2app-src" && gcc -Wall -Wextra -O3 -include sys/stat.h -Dfseeko64=fseeko -Dftello64=ftello main.c wudparts.c rijndael.c sha1.c -o "$GITHUB_WORKSPACE/extra_tools/wud2app.exe") || \
               echo "::warning::wud2app source build failed -- skipping"
           fi
 
