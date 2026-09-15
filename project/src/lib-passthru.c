@@ -1800,12 +1800,25 @@ static enumError passthru_archive (
 		// auto-detect convention as ~/.switch/prod.keys below.
 		char seeddb[PATH_MAX] = "";
 		{
-			ccp home = getenv ("HOME");
-			if (home)
+			// Same convention as resolve_bundled_tool(): a copy shipped next
+			// to the running binary (bundled into the app's Frameworks dir
+			// alongside ctrtool) wins over the user's own ~/.3ds/seeddb.bin.
+			ccp dir = ProgramDirectory ();
+			if (dir && *dir)
 			{
-				snprintf (seeddb, sizeof (seeddb), "%s/.3ds/seeddb.bin", home);
+				snprintf (seeddb, sizeof (seeddb), "%s/seeddb.bin", dir);
 				if (access (seeddb, R_OK))
 					seeddb[0] = '\0';
+			}
+			if (!*seeddb)
+			{
+				ccp home = getenv ("HOME");
+				if (home)
+				{
+					snprintf (seeddb, sizeof (seeddb), "%s/.3ds/seeddb.bin", home);
+					if (access (seeddb, R_OK))
+						seeddb[0] = '\0';
+				}
 			}
 		}
 		char seeddb_arg[PATH_MAX + 16] = "";

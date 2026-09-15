@@ -274,6 +274,11 @@ jobs:
         run: |
           mkdir -p dist/macos-universal
           cp project/bin/* dist/macos-universal/ 2>/dev/null || true
+          # seeddb.bin (titleid -> seed map): ctrtool needs it to decrypt
+          # RomFS on post-2015 3DS titles using seed crypto. resolve_bundled_tool()'s
+          # seeddb lookup checks next to the running binary first (see lib-passthru.c),
+          # so ship it alongside wszst/ctrtool here too.
+          cp project/third_party/seeddb.bin dist/macos-universal/seeddb.bin
 
       - uses: actions/upload-artifact@v4
         with:
@@ -552,6 +557,10 @@ jobs:
           done
           DATA_ARGS=(--add-data logo.png:.)
           [ -d extra_tools/share ] && DATA_ARGS+=(--add-data extra_tools/share:share)
+          # seeddb.bin (titleid -> seed map): ctrtool needs it to decrypt RomFS
+          # on post-2015 3DS titles using seed crypto. Flat next to ctrtool via
+          # --contents-directory . below, matching resolve_bundled_tool()'s lookup.
+          DATA_ARGS+=(--add-data project/third_party/seeddb.bin:.)
           pyinstaller --name nintoolbox --windowed \
             "${BINARY_ARGS[@]}" "${DATA_ARGS[@]}" --icon=logo.icns \
             --contents-directory . \
