@@ -856,6 +856,15 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 					else if (max_err < err)
 						max_err = err;
 				}
+				else if (verbose >= 0)
+					// This PNG is being discarded without ever reaching the native
+					// texture -- if it was actually a genuine user edit whose mtime
+					// didn't end up newer than the native file/setup.txt (e.g. a
+					// re-extract ran after the edit and refreshed those timestamps),
+					// the edit is now silently lost with no other trace. Log it so
+					// that scenario is at least visible instead of completely silent.
+					fprintf (stdlog, "DISCARD PNG preview (not newer than %s): %s\n",
+						target_img, path);
 				unlink (path);
 			}
 		}
