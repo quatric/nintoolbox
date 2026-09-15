@@ -179,6 +179,7 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		if (err)
 			return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported GVR texture: %s\n", fname);
 		AssignDecodedRGBA (img, rgba, width, height, &be_func, fname);
+		img->info_fform = FF_GVR;
 		return PatchListIMG (img);
 	}
 
@@ -196,6 +197,7 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		if (berr)
 			return berr;
 		AssignDecodedRGBA (img, rgba, w, h, &le_func, fname);
+		img->info_fform = FF_BNTX;
 		return PatchListIMG (img);
 	}
 
@@ -215,6 +217,7 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		if (serr)
 			return serr;
 		AssignDecodedRGBA (img, rgba, w, h, &le_func, fname);
+		img->info_fform = FF_SMDH;
 		return PatchListIMG (img);
 	}
 
@@ -233,6 +236,7 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		if (werr)
 			return werr;
 		AssignDecodedRGBA (img, rgba, w, h, &le_func, fname);
+		img->info_fform = FF_WIBN;
 		return PatchListIMG (img);
 	}
 
@@ -252,6 +256,7 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		if (berr)
 			return berr;
 		AssignDecodedRGBA (img, rgba, w, h, &le_func, fname);
+		img->info_fform = FF_NDS_BANNER;
 		return PatchListIMG (img);
 	}
 
@@ -270,6 +275,7 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		if (gerr)
 			return gerr;
 		AssignDecodedRGBA (img, rgba, w, h, &le_func, fname);
+		img->info_fform = FF_GTX;
 		return PatchListIMG (img);
 	}
 
@@ -288,6 +294,7 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		memcpy (owned, rgba, (size_t)width * height * 4);
 		AjpgFree (rgba);
 		AssignDecodedRGBA (img, owned, width, height, &be_func, fname);
+		img->info_fform = FF_AJPG;
 		return PatchListIMG (img);
 	}
 
@@ -387,7 +394,7 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		img->width = img->xwidth = width;
 		img->height = img->xheight = height;
 		img->iform = img->info_iform = IMG_X_RGB;
-		img->info_fform = FF_UNKNOWN;
+		img->info_fform = FF_NCGR;
 		img->info_n_image = 1;
 		img->alpha_status = 0;
 		img->endian = &le_func;
@@ -409,7 +416,7 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		img->width = img->xwidth = width;
 		img->height = img->xheight = height;
 		img->iform = img->info_iform = IMG_X_RGB;
-		img->info_fform = FF_UNKNOWN;
+		img->info_fform = FF_NCLR;
 		img->info_n_image = 1;
 		img->alpha_status = 0;
 		img->endian = &le_func;
@@ -424,20 +431,34 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		u8 *rgba = 0;
 		uint width = 0, height = 0;
 		enumError serr = ERR_NOTHING_TO_DO;
+		file_format_t serr_fform = FF_UNKNOWN;
 		if (data_size >= 4 && (!memcmp (data, "STEX", 4)))
+		{
 			serr = DecodeSTEX_RGBA (&rgba, &width, &height, data, data_size);
+			serr_fform = FF_STEX;
+		}
 		else if (data_size >= 5 && !memcmp (data, "DMPBM", 5))
+		{
 			serr = DecodeDMPBM_RGBA (&rgba, &width, &height, data, data_size);
+			serr_fform = FF_DMPBM;
+		}
 		else if (data_size >= 4 && !memcmp (data, "cmb ", 4))
+		{
 			serr = DecodeCMBTexture_RGBA (&rgba, &width, &height, data, data_size);
+			serr_fform = FF_CMB;
+		}
 		else if (data_size >= 0x38 && (rd_le32 (data) == 1 || rd_le32 (data) == 0x400)
 			&& (Pica3DSFilenameExt (fname, ".btga") || Pica3DSFilenameExt (fname, ".lga")))
+		{
 			serr = DecodeBTGA_RGBA (&rgba, &width, &height, data, data_size);
+			serr_fform = FF_BTGA;
+		}
 		if (serr != ERR_NOTHING_TO_DO)
 		{
 			if (serr || !rgba)
 				return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported 3DS texture: %s\n", fname);
 			AssignDecodedRGBA (img, rgba, width, height, &le_func, fname);
+			img->info_fform = serr_fform;
 			return PatchListIMG (img);
 		}
 	}
@@ -452,6 +473,7 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 			return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported %s texture: %s\n",
 				GetNintendoFormatName (nfmt.type), fname);
 		AssignDecodedRGBA (img, rgba, width, height, nfmt.big_endian ? &be_func : &le_func, fname);
+		img->info_fform = nfmt.type == NFMT_BFLIM ? FF_BFLIM : FF_BCLIM;
 		return PatchListIMG (img);
 	}
 
@@ -462,6 +484,7 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		if (err)
 			return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported TM0 texture: %s\n", fname);
 		AssignDecodedRGBA (img, tex.rgba, tex.width, tex.height, &le_func, fname);
+		img->info_fform = FF_TM0;
 		return PatchListIMG (img);
 	}
 
@@ -725,6 +748,7 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		if (err)
 			return ERROR0 (ERR_INVALID_IFORM, "Invalid NSBTX texture archive: %s\n", fname);
 		AssignDecodedRGBA (img, rgba, width, height, &le_func, fname);
+		img->info_fform = FF_NSBTX;
 		return PatchListIMG (img);
 	}
 
@@ -743,6 +767,7 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		if (err)
 			return ERROR0 (ERR_INVALID_IFORM, "Invalid Nitro font resource: %s\n", fname);
 		AssignDecodedRGBA (img, atlas, width, height, &le_func, fname);
+		img->info_fform = FF_NFTR;
 		return PatchListIMG (img);
 	}
 
