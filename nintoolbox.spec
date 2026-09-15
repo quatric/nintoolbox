@@ -74,5 +74,5 @@ app = BUNDLE(
     name='nintoolbox.app',
     icon='logo.icns',
     bundle_identifier='net.quatric.nintoolbox',
-    version='1.0',
+    version='1.1',
 )
