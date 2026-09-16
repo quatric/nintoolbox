@@ -1402,6 +1402,14 @@ static unsigned char *CxiAshTokenizationToBytes(
 	
 	//write data out
 	unsigned char *out = (unsigned char *) CALLOC(0xC + symStreamSize + dstStreamSize, 1);
+	if (out == NULL) {
+		FREE(symBytes);
+		FREE(dstBytes);
+		CxiBitWriterFree(&symStream);
+		CxiBitWriterFree(&dstStream);
+		*pSize = 0;
+		return NULL;
+	}
 	{
 		//write header
 		unsigned int ofsSym = 0xC;

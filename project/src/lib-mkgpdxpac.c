@@ -87,7 +87,10 @@ enumError ExtractMKGPDXPacArchive (ccp arg, ccp basedir, uint depth)
 		if (name_pos < raw_size)
 		{
 			const char *s = (const char *)(raw + name_pos);
-			size_t slen = strnlen (s, sizeof (name) - 1);
+			size_t max_len = sizeof (name) - 1;
+			if (max_len > raw_size - name_pos)
+				max_len = raw_size - name_pos;
+			size_t slen = strnlen (s, max_len);
 			memcpy (name, s, slen);
 			name[slen] = 0;
 		}

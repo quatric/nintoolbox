@@ -177,8 +177,11 @@ model_t *ParseNUD (const uint8_t *data, size_t size)
 									 : (int32_t)rd_le32 (data + obj_off + 32);
 			if (name_start + (size_t)name_rel < size && data[name_start + name_rel])
 			{
+				size_t max_len = sizeof (mesh->name) - 1;
+				if (max_len > size - (name_start + name_rel))
+					max_len = size - (name_start + name_rel);
 				size_t nlen = strnlen ((const char *)(data + name_start + name_rel),
-					sizeof (mesh->name) - 1);
+					max_len);
 				memcpy (mesh->name, data + name_start + name_rel, nlen);
 				mesh->name[nlen] = '\0';
 			}

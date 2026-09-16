@@ -66,6 +66,7 @@ typedef struct rnc_state_t
 	u32 bit_buffer;
 	u8 *mem1, *decoded, *window, *pack_block;
 	u8 *out;
+	bool corrupt;
 } rnc_state_t;
 
 static u16 rnc_rotate_key (u16 x)
@@ -77,20 +78,31 @@ static u8 rnc_read_source (rnc_state_t *v)
 {
 	if (v->pack_block == &v->mem1[0xFFFD])
 	{
+		// A malformed/over-long compressed stream can drive in_pos past
+		// src_size (the decoder has no way to know it has already consumed
+		// every packed byte until it tries to read past the end); without
+		// this clamp 'left' goes negative and the memcpy()s below take that
+		// as a huge unsigned length, corrupting the heap.
 		int left = (int)v->src_size - (int)v->in_pos;
+		if (left < 0)
+			left = 0;
 		int n;
 		if (left <= 0xFFFD)
 			n = left;
 		else
 			n = 0xFFFD;
 		v->pack_block = v->mem1;
-		memcpy (v->pack_block, v->src + v->in_pos, n);
+		if (n > 0)
+			memcpy (v->pack_block, v->src + v->in_pos, n);
 		v->in_pos += n;
 		if (left - n > 2)
 			left = 2;
 		else
 			left -= n;
-		memcpy (v->pack_block + n, v->src + v->in_pos, left);
+		if (left < 0)
+			left = 0;
+		if (left > 0)
+			memcpy (v->pack_block + n, v->src + v->in_pos, left);
 	}
 	return *v->pack_block++;
 }
@@ -176,6 +188,16 @@ static void rnc_decode_match_count (rnc_state_t *v)
 
 static void rnc_container_match (rnc_state_t *v)
 {
+	// match_offset comes straight from the bitstream; a corrupt/malicious
+	// stream can request a distance further back than anything decoded so
+	// far, which would read before v->decoded's allocation. Reject it
+	// instead of dereferencing an out-of-bounds pointer.
+	if (!v->match_offset || v->match_offset > (uint)(v->window - v->decoded))
+	{
+		v->corrupt = true;
+		v->processed = v->input_size;
+		return;
+	}
 	const uint count = v->match_count;
 	v->processed += count;
 	uint i = count;
@@ -300,7 +322,11 @@ static void rnc_make_huftable (rnc_state_t *v, rnc_huftable_t *t, int count)
 
 static u32 rnc_decode_table_data (rnc_state_t *v, rnc_huftable_t *t)
 {
-	for (u32 i = 0;; i++)
+	// t always has exactly 16 entries (see rnc_make_huftable()); a corrupt
+	// bitstream whose current bits don't match any populated code would
+	// otherwise send this loop walking off the end of the (stack) table
+	// forever.
+	for (u32 i = 0; i < 16; i++)
 	{
 		if (t[i].bit_depth && t[i].l3 == (v->bit_buffer & ((1u << t[i].bit_depth) - 1)))
 		{
@@ -310,6 +336,9 @@ static u32 rnc_decode_table_data (rnc_state_t *v, rnc_huftable_t *t)
 			return rnc_input_bits_m1 (v, i - 1) | (1u << (i - 1));
 		}
 	}
+	v->corrupt = true;
+	v->processed = v->input_size;
+	return 0;
 }
 
 static void rnc_unpack_data_m1 (rnc_state_t *v)
@@ -432,7 +461,7 @@ enumError DecodeRNC (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 	FREE (st.mem1);
 	FREE (st.decoded);
 
-	if (st.unpacked_crc_real != rd_be16 (src + 0x0C) || st.out - *dest != input_size)
+	if (st.corrupt || st.unpacked_crc_real != rd_be16 (src + 0x0C) || st.out - *dest != input_size)
 	{
 		FREE (*dest);
 		*dest = 0;

@@ -103,7 +103,10 @@ enumError ExtractPACArchive (ccp arg, ccp basedir, uint depth)
 		if (name_offset < raw_size)
 		{
 			const char *s = (const char *)(raw + name_offset);
-			size_t slen = strnlen (s, sizeof (name) - 1);
+			size_t max_len = sizeof (name) - 1;
+			if (max_len > raw_size - name_offset)
+				max_len = raw_size - name_offset;
+			size_t slen = strnlen (s, max_len);
 			memcpy (name, s, slen);
 			name[slen] = 0;
 		}

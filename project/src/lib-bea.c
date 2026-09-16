@@ -218,9 +218,13 @@ enumError ScanBEA (bea_archive_t *bea, const u8 *data, uint size)
 	{
 		const u32 n_nodes = rd_le32 (data + dic_off + 4); // excludes root
 		const u64 table_off = dic_off + 8;
-		if (table_off + (u64)(n_nodes + 1) * 16 <= size)
+		const u64 n_total = (u64)n_nodes + 1; // widen before the multiply below:
+			// n_nodes==UINT32_MAX would otherwise wrap n_nodes+1 to 0 in 32-bit
+			// math, passing the bounds check with a 0-size table while the loop
+			// below still iterates 2^32 times into it.
+		if (table_off + n_total * 16 <= size)
 		{
-			bea->n_dict_nodes = n_nodes + 1;
+			bea->n_dict_nodes = (uint)n_total;
 			bea->dict = CALLOC (bea->n_dict_nodes, sizeof (bea_dic_entry_t));
 			for (u32 i = 0; i <= n_nodes; i++)
 			{

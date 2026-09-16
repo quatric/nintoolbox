@@ -331,7 +331,7 @@ enumError ScanGFA (gfa_t *gfa, const u8 *data, uint size)
 	const u32 data_off = rd_le32 (data + 0x14);
 	const u32 data_size = rd_le32 (data + 0x18);
 
-	if (info_off + 4 > size || data_off + 16 > size)
+	if ((u64)info_off + 4 > size || (u64)data_off + 16 > size)
 		return EINVAL;
 	if ((u64)data_off + data_size > size)
 		return EINVAL;

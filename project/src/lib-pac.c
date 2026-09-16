@@ -322,7 +322,10 @@ enumError create_pac_dir (ccp source, ccp dest)
 					reusable = noff < raw_size && zsize && fstart <= raw_size - zsize;
 					if (reusable)
 					{
-						const size_t nlen = strnlen ((const char *)(raw + noff), sizeof (name) - 1);
+						size_t max_len = sizeof (name) - 1;
+						if (max_len > raw_size - noff)
+							max_len = raw_size - noff;
+						const size_t nlen = strnlen ((const char *)(raw + noff), max_len);
 						memcpy (name, raw + noff, nlen);
 						name[nlen] = 0;
 					}

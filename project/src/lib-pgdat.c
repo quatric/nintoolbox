@@ -73,7 +73,10 @@ enumError ExtractPGDATArchive (ccp arg, ccp basedir, uint depth)
 		if (str_size > 0 && offset_file_name_tbl + 4 + (i + 1) * str_size <= raw_size)
 		{
 			const char *s = (const char *)(raw + offset_file_name_tbl + 4 + i * str_size);
-			size_t slen = strnlen (s, sizeof (name) - 1);
+			size_t max_len = sizeof (name) - 1;
+			if (max_len > str_size)
+				max_len = str_size;
+			size_t slen = strnlen (s, max_len);
 			memcpy (name, s, slen);
 			name[slen] = 0;
 		}

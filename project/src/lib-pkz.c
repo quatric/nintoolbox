@@ -80,7 +80,10 @@ enumError ExtractPKZArchive (ccp arg, ccp basedir, uint depth)
 		if (full_name_pos < raw_size)
 		{
 			const char *s = (const char *)(raw + full_name_pos);
-			size_t slen = strnlen (s, sizeof (name) - 1);
+			size_t max_len = sizeof (name) - 1;
+			if (max_len > raw_size - full_name_pos)
+				max_len = raw_size - full_name_pos;
+			size_t slen = strnlen (s, max_len);
 			memcpy (name, s, slen);
 			name[slen] = 0;
 		}

@@ -90,7 +90,10 @@ enumError ExtractGARArchive (ccp arg, ccp basedir, uint depth)
 			if (ext_str_off < raw_size)
 			{
 				const char *s = (const char *)(raw + ext_str_off);
-				size_t slen = strnlen (s, sizeof (ext) - 1);
+				size_t max_len = sizeof (ext) - 1;
+				if (max_len > raw_size - ext_str_off)
+					max_len = raw_size - ext_str_off;
+				size_t slen = strnlen (s, max_len);
 				memcpy (ext, s, slen);
 				ext[slen] = 0;
 			}
@@ -109,7 +112,10 @@ enumError ExtractGARArchive (ccp arg, ccp basedir, uint depth)
 				if (name_str_off < raw_size)
 				{
 					const char *s = (const char *)(raw + name_str_off);
-					size_t slen = strnlen (s, sizeof (name) - 34);
+					size_t max_len = sizeof (name) - 34;
+					if (max_len > raw_size - name_str_off)
+						max_len = raw_size - name_str_off;
+					size_t slen = strnlen (s, max_len);
 					memcpy (name, s, slen);
 					name[slen] = 0;
 				}
@@ -194,7 +200,10 @@ enumError ExtractGARArchive (ccp arg, ccp basedir, uint depth)
 				if (name_str_off < raw_size)
 				{
 					const char *s = (const char *)(raw + name_str_off);
-					size_t slen = strnlen (s, sizeof (name) - 1);
+					size_t max_len = sizeof (name) - 1;
+					if (max_len > raw_size - name_str_off)
+						max_len = raw_size - name_str_off;
+					size_t slen = strnlen (s, max_len);
 					memcpy (name, s, slen);
 					name[slen] = 0;
 				}

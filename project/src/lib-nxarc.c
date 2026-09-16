@@ -63,7 +63,10 @@ enumError ExtractNXARCArchive (ccp arg, ccp basedir, uint depth)
 		if (str_pos < raw_size)
 		{
 			const char *s = (const char *)(raw + str_pos);
-			size_t slen = strnlen (s, sizeof (name) - 1);
+			size_t max_len = sizeof (name) - 1;
+			if (max_len > raw_size - str_pos)
+				max_len = raw_size - str_pos;
+			size_t slen = strnlen (s, max_len);
 			memcpy (name, s, slen);
 			name[slen] = 0;
 			str_pos += (uint)slen + 1;

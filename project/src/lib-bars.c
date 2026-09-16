@@ -87,7 +87,10 @@ enumError ExtractBARSArchive (ccp arg, ccp basedir, uint depth)
 			if (name_abs < raw_size)
 			{
 				const char *str = (const char *)(raw + name_abs);
-				size_t slen = strnlen (str, sizeof (name) - 1);
+				size_t max_len = sizeof (name) - 1;
+				if (max_len > raw_size - name_abs)
+					max_len = raw_size - name_abs;
+				size_t slen = strnlen (str, max_len);
 				if (slen > 0)
 				{
 					memcpy (name, str, slen);
