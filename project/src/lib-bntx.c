@@ -134,7 +134,16 @@ void ResetBNTX (bntx_t *bntx)
 {
 	if (!bntx)
 		return;
-	FREE (bntx->textures);
+	if (bntx->textures)
+	{
+		for (uint i = 0; i < bntx->n_textures; i++)
+		{
+			FREE (bntx->textures[i].mip_offsets);
+			if (bntx->textures[i].user_data)
+				FREE (bntx->textures[i].user_data);
+		}
+		FREE (bntx->textures);
+	}
 	memset (bntx, 0, sizeof (*bntx));
 }
 
@@ -149,21 +158,17 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 		return EINVAL; // big-endian BNTX does not occur in practice
 	const uint first_blk = brd16 (data + 22);
 
-	// The texture container ("NX  " target) follows the 32-byte header.
-	const uint tc = 0x20;
+	// The texture container ("NX  ", "Ounc", "PC  ") follows the 32-byte header.
+	const uint tc = (first_blk >= 0x20 && first_blk + 0x30 <= size) ? first_blk : 0x20;
 	if (tc + 0x30 > size)
 		return EINVAL;
 	const uint count = brd32 (data + tc + 4);
 	const u64 info_ptrs_addr = brd64 (data + tc + 8);
 	if (!count || count > 0x10000)
 		return EINVAL;
-	// These addr fields are attacker-controlled 64-bit values read straight
-	// from the file; "addr + const > size" can wrap around near UINT64_MAX
-	// and pass the check, so bound the base address first and only then
-	// subtract, which can't overflow.
+	// Bound the base address before range arithmetic to avoid overflow near UINT64_MAX.
 	if (info_ptrs_addr >= size || (u64)count * 8 > size - info_ptrs_addr)
 		return EINVAL;
-	(void)first_blk;
 
 	bntx_texture_t *tex = CALLOC (count, sizeof (*tex));
 	if (!tex)
@@ -204,6 +209,13 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 		tex[n].name = name;
 		tex[n].width = w;
 		tex[n].height = h;
+		tex[n].dim = ti[1];
+		tex[n].depth = brd32 (ti + 0x1c);
+		if (!tex[n].depth)
+			tex[n].depth = 1;
+		tex[n].array_count = brd32 (ti + 0x20);
+		if (!tex[n].array_count)
+			tex[n].array_count = 1;
 		tex[n].format = brd32 (ti + TI_FORMAT);
 		tex[n].comp_sel = brd32 (ti + TI_COMP_SEL);
 		tex[n].tile_mode = brd16 (ti + TI_TILE_MODE);
@@ -211,6 +223,72 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 		tex[n].n_mips = brd16 (ti + TI_NUM_MIPS);
 		tex[n].data = data + data_addr;
 		tex[n].data_size = image_size;
+
+		// Read mip offsets if available
+		if (tex[n].n_mips > 1 && ptrs_addr < size && (u64)tex[n].n_mips * 8 <= size - ptrs_addr)
+		{
+			tex[n].mip_offsets = CALLOC (tex[n].n_mips, sizeof (u64));
+			if (tex[n].mip_offsets)
+			{
+				for (uint m = 0; m < tex[n].n_mips; m++)
+				{
+					const u64 m_addr = brd64 (data + ptrs_addr + m * 8);
+					if (m_addr >= data_addr && m_addr <= size)
+						tex[n].mip_offsets[m] = m_addr - data_addr;
+				}
+			}
+		}
+
+		// Read UserData if present (dictionary at 0x88, array at 0x68)
+		const u64 ud_dict_addr = brd64 (ti + 0x88);
+		const u64 ud_addr = brd64 (ti + 0x68);
+		if (ud_dict_addr && ud_dict_addr + 8 <= size && ud_addr && ud_addr < size
+			&& !memcmp (data + ud_dict_addr, "_DIC", 4))
+		{
+			const uint ud_count = brd32 (data + ud_dict_addr + 4);
+			if (ud_count > 0 && ud_count <= 256
+				&& ud_dict_addr + 8 + (u64)(ud_count + 1) * 16 <= size
+				&& ud_addr + (u64)ud_count * 0x40 <= size)
+			{
+				bntx_user_data_t *uds = CALLOC (ud_count, sizeof (*uds));
+				if (uds)
+				{
+					for (uint u = 0; u < ud_count; u++)
+					{
+						const u8 *udh = data + ud_addr + u * 0x40;
+						const u64 u_name_addr = brd64 (udh + 0x00);
+						const u64 u_data_addr = brd64 (udh + 0x08);
+						const uint u_cnt = brd32 (udh + 0x10);
+						const uint u_type = udh[0x14];
+
+						ccp u_name = "";
+						if (u_name_addr && u_name_addr + 2 <= size)
+						{
+							const uint ulen = brd16 (data + u_name_addr);
+							if (ulen < size - u_name_addr - 2 && !data[u_name_addr + 2 + ulen])
+								u_name = (ccp)(data + u_name_addr + 2);
+						}
+						uds[u].name = u_name;
+						uds[u].type = (bntx_user_data_type_t)u_type;
+						uds[u].count = u_cnt;
+						if (u_data_addr && u_data_addr < size)
+						{
+							if (u_type == BNTX_UD_INT32 && u_data_addr + (u64)u_cnt * 4 <= size)
+								uds[u].val.i32 = (const s32 *)(data + u_data_addr);
+							else if (u_type == BNTX_UD_SINGLE && u_data_addr + (u64)u_cnt * 4 <= size)
+								uds[u].val.f32 = (const float *)(data + u_data_addr);
+							else if (u_type == BNTX_UD_BYTE && u_data_addr + u_cnt <= size)
+								uds[u].val.bytes = data + u_data_addr;
+							else if (u_type == BNTX_UD_WSTRING && u_data_addr + (u64)u_cnt * 2 <= size)
+								uds[u].val.wstr = (const u16 *)(data + u_data_addr);
+						}
+					}
+					tex[n].n_user_data = ud_count;
+					tex[n].user_data = uds;
+				}
+			}
+		}
+
 		n++;
 	}
 
@@ -222,6 +300,11 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 	memset (bntx, 0, sizeof (*bntx));
 	bntx->data = data;
 	bntx->size = size;
+	memcpy (bntx->platform, data + tc, 4);
+	bntx->platform[4] = 0;
+	bntx->version_micro = data[8];
+	bntx->version_minor = data[9];
+	bntx->version_major = brd16 (data + 10);
 	bntx->textures = tex;
 	bntx->n_textures = n;
 	return ERR_OK;

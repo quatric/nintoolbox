@@ -1829,8 +1829,19 @@ static enumError cmd_dump ()
 			printf ("\n* Dump structure of %s:%s\n", GetNameFF_SZS (&szs), arg);
 			DumpStructureBRRES (stdout, &szs);
 		}
+		else if (szs.fform_file == FF_AAMP || szs.fform_arch == FF_AAMP
+			|| (szs.data && szs.size >= 12 && !memcmp (szs.data, "AAMP", 4)))
+		{
+			printf ("\n* Dump structure of %s:%s\n", GetNameFF (FF_AAMP, 0), arg);
+			aamp_file_t aamp;
+			if (ScanAAMP (&aamp, szs.data, szs.size) == ERR_OK)
+			{
+				DumpStructureAAMP (stdout, &aamp, 2);
+				ResetAAMP (&aamp);
+			}
+		}
 		else if (!opt_ignore)
-			ERROR0 (ERR_WARNING, "No BRRES file -> ignored: %s\n", arg);
+			ERROR0 (ERR_WARNING, "No BRRES/AAMP file -> ignored: %s\n", arg);
 		ResetSZS (&szs);
 	}
 	putchar ('\n');

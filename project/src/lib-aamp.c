@@ -206,7 +206,10 @@ u32 AAMP_NameToHash (const char *name)
 			return (u32)val;
 		}
 	}
-	return (u32)crc32 (0, (const Bytef *)name, (uInt)strlen (name));
+	u32 h = (u32)crc32 (0, (const Bytef *)name, (uInt)strlen (name));
+	AAMP_InitHashDB ();
+	aamp_insert_hash (h, STRDUP (name));
+	return h;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1378,7 +1381,7 @@ static void decode_yaml_entry (FILE *out, const aamp_param_entry_t *entry, int i
 				entry->vec[0], entry->vec[1], entry->vec[2], entry->vec[3]);
 			break;
 		case AAMP_TYPE_QUAT:
-			fprintf (out, "!vec4 [%.7g, %.7g, %.7g, %.7g]\n",
+			fprintf (out, "!quat [%.7g, %.7g, %.7g, %.7g]\n",
 				entry->vec[0], entry->vec[1], entry->vec[2], entry->vec[3]);
 			break;
 		case AAMP_TYPE_STRING32:
@@ -1570,6 +1573,50 @@ static aamp_param_list_t *aamp_add_list (aamp_param_list_t *list, u32 hash)
 	return child;
 }
 
+static int aamp_b64_val (char c)
+{
+	if (c >= 'A' && c <= 'Z') return c - 'A';
+	if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+	if (c >= '0' && c <= '9') return c - '0' + 52;
+	if (c == '+') return 62;
+	if (c == '/') return 63;
+	return -1;
+}
+
+static u8 *aamp_b64_decode (const char *src, size_t *out_len)
+{
+	size_t len = strlen (src);
+	u8 *out = MALLOC (len + 4);
+	size_t o = 0;
+	for (size_t i = 0; i < len; )
+	{
+		while (i < len && (src[i] == ' ' || src[i] == '\t' || src[i] == '\r' || src[i] == '\n'))
+			i++;
+		if (i >= len) break;
+		int a = aamp_b64_val (src[i++]);
+		if (i >= len) break;
+		int b = aamp_b64_val (src[i++]);
+		if (a < 0 || b < 0) break;
+		out[o++] = (u8)((a << 2) | (b >> 4));
+		if (i < len && src[i] != '=')
+		{
+			int c = aamp_b64_val (src[i++]);
+			if (c < 0) break;
+			out[o++] = (u8)(((b & 0xf) << 4) | (c >> 2));
+			if (i < len && src[i] != '=')
+			{
+				int d = aamp_b64_val (src[i++]);
+				if (d < 0) break;
+				out[o++] = (u8)(((c & 0x3) << 6) | d);
+			}
+			else if (i < len) i++;
+		}
+		else if (i < len) i++;
+	}
+	*out_len = o;
+	return out;
+}
+
 static void parse_yaml_values_seq (yaml_parser_t *parser, yaml_event_t *ev, aamp_param_entry_t *entry, const char *tag)
 {
 	float fvals[256];
@@ -1624,6 +1671,14 @@ static void parse_yaml_values_seq (yaml_parser_t *parser, yaml_event_t *ev, aamp
 		entry->vec[2] = count > 2 ? fvals[2] : 0.0f;
 		entry->vec[3] = count > 3 ? fvals[3] : 0.0f;
 	}
+	else if (!strcmp (tag, "!quat"))
+	{
+		entry->type = AAMP_TYPE_QUAT;
+		entry->vec[0] = count > 0 ? fvals[0] : 0.0f;
+		entry->vec[1] = count > 1 ? fvals[1] : 0.0f;
+		entry->vec[2] = count > 2 ? fvals[2] : 0.0f;
+		entry->vec[3] = count > 3 ? fvals[3] : 0.0f;
+	}
 	else if (!strcmp (tag, "!color"))
 	{
 		entry->type = AAMP_TYPE_COLOR;
@@ -1673,11 +1728,11 @@ static void parse_yaml_values_seq (yaml_parser_t *parser, yaml_event_t *ev, aamp
 		u32 idx = 0;
 		for (u32 c = 0; c < num_curves; c++)
 		{
-			if (idx + 32 <= count)
+			if (idx < count) entry->curve.curves[c].uints[0] = uvals[idx++];
+			if (idx < count) entry->curve.curves[c].uints[1] = uvals[idx++];
+			for (int f = 0; f < 30; f++)
 			{
-				entry->curve.curves[c].uints[0] = uvals[idx++];
-				entry->curve.curves[c].uints[1] = uvals[idx++];
-				for (int f = 0; f < 30; f++)
+				if (idx < count)
 					entry->curve.curves[c].floats[f] = fvals[idx++];
 			}
 		}
@@ -1720,6 +1775,13 @@ static void parse_yaml_param (yaml_parser_t *parser, aamp_param_object_t *obj, c
 		{
 			entry.type = AAMP_TYPE_STRING_REF;
 			entry.str = STRDUP (val);
+		}
+		else if (tag && !strcmp (tag, "!BufferBinary"))
+		{
+			entry.type = AAMP_TYPE_BUFFER_BIN;
+			size_t blen = 0;
+			entry.buf.data = aamp_b64_decode (val, &blen);
+			entry.buf.count = (u32)blen;
 		}
 		else if (!strcmp (val, "true") || !strcmp (val, "false"))
 		{
@@ -1944,7 +2006,7 @@ enumError EncodeAAMP_Text (
 
 	size_t bin_size = 0;
 	u8 *bin_data = NULL;
-	enumError err = WriteAAMP (&aamp, &bin_data, &bin_size, aamp.version, is_le);
+	enumError err = WriteAAMP (&aamp, &bin_data, &bin_size, aamp.version, aamp.is_le);
 	ResetAAMP (&aamp);
 	if (err)
 		return err;
@@ -2170,6 +2232,7 @@ enumError DecodeAAMP_JSON (FILE *out, const u8 *data, size_t size)
 	fputs ("{\n", out);
 	fprintf (out, "  \"aamp_version\": %u,\n", aamp.version);
 	fprintf (out, "  \"io_version\": %u,\n", aamp.pio_version);
+	fprintf (out, "  \"endian\": \"%s\",\n", aamp.is_le ? "little" : "big");
 	fputs ("  \"type\": ", out);
 	print_json_string (out, aamp.pio_type);
 	fputs (",\n", out);
@@ -2269,7 +2332,7 @@ enumError decode_aamp_if_possible (ccp arg)
 
 	char dest[PATH_MAX];
 	if (opt_dest)
-		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".yml", false);
+		SubstDest (dest, sizeof (dest), arg, opt_dest, "\1N.aamp.yml", ".aamp.yml", false);
 	else
 		snprintf (dest, sizeof (dest), "%s.yml", arg);
 

@@ -1944,6 +1944,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_BNSTX;
 		case NFMT_NTTF:
 			return FF_NTTF;
+		case NFMT_SHDVAR:
+			return FF_SHDVAR;
 		case NFMT_BFLIM:
 			return FF_BFLIM;
 		case NFMT_BCLIM:

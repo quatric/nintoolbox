@@ -1598,6 +1598,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Hudson Soft Nitro Compressed Archive (.bin / .lzbin, Mario Party DS)" },
 
+	// FF_SHDVAR = 299 (NintendoWare Layout Shader Variation Table)
+	{ FF_SHDVAR, FF_SHDVAR, 0, "SHDVAR", ".shdvartbl", ".shdvartbl", ".shdvartbl",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"NintendoWare Layout Shader Variation Table (.shdvartbl / .svt)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1774,6 +1780,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_PTD, "PTD", "PDT", 0xe05 },
 	{ FF_HBDF, "HBDF", "HSDF", 0x3001 },
 	{ FF_LZBIN, "LZBIN", 0, 0xe05 },
+	{ FF_SHDVAR, "SHDVAR", "SVT", 0x3001 },
+	{ FF_SHDVAR, "SHDVARTBL", 0, 0x3001 },
 
 	{ 0, 0, 0, 0 }
 };

@@ -391,6 +391,7 @@ typedef enum file_format_t
 	FF_PTD,    // 296 - Hudson Soft DSP ADPCM Audio Archive (.ptd / .pdt, Mario Party 4-8)
 	FF_HBDF,   // 297 - Hudson Soft Nitro 3D Model (.hbdf / .hsdf, Mario Party DS)
 	FF_LZBIN,  // 298 - Hudson Soft Nitro Compressed Archive (.bin / .lzbin, Mario Party DS)
+	FF_SHDVAR, // 299 - NintendoWare Layout Shader Variation Table (.shdvartbl / .svt)
 
 	//--- number of elements
 

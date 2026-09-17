@@ -22,23 +22,58 @@ enumError BntxDeswizzle (u8 **dest, uint *dest_size, const u8 *src, uint src_siz
 	uint height, uint blk_w, uint blk_h, uint bpp, uint tile_mode, uint block_height_log2,
 	bool round_pitch);
 
+// User data types supported in BNTX files (matching BntxLibrary)
+typedef enum bntx_user_data_type_t
+{
+	BNTX_UD_INT32 = 0,
+	BNTX_UD_SINGLE = 1,
+	BNTX_UD_STRING = 2,
+	BNTX_UD_BYTE = 3,
+	BNTX_UD_WSTRING = 4
+} bntx_user_data_type_t;
+
+typedef struct bntx_user_data_t
+{
+	ccp name;
+	bntx_user_data_type_t type;
+	uint count;
+	union
+	{
+		const s32 *i32;
+		const float *f32;
+		ccp const *str;
+		const u8 *bytes;
+		const u16 *wstr;
+	} val;
+} bntx_user_data_t;
+
 // One texture inside a BNTX container.
 typedef struct bntx_texture_t
 {
 	ccp name; // points into the source buffer
 	uint width, height;
+	uint depth;
+	uint array_count;
+	uint dim;
 	uint format; // raw BNTX format word
 	uint comp_sel; // four component selectors, low byte first
 	uint tile_mode, block_height_log2;
 	uint n_mips;
 	const u8 *data; // swizzled texture data
 	uint data_size;
+	u64 *mip_offsets; // relative to data buffer [n_mips]
+	uint n_user_data;
+	bntx_user_data_t *user_data;
 } bntx_texture_t;
 
 typedef struct bntx_t
 {
 	const u8 *data;
 	uint size;
+	char platform[5]; // "NX  ", "Ounc", "PC  "
+	u16 version_major;
+	u8 version_minor;
+	u8 version_micro;
 	uint n_textures;
 	bntx_texture_t *textures; // owned
 } bntx_t;
@@ -46,10 +81,17 @@ typedef struct bntx_t
 enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size);
 void ResetBNTX (bntx_t *bntx);
 
-// Decodes texture INDEX to tightly packed RGBA8. Supports the standard BNTX
-// uncompressed formats, BC1 through BC7 (including signed/HDR variants), and
-// every 2D ASTC footprint from 4x4 through 12x12.
+// Decodes texture INDEX (and mip level) to tightly packed RGBA8. Supports all standard
+// NintendoSDK/BntxLibrary channel formats and types.
+enumError DecodeBNTX_Mip_RGBA (
+	u8 **dest, uint *width, uint *height, const bntx_t *bntx, uint index, uint mip_level);
 enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *bntx, uint index);
+
+// Returns human-readable format string for a BNTX format word (matching BntxLibrary enums).
+ccp GetBNTXFormatName (uint format);
+
+// Prints structural inspection of a BNTX container to out.
+void DumpStructureBNTX (FILE *out, const bntx_t *bntx, int indent);
 
 // Encodes a single RGBA8 image to a standard Switch BNTX container.
 enumError EncodeBNTX_RGBA (

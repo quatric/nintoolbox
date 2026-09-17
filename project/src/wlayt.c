@@ -15,11 +15,27 @@ static ccp GetDefaultDest (ccp src, bool to_text)
 	static char buf[PATH_MAX];
 	ccp dot = strrchr (src, '.');
 	uint baselen = dot ? (uint)(dot - src) : strlen (src);
-	if (baselen >= sizeof (buf) - 8)
-		baselen = sizeof (buf) - 8;
+	if (baselen >= sizeof (buf) - 16)
+		baselen = sizeof (buf) - 16;
 	memcpy (buf, src, baselen);
-	ccp ext = to_text ? ".xml" : ".bin";
-	strcpy (buf + baselen, ext);
+	buf[baselen] = 0;
+	if (to_text)
+	{
+		strcpy (buf + baselen, ".xml");
+	}
+	else
+	{
+		// If input was e.g. foo.svt.xml or foo.shdvartbl.xml, strip .xml
+		ccp dot2 = strrchr (buf, '.');
+		if (dot2 && (!strcmp (dot2, ".svt") || !strcmp (dot2, ".shdvartbl")
+			|| !strcmp (dot2, ".bflyt") || !strcmp (dot2, ".bclyt")
+			|| !strcmp (dot2, ".brlyt") || !strcmp (dot2, ".bflan")
+			|| !strcmp (dot2, ".bclan") || !strcmp (dot2, ".brlan")))
+		{
+			return buf;
+		}
+		strcpy (buf + baselen, ".bin");
+	}
 	return buf;
 }
 
@@ -41,7 +57,7 @@ static int do_decode (ccp src, ccp dest)
 	if (err)
 	{
 		fprintf (
-			stderr, "wlayt: %s is not a valid BRLYT/BFLYT/BCLYT/BRLAN/BFLAN/BCLAN file\n", src);
+			stderr, "wlayt: %s is not a valid BRLYT/BFLYT/BCLYT/BRLAN/BFLAN/BCLAN/SVT file\n", src);
 		ResetBFLYT (&bflyt);
 		return 1;
 	}
@@ -99,7 +115,7 @@ int main (int argc, char *argv[])
 	if (argc < 3)
 	{
 		printf ("wlayt - Wiimms Layout Tool\n"
-			"Native BRLYT/BFLYT/BCLYT + BRLAN/BFLAN/BCLAN <-> XML converter.\n"
+			"Native BRLYT/BFLYT/BCLYT + BRLAN/BFLAN/BCLAN + SVT <-> XML converter.\n"
 				"Usage: %s decode <input> [output]\n"
 				"       %s encode <input> [output]\n",
 			argv[0], argv[0]);

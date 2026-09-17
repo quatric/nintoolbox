@@ -165,6 +165,7 @@ typedef enum nfmt_type_t
 	NFMT_MPR_CMDL,
 	NFMT_MPR_SKEL,
 	NFMT_NTTF,
+	NFMT_SHDVAR,
 	NFMT_BFSHA,
 	NFMT_SHARC,
 	NFMT_SHARCFB,
@@ -449,6 +450,7 @@ enumError DecodeBPE (u8 *dest, uint dest_size, const u8 *src, uint src_size);
 void ResetOwnedEntries (nintendo_sarc_entry_t *entries, uint n_entries);
 bool OwnedEntryAdd (nintendo_sarc_entry_t *entries, uint idx, ccp name, const u8 *data, uint size);
 bool OwnedNameOk (ccp name);
+bool IsSHDVAR (const u8 *data, uint size);
 
 #include "lib-sfzdat.h"
 #include "lib-bg4.h"

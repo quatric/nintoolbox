@@ -3848,6 +3848,135 @@ static enumError r_section (bf_rctx_t *ctx, u32 magic, const u8 *d, uint size)
 	}
 }
 
+bool IsSHDVAR_BE (const u8 *data, uint size)
+{
+	if (!data || size < 12 || (size % 4) != 0)
+		return false;
+	u32 num = rd32 (data, true);
+	if (num == 0 || num > 100000)
+		return false;
+	uint ptr = 4;
+	bool has_known = false;
+	for (u32 i = 0; i < num; i++)
+	{
+		if (ptr + 8 > size)
+			return false;
+		for (int c = 0; c < 4; c++)
+		{
+			u8 ch = data[ptr + c];
+			if (ch < 0x20 || ch > 0x7E)
+				return false;
+		}
+		if (!memcmp (data + ptr, "DTCB", 4) || !memcmp (data + ptr, "CBUS", 4) ||
+		    !memcmp (data + ptr, "DTSH", 4) || !memcmp (data + ptr, "DRSH", 4) ||
+		    !memcmp (data + ptr, "NORM", 4))
+			has_known = true;
+		u32 words = rd32 (data + ptr + 4, true);
+		if (words > (size - (ptr + 8)) / 4)
+			return false;
+		ptr += 8 + words * 4;
+	}
+	return (ptr == size && has_known);
+}
+
+bool IsSHDVAR (const u8 *data, uint size)
+{
+	if (!data || size < 12 || (size % 4) != 0)
+		return false;
+	u32 num = rd32 (data, false);
+	if (num > 0 && num <= 100000)
+	{
+		uint ptr = 4;
+		bool has_known = false;
+		bool ok = true;
+		for (u32 i = 0; i < num; i++)
+		{
+			if (ptr + 8 > size)
+			{
+				ok = false;
+				break;
+			}
+			for (int c = 0; c < 4; c++)
+			{
+				u8 ch = data[ptr + c];
+				if (ch < 0x20 || ch > 0x7E)
+				{
+					ok = false;
+					break;
+				}
+			}
+			if (!ok)
+				break;
+			if (!memcmp (data + ptr, "DTCB", 4) || !memcmp (data + ptr, "CBUS", 4) ||
+			    !memcmp (data + ptr, "DTSH", 4) || !memcmp (data + ptr, "DRSH", 4) ||
+			    !memcmp (data + ptr, "NORM", 4))
+				has_known = true;
+			u32 words = rd32 (data + ptr + 4, false);
+			if (words > (size - (ptr + 8)) / 4)
+			{
+				ok = false;
+				break;
+			}
+			ptr += 8 + words * 4;
+		}
+		if (ok && ptr == size && has_known)
+			return true;
+	}
+	return IsSHDVAR_BE (data, size);
+}
+
+static enumError parse_binary_shdvar (
+	bflyt_t *bflyt, const u8 *data, uint data_size, bool be)
+{
+	bf_node_t *tree = &bflyt->tree;
+	u32 num = rd32 (data, be);
+
+	BFE (BFNodeSetStr (tree, "byte-order", be ? ">" : "<"));
+	BFE (BFNodeSetInt (tree, "version", 1));
+	BFE (BFNodeSetStr (tree, "magic", "SVT"));
+
+	bf_node_t *svt_node = BFNodeSetNode (tree, "SVT");
+	if (!svt_node)
+		return ERR_OUT_OF_MEMORY;
+
+	uint ptr = 4;
+	for (u32 i = 0; i < num; i++)
+	{
+		char kind[5];
+		memcpy (kind, data + ptr, 4);
+		kind[4] = 0;
+		u32 words = rd32 (data + ptr + 4, be);
+		ptr += 8;
+
+		char vname[32];
+		snprintf (vname, sizeof (vname), "variation-%u", i);
+		bf_node_t *vn = BFNodeSetNode (svt_node, vname);
+		if (!vn)
+			return ERR_OUT_OF_MEMORY;
+
+		BFE (BFNodeSetStr (vn, "kind", kind));
+		BFE (BFNodeSetInt (vn, "words", (int)words));
+
+		if (!strcmp (kind, "CBUS"))
+		{
+			uint len = words * 4;
+			char *str = (char *)MALLOC (len + 1);
+			if (!str)
+				return ERR_OUT_OF_MEMORY;
+			memcpy (str, data + ptr, len);
+			str[len] = 0;
+			BFE (BFNodeSetStr (vn, "code-file", str));
+			FREE (str);
+		}
+		if (words > 0)
+		{
+			BFE (BFNodeSetBytes (vn, "data", data + ptr, words * 4));
+		}
+		ptr += words * 4;
+	}
+	return ERR_OK;
+}
+
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			binary scan			///////////////
@@ -5527,6 +5656,71 @@ static enumError build_binary (const bf_node_t *tree, u8 **dest, uint *dest_size
 	return ERR_OK;
 }
 
+static enumError build_binary_shdvar (
+	const bf_node_t *tree, u8 **dest, uint *dest_size)
+{
+	bf_val_t *bo_v = BFNodeGet ((bf_node_t *)tree, "byte-order");
+	bool be = (bo_v && bo_v->type == BF_T_STR && !strcmp (bo_v->u.s, ">"));
+
+	bf_val_t *svt_v = BFNodeGet ((bf_node_t *)tree, "SVT");
+	if (!svt_v || svt_v->type != BF_T_NODE)
+		return ERR_INVALID_DATA;
+
+	const bf_node_t *svt = svt_v->u.node;
+	u32 count = svt->n;
+
+	bf_buf_t buf;
+	memset (&buf, 0, sizeof (buf));
+	BFE (bf_buf_u32 (&buf, be, count));
+
+	for (u32 i = 0; i < count; i++)
+	{
+		const bf_val_t *v = &svt->kv[i].val;
+		if (v->type != BF_T_NODE)
+			continue;
+		const bf_node_t *vn = v->u.node;
+
+		bf_val_t *kind_v = BFNodeGet ((bf_node_t *)vn, "kind");
+		ccp kind = (kind_v && kind_v->type == BF_T_STR) ? kind_v->u.s : "NORM";
+		char sig[4] = { 'N', 'O', 'R', 'M' };
+		size_t klen = strlen (kind);
+		if (klen > 4)
+			klen = 4;
+		memcpy (sig, kind, klen);
+		BFE (bf_buf_raw (&buf, sig, 4));
+
+		bf_val_t *data_v = BFNodeGet ((bf_node_t *)vn, "data");
+		bf_val_t *cf_v = BFNodeGet ((bf_node_t *)vn, "code-file");
+		if (data_v && data_v->type == BF_T_BYTES)
+		{
+			u32 words = (data_v->u.by.n + 3) / 4;
+			BFE (bf_buf_u32 (&buf, be, words));
+			BFE (bf_buf_raw (&buf, data_v->u.by.d, data_v->u.by.n));
+			if (data_v->u.by.n % 4)
+			{
+				u8 pad[4] = { 0 };
+				BFE (bf_buf_raw (&buf, pad, 4 - (data_v->u.by.n % 4)));
+			}
+		}
+		else if (cf_v && cf_v->type == BF_T_STR)
+		{
+			u8 cbus_data[96];
+			memset (cbus_data, 0, sizeof (cbus_data));
+			strncpy ((char *)cbus_data, cf_v->u.s, sizeof (cbus_data) - 1);
+			BFE (bf_buf_u32 (&buf, be, 96 / 4));
+			BFE (bf_buf_raw (&buf, cbus_data, sizeof (cbus_data)));
+		}
+		else
+		{
+			BFE (bf_buf_u32 (&buf, be, 0));
+		}
+	}
+
+	*dest = buf.d;
+	*dest_size = buf.n;
+	return ERR_OK;
+}
+
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			API			///////////////
@@ -5575,6 +5769,9 @@ enumError ScanBFLYT (bflyt_t *bflyt, bool init, const u8 *data, uint data_size)
 		|| fmagic == BRLYT_MAGIC_TYLR || fmagic == BRLYT_MAGIC_NALR)
 		return parse_binary (bflyt, data, data_size);
 
+	if (IsSHDVAR (data, data_size))
+		return parse_binary_shdvar (bflyt, data, data_size, IsSHDVAR_BE (data, data_size));
+
 	// XML or legacy txtree text?
 	ccp first = (ccp)data;
 	while (isspace ((u8)*first))
@@ -5588,7 +5785,7 @@ enumError ScanBFLYT (bflyt_t *bflyt, bool init, const u8 *data, uint data_size)
 		bf_val_t *magic_v = BFNodeGet (&bflyt->tree, "magic");
 		ccp m = (magic_v && magic_v->type == BF_T_STR) ? magic_v->u.s : "FLYT";
 		bflyt->magic = ((u32)m[0] << 24) | ((u32)m[1] << 16) | ((u32)m[2] << 8) | (u32)m[3];
-		if (!strlen (m) || strlen (m) != 4)
+		if (!strlen (m) || (strlen (m) != 4 && strcmp (m, "SVT")))
 			bflyt->magic = BFLYT_MAGIC_FLYT;
 		return ERR_OK;
 	}
@@ -5605,6 +5802,10 @@ enumError BuildBFLYT (const bflyt_t *bflyt, u8 **dest, uint *dest_size)
 	DASSERT (dest_size);
 	*dest = 0;
 	*dest_size = 0;
+	bf_val_t *magic_v = BFNodeGet ((bf_node_t *)&bflyt->tree, "magic");
+	ccp m = (magic_v && magic_v->type == BF_T_STR) ? magic_v->u.s : "";
+	if (!strcmp (m, "SVT"))
+		return build_binary_shdvar (&bflyt->tree, dest, dest_size);
 	return build_binary (&bflyt->tree, dest, dest_size);
 }
 

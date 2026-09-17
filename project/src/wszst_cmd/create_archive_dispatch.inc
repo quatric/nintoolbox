@@ -499,10 +499,26 @@ static void cleanup_extracted_artifacts (ccp root, bool is_root, uint depth)
 					unlink (path);
 			}
 			// Companion YAML files
-			if (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".byml.yaml"))
+			if ((nlen > 9 && !strcasecmp (de->d_name + nlen - 9, ".byml.yml"))
+				|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".byml.yaml")))
 			{
 				char cand[PATH_MAX];
-				snprintf (cand, sizeof (cand), "%.*s", (int)(strlen (path) - 5), path);
+				snprintf (cand, sizeof (cand), "%.*s", (int)(strlen (path) - (is_ext (path, ".yml") ? 4 : 5)), path);
+				struct stat st_c;
+				if (stat (cand, &st_c) == 0 && S_ISREG (st_c.st_mode))
+					unlink (path);
+			}
+			if ((nlen > 9 && !strcasecmp (de->d_name + nlen - 9, ".aamp.yml"))
+				|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".aamp.yaml"))
+				|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".baamp.yml"))
+				|| (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".baamp.yaml"))
+				|| (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".bparam.yml"))
+				|| (nlen > 12 && !strcasecmp (de->d_name + nlen - 12, ".bparam.yaml"))
+				|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".bgenv.yml"))
+				|| (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".bgenv.yaml")))
+			{
+				char cand[PATH_MAX];
+				snprintf (cand, sizeof (cand), "%.*s", (int)(strlen (path) - (is_ext (path, ".yml") ? 4 : 5)), path);
 				struct stat st_c;
 				if (stat (cand, &st_c) == 0 && S_ISREG (st_c.st_mode))
 					unlink (path);
@@ -1158,10 +1174,12 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 			}
 			unlink (path);
 		}
-		if (S_ISREG (st.st_mode) && nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".byml.yaml"))
+		if (S_ISREG (st.st_mode) && ((nlen > 9 && !strcasecmp (de->d_name + nlen - 9, ".byml.yml"))
+			|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".byml.yaml"))))
 		{
 			char target_byml[PATH_MAX];
-			snprintf (target_byml, sizeof (target_byml), "%.*s", (int)(strlen (path) - 5), path);
+			snprintf (target_byml, sizeof (target_byml), "%.*s",
+				(int)(strlen (path) - (is_ext (path, ".yml") ? 4 : 5)), path);
 			struct stat st_byml;
 			time_t ref_x_mtime = 0;
 			if (stat (target_byml, &st_byml) == 0)
@@ -1177,6 +1195,39 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 				enumError err = encode_byml_file (path, target_byml);
 				if (err <= ERR_WARNING && verbose >= 0)
 					fprintf (stdlog, "REPACK BYML %s -> %s\n", path, target_byml);
+				else if (max_err < err)
+					max_err = err;
+			}
+			unlink (path);
+		}
+		if (S_ISREG (st.st_mode)
+			&& ((nlen > 9 && !strcasecmp (de->d_name + nlen - 9, ".aamp.yml"))
+				|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".aamp.yaml"))
+				|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".baamp.yml"))
+				|| (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".baamp.yaml"))
+				|| (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".bparam.yml"))
+				|| (nlen > 12 && !strcasecmp (de->d_name + nlen - 12, ".bparam.yaml"))
+				|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".bgenv.yml"))
+				|| (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".bgenv.yaml"))))
+		{
+			char target_aamp[PATH_MAX];
+			snprintf (target_aamp, sizeof (target_aamp), "%.*s",
+				(int)(strlen (path) - (is_ext (path, ".yml") ? 4 : 5)), path);
+			struct stat st_aamp;
+			time_t ref_x_mtime = 0;
+			if (stat (target_aamp, &st_aamp) == 0)
+				ref_x_mtime = st_aamp.st_mtime;
+			struct stat st_s;
+			char s_path[PATH_MAX];
+			snprintf (s_path, sizeof (s_path), "%s/%s", root, SZS_SETUP_FILE);
+			if (stat (s_path, &st_s) == 0 && st_s.st_mtime > ref_x_mtime)
+				ref_x_mtime = st_s.st_mtime;
+
+			if (ref_x_mtime == 0 || st.st_mtime > ref_x_mtime + 2)
+			{
+				enumError err = encode_aamp_file (path, target_aamp);
+				if (err <= ERR_WARNING && verbose >= 0)
+					fprintf (stdlog, "REPACK AAMP %s -> %s\n", path, target_aamp);
 				else if (max_err < err)
 					max_err = err;
 			}

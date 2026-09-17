@@ -2412,6 +2412,7 @@ static bool ConvertHelper (const u8 *data, // valid data
 		case FF_BRLAN:
 		case FF_BFLYT_TXT:
 		case FF_BCLYT_TXT:
+		case FF_SHDVAR:
 			FreeContainerData (cdata);
 			{
 				bflyt_t bflyt;
@@ -2465,20 +2466,24 @@ static enumError cmd_convert (bool binary) // cmd_binary() cmd_text()
 		}
 
 		const bool is_bflyt = raw.fform == FF_BFLYT || raw.fform == FF_BCLYT
-			|| raw.fform == FF_BRLYT || raw.fform == FF_BRLAN;
+			|| raw.fform == FF_BRLYT || raw.fform == FF_BRLAN || raw.fform == FF_SHDVAR;
 		file_format_t ff_dest = binary ? GetBinFF (raw.fform) : GetTextFF (raw.fform);
 		// Layout's former text type is the legacy .tflyt syntax.  Route normal
 		// TEXT conversion through the XML path instead.
 		if (!binary && is_bflyt)
 			ff_dest = FF_UNKNOWN;
 
-		// Handle layout formats (BFLYT / BCLYT / BRLYT / BRLAN)
+		// Handle layout formats (BFLYT / BCLYT / BRLYT / BRLAN / SHDVAR)
 		if (!ff_dest
 			&& (raw.fform == FF_BFLYT || raw.fform == FF_BCLYT || raw.fform == FF_BRLYT
-				|| raw.fform == FF_BRLAN))
+				|| raw.fform == FF_BRLAN || raw.fform == FF_SHDVAR))
 		{
 			if (binary)
-				SubstDest (dest, sizeof (dest), arg, opt_dest, "\\1P/\\1N.bflyt", ".bflyt", false);
+			{
+				ccp def_ext = raw.fform == FF_SHDVAR ? "\\1P/\\1N.svt" : "\\1P/\\1N.bflyt";
+				ccp ext = raw.fform == FF_SHDVAR ? ".svt" : ".bflyt";
+				SubstDest (dest, sizeof (dest), arg, opt_dest, def_ext, ext, false);
+			}
 			else
 				SubstDest (dest, sizeof (dest), arg, opt_dest, "\\1P/\\1N.xml", ".xml", false);
 			if (verbose >= 0)
@@ -2527,6 +2532,58 @@ static enumError cmd_convert (bool binary) // cmd_binary() cmd_text()
 			if (err && max_err < err)
 				max_err = err;
 			continue;
+		}
+
+		if (!ff_dest && raw.data_size >= 12 && !memcmp (raw.data, "AAMP", 4))
+		{
+			SubstDest (dest, sizeof (dest), arg, opt_dest, "\\1P/\\1N.yml", ".yml", false);
+			if (verbose >= 0)
+			{
+				fprintf (
+					stdlog, "%sCREATE/TEXT AAMP:%s => %s\n", verbose > 0 ? "\n" : "", arg, dest);
+				fflush (stdlog);
+			}
+			if (!testmode)
+			{
+				File_t F;
+				err = CreateFileOpt (&F, true, dest, false, arg);
+				if (!F.f)
+					err = ERR_WRITE_FAILED;
+				else
+				{
+					ccp ext = strrchr (dest, '.');
+					if (ext && !strcasecmp (ext, ".json"))
+						err = DecodeAAMP_JSON (F.f, raw.data, raw.data_size);
+					else
+						err = DecodeAAMP_YAML (F.f, raw.data, raw.data_size);
+					ResetFile (&F, opt_preserve);
+				}
+			}
+			if (err && max_err < err)
+				max_err = err;
+			continue;
+		}
+
+		if (binary && !ff_dest && (is_ext (arg, ".yml") || is_ext (arg, ".yaml") || is_ext (arg, ".json")))
+		{
+			char b_dest[PATH_MAX];
+			SubstDest (b_dest, sizeof (b_dest), arg, opt_dest, "\\1P/\\1N.aamp", ".aamp", false);
+			ccp b_ext = strrchr (b_dest, '.');
+			if (b_ext && (!strcasecmp (b_ext, ".aamp") || !strcasecmp (b_ext, ".baamp")
+				|| !strcasecmp (b_ext, ".bparam") || !strcasecmp (b_ext, ".bgenv")))
+			{
+				if (verbose >= 0)
+				{
+					fprintf (
+						stdlog, "%sCREATE/BINARY AAMP:%s => %s\n", verbose > 0 ? "\n" : "", arg, b_dest);
+					fflush (stdlog);
+				}
+				if (!testmode)
+					err = encode_aamp_file (arg, b_dest);
+				if (err && max_err < err)
+					max_err = err;
+				continue;
+			}
 		}
 
 		if (!ff_dest)

@@ -70,6 +70,35 @@ static enumError cmd_create (bool create)
 				max_err = y_err;
 			continue;
 		}
+		const bool is_aamp_sidecar =
+			(arg_len > 9 && !strcasecmp (arg + arg_len - 9, ".aamp.yml"))
+			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".aamp.yaml"))
+			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".baamp.yml"))
+			|| (arg_len > 11 && !strcasecmp (arg + arg_len - 11, ".baamp.yaml"))
+			|| (arg_len > 11 && !strcasecmp (arg + arg_len - 11, ".bparam.yml"))
+			|| (arg_len > 12 && !strcasecmp (arg + arg_len - 12, ".bparam.yaml"))
+			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".bgenv.yml"))
+			|| (arg_len > 11 && !strcasecmp (arg + arg_len - 11, ".bgenv.yaml"));
+
+		if (create && is_aamp_sidecar)
+		{
+			char y_dest[PATH_MAX];
+			if (opt_dest)
+				SubstDest (y_dest, sizeof (y_dest), arg, opt_dest, 0, ".aamp", false);
+			else
+			{
+				snprintf (y_dest, sizeof (y_dest), "%s", arg);
+				// Strip .yml (preferred) or the older .yaml sidecar suffix.
+				y_dest[arg_len - (is_ext (arg, ".yml") ? 4 : 5)] = 0;
+			}
+			const enumError y_err = encode_aamp_file (arg, y_dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE AAMP %s -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", arg, y_dest);
+			if (max_err < y_err)
+				max_err = y_err;
+			continue;
+		}
 		int src_len = strlen (arg);
 		while (src_len > 0 && arg[src_len - 1] == '/')
 			src_len--;
@@ -1007,6 +1036,19 @@ static enumError cmd_create (bool create)
 			enumError err = encode_byml_file (arg, dest);
 			if (verbose >= 0 || testmode)
 				fprintf (stdlog, "%s%sCREATE BYML %s -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", arg, dest);
+			if (max_err < err)
+				max_err = err;
+			ResetSetupParam (&sp);
+			continue;
+		}
+		if (create && ext
+			&& (!strcasecmp (ext, ".aamp") || !strcasecmp (ext, ".baamp")
+				|| !strcasecmp (ext, ".bparam") || !strcasecmp (ext, ".bgenv")))
+		{
+			enumError err = encode_aamp_file (arg, dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE AAMP %s -> %s\n", verbose > 0 ? "\n" : "",
 					testmode ? "WOULD " : "", arg, dest);
 			if (max_err < err)
 				max_err = err;
@@ -7486,7 +7528,7 @@ static enumError extract_rstb_manifest (ccp arg)
 
 static enumError extract_aamp_manifest (ccp arg)
 {
-	if (!is_ext (arg, ".aamp"))
+	if (!is_ext (arg, ".aamp") && !is_ext (arg, ".baamp") && !is_ext (arg, ".bparam") && !is_ext (arg, ".bgenv"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;
@@ -7503,9 +7545,9 @@ static enumError extract_aamp_manifest (ccp arg)
 
 	char dest[PATH_MAX];
 	if (opt_dest)
-		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+		SubstDest (dest, sizeof (dest), arg, opt_dest, "\1N.aamp.yml", ".aamp.yml", false);
 	else
-		snprintf (dest, sizeof (dest), "%s.txt", arg);
+		snprintf (dest, sizeof (dest), "%s.yml", arg);
 
 	if (verbose >= 0 || testmode)
 		fprintf (stdlog, "%s%sDECODE AAMP:%s -> %s\n", verbose > 0 ? "\n" : "",
@@ -7520,7 +7562,13 @@ static enumError extract_aamp_manifest (ccp arg)
 	File_t F;
 	err = CreateFileOpt (&F, true, dest, false, arg);
 	if (F.f)
-		err = DecodeAAMP_YAML (F.f, raw, raw_size);
+	{
+		ccp ext = strrchr (dest, '.');
+		if (ext && !strcasecmp (ext, ".json"))
+			err = DecodeAAMP_JSON (F.f, raw, raw_size);
+		else
+			err = DecodeAAMP_YAML (F.f, raw, raw_size);
+	}
 	ResetFile (&F, opt_preserve);
 	FREE (raw);
 	return err;
@@ -10467,6 +10515,9 @@ static enumError export_models_tree (ccp root, uint depth)
 			const enumError byml_err = decode_byml_if_possible (path);
 			if (byml_err != ERR_NOTHING_TO_DO && err < byml_err)
 				err = byml_err;
+			const enumError aamp_err = decode_aamp_if_possible (path);
+			if (aamp_err != ERR_NOTHING_TO_DO && err < aamp_err)
+				err = aamp_err;
 			const enumError kcl_err = export_kcl_glb_if_possible (path);
 			if (kcl_err != ERR_NOTHING_TO_DO && err < kcl_err)
 				err = kcl_err;

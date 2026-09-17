@@ -2637,6 +2637,22 @@ bool is_dir_newer_than (ccp dirpath, time_t target_mtime)
 				continue;
 			if (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".byml.yaml"))
 				continue;
+			if (nlen > 9 && !strcasecmp (de->d_name + nlen - 9, ".aamp.yml"))
+				continue;
+			if (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".aamp.yaml"))
+				continue;
+			if (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".baamp.yml"))
+				continue;
+			if (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".baamp.yaml"))
+				continue;
+			if (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".bparam.yml"))
+				continue;
+			if (nlen > 12 && !strcasecmp (de->d_name + nlen - 12, ".bparam.yaml"))
+				continue;
+			if (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".bgenv.yml"))
+				continue;
+			if (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".bgenv.yaml"))
+				continue;
 			if (nlen > 9 && !strcasecmp (de->d_name + nlen - 9, ".ncer.xml"))
 				continue;
 			if (nlen > 9 && !strcasecmp (de->d_name + nlen - 9, ".nanr.xml"))
