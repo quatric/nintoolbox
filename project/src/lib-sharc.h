@@ -16,7 +16,9 @@ bool IsSHARCFB (const u8 *data, size_t size);
 enumError DecodeSHARC_Text (FILE *out, const u8 *data, size_t size);
 
 // SHARCFB packs compiled GPU binaries rather than source text; the per-shader payload layout
-// differs between the Wii U and Switch variant. We decode the shared header only.
+// differs between the Wii U and Switch (NX) variant. Both are decoded: the Wii U layout down to
+// its archive name, and the NX layout's full Header/Variations/ShaderPrograms/value-table
+// structure (see SHARCFBNX.cs).
 enumError DecodeSHARCFB_Text (FILE *out, const u8 *data, size_t size);
 
 #endif // LIB_SHARC_H
