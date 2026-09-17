@@ -15,6 +15,16 @@ static inline void wr_le64 (u8 *p, u64 v)
 	wr_le32 (p + 4, (u32)(v >> 32));
 }
 
+// Every offset below this point can be a raw 8-byte value straight from file
+// data (asst_off, file_info_offset, dic_off, string offsets, ...), so it can
+// be anywhere in [0,2^64); "off + need > size" wraps around and passes when
+// off sits near UINT64_MAX. Check the base first so the subtraction can't
+// underflow/overflow.
+static inline bool bea_fits (u64 off, u64 need, uint size)
+{
+	return off < size && need <= (u64)size - off;
+}
+
 //-----------------------------------------------------------------------------
 ///////////////			IsBEA / ScanBEA			///////////////
 //-----------------------------------------------------------------------------
@@ -42,13 +52,13 @@ bool IsBEA (const u8 *data, uint size)
 	if (header_tail + 8 > size)
 		return false;
 	const u64 file_info_offset = rd_le64 (data + (vmaj2 >= 5 ? 40 + 8 : 40));
-	if (file_info_offset + (u64)file_count * 8 > size)
+	if (!bea_fits (file_info_offset, (u64)file_count * 8, size))
 		return false;
 
 	for (u32 i = 0; i < file_count; i++)
 	{
 		const u64 asst_off = rd_le64 (data + file_info_offset + i * 8);
-		if (asst_off + 4 > size || memcmp (data + asst_off, "ASST", 4))
+		if (!bea_fits (asst_off, 4, size) || memcmp (data + asst_off, "ASST", 4))
 			return false;
 	}
 	return true;
@@ -59,10 +69,10 @@ bool IsBEA (const u8 *data, uint size)
 // or NULL if the on-disk offset is 0 ("no string").
 static ccp load_bea_string (const u8 *data, uint size, u64 off)
 {
-	if (!off || off + 2 > size)
+	if (!off || !bea_fits (off, 2, size))
 		return 0;
 	const u16 len = rd_le16 (data + off);
-	if (off + 2 + len > size)
+	if (!bea_fits (off, 2 + (u64)len, size))
 		return 0;
 	char *str = MALLOC (len + 1);
 	memcpy (str, data + off + 2, len);
@@ -73,7 +83,7 @@ static ccp load_bea_string (const u8 *data, uint size, u64 off)
 static enumError scan_bea_file (bea_file_t *f, const u8 *data, uint size, u64 asst_off, u8 vmaj2)
 {
 	memset (f, 0, sizeof (*f));
-	if (asst_off + 16 > size || memcmp (data + asst_off, "ASST", 4))
+	if (!bea_fits (asst_off, 16, size) || memcmp (data + asst_off, "ASST", 4))
 		return ERR_INVALID_DATA;
 
 	u64 p = asst_off + 16; // skip "ASST" + block header (offset u32, size u64)
@@ -120,7 +130,7 @@ static enumError scan_bea_file (bea_file_t *f, const u8 *data, uint size, u64 as
 	ccp name = load_bea_string (data, size, rd_le64 (data + p));
 	p += 8;
 	(void)name_str_off;
-	if (!name || file_offset + file_size > size)
+	if (!name || !bea_fits (file_offset, file_size, size))
 	{
 		FREE ((void *)name);
 		return ERR_INVALID_DATA;
@@ -191,7 +201,7 @@ enumError ScanBEA (bea_archive_t *bea, const u8 *data, uint size)
 		{
 			bea->reference_list = CALLOC (ref_count, sizeof (ccp));
 			u64 rp = ref_off;
-			for (u32 i = 0; i < ref_count && rp + 8 <= size; i++)
+			for (u32 i = 0; i < ref_count && bea_fits (rp, 8, size); i++)
 			{
 				bea->reference_list[i] = load_bea_string (data, size, rp);
 				rp += 8;
@@ -214,7 +224,7 @@ enumError ScanBEA (bea_archive_t *bea, const u8 *data, uint size)
 	// CreateBEA() reuses the reference/idx_left/idx_right triplets verbatim
 	// whenever the member set on resave is unchanged, re-registering only
 	// the key strings with the new file's string pool.
-	if (dic_off && dic_off + 8 <= size)
+	if (dic_off && bea_fits (dic_off, 8, size))
 	{
 		const u32 n_nodes = rd_le32 (data + dic_off + 4); // excludes root
 		const u64 table_off = dic_off + 8;
@@ -242,7 +252,7 @@ enumError ScanBEA (bea_archive_t *bea, const u8 *data, uint size)
 	bea->files = CALLOC (file_count, sizeof (bea_file_t));
 	for (u32 i = 0; i < file_count; i++)
 	{
-		if (file_info_offset + (u64)i * 8 + 8 > size)
+		if (!bea_fits (file_info_offset, (u64)i * 8 + 8, size))
 		{
 			ResetBEA (bea);
 			return ERR_INVALID_DATA;
