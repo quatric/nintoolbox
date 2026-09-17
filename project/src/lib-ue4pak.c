@@ -30,7 +30,11 @@ bool IsUE4Pak (const u8 *data, size_t size)
 				uint version = le32 (m + 4);
 				u64 idx_off = le64 (m + 8);
 				u64 idx_sz = le64 (m + 16);
-				if (version <= 15 && idx_off + idx_sz <= size && idx_off > 0 && idx_sz > 0)
+				// idx_off/idx_sz are raw attacker u64s: "idx_off + idx_sz
+				// <= size" can overflow and wrap below size, so bound
+				// idx_off first and subtract instead of adding.
+				if (version <= 15 && idx_off <= size && idx_sz <= size - idx_off && idx_off > 0
+					&& idx_sz > 0)
 					return true;
 			}
 		}
@@ -128,7 +132,7 @@ enumError ScanUE4Pak (ue4_pak_t *pak, const u8 *data, size_t size)
 				uint version = le32 (m + 4);
 				u64 idx_off = le64 (m + 8);
 				u64 idx_sz = le64 (m + 16);
-				if (version <= 15 && idx_off + idx_sz <= size && idx_off > 0)
+				if (version <= 15 && idx_off <= size && idx_sz <= size - idx_off && idx_off > 0)
 				{
 					footer_magic = m;
 					break;
@@ -162,7 +166,7 @@ enumError ScanUE4Pak (ue4_pak_t *pak, const u8 *data, size_t size)
 		}
 	}
 
-	if (pak->index_offset + pak->index_size > size)
+	if (pak->index_offset > size || pak->index_size > size - pak->index_offset)
 		return ERR_INVALID_DATA;
 
 	const u8 *p = data + pak->index_offset;
