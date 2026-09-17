@@ -826,18 +826,19 @@ int ScanUTF8LengthE (ccp str, ccp end)
 			switch (CheckUTF8Mode (ch))
 			{
 				case DC_UTF8_2CHAR:
-					if (CheckUTF8Mode (*ptr) == DC_UTF8_CONT_ANY)
+					// bounded variant: never read at/behind 'end'
+					if (ptr < end && CheckUTF8Mode (*ptr) == DC_UTF8_CONT_ANY)
 						ptr++;
 					break;
 
 				case DC_UTF8_3CHAR:
-					if (CheckUTF8Mode (ptr[0]) == DC_UTF8_CONT_ANY
+					if (ptr + 1 < end && CheckUTF8Mode (ptr[0]) == DC_UTF8_CONT_ANY
 						&& CheckUTF8Mode (ptr[1]) == DC_UTF8_CONT_ANY)
 						ptr += 2;
 					break;
 
 				case DC_UTF8_4CHAR:
-					if (CheckUTF8Mode (ptr[0]) == DC_UTF8_CONT_ANY
+					if (ptr + 2 < end && CheckUTF8Mode (ptr[0]) == DC_UTF8_CONT_ANY
 						&& CheckUTF8Mode (ptr[1]) == DC_UTF8_CONT_ANY
 						&& CheckUTF8Mode (ptr[2]) == DC_UTF8_CONT_ANY)
 						ptr += 3;
@@ -924,18 +925,19 @@ int ScanEUTF8LengthE (ccp str, ccp end)
 			switch (CheckUTF8Mode (ch))
 			{
 				case DC_UTF8_2CHAR:
-					if (CheckUTF8Mode (*ptr) == DC_UTF8_CONT_ANY)
+					// bounded variant: never read at/behind 'end'
+					if (ptr < end && CheckUTF8Mode (*ptr) == DC_UTF8_CONT_ANY)
 						ptr++;
 					break;
 
 				case DC_UTF8_3CHAR:
-					if (CheckUTF8Mode (ptr[0]) == DC_UTF8_CONT_ANY
+					if (ptr + 1 < end && CheckUTF8Mode (ptr[0]) == DC_UTF8_CONT_ANY
 						&& CheckUTF8Mode (ptr[1]) == DC_UTF8_CONT_ANY)
 						ptr += 2;
 					break;
 
 				case DC_UTF8_4CHAR:
-					if (CheckUTF8Mode (ptr[0]) == DC_UTF8_CONT_ANY
+					if (ptr + 2 < end && CheckUTF8Mode (ptr[0]) == DC_UTF8_CONT_ANY
 						&& CheckUTF8Mode (ptr[1]) == DC_UTF8_CONT_ANY
 						&& CheckUTF8Mode (ptr[2]) == DC_UTF8_CONT_ANY)
 						ptr += 3;
