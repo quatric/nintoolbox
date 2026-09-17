@@ -560,14 +560,125 @@ void decode_bc5_signed_block (const u8 *b, u8 *out)
 	}
 }
 
-// Format identifiers and ASTC footprints follow aboood40091/BNTX-Extractor.
+ccp GetBNTXFormatName (uint format)
+{
+	const uint fmt = (format >> 8) & 0xff;
+	const uint type = format & 0xff;
+	switch (fmt)
+	{
+		case 0x02:
+			return type == 2 ? "R8_SNORM" : type == 3 ? "R8_UINT" : type == 4 ? "R8_SINT" : "R8_UNORM";
+		case 0x03: return "R4G4B4A4_UNORM";
+		case 0x05: return "R5G5B5A1_UNORM";
+		case 0x06: return "A1B5G5R5_UNORM";
+		case 0x07: return "R5G6B5_UNORM";
+		case 0x08: return "B5G6R5_UNORM";
+		case 0x09:
+			return type == 2 ? "R8G8_SNORM" : type == 3 ? "R8G8_UINT" : type == 4 ? "R8G8_SINT" : "R8G8_UNORM";
+		case 0x0a:
+			return type == 5 ? "R16_FLOAT" : type == 7 ? "Z16_DEPTH" : type == 2 ? "R16_SNORM" : "R16_UNORM";
+		case 0x0b:
+			return type == 6 ? "R8G8B8A8_SRGB" : type == 2 ? "R8G8B8A8_SNORM" : "R8G8B8A8_UNORM";
+		case 0x0c:
+			return type == 6 ? "B8G8R8A8_SRGB" : "B8G8R8A8_UNORM";
+		case 0x0d: return "R9G9B9E5F_FLOAT";
+		case 0x0e: return type == 3 ? "R10G10B10A2_UINT" : "R10G10B10A2_UNORM";
+		case 0x0f: return "R11G11B10F_FLOAT";
+		case 0x12:
+			return type == 5 ? "R16G16_FLOAT" : type == 2 ? "R16G16_SNORM" : "R16G16_UNORM";
+		case 0x13: return "D24S8_DEPTH";
+		case 0x14:
+			return type == 7 ? "D32F_DEPTH" : type == 5 ? "R32_FLOAT" : type == 3 ? "R32_UINT" : "R32_SINT";
+		case 0x15:
+			return type == 5 ? "R16G16B16A16_FLOAT" : type == 2 ? "R16G16B16A16_SNORM" : "R16G16B16A16_UNORM";
+		case 0x16: return "D32FS8_DEPTH";
+		case 0x17: return type == 5 ? "R32G32_FLOAT" : "R32G32_UINT";
+		case 0x18: return type == 5 ? "R32G32B32_FLOAT" : "R32G32B32_UINT";
+		case 0x19: return type == 5 ? "R32G32B32A32_FLOAT" : "R32G32B32A32_UINT";
+		case 0x1a: return type == 6 ? "BC1_SRGB" : "BC1_UNORM";
+		case 0x1b: return type == 6 ? "BC2_SRGB" : "BC2_UNORM";
+		case 0x1c: return type == 6 ? "BC3_SRGB" : "BC3_UNORM";
+		case 0x1d: return type == 2 ? "BC4_SNORM" : "BC4_UNORM";
+		case 0x1e: return type == 2 ? "BC5_SNORM" : "BC5_UNORM";
+		case 0x1f: return type == 10 ? "BC6H_UF16" : "BC6H_SF16";
+		case 0x20: return type == 6 ? "BC7_SRGB" : "BC7_UNORM";
+		case 0x2d: return type == 6 ? "ASTC_4x4_SRGB" : "ASTC_4x4_UNORM";
+		case 0x2e: return type == 6 ? "ASTC_5x4_SRGB" : "ASTC_5x4_UNORM";
+		case 0x2f: return type == 6 ? "ASTC_5x5_SRGB" : "ASTC_5x5_UNORM";
+		case 0x30: return type == 6 ? "ASTC_6x5_SRGB" : "ASTC_6x5_UNORM";
+		case 0x31: return type == 6 ? "ASTC_6x6_SRGB" : "ASTC_6x6_UNORM";
+		case 0x32: return type == 6 ? "ASTC_8x5_SRGB" : "ASTC_8x5_UNORM";
+		case 0x33: return type == 6 ? "ASTC_8x6_SRGB" : "ASTC_8x6_UNORM";
+		case 0x34: return type == 6 ? "ASTC_8x8_SRGB" : "ASTC_8x8_UNORM";
+		case 0x35: return type == 6 ? "ASTC_10x5_SRGB" : "ASTC_10x5_UNORM";
+		case 0x36: return type == 6 ? "ASTC_10x6_SRGB" : "ASTC_10x6_UNORM";
+		case 0x37: return type == 6 ? "ASTC_10x8_SRGB" : "ASTC_10x8_UNORM";
+		case 0x38: return type == 6 ? "ASTC_10x10_SRGB" : "ASTC_10x10_UNORM";
+		case 0x39: return type == 6 ? "ASTC_12x10_SRGB" : "ASTC_12x10_UNORM";
+		case 0x3a: return type == 6 ? "ASTC_12x12_SRGB" : "ASTC_12x12_UNORM";
+		case 0x3b: return "B5G5R5A1_UNORM";
+		default: return "UNKNOWN";
+	}
+}
+
+void DumpStructureBNTX (FILE *out, const bntx_t *bntx, int indent)
+{
+	if (!out || !bntx)
+		return;
+	fprintf (out, "%*sBNTX Container: platform '%s', version %u.%u.%u, textures %u\n",
+		indent, "", bntx->platform[0] ? bntx->platform : "NX  ",
+		bntx->version_major, bntx->version_minor, bntx->version_micro,
+		bntx->n_textures);
+	for (uint i = 0; i < bntx->n_textures; i++)
+	{
+		const bntx_texture_t *t = bntx->textures + i;
+		fprintf (out, "%*sTexture [%u] '%s':\n", indent + 2, "", i, t->name ? t->name : "");
+		fprintf (out, "%*sSize: %ux%u", indent + 4, "", t->width, t->height);
+		if (t->depth > 1)
+			fprintf (out, "x%u", t->depth);
+		if (t->array_count > 1)
+			fprintf (out, " (array count %u)", t->array_count);
+		fprintf (out, ", mips %u\n", t->n_mips);
+		fprintf (out, "%*sFormat: 0x%04x (%s)\n", indent + 4, "", t->format, GetBNTXFormatName (t->format));
+		fprintf (out, "%*sTile mode: %u, Block height log2: %u\n", indent + 4, "", t->tile_mode, t->block_height_log2);
+		static const char ch_names[6] = "01RGBA";
+		fprintf (out, "%*sChannels: %c%c%c%c\n", indent + 4, "",
+			ch_names[(t->comp_sel & 0xff) <= 5 ? (t->comp_sel & 0xff) : 2],
+			ch_names[((t->comp_sel >> 8) & 0xff) <= 5 ? ((t->comp_sel >> 8) & 0xff) : 3],
+			ch_names[((t->comp_sel >> 16) & 0xff) <= 5 ? ((t->comp_sel >> 16) & 0xff) : 4],
+			ch_names[((t->comp_sel >> 24) & 0xff) <= 5 ? ((t->comp_sel >> 24) & 0xff) : 5]);
+		fprintf (out, "%*sData size: 0x%x (%u bytes)\n", indent + 4, "", t->data_size, t->data_size);
+		if (t->n_user_data > 0)
+		{
+			fprintf (out, "%*sUserData (%u entries):\n", indent + 4, "", t->n_user_data);
+			for (uint u = 0; u < t->n_user_data; u++)
+			{
+				const bntx_user_data_t *ud = t->user_data + u;
+				fprintf (out, "%*s'%s': type %u, count %u\n", indent + 6, "",
+					ud->name ? ud->name : "", (uint)ud->type, ud->count);
+			}
+		}
+	}
+}
+
+// Format identifiers and ASTC footprints follow NintendoSDK / BntxLibrary.
 // BC6H/BC7 use K0lb3/texture2ddecoder's MIT decoder; ASTC uses the existing
 // Apache-2.0 drawElements-derived decoder in src/astc.
-enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *bntx, uint index)
+enumError DecodeBNTX_Mip_RGBA (
+	u8 **dest, uint *width, uint *height, const bntx_t *bntx, uint index, uint mip_level)
 {
 	if (!dest || !width || !height || !bntx || index >= bntx->n_textures)
 		return EINVAL;
 	const bntx_texture_t *t = bntx->textures + index;
+	if (mip_level >= t->n_mips)
+		return EINVAL;
+
+	const uint w = (t->width >> mip_level) ? (t->width >> mip_level) : 1;
+	const uint h = (t->height >> mip_level) ? (t->height >> mip_level) : 1;
+	const u8 *src_data = (mip_level > 0 && t->mip_offsets) ? t->data + t->mip_offsets[mip_level] : t->data;
+	const uint src_size = (mip_level > 0 && t->mip_offsets && t->mip_offsets[mip_level] < t->data_size)
+		? (t->data_size - (uint)t->mip_offsets[mip_level]) : t->data_size;
+	const uint bh_log2 = t->block_height_log2 > mip_level ? t->block_height_log2 - mip_level : 0;
 
 	const uint fmt = (t->format >> 8) & 0xFF;
 	const uint type = t->format & 0xFF;
@@ -580,10 +691,22 @@ enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *b
 		F_RGBA8,
 		F_BGRA8,
 		F_RGB565,
+		F_BGR565,
 		F_RGB5A1,
+		F_BGR5A1,
+		F_ABGR1555,
 		F_RGBA4,
+		F_R9G9B9E5F,
+		F_R10G10B10A2,
 		F_R11G11B10F,
-		F_R32F,
+		F_R16G16,
+		F_D24S8,
+		F_R32,
+		F_R16G16B16A16,
+		F_D32FS8,
+		F_R32G32,
+		F_R32G32B32,
+		F_R32G32B32A32,
 		F_BC1,
 		F_BC2,
 		F_BC3,
@@ -600,14 +723,26 @@ enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *b
 			bpp = 1;
 			kind = F_R8;
 			break;
+		case 0x03:
+			bpp = 2;
+			kind = F_RGBA4;
+			break;
+		case 0x05:
+			bpp = 2;
+			kind = F_RGB5A1;
+			break;
+		case 0x06:
+			bpp = 2;
+			kind = F_ABGR1555;
+			break;
 		case 0x07:
 			bpp = 2;
 			kind = F_RGB565;
-			break; // R5G6B5
+			break;
 		case 0x08:
 			bpp = 2;
-			kind = F_RGB5A1;
-			break; // R5G5B5A1
+			kind = F_BGR565;
+			break;
 		case 0x09:
 			bpp = 2;
 			kind = F_RG8;
@@ -619,22 +754,54 @@ enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *b
 		case 0x0b:
 			bpp = 4;
 			kind = F_RGBA8;
-			break; // R8G8B8A8
+			break;
 		case 0x0c:
 			bpp = 4;
 			kind = F_BGRA8;
-			break; // legacy B8G8R8A8
-		case 0x05:
-			bpp = 2;
-			kind = F_RGBA4;
-			break; // R4G4B4A4
+			break;
+		case 0x0d:
+			bpp = 4;
+			kind = F_R9G9B9E5F;
+			break;
+		case 0x0e:
+			bpp = 4;
+			kind = F_R10G10B10A2;
+			break;
 		case 0x0f:
 			bpp = 4;
 			kind = F_R11G11B10F;
 			break;
+		case 0x12:
+			bpp = 4;
+			kind = F_R16G16;
+			break;
+		case 0x13:
+			bpp = 4;
+			kind = F_D24S8;
+			break;
 		case 0x14:
 			bpp = 4;
-			kind = F_R32F;
+			kind = F_R32;
+			break;
+		case 0x15:
+			bpp = 8;
+			kind = F_R16G16B16A16;
+			break;
+		case 0x16:
+			bpp = 8;
+			kind = F_D32FS8;
+			break;
+		case 0x17:
+			bpp = 8;
+			kind = F_R32G32;
+			break;
+		case 0x18:
+			bpp = 12;
+			kind = F_R32G32B32;
+			break;
+		case 0x19:
+			bpp = 16;
+			kind = F_R32G32B32A32;
 			break;
 		case 0x1a:
 			bpp = 8;
@@ -755,6 +922,10 @@ enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *b
 			blk_h = 12;
 			kind = F_ASTC;
 			break;
+		case 0x3b:
+			bpp = 2;
+			kind = F_BGR5A1;
+			break;
 		default:
 			return ERROR0 (ERR_INVALID_IFORM, "Unsupported BNTX texture format 0x%02x in '%s'\n",
 				fmt, t->name);
@@ -762,12 +933,11 @@ enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *b
 
 	u8 *linear = 0;
 	uint linear_size = 0;
-	enumError err = BntxDeswizzle (&linear, &linear_size, t->data, t->data_size, t->width,
-		t->height, blk_w, blk_h, bpp, t->tile_mode, t->block_height_log2, true);
+	enumError err = BntxDeswizzle (&linear, &linear_size, src_data, src_size, w,
+		h, blk_w, blk_h, bpp, t->tile_mode, bh_log2, true);
 	if (err)
 		return err;
 
-	const uint w = t->width, h = t->height;
 	if ((u64)w * h > BNTX_MAX_OUTPUT / 4)
 	{
 		FREE (linear);
@@ -864,6 +1034,15 @@ enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *b
 						d[3] = 255;
 						break;
 					}
+					case F_BGR565:
+					{
+						const u16 c = brd16 (p);
+						d[0] = expand5b (c & 31);
+						d[1] = expand6b ((c >> 5) & 63);
+						d[2] = expand5b (c >> 11);
+						d[3] = 255;
+						break;
+					}
 					case F_RGB5A1:
 					{
 						const u16 c = brd16 (p);
@@ -871,6 +1050,24 @@ enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *b
 						d[1] = expand5b ((c >> 6) & 31);
 						d[2] = expand5b ((c >> 1) & 31);
 						d[3] = (c & 1) ? 255 : 0;
+						break;
+					}
+					case F_BGR5A1:
+					{
+						const u16 c = brd16 (p);
+						d[0] = expand5b ((c >> 1) & 31);
+						d[1] = expand5b ((c >> 6) & 31);
+						d[2] = expand5b (c >> 11);
+						d[3] = (c & 1) ? 255 : 0;
+						break;
+					}
+					case F_ABGR1555:
+					{
+						const u16 c = brd16 (p);
+						d[0] = expand5b (c & 31);
+						d[1] = expand5b ((c >> 5) & 31);
+						d[2] = expand5b ((c >> 10) & 31);
+						d[3] = (c & 0x8000) ? 255 : 0;
 						break;
 					}
 					case F_RGBA4:
@@ -882,6 +1079,26 @@ enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *b
 						d[3] = (u8)((c & 15) * 17);
 						break;
 					}
+					case F_R9G9B9E5F:
+					{
+						const u32 v = brd32 (p);
+						const int exp = (int)((v >> 27) & 31) - 15 - 9;
+						const float scale = ldexpf (1.0f, exp);
+						d[0] = float_to_u8 ((float)(v & 0x1ff) * scale);
+						d[1] = float_to_u8 ((float)((v >> 9) & 0x1ff) * scale);
+						d[2] = float_to_u8 ((float)((v >> 18) & 0x1ff) * scale);
+						d[3] = 255;
+						break;
+					}
+					case F_R10G10B10A2:
+					{
+						const u32 v = brd32 (p);
+						d[0] = (u8)(((v & 0x3ff) * 255 + 511) / 1023);
+						d[1] = (u8)((((v >> 10) & 0x3ff) * 255 + 511) / 1023);
+						d[2] = (u8)((((v >> 20) & 0x3ff) * 255 + 511) / 1023);
+						d[3] = (u8)(((v >> 30) & 3) * 85);
+						break;
+					}
 					case F_R11G11B10F:
 					{
 						const u32 value = brd32 (p);
@@ -891,12 +1108,108 @@ enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *b
 						d[3] = 255;
 						break;
 					}
-					case F_R32F:
+					case F_R16G16:
+					{
+						const u16 r16 = brd16 (p), g16 = brd16 (p + 2);
+						if (type == 5)
+						{
+							d[0] = float_to_u8 (half_to_float (r16));
+							d[1] = float_to_u8 (half_to_float (g16));
+						}
+						else if (type == 2)
+						{
+							s16 r = (s16)r16, g = (s16)g16;
+							if (r < -32767) r = -32767;
+							if (g < -32767) g = -32767;
+							d[0] = (u8)(((s64)r + 32767) * 255 / 65534);
+							d[1] = (u8)(((s64)g + 32767) * 255 / 65534);
+						}
+						else
+						{
+							d[0] = (u8)(((u32)r16 * 255 + 32767) / 65535);
+							d[1] = (u8)(((u32)g16 * 255 + 32767) / 65535);
+						}
+						d[2] = 0;
+						d[3] = 255;
+						break;
+					}
+					case F_D24S8:
+					{
+						const u32 v = brd32 (p);
+						const u8 depth = (u8)((v & 0xffffff) >> 16);
+						d[0] = d[1] = d[2] = depth;
+						d[3] = 255;
+						break;
+					}
+					case F_R32:
 					{
 						float value;
 						memcpy (&value, p, sizeof (value));
 						d[0] = d[1] = d[2] = float_to_u8 (value);
 						d[3] = 255;
+						break;
+					}
+					case F_R16G16B16A16:
+					{
+						for (int c = 0; c < 4; c++)
+						{
+							const u16 v16 = brd16 (p + c * 2);
+							if (type == 5)
+								d[c] = float_to_u8 (half_to_float (v16));
+							else if (type == 2)
+							{
+								s16 s = (s16)v16;
+								if (s < -32767) s = -32767;
+								d[c] = (u8)(((s64)s + 32767) * 255 / 65534);
+							}
+							else
+								d[c] = (u8)(((u32)v16 * 255 + 32767) / 65535);
+						}
+						break;
+					}
+					case F_D32FS8:
+					{
+						float f;
+						memcpy (&f, p, 4);
+						const u8 depth = float_to_u8 (f);
+						d[0] = d[1] = d[2] = depth;
+						d[3] = 255;
+						break;
+					}
+					case F_R32G32:
+					{
+						float rf, gf;
+						memcpy (&rf, p, 4);
+						memcpy (&gf, p + 4, 4);
+						d[0] = float_to_u8 (rf);
+						d[1] = float_to_u8 (gf);
+						d[2] = 0;
+						d[3] = 255;
+						break;
+					}
+					case F_R32G32B32:
+					{
+						float rf, gf, bf;
+						memcpy (&rf, p, 4);
+						memcpy (&gf, p + 4, 4);
+						memcpy (&bf, p + 8, 4);
+						d[0] = float_to_u8 (rf);
+						d[1] = float_to_u8 (gf);
+						d[2] = float_to_u8 (bf);
+						d[3] = 255;
+						break;
+					}
+					case F_R32G32B32A32:
+					{
+						float rf, gf, bf, af;
+						memcpy (&rf, p, 4);
+						memcpy (&gf, p + 4, 4);
+						memcpy (&bf, p + 8, 4);
+						memcpy (&af, p + 12, 4);
+						d[0] = float_to_u8 (rf);
+						d[1] = float_to_u8 (gf);
+						d[2] = float_to_u8 (bf);
+						d[3] = float_to_u8 (af);
 						break;
 					}
 					default:
@@ -982,6 +1295,11 @@ enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *b
 	*width = w;
 	*height = h;
 	return ERR_OK;
+}
+
+enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *bntx, uint index)
+{
+	return DecodeBNTX_Mip_RGBA (dest, width, height, bntx, index, 0);
 }
 
 //-----------------------------------------------------------------------------
