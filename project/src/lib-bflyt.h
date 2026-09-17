@@ -43,6 +43,11 @@
 #define BFLYT_CHUNK_usd1 0x75736431 // 'usd1'
 #define BFLYT_CHUNK_prt1 0x70727431 // 'prt1'
 #define BFLYT_CHUNK_cnt1 0x636E7431 // 'cnt1'
+#define BFLYT_CHUNK_ali1 0x616C6931 // 'ali1'
+#define BFLYT_CHUNK_scr1 0x73637231 // 'scr1'
+#define BFLYT_CHUNK_ctl1 0x63746C31 // 'ctl1'
+#define BFLYT_CHUNK_pat1 0x70617431 // 'pat1'
+#define BFLYT_CHUNK_pai1 0x70616931 // 'pai1'
 
 //
 ///////////////////////////////////////////////////////////////////////////////

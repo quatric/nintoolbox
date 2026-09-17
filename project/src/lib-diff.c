@@ -12,7 +12,7 @@ enumError DecodeDiff8 (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 	if (!dest || !dest_size || !src || src_size < 4 || src[0] != 0x80)
 		return EINVAL;
 	const uint uncomp_size = ((uint)src[1]) | ((uint)src[2] << 8) | ((uint)src[3] << 16);
-	if (!uncomp_size || uncomp_size > NFMT_MAX_OUTPUT)
+	if (!uncomp_size || uncomp_size > NFMT_MAX_OUTPUT || src_size < 4 + uncomp_size)
 		return EINVAL;
 
 	enumError err = AllocOutput (dest, dest_size, uncomp_size);
@@ -60,7 +60,7 @@ enumError DecodeDiff16 (u8 **dest, uint *dest_size, const u8 *src, uint src_size
 	if (!dest || !dest_size || !src || src_size < 4 || src[0] != 0x81)
 		return EINVAL;
 	const uint uncomp_size = ((uint)src[1]) | ((uint)src[2] << 8) | ((uint)src[3] << 16);
-	if (!uncomp_size || uncomp_size > NFMT_MAX_OUTPUT)
+	if (!uncomp_size || uncomp_size > NFMT_MAX_OUTPUT || src_size < 4 + ((uncomp_size + 1) & ~1u))
 		return EINVAL;
 
 	enumError err = AllocOutput (dest, dest_size, uncomp_size);

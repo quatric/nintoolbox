@@ -709,7 +709,6 @@ enumError ScanAAMP (aamp_file_t *aamp, const u8 *data, size_t size)
 
 	InitializeAAMP (aamp);
 	u32 ver_le = rd_le32 (data + 4);
-	u32 ver_be = rd_be32 (data + 4);
 	bool le = (ver_le == 1 || ver_le == 2);
 	aamp->is_le = le;
 	aamp->version = read_u32 (data + 4, le);

@@ -547,11 +547,17 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		if (d[0] == 0x19 && size >= 4 && CxIsCompressedLZX (d, size))
 			return make_info (NFMT_LZX, false, true, (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);
 		if (d[0] == 0x80 && size >= 4)
-			return make_info (
-				NFMT_DIFF8, false, true, (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);
+		{
+			const u32 usize = (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16;
+			if (usize && (size <= 4 || size >= 4 + usize))
+				return make_info (NFMT_DIFF8, false, true, usize);
+		}
 		if (d[0] == 0x81 && size >= 4)
-			return make_info (
-				NFMT_DIFF16, false, true, (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);
+		{
+			const u32 usize = (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16;
+			if (usize && (size <= 4 || size >= 4 + ((usize + 1) & ~1u)))
+				return make_info (NFMT_DIFF16, false, true, usize);
+		}
 		if ((d[0] == 0x10 || d[0] == 0x11) && size >= 4)
 		{
 			u32 usize = (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16;

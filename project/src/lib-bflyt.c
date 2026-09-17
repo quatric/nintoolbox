@@ -1743,6 +1743,7 @@ typedef struct bf_rctx_t
 	bool is_rlyt; // Wii RLYT / RLAN
 	bool is_wiiu; // Wii U FLYT / FLAN (see readpane())
 	u32 version; // header version
+	uint version_major; // major version
 	const u8 *data; // whole file
 	uint size;
 	bf_node_t *tree; // root
@@ -2128,26 +2129,91 @@ static enumError r_mat1 (bf_rctx_t *ctx, const u8 *d, uint size)
 			FREE (name);
 			ptr += 28;
 
-			bf_node_t *color = BFNodeSetNode (mat, "foreground-color");
-			if (!color)
+			u32 flags;
+			if (ctx->version_major >= 8)
 			{
-				FREE (offsets);
-				return ERR_OUT_OF_MEMORY;
+				flags = rd32 (d + ptr, ctx->be);
+				ptr += 4;
+				BFE (BFNodeSetInt (mat, "flags", (int)flags));
+				uint cpos = ptr;
+				if (!rb_ok (ctx, ptr, 2))
+				{
+					FREE (offsets);
+					return ERR_INVALID_DATA;
+				}
+				u8 colortype = d[ptr];
+				u8 colorcount = d[ptr + 1];
+				ptr += 2;
+				if (!rb_ok (ctx, ptr, colorcount))
+				{
+					FREE (offsets);
+					return ERR_INVALID_DATA;
+				}
+				const u8 *coloroffsets = d + ptr;
+				ptr += colorcount;
+				for (uint c = 0; c < colorcount; c++)
+				{
+					uint coff = cpos + coloroffsets[c];
+					u8 ctype = (colortype >> c) & 1;
+					char ckey[24];
+					if (c == 0)
+						strcpy (ckey, "foreground-color");
+					else if (c == 1)
+						strcpy (ckey, "background-color");
+					else
+						snprintf (ckey, sizeof (ckey), "color-%u", c);
+					bf_node_t *color = BFNodeSetNode (mat, ckey);
+					if (!color)
+					{
+						FREE (offsets);
+						return ERR_OUT_OF_MEMORY;
+					}
+					if (ctype == 0)
+					{
+						if (!rb_ok (ctx, coff, 4))
+						{
+							FREE (offsets);
+							return ERR_INVALID_DATA;
+						}
+						BFE (rb_color (ctx, d, size, coff, color));
+					}
+					else
+					{
+						if (!rb_ok (ctx, coff, 16))
+						{
+							FREE (offsets);
+							return ERR_INVALID_DATA;
+						}
+						BFE (BFNodeSetFloat (color, "r", rdf32 (d + coff, ctx->be)));
+						BFE (BFNodeSetFloat (color, "g", rdf32 (d + coff + 4, ctx->be)));
+						BFE (BFNodeSetFloat (color, "b", rdf32 (d + coff + 8, ctx->be)));
+						BFE (BFNodeSetFloat (color, "a", rdf32 (d + coff + 12, ctx->be)));
+					}
+				}
 			}
-			BFE (rb_color (ctx, d, size, ptr, color));
-			ptr += 4;
-			color = BFNodeSetNode (mat, "background-color");
-			if (!color)
+			else
 			{
-				FREE (offsets);
-				return ERR_OUT_OF_MEMORY;
-			}
-			BFE (rb_color (ctx, d, size, ptr, color));
-			ptr += 4;
+				bf_node_t *color = BFNodeSetNode (mat, "foreground-color");
+				if (!color)
+				{
+					FREE (offsets);
+					return ERR_OUT_OF_MEMORY;
+				}
+				BFE (rb_color (ctx, d, size, ptr, color));
+				ptr += 4;
+				color = BFNodeSetNode (mat, "background-color");
+				if (!color)
+				{
+					FREE (offsets);
+					return ERR_OUT_OF_MEMORY;
+				}
+				BFE (rb_color (ctx, d, size, ptr, color));
+				ptr += 4;
 
-			u32 flags = rd32 (d + ptr, ctx->be);
-			ptr += 4;
-			BFE (BFNodeSetInt (mat, "flags", (int)flags));
+				flags = rd32 (d + ptr, ctx->be);
+				ptr += 4;
+				BFE (BFNodeSetInt (mat, "flags", (int)flags));
+			}
 
 			uint texref = (flags >> 0) & 3;
 			uint texturesrt = (flags >> 2) & 3;
@@ -2227,7 +2293,8 @@ static enumError r_mat1 (bf_rctx_t *ctx, const u8 *d, uint size)
 			}
 			for (uint k = 0; k < mapsettings; k++)
 			{
-				if (!rb_ok (ctx, ptr, 8))
+				uint map_size = (ctx->version_major >= 8) ? 16 : 8;
+				if (!rb_ok (ctx, ptr, map_size))
 				{
 					FREE (offsets);
 					return ERR_INVALID_DATA;
@@ -2248,7 +2315,7 @@ static enumError r_mat1 (bf_rctx_t *ctx, const u8 *d, uint size)
 				}
 				BFE (BFNodeSetInt (fn, "unknown", d[ptr]));
 				BFE (BFNodeSetStr (fn, "method", MAPPING_METHODS[method]));
-				ptr += 8;
+				ptr += map_size;
 			}
 			for (uint k = 0; k < combiners; k++)
 			{
@@ -2838,6 +2905,52 @@ static enumError r_pan1 (bf_rctx_t *ctx, const u8 *d, uint size)
 	return readpane (ctx, d, size, &p, node);
 }
 
+static enumError r_ali1 (bf_rctx_t *ctx, const u8 *d, uint size)
+{
+	char key[64];
+	snprintf (key, sizeof (key), "ali1-%s", ctx->prevname);
+	bf_node_t *node = BFNodeSetNode (ctx->actnode, key);
+	if (!node)
+		return ERR_OUT_OF_MEMORY;
+	uint p = 8;
+	BFE (readpane (ctx, d, size, &p, node));
+	if (!rb_ok (ctx, p, 12))
+		return ERR_INVALID_DATA;
+	BFE (BFNodeSetFloat (node, "align-x", rdf32 (d + p, ctx->be)));
+	p += 4;
+	BFE (BFNodeSetFloat (node, "align-y", rdf32 (d + p, ctx->be)));
+	p += 4;
+	BFE (BFNodeSetFloat (node, "align-z", rdf32 (d + p, ctx->be)));
+	p += 4;
+	if (p < size)
+		BFE (BFNodeSetBytes (node, "extra", d + p, size - p));
+	return ERR_OK;
+}
+
+static enumError r_scr1 (bf_rctx_t *ctx, const u8 *d, uint size)
+{
+	char key[64];
+	snprintf (key, sizeof (key), "scr1-%s", ctx->prevname);
+	bf_node_t *node = BFNodeSetNode (ctx->actnode, key);
+	if (!node)
+		return ERR_OUT_OF_MEMORY;
+	uint p = 8;
+	BFE (readpane (ctx, d, size, &p, node));
+	if (p < size)
+		BFE (BFNodeSetBytes (node, "extra", d + p, size - p));
+	return ERR_OK;
+}
+
+static enumError r_ctl1 (bf_rctx_t *ctx, const u8 *d, uint size)
+{
+	bf_node_t *node = BFNodeSetNode (ctx->actnode, "ctl1");
+	if (!node)
+		return ERR_OUT_OF_MEMORY;
+	if (size > 8)
+		BFE (BFNodeSetBytes (node, "data", d + 8, size - 8));
+	return ERR_OK;
+}
+
 static enumError r_pas1 (bf_rctx_t *ctx, const u8 *d, uint size)
 {
 	char key[64];
@@ -3098,6 +3211,13 @@ static enumError r_txt1 (bf_rctx_t *ctx, const u8 *d, uint size)
 		p += 4;
 		BFE (BFNodeSetFloat (node, "shadow-italic-tilt", rdf32 (d + p, ctx->be)));
 		p += 4;
+		if (ctx->version_major >= 8)
+		{
+			u32 linetrans_off = rd32 (d + p, ctx->be);
+			p += 4;
+			if (linetrans_off)
+				BFE (BFNodeSetInt (node, "line-transform-offset", (int)linetrans_off));
+		}
 		u32 perchar_off = rd32 (d + p, ctx->be);
 		p += 4;
 		if (perchar_off)
@@ -3371,6 +3491,12 @@ static enumError r_usd1 (bf_rctx_t *ctx, const u8 *d, uint size)
 				return ERR_OUT_OF_MEMORY;
 			for (uint j = 0; j < datanum; j++)
 				BFE (BFListAddFloat (dl, rdf32 (d + dataoff + j * 4, ctx->be)));
+		}
+		else if (datatype == 3)
+		{
+			if (dataoff > size || datanum > size - dataoff)
+				return ERR_INVALID_DATA;
+			BFE (BFNodeSetBytes (en, "data", d + dataoff, datanum));
 		}
 		else
 			return ERR_INVALID_DATA;
@@ -3702,6 +3828,12 @@ static enumError r_section (bf_rctx_t *ctx, u32 magic, const u8 *d, uint size)
 			return r_prt1 (ctx, d, size);
 		case BFLYT_CHUNK_cnt1:
 			return r_cnt1 (ctx, d, size);
+		case BFLYT_CHUNK_ali1:
+			return r_ali1 (ctx, d, size);
+		case BFLYT_CHUNK_scr1:
+			return r_scr1 (ctx, d, size);
+		case BFLYT_CHUNK_ctl1:
+			return r_ctl1 (ctx, d, size);
 		default:
 		{
 			char key[8];
@@ -3730,6 +3862,7 @@ static enumError parse_binary (bflyt_t *bflyt, const u8 *data, uint data_size)
 	if (data_size < (is_rlyt ? 16u : 20u))
 		return ERR_INVALID_DATA;
 	bool be = !(data[4] == 0xFF && data[5] == 0xFE);
+	u32 version_u32 = is_rlyt ? (u32)rd16 (data + 6, be) : rd32 (data + 8, be);
 	u32 version = is_rlyt ? rd16 (data + 6, be) : rd16 (data + 8, be);
 	uint secnum = is_rlyt ? rd16 (data + 14, be) : rd16 (data + 16, be);
 
@@ -3766,6 +3899,7 @@ static enumError parse_binary (bflyt_t *bflyt, const u8 *data, uint data_size)
 	ctx.is_rlyt = is_rlyt;
 	ctx.is_wiiu = (fmagic == BFLYT_MAGIC_FLYT || fmagic == BFLYT_MAGIC_FLAN);
 	ctx.version = version;
+	ctx.version_major = is_rlyt ? (ctx.version / 10) : (version_u32 >> 24);
 	ctx.data = data;
 	ctx.size = data_size;
 	ctx.tree = tree;
@@ -4462,6 +4596,51 @@ static enumError p_pan1 (bf_pctx_t *ctx, bf_buf_t *out, const bf_val_t *v)
 	return p_pane_sec (ctx, out, "pan1", v->u.node, 0);
 }
 
+static enumError p_ali1_extra (bf_pctx_t *ctx, bf_buf_t *out, const bf_node_t *node)
+{
+	BFE (bf_buf_f32 (out, ctx->be, (float)bf_get_float (node, "align-x", 0)));
+	BFE (bf_buf_f32 (out, ctx->be, (float)bf_get_float (node, "align-y", 0)));
+	BFE (bf_buf_f32 (out, ctx->be, (float)bf_get_float (node, "align-z", 0)));
+	bf_val_t *ex = BFNodeGet ((bf_node_t *)node, "extra");
+	if (ex && ex->type == BF_T_BYTES && ex->u.by.n)
+		BFE (bf_buf_raw (out, ex->u.by.d, ex->u.by.n));
+	return ERR_OK;
+}
+
+static enumError p_ali1 (bf_pctx_t *ctx, bf_buf_t *out, const bf_val_t *v)
+{
+	if (v->type != BF_T_NODE)
+		return ERR_INVALID_DATA;
+	return p_pane_sec (ctx, out, "ali1", v->u.node, p_ali1_extra);
+}
+
+static enumError p_scr1_extra (bf_pctx_t *ctx, bf_buf_t *out, const bf_node_t *node)
+{
+	bf_val_t *ex = BFNodeGet ((bf_node_t *)node, "extra");
+	if (ex && ex->type == BF_T_BYTES && ex->u.by.n)
+		BFE (bf_buf_raw (out, ex->u.by.d, ex->u.by.n));
+	return ERR_OK;
+}
+
+static enumError p_scr1 (bf_pctx_t *ctx, bf_buf_t *out, const bf_val_t *v)
+{
+	if (v->type != BF_T_NODE)
+		return ERR_INVALID_DATA;
+	return p_pane_sec (ctx, out, "scr1", v->u.node, p_scr1_extra);
+}
+
+static enumError p_ctl1 (bf_pctx_t *ctx, bf_buf_t *out, const bf_val_t *v)
+{
+	if (v->type != BF_T_NODE)
+		return ERR_INVALID_DATA;
+	bf_val_t *data_v = BFNodeGet (v->u.node, "data");
+	uint n = (data_v && data_v->type == BF_T_BYTES) ? data_v->u.by.n : 0;
+	BFE (bf_buf_sechdr (out, ctx->be, "ctl1", n));
+	if (n)
+		BFE (bf_buf_raw (out, data_v->u.by.d, n));
+	return ERR_OK;
+}
+
 static enumError p_pic1 (bf_pctx_t *ctx, bf_buf_t *out, const bf_val_t *v)
 {
 	if (v->type != BF_T_NODE)
@@ -4892,6 +5071,13 @@ static enumError p_usd1 (bf_pctx_t *ctx, bf_buf_t *out, const bf_val_t *v)
 					BFE (bf_buf_u32 (&datatbl, ctx->be, (u32)it->u.i));
 			}
 		}
+		else if (data && data->type == BF_T_BYTES)
+		{
+			dtype = 3;
+			dnum = data->u.by.n;
+			if (dnum)
+				BFE (bf_buf_raw (&datatbl, data->u.by.d, dnum));
+		}
 		datatypes[i] = (u8)dtype;
 		datanums[i] = dnum;
 	}
@@ -5193,9 +5379,19 @@ static pack_func pack_dispatch (ccp magic)
 			if (!strcmp (magic, "usd1"))
 				return p_usd1;
 			break;
+		case 'a':
+			if (!strcmp (magic, "ali1"))
+				return p_ali1;
+			break;
+		case 's':
+			if (!strcmp (magic, "scr1"))
+				return p_scr1;
+			break;
 		case 'c':
 			if (!strcmp (magic, "cnt1"))
 				return p_cnt1;
+			if (!strcmp (magic, "ctl1"))
+				return p_ctl1;
 			break;
 	}
 	return 0;

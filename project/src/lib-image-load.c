@@ -130,6 +130,18 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		return PatchListIMG (img);
 	}
 
+	if (IsNTTF (data, data_size))
+	{
+		u8 *rgba = 0;
+		uint width = 0, height = 0;
+		const enumError err = DecodeNTTF_RGBA (&rgba, &width, &height, data, data_size);
+		if (err)
+			return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported NTTF texture: %s\n", fname);
+		AssignDecodedRGBA (img, rgba, width, height, &le_func, fname);
+		img->info_fform = FF_NTTF;
+		return PatchListIMG (img);
+	}
+
 	// Retro Studios TXTR revisions (Metroid Prime/DKCR + Tropical Freeze +
 	// Metroid Prime Remastered). None share the DSB "TXTR" magic tested
 	// above, so there is no collision here; IsRetroTXTR() additionally
