@@ -35,33 +35,54 @@
 #define _GNU_SOURCE 1
 
 #include <sys/types.h>
-#include <sys/ioctl.h>
 #include <sys/time.h>
 #include <fcntl.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include <termios.h>
 #include <utime.h>
 #include <errno.h>
 #include <dirent.h>
-#include <poll.h>
 #include <signal.h>
-#include <sys/wait.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <sys/resource.h>
+#ifdef __MINGW32__
+  // The fork()/pipe()/poll()/select()/AF_UNIX-based process-catching and
+  // terminal subsystems below (FDList/CatchOutput*, unix-socket connect,
+  // termios) have no 1:1 Windows equivalent, so they are stubbed out
+  // entirely for MinGW instead of being ported (see the __MINGW32__ blocks
+  // below). The mkdir()/realpath()/fcntl()/memrchr()/setenv()/getrlimit()/
+  // sysconf()/link()/DIRENT_D_TYPE() shims this file needs live in
+  // dclib-mingw-compat.h (included below via dclib-basics.h), shared with
+  // dclib-basics.c and any other file that needs the same POSIX gaps filled.
+#else
+  #define DIRENT_D_TYPE(dent) ((dent)->d_type)
+  #include <sys/ioctl.h>
+  #include <termios.h>
+  #include <poll.h>
+  #include <sys/wait.h>
+  #include <sys/socket.h>
+  #include <sys/un.h>
+  #include <sys/resource.h>
+#endif
 
 #include "dclib-basics.h"
 #include "dclib-file.h"
 #include "dclib-debug.h"
+#ifndef __MINGW32__
 #include "dclib-network.h"
+#endif
 
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			termios support			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
+#ifdef __MINGW32__
+// termios (raw single-char terminal input) has no Windows console
+// equivalent used here; stub these out.
+int termios_valid = 0;
+void ResetTermios () {}
+bool EnableSingleCharInput () { return false; }
+#else
 static struct termios termios_data;
 int termios_valid = 0;
 
@@ -93,6 +114,7 @@ bool EnableSingleCharInput ()
 	tcsetattr (0, TCSANOW, &tios);
 	return true;
 }
+#endif
 
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -353,6 +375,17 @@ static FILE *pager_file = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
 
+#ifdef __MINGW32__
+// This whole pipe-to-"less"/"more" subsystem relies on popen() and on
+// reassigning the standard streams (stdout = f), but MinGW's stdout/stderr
+// are non-lvalue macros (they expand to a function call), so they can't be
+// reseated this way; paging is just left disabled on this platform instead.
+FILE *OpenPipeToPager () { return 0; }
+void ClosePagerFile () {}
+bool StdoutToPager () { return false; }
+void CloseStdoutToPager () {}
+#else
+
 FILE *OpenPipeToPager ()
 {
 	static bool done = false;
@@ -448,6 +481,8 @@ void CloseStdoutToPager ()
 	if (pager_file && pager_file == stdout)
 		ClosePagerFile ();
 }
+
+#endif // __MINGW32__
 
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -734,6 +769,13 @@ void SetAMTimes (ccp fname, const struct timespec times[2])
 {
 #if SUPPORT_UTIMENSAT
 	utimensat (AT_FDCWD, fname, times, 0);
+#elif defined(__MINGW32__)
+	// mingw's <utime.h> only offers whole-second utime()/_utime(), no
+	// utimes()/utimensat() -- sub-second precision is lost here.
+	struct utimbuf ut;
+	ut.actime = times[0].tv_sec;
+	ut.modtime = times[1].tv_sec;
+	utime (fname, &ut);
 #else
 	struct timeval tv[2];
 	tv[1].tv_sec = times[1].tv_sec;
@@ -755,6 +797,19 @@ void SetAMTimes (ccp fname, const struct timespec times[2])
 ///////////////////////////////////////////////////////////////////////////////
 // not stored in dclib-network.c to allow static linking!
 
+#ifdef __MINGW32__
+// wit never opens a file that is actually a UNIX-domain socket, so this is
+// stubbed out rather than ported to Windows' newer (Win10+) AF_UNIX support
+// -- callers already treat a negative return as "not a socket, fall through
+// to a normal file open".
+int ConnectUnixTCP (ccp fname, bool silent)
+{
+	(void)fname;
+	if (!silent)
+		ERROR0 (ERR_CANT_CONNECT, "UNIX sockets are not supported on this platform\n");
+	return -1;
+}
+#else
 int ConnectUnixTCP (ccp fname, // unix socket filename
 	bool silent // true: suppress error messages
 )
@@ -798,6 +853,7 @@ int ConnectUnixTCP (ccp fname, // unix socket filename
 
 	return sock;
 }
+#endif // __MINGW32__
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -2752,11 +2808,18 @@ LineBuffer_t *OpenLineBuffer (LineBuffer_t *lb, // line buffer; if NULL, malloc(
 	lb->max_line_size = max_line_size;
 	lb->line = MALLOC (lb->max_lines * sizeof (*lb->line));
 
+#ifdef __MINGW32__
+	// fopencookie() (glibc custom-FILE* streams) has no MinGW/Windows CRT
+	// equivalent; 'fp' is simply left unopened here rather than porting a
+	// custom stdio backend.
+	lb->fp = 0;
+#else
 	static cookie_io_functions_t funcs = { 0, // read
 		(cookie_write_function_t *)WriteLineBuffer,
 		0, // seek
 		(cookie_close_function_t *)CloseLineBuffer };
 	lb->fp = fopencookie (lb, "wb", funcs);
+#endif
 	if (fp_pos && lb->fp)
 		*fp_pos = lb->fp;
 	return lb;
@@ -3643,7 +3706,7 @@ static void search_paths_dir (search_paths_t *sp, ParamField_t *collect, int min
 
 			local.path_ptr = StringCopyE (path_ptr, sp->path_end, dent->d_name);
 
-			uint st_mode = ConvertDType2STMode (dent->d_type);
+			uint st_mode = ConvertDType2STMode (DIRENT_D_TYPE (dent));
 			if (!st_mode)
 			{
 				struct stat st;
@@ -3786,7 +3849,7 @@ static void search_paths_helper (search_paths_t *sp)
 				continue;
 			}
 
-			uint st_mode = ConvertDType2STMode (dent->d_type);
+			uint st_mode = ConvertDType2STMode (DIRENT_D_TYPE (dent));
 			if (st_mode && want_dir && !S_ISDIR (st_mode) && !S_ISLNK (st_mode))
 				continue;
 
@@ -4487,6 +4550,24 @@ bool SearchConfig (
 ///////////////			    FDList_t			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
+// FDList_t/CatchOutput()/CatchOutputLine() are a poll()+fork()+pipe() based
+// "run a child process and multiplex-capture its stdout/stderr" subsystem
+// with no 1:1 Windows equivalent, so the whole subsystem is stubbed out for
+// MinGW instead of porting fork()/pipe()/poll() to Windows.
+#ifdef __MINGW32__
+
+void ClearFDList (FDList_t *fdl) { memset (fdl, 0, sizeof (*fdl)); }
+void InitializeFDList (FDList_t *fdl, bool use_poll) { (void)use_poll; ClearFDList (fdl); }
+void ResetFDList (FDList_t *fdl) { (void)fdl; }
+struct pollfd *AllocFDList (FDList_t *fdl, uint n) { (void)fdl; (void)n; return 0; }
+void AnnounceFDList (FDList_t *fdl, uint n) { (void)fdl; (void)n; }
+uint AddFDList (FDList_t *fdl, int fd, uint events) { (void)fdl; (void)fd; (void)events; return 0; }
+uint GetEventFDList (FDList_t *fdl, int fd, uint fallback) { (void)fdl; (void)fd; return fallback; }
+int WaitFDList (FDList_t *fdl) { (void)fdl; return -1; }
+int PWaitFDList (FDList_t *fdl, const void *sigmask) { (void)fdl; (void)sigmask; return -1; }
+
+#else
+
 void ClearFDList (FDList_t *fdl)
 {
 	DASSERT (fdl);
@@ -4807,6 +4888,8 @@ int PWaitFDList (FDList_t *fdl, // valid socket list
 
 ///////////////////////////////////////////////////////////////////////////////
 
+#endif // __MINGW32__
+
 mem_t CheckUnixSocketPathMem (mem_t src, // NULL or source path to analyse
 	int tolerance // <1: 'unix:', 'file:', '/', './' and '../' detected
 				  //  1: not 'NAME:' && at relast one '/'
@@ -4871,6 +4954,40 @@ ccp CheckUnixSocketPath (ccp src, // NULL or source path to analyse
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			Catch Output			///////////////
 ///////////////////////////////////////////////////////////////////////////////
+
+#ifdef __MINGW32__
+// wit spawns helper tools via its own MinGW-compatible spawn path elsewhere;
+// nothing calls into this fork()/pipe()-based capture subsystem's public
+// entry points except via that path, so stub them out here too.
+int CatchIgnoreOutput (struct CatchOutput_t *ctrl, int mode) { (void)ctrl; (void)mode; return 0; }
+void ResetCatchOutput (CatchOutput_t *co, uint n) { (void)co; (void)n; }
+
+enumError CatchOutput (ccp command, int argc, char *const *argv, CatchOutputFunc stdout_func,
+	CatchOutputFunc stderr_func, void *user_ptr, bool silent)
+{
+	(void)argc;
+	(void)argv;
+	(void)stdout_func;
+	(void)stderr_func;
+	(void)user_ptr;
+	if (!silent)
+		ERROR0 (ERR_CANT_CREATE, "CatchOutput() is not supported on this platform: %s\n", command);
+	return ERR_CANT_CREATE;
+}
+
+enumError CatchOutputLine (ccp command_line, CatchOutputFunc stdout_func,
+	CatchOutputFunc stderr_func, void *user_ptr, bool silent)
+{
+	(void)stdout_func;
+	(void)stderr_func;
+	(void)user_ptr;
+	if (!silent)
+		ERROR0 (ERR_CANT_CREATE, "CatchOutputLine() is not supported on this platform: %s\n",
+			command_line);
+	return ERR_CANT_CREATE;
+}
+
+#else
 
 int CatchIgnoreOutput (struct CatchOutput_t *ctrl, // control struct incl. data
 	int call_mode // 0:init, 1:new data, 2:term
@@ -5114,6 +5231,8 @@ enumError CatchOutputLine (ccp command_line, // command line to execute
 	ResetSplitArg (&sa);
 	return err;
 }
+
+#endif // __MINGW32__
 
 //
 ///////////////////////////////////////////////////////////////////////////////

@@ -38,7 +38,9 @@
 #define _XOPEN_SOURCE 1
 
 #include <sys/time.h>
+#ifndef __MINGW32__
 #include <sys/ioctl.h>
+#endif
 
 #include <signal.h>
 #include <time.h>
@@ -199,6 +201,8 @@ static void sig_handler (int signum)
 			}
 			break;
 
+#ifndef __MINGW32__
+		// MinGW's signal.h has no SIGUSR1/SIGUSR2 (no Windows equivalent).
 		case SIGUSR1:
 			if (verbose >= -1)
 				verbose--;
@@ -212,6 +216,7 @@ static void sig_handler (int signum)
 			TRACE ("#SIGNAL# USR2: verbose = %d\n", verbose);
 			fprintf (stderr, usr_msg, 2, "INCREASED", verbose);
 			break;
+#endif
 
 		default:
 			TRACE ("#SIGNAL# %d\n", signum);
@@ -517,6 +522,12 @@ void SetupLib (int argc, char **argv, ccp p_progname, enumProgID prid)
 
 	//----- setup signals
 
+#ifdef __MINGW32__
+	// MinGW has no sigaction()/SIGUSR1/SIGUSR2; a plain signal() handles
+	// the two it does have.
+	signal (SIGTERM, &sig_handler);
+	signal (SIGINT, &sig_handler);
+#else
 	static const int sigtab[] = { SIGTERM, SIGINT, SIGUSR1, SIGUSR2, -1 };
 	int i;
 	for (i = 0; sigtab[i] >= 0; i++)
@@ -526,6 +537,7 @@ void SetupLib (int argc, char **argv, ccp p_progname, enumProgID prid)
 		sa.sa_handler = &sig_handler;
 		sigaction (sigtab[i], &sa, 0);
 	}
+#endif
 
 	//----- setup search_path
 	// [[config]] remove complete section!?
@@ -542,7 +554,14 @@ void SetupLib (int argc, char **argv, ccp p_progname, enumProgID prid)
 	static char local_share[] = "/usr/local/share/wit/";
 
 	char path[PATH_MAX];
+#ifdef __MINGW32__
+	// No /proc filesystem (and no readlink()) on Windows; this whole
+	// self-locating block just never fires there, matching how it already
+	// falls through when readlink() fails on other platforms.
+	if (0)
+#else
 	if (readlink (proc_path, path, sizeof (path)))
+#endif
 	{
 		// program path found!
 		TRACE ("PROG-PATH: %s\n", path);

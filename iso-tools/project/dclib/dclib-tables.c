@@ -38,8 +38,10 @@
 #include <utime.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifndef __MINGW32__
 #include <sys/socket.h>
 #include <sys/un.h>
+#endif
 #include <sys/time.h>
 
 #include "dclib-basics.h"

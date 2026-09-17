@@ -38,7 +38,9 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifndef __MINGW32__
 #include <sys/ioctl.h>
+#endif
 
 #include <fcntl.h>
 #include <unistd.h>

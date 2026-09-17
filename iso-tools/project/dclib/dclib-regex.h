@@ -38,6 +38,49 @@
 #if DCLIB_USE_PCRE
 #include <pcre.h>
 #define DC_REGEX_TYPE pcre
+#elif defined(__MINGW32__)
+#include <stdio.h> // snprintf() for the regerror() shim below
+// MinGW ships neither POSIX <regex.h> nor PCRE for this cross target.
+// regcomp() below always reports failure, so callers that check the
+// return value treat this as "this regex just doesn't do anything"
+// instead of crashing.
+typedef struct { int unused; } regex_t;
+typedef struct
+{
+	long rm_so;
+	long rm_eo;
+} regmatch_t;
+#define REG_EXTENDED 1
+#define REG_ICASE 2
+#define REG_NOMATCH 1
+static inline int regcomp (regex_t *preg, const char *pattern, int cflags)
+{
+	(void)preg;
+	(void)pattern;
+	(void)cflags;
+	return 1; // always report a compile error
+}
+static inline int regexec (
+	const regex_t *preg, const char *s, size_t nmatch, regmatch_t *pmatch, int eflags)
+{
+	(void)preg;
+	(void)s;
+	(void)nmatch;
+	(void)pmatch;
+	(void)eflags;
+	return REG_NOMATCH;
+}
+static inline void regfree (regex_t *preg) { (void)preg; }
+static inline size_t regerror (
+	int errcode, const regex_t *preg, char *errbuf, size_t errbuf_size)
+{
+	(void)errcode;
+	(void)preg;
+	if (errbuf_size)
+		snprintf (errbuf, errbuf_size, "regex is not supported on this platform");
+	return 0;
+}
+#define DC_REGEX_TYPE regex_t
 #else
 #ifndef DCLIB_USE_REGEX
 #define DCLIB_USE_REGEX 1

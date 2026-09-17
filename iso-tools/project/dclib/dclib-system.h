@@ -49,6 +49,7 @@ typedef enum enumSystemID
 	SYSID_X86_64 = 0x02000000,
 	SYSID_CYGWIN32 = 0x03000000,
 	SYSID_CYGWIN64 = 0x04000000,
+	SYSID_MINGW64 = 0x0a000000,
 	SYSID_MAC_I386 = 0x05000000,
 	SYSID_MAC_X64 = 0x06000000,
 	SYSID_MAC_ARM = 0x07000000,
@@ -63,7 +64,12 @@ typedef enum enumSystemID
 
 #undef SYSTEM_LINUX
 
-#ifdef __CYGWIN__
+#if defined(__MINGW32__) || defined(__MINGW64__)
+#define SYSTEM_LINUX 0
+#define SYSTEM "mingw64"
+#define SYSTEM2 "mingw64"
+#define SYSTEMID SYSID_MINGW64
+#elif defined(__CYGWIN__)
 #define SYSTEM_LINUX 0
 #define SYSTEM "cygwin"
 #ifdef __x86_64

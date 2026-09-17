@@ -372,7 +372,14 @@ enumError AnalyzePartitions (FILE *outfile, bool non_found_is_ok, bool scan_wbfs
 			TRACE ("st_blksize=%lld st_blocks=%lld\n", (u64)F.st.st_blksize, (u64)F.st.st_blocks);
 			info->file_size = F.st.st_size;
 			info->hss = GetHSS (F.fd, HD_SECTOR_SIZE);
+#ifdef __MINGW32__
+			// MinGW's struct stat has no st_blocks (no block-count concept
+			// in the classic Windows stat() model); fall back to the exact
+			// file size instead of the true on-disk (sparse-aware) usage.
+			info->disk_usage = info->file_size;
+#else
 			info->disk_usage = info->hss * (u64)F.st.st_blocks;
+#endif
 			TRACE (" - hss:        %13d\n", info->hss);
 			TRACE (" - file-size:  %13lld = %5lld GiB\n", info->file_size, info->file_size / GiB);
 			TRACE (" - disk-usage: %13lld = %5lld GiB\n", info->disk_usage, info->disk_usage / GiB);

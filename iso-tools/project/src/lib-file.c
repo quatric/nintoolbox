@@ -40,7 +40,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#ifndef __MINGW32__
 #include <sys/ioctl.h>
+#endif
 
 #include <fcntl.h>
 #include <errno.h>
@@ -1630,7 +1632,11 @@ void DefineCachedArea (WFile_t *f, off_t off, size_t count)
 	if (!f->is_caching)
 		return;
 
+#ifdef __MINGW32__
+	const size_t blocksize = HD_SECTOR_SIZE;
+#else
 	const size_t blocksize = f->st.st_blksize > HD_SECTOR_SIZE ? f->st.st_blksize : HD_SECTOR_SIZE;
+#endif
 
 	off_t off_end = ((off + count + blocksize - 1) / blocksize) * blocksize;
 	off = (off / blocksize) * blocksize;
@@ -2607,9 +2613,13 @@ enumError XZeroAtF (XPARM WFile_t *f, off_t off, size_t count)
 	//----- try to align to blocks
 
 	char buf[0x20000];
+#ifdef __MINGW32__
+	const size_t blocksize = DCLIB_MINGW_ST_BLKSIZE;
+#else
 	const size_t blocksize = f->st.st_blksize < HD_SECTOR_SIZE ? HD_SECTOR_SIZE
 		: f->st.st_blksize > sizeof (buf)					   ? sizeof (buf)
 															   : f->st.st_blksize;
+#endif
 
 	if (off / blocksize != (last_off - 1) / blocksize)
 	{
