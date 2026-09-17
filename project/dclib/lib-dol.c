@@ -1092,6 +1092,13 @@ ccp DecodeWCH (
 			return "Decompression of WCH failed.";
 		ptr = (wch_segment_t *)wc->temp_data;
 	}
+	else if (wc->wh.size > size - sizeof (wch_header_t))
+	{
+		// uncompressed path: 'wh.size' is an unchecked file field and must not
+		// claim more bytes than are actually present, or 'end' below would point
+		// past 'data' and the segment loop would read out of bounds.
+		return "Invalid WCH header";
+	}
 
 	const wch_segment_t *end = (wch_segment_t *)((u8 *)ptr + wc->wh.size);
 	noPRINT ("%p %p [%zd]\n", ptr, end, (u8 *)end - (u8 *)ptr);
