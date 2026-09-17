@@ -91,6 +91,7 @@
 #include "lib-nusktb.h"
 #include "lib-nufxlb.h"
 #include "lib-numdlb.h"
+#include "lib-nuhlpb.h"
 #include "lib-bfsha.h"
 #include "lib-pctl.h"
 #include "lib-wtb.h"
