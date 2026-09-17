@@ -6868,7 +6868,8 @@ bool ScanSocketInfo (
 		char namebuf[10];
 		char *dest = namebuf;
 		ccp ptr = start;
-		while (dest < namebuf + sizeof (namebuf) - 1 && isalnum ((int)*ptr) || *ptr == '-')
+		// missing parens let '-' bypass the bounds check and overflow namebuf[]
+		while (dest < namebuf + sizeof (namebuf) - 1 && (isalnum ((int)*ptr) || *ptr == '-'))
 		{
 			*dest++ = *ptr++;
 		}
