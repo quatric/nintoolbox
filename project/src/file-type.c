@@ -1463,12 +1463,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 
 	// FF_SHARC = 277 (NintendoWare Shader Source Archive)
 	{ FF_SHARC, 0, 0, "SHARC", ".sharc", ".sharc", ".sharc",
-		FFT_VALID | FFT_ARCHIVE, 4, { 0x41, 0x41, 0x48, 0x53 }, // "AAHS" / "SHAA"
+		FFT_VALID | FFT_ARCHIVE | FFT_DECODE, 4, { 0x41, 0x41, 0x48, 0x53 }, // "AAHS" / "SHAA"
 		0, MinusString, MinusString, "NintendoWare Shader Source Archive (SHARC)" },
 
 	// FF_SHARCFB = 278 (NintendoWare Shader Binary Archive)
 	{ FF_SHARCFB, 0, 0, "SHARCFB", ".sharcfb", ".sharcfb", ".sharcfb",
-		FFT_VALID | FFT_ARCHIVE, 4, { 0x42, 0x41, 0x48, 0x53 }, // "BAHS" / "SHAB"
+		FFT_VALID | FFT_ARCHIVE | FFT_DECODE, 4, { 0x42, 0x41, 0x48, 0x53 }, // "BAHS" / "SHAB"
 		0, MinusString, MinusString, "NintendoWare Shader Binary Archive (SHARCFB)" },
 
 	// FF_VFXB = 279 (NintendoWare Particle Effect Archive)
