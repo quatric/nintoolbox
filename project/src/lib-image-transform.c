@@ -90,6 +90,7 @@ const KeywordTab_t cmdtab_transform[] = { //--- file formats
 	{ FF_BREFT_IMG, "REFT-IMG", "REFTIMG", TM_IDX_FILE },
 	{ FF_BREFT_IMG, "BT-IMG", "BTIMG", TM_IDX_FILE }, { FF_PNG, "PNG", 0, TM_IDX_FILE },
 	{ FF_AJPG, "AJPG", 0, TM_IDX_FILE }, { FF_CTXB, "CTXB", 0, TM_IDX_FILE },
+	{ FF_NFTR, "NFTR", 0, TM_IDX_FILE }, { FF_BCFNT, "BCFNT", 0, TM_IDX_FILE },
 
 	//--- image formats
 
@@ -364,16 +365,46 @@ ccp PrintFormat3 (file_format_t fform, // file format
 	palette_format_t pform // palette format
 )
 {
-	char tuple[TM_IDX_N];
-	memset (tuple, -1, sizeof (tuple));
-	tuple[TM_IDX_FILE] = fform == FF_BREFT ? FF_BREFT_IMG : fform;
+	// Unlike transform_t's src/dest (always a small nintendo-format id or a
+	// TF_ON/OFF flag, so 'char' is fine there), fform/iform here can be any
+	// registered format constant -- e.g. FF_NFTR=160 or an IMG_X_* value
+	// (>=0x7c00) for a non-nintendo decode. Routing those through
+	// PrintTransformTuple()'s 'char tuple[]' truncated them to one byte,
+	// silently aliasing e.g. IMG_X_RGB (0x7c02) to the unrelated registered
+	// IMG_IA4 (0x02) and printing a wrong label instead of the real one.
+	const uint bufsize = 50;
+	char *buf = GetCircBuf (bufsize);
+	char *dest = buf, *bufend = buf + bufsize - 3;
+
+	const file_format_t file_id = fform == FF_BREFT ? FF_BREFT_IMG : fform;
+	ccp name = GetTransformName (TM_IDX_FILE, file_id, 0);
+	if (name)
+	{
+		*dest++ = '.';
+		dest = StringCopyE (dest, bufend++, name);
+	}
+
 	if (fform != FF_PNG)
 	{
-		tuple[TM_IDX_IMG] = iform;
+		name = GetTransformName (TM_IDX_IMG, iform, 0);
+		if (name)
+		{
+			*dest++ = '.';
+			dest = StringCopyE (dest, bufend++, name);
+		}
 		if (GetPaletteCountIF (iform))
-			tuple[TM_IDX_PAL] = pform;
+		{
+			name = GetTransformName (TM_IDX_PAL, pform, 0);
+			if (name)
+			{
+				*dest++ = '.';
+				dest = StringCopyE (dest, bufend++, name);
+			}
+		}
 	}
-	return PrintTransformTuple (tuple);
+
+	*dest = 0;
+	return dest == buf ? "*" : buf + 1;
 }
 
 //
