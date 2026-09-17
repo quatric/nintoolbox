@@ -381,8 +381,14 @@ static bool is_archive_dir_name (ccp dir, size_t len)
 	return false;
 }
 
-static void cleanup_extracted_artifacts (ccp root, bool is_root)
+static void cleanup_extracted_artifacts (ccp root, bool is_root, uint depth)
 {
+	// Unlike repack_tree_bottom_up() (its sibling recursive tree-walker just
+	// above), this one had no depth cap at all: a directory tree nested more
+	// than a few thousand levels deep -- trivially producible, malicious or
+	// not -- recursed until the stack blew up. Cap it the same way.
+	if (depth > 32)
+		return;
 	DIR *dir = opendir (root);
 	if (!dir)
 		return;
@@ -392,7 +398,9 @@ static void cleanup_extracted_artifacts (ccp root, bool is_root)
 		if (!strcmp (de->d_name, ".") || !strcmp (de->d_name, ".."))
 			continue;
 		char path[PATH_MAX];
-		snprintf (path, sizeof (path), "%s/%s", root, de->d_name);
+		const int len = snprintf (path, sizeof (path), "%s/%s", root, de->d_name);
+		if (len < 0 || (uint)len >= sizeof (path))
+			continue;
 		struct stat st;
 		if (lstat (path, &st))
 			continue;
@@ -406,7 +414,7 @@ static void cleanup_extracted_artifacts (ccp root, bool is_root)
 			}
 			else
 			{
-				cleanup_extracted_artifacts (path, false);
+				cleanup_extracted_artifacts (path, false, depth + 1);
 			}
 		}
 		else if (S_ISREG (st.st_mode))

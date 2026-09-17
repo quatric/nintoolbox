@@ -87,7 +87,7 @@ static enumError cmd_create (bool create)
 				max_err = tree_err;
 
 			// Clean up all leftover .d folders and preview/companion artifacts from the tree
-			cleanup_extracted_artifacts (source_dir, true);
+			cleanup_extracted_artifacts (source_dir, true, 0);
 
 			// If it's a general directory tree and no explicit --dest was given, tree repacking is
 			// done.
