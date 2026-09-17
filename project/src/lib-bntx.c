@@ -158,10 +158,11 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 		return EINVAL; // big-endian BNTX does not occur in practice
 	const uint first_blk = brd16 (data + 22);
 
-	// The texture container ("NX  ", "Ounc", "PC  ") follows the 32-byte header.
-	const uint tc = (first_blk >= 0x20 && first_blk + 0x30 <= size) ? first_blk : 0x20;
+	// The texture container ("NX  ", "Ounc", "PC  ") follows the 32-byte binary header.
+	const uint tc = 0x20;
 	if (tc + 0x30 > size)
 		return EINVAL;
+	(void)first_blk;
 	const uint count = brd32 (data + tc + 4);
 	const u64 info_ptrs_addr = brd64 (data + tc + 8);
 	if (!count || count > 0x10000)
