@@ -15,6 +15,7 @@
   // No fork()/wait() on native Windows; run_program()/run_program_capture()
   // below use _spawnv() (mingw's CreateProcess-based process.h API) instead.
   #include <process.h>
+  #include <direct.h> // _getcwd(), used by run_program_in_dir() below
 #else
   #include <sys/wait.h>
 #endif
@@ -95,12 +96,21 @@ void StampFileMtime (ccp dest_path, ccp source_path)
 		return;
 	// st_atim/st_mtim are the POSIX.1-2008 names; Darwin spells them
 	// st_atimespec/st_mtimespec
+#ifdef __MINGW32__
+	// No utimensat()/AT_FDCWD on MinGW; utime() only has whole-second
+	// resolution, same tradeoff as dclib-file.c's SetAMTimes().
+	struct utimbuf ut;
+	ut.actime = src_stat.st_atime;
+	ut.modtime = src_stat.st_mtime;
+	utime (dest_path, &ut);
+#else
 #ifdef __APPLE__
 	struct timespec times[2] = { src_stat.st_atimespec, src_stat.st_mtimespec };
 #else
 	struct timespec times[2] = { src_stat.st_atim, src_stat.st_mtim };
 #endif
 	utimensat (AT_FDCWD, dest_path, times, 0);
+#endif
 }
 
 // Turn a possibly relative tool name/path into an absolute one by scanning
@@ -2286,6 +2296,28 @@ static enumError passthru_archive (
 // has no output-directory flag -- it always mkdir()s a 10-char title-id
 // folder (read from the disc itself) relative to its own cwd -- so this is
 // the only way to control where that folder lands.
+#ifdef __MINGW32__
+static int run_program_in_dir (char *const argv[], ccp workdir)
+{
+	// No fork()/chdir()-in-child on native Windows: temporarily chdir()
+	// the whole (single-threaded, at this point) process, _spawnv(), then
+	// restore -- CreateProcess() has no per-child working directory
+	// override reachable from _spawnv()'s interface.
+	char saved_cwd[PATH_MAX];
+	if (!_getcwd (saved_cwd, sizeof (saved_cwd)))
+		return -1;
+	if (chdir (workdir) != 0)
+		return -1;
+
+	const intptr_t rc = _spawnv (_P_WAIT, argv[0], (const char *const *)argv);
+	const int err = errno;
+	chdir (saved_cwd);
+
+	if (rc == -1)
+		return -err;
+	return (int)rc;
+}
+#else
 static int run_program_in_dir (char *const argv[], ccp workdir)
 {
 	const pid_t pid = fork ();
@@ -2306,6 +2338,7 @@ static int run_program_in_dir (char *const argv[], ccp workdir)
 		return WEXITSTATUS (status);
 	return -1;
 }
+#endif
 
 // Wii U retail disc common key, shared across every title (paired with a
 // per-title key to decrypt that title's partition). Constant is public --

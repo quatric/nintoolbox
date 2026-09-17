@@ -203,7 +203,7 @@ ifeq ($(SYSTEM),mingw64)
   CFLAGS	+= -I$(MINGW_LIBS)/include
   LDFLAGS	+= -L$(MINGW_LIBS)/lib
  endif
- LDFLAGS	+= -static-libgcc -static-libstdc++
+ LDFLAGS	+= -static
 endif
 
 ifeq ($(SYSTEM2),cygwin32)

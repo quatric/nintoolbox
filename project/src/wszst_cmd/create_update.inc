@@ -9426,6 +9426,16 @@ static enumError convert_brsar_if_possible (ccp arg)
 		return ERR_OK;
 
 	char *const child_argv[] = { tool, (char *)arg, dest, 0 };
+#ifdef __MINGW32__
+	// No fork()/exec() on native Windows; _spawnv() (mingw's
+	// CreateProcess-based process.h API) runs the child and blocks for its
+	// exit code directly.
+	intptr_t rc = _spawnv (_P_WAIT, tool, (const char *const *)child_argv);
+	if (rc == -1)
+		rc = _spawnvp (_P_WAIT, tool, (const char *const *)child_argv);
+	if (rc != 0)
+		return ERROR0 (ERR_WARNING, "%s failed for %s\n", using_vgmtrans ? "vgmtrans" : "wbrsar", arg);
+#else
 	const pid_t pid = fork ();
 	if (pid < 0)
 		return ERROR0 (ERR_CANT_CREATE, "fork() failed converting sound archive: %s\n", arg);
@@ -9440,6 +9450,7 @@ static enumError convert_brsar_if_possible (ccp arg)
 		;
 	if (!WIFEXITED (status) || WEXITSTATUS (status) != 0)
 		return ERROR0 (ERR_WARNING, "%s failed for %s\n", using_vgmtrans ? "vgmtrans" : "wbrsar", arg);
+#endif
 	return ERR_OK;
 }
 

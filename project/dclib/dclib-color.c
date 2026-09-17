@@ -3625,8 +3625,10 @@ const ColorSet_t *GetColorSet256 ()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+#ifndef __MINGW32__
 int setupterm (char *term, int fildes, int *errret);
 int tigetnum (char *capname);
+#endif
 
 const ColorSet_t *GetColorSetAuto (bool force_on)
 {
@@ -3651,9 +3653,17 @@ const ColorSet_t *GetColorSetAuto (bool force_on)
 			term = "vt100";
 #endif
 
+#ifdef __MINGW32__
+		// No ncurses/terminfo on MinGW to query via setupterm()/tigetnum();
+		// modern Windows terminals (cmd.exe/PowerShell/Windows Terminal)
+		// generally do support ANSI 256-color escapes, so just assume that
+		// rather than detecting it.
+		const int ncol = 256;
+#else
 		int error;
 		setupterm (term, 1, &error);
 		const int ncol = tigetnum ("colors");
+#endif
 
 		auto_mode = ncol >= 256 ? COLMD_256_COLORS : ncol >= 8 ? COLMD_8_COLORS : COLMD_OFF;
 		if (auto_mode == COLMD_OFF && !strcmp (term, "cygwin"))

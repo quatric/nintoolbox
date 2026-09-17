@@ -5899,7 +5899,7 @@ enumError ExtractFilesSZS (szs_file_t *szs, // valid szs file
 
 	//----- write setup file
 
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(__MINGW32__)
 	char *f_data = 0;
 	size_t f_size = 0;
 #endif
@@ -5913,7 +5913,7 @@ enumError ExtractFilesSZS (szs_file_t *szs, // valid szs file
 			destptr = PathCatPP (dest, sizeof (dest), dest, SZS_SETUP_FILE);
 			f = fopen (destptr, "w");
 		}
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(__MINGW32__)
 		else
 		{
 			destptr = SZS_SETUP_FILE;
@@ -5984,7 +5984,7 @@ enumError ExtractFilesSZS (szs_file_t *szs, // valid szs file
 			f);
 		fclose (f);
 
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(__MINGW32__)
 		if (sdir)
 		{
 			bool new_file;
