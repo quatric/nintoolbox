@@ -1482,6 +1482,11 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 'S', 'C', 'N', 'E' }, 0, MinusString, MinusString,
 		"Nintendo EAD Bezel Engine Archive (.bea / .nx.bea, WarioWare/Mario Party)" },
 
+	// FF_RSTB = 281 (Nintendo Switch Resource Size Table)
+	{ FF_RSTB, 0, 0, "RSTB", ".rstb", ".rstb", ".rstb", FFT_VALID | FFT_DECODE, 4,
+		{ 'R', 'S', 'T', 'B' }, 0, MinusString, MinusString,
+		"Nintendo Switch Resource Size Table (.rstb, BOTW/TOTK)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1639,6 +1644,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_SHARCFB, "SHARCFB", "SHAB", 0xe05 },
 	{ FF_VFXB, "VFXB", "VFXB", 0xe05 },
 	{ FF_BEA, "BEA", "SCNE", 0xe05 },
+	{ FF_RSTB, "RSTB", "RSTB", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

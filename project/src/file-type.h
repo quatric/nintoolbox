@@ -373,6 +373,7 @@ typedef enum file_format_t
 	FF_SHARCFB, // 278 - NintendoWare Shader Binary Archive (.sharcfb / BAHS / SHAB)
 	FF_VFXB, // 279 - NintendoWare Particle Effect Archive (.ptcl / .eset / VFXB)
 	FF_BEA, // 280 - Nintendo EAD Bezel Engine Archive (.bea / .nx.bea / SCNE)
+	FF_RSTB, // 281 - Nintendo Switch Resource Size Table (.rstb / RSTB)
 
 	//--- number of elements
 
