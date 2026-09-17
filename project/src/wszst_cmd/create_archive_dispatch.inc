@@ -158,6 +158,12 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest, int known_lz
 	}
 	if (!strcasecmp (ext, ".bea") && looks_like_bea_dir (source_dir))
 		return create_bea_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".mpbin") && looks_like_mpbin_dir (source_dir))
+		return create_mpbin_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".atb") && looks_like_atb_dir (source_dir))
+		return create_atb_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".lzbin") && looks_like_lzbin_dir (source_dir))
+		return create_lzbin_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".gfa"))
 		return create_gfa_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".nus3audio") || !strcasecmp (ext, ".nus3bank"))

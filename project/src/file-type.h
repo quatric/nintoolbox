@@ -385,6 +385,12 @@ typedef enum file_format_t
 	FF_NULSTB, // 290 - Bandai Namco SSBH file-name list (.nulstb)
 	FF_NURPDB, // 291 - Bandai Namco SSBH render-pass data (.nurpdb)
 	FF_NUANMB, // 292 - Bandai Namco SSBH skeletal/material animation (.nuanmb)
+	FF_NTTF,   // 293 - Nintendo DS / DSi manual texture (.nttf / .bnttf)
+	FF_MPBIN,  // 294 - Hudson Soft Multi-File Archive (.bin / .mpb, Mario Party 4-8)
+	FF_ATB,    // 295 - Hudson Soft Animation / Texture Bank (.atb, Mario Party 4-8)
+	FF_PTD,    // 296 - Hudson Soft DSP ADPCM Audio Archive (.ptd / .pdt, Mario Party 4-8)
+	FF_HBDF,   // 297 - Hudson Soft Nitro 3D Model (.hbdf / .hsdf, Mario Party DS)
+	FF_LZBIN,  // 298 - Hudson Soft Nitro Compressed Archive (.bin / .lzbin, Mario Party DS)
 
 	//--- number of elements
 

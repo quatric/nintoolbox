@@ -406,6 +406,8 @@ static enumError decode_image_if_possible (ccp arg)
 	FILE *probe = fopen (arg, "rb");
 	if (!probe)
 		return ERR_NOT_EXISTS;
+	struct stat st_probe;
+	const bool have_stat = !fstat (fileno (probe), &st_probe);
 	const size_t n_head = fread (head, 1, sizeof (head), probe);
 	fclose (probe);
 	if (n_head < 4)
@@ -476,6 +478,10 @@ static enumError decode_image_if_possible (ccp arg)
 	else if (fform == FF_TPL || is_ext (arg, ".tpl"))
 		is_image = true;
 	else if (fform == FF_TEX || is_ext (arg, ".tex0"))
+		is_image = true;
+	else if (fform == FF_NTTF || is_ext (arg, ".nttf") || is_ext (arg, ".bnttf")
+		|| strstr (arg, "/nttf/")
+		|| (have_stat && IsNTTF (head, (uint)st_probe.st_size)))
 		is_image = true;
 
 	if (!is_image)
@@ -1087,6 +1093,26 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
+	err = extract_mpbin_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_atb_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_ptd_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_lzbin_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_hbdf_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
 	err = extract_mii_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
@@ -1667,6 +1693,12 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		if (analyze_fname && IsBRSUB (szs.fform_arch))
 			AnalyzeBRSUB (&szs, szs.data, szs.size, arg);
 
+		if (szs.fform_arch == FF_SDAT || szs.fform_arch == FF_BCSAR || szs.fform_arch == FF_BFSAR)
+		{
+			ResetSZS (&szs);
+			return depth > 0 ? ERR_OK : ERR_NOTHING_TO_DO;
+		}
+
 		if (depth > 0 && !IsArchiveFF (szs.fform_arch) && !IsBRSUB (szs.fform_arch))
 		{
 			ResetSZS (&szs);
@@ -1751,11 +1783,19 @@ static bool is_extractor_output_dir (ccp path)
 	if (lstat (stem, &st) == 0 && S_ISREG (st.st_mode))
 		return true;
 
+	char setup[PATH_MAX];
+	snprintf (setup, sizeof (setup), "%s/%s", path, SZS_SETUP_FILE);
+	if (lstat (setup, &st) == 0 && S_ISREG (st.st_mode))
+		return true;
+
 	// U8/RARC/PACK destinations use the source stem (foo.arc -> foo.d), not
 	// the complete source filename (foo.arc.d). Recognize any regular sibling
 	// named "<stem>.<extension>" so a live parent readdir never feeds the
 	// output directory a second time after extract_one_file() already peeled
 	// it explicitly above.
+	// Also strip intermediate extensions successively from base to recognize
+	// output directories whose intermediate decompressed archive was unlinked
+	// (e.g. m2dres_narc.blz -> m2dres_narc.bin -> m2dres_narc.bin.d).
 	char parent[PATH_MAX], base[PATH_MAX];
 	ccp slash = strrchr (stem, '/');
 	if (slash)
@@ -1771,17 +1811,28 @@ static bool is_extractor_output_dir (ccp path)
 	DIR *dir = opendir (parent);
 	if (!dir)
 		return false;
-	const size_t base_len = strlen (base);
 	bool found = false;
 	struct dirent *de;
-	while (!found && (de = readdir (dir)))
+	char prefix[PATH_MAX];
+	snprintf (prefix, sizeof (prefix), "%s", base);
+	while (!found && *prefix)
 	{
-		if (strncmp (de->d_name, base, base_len) || de->d_name[base_len] != '.'
-			|| !strcmp (de->d_name + base_len, ".d"))
-			continue;
-		char candidate[PATH_MAX];
-		snprintf (candidate, sizeof (candidate), "%s/%s", parent, de->d_name);
-		found = !lstat (candidate, &st) && S_ISREG (st.st_mode);
+		const size_t prefix_len = strlen (prefix);
+		rewinddir (dir);
+		while (!found && (de = readdir (dir)))
+		{
+			if (strncmp (de->d_name, prefix, prefix_len) || de->d_name[prefix_len] != '.'
+				|| !strcmp (de->d_name + prefix_len, ".d"))
+				continue;
+			char candidate[PATH_MAX];
+			snprintf (candidate, sizeof (candidate), "%s/%s", parent, de->d_name);
+			found = !lstat (candidate, &st) && S_ISREG (st.st_mode);
+		}
+		char *dot = strrchr (prefix, '.');
+		if (dot)
+			*dot = '\0';
+		else
+			break;
 	}
 	closedir (dir);
 	return found;

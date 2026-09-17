@@ -4838,6 +4838,234 @@ static enumError extract_bea_file (ccp arg, ccp basedir, uint depth)
 	return err;
 }
 
+static enumError extract_mpbin_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err || raw_size < 16 || raw_size > UINT_MAX || !IsMPBIN (raw, (uint)raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	nintendo_sarc_entry_t *entries = 0;
+	uint n_entries = 0;
+	err = ScanMPBIN (&entries, &n_entries, raw, (uint)raw_size);
+	FREE (raw);
+	if (err || !n_entries)
+		return ERR_NOTHING_TO_DO;
+
+	return write_owned_entries (arg, basedir, depth, "MPBIN", entries, n_entries);
+}
+
+static enumError extract_atb_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err || raw_size < 20 || raw_size > UINT_MAX || !IsATB (raw, (uint)raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	atb_archive_t atb;
+	err = ScanATB (&atb, raw, (uint)raw_size);
+	if (err)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT ATB:%s -> %s/ (%u textures, %u patterns, %u banks)\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest,
+			atb.num_textures, atb.num_patterns, atb.num_banks);
+
+	if (!testmode)
+	{
+		char setup_path[PATH_MAX];
+		snprintf (setup_path, sizeof (setup_path), "%s/%satb-setup.txt", dest, basedir ? basedir : "");
+		File_t SF;
+		CreateFileOpt (&SF, true, setup_path, false, arg);
+		FILE *f = SF.f;
+
+		if (f)
+		{
+			fprintf (f, "# ATB setup manifest\n");
+			fprintf (f, "references %u\n\n", atb.num_references);
+		}
+
+		for (uint i = 0; i < atb.num_textures; i++)
+		{
+			atb_texture_t *t = &atb.textures[i];
+			char raw_name[64], png_name[64];
+			snprintf (raw_name, sizeof (raw_name), "tex_%03u.raw", i);
+			snprintf (png_name, sizeof (png_name), "tex_%03u.png", i);
+
+			if (f)
+				fprintf (f, "texture %u format=%u bpp=%u pal_size=%u size=%u,%u raw=%s png=%s\n",
+					i, t->format, t->bpp, t->palette_size, t->width, t->height, raw_name, png_name);
+
+			char raw_path[PATH_MAX];
+			snprintf (raw_path, sizeof (raw_path), "%s/%s%s", dest, basedir ? basedir : "", raw_name);
+			File_t RF;
+			CreateFileOpt (&RF, true, raw_path, false, arg);
+			if (RF.f)
+			{
+				if (t->palette_size > 0 && t->palette_data)
+					fwrite (t->palette_data, 1, t->palette_size * 2, RF.f);
+				if (t->image_size > 0 && t->image_data)
+					fwrite (t->image_data, 1, t->image_size, RF.f);
+			}
+			ResetFile (&RF, opt_preserve);
+
+			// Decode to PNG
+			uint gx_fmt = 6;
+			uint pal_fmt = 2;
+			switch (t->format)
+			{
+				case 0x00: gx_fmt = 6; break;
+				case 0x01:
+				case 0x02: gx_fmt = 5; break;
+				case 0x03: gx_fmt = 9; pal_fmt = 2; break;
+				case 0x04: gx_fmt = 8; pal_fmt = 2; break;
+				case 0x05:
+				case 0x09: gx_fmt = 3; break;
+				case 0x06: gx_fmt = 2; break;
+				case 0x07: gx_fmt = 1; break;
+				case 0x08: gx_fmt = 0; break;
+				case 0x0a: gx_fmt = 14; break;
+				default: gx_fmt = 6; break;
+			}
+
+			if (t->width && t->height && t->image_data)
+			{
+				u8 *rgba = 0;
+				if (!DecodeGXTexture_RGBA (&rgba, t->width, t->height, gx_fmt,
+						t->image_data, t->image_size, t->palette_data, t->palette_size, pal_fmt))
+				{
+					char png_path[PATH_MAX];
+					snprintf (png_path, sizeof (png_path), "%s/%s%s", dest, basedir ? basedir : "", png_name);
+					SaveDecodedRGBAToPNG (rgba, t->width, t->height, &be_func, png_path, 0, true);
+				}
+			}
+		}
+
+		if (f)
+		{
+			fprintf (f, "\n# Patterns\n");
+			for (uint i = 0; i < atb.num_patterns; i++)
+			{
+				atb_pattern_t *p = &atb.patterns[i];
+				fprintf (f, "pattern %u center=%d,%d size=%d,%d\n",
+					i, p->center_x, p->center_y, p->width, p->height);
+				for (uint l = 0; l < p->layer_count; l++)
+				{
+					atb_layer_t *layer = &p->layers[l];
+					fprintf (f, "layer pattern=%u tex=%d alpha=%u flip=%u coord=%d,%d,%d,%d shift=%d,%d vtx=%d,%d,%d,%d,%d,%d,%d,%d\n",
+						i, layer->texture_index, layer->alpha, layer->flip,
+						layer->tex_coord_tl_x, layer->tex_coord_tl_y, layer->tex_coord_w, layer->tex_coord_h,
+						layer->shift_x, layer->shift_y,
+						layer->vtx_tl_x, layer->vtx_tl_y, layer->vtx_tr_x, layer->vtx_tr_y,
+						layer->vtx_br_x, layer->vtx_br_y, layer->vtx_bl_x, layer->vtx_bl_y);
+				}
+			}
+
+			fprintf (f, "\n# Banks\n");
+			for (uint i = 0; i < atb.num_banks; i++)
+			{
+				atb_bank_t *b = &atb.banks[i];
+				fprintf (f, "bank %u\n", i);
+				for (uint k = 0; k < b->frame_count; k++)
+				{
+					atb_anim_frame_t *fr = &b->frames[k];
+					fprintf (f, "frame bank=%u pattern=%d length=%d shift=%d,%d flip=%d unk=%d\n",
+						i, fr->pattern_index, fr->frame_length, fr->shift_x, fr->shift_y, fr->flip, fr->unk);
+				}
+			}
+			ResetFile (&SF, opt_preserve);
+		}
+	}
+
+	ResetATB (&atb);
+	FREE (raw);
+
+	if (!err && !testmode)
+	{
+		enumError sub = extract_tree_complete (dest, depth + 1);
+		if (err < sub)
+			err = sub;
+	}
+	return err;
+}
+
+static enumError extract_ptd_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err || raw_size < 32 || raw_size > UINT_MAX || !IsPTD (raw, (uint)raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	nintendo_sarc_entry_t *entries = 0;
+	uint n_entries = 0;
+	err = ScanPTD (&entries, &n_entries, raw, (uint)raw_size);
+	FREE (raw);
+	if (err || !n_entries)
+		return ERR_NOTHING_TO_DO;
+
+	return write_owned_entries (arg, basedir, depth, "PTD", entries, n_entries);
+}
+
+static enumError extract_lzbin_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err || raw_size < 16 || raw_size > UINT_MAX || !IsLZBIN (raw, (uint)raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	nintendo_sarc_entry_t *entries = 0;
+	uint n_entries = 0;
+	err = ScanLZBIN (&entries, &n_entries, raw, (uint)raw_size);
+	FREE (raw);
+	if (err || !n_entries)
+		return ERR_NOTHING_TO_DO;
+
+	return write_owned_entries (arg, basedir, depth, "LZBIN", entries, n_entries);
+}
+
+static enumError extract_hbdf_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err || raw_size < 8 || raw_size > UINT_MAX || !IsHBDF (raw, (uint)raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	nintendo_sarc_entry_t *entries = 0;
+	uint n_entries = 0;
+	err = ScanHBDF (&entries, &n_entries, raw, (uint)raw_size);
+	FREE (raw);
+	if (err || !n_entries)
+		return ERR_NOTHING_TO_DO;
+
+	return write_owned_entries (arg, basedir, depth, "HBDF", entries, n_entries);
+}
+
 static enumError extract_mii_file (ccp arg, ccp basedir, uint depth)
 {
 	u8 *raw = 0;
@@ -6911,157 +7139,6 @@ static void decompress_mpbin_inflate (u8 *out, uint out_size, const u8 *src, uin
 	}
 }
 
-static enumError extract_mpbin_file (ccp arg, ccp basedir, uint depth)
-{
-	ccp ext = strrchr (arg, '.');
-	if (!ext || strcasecmp (ext, ".bin"))
-		return ERR_NOTHING_TO_DO;
-
-	u8 *raw = 0;
-	size_t raw_size = 0;
-	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
-	if (err)
-		return err;
-	if (raw_size < 8 || raw_size > UINT_MAX)
-	{
-		FREE (raw);
-		return ERR_NOTHING_TO_DO;
-	}
-
-	u32 num_files = ((u32)raw[0] << 24) | ((u32)raw[1] << 16) | ((u32)raw[2] << 8) | raw[3];
-	if (num_files < 1 || num_files > 4096 || 4 + 4 * num_files > raw_size)
-	{
-		FREE (raw);
-		return ERR_NOTHING_TO_DO;
-	}
-
-	u32 first_off = ((u32)raw[4] << 24) | ((u32)raw[5] << 16) | ((u32)raw[6] << 8) | raw[7];
-	if (first_off < 4 + 4 * num_files || first_off >= raw_size)
-	{
-		FREE (raw);
-		return ERR_NOTHING_TO_DO;
-	}
-
-	for (uint i = 0; i < num_files; i++)
-	{
-		u32 off = ((u32)raw[4 + 4 * i] << 24) | ((u32)raw[4 + 4 * i + 1] << 16)
-			| ((u32)raw[4 + 4 * i + 2] << 8) | raw[4 + 4 * i + 3];
-		if (off + 8 > raw_size)
-		{
-			FREE (raw);
-			return ERR_NOTHING_TO_DO;
-		}
-		u32 ctype = ((u32)raw[off + 4] << 24) | ((u32)raw[off + 5] << 16) | ((u32)raw[off + 6] << 8)
-			| raw[off + 7];
-		if (ctype != 0 && ctype != 1 && ctype != 2 && ctype != 3 && ctype != 4 && ctype != 5
-			&& ctype != 7)
-		{
-			FREE (raw);
-			return ERR_NOTHING_TO_DO;
-		}
-	}
-
-	char dest[PATH_MAX];
-	beside_source_dest (dest, sizeof (dest), arg);
-	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT MPBIN:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
-			testmode ? "WOULD " : "", arg, num_files, dest);
-
-	for (uint i = 0; !err && i < num_files; i++)
-	{
-		u32 off = ((u32)raw[4 + 4 * i] << 24) | ((u32)raw[4 + 4 * i + 1] << 16)
-			| ((u32)raw[4 + 4 * i + 2] << 8) | raw[4 + 4 * i + 3];
-		u32 uncomp_size = ((u32)raw[off] << 24) | ((u32)raw[off + 1] << 16)
-			| ((u32)raw[off + 2] << 8) | raw[off + 3];
-		u32 ctype = ((u32)raw[off + 4] << 24) | ((u32)raw[off + 5] << 16) | ((u32)raw[off + 6] << 8)
-			| raw[off + 7];
-
-		if (uncomp_size == 0)
-			continue;
-		if (uncomp_size > 256 * 1024 * 1024)
-		{
-			err = ERR_FILE_TOO_BIG;
-			break;
-		}
-
-		if (testmode)
-			continue;
-
-		u8 *dest_buf = CALLOC (1, uncomp_size + 16);
-		if (!dest_buf)
-		{
-			err = ENOMEM;
-			break;
-		}
-
-		switch (ctype)
-		{
-			case 0:
-				if (off + 8 + uncomp_size <= raw_size)
-					memcpy (dest_buf, raw + off + 8, uncomp_size);
-				break;
-			case 1:
-				decompress_mpbin_lzss (
-					dest_buf, uncomp_size, raw + off + 8, (uint)(raw_size - (off + 8)));
-				break;
-			case 2:
-			case 3:
-			case 4:
-				if (off + 12 <= raw_size)
-					decompress_mpbin_slide (
-						dest_buf, uncomp_size, raw + off + 12, (uint)(raw_size - (off + 12)));
-				break;
-			case 5:
-				decompress_mpbin_rle (
-					dest_buf, uncomp_size, raw + off + 8, (uint)(raw_size - (off + 8)));
-				break;
-			case 7:
-				if (off + 16 <= raw_size)
-				{
-					u32 comp_size = ((u32)raw[off + 12] << 24) | ((u32)raw[off + 13] << 16)
-						| ((u32)raw[off + 14] << 8) | raw[off + 15];
-					decompress_mpbin_inflate (dest_buf, uncomp_size, raw + off + 16, comp_size);
-				}
-				break;
-			default:
-				break;
-		}
-
-		ccp sub_ext = "dat";
-		if (uncomp_size >= 7 && !memcmp (dest_buf, "HSFV037", 7))
-			sub_ext = "hsf";
-		else if (uncomp_size >= 16 && dest_buf[12] == 0 && dest_buf[13] == 0 && dest_buf[14] == 0
-			&& dest_buf[15] == 20)
-			sub_ext = "atb";
-		else if (uncomp_size >= 4 && !memcmp (dest_buf, "ARC\0", 4))
-			sub_ext = "pac";
-		else if (uncomp_size >= 4 && !memcmp (dest_buf, "darc", 4))
-			sub_ext = "darc";
-		else if (uncomp_size >= 4 && !memcmp (dest_buf, "SARC", 4))
-			sub_ext = "sarc";
-
-		char path[PATH_MAX];
-		snprintf (
-			path, sizeof (path), "%s/%sfile%03u.%s", dest, basedir ? basedir : "", i, sub_ext);
-		File_t F;
-		err = CreateFileOpt (&F, true, path, false, arg);
-		if (F.f && fwrite (dest_buf, 1, uncomp_size, F.f) != uncomp_size)
-			err = FILEERROR1 (
-				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", uncomp_size, path);
-		ResetFile (&F, opt_preserve);
-		FREE (dest_buf);
-	}
-
-	FREE (raw);
-	if (!err && !testmode)
-	{
-		enumError sub_err = extract_tree_complete (dest, depth + 1);
-		if (err < sub_err)
-			err = sub_err;
-	}
-	return err;
-}
-
 // Export the structural half of a Switch ("NX") BFRES container as XML.
 // Wii U BFRES (ParseBFRES() in lib-bfres.c) is big-endian, version 3.x, and
 // self-relative offsets; Switch reuses the "FRES" magic but is little-endian
@@ -7443,7 +7520,7 @@ static enumError extract_aamp_manifest (ccp arg)
 	File_t F;
 	err = CreateFileOpt (&F, true, dest, false, arg);
 	if (F.f)
-		err = DecodeAAMP_Text (F.f, raw, raw_size);
+		err = DecodeAAMP_YAML (F.f, raw, raw_size);
 	ResetFile (&F, opt_preserve);
 	FREE (raw);
 	return err;
@@ -9675,6 +9752,27 @@ static enumError extract_nds_banner_metadata (ccp arg)
 			ResetFile (&F, 0);
 		}
 		FREE (text);
+	}
+
+	// Static banner icon
+	char static_png[PATH_MAX];
+	if (opt_dest)
+		SubstDest (static_png, sizeof (static_png), arg, opt_dest, 0, ".png", false);
+	else
+		snprintf (static_png, sizeof (static_png), "%s.png", arg);
+
+	if (opt_overwrite || access (static_png, F_OK))
+	{
+		if (verbose >= 0 || testmode)
+			fprintf (stdlog, "%sEXTRACT NDS static banner icon:%s -> %s\n",
+				testmode ? "WOULD " : "", arg, static_png);
+		if (!testmode)
+		{
+			u8 *rgba = 0;
+			uint w = 0, h = 0;
+			if (!DecodeNDSBannerIcon_RGBA (&rgba, &w, &h, &banner, NDS_BANNER_ICON_STATIC))
+				err = SaveDecodedRGBAToPNG (rgba, w, h, &le_func, static_png, 0, opt_overwrite);
+		}
 	}
 
 	// Animated icon, if any.  A 64-step sequence typically cycles through the

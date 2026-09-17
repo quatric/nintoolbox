@@ -455,6 +455,11 @@ bool OwnedNameOk (ccp name);
 #include "lib-cram.h"
 #include "lib-rflres.h"
 #include "lib-bea.h"
+#include "lib-mpbin.h"
+#include "lib-atb.h"
+#include "lib-ptd.h"
+#include "lib-lzbin.h"
+#include "lib-hbdf.h"
 #include "lib-sa01.h"
 #include "lib-msr.h"
 
