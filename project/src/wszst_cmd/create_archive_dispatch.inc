@@ -750,7 +750,13 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 		if (!strcmp (de->d_name, ".") || !strcmp (de->d_name, ".."))
 			continue;
 		char path[PATH_MAX];
-		snprintf (path, sizeof (path), "%s/%s", root, de->d_name);
+		const int len = snprintf (path, sizeof (path), "%s/%s", root, de->d_name);
+		if (len < 0 || (uint)len >= sizeof (path))
+		{
+			if (max_err < ERR_FILE_TOO_BIG)
+				max_err = ERR_FILE_TOO_BIG;
+			continue;
+		}
 		struct stat st;
 		if (lstat (path, &st))
 			continue;
@@ -783,7 +789,13 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 		if (!strcmp (de->d_name, ".") || !strcmp (de->d_name, ".."))
 			continue;
 		char path[PATH_MAX];
-		snprintf (path, sizeof (path), "%s/%s", root, de->d_name);
+		const int len = snprintf (path, sizeof (path), "%s/%s", root, de->d_name);
+		if (len < 0 || (uint)len >= sizeof (path))
+		{
+			if (max_err < ERR_FILE_TOO_BIG)
+				max_err = ERR_FILE_TOO_BIG;
+			continue;
+		}
 		struct stat st;
 		if (lstat (path, &st))
 			continue;
