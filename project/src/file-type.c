@@ -1521,6 +1521,13 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 0x53, 0x53, 0x42, 0x48 }, // "SSBH"
 		0, MinusString, MinusString, "Bandai Namco SSBH skeleton (NUSKTB)" },
 
+	// FF_NUFXLB = 287 (Bandai Namco SSBH shader-effects library). Shares the
+	// same "SSBH"/"HBSS" container magic as the other SSBH formats above --
+	// told apart by the sub-magic at offset 0x10 ("XFUN"/"NUFX").
+	{ FF_NUFXLB, FF_NUFXLB, 0, "NUFXLB", ".nufxlb", ".szs", ".nufxlb",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 0x53, 0x53, 0x42, 0x48 }, // "SSBH"
+		0, MinusString, MinusString, "Bandai Namco SSBH shader-effects library (NUFXLB)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1683,6 +1690,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_NUSHDB, "NUSHDB", "SSBH", 0x3001 },
 	{ FF_NUMATB, "NUMATB", "SSBH", 0x3001 },
 	{ FF_NUSKTB, "NUSKTB", "SSBH", 0x3001 },
+	{ FF_NUFXLB, "NUFXLB", "SSBH", 0x3001 },
 
 	{ 0, 0, 0, 0 }
 };
