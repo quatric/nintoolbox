@@ -126,6 +126,8 @@
 #include "lib-sequence.h"
 #include "lib-miirender.h"
 
+bool IsNTTF (const u8 *data, uint size);
+
 static ccp opt_parent = 0;
 #include "lib-bzip2.h"
 #include "lib-pack.h"

@@ -119,6 +119,18 @@ else
     "$(tail -1 /tmp/_r_gtx_encode_build.log 2>/dev/null)"
 fi
 
+# Wii U retail disc key database and TOC probe test
+if ${CC:-cc} -O2 -Isrc -Idclib ../tests/test-wiiu-keys.c ./lib-aes.o \
+    -o /tmp/_r_wiiu_keys >/tmp/_r_wiiu_keys_build.log 2>&1; then
+  if /tmp/_r_wiiu_keys "$PWD_PROJECT/third_party" >/tmp/_r_wiiu_keys_run.log 2>&1; then
+    ok "Wii U bundled keys (keys.txt, wiiu_keys/) and TOC decryption probe"
+  else
+    no "Wii U bundled keys and TOC decryption probe" "$(tail -1 /tmp/_r_wiiu_keys_run.log 2>/dev/null)"
+  fi
+else
+  no "Wii U bundled keys and TOC decryption probe" "$(tail -1 /tmp/_r_wiiu_keys_build.log 2>/dev/null)"
+fi
+
 # Arika INFO.DAT/GAME.DAT archives + ALZ1 compression (Dr. Mario Online Rx,
 # Dr. Mario Express, the original DS Endless Ocean, and -- via the shared
 # RF2 sub-container path -- Endless Ocean: Blue World). No retail sample was

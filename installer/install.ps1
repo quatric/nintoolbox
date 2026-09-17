@@ -23,7 +23,7 @@ New-Item -ItemType Directory -Force -Path $Dest | Out-Null
 
 Write-Host "Installing to $Dest"
 $installed = 0
-Get-ChildItem -Path $binSrc -Include *.exe, *.dll -File -Recurse | Where-Object {
+Get-ChildItem -Path $binSrc -Include *.exe, *.dll, *.keys, *.txt, *.bin -File -Recurse | Where-Object {
     $_.Name -ne "nintoolbox.exe"
 } | ForEach-Object {
     Copy-Item $_.FullName -Destination (Join-Path $Dest $_.Name) -Force
@@ -34,6 +34,14 @@ Get-ChildItem -Path $binSrc -Include *.exe, *.dll -File -Recurse | Where-Object 
 if ($installed -eq 0) {
     Write-Warning "No .exe/.dll files found under $binSrc -- nothing installed."
     exit 1
+}
+
+$wiiuKeysSrc = Join-Path $binSrc "wiiu_keys"
+if (Test-Path $wiiuKeysSrc) {
+    $wiiuKeysDest = Join-Path $Dest "wiiu_keys"
+    New-Item -ItemType Directory -Force -Path $wiiuKeysDest | Out-Null
+    Copy-Item "$wiiuKeysSrc\*" -Destination $wiiuKeysDest -Recurse -Force
+    Write-Host "Installed wiiu_keys\ (Wii U retail disc keys)"
 }
 
 $shareSrc = Join-Path $binSrc "share"
