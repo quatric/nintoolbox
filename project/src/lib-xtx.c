@@ -67,7 +67,11 @@ enumError ExtractXTXArchive (ccp arg, ccp basedir, uint depth)
 		if (block_type == 3 && data_size > 0)
 		{
 			const s64 abs_payload = (s64)block_pos + data_offset;
-			if (abs_payload >= 0 && (size_t)abs_payload + data_size <= raw_size)
+			// data_size is a raw attacker u64; adding it to abs_payload can
+			// itself overflow size_t and wrap below raw_size, so bound
+			// abs_payload against raw_size first and subtract instead.
+			if (abs_payload >= 0 && (size_t)abs_payload <= raw_size
+				&& data_size <= raw_size - (size_t)abs_payload)
 			{
 				char out_file[PATH_MAX];
 				snprintf (out_file, sizeof (out_file), "%s/texture_%04u.bin", dest, image_idx++);
