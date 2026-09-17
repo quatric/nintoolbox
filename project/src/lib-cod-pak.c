@@ -94,7 +94,7 @@ enumError create_cod_pak_dir (ccp source, ccp dest)
 		if (!parse_cod_pak_crc (nm, 0))
 		{
 			FREE ((void *)list.entry[i].name);
-			FREE (list.entry[i].data);
+			FREE ((void *)list.entry[i].data);
 			continue;
 		}
 		if (used != i)

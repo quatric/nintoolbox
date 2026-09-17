@@ -23,11 +23,9 @@ static void RomFS_ReadDirectories (const u8 *raw, size_t raw_size, uint dir_star
 		return;
 
 	const u8 *dir = raw + dir_start + cur_dir_off;
-	const u32 parent_off = rd_le32 (dir);
 	const u32 next_sibling_off = rd_le32 (dir + 4);
 	const u32 first_child_off = rd_le32 (dir + 8);
 	const u32 first_file_off = rd_le32 (dir + 12);
-	const u32 next_dir_bucket = rd_le32 (dir + 16);
 	const u32 name_len = rd_le32 (dir + 20);
 
 	char dir_name[PATH_MAX] = "";

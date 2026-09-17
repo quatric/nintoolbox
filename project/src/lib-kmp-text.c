@@ -2942,7 +2942,7 @@ static enumError ScanTextCKPT (kmp_t *kmp, // KMP data structure
 	uint last_mode = 0;
 	float max_x = 0.0, max_y = 0.0;
 
-	const uint max_n = 0x100;
+	enum { max_n = 0x100 };
 	float ftemp[max_n + 1][4]; // x,y,unused,width/2
 
 	enumError err = ERR_OK;

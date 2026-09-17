@@ -1629,7 +1629,7 @@ kcl_tridata_t *AppendPrismKCL (kcl_t *kcl, // valid KCL data structure
 	DASSERT (axis1);
 	DASSERT (axis2);
 
-	const uint max_side = 100;
+	enum { max_side = 100 };
 	if (n_side < 2)
 		n_side = 2;
 	else if (n_side > max_side)
@@ -1800,7 +1800,7 @@ kcl_tridata_t *AppendCylinderKCL (kcl_t *kcl, // valid KCL data structure
 	DASSERT (kcl);
 	DASSERT (pos);
 
-	const uint max_side = 100;
+	enum { max_side = 100 };
 	if (n_side < 2)
 		n_side = 2;
 	else if (n_side > max_side)

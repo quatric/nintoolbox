@@ -202,9 +202,7 @@ enumError ExtractNLGDictArchive (ccp arg, ccp basedir, uint depth)
 	else if (is_po)
 	{
 		// Punch-Out!! Wii Dictionary
-		const bool is_compressed = (raw[6] == 1);
 		const u32 num_files = rd_be32 (raw + 16);
-		const u32 file_table_size = rd_be32 (raw + 20);
 
 		if (verbose >= 0 || testmode)
 			fprintf (stdlog, "%s%sEXTRACT PO-DICT:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
@@ -307,6 +305,7 @@ enumError ExtractNLGDictArchive (ccp arg, ccp basedir, uint depth)
 	if (data_raw)
 		FREE (data_raw);
 	FREE (raw);
+	(void)extracted_count; // tallied for future summary reporting, unused for now
 
 	return ERR_OK;
 }

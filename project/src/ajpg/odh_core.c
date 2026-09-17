@@ -186,9 +186,9 @@ static const u8 odh_zigzag_order[DArCDJ_DCT_SIZE_2D]
 		  11, 18, 24, 31, 40, 44, 53, 10, 19, 23, 32, 39, 45, 52, 54, 20, 22, 33, 38, 46, 51, 55,
 		  60, 21, 34, 37, 47, 50, 56, 59, 61, 35, 36, 48, 49, 57, 58, 62, 63 };
 
-static const u8 FDCTOrder1[8] = { 0, 32, 16, 48, 40, 8, 56, 24 };
+static const u8 __attribute__((unused)) FDCTOrder1[8] = { 0, 32, 16, 48, 40, 8, 56, 24 };
 
-static const u8 FDCTOrder2[8] = { 5, 1, 7, 3, 2, 6, 0, 4 };
+static const u8 __attribute__((unused)) FDCTOrder2[8] = { 5, 1, 7, 3, 2, 6, 0, 4 };
 
 static const u8 odh_natural_order[DArCDJ_DCT_SIZE_2D]
 	= { 0, 1, 8, 16, 9, 2, 3, 10, 17, 24, 32, 25, 18, 11, 4, 5, 12, 19, 26, 33, 40, 48, 41, 34, 27,
@@ -280,7 +280,7 @@ static const u32 gArDC_L_Table[16] = { 0x02000000, 0x03000002, 0x03000003, 0x030
 	0x03000006, 0x0400000e, 0x0500001e, 0x0600003e, 0x0700007e, 0x080000fe, 0x090001fe, 0x00000000,
 	0x00000000, 0x00000000, 0x00000000 };
 
-static const u32 gArAC_L_Table[16 * 16] = { 0x0400000a, 0x02000000, 0x02000001, 0x03000004,
+static const u32 __attribute__((unused)) gArAC_L_Table[16 * 16] = { 0x0400000a, 0x02000000, 0x02000001, 0x03000004,
 	0x0400000b, 0x0500001a, 0x07000078, 0x080000f8, 0x0a0003f6, 0x1000ff82, 0x1000ff83, 0x00000000,
 	0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x0400000c, 0x0500001b, 0x07000079,
 	0x090001f6, 0x0b0007f6, 0x1000ff84, 0x1000ff85, 0x1000ff86, 0x1000ff87, 0x1000ff88, 0x00000000,
@@ -318,7 +318,7 @@ static const u32 gArDC_C_Table[16] = { 0x02000000, 0x02000001, 0x02000002, 0x030
 	0x0500001e, 0x0600003e, 0x0700007e, 0x080000fe, 0x090001fe, 0x0a0003fe, 0x0b0007fe, 0x00000000,
 	0x00000000, 0x00000000, 0x00000000 };
 
-static const u32 gArAC_C_Table[16 * 16] = { 0x02000000, 0x02000001, 0x03000004, 0x0400000a,
+static const u32 __attribute__((unused)) gArAC_C_Table[16 * 16] = { 0x02000000, 0x02000001, 0x03000004, 0x0400000a,
 	0x05000018, 0x05000019, 0x06000038, 0x07000078, 0x090001f4, 0x0a0003f6, 0x0c000ff4, 0x00000000,
 	0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x0400000b, 0x06000039, 0x080000f6,
 	0x090001f5, 0x0b0007f6, 0x0c000ff5, 0x1000ff88, 0x1000ff89, 0x1000ff8a, 0x1000ff8b, 0x00000000,
@@ -407,7 +407,7 @@ static const u16 gArDc_chrominance_huffTable[24] = {
 	0x000b,
 };
 
-static const u16 gArAc_luminance_huffTable[324] = {
+static const u16 __attribute__((unused)) gArAc_luminance_huffTable[324] = {
 	0x0001,
 	0xc002,
 	0x0003,
@@ -734,7 +734,7 @@ static const u16 gArAc_luminance_huffTable[324] = {
 	0x00fa,
 };
 
-static const u16 gArAc_chrominance_huffTable[324] = {
+static const u16 __attribute__((unused)) gArAc_chrominance_huffTable[324] = {
 	0x0001,
 	0xc002,
 	0x0003,

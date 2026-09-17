@@ -386,6 +386,7 @@ enumError ExtractUE4PakEntry (const ue4_pak_t *pak, uint index, u8 **dest, size_
 	out[e->uncompressed_size] = 0;
 	*dest = out;
 	*dest_size = e->uncompressed_size;
+	(void)written_total; // tallied for future diagnostics, unused for now
 	return ERR_OK;
 }
 

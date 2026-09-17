@@ -6371,7 +6371,7 @@ static void check_ph (check_kmp_t *chk, // valid data structure
 					"Invalid 'next' link [have %d, should be %d]\n", have_next, good_next);
 
 			typeof (pt->mode) mode = pt->mode;
-			if (!IS_M1 (mode) && mode < sizeof (done) / sizeof (*done))
+			if (!IS_M1 (mode) && (unsigned)mode < sizeof (done) / sizeof (*done))
 				done[mode]++;
 		}
 
@@ -6451,7 +6451,7 @@ int CheckKMP (
 	char buf[50];
 	u8 done[0x100];
 
-	const uint route_usage_size = 0xff;
+	enum { route_usage_size = 0xff };
 	u8 route_usage[route_usage_size];
 	memset (route_usage, 0, sizeof (route_usage));
 	enum
@@ -6771,11 +6771,11 @@ int CheckKMP (
 
 	for (i = 0; i < n; i++, ckpt++)
 	{
-		if (ckpt->respawn < sizeof (jgpt_usage) / sizeof (*jgpt_usage))
+		if ((unsigned)ckpt->respawn < sizeof (jgpt_usage) / sizeof (*jgpt_usage))
 			jgpt_usage[ckpt->respawn]++;
 
 		typeof (ckpt->mode) mode = ckpt->mode;
-		if (!IS_M1 (mode) && mode < sizeof (done) / sizeof (*done))
+		if (!IS_M1 (mode) && (unsigned)mode < sizeof (done) / sizeof (*done))
 		{
 			done[mode] = 1;
 			if (max_mode < mode)

@@ -2468,8 +2468,6 @@ enumError DecodeHSF (const u8 *data, uint size, ccp out_path)
 		ComputeModelTRSBinds (&model);
 
 		hsf_build_animations (&model, data, size, entry_off, entry_cnt, str_off);
-		const uint path_len = strlen (out_path);
-		const bool is_dae = path_len > 4 && !strcasecmp (out_path + path_len - 4, ".dae");
 		rc = (ExportModelToGLB (&model, out_path)) == 0 ? ERR_OK : ERR_CANT_CREATE;
 		for (size_t i = 0; i < model.num_node_influences; i++)
 			FREE (model.node_influences[i].weights);

@@ -2224,7 +2224,7 @@ static enumError cmd_distrib_instruction (le_distrib_t *ld, ccp mode, char *arg)
 
 	//--- text argument only
 
-	const int MAX_PAR_SRC = 20;
+	enum { MAX_PAR_SRC = 20 };
 	int n_par_src = 0;
 	le_strpar_t par_opt, par_dest, par_src[MAX_PAR_SRC];
 	mem_t mem_opt = { 0 };

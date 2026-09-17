@@ -130,6 +130,7 @@ static void dump_brres_group (const brres_root_t *root, const endian_func_t *end
 		grp = (brres_group_t *)next_grp;
 		grp_idx++;
 	}
+	(void)grp_idx; // only read by noPRINT(), which compiles out in release builds
 	putchar ('\n');
 }
 
