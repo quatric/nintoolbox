@@ -5559,6 +5559,90 @@ JSON
 }
 t_switch_bfres_inject_multimesh
 
+# -- BFRES facets / submeshes test --
+# Verifies Switch and Wii U BFRES files with multiple facets/submeshes
+# correctly decode into separate submeshes with sliced indices.
+t_bfres_facets(){
+  local sw_fixture="$PWD_PROJECT/../tests/fixtures/synthetic_switch.bfres"
+  local wiiu_fixture="$PWD_PROJECT/../tests/fixtures/bfres_wiiu_splatoon_clt.bfres"
+  [ -f "$sw_fixture" ] && [ -f "$wiiu_fixture" ] || { sk "BFRES facets / submeshes (no fixtures)"; return; }
+
+  local d=/tmp/_r_bfres_facets; rm -rf "$d"; mkdir -p "$d"
+
+  python3 -c "
+import struct, subprocess, json
+
+# 1. Switch BFRES multi-facet test
+with open('$sw_fixture', 'rb') as f:
+    d = bytearray(f.read())
+v = struct.unpack('<I', d[8:12])[0]
+vmajor = (v >> 16) & 0xFFFF
+fmdl_arr = struct.unpack('<q', d[0x28:0x30])[0]
+fhdr = 4 if vmajor >= 9 else 12
+shapes_val = struct.unpack('<q', d[fmdl_arr + 4 + fhdr + 32:fmdl_arr + 4 + fhdr + 40])[0]
+shdr = 4 if vmajor >= 9 else 12
+sname_off = shapes_val + 4 + shdr
+mesh_arr = struct.unpack('<q', d[sname_off+16:sname_off+24])[0]
+
+submesh_arr_offset = len(d)
+d += struct.pack('<IIII', 0, 24, 48, 24)
+struct.pack_into('<q', d, mesh_arr, submesh_arr_offset)
+struct.pack_into('<H', d, mesh_arr + 52, 2)
+
+sw_out = '$d/sw_multi.bfres'
+with open(sw_out, 'wb') as f:
+    f.write(d)
+
+res = subprocess.run(['$B/wmdlt', 'ENCODE', sw_out, '-d', '$d/sw_multi.glb', '--overwrite'], capture_output=True, text=True)
+assert res.returncode == 0, f'Switch multi-facet encode failed: {res.stderr}'
+
+with open('$d/sw_multi.glb', 'rb') as f:
+    glbd = f.read()
+chunk_len = struct.unpack('<I', glbd[12:16])[0]
+js = json.loads(glbd[20:20+chunk_len].decode('utf-8'))
+mesh_names = [m.get('name') for m in js.get('meshes', [])]
+assert len(mesh_names) == 2, f'Expected 2 Switch submeshes, got {len(mesh_names)}'
+assert 'collision_sub0' in mesh_names, 'collision_sub0 not found'
+assert 'collision_sub1' in mesh_names, 'collision_sub1 not found'
+
+# 2. Wii U BFRES multi-facet test
+with open('$wiiu_fixture', 'rb') as f:
+    d = bytearray(f.read())
+def rel(off): return off + struct.unpack('>i', d[off:off+4])[0]
+grp = rel(0x20)
+m = rel(grp + 8 + 16 + 12)
+fshp_grp = rel(m + 0x14)
+sh = rel(fshp_grp + 8 + 16 + 12)
+lod = rel(sh + 0x24)
+
+submesh_arr_offset = len(d)
+d += struct.pack('>IIII', 0, 966, 1932, 966)
+struct.pack_into('>H', d, lod + 0x0C, 2)
+struct.pack_into('>i', d, lod + 0x10, submesh_arr_offset - (lod + 0x10))
+
+wiiu_out = '$d/wiiu_multi.bfres'
+with open(wiiu_out, 'wb') as f:
+    f.write(d)
+
+res = subprocess.run(['$B/wmdlt', 'ENCODE', wiiu_out, '-d', '$d/wiiu_multi.glb', '--overwrite'], capture_output=True, text=True)
+assert res.returncode == 0, f'Wii U multi-facet encode failed: {res.stderr}'
+
+with open('$d/wiiu_multi.glb', 'rb') as f:
+    glbd = f.read()
+chunk_len = struct.unpack('<I', glbd[12:16])[0]
+js = json.loads(glbd[20:20+chunk_len].decode('utf-8'))
+mesh_names = [m.get('name') for m in js.get('meshes', [])]
+assert len(mesh_names) == 2, f'Expected 2 Wii U submeshes, got {len(mesh_names)}'
+assert any('_sub0' in n for n in mesh_names), 'Wii U _sub0 not found'
+assert any('_sub1' in n for n in mesh_names), 'Wii U _sub1 not found'
+" >/dev/null 2>&1 \
+    && ok "BFRES facets / submeshes (Switch + Wii U multi-submesh extraction to GLB)" \
+    || no "BFRES facets / submeshes" "facet extraction failed"
+
+  rm -rf "$d"
+}
+t_bfres_facets
+
 echo "== canonical byte-for-byte encoder determinism =="
 t_byte_exact_encoders(){
   local d; d=$(mktemp -d /tmp/_r_byteenc.XXXXXX) || { bno "encoder determinism" "mktemp failed"; return; }
