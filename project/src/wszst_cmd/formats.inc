@@ -1421,6 +1421,10 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
+	err = extract_nuhlpb_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
 	err = extract_bfsha_manifest (arg);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
