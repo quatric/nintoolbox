@@ -377,6 +377,7 @@ typedef enum file_format_t
 	FF_WTB, // 282 - Nintendo Switch Texture Archive (.wta / .wtb, WTB)
 	FF_TRPAK, // 283 - Nintendo Switch "tr Package" FlatBuffers archive (.trpak)
 	FF_NUSHDB, // 284 - Bandai Namco SSBH compiled shader container (.nushdb)
+	FF_NUMATB, // 285 - Bandai Namco SSBH material container (.numatb)
 
 	//--- number of elements
 
