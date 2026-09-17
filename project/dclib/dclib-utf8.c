@@ -361,17 +361,25 @@ u32 GetUTF8Char (ccp str)
 			return result;
 
 		case DC_UTF8_2CHAR:
-			return (result & 0x1f) << 6 | (str[1] & 0x3f);
+			// don't read behind a NUL terminator on a truncated sequence
+			return !str[1] ? result : (result & 0x1f) << 6 | (str[1] & 0x3f);
 
 		case DC_UTF8_3CHAR:
-			return (result & 0x0f) << 12 | (str[1] & 0x3f) << 6 | (str[2] & 0x3f);
+			return !str[1] ? result
+				 : !str[2] ? (result & 0x0f) << 12 | (str[1] & 0x3f) << 6
+						   : (result & 0x0f) << 12 | (str[1] & 0x3f) << 6 | (str[2] & 0x3f);
 
 		case DC_UTF8_4CHAR:
-			return (result & 0x07) << 18 | (str[1] & 0x3f) << 12 | (str[2] & 0x3f) << 6
-				| (str[3] & 0x3f);
+			return !str[1] ? result
+				 : !str[2] ? (result & 0x07) << 18 | (str[1] & 0x3f) << 12
+				 : !str[3] ? (result & 0x07) << 18 | (str[1] & 0x3f) << 12 | (str[2] & 0x3f) << 6
+						   : (result & 0x07) << 18 | (str[1] & 0x3f) << 12 | (str[2] & 0x3f) << 6
+							 | (str[3] & 0x3f);
 
 		case DC_UTF8_CONT_ANY:
-			return (result & 0x3f) << 12 | (str[1] & 0x3f) << 6 | (str[2] & 0x3f);
+			return !str[1] ? result
+				 : !str[2] ? (result & 0x3f) << 12 | (str[1] & 0x3f) << 6
+						   : (result & 0x3f) << 12 | (str[1] & 0x3f) << 6 | (str[2] & 0x3f);
 
 		default: // DC_UTF8_ILLEGAL
 			return result & 0x7f | S32_MIN;
