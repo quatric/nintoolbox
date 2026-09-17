@@ -379,6 +379,7 @@ typedef enum file_format_t
 	FF_NUSHDB, // 284 - Bandai Namco SSBH compiled shader container (.nushdb)
 	FF_NUMATB, // 285 - Bandai Namco SSBH material container (.numatb)
 	FF_NUSKTB, // 286 - Bandai Namco SSBH skeleton (.nusktb)
+	FF_NUFXLB, // 287 - Bandai Namco SSBH shader-effects library (.nufxlb)
 
 	//--- number of elements
 
