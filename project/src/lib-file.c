@@ -4504,7 +4504,7 @@ void AnalyzeSlotAttrib (slot_info_t *si, bool reset_si, mem_t attrib)
 		memset (si, 0, sizeof (*si));
 	si->source = attrib;
 
-	const uint MAX_ATTRIB = 100;
+	enum { MAX_ATTRIB = 100 };
 	mem_t list[MAX_ATTRIB];
 	const uint n_attrib = SplitByCharMem (list, MAX_ATTRIB, attrib, ',');
 
@@ -5142,7 +5142,7 @@ const KeywordTab_t *GetCategoryKeywordTab (mkw_category_list_t *clist)
 
 			if (tcat->attrib && *tcat->attrib)
 			{
-				const uint MAX_ATTRIB = 100;
+				enum { MAX_ATTRIB = 100 };
 				mem_t list[MAX_ATTRIB];
 				const uint n_attrib
 					= SplitByCharMem (list, MAX_ATTRIB, MemByString0 (tcat->attrib), ',');
@@ -5593,7 +5593,7 @@ void AnalyseSPF (split_filename_t *spf, // valid pointer
 	if (!source || !*source || src_end && src_end <= source)
 		return;
 
-	const int max_attrib = 100;
+	enum { max_attrib = 100 };
 	char buf[100];
 
 	//--- store input data

@@ -375,7 +375,7 @@ int ScanOptEngine (ccp arg)
 		return 0;
 	}
 
-	const uint MAX = sizeof (opt_engine) / sizeof (*opt_engine);
+	enum { MAX = sizeof (opt_engine) / sizeof (*opt_engine) };
 	double val[MAX], sum = 0.0;
 	ccp src = arg;
 	uint n = 0;

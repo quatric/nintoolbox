@@ -1079,8 +1079,6 @@ unsigned char *CxiDecompressDeflateChunk (DEFLATE_WORK_BUFFER *auxBuffer, unsign
 	}
 	else
 	{
-		const unsigned char *tableBase = reader.pos;
-
 		// Consume a Huffman tree. The length of the tree data (in bits) is given by the next 16
 		// bits in the stream.
 		uint32_t lzLen2 = CxiBitReaderReadBits (&reader, 16);
@@ -1186,7 +1184,7 @@ static int CxiMvdkIsValidLZ (const unsigned char *buffer, unsigned int size)
 {
 	// same format as standard LZ, with different header
 	uint32_t uncompSize = (*(uint32_t *)buffer) >> 2;
-	char *copy = (char *)malloc (size);
+	unsigned char *copy = (unsigned char *)malloc (size);
 	memcpy (copy, buffer, size);
 	*(uint32_t *)copy = 0x10 | (uncompSize << 8);
 	int valid = CxIsCompressedLZ (copy, size);
@@ -1198,7 +1196,7 @@ static int CxiMvdkIsValidRL (const unsigned char *buffer, unsigned int size)
 {
 	// same format as standard LZ, with different header
 	uint32_t uncompSize = (*(uint32_t *)buffer) >> 2;
-	char *copy = (char *)malloc (size);
+	unsigned char *copy = (unsigned char *)malloc (size);
 	memcpy (copy, buffer, size);
 	*(uint32_t *)copy = 0x30 | (uncompSize << 8);
 	int valid = CxIsCompressedRL (copy, size);
@@ -1399,10 +1397,10 @@ static unsigned char *CxiMvdkDecompressRL (
 {
 	uint32_t outlen = (*(uint32_t *)buffer) >> 2;
 
-	char *copy = (char *)malloc (size);
+	unsigned char *copy = (unsigned char *)malloc (size);
 	memcpy (copy, buffer, size);
 	*(uint32_t *)copy = 0x30 | (outlen << 8);
-	char *out = CxDecompressRL (copy, size, uncompressedSize);
+	unsigned char *out = CxDecompressRL (copy, size, uncompressedSize);
 	free (copy);
 
 	return out;
@@ -1413,7 +1411,7 @@ static unsigned char *CxiMvdkDecompressDeflate (
 {
 	uint32_t outlen = (*(uint32_t *)buffer) >> 2;
 	*uncompressedSize = outlen;
-	char *dest = malloc (outlen);
+	unsigned char *dest = malloc (outlen);
 
 	void *aux = calloc (1, sizeof (DEFLATE_WORK_BUFFER));
 	CxDecompressDeflate (buffer, dest, aux, size);

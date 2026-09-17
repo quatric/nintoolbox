@@ -631,7 +631,7 @@ static enumError test_cmpr (int argc, char **argv)
 
 	//---- collect data
 
-	const uint n_info = 3;
+	enum { n_info = 3 };
 	cmpr_info_t info_tab[n_info];
 
 	const uint N_LOOP = 100000;
@@ -4209,12 +4209,12 @@ static enumError test_pf_expand (int argc, char **argv)
 			if (append)
 			{
 				printf (">> APPEND %s\n", arg);
-				AppendParamFieldExpand (&pf, arg, 0, false, i, 0);
+				AppendParamFieldExpand (&pf, arg, 0, 0, i, 0);
 			}
 			else
 			{
 				printf (">> INSERT %s\n", arg);
-				InsertParamFieldExpand (&pf, arg, 0, false, i, 0);
+				InsertParamFieldExpand (&pf, arg, 0, 0, i, 0);
 			}
 
 			const ParamFieldItem_t *ptr = pf.field;

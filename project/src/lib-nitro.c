@@ -42,7 +42,6 @@ enumError ScanNitroNCGR (nitro_ncgr_t *ncgr, const u8 *data, uint size)
 		return EINVAL;
 
 	const u8 *rahc = data + 0x10;
-	const uint num_y = nrd16 (rahc + 0x08);
 	const uint num_x = nrd16 (rahc + 0x0a);
 	const uint depth = nrd32 (rahc + 0x0c);
 	const uint mapping = nrd32 (rahc + 0x10);
@@ -677,7 +676,6 @@ enumError ScanNitroTEX0 (nitro_tex0_t *tex0, const u8 *data, uint size)
 
 	const uint tex_info_ofs_raw = nrd32 (tex0_hdr + 0x14);
 	const uint tex_data_ofs_raw = nrd32 (tex0_hdr + 0x18);
-	const uint comp_info_ofs = nrd32 (tex0_hdr + 0x1c);
 	const uint comp_data_ofs = nrd32 (tex0_hdr + 0x20);
 	const uint comp_pltt_idx_ofs = nrd32 (tex0_hdr + 0x24);
 	const uint pltt_info_ofs_raw = nrd32 (tex0_hdr + 0x28);
@@ -1288,7 +1286,7 @@ enumError ScanNitroNFTR (nitro_nftr_t *nftr, const u8 *data, uint size)
 	const uint n_sections = nrd16 (data + 14);
 
 	uint pos = 0x10;
-	const u8 *finf = 0, *cglp = 0, *cmap = 0, *cwrd = 0;
+	const u8 *finf = 0, *cglp = 0;
 
 	for (uint s = 0; s < n_sections && pos + 8 <= size; s++)
 	{
@@ -1297,11 +1295,6 @@ enumError ScanNitroNFTR (nitro_nftr_t *nftr, const u8 *data, uint size)
 			finf = data + pos;
 		else if (!memcmp (data + pos, "CGLP", 4) || !memcmp (data + pos, "PLGC", 4))
 			cglp = data + pos;
-		else if (!memcmp (data + pos, "CMAP", 4) || !memcmp (data + pos, "PAMC", 4))
-			cmap = data + pos;
-		else if (!memcmp (data + pos, "CWRD", 4) || !memcmp (data + pos, "DRWC", 4)
-			|| !memcmp (data + pos, "TGLP", 4))
-			cwrd = data + pos;
 		pos += sec_sz ? sec_sz : 8;
 	}
 

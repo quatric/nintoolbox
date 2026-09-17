@@ -184,7 +184,6 @@ void DecompressLZSS (
 	char window_buffer[WINDOW_SIZE];
 	int window_offset = WINDOW_START;
 	int code_word = 0;
-	int length_adjust = 0;
 	int dest_offset = 0;
 	int src_offset = compressed_buffer_offset;
 

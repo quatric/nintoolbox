@@ -1655,7 +1655,7 @@ enumError CreateRawMDL (mdl_t *mdl // pointer to valid MDL
 	DASSERT (mdl);
 	TRACE ("CreateRawMDL()\n");
 
-	const uint MAX_SECT = 20; // max supported sections
+	enum { MAX_SECT = 20 }; // max supported sections
 
 	//--- setup string pool
 
@@ -4810,7 +4810,7 @@ ccp RenameForSlot42MDL (void *rawdata, // pointer to data, modified
 		memset (slot42ok, 0, sizeof (slot42ok));
 		uint n_ok = 0;
 
-		const uint MAX_SECT8 = 1000;
+		enum { MAX_SECT8 = 1000 };
 		const MemItem_t *sect8[MAX_SECT8];
 		uint sect8_count = 0;
 
@@ -4882,6 +4882,9 @@ ccp RenameForSlot42MDL (void *rawdata, // pointer to data, modified
 			sect8[found] = 0;
 			n_rename++;
 		}
+#ifndef TEST
+		(void)n_rename;
+#endif
 
 #ifdef TEST
 		// if ( logging >= 2 && stdlog )

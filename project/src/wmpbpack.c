@@ -579,7 +579,6 @@ u32 simpleEnc (u8 *src, int size, int pos, u32 *pMatchPos)
 // a lookahead encoding scheme for ngc Yaz0
 u32 nintendoEnc (u8 *src, int size, int pos, u32 *pMatchPos)
 {
-	int startPos = pos - 0x1000;
 	u32 numBytes = 1;
 	static u32 numBytes1;
 	static u32 matchPos;
@@ -618,7 +617,6 @@ int CompressSlide (char *input, int uncomp_len, FILE *fp, int offset)
 	Ret r = { 0, 0 };
 	u8 dst[96]; // 8 codes * 3 bytes maximum
 	int dstSize = 0;
-	int percent = -1;
 
 	u32 validBitCount = 0; // number of valid bits left in "code" byte
 	u32 currCodeByte = 0;
@@ -626,9 +624,8 @@ int CompressSlide (char *input, int uncomp_len, FILE *fp, int offset)
 	{
 		u32 numBytes;
 		u32 matchPos;
-		u32 srcPosBak;
 
-		numBytes = nintendoEnc (input, uncomp_len, r.srcPos, &matchPos);
+		numBytes = nintendoEnc ((u8 *)input, uncomp_len, r.srcPos, &matchPos);
 		if (numBytes < 3)
 		{
 			// straight copy
@@ -674,7 +671,6 @@ int CompressSlide (char *input, int uncomp_len, FILE *fp, int offset)
 			dstSize += r.dstPos + 4;
 			offset += r.dstPos + 4;
 
-			srcPosBak = r.srcPos;
 			currCodeByte = 0;
 			validBitCount = 0;
 			r.dstPos = 0;
