@@ -1840,8 +1840,19 @@ static enumError cmd_dump ()
 				ResetAAMP (&aamp);
 			}
 		}
+		else if (szs.fform_file == FF_BNTX || szs.fform_arch == FF_BNTX
+			|| (szs.data && szs.size >= 40 && !memcmp (szs.data, "BNTX", 4)))
+		{
+			printf ("\n* Dump structure of %s:%s\n", GetNameFF (FF_BNTX, 0), arg);
+			bntx_t bntx;
+			if (ScanBNTX (&bntx, szs.data, szs.size) == ERR_OK)
+			{
+				DumpStructureBNTX (stdout, &bntx, 2);
+				ResetBNTX (&bntx);
+			}
+		}
 		else if (!opt_ignore)
-			ERROR0 (ERR_WARNING, "No BRRES/AAMP file -> ignored: %s\n", arg);
+			ERROR0 (ERR_WARNING, "No BRRES/AAMP/BNTX file -> ignored: %s\n", arg);
 		ResetSZS (&szs);
 	}
 	putchar ('\n');
