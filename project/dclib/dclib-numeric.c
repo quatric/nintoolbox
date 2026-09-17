@@ -41,7 +41,9 @@
 #include <stdio.h>
 #include <errno.h>
 #include <sys/time.h>
+#ifndef __MINGW32__
 #include <sys/resource.h>
+#endif
 #include <fcntl.h>
 
 #include "dclib-basics.h"

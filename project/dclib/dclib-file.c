@@ -50,92 +50,10 @@
   // termios) are not used anywhere in src/*.c for wszst, and have no
   // 1:1 Windows equivalent, so they are stubbed out entirely for MinGW
   // instead of being ported (see the #ifdef __MINGW32__ blocks below).
-  #include <direct.h> // _mkdir()
-
-  // mkdir()'s mode argument doesn't exist on Windows -- this relies on the
-  // preprocessor's no-self-recursion rule: the expansion below still calls
-  // the real single-argument mkdir() declared in <io.h>, it just doesn't
-  // get macro-expanded again.
-  #define mkdir(path, mode) mkdir (path)
-
-  // realpath() isn't in the MinGW CRT; _fullpath() is the closest analog
-  // (no symlink resolution, but wszst only uses this for canonicalizing
-  // paths for comparison, e.g. in RemoveSource() below).
-  #define realpath(path, resolved) _fullpath (resolved, path, PATH_MAX)
-
-  // fcntl(F_SETFD, FD_CLOEXEC) hardens a FILE* against being inherited by
-  // a child process across exec(); Windows has no exec()-time fd
-  // inheritance model to match 1:1, so this is a no-op here.
-  #define F_SETFD 0
-  #define FD_CLOEXEC 0
-  static inline int fcntl (int fd, int cmd, ...) { (void)fd; (void)cmd; return 0; }
-
-  // memrchr() is a glibc/BSD extension MinGW doesn't ship.
-  static inline void *memrchr (const void *s, int c, size_t n)
-  {
-	  const unsigned char *p = (const unsigned char *)s + n;
-	  while (n--)
-		  if (*--p == (unsigned char)c)
-			  return (void *)p;
-	  return 0;
-  }
-
-  // MinGW's <sys/stat.h> has no S_IFLNK/S_IFSOCK bits (no symlinks/sockets
-  // in the classic Windows stat() model) and its <dirent.h> has no d_type
-  // member at all -- ConvertDType2STMode() below always falls back to an
-  // explicit stat() call when passed DT_UNKNOWN (0), so DIRENT_D_TYPE()
-  // just always reports "unknown" here instead of reading a field that
-  // doesn't exist.
-  #ifndef S_IFLNK
-  #define S_IFLNK 0xA000
-  #endif
-  #ifndef S_IFSOCK
-  #define S_IFSOCK 0xC000
-  #endif
-  #ifndef S_ISLNK
-  #define S_ISLNK(m) (((m) & S_IFMT) == S_IFLNK)
-  #endif
-  #ifndef S_ISSOCK
-  #define S_ISSOCK(m) (((m) & S_IFMT) == S_IFSOCK)
-  #endif
-  #define DT_UNKNOWN 0
-  #define DT_FIFO 1
-  #define DT_CHR 2
-  #define DT_DIR 4
-  #define DT_BLK 6
-  #define DT_REG 8
-  #define DT_LNK 10
-  #define DT_SOCK 12
-  #define DIRENT_D_TYPE(dent) DT_UNKNOWN
-
-  // setenv() isn't in the MinGW CRT; _putenv_s() is the closest analog.
-  #define setenv(name, value, overwrite) _putenv_s (name, value)
-
-  // getrlimit()/setrlimit()/RLIMIT_NOFILE (open-file-count limits) and
-  // sysconf(_SC_CLK_TCK) have no Windows equivalent worth emulating --
-  // wszst only uses these for informational stats (PrintOpenFiles()) and
-  // a /proc/cpuinfo-based CPU stat helper that already falls back to sane
-  // defaults (clock_ticks = 100) when the underlying call is unavailable.
-  struct rlimit
-  {
-	  unsigned long rlim_cur;
-	  unsigned long rlim_max;
-  };
-  #define RLIMIT_NOFILE 0
-  static inline int getrlimit (int resource, struct rlimit *rlim)
-  {
-	  (void)resource;
-	  (void)rlim;
-	  return -1;
-  }
-  static inline int setrlimit (int resource, const struct rlimit *rlim)
-  {
-	  (void)resource;
-	  (void)rlim;
-	  return -1;
-  }
-  #define _SC_CLK_TCK 0
-  static inline long sysconf (int name) { (void)name; return -1; }
+  // The mkdir()/realpath()/fcntl()/memrchr()/setenv()/getrlimit()/sysconf()/
+  // link()/DIRENT_D_TYPE() shims this file needs live in
+  // dclib-mingw-compat.h (included below via dclib-basics.h), shared with
+  // dclib-basics.c and any other file that needs the same POSIX gaps filled.
 #else
   #define DIRENT_D_TYPE(dent) ((dent)->d_type)
   #include <sys/ioctl.h>
@@ -152,18 +70,6 @@
 #include "dclib-debug.h"
 #ifndef __MINGW32__
 #include "dclib-network.h"
-#endif
-
-#ifdef __MINGW32__
-// No hardlinks via a single libc call on MinGW; CreateHardLinkA() is the
-// Win32 equivalent (link() itself isn't declared by the MinGW CRT). This
-// comes after dclib-basics.h so windows.h (pulled in via
-// dclib-mingw-compat.h, which also renames away its CreateFile/CopyFile/
-// etc.) is already available.
-static inline int link (const char *oldpath, const char *newpath)
-{
-	return CreateHardLinkA (newpath, oldpath, 0) ? 0 : -1;
-}
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////

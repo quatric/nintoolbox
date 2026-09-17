@@ -39,7 +39,9 @@
 #include <stddef.h>
 #include <errno.h>
 #include <signal.h>
+#ifndef __MINGW32__
 #include <sys/ioctl.h>
+#endif
 // #include <ncurses/curses.h>
 // #include <term.h>
 
@@ -1250,7 +1252,12 @@ static void Signal_SIGWINCH (int signal)
 
 void EnableAutoTermSize ()
 {
+#ifndef __MINGW32__
+	// SIGWINCH (terminal resize) doesn't exist on MinGW; the (unused)
+	// auto_term_size_dirty tracking above just never gets marked dirty
+	// there, so this is only sizing the terminal once up front.
 	signal (SIGWINCH, Signal_SIGWINCH);
+#endif
 	GetAutoTermSize ();
 }
 
@@ -4932,6 +4939,29 @@ void SaveStdFiles (SavedStdFiles_t *ssf)
 
 ///////////////////////////////////////////////////////////////////////////////
 
+#ifdef __MINGW32__
+// stdout/stderr are non-lvalue macros on MinGW (same reasoning as the
+// pipe-to-pager code in dclib-file.c), so none of the standard-stream
+// redirection below can be ported as-is; nothing in src/*.c calls any of
+// RestoreStdFiles()/RedirectStdFiles()/CatchStdFiles(), so they're stubbed
+// out entirely for this platform (TermCatchStdFiles() still closes ssf->f
+// if one was ever opened, though CatchStdFiles() never sets it here).
+void RestoreStdFiles (SavedStdFiles_t *ssf) { (void)ssf; }
+void RedirectStdFiles (SavedStdFiles_t *ssf, FILE *f, const ColorSet_t *colset, bool err_too)
+{
+	(void)ssf;
+	(void)f;
+	(void)colset;
+	(void)err_too;
+}
+enumError CatchStdFiles (SavedStdFiles_t *ssf, const ColorSet_t *colset)
+{
+	(void)ssf;
+	(void)colset;
+	return ERR_CANT_CREATE;
+}
+#else
+
 void RestoreStdFiles (SavedStdFiles_t *ssf)
 {
 	DASSERT (ssf);
@@ -4999,6 +5029,7 @@ enumError CatchStdFiles (SavedStdFiles_t *ssf, // save old output and data here,
 }
 
 #endif // !__APPLE__
+#endif // __MINGW32__
 ///////////////////////////////////////////////////////////////////////////////
 
 void TermCatchStdFiles (SavedStdFiles_t *ssf)
