@@ -170,6 +170,16 @@ enumError DecodeWTB_RGBA (u8 **dest, uint *width, uint *height, const wtb_t *wtb
 		case 0x50:
 			bntx_fmt = 0x1f;
 			break; // BC6H_UF16
+		case 0x4b:
+			bntx_fmt = 0x1e;
+			break; // BC5_UNORM
+		case 0x4c:
+			bntx_fmt = 0x1e;
+			bntx_type = 2;
+			break; // BC5_SNORM
+		case 0x4d:
+			bntx_fmt = 0x20;
+			break; // BC7_UNORM
 		case 0x79:
 		case 0x87:
 			bntx_fmt = 0x2d;
@@ -179,8 +189,8 @@ enumError DecodeWTB_RGBA (u8 **dest, uint *width, uint *height, const wtb_t *wtb
 			bntx_fmt = 0x34;
 			break; // ASTC 8x8
 		default:
-			// BC5/BC7/other ASTC footprints aren't in the Switch-Toolbox format table this
-			// was ported from; reported honestly instead of guessed at.
+			// Other ASTC footprints aren't in the Switch-Toolbox format table this was
+			// ported from; reported honestly instead of guessed at.
 			return ERROR0 (ERR_INVALID_IFORM, "Unsupported WTB texture format 0x%02x\n", t->format);
 	}
 
