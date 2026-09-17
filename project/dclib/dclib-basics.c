@@ -52,13 +52,7 @@
 #include "dclib-debug.h"
 #include "dclib-file.h"
 #include "dclib-utf8.h"
-#ifndef __MINGW32__
-// dclib-network.h (and the dclib-network-linux.h it pulls in) declares
-// POSIX socket types (in_addr_t etc.) not available under MinGW; nothing
-// in this file is actually called by name from that header (DCLIB_NETWORK
-// is 0 in this build anyway), so it's simply left out here.
 #include "dclib-network.h"
-#endif
 
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -7348,16 +7342,7 @@ int ScanCommandList (
 					fprintf (stderr,
 						"#WARN: Conflict in ExecCommandOfList():"
 						" Stream is terminated, but binary not: %s\n",
-#ifdef __MINGW32__
-						// TCPStream_t is only fully defined by
-						// dclib-network.h, which isn't included here
-						// on MinGW (see the #include above); this
-						// whole command-list feature isn't used by
-						// wszst, so ->info just isn't printed here.
-						"");
-#else
 						cli->user_ts ? cli->user_ts->info : "");
-#endif
 
 					if (log)
 					{

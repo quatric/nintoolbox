@@ -64,6 +64,7 @@
 
 #include <direct.h>  // _mkdir()
 #include <stdlib.h>  // _fullpath(), _putenv_s()
+#include <string.h>  // memcmp() for the memmem() shim below
 
 // mkdir()'s mode argument doesn't exist on Windows -- this relies on the
 // preprocessor's no-self-recursion rule: the expansion below still calls
@@ -167,6 +168,15 @@ static inline struct tm *dclib_mingw_localtime_r (const time_t *timer, struct tm
 
 #define timegm _mkgmtime
 
+// in_addr_t is a POSIX/BSD sockets typedef winsock2.h doesn't provide;
+// dclib-network.h/dclib-network-linux.h declare (but, since dclib-network.c
+// itself isn't part of this build -- see dclib/Makefile.inc's DCLIB_NETWORK
+// -- never define) a few functions using it.
+#ifndef __in_addr_t_defined
+#define __in_addr_t_defined
+typedef u_long in_addr_t;
+#endif
+
 // O_NONBLOCK is meaningless here since /dev/urandom doesn't exist on
 // Windows anyway (ReadFromUrandom() in dclib-numeric.c already treats a
 // failed open() as "urandom not available" and falls back accordingly).
@@ -186,6 +196,71 @@ static inline char *dclib_mingw_strptime_ymd (const char *s, const char *format,
 	return (char *)(s + n);
 }
 #define strptime dclib_mingw_strptime_ymd
+
+// lstat() (stat a symlink itself, not its target) -- Windows has no
+// classic symlink model for stat() to distinguish, so this just forwards
+// to stat().
+#ifndef lstat
+#define lstat stat
+#endif
+
+// getline() is a POSIX/glibc extension (allocate-as-needed line reading)
+// not in the MinGW CRT.
+static inline ssize_t dclib_mingw_getline (char **lineptr, size_t *n, FILE *stream)
+{
+	if (!lineptr || !n || !stream)
+		return -1;
+
+	if (!*lineptr || !*n)
+	{
+		*n = 256;
+		*lineptr = (char *)malloc (*n);
+		if (!*lineptr)
+			return -1;
+	}
+
+	size_t len = 0;
+	int c;
+	while ((c = fgetc (stream)) != EOF)
+	{
+		if (len + 1 >= *n)
+		{
+			size_t new_size = *n * 2;
+			char *new_ptr = (char *)realloc (*lineptr, new_size);
+			if (!new_ptr)
+				return -1;
+			*lineptr = new_ptr;
+			*n = new_size;
+		}
+		(*lineptr)[len++] = (char)c;
+		if (c == '\n')
+			break;
+	}
+
+	if (!len && c == EOF)
+		return -1;
+
+	(*lineptr)[len] = 0;
+	return (ssize_t)len;
+}
+#define getline dclib_mingw_getline
+
+// memmem() is a glibc/BSD extension MinGW doesn't ship.
+static inline void *dclib_mingw_memmem (
+	const void *haystack, size_t haystacklen, const void *needle, size_t needlelen)
+{
+	if (!needlelen)
+		return (void *)haystack;
+	if (needlelen > haystacklen)
+		return 0;
+	const unsigned char *h = (const unsigned char *)haystack;
+	const unsigned char *end = h + haystacklen - needlelen;
+	for (; h <= end; h++)
+		if (!memcmp (h, needle, needlelen))
+			return (void *)h;
+	return 0;
+}
+#define memmem dclib_mingw_memmem
 
 // No hardlinks via a single libc call on MinGW; CreateHardLinkA() is the
 // Win32 equivalent (link() itself isn't declared by the MinGW CRT).

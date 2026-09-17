@@ -40,6 +40,13 @@
 // BZIP2 support: http://www.bzip.org/1.0.5/bzip2-manual-1.0.5.html
 
 #ifndef NO_BZIP2
+#ifdef __MINGW32__
+// bzlib.h pulls in <windows.h> itself (for its dllexport macros) before
+// dclib gets a chance to rename away the WinAPI CreateFile/CopyFile/
+// GetFileSize/OpenFile/etc. that collide with dclib's own same-named
+// functions (see dclib-mingw-compat.h) -- so do that renaming first here.
+#include "dclib-mingw-compat.h"
+#endif
 #include "libbz2/bzlib.h"
 #include "lib-bzip2.h"
 #include "lib-szs.h"
