@@ -1507,6 +1507,13 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 0x53, 0x53, 0x42, 0x48 }, // "SSBH"
 		0, MinusString, MinusString, "Bandai Namco SSBH compiled shader container (NUSHDB)" },
 
+	// FF_NUMATB = 285 (Bandai Namco SSBH material container). Shares the same
+	// "SSBH"/"HBSS" container magic as FF_NUMSHB/FF_NUSHDB at offset 0 -- told
+	// apart by the sub-magic at offset 0x10 ("LTAM"/"MATL"), same convention.
+	{ FF_NUMATB, FF_NUMATB, 0, "NUMATB", ".numatb", ".szs", ".numatb",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 0x53, 0x53, 0x42, 0x48 }, // "SSBH"
+		0, MinusString, MinusString, "Bandai Namco SSBH material container (NUMATB)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1667,6 +1674,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_RSTB, "RSTB", "RSTB", 0xe05 },
 	{ FF_WTB, "WTB", "WTB", 0xe05 },
 	{ FF_NUSHDB, "NUSHDB", "SSBH", 0x3001 },
+	{ FF_NUMATB, "NUMATB", "SSBH", 0x3001 },
 
 	{ 0, 0, 0, 0 }
 };
