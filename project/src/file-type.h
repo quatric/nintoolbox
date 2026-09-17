@@ -382,6 +382,8 @@ typedef enum file_format_t
 	FF_NUFXLB, // 287 - Bandai Namco SSBH shader-effects library (.nufxlb)
 	FF_NUMDLB, // 288 - Bandai Namco SSBH model descriptor (.numdlb / .nusrcmdlb)
 	FF_NUHLPB, // 289 - Bandai Namco SSBH helper-bone constraints (.nuhlpb)
+	FF_NULSTB, // 290 - Bandai Namco SSBH file-name list (.nulstb)
+	FF_NURPDB, // 291 - Bandai Namco SSBH render-pass data (.nurpdb)
 
 	//--- number of elements
 
