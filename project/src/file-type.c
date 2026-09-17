@@ -1492,6 +1492,13 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 'W', 'T', 'B' }, 0, MinusString, MinusString,
 		"Nintendo Switch Texture Archive (.wta / .wtb, texture headers + image data)" },
 
+	// FF_TRPAK = 283 (Nintendo Switch "tr Package" FlatBuffers archive). No magic bytes exist
+	// at all (it's a bare FlatBuffers root table) -- recognized by extension, same convention
+	// as the other magic-less FF_* entries above (magic_len 0).
+	{ FF_TRPAK, 0, 0, "TRPAK", ".trpak", ".trpak", ".trpak",
+		FFT_VALID | FFT_ARCHIVE | FFT_DECODE | FFT_EXTRACT, 0, { 0 }, // no magic
+		0, MinusString, MinusString, "Nintendo Switch tr Package FlatBuffers archive (TRPAK)" },
+
 	// FF_N
 	{ 0 }
 };

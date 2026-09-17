@@ -375,6 +375,7 @@ typedef enum file_format_t
 	FF_BEA, // 280 - Nintendo EAD Bezel Engine Archive (.bea / .nx.bea / SCNE)
 	FF_RSTB, // 281 - Nintendo Switch Resource Size Table (.rstb / RSTB)
 	FF_WTB, // 282 - Nintendo Switch Texture Archive (.wta / .wtb, WTB)
+	FF_TRPAK, // 283 - Nintendo Switch "tr Package" FlatBuffers archive (.trpak)
 
 	//--- number of elements
 
