@@ -1490,12 +1490,12 @@ help:
 
 # Custom tools
 wmpbdump: src/wmpbdump.c
-	$(CC) $(CFLAGS) $< -lz -o $@
-	@mkdir -p bin && cp -p $@ bin/
+	$(CC) $(CFLAGS) $< $(LDFLAGS) -lz -o $@
+	@mkdir -p bin && src=$@; test -f $@.exe && src=$@.exe; cp -p $$src bin/
 
 wmpbpack: src/wmpbpack.c
-	$(CC) $(CFLAGS) $< -lz -o $@
-	@mkdir -p bin && cp -p $@ bin/
+	$(CC) $(CFLAGS) $< $(LDFLAGS) -lz -o $@
+	@mkdir -p bin && src=$@; test -f $@.exe && src=$@.exe; cp -p $$src bin/
 
 
 # Test-only oracles. QuickLZ is native inside wszst (COMPRESS to a .qlz
