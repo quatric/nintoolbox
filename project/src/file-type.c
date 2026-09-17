@@ -1487,6 +1487,11 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 'R', 'S', 'T', 'B' }, 0, MinusString, MinusString,
 		"Nintendo Switch Resource Size Table (.rstb, BOTW/TOTK)" },
 
+	// FF_WTB = 282 (Nintendo Switch Texture Archive)
+	{ FF_WTB, 0, 0, "WTB", ".wta", ".wta", ".wtb", FFT_VALID | FFT_ARCHIVE | FFT_DECODE, 3,
+		{ 'W', 'T', 'B' }, 0, MinusString, MinusString,
+		"Nintendo Switch Texture Archive (.wta / .wtb, texture headers + image data)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1645,6 +1650,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_VFXB, "VFXB", "VFXB", 0xe05 },
 	{ FF_BEA, "BEA", "SCNE", 0xe05 },
 	{ FF_RSTB, "RSTB", "RSTB", 0xe05 },
+	{ FF_WTB, "WTB", "WTB", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

@@ -86,6 +86,7 @@
 #include "lib-aamp.h"
 #include "lib-sharc.h"
 #include "lib-bnsh.h"
+#include "lib-wtb.h"
 #include "lib-cnut.h"
 #include "lib-xmsg.h"
 #include "lib-nsmbw.h"
