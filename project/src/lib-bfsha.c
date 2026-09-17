@@ -73,8 +73,18 @@ typedef struct
 	s32 default_program_idx;
 	u16 static_opt_count, dynamic_opt_count, program_count;
 	u8 static_key_len, dynamic_key_len, attrib_count, sampler_count, image_count, ublock_count;
+
+	// ResDict (array_off, dict_off) pairs -- LoadDictionary() reads valuesOffset then dictOffset,
+	// in that order, for each of these; kept so DecodeBFSHA_Text can decode their names/values
+	// instead of just skipping past them.
+	u64 static_opts_arr, static_opts_dict, dynamic_opts_arr, dynamic_opts_dict;
+	u64 attribs_arr, attribs_dict, samplers_arr, samplers_dict;
+	u64 images_arr, images_dict;       // version_major >= 8 only
+	u64 ublocks_arr, ublocks_dict;
 } bfsha_model_hdr_t;
 
+// 'out' may be NULL for a silent scan (ScanBFSHA_ModelRefs): no truncation diagnostics needed
+// there since the caller only wants the BNSH offset/size, not a manifest.
 static u64 decode_shader_model_header (FILE *out, const u8 *data, size_t size, u64 base,
 	u16 vmajor, bfsha_model_hdr_t *m)
 {
@@ -82,16 +92,19 @@ static u64 decode_shader_model_header (FILE *out, const u8 *data, size_t size, u
 	u64 p = base;
 
 #define NEED(n) do { if ((u64)p + (n) > size) { \
-		fprintf (out, "    <model header truncated at +0x%llx>\n", (unsigned long long)(p - base)); \
+		if (out) fprintf (out, "    <model header truncated at +0x%llx>\n", (unsigned long long)(p - base)); \
 		return 0; } } while (0)
 
 	NEED (8);  p += 8;                              // name_ptr (unused: dict already gave us it)
-	NEED (16); p += 16;                              // static options dict (array_off, dict_off)
-	NEED (16); p += 16;                              // dynamic options dict
-	NEED (16); p += 16;                              // attributes dict
-	NEED (16); p += 16;                              // samplers dict
-	if (vmajor >= 8) { NEED (16); p += 16; }         // images dict
-	NEED (16); p += 16;                              // uniform blocks dict
+	NEED (16); m->static_opts_arr = rd_le64 (data + p); m->static_opts_dict = rd_le64 (data + p + 8); p += 16;
+	NEED (16); m->dynamic_opts_arr = rd_le64 (data + p); m->dynamic_opts_dict = rd_le64 (data + p + 8); p += 16;
+	NEED (16); m->attribs_arr = rd_le64 (data + p); m->attribs_dict = rd_le64 (data + p + 8); p += 16;
+	NEED (16); m->samplers_arr = rd_le64 (data + p); m->samplers_dict = rd_le64 (data + p + 8); p += 16;
+	if (vmajor >= 8)
+	{
+		NEED (16); m->images_arr = rd_le64 (data + p); m->images_dict = rd_le64 (data + p + 8); p += 16;
+	}
+	NEED (16); m->ublocks_arr = rd_le64 (data + p); m->ublocks_dict = rd_le64 (data + p + 8); p += 16;
 	NEED (8);  p += 8;                               // uniform array offset (not a dict pair)
 	if (vmajor >= 7)
 	{
@@ -209,6 +222,110 @@ truncated:
 	fprintf (out, "    program[%u]: <header out of bounds>\n", idx);
 }
 
+#define BFSHA_MAX_DICT_NODES 4096
+
+// Which fixed-size value struct (if any) sits in the ResDict's parallel array, per
+// BfshaLoader.cs's ReadShaderOption/ReadAttribute/ReadSampler/ReadBfshaUniformBlock/
+// ReadBfshaUniform -- ReadImage's struct is empty (no array read needed, names only).
+typedef enum
+{
+	BFSHA_DICT_OPTION,   // ShaderOption:      only the name is decoded here (choices skipped)
+	BFSHA_DICT_ATTRIB,   // BfshaAttribute:    u8 index, s8 location                    (stride 2)
+	BFSHA_DICT_SAMPLER,  // BfshaSampler:      u64 name_ptr, u8 index, 7 pad            (stride 16)
+	BFSHA_DICT_IMAGE,    // BfshaImageBuffer:  empty                                    (stride 0)
+	BFSHA_DICT_UBLOCK,   // BfshaUniformBlock: u64 uarr, u64 udict, u64 default_off,
+	                     //                    u8 index, u8 type, u16 size, u16 numu    (stride 32)
+	BFSHA_DICT_UNIFORM,  // BfshaUniform:      u64 name_ptr, s32 index, u16 data_off,
+	                     //                    u8 block_index, 1 pad                    (stride 16)
+} bfsha_dict_kind_t;
+
+static const u64 bfsha_dict_stride[] =
+{
+	[BFSHA_DICT_OPTION]  = 0,  // no fixed-layout extra to print; name only
+	[BFSHA_DICT_ATTRIB]  = 2,
+	[BFSHA_DICT_SAMPLER] = 16,
+	[BFSHA_DICT_IMAGE]   = 0,
+	[BFSHA_DICT_UBLOCK]  = 32,
+	[BFSHA_DICT_UNIFORM] = 16,
+};
+
+// Decodes one ResDict node table's key names (LoadDictionary()'s Node.Key), plus -- for the
+// kinds with a known fixed-size value struct -- a couple of the value's own fields, straight
+// out of the parallel values array at 'array_off'. Recurses one level for uniform blocks, whose
+// own value struct embeds a second ResDict of per-block uniform names. All offsets/lengths are
+// bounds-checked at 64-bit width before use, same discipline as the rest of this decoder.
+static void decode_resdict (FILE *out, const u8 *data, size_t size, u64 dict_off, u64 array_off,
+	bfsha_dict_kind_t kind, ccp indent)
+{
+	if (!dict_off || (u64)dict_off + 8 > size)
+		return;
+
+	const s32 num_nodes_signed = (s32) rd_le32 (data + dict_off + 4);
+	if (num_nodes_signed <= 0 || num_nodes_signed > BFSHA_MAX_DICT_NODES)
+	{
+		if (num_nodes_signed)
+			fprintf (out, "%s<dictionary node count implausible: %d>\n", indent, num_nodes_signed);
+		return;
+	}
+	const u64 num_nodes = (u64) num_nodes_signed;
+	const u64 nodes_base = dict_off + 8;
+	if (nodes_base + (num_nodes + 1) * 16 > size)
+	{
+		fprintf (out, "%s<dictionary node table out of bounds>\n", indent);
+		return;
+	}
+
+	const u64 stride = bfsha_dict_stride[kind];
+	char sub_indent[288];
+	snprintf (sub_indent, sizeof (sub_indent), "%s    ", indent);
+
+	for (u64 i = 0; i < num_nodes; i++)
+	{
+		// Node 0 is the dictionary root and carries no key/value; entries start at node 1.
+		const u64 node_off = nodes_base + (i + 1) * 16;
+		const u64 key_ptr = rd_le64 (data + node_off + 8);
+		char name[256];
+		bfsha_read_string (name, sizeof (name), data, size, key_ptr);
+		fprintf (out, "%s[%llu] %s", indent, (unsigned long long) i, name[0] ? name : "<unnamed>");
+
+		u64 ublock_udict = 0, ublock_uarr = 0;
+		if (array_off && stride)
+		{
+			const u64 elem = array_off + i * stride;
+			if (elem < array_off || elem + stride > size) // 64-bit wrap guard + bounds
+			{
+				fprintf (out, " <value out of bounds>");
+			}
+			else switch (kind)
+			{
+			case BFSHA_DICT_ATTRIB:
+				fprintf (out, " (index=%u, location=%d)", data[elem], (int)(s8) data[elem + 1]);
+				break;
+			case BFSHA_DICT_SAMPLER:
+				fprintf (out, " (index=%u)", data[elem + 8]);
+				break;
+			case BFSHA_DICT_UBLOCK:
+				fprintf (out, " (index=%u, type=%u, size=%u, uniforms=%u)",
+					data[elem + 24], data[elem + 25],
+					rd_le16 (data + elem + 26), rd_le16 (data + elem + 28));
+				ublock_uarr  = rd_le64 (data + elem);
+				ublock_udict = rd_le64 (data + elem + 8);
+				break;
+			case BFSHA_DICT_UNIFORM:
+				fprintf (out, " (index=%d, data_offset=%u, block_index=%u)",
+					(s32) rd_le32 (data + elem + 8), rd_le16 (data + elem + 12), data[elem + 14]);
+				break;
+			default:
+				break;
+			}
+		}
+		fprintf (out, "\n");
+
+		if (ublock_udict)
+			decode_resdict (out, data, size, ublock_udict, ublock_uarr, BFSHA_DICT_UNIFORM, sub_indent);
+	}
+}
+
 enumError DecodeBFSHA_Text (FILE *out, const u8 *data, size_t size)
 {
 	if (!out || !IsBFSHA (data, size))
@@ -319,6 +436,43 @@ enumError DecodeBFSHA_Text (FILE *out, const u8 *data, size_t size)
 			mh.static_key_len, mh.dynamic_key_len,
 			(unsigned long long) mh.key_table_off, (unsigned long long) mh.program_array_off);
 
+		if (mh.static_opts_dict)
+		{
+			fprintf (out, "    static_options:\n");
+			decode_resdict (out, data, size, mh.static_opts_dict, mh.static_opts_arr,
+				BFSHA_DICT_OPTION, "      ");
+		}
+		if (mh.dynamic_opts_dict)
+		{
+			fprintf (out, "    dynamic_options:\n");
+			decode_resdict (out, data, size, mh.dynamic_opts_dict, mh.dynamic_opts_arr,
+				BFSHA_DICT_OPTION, "      ");
+		}
+		if (mh.attribs_dict)
+		{
+			fprintf (out, "    attributes:\n");
+			decode_resdict (out, data, size, mh.attribs_dict, mh.attribs_arr,
+				BFSHA_DICT_ATTRIB, "      ");
+		}
+		if (mh.samplers_dict)
+		{
+			fprintf (out, "    samplers:\n");
+			decode_resdict (out, data, size, mh.samplers_dict, mh.samplers_arr,
+				BFSHA_DICT_SAMPLER, "      ");
+		}
+		if (version_major >= 8 && mh.images_dict)
+		{
+			fprintf (out, "    images:\n");
+			decode_resdict (out, data, size, mh.images_dict, mh.images_arr,
+				BFSHA_DICT_IMAGE, "      ");
+		}
+		if (mh.ublocks_dict)
+		{
+			fprintf (out, "    uniform_blocks:\n");
+			decode_resdict (out, data, size, mh.ublocks_dict, mh.ublocks_arr,
+				BFSHA_DICT_UBLOCK, "      ");
+		}
+
 		if (mh.shader_file_off && (u64)mh.shader_file_off + 0x20 <= size)
 		{
 			const u32 bnsh_size = rd_le32 (data + mh.shader_file_off + 0x1c);
@@ -348,4 +502,90 @@ enumError DecodeBFSHA_Text (FILE *out, const u8 *data, size_t size)
 	}
 
 	return ERR_OK;
+}
+
+enumError ScanBFSHA_ModelRefs (bfsha_models_t *out, const u8 *data, size_t size)
+{
+	if (!out)
+		return ERR_INVALID_DATA;
+	out->n_models = 0;
+	out->models = NULL;
+
+	if (!IsBFSHA (data, size) || size < BFSHA_BIN_HDR_SIZE)
+		return ERR_INVALID_DATA;
+
+	const u16 version_major = rd_le16 (data + 10);
+
+	u64 p = BFSHA_BIN_HDR_SIZE;
+#define NEED(n) do { if ((u64)p + (n) > size) return ERR_OK; } while (0)
+	NEED (8); p += 8;                                // unk0
+	NEED (8); p += 8;                                // string_pool_offset
+	NEED (8); p += 8;                                // shader_model_offset (unused by reference)
+	NEED (8); p += 8;                                // name_ptr
+	NEED (8); p += 8;                                // path_ptr
+	NEED (8); const u64 models_array_off = rd_le64 (data + p); p += 8;
+	NEED (8); const u64 models_dict_off  = rd_le64 (data + p); p += 8;
+#undef NEED
+
+	if (!models_array_off || !models_dict_off || (u64)models_dict_off + 8 > size)
+		return ERR_OK;
+
+	const s32 num_nodes_signed = (s32) rd_le32 (data + models_dict_off + 4);
+	if (num_nodes_signed <= 0 || num_nodes_signed > BFSHA_MAX_MODELS)
+		return ERR_OK;
+	const u64 num_nodes = (u64) num_nodes_signed;
+	const u64 nodes_base = models_dict_off + 8;
+	if (nodes_base + (num_nodes + 1) * 16 > size)
+		return ERR_OK;
+
+	bfsha_model_hdr_t mh0;
+	const u64 model_stride = decode_shader_model_header (0, data, size, models_array_off,
+		version_major, &mh0);
+	if (!model_stride)
+		return ERR_OK;
+
+	bfsha_model_ref_t *models = CALLOC (num_nodes, sizeof (*models));
+
+	for (u64 i = 0; i < num_nodes; i++)
+	{
+		// Node 0 is the dictionary root and carries no key/value; models start at node 1.
+		const u64 node_off = nodes_base + (i + 1) * 16;
+		const u64 key_ptr = rd_le64 (data + node_off + 8);
+		bfsha_model_ref_t *ref = models + i;
+
+		bfsha_read_string (ref->name, sizeof (ref->name), data, size, key_ptr);
+		if (!ref->name[0])
+			snprintf (ref->name, sizeof (ref->name), "<unnamed>");
+
+		bfsha_model_hdr_t mh;
+		const u64 model_off = models_array_off + i * model_stride;
+		if (i == 0)
+			mh = mh0;
+		else if (!decode_shader_model_header (0, data, size, model_off, version_major, &mh))
+			continue;
+
+		if (mh.shader_file_off && (u64)mh.shader_file_off + 0x20 <= size)
+		{
+			const u32 bnsh_size = rd_le32 (data + mh.shader_file_off + 0x1c);
+			if ((u64)mh.shader_file_off + bnsh_size <= size)
+			{
+				ref->bnsh_offset = mh.shader_file_off;
+				ref->bnsh_size   = bnsh_size;
+			}
+		}
+	}
+
+	out->n_models = num_nodes;
+	out->models   = models;
+	return ERR_OK;
+}
+
+void ResetBFSHA_ModelRefs (bfsha_models_t *out)
+{
+	if (out)
+	{
+		FREE (out->models);
+		out->models   = NULL;
+		out->n_models = 0;
+	}
 }
