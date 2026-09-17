@@ -52,7 +52,7 @@ enumError ExtractTVOLArchive (ccp arg, ccp basedir, uint depth)
 		if (size == 0 || offset >= raw_size)
 			continue;
 
-		const u32 to_write = offset + size <= raw_size ? size : (u32)(raw_size - offset);
+		const u32 to_write = (u64)offset + size <= raw_size ? size : (u32)(raw_size - offset);
 
 		// Name is stored at offset as null-terminated string (up to 48 bytes)
 		char name[64] = "";
