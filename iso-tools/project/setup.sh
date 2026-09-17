@@ -22,22 +22,32 @@ revision_next=$revision_num
 tim=($(date '+%s %Y-%m-%d %T'))
 defines=
 
+# A MinGW cross build (see MINGW_LIBS below) has no FUSE, no system OpenSSL,
+# and gets zlib from MINGW_LIBS rather than the host's /usr/include.
+case "$PRE" in
+    *mingw32-|*mingw64-) is_mingw=1 ;;
+    *) is_mingw=0 ;;
+esac
+
 have_fuse=0
-[[ $NO_FUSE != 1 && -r /usr/include/fuse.h || -r /usr/local/include/fuse.h ]] \
+[[ $is_mingw != 1 && ( $NO_FUSE != 1 && -r /usr/include/fuse.h || -r /usr/local/include/fuse.h ) ]] \
 	&& have_fuse=1
 
 have_md5=0
-[[ -r /usr/include/openssl/md5.h ]] && have_md5=1
+[[ $is_mingw != 1 && -r /usr/include/openssl/md5.h ]] && have_md5=1
 
 have_sha=0
-[[ -r /usr/include/openssl/sha.h ]] && have_sha=1
+[[ $is_mingw != 1 && -r /usr/include/openssl/sha.h ]] && have_sha=1
 
 have_zlib=0
-if [[ $NO_ZLIB != 1 && -r /usr/include/zlib.h || -r /usr/local/include/zlib.h ]]
+if [[ $is_mingw = 1 ]]
+then
+    [[ -n $MINGW_LIBS && -r $MINGW_LIBS/include/zlib.h ]] && have_zlib=1
+elif [[ $NO_ZLIB != 1 && -r /usr/include/zlib.h || -r /usr/local/include/zlib.h ]]
 then
     have_zlib=1
-    defines="$defines -DHAVE_ZLIB=1"
 fi
+[[ $have_zlib = 1 ]] && defines="$defines -DHAVE_ZLIB=1"
 
 if [[ $M32 = 1 ]]
 then
@@ -67,10 +77,15 @@ fi
 #--- Zstandard, needed to read RVZ images
 
 HAVE_ZSTD=0
-for d in /usr/include /usr/local/include /opt/homebrew/include /opt/local/include
-do
-    [[ -r $d/zstd.h ]] && HAVE_ZSTD=1 && break
-done
+if [[ $is_mingw = 1 ]]
+then
+    [[ -n $MINGW_LIBS && -r $MINGW_LIBS/include/zstd.h ]] && HAVE_ZSTD=1
+else
+    for d in /usr/include /usr/local/include /opt/homebrew/include /opt/local/include
+    do
+	[[ -r $d/zstd.h ]] && HAVE_ZSTD=1 && break
+    done
+fi
 
 #--------------------------------------------------
 

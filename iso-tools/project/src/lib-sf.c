@@ -40,7 +40,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#ifdef __MINGW32__
+#include "dclib/dclib-mingw-compat.h"
+#else
 #include <arpa/inet.h>
+#endif
 #include <dirent.h>
 #include <errno.h>
 

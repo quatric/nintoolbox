@@ -39,7 +39,9 @@
 #include <stddef.h>
 #include <errno.h>
 #include <signal.h>
+#ifndef __MINGW32__
 #include <sys/ioctl.h>
+#endif
 // #include <ncurses/curses.h>
 // #include <term.h>
 
@@ -1249,7 +1251,10 @@ static void Signal_SIGWINCH (int signal)
 
 void EnableAutoTermSize ()
 {
+#ifndef __MINGW32__
+	// SIGWINCH (terminal resize) doesn't exist on MinGW.
 	signal (SIGWINCH, Signal_SIGWINCH);
+#endif
 	GetAutoTermSize ();
 }
 
@@ -3617,8 +3622,10 @@ const ColorSet_t *GetColorSet256 ()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+#ifndef __MINGW32__
 int setupterm (char *term, int fildes, int *errret);
 int tigetnum (char *capname);
+#endif
 
 const ColorSet_t *GetColorSetAuto (bool force_on)
 {
@@ -3643,9 +3650,15 @@ const ColorSet_t *GetColorSetAuto (bool force_on)
 			term = "vt100";
 #endif
 
+#ifdef __MINGW32__
+		// No ncurses/terminfo on MinGW; modern Windows terminals generally
+		// support ANSI 256-color escapes, so just assume that.
+		const int ncol = 256;
+#else
 		int error;
 		setupterm (term, 1, &error);
 		const int ncol = tigetnum ("colors");
+#endif
 
 		auto_mode = ncol >= 256 ? COLMD_256_COLORS : ncol >= 8 ? COLMD_8_COLORS : COLMD_OFF;
 		if (auto_mode == COLMD_OFF && !strcmp (term, "cygwin"))
@@ -4923,6 +4936,28 @@ void SaveStdFiles (SavedStdFiles_t *ssf)
 
 ///////////////////////////////////////////////////////////////////////////////
 
+#ifdef __MINGW32__
+// stdout/stderr are non-lvalue macros on MinGW (same reasoning as the
+// pipe-to-pager code in dclib-file.c), so none of the standard-stream
+// redirection below can be ported as-is; stub them out entirely for this
+// platform (TermCatchStdFiles() still closes ssf->f if one was ever
+// opened, though CatchStdFiles() never sets it here).
+void RestoreStdFiles (SavedStdFiles_t *ssf) { (void)ssf; }
+void RedirectStdFiles (SavedStdFiles_t *ssf, FILE *f, const ColorSet_t *colset, bool err_too)
+{
+	(void)ssf;
+	(void)f;
+	(void)colset;
+	(void)err_too;
+}
+enumError CatchStdFiles (SavedStdFiles_t *ssf, const ColorSet_t *colset)
+{
+	(void)ssf;
+	(void)colset;
+	return ERR_CANT_CREATE;
+}
+#else
+
 void RestoreStdFiles (SavedStdFiles_t *ssf)
 {
 	DASSERT (ssf);
@@ -4990,6 +5025,7 @@ enumError CatchStdFiles (SavedStdFiles_t *ssf, // save old output and data here,
 }
 
 #endif // !__APPLE__
+#endif // __MINGW32__
 ///////////////////////////////////////////////////////////////////////////////
 
 void TermCatchStdFiles (SavedStdFiles_t *ssf)

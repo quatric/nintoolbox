@@ -43,7 +43,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#ifdef __MINGW32__
+#include "dclib/dclib-mingw-compat.h"
+#else
 #include <arpa/inet.h>
+#endif
 
 #include "dclib/dclib-debug.h"
 #include "libwbfs.h"

@@ -323,6 +323,20 @@ ifeq ($(SYSTEM),cygwin)
   CFLAGS	+= -Wno-format-truncation
 endif
 
+ifeq ($(SYSTEM),mingw64)
+ # MINGW_LIBS points at a prefix holding zlib (and optionally zstd) cross-built
+ # for x86_64-w64-mingw32 (mingw-w64 ships neither); see setup.sh's mingw64
+ # detection above. -static-libgcc/-static-libstdc++/-static keep the .exe
+ # from depending on libgcc_s_seh-1.dll / libstdc++-6.dll / winpthread at
+ # runtime, so it runs standalone under the Windows emulator too.
+ ifneq ($(MINGW_LIBS),)
+  CFLAGS	+= -I$(MINGW_LIBS)/include
+  LDFLAGS	+= -L$(MINGW_LIBS)/lib
+ endif
+ CFLAGS		+= -Wno-format-truncation
+ LDFLAGS	+= -static
+endif
+
 ifeq ($(SYSTEM),mac)
   CFLAGS	+= -I/opt/homebrew/include -I/usr/local/include
   CFLAGS	+= -Wno-typedef-redefinition -Wno-gnu-variable-sized-type-not-at-end
@@ -356,7 +370,15 @@ LDFLAGS		:= $(strip $(LDFLAGS))
 ifeq ($(HAVE_ZLIB),1)
  LIBS		+= -lz
 endif
-LIBS		+= -lm -lncurses $(XLIBS)
+LIBS		+= -lm $(XLIBS)
+ifneq ($(SYSTEM),mingw64)
+ # ncurses (terminal size/color queries) has no Windows build here;
+ # dclib-color.c already falls back gracefully when unavailable.
+ LIBS		+= -lncurses
+endif
+ifeq ($(SYSTEM),mingw64)
+ LIBS		+= -lws2_32 -lbcrypt
+endif
 
 ifeq ($(HAVE_SHA),1)
  ifeq ($(SYSTEM_LINUX),1)
@@ -430,9 +452,10 @@ $(ALL_TOOLS_X): %: %.o $(ALL_OBJECTS) $(TOBJ_ALL) Makefile | $(HELPER_TOOLS)
 	@if test -f $@.exe; then $(STRIP) $@.exe; else $(STRIP) $@; fi
 
 	@mkdir -p bin/$(SYSTEM2) bin/$(SYSTEM2)/debug
-	@if test -s $(MODE_FILE) && grep -Fq -e -DDEBUG $(MODE_FILE); \
-		then cp -p $@ bin/$(SYSTEM2)/debug/; \
-		else cp -p $@ bin/; cp -p $@ bin/$(SYSTEM2)/; fi
+	@src=$@; test -f $@.exe && src=$@.exe; \
+	if test -s $(MODE_FILE) && grep -Fq -e -DDEBUG $(MODE_FILE); \
+		then cp -p $$src bin/$(SYSTEM2)/debug/; \
+		else cp -p $$src bin/; cp -p $$src bin/$(SYSTEM2)/; fi
 
 #--------------------------
 
@@ -445,7 +468,7 @@ $(HELPER_TOOLS): %: %.o $(ALL_OBJECTS) $(UI_TABS) Makefile
 
 $(WDF_LINKS): wdf
 	@printf "$(LOGFORMAT_INST)" "link" "wdf -> $@" ""
-	@ln -f wdf "$@"
+	@if test -f wdf.exe; then ln -f wdf.exe "$@.exe"; else ln -f wdf "$@"; fi
 
 #--------------------------
 

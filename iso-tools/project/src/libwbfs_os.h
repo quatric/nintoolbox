@@ -38,7 +38,11 @@
 #define LIBWBFS_OS_H
 
 // system includes
+#ifdef __MINGW32__
+#include "dclib/dclib-mingw-compat.h" // htonl/ntohl/... via winsock2.h
+#else
 #include <arpa/inet.h>
+#endif
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>

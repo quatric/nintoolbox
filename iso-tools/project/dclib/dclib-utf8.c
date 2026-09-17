@@ -36,7 +36,9 @@
 
 #include <string.h>
 #include <limits.h>
+#ifndef __MINGW32__
 #include <arpa/inet.h>
+#endif
 
 #include "dclib-basics.h"
 #include "dclib-debug.h"

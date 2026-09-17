@@ -40,6 +40,14 @@
 #ifndef NO_BZIP2
 /******************/
 
+#ifdef __MINGW32__
+// bzlib.h below pulls in <windows.h> itself on _WIN32; make sure it goes
+// through dclib-mingw-compat.h's CreateFile/CopyFile/... renaming first (see
+// that header), otherwise the *next* windows.h-consumer in this translation
+// unit (dclib-file.h, via lib-bzip2.h below) collides with the real WinAPI
+// declarations that a raw, unrenamed windows.h already pulled in here.
+#include "dclib/dclib-mingw-compat.h"
+#endif
 // #include <bzlib.h>
 #include "libbz2/bzlib.h"
 #include "lib-bzip2.h"
