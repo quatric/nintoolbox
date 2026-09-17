@@ -51,7 +51,11 @@
 #include <string.h>
 #include <sys/time.h>
 #include <unistd.h>
-#include <arpa/inet.h>
+#ifdef __MINGW32__
+  #include "dclib-mingw-compat.h" // provides htonl/ntohl/htons/ntohs et al.
+#else
+  #include <arpa/inet.h>
+#endif
 
 #include "dclib-system.h"
 #include "dclib-basics.h"

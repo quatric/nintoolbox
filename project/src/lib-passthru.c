@@ -11,7 +11,13 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/wait.h>
+#ifdef __MINGW32__
+  // No fork()/wait() on native Windows; run_program()/run_program_capture()
+  // below use _spawnv() (mingw's CreateProcess-based process.h API) instead.
+  #include <process.h>
+#else
+  #include <sys/wait.h>
+#endif
 #include <unistd.h>
 #include <dirent.h>
 #include <utime.h>
@@ -276,6 +282,18 @@ static ccp resolve_rar (void)
 // Spawn a program with ARGV (NULL-terminated).  ARGV[0] is used as path.
 // STDOUT/STDERR are inherited so the user sees the tool's own messages.
 // Returns the exit code or 127 on exec failure (like a shell).
+#ifdef __MINGW32__
+static int run_program (char *const argv[])
+{
+	// No fork()/exec() on native Windows: _spawnv() runs the child
+	// (via CreateProcess internally) and blocks for its exit code directly,
+	// which is simpler here than a manual CreateProcess() call.
+	const intptr_t rc = _spawnv (_P_WAIT, argv[0], (const char *const *)argv);
+	if (rc == -1)
+		return -errno;
+	return (int)rc;
+}
+#else
 static int run_program (char *const argv[])
 {
 	const pid_t pid = fork ();
@@ -294,6 +312,7 @@ static int run_program (char *const argv[])
 		return WEXITSTATUS (status);
 	return -1;
 }
+#endif
 
 static enumError passthru_media (
 	ccp src, ccp basedir, ccp stage, char *staged_dir, uint staged_dir_size, bool is_audio)
@@ -858,6 +877,39 @@ enumError PassthruReencodeMedia (ccp preview_path, ccp source_path)
 // text lets the caller grep for that message and retry with an alternate
 // key. Falls back to plain run_program() (inherited stdio, no retry
 // possible) if the capture file can't be opened.
+#ifdef __MINGW32__
+static int run_program_capture (char *const argv[], ccp capture_path)
+{
+	// Redirect the child's stdout/stderr into capture_path by temporarily
+	// swapping fds 1/2 around a _spawnv() call (no fork()/dup2()-into-child
+	// on native Windows).
+	const int fd = open (capture_path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+	if (fd < 0)
+		return run_program (argv);
+
+	fflush (stdout);
+	fflush (stderr);
+	const int saved_out = dup (1);
+	const int saved_err = dup (2);
+	dup2 (fd, 1);
+	dup2 (fd, 2);
+	close (fd);
+
+	const intptr_t rc = _spawnv (_P_WAIT, argv[0], (const char *const *)argv);
+	const int err = errno;
+
+	fflush (stdout);
+	fflush (stderr);
+	dup2 (saved_out, 1);
+	dup2 (saved_err, 2);
+	close (saved_out);
+	close (saved_err);
+
+	if (rc == -1)
+		return -err;
+	return (int)rc;
+}
+#else
 static int run_program_capture (char *const argv[], ccp capture_path)
 {
 	const int fd = open (capture_path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
@@ -887,6 +939,7 @@ static int run_program_capture (char *const argv[], ccp capture_path)
 		return WEXITSTATUS (status);
 	return -1;
 }
+#endif
 
 // True if a run_program_capture() log contains hactool's hash-verification
 // failure message for at least one section.
