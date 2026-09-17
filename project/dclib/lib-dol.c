@@ -1047,7 +1047,9 @@ bool IsValidGCH (const gch_header_t *gh, // valid header
 	if (addr < 0x80000000 || sizeof (*gh) + size > file_size)
 		return false;
 
-	if (entry && (entry < addr || entry >= addr + size - 4))
+	// 'size' comes straight from the file; if it is < 4 the "addr+size-4" below
+	// underflows (u32) and lets an out-of-range entry point pass as valid.
+	if (entry && (size < 4 || entry < addr || entry >= addr + size - 4))
 		return false;
 
 	return true;
