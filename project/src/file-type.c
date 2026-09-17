@@ -1499,6 +1499,14 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		FFT_VALID | FFT_ARCHIVE | FFT_DECODE | FFT_EXTRACT, 0, { 0 }, // no magic
 		0, MinusString, MinusString, "Nintendo Switch tr Package FlatBuffers archive (TRPAK)" },
 
+	// FF_NUSHDB = 284 (Bandai Namco SSBH compiled shader container). Shares the
+	// same "SSBH"/"HBSS" container magic as FF_NUMSHB at offset 0 -- the two are
+	// told apart by the sub-magic at offset 0x10 ("RDHS"/"SHDR" vs "HSEM"/"MESH"),
+	// same as the extension-first dispatch NUMSHB's own extractor already uses.
+	{ FF_NUSHDB, FF_NUSHDB, 0, "NUSHDB", ".nushdb", ".szs", ".nushdb",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 0x53, 0x53, 0x42, 0x48 }, // "SSBH"
+		0, MinusString, MinusString, "Bandai Namco SSBH compiled shader container (NUSHDB)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1658,6 +1666,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_BEA, "BEA", "SCNE", 0xe05 },
 	{ FF_RSTB, "RSTB", "RSTB", 0xe05 },
 	{ FF_WTB, "WTB", "WTB", 0xe05 },
+	{ FF_NUSHDB, "NUSHDB", "SSBH", 0x3001 },
 
 	{ 0, 0, 0, 0 }
 };
