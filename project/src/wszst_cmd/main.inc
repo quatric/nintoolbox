@@ -1403,7 +1403,17 @@ int main_wrapper (int argc, char **argv)
 				case C_SOFTLINKS:
 					if (!quiet)
 						printf ("CREATE SOFTLINK %s\n", dest);
+#ifdef __MINGW32__
+					// Creating a real Windows symlink needs an elevated
+					// process (or Developer Mode) via CreateSymbolicLinkA(),
+					// unlike a plain POSIX symlink() call; this "alternate
+					// tool name" distribution mode isn't used for the
+					// MinGW/Windows distribution anyway (see WDF_LINKS in
+					// Makefile, only wired up for cygwin/mac targets), so
+					// it's simply a no-op here rather than adding that.
+#else
 					symlink (srcname, dest);
+#endif
 					break;
 
 				case C_CYGWIN:

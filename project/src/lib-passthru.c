@@ -11,7 +11,14 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/wait.h>
+#ifdef __MINGW32__
+  // No fork()/wait() on native Windows; run_program()/run_program_capture()
+  // below use _spawnv() (mingw's CreateProcess-based process.h API) instead.
+  #include <process.h>
+  #include <direct.h> // _getcwd(), used by run_program_in_dir() below
+#else
+  #include <sys/wait.h>
+#endif
 #include <unistd.h>
 #include <dirent.h>
 #include <utime.h>
@@ -89,12 +96,21 @@ void StampFileMtime (ccp dest_path, ccp source_path)
 		return;
 	// st_atim/st_mtim are the POSIX.1-2008 names; Darwin spells them
 	// st_atimespec/st_mtimespec
+#ifdef __MINGW32__
+	// No utimensat()/AT_FDCWD on MinGW; utime() only has whole-second
+	// resolution, same tradeoff as dclib-file.c's SetAMTimes().
+	struct utimbuf ut;
+	ut.actime = src_stat.st_atime;
+	ut.modtime = src_stat.st_mtime;
+	utime (dest_path, &ut);
+#else
 #ifdef __APPLE__
 	struct timespec times[2] = { src_stat.st_atimespec, src_stat.st_mtimespec };
 #else
 	struct timespec times[2] = { src_stat.st_atim, src_stat.st_mtim };
 #endif
 	utimensat (AT_FDCWD, dest_path, times, 0);
+#endif
 }
 
 // Turn a possibly relative tool name/path into an absolute one by scanning
@@ -276,6 +292,18 @@ static ccp resolve_rar (void)
 // Spawn a program with ARGV (NULL-terminated).  ARGV[0] is used as path.
 // STDOUT/STDERR are inherited so the user sees the tool's own messages.
 // Returns the exit code or 127 on exec failure (like a shell).
+#ifdef __MINGW32__
+static int run_program (char *const argv[])
+{
+	// No fork()/exec() on native Windows: _spawnv() runs the child
+	// (via CreateProcess internally) and blocks for its exit code directly,
+	// which is simpler here than a manual CreateProcess() call.
+	const intptr_t rc = _spawnv (_P_WAIT, argv[0], (const char *const *)argv);
+	if (rc == -1)
+		return -errno;
+	return (int)rc;
+}
+#else
 static int run_program (char *const argv[])
 {
 	const pid_t pid = fork ();
@@ -294,6 +322,7 @@ static int run_program (char *const argv[])
 		return WEXITSTATUS (status);
 	return -1;
 }
+#endif
 
 static enumError passthru_media (
 	ccp src, ccp basedir, ccp stage, char *staged_dir, uint staged_dir_size, bool is_audio)
@@ -858,6 +887,39 @@ enumError PassthruReencodeMedia (ccp preview_path, ccp source_path)
 // text lets the caller grep for that message and retry with an alternate
 // key. Falls back to plain run_program() (inherited stdio, no retry
 // possible) if the capture file can't be opened.
+#ifdef __MINGW32__
+static int run_program_capture (char *const argv[], ccp capture_path)
+{
+	// Redirect the child's stdout/stderr into capture_path by temporarily
+	// swapping fds 1/2 around a _spawnv() call (no fork()/dup2()-into-child
+	// on native Windows).
+	const int fd = open (capture_path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+	if (fd < 0)
+		return run_program (argv);
+
+	fflush (stdout);
+	fflush (stderr);
+	const int saved_out = dup (1);
+	const int saved_err = dup (2);
+	dup2 (fd, 1);
+	dup2 (fd, 2);
+	close (fd);
+
+	const intptr_t rc = _spawnv (_P_WAIT, argv[0], (const char *const *)argv);
+	const int err = errno;
+
+	fflush (stdout);
+	fflush (stderr);
+	dup2 (saved_out, 1);
+	dup2 (saved_err, 2);
+	close (saved_out);
+	close (saved_err);
+
+	if (rc == -1)
+		return -err;
+	return (int)rc;
+}
+#else
 static int run_program_capture (char *const argv[], ccp capture_path)
 {
 	const int fd = open (capture_path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
@@ -887,6 +949,7 @@ static int run_program_capture (char *const argv[], ccp capture_path)
 		return WEXITSTATUS (status);
 	return -1;
 }
+#endif
 
 // True if a run_program_capture() log contains hactool's hash-verification
 // failure message for at least one section.
@@ -2233,6 +2296,28 @@ static enumError passthru_archive (
 // has no output-directory flag -- it always mkdir()s a 10-char title-id
 // folder (read from the disc itself) relative to its own cwd -- so this is
 // the only way to control where that folder lands.
+#ifdef __MINGW32__
+static int run_program_in_dir (char *const argv[], ccp workdir)
+{
+	// No fork()/chdir()-in-child on native Windows: temporarily chdir()
+	// the whole (single-threaded, at this point) process, _spawnv(), then
+	// restore -- CreateProcess() has no per-child working directory
+	// override reachable from _spawnv()'s interface.
+	char saved_cwd[PATH_MAX];
+	if (!_getcwd (saved_cwd, sizeof (saved_cwd)))
+		return -1;
+	if (chdir (workdir) != 0)
+		return -1;
+
+	const intptr_t rc = _spawnv (_P_WAIT, argv[0], (const char *const *)argv);
+	const int err = errno;
+	chdir (saved_cwd);
+
+	if (rc == -1)
+		return -err;
+	return (int)rc;
+}
+#else
 static int run_program_in_dir (char *const argv[], ccp workdir)
 {
 	const pid_t pid = fork ();
@@ -2253,6 +2338,7 @@ static int run_program_in_dir (char *const argv[], ccp workdir)
 		return WEXITSTATUS (status);
 	return -1;
 }
+#endif
 
 // Wii U retail disc common key, shared across every title (paired with a
 // per-title key to decrypt that title's partition). Constant is public --

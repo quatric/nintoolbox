@@ -16,6 +16,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
+#ifdef __MINGW32__
+#include "dclib-mingw-compat.h" // memmem() shim (this file has no other dclib include)
+#endif
 
 extern int DecodeFZIP (
 	uint8_t **dest, unsigned int *dest_size, const uint8_t *src, unsigned int src_size);

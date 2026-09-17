@@ -576,6 +576,11 @@ typedef s64 s_nsec_t; //   signed type to store time as nanoseconds
 // [[sockaddr_t]] [[sockaddr_in_t]]
 // [[sockaddr_in4_t]] [[sockaddr_in6_t]] [[sockaddr_un_t]]
 
+#ifdef __MINGW32__
+#include "dclib-mingw-compat.h" // pulls in winsock2.h for ADDRESS_FAMILY
+typedef ADDRESS_FAMILY sa_family_t; // winsock2.h's sockaddr uses this, not sa_family_t
+#endif
+
 typedef struct sockaddr sockaddr_t;
 typedef struct sockaddr_in sockaddr_in_t;
 typedef struct sockaddr_in sockaddr_in4_t;

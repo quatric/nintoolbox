@@ -11,6 +11,9 @@
 #include <limits.h>
 #include <unistd.h>
 #include <stdarg.h>
+#ifdef __MINGW32__
+#include "dclib-mingw-compat.h" // lstat()/realpath()/link() shims
+#endif
 #include "cgltf.h"
 #include "cgltf_write.h"
 

@@ -40,7 +40,11 @@
 #include <dirent.h>
 #include <errno.h>
 #include <unistd.h>
+#ifdef __MINGW32__
+#include <process.h> // _spawnv()/_spawnvp(), used in create_update.inc
+#else
 #include <sys/wait.h>
+#endif
 #include <zlib.h>
 
 #include "dclib-utf8.h"

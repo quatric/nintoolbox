@@ -194,6 +194,18 @@ ifeq ($(SYSTEM),cygwin)
  LDFLAGS	+= -static-libgcc
 endif
 
+ifeq ($(SYSTEM),mingw64)
+ # MINGW_LIBS points at a prefix holding zlib/libpng cross-built for
+ # x86_64-w64-mingw32 (mingw-w64 ships neither); see setup.sh's mingw64
+ # case. -static-libgcc/-static-libstdc++ keep the .exe from depending on
+ # libgcc_s_seh-1.dll / libstdc++-6.dll at runtime.
+ ifneq ($(MINGW_LIBS),)
+  CFLAGS	+= -I$(MINGW_LIBS)/include
+  LDFLAGS	+= -L$(MINGW_LIBS)/lib
+ endif
+ LDFLAGS	+= -static
+endif
+
 ifeq ($(SYSTEM2),cygwin32)
  CFLAGS		+= -Wno-gnu-variable-sized-type-not-at-end
 endif
@@ -547,7 +559,16 @@ DEFINES		=  $(strip $(DCLIB_DEFINES) $(DEFINES1) $(MODE) $(XDEF))
 CFLAGS		+= $(XFLAGS)
 CFLAGS		:= $(strip $(CFLAGS))
 LDFLAGS		:= $(strip $(LDFLAGS))
-LIBS		+= $(LIBPNG) -lm -lncurses $(XLIBS)
+LIBS		+= $(LIBPNG) -lm $(XLIBS)
+ifneq ($(SYSTEM),mingw64)
+ # ncurses (terminal size/color queries) has no Windows build here;
+ # dclib-color.c already falls back gracefully when TIOCGWINSZ etc. are
+ # unavailable (see its __MINGW32__ guards).
+ LIBS		+= -lncurses
+endif
+ifeq ($(SYSTEM),mingw64)
+ LIBS		+= -lws2_32 -lbcrypt
+endif
 
 # BNTX ASTC decode (src/astc/astc_decomp.cpp) is C++; every tool that links
 # XOBJ_IMAGE needs the C++ runtime on the final link line even though the
@@ -648,9 +669,10 @@ $(ALL_TOOLS_X): %: %.o $(ALL_OBJECTS) $(TOBJ_ALL) Makefile | $(HELPER_TOOLS) $(U
 	fi
 
 	@mkdir -p bin/$(SYSTEM2) bin/$(SYSTEM2)/debug
-	@if test -s $(MODE_FILE) && grep -Fq -e -DDEBUG $(MODE_FILE); \
-		then cp -p $@ bin/$(SYSTEM2)/debug/; \
-		else cp -p $@ bin/; cp -p $@ bin/$(SYSTEM2)/; fi
+	@src=$@; test -f $@.exe && src=$@.exe; \
+	if test -s $(MODE_FILE) && grep -Fq -e -DDEBUG $(MODE_FILE); \
+		then cp -p $$src bin/$(SYSTEM2)/debug/; \
+		else cp -p $$src bin/; cp -p $$src bin/$(SYSTEM2)/; fi
 
 #--------------------------
 
@@ -1468,12 +1490,12 @@ help:
 
 # Custom tools
 wmpbdump: src/wmpbdump.c
-	$(CC) $(CFLAGS) $< -lz -o $@
-	@mkdir -p bin && cp -p $@ bin/
+	$(CC) $(CFLAGS) $< $(LDFLAGS) -lz -o $@
+	@mkdir -p bin && src=$@; test -f $@.exe && src=$@.exe; cp -p $$src bin/
 
 wmpbpack: src/wmpbpack.c
-	$(CC) $(CFLAGS) $< -lz -o $@
-	@mkdir -p bin && cp -p $@ bin/
+	$(CC) $(CFLAGS) $< $(LDFLAGS) -lz -o $@
+	@mkdir -p bin && src=$@; test -f $@.exe && src=$@.exe; cp -p $$src bin/
 
 
 # Test-only oracles. QuickLZ is native inside wszst (COMPRESS to a .qlz

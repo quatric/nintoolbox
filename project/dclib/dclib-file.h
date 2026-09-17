@@ -36,7 +36,11 @@
 #define DCLIB_FILE_H 1
 
 #include <sys/types.h>
-#include <sys/select.h>
+#ifdef __MINGW32__
+  #include "dclib-mingw-compat.h" // fd_set, FD_SET/FD_ZERO (no sys/select.h)
+#else
+  #include <sys/select.h>
+#endif
 #include <sys/stat.h>
 
 #include "dclib-types.h"
@@ -1212,7 +1216,11 @@ uint GetEventFDList (
 int WaitFDList (FDList_t *fdl);
 
 // use pselect() or ppoll()
+#ifdef __MINGW32__
+int PWaitFDList (FDList_t *fdl, const void *sigmask); // no sigset_t on MinGW
+#else
 int PWaitFDList (FDList_t *fdl, const sigset_t *sigmask);
+#endif
 
 // return ptr to file path, if begins with 1 of: file: unix: / ./ ../
 ccp CheckUnixSocketPath (ccp src, // NULL or source path to analyse
