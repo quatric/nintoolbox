@@ -4805,9 +4805,18 @@ static enumError extract_bea_file (ccp arg, ccp basedir, uint depth)
 	{
 		for (uint i = 0; i < bea.n_files; i++)
 		{
+			// bea.files[i].name is read straight out of the archive's own
+			// string table by ScanBEA()/load_bea_string() -- a crafted
+			// "../../../tmp/evil" entry would otherwise escape 'dest'.
+			ccp name = bea.files[i].name;
+			char safe_name[32];
+			if (!valid_sarc_path (name))
+			{
+				snprintf (safe_name, sizeof (safe_name), "%04u.bin", i);
+				name = safe_name;
+			}
 			char path[PATH_MAX];
-			snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "",
-				bea.files[i].name);
+			snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", name);
 			File_t F;
 			CreateFileOpt (&F, true, path, false, arg);
 			if (F.f && bea.files[i].size)
