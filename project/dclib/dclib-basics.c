@@ -6374,7 +6374,8 @@ s64 ScanKeywordListP (KeyListParam_t *par, // NULL or parameters and extended re
 
 	for (;;)
 	{
-		while (arg < arg_end && (uchar)*arg <= ' ' || *arg == ',' || *arg == '.')
+		// missing parens let ',' or '.' bypass the arg_end bounds check (OOB read)
+		while (arg < arg_end && ((uchar)*arg <= ' ' || *arg == ',' || *arg == '.'))
 			arg++;
 
 		if (arg >= arg_end)
