@@ -651,11 +651,14 @@ enumError ScanNitroTEX0 (nitro_tex0_t *tex0, const u8 *data, uint size)
 		for (uint s = 0; s < n_sec && 0x10 + (s + 1) * 4 <= size; s++)
 		{
 			const uint sec_off = nrd32 (data + 0x10 + s * 4);
-			if (sec_off + 8 <= size && !memcmp (data + sec_off, "TEX0", 4))
+			// sec_off is a raw attacker-controlled u32: "sec_off + 8 <= size"
+			// can wrap around in 32-bit arithmetic and pass with sec_off
+			// pointing far past the buffer, so check the base first.
+			if ((u64)sec_off + 8 <= size && !memcmp (data + sec_off, "TEX0", 4))
 			{
 				const uint sec_sz = nrd32 (data + sec_off + 4);
 				tex0_hdr = data + sec_off;
-				tex0_avail = sec_sz && sec_off + sec_sz <= size ? sec_sz : size - sec_off;
+				tex0_avail = sec_sz && (u64)sec_off + sec_sz <= size ? sec_sz : size - sec_off;
 				break;
 			}
 		}
