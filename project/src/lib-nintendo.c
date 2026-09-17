@@ -60,6 +60,13 @@ __attribute__ ((weak)) bool IsG1TGZ (const u8 *data, uint size)
 	(void)size;
 	return false;
 }
+__attribute__ ((weak)) bool IsNTTF (const u8 *data, uint size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
+
 __attribute__ ((weak)) enumError DecodeQuickLZ (
 	u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 {
@@ -530,6 +537,9 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		// the fixed trailer size, so anything shorter can't be one.
 		if (size >= 0x70 && !memcmp (d + size - 7, "XET", 3))
 			return make_info (NFMT_NUTEXB, false, false, 0);
+
+		if (IsNTTF (d, size))
+			return make_info (NFMT_NTTF, false, false, 0);
 
 		// QuickLZ is checked before the single-byte heuristics: its test is
 		// exact (the header's own recorded compressed length must equal the

@@ -479,8 +479,8 @@ static enumError decode_image_if_possible (ccp arg)
 		is_image = true;
 	else if (fform == FF_TEX || is_ext (arg, ".tex0"))
 		is_image = true;
-	else if (fform == FF_NTTF || is_ext (arg, ".nttf") || is_ext (arg, ".bnttf")
-		|| strstr (arg, "/nttf/")
+	else if (fform == FF_NTTF || nfmt.type == NFMT_NTTF || is_ext (arg, ".nttf")
+		|| is_ext (arg, ".bnttf") || strstr (arg, "/nttf/")
 		|| (have_stat && IsNTTF (head, (uint)st_probe.st_size)))
 		is_image = true;
 

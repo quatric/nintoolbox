@@ -1508,6 +1508,7 @@ enumError DecodeAAMP_YAML (FILE *out, const u8 *data, size_t size)
 	fprintf (out, "aamp_version: %u\n", aamp.version);
 	fprintf (out, "io_version: %u\n", aamp.pio_version);
 	fprintf (out, "type: %s\n", aamp.pio_type);
+	fprintf (out, "endian: %s\n", aamp.is_le ? "little" : "big");
 
 	decode_yaml_list (out, &aamp.root, 0);
 
@@ -1795,6 +1796,19 @@ static void parse_yaml_mapping_recursive (yaml_parser_t *parser, aamp_file_t *aa
 				aamp->pio_version = (u32)atoi ((const char *)ev.data.scalar.value);
 			else if (!strcmp (key, "type") && ev.type == YAML_SCALAR_EVENT)
 				snprintf (aamp->pio_type, sizeof (aamp->pio_type), "%s", (const char *)ev.data.scalar.value);
+			else if ((!strcmp (key, "endian") || !strcmp (key, "byte_order")) && ev.type == YAML_SCALAR_EVENT)
+			{
+				const char *val = (const char *)ev.data.scalar.value;
+				if (!strcasecmp (val, "big") || !strcasecmp (val, "be") || !strcasecmp (val, "BigEndian"))
+					aamp->is_le = false;
+				else if (!strcasecmp (val, "little") || !strcasecmp (val, "le") || !strcasecmp (val, "LittleEndian"))
+					aamp->is_le = true;
+			}
+			else if (!strcmp (key, "is_le") && ev.type == YAML_SCALAR_EVENT)
+			{
+				const char *val = (const char *)ev.data.scalar.value;
+				aamp->is_le = (!strcasecmp (val, "true") || !strcmp (val, "1"));
+			}
 			else if (ev.type == YAML_MAPPING_START_EVENT)
 			{
 				aamp->root.hash = AAMP_NameToHash (key);
