@@ -3092,8 +3092,21 @@ static enumError extract_gpkg_file (ccp arg, ccp basedir, uint depth)
 		if (testmode || !e->data)
 			continue;
 
+		// e->name is a raw 0x20-byte field copied straight out of the
+		// archive by ScanGPKG() with no sanitizing -- an entry named e.g.
+		// "../../../tmp/evil" would otherwise escape 'dest'. Substitute a
+		// synthetic name instead of aborting the whole archive over it, same
+		// fallback the other named-entry extractors below use.
+		ccp name = e->name;
+		char safe_name[32];
+		if (!valid_sarc_path (name))
+		{
+			snprintf (safe_name, sizeof (safe_name), "%04u.bin", i);
+			name = safe_name;
+		}
+
 		char path[PATH_MAX];
-		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", e->name);
+		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", name);
 		File_t F;
 		err = CreateFileOpt (&F, true, path, false, arg);
 		if (F.f && e->size && fwrite (e->data, 1, e->size, F.f) != e->size)
