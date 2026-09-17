@@ -1473,7 +1473,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 
 	// FF_VFXB = 279 (NintendoWare Particle Effect Archive)
 	{ FF_VFXB, 0, 0, "VFXB", ".ptcl", ".ptcl", ".ptcl",
-		FFT_VALID | FFT_ARCHIVE, 4, { 0x56, 0x46, 0x58, 0x42 }, // "VFXB"
+		FFT_VALID | FFT_ARCHIVE | FFT_DECODE, 4, { 0x56, 0x46, 0x58, 0x42 }, // "VFXB"
 		0, MinusString, MinusString, "NintendoWare Particle Effect Archive (VFXB / .ptcl / .eset)" },
 
 	// FF_BEA = 280 (Nintendo EAD Bezel Engine Archive)

@@ -7541,6 +7541,48 @@ static enumError extract_bfsha_manifest (ccp arg)
 	return err;
 }
 
+static enumError extract_pctl_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".ptcl"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsPCTL (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE VFXB:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodePCTL_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
 // Extract a WTB (.wta/.wtb) texture archive: a text manifest of every texture's dimensions/
 // format, plus (when a decoder for its format exists and the pixel data is reachable) a
 // sibling PNG per texture. If the header points at an external .wtp, that sibling file is

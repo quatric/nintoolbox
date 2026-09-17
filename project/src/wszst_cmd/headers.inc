@@ -87,6 +87,7 @@
 #include "lib-sharc.h"
 #include "lib-bnsh.h"
 #include "lib-bfsha.h"
+#include "lib-pctl.h"
 #include "lib-wtb.h"
 #include "lib-trpak.h"
 #include "lib-cnut.h"
