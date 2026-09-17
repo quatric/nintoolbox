@@ -38,7 +38,9 @@
 #define _GNU_SOURCE 1
 
 #include <sys/types.h>
+#ifndef __MINGW32__
 #include <sys/ioctl.h>
+#endif
 #include <string.h>
 #include <fcntl.h>
 #include <time.h>
@@ -4249,8 +4251,8 @@ bool RemoveSubFile (SubDir_t *sd, mem_t path)
 
 FILE *OpenSubFile (const SubDir_t *sd, mem_t path)
 {
-#ifdef __APPLE__
-	ERROR0 (ERR_FATAL, "OpenSubFile() not supported by MAC version.");
+#if defined(__APPLE__) || defined(__MINGW32__)
+	ERROR0 (ERR_FATAL, "OpenSubFile() not supported by this platform (no fmemopen()).");
 	return 0;
 #else
 	SubFile_t *sf = FindSubFile (sd, path);

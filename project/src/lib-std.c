@@ -36,7 +36,9 @@
  ***************************************************************************/
 
 #include <sys/types.h>
+#ifndef __MINGW32__
 #include <sys/ioctl.h>
+#endif
 #include <fcntl.h>
 
 #include "lib-std.h"

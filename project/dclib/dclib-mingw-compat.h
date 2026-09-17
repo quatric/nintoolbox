@@ -65,6 +65,7 @@
 #include <direct.h>  // _mkdir()
 #include <stdlib.h>  // _fullpath(), _putenv_s()
 #include <string.h>  // memcmp() for the memmem() shim below
+#include <ctype.h>   // tolower() for the strcasestr() shim below
 
 // mkdir()'s mode argument doesn't exist on Windows -- this relies on the
 // preprocessor's no-self-recursion rule: the expansion below still calls
@@ -261,6 +262,26 @@ static inline void *dclib_mingw_memmem (
 	return 0;
 }
 #define memmem dclib_mingw_memmem
+
+// strcasestr() is a glibc/BSD extension MinGW doesn't ship.
+static inline char *dclib_mingw_strcasestr (const char *haystack, const char *needle)
+{
+	if (!*needle)
+		return (char *)haystack;
+	for (; *haystack; haystack++)
+	{
+		const char *h = haystack, *n = needle;
+		while (*h && *n && tolower ((unsigned char)*h) == tolower ((unsigned char)*n))
+		{
+			h++;
+			n++;
+		}
+		if (!*n)
+			return (char *)haystack;
+	}
+	return 0;
+}
+#define strcasestr dclib_mingw_strcasestr
 
 // No hardlinks via a single libc call on MinGW; CreateHardLinkA() is the
 // Win32 equivalent (link() itself isn't declared by the MinGW CRT).

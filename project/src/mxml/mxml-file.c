@@ -21,6 +21,10 @@
 #endif /* !WIN32 */
 #include "mxml-private.h"
 
+#ifdef __MINGW32__
+#include <io.h> // read()/write() (MinGW declares these in <io.h>, not <unistd.h>)
+#endif
+
 
 /*
  * Character encoding...
