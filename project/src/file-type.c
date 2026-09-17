@@ -1463,17 +1463,17 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 
 	// FF_SHARC = 277 (NintendoWare Shader Source Archive)
 	{ FF_SHARC, 0, 0, "SHARC", ".sharc", ".sharc", ".sharc",
-		FFT_VALID | FFT_ARCHIVE, 4, { 0x41, 0x41, 0x48, 0x53 }, // "AAHS" / "SHAA"
+		FFT_VALID | FFT_ARCHIVE | FFT_DECODE, 4, { 0x41, 0x41, 0x48, 0x53 }, // "AAHS" / "SHAA"
 		0, MinusString, MinusString, "NintendoWare Shader Source Archive (SHARC)" },
 
 	// FF_SHARCFB = 278 (NintendoWare Shader Binary Archive)
 	{ FF_SHARCFB, 0, 0, "SHARCFB", ".sharcfb", ".sharcfb", ".sharcfb",
-		FFT_VALID | FFT_ARCHIVE, 4, { 0x42, 0x41, 0x48, 0x53 }, // "BAHS" / "SHAB"
+		FFT_VALID | FFT_ARCHIVE | FFT_DECODE, 4, { 0x42, 0x41, 0x48, 0x53 }, // "BAHS" / "SHAB"
 		0, MinusString, MinusString, "NintendoWare Shader Binary Archive (SHARCFB)" },
 
 	// FF_VFXB = 279 (NintendoWare Particle Effect Archive)
 	{ FF_VFXB, 0, 0, "VFXB", ".ptcl", ".ptcl", ".ptcl",
-		FFT_VALID | FFT_ARCHIVE, 4, { 0x56, 0x46, 0x58, 0x42 }, // "VFXB"
+		FFT_VALID | FFT_ARCHIVE | FFT_DECODE, 4, { 0x56, 0x46, 0x58, 0x42 }, // "VFXB"
 		0, MinusString, MinusString, "NintendoWare Particle Effect Archive (VFXB / .ptcl / .eset)" },
 
 	// FF_BEA = 280 (Nintendo EAD Bezel Engine Archive)
@@ -1481,6 +1481,23 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
 		{ 'S', 'C', 'N', 'E' }, 0, MinusString, MinusString,
 		"Nintendo EAD Bezel Engine Archive (.bea / .nx.bea, WarioWare/Mario Party)" },
+
+	// FF_RSTB = 281 (Nintendo Switch Resource Size Table)
+	{ FF_RSTB, 0, 0, "RSTB", ".rstb", ".rstb", ".rstb", FFT_VALID | FFT_DECODE, 4,
+		{ 'R', 'S', 'T', 'B' }, 0, MinusString, MinusString,
+		"Nintendo Switch Resource Size Table (.rstb, BOTW/TOTK)" },
+
+	// FF_WTB = 282 (Nintendo Switch Texture Archive)
+	{ FF_WTB, 0, 0, "WTB", ".wta", ".wta", ".wtb", FFT_VALID | FFT_ARCHIVE | FFT_DECODE, 3,
+		{ 'W', 'T', 'B' }, 0, MinusString, MinusString,
+		"Nintendo Switch Texture Archive (.wta / .wtb, texture headers + image data)" },
+
+	// FF_TRPAK = 283 (Nintendo Switch "tr Package" FlatBuffers archive). No magic bytes exist
+	// at all (it's a bare FlatBuffers root table) -- recognized by extension, same convention
+	// as the other magic-less FF_* entries above (magic_len 0).
+	{ FF_TRPAK, 0, 0, "TRPAK", ".trpak", ".trpak", ".trpak",
+		FFT_VALID | FFT_ARCHIVE | FFT_DECODE | FFT_EXTRACT, 0, { 0 }, // no magic
+		0, MinusString, MinusString, "Nintendo Switch tr Package FlatBuffers archive (TRPAK)" },
 
 	// FF_N
 	{ 0 }
@@ -1639,6 +1656,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_SHARCFB, "SHARCFB", "SHAB", 0xe05 },
 	{ FF_VFXB, "VFXB", "VFXB", 0xe05 },
 	{ FF_BEA, "BEA", "SCNE", 0xe05 },
+	{ FF_RSTB, "RSTB", "RSTB", 0xe05 },
+	{ FF_WTB, "WTB", "WTB", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

@@ -376,7 +376,7 @@ XOBJ_LIB	= analyze.o lib-szs-create.o lib-analyze.o lib-xbmg.o lib-msbt.o \
 			lib-staticr.o db-dol.o db-ctcode.o getopt.o \
 			$(XOBJ_KMP) $(XOBJ_COMMON) $(XOBJ_KCL) lib-kcl-image.o lib-rkg.o \
 			$(XOBJ_OBJECT) $(XOBJ_PARSER) 		$(XOBJ_IMAGE) lib-model-glb.o lib-mpr-cmdl.o cgltf_impl.o lib-brres-model.o lib-brres-inject.o lib-dtls.o lib-mio.o lib-smash-arc.o lib-warc.o lib-nccarc.o lib-ndcubepac.o lib-nus3audio.o lib-camtexbank.o lib-pers.o lib-zdat.o lib-one.o lib-g1t.o lib-ptlg.o lib-sir0.o lib-mtxt.o lib-tvol.o lib-xtx.o lib-romfs.o lib-txtg.o lib-nlgdict.o lib-bars.o lib-gfpak.o lib-wta.o lib-pgdat.o lib-vibs.o lib-pkz.o lib-apak.o lib-nxarc.o lib-tmpk.o lib-mkgpdxpac.o lib-gar.o lib-zlarc.o lib-f9res.o lib-stpk.o lib-pvol.o lib-mdr.o lib-ztab.o lib-xpck.o lib-fsys.o lib-gfa.o lib-pac.o lib-darc.o lib-narc.o lib-byml.o lib-sound-archive.o lib-arika.o lib-jarc.o lib-lzo.o lib-gpkg.o lib-gpak.o lib-bns.o lib-rpak.o lib-lspk.o lib-sfzdat.o lib-bg4.o lib-hwl.o lib-cram.o lib-sze.o lib-sa01.o lib-msr.o lib-miirender.o lib-kensaku.o lib-wimg.o lib-cpk.o lib-wmb.o \
-			lib-arcv.o lib-bigf.o lib-cod-pak.o lib-mpbin.o lib-vcra.o
+			lib-arcv.o lib-bigf.o lib-cod-pak.o lib-mpbin.o lib-vcra.o lib-wtb.o lib-trpak.o
 
 TOBJ_gen-ui	= $(XOBJ_OBJECT)
 TOBJ_wszst	= $(XOBJ_LIB) lib-hsd.o lib-halbank.o lib-bcres.o lib-bfres.o lib-nsbmd.o lib-nsbanim.o lib-nud.o lib-numsh.o lib-passthru.o $(WRAPPER_OBJ) lzh8_cmp.o lzh8_dec.o lzh8_util.o
@@ -485,7 +485,8 @@ SZS_O		:= lib-std.o lib-file.o lib-numeric.o lib-nds-banner.o lib-wii-banner.o \
 		   lib-rarc.o lib-pack.o lib-rkc.o lib-brres.o lib-breff.o \
 		   file-type.o db-mkw.o lib-mkw.o lib-dol.o \
 		   sha1dgst.o sha1_one.o lib-bzip2.o lib-lzma.o lib-zstd.o lib-lz4.o lib-rvz.o \
-		   lib-ue4pak.o lib-prc.o lib-cnut.o lib-xmsg.o lib-iqipack.o \
+		   lib-ue4pak.o lib-prc.o lib-rstb.o lib-aamp.o lib-sharc.o lib-bnsh.o lib-bfsha.o lib-pctl.o \
+		   lib-cnut.o lib-xmsg.o lib-iqipack.o \
 		   lib-nsmbw.o lib-koopatlas.o lib-chans.o szs-sentry.o \
 		   $(DCLIB_O)
 

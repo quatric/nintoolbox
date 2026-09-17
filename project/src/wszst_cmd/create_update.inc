@@ -7365,6 +7365,447 @@ static enumError extract_prc_manifest (ccp arg)
 	return err;
 }
 
+static enumError extract_rstb_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".rstb"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsRSTB (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE RSTB:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeRSTB_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_aamp_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".aamp"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsAAMP (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE AAMP:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeAAMP_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_sharc_manifest (ccp arg)
+{
+	const bool is_fb = is_ext (arg, ".sharcfb");
+	if (!is_fb && !is_ext (arg, ".sharc"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (is_fb ? !IsSHARCFB (raw, raw_size) : !IsSHARC (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE %s:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", is_fb ? "SHARCFB" : "SHARC", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = is_fb ? DecodeSHARCFB_Text (F.f, raw, raw_size) : DecodeSHARC_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_bnsh_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".bnsh"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsBNSH (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE BNSH:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeBNSH_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_bfsha_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".bfsha"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsBFSHA (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE BFSHA:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeBFSHA_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_pctl_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".ptcl"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsPCTL (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE VFXB:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodePCTL_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+// Extract a WTB (.wta/.wtb) texture archive: a text manifest of every texture's dimensions/
+// format, plus (when a decoder for its format exists and the pixel data is reachable) a
+// sibling PNG per texture. If the header points at an external .wtp, that sibling file is
+// loaded automatically when present; otherwise PNG extraction is skipped and the manifest
+// says so rather than guessing at a filename.
+static enumError extract_wtb_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".wta") && !is_ext (arg, ".wtb"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsWTB (raw, raw_size) || raw_size > UINT_MAX)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	wtb_t wtb;
+	err = ScanWTB (&wtb, raw, (uint)raw_size);
+	if (err)
+	{
+		FREE (raw);
+		return ERROR0 (ERR_INVALID_DATA, "WTB: %s: invalid texture archive\n", arg);
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE WTB:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (!testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, arg);
+		if (F.f)
+			err = DecodeWTB_Text (F.f, &wtb);
+		ResetFile (&F, opt_preserve);
+	}
+
+	// Figure out where the actual pixels live: this same buffer, or a sibling .wtp.
+	const u8 *img_data = raw;
+	uint img_size = (uint)raw_size;
+	u8 *wtp_raw = 0;
+	if (wtb.external_data)
+	{
+		char wtp_path[PATH_MAX];
+		snprintf (wtp_path, sizeof (wtp_path), "%s", arg);
+		char *dot = strrchr (wtp_path, '.');
+		if (dot && (!strcmp (dot, ".wta") || !strcmp (dot, ".wtb")))
+			strcpy (dot, ".wtp");
+		else
+			snprintf (wtp_path, sizeof (wtp_path), "%s.wtp", arg);
+
+		size_t wtp_size = 0;
+		if (!LoadFileAlloc (wtp_path, 0, 0, &wtp_raw, &wtp_size, 0, 0, 0, false)
+			&& wtp_size <= UINT_MAX)
+		{
+			img_data = wtp_raw;
+			img_size = (uint)wtp_size;
+		}
+		else
+			img_data = 0; // no sibling .wtp found -- skip PNG extraction, manifest still written
+	}
+
+	if (img_data && !testmode)
+	{
+		char base[PATH_MAX];
+		snprintf (base, sizeof (base), "%s", arg);
+		char *dot = strrchr (base, '.');
+		if (dot && (dot == base || dot[-1] != '/'))
+			*dot = 0;
+
+		for (uint i = 0; i < wtb.n_textures; i++)
+		{
+			char path[PATH_MAX];
+			snprintf (path, sizeof (path), "%s.%03u.png", base, i);
+			if (!opt_overwrite && !access (path, F_OK))
+				continue;
+
+			u8 *rgba = 0;
+			uint w = 0, h = 0;
+			if (!DecodeWTB_RGBA (&rgba, &w, &h, &wtb, img_data, img_size, i) && rgba)
+			{
+				if (verbose >= 0)
+					fprintf (stdlog, "EXTRACT WTB:%s[%u] -> PNG:%s\n", arg, i, path);
+				SaveDecodedRGBAToPNG (rgba, w, h, &le_func, path, 0, opt_overwrite);
+			}
+		}
+	}
+
+	FREE (wtp_raw);
+	ResetWTB (&wtb);
+	FREE (raw);
+	return err;
+}
+
+// Extract a TRPAK (.trpak) FlatBuffers archive: a text manifest of every entry (hash,
+// compression, sizes), plus its raw data blob per entry. Entries carry no archive-supplied name
+// string at all -- only a bare u64 hash meant to be looked up in an external, game-specific name
+// database this project doesn't have -- so there is nothing here that needs valid_sarc_path():
+// filenames are built purely from the entry index and its hash, never from archive content.
+// An OODLE-compressed entry's bytes are written verbatim (still compressed, ".oodle.bin"
+// extension) since no Oodle decompressor exists in this codebase, same "don't guess, don't
+// mislabel" approach as extract_rpak_file's own decompress_failed fallback.
+static enumError extract_trpak_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".trpak"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+	if (raw_size > UINT_MAX)
+	{
+		FREE (raw);
+		return ERR_FILE_TOO_BIG;
+	}
+	if (!IsTRPAK (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	trpak_t trpak;
+	err = ScanTRPAK (&trpak, raw, (uint) raw_size);
+	if (err)
+	{
+		FREE (raw);
+		return ERROR0 (ERR_INVALID_DATA, "TRPAK: %s: invalid archive\n", arg);
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT TRPAK:%s (%u entries) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, trpak.n_entries, dest);
+
+	if (!testmode)
+	{
+		char manifest[PATH_MAX];
+		snprintf (manifest, sizeof (manifest), "%s/trpak.txt", dest);
+		File_t F;
+		err = CreateFileOpt (&F, true, manifest, false, arg);
+		if (F.f)
+			err = DecodeTRPAK_Text (F.f, &trpak);
+		ResetFile (&F, opt_preserve);
+	}
+
+	for (uint i = 0; !err && i < trpak.n_entries && !testmode; i++)
+	{
+		const trpak_entry_t *e = trpak.entries + i;
+		if ((u64) e->data_offset + e->data_size > raw_size) // ScanTRPAK already guarantees this;
+			continue;                                        // kept as defense in depth
+
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/%04u_%016llx.%s", dest, i,
+			(unsigned long long) e->hash, e->compression == 3 ? "oodle.bin" : "bin");
+
+		File_t F;
+		err = CreateFileOpt (&F, true, path, false, arg);
+		if (F.f && e->data_size && fwrite (raw + e->data_offset, 1, e->data_size, F.f) != e->data_size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", e->data_size, path);
+		ResetFile (&F, opt_preserve);
+	}
+
+	ResetTRPAK (&trpak);
+	FREE (raw);
+	if (!err && !testmode)
+	{
+		enumError sub_err = extract_tree_complete (dest, depth + 1);
+		if (err < sub_err)
+			err = sub_err;
+	}
+	return err;
+}
+
 static enumError extract_cnut_file (ccp arg, ccp basedir, uint depth)
 {
 	if (!is_ext (arg, ".cnut") && !is_ext (arg, ".nut") && !is_ext (arg, ".bin"))

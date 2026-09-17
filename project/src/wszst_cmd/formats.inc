@@ -1385,6 +1385,38 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
+	err = extract_rstb_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_aamp_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_sharc_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_bnsh_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_bfsha_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_pctl_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_wtb_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_trpak_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
 	err = extract_cnut_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
