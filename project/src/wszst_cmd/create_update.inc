@@ -87,7 +87,7 @@ static enumError cmd_create (bool create)
 				max_err = tree_err;
 
 			// Clean up all leftover .d folders and preview/companion artifacts from the tree
-			cleanup_extracted_artifacts (source_dir, true);
+			cleanup_extracted_artifacts (source_dir, true, 0);
 
 			// If it's a general directory tree and no explicit --dest was given, tree repacking is
 			// done.
@@ -3092,8 +3092,21 @@ static enumError extract_gpkg_file (ccp arg, ccp basedir, uint depth)
 		if (testmode || !e->data)
 			continue;
 
+		// e->name is a raw 0x20-byte field copied straight out of the
+		// archive by ScanGPKG() with no sanitizing -- an entry named e.g.
+		// "../../../tmp/evil" would otherwise escape 'dest'. Substitute a
+		// synthetic name instead of aborting the whole archive over it, same
+		// fallback the other named-entry extractors below use.
+		ccp name = e->name;
+		char safe_name[32];
+		if (!valid_sarc_path (name))
+		{
+			snprintf (safe_name, sizeof (safe_name), "%04u.bin", i);
+			name = safe_name;
+		}
+
 		char path[PATH_MAX];
-		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", e->name);
+		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", name);
 		File_t F;
 		err = CreateFileOpt (&F, true, path, false, arg);
 		if (F.f && e->size && fwrite (e->data, 1, e->size, F.f) != e->size)
@@ -4264,8 +4277,21 @@ static enumError extract_warc_file (ccp arg, ccp basedir, uint depth)
 		if (!e->name || testmode)
 			continue;
 
+		// ScanWARC() builds e->name straight out of the archive's own
+		// folder/file string table (see lib-warc.c) with no ".." filtering;
+		// an entry naming a folder like "../../tmp" would otherwise escape
+		// 'dest'. Substitute a synthetic name rather than losing the whole
+		// archive over one bad entry, matching the fallback used elsewhere.
+		ccp name = e->name;
+		char safe_name[32];
+		if (!valid_sarc_path (name))
+		{
+			snprintf (safe_name, sizeof (safe_name), "%04u.bin", i);
+			name = safe_name;
+		}
+
 		char path[PATH_MAX];
-		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", e->name);
+		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", name);
 		File_t F;
 		err = CreateFileOpt (&F, true, path, false, arg);
 		if (F.f && e->size && fwrite (e->data, 1, e->size, F.f) != e->size)
@@ -4779,9 +4805,18 @@ static enumError extract_bea_file (ccp arg, ccp basedir, uint depth)
 	{
 		for (uint i = 0; i < bea.n_files; i++)
 		{
+			// bea.files[i].name is read straight out of the archive's own
+			// string table by ScanBEA()/load_bea_string() -- a crafted
+			// "../../../tmp/evil" entry would otherwise escape 'dest'.
+			ccp name = bea.files[i].name;
+			char safe_name[32];
+			if (!valid_sarc_path (name))
+			{
+				snprintf (safe_name, sizeof (safe_name), "%04u.bin", i);
+				name = safe_name;
+			}
 			char path[PATH_MAX];
-			snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "",
-				bea.files[i].name);
+			snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", name);
 			File_t F;
 			CreateFileOpt (&F, true, path, false, arg);
 			if (F.f && bea.files[i].size)
