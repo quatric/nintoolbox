@@ -378,6 +378,7 @@ typedef enum file_format_t
 	FF_TRPAK, // 283 - Nintendo Switch "tr Package" FlatBuffers archive (.trpak)
 	FF_NUSHDB, // 284 - Bandai Namco SSBH compiled shader container (.nushdb)
 	FF_NUMATB, // 285 - Bandai Namco SSBH material container (.numatb)
+	FF_NUSKTB, // 286 - Bandai Namco SSBH skeleton (.nusktb)
 
 	//--- number of elements
 

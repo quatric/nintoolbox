@@ -88,6 +88,7 @@
 #include "lib-bnsh.h"
 #include "lib-nushdb.h"
 #include "lib-numatb.h"
+#include "lib-nusktb.h"
 #include "lib-bfsha.h"
 #include "lib-pctl.h"
 #include "lib-wtb.h"
