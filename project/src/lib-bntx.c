@@ -157,7 +157,11 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 	const u64 info_ptrs_addr = brd64 (data + tc + 8);
 	if (!count || count > 0x10000)
 		return EINVAL;
-	if (info_ptrs_addr + (u64)count * 8 > size)
+	// These addr fields are attacker-controlled 64-bit values read straight
+	// from the file; "addr + const > size" can wrap around near UINT64_MAX
+	// and pass the check, so bound the base address first and only then
+	// subtract, which can't overflow.
+	if (info_ptrs_addr >= size || (u64)count * 8 > size - info_ptrs_addr)
 		return EINVAL;
 	(void)first_blk;
 
@@ -169,7 +173,7 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 	for (uint i = 0; i < count; i++)
 	{
 		const u64 blk = brd64 (data + info_ptrs_addr + i * 8);
-		if (blk + 16 + TI_SIZE > size)
+		if (blk >= size || 16 + TI_SIZE > size - blk)
 			continue;
 		if (memcmp (data + blk, "BRTI", 4))
 			continue;
@@ -182,19 +186,19 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 		const u64 name_addr = brd64 (ti + TI_NAME_ADDR);
 		ccp name = "texture";
 		// Names are length-prefixed (u16) strings in the string table.
-		if (name_addr && name_addr + 2 < size)
+		if (name_addr && name_addr < size && size - name_addr > 2)
 		{
 			const uint len = brd16 (data + name_addr);
-			if (name_addr + 2 + len < size && !data[name_addr + 2 + len])
+			if (len < size - name_addr - 2 && !data[name_addr + 2 + len])
 				name = (ccp)(data + name_addr + 2);
 		}
 
 		const u64 ptrs_addr = brd64 (ti + TI_PTRS_ADDR);
-		if (ptrs_addr + 8 > size)
+		if (ptrs_addr >= size || 8 > size - ptrs_addr)
 			continue;
 		const u64 data_addr = brd64 (data + ptrs_addr);
 		const uint image_size = brd32 (ti + TI_IMAGE_SIZE);
-		if (!image_size || data_addr + image_size > size)
+		if (!image_size || data_addr >= size || image_size > size - data_addr)
 			continue;
 
 		tex[n].name = name;
