@@ -351,7 +351,7 @@ XOBJ_IMAGE	= lib-image-core.o lib-image-convert.o lib-image-load.o lib-image-gen
 			lib-image-save.o lib-image-png.o lib-image-transform.o lib-image-edit.o \
 			lib-image-mediancut.o lib-cmpr.o lib-pica3ds.o lib-gvr.o lib-ctxb.o \
 			lib-tpl.o lib-bti.o lib-tex0.o lib-breft.o lib-ajpg.o \
-			lib-plt0.o lib-bntx.o \
+			lib-plt0.o lib-bntx.o lib-dds.o \
 		lib-smdh.o \
 		lib-gtx.o \
 		lib-nitro.o \
@@ -360,7 +360,7 @@ XOBJ_IMAGE	= lib-image-core.o lib-image-convert.o lib-image-load.o lib-image-gen
 			lib-quicklz.o qlz120.o qlz140.o src/ajpg/odh_core.o lib-bflyt.o \
 			src/astc/astc_decomp.o src/astc/astc_wrapper.o lib-at7.o lib-ash0.o lib-camelot.o lib-rnc.o \
 			lib-lz10.o lib-huff.o lib-nintendo-rl.o lib-blz.o lib-yay0.o lib-lzh8.o lib-ncer.o \
-			lib-flim.o lib-nutexb.o lib-ctpk.o lib-cmab.o lib-nut.o
+			lib-flim.o lib-nutexb.o lib-astc-file.o lib-ctpk.o lib-cmab.o lib-nut.o
 XOBJ_PARSER	= lib-parser.o lib-parser-func.o
 XOBJ_OBJECT	= lib-object.o db-object.o db-file.o lib-bmg.o
 XOBJ_KCL	= lib-kcl.o db-kcl.o
@@ -663,7 +663,7 @@ $(ALL_TOOLS_X): %: %.o $(ALL_OBJECTS) $(TOBJ_ALL) Makefile | $(HELPER_TOOLS) $(U
 	@printf "$(LOGFORMAT_TOOL)" tool "$@" "$(MODE) $(TOPT_$@)"
 	@$(CC) $(CFLAGS) $(DEFINES) $(LDFLAGS) $@.o \
 		$(ALL_OBJECTS) $(TOBJ_$@) $(LIBS) $(TOPT_$@) -o $@
-	@if test -f $@.exe; then $(STRIP) $@.exe; else $(STRIP) $@; fi
+	@if test -f $@.exe; then $(STRIP) $@.exe || true; else $(STRIP) $@ || true; fi
 	@# stripping invalidates the linker-embedded ad-hoc code signature; on
 	@# macOS this can be taskgated ("Code Signature Invalid") for a binary
 	@# linking certain frameworks unless it is re-signed after stripping.

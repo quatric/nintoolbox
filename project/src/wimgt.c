@@ -45,6 +45,8 @@
 #include "lib-plt0.h"
 #include "lib-excite.h"
 #include "lib-retro-txtr.h"
+#include "lib-dds.h"
+#include "lib-astc-file.h"
 #include "ui.h" // [[dclib]] wrapper
 #include "ui-wimgt.c"
 
@@ -1434,6 +1436,32 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 					dest);
 			if (!testmode)
 				err = SaveExciteART (&img, dest, arg, headered);
+			ResetIMG (&img);
+			if (err > ERR_WARNING)
+				return err;
+			continue;
+		}
+		if (dot && !strcasecmp (dot, ".dds"))
+		{
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%s%s %s:%s -> DDS:%s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", cmd_name, PrintFormat3 (src_f, src_i, src_p), arg,
+					dest);
+			if (!testmode)
+				err = SaveDDS (&img, dest, arg);
+			ResetIMG (&img);
+			if (err > ERR_WARNING)
+				return err;
+			continue;
+		}
+		if (dot && !strcasecmp (dot, ".astc"))
+		{
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%s%s %s:%s -> ASTC:%s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", cmd_name, PrintFormat3 (src_f, src_i, src_p), arg,
+					dest);
+			if (!testmode)
+				err = SaveASTC (&img, dest, arg);
 			ResetIMG (&img);
 			if (err > ERR_WARNING)
 				return err;

@@ -1604,6 +1604,18 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"NintendoWare Layout Shader Variation Table (.shdvartbl / .svt)" },
 
+	// FF_DDS = 300 (DirectDraw Surface texture)
+	{ FF_DDS, 0, 0, "DDS", ".dds", ".dds", ".dds",
+		FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE, 4,
+		{ 'D', 'D', 'S', ' ' }, 0, MinusString, MinusString,
+		"DirectDraw Surface texture (.dds)" },
+
+	// FF_ASTC = 301 (Adaptive Scalable Texture Compression)
+	{ FF_ASTC, 0, 0, "ASTC", ".astc", ".astc", ".astc",
+		FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE, 4,
+		{ 0x13, 0xab, 0xa1, 0x5c }, 0, MinusString, MinusString,
+		"Adaptive Scalable Texture Compression (.astc)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1782,6 +1794,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_LZBIN, "LZBIN", 0, 0xe05 },
 	{ FF_SHDVAR, "SHDVAR", "SVT", 0x3001 },
 	{ FF_SHDVAR, "SHDVARTBL", 0, 0x3001 },
+	{ FF_DDS, "DDS", 0, 0x3009 },
+	{ FF_ASTC, "ASTC", 0, 0x3009 },
 
 	{ 0, 0, 0, 0 }
 };

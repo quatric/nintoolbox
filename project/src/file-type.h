@@ -392,6 +392,8 @@ typedef enum file_format_t
 	FF_HBDF,   // 297 - Hudson Soft Nitro 3D Model (.hbdf / .hsdf, Mario Party DS)
 	FF_LZBIN,  // 298 - Hudson Soft Nitro Compressed Archive (.bin / .lzbin, Mario Party DS)
 	FF_SHDVAR, // 299 - NintendoWare Layout Shader Variation Table (.shdvartbl / .svt)
+	FF_DDS,    // 300 - DirectDraw Surface texture (.dds)
+	FF_ASTC,   // 301 - Adaptive Scalable Texture Compression (.astc)
 
 	//--- number of elements
 

@@ -505,7 +505,7 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		{
 			const bool be = (d[0] == 'B' && d[1] == 'Y');
 			const u16 ver = be ? rd_be16 (d + 2) : rd_le16 (d + 2);
-			if (ver >= 1 && ver <= 4)
+			if (ver >= 1 && ver <= 7)
 				return make_info (NFMT_BYML, be, false, 0);
 		}
 

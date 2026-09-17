@@ -56,6 +56,8 @@
 #include "lib-pica3ds.h"
 #include "lib-gvr.h"
 #include "ajpg/ajpg.h"
+#include "lib-dds.h"
+#include "lib-astc-file.h"
 
 ///////////////		    AssignIMG(), LoadIMG()		///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -118,6 +120,30 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		InitializeIMG (img);
 	else if (!init_img)
 		ResetIMG (img);
+
+	if (IsDDS (data, data_size))
+	{
+		u8 *rgba = 0;
+		uint width = 0, height = 0;
+		const enumError err = DecodeDDS_RGBA (&rgba, &width, &height, data, data_size);
+		if (err)
+			return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported DDS texture: %s\n", fname);
+		AssignDecodedRGBA (img, rgba, width, height, &le_func, fname);
+		img->info_fform = FF_DDS;
+		return PatchListIMG (img);
+	}
+
+	if (IsASTCFile (data, data_size))
+	{
+		u8 *rgba = 0;
+		uint width = 0, height = 0;
+		const enumError err = DecodeASTCFile_RGBA (&rgba, &width, &height, data, data_size);
+		if (err)
+			return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported ASTC texture: %s\n", fname);
+		AssignDecodedRGBA (img, rgba, width, height, &le_func, fname);
+		img->info_fform = FF_ASTC;
+		return PatchListIMG (img);
+	}
 
 	if (data_size >= 4 && !memcmp (data, "TXTR", 4))
 	{
