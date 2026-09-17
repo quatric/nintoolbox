@@ -62,17 +62,17 @@ enumError ExtractPGDATArchive (ccp arg, ccp basedir, uint depth)
 
 	for (uint i = 0; i < file_count; i++)
 	{
-		if (offset_file_offset_tbl + (i + 1) * 4 > raw_size
-			|| offset_file_size_tbl + (i + 1) * 4 > raw_size)
+		if ((u64)offset_file_offset_tbl + (u64)(i + 1) * 4 > raw_size
+			|| (u64)offset_file_size_tbl + (u64)(i + 1) * 4 > raw_size)
 			break;
 
 		const u32 offset = rd_le32 (raw + offset_file_offset_tbl + i * 4);
 		u32 size = rd_le32 (raw + offset_file_size_tbl + i * 4);
 
 		char name[PATH_MAX];
-		if (str_size > 0 && offset_file_name_tbl + 4 + (i + 1) * str_size <= raw_size)
+		if (str_size > 0 && (u64)offset_file_name_tbl + 4 + (u64)(i + 1) * str_size <= raw_size)
 		{
-			const char *s = (const char *)(raw + offset_file_name_tbl + 4 + i * str_size);
+			const char *s = (const char *)(raw + offset_file_name_tbl + 4 + (u64)i * str_size);
 			size_t max_len = sizeof (name) - 1;
 			if (max_len > str_size)
 				max_len = str_size;
@@ -100,7 +100,7 @@ enumError ExtractPGDATArchive (ccp arg, ccp basedir, uint depth)
 
 		if (offset >= raw_size)
 			continue;
-		if (offset + size > raw_size)
+		if ((u64)offset + size > raw_size)
 			size = (u32)(raw_size - offset);
 
 		char out_path[PATH_MAX];

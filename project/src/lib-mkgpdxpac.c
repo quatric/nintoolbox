@@ -99,9 +99,12 @@ enumError ExtractMKGPDXPacArchive (ccp arg, ccp basedir, uint depth)
 			snprintf (name, sizeof (name), "file_%04u.bin", i);
 		}
 
-		const u32 file_pos = data_block_pos + offset;
-		if (file_pos + size > raw_size)
-			size = raw_size > file_pos ? (u32)(raw_size - file_pos) : 0;
+		const u64 file_pos64 = (u64)data_block_pos + offset;
+		if (file_pos64 >= raw_size)
+			continue;
+		const u32 file_pos = (u32)file_pos64;
+		if (file_pos64 + size > raw_size)
+			size = (u32)(raw_size - file_pos64);
 
 		char out_path[PATH_MAX];
 		snprintf (out_path, sizeof (out_path), "%s/%s", dest, name);

@@ -75,7 +75,7 @@ enumError ExtractTMPKArchive (ccp arg, ccp basedir, uint depth)
 			snprintf (name, sizeof (name), "file_%04u.bin", i);
 		}
 
-		if (file_offset + file_size > raw_size)
+		if ((u64)file_offset + file_size > raw_size)
 			file_size = raw_size > file_offset ? (u32)(raw_size - file_offset) : 0;
 
 		char out_path[PATH_MAX];

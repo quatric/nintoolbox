@@ -167,7 +167,7 @@ enumError ScanKPBin (kpbin_t *kp, const u8 *data, size_t size)
 		kp->bg_name = get_string_at (data, size, bg_off);
 
 	// Parse Layers
-	if (layer_cnt > 0 && layer_off + layer_cnt * 4 <= size)
+	if (layer_cnt > 0 && (u64)layer_off + (u64)layer_cnt * 4 <= size)
 	{
 		kp->layers = CALLOC (layer_cnt, sizeof (kp_layer_t));
 		if (!kp->layers)
@@ -297,23 +297,29 @@ enumError ScanKPBin (kpbin_t *kp, const u8 *data, size_t size)
 					if (ncnt > 0 && ncnt < 10000 && noff + ncnt * 4 <= size)
 					{
 						node_offsets = MALLOC (ncnt * sizeof (uint));
-						for (uint n = 0; n < ncnt; n++)
-							node_offsets[n] = be32 (data + noff + n * 4);
+						if (node_offsets)
+						{
+							for (uint n = 0; n < ncnt; n++)
+								node_offsets[n] = be32 (data + noff + n * 4);
 
-						layer->nodes = CALLOC (ncnt, sizeof (kp_node_t));
-						if (layer->nodes)
-							layer->n_nodes = ncnt;
+							layer->nodes = CALLOC (ncnt, sizeof (kp_node_t));
+							if (layer->nodes)
+								layer->n_nodes = ncnt;
+						}
 					}
 
 					if (pcnt > 0 && pcnt < 10000 && poff + pcnt * 4 <= size)
 					{
 						path_offsets = MALLOC (pcnt * sizeof (uint));
-						for (uint p = 0; p < pcnt; p++)
-							path_offsets[p] = be32 (data + poff + p * 4);
+						if (path_offsets)
+						{
+							for (uint p = 0; p < pcnt; p++)
+								path_offsets[p] = be32 (data + poff + p * 4);
 
-						layer->paths = CALLOC (pcnt, sizeof (kp_path_t));
-						if (layer->paths)
-							layer->n_paths = pcnt;
+							layer->paths = CALLOC (pcnt, sizeof (kp_path_t));
+							if (layer->paths)
+								layer->n_paths = pcnt;
+						}
 					}
 
 					// Read nodes
@@ -414,7 +420,7 @@ enumError ScanKPBin (kpbin_t *kp, const u8 *data, size_t size)
 	}
 
 	// Parse Worlds
-	if (world_cnt > 0 && world_off + world_cnt * 48 <= size)
+	if (world_cnt > 0 && (u64)world_off + (u64)world_cnt * 48 <= size)
 	{
 		kp->worlds = CALLOC (world_cnt, sizeof (kp_world_t));
 		if (kp->worlds)

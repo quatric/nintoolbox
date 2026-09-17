@@ -141,7 +141,7 @@ enumError ExtractGARArchive (ccp arg, ccp basedir, uint depth)
 				if (!testmode && f_size > 0 && f_offset < raw_size)
 				{
 					u32 actual_sz = f_size;
-					if (f_offset + actual_sz > raw_size)
+					if ((u64)f_offset + actual_sz > raw_size)
 						actual_sz = (u32)(raw_size - f_offset);
 					SaveFile (out_path, 0, 0, raw + f_offset, actual_sz, 0);
 				}
@@ -226,7 +226,7 @@ enumError ExtractGARArchive (ccp arg, ccp basedir, uint depth)
 				if (!testmode && f_size > 0 && data_payload_off < raw_size)
 				{
 					u32 actual_sz = f_size;
-					if (data_payload_off + actual_sz > raw_size)
+					if ((u64)data_payload_off + actual_sz > raw_size)
 						actual_sz = (u32)(raw_size - data_payload_off);
 					SaveFile (out_path, 0, 0, raw + data_payload_off, actual_sz, 0);
 				}

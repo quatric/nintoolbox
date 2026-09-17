@@ -568,7 +568,7 @@ class NintoolboxGUI(TkinterDnD.Tk if TkinterDnD else tk.Tk):
 
         wszst_dir = os.path.dirname(os.path.abspath(self.wszst_path))
         env = dict(os.environ)
-        env["PATH"] = f"{wszst_dir}:{env.get('PATH', '')}"
+        env["PATH"] = f"{wszst_dir}{os.pathsep}{env.get('PATH', '')}"
 
         def run_thread():
             try:

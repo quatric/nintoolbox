@@ -384,6 +384,8 @@ static bea_dic_node_t *bea_dic_new_node (
 	bea_dic_tree_t *tree, ccp data, int data_len, int bit_idx, bea_dic_node_t *parent)
 {
 	bea_dic_node_t *n = CALLOC (1, sizeof (*n));
+	if (!n)
+		exit (ERR_OUT_OF_MEMORY);
 	n->data = data;
 	n->data_len = data_len;
 	n->bit_idx = bit_idx;
@@ -494,6 +496,8 @@ static bea_dic_entry_t *BuildBeaDict (ccp const *names, uint n)
 		bea_dic_insert (&tree, names[i], (int)strlen (names[i]));
 
 	bea_dic_entry_t *out = CALLOC (tree.n_entries, sizeof (*out));
+	if (!out)
+		exit (ERR_OUT_OF_MEMORY);
 	for (uint i = 0; i < tree.n_entries; i++)
 	{
 		bea_dic_node_t *node = tree.entries[i];

@@ -552,6 +552,8 @@ enumError CreateBRRES (szs_file_t *szs, // valid szs
 	} entry_pt_t;
 
 	entry_pt_t *ep_list = CALLOC (n_directories + 1, sizeof (entry_pt_t));
+	if (!ep_list)
+		exit (ERR_OUT_OF_MEMORY);
 	entry_pt_t *ep_read = ep_list;
 	entry_pt_t *ep_write = ep_list + 1; // skip first
 
@@ -559,9 +561,13 @@ enumError CreateBRRES (szs_file_t *szs, // valid szs
 
 	const uint dir_order_size = (n_directories + 1) * sizeof (u16);
 	u16 *dir_order = MALLOC (dir_order_size);
+	if (!dir_order)
+		exit (ERR_OUT_OF_MEMORY);
 	memset (dir_order, ~0, dir_order_size); // special value for empty directories
 
 	bool *dir_done = CALLOC (n_directories + 1, sizeof (*dir_done));
+	if (!dir_done)
+		exit (ERR_OUT_OF_MEMORY);
 
 	u16 *dir_ptr = dir_order;
 	szs_subfile_t *f_ptr, *f_end = szs->subfile.list + szs->subfile.used;
@@ -584,6 +590,8 @@ enumError CreateBRRES (szs_file_t *szs, // valid szs
 	// that's enough!
 	const size_t info_size = (szs->subfile.used + 1) * sizeof (brres_info_t);
 	brres_info_t *info_list = MALLOC (info_size);
+	if (!info_list)
+		exit (ERR_OUT_OF_MEMORY);
 
 	//--- setup groups
 

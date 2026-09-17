@@ -1052,12 +1052,29 @@ static CxiLzToken *CxiAshRetokenize(
 	
 	//create array of allowed lengths
 	unsigned int *lens = (unsigned int *) CALLOC(nLenNodesAvailable, sizeof(unsigned int));
-	for (unsigned int i = 0; i < nLenNodesAvailable; i++) lens[i] = lenInfo[i].sym - 0x100 + 3;
-	
+
 	//create array of allowed distances
 	unsigned int *dsts = (unsigned int *) CALLOC(nDstNodesAvailable, sizeof(unsigned int));
+
+	unsigned int *hashbuf = (unsigned int *) CALLOC(size, sizeof(unsigned int));
+
+	if (lenInfo == NULL || dstInfo == NULL || symDepths == NULL || dstDepths == NULL
+		|| (nLenNodesAvailable && lens == NULL) || (nDstNodesAvailable && dsts == NULL)
+		|| (size && hashbuf == NULL)) {
+		FREE(nodes);
+		FREE(lenInfo);
+		FREE(dstInfo);
+		FREE(symDepths);
+		FREE(dstDepths);
+		FREE(lens);
+		FREE(dsts);
+		FREE(hashbuf);
+		return NULL;
+	}
+
+	for (unsigned int i = 0; i < nLenNodesAvailable; i++) lens[i] = lenInfo[i].sym - 0x100 + 3;
 	for (unsigned int i = 0; i < nDstNodesAvailable; i++) dsts[i] = dstInfo[i].sym + 1;
-	
+
 	//get minimum distance node cost
 	unsigned int minDstCost = UINT_MAX;
 	for (unsigned int i = 0; i < (1u << nDstBits); i++) {
@@ -1068,7 +1085,6 @@ static CxiLzToken *CxiAshRetokenize(
 	//create a buffer holding the hash of each byte triplet in the file. This hash will be a one to
 	//one mapping of 3 bytes to a 24-bit hash, so comparing hashes is equivalent to comparing the
 	//first 3 bytes.
-	unsigned int *hashbuf = (unsigned int *) CALLOC(size, sizeof(unsigned int));
 	if (size >= 3) {
 		for (unsigned int i = 0; i < (size - 2); i++) {
 			//hashbuf[i] = CxiLzHash3(buffer + i);

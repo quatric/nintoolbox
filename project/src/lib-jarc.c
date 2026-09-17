@@ -265,7 +265,7 @@ enumError ScanJARC (jarc_t *jarc, const u8 *data, size_t size)
 		{
 			const u8 *entry_ptr = buf + toc_offset + i * 16;
 			u32 off = 0, len = 0;
-			if (toc_offset + (i + 1) * 16 <= bsize)
+			if ((u64)toc_offset + (u64)(i + 1) * 16 <= bsize)
 			{
 				off = is_be ? rd_be32 (entry_ptr) : rd_le32 (entry_ptr);
 				len = is_be ? rd_be32 (entry_ptr + 4) : rd_le32 (entry_ptr + 4);

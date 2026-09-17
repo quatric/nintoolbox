@@ -79,13 +79,14 @@ enumError ExtractBARSArchive (ccp arg, ccp basedir, uint depth)
 		bool name_found = false;
 
 		// Check AMTA metadata chunk for filename
-		if (amta_offset + 0x30 <= raw_size && !memcmp (raw + amta_offset, "AMTA", 4))
+		if ((u64)amta_offset + 0x30 <= raw_size && !memcmp (raw + amta_offset, "AMTA", 4))
 		{
 			const u32 name_rel_ptr
 				= big ? rd_be32 (raw + amta_offset + 0x24) : rd_le32 (raw + amta_offset + 0x24);
-			const uint name_abs = amta_offset + 0x24 + name_rel_ptr;
-			if (name_abs < raw_size)
+			const u64 name_abs64 = (u64)amta_offset + 0x24 + name_rel_ptr;
+			if (name_abs64 < raw_size)
 			{
+				const uint name_abs = (uint)name_abs64;
 				const char *str = (const char *)(raw + name_abs);
 				size_t max_len = sizeof (name) - 1;
 				if (max_len > raw_size - name_abs)
@@ -109,7 +110,7 @@ enumError ExtractBARSArchive (ccp arg, ccp basedir, uint depth)
 			// Determine audio asset size: BWAV / BFWAV header contains size at offset 8 or 12
 			u32 audio_sz = 0;
 			ccp ext = ".bwav";
-			if (audio_offset + 16 <= raw_size)
+			if ((u64)audio_offset + 16 <= raw_size)
 			{
 				if (!memcmp (raw + audio_offset, "BWAV", 4))
 				{
