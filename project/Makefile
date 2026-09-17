@@ -669,9 +669,10 @@ $(ALL_TOOLS_X): %: %.o $(ALL_OBJECTS) $(TOBJ_ALL) Makefile | $(HELPER_TOOLS) $(U
 	fi
 
 	@mkdir -p bin/$(SYSTEM2) bin/$(SYSTEM2)/debug
-	@if test -s $(MODE_FILE) && grep -Fq -e -DDEBUG $(MODE_FILE); \
-		then cp -p $@ bin/$(SYSTEM2)/debug/; \
-		else cp -p $@ bin/; cp -p $@ bin/$(SYSTEM2)/; fi
+	@src=$@; test -f $@.exe && src=$@.exe; \
+	if test -s $(MODE_FILE) && grep -Fq -e -DDEBUG $(MODE_FILE); \
+		then cp -p $$src bin/$(SYSTEM2)/debug/; \
+		else cp -p $$src bin/; cp -p $$src bin/$(SYSTEM2)/; fi
 
 #--------------------------
 
