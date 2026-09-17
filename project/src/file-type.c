@@ -1556,6 +1556,13 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 0x53, 0x53, 0x42, 0x48 }, // "SSBH"
 		0, MinusString, MinusString, "Bandai Namco SSBH render-pass data (NURPDB)" },
 
+	// FF_NUANMB = 292 (Bandai Namco SSBH skeletal/material animation). Shares
+	// the same "SSBH"/"HBSS" container magic as the other SSBH formats above
+	// -- told apart by the sub-magic at offset 0x10 ("MINA"/"ANIM").
+	{ FF_NUANMB, FF_NUANMB, 0, "NUANMB", ".nuanmb", ".szs", ".nuanmb",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 0x53, 0x53, 0x42, 0x48 }, // "SSBH"
+		0, MinusString, MinusString, "Bandai Namco SSBH skeletal/material animation (NUANMB)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1723,6 +1730,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_NUHLPB, "NUHLPB", "SSBH", 0x3001 },
 	{ FF_NULSTB, "NULSTB", "SSBH", 0x3001 },
 	{ FF_NURPDB, "NURPDB", "SSBH", 0x3001 },
+	{ FF_NUANMB, "NUANMB", "SSBH", 0x3001 },
 
 	{ 0, 0, 0, 0 }
 };

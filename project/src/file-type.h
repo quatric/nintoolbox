@@ -384,6 +384,7 @@ typedef enum file_format_t
 	FF_NUHLPB, // 289 - Bandai Namco SSBH helper-bone constraints (.nuhlpb)
 	FF_NULSTB, // 290 - Bandai Namco SSBH file-name list (.nulstb)
 	FF_NURPDB, // 291 - Bandai Namco SSBH render-pass data (.nurpdb)
+	FF_NUANMB, // 292 - Bandai Namco SSBH skeletal/material animation (.nuanmb)
 
 	//--- number of elements
 
