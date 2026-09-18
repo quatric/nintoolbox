@@ -42,6 +42,8 @@
 #include <zlib.h>
 
 #include "lib-szs.h"
+#include "fastyz.h"
+#include "trueyz.h"
 #include "lib-kcl.h"
 #include "lib-rarc.h"
 #include "lib-pack.h"
@@ -1693,6 +1695,44 @@ enumError ClassicCompressYAZ (yaz_compr_t *yaz, int compr)
 
 //
 ///////////////////////////////////////////////////////////////////////////////
+///////////////		FastYZ / TrueYZ compression		///////////////
+///////////////////////////////////////////////////////////////////////////////
+// FastYZ (aboood40091/FastYZ): very fast, ratio not optimized.
+// TrueYZ (aboood40091/TrueYZ): byte-for-byte identical to Nintendo's encoder.
+// Both write a Yaz0 header + stream; the header is skipped here, because
+// CompressYAZ() builds its own.
+
+static enumError ExternalCompressYAZ (yaz_compr_t *yaz, bool exact)
+{
+	DASSERT (yaz);
+	if (yaz->src_len > 0x7fffffff - 0x1000)
+		return ERR_WARNING;
+
+	const uint bound = FASTYZ_BOUND (yaz->src_len) + 0x40;
+	u8 *tmp = MALLOC (bound);
+	int n;
+	if (exact)
+		n = trueyz_compress (yaz->src, yaz->src_len, tmp);
+	else
+		n = yaz0_compress (yaz->src, yaz->src_len, tmp);
+
+	if (n < (int)sizeof (yaz0_header_t))
+	{
+		FREE (tmp);
+		return ERR_INTERNAL;
+	}
+
+	const uint len = n - sizeof (yaz0_header_t);
+	yaz->dest_buf_size = len;
+	yaz->dest_buf = MALLOC (len ? len : 1);
+	memcpy (yaz->dest_buf, tmp + sizeof (yaz0_header_t), len);
+	yaz->dest_ptr = yaz->dest_end = yaz->dest_buf + len;
+	FREE (tmp);
+	return ERR_OK;
+}
+
+//
+///////////////////////////////////////////////////////////////////////////////
 ///////////////			CompressWith()			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1806,7 +1846,9 @@ enumError CompressYAZ (szs_file_t *szs, int compr, bool remove_uncompressed)
 	enumError err;
 	if (compr == COMPR_DEFAULT)
 		compr = 9;
-	if (compr > 0)
+	if (opt_compr_mode == 12 || opt_compr_mode == 13)
+		err = ExternalCompressYAZ (&yaz, opt_compr_mode == 13);
+	else if (compr > 0)
 		err = ClassicCompressYAZ (&yaz, compr);
 	else
 	{

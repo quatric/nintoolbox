@@ -3074,6 +3074,7 @@ int ScanOptCompr (ccp arg)
 		{ 0, "UNCOMPRESSED", 0, -1 },
 
 		{ 0, "NOCHUNKS", 0, 1 }, { 1, "FAST", 0, 1 }, { 9, "BEST", 0, 1 }, { 10, "ULTRA", 0, 1 },
+		{ 9, "FASTYZ", 0, 12 }, { 9, "TRUEYZ", "EXACT", 13 },
 		{ COMPR_DEFAULT, "DEFAULT", 0, 1 },
 
 		{ COMPR_DEFAULT, "T2", "TRY2", 2 }, { COMPR_DEFAULT, "T3", "TRY3", 3 },
