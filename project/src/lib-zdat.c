@@ -486,3 +486,306 @@ enumError create_zdat_dir (ccp source, ccp dest)
 	return err;
 }
 
+
+// ----------------------------------------------------------------------------
+// Mario Party 3DS compressed archive ("RZPK").
+//
+// Port of MPLibrary/MPLibrary/3DS/ZDAT.cs (KillzXGaming/MPLibrary, "A Mario
+// Party Library"): LE header "RZPK" + u32 version + u32 num_files + u32
+// data_offset + u32 data_size, entries at 0x20 as 44-byte records
+// (char name[0x20] NUL-padded + u32 decompressed_size + u32 size + u32 offset
+// relative to data_offset), each member a zlib stream. The C# reader seeks
+// per-entry to 32 + i*44 and to data_offset + offset; the layout below
+// mirrors that exactly.
+#define RZPK_ENT_SIZE 44
+#define RZPK_HDR_SIZE 0x20
+
+bool IsRZPK (const u8 *data, size_t size)
+{
+	if (!data || size < RZPK_HDR_SIZE)
+		return false;
+	if (memcmp (data, "RZPK", 4))
+		return false;
+	const u32 num = rd_le32 (data + 8);
+	const u32 data_off = rd_le32 (data + 12);
+	if (!num || num > 10000)
+		return false;
+	if (data_off < RZPK_HDR_SIZE || (u64)data_off > size)
+		return false;
+	if ((u64)RZPK_HDR_SIZE + (u64)num * RZPK_ENT_SIZE > size)
+		return false;
+	return true;
+}
+
+enumError ScanRZPK (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
+{
+	if (!entries || !n_entries || !data || !IsRZPK (data, size))
+		return ERR_INVALID_DATA;
+
+	const u32 num = rd_le32 (data + 8);
+	const u32 data_off = rd_le32 (data + 12);
+
+	*entries = 0;
+	*n_entries = 0;
+
+	nintendo_sarc_entry_t *out = CALLOC (num ? num : 1, sizeof (*out));
+	if (!out)
+		return ERR_CANT_CREATE;
+
+	uint out_cnt = 0;
+	for (uint i = 0; i < num; i++)
+	{
+		const u8 *e = data + RZPK_HDR_SIZE + (size_t)i * RZPK_ENT_SIZE;
+		char name[0x21];
+		memcpy (name, e, 0x20);
+		name[0x20] = 0;
+		// MPLibrary reads the name with ReadString(0x20, true): NUL-trimmed.
+		name[strnlen (name, 0x20)] = 0;
+		const u32 decomp_size = rd_le32 (e + 0x20);
+		const u32 comp_size = rd_le32 (e + 0x24);
+		const u32 rel_off = rd_le32 (e + 0x28);
+		if ((u64)data_off + rel_off + comp_size > size)
+			continue;
+
+		u8 *decomp = 0;
+		uint decomp_len = 0;
+		if (DecodeZlibGrow (&decomp, &decomp_len, data + data_off + rel_off, comp_size)
+			!= ERR_OK || !decomp)
+			continue;
+		// Trust the inflate output but keep the header's size as a sanity
+		// check in verbose mode rather than truncating real data.
+		if (decomp_size && decomp_len != decomp_size && verbose > 1)
+			fprintf (stdlog, "RZPK: %s inflated to %u bytes, header says %u\n",
+				name[0] ? name : "unnamed", decomp_len, decomp_size);
+
+		char entry_name[PATH_MAX];
+		if (name[0])
+			snprintf (entry_name, sizeof (entry_name), "%s", name);
+		else
+			snprintf (entry_name, sizeof (entry_name), "file_%05u.bin", i);
+		for (char *q = entry_name; *q; q++)
+			if (*q == '\\' || (*q == '.' && q[1] == '.'))
+				*q = '_';
+
+		if (!OwnedEntryAdd (out, out_cnt++, entry_name, decomp, decomp_len))
+		{
+			FREE (decomp);
+			continue;
+		}
+		FREE (decomp);
+	}
+
+	if (!out_cnt)
+	{
+		FREE (out);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	*entries = out;
+	*n_entries = out_cnt;
+	return ERR_OK;
+}
+
+enumError ExtractRZPKArchive (ccp arg, ccp basedir, uint depth)
+{
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false))
+		return ERR_NOTHING_TO_DO;
+	if (raw_size > UINT_MAX || !IsRZPK (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	nintendo_sarc_entry_t *entries = 0;
+	uint n_entries = 0;
+	enumError err = ScanRZPK (&entries, &n_entries, raw, (uint)raw_size);
+	FREE (raw);
+	if (err || !n_entries)
+	{
+		if (!err)
+			err = ERR_NOTHING_TO_DO;
+		return err;
+	}
+
+	char dest[PATH_MAX];
+	get_dest_dir (dest, sizeof (dest), arg, basedir);
+	CreatePath (dest, true);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT RZPK:%s (%u file%s) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, n_entries, n_entries == 1 ? "" : "s", dest);
+
+	uint written = 0;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		char out[PATH_MAX];
+		snprintf (out, sizeof (out), "%s/%s", dest, entries[i].name);
+		char *slash = strrchr (out, '/');
+		if (slash)
+		{
+			*slash = 0;
+			CreatePath (out, true);
+			*slash = '/';
+		}
+		if (!testmode)
+		{
+			if (!SaveFile (out, 0, 0, entries[i].data, entries[i].size, 0))
+				written++;
+		}
+		else
+			written++;
+		if (verbose > 0)
+			fprintf (stdlog, "  %-40s %8u bytes\n", entries[i].name, entries[i].size);
+	}
+
+	ResetOwnedEntries (entries, n_entries);
+	FREE (entries);
+
+	(void)depth;
+	if (!written)
+		return ERR_INVALID_DATA;
+	return ERR_OK;
+}
+
+// Rebuild an RZPK archive: entries in directory order, each member
+// zlib-compressed (level 9). Names are truncated to 0x1F chars + NUL to fit
+// the 0x20-byte field.
+enumError CreateRZPKArchive (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+{
+	if (!dest || !dest_size || !entries || !n_entries || n_entries > 10000)
+		return EINVAL;
+
+	u8 **comp_data = CALLOC (n_entries, sizeof (*comp_data));
+	u32 *comp_size = CALLOC (n_entries, sizeof (*comp_size));
+	u8 (*names)[0x20] = CALLOC (n_entries, sizeof (*names));
+	if (!comp_data || !comp_size || !names)
+	{
+		FREE (comp_data);
+		FREE (comp_size);
+		FREE (names);
+		return ERR_OUT_OF_MEMORY;
+	}
+
+	u64 payload_total = 0;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		const ccp base = entries[i].name ? entries[i].name : "";
+		ccp slash = strrchr (base, '/');
+		ccp leaf = slash ? slash + 1 : base;
+		snprintf ((char *)names[i], 0x20, "%s", leaf);
+
+		uLongf bound = compressBound (entries[i].size ? entries[i].size : 1);
+		comp_data[i] = MALLOC (bound ? (size_t)bound : 1);
+		if (!comp_data[i])
+		{
+			for (uint k = 0; k < i; k++)
+				FREE (comp_data[k]);
+			FREE (comp_data);
+			FREE (comp_size);
+			FREE (names);
+			return ERR_OUT_OF_MEMORY;
+		}
+		uLongf out_len = bound;
+		const int zerr = compress2 (comp_data[i], &out_len,
+			entries[i].data ? entries[i].data : (const u8 *)"",
+			entries[i].size, Z_BEST_COMPRESSION);
+		if (zerr != Z_OK)
+		{
+			for (uint k = 0; k <= i; k++)
+				FREE (comp_data[k]);
+			FREE (comp_data);
+			FREE (comp_size);
+			FREE (names);
+			return ERR_CANT_CREATE;
+		}
+		comp_size[i] = (u32)out_len;
+		payload_total += out_len;
+		if (payload_total > NFMT_MAX_OUTPUT)
+		{
+			for (uint k = 0; k < n_entries; k++)
+				FREE (comp_data[k]);
+			FREE (comp_data);
+			FREE (comp_size);
+			FREE (names);
+			return EFBIG;
+		}
+	}
+
+	const u32 data_off = RZPK_HDR_SIZE + n_entries * RZPK_ENT_SIZE;
+	const u64 total = (u64)data_off + payload_total;
+	if (total > NFMT_MAX_OUTPUT)
+	{
+		for (uint i = 0; i < n_entries; i++)
+			FREE (comp_data[i]);
+		FREE (comp_data);
+		FREE (comp_size);
+		FREE (names);
+		return EFBIG;
+	}
+
+	u8 *out = CALLOC (1, (size_t)total);
+	if (!out)
+	{
+		for (uint i = 0; i < n_entries; i++)
+			FREE (comp_data[i]);
+		FREE (comp_data);
+		FREE (comp_size);
+		FREE (names);
+		return ERR_OUT_OF_MEMORY;
+	}
+
+	memcpy (out, "RZPK", 4);
+	wr_le32 (out + 4, 1); // version (1 is observed)
+	wr_le32 (out + 8, n_entries);
+	wr_le32 (out + 12, data_off);
+	wr_le32 (out + 16, (u32)payload_total);
+
+	u32 cur = data_off;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		u8 *e = out + RZPK_HDR_SIZE + (size_t)i * RZPK_ENT_SIZE;
+		memcpy (e, names[i], 0x20);
+		wr_le32 (e + 0x20, entries[i].size);
+		wr_le32 (e + 0x24, comp_size[i]);
+		wr_le32 (e + 0x28, cur - data_off);
+		memcpy (out + cur, comp_data[i], comp_size[i]);
+		cur += comp_size[i];
+		FREE (comp_data[i]);
+	}
+	FREE (comp_data);
+	FREE (comp_size);
+	FREE (names);
+
+	*dest = out;
+	*dest_size = (uint)total;
+	return ERR_OK;
+}
+
+enumError create_rzpk_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+
+	u8 *data = 0;
+	uint size = 0;
+	if (!err)
+		err = CreateRZPKArchive (&data, &size, list.entry, list.used);
+
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, source);
+		if (F.f && fwrite (data, 1, size, F.f) != size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (data);
+	reset_sarc_build_list (&list);
+	return err;
+}
+

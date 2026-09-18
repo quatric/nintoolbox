@@ -162,6 +162,8 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest, int known_lz
 		return create_sfzdat_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".zdat"))
 		return create_zdat_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".rzpk"))
+		return create_rzpk_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".one"))
 		return create_one_dir (source_dir, dest);
 	if ((!strcasecmp (ext, ".dat") || !strcasecmp (ext, ".rflres") || !strcasecmp (ext, ".rfl")
@@ -295,7 +297,7 @@ static const char *cand_archive_exts[] = { ".wbfs", ".iso", ".ciso", ".wdf", ".w
 	".darc", ".pac", ".pcs", ".gfa", ".rarc", ".warc", ".bcsar", ".bfsar", ".bcwar", ".bfwar",
 	".bcgrp", ".bfgrp", ".rst", ".car", ".res", ".trk", ".lvl", ".wu8", ".wbz", ".wlz", ".bntx",
 	".bcres", ".bfres", ".bch", ".big", ".xc", ".xpck", ".ztab", ".tab", ".mdr", ".vff", ".pvol",
-	".srd", ".stpk", ".zlarc", ".zdat", ".one", ".ptcl", ".eff", ".effn", ".vfxb", ".eset", 0 };
+	".srd", ".stpk", ".zlarc", ".zdat", ".rzpk", ".one", ".ptcl", ".eff", ".effn", ".vfxb", ".eset", 0 };
 
 // A number of retail Wii titles keep otherwise ordinary BRRES/U8 resources
 // in a raw Nintendo LZ10/LZ11 stream, conventionally named "*.lz".  The

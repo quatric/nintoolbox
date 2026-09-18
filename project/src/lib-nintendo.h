@@ -169,7 +169,8 @@ typedef enum nfmt_type_t
 	NFMT_BFSHA,
 	NFMT_SHARC,
 	NFMT_SHARCFB,
-	NFMT_VFXB
+	NFMT_VFXB,
+	NFMT_RZPK
 } nfmt_type_t;
 
 typedef struct nfmt_info_t

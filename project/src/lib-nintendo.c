@@ -130,7 +130,8 @@ ccp GetNintendoFormatName (nfmt_type_t type)
 		"BFSHA",
 		"SHARC",
 		"SHARCFB",
-		"VFXB" };
+		"VFXB",
+		"RZPK" };
 	return type < sizeof (tab) / sizeof (*tab) ? tab[type] : "UNKNOWN";
 }
 
@@ -276,6 +277,20 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		if (size >= 0x30 && !memcmp (d, "ZDAT", 4) && rd_le16 (d + 0x06) == 0x20
 			&& rd_le16 (d + 0x12) > 0 && rd_le16 (d + 0x0a) == 0x20 + rd_le16 (d + 0x12) * 16)
 			return make_info (NFMT_ZDAT, false, false, 0);
+		// Mario Party 3DS compressed archive (MPLibrary 3DS/ZDAT.cs: "RZPK",
+		// LE version + file count + data offset/size, 44-byte entries at 0x20
+		// with 0x20-byte names + decomp/size/offset, zlib members at
+		// data_offset + offset). Distinct from the Pocket Camp "ZDAT"
+		// container above, so it gets its own NFMT/FF pair.
+		if (size >= 0x20 && !memcmp (d, "RZPK", 4))
+		{
+			const u32 rz_num = rd_le32 (d + 8);
+			const u32 rz_data_off = rd_le32 (d + 12);
+			if (rz_num > 0 && rz_num <= 10000 && rz_data_off >= 0x20
+				&& (u64)rz_data_off <= size
+				&& (u64)0x20 + (u64)rz_num * 44 <= size)
+				return make_info (NFMT_RZPK, false, false, 0);
+		}
 		// Monster Games .sfx audio: no magic, so it must identify itself by
 		// its own arithmetic -- a 0x80 header whose payload size accounts for
 		// the rest of the file, at a rate a console mixer uses, with the byte

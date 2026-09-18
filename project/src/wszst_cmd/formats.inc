@@ -1306,6 +1306,10 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
+	err = ExtractRZPKArchive (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
 	err = extract_sfx_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
@@ -2605,7 +2609,8 @@ static enumError cmd_convert (bool binary) // cmd_binary() cmd_text()
 			continue;
 		}
 
-		if (!ff_dest && (raw.fform == FF_MPBOARD || IsMPBoard (raw.data, raw.data_size)))
+		if (!ff_dest && (raw.fform == FF_MPBOARD || IsMPBoard (raw.data, raw.data_size)
+			|| IsSMPBoard (raw.data, raw.data_size) || IsMP10Board (raw.data, raw.data_size)))
 		{
 			ccp out_ext = (opt_dest && strcasestr (opt_dest, ".csv")) ? ".csv" : ".txt";
 			char def_pat[32];
@@ -2622,6 +2627,34 @@ static enumError cmd_convert (bool binary) // cmd_binary() cmd_text()
 				err = CreateFileOpt (&F, true, dest, false, arg);
 				if (!F.f)
 					err = ERR_WRITE_FAILED;
+				else if (IsSMPBoard (raw.data, raw.data_size))
+				{
+					smp_board_t smp;
+					err = ScanSMPBoard (&smp, raw.data, raw.data_size);
+					if (!err)
+					{
+						if (!strcmp (out_ext, ".csv"))
+							err = DecodeSMPBoard_CSV (F.f, &smp);
+						else
+							err = DecodeSMPBoard_Text (F.f, raw.data, raw.data_size);
+					}
+					ResetSMPBoard (&smp);
+					ResetFile (&F, opt_preserve);
+				}
+				else if (IsMP10Board (raw.data, raw.data_size))
+				{
+					mp10_board_t mp10;
+					err = ScanMP10Board (&mp10, raw.data, raw.data_size);
+					if (!err)
+					{
+						if (!strcmp (out_ext, ".csv"))
+							err = DecodeMP10Board_CSV (F.f, &mp10);
+						else
+							err = DecodeMP10Board_Text (F.f, &mp10);
+					}
+					ResetMP10Board (&mp10);
+					ResetFile (&F, opt_preserve);
+				}
 				else
 				{
 					mp_board_t board;

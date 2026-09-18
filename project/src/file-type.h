@@ -399,6 +399,7 @@ typedef enum file_format_t
 	FF_MPMESS, // 304 - Mario Party GCN/Wii Message File (.dat / board.dat / mini.dat)
 	FF_MPBOARD,// 305 - Mario Party Board Data (.bin / .csv)
 	FF_BGLPBD, // 306 - AGL Light Probe Data (.bglpbd / glpbd)
+	FF_RZPK,   // 307 - Mario Party 3DS compressed archive (.rzpk / RZPK, MPLibrary ZDAT)
 
 	//--- number of elements
 

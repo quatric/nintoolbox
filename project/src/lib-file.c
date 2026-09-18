@@ -876,6 +876,27 @@ __attribute__((weak)) bool IsLZBIN (const u8 *data, uint size)
 	return false;
 }
 
+__attribute__((weak)) bool IsRZPK (const u8 *data, size_t size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
+
+__attribute__((weak)) bool IsSMPBoard (const u8 *data, size_t size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
+
+__attribute__((weak)) bool IsMP10Board (const u8 *data, size_t size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
+
 
 file_format_t GetByMagicFF (const void *data, // pointer to data
 	uint data_size, // size of data
@@ -912,6 +933,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		if (IsMPMESS (data8, data_size))
 			return FF_MPMESS;
 		if (IsMPBoard (data8, data_size))
+			return FF_MPBOARD;
+		if (IsSMPBoard (data8, data_size))
+			return FF_MPBOARD;
+		if (IsMP10Board (data8, data_size))
 			return FF_MPBOARD;
 	}
 
@@ -1324,6 +1349,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x48534656: // "HSFV"
 			case 0x48534600: // "HSF\0"
 				return FF_HSF;
+
+		// Mario Party 3DS compressed archive (MPLibrary 3DS/ZDAT.cs)
+			case 0x525A504B: // "RZPK"
+				return FF_RZPK;
 
 			// Mario Party DS Model (HBDF / HSDF)
 			case 0x48424446: // "HBDF"
@@ -1986,6 +2015,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_SHARCFB;
 		case NFMT_VFXB:
 			return FF_VFXB;
+		case NFMT_RZPK:
+			return FF_RZPK;
 		default:
 			break;
 	}

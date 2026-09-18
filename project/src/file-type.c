@@ -1639,13 +1639,19 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	{ FF_MPBOARD, FF_MPBOARD, 0, "MPBOARD", ".bin", ".bin", ".bin",
 		FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
-		"Mario Party Board Data (.bin / .csv, Mario Party 4-8 & SMP)" },
+		"Mario Party Board Data (.bin GC/Wii 4-8, .csv SMP Switch, .xml MP10 Wii U MasuData)" },
 
 	// FF_BGLPBD = 306 (AGL Light Probe Data)
 	{ FF_BGLPBD, FF_BGLPBD, 0, "BGLPBD", ".bglpbd", ".szs", ".bglpbd",
 		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
 		{ 'A', 'A', 'M', 'P' }, 0, MinusString, MinusString,
 		"AGL Light Probe Data (.bglpbd / glpbd)" },
+
+	// FF_RZPK (Mario Party 3DS compressed archive, MPLibrary 3DS/ZDAT.cs)
+	{ FF_RZPK, FF_RZPK, 0, "RZPK", ".rzpk", ".szs", ".rzpk",
+		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT | FFT_CREATE, 4,
+		{ 'R', 'Z', 'P', 'K' }, 0, MinusString, MinusString,
+		"Mario Party 3DS compressed archive (.rzpk / RZPK, zlib members)" },
 
 	// FF_N
 	{ 0 }
@@ -1833,6 +1839,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_MPMESS, "MPMESS", 0, 0xe05 },
 	{ FF_MPBOARD, "MPBOARD", 0, 0x3001 },
 	{ FF_BGLPBD, "BGLPBD", 0, 0x3001 },
+	{ FF_RZPK, "RZPK", "RZPK", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

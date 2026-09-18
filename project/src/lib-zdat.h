@@ -22,4 +22,16 @@ enumError CreateZDATArchive (
 
 enumError create_zdat_dir (ccp source, ccp dest);
 
+// Mario Party 3DS compressed archive (MPLibrary/MPLibrary/3DS/ZDAT.cs).
+// LE "RZPK" + version + file count + data offset/size; 44-byte entries at
+// 0x20 (0x20-byte NUL-padded name + u32 decomp_size + u32 size + u32 offset
+// relative to data_offset); each member is a zlib stream inflated to
+// decomp_size bytes. Reference: MPLibrary 3DS/ZDAT.cs ZDAT::Read.
+bool IsRZPK (const u8 *data, size_t size);
+enumError ScanRZPK (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size);
+enumError ExtractRZPKArchive (ccp arg, ccp basedir, uint depth);
+enumError CreateRZPKArchive (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);
+enumError create_rzpk_dir (ccp source, ccp dest);
+
 #endif // LIB_ZDAT_H
