@@ -118,6 +118,7 @@ jobs:
             "${old_ui_flags[@]}" \
             ${{ matrix.cross_prefix && format('PRE={0}', matrix.cross_prefix) || '' }} \
             ${{ matrix.cross && 'NO_CTRTOOL=1' || '' }} \
+            ${{ matrix.cross && 'NO_VGMTRANS=1' || '' }} \
             ${{ matrix.cross && 'NO_SENTRY=1' || '' }} \
             ${{ matrix.cflags && format('XFLAGS={0}', matrix.cflags) || '' }} \
             -j$(nproc) all
@@ -563,21 +564,14 @@ jobs:
             echo "::warning::gba-mus-ripper clone failed -- skipping"
           fi
 
-          # 12. vgmtrans: NOT bundled. wbrsar always delegates BRSAR/BFSAR/
-          # BCSAR conversion to an external vgmtrans binary via --with-
-          # vgmtrans/PATH lookup (see project/src/wbrsar.c) if one is
-          # present, but no batch CLI target actually exists to fetch or
-          # build here: magcius/vgmtrans's "siiva" branch (previously used)
-          # has no vgmtrans_cli target at all -- it's the plain Qt GUI
-          # (find_package(Qt5Widgets REQUIRED) fails outright without Qt
-          # installed). The actively-maintained vgmtrans/vgmtrans does have
-          # a non-GUI target (ENABLE_SHELL's vgmtrans-shell), but it's an
-          # interactive REPL (see src/ui/shell/vgmtrans-shell.cpp's main),
-          # not a one-shot "convert this file" tool -- bundling it as
-          # "vgmtrans" would make wbrsar's execv(tool, {in_file, out_dir})
-          # hang against an interactive prompt instead of just falling back
-          # to the raw asset dump it already does when no external tool is
-          # found. Revisit if either project ships a real batch CLI.
+          # 12. vgmtrans (khang06/vgmtrans siiva branch with headless CLI)
+          if [ -f artifact/vgmtrans ]; then
+            cp artifact/vgmtrans "$GITHUB_WORKSPACE/extra_tools/"
+          elif [ -d project/third_party/vgmtrans ]; then
+            (cd project/third_party/vgmtrans && make -j"$(sysctl -n hw.ncpu)" && \
+              cp bin/vgmtrans "$GITHUB_WORKSPACE/extra_tools/") || \
+              echo "::warning::vgmtrans build failed -- skipping"
+          fi
 
           chmod +x extra_tools/* 2>/dev/null || true
           ls -la extra_tools
@@ -786,6 +780,15 @@ jobs:
               echo "::warning::gba-mus-ripper source build failed -- skipping"
           fi
 
+          # 12. vgmtrans (khang06/vgmtrans siiva branch with headless CLI)
+          if [ -f artifact/vgmtrans.exe ]; then
+            cp artifact/vgmtrans.exe "$GITHUB_WORKSPACE/extra_tools/"
+          elif [ -d project/third_party/vgmtrans ]; then
+            (cd project/third_party/vgmtrans && make -j"$(nproc)" && \
+              cp bin/vgmtrans.exe "$GITHUB_WORKSPACE/extra_tools/") || \
+              echo "::warning::vgmtrans build failed -- skipping"
+          fi
+
           chmod +x extra_tools/* 2>/dev/null || true
           ls -la extra_tools
 
@@ -983,8 +986,14 @@ jobs:
               echo "::warning::gba-mus-ripper source build failed -- skipping"
           fi
 
-          # 12. vgmtrans: NOT bundled, same reasoning as gui-macos-universal
-          # (no batch CLI target exists upstream -- see that job's comment).
+          # 12. vgmtrans (khang06/vgmtrans siiva branch with headless CLI)
+          if [ -f artifact/vgmtrans ]; then
+            cp artifact/vgmtrans "$GITHUB_WORKSPACE/extra_tools/"
+          elif [ -d project/third_party/vgmtrans ]; then
+            (cd project/third_party/vgmtrans && make -j"$(nproc)" && \
+              cp bin/vgmtrans "$GITHUB_WORKSPACE/extra_tools/") || \
+              echo "::warning::vgmtrans build failed -- skipping"
+          fi
 
           chmod +x extra_tools/* 2>/dev/null || true
           ls -la extra_tools

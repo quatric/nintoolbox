@@ -115,8 +115,9 @@ We acknowledge and credit the following tools and authors whose research, format
 * **Authors / Projects:** 
   * Mike and the VGMTrans Team (<https://github.com/vgmtrans/vgmtrans>)
   * Jasper St. Pierre / Magcius (<https://github.com/magcius/vgmtrans>)
+  * khang06 (<https://github.com/khang06/vgmtrans>, `siiva` branch)
 * **License:** zlib/libpng License
-* **Description:** Video game music translation engine and architecture used for Wii BRSAR and NDS SDAT sequence, instrument bank, sample collection, and soundfont extraction. Integrated via vendored core in `wbrsar` and supported via external `vgmtrans` CLI invocation.
+* **Description:** Video game music translation engine and architecture used for Wii BRSAR, NDS SDAT, and sequence/bank/sample extraction. Bundled as a standalone headless CLI binary in `project/third_party/vgmtrans` and called automatically by `wbrsar` and `wszst`.
 
 ### 6. bcn-decoder & bcn-support
 * **Author:** K0lb3

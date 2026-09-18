@@ -743,6 +743,41 @@ bin/ctrtool: third_party/ctrtool/bin/ctrtool
 all: bin/ctrtool
 endif
 
+#-------------------------------------------------------------------------------
+# Bundled vgmtrans CLI (BRSAR/BFSAR/BCSAR/SDAT soundfont extraction tool),
+# vendored from https://github.com/khang06/vgmtrans (siiva branch) with headless CLI.
+# Standalone companion binary copied to bin/ alongside ctrtool and ALL_TOOLS.
+ifneq ($(NO_VGMTRANS),1)
+  VGMTRANS_DIR := third_party/vgmtrans
+  ifneq ($(PRE),)
+    NO_VGMTRANS := 1
+  endif
+  ifeq ($(wildcard $(VGMTRANS_DIR)/makefile),)
+    NO_VGMTRANS := 1
+  endif
+endif
+
+ifneq ($(NO_VGMTRANS),1)
+.PHONY: third_party/vgmtrans/bin/vgmtrans third_party/vgmtrans/bin/vgmtrans.exe
+third_party/vgmtrans/bin/vgmtrans third_party/vgmtrans/bin/vgmtrans.exe:
+	@printf "$(LOGFORMAT_TOOL)" build "vgmtrans" "$(MODE)"; \
+	$(MAKE) -C $(VGMTRANS_DIR) CC="$(CC)" CXX="$(CXX)" XFLAGS="$(XFLAGS)" >/dev/null
+
+bin/vgmtrans: third_party/vgmtrans/bin/vgmtrans
+	@mkdir -p bin
+	@cp -p $< $@
+
+bin/vgmtrans.exe: third_party/vgmtrans/bin/vgmtrans.exe
+	@mkdir -p bin
+	@cp -p $< $@
+
+ifeq ($(SYSTEM),mingw64)
+all: bin/vgmtrans.exe
+else
+all: bin/vgmtrans
+endif
+endif
+
 #--------------------------
 
 $(UI_OBJECTS): %.o: %.c ui-%.c ui-%.h version.h Makefile
