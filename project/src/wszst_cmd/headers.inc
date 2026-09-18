@@ -98,6 +98,7 @@
 #include "lib-bfsha.h"
 #include "lib-pctl.h"
 #include "lib-effn.h"
+#include "lib-bglpbd.h"
 #include "lib-xb.h"
 #include "lib-mpmess.h"
 #include "lib-mpboard.h"

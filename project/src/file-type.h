@@ -398,6 +398,7 @@ typedef enum file_format_t
 	FF_XB,     // 303 - Nd Cube Binary XML (.xml / XB)
 	FF_MPMESS, // 304 - Mario Party GCN/Wii Message File (.dat / board.dat / mini.dat)
 	FF_MPBOARD,// 305 - Mario Party Board Data (.bin / .csv)
+	FF_BGLPBD, // 306 - AGL Light Probe Data (.bglpbd / glpbd)
 
 	//--- number of elements
 

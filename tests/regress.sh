@@ -137,6 +137,17 @@ else
     "$(tail -1 /tmp/_r_bntx_formats_build.log 2>/dev/null)"
 fi
 
+# AGL Light Probe (BGLPBD) matrix test
+if ${CC:-cc} -O2 -ffunction-sections -fdata-sections -Isrc -Idclib -Isrc/libyaml     ../tests/test-bglpbd.c ./lib-bglpbd.o ./lib-aamp.o src/libyaml/*.c     dclib*.o -lz -lcurses -Wl,--gc-sections     -o /tmp/_r_bglpbd >/tmp/_r_bglpbd_build.log 2>&1     || ${CC:-cc} -O2 -ffunction-sections -fdata-sections -Isrc -Idclib -Isrc/libyaml     ../tests/test-bglpbd.c ./lib-bglpbd.o ./lib-aamp.o src/libyaml/*.c     dclib*.o -lz -lcurses -Wl,-dead_strip     -o /tmp/_r_bglpbd >>/tmp/_r_bglpbd_build.log 2>&1; then
+  if /tmp/_r_bglpbd; then
+    ok "BGLPBD (AGL light probes): SH math, Unity import, bounds generation, and AAMP roundtrip"
+  else
+    no "BGLPBD (AGL light probes)" "runtime check failed"
+  fi
+else
+  no "BGLPBD (AGL light probes)"     "$(tail -1 /tmp/_r_bglpbd_build.log 2>/dev/null)"
+fi
+
 # Wii U retail disc key database and TOC probe test
 if ${CC:-cc} -O2 -Isrc -Idclib ../tests/test-wiiu-keys.c ./lib-aes.o \
     -o /tmp/_r_wiiu_keys >/tmp/_r_wiiu_keys_build.log 2>&1; then

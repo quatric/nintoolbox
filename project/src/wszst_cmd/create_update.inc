@@ -78,7 +78,9 @@ static enumError cmd_create (bool create)
 			|| (arg_len > 11 && !strcasecmp (arg + arg_len - 11, ".bparam.yml"))
 			|| (arg_len > 12 && !strcasecmp (arg + arg_len - 12, ".bparam.yaml"))
 			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".bgenv.yml"))
-			|| (arg_len > 11 && !strcasecmp (arg + arg_len - 11, ".bgenv.yaml"));
+			|| (arg_len > 11 && !strcasecmp (arg + arg_len - 11, ".bgenv.yaml"))
+			|| (arg_len > 11 && !strcasecmp (arg + arg_len - 11, ".bglpbd.yml"))
+			|| (arg_len > 12 && !strcasecmp (arg + arg_len - 12, ".bglpbd.yaml"));
 
 		if (create && is_aamp_sidecar)
 		{
@@ -1042,9 +1044,109 @@ static enumError cmd_create (bool create)
 			ResetSetupParam (&sp);
 			continue;
 		}
+		if (create && ext && (!strcasecmp (ext, ".bglpbd") || (is_ext (dest, "bglpbd.szs")))
+			&& (is_ext (arg, ".bfres") || is_ext (arg, ".szs") || is_ext (arg, ".glb") || is_ext (arg, ".dae")))
+		{
+			// Generating AGL light probes from course model bounds
+			u8 *mdata = NULL;
+			size_t msize = 0;
+			enumError err = LoadFileAlloc (arg, 0, 0, &mdata, &msize, 0, 0, 0, false);
+			if (!err && mdata)
+			{
+				model_t *mdl = NULL;
+				bool is_sw = is_ext (dest, ".szs");
+				if (msize >= 4 && !memcmp (mdata, "FRES", 4))
+				{
+					mdl = ParseBFRES (mdata, msize);
+					if (!mdl)
+					{
+						mdl = ParseBFRESSwitch (mdata, msize);
+						if (mdl) is_sw = true;
+					}
+				}
+				else if (is_ext (arg, ".glb") || is_ext (arg, ".dae"))
+				{
+					mdl = ParseGLB (mdata, msize);
+				}
+
+				if (mdl)
+				{
+					bglpbd_file_t pfile;
+					err = CreateBGLPBD_FromModel (&pfile, mdl, NULL, is_sw);
+					if (!err)
+					{
+						u8 *bin = NULL;
+						size_t bin_sz = 0;
+						err = EncodeBGLPBD (&pfile, &bin, &bin_sz);
+						if (!err && bin)
+						{
+							szs_file_t out_szs;
+							InitializeSZS (&out_szs);
+							out_szs.data = bin;
+							out_szs.size = bin_sz;
+							err = SaveSZS (&out_szs, dest, opt_overwrite > 0, is_sw);
+							out_szs.data = NULL;
+							ResetSZS (&out_szs);
+							FREE (bin);
+						}
+					}
+					ResetBGLPBD (&pfile);
+					FreeModel (mdl);
+				}
+				FREE (mdata);
+			}
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE BGLPBD (Model) %s -> %s\n",
+					verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest);
+			if (max_err < err)
+				max_err = err;
+			ResetSetupParam (&sp);
+			continue;
+		}
+		if (create && ext && (!strcasecmp (ext, ".bglpbd") || !strcasecmp (ext, ".szs"))
+			&& is_ext (arg, ".txt"))
+		{
+			// Importing Unity light probe text file to bglpbd
+			u8 *tdata = NULL;
+			size_t tsize = 0;
+			enumError err = LoadFileAlloc (arg, 0, 0, &tdata, &tsize, 0, 0, 0, false);
+			if (!err && tdata)
+			{
+				bglpbd_file_t pfile;
+				bool is_sw = !strcasecmp (ext, ".szs") || (opt_dest && strcasestr (opt_dest, ".szs"));
+				err = CreateBGLPBD_FromUnityText (&pfile, (const char *)tdata, tsize, NULL, is_sw);
+				if (!err)
+				{
+					u8 *bin = NULL;
+					size_t bin_sz = 0;
+					err = EncodeBGLPBD (&pfile, &bin, &bin_sz);
+					if (!err && bin)
+					{
+						szs_file_t out_szs;
+						InitializeSZS (&out_szs);
+						out_szs.data = bin;
+						out_szs.size = bin_sz;
+						err = SaveSZS (&out_szs, dest, opt_overwrite > 0, is_sw);
+						out_szs.data = NULL;
+						ResetSZS (&out_szs);
+						FREE (bin);
+					}
+				}
+				ResetBGLPBD (&pfile);
+				FREE (tdata);
+			}
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE BGLPBD (Unity TXT) %s -> %s\n",
+					verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest);
+			if (max_err < err)
+				max_err = err;
+			ResetSetupParam (&sp);
+			continue;
+		}
 		if (create && ext
 			&& (!strcasecmp (ext, ".aamp") || !strcasecmp (ext, ".baamp")
-				|| !strcasecmp (ext, ".bparam") || !strcasecmp (ext, ".bgenv")))
+				|| !strcasecmp (ext, ".bparam") || !strcasecmp (ext, ".bgenv")
+				|| !strcasecmp (ext, ".bglpbd")))
 		{
 			enumError err = encode_aamp_file (arg, dest);
 			if (verbose >= 0 || testmode)
@@ -7694,7 +7796,7 @@ static enumError extract_rstb_manifest (ccp arg)
 
 static enumError extract_aamp_manifest (ccp arg)
 {
-	if (!is_ext (arg, ".aamp") && !is_ext (arg, ".baamp") && !is_ext (arg, ".bparam") && !is_ext (arg, ".bgenv"))
+	if (!is_ext (arg, ".aamp") && !is_ext (arg, ".baamp") && !is_ext (arg, ".bparam") && !is_ext (arg, ".bgenv") && !is_ext (arg, ".bglpbd"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;

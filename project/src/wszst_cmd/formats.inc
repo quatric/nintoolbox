@@ -2642,6 +2642,51 @@ static enumError cmd_convert (bool binary) // cmd_binary() cmd_text()
 			continue;
 		}
 
+		if (!ff_dest && (raw.fform == FF_BGLPBD || IsBGLPBD (raw.data, raw.data_size)))
+		{
+			ccp d_ext = opt_dest ? strrchr (opt_dest, '.') : NULL;
+			if (d_ext && !strcasecmp (d_ext, ".png"))
+			{
+				bglpbd_file_t probe_file;
+				err = ScanBGLPBD (&probe_file, raw.data, raw.data_size);
+				if (!err)
+				{
+					char prefix[PATH_MAX];
+					snprintf (prefix, sizeof (prefix), "%.*s", (int)(d_ext - opt_dest), opt_dest);
+					err = DumpBGLPBD_Images (&probe_file, prefix, opt_overwrite > 0);
+				}
+				ResetBGLPBD (&probe_file);
+			}
+			else
+			{
+				SubstDest (dest, sizeof (dest), arg, opt_dest, "\1P/\1N.yml", ".yml", false);
+				if (verbose >= 0)
+				{
+					fprintf (stdlog, "%sCREATE/TEXT BGLPBD:%s => %s\n", verbose > 0 ? "\n" : "", arg, dest);
+					fflush (stdlog);
+				}
+				if (!testmode)
+				{
+					File_t F;
+					err = CreateFileOpt (&F, true, dest, false, arg);
+					if (!F.f)
+						err = ERR_WRITE_FAILED;
+					else
+					{
+						ccp ext = strrchr (dest, '.');
+						if (ext && !strcasecmp (ext, ".json"))
+							err = DecodeAAMP_JSON (F.f, raw.data, raw.data_size);
+						else
+							err = DecodeAAMP_YAML (F.f, raw.data, raw.data_size);
+						ResetFile (&F, opt_preserve);
+					}
+				}
+			}
+			if (err && max_err < err)
+				max_err = err;
+			continue;
+		}
+
 		if (!ff_dest && raw.data_size >= 12 && !memcmp (raw.data, "AAMP", 4))
 		{
 			SubstDest (dest, sizeof (dest), arg, opt_dest, "\\1P/\\1N.yml", ".yml", false);
@@ -2678,7 +2723,8 @@ static enumError cmd_convert (bool binary) // cmd_binary() cmd_text()
 			SubstDest (b_dest, sizeof (b_dest), arg, opt_dest, "\\1P/\\1N.aamp", ".aamp", false);
 			ccp b_ext = strrchr (b_dest, '.');
 			if (b_ext && (!strcasecmp (b_ext, ".aamp") || !strcasecmp (b_ext, ".baamp")
-				|| !strcasecmp (b_ext, ".bparam") || !strcasecmp (b_ext, ".bgenv")))
+				|| !strcasecmp (b_ext, ".bparam") || !strcasecmp (b_ext, ".bgenv")
+				|| !strcasecmp (b_ext, ".bglpbd")))
 			{
 				if (verbose >= 0)
 				{

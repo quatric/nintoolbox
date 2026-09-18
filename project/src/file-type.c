@@ -1641,6 +1641,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Mario Party Board Data (.bin / .csv, Mario Party 4-8 & SMP)" },
 
+	// FF_BGLPBD = 306 (AGL Light Probe Data)
+	{ FF_BGLPBD, FF_BGLPBD, 0, "BGLPBD", ".bglpbd", ".szs", ".bglpbd",
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
+		{ 'A', 'A', 'M', 'P' }, 0, MinusString, MinusString,
+		"AGL Light Probe Data (.bglpbd / glpbd)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1826,6 +1832,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_XB, "XB", 0, 0x3001 },
 	{ FF_MPMESS, "MPMESS", 0, 0xe05 },
 	{ FF_MPBOARD, "MPBOARD", 0, 0x3001 },
+	{ FF_BGLPBD, "BGLPBD", 0, 0x3001 },
 
 	{ 0, 0, 0, 0 }
 };

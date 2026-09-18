@@ -138,6 +138,7 @@ void AAMP_InitHashDB (void)
 		aamp_add_procedural ("bone_", 100);
 		aamp_add_procedural ("output_single_", 100);
 		aamp_add_procedural ("support_bone_", 100);
+		aamp_add_procedural ("b_", 100);
 	}
 }
 
@@ -2312,7 +2313,8 @@ enumError decode_aamp_if_possible (ccp arg)
 	ccp arg_ext = strrchr (arg, '.');
 	if (!arg_ext
 	    || (strcasecmp (arg_ext, ".aamp") && strcasecmp (arg_ext, ".bparam")
-	        && strcasecmp (arg_ext, ".baamp") && strcasecmp (arg_ext, ".bgenv")))
+	        && strcasecmp (arg_ext, ".baamp") && strcasecmp (arg_ext, ".bgenv")
+	        && strcasecmp (arg_ext, ".bglpbd")))
 		return ERR_NOTHING_TO_DO;
 
 	u8 head[32];
