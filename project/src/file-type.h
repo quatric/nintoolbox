@@ -422,6 +422,7 @@ typedef enum file_format_t
 	FF_LMGEB,  // 327 - Luigi's Mansion sprite data (.geb)
 	FF_LMSLK,  // 328 - Luigi's Mansion shape animation (.slk)
 	FF_LMSLS,  // 329 - Luigi's Mansion morph data (.sls)
+	FF_WWMODEL,// 330 - Wario World static/rigged/map model (.ww_static_model, ...)
 
 	//--- number of elements
 

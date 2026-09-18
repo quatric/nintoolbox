@@ -1781,6 +1781,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Luigi's Mansion morph data (.sls, GameCube)" },
 
+	// FF_WWMODEL = 330 (Wario World static/rigged/map model)
+	{ FF_WWMODEL, FF_WWMODEL, 0, "WWMODEL", ".ww_static_model", ".glb", ".ww_static_model",
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Wario World static/rigged/map model (GameCube)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1990,6 +1996,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_LMGEB, "LMGEB", 0, 0xe05 },
 	{ FF_LMSLK, "LMSLK", 0, 0xe05 },
 	{ FF_LMSLS, "LMSLS", 0, 0xe05 },
+	{ FF_WWMODEL, "WWMODEL", 0, 0x3001 },
 
 	{ 0, 0, 0, 0 }
 };

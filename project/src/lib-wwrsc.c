@@ -89,7 +89,7 @@ ccp WWRExtension (ww_rtype_t type)
 enumError ScanWWRSC (wwrsc_entry_t **entries, uint *n_entries, u8 unknowns[32],
 	const u8 *data, uint size)
 {
-	if (!entries || !n_entries || !data || size < 0x20)
+	if (!data || size < 0x20)
 		return ERR_INVALID_DATA;
 	if (unknowns)
 		memcpy (unknowns, data, 0x20);
@@ -113,6 +113,15 @@ enumError ScanWWRSC (wwrsc_entry_t **entries, uint *n_entries, u8 unknowns[32],
 			return ERR_INVALID_DATA;
 		off = next;
 	}
+	if (!entries)
+	{
+		// counting/validation only (used by the format detector)
+		if (n_entries)
+			*n_entries = n;
+		return ERR_OK;
+	}
+	if (!n_entries)
+		return ERR_INVALID_DATA;
 	wwrsc_entry_t *out = CALLOC (n ? n : 1, sizeof (*out));
 	if (!out)
 		return ERR_OUT_OF_MEMORY;
@@ -249,7 +258,7 @@ bool IsWWModel (const u8 *data, size_t size)
 				const u8 *pp = data + po + k * 12;
 				const uint poff = ww_be32 (pp) * 4;
 				const uint psz = ww_be32 (pp + 4);
-				const uint f2 = pp[7];
+				const uint f2 = pp[9]; // Offset,Size,Flags1,Flags2,...
 				if (f2 == 16 || f2 == 17 || f2 == 19)
 					return false; // shifted opcodes: no spec
 				if (!psz || psz > (1u << 24) || (u64)poff + psz > size)
@@ -403,7 +412,7 @@ static bool ww_walk_packet (const u8 *data, uint size, u32 off, u32 len, uint fl
 model_t *ParseWWModel (const u8 *data, size_t size)
 {
 	ww_hdr_t h;
-	if (!IsWWModel (data, size))
+	if (!IsWWModel (data, size) || !ww_read_hdr (data, (uint)size, &h))
 		return 0;
 
 	model_t *model = CALLOC (1, sizeof (*model));
@@ -468,7 +477,7 @@ model_t *ParseWWModel (const u8 *data, size_t size)
 				const u8 *pp = data + po + k * 12;
 				const uint poff = ww_be32 (pp) * 4;
 				const uint psz = ww_be32 (pp + 4);
-				const uint f2 = pp[7];
+				const uint f2 = pp[9]; // Offset,Size,Flags1,Flags2,...
 				const int tidx = (int8_t)pp[11];
 				const int cidx = (int8_t)pp[10];
 				if (tidx >= 0)
@@ -545,6 +554,7 @@ model_t *ParseWWModel (const u8 *data, size_t size)
 				{
 					FREE (vpos);
 					FREE (vnrm);
+					FREE (vcol);
 					FREE (vuv);
 					FREE (soup.v);
 					FreeModel (model);
@@ -576,6 +586,7 @@ model_t *ParseWWModel (const u8 *data, size_t size)
 					{
 						FREE (vpos);
 						FREE (vnrm);
+						FREE (vcol);
 						FREE (vuv);
 						FREE (soup.v);
 						FreeModel (model);
@@ -610,6 +621,7 @@ model_t *ParseWWModel (const u8 *data, size_t size)
 					{
 						FREE (vpos);
 						FREE (vnrm);
+						FREE (vcol);
 						FREE (vuv);
 						FREE (soup.v);
 						FreeModel (model);
@@ -634,6 +646,37 @@ model_t *ParseWWModel (const u8 *data, size_t size)
 				}
 				else
 					vuv[c] = -1;
+				if (has_col)
+				{
+					const u64 co = (u64)h.col + (u64)(uint)soup.v[c].col * 2;
+					if (co + 2 > size)
+					{
+						FREE (vpos);
+						FREE (vnrm);
+						FREE (vcol);
+						FREE (vuv);
+						FREE (soup.v);
+						FreeModel (model);
+						return 0;
+					}
+					// GX RGBA4: 4 bits each, R high nibble first
+					const uint c4 = ww_be16 (data + co);
+					color4_t cc = { ((c4 >> 12) & 15) / 15.0f, ((c4 >> 8) & 15) / 15.0f,
+						((c4 >> 4) & 15) / 15.0f, (c4 & 15) / 15.0f };
+					size_t ff = nc2;
+					for (size_t k = 0; k < nc2; k++)
+						if (mesh->colors[0][k].r == cc.r && mesh->colors[0][k].g == cc.g
+							&& mesh->colors[0][k].b == cc.b && mesh->colors[0][k].a == cc.a)
+						{
+							ff = k;
+							break;
+						}
+					if (ff == nc2)
+						mesh->colors[0][nc2++] = cc;
+					vcol[c] = (int)ff;
+				}
+				else
+					vcol[c] = -1;
 			}
 			mesh->num_positions = npp;
 			mesh->num_normals = nn2;
@@ -641,6 +684,12 @@ model_t *ParseWWModel (const u8 *data, size_t size)
 			{
 				FREE (mesh->normals);
 				mesh->normals = 0;
+			}
+			mesh->num_colors[0] = nc2;
+			if (!has_col)
+			{
+				FREE (mesh->colors[0]);
+				mesh->colors[0] = 0;
 			}
 			mesh->num_texcoords = nu2;
 			if (!has_uv)
@@ -657,12 +706,14 @@ model_t *ParseWWModel (const u8 *data, size_t size)
 				vv->tangent_idx = -1;
 				vv->texcoord_idx = vuv[c];
 				vv->matrix_idx = -1;
-				vv->color_idx[0] = vv->color_idx[1] = -1;
+				vv->color_idx[0] = vcol[c];
+				vv->color_idx[1] = -1;
 				for (int k = 0; k < 7; k++)
 					vv->extra_texcoord_idx[k] = -1;
 			}
 			FREE (vpos);
 			FREE (vnrm);
+			FREE (vcol);
 			FREE (vuv);
 			FREE (soup.v);
 			mi++;
@@ -707,8 +758,23 @@ enumError EncodeWWModel (const model_t *model, u8 **out, uint *out_size)
 	size_t npos = 0, cpos = 0;
 	float (*nrmpool)[3] = 0;
 	size_t nnrm = 0, cnrm = 0;
+	u8 (*colpool)[4] = 0;
+	size_t ncol = 0, ccol = 0;
 	float (*uvpool)[2] = 0;
 	size_t nuv = 0, cuv = 0;
+
+	// file-level attribute presence: every packet shares one vertex layout
+	// (the decoder keys field presence off pool presence).
+	bool g_hn = false, g_hc = false, g_ht = false;
+	for (size_t m0 = 0; m0 < nm; m0++)
+	{
+		if (model->meshes[m0].normals && model->meshes[m0].num_normals > 0)
+			g_hn = true;
+		if (model->meshes[m0].colors[0] && model->meshes[m0].num_colors[0] > 0)
+			g_hc = true;
+		if (model->meshes[m0].texcoords && model->meshes[m0].num_texcoords > 0)
+			g_ht = true;
+	}
 
 	typedef struct
 	{
@@ -728,6 +794,7 @@ enumError EncodeWWModel (const model_t *model, u8 **out, uint *out_size)
 		{
 			FREE (pospool);
 			FREE (nrmpool);
+			FREE (colpool);
 			FREE (uvpool);
 			for (size_t k = 0; k < m; k++)
 				FREE (packs[k].blob);
@@ -737,13 +804,13 @@ enumError EncodeWWModel (const model_t *model, u8 **out, uint *out_size)
 		packs[m].mat = mesh->material_idx >= 0 && (size_t)mesh->material_idx < nmat
 			? (uint)mesh->material_idx
 			: 0;
-		const bool hn = mesh->normals && mesh->num_normals > 0;
-		const bool hu = mesh->texcoords && mesh->num_texcoords > 0;
-		u8 *blob = MALLOC (3 + mesh->num_vertices * 7);
+		const bool hn = g_hn, hc = g_hc, hu = g_ht;
+		u8 *blob = MALLOC (3 + mesh->num_vertices * 9);
 		if (!blob)
 		{
 			FREE (pospool);
 			FREE (nrmpool);
+			FREE (colpool);
 			FREE (uvpool);
 			for (size_t k = 0; k < m; k++)
 				FREE (packs[k].blob);
@@ -790,6 +857,7 @@ enumError EncodeWWModel (const model_t *model, u8 **out, uint *out_size)
 						FREE (blob);
 						FREE (pospool);
 						FREE (nrmpool);
+						FREE (colpool);
 						FREE (uvpool);
 						for (size_t k = 0; k < m; k++)
 							FREE (packs[k].blob);
@@ -809,37 +877,42 @@ enumError EncodeWWModel (const model_t *model, u8 **out, uint *out_size)
 				ny = mesh->normals[vv->normal_idx].y;
 				nz = mesh->normals[vv->normal_idx].z;
 			}
-			size_t fn = nnrm;
-			for (size_t k = 0; k < nnrm; k++)
-				if (nrmpool[k][0] == nx && nrmpool[k][1] == ny && nrmpool[k][2] == nz)
-				{
-					fn = k;
-					break;
-				}
-			if (fn == nnrm)
+			size_t fn = 0;
+			if (g_hn)
 			{
-				if (nnrm >= cnrm)
-				{
-					const size_t nc = cnrm ? cnrm * 2 : 1024;
-					float(*nn)[3] = REALLOC (nrmpool, nc * sizeof (*nn));
-					if (!nn)
+				fn = nnrm;
+				for (size_t k = 0; k < nnrm; k++)
+					if (nrmpool[k][0] == nx && nrmpool[k][1] == ny && nrmpool[k][2] == nz)
 					{
-						FREE (blob);
-						FREE (pospool);
-						FREE (nrmpool);
-						FREE (uvpool);
-						for (size_t k = 0; k < m; k++)
-							FREE (packs[k].blob);
-						FREE (packs);
-						return ERR_OUT_OF_MEMORY;
+						fn = k;
+						break;
 					}
-					nrmpool = nn;
-					cnrm = nc;
+				if (fn == nnrm)
+				{
+					if (nnrm >= cnrm)
+					{
+						const size_t nc = cnrm ? cnrm * 2 : 1024;
+						float(*nn)[3] = REALLOC (nrmpool, nc * sizeof (*nn));
+						if (!nn)
+						{
+							FREE (blob);
+							FREE (pospool);
+							FREE (nrmpool);
+							FREE (colpool);
+							FREE (uvpool);
+							for (size_t k = 0; k < m; k++)
+								FREE (packs[k].blob);
+							FREE (packs);
+							return ERR_OUT_OF_MEMORY;
+						}
+						nrmpool = nn;
+						cnrm = nc;
+					}
+					nrmpool[nnrm][0] = nx;
+					nrmpool[nnrm][1] = ny;
+					nrmpool[nnrm][2] = nz;
+					nnrm++;
 				}
-				nrmpool[nnrm][0] = nx;
-				nrmpool[nnrm][1] = ny;
-				nrmpool[nnrm][2] = nz;
-				nnrm++;
 			}
 			float uu = 0, vv2 = 0;
 			if (hu && mesh->texcoords && vv->texcoord_idx >= 0
@@ -848,51 +921,112 @@ enumError EncodeWWModel (const model_t *model, u8 **out, uint *out_size)
 				uu = mesh->texcoords[vv->texcoord_idx].u;
 				vv2 = mesh->texcoords[vv->texcoord_idx].v;
 			}
-			size_t ft = nuv;
-			for (size_t k = 0; k < nuv; k++)
-				if (uvpool[k][0] == uu && uvpool[k][1] == vv2)
-				{
-					ft = k;
-					break;
-				}
-			if (ft == nuv)
+			size_t ft = 0;
+			if (g_ht)
 			{
-				if (nuv >= cuv)
-				{
-					const size_t nc = cuv ? cuv * 2 : 1024;
-					float(*nn)[2] = REALLOC (uvpool, nc * sizeof (*nn));
-					if (!nn)
+				ft = nuv;
+				for (size_t k = 0; k < nuv; k++)
+					if (uvpool[k][0] == uu && uvpool[k][1] == vv2)
 					{
-						FREE (blob);
-						FREE (pospool);
-						FREE (nrmpool);
-						FREE (uvpool);
-						for (size_t k = 0; k < m; k++)
-							FREE (packs[k].blob);
-						FREE (packs);
-						return ERR_OUT_OF_MEMORY;
+						ft = k;
+						break;
 					}
-					uvpool = nn;
-					cuv = nc;
+				if (ft == nuv)
+				{
+					if (nuv >= cuv)
+					{
+						const size_t nc = cuv ? cuv * 2 : 1024;
+						float(*nn)[2] = REALLOC (uvpool, nc * sizeof (*nn));
+						if (!nn)
+						{
+							FREE (blob);
+							FREE (pospool);
+							FREE (nrmpool);
+							FREE (colpool);
+							FREE (uvpool);
+							for (size_t k = 0; k < m; k++)
+								FREE (packs[k].blob);
+							FREE (packs);
+							return ERR_OUT_OF_MEMORY;
+						}
+						uvpool = nn;
+						cuv = nc;
+					}
+					uvpool[nuv][0] = uu;
+					uvpool[nuv][1] = vv2;
+					nuv++;
 				}
-				uvpool[nuv][0] = uu;
-				uvpool[nuv][1] = vv2;
-				nuv++;
+			}
+			u8 cc4[4] = { 255, 255, 255, 255 };
+			if (hc && mesh->colors[0] && vv->color_idx[0] >= 0
+				&& (size_t)vv->color_idx[0] < mesh->num_colors[0])
+			{
+				const color4_t *cc = mesh->colors[0] + vv->color_idx[0];
+				cc4[0] = (u8)(cc->r * 255.0f);
+				cc4[1] = (u8)(cc->g * 255.0f);
+				cc4[2] = (u8)(cc->b * 255.0f);
+				cc4[3] = (u8)(cc->a * 255.0f);
+			}
+			size_t fc = 0;
+			if (g_hc)
+			{
+				fc = ncol;
+				for (size_t k = 0; k < ncol; k++)
+					if (!memcmp (colpool[k], cc4, 4))
+					{
+						fc = k;
+						break;
+					}
+				if (fc == ncol)
+				{
+					if (ncol >= ccol)
+					{
+						const size_t nc = ccol ? ccol * 2 : 256;
+						u8(*nn)[4] = REALLOC (colpool, nc * sizeof (*nn));
+						if (!nn)
+						{
+							FREE (blob);
+							FREE (pospool);
+							FREE (nrmpool);
+							FREE (colpool);
+							FREE (uvpool);
+							for (size_t k = 0; k < m; k++)
+								FREE (packs[k].blob);
+							FREE (packs);
+							return ERR_OUT_OF_MEMORY;
+						}
+						colpool = nn;
+						ccol = nc;
+					}
+					memcpy (colpool[ncol++], cc4, 4);
+				}
 			}
 			ww_wr16 (bp, (u16)f);
 			bp += 2;
-			ww_wr16 (bp, (u16)fn);
-			bp += 2;
-			ww_wr16 (bp, (u16)ft);
-			bp += 2;
+			if (g_hn)
+			{
+				ww_wr16 (bp, (u16)fn);
+				bp += 2;
+			}
+			if (g_hc)
+			{
+				ww_wr16 (bp, (u16)fc);
+				bp += 2;
+			}
+			if (g_ht)
+			{
+				ww_wr16 (bp, (u16)ft);
+				bp += 2;
+			}
 		}
 		packs[m].blob = blob;
 		packs[m].len = (uint)(bp - blob);
 	}
-	if (npos > 65535 || nnrm > 65535 || nuv > 65535)
+	if (npos > 65535 || nnrm > 65535 || ncol > 65535 || nuv > 65535)
 	{
 		FREE (pospool);
 		FREE (nrmpool);
+		FREE (colpool);
 		FREE (uvpool);
 		for (size_t k = 0; k < nm; k++)
 			FREE (packs[k].blob);
@@ -901,7 +1035,8 @@ enumError EncodeWWModel (const model_t *model, u8 **out, uint *out_size)
 	}
 
 	// layout: header(48) + draw(8nm) + shapes(8nm) + packets(12nm) +
-	// blobs + matcols(4nmat) + pools
+	// blobs + matcols(4nmat) + pools. Every section base is 4-aligned
+	// because offsets are stored divided by 4.
 	const uint draw_off = 48;
 	const uint shape_off = draw_off + (uint)nm * 8;
 	const uint pack_off = shape_off + (uint)nm * 8;
@@ -911,6 +1046,7 @@ enumError EncodeWWModel (const model_t *model, u8 **out, uint *out_size)
 	{
 		FREE (pospool);
 		FREE (nrmpool);
+		FREE (colpool);
 		FREE (uvpool);
 		for (size_t k = 0; k < nm; k++)
 			FREE (packs[k].blob);
@@ -919,15 +1055,23 @@ enumError EncodeWWModel (const model_t *model, u8 **out, uint *out_size)
 	}
 	for (size_t m = 0; m < nm; m++)
 	{
+		cur = (cur + 3) & ~3u;
 		blob_off[m] = cur;
 		cur += packs[m].len;
 	}
+	cur = (cur + 3) & ~3u;
 	const uint matcol_off = cur;
 	cur += (uint)nmat * 4;
+	cur = (cur + 3) & ~3u;
 	const uint pos_off = cur;
 	cur += (uint)npos * 6;
+	cur = (cur + 3) & ~3u;
 	const uint nrm_off = cur;
 	cur += (uint)nnrm * 6;
+	cur = (cur + 3) & ~3u;
+	const uint col_off = cur;
+	cur += (uint)ncol * 2;
+	cur = (cur + 3) & ~3u;
 	const uint uv_off = cur;
 	cur += (uint)nuv * 4;
 
@@ -937,6 +1081,7 @@ enumError EncodeWWModel (const model_t *model, u8 **out, uint *out_size)
 		FREE (blob_off);
 		FREE (pospool);
 		FREE (nrmpool);
+		FREE (colpool);
 		FREE (uvpool);
 		for (size_t k = 0; k < nm; k++)
 			FREE (packs[k].blob);
@@ -944,9 +1089,9 @@ enumError EncodeWWModel (const model_t *model, u8 **out, uint *out_size)
 		return ERR_OUT_OF_MEMORY;
 	}
 	ww_wr32 (buf, pos_off / 4);
-	ww_wr32 (buf + 4, nrm_off / 4);
-	ww_wr32 (buf + 8, 0); // no colour pool in this writer
-	ww_wr32 (buf + 12, uv_off / 4);
+	ww_wr32 (buf + 4, nnrm ? nrm_off / 4 : 0);
+	ww_wr32 (buf + 8, ncol ? col_off / 4 : 0);
+	ww_wr32 (buf + 12, nuv ? uv_off / 4 : 0);
 	ww_wr32 (buf + 16, matcol_off / 4);
 	ww_wr32 (buf + 20, 0); // no TPL container rebuilt
 	ww_wr32 (buf + 24, (uint)nm);
@@ -1029,6 +1174,13 @@ enumError EncodeWWModel (const model_t *model, u8 **out, uint *out_size)
 		ww_wr16 (pp2 + 2, (u16)((int)lroundf (ny * 32767.0f) & 0xffff));
 		ww_wr16 (pp2 + 4, (u16)((int)lroundf (nz * 32767.0f) & 0xffff));
 	}
+	for (size_t i = 0; i < ncol; i++)
+	{
+		// GX RGBA4 pack (matches the decoder's unpack order)
+		const uint c4 = ((uint)colpool[i][0] >> 4) << 12 | ((uint)colpool[i][1] >> 4) << 8
+			| ((uint)colpool[i][2] >> 4) << 4 | ((uint)colpool[i][3] >> 4);
+		ww_wr16 (buf + col_off + i * 2, (u16)c4);
+	}
 	for (size_t i = 0; i < nuv; i++)
 	{
 		u8 *pp2 = buf + uv_off + i * 4;
@@ -1039,6 +1191,7 @@ enumError EncodeWWModel (const model_t *model, u8 **out, uint *out_size)
 	FREE (blob_off);
 	FREE (pospool);
 	FREE (nrmpool);
+	FREE (colpool);
 	FREE (uvpool);
 	for (size_t k = 0; k < nm; k++)
 		FREE (packs[k].blob);

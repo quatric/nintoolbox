@@ -11,6 +11,7 @@
 #include "lib-lmmdl.h"
 #include "lib-lmbin.h"
 #include "lib-pik1.h"
+#include "lib-wwrsc.h"
 
 __attribute__ ((weak)) bool IsQuickLZ (const u8 *src, uint src_size)
 {
@@ -148,7 +149,8 @@ ccp GetNintendoFormatName (nfmt_type_t type)
 		"LMTMB",
 		"LMGEB",
 		"LMSLK",
-		"LMSLS" };
+		"LMSLS",
+		"WWMODEL" };
 	return type < sizeof (tab) / sizeof (*tab) ? tab[type] : "UNKNOWN";
 }
 
@@ -300,6 +302,15 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		// way this can never satisfy, and vice versa.
 		if (IsPIKMOD (d, size))
 			return make_info (NFMT_PIKMOD, true, false, 0);
+		// Wario World models and RSC containers are magic-less; both
+		// validators walk the full structure, so no gate is needed.
+		// IsWWModel (offset/count tables) runs first because an RSC
+		// member could theoretically satisfy the looser RSC walk, while
+		// no valid model satisfies the RSC link walk.
+		if (IsWWModel (d, size))
+			return make_info (NFMT_WWMODEL, true, false, 0);
+		if (!ScanWWRSC (0, 0, 0, d, size))
+			return make_info (NFMT_WWRSC, true, false, 0);
 		if (!memcmp (d, "XPCK", 4) || !memcmp (d, "XPC2", 4))
 			return make_info (NFMT_XPCK, false, false, 0);
 		if (!memcmp (d, "XIM2", 4) || !memcmp (d, "XIMG", 4) || !memcmp (d, "XINF", 4)

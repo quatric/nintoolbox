@@ -2087,6 +2087,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_LMSLK;
 		case NFMT_LMSLS:
 			return FF_LMSLS;
+		case NFMT_WWMODEL:
+			return FF_WWMODEL;
 		default:
 			break;
 	}

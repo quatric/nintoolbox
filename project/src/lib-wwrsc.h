@@ -60,6 +60,7 @@ typedef struct
 } wwrsc_entry_t;
 
 // Full structural walk. Unknowns (0x20 header) are preserved for rebuild.
+// Passing ENTRIES==NULL only validates (and optionally counts).
 enumError ScanWWRSC (wwrsc_entry_t **entries, uint *n_entries, u8 unknowns[32],
 	const u8 *data, uint size);
 

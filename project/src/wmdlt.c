@@ -61,6 +61,7 @@
 #include "lib-lmmdl.h"
 #include "lib-lmbin.h"
 #include "lib-pik1.h"
+#include "lib-wwrsc.h"
 #include "lib-hbdf.h"
 #include "lib-numsh.h"
 #include "lib-mpr-cmdl.h"
@@ -790,6 +791,10 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		const bool is_bnfm = dest_len > 5 && !strcasecmp (dest + dest_len - 5, ".bnfm");
 		const bool is_lmmdl = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".mdl");
 		const bool is_lmbin = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".bin");
+		const bool is_wwmodel
+			= (dest_len > 16 && !strcasecmp (dest + dest_len - 16, ".ww_static_model"))
+				|| (dest_len > 16 && !strcasecmp (dest + dest_len - 16, ".ww_rigged_model"))
+				|| (dest_len > 13 && !strcasecmp (dest + dest_len - 13, ".ww_map_model"));
 		const bool is_bmd_dest = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".bmd");
 		const bool is_bdl_dest = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".bdl");
 		const bool is_model_dest = is_dae || is_glb;
@@ -953,6 +958,17 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 							ERROR0 (err, "Failed to encode LM BIN: %s\n", dest);
 						else if (verbose >= 0)
 							fprintf (stdlog, "%sENCODE LMBIN:%s -> %s\n",
+								verbose > 0 ? "\n" : "", arg, dest);
+						continue;
+					}
+					if (is_wwmodel)
+					{
+						err = EncodeModelToWWModel (in_model, dest);
+						FreeModel (in_model);
+						if (err > ERR_WARNING)
+							ERROR0 (err, "Failed to encode WW model: %s\n", dest);
+						else if (verbose >= 0)
+							fprintf (stdlog, "%sENCODE WWMODEL:%s -> %s\n",
 								verbose > 0 ? "\n" : "", arg, dest);
 						continue;
 					}
@@ -1133,6 +1149,9 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		// walk decides (Monster files start with NDL3/NDL2 magic and
 		// fail it). Checked before is_mod_in below.
 		const bool is_pikmod_in = IsPIKMOD (raw.data, raw.data_size);
+		// Wario World model blobs are magic-less; the offset/count
+		// tables decide structurally.
+		const bool is_wwmodel_in = IsWWModel (raw.data, raw.data_size);
 		const bool is_bnfm_in
 			= is_ext (arg, ".bnfm") || (raw.data_size >= 4 && !memcmp (raw.data, "BNFM", 4));
 		const bool is_hsd_in = is_ext (arg, ".dat")
@@ -1434,6 +1453,20 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				if (err > ERR_WARNING)
 				{
 					ERROR0 (err, "Failed to decode Pikmin MOD: %s\n", arg);
+					return err;
+				}
+			}
+			continue;
+		}
+
+		if (is_model_dest && is_wwmodel_in)
+		{
+			if (!testmode)
+			{
+				err = DecodeWWModel (raw.data, (uint)raw.data_size, dest);
+				if (err > ERR_WARNING)
+				{
+					ERROR0 (err, "Failed to decode WW model: %s\n", arg);
 					return err;
 				}
 			}
