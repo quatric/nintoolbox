@@ -3839,6 +3839,136 @@ open(p, 'wb').write(d)
 }
 t_mpb_modify_repack_roundtrip
 
+echo "== MPLibrary gap ports (RZPK, boards, HBDF, codec roundtrips) =="
+# Synthetic fixtures for the KillzXGaming/MPLibrary ports (see CREDITS.md):
+# RZPK archives, GC/Wii + SMP + MP10 boards, HBDF display-list models and
+# the PTD/MPMESS/BNFMSA/XB codec roundtrips. Nothing here needs retail
+# samples; every check is byte-exact or geometry-counted.
+t_rzpk_roundtrip(){
+  command -v python3 >/dev/null || { sk "RZPK round-trip"; return; }
+  local d; d=$(mktemp -d) || { no "RZPK round-trip" "mktemp failed"; return; }
+  python3 - "$d/in.rzpk" <<'PYEOF' || { no "RZPK round-trip" "fixture build failed"; rm -rf "$d"; return; }
+import struct, sys, zlib
+files = [(b"hello.txt", b"Hello Mario Party 3DS! " * 100),
+         (b"data.bin", bytes(range(256)) * 4)]
+num = len(files)
+data_off = 0x20 + num * 44
+payload, entries, off = b"", b"", 0
+for name, raw in files:
+    comp = zlib.compress(raw, 9)
+    entries += name.ljust(0x20, b"\x00") + struct.pack("<III", len(raw), len(comp), off)
+    off += len(comp)
+    payload += comp
+hdr = b"RZPK" + struct.pack("<IIII", 1, num, data_off, len(payload))
+open(sys.argv[1], "wb").write(hdr.ljust(0x20, b"\x00") + entries + payload)
+PYEOF
+  "$B/wszst" FILETYPE "$d/in.rzpk" 2>/dev/null | grep -q RZPK \
+    || { no "RZPK round-trip" "FILETYPE missed RZPK"; rm -rf "$d"; return; }
+  "$B/wszst" EXTRACT "$d/in.rzpk" --dest "$d/x1" --overwrite >/dev/null 2>&1
+  cmp -s "$d/x1/hello.txt" <(python3 -c "print('Hello Mario Party 3DS! ' * 100, end='')") \
+    || { no "RZPK round-trip" "extract mismatch"; rm -rf "$d"; return; }
+  "$B/wszst" CREATE "$d/x1" --dest "$d/re.rzpk" --overwrite >/dev/null 2>&1
+  "$B/wszst" EXTRACT "$d/re.rzpk" --dest "$d/x2" --overwrite >/dev/null 2>&1
+  if cmp -s "$d/x1/hello.txt" "$d/x2/hello.txt" && cmp -s "$d/x1/data.bin" "$d/x2/data.bin"; then
+    ok "RZPK round-trip (FILETYPE + EXTRACT + CREATE, synthetic)"
+  else
+    no "RZPK round-trip" "repack mismatch"
+  fi
+  rm -rf "$d"
+}
+t_rzpk_roundtrip
+
+t_mpboard_detect(){
+  local d; d=$(mktemp -d) || { no "MPBOARD detect"; return; }
+  printf 'ID,Child0,Child1,Child2,Child3,Type,Attr1,Attr2\nA001,1,2,,,EMPTY,foo,bar\n' > "$d/smp.csv"
+  cat > "$d/mp10.xml" <<'XMLEOF'
+<?xml version="1.0"?><root><XmlFile>board</XmlFile><Version>1.0</Version><MasuData><No>3</No><Area>1</Area><NodeName>N1</NodeName><MasuName>START</MasuName><Param>7</Param><Uncountble>0</Uncountble><OneWay>1</OneWay><JumpStart>0</JumpStart><JumpEnd>0</JumpEnd><PunishNotReturn>0</PunishNotReturn><NextNoList Size="1"><NextNo Index="0">4</NextNo></NextNoList><PrevNoList Size="0"></PrevNoList><Position><X>1.5</X><Y>2.5</Y><Z>3.5</Z></Position><Quaternion><X>0</X><Y>0</Y><Z>0</Z><W>1</W></Quaternion></MasuData></root>
+XMLEOF
+  local all_ok=1
+  "$B/wszst" FILETYPE "$d/smp.csv" 2>/dev/null | grep -q MPBOARD || all_ok=0
+  "$B/wszst" FILETYPE "$d/mp10.xml" 2>/dev/null | grep -q MPBOARD || all_ok=0
+  if command -v python3 >/dev/null; then
+    python3 - "$d/board.bin" <<'PYEOF' || all_ok=0
+import struct, sys
+n = 2
+out = struct.pack(">I", n)
+for pos, typ, p3, links in [((1,2,3), 5, 30, [1]), ((4,5,6), 6, 31, [0])]:
+    out += struct.pack(">9f", pos[0],pos[1],pos[2], 0,0,0, 1,1,1)
+    out += struct.pack(">HHHHH", 10, 20, p3, typ, len(links))
+    for l in links: out += struct.pack(">H", l)
+open(sys.argv[1], "wb").write(out)
+PYEOF
+    "$B/wszst" FILETYPE "$d/board.bin" 2>/dev/null | grep -q MPBOARD || all_ok=0
+  fi
+  rm -rf "$d"
+  [ "$all_ok" = 1 ] && ok "MPBOARD detect (GC/Wii binary, SMP CSV, MP10 XML)" \
+    || no "MPBOARD detect" "FILETYPE missed a board form"
+}
+t_mpboard_detect
+
+t_hbdf_synth(){
+  command -v python3 >/dev/null || { sk "HBDF synth"; return; }
+  [ -x "$B/wmdlt" ] || { sk "HBDF synth (no wmdlt)"; return; }
+  local d; d=$(mktemp -d) || { no "HBDF synth"; return; }
+  python3 - "$d/tri.hbdf" <<'PYEOF' || { no "HBDF synth" "fixture build failed"; rm -rf "$d"; return; }
+import struct, sys
+def f32(x): return struct.pack("<f", x)
+def u16(x): return struct.pack("<H", x)
+def u32(x): return struct.pack("<I", x)
+def s16(x): return struct.pack("<h", x)
+def s32(x): return struct.pack("<i", x)
+dl = bytes([0x40,0x23,0x23,0x23]) + u32(0)
+dl += s16(0x1000)+s16(0)+s16(0)+s16(0)
+dl += s16(0)+s16(0x1000)+s16(0)+s16(0)
+dl += s16(0)+s16(0)+s16(0x1000)+s16(0)
+dl += bytes([0x41,0,0,0])
+mesh = f32(1)+f32(1)+f32(1) + u32(0)*4 + u16(1) + u16(len(dl))
+mesh += u16(0)+u16(0)+u16(0)+u16(3) + dl
+mesh_blk = b"MESH" + u32(8+len(mesh)) + mesh
+obj = u16(2)+s16(-1)+u32(0)+u32(0) + f32(0)*3 + s32(0)*3 + f32(1)*3
+obj_blk = b"OBJO" + u32(8+len(obj)) + obj
+strs = b"tri\x00" + b"m0\x00\x00"
+strb = b"STRB" + u32(8+len(strs)) + strs
+mat = u32(4)+u32(0)+u32(0)+u32(0)+s16(-1)+s16(-1)+s16(0)+s16(0)
+mdlf = u32(0)*10 + u16(1)+u16(1)+u16(0)+u16(0) + mat + obj_blk + mesh_blk + strb
+open(sys.argv[1], "wb").write(b"HSDF" + u32(8+len(mdlf)+8) + b"MDLF" + u32(8+len(mdlf)) + mdlf)
+PYEOF
+  "$B/wmdlt" DECODE "$d/tri.hbdf" --dest "$d/tri.glb" --overwrite >/dev/null 2>&1
+  local g; g=$(python3 "$GLTF_COUNT" "$d/tri.glb" geometry 2>/dev/null || true); g=${g:-0}
+  rm -rf "$d"
+  [ "$g" -gt 0 ] 2>/dev/null && ok "HBDF synth HSDF -> GLB ($g geometries)" \
+    || no "HBDF synth HSDF -> GLB" "no valid geometry"
+}
+t_hbdf_synth
+
+t_mplibrary_codecs(){
+  # Library-level roundtrips (boards, PTD, MPMESS, BNFMSA, XB) via one
+  # small harness, same link pattern as the GTX tests (explicit object
+  # list, macOS -dead_strip with GNU --gc-sections fallback).
+  if ${CC:-cc} -O2 -ffunction-sections -fdata-sections -Isrc -I. -Idclib \
+      ../tests/test-mplibrary-codecs.c ./lib-ptd.o ./lib-mpmess.o ./lib-mpboard.o \
+      ./lib-bnfm.o ./lib-xb.o ./dclib-basics.o ./dclib-shift-jis.o ./dclib-utf8.o \
+      ./dclib-debug.o ./dclib-color.o ./dclib-ui.o ./dclib-vector.o ./dclib-file.o \
+      -lncurses -Wl,-dead_strip \
+      -o /tmp/_r_mplib_codecs >/tmp/_r_mplib_codecs_build.log 2>&1 \
+      || ${CC:-cc} -O2 -ffunction-sections -fdata-sections -Isrc -I. -Idclib \
+      ../tests/test-mplibrary-codecs.c ./lib-ptd.o ./lib-mpmess.o ./lib-mpboard.o \
+      ./lib-bnfm.o ./lib-xb.o ./dclib-basics.o ./dclib-shift-jis.o ./dclib-utf8.o \
+      ./dclib-debug.o ./dclib-color.o ./dclib-ui.o ./dclib-vector.o ./dclib-file.o \
+      -lncurses -Wl,--gc-sections \
+      -o /tmp/_r_mplib_codecs >>/tmp/_r_mplib_codecs_build.log 2>&1; then
+    if /tmp/_r_mplib_codecs; then
+      ok "MPLibrary codec roundtrips (boards, PTD, MPMESS v4/5/6, BNFMSA, XB)"
+    else
+      no "MPLibrary codec roundtrips" "harness reported failures"
+    fi
+  else
+    no "MPLibrary codec roundtrips" \
+      "$(tail -1 /tmp/_r_mplib_codecs_build.log 2>/dev/null)"
+  fi
+}
+t_mplibrary_codecs
+
 echo "== Monster Games RST / TOC (0TSR / 0SERCOTE) =="
 t_rst_container(){
   command -v python3 >/dev/null || { sk "RST container roundtrip"; return; }
