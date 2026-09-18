@@ -2221,6 +2221,7 @@ enumError cmd_add ()
 		it.wbfs = &wbfs;
 		it.open_dev = wbfs.sf->f.st.st_dev;
 		it.open_ino = wbfs.sf->f.st.st_ino;
+		it.open_valid = true;
 		err = SourceIteratorCollected (&it, 1, 0, false);
 		if (err)
 			break;

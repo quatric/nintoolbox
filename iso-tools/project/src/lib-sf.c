@@ -5665,7 +5665,7 @@ check_file:
 			ERROR0 (ERR_CANT_OPEN, "Can't open file X: %s\n", path);
 		goto abort;
 	}
-	else if (it->act_open < ACT_ALLOW && sf.f.st.st_dev == it->open_dev
+	else if (it->act_open < ACT_ALLOW && it->open_valid && sf.f.st.st_dev == it->open_dev
 		&& sf.f.st.st_ino == it->open_ino)
 	{
 		if (!it->wbfs || !*sf.f.id6_dest || !ExistsWDisc (it->wbfs, sf.f.id6_dest))

@@ -34,6 +34,13 @@
 #include "lib-aes.h"
 #include "lib-rvz.h"
 
+#ifdef __MINGW32__
+// msvcrt's access() rejects X_OK (mode 1) with EINVAL, so every "is this tool
+// executable?" probe failed on native Windows; existence is the best it offers.
+#undef X_OK
+#define X_OK F_OK
+#endif
+
 // option state, bound in tab-wszst.inc / CheckOptions() of wszst.c
 bool opt_no_passthrough = false; // --no-passthrough: disable pass-through
 ccp opt_with_wit = 0; // --with-wit=path|name
@@ -189,6 +196,12 @@ static ccp resolve_bundled_tool (ccp with_val, ccp deflt)
 		snprintf (prog_buf, sizeof (prog_buf), "%s/%s", dir, deflt);
 		if (!access (prog_buf, X_OK))
 			return prog_buf;
+#if defined(__CYGWIN__) || defined(_WIN32)
+		// bundled Windows builds are "<tool>.exe"
+		snprintf (prog_buf, sizeof (prog_buf), "%s/%s.exe", dir, deflt);
+		if (!access (prog_buf, F_OK))
+			return prog_buf;
+#endif
 	}
 	return find_program (deflt);
 }
@@ -1325,6 +1338,14 @@ static bool is_ds_ext (ccp src)
 static bool stage_dir_of (ccp src, ccp basedir, char *buf, uint bufsize)
 {
 	ccp basename = strrchr (src, '/');
+#if defined(__CYGWIN__) || defined(_WIN32)
+	// native Windows paths use '\\' (and "C:name" drive-relative form)
+	ccp bs = strrchr (src, '\\');
+	if (bs && (!basename || bs > basename))
+		basename = bs;
+	else if (!basename && src[0] && src[1] == ':')
+		basename = src + 1;
+#endif
 	basename = basename ? basename + 1 : src;
 
 	char stem[PATH_MAX];

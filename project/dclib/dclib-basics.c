@@ -241,6 +241,11 @@ ccp ProgramDirectory ()
 		if (path)
 		{
 			ccp end = strrchr (path, '/');
+#if defined(__CYGWIN__) || defined(_WIN32)
+			ccp bs = strrchr (path, '\\');
+			if (bs && (!end || bs > end))
+				end = bs;
+#endif
 			const uint len = end ? end - path : strlen (path);
 			ProgInfo.progdir = MEMDUP (path, len);
 		}
@@ -341,6 +346,23 @@ int GetProgramPath (
 		if (realpath (path, path2) && *path2)
 			return StringCopyS (buf, buf_size, path2) - buf;
 		return StringCopyS (buf, buf_size, path) - buf;
+	}
+
+#elif defined(__MINGW32__)
+
+	//--- native Windows: no /proc, ask the loader for the module path
+
+	{
+		extern unsigned long __stdcall GetModuleFileNameA (void *, char *, unsigned long);
+		char wpath[PATH_MAX];
+		const unsigned long wlen = GetModuleFileNameA (0, wpath, sizeof (wpath));
+		if (wlen > 0 && wlen < sizeof (wpath))
+		{
+			for (char *p = wpath; *p; p++)
+				if (*p == '\\')
+					*p = '/';
+			return StringCopyS (buf, buf_size, wpath) - buf;
+		}
 	}
 
 #else // !__APPLE__
