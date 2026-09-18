@@ -86,7 +86,7 @@ static int run_external_vgmtrans (const char *tool, const char *in_file, const c
 	// No fork()/exec() on native Windows: _spawnv() runs the child (via
 	// CreateProcess internally) and blocks for its exit code directly.
 	char *const child_argv[] = { (char *)tool, (char *)in_file, (char *)out_dir, 0 };
-	const intptr_t rc = _spawnv (_P_WAIT, tool, (const char *const *)child_argv);
+	const intptr_t rc = SpawnWaitQuoted (child_argv, false);
 	if (rc == 0)
 		return 0;
 	return -1;

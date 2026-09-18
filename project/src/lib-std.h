@@ -2794,6 +2794,12 @@ extern const char indent_msg[]; //   N * "> " + NULL
 extern const char section_sep[];
 extern const char section_end[];
 
+#ifdef __MINGW32__
+// Windows only: _spawnv()/_spawnvp() wrapper that quotes every argument, so
+// paths containing spaces survive.  Returns the exit code or -1 (errno set).
+intptr_t SpawnWaitQuoted (char *const argv[], bool search_path);
+#endif
+
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			    END				///////////////

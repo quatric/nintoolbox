@@ -7315,3 +7315,86 @@ valid_t IsValidLTA (const void *data, // data
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			    END				///////////////
 ///////////////////////////////////////////////////////////////////////////////
+
+#ifdef __MINGW32__
+#include <process.h>
+// _spawnv() joins argv with plain spaces and does no quoting, so a path such
+// as "C:\nintoolbox 7\bin\wit.exe" or an argument "--with-wit=C:\a b\wit.exe"
+// would be split into several arguments.  Quote each argument the way the
+// MSVCRT command-line parser expects before spawning.
+static char *quote_win_arg (ccp arg)
+{
+	const size_t len = strlen (arg);
+	char *out = malloc (len * 2 + 3);
+	if (!out)
+		return 0;
+	if (*arg && !strpbrk (arg, " \t\"\n\v"))
+	{
+		memcpy (out, arg, len + 1);
+		return out;
+	}
+	char *d = out;
+	*d++ = '"';
+	for (ccp s = arg;; s++)
+	{
+		size_t bs = 0;
+		while (*s == '\\')
+			s++, bs++;
+		if (!*s)
+		{
+			memset (d, '\\', bs * 2); // double trailing backslashes
+			d += bs * 2;
+			break;
+		}
+		if (*s == '"')
+		{
+			memset (d, '\\', bs * 2 + 1);
+			d += bs * 2 + 1;
+		}
+		else
+		{
+			memset (d, '\\', bs);
+			d += bs;
+		}
+		*d++ = *s;
+	}
+	*d++ = '"';
+	*d = 0;
+	return out;
+}
+
+intptr_t SpawnWaitQuoted (char *const argv[], bool search_path)
+{
+	int argc = 0;
+	while (argv[argc])
+		argc++;
+	char **q = calloc (argc + 1, sizeof (*q));
+	if (!q)
+	{
+		errno = ENOMEM;
+		return -1;
+	}
+	for (int i = 0; i < argc; i++)
+	{
+		q[i] = quote_win_arg (argv[i]);
+		if (!q[i])
+		{
+			while (i-- > 0)
+				free (q[i]);
+			free (q);
+			errno = ENOMEM;
+			return -1;
+		}
+	}
+	const intptr_t rc = search_path
+		? _spawnvp (_P_WAIT, argv[0], (const char *const *)q)
+		: _spawnv (_P_WAIT, argv[0], (const char *const *)q);
+	const int err = errno;
+	for (int i = 0; i < argc; i++)
+		free (q[i]);
+	free (q);
+	errno = err;
+	return rc;
+}
+#endif
+

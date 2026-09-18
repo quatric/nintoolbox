@@ -1461,8 +1461,8 @@ enumError RunBmsScript (ccp script_path, ccp infile, ccp outdir)
 	// No fork()/execlp() on native Windows; _spawnv() (mingw's
 	// CreateProcess-based process.h API) runs the child and blocks for its
 	// exit code directly, without needing a POSIX-style child branch.
-	const char *args[] = { engine, script_path, infile, outdir, 0 };
-	intptr_t rc = _spawnvp (_P_WAIT, engine, args);
+	char *const args[] = { (char *)engine, (char *)script_path, (char *)infile, (char *)outdir, 0 };
+	intptr_t rc = SpawnWaitQuoted (args, true);
 	if (rc == -1 && !strcmp (engine, "quickbms"))
 		// A source checkout remains useful before its bundled dependency has
 		// been built. Do not make that look like full QuickBMS compatibility.
