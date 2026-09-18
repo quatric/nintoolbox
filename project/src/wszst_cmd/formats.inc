@@ -2540,7 +2540,13 @@ static enumError cmd_convert (bool binary) // cmd_binary() cmd_text()
 					err = ERR_WRITE_FAILED;
 				else
 				{
-					err = DecodeBYML_YAML (F.f, raw.data, raw.data_size);
+					ccp ext = strrchr (dest, '.');
+					if (ext && !strcasecmp (ext, ".xml"))
+						err = DecodeBYML_XML (F.f, raw.data, raw.data_size);
+					else if (ext && !strcasecmp (ext, ".json"))
+						err = DecodeBYML_JSON (F.f, raw.data, raw.data_size);
+					else
+						err = DecodeBYML_YAML (F.f, raw.data, raw.data_size);
 					ResetFile (&F, opt_preserve);
 				}
 			}

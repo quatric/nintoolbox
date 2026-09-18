@@ -119,6 +119,24 @@ else
     "$(tail -1 /tmp/_r_gtx_encode_build.log 2>/dev/null)"
 fi
 
+if ${CC:-cc} -O2 -ffunction-sections -fdata-sections -Isrc -Idclib \
+    ../tests/test-bntx-formats.c ./lib-bntx.o src/astc/astc_wrapper.o src/astc/astc_decomp.o \
+    src/bcn-decoder/bcn_wrapper.o src/bcn-decoder/bcn.o -lc++ -Wl,--gc-sections \
+    -o /tmp/_r_bntx_formats >/tmp/_r_bntx_formats_build.log 2>&1 \
+    || ${CC:-cc} -O2 -ffunction-sections -fdata-sections -Isrc -Idclib \
+    ../tests/test-bntx-formats.c ./lib-bntx.o src/astc/astc_wrapper.o src/astc/astc_decomp.o \
+    src/bcn-decoder/bcn_wrapper.o src/bcn-decoder/bcn.o -lc++ -Wl,-dead_strip \
+    -o /tmp/_r_bntx_formats >>/tmp/_r_bntx_formats_build.log 2>&1; then
+  if /tmp/_r_bntx_formats; then
+    ok "BNTX format matrix: formats, platforms, UserData and container parsing"
+  else
+    no "BNTX format matrix" "runtime check failed"
+  fi
+else
+  no "BNTX format matrix" \
+    "$(tail -1 /tmp/_r_bntx_formats_build.log 2>/dev/null)"
+fi
+
 # Wii U retail disc key database and TOC probe test
 if ${CC:-cc} -O2 -Isrc -Idclib ../tests/test-wiiu-keys.c ./lib-aes.o \
     -o /tmp/_r_wiiu_keys >/tmp/_r_wiiu_keys_build.log 2>&1; then
@@ -2393,6 +2411,17 @@ t_container_roundtrips(){
     && "$B/wimgt" DECODE "$d/test.bntx" --dest "$d/bntx_out.png" --overwrite >/dev/null 2>&1 \
     && [ -f "$d/bntx_out.png" ]; then
       ok "BNTX encode -> decode roundtrip"
+      if "$B/wszst" DUMP "$d/test.bntx" 2>&1 | grep -q "BNTX Container: platform 'NX  '"; then
+        ok "wszst DUMP BNTX structural inspection"
+      else
+        no "wszst DUMP BNTX" "failed structure dump"
+      fi
+      if "$B/wszst" EXTRACT "$d/test.bntx" --dest "$d/bntx_extracted/" --overwrite >/dev/null 2>&1 \
+      && [ -s "$d/bntx_extracted/test.png" ]; then
+        ok "wszst EXTRACT BNTX -> PNG"
+      else
+        no "wszst EXTRACT BNTX" "extraction failed"
+      fi
     else
       no "BNTX encode -> decode" "mismatch"
     fi

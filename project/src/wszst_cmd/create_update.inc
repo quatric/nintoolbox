@@ -9734,7 +9734,12 @@ static enumError decode_byml_if_possible (ccp arg)
 {
 	if (export_count <= 0)
 		return ERR_NOTHING_TO_DO;
-	if (!is_ext (arg, ".byml") && !is_ext (arg, ".byaml") && !is_ext (arg, ".bin"))
+	if (!is_ext (arg, ".byml") && !is_ext (arg, ".byaml") && !is_ext (arg, ".bin")
+		&& !is_ext (arg, ".bgyml") && !is_ext (arg, ".bgdata") && !is_ext (arg, ".sbgdata")
+		&& !is_ext (arg, ".bquestpack") && !is_ext (arg, ".sbquestpack") && !is_ext (arg, ".sbyml")
+		&& !is_ext (arg, ".mubin") && !is_ext (arg, ".smubin") && !is_ext (arg, ".baischedule")
+		&& !is_ext (arg, ".sbaischedule") && !is_ext (arg, ".baniminfo") && !is_ext (arg, ".sbaniminfo")
+		&& !is_ext (arg, ".bgsvdata") && !is_ext (arg, ".sbgsvdata"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *data = 0;
@@ -9762,7 +9767,7 @@ static enumError decode_byml_if_possible (ccp arg)
 		snprintf (dest, sizeof (dest), "%s.yml", arg);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sDECODE BYML:%s -> YML:%s\n", verbose > 0 ? "\n" : "",
+		fprintf (stdlog, "%s%sDECODE BYML:%s -> %s\n", verbose > 0 ? "\n" : "",
 			testmode ? "WOULD " : "", arg, dest);
 	if (testmode)
 	{
@@ -9777,7 +9782,13 @@ static enumError decode_byml_if_possible (ccp arg)
 		FREE (data);
 		return err;
 	}
-	err = DecodeBYML_YAML (F.f, data, size);
+	ccp ext = strrchr (dest, '.');
+	if (ext && !strcasecmp (ext, ".xml"))
+		err = DecodeBYML_XML (F.f, data, size);
+	else if (ext && !strcasecmp (ext, ".json"))
+		err = DecodeBYML_JSON (F.f, data, size);
+	else
+		err = DecodeBYML_YAML (F.f, data, size);
 	ResetFile (&F, opt_preserve);
 	FREE (data);
 	return err;
