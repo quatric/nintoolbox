@@ -189,6 +189,12 @@ static ccp resolve_bundled_tool (ccp with_val, ccp deflt)
 		snprintf (prog_buf, sizeof (prog_buf), "%s/%s", dir, deflt);
 		if (!access (prog_buf, X_OK))
 			return prog_buf;
+#if defined(__CYGWIN__) || defined(_WIN32)
+		// bundled Windows builds are "<tool>.exe"
+		snprintf (prog_buf, sizeof (prog_buf), "%s/%s.exe", dir, deflt);
+		if (!access (prog_buf, F_OK))
+			return prog_buf;
+#endif
 	}
 	return find_program (deflt);
 }
@@ -1325,6 +1331,14 @@ static bool is_ds_ext (ccp src)
 static bool stage_dir_of (ccp src, ccp basedir, char *buf, uint bufsize)
 {
 	ccp basename = strrchr (src, '/');
+#if defined(__CYGWIN__) || defined(_WIN32)
+	// native Windows paths use '\\' (and "C:name" drive-relative form)
+	ccp bs = strrchr (src, '\\');
+	if (bs && (!basename || bs > basename))
+		basename = bs;
+	else if (!basename && src[0] && src[1] == ':')
+		basename = src + 1;
+#endif
 	basename = basename ? basename + 1 : src;
 
 	char stem[PATH_MAX];

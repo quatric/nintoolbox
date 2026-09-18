@@ -241,6 +241,11 @@ ccp ProgramDirectory ()
 		if (path)
 		{
 			ccp end = strrchr (path, '/');
+#if defined(__CYGWIN__) || defined(_WIN32)
+			ccp bs = strrchr (path, '\\');
+			if (bs && (!end || bs > end))
+				end = bs;
+#endif
 			const uint len = end ? end - path : strlen (path);
 			ProgInfo.progdir = MEMDUP (path, len);
 		}
