@@ -2122,3 +2122,69 @@ was pre-broken by unrelated in-progress `ui-wszst`/`main.inc` changes already pr
 the working tree before this change, so the isolated decode/encode round-trip above (a
 plain-C copy of the exact `CreateRPAK`/`ScanRPAK`/`DecompressRPAKEntry` logic linked only
 against zlib) stood in for it.
+
+## 39. 2026-09-18 — NextLevelLibrary ports: LM2/LM3 typed DICT extraction, SANIM, hash wordlists
+
+Ported the wire layouts in KillzXGaming/NextLevelLibrary (MIT, see CREDITS.md)
+for what NLG support this repo did not have. Already present and untouched:
+GLG/RLG models (lib-glg.c exceeds the upstream RLG_Parser, which reads
+section headers and discards the payloads), PTLG textures, TXTG, NLG-DICT
+block dumps, and the (unlinked until now) lib-fedforce.c Federation Force
+parsers.
+
+New module `project/src/lib-nlg-lm.c` (+ `.h`, + dependency-free probes in
+`lib-nlg-probe.c/.h` so gen-ui links via SZS_O without the decoders):
+
+- Structural LM2-vs-LM3 detection (the upstream "BE u32 @12 == 0x78340300"
+  rule is one retail file's block counts -- 120 files, 52 chunk infos, 3
+  strings -- not a magic; `NLGDetectVariant()` validates the LM3 header
+  first, then LM2), LM2/LM3 `Scan*Dict()` block tables, zlib/zstd block
+  decoding, and the 12-byte chunk-table system (`0x1301` FileHeader pairing,
+  file-level parent test `(flags>>12)>2` for LM2/LM3 vs bit 15 for
+  Federation Force, LM3 `ChunkBlockFlags` buffer map, LM2 3-bit block index).
+- LM2 models (16-byte B002 headers, `0x28` B003 meshes, hash-driven vertex
+  layouts incl. the `0x4821B2DF` position-only stride, LUT material pointers
+  with preset-slot + texture-cache-scan fallback) and LM3 models (12-byte
+  B002 headers, `0x40` B003 meshes, fixed 48-byte vertices, preset offset
+  tables) -> `model_t` + GLB; static-geometry discipline (skinning buffers
+  parsed, not bound), same as the Federation Force parser.
+- LM2 (CTR PICA, transpose swizzle via `DecodePicaTexture`) and LM3
+  (Switch block-linear via `BntxDeswizzle` + BCn/ASTC block decoders)
+  textures -> RGBA8 -> PNG. The Tegra block-height selector is not stored
+  in the LM3 header; a tightest-fitting heuristic is used and documented
+  as retail-unverified (synthetic block-linear round-trips verify the path).
+- LM2/LM3 skeletons (`0x7101`..`0x7105`, LM3 parenting in `0x7106`) ->
+  joints; `0x7000` animation tracks (per-variant type maps, opcode key
+  counts) and `0x5000`/`0x6500` script tables (hash-resolved elements,
+  file-ref resolution, string tables) -> text dumps; NLOC/font/config
+  passthrough; hash-resolved raw dumps for audio/shader/physics/cutscene/
+  bundle chunks.
+- LM2/LM3 models, skeletons and textures ride the FEDM/FEDS/FEDT container
+  shape with versions 2/3 alongside Federation Force version 1 (extractor
+  intermediates, NOT retail formats). `wmdlt DECODE` handles `.fedmodel`/
+  `.fedskel`, `wimgt DECODE` (via `AssignIMG`) handles `.fedtex`.
+- The upstream hash wordlists (FileNames/BoneNames/MaterialNames/
+  ScriptStrings/Misc, 2296 strings / 4323 hash entries) generated into
+  `project/src/lib-nlg-names.inc` by `scripts/gen_nlg_names.py`
+  (faithful port of `Hashing.LoadHashes`, first-wins on collision).
+- Mario Strikers SANIM streams: strict structural chunk walk (`IsSANIM`),
+  new `FF_SANIM` (314) + `ExtractSANIMArchive` -> text summaries.
+  New `FF_FEDMODEL` (311) / `FF_FEDTEX` (312) / `FF_FEDSKEL` (313) with
+  `lib-file.c` magic probes.
+- Wired the previously dead `lib-fedforce.o` into the build and the typed
+  pass, so the orphaned `tests/fixtures/fedforce_*` fixtures now extract
+  (texture -> FEDT+PNG, font description -> text) and decode.
+- Fixed along the way: the committed `nlg_dict_test` fixture was a
+  Frankenstein header matching neither layout (claimed 120 files, extracted
+  0 -- replaced with the LM3 fixture); the committed
+  `fedforce_model_tri.fedmodel` fixture had `index_count=0` (regenerated
+  parser-conformant); `ExtractNLGDictArchive` now scans real block tables
+  for LM2/LM3/Federation Force instead of the `0x2C+numfiles` guess, and no
+  longer errors when the optional `.data` is absent.
+- Fixtures `tests/fixtures/lm2_dict.*`, `lm3_dict.*`,
+  `strikers_test.sanim` built by `tests/mk-nlg-lm-fixtures.py`; 10 new
+  `tests/regress.sh` cases (block dumps, typed outputs incl. GLB geometry
+  counts, pixel-exact 8x8 PICA/Switch gradients, hash-resolved names,
+  tool round-trips, FILETYPE ids) all green. Retail verification remains
+  open: no LM2/LM3/SANIM retail sample was available, so the Retail Source
+  Tested column stays blank for the new rows by design.

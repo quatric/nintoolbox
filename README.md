@@ -107,7 +107,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **MTXT** | `.mtxt` | ✅ | ✅ | ✅ | — | Nintendo Switch MTXT texture archive (gzip-wrapped XTX). |
 | **NARC** | `.narc` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro standard archive (DS / DSi) |
 | **NCCARC** | `.nccarc` | ✅ | ✅ | ✅ | — | Nintendo DS flat blob container |
-| **NLG DICT** | `.dict`, `.data` | ✅ | — | — | ✅ | Next Level Games dictionary archive (*Metroid Prime: Federation Force*, *Luigi's Mansion: Dark Moon* / LM2HD, *Luigi's Mansion 3*, *Mario Strikers: Battle League Football*). |
+| **NLG DICT** | `.dict`, `.data` | ✅ | — | — | ✅ | Next Level Games dictionary archive (*Metroid Prime: Federation Force*, *Luigi's Mansion: Dark Moon* / LM2HD, *Luigi's Mansion 3*, *Mario Strikers: Battle League Football*). Typed chunk pass: LM2/LM3/Federation Force models → `.fedmodel` + GLB, textures → `.fedtex` + PNG, skeletons → `.fedskel`, animations/scripts → text, NLOC/font/config passthrough, everything else hash-resolved raw dumps. |
 | **NDS / SRL / DSI** | `.nds`, `.srl`, `.dsi` | ✅ | — | — | — | Nintendo DS & DSi ROM images and executables |
 | **NXARC** | `.nxarc` | ✅ | ✅ | ✅ | — | Nintendo Switch NX archive (`RAXN`) |
 | **PAC (Nd Cube)** | `.bin` | ✅ | ✅ | ✅ | ✅ | Nd Cube Wii U flat container (`PAC\0`, *Mario Party 10* / *Animal Crossing: amiibo Festival*). |
@@ -163,9 +163,14 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **BFRES** | `.bfres` | **GLB** | ✅ | — | — | ✅ | Nintendo GX2 / NintendoSDK 3D model & surface resource archive (Wii U / Switch). |
 | **BMD** | `.bmd`, `.bdhc` | **GLB** | ✅ | ✅ | ✅ | — | Early Nintendo DS 3D model format (DS) |
 | **BNFM** | `.bnfm` | **GLB** | ✅ | ✅ | ✅ | ✅ | Nd Cube Wii U 3D model format (*Mario Party 10*, *Animal Crossing: amiibo Festival*). BNFMSA skeletal animation sidecars (`.bnfmsa`, 10 SRT tracks/bone, Normal/Hermite keys) attach automatically to the GLB when present beside the model. |
+| **CSB** | `.csb` | **GLB** | ✅ | ✅ | — | ✅ | Paper Mario collision scene (TTYD Switch / Origami King little-endian, Color Splash big-endian `--csb-big`): meshes with `MAT{attr}_FLAG{flag}` materials plus sphere/box trigger volumes as `MAPOBJ_*` instances; `--csb-mobj` writes split map-object models. Retail `.csb.zst` Zstandard form supported. |
+| **CTB** | `.ctb` | *(text dump)* | ✅ | — | — | ✅ | Paper Mario collision search table: XZ-quadtree over the `.csb` triangles, regenerated as a sidecar on every CSB encode. |
 | **G1M** | `.g1m` | **GLB** | ✅ | — | — | ❌ | Koei Tecmo 3D model format (*Hyrule Warriors Legends*, 3DS; *Fire Emblem Warriors*). |
 | **G4PKM** | `.g4pkm` | — | — | — | — | — | Unidentified. |
 | **GLG / RLG** | `.glg`, `.rlg` | **GLB** | ✅ | ✅ | ✅ | ✅ | Next Level Games 3D model format (*Super Mario Strikers*, *Mario Strikers Charged*) |
+| **FEDMODEL** | `.fedmodel` | **GLB** | ✅ | — | — | — | Next Level Games model container: extractor intermediate for Federation Force / LM2 / LM3 `0xB000` chunks (versions 1..3), decoded to GLB with joints when a same-hash `0x7100` skeleton rides along. |
+| **FEDSKEL** | `.fedskel` | **GLB** | ✅ | — | — | — | Next Level Games skeleton container: extractor intermediate for `0x7101`..`0x7106` chunks (LM2 carries parents inline, LM3 in `0x7106`), joints exported to GLB. |
+| **SANIM** | `.sanim` | *(text dump)* | ✅ | — | — | — | Mario Strikers skeleton animation stream (`0x7000`..`0x7103` chunks): headers, track parameters and rotation/translation key counts. |
 | **GFBANM** | `.gfbanm` | *(identification only)* | — | — | — | — | Game Freak FlatBuffer animation (recognized for extraction boundaries; not decoded). |
 | **GFBMDL** | `.gfbmdl` | *(identification only)* | — | — | — | — | Game Freak FlatBuffer model (recognized for extraction boundaries; not decoded). |
 | **HSD** | `.dat` | **GLB** | ✅ | ✅ | ✅ | ✅ | HAL Laboratory `sysdolphin` object graph (GameCube) |
@@ -190,6 +195,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **MPR SKEL** | `.skel` | **GLB** | ✅ | — | — | ✅ | Retro Studios skeletal hierarchy (*Metroid Prime Remastered*, Switch; *DKCTF*). |
 | **PERS** | `.pers` | *(raw payload)* | ✅ | — | — | ✅ | Pokémon Stadium (N64) PERS-SZP container |
 | **WMB** | `.wmb` | **GLB** | ✅ | — | — | ✅ | PlatinumGames model (*Star Fox Zero*, Wii U) |
+| **TTMODEL** | `.model` | **GLB** | ✅ | — | — | — | TT Games NTT engine model (*LEGO Star Wars: The Skywalker Saga*). |
 
 `Byte-Exact Roundtrip` = decode → GLB → re-encode reproduces the original file's bytes identically (canonical fixed-point verified), not just a successful encode.
 
@@ -236,6 +242,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **NUT** | `.nut` | ✅ | ✅ | ✅ | ✅ | Bandai Namco texture package (*Super Smash Bros. 4*, Wii U / 3DS) |
 | **NUTEXB** | `.nutexb` | ✅ | ✅ | ✅ | — | Bandai Namco / Nintendo Switch texture wrapper (Switch) |
 | **PTLG** | `.glt`, `.rlt` | ✅ | ✅ | ✅ | ✅ | Next Level Games texture container, extracted as TPL (*Super Mario Strikers*, *Mario Strikers Charged*). |
+| **FEDTEX** | `.fedtex` | ✅ | — | — | — | Next Level Games texture container: extractor intermediate for `0xB500` chunks (Federation Force / LM2 CTR PICA, LM3 Switch RGBA8/BCn/ASTC), decoded to PNG. |
 | **SMDH** | `.smdh` | ✅ | ✅ | — | ✅ | Nintendo 3DS application icon, publisher info & title metadata. |
 | **STEX** | `.stex` | ✅ | ✅ | — | — | Atlus Nintendo 3DS PICA texture (*Etrian Odyssey IV*, *Shin Megami Tensei IV*). |
 | **NTTF** | `.nttf`, `.bnttf` | ✅ | — | — | — | Nintendo DS / DSi manual texture. |

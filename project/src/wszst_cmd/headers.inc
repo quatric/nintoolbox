@@ -106,6 +106,7 @@
 #include "lib-mpboard.h"
 #include "lib-wtb.h"
 #include "lib-trpak.h"
+#include "lib-csb.h"
 #include "lib-cnut.h"
 #include "lib-xmsg.h"
 #include "lib-nsmbw.h"

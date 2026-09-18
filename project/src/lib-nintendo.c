@@ -6,7 +6,10 @@
 #include "lib-bflyt.h"
 #include "lib-bntx.h"
 #include "lib-gtx.h"
+#include "lib-csb.h"
 #include "lib-aes.h"
+#include "lib-lmmdl.h"
+#include "lib-lmbin.h"
 
 __attribute__ ((weak)) bool IsQuickLZ (const u8 *src, uint src_size)
 {
@@ -131,7 +134,20 @@ ccp GetNintendoFormatName (nfmt_type_t type)
 		"SHARC",
 		"SHARCFB",
 		"VFXB",
-		"RZPK" };
+		"RZPK",
+		"CSB",
+		"CTB",
+		"LMMDL",
+		"LMBIN",
+		"PIKMOD",
+		"PIKARC",
+		"WWRSC",
+		"LMJMP",
+		"LMKEY",
+		"LMTMB",
+		"LMGEB",
+		"LMSLK",
+		"LMSLS" };
 	return type < sizeof (tab) / sizeof (*tab) ? tab[type] : "UNKNOWN";
 }
 
@@ -264,6 +280,10 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		}
 		if (size >= 12 && !memcmp (d, "BNFM", 4))
 			return make_info (NFMT_BNFM, true, false, 0);
+		// Luigi's Mansion actor model: strong 4-byte BE magic, no
+		// extension gate needed (nothing else uses 0x04B40000).
+		if (IsLMMDL (d, size))
+			return make_info (NFMT_LMMDL, true, false, 0);
 		if (!memcmp (d, "XPCK", 4) || !memcmp (d, "XPC2", 4))
 			return make_info (NFMT_XPCK, false, false, 0);
 		if (!memcmp (d, "XIM2", 4) || !memcmp (d, "XIMG", 4) || !memcmp (d, "XINF", 4)
@@ -388,8 +408,27 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_LMD, false, false, 0);
 		if (ext && !strcasecmp (ext, ".msh"))
 			return make_info (NFMT_MSH, false, false, 0);
+		// Luigi's Mansion room model: version byte + ordered section
+		// offsets (IsLMBIN validates). Gated on .bin; Hudson MPBIN
+		// archives can never land here (their BE file count < 4000 keeps
+		// byte 0 at zero, while LMBIN needs exactly 2).
+		if (ext && !strcasecmp (ext, ".bin") && IsLMBIN (d, size))
+			return make_info (NFMT_LMBIN, true, false, 0);
 		if (ext && !strcasecmp (ext, ".mod"))
 			return make_info (NFMT_MOD, false, false, 0);
+		// Paper Mario collision scene/search table: no magic, so the
+		// extension gates and IsCSB()/IsCTB() validate structurally.
+		// IsCSB/IsCTB live in lib-csb (linked everywhere SZS_O goes).
+		if (ext
+			&& (!strcasecmp (ext, ".csb") || !strcasecmp (ext, ".csb.zst")
+				|| !strcasecmp (ext, ".csb.zs") || !strcasecmp (ext, ".csb.zstd"))
+			&& IsCSB (d, size))
+			return make_info (NFMT_CSB, false, false, 0);
+		if (ext
+			&& (!strcasecmp (ext, ".ctb") || !strcasecmp (ext, ".ctb.zst")
+				|| !strcasecmp (ext, ".ctb.zs") || !strcasecmp (ext, ".ctb.zstd"))
+			&& IsCTB (d, size))
+			return make_info (NFMT_CTB, false, false, 0);
 		if (ext && !strcasecmp (ext, ".tex") && size >= 0x80)
 			return make_info (NFMT_TEX3DS, false, false, 0);
 

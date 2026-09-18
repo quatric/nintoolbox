@@ -409,6 +409,19 @@ typedef enum file_format_t
 	FF_SANIM,  // 314 - Mario Strikers skeleton animation (.sanim)
 	FF_RZPK,   // 315 - Mario Party 3DS compressed archive (.rzpk / RZPK, MPLibrary ZDAT)
 	FF_TTMODEL,// 316 - TT Games NTT engine model (.model, LEGO Star Wars: The Skywalker Saga)
+	FF_CSB,    // 317 - Paper Mario collision scene (.csb)
+	FF_CTB,    // 318 - Paper Mario collision search table (.ctb)
+	FF_LMMDL,  // 319 - Luigi's Mansion actor model (.mdl / 0x04B40000)
+	FF_LMBIN,  // 320 - Luigi's Mansion room model (.bin version 2)
+	FF_PIKMOD, // 321 - Pikmin 1 model (.mod chunked)
+	FF_PIKARC, // 322 - Pikmin 1 archive pair (.arc + .dir)
+	FF_WWRSC,  // 323 - Wario World resource container (.rsc)
+	FF_LMJMP,  // 324 - Luigi's Mansion parameter table (.jmp)
+	FF_LMKEY,  // 325 - Luigi's Mansion skeletal animation (.key)
+	FF_LMTMB,  // 326 - Luigi's Mansion fade-effect timing (.tmb)
+	FF_LMGEB,  // 327 - Luigi's Mansion sprite data (.geb)
+	FF_LMSLK,  // 328 - Luigi's Mansion shape animation (.slk)
+	FF_LMSLS,  // 329 - Luigi's Mansion morph data (.sls)
 
 	//--- number of elements
 

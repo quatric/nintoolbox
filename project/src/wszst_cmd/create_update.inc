@@ -5564,6 +5564,65 @@ static enumError extract_msh_file (ccp arg, ccp basedir, uint depth)
 	return err;
 }
 
+// Extract a Paper Mario .csb collision scene to a sibling GLB model file.
+// .csb has no magic, so this is gated on the extension (including the
+// retail Zstandard forms, decompressed first) and DecodeCSB() validates
+// the layout structurally. The companion .ctb search table is regenerated
+// on repack, so it is not extracted.
+static enumError extract_csb_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".csb") && !is_ext (arg, ".csb.zst") && !is_ext (arg, ".csb.zs")
+		&& !is_ext (arg, ".csb.zstd"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+	if (raw_size > UINT_MAX)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	// retail Switch storage is Zstandard-compressed
+	const u8 *data = raw;
+	uint data_size = (uint)raw_size;
+	u8 *decomp = 0;
+	uint decomp_size = 0;
+	if (IsZSTD (raw, (uint)raw_size) > 0
+		&& DecodeZSTD (&decomp, &decomp_size, raw, (uint)raw_size) == ERR_OK
+		&& decomp_size)
+	{
+		data = decomp;
+		data_size = decomp_size;
+	}
+	if (!IsCSB (data, data_size))
+	{
+		FREE (decomp);
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest_ext (dest, sizeof (dest), arg, ".glb");
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT CSB:%s -> GLB:%s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (!testmode)
+	{
+		err = DecodeCSB (data, data_size, dest);
+		// see StampFileMtime()'s doc comment at extract_msh_file()
+		if (!err)
+			StampFileMtime (dest, arg);
+	}
+	FREE (decomp);
+	FREE (raw);
+	return err;
+}
+
 // Extract a Monster Games "3LDN"/"2LDN" .mod model to a sibling GLB model file
 // Next Level Games .glg/.rlg models (Super Mario Strikers, Mario Strikers
 // Charged). These were reachable only through wmdlt: a whole-disc `wszst xx`
@@ -6293,6 +6352,44 @@ static enumError extract_wmb_file (ccp arg, ccp basedir, uint depth)
 
 	if (verbose >= 0)
 		fprintf (stdlog, "%sEXTRACT WMB:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, dest);
+	return ERR_OK;
+}
+
+static enumError extract_ttmodel_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".model"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+	if (raw_size < 20 || !IsTTModel (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest_ext (dest, sizeof (dest), arg, ".glb");
+	if (testmode)
+	{
+		FREE (raw);
+		fprintf (stdlog, "WOULD EXTRACT TTMODEL:%s -> GLB:%s\n", arg, dest);
+		return ERR_OK;
+	}
+
+	model_t *model = ParseTTModel (raw, raw_size);
+	FREE (raw);
+	if (!model)
+		return ERR_INVALID_DATA;
+
+	ExportModelToGLB (model, dest);
+	FreeModel (model);
+
+	if (verbose >= 0)
+		fprintf (stdlog, "%sEXTRACT TTMODEL:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, dest);
 	return ERR_OK;
 }
 

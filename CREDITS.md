@@ -46,10 +46,16 @@ We acknowledge and credit the following tools and authors whose research, format
   * Foundational Switch format reverse engineering (Syroot.NintenTools.Bfres and Syroot.NintenTools.Bntx).
 * **Metroid-Fed-Force-Dumper** by **KillzXGaming** ([Metroid-Fed-Force-Dumper](https://github.com/KillzXGaming/Metroid-Fed-Force-Dumper))
   * Technical reference and specifications for Next Level Games dictionary archives (*Metroid Prime: Federation Force*, *Luigi's Mansion: Dark Moon* / LM2HD, *Luigi's Mansion 3*, and *Mario Strikers: Battle League Football*).
+* **NextLevelLibrary** by **KillzXGaming** ([NextLevelLibrary](https://github.com/KillzXGaming/NextLevelLibrary))
+  * MIT-licensed wire layouts for Next Level Games LM2/LM3 dictionary/data archives (DICT parsers, chunk tables, block roles), B000/B500/7100 model/texture/skeleton chunks, LM2 hash-driven vertex layouts, LM3 material presets, 0x7000 animation tracks, 0x5000/0x6500 script tables, the NLG string hash plus its FileNames/BoneNames/MaterialNames/ScriptStrings/Misc wordlists, and the Mario Strikers SANIM stream.
 * **MPR-Model-Dumper** by **KillzXGaming** ([MPR-Model-Dumper](https://github.com/KillzXGaming/MPR-Model-Dumper))
   * Technical reference for Retro Studios RFRM format specifications (*Metroid Prime Remastered* and *Donkey Kong Country: Tropical Freeze* CMDL, SMDL, WMDL world model geometry, and SKEL skeleton hierarchies).
+* **NTT-Model-Dumper** by **KillzXGaming** ([NTT-Model-Dumper](https://github.com/KillzXGaming/NTT-Model-Dumper))
+  * Technical reference for TT Games NTT engine `.model` specifications (*LEGO Star Wars: The Skywalker Saga* chunk walk, DXTV vertex buffers, and index lists).
 * **EffectLibrary** by **KillzXGaming** ([EffectLibrary](https://github.com/KillzXGaming/EffectLibrary))
   * NintendoWare particle effect systems (EFT1, EFT2, and VFXB `.ptcl`/`.eset` archives) and Bandai Namco particle effect container architectures (EFFN `.eff`/`.effn` format for *Super Smash Bros. 4* and *Super Smash Bros. Ultimate*).
+* **CollisionSceneBinary** by **KillzXGaming** ([CollisionSceneBinary](https://github.com/KillzXGaming/CollisionSceneBinary))
+  * Technical reference and format specifications for Paper Mario collision scenes and search tables (`.csb` combined/split mesh buffers, sphere/box trigger volumes, material/collision flags, and the `.ctb` XZ-quadtree), re-implemented here in C.
 * **Metanoia** by **Ploaj** ([Metanoia](https://github.com/Ploaj/Metanoia))
   * Multi-platform reverse engineering, format analysis, and 3D model exploration tool for Nintendo formats across GameCube, Wii, 3DS, DS, and Switch (including HSF, HSD, GLG, BNFM, and proprietary console asset containers).
 * **SSBHLib & CrossMod** by **Ploaj** ([SSBHLib](https://github.com/Ploaj/SSBHLib))

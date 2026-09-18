@@ -448,134 +448,123 @@ static bool ntt_grow_materials (model_t *model, size_t *cap)
 	return true;
 }
 
-// Decode one mesh's buffers into the preallocated attribute arrays.
-// Returns false when positions are missing or non-finite.
-static bool ntt_decode_verts (const u8 *data, size_t *cur, size_t hi,
-	ntt_attr_t *all_attrs, uint *all_na, uint nbuf, uint nverts,
+// Decode one buffer's vertices at explicit base VBASE into the preallocated
+// attribute arrays. Returns false when an attribute fails to decode.
+static bool ntt_decode_one_buffer (const u8 *data, size_t vbase,
+	ntt_attr_t *attrs, uint na, uint st, uint nverts,
 	vec3_t *pos, vec3_t *nrm, vec2_t *uv0, vec2_t *uv1,
 	color4_t *col0, color4_t *col1, vec3_t *tan,
 	bool have_pos, bool have_nrm, bool have_uv0, bool have_uv1,
 	bool have_col0, bool have_col1, bool have_tan, bool *uv_ok)
 {
-	uint attr_base = 0;
-	for (uint b = 0; b < nbuf; b++)
+	for (uint v = 0; v < nverts; v++)
 	{
-		uint na = all_na[b];
-		ntt_attr_t *attrs = all_attrs + attr_base;
-		attr_base += na;
-		// ntt_scan_buffer_head already advanced *cur past the table in the
-		// parse walk below; here *cur points at the vertex data. Recompute
-		// the stride from the stored table.
-		uint st = 0;
 		for (uint i = 0; i < na; i++)
-			st += ntt_stride_of (attrs[i].format);
-		const size_t vbase = *cur;
-		for (uint v = 0; v < nverts; v++)
 		{
-			for (uint i = 0; i < na; i++)
+			float f[4];
+			const u8 *q = data + vbase + (size_t)st * v + attrs[i].offset;
+			if (!ntt_decode_attr (f, q, attrs[i].format))
+				return false;
+			switch (attrs[i].type)
 			{
-				float f[4];
-				const u8 *p = data + vbase + (size_t)st * v + attrs[i].offset;
-				if (!ntt_decode_attr (f, p, attrs[i].format))
-					return false;
-				switch (attrs[i].type)
-				{
-					case NTT_POS:
-						if (have_pos)
+				case NTT_POS:
+					if (have_pos)
+					{
+						pos[v].x = f[0];
+						pos[v].y = f[1];
+						pos[v].z = f[2];
+					}
+					break;
+				case NTT_NRM:
+					if (have_nrm)
+					{
+						nrm[v].x = f[0];
+						nrm[v].y = f[1];
+						nrm[v].z = f[2];
+					}
+					break;
+				case NTT_UV01:
+					if (have_uv0)
+					{
+						if (!ntt_finite (f[0]) || !ntt_finite (f[1]))
+							*uv_ok = false;
+						else
 						{
-							pos[v].x = f[0];
-							pos[v].y = f[1];
-							pos[v].z = f[2];
+							uv0[v].u = f[0];
+							uv0[v].v = f[1];
 						}
-						break;
-					case NTT_NRM:
-						if (have_nrm)
+					}
+					break;
+				case NTT_UV2:
+					if (have_uv1)
+					{
+						if (!ntt_finite (f[0]) || !ntt_finite (f[1]))
+							*uv_ok = false;
+						else
 						{
-							nrm[v].x = f[0];
-							nrm[v].y = f[1];
-							nrm[v].z = f[2];
+							uv1[v].u = f[0];
+							uv1[v].v = f[1];
 						}
-						break;
-					case NTT_UV01:
-						if (have_uv0)
+					}
+					break;
+				case NTT_COL0:
+					if (have_col0)
+					{
+						if (attrs[i].format == NTT_VEC4BF)
 						{
-							if (!ntt_finite (f[0]) || !ntt_finite (f[1]))
-								*uv_ok = false;
-							else
-							{
-								uv0[v].u = f[0];
-								uv0[v].v = f[1];
-							}
+							col0[v].r = f[0];
+							col0[v].g = f[1];
+							col0[v].b = f[2];
+							col0[v].a = f[3];
 						}
-						break;
-					case NTT_UV2:
-						if (have_uv1)
+						else
 						{
-							if (!ntt_finite (f[0]) || !ntt_finite (f[1]))
-								*uv_ok = false;
-							else
-							{
-								uv1[v].u = f[0];
-								uv1[v].v = f[1];
-							}
+							col0[v].r = f[0] / 255.0f;
+							col0[v].g = f[1] / 255.0f;
+							col0[v].b = f[2] / 255.0f;
+							col0[v].a = f[3] / 255.0f;
 						}
-						break;
-					case NTT_COL0:
-						if (have_col0)
+					}
+					break;
+				case NTT_COL1:
+					if (have_col1)
+					{
+						if (attrs[i].format == NTT_VEC4BF)
 						{
-							if (attrs[i].format == NTT_VEC4BF)
-							{
-								col0[v].r = f[0];
-								col0[v].g = f[1];
-								col0[v].b = f[2];
-								col0[v].a = f[3];
-							}
-							else
-							{
-								col0[v].r = f[0] / 255.0f;
-								col0[v].g = f[1] / 255.0f;
-								col0[v].b = f[2] / 255.0f;
-								col0[v].a = f[3] / 255.0f;
-							}
+							col1[v].r = f[0];
+							col1[v].g = f[1];
+							col1[v].b = f[2];
+							col1[v].a = f[3];
 						}
-						break;
-					case NTT_COL1:
-						if (have_col1)
+						else
 						{
-							if (attrs[i].format == NTT_VEC4BF)
-							{
-								col1[v].r = f[0];
-								col1[v].g = f[1];
-								col1[v].b = f[2];
-								col1[v].a = f[3];
-							}
-							else
-							{
-								col1[v].r = f[0] / 255.0f;
-								col1[v].g = f[1] / 255.0f;
-								col1[v].b = f[2] / 255.0f;
-								col1[v].a = f[3] / 255.0f;
-							}
+							col1[v].r = f[0] / 255.0f;
+							col1[v].g = f[1] / 255.0f;
+							col1[v].b = f[2] / 255.0f;
+							col1[v].a = f[3] / 255.0f;
 						}
-						break;
-					case NTT_TAN:
-						if (have_tan)
-						{
-							tan[v].x = f[0];
-							tan[v].y = f[1];
-							tan[v].z = f[2];
-						}
-						break;
-					default:
-						break;
-				}
+					}
+					break;
+				case NTT_TAN:
+					if (have_tan)
+					{
+						tan[v].x = f[0];
+						tan[v].y = f[1];
+						tan[v].z = f[2];
+					}
+					break;
+				default:
+					break;
 			}
 		}
-		*cur = vbase + (size_t)st * nverts + 16;
-		if (*cur > hi)
-			return false;
 	}
-	// Positions must exist and be finite; normals only need finiteness.
+	return true;
+}
+
+// Positions must exist and be finite; normals only need finiteness.
+static bool ntt_check_pos_nrm (vec3_t *pos, vec3_t *nrm,
+	uint nverts, bool have_pos, bool have_nrm)
+{
 	if (!have_pos)
 		return false;
 	for (uint v = 0; v < nverts; v++)
@@ -591,7 +580,7 @@ static bool ntt_decode_verts (const u8 *data, size_t *cur, size_t hi,
 model_t *ParseTTModel (const u8 *data, size_t size)
 {
 	if (!IsTTModel (data, size))
-		{ fprintf(stderr,"nttdbg: IsTTModel rejected\n"); return 0; }
+		return 0;
 
 	model_t *model = CALLOC (1, sizeof (*model));
 	if (!model)
@@ -646,10 +635,14 @@ model_t *ParseTTModel (const u8 *data, size_t size)
 			const u32 nverts = rd_be32 (data + cur + 20);
 			cur += 24;
 
-			// Collect attribute tables first so semantics are known up
-			// front; tables are small (<=16 buffers x 32 attrs).
+			// Buffers are interleaved header+data (header, LE vertices,
+			// 16-byte footer each), so walk them in order: record each
+			// table plus its vertex-data offset, skipping the data for
+			// now. Tables are small (<=16 buffers x 32 attrs).
 			ntt_attr_t attrs[NTT_MAX_BUFFERS * NTT_MAX_ATTRS];
 			uint nas[NTT_MAX_BUFFERS];
+			uint strides[NTT_MAX_BUFFERS];
+			size_t voffs[NTT_MAX_BUFFERS];
 			bool ok = true;
 			for (uint b = 0; ok && b < nbuf; b++)
 			{
@@ -658,13 +651,14 @@ model_t *ParseTTModel (const u8 *data, size_t size)
 				if (!ntt_scan_buffer_head (data, &head, end,
 						attrs + b * NTT_MAX_ATTRS, &na, &st))
 					ok = false;
+				else if ((u64)st * (u64)nverts + 16 > (u64)(end - head))
+					ok = false;
 				else
 				{
 					nas[b] = na;
-					if ((u64)st * (u64)nverts + 16 > (u64)(end - head))
-						ok = false;
-					else
-						cur = head;
+					strides[b] = st;
+					voffs[b] = head;
+					cur = head + (size_t)st * nverts + 16;
 				}
 			}
 			if (!ok)
@@ -727,22 +721,16 @@ model_t *ParseTTModel (const u8 *data, size_t size)
 				goto fail;
 			}
 
-			ntt_attr_t packed[NTT_MAX_BUFFERS * NTT_MAX_ATTRS];
-			uint packed_na[NTT_MAX_BUFFERS];
-			uint pbase = 0;
-			for (uint b = 0; b < nbuf; b++)
-			{
-				packed_na[b] = nas[b];
-				memcpy (packed + pbase, attrs + b * NTT_MAX_ATTRS,
-					nas[b] * sizeof (*packed));
-				pbase += nas[b];
-			}
-
 			bool uv_ok = true;
-			bool dec_ok = ntt_decode_verts (data, &cur, end, packed, packed_na,
-				nbuf, nverts, vpos, vnrm, vuv0, vuv1, vcol0, vcol1, vtan,
-				have_pos, have_nrm, have_uv0, have_uv1,
-				have_col0, have_col1, have_tan, &uv_ok);
+			bool dec_ok = true;
+			for (uint b = 0; dec_ok && b < nbuf; b++)
+				dec_ok = ntt_decode_one_buffer (data, voffs[b],
+					attrs + b * NTT_MAX_ATTRS, nas[b], strides[b], nverts,
+					vpos, vnrm, vuv0, vuv1, vcol0, vcol1, vtan,
+					have_pos, have_nrm, have_uv0, have_uv1,
+					have_col0, have_col1, have_tan, &uv_ok);
+			if (dec_ok)
+				dec_ok = ntt_check_pos_nrm (vpos, vnrm, nverts, have_pos, have_nrm);
 
 			if (cur + 8 > end)
 				dec_ok = false;

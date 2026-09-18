@@ -25312,6 +25312,18 @@
 	"", \
 	"J3D BMD/BDL encode: ignore _mipN texture files." )
 
+#:def_opt( "CSB_BIG", "csb-big", "C", \
+	"", \
+	"Paper Mario CSB encode: write the big-endian Color Splash layout (u32" \
+	" collision flags, uncompressed) instead of the default little-endian" \
+	" TTYD/Origami King layout." )
+
+#:def_opt( "CSB_MOBJ", "csb-mobj", "C", \
+	"", \
+	"Paper Mario CSB encode: write one split model per mesh (map-object" \
+	" style, no .ctb search table) instead of the default combined" \
+	" DEADBEEF buffer with a generated .ctb sidecar." )
+
 #:def_cmd_opt( "VERSION", "BRIEF", \
 	"", \
 	"Print only the version number, revision and system. If set twice," \
@@ -25930,6 +25942,14 @@
 	"" )
 
 #:def_cmd_opt( "ENCODE", "J3D_NOMIPMAPS", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "ENCODE", "CSB_BIG", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "ENCODE", "CSB_MOBJ", \
 	"", \
 	"" )
 

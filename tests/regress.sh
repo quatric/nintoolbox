@@ -8241,22 +8241,165 @@ with open(sys.argv[1], "wb") as f:
     fno "Nintendo Audio Resource Archive" "failed to extract .bars sample";
   fi
 
-  # Next Level Games Dictionary Archive (.dict) test
+  # Next Level Games Dictionary Archive (.dict) test: LM3 fixture pair
+  # (tests/fixtures/lm3_dict.dict/.data, built by
+  # tests/mk-nlg-lm-fixtures.py) decodes its block table to raw dumps.
   mkdir -p "$d/nlg_dict_test"
-  python3 -c '
-import sys, struct
-hdr = struct.pack(">IHBBIIBBBB", 0x5824F3A9, 0x0401, 0, 0, 100, 0x78340300, 1, 0, 0, 0)
-fentry = struct.pack("<IIIHBB", 36, 14, 14, 0, 0, 0)
-payload = b"LM3_DICT_TEST!"
-with open(sys.argv[1], "wb") as f:
-    f.write(hdr + fentry + payload)
-' "$d/nlg_dict_test/sample.dict"
-  if "$B/wszst" x "$d/nlg_dict_test/sample.dict" --dest "$d/nlg_dict_test/out" --overwrite >/dev/null 2>&1 \
-  && [ -f "$d/nlg_dict_test/out/file_0000.bin" ] \
-  && [ "$(cat "$d/nlg_dict_test/out/file_0000.bin")" = "LM3_DICT_TEST!" ]; then
+  if "$B/wszst" x "$PWD_PROJECT/../tests/fixtures/lm3_dict.dict" --dest "$d/nlg_dict_test/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/nlg_dict_test/out/file_0053.bin" ] \
+  && [ -f "$d/nlg_dict_test/out/file_0065.bin" ]; then
     fok "Next Level Games Dictionary Archive (.dict) extraction"
   else
     fno "Next Level Games Dictionary Archive" "failed to extract .dict sample";
+  fi
+
+  # Next Level Games LM2 typed chunks (model/texture/skeleton/animation/
+  # script/font/message/config) from the synthetic LM2 fixture pair.
+  mkdir -p "$d/nlg_lm2_test"
+  if "$B/wszst" x "$PWD_PROJECT/../tests/fixtures/lm2_dict.dict" --dest "$d/nlg_lm2_test/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/nlg_lm2_test/out/00.nlg_267D154E_model.fedmodel" ] \
+  && [ -f "$d/nlg_lm2_test/out/00.nlg_267D154E_model.fedmodel.glb" ] \
+  && [ -f "$d/nlg_lm2_test/out/nlg_A11CE001_tex.fedtex.png" ] \
+  && [ -f "$d/nlg_lm2_test/out/03.nlg_26B35ED1_skel.fedskel" ] \
+  && grep -q "bip01" "$d/nlg_lm2_test/out/04.nlg_26C57752_anim.txt" \
+  && grep -q "Easy.script" "$d/nlg_lm2_test/out/05.nlg_26D78FD3_script.txt" \
+  && grep -q "Test" "$d/nlg_lm2_test/out/07.nlg_26FBC0D5_type_7020.txt" \
+  && grep -q "quality=high" "$d/nlg_lm2_test/out/1.nlg_013CA3BF_config.txt" \
+  && grep -q "Font" "$d/nlg_lm2_test/out/06.nlg_26E9A854_font.nlgfont"; then
+    g=$(python3 "$GLTF_COUNT" "$d/nlg_lm2_test/out/00.nlg_267D154E_model.fedmodel.glb" geometry 2>/dev/null || true); g=${g:-0}
+    if [ "$g" -ge 1 ] 2>/dev/null; then
+      fok "Next Level Games LM2 typed chunks (.dict -> GLB/PNG/text)"
+    else
+      fno "Next Level Games LM2 typed chunks" "model GLB has no geometry";
+    fi
+  else
+    fno "Next Level Games LM2 typed chunks" "missing typed outputs";
+  fi
+
+  # Next Level Games LM3 typed chunks, same coverage on the LM3 layouts
+  # (12-byte model headers, fixed vertex records, Switch textures).
+  mkdir -p "$d/nlg_lm3_test"
+  if "$B/wszst" x "$PWD_PROJECT/../tests/fixtures/lm3_dict.dict" --dest "$d/nlg_lm3_test/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/nlg_lm3_test/out/00.nlg_267D154E_model.fedmodel.glb" ] \
+  && [ -f "$d/nlg_lm3_test/out/nlg_A11CE003_tex.fedtex.png" ] \
+  && [ -f "$d/nlg_lm3_test/out/03.nlg_26B35ED1_skel.fedskel" ] \
+  && grep -q "bip01" "$d/nlg_lm3_test/out/04.nlg_26C57752_anim.txt" \
+  && grep -q "Medium.script" "$d/nlg_lm3_test/out/05.nlg_26D78FD3_script.txt" \
+  && grep -q "Test" "$d/nlg_lm3_test/out/07.nlg_26FBC0D5_type_7020.txt"; then
+    g=$(python3 "$GLTF_COUNT" "$d/nlg_lm3_test/out/00.nlg_267D154E_model.fedmodel.glb" geometry 2>/dev/null || true); g=${g:-0}
+    if [ "$g" -ge 1 ] 2>/dev/null; then
+      fok "Next Level Games LM3 typed chunks (.dict -> GLB/PNG/text)"
+    else
+      fno "Next Level Games LM3 typed chunks" "model GLB has no geometry";
+    fi
+  else
+    fno "Next Level Games LM3 typed chunks" "missing typed outputs";
+  fi
+
+  # Next Level Games LM2/LM3 texture pixels: gradient corners survive the
+  # PICA Morton (LM2) and Switch block-linear (LM3) round trips.
+  python3 - "$d/nlg_lm2_test/out/nlg_A11CE001_tex.fedtex.png" "$d/nlg_lm3_test/out/nlg_A11CE003_tex.fedtex.png" <<'PYEOF'
+import struct, sys, zlib
+ok = True
+for path in sys.argv[1:]:
+    d = open(path, 'rb').read()
+    p = 8
+    idat = b''
+    while p < len(d):
+        ln = struct.unpack('>I', d[p:p + 4])[0]
+        if d[p + 4:p + 8] == b'IDAT':
+            idat += d[p + 8:p + 8 + ln]
+        p += 12 + ln
+    raw = zlib.decompress(idat)
+    # undo PNG filters (encoder emits SUB/PAETH rows)
+    out = bytearray()
+    prev = bytearray(24)
+    q = 0
+    for _ in range(8):
+        f = raw[q]
+        q += 1
+        line = bytearray(raw[q:q + 24])
+        q += 24
+        if f == 1:
+            for i in range(3, 24):
+                line[i] = (line[i] + line[i - 3]) & 255
+        elif f == 4:
+            for i in range(24):
+                a = line[i - 3] if i >= 3 else 0
+                b = prev[i]
+                c = prev[i - 3] if i >= 3 else 0
+                pa, pb, pc = abs(b - c), abs(a - c), abs(a + b - 2 * c)
+                pr = a if (pa <= pb and pa <= pc) else (b if pb <= pc else c)
+                line[i] = (line[i] + pr) & 255
+        out += line
+        prev = line
+    px = lambda x, y: tuple(out[(y * 8 + x) * 3:(y * 8 + x) * 3 + 3])
+    ok = ok and px(0, 0) == (0, 0, 128) and px(7, 0) == (224, 0, 128) \
+        and px(0, 7) == (0, 224, 128) and px(7, 7) == (224, 224, 128)
+sys.exit(0 if ok else 1)
+PYEOF
+  if [ $? -eq 0 ]; then
+    fok "Next Level Games LM2/LM3 texture pixels (PICA/Switch round trip)"
+  else
+    fno "Next Level Games LM2/LM3 texture pixels" "gradient corners mismatch";
+  fi
+
+  # Federation Force typed chunks from the committed retail-layout pair:
+  # texture -> FEDT+PNG, font description -> text.
+  mkdir -p "$d/nlg_fed_test"
+  if "$B/wszst" x "$PWD_PROJECT/../tests/fixtures/fedforce_dict.dict" --dest "$d/nlg_fed_test/out" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/nlg_fed_test/out/nlg_22222222_tex.fedtex.png" ] \
+  && grep -q "NLG Font Description" "$d/nlg_fed_test/out/"*"_font.nlgfont"; then
+    fok "Federation Force typed chunks (.dict -> FEDT/PNG/font)"
+  else
+    fno "Federation Force typed chunks" "missing typed outputs";
+  fi
+
+  # Next Level Games standalone containers: FEDM/FEDS through wmdlt to
+  # GLB, FEDT through wimgt to PNG.
+  mkdir -p "$d/nlg_tool_test"
+  if "$B/wmdlt" DECODE "$PWD_PROJECT/../tests/fixtures/fedforce_model_tri.fedmodel" --dest "$d/nlg_tool_test/tri.glb" --overwrite >/dev/null 2>&1; then
+    g=$(python3 "$GLTF_COUNT" "$d/nlg_tool_test/tri.glb" geometry 2>/dev/null || true); g=${g:-0}
+    if [ "$g" -ge 1 ] 2>/dev/null; then
+      fok "Next Level Games model container (.fedmodel -> GLB)"
+    else
+      fno "Next Level Games model container" ".fedmodel GLB has no geometry";
+    fi
+  else
+    fno "Next Level Games model container" "wmdlt failed on .fedmodel";
+  fi
+  if "$B/wmdlt" DECODE "$PWD_PROJECT/../tests/fixtures/fedforce_skel_1bone.fedskel" --dest "$d/nlg_tool_test/skel.glb" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/nlg_tool_test/skel.glb" ]; then
+    fok "Next Level Games skeleton container (.fedskel -> GLB)"
+  else
+    fno "Next Level Games skeleton container" "wmdlt failed on .fedskel";
+  fi
+  if "$B/wimgt" DECODE "$PWD_PROJECT/../tests/fixtures/fedforce_tex_8x8.fedtex" --dest "$d/nlg_tool_test/tex.png" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/nlg_tool_test/tex.png" ]; then
+    fok "Next Level Games texture container (.fedtex -> PNG)"
+  else
+    fno "Next Level Games texture container" "wimgt failed on .fedtex";
+  fi
+
+  # Mario Strikers SANIM animation stream extraction.
+  mkdir -p "$d/nlg_sanim_test"
+  if "$B/wszst" x "$PWD_PROJECT/../tests/fixtures/strikers_test.sanim" --dest "$d/nlg_sanim_test/out" --overwrite >/dev/null 2>&1 \
+  && grep -q 'name "run"' "$d/nlg_sanim_test/out/anim.txt" \
+  && grep -q "frames 30" "$d/nlg_sanim_test/out/anim.txt"; then
+    fok "Mario Strikers animation stream (.sanim -> text)"
+  else
+    fno "Mario Strikers animation stream" "failed to extract .sanim sample";
+  fi
+
+  # Next Level Games format identification.
+  if "$B/wszst" FILETYPE "$PWD_PROJECT/../tests/fixtures/fedforce_model_tri.fedmodel" 2>/dev/null | grep -q "FEDMODEL" \
+  && "$B/wszst" FILETYPE "$PWD_PROJECT/../tests/fixtures/fedforce_tex_8x8.fedtex" 2>/dev/null | grep -q "FEDTEX" \
+  && "$B/wszst" FILETYPE "$PWD_PROJECT/../tests/fixtures/fedforce_skel_1bone.fedskel" 2>/dev/null | grep -q "FEDSKEL" \
+  && "$B/wszst" FILETYPE "$PWD_PROJECT/../tests/fixtures/strikers_test.sanim" 2>/dev/null | grep -q "SANIM" \
+  && "$B/wszst" FILETYPE "$PWD_PROJECT/../tests/fixtures/lm2_dict.dict" 2>/dev/null | grep -q "NLG-DICT"; then
+    fok "Next Level Games format identification (FEDMODEL/FEDTEX/FEDSKEL/SANIM/NLG-DICT)"
+  else
+    fno "Next Level Games format identification" "FILETYPE mismatch";
   fi
 
   # Next Level Games Texture To Go (.txtg) test
@@ -11833,6 +11976,165 @@ assert prims_mats == [0, 1, 2], f"material mapping mismatch: {prims_mats}"
   rm -rf "$d"
 }
 t_wmb
+
+t_ttmodel(){
+  # TT Games NTT engine .model (LEGO Star Wars: The Skywalker Saga):
+  # big-endian chunk walk (.CC4HSERHSER hierarchy + .CC4HSER2CSG scene),
+  # little-endian DXTV vertex buffers, u16/u32 index lists. The fixture is
+  # generated on the fly (tests/mk-nttmodel-fixtures.py): mesh 0 carries
+  # float positions/normals/UVs plus byte colours and float tangents with
+  # u32 indices, mesh 1 half-float positions/normals, a second UV set and
+  # normalized byte colours with u16 indices.
+  local d; d=$(mktemp -d /tmp/_r_ttmodel.XXXXXX) || { no "TTMODEL" "mktemp failed"; return; }
+  python3 "$PWD_PROJECT/../tests/mk-nttmodel-fixtures.py" "$d" >/dev/null 2>&1
+  local f="$d/nttmodel_tri.model"
+  [ -f "$f" ] || { no "TTMODEL" "fixture generator failed"; rm -rf "$d"; return; }
+  if "$B/wszst" FILETYPE "$f" 2>/dev/null | grep -q '^TTMODEL' \
+  && "$B/wmdlt" DECODE "$f" --dest "$d/model.glb" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/model.glb" ] \
+  && python3 ../tests/validate-glb.py "$d/model.glb" >/dev/null 2>&1 \
+  && python3 -c '
+import json, struct, sys
+b = open(sys.argv[1], "rb").read()
+ln, typ = struct.unpack_from("<II", b, 12)
+doc = json.loads(b[20:20+ln])
+assert len(doc.get("meshes", [])) == 2, "expected exactly 2 meshes"
+p0 = doc["meshes"][0]["primitives"][0]
+a0 = p0["attributes"]
+assert set(("POSITION", "NORMAL", "TEXCOORD_0", "COLOR_0")) <= set(a0), a0.keys()
+acc = doc["accessors"]
+assert acc[a0["POSITION"]]["min"] == [0, 0, 0], acc[a0["POSITION"]]
+assert acc[a0["POSITION"]]["max"] == [1, 1, 0], acc[a0["POSITION"]]
+p1 = doc["meshes"][1]["primitives"][0]
+a1 = p1["attributes"]
+assert "TEXCOORD_1" in a1, a1.keys()
+assert acc[a1["POSITION"]]["min"] == [2, 0, 0], acc[a1["POSITION"]]
+assert acc[a1["POSITION"]]["max"] == [3, 1, 0], acc[a1["POSITION"]]
+' "$d/model.glb" 2>/dev/null; then
+    ok "TTMODEL (.model) -> valid 2-mesh glTF with exact bounds"
+  else
+    no "TTMODEL" "failed to decode synthetic fixture"
+  fi
+  # Same file through wszst xx must agree byte-exact with wmdlt.
+  if "$B/wszst" xx "$f" --dest "$d/x.glb" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/model.glb" "$d/x.glb"; then
+    ok "TTMODEL wszst xx agrees byte-exact with wmdlt"
+  else
+    no "TTMODEL wszst xx" "extract path differs from wmdlt"
+  fi
+  # Garbage and truncated inputs must be declined, never crash.
+  python3 -c 'import random; random.seed(1); open("'"$d"'/garbage.model","wb").write(random.randbytes(500))'
+  head -c 100 "$f" > "$d/trunc.model"
+  if ! "$B/wmdlt" DECODE "$d/garbage.model" --dest "$d/g.glb" --overwrite >/dev/null 2>&1 \
+  && ! "$B/wmdlt" DECODE "$d/trunc.model" --dest "$d/g.glb" --overwrite >/dev/null 2>&1; then
+    ok "TTMODEL declines garbage and truncated inputs"
+  else
+    no "TTMODEL" "accepted garbage or truncated input"
+  fi
+  rm -rf "$d"
+}
+t_ttmodel
+
+t_csb(){
+  # Paper Mario collision scene (.csb) + search table (.ctb), after
+  # KillzXGaming/CollisionSceneBinary: combined DEADBEEF mesh buffers with
+  # slices, a split map-object model, sphere/box trigger volumes, and both
+  # endiannesses (LE TTYD/Origami King, BE Color Splash). Fixtures are
+  # generated on the fly (tests/mk_csb_fixtures.py): ground quad (2 tris,
+  # MAT1/FLAG3) + wall (1 tri, MAT5/FLAG256) + split pipe (1 tri,
+  # MAT9/FLAG512) + trigger0 sphere (FLAG7) + zone0 box (FLAG256).
+  local d; d=$(mktemp -d /tmp/_r_csb.XXXXXX) || { no "CSB" "mktemp failed"; return; }
+  python3 "$PWD_PROJECT/../tests/mk_csb_fixtures.py" "$d" >/dev/null 2>&1
+  local f="$d/csb_basic.csb" fb="$d/csb_big.csb"
+  [ -f "$f" ] && [ -f "$fb" ] || { no "CSB" "fixture generator failed"; rm -rf "$d"; return; }
+  if "$B/wszst" FILETYPE "$f" 2>/dev/null | grep -q '^CSB' \
+  && "$B/wszst" FILETYPE "$fb" 2>/dev/null | grep -q '^CSB'; then
+    ok "CSB FILETYPE names .csb (LE and BE)"
+  else
+    no "CSB FILETYPE" "not detected"
+  fi
+  if "$B/wmdlt" DECODE "$f" --dest "$d/basic.glb" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/basic.glb" ] \
+  && python3 ../tests/validate-glb.py "$d/basic.glb" >/dev/null 2>&1 \
+  && python3 -c '
+import json, struct, sys
+b = open(sys.argv[1], "rb").read()
+ln, typ = struct.unpack_from("<II", b, 12)
+doc = json.loads(b[20:20+ln])
+names = sorted(m.get("name", "") for m in doc.get("meshes", []))
+assert names == ["_CSB_TRIGGER_VOLUME", "ground", "pipe", "wall"], names
+mats = sorted(m.get("name", "") for m in doc.get("materials", []))
+assert mats == ["MAT0_FLAG0", "MAT1_FLAG3", "MAT5_FLAG256", "MAT9_FLAG512"], mats
+acc = doc["accessors"]
+idx = 0
+for m in doc["meshes"]:
+    idx += acc[m["primitives"][0]["indices"]]["count"]
+assert idx == 15, idx  # 4 collision tris + 1 degenerate carrier tri
+nodes = [n.get("name", "") for n in doc.get("nodes", [])]
+assert "MAPOBJ_SPHERE_trigger0#FLAG7" in nodes, nodes
+assert "MAPOBJ_BOX_zone0#FLAG256" in nodes, nodes
+' "$d/basic.glb" 2>/dev/null; then
+    ok "CSB (LE) -> GLB with 4 meshes, MAT/FLAG materials, MAPOBJ instances"
+  else
+    no "CSB decode" "failed to decode synthetic LE fixture"
+  fi
+  if "$B/wmdlt" DECODE "$fb" --dest "$d/big.glb" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/big.glb" ] \
+  && "$B/wmdlt" CAT "$fb" 2>/dev/null | grep -q 'big-endian' \
+  && "$B/wmdlt" CAT "$f" 2>/dev/null | grep -q 'little-endian'; then
+    ok "CSB (BE) decodes, CAT reports endianness"
+  else
+    no "CSB BE" "failed to decode synthetic BE fixture"
+  fi
+  # GLB -> CSB round trip: objects/flags survive, output is deterministic
+  # and a fixed point, CTB sidecar validates.
+  if "$B/wmdlt" ENCODE "$d/basic.glb" --dest "$d/rt.csb" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/rt.csb" ] && [ -s "$d/rt.ctb" ] \
+  && "$B/wmdlt" CAT "$d/rt.ctb" 2>/dev/null | grep -q 'CTB collision table' \
+  && "$B/wmdlt" ENCODE "$d/basic.glb" --dest "$d/rt2.csb" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/rt.csb" "$d/rt2.csb" \
+  && "$B/wmdlt" DECODE "$d/rt.csb" --dest "$d/rt.glb" --overwrite >/dev/null 2>&1 \
+  && "$B/wmdlt" ENCODE "$d/rt.glb" --dest "$d/rt3.csb" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/rt.csb" "$d/rt3.csb" \
+  && "$B/wmdlt" CAT "$d/rt.csb" 2>/dev/null | grep -q "sphere .trigger0." \
+  && "$B/wmdlt" CAT "$d/rt.csb" 2>/dev/null | grep -q "MAT9 FLAG512"; then
+    ok "CSB round trip preserves objects/flags, deterministic fixed point + CTB"
+  else
+    no "CSB round trip" "encode/decode cycle failed"
+  fi
+  # --csb-big / --csb-mobj encoder modes
+  if "$B/wmdlt" ENCODE "$d/basic.glb" --dest "$d/big_rt.csb" --csb-big \
+  --overwrite >/dev/null 2>&1 \
+  && "$B/wmdlt" CAT "$d/big_rt.csb" 2>/dev/null | grep -q 'big-endian' \
+  && "$B/wmdlt" ENCODE "$d/basic.glb" --dest "$d/mobj.csb" --csb-mobj \
+  --overwrite >/dev/null 2>&1 \
+  && "$B/wmdlt" CAT "$d/mobj.csb" 2>/dev/null | grep -q "4 model(s)" \
+  && [ ! -e "$d/mobj.ctb" ]; then
+    ok "CSB --csb-big / --csb-mobj encoder modes"
+  else
+    no "CSB modes" "--csb-big/--csb-mobj failed"
+  fi
+  # Zstandard storage form + wszst extract agreement
+  if "$B/wmdlt" ENCODE "$d/basic.glb" --dest "$d/rt.csb.zst" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/rt.csb.zst" ] && [ -s "$d/rt.ctb.zst" ] \
+  && "$B/wszst" xx "$f" --dest "$d/x.glb" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/basic.glb" "$d/x.glb"; then
+    ok "CSB .zst storage form, wszst xx agrees byte-exact with wmdlt"
+  else
+    no "CSB zst/xx" "compressed form or extract path failed"
+  fi
+  # Garbage and truncated inputs must be declined, never crash.
+  python3 -c 'import random; random.seed(7); open("'"$d"'/garbage.csb","wb").write(random.randbytes(900))'
+  head -c 100 "$f" > "$d/trunc.csb"
+  if ! "$B/wmdlt" DECODE "$d/garbage.csb" --dest "$d/g.glb" --overwrite >/dev/null 2>&1 \
+  && ! "$B/wmdlt" DECODE "$d/trunc.csb" --dest "$d/g.glb" --overwrite >/dev/null 2>&1; then
+    ok "CSB declines garbage and truncated inputs"
+  else
+    no "CSB" "accepted garbage or truncated input"
+  fi
+  rm -rf "$d"
+}
+t_csb
 
 t_g1tgz(){
   # Koei Tecmo G1T chunked wrapper (.g1t.gz, Hyrule Warriors Wii U):

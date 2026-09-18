@@ -1375,6 +1375,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x48534600: // "HSF\0"
 				return FF_HSF;
 
+			// Luigi's Mansion actor model (0x04B40000)
+			case 0x04b40000:
+				return FF_LMMDL;
+
 		// Mario Party 3DS compressed archive (MPLibrary 3DS/ZDAT.cs)
 			case 0x525A504B: // "RZPK"
 				return FF_RZPK;
@@ -2050,6 +2054,32 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_VFXB;
 		case NFMT_RZPK:
 			return FF_RZPK;
+		case NFMT_CSB:
+			return FF_CSB;
+		case NFMT_CTB:
+			return FF_CTB;
+		case NFMT_LMMDL:
+			return FF_LMMDL;
+		case NFMT_LMBIN:
+			return FF_LMBIN;
+		case NFMT_PIKMOD:
+			return FF_PIKMOD;
+		case NFMT_PIKARC:
+			return FF_PIKARC;
+		case NFMT_WWRSC:
+			return FF_WWRSC;
+		case NFMT_LMJMP:
+			return FF_LMJMP;
+		case NFMT_LMKEY:
+			return FF_LMKEY;
+		case NFMT_LMTMB:
+			return FF_LMTMB;
+		case NFMT_LMGEB:
+			return FF_LMGEB;
+		case NFMT_LMSLK:
+			return FF_LMSLK;
+		case NFMT_LMSLS:
+			return FF_LMSLS;
 		default:
 			break;
 	}
@@ -2088,6 +2118,13 @@ file_format_t GetFileTypeByMagic (
 			if (ft)
 				return ft->fform;
 		}
+		// Paper Mario collision files carry no magic, so resolve them by
+		// extension before the magic probes (a small object count in the
+		// first bytes can mimic a compression header).
+		if (ext && !strcasecmp (ext, ".csb"))
+			return FF_CSB;
+		if (ext && !strcasecmp (ext, ".ctb"))
+			return FF_CTB;
 		file_format_t ff = GetByMagicFF (buf, sizeof (buf), fatt->size);
 		if (ff == FF_SARC && ext && !strcasecmp (ext, ".bfma"))
 			return FF_BFMA;

@@ -945,7 +945,7 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 			bool found_sibling = false; // a recognised parent model exists, even if left untouched
 										// (unmodified preview)
 			static const char *model_exts[] = { ".brres", ".bmd", ".bch", ".bcres", ".bfres",
-				".mdl0", ".hsf", ".msh", ".mod", ".glg", ".rlg", 0 };
+				".mdl0", ".hsf", ".msh", ".mod", ".glg", ".rlg", ".csb", 0 };
 
 			// wmdlt DECODE names a multi-model archive's per-model exports
 			// "<archive-stem>.<modelname>.glb" (see wmdlt.c: "%s.%s.glb"). A plain
@@ -974,6 +974,15 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 				snprintf (parent_model, sizeof (parent_model), "%s%s", model_bases[b],
 					model_exts[k]);
 				struct stat st_m;
+				// retail Switch collision is Zstandard-compressed: accept
+				// the .zst twin when the plain stem is absent (EncodeCSB
+				// re-compresses automatically for a .zst destination)
+				if ((stat (parent_model, &st_m) || !S_ISREG (st_m.st_mode))
+					&& !strcasecmp (model_exts[k], ".csb"))
+				{
+					snprintf (parent_model, sizeof (parent_model), "%s%s.zst",
+						model_bases[b], model_exts[k]);
+				}
 				if (!stat (parent_model, &st_m) && S_ISREG (st_m.st_mode))
 				{
 					found_sibling = true;
@@ -1010,6 +1019,51 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 								enumError enc = EncodeExciteMSH (mdl, parent_model);
 								if (enc <= ERR_WARNING && verbose >= 0)
 									fprintf (stdlog, "REPACK MSH %s -> %s\n", path, parent_model);
+								else if (max_err < enc)
+									max_err = enc;
+								FreeModel (mdl);
+							}
+							unlink (path);
+							handled = true;
+							break;
+						}
+						if (!strcasecmp (model_exts[k], ".csb"))
+						{
+							model_t *mdl = ParseGLBFile (path);
+							if (mdl)
+							{
+								// keep the source layout (Color Splash is
+								// big-endian, everything else little-endian)
+								bool csb_big = false;
+								u8 *prev = 0;
+								size_t prev_size = 0;
+								if (!LoadFileAlloc (parent_model, 0, 0, &prev, &prev_size,
+										0, 0, 0, false)
+									&& prev_size <= UINT_MAX && prev_size)
+								{
+									const u8 *pdata = prev;
+									uint psize = (uint)prev_size;
+									u8 *pdecomp = 0;
+									uint pdecomp_size = 0;
+									if (IsZSTD (prev, psize) > 0
+										&& DecodeZSTD (&pdecomp, &pdecomp_size, prev,
+											psize) == ERR_OK
+										&& pdecomp_size)
+									{
+										pdata = pdecomp;
+										psize = pdecomp_size;
+									}
+									csb_t prev_csb;
+									if (!ScanCSB (&prev_csb, pdata, psize))
+										csb_big = prev_csb.big_endian;
+									FreeCSB (&prev_csb);
+									FREE (pdecomp);
+								}
+								FREE (prev);
+								enumError enc
+									= EncodeCSB (mdl, parent_model, csb_big, false);
+								if (enc <= ERR_WARNING && verbose >= 0)
+									fprintf (stdlog, "REPACK CSB %s -> %s\n", path, parent_model);
 								else if (max_err < enc)
 									max_err = enc;
 								FreeModel (mdl);

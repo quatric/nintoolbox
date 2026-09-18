@@ -58,15 +58,21 @@
 #include "lib-bfres.h"
 #include "lib-nud.h"
 #include "lib-bnfm.h"
+#include "lib-lmmdl.h"
+#include "lib-lmbin.h"
 #include "lib-hbdf.h"
 #include "lib-numsh.h"
 #include "lib-mpr-cmdl.h"
 #include "lib-wmb.h"
+#include "lib-nttmodel.h"
+#include "lib-csb.h"
 #include "lib-nlg-lm.h"
 #include "ui.h" // [[dclib]] wrapper
 #include "ui-wmdlt.c"
 
 static ccp opt_parent = 0;
+static bool opt_csb_big = false; // --csb-big: Color Splash big-endian layout
+static bool opt_csb_mobj = false; // --csb-mobj: split map-object models, no CTB
 
 // J3D BMD/BDL (SuperBMD-compatible) encode/decode options
 static ccp opt_j3d_mat = 0;
@@ -283,6 +289,41 @@ static enumError cmd_cat ()
 			continue;
 		if (err > ERR_WARNING)
 			return err;
+		// Paper Mario collision files are not MDL: summarize them here.
+		if (raw.fform == FF_CSB || raw.fform == FF_CTB
+			|| IsCSB (raw.data, (uint)raw.data_size)
+			|| IsCTB (raw.data, (uint)raw.data_size))
+		{
+			if (verbose >= 0 || testmode)
+			{
+				fprintf (stdlog, "%sCAT %s:%s\n", verbose > 0 ? "\n" : "",
+					GetNameFF (raw.fform, 0), raw.fname);
+				fflush (stdlog);
+			}
+			if (!testmode)
+			{
+				if (IsCSB (raw.data, (uint)raw.data_size))
+				{
+					csb_t csb;
+					err = ScanCSB (&csb, raw.data, (uint)raw.data_size);
+					if (!err)
+						err = DumpCSB (stdout, &csb);
+					FreeCSB (&csb);
+				}
+				else
+				{
+					ctb_t ctb;
+					err = ScanCTB (&ctb, raw.data, (uint)raw.data_size);
+					if (!err)
+						err = DumpCTB (stdout, &ctb);
+					FreeCTB (&ctb);
+				}
+				fflush (stdout);
+				if (err > ERR_WARNING)
+					return err;
+			}
+			continue;
+		}
 #if 1
 		IterateRawDataMDL (&raw, global_check_mode, iter_cat, 0);
 #else
@@ -731,6 +772,12 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		const bool is_hsd = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".dat");
 		const bool is_msh = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".msh");
 		const bool is_mod = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".mod");
+		// Paper Mario collision scene (a trailing .zst selects
+		// Zstandard compression, the retail Switch storage form).
+		const bool is_csb = (dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".csb"))
+			|| (dest_len > 8 && !strcasecmp (dest + dest_len - 8, ".csb.zst"))
+			|| (dest_len > 7 && !strcasecmp (dest + dest_len - 7, ".csb.zs"))
+			|| (dest_len > 9 && !strcasecmp (dest + dest_len - 9, ".csb.zstd"));
 		const bool is_glg = dest_len > 4
 			&& (!strcasecmp (dest + dest_len - 4, ".glg")
 				|| !strcasecmp (dest + dest_len - 4, ".rlg"));
@@ -740,6 +787,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 			|| (dest_len > 6 && !strcasecmp (dest + dest_len - 6, ".bcmdl"));
 		const bool is_nud = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".nud");
 		const bool is_bnfm = dest_len > 5 && !strcasecmp (dest + dest_len - 5, ".bnfm");
+		const bool is_lmmdl = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".mdl");
+		const bool is_lmbin = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".bin");
 		const bool is_bmd_dest = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".bmd");
 		const bool is_bdl_dest = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".bdl");
 		const bool is_model_dest = is_dae || is_glb;
@@ -840,6 +889,17 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 								arg, dest);
 						continue;
 					}
+					if (is_csb)
+					{
+						err = EncodeCSB (in_model, dest, opt_csb_big, opt_csb_mobj);
+						FreeModel (in_model);
+						if (err > ERR_WARNING)
+							ERROR0 (err, "Failed to encode CSB: %s\n", dest);
+						else if (verbose >= 0)
+							fprintf (stdlog, "%sENCODE CSB:%s -> %s\n", verbose > 0 ? "\n" : "",
+								arg, dest);
+						continue;
+					}
 					if (is_glg)
 					{
 						err = EncodeGLG (in_model, dest);
@@ -880,8 +940,19 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 						if (err > ERR_WARNING)
 							ERROR0 (err, "Failed to encode BNFM: %s\n", dest);
 						else if (verbose >= 0)
-							fprintf (stdlog, "%sENCODE BNFM:%s -> %s\n", verbose > 0 ? "\n" : "",
+							fprintf (stdlog, "%sENCODE BNFM:%s -> %s\n",
 								arg, dest);
+						continue;
+					}
+					if (is_lmbin)
+					{
+						err = EncodeModelToLMBIN (in_model, dest);
+						FreeModel (in_model);
+						if (err > ERR_WARNING)
+							ERROR0 (err, "Failed to encode LM BIN: %s\n", dest);
+						else if (verbose >= 0)
+							fprintf (stdlog, "%sENCODE LMBIN:%s -> %s\n",
+								verbose > 0 ? "\n" : "", arg, dest);
 						continue;
 					}
 					if (is_nsb_dest)
@@ -973,6 +1044,20 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 
 					if (!*parent_path)
 					{
+						// No injection parent: a bare .mdl destination means
+						// a Luigi's Mansion actor model (previously this was
+						// always an error); anything else keeps the error.
+						if (is_lmmdl)
+						{
+							err = EncodeModelToLMMDL (in_model, dest);
+							FreeModel (in_model);
+							if (err > ERR_WARNING)
+								ERROR0 (err, "Failed to encode LM MDL: %s\n", dest);
+							else if (verbose >= 0)
+								fprintf (stdlog, "%sENCODE LMMDL:%s -> %s\n",
+									verbose > 0 ? "\n" : "", arg, dest);
+							continue;
+						}
 						FreeModel (in_model);
 						ERROR0 (ERR_INVALID_DATA,
 							"No parent BRRES or MDL0 specified for model injection (use "
@@ -1040,6 +1125,12 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 
 		const bool is_hsf_in
 			= is_ext (arg, ".hsf") || (raw.data_size >= 7 && !memcmp (raw.data, "HSFV037", 7));
+		const bool is_lmmdl_in = raw.data_size >= 128 && IsLMMDL (raw.data, raw.data_size);
+		fprintf (stderr, "DBG lmmdl: dest=%s is_model_dest=%d size=%u magic=%02x%02x%02x%02x is=%d\n",
+			dest, (int)is_model_dest, raw.data_size, raw.data[0], raw.data[1], raw.data[2],
+			raw.data[3], (int)is_lmmdl_in);
+		const bool is_lmbin_in = is_ext (arg, ".bin") && raw.data_size >= 64
+			&& IsLMBIN (raw.data, raw.data_size);
 		const bool is_bnfm_in
 			= is_ext (arg, ".bnfm") || (raw.data_size >= 4 && !memcmp (raw.data, "BNFM", 4));
 		const bool is_hsd_in = is_ext (arg, ".dat")
@@ -1047,10 +1138,23 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		const bool is_msh_in = is_ext (arg, ".msh")
 			|| (raw.data_size >= 4
 				&& (!memcmp (raw.data, "PMsh", 4) || !memcmp (raw.data, "hsMP", 4)));
+		// Paper Mario collision files carry no magic: gate on the
+		// extension (including the retail .zst forms, already
+		// decompressed by LoadRawData) and validate structurally, but
+		// only when no magic claimed the file first.
+		const bool is_csb_in = is_ext (arg, ".csb") || is_ext (arg, ".csb.zst")
+			|| is_ext (arg, ".csb.zs") || is_ext (arg, ".csb.zstd")
+			|| (raw.fform == FF_UNKNOWN && IsCSB (raw.data, (uint)raw.data_size));
+		const bool is_ctb_in = is_ext (arg, ".ctb") || is_ext (arg, ".ctb.zst")
+			|| is_ext (arg, ".ctb.zs") || is_ext (arg, ".ctb.zstd")
+			|| (raw.fform == FF_UNKNOWN && IsCTB (raw.data, (uint)raw.data_size));
 		const bool is_mod_in = is_ext (arg, ".mod")
 			|| (raw.data_size >= 4
 				&& (!memcmp (raw.data, "NDL3", 4) || !memcmp (raw.data, "3LDN", 4)
 					|| !memcmp (raw.data, "NDL2", 4) || !memcmp (raw.data, "2LDN", 4)));
+
+		const bool is_ttmodel_in = is_ext (arg, ".model")
+			|| (raw.data_size >= 20 && IsTTModel (raw.data, raw.data_size));
 
 		const bool is_nud_in = is_ext (arg, ".nud")
 			|| (raw.data_size >= 4
@@ -1127,6 +1231,25 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 			continue;
 		}
 
+		if (is_model_dest && is_ttmodel_in)
+		{
+			if (!testmode)
+			{
+				model_t *model = ParseTTModel (raw.data, raw.data_size);
+				if (model)
+				{
+					ExportModelToGLB (model, dest);
+					FreeModel (model);
+				}
+				else
+				{
+					ERROR0 (ERR_INVALID_DATA, "Failed to decode TTMODEL: %s\n", arg);
+					return ERR_INVALID_DATA;
+				}
+			}
+			continue;
+		}
+
 		if (is_model_dest && is_bnfm_in)
 		{
 			if (!testmode)
@@ -1186,6 +1309,34 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 			continue;
 		}
 
+		if (is_model_dest && is_lmmdl_in)
+		{
+			if (!testmode)
+			{
+				err = DecodeLMMDL (raw.data, (uint)raw.data_size, dest);
+				if (err > ERR_WARNING)
+				{
+					ERROR0 (err, "Failed to decode LM MDL: %s\n", arg);
+					return err;
+				}
+			}
+			continue;
+		}
+
+		if (is_model_dest && is_lmbin_in)
+		{
+			if (!testmode)
+			{
+				err = DecodeLMBIN (raw.data, (uint)raw.data_size, dest);
+				if (err > ERR_WARNING)
+				{
+					ERROR0 (err, "Failed to decode LM BIN: %s\n", arg);
+					return err;
+				}
+			}
+			continue;
+		}
+
 		if (is_model_dest && is_hsf_in)
 		{
 			if (!testmode)
@@ -1237,6 +1388,36 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				if (err > ERR_WARNING)
 				{
 					ERROR0 (err, "Failed to decode MSH: %s\n", arg);
+					return err;
+				}
+			}
+			continue;
+		}
+
+		// Paper Mario collision scene -> GLB/DAE (with MAT/FLAG materials
+		// and MAPOBJ trigger joints). A .ctb alone holds no geometry.
+		if (is_model_dest && (is_csb_in || is_ctb_in))
+		{
+			if (!testmode)
+			{
+				if (is_ctb_in && !is_csb_in)
+				{
+					ERROR0 (ERR_INVALID_DATA,
+						"CTB holds no geometry, use CAT to inspect it: %s\n", arg);
+					return ERR_INVALID_DATA;
+				}
+				err = DecodeCSB (raw.data, (uint)raw.data_size, dest);
+				if (err == ERR_NOTHING_TO_DO)
+				{
+					// extension (or UNKNOWN probing) selected CSB, but the
+					// layout does not validate: report, do not skip
+					ERROR0 (ERR_INVALID_DATA, "Not a CSB collision file: %s\n",
+						arg);
+					return ERR_INVALID_DATA;
+				}
+				if (err > ERR_WARNING)
+				{
+					ERROR0 (err, "Failed to decode CSB: %s\n", arg);
 					return err;
 				}
 			}
@@ -1936,6 +2117,12 @@ static enumError CheckOptions (int argc, char **argv, bool is_env)
 				break;
 			case GO_J3D_NOMIPMAPS:
 				opt_j3d_nomipmaps = true;
+				break;
+			case GO_CSB_BIG:
+				opt_csb_big = true;
+				break;
+			case GO_CSB_MOBJ:
+				opt_csb_mobj = true;
 				break;
 			case GO_OVERWRITE:
 				opt_overwrite = true;

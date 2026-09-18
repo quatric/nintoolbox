@@ -2136,7 +2136,10 @@ static enumError nlg_dump_script (u8 **dest, uint *dest_size,
 				NLG_SAPPEND ("data %u bytes (short)\n", sz);
 				continue;
 			}
-			uint s1 = rd_le32 (d + hdr - 8), s2 = rd_le32 (d + hdr - 4);
+			// LM2: value, size2, size1, strtab. LM3: value, value2,
+			// size1, size2, strtab.
+			uint s1 = rd_le32 (d + 8);
+			uint s2 = (variant == NLG_LM2) ? rd_le32 (d + 4) : rd_le32 (d + 12);
 			uint n_u32 = s1 / 4, n_u16 = s2 / 2;
 			NLG_SAPPEND ("data refs %u opcodes %u strings @%u\n",
 				n_u32 < 100000 ? n_u32 : 0, n_u16 < 1000000 ? n_u16 : 0,
@@ -3016,35 +3019,43 @@ done:
 // Mario Strikers SANIM text dumps (probes live in lib-nlg-probe.c).
 //-----------------------------------------------------------------------------
 
+typedef struct
+{
+	char name[128];
+	u32 tracks, frames;
+	u32 p1n, p2n, p3n, p4n;
+	uint rot_keys, tr_keys;
+	uint anim_no;
+	bool in_anim;
+} sanim_state_t;
+
+static void nlg_sanim_flush (sanim_state_t *st,
+	char **out, size_t *len, size_t *cap)
+{
+	if (!st->in_anim)
+		return;
+	int n = snprintf (*out + *len, *cap - *len,
+		"animation %u name \"%s\" frames %u tracks %u rot_keys %u tr_keys %u params %u/%u/%u/%u\n",
+		st->anim_no, st->name, st->frames, st->tracks,
+		st->rot_keys, st->tr_keys, st->p1n, st->p2n, st->p3n, st->p4n);
+	if (n < 0)
+		return;
+	*len += (size_t)n;
+	if (*len + 512 > *cap)
+	{
+		*cap *= 2;
+		char *no = REALLOC (*out, *cap);
+		if (no)
+			*out = no;
+	}
+	st->anim_no++;
+	st->in_anim = false;
+}
+
 static enumError nlg_dump_sanim_rec (const u8 *d, uint size,
-	char **out, size_t *len, size_t *cap, int depth)
+	char **out, size_t *len, size_t *cap, int depth, sanim_state_t *st)
 {
 	uint p = 0;
-	uint anim_no = 0;
-	// Per-animation scratch state.
-	char cur_name[128];
-	u32 cur_tracks = 0, cur_frames = 0;
-	u32 p1n = 0, p2n = 0, p3n = 0, p4n = 0;
-	uint rot_keys = 0, tr_keys = 0;
-	bool in_anim = false;
-#define SANIM_EMIT(...) do { \
-	int _n = snprintf (*out + *len, *cap - *len, __VA_ARGS__); \
-	if (_n < 0) return ERR_CANT_CREATE; \
-	*len += (size_t)_n; \
-	if (*len + 512 > *cap) { \
-		*cap *= 2; \
-		char *_no = REALLOC (*out, *cap); \
-		if (!_no) return ERR_CANT_CREATE; \
-		*out = _no; \
-	} } while (0)
-#define SANIM_FLUSH() do { \
-	if (in_anim) { \
-		SANIM_EMIT ("animation %u name \"%s\" frames %u tracks %u rot_keys %u tr_keys %u params %u/%u/%u/%u\n", \
-			anim_no, cur_name, cur_frames, cur_tracks, rot_keys, tr_keys, \
-			p1n, p2n, p3n, p4n); \
-		anim_no++; \
-		in_anim = false; \
-	} } while (0)
 	while (p + 8 <= size)
 	{
 		u16 magic = rd_be16 (d + p + 2);
@@ -3053,50 +3064,50 @@ static enumError nlg_dump_sanim_rec (const u8 *d, uint size,
 		switch (magic)
 		{
 		case 0x7000:
-			SANIM_FLUSH ();
-			cur_name[0] = 0;
-			cur_tracks = cur_frames = 0;
-			p1n = p2n = p3n = p4n = 0;
-			rot_keys = tr_keys = 0;
-			in_anim = true;
-			if (sz && nlg_dump_sanim_rec (pl, sz, out, len, cap, depth + 1))
+			nlg_sanim_flush (st, out, len, cap);
+			memset (st->name, 0, sizeof (st->name));
+			st->tracks = st->frames = 0;
+			st->p1n = st->p2n = st->p3n = st->p4n = 0;
+			st->rot_keys = st->tr_keys = 0;
+			st->in_anim = true;
+			if (sz && nlg_dump_sanim_rec (pl, sz, out, len, cap, depth + 1, st))
 				return ERR_CANT_CREATE;
 			break;
 		case 0x7001:
 			if (sz >= 16)
 			{
-				cur_frames = rd_be32 (pl + 8);
-				cur_tracks = rd_be32 (pl + 12);
+				st->frames = rd_be32 (pl + 8);
+				st->tracks = rd_be32 (pl + 12);
 			}
 			break;
 		case 0x7002:
 			{
-				uint n = sz < sizeof (cur_name) - 1 ? sz : sizeof (cur_name) - 1;
-				memcpy (cur_name, pl, n);
-				cur_name[n] = 0;
+				uint n = sz < sizeof (st->name) - 1 ? sz : sizeof (st->name) - 1;
+				memcpy (st->name, pl, n);
+				st->name[n] = 0;
 			}
 			break;
 		case 0x7003:
-			p1n = sz / 4;
+			st->p1n = sz / 4;
 			break;
 		case 0x7004:
-			p2n = sz / 4;
+			st->p2n = sz / 4;
 			break;
 		case 0x7005:
-			p3n = sz / 4;
+			st->p3n = sz / 4;
 			break;
 		case 0x7006:
-			p4n = sz / 4;
+			st->p4n = sz / 4;
 			break;
 		case 0x7100:
-			if (sz && nlg_dump_sanim_rec (pl, sz, out, len, cap, depth + 1))
+			if (sz && nlg_dump_sanim_rec (pl, sz, out, len, cap, depth + 1, st))
 				return ERR_CANT_CREATE;
 			break;
 		case 0x7101:
-			rot_keys += sz / 6;
+			st->rot_keys += sz / 6;
 			break;
 		case 0x7102:
-			tr_keys += sz / 12;
+			st->tr_keys += sz / 12;
 			break;
 		default:
 			break;
@@ -3105,10 +3116,9 @@ static enumError nlg_dump_sanim_rec (const u8 *d, uint size,
 		p = (p + 3) & ~3u;
 		(void)depth;
 	}
-	SANIM_FLUSH ();
+	if (depth == 0)
+		nlg_sanim_flush (st, out, len, cap);
 	return ERR_OK;
-#undef SANIM_EMIT
-#undef SANIM_FLUSH
 }
 
 enumError ExtractSANIMArchive (ccp arg, ccp basedir, uint depth)
@@ -3137,11 +3147,16 @@ enumError ExtractSANIMArchive (ccp arg, ccp basedir, uint depth)
 		if (out)
 		{
 			len += snprintf (out + len, cap - len, "SANIM %s\n", arg);
-			if (!nlg_dump_sanim_rec (raw, (uint)raw_size, &out, &len, &cap, 0))
 			{
-				char path[PATH_MAX];
-				snprintf (path, sizeof (path), "%s/anim.txt", dest);
-				SaveFile (path, 0, 0, out, (uint)len, 0);
+				sanim_state_t st;
+				memset (&st, 0, sizeof (st));
+				if (!nlg_dump_sanim_rec (raw, (uint)raw_size, &out, &len,
+						&cap, 0, &st))
+				{
+					char path[PATH_MAX];
+					snprintf (path, sizeof (path), "%s/anim.txt", dest);
+					SaveFile (path, 0, 0, out, (uint)len, 0);
+				}
 			}
 			FREE (out);
 		}

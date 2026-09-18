@@ -29,7 +29,7 @@ SUPPORTED_FAMILIES = [
     ("Nintendo Switch", "*.nsp *.xci *.nca"),
     ("SZS / Archives", "*.szs *.carc *.arc *.brres *.sarc *.pac *.pcs *.gfa *.rarc"),
     ("Textures & Images", "*.tpl *.bti *.tex0 *.bflim *.bclim *.ncgr *.nclr *.bntx"),
-    ("3D Models & Collision", "*.mdl0 *.bcres *.bfres *.bch *.kcl"),
+    ("3D Models & Collision", "*.mdl0 *.bcres *.bfres *.bch *.kcl *.csb *.ctb"),
     ("Layouts & Sequences", "*.brlyt *.brlan *.bflyt *.bflan *.ncer *.nanr *.rseq *.cseq *.sseq"),
 ]
 

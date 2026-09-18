@@ -101,8 +101,10 @@ typedef enum enumOptions
 	OPT_J3D_DEGENERATE,
 	OPT_J3D_TEXFLOAT,
 	OPT_J3D_NOMIPMAPS,
+	OPT_CSB_BIG,
+	OPT_CSB_MOBJ,
 
-	OPT__N_SPECIFIC, // == 46
+	OPT__N_SPECIFIC, // == 48
 
 	//----- global options -----
 
@@ -146,7 +148,7 @@ typedef enum enumOptions
 	OPT_NEW,
 	OPT_EXTRACT,
 
-	OPT__N_TOTAL // == 85
+	OPT__N_TOTAL // == 87
 
 } enumOptions;
 
@@ -206,6 +208,8 @@ typedef enum enumOptions
 //	OB_J3D_DEGENERATE	= 1llu << OPT_J3D_DEGENERATE,
 //	OB_J3D_TEXFLOAT		= 1llu << OPT_J3D_TEXFLOAT,
 //	OB_J3D_NOMIPMAPS	= 1llu << OPT_J3D_NOMIPMAPS,
+//	OB_CSB_BIG		= 1llu << OPT_CSB_BIG,
+//	OB_CSB_MOBJ		= 1llu << OPT_CSB_MOBJ,
 //
 //	//----- group & command options -----
 //
@@ -245,6 +249,9 @@ typedef enum enumOptions
 //				| OB_J3D_DEGENERATE
 //				| OB_J3D_TEXFLOAT
 //				| OB_J3D_NOMIPMAPS,
+//
+//	OB_GRP_CSB		= OB_CSB_BIG
+//				| OB_CSB_MOBJ,
 //
 //	OB_GRP_TEXTOUT		= OB_IGNORE
 //				| OB_NO_HEADER
@@ -321,7 +328,8 @@ typedef enum enumOptions
 //				| OB_NO_ECHO
 //				| OB_NO_CHECK
 //				| OB_GRP_TRANSFORM
-//				| OB_GRP_J3D,
+//				| OB_GRP_J3D
+//				| OB_GRP_CSB,
 //
 //	OB_CMD_STRINGS		= OB_NO_WILDCARDS
 //				| OB_IN_ORDER
@@ -482,6 +490,8 @@ typedef enum enumGetOpt
 	GO_J3D_DEGENERATE,
 	GO_J3D_TEXFLOAT,
 	GO_J3D_NOMIPMAPS,
+	GO_CSB_BIG,
+	GO_CSB_MOBJ,
 
 } enumGetOpt;
 

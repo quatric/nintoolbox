@@ -170,7 +170,20 @@ typedef enum nfmt_type_t
 	NFMT_SHARC,
 	NFMT_SHARCFB,
 	NFMT_VFXB,
-	NFMT_RZPK
+	NFMT_RZPK,
+	NFMT_CSB,
+	NFMT_CTB,
+	NFMT_LMMDL,
+	NFMT_LMBIN,
+	NFMT_PIKMOD,
+	NFMT_PIKARC,
+	NFMT_WWRSC,
+	NFMT_LMJMP,
+	NFMT_LMKEY,
+	NFMT_LMTMB,
+	NFMT_LMGEB,
+	NFMT_LMSLK,
+	NFMT_LMSLS
 } nfmt_type_t;
 
 typedef struct nfmt_info_t
@@ -471,6 +484,7 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-cpk.h"
 #include "lib-wta.h"
 #include "lib-wmb.h"
+#include "lib-nttmodel.h"
 #include "lib-sze.h"
 #include "lib-mio.h"
 #include "lib-sfx.h"

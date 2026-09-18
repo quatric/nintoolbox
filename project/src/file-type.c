@@ -1703,6 +1703,84 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"TT Games NTT engine model (.model, LEGO Star Wars: The Skywalker Saga)" },
 
+	// FF_CSB = 317 (Paper Mario collision scene)
+	{ FF_CSB, FF_CSB, 0, "CSB", ".csb", ".glb", ".csb",
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Paper Mario collision scene (TTYD Switch / Origami King LE, Color Splash BE)" },
+
+	// FF_CTB = 318 (Paper Mario collision search table)
+	{ FF_CTB, FF_CTB, 0, "CTB", ".ctb", ".txt", ".ctb",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Paper Mario collision search table (octree over the .csb triangles)" },
+
+	// FF_LMMDL = 319 (Luigi's Mansion actor model)
+	{ FF_LMMDL, FF_LMMDL, 0, "LMMDL", ".mdl", ".glb", ".mdl",
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
+		{ 0x04, 0xb4, 0x00, 0x00 }, 0, MinusString, MinusString,
+		"Luigi's Mansion actor model (.mdl, GameCube)" },
+
+	// FF_LMBIN = 320 (Luigi's Mansion room model)
+	{ FF_LMBIN, FF_LMBIN, 0, "LMBIN", ".bin", ".glb", ".bin",
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Luigi's Mansion room model (.bin version 2, GameCube)" },
+
+	// FF_PIKMOD = 321 (Pikmin 1 model)
+	{ FF_PIKMOD, FF_PIKMOD, 0, "PIKMOD", ".mod", ".glb", ".mod",
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Pikmin 1 model (.mod chunked, GameCube)" },
+
+	// FF_PIKARC = 322 (Pikmin 1 archive pair)
+	{ FF_PIKARC, FF_PIKARC, 0, "PIKARC", ".dir", ".szs", ".dir",
+		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT | FFT_CREATE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Pikmin 1 archive pair (.arc data + .dir index, GameCube)" },
+
+	// FF_WWRSC = 323 (Wario World resource container)
+	{ FF_WWRSC, FF_WWRSC, 0, "WWRSC", ".rsc", ".szs", ".rsc",
+		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT | FFT_CREATE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Wario World resource container (.rsc, GameCube)" },
+
+	// FF_LMJMP = 324 (Luigi's Mansion parameter table)
+	{ FF_LMJMP, FF_LMJMP, 0, "LMJMP", ".jmp", ".txt", ".jmp",
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Luigi's Mansion parameter table (.jmp, GameCube)" },
+
+	// FF_LMKEY = 325 (Luigi's Mansion skeletal animation)
+	{ FF_LMKEY, FF_LMKEY, 0, "LMKEY", ".key", ".txt", ".key",
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Luigi's Mansion skeletal animation (.key, GameCube)" },
+
+	// FF_LMTMB = 326 (Luigi's Mansion fade-effect timing)
+	{ FF_LMTMB, FF_LMTMB, 0, "LMTMB", ".tmb", ".txt", ".tmb",
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Luigi's Mansion fade-effect timing (.tmb, GameCube)" },
+
+	// FF_LMGEB = 327 (Luigi's Mansion sprite data)
+	{ FF_LMGEB, FF_LMGEB, 0, "LMGEB", ".geb", ".txt", ".geb",
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Luigi's Mansion sprite data (.geb, GameCube)" },
+
+	// FF_LMSLK = 328 (Luigi's Mansion shape animation)
+	{ FF_LMSLK, FF_LMSLK, 0, "LMSLK", ".slk", ".txt", ".slk",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Luigi's Mansion shape animation (.slk, GameCube)" },
+
+	// FF_LMSLS = 329 (Luigi's Mansion morph data)
+	{ FF_LMSLS, FF_LMSLS, 0, "LMSLS", ".sls", ".txt", ".sls",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Luigi's Mansion morph data (.sls, GameCube)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1899,6 +1977,19 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_J3DBDL, "J3DBDL", 0, 0x3001 },
 	{ FF_RZPK, "RZPK", "RZPK", 0xe05 },
 	{ FF_TTMODEL, "TTMODEL", 0, 0x3001 },
+	{ FF_CSB, "CSB", 0, 0x3001 },
+	{ FF_CTB, "CTB", 0, 0x3001 },
+	{ FF_LMMDL, "LMMDL", 0, 0x3001 },
+	{ FF_LMBIN, "LMBIN", 0, 0x3001 },
+	{ FF_PIKMOD, "PIKMOD", 0, 0x3001 },
+	{ FF_PIKARC, "PIKARC", 0, 0xe05 },
+	{ FF_WWRSC, "WWRSC", 0, 0xe05 },
+	{ FF_LMJMP, "LMJMP", 0, 0xe05 },
+	{ FF_LMKEY, "LMKEY", 0, 0xe05 },
+	{ FF_LMTMB, "LMTMB", 0, 0xe05 },
+	{ FF_LMGEB, "LMGEB", 0, 0xe05 },
+	{ FF_LMSLK, "LMSLK", 0, 0xe05 },
+	{ FF_LMSLS, "LMSLS", 0, 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

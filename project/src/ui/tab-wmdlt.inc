@@ -467,6 +467,18 @@
 	0,
 	"J3D BMD/BDL encode: ignore _mipN texture files." },
 
+  { T_OPT_C,	"CSB_BIG",	"csb-big",
+	0,
+	"Paper Mario CSB encode: write the big-endian Color Splash layout"
+	" (u32 collision flags, uncompressed) instead of the default"
+	" little-endian TTYD/Origami King layout." },
+
+  { T_OPT_C,	"CSB_MOBJ",	"csb-mobj",
+	0,
+	"Paper Mario CSB encode: write one split model per mesh (map-object"
+	" style, no .ctb search table) instead of the default combined"
+	" DEADBEEF buffer with a generated .ctb sidecar." },
+
   //
   //---------- wmdlt GROUP TRANSFORM ----------
 
@@ -521,6 +533,14 @@
   { T_COPT,	"J3D_DEGENERATE",	0,0,0 },
   { T_COPT,	"J3D_TEXFLOAT",	0,0,0 },
   { T_COPT,	"J3D_NOMIPMAPS",	0,0,0 },
+
+  //
+  //---------- wmdlt GROUP CSB ----------
+
+  { T_GRP_BEG,	"CSB",		0,0,0 },
+
+  { T_COPT,	"CSB_BIG",	0,0,0 },
+  { T_COPT,	"CSB_MOBJ",	0,0,0 },
 
   //
   //---------- wmdlt GROUP TEXTOUT ----------
@@ -712,6 +732,7 @@
   { T_SEP_OPT,	0,0,0,0 },
   { T_COPY_GRP,	"TRANSFORM",	0,0,0 },
   { T_COPY_GRP,	"J3D",		0,0,0 },
+  { T_COPY_GRP,	"CSB",		0,0,0 },
 
   //---------- COMMAND wmdlt STRINGS ----------
 

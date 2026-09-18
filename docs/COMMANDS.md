@@ -11,7 +11,7 @@ For format specifications, see **[FORMATS.md](FORMATS.md)**. For the recursive u
 | Binary | Tool Name | Focus Area | Key Commands / Functions | Platforms & Context |
 |---|---|---|---|---|
 | **`wszst`** | Wiimms SZS Tool | Universal Game Archives & Containers | `xx`, `CREATE`, `EXTRACT`, `WC24DECRYPT`, `WC24ENCRYPT`, `BCH`, `SPRITES`, `BMS`, `COMPRESS`, `DECOMPRESS` | All Nintendo platforms (GC, Wii, DS, 3DS, Wii U, Switch) |
-| **`wmdlt`** | Wiimms Model Tool | 3D Models & Geometry Conversion | `DECODE`, `ENCODE`, `CAT`, `STRINGS`, `GEOMETRY` | MDL0, HSD, HSF, NSBMD, CGFX, BCRES, BCH, BFRES, NUD, NUMSHB, MOD, MSH, etc. $\leftrightarrow$ GLB |
+| **`wmdlt`** | Wiimms Model Tool | 3D Models & Geometry Conversion | `DECODE`, `ENCODE`, `CAT`, `STRINGS`, `GEOMETRY` | MDL0, HSD, HSF, NSBMD, CGFX, BCRES, BCH, BFRES, NUD, NUMSHB, TTMODEL, MOD, MSH, etc. $\leftrightarrow$ GLB |
 | **`wbrsar`** | Wiimms Sound Archive Tool | Sound Archives & Audio Extraction | *Default* (MIDI + SF2/DLS), `unpack`, `pack` | Wii BRSAR, Wii U BFSAR, 3DS BCSAR, NDS SDAT |
 | **`wbfsar`** | Wiimms BFSAR/BCSAR Tool | Sound Archive Directory Listing | `dump` | Wii U / Switch (FSAR) and 3DS (CSAR) directory XML dump |
 | **`wlayt`** | Wiimms Layout Tool | 2D Layouts & Animations | `decode`, `encode` | BRLYT/BRLAN (Wii), BFLYT/BFLAN (Wii U/Switch), BCLYT/BCLAN (3DS) |
@@ -243,7 +243,8 @@ wszst COMPRESS raw.bin --dest raw.lh      # LZH8 alias
 - **Nintendo standard**: `MDL0` / `BRRES` (Wii NW4R), `BFRES` (Wii U / Switch), `CGFX` / `BCRES` (3DS NW4C), `BCH` (3DS CTR H3D), `NSBMD` / `BMD` (DS Nitro 3D)
 - **GameCube engines**: HAL `HSD` (`.dat`), Hudson Soft `HSF` (`.hsf`), Camelot `HGO`, Next Level `GLG`, Pokémon `PERS`
 - **Smash Bros**: Bandai Namco `NUD` (Smash 4 Wii U/3DS), `NUMSHB` / SSBH (Smash Ultimate Switch)
-- **Other engines**: Monster Games `MOD` and `MSH` (Excite Truck/Bots), Nd Cube `BNFM` (Mario Party 10 / Amiibo Festival), Koei Tecmo `G1M`, Level-5 `G4PKM`, DeNA `LMD`
+- **Other engines**: Monster Games `MOD` and `MSH` (Excite Truck/Bots), Nd Cube `BNFM` (Mario Party 10 / Amiibo Festival), Koei Tecmo `G1M`, Level-5 `G4PKM`, DeNA `LMD`, TT Games `TTMODEL` (LEGO Star Wars: The Skywalker Saga)
+- **Collision scenes**: Paper Mario `CSB` (TTYD Switch / Origami King LE, Color Splash BE) with auto-generated `CTB` search tables; sphere/box trigger volumes round-trip as `MAPOBJ_*` instances
 
 ### `wmdlt DECODE` / `wmdlt DEC`
 
@@ -277,8 +278,17 @@ wmdlt DECODE Map.nsbmd --dest Map.glb
 Encodes standard GLB models back into Nintendo formats, or injects geometry into existing binary parent models.
 
 ```bash
-# 1. Direct model encoding (HSF, HSD, MSH, MOD, Switch BFRES):
+# 1. Direct model encoding (HSF, HSD, MSH, MOD, CSB, Switch BFRES):
 wmdlt ENCODE <model.glb> --dest <output.hsf|output.dat|output.bfres>
+
+# Paper Mario collision: decode to GLB, edit, re-encode (writes .ctb sidecar).
+# --csb-big selects the Color Splash big-endian layout; --csb-mobj writes
+# split map-object models without a search table. A .zst destination
+# selects Zstandard compression (retail Switch storage form).
+wmdlt DECODE level.csb --dest level.glb
+wmdlt ENCODE level.glb --dest level.csb
+wmdlt ENCODE level.glb --dest level.csb.zst
+wmdlt CAT level.ctb
 
 # 2. Geometry injection into an existing parent model:
 wmdlt ENCODE <model.glb> --parent=<parent.brres|parent.mdl0> --dest <output.brres|output.mdl0>

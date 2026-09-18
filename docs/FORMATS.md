@@ -53,6 +53,8 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **CCF** | Wii / Switch / Archive | ✅ | ✅ | Virtual Console container |
 | **CGFX** | 3DS / Model | ✅ | ✅ | CTR NW4C model container |
 | **CRAM (.arc)** | 3DS / Archive | ✅ | ✅ | Xenoblade Chronicles 3D archive |
+| **CSB** | Switch/Wii U / Collision | ✅ | ✅ | Paper Mario collision scene (TTYD/Origami King LE, Color Splash BE): triangle meshes with material/collision flags + sphere/box trigger volumes, GLB round-trip with generated `.ctb` |
+| **CTB** | Switch/Wii U / Collision | ✅ | ❌ | Paper Mario collision search table (XZ-quadtree over `.csb` triangles; regenerated on encode, inspected with `wmdlt CAT`) |
 | **CTPK** | 3DS / Texture | ✅ | ✅ | CTR texture container |
 | **DARC** | 3DS / Archive | ✅ | ✅ | Differential archive container |
 | **DSB (TXTR)** | DS / Texture | ✅ | ✅ | Animal Crossing: Wild World menu texture (RGB555 palette + A3I5 texels); retail regression covers decode → encode → decode pixels |
@@ -82,12 +84,16 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **NDS / SRL / DSI** | DS / ROM Archive | ✅ | ✅ | Nitro ROM pass-through & unpacking |
 | **NANR / NCER / NCGR / NCLR** | DS / 2D Graphics | ✅ | ✅ | Nitro 2D cell, sprites, palettes |
 | **NCCARC** | DS / Archive | ✅ | ✅ | WarioWare: Touched! container |
-| **NLG DICT** | 3DS / Switch / Archive | ✅ | ❌ | Next Level Games dictionary archive (*Metroid Prime: Federation Force*, *Luigi's Mansion 2 HD*, *Luigi's Mansion 3*, *Mario Strikers: Battle League Football*) |
+| **NLG DICT** | 3DS / Switch / Archive | ✅ | ❌ | Next Level Games dictionary archive (*Metroid Prime: Federation Force*, *Luigi's Mansion 2 HD*, *Luigi's Mansion 3*, *Mario Strikers: Battle League Football*). Typed chunk pass: LM2/LM3/Federation Force models, textures, skeletons, animations, scripts, NLOC/font/config |
+| **FEDMODEL / FEDSKEL** | Multi / Model | ✅ | ❌ | Next Level Games model/skeleton containers (extractor intermediates, versions 1..3) → GLB |
+| **FEDTEX** | Multi / Texture | ✅ | ❌ | Next Level Games texture container (extractor intermediate: PICA / Switch RGBA8/BCn/ASTC) → PNG |
+| **SANIM** | Wii / Animation | ✅ | ❌ | Mario Strikers skeleton animation stream → text dump |
 | **NSBMD / NSBTX** | DS / 3D Graphics | ✅ | ✅ | Nitro 3D models and textures |
 | **NUD** | Wii U / 3DS / Model | ✅ | ✅ | Bandai Namco 3D model container (Smash 4 NDP3/NDWU and Pokkén NDWD multi-mesh) |
 | **NUMATB** | Switch / Material | ✅ | ❌ | Bandai Namco SSBH material container (Smash Ultimate): text manifest plus MatLab-dialect MaterialLibrary XML |
 | **NUANMB** | Switch / Animation | ✅ | ❌ | Bandai Namco SSBH skeletal/material animation (Smash Ultimate): group/node/track structure plus decoded Direct/Constant/Compressed keyframe payloads |
 | **NUMSHB** | Switch / Model | ✅ | ❌ | Bandai Namco SSBH 3D mesh model (Smash Ultimate) |
+| **TTMODEL** | Multi / Model | ✅ | ❌ | TT Games NTT engine model (*LEGO Star Wars: The Skywalker Saga*, `.model` → GLB) |
 | **SHARC / SHARCFB** | Wii U / Switch / Shader Archive | ✅ | ✅ | NintendoWare shader source and binary archive (SHARC v10-12 round-trips; Wii U SHARCFB is compiled from GSH) |
 | **VFXB** | Wii U / Switch / Effect Archive | ✅ | ❌ | NintendoWare particle effect binary archive |
 | **NUT** | Wii U / 3DS / Texture | ✅ | ❌ | Bandai Namco texture package (Smash 4) |
