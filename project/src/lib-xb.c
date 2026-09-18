@@ -886,14 +886,17 @@ enumError EncodeXB (u8 **dest, uint *dest_size, const char *xml, size_t xml_len,
 	{
 		const bool w = wide ? true : pass == 1;
 		const size_t vsz = w ? 4 : 2;
-		// Record bytes: per element 3 vals + 2 per attr; END runs from
-		// depth diffs (stack after push minus next depth, EOR = 0).
+		// Record bytes: per element 3 vals + 2 per attr; END runs close
+		// the stack down to the next record's parent (EOR closes all).
 		size_t recs_size = 0;
 		for (size_t i = 0; i < n_items; i++)
 		{
 			recs_size += (3 + 2 * items[i].node->n_attrs) * vsz;
-			const int next_depth = i + 1 < n_items ? items[i + 1].depth : 0;
-			const int closes = (items[i].depth + 1) - next_depth;
+			const bool last = i + 1 >= n_items;
+			const int next_depth = last ? 0 : items[i + 1].depth;
+			const int closes = last
+				? items[i].depth
+				: items[i].depth - next_depth + 1;
 			if (closes < 0)
 			{
 				recs_size = 0;
@@ -983,8 +986,11 @@ enumError EncodeXB (u8 **dest, uint *dest_size, const char *xml, size_t xml_len,
 			for (size_t a = 0; ok && a < nd->n_attrs; a++)
 				ok = ok && xb_val (&out, xb_strtab_find (&tab, nd->attrs[a].name), w)
 					&& xb_val (&out, xb_strtab_find (&tab, nd->attrs[a].value), w);
-			const int next_depth = i + 1 < n_items ? items[i + 1].depth : 0;
-			const int closes = (items[i].depth + 1) - next_depth;
+			const bool last = i + 1 >= n_items;
+			const int next_depth = last ? 0 : items[i + 1].depth;
+			const int closes = last
+				? items[i].depth
+				: items[i].depth - next_depth + 1;
 			for (int c = 0; ok && c < closes; c++)
 				ok = ok && xb_val (&out, w ? 0xFFFFFFFFu : 0xFFFFu, w);
 		}
