@@ -354,6 +354,7 @@ int AppendBNFMSAAnimation (model_t *model, const u8 *data, uint size)
 
 enumError DecodeBNFMWithAnim (
 	const u8 *data, uint size, const u8 *anim_data, uint anim_size, ccp out_path)
+{
 	if (!data || size < 0x78)
 		return ERR_INVALID_DATA;
 

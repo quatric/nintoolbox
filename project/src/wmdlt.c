@@ -1131,12 +1131,39 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		{
 			if (!testmode)
 			{
-				err = DecodeBNFM (raw.data, (uint)raw.data_size, dest);
+				// A sibling .bnfmsa file (BNFMSA skeletal animation for the
+				// same skeleton, MPLibrary/WiiU/BNFM/Animation) is picked up
+				// automatically when present; otherwise plain model decode.
+				u8 *anim = 0;
+				size_t anim_size = 0;
+				char anim_path[PATH_MAX];
+				snprintf (anim_path, sizeof (anim_path), "%s", arg);
+				char *dot = strrchr (anim_path, '.');
+				char *slash = strrchr (anim_path, '/');
+				if (dot && (!slash || dot > slash))
+					*dot = 0;
+				snprintf (anim_path + strlen (anim_path),
+					sizeof (anim_path) - strlen (anim_path), ".bnfmsa");
+				if (LoadFileAlloc (anim_path, 0, 0, &anim, &anim_size, 0, 0, 0, false)
+					|| !anim_size)
+				{
+					FREE (anim);
+					anim = 0;
+					anim_size = 0;
+				}
+				if (anim)
+					err = DecodeBNFMWithAnim (raw.data, (uint)raw.data_size,
+						anim, (uint)anim_size, dest);
+				else
+					err = DecodeBNFM (raw.data, (uint)raw.data_size, dest);
+				FREE (anim);
 				if (err > ERR_WARNING)
 				{
 					ERROR0 (err, "Failed to decode BNFM: %s\n", arg);
 					return err;
 				}
+				if (verbose >= 0 && anim_size)
+					fprintf (stdlog, "BNFM: attached animation sidecar %s\n", anim_path);
 			}
 			continue;
 		}
