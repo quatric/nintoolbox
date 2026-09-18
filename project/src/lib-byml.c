@@ -1,5 +1,6 @@
 #include "lib-std.h"
 #include "lib-byml.h"
+#include "dclib-utf8.h"
 #include "mxml.h"
 #include <yaml.h>
 #include <math.h>
@@ -155,6 +156,88 @@ static u8 *byml_b64_decode (const char *src, size_t len, size_t *out_size)
 	}
 	FREE (clean);
 	*out_size = out_len;
+	return out;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Shift-JIS & UTF-8 Encoding Helpers
+///////////////////////////////////////////////////////////////////////////////
+
+static bool byml_is_valid_utf8 (const char *str)
+{
+	if (!str) return true;
+	ccp p = str;
+	while (*p)
+	{
+		u32 ch = ScanUTF8Char (&p);
+		if (ch & S32_MIN)
+			return false;
+	}
+	return true;
+}
+
+static char *byml_sjis_to_utf8 (const char *sjis)
+{
+	if (!sjis) return STRDUP ("");
+	if (byml_is_valid_utf8 (sjis))
+		return STRDUP (sjis);
+
+	size_t len = strlen (sjis);
+	char *out = MALLOC (len * 4 + 1);
+	char *dest = out;
+	cucp ptr = (cucp)sjis;
+
+	while (*ptr)
+	{
+		int code = ScanShiftJISChar (&ptr);
+		if (code < 0)
+		{
+			// Fallback: copy byte as Latin-1 or skip
+			*dest++ = *ptr++;
+		}
+		else if (code > 0)
+		{
+			dest = PrintUTF8Char (dest, (u32)code);
+		}
+	}
+	*dest = 0;
+	return out;
+}
+
+static char *byml_utf8_to_sjis (const char *utf8)
+{
+	if (!utf8) return STRDUP ("");
+	SetupGetShiftJISCache ();
+
+	size_t len = strlen (utf8);
+	char *out = MALLOC (len * 2 + 1);
+	char *dest = out;
+	ccp p = utf8;
+
+	while (*p)
+	{
+		u32 ch = ScanUTF8Char (&p);
+		if (ch & S32_MIN)
+			continue;
+		int sc = GetShiftJISChar (ch);
+		if (sc >= 0)
+		{
+			if (sc > 0xff)
+			{
+				*dest++ = (sc >> 8) & 0xff;
+				*dest++ = sc & 0xff;
+			}
+			else
+			{
+				*dest++ = sc & 0xff;
+			}
+		}
+		else
+		{
+			*dest++ = (ch <= 0x7f) ? (char)ch : '?';
+		}
+	}
+	*dest = 0;
 	return out;
 }
 
@@ -745,25 +828,10 @@ static bool is_valid_utf8 (const char *s)
 static int byml_yaml_string (yaml_document_t *doc, const char *str)
 {
 	if (!str) str = "";
-	if (is_valid_utf8 (str))
-		return yaml_document_add_scalar (doc, (yaml_char_t *)YAML_STR_TAG,
-			(const yaml_char_t *)str, -1, YAML_PLAIN_SCALAR_STYLE);
-
-	size_t len = strlen (str);
-	char *escaped = CALLOC (1, len * 4 + 1), *dest = escaped;
-	for (const u8 *src = (const u8 *)str; *src; src++)
-	{
-		if (*src < 0x20 || *src >= 0x80)
-		{
-			snprintf (dest, 5, "\\x%02x", *src);
-			dest += 4;
-		}
-		else
-			*dest++ = *src;
-	}
+	char *utf8 = byml_sjis_to_utf8 (str);
 	int node = yaml_document_add_scalar (doc, (yaml_char_t *)YAML_STR_TAG,
-		(const yaml_char_t *)escaped, -1, YAML_DOUBLE_QUOTED_SCALAR_STYLE);
-	FREE (escaped);
+		(const yaml_char_t *)(utf8 ? utf8 : ""), -1, YAML_PLAIN_SCALAR_STYLE);
+	FREE (utf8);
 	return node;
 }
 
@@ -1098,9 +1166,13 @@ static void byml_node_to_xml_elem (mxml_node_t *parent, ccp name, const byml_nod
 	switch (n->type)
 	{
 		case BYML_T_STRING:
+		{
 			mxmlElementSetAttr (el, "type", "string");
-			mxmlNewText (el, 0, n->u.s ? n->u.s : "");
+			char *utf8 = byml_sjis_to_utf8 (n->u.s ? n->u.s : "");
+			mxmlNewText (el, 0, utf8 ? utf8 : "");
+			FREE (utf8);
 			break;
+		}
 
 		case BYML_T_BINARY:
 		case BYML_T_BINARY_ALIGNED:
@@ -1335,7 +1407,8 @@ static void byml_node_to_json_file (FILE *out, const byml_node_t *n, int indent)
 		case BYML_T_STRING:
 		{
 			fputc ('"', out);
-			for (const char *p = n->u.s ? n->u.s : ""; *p; p++)
+			char *utf8 = byml_sjis_to_utf8 (n->u.s ? n->u.s : "");
+			for (const char *p = utf8 ? utf8 : ""; *p; p++)
 			{
 				if (*p == '"') fputs ("\\\"", out);
 				else if (*p == '\\') fputs ("\\\\", out);
@@ -1344,6 +1417,7 @@ static void byml_node_to_json_file (FILE *out, const byml_node_t *n, int indent)
 				else if (*p == '\t') fputs ("\\t", out);
 				else fputc (*p, out);
 			}
+			FREE (utf8);
 			fputc ('"', out);
 			break;
 		}
@@ -1403,7 +1477,11 @@ static void byml_node_to_json_file (FILE *out, const byml_node_t *n, int indent)
 			{
 				for (int s = 0; s < indent + 2; s++) fputc (' ', out);
 				if (n->type == BYML_T_MAP)
-					fprintf (out, "\"%s\": ", n->u.map.entries[i].key);
+				{
+					char *k_utf8 = byml_sjis_to_utf8 (n->u.map.entries[i].key);
+					fprintf (out, "\"%s\": ", k_utf8 ? k_utf8 : "");
+					FREE (k_utf8);
+				}
 				else if (n->type == BYML_T_HASHMAP32)
 					fprintf (out, "\"%u\": ", n->u.map.entries[i].hash32);
 				else
