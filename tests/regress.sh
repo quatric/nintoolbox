@@ -3434,31 +3434,30 @@ open('$d/huff4.bin', 'wb').write(bytes([0x24, 4, 0, 0, 1, 0xC0, 0x00, 1, 2]) + s
 }
 t_huffman
 
-echo "== Mario Party BIN (wmpbpack/wmpbdump, Hudson mpbin-tools port) =="
+echo "== Mario Party BIN (wszst native MPBIN CREATE/xx) =="
 # The synthetic round-trip still catches encoder/decoder symmetry. A curated
 # mariomdl0.bin from retail GMPE01 (Mario Party 4 USA Rev 1) separately proves
 # the real Hudson fast-slide path and yields two duplicate HSFV037 models.
-# Both tools used to call
-# getchar() on every error/warning path (ported straight from the original
-# Windows console EXEs), which silently hangs forever under any script or
-# CI runner with no output at all -- removed.
+# MPBIN pack/unpack used to go through standalone wmpbpack/wmpbdump ports of
+# the original Hudson tools; wszst's own MPBIN support (lib-mpbin.c) already
+# covers both directions (CREATE from a "*.bin.d" dir with an optional
+# mpbin-setup.txt, "xx" for raw member extraction), so the round-trip now
+# exercises wszst exclusively instead of shipping a second implementation.
 t_mpb(){
   local d; d=$(mktemp -d)
   printf 'AAAAAAAAAABBBBBBBBBBCCCCCCCCCC %.0s' {1..50} > "$d/in.dat"
   printf 'The quick brown fox. %.0s' {1..30} >> "$d/in.dat"
   local all_ok=1
   for ct in 0 1 2 5 7; do  # none, LZSS, YAZ0-like slide, RLE, inflate
-    # wmpbdump's own success path returns 1, not 0 (ported as-is from the
-    # original source) -- gate on the round-tripped bytes, not exit codes.
-    ( cd "$d" && echo "compress_type=$ct: in.dat" > list.txt
-      timeout 10 "$PWD_PROJECT/wmpbpack" list.txt "out$ct.bin" >/dev/null 2>&1
-      timeout 10 "$PWD_PROJECT/wmpbdump" "out$ct.bin" >/dev/null 2>&1
-      cmp -s "out${ct}_file0.dat" in.dat ) || all_ok=0
-    ( cd "$d" && timeout 10 "$PWD_PROJECT/bin/wszst" xx "out$ct.bin" --dest "out${ct}_xx.d" --overwrite >/dev/null 2>&1
+    ( cd "$d" && mkdir -p "pack$ct"
+      cp in.dat "pack$ct/file000.dat"
+      printf 'file0\tcompress_type=%d\n' "$ct" > "pack$ct/mpbin-setup.txt"
+      timeout 10 "$PWD_PROJECT/bin/wszst" CREATE "pack$ct" --dest "out$ct.bin" --overwrite >/dev/null 2>&1
+      timeout 10 "$PWD_PROJECT/bin/wszst" xx "out$ct.bin" --dest "out${ct}_xx.d" --overwrite >/dev/null 2>&1
       cmp -s "out${ct}_xx.d/file000.dat" in.dat ) || all_ok=0
   done
   rm -rf "$d"
-  [ "$all_ok" = 1 ] && ok "Mario Party BIN round-trip (compress_type 0/1/2/5/7, synthetic + wszst xx)" \
+  [ "$all_ok" = 1 ] && ok "Mario Party BIN round-trip (compress_type 0/1/2/5/7, wszst CREATE + xx)" \
     || no "Mario Party BIN round-trip" "one or more compress_type mismatched"
 }
 t_mpb
@@ -3510,9 +3509,9 @@ t_mpb_retail(){
   local d
   d=$(mktemp -d /tmp/_r_mp4_retail.XXXXXX) || { no "Mario Party 4 retail BIN" "mktemp failed"; return; }
   cp "$src" "$d/model.bin"
-  ( cd "$d" && timeout 15 "$PWD_PROJECT/wmpbdump" model.bin >run.log 2>&1 )
+  "$B/wszst" xx "$d/model.bin" --dest "$d/raw" --overwrite >"$d/xx.log" 2>&1
   "$B/wszst" EXTRACT "$d/model.bin" --dest "$d/decoded" --overwrite >"$d/wszst.log" 2>&1
-  local a="$d/model_file0.hsf" b="$d/model_file1.hsf"
+  local a="$d/raw/file000.dat" b="$d/raw/file001.dat"
   local glb="$d/decoded/file000.glb"
   local motion="$glb.motion.json"
   local textured=0
@@ -3530,7 +3529,7 @@ PY
   if [ -s "$a" ] && [ -s "$b" ] \
       && [ "$(head -c 7 "$a")" = HSFV037 ] \
       && cmp -s "$a" "$b" \
-      && ! grep -q 'Failed\|Unknown Compression' "$d/run.log" \
+      && ! grep -qi 'Failed\|Unknown Compression' "$d/xx.log" "$d/wszst.log" \
       && [ "$textured" = 1 ] && [ "$(find "$d/decoded" -name '*.png' | wc -l)" -ge 5 ] \
       && python3 -c 'import json,sys;j=json.load(open(sys.argv[1]));assert len(j["motions"][0]["tracks"])==1082' "$motion"; then
     ok "Mario Party 4 retail BIN -> 2 textured, hierarchical, skinned HSF models"

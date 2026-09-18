@@ -915,10 +915,7 @@ $(LIB_LZ4_OBJ): %.o: %.c Makefile
 # specific rules in alphabetic order
 
 .PHONY : all
-# wmpbpack/wmpbdump are tiny standalone Hudson mpbin-tools ports (own
-# recipes below); they're built by default because tests/regress.sh's
-# Mario Party BIN round-trip depends on them at the project root.
-all: setup-files $(TEXT_FILES) $(HELPER_TOOLS) $(ALL_TOOLS) wmpbpack wmpbdump $(INSTALL_SCRIPTS) $(SETUP_INFO)
+all: setup-files $(TEXT_FILES) $(HELPER_TOOLS) $(ALL_TOOLS) $(INSTALL_SCRIPTS) $(SETUP_INFO)
 
 # The complete BMS command set lives in the pinned upstream submodule.  It is
 # deliberately an explicit target: the upstream project compiles hundreds of
@@ -1526,16 +1523,6 @@ help:
 #	@echo "------"
 #	@echo $(SZS_O)
 #	@echo "------"
-
-# Custom tools
-wmpbdump: src/wmpbdump.c
-	$(CC) $(CFLAGS) $< $(LDFLAGS) -lz -o $@
-	@mkdir -p bin && src=$@; test -f $@.exe && src=$@.exe; cp -p $$src bin/
-
-wmpbpack: src/wmpbpack.c
-	$(CC) $(CFLAGS) $< $(LDFLAGS) -lz -o $@
-	@mkdir -p bin && src=$@; test -f $@.exe && src=$@.exe; cp -p $$src bin/
-
 
 # Test-only oracles. QuickLZ is native inside wszst (COMPRESS to a .qlz
 # destination, DECOMPRESS auto-detects 1.20 vs 1.4.0); these standalone vendor

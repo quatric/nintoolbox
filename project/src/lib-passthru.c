@@ -1810,12 +1810,12 @@ static enumError passthru_archive (
 	ccp toolname = 0;
 	if (is_disc)
 	{
-		tool = resolve_tool (opt_with_wit, "wit");
+		tool = resolve_bundled_tool (opt_with_wit, "wit");
 		toolname = "wit";
 	}
 	else if (is_ds || is_wad)
 	{
-		tool = resolve_tool (opt_with_wit, "wit");
+		tool = resolve_bundled_tool (opt_with_wit, "wit");
 		use_wit_x = wit_supports_xcontainers (tool);
 		if (use_wit_x)
 			toolname = "wit";
@@ -3565,7 +3565,7 @@ enumError PassthruPack (ccp src_dir, ccp dest)
 	// 1. Wii / GameCube disc images (.wbfs, .iso, .ciso, .wdf, .wia, .gcz, .gcm, .gca, .raw, .img)
 	if (is_disc_ext (dest))
 	{
-		ccp tool = resolve_tool (opt_with_wit, "wit");
+		ccp tool = resolve_bundled_tool (opt_with_wit, "wit");
 		if (!tool || !*tool)
 			return make_stage_dir (dest, true);
 
@@ -3601,7 +3601,7 @@ enumError PassthruPack (ccp src_dir, ccp dest)
 	// 2. Nintendo DS ROM (.nds, .srl, .dsi)
 	if (is_ds_ext (dest))
 	{
-		ccp tool = resolve_tool (opt_with_wit, "wit");
+		ccp tool = resolve_bundled_tool (opt_with_wit, "wit");
 		bool use_ndstool = !wit_supports_xcontainers (tool);
 		if (use_ndstool)
 			tool = resolve_tool (opt_with_ndstool, "ndstool");
@@ -3710,7 +3710,7 @@ enumError PassthruPack (ccp src_dir, ccp dest)
 		// above), so a WAD round-trip no longer needs sharpii installed at
 		// all. Fall back to sharpii's "WAD -p" when wit is unavailable or
 		// lacks the fork-only X commands; it reads the same staged contents.
-		ccp tool = resolve_tool (opt_with_wit, "wit");
+		ccp tool = resolve_bundled_tool (opt_with_wit, "wit");
 		bool use_sharpii = !wit_supports_xcontainers (tool);
 		ccp tool_name = use_sharpii ? "sharpii" : "wit";
 		if (use_sharpii)
