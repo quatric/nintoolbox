@@ -1371,3 +1371,55 @@ model_t *ParseNSBMD (const uint8_t *data, size_t size)
 	}
 	return out;
 }
+
+// ----------------------------------------------------------------------------
+// Shared DS GX display-list decoder for non-NSBMD containers.
+//
+// Mario Party DS HBDF meshes carry the same packed FIFO command stream as
+// NSBMD shapes (MPLibrary decodes them with Toolbox.Core's NitroGX.ReadCmds;
+// see ToolWrappers/HBDF/HBDF.cs LoadMesh). This runs that stream and moves
+// the resulting triangle soup into a new mesh on an existing model_t so
+// HBDF (and any future GX-list container) does not fork the interpreter.
+// TEX_W/H normalize UVs against the material's texture; pass 0,0 for the
+// hardware-style /32 fallback. Returns the mesh index or -1 (empty list or
+// OOM; empty lists are skipped, never added).
+int AppendDSGXMesh (
+	model_t *model, const uint8_t *data, size_t size, const char *name, uint tex_w, uint tex_h)
+{
+	if (!model || !data || !size)
+		return -1;
+	geom_t g;
+	memset (&g, 0, sizeof (g));
+	run_display_list (&g, data, size, NULL, 0, tex_w, tex_h);
+	if (!g.n_vtx)
+	{
+		free (g.pos);
+		free (g.nrm);
+		free (g.uv);
+		free (g.vtx);
+		return -1;
+	}
+	mesh_t *grown = realloc (model->meshes, (model->num_meshes + 1) * sizeof (*grown));
+	if (!grown)
+	{
+		free (g.pos);
+		free (g.nrm);
+		free (g.uv);
+		free (g.vtx);
+		return -1;
+	}
+	model->meshes = grown;
+	mesh_t *mesh = model->meshes + model->num_meshes;
+	memset (mesh, 0, sizeof (*mesh));
+	snprintf (mesh->name, sizeof (mesh->name), "%s", name && name[0] ? name : "mesh");
+	mesh->positions = g.pos;
+	mesh->num_positions = g.n_pos;
+	mesh->normals = g.nrm;
+	mesh->num_normals = g.n_nrm;
+	mesh->texcoords = g.uv;
+	mesh->num_texcoords = g.n_uv;
+	mesh->vertices = g.vtx;
+	mesh->num_vertices = g.n_vtx;
+	mesh->material_idx = -1;
+	return (int)model->num_meshes++;
+}

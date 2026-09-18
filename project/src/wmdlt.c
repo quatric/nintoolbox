@@ -57,6 +57,7 @@
 #include "lib-bfres.h"
 #include "lib-nud.h"
 #include "lib-bnfm.h"
+#include "lib-hbdf.h"
 #include "lib-numsh.h"
 #include "lib-mpr-cmdl.h"
 #include "lib-wmb.h"
@@ -1050,6 +1051,24 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				if (err > ERR_WARNING)
 				{
 					ERROR0 (err, "Failed to decode BNFM: %s\n", arg);
+					return err;
+				}
+			}
+			continue;
+		}
+
+		// Hudson Soft Nitro DS models (Mario Party DS HBDF/HSDF container
+		// with MDLF objects + MESH Nitro GX display lists).
+		const bool is_hbdf_in = is_ext (arg, ".hbdf") || is_ext (arg, ".hsdf")
+			|| (raw.data_size >= 8 && IsHBDF (raw.data, (uint)raw.data_size));
+		if (is_model_dest && is_hbdf_in)
+		{
+			if (!testmode)
+			{
+				err = DecodeHBDF (raw.data, (uint)raw.data_size, dest);
+				if (err > ERR_WARNING)
+				{
+					ERROR0 (err, "Failed to decode HBDF: %s\n", arg);
 					return err;
 				}
 			}
