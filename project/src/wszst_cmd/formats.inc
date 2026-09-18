@@ -1116,6 +1116,14 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
+	err = extract_effn_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_pctl_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
 	err = extract_mii_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
@@ -1467,6 +1475,10 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		return err;
 
 	err = extract_bfsha_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_effn_manifest (arg);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 

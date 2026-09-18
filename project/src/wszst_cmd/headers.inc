@@ -97,6 +97,7 @@
 #include "lib-nuanmb.h"
 #include "lib-bfsha.h"
 #include "lib-pctl.h"
+#include "lib-effn.h"
 #include "lib-wtb.h"
 #include "lib-trpak.h"
 #include "lib-cnut.h"

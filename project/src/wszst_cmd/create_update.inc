@@ -1169,6 +1169,35 @@ static enumError cmd_create (bool create)
 			continue;
 		}
 
+		if (create && ext && (!strcasecmp (ext, ".eff") || !strcasecmp (ext, ".effn")))
+		{
+			enumError err = create_effn_dir (source_dir, dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE EFFN %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", source_dir, dest);
+			if (max_err < err)
+				max_err = err;
+			if (err <= ERR_WARNING && src_len > 2 && !strcasecmp (source_dir + src_len - 2, ".d")
+				&& !testmode)
+				remove_dir_recursive (source_dir);
+			ResetSetupParam (&sp);
+			continue;
+		}
+		if (create && ext && (!strcasecmp (ext, ".ptcl") || !strcasecmp (ext, ".vfxb") || !strcasecmp (ext, ".eset")))
+		{
+			enumError err = create_pctl_dir (source_dir, dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE VFXB %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", source_dir, dest);
+			if (max_err < err)
+				max_err = err;
+			if (err <= ERR_WARNING && src_len > 2 && !strcasecmp (source_dir + src_len - 2, ".d")
+				&& !testmode)
+				remove_dir_recursive (source_dir);
+			ResetSetupParam (&sp);
+			continue;
+		}
+
 		szs_file_t szs;
 		InitializeSZS (&szs);
 		enumError err = CreateSZS (&szs, dest, arg, 0, &sp, 0, verbose > 0 ? UINT_MAX : 0, false);
@@ -4722,6 +4751,20 @@ static enumError extract_gsh_shaders (ccp arg, ccp basedir, uint depth)
 			written++;
 		FREE (text);
 	}
+	if (!testmode)
+	{
+		char manifest_dest[PATH_MAX];
+		snprintf (manifest_dest, sizeof (manifest_dest), "%s.txt", arg);
+		File_t MF;
+		InitializeFile (&MF);
+		enumError mferr = CreateFileOpt (&MF, true, manifest_dest, false, arg);
+		if (!mferr && MF.f)
+		{
+			DecodeGSH_Text (MF.f, raw, raw_size);
+			written++;
+		}
+		ResetFile (&MF, false);
+	}
 	ResetGTX (&gtx);
 	FREE (raw);
 	return written ? err : ERR_NOTHING_TO_DO;
@@ -5156,6 +5199,58 @@ static enumError extract_lzbin_file (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 
 	return write_owned_entries (arg, basedir, depth, "LZBIN", entries, n_entries);
+}
+
+static enumError extract_effn_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 magic[4];
+	FILE *f = fopen (arg, "rb");
+	if (!f)
+		return ERR_NOTHING_TO_DO;
+	size_t n = fread (magic, 1, 4, f);
+	fclose (f);
+	if (n < 4 || memcmp (magic, "EFFN", 4) != 0)
+		return ERR_NOTHING_TO_DO;
+
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT EFFN:%s -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+		return ERR_OK;
+
+	enumError err = ExtractEFFNArchive (arg, dest);
+	if (!err && opt_recurse > depth)
+		extract_tree_complete (dest, depth + 1);
+	return err;
+}
+
+static enumError extract_pctl_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 magic[4];
+	FILE *f = fopen (arg, "rb");
+	if (!f)
+		return ERR_NOTHING_TO_DO;
+	size_t n = fread (magic, 1, 4, f);
+	fclose (f);
+	if (n < 4 || memcmp (magic, "VFXB", 4) != 0)
+		return ERR_NOTHING_TO_DO;
+
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT VFXB:%s -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+		return ERR_OK;
+
+	enumError err = ExtractPCTLArchive (arg, dest);
+	if (!err && opt_recurse > depth)
+		extract_tree_complete (dest, depth + 1);
+	return err;
 }
 
 static enumError extract_hbdf_file (ccp arg, ccp basedir, uint depth)
@@ -8145,6 +8240,48 @@ static enumError extract_bfsha_manifest (ccp arg)
 	err = CreateFileOpt (&F, true, dest, false, arg);
 	if (F.f)
 		err = DecodeBFSHA_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_effn_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".eff") && !is_ext (arg, ".effn"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsEFFN (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE EFFN:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeEFFN_Text (F.f, raw, raw_size);
 	ResetFile (&F, opt_preserve);
 	FREE (raw);
 	return err;
