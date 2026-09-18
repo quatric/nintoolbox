@@ -675,6 +675,7 @@ jobs:
             libtool
             make
             git
+            unzip
 
       # Companion tools that are plain C/C++ and build fine under the same
       # native MinGW-w64 toolchain (via MSYS2's mingw64 environment)
