@@ -865,7 +865,6 @@ static void j3d_dec_free (j3d_dec_t *d)
 	FREE (d->tmagf);
 	FREE (d->tw);
 	FREE (d->th);
-	FREE (d->tmips);
 	if (d->trgba)
 	{
 		for (int i = 0; i < d->num_tex; i++)
@@ -885,6 +884,7 @@ static void j3d_dec_free (j3d_dec_t *d)
 		FREE (d->tmip_w);
 		FREE (d->tmip_h);
 	}
+	FREE (d->tmips);
 	memset (d, 0, sizeof (*d));
 }
 
@@ -1157,15 +1157,18 @@ static int j3d_parse_evp1 (const uint8_t *data, size_t size, size_t sect, j3d_de
 	uint32_t o_cnt = j3d_rd32 (data + sect + 12), o_idx = j3d_rd32 (data + sect + 16),
 		o_w = j3d_rd32 (data + sect + 20), o_m = j3d_rd32 (data + sect + 24);
 	d->num_evp = n;
-	if (!n)
-		return 1;
-	if (!j3d_ok (data, size, sect + o_cnt, (size_t)n) || !j3d_ok (data, size, sect, ssize))
-		return 0;
+	// NOTE: IBMs are read even when n==0 (our encoder always writes the
+	// per-joint table; SuperBMD's empty 32-byte section carries none).
 	int total = 0;
-	for (int i = 0; i < n; i++)
-		total += data[sect + o_cnt + i];
-	if (total < 0 || total > 1000000)
-		return 0;
+	if (n)
+	{
+		if (!j3d_ok (data, size, sect + o_cnt, (size_t)n) || !j3d_ok (data, size, sect, ssize))
+			return 0;
+		for (int i = 0; i < n; i++)
+			total += data[sect + o_cnt + i];
+		if (total < 0 || total > 1000000)
+			return 0;
+	}
 	d->evp_wcount = CALLOC ((size_t)n ? (size_t)n : 1, sizeof (int));
 	d->evp_bones = CALLOC ((size_t)total ? (size_t)total : 1, sizeof (uint16_t));
 	d->evp_weights = CALLOC ((size_t)total ? (size_t)total : 1, sizeof (float));
@@ -1813,15 +1816,19 @@ static int j3d_expand_shape (const uint8_t *data, size_t size, size_t shp_sect, 
 				}
 				if (bad)
 					break;
-				// resolve DRW slot
+				// resolve DRW slot (packet-local matrix index, like SuperBMD;
+				// out-of-range indices fall back to the packet's first
+				// matrix, mirroring the obj2bdl workaround in SHP1)
 				int slot = -1;
 				if (desc.has_pmtx)
 				{
 					int li = desc.pmtx_direct ? (int)(vx.pmtx / 3) : (int)vx.pmtx;
-					if (li >= 0 && (size_t)(li * 2 + 1) < mleft)
+					if (li < 0 || li >= nm)
+						li = 0;
+					if (nm > 0 && (size_t)(li * 2 + 1) < mleft)
 						slot = (int)j3d_rd16 (mbase + (size_t)li * 2);
-					else
-						slot = -1;
+					else if (nm > 0 && mleft >= 2)
+						slot = (int)j3d_rd16 (mbase);
 				}
 				else if (nm > 0 && mleft >= 2)
 					slot = (int)j3d_rd16 (mbase);
@@ -4427,16 +4434,9 @@ static void j3d_write_evp1 (j3d_enc_t *e, j3d_buf_t *out)
 	j3d_w32 (out, 0);
 	j3d_ws16 (out, e->nmultis);
 	j3d_ws16 (out, -1);
-	if (!e->nmultis)
-	{
-		j3d_w32 (out, 0);
-		j3d_w32 (out, 0);
-		j3d_w32 (out, 0);
-		j3d_w32 (out, 0);
-		j3d_patch32 (out, start + 4, 32);
-		j3d_wpad (out, 8, 0);
-		return;
-	}
+	// NOTE: the per-joint inverse-bind table is always written, even with
+	// zero envelopes: single-weight verts are baked against it, so dropping
+	// it (like SuperBMD's empty section) loses skinning and --rotate.
 	j3d_w32 (out, 28);
 	j3d_w32 (out, 28 + (uint32_t)e->nmultis);
 	size_t woff_pos = out->size;
@@ -5483,6 +5483,30 @@ enumError EncodeModelToJ3D (const model_t *model, const char *out_path,
 		}
 	if (opt->texheader_path && *opt->texheader_path)
 		j3d_apply_texheaders (&e, opt->texheader_path);
+	// preserve embedded-but-unreferenced images (e.g. extra material
+	// layers the GLB material binding dropped) as unbound TEX1 entries
+	for (size_t ii = 0; ii < model->num_images; ii++)
+	{
+		const model_image_t *im = &model->images[ii];
+		int known = 0;
+		for (int k = 0; k < e.ntex; k++)
+			if (!strcmp (e.tex[k].name, im->name))
+				known = 1;
+		if (!known && im->name[0])
+		{
+			char base[64];
+			snprintf (base, sizeof (base), "%s", im->name);
+			char *dot = strrchr (base, '.');
+			if (dot)
+				*dot = 0;
+			known = 0;
+			for (int k = 0; k < e.ntex; k++)
+				if (!strcmp (e.tex[k].name, base) || !strcmp (e.tex[k].name, im->name))
+					known = 1;
+			if (!known)
+				j3d_collect_texture (&e, base[0] ? base : im->name);
+		}
+	}
 	// meshes
 	e.nem = (int)model->num_meshes;
 	e.em = CALLOC ((size_t)e.nem, sizeof (*e.em));

@@ -2750,6 +2750,7 @@ static const KeywordTab_t CommandTab[] =
     { CMD_INFO,		"INFO",		0,		0 },
     { CMD_GHOST,	"GHOSTS",	0,		0 },
     { CMD_YAZDUMP,	"YAZDUMP",	"YD",		0 },
+    { CMD_BYMLFIND,	"BYMLFIND",	"BFIND",	0 },
     { CMD_VEHICLE,	"VEHICLE",	0,		0 },
 
     { CMD__N,0,0,0 }
@@ -4363,7 +4364,17 @@ static u8 option_allowed_cmd_YAZDUMP[151] = // cmd #86
     0
 };
 
-static u8 option_allowed_cmd_VEHICLE[151] = // cmd #87
+static u8 option_allowed_cmd_BYMLFIND[151] = // cmd #87
+{
+    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
+    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,1,
+    1,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
+    1,1,1,1,1, 1,0,1,1,1,  1,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
+    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
+    0
+};
+
+static u8 option_allowed_cmd_VEHICLE[151] = // cmd #88
 {
     0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
     0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,1,0,
@@ -8389,6 +8400,30 @@ static const InfoOption_t * option_tab_cmd_YAZDUMP[] =
 	0
 };
 
+static const InfoOption_t * option_tab_cmd_BYMLFIND[] =
+{
+	OptionInfo + OPT_NO_WILDCARDS,
+	OptionInfo + OPT_IN_ORDER,
+	OptionInfo + OPT_IGNORE,
+
+	OptionInfo + OPT_NONE, // separator
+
+	OptionInfo + OPT_DEST,
+	OptionInfo + OPT_DEST2,
+	OptionInfo + OPT_PARENT,
+	OptionInfo + OPT_ESC,
+
+	OptionInfo + OPT_NONE, // separator
+
+	OptionInfo + OPT_PRESERVE,
+	OptionInfo + OPT_UPDATE,
+	OptionInfo + OPT_OVERWRITE,
+	OptionInfo + OPT_NUMBER,
+	OptionInfo + OPT_REMOVE_DEST,
+
+	0
+};
+
 static const InfoOption_t * option_tab_cmd_VEHICLE[] =
 {
 	&option_cmd_VEHICLE_SOURCE,
@@ -9952,6 +9987,24 @@ static const InfoCommand_t CommandInfo[CMD__N+1] =
 	12,
 	option_tab_cmd_YAZDUMP,
 	option_allowed_cmd_YAZDUMP
+    },
+
+    {	CMD_BYMLFIND,
+	false,
+	false,
+	false,
+	"BYMLFIND",
+	"BFIND",
+	"wszst BYMLFIND pattern [source]...",
+	"Search BYML files (plain or Yaz0-compressed, e.g. BotW .sbyml) for"
+	" map keys and values containing pattern (case-insensitive substring,"
+	" like the NintenTools.Byaml editor search) and print one path = value"
+	" line per match. Wildcards and pipe characters are parsed, see"
+	" https://szs.wiimm.de/doc/wildcards for details.",
+	0,
+	12,
+	option_tab_cmd_BYMLFIND,
+	option_allowed_cmd_BYMLFIND
     },
 
     {	CMD_VEHICLE,

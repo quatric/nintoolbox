@@ -1159,6 +1159,9 @@ static enumError CheckCommand (int argc, char **argv)
 		case CMD_YAZDUMP:
 			err = cmd_yazdump ();
 			break;
+		case CMD_BYMLFIND:
+			err = cmd_bymlfind ();
+			break;
 
 		case CMD_VEHICLE:
 			err = cmd_vehicle ();

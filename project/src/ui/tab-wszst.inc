@@ -774,6 +774,14 @@
 		" Ignore files without YAZ compression."
 		" " WILDCARDS_PIPE },
 
+  { T_DEF_CMD,	"BYMLFIND",	"BYMLFIND|BFIND",
+		    "wszst BYMLFIND pattern [source]...",
+		"Search BYML files (plain or Yaz0-compressed, e.g. BotW @.sbyml@)"
+		" for map keys and values containing @pattern@"
+		" (case-insensitive substring, like the NintenTools.Byaml editor search)"
+		" and print one @path = value@ line per match."
+		" " WILDCARDS_PIPE },
+
   { T_SEP_CMD,	0,0,0,0 }, //----- separator -----
 
   { H_DEF_CMD,	"VEHICLE",	"VEHICLE",
@@ -4151,6 +4159,16 @@
   //---------- COMMAND wszst YAZDUMP ----------
 
   { T_CMD_BEG,	"YAZDUMP",	0,0,0 },
+
+  { T_COPT,	"NO_WILDCARDS",	0,0,0 },
+  { T_COPT,	"IN_ORDER",	0,0,0 },
+  { T_COPT,	"IGNORE",	0,0,0 },
+  { T_SEP_OPT,	0,0,0,0 },
+  { T_COPY_GRP,	"DEST",		0,0,0 },
+
+  //---------- COMMAND wszst BYMLFIND ----------
+
+  { T_CMD_BEG,	"BYMLFIND",	0,0,0 },
 
   { T_COPT,	"NO_WILDCARDS",	0,0,0 },
   { T_COPT,	"IN_ORDER",	0,0,0 },

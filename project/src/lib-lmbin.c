@@ -299,7 +299,7 @@ static bool lmb_walk_batch (const u8 *data, uint size, const lmb_off_t *o, uint 
 			uint need = 2;
 			if (hn)
 				need += 2;
-			if (bp[8] /*NbtFlag*/)
+			if (bp[11] /*NbtFlag*/)
 				need += 4;
 			if (attr & LMB_GX_C0)
 				need += 2;
@@ -321,7 +321,7 @@ static bool lmb_walk_batch (const u8 *data, uint size, const lmb_off_t *o, uint 
 			{
 				v[i].nrm = lmb_be16s (p);
 				p += 2;
-				if (bp[8])
+				if (bp[11])
 					p += 4;
 			}
 			if (attr & LMB_GX_C0)
@@ -493,6 +493,54 @@ model_t *ParseLMBIN (const u8 *data, size_t size)
 		jt->scale.x = lmb_bef32 (np + 12);
 		jt->scale.y = lmb_bef32 (np + 16);
 		jt->scale.z = lmb_bef32 (np + 20);
+	}
+	// rigid single-bone influences so the skeleton survives a GLB round
+	// trip (positions are baked with the joint worlds, hence the matching
+	// inverse binds, exactly like the LM MDL importer).
+	model->num_node_influences = nnodes;
+	model->node_influences = CALLOC (nnodes ? nnodes : 1, sizeof (*model->node_influences));
+	if (!model->node_influences)
+	{
+		FREE (nodes);
+		FreeModel (model);
+		return 0;
+	}
+	for (size_t j = 0; j < nnodes; j++)
+	{
+		node_influence_t *inf = model->node_influences + j;
+		inf->weights = MALLOC (sizeof (*inf->weights));
+		if (!inf->weights)
+		{
+			FREE (nodes);
+			FreeModel (model);
+			return 0;
+		}
+		inf->num_weights = 1;
+		inf->weights[0].bone_idx = (int)j;
+		inf->weights[0].weight = 1.0f;
+		// inverse bind = inverse of the baked world
+		const float *m = nodes[j].world;
+		const double det = (double)m[0] * (m[5] * m[10] - m[6] * m[9])
+			- (double)m[1] * (m[4] * m[10] - m[6] * m[8])
+			+ (double)m[2] * (m[4] * m[9] - m[5] * m[8]);
+		float *ib = model->joints[j].inverse_bind;
+		if (fabs (det) > 1e-20)
+		{
+			const float d = (float)(1.0 / det);
+			ib[0] = (m[5] * m[10] - m[6] * m[9]) * d;
+			ib[1] = (m[2] * m[9] - m[1] * m[10]) * d;
+			ib[2] = (m[1] * m[6] - m[2] * m[5]) * d;
+			ib[4] = (m[6] * m[8] - m[4] * m[10]) * d;
+			ib[5] = (m[0] * m[10] - m[2] * m[8]) * d;
+			ib[6] = (m[2] * m[4] - m[0] * m[6]) * d;
+			ib[8] = (m[4] * m[9] - m[5] * m[8]) * d;
+			ib[9] = (m[1] * m[8] - m[0] * m[9]) * d;
+			ib[10] = (m[0] * m[5] - m[1] * m[4]) * d;
+			ib[3] = -(ib[0] * m[3] + ib[1] * m[7] + ib[2] * m[11]);
+			ib[7] = -(ib[4] * m[3] + ib[5] * m[7] + ib[6] * m[11]);
+			ib[11] = -(ib[8] * m[3] + ib[9] * m[7] + ib[10] * m[11]);
+			model->joints[j].has_inverse_bind = 1;
+		}
 	}
 
 	//--- materials/textures discovered through draw elements ---
@@ -1026,10 +1074,27 @@ enumError DecodeLMBIN (const u8 *data, uint size, ccp out_path)
 
 enumError EncodeLMBIN (const model_t *model, u8 **out, uint *out_size)
 {
-	if (!out || !out_size || !model || !model->num_meshes || !model->num_joints)
+	if (!out || !out_size || !model || !model->num_meshes)
 		return ERR_INVALID_DATA;
-	const size_t nm = model->num_meshes, nj = model->num_joints;
-	if (nm > LMB_MAX_SECT || nj > LMB_MAX_SECT)
+	// A jointless (pure static) model still needs one scene-graph node;
+	// synthesize an identity root via a shallow model copy.
+	model_t tmp;
+	joint_t root;
+	const model_t *mdl = model;
+	if (!mdl->num_joints)
+	{
+		memset (&tmp, 0, sizeof (tmp));
+		memset (&root, 0, sizeof (root));
+		tmp = *model;
+		snprintf (root.name, sizeof (root.name), "Node0");
+		root.parent_idx = -1;
+		root.scale.x = root.scale.y = root.scale.z = 1.0f;
+		tmp.joints = &root;
+		tmp.num_joints = 1;
+		mdl = &tmp;
+	}
+	const size_t nm = mdl->num_meshes, nj = mdl->num_joints;
+	if (!nj || nm > LMB_MAX_SECT || nj > LMB_MAX_SECT)
 		return ERR_INVALID_DATA;
 
 	// world matrices per joint (composed TRS, parent chains)
@@ -1038,7 +1103,7 @@ enumError EncodeLMBIN (const model_t *model, u8 **out, uint *out_size)
 		return ERR_OUT_OF_MEMORY;
 	for (size_t j = 0; j < nj; j++)
 	{
-		const joint_t *jt = model->joints + j;
+		const joint_t *jt = mdl->joints + j;
 		float s[3] = { jt->scale.x ? jt->scale.x : 1, jt->scale.y ? jt->scale.y : 1,
 			jt->scale.z ? jt->scale.z : 1 };
 		float r[3] = { jt->rotate.x, jt->rotate.y, jt->rotate.z };
@@ -1112,12 +1177,12 @@ enumError EncodeLMBIN (const model_t *model, u8 **out, uint *out_size)
 		FREE (iworlds);
 		return ERR_OUT_OF_MEMORY;
 	}
-	const size_t nmat = model->num_materials ? model->num_materials : 1;
-	const size_t nimg = model->num_images;
+	const size_t nmat = mdl->num_materials ? mdl->num_materials : 1;
+	const size_t nimg = mdl->num_images;
 
 	for (size_t m = 0; m < nm; m++)
 	{
-		const mesh_t *mesh = model->meshes + m;
+		const mesh_t *mesh = mdl->meshes + m;
 		if (!mesh->num_vertices || mesh->num_vertices % 3)
 		{
 			FREE (worlds);
@@ -1362,7 +1427,7 @@ enumError EncodeLMBIN (const model_t *model, u8 **out, uint *out_size)
 		for (size_t i = 0; i < nimg; i++)
 		{
 			uint w = 8, hh = 8;
-			const model_image_t *im = model->images + i;
+			const model_image_t *im = mdl->images + i;
 			if (im->size >= 24 && !memcmp (im->data, "\x89PNG\r\n\x1a\n", 8)
 				&& !memcmp (im->data + 12, "IHDR", 4))
 			{
@@ -1389,7 +1454,7 @@ enumError EncodeLMBIN (const model_t *model, u8 **out, uint *out_size)
 	uint nsamp = 0;
 	for (size_t i = 0; i < nmat; i++)
 	{
-		const material_t *mt = model->num_materials > i ? model->materials + i : 0;
+		const material_t *mt = mdl->num_materials > i ? mdl->materials + i : 0;
 		uint nl = mt && mt->num_textures > 0 ? (uint)mt->num_textures : 1;
 		if (nl > 8)
 			nl = 8;
@@ -1405,8 +1470,10 @@ enumError EncodeLMBIN (const model_t *model, u8 **out, uint *out_size)
 	const uint uv_off = cur;
 	cur += (uint)nuv * 8;
 	cur = (cur + 31) & ~31u;
-	// attribute pools unused by this writer
-	const uint at1 = cur, at2 = cur, at3 = cur, at4 = cur, at5 = cur;
+	// attribute pools unused by this writer; keep header order
+	// (at1, at2 precede uv, at3-at5 follow it like the reference).
+	const uint at1 = uv_off, at2 = uv_off;
+	const uint at3 = cur, at4 = cur, at5 = cur;
 	const uint mat_off = cur;
 	cur += (uint)nmat * 40;
 	const uint batch_off = cur;
@@ -1515,7 +1582,7 @@ enumError EncodeLMBIN (const model_t *model, u8 **out, uint *out_size)
 	for (size_t i = 0; i < nmat; i++)
 	{
 		u8 *mp = buf + mat_off + i * 40;
-		const material_t *mt = model->num_materials > i ? model->materials + i : 0;
+		const material_t *mt = mdl->num_materials > i ? mdl->materials + i : 0;
 		if (mt)
 		{
 			mp[3] = (u8)(mt->diffuse[0] * 255.0f);
@@ -1539,7 +1606,7 @@ enumError EncodeLMBIN (const model_t *model, u8 **out, uint *out_size)
 				{
 					char base[64];
 					snprintf (base, sizeof (base), "Texture%u", (uint)g);
-					if (!strcmp (mt->textures[t], model->images[g].name)
+					if (!strcmp (mt->textures[t], mdl->images[g].name)
 						|| strstr (mt->textures[t], base))
 					{
 						img = (int)g;
@@ -1581,7 +1648,7 @@ enumError EncodeLMBIN (const model_t *model, u8 **out, uint *out_size)
 	for (size_t m = 0; m < nm; m++)
 	{
 		u8 *bhp = buf + batch_off + m * 24;
-		lmb_wr16 (bhp, (u16)(model->meshes[m].num_vertices / 3));
+		lmb_wr16 (bhp, (u16)(mdl->meshes[m].num_vertices / 3));
 		lmb_wr16 (bhp + 2, (u16)((batches[m].len + 31) / 32));
 		u32 attr = 0;
 		if (batches[m].hn)
@@ -1632,18 +1699,18 @@ enumError EncodeLMBIN (const model_t *model, u8 **out, uint *out_size)
 	for (size_t j = 0; j < nj; j++)
 	{
 		u8 *np = buf + graph_off + j * 140;
-		const joint_t *jt = model->joints + j;
+		const joint_t *jt = mdl->joints + j;
 		lmb_wr16 (np, jt->parent_idx >= 0 ? (u16)jt->parent_idx : 0xffff);
 		int fc = -1, ns = -1;
 		for (size_t k = 0; k < nj; k++)
-			if (model->joints[k].parent_idx == (int)j)
+			if (mdl->joints[k].parent_idx == (int)j)
 			{
 				fc = (int)k;
 				break;
 			}
 		const int p = jt->parent_idx;
 		for (size_t k = j + 1; k < nj; k++)
-			if (model->joints[k].parent_idx == p)
+			if (mdl->joints[k].parent_idx == p)
 			{
 				ns = (int)k;
 				break;

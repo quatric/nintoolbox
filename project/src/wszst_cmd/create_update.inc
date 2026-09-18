@@ -50,18 +50,25 @@ static enumError cmd_create (bool create)
 				max_err = xml_err;
 			continue;
 		}
+		// NOTE: is_ext() in this TU compares from the LAST dot only, so
+		// multi-dot sidecar suffixes need explicit suffix compares.
 		if (create && ((arg_len > 9 && !strcasecmp (arg + arg_len - 9, ".byml.yml"))
-			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".byml.yaml"))))
+			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".byml.yaml"))
+			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".byaml.yml"))
+			|| (arg_len > 11 && !strcasecmp (arg + arg_len - 11, ".byaml.yaml"))
+			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".sbyml.yml"))
+			|| (arg_len > 11 && !strcasecmp (arg + arg_len - 11, ".sbyml.yaml"))))
 		{
 			char y_dest[PATH_MAX];
+			// Strip .yml (preferred) or the older .yaml sidecar suffix.
+			const uint strip = is_ext (arg, ".yml") ? 4 : 5;
+			char stripped[PATH_MAX];
+			snprintf (stripped, sizeof (stripped), "%.*s", (int)(arg_len - strip), arg);
 			if (opt_dest)
-				SubstDest (y_dest, sizeof (y_dest), arg, opt_dest, 0, ".byml", false);
+				SubstDest (y_dest, sizeof (y_dest), arg, opt_dest, 0,
+					byml_dest_is_compressed (stripped) ? ".sbyml" : ".byml", false);
 			else
-			{
-				snprintf (y_dest, sizeof (y_dest), "%s", arg);
-				// Strip .yml (preferred) or the older .yaml sidecar suffix.
-				y_dest[arg_len - (is_ext (arg, ".yml") ? 4 : 5)] = 0;
-			}
+				snprintf (y_dest, sizeof (y_dest), "%s", stripped);
 			const enumError y_err = encode_byml_file (arg, y_dest);
 			if (verbose >= 0 || testmode)
 				fprintf (stdlog, "%s%sCREATE BYML %s -> %s\n", verbose > 0 ? "\n" : "",
@@ -1051,7 +1058,8 @@ static enumError cmd_create (bool create)
 			ResetSetupParam (&sp);
 			continue;
 		}
-		if (create && ext && (!strcasecmp (ext, ".byml") || !strcasecmp (ext, ".byaml")))
+		if (create && ext && (!strcasecmp (ext, ".byml") || !strcasecmp (ext, ".byaml")
+			|| byml_dest_is_compressed (dest)))
 		{
 			enumError err = encode_byml_file (arg, dest);
 			if (verbose >= 0 || testmode)
@@ -10240,17 +10248,16 @@ static enumError decode_byml_if_possible (ccp arg)
 
 	u8 *data = 0;
 	size_t size = 0;
-	enumError err = LoadFileAlloc (arg, 0, 0, &data, &size, 0, 0, 0, false);
+	// LoadBYMLData() unwraps Yaz0 transparently, so BotW-style S-prefixed
+	// containers (.sbyml, .smubin, ...) decode here just like plain BYML.
+	// NintenTools.Byaml does the same Yaz0-first step in its editor.
+	enumError err = LoadBYMLData (arg, &data, &size);
 	if (err)
-		return ERR_NOTHING_TO_DO;
-	if (size < 16 || size > UINT_MAX)
 	{
 		FREE (data);
 		return ERR_NOTHING_TO_DO;
 	}
-
-	const nfmt_type_t type = DetectNintendoFormat (data, size, arg).type;
-	if (type != NFMT_BYML)
+	if (size > UINT_MAX)
 	{
 		FREE (data);
 		return ERR_NOTHING_TO_DO;

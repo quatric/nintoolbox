@@ -241,6 +241,7 @@ wszst COMPRESS raw.bin --dest raw.lh      # LZH8 alias
 
 ### Supported Model Formats
 - **Nintendo standard**: `MDL0` / `BRRES` (Wii NW4R), `BFRES` (Wii U / Switch), `CGFX` / `BCRES` (3DS NW4C), `BCH` (3DS CTR H3D), `NSBMD` / `BMD` (DS Nitro 3D)
+- **GameCube / Wii J3D**: `BMD` (`J3D2bmd3`, legacy `bmd2`) and `BDL` (`J3D2bdl4`) — SuperBMD-compatible decode to GLB (geometry, skinning, materials, all GX texture formats incl. mipmaps) and encode from GLB (canonical single-TEV materials, RGBA32/CMPR textures, triangle lists), plus `--mat` / `--outmat` material JSON, `--texheader` texture-header JSON and `--profile` section info
 - **GameCube engines**: HAL `HSD` (`.dat`), Hudson Soft `HSF` (`.hsf`), Camelot `HGO`, Next Level `GLG`, Pokémon `PERS`
 - **Smash Bros**: Bandai Namco `NUD` (Smash 4 Wii U/3DS), `NUMSHB` / SSBH (Smash Ultimate Switch)
 - **Other engines**: Monster Games `MOD` and `MSH` (Excite Truck/Bots), Nd Cube `BNFM` (Mario Party 10 / Amiibo Festival), Koei Tecmo `G1M`, Level-5 `G4PKM`, DeNA `LMD`, TT Games `TTMODEL` (LEGO Star Wars: The Skywalker Saga)
@@ -269,6 +270,13 @@ wmdlt DECODE Character.hsf --dest Character.glb
 
 # Convert Nintendo DS NSBMD model to GLB:
 wmdlt DECODE Map.nsbmd --dest Map.glb
+
+# Convert GameCube/Wii J3D BMD model to GLB (textures, materials JSON
+# and texture-header JSON are staged next to the output, SuperBMD-style):
+wmdlt DECODE Model.bmd --dest Model.glb
+
+# Inspect a J3D model without converting (section sizes, textures):
+wmdlt DECODE Model.bmd --dest Model.glb --profile
 ```
 
 ---
@@ -278,8 +286,15 @@ wmdlt DECODE Map.nsbmd --dest Map.glb
 Encodes standard GLB models back into Nintendo formats, or injects geometry into existing binary parent models.
 
 ```bash
-# 1. Direct model encoding (HSF, HSD, MSH, MOD, CSB, Switch BFRES):
-wmdlt ENCODE <model.glb> --dest <output.hsf|output.dat|output.bfres>
+# 1. Direct model encoding (HSF, HSD, MSH, MOD, CSB, Switch BFRES, J3D BMD/BDL):
+wmdlt ENCODE <model.glb> --dest <output.hsf|output.dat|output.bfres|output.bmd|output.bdl>
+
+# GameCube/Wii J3D: GLB to BMD/BDL with SuperBMD-compatible options.
+# A .bdl destination (or --bdl) selects BDL; BMD is the default.
+wmdlt ENCODE custom.glb --dest custom.bmd
+wmdlt ENCODE custom.glb --dest custom.bdl
+wmdlt ENCODE custom.glb --dest custom.bmd --mat custom_materials.json --texheader custom_tex_headers.json
+wmdlt ENCODE custom.glb --dest custom.bmd --rotate --texfloat32 --tristrip all --nomipmaps
 
 # Paper Mario collision: decode to GLB, edit, re-encode (writes .ctb sidecar).
 # --csb-big selects the Color Splash big-endian layout; --csb-mobj writes

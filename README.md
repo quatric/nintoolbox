@@ -33,7 +33,9 @@ wszst CREATE Track.d --dest Track.szs
 # 3. Convert 3D models to standard GLB (.glb)
 wmdlt DECODE Mario.mdl0 --dest Mario.glb
 wmdlt DECODE Course.bfres --dest Course.glb
+wmdlt DECODE Model.bmd --dest Model.glb        # GameCube/Wii J3D (SuperBMD-compatible)
 wmdlt ENCODE Mario.glb --dest Mario.hsf
+wmdlt ENCODE custom.glb --dest custom.bmd      # GameCube/Wii J3D BMD (or .bdl)
 
 # 4. Convert Nintendo textures to PNG
 wimgt DECODE texture.tpl --dest texture.png
@@ -162,6 +164,8 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **BCRES** | `.bcres` | **GLB** | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C CGFX 3D graphics and model resource container (3DS). Same geometry coverage as BCMDL/CGFX (colours, tangents, extra UVs, skinning, texture `.json` sidecars). |
 | **BFRES** | `.bfres` | **GLB** | ✅ | — | — | ✅ | Nintendo GX2 / NintendoSDK 3D model & surface resource archive (Wii U / Switch). |
 | **BMD** | `.bmd`, `.bdhc` | **GLB** | ✅ | ✅ | ✅ | — | Early Nintendo DS 3D model format (DS) |
+| **J3D BMD** | `.bmd` | **GLB** | ✅ | ✅ | — | — | Nintendo GameCube/Wii binary model (`J3D2bmd3`, legacy `bmd2`). SuperBMD-compatible: geometry, skinning, materials, all GX texture formats incl. mipmaps; encode rebuilds canonical single-TEV materials (RGBA32/CMPR, triangle lists) with `--mat` / `--texheader` JSON sidecars, `--rotate`, `--profile`. |
+| **J3D BDL** | `.bdl` | **GLB** | ✅ | ✅ | — | — | Nintendo GameCube/Wii binary display list (`J3D2bdl4`). Same coverage as J3D BMD; MDL3 section written as a parseable stub (prefer BMD for in-game use). |
 | **BNFM** | `.bnfm` | **GLB** | ✅ | ✅ | ✅ | ✅ | Nd Cube Wii U 3D model format (*Mario Party 10*, *Animal Crossing: amiibo Festival*). BNFMSA skeletal animation sidecars (`.bnfmsa`, 10 SRT tracks/bone, Normal/Hermite keys) attach automatically to the GLB when present beside the model. |
 | **CSB** | `.csb` | **GLB** | ✅ | ✅ | — | ✅ | Paper Mario collision scene (TTYD Switch / Origami King little-endian, Color Splash big-endian `--csb-big`): meshes with `MAT{attr}_FLAG{flag}` materials plus sphere/box trigger volumes as `MAPOBJ_*` instances; `--csb-mobj` writes split map-object models. Retail `.csb.zst` Zstandard form supported. |
 | **CTB** | `.ctb` | *(text dump)* | ✅ | — | — | ✅ | Paper Mario collision search table: XZ-quadtree over the `.csb` triangles, regenerated as a sidecar on every CSB encode. |

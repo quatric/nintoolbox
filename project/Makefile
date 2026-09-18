@@ -492,7 +492,7 @@ SZS_O		:= $(XOBJ_IMAGE) lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-nsbmd
 		   lib-nulstb.o lib-nurpdb.o lib-nuanmb.o lib-xmb.o lib-adjb.o \
 		   lib-cnut.o lib-xmsg.o lib-iqipack.o \
 		   lib-nsmbw.o lib-koopatlas.o lib-chans.o szs-sentry.o lib-csb.o \
-		   lib-lmmdl.o lib-lmbin.o \
+		   lib-lmmdl.o lib-lmbin.o lib-pik1.o \
 		   $(DCLIB_O)
 
 # object groups

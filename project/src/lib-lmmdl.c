@@ -565,7 +565,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 		}
 	}
 
-	//--- materials + samplers ---
+		//--- materials + samplers ---
 	model->num_materials = h.materials ? h.materials : 1;
 	model->materials = CALLOC (model->num_materials, sizeof (*model->materials));
 	if (!model->materials)
@@ -851,14 +851,15 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 			const uint pi = pbeg + k;
 			const u8 *pp = data + h.packet_off + pi * 32;
 			const u32 doff = lmm_be32 (pp), dlen = lmm_be32 (pp + 4);
-			const uint nm = lmm_be16 (pp + 8);
+			// struct: off(0) size(4) unk(8) matCount(10) mats[10](12)
+			const uint nm = lmm_be16 (pp + 10);
 			u16 mats[10];
 			if (nm > 10 || (u64)doff + dlen > size)
 				ok = false;
 			else
 			{
 				for (uint m = 0; m < nm; m++)
-					mats[m] = lmm_be16 (pp + 10 + m * 2);
+					mats[m] = lmm_be16 (pp + 12 + m * 2);
 				ok = lmm_walk_packet (data, (uint)size, doff, dlen, mats, nm, h.joints,
 					has_nrm, nbt, has_col, has_uv, &soup);
 			}
@@ -1587,7 +1588,8 @@ enumError EncodeLMMDL (const model_t *model, u8 **out, uint *out_size)
 		pk->mat = (uint)mati;
 		total_tris += (uint)(mesh->num_vertices / 3);
 	}
-	if (npos > 65535 || nnrm > 65535 || nuv > 65535 || ncol > 65535 || npack > 65535)
+	for (size_t qi = 0; qi < npack; qi++)
+		if (npos > 65535 || nnrm > 65535 || nuv > 65535 || ncol > 65535 || npack > 65535)
 	{
 		FREE (worlds);
 		FREE (ibinds);
@@ -1966,26 +1968,26 @@ enumError EncodeLMMDL (const model_t *model, u8 **out, uint *out_size)
 
 	for (size_t k = 0; k < npack; k++)
 	{
-		// main packet struct
+		// main packet struct: off(0) size(4) unk(8) count(10) mats[10](12)
 		u8 *pp = buf + packstruct_off + k * 32;
 		lmm_wr32 (pp, blob_off[k]);
 		lmm_wr32 (pp + 4, packets[k].len);
-		lmm_wr16 (pp + 6, 2);
-		lmm_wr16 (pp + 8, (u16)packets[k].nslots);
+		lmm_wr16 (pp + 8, 2);
+		lmm_wr16 (pp + 10, (u16)packets[k].nslots);
 		for (uint s = 0; s < packets[k].nslots; s++)
-			lmm_wr16 (pp + 10 + s * 2, packets[k].slots[s]);
+			lmm_wr16 (pp + 12 + s * 2, packets[k].slots[s]);
 		for (uint s = packets[k].nslots; s < 10; s++)
-			lmm_wr16 (pp + 10 + s * 2, 0);
+			lmm_wr16 (pp + 12 + s * 2, 0);
 		// LOD shadow packet struct (blob copied with the main blobs above)
 		u8 *lp = buf + packstruct_off + (npack + k) * 32;
 		lmm_wr32 (lp, packets[k].lod_off);
 		lmm_wr32 (lp + 4, packets[k].lod_len);
-		lmm_wr16 (lp + 6, 2);
-		lmm_wr16 (lp + 8, (u16)packets[k].nslots);
+		lmm_wr16 (lp + 8, 2);
+		lmm_wr16 (lp + 10, (u16)packets[k].nslots);
 		for (uint s = 0; s < packets[k].nslots; s++)
-			lmm_wr16 (lp + 10 + s * 2, packets[k].slots[s]);
+			lmm_wr16 (lp + 12 + s * 2, packets[k].slots[s]);
 		for (uint s = packets[k].nslots; s < 10; s++)
-			lmm_wr16 (lp + 10 + s * 2, 0);
+			lmm_wr16 (lp + 12 + s * 2, 0);
 	}
 
 	for (size_t i = 0; i < npos; i++)

@@ -80,6 +80,10 @@ We acknowledge and credit the following tools and authors whose research, format
   * Format specifications for the LMS family (MSBT/MSBP/MSBF headers, hash tables, ATR1/TSY1 blocks, FLW3 nodes, FEN1 labels) used to verify the implementation above.
 * **BrawlCrate & BrawlLib** by **soopercool101, BrawlCrate Team, Kryal, BlackJax96** ([BrawlCrate](https://github.com/soopercool101/BrawlCrate))
   * Essential reference specifications and implementations for Nintendo Wii NW4R binary formats (BRRES, MDL0, CHR0, CLR0, PAT0, SCN0, SHP0, SRT0, VIS0, BREFF, BREFT).
+* **SuperBMD** by **Gamma (Sage-of-Mirrors), RenolY2 (Yoshi2), LagoLunatic, Hackio** ([RenolY2/SuperBMD](https://github.com/RenolY2/SuperBMD))
+  * The J3D BMD/BDL feature set ported into `lib-j3d.c` (`wmdlt` GameCube/Wii model support): section layouts (INF1/VTX1/EVP1/DRW1/JNT1/SHP1/MAT3/MDL3/TEX1), GX display-list and vertex-attribute decoding, skinning envelopes, material/texheader JSON sidecars, mipmaps, billboarding, and CLI surface (`--mat`, `--outmat`, `--texheader`, `--tristrip`, `--rotate`, `--bdl`, `--profile`, `--texfloat32`, `--degeneratetri`, `--nomipmaps`).
+* **CTools ImageDataFormat** by **Chadderz** (GPL-3.0, via SuperBMD)
+  * The GX texture tile codecs (I4/I8/IA4/IA8/RGB565/RGB5A3/RGBA32/CMPR block layouts) ported into `lib-j3d.c`. NOTE: this code is GPL-3.0 licensed, which is incompatible with GPL-2.0-only distribution; it is included here for interoperability pending a clean-room rewrite of the tile codecs from public GX documentation. The CMPR sub-block interpolation math additionally derives from SuperBMD's `BinaryTextureImage`.
 * **GotaSequenceCmd & Nitro Studio** by **Gota7** ([Gota7](https://github.com/Gota7))
   * Sequence, bank, and wave format research and conversion tools for Nintendo DS/3DS sound archives (SDAT, SSEQ, SBNK, SWAR, CSEQ, CWAV).
 * **SPICA & Ohana3DS / Ohana3DS Rebirth** by **gdkchan** ([SPICA](https://github.com/gdkchan/SPICA), [Ohana3DS](https://github.com/gdkchan/Ohana3DS-Rebirth))

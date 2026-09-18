@@ -1119,6 +1119,11 @@ typedef enum enumOptions
 //				| OB_IGNORE
 //				| OB_GRP_DEST,
 //
+//	OB_CMD_BYMLFIND		= OB_NO_WILDCARDS
+//				| OB_IN_ORDER
+//				| OB_IGNORE
+//				| OB_GRP_DEST,
+//
 //	OB_CMD_VEHICLE		= OB_SOURCE
 //				| OB_DEST
 //				| OB_DEST2
@@ -1230,10 +1235,11 @@ typedef enum enumCommands
 	CMD_INFO,
 	CMD_GHOST,
 	CMD_YAZDUMP,
+	CMD_BYMLFIND,
 
 	CMD_VEHICLE,
 
-	CMD__N // == 88
+	CMD__N // == 89
 
 } enumCommands;
 

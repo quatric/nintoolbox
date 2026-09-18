@@ -60,6 +60,7 @@
 #include "lib-bnfm.h"
 #include "lib-lmmdl.h"
 #include "lib-lmbin.h"
+#include "lib-pik1.h"
 #include "lib-hbdf.h"
 #include "lib-numsh.h"
 #include "lib-mpr-cmdl.h"
@@ -1128,6 +1129,10 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		const bool is_lmmdl_in = raw.data_size >= 128 && IsLMMDL (raw.data, raw.data_size);
 		const bool is_lmbin_in = is_ext (arg, ".bin") && raw.data_size >= 64
 			&& IsLMBIN (raw.data, raw.data_size);
+		// Pikmin 1 MOD shares .mod with Monster Games MOD: the chunk
+		// walk decides (Monster files start with NDL3/NDL2 magic and
+		// fail it). Checked before is_mod_in below.
+		const bool is_pikmod_in = IsPIKMOD (raw.data, raw.data_size);
 		const bool is_bnfm_in
 			= is_ext (arg, ".bnfm") || (raw.data_size >= 4 && !memcmp (raw.data, "BNFM", 4));
 		const bool is_hsd_in = is_ext (arg, ".dat")
@@ -1415,6 +1420,20 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				if (err > ERR_WARNING)
 				{
 					ERROR0 (err, "Failed to decode CSB: %s\n", arg);
+					return err;
+				}
+			}
+			continue;
+		}
+
+		if (is_model_dest && is_pikmod_in)
+		{
+			if (!testmode)
+			{
+				err = DecodePIKMOD (raw.data, (uint)raw.data_size, dest);
+				if (err > ERR_WARNING)
+				{
+					ERROR0 (err, "Failed to decode Pikmin MOD: %s\n", arg);
 					return err;
 				}
 			}

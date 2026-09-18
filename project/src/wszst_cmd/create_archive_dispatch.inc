@@ -521,7 +521,11 @@ static void cleanup_extracted_artifacts (ccp root, bool is_root, uint depth)
 			}
 			// Companion YAML files
 			if ((nlen > 9 && !strcasecmp (de->d_name + nlen - 9, ".byml.yml"))
-				|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".byml.yaml")))
+				|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".byml.yaml"))
+				|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".byaml.yml"))
+				|| (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".byaml.yaml"))
+				|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".sbyml.yml"))
+				|| (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".sbyml.yaml")))
 			{
 				char cand[PATH_MAX];
 				snprintf (cand, sizeof (cand), "%.*s", (int)(strlen (path) - (is_ext (path, ".yml") ? 4 : 5)), path);
@@ -1252,7 +1256,11 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 			unlink (path);
 		}
 		if (S_ISREG (st.st_mode) && ((nlen > 9 && !strcasecmp (de->d_name + nlen - 9, ".byml.yml"))
-			|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".byml.yaml"))))
+			|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".byml.yaml"))
+			|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".byaml.yml"))
+			|| (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".byaml.yaml"))
+			|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".sbyml.yml"))
+			|| (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".sbyml.yaml"))))
 		{
 			char target_byml[PATH_MAX];
 			snprintf (target_byml, sizeof (target_byml), "%.*s",

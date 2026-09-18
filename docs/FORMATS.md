@@ -41,6 +41,8 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **BLZ** | DS / Compression | ✅ | ✅ | Nitro backward-LZSS |
 | **BPE / GFCP** | Wii / Compression | ✅ | ✅ | Good-Feel Byte Pair Encoding (GFAC mode 1) |
 | **BMD** | DS / Model | ✅ | ✅ | Early Nitro 3D models |
+| **J3DBMD** | GameCube / Wii / Model | ✅ | ✅ | J3D binary model (`J3D2bmd3`, legacy `bmd2`); SuperBMD-compatible GLB round-trip (geometry, skinning, materials, GX textures incl. mipmaps; canonical single-TEV encode, RGBA32/CMPR, triangle lists) + material/texheader JSON sidecars + `--profile` |
+| **J3DBDL** | GameCube / Wii / Model | ✅ | ✅ | J3D binary display list (`J3D2bdl4`); same coverage as J3DBMD, MDL3 section written as a parseable stub (prefer BMD for in-game use) |
 | **BNTX** | Switch / Texture | ✅ | ✅ | Switch texture container (Tegra block-linear); native DDS/ASTC block export |
 | **BREFT** | Wii / Texture | ✅ | ✅ | Brawl effect texture |
 | **BRFNA / BRFNT** | Wii / Font | ✅ | ✅ | NW4R font to PNG atlas + XML metrics |

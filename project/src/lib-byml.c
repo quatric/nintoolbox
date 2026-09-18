@@ -1,6 +1,7 @@
 #include "lib-std.h"
 #include "lib-byml.h"
 #include "dclib-utf8.h"
+#include "fastyz.h"
 #include "mxml.h"
 #include <yaml.h>
 #include <math.h>
@@ -2839,6 +2840,29 @@ enumError encode_byml_file (ccp source, ccp dest)
 	if (err)
 		return err;
 
+	// BotW-style S-prefixed destinations (.sbyml, .smubin, ...) are Yaz0
+	// compressed BYML. NintenTools.Byaml never wrote them back compressed
+	// (its editor lacked a compressor); this toolkit has one, so use it.
+	if (byml_dest_is_compressed (dest) && byml_size >= 16 && byml_size <= INT_MAX)
+	{
+		const size_t bound = FASTYZ_BOUND (byml_size);
+		u8 *comp = MALLOC (bound);
+		if (!comp)
+		{
+			FREE (byml);
+			return ERR_OUT_OF_MEMORY;
+		}
+		const int comp_size = yaz0_compress (byml, (int)byml_size, comp);
+		FREE (byml);
+		if (comp_size <= 0)
+		{
+			FREE (comp);
+			return ERR_ENCODING;
+		}
+		byml = comp;
+		byml_size = (uint)comp_size;
+	}
+
 	if (!testmode)
 	{
 		File_t F;
@@ -2849,4 +2873,353 @@ enumError encode_byml_file (ccp source, ccp dest)
 	}
 	FREE (byml);
 	return err;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Yaz0-wrapped BYML (BotW .sbyml and friends)
+///////////////////////////////////////////////////////////////////////////////
+//
+// NintenTools.Byaml's editor decompresses Yaz0 before loading a BYML and
+// (because it owns no compressor) can only save back decompressed data.
+// This toolkit compresses and decompresses Yaz0 natively, so both directions
+// are transparent here.
+
+static const char *const byml_plain_exts[] =
+{
+	"byml", "byaml", "bgyml", "bgdata", "bquestpack",
+	"mubin", "baischedule", "baniminfo", "bgsvdata",
+	0
+};
+
+bool byml_dest_is_compressed (ccp dest)
+{
+	// BotW convention: Yaz0-wrapped files prefix the plain extension with
+	// 's' (.byml -> .sbyml, .mubin -> .smubin, ...). Only compress when the
+	// remainder is a known BYML extension, so unrelated ".s..." names
+	// (e.g. .sblwp, which is not BYML) stay untouched.
+	ccp ext = dest ? strrchr (dest, '.') : 0;
+	if (!ext || (ext[1] != 's' && ext[1] != 'S'))
+		return false;
+	ccp base = ext + 2;
+	for (uint i = 0; byml_plain_exts[i]; i++)
+		if (!strcasecmp (base, byml_plain_exts[i]))
+			return true;
+	return false;
+}
+
+static enumError byml_unwrap_yaz0 (
+	const u8 *in, size_t in_size, u8 **out, size_t *out_size)
+{
+	*out = 0;
+	*out_size = 0;
+	if (!in || in_size < 16 || in_size > INT_MAX || memcmp (in, "Yaz0", 4))
+		return ERR_INVALID_DATA;
+	const u32 dsize = yaz0_get_decompressed_size (in);
+	// BYML payloads are at least a 16-byte header; cap runaway headers.
+	if (dsize < 16 || dsize > (256u << 20))
+		return ERR_INVALID_DATA;
+	u8 *dec = MALLOC (dsize + 1);
+	if (!dec)
+		return ERR_OUT_OF_MEMORY;
+	const int got = yaz0_decompress (in, (int)in_size, dec, (int)dsize);
+	if (got <= 0 || (u32)got != dsize)
+	{
+		FREE (dec);
+		return ERR_DECODING;
+	}
+	dec[dsize] = 0;
+	*out = dec;
+	*out_size = dsize;
+	return ERR_OK;
+}
+
+static bool byml_data_is_byml (const u8 *data, size_t size)
+{
+	if (!data || size < 16)
+		return false;
+	bool is_le = false;
+	if (!memcmp (data, "YB", 2))
+		is_le = true;
+	else if (!memcmp (data, "BY", 2))
+		is_le = false;
+	else
+		return false;
+	const u16 version = byml_u16 (data + 2, is_le);
+	return version >= 1 && version <= 7;
+}
+
+enumError LoadBYMLData (ccp path, u8 **data, size_t *size)
+{
+	if (!data || !size)
+		return ERR_SEMANTIC;
+	*data = 0;
+	*size = 0;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (path, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return err;
+
+	// Transparently handle Yaz0-wrapped containers (BotW .sbyml, ...).
+	if (raw_size >= 16 && !memcmp (raw, "Yaz0", 4))
+	{
+		u8 *dec = 0;
+		size_t dec_size = 0;
+		err = byml_unwrap_yaz0 (raw, raw_size, &dec, &dec_size);
+		FREE (raw);
+		if (err)
+			return err;
+		raw = dec;
+		raw_size = dec_size;
+	}
+
+	if (!byml_data_is_byml (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_INVALID_DATA;
+	}
+	*data = raw;
+	*size = raw_size;
+	return ERR_OK;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// BYML Search (case-insensitive key/value substring match)
+///////////////////////////////////////////////////////////////////////////////
+
+static bool byml_istrstr (ccp haystack, ccp needle)
+{
+	if (!haystack || !needle || !*needle)
+		return false;
+	const size_t nlen = strlen (needle);
+	for (ccp p = haystack; *p; p++)
+	{
+		size_t i = 0;
+		while (i < nlen && p[i]
+			&& tolower ((unsigned char)p[i]) == tolower ((unsigned char)needle[i]))
+			i++;
+		if (i == nlen)
+			return true;
+	}
+	return false;
+}
+
+typedef struct byml_search_path_t
+{
+	char *buf;
+	size_t len;
+	size_t cap;
+} byml_search_path_t;
+
+static void byml_search_push (byml_search_path_t *p, ccp seg)
+{
+	const size_t slen = strlen (seg);
+	if (p->len + slen + 1 > p->cap)
+	{
+		p->cap = p->cap ? p->cap * 2 : 256;
+		while (p->len + slen + 1 > p->cap)
+			p->cap *= 2;
+		p->buf = REALLOC (p->buf, p->cap);
+	}
+	memcpy (p->buf + p->len, seg, slen);
+	p->len += slen;
+	p->buf[p->len] = 0;
+}
+
+// Render a scalar node for matching and display. Containers get a short
+// placeholder; binary/path payloads are summarized, never dumped.
+static void byml_search_value_str (const byml_node_t *n, char *buf, size_t buf_sz)
+{
+	if (!buf_sz)
+		return;
+	switch (n ? n->type : BYML_T_NULL)
+	{
+		case BYML_T_BOOL:
+			snprintf (buf, buf_sz, "%s", n->u.b ? "true" : "false");
+			break;
+		case BYML_T_INT:
+			snprintf (buf, buf_sz, "%d", n->u.i);
+			break;
+		case BYML_T_FLOAT:
+			snprintf (buf, buf_sz, "%g", n->u.f);
+			break;
+		case BYML_T_UINT:
+			snprintf (buf, buf_sz, "%u", n->u.u);
+			break;
+		case BYML_T_INT64:
+			snprintf (buf, buf_sz, "%lld", (long long)n->u.i64);
+			break;
+		case BYML_T_UINT64:
+			snprintf (buf, buf_sz, "%llu", (unsigned long long)n->u.u64);
+			break;
+		case BYML_T_DOUBLE:
+			snprintf (buf, buf_sz, "%g", n->u.d);
+			break;
+		case BYML_T_STRING:
+			snprintf (buf, buf_sz, "%s", n->u.s ? n->u.s : "");
+			break;
+		case BYML_T_BINARY:
+		case BYML_T_BINARY_ALIGNED:
+			snprintf (buf, buf_sz, "<binary, %u bytes>", n->u.bin.size);
+			break;
+		case BYML_T_ARRAY:
+			snprintf (buf, buf_sz, "<array, %u entries>", n->u.arr.count);
+			break;
+		case BYML_T_MAP:
+			snprintf (buf, buf_sz, "<map, %u entries>", n->u.map.count);
+			break;
+		case BYML_T_HASHMAP32:
+		case BYML_T_RELOC_HASHMAP32:
+			snprintf (buf, buf_sz, "<hashmap32, %u entries>", n->u.map.count);
+			break;
+		case BYML_T_HASHMAP64:
+		case BYML_T_RELOC_HASHMAP64:
+			snprintf (buf, buf_sz, "<hashmap64, %u entries>", n->u.map.count);
+			break;
+		case BYML_T_PATH_ARRAY:
+			snprintf (buf, buf_sz, "<path, %u points>", n->u.path.count);
+			break;
+		default:
+			snprintf (buf, buf_sz, "null");
+			break;
+	}
+}
+
+static void byml_search_node (
+	FILE *out, const byml_node_t *n, ccp pattern,
+	byml_search_path_t *path, uint *found)
+{
+	if (!n)
+		return;
+	char val_buf[256];
+	if (n->type == BYML_T_ARRAY)
+	{
+		for (uint i = 0; i < n->u.arr.count; i++)
+		{
+			char seg[32];
+			snprintf (seg, sizeof (seg), "[%u]", i);
+			const size_t save = path->len;
+			byml_search_push (path, seg);
+			byml_search_node (out, n->u.arr.items[i], pattern, path, found);
+			path->len = save;
+			path->buf[save] = 0;
+		}
+		return;
+	}
+	if (n->type == BYML_T_MAP || n->type == BYML_T_HASHMAP32 || n->type == BYML_T_HASHMAP64
+		|| n->type == BYML_T_RELOC_HASHMAP32 || n->type == BYML_T_RELOC_HASHMAP64)
+	{
+		const bool hashed = n->type != BYML_T_MAP;
+		for (uint i = 0; i < n->u.map.count; i++)
+		{
+			char key_buf[32];
+			ccp key = n->u.map.entries[i].key;
+			if (hashed)
+			{
+				if (n->type == BYML_T_HASHMAP64 || n->type == BYML_T_RELOC_HASHMAP64)
+					snprintf (key_buf, sizeof (key_buf), "h_%016llx",
+						(unsigned long long)n->u.map.entries[i].hash64);
+				else
+					snprintf (key_buf, sizeof (key_buf), "h_%08x",
+						n->u.map.entries[i].hash32);
+				key = key_buf;
+			}
+			char seg[300];
+			snprintf (seg, sizeof (seg), "/%s", key ? key : "");
+			const size_t save = path->len;
+			byml_search_push (path, seg);
+			byml_search_value_str (n->u.map.entries[i].val, val_buf, sizeof (val_buf));
+			if (byml_istrstr (key ? key : "", pattern))
+			{
+				if (out)
+					fprintf (out, "%s = %s\n",
+						path->len ? path->buf : "/", val_buf);
+				(*found)++;
+			}
+			byml_search_node (out, n->u.map.entries[i].val, pattern, path, found);
+			path->len = save;
+			path->buf[save] = 0;
+		}
+		return;
+	}
+	// Scalar, string, binary or path leaf: match against the value.
+	byml_search_value_str (n, val_buf, sizeof (val_buf));
+	if (byml_istrstr (val_buf, pattern))
+	{
+		if (out)
+			fprintf (out, "%s = %s\n", path->len ? path->buf : "/", val_buf);
+		(*found)++;
+	}
+}
+
+enumError SearchBYML (FILE *out, const u8 *data, size_t size, ccp pattern, uint *found)
+{
+	if (found)
+		*found = 0;
+	// A NULL 'out' counts matches without printing (used for test mode).
+	if (!data || !pattern || !*pattern)
+		return ERR_SEMANTIC;
+	if (!byml_data_is_byml (data, size))
+		return ERR_INVALID_DATA;
+
+	bool is_le = !memcmp (data, "YB", 2);
+	u16 version = byml_u16 (data + 2, is_le);
+	u32 hash_key_table_off = byml_u32 (data + 4, is_le);
+	u32 str_table_off = byml_u32 (data + 8, is_le);
+	u32 path_table_off = 0;
+	u32 root_node_off = byml_u32 (data + 12, is_le);
+	bool supports_paths = false;
+
+	if (version == 1 && size >= 20)
+	{
+		u32 third = byml_u32 (data + 12, is_le);
+		u32 fourth = byml_u32 (data + 16, is_le);
+		if ((third == 0 || (third + 4 <= size && data[third] == BYML_T_PATH_ARRAY))
+			&& fourth + 4 <= size && (data[fourth] == BYML_T_ARRAY || data[fourth] == BYML_T_MAP
+				|| data[fourth] == BYML_T_HASHMAP32 || data[fourth] == BYML_T_HASHMAP64))
+		{
+			supports_paths = true;
+			path_table_off = third;
+			root_node_off = fourth;
+		}
+	}
+
+	byml_ctx_t ctx = { 0 };
+	ctx.data = data;
+	ctx.size = size;
+	ctx.is_le = is_le;
+	ctx.version = version;
+	ctx.supports_paths = supports_paths;
+
+	enumError err = byml_parse_str_table (&ctx, hash_key_table_off, &ctx.hash_keys, &ctx.n_hash_keys);
+	if (err)
+		return err;
+	err = byml_parse_str_table (&ctx, str_table_off, &ctx.strings, &ctx.n_strings);
+	if (err)
+	{
+		FREE (ctx.hash_keys);
+		return err;
+	}
+	if (supports_paths && path_table_off)
+		byml_parse_path_table (&ctx, path_table_off);
+
+	byml_node_t *root = NULL;
+	if (root_node_off < size)
+		root = byml_parse_binary_node (&ctx, data[root_node_off], root_node_off, 0);
+
+	byml_search_path_t path = { 0 };
+	uint hits = 0;
+	byml_search_node (out, root, pattern, &path, &hits);
+	if (found)
+		*found = hits;
+
+	FREE (path.buf);
+	byml_node_free (root);
+	FREE (ctx.hash_keys);
+	FREE (ctx.strings);
+	for (uint i = 0; i < ctx.n_paths; i++)
+		FREE (ctx.paths[i].points);
+	FREE (ctx.paths);
+	return ERR_OK;
 }

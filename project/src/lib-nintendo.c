@@ -10,6 +10,7 @@
 #include "lib-aes.h"
 #include "lib-lmmdl.h"
 #include "lib-lmbin.h"
+#include "lib-pik1.h"
 
 __attribute__ ((weak)) bool IsQuickLZ (const u8 *src, uint src_size)
 {
@@ -284,6 +285,21 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		// extension gate needed (nothing else uses 0x04B40000).
 		if (IsLMMDL (d, size))
 			return make_info (NFMT_LMMDL, true, false, 0);
+		// Luigi's Mansion room model: version byte + ordered section
+		// offsets (IsLMBIN validates). Ungated like the HSD structural
+		// check below: Hudson MPBIN archives can never land here (their
+		// BE file count < 4000 keeps byte 0 at zero, while LMBIN needs
+		// exactly 2), and 13 monotone section offsets plus a fitting
+		// scene-graph node is specific enough to stand alone.
+		if (IsLMBIN (d, size))
+			return make_info (NFMT_LMBIN, true, false, 0);
+		// Pikmin 1 model: chunk-opcode walk validates the whole stream
+		// (IsPIKMOD checks 32-alignment, known opcodes, header-first and
+		// EOF termination). No magic and no extension gate needed; the
+		// Monster Games MOD check below keys off NDL3 magic / .mod in a
+		// way this can never satisfy, and vice versa.
+		if (IsPIKMOD (d, size))
+			return make_info (NFMT_PIKMOD, true, false, 0);
 		if (!memcmp (d, "XPCK", 4) || !memcmp (d, "XPC2", 4))
 			return make_info (NFMT_XPCK, false, false, 0);
 		if (!memcmp (d, "XIM2", 4) || !memcmp (d, "XIMG", 4) || !memcmp (d, "XINF", 4)
@@ -408,12 +424,6 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_LMD, false, false, 0);
 		if (ext && !strcasecmp (ext, ".msh"))
 			return make_info (NFMT_MSH, false, false, 0);
-		// Luigi's Mansion room model: version byte + ordered section
-		// offsets (IsLMBIN validates). Gated on .bin; Hudson MPBIN
-		// archives can never land here (their BE file count < 4000 keeps
-		// byte 0 at zero, while LMBIN needs exactly 2).
-		if (ext && !strcasecmp (ext, ".bin") && IsLMBIN (d, size))
-			return make_info (NFMT_LMBIN, true, false, 0);
 		if (ext && !strcasecmp (ext, ".mod"))
 			return make_info (NFMT_MOD, false, false, 0);
 		// Paper Mario collision scene/search table: no magic, so the

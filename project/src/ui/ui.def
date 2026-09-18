@@ -606,6 +606,14 @@
 	"Analyze YAZ compression and print a dump to stdout. Ignore files" \
 	" without YAZ compression. $Wildcards$ and pipe characters are parsed." )
 
+#:def_cmd( "BYMLFIND", "BYMLFIND|BFIND", \
+	"wszst BYMLFIND pattern [source]...", \
+	"Search BYML files (plain or Yaz0-compressed, e.g. BotW @.sbyml@) for" \
+	" map keys and values containing @pattern@ (case-insensitive" \
+	" substring, like the NintenTools.Byaml editor search) and print one" \
+	" @path = value@ line per match. $Wildcards$ and pipe characters are" \
+	" parsed." )
+
 #:def_opt( "VERSION", "V|version", "G", \
 	"", \
 	"Stop parsing the command line, print a version info and exit." )
@@ -13915,6 +13923,54 @@
 	"" )
 
 #:def_cmd_opt( "YAZDUMP", "REMOVE_DEST", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "BYMLFIND", "NO_WILDCARDS", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "BYMLFIND", "IN_ORDER", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "BYMLFIND", "IGNORE", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "BYMLFIND", "DEST", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "BYMLFIND", "DEST2", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "BYMLFIND", "PARENT", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "BYMLFIND", "ESC", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "BYMLFIND", "PRESERVE", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "BYMLFIND", "UPDATE", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "BYMLFIND", "OVERWRITE", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "BYMLFIND", "NUMBER", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "BYMLFIND", "REMOVE_DEST", \
 	"", \
 	"" )
 
