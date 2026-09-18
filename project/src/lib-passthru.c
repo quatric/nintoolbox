@@ -135,15 +135,30 @@ static const char *find_program (ccp name)
 	if (!dirs)
 		return 0;
 
+	// A Cygwin binary launched directly from cmd.exe (rather than a Cygwin
+	// shell) inherits the native Windows PATH verbatim: ';'-separated, with
+	// drive letters like "C:\..." that contain a literal ':'. Splitting on
+	// ':' there treats the drive letter as the whole entry and never finds
+	// anything. Windows PATH never uses a bare ':' as a separator and POSIX
+	// PATH never uses ';', so sniff which one is actually in use.
+	const char sep = strchr (dirs, ';') ? ';' : ':';
+
 	while (dirs && *dirs)
 	{
-		ccp end = strchr (dirs, ':');
+		ccp end = strchr (dirs, sep);
 		const uint len = end ? (uint)(end - dirs) : (uint)strlen (dirs);
 		if (len)
 		{
 			snprintf (prog_buf, sizeof (prog_buf), "%.*s/%s", (int)len, dirs, name);
 			if (!access (prog_buf, X_OK))
 				return prog_buf;
+#if defined(__CYGWIN__) || defined(_WIN32)
+			// A native Windows PATH entry rarely names an extension; try
+			// the usual Windows executable suffixes too.
+			snprintf (prog_buf, sizeof (prog_buf), "%.*s/%s.exe", (int)len, dirs, name);
+			if (!access (prog_buf, X_OK))
+				return prog_buf;
+#endif
 		}
 		dirs = end ? end + 1 : 0;
 	}
