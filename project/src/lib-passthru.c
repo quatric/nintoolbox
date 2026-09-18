@@ -289,6 +289,85 @@ static ccp resolve_rar (void)
 	return resolve_7z ();
 }
 
+#ifdef __MINGW32__
+// _spawnv() joins argv with plain spaces and does no quoting, so a path such
+// as "C:\nintoolbox 7\bin\wit.exe" or an argument "--with-wit=C:\a b\wit.exe"
+// would be split into several arguments.  Quote each argument the way the
+// MSVCRT command-line parser expects before spawning.
+static char *quote_win_arg (ccp arg)
+{
+	const size_t len = strlen (arg);
+	char *out = malloc (len * 2 + 3);
+	if (!out)
+		return 0;
+	if (*arg && !strpbrk (arg, " \t\"\n\v"))
+	{
+		memcpy (out, arg, len + 1);
+		return out;
+	}
+	char *d = out;
+	*d++ = '"';
+	for (ccp s = arg;; s++)
+	{
+		size_t bs = 0;
+		while (*s == '\\')
+			s++, bs++;
+		if (!*s)
+		{
+			memset (d, '\\', bs * 2); // double trailing backslashes
+			d += bs * 2;
+			break;
+		}
+		if (*s == '"')
+		{
+			memset (d, '\\', bs * 2 + 1);
+			d += bs * 2 + 1;
+		}
+		else
+		{
+			memset (d, '\\', bs);
+			d += bs;
+		}
+		*d++ = *s;
+	}
+	*d++ = '"';
+	*d = 0;
+	return out;
+}
+
+static intptr_t spawn_wait_quoted (char *const argv[])
+{
+	int argc = 0;
+	while (argv[argc])
+		argc++;
+	char **q = calloc (argc + 1, sizeof (*q));
+	if (!q)
+	{
+		errno = ENOMEM;
+		return -1;
+	}
+	for (int i = 0; i < argc; i++)
+	{
+		q[i] = quote_win_arg (argv[i]);
+		if (!q[i])
+		{
+			while (i-- > 0)
+				free (q[i]);
+			free (q);
+			errno = ENOMEM;
+			return -1;
+		}
+	}
+	const intptr_t rc = _spawnv (_P_WAIT, argv[0], (const char *const *)q);
+	const int err = errno;
+	for (int i = 0; i < argc; i++)
+		free (q[i]);
+	free (q);
+	errno = err;
+	return rc;
+}
+#endif
+
 // Spawn a program with ARGV (NULL-terminated).  ARGV[0] is used as path.
 // STDOUT/STDERR are inherited so the user sees the tool's own messages.
 // Returns the exit code or 127 on exec failure (like a shell).
@@ -298,7 +377,7 @@ static int run_program (char *const argv[])
 	// No fork()/exec() on native Windows: _spawnv() runs the child
 	// (via CreateProcess internally) and blocks for its exit code directly,
 	// which is simpler here than a manual CreateProcess() call.
-	const intptr_t rc = _spawnv (_P_WAIT, argv[0], (const char *const *)argv);
+	const intptr_t rc = spawn_wait_quoted (argv);
 	if (rc == -1)
 		return -errno;
 	return (int)rc;
@@ -905,7 +984,7 @@ static int run_program_capture (char *const argv[], ccp capture_path)
 	dup2 (fd, 2);
 	close (fd);
 
-	const intptr_t rc = _spawnv (_P_WAIT, argv[0], (const char *const *)argv);
+	const intptr_t rc = spawn_wait_quoted (argv);
 	const int err = errno;
 
 	fflush (stdout);
@@ -2309,7 +2388,7 @@ static int run_program_in_dir (char *const argv[], ccp workdir)
 	if (chdir (workdir) != 0)
 		return -1;
 
-	const intptr_t rc = _spawnv (_P_WAIT, argv[0], (const char *const *)argv);
+	const intptr_t rc = spawn_wait_quoted (argv);
 	const int err = errno;
 	chdir (saved_cwd);
 

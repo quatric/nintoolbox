@@ -829,7 +829,7 @@ jobs:
           DATA_ARGS+=(--add-data project/third_party/prod.keys:bin)
           DATA_ARGS+=(--add-data project/third_party/title.keys:bin)
           pyinstaller --name nintoolbox --windowed \
-            "${BINARY_ARGS[@]}" "${DATA_ARGS[@]}" \
+            "${BINARY_ARGS[@]}" "${DATA_ARGS[@]}" --icon=logo.ico \
             --distpath pyinst_dist nintoolbox.py
           mkdir -p dist/gui-windows-x86_64
           # Every CLI tool (wszst.exe, the Cygwin runtime DLLs it needs, the
