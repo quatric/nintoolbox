@@ -475,7 +475,8 @@ VPATH		+= $(DCLIB_DIR)
 CFLAGS		+= -I$(DCLIB_DIR)
 
 # other objects
-SZS_O		:= lib-std.o lib-file.o lib-numeric.o lib-nds-banner.o lib-wii-banner.o \
+# lib-hbdf.o/lib-image-load.o (in every tool) reference these, so link them everywhere
+SZS_O		:= $(XOBJ_IMAGE) lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-nsbmd.o lib-nlg-lm.o lib-fedforce.o lib-excite.o lib-std.o lib-file.o lib-numeric.o lib-nds-banner.o lib-wii-banner.o \
 		   lib-szs.o fastyz.o trueyz.o lib-checksum.o lib-nintendo.o lib-nlg-probe.o \
 		   lib-dsb.o lib-bnr.o lib-brfnt.o lib-brfna.o lib-bcfnt.o lib-mpr-pak.o \
 		   lib-ncgr.o lib-nclr.o lib-sarc.o lib-nw4r.o lib-rst.o lib-thp.o \
@@ -662,7 +663,7 @@ endif
 $(ALL_TOOLS_X): %: %.o $(ALL_OBJECTS) $(TOBJ_ALL) Makefile | $(HELPER_TOOLS) $(UI_OBJECTS)
 	@printf "$(LOGFORMAT_TOOL)" tool "$@" "$(MODE) $(TOPT_$@)"
 	@$(CC) $(CFLAGS) $(DEFINES) $(LDFLAGS) $@.o \
-		$(ALL_OBJECTS) $(TOBJ_$@) $(LIBS) $(TOPT_$@) -o $@
+		$(ALL_OBJECTS) $(filter-out $(ALL_OBJECTS),$(TOBJ_$@)) $(LIBS) $(TOPT_$@) -o $@
 	@if test -f $@.exe; then $(STRIP) $@.exe || true; else $(STRIP) $@ || true; fi
 	@# stripping invalidates the linker-embedded ad-hoc code signature; on
 	@# macOS this can be taskgated ("Code Signature Invalid") for a binary
@@ -683,7 +684,7 @@ $(ALL_TOOLS_X): %: %.o $(ALL_OBJECTS) $(TOBJ_ALL) Makefile | $(HELPER_TOOLS) $(U
 $(HELPER_TOOLS): %: %.o $(ALL_OBJECTS) $(TOBJ_NO_WRAPPER) $(UI_TABS) Makefile
 	@printf "$(LOGFORMAT_TOOL)" helper "$@ $(TOBJ_$@)" "$(MODE)"
 	@$(CC) $(CFLAGS) $(DEFINES) $(LDFLAGS) $@.o \
-		$(ALL_OBJECTS) $(TOBJ_$@) $(LIBS) -o $@
+		$(ALL_OBJECTS) $(filter-out $(ALL_OBJECTS),$(TOBJ_$@)) $(LIBS) -o $@
 
 #--------------------------
 
