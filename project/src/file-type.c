@@ -1697,6 +1697,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 'R', 'Z', 'P', 'K' }, 0, MinusString, MinusString,
 		"Mario Party 3DS compressed archive (.rzpk / RZPK, zlib members)" },
 
+	// FF_TTMODEL = 316 (TT Games NTT engine model)
+	{ FF_TTMODEL, FF_TTMODEL, 0, "TTMODEL", ".model", ".glb", ".model",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"TT Games NTT engine model (.model, LEGO Star Wars: The Skywalker Saga)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1892,6 +1898,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_J3DBMD, "J3DBMD", 0, 0x3001 },
 	{ FF_J3DBDL, "J3DBDL", 0, 0x3001 },
 	{ FF_RZPK, "RZPK", "RZPK", 0xe05 },
+	{ FF_TTMODEL, "TTMODEL", 0, 0x3001 },
 
 	{ 0, 0, 0, 0 }
 };

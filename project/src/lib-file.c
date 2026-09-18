@@ -898,6 +898,13 @@ __attribute__((weak)) bool IsMP10Board (const u8 *data, size_t size)
 	return false;
 }
 
+__attribute__((weak)) bool IsTTModel (const u8 *data, size_t size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
+
 
 file_format_t GetByMagicFF (const void *data, // pointer to data
 	uint data_size, // size of data
@@ -929,6 +936,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_PTD;
 		if (IsLZBIN (data8, data_size))
 			return FF_LZBIN;
+		if (IsTTModel (data8, file_size))
+			return FF_TTMODEL;
 		if (IsXB (data8, data_size))
 			return FF_XB;
 		if (IsMPMESS (data8, data_size))

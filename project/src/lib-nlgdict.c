@@ -90,28 +90,110 @@ enumError ExtractNLGDictArchive (ccp arg, ccp basedir, uint depth)
 		const bool is_lm2hd = (!is_lm3 && !is_fed && !is_strikers && raw_size >= 9 && (raw[8] % 7 == 0));
 		const bool is_compressed = (raw[6] == 1);
 
-		uint num_files = 0;
-		uint file_table_offset = 0;
+		nlg_variant_t nlg_variant = NLGDetectVariant (raw, (uint)raw_size);
 
-		if (is_lm3 || is_fed)
+		ccp dict_name = nlg_variant == NLG_FEDFORCE ? "FEDFORCE-DICT"
+			: (nlg_variant == NLG_LM3 ? "LM3-DICT"
+				: (nlg_variant == NLG_LM2 ? "LM2-DICT"
+					: (is_lm2hd ? "LM2HD-DICT"
+						: (is_strikers ? "STRIKERS-DICT" : "LM2-DICT"))));
+
+		// Resolved block table for the file_*.bin dump: structural scans
+		// for the known variants, legacy offset heuristic otherwise.
+		typedef struct { u32 off, dec, comp; } dump_blk_t;
+		dump_blk_t *dump_blks = 0;
+		uint num_files = 0;
+		if (nlg_variant == NLG_LM3 || nlg_variant == NLG_LM2
+			|| nlg_variant == NLG_FEDFORCE)
 		{
-			const uint ref_size = is_fed ? 16 : 24;
-			num_files = raw[12] > 0 ? raw[12] : raw[16];
-			const uint num_chunk_infos = raw[13] > 0 ? raw[13] : raw[17];
-			file_table_offset = 20 + num_chunk_infos * ref_size;
+			nlg_block_t *bl = 0;
+			uint n_blocks = 0;
+			bool ok = false;
+			if (nlg_variant == NLG_LM3)
+				ok = ScanLM3Dict (raw, (uint)raw_size, &bl, &n_blocks,
+					0, 0, 0) == ERR_OK;
+			else if (nlg_variant == NLG_LM2)
+				ok = ScanLM2Dict (raw, (uint)raw_size, &bl, &n_blocks,
+					0, 0, 0) == ERR_OK;
+			else
+			{
+				fed_dict_block_t *fb = 0;
+				uint nfb = 0;
+				bool is_fed = false;
+				if (ScanFedForceDict (raw, (uint)raw_size, &is_fed,
+						&fb, &nfb, 0, 0, 0) == ERR_OK && is_fed)
+				{
+					bl = CALLOC (nfb ? nfb : 1, sizeof (*bl));
+					if (bl)
+					{
+						for (uint i = 0; i < nfb; i++)
+						{
+							bl[i].offset = fb[i].offset;
+							bl[i].decomp_size = fb[i].decomp_size;
+							bl[i].comp_size = fb[i].comp_size;
+						}
+						n_blocks = nfb;
+						ok = true;
+					}
+				}
+				FreeFedForceDict (fb, 0, 0);
+			}
+			if (ok && n_blocks)
+			{
+				dump_blks = CALLOC (n_blocks, sizeof (*dump_blks));
+				if (dump_blks)
+					for (uint i = 0; i < n_blocks; i++)
+					{
+						dump_blks[i].off = bl[i].offset;
+						dump_blks[i].dec = bl[i].decomp_size;
+						dump_blks[i].comp = bl[i].comp_size;
+					}
+				else
+					ok = false;
+				num_files = ok ? n_blocks : 0;
+			}
+			FreeNLGDict (bl, 0, 0);
 		}
 		else
 		{
-			num_files = rd_le32 (raw + 8);
-			if (num_files == 0 || num_files > 100000)
-				num_files = rd_be32 (raw + 8);
-			file_table_offset = 0x2C + num_files;
+			// Legacy heuristic for Strikers-BLF / LM2HD / unknown LM.
+			uint file_table_offset = 0;
+			if (is_lm3 || is_fed)
+			{
+				const uint ref_size = is_fed ? 16 : 24;
+				num_files = raw[12] > 0 ? raw[12] : raw[16];
+				const uint num_chunk_infos = raw[13] > 0 ? raw[13] : raw[17];
+				file_table_offset = 20 + num_chunk_infos * ref_size;
+			}
+			else
+			{
+				num_files = rd_le32 (raw + 8);
+				if (num_files == 0 || num_files > 100000)
+					num_files = rd_be32 (raw + 8);
+				file_table_offset = 0x2C + num_files;
+			}
+			if (num_files && num_files <= 100000)
+			{
+				dump_blks = CALLOC (num_files, sizeof (*dump_blks));
+				if (dump_blks)
+					for (uint i = 0; i < num_files; i++)
+					{
+						const uint eoff = file_table_offset + i * 16;
+						if (eoff + 16 > raw_size)
+						{
+							num_files = i;
+							break;
+						}
+						dump_blks[i].off = rd_le32 (raw + eoff);
+						dump_blks[i].dec = rd_le32 (raw + eoff + 4);
+						dump_blks[i].comp = rd_le32 (raw + eoff + 8);
+					}
+				else
+					num_files = 0;
+			}
+			else
+				num_files = 0;
 		}
-
-		ccp dict_name = is_fed ? "FEDFORCE-DICT"
-			: (is_lm3 ? "LM3-DICT"
-					  : (is_lm2hd ? "LM2HD-DICT"
-								  : (is_strikers ? "STRIKERS-DICT" : "LM2-DICT")));
 
 		if (verbose >= 0 || testmode)
 			fprintf (stdlog, "%s%sEXTRACT %s:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
@@ -119,13 +201,9 @@ enumError ExtractNLGDictArchive (ccp arg, ccp basedir, uint depth)
 
 		for (uint i = 0; i < num_files; i++)
 		{
-			const uint eoff = file_table_offset + i * 16;
-			if (eoff + 16 > raw_size)
-				break;
-
-			const u32 offset = rd_le32 (raw + eoff);
-			const u32 decomp_size = rd_le32 (raw + eoff + 4);
-			const u32 comp_size = rd_le32 (raw + eoff + 8);
+			const u32 offset = dump_blks[i].off;
+			const u32 decomp_size = dump_blks[i].dec;
+			const u32 comp_size = dump_blks[i].comp;
 
 			if (decomp_size == 0)
 				continue;
@@ -206,6 +284,8 @@ enumError ExtractNLGDictArchive (ccp arg, ccp basedir, uint depth)
 			else
 				extracted_count++;
 		}
+		FREE (dump_blks);
+
 		// Typed chunk pass (NextLevelLibrary layouts): models -> FEDM+GLB,
 		// textures -> FEDT+PNG, skeletons -> FEDS, animations/scripts ->
 		// text, everything else hash-resolved raw dumps. Best effort and

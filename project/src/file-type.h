@@ -408,6 +408,7 @@ typedef enum file_format_t
 	FF_FEDSKEL, // 313 - Next Level Games skeleton container (.fedskel / FEDS)
 	FF_SANIM,  // 314 - Mario Strikers skeleton animation (.sanim)
 	FF_RZPK,   // 315 - Mario Party 3DS compressed archive (.rzpk / RZPK, MPLibrary ZDAT)
+	FF_TTMODEL,// 316 - TT Games NTT engine model (.model, LEGO Star Wars: The Skywalker Saga)
 
 	//--- number of elements
 
