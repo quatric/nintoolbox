@@ -486,7 +486,7 @@ SZS_O		:= lib-std.o lib-file.o lib-numeric.o lib-nds-banner.o lib-wii-banner.o \
 		   lib-rarc.o lib-pack.o lib-rkc.o lib-brres.o lib-breff.o \
 		   file-type.o db-mkw.o lib-mkw.o lib-dol.o \
 		   sha1dgst.o sha1_one.o lib-bzip2.o lib-lzma.o lib-zstd.o lib-lz4.o lib-rvz.o \
-		   lib-ue4pak.o lib-prc.o lib-rstb.o lib-aamp.o lib-sharc.o lib-bnsh.o lib-bfsha.o lib-pctl.o \
+		   lib-ue4pak.o lib-prc.o lib-rstb.o lib-aamp.o lib-sharc.o lib-bnsh.o lib-bfsha.o lib-pctl.o lib-effn.o \
 		   lib-nushdb.o lib-numatb.o lib-nusktb.o lib-nufxlb.o lib-numdlb.o lib-nuhlpb.o \
 		   lib-nulstb.o lib-nurpdb.o lib-nuanmb.o \
 		   lib-cnut.o lib-xmsg.o lib-iqipack.o \

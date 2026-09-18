@@ -79,6 +79,7 @@
 #include "lib-bzip2.h"
 #include "lib-lzma.h"
 #include "lib-checksum.h"
+#include "lib-effn.h"
 #include "config.inc"
 
 //
@@ -1487,6 +1488,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			// NintendoWare Particle Effect Archive (VFXB)
 			case 0x56465842: // "VFXB"
 				return FF_VFXB;
+
+			// Bandai Namco Effect File (EFFN)
+			case 0x4546464e: // "EFFN"
+				return IsEFFN (data8, data_size) ? FF_EFFN : FF_UNKNOWN;
 
 			// Nintendo EAD Bezel Engine Archive (SCNE)
 			case 0x53434e45: // "SCNE"

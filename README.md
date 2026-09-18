@@ -81,6 +81,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **CRAM** | `.arc`, `.cram` | ✅ | ✅ | ✅ | — | Monolith Soft 3DS flat archive container |
 | **DARC / BCMA** | `.darc`, `.bcma`, `.arc` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C directory archive & 3DS electronic manual archive (3DS). |
 | **DTLS** | `dt00`, `ls00`, `.ls` | ✅ | ✅ | ✅ | ✅ | Bandai Namco composite package & lookup archive (*Super Smash Bros. 4*, Wii U / 3DS) |
+| **EFFN** | `.eff`, `.effn` | ✅ | ✅ | ✅ | ✅ | Bandai Namco Super Smash Bros. 4 / Ultimate particle effect container archive (`EFFN`). |
 | **F9RES** | `.res` | ✅ | ✅ | ✅ | — | GameCube resource archive container |
 | **FSYS** | `.fsys` | ✅ | ✅ | ✅ | — | Genius Sonority archive system (GameCube / Wii) |
 | **GAR / ZAR** | `.zar`, `.gar` | ✅ | ✅ | ✅ | ✅ | Grezzo Zelda & Luigi's Mansion archive (*OoT3D*, *MM3D*, *LM3DS*). |
@@ -119,7 +120,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **Storybook ONE** | `.one` | ✅ | ✅ | — | ✅ | Sonic Team *Sonic and the Secret Rings* / *Black Knight* PRS-compressed container. |
 | **TMPK** | `.pack`, `.tmpk` | ✅ | ✅ | ✅ | ✅ | *The Legend of Zelda: Twilight Princess HD* archive (`TMPK`). |
 | **VCRA** | `.bin`, `.vcra` | ✅ | ✅ | ✅ | ✅ | Bandai Namco Museum Remix archive format (Wii). |
-| **VFXB / PTCL** | `.ptcl`, `.eset`, `.vfxb` | ✅ | — | — | ✅ | NintendoWare particle effect binary archive (Wii U / Switch). |
+| **VFXB / PTCL** | `.ptcl`, `.eset`, `.vfxb` | ✅ | ✅ | ✅ | ✅ | NintendoWare particle effect binary archive (Wii U / Switch). |
 | **VIBS** | `.vibs` | ✅ | ✅ | ✅ | — | Nintendo Switch Joy-Con vibration archive |
 | **WARC** | `.warc` | ✅ | ✅ | ✅ | ✅ | Nintendo / Intelligent Systems flat archive (Wii U). |
 | **WTA / WTP** | `.wta` + `.wtp` | ✅ | — | — | ✅ | PlatinumGames texture bundle (*Star Fox Zero*, Wii U) |

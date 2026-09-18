@@ -34,11 +34,26 @@ static bool looks_like_f9res_dir (ccp source)
 	return found;
 }
 
+static enumError create_effn_dir (ccp source, ccp dest)
+{
+	return CreateEFFNArchive (source, dest);
+}
+
+static enumError create_pctl_dir (ccp source, ccp dest)
+{
+	return CreatePCTLArchive (source, dest);
+}
+
 static enumError create_archive_from_dir (ccp source_dir, ccp dest, int known_lz_type)
 {
 	ccp ext = strrchr (dest, '.');
 	if (!ext)
 		ext = "";
+
+	if (!strcasecmp (ext, ".eff") || !strcasecmp (ext, ".effn"))
+		return create_effn_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".ptcl") || !strcasecmp (ext, ".vfxb") || !strcasecmp (ext, ".eset"))
+		return create_pctl_dir (source_dir, dest);
 
 	if (!strcasecmp (ext, ".sdat"))
 		return PassthruPack (source_dir, dest);
@@ -276,7 +291,7 @@ static const char *cand_archive_exts[] = { ".wbfs", ".iso", ".ciso", ".wdf", ".w
 	".darc", ".pac", ".pcs", ".gfa", ".rarc", ".warc", ".bcsar", ".bfsar", ".bcwar", ".bfwar",
 	".bcgrp", ".bfgrp", ".rst", ".car", ".res", ".trk", ".lvl", ".wu8", ".wbz", ".wlz", ".bntx",
 	".bcres", ".bfres", ".bch", ".big", ".xc", ".xpck", ".ztab", ".tab", ".mdr", ".vff", ".pvol",
-	".srd", ".stpk", ".zlarc", ".zdat", ".one", 0 };
+	".srd", ".stpk", ".zlarc", ".zdat", ".one", ".ptcl", ".eff", ".effn", ".vfxb", ".eset", 0 };
 
 // A number of retail Wii titles keep otherwise ordinary BRRES/U8 resources
 // in a raw Nintendo LZ10/LZ11 stream, conventionally named "*.lz".  The

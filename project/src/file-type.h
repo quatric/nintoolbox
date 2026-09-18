@@ -394,6 +394,7 @@ typedef enum file_format_t
 	FF_SHDVAR, // 299 - NintendoWare Layout Shader Variation Table (.shdvartbl / .svt)
 	FF_DDS,    // 300 - DirectDraw Surface texture (.dds)
 	FF_ASTC,   // 301 - Adaptive Scalable Texture Compression (.astc)
+	FF_EFFN,   // 302 - Bandai Namco Effect File (.eff / .effn, EFFN)
 
 	//--- number of elements
 

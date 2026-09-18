@@ -101,8 +101,8 @@ static char *byml_b64_encode (const u8 *src, size_t size)
 			| (unsigned)(i + 2 < size ? src[i + 2] : 0);
 		out[j++] = b64_table[v >> 18];
 		out[j++] = b64_table[(v >> 12) & 63];
-		out[j++] = i + 1 < size ? b64_table[(v >> 6) & 63] : =;
-		out[j++] = i + 2 < size ? b64_table[v & 63] : =;
+		out[j++] = i + 1 < size ? b64_table[(v >> 6) & 63] : '=';
+		out[j++] = i + 2 < size ? b64_table[v & 63] : '=';
 	}
 	out[out_size] = 0;
 	return out;
@@ -110,11 +110,11 @@ static char *byml_b64_encode (const u8 *src, size_t size)
 
 static int byml_b64_val (char c)
 {
-	if (c >= A && c <= Z) return c - A;
-	if (c >= a && c <= z) return c - a + 26;
-	if (c >= 0 && c <= 9) return c - 0 + 52;
-	if (c == +) return 62;
-	if (c == /) return 63;
+	if (c >= 'A' && c <= 'Z') return c - 'A';
+	if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+	if (c >= '0' && c <= '9') return c - '0' + 52;
+	if (c == '+') return 62;
+	if (c == '/') return 63;
 	return -1;
 }
 
@@ -125,14 +125,14 @@ static u8 *byml_b64_decode (const char *src, size_t len, size_t *out_size)
 		return NULL;
 	size_t clean_len = 0;
 	for (size_t i = 0; i < len; i++)
-		if (byml_b64_val (src[i]) >= 0 || src[i] == =)
+		if (byml_b64_val (src[i]) >= 0 || src[i] == '=')
 			clean_len++;
 	if (!clean_len)
 		return NULL;
 	char *clean = MALLOC (clean_len);
 	size_t k = 0;
 	for (size_t i = 0; i < len; i++)
-		if (byml_b64_val (src[i]) >= 0 || src[i] == =)
+		if (byml_b64_val (src[i]) >= 0 || src[i] == '=')
 			clean[k++] = src[i];
 
 	size_t alloc_sz = (clean_len / 4 + 1) * 3;
@@ -142,15 +142,15 @@ static u8 *byml_b64_decode (const char *src, size_t len, size_t *out_size)
 	{
 		int a = byml_b64_val (clean[i]);
 		int b = byml_b64_val (clean[i + 1]);
-		int c = clean[i + 2] == = ? 0 : byml_b64_val (clean[i + 2]);
-		int d = clean[i + 3] == = ? 0 : byml_b64_val (clean[i + 3]);
+		int c = clean[i + 2] == '=' ? 0 : byml_b64_val (clean[i + 2]);
+		int d = clean[i + 3] == '=' ? 0 : byml_b64_val (clean[i + 3]);
 		if (a < 0 || b < 0 || c < 0 || d < 0)
 			continue;
 		unsigned v = (a << 18) | (b << 12) | (c << 6) | d;
 		out[out_len++] = (v >> 16) & 0xFF;
-		if (clean[i + 2] != =)
+		if (clean[i + 2] != '=')
 			out[out_len++] = (v >> 8) & 0xFF;
-		if (clean[i + 3] != =)
+		if (clean[i + 3] != '=')
 			out[out_len++] = v & 0xFF;
 	}
 	FREE (clean);
@@ -796,7 +796,7 @@ static int byml_node_to_yaml_doc (yaml_document_t *doc, const byml_node_t *n)
 			if (isnan (n->u.f)) return byml_yaml_scalar (doc, YAML_FLOAT_TAG, ".nan");
 			if (isinf (n->u.f)) return byml_yaml_scalar (doc, YAML_FLOAT_TAG, n->u.f < 0 ? "-.inf" : ".inf");
 			snprintf (buf, sizeof (buf), "%.8g", n->u.f);
-			if (!strchr (buf, .) && !strchr (buf, e) && !strchr (buf, E)) strcat (buf, ".0");
+			if (!strchr (buf, '.') && !strchr (buf, 'e') && !strchr (buf, 'E')) strcat (buf, ".0");
 			return byml_yaml_scalar (doc, YAML_FLOAT_TAG, buf);
 		}
 
@@ -817,7 +817,7 @@ static int byml_node_to_yaml_doc (yaml_document_t *doc, const byml_node_t *n)
 			if (isnan (n->u.d)) return byml_yaml_scalar (doc, "!d", ".nan");
 			if (isinf (n->u.d)) return byml_yaml_scalar (doc, "!d", n->u.d < 0 ? "-.inf" : ".inf");
 			snprintf (buf, sizeof (buf), "%.16g", n->u.d);
-			if (!strchr (buf, .) && !strchr (buf, e) && !strchr (buf, E)) strcat (buf, ".0");
+			if (!strchr (buf, '.') && !strchr (buf, 'e') && !strchr (buf, 'E')) strcat (buf, ".0");
 			return byml_yaml_scalar (doc, "!d", buf);
 		}
 
@@ -860,7 +860,7 @@ static int byml_node_to_yaml_doc (yaml_document_t *doc, const byml_node_t *n)
 				#define ADD_PT_F(key, val) do { \
 					int k = byml_yaml_string (doc, key); \
 					snprintf (pbuf, sizeof (pbuf), "%.8g", (double)(val)); \
-					if (!strchr (pbuf, \x27.\x27) && !strchr (pbuf, \x27e\x27) && !strchr (pbuf, \x27E\x27)) strcat (pbuf, ".0"); \
+					if (!strchr (pbuf, '.') && !strchr (pbuf, 'e') && !strchr (pbuf, 'E')) strcat (pbuf, ".0"); \
 					int v = byml_yaml_scalar (doc, YAML_FLOAT_TAG, pbuf); \
 					yaml_document_append_mapping_pair (doc, map, k, v); \
 				} while (0)
@@ -1281,7 +1281,7 @@ enumError DecodeBYML_XML (FILE *out, const u8 *data, size_t size)
 	if (xml_str)
 	{
 		fputs (xml_str, out);
-		fputc (\x27\n\x27, out);
+		fputc ('\n', out);
 		FREE (xml_str);
 	}
 	mxmlDelete (xml_doc);
@@ -1334,17 +1334,17 @@ static void byml_node_to_json_file (FILE *out, const byml_node_t *n, int indent)
 		}
 		case BYML_T_STRING:
 		{
-			fputc (\x27"\x27, out);
+			fputc ('"', out);
 			for (const char *p = n->u.s ? n->u.s : ""; *p; p++)
 			{
-				if (*p == \x27"\x27) fputs ("\\\"", out);
-				else if (*p == \x27\\\\\x27) fputs ("\\\\\\\\", out);
-				else if (*p == \x27\\n\x27) fputs ("\\n", out);
-				else if (*p == \x27\\r\x27) fputs ("\\r", out);
-				else if (*p == \x27\\t\x27) fputs ("\\t", out);
+				if (*p == '"') fputs ("\\\"", out);
+				else if (*p == '\\') fputs ("\\\\", out);
+				else if (*p == '\n') fputs ("\\n", out);
+				else if (*p == '\r') fputs ("\\r", out);
+				else if (*p == '\t') fputs ("\\t", out);
 				else fputc (*p, out);
 			}
-			fputc (\x27"\x27, out);
+			fputc ('"', out);
 			break;
 		}
 		case BYML_T_BINARY:
@@ -1361,13 +1361,13 @@ static void byml_node_to_json_file (FILE *out, const byml_node_t *n, int indent)
 			for (uint i = 0; i < n->u.path.count; i++)
 			{
 				const byml_point_t *pt = &n->u.path.points[i];
-				for (int s = 0; s < indent + 2; s++) fputc (\x27 \x27, out);
+				for (int s = 0; s < indent + 2; s++) fputc (' ', out);
 				fprintf (out, "{\"x\": %.8g, \"y\": %.8g, \"z\": %.8g, \"nx\": %.8g, \"ny\": %.8g, \"nz\": %.8g, \"val\": %u}%s\n",
 					(double)pt->x, (double)pt->y, (double)pt->z, (double)pt->nx, (double)pt->ny, (double)pt->nz, pt->val,
 					i + 1 < n->u.path.count ? "," : "");
 			}
-			for (int s = 0; s < indent; s++) fputc (\x27 \x27, out);
-			fputc (\x27]\x27, out);
+			for (int s = 0; s < indent; s++) fputc (' ', out);
+			fputc (']', out);
 			break;
 		}
 		case BYML_T_ARRAY:
@@ -1380,13 +1380,13 @@ static void byml_node_to_json_file (FILE *out, const byml_node_t *n, int indent)
 			fputs ("[\n", out);
 			for (uint i = 0; i < n->u.arr.count; i++)
 			{
-				for (int s = 0; s < indent + 2; s++) fputc (\x27 \x27, out);
+				for (int s = 0; s < indent + 2; s++) fputc (' ', out);
 				byml_node_to_json_file (out, n->u.arr.items[i], indent + 2);
-				if (i + 1 < n->u.arr.count) fputc (\x27,\x27, out);
-				fputc (\x27\\n\x27, out);
+				if (i + 1 < n->u.arr.count) fputc (',', out);
+				fputc ('\n', out);
 			}
-			for (int s = 0; s < indent; s++) fputc (\x27 \x27, out);
-			fputc (\x27]\x27, out);
+			for (int s = 0; s < indent; s++) fputc (' ', out);
+			fputc (']', out);
 			break;
 		}
 		case BYML_T_MAP:
@@ -1401,7 +1401,7 @@ static void byml_node_to_json_file (FILE *out, const byml_node_t *n, int indent)
 			fputs ("{\n", out);
 			for (uint i = 0; i < n->u.map.count; i++)
 			{
-				for (int s = 0; s < indent + 2; s++) fputc (\x27 \x27, out);
+				for (int s = 0; s < indent + 2; s++) fputc (' ', out);
 				if (n->type == BYML_T_MAP)
 					fprintf (out, "\"%s\": ", n->u.map.entries[i].key);
 				else if (n->type == BYML_T_HASHMAP32)
@@ -1409,11 +1409,11 @@ static void byml_node_to_json_file (FILE *out, const byml_node_t *n, int indent)
 				else
 					fprintf (out, "\"%llu\": ", (unsigned long long)n->u.map.entries[i].hash64);
 				byml_node_to_json_file (out, n->u.map.entries[i].val, indent + 2);
-				if (i + 1 < n->u.map.count) fputc (\x27,\x27, out);
-				fputc (\x27\\n\x27, out);
+				if (i + 1 < n->u.map.count) fputc (',', out);
+				fputc ('\n', out);
 			}
-			for (int s = 0; s < indent; s++) fputc (\x27 \x27, out);
-			fputc (\x27}\x27, out);
+			for (int s = 0; s < indent; s++) fputc (' ', out);
+			fputc ('}', out);
 			break;
 		}
 		default:
@@ -1481,7 +1481,7 @@ enumError DecodeBYML_JSON (FILE *out, const u8 *data, size_t size)
 		root_tree = byml_parse_binary_node (&ctx, data[root_node_off], root_node_off, 0);
 
 	byml_node_to_json_file (out, root_tree, 0);
-	fputc (\x27\n\x27, out);
+	fputc ('\n', out);
 
 	byml_node_free (root_tree);
 	FREE (ctx.hash_keys);
@@ -2146,8 +2146,8 @@ static enumError byml_write_binary (
 	u32 root_val = 0;
 	write_byml_node_data (&w, root, &keys, &strs, &paths, &root_type, &root_val);
 
-	w.buf[0] = is_le ? \x27Y\x27 : \x27B\x27;
-	w.buf[1] = is_le ? \x27B\x27 : \x27Y\x27;
+	w.buf[0] = is_le ? 'Y' : 'B';
+	w.buf[1] = is_le ? 'B' : 'Y';
 	u16 out_ver = version ? version : (support_paths ? 1 : 2);
 
 	if (is_le)
@@ -2305,7 +2305,7 @@ static byml_node_t *byml_node_from_yaml (yaml_document_t *doc, int node_id)
 		}
 
 		char *endp = NULL;
-		if (val[0] == \x270\x27 && (val[1] == \x27x\x27 || val[1] == \x27X\x27))
+		if (val[0] == '0' && (val[1] == 'x' || val[1] == 'X'))
 		{
 			u64 hval = strtoull (val, &endp, 16);
 			if (endp && !*endp)
@@ -2323,9 +2323,9 @@ static byml_node_t *byml_node_from_yaml (yaml_document_t *doc, int node_id)
 		}
 
 		long long lval = strtoll (val, &endp, 0);
-		if (endp && !*endp && val[0] != \x27\\0\x27)
+		if (endp && !*endp && val[0] != '\0')
 		{
-			if (val[0] != \x27-\x27 && (unsigned long long)lval > INT32_MAX && (unsigned long long)lval <= UINT32_MAX)
+			if (val[0] != '-' && (unsigned long long)lval > INT32_MAX && (unsigned long long)lval <= UINT32_MAX)
 			{
 				byml_node_t *n = byml_node_new (BYML_T_UINT);
 				n->u.u = (uint32_t)lval;
@@ -2343,7 +2343,7 @@ static byml_node_t *byml_node_from_yaml (yaml_document_t *doc, int node_id)
 		}
 
 		double dval = strtod (val, &endp);
-		if (endp && !*endp && (strchr (val, \x27.\x27) || strchr (val, \x27e\x27) || strchr (val, \x27E\x27)))
+		if (endp && !*endp && (strchr (val, '.') || strchr (val, 'e') || strchr (val, 'E')))
 		{
 			byml_node_t *n = byml_node_new (BYML_T_FLOAT);
 			n->u.f = (float)dval;
@@ -2505,19 +2505,19 @@ static byml_node_t *byml_parse_xml_val_str (ccp val)
 		n->u.u64 = (uint64_t)strtoull (val, NULL, 0);
 		return n;
 	}
-	if (len > 1 && val[len - 1] == \x27f\x27)
+	if (len > 1 && val[len - 1] == 'f')
 	{
 		byml_node_t *n = byml_node_new (BYML_T_FLOAT);
 		n->u.f = (float)strtod (val, NULL);
 		return n;
 	}
-	if (len > 1 && val[len - 1] == \x27u\x27)
+	if (len > 1 && val[len - 1] == 'u')
 	{
 		byml_node_t *n = byml_node_new (BYML_T_UINT);
 		n->u.u = (uint32_t)strtoul (val, NULL, 0);
 		return n;
 	}
-	if (len > 1 && val[len - 1] == \x27d\x27)
+	if (len > 1 && val[len - 1] == 'd')
 	{
 		byml_node_t *n = byml_node_new (BYML_T_DOUBLE);
 		n->u.d = strtod (val, NULL);
@@ -2625,7 +2625,7 @@ static byml_node_t *byml_node_from_xml (mxml_node_t *elem)
 	for (uint i = 0; i < n_attrs; i++)
 	{
 		ccp aname = attrs[i].name;
-		if (strchr (aname, \x27:\x27) || !strcmp (aname, "type") || !strcmp (aname, "xmlns"))
+		if (strchr (aname, ':') || !strcmp (aname, "type") || !strcmp (aname, "xmlns"))
 			continue;
 		attr_count++;
 	}
@@ -2636,7 +2636,7 @@ static byml_node_t *byml_node_from_xml (mxml_node_t *elem)
 		for (uint i = 0; i < n_attrs; i++)
 		{
 			ccp aname = attrs[i].name;
-			if (strchr (aname, \x27:\x27) || !strcmp (aname, "type") || !strcmp (aname, "xmlns"))
+			if (strchr (aname, ':') || !strcmp (aname, "type") || !strcmp (aname, "xmlns"))
 				continue;
 			byml_map_add (m, aname, byml_parse_xml_val_str (attrs[i].value));
 		}
@@ -2746,12 +2746,12 @@ enumError encode_byml_file (ccp source, ccp dest)
 
 	u8 *byml = 0;
 	uint byml_size = 0;
-	ccp ext = strrchr (dest, \x27.\x27);
+	ccp ext = strrchr (dest, '.');
 	bool is_le = true;
 	if (ext && !strcasecmp (ext, ".be"))
 		is_le = false;
 
-	ccp src_ext = strrchr (source, \x27.\x27);
+	ccp src_ext = strrchr (source, '.');
 	if (src_ext && !strcasecmp (src_ext, ".xml"))
 		err = EncodeBYML_XML (&byml, &byml_size, (const char *)text, (uint)text_len, is_le, 0);
 	else

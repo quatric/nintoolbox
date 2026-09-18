@@ -43,7 +43,7 @@ We acknowledge and credit the following tools and authors whose research, format
 * **MPR-Model-Dumper** by **KillzXGaming** ([MPR-Model-Dumper](https://github.com/KillzXGaming/MPR-Model-Dumper))
   * Technical reference for Retro Studios RFRM format specifications (*Metroid Prime Remastered* and *Donkey Kong Country: Tropical Freeze* CMDL, SMDL, WMDL world model geometry, and SKEL skeleton hierarchies).
 * **EffectLibrary** by **KillzXGaming** ([EffectLibrary](https://github.com/KillzXGaming/EffectLibrary))
-  * NintendoWare particle effect systems (EFT1, EFT2, and VFXB `.ptcl`/`.eset` archives).
+  * NintendoWare particle effect systems (EFT1, EFT2, and VFXB `.ptcl`/`.eset` archives) and Bandai Namco particle effect container architectures (EFFN `.eff`/`.effn` format for *Super Smash Bros. 4* and *Super Smash Bros. Ultimate*).
 * **Metanoia** by **Ploaj** ([Metanoia](https://github.com/Ploaj/Metanoia))
   * Multi-platform reverse engineering, format analysis, and 3D model exploration tool for Nintendo formats across GameCube, Wii, 3DS, DS, and Switch (including HSF, HSD, GLG, BNFM, and proprietary console asset containers).
 * **Scarlet** by **xdanieldzd** ([Scarlet](https://github.com/xdanieldzd/Scarlet))

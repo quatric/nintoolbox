@@ -1472,8 +1472,9 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, MinusString, MinusString, "NintendoWare Shader Binary Archive (SHARCFB)" },
 
 	// FF_VFXB = 279 (NintendoWare Particle Effect Archive)
-	{ FF_VFXB, 0, 0, "VFXB", ".ptcl", ".ptcl", ".ptcl",
-		FFT_VALID | FFT_ARCHIVE | FFT_DECODE, 4, { 0x56, 0x46, 0x58, 0x42 }, // "VFXB"
+	{ FF_VFXB, FF_VFXB, 0, "VFXB", ".ptcl", ".ptcl", ".ptcl",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 0x56, 0x46, 0x58, 0x42 }, // "VFXB"
 		0, MinusString, MinusString, "NintendoWare Particle Effect Archive (VFXB / .ptcl / .eset)" },
 
 	// FF_BEA = 280 (Nintendo EAD Bezel Engine Archive)
@@ -1615,6 +1616,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE, 4,
 		{ 0x13, 0xab, 0xa1, 0x5c }, 0, MinusString, MinusString,
 		"Adaptive Scalable Texture Compression (.astc)" },
+
+	// FF_EFFN = 302 (Bandai Namco Effect File)
+	{ FF_EFFN, FF_EFFN, 0, "EFFN", ".eff", ".eff", ".eff",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 'E', 'F', 'F', 'N' }, 0, MinusString, MinusString,
+		"Bandai Namco Effect File (.eff / .effn, Super Smash Bros)" },
 
 	// FF_N
 	{ 0 }
@@ -1796,6 +1803,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_SHDVAR, "SHDVARTBL", 0, 0x3001 },
 	{ FF_DDS, "DDS", 0, 0x3009 },
 	{ FF_ASTC, "ASTC", 0, 0x3009 },
+	{ FF_EFFN, "EFFN", "EFF", 0xe05 },
+	{ FF_EFFN, "EFF", 0, 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };
