@@ -2241,7 +2241,6 @@ model_t *ParseJ3D (const uint8_t *data, size_t size)
 		|| !j3d_parse_tex1 (data, size, o_tex1, &d))
 	{
 		j3d_dec_free (&d);
-		fprintf (stderr, "j3d-dbg: fail at line 2244\n", 2244);
 		FreeModel (model);
 		return 0;
 	}
@@ -2251,7 +2250,6 @@ model_t *ParseJ3D (const uint8_t *data, size_t size)
 	if (!model->joints)
 	{
 		j3d_dec_free (&d);
-		fprintf (stderr, "j3d-dbg: fail at line 2253\n", 2253);
 		FreeModel (model);
 		return 0;
 	}
@@ -2288,7 +2286,6 @@ model_t *ParseJ3D (const uint8_t *data, size_t size)
 		if (!model->node_influences)
 		{
 			j3d_dec_free (&d);
-		fprintf (stderr, "j3d-dbg: fail at line 2289\n", 2289);
 			FreeModel (model);
 			return 0;
 		}
@@ -2341,7 +2338,6 @@ model_t *ParseJ3D (const uint8_t *data, size_t size)
 		if (!model->materials)
 		{
 			j3d_dec_free (&d);
-		fprintf (stderr, "j3d-dbg: fail at line 2341\n", 2341);
 			FreeModel (model);
 			return 0;
 		}
@@ -2356,7 +2352,6 @@ model_t *ParseJ3D (const uint8_t *data, size_t size)
 		if (!model->materials)
 		{
 			j3d_dec_free (&d);
-		fprintf (stderr, "j3d-dbg: fail at line 2355\n", 2355);
 			FreeModel (model);
 			return 0;
 		}
@@ -2402,7 +2397,6 @@ model_t *ParseJ3D (const uint8_t *data, size_t size)
 	if (entry_count < 0 || entry_count > 100000 || !j3d_ok (data, size, o_shp1 + o_remap, 2))
 	{
 		j3d_dec_free (&d);
-		fprintf (stderr, "j3d-dbg: fail at line 2400\n", 2400);
 		FreeModel (model);
 		return 0;
 	}
@@ -2478,7 +2472,6 @@ model_t *ParseJ3D (const uint8_t *data, size_t size)
 			FREE (mtx_starts);
 			FREE (shape_mat);
 			j3d_dec_free (&d);
-		fprintf (stderr, "j3d-dbg: fail at line 2475\n", 2475);
 			FreeModel (model);
 			return 0;
 		}
@@ -2547,7 +2540,6 @@ model_t *ParseJ3D (const uint8_t *data, size_t size)
 	j3d_dec_free (&d);
 	if (!model->num_meshes)
 	{
-		fprintf (stderr, "j3d-dbg: fail at line 2543\n", 2543);
 		FreeModel (model);
 		return 0;
 	}

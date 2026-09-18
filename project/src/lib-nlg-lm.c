@@ -508,6 +508,22 @@ typedef struct nlg_file_t
 	uint child_start, child_count;
 } nlg_file_t;
 
+// Chunk types that are pure containers (their own payload is meaningless;
+// upstream links their SubData instead). Never resolved as leaf data.
+static bool nlg_is_container_type (u16 type)
+{
+	return type == 0xB100 || type == 0xC800 || type == 0x6200 || type == 0x6500;
+}
+
+// File-entry parent test: Federation Force uses bit 15; LM2/LM3 inherit
+// the reference rule (flags>>12)>2 over the file-table entries.
+static bool nlg_file_has_children (nlg_variant_t variant, u16 flags)
+{
+	if (variant == NLG_FEDFORCE)
+		return ((flags >> 15) & 1) != 0;
+	return (flags >> 12) > 2;
+}
+
 // Child payload resolver per variant. Returns NULL when unavailable.
 static const u8 *nlg_child_data (nlg_variant_t variant,
 	const nlg_chunk_t *tab, uint ti,
@@ -520,8 +536,8 @@ static const u8 *nlg_child_data (nlg_variant_t variant,
 	u16 type = tab[ti].type;
 	u16 flags = tab[ti].flags;
 	u32 sz = tab[ti].size, off = tab[ti].offset;
-	if ((flags >> 15) & 1)
-		return 0; // parents carry no payload
+	if (nlg_is_container_type (type))
+		return 0;
 	const u8 *d = 0;
 	if (variant == NLG_LM3)
 	{
@@ -553,7 +569,9 @@ static const u8 *nlg_find_child (nlg_variant_t variant,
 	for (uint c = 0; c < count; c++)
 	{
 		uint ti = start + c;
-		if (ti >= n_tab || ((tab[ti].flags >> 15) & 1))
+		if (ti >= n_tab)
+			continue;
+		if (nlg_is_container_type (tab[ti].type))
 			continue;
 		if (tab[ti].type != type)
 			continue;
@@ -2083,7 +2101,7 @@ static enumError nlg_dump_script (u8 **dest, uint *dest_size,
 	for (uint c = 0; c < count; c++)
 	{
 		uint ti = start + c;
-		if (ti >= n_tab || ((tab[ti].flags >> 15) & 1))
+		if (ti >= n_tab || nlg_is_container_type (tab[ti].type))
 			continue;
 		uint sz = 0;
 		const u8 *d = nlg_child_data (variant, tab, ti, bufs, n_bufs, &sz);
@@ -2545,7 +2563,7 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 		f->type = body->type;
 		f->hash_type = rd_le32 (hbuf);
 		f->path_hash = rd_le32 (hbuf + 4);
-		f->has_children = ((body->flags >> 15) & 1) != 0;
+		f->has_children = nlg_file_has_children (variant, body->flags);
 		f->child_start = body->offset;
 		f->child_count = body->size;
 		if (!f->has_children)

@@ -378,26 +378,26 @@ XOBJ_LIB	= analyze.o lib-szs-create.o lib-analyze.o lib-xbmg.o lib-msbt.o \
 			$(XOBJ_OBJECT) $(XOBJ_PARSER) 		$(XOBJ_IMAGE) lib-model-glb.o lib-mpr-cmdl.o cgltf_impl.o lib-brres-model.o lib-brres-inject.o lib-dtls.o lib-mio.o lib-bglpbd.o lib-smash-arc.o lib-warc.o lib-nccarc.o lib-ndcubepac.o lib-nus3audio.o lib-camtexbank.o lib-pers.o lib-zdat.o lib-one.o lib-g1t.o lib-ptlg.o lib-sir0.o lib-mtxt.o lib-tvol.o lib-romfs.o lib-txtg.o lib-nlgdict.o lib-fedforce.o lib-nlg-lm.o lib-bars.o lib-gfpak.o lib-wta.o lib-pgdat.o lib-vibs.o lib-pkz.o lib-apak.o lib-nxarc.o lib-tmpk.o lib-mkgpdxpac.o lib-gar.o lib-zlarc.o lib-f9res.o lib-stpk.o lib-pvol.o lib-mdr.o lib-ztab.o lib-xpck.o lib-fsys.o lib-gfa.o lib-pac.o lib-darc.o lib-narc.o lib-byml.o lib-sound-archive.o lib-arika.o lib-jarc.o lib-lzo.o lib-gpkg.o lib-gpak.o lib-bns.o lib-rpak.o lib-lspk.o lib-sfzdat.o lib-bg4.o lib-hwl.o lib-cram.o lib-sze.o lib-sa01.o lib-msr.o lib-miirender.o lib-kensaku.o lib-wimg.o lib-cpk.o lib-wmb.o \
 			lib-arcv.o lib-bigf.o lib-cod-pak.o lib-mpbin.o lib-vcra.o lib-wtb.o lib-trpak.o
 
-TOBJ_gen-ui	= $(XOBJ_OBJECT) $(XOBJ_IMAGE) lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-nsbmd.o lib-excite.o lib-nlg-lm.o
-TOBJ_wszst	= $(XOBJ_LIB) lib-hsd.o lib-halbank.o lib-bcres.o lib-bfres.o lib-nsbmd.o lib-nsbanim.o lib-nud.o lib-numsh.o lib-j3d.o lib-passthru.o $(WRAPPER_OBJ) lzh8_cmp.o lzh8_dec.o lzh8_util.o
+TOBJ_gen-ui	= $(XOBJ_OBJECT)
+TOBJ_wszst	= $(XOBJ_LIB) lib-hsd.o lib-halbank.o lib-bcres.o lib-bfres.o lib-nsbmd.o lib-nsbanim.o lib-nud.o lib-numsh.o lib-j3d.o lib-hbdf.o lib-passthru.o $(WRAPPER_OBJ) lzh8_cmp.o lzh8_dec.o lzh8_util.o
 TOBJ_wbmgt	= lib-xbmg.o lib-msbt.o $(XOBJ_OBJECT)
 TOBJ_wctct	= $(XOBJ_LIB)
 TOBJ_wimgt	= lib-aes.o $(XOBJ_IMAGE) lib-excite.o lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-nlg-lm.o lib-fedforce.o $(XOBJ_OBJECT)
 TOBJ_wkclt	= lib-transform.o $(XOBJ_KCL) lib-model-glb.o cgltf_impl.o lib-brres-model.o $(XOBJ_PARSER) $(XOBJ_OBJECT)
 TOBJ_wkmpt	= lib-aes.o $(XOBJ_KMP) lib-transform.o \
 			$(XOBJ_KCL) lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-kcl-image.o \
-			$(XOBJ_IMAGE) lib-excite.o $(XOBJ_PARSER) $(XOBJ_OBJECT)
+			$(XOBJ_IMAGE) lib-excite.o lib-nlg-lm.o lib-fedforce.o $(XOBJ_PARSER) $(XOBJ_OBJECT)
 TOBJ_wlect	= $(XOBJ_LIB)
-TOBJ_wmdlt	= $(XOBJ_LIB) lib-hsd.o lib-bcres.o lib-bfres.o lib-nsbmd.o lib-nsbanim.o lib-nud.o lib-numsh.o lib-j3d.o
+TOBJ_wmdlt	= $(XOBJ_LIB) lib-hsd.o lib-bcres.o lib-bfres.o lib-nsbmd.o lib-nsbanim.o lib-nud.o lib-numsh.o lib-j3d.o lib-hbdf.o
 TOBJ_wpatt	= lib-pat.o $(XOBJ_PARSER) $(XOBJ_OBJECT)
 TOBJ_wstrt	= lib-staticr.o db-dol.o db-ctcode.o $(XOBJ_OBJECT)
 TOBJ_wtest	= $(XOBJ_LIB) lib-nsbanim.o
-TOBJ_wlayt	= lib-aes.o $(XOBJ_IMAGE) lib-excite.o lib-model-glb.o cgltf_impl.o lib-brres-model.o $(XOBJ_OBJECT)
+TOBJ_wlayt	= lib-aes.o $(XOBJ_IMAGE) lib-excite.o lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-nlg-lm.o lib-fedforce.o $(XOBJ_OBJECT)
 TOBJ_wbrsar	= lib-sequence.o lib-brsar.o lib-sdat.o $(XOBJ_OBJECT)
 TOBJ_wwc24crypt	= lib-wc24.o lib-aes.o lib-bignum.o lib-rsa.o $(XOBJ_OBJECT)
-TOBJ_wbmsx	= lib-bms.o lib-aes.o $(XOBJ_IMAGE) lib-excite.o lib-model-glb.o cgltf_impl.o lib-brres-model.o $(XOBJ_OBJECT)
+TOBJ_wbmsx	= lib-bms.o lib-aes.o $(XOBJ_IMAGE) lib-excite.o lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-nlg-lm.o lib-fedforce.o $(XOBJ_OBJECT)
 TOBJ_wseqt	= lib-sequence.o $(XOBJ_OBJECT)
-TOBJ_wbrstm	= lib-dspadpcm.o lib-brstm.o lib-passthru.o lib-bms.o lib-aes.o $(XOBJ_IMAGE) lib-excite.o lib-model-glb.o cgltf_impl.o lib-brres-model.o $(XOBJ_OBJECT)
+TOBJ_wbrstm	= lib-dspadpcm.o lib-brstm.o lib-passthru.o lib-bms.o lib-aes.o $(XOBJ_IMAGE) lib-excite.o lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-nlg-lm.o lib-fedforce.o $(XOBJ_OBJECT)
 TOBJ_wrbnk	= lib-rbnk.o $(XOBJ_OBJECT)
 TOBJ_wbfsar	= lib-bfsar.o $(XOBJ_OBJECT)
 
@@ -482,7 +482,7 @@ SZS_O		:= lib-std.o lib-file.o lib-numeric.o lib-nds-banner.o lib-wii-banner.o \
 		   lib-owned-entries.o lib-mvdk.o lib-vlx.o lib-pucrunch.o lib-lzx.o \
 		   lib-diff.o lib-lzovl.o lib-alar.o lib-sadl.o lib-psdk.o lib-sszl.o \
 		   lib-rflres.o lib-bea.o \
-		   lib-atb.o lib-ptd.o lib-lzbin.o lib-hbdf.o lib-xb.o lib-mpmess.o lib-mpboard.o \
+		   lib-atb.o lib-ptd.o lib-lzbin.o lib-xb.o lib-mpmess.o lib-mpboard.o \
 		   lib-rarc.o lib-pack.o lib-rkc.o lib-brres.o lib-breff.o \
 		   file-type.o db-mkw.o lib-mkw.o lib-dol.o \
 		   sha1dgst.o sha1_one.o lib-bzip2.o lib-lzma.o lib-zstd.o lib-lz4.o lib-rvz.o \
