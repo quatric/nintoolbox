@@ -159,6 +159,43 @@ wszst BMS unpack_custom.bms archive.bin output_dir/ --overwrite
 
 ---
 
+### `wszst BYMLFIND` / `wszst BFIND`
+
+Searches BYML files for map keys and values containing a pattern (case-insensitive substring, the CLI counterpart of the NintenTools.Byaml editor search) and prints one `path = value` line per match.
+
+```bash
+wszst BYMLFIND <pattern> <source>... [--dest <file>] [--overwrite]
+# Alias:
+wszst BFIND <pattern> <source>...
+```
+
+#### Parameters
+- `<pattern>`: Case-insensitive substring matched against every map key and scalar value.
+- `<source>...`: One or more BYML files. Plain (`BY`/`YB`, versions 1–7, big- and little-endian) and Yaz0-wrapped BotW containers (`.sbyml`, `.smubin`, …) are both accepted; compressed inputs are decompressed in memory before searching.
+
+#### Examples
+```bash
+# Find every attackPower entry in a BotW actor pack (decompressed on the fly):
+wszst BYMLFIND attackPower ActorInfo.product.sbyml
+
+# Search several files, saving the report:
+wszst BYMLFIND Weapon Static.sarc.d/*.sbyml --dest hits.txt --overwrite
+```
+
+#### Yaz0-wrapped BYML elsewhere
+The same transparent handling applies to the classic commands: `wszst xx` decodes `.sbyml` members found inside extracted trees to editable `.sbyml.yml` sidecars, and `wszst CREATE` re-compresses to Yaz0 whenever the destination (or the sidecar's implied target) is an `S`-prefixed BotW extension:
+
+```bash
+# Extract: SARC member actor.sbyml gains an actor.sbyml.yml companion:
+wszst xx pack.sarc
+# Rebuild after editing the YAML (re-compresses to Yaz0 automatically):
+wszst CREATE pack.sarc.d/actor.sbyml.yml --overwrite
+# Or encode with an explicit Yaz0 destination:
+wszst CREATE params.yaml --dest params.sbyml --overwrite
+```
+
+---
+
 ## 2. Extended Features in Classic `wszst` Commands
 
 ### Universal Recursive Extraction (`wszst xx` / `wszst EXTRACT`)

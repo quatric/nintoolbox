@@ -2505,20 +2505,20 @@ t_bymlfind(){
   local d; d=$(mktemp -d)
   "$B/wszst" COMPRESS "$fix" --dest "$d/actor.sbyml" --overwrite >/dev/null 2>&1 || { no "BYMLFIND setup" "COMPRESS failed"; rm -rf "$d"; return; }
 
-  local plain; plain=$("$B/wszst" BYMLFIND CameraParams "$fix" 2>/dev/null)
+  local plain; plain=$("$B/wszst" BYMLFIND AngleH "$fix" 2>/dev/null)
   if [ -n "$plain" ] && echo "$plain" | grep -q '/CameraParams\[0\]/AngleH = '; then
     ok "BYMLFIND key search prints path = value"
   else
     no "BYMLFIND key search" "no path = value lines"
   fi
 
-  if [ -n "$plain" ] && [ "$plain" = "$("$B/wszst" BYMLFIND cameraparams "$fix" 2>/dev/null)" ]; then
+  if [ -n "$plain" ] && [ "$plain" = "$("$B/wszst" BYMLFIND angleh "$fix" 2>/dev/null)" ]; then
     ok "BYMLFIND search is case-insensitive"
   else
     no "BYMLFIND case-insensitivity" "lowercase pattern differs"
   fi
 
-  if [ -n "$plain" ] && [ "$plain" = "$("$B/wszst" BYMLFIND CameraParams "$d/actor.sbyml" 2>/dev/null)" ]; then
+  if [ -n "$plain" ] && [ "$plain" = "$("$B/wszst" BYMLFIND AngleH "$d/actor.sbyml" 2>/dev/null)" ]; then
     ok "BYMLFIND .sbyml matches plain output"
   else
     no "BYMLFIND .sbyml" "Yaz0-wrapped output differs"
