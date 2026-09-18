@@ -391,7 +391,11 @@ static void save_span (bms_ctx_t *ctx, const char *name, const uint8_t *file, si
 	mkdirs (path);
 	if (off > file_size)
 		off = file_size;
-	if (off + size > file_size)
+	// 'size' comes from a script variable that can be attacker-influenced
+	// via file-derived values (including negative int64 -> huge size_t);
+	// compare against the remaining span instead of off+size, which could
+	// itself wrap around SIZE_MAX and slip past the bounds check.
+	if (size > file_size - off)
 		size = file_size - off;
 	FILE *f = fopen (path, ctx->append ? "ab" : "wb");
 	if (!f)
@@ -517,7 +521,9 @@ static void clog_span (bms_ctx_t *ctx, const char *name, const uint8_t *file, si
 	mkdirs (path);
 	if (off > file_size)
 		off = file_size;
-	if (off + comp_size > file_size)
+	// Same off+size wraparound hazard as save_span(): compare against the
+	// remaining span rather than the (possibly overflowing) sum.
+	if (comp_size > file_size - off)
 		comp_size = file_size - off;
 	const u8 *src = file + off;
 

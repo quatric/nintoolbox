@@ -183,4 +183,9 @@ enumError EncodeGSHFromLatte (
 
 enumError create_gsh_dir (ccp source, ccp dest);
 
+// Decodes a GSH (Gfx2) shader container into human-readable text manifest,
+// including shader stages, blocks, and GX2 variable tables (uniforms, uniform blocks,
+// samplers, attributes, loops) parsed from GX2 headers.
+enumError DecodeGSH_Text (FILE *out, const u8 *data, size_t size);
+
 #endif

@@ -10,6 +10,18 @@ CFLAGS += -Wno-gnu-variable-sized-type-not-at-end -Wno-address-of-packed-member
 MACOS_X86_64_TARGET ?= 10.12
 MACOS_ARM64_TARGET  ?= 11
 
+# ctrtool and vgmtrans each vendor their own recursive build system that
+# picks up the host's default compiler/arch and ignores the CC/XFLAGS this
+# Makefile passes down (see the NO_CTRTOOL/vgmtrans comments in ../Makefile),
+# so neither can actually be cross-compiled to the other slice. Building
+# "both" legs really just rebuilds (or, for ctrtool, skips rebuilding
+# because its own output already exists) the same host-native binary twice,
+# which made mac2's lipo step fail with "have the same architectures" for
+# whichever of the two slices isn't the host's own. Build each of them only
+# on the leg matching the host's native arch; mac2's lipo loop already ships
+# a tool arch-only when only one slice's copy exists.
+HOST_ARCH := $(shell uname -m)
+
 #-----------------------------------------------------------------------------
 
 .PHONY : mac-distrib
@@ -56,14 +68,19 @@ mac2:
 	@echo
 	@echo "----- building universal binaries -----"
 
-	@for i in $(ALL_TOOLS); do \
-	    if [ -f bin/x86_64/$${i} ]; then \
+	@for i in $(ALL_TOOLS) ctrtool vgmtrans; do \
+	    if [ -f bin/x86_64/$${i} ] && [ -f bin/arm/$${i} ]; then \
 	        lipo -create bin/x86_64/$${i} bin/arm/$${i} -output $${i}; \
-	    else \
+	        cp -p $${i} bin/$${i}; \
+	    elif [ -f bin/arm/$${i} ]; then \
 	        echo "no x86_64 half for $${i}, shipping arm64-only"; \
 	        cp -p bin/arm/$${i} $${i}; \
+	        cp -p $${i} bin/$${i}; \
+	    elif [ -f bin/x86_64/$${i} ]; then \
+	        echo "no arm64 half for $${i}, shipping x86_64-only"; \
+	        cp -p bin/x86_64/$${i} $${i}; \
+	        cp -p $${i} bin/$${i}; \
 	    fi; \
-	    cp -p $${i} bin/$${i}; \
 	done
 	@rm -rf bin/x86_64 bin/arm
 	@echo "done"
@@ -104,9 +121,13 @@ mac-x86_64:
 # found for architecture x86_64"). /usr/local is where a Rosetta-run
 # `brew install` puts real x86_64 slices.
 	@HOMEBREW_PREFIX=/usr/local XFLAGS="-target x86_64-apple-macos$(MACOS_X86_64_TARGET)" $(MAKE) --no-print-directory clean
-	@HOMEBREW_PREFIX=/usr/local XFLAGS="-target x86_64-apple-macos$(MACOS_X86_64_TARGET)" $(MAKE) --no-print-directory all
+	@HOMEBREW_PREFIX=/usr/local XFLAGS="-target x86_64-apple-macos$(MACOS_X86_64_TARGET)" \
+		$(if $(filter-out x86_64,$(HOST_ARCH)),NO_CTRTOOL=1 NO_VGMTRANS=1) \
+		$(MAKE) --no-print-directory all
 	@mkdir -p bin/x86_64
 	@mv $(ALL_TOOLS) bin/x86_64
+	@[ -f bin/ctrtool ] && mv bin/ctrtool bin/x86_64/ || true
+	@[ -f bin/vgmtrans ] && mv bin/vgmtrans bin/x86_64/ || true
 
 #-----------------------------------------------------------------------------
 
@@ -116,9 +137,13 @@ mac-arm:
 	@echo "----- building arm [SDK $(SDKVERSION)] -----"
 #	@XFLAGS="-arch arm -mfpmath=sse" make clean all
 	@HOMEBREW_PREFIX=/opt/homebrew XFLAGS="-target arm64-apple-macos$(MACOS_ARM64_TARGET)" $(MAKE) --no-print-directory clean
-	@HOMEBREW_PREFIX=/opt/homebrew XFLAGS="-target arm64-apple-macos$(MACOS_ARM64_TARGET)" $(MAKE) --no-print-directory all
+	@HOMEBREW_PREFIX=/opt/homebrew XFLAGS="-target arm64-apple-macos$(MACOS_ARM64_TARGET)" \
+		$(if $(filter-out arm64,$(HOST_ARCH)),NO_CTRTOOL=1 NO_VGMTRANS=1) \
+		$(MAKE) --no-print-directory all
 	@mkdir -p bin/arm
 	@mv $(ALL_TOOLS) bin/arm
+	@[ -f bin/ctrtool ] && mv bin/ctrtool bin/arm/ || true
+	@[ -f bin/vgmtrans ] && mv bin/vgmtrans bin/arm/ || true
 
 #-----------------------------------------------------------------------------
 

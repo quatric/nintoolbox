@@ -10,6 +10,7 @@
 // ShaderLibrary/Structs.cs) -- BFSHA.cs itself only hands the stream to that library.
 
 bool IsBFSHA (const u8 *data, size_t size);
+bool IsBFSHA_WiiU (const u8 *data, size_t size);
 
 // Lists the archive-level string table (name/path), every named shader model, and -- when the
 // model's header version is one of the tractable fixed layouts (major 4/5/7/8/9) -- its shader

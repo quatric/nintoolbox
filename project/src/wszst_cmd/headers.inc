@@ -97,6 +97,11 @@
 #include "lib-nuanmb.h"
 #include "lib-bfsha.h"
 #include "lib-pctl.h"
+#include "lib-effn.h"
+#include "lib-bglpbd.h"
+#include "lib-xb.h"
+#include "lib-mpmess.h"
+#include "lib-mpboard.h"
 #include "lib-wtb.h"
 #include "lib-trpak.h"
 #include "lib-cnut.h"
@@ -125,6 +130,8 @@
 #include "lib-vc.h"
 #include "lib-sequence.h"
 #include "lib-miirender.h"
+
+bool IsNTTF (const u8 *data, uint size);
 
 static ccp opt_parent = 0;
 #include "lib-bzip2.h"

@@ -19,7 +19,11 @@
 static void RomFS_ReadDirectories (const u8 *raw, size_t raw_size, uint dir_start, uint file_start,
 	uint data_start, uint cur_dir_off, ccp current_path, ccp dest)
 {
-	if (dir_start + cur_dir_off + 24 > raw_size)
+	// cur_dir_off is an attacker-controlled child/sibling offset straight
+	// from the file, so dir_start+cur_dir_off can overflow in 32-bit uint
+	// arithmetic and wrap below raw_size while the actual pointer below
+	// (pointer + uint, not truncated to 32 bits) lands far out of bounds.
+	if ((u64)dir_start + cur_dir_off + 24 > raw_size)
 		return;
 
 	const u8 *dir = raw + dir_start + cur_dir_off;
@@ -29,7 +33,7 @@ static void RomFS_ReadDirectories (const u8 *raw, size_t raw_size, uint dir_star
 	const u32 name_len = rd_le32 (dir + 20);
 
 	char dir_name[PATH_MAX] = "";
-	if (name_len > 0 && dir_start + cur_dir_off + 24 + name_len <= raw_size)
+	if (name_len > 0 && (u64)dir_start + cur_dir_off + 24 + name_len <= raw_size)
 	{
 		// UTF-16LE to ASCII
 		const u8 *nptr = dir + 24;
@@ -53,10 +57,10 @@ static void RomFS_ReadDirectories (const u8 *raw, size_t raw_size, uint dir_star
 		snprintf (new_path, sizeof (new_path), "%s", current_path);
 
 	// Read files in this directory
-	if (first_file_off != 0xFFFFFFFF && file_start + first_file_off < raw_size)
+	if (first_file_off != 0xFFFFFFFF && (u64)file_start + first_file_off < raw_size)
 	{
 		u32 cur_file_off = first_file_off;
-		while (cur_file_off != 0xFFFFFFFF && file_start + cur_file_off + 32 <= raw_size)
+		while (cur_file_off != 0xFFFFFFFF && (u64)file_start + cur_file_off + 32 <= raw_size)
 		{
 			const u8 *file = raw + file_start + cur_file_off;
 			const u32 next_file_sib = rd_le32 (file + 4);
@@ -65,7 +69,7 @@ static void RomFS_ReadDirectories (const u8 *raw, size_t raw_size, uint dir_star
 			const u32 f_name_len = rd_le32 (file + 28);
 
 			char fname[PATH_MAX] = "";
-			if (f_name_len > 0 && file_start + cur_file_off + 32 + f_name_len <= raw_size)
+			if (f_name_len > 0 && (u64)file_start + cur_file_off + 32 + f_name_len <= raw_size)
 			{
 				const u8 *fnptr = file + 32;
 				uint fnidx = 0;
@@ -167,7 +171,7 @@ enumError ExtractROMFSArchive (ccp arg, ccp basedir, uint depth)
 	{
 		// Try alternate: direct Level 3 offset from header
 		const u64 l3_hdr_off = rd_le64 (raw + 0x3C);
-		if (l3_hdr_off > 0 && l3_hdr_off + 0x28 <= raw_size)
+		if (l3_hdr_off > 0 && l3_hdr_off < raw_size && raw_size - l3_hdr_off >= 0x28)
 			l3_pos = (uint)l3_hdr_off;
 		else
 		{

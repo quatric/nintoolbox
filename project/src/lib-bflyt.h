@@ -12,6 +12,7 @@
 #define BRLYT_MAGIC_RLAN 0x524C414E // 'RLAN' (Wii)
 #define BRLYT_MAGIC_TYLR 0x54594C52 // 'TYLR' (RLYT reversed in SM3DAS)
 #define BRLYT_MAGIC_NALR 0x4E414C52 // 'NALR' (RLAN reversed in SM3DAS)
+#define BFLYT_MAGIC_SVT  0x53565400 // 'SVT\0'
 
 // Text file magics (first 4 bytes of the '#FLYT' comment line)
 #define BFLYT_TEXT_MAGIC_FLYT 0x23464C59 // '#FLY'
@@ -43,6 +44,11 @@
 #define BFLYT_CHUNK_usd1 0x75736431 // 'usd1'
 #define BFLYT_CHUNK_prt1 0x70727431 // 'prt1'
 #define BFLYT_CHUNK_cnt1 0x636E7431 // 'cnt1'
+#define BFLYT_CHUNK_ali1 0x616C6931 // 'ali1'
+#define BFLYT_CHUNK_scr1 0x73637231 // 'scr1'
+#define BFLYT_CHUNK_ctl1 0x63746C31 // 'ctl1'
+#define BFLYT_CHUNK_pat1 0x70617431 // 'pat1'
+#define BFLYT_CHUNK_pai1 0x70616931 // 'pai1'
 
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -155,6 +161,9 @@ typedef struct bflyt_t
 
 void InitializeBFLYT (bflyt_t *bflyt);
 void ResetBFLYT (bflyt_t *bflyt);
+
+bool IsSHDVAR (const u8 *data, uint size);
+bool IsSHDVAR_BE (const u8 *data, uint size);
 
 // Detect magic (FLYT/CLYT/FLAN/CLAN), XML, or the legacy txtree text format.
 enumError ScanBFLYT (bflyt_t *bflyt, bool init, const u8 *data, uint data_size);

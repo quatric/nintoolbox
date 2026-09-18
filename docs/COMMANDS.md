@@ -20,8 +20,6 @@ For format specifications, see **[FORMATS.md](FORMATS.md)**. For the recursive u
 | **`wrbnk`** | Wiimms RBNK Tool | Instrument Banks | `dump`, `compile` / `encode` | Wii RBNK instrument bank $\leftrightarrow$ XML |
 | **`wwc24crypt`** | WiiConnect24 Crypto Utility | WC24 Decryption & Signing | `wc24-decrypt`, `wc24-encrypt`, `selftest` | WiiConnect24 AES-128-OFB + RSA-SHA1 content |
 | **`wbmsx`** | QuickBMS Script Runner | Scripted Binary Extraction | `<script.bms> <input> <dest>` | Embedded QuickBMS interpreter for arbitrary formats |
-| **`wmpbdump`** | Mario Party Archive Unpacker | Chunked Archive Extraction | `<input.bin> [output_dir]` | Hudson Soft GameCube/Wii Mario Party chunk archives |
-| **`wmpbpack`** | Mario Party Archive Packer | Chunked Archive Repacking | `<input_dir> <output.bin>` | Hudson Soft GameCube/Wii Mario Party chunk archives |
 | **`wimgt`** | Wiimms Image Tool | Textures & 2D Graphics | `DECODE`, `ENCODE`, `CONVERT` | BNTX, NUTEXB, BFLIM, GTX, BCLIM, CTPK, NCGR/NCLR, NSBTX, DSB, Retro TXTR, Tropical TXTR, AJPG, NUT, XIMG, G1T, etc. |
 | **`wbmgt`** | Wiimms Binary Message Tool | In-Game Text & Message Flow | `DECODE`, `ENCODE`, `LIST`, `CAT` | MSBT (with LBL1 labels), MSBP, MSBF, and extended BMG (FLI/FLW flow sections) |
 
@@ -519,20 +517,6 @@ wbmsx <script.bms> <input_file> <output_dir>
 
 #### Environment Variables
 - `WBMSX_QUICKBMS`: Explicit path to an external QuickBMS executable if overriding the bundled native engine.
-
----
-
-### `wmpbdump` & `wmpbpack` (Mario Party Archive Tools)
-
-Dedicated tools for Hudson Soft GameCube/Wii `MPBIN` (`.bin`) chunked archives with LZSS, Slide, RLE, and Inflate compression.
-
-```bash
-# Unpack Mario Party chunked archive:
-wmpbdump <input.bin> [output_dir]
-
-# Repack directory back into Mario Party chunked archive:
-wmpbpack <input_dir> <output.bin>
-```
 
 ---
 

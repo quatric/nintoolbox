@@ -2457,6 +2457,8 @@ enumError ScanRawBMG (bmg_t *bmg)
 	memcpy (bmg->inf_magic, pinf->magic, sizeof (bmg->inf_magic));
 	bmg->unknown_inf_0c = bmg->endian->n2hl (pinf->unknown_0c);
 
+	const u8 *buf_end = (const u8 *)bmg->data + data_size; // real end of available data
+
 	uint max_item;
 	bmg->have_mid = pmid != 0;
 	if (bmg->have_mid)
@@ -2467,6 +2469,15 @@ enumError ScanRawBMG (bmg_t *bmg)
 		max_item = (bmg->endian->n2hl (pmid->size) - sizeof (*pmid)) / sizeof (*pmid->mid);
 		if (max_item > bmg->endian->n2hs (pmid->n_msg))
 			max_item = bmg->endian->n2hs (pmid->n_msg);
+
+		// 'pmid->size' is an unchecked file field and may claim more data than is
+		// actually present (e.g. section truncated at end of file); clamp against
+		// the real buffer to avoid reading pmid->mid[] out of bounds below.
+		const u8 *mid_base = (const u8 *)pmid->mid;
+		uint max_avail = mid_base < buf_end ? (buf_end - mid_base) / sizeof (*pmid->mid) : 0;
+		if (max_item > max_avail)
+			max_item = max_avail;
+
 		PRINT ("BMG with MID1: N=%u [inf=%u,mid=%u], %s\n", max_item,
 			bmg->endian->n2hs (pinf->n_msg), bmg->endian->n2hs (pmid->n_msg), bmg->fname);
 	}
@@ -2476,8 +2487,16 @@ enumError ScanRawBMG (bmg_t *bmg)
 		PRINT ("BMG without MID1: N=%u, %s\n", max_item, bmg->fname);
 	}
 
-	const uint max_offset
+	uint max_offset
 		= (bmg->endian->n2hl (pdat->size) - sizeof (*pdat)) / sizeof (*pdat->text_pool);
+
+	// same issue as above: 'pdat->size' is an unchecked file field; clamp
+	// 'text_end' to the real buffer so text scanners can't run past it.
+	{
+		uint max_avail = pdat->text_pool < buf_end ? buf_end - pdat->text_pool : 0;
+		if (max_offset > max_avail)
+			max_offset = max_avail;
+	}
 	const u8 *text_end = pdat->text_pool + max_offset;
 
 	const u8 *raw_inf = (u8 *)pinf->list;

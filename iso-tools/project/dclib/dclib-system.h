@@ -131,7 +131,9 @@ static inline void dclibPrintSystem (FILE *f)
 ///////////////////////////////////////////////////////////////////////////////
 
 #ifdef PRINT_SYSTEM_SETTINGS
-result_SYSTEM = SYSTEM result_SYSTEM2 = SYSTEM2 result_SYSTEM_LINUX = SYSTEM_LINUX
+result_SYSTEM = SYSTEM
+result_SYSTEM2 = SYSTEM2
+result_SYSTEM_LINUX = SYSTEM_LINUX
 #endif
 
 #endif // DCLIB_SYSTEM_H 1

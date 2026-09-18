@@ -6925,7 +6925,10 @@ valid_t IsValidPAT (const void *data, // data
 
 	const brsub_header_t *bh = data;
 	u32 off = be32 (bh->grp_offset + 1);
-	u32 end_off = off + 4 * ana->n_sect1;
+	// 'off' comes straight from the file header, so off+4*n_sect1 must be
+	// widened before comparing -- otherwise an offset near UINT32_MAX can
+	// wrap the sum back under file_size/data_size and slip past the check.
+	u64 end_off = (u64)off + 4 * ana->n_sect1;
 	if (!off)
 		ana->data_complete = false;
 	else if (end_off > file_size)
@@ -6937,7 +6940,7 @@ valid_t IsValidPAT (const void *data, // data
 		ana->s1_list = (u32 *)(ana->data + off);
 
 	off = be32 (bh->grp_offset + 3);
-	end_off = off + 4 * ana->n_sect1;
+	end_off = (u64)off + 4 * ana->n_sect1;
 	if (!off)
 		ana->data_complete = false;
 	else if (end_off > file_size)
@@ -6951,7 +6954,7 @@ valid_t IsValidPAT (const void *data, // data
 	//--- now analyse section 0
 
 	off = be32 (bh->grp_offset + 0);
-	if (off + sizeof (pat_s0_bhead_t) > data_size)
+	if ((u64)off + sizeof (pat_s0_bhead_t) > data_size)
 	{
 	invalid:
 		ana->data_complete = false;
@@ -6960,7 +6963,7 @@ valid_t IsValidPAT (const void *data, // data
 	else
 	{
 		pat_s0_bhead_t *bhead = (pat_s0_bhead_t *)(ana->data + off);
-		u32 bhead_end = off + be32 (&bhead->size);
+		u64 bhead_end = (u64)off + be32 (&bhead->size);
 		if (bhead_end > data_size)
 			goto invalid;
 		ana->s0_base = bhead;
@@ -6983,7 +6986,7 @@ valid_t IsValidPAT (const void *data, // data
 		{
 			pat_s0_belem_t *belem = bhead->elem + i;
 			const u32 ref_off = off + be32 (&belem->offset_strref);
-			if (ref_off + sizeof (pat_s0_sref_t) > data_size)
+			if ((u64)ref_off + sizeof (pat_s0_sref_t) > data_size)
 				goto invalid;
 
 			pat_s0_sref_t *sref = (pat_s0_sref_t *)(ana->data + ref_off);
@@ -7018,7 +7021,7 @@ valid_t IsValidPAT (const void *data, // data
 			{
 				const u32 str_off = ref_off + be32 (&sref->offset_strlist);
 				const bool known_reliable_type = type == 5 || type == 13;
-				if (str_off + 4 > data_size)
+				if ((u64)str_off + 4 > data_size)
 				{
 					if (known_reliable_type)
 						goto invalid;
@@ -7027,7 +7030,7 @@ valid_t IsValidPAT (const void *data, // data
 				{
 					pat_s0_shead_t *cand = (pat_s0_shead_t *)(ana->data + str_off);
 					const uint cand_n = be16 (&cand->n_elem);
-					if (str_off + 4 * (cand_n + 1) > data_size)
+					if ((u64)str_off + 4 * (cand_n + 1) > data_size)
 					{
 						if (known_reliable_type)
 							goto invalid;

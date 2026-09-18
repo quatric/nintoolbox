@@ -96,10 +96,11 @@ enumError DecodeNUTEXB_RGBA (u8 **dest, uint *width, uint *height, const u8 *src
 			bntx_fmt = 0x20;
 			blk_h = 4;
 			break; // BC7_SRGB
+		case 0x0434: // R32G32B32A32_FLOAT
+			bntx_fmt = 0x19;
+			bntx_type = 5;
+			break;
 		default:
-			// Includes R32G32B32A32_FLOAT (0x0434), which lib-bntx.c's
-			// decoder has no equivalent for -- reported honestly rather
-			// than guessed at.
 			return ERROR0 (ERR_INVALID_IFORM, "Unsupported NUTEXB texture format 0x%04x\n", nutfmt);
 	}
 

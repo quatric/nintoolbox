@@ -46,6 +46,29 @@ bool IsBFSHA (const u8 *data, size_t size)
 	return data && size >= 4 && !memcmp (data, "FSHA", 4);
 }
 
+bool IsBFSHA_WiiU (const u8 *data, size_t size)
+{
+	return data && size >= 16 && !memcmp (data, "FSHA", 4) && memcmp (data + 4, "    ", 4) != 0
+		&& rd_be16 (data + 8) == 0xfeff;
+}
+
+static bool bfsha_wiiu_read_string (char *dest, uint destsz, const u8 *data, size_t size, u64 ptr_loc, s32 rel_off)
+{
+	dest[0] = 0;
+	if (!rel_off)
+		return false;
+	const s64 str_off_s = (s64)ptr_loc + rel_off;
+	if (str_off_s < 0 || (u64)str_off_s >= size)
+		return false;
+	const u64 str_off = (u64)str_off_s;
+	uint n = 0;
+	while (str_off + n < size && n < destsz - 1 && data[str_off + n])
+		n++;
+	memcpy (dest, data + str_off, n);
+	dest[n] = 0;
+	return true;
+}
+
 // Reads a Switch-BFRES-family string: 'ptr' points at a u16 length field immediately
 // preceding the NUL-terminated text (LoadString()'s "shift = 2" for non-WiiU targets).
 // Bounds-checked and NUL-safe; leaves 'dest' empty on any out-of-range pointer.
@@ -229,7 +252,7 @@ truncated:
 // ReadBfshaUniform -- ReadImage's struct is empty (no array read needed, names only).
 typedef enum
 {
-	BFSHA_DICT_OPTION,   // ShaderOption:      only the name is decoded here (choices skipped)
+	BFSHA_DICT_OPTION,   // ShaderOption:      stride 32
 	BFSHA_DICT_ATTRIB,   // BfshaAttribute:    u8 index, s8 location                    (stride 2)
 	BFSHA_DICT_SAMPLER,  // BfshaSampler:      u64 name_ptr, u8 index, 7 pad            (stride 16)
 	BFSHA_DICT_IMAGE,    // BfshaImageBuffer:  empty                                    (stride 0)
@@ -237,16 +260,18 @@ typedef enum
 	                     //                    u8 index, u8 type, u16 size, u16 numu    (stride 32)
 	BFSHA_DICT_UNIFORM,  // BfshaUniform:      u64 name_ptr, s32 index, u16 data_off,
 	                     //                    u8 block_index, 1 pad                    (stride 16)
+	BFSHA_DICT_CHOICE,   // Choice:            name only                                (stride 0)
 } bfsha_dict_kind_t;
 
 static const u64 bfsha_dict_stride[] =
 {
-	[BFSHA_DICT_OPTION]  = 0,  // no fixed-layout extra to print; name only
+	[BFSHA_DICT_OPTION]  = 32,
 	[BFSHA_DICT_ATTRIB]  = 2,
 	[BFSHA_DICT_SAMPLER] = 16,
 	[BFSHA_DICT_IMAGE]   = 0,
 	[BFSHA_DICT_UBLOCK]  = 32,
 	[BFSHA_DICT_UNIFORM] = 16,
+	[BFSHA_DICT_CHOICE]  = 0,
 };
 
 // Decodes one ResDict node table's key names (LoadDictionary()'s Node.Key), plus -- for the
@@ -298,6 +323,41 @@ static void decode_resdict (FILE *out, const u8 *data, size_t size, u64 dict_off
 			}
 			else switch (kind)
 			{
+			case BFSHA_DICT_OPTION:
+				if (elem + 32 <= size)
+				{
+					u16 choice_count;
+					s16 default_choice;
+					u16 block_offset;
+					u8 key_offset, bit_idx, bit_shift;
+					u32 mask;
+					const u16 vmaj = rd_le16 (data + 10);
+					if (vmaj >= 9)
+					{
+						choice_count = rd_le16 (data + elem + 16);
+						default_choice = (s16) rd_le16 (data + elem + 18);
+						block_offset = data[elem + 22];
+						key_offset = data[elem + 23];
+						mask = rd_le32 (data + elem + 24);
+						bit_idx = data[elem + 28];
+						bit_shift = data[elem + 29];
+					}
+					else
+					{
+						choice_count = data[elem + 16];
+						default_choice = (s8) data[elem + 17];
+						block_offset = rd_le16 (data + elem + 19);
+						key_offset = data[elem + 21];
+						bit_idx = data[elem + 22];
+						bit_shift = data[elem + 23];
+						mask = rd_le32 (data + elem + 24);
+					}
+					fprintf (out, " (choices=%u, default=%d, block_offset=%u, key_offset=%u, bit_idx=%u, bit_shift=%u, mask=0x%08x)",
+						choice_count, default_choice, block_offset, key_offset, bit_idx, bit_shift, mask);
+					ublock_udict = rd_le64 (data + elem); // choice_dict
+					ublock_uarr = 0;
+				}
+				break;
 			case BFSHA_DICT_ATTRIB:
 				fprintf (out, " (index=%u, location=%d)", data[elem], (int)(s8) data[elem + 1]);
 				break;
@@ -322,14 +382,561 @@ static void decode_resdict (FILE *out, const u8 *data, size_t size, u64 dict_off
 		fprintf (out, "\n");
 
 		if (ublock_udict)
-			decode_resdict (out, data, size, ublock_udict, ublock_uarr, BFSHA_DICT_UNIFORM, sub_indent);
+			decode_resdict (out, data, size, ublock_udict, ublock_uarr,
+				kind == BFSHA_DICT_OPTION ? BFSHA_DICT_CHOICE : BFSHA_DICT_UNIFORM, sub_indent);
 	}
+}
+
+static void decode_switch_symbol_table (FILE *out, const u8 *data, size_t size, u64 sym_base,
+	u16 vmajor, const bfsha_model_hdr_t *m)
+{
+	if (!sym_base || sym_base + 32 > size)
+		return;
+
+	fprintf (out, "    symbol_table:\n");
+	const u64 samplers_arr = rd_le64 (data + sym_base + 0);
+	const u64 images_arr = (vmajor >= 8) ? rd_le64 (data + sym_base + 8) : 0;
+	const u64 ublocks_arr = (vmajor >= 8) ? rd_le64 (data + sym_base + 16) : rd_le64 (data + sym_base + 8);
+	const u64 storage_arr = (vmajor >= 8) ? rd_le64 (data + sym_base + 24) : (vmajor >= 7) ? rd_le64 (data + sym_base + 16) : 0;
+
+	const u64 sym_stride = (vmajor >= 9) ? 16 : (vmajor == 8) ? 48 : 32;
+
+	if (samplers_arr && m->sampler_count)
+	{
+		fprintf (out, "      samplers:\n");
+		for (uint i = 0; i < m->sampler_count && samplers_arr + (u64)i * sym_stride + sym_stride <= size; i++)
+		{
+			const u64 e = samplers_arr + (u64)i * sym_stride;
+			char n1[128] = "", v1[128] = "";
+			bfsha_read_string (n1, sizeof (n1), data, size, rd_le64 (data + e));
+			bfsha_read_string (v1, sizeof (v1), data, size, rd_le64 (data + e + 8));
+			fprintf (out, "        [%u] %s%s%s\n", i, n1[0] ? n1 : "<unnamed>", v1[0] ? " = " : "", v1);
+		}
+	}
+	if (images_arr && m->image_count)
+	{
+		fprintf (out, "      images:\n");
+		for (uint i = 0; i < m->image_count && images_arr + (u64)i * sym_stride + sym_stride <= size; i++)
+		{
+			const u64 e = images_arr + (u64)i * sym_stride;
+			char n1[128] = "", v1[128] = "";
+			bfsha_read_string (n1, sizeof (n1), data, size, rd_le64 (data + e));
+			bfsha_read_string (v1, sizeof (v1), data, size, rd_le64 (data + e + 8));
+			fprintf (out, "        [%u] %s%s%s\n", i, n1[0] ? n1 : "<unnamed>", v1[0] ? " = " : "", v1);
+		}
+	}
+	if (ublocks_arr && m->ublock_count)
+	{
+		fprintf (out, "      uniform_blocks:\n");
+		for (uint i = 0; i < m->ublock_count && ublocks_arr + (u64)i * sym_stride + sym_stride <= size; i++)
+		{
+			const u64 e = ublocks_arr + (u64)i * sym_stride;
+			char n1[128] = "", v1[128] = "";
+			bfsha_read_string (n1, sizeof (n1), data, size, rd_le64 (data + e));
+			bfsha_read_string (v1, sizeof (v1), data, size, rd_le64 (data + e + 8));
+			fprintf (out, "        [%u] %s%s%s\n", i, n1[0] ? n1 : "<unnamed>", v1[0] ? " = " : "", v1);
+		}
+	}
+	if (storage_arr && m->storage_count)
+	{
+		fprintf (out, "      storage_buffers:\n");
+		for (uint i = 0; i < m->storage_count && storage_arr + (u64)i * sym_stride + sym_stride <= size; i++)
+		{
+			const u64 e = storage_arr + (u64)i * sym_stride;
+			char n1[128] = "", v1[128] = "";
+			bfsha_read_string (n1, sizeof (n1), data, size, rd_le64 (data + e));
+			bfsha_read_string (v1, sizeof (v1), data, size, rd_le64 (data + e + 8));
+			fprintf (out, "        [%u] %s%s%s\n", i, n1[0] ? n1 : "<unnamed>", v1[0] ? " = " : "", v1);
+		}
+	}
+}
+
+typedef enum
+{
+	WIIU_DICT_OPTION,
+	WIIU_DICT_ATTRIB,
+	WIIU_DICT_SAMPLER,
+	WIIU_DICT_UBLOCK,
+	WIIU_DICT_UNIFORM,
+} wiiu_dict_kind_t;
+
+static void decode_wiiu_resdict (FILE *out, const u8 *data, size_t size, u64 ptr_loc, s32 rel_off,
+	wiiu_dict_kind_t kind, ccp indent)
+{
+	if (!rel_off)
+		return;
+	const s64 dict_off_s = (s64)ptr_loc + rel_off;
+	if (dict_off_s < 0 || (u64)dict_off_s + 8 > size)
+		return;
+	const u64 dict_off = (u64)dict_off_s;
+	const s32 num_nodes_signed = (s32) rd_be32 (data + dict_off + 4);
+	if (num_nodes_signed <= 0 || num_nodes_signed > BFSHA_MAX_DICT_NODES)
+		return;
+	const u64 num_nodes = (u64) num_nodes_signed;
+	const u64 nodes_base = dict_off + 8;
+	if (nodes_base + (num_nodes + 1) * 16 > size)
+		return;
+
+	char sub_indent[288];
+	snprintf (sub_indent, sizeof (sub_indent), "%s    ", indent);
+
+	for (u64 i = 0; i < num_nodes; i++)
+	{
+		const u64 node_off = nodes_base + (i + 1) * 16;
+		const s32 key_rel = (s32) rd_be32 (data + node_off + 8);
+		const s32 val_rel = (s32) rd_be32 (data + node_off + 12);
+
+		char name[256];
+		bfsha_wiiu_read_string (name, sizeof (name), data, size, node_off + 8, key_rel);
+		fprintf (out, "%s[%llu] %s", indent, (unsigned long long) i, name[0] ? name : "<unnamed>");
+
+		s32 inner_dict_rel = 0;
+		u64 inner_ptr_loc = 0;
+
+		if (val_rel)
+		{
+			const s64 val_off_s = (s64)(node_off + 12) + val_rel;
+			if (val_off_s >= 0 && (u64)val_off_s < size)
+			{
+				const u64 val_off = (u64)val_off_s;
+				switch (kind)
+				{
+				case WIIU_DICT_OPTION:
+					if (val_off + 24 <= size)
+					{
+						const u8 choice_count = data[val_off];
+						const u8 default_choice = data[val_off + 1];
+						const u16 block_offset = rd_be16 (data + val_off + 2);
+						const u8 flags = data[val_off + 4];
+						const u8 key_offset = data[val_off + 5];
+						const u8 bit32_index = data[val_off + 6];
+						const u8 bit32_shift = data[val_off + 7];
+						const u32 bit32_mask = rd_be32 (data + val_off + 8);
+						fprintf (out, " (choices=%u, default=%u, block_offset=%u, flags=0x%02x, key_offset=%u, bit_idx=%u, bit_shift=%u, mask=0x%08x)",
+							choice_count, default_choice, block_offset, flags, key_offset, bit32_index, bit32_shift, bit32_mask);
+						inner_dict_rel = (s32) rd_be32 (data + val_off + 16);
+						inner_ptr_loc = val_off + 16;
+					}
+					break;
+				case WIIU_DICT_ATTRIB:
+					if (val_off + 4 <= size)
+					{
+						fprintf (out, " (index=%u, type=%u, count=%u, location=%d)",
+							data[val_off], data[val_off + 1], data[val_off + 2], (int)(s8)data[val_off + 3]);
+					}
+					break;
+				case WIIU_DICT_SAMPLER:
+					if (val_off + 4 <= size)
+					{
+						fprintf (out, " (index=%u, type=%u, count=%u)",
+							data[val_off], data[val_off + 1], data[val_off + 2]);
+					}
+					break;
+				case WIIU_DICT_UBLOCK:
+					if (val_off + 16 <= size)
+					{
+						const u8 index = data[val_off];
+						const u8 type = data[val_off + 1];
+						const u16 bsize = rd_be16 (data + val_off + 2);
+						const u16 num_u = rd_be16 (data + val_off + 4);
+						fprintf (out, " (index=%u, type=%u, size=%u, uniforms=%u)",
+							index, type, bsize, num_u);
+						inner_dict_rel = (s32) rd_be32 (data + val_off + 8);
+						inner_ptr_loc = val_off + 8;
+					}
+					break;
+				case WIIU_DICT_UNIFORM:
+					if (val_off + 16 <= size)
+					{
+						const s32 idx = (s32) rd_be32 (data + val_off);
+						const u16 gcount = rd_be16 (data + val_off + 4);
+						const u8 gtype = data[val_off + 6];
+						const u8 bidx = data[val_off + 7];
+						const u16 doff = rd_be16 (data + val_off + 8);
+						const u8 ptype = data[val_off + 10];
+						fprintf (out, " (index=%d, count=%u, type=%u, block_index=%u, data_offset=%u, param_type=%u)",
+							idx, gcount, gtype, bidx, doff, ptype);
+					}
+					break;
+				}
+			}
+		}
+		fprintf (out, "\n");
+
+		if (inner_dict_rel)
+		{
+			decode_wiiu_resdict (out, data, size, inner_ptr_loc, inner_dict_rel,
+				kind == WIIU_DICT_UBLOCK ? WIIU_DICT_UNIFORM : WIIU_DICT_OPTION, sub_indent);
+		}
+	}
+}
+
+static void decode_wiiu_programs (FILE *out, const u8 *data, size_t size, u64 progs_base,
+	uint program_count, u8 vmajor, u8 vmicro, u8 static_key_len, u8 dynamic_key_len, s64 key_table_off)
+{
+	const bool is_new_layout = (vmajor >= 4 || (vmajor == 3 && vmicro >= 5));
+	const u64 stride = is_new_layout ? 100 : 56;
+	const uint n_keys = (uint)static_key_len + dynamic_key_len;
+
+	const uint n_prog = program_count > BFSHA_MAX_PROGRAMS ? BFSHA_MAX_PROGRAMS : program_count;
+	for (uint pi = 0; pi < n_prog; pi++)
+	{
+		const u64 p = progs_base + (u64)pi * stride;
+		if (p + stride > size)
+		{
+			fprintf (out, "    program[%u]: <out of bounds>\n", pi);
+			break;
+		}
+
+		const u16 flags = rd_be16 (data + p);
+		const u8 sampler_count = data[p + 2];
+		const u8 block_count = data[p + 3];
+		const u32 used_attrs = rd_be32 (data + p + 4);
+
+		s32 vx_data_rel = 0, px_data_rel = 0, geom_data_rel = 0;
+		u64 vx_ptr_loc = 0, px_ptr_loc = 0, geom_ptr_loc = 0;
+
+		if (is_new_layout)
+		{
+			vx_data_rel = (s32) rd_be32 (data + p + 76);
+			vx_ptr_loc = p + 76;
+			geom_data_rel = (s32) rd_be32 (data + p + 80);
+			geom_ptr_loc = p + 80;
+			px_data_rel = (s32) rd_be32 (data + p + 88);
+			px_ptr_loc = p + 88;
+		}
+		else
+		{
+			vx_data_rel = (s32) rd_be32 (data + p + 40);
+			vx_ptr_loc = p + 40;
+			geom_data_rel = (s32) rd_be32 (data + p + 44);
+			geom_ptr_loc = p + 44;
+			px_data_rel = (s32) rd_be32 (data + p + 48);
+			px_ptr_loc = p + 48;
+		}
+
+		fprintf (out, "    program[%u]: flags = 0x%04x, attr_flags = 0x%08x, n_samplers = %u, n_blocks = %u\n",
+			pi, flags, used_attrs, sampler_count, block_count);
+
+		if (vx_data_rel)
+		{
+			const s64 vx_off_s = (s64)vx_ptr_loc + vx_data_rel;
+			if (vx_off_s >= 0 && (u64)vx_off_s + 216 <= size)
+			{
+				const u64 vx = (u64)vx_off_s;
+				const u32 dsize = rd_be32 (data + vx + 208);
+				const s32 doff = (s32) rd_be32 (data + vx + 212);
+				const u32 mode = rd_be32 (data + vx + 216);
+				const s64 bin_off = doff ? (s64)(vx + 212) + doff : 0;
+				fprintf (out, "      vertex: size = %u, data_offset = %lld, mode = %u%s\n",
+					dsize, (long long)bin_off, mode,
+					bin_off < 0 || (u64)bin_off + dsize > size ? " <out of bounds>" : "");
+			}
+		}
+		if (px_data_rel)
+		{
+			const s64 px_off_s = (s64)px_ptr_loc + px_data_rel;
+			if (px_off_s >= 0 && (u64)px_off_s + 172 <= size)
+			{
+				const u64 px = (u64)px_off_s;
+				const u32 dsize = rd_be32 (data + px + 164);
+				const s32 doff = (s32) rd_be32 (data + px + 168);
+				const u32 mode = rd_be32 (data + px + 172);
+				const s64 bin_off = doff ? (s64)(px + 168) + doff : 0;
+				fprintf (out, "      pixel: size = %u, data_offset = %lld, mode = %u%s\n",
+					dsize, (long long)bin_off, mode,
+					bin_off < 0 || (u64)bin_off + dsize > size ? " <out of bounds>" : "");
+			}
+		}
+		if (geom_data_rel)
+		{
+			const s64 gx_off_s = (s64)geom_ptr_loc + geom_data_rel;
+			if (gx_off_s >= 0 && (u64)gx_off_s + 172 <= size)
+			{
+				const u64 gx = (u64)gx_off_s;
+				const u32 dsize = rd_be32 (data + gx + 164);
+				const s32 doff = (s32) rd_be32 (data + gx + 168);
+				const u32 mode = rd_be32 (data + gx + 172);
+				const s64 bin_off = doff ? (s64)(gx + 168) + doff : 0;
+				fprintf (out, "      geometry: size = %u, data_offset = %lld, mode = %u%s\n",
+					dsize, (long long)bin_off, mode,
+					bin_off < 0 || (u64)bin_off + dsize > size ? " <out of bounds>" : "");
+			}
+		}
+
+		if (n_keys && n_keys <= BFSHA_MAX_KEYS && key_table_off > 0)
+		{
+			const u64 row = (u64)key_table_off + (u64)pi * n_keys * 4;
+			if (row + (u64)n_keys * 4 <= size)
+			{
+				fprintf (out, "      keys =");
+				for (uint k = 0; k < n_keys; k++)
+					fprintf (out, " %d", (s32) rd_be32 (data + row + (u64)k * 4));
+				fprintf (out, "\n");
+			}
+		}
+	}
+}
+
+static enumError DecodeBFSHA_WiiU_Text (FILE *out, const u8 *data, size_t size)
+{
+	if (size < 48)
+		return ERROR0 (ERR_INVALID_DATA, "BFSHA (Wii U): file shorter than header\n");
+
+	const u8 version_major = data[4];
+	const u8 version_micro = data[5];
+	const u8 version_minor = data[7];
+	const u16 bom = rd_be16 (data + 8);
+	const u16 header_size = rd_be16 (data + 10);
+	const u32 file_size = rd_be32 (data + 12);
+	const u32 alignment = rd_be32 (data + 16);
+	const s32 name_rel_off = (s32) rd_be32 (data + 20);
+	const s32 path_rel_off = (s32) rd_be32 (data + 32);
+	const u16 model_count = rd_be16 (data + 36);
+	const u16 flag = rd_be16 (data + 38);
+	const s32 models_dict_rel = (s32) rd_be32 (data + 44);
+
+	char name[256], path[256];
+	bfsha_wiiu_read_string (name, sizeof (name), data, size, 20, name_rel_off);
+	bfsha_wiiu_read_string (path, sizeof (path), data, size, 32, path_rel_off);
+
+	fprintf (out, "#BFSHA\n"
+		"platform = Wii U\n"
+		"version = %u.%u.%u\n"
+		"byte_order_mark = 0x%04x\n"
+		"header_size = %u\n"
+		"alignment = %u\n"
+		"file_size = %u\n"
+		"name = %s\n"
+		"path = %s\n"
+		"flag = 0x%04x\n"
+		"model_count = %u\n\n"
+		"[shader_models]\n",
+		version_major, version_minor, version_micro, bom, header_size,
+		alignment, file_size, name, path, flag, model_count);
+
+	if (!models_dict_rel)
+	{
+		fprintf (out, "  <no shader model dictionary>\n");
+		return ERR_OK;
+	}
+
+	const s64 dict_off_s = 44 + (s64) models_dict_rel;
+	if (dict_off_s < 0 || (u64)dict_off_s + 8 > size)
+		return ERROR0 (ERR_INVALID_DATA, "BFSHA (Wii U): shader model dictionary offset out of bounds\n");
+
+	const u64 dict_off = (u64) dict_off_s;
+	const s32 num_nodes_signed = (s32) rd_be32 (data + dict_off + 4);
+	if (num_nodes_signed < 0 || num_nodes_signed > BFSHA_MAX_MODELS)
+	{
+		fprintf (out, "  <shader model dictionary node count implausible: %d>\n", num_nodes_signed);
+		return ERR_OK;
+	}
+	const u64 num_nodes = (u64) num_nodes_signed;
+	const u64 nodes_base = dict_off + 8;
+	if (nodes_base + (num_nodes + 1) * 16 > size)
+		return ERROR0 (ERR_INVALID_DATA, "BFSHA (Wii U): shader model dictionary node table out of bounds\n");
+
+	for (u64 i = 0; i < num_nodes; i++)
+	{
+		const u64 node_off = nodes_base + (i + 1) * 16;
+		const s32 key_rel = (s32) rd_be32 (data + node_off + 8);
+		const s32 val_rel = (s32) rd_be32 (data + node_off + 12);
+
+		char model_name[256];
+		bfsha_wiiu_read_string (model_name, sizeof (model_name), data, size, node_off + 8, key_rel);
+		fprintf (out, "  [%llu] %s\n", (unsigned long long) i,
+			model_name[0] ? model_name : "<unnamed>");
+
+		if (!val_rel)
+			continue;
+
+		const s64 model_off_s = (s64)(node_off + 12) + val_rel;
+		if (model_off_s < 0 || (u64)model_off_s + 112 > size)
+		{
+			fprintf (out, "    <model header out of bounds>\n");
+			continue;
+		}
+		const u64 m_pos = (u64) model_off_s;
+
+		const u8 static_key_len = data[m_pos + 0];
+		const u8 dynamic_key_len = data[m_pos + 1];
+		const u16 static_opt_count = rd_be16 (data + m_pos + 2);
+		const u16 dynamic_opt_count = rd_be16 (data + m_pos + 4);
+		const u16 program_count = rd_be16 (data + m_pos + 6);
+		const u8 attrib_count = data[m_pos + 8];
+		const u8 sampler_count = data[m_pos + 9];
+		const u8 ublock_count = data[m_pos + 10];
+		const u32 uniform_count = rd_be32 (data + m_pos + 20);
+		const s32 default_prog_idx = (s32) rd_be32 (data + m_pos + 28);
+
+		const s32 static_opts_dict_rel = (s32) rd_be32 (data + m_pos + 48);
+		const s32 dynamic_opts_dict_rel = (s32) rd_be32 (data + m_pos + 56);
+		const s32 attribs_dict_rel = (s32) rd_be32 (data + m_pos + 64);
+		const s32 samplers_dict_rel = (s32) rd_be32 (data + m_pos + 72);
+		const s32 ublocks_dict_rel = (s32) rd_be32 (data + m_pos + 80);
+		const s32 programs_rel = (s32) rd_be32 (data + m_pos + 88);
+		const s32 key_table_rel = (s32) rd_be32 (data + m_pos + 92);
+		const s32 shader_archive_rel = (s32) rd_be32 (data + m_pos + 96);
+
+		fprintf (out, "    static_opts = %u, dynamic_opts = %u, attribs = %u, samplers = %u,"
+			" uniform_blocks = %u, uniforms = %u, programs = %u, default_program = %d\n",
+			static_opt_count, dynamic_opt_count, attrib_count, sampler_count,
+			ublock_count, uniform_count, program_count, default_prog_idx);
+		fprintf (out, "    static_key_len = %u, dynamic_key_len = %u\n",
+			static_key_len, dynamic_key_len);
+
+		if (static_opts_dict_rel)
+		{
+			fprintf (out, "    static_options:\n");
+			decode_wiiu_resdict (out, data, size, m_pos + 48, static_opts_dict_rel, WIIU_DICT_OPTION, "      ");
+		}
+		if (dynamic_opts_dict_rel)
+		{
+			fprintf (out, "    dynamic_options:\n");
+			decode_wiiu_resdict (out, data, size, m_pos + 56, dynamic_opts_dict_rel, WIIU_DICT_OPTION, "      ");
+		}
+		if (attribs_dict_rel)
+		{
+			fprintf (out, "    attributes:\n");
+			decode_wiiu_resdict (out, data, size, m_pos + 64, attribs_dict_rel, WIIU_DICT_ATTRIB, "      ");
+		}
+		if (samplers_dict_rel)
+		{
+			fprintf (out, "    samplers:\n");
+			decode_wiiu_resdict (out, data, size, m_pos + 72, samplers_dict_rel, WIIU_DICT_SAMPLER, "      ");
+		}
+		if (ublocks_dict_rel)
+		{
+			fprintf (out, "    uniform_blocks:\n");
+			decode_wiiu_resdict (out, data, size, m_pos + 80, ublocks_dict_rel, WIIU_DICT_UBLOCK, "      ");
+		}
+
+		if (shader_archive_rel)
+		{
+			const s64 sa_off = (s64)(m_pos + 96) + shader_archive_rel;
+			if (sa_off >= 0 && (u64)sa_off < size)
+				fprintf (out, "    shader_archive_offset = %llu\n", (unsigned long long) sa_off);
+		}
+
+		if (programs_rel && program_count)
+		{
+			const s64 progs_off_s = (s64)(m_pos + 88) + programs_rel;
+			if (progs_off_s >= 0 && (u64)progs_off_s < size)
+			{
+				decode_wiiu_programs (out, data, size, (u64)progs_off_s, program_count,
+					version_major, version_micro, static_key_len, dynamic_key_len,
+					key_table_rel ? (s64)(m_pos + 92) + key_table_rel : 0);
+			}
+		}
+	}
+
+	return ERR_OK;
+}
+
+static enumError ScanBFSHA_WiiU_ModelRefs (bfsha_models_t *out, const u8 *data, size_t size)
+{
+	if (size < 48)
+		return ERR_OK;
+
+	const u8 version_major = data[4];
+	const u8 version_micro = data[5];
+	const s32 models_dict_rel = (s32) rd_be32 (data + 44);
+	if (!models_dict_rel)
+		return ERR_OK;
+
+	const s64 dict_off_s = 44 + (s64) models_dict_rel;
+	if (dict_off_s < 0 || (u64)dict_off_s + 8 > size)
+		return ERR_OK;
+
+	const u64 dict_off = (u64) dict_off_s;
+	const s32 num_nodes_signed = (s32) rd_be32 (data + dict_off + 4);
+	if (num_nodes_signed <= 0 || num_nodes_signed > BFSHA_MAX_MODELS)
+		return ERR_OK;
+
+	const u64 num_nodes = (u64) num_nodes_signed;
+	const u64 nodes_base = dict_off + 8;
+	if (nodes_base + (num_nodes + 1) * 16 > size)
+		return ERR_OK;
+
+	const bool is_new_layout = (version_major >= 4 || (version_major == 3 && version_micro >= 5));
+	const u64 prog_stride = is_new_layout ? 100 : 56;
+
+	bfsha_model_ref_t *models = CALLOC (num_nodes, sizeof (*models));
+
+	for (u64 i = 0; i < num_nodes; i++)
+	{
+		const u64 node_off = nodes_base + (i + 1) * 16;
+		const s32 key_rel = (s32) rd_be32 (data + node_off + 8);
+		const s32 val_rel = (s32) rd_be32 (data + node_off + 12);
+		bfsha_model_ref_t *ref = models + i;
+
+		bfsha_wiiu_read_string (ref->name, sizeof (ref->name), data, size, node_off + 8, key_rel);
+		if (!ref->name[0])
+			snprintf (ref->name, sizeof (ref->name), "<unnamed>");
+
+		if (!val_rel)
+			continue;
+
+		const s64 model_off_s = (s64)(node_off + 12) + val_rel;
+		if (model_off_s < 0 || (u64)model_off_s + 112 > size)
+			continue;
+		const u64 m_pos = (u64) model_off_s;
+
+		const u16 program_count = rd_be16 (data + m_pos + 6);
+		const s32 programs_rel = (s32) rd_be32 (data + m_pos + 88);
+		const s32 shader_archive_rel = (s32) rd_be32 (data + m_pos + 96);
+
+		if (shader_archive_rel)
+		{
+			const s64 sa_off = (s64)(m_pos + 96) + shader_archive_rel;
+			if (sa_off >= 0 && (u64)sa_off < size)
+			{
+				ref->bnsh_offset = (u64) sa_off;
+				ref->bnsh_size = (u32)(size - (u64)sa_off);
+				continue;
+			}
+		}
+
+		if (programs_rel && program_count)
+		{
+			const s64 progs_off_s = (s64)(m_pos + 88) + programs_rel;
+			if (progs_off_s >= 0 && (u64)progs_off_s + prog_stride <= size)
+			{
+				const u64 p0 = (u64) progs_off_s;
+				const s32 vx_data_rel = (s32) rd_be32 (data + p0 + (is_new_layout ? 76 : 40));
+				const u64 vx_ptr_loc = p0 + (is_new_layout ? 76 : 40);
+				if (vx_data_rel)
+				{
+					const s64 vx_off_s = (s64)vx_ptr_loc + vx_data_rel;
+					if (vx_off_s >= 0 && (u64)vx_off_s + 216 <= size)
+					{
+						const u64 vx = (u64) vx_off_s;
+						const u32 dsize = rd_be32 (data + vx + 208);
+						const s32 doff = (s32) rd_be32 (data + vx + 212);
+						const s64 bin_off = doff ? (s64)(vx + 212) + doff : 0;
+						if (bin_off > 0 && (u64)bin_off + dsize <= size)
+						{
+							ref->bnsh_offset = (u64) bin_off;
+							ref->bnsh_size = dsize;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	out->n_models = num_nodes;
+	out->models = models;
+	return ERR_OK;
 }
 
 enumError DecodeBFSHA_Text (FILE *out, const u8 *data, size_t size)
 {
 	if (!out || !IsBFSHA (data, size))
 		return ERR_INVALID_DATA;
+	if (IsBFSHA_WiiU (data, size))
+		return DecodeBFSHA_WiiU_Text (out, data, size);
 	if (size < BFSHA_BIN_HDR_SIZE)
 		return ERROR0 (ERR_INVALID_DATA, "BFSHA: file shorter than the fixed BinaryHeader\n");
 
@@ -473,6 +1080,9 @@ enumError DecodeBFSHA_Text (FILE *out, const u8 *data, size_t size)
 				BFSHA_DICT_UBLOCK, "      ");
 		}
 
+		if (mh.symbol_info_off)
+			decode_switch_symbol_table (out, data, size, mh.symbol_info_off, version_major, &mh);
+
 		if (mh.shader_file_off && (u64)mh.shader_file_off + 0x20 <= size)
 		{
 			const u32 bnsh_size = rd_le32 (data + mh.shader_file_off + 0x1c);
@@ -511,7 +1121,11 @@ enumError ScanBFSHA_ModelRefs (bfsha_models_t *out, const u8 *data, size_t size)
 	out->n_models = 0;
 	out->models = NULL;
 
-	if (!IsBFSHA (data, size) || size < BFSHA_BIN_HDR_SIZE)
+	if (!IsBFSHA (data, size))
+		return ERR_INVALID_DATA;
+	if (IsBFSHA_WiiU (data, size))
+		return ScanBFSHA_WiiU_ModelRefs (out, data, size);
+	if (size < BFSHA_BIN_HDR_SIZE)
 		return ERR_INVALID_DATA;
 
 	const u16 version_major = rd_le16 (data + 10);

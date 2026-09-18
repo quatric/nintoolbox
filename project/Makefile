@@ -351,7 +351,7 @@ XOBJ_IMAGE	= lib-image-core.o lib-image-convert.o lib-image-load.o lib-image-gen
 			lib-image-save.o lib-image-png.o lib-image-transform.o lib-image-edit.o \
 			lib-image-mediancut.o lib-cmpr.o lib-pica3ds.o lib-gvr.o lib-ctxb.o \
 			lib-tpl.o lib-bti.o lib-tex0.o lib-breft.o lib-ajpg.o \
-			lib-plt0.o lib-bntx.o \
+			lib-plt0.o lib-bntx.o lib-dds.o \
 		lib-smdh.o \
 		lib-gtx.o lib-sharc-edit.o \
 		lib-nitro.o \
@@ -360,7 +360,7 @@ XOBJ_IMAGE	= lib-image-core.o lib-image-convert.o lib-image-load.o lib-image-gen
 			lib-quicklz.o qlz120.o qlz140.o src/ajpg/odh_core.o lib-bflyt.o \
 			src/astc/astc_decomp.o src/astc/astc_wrapper.o lib-at7.o lib-ash0.o lib-camelot.o lib-rnc.o \
 			lib-lz10.o lib-huff.o lib-nintendo-rl.o lib-blz.o lib-yay0.o lib-lzh8.o lib-ncer.o \
-			lib-flim.o lib-nutexb.o lib-ctpk.o lib-cmab.o lib-nut.o
+			lib-flim.o lib-nutexb.o lib-astc-file.o lib-ctpk.o lib-cmab.o lib-nut.o
 XOBJ_PARSER	= lib-parser.o lib-parser-func.o
 XOBJ_OBJECT	= lib-object.o db-object.o db-file.o lib-bmg.o
 XOBJ_KCL	= lib-kcl.o db-kcl.o
@@ -375,7 +375,7 @@ XOBJ_LIB	= analyze.o lib-szs-create.o lib-analyze.o lib-xbmg.o lib-msbt.o \
 			lib-ctcode.o lib-lex.o lib-lecode.o lib-ledis.o \
 			lib-staticr.o db-dol.o db-ctcode.o getopt.o \
 			$(XOBJ_KMP) $(XOBJ_COMMON) $(XOBJ_KCL) lib-kcl-image.o lib-rkg.o \
-			$(XOBJ_OBJECT) $(XOBJ_PARSER) 		$(XOBJ_IMAGE) lib-model-glb.o lib-mpr-cmdl.o cgltf_impl.o lib-brres-model.o lib-brres-inject.o lib-dtls.o lib-mio.o lib-smash-arc.o lib-warc.o lib-nccarc.o lib-ndcubepac.o lib-nus3audio.o lib-camtexbank.o lib-pers.o lib-zdat.o lib-one.o lib-g1t.o lib-ptlg.o lib-sir0.o lib-mtxt.o lib-tvol.o lib-xtx.o lib-romfs.o lib-txtg.o lib-nlgdict.o lib-bars.o lib-gfpak.o lib-wta.o lib-pgdat.o lib-vibs.o lib-pkz.o lib-apak.o lib-nxarc.o lib-tmpk.o lib-mkgpdxpac.o lib-gar.o lib-zlarc.o lib-f9res.o lib-stpk.o lib-pvol.o lib-mdr.o lib-ztab.o lib-xpck.o lib-fsys.o lib-gfa.o lib-pac.o lib-darc.o lib-narc.o lib-byml.o lib-sound-archive.o lib-arika.o lib-jarc.o lib-lzo.o lib-gpkg.o lib-gpak.o lib-bns.o lib-rpak.o lib-lspk.o lib-sfzdat.o lib-bg4.o lib-hwl.o lib-cram.o lib-sze.o lib-sa01.o lib-msr.o lib-miirender.o lib-kensaku.o lib-wimg.o lib-cpk.o lib-wmb.o \
+			$(XOBJ_OBJECT) $(XOBJ_PARSER) 		$(XOBJ_IMAGE) lib-model-glb.o lib-mpr-cmdl.o cgltf_impl.o lib-brres-model.o lib-brres-inject.o lib-dtls.o lib-mio.o lib-bglpbd.o lib-smash-arc.o lib-warc.o lib-nccarc.o lib-ndcubepac.o lib-nus3audio.o lib-camtexbank.o lib-pers.o lib-zdat.o lib-one.o lib-g1t.o lib-ptlg.o lib-sir0.o lib-mtxt.o lib-tvol.o lib-xtx.o lib-romfs.o lib-txtg.o lib-nlgdict.o lib-bars.o lib-gfpak.o lib-wta.o lib-pgdat.o lib-vibs.o lib-pkz.o lib-apak.o lib-nxarc.o lib-tmpk.o lib-mkgpdxpac.o lib-gar.o lib-zlarc.o lib-f9res.o lib-stpk.o lib-pvol.o lib-mdr.o lib-ztab.o lib-xpck.o lib-fsys.o lib-gfa.o lib-pac.o lib-darc.o lib-narc.o lib-byml.o lib-sound-archive.o lib-arika.o lib-jarc.o lib-lzo.o lib-gpkg.o lib-gpak.o lib-bns.o lib-rpak.o lib-lspk.o lib-sfzdat.o lib-bg4.o lib-hwl.o lib-cram.o lib-sze.o lib-sa01.o lib-msr.o lib-miirender.o lib-kensaku.o lib-wimg.o lib-cpk.o lib-wmb.o \
 			lib-arcv.o lib-bigf.o lib-cod-pak.o lib-mpbin.o lib-vcra.o lib-wtb.o lib-trpak.o
 
 TOBJ_gen-ui	= $(XOBJ_OBJECT)
@@ -482,10 +482,11 @@ SZS_O		:= lib-std.o lib-file.o lib-numeric.o lib-nds-banner.o lib-wii-banner.o \
 		   lib-owned-entries.o lib-mvdk.o lib-vlx.o lib-pucrunch.o lib-lzx.o \
 		   lib-diff.o lib-lzovl.o lib-alar.o lib-sadl.o lib-psdk.o lib-sszl.o \
 		   lib-rflres.o lib-bea.o \
+		   lib-atb.o lib-ptd.o lib-lzbin.o lib-hbdf.o lib-xb.o lib-mpmess.o lib-mpboard.o \
 		   lib-rarc.o lib-pack.o lib-rkc.o lib-brres.o lib-breff.o \
 		   file-type.o db-mkw.o lib-mkw.o lib-dol.o \
 		   sha1dgst.o sha1_one.o lib-bzip2.o lib-lzma.o lib-zstd.o lib-lz4.o lib-rvz.o \
-		   lib-ue4pak.o lib-prc.o lib-rstb.o lib-aamp.o lib-sharc.o lib-bnsh.o lib-bfsha.o lib-pctl.o \
+		   lib-ue4pak.o lib-prc.o lib-rstb.o lib-aamp.o lib-sharc.o lib-bnsh.o lib-bfsha.o lib-pctl.o lib-effn.o \
 		   lib-nushdb.o lib-numatb.o lib-nusktb.o lib-nufxlb.o lib-numdlb.o lib-nuhlpb.o \
 		   lib-nulstb.o lib-nurpdb.o lib-nuanmb.o \
 		   lib-cnut.o lib-xmsg.o lib-iqipack.o \
@@ -662,7 +663,7 @@ $(ALL_TOOLS_X): %: %.o $(ALL_OBJECTS) $(TOBJ_ALL) Makefile | $(HELPER_TOOLS) $(U
 	@printf "$(LOGFORMAT_TOOL)" tool "$@" "$(MODE) $(TOPT_$@)"
 	@$(CC) $(CFLAGS) $(DEFINES) $(LDFLAGS) $@.o \
 		$(ALL_OBJECTS) $(TOBJ_$@) $(LIBS) $(TOPT_$@) -o $@
-	@if test -f $@.exe; then $(STRIP) $@.exe; else $(STRIP) $@; fi
+	@if test -f $@.exe; then $(STRIP) $@.exe || true; else $(STRIP) $@ || true; fi
 	@# stripping invalidates the linker-embedded ad-hoc code signature; on
 	@# macOS this can be taskgated ("Code Signature Invalid") for a binary
 	@# linking certain frameworks unless it is re-signed after stripping.
@@ -740,6 +741,41 @@ bin/ctrtool: third_party/ctrtool/bin/ctrtool
 	@cp -p $< $@
 
 all: bin/ctrtool
+endif
+
+#-------------------------------------------------------------------------------
+# Bundled vgmtrans CLI (BRSAR/BFSAR/BCSAR/SDAT soundfont extraction tool),
+# vendored from https://github.com/khang06/vgmtrans (siiva branch) with headless CLI.
+# Standalone companion binary copied to bin/ alongside ctrtool and ALL_TOOLS.
+ifneq ($(NO_VGMTRANS),1)
+  VGMTRANS_DIR := third_party/vgmtrans
+  ifneq ($(PRE),)
+    NO_VGMTRANS := 1
+  endif
+  ifeq ($(wildcard $(VGMTRANS_DIR)/makefile),)
+    NO_VGMTRANS := 1
+  endif
+endif
+
+ifneq ($(NO_VGMTRANS),1)
+.PHONY: third_party/vgmtrans/bin/vgmtrans third_party/vgmtrans/bin/vgmtrans.exe
+third_party/vgmtrans/bin/vgmtrans third_party/vgmtrans/bin/vgmtrans.exe:
+	@printf "$(LOGFORMAT_TOOL)" build "vgmtrans" "$(MODE)"; \
+	$(MAKE) -C $(VGMTRANS_DIR) CC="$(CC)" CXX="$(CXX)" XFLAGS="$(XFLAGS)" >/dev/null
+
+bin/vgmtrans: third_party/vgmtrans/bin/vgmtrans
+	@mkdir -p bin
+	@cp -p $< $@
+
+bin/vgmtrans.exe: third_party/vgmtrans/bin/vgmtrans.exe
+	@mkdir -p bin
+	@cp -p $< $@
+
+ifeq ($(SYSTEM),mingw64)
+all: bin/vgmtrans.exe
+else
+all: bin/vgmtrans
+endif
 endif
 
 #--------------------------
@@ -879,10 +915,7 @@ $(LIB_LZ4_OBJ): %.o: %.c Makefile
 # specific rules in alphabetic order
 
 .PHONY : all
-# wmpbpack/wmpbdump are tiny standalone Hudson mpbin-tools ports (own
-# recipes below); they're built by default because tests/regress.sh's
-# Mario Party BIN round-trip depends on them at the project root.
-all: setup-files $(TEXT_FILES) $(HELPER_TOOLS) $(ALL_TOOLS) wmpbpack wmpbdump $(INSTALL_SCRIPTS) $(SETUP_INFO)
+all: setup-files $(TEXT_FILES) $(HELPER_TOOLS) $(ALL_TOOLS) $(INSTALL_SCRIPTS) $(SETUP_INFO)
 
 # The complete BMS command set lives in the pinned upstream submodule.  It is
 # deliberately an explicit target: the upstream project compiles hundreds of
@@ -1490,16 +1523,6 @@ help:
 #	@echo "------"
 #	@echo $(SZS_O)
 #	@echo "------"
-
-# Custom tools
-wmpbdump: src/wmpbdump.c
-	$(CC) $(CFLAGS) $< $(LDFLAGS) -lz -o $@
-	@mkdir -p bin && src=$@; test -f $@.exe && src=$@.exe; cp -p $$src bin/
-
-wmpbpack: src/wmpbpack.c
-	$(CC) $(CFLAGS) $< $(LDFLAGS) -lz -o $@
-	@mkdir -p bin && src=$@; test -f $@.exe && src=$@.exe; cp -p $$src bin/
-
 
 # Test-only oracles. QuickLZ is native inside wszst (COMPRESS to a .qlz
 # destination, DECOMPRESS auto-detects 1.20 vs 1.4.0); these standalone vendor

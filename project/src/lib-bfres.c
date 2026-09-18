@@ -948,7 +948,8 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 	model_t *out = calloc (1, sizeof (model_t));
 	if (!out)
 		return NULL;
-	out->meshes = calloc (n_fshp, sizeof (mesh_t));
+	size_t mesh_cap = n_fshp > 0 ? n_fshp : 16;
+	out->meshes = calloc (mesh_cap, sizeof (mesh_t));
 	if (!out->meshes)
 	{
 		free (out);
@@ -1037,156 +1038,204 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 		if (prim != 4 || !icount || icount > 0x1000000)
 			continue; // triangles only
 
+		const uint16_t submesh_cnt = (lod + 0x10 <= size) ? rb16 (d + lod + 0x0C) : 0;
+		const size_t submesh_arr = (lod + 0x14 <= size) ? REL (d, lod + 0x10) : 0;
+
 		const size_t ibo = REL (d, lod + 0x14);
 		if (ibo + 0x18 > size)
 			continue;
 		const size_t idata = REL (d, ibo + 0x14);
-		// Index format 4 is 16-bit, 9 is 32-bit.
-		const uint isz = ifmt == 9 ? 4 : 2;
-		if (idata + (size_t)icount * isz > size)
-			continue;
+		// Index format 4 is 16-bit, 9 is 32-bit, 0 is 8-bit.
+		const uint isz = ifmt == 9 ? 4 : (ifmt == 0 ? 1 : 2);
 
-		mesh_t *mesh = out->meshes + out->num_meshes;
-		snprintf (mesh->name, sizeof (mesh->name), "%s", name && *name ? name : "shape");
-		const uint16_t fmat_idx = rb16 (d + sh + 0x0E); // FSHP+0x0E: FMAT index
-		mesh->material_idx = fmat_idx < out->num_materials ? (int)fmat_idx : -1;
+		uint n_sub = 1;
+		if (submesh_cnt > 1 && submesh_arr && submesh_arr + (size_t)submesh_cnt * 8 <= size)
+			n_sub = submesh_cnt;
 
-		mesh->positions = calloc (icount, sizeof (vec3_t));
-		mesh->normals = calloc (icount, sizeof (vec3_t));
-		mesh->texcoords = calloc (icount, sizeof (vec2_t));
-		mesh->tangents = fvtx.tan ? calloc (icount, sizeof (vec3_t)) : NULL;
-		mesh->colors[0] = fvtx.clr ? calloc (icount, sizeof (color4_t)) : NULL;
-		mesh->colors[1] = fvtx.clr1 ? calloc (icount, sizeof (color4_t)) : NULL;
-		mesh->vertices = calloc (icount, sizeof (vertex_t));
+		for (uint si = 0; si < n_sub; si++)
 		{
-			uint nuv = 0;
-			for (uint k = 0; k < 6; k++)
-				if (fvtx.extra_uv[k])
-					nuv++;
-			if (nuv)
-				for (uint k = 0; k < 6; k++)
-					if (fvtx.extra_uv[k])
-						mesh->extra_texcoords[k] = calloc (icount, sizeof (vec2_t));
-		}
-		if (!mesh->positions || !mesh->normals || !mesh->texcoords || !mesh->vertices)
-		{
-			free (mesh->positions);
-			free (mesh->normals);
-			free (mesh->texcoords);
-			free (mesh->tangents);
-			free (mesh->colors[0]);
-			free (mesh->colors[1]);
-			for (uint k = 0; k < 6; k++)
-				free (mesh->extra_texcoords[k]);
-			memset (mesh, 0, sizeof (*mesh));
-			continue;
-		}
-
-		uint n = 0;
-		for (uint32_t k = 0; k < icount; k++)
-		{
-			const uint8_t *ip = d + idata + (size_t)k * isz;
-			const uint32_t vi = isz == 4 ? rb32 (ip) : rb16 (ip);
-			if (vi >= fvtx.count)
-				continue;
-
-			float v[4];
-			if (attr_read (fvtx.pos + (size_t)vi * fvtx.stride_pos,
-					fvtx.avail_pos - (size_t)vi * fvtx.stride_pos, fvtx.fmt_pos, v))
+			uint32_t sm_off = 0;
+			uint32_t sm_count = icount;
+			if (n_sub > 1)
 			{
-				mesh->positions[n].x = v[0];
-				mesh->positions[n].y = v[1];
-				mesh->positions[n].z = v[2];
+				const size_t se_off = submesh_arr + (size_t)si * 8;
+				sm_off = rb32 (d + se_off);
+				sm_count = rb32 (d + se_off + 4);
 			}
-			if (fvtx.nrm
-				&& attr_read (fvtx.nrm + (size_t)vi * fvtx.stride_nrm,
-					fvtx.avail_nrm - (size_t)vi * fvtx.stride_nrm, fvtx.fmt_nrm, v))
+			else if (submesh_cnt == 1 && submesh_arr && submesh_arr + 8 <= size)
 			{
-				mesh->normals[n].x = v[0];
-				mesh->normals[n].y = v[1];
-				mesh->normals[n].z = v[2];
-			}
-			if (fvtx.uv
-				&& attr_read (fvtx.uv + (size_t)vi * fvtx.stride_uv,
-					fvtx.avail_uv - (size_t)vi * fvtx.stride_uv, fvtx.fmt_uv, v))
-			{
-				mesh->texcoords[n].u = v[0];
-				mesh->texcoords[n].v = v[1];
-			}
-			if (fvtx.tan
-				&& attr_read (fvtx.tan + (size_t)vi * fvtx.stride_tan,
-					fvtx.avail_tan - (size_t)vi * fvtx.stride_tan, fvtx.fmt_tan, v))
-			{
-				mesh->tangents[n].x = v[0];
-				mesh->tangents[n].y = v[1];
-				mesh->tangents[n].z = v[2];
-			}
-			if (fvtx.clr
-				&& attr_read (fvtx.clr + (size_t)vi * fvtx.stride_clr,
-					fvtx.avail_clr - (size_t)vi * fvtx.stride_clr, fvtx.fmt_clr, v))
-			{
-				mesh->colors[0][n].r = v[0];
-				mesh->colors[0][n].g = v[1];
-				mesh->colors[0][n].b = v[2];
-				mesh->colors[0][n].a = v[3];
-			}
-			if (fvtx.clr1
-				&& attr_read (fvtx.clr1 + (size_t)vi * fvtx.stride_clr1,
-					fvtx.avail_clr1 - (size_t)vi * fvtx.stride_clr1, fvtx.fmt_clr1, v))
-			{
-				mesh->colors[1][n].r = v[0];
-				mesh->colors[1][n].g = v[1];
-				mesh->colors[1][n].b = v[2];
-				mesh->colors[1][n].a = v[3];
-			}
-			for (uint e = 0; e < 6; e++)
-			{
-				if (fvtx.extra_uv[e]
-					&& attr_read (fvtx.extra_uv[e] + (size_t)vi * fvtx.stride_extra_uv[e],
-						fvtx.avail_extra_uv[e] - (size_t)vi * fvtx.stride_extra_uv[e],
-						fvtx.fmt_extra_uv[e], v))
+				const uint32_t c_off = rb32 (d + submesh_arr);
+				const uint32_t c_cnt = rb32 (d + submesh_arr + 4);
+				if (c_cnt > 0 && c_cnt <= icount)
 				{
-					mesh->extra_texcoords[e][n].u = v[0];
-					mesh->extra_texcoords[e][n].v = v[1];
+					sm_off = c_off;
+					sm_count = c_cnt;
 				}
 			}
+			if (!sm_count || sm_count > 0x1000000)
+				continue;
+			if (idata + sm_off + (size_t)sm_count * isz > size)
+				continue;
 
-			mesh->vertices[n].position_idx = (int)n;
-			mesh->vertices[n].normal_idx = fvtx.nrm ? (int)n : -1;
-			mesh->vertices[n].texcoord_idx = fvtx.uv ? (int)n : -1;
-			mesh->vertices[n].tangent_idx = fvtx.tan ? (int)n : -1;
-			mesh->vertices[n].color_idx[0] = fvtx.clr ? (int)n : -1;
-			mesh->vertices[n].color_idx[1] = fvtx.clr1 ? (int)n : -1;
-			for (uint e = 0; e < 6; e++)
-				mesh->vertices[n].extra_texcoord_idx[e] = fvtx.extra_uv[e] ? (int)n : -1;
-			n++;
+			if (out->num_meshes >= mesh_cap)
+			{
+				size_t new_cap = mesh_cap * 2 + 16;
+				mesh_t *nm = realloc (out->meshes, new_cap * sizeof (mesh_t));
+				if (!nm)
+					break;
+				memset (nm + mesh_cap, 0, (new_cap - mesh_cap) * sizeof (mesh_t));
+				out->meshes = nm;
+				mesh_cap = new_cap;
+			}
+
+			mesh_t *mesh = out->meshes + out->num_meshes;
+			if (n_sub > 1)
+				snprintf (mesh->name, sizeof (mesh->name), "%s_sub%u", name && *name ? name : "shape", si);
+			else
+				snprintf (mesh->name, sizeof (mesh->name), "%s", name && *name ? name : "shape");
+			const uint16_t fmat_idx = rb16 (d + sh + 0x0E); // FSHP+0x0E: FMAT index
+			mesh->material_idx = fmat_idx < out->num_materials ? (int)fmat_idx : -1;
+
+			mesh->positions = calloc (sm_count, sizeof (vec3_t));
+			mesh->normals = calloc (sm_count, sizeof (vec3_t));
+			mesh->texcoords = calloc (sm_count, sizeof (vec2_t));
+			mesh->tangents = fvtx.tan ? calloc (sm_count, sizeof (vec3_t)) : NULL;
+			mesh->colors[0] = fvtx.clr ? calloc (sm_count, sizeof (color4_t)) : NULL;
+			mesh->colors[1] = fvtx.clr1 ? calloc (sm_count, sizeof (color4_t)) : NULL;
+			mesh->vertices = calloc (sm_count, sizeof (vertex_t));
+			{
+				uint nuv = 0;
+				for (uint k = 0; k < 6; k++)
+					if (fvtx.extra_uv[k])
+						nuv++;
+				if (nuv)
+					for (uint k = 0; k < 6; k++)
+						if (fvtx.extra_uv[k])
+							mesh->extra_texcoords[k] = calloc (sm_count, sizeof (vec2_t));
+			}
+			if (!mesh->positions || !mesh->normals || !mesh->texcoords || !mesh->vertices)
+			{
+				free (mesh->positions);
+				free (mesh->normals);
+				free (mesh->texcoords);
+				free (mesh->tangents);
+				free (mesh->colors[0]);
+				free (mesh->colors[1]);
+				for (uint k = 0; k < 6; k++)
+					free (mesh->extra_texcoords[k]);
+				free (mesh->vertices);
+				memset (mesh, 0, sizeof (*mesh));
+				continue;
+			}
+
+			uint n = 0;
+			for (uint32_t k = 0; k < sm_count; k++)
+			{
+				const uint8_t *ip = d + idata + sm_off + (size_t)k * isz;
+				const uint32_t vi = isz == 4 ? rb32 (ip) : (isz == 1 ? *ip : rb16 (ip));
+				if (vi >= fvtx.count)
+					continue;
+
+				float v[4];
+				if (attr_read (fvtx.pos + (size_t)vi * fvtx.stride_pos,
+						fvtx.avail_pos - (size_t)vi * fvtx.stride_pos, fvtx.fmt_pos, v))
+				{
+					mesh->positions[n].x = v[0];
+					mesh->positions[n].y = v[1];
+					mesh->positions[n].z = v[2];
+				}
+				if (fvtx.nrm
+					&& attr_read (fvtx.nrm + (size_t)vi * fvtx.stride_nrm,
+						fvtx.avail_nrm - (size_t)vi * fvtx.stride_nrm, fvtx.fmt_nrm, v))
+				{
+					mesh->normals[n].x = v[0];
+					mesh->normals[n].y = v[1];
+					mesh->normals[n].z = v[2];
+				}
+				if (fvtx.uv
+					&& attr_read (fvtx.uv + (size_t)vi * fvtx.stride_uv,
+						fvtx.avail_uv - (size_t)vi * fvtx.stride_uv, fvtx.fmt_uv, v))
+				{
+					mesh->texcoords[n].u = v[0];
+					mesh->texcoords[n].v = v[1];
+				}
+				if (fvtx.tan
+					&& attr_read (fvtx.tan + (size_t)vi * fvtx.stride_tan,
+						fvtx.avail_tan - (size_t)vi * fvtx.stride_tan, fvtx.fmt_tan, v))
+				{
+					mesh->tangents[n].x = v[0];
+					mesh->tangents[n].y = v[1];
+					mesh->tangents[n].z = v[2];
+				}
+				if (fvtx.clr
+					&& attr_read (fvtx.clr + (size_t)vi * fvtx.stride_clr,
+						fvtx.avail_clr - (size_t)vi * fvtx.stride_clr, fvtx.fmt_clr, v))
+				{
+					mesh->colors[0][n].r = v[0];
+					mesh->colors[0][n].g = v[1];
+					mesh->colors[0][n].b = v[2];
+					mesh->colors[0][n].a = v[3];
+				}
+				if (fvtx.clr1
+					&& attr_read (fvtx.clr1 + (size_t)vi * fvtx.stride_clr1,
+						fvtx.avail_clr1 - (size_t)vi * fvtx.stride_clr1, fvtx.fmt_clr1, v))
+				{
+					mesh->colors[1][n].r = v[0];
+					mesh->colors[1][n].g = v[1];
+					mesh->colors[1][n].b = v[2];
+					mesh->colors[1][n].a = v[3];
+				}
+				for (uint e = 0; e < 6; e++)
+				{
+					if (fvtx.extra_uv[e]
+						&& attr_read (fvtx.extra_uv[e] + (size_t)vi * fvtx.stride_extra_uv[e],
+							fvtx.avail_extra_uv[e] - (size_t)vi * fvtx.stride_extra_uv[e],
+							fvtx.fmt_extra_uv[e], v))
+					{
+						mesh->extra_texcoords[e][n].u = v[0];
+						mesh->extra_texcoords[e][n].v = v[1];
+					}
+				}
+
+				mesh->vertices[n].position_idx = (int)n;
+				mesh->vertices[n].normal_idx = fvtx.nrm ? (int)n : -1;
+				mesh->vertices[n].texcoord_idx = fvtx.uv ? (int)n : -1;
+				mesh->vertices[n].tangent_idx = fvtx.tan ? (int)n : -1;
+				mesh->vertices[n].color_idx[0] = fvtx.clr ? (int)n : -1;
+				mesh->vertices[n].color_idx[1] = fvtx.clr1 ? (int)n : -1;
+				for (uint e = 0; e < 6; e++)
+					mesh->vertices[n].extra_texcoord_idx[e] = fvtx.extra_uv[e] ? (int)n : -1;
+				n++;
+			}
+			if (n)
+			{
+				mesh->num_positions = mesh->num_normals = mesh->num_texcoords = n;
+				mesh->num_vertices = n;
+				if (fvtx.tan)
+					mesh->num_tangents = n;
+				if (fvtx.clr)
+					mesh->num_colors[0] = n;
+				if (fvtx.clr1)
+					mesh->num_colors[1] = n;
+				for (uint e = 0; e < 6; e++)
+					if (fvtx.extra_uv[e])
+						mesh->num_extra_texcoords[e] = n;
+				out->num_meshes++;
+			}
+			else
+			{
+				free (mesh->positions);
+				free (mesh->normals);
+				free (mesh->texcoords);
+				free (mesh->tangents);
+				free (mesh->colors[0]);
+				free (mesh->colors[1]);
+				for (uint k = 0; k < 6; k++)
+					free (mesh->extra_texcoords[k]);
+				free (mesh->vertices);
+				memset (mesh, 0, sizeof (*mesh));
+			}
 		}
-		if (!n)
-		{
-			free (mesh->positions);
-			free (mesh->normals);
-			free (mesh->texcoords);
-			free (mesh->tangents);
-			free (mesh->colors[0]);
-			free (mesh->colors[1]);
-			for (uint k = 0; k < 6; k++)
-				free (mesh->extra_texcoords[k]);
-			free (mesh->vertices);
-			memset (mesh, 0, sizeof (*mesh));
-			continue;
-		}
-		mesh->num_positions = mesh->num_normals = mesh->num_texcoords = n;
-		mesh->num_vertices = n;
-		if (fvtx.tan)
-			mesh->num_tangents = n;
-		if (fvtx.clr)
-			mesh->num_colors[0] = n;
-		if (fvtx.clr1)
-			mesh->num_colors[1] = n;
-		for (uint e = 0; e < 6; e++)
-			if (fvtx.extra_uv[e])
-				mesh->num_extra_texcoords[e] = n;
-		out->num_meshes++;
 	}
 
 	// Skeleton (FSKL): the FMDL references it via a self-relative pointer at
@@ -2143,7 +2192,8 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 	model_t *out = calloc (1, sizeof (model_t));
 	if (!out)
 		return NULL;
-	out->meshes = calloc (n_fshp, sizeof (mesh_t));
+	size_t mesh_cap = n_fshp > 0 ? n_fshp : 16;
+	out->meshes = calloc (mesh_cap, sizeof (mesh_t));
 	if (!out->meshes)
 	{
 		free (out);
@@ -2519,301 +2569,348 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 			const uint32_t idx_count = le32 (d + mesh + 44);
 			if (prim_raw != 3 || !idx_count || idx_count > 0x1000000)
 				break; // triangles only
-			const uint isz = ifmt_raw == 2 ? 4 : 2;
-
-			const uint64_t idata = (uint64_t)pool_base + face_off;
-			if (idata + (uint64_t)idx_count * isz > size)
+			if (ifmt_raw > 2)
 				break;
+			const uint isz = ifmt_raw == 2 ? 4 : (ifmt_raw == 1 ? 2 : 1);
 
-			mesh_t *ms = out->meshes + out->num_meshes;
-			snprintf (ms->name, sizeof (ms->name), "%s", sname && *sname ? sname : "shape");
-			ms->material_idx = fmat_idx < out->num_materials ? (int)fmat_idx : -1;
+			const int64_t submesh_arr = les64 (d + mesh);
+			const uint16_t submesh_cnt = (size_t)mesh + 54 <= size ? le16 (d + mesh + 52) : 0;
 
-			const int has_skin = fv.bone && fv.wt && n_skin_bones > 0 && skin_bone_arr > 0;
+			uint n_sub = 1;
+			if (submesh_cnt > 1 && submesh_arr > 0 && (size_t)submesh_arr + (size_t)submesh_cnt * 8 <= size)
+				n_sub = submesh_cnt;
 
-			ms->positions = calloc (idx_count, sizeof (vec3_t));
-			ms->normals = calloc (idx_count, sizeof (vec3_t));
-			ms->texcoords = calloc (idx_count, sizeof (vec2_t));
-			ms->tangents = fv.tan ? calloc (idx_count, sizeof (vec3_t)) : NULL;
-			ms->vertices = calloc (idx_count, sizeof (vertex_t));
-			if (fv.clr)
+			for (uint sidx = 0; sidx < n_sub; sidx++)
 			{
-				ms->colors[0] = calloc (idx_count, sizeof (color4_t));
-				ms->num_colors[0] = idx_count;
-			}
-			if (fv.clr1)
-			{
-				ms->colors[1] = calloc (idx_count, sizeof (color4_t));
-				ms->num_colors[1] = idx_count;
-			}
-			{
-				uint nuv = 0;
-				for (uint kk = 0; kk < 6; kk++)
-					if (fv.extra_uv[kk])
-						nuv++;
-				if (nuv)
-					for (uint kk = 0; kk < 6; kk++)
-						if (fv.extra_uv[kk])
-							ms->extra_texcoords[kk] = calloc (idx_count, sizeof (vec2_t));
-			}
-			if (has_skin)
-				ms->position_node = calloc (idx_count, sizeof (int));
-			if (!ms->positions || !ms->normals || !ms->texcoords || !ms->vertices)
-			{
-				free (ms->positions);
-				free (ms->normals);
-				free (ms->texcoords);
-				free (ms->tangents);
-				free (ms->colors[0]);
-				free (ms->colors[1]);
-				for (uint kk = 0; kk < 6; kk++)
-					free (ms->extra_texcoords[kk]);
-				free (ms->vertices);
-				free (ms->position_node);
-				memset (ms, 0, sizeof (*ms));
-				break;
-			}
-
-			uint n = 0;
-			for (uint32_t k = 0; k < idx_count; k++)
-			{
-				const uint8_t *ip = d + idata + (size_t)k * isz;
-				const uint32_t vi = isz == 4 ? le32 (ip) : le16 (ip);
-				if (vi >= fv.count)
-					continue;
-
-				float v[4];
-				if (attr_read_switch (fv.pos + (size_t)vi * fv.stride_pos,
-						fv.avail_pos - (size_t)vi * fv.stride_pos, fv.fmt_pos, v))
+				uint32_t sm_off = 0;
+				uint32_t sm_count = idx_count;
+				if (n_sub > 1)
 				{
-					ms->positions[n].x = v[0];
-					ms->positions[n].y = v[1];
-					ms->positions[n].z = v[2];
+					const size_t se_off = (size_t)submesh_arr + (size_t)sidx * 8;
+					sm_off = le32 (d + se_off);
+					sm_count = le32 (d + se_off + 4);
 				}
-				if (fv.nrm
-					&& attr_read_switch (fv.nrm + (size_t)vi * fv.stride_nrm,
-						fv.avail_nrm - (size_t)vi * fv.stride_nrm, fv.fmt_nrm, v))
+				else if (submesh_cnt == 1 && submesh_arr > 0 && (size_t)submesh_arr + 8 <= size)
 				{
-					ms->normals[n].x = v[0];
-					ms->normals[n].y = v[1];
-					ms->normals[n].z = v[2];
-				}
-				if (fv.uv
-					&& attr_read_switch (fv.uv + (size_t)vi * fv.stride_uv,
-						fv.avail_uv - (size_t)vi * fv.stride_uv, fv.fmt_uv, v))
-				{
-					ms->texcoords[n].u = v[0];
-					ms->texcoords[n].v = v[1];
-				}
-				if (fv.tan && ms->tangents
-					&& attr_read_switch (fv.tan + (size_t)vi * fv.stride_tan,
-						fv.avail_tan - (size_t)vi * fv.stride_tan, fv.fmt_tan, v))
-				{
-					ms->tangents[n].x = v[0];
-					ms->tangents[n].y = v[1];
-					ms->tangents[n].z = v[2];
-				}
-
-				if (fv.clr && ms->colors[0]
-					&& attr_read_switch (fv.clr + (size_t)vi * fv.stride_clr,
-						fv.avail_clr - (size_t)vi * fv.stride_clr, fv.fmt_clr, v))
-				{
-					ms->colors[0][n].r = v[0];
-					ms->colors[0][n].g = v[1];
-					ms->colors[0][n].b = v[2];
-					ms->colors[0][n].a = v[3];
-				}
-				if (fv.clr1 && ms->colors[1]
-					&& attr_read_switch (fv.clr1 + (size_t)vi * fv.stride_clr1,
-						fv.avail_clr1 - (size_t)vi * fv.stride_clr1, fv.fmt_clr1, v))
-				{
-					ms->colors[1][n].r = v[0];
-					ms->colors[1][n].g = v[1];
-					ms->colors[1][n].b = v[2];
-					ms->colors[1][n].a = v[3];
-				}
-				for (uint e = 0; e < 6; e++)
-				{
-					if (fv.extra_uv[e] && ms->extra_texcoords[e]
-						&& attr_read_switch (fv.extra_uv[e] + (size_t)vi * fv.stride_extra_uv[e],
-							fv.avail_extra_uv[e] - (size_t)vi * fv.stride_extra_uv[e],
-							fv.fmt_extra_uv[e], v))
+					const uint32_t c_off = le32 (d + submesh_arr);
+					const uint32_t c_cnt = le32 (d + submesh_arr + 4);
+					if (c_cnt > 0 && c_cnt <= idx_count)
 					{
-						ms->extra_texcoords[e][n].u = v[0];
-						ms->extra_texcoords[e][n].v = v[1];
+						sm_off = c_off;
+						sm_count = c_cnt;
 					}
 				}
+				if (!sm_count || sm_count > 0x1000000)
+					continue;
 
-				ms->vertices[n].position_idx = (int)n;
-				ms->vertices[n].normal_idx = fv.nrm ? (int)n : -1;
-				ms->vertices[n].texcoord_idx = fv.uv ? (int)n : -1;
-				ms->vertices[n].tangent_idx = fv.tan ? (int)n : -1;
-				ms->vertices[n].color_idx[0] = fv.clr ? (int)n : -1;
-				ms->vertices[n].color_idx[1] = fv.clr1 ? (int)n : -1;
-				for (uint e = 0; e < 6; e++)
-					ms->vertices[n].extra_texcoord_idx[e] = fv.extra_uv[e] ? (int)n : -1;
+				const uint64_t idata = (uint64_t)pool_base + face_off + sm_off;
+				if (idata + (uint64_t)sm_count * isz > size)
+					continue;
 
-				// Skin bone data: read per-vertex bone indices + weights,
-				// remap through skin_bone_idx table, accumulate unique
-				// weight combinations as node_influence entries.
-				if (has_skin && ms->position_node)
+				if (out->num_meshes >= mesh_cap)
 				{
-					uint8_t bi[4] = { 0, 0, 0, 0 };
-					float bw[4] = { 0, 0, 0, 0 };
-					attr_read_uint8_switch (fv.bone + (size_t)vi * fv.stride_bone,
-						fv.avail_bone - (size_t)vi * fv.stride_bone, fv.fmt_bone, bi);
+					size_t new_cap = mesh_cap * 2 + 16;
+					mesh_t *nm = realloc (out->meshes, new_cap * sizeof (mesh_t));
+					if (!nm)
+						break;
+					memset (nm + mesh_cap, 0, (new_cap - mesh_cap) * sizeof (mesh_t));
+					out->meshes = nm;
+					mesh_cap = new_cap;
+				}
+
+				mesh_t *ms = out->meshes + out->num_meshes;
+				if (n_sub > 1)
+					snprintf (ms->name, sizeof (ms->name), "%s_sub%u", sname && *sname ? sname : "shape", sidx);
+				else
+					snprintf (ms->name, sizeof (ms->name), "%s", sname && *sname ? sname : "shape");
+				ms->material_idx = fmat_idx < out->num_materials ? (int)fmat_idx : -1;
+
+				const int has_skin = fv.bone && fv.wt && n_skin_bones > 0 && skin_bone_arr > 0;
+
+				ms->positions = calloc (sm_count, sizeof (vec3_t));
+				ms->normals = calloc (sm_count, sizeof (vec3_t));
+				ms->texcoords = calloc (sm_count, sizeof (vec2_t));
+				ms->tangents = fv.tan ? calloc (sm_count, sizeof (vec3_t)) : NULL;
+				ms->vertices = calloc (sm_count, sizeof (vertex_t));
+				if (fv.clr)
+				{
+					ms->colors[0] = calloc (sm_count, sizeof (color4_t));
+					ms->num_colors[0] = sm_count;
+				}
+				if (fv.clr1)
+				{
+					ms->colors[1] = calloc (sm_count, sizeof (color4_t));
+					ms->num_colors[1] = sm_count;
+				}
+				{
+					uint nuv = 0;
+					for (uint kk = 0; kk < 6; kk++)
+						if (fv.extra_uv[kk])
+							nuv++;
+					if (nuv)
+						for (uint kk = 0; kk < 6; kk++)
+							if (fv.extra_uv[kk])
+								ms->extra_texcoords[kk] = calloc (sm_count, sizeof (vec2_t));
+				}
+				if (has_skin)
+					ms->position_node = calloc (sm_count, sizeof (int));
+				if (!ms->positions || !ms->normals || !ms->texcoords || !ms->vertices)
+				{
+					free (ms->positions);
+					free (ms->normals);
+					free (ms->texcoords);
+					free (ms->tangents);
+					free (ms->colors[0]);
+					free (ms->colors[1]);
+					for (uint kk = 0; kk < 6; kk++)
+						free (ms->extra_texcoords[kk]);
+					free (ms->vertices);
+					free (ms->position_node);
+					memset (ms, 0, sizeof (*ms));
+					continue;
+				}
+
+				uint n = 0;
+				for (uint32_t k = 0; k < sm_count; k++)
+				{
+					const uint8_t *ip = d + idata + (size_t)k * isz;
+					const uint32_t vi = isz == 4 ? le32 (ip) : (isz == 1 ? *ip : le16 (ip));
+					if (vi >= fv.count)
+						continue;
+
+					float v[4];
+					if (attr_read_switch (fv.pos + (size_t)vi * fv.stride_pos,
+							fv.avail_pos - (size_t)vi * fv.stride_pos, fv.fmt_pos, v))
 					{
-						float wb[4];
-						if (attr_read_switch (fv.wt + (size_t)vi * fv.stride_wt,
-								fv.avail_wt - (size_t)vi * fv.stride_wt, fv.fmt_wt, wb))
+						ms->positions[n].x = v[0];
+						ms->positions[n].y = v[1];
+						ms->positions[n].z = v[2];
+					}
+					if (fv.nrm
+						&& attr_read_switch (fv.nrm + (size_t)vi * fv.stride_nrm,
+							fv.avail_nrm - (size_t)vi * fv.stride_nrm, fv.fmt_nrm, v))
+					{
+						ms->normals[n].x = v[0];
+						ms->normals[n].y = v[1];
+						ms->normals[n].z = v[2];
+					}
+					if (fv.uv
+						&& attr_read_switch (fv.uv + (size_t)vi * fv.stride_uv,
+							fv.avail_uv - (size_t)vi * fv.stride_uv, fv.fmt_uv, v))
+					{
+						ms->texcoords[n].u = v[0];
+						ms->texcoords[n].v = v[1];
+					}
+					if (fv.tan && ms->tangents
+						&& attr_read_switch (fv.tan + (size_t)vi * fv.stride_tan,
+							fv.avail_tan - (size_t)vi * fv.stride_tan, fv.fmt_tan, v))
+					{
+						ms->tangents[n].x = v[0];
+						ms->tangents[n].y = v[1];
+						ms->tangents[n].z = v[2];
+					}
+
+					if (fv.clr && ms->colors[0]
+						&& attr_read_switch (fv.clr + (size_t)vi * fv.stride_clr,
+							fv.avail_clr - (size_t)vi * fv.stride_clr, fv.fmt_clr, v))
+					{
+						ms->colors[0][n].r = v[0];
+						ms->colors[0][n].g = v[1];
+						ms->colors[0][n].b = v[2];
+						ms->colors[0][n].a = v[3];
+					}
+					if (fv.clr1 && ms->colors[1]
+						&& attr_read_switch (fv.clr1 + (size_t)vi * fv.stride_clr1,
+							fv.avail_clr1 - (size_t)vi * fv.stride_clr1, fv.fmt_clr1, v))
+					{
+						ms->colors[1][n].r = v[0];
+						ms->colors[1][n].g = v[1];
+						ms->colors[1][n].b = v[2];
+						ms->colors[1][n].a = v[3];
+					}
+					for (uint e = 0; e < 6; e++)
+					{
+						if (fv.extra_uv[e] && ms->extra_texcoords[e]
+							&& attr_read_switch (fv.extra_uv[e] + (size_t)vi * fv.stride_extra_uv[e],
+								fv.avail_extra_uv[e] - (size_t)vi * fv.stride_extra_uv[e],
+								fv.fmt_extra_uv[e], v))
 						{
-							bw[0] = wb[0];
-							bw[1] = wb[1];
-							bw[2] = wb[2];
-							bw[3] = wb[3];
+							ms->extra_texcoords[e][n].u = v[0];
+							ms->extra_texcoords[e][n].v = v[1];
 						}
 					}
 
-					// Remap local bone indices through skin_bone_idx table
-					// and normalize weights.
-					influence_t weights[4];
-					uint nw = 0;
-					float wsum = 0;
-					for (int b = 0; b < 4; b++)
-					{
-						if (bw[b] <= 0.0f)
-							continue;
-						if (bi[b] >= n_skin_bones)
-							continue;
-						const size_t idx_off = (size_t)skin_bone_arr + bi[b] * 2;
-						if (idx_off + 2 > size)
-							continue;
-						const uint16_t fskl_bone = le16 (d + idx_off);
-						if (fskl_bone >= out->num_joints)
-							continue;
-						weights[nw].bone_idx = (int)fskl_bone;
-						weights[nw].weight = bw[b];
-						wsum += bw[b];
-						nw++;
-					}
-					// Normalize weights to sum to 1
-					if (nw > 0 && wsum > 0.0f && wsum != 1.0f)
-						for (uint i = 0; i < nw; i++)
-							weights[i].weight /= wsum;
+					ms->vertices[n].position_idx = (int)n;
+					ms->vertices[n].normal_idx = fv.nrm ? (int)n : -1;
+					ms->vertices[n].texcoord_idx = fv.uv ? (int)n : -1;
+					ms->vertices[n].tangent_idx = fv.tan ? (int)n : -1;
+					ms->vertices[n].color_idx[0] = fv.clr ? (int)n : -1;
+					ms->vertices[n].color_idx[1] = fv.clr1 ? (int)n : -1;
+					for (uint e = 0; e < 6; e++)
+						ms->vertices[n].extra_texcoord_idx[e] = fv.extra_uv[e] ? (int)n : -1;
 
-					// Find or create matching node_influence
-					int ni_idx = -1;
-					if (nw > 0)
+					// Skin bone data: read per-vertex bone indices + weights,
+					// remap through skin_bone_idx table, accumulate unique
+					// weight combinations as node_influence entries.
+					if (has_skin && ms->position_node)
 					{
-						// Linear scan for matching existing entry
-						for (size_t ii = 0; ii < n_node_inf; ii++)
+						uint8_t bi[4] = { 0, 0, 0, 0 };
+						float bw[4] = { 0, 0, 0, 0 };
+						attr_read_uint8_switch (fv.bone + (size_t)vi * fv.stride_bone,
+							fv.avail_bone - (size_t)vi * fv.stride_bone, fv.fmt_bone, bi);
 						{
-							node_influence_t *ex = &node_inf[ii];
-							if (ex->num_weights != nw)
-								continue;
-							int match = 1;
-							for (uint w = 0; w < nw; w++)
+							float wb[4];
+							if (attr_read_switch (fv.wt + (size_t)vi * fv.stride_wt,
+									fv.avail_wt - (size_t)vi * fv.stride_wt, fv.fmt_wt, wb))
 							{
-								if (ex->weights[w].bone_idx != weights[w].bone_idx
-									|| ex->weights[w].weight != weights[w].weight)
+								bw[0] = wb[0];
+								bw[1] = wb[1];
+								bw[2] = wb[2];
+								bw[3] = wb[3];
+							}
+						}
+
+						// Remap local bone indices through skin_bone_idx table
+						// and normalize weights.
+						influence_t weights[4];
+						uint nw = 0;
+						float wsum = 0;
+						for (int b = 0; b < 4; b++)
+						{
+							if (bw[b] <= 0.0f)
+								continue;
+							if (bi[b] >= n_skin_bones)
+								continue;
+							const size_t idx_off = (size_t)skin_bone_arr + bi[b] * 2;
+							if (idx_off + 2 > size)
+								continue;
+							const uint16_t fskl_bone = le16 (d + idx_off);
+							if (fskl_bone >= out->num_joints)
+								continue;
+							weights[nw].bone_idx = (int)fskl_bone;
+							weights[nw].weight = bw[b];
+							wsum += bw[b];
+							nw++;
+						}
+						// Normalize weights to sum to 1
+						if (nw > 0 && wsum > 0.0f && wsum != 1.0f)
+							for (uint i = 0; i < nw; i++)
+								weights[i].weight /= wsum;
+
+						// Find or create matching node_influence
+						int ni_idx = -1;
+						if (nw > 0)
+						{
+							// Linear scan for matching existing entry
+							for (size_t ii = 0; ii < n_node_inf; ii++)
+							{
+								node_influence_t *ex = &node_inf[ii];
+								if (ex->num_weights != nw)
+									continue;
+								int match = 1;
+								for (uint w = 0; w < nw; w++)
 								{
-									match = 0;
+									if (ex->weights[w].bone_idx != weights[w].bone_idx
+										|| ex->weights[w].weight != weights[w].weight)
+									{
+										match = 0;
+										break;
+									}
+								}
+								if (match)
+								{
+									ni_idx = (int)ii;
 									break;
 								}
 							}
-							if (match)
+							// Create new entry if not found
+							if (ni_idx < 0)
 							{
-								ni_idx = (int)ii;
-								break;
+								if (n_node_inf == cap_node_inf)
+								{
+									cap_node_inf = cap_node_inf ? cap_node_inf * 2 : 256;
+									node_inf = realloc (node_inf, cap_node_inf * sizeof (*node_inf));
+								}
+								influence_t *wl = calloc (nw, sizeof (*wl));
+								if (wl)
+								{
+									memcpy (wl, weights, nw * sizeof (*wl));
+									node_inf[n_node_inf].weights = wl;
+									node_inf[n_node_inf].num_weights = nw;
+									ni_idx = (int)n_node_inf++;
+								}
 							}
 						}
-						// Create new entry if not found
-						if (ni_idx < 0)
+						else if (out->num_joints > 0)
 						{
-							if (n_node_inf == cap_node_inf)
+							// No usable influence (all weights zero, e.g. the
+							// format's 0xFF-unbound marker): bind rigidly to
+							// joint 0 so the mesh still exports skinned instead
+							// of dropping every other vertex's skin data. This
+							// matches the GLB exporter's own default for
+							// unbound vertices.
+							influence_t one;
+							one.bone_idx = 0;
+							one.weight = 1.0f;
+							int found = -1;
+							for (size_t ii = 0; ii < n_node_inf; ii++)
+								if (node_inf[ii].num_weights == 1
+									&& node_inf[ii].weights[0].bone_idx == 0
+									&& node_inf[ii].weights[0].weight == 1.0f)
+								{
+									found = (int)ii;
+									break;
+								}
+							if (found < 0)
 							{
-								cap_node_inf = cap_node_inf ? cap_node_inf * 2 : 256;
-								node_inf = realloc (node_inf, cap_node_inf * sizeof (*node_inf));
+								if (n_node_inf == cap_node_inf)
+								{
+									cap_node_inf = cap_node_inf ? cap_node_inf * 2 : 256;
+									node_inf = realloc (node_inf, cap_node_inf * sizeof (*node_inf));
+								}
+								influence_t *wl = calloc (1, sizeof (*wl));
+								if (wl)
+								{
+									wl[0] = one;
+									node_inf[n_node_inf].weights = wl;
+									node_inf[n_node_inf].num_weights = 1;
+									found = (int)n_node_inf++;
+								}
 							}
-							influence_t *wl = calloc (nw, sizeof (*wl));
-							if (wl)
-							{
-								memcpy (wl, weights, nw * sizeof (*wl));
-								node_inf[n_node_inf].weights = wl;
-								node_inf[n_node_inf].num_weights = nw;
-								ni_idx = (int)n_node_inf++;
-							}
+							ni_idx = found;
 						}
+						ms->position_node[n] = ni_idx;
 					}
-					else if (out->num_joints > 0)
-					{
-						// No usable influence (all weights zero, e.g. the
-						// format's 0xFF-unbound marker): bind rigidly to
-						// joint 0 so the mesh still exports skinned instead
-						// of dropping every other vertex's skin data. This
-						// matches the GLB exporter's own default for
-						// unbound vertices.
-						influence_t one;
-						one.bone_idx = 0;
-						one.weight = 1.0f;
-						int found = -1;
-						for (size_t ii = 0; ii < n_node_inf; ii++)
-							if (node_inf[ii].num_weights == 1
-								&& node_inf[ii].weights[0].bone_idx == 0
-								&& node_inf[ii].weights[0].weight == 1.0f)
-							{
-								found = (int)ii;
-								break;
-							}
-						if (found < 0)
-						{
-							if (n_node_inf == cap_node_inf)
-							{
-								cap_node_inf = cap_node_inf ? cap_node_inf * 2 : 256;
-								node_inf = realloc (node_inf, cap_node_inf * sizeof (*node_inf));
-							}
-							influence_t *wl = calloc (1, sizeof (*wl));
-							if (wl)
-							{
-								wl[0] = one;
-								node_inf[n_node_inf].weights = wl;
-								node_inf[n_node_inf].num_weights = 1;
-								found = (int)n_node_inf++;
-							}
-						}
-						ni_idx = found;
-					}
-					ms->position_node[n] = ni_idx;
-				}
 
-				n++;
-			}
-			if (n)
-			{
-				ms->num_positions = ms->num_normals = ms->num_texcoords = n;
-				ms->num_vertices = n;
-				if (fv.tan)
-					ms->num_tangents = n;
-				if (fv.clr1)
-					ms->num_colors[1] = n;
-				for (uint e = 0; e < 6; e++)
-					if (fv.extra_uv[e])
-						ms->num_extra_texcoords[e] = n;
-				out->num_meshes++;
-			}
-			else
-			{
-				free (ms->positions);
-				free (ms->normals);
-				free (ms->texcoords);
-				free (ms->tangents);
-				free (ms->vertices);
-				free (ms->colors[0]);
-				free (ms->colors[1]);
-				for (uint kk = 0; kk < 6; kk++)
-					free (ms->extra_texcoords[kk]);
-				free (ms->position_node);
-				memset (ms, 0, sizeof (*ms));
+					n++;
+				}
+				if (n)
+				{
+					ms->num_positions = ms->num_normals = ms->num_texcoords = n;
+					ms->num_vertices = n;
+					if (fv.tan)
+						ms->num_tangents = n;
+					if (fv.clr1)
+						ms->num_colors[1] = n;
+					for (uint e = 0; e < 6; e++)
+						if (fv.extra_uv[e])
+							ms->num_extra_texcoords[e] = n;
+					out->num_meshes++;
+				}
+				else
+				{
+					free (ms->positions);
+					free (ms->normals);
+					free (ms->texcoords);
+					free (ms->tangents);
+					free (ms->vertices);
+					free (ms->colors[0]);
+					free (ms->colors[1]);
+					for (uint kk = 0; kk < 6; kk++)
+						free (ms->extra_texcoords[kk]);
+					free (ms->position_node);
+					memset (ms, 0, sizeof (*ms));
+				}
 			}
 		} while (0);
 

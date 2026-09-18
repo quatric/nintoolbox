@@ -138,6 +138,8 @@ enumError Encode5TX_RGBA (u8 **dest, uint *dest_size, const u8 *rgba, uint width
 enumError DecodeSPT_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, uint src_size);
 enumError EncodeSPT_RGBA (u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height);
 enumError DecodeNTGA_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, uint src_size);
+bool IsNTTF (const u8 *data, uint size);
+enumError DecodeNTTF_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, uint src_size);
 
 //-----------------------------------------------------------------------------
 // 3. Nitro Font Formats (NFTR / BNFR)

@@ -1273,7 +1273,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, { 0 }, 0, MinusString, MinusString, "Nintendo 3DS CLIM Texture (.bclim / CLIM)" },
 
 	// FF_AAMP = 242 (Nintendo Binary Parameter Archive)
-	{ FF_AAMP, FF_AAMP, 0, "AAMP", ".aamp", ".szs", ".aamp", FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+	{ FF_AAMP, FF_AAMP, 0, "AAMP", ".aamp", ".szs", ".aamp", FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
 		{ 'A', 'A', 'M', 'P' }, 0, MinusString, MinusString,
 		"Nintendo Binary Parameter Archive (.aamp / AAMP)" },
 
@@ -1472,8 +1472,9 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, MinusString, MinusString, "NintendoWare Shader Binary Archive (SHARCFB)" },
 
 	// FF_VFXB = 279 (NintendoWare Particle Effect Archive)
-	{ FF_VFXB, 0, 0, "VFXB", ".ptcl", ".ptcl", ".ptcl",
-		FFT_VALID | FFT_ARCHIVE | FFT_DECODE, 4, { 0x56, 0x46, 0x58, 0x42 }, // "VFXB"
+	{ FF_VFXB, FF_VFXB, 0, "VFXB", ".ptcl", ".ptcl", ".ptcl",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 0x56, 0x46, 0x58, 0x42 }, // "VFXB"
 		0, MinusString, MinusString, "NintendoWare Particle Effect Archive (VFXB / .ptcl / .eset)" },
 
 	// FF_BEA = 280 (Nintendo EAD Bezel Engine Archive)
@@ -1562,6 +1563,89 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	{ FF_NUANMB, FF_NUANMB, 0, "NUANMB", ".nuanmb", ".szs", ".nuanmb",
 		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 0x53, 0x53, 0x42, 0x48 }, // "SSBH"
 		0, MinusString, MinusString, "Bandai Namco SSBH skeletal/material animation (NUANMB)" },
+
+	// FF_NTTF = 293 (Nintendo DS / DSi manual texture)
+	{ FF_NTTF, 0, 0, "NTTF", ".nttf", ".nttf", ".nttf",
+		FFT_VALID | FFT_GRAPHIC | FFT_DECODE, 0, { 0 },
+		0, MinusString, MinusString, "Nintendo DS / DSi manual texture (.nttf / .bnttf)" },
+
+	// FF_MPBIN = 294 (Hudson Soft Mario Party Archive)
+	{ FF_MPBIN, FF_MPBIN, 0, "MPBIN", ".bin", ".bin", ".bin",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Hudson Soft Mario Party Archive (.bin / .mpb, Mario Party 4-8)" },
+
+	// FF_ATB = 295 (Hudson Soft Animation Texture Bank)
+	{ FF_ATB, FF_ATB, 0, "ATB", ".atb", ".atb", ".atb",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Hudson Soft Animation Texture Bank (.atb, Mario Party 4-8)" },
+
+	// FF_PTD = 296 (Hudson Soft DSP Audio Archive)
+	{ FF_PTD, FF_PTD, 0, "PTD", ".ptd", ".ptd", ".ptd",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Hudson Soft DSP ADPCM Audio Archive (.ptd / .pdt, Mario Party 4-8)" },
+
+	// FF_HBDF = 297 (Hudson Soft Nitro 3D Model)
+	{ FF_HBDF, FF_HBDF, 0, "HBDF", ".hbdf", ".hbdf", ".hbdf",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 'H', 'B', 'D', 'F' }, 0, MinusString, MinusString,
+		"Hudson Soft Nitro 3D Model (.hbdf / .hsdf, Mario Party DS)" },
+
+	// FF_LZBIN = 298 (Hudson Soft Nitro Compressed Archive)
+	{ FF_LZBIN, FF_LZBIN, 0, "LZBIN", ".bin", ".bin", ".bin",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Hudson Soft Nitro Compressed Archive (.bin / .lzbin, Mario Party DS)" },
+
+	// FF_SHDVAR = 299 (NintendoWare Layout Shader Variation Table)
+	{ FF_SHDVAR, FF_SHDVAR, 0, "SHDVAR", ".shdvartbl", ".shdvartbl", ".shdvartbl",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"NintendoWare Layout Shader Variation Table (.shdvartbl / .svt)" },
+
+	// FF_DDS = 300 (DirectDraw Surface texture)
+	{ FF_DDS, 0, 0, "DDS", ".dds", ".dds", ".dds",
+		FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE, 4,
+		{ 'D', 'D', 'S', ' ' }, 0, MinusString, MinusString,
+		"DirectDraw Surface texture (.dds)" },
+
+	// FF_ASTC = 301 (Adaptive Scalable Texture Compression)
+	{ FF_ASTC, 0, 0, "ASTC", ".astc", ".astc", ".astc",
+		FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE, 4,
+		{ 0x13, 0xab, 0xa1, 0x5c }, 0, MinusString, MinusString,
+		"Adaptive Scalable Texture Compression (.astc)" },
+
+	// FF_EFFN = 302 (Bandai Namco Effect File)
+	{ FF_EFFN, FF_EFFN, 0, "EFFN", ".eff", ".eff", ".eff",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 'E', 'F', 'F', 'N' }, 0, MinusString, MinusString,
+		"Bandai Namco Effect File (.eff / .effn, Super Smash Bros)" },
+
+	// FF_XB = 303 (Nd Cube Binary XML)
+	{ FF_XB, FF_XB, 0, "XB", ".xml", ".xml", ".xml",
+		FFT_VALID | FFT_DECODE, 2,
+		{ 'X', 'B' }, 0, MinusString, MinusString,
+		"Nd Cube Binary XML (.xml / XB, Mario Party 10 / Wii Party U)" },
+
+	// FF_MPMESS = 304 (Mario Party GCN/Wii Message File)
+	{ FF_MPMESS, FF_MPMESS, 0, "MPMESS", ".dat", ".dat", ".dat",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Mario Party GCN/Wii Message File (.dat, board.dat / mini.dat)" },
+
+	// FF_MPBOARD = 305 (Mario Party Board Data)
+	{ FF_MPBOARD, FF_MPBOARD, 0, "MPBOARD", ".bin", ".bin", ".bin",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Mario Party Board Data (.bin / .csv, Mario Party 4-8 & SMP)" },
+
+	// FF_BGLPBD = 306 (AGL Light Probe Data)
+	{ FF_BGLPBD, FF_BGLPBD, 0, "BGLPBD", ".bglpbd", ".szs", ".bglpbd",
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
+		{ 'A', 'A', 'M', 'P' }, 0, MinusString, MinusString,
+		"AGL Light Probe Data (.bglpbd / glpbd)" },
 
 	// FF_N
 	{ 0 }
@@ -1652,6 +1736,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_BFGRP, "BFGRP", "FGRP", 0x3801 }, { FF_GTX, "GTX", "GFX2", 0x3001 },
 	{ FF_FZIP, "FZIP", "FZIP", 0x103 }, { FF_GVR, "GVR", "GCIX", 0x3809 },
 	{ FF_SMDH, "SMDH", 0, 0x3009 }, { FF_SARC, "SARC", "SARC", 0xe05 },
+	{ FF_AAMP, "AAMP", "AAMP", 0x3001 },
 	{ FF_BFMA, "BFMA", "BFMA", 0xe05 }, { FF_ZLIB, "ZLIB", "ZLIB", 0x103 },
 	{ FF_ZLIB, "DEFLATE", 0, 0x103 }, { FF_ZSTD, "ZSTD", "ZSTD", 0x103 },
 	{ FF_ZSTD, "ZST", "ZST", 0x103 }, { FF_ZSTD, "ZS", "ZS", 0x103 },
@@ -1731,6 +1816,23 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_NULSTB, "NULSTB", "SSBH", 0x3001 },
 	{ FF_NURPDB, "NURPDB", "SSBH", 0x3001 },
 	{ FF_NUANMB, "NUANMB", "SSBH", 0x3001 },
+	{ FF_NTTF, "NTTF", 0, 0x1409 },
+	{ FF_NTTF, "BNTTF", 0, 0x1409 },
+	{ FF_MPBIN, "MPBIN", "MPB", 0xe05 },
+	{ FF_ATB, "ATB", 0, 0xe05 },
+	{ FF_PTD, "PTD", "PDT", 0xe05 },
+	{ FF_HBDF, "HBDF", "HSDF", 0x3001 },
+	{ FF_LZBIN, "LZBIN", 0, 0xe05 },
+	{ FF_SHDVAR, "SHDVAR", "SVT", 0x3001 },
+	{ FF_SHDVAR, "SHDVARTBL", 0, 0x3001 },
+	{ FF_DDS, "DDS", 0, 0x3009 },
+	{ FF_ASTC, "ASTC", 0, 0x3009 },
+	{ FF_EFFN, "EFFN", "EFF", 0xe05 },
+	{ FF_EFFN, "EFF", 0, 0xe05 },
+	{ FF_XB, "XB", 0, 0x3001 },
+	{ FF_MPMESS, "MPMESS", 0, 0xe05 },
+	{ FF_MPBOARD, "MPBOARD", 0, 0x3001 },
+	{ FF_BGLPBD, "BGLPBD", 0, 0x3001 },
 
 	{ 0, 0, 0, 0 }
 };

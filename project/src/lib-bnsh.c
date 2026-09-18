@@ -87,6 +87,108 @@ static bool read_pstring (char *dest, uint destsz, const u8 *data, size_t size, 
 	return true;
 }
 
+// Reads a Switch-family ResDict string (u16 length + characters)
+static bool bnsh_read_string (char *dest, uint destsz, const u8 *data, size_t size, u64 ptr)
+{
+	dest[0] = 0;
+	if (!ptr || (u64)ptr + 2 > size)
+		return false;
+	const u64 str_off = ptr + 2;
+	uint n = 0;
+	while (str_off + n < size && n < destsz - 1 && data[str_off + n])
+		n++;
+	memcpy (dest, data + str_off, n);
+	dest[n] = 0;
+	return true;
+}
+
+#define BNSH_MAX_DICT_NODES 4096
+
+static void decode_bnsh_resdict (FILE *out, const u8 *data, size_t size, u64 dict_off,
+	const s32 *slots, uint slot_count, uint slot_start_idx, ccp dict_name, ccp indent)
+{
+	if (!dict_off || (u64)dict_off + 8 > size)
+		return;
+
+	const s32 num_nodes_signed = (s32)rd_le32 (data + dict_off + 4);
+	if (num_nodes_signed <= 0 || num_nodes_signed > BNSH_MAX_DICT_NODES)
+		return;
+
+	const u64 num_nodes = (u64)num_nodes_signed;
+	const u64 nodes_base = dict_off + 8;
+	if (nodes_base + (num_nodes + 1) * 16 > size)
+		return;
+
+	fprintf (out, "%s%s:\n", indent, dict_name);
+	for (u64 i = 0; i < num_nodes; i++)
+	{
+		const u64 node_off = nodes_base + (i + 1) * 16;
+		const u64 key_ptr = rd_le64 (data + node_off + 8);
+		char name[256];
+		bnsh_read_string (name, sizeof (name), data, size, key_ptr);
+		fprintf (out, "%s  [%llu] %s", indent, (unsigned long long)i, name[0] ? name : "<unnamed>");
+		if (slots && (slot_start_idx + i) < slot_count)
+		{
+			fprintf (out, " (slot %d)", slots[slot_start_idx + i]);
+		}
+		fprintf (out, "\n");
+	}
+}
+
+static void decode_bnsh_reflection (FILE *out, const u8 *data, size_t size, u64 refl_stage_off,
+	ccp stage_name, ccp indent)
+{
+	if (!refl_stage_off || refl_stage_off + 0x48 > size)
+		return;
+
+	const u64 in_dict   = rd_le64 (data + refl_stage_off + 0x00);
+	const u64 out_dict  = rd_le64 (data + refl_stage_off + 0x08);
+	const u64 samp_dict = rd_le64 (data + refl_stage_off + 0x10);
+	const u64 ubo_dict  = rd_le64 (data + refl_stage_off + 0x18);
+	const u64 ssbo_dict = rd_le64 (data + refl_stage_off + 0x20);
+
+	const s32 out_idx   = (s32)rd_le32 (data + refl_stage_off + 0x28);
+	const s32 samp_idx  = (s32)rd_le32 (data + refl_stage_off + 0x2c);
+	const s32 ubo_idx   = (s32)rd_le32 (data + refl_stage_off + 0x30);
+	const s32 ssbo_idx  = (s32)rd_le32 (data + refl_stage_off + 0x34);
+
+	const u32 slot_off   = rd_le32 (data + refl_stage_off + 0x38);
+	const s32 slot_count = (s32)rd_le32 (data + refl_stage_off + 0x48);
+
+	s32 *slots = NULL;
+	if (slot_count > 0 && slot_count <= 8192 && (u64)slot_off + (u64)slot_count * 4 <= size)
+	{
+		slots = CALLOC (slot_count, sizeof (s32));
+		if (slots)
+		{
+			for (int k = 0; k < slot_count; k++)
+				slots[k] = (s32)rd_le32 (data + slot_off + (u64)k * 4);
+		}
+	}
+
+	fprintf (out, "%sreflection:\n", indent);
+	char sub_indent[128];
+	snprintf (sub_indent, sizeof (sub_indent), "%s  ", indent);
+
+	if (in_dict)
+		decode_bnsh_resdict (out, data, size, in_dict, slots, (uint)(slots ? slot_count : 0),
+			0, "inputs", sub_indent);
+	if (out_dict)
+		decode_bnsh_resdict (out, data, size, out_dict, slots, (uint)(slots ? slot_count : 0),
+			(uint)(out_idx >= 0 ? out_idx : 0), "outputs", sub_indent);
+	if (samp_dict)
+		decode_bnsh_resdict (out, data, size, samp_dict, slots, (uint)(slots ? slot_count : 0),
+			(uint)(samp_idx >= 0 ? samp_idx : 0), "samplers", sub_indent);
+	if (ubo_dict)
+		decode_bnsh_resdict (out, data, size, ubo_dict, slots, (uint)(slots ? slot_count : 0),
+			(uint)(ubo_idx >= 0 ? ubo_idx : 0), "uniform_buffers", sub_indent);
+	if (ssbo_dict)
+		decode_bnsh_resdict (out, data, size, ssbo_dict, slots, (uint)(slots ? slot_count : 0),
+			(uint)(ssbo_idx >= 0 ? ssbo_idx : 0), "storage_buffers", sub_indent);
+
+	FREE (slots);
+}
+
 enumError DecodeBNSH_Text (FILE *out, const u8 *data, size_t size)
 {
 	if (!out || !IsBNSH (data, size))
@@ -225,7 +327,27 @@ enumError DecodeBNSH_Text (FILE *out, const u8 *data, size_t size)
 						(long long)shader_offset2, shader_size);
 			}
 		}
+
+		// ShaderReflectionOffset at base + 120 (0x78)
+		if (base + 128 <= size)
+		{
+			const u64 refl_off = rd_le64 (data + base + 120);
+			if (refl_off && refl_off + 6 * 8 <= size)
+			{
+				for (uint s = 0; s < 6; s++)
+				{
+					const u64 stage_refl_off = rd_le64 (data + refl_off + (u64)s * 8);
+					if (stage_refl_off)
+					{
+						fprintf (out, "    %s ", bnsh_stage_name[s]);
+						decode_bnsh_reflection (out, data, size, stage_refl_off,
+							bnsh_stage_name[s], "      ");
+					}
+				}
+			}
+		}
 	}
 
 	return ERR_OK;
 }
+

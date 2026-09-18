@@ -51,15 +51,22 @@ fi
 
 # Bundled data files resolved next to the running tool by lib-passthru.c:
 # seeddb.bin for ctrtool's 3DS seed-crypto RomFS, prod.keys/title.keys for the
-# Switch tools (see resolve_bundled_tool()/locate_switch_key()). They are
-# non-executable so the loop above skips them -- copy them explicitly so the
-# installed CLI tools keep working out of the box.
-for data in seeddb.bin prod.keys title.keys; do
+# Switch tools, keys.txt/wiiu_keys for Wii U disc extraction (see resolve_bundled_tool(),
+# locate_switch_key(), locate_wiiu_resource()). They are non-executable so the
+# loop above skips them -- copy them explicitly so the installed CLI tools keep
+# working out of the box.
+for data in seeddb.bin prod.keys title.keys keys.txt; do
 	if [[ -f "$HERE/$data" ]]; then
 		cp -p "$HERE/$data" "$DEST/$data"
 		echo "  $data"
 	fi
 done
+
+if [[ -d "$HERE/wiiu_keys" ]]; then
+	mkdir -p "$DEST/wiiu_keys"
+	cp -Rp "$HERE/wiiu_keys/." "$DEST/wiiu_keys/"
+	echo "  wiiu_keys/ (Wii U retail disc keys)"
+fi
 
 if [[ -d "$HERE/share" ]]; then
 	SHARE_DEST="$DEST/../share/nintoolbox"

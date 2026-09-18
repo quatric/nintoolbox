@@ -119,7 +119,8 @@ bool NextLineScanText (ScanText_t *st)
 		while (ptr < eot && *ptr && *ptr != '\r' && *ptr != '\n')
 			ptr++;
 		ccp eol = ptr;
-		while (eol > line && eol[-1] == ' ' || eol[-1] == '\t')
+		// missing parens allowed eol[-1] to be read/decremented past 'line' (OOB)
+		while (eol > line && (eol[-1] == ' ' || eol[-1] == '\t'))
 			eol--;
 
 		st->is_value = *line == '@';

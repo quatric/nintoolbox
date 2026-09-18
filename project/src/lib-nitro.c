@@ -650,11 +650,14 @@ enumError ScanNitroTEX0 (nitro_tex0_t *tex0, const u8 *data, uint size)
 		for (uint s = 0; s < n_sec && 0x10 + (s + 1) * 4 <= size; s++)
 		{
 			const uint sec_off = nrd32 (data + 0x10 + s * 4);
-			if (sec_off + 8 <= size && !memcmp (data + sec_off, "TEX0", 4))
+			// sec_off is a raw attacker-controlled u32: "sec_off + 8 <= size"
+			// can wrap around in 32-bit arithmetic and pass with sec_off
+			// pointing far past the buffer, so check the base first.
+			if ((u64)sec_off + 8 <= size && !memcmp (data + sec_off, "TEX0", 4))
 			{
 				const uint sec_sz = nrd32 (data + sec_off + 4);
 				tex0_hdr = data + sec_off;
-				tex0_avail = sec_sz && sec_off + sec_sz <= size ? sec_sz : size - sec_off;
+				tex0_avail = sec_sz && (u64)sec_off + sec_sz <= size ? sec_sz : size - sec_off;
 				break;
 			}
 		}
@@ -1246,6 +1249,85 @@ enumError EncodeSPT_RGBA (u8 **dest, uint *dest_size, const u8 *rgba, uint width
 enumError DecodeNTGA_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, uint src_size)
 {
 	return Decode5TX_RGBA (dest, width, height, src, src_size);
+}
+
+bool IsNTTF (const u8 *data, uint size)
+{
+	if (!data || size < 16)
+		return false;
+	const u16 w = rd_le16 (data);
+	const u16 h = rd_le16 (data + 2);
+	const u8 fmt = data[4];
+	const u8 col0_alpha = data[5];
+	const u16 n_pal = rd_le16 (data + 6);
+	if (!w || !h || (fmt != 3 && fmt != 4) || col0_alpha > 1)
+		return false;
+	if (n_pal == 0 || n_pal > 256)
+		return false;
+	for (uint i = 8; i < 16; i++)
+		if (data[i] != 0)
+			return false;
+	const uint pix_bytes = (fmt == 4) ? ((uint)w * h) : (((uint)w * h + 1) / 2);
+	const uint expected_size = 16 + (uint)n_pal * 2 + pix_bytes;
+	return size == expected_size;
+}
+
+enumError DecodeNTTF_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, uint src_size)
+{
+	if (!dest || !width || !height || !IsNTTF (src, src_size))
+		return EINVAL;
+
+	const uint w = rd_le16 (src);
+	const uint h = rd_le16 (src + 2);
+	const u8 fmt = src[4];
+	const u8 col0_alpha = src[5];
+	const uint n_pal = rd_le16 (src + 6);
+
+	u8 pal_rgba[256][4];
+	memset (pal_rgba, 0, sizeof (pal_rgba));
+	const u8 *pal_src = src + 16;
+	for (uint i = 0; i < n_pal; i++)
+	{
+		const u16 bgr = rd_le16 (pal_src + i * 2);
+		pal_rgba[i][0] = (u8)((bgr & 31) * 255 / 31);
+		pal_rgba[i][1] = (u8)(((bgr >> 5) & 31) * 255 / 31);
+		pal_rgba[i][2] = (u8)(((bgr >> 10) & 31) * 255 / 31);
+		pal_rgba[i][3] = (i == 0 && !col0_alpha) ? 0 : 255;
+	}
+
+	u8 *out = CALLOC ((size_t)w * h, 4);
+	if (!out)
+		return ERR_OUT_OF_MEMORY;
+
+	const u8 *pix = src + 16 + n_pal * 2;
+	if (fmt == 4)
+	{
+		for (uint i = 0; i < w * h; i++)
+		{
+			const uint idx = pix[i];
+			if (idx < n_pal)
+				memcpy (out + i * 4, pal_rgba[idx], 4);
+			else
+				out[i * 4 + 3] = 0;
+		}
+	}
+	else
+	{
+		for (uint i = 0; i < w * h; i++)
+		{
+			const u8 b = pix[i / 2];
+			const uint idx = (i & 1) ? (b >> 4) : (b & 0x0F);
+			if (idx < n_pal)
+				memcpy (out + i * 4, pal_rgba[idx], 4);
+			else
+				out[i * 4 + 3] = 0;
+		}
+	}
+
+	*dest = out;
+	*width = w;
+	*height = h;
+	return ERR_OK;
 }
 
 //-----------------------------------------------------------------------------

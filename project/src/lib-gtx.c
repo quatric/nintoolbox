@@ -1965,3 +1965,207 @@ enumError create_gsh_dir (ccp source, ccp dest)
 	return err;
 }
 
+static ccp gx2_shader_var_type_name (u32 t)
+{
+	switch (t)
+	{
+		case 0: return "void";
+		case 1: return "bool";
+		case 2: return "int";
+		case 3: return "uint";
+		case 4: return "float";
+		case 5: return "double";
+		case 6: return "double2";
+		case 7: return "double3";
+		case 8: return "double4";
+		case 9: return "float2";
+		case 10: return "float3";
+		case 11: return "float4";
+		case 12: return "bool2";
+		case 13: return "bool3";
+		case 14: return "bool4";
+		case 15: return "int2";
+		case 16: return "int3";
+		case 17: return "int4";
+		case 18: return "uint2";
+		case 19: return "uint3";
+		case 20: return "uint4";
+		case 21: return "float2x2";
+		case 22: return "float2x3";
+		case 23: return "float2x4";
+		case 24: return "float3x2";
+		case 25: return "float3x3";
+		case 26: return "float3x4";
+		case 27: return "float4x2";
+		case 28: return "float4x3";
+		case 29: return "float4x4";
+		case 30: return "double2x2";
+		case 31: return "double2x3";
+		case 32: return "double2x4";
+		case 33: return "double3x2";
+		case 34: return "double3x3";
+		case 35: return "double3x4";
+		case 36: return "double4x2";
+		case 37: return "double4x3";
+		case 38: return "double4x4";
+		default: return "unknown";
+	}
+}
+
+static ccp gx2_sampler_var_type_name (u32 t)
+{
+	switch (t)
+	{
+		case 0: return "sampler_1d";
+		case 1: return "sampler_2d";
+		case 3: return "sampler_3d";
+		case 4: return "sampler_cube";
+		case 6: return "sampler_2d_shadow";
+		case 10: return "sampler_2d_array";
+		case 12: return "sampler_2d_array_shadow";
+		case 13: return "sampler_cube_array";
+		default: return "unknown_sampler";
+	}
+}
+
+static void decode_gx2_header_tables (FILE *out, const u8 *hdata, uint hsize)
+{
+	if (hsize < 264)
+		return;
+
+	const u32 mode = grd32 (hdata + 216);
+	const u32 ublock_count = grd32 (hdata + 220);
+	const u32 ublock_off = grd32 (hdata + 224) & ~0xD0600000;
+	const u32 uvar_count = grd32 (hdata + 228);
+	const u32 uvar_off = grd32 (hdata + 232) & ~0xD0600000;
+	const u32 loop_count = grd32 (hdata + 244);
+	const u32 loop_off = grd32 (hdata + 248) & ~0xD0600000;
+	const u32 samp_count = grd32 (hdata + 252);
+	const u32 samp_off = grd32 (hdata + 256) & ~0xD0600000;
+
+	fprintf (out, "    mode = %u\n", mode);
+
+	if (ublock_count && (u64)ublock_off + (u64)ublock_count * 12 <= hsize)
+	{
+		fprintf (out, "    uniform_blocks:\n");
+		for (u32 i = 0; i < ublock_count; i++)
+		{
+			const u8 *p = hdata + ublock_off + i * 12;
+			const u32 name_off = grd32 (p) & ~0xCA700000;
+			const u32 offset = grd32 (p + 4);
+			const u32 size = grd32 (p + 8);
+			ccp name = (name_off < hsize) ? (ccp)(hdata + name_off) : "<invalid>";
+			fprintf (out, "      [%u] %s: offset = %u, size = %u\n", i, name, offset, size);
+		}
+	}
+
+	if (uvar_count && (u64)uvar_off + (u64)uvar_count * 20 <= hsize)
+	{
+		fprintf (out, "    uniforms:\n");
+		for (u32 i = 0; i < uvar_count; i++)
+		{
+			const u8 *p = hdata + uvar_off + i * 20;
+			const u32 name_off = grd32 (p) & ~0xCA700000;
+			const u32 type = grd32 (p + 4);
+			const u32 count = grd32 (p + 8);
+			const u32 offset = grd32 (p + 12);
+			const u32 block_idx = grd32 (p + 16);
+			ccp name = (name_off < hsize) ? (ccp)(hdata + name_off) : "<invalid>";
+			fprintf (out, "      [%u] %s: type = %s(%u), count = %u, offset = %u, block = %u\n",
+				i, name, gx2_shader_var_type_name (type), type, count, offset, block_idx);
+		}
+	}
+
+	if (samp_count && (u64)samp_off + (u64)samp_count * 12 <= hsize)
+	{
+		fprintf (out, "    samplers:\n");
+		for (u32 i = 0; i < samp_count; i++)
+		{
+			const u8 *p = hdata + samp_off + i * 12;
+			const u32 name_off = grd32 (p) & ~0xCA700000;
+			const u32 type = grd32 (p + 4);
+			const u32 loc = grd32 (p + 8);
+			ccp name = (name_off < hsize) ? (ccp)(hdata + name_off) : "<invalid>";
+			fprintf (out, "      [%u] %s: type = %s(%u), location = %u\n",
+				i, name, gx2_sampler_var_type_name (type), type, loc);
+		}
+	}
+
+	if (hsize >= 268)
+	{
+		const u32 attr_count = grd32 (hdata + 260);
+		const u32 attr_off = grd32 (hdata + 264) & ~0xD0600000;
+		if (attr_count && (u64)attr_off + (u64)attr_count * 16 <= hsize)
+		{
+			fprintf (out, "    attributes:\n");
+			for (u32 i = 0; i < attr_count; i++)
+			{
+				const u8 *p = hdata + attr_off + i * 16;
+				const u32 name_off = grd32 (p) & ~0xCA700000;
+				const u32 type = grd32 (p + 4);
+				const u32 count = grd32 (p + 8);
+				const s32 loc = (s32)grd32 (p + 12);
+				ccp name = (name_off < hsize) ? (ccp)(hdata + name_off) : "<invalid>";
+				fprintf (out, "      [%u] %s: type = %s(%u), count = %u, location = %d\n",
+					i, name, gx2_shader_var_type_name (type), type, count, loc);
+			}
+		}
+	}
+
+	if (loop_count && (u64)loop_off + (u64)loop_count * 8 <= hsize)
+	{
+		fprintf (out, "    loops:\n");
+		for (u32 i = 0; i < loop_count; i++)
+		{
+			const u8 *p = hdata + loop_off + i * 8;
+			const u32 offset = grd32 (p);
+			const u32 val = grd32 (p + 4);
+			fprintf (out, "      [%u] offset = %u, value = 0x%08x\n", i, offset, val);
+		}
+	}
+}
+
+enumError DecodeGSH_Text (FILE *out, const u8 *data, size_t size)
+{
+	if (!out || !data || size < 32 || memcmp (data, "Gfx2", 4))
+		return ERR_INVALID_DATA;
+
+	gtx_t gtx;
+	enumError err = ScanGTX (&gtx, data, (uint)size);
+	if (err)
+		return err;
+
+	fprintf (out, "#GSH\n"
+		"version = %u.%u\n"
+		"gpu_version = %u\n"
+		"alignment = %u\n"
+		"blocks = %u\n"
+		"shaders = %u\n\n",
+		gtx.version_major, gtx.version_minor, gtx.gpu_version,
+		gtx.alignment, gtx.n_blocks, gtx.n_shaders);
+
+	static const ccp stage_names[] = { "vertex", "pixel", "geometry", "compute" };
+
+	for (uint i = 0; i < gtx.n_shaders; i++)
+	{
+		const gtx_shader_t *s = gtx.shaders + i;
+		fprintf (out, "[shader.%u]\n"
+			"  stage = %s\n",
+			i, (s->stage <= GTX_SHADER_COMPUTE) ? stage_names[s->stage] : "unknown");
+
+		if (s->header)
+		{
+			fprintf (out, "  header: offset = %u, size = %u\n", s->header->offset, s->header->data_size);
+			decode_gx2_header_tables (out, s->header->data, s->header->data_size);
+		}
+		if (s->program)
+			fprintf (out, "  program: offset = %u, size = %u\n", s->program->offset, s->program->data_size);
+		if (s->copy_program)
+			fprintf (out, "  copy_program: offset = %u, size = %u\n", s->copy_program->offset, s->copy_program->data_size);
+		fprintf (out, "\n");
+	}
+
+	ResetGTX (&gtx);
+	return ERR_OK;
+}
+

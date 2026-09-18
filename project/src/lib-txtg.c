@@ -94,7 +94,7 @@ enumError ExtractTXTGArchive (ccp arg, ccp basedir, uint depth)
 			break;
 
 		const u32 to_write
-			= cur_data_off + surf_sz <= raw_size ? surf_sz : (u32)(raw_size - cur_data_off);
+			= (u64)cur_data_off + surf_sz <= raw_size ? surf_sz : (u32)(raw_size - cur_data_off);
 
 		char out_path[PATH_MAX];
 		snprintf (out_path, sizeof (out_path), "%s/surface_a%u_m%u.bin", dest, array_lvl, mip_lvl);

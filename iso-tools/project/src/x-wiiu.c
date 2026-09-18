@@ -386,12 +386,133 @@ static enumError load_disc_key (ccp source, u8 key[16])
 		char path[PATH_MAX];
 		snprintf (path, sizeof (path), "%s.key", source);
 		FILE *f = fopen (path, "rb");
+		if (!f)
+		{
+			ccp dot = strrchr (source, '.');
+			ccp end = dot && dot > source ? dot : source + strlen (source);
+			snprintf (path, sizeof (path), "%.*s.key", (int)(end - source), source);
+			f = fopen (path, "rb");
+		}
 		if (f)
 		{
 			size_t n = fread (hexbuf, 1, sizeof (hexbuf) - 1, f);
 			fclose (f);
+			if (n == 16)
+			{
+				memcpy (key, hexbuf, 16);
+				return ERR_OK;
+			}
 			hexbuf[n] = 0;
 			hex = hexbuf;
+		}
+	}
+
+	if (!hex)
+	{
+		ccp slash = strrchr (source, '/');
+#if defined(_WIN32) || defined(__CYGWIN__)
+		ccp bslash = strrchr (source, '\\');
+		if (bslash && (!slash || bslash > slash))
+			slash = bslash;
+#endif
+		ccp fname = slash ? slash + 1 : source;
+		ccp fdot = strrchr (fname, '.');
+		int blen = fdot && fdot > fname ? (int)(fdot - fname) : (int)strlen (fname);
+		char base[256];
+		snprintf (base, sizeof (base), "%.*s", blen, fname);
+
+		ccp dir = ProgramDirectory ();
+		char cand[PATH_MAX];
+		if (dir && *dir)
+		{
+			snprintf (cand, sizeof (cand), "%s/wiiu_keys/%s.key", dir, base);
+			FILE *kf = fopen (cand, "rb");
+			if (!kf)
+			{
+				snprintf (cand, sizeof (cand), "%s/third_party/wiiu_keys/%s.key", dir, base);
+				kf = fopen (cand, "rb");
+			}
+			if (!kf)
+			{
+				snprintf (cand, sizeof (cand), "%s/../third_party/wiiu_keys/%s.key", dir, base);
+				kf = fopen (cand, "rb");
+			}
+			if (!kf)
+			{
+				snprintf (cand, sizeof (cand), "%s/../project/third_party/wiiu_keys/%s.key", dir, base);
+				kf = fopen (cand, "rb");
+			}
+			if (!kf)
+			{
+				snprintf (cand, sizeof (cand), "%s/../../project/third_party/wiiu_keys/%s.key", dir, base);
+				kf = fopen (cand, "rb");
+			}
+			if (kf)
+			{
+				size_t n = fread (key, 1, 16, kf);
+				fclose (kf);
+				if (n == 16)
+					return ERR_OK;
+			}
+		}
+
+		// Also check keys.txt
+		char ktxt[PATH_MAX] = "";
+		if (dir && *dir)
+		{
+			snprintf (ktxt, sizeof (ktxt), "%s/keys.txt", dir);
+			if (access (ktxt, R_OK))
+				snprintf (ktxt, sizeof (ktxt), "%s/third_party/keys.txt", dir);
+			if (access (ktxt, R_OK))
+				snprintf (ktxt, sizeof (ktxt), "%s/../third_party/keys.txt", dir);
+			if (access (ktxt, R_OK))
+				snprintf (ktxt, sizeof (ktxt), "%s/../project/third_party/keys.txt", dir);
+			if (access (ktxt, R_OK))
+				snprintf (ktxt, sizeof (ktxt), "%s/../../project/third_party/keys.txt", dir);
+		}
+		if (!*ktxt || access (ktxt, R_OK))
+		{
+			const char *home = getenv ("HOME");
+			if (home)
+				snprintf (ktxt, sizeof (ktxt), "%s/.cemu/keys.txt", home);
+		}
+
+		if (!access (ktxt, R_OK))
+		{
+			FILE *f = fopen (ktxt, "r");
+			if (f)
+			{
+				char line[512];
+				while (fgets (line, sizeof (line), f))
+				{
+					char *p = line;
+					while (*p == ' ' || *p == '\t') p++;
+					if (*p == '#' || *p == ';' || !*p) continue;
+					char *hash = strchr (p, '#');
+					if (!hash) continue;
+					char *comment = hash + 1;
+					while (*comment == ' ' || *comment == '\t') comment++;
+					char *endc = comment + strlen (comment);
+					while (endc > comment && (endc[-1] == '\r' || endc[-1] == '\n' || endc[-1] == ' ' || endc[-1] == '\t'))
+						*--endc = '\0';
+					if (strcasecmp (comment, base) == 0 || strstr (base, comment) != NULL || strstr (comment, base) != NULL)
+					{
+						int hlen = 0;
+						while (p[hlen] && isxdigit ((unsigned char)p[hlen]) && hlen < 32)
+						{
+							hexbuf[hlen] = p[hlen];
+							hlen++;
+						}
+						if (hlen == 32)
+						{
+							hexbuf[32] = '\0';
+							hex = hexbuf;
+							break;
+						}
+					}
+				}
+				fclose (f);
+			}
 		}
 	}
 
@@ -400,7 +521,7 @@ static enumError load_disc_key (ccp source, u8 key[16])
 			"No Wii U disc key found.\n"
 			"The disc key is not stored on the disc and can't be derived;"
 			" supply it either via the WIIU_DISC_KEY environment variable"
-			" (32 hex chars) or a sidecar file named '%s.key'.\n",
+			" (32 hex chars), a sidecar file named '%s.key', or bundled keys.\n",
 			source);
 
 	uint i;

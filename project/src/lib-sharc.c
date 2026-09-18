@@ -469,6 +469,191 @@ static enumError DecodeSHARCFBNX_Text (FILE *out, const u8 *data, size_t size,
 	return ERR_OK;
 }
 
+
+static void print_sharcfb_symbol_list (FILE *out, const u8 *data, size_t size, u64 *cur_pos,
+	bool is_le, ccp list_name, ccp indent)
+{
+	u64 p = *cur_pos;
+	if (p + 8 > size)
+		return;
+	const u32 sec_size = is_le ? rd_le32 (data + p) : rd_be32 (data + p);
+	const u32 count = is_le ? rd_le32 (data + p + 4) : rd_be32 (data + p + 4);
+	if (!sec_size || p + sec_size > size)
+	{
+		*cur_pos = p + (sec_size ? sec_size : 8);
+		return;
+	}
+
+	if (count)
+		fprintf (out, "%s%s:\n", indent, list_name);
+
+	u64 item_p = p + 8;
+	const u64 sec_end = p + sec_size;
+
+	for (u32 i = 0; i < count && item_p + 4 <= sec_end; i++)
+	{
+		const u32 item_sec_size = is_le ? rd_le32 (data + item_p) : rd_be32 (data + item_p);
+		if (!item_sec_size || item_p + item_sec_size > sec_end)
+			break;
+
+		if (item_p + 24 <= item_p + item_sec_size)
+		{
+			const u32 sym_size = is_le ? rd_le32 (data + item_p + 4) : rd_be32 (data + item_p + 4);
+			const u32 var_name_len = is_le ? rd_le32 (data + item_p + 8) : rd_be32 (data + item_p + 8);
+			const u32 sym_name_len = is_le ? rd_le32 (data + item_p + 12) : rd_be32 (data + item_p + 12);
+			const u64 str_p = item_p + 24;
+
+			char var_name[128] = "", sym_name[128] = "";
+			if (str_p + var_name_len <= item_p + item_sec_size)
+				copy_name (var_name, sizeof (var_name), data + str_p, var_name_len, data + size);
+			if (str_p + var_name_len + sym_name_len <= item_p + item_sec_size)
+				copy_name (sym_name, sizeof (sym_name), data + str_p + var_name_len, sym_name_len, data + size);
+
+			fprintf (out, "%s  [%u] %s (symbol = %s, size = %u)\n", indent, i,
+				var_name[0] ? var_name : "<unnamed>", sym_name, sym_size);
+		}
+		item_p += item_sec_size;
+	}
+	*cur_pos = p + sec_size;
+}
+
+static void print_sharcfb_macro_list (FILE *out, const u8 *data, size_t size, u64 *cur_pos,
+	bool is_le, ccp list_name, ccp indent)
+{
+	u64 p = *cur_pos;
+	if (p + 8 > size)
+		return;
+	const u32 sec_size = is_le ? rd_le32 (data + p) : rd_be32 (data + p);
+	const u32 count = is_le ? rd_le32 (data + p + 4) : rd_be32 (data + p + 4);
+	if (!sec_size || p + sec_size > size)
+	{
+		*cur_pos = p + (sec_size ? sec_size : 8);
+		return;
+	}
+
+	if (count)
+		fprintf (out, "%s%s:\n", indent, list_name);
+
+	u64 item_p = p + 8;
+	const u64 sec_end = p + sec_size;
+
+	for (u32 i = 0; i < count && item_p + 4 <= sec_end; i++)
+	{
+		const u32 item_sec_size = is_le ? rd_le32 (data + item_p) : rd_be32 (data + item_p);
+		if (!item_sec_size || item_p + item_sec_size > sec_end)
+			break;
+
+		if (item_p + 16 <= item_p + item_sec_size)
+		{
+			const u32 name_len = is_le ? rd_le32 (data + item_p + 4) : rd_be32 (data + item_p + 4);
+			const u32 val_cnt = is_le ? rd_le32 (data + item_p + 8) : rd_be32 (data + item_p + 8);
+			char mname[128] = "";
+			copy_name (mname, sizeof (mname), data + item_p + 16, name_len, data + size);
+			fprintf (out, "%s  [%u] %s (%u values)\n", indent, i, mname[0] ? mname : "<unnamed>", val_cnt);
+		}
+		item_p += item_sec_size;
+	}
+	*cur_pos = p + sec_size;
+}
+
+static enumError DecodeSHARCFBWiiU_Text (FILE *out, const u8 *data, size_t size, u32 version,
+	bool is_le, u32 name_length)
+{
+	char name[256];
+	copy_name (name, sizeof (name), data + 24, name_length, data + size);
+	fprintf (out, "name = %s\n\n", name);
+
+	u64 p = 24 + (u64)name_length;
+
+	// Section 1: Binaries
+	if (p + 8 <= size)
+	{
+		const u32 sec1_size = is_le ? rd_le32 (data + p) : rd_be32 (data + p);
+		const u32 binary_count = is_le ? rd_le32 (data + p + 4) : rd_be32 (data + p + 4);
+		const u64 sec1_end = p + sec1_size;
+
+		fprintf (out, "[binaries]\nbinary_count = %u\n", binary_count);
+
+		u64 bp = p + 8;
+		static const ccp gx2_types[4] = { "Vertex", "Pixel", "Geometry", "Unknown" };
+
+		for (u32 i = 0; i < binary_count && bp + 4 <= sec1_end && bp + 4 <= size; i++)
+		{
+			const u32 b_sec_size = is_le ? rd_le32 (data + bp) : rd_be32 (data + bp);
+			if (!b_sec_size || bp + b_sec_size > size)
+				break;
+
+			if (bp + 16 <= size)
+			{
+				const u32 b_type = is_le ? rd_le32 (data + bp + 4) : rd_be32 (data + bp + 4);
+				const u32 b_size = is_le ? rd_le32 (data + bp + 12) : rd_be32 (data + bp + 12);
+				ccp tname = b_type < 3 ? gx2_types[b_type] : gx2_types[3];
+				fprintf (out, "  [%u] type = %s, size = %u\n", i, tname, b_size);
+			}
+			bp += b_sec_size;
+		}
+
+		p = sec1_end;
+	}
+
+	// Section 2: Programs
+	if (p + 8 <= size)
+	{
+		const u32 sec2_size = is_le ? rd_le32 (data + p) : rd_be32 (data + p);
+		const u32 program_count = is_le ? rd_le32 (data + p + 4) : rd_be32 (data + p + 4);
+		const u64 sec2_end = p + sec2_size;
+
+		fprintf (out, "\n[programs]\nprogram_count = %u\n", program_count);
+
+		u64 pp = p + 8;
+
+		for (u32 i = 0; i < program_count && pp + 4 <= sec2_end && pp + 4 <= size; i++)
+		{
+			const u32 p_sec_size = is_le ? rd_le32 (data + pp) : rd_be32 (data + pp);
+			if (!p_sec_size || pp + p_sec_size > size)
+				break;
+
+			if (pp + 16 <= size)
+			{
+				const u32 p_name_len = is_le ? rd_le32 (data + pp + 4) : rd_be32 (data + pp + 4);
+				const u32 kind = is_le ? rd_le32 (data + pp + 8) : rd_be32 (data + pp + 8);
+				const s32 base_idx = (s32)(is_le ? rd_le32 (data + pp + 12) : rd_be32 (data + pp + 12));
+
+				char prog_name[256];
+				copy_name (prog_name, sizeof (prog_name), data + pp + 16, p_name_len, data + size);
+				fprintf (out, "  [%u] %s (kind = 0x%x, base_index = %d)\n",
+					i, prog_name[0] ? prog_name : "<unnamed>", kind, base_idx);
+
+				u64 cp = pp + 16 + p_name_len;
+				const u64 pp_end = pp + p_sec_size;
+
+				if (cp < pp_end)
+					print_sharcfb_macro_list (out, data, size, &cp, is_le, "variation_macros", "    ");
+				if (cp < pp_end)
+					print_sharcfb_macro_list (out, data, size, &cp, is_le, "variation_defaults", "    ");
+				if (cp < pp_end)
+					print_sharcfb_symbol_list (out, data, size, &cp, is_le, "uniforms", "    ");
+
+				if (version >= 9 && cp + 4 <= pp_end)
+				{
+					const u32 skip_sz = is_le ? rd_le32 (data + cp) : rd_be32 (data + cp);
+					cp += 4 + skip_sz;
+				}
+
+				if (cp < pp_end)
+					print_sharcfb_symbol_list (out, data, size, &cp, is_le, "uniform_blocks", "    ");
+				if (cp < pp_end)
+					print_sharcfb_symbol_list (out, data, size, &cp, is_le, "samplers", "    ");
+				if (cp < pp_end)
+					print_sharcfb_symbol_list (out, data, size, &cp, is_le, "attributes", "    ");
+			}
+			pp += p_sec_size;
+		}
+	}
+
+	return ERR_OK;
+}
+
 enumError DecodeSHARCFB_Text (FILE *out, const u8 *data, size_t size)
 {
 	if (!out || !IsSHARCFB (data, size))
@@ -499,9 +684,5 @@ enumError DecodeSHARCFB_Text (FILE *out, const u8 *data, size_t size)
 	if ((u64)24 + name_length > size)
 		return ERROR0 (ERR_INVALID_DATA, "SHARCFB: truncated archive name\n");
 
-	char name[256];
-	copy_name (name, sizeof (name), data + 24, name_length, data + size);
-	fprintf (out, "name = %s\n", name);
-
-	return ERR_OK;
+	return DecodeSHARCFBWiiU_Text (out, data, size, version, is_le, name_length);
 }
