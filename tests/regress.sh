@@ -1373,6 +1373,106 @@ t_bntx_legacy(){
 }
 t_bntx_legacy
 
+t_bntx_native(){
+  # BNTX-Extractor parity: native block export (deswizzled but still
+  # compressed) -- DDS for BCn and uncompressed textures, raw .astc for
+  # ASTC ones -- instead of decoding to RGBA. DDS headers follow the
+  # reference dds.py (DXT1/DXT3/DXT5 FourCC, DX10 extension for
+  # BC4S/BC5S/BC6H/BC7, channel-selector bitmasks for uncompressed).
+  local d; d=$(mktemp -d /tmp/_r_bntx_native.XXXXXX) || { no "BNTX native DDS/ASTC export" "mktemp failed"; return; }
+  local f="$PWD_PROJECT/../tests/fixtures/smo_hint_photo_astc.bntx"
+  [ -f "$f" ] || { sk "BNTX native DDS/ASTC export (no ASTC fixture)"; rm -rf "$d"; return; }
+
+  # 1. ASTC_4x4 -> raw .astc (magic, 4x4 footprint, 1280x720, full payload).
+  "$B/wimgt" DECODE "$f" --dest "$d/hint.astc" --overwrite >/dev/null 2>&1 \
+  || { no "BNTX ASTC -> .astc" "export failed"; rm -rf "$d"; return; }
+  if [ "$(xxd -s 0 -l 4 -p "$d/hint.astc")" = "13aba15c" ] \
+  && [ "$(xxd -s 4 -l 2 -p "$d/hint.astc")" = "0404" ] \
+  && [ "$(xxd -s 7 -l 3 -p "$d/hint.astc")" = "000500" ] \
+  && [ "$(xxd -s 10 -l 3 -p "$d/hint.astc")" = "d00200" ] \
+  && [ "$(wc -c < "$d/hint.astc" | tr -d ' ')" = "921616" ]; then
+    ok "BNTX ASTC_4x4 -> raw .astc (header + 320x180 blocks)"
+  else
+    no "BNTX ASTC -> .astc" "header mismatch"
+  fi
+
+  # 2. The .astc cross-decodes to the same rich image as a direct decode.
+  "$B/wimgt" DECODE "$d/hint.astc" --dest "$d/hint.png" --overwrite >/dev/null 2>&1
+  local colors
+  colors=$(python3 "$PNGTOOL" colors "$d/hint.png" 1000000 2>/dev/null)
+  case "$colors" in ''|*[!0-9]*) colors=0;; esac
+  if [ -s "$d/hint.png" ] && [ "${colors:-0}" -gt 20 ]; then
+    ok "BNTX .astc -> PNG cross-decode ($colors colours)"
+  else
+    no "BNTX .astc cross-decode" "$d/hint.astc"
+  fi
+
+  # 3. ASTC -> .dds must refuse with a pointer to .astc (reference: "Can't convert").
+  if "$B/wimgt" DECODE "$f" --dest "$d/hint.dds" --overwrite >/dev/null 2>&1; then
+    no "BNTX ASTC -> .dds refusal" "unexpected success"
+  else
+    ok "BNTX ASTC -> .dds refused (use .astc)"
+  fi
+
+  # 4. RGBA8 roundtrip: PNG -> BNTX -> DDS keeps native dims + pixels.
+  python3 "$PNGTOOL" write "$d/base.png" 16 16 100 150 200 >/dev/null 2>&1 \
+  && "$B/wimgt" ENCODE "$d/base.png" --dest "$d/base.bntx" --overwrite >/dev/null 2>&1 \
+  || { no "BNTX native DDS roundtrip" "fixture build failed"; rm -rf "$d"; return; }
+  "$B/wimgt" DECODE "$d/base.bntx" --dest "$d/base.dds" --overwrite >/dev/null 2>&1 \
+  || { no "BNTX RGBA8 -> .dds" "export failed"; rm -rf "$d"; return; }
+  if [ "$(xxd -s 0 -l 4 -p "$d/base.dds")" = "44445320" ] \
+  && [ "$(xxd -s 12 -l 4 -p "$d/base.dds")" = "10000000" ] \
+  && [ "$(xxd -s 16 -l 4 -p "$d/base.dds")" = "10000000" ]; then
+    ok "BNTX RGBA8 -> .dds (DDS header, 16x16)"
+  else
+    no "BNTX RGBA8 -> .dds" "header mismatch"
+  fi
+  "$B/wimgt" DECODE "$d/base.dds" --dest "$d/base_rt.png" --overwrite >/dev/null 2>&1
+  if python3 "$PNGTOOL" pixel "$d/base_rt.png" 0 0 100 150 200 255 2>/dev/null \
+  && python3 "$PNGTOOL" pixel "$d/base_rt.png" 15 15 100 150 200 255 2>/dev/null; then
+    ok "BNTX .dds -> PNG cross-decode (pixel-exact)"
+  else
+    no "BNTX .dds cross-decode" "pixel mismatch"
+  fi
+
+  # 5. CONVERT honours the native path too (byte-identical to DECODE).
+  if "$B/wimgt" CONVERT "$d/base.bntx" --dest "$d/conv.dds" --overwrite >/dev/null 2>&1 \
+  && [ "$(xxd -s 0 -l 4 -p "$d/conv.dds")" = "44445320" ] \
+  && cmp -s "$d/base.dds" "$d/conv.dds"; then
+    ok "BNTX CONVERT -> .dds (native blocks)"
+  else
+    no "BNTX CONVERT -> .dds" "mismatch"
+  fi
+
+  # 6. Forged BC1 texture -> .dds with DXT1 FourCC, quadrant-exact pixels.
+  python3 "$PNGTOOL" write "$d/bc8.png" 8 8 9 9 9 >/dev/null 2>&1 \
+  && "$B/wimgt" ENCODE "$d/bc8.png" --dest "$d/bc8.bntx" --overwrite >/dev/null 2>&1 \
+  && python3 "$PWD_PROJECT/../tests/mk_bntx_bc1.py" "$d/bc8.bntx" "$d/bc1.bntx" >/dev/null 2>&1 \
+  || { no "BNTX BC1 fixture" "build failed"; rm -rf "$d"; return; }
+  "$B/wimgt" DECODE "$d/bc1.bntx" --dest "$d/bc1.dds" --overwrite >/dev/null 2>&1 \
+  || { no "BNTX BC1 -> .dds" "export failed"; rm -rf "$d"; return; }
+  "$B/wimgt" DECODE "$d/bc1.dds" --dest "$d/bc1.png" --overwrite >/dev/null 2>&1
+  if [ "$(xxd -s 84 -l 4 -p "$d/bc1.dds")" = "44585431" ] \
+  && python3 "$PNGTOOL" pixel "$d/bc1.png" 0 0 255 0 0 255 2>/dev/null \
+  && python3 "$PNGTOOL" pixel "$d/bc1.png" 7 0 0 255 0 255 2>/dev/null \
+  && python3 "$PNGTOOL" pixel "$d/bc1.png" 0 7 0 0 255 255 2>/dev/null \
+  && python3 "$PNGTOOL" pixel "$d/bc1.png" 7 7 255 255 255 255 2>/dev/null; then
+    ok "BNTX BC1 -> .dds (DXT1, quadrant-exact)"
+  else
+    no "BNTX BC1 -> .dds" "payload mismatch"
+  fi
+
+  # 7. Structural dump carries the extractor-style surface fields.
+  if "$B/wszst" DUMP "$f" 2>&1 | grep -q "Swizzle: 0, Flags: 1, Dim: 2" \
+  && "$B/wszst" DUMP "$f" 2>&1 | grep -q "Alignment: 512"; then
+    ok "wszst DUMP BNTX (swizzle/flags/dim/alignment)"
+  else
+    no "wszst DUMP BNTX" "field mismatch"
+  fi
+  rm -rf "$d"
+}
+t_bntx_native
+
 t_xtx(){
   # XTX ("DFvN", Switch intermediate texture) previously only extracted
   # raw texture_*.bin blobs; pixel decode is new (ScanXTX/DecodeXTX_RGBA

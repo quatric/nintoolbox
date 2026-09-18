@@ -1126,9 +1126,6 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		const bool is_hsf_in
 			= is_ext (arg, ".hsf") || (raw.data_size >= 7 && !memcmp (raw.data, "HSFV037", 7));
 		const bool is_lmmdl_in = raw.data_size >= 128 && IsLMMDL (raw.data, raw.data_size);
-		fprintf (stderr, "DBG lmmdl: dest=%s is_model_dest=%d size=%u magic=%02x%02x%02x%02x is=%d\n",
-			dest, (int)is_model_dest, raw.data_size, raw.data[0], raw.data[1], raw.data[2],
-			raw.data[3], (int)is_lmmdl_in);
 		const bool is_lmbin_in = is_ext (arg, ".bin") && raw.data_size >= 64
 			&& IsLMBIN (raw.data, raw.data_size);
 		const bool is_bnfm_in

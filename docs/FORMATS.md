@@ -41,7 +41,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **BLZ** | DS / Compression | ✅ | ✅ | Nitro backward-LZSS |
 | **BPE / GFCP** | Wii / Compression | ✅ | ✅ | Good-Feel Byte Pair Encoding (GFAC mode 1) |
 | **BMD** | DS / Model | ✅ | ✅ | Early Nitro 3D models |
-| **BNTX** | Switch / Texture | ✅ | ✅ | Switch texture container (Tegra block-linear) |
+| **BNTX** | Switch / Texture | ✅ | ✅ | Switch texture container (Tegra block-linear); native DDS/ASTC block export |
 | **BREFT** | Wii / Texture | ✅ | ✅ | Brawl effect texture |
 | **BRFNA / BRFNT** | Wii / Font | ✅ | ✅ | NW4R font to PNG atlas + XML metrics |
 | **BRLAN / BRLYT** | Wii / Layout | ✅ | ✅ | NW4R layout and animations |

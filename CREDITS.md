@@ -44,6 +44,8 @@ We acknowledge and credit the following tools and authors whose research, format
   * Reference implementations for cross-platform Nintendo texture formats, ASTC codecs, swizzling, and decoding routines.
 * **LegacySwitchLibraries** by **KillzXGaming** ([LegacySwitchLibraries](https://github.com/KillzXGaming/LegacySwitchLibraries))
   * Foundational Switch format reverse engineering (Syroot.NintenTools.Bfres and Syroot.NintenTools.Bntx).
+* **BNTX-Extractor** by **aboood40091** ([BNTX-Extractor](https://github.com/aboood40091/BNTX-Extractor))
+  * Reference implementation for lossless BNTX texture extraction: deswizzled-but-still-compressed DDS output (FourCC/DX10 headers, channel-selector bitmasks) and raw `.astc` output, ported here as the native DDS/ASTC export path.
 * **Metroid-Fed-Force-Dumper** by **KillzXGaming** ([Metroid-Fed-Force-Dumper](https://github.com/KillzXGaming/Metroid-Fed-Force-Dumper))
   * Technical reference and specifications for Next Level Games dictionary archives (*Metroid Prime: Federation Force*, *Luigi's Mansion: Dark Moon* / LM2HD, *Luigi's Mansion 3*, and *Mario Strikers: Battle League Football*).
 * **NextLevelLibrary** by **KillzXGaming** ([NextLevelLibrary](https://github.com/KillzXGaming/NextLevelLibrary))

@@ -551,6 +551,14 @@ wimgt DECODE texture.bntx --dest texture.png
 # Multi-texture containers emit one PNG per texture instead:
 # texture.img000.png, texture.img001.png, ...
 
+# Native BNTX export (BNTX-Extractor parity): keep the deswizzled blocks
+# instead of decoding to RGBA -- DDS for BCn and uncompressed textures,
+# raw .astc for ASTC textures:
+wimgt DECODE texture.bntx --dest texture.dds
+wimgt DECODE texture.bntx --dest texture.astc
+# CONVERT/ENCODE to .dds/.astc uses the native blocks when the BNTX format
+# fits, and converts via RGBA otherwise.
+
 # Encode PNG to Wii U BFLIM texture:
 wimgt ENCODE texture.png --dest texture.bflim
 

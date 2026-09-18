@@ -500,8 +500,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 	lmm_hdr_t h;
 	if (!lmm_read_hdr (data, (uint)size, &h))
 	{
-		fprintf (stderr, "DBG lmmdl: hdr reject\n");
-		fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+		return 0;
 	}
 
 	// Bounds-check every section up front.
@@ -517,14 +516,14 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 		|| (u64)h.samp_off + (u64)h.samplers * 8 > size
 		|| (u64)h.shape_off + (u64)h.shapes * 8 > size
 		|| (u64)h.elem_off + (u64)h.elements * 4 > size)
-		fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+		return 0;
 	if (h.weights
 		&& ((u64)h.wcnt_off + h.weights > size || (u64)h.weight_off > size || (u64)h.jidx_off > size))
-		fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+		return 0;
 
 	model_t *model = CALLOC (1, sizeof (*model));
 	if (!model)
-		fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+		return 0;
 
 	//--- textures: headers first (pixels decoded by DecodeLMMDL) ---
 	lmm_tex_t *tex = 0;
@@ -534,7 +533,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 		if (!tex)
 		{
 			FREE (model);
-			fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+			return 0;
 		}
 		for (uint i = 0; i < h.textures; i++)
 		{
@@ -543,7 +542,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 			{
 				FREE (tex);
 				FreeModel (model);
-				fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+				return 0;
 			}
 			tex[i].fmt = data[to];
 			tex[i].w = lmm_be16 (data + to + 2);
@@ -553,7 +552,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 			{
 				FREE (tex);
 				FreeModel (model);
-				fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+				return 0;
 			}
 			tex[i].pix_size = lmm_gx_size ((uint)tex[i].gx, tex[i].w, tex[i].h);
 			tex[i].pix_off = to + 32;
@@ -561,7 +560,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 			{
 				FREE (tex);
 				FreeModel (model);
-				fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+				return 0;
 			}
 		}
 	}
@@ -573,7 +572,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 	{
 		FREE (tex);
 		FreeModel (model);
-		fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+		return 0;
 	}
 	for (size_t i = 0; i < model->num_materials; i++)
 	{
@@ -619,7 +618,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 		FREE (tex);
 		FREE (worlds);
 		FreeModel (model);
-		fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+		return 0;
 	}
 	// node graph walk from node 0 (child/sibling are relative indices)
 	int *parent = MALLOC (h.nodes * sizeof (*parent));
@@ -631,7 +630,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 		FREE (parent);
 		FREE (seen);
 		FreeModel (model);
-		fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+		return 0;
 	}
 	for (uint i = 0; i < h.nodes; i++)
 		parent[i] = -2;
@@ -723,7 +722,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 	{
 		FREE (tex);
 		FreeModel (model);
-		fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+		return 0;
 	}
 	for (uint j = 0; j < h.joints; j++)
 	{
@@ -733,7 +732,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 		{
 			FREE (tex);
 			FreeModel (model);
-			fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+			return 0;
 		}
 		inf->num_weights = 1;
 		inf->weights[0].bone_idx = (int)j;
@@ -750,14 +749,14 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 			{
 				FREE (tex);
 				FreeModel (model);
-				fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+				return 0;
 			}
 			inf->weights = MALLOC (cnt * sizeof (*inf->weights));
 			if (!inf->weights)
 			{
 				FREE (tex);
 				FreeModel (model);
-				fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+				return 0;
 			}
 			inf->num_weights = cnt;
 			for (uint k = 0; k < cnt; k++)
@@ -781,7 +780,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 		{
 			FREE (tex);
 			FreeModel (model);
-			fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+			return 0;
 		}
 		for (uint i = 0; i < h.packets; i++)
 			packet_shape[i] = -1;
@@ -796,7 +795,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 				FREE (tex);
 				FREE (packet_shape);
 				FreeModel (model);
-				fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+				return 0;
 			}
 			for (uint k = 0; k < cnt; k++)
 				packet_shape[start + k] = (int)s;
@@ -806,11 +805,10 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 	//--- meshes: one per draw element ---
 	if (!h.elements)
 	{
-		fprintf (stderr, "DBG lmmdl: no elements\n");
 		FREE (tex);
 		FREE (packet_shape);
 		FreeModel (model);
-		fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+		return 0;
 	}
 	model->num_meshes = h.elements;
 	model->meshes = CALLOC (model->num_meshes, sizeof (*model->meshes));
@@ -819,7 +817,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 		FREE (tex);
 		FREE (packet_shape);
 		FreeModel (model);
-		fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+		return 0;
 	}
 	const bool has_nrm = h.normals > 0, has_col = h.colours > 0, has_uv = h.uvs > 0;
 	for (size_t e = 0; e < model->num_meshes; e++)
@@ -833,7 +831,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 			FREE (tex);
 			FREE (packet_shape);
 			FreeModel (model);
-			fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+			return 0;
 		}
 		mesh->material_idx = (int)mi;
 		const u8 *shp = data + h.shape_off + si * 8;
@@ -844,7 +842,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 			FREE (tex);
 			FREE (packet_shape);
 			FreeModel (model);
-			fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+			return 0;
 		}
 		lmm_corners_t soup = { 0 };
 		bool ok = true;
@@ -883,7 +881,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 			FREE (tex);
 			FREE (packet_shape);
 			FreeModel (model);
-			fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+			return 0;
 		}
 		// pools: positions keyed on (pos, node) since one file position may
 		// be reused under several matrix slots; other pools by plain index.
@@ -907,7 +905,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 			FREE (tex);
 			FREE (packet_shape);
 			FreeModel (model);
-			fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+			return 0;
 		}
 		size_t npos = 0, ncol = 0, nuv = 0;
 		mesh->positions = MALLOC (soup.num * sizeof (*mesh->positions));
@@ -929,7 +927,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 			FREE (tex);
 			FREE (packet_shape);
 			FreeModel (model);
-			fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+			return 0;
 		}
 		// world matrix per slot for rigid baking
 		float (*slot_world)[12] = CALLOC (n_slots, sizeof (*slot_world));
@@ -944,7 +942,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 			FREE (tex);
 			FREE (packet_shape);
 			FreeModel (model);
-			fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+			return 0;
 		}
 		for (size_t j = 0; j < model->num_joints; j++)
 			memcpy (slot_world[j], model->joints[j].bind, 12 * sizeof (float));
@@ -1029,7 +1027,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 				FREE (tex);
 				FREE (packet_shape);
 				FreeModel (model);
-				fprintf (stderr, "DBG lmmdl: parse fail %d\n", __LINE__); return 0;
+				return 0;
 			}
 			if (has_nrm)
 			{
@@ -1111,7 +1109,6 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 	}
 	FREE (tex);
 	FREE (packet_shape);
-	fprintf (stderr, "DBG lmmdl: parse ok meshes=%u\n", (uint)model->num_meshes);
 	return model;
 }
 
@@ -1151,7 +1148,6 @@ enumError DecodeLMMDL (const u8 *data, uint size, ccp out_path)
 	}
 
 	const int rc = ExportModelToGLB (model, out_path);
-	fprintf (stderr, "DBG lmmdl: export rc=%d\n", rc);
 	FreeModel (model);
 	return rc == 0 ? ERR_OK : ERR_CANT_CREATE;
 }

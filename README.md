@@ -212,7 +212,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **BFLIM** | `.bflim` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4F texture format (Wii U) |
 | **BNR** | `.bnr` | ✅ | — | — | — | Nintendo GameCube & Wii game opening banner icon (RGB5A3) |
 | **ASTC** | `.astc` | ✅ | ✅ | — | — | Adaptive Scalable Texture Compression (ARM ASTC) files. |
-| **BNTX** | `.bntx` | ✅ | ✅ | ✅ | ✅ | NintendoSDK Tegra block-linear texture container (Switch) |
+| **BNTX** | `.bntx` | ✅ | ✅ | ✅ | ✅ | NintendoSDK Tegra block-linear texture container (Switch); native DDS/ASTC block export |
 | **BREFT** | `.breft`, `.bt-img` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4R particle effect texture (Wii) |
 | **BTI / TPL** | `.bti`, `.tpl` | ✅ | ✅ | ✅ | ✅ | Nintendo standard texture palette library (GameCube / Wii) |
 | **BTGA / LGA** | `.btga`, `.lga` | ✅ | ✅ | — | — | Nintendo 3DS PICA texture wrapper (Lego titles) |
