@@ -108,10 +108,21 @@ static bool read_magic (bcres_stream_t *stream, char magic[4])
 #define GL_UNSIGNED_INT_ 0x1405
 #define GL_FLOAT_ 0x1406
 
-// PICAAttributeName
+// PICAAttributeName (SPICA PICA/Commands/PICAAttributeName.cs). The decoder
+// previously only knew Position(0)/Normal(1)/TexCoord0(4); BcmdlImporter's
+// previously only knew Position(0)/Normal(1)/TexCoord0(4); BcmdlImporter's
+// VerticesConverter handles the full set, so the remaining renderable
+// attributes are added here: Tangent(2), Color(3), TexCoord1(5),
+// TexCoord2(6), BoneIndex(7), BoneWeight(8).
 #define CGFX_ATTR_POSITION 0
 #define CGFX_ATTR_NORMAL 1
+#define CGFX_ATTR_TANGENT 2
+#define CGFX_ATTR_COLOR 3
 #define CGFX_ATTR_TEXCOORD0 4
+#define CGFX_ATTR_TEXCOORD1 5
+#define CGFX_ATTR_TEXCOORD2 6
+#define CGFX_ATTR_BONEINDEX 7
+#define CGFX_ATTR_BONEWEIGHT 8
 
 typedef struct cg_t
 {
@@ -207,6 +218,58 @@ typedef struct cg_attr_t
 	float scale;
 } cg_attr_t;
 
+// Skinning accumulator (BcmdlImporter GenerateSubMeshes keeps a per-submesh
+// bone palette and remaps global bone ids to local ones; here the direction
+// is reversed: per-vertex local palette indices resolve to global bone ids,
+// and each unique (bones, weights) combination becomes one
+// node_influence_t entry indexed by mesh_t::position_node).
+static int cg_influence_add (node_influence_t **inf, size_t *n, size_t *cap,
+	const int *bones, const float *weights, int count)
+{
+	if (!inf || !n || !cap || !bones || !weights || count < 1 || count > 4)
+		return -1;
+	for (size_t i = 0; i < *n; i++)
+	{
+		node_influence_t *e = &(*inf)[i];
+		if (e->num_weights != (size_t)count)
+			continue;
+		bool same = true;
+		for (int j = 0; j < count; j++)
+		{
+			float d = e->weights[j].weight - weights[j];
+			if (e->weights[j].bone_idx != bones[j] || (d < -1e-6f || d > 1e-6f))
+			{
+				same = false;
+				break;
+			}
+		}
+		if (same)
+			return (int)i;
+	}
+	if (*n >= 16384)
+		return -1;
+	if (*n >= *cap)
+	{
+		size_t ncap = *cap ? *cap * 2 : 64;
+		node_influence_t *ninf = REALLOC (*inf, ncap * sizeof (node_influence_t));
+		if (!ninf)
+			return -1;
+		*inf = ninf;
+		*cap = ncap;
+	}
+	node_influence_t *e = &(*inf)[*n];
+	e->weights = CALLOC ((size_t)count, sizeof (influence_t));
+	if (!e->weights)
+		return -1;
+	e->num_weights = (size_t)count;
+	for (int j = 0; j < count; j++)
+	{
+		e->weights[j].bone_idx = bones[j];
+		e->weights[j].weight = weights[j];
+	}
+	return (int)(*n)++;
+}
+
 model_t *ParseBCRES (const uint8_t *data, size_t size)
 {
 	if (!data || size < 0x14 || memcmp (data, "CGFX", 4))
@@ -256,6 +319,12 @@ model_t *ParseBCRES (const uint8_t *data, size_t size)
 		FREE (out);
 		return NULL;
 	}
+
+	// Global skinning palette shared by all meshes of all models in this
+	// container (see cg_influence_add). Stays empty for files without any
+	// bone bindings, preserving the previous unskinned behaviour.
+	node_influence_t *node_inf = NULL;
+	size_t n_node_inf = 0, cap_node_inf = 0;
 
 	const uint32_t n_mat = cg_u32 (g, cmdl + 0xbc);
 	const size_t p_mat = cg_ptr (g, cmdl + 0xc0);
@@ -404,12 +473,21 @@ model_t *ParseBCRES (const uint8_t *data, size_t size)
 		if (!vraw || !n_attrs || !n_vert)
 			continue;
 
-		// Sanity gate: the declared attributes must account for exactly the
-		// declared stride. A layout misread shows up here immediately.
+		// Sanity gate: the declared attributes must fit within the declared
+		// stride. They need not sum to it exactly: retail buffers pad the
+		// stride (e.g. a 37-byte pos/nrm/uv0/color/boneindex layout in a
+		// 40-byte stride). A layout misread still shows up here as an
+		// overrun or an attribute ending past the stride.
 		size_t asum = 0;
+		bool attrs_fit = true;
 		for (unsigned i = 0; i < n_attrs; i++)
-			asum += (size_t)cg_gl_size (attrs[i].fmt) * attrs[i].elements;
-		if (asum != vstride)
+		{
+			const size_t asz = (size_t)cg_gl_size (attrs[i].fmt) * attrs[i].elements;
+			asum += asz;
+			if ((size_t)attrs[i].offset + asz > vstride)
+				attrs_fit = false;
+		}
+		if (!attrs_fit || asum > vstride)
 			continue;
 
 		// Count indices across every face descriptor of every submesh first,
@@ -451,25 +529,93 @@ model_t *ParseBCRES (const uint8_t *data, size_t size)
 		mesh->positions = CALLOC (total_idx, sizeof (vec3_t));
 		mesh->normals = CALLOC (total_idx, sizeof (vec3_t));
 		mesh->texcoords = CALLOC (total_idx, sizeof (vec2_t));
+		// BcmdlImporter (ModelTools.ConvertMesh / VerticesConverter) carries
+		// tangent, vertex colour and up to three UV sets through the same
+		// interleaved buffer; model_t already has room for them, so decode
+		// them here instead of dropping everything past TEXCOORD0.
+		mesh->tangents = CALLOC (total_idx, sizeof (vec3_t));
+		mesh->colors[0] = CALLOC (total_idx, sizeof (color4_t));
+		mesh->extra_texcoords[0] = CALLOC (total_idx, sizeof (vec2_t));
+		mesh->extra_texcoords[1] = CALLOC (total_idx, sizeof (vec2_t));
 		mesh->vertices = CALLOC (total_idx, sizeof (vertex_t));
-		if (!mesh->positions || !mesh->normals || !mesh->texcoords || !mesh->vertices)
+		if (!mesh->positions || !mesh->normals || !mesh->texcoords || !mesh->vertices
+			|| !mesh->tangents || !mesh->colors[0] || !mesh->extra_texcoords[0]
+			|| !mesh->extra_texcoords[1])
 		{
 			FREE (mesh->positions);
 			FREE (mesh->normals);
 			FREE (mesh->texcoords);
+			FREE (mesh->tangents);
+			FREE (mesh->colors[0]);
+			mesh->colors[0] = NULL;
+			FREE (mesh->extra_texcoords[0]);
+			FREE (mesh->extra_texcoords[1]);
 			FREE (mesh->vertices);
 			memset (mesh, 0, sizeof (*mesh));
 			continue;
 		}
+		for (size_t zi = 0; zi < total_idx; zi++)
+		{
+			mesh->vertices[zi].tangent_idx = -1;
+			mesh->vertices[zi].color_idx[0] = -1;
+			mesh->vertices[zi].color_idx[1] = -1;
+			mesh->vertices[zi].extra_texcoord_idx[0] = -1;
+			mesh->vertices[zi].extra_texcoord_idx[1] = -1;
+			mesh->vertices[zi].extra_texcoord_idx[2] = -1;
+			mesh->vertices[zi].extra_texcoord_idx[3] = -1;
+			mesh->vertices[zi].extra_texcoord_idx[4] = -1;
+			mesh->vertices[zi].extra_texcoord_idx[5] = -1;
+			mesh->vertices[zi].extra_texcoord_idx[6] = -1;
+		}
 
 		bool has_nrm = false, has_uv = false;
+		bool has_tan = false, has_col = false, has_uv1 = false, has_uv2 = false;
 		for (unsigned a = 0; a < n_attrs; a++)
 		{
 			if (attrs[a].name == CGFX_ATTR_NORMAL)
 				has_nrm = true;
 			else if (attrs[a].name == CGFX_ATTR_TEXCOORD0)
 				has_uv = true;
+			else if (attrs[a].name == CGFX_ATTR_TANGENT)
+				has_tan = true;
+			else if (attrs[a].name == CGFX_ATTR_COLOR)
+				has_col = true;
+			else if (attrs[a].name == CGFX_ATTR_TEXCOORD1)
+				has_uv1 = true;
+			else if (attrs[a].name == CGFX_ATTR_TEXCOORD2)
+				has_uv2 = true;
 		}
+
+		// Per-vertex skinning sources, if present. BoneIndex carries up to 4
+		// local palette indices, BoneWeight the matching weights; a missing
+		// weight stream means a rigid (weight 1) bind, matching SPICA's
+		// VerticesConverter fallback.
+		int bi_attr = -1, bw_attr = -1;
+		for (unsigned a = 0; a < n_attrs; a++)
+		{
+			if (attrs[a].name == CGFX_ATTR_BONEINDEX && bi_attr < 0)
+				bi_attr = (int)a;
+			else if (attrs[a].name == CGFX_ATTR_BONEWEIGHT && bw_attr < 0)
+				bw_attr = (int)a;
+		}
+
+		mesh->position_node = CALLOC (total_idx, sizeof (int));
+		if (!mesh->position_node)
+		{
+			FREE (mesh->positions);
+			FREE (mesh->normals);
+			FREE (mesh->texcoords);
+			FREE (mesh->tangents);
+			FREE (mesh->colors[0]);
+			mesh->colors[0] = NULL;
+			FREE (mesh->extra_texcoords[0]);
+			FREE (mesh->extra_texcoords[1]);
+			FREE (mesh->vertices);
+			memset (mesh, 0, sizeof (*mesh));
+			continue;
+		}
+		for (size_t zi = 0; zi < total_idx; zi++)
+			mesh->position_node[zi] = -1;
 
 		size_t n = 0;
 		for (uint32_t s = 0; s < n_sub; s++)
@@ -477,6 +623,23 @@ model_t *ParseBCRES (const uint8_t *data, size_t size)
 			const size_t sub = cg_ptr (g, p_sub + 4 * s);
 			if (!sub)
 				continue;
+			// Submesh bone palette: +0x00 entry count, +0x04 self-relative
+			// table of u32 global bone ids, +0x08 skinning kind (0=None,
+			// 1=Rigid, 2=Smooth, matching SPICA GfxSubMeshSkinning).
+			// Verified against a retail CGFX whose three submeshes carry
+			// [6,7]/[6]/[3,6,5,4] palettes under an 8-bone SOBJ.
+			uint32_t sub_bones[64];
+			unsigned n_sub_bones = 0;
+			{
+				const uint32_t bc = cg_u32 (g, sub);
+				const size_t bptr = cg_ptr (g, sub + 4);
+				if (bc && bc <= 64 && bptr && cg_ok (g, bptr, (size_t)bc * 4))
+				{
+					for (uint32_t t = 0; t < bc; t++)
+						sub_bones[t] = cg_u32 (g, bptr + t * 4);
+					n_sub_bones = bc;
+				}
+			}
 			const uint32_t nf = cg_u32 (g, sub + 0x0c);
 			const size_t pf = cg_ptr (g, sub + 0x10);
 			for (uint32_t f = 0; f < nf && pf; f++)
@@ -535,10 +698,123 @@ model_t *ParseBCRES (const uint8_t *data, size_t size)
 								mesh->texcoords[n].v
 									= el > 1 ? cg_read (g, p, attrs[a].fmt, 1) * sc : 0;
 							}
+							else if (attrs[a].name == CGFX_ATTR_TANGENT)
+							{
+								mesh->tangents[n].x = cg_read (g, p, attrs[a].fmt, 0) * sc;
+								mesh->tangents[n].y
+									= el > 1 ? cg_read (g, p, attrs[a].fmt, 1) * sc : 0;
+								mesh->tangents[n].z
+									= el > 2 ? cg_read (g, p, attrs[a].fmt, 2) * sc : 0;
+							}
+							else if (attrs[a].name == CGFX_ATTR_COLOR)
+							{
+								mesh->colors[0][n].r = cg_read (g, p, attrs[a].fmt, 0) * sc;
+								mesh->colors[0][n].g
+									= el > 1 ? cg_read (g, p, attrs[a].fmt, 1) * sc : 0;
+								mesh->colors[0][n].b
+									= el > 2 ? cg_read (g, p, attrs[a].fmt, 2) * sc : 0;
+								mesh->colors[0][n].a
+									= el > 3 ? cg_read (g, p, attrs[a].fmt, 3) * sc : 1.0f;
+							}
+							else if (attrs[a].name == CGFX_ATTR_TEXCOORD1)
+							{
+								mesh->extra_texcoords[0][n].u
+									= cg_read (g, p, attrs[a].fmt, 0) * sc;
+								mesh->extra_texcoords[0][n].v
+									= el > 1 ? cg_read (g, p, attrs[a].fmt, 1) * sc : 0;
+							}
+							else if (attrs[a].name == CGFX_ATTR_TEXCOORD2)
+							{
+								mesh->extra_texcoords[1][n].u
+									= cg_read (g, p, attrs[a].fmt, 0) * sc;
+								mesh->extra_texcoords[1][n].v
+									= el > 1 ? cg_read (g, p, attrs[a].fmt, 1) * sc : 0;
+							}
+						}
+						// Resolve skinning for this vertex: local palette
+						// indices from the BoneIndex stream map through the
+						// submesh's global bone table; a missing weight
+						// stream means a rigid (weight 1) bind.
+						{
+							int combo_bones[4] = { -1, -1, -1, -1 };
+							float combo_weights[4] = { 0, 0, 0, 0 };
+							int combo_n = 0;
+							if (bi_attr >= 0)
+							{
+								const cg_attr_t *ba = &attrs[(unsigned)bi_attr];
+								int el = ba->elements;
+								if (el > 4)
+									el = 4;
+								const size_t bpos = vo + (size_t)ba->offset;
+								const float bsc = ba->scale != 0.0f ? ba->scale : 1.0f;
+								const cg_attr_t *wa
+									= bw_attr >= 0 ? &attrs[(unsigned)bw_attr] : NULL;
+								int wel = wa ? wa->elements : 0;
+								if (wel > 4)
+									wel = 4;
+								for (int j = 0; j < el && combo_n < 4; j++)
+								{
+									const int local
+										= (int)(cg_read (g, bpos, ba->fmt, j) * bsc);
+									int global = -1;
+									if (local >= 0 && (unsigned)local < n_sub_bones)
+										global = (int)sub_bones[(unsigned)local];
+									else if (n_sub_bones)
+										global = (int)sub_bones[0];
+									if (global < 0)
+										continue;
+									float wgt = 0.0f;
+									if (wa && j < wel)
+									{
+										const float wsc = wa->scale != 0.0f
+											? wa->scale
+											: 1.0f;
+										wgt = cg_read (g, vo + (size_t)wa->offset, wa->fmt, j)
+											* wsc;
+									}
+									else if (j == 0)
+										wgt = 1.0f;
+									if (wgt <= 0.0f)
+										continue;
+									combo_bones[combo_n] = global;
+									combo_weights[combo_n] = wgt;
+									combo_n++;
+								}
+								if (combo_n > 1)
+								{
+									float sum = 0.0f;
+									for (int j = 0; j < combo_n; j++)
+										sum += combo_weights[j];
+									if (sum > 0.0f)
+										for (int j = 0; j < combo_n; j++)
+											combo_weights[j] /= sum;
+								}
+							}
+							else if (n_sub_bones)
+							{
+								// No per-vertex stream: rigid bind to the
+								// submesh's first palette entry (BcmdlImporter
+								// binds unbound meshes to a bone the same way
+								// so the model stays movable as a whole).
+								combo_bones[0] = (int)sub_bones[0];
+								combo_weights[0] = 1.0f;
+								combo_n = 1;
+							}
+							if (combo_n > 0)
+							{
+								const int ii = cg_influence_add (&node_inf, &n_node_inf,
+									&cap_node_inf, combo_bones, combo_weights, combo_n);
+								if (ii >= 0)
+									mesh->position_node[n] = ii;
+							}
 						}
 						mesh->vertices[n].position_idx = (int)n;
 						mesh->vertices[n].normal_idx = has_nrm ? (int)n : -1;
 						mesh->vertices[n].texcoord_idx = has_uv ? (int)n : -1;
+						mesh->vertices[n].tangent_idx = has_tan ? (int)n : -1;
+						mesh->vertices[n].color_idx[0] = has_col ? (int)n : -1;
+						mesh->vertices[n].extra_texcoord_idx[0] = has_uv1 ? (int)n : -1;
+						mesh->vertices[n].extra_texcoord_idx[1] = has_uv2 ? (int)n : -1;
 						n++;
 					}
 				}
@@ -550,6 +826,12 @@ model_t *ParseBCRES (const uint8_t *data, size_t size)
 			FREE (mesh->positions);
 			FREE (mesh->normals);
 			FREE (mesh->texcoords);
+			FREE (mesh->tangents);
+			FREE (mesh->colors[0]);
+			mesh->colors[0] = NULL;
+			FREE (mesh->extra_texcoords[0]);
+			FREE (mesh->extra_texcoords[1]);
+			FREE (mesh->position_node);
 			FREE (mesh->vertices);
 			memset (mesh, 0, sizeof (*mesh));
 			continue;
@@ -571,8 +853,58 @@ model_t *ParseBCRES (const uint8_t *data, size_t size)
 			mesh->texcoords = NULL;
 			mesh->num_texcoords = 0;
 		}
+		if (has_tan)
+			mesh->num_tangents = n;
+		else
+		{
+			FREE (mesh->tangents);
+			mesh->tangents = NULL;
+			mesh->num_tangents = 0;
+		}
+		if (has_col)
+			mesh->num_colors[0] = n;
+		else
+		{
+			FREE (mesh->colors[0]);
+			mesh->colors[0] = NULL;
+			mesh->num_colors[0] = 0;
+		}
+		if (has_uv1)
+			mesh->num_extra_texcoords[0] = n;
+		else
+		{
+			FREE (mesh->extra_texcoords[0]);
+			mesh->extra_texcoords[0] = NULL;
+			mesh->num_extra_texcoords[0] = 0;
+		}
+		if (has_uv2)
+			mesh->num_extra_texcoords[1] = n;
+		else
+		{
+			FREE (mesh->extra_texcoords[1]);
+			mesh->extra_texcoords[1] = NULL;
+			mesh->num_extra_texcoords[1] = 0;
+		}
 		mesh->num_vertices = n;
 		out->num_meshes++;
+	}
+
+	// Publish the accumulated skinning palette. With no bone bindings
+	// anywhere the model stays unskinned exactly as before: per-mesh
+	// position_node stubs are released instead of leaving -1 arrays behind.
+	if (n_node_inf)
+	{
+		out->node_influences = node_inf;
+		out->num_node_influences = n_node_inf;
+	}
+	else
+	{
+		for (size_t mi2 = 0; mi2 < out->num_meshes; mi2++)
+		{
+			FREE (out->meshes[mi2].position_node);
+			out->meshes[mi2].position_node = NULL;
+		}
+		FREE (node_inf);
 	}
 
 	const size_t p_sobj = cg_ptr (g, cmdl + 0xe0);
@@ -785,6 +1117,46 @@ enumError DecodeCGFXTexture (u8 **dest, uint *width, uint *height, const cgfx_t 
 	return DecodePicaTexture (dest, width, height, src, w, h, fmt, data_size);
 }
 
+// PICA200 texture format ids (SPICA PICA/Commands/PICATextureFormat).
+static const char *pica_format_names[14] = { "RGBA8", "RGB8", "RGBA5551", "RGB565",
+	"RGBA4", "LA8", "HiLo8", "L8", "A8", "LA4", "L4", "A4", "ETC1", "ETC1A4" };
+
+const char *GetPicaTextureFormatName (uint format)
+{
+	return format < 14 ? pica_format_names[format] : "UNKNOWN";
+}
+
+// TXOB layout facts shared with DecodeCGFXTexture above: the header carries
+// the pixel size, hardware format id and payload size, so a texture can be
+// described without decoding it. Mirrors BcmdlImporter TextureMeta
+// (per-texture Format + dimensions), which its importer uses to re-encode
+// edited PNGs back into the original hardware format.
+enumError GetCGFXTextureMeta (cgfx_tex_meta_t *meta, const cgfx_t *cgfx, uint tex_idx)
+{
+	if (!meta || !cgfx || !cgfx->data || tex_idx >= cgfx->dict[CGFX_DICT_TEXTURES].n)
+		return EINVAL;
+	memset (meta, 0, sizeof (*meta));
+
+	const cg_t gg = { cgfx->data, cgfx->size }, *g = &gg;
+	const uint32_t t_addr = cgfx->dict[CGFX_DICT_TEXTURES].entries[tex_idx].address;
+	if (!t_addr || t_addr + 0x50 > cgfx->size)
+		return EINVAL;
+	if (memcmp (cgfx->data + t_addr + 4, "TXOB", 4) != 0)
+		return EINVAL;
+
+	meta->width = cg_u32 (g, t_addr + 0x1c);
+	meta->height = cg_u32 (g, t_addr + 0x18);
+	meta->format = cg_u32 (g, t_addr + 0x34);
+	uint32_t data_size = cg_u32 (g, t_addr + 0x44);
+	const size_t data_ptr = cg_ptr (g, t_addr + 0x48);
+	if (!meta->width || !meta->height || !data_ptr || data_ptr >= cgfx->size)
+		return EINVAL;
+	if (!data_size || data_ptr + data_size > cgfx->size)
+		data_size = (uint32_t)(cgfx->size - data_ptr);
+	meta->data_size = data_size;
+	return ERR_OK;
+}
+
 static inline bool is_ext (ccp src, ccp ext)
 {
 	if (!src || !ext)
@@ -856,6 +1228,41 @@ enumError ExportBCRESTextures (const cgfx_t *cgfx, const char *dest_path_or_dir)
 		ResetIMG (&img);
 		if (err && max_err < err)
 			max_err = err;
+
+		// TextureMeta sidecar (BcmdlImporter TextureMeta port): the PNG
+		// alone loses the hardware format, so record it beside the image.
+		// A future texture re-encoder consumes this to pick the original
+		// PICA format instead of guessing; names are JSON-escaped.
+		cgfx_tex_meta_t tm;
+		if (!GetCGFXTextureMeta (&tm, cgfx, i))
+		{
+			char esc[256];
+			size_t el = 0;
+			for (const char *s = clean_name; *s && el + 2 < sizeof (esc); s++)
+			{
+				if (*s == '"' || *s == '\\')
+					esc[el++] = '\\';
+				if ((unsigned char)*s < 0x20)
+					esc[el++] = '_';
+				else
+					esc[el++] = *s;
+			}
+			esc[el] = 0;
+			char json[640];
+			const int jl = snprintf (json, sizeof (json),
+				"{\n  \"name\": \"%s\",\n  \"format\": %u,\n  \"format_name\": \"%s\",\n"
+				"  \"width\": %u,\n  \"height\": %u,\n  \"data_size\": %u\n}\n",
+				esc, tm.format, GetPicaTextureFormatName (tm.format),
+				tm.width, tm.height, tm.data_size);
+			if (jl > 0 && (size_t)jl < sizeof (json))
+			{
+				char json_path[PATH_MAX];
+				snprintf (json_path, sizeof (json_path), "%s/%s.json", dir, clean_name);
+				enumError jerr = SaveFILE (json_path, 0, true, json, (uint)jl, 0);
+				if (jerr && max_err < jerr)
+					max_err = jerr;
+			}
+		}
 	}
 	return max_err;
 }
@@ -1193,6 +1600,63 @@ static int bc_invert43 (float out[12], const float m[12])
 	return 1;
 }
 
+// Interleaved attribute layout shared by the descriptor writer and the
+// raw-buffer writer in CreateBCRES. Order follows BcmdlImporter
+// CreateAttributes (position, normal, UV0-2, colour, tangent, then bone
+// index/weight when the mesh is skinned); every stream is float so the
+// decoder above reads values back exactly. Fills names/elements (up to 9
+// entries) and returns the attribute count.
+static unsigned bc_mesh_attr_list (const mesh_t *mesh, unsigned maxinf,
+	uint32_t *names, int *els)
+{
+	unsigned na = 0;
+	names[na] = 0;
+	els[na] = 3;
+	na++; // Position
+	names[na] = 1;
+	els[na] = 3;
+	na++; // Normal
+	names[na] = 4;
+	els[na] = 2;
+	na++; // TexCoord0
+	if (mesh->num_extra_texcoords[0] > 0 && mesh->extra_texcoords[0])
+	{
+		names[na] = 5;
+		els[na] = 2;
+		na++; // TexCoord1
+	}
+	if (mesh->num_extra_texcoords[1] > 0 && mesh->extra_texcoords[1])
+	{
+		names[na] = 6;
+		els[na] = 2;
+		na++; // TexCoord2
+	}
+	if (mesh->num_colors[0] > 0 && mesh->colors[0])
+	{
+		names[na] = 3;
+		els[na] = 4;
+		na++; // Color
+	}
+	if (mesh->num_tangents > 0 && mesh->tangents)
+	{
+		names[na] = 2;
+		els[na] = 3;
+		na++; // Tangent
+	}
+	if (maxinf > 0)
+	{
+		if (maxinf > 4)
+			maxinf = 4;
+		names[na] = 7;
+		els[na] = (int)maxinf;
+		na++; // BoneIndex
+		names[na] = 8;
+		els[na] = (int)maxinf;
+		na++; // BoneWeight
+	}
+	return na;
+}
+
 static bool bcres_float_close (float a, float b)
 {
 	float d = a - b;
@@ -1245,12 +1709,23 @@ static bool bcres_model_matches (const model_t *ref, const model_t *cur)
 				return false;
 	}
 
+	// Skinning is compared by presence only: the CGFX parser deduplicates
+	// (bone, weight) combinations into a shared palette while the GLB
+	// importer keeps one influence entry per vertex, so exact entry counts
+	// legitimately differ for the same unchanged model. A model that gains
+	// or loses skinning wholesale counts as edited.
+	if ((ref->num_node_influences > 0) != (cur->num_node_influences > 0))
+		return false;
+
 	for (size_t m = 0; m < ref->num_meshes; m++)
 	{
 		const mesh_t *a = &ref->meshes[m];
 		const mesh_t *b = &cur->meshes[m];
 		if (a->num_vertices != b->num_vertices || a->num_positions != b->num_positions
 			|| a->num_normals != b->num_normals || a->num_texcoords != b->num_texcoords
+			|| a->num_tangents != b->num_tangents || a->num_colors[0] != b->num_colors[0]
+			|| a->num_extra_texcoords[0] != b->num_extra_texcoords[0]
+			|| a->num_extra_texcoords[1] != b->num_extra_texcoords[1]
 			|| a->material_idx != b->material_idx)
 			return false;
 
@@ -1270,6 +1745,26 @@ static bool bcres_model_matches (const model_t *ref, const model_t *cur)
 			int bt = b->vertices[v].texcoord_idx;
 			if (ap != bp || an != bn || at != bt)
 				return false;
+			const int ag = a->vertices[v].tangent_idx;
+			const int bg = b->vertices[v].tangent_idx;
+			const int ac = a->vertices[v].color_idx[0];
+			const int bc2 = b->vertices[v].color_idx[0];
+			const int au1 = a->vertices[v].extra_texcoord_idx[0];
+			const int bu1 = b->vertices[v].extra_texcoord_idx[0];
+			const int au2 = a->vertices[v].extra_texcoord_idx[1];
+			const int bu2 = b->vertices[v].extra_texcoord_idx[1];
+			// Index mappings are only meaningful when the stream exists:
+			// the GLB importer leaves a 0 stub where this parser stores
+			// -1 for absent streams, and neither is wrong when the counts
+			// above already agree the stream is absent on both sides.
+			if (a->num_tangents > 0 && ag != bg)
+				return false;
+			if (a->num_colors[0] > 0 && ac != bc2)
+				return false;
+			if (a->num_extra_texcoords[0] > 0 && au1 != bu1)
+				return false;
+			if (a->num_extra_texcoords[1] > 0 && au2 != bu2)
+				return false;
 			if ((ap >= 0 && bp >= 0) && (a->positions && b->positions)
 				&& !bcres_vec_close (&a->positions[ap], &b->positions[bp]))
 				return false;
@@ -1278,6 +1773,22 @@ static bool bcres_model_matches (const model_t *ref, const model_t *cur)
 				return false;
 			if ((at >= 0 && bt >= 0) && (a->texcoords && b->texcoords)
 				&& !bcres_vec2_close (&a->texcoords[at], &b->texcoords[bt]))
+				return false;
+			if ((ag >= 0 && bg >= 0) && (a->tangents && b->tangents)
+				&& !bcres_vec_close (&a->tangents[ag], &b->tangents[bg]))
+				return false;
+			if ((ac >= 0 && bc2 >= 0) && (a->colors[0] && b->colors[0]))
+			{
+				const color4_t *ca = &a->colors[0][ac], *cb = &b->colors[0][bc2];
+				if (!bcres_float_close (ca->r, cb->r) || !bcres_float_close (ca->g, cb->g)
+					|| !bcres_float_close (ca->b, cb->b) || !bcres_float_close (ca->a, cb->a))
+					return false;
+			}
+			if ((au1 >= 0 && bu1 >= 0) && (a->extra_texcoords[0] && b->extra_texcoords[0])
+				&& !bcres_vec2_close (&a->extra_texcoords[0][au1], &b->extra_texcoords[0][bu1]))
+				return false;
+			if ((au2 >= 0 && bu2 >= 0) && (a->extra_texcoords[1] && b->extra_texcoords[1])
+				&& !bcres_vec2_close (&a->extra_texcoords[1][au2], &b->extra_texcoords[1][bu2]))
 				return false;
 		}
 	}
@@ -1636,7 +2147,20 @@ int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 	size_t *vb_tbl_off = CALLOC (n_mesh, sizeof (size_t));
 	size_t *vb_off = CALLOC (n_mesh, sizeof (size_t));
 	size_t *attr_tbl_off = CALLOC (n_mesh, sizeof (size_t));
-	size_t (*attr_off)[3] = CALLOC (n_mesh, sizeof (*attr_off));
+	size_t (*attr_off)[9] = CALLOC (n_mesh, sizeof (*attr_off));
+	// Per-mesh encoder plan (BcmdlImporter ConvertMesh writes one
+	// interleaved buffer with exactly the streams the mesh carries, plus a
+	// per-submesh bone palette): attribute count, byte stride, palette of
+	// global bone ids (max 20, the H3D per-submesh limit the importer also
+	// splits on), widest influence list, skinning kind (0=None,1=Rigid,
+	// 2=Smooth) and whether indices fit in a byte.
+	unsigned *mesh_na = CALLOC (n_mesh, sizeof (*mesh_na));
+	unsigned *mesh_stride = CALLOC (n_mesh, sizeof (*mesh_stride));
+	uint32_t (*mesh_pal)[20] = CALLOC (n_mesh, sizeof (*mesh_pal));
+	unsigned char *mesh_npal = CALLOC (n_mesh, sizeof (*mesh_npal));
+	unsigned char *mesh_maxinf = CALLOC (n_mesh, sizeof (*mesh_maxinf));
+	unsigned char *mesh_skind = CALLOC (n_mesh, sizeof (*mesh_skind));
+	unsigned char *mesh_use_u8 = CALLOC (n_mesh, sizeof (*mesh_use_u8));
 
 	for (uint32_t m = 0; m < n_mesh; m++)
 	{
@@ -1656,6 +2180,77 @@ int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 		bc_rel_ptr (&bb, so + 0x1C, bbox_off[m]);
 
 		const mesh_t *mesh = &model->meshes[m];
+
+		// Encoder plan for this mesh: skinning palette (unique global bone
+		// ids referenced through position_node, capped at the 20-entry
+		// per-submesh limit BcmdlImporter also splits on), attribute list
+		// and stride, and the index width (BcmdlImporter GenerateSubMeshes
+		// picks U8 when every index fits in a byte, U16 otherwise).
+		{
+			uint32_t pal[20];
+			unsigned pal_n = 0, pal_total = 0, maxinf = 0;
+			if (mesh->position_node && mesh->vertices && model->node_influences)
+			{
+				for (size_t v = 0; v < mesh->num_vertices; v++)
+				{
+					const int pi = mesh->vertices[v].position_idx;
+					if (pi < 0 || (size_t)pi >= mesh->num_positions)
+						continue;
+					const int ni = mesh->position_node[(size_t)pi];
+					if (ni < 0 || (size_t)ni >= model->num_node_influences)
+						continue;
+					const node_influence_t *e = &model->node_influences[(size_t)ni];
+					if (!e->num_weights || e->num_weights > 4)
+						continue;
+					if ((unsigned)e->num_weights > maxinf)
+						maxinf = (unsigned)e->num_weights;
+					for (size_t w = 0; w < e->num_weights; w++)
+					{
+						const int b = e->weights[w].bone_idx;
+						if (b < 0 || (n_bones && (uint32_t)b >= n_bones))
+							continue;
+						bool seen = false;
+						for (unsigned q = 0; q < pal_n; q++)
+							if (pal[q] == (uint32_t)b)
+							{
+								seen = true;
+								break;
+							}
+						if (!seen)
+						{
+							if (pal_n < 20)
+								pal[pal_n++] = (uint32_t)b;
+							pal_total++;
+						}
+					}
+				}
+			}
+			const bool skinned = pal_total > 0 && pal_total <= 20 && maxinf > 0;
+			if (skinned)
+			{
+				mesh_npal[m] = (unsigned char)pal_total;
+				for (unsigned q = 0; q < pal_n; q++)
+					mesh_pal[m][q] = pal[q];
+				mesh_maxinf[m] = (unsigned char)maxinf;
+				mesh_skind[m] = maxinf > 1 ? 2 : 1;
+			}
+			else
+			{
+				mesh_npal[m] = 0;
+				mesh_maxinf[m] = 0;
+				mesh_skind[m] = 0;
+			}
+			uint32_t an[9];
+			int ae[9];
+			const unsigned na = bc_mesh_attr_list (mesh, mesh_maxinf[m], an, ae);
+			mesh_na[m] = na;
+			unsigned st = 0;
+			for (unsigned q = 0; q < na; q++)
+				st += (unsigned)ae[q];
+			mesh_stride[m] = st * 4;
+			mesh_use_u8[m] = (mesh->num_vertices > 0 && mesh->num_vertices <= 256) ? 1 : 0;
+		}
+
 		float min_x = 1e30f, min_y = 1e30f, min_z = 1e30f;
 		float max_x = -1e30f, max_y = -1e30f, max_z = -1e30f;
 		size_t num_v = mesh->num_positions > 0 ? mesh->num_positions : mesh->num_vertices;
@@ -1694,7 +2289,18 @@ int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 		submesh_off[m] = bb.size;
 		bc_buf_reserve (&bb, 0x20);
 		bc_rel_ptr (&bb, submesh_tbl_off[m], submesh_off[m]);
-		bc_w32 (&bb, submesh_off[m] + 0x00, has_skeleton ? 2 : 0);
+		// +0x00 bone-palette count, +0x04 table of global bone ids,
+		// +0x08 skinning kind (0=None,1=Rigid,2=Smooth). An absent palette
+		// leaves a null table, exactly like the retail static submeshes.
+		bc_w32 (&bb, submesh_off[m] + 0x00, mesh_npal[m]);
+		if (mesh_npal[m])
+		{
+			size_t bt = bc_buf_reserve (&bb, (size_t)mesh_npal[m] * 4);
+			for (unsigned q = 0; q < mesh_npal[m]; q++)
+				bc_w32 (&bb, bt + (size_t)q * 4, mesh_pal[m][q]);
+			bc_rel_ptr (&bb, submesh_off[m] + 0x04, bt);
+		}
+		bc_w32 (&bb, submesh_off[m] + 0x08, mesh_skind[m]);
 		bc_w32 (&bb, submesh_off[m] + 0x0C, 1); // nf = 1
 
 		// Face table & Face
@@ -1715,10 +2321,19 @@ int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 		fd_off[m] = bb.size;
 		bc_buf_reserve (&bb, 0x2C);
 		bc_rel_ptr (&bb, fd_tbl_off[m], fd_off[m]);
-		bc_w32 (&bb, fd_off[m] + 0x00, 0x1403); // GL_UNSIGNED_SHORT_
-		bc_w32 (&bb, fd_off[m] + 0x04, 0x00000100);
 		uint32_t total_idx = (uint32_t)mesh->num_vertices;
-		bc_w32 (&bb, fd_off[m] + 0x08, total_idx * 2); // ilen
+		if (mesh_use_u8[m])
+		{
+			bc_w32 (&bb, fd_off[m] + 0x00, 0x1401); // GL_UNSIGNED_BYTE_
+			bc_w32 (&bb, fd_off[m] + 0x04, 0x00000100);
+			bc_w32 (&bb, fd_off[m] + 0x08, total_idx); // ilen = bytes
+		}
+		else
+		{
+			bc_w32 (&bb, fd_off[m] + 0x00, 0x1403); // GL_UNSIGNED_SHORT_
+			bc_w32 (&bb, fd_off[m] + 0x04, 0x00000100);
+			bc_w32 (&bb, fd_off[m] + 0x08, total_idx * 2); // ilen
+		}
 
 		// VertexBuffer table & VertexBuffer
 		vb_tbl_off[m] = bb.size;
@@ -1728,17 +2343,23 @@ int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 		vb_off[m] = bb.size;
 		bc_buf_reserve (&bb, 0x30);
 		bc_rel_ptr (&bb, vb_tbl_off[m], vb_off[m]);
+		const unsigned vstride = mesh_stride[m] ? mesh_stride[m] : 32;
+		const unsigned vna = mesh_na[m] ? mesh_na[m] : 3;
 		bc_w32 (&bb, vb_off[m] + 0x00, 0x40000002); // CGFX_TC_INTERLEAVED
-		bc_w32 (&bb, vb_off[m] + 0x14, total_idx * 32); // rawlen
-		bc_w32 (&bb, vb_off[m] + 0x24, 32); // vstride = 32
-		bc_w32 (&bb, vb_off[m] + 0x28, 3); // na = 3
+		bc_w32 (&bb, vb_off[m] + 0x14, total_idx * vstride); // rawlen
+		bc_w32 (&bb, vb_off[m] + 0x24, vstride); // vstride
+		bc_w32 (&bb, vb_off[m] + 0x28, vna); // na
 
 		// Attribute table & Attributes
 		attr_tbl_off[m] = bb.size;
-		bc_buf_reserve (&bb, 3 * 4);
+		bc_buf_reserve (&bb, (size_t)vna * 4);
 		bc_rel_ptr (&bb, vb_off[m] + 0x2C, attr_tbl_off[m]);
 
-		for (int a = 0; a < 3; a++)
+		uint32_t enc_names[9];
+		int enc_els[9];
+		const unsigned enc_na = bc_mesh_attr_list (mesh, mesh_maxinf[m], enc_names, enc_els);
+		unsigned enc_off = 0;
+		for (unsigned a = 0; a < vna && a < enc_na; a++)
 		{
 			attr_off[m][a] = bb.size;
 			bc_buf_reserve (&bb, 0x34);
@@ -1746,26 +2367,12 @@ int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 
 			size_t ao = attr_off[m][a];
 			bc_w32 (&bb, ao + 0x00, 0x40000001); // CGFX_TC_ATTRIBUTE
+			bc_w32 (&bb, ao + 0x04, enc_names[a]);
 			bc_w32 (&bb, ao + 0x24, 0x1406); // GL_FLOAT
+			bc_w32 (&bb, ao + 0x28, (uint32_t)enc_els[a]); // elements
 			bc_wf32 (&bb, ao + 0x2C, 1.0f); // scale = 1.0f
-			if (a == 0)
-			{
-				bc_w32 (&bb, ao + 0x04, 0); // Position
-				bc_w32 (&bb, ao + 0x28, 3); // elements
-				bc_w32 (&bb, ao + 0x30, 0); // offset
-			}
-			else if (a == 1)
-			{
-				bc_w32 (&bb, ao + 0x04, 1); // Normal
-				bc_w32 (&bb, ao + 0x28, 3); // elements
-				bc_w32 (&bb, ao + 0x30, 12); // offset
-			}
-			else
-			{
-				bc_w32 (&bb, ao + 0x04, 4); // TexCoord0
-				bc_w32 (&bb, ao + 0x28, 2); // elements
-				bc_w32 (&bb, ao + 0x30, 24); // offset
-			}
+			bc_w32 (&bb, ao + 0x30, enc_off); // offset
+			enc_off += (unsigned)enc_els[a] * 4;
 		}
 	}
 
@@ -1937,23 +2544,35 @@ int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 	{
 		const mesh_t *mesh = &model->meshes[m];
 		uint32_t total_idx = (uint32_t)mesh->num_vertices;
+		const unsigned stride = mesh_stride[m] ? mesh_stride[m] : 32;
+		const unsigned maxinf = mesh_maxinf[m];
 
-		// Raw index buffer
+		// Raw index buffer (U8 when every index fits in a byte, matching
+		// BcmdlImporter GenerateSubMeshes; the decoder reads both widths).
 		bc_buf_align (&bb, 4);
 		size_t raw_idx_off = bb.size;
 		bc_rel_ptr (&bb, fd_off[m] + 0x0C, raw_idx_off);
 
-		size_t idx_bytes = total_idx * 2;
+		size_t idx_bytes = mesh_use_u8[m] ? total_idx : (size_t)total_idx * 2;
 		size_t ipos = bc_buf_reserve (&bb, idx_bytes);
 		for (uint32_t v = 0; v < total_idx; v++)
-			bc_w16 (&bb, ipos + v * 2, (uint16_t)v);
+		{
+			if (mesh_use_u8[m])
+				bb.data[ipos + v] = (uint8_t)v;
+			else
+				bc_w16 (&bb, ipos + (size_t)v * 2, (uint16_t)v);
+		}
 
-		// Raw vertex buffer
+		// Raw vertex buffer, driven by the same attribute list the
+		// descriptors above were built from.
 		bc_buf_align (&bb, 4);
 		size_t raw_vtx_off = bb.size;
 		bc_rel_ptr (&bb, vb_off[m] + 0x18, raw_vtx_off);
 
-		size_t vtx_bytes = total_idx * 32;
+		uint32_t raw_names[9];
+		int raw_els[9];
+		const unsigned raw_na = bc_mesh_attr_list (mesh, maxinf, raw_names, raw_els);
+		size_t vtx_bytes = (size_t)total_idx * stride;
 		size_t vpos = bc_buf_reserve (&bb, vtx_bytes);
 
 		for (uint32_t v = 0; v < total_idx; v++)
@@ -1961,6 +2580,10 @@ int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 			int pi = mesh->vertices ? mesh->vertices[v].position_idx : (int)v;
 			int ni = mesh->vertices ? mesh->vertices[v].normal_idx : (int)v;
 			int ti = mesh->vertices ? mesh->vertices[v].texcoord_idx : (int)v;
+			int gi = mesh->vertices ? mesh->vertices[v].tangent_idx : -1;
+			int ci = mesh->vertices ? mesh->vertices[v].color_idx[0] : -1;
+			int u1i = mesh->vertices ? mesh->vertices[v].extra_texcoord_idx[0] : -1;
+			int u2i = mesh->vertices ? mesh->vertices[v].extra_texcoord_idx[1] : -1;
 
 			vec3_t p = (pi >= 0 && (size_t)pi < mesh->num_positions && mesh->positions)
 				? mesh->positions[pi] : (vec3_t){ 0, 0, 0 };
@@ -1968,15 +2591,114 @@ int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 				? mesh->normals[ni] : (vec3_t){ 0, 1.0f, 0 };
 			vec2_t uv = (ti >= 0 && (size_t)ti < mesh->num_texcoords && mesh->texcoords)
 				? mesh->texcoords[ti] : (vec2_t){ 0, 0 };
+			vec3_t tg = (gi >= 0 && (size_t)gi < mesh->num_tangents && mesh->tangents)
+				? mesh->tangents[gi] : (vec3_t){ 0, 1.0f, 0 };
+			color4_t col = { 1.0f, 1.0f, 1.0f, 1.0f };
+			if (ci >= 0 && (size_t)ci < mesh->num_colors[0] && mesh->colors[0])
+				col = mesh->colors[0][ci];
+			vec2_t uv1 = (u1i >= 0 && (size_t)u1i < mesh->num_extra_texcoords[0]
+					&& mesh->extra_texcoords[0])
+				? mesh->extra_texcoords[0][u1i] : (vec2_t){ 0, 0 };
+			vec2_t uv2 = (u2i >= 0 && (size_t)u2i < mesh->num_extra_texcoords[1]
+					&& mesh->extra_texcoords[1])
+				? mesh->extra_texcoords[1][u2i] : (vec2_t){ 0, 0 };
 
-			bc_wf32 (&bb, vpos + v * 32 + 0, p.x);
-			bc_wf32 (&bb, vpos + v * 32 + 4, p.y);
-			bc_wf32 (&bb, vpos + v * 32 + 8, p.z);
-			bc_wf32 (&bb, vpos + v * 32 + 12, n.x);
-			bc_wf32 (&bb, vpos + v * 32 + 16, n.y);
-			bc_wf32 (&bb, vpos + v * 32 + 20, n.z);
-			bc_wf32 (&bb, vpos + v * 32 + 24, uv.u);
-			bc_wf32 (&bb, vpos + v * 32 + 28, uv.v);
+			// Skinning for this vertex: influence list through the mesh's
+			// global-bone palette, stored as local palette indices.
+			int loc[4] = { 0, 0, 0, 0 };
+			float wgt[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+			unsigned nw = 0;
+			if (maxinf > 0 && mesh->position_node && model->node_influences)
+			{
+				const int pni = (pi >= 0 && (size_t)pi < mesh->num_positions)
+					? mesh->position_node[(size_t)pi] : -1;
+				if (pni >= 0 && (size_t)pni < model->num_node_influences)
+				{
+					const node_influence_t *e
+						= &model->node_influences[(size_t)pni];
+					for (size_t w = 0; w < e->num_weights && nw < maxinf && nw < 4; w++)
+					{
+						int gb = e->weights[w].bone_idx;
+						unsigned li = 0;
+						for (unsigned q = 0; q < mesh_npal[m]; q++)
+							if ((int)mesh_pal[m][q] == gb)
+							{
+								li = q;
+								break;
+							}
+						loc[nw] = (int)li;
+						wgt[nw] = e->weights[w].weight;
+						nw++;
+					}
+				}
+				if (!nw && mesh_npal[m])
+				{
+					loc[0] = 0;
+					wgt[0] = 1.0f;
+					nw = 1;
+				}
+			}
+
+			size_t o = vpos + (size_t)v * stride;
+			for (unsigned k = 0; k < raw_na; k++)
+			{
+				switch (raw_names[k])
+				{
+					case 0: // Position
+						bc_wf32 (&bb, o + 0, p.x);
+						bc_wf32 (&bb, o + 4, p.y);
+						bc_wf32 (&bb, o + 8, p.z);
+						o += 12;
+						break;
+					case 1: // Normal
+						bc_wf32 (&bb, o + 0, n.x);
+						bc_wf32 (&bb, o + 4, n.y);
+						bc_wf32 (&bb, o + 8, n.z);
+						o += 12;
+						break;
+					case 4: // TexCoord0
+						bc_wf32 (&bb, o + 0, uv.u);
+						bc_wf32 (&bb, o + 4, uv.v);
+						o += 8;
+						break;
+					case 5: // TexCoord1
+						bc_wf32 (&bb, o + 0, uv1.u);
+						bc_wf32 (&bb, o + 4, uv1.v);
+						o += 8;
+						break;
+					case 6: // TexCoord2
+						bc_wf32 (&bb, o + 0, uv2.u);
+						bc_wf32 (&bb, o + 4, uv2.v);
+						o += 8;
+						break;
+					case 3: // Color
+						bc_wf32 (&bb, o + 0, col.r);
+						bc_wf32 (&bb, o + 4, col.g);
+						bc_wf32 (&bb, o + 8, col.b);
+						bc_wf32 (&bb, o + 12, col.a);
+						o += 16;
+						break;
+					case 2: // Tangent
+						bc_wf32 (&bb, o + 0, tg.x);
+						bc_wf32 (&bb, o + 4, tg.y);
+						bc_wf32 (&bb, o + 8, tg.z);
+						o += 12;
+						break;
+					case 7: // BoneIndex (local palette ids)
+						for (unsigned j = 0; j < (unsigned)raw_els[k]; j++)
+							bc_wf32 (&bb, o + (size_t)j * 4, (float)(j < nw ? loc[j] : 0));
+						o += (size_t)raw_els[k] * 4;
+						break;
+					case 8: // BoneWeight
+						for (unsigned j = 0; j < (unsigned)raw_els[k]; j++)
+							bc_wf32 (&bb, o + (size_t)j * 4, j < nw ? wgt[j] : 0.0f);
+						o += (size_t)raw_els[k] * 4;
+						break;
+					default:
+						o += (size_t)raw_els[k] * 4;
+						break;
+				}
+			}
 		}
 	}
 
@@ -2019,6 +2741,13 @@ int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 	FREE (vb_off);
 	FREE (attr_tbl_off);
 	FREE (attr_off);
+	FREE (mesh_na);
+	FREE (mesh_stride);
+	FREE (mesh_pal);
+	FREE (mesh_npal);
+	FREE (mesh_maxinf);
+	FREE (mesh_skind);
+	FREE (mesh_use_u8);
 	if (bone_off) FREE (bone_off);
 	bc_strpool_free (&strpool);
 

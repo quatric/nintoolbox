@@ -6625,6 +6625,55 @@ valid_t IsValidCTCODE (const void *data, // data
 
 ///////////////////////////////////////////////////////////////////////////////
 
+/////////////////////////////////////////////////////////////////////////////
+//
+// Analyze a V2 KCL file (Wii U/Switch, magic 0x02020000).
+// 'le' selects the file byte order (the magic itself is always BE).
+// Returns VALID_OK or VALID_ERROR. Stores variant info in 'ka'.
+//
+
+static valid_t AnalyzeKCL_V2 (kcl_analyze_t *ka,
+	const u8 *data,
+	uint data_size,
+	uint file_size,
+	bool le,
+	ccp fname)
+{
+	DASSERT (ka && data);
+	ka->version = KCL_V_V2;
+	ka->is_le = le;
+	ka->head_size = KCL_V2_HEAD_SIZE;
+	ka->file_size = file_size;
+	ka->order_value = 1234;
+	ka->order_ok = true;
+
+	if (data_size < KCL_V2_HEAD_SIZE)
+		return ka->valid = VALID_ERROR;
+
+#define RD32(p) (le ? le32 (p) : be32 (p))
+	const u32 oct_off = RD32 (data + 4); // kcl_v2_head_t.octree_off
+	const u32 arr_off = RD32 (data + 8); // kcl_v2_head_t.modelarr_off
+	const u32 count = RD32 (data + 12); // kcl_v2_head_t.model_count
+#undef RD32
+
+	// octree starts directly behind the 56 byte header
+	if (oct_off != KCL_V2_HEAD_SIZE || count < 1 || count > 4096 || arr_off & 3
+		|| arr_off < KCL_V2_HEAD_SIZE + 8 || (file_size && arr_off > file_size))
+	{
+		noPRINT ("INVALID KCL-V2: oct=%x arr=%x count=%u size=%x\n", oct_off, arr_off,
+			count, file_size);
+		return ka->valid = VALID_ERROR;
+	}
+
+	ka->v2_n_models = count;
+	ka->v2_modelarr_off = arr_off;
+	ka->off[3] = oct_off;
+	ka->size[3] = file_size && arr_off <= file_size ? arr_off - oct_off : 0;
+	return ka->valid = VALID_OK;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+
 valid_t IsValidKCL (kcl_analyze_t *ka, // not NULL: init and store stats
 	const void *data, // data
 	uint data_size, // size of 'data'
@@ -6638,10 +6687,44 @@ valid_t IsValidKCL (kcl_analyze_t *ka, // not NULL: init and store stats
 	memset (ka, 0, sizeof (*ka));
 
 	noPRINT ("IsValidKCL(%u,%u,%s)\n", data_size, file_size, fname);
-	if (!data || data_size < sizeof (kcl_head_t))
+	if (!data || data_size < 8)
+		return ka->valid = VALID_WRONG_FF;
+
+	//--- V2 detection: the version magic is always big endian, the byte
+	//--- order follows from the octree offset (== 56 = header size)
+
+	if (data_size >= KCL_V2_HEAD_SIZE && be32 (data) == KCL_V2_MAGIC)
+	{
+		if (be32 ((u8 *)data + 4) == KCL_V2_HEAD_SIZE)
+			return AnalyzeKCL_V2 (ka, data, data_size, file_size, false, fname);
+		if (le32 ((u8 *)data + 4) == KCL_V2_HEAD_SIZE)
+			return AnalyzeKCL_V2 (ka, data, data_size, file_size, true, fname);
+		return ka->valid = VALID_ERROR;
+	}
+
+	if (data_size < sizeof (kcl_head_t))
 		return ka->valid = VALID_WRONG_FF;
 
 	ka->head_size = sizeof (kcl_head_t);
+
+	//--- V1 endian detection: first section offset == header size (56/GC, 60/Wii+DS)
+
+	bool le = false;
+	{
+		const u32 off_be = be32 (data);
+		const u32 off_le = le32 (data);
+		if (off_be == KCL_V1_HEAD_SIZE || off_be == KCL_GC_HEAD_SIZE)
+			le = false;
+		else if (off_le == KCL_V1_HEAD_SIZE || off_le == KCL_GC_HEAD_SIZE)
+			le = true;
+		else
+		{
+			// legacy fallback: old BE-only validation keeps odd files
+			// working exactly as before (also rejects LE garbage as usual)
+			goto legacy_be;
+		}
+	}
+	ka->is_le = le;
 
 	//--- setup memory map
 
@@ -6660,7 +6743,7 @@ valid_t IsValidKCL (kcl_analyze_t *ka, // not NULL: init and store stats
 
 	for (sect = 0; sect < N_KCL_SECT; sect++)
 	{
-		u32 offset = be32 (kcl->sect_off + sect);
+		u32 offset = le ? le32 (kcl->sect_off + sect) : be32 (kcl->sect_off + sect);
 		if (sect == 2)
 			offset += 0x10;
 
@@ -6682,10 +6765,52 @@ valid_t IsValidKCL (kcl_analyze_t *ka, // not NULL: init and store stats
 		snprintf (mi->info, sizeof (mi->info), "Section #%u", sect + 1);
 	}
 
+	//--- detect the V1 sub variant before sizing (DS normals are 6 bytes):
+	//--- GC uses the 56 byte header without sphere radius, DS stores fixed
+	//--- point geometry (fx32 positions+length, fx16 normals).
+	//--- A sane float sphere radius at offset 56 means Wii/GC, otherwise
+	//--- the first normal triplet decides: unit length (~1) means float.
+
+	bool is_ds = false;
+	if (ka->head_size == KCL_V1_HEAD_SIZE && data_size >= KCL_V1_HEAD_SIZE)
+	{
+		u32 b56 = le ? le32 ((u8 *)data + 56) : be32 ((u8 *)data + 56);
+		float f56;
+		memcpy (&f56, &b56, 4);
+		if (!(f56 >= 0.01f && f56 <= 1000000.0f))
+		{
+			// not a sane float radius: fx radius or float 0.0 -> tiebreak
+			is_ds = true;
+			const u32 noff = ka->off[1];
+			if (noff >= ka->head_size && data_size >= noff + 6)
+			{
+				float n0 = le ? lef4 ((u8 *)data + noff) : bef4 ((u8 *)data + noff);
+				float n1 = le ? lef4 ((u8 *)data + noff + 4)
+							  : bef4 ((u8 *)data + noff + 4);
+				// third float overlaps the next s16 triplet; use only 2 for a
+				// quick reject: real float normals have small components
+				if (n0 >= -2.0f && n0 <= 2.0f && n1 >= -2.0f && n1 <= 2.0f)
+				{
+					float n2 = le ? lef4 ((u8 *)data + noff + 8)
+								  : bef4 ((u8 *)data + noff + 8);
+					const double len = sqrt ((double)n0 * n0 + (double)n1 * n1
+						+ (double)n2 * n2);
+					if (len >= 0.5 && len <= 2.0)
+						is_ds = false; // float unit normal -> Wii
+				}
+			}
+		}
+	}
+	ka->version = is_ds ? KCL_V_DS
+		: ka->head_size == KCL_GC_HEAD_SIZE ? KCL_V_GC
+											: KCL_V_WII;
+
 	//--- calculate section sizes
 
-	static const uint elem_size[N_KCL_SECT]
+	uint elem_size[N_KCL_SECT]
 		= { sizeof (float3), sizeof (float3), sizeof (kcl_triangle_t) };
+	if (is_ds)
+		elem_size[1] = 6; // fx16 normal triplets
 
 	uint i, err = 0, order = 0;
 	for (i = 0; i < mm.used - 1; i++)
@@ -6724,6 +6849,90 @@ valid_t IsValidKCL (kcl_analyze_t *ka, // not NULL: init and store stats
 
 	noPRINT_IF (err, "INVALID KCL: %s\n", GetValidInfoKCL (ka));
 	return ka->valid = err ? VALID_ERROR : VALID_OK;
+
+legacy_be:;
+	//--- legacy BE-only validation, kept for odd section layouts
+
+	MemMap_t mm2;
+	InitializeMemMap (&mm2);
+	if (file_size)
+	{
+		ka->file_size = file_size;
+		MemMapItem_t *mi = InsertMemMap (&mm2, file_size, 0);
+		mi->index = N_KCL_SECT;
+		StringCopyS (mi->info, sizeof (mi->info), "End of file");
+	}
+
+	const kcl_head_t *kcl2 = data;
+
+	for (sect = 0; sect < N_KCL_SECT; sect++)
+	{
+		u32 offset = be32 (kcl2->sect_off + sect);
+		if (sect == 2)
+			offset += 0x10;
+
+		if (offset == sizeof (kcl_head_t) - 4)
+			ka->head_size = offset;
+
+		ka->off[sect] = offset;
+		if (offset & 3 || offset < sizeof (kcl_head_t) - 4 // unknown_0x38 is optional
+			|| file_size && offset > file_size)
+		{
+			noPRINT ("INVALID KCL: sect=%d, off=%x, headsize=%zx, filesize=%x\n", sect, offset,
+				sizeof (kcl_head_t), file_size);
+			return ka->valid = VALID_ERROR;
+		}
+
+		MemMapItem_t *mi = InsertMemMap (&mm2, offset, 0);
+		DASSERT (mi);
+		mi->index = sect;
+		snprintf (mi->info, sizeof (mi->info), "Section #%u", sect + 1);
+	}
+
+	//--- calculate section sizes
+
+	static const uint elem_size2[N_KCL_SECT]
+		= { sizeof (float3), sizeof (float3), sizeof (kcl_triangle_t) };
+
+	uint i2, err2 = 0, order2 = 0;
+	for (i2 = 0; i2 < mm2.used - 1; i2++)
+	{
+		MemMapItem_t *p1 = mm2.field[i2];
+		MemMapItem_t *p2 = mm2.field[i2 + 1];
+		p1->size = p2->off - p1->off;
+		order2 = order2 * 10 + p1->index + 1;
+
+		const uint esize = elem_size2[p1->index];
+		if (esize)
+		{
+			const uint n = p1->size / esize;
+			ka->n[p1->index] = n;
+			if (p1->size != n * esize)
+			{
+				p1->size = n * esize;
+				err2++;
+			}
+		}
+		ka->size[p1->index] = p1->size;
+	}
+	ka->order_value = order2;
+	ka->order_ok = order2 == 1234;
+	ka->version = ka->head_size == KCL_GC_HEAD_SIZE ? KCL_V_GC : KCL_V_WII;
+	ka->is_le = false;
+
+	//--- logging
+
+	if (logging >= 2)
+	{
+		fprintf (stdlog, "\nMemory map of KCL sections: %s\n", fname ? fname : "");
+		PrintMemMap (&mm2, stdlog, 3, "info");
+		fputc ('\n', stdlog);
+	}
+
+	// [[2do]] [[kcl]] more tests?
+
+	noPRINT_IF (err2, "INVALID KCL: %s\n", GetValidInfoKCL (ka));
+	return ka->valid = err2 ? VALID_ERROR : VALID_OK;
 }
 
 //-----------------------------------------------------------------------------
@@ -6739,12 +6948,30 @@ ccp GetValidInfoKCL (kcl_analyze_t *ka)
 	else
 		*order = 0;
 
-	char buf[150];
-	uint len
-		= snprintfS (buf, sizeof (buf), "%ssect=%x+%x, %x+%x, %x+%x, %x+%x, %x / N=%d,%d,%d,%d",
-			  order, ka->off[0], ka->size[0], ka->off[1], ka->size[1], ka->off[2], ka->size[2],
-			  ka->off[3], ka->size[3], ka->file_size, ka->n[0], ka->n[1], ka->n[2], ka->n[3])
-		+ 1;
+	char buf[200];
+	uint len;
+	if (ka->version == KCL_V_V2)
+		len = snprintfS (buf, sizeof (buf),
+				  "%sV2 models=%u modelarr=%x / size=%x%s", order, ka->v2_n_models,
+				  ka->v2_modelarr_off, ka->file_size, ka->is_le ? " LE" : "")
+			+ 1;
+	else
+	{
+		ccp vname = "";
+		switch (ka->version)
+		{
+			case KCL_V_GC: vname = " GC"; break;
+			case KCL_V_DS: vname = " DS"; break;
+			case KCL_V_WII: vname = ""; break;
+			default: break;
+		}
+		len = snprintfS (buf, sizeof (buf),
+				  "%ssect=%x+%x, %x+%x, %x+%x, %x+%x, %x / N=%d,%d,%d,%d%s%s", order,
+				  ka->off[0], ka->size[0], ka->off[1], ka->size[1], ka->off[2],
+				  ka->size[2], ka->off[3], ka->size[3], ka->file_size, ka->n[0],
+				  ka->n[1], ka->n[2], ka->n[3], vname, ka->is_le ? " LE" : "")
+			+ 1;
+	}
 
 	char *res = GetCircBuf (len);
 	memcpy (res, buf, len);

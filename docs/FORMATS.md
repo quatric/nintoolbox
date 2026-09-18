@@ -9,6 +9,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | Format | Platform / Category | Decode | Encode | Notes |
 |---|---|---|---|---|
 | **AJJPG / AJPG** | GBA / Still Image | ✅ | ✅ | GBA-era still image container |
+| **ADJB** | Switch / Model sidecar | ✅ | ❌ | Smash Ultimate mesh triangle adjacency (model.adjb): per-mesh id + u16 index lists, sized like Adjb.cs |
 | **ALAR** | DS / Archive | ✅ | ✅ | Nitro ALAR archive |
 | **ALZ1** | DS / Compression | ✅ | ✅ | Arika 4096-byte window LZSS with inverted flag bits |
 | **Arika (INFO.DAT/GAME.DAT)** | DS/DSi / Archive | ✅ | ✅ | Obfuscated directory decryption and member decompression |
@@ -68,7 +69,8 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **HSD (.dat)** | GameCube / Model | ✅ | ✅ | HAL Laboratory sysdolphin object graph |
 | **HSF** | GameCube / Wii / Model | ✅ | ✅ | Hudson Mario Party 3D model |
 | **Hyrule Warriors Legends** | 3DS / Archive | ✅ | ✅ | Split `.idx` / `.bin` archive pair |
-| **BFSHA** | Wii U / Switch / Shader Archive | ✅ | ❌ | NintendoWare shader archive (FSHA) |
+| **BFSHA** | Wii U / Switch / Shader Archive | ✅ | ❌ | NintendoWare shader archive (FSHA): per-model option choice values, sampler extras, uniform-block type names; embedded `.bnsh` sidecars |
+| **BNSH** | Switch / Shader | ✅ | ❌ | NintendoWare binary shader: dual source/binary programs per variation, zlib-compressed stages, per-program MemoryData; stage blobs extract as `.bin` / `.glsl` / `.zlib.bin` sidecars |
 | **MPR CMDL / SMDL / WMDL** | Switch / Model | ✅ | ❌ | Retro Studios static CMDL, skinned SMDL, and world WMDL models (*Metroid Prime Remastered*, *DKCTF*) |
 | **MPR SKEL** | Switch / Skeleton | ✅ | ❌ | Retro Studios skeletal hierarchy (*Metroid Prime Remastered*, *DKCTF*) |
 | **MPR PACK** | Switch / Archive | ✅ | ❌ | Retro Studios asset container (*Metroid Prime Remastered*): LE RFRM PACK v1 + TOCC v3, LZSS members |
@@ -83,6 +85,8 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **NLG DICT** | 3DS / Switch / Archive | ✅ | ❌ | Next Level Games dictionary archive (*Metroid Prime: Federation Force*, *Luigi's Mansion 2 HD*, *Luigi's Mansion 3*, *Mario Strikers: Battle League Football*) |
 | **NSBMD / NSBTX** | DS / 3D Graphics | ✅ | ✅ | Nitro 3D models and textures |
 | **NUD** | Wii U / 3DS / Model | ✅ | ✅ | Bandai Namco 3D model container (Smash 4 NDP3/NDWU and Pokkén NDWD multi-mesh) |
+| **NUMATB** | Switch / Material | ✅ | ❌ | Bandai Namco SSBH material container (Smash Ultimate): text manifest plus MatLab-dialect MaterialLibrary XML |
+| **NUANMB** | Switch / Animation | ✅ | ❌ | Bandai Namco SSBH skeletal/material animation (Smash Ultimate): group/node/track structure plus decoded Direct/Constant/Compressed keyframe payloads |
 | **NUMSHB** | Switch / Model | ✅ | ❌ | Bandai Namco SSBH 3D mesh model (Smash Ultimate) |
 | **SHARC / SHARCFB** | Wii U / Switch / Shader Archive | ✅ | ✅ | NintendoWare shader source and binary archive (SHARC v10-12 round-trips; Wii U SHARCFB is compiled from GSH) |
 | **VFXB** | Wii U / Switch / Effect Archive | ✅ | ❌ | NintendoWare particle effect binary archive |
@@ -90,6 +94,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **NUTEXB** | Switch / Texture | ✅ | ✅ | Super Smash Bros. Ultimate texture container |
 | **PAC** | Wii / Archive | ✅ | ✅ | Super Smash Bros. Brawl archive |
 | **PLT0** | Wii / Animation | ✅ | ✅ | NW4R palette animation |
+| **PRC** | Switch / Param | ✅ | ❌ | Smash Ultimate "paracobn" parameter binary to ParamXML-dialect XML (bool/sbyte/byte/short/ushort/int/uint/float/hash40/string/list/struct); Smash 4 era variants recognised |
 | **PSDK** | Wii / Compression | ✅ | ✅ | Prosonic SDK LZSS container |
 | **QuickLZ** | Compression | ✅ | ✅ | QLZ 1.20 and 1.4.0 streams |
 | **RARC** | GameCube / Wii / Archive | ✅ | ✅ | Nintendo standard resource archive |
@@ -103,4 +108,6 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **TMPK** | Wii U / Archive | ✅ | ✅ | *The Legend of Zelda: Twilight Princess HD* flat archive. Verified against the retail `content/Shaders.pack.gz`: a plain gzip stream wraps a 10,402,512-byte TMPK archive that extracts to exactly 1568 non-empty members |
 | **WARC** | Wii U / Archive | ✅ | ✅ | Game & Wario flat archive |
 | **WUD / WUX** | Wii U / Disc Image | ✅ | ✅ | Wii U disc extraction & compression |
+| **XTX** | Switch / Texture | ✅ | ❌ | Nintendo Switch intermediate texture container (`DFvN`/`HBvN`, Tegra block-linear RGBA8/BC1-BC7/ASTC; synthetic fixture, no retail sample) |
+| **XMB** | Switch / Metadata | ✅ | ❌ | Smash XMB material/LOD metadata: node/property tables to XMBDec-mapping XML |
 | **Yay0 / Yaz0** | Compression | ✅ | ✅ | Nintendo standard LZ77 compression |

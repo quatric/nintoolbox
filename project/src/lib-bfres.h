@@ -9,7 +9,9 @@ model_t *ParseBFRES (const uint8_t *data, size_t size);
 
 // Switch flavour: little endian, version-major-gated header layout, a
 // separate FRES-wide buffer pool (BufferInfo) index/vertex data lives in.
-// See the comment above ParseBFRESSwitch() in lib-bfres.c.
+// Census covers the six ResFile lists (slot 0 FMDL, 1 FSKA, 2 FMAA, 3 FBVS,
+// 4 FSHA, 5 FSCN) plus attached external files as synthetic slot 6
+// (magic "EXTF"). See the comment above ParseBFRESSwitch() in lib-bfres.c.
 model_t *ParseBFRESSwitch (const uint8_t *data, size_t size);
 
 // Wii U BFRES 3.x archive resource census. The header carries a fixed table

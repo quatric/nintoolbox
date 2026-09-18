@@ -85,6 +85,275 @@ static ccp bnfm_get_str (const u8 *data, uint size, u32 offset)
 
 enumError DecodeBNFM (const u8 *data, uint size, ccp out_path)
 {
+	return DecodeBNFMWithAnim (data, size, 0, 0, out_path);
+}
+
+// ----------------------------------------------------------------------------
+// BNFM skeletal animation (BNFMSA).
+//
+// Reference: MPLibrary/WiiU/BNFM/Animation/BNFMSA.cs ParseAnimations/
+// LoadTrackList/LoadTrack. All integers big-endian; key frames store the
+// frame as a u32 (converted to float by the reference) and values as f32.
+// Hermite keys carry in/out slopes the reference reads but never applies,
+// so both key types sample linearly here.
+
+typedef struct
+{
+	float frame;
+	float value;
+} bnfmsa_key_t;
+
+typedef struct
+{
+	bnfmsa_key_t *keys;
+	uint n_keys;
+} bnfmsa_track_t;
+
+static float bnfmsa_sample (const bnfmsa_track_t *t, float frame, float fallback)
+{
+	if (!t || !t->n_keys)
+		return fallback;
+	if (frame <= t->keys[0].frame)
+		return t->keys[0].value;
+	for (uint i = 1; i < t->n_keys; i++)
+	{
+		if (frame <= t->keys[i].frame)
+		{
+			const float f0 = t->keys[i - 1].frame, v0 = t->keys[i - 1].value;
+			const float f1 = t->keys[i].frame, v1 = t->keys[i].value;
+			if (f1 <= f0)
+				return v1;
+			const float a = (frame - f0) / (f1 - f0);
+			return v0 + a * (v1 - v0);
+		}
+	}
+	return t->keys[t->n_keys - 1].value;
+}
+
+static int bnfm_joint_by_name (const model_t *model, const char *name)
+{
+	if (!model || !name || !name[0])
+		return -1;
+	for (size_t i = 0; i < model->num_joints; i++)
+		if (!strcmp (model->joints[i].name, name))
+			return (int)i;
+	return -1;
+}
+
+int AppendBNFMSAAnimation (model_t *model, const u8 *data, uint size)
+{
+	if (!model || !data || size < 76)
+		return 0;
+
+	const u32 nbone = rd_be32 (data);
+	const u32 nanim = rd_be32 (data + 4);
+	const u32 nbanim = rd_be32 (data + 8);
+	// data+12 numTracks, +16 unk, +20 numConstantTracks, +24 numKeyFrames,
+	// +28 numKeyedTracks, +32..+40 unk.
+	const u32 bone_info_off = rd_be32 (data + 44);
+	const u32 anim_info_off = rd_be32 (data + 48);
+	const u32 bone_anim_off = rd_be32 (data + 52);
+	// data+56 boneTrackOffset, +60 unk, +64 constantKeys, +68 keyedFrames,
+	// +72 stringTable: reserved for fuller tooling, not needed here.
+
+	if (!nbanim || nbanim > 10000 || !nanim || nanim > 256)
+		return 0;
+	if (anim_info_off >= size || bone_anim_off >= size)
+		return 0;
+	(void)nbone;
+	(void)bone_info_off;
+
+	// Animation info (first entry names the clip).
+	char anim_name[64];
+	snprintf (anim_name, sizeof (anim_name), "Animation0");
+	u32 frame_count = 0;
+	if (anim_info_off + 32 <= size)
+	{
+		const u32 name_off = rd_be32 (data + anim_info_off);
+		if (name_off < size && data[name_off])
+			snprintf (anim_name, sizeof (anim_name), "%s", (ccp)(data + name_off));
+		frame_count = rd_be32 (data + anim_info_off + 24);
+	}
+
+	model_animation_t anim;
+	memset (&anim, 0, sizeof (anim));
+	snprintf (anim.name, sizeof (anim.name), "%s", anim_name);
+
+	for (uint b = 0; b < nbanim; b++)
+	{
+		const u64 boff = (u64)bone_anim_off + (u64)b * 0x54;
+		if (boff + 0x54 > size)
+			break;
+		const u32 name_off = rd_be32 (data + boff);
+		char gname[64] = "";
+		if (name_off < size && data[name_off])
+			snprintf (gname, sizeof (gname), "%s", (ccp)(data + name_off));
+		const int joint = bnfm_joint_by_name (model, gname);
+		if (joint < 0)
+			continue;
+
+		bnfmsa_track_t tracks[10];
+		memset (tracks, 0, sizeof (tracks));
+		bool have[10] = { false };
+		for (int t = 0; t < 10; t++)
+		{
+			const u32 nkeys = rd_be32 (data + boff + 4 + t * 4);
+			const u32 toff = rd_be32 (data + boff + 44 + t * 4);
+			(void)nkeys;
+			if (toff == 0xFFFFFFFFu || toff + 28 > size)
+				continue;
+			const u32 key_off = rd_be32 (data + toff);
+			const u32 nframes = rd_be32 (data + toff + 12);
+			const int ktype = data[toff + 26]; // 1 Normal, 2 Hermite
+			if (!nframes || nframes > 100000 || key_off >= size)
+				continue;
+			const uint stride = ktype == 2 ? 20 : 8;
+			if ((u64)key_off + (u64)nframes * stride > size)
+				continue;
+			bnfmsa_key_t *keys = CALLOC (nframes, sizeof (*keys));
+			if (!keys)
+				continue;
+			for (uint k = 0; k < nframes; k++)
+			{
+				const u8 *kp = data + key_off + (size_t)k * stride;
+				union { u32 u; float f; } cv;
+				keys[k].frame = (float)rd_be32 (kp);
+				cv.u = rd_be32 (kp + 4);
+				keys[k].value = cv.f;
+			}
+			tracks[t].keys = keys;
+			tracks[t].n_keys = nframes;
+			have[t] = true;
+		}
+
+		// Emit T/R/S channels for kinds with at least one track.
+		struct { int comps[4]; int n; model_anim_path_t path; float fb[4]; } kinds[3] = {
+			{ { 0, 1, 2, -1 }, 3, MODEL_ANIM_TRANSLATION, { 0, 0, 0 } },
+			{ { 3, 4, 5, -1 }, 3, MODEL_ANIM_SCALE, { 1, 1, 1 } },
+			{ { 6, 7, 8, 9 }, 4, MODEL_ANIM_ROTATION, { 0, 0, 0, 1 } },
+		};
+		for (int k = 0; k < 3; k++)
+		{
+			bool any = false;
+			for (int c = 0; c < kinds[k].n; c++)
+				any = any || have[kinds[k].comps[c]];
+			if (!any)
+				continue;
+			// Union of key frames across the kind's tracks.
+			uint cap = 0, nfr = 0;
+			float *frames = 0;
+			for (int c = 0; c < kinds[k].n; c++)
+			{
+				const int ti = kinds[k].comps[c];
+				if (!have[ti])
+					continue;
+				for (uint q = 0; q < tracks[ti].n_keys; q++)
+				{
+					const float fr = tracks[ti].keys[q].frame;
+					bool dup = false;
+					for (uint e = 0; e < nfr; e++)
+						if (frames[e] == fr)
+						{
+							dup = true;
+							break;
+						}
+					if (dup)
+						continue;
+					if (nfr == cap)
+					{
+						cap = cap ? cap * 2 : 16;
+						float *nf = REALLOC (frames, cap * sizeof (*nf));
+						if (!nf)
+							break;
+						frames = nf;
+					}
+					if (nfr < cap)
+						frames[nfr++] = fr;
+				}
+			}
+			if (!nfr)
+			{
+				FREE (frames);
+				continue;
+			}
+			// Sort union ascending (insertion sort; counts are small).
+			for (uint a = 1; a < nfr; a++)
+			{
+				const float key = frames[a];
+				uint e = a;
+				while (e > 0 && frames[e - 1] > key)
+				{
+					frames[e] = frames[e - 1];
+					e--;
+				}
+				frames[e] = key;
+			}
+			model_anim_channel_t ch;
+			memset (&ch, 0, sizeof (ch));
+			ch.node_idx = joint;
+			ch.path = kinds[k].path;
+			ch.components = (size_t)kinds[k].n;
+			ch.count = nfr;
+			ch.times = MALLOC (nfr * sizeof (float));
+			ch.values = MALLOC (nfr * (size_t)kinds[k].n * sizeof (float));
+			if (!ch.times || !ch.values)
+			{
+				FREE (ch.times);
+				FREE (ch.values);
+				FREE (frames);
+				continue;
+			}
+			for (uint q = 0; q < nfr; q++)
+			{
+				ch.times[q] = frames[q] / 60.0f;
+				for (int c = 0; c < kinds[k].n; c++)
+				{
+					const int ti = kinds[k].comps[c];
+					ch.values[q * kinds[k].n + c] = bnfmsa_sample (
+						have[ti] ? tracks + ti : 0, frames[q], kinds[k].fb[c]);
+				}
+			}
+			FREE (frames);
+			model_anim_channel_t *nc = REALLOC (anim.channels,
+				(anim.num_channels + 1) * sizeof (*nc));
+			if (!nc)
+			{
+				FREE (ch.times);
+				FREE (ch.values);
+				continue;
+			}
+			anim.channels = nc;
+			anim.channels[anim.num_channels++] = ch;
+		}
+		for (int t = 0; t < 10; t++)
+			FREE (tracks[t].keys);
+		(void)frame_count;
+	}
+
+	if (!anim.num_channels)
+	{
+		FREE (anim.channels);
+		return 0;
+	}
+	model_animation_t *na = REALLOC (model->animations,
+		(model->num_animations + 1) * sizeof (*na));
+	if (!na)
+	{
+		for (size_t c = 0; c < anim.num_channels; c++)
+		{
+			FREE (anim.channels[c].times);
+			FREE (anim.channels[c].values);
+		}
+		FREE (anim.channels);
+		return 0;
+	}
+	model->animations = na;
+	model->animations[model->num_animations++] = anim;
+	return (int)anim.num_channels;
+}
+
+enumError DecodeBNFMWithAnim (
+	const u8 *data, uint size, const u8 *anim_data, uint anim_size, ccp out_path)
 	if (!data || size < 0x78)
 		return ERR_INVALID_DATA;
 
@@ -298,6 +567,10 @@ enumError DecodeBNFM (const u8 *data, uint size, ccp out_path)
 
 	FREE (indices);
 
+	// Optional BNFMSA sidecar for the same skeleton (sibling .bnfmsa).
+	if (anim_data && anim_size)
+		AppendBNFMSAAnimation (&model, anim_data, anim_size);
+
 	const int rc = ExportModelToGLB (&model, out_path);
 
 	// Free resources
@@ -313,6 +586,16 @@ enumError DecodeBNFM (const u8 *data, uint size, ccp out_path)
 	FREE (model.meshes);
 	FREE (model.joints);
 	FREE (model.materials);
+	for (uint a = 0; a < model.num_animations; a++)
+	{
+		for (size_t c = 0; c < model.animations[a].num_channels; c++)
+		{
+			FREE (model.animations[a].channels[c].times);
+			FREE (model.animations[a].channels[c].values);
+		}
+		FREE (model.animations[a].channels);
+	}
+	FREE (model.animations);
 
 	return rc == 0 ? ERR_OK : ERR_CANT_CREATE;
 }

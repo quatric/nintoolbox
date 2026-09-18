@@ -39,11 +39,11 @@ typedef struct bntx_user_data_t
 	uint count;
 	union
 	{
-		const s32 *i32;
-		const float *f32;
-		ccp const *str;
-		const u8 *bytes;
-		const u16 *wstr;
+		const s32 *i32; // points into the source buffer (INT32)
+		const float *f32; // points into the source buffer (SINGLE)
+		char **str; // owned UTF-8 copies (STRING, array of count offsets)
+		const u8 *bytes; // points into the source buffer (BYTE)
+		char **wstr; // owned UTF-8 decoded copies (WSTRING, array of count offsets)
 	} val;
 } bntx_user_data_t;
 
@@ -82,9 +82,12 @@ typedef struct bntx_texture_t
 	uint depth;
 	uint array_count;
 	uint dim;
+	uint flags; // raw flags byte (BRTI info +0x00)
+	uint swizzle; // raw swizzle value (BRTI info +0x04)
 	uint format; // raw BNTX format word
 	uint comp_sel; // four component selectors, low byte first
 	uint tile_mode, block_height_log2;
+	uint alignment; // surface alignment (BRTI info +0x44)
 	uint n_mips;
 	const u8 *data; // swizzled texture data
 	uint data_size;
@@ -114,6 +117,21 @@ void ResetBNTX (bntx_t *bntx);
 enumError DecodeBNTX_Mip_RGBA (
 	u8 **dest, uint *width, uint *height, const bntx_t *bntx, uint index, uint mip_level);
 enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *bntx, uint index);
+
+// Lossless "native" export in the spirit of BNTX-Extractor: deswizzle the
+// Tegra surface of texture INDEX but keep the native block compression,
+// wrapping it in a DDS header (EncodeBNTXNativeDDS, for BCn and the
+// uncompressed R8/R8G8/RGB565/RGBA8 formats) or in a raw .astc file
+// (EncodeBNTXNativeASTC, for ASTC textures) instead of decoding to RGBA8.
+// Only single-face 2D textures are supported, like the reference tool.
+enumError EncodeBNTXNativeDDS (
+	u8 **dest, uint *dest_size, const bntx_t *bntx, uint index);
+enumError EncodeBNTXNativeASTC (
+	u8 **dest, uint *dest_size, const bntx_t *bntx, uint index);
+
+// Returns true when texture INDEX can be exported with EncodeBNTXNativeDDS
+// (WANT_DDS is true) or EncodeBNTXNativeASTC (WANT_DDS is false).
+bool BntxCanNativeExport (const bntx_t *bntx, uint index, bool want_dds);
 
 // Returns human-readable format string for a BNTX format word (matching BntxLibrary enums).
 ccp GetBNTXFormatName (uint format);

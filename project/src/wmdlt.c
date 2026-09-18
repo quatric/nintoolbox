@@ -51,6 +51,7 @@
 #include "lib-brres-model.h"
 #include "lib-brres-inject.h"
 #include "lib-nsbmd.h"
+#include "lib-j3d.h"
 #include "lib-nsbanim.h"
 #include "lib-bcres.h"
 #include "lib-bch.h"
@@ -61,10 +62,23 @@
 #include "lib-numsh.h"
 #include "lib-mpr-cmdl.h"
 #include "lib-wmb.h"
+#include "lib-nlg-lm.h"
 #include "ui.h" // [[dclib]] wrapper
 #include "ui-wmdlt.c"
 
 static ccp opt_parent = 0;
+
+// J3D BMD/BDL (SuperBMD-compatible) encode/decode options
+static ccp opt_j3d_mat = 0;
+static ccp opt_j3d_outmat = 0;
+static ccp opt_j3d_texheader = 0;
+static int opt_j3d_tristrip = 1; // 0=none 1=static 2=all
+static bool opt_j3d_bdl = false;
+static bool opt_j3d_profile = false;
+static bool opt_j3d_rotate = false;
+static bool opt_j3d_degenerate = false;
+static bool opt_j3d_texfloat = false;
+static bool opt_j3d_nomipmaps = false;
 
 static inline bool is_ext (ccp src, ccp ext)
 {
@@ -726,6 +740,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 			|| (dest_len > 6 && !strcasecmp (dest + dest_len - 6, ".bcmdl"));
 		const bool is_nud = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".nud");
 		const bool is_bnfm = dest_len > 5 && !strcasecmp (dest + dest_len - 5, ".bnfm");
+		const bool is_bmd_dest = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".bmd");
+		const bool is_bdl_dest = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".bdl");
 		const bool is_model_dest = is_dae || is_glb;
 		const bool is_nsbca_dest = dest_len > 6 && !strcasecmp (dest + dest_len - 6, ".nsbca");
 		const bool is_nsbta_dest = dest_len > 6 && !strcasecmp (dest + dest_len - 6, ".nsbta");
@@ -758,6 +774,41 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 						ERROR0 (ERR_INVALID_DATA, "Failed to parse model %s: %s\n",
 							is_glb_input ? "GLB" : "DAE", arg);
 						return ERR_INVALID_DATA;
+					}
+					if (is_bmd_dest || is_bdl_dest || opt_j3d_bdl)
+					{
+						// J3D GameCube/Wii BMD/BDL (SuperBMD-compatible).
+						// A bare .bmd destination selects J3D here; the DS
+						// NSBMD flow keeps working through .nsbmd targets
+						// and the --parent injection path below.
+						j3d_encode_opt_t jopt;
+						SetupDefaultJ3DEncodeOpt (&jopt);
+						jopt.mat_path = opt_j3d_mat;
+						jopt.texheader_path = opt_j3d_texheader;
+						jopt.tristrip = opt_j3d_tristrip;
+						jopt.rotate_model = opt_j3d_rotate;
+						jopt.tex_float32 = opt_j3d_texfloat;
+						jopt.degenerate = opt_j3d_degenerate;
+						jopt.no_mipmaps = opt_j3d_nomipmaps;
+						jopt.is_bdl = opt_j3d_bdl || is_bdl_dest;
+						char texdir[PATH_MAX];
+						snprintf (texdir, sizeof (texdir), "%s", arg);
+						char *tslash = strrchr (texdir, '/');
+						if (tslash)
+							*tslash = 0;
+						else
+							snprintf (texdir, sizeof (texdir), ".");
+						jopt.tex_dir = texdir;
+						err = EncodeModelToJ3D (in_model, dest, &jopt);
+						FreeModel (in_model);
+						if (err > ERR_WARNING)
+							ERROR0 (err, "Failed to encode J3D %s: %s\n",
+								jopt.is_bdl ? "BDL" : "BMD", dest);
+						else if (verbose >= 0)
+							fprintf (stdlog, "%sENCODE J3D %s:%s -> %s\n",
+								verbose > 0 ? "\n" : "", jopt.is_bdl ? "BDL" : "BMD",
+								arg, dest);
+						continue;
 					}
 					if (is_hsf)
 					{
@@ -1024,6 +1075,39 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 			continue;
 		}
 
+		// Next Level Games containers (extractor intermediates, versions
+		// 1..3 = Federation Force / LM2 / LM3).
+		const bool is_nlg_model_in = is_ext (arg, ".fedmodel")
+			|| (raw.data_size >= 8 && !memcmp (raw.data, "FEDM", 4));
+		const bool is_nlg_skel_in = is_ext (arg, ".fedskel")
+			|| (raw.data_size >= 8 && !memcmp (raw.data, "FEDS", 4));
+
+		if (is_model_dest && (is_nlg_model_in || is_nlg_skel_in))
+		{
+			if (!testmode)
+			{
+				model_t *model = is_nlg_model_in
+					? ParseNLGModel (raw.data, raw.data_size)
+					: ParseNLGSkeleton (raw.data, raw.data_size);
+				if (model)
+				{
+					err = ExportModelToGLB (model, dest);
+					FreeModel (model);
+					if (err > ERR_WARNING)
+					{
+						ERROR0 (err, "Failed to decode NLG model: %s\n", arg);
+						return err;
+					}
+				}
+				else
+				{
+					ERROR0 (ERR_INVALID_DATA, "Failed to decode NLG model: %s\n", arg);
+					return ERR_INVALID_DATA;
+				}
+			}
+			continue;
+		}
+
 		if (is_model_dest && is_nud_in)
 		{
 			if (!testmode)
@@ -1203,6 +1287,48 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				FreeModel (model);
 				ERROR0 (ERR_INVALID_DATA, "No NSB animation to write from %s: %s\n", arg, dest);
 				return ERR_INVALID_DATA;
+			}
+			continue;
+		}
+		// J3D GameCube/Wii BMD/BDL (SuperBMD-compatible). Magic-checked
+		// first so a J3D .bmd never reaches the DS NSBMD path below;
+		// the .bmd extension alone still means early-DS BMD there.
+		if (is_model_dest && IsJ3D (raw.data, raw.data_size))
+		{
+			if (!testmode)
+			{
+				if (opt_j3d_profile)
+				{
+					J3DProfileDump (raw.data, raw.data_size, stdout);
+					continue;
+				}
+				ExportJ3DTexturesFromData (raw.data, raw.data_size, dest);
+				model_t *model = ParseJ3D (raw.data, raw.data_size);
+				if (!model)
+				{
+					ERROR0 (ERR_INVALID_DATA, "Failed to decode J3D BMD/BDL: %s\n", arg);
+					return ERR_INVALID_DATA;
+				}
+				// SuperBMD-style sidecars next to the output model.
+				char side_base[PATH_MAX];
+				snprintf (side_base, sizeof (side_base), "%s", dest);
+				char *sdot = strrchr (side_base, '.');
+				char *sslash = strrchr (side_base, '/');
+				if (sdot && (!sslash || sdot > sslash))
+					*sdot = 0;
+				char mat_path[PATH_MAX], tex_path[PATH_MAX];
+				if (opt_j3d_outmat && *opt_j3d_outmat)
+					snprintf (mat_path, sizeof (mat_path), "%s", opt_j3d_outmat);
+				else
+					snprintf (mat_path, sizeof (mat_path), "%s_materials.json", side_base);
+				snprintf (tex_path, sizeof (tex_path), "%s_tex_headers.json", side_base);
+				ExportJ3DMaterialsJSON (raw.data, raw.data_size, mat_path);
+				ExportJ3DTexHeadersJSON (raw.data, raw.data_size, tex_path);
+				if (verbose >= 0)
+					fprintf (stdlog, "%sEXPORT J3D:%s -> GLB:%s\n", verbose > 0 ? "\n" : "",
+						arg, dest);
+				ExportModelToGLB (model, dest);
+				FreeModel (model);
 			}
 			continue;
 		}
@@ -1742,6 +1868,47 @@ static enumError CheckOptions (int argc, char **argv, bool is_env)
 				break;
 			case GO_PARENT:
 				opt_parent = optarg;
+				break;
+			case GO_J3D_MAT:
+				opt_j3d_mat = optarg;
+				break;
+			case GO_J3D_OUTMAT:
+				opt_j3d_outmat = optarg;
+				break;
+			case GO_J3D_TEXHEADER:
+				opt_j3d_texheader = optarg;
+				break;
+			case GO_J3D_TRISTRIP:
+				if (!optarg || !strcasecmp (optarg, "static"))
+					opt_j3d_tristrip = 1;
+				else if (!strcasecmp (optarg, "none"))
+					opt_j3d_tristrip = 0;
+				else if (!strcasecmp (optarg, "all"))
+					opt_j3d_tristrip = 2;
+				else
+				{
+					fprintf (stderr, "Unknown --tristrip mode: %s (use none, static or all)\n",
+						optarg);
+					err++;
+				}
+				break;
+			case GO_J3D_BDL:
+				opt_j3d_bdl = true;
+				break;
+			case GO_J3D_PROFILE:
+				opt_j3d_profile = true;
+				break;
+			case GO_J3D_ROTATE:
+				opt_j3d_rotate = true;
+				break;
+			case GO_J3D_DEGENERATE:
+				opt_j3d_degenerate = true;
+				break;
+			case GO_J3D_TEXFLOAT:
+				opt_j3d_texfloat = true;
+				break;
+			case GO_J3D_NOMIPMAPS:
+				opt_j3d_nomipmaps = true;
 				break;
 			case GO_OVERWRITE:
 				opt_overwrite = true;

@@ -114,7 +114,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **PAC / MRG** | `.pac`, `.mrg` | ✅ | ✅ | ✅ | — | HAL Laboratory / Game Arts Wii archive container |
 | **PKG / GPKG / GPAK** | `.pkg`, `.pak`, `.gpak` | ✅ | ✅ | ✅ | ✅ | Gorilla Games *Bonsai Barber* PKG, 2D Boy *World of Goo* GPAK, and Sonic Team Storybook archive (*Secret Rings* / *Black Knight*). |
 | **PKZ** | `.pkz` | ✅ | ✅ | ✅ | — | PlatinumGames archive format (*Bayonetta*, *Astral Chain*) |
-| **PRC** | `.prc` | ✅ | — | — | — | *Super Smash Bros. 4* parameter binary (`para`) |
+| **PRC** | `.prc`, `.param` | ✅ | — | — | — | Smash parameter binary: Ultimate `paracobn` fully decoded to ParamXML-dialect XML; Smash 4 era variants (`parambinary`, `PRC\0`, `BPAR`) recognised |
 | **PTD** | `.ptd`, `.pdt` | ✅ | — | — | — | Hudson Soft DSP-ADPCM audio archive (*Mario Party 4-8*). |
 | **PVOL** | `.pvol` | 🟡 | ✅ | ✅ | 🟡 | *Pikmin 1 & 2* model & resource container archive. |
 | **RARC** | `.rarc`, `.arc` | ✅ | ✅ | ✅ | — | Nintendo standard resource archive (GameCube / Wii) |
@@ -155,9 +155,10 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 
 | Format | Extensions | Target Output | Decode Tested | Encode Tested | Byte-Exact Roundtrip | Retail Source Tested | Middleware / Engine / Platform Context |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| **ADJB** | `.adjb` | **TXT manifest** | ✅ | — | — | — | Bandai Namco mesh triangle adjacency sidecar (*Super Smash Bros. Ultimate*, Switch; `model.adjb` beside its `.numshb`) |
 | **BCH** | `.bch` | **GLB** | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C H3D binary character model (3DS) |
-| **BCMDL / CGFX** | `.bcmdl`, `.cgfx` | **GLB** | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C CGFX 3D model resource (3DS). |
-| **BCRES** | `.bcres` | **GLB** | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C CGFX 3D graphics and model resource container (3DS). |
+| **BCMDL / CGFX** | `.bcmdl`, `.cgfx` | **GLB** | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C CGFX 3D model resource (3DS). Decodes vertex colours, tangents, UV1/UV2 and rigid/smooth skinning into GLB (COLOR_0/TANGENT/TEXCOORD_1/JOINTS_0/WEIGHTS_0 + skins); re-encode preserves them with per-submesh bone palettes and U8/U16 indices. `wszst XX` also drops each TXOB texture as PNG plus a TextureMeta `.json` sidecar (PICA format, size). |
+| **BCRES** | `.bcres` | **GLB** | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C CGFX 3D graphics and model resource container (3DS). Same geometry coverage as BCMDL/CGFX (colours, tangents, extra UVs, skinning, texture `.json` sidecars). |
 | **BFRES** | `.bfres` | **GLB** | ✅ | — | — | ✅ | Nintendo GX2 / NintendoSDK 3D model & surface resource archive (Wii U / Switch). |
 | **BMD** | `.bmd`, `.bdhc` | **GLB** | ✅ | ✅ | ✅ | — | Early Nintendo DS 3D model format (DS) |
 | **BNFM** | `.bnfm` | **GLB** | ✅ | ✅ | ✅ | ✅ | Nd Cube Wii U 3D model format (*Mario Party 10*, *Animal Crossing: amiibo Festival*). |
@@ -244,6 +245,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **TEX0** | `.tex0` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4R texture resource (Wii) |
 | **TEX3DS** | `.tex` | — | — | — | — | Nintendo 3DS proprietary texture (identification only) |
 | **XIMG** | `.xi` | — | — | — | — | Level-5 3DS/Switch image & texture container |
+| **XTX** | `.xtx` | ✅ | — | — | — | Nintendo Switch intermediate texture container (`DFvN`/`HBvN`, Tegra block-linear RGBA8/BC1-BC7/ASTC; every texture exports, not just index 0) |
 
 `Byte-Exact Roundtrip` = encode → decode → re-encode to the same destination name
 reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regress.sh`
@@ -290,6 +292,7 @@ bytes. Exercised by `t_byte_fixed_points()` in `tests/regress.sh`. BRLYT/BRLAN
 canonical fixed point and semantic roundtrips are validated against retail Wii layouts.
 | **MPBOARD** | `.bin`, `.csv` | ✅ | — | — | — | Mario Party board data: GameCube / Wii binary boards (MP4-MP8) and *Super Mario Party* CSV node formats (space nodes, coordinates, links). |
 | **MPMESS** | `.dat` | ✅ | — | — | — | Mario Party 4-7 GameCube message files (`board.dat`, `mini.dat`, `*_e.dat`), extracted to text / JSON. |
+| **XMB** | `.xmb` | ✅ | — | — | — | Smash XMB material/LOD metadata (Smash 4 / Ultimate; `model.xmb` / `lod.xmb` beside `.numdlb`, decoded to XMBDec-mapping XML). |
 
 ---
 

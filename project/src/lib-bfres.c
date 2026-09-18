@@ -98,7 +98,52 @@ static const char *rel_string (const uint8_t *d, size_t size, size_t at)
 //-----------------------------------------------------------------------------
 // GX2 vertex attribute formats. Only the ones that actually carry geometry
 // are handled; anything else leaves the component at zero.
+//
+// Format table ported from KillzXGaming/NintenTools.Bfres GX2/Enums.cs
+// (GX2AttribFormat) + Helpers/VertexBufferHelper: UNorm/SNorm map to
+// [0,1]/[-1,1], UInt/SInt/ToSingle map to raw integer values as float
+// (used for _b0/_i0 bone indices), Single/Half map to float. Integer
+// passthrough matters: _i0 bone indices (e.g. 0x10A = 8_8_8_8 UInt) must
+// survive as exact integers, not normalized fractions.
 //-----------------------------------------------------------------------------
+
+static int attr_read_uint8 (const uint8_t *p, size_t avail, uint32_t fmt, uint8_t out[4])
+{
+	out[0] = out[1] = out[2] = out[3] = 0;
+	switch (fmt)
+	{
+		case 0x0000000A: // 8_8_8_8 UNorm (raw bytes still valid as indices)
+		case 0x0000010A: // 8_8_8_8 UInt (Wii U _i0 bone indices, e.g. Splatoon)
+		case 0x0000030A: // 8_8_8_8 SInt
+		case 0x0000080A: // 8_8_8_8 UIntToSingle
+		case 0x00000A0A: // 8_8_8_8 SIntToSingle
+			if (avail < 4)
+				return 0;
+			for (int i = 0; i < 4; i++)
+				out[i] = p[i];
+			return 4;
+		case 0x00000004: // 8_8 UNorm
+		case 0x00000104: // 8_8 UInt
+		case 0x00000204: // 8_8 SNorm
+		case 0x00000304: // 8_8 SInt
+		case 0x00000005:
+		case 0x00000205:
+			if (avail < 2)
+				return 0;
+			out[0] = p[0];
+			out[1] = p[1];
+			return 2;
+		case 0x00000000: // 8 UNorm
+		case 0x00000100: // 8 UInt
+		case 0x00000200: // 8 SNorm
+		case 0x00000300: // 8 SInt
+			if (avail < 1)
+				return 0;
+			out[0] = p[0];
+			return 1;
+	}
+	return 0;
+}
 
 static int attr_read (const uint8_t *p, size_t avail, uint32_t fmt, float out[4])
 {
@@ -120,6 +165,98 @@ static int attr_read (const uint8_t *p, size_t avail, uint32_t fmt, float out[4]
 			out[0] = (int8_t)p[0] / 127.0f;
 			out[1] = (int8_t)p[1] / 127.0f;
 			return 1;
+		case 0x00000000: // 8 unorm
+			if (avail < 1)
+				return 0;
+			out[0] = p[0] / 255.0f;
+			return 1;
+		case 0x00000100: // 8 uint
+		case 0x00000800: // 8 uint-to-single
+			if (avail < 1)
+				return 0;
+			out[0] = (float)p[0];
+			return 1;
+		case 0x00000200: // 8 snorm
+			if (avail < 1)
+				return 0;
+			out[0] = (int8_t)p[0] / 127.0f;
+			return 1;
+		case 0x00000300: // 8 sint
+		case 0x00000A00: // 8 sint-to-single
+			if (avail < 1)
+				return 0;
+			out[0] = (float)(int8_t)p[0];
+			return 1;
+		case 0x00000001: // 4_4 unorm (2x4bit in one byte)
+			if (avail < 1)
+				return 0;
+			out[0] = (float)(p[0] & 0xF) / 15.0f;
+			out[1] = (float)((p[0] >> 4) & 0xF) / 15.0f;
+			return 1;
+		case 0x00000002: // 16 unorm
+			if (avail < 2)
+				return 0;
+			out[0] = rb16 (p) / 65535.0f;
+			return 1;
+		case 0x00000102: // 16 uint
+		case 0x00000802: // 16 uint-to-single
+			if (avail < 2)
+				return 0;
+			out[0] = (float)rb16 (p);
+			return 1;
+		case 0x00000202: // 16 snorm
+			if (avail < 2)
+				return 0;
+			out[0] = (int16_t)rb16 (p) / 32767.0f;
+			return 1;
+		case 0x00000302: // 16 sint
+		case 0x00000A02: // 16 sint-to-single
+			if (avail < 2)
+				return 0;
+			out[0] = (float)(int16_t)rb16 (p);
+			return 1;
+		case 0x00000803: // 16 single (half float)
+			if (avail < 2)
+				return 0;
+			out[0] = half_to_float (rb16 (p));
+			return 1;
+		case 0x00000104: // 8_8 uint
+		case 0x00000804: // 8_8 uint-to-single
+			if (avail < 2)
+				return 0;
+			out[0] = (float)p[0];
+			out[1] = (float)p[1];
+			return 1;
+		case 0x00000304: // 8_8 sint
+		case 0x00000A04: // 8_8 sint-to-single
+			if (avail < 2)
+				return 0;
+			out[0] = (float)(int8_t)p[0];
+			out[1] = (float)(int8_t)p[1];
+			return 1;
+		case 0x00000105: // 32 uint
+			if (avail < 4)
+				return 0;
+			out[0] = (float)rb32 (p);
+			return 1;
+		case 0x00000305: // 32 sint
+			if (avail < 4)
+				return 0;
+			out[0] = (float)rbs32 (p);
+			return 1;
+		case 0x00000107: // 16_16 uint
+			if (avail < 4)
+				return 0;
+			out[0] = (float)rb16 (p);
+			out[1] = (float)rb16 (p + 2);
+			return 1;
+		case 0x00000307: // 16_16 sint
+		case 0x00000A07: // 16_16 sint-to-single
+			if (avail < 4)
+				return 0;
+			out[0] = (float)(int16_t)rb16 (p);
+			out[1] = (float)(int16_t)rb16 (p + 2);
+			return 1;
 		case 0x00000007: // 16_16 unorm (alias)
 		case 0x00000008: // 16_16 unorm
 			if (avail < 4)
@@ -135,10 +272,26 @@ static int attr_read (const uint8_t *p, size_t avail, uint32_t fmt, float out[4]
 			out[1] = (int16_t)rb16 (p + 2) / 32767.0f;
 			return 1;
 		case 0x0000000A: // 8_8_8_8 unorm
+		case 0x0000010A: // 8_8_8_8 uint (bone indices: raw, not normalized)
+			if (avail < 4)
+				return 0;
+			if ((fmt & 0x00000F00) == 0x00000100 || (fmt & 0x00000F00) == 0x00000800)
+			{
+				for (int i = 0; i < 4; i++)
+					out[i] = (float)p[i];
+			}
+			else
+			{
+				for (int i = 0; i < 4; i++)
+					out[i] = p[i] / 255.0f;
+			}
+			return 1;
+		case 0x0000030A: // 8_8_8_8 sint
+		case 0x00000A0A: // 8_8_8_8 sint-to-single
 			if (avail < 4)
 				return 0;
 			for (int i = 0; i < 4; i++)
-				out[i] = p[i] / 255.0f;
+				out[i] = (float)(int8_t)p[i];
 			return 1;
 		case 0x0000020A: // 8_8_8_8 snorm
 			if (avail < 4)
@@ -176,6 +329,78 @@ static int attr_read (const uint8_t *p, size_t avail, uint32_t fmt, float out[4]
 			out[3] = (float)w;
 			return 1;
 		}
+		case 0x0000010B: // 10_10_10_2 uint
+		case 0x0000030B: // 10_10_10_2 sint
+		{
+			if (avail < 4)
+				return 0;
+			const uint32_t v = rb32 (p);
+			for (int i = 0; i < 3; i++)
+				out[i] = (float)((v >> (i * 10)) & 0x3FF);
+			out[3] = (float)((v >> 30) & 3);
+			return 1;
+		}
+		case 0x0000010C: // 32_32 uint
+			if (avail < 8)
+				return 0;
+			out[0] = (float)rb32 (p);
+			out[1] = (float)rb32 (p + 4);
+			return 1;
+		case 0x0000030C: // 32_32 sint
+			if (avail < 8)
+				return 0;
+			out[0] = (float)rbs32 (p);
+			out[1] = (float)rbs32 (p + 4);
+			return 1;
+		case 0x0000000E: // 16_16_16_16 unorm
+			if (avail < 8)
+				return 0;
+			for (int i = 0; i < 4; i++)
+				out[i] = rb16 (p + i * 2) / 65535.0f;
+			return 1;
+		case 0x0000010E: // 16_16_16_16 uint
+			if (avail < 8)
+				return 0;
+			for (int i = 0; i < 4; i++)
+				out[i] = (float)rb16 (p + i * 2);
+			return 1;
+		case 0x0000020E: // 16_16_16_16 snorm
+			if (avail < 8)
+				return 0;
+			for (int i = 0; i < 4; i++)
+				out[i] = (int16_t)rb16 (p + i * 2) / 32767.0f;
+			return 1;
+		case 0x0000030E: // 16_16_16_16 sint
+		case 0x00000A0E: // 16_16_16_16 sint-to-single
+			if (avail < 8)
+				return 0;
+			for (int i = 0; i < 4; i++)
+				out[i] = (float)(int16_t)rb16 (p + i * 2);
+			return 1;
+		case 0x00000110: // 32_32_32 uint
+			if (avail < 12)
+				return 0;
+			for (int i = 0; i < 3; i++)
+				out[i] = (float)rb32 (p + i * 4);
+			return 1;
+		case 0x00000310: // 32_32_32 sint
+			if (avail < 12)
+				return 0;
+			for (int i = 0; i < 3; i++)
+				out[i] = (float)rbs32 (p + i * 4);
+			return 1;
+		case 0x00000112: // 32_32_32_32 uint
+			if (avail < 16)
+				return 0;
+			for (int i = 0; i < 4; i++)
+				out[i] = (float)rb32 (p + i * 4);
+			return 1;
+		case 0x00000312: // 32_32_32_32 sint
+			if (avail < 16)
+				return 0;
+			for (int i = 0; i < 4; i++)
+				out[i] = (float)rbs32 (p + i * 4);
+			return 1;
 		case 0x00000806: // 16_16 float
 		case 0x00000809: // 16_16 float
 			if (avail < 4)
@@ -380,6 +605,30 @@ static int read_fvtx (const uint8_t *d, size_t size, size_t fv, fvtx_t *out)
 				out->stride_clr1 = stride;
 				out->avail_clr1 = avail;
 			}
+		}
+		else if (!strncmp (name, "_b", 2) && !out->bone)
+		{
+			// Wii U skin indices (_b0): same handling as Switch _b0/_i0.
+			out->bone = p;
+			out->fmt_bone = fmt;
+			out->stride_bone = stride;
+			out->avail_bone = avail;
+		}
+		else if (!strncmp (name, "_i", 2) && !out->bone)
+		{
+			// Wii U skin indices (_i0, e.g. Splatoon 0x10A = 8_8_8_8 UInt).
+			out->bone = p;
+			out->fmt_bone = fmt;
+			out->stride_bone = stride;
+			out->avail_bone = avail;
+		}
+		else if (!strncmp (name, "_w", 2) && !out->wt)
+		{
+			// Wii U skin weights (_w0, e.g. 0x0A = 8_8_8_8 UNorm).
+			out->wt = p;
+			out->fmt_wt = fmt;
+			out->stride_wt = stride;
+			out->avail_wt = avail;
 		}
 	}
 	return out->pos != NULL;
@@ -958,14 +1207,21 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 
 	// FMAT materials (FMDL+0x18 index group; header layout verified against
 	// mk8.tockdom.com's FMDL doc page byte-for-byte, plus KillzXGaming/
-	// BfresLibrary's TextureRef.cs for the texture-ref array's [nameOffset,
-	// ftexOffset] pair -- only the first texture ref per material is bound
-	// (diffuse-slot heuristic; real files commonly have several ref'd
-	// textures -- e.g. normal/specular -- that this fork's DAE export has
-	// no material-model slot for yet). Texture *names* only, not pixel data
-	// -- the actual FTEX decode-to-PNG happens in wszst.c's extraction
-	// pass, so this only needs to match the names those PNGs get written
-	// under (see extract_bfres_textures() in wszst.c).
+	// NintenTools.Bfres Model/Material/Material.cs + TextureRef.cs +
+	// Sampler.cs + GX2/TexSampler.cs for the full sub-structure).
+	// Material.cs Load order: Name, Flags, idx, numRenderInfo, numSampler,
+	// numTextureRef, numShaderParam, numVolatile, sizParamSrc, sizParamRaw,
+	// numUserData, then RenderInfos, RenderState, ShaderAssign, TextureRefs
+	// (8-byte [nameOff][ftexOff] each), SamplerList, SamplersDict,
+	// ShaderParamList, ShaderParamDict, ShaderParamData, UserData, Volatile.
+	// All texture refs (up to 8, e.g. Alb/Nrm/Spm) are bound in order --
+	// previously only the first was kept -- plus per-sampler wrap/filter
+	// from TexSampler.Values[0] (ClampX/Y bits 0-5, Mag/Min filter bits
+	// 9-13) into material_t's wrap/filter + texture_coord slots, so the GLB
+	// exporter emits every layer instead of albedos-only. Texture *names*
+	// only, not pixel data -- the actual FTEX decode-to-PNG happens in
+	// wszst.c's extraction pass, so this only needs to match the names those
+	// PNGs get written under (see extract_bfres_textures() in wszst.c).
 	const uint16_t n_fmat = rb16 (d + m + 0x24);
 	const size_t fmat_grp = REL (d, m + 0x18);
 	if (n_fmat && fmat_grp + 8 <= size)
@@ -988,25 +1244,165 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 				snprintf (
 					mat->name, sizeof (mat->name), "%s", mname && *mname ? mname : "material");
 
+				// All texture refs, in declaration order (Alb/Nrm/Spm/...).
 				const uint8_t n_texref = d[fm + 0x11];
 				if (n_texref)
 				{
 					const size_t texrefs = REL (d, fm + 0x28);
 					// TextureRef: 8 bytes, [nameOffset:4][ftexOffset:4].
-					if (texrefs + 8 <= size)
+					for (uint t = 0; t < n_texref && t < 8; t++)
 					{
-						const char *tname = rel_string (d, size, texrefs);
-						if (tname)
+						if (texrefs + (size_t)(t + 1) * 8 > size)
+							break;
+						const char *tname = rel_string (d, size, texrefs + (size_t)t * 8);
+						if (tname && *tname)
 						{
-							snprintf (mat->textures[0], sizeof (mat->textures[0]), "%s", tname);
-							mat->texture_coord[0] = 0; // uv0
-							mat->num_textures = 1;
+							snprintf (mat->textures[t], sizeof (mat->textures[t]), "%s", tname);
+							mat->texture_coord[t] = (int)t;
+							mat->num_textures = (int)(t + 1);
+						}
+					}
+				}
+				// Samplers: SamplerList at FMAT+0x2C (array of sampler structs),
+				// each starting with TexSampler.Values[0..2] (3x u32). Values[0]
+				// packs ClampX/Y (bits 0-5), Mag/Min filter (bits 9-13) per
+				// GX2/TexSampler.cs. Sampler[i] pairs with TextureRef[i] by
+				// index, so decode wrap/filter per layer. Names live in the
+				// SamplersDict (FMAT+0x30) but ordering matches the list.
+				{
+					const uint8_t n_samp = d[fm + 0x10];
+					if (n_samp && mat->num_textures)
+					{
+						const size_t samplist = REL (d, fm + 0x2C);
+						// Sampler struct: Values[3] (12B) + handle (4B) +
+						// nameOff (4B) + idx (1B) + pad (3B) = 24B.
+						for (uint s = 0; s < n_samp && s < (uint)mat->num_textures && s < 8; s++)
+						{
+							const size_t so = samplist + (size_t)s * 24;
+							if (so + 12 > size)
+								break;
+							const uint32_t v0 = rb32 (d + so);
+							const uint clampx = (v0 >> 0) & 7;
+							const uint clampy = (v0 >> 3) & 7;
+							const uint magf = (v0 >> 9) & 3;
+							const uint minf = (v0 >> 12) & 3;
+							// GX2TexClamp: 0=Clamp 1=Mirror 2=Wrap(mirror once?)
+							// BfresLibrary defaults to Wrap; map Clamp(1?) ->
+							// clamp(0), else repeat(1). Mirror(2?) -> mirror(2).
+							mat->wrap_s[s] = (clampx == 0) ? 0 : (clampx == 1 ? 2 : 1);
+							mat->wrap_t[s] = (clampy == 0) ? 0 : (clampy == 1 ? 2 : 1);
+							// GX2TexXYFilterType: 0=Point 1=Linear.
+							mat->mag_filter[s] = (magf == 0) ? 0 : 1;
+							mat->min_filter[s] = (minf == 0) ? 0 : 1;
 						}
 					}
 				}
 			}
 		}
 	}
+
+	// Skeleton (FSKL): the FMDL references it via a self-relative pointer at
+	// FMDL+0x0C. Bone records are 0x40 bytes (name, idx, parent, smooth /
+	// rigid / billboard, numUser, flags, scale, rotation, position, userdata
+	// offset) per NintenTools.Bfres Model/Skeleton/Bone.cs Load order. A
+	// rotation stored as a quaternion (bone flag bit 0x1000 clear) is
+	// converted to the half-angle-Euler convention used by the exporter;
+	// everything else is already XYZ Euler in radians. Parsed BEFORE meshes
+	// so skinning can remap _i0/_w0 vertices to joints below.
+	// Inverse bind matrices (NintenTools Skeleton.cs: MatrixToBoneList +
+	// InverseModelMatrices for version >= 0x03040000, per-bone InverseMatrix
+	// before that) are stored into joint_t::inverse_bind for the GLB
+	// skin exporter. FSKL header: flags@+4, numBone@+8, numSmooth@+10,
+	// numRigid@+12, BoneDict@+0x10, BoneArray@+0x14, MatrixToBone@+0x18,
+	// InverseMatrices@+0x1C.
+	{
+		const size_t sk = REL (d, m + 0x0C);
+		if (sk + 8 <= size && !memcmp (d + sk, "FSKL", 4))
+		{
+			const uint16_t n_bones = rb16 (d + sk + 8);
+			const uint16_t n_smooth = (sk + 12 <= size) ? rb16 (d + sk + 10) : 0;
+			const size_t bone_arr = sk + 0x18 <= size ? REL (d, sk + 0x14) : 0;
+			const size_t mtx_arr = sk + 0x20 <= size ? REL (d, sk + 0x18) : 0;
+			const size_t inv_arr = sk + 0x20 <= size ? REL (d, sk + 0x1C) : 0;
+			if (n_bones && n_bones < 4096 && bone_arr
+				&& bone_arr + (size_t)n_bones * 0x40 <= size)
+			{
+				out->num_joints = n_bones;
+				out->joints = calloc (n_bones, sizeof (joint_t));
+				if (out->joints)
+				{
+					for (uint b = 0; b < n_bones; b++)
+					{
+						const size_t boff = bone_arr + (size_t)b * 0x40;
+						joint_t *j = out->joints + b;
+						j->parent_idx = -1;
+
+						const char *bname = rel_string (d, size, boff);
+						if (bname && *bname)
+							snprintf (j->name, sizeof (j->name), "%s", bname);
+
+						const int16_t parent = (int16_t)rb16 (d + boff + 6);
+						if (parent >= 0 && (uint16_t)parent < n_bones)
+							j->parent_idx = (int)parent;
+
+						j->scale.x = read_be32f (d + boff + 0x14);
+						j->scale.y = read_be32f (d + boff + 0x18);
+						j->scale.z = read_be32f (d + boff + 0x1C);
+						if (rb32 (d + boff + 0x10) & 0x1000)
+						{
+							j->rotate.x = read_be32f (d + boff + 0x20);
+							j->rotate.y = read_be32f (d + boff + 0x24);
+							j->rotate.z = read_be32f (d + boff + 0x28);
+						}
+						else
+						{
+							float rx, ry, rz;
+							bfres_quat_to_euler (
+								read_be32f (d + boff + 0x20), read_be32f (d + boff + 0x24),
+								read_be32f (d + boff + 0x28), read_be32f (d + boff + 0x2C),
+								&rx, &ry, &rz);
+							j->rotate.x = rx;
+							j->rotate.y = ry;
+							j->rotate.z = rz;
+						}
+						j->translate.x = read_be32f (d + boff + 0x30);
+						j->translate.y = read_be32f (d + boff + 0x34);
+						j->translate.z = read_be32f (d + boff + 0x38);
+
+						// Inverse bind: version >= 0x03040000 stores a dense
+						// array of numSmooth Matrix3x4 (48B each) at inv_arr,
+						// indexed by this bone's SmoothMatrixIndex
+						// (NintenTools Skeleton.cs). Older files store one
+						// Matrix3x4 inline per bone--not observed in the
+						// retail corpus here, left as bind-identity.
+						if (bfr_version >= 0x03040000 && n_smooth
+							&& inv_arr && inv_arr + (size_t)n_smooth * 48 <= size)
+						{
+							const int16_t sidx = (int16_t)rb16 (d + boff + 8);
+							if (sidx >= 0 && (uint16_t)sidx < n_smooth)
+							{
+								const size_t moff = inv_arr + (size_t)(uint16_t)sidx * 48;
+								if (moff + 48 <= size)
+								{
+									for (int k = 0; k < 12; k++)
+										j->inverse_bind[k] = read_be32f (d + moff + (size_t)k * 4);
+									j->has_inverse_bind = 1;
+								}
+							}
+						}
+						(void)mtx_arr;
+					}
+				}
+			}
+		}
+	}
+
+	// Dynamic node_influence accumulator -- one entry per unique bone-weight
+	// combination across all shapes (mirrors the Switch path below and
+	// NintenTools' smooth-skinning concept: VertexSkinCount 0=rigid,
+	// 1=rigid-skin, 2+=smooth). position_node[] per mesh indexes into this.
+	node_influence_t *node_inf = NULL;
+	size_t n_node_inf = 0, cap_node_inf = 0;
 
 	const uint32_t sh_entries = rb32 (d + fshp_grp + 4);
 	for (uint32_t i = 0; i < sh_entries && i < n_fshp; i++)
@@ -1027,6 +1423,28 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 		fvtx_t fvtx;
 		if (!read_fvtx (d, size, fvtx_arr + (size_t)vtx_index * 0x20, &fvtx))
 			continue;
+
+		// Skin bone-index table for this shape (NintenTools Shape.cs:
+		// SkinBoneIndices, count numSkinBoneIndex at FSHP+0x14, array at
+		// FSHP+0x28). Vertex _i0/_b0 values index into this table to yield
+		// skeleton bone indices; identity in simple files (e.g. Splatoon
+		// 0..10) but remapped in general. Verified on
+		// bfres_wiiu_splatoon_clt.bfres (11 entries 0..10 at 0x82c).
+		const uint16_t n_skin_bones = (sh + 0x16 <= size) ? rb16 (d + sh + 0x14) : 0;
+		size_t skin_arr = 0;
+		if (n_skin_bones && n_skin_bones < 4096 && sh + 0x2C <= size)
+		{
+			// FSHP+0x28 holds the offset; a zero offset means no table.
+			const size_t skin_field = sh + 0x28;
+			// REL() on a zero field would resolve to the field itself;
+			// guard explicitly.
+			if (rb32 (d + skin_field) != 0)
+			{
+				const size_t sa = REL (d, skin_field);
+				if (sa + (size_t)n_skin_bones * 2 <= size)
+					skin_arr = sa;
+			}
+		}
 
 		// LOD model: primitive type, index format, count, then the buffer.
 		const size_t lod = REL (d, sh + 0x24);
@@ -1103,6 +1521,11 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 			mesh->colors[0] = fvtx.clr ? calloc (sm_count, sizeof (color4_t)) : NULL;
 			mesh->colors[1] = fvtx.clr1 ? calloc (sm_count, sizeof (color4_t)) : NULL;
 			mesh->vertices = calloc (sm_count, sizeof (vertex_t));
+			// Skinning needs one node id per position (mirrors Switch path).
+			const int has_skin = fvtx.bone && fvtx.wt && n_skin_bones > 0 && skin_arr
+				&& out->num_joints > 0;
+			if (has_skin)
+				mesh->position_node = calloc (sm_count, sizeof (int));
 			{
 				uint nuv = 0;
 				for (uint k = 0; k < 6; k++)
@@ -1124,6 +1547,7 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 				for (uint k = 0; k < 6; k++)
 					free (mesh->extra_texcoords[k]);
 				free (mesh->vertices);
+				free (mesh->position_node);
 				memset (mesh, 0, sizeof (*mesh));
 				continue;
 			}
@@ -1205,6 +1629,134 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 				mesh->vertices[n].color_idx[1] = fvtx.clr1 ? (int)n : -1;
 				for (uint e = 0; e < 6; e++)
 					mesh->vertices[n].extra_texcoord_idx[e] = fvtx.extra_uv[e] ? (int)n : -1;
+
+				// Skin: _i0/_b0 bone indices + _w0 weights, remapped through
+				// this shape's SkinBoneIndices table to skeleton joints
+				// (NintenTools Shape.SkinBoneIndices + Skeleton bones).
+				// Mirrors the Switch path's node_influence accumulator.
+				if (has_skin && mesh->position_node)
+				{
+					uint8_t bi[4] = { 0, 0, 0, 0 };
+					float bw[4] = { 0, 0, 0, 0 };
+					attr_read_uint8 (fvtx.bone + (size_t)vi * fvtx.stride_bone,
+						fvtx.avail_bone - (size_t)vi * fvtx.stride_bone,
+						fvtx.fmt_bone, bi);
+					{
+						float wb[4];
+						if (attr_read (fvtx.wt + (size_t)vi * fvtx.stride_wt,
+								fvtx.avail_wt - (size_t)vi * fvtx.stride_wt,
+								fvtx.fmt_wt, wb))
+						{
+							bw[0] = wb[0];
+							bw[1] = wb[1];
+							bw[2] = wb[2];
+							bw[3] = wb[3];
+						}
+					}
+					influence_t weights[4];
+					uint nw = 0;
+					float wsum = 0;
+					for (int b = 0; b < 4; b++)
+					{
+						if (bw[b] <= 0.0f)
+							continue;
+						if (bi[b] >= n_skin_bones)
+							continue;
+						const size_t idx_off = skin_arr + (size_t)bi[b] * 2;
+						if (idx_off + 2 > size)
+							continue;
+						const uint16_t fskl_bone = rb16 (d + idx_off);
+						if (fskl_bone >= out->num_joints)
+							continue;
+						weights[nw].bone_idx = (int)fskl_bone;
+						weights[nw].weight = bw[b];
+						wsum += bw[b];
+						nw++;
+					}
+					if (nw > 0 && wsum > 0.0f && wsum != 1.0f)
+						for (uint w = 0; w < nw; w++)
+							weights[w].weight /= wsum;
+					int ni_idx = -1;
+					if (nw > 0)
+					{
+						for (size_t ii = 0; ii < n_node_inf; ii++)
+						{
+							node_influence_t *ex = &node_inf[ii];
+							if (ex->num_weights != nw)
+								continue;
+							int match = 1;
+							for (uint w = 0; w < nw; w++)
+							{
+								if (ex->weights[w].bone_idx != weights[w].bone_idx
+									|| ex->weights[w].weight != weights[w].weight)
+								{
+									match = 0;
+									break;
+								}
+							}
+							if (match)
+							{
+								ni_idx = (int)ii;
+								break;
+							}
+						}
+						if (ni_idx < 0)
+						{
+							if (n_node_inf == cap_node_inf)
+							{
+								cap_node_inf = cap_node_inf ? cap_node_inf * 2 : 256;
+								node_inf = realloc (node_inf, cap_node_inf * sizeof (*node_inf));
+							}
+							if (node_inf)
+							{
+								influence_t *wl = calloc (nw, sizeof (*wl));
+								if (wl)
+								{
+									memcpy (wl, weights, nw * sizeof (*wl));
+									node_inf[n_node_inf].weights = wl;
+									node_inf[n_node_inf].num_weights = nw;
+									ni_idx = (int)n_node_inf++;
+								}
+							}
+						}
+					}
+					else if (out->num_joints > 0)
+					{
+						influence_t one;
+						one.bone_idx = 0;
+						one.weight = 1.0f;
+						int found = -1;
+						for (size_t ii = 0; ii < n_node_inf; ii++)
+							if (node_inf[ii].num_weights == 1
+								&& node_inf[ii].weights[0].bone_idx == 0
+								&& node_inf[ii].weights[0].weight == 1.0f)
+							{
+								found = (int)ii;
+								break;
+							}
+						if (found < 0)
+						{
+							if (n_node_inf == cap_node_inf)
+							{
+								cap_node_inf = cap_node_inf ? cap_node_inf * 2 : 256;
+								node_inf = realloc (node_inf, cap_node_inf * sizeof (*node_inf));
+							}
+							if (node_inf)
+							{
+								influence_t *wl = calloc (1, sizeof (*wl));
+								if (wl)
+								{
+									wl[0] = one;
+									node_inf[n_node_inf].weights = wl;
+									node_inf[n_node_inf].num_weights = 1;
+									found = (int)n_node_inf++;
+								}
+							}
+						}
+						ni_idx = found;
+					}
+					mesh->position_node[n] = ni_idx;
+				}
 				n++;
 			}
 			if (n)
@@ -1233,72 +1785,13 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 				for (uint k = 0; k < 6; k++)
 					free (mesh->extra_texcoords[k]);
 				free (mesh->vertices);
+				free (mesh->position_node);
 				memset (mesh, 0, sizeof (*mesh));
 			}
 		}
 	}
 
-	// Skeleton (FSKL): the FMDL references it via a self-relative pointer at
-	// FMDL+0x0C. Bones are 0x40-byte records: name, index, parent, smooth /
-	// rigid / billboard indices, flags and bind TRS. A rotation stored as a
-	// quaternion (bone flag bit 0x1000 clear) is converted to the
-	// half-angle-Euler convention used by the exporter; everything else is
-	// already XYZ Euler in radians.
-	{
-		const size_t sk = REL (d, m + 0x0C);
-		if (sk + 8 <= size && !memcmp (d + sk, "FSKL", 4))
-		{
-			const uint16_t n_bones = rb16 (d + sk + 8);
-			const size_t bone_arr = sk + 0x18 <= size ? REL (d, sk + 0x14) : 0;
-			if (n_bones && n_bones < 4096 && bone_arr
-				&& bone_arr + (size_t)n_bones * 0x40 <= size)
-			{
-				out->num_joints = n_bones;
-				out->joints = calloc (n_bones, sizeof (joint_t));
-				if (out->joints)
-				{
-					for (uint b = 0; b < n_bones; b++)
-					{
-						const size_t boff = bone_arr + (size_t)b * 0x40;
-						joint_t *j = out->joints + b;
-						j->parent_idx = -1;
-
-						const char *bname = rel_string (d, size, boff);
-						if (bname && *bname)
-							snprintf (j->name, sizeof (j->name), "%s", bname);
-
-						const int16_t parent = (int16_t)rb16 (d + boff + 6);
-						if (parent >= 0 && (uint16_t)parent < n_bones)
-							j->parent_idx = (int)parent;
-
-						j->scale.x = read_be32f (d + boff + 0x14);
-						j->scale.y = read_be32f (d + boff + 0x18);
-						j->scale.z = read_be32f (d + boff + 0x1C);
-						if (rb32 (d + boff + 0x10) & 0x1000)
-						{
-							j->rotate.x = read_be32f (d + boff + 0x20);
-							j->rotate.y = read_be32f (d + boff + 0x24);
-							j->rotate.z = read_be32f (d + boff + 0x28);
-						}
-						else
-						{
-							float rx, ry, rz;
-							bfres_quat_to_euler (
-								read_be32f (d + boff + 0x20), read_be32f (d + boff + 0x24),
-								read_be32f (d + boff + 0x28), read_be32f (d + boff + 0x2C),
-								&rx, &ry, &rz);
-							j->rotate.x = rx;
-							j->rotate.y = ry;
-							j->rotate.z = rz;
-						}
-						j->translate.x = read_be32f (d + boff + 0x30);
-						j->translate.y = read_be32f (d + boff + 0x34);
-						j->translate.z = read_be32f (d + boff + 0x38);
-					}
-				}
-			}
-		}
-	}
+	// (Skeleton already parsed before meshes for skinning; see above.)
 
 	// Skeletal animations (FSKA): index group 2 at d+0x28. Every FSKA object
 	// in the group is turned into one animation clip; each animation targets
@@ -1324,9 +1817,21 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 
 	if (!out->num_meshes)
 	{
+		for (size_t i = 0; i < n_node_inf; i++)
+			free (node_inf[i].weights);
+		free (node_inf);
 		FreeModel (out);
 		return NULL;
 	}
+
+	// Transfer accumulated skin influences (Wii U smooth skinning).
+	if (n_node_inf > 0 && node_inf)
+	{
+		out->node_influences = node_inf;
+		out->num_node_influences = n_node_inf;
+	}
+	else
+		free (node_inf);
 	return out;
 }
 
@@ -2993,6 +3498,34 @@ int ParseBFRESArchive (const uint8_t *data, size_t size, bfres_archive_t *out)
 			if (val > 0 && (size_t)val + 4 <= size)
 				memcpy (s->magic, data + val, 4);
 		}
+
+		// External files (Legacy ResFile.ExternalFiles): arbitrary data
+		// attachments (ofsData+sizData, Section5, no magic of their own),
+		// listed after MemoryPool/BufferInfo. Header offsets follow the
+		// same (values, dict) pairing as the six slots above: v9+ keeps
+		// two reserved sections, so the pair sits at 0xB8/0xC0; v8 packs
+		// them at 0x98/0xA0. The marker is synthetic ("EXTF") since an
+		// external entry has no 4-byte signature to copy.
+		{
+			const size_t ext_dict_field = vmajor >= 9 ? 0xC0 : 0xA0;
+			if (ext_dict_field + 8 <= size && out->n_slots < 12)
+			{
+				const int64_t dict = les64 (data + ext_dict_field);
+				if (dict > 0 && (size_t)dict + 8 <= size)
+				{
+					const uint32_t n_obj = le32 (data + dict + 4);
+					if (n_obj && n_obj <= 0x10000)
+					{
+						bfres_slot_census_t *s = out->slots + out->n_slots++;
+						s->slot = 6;
+						s->count_meta = (uint16_t)n_obj;
+						s->count_dict = (uint16_t)n_obj;
+						out->n_objects += n_obj;
+						memcpy (s->magic, "EXTF", 4);
+					}
+				}
+			}
+		}
 		return 1;
 	}
 
@@ -3082,7 +3615,16 @@ int ParseBFRESAnims (const uint8_t *data, size_t size, bfres_anim_entry_t **out_
 	if (!data || !out_entries || size < 0x70 || memcmp (data, "FRES", 4))
 		return 0;
 
-	// Switch flavour (little-endian BOM 0xFEFF at +0x0C)
+	// Switch flavour (little-endian BOM 0xFEFF at +0x0C). Only the FSKA
+	// (skeletal) list is parsed here: a Switch ResFile carries five more
+	// animation lists alongside it -- FMAA (material), FBVS (visibility),
+	// FSHA (shape), FSCN (scene) -- whose entry layouts are documented in
+	// LegacySwitchLibraries (MaterialAnim.cs / VisibilityAnim.cs FBVS /
+	// ShapeAnim.cs / SceneAnim.cs FCAM+FLIT+FFOG) but for which no retail
+	// Switch fixture with non-empty lists exists in tests/fixtures/ to
+	// verify a parser against, so they are deliberately left unparsed
+	// rather than guessed at. The archive census (ParseBFRESArchive)
+	// already reports their counts/magics.
 	if (le16 (data + 0x0C) == 0xFEFF)
 	{
 		const uint32_t version = le32 (data + 8);

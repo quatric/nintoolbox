@@ -25263,6 +25263,55 @@
 	"", \
 	"Print in machine readable sections and parameter lines." )
 
+#:def_opt( "J3D_MAT", "mat", "CP", \
+	"file", \
+	"J3D BMD/BDL encode: load material data from the given JSON file (as" \
+	" written by --outmat on decode). Supports __MatDefault entries." )
+
+#:def_opt( "J3D_OUTMAT", "outmat", "CP", \
+	"file", \
+	"J3D BMD/BDL decode: write the material sidecar JSON to the given path" \
+	" instead of next to the output model." )
+
+#:def_opt( "J3D_TEXHEADER", "texheader", "CP", \
+	"file", \
+	"J3D BMD/BDL encode: load texture header info (format, wrap and filter" \
+	" modes) from the given JSON file." )
+
+#:def_opt( "J3D_TRISTRIP", "tristrip", "CP", \
+	"mode", \
+	"J3D BMD/BDL encode: triangle-strip generation mode: none, static" \
+	" (default) or all. Accepted for SuperBMD compatibility; the current" \
+	" encoder always emits plain GX triangle lists (valid everywhere" \
+	" strips are)." )
+
+#:def_opt( "J3D_BDL", "bdl", "C", \
+	"", \
+	"J3D encode: write BDL (with a stub MDL3 section) instead of BMD. A" \
+	" .bdl destination extension implies this automatically." )
+
+#:def_opt( "J3D_PROFILE", "profile", "C", \
+	"", \
+	"J3D BMD/BDL decode: print section sizes, vertex counts and texture" \
+	" info instead of converting." )
+
+#:def_opt( "J3D_ROTATE", "rotate", "C", \
+	"", \
+	"J3D BMD/BDL encode: rotate the model so Y is up instead of Z" \
+	" ((x,y,z)->(x,z,-y)), like SuperBMD --rotate." )
+
+#:def_opt( "J3D_DEGENERATE", "degeneratetri", "C", \
+	"", \
+	"Accepted for SuperBMD compatibility; currently reserved." )
+
+#:def_opt( "J3D_TEXFLOAT", "texfloat32", "C", \
+	"", \
+	"J3D BMD/BDL encode: force 32-bit float UV coordinates." )
+
+#:def_opt( "J3D_NOMIPMAPS", "nomipmaps", "C", \
+	"", \
+	"J3D BMD/BDL encode: ignore _mipN texture files." )
+
 #:def_cmd_opt( "VERSION", "BRIEF", \
 	"", \
 	"Print only the version number, revision and system. If set twice," \
@@ -25684,6 +25733,46 @@
 	"", \
 	"" )
 
+#:def_cmd_opt( "DECODE", "J3D_MAT", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "DECODE", "J3D_OUTMAT", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "DECODE", "J3D_TEXHEADER", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "DECODE", "J3D_TRISTRIP", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "DECODE", "J3D_BDL", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "DECODE", "J3D_PROFILE", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "DECODE", "J3D_ROTATE", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "DECODE", "J3D_DEGENERATE", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "DECODE", "J3D_TEXFLOAT", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "DECODE", "J3D_NOMIPMAPS", \
+	"", \
+	"" )
+
 #:def_cmd_opt( "ENCODE", "NO_WILDCARDS", \
 	"", \
 	"" )
@@ -25801,6 +25890,46 @@
 	"" )
 
 #:def_cmd_opt( "ENCODE", "MDL", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "ENCODE", "J3D_MAT", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "ENCODE", "J3D_OUTMAT", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "ENCODE", "J3D_TEXHEADER", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "ENCODE", "J3D_TRISTRIP", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "ENCODE", "J3D_BDL", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "ENCODE", "J3D_PROFILE", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "ENCODE", "J3D_ROTATE", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "ENCODE", "J3D_DEGENERATE", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "ENCODE", "J3D_TEXFLOAT", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "ENCODE", "J3D_NOMIPMAPS", \
 	"", \
 	"" )
 

@@ -525,6 +525,101 @@ static enumError decode_brfnt_atlas (ccp arg, ccp dest)
 	return err;
 }
 
+// BNTX-Extractor parity: export the native deswizzled blocks of a BNTX
+// container (DDS for BCn and uncompressed textures, raw .astc for ASTC
+// textures) instead of decoding to PNG. WANT_DDS selects the container.
+// With FALLBACK_OK, unsupported textures decline with ERR_NOTHING_TO_DO
+// so the caller can convert via RGBA instead; otherwise they are a hard
+// error. Returns ERR_NOTHING_TO_DO when the source is not a BNTX file.
+static enumError decode_bntx_native (ccp arg, ccp dest, bool want_dds, bool fallback_ok)
+{
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return err;
+	if (raw_size < 4 || memcmp (raw, "BNTX", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	bntx_t bntx;
+	memset (&bntx, 0, sizeof (bntx));
+	err = ScanBNTX (&bntx, raw, (uint)raw_size);
+	if (err)
+	{
+		FREE (raw);
+		return err;
+	}
+
+	for (uint i = 0; i < bntx.n_textures; i++)
+		if (!BntxCanNativeExport (&bntx, i, want_dds))
+		{
+			ccp tname = bntx.textures[i].name ? bntx.textures[i].name : "texture";
+			uint fmt = bntx.textures[i].format;
+			ResetBNTX (&bntx);
+			FREE (raw);
+			if (fallback_ok)
+				return ERR_NOTHING_TO_DO;
+			return ERROR0 (ERR_INVALID_IFORM,
+				"Can't export '%s' as %s: unsupported BNTX format 0x%04x (%s)"
+				" -- use '%s' for this texture\n",
+				tname, want_dds ? "DDS" : "ASTC", fmt, GetBNTXFormatName (fmt),
+				want_dds ? ".astc" : ".dds");
+		}
+
+	enumError max_err = ERR_OK;
+	for (uint i = 0; i < bntx.n_textures; i++)
+	{
+		char out[PATH_MAX];
+		if (bntx.n_textures > 1)
+		{
+			ccp ext = strrchr (dest, '.');
+			ccp slash = strrchr (dest, '/');
+			if (ext && (!slash || ext > slash))
+				snprintf (out, sizeof (out), "%.*s.img%03u%s",
+					(int)(ext - dest), dest, i, ext);
+			else
+				snprintf (out, sizeof (out), "%s.img%03u.%s", dest, i,
+					want_dds ? "dds" : "astc");
+		}
+		else
+			snprintf (out, sizeof (out), "%s", dest);
+
+		u8 *data = 0;
+		uint size = 0;
+		err = want_dds ? EncodeBNTXNativeDDS (&data, &size, &bntx, i)
+					   : EncodeBNTXNativeASTC (&data, &size, &bntx, i);
+		if (err)
+		{
+			if (max_err < err)
+				max_err = err;
+			continue;
+		}
+
+		if (verbose >= 0 || testmode)
+			fprintf (stdlog, "%s%sDECODE BNTX:%s[%u] -> %s:%s\n", verbose > 0 ? "\n" : "",
+				testmode ? "WOULD " : "", arg, i, want_dds ? "DDS" : "ASTC", out);
+		if (!testmode)
+		{
+			File_t F;
+			err = CreateFileOpt (&F, true, out, false, arg);
+			if (!err && F.f && fwrite (data, 1, size, F.f) != size)
+				err = FILEERROR1 (&F, ERR_WRITE_FAILED,
+					"Writing %u bytes failed: %s\n", size, out);
+			ResetFile (&F, opt_preserve);
+			if (max_err < err)
+				max_err = err;
+		}
+		FREE (data);
+	}
+
+	ResetBNTX (&bntx);
+	FREE (raw);
+	return max_err;
+}
+
 static enumError cmd_decode ()
 {
 	ccp def_path = "\1P/\1F.png";
@@ -560,6 +655,26 @@ static enumError cmd_decode ()
 			continue;
 		}
 
+		// BNTX-Extractor parity: an explicit --dest with a .dds/.astc
+		// extension exports the native deswizzled blocks of a BNTX
+		// container instead of decoding to PNG.
+		{
+			ccp dext = strrchr (dest, '.');
+			ccp dslash = strrchr (dest, '/');
+			if (dext && (!dslash || dext > dslash)
+				&& (!strcasecmp (dext, ".dds") || !strcasecmp (dext, ".astc")))
+			{
+				err = decode_bntx_native (arg, dest, !strcasecmp (dext, ".dds"), false);
+				if (err != ERR_NOTHING_TO_DO)
+				{
+					if (max_err < err)
+						max_err = err;
+					ResetIMG (&img);
+					continue;
+				}
+			}
+		}
+
 		// A TPL's top-level table contains independent textures.  Older wimgt
 		// treated those records as a mip chain, which both produced misleading
 		// .mmNN names and applied the first texture's geometry to later records.
@@ -567,9 +682,15 @@ static enumError cmd_decode ()
 		// TGLP glyph sheets, like a TPL top-level table, are independent atlases
 		// rather than a mip chain.  Native BRFNT handling leaves the file format
 		// unknown intentionally, so recognize its multiple-record metadata here.
+		// Switch/Wii U multi-texture containers (BNTX/GTX/XTX/NUT) decode every
+		// record the same way TextureConverter exports its whole TextureList,
+		// instead of silently dropping all but index 0.
 		const uint record_images
 			= IsTplFF (img.info_fform) || img.info_fform == FF_CMAB
 				|| img.info_fform == FF_UNKNOWN && img.info_n_image > 1
+				|| (img.info_fform == FF_BNTX || img.info_fform == FF_GTX
+						|| img.info_fform == FF_XTX || img.info_fform == FF_NUT)
+					&& img.info_n_image > 1
 			? img.info_n_image
 			: 1;
 		if (record_images > 1)
@@ -1443,6 +1564,19 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		}
 		if (dot && !strcasecmp (dot, ".dds"))
 		{
+			// BNTX-Extractor parity: BNTX sources keep their native blocks
+			// when possible; otherwise convert via RGBA as before.
+			if (src_f == FF_BNTX)
+			{
+				err = decode_bntx_native (arg, dest, true, true);
+				if (err != ERR_NOTHING_TO_DO)
+				{
+					ResetIMG (&img);
+					if (err > ERR_WARNING)
+						return err;
+					continue;
+				}
+			}
 			if (verbose >= 0 || testmode)
 				fprintf (stdlog, "%s%s%s %s:%s -> DDS:%s\n", verbose > 0 ? "\n" : "",
 					testmode ? "WOULD " : "", cmd_name, PrintFormat3 (src_f, src_i, src_p), arg,
@@ -1456,6 +1590,18 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		}
 		if (dot && !strcasecmp (dot, ".astc"))
 		{
+			// Native ASTC blocks pass through; other sources re-encode.
+			if (src_f == FF_BNTX)
+			{
+				err = decode_bntx_native (arg, dest, false, true);
+				if (err != ERR_NOTHING_TO_DO)
+				{
+					ResetIMG (&img);
+					if (err > ERR_WARNING)
+						return err;
+					continue;
+				}
+			}
 			if (verbose >= 0 || testmode)
 				fprintf (stdlog, "%s%s%s %s:%s -> ASTC:%s\n", verbose > 0 ? "\n" : "",
 					testmode ? "WOULD " : "", cmd_name, PrintFormat3 (src_f, src_i, src_p), arg,

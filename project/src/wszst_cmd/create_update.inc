@@ -7934,6 +7934,27 @@ static enumError extract_sharc_manifest (ccp arg)
 	return err;
 }
 
+static void bnsh_stage_filename_safe (char *dest, uint destsz, ccp stage)
+{
+	// bnsh_stage_name[] carries "(unk)" suffixes for display; strip them for filenames
+	// and map anything non-alphanumeric to '_' so EXTRACT sidecars are portable.
+	uint j = 0;
+	for (uint i = 0; stage[i] && j + 1 < destsz; i++)
+	{
+		if (stage[i] == '(')
+			break;
+		char c = stage[i];
+		if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+			|| (c >= '0' && c <= '9') || c == '_' || c == '-')
+			dest[j++] = c;
+		else if (c == ' ' || c == '.')
+			dest[j++] = '_';
+	}
+	dest[j] = 0;
+	if (!j && destsz > 8)
+		snprintf (dest, destsz, "stage");
+}
+
 static enumError extract_bnsh_manifest (ccp arg)
 {
 	if (!is_ext (arg, ".bnsh"))
@@ -7972,6 +7993,51 @@ static enumError extract_bnsh_manifest (ccp arg)
 	if (F.f)
 		err = DecodeBNSH_Text (F.f, raw, raw_size);
 	ResetFile (&F, opt_preserve);
+
+	// Sidecars: every in-bounds shader blob becomes a sibling file so the raw GPU
+	// binaries / GLSL-NX source chunks (BinaryShaderLibrary ShaderCodeDataBinary /
+	// ShaderCodeDataSource / ShaderCodeDataCompressed) are usable without parsing the
+	// manifest. Mirrors the WTB .png sidecar pattern below: base name from the source
+	// archive, extension by kind (.glsl / .zlib.bin / .bin), skipped when the target
+	// already exists unless --overwrite is given.
+	if (!err)
+	{
+		bnsh_blobs_t blobs = { 0, 0 };
+		if (!ScanBNSH_Blobs (&blobs, raw, raw_size) && blobs.n_blobs)
+		{
+			char base[PATH_MAX];
+			snprintf (base, sizeof (base), "%s", arg);
+			char *dot = strrchr (base, '.');
+			if (dot && (dot == base || dot[-1] != '/'))
+				*dot = 0;
+
+			for (uint i = 0; i < blobs.n_blobs; i++)
+			{
+				const bnsh_blob_t *b = blobs.blobs + i;
+				char safe_stage[40];
+				bnsh_stage_filename_safe (safe_stage, sizeof (safe_stage), b->stage);
+				const ccp ext = b->is_source ? "glsl"
+					: b->is_compressed ? "zlib.bin" : "bin";
+				char path[PATH_MAX];
+				snprintf (path, sizeof (path), "%s.v%02u.%s.%s.%u.%s",
+					base, b->variation, b->program_kind, safe_stage,
+					b->blob_index, ext);
+				if (!opt_overwrite && !access (path, F_OK))
+					continue;
+				FILE *of = fopen (path, "wb");
+				if (!of)
+					continue;
+				fwrite (raw + b->offset, 1, b->size, of);
+				fclose (of);
+				if (verbose >= 0)
+					fprintf (stdlog, "EXTRACT BNSH:%s[%u/%s/%s/%u] -> %s\n",
+						arg, b->variation, b->program_kind, b->stage,
+						b->blob_index, path);
+			}
+		}
+		ResetBNSH_Blobs (&blobs);
+	}
+
 	FREE (raw);
 	return err;
 }
@@ -8056,6 +8122,29 @@ static enumError extract_numatb_manifest (ccp arg)
 	if (F.f)
 		err = DecodeNUMATB_Text (F.f, raw, raw_size);
 	ResetFile (&F, opt_preserve);
+	if (err)
+	{
+		FREE (raw);
+		return err;
+	}
+
+	// A MatLab-dialect MaterialLibrary XML beside the text manifest, so the
+	// material parameters are machine-editable and comparable with MatLab.
+	char xdest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (xdest, sizeof (xdest), arg, opt_dest, 0, ".xml", false);
+	else
+		snprintf (xdest, sizeof (xdest), "%s.xml", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE NUMATB XML:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, xdest);
+
+	File_t XF;
+	err = CreateFileOpt (&XF, true, xdest, false, arg);
+	if (XF.f)
+		err = DecodeNUMATB_XML (XF.f, raw, raw_size);
+	ResetFile (&XF, opt_preserve);
 	FREE (raw);
 	return err;
 }
@@ -8354,6 +8443,90 @@ static enumError extract_nuanmb_manifest (ccp arg)
 	return err;
 }
 
+static enumError extract_xmb_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".xmb"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsXMB (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".xml", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.xml", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE XMB:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeXMB_XML (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_adjb_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".adjb"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsADJB (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE ADJB:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeADJB_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
 static enumError extract_bfsha_manifest (ccp arg)
 {
 	if (!is_ext (arg, ".bfsha"))
@@ -8392,6 +8565,59 @@ static enumError extract_bfsha_manifest (ccp arg)
 	if (F.f)
 		err = DecodeBFSHA_Text (F.f, raw, raw_size);
 	ResetFile (&F, opt_preserve);
+
+	// Sidecars: each shader model's embedded BNSH blob (BinaryShaderLibrary
+	// ShaderModel.BnshFile, located by ScanBFSHA_ModelRefs) becomes a sibling
+	// "<base>.<model>.bnsh" file so `wszst EXTRACT model.bnsh` (or a second
+	// `wszst EXTRACT` pass) can decode its variations without re-parsing the
+	// parent archive. Same overwrite/testmode discipline as the BNSH sidecars.
+	if (!err)
+	{
+		bfsha_models_t models = { 0, 0 };
+		if (!ScanBFSHA_ModelRefs (&models, raw, raw_size) && models.n_models)
+		{
+			char base[PATH_MAX];
+			snprintf (base, sizeof (base), "%s", arg);
+			char *dot = strrchr (base, '.');
+			if (dot && (dot == base || dot[-1] != '/'))
+				*dot = 0;
+
+			for (uint i = 0; i < models.n_models; i++)
+			{
+				const bfsha_model_ref_t *m = models.models + i;
+				if (!m->bnsh_size || (u64)m->bnsh_offset + m->bnsh_size > raw_size)
+					continue;
+				char safe_name[256];
+				uint j = 0;
+				for (uint k = 0; m->name[k] && j + 1 < sizeof (safe_name); k++)
+				{
+					char c = m->name[k];
+					if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+						|| (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.')
+						safe_name[j++] = c;
+					else
+						safe_name[j++] = '_';
+				}
+				safe_name[j] = 0;
+				if (!j)
+					snprintf (safe_name, sizeof (safe_name), "model%u", i);
+				char path[PATH_MAX];
+				snprintf (path, sizeof (path), "%s.%s.bnsh", base, safe_name);
+				if (!opt_overwrite && !access (path, F_OK))
+					continue;
+				FILE *of = fopen (path, "wb");
+				if (!of)
+					continue;
+				fwrite (raw + m->bnsh_offset, 1, m->bnsh_size, of);
+				fclose (of);
+				if (verbose >= 0)
+					fprintf (stdlog, "EXTRACT BFSHA:%s[%s] -> BNSH:%s\n",
+						arg, m->name, path);
+			}
+		}
+		ResetBFSHA_ModelRefs (&models);
+	}
+
 	FREE (raw);
 	return err;
 }
@@ -9439,6 +9665,28 @@ static enumError extract_bfres_switch_manifest (ccp arg)
 		fprintf (F.f, "    <material name=\"%s\"/>\n", matname ? matname : "");
 	}
 	fprintf (F.f, "  </materials>\n");
+	// Archive-level resource census (Legacy ResFile lists): FMDL plus the
+	// animation classes FSKA/FMAA/FBVS/FSHA/FSCN and attached external
+	// files (EXTF). Mirrors the WiiU RESOURCES line in
+	// extract_bfres_textures() above, as XML.
+	{
+		bfres_archive_t arch;
+		if (ParseBFRESArchive (d, size, &arch) && arch.n_slots)
+		{
+			fprintf (F.f, "  <resources archive=\"%s\">\n", arch.name);
+			for (uint8_t i = 0; i < arch.n_slots; i++)
+			{
+				bool printable = true;
+				for (uint8_t j = 0; j < 4; j++)
+					if (arch.slots[i].magic[j] < 32 || arch.slots[i].magic[j] > 126)
+						printable = false;
+				if (printable)
+					fprintf (F.f, "    <list class=\"%.*s\" count=\"%u\"/>\n",
+						4, arch.slots[i].magic, (unsigned)arch.slots[i].count_dict);
+			}
+			fprintf (F.f, "  </resources>\n");
+		}
+	}
 	fprintf (F.f, "</bfres-switch>\n");
 
 	if (ferror (F.f) && !err)
@@ -10561,17 +10809,22 @@ static enumError export_model_if_possible (ccp arg)
 	// A recursive post-pass visits a complete extracted game tree. Probe the
 	// four-byte signature before loading a file so unrelated sounds, scripts,
 	// and archives are not needlessly read into memory just to be declined.
-	u8 magic[4];
+	// Eight bytes are probed so J3D GameCube/Wii models (J3D2bmd3/J3D2bdl4)
+	// are told apart from Nintendo DS BMD0 models sharing the .bmd suffix.
+	u8 magic[8];
 	FILE *probe = fopen (arg, "rb");
 	if (!probe)
 		return ERR_NOT_EXISTS;
 	const size_t n_magic = fread (magic, 1, sizeof (magic), probe);
 	fclose (probe);
 	const bool is_bmd_file = is_ext (arg, ".bmd");
-	if (n_magic != sizeof (magic)
-		|| (memcmp (magic, "BMD0", 4) && memcmp (magic, "CGFX", 4) && memcmp (magic, "BCH\0", 4)
+	const bool is_j3d = n_magic >= 8 && !memcmp (magic, "J3D2", 4)
+		&& (!memcmp (magic + 4, "bmd3", 4) || !memcmp (magic + 4, "bmd2", 4)
+			|| !memcmp (magic + 4, "bdl4", 4));
+	if (n_magic < 4
+		|| ((memcmp (magic, "BMD0", 4) && memcmp (magic, "CGFX", 4) && memcmp (magic, "BCH\0", 4)
 			&& memcmp (magic, "FRES", 4) && memcmp (magic, "MDL0", 4) && memcmp (magic, "RFRM", 4)
-			&& !is_bmd_file))
+			&& !is_bmd_file) && !is_j3d))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *data = 0;
@@ -10581,7 +10834,20 @@ static enumError export_model_if_possible (ccp arg)
 		return ERR_NOTHING_TO_DO;
 
 	model_t *model = 0;
-	if ((size >= 4 && !memcmp (data, "BMD0", 4)) || is_bmd_file)
+	if ((size >= 8 && !memcmp (data, "J3D2", 4)
+			&& (!memcmp (data + 4, "bmd3", 4) || !memcmp (data + 4, "bmd2", 4)
+				|| !memcmp (data + 4, "bdl4", 4))))
+	{
+		char dest_probe[PATH_MAX];
+		if (opt_dest)
+			SubstDest (dest_probe, sizeof (dest_probe), arg, opt_dest, 0, ".glb", false);
+		else
+			snprintf (dest_probe, sizeof (dest_probe), "%s.glb", arg);
+		if (!testmode)
+			ExportJ3DTexturesFromData (data, size, dest_probe);
+		model = ParseJ3D (data, size);
+	}
+	else if ((size >= 4 && !memcmp (data, "BMD0", 4)) || is_bmd_file)
 	{
 		char dest_probe[PATH_MAX];
 		if (opt_dest)

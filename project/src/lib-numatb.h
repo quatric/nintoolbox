@@ -16,4 +16,16 @@ bool IsNUMATB (const u8 *data, size_t size);
 // rasterizer-state parameter kinds.
 enumError DecodeNUMATB_Text (FILE *out, const u8 *data, size_t size);
 
+// Exports the same entries in Ploaj/SSBHLib MatLab's MaterialLibrary XML
+// dialect (MatlXml/MatlSerialization.cs: <Material shaderLabel materialLabel>
+// with <Parameter name> children holding <Float>/<Bool>/<Vector4>/<String>/
+// <Sampler>/<UVtransform>/<BlendState>/<RasterizerState> values), so output
+// can be compared with, and fed to, MatLab. Field shapes mirror MatLab
+// exactly, including its version-agnostic 10-field BlendState and 8-field
+// RasterizerState. Two deliberate byte-level differences from MatLab's own
+// bytes: the declaration says utf-8 (this writer emits UTF-8, MatLab's
+// StringWriter claims utf-16) and large/small floats use C %g spelling
+// (1e+10) rather than C#'s (1E+10).
+enumError DecodeNUMATB_XML (FILE *out, const u8 *data, size_t size);
+
 #endif // LIB_NUMATB_H

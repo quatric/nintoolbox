@@ -4,10 +4,14 @@
 #include "types.h"
 #include "file-type.h"
 
-// Smash Parameter Binary (.prc / parambinary) container format used in Super Smash Bros. Ultimate
-// and Smash 4.
+// Smash parameter binary (.prc / .param): Ultimate "paracobn" files are
+// structurally decoded to ParamXML/prc-rs-dialect XML (bool/sbyte/byte/
+// short/ushort/int/uint/float/hash40/string/list/struct, struct keys as
+// hash="0x.........." and list items as index="N"); older Smash 4 era
+// variants ("parambinary", "PRC\0", "BPAR") are recognised but have no
+// public structural reference, so they decode to an honest placeholder.
 
-// Returns true if 'data' starts with parambinary or PRC header.
+// Returns true if 'data' starts with a recognised PRC header.
 bool IsPRC (const u8 *data, size_t size);
 
 // Decodes a PRC binary file into XML text.

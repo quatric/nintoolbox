@@ -117,6 +117,14 @@ static const KeywordTab_t opt_kcl_tab[] = { { 0, "CLEAR", "RESET", KCLMD_M_ALL |
 
 	{ KCLMD_CUBE, "CUBE", 0, 0 },
 
+	{ KCLMD_OUT_V2, "V2", "WIIU", KCLMD_M_OUT_VERSION },
+	{ KCLMD_OUT_V2, "SWITCH", 0, KCLMD_M_OUT_VERSION | KCLMD_F_HIDE },
+	{ KCLMD_OUT_DS, "DS", 0, KCLMD_M_OUT_VERSION },
+	{ KCLMD_OUT_GC, "GC", "GAMECUBE", KCLMD_M_OUT_VERSION },
+	{ 0, "WII", "V1", KCLMD_M_OUT_VERSION | KCLMD_F_HIDE },
+	{ KCLMD_OUT_LE, "LE", "LITTLE", 0 },
+	{ 0, "BE", "BIG", KCLMD_OUT_LE | KCLMD_F_HIDE },
+
 	{ KCLMD_SMALL, "SMALL", 0, KCLMD_M_PRESET },
 	{ KCLMD_CHARY, "CHARY", "NINTENDO", KCLMD_M_PRESET }, { KCLMD_DRAW, "DRAW", 0, KCLMD_M_PRESET },
 	{ 0, "-SMALL", 0, KCLMD_SMALL | KCLMD_F_HIDE },
@@ -252,6 +260,49 @@ ccp GetKclMode ()
 	if (!*buf)
 		PrintKclMode (buf, sizeof (buf), KCL_MODE);
 	return buf;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+ccp GetNameKclVersion (kcl_version_t version)
+{
+	switch (version)
+	{
+		case KCL_V_GC: return "GC";
+		case KCL_V_WII: return "WII";
+		case KCL_V_DS: return "DS";
+		case KCL_V_V2: return "V2";
+		default: return "?";
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+kcl_version_t KclOutVersion (const kcl_t *kcl)
+{
+	DASSERT (kcl);
+	if (KCL_MODE & KCLMD_OUT_V2)
+		return KCL_V_V2;
+	if (KCL_MODE & KCLMD_OUT_DS)
+		return KCL_V_DS;
+	if (KCL_MODE & KCLMD_OUT_GC)
+		return KCL_V_GC;
+	if (kcl->kcl_version != KCL_V_UNKNOWN)
+		return kcl->kcl_version;
+	return KCL_V_WII;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+bool KclOutLE (const kcl_t *kcl)
+{
+	DASSERT (kcl);
+	if (KCL_MODE & KCLMD_OUT_LE)
+		return true;
+	// without explicit keyword: preserve the loaded file, new files stay BE
+	// (even DS defaults to BE unless --kcl=LE is given, KCL DS retail is LE
+	// and users should pass LE explicitly; V2-Switch presets imply LE via UI)
+	return kcl->kcl_le;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -523,6 +574,13 @@ void LoadParametersKCL (ccp log_prefix // not NULL:
 	if (KCL_MODE & KCLMD_CUBE)
 		PRINT ("  > Use CUBE mode (experimental), split triangles @ %u\n", KCL_TRI_SPLIT);
 #endif
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+const double3 *GetKclClip (void)
+{
+	return &KCL_CLIP;
 }
 
 //
@@ -2934,6 +2992,7 @@ enumError CreateOctreeKCL (kcl_t *kcl // KCL data structure
 		FREE (kcl->octree);
 	kcl->octree = 0;
 	kcl->octree_size = 0;
+	kcl->octree_nkeys = 0;
 	kcl->octree_alloced = false;
 	kcl->recreate_octree = false;
 
@@ -3164,6 +3223,7 @@ enumError CreateOctreeKCL (kcl_t *kcl // KCL data structure
 #if SUPPORT_KCL_CUBE
 	FREE (oi.cubelist);
 #endif
+	kcl->octree_nkeys = oi.oused; // u32 keys first, then u16 lists
 	kcl->octree_valid = true;
 	return ERR_OK;
 }
@@ -3375,7 +3435,22 @@ int GetFlagByNameKCL (kcl_t *kcl, // pointer to valid KCL
 	it->num = new_value > 0 ? new_value : 0x10000;
 	PRINT ("GetFlagByNameKCL(%s) INSERT INTO MISSING := %04x\n", name, it->num);
 
-	//--- 4. Analyze the last 5-6 characters for '_ffff' or  '_Fffff
+	//--- 4. KCollisionLibrary material name: 'COL_xxxx' with hex flags
+	//--- (accept unconditionally, independent of HEX4/HEX23 modes)
+
+	if (!strncasecmp (name, "COL_", 4))
+	{
+		char *end;
+		const ulong num = strtoul (name + 4, &end, 16);
+		if (end > name + 4 && !*end && num < 0x10000)
+		{
+			noPRINT ("GetFlagByNameKCL(%s) FOUND 'COL_XXXX' -> %04x\n", name, (uint)num);
+			it->num = (uint)num;
+			return (uint)num;
+		}
+	}
+
+	//--- 5. Analyze the last 5-6 characters for '_ffff' or  '_Fffff
 
 	const uint len = strlen (name);
 	if (kcl->accept_hex4 && len >= 5 && name[len - 5] == '_'
@@ -3391,7 +3466,7 @@ int GetFlagByNameKCL (kcl_t *kcl, // pointer to valid KCL
 		}
 	}
 
-	//--- 5. Analyze the last 7 characters for '_tt_vvv'
+	//--- 6. Analyze the last 7 characters for '_tt_vvv'
 
 	if (kcl->accept_hex23 && len >= 7 && name[len - 7] == '_' && name[len - 4] == '_')
 	{
@@ -3407,7 +3482,7 @@ int GetFlagByNameKCL (kcl_t *kcl, // pointer to valid KCL
 		}
 	}
 
-	//--- 6. Use 'new_value'
+	//--- 7. Use 'new_value'
 
 	return new_value;
 }
@@ -3827,15 +3902,52 @@ enumError ScanRawKCL (kcl_t *kcl, // KCL data structure
 		return ERROR0 (ERR_INVALID_DATA, "Invalid KCL file: %s\n", kcl->fname ? kcl->fname : "?");
 	}
 
-	KCL_ACTION_LOG (kcl, "ScanRawKCL() %s\n", kcl->fname);
+	kcl->kcl_version = ka.version;
+	kcl->kcl_le = ka.is_le;
+
+	if (ka.version == KCL_V_V2)
+		return ScanRawKCL_V2 (kcl, data, data_size, &ka, use_data);
+
+	return ScanRawKCL_V1 (kcl, data, data_size, &ka, use_data);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+enumError ScanRawKCL_V1 (kcl_t *kcl, // KCL data structure
+	const void *data, // data to scan
+	uint data_size, // size of 'data'
+	const kcl_analyze_t *kap, // valid analysis of 'data'
+	bool use_data // true: data is valid on 'kcl' live time
+)
+{
+	DASSERT (kcl);
+	DASSERT (kap);
+
+	const kcl_analyze_t ka = *kap;
+	const bool le = ka.is_le;
+	const bool is_ds = ka.version == KCL_V_DS;
+	const bool is_gc = ka.version == KCL_V_GC;
+
+	// endian aware scalar readers
+#define RD16(p) (le ? le16 (p) : be16 (p))
+#define RD32(p) (le ? le32 (p) : be32 (p))
+#define RDF4(p) (le ? lef4 (p) : bef4 (p))
+	void (*rd16n) (u16 *, const u16 *, int) = le ? le16n : be16n;
+	void (*rdf4n) (float *, const float *, int) = le ? lef4n : bef4n;
+
+	KCL_ACTION_LOG (kcl, "ScanRawKCL_V1() %s [%s%s]\n", kcl->fname,
+		GetNameKclVersion (ka.version), le ? ",LE" : "");
 	kcl->fform = FF_KCL;
 
 	if (!ka.order_ok && ErrorLogEnabled ())
 		ERROR0 (ERR_WARNING, "KCL: Unusual section order: %d\n", ka.order_value);
 
 	//--- save raw data for optimized handling
+	//--- (BE float only: the fast flag patcher and all octree readers
+	//---  assume big endian float encoding)
 
-	const bool store_raw_data = (KCL_MODE & (KCLMD_NEW | KCLMD_DROP_UNUSED)) != KCLMD_NEW;
+	const bool store_raw_data
+		= (KCL_MODE & (KCLMD_NEW | KCLMD_DROP_UNUSED)) != KCLMD_NEW && !le && !is_ds;
 	PRINT ("STORE_RAW_DATA=%d\n", store_raw_data);
 	if (store_raw_data)
 	{
@@ -3855,17 +3967,17 @@ enumError ScanRawKCL (kcl_t *kcl, // KCL data structure
 	//--- transfer header
 
 	const kcl_head_t *kclhead = data;
-	kcl->min_octree.x = bef4 (kclhead->min_octree + 0);
-	kcl->min_octree.y = bef4 (kclhead->min_octree + 1);
-	kcl->min_octree.z = bef4 (kclhead->min_octree + 2);
-	kcl->mask[0] = be32 (kclhead->mask + 0);
-	kcl->mask[1] = be32 (kclhead->mask + 1);
-	kcl->mask[2] = be32 (kclhead->mask + 2);
-	kcl->coord_rshift = be32 (&kclhead->coord_rshift);
-	kcl->y_lshift = be32 (&kclhead->y_lshift);
-	kcl->z_lshift = be32 (&kclhead->z_lshift);
-	kcl->unknown_0x10 = bef4 (&kclhead->unknown_0x10);
-	kcl->unknown_0x38 = bef4 (&kclhead->unknown_0x38);
+	kcl->min_octree.x = RDF4 (kclhead->min_octree + 0);
+	kcl->min_octree.y = RDF4 (kclhead->min_octree + 1);
+	kcl->min_octree.z = RDF4 (kclhead->min_octree + 2);
+	kcl->mask[0] = RD32 (kclhead->mask + 0);
+	kcl->mask[1] = RD32 (kclhead->mask + 1);
+	kcl->mask[2] = RD32 (kclhead->mask + 2);
+	kcl->coord_rshift = RD32 (&kclhead->coord_rshift);
+	kcl->y_lshift = RD32 (&kclhead->y_lshift);
+	kcl->z_lshift = RD32 (&kclhead->z_lshift);
+	kcl->unknown_0x10 = RDF4 (&kclhead->unknown_0x10);
+	kcl->unknown_0x38 = is_gc ? 0.0f : RDF4 (&kclhead->unknown_0x38);
 
 	//--- store triangles
 
@@ -3874,8 +3986,8 @@ enumError ScanRawKCL (kcl_t *kcl, // KCL data structure
 	const uint n_tri = ka.n[2];
 	PRINT ("N(vert)=%u, N(norm)=%u, N(tri)=%u\n", n_vert, n_norm, n_tri);
 
-	const float3 *vert = (float3 *)(data + ka.off[0]);
-	const float3 *norm = (float3 *)(data + ka.off[1]);
+	const u8 *vertbase = (u8 *)data + ka.off[0];
+	const u8 *normbase = (u8 *)data + ka.off[1];
 	const kcl_triangle_t *tri = (kcl_triangle_t *)(data + ka.off[2]);
 
 	kcl_tridata_t *td = GrowListSize (&kcl->tridata, n_tri, 100);
@@ -3890,14 +4002,26 @@ enumError ScanRawKCL (kcl_t *kcl, // KCL data structure
 	for (ti = 0; ti < n_tri; ti++, td++, tri++)
 	{
 		u16 in[6];
-		be16n (in, &tri->idx_vertex, 6);
+		rd16n (in, &tri->idx_vertex, 6);
 
 		if (in[0] < n_vert)
 		{
-			const float *flt = vert[in[0]].v;
-			td->pt[0].x = bef4 (flt++);
-			td->pt[0].y = bef4 (flt++);
-			td->pt[0].z = bef4 (flt);
+			if (is_ds)
+			{
+				// fx32 positions: s32 triplet, scale 1/4096
+				const u8 *p = vertbase + 12 * in[0];
+				const s32 x = (s32)RD32 (p), y = (s32)RD32 (p + 4), z = (s32)RD32 (p + 8);
+				td->pt[0].x = x / KCL_DS_FXSCALE;
+				td->pt[0].y = y / KCL_DS_FXSCALE;
+				td->pt[0].z = z / KCL_DS_FXSCALE;
+			}
+			else
+			{
+				const float *flt = (float *)(vertbase + 12 * in[0]);
+				td->pt[0].x = RDF4 (flt++);
+				td->pt[0].y = RDF4 (flt++);
+				td->pt[0].z = RDF4 (flt);
+			}
 			MinMax3 (&min, &max, td->pt, 1);
 			// [[xtridata]]
 		}
@@ -3905,15 +4029,33 @@ enumError ScanRawKCL (kcl_t *kcl, // KCL data structure
 		uint p;
 		for (p = 0; p < 4; p++)
 			if (in[p + 1] < n_norm)
-				bef4n (td->normal[p].v, norm[in[p + 1]].v, 3);
+			{
+				if (is_ds)
+				{
+					// fx16 normals: s16 triplet, scale 1/4096
+					const u8 *q = normbase + 6 * in[p + 1];
+					td->normal[p].x = (s16)RD16 (q) / KCL_DS_FXSCALE;
+					td->normal[p].y = (s16)RD16 (q + 2) / KCL_DS_FXSCALE;
+					td->normal[p].z = (s16)RD16 (q + 4) / KCL_DS_FXSCALE;
+				}
+				else
+					rdf4n (td->normal[p].v,
+						(float *)(normbase + 12 * in[p + 1]), 3);
+			}
 
-		td->length = bef4 (&tri->length);
+		if (is_ds)
+			td->length = (s32)RD32 (&tri->length) / (float)KCL_DS_FXSCALE;
+		else
+			td->length = RDF4 (&tri->length);
 
 		td->in_flag = in[5];
 		td->cur_flag = patch_kcl_flag ? patch_kcl_flag[in[5]] : in[5];
 		PRINT_IF (
 			td->in_flag != td->cur_flag, "IN/FLAGS: %04x -> %04x\n", td->in_flag, td->cur_flag);
 	}
+#undef RD16
+#undef RD32
+#undef RDF4
 
 	//--- calc 'tri_minval' and 'tri_maxval'
 
@@ -3944,10 +4086,11 @@ enumError ScanRawKCL (kcl_t *kcl, // KCL data structure
 	CalcPointsTriData ((kcl_tridata_t *)kcl->tridata.list, n_tri, kcl, clip);
 	kcl->norm_valid = true;
 
-	//--- test signature
+	//--- test signature (BE float only: LE/DS store no ASCII signature)
 
+	if (!le && !is_ds)
 	{
-		ccp ptr = (ccp)&vert->x;
+		ccp ptr = (ccp)vertbase;
 		ccp end = ptr + 8;
 		for (;;)
 		{
@@ -3958,11 +4101,11 @@ enumError ScanRawKCL (kcl_t *kcl, // KCL data structure
 
 			if (ptr == end)
 			{
-				float sig = bef4 (&vert->z);
+				float sig = bef4 (vertbase + 8);
 				if (sig >= 0.01 && sig <= 1000.0)
 				{
 					kcl->signature = sig;
-					memcpy (kcl->signature_info, &vert->x, 8);
+					memcpy (kcl->signature_info, vertbase, 8);
 				}
 				break;
 			}
@@ -4055,6 +4198,7 @@ enumError ScanKCL (kcl_t *kcl, // KCL data structure
 			FREE (kcl->octree);
 		kcl->octree = 0;
 		kcl->octree_size = 0;
+		kcl->octree_nkeys = 0;
 		kcl->octree_alloced = false;
 		kcl->octree_valid = false;
 	}
@@ -4502,6 +4646,32 @@ uint FindInsertFloatWithMask (float3List_t *f3l, float3 *val, u32 mask)
 
 ///////////////////////////////////////////////////////////////////////////////
 
+// quantize a float to the DS fixed point grid (fx32/fx16 scale 1/4096)
+static float QuantFX (float v)
+{
+	return (float)(round (v * KCL_DS_FXSCALE) / KCL_DS_FXSCALE);
+}
+
+static void QuantFX3 (float3 *v)
+{
+	v->x = QuantFX (v->x);
+	v->y = QuantFX (v->y);
+	v->z = QuantFX (v->z);
+}
+
+// convert a BE float octree blob (nkeys u32 keys + u16 lists) to little endian
+static void ConvertOctreeBE2LE (u8 *dest, const u8 *src, uint size, uint nkeys)
+{
+	DASSERT (dest && src);
+	uint off = 0;
+	for (uint i = 0; i < nkeys && off + 4 <= size; i++, off += 4)
+		write_le32 (dest + off, be32 (src + off));
+	for (; off + 2 <= size; off += 2)
+		write_le16 (dest + off, be16 (src + off));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 enumError CreateRawKCL (kcl_t *kcl, // pointer to valid KCL
 	bool add_sig // true: add signature
 )
@@ -4509,15 +4679,43 @@ enumError CreateRawKCL (kcl_t *kcl, // pointer to valid KCL
 	DASSERT (kcl);
 	TRACE ("CreateRawKCL()\n");
 
-	if (!kcl->model_modified && kcl->raw_data && kcl->raw_data_size && kcl->octree_valid)
+	//--- resolve output variant: explicit --kcl keywords win, otherwise
+	//--- preserve the loaded file variant (new files default to Wii/BE)
+
+	const kcl_version_t out_ver = KclOutVersion (kcl);
+	const bool out_le = KclOutLE (kcl);
+	const bool out_ds = out_ver == KCL_V_DS;
+	const bool out_gc = out_ver == KCL_V_GC;
+
+	if (out_ver == KCL_V_V2)
+		return CreateRawKCL_V2 (kcl, out_le);
+
+	if (!kcl->model_modified && kcl->raw_data && kcl->raw_data_size && kcl->octree_valid
+		&& (kcl->kcl_version == KCL_V_WII || kcl->kcl_version == KCL_V_GC) && !kcl->kcl_le
+		&& (out_ver == KCL_V_WII || out_ver == KCL_V_GC) && !out_le && !out_ds)
 	{
 		return FastCreateRawKCL (kcl, add_sig);
+	}
+
+	// A loaded BE blob without key map cannot be converted to LE:
+	// drop it so that CreateOctreeKCL() rebuilds a convertible octree.
+	if (out_le && kcl->octree_valid && !kcl->octree_nkeys)
+	{
+		if (kcl->octree_alloced)
+			FREE (kcl->octree);
+		kcl->octree = 0;
+		kcl->octree_size = 0;
+		kcl->octree_nkeys = 0;
+		kcl->octree_alloced = false;
+		kcl->octree_valid = false;
+		kcl->model_modified = true;
 	}
 
 	if (CreateOctreeKCL (kcl) == ERR_OK)
 		add_sig = true;
 
-	KCL_ACTION_LOG (kcl, "CreateRawKCL()\n");
+	KCL_ACTION_LOG (kcl, "CreateRawKCL() [%s%s]\n", GetNameKclVersion (out_ver),
+		out_le ? ",LE" : "");
 
 	//--- calculate vetex and normal lists
 
@@ -4554,19 +4752,29 @@ enumError CreateRawKCL (kcl_t *kcl, // pointer to valid KCL
 				temp.x = RoundF (td->pt->x, tp->kcl_round);
 				temp.y = RoundF (td->pt->y, tp->kcl_round);
 				temp.z = RoundF (td->pt->z, tp->kcl_round);
+				if (out_ds)
+					QuantFX3 (&temp);
 				*idx++ = FindInsertFloatF3L (&vertex, &temp, false);
 
-				*idx++ = FindInsertFloatWithMask (&normal, td->normal + 0, tp->kcl_mask);
-				*idx++ = FindInsertFloatWithMask (&normal, td->normal + 1, tp->kcl_mask);
-				*idx++ = FindInsertFloatWithMask (&normal, td->normal + 2, tp->kcl_mask);
-				*idx++ = FindInsertFloatWithMask (&normal, td->normal + 3, tp->kcl_mask);
+				for (uint nm = 0; nm < 4; nm++)
+				{
+					float3 ntmp;
+					ntmp.x = td->normal[nm].x;
+					ntmp.y = td->normal[nm].y;
+					ntmp.z = td->normal[nm].z;
+					if (out_ds)
+						QuantFX3 (&ntmp);
+					*idx++ = FindInsertFloatWithMask (&normal, &ntmp, tp->kcl_mask);
+				}
 
 				*idx++ = td->cur_flag;
 			}
 		}
 		else
 		{
-			if (add_sig && !tiny_level)
+			// ASCII signature vertex (BE float V1 only: LE/DS and V2
+			// files carry no signature, like KCL im-/exports)
+			if (add_sig && !tiny_level && !out_le && !out_ds)
 				AddSignature (&vertex, fast);
 
 			for (td = td_base; td < td_end; td++)
@@ -4575,12 +4783,24 @@ enumError CreateRawKCL (kcl_t *kcl, // pointer to valid KCL
 				temp.x = td->pt->x;
 				temp.y = td->pt->y;
 				temp.z = td->pt->z;
+				if (out_ds)
+					QuantFX3 (&temp);
 				*idx++ = FindInsertFloatF3L (&vertex, &temp, fast);
 
-				*idx++ = FindInsertFloatF3L (&normal, td->normal + 0, fast);
-				*idx++ = FindInsertFloatF3L (&normal, td->normal + 1, fast);
-				*idx++ = FindInsertFloatF3L (&normal, td->normal + 2, fast);
-				*idx++ = FindInsertFloatF3L (&normal, td->normal + 3, fast);
+				for (uint nm = 0; nm < 4; nm++)
+				{
+					if (out_ds)
+					{
+						float3 ntmp;
+						ntmp.x = td->normal[nm].x;
+						ntmp.y = td->normal[nm].y;
+						ntmp.z = td->normal[nm].z;
+						QuantFX3 (&ntmp);
+						*idx++ = FindInsertFloatF3L (&normal, &ntmp, fast);
+					}
+					else
+						*idx++ = FindInsertFloatF3L (&normal, td->normal + nm, fast);
+				}
 
 				*idx++ = td->cur_flag;
 			}
@@ -4628,12 +4848,43 @@ enumError CreateRawKCL (kcl_t *kcl, // pointer to valid KCL
 
 	//--- calculate data size
 
-	const uint vertex_size = sizeof (float3) * vertex.used;
-	const uint normal_size = sizeof (float3) * normal.used;
+#define KW32(p, v) (out_le ? write_le32 (p, v) : write_be32 (p, v))
+#define KW16(p, v) (out_le ? write_le16 (p, v) : write_be16 (p, v))
+#define KWF4(p, v) (out_le ? write_lef4 (p, v) : write_bef4 (p, v))
+
+	// DS fixed point range pre-check (s32 fx32 for positions + lengths)
+	if (out_ds)
+	{
+		for (td = td_base; td < td_end; td++)
+		{
+			if (fabs (td->pt[0].x) > 524287.0 || fabs (td->pt[0].y) > 524287.0
+				|| fabs (td->pt[0].z) > 524287.0
+				|| fabs (td->length) > 524287.0)
+			{
+				ResetF3L (&vertex);
+				ResetF3L (&normal);
+				FREE (index_list);
+				return ERROR0 (ERR_INVALID_DATA,
+					"Coordinate out of DS fixed point range: %s\n", kcl->fname);
+			}
+		}
+	}
+
+	const uint head_size = out_gc ? KCL_GC_HEAD_SIZE : KCL_V1_HEAD_SIZE;
+	uint vertex_size, normal_size;
+	if (out_ds)
+	{
+		vertex_size = 3 * sizeof (s32) * vertex.used;
+		normal_size = 3 * sizeof (s16) * normal.used;
+	}
+	else
+	{
+		vertex_size = sizeof (float3) * vertex.used;
+		normal_size = sizeof (float3) * normal.used;
+	}
 	const uint triangle_size = sizeof (kcl_triangle_t) * n_tri;
 
-	uint data_size
-		= sizeof (kcl_head_t) + vertex_size + normal_size + triangle_size + kcl->octree_size;
+	uint data_size = head_size + vertex_size + normal_size + triangle_size + kcl->octree_size;
 
 	//--- alloc data
 
@@ -4650,54 +4901,119 @@ enumError CreateRawKCL (kcl_t *kcl, // pointer to valid KCL
 
 	//--- write header
 
-	const uint vertex_offset = sizeof (kcl_head_t);
+	const uint vertex_offset = head_size;
 	const uint normal_offset = vertex_offset + vertex_size;
 	const uint triangle_offset = normal_offset + normal_size;
 	const uint octree_offset = triangle_offset + triangle_size;
 
-	write_be32 (kclhead->sect_off + 0, vertex_offset);
-	write_be32 (kclhead->sect_off + 1, normal_offset);
-	write_be32 (kclhead->sect_off + 2, triangle_offset - 0x10);
-	write_be32 (kclhead->sect_off + 3, octree_offset);
+	KW32 (kclhead->sect_off + 0, vertex_offset);
+	KW32 (kclhead->sect_off + 1, normal_offset);
+	KW32 (kclhead->sect_off + 2, triangle_offset - 0x10);
+	KW32 (kclhead->sect_off + 3, octree_offset);
 
-	write_bef4 (kclhead->min_octree + 0, kcl->min_octree.x);
-	write_bef4 (kclhead->min_octree + 1, kcl->min_octree.y);
-	write_bef4 (kclhead->min_octree + 2, kcl->min_octree.z);
-	write_be32 (kclhead->mask + 0, kcl->mask[0]);
-	write_be32 (kclhead->mask + 1, kcl->mask[1]);
-	write_be32 (kclhead->mask + 2, kcl->mask[2]);
-	write_be32 (&kclhead->coord_rshift, kcl->coord_rshift);
-	write_be32 (&kclhead->y_lshift, kcl->y_lshift);
-	write_be32 (&kclhead->z_lshift, kcl->z_lshift);
-	write_bef4 (&kclhead->unknown_0x10, kcl->unknown_0x10);
-	write_bef4 (&kclhead->unknown_0x38, kcl->unknown_0x38);
+	if (out_ds)
+	{
+		const s32 fx_thick = (s32)round (kcl->unknown_0x10 * KCL_DS_FXSCALE);
+		const s32 fx_rad = (s32)round (kcl->unknown_0x38 * KCL_DS_FXSCALE);
+		KW32 (&kclhead->unknown_0x10, (u32)fx_thick);
+		s32 fx_min[3];
+		fx_min[0] = (s32)round (kcl->min_octree.x * KCL_DS_FXSCALE);
+		fx_min[1] = (s32)round (kcl->min_octree.y * KCL_DS_FXSCALE);
+		fx_min[2] = (s32)round (kcl->min_octree.z * KCL_DS_FXSCALE);
+		KW32 (kclhead->min_octree + 0, (u32)fx_min[0]);
+		KW32 (kclhead->min_octree + 1, (u32)fx_min[1]);
+		KW32 (kclhead->min_octree + 2, (u32)fx_min[2]);
+		KW32 (kclhead->mask + 0, kcl->mask[0]);
+		KW32 (kclhead->mask + 1, kcl->mask[1]);
+		KW32 (kclhead->mask + 2, kcl->mask[2]);
+		KW32 (&kclhead->coord_rshift, kcl->coord_rshift);
+		KW32 (&kclhead->y_lshift, kcl->y_lshift);
+		KW32 (&kclhead->z_lshift, kcl->z_lshift);
+		KW32 (&kclhead->unknown_0x38, (u32)fx_rad);
+	}
+	else
+	{
+		KWF4 (kclhead->min_octree + 0, kcl->min_octree.x);
+		KWF4 (kclhead->min_octree + 1, kcl->min_octree.y);
+		KWF4 (kclhead->min_octree + 2, kcl->min_octree.z);
+		KW32 (kclhead->mask + 0, kcl->mask[0]);
+		KW32 (kclhead->mask + 1, kcl->mask[1]);
+		KW32 (kclhead->mask + 2, kcl->mask[2]);
+		KW32 (&kclhead->coord_rshift, kcl->coord_rshift);
+		KW32 (&kclhead->y_lshift, kcl->y_lshift);
+		KW32 (&kclhead->z_lshift, kcl->z_lshift);
+		KWF4 (&kclhead->unknown_0x10, kcl->unknown_0x10);
+		if (!out_gc)
+			KWF4 (&kclhead->unknown_0x38, kcl->unknown_0x38);
+	}
 
 	//--- transfer verticies
 
-	float *src = vertex.list->v;
-	float *dest = (float *)(kcl->raw_data + vertex_offset);
-	write_bef4n (dest, src, 3 * vertex.used);
+	if (out_ds)
+	{
+		const float *src = vertex.list->v;
+		u8 *dest = kcl->raw_data + vertex_offset;
+		for (uint vi = 0; vi < 3 * vertex.used; vi++, src++, dest += 4)
+			KW32 (dest, (u32)(s32)round (*src * KCL_DS_FXSCALE));
+	}
+	else
+	{
+		const float *src = vertex.list->v;
+		float *dest = (float *)(kcl->raw_data + vertex_offset);
+		if (out_le)
+			write_lef4n (dest, src, 3 * vertex.used);
+		else
+			write_bef4n (dest, src, 3 * vertex.used);
+	}
 
 	//--- transfer normals
 
-	src = normal.list->v;
-	dest = (float *)(kcl->raw_data + normal_offset);
-	write_bef4n (dest, src, 3 * normal.used);
+	if (out_ds)
+	{
+		const float *src = normal.list->v;
+		u8 *dest = kcl->raw_data + normal_offset;
+		for (uint ni = 0; ni < 3 * normal.used; ni++, src++, dest += 2)
+			KW16 (dest, (u16)(s16)round (*src * KCL_DS_FXSCALE));
+	}
+	else
+	{
+		const float *src = normal.list->v;
+		float *dest = (float *)(kcl->raw_data + normal_offset);
+		if (out_le)
+			write_lef4n (dest, src, 3 * normal.used);
+		else
+			write_bef4n (dest, src, 3 * normal.used);
+	}
 
 	//--- transfer triangles
 
 	const vertex_index_t *idx = index_list;
 	kcl_triangle_t *tdest = (kcl_triangle_t *)(kcl->raw_data + triangle_offset);
-	for (td = td_base; td < td_end; td++, tdest++, idx += 6)
+	if (out_ds)
 	{
-		write_bef4 (&tdest->length, td->length);
-		write_be16n (&tdest->idx_vertex, idx, 6);
+		for (td = td_base; td < td_end; td++, tdest++, idx += 6)
+		{
+			KW32 (&tdest->length, (u32)(s32)round (td->length * KCL_DS_FXSCALE));
+			for (uint k = 0; k < 6; k++)
+				KW16 (&tdest->idx_vertex + k, idx[k]);
+		}
 	}
+	else
+		for (td = td_base; td < td_end; td++, tdest++, idx += 6)
+		{
+			KWF4 (&tdest->length, td->length);
+			for (uint k = 0; k < 6; k++)
+				KW16 (&tdest->idx_vertex + k, idx[k]);
+		}
 
-	//--- transfer octree
+	//--- transfer octree (in memory always BE float: convert if LE wanted)
 
 	DASSERT (octree_offset + kcl->octree_size == kcl->raw_data_size);
-	memcpy (kcl->raw_data + octree_offset, kcl->octree, kcl->octree_size);
+	if (out_le && kcl->octree_size && kcl->octree_nkeys)
+		ConvertOctreeBE2LE (
+			kcl->raw_data + octree_offset, kcl->octree, kcl->octree_size, kcl->octree_nkeys);
+	else
+		memcpy (kcl->raw_data + octree_offset, kcl->octree, kcl->octree_size);
 
 	//--- terminate
 
@@ -4706,15 +5022,22 @@ enumError CreateRawKCL (kcl_t *kcl, // pointer to valid KCL
 	FREE (index_list);
 
 	kcl->model_modified = false;
+	kcl->kcl_version = out_ver;
+	kcl->kcl_le = out_le;
 
 	if (!kcl->octree_alloced)
 	{
 		// is part of 'old_data'
 		kcl->octree = 0;
 		kcl->octree_size = 0;
+		kcl->octree_nkeys = 0;
 		kcl->octree_alloced = false;
 	}
 	FREE (old_data);
+
+#undef KW32
+#undef KW16
+#undef KWF4
 
 	return ERR_OK;
 }

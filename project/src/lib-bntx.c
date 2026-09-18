@@ -118,13 +118,16 @@ enumError BntxDeswizzle (u8 **dest, uint *dest_size, const u8 *src, uint src_siz
 
 // TextureInfo field offsets, relative to the start of the BRTI block's
 // payload (the block header is 16 bytes, the info follows it).
+#define TI_FLAGS 0x00
 #define TI_TILE_MODE 0x02
+#define TI_SWIZZLE 0x04
 #define TI_NUM_MIPS 0x06
 #define TI_FORMAT 0x0c
 #define TI_WIDTH 0x14
 #define TI_HEIGHT 0x18
 #define TI_LAYOUT 0x24
 #define TI_IMAGE_SIZE 0x40
+#define TI_ALIGNMENT 0x44
 #define TI_COMP_SEL 0x48
 #define TI_NAME_ADDR 0x50
 #define TI_PTRS_ADDR 0x60
@@ -140,13 +143,81 @@ void ResetBNTX (bntx_t *bntx)
 		{
 			FREE (bntx->textures[i].mip_offsets);
 			if (bntx->textures[i].user_data)
+			{
+				for (uint u = 0; u < bntx->textures[i].n_user_data; u++)
+				{
+					bntx_user_data_t *ud = &bntx->textures[i].user_data[u];
+					if ((ud->type == BNTX_UD_STRING && ud->val.str)
+						|| (ud->type == BNTX_UD_WSTRING && ud->val.wstr))
+					{
+						char **list = ud->type == BNTX_UD_STRING ? ud->val.str : ud->val.wstr;
+						for (uint k = 0; k < ud->count; k++)
+							FREE (list[k]);
+						FREE (list);
+					}
+				}
 				FREE (bntx->textures[i].user_data);
+			}
 		}
 		FREE (bntx->textures);
 	}
 	FREE (bntx->reloc_table.sections);
 	FREE (bntx->reloc_table.entries);
 	memset (bntx, 0, sizeof (*bntx));
+}
+
+// Duplicate one length-prefixed (u16) NUL-terminated UTF-8 string at `addr`.
+// Matches BntxLibrary's LoadStrings(count, UTF8): the UserData payload is an
+// array of `count` u64 offsets, each pointing at u16 length + bytes + NUL.
+static char *bntx_dup_u8_string (const u8 *data, uint size, u64 addr)
+{
+	if (!addr || addr + 2 > size)
+		return NULL;
+	const uint len = brd16 (data + addr);
+	if ((u64)len + 1 > (u64)size - addr - 2)
+		return NULL;
+	if (data[addr + 2 + len] != 0)
+		return NULL;
+	char *out = CALLOC (len + 1, 1);
+	if (!out)
+		return NULL;
+	memcpy (out, data + addr + 2, len);
+	return out;
+}
+
+// Duplicate one length-prefixed (u16) NUL-terminated UTF-16LE string at
+// `addr`, transcoded to UTF-8. Matches BntxLibrary's LoadStrings(Unicode).
+static char *bntx_dup_w_string (const u8 *data, uint size, u64 addr)
+{
+	if (!addr || addr + 2 > size)
+		return NULL;
+	const uint len = brd16 (data + addr); // UTF-16 code units
+	if ((u64)len * 2 + 2 > (u64)size - addr - 2)
+		return NULL;
+	if (brd16 (data + addr + 2 + (u64)len * 2) != 0)
+		return NULL;
+	char *out = CALLOC ((size_t)len * 3 + 1, 1);
+	if (!out)
+		return NULL;
+	size_t pos = 0;
+	for (uint i = 0; i < len; i++)
+	{
+		const uint c = brd16 (data + addr + 2 + (u64)i * 2);
+		if (c < 0x80)
+			out[pos++] = (char)c;
+		else if (c < 0x800)
+		{
+			out[pos++] = (char)(0xC0 | (c >> 6));
+			out[pos++] = (char)(0x80 | (c & 0x3F));
+		}
+		else
+		{
+			out[pos++] = (char)(0xE0 | (c >> 12));
+			out[pos++] = (char)(0x80 | ((c >> 6) & 0x3F));
+			out[pos++] = (char)(0x80 | (c & 0x3F));
+		}
+	}
+	return out;
 }
 
 enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
@@ -213,6 +284,8 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 		tex[n].width = w;
 		tex[n].height = h;
 		tex[n].dim = ti[1];
+		tex[n].flags = ti[TI_FLAGS];
+		tex[n].swizzle = brd16 (ti + TI_SWIZZLE);
 		tex[n].depth = brd32 (ti + 0x1c);
 		if (!tex[n].depth)
 			tex[n].depth = 1;
@@ -223,6 +296,7 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 		tex[n].comp_sel = brd32 (ti + TI_COMP_SEL);
 		tex[n].tile_mode = brd16 (ti + TI_TILE_MODE);
 		tex[n].block_height_log2 = brd32 (ti + TI_LAYOUT) & 7;
+		tex[n].alignment = brd32 (ti + TI_ALIGNMENT);
 		tex[n].n_mips = brd16 (ti + TI_NUM_MIPS);
 		tex[n].data = data + data_addr;
 		tex[n].data_size = image_size;
@@ -282,8 +356,45 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 								uds[u].val.f32 = (const float *)(data + u_data_addr);
 							else if (u_type == BNTX_UD_BYTE && u_data_addr + u_cnt <= size)
 								uds[u].val.bytes = data + u_data_addr;
-							else if (u_type == BNTX_UD_WSTRING && u_data_addr + (u64)u_cnt * 2 <= size)
-								uds[u].val.wstr = (const u16 *)(data + u_data_addr);
+							else if (u_type == BNTX_UD_STRING && u_cnt <= 256
+								&& u_data_addr + (u64)u_cnt * 8 <= size)
+							{
+								// Legacy BntxLibrary UserDataType.String: payload is
+								// `count` u64 offsets to u16-length-prefixed UTF-8
+								// strings (LoadStrings(count, UTF8)), not inline.
+								char **list = CALLOC (u_cnt ? u_cnt : 1, sizeof (*list));
+								if (list)
+								{
+									for (uint k = 0; k < u_cnt; k++)
+									{
+										const u64 saddr = brd64 (data + u_data_addr + (u64)k * 8);
+										list[k] = bntx_dup_u8_string (data, size, saddr);
+										if (!list[k])
+											list[k] = CALLOC (1, 1);
+									}
+									uds[u].val.str = list;
+								}
+							}
+							else if (u_type == BNTX_UD_WSTRING && u_cnt <= 256
+								&& u_data_addr + (u64)u_cnt * 8 <= size)
+							{
+								// Legacy BntxLibrary UserDataType.WString: payload
+								// is `count` u64 offsets to u16-length-prefixed
+								// UTF-16LE strings (LoadStrings(Unicode)),
+								// transcoded here to UTF-8 for C callers.
+								char **list = CALLOC (u_cnt ? u_cnt : 1, sizeof (*list));
+								if (list)
+								{
+									for (uint k = 0; k < u_cnt; k++)
+									{
+										const u64 saddr = brd64 (data + u_data_addr + (u64)k * 8);
+										list[k] = bntx_dup_w_string (data, size, saddr);
+										if (!list[k])
+											list[k] = CALLOC (1, 1);
+									}
+									uds[u].val.wstr = list;
+								}
+							}
 						}
 					}
 					tex[n].n_user_data = ud_count;
@@ -656,6 +767,18 @@ ccp GetBNTXFormatName (uint format)
 		case 0x1e: return type == 2 ? "BC5_SNORM" : "BC5_UNORM";
 		case 0x1f: return type == 10 ? "BC6H_UF16" : "BC6H_SF16";
 		case 0x20: return type == 6 ? "BC7_SRGB" : "BC7_UNORM";
+		case 0x21: return "EAC_R11_UNORM";
+		case 0x22: return "EAC_R11_G11_UNORM";
+		case 0x23: return type == 6 ? "ETC1_SRGB" : "ETC1_UNORM";
+		case 0x24: return type == 6 ? "ETC2_SRGB" : "ETC2_UNORM";
+		case 0x25: return type == 6 ? "ETC2_MASK_SRGB" : "ETC2_MASK_UNORM";
+		case 0x26: return type == 6 ? "ETC2_ALPHA_SRGB" : "ETC2_ALPHA_UNORM";
+		case 0x27: return "PVRTC1_28PP_UNORM";
+		case 0x28: return "PVRTC1_48PP_UNORM";
+		case 0x29: return "PVRTC1_ALPHA_28PP_UNORM";
+		case 0x2a: return "PVRTC1_ALPHA_48PP_UNORM";
+		case 0x2b: return "PVRTC2_ALPHA_28PP_UNORM";
+		case 0x2c: return "PVRTC2_ALPHA_48PP_UNORM";
 		case 0x2d: return type == 6 ? "ASTC_4x4_SRGB" : "ASTC_4x4_UNORM";
 		case 0x2e: return type == 6 ? "ASTC_5x4_SRGB" : "ASTC_5x4_UNORM";
 		case 0x2f: return type == 6 ? "ASTC_5x5_SRGB" : "ASTC_5x5_UNORM";
@@ -694,22 +817,38 @@ void DumpStructureBNTX (FILE *out, const bntx_t *bntx, int indent)
 			fprintf (out, " (array count %u)", t->array_count);
 		fprintf (out, ", mips %u\n", t->n_mips);
 		fprintf (out, "%*sFormat: 0x%04x (%s)\n", indent + 4, "", t->format, GetBNTXFormatName (t->format));
-		fprintf (out, "%*sTile mode: %u, Block height log2: %u\n", indent + 4, "", t->tile_mode, t->block_height_log2);
+		fprintf (out, "%*sTile mode: %u, Block height log2: %u, Swizzle: %u, Flags: %u, Dim: %u\n",
+			indent + 4, "", t->tile_mode, t->block_height_log2, t->swizzle, t->flags, t->dim);
 		static const char ch_names[6] = "01RGBA";
 		fprintf (out, "%*sChannels: %c%c%c%c\n", indent + 4, "",
 			ch_names[(t->comp_sel & 0xff) <= 5 ? (t->comp_sel & 0xff) : 2],
 			ch_names[((t->comp_sel >> 8) & 0xff) <= 5 ? ((t->comp_sel >> 8) & 0xff) : 3],
 			ch_names[((t->comp_sel >> 16) & 0xff) <= 5 ? ((t->comp_sel >> 16) & 0xff) : 4],
 			ch_names[((t->comp_sel >> 24) & 0xff) <= 5 ? ((t->comp_sel >> 24) & 0xff) : 5]);
-		fprintf (out, "%*sData size: 0x%x (%u bytes)\n", indent + 4, "", t->data_size, t->data_size);
+		fprintf (out, "%*sData size: 0x%x (%u bytes), Alignment: %u\n",
+			indent + 4, "", t->data_size, t->data_size, t->alignment);
 		if (t->n_user_data > 0)
 		{
 			fprintf (out, "%*sUserData (%u entries):\n", indent + 4, "", t->n_user_data);
 			for (uint u = 0; u < t->n_user_data; u++)
 			{
 				const bntx_user_data_t *ud = t->user_data + u;
-				fprintf (out, "%*s'%s': type %u, count %u\n", indent + 6, "",
+				fprintf (out, "%*s'%s': type %u, count %u", indent + 6, "",
 					ud->name ? ud->name : "", (uint)ud->type, ud->count);
+				if (ud->count > 0)
+				{
+					if (ud->type == BNTX_UD_INT32 && ud->val.i32)
+						fprintf (out, " = %d", (int)ud->val.i32[0]);
+					else if (ud->type == BNTX_UD_SINGLE && ud->val.f32)
+						fprintf (out, " = %g", (double)ud->val.f32[0]);
+					else if (ud->type == BNTX_UD_STRING && ud->val.str && ud->val.str[0])
+						fprintf (out, " = \"%s\"", ud->val.str[0]);
+					else if (ud->type == BNTX_UD_WSTRING && ud->val.wstr && ud->val.wstr[0])
+						fprintf (out, " = \"%s\"", ud->val.wstr[0]);
+					else if (ud->type == BNTX_UD_BYTE && ud->val.bytes)
+						fprintf (out, " = 0x%02x", ud->val.bytes[0]);
+				}
+				fprintf (out, "\n");
 			}
 		}
 	}
@@ -1663,5 +1802,414 @@ enumError EncodeBNTX_RGBA (
 	*dest = buf;
 	if (dest_size)
 		*dest_size = total_size;
+	return ERR_OK;
+}
+
+//-----------------------------------------------------------------------------
+///////////////		native DDS / ASTC export		///////////////
+//-----------------------------------------------------------------------------
+//
+// Lossless export in the spirit of aboood40091/BNTX-Extractor ("saves them
+// as DDS"): deswizzle the Tegra surface but keep the native block
+// compression, wrapping it in a DDS header -- or in a raw .astc file for
+// ASTC textures -- instead of decoding to RGBA8.
+//
+// The DDS header layout matches the reference extractor's dds.py so the
+// files open in the same viewers: legacy FourCC codes for BC1 (DXT1),
+// BC2 (DXT3) and BC3 (DXT5), a DX10 extension header for BC4S/BC5S/BC6H/
+// BC7, and uncompressed bitmasks derived from the BNTX channel selectors.
+
+// DDS pixel-format flag bits (dds.py pflags).
+#define BNTX_DDS_PF_ALPHA 0x00000001
+#define BNTX_DDS_PF_ALPHA_ONLY 0x00000002
+#define BNTX_DDS_PF_FOURCC 0x00000004
+#define BNTX_DDS_PF_RGB 0x00000040
+#define BNTX_DDS_PF_LUMINANCE 0x00020000
+
+typedef enum bntx_native_dds_kind_t
+{
+	BNTX_DDSK_RGBA8 = 28, // dds.py format_ codes for uncompressed types
+	BNTX_DDSK_RGB565 = 85,
+	BNTX_DDSK_R8 = 61,
+	BNTX_DDSK_R8G8 = 49,
+	BNTX_DDSK_BC1,
+	BNTX_DDSK_BC2,
+	BNTX_DDSK_BC3,
+	BNTX_DDSK_BC4U,
+	BNTX_DDSK_BC4S,
+	BNTX_DDSK_BC5U,
+	BNTX_DDSK_BC5S,
+	BNTX_DDSK_BC6UF,
+	BNTX_DDSK_BC6SF,
+	BNTX_DDSK_BC7
+} bntx_native_dds_kind_t;
+
+// Resolves a BNTX format word to its native storage layout. Returns false
+// for formats the reference extractor cannot export either (anything
+// outside its formats table). IS_ASTC selects the raw .astc path;
+// otherwise DDSK selects the DDS header variant.
+static bool bntx_native_layout (uint format, uint *bpp, uint *blk_w, uint *blk_h,
+	uint *ddsk, bool *is_astc)
+{
+	const uint fmt = (format >> 8) & 0xff, type = format & 0xff;
+	uint b = 0, bw = 1, bh = 1, kind = 0;
+	bool astc = false;
+
+	switch (fmt)
+	{
+		case 0x0b:
+			b = 4;
+			kind = BNTX_DDSK_RGBA8;
+			break;
+		case 0x07:
+			if (type != 1)
+				return false;
+			b = 2;
+			kind = BNTX_DDSK_RGB565;
+			break;
+		case 0x02:
+			if (type != 1)
+				return false;
+			b = 1;
+			kind = BNTX_DDSK_R8;
+			break;
+		case 0x09:
+			if (type != 1)
+				return false;
+			b = 2;
+			kind = BNTX_DDSK_R8G8;
+			break;
+		case 0x1a: b = 8; bw = bh = 4; kind = BNTX_DDSK_BC1; break;
+		case 0x1b: b = 16; bw = bh = 4; kind = BNTX_DDSK_BC2; break;
+		case 0x1c: b = 16; bw = bh = 4; kind = BNTX_DDSK_BC3; break;
+		case 0x1d:
+			b = 8;
+			bw = bh = 4;
+			kind = type == 2 ? BNTX_DDSK_BC4S : BNTX_DDSK_BC4U;
+			break;
+		case 0x1e:
+			b = 16;
+			bw = bh = 4;
+			kind = type == 2 ? BNTX_DDSK_BC5S : BNTX_DDSK_BC5U;
+			break;
+		case 0x1f:
+			// UF16 vs SF16: the reference extractor uses type 1/2 while
+			// other descriptions of the same files use 0x0a/0x0b (see
+			// GetBNTXFormatName and the signed BC6 path in
+			// DecodeBNTX_Mip_RGBA); accept both spellings.
+			b = 16;
+			bw = bh = 4;
+			if (type == 2 || type == 0x0b)
+				kind = BNTX_DDSK_BC6SF;
+			else if (type == 1 || type == 0x0a)
+				kind = BNTX_DDSK_BC6UF;
+			else
+				return false;
+			break;
+		case 0x20: b = 16; bw = bh = 4; kind = BNTX_DDSK_BC7; break;
+		case 0x2d: b = 16; bw = 4; bh = 4; astc = true; break;
+		case 0x2e: b = 16; bw = 5; bh = 4; astc = true; break;
+		case 0x2f: b = 16; bw = 5; bh = 5; astc = true; break;
+		case 0x30: b = 16; bw = 6; bh = 5; astc = true; break;
+		case 0x31: b = 16; bw = 6; bh = 6; astc = true; break;
+		case 0x32: b = 16; bw = 8; bh = 5; astc = true; break;
+		case 0x33: b = 16; bw = 8; bh = 6; astc = true; break;
+		case 0x34: b = 16; bw = 8; bh = 8; astc = true; break;
+		case 0x35: b = 16; bw = 10; bh = 5; astc = true; break;
+		case 0x36: b = 16; bw = 10; bh = 6; astc = true; break;
+		case 0x37: b = 16; bw = 10; bh = 8; astc = true; break;
+		case 0x38: b = 16; bw = 10; bh = 10; astc = true; break;
+		case 0x39: b = 16; bw = 12; bh = 10; astc = true; break;
+		case 0x3a: b = 16; bw = 12; bh = 12; astc = true; break;
+		default:
+			return false;
+	}
+
+	if (bpp)
+		*bpp = b;
+	if (blk_w)
+		*blk_w = bw;
+	if (blk_h)
+		*blk_h = bh;
+	if (ddsk)
+		*ddsk = kind;
+	if (is_astc)
+		*is_astc = astc;
+	return true;
+}
+
+// Deswizzles mip 0 of texture T and returns the first SIZE bytes of linear
+// surface data (the reference extractor's `result[:size]` truncation).
+static enumError bntx_native_linear (u8 **dest, const bntx_texture_t *t,
+	uint bpp, uint blk_w, uint blk_h, uint size)
+{
+	u8 *linear = 0;
+	uint linear_size = 0;
+	const uint bh_log2 = t->block_height_log2 > 5 ? 5 : t->block_height_log2;
+	const enumError err = BntxDeswizzle (&linear, &linear_size, t->data, t->data_size,
+		t->width, t->height, blk_w, blk_h, bpp, t->tile_mode, bh_log2, true);
+	if (err)
+		return err;
+	if (linear_size < size)
+	{
+		FREE (linear);
+		return ERROR0 (ERR_INVALID_DATA, "Truncated BNTX texture '%s'\n", t->name);
+	}
+	// Shrink the buffer to the exact payload size.
+	u8 *out = MALLOC (size ? size : 1);
+	if (!out)
+	{
+		FREE (linear);
+		return ERR_CANT_CREATE;
+	}
+	memcpy (out, linear, size);
+	FREE (linear);
+	*dest = out;
+	return ERR_OK;
+}
+
+// Writes the 128-byte DDS header (+ 20-byte DX10 extension for BC4S/BC5S/
+// BC6H/BC7) into HDR, matching dds.py generateHeader() with num_mipmaps=1.
+// SEL holds the four BNTX channel selectors, low byte (red) first, with
+// the reference tool's 0-means-identity fix already applied.
+static void bntx_dds_header (u8 *hdr, uint *hdr_len, uint w, uint h,
+	uint ddsk, const uint sel[4], uint payload_size)
+{
+	static const u8 dxgi_ext[7][4] = {
+		{ 0x50, 0x00, 0x00, 0x00 }, // BC4U -> DXGI 80
+		{ 0x51, 0x00, 0x00, 0x00 }, // BC4S -> DXGI 81
+		{ 0x53, 0x00, 0x00, 0x00 }, // BC5U -> DXGI 83
+		{ 0x54, 0x00, 0x00, 0x00 }, // BC5S -> DXGI 84
+		{ 0x5f, 0x00, 0x00, 0x00 }, // BC6H_UF16 -> DXGI 95
+		{ 0x60, 0x00, 0x00, 0x00 }, // BC6H_SF16 -> DXGI 96
+		{ 0x62, 0x00, 0x00, 0x00 }, // BC7 -> DXGI 98
+	};
+
+	memset (hdr, 0, 148);
+	memcpy (hdr, "DDS ", 4);
+	bwr32 (hdr + 4, 124); // header size
+	uint flags = 0x00000001 | 0x00001000 | 0x00000004 | 0x00000002;
+	bwr32 (hdr + 12, h);
+	bwr32 (hdr + 16, w);
+	bwr32 (hdr + 28, 1); // mip count
+	bwr32 (hdr + 76, 32); // pixel-format size
+
+	const bool compressed = ddsk != BNTX_DDSK_RGBA8 && ddsk != BNTX_DDSK_RGB565
+		&& ddsk != BNTX_DDSK_R8 && ddsk != BNTX_DDSK_R8G8;
+
+	if (!compressed)
+	{
+		// Bitmasks selected per channel like dds.py's compSels tables.
+		static const u32 rgb_masks[4][6] = {
+			{ 0, 0, 0xff, 0xff00, 0xff0000, 0xff000000 }, // RGBA8
+			{ 0, 0, 0xf800, 0x07e0, 0x001f, 0x00000000 }, // RGB565
+			{ 0, 0, 0xff, 0x0000, 0x0000, 0x00000000 }, // R8 (luminance)
+			{ 0, 0, 0xff, 0xff00, 0x0000, 0x00000000 }, // R8G8 (luminance+alpha)
+		};
+		const uint row = ddsk == BNTX_DDSK_RGB565 ? 1 : ddsk == BNTX_DDSK_R8 ? 2
+			: ddsk == BNTX_DDSK_R8G8 ? 3 : 0;
+		const uint fmtbpp = ddsk == BNTX_DDSK_RGBA8 ? 4 : ddsk == BNTX_DDSK_RGB565 ? 2
+			: ddsk == BNTX_DDSK_R8 ? 1 : 2;
+		const bool luminance = row == 2 || row == 3;
+		const bool rgb = row <= 1;
+		bool has_alpha = true;
+		if (ddsk == BNTX_DDSK_RGB565)
+			has_alpha = false;
+		else if (ddsk == BNTX_DDSK_R8 && sel[3] != 2)
+			has_alpha = false;
+
+		flags |= 0x00000008; // pitch
+		uint pflags;
+		if (sel[0] != 2 && sel[1] != 2 && sel[2] != 2 && sel[3] == 2)
+			pflags = BNTX_DDS_PF_ALPHA_ONLY; // alpha-only image
+		else if (luminance)
+			pflags = BNTX_DDS_PF_LUMINANCE;
+		else if (rgb)
+			pflags = BNTX_DDS_PF_RGB;
+		else
+			pflags = BNTX_DDS_PF_RGB;
+		if (has_alpha && pflags != BNTX_DDS_PF_ALPHA_ONLY)
+			pflags |= BNTX_DDS_PF_ALPHA;
+
+		bwr32 (hdr + 20, w * fmtbpp); // pitch, like dds.py's size rewrite
+		bwr32 (hdr + 80, pflags);
+		bwr32 (hdr + 88, fmtbpp << 3); // bit count
+		bwr32 (hdr + 92, rgb_masks[row][sel[0] <= 5 ? sel[0] : 2]);
+		bwr32 (hdr + 96, rgb_masks[row][sel[1] <= 5 ? sel[1] : 3]);
+		bwr32 (hdr + 100, rgb_masks[row][sel[2] <= 5 ? sel[2] : 4]);
+		bwr32 (hdr + 104, rgb_masks[row][sel[3] <= 5 ? sel[3] : 5]);
+	}
+	else
+	{
+		flags |= 0x00080000; // compressed (linearsize)
+		bwr32 (hdr + 20, payload_size);
+		bwr32 (hdr + 80, BNTX_DDS_PF_FOURCC);
+		uint dxgi = 6; // BC7 default
+		switch (ddsk)
+		{
+			case BNTX_DDSK_BC1:
+				memcpy (hdr + 84, "DXT1", 4);
+				break;
+			case BNTX_DDSK_BC2:
+				memcpy (hdr + 84, "DXT3", 4);
+				break;
+			case BNTX_DDSK_BC3:
+				memcpy (hdr + 84, "DXT5", 4);
+				break;
+			case BNTX_DDSK_BC4U: dxgi = 0; break;
+			case BNTX_DDSK_BC4S: dxgi = 1; break;
+			case BNTX_DDSK_BC5U: dxgi = 2; break;
+			case BNTX_DDSK_BC5S: dxgi = 3; break;
+			case BNTX_DDSK_BC6UF: dxgi = 4; break;
+			case BNTX_DDSK_BC6SF: dxgi = 5; break;
+			default: break; // BC7
+		}
+		if (ddsk == BNTX_DDSK_BC1 || ddsk == BNTX_DDSK_BC2 || ddsk == BNTX_DDSK_BC3)
+		{
+			if (hdr_len)
+				*hdr_len = 128;
+		}
+		else
+		{
+			memcpy (hdr + 84, "DX10", 4);
+			memcpy (hdr + 128, dxgi_ext[dxgi], 4);
+			bwr32 (hdr + 132, 3); // D3D10_RESOURCE_DIMENSION_TEXTURE2D
+			bwr32 (hdr + 136, 0); // misc flag
+			bwr32 (hdr + 140, 1); // array size
+			bwr32 (hdr + 144, 0); // misc flags 2
+			if (hdr_len)
+				*hdr_len = 148;
+		}
+	}
+
+	bwr32 (hdr + 8, flags);
+	bwr32 (hdr + 108, 0x00001000); // caps: TEXTURE
+	if (!compressed && hdr_len)
+		*hdr_len = 128;
+}
+
+bool BntxCanNativeExport (const bntx_t *bntx, uint index, bool want_dds)
+{
+	if (!bntx || index >= bntx->n_textures)
+		return false;
+	const bntx_texture_t *t = bntx->textures + index;
+	if (t->array_count > 1 || t->depth > 1)
+		return false;
+	uint bpp = 0, blk_w = 1, blk_h = 1, ddsk = 0;
+	bool is_astc = false;
+	if (!bntx_native_layout (t->format, &bpp, &blk_w, &blk_h, &ddsk, &is_astc))
+		return false;
+	return want_dds ? !is_astc : is_astc;
+}
+
+enumError EncodeBNTXNativeDDS (
+	u8 **dest, uint *dest_size, const bntx_t *bntx, uint index)
+{
+	if (!dest || !bntx || index >= bntx->n_textures)
+		return EINVAL;
+	const bntx_texture_t *t = bntx->textures + index;
+
+	// Like the reference tool's "Unsupported number of faces" refusal.
+	if (t->array_count > 1 || t->depth > 1)
+		return ERROR0 (ERR_INVALID_IFORM,
+			"Can't export '%s' as DDS: multi-face/array textures are not supported\n",
+			t->name);
+
+	uint bpp = 0, blk_w = 1, blk_h = 1, ddsk = 0;
+	bool is_astc = false;
+	if (!bntx_native_layout (t->format, &bpp, &blk_w, &blk_h, &ddsk, &is_astc) || is_astc)
+		return ERROR0 (ERR_INVALID_IFORM,
+			"Can't export '%s' as DDS: unsupported BNTX format 0x%04x (%s)\n",
+			t->name, t->format, GetBNTXFormatName (t->format));
+
+	const uint size = div_round_up (t->width, blk_w) * div_round_up (t->height, blk_h) * bpp;
+	u8 *linear = 0;
+	const enumError err = bntx_native_linear (&linear, t, bpp, blk_w, blk_h, size);
+	if (err)
+		return err;
+
+	// BNTX selectors are 0/1 constants or 2..5 for source R/G/B/A; apply
+	// the reference tool's 0-means-identity fix before deriving masks.
+	uint sel[4];
+	for (uint c = 0; c < 4; c++)
+	{
+		sel[c] = (t->comp_sel >> (8 * c)) & 0xff;
+		if (!sel[c])
+			sel[c] = c + 2;
+	}
+
+	u8 hdr[148];
+	uint hdr_len = 128;
+	bntx_dds_header (hdr, &hdr_len, t->width, t->height, ddsk, sel, size);
+
+	u8 *out = MALLOC ((size_t)hdr_len + size);
+	if (!out)
+	{
+		FREE (linear);
+		return ERR_CANT_CREATE;
+	}
+	memcpy (out, hdr, hdr_len);
+	memcpy (out + hdr_len, linear, size);
+	FREE (linear);
+
+	*dest = out;
+	if (dest_size)
+		*dest_size = hdr_len + size;
+	return ERR_OK;
+}
+
+enumError EncodeBNTXNativeASTC (
+	u8 **dest, uint *dest_size, const bntx_t *bntx, uint index)
+{
+	if (!dest || !bntx || index >= bntx->n_textures)
+		return EINVAL;
+	const bntx_texture_t *t = bntx->textures + index;
+
+	if (t->array_count > 1 || t->depth > 1)
+		return ERROR0 (ERR_INVALID_IFORM,
+			"Can't export '%s' as ASTC: multi-face/array textures are not supported\n",
+			t->name);
+
+	uint bpp = 0, blk_w = 1, blk_h = 1, ddsk = 0;
+	bool is_astc = false;
+	if (!bntx_native_layout (t->format, &bpp, &blk_w, &blk_h, &ddsk, &is_astc) || !is_astc)
+		return ERROR0 (ERR_INVALID_IFORM,
+			"Can't export '%s' as ASTC: unsupported BNTX format 0x%04x (%s)\n",
+			t->name, t->format, GetBNTXFormatName (t->format));
+
+	const uint size = div_round_up (t->width, blk_w) * div_round_up (t->height, blk_h) * bpp;
+	u8 *linear = 0;
+	const enumError err = bntx_native_linear (&linear, t, bpp, blk_w, blk_h, size);
+	if (err)
+		return err;
+
+	// Raw .astc file: 16-byte header + linear blocks, like the reference.
+	u8 *out = MALLOC (16 + (size_t)size);
+	if (!out)
+	{
+		FREE (linear);
+		return ERR_CANT_CREATE;
+	}
+	out[0] = 0x13;
+	out[1] = 0xab;
+	out[2] = 0xa1;
+	out[3] = 0x5c;
+	out[4] = (u8)blk_w;
+	out[5] = (u8)blk_h;
+	out[6] = 1;
+	out[7] = (u8)(t->width & 0xff);
+	out[8] = (u8)((t->width >> 8) & 0xff);
+	out[9] = (u8)((t->width >> 16) & 0xff);
+	out[10] = (u8)(t->height & 0xff);
+	out[11] = (u8)((t->height >> 8) & 0xff);
+	out[12] = (u8)((t->height >> 16) & 0xff);
+	out[13] = 1;
+	out[14] = out[15] = 0;
+	memcpy (out + 16, linear, size);
+	FREE (linear);
+
+	*dest = out;
+	if (dest_size)
+		*dest_size = 16 + size;
 	return ERR_OK;
 }

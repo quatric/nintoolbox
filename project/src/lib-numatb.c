@@ -697,3 +697,342 @@ enumError DecodeNUMATB_Text (FILE *out, const u8 *data, size_t size)
 
 	return ERR_OK;
 }
+
+//--- MatLab-dialect XML export (DecodeNUMATB_XML) ----------------------------
+
+static void xml_escape (FILE *out, ccp s, int attr)
+{
+	for (; *s; s++)
+	{
+		switch (*s)
+		{
+			case '&': fputs ("&amp;", out); break;
+			case '<': fputs ("&lt;", out); break;
+			case '>': fputs ("&gt;", out); break;
+			case '"': fputs (attr ? "&quot;" : "\"", out); break;
+			default: fputc (*s, out); break;
+		}
+	}
+}
+
+// Enum name where known, plain number otherwise (XmlSerializer prints unknown
+// enum values numerically, so this keeps the output loadable by MatLab).
+static void xml_enum (FILE *out, const ccp *table, uint table_len, u32 val)
+{
+	if (val < table_len)
+		fputs (table[val], out);
+	else
+		fprintf (out, "%u", val);
+}
+
+static void xml_f32 (FILE *out, const u8 *data, u64 off)
+{
+	fprintf (out, "%.9g", (double)read_f32 (data, off));
+}
+
+static void xml_indent (FILE *out, int depth)
+{
+	for (int i = 0; i < depth; i++)
+		fputs ("  ", out);
+}
+
+#define XML_LIB_HEAD \
+	"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" \
+	"<MaterialLibrary" \
+	" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" \
+	" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\""
+
+static void xml_vector4_fields (FILE *out, const u8 *data, u64 val_off, int depth)
+{
+	static const char fld[4] = { 'X', 'Y', 'Z', 'W' };
+	for (int c = 0; c < 4; c++)
+	{
+		xml_indent (out, depth);
+		fprintf (out, "<%c>", fld[c]);
+		xml_f32 (out, data, val_off + (u64)c * 4);
+		fprintf (out, "</%c>\n", fld[c]);
+	}
+}
+
+enumError DecodeNUMATB_XML (FILE *out, const u8 *data, size_t size)
+{
+	if (!out || !IsNUMATB (data, size))
+		return ERR_INVALID_DATA;
+
+	const u64 array_field_off = NUMATB_SUBHDR_OFF + 8;
+	if (array_field_off + 16 > size)
+		return ERROR0 (ERR_INVALID_DATA, "NUMATB: file shorter than the fixed header\n");
+
+	const u64 array_rel = rd_le64 (data + array_field_off);
+	const u64 entry_count = rd_le64 (data + array_field_off + 8);
+
+	if (!array_rel || entry_count > NUMATB_MAX_ENTRIES || !entry_count)
+	{
+		fprintf (out, XML_LIB_HEAD " />\n");
+		return ERR_OK;
+	}
+
+	const u64 array_base = array_field_off + array_rel;
+	if (array_base < array_field_off)
+		return ERROR0 (ERR_INVALID_DATA, "NUMATB: material array offset overflow\n");
+
+	fprintf (out, XML_LIB_HEAD ">\n");
+
+	for (u64 i = 0; i < entry_count; i++)
+	{
+		const u64 entry_off = array_base + i * NUMATB_ENTRY_SIZE;
+		if (entry_off < array_base || entry_off + NUMATB_ENTRY_SIZE > size)
+			break;
+
+		char material_label[256], shader_label[256];
+		read_ssbh_string (material_label, sizeof (material_label), data, size, entry_off);
+		read_ssbh_string (shader_label, sizeof (shader_label), data, size, entry_off + 0x18);
+
+		xml_indent (out, 1);
+		fputs ("<Material shaderLabel=\"", out);
+		xml_escape (out, shader_label, 1);
+		fputs ("\" materialLabel=\"", out);
+		xml_escape (out, material_label, 1);
+		fputs ("\">\n", out);
+
+		const u64 attr_array_field_off = entry_off + 0x08;
+		const u64 attr_rel = rd_le64 (data + attr_array_field_off);
+		const u64 attr_count = rd_le64 (data + attr_array_field_off + 8);
+		if (!attr_rel || attr_count > NUMATB_MAX_ATTRS)
+		{
+			xml_indent (out, 1);
+			fputs ("</Material>\n", out);
+			continue;
+		}
+		const u64 attr_base = attr_array_field_off + attr_rel;
+		if (attr_base < attr_array_field_off)
+		{
+			xml_indent (out, 1);
+			fputs ("</Material>\n", out);
+			continue;
+		}
+
+		for (u64 a = 0; a < attr_count; a++)
+		{
+			const u64 attr_off = attr_base + a * NUMATB_ATTR_SIZE;
+			if (attr_off < attr_base || attr_off + NUMATB_ATTR_SIZE > size)
+				break;
+
+			const u64 param_id = rd_le64 (data + attr_off);
+			ccp param_name = matl_param_name (param_id);
+
+			xml_indent (out, 2);
+			fputs ("<Parameter name=\"", out);
+			if (param_name)
+				xml_escape (out, param_name, 1);
+			else
+				fprintf (out, "%llu", (unsigned long long)param_id);
+			fputs ("\">\n", out);
+
+			const u64 enum_field_off = attr_off + 0x08;
+			const u64 val_rel = rd_le64 (data + enum_field_off);
+			const u64 data_type = rd_le64 (data + enum_field_off + 8);
+			const u64 val_off = enum_field_off + val_rel;
+			const int val_ok = val_rel && val_off >= enum_field_off;
+
+			switch (data_type)
+			{
+			case 1: // Float
+				xml_indent (out, 3);
+				if (val_ok && val_off + 4 <= size)
+				{
+					fputs ("<Float>", out);
+					xml_f32 (out, data, val_off);
+					fputs ("</Float>\n", out);
+				}
+				else
+					fputs ("<Float>0</Float>\n", out);
+				break;
+
+			case 2: // Boolean
+				xml_indent (out, 3);
+				fprintf (out, "<Bool>%s</Bool>\n",
+					val_ok && val_off + 4 <= size && rd_le32 (data + val_off)
+						? "true" : "false");
+				break;
+
+			case 5: // Vector4
+			case 7: // Color4f
+				xml_indent (out, 3);
+				if (val_ok && val_off + 16 <= size)
+				{
+					fputs ("<Vector4>\n", out);
+					xml_vector4_fields (out, data, val_off, 4);
+					xml_indent (out, 3);
+					fputs ("</Vector4>\n", out);
+				}
+				else
+				{
+					fputs ("<Vector4>\n", out);
+					xml_indent (out, 4); fputs ("<X>0</X>\n", out);
+					xml_indent (out, 4); fputs ("<Y>0</Y>\n", out);
+					xml_indent (out, 4); fputs ("<Z>0</Z>\n", out);
+					xml_indent (out, 4); fputs ("<W>0</W>\n", out);
+					xml_indent (out, 3);
+					fputs ("</Vector4>\n", out);
+				}
+				break;
+
+			case 11: // String
+			{
+				char str[512];
+				read_ssbh_string (str, sizeof (str), data, size, val_ok ? val_off : size);
+				xml_indent (out, 3);
+				fputs ("<String>\n", out);
+				xml_indent (out, 4);
+				fputs ("<Text>", out);
+				xml_escape (out, str, 0);
+				fputs ("</Text>\n", out);
+				xml_indent (out, 3);
+				fputs ("</String>\n", out);
+				break;
+			}
+
+			case 14: // Sampler (0x38 bytes)
+				xml_indent (out, 3);
+				if (val_ok && val_off + 0x38 <= size)
+				{
+					fputs ("<Sampler>\n", out);
+					static ccp const snames[6] = { "WrapS", "WrapT", "WrapR",
+						"MinFilter", "MagFilter", "TextureFilteringType" };
+					static const ccp * const stabs[6] = { matl_wrap_mode_name,
+						matl_wrap_mode_name, matl_wrap_mode_name,
+						matl_min_filter_name, matl_mag_filter_name,
+						matl_filter_type_name };
+					static const uint stablens[6] = { 4, 4, 4, 3, 3, 3 };
+					for (int s = 0; s < 6; s++)
+					{
+						xml_indent (out, 4);
+						fprintf (out, "<%s>", snames[s]);
+						xml_enum (out, stabs[s], stablens[s],
+							rd_le32 (data + val_off + (u64)s * 4));
+						fprintf (out, "</%s>\n", snames[s]);
+					}
+					xml_indent (out, 4);
+					fputs ("<BorderColor>\n", out);
+					xml_vector4_fields (out, data, val_off + 24, 5);
+					xml_indent (out, 4);
+					fputs ("</BorderColor>\n", out);
+					xml_indent (out, 4);
+					fprintf (out, "<Unk11>%u</Unk11>\n", rd_le32 (data + val_off + 0x28));
+					xml_indent (out, 4);
+					fprintf (out, "<Unk12>%u</Unk12>\n", rd_le32 (data + val_off + 0x2c));
+					xml_indent (out, 4);
+					fputs ("<LodBias>", out);
+					xml_f32 (out, data, val_off + 0x30);
+					fputs ("</LodBias>\n", out);
+					xml_indent (out, 4);
+					fprintf (out, "<MaxAnisotropy>%u</MaxAnisotropy>\n",
+						rd_le32 (data + val_off + 0x34));
+					xml_indent (out, 3);
+					fputs ("</Sampler>\n", out);
+				}
+				else
+					fputs ("<Sampler />\n", out);
+				break;
+
+			case 16: // UvTransform (5 floats)
+				xml_indent (out, 3);
+				if (val_ok && val_off + 20 <= size)
+				{
+					fputs ("<UVtransform>\n", out);
+					static const char uvd[5] = { 'X', 'Y', 'Z', 'W', 'V' };
+					for (int c = 0; c < 5; c++)
+					{
+						xml_indent (out, 4);
+						fprintf (out, "<%c>", uvd[c]);
+						xml_f32 (out, data, val_off + (u64)c * 4);
+						fprintf (out, "</%c>\n", uvd[c]);
+					}
+					xml_indent (out, 3);
+					fputs ("</UVtransform>\n", out);
+				}
+				else
+					fputs ("<UVtransform />\n", out);
+				break;
+
+			case 17: // BlendState (10 u32, MatLab's version-agnostic shape)
+				xml_indent (out, 3);
+				if (val_ok && val_off + 40 <= size)
+				{
+					fputs ("<BlendState>\n", out);
+					xml_indent (out, 4); fputs ("<SourceColor>", out);
+					xml_enum (out, matl_blend_factor_name, 15,
+						rd_le32 (data + val_off));
+					fputs ("</SourceColor>\n", out);
+					xml_indent (out, 4);
+					fprintf (out, "<Unk2>%u</Unk2>\n", rd_le32 (data + val_off + 4));
+					xml_indent (out, 4); fputs ("<DestinationColor>", out);
+					xml_enum (out, matl_blend_factor_name, 15,
+						rd_le32 (data + val_off + 8));
+					fputs ("</DestinationColor>\n", out);
+					static ccp const bnames[7] = { "Unk4", "Unk5", "Unk6",
+						"EnableAlphaSampleToCoverage", "Unk8", "Unk9", "Unk10" };
+					for (int b = 0; b < 7; b++)
+					{
+						xml_indent (out, 4);
+						fprintf (out, "<%s>%u</%s>\n", bnames[b],
+							rd_le32 (data + val_off + 12 + (u64)b * 4), bnames[b]);
+					}
+					xml_indent (out, 3);
+					fputs ("</BlendState>\n", out);
+				}
+				else
+					fputs ("<BlendState />\n", out);
+				break;
+
+			case 18: // RasterizerState (MatLab's 8-field shape)
+				xml_indent (out, 3);
+				if (val_ok && val_off + 32 <= size)
+				{
+					fputs ("<RasterizerState>\n", out);
+					xml_indent (out, 4); fputs ("<FillMode>", out);
+					xml_enum (out, matl_fill_mode_name, 2, rd_le32 (data + val_off));
+					fputs ("</FillMode>\n", out);
+					xml_indent (out, 4); fputs ("<CullMode>", out);
+					xml_enum (out, matl_cull_mode_name, 3,
+						rd_le32 (data + val_off + 4));
+					fputs ("</CullMode>\n", out);
+					static ccp const rnames[6] = { "DepthBias", "Unk4", "Unk5",
+						"Unk6", "Unk7", "Unk8" };
+					static const int rfloat[6] = { 1, 1, 1, 0, 0, 1 };
+					for (int r = 0; r < 6; r++)
+					{
+						xml_indent (out, 4);
+						fprintf (out, "<%s>", rnames[r]);
+						if (rfloat[r])
+							xml_f32 (out, data, val_off + 8 + (u64)r * 4);
+						else
+							fprintf (out, "%u", rd_le32 (data + val_off + 8 + (u64)r * 4));
+						fprintf (out, "</%s>\n", rnames[r]);
+					}
+					xml_indent (out, 3);
+					fputs ("</RasterizerState>\n", out);
+				}
+				else
+					fputs ("<RasterizerState />\n", out);
+				break;
+
+			default: // not representable in MatLab's dialect; keep it visible
+				xml_indent (out, 3);
+				fprintf (out, "<!-- unknown param type %llu -->\n",
+					(unsigned long long)data_type);
+				break;
+			}
+
+			xml_indent (out, 2);
+			fputs ("</Parameter>\n", out);
+		}
+
+		xml_indent (out, 1);
+		fputs ("</Material>\n", out);
+	}
+
+	fputs ("</MaterialLibrary>\n", out);
+	return ERR_OK;
+}

@@ -65,4 +65,14 @@ enumError DecodeCGFXTexture (
 enumError ExportBCRESTextures (const cgfx_t *cgfx, const char *dest_path_or_dir);
 enumError ExportBCRESTexturesFromData (const u8 *data, size_t size, const char *dest_path_or_dir);
 
+// Per-texture TXOB header facts (BcmdlImporter TextureMeta port): hardware
+// format id plus pixel/payload sizes, exported as a .json sidecar next to
+// each decoded PNG so a future re-encoder can restore the original format.
+typedef struct
+{
+	uint32_t width, height, format, data_size;
+} cgfx_tex_meta_t;
+enumError GetCGFXTextureMeta (cgfx_tex_meta_t *meta, const cgfx_t *cgfx, uint tex_idx);
+const char *GetPicaTextureFormatName (uint format);
+
 #endif

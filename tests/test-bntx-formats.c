@@ -43,6 +43,22 @@ int main (void)
 	assert (!strcmp (GetBNTXFormatName (0x1a01), "BC1_UNORM"));
 	assert (!strcmp (GetBNTXFormatName (0x1f0a), "BC6H_UF16"));
 	assert (!strcmp (GetBNTXFormatName (0x2001), "BC7_UNORM"));
+	// Mobile-compression family from LegacySwitchLibraries GFX/Enums.cs
+	// (SurfaceFormat): named for inspection, pixel decode stays unsupported.
+	assert (!strcmp (GetBNTXFormatName (0x2101), "EAC_R11_UNORM"));
+	assert (!strcmp (GetBNTXFormatName (0x2201), "EAC_R11_G11_UNORM"));
+	assert (!strcmp (GetBNTXFormatName (0x2301), "ETC1_UNORM"));
+	assert (!strcmp (GetBNTXFormatName (0x2306), "ETC1_SRGB"));
+	assert (!strcmp (GetBNTXFormatName (0x2401), "ETC2_UNORM"));
+	assert (!strcmp (GetBNTXFormatName (0x2406), "ETC2_SRGB"));
+	assert (!strcmp (GetBNTXFormatName (0x2501), "ETC2_MASK_UNORM"));
+	assert (!strcmp (GetBNTXFormatName (0x2606), "ETC2_ALPHA_SRGB"));
+	assert (!strcmp (GetBNTXFormatName (0x2701), "PVRTC1_28PP_UNORM"));
+	assert (!strcmp (GetBNTXFormatName (0x2801), "PVRTC1_48PP_UNORM"));
+	assert (!strcmp (GetBNTXFormatName (0x2901), "PVRTC1_ALPHA_28PP_UNORM"));
+	assert (!strcmp (GetBNTXFormatName (0x2a01), "PVRTC1_ALPHA_48PP_UNORM"));
+	assert (!strcmp (GetBNTXFormatName (0x2b01), "PVRTC2_ALPHA_28PP_UNORM"));
+	assert (!strcmp (GetBNTXFormatName (0x2c01), "PVRTC2_ALPHA_48PP_UNORM"));
 	assert (!strcmp (GetBNTXFormatName (0x2d01), "ASTC_4x4_UNORM"));
 	assert (!strcmp (GetBNTXFormatName (0x3b01), "B5G5R5A1_UNORM"));
 

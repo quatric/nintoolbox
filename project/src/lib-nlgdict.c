@@ -10,9 +10,14 @@
 #include "lib-std.h"
 #include "lib-zstd.h"
 #include "lib-archive-util.h"
+#include "lib-fedforce.h"
+#include "lib-nlg-lm.h"
+#include "lib-model-glb.h"
+#include "lib-ctpk.h"
 #include <zlib.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 
 // Extract Next Level Games Dictionary Archive (.dict / LM2 / LM3 / Punch-Out!!)
@@ -59,7 +64,10 @@ enumError ExtractNLGDictArchive (ccp arg, ccp basedir, uint depth)
 
 	u8 *data_raw = 0;
 	size_t data_raw_size = 0;
-	LoadFileAlloc (data_path, 0, 0, &data_raw, &data_raw_size, 0, 0, 0, false);
+	// The companion .data is optional (block dumps fall back to the .dict
+	// itself); probe quietly so a missing file is not an error.
+	if (!access (data_path, R_OK))
+		LoadFileAlloc (data_path, 0, 0, &data_raw, &data_raw_size, 0, 0, 0, false);
 
 	char dest[PATH_MAX];
 	get_dest_dir (dest, sizeof (dest), arg, basedir);
@@ -197,6 +205,17 @@ enumError ExtractNLGDictArchive (ccp arg, ccp basedir, uint depth)
 			}
 			else
 				extracted_count++;
+		}
+		// Typed chunk pass (NextLevelLibrary layouts): models -> FEDM+GLB,
+		// textures -> FEDT+PNG, skeletons -> FEDS, animations/scripts ->
+		// text, everything else hash-resolved raw dumps. Best effort and
+		// silent on structural surprises; the block dumps above stay.
+		if (!testmode)
+		{
+			nlg_variant_t variant = NLGDetectVariant (raw, (uint)raw_size);
+			if (variant != NLG_UNKNOWN && data_raw && data_raw_size)
+				ExtractNLGTyped (dest, raw, (uint)raw_size,
+					data_raw, data_raw_size, variant, is_compressed);
 		}
 	}
 	else if (is_po)

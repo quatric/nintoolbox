@@ -1647,7 +1647,51 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 'A', 'A', 'M', 'P' }, 0, MinusString, MinusString,
 		"AGL Light Probe Data (.bglpbd / glpbd)" },
 
-	// FF_RZPK (Mario Party 3DS compressed archive, MPLibrary 3DS/ZDAT.cs)
+	// FF_J3DBMD = 307 (Nintendo GameCube/Wii Binary Model)
+	{ FF_J3DBMD, FF_J3DBMD, 0, "J3DBMD", ".bmd", ".szs", ".bmd",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 8,
+		{ 0x4a, 0x33, 0x44, 0x32, 0x62, 0x6d, 0x64, 0x33 }, // "J3D2bmd3"
+		0, MinusString, MinusString,
+		"Nintendo GameCube/Wii binary model (J3D BMD, SuperBMD-compatible)" },
+
+	// FF_J3DBDL = 308 (Nintendo GameCube/Wii Binary Display List)
+	{ FF_J3DBDL, FF_J3DBDL, 0, "J3DBDL", ".bdl", ".szs", ".bdl",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 8,
+		{ 0x4a, 0x33, 0x44, 0x32, 0x62, 0x64, 0x6c, 0x34 }, // "J3D2bdl4"
+		0, MinusString, MinusString,
+		"Nintendo GameCube/Wii binary display list (J3D BDL, SuperBMD-compatible)" },
+
+	// FF_XMB = 309 (Smash XMB material/LOD metadata)
+	{ FF_XMB, FF_XMB, 0, "XMB", ".xmb", ".szs", ".xmb",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 0x58, 0x4d, 0x42, 0x20 }, // "XMB "
+		0, MinusString, MinusString, "Smash XMB material/LOD metadata (.xmb)" },
+
+	// FF_ADJB = 310 (Smash mesh triangle adjacency; no magic, extension-keyed)
+	{ FF_ADJB, FF_ADJB, 0, "ADJB", ".adjb", ".szs", ".adjb",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 0, { 0 },
+		0, MinusString, MinusString, "Smash mesh triangle adjacency (model.adjb)" },
+
+	// FF_FEDMODEL = 311 (Next Level Games model container)
+	{ FF_FEDMODEL, FF_FEDMODEL, 0, "FEDMODEL", ".fedmodel", ".szs", ".fedmodel",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 'F', 'E', 'D', 'M' },
+		0, MinusString, MinusString, "Next Level Games model container (.fedmodel / FEDM)" },
+
+	// FF_FEDTEX = 312 (Next Level Games texture container)
+	{ FF_FEDTEX, FF_FEDTEX, 0, "FEDTEX", ".fedtex", ".szs", ".fedtex",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 'F', 'E', 'D', 'T' },
+		0, MinusString, MinusString, "Next Level Games texture container (.fedtex / FEDT)" },
+
+	// FF_FEDSKEL = 313 (Next Level Games skeleton container)
+	{ FF_FEDSKEL, FF_FEDSKEL, 0, "FEDSKEL", ".fedskel", ".szs", ".fedskel",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 'F', 'E', 'D', 'S' },
+		0, MinusString, MinusString, "Next Level Games skeleton container (.fedskel / FEDS)" },
+
+	// FF_SANIM = 314 (Mario Strikers skeleton animation; chunk-walked, extension-keyed)
+	{ FF_SANIM, FF_SANIM, 0, "SANIM", ".sanim", ".szs", ".sanim",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0, { 0 },
+		0, MinusString, MinusString, "Mario Strikers skeleton animation (.sanim)" },
+
+	// FF_RZPK = 315 (Mario Party 3DS compressed archive, MPLibrary 3DS/ZDAT.cs)
 	{ FF_RZPK, FF_RZPK, 0, "RZPK", ".rzpk", ".szs", ".rzpk",
 		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT | FFT_CREATE, 4,
 		{ 'R', 'Z', 'P', 'K' }, 0, MinusString, MinusString,
@@ -1839,6 +1883,14 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_MPMESS, "MPMESS", 0, 0xe05 },
 	{ FF_MPBOARD, "MPBOARD", 0, 0x3001 },
 	{ FF_BGLPBD, "BGLPBD", 0, 0x3001 },
+	{ FF_XMB, "XMB", "XMB ", 0x3001 },
+	{ FF_ADJB, "ADJB", 0, 0x3001 },
+	{ FF_FEDMODEL, "FEDMODEL", "FEDM", 0x3001 },
+	{ FF_FEDTEX, "FEDTEX", "FEDT", 0x3001 },
+	{ FF_FEDSKEL, "FEDSKEL", "FEDS", 0x3001 },
+	{ FF_SANIM, "SANIM", 0, 0xe05 },
+	{ FF_J3DBMD, "J3DBMD", 0, 0x3001 },
+	{ FF_J3DBDL, "J3DBDL", 0, 0x3001 },
 	{ FF_RZPK, "RZPK", "RZPK", 0xe05 },
 
 	{ 0, 0, 0, 0 }

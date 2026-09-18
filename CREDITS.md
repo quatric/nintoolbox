@@ -24,12 +24,18 @@ We acknowledge and credit the following tools and authors whose research, format
   * Reference implementations and algorithm specifications for Nintendo compression formats (LZ77 0x10, LZ11 0x11, Huffman 0x24/0x28, RLE 0x30, Difference filter 0x80).
 * **Switch Toolbox, BfresLibrary & BFRES-Viewer** by **KillzXGaming** ([Switch-Toolbox](https://github.com/KillzXGaming/Switch-Toolbox), [BfresLibrary](https://github.com/KillzXGaming/BfresLibrary), [BFRES-Viewer](https://github.com/KillzXGaming/BFRES-Viewer))
   * Technical reference, reverse engineering, and format specifications for Nintendo Switch, Wii U, and 3DS format structures (BFRES, BNTX, BCA, BMA, BNXP, SARC, BYML, and texture compression layouts). Reference models and layouts for Wii U and Switch NintendoWare BFRES models, FSKL skeletons, FMDL geometry, FVTX vertex buffers, version-gated BufferInfo memory pools, TexSrt texture matrix transformations, material structures, and FSKA skeletal animation curves across versions (v8, v9, v10+).
+* **TextureConverter & Toolbox.Core** by **KillzXGaming** ([TextureConverter](https://github.com/KillzXGaming/TextureConverter), [Toolbox.Core](https://github.com/KillzXGaming/Toolbox.Core))
+  * Reference behavior and specifications for batch texture conversion: exporting every texture in a container (not just index 0), the XTX `DFvN`/`HBvN` container layout with NVN format codes and Tegra block-linear payloads (`File_Format_Library/FileFormats/Texture/XTX.cs`), and the Tegra X1 swizzle behind `GetImageData`.
+* **NintenTools.Bfres** by **Syroot / KillzXGaming** ([NintenTools.Bfres](https://github.com/KillzXGaming/NintenTools.Bfres), forked from [Syroot/NintenTools.Bfres](https://github.com/Syroot/NintenTools.Bfres))
+  * MIT-licensed .NET reference for the Wii U BFRES 3.x container (ResFile/ResFileLoader/ResFileSaver, FMDL/FSKL/FVTX/FSHP/FMAT/FTEX section layouts, GX2AttribFormat table, VertexBufferHelper typed attribute access, MatrixToBoneList/InverseModelMatrices skinning, RenderInfo/RenderState/ShaderAssign/Sampler/ShaderParam material model, AnimCurve key semantics). Wii U skinning (smooth-matrix inverse binds, _i0/_w0 attributes via SkinBoneIndices), full GX2 attribute coverage, and multi-texture + sampler material binding in `lib-bfres.c` were ported from these layouts and verified against retail fixtures.
 * **Smash-Forge** by **KillzXGaming, jam1garner, Ploaj, SMG, and contributors** ([Smash-Forge](https://github.com/KillzXGaming/Smash-Forge))
   * Super Smash Bros. 4 (Wii U / 3DS) and *Pokkén Tournament* 3D model formats (NDP3, NDWU, and NDWD little-endian NUD specifications, ObjectData and PolyData mesh and vertex parsing, vertex attribute configurations, and NUT texture formats).
 * **PartyPatcher & MPLibrary** by **KillzXGaming** ([PartyPatcher](https://github.com/KillzXGaming/PartyPatcher), [MPLibrary](https://github.com/KillzXGaming/MPLibrary))
   * Technical reference and specifications for Hudson Soft GameCube and Wii *Mario Party* formats, including HSF 3D models and MPBIN archive containers.
 * **BFRES-Shader-Maker & ShaderLibrary** by **KillzXGaming** ([BFRES-Shader-Maker](https://github.com/KillzXGaming/BFRES-Shader-Maker), [ShaderLibrary](https://github.com/KillzXGaming/ShaderLibrary))
   * Technical reference for NintendoWare shader archive architectures (BFSHA / FSHA, BNSH, and SHARC / SHARCFB source and bytecode binary structures).
+* **BinaryShaderLibrary** by **KillzXGaming** ([BinaryShaderLibrary](https://github.com/KillzXGaming/BinaryShaderLibrary))
+  * Reference for the BFSHA shader-model option/attribute/sampler/uniform-block value layouts (40-byte ShaderOption records with per-choice u32 values, sampler Extra strings, uniform-block type names) and the BNSH dual source/binary programs-per-variation, zlib-compressed stages, per-program MemoryData and reflection-dictionary structures ported into the `wszst EXTRACT` manifests and shader-blob / embedded-`.bnsh` sidecars.
 * **Blender-GCN-Mario-Party-Plugin** by **KillzXGaming** ([Blender-GCN-Mario-Party-Plugin](https://github.com/KillzXGaming/Blender-GCN-Mario-Party-Plugin))
   * Mario Party GameCube HSF model and BIN asset import/export specifications.
 * **LayoutLibrary** by **KillzXGaming** ([LayoutLibrary](https://github.com/KillzXGaming/LayoutLibrary))
@@ -46,18 +52,32 @@ We acknowledge and credit the following tools and authors whose research, format
   * NintendoWare particle effect systems (EFT1, EFT2, and VFXB `.ptcl`/`.eset` archives) and Bandai Namco particle effect container architectures (EFFN `.eff`/`.effn` format for *Super Smash Bros. 4* and *Super Smash Bros. Ultimate*).
 * **Metanoia** by **Ploaj** ([Metanoia](https://github.com/Ploaj/Metanoia))
   * Multi-platform reverse engineering, format analysis, and 3D model exploration tool for Nintendo formats across GameCube, Wii, 3DS, DS, and Switch (including HSF, HSD, GLG, BNFM, and proprietary console asset containers).
+* **SSBHLib & CrossMod** by **Ploaj** ([SSBHLib](https://github.com/Ploaj/SSBHLib))
+  * Reference implementation for the Super Smash Bros. Ultimate SSBH format family (MESH, MATL, SKEL, MODL, ANIM, HLPB, SHDR, NRPD, MatLab material XML, the ANIM compressed-track decoder, and the model.adjb adjacency layout).
+* **SSBU-TOOLS** by **Sammi Husky** ([SSBU-TOOLS](https://github.com/Sammi-Husky/SSBU-TOOLS))
+  * MIT-licensed original XMB <-> XML converter (XMBDec.py) that SSBHLib's XMBLib was adapted from; the reference for the XMB header, node/property tables, and XML mapping.
+* **xmb_lib, prc-rs & ssbh_lib** by the **Smash Ultimate Research Group** ([xmb_lib](https://github.com/ultimate-research/xmb_lib), [prc-rs](https://github.com/ultimate-research/prc-rs), [ssbh_lib](https://github.com/ultimate-research/ssbh_lib))
+  * MIT-licensed maintained successors covering XMB read/write and XML conversion, the "paracobn" parameter-binary layout and ParamXML tag dialect, and the SSBH MATL/ANIM structure layouts.
+* **paracobNET** by **benhall-7** ([paracobNET](https://github.com/benhall-7/paracobNET))
+  * Smash Ultimate parameter class library and ParamXML converter; the original tool CrossMod relied on for .prc/.param files.
 * **Scarlet** by **xdanieldzd** ([Scarlet](https://github.com/xdanieldzd/Scarlet))
   * Reference implementation and format specifications for Nintendo 3DS, DS, and console image, container, and compression formats (including PICA200 texture containers BTGA, CTXB, DMPBM, STEX, and CMB texture chunks).
 * **ASH0-tools** by **NinjaCheetah & Garhoogin** ([ASH0-tools](https://github.com/NinjaCheetah/ASH0-tools))
   * Reference implementation and format specifications for Nintendo Wii ASH0 Huffman/LZ compression and decompression algorithms.
 * **Kuriimu / Kuriimu2** by **IcySon55, FanTranslatorsInternational** ([Kuriimu](https://github.com/FanTranslatorsInternational/Kuriimu))
   * Research and reference implementation for game translation tools, text archives (MSBT, BMG, MSBP, MSBF), and container formats across Nintendo platforms.
+* **MSBTConverter & CLMS** by **KillzXGaming, Trippixyz and contributors** ([MSBTConverter](https://github.com/KillzXGaming/MSBTConverter), [CLMS](https://github.com/KillzXGaming/CLMS))
+  * Reference implementation for Message Studio deliverables beyond labels and plain text: NLI1 numeric message IDs, ATO1 preservation, ATR1 attribute strings, TSY1 style indices, TXTW/WMBT text blocks, UTF-32 strings, region-end markers, full MSBP project sections (ATI2/ALB1/ALI2 attributes, TGG2/TAG2/TGP2/TGL2 control tags, SYL3/SLB1 styles, CTI1 sources), and legacy FLW2/FEN1 flowcharts.
+* **Nintendo-File-Formats LMS docs** by **Kinnay and contributors** ([Nintendo-File-Formats](https://github.com/kinnay/Nintendo-File-Formats))
+  * Format specifications for the LMS family (MSBT/MSBP/MSBF headers, hash tables, ATR1/TSY1 blocks, FLW3 nodes, FEN1 labels) used to verify the implementation above.
 * **BrawlCrate & BrawlLib** by **soopercool101, BrawlCrate Team, Kryal, BlackJax96** ([BrawlCrate](https://github.com/soopercool101/BrawlCrate))
   * Essential reference specifications and implementations for Nintendo Wii NW4R binary formats (BRRES, MDL0, CHR0, CLR0, PAT0, SCN0, SHP0, SRT0, VIS0, BREFF, BREFT).
 * **GotaSequenceCmd & Nitro Studio** by **Gota7** ([Gota7](https://github.com/Gota7))
   * Sequence, bank, and wave format research and conversion tools for Nintendo DS/3DS sound archives (SDAT, SSEQ, SBNK, SWAR, CSEQ, CWAV).
 * **SPICA & Ohana3DS / Ohana3DS Rebirth** by **gdkchan** ([SPICA](https://github.com/gdkchan/SPICA), [Ohana3DS](https://github.com/gdkchan/Ohana3DS-Rebirth))
   * Research and reference implementation for Nintendo 3DS 3D model formats (CTR NW4C BCH, CTPK, and PICA200 texture processing).
+* **BcmdlImporter (SPICA fork)** by **KillzXGaming** ([BcmdlImporter](https://github.com/KillzXGaming/BcmdlImporter))
+  * CGFX importer reference: the interleaved GfxVertexBuffer attribute model (position/normal/UV0-2/colour/tangent/bone-index/weight streams), per-submesh bone palettes with the 20-bone split budget, rigid/smooth skinning kinds, fixed white-colour/default-tangent fallbacks, bounding-box computation, per-material mesh merging, diffuse-slot texture mapping, and the per-texture Format/MipCount metadata sidecar round-trip -- ported into the CGFX decode/encode paths and texture export.
 * **benzin** by **Treeki, feartec, megazig, quickdraw**
   * Pioneer research and disassembler/assembler tools for Wii layout formats (BRLYT, BRLAN).
 * **LayoutStudio & WiiLayoutEditor** by **NinjaCheetah, Treeki, GalaxySimulator, and contributors**

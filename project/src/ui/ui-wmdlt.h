@@ -91,8 +91,18 @@ typedef enum enumOptions
 	OPT_PRESERVE,
 	OPT_IGNORE,
 	OPT_SECTIONS,
+	OPT_J3D_MAT,
+	OPT_J3D_OUTMAT,
+	OPT_J3D_TEXHEADER,
+	OPT_J3D_TRISTRIP,
+	OPT_J3D_BDL,
+	OPT_J3D_PROFILE,
+	OPT_J3D_ROTATE,
+	OPT_J3D_DEGENERATE,
+	OPT_J3D_TEXFLOAT,
+	OPT_J3D_NOMIPMAPS,
 
-	OPT__N_SPECIFIC, // == 36
+	OPT__N_SPECIFIC, // == 46
 
 	//----- global options -----
 
@@ -136,7 +146,7 @@ typedef enum enumOptions
 	OPT_NEW,
 	OPT_EXTRACT,
 
-	OPT__N_TOTAL // == 75
+	OPT__N_TOTAL // == 85
 
 } enumOptions;
 
@@ -186,6 +196,16 @@ typedef enum enumOptions
 //	OB_PRESERVE		= 1llu << OPT_PRESERVE,
 //	OB_IGNORE		= 1llu << OPT_IGNORE,
 //	OB_SECTIONS		= 1llu << OPT_SECTIONS,
+//	OB_J3D_MAT		= 1llu << OPT_J3D_MAT,
+//	OB_J3D_OUTMAT		= 1llu << OPT_J3D_OUTMAT,
+//	OB_J3D_TEXHEADER	= 1llu << OPT_J3D_TEXHEADER,
+//	OB_J3D_TRISTRIP		= 1llu << OPT_J3D_TRISTRIP,
+//	OB_J3D_BDL		= 1llu << OPT_J3D_BDL,
+//	OB_J3D_PROFILE		= 1llu << OPT_J3D_PROFILE,
+//	OB_J3D_ROTATE		= 1llu << OPT_J3D_ROTATE,
+//	OB_J3D_DEGENERATE	= 1llu << OPT_J3D_DEGENERATE,
+//	OB_J3D_TEXFLOAT		= 1llu << OPT_J3D_TEXFLOAT,
+//	OB_J3D_NOMIPMAPS	= 1llu << OPT_J3D_NOMIPMAPS,
 //
 //	//----- group & command options -----
 //
@@ -214,6 +234,17 @@ typedef enum enumOptions
 //				| OB_REMOVE_DEST
 //				| OB_UPDATE
 //				| OB_PRESERVE,
+//
+//	OB_GRP_J3D		= OB_J3D_MAT
+//				| OB_J3D_OUTMAT
+//				| OB_J3D_TEXHEADER
+//				| OB_J3D_TRISTRIP
+//				| OB_J3D_BDL
+//				| OB_J3D_PROFILE
+//				| OB_J3D_ROTATE
+//				| OB_J3D_DEGENERATE
+//				| OB_J3D_TEXFLOAT
+//				| OB_J3D_NOMIPMAPS,
 //
 //	OB_GRP_TEXTOUT		= OB_IGNORE
 //				| OB_NO_HEADER
@@ -280,7 +311,8 @@ typedef enum enumOptions
 //				| OB_GRP_TEXTOUT
 //				| OB_NO_ECHO
 //				| OB_NO_CHECK
-//				| OB_GRP_TRANSFORM,
+//				| OB_GRP_TRANSFORM
+//				| OB_GRP_J3D,
 //
 //	OB_CMD_ENCODE		= OB_NO_WILDCARDS
 //				| OB_IN_ORDER
@@ -288,7 +320,8 @@ typedef enum enumOptions
 //				| OB_GRP_DEST
 //				| OB_NO_ECHO
 //				| OB_NO_CHECK
-//				| OB_GRP_TRANSFORM,
+//				| OB_GRP_TRANSFORM
+//				| OB_GRP_J3D,
 //
 //	OB_CMD_STRINGS		= OB_NO_WILDCARDS
 //				| OB_IN_ORDER
@@ -439,6 +472,16 @@ typedef enum enumGetOpt
 	GO_PARENT,
 	GO_NUMBER,
 	GO_SECTIONS,
+	GO_J3D_MAT,
+	GO_J3D_OUTMAT,
+	GO_J3D_TEXHEADER,
+	GO_J3D_TRISTRIP,
+	GO_J3D_BDL,
+	GO_J3D_PROFILE,
+	GO_J3D_ROTATE,
+	GO_J3D_DEGENERATE,
+	GO_J3D_TEXFLOAT,
+	GO_J3D_NOMIPMAPS,
 
 } enumGetOpt;
 

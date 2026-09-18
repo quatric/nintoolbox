@@ -399,7 +399,15 @@ typedef enum file_format_t
 	FF_MPMESS, // 304 - Mario Party GCN/Wii Message File (.dat / board.dat / mini.dat)
 	FF_MPBOARD,// 305 - Mario Party Board Data (.bin / .csv)
 	FF_BGLPBD, // 306 - AGL Light Probe Data (.bglpbd / glpbd)
-	FF_RZPK,   // 307 - Mario Party 3DS compressed archive (.rzpk / RZPK, MPLibrary ZDAT)
+	FF_J3DBMD, // 307 - Nintendo GameCube/Wii Binary Model (.bmd / J3D2bmd3, legacy bmd2)
+	FF_J3DBDL, // 308 - Nintendo GameCube/Wii Binary Display List (.bdl / J3D2bdl4)
+	FF_XMB,    // 309 - Smash XMB material/LOD metadata (.xmb / XMB )
+	FF_ADJB,   // 310 - Smash mesh triangle adjacency (model.adjb / .adjb)
+	FF_FEDMODEL, // 311 - Next Level Games model container (.fedmodel / FEDM)
+	FF_FEDTEX, // 312 - Next Level Games texture container (.fedtex / FEDT)
+	FF_FEDSKEL, // 313 - Next Level Games skeleton container (.fedskel / FEDS)
+	FF_SANIM,  // 314 - Mario Strikers skeleton animation (.sanim)
+	FF_RZPK,   // 315 - Mario Party 3DS compressed archive (.rzpk / RZPK, MPLibrary ZDAT)
 
 	//--- number of elements
 

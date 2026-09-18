@@ -1,6 +1,8 @@
 #include "lib-nuanmb.h"
 #include "lib-std.h"
 
+#include <math.h>
+
 // SSBH ANIM (.nuanmb), little-endian. Reference: ultimate-research/ssbh_lib
 // ssbh_lib/src/formats/anim.rs (Anim::V12/V20/V21). Same container
 // conventions as this codebase's other SSBH decoders.
@@ -50,10 +52,15 @@
 //   0x18  data_size:        u64
 //
 // The keyframe bytes at [data_offset, data_offset+data_size) within 'buffer'
-// (version 2.x) or within 'buffers[property.buffer_index]' (version 1.2) are
-// a compression scheme documented only in the companion ssbh_data crate, not
-// ssbh_lib -- out of scope here, same as this codebase's other embedded
-// binary-blob formats. This decoder only reports where they are.
+// (version 2.x) are decoded below, ported from SSBHLib's SSBHAnimTrackDecoder
+// (SsbhAnimTrackDecoder.cs / AnimTrackTransform.cs): Direct stores every
+// frame back to back, Constant/ConstTransform store one, Compressed stores a
+// 16-byte header (u16 unk, u16 flags, u16 default-data offset, u16 bits per
+// entry, i32 compressed-data offset, i32 frame count) followed by per-channel
+// (start f32, end f32, bit-count u64) items, default values and an
+// LSB-first bitstream. Version 1.2 buffers hold the same layouts per
+// property, but SSBHLib's own decoder never implemented them, so this
+// decoder reports their table and leaves the bytes alone, too.
 
 #define NUANMB_SUBHDR_OFF 0x10
 // Where the version-specific fields begin, i.e. right after the sub-magic and
@@ -175,7 +182,327 @@ static float read_f32 (const u8 *data, u64 off)
 	return v;
 }
 
-static void print_trackv2 (FILE *out, const u8 *data, size_t size, u64 e, u64 idx, ccp indent)
+static void print_trackv2 (FILE *out, const u8 *data, size_t size, u64 e, u64 idx, ccp indent,
+	u64 buf_base, u64 buf_size, int have_buf); // fwd: needs the payload block
+
+//--- keyframe payload decode (SSBHAnimTrackDecoder port) ---------------------
+// Track payload kinds (low byte of the V2 track flags) and compression modes
+// (high byte) mirror SSBHLib's AnimTrackFlags: 1 Transform, 2 UvTransform,
+// 3 Float, 5 PatternIndex, 8 Boolean, 9 Vector4; 1 Direct, 2 ConstTransform,
+// 4 Compressed, 5 Constant.
+
+#define NUANMB_MAX_FRAMES 100000
+
+typedef struct
+{
+	const u8 *d;
+	u64 base;
+	u64 span;
+	u64 byte;
+	int bit;
+	int fail;
+} abit_t;
+
+// LSB-first bit reader. SSBHLib's SsbhParser.ReadBits assembles value bit i
+// at position i in every reachable case, which is what this does directly.
+static u32 abit_read (abit_t *b, u64 nbits)
+{
+	u32 v = 0;
+	if (nbits > 32)
+	{
+		b->fail = 1;
+		return 0;
+	}
+	for (u64 i = 0; i < nbits; i++)
+	{
+		if (b->byte >= b->span)
+		{
+			b->fail = 1;
+			return 0;
+		}
+		v |= (u32)(((b->d[b->base + b->byte] >> b->bit) & 1u) << i);
+		if (++b->bit == 8)
+		{
+			b->bit = 0;
+			b->byte++;
+		}
+	}
+	return v;
+}
+
+static float anim_lerp (float a, float b, float t)
+{
+	if (t <= 0.0f)
+		return a;
+	if (t >= 1.0f)
+		return b;
+	float v = a + (b - a) * t;
+	return v != v ? 0.0f : v;
+}
+
+static void anim_f32 (FILE *out, const u8 *data, u64 off)
+{
+	fprintf (out, "%.9g", (double)read_f32 (data, off));
+}
+
+// One Direct value at [off, end); returns bytes consumed, or -1 when the
+// value does not fit. Field order matches ReadDirect in the reference.
+static int anim_direct (FILE *out, const u8 *data, u64 off, u64 end, int ttype)
+{
+	switch (ttype)
+	{
+	case 1: // Transform: 9 floats, then compensate-scale i32
+		if (end - off < 44)
+			return -1;
+		fputs ("pos=(", out);
+		anim_f32 (out, data, off + 28); fputs (", ", out);
+		anim_f32 (out, data, off + 32); fputs (", ", out);
+		anim_f32 (out, data, off + 36);
+		fputs (") rot=(", out);
+		anim_f32 (out, data, off + 12); fputs (", ", out);
+		anim_f32 (out, data, off + 16); fputs (", ", out);
+		anim_f32 (out, data, off + 20); fputs (", ", out);
+		anim_f32 (out, data, off + 24);
+		fputs (") scale=(", out);
+		anim_f32 (out, data, off); fputs (", ", out);
+		anim_f32 (out, data, off + 4); fputs (", ", out);
+		anim_f32 (out, data, off + 8);
+		fprintf (out, ") compensate=%d", (int)rd_le32 (data + off + 40));
+		return 44;
+
+	case 2: // UvTransform texture block: 4 floats, then i32
+		if (end - off < 20)
+			return -1;
+		fputc ('[', out);
+		for (int c = 0; c < 4; c++)
+		{
+			if (c)
+				fputs (", ", out);
+			anim_f32 (out, data, off + (u64)c * 4);
+		}
+		fprintf (out, ", %d]", (int)rd_le32 (data + off + 16));
+		return 20;
+
+	case 3: // Float
+		if (end - off < 4)
+			return -1;
+		anim_f32 (out, data, off);
+		return 4;
+
+	case 5: // PatternIndex
+		if (end - off < 4)
+			return -1;
+		fprintf (out, "%d", (int)rd_le32 (data + off));
+		return 4;
+
+	case 8: // Boolean
+		if (end - off < 1)
+			return -1;
+		fputs (data[off] ? "true" : "false", out);
+		return 1;
+
+	case 9: // Vector4
+		if (end - off < 16)
+			return -1;
+		fputc ('(', out);
+		for (int c = 0; c < 4; c++)
+		{
+			if (c)
+				fputs (", ", out);
+			anim_f32 (out, data, off + (u64)c * 4);
+		}
+		fputc (')', out);
+		return 16;
+
+	default:
+		return -1;
+	}
+}
+
+static void anim_transform_frame (FILE *out, const float *v, int compensate)
+{
+	fprintf (out, "pos=(%.9g, %.9g, %.9g) rot=(%.9g, %.9g, %.9g, %.9g)"
+		" scale=(%.9g, %.9g, %.9g) compensate=%d",
+		(double)v[7], (double)v[8], (double)v[9],
+		(double)v[3], (double)v[4], (double)v[5], (double)v[6],
+		(double)v[0], (double)v[1], (double)v[2], compensate);
+}
+
+// Compressed Transform / Vector4 payloads (DecompressTransform /
+// DecompressValues in the reference). Scale-item gating, the uniform-scale
+// quirk ((flags & 3) == 2 parses no scale items at all) and the quaternion-W
+// reconstruction (sqrt + sign bit) are all ported as-is.
+static void anim_compressed (FILE *out, const u8 *data, u64 base, u64 span,
+	int ttype, ccp indent)
+{
+	if (span < 16)
+	{
+		fprintf (out, "%s  <payload too short for a compressed header>\n", indent);
+		return;
+	}
+	const u16 flags = rd_le16 (data + base + 2);
+	const u64 def_rel = rd_le16 (data + base + 4);
+	const u16 bits_per_entry = rd_le16 (data + base + 6);
+	const u64 comp_rel = (u64)(int32_t)rd_le32 (data + base + 8);
+	const int32_t frames = (int32_t)rd_le32 (data + base + 12);
+	if (frames < 0 || def_rel > span || comp_rel > span)
+	{
+		fprintf (out, "%s  <invalid compressed header>\n", indent);
+		return;
+	}
+	const int is_transform = ttype == 1;
+	const int is_boolean = ttype == 8;
+	if (is_boolean)
+	{
+		// ReadBooleans in the reference: FrameCount entries of
+		// BitsPerEntry bits from the compressed-data offset.
+		abit_t bb;
+		bb.d = data;
+		bb.base = base + comp_rel;
+		bb.span = span > comp_rel ? span - comp_rel : 0;
+		bb.byte = 0;
+		bb.bit = 0;
+		bb.fail = 0;
+		u64 nframes = frames < 0 ? 0 : (u64)frames;
+		if (nframes > NUANMB_MAX_FRAMES)
+		{
+			fprintf (out, "%s  <frame count %u exceeds the %u-frame display cap>\n",
+				indent, (unsigned)frames, NUANMB_MAX_FRAMES);
+			return;
+		}
+		for (u64 f = 0; f < nframes && !bb.fail; f++)
+		{
+			const u32 v = abit_read (&bb, bits_per_entry);
+			if (bb.fail)
+				break;
+			fprintf (out, "%s  [%llu] %s\n", indent,
+				(unsigned long long)f, v == 1 ? "true" : "false");
+		}
+		if (bb.fail)
+			fprintf (out, "%s  <truncated bitstream>\n", indent);
+		return;
+	}
+	const int nitems = is_transform ? 9 : 4;
+	if (!is_boolean && 16 + (u64)nitems * 16 > span)
+	{
+		fprintf (out, "%s  <payload too short for %d items>\n", indent, nitems);
+		return;
+	}
+
+	float starts[9], ends[9];
+	u64 counts[9];
+	for (int k = 0; k < nitems; k++)
+	{
+		const u64 io = base + 16 + (u64)k * 16;
+		memcpy (&starts[k], data + io, 4);
+		memcpy (&ends[k], data + io + 4, 4);
+		counts[k] = rd_le64 (data + io + 8);
+		if (counts[k] > 31)
+		{
+			fprintf (out, "%s  <item %d claims %llu bits>\n", indent,
+				k, (unsigned long long)counts[k]);
+			return;
+		}
+	}
+
+	const int ndef = is_transform ? 10 : 4;
+	if (def_rel + (u64)ndef * 4 + (is_transform ? 4 : 0) > span)
+	{
+		fprintf (out, "%s  <payload too short for defaults>\n", indent);
+		return;
+	}
+	float defs[10];
+	for (int k = 0; k < ndef; k++)
+		memcpy (&defs[k], data + base + def_rel + (u64)k * 4, 4);
+	const int compensate = is_transform
+		? (int)rd_le32 (data + base + def_rel + 40) : 0;
+
+	abit_t b;
+	b.d = data;
+	b.base = base + comp_rel;
+	b.span = span > comp_rel ? span - comp_rel : 0;
+	b.byte = 0;
+	b.bit = 0;
+	b.fail = 0;
+
+	u64 nframes = (u64)frames;
+	if (nframes > NUANMB_MAX_FRAMES)
+	{
+		fprintf (out, "%s  <frame count %u exceeds the %u-frame display cap>\n",
+			indent, (unsigned)frames, NUANMB_MAX_FRAMES);
+		return;
+	}
+
+	for (u64 f = 0; f < nframes && !b.fail; f++)
+	{
+		float v[10];
+		for (int k = 0; k < (is_transform ? 10 : 4); k++)
+			v[k] = defs[k];
+
+		for (int k = 0; k < nitems && !b.fail; k++)
+		{
+			if (is_transform)
+			{
+				const int scaletype = flags & 3;
+				const int gated = (k == 0 && scaletype == 3)
+					|| (k >= 0 && k <= 2 && scaletype == 1)
+					|| (k > 2 && k <= 5 && (flags & 4))
+					|| (k > 5 && k <= 8 && (flags & 8));
+				if (!gated)
+					continue;
+			}
+			if (!counts[k])
+				continue;
+			const u32 raw = abit_read (&b, counts[k]);
+			u32 scale = 0;
+			for (u64 s = 0; s < counts[k]; s++)
+				scale |= (u32)1 << s;
+			const float t = scale ? (float)raw / (float)scale : 0.0f;
+			const float fv = anim_lerp (starts[k], ends[k], t);
+			if (is_transform)
+			{
+				if ((flags & 3) == 3)
+				{
+					if (k == 0)
+						v[0] = v[1] = v[2] = fv;
+				}
+				else if (k <= 2)
+					v[k] = fv;
+				else if (k <= 5)
+					v[k] = fv; // rotation slots 3..5 map to v[3..5]
+				else
+					v[k + 1] = fv; // position slots 6..8 map to v[7..9]
+			}
+			else
+				v[k] = fv;
+		}
+		if (b.fail)
+			break;
+
+		if (is_transform && (flags & 4))
+		{
+			const int wflip = (int)abit_read (&b, 1);
+			if (b.fail)
+				break;
+			const float w2 = 1.0f - (v[3] * v[3] + v[4] * v[4] + v[5] * v[5]);
+			const float w = sqrtf (w2 < 0.0f ? -w2 : w2);
+			v[6] = wflip ? -w : w;
+		}
+
+		fprintf (out, "%s  [%llu] ", indent, (unsigned long long)f);
+		if (is_transform)
+			anim_transform_frame (out, v, compensate);
+		else
+			fprintf (out, "(%.9g, %.9g, %.9g, %.9g)",
+				(double)v[0], (double)v[1], (double)v[2], (double)v[3]);
+		fputc ('\n', out);
+	}
+	if (b.fail)
+		fprintf (out, "%s  <truncated bitstream>\n", indent);
+}
+
+static void print_trackv2 (FILE *out, const u8 *data, size_t size, u64 e, u64 idx, ccp indent,
+	u64 buf_base, u64 buf_size, int have_buf)
 {
 	char name[128];
 	read_ssbh_string (name, sizeof (name), data, size, e);
@@ -197,6 +524,48 @@ static void print_trackv2 (FILE *out, const u8 *data, size_t size, u64 e, u64 id
 			transform_flags >> 2 & 1, transform_flags >> 3 & 1);
 	fprintf (out, "%s  data = offset %u, size %llu\n", indent, data_offset,
 		(unsigned long long)data_size);
+
+	// Keyframe payloads, decoded like SSBHAnimTrackDecoder.ReadTrack.
+	if (!have_buf)
+		fprintf (out, "%s  <no buffer to decode>\n", indent);
+	else if ((u64)data_offset + data_size > buf_size || (u64)data_offset > buf_size)
+		fprintf (out, "%s  <payload outside the buffer>\n", indent);
+	else if (track_type == 2 && compression_type == 4
+		|| track_type == 3 && compression_type == 4
+		|| track_type == 5 && compression_type == 4)
+		fprintf (out, "%s  <compressed %s payloads are TODO in the reference decoder>\n",
+			indent, nuanmb_track_type_v2_name (track_type));
+	else if (compression_type == 4
+		&& (track_type == 1 || track_type == 8 || track_type == 9))
+		anim_compressed (out, data, buf_base + data_offset, data_size,
+			track_type, indent);
+	else if (compression_type == 1 || compression_type == 2 || compression_type == 5)
+	{
+		const u64 frames = compression_type == 1 ? frame_count : 1;
+		u64 off = buf_base + data_offset;
+		const u64 end = off + data_size;
+		for (u64 f = 0; f < frames; f++)
+		{
+			if (off >= end)
+			{
+				fprintf (out, "%s  <truncated after %llu frame(s)>\n", indent,
+					(unsigned long long)f);
+				break;
+			}
+			fprintf (out, "%s  [%llu] ", indent, (unsigned long long)f);
+			const int used = anim_direct (out, data, off, end, track_type);
+			if (used < 0)
+			{
+				fprintf (out, "<undecodable %s value>\n",
+					nuanmb_track_type_v2_name (track_type));
+				break;
+			}
+			fputc ('\n', out);
+			off += (u64)used;
+		}
+	}
+	else
+		fprintf (out, "%s  <unknown compression %u>\n", indent, compression_type);
 }
 
 static enumError decode_v12 (FILE *out, const u8 *data, size_t size)
@@ -252,6 +621,34 @@ static enumError decode_v12 (FILE *out, const u8 *data, size_t size)
 		}
 	}
 
+	// Version 1.2 keyframe buffers (one SsbhByteBuffer per entry: relative
+	// offset + size). Listed for reference; the payload layouts inside are
+	// per-property and not decoded, matching the reference decoder.
+	u64 bbuf_base, bbuf_count;
+	fprintf (out, "[buffers]\n");
+	if (!read_ssbh_array (data, size, NUANMB_FIELDS_OFF + 0x28, &bbuf_base, &bbuf_count)
+		|| bbuf_count > NUANMB_MAX_LIST)
+		fprintf (out, "  <none>\n");
+	else
+	{
+		for (u64 i = 0; i < bbuf_count; i++)
+		{
+			const u64 be = bbuf_base + i * 16;
+			if (be < bbuf_base || be + 16 > size)
+			{
+				fprintf (out, "  [%llu] <out of bounds>\n", (unsigned long long)i);
+				break;
+			}
+			const u64 rel = rd_le64 (data + be);
+			const u64 count = rd_le64 (data + be + 8);
+			if (!rel || be + rel + count < be + rel || be + rel + count > size)
+				fprintf (out, "  [%llu] <out of bounds>\n", (unsigned long long)i);
+			else
+				fprintf (out, "  [%llu] size = %llu\n",
+					(unsigned long long)i, (unsigned long long)count);
+		}
+	}
+
 	return ERR_OK;
 }
 
@@ -263,6 +660,26 @@ static enumError decode_v2x (FILE *out, const u8 *data, size_t size)
 
 	fprintf (out, "name = %s\nfinal_frame_index = %g\n\n",
 		name[0] ? name : "<unnamed>", (double)final_frame_index);
+
+	// File-level keyframe buffer (SsbhByteBuffer: relative offset + size).
+	u64 buf_base = 0, buf_size = 0;
+	int have_buf = 0;
+	{
+		const u64 bf = NUANMB_FIELDS_OFF + 0x20;
+		if (bf + 16 <= size)
+		{
+			const u64 rel = rd_le64 (data + bf);
+			const u64 count = rd_le64 (data + bf + 8);
+			if (rel && bf + rel + count >= bf + rel && bf + rel + count <= size)
+			{
+				buf_base = bf + rel;
+				buf_size = count;
+				have_buf = 1;
+			}
+		}
+	}
+	fprintf (out, "buffer = %s%llu bytes\n\n",
+		have_buf ? "" : "<missing> ", (unsigned long long)buf_size);
 
 	u64 grp_base, grp_count;
 	fprintf (out, "[groups]\n");
@@ -314,7 +731,8 @@ static enumError decode_v2x (FILE *out, const u8 *data, size_t size)
 					fprintf (out, "      [%llu] <out of bounds>\n", (unsigned long long)t);
 					break;
 				}
-				print_trackv2 (out, data, size, te, t, "      ");
+				print_trackv2 (out, data, size, te, t, "      ",
+					buf_base, buf_size, have_buf);
 			}
 		}
 	}

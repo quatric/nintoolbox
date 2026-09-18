@@ -58,6 +58,8 @@
 #include "ajpg/ajpg.h"
 #include "lib-dds.h"
 #include "lib-astc-file.h"
+#include "lib-xtx.h"
+#include "lib-nlg-lm.h"
 
 ///////////////		    AssignIMG(), LoadIMG()		///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -145,6 +147,20 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		return PatchListIMG (img);
 	}
 
+	// Next Level Games texture containers (extractor intermediates,
+	// versions 1..3 = Federation Force / LM2 / LM3).
+	if (IsNLGTexture (data, data_size))
+	{
+		u8 *rgba = 0;
+		uint width = 0, height = 0;
+		const enumError err = DecodeNLGTexture (&rgba, &width, &height, data, data_size);
+		if (err)
+			return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported NLG texture: %s\n", fname);
+		AssignDecodedRGBA (img, rgba, width, height, &le_func, fname);
+		img->info_fform = FF_FEDTEX;
+		return PatchListIMG (img);
+	}
+
 	if (data_size >= 4 && !memcmp (data, "TXTR", 4))
 	{
 		u8 *rgba = 0;
@@ -223,19 +239,22 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 
 	if (data_size >= 4 && !memcmp (data, "BNTX", 4))
 	{
-		// Switch texture container: decode its first texture. Multi-texture
-		// containers are listed by `wszst BNTX`.
+		// Switch texture container: decode texture img_index (wimgt
+		// iterates all of them, like TextureConverter's TextureList
+		// export). Out-of-range indices fail in DecodeBNTX_RGBA.
 		bntx_t bntx;
 		if (ScanBNTX (&bntx, data, data_size))
 			return ERROR0 (ERR_INVALID_IFORM, "Invalid BNTX container: %s\n", fname);
 		u8 *rgba = 0;
 		uint w = 0, h = 0;
-		const enumError berr = DecodeBNTX_RGBA (&rgba, &w, &h, &bntx, 0);
+		const enumError berr = DecodeBNTX_RGBA (&rgba, &w, &h, &bntx, img_index);
+		const uint n_tex = bntx.n_textures;
 		ResetBNTX (&bntx);
 		if (berr)
 			return berr;
 		AssignDecodedRGBA (img, rgba, w, h, &le_func, fname);
 		img->info_fform = FF_BNTX;
+		img->info_n_image = n_tex;
 		return PatchListIMG (img);
 	}
 
@@ -300,20 +319,43 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 
 	if (data_size >= 4 && !memcmp (data, "Gfx2", 4))
 	{
-		// Wii U GX2 texture container: decode its first texture. Multi-
-		// texture containers (rare for standalone .gtx; common for .gsh
-		// shader files, which have none) are not separately listed yet.
+		// Wii U GX2 texture container: decode texture img_index (wimgt
+		// iterates all of them). Out-of-range indices fail in
+		// DecodeGTX_RGBA.
 		gtx_t gtx;
 		if (ScanGTX (&gtx, data, data_size))
 			return ERROR0 (ERR_INVALID_IFORM, "Invalid GTX container: %s\n", fname);
 		u8 *rgba = 0;
 		uint w = 0, h = 0;
-		const enumError gerr = DecodeGTX_RGBA (&rgba, &w, &h, &gtx, 0);
+		const enumError gerr = DecodeGTX_RGBA (&rgba, &w, &h, &gtx, img_index);
+		const uint n_tex = gtx.n_textures;
 		ResetGTX (&gtx);
 		if (gerr)
 			return gerr;
 		AssignDecodedRGBA (img, rgba, w, h, &le_func, fname);
 		img->info_fform = FF_GTX;
+		img->info_n_image = n_tex;
+		return PatchListIMG (img);
+	}
+
+	if (data_size >= 4 && !memcmp (data, "DFvN", 4))
+	{
+		// Switch XTX texture container: same Tegra block-linear payloads
+		// as BNTX under NVN format codes. Decode texture img_index so
+		// multi-texture files export every texture, not just the first.
+		xtx_t xtx;
+		if (ScanXTX (&xtx, data, data_size))
+			return ERROR0 (ERR_INVALID_IFORM, "Invalid XTX container: %s\n", fname);
+		u8 *rgba = 0;
+		uint w = 0, h = 0;
+		const enumError xerr = DecodeXTX_RGBA (&rgba, &w, &h, &xtx, img_index);
+		const uint n_tex = xtx.n_textures;
+		ResetXTX (&xtx);
+		if (xerr)
+			return xerr;
+		AssignDecodedRGBA (img, rgba, w, h, &le_func, fname);
+		img->info_fform = FF_XTX;
+		img->info_n_image = n_tex;
 		return PatchListIMG (img);
 	}
 

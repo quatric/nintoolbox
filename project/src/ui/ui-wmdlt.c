@@ -331,7 +331,66 @@ static const InfoOption_t OptionInfo[OPT__N_TOTAL+1] =
 	"Print in machine readable sections and parameter lines."
     },
 
-    {0,0,0,0,0,0,0,0,0,0}, // OPT__N_SPECIFIC == 36
+    {	OPT_J3D_MAT, false, false, false, false, true, 0, "mat",
+	"file",
+	"J3D BMD/BDL encode: load material data from the given JSON file (as"
+	" written by --outmat on decode). Supports __MatDefault entries."
+    },
+
+    {	OPT_J3D_OUTMAT, false, false, false, false, false, 0, "outmat",
+	"file",
+	"J3D BMD/BDL decode: write the material sidecar JSON to the given path"
+	" instead of next to the output model."
+    },
+
+    {	OPT_J3D_TEXHEADER, false, false, false, false, false, 0, "texheader",
+	"file",
+	"J3D BMD/BDL encode: load texture header info (format, wrap and filter"
+	" modes) from the given JSON file."
+    },
+
+    {	OPT_J3D_TRISTRIP, false, false, false, false, false, 0, "tristrip",
+	"mode",
+	"J3D BMD/BDL encode: triangle-strip generation mode: none, static"
+	" (default) or all. Accepted for SuperBMD compatibility; the current"
+	" encoder always emits plain GX triangle lists (valid everywhere"
+	" strips are)."
+    },
+
+    {	OPT_J3D_BDL, false, false, false, false, false, 0, "bdl",
+	0,
+	"J3D encode: write BDL (with a stub MDL3 section) instead of BMD. A"
+	" .bdl destination extension implies this automatically."
+    },
+
+    {	OPT_J3D_PROFILE, false, false, false, false, false, 0, "profile",
+	0,
+	"J3D BMD/BDL decode: print section sizes, vertex counts and texture"
+	" info instead of converting."
+    },
+
+    {	OPT_J3D_ROTATE, false, false, false, false, false, 0, "rotate",
+	0,
+	"J3D BMD/BDL encode: rotate the model so Y is up instead of Z"
+	" ((x,y,z)->(x,z,-y)), like SuperBMD --rotate."
+    },
+
+    {	OPT_J3D_DEGENERATE, false, false, false, false, false, 0, "degeneratetri",
+	0,
+	"Accepted for SuperBMD compatibility; currently reserved."
+    },
+
+    {	OPT_J3D_TEXFLOAT, false, false, false, false, false, 0, "texfloat32",
+	0,
+	"J3D BMD/BDL encode: force 32-bit float UV coordinates."
+    },
+
+    {	OPT_J3D_NOMIPMAPS, false, false, false, false, false, 0, "nomipmaps",
+	0,
+	"J3D BMD/BDL encode: ignore _mipN texture files."
+    },
+
+    {0,0,0,0,0,0,0,0,0,0}, // OPT__N_SPECIFIC == 46
 
     //----- global options -----
 
@@ -628,7 +687,7 @@ static const InfoOption_t OptionInfo[OPT__N_TOTAL+1] =
 	" helper option."
     },
 
-    {0,0,0,0,0,0,0,0,0,0} // OPT__N_TOTAL == 75
+    {0,0,0,0,0,0,0,0,0,0} // OPT__N_TOTAL == 85
 
 };
 
@@ -892,6 +951,16 @@ static const struct option OptionLong[] =
 	{ "preserve",		0, 0, 'p' },
 	{ "ignore",		0, 0, 'i' },
 	{ "sections",		0, 0, GO_SECTIONS },
+	{ "mat",		1, 0, GO_J3D_MAT },
+	{ "outmat",		1, 0, GO_J3D_OUTMAT },
+	{ "texheader",		1, 0, GO_J3D_TEXHEADER },
+	{ "tristrip",		1, 0, GO_J3D_TRISTRIP },
+	{ "bdl",		0, 0, GO_J3D_BDL },
+	{ "profile",		0, 0, GO_J3D_PROFILE },
+	{ "rotate",		0, 0, GO_J3D_ROTATE },
+	{ "degeneratetri",	0, 0, GO_J3D_DEGENERATE },
+	{ "texfloat32",		0, 0, GO_J3D_TEXFLOAT },
+	{ "nomipmaps",		0, 0, GO_J3D_NOMIPMAPS },
 
 	{0,0,0,0}
 };
@@ -998,7 +1067,17 @@ static const OptionIndex_t OptionIndex[UIOPT_INDEX_SIZE] =
 	/* 0x0ad   */	OPT_PARENT,
 	/* 0x0ae   */	OPT_NUMBER,
 	/* 0x0af   */	OPT_SECTIONS,
-	/* 0x0b0   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
+	/* 0x0b0   */	OPT_J3D_MAT,
+	/* 0x0b1   */	OPT_J3D_OUTMAT,
+	/* 0x0b2   */	OPT_J3D_TEXHEADER,
+	/* 0x0b3   */	OPT_J3D_TRISTRIP,
+	/* 0x0b4   */	OPT_J3D_BDL,
+	/* 0x0b5   */	OPT_J3D_PROFILE,
+	/* 0x0b6   */	OPT_J3D_ROTATE,
+	/* 0x0b7   */	OPT_J3D_DEGENERATE,
+	/* 0x0b8   */	OPT_J3D_TEXFLOAT,
+	/* 0x0b9   */	OPT_J3D_NOMIPMAPS,
+	/* 0x0ba   */	 0,0,0,0, 0,0,
 	/* 0x0c0   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
 	/* 0x0d0   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
 	/* 0x0e0   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
@@ -1019,136 +1098,136 @@ static const OptionIndex_t OptionIndex[UIOPT_INDEX_SIZE] =
 ///////////////                opt_allowed_cmd_*                ///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-static u8 option_allowed_cmd_VERSION[36] = // cmd #1
+static u8 option_allowed_cmd_VERSION[46] = // cmd #1
 {
     0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,1,0,1,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 1
+    0,0,0,0,0, 1,0,0,0,0,  0,0,0,0,0, 0
 };
 
-static u8 option_allowed_cmd_HELP[36] = // cmd #2
+static u8 option_allowed_cmd_HELP[46] = // cmd #2
 {
     1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,
-    1,1,1,1,1, 1
+    1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1
 };
 
-static u8 option_allowed_cmd_CONFIG[36] = // cmd #3
+static u8 option_allowed_cmd_CONFIG[46] = // cmd #3
 {
     0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,1,0,1,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0
+    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0
 };
 
-static u8 option_allowed_cmd_ARGTEST[36] = // cmd #4
+static u8 option_allowed_cmd_ARGTEST[46] = // cmd #4
 {
     1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,
-    1,1,1,1,1, 1
+    1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1
 };
 
-static u8 option_allowed_cmd_EXPAND[36] = // cmd #5
+static u8 option_allowed_cmd_EXPAND[46] = // cmd #5
 {
     1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,
-    1,1,1,1,1, 1
+    1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1
 };
 
-static u8 option_allowed_cmd_TEST[36] = // cmd #6
+static u8 option_allowed_cmd_TEST[46] = // cmd #6
 {
     1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,
-    1,1,1,1,1, 1
+    1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1
 };
 
-static u8 option_allowed_cmd_COLORS[36] = // cmd #7
+static u8 option_allowed_cmd_COLORS[46] = // cmd #7
 {
     0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,1,0,1,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0
+    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0
 };
 
-static u8 option_allowed_cmd_ERROR[36] = // cmd #8
+static u8 option_allowed_cmd_ERROR[46] = // cmd #8
 {
     0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,1,1,1,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 1
+    0,0,0,0,0, 1,0,0,0,0,  0,0,0,0,0, 0
 };
 
-static u8 option_allowed_cmd_FILETYPE[36] = // cmd #9
+static u8 option_allowed_cmd_FILETYPE[46] = // cmd #9
 {
     0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,1,0,0,  1,1,0,0,0, 0,0,0,0,0,
-    0,0,0,0,1, 0
+    0,0,0,0,1, 0,0,0,0,0,  0,0,0,0,0, 0
 };
 
-static u8 option_allowed_cmd_FILEATTRIB[36] = // cmd #10
+static u8 option_allowed_cmd_FILEATTRIB[46] = // cmd #10
 {
     0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,1,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0
+    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0
 };
 
-static u8 option_allowed_cmd_SYMBOLS[36] = // cmd #11
+static u8 option_allowed_cmd_SYMBOLS[46] = // cmd #11
 {
     0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,1,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0
+    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0
 };
 
-static u8 option_allowed_cmd_FUNCTIONS[36] = // cmd #12
+static u8 option_allowed_cmd_FUNCTIONS[46] = // cmd #12
 {
     0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,1,1,1,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0
+    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0
 };
 
-static u8 option_allowed_cmd_CALCULATE[36] = // cmd #13
+static u8 option_allowed_cmd_CALCULATE[46] = // cmd #13
 {
     0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0
+    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0
 };
 
-static u8 option_allowed_cmd_MATRIX[36] = // cmd #14
+static u8 option_allowed_cmd_MATRIX[46] = // cmd #14
 {
     0,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,0,1,0,1,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0
+    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0
 };
 
-static u8 option_allowed_cmd_FLOAT[36] = // cmd #15
+static u8 option_allowed_cmd_FLOAT[46] = // cmd #15
 {
     0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,1,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0
+    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0
 };
 
-static u8 option_allowed_cmd_EXPORT[36] = // cmd #16
+static u8 option_allowed_cmd_EXPORT[46] = // cmd #16
 {
     0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,
-    0,0,0,0,0, 0
+    0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0
 };
 
-static u8 option_allowed_cmd_CAT[36] = // cmd #17
+static u8 option_allowed_cmd_CAT[46] = // cmd #17
 {
     0,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,0,0,1,1,  1,1,0,1,1, 0,0,0,0,0,
-    0,0,0,0,1, 0
+    0,0,0,0,1, 0,0,0,0,0,  0,0,0,0,0, 0
 };
 
-static u8 option_allowed_cmd_DECODE[36] = // cmd #18
+static u8 option_allowed_cmd_DECODE[46] = // cmd #18
 {
     0,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,0,0,1,1,  1,1,0,1,1, 1,1,1,1,1,
-    1,1,1,1,1, 0
+    1,1,1,1,1, 0,1,1,1,1,  1,1,1,1,1, 1
 };
 
-static u8 option_allowed_cmd_ENCODE[36] = // cmd #19
+static u8 option_allowed_cmd_ENCODE[46] = // cmd #19
 {
     0,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,0,0,0,0,  1,1,0,1,1, 1,1,1,1,1,
-    1,1,1,1,1, 0
+    1,1,1,1,1, 0,1,1,1,1,  1,1,1,1,1, 1
 };
 
-static u8 option_allowed_cmd_STRINGS[36] = // cmd #20
+static u8 option_allowed_cmd_STRINGS[46] = // cmd #20
 {
     0,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,0,0,1,1,  1,1,0,1,1, 0,0,0,0,0,
-    0,0,0,0,1, 0
+    0,0,0,0,1, 0,0,0,0,0,  0,0,0,0,0, 0
 };
 
-static u8 option_allowed_cmd_GEOMETRY[36] = // cmd #21
+static u8 option_allowed_cmd_GEOMETRY[46] = // cmd #21
 {
     0,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,0,0,1,1,  1,1,0,1,1, 0,0,0,0,0,
-    0,0,0,0,1, 0
+    0,0,0,0,1, 0,0,0,0,0,  0,0,0,0,0, 0
 };
 
-static u8 option_allowed_cmd_XTEST[36] = // cmd #22
+static u8 option_allowed_cmd_XTEST[46] = // cmd #22
 {
     0,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,0,0,1,1,  1,1,0,1,1, 0,0,0,0,0,
-    0,0,0,0,1, 0
+    0,0,0,0,1, 0,0,0,0,0,  0,0,0,0,0, 0
 };
 
 
@@ -1420,6 +1499,16 @@ static const InfoOption_t * option_tab_cmd_DECODE[] =
 	OptionInfo + OPT_TFORM_SCRIPT,
 	OptionInfo + OPT_NEXT,
 	OptionInfo + OPT_MDL,
+	OptionInfo + OPT_J3D_MAT,
+	OptionInfo + OPT_J3D_OUTMAT,
+	OptionInfo + OPT_J3D_TEXHEADER,
+	OptionInfo + OPT_J3D_TRISTRIP,
+	OptionInfo + OPT_J3D_BDL,
+	OptionInfo + OPT_J3D_PROFILE,
+	OptionInfo + OPT_J3D_ROTATE,
+	OptionInfo + OPT_J3D_DEGENERATE,
+	OptionInfo + OPT_J3D_TEXFLOAT,
+	OptionInfo + OPT_J3D_NOMIPMAPS,
 
 	0
 };
@@ -1465,6 +1554,16 @@ static const InfoOption_t * option_tab_cmd_ENCODE[] =
 	OptionInfo + OPT_TFORM_SCRIPT,
 	OptionInfo + OPT_NEXT,
 	OptionInfo + OPT_MDL,
+	OptionInfo + OPT_J3D_MAT,
+	OptionInfo + OPT_J3D_OUTMAT,
+	OptionInfo + OPT_J3D_TEXHEADER,
+	OptionInfo + OPT_J3D_TRISTRIP,
+	OptionInfo + OPT_J3D_BDL,
+	OptionInfo + OPT_J3D_PROFILE,
+	OptionInfo + OPT_J3D_ROTATE,
+	OptionInfo + OPT_J3D_DEGENERATE,
+	OptionInfo + OPT_J3D_TEXFLOAT,
+	OptionInfo + OPT_J3D_NOMIPMAPS,
 
 	0
 };
@@ -1904,7 +2003,7 @@ static const InfoCommand_t CommandInfo[CMD__N+1] =
 	"  A decoded MDL0 file can only be used for analysis. Encoding or"
 	" creating a new MDL0 file is not supported.",
 	0,
-	32,
+	42,
 	option_tab_cmd_DECODE,
 	option_allowed_cmd_DECODE
     },
@@ -1921,7 +2020,7 @@ static const InfoCommand_t CommandInfo[CMD__N+1] =
 	" https://szs.wiimm.de/doc/wildcards for details. The default"
 	" destination is '%P/%N.mdl'.",
 	0,
-	30,
+	40,
 	option_tab_cmd_ENCODE,
 	option_allowed_cmd_ENCODE
     },

@@ -2357,8 +2357,8 @@ static void convert_meshes_and_skin (cgltf_data *data, model_t *model)
 			if (!vertex_count)
 				continue;
 
-			cgltf_accessor *acc_pos = NULL, *acc_norm = NULL, *acc_tex[8] = { NULL },
-						   *acc_col[2] = { NULL };
+			cgltf_accessor *acc_pos = NULL, *acc_norm = NULL, *acc_tan = NULL;
+			cgltf_accessor *acc_tex[8] = { NULL }, *acc_col[2] = { NULL };
 			cgltf_accessor *acc_joints = NULL, *acc_weights = NULL;
 
 			for (size_t k = 0; k < p->attributes_count; k++)
@@ -2368,6 +2368,8 @@ static void convert_meshes_and_skin (cgltf_data *data, model_t *model)
 					acc_pos = attr->data;
 				else if (attr->type == cgltf_attribute_type_normal)
 					acc_norm = attr->data;
+				else if (attr->type == cgltf_attribute_type_tangent)
+					acc_tan = attr->data;
 				else if (attr->type == cgltf_attribute_type_texcoord)
 				{
 					if (attr->index < 8)
@@ -2397,6 +2399,18 @@ static void convert_meshes_and_skin (cgltf_data *data, model_t *model)
 				dst->normals = calloc (dst->num_normals, sizeof (vec3_t));
 				for (size_t v = 0; v < dst->num_normals; v++)
 					cgltf_accessor_read_float (acc_norm, v, (float *)&dst->normals[v], 3);
+			}
+			// TANGENT was export-only: the reader dropped it, so any model
+			// carrying tangents (e.g. CGFX with a Tangent vertex stream)
+			// lost them on every GLB pass-through. glTF stores vec4
+			// tangents (xyz + handedness); only xyz is kept, matching the
+			// vec3 the exporter writes from mesh_t::tangents.
+			if (acc_tan)
+			{
+				dst->num_tangents = acc_tan->count;
+				dst->tangents = calloc (dst->num_tangents, sizeof (vec3_t));
+				for (size_t v = 0; v < dst->num_tangents; v++)
+					cgltf_accessor_read_float (acc_tan, v, (float *)&dst->tangents[v], 3);
 			}
 			if (acc_tex[0])
 			{
@@ -2487,6 +2501,7 @@ static void convert_meshes_and_skin (cgltf_data *data, model_t *model)
 					int idx = cgltf_accessor_read_index (p->indices, v);
 					dst->vertices[v].position_idx = dst->num_positions ? idx : 0;
 					dst->vertices[v].normal_idx = dst->num_normals ? idx : 0;
+					dst->vertices[v].tangent_idx = dst->num_tangents ? idx : -1;
 					dst->vertices[v].texcoord_idx = dst->num_texcoords ? idx : 0;
 					dst->vertices[v].color_idx[0] = dst->num_colors[0] ? idx : 0;
 					dst->vertices[v].color_idx[1] = dst->num_colors[1] ? idx : 0;
@@ -2503,6 +2518,7 @@ static void convert_meshes_and_skin (cgltf_data *data, model_t *model)
 				{
 					dst->vertices[v].position_idx = dst->num_positions ? v : 0;
 					dst->vertices[v].normal_idx = dst->num_normals ? v : 0;
+					dst->vertices[v].tangent_idx = dst->num_tangents ? v : -1;
 					dst->vertices[v].texcoord_idx = dst->num_texcoords ? v : 0;
 					dst->vertices[v].color_idx[0] = dst->num_colors[0] ? v : 0;
 					dst->vertices[v].color_idx[1] = dst->num_colors[1] ? v : 0;

@@ -3,7 +3,11 @@
 
 // BFSHA, little-endian Switch shader archive. BFSHA.cs in Switch-Toolbox only wraps a stream
 // with the closed-source-looking "BfshaLibrary" -- that library is itself open source at
-// KillzXGaming/BfshaLibrary and is the actual reference used here:
+// KillzXGaming/BfshaLibrary and is the actual reference used here, supplemented by
+// KillzXGaming/BinaryShaderLibrary (BfshaFile.cs, ShaderModels/ShaderModel.cs/
+// ShaderOption.cs/Sampler.cs/UniformBlock.cs/UniformVar.cs/Attribute.cs, GFX/Enums.cs)
+// for the per-option choice values, sampler Extra strings and uniform-block type names
+// that BfshaLoader.cs leaves implicit:
 //   ShaderLibrary/IO/BinaryDataReader.cs   (ReadOffset/LoadString/dictionary helpers)
 //   ShaderLibrary/Switch/BfshaLoader.cs    Read()/ReadShaderModel()/ReadBfshaShaderProgram()
 //   ShaderLibrary/Structs.cs               BinaryHeader / ShaderProgramHeaderV4/V5/V7/V8
@@ -250,9 +254,17 @@ truncated:
 // Which fixed-size value struct (if any) sits in the ResDict's parallel array, per
 // BfshaLoader.cs's ReadShaderOption/ReadAttribute/ReadSampler/ReadBfshaUniformBlock/
 // ReadBfshaUniform -- ReadImage's struct is empty (no array read needed, names only).
+// ShaderOption is 40 bytes (BfshaLoader.ReadShaderOption: Name ptr + Choices dict ptr +
+// ChoiceValues ptr + 16 bytes of version-branched counts/flags), NOT 32: the earlier 32
+// omitted the leading Name pointer that every option value carries redundantly with its
+// dict key (same as BfshaSampler/BfshaUniform values), shifting all fields by 8.
 typedef enum
 {
-	BFSHA_DICT_OPTION,   // ShaderOption:      stride 32
+	BFSHA_DICT_OPTION,   // ShaderOption:      u64 name, u64 choice_dict, u64 choice_values,
+	                     //                    counts/flags (v9: u16 choices, s16 default, u16 pad,
+	                     //                    u8 block, u8 key, u32 mask, u8 bit_idx, u8 bit_shift;
+	                     //                    older: u8 choices, u8 default, u8 pad, u16 block,
+	                     //                    u8 key, u8 bit_idx, u8 bit_shift, u32 mask) (stride 40)
 	BFSHA_DICT_ATTRIB,   // BfshaAttribute:    u8 index, s8 location                    (stride 2)
 	BFSHA_DICT_SAMPLER,  // BfshaSampler:      u64 name_ptr, u8 index, 7 pad            (stride 16)
 	BFSHA_DICT_IMAGE,    // BfshaImageBuffer:  empty                                    (stride 0)
@@ -260,12 +272,12 @@ typedef enum
 	                     //                    u8 index, u8 type, u16 size, u16 numu    (stride 32)
 	BFSHA_DICT_UNIFORM,  // BfshaUniform:      u64 name_ptr, s32 index, u16 data_off,
 	                     //                    u8 block_index, 1 pad                    (stride 16)
-	BFSHA_DICT_CHOICE,   // Choice:            name only                                (stride 0)
+	BFSHA_DICT_CHOICE,   // Choice:            name only (values are u32s, see below)   (stride 0)
 } bfsha_dict_kind_t;
 
 static const u64 bfsha_dict_stride[] =
 {
-	[BFSHA_DICT_OPTION]  = 32,
+	[BFSHA_DICT_OPTION]  = 40,
 	[BFSHA_DICT_ATTRIB]  = 2,
 	[BFSHA_DICT_SAMPLER] = 16,
 	[BFSHA_DICT_IMAGE]   = 0,
@@ -314,6 +326,8 @@ static void decode_resdict (FILE *out, const u8 *data, size_t size, u64 dict_off
 		fprintf (out, "%s[%llu] %s", indent, (unsigned long long) i, name[0] ? name : "<unnamed>");
 
 		u64 ublock_udict = 0, ublock_uarr = 0;
+		u64 option_values_off = 0;
+		u16 option_choice_count = 0;
 		if (array_off && stride)
 		{
 			const u64 elem = array_off + i * stride;
@@ -324,7 +338,7 @@ static void decode_resdict (FILE *out, const u8 *data, size_t size, u64 dict_off
 			else switch (kind)
 			{
 			case BFSHA_DICT_OPTION:
-				if (elem + 32 <= size)
+				if (elem + 40 <= size)
 				{
 					u16 choice_count;
 					s16 default_choice;
@@ -332,45 +346,75 @@ static void decode_resdict (FILE *out, const u8 *data, size_t size, u64 dict_off
 					u8 key_offset, bit_idx, bit_shift;
 					u32 mask;
 					const u16 vmaj = rd_le16 (data + 10);
+					// Field base is +24: Name ptr at +0, Choices dict at +8,
+					// ChoiceValues at +16 (BfshaLoader.ReadShaderOption).
 					if (vmaj >= 9)
 					{
-						choice_count = rd_le16 (data + elem + 16);
-						default_choice = (s16) rd_le16 (data + elem + 18);
-						block_offset = data[elem + 22];
-						key_offset = data[elem + 23];
-						mask = rd_le32 (data + elem + 24);
-						bit_idx = data[elem + 28];
-						bit_shift = data[elem + 29];
+						choice_count = rd_le16 (data + elem + 24);
+						default_choice = (s16) rd_le16 (data + elem + 26);
+						block_offset = data[elem + 30];
+						key_offset = data[elem + 31];
+						mask = rd_le32 (data + elem + 32);
+						bit_idx = data[elem + 36];
+						bit_shift = data[elem + 37];
 					}
 					else
 					{
-						choice_count = data[elem + 16];
-						default_choice = (s8) data[elem + 17];
-						block_offset = rd_le16 (data + elem + 19);
-						key_offset = data[elem + 21];
-						bit_idx = data[elem + 22];
-						bit_shift = data[elem + 23];
-						mask = rd_le32 (data + elem + 24);
+						choice_count = data[elem + 24];
+						default_choice = (s8) data[elem + 25];
+						block_offset = rd_le16 (data + elem + 27);
+						key_offset = data[elem + 29];
+						bit_idx = data[elem + 30];
+						bit_shift = data[elem + 31];
+						mask = rd_le32 (data + elem + 32);
 					}
 					fprintf (out, " (choices=%u, default=%d, block_offset=%u, key_offset=%u, bit_idx=%u, bit_shift=%u, mask=0x%08x)",
 						choice_count, default_choice, block_offset, key_offset, bit_idx, bit_shift, mask);
-					ublock_udict = rd_le64 (data + elem); // choice_dict
+					ublock_udict = rd_le64 (data + elem + 8); // choice_dict
 					ublock_uarr = 0;
+					// BinaryShaderLibrary ShaderOption.Choices / BfshaLoader ChoiceValues:
+					// a u32 array of per-choice values at the third pointer of the
+					// 40-byte option record. Printed after the choice-name dict below.
+					option_values_off = rd_le64 (data + elem + 16);
+					option_choice_count = choice_count;
 				}
 				break;
 			case BFSHA_DICT_ATTRIB:
 				fprintf (out, " (index=%u, location=%d)", data[elem], (int)(s8) data[elem + 1]);
 				break;
 			case BFSHA_DICT_SAMPLER:
-				fprintf (out, " (index=%u)", data[elem + 8]);
+			{
+				// BinaryShaderLibrary Sampler: u64 name_ptr ("Extra", usually empty)
+				// plus u8 index. The dict key already names the sampler; the Extra
+				// string is an additional annotation worth reporting when present.
+				char extra[128] = "";
+				const u64 extra_ptr = rd_le64 (data + elem);
+				bfsha_read_string (extra, sizeof (extra), data, size, extra_ptr);
+				if (extra[0])
+					fprintf (out, " (index=%u, extra=%s)", data[elem + 8], extra);
+				else
+					fprintf (out, " (index=%u)", data[elem + 8]);
 				break;
+			}
 			case BFSHA_DICT_UBLOCK:
-				fprintf (out, " (index=%u, type=%u, size=%u, uniforms=%u)",
-					data[elem + 24], data[elem + 25],
-					rd_le16 (data + elem + 26), rd_le16 (data + elem + 28));
+			{
+				// BinaryShaderLibrary UniformBlock.BlockType: None/Material/Shape/Option/Num.
+				static const ccp block_type_name[] =
+					{ "None", "Material", "Shape", "Option", "Num" };
+				const u8 btype = data[elem + 25];
+				const ccp tname = btype < 5 ? block_type_name[btype] : NULL;
+				if (tname)
+					fprintf (out, " (index=%u, type=%s(%u), size=%u, uniforms=%u)",
+						data[elem + 24], tname, btype,
+						rd_le16 (data + elem + 26), rd_le16 (data + elem + 28));
+				else
+					fprintf (out, " (index=%u, type=%u, size=%u, uniforms=%u)",
+						data[elem + 24], btype,
+						rd_le16 (data + elem + 26), rd_le16 (data + elem + 28));
 				ublock_uarr  = rd_le64 (data + elem);
 				ublock_udict = rd_le64 (data + elem + 8);
 				break;
+			}
 			case BFSHA_DICT_UNIFORM:
 				fprintf (out, " (index=%d, data_offset=%u, block_index=%u)",
 					(s32) rd_le32 (data + elem + 8), rd_le16 (data + elem + 12), data[elem + 14]);
@@ -384,6 +428,21 @@ static void decode_resdict (FILE *out, const u8 *data, size_t size, u64 dict_off
 		if (ublock_udict)
 			decode_resdict (out, data, size, ublock_udict, ublock_uarr,
 				kind == BFSHA_DICT_OPTION ? BFSHA_DICT_CHOICE : BFSHA_DICT_UNIFORM, sub_indent);
+
+		// Per-choice u32 values for shader options (BinaryShaderLibrary ShaderOption.Choices).
+		if (option_values_off && option_choice_count && option_choice_count <= 1024)
+		{
+			const u64 vend = option_values_off + (u64)option_choice_count * 4;
+			if (vend >= option_values_off && vend <= size)
+			{
+				fprintf (out, "%s  choice_values =", sub_indent);
+				for (uint k = 0; k < option_choice_count; k++)
+					fprintf (out, " %u", rd_le32 (data + option_values_off + (u64)k * 4));
+				fprintf (out, "\n");
+			}
+			else
+				fprintf (out, "%s  choice_values = <out of bounds>\n", sub_indent);
+		}
 	}
 }
 
@@ -539,8 +598,15 @@ static void decode_wiiu_resdict (FILE *out, const u8 *data, size_t size, u64 ptr
 						const u8 type = data[val_off + 1];
 						const u16 bsize = rd_be16 (data + val_off + 2);
 						const u16 num_u = rd_be16 (data + val_off + 4);
-						fprintf (out, " (index=%u, type=%u, size=%u, uniforms=%u)",
-							index, type, bsize, num_u);
+						static const ccp wiiu_block_type_name[] =
+							{ "None", "Material", "Shape", "Option", "Num" };
+						const ccp wtname = type < 5 ? wiiu_block_type_name[type] : NULL;
+						if (wtname)
+							fprintf (out, " (index=%u, type=%s(%u), size=%u, uniforms=%u)",
+								index, wtname, type, bsize, num_u);
+						else
+							fprintf (out, " (index=%u, type=%u, size=%u, uniforms=%u)",
+								index, type, bsize, num_u);
 						inner_dict_rel = (s32) rd_be32 (data + val_off + 8);
 						inner_ptr_loc = val_off + 8;
 					}

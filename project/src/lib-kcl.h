@@ -73,6 +73,20 @@
 
 #define N_KCL_SECT 4
 
+// Forward declaration: kcl_t is defined below (kcl_t section).
+typedef struct kcl_t kcl_t;
+
+// KCL file variants (moved up: needed by kcl_analyze_t below).
+typedef enum kcl_version_t
+{
+	KCL_V_UNKNOWN = 0, // unknown / not analyzed yet
+	KCL_V_GC = 1, // V1 GameCube, 56 byte header
+	KCL_V_WII = 2, // V1 Wii/3DS, 60 byte header
+	KCL_V_DS = 3, // V1 DS, fixed point
+	KCL_V_V2 = 4, // V2 Wii U/Switch, multi model
+
+} kcl_version_t;
+
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			kcl_analyze_t			///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -88,6 +102,10 @@ typedef struct kcl_analyze_t
 	u32 off[N_KCL_SECT]; // offsets of KCL sections
 	u32 size[N_KCL_SECT]; // max size of KCL sections (U32_MAX=unknown)
 	u32 n[N_KCL_SECT]; // number of KCL entries based on 'size'
+	kcl_version_t version; // detected file variant
+	bool is_le; // true: file is little endian
+	u32 v2_n_models; // V2 only: number of models
+	u32 v2_modelarr_off; // V2 only: absolute offset of model offset array
 } kcl_analyze_t;
 
 ccp GetValidInfoKCL (kcl_analyze_t *ka);
@@ -124,6 +142,87 @@ typedef struct kcl_triangle_t
 	/*0x0e*/ u16 flag; // KCL flag (includes the type)
 	/*0x10*/
 } __attribute__ ((packed)) kcl_triangle_t;
+
+//
+// /////////////////////////////////////////////////////////////////////////////
+///////////////			KCL file variants			///////////////
+///////////////////////////////////////////////////////////////////////////////
+// [[kcl_version_t]] [[kcl_variant]]
+//
+// File variants supported for reading and writing, matching the format
+// coverage of KillzXGaming/KCollisionLibrary ("KCL"):
+//
+//	GC  ... V1 GameCube: 56 byte header, no sphere radius.
+//	WII ... V1 Wii/3DS: 60 byte header, float32 geometry.
+//	DS  ... V1 DS: fixed point geometry (fx32 positions+length, fx16 normals).
+//	V2  ... V2 Wii U/Switch: 56 byte file header with version magic
+//		0x02020000, model octree and 1..N model sections with 20 byte
+//		prisms (extra global triangle index), 0-based triangle lists
+//		terminated by 0xffff (V1 uses 1-based lists, 0 terminator).
+//
+// Nintendo DS, 3DS and Switch files are little endian, all other
+// variants are usually big endian. Both byte orders are accepted on
+// reading for every variant; the output byte order and variant are
+// selected by the --kcl keywords (LE/BE, V1/V2/DS/GC/WII) and default
+// to the variant of the loaded file (Wii/BE for new files).
+
+// (kcl_version_t moved above kcl_analyze_t)
+
+#define KCL_V2_MAGIC 0x02020000
+#define KCL_V2_MAGIC_BE0 0x02 // first byte of BE magic
+#define KCL_V2_MAX_MODEL_PRISMS (65535 / 4) // max prisms per V2 model
+#define KCL_V2_LEAF_TERM 0xffff // V2 triangle list terminator
+#define KCL_V1_LEAF_TERM 0x0000 // V1 triangle list terminator
+#define KCL_DS_FXSCALE 4096.0 // DS fixed point scale
+
+// File header of a V2 KCL. 'version' is always big endian, all other
+// multi byte values use the file byte order.
+typedef struct kcl_v2_head_t
+{
+	/*0x00*/ u32 version; // KCL_V2_MAGIC, always big endian
+	/*0x04*/ u32 octree_off; // absolute file offset of model octree
+	/*0x08*/ u32 modelarr_off; // absolute file offset of model offset array
+	/*0x0c*/ u32 model_count; // number of models
+	/*0x10*/ float32 min[3]; // minimum coordinate of model octree
+	/*0x1c*/ float32 max[3]; // maximum coordinate of model octree
+	/*0x28*/ u32 shift[3]; // coordinate shifts of model octree
+	/*0x34*/ u32 prism_count; // total number of prisms in all models
+	/*0x38*/
+} __attribute__ ((packed)) kcl_v2_head_t;
+
+// Per model header of V1 and V2 KCL files. Offsets are relative to the
+// start of the model (== file start for V1). V1 stores
+// 'prism_off - 0x10', V2 stores the true offset. 'radius' is missing
+// for GC (56 byte header).
+typedef struct kcl_model_head_t
+{
+	/*0x00*/ u32 sect_off[N_KCL_SECT]; // pos, normals, prisms, octree
+	/*0x10*/ float32 thickness; // prism thickness (unknown_0x10)
+	/*0x14*/ float32 min[3]; // minimum coordinate
+	/*0x20*/ u32 mask[3]; // coordinate masks
+	/*0x2c*/ u32 coord_rshift; // right shift for all coords
+	/*0x30*/ u32 y_lshift; // left shift for y values
+	/*0x34*/ u32 z_lshift; // left shift for z values
+	/*0x38*/ float32 radius; // sphere radius (unknown_0x38), missing if GC
+	/*0x3c*/
+} __attribute__ ((packed)) kcl_model_head_t;
+
+// Prism of a V2 model: like kcl_triangle_t plus a global triangle index.
+typedef struct kcl_prism_v2_t
+{
+	/*0x00*/ float32 length; //
+	/*0x04*/ u16 idx_vertex; //
+	/*0x06*/ u16 idx_normal[4]; //
+	/*0x0e*/ u16 flag; // KCL flag (includes the type)
+	/*0x10*/ u32 global_index; // 0-based global triangle index
+	/*0x14*/
+} __attribute__ ((packed)) kcl_prism_v2_t;
+
+#define KCL_V1_HEAD_SIZE 0x3c // sizeof V1 Wii model/file header
+#define KCL_GC_HEAD_SIZE 0x38 // sizeof V1 GC model/file header
+#define KCL_V2_HEAD_SIZE 0x38 // sizeof V2 file header
+
+ccp GetNameKclVersion (kcl_version_t version);
 
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -300,6 +399,13 @@ typedef enum kcl_mode_t
 	KCLMD_RM_FACEUP = 1ull << 33, // remove face up walls
 	KCLMD_M_RM = KCLMD_RM_FACEDOWN | KCLMD_RM_FACEUP,
 
+	KCLMD_OUT_LE = 1ull << 39, // write KCL little endian (default: big endian)
+	KCLMD_OUT_V2 = 1ull << 47, // write KCL V2 (Wii U/Switch multi model)
+	KCLMD_OUT_DS = 1ull << 48, // write KCL V1 DS (fixed point)
+	KCLMD_OUT_GC = 1ull << 49, // write KCL V1 GC (56 byte header, no radius)
+	KCLMD_M_OUT_VERSION = KCLMD_OUT_V2 | KCLMD_OUT_DS | KCLMD_OUT_GC,
+	// no bit set: write KCL V1 Wii; version+endian default to loaded file
+
 	KCLMD_CONV_FACEUP = 1ull << 34, // convert face up walls to road
 	KCLMD_WEAK_WALLS = 1ull << 35, // OR 0x8000 to KCL flags of walls
 	KCLMD_CLR_VISUAL = 1ull << 36, // clear effect bits
@@ -346,7 +452,7 @@ typedef enum kcl_mode_t
 
 	KCLMD_M_ALL = KCLMD_M_GENERAL // all relevant bits
 		| KCLMD_M_PATCH | KCLMD_M_HIDDEN | KCLMD_ADD_ROAD | KCLMD_F_SCRIPT | KCLMD_M_TINY
-		| KCLMD_TEST,
+		| KCLMD_OUT_LE | KCLMD_M_OUT_VERSION | KCLMD_TEST,
 
 	KCLMD_M_PRINT = KCLMD_M_ALL // all relevant bits for obj output
 		& ~KCLMD_ADD_ROAD & ~KCLMD_IN_SWAP & ~KCLMD_AUTO & ~KCLMD_M_HEX & ~KCLMD_M_HIDDEN,
@@ -363,6 +469,15 @@ int ScanOptKcl (ccp arg);
 uint PrintKclMode (char *buf, uint bufsize, kcl_mode_t mode);
 ccp GetKclMode ();
 void SetupKCL ();
+
+// Output variant selection for KCL encoding. Explicit --kcl keywords
+// (V2/V1/DS/GC/WII, LE/BE) win; otherwise the variant of the loaded
+// file is preserved; new files default to Wii/BE.
+kcl_version_t KclOutVersion (const kcl_t *kcl);
+bool KclOutLE (const kcl_t *kcl);
+
+// KCL_CLIP vector (clip box factor), valid after LoadParametersKCL().
+const double3 *GetKclClip (void);
 
 extern Color_t user_color[N_KCL_USER_FLAGS];
 extern uint n_user_color;
@@ -416,6 +531,8 @@ typedef struct kcl_t
 	u32 z_lshift; // left shift for z values
 	float unknown_0x10; // unknown header value
 	float unknown_0x38; // unknown header value
+	kcl_version_t kcl_version; // loaded file variant, KCL_V_UNKNOWN if new
+	bool kcl_le; // true: loaded file is little endian
 
 	//--- triangle data
 
@@ -438,6 +555,8 @@ typedef struct kcl_t
 
 	u8 *octree; // NULL or pointer to octree
 	uint octree_size; // size of 'octree'
+	uint octree_nkeys; // number of u32 node keys at start of 'octree'
+				// (remainder is u16 triangle lists)
 	bool octree_valid; // octree & header data are valid
 	bool octree_alloced; // true: FREE(octree) on reset
 	bool recreate_octree; // true: recreate octree before storing
@@ -824,6 +943,30 @@ enumError ScanRawKCL (kcl_t *kcl, // KCL data structure
 	bool use_data // true: data is valid on 'kcl' live time
 );
 
+// Scan a V1 KCL (GC/Wii/DS, either endian) using a prior analysis.
+// Implemented in lib-kcl.c.
+enumError ScanRawKCL_V1 (kcl_t *kcl, // KCL data structure
+	const void *data, // data to scan
+	uint data_size, // size of 'data'
+	const kcl_analyze_t *kap, // valid analysis of 'data'
+	bool use_data // true: data is valid on 'kcl' live time
+);
+
+// Scan a V2 KCL (Wii U/Switch, either endian). All model sections are
+// merged into a single triangle list; the octree is rebuilt on demand.
+// Implemented in lib-kcl-v2.c.
+enumError ScanRawKCL_V2 (kcl_t *kcl, // KCL data structure
+	const void *data, // data to scan
+	uint data_size, // size of 'data'
+	const kcl_analyze_t *kap, // valid analysis of 'data'
+	bool use_data // true: data is valid on 'kcl' live time (unused)
+);
+
+// Create a V2 KCL image. Implemented in lib-kcl-v2.c.
+enumError CreateRawKCL_V2 (kcl_t *kcl, // pointer to valid KCL
+	bool out_le // true: write little endian
+);
+
 //-----------------------------------------------------------------------------
 
 enumError ScanTextKCL (kcl_t *kcl, // KCL data structure
@@ -979,13 +1122,14 @@ int GetFlagByNameKCL (kcl_t *kcl, // pointer to valid KCL
 	int new_value // return value if not found
 				  // >0: used as new value
 
-	// The name is searched in 4 steps:
+	// The name is searched in 5 steps:
 	//   1. Search literal in 'flag_name' (ignore case)
 	//   2. Search pattern in 'flag_pattern' (ignore case)
 	//   3. Search pattern in 'flag_missing' (ignore case)
-	//   4. Analyze the last 5 characters for '_ffff'
-	//   5. Analyze the last 7 characters for '_tt_vvv'
-	//   6. Use 'new_value'
+	//   4. Parse KCollisionLibrary material name 'COL_xxxx' (hex flags)
+	//   5. Analyze the last 5 characters for '_ffff'
+	//   6. Analyze the last 7 characters for '_tt_vvv'
+	//   7. Use 'new_value'
 );
 
 //-----------------------------------------------------------------------------

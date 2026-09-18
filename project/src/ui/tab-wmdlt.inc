@@ -414,7 +414,58 @@
   { T_SEP_OPT,	0,0,0,0 }, //----- separator -----
 
   { T_OPT_C,	"SECTIONS",	"sections",
-		0, 0 /* copy of wszst */ },
+	0, 0 /* copy of wszst */ },
+
+  { T_SEP_OPT,	0,0,0,0 }, //----- separator -----
+
+  { T_OPT_CP,	"J3D_MAT",	"mat",
+	"file",
+	"J3D BMD/BDL encode: load material data from the given JSON file"
+	" (as written by --outmat on decode). Supports __MatDefault entries." },
+
+  { T_OPT_CP,	"J3D_OUTMAT",	"outmat",
+	"file",
+	"J3D BMD/BDL decode: write the material sidecar JSON to the given"
+	" path instead of next to the output model." },
+
+  { T_OPT_CP,	"J3D_TEXHEADER",	"texheader",
+	"file",
+	"J3D BMD/BDL encode: load texture header info (format, wrap and"
+	" filter modes) from the given JSON file." },
+
+  { T_OPT_CP,	"J3D_TRISTRIP",	"tristrip",
+	"mode",
+	"J3D BMD/BDL encode: triangle-strip generation mode: none, static"
+	" (default) or all. Accepted for SuperBMD compatibility; the current"
+	" encoder always emits plain GX triangle lists (valid everywhere"
+	" strips are)." },
+
+  { T_OPT_C,	"J3D_BDL",	"bdl",
+	0,
+	"J3D encode: write BDL (with a stub MDL3 section) instead of BMD."
+	" A .bdl destination extension implies this automatically." },
+
+  { T_OPT_C,	"J3D_PROFILE",	"profile",
+	0,
+	"J3D BMD/BDL decode: print section sizes, vertex counts and texture"
+	" info instead of converting." },
+
+  { T_OPT_C,	"J3D_ROTATE",	"rotate",
+	0,
+	"J3D BMD/BDL encode: rotate the model so Y is up instead of Z"
+	" ((x,y,z)->(x,z,-y)), like SuperBMD --rotate." },
+
+  { T_OPT_C,	"J3D_DEGENERATE",	"degeneratetri",
+	0,
+	"Accepted for SuperBMD compatibility; currently reserved." },
+
+  { T_OPT_C,	"J3D_TEXFLOAT",	"texfloat32",
+	0,
+	"J3D BMD/BDL encode: force 32-bit float UV coordinates." },
+
+  { T_OPT_C,	"J3D_NOMIPMAPS",	"nomipmaps",
+	0,
+	"J3D BMD/BDL encode: ignore _mipN texture files." },
 
   //
   //---------- wmdlt GROUP TRANSFORM ----------
@@ -454,6 +505,22 @@
   { T_COPT,	"REMOVE_DEST",	0,0,0 },
   { T_COPT,	"UPDATE",	0,0,0 },
   { T_COPT,	"PRESERVE",	0,0,0 },
+
+  //
+  //---------- wmdlt GROUP J3D ----------
+
+  { T_GRP_BEG,	"J3D",		0,0,0 },
+
+  { T_COPT,	"J3D_MAT",	0,0,0 },
+  { T_COPT,	"J3D_OUTMAT",	0,0,0 },
+  { T_COPT,	"J3D_TEXHEADER",	0,0,0 },
+  { T_COPT,	"J3D_TRISTRIP",	0,0,0 },
+  { T_COPT,	"J3D_BDL",	0,0,0 },
+  { T_COPT,	"J3D_PROFILE",	0,0,0 },
+  { T_COPT,	"J3D_ROTATE",	0,0,0 },
+  { T_COPT,	"J3D_DEGENERATE",	0,0,0 },
+  { T_COPT,	"J3D_TEXFLOAT",	0,0,0 },
+  { T_COPT,	"J3D_NOMIPMAPS",	0,0,0 },
 
   //
   //---------- wmdlt GROUP TEXTOUT ----------
@@ -629,6 +696,7 @@
   { T_COPT,	"NO_CHECK",	0,0,0 },
   { T_SEP_OPT,	0,0,0,0 },
   { T_COPY_GRP,	"TRANSFORM",	0,0,0 },
+  { T_COPY_GRP,	"J3D",		0,0,0 },
 
   //---------- COMMAND wmdlt ENCODE ----------
 
@@ -643,6 +711,7 @@
   { T_COPT,	"NO_CHECK",	0,0,0 },
   { T_SEP_OPT,	0,0,0,0 },
   { T_COPY_GRP,	"TRANSFORM",	0,0,0 },
+  { T_COPY_GRP,	"J3D",		0,0,0 },
 
   //---------- COMMAND wmdlt STRINGS ----------
 

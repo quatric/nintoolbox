@@ -20,7 +20,7 @@ For format specifications, see **[FORMATS.md](FORMATS.md)**. For the recursive u
 | **`wrbnk`** | Wiimms RBNK Tool | Instrument Banks | `dump`, `compile` / `encode` | Wii RBNK instrument bank $\leftrightarrow$ XML |
 | **`wwc24crypt`** | WiiConnect24 Crypto Utility | WC24 Decryption & Signing | `wc24-decrypt`, `wc24-encrypt`, `selftest` | WiiConnect24 AES-128-OFB + RSA-SHA1 content |
 | **`wbmsx`** | QuickBMS Script Runner | Scripted Binary Extraction | `<script.bms> <input> <dest>` | Embedded QuickBMS interpreter for arbitrary formats |
-| **`wimgt`** | Wiimms Image Tool | Textures & 2D Graphics | `DECODE`, `ENCODE`, `CONVERT` | BNTX, NUTEXB, BFLIM, GTX, BCLIM, CTPK, NCGR/NCLR, NSBTX, DSB, Retro TXTR, Tropical TXTR, AJPG, NUT, XIMG, G1T, etc. |
+| **`wimgt`** | Wiimms Image Tool | Textures & 2D Graphics | `DECODE`, `ENCODE`, `CONVERT` | BNTX, NUTEXB, BFLIM, GTX, XTX, BCLIM, CTPK, NCGR/NCLR, NSBTX, DSB, Retro TXTR, Tropical TXTR, AJPG, NUT, XIMG, G1T, etc. |
 | **`wbmgt`** | Wiimms Binary Message Tool | In-Game Text & Message Flow | `DECODE`, `ENCODE`, `LIST`, `CAT` | MSBT (with LBL1 labels), MSBP, MSBF, and extended BMG (FLI/FLW flow sections) |
 
 ---
@@ -526,6 +526,7 @@ wbmsx <script.bms> <input_file> <output_dir>
 
 `wimgt DECODE` and `wimgt ENCODE` support expanded modern texture formats:
 - **Nintendo Switch**: `BNTX` (Tegra block-linear surface container), `NUTEXB`
+  (`XET` wrapper), `XTX` (`DFvN` intermediate texture; decode-only)
 - **Nintendo Wii U**: `BFLIM` (GX2 formats: BC1, BC2, BC3, BC4, BC5, RGBA8), `GTX`
 - **Nintendo 3DS**: `BCLIM` (CTR formats: L8, A8, LA4, LA8, RGB565, RGB8, RGBA8, ETC1, ETC1A4), `CTPK`
 - **Nintendo DS**: `NCGR` (tile sheets with palette integration), `NCLR` (palettes), `NSBTX` (3D textures), `DSB` (Animal Crossing Wild World), `AJPG` / `AJJPG`
@@ -537,6 +538,8 @@ wbmsx <script.bms> <input_file> <output_dir>
 ```bash
 # Decode Switch BNTX texture to PNG:
 wimgt DECODE texture.bntx --dest texture.png
+# Multi-texture containers emit one PNG per texture instead:
+# texture.img000.png, texture.img001.png, ...
 
 # Encode PNG to Wii U BFLIM texture:
 wimgt ENCODE texture.png --dest texture.bflim
@@ -550,8 +553,9 @@ wimgt DECODE tiles.ncgr --dest tiles.png
 ### `wbmgt` (Message Studio & Flow Messages)
 
 `wbmgt DECODE`, `ENCODE`, and `LIST` support Nintendo Message Studio formats:
-- **`MSBT` (Message Studio Binary Text)**: Decodes UTF-8 and UTF-16 strings, control escape codes, and `LBL1` label tables. Round-trips cleanly through `.tmsbt` text format.
-- **`MSBP` & `MSBF`**: Message Studio project definitions and flow graph logic.
+- **`MSBT` (Message Studio Binary Text)**: Decodes UTF-8, UTF-16 and UTF-32 strings, control escape codes (with region-end markers), and `LBL1` label tables as well as `NLI1` numeric message IDs. Preserves `ATO1` blobs, `ATR1` attribute strings, `TSY1` style indices and `TXTW` (WMBT) text blocks. Round-trips cleanly through `.tmsbt` text format (existing files decode to the same text as before; new features use additive `@attrstr=` / `@style=` lines and `# SlotNum:` / `# UseIndices:` / `# ATO1:` / `# WMBT:` headers).
+- **`MSBP` (Message Studio Binary Project)**: Full project definitions — `CLR1`/`CLB1` colors, `ATI2`/`ALB1`/`ALI2` attribute infos, `TGG2`/`TAG2`/`TGP2`/`TGL2` control-tag groups, `SYL3`/`SLB1` styles and `CTI1` source files — with byte-exact round-trips through `.tmsbp` text format.
+- **`MSBF` (Message Studio Binary Flowchart)**: `FLW3`/`LBL1` flow graphs plus legacy `FLW2`/`FEN1` flowcharts, with branch lists preserved through `.tmsbf` text format.
 - **Enhanced BMG**: Preserves flow sections (`FLI`, `FLW`), `INF2`, `TBN`, and `WII` attributes with bit-exact round-trip preservation.
 
 ```bash

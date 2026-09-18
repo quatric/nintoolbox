@@ -83,6 +83,7 @@
 #include "lib-xb.h"
 #include "lib-mpmess.h"
 #include "lib-mpboard.h"
+#include "lib-nlg-probe.h"
 #include "config.inc"
 
 //
@@ -938,6 +939,14 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_MPBOARD;
 		if (IsMP10Board (data8, data_size))
 			return FF_MPBOARD;
+		if (IsNLGModel (data8, data_size))
+			return FF_FEDMODEL;
+		if (IsNLGTexture (data8, data_size))
+			return FF_FEDTEX;
+		if (IsNLGSkeleton (data8, data_size))
+			return FF_FEDSKEL;
+		if (IsSANIM (data8, data_size))
+			return FF_SANIM;
 	}
 
 	if (data_size >= 8)
@@ -1028,6 +1037,13 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 				return FF_USE_LTA;
 			case LTA_MAGIC_NUM:
 				return FF_LTA;
+
+			// J3D GameCube/Wii models (lib-j3d -> GLB)
+			case 0x4a334432626d6433ULL: // "J3D2bmd3"
+			case 0x4a334432626d6432ULL: // "J3D2bmd2" (legacy)
+				return FF_J3DBMD;
+			case 0x4a33443262646c34ULL: // "J3D2bdl4"
+				return FF_J3DBDL;
 		}
 	}
 
@@ -1453,6 +1469,14 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x5824f3a9: // LM2 / LM3 big-endian magic
 			case 0xa9f32458: // Punch-Out!! / little-endian magic
 				return FF_NLG_DICT;
+
+			// Next Level Games model/texture/skeleton containers
+			case 0x4645444d: // "FEDM"
+				return FF_FEDMODEL;
+			case 0x46454454: // "FEDT"
+				return FF_FEDTEX;
+			case 0x46454453: // "FEDS"
+				return FF_FEDSKEL;
 
 			// Next Level Games Localization (NLOC)
 			case 0x4e4c4f43: // "NLOC"
