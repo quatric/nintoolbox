@@ -648,8 +648,6 @@ static kcl_grp_t **kcl_divide_models (const kcl_tridata_t *td_base, const uint *
 				for (uint i = 0; i < n; i++)
 				{
 					const kcl_tridata_t *td = td_base + tris[i];
-					if (td->status & TD_INVALID)
-						continue;
 					kcl_tri3_t t;
 					kcl_tri3_init (&t, td->pt);
 					if (kcl_tribox_overlap (&t, center, h))
@@ -814,6 +812,18 @@ static uint kcl_pool_find (const kcl_pool_t *p, const u16 *list, uint len)
 	return p->last_term;
 }
 
+// emit one polygon octree leaf key (empty leaves share the last terminator)
+static void kcl_pno_emit_leaf (const kcl_rw_t *rw, u8 *oct, uint keypos, uint arraystart,
+	const kcl_pno_t *nd, const kcl_pool_t *pool, uint keysize)
+{
+	uint listrel;
+	if (nd->n_tri)
+		listrel = keysize + kcl_pool_find (pool, nd->tri, nd->n_tri) * 2;
+	else
+		listrel = keysize + pool->last_term * 2;
+	kcl_wr32 (rw, oct + keypos, 0x80000000u | (listrel - arraystart - 2));
+}
+
 // serialize one model section; returns malloced buffer in *out, size>=60
 static uint kcl_write_model (kcl_t *kcl, const kcl_rw_t *rw, const kcl_tridata_t *td_base,
 	const kcl_grp_t *g, uint global_base, u8 **out)
@@ -925,7 +935,12 @@ static uint kcl_write_model (kcl_t *kcl, const kcl_rw_t *rw, const kcl_tridata_t
 			}
 	FREE (local);
 
-	//--- serialize octree: keys first (BFS), then pooled lists
+	//--- serialize octree: keys first (BFS), then pooled lists.
+	//--- Node keys are relative to their own node array start, like the
+	//--- reference implementation reads them (byte offsets here, in
+	//--- contrast to the model octree with its u32 units):
+	//---  leaf   = Values | (list_bytes - array_start - 2)
+	//---  branch = children_bytes - array_start
 	uint nkeys = 0;
 	for (uint r = 0; r < ri; r++)
 		nkeys += kcl_pno_count (roots[r]);
@@ -939,13 +954,13 @@ static uint kcl_write_model (kcl_t *kcl, const kcl_rw_t *rw, const kcl_tridata_t
 	const uint listsize = (pool.total ? pool.total : 1) * 2;
 	u8 *oct = CALLOC (1, keysize + listsize);
 
-	// BFS key writing with patchable branch offsets (u32 units from node start)
-	// queue of branches awaiting children
 	typedef struct kcl_qb_t
 	{
 		const kcl_pno_t *node;
-		uint keypos;
+		uint keypos; // byte offset of this branch key in oct
+		uint arraystart; // byte offset of this key's node array start
 	} kcl_qb_t;
+
 	kcl_qb_t *queue = MALLOC ((nkeys + 1) * sizeof (*queue));
 	uint qn = 0, keypos = 0;
 	for (uint r = 0; r < ri; r++)
@@ -955,22 +970,18 @@ static uint kcl_write_model (kcl_t *kcl, const kcl_rw_t *rw, const kcl_tridata_t
 		{
 			queue[qn].node = nd;
 			queue[qn].keypos = keypos;
+			queue[qn].arraystart = 0;
 			qn++;
 		}
-		else if (nd->n_tri)
-			kcl_wr32 (rw, oct + keypos,
-				0x80000000u | (keysize + kcl_pool_find (&pool, nd->tri, nd->n_tri) * 2
-								  - keypos - 2));
 		else
-			kcl_wr32 (rw, oct + keypos,
-				0x80000000u | (keysize + pool.last_term * 2 - keypos - 2));
+			kcl_pno_emit_leaf (rw, oct, keypos, 0, nd, &pool, keysize);
 		keypos += 4;
 	}
 	for (uint q = 0; q < qn; q++)
 	{
 		const uint child_base = keypos; // byte offset of the 8 children
-		// patch parent: relative u32 distance
-		kcl_wr32 (rw, oct + queue[q].keypos, (child_base - queue[q].keypos) / 4);
+		// patch parent: byte distance from the parent's array start
+		kcl_wr32 (rw, oct + queue[q].keypos, child_base - queue[q].arraystart);
 		for (int c = 0; c < 8; c++)
 		{
 			const kcl_pno_t *nd = queue[q].node->child[c];
@@ -978,15 +989,11 @@ static uint kcl_write_model (kcl_t *kcl, const kcl_rw_t *rw, const kcl_tridata_t
 			{
 				queue[qn].node = nd;
 				queue[qn].keypos = keypos;
+				queue[qn].arraystart = child_base;
 				qn++;
 			}
-			else if (nd->n_tri)
-				kcl_wr32 (rw, oct + keypos,
-					0x80000000u | (keysize + kcl_pool_find (&pool, nd->tri, nd->n_tri) * 2
-									  - keypos - 2));
 			else
-				kcl_wr32 (rw, oct + keypos,
-					0x80000000u | (keysize + pool.last_term * 2 - keypos - 2));
+				kcl_pno_emit_leaf (rw, oct, keypos, child_base, nd, &pool, keysize);
 			keypos += 4;
 		}
 	}
@@ -1192,12 +1199,12 @@ enumError CreateRawKCL_V2 (kcl_t *kcl, bool out_le)
 	const uint n_tri = kcl->tridata.used;
 	const kcl_tridata_t *td_base = (kcl_tridata_t *)kcl->tridata.list;
 
-	//--- group triangles into models
+	//--- group triangles into models (all triangles, like the V1 writer:
+	//--- even flagged ones are stored, filtering is done by patch modes)
 	uint *all = MALLOC ((n_tri ? n_tri : 1) * sizeof (*all));
 	uint n_all = 0;
 	for (uint i = 0; i < n_tri; i++)
-		if (!(td_base[i].status & TD_INVALID))
-			all[n_all++] = i;
+		all[n_all++] = i;
 
 	double fmin[3] = { 1e100, 1e100, 1e100 }, fmax[3] = { -1e100, -1e100, -1e100 };
 	for (uint i = 0; i < n_all; i++)
@@ -1271,7 +1278,10 @@ enumError CreateRawKCL_V2 (kcl_t *kcl, bool out_le)
 	}
 	FREE (ordered);
 
-	//--- serialize model octree (8 root keys, then BFS children)
+	//--- serialize model octree (8 root keys, then BFS children).
+	//--- Divide keys hold the child distance in u32 units from the
+	//--- parent node array start (like the reference implementation):
+	//---  key = (children_bytes - array_start) / 4
 	uint moct_keys = 8;
 	for (int i = 0; i < 8; i++)
 		if (roots[i]->is_branch)
@@ -1281,6 +1291,7 @@ enumError CreateRawKCL_V2 (kcl_t *kcl, bool out_le)
 	{
 		kcl_mno_t *node;
 		uint keypos;
+		uint arraystart;
 	} kcl_mqb_t;
 	kcl_mqb_t *mq = MALLOC ((moct_keys + 1) * sizeof (*mq));
 	uint mqn = 0, mkpos = 0;
@@ -1290,6 +1301,7 @@ enumError CreateRawKCL_V2 (kcl_t *kcl, bool out_le)
 		{
 			mq[mqn].node = roots[i];
 			mq[mqn].keypos = mkpos;
+			mq[mqn].arraystart = 0;
 			mqn++;
 		}
 		else if (roots[i]->model >= 0)
@@ -1300,7 +1312,7 @@ enumError CreateRawKCL_V2 (kcl_t *kcl, bool out_le)
 	for (uint q = 0; q < mqn; q++)
 	{
 		const uint cbase = mkpos;
-		kcl_wr32 (rw, moct + mq[q].keypos, (cbase - mq[q].keypos) / 4);
+		kcl_wr32 (rw, moct + mq[q].keypos, (cbase - mq[q].arraystart) / 4);
 		for (int c = 0; c < 8; c++, mkpos += 4)
 		{
 			kcl_mno_t *nd = mq[q].node->child[c];
@@ -1308,6 +1320,7 @@ enumError CreateRawKCL_V2 (kcl_t *kcl, bool out_le)
 			{
 				mq[mqn].node = nd;
 				mq[mqn].keypos = mkpos;
+				mq[mqn].arraystart = cbase;
 				mqn++;
 			}
 			else if (nd && nd->model >= 0)
@@ -1350,7 +1363,7 @@ enumError CreateRawKCL_V2 (kcl_t *kcl, bool out_le)
 	kcl_wr32 (rw, file + 40, (u32)fex);
 	kcl_wr32 (rw, file + 44, (u32)fey);
 	kcl_wr32 (rw, file + 48, (u32)fez);
-	kcl_wr32 (rw, file + 52, n_tri);
+	kcl_wr32 (rw, file + 52, global); // total stored prisms
 	memcpy (file + KCL_V2_HEAD_SIZE, moct, moct_size);
 	FREE (moct);
 	for (uint m = 0; m < n_models; m++)

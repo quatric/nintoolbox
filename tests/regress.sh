@@ -732,6 +732,64 @@ t_gsh_retail
 
 echo "== models =="
 t_model "NSBMD (DS)"      "BMD0"
+t_model "J3D BMD/BDL (GC/Wii)" "J3D2"
+t_j3d_synthetic(){
+  # J3D GameCube/Wii models (SuperBMD-compatible): synthetic fixtures from
+  # tests/mk_j3d.py exercise decode -> GLB -> encode -> GLB without retail
+  # samples. Simple: 1 joint / 1 tri / RGBA32. Rigged: 2 joints, strip +
+  # trilist, colors, UVs, CMPR + C8 textures, mipmaps, single + multi skin.
+  local d; d=$(mktemp -d /tmp/_r_j3d.XXXXXX) || { no "J3D synthetic" "mktemp failed"; return; }
+  python3 "$PWD_PROJECT/../tests/mk_j3d.py" "$d/a.bmd" >/dev/null 2>&1 \
+  && python3 "$PWD_PROJECT/../tests/mk_j3d.py" --rigged "$d/b.bmd" >/dev/null 2>&1 \
+  && rm -f "$d/a.glb" \
+  && $B/wmdlt DECODE "$d/a.bmd" -d "$d/a.glb" --overwrite >/dev/null 2>&1
+  local g1; g1=$(python3 "$GLTF_COUNT" "$d/a.glb" geometry 2>/dev/null || true); g1=${g1:-0}
+  if [ "$g1" -eq 1 ] 2>/dev/null; then
+    ok "J3D synthetic simple BMD -> GLB (1 geometry)"
+  else
+    no "J3D synthetic simple BMD -> GLB" "expected 1 geometry, got $g1"
+    rm -rf "$d"; return
+  fi
+  rm -f "$d/b.glb" "$d/b2.bmd" "$d/b2.glb"
+  $B/wmdlt DECODE "$d/b.bmd" -d "$d/b.glb" --overwrite >/dev/null 2>&1
+  local g2; g2=$(python3 "$GLTF_COUNT" "$d/b.glb" geometry 2>/dev/null || true); g2=${g2:-0}
+  if [ "$g2" -eq 2 ] 2>/dev/null; then
+    ok "J3D synthetic rigged BMD -> GLB (2 geometries, skinned)"
+  else
+    no "J3D synthetic rigged BMD -> GLB" "expected 2 geometries, got $g2"
+    rm -rf "$d"; return
+  fi
+  $B/wmdlt ENCODE "$d/b.glb" -d "$d/b2.bmd" --overwrite >/dev/null 2>&1 \
+  && $B/wmdlt DECODE "$d/b2.bmd" -d "$d/b2.glb" --overwrite >/dev/null 2>&1
+  local g3; g3=$(python3 "$GLTF_COUNT" "$d/b2.glb" geometry 2>/dev/null || true); g3=${g3:-0}
+  if [ "$g3" -eq "$g2" ] 2>/dev/null && [ "$g3" -gt 0 ] 2>/dev/null; then
+    ok "J3D synthetic GLB -> BMD -> GLB roundtrip ($g3 geometries)"
+  else
+    no "J3D synthetic roundtrip" "expected $g2 geometries, got $g3"
+    rm -rf "$d"; return
+  fi
+  # --profile smoke test on the rigged fixture
+  if $B/wmdlt DECODE "$d/b.bmd" -d "$d/p.glb" --overwrite --profile 2>/dev/null | grep -q "TEX1"; then
+    ok "J3D --profile section dump"
+  else
+    no "J3D --profile" "no TEX1 line in profile output"
+  fi
+  # BDL encode/decode path (MDL3 stub)
+  rm -f "$d/c.bdl" "$d/c.glb"
+  if $B/wmdlt ENCODE "$d/a.glb" -d "$d/c.bdl" --overwrite >/dev/null 2>&1 \
+  && $B/wmdlt DECODE "$d/c.bdl" -d "$d/c.glb" --overwrite >/dev/null 2>&1; then
+    local g4; g4=$(python3 "$GLTF_COUNT" "$d/c.glb" geometry 2>/dev/null || true); g4=${g4:-0}
+    if [ "$g4" -eq 1 ] 2>/dev/null; then
+      ok "J3D synthetic BDL encode -> decode (1 geometry)"
+    else
+      no "J3D synthetic BDL roundtrip" "expected 1 geometry, got $g4"
+    fi
+  else
+    no "J3D synthetic BDL roundtrip" "encode or decode failed"
+  fi
+  rm -rf "$d"
+}
+t_j3d_synthetic
 t_model "BCH (3DS)"       "BCH"
 t_cgfx(){
   # CGFX (3DS model container, .bcmdl extension in retail SZS archives):
@@ -2386,6 +2444,100 @@ t_byml(){
   fi
 }
 t_byml
+
+t_byml_sbyml(){
+  # Yaz0-wrapped BYML (BotW .sbyml style, cf. NintenTools.Byaml's Yaz0
+  # handling): xx decodes members to .yml sidecars and CREATE re-compresses.
+  local fix="$PWD_PROJECT/../tests/fixtures/sm3dl_camera.byml"
+  [ -f "$fix" ] || { sk "BYML Yaz0 (.sbyml) roundtrip"; return; }
+  local d; d=$(mktemp -d)
+  "$B/wszst" TEXT "$fix" --dest "$d/ref.yaml" --overwrite >/dev/null 2>&1 || { no "BYML sbyml setup" "TEXT fixture failed"; rm -rf "$d"; return; }
+  "$B/wszst" COMPRESS "$fix" --dest "$d/actor.sbyml" --overwrite >/dev/null 2>&1 || { no "BYML sbyml setup" "COMPRESS failed"; rm -rf "$d"; return; }
+
+  # TEXT unwraps Yaz0 (pre-existing LoadRawData path).
+  if "$B/wszst" TEXT "$d/actor.sbyml" --dest "$d/plain.yaml" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/ref.yaml" "$d/plain.yaml"; then
+    ok "BYML .sbyml TEXT matches plain decode"
+  else
+    no "BYML .sbyml TEXT" "yaml differs from plain decode"
+  fi
+
+  # xx on a container holding a .sbyml member emits a .yml sidecar.
+  mkdir -p "$d/pack.d" && cp "$d/actor.sbyml" "$d/pack.d/actor.sbyml"
+  if "$B/wszst" CREATE "$d/pack.d" --dest "$d/pack.sarc" --overwrite >/dev/null 2>&1 \
+  && "$B/wszst" XX "$d/pack.sarc" --dest "$d/x" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/x/actor.sbyml.yml" ] \
+  && cmp -s "$d/ref.yaml" "$d/x/actor.sbyml.yml"; then
+    ok "BYML .sbyml XX -> .yml sidecar"
+  else
+    no "BYML .sbyml XX sidecar" "missing or differs"
+  fi
+
+  # CREATE of a .sbyml.yml sidecar writes Yaz0 back (and decodes identically).
+  if [ -s "$d/x/actor.sbyml.yml" ] \
+  && "$B/wszst" CREATE "$d/x/actor.sbyml.yml" --overwrite >/dev/null 2>&1 \
+  && [ "$(head -c 4 "$d/x/actor.sbyml")" = "Yaz0" ] \
+  && "$B/wszst" TEXT "$d/x/actor.sbyml" --dest "$d/re.yaml" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/ref.yaml" "$d/re.yaml"; then
+    ok "BYML .sbyml.yml CREATE -> Yaz0 roundtrip"
+  else
+    no "BYML .sbyml.yml CREATE" "not Yaz0 or yaml differs"
+  fi
+
+  # CREATE of plain yaml with a .sbyml --dest compresses too.
+  if "$B/wszst" CREATE "$d/ref.yaml" --dest "$d/viadest.sbyml" --overwrite >/dev/null 2>&1 \
+  && [ "$(head -c 4 "$d/viadest.sbyml")" = "Yaz0" ] \
+  && "$B/wszst" TEXT "$d/viadest.sbyml" --dest "$d/via.yaml" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/ref.yaml" "$d/via.yaml"; then
+    ok "BYML yaml --dest .sbyml -> Yaz0 roundtrip"
+  else
+    no "BYML yaml --dest .sbyml" "not Yaz0 or yaml differs"
+  fi
+  rm -rf "$d"
+}
+t_byml_sbyml
+
+t_bymlfind(){
+  # BYMLFIND: case-insensitive key/value search (NintenTools.Byaml editor
+  # search as CLI), transparent over Yaz0-wrapped inputs.
+  local fix="$PWD_PROJECT/../tests/fixtures/sm3dl_camera.byml"
+  [ -f "$fix" ] || { sk "BYMLFIND search"; return; }
+  local d; d=$(mktemp -d)
+  "$B/wszst" COMPRESS "$fix" --dest "$d/actor.sbyml" --overwrite >/dev/null 2>&1 || { no "BYMLFIND setup" "COMPRESS failed"; rm -rf "$d"; return; }
+
+  local plain; plain=$("$B/wszst" BYMLFIND CameraParams "$fix" 2>/dev/null)
+  if [ -n "$plain" ] && echo "$plain" | grep -q '/CameraParams\[0\]/AngleH = '; then
+    ok "BYMLFIND key search prints path = value"
+  else
+    no "BYMLFIND key search" "no path = value lines"
+  fi
+
+  if [ -n "$plain" ] && [ "$plain" = "$("$B/wszst" BYMLFIND cameraparams "$fix" 2>/dev/null)" ]; then
+    ok "BYMLFIND search is case-insensitive"
+  else
+    no "BYMLFIND case-insensitivity" "lowercase pattern differs"
+  fi
+
+  if [ -n "$plain" ] && [ "$plain" = "$("$B/wszst" BYMLFIND CameraParams "$d/actor.sbyml" 2>/dev/null)" ]; then
+    ok "BYMLFIND .sbyml matches plain output"
+  else
+    no "BYMLFIND .sbyml" "Yaz0-wrapped output differs"
+  fi
+
+  if "$B/wszst" BYMLFIND zzz_no_such_key_xyz "$fix" >/dev/null 2>&1; then
+    ok "BYMLFIND no-match exits OK"
+  else
+    no "BYMLFIND no-match" "non-zero exit"
+  fi
+
+  if "$B/wszst" BYMLFIND foo "$fix.nonexistent" >/dev/null 2>&1; then
+    no "BYMLFIND missing file" "expected failure, got success"
+  else
+    ok "BYMLFIND missing file fails cleanly"
+  fi
+  rm -rf "$d"
+}
+t_bymlfind
 
 t_narc(){
   # NARC (Nitro Archive, DS / 3DS):
@@ -7558,6 +7710,83 @@ with open('$d/sample.nud', 'wb') as f:
       fok "KCL ${mesh} encode -> OBJ -> identical re-encode"
     else fno "KCL ${mesh} canonical fixed point" "second-generation bytes differ"; fi
   done
+
+  # KCL file variants (KCollisionLibrary parity: V2 multi-model, little
+  # endian, DS fixed point, GC header): each variant must decode to the
+  # same triangle count and be a canonical fixed point (OBJ -> re-encode
+  # reproduces the bytes identically).
+  for variant in V2 V2,LE LE DS,LE DS GC; do
+    vtag=$(printf '%s' "$variant" | tr ',' '_')
+    for mesh in box terrain; do
+      # DS fixed point re-quantizes normals+lengths, so slanted geometry
+      # has no byte fixed point across generations (integer-boundary minima
+      # can also flip the octree anchor); DS asserts geometry within fixed
+      # point tolerance instead of byte identity. All other variants assert
+      # byte-identical re-encode (canonical fixed point).
+      if "$B/wkclt" ENCODE "$d/$mesh.obj" --dest "$d/archive-a/$mesh-$vtag.kcl" --overwrite --kcl="$variant" >/dev/null 2>&1 \
+      && [ "$("$B/wkclt" FILETYPE "$d/archive-a/$mesh-$vtag.kcl" 2>/dev/null | awk 'NR==4{print $1}')" = "KCL" ] \
+      && "$B/wkclt" DECODE "$d/archive-a/$mesh-$vtag.kcl" --dest "$d/$mesh-$vtag-mid.obj" --overwrite >/dev/null 2>&1 \
+      && [ "$(grep -c '^f ' "$d/$mesh.obj")" = "$(grep -c '^f ' "$d/$mesh-$vtag-mid.obj")" ]; then
+        case "$variant" in
+          DS*)
+            if python3 - "$d/$mesh.obj" "$d/$mesh-$vtag-mid.obj" <<'PYEOF'
+import sys, math
+def faces(p):
+    v=[]; f=[]
+    for ln in open(p):
+        w=ln.split()
+        if not w: continue
+        if w[0]=='v' and len(w)>=4: v.append(tuple(map(float,w[1:4])))
+        elif w[0]=='f':
+            idx=[]
+            for x in w[1:]:
+                if '/' in x: x=x.split('/')[0]
+                idx.append(int(x)-1)
+            if len(idx)==3: f.append(tuple(sorted(v[i] for i in idx)))
+    return f
+def close(p,q,tol=0.05): return all(abs(x-y)<=tol for x,y in zip(p,q))
+def tclose(a,b):
+    return all(any(close(p,q) for q in b) for p in a) \
+       and all(any(close(p,q) for q in a) for p in b)
+a=faces(sys.argv[1]); rem=faces(sys.argv[2])
+if len(a)!=len(rem): sys.exit(1)
+for t in a:
+    hit=-1
+    for i,u in enumerate(rem):
+        if tclose(t,u): hit=i; break
+    if hit<0: sys.exit(1)
+    rem.pop(hit)
+PYEOF
+            then
+              fok "KCL ${mesh} ${variant} geometry within fx tolerance"
+            else
+              fno "KCL ${mesh} ${variant} geometry" "decoded coords drift"
+            fi
+            ;;
+          *)
+            if "$B/wkclt" ENCODE "$d/$mesh-$vtag-mid.obj" --dest "$d/archive-b/$mesh-$vtag.kcl" --overwrite --kcl="$variant" >/dev/null 2>&1 \
+            && cmp -s "$d/archive-a/$mesh-$vtag.kcl" "$d/archive-b/$mesh-$vtag.kcl"; then
+              fok "KCL ${mesh} ${variant} encode -> OBJ -> identical re-encode"
+            else fno "KCL ${mesh} ${variant} canonical fixed point" "second-generation bytes differ"; fi
+            ;;
+        esac
+      else fno "KCL ${mesh} ${variant} roundtrip" "encode/decode/face-count mismatch"; fi
+    done
+  done
+
+  # KCL DS sections stay 4-byte aligned (fx16 normals are 6 bytes each).
+  if "$B/wkclt" ENCODE "$d/box.obj" --dest "$d/ds-align.kcl" --overwrite --kcl=DS,LE >/dev/null 2>&1 \
+  && python3 -c "import struct,sys; d=open('$d/ds-align.kcl','rb').read(); o=[struct.unpack('<I',d[i:i+4])[0] for i in (0,4,8,12)]; sys.exit(0 if all(x%4==0 for x in (o[0],o[1],o[3])) and (o[2]+0x10)%4==0 else 1)"; then
+    fok "KCL DS section alignment"
+  else fno "KCL DS section alignment" "offsets not 4-aligned"; fi
+
+  # KCL COL_xxxx material names (KCollisionLibrary convention) map to flags.
+  printf 'v 0 0 0\nv 10 0 0\nv 0 10 0\nv 10 10 0\nusemtl COL_1F\nf 1 2 3\nusemtl COL_204\nf 2 4 3\n' > "$d/col.obj"
+  if "$B/wkclt" ENCODE "$d/col.obj" --dest "$d/col.kcl" --overwrite --kcl=USEMTL >/dev/null 2>&1 \
+  && "$B/wkclt" DUMP "$d/col.kcl" 2>/dev/null | grep -q '0x001f' \
+  && "$B/wkclt" DUMP "$d/col.kcl" 2>/dev/null | grep -q '0x0204'; then
+    fok "KCL COL_xxxx material flags"
+  else fno "KCL COL_xxxx material flags" "flags not mapped"; fi
 
   # BYML's text writer sorts mapping keys. Start from that public canonical
   # ordering so the comparison measures binary regeneration, not YAML order.

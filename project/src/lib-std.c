@@ -6740,6 +6740,7 @@ valid_t IsValidKCL (kcl_analyze_t *ka, // not NULL: init and store stats
 
 	uint sect;
 	const kcl_head_t *kcl = data;
+	uint align_err = 0;
 
 	for (sect = 0; sect < N_KCL_SECT; sect++)
 	{
@@ -6751,13 +6752,15 @@ valid_t IsValidKCL (kcl_analyze_t *ka, // not NULL: init and store stats
 			ka->head_size = offset;
 
 		ka->off[sect] = offset;
-		if (offset & 3 || offset < sizeof (kcl_head_t) - 4 // unknown_0x38 is optional
+		if (offset & 1 || offset < sizeof (kcl_head_t) - 4 // unknown_0x38 is optional
 			|| file_size && offset > file_size)
 		{
 			noPRINT ("INVALID KCL: sect=%d, off=%x, headsize=%zx, filesize=%x\n", sect, offset,
 				sizeof (kcl_head_t), file_size);
 			return ka->valid = VALID_ERROR;
 		}
+		if (offset & 3)
+			align_err |= 1u << sect;
 
 		MemMapItem_t *mi = InsertMemMap (&mm, offset, 0);
 		DASSERT (mi);
@@ -6805,6 +6808,11 @@ valid_t IsValidKCL (kcl_analyze_t *ka, // not NULL: init and store stats
 		: ka->head_size == KCL_GC_HEAD_SIZE ? KCL_V_GC
 											: KCL_V_WII;
 
+	// non-DS files require 4-aligned sections (DS may be unpadded if not
+	// written by Nintendo tools)
+	if (align_err && !is_ds)
+		return ka->valid = VALID_ERROR;
+
 	//--- calculate section sizes
 
 	uint elem_size[N_KCL_SECT]
@@ -6827,8 +6835,15 @@ valid_t IsValidKCL (kcl_analyze_t *ka, // not NULL: init and store stats
 			ka->n[p1->index] = n;
 			if (p1->size != n * esize)
 			{
-				p1->size = n * esize;
-				err++;
+				// DS normal sections are padded to 4 bytes (6 byte
+				// triplets with an odd count leave 2 pad bytes)
+				if (is_ds && p1->index == 1 && p1->size == n * esize + 2)
+					p1->size = n * esize;
+				else
+				{
+					p1->size = n * esize;
+					err++;
+				}
 			}
 		}
 		ka->size[p1->index] = p1->size;

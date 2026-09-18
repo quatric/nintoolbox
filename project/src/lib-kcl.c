@@ -3967,17 +3967,31 @@ enumError ScanRawKCL_V1 (kcl_t *kcl, // KCL data structure
 	//--- transfer header
 
 	const kcl_head_t *kclhead = data;
-	kcl->min_octree.x = RDF4 (kclhead->min_octree + 0);
-	kcl->min_octree.y = RDF4 (kclhead->min_octree + 1);
-	kcl->min_octree.z = RDF4 (kclhead->min_octree + 2);
+	if (is_ds)
+	{
+		// fixed point header: fx32 thickness, min + radius
+		kcl->unknown_0x10 = (s32)RD32 (&kclhead->unknown_0x10) / (float)KCL_DS_FXSCALE;
+		const u8 *mp = (u8 *)kclhead->min_octree;
+		kcl->min_octree.x = (s32)RD32 (mp) / KCL_DS_FXSCALE;
+		kcl->min_octree.y = (s32)RD32 (mp + 4) / KCL_DS_FXSCALE;
+		kcl->min_octree.z = (s32)RD32 (mp + 8) / KCL_DS_FXSCALE;
+	}
+	else
+	{
+		kcl->min_octree.x = RDF4 (kclhead->min_octree + 0);
+		kcl->min_octree.y = RDF4 (kclhead->min_octree + 1);
+		kcl->min_octree.z = RDF4 (kclhead->min_octree + 2);
+		kcl->unknown_0x10 = RDF4 (&kclhead->unknown_0x10);
+	}
 	kcl->mask[0] = RD32 (kclhead->mask + 0);
 	kcl->mask[1] = RD32 (kclhead->mask + 1);
 	kcl->mask[2] = RD32 (kclhead->mask + 2);
 	kcl->coord_rshift = RD32 (&kclhead->coord_rshift);
 	kcl->y_lshift = RD32 (&kclhead->y_lshift);
 	kcl->z_lshift = RD32 (&kclhead->z_lshift);
-	kcl->unknown_0x10 = RDF4 (&kclhead->unknown_0x10);
-	kcl->unknown_0x38 = is_gc ? 0.0f : RDF4 (&kclhead->unknown_0x38);
+	kcl->unknown_0x38 = is_gc ? 0.0f
+		: is_ds ? (s32)RD32 (&kclhead->unknown_0x38) / KCL_DS_FXSCALE
+				: RDF4 (&kclhead->unknown_0x38);
 
 	//--- store triangles
 
@@ -4871,11 +4885,12 @@ enumError CreateRawKCL (kcl_t *kcl, // pointer to valid KCL
 	}
 
 	const uint head_size = out_gc ? KCL_GC_HEAD_SIZE : KCL_V1_HEAD_SIZE;
-	uint vertex_size, normal_size;
+	uint vertex_size, normal_size, normal_pad = 0;
 	if (out_ds)
 	{
 		vertex_size = 3 * sizeof (s32) * vertex.used;
 		normal_size = 3 * sizeof (s16) * normal.used;
+		normal_pad = (uint)(-(int)normal_size & 3); // keep sections 4-aligned
 	}
 	else
 	{
@@ -4884,7 +4899,8 @@ enumError CreateRawKCL (kcl_t *kcl, // pointer to valid KCL
 	}
 	const uint triangle_size = sizeof (kcl_triangle_t) * n_tri;
 
-	uint data_size = head_size + vertex_size + normal_size + triangle_size + kcl->octree_size;
+	uint data_size = head_size + vertex_size + normal_size + normal_pad + triangle_size
+		+ kcl->octree_size;
 
 	//--- alloc data
 
@@ -4903,7 +4919,7 @@ enumError CreateRawKCL (kcl_t *kcl, // pointer to valid KCL
 
 	const uint vertex_offset = head_size;
 	const uint normal_offset = vertex_offset + vertex_size;
-	const uint triangle_offset = normal_offset + normal_size;
+	const uint triangle_offset = normal_offset + normal_size + normal_pad;
 	const uint octree_offset = triangle_offset + triangle_size;
 
 	KW32 (kclhead->sect_off + 0, vertex_offset);

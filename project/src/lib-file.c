@@ -919,6 +919,13 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 	if (!file_size)
 		file_size = data_size;
 
+	// KCL V2 (Wii U/Switch) has an exact 4 byte magic and must win over
+	// weak structural detectors below (e.g. ATB false-positives on large
+	// V2 files). V1 keeps its position further below.
+	if (data_size >= KCL_V2_HEAD_SIZE && be32 (data) == KCL_V2_MAGIC
+		&& IsValidKCL (0, data, data_size, file_size, 0) < VALID_ERROR)
+		return FF_KCL;
+
 	const u8 *data8 = (u8 *)data;
 	if (data_size >= 16)
 	{
