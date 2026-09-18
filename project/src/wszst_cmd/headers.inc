@@ -40,7 +40,11 @@
 #include <dirent.h>
 #include <errno.h>
 #include <unistd.h>
+#ifdef __MINGW32__
+#include <process.h> // _spawnv()/_spawnvp(), used in create_update.inc
+#else
 #include <sys/wait.h>
+#endif
 #include <zlib.h>
 
 #include "dclib-utf8.h"
@@ -78,6 +82,28 @@
 #include "lib-smash-arc.h"
 #include "lib-iqipack.h"
 #include "lib-prc.h"
+#include "lib-rstb.h"
+#include "lib-aamp.h"
+#include "lib-sharc.h"
+#include "lib-bnsh.h"
+#include "lib-nushdb.h"
+#include "lib-numatb.h"
+#include "lib-nusktb.h"
+#include "lib-nufxlb.h"
+#include "lib-numdlb.h"
+#include "lib-nuhlpb.h"
+#include "lib-nulstb.h"
+#include "lib-nurpdb.h"
+#include "lib-nuanmb.h"
+#include "lib-bfsha.h"
+#include "lib-pctl.h"
+#include "lib-effn.h"
+#include "lib-bglpbd.h"
+#include "lib-xb.h"
+#include "lib-mpmess.h"
+#include "lib-mpboard.h"
+#include "lib-wtb.h"
+#include "lib-trpak.h"
 #include "lib-cnut.h"
 #include "lib-xmsg.h"
 #include "lib-nsmbw.h"
@@ -104,6 +130,8 @@
 #include "lib-vc.h"
 #include "lib-sequence.h"
 #include "lib-miirender.h"
+
+bool IsNTTF (const u8 *data, uint size);
 
 static ccp opt_parent = 0;
 #include "lib-bzip2.h"

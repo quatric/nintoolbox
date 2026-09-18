@@ -1047,7 +1047,9 @@ bool IsValidGCH (const gch_header_t *gh, // valid header
 	if (addr < 0x80000000 || sizeof (*gh) + size > file_size)
 		return false;
 
-	if (entry && (entry < addr || entry >= addr + size - 4))
+	// 'size' comes straight from the file; if it is < 4 the "addr+size-4" below
+	// underflows (u32) and lets an out-of-range entry point pass as valid.
+	if (entry && (size < 4 || entry < addr || entry >= addr + size - 4))
 		return false;
 
 	return true;
@@ -1089,6 +1091,13 @@ ccp DecodeWCH (
 		if (decompress (wc, (void *)ptr, data_size) != ERR_OK)
 			return "Decompression of WCH failed.";
 		ptr = (wch_segment_t *)wc->temp_data;
+	}
+	else if (wc->wh.size > size - sizeof (wch_header_t))
+	{
+		// uncompressed path: 'wh.size' is an unchecked file field and must not
+		// claim more bytes than are actually present, or 'end' below would point
+		// past 'data' and the segment loop would read out of bounds.
+		return "Invalid WCH header";
 	}
 
 	const wch_segment_t *end = (wch_segment_t *)((u8 *)ptr + wc->wh.size);

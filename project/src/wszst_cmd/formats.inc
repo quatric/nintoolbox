@@ -406,6 +406,8 @@ static enumError decode_image_if_possible (ccp arg)
 	FILE *probe = fopen (arg, "rb");
 	if (!probe)
 		return ERR_NOT_EXISTS;
+	struct stat st_probe;
+	const bool have_stat = !fstat (fileno (probe), &st_probe);
 	const size_t n_head = fread (head, 1, sizeof (head), probe);
 	fclose (probe);
 	if (n_head < 4)
@@ -476,6 +478,10 @@ static enumError decode_image_if_possible (ccp arg)
 	else if (fform == FF_TPL || is_ext (arg, ".tpl"))
 		is_image = true;
 	else if (fform == FF_TEX || is_ext (arg, ".tex0"))
+		is_image = true;
+	else if (fform == FF_NTTF || nfmt.type == NFMT_NTTF || is_ext (arg, ".nttf")
+		|| is_ext (arg, ".bnttf") || strstr (arg, "/nttf/")
+		|| (have_stat && IsNTTF (head, (uint)st_probe.st_size)))
 		is_image = true;
 
 	if (!is_image)
@@ -909,6 +915,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_ctxb_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_bntx_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = decode_wimg_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
@@ -1084,6 +1093,34 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		return err;
 
 	err = extract_bea_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_mpbin_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_atb_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_ptd_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_lzbin_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_hbdf_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_effn_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_pctl_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
@@ -1385,6 +1422,78 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
+	err = extract_rstb_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_aamp_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_sharc_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_bnsh_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_nushdb_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_numatb_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_nusktb_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_nufxlb_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_numdlb_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_nuhlpb_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_nulstb_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_nurpdb_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_nuanmb_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_bfsha_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_effn_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_pctl_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_wtb_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_trpak_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
 	err = extract_cnut_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
@@ -1599,6 +1708,12 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		if (analyze_fname && IsBRSUB (szs.fform_arch))
 			AnalyzeBRSUB (&szs, szs.data, szs.size, arg);
 
+		if (szs.fform_arch == FF_SDAT || szs.fform_arch == FF_BCSAR || szs.fform_arch == FF_BFSAR)
+		{
+			ResetSZS (&szs);
+			return depth > 0 ? ERR_OK : ERR_NOTHING_TO_DO;
+		}
+
 		if (depth > 0 && !IsArchiveFF (szs.fform_arch) && !IsBRSUB (szs.fform_arch))
 		{
 			ResetSZS (&szs);
@@ -1683,11 +1798,19 @@ static bool is_extractor_output_dir (ccp path)
 	if (lstat (stem, &st) == 0 && S_ISREG (st.st_mode))
 		return true;
 
+	char setup[PATH_MAX];
+	snprintf (setup, sizeof (setup), "%s/%s", path, SZS_SETUP_FILE);
+	if (lstat (setup, &st) == 0 && S_ISREG (st.st_mode))
+		return true;
+
 	// U8/RARC/PACK destinations use the source stem (foo.arc -> foo.d), not
 	// the complete source filename (foo.arc.d). Recognize any regular sibling
 	// named "<stem>.<extension>" so a live parent readdir never feeds the
 	// output directory a second time after extract_one_file() already peeled
 	// it explicitly above.
+	// Also strip intermediate extensions successively from base to recognize
+	// output directories whose intermediate decompressed archive was unlinked
+	// (e.g. m2dres_narc.blz -> m2dres_narc.bin -> m2dres_narc.bin.d).
 	char parent[PATH_MAX], base[PATH_MAX];
 	ccp slash = strrchr (stem, '/');
 	if (slash)
@@ -1703,17 +1826,28 @@ static bool is_extractor_output_dir (ccp path)
 	DIR *dir = opendir (parent);
 	if (!dir)
 		return false;
-	const size_t base_len = strlen (base);
 	bool found = false;
 	struct dirent *de;
-	while (!found && (de = readdir (dir)))
+	char prefix[PATH_MAX];
+	snprintf (prefix, sizeof (prefix), "%s", base);
+	while (!found && *prefix)
 	{
-		if (strncmp (de->d_name, base, base_len) || de->d_name[base_len] != '.'
-			|| !strcmp (de->d_name + base_len, ".d"))
-			continue;
-		char candidate[PATH_MAX];
-		snprintf (candidate, sizeof (candidate), "%s/%s", parent, de->d_name);
-		found = !lstat (candidate, &st) && S_ISREG (st.st_mode);
+		const size_t prefix_len = strlen (prefix);
+		rewinddir (dir);
+		while (!found && (de = readdir (dir)))
+		{
+			if (strncmp (de->d_name, prefix, prefix_len) || de->d_name[prefix_len] != '.'
+				|| !strcmp (de->d_name + prefix_len, ".d"))
+				continue;
+			char candidate[PATH_MAX];
+			snprintf (candidate, sizeof (candidate), "%s/%s", parent, de->d_name);
+			found = !lstat (candidate, &st) && S_ISREG (st.st_mode);
+		}
+		char *dot = strrchr (prefix, '.');
+		if (dot)
+			*dot = '\0';
+		else
+			break;
 	}
 	closedir (dir);
 	return found;
@@ -2293,6 +2427,7 @@ static bool ConvertHelper (const u8 *data, // valid data
 		case FF_BRLAN:
 		case FF_BFLYT_TXT:
 		case FF_BCLYT_TXT:
+		case FF_SHDVAR:
 			FreeContainerData (cdata);
 			{
 				bflyt_t bflyt;
@@ -2346,20 +2481,24 @@ static enumError cmd_convert (bool binary) // cmd_binary() cmd_text()
 		}
 
 		const bool is_bflyt = raw.fform == FF_BFLYT || raw.fform == FF_BCLYT
-			|| raw.fform == FF_BRLYT || raw.fform == FF_BRLAN;
+			|| raw.fform == FF_BRLYT || raw.fform == FF_BRLAN || raw.fform == FF_SHDVAR;
 		file_format_t ff_dest = binary ? GetBinFF (raw.fform) : GetTextFF (raw.fform);
 		// Layout's former text type is the legacy .tflyt syntax.  Route normal
 		// TEXT conversion through the XML path instead.
 		if (!binary && is_bflyt)
 			ff_dest = FF_UNKNOWN;
 
-		// Handle layout formats (BFLYT / BCLYT / BRLYT / BRLAN)
+		// Handle layout formats (BFLYT / BCLYT / BRLYT / BRLAN / SHDVAR)
 		if (!ff_dest
 			&& (raw.fform == FF_BFLYT || raw.fform == FF_BCLYT || raw.fform == FF_BRLYT
-				|| raw.fform == FF_BRLAN))
+				|| raw.fform == FF_BRLAN || raw.fform == FF_SHDVAR))
 		{
 			if (binary)
-				SubstDest (dest, sizeof (dest), arg, opt_dest, "\\1P/\\1N.bflyt", ".bflyt", false);
+			{
+				ccp def_ext = raw.fform == FF_SHDVAR ? "\\1P/\\1N.svt" : "\\1P/\\1N.bflyt";
+				ccp ext = raw.fform == FF_SHDVAR ? ".svt" : ".bflyt";
+				SubstDest (dest, sizeof (dest), arg, opt_dest, def_ext, ext, false);
+			}
 			else
 				SubstDest (dest, sizeof (dest), arg, opt_dest, "\\1P/\\1N.xml", ".xml", false);
 			if (verbose >= 0)
@@ -2401,13 +2540,204 @@ static enumError cmd_convert (bool binary) // cmd_binary() cmd_text()
 					err = ERR_WRITE_FAILED;
 				else
 				{
-					err = DecodeBYML_YAML (F.f, raw.data, raw.data_size);
+					ccp ext = strrchr (dest, '.');
+					if (ext && !strcasecmp (ext, ".xml"))
+						err = DecodeBYML_XML (F.f, raw.data, raw.data_size);
+					else if (ext && !strcasecmp (ext, ".json"))
+						err = DecodeBYML_JSON (F.f, raw.data, raw.data_size);
+					else
+						err = DecodeBYML_YAML (F.f, raw.data, raw.data_size);
 					ResetFile (&F, opt_preserve);
 				}
 			}
 			if (err && max_err < err)
 				max_err = err;
 			continue;
+		}
+
+		if (!ff_dest && (raw.fform == FF_XB || IsXB (raw.data, raw.data_size)))
+		{
+			SubstDest (dest, sizeof (dest), arg, opt_dest, "\\1P/\\1N.xml", ".xml", false);
+			if (verbose >= 0)
+			{
+				fprintf (stdlog, "%sCREATE/TEXT XB:%s => %s\n", verbose > 0 ? "\n" : "", arg, dest);
+				fflush (stdlog);
+			}
+			if (!testmode)
+			{
+				File_t F;
+				err = CreateFileOpt (&F, true, dest, false, arg);
+				if (!F.f)
+					err = ERR_WRITE_FAILED;
+				else
+				{
+					err = DecodeXB (F.f, raw.data, raw.data_size);
+					ResetFile (&F, opt_preserve);
+				}
+			}
+			if (err && max_err < err)
+				max_err = err;
+			continue;
+		}
+
+		if (!ff_dest && (raw.fform == FF_MPMESS || IsMPMESS (raw.data, raw.data_size)))
+		{
+			SubstDest (dest, sizeof (dest), arg, opt_dest, "\\1P/\\1N.txt", ".txt", false);
+			if (verbose >= 0)
+			{
+				fprintf (stdlog, "%sCREATE/TEXT MPMESS:%s => %s\n", verbose > 0 ? "\n" : "", arg, dest);
+				fflush (stdlog);
+			}
+			if (!testmode)
+			{
+				File_t F;
+				err = CreateFileOpt (&F, true, dest, false, arg);
+				if (!F.f)
+					err = ERR_WRITE_FAILED;
+				else
+				{
+					err = DecodeMPMESS_Text (F.f, raw.data, raw.data_size);
+					ResetFile (&F, opt_preserve);
+				}
+			}
+			if (err && max_err < err)
+				max_err = err;
+			continue;
+		}
+
+		if (!ff_dest && (raw.fform == FF_MPBOARD || IsMPBoard (raw.data, raw.data_size)))
+		{
+			ccp out_ext = (opt_dest && strcasestr (opt_dest, ".csv")) ? ".csv" : ".txt";
+			char def_pat[32];
+			snprintf (def_pat, sizeof (def_pat), "\\1P/\\1N%s", out_ext);
+			SubstDest (dest, sizeof (dest), arg, opt_dest, def_pat, out_ext, false);
+			if (verbose >= 0)
+			{
+				fprintf (stdlog, "%sCREATE/TEXT MPBOARD:%s => %s\n", verbose > 0 ? "\n" : "", arg, dest);
+				fflush (stdlog);
+			}
+			if (!testmode)
+			{
+				File_t F;
+				err = CreateFileOpt (&F, true, dest, false, arg);
+				if (!F.f)
+					err = ERR_WRITE_FAILED;
+				else
+				{
+					mp_board_t board;
+					err = ScanMPBoard (&board, raw.data, raw.data_size, 0);
+					if (!err)
+					{
+						if (!strcmp (out_ext, ".csv"))
+							err = DecodeMPBoard_CSV (F.f, &board);
+						else
+							err = DecodeMPBoard_Text (F.f, &board);
+					}
+					ResetMPBoard (&board);
+					ResetFile (&F, opt_preserve);
+				}
+			}
+			if (err && max_err < err)
+				max_err = err;
+			continue;
+		}
+
+		if (!ff_dest && (raw.fform == FF_BGLPBD || IsBGLPBD (raw.data, raw.data_size)))
+		{
+			ccp d_ext = opt_dest ? strrchr (opt_dest, '.') : NULL;
+			if (d_ext && !strcasecmp (d_ext, ".png"))
+			{
+				bglpbd_file_t probe_file;
+				err = ScanBGLPBD (&probe_file, raw.data, raw.data_size);
+				if (!err)
+				{
+					char prefix[PATH_MAX];
+					snprintf (prefix, sizeof (prefix), "%.*s", (int)(d_ext - opt_dest), opt_dest);
+					err = DumpBGLPBD_Images (&probe_file, prefix, opt_overwrite > 0);
+				}
+				ResetBGLPBD (&probe_file);
+			}
+			else
+			{
+				SubstDest (dest, sizeof (dest), arg, opt_dest, "\1P/\1N.yml", ".yml", false);
+				if (verbose >= 0)
+				{
+					fprintf (stdlog, "%sCREATE/TEXT BGLPBD:%s => %s\n", verbose > 0 ? "\n" : "", arg, dest);
+					fflush (stdlog);
+				}
+				if (!testmode)
+				{
+					File_t F;
+					err = CreateFileOpt (&F, true, dest, false, arg);
+					if (!F.f)
+						err = ERR_WRITE_FAILED;
+					else
+					{
+						ccp ext = strrchr (dest, '.');
+						if (ext && !strcasecmp (ext, ".json"))
+							err = DecodeAAMP_JSON (F.f, raw.data, raw.data_size);
+						else
+							err = DecodeAAMP_YAML (F.f, raw.data, raw.data_size);
+						ResetFile (&F, opt_preserve);
+					}
+				}
+			}
+			if (err && max_err < err)
+				max_err = err;
+			continue;
+		}
+
+		if (!ff_dest && raw.data_size >= 12 && !memcmp (raw.data, "AAMP", 4))
+		{
+			SubstDest (dest, sizeof (dest), arg, opt_dest, "\\1P/\\1N.yml", ".yml", false);
+			if (verbose >= 0)
+			{
+				fprintf (
+					stdlog, "%sCREATE/TEXT AAMP:%s => %s\n", verbose > 0 ? "\n" : "", arg, dest);
+				fflush (stdlog);
+			}
+			if (!testmode)
+			{
+				File_t F;
+				err = CreateFileOpt (&F, true, dest, false, arg);
+				if (!F.f)
+					err = ERR_WRITE_FAILED;
+				else
+				{
+					ccp ext = strrchr (dest, '.');
+					if (ext && !strcasecmp (ext, ".json"))
+						err = DecodeAAMP_JSON (F.f, raw.data, raw.data_size);
+					else
+						err = DecodeAAMP_YAML (F.f, raw.data, raw.data_size);
+					ResetFile (&F, opt_preserve);
+				}
+			}
+			if (err && max_err < err)
+				max_err = err;
+			continue;
+		}
+
+		if (binary && !ff_dest && (is_ext (arg, ".yml") || is_ext (arg, ".yaml") || is_ext (arg, ".json")))
+		{
+			char b_dest[PATH_MAX];
+			SubstDest (b_dest, sizeof (b_dest), arg, opt_dest, "\\1P/\\1N.aamp", ".aamp", false);
+			ccp b_ext = strrchr (b_dest, '.');
+			if (b_ext && (!strcasecmp (b_ext, ".aamp") || !strcasecmp (b_ext, ".baamp")
+				|| !strcasecmp (b_ext, ".bparam") || !strcasecmp (b_ext, ".bgenv")
+				|| !strcasecmp (b_ext, ".bglpbd")))
+			{
+				if (verbose >= 0)
+				{
+					fprintf (
+						stdlog, "%sCREATE/BINARY AAMP:%s => %s\n", verbose > 0 ? "\n" : "", arg, b_dest);
+					fflush (stdlog);
+				}
+				if (!testmode)
+					err = encode_aamp_file (arg, b_dest);
+				if (err && max_err < err)
+					max_err = err;
+				continue;
+			}
 		}
 
 		if (!ff_dest)

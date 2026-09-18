@@ -20,8 +20,6 @@ For format specifications, see **[FORMATS.md](FORMATS.md)**. For the recursive u
 | **`wrbnk`** | Wiimms RBNK Tool | Instrument Banks | `dump`, `compile` / `encode` | Wii RBNK instrument bank $\leftrightarrow$ XML |
 | **`wwc24crypt`** | WiiConnect24 Crypto Utility | WC24 Decryption & Signing | `wc24-decrypt`, `wc24-encrypt`, `selftest` | WiiConnect24 AES-128-OFB + RSA-SHA1 content |
 | **`wbmsx`** | QuickBMS Script Runner | Scripted Binary Extraction | `<script.bms> <input> <dest>` | Embedded QuickBMS interpreter for arbitrary formats |
-| **`wmpbdump`** | Mario Party Archive Unpacker | Chunked Archive Extraction | `<input.bin> [output_dir]` | Hudson Soft GameCube/Wii Mario Party chunk archives |
-| **`wmpbpack`** | Mario Party Archive Packer | Chunked Archive Repacking | `<input_dir> <output.bin>` | Hudson Soft GameCube/Wii Mario Party chunk archives |
 | **`wimgt`** | Wiimms Image Tool | Textures & 2D Graphics | `DECODE`, `ENCODE`, `CONVERT` | BNTX, NUTEXB, BFLIM, GTX, BCLIM, CTPK, NCGR/NCLR, NSBTX, DSB, Retro TXTR, Tropical TXTR, AJPG, NUT, XIMG, G1T, etc. |
 | **`wbmgt`** | Wiimms Binary Message Tool | In-Game Text & Message Flow | `DECODE`, `ENCODE`, `LIST`, `CAT` | MSBT (with LBL1 labels), MSBP, MSBF, and extended BMG (FLI/FLW flow sections) |
 
@@ -188,6 +186,7 @@ wszst xx <source> [--dest <dir>] [--auto] [--overwrite] [delegation options]
   - `--with-7z=<path>`: Custom path to `7z` / `7zz`.
   - `--with-nsz=<path>`: Custom path to `nsz` (Nintendo Switch NSZ/XCZ decompressor).
   - `--with-vgmtrans=<path>`: Custom path to `vgmtrans` (BRSAR/SDAT sound archive translator).
+  - `--with-gshcompile=<path>`: Custom path to the Cafe SDK `gshCompile` tool, used when creating a Wii U `.sharcfb` from a SHARC directory whose programs have no precompiled `<program>/out.gsh`.
 
 #### Newly Supported Archive Formats
 `wszst xx` and `wszst EXTRACT` natively recognize and extract:
@@ -221,6 +220,10 @@ Direct stream compression and decompression for Nintendo algorithms:
 # Decompress any recognized stream:
 wszst DECOMPRESS stream.lz11 --dest stream.bin
 wszst DECOMPRESS stream.ash0 --dest stream.bin
+
+# Choose the Yaz0 encoder (default is the built-in one):
+wszst COMPRESS raw.bin --compr=fastyz --dest raw.yaz0   # FastYZ: very fast, larger output
+wszst COMPRESS raw.bin --compr=trueyz --dest raw.yaz0   # TrueYZ: byte-identical to Nintendo's encoder
 
 # Compress raw data:
 wszst COMPRESS raw.bin --dest raw.lz10
@@ -514,20 +517,6 @@ wbmsx <script.bms> <input_file> <output_dir>
 
 #### Environment Variables
 - `WBMSX_QUICKBMS`: Explicit path to an external QuickBMS executable if overriding the bundled native engine.
-
----
-
-### `wmpbdump` & `wmpbpack` (Mario Party Archive Tools)
-
-Dedicated tools for Hudson Soft GameCube/Wii `MPBIN` (`.bin`) chunked archives with LZSS, Slide, RLE, and Inflate compression.
-
-```bash
-# Unpack Mario Party chunked archive:
-wmpbdump <input.bin> [output_dir]
-
-# Repack directory back into Mario Party chunked archive:
-wmpbpack <input_dir> <output.bin>
-```
 
 ---
 

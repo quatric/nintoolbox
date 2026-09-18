@@ -1111,6 +1111,10 @@ static void get_wszst_cmd (char *buf, size_t buf_sz)
 		}
 	}
 
+#ifndef __MINGW32__
+	// /proc/self/exe is Linux-only (and readlink() itself isn't available
+	// on MinGW); ProgramDirectory() above is the portable path and already
+	// covers this same "find our own directory" case there.
 	char self_path[PATH_MAX];
 	ssize_t len = readlink ("/proc/self/exe", self_path, sizeof (self_path) - 1);
 	if (len > 0)
@@ -1128,6 +1132,7 @@ static void get_wszst_cmd (char *buf, size_t buf_sz)
 			}
 		}
 	}
+#endif
 
 	snprintf (buf, buf_sz, "wszst");
 }

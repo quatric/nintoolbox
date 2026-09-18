@@ -42,13 +42,11 @@ enumError EncodeBRFNA_RGBA (
 				{
 					uint px = bx + x;
 					uint py = by + y;
-					u8 r = 0, g = 0, b = 0, a = 0;
+					u8 r = 0, a = 0;
 					if (px < width && py < height)
 					{
 						uint idx = (py * width + px) * 4;
 						r = rgba[idx];
-						g = rgba[idx + 1];
-						b = rgba[idx + 2];
 						a = rgba[idx + 3];
 					}
 					tex_data[out_idx++] = a;
@@ -62,14 +60,12 @@ enumError EncodeBRFNA_RGBA (
 				{
 					uint px = bx + x;
 					uint py = by + y;
-					u8 r = 0, g = 0, b = 0, a = 0;
+					u8 g = 0, b = 0;
 					if (px < width && py < height)
 					{
 						uint idx = (py * width + px) * 4;
-						r = rgba[idx];
 						g = rgba[idx + 1];
 						b = rgba[idx + 2];
-						a = rgba[idx + 3];
 					}
 					tex_data[out_idx++] = g;
 					tex_data[out_idx++] = b;

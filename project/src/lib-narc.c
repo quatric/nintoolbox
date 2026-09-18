@@ -46,7 +46,10 @@ enumError ScanNARC (narc_t *narc, const u8 *data, size_t size)
 		char ch_magic[5] = { 0 };
 		memcpy (ch_magic, data + off, 4);
 		u32 ch_size = is_le ? rd_le32 (data + off + 4) : rd_be32 (data + off + 4);
-		if (ch_size < 8 || off + ch_size > size)
+		// ch_size is an attacker-controlled 32-bit chunk length; off+ch_size
+		// must be widened before the bounds check, since a large ch_size can
+		// otherwise wrap 32-bit 'off' back into range and slip past it.
+		if (ch_size < 8 || (u64)off + ch_size > size)
 			break;
 
 		if (!memcmp (ch_magic, "BTAF", 4) || !memcmp (ch_magic, "FATB", 4))

@@ -666,15 +666,6 @@ static enumError UnpackBrsarContent (
 			file_name[fid] = symb_name (&sr, rd_u32 (entry));
 	}
 
-	// group 0 (the only group PackBRSAR ever produces; a real multi-group
-	// archive would need per-file groupID lookup via the file/position
-	// tables, not attempted here)
-	u32 group_entry_offs = rd_u32 (info + group_tab_offs + 8);
-	const u8 *group = info + group_entry_offs;
-	u32 group_data_offs = rd_u32 (group + 0x10); // absolute, per the writer
-	u32 item_tab_offs = rd_u32 (group + 0x24);
-	u32 item_count = rd_u32 (info + item_tab_offs);
-
 	struct stat st;
 	if (stat (out_dir, &st) != 0)
 		mkdir (out_dir, 0755);

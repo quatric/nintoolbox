@@ -121,7 +121,10 @@ enumError ExtractMTXTArchive (ccp arg, ccp basedir, uint depth)
 					if (block_type == 3 && data_size > 0)
 					{
 						const s64 abs_payload = (s64)bpos + data_offset;
-						if (abs_payload >= 0 && (size_t)abs_payload + data_size <= decomp_size)
+						// data_size is a raw attacker u64; adding it can
+						// itself overflow size_t and wrap below decomp_size.
+						if (abs_payload >= 0 && (size_t)abs_payload <= decomp_size
+							&& data_size <= decomp_size - (size_t)abs_payload)
 						{
 							char out_bin[PATH_MAX];
 							snprintf (

@@ -38,7 +38,9 @@
 #define _GNU_SOURCE 1
 
 #include <sys/types.h>
+#ifndef __MINGW32__
 #include <sys/ioctl.h>
+#endif
 #include <string.h>
 #include <fcntl.h>
 #include <time.h>
@@ -66,6 +68,7 @@
 #include "lib-nsmbw.h"
 #include "lib-koopatlas.h"
 #include "lib-chans.h"
+#include "lib-nitro.h"
 #include "lib-zstd.h"
 #include "lib-lz4.h"
 #include "lib-rkg.h"
@@ -76,6 +79,10 @@
 #include "lib-bzip2.h"
 #include "lib-lzma.h"
 #include "lib-checksum.h"
+#include "lib-effn.h"
+#include "lib-xb.h"
+#include "lib-mpmess.h"
+#include "lib-mpboard.h"
 #include "config.inc"
 
 //
@@ -834,6 +841,42 @@ ccp GetMagicExtFF (file_format_t ff1, file_format_t ff2)
 ///////////////////////////////////////////////////////////////////////////////
 //  [[GetByMagicFF]]
 
+__attribute__((weak)) bool IsNTTF (const u8 *data, uint size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
+
+__attribute__((weak)) bool IsMPBIN (const u8 *data, uint size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
+
+__attribute__((weak)) bool IsATB (const u8 *data, uint size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
+
+__attribute__((weak)) bool IsPTD (const u8 *data, uint size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
+
+__attribute__((weak)) bool IsLZBIN (const u8 *data, uint size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
+
+
 file_format_t GetByMagicFF (const void *data, // pointer to data
 	uint data_size, // size of data
 	uint file_size // NULL or total size of file
@@ -854,6 +897,22 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 				|| data_size == 14336 || data_size == 8192)
 			&& !memcmp (data8 + 8, "DSMIO_S\0", 8))
 			return FF_MIO;
+		if (IsNTTF (data8, file_size))
+			return FF_NTTF;
+		if (IsMPBIN (data8, data_size))
+			return FF_MPBIN;
+		if (IsATB (data8, data_size))
+			return FF_ATB;
+		if (IsPTD (data8, data_size))
+			return FF_PTD;
+		if (IsLZBIN (data8, data_size))
+			return FF_LZBIN;
+		if (IsXB (data8, data_size))
+			return FF_XB;
+		if (IsMPMESS (data8, data_size))
+			return FF_MPMESS;
+		if (IsMPBoard (data8, data_size))
+			return FF_MPBOARD;
 	}
 
 	if (data_size >= 8)
@@ -1266,6 +1325,11 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x48534600: // "HSF\0"
 				return FF_HSF;
 
+			// Mario Party DS Model (HBDF / HSDF)
+			case 0x48424446: // "HBDF"
+			case 0x48534446: // "HSDF"
+				return FF_HBDF;
+
 			// Nd Cube Wii U Model (BNFM)
 			case 0x424e464d: // "BNFM"
 				return FF_BNFM;
@@ -1433,6 +1497,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			// NintendoWare Particle Effect Archive (VFXB)
 			case 0x56465842: // "VFXB"
 				return FF_VFXB;
+
+			// Bandai Namco Effect File (EFFN)
+			case 0x4546464e: // "EFFN"
+				return IsEFFN (data8, data_size) ? FF_EFFN : FF_UNKNOWN;
 
 			// Nintendo EAD Bezel Engine Archive (SCNE)
 			case 0x53434e45: // "SCNE"
@@ -1888,6 +1956,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_GFBANM;
 		case NFMT_BNSTX:
 			return FF_BNSTX;
+		case NFMT_NTTF:
+			return FF_NTTF;
+		case NFMT_SHDVAR:
+			return FF_SHDVAR;
 		case NFMT_BFLIM:
 			return FF_BFLIM;
 		case NFMT_BCLIM:
@@ -4249,8 +4321,8 @@ bool RemoveSubFile (SubDir_t *sd, mem_t path)
 
 FILE *OpenSubFile (const SubDir_t *sd, mem_t path)
 {
-#ifdef __APPLE__
-	ERROR0 (ERR_FATAL, "OpenSubFile() not supported by MAC version.");
+#if defined(__APPLE__) || defined(__MINGW32__)
+	ERROR0 (ERR_FATAL, "OpenSubFile() not supported by this platform (no fmemopen()).");
 	return 0;
 #else
 	SubFile_t *sf = FindSubFile (sd, path);
@@ -4502,7 +4574,7 @@ void AnalyzeSlotAttrib (slot_info_t *si, bool reset_si, mem_t attrib)
 		memset (si, 0, sizeof (*si));
 	si->source = attrib;
 
-	const uint MAX_ATTRIB = 100;
+	enum { MAX_ATTRIB = 100 };
 	mem_t list[MAX_ATTRIB];
 	const uint n_attrib = SplitByCharMem (list, MAX_ATTRIB, attrib, ',');
 
@@ -5140,7 +5212,7 @@ const KeywordTab_t *GetCategoryKeywordTab (mkw_category_list_t *clist)
 
 			if (tcat->attrib && *tcat->attrib)
 			{
-				const uint MAX_ATTRIB = 100;
+				enum { MAX_ATTRIB = 100 };
 				mem_t list[MAX_ATTRIB];
 				const uint n_attrib
 					= SplitByCharMem (list, MAX_ATTRIB, MemByString0 (tcat->attrib), ',');
@@ -5591,7 +5663,7 @@ void AnalyseSPF (split_filename_t *spf, // valid pointer
 	if (!source || !*source || src_end && src_end <= source)
 		return;
 
-	const int max_attrib = 100;
+	enum { max_attrib = 100 };
 	char buf[100];
 
 	//--- store input data

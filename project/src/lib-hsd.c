@@ -1257,7 +1257,6 @@ static bool hsd_decode_display_list (const hsd_t *hsd, const u8 *dl, uint dl_siz
 			break;
 	}
 
-done:
 	*out_tri = tri;
 	*out_n_tri = n_tri;
 	if (!any)
@@ -1449,15 +1448,13 @@ static int hsd_read_mobj (hsd_model_ctx_t *ctx, u32 mobj_off)
 				mat->wrap_s[layer] = (uint8_t)be32 (ctx->hsd->data + t + HSD_TOBJ_WRAP_S_OFF);
 				mat->wrap_t[layer] = (uint8_t)be32 (ctx->hsd->data + t + HSD_TOBJ_WRAP_T_OFF);
 
-				// Read SRT (Scale/Rotate/Translate) texture transforms
-				const float rot_x = bef32 (ctx->hsd->data + t + HSD_TOBJ_ROT_X_OFF);
-				const float rot_y = bef32 (ctx->hsd->data + t + HSD_TOBJ_ROT_X_OFF + 4);
+				// Read SRT (Scale/Rotate/Translate) texture transforms; only Z
+				// rotation matters for 2D texture coords, so X/Y are skipped
 				const float rot_z = bef32 (ctx->hsd->data + t + HSD_TOBJ_ROT_X_OFF + 8);
 				const float sc_u = bef32 (ctx->hsd->data + t + HSD_TOBJ_SCALE_X_OFF);
 				const float sc_v = bef32 (ctx->hsd->data + t + HSD_TOBJ_SCALE_X_OFF + 4);
 				const float tr_u = bef32 (ctx->hsd->data + t + HSD_TOBJ_TRANS_X_OFF);
 				const float tr_v = bef32 (ctx->hsd->data + t + HSD_TOBJ_TRANS_X_OFF + 4);
-				// Only Z rotation matters for 2D texture coords
 				mat->tex_rotate[layer] = rot_z;
 				mat->tex_scale_s[layer] = sc_u;
 				mat->tex_scale_t[layer] = sc_v;
@@ -2181,8 +2178,6 @@ int ExportHSDModel (const hsd_t *hsd, ccp out_glb_file)
 			}
 		}
 
-		const uint path_len = strlen (out_glb_file);
-		const bool is_dae = path_len > 4 && !strcasecmp (out_glb_file + path_len - 4, ".dae");
 		written = (ExportModelToGLB (&model, out_glb_file)) == 0 ? (int)ctx.n_meshes : -1;
 	}
 

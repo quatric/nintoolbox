@@ -179,12 +179,17 @@ bool ResolveHostMem (
 			ccp pptr = ptr + 1;
 			if (pptr < end && *pptr >= '0' && *pptr <= '9')
 			{
-				char *end;
-				const uint port = strtoul (pptr, &end, 10);
-				if (port <= 0xffff && end > pptr)
+				// don't use strtoul() here: 'name' is a mem_t and not
+				// necessarily NUL terminated at 'end' -> bound the scan
+				// manually to avoid reading past the buffer.
+				ccp pend = pptr;
+				uint port = 0;
+				while (pend < end && *pend >= '0' && *pend <= '9' && port <= 0xffff)
+					port = port * 10 + (*pend++ - '0');
+				if (port <= 0xffff)
 				{
 					host->port = port;
-					ptr = end;
+					ptr = pend;
 				}
 			}
 			else

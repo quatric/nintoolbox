@@ -7,11 +7,19 @@
 #include "lib-passthru.h"
 
 #include <assert.h>
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/wait.h>
+#ifdef __MINGW32__
+  // No fork()/wait() on native Windows; run_program()/run_program_capture()
+  // below use _spawnv() (mingw's CreateProcess-based process.h API) instead.
+  #include <process.h>
+  #include <direct.h> // _getcwd(), used by run_program_in_dir() below
+#else
+  #include <sys/wait.h>
+#endif
 #include <unistd.h>
 #include <dirent.h>
 #include <utime.h>
@@ -89,12 +97,21 @@ void StampFileMtime (ccp dest_path, ccp source_path)
 		return;
 	// st_atim/st_mtim are the POSIX.1-2008 names; Darwin spells them
 	// st_atimespec/st_mtimespec
+#ifdef __MINGW32__
+	// No utimensat()/AT_FDCWD on MinGW; utime() only has whole-second
+	// resolution, same tradeoff as dclib-file.c's SetAMTimes().
+	struct utimbuf ut;
+	ut.actime = src_stat.st_atime;
+	ut.modtime = src_stat.st_mtime;
+	utime (dest_path, &ut);
+#else
 #ifdef __APPLE__
 	struct timespec times[2] = { src_stat.st_atimespec, src_stat.st_mtimespec };
 #else
 	struct timespec times[2] = { src_stat.st_atim, src_stat.st_mtim };
 #endif
 	utimensat (AT_FDCWD, dest_path, times, 0);
+#endif
 }
 
 // Turn a possibly relative tool name/path into an absolute one by scanning
@@ -206,6 +223,41 @@ static bool locate_switch_key (ccp name, char *buf, size_t size)
 	return false;
 }
 
+// Locate a Wii U resource file (e.g. keys.txt, wiiu_keys directory) bundled next
+// to the running binary, in project/third_party, or in user directories (~/.cemu, ~/.wiiu).
+static bool locate_wiiu_resource (ccp name, char *buf, size_t size)
+{
+	buf[0] = '\0';
+	ccp dir = ProgramDirectory ();
+	if (dir && *dir)
+	{
+		snprintf (buf, size, "%s/%s", dir, name);
+		if (!access (buf, R_OK))
+			return true;
+		snprintf (buf, size, "%s/third_party/%s", dir, name);
+		if (!access (buf, R_OK))
+			return true;
+		snprintf (buf, size, "%s/../third_party/%s", dir, name);
+		if (!access (buf, R_OK))
+			return true;
+		snprintf (buf, size, "%s/project/third_party/%s", dir, name);
+		if (!access (buf, R_OK))
+			return true;
+	}
+	const char *home = getenv ("HOME");
+	if (home)
+	{
+		snprintf (buf, size, "%s/.cemu/%s", home, name);
+		if (!access (buf, R_OK))
+			return true;
+		snprintf (buf, size, "%s/.wiiu/%s", home, name);
+		if (!access (buf, R_OK))
+			return true;
+	}
+	buf[0] = '\0';
+	return false;
+}
+
 static ccp resolve_mobipeg (void)
 {
 	if (opt_with_mobipeg && *opt_with_mobipeg)
@@ -291,6 +343,18 @@ static ccp resolve_rar (void)
 // Spawn a program with ARGV (NULL-terminated).  ARGV[0] is used as path.
 // STDOUT/STDERR are inherited so the user sees the tool's own messages.
 // Returns the exit code or 127 on exec failure (like a shell).
+#ifdef __MINGW32__
+static int run_program (char *const argv[])
+{
+	// No fork()/exec() on native Windows: _spawnv() runs the child
+	// (via CreateProcess internally) and blocks for its exit code directly,
+	// which is simpler here than a manual CreateProcess() call.
+	const intptr_t rc = SpawnWaitQuoted (argv, false);
+	if (rc == -1)
+		return -errno;
+	return (int)rc;
+}
+#else
 static int run_program (char *const argv[])
 {
 	const pid_t pid = fork ();
@@ -309,6 +373,7 @@ static int run_program (char *const argv[])
 		return WEXITSTATUS (status);
 	return -1;
 }
+#endif
 
 static enumError passthru_media (
 	ccp src, ccp basedir, ccp stage, char *staged_dir, uint staged_dir_size, bool is_audio)
@@ -873,6 +938,39 @@ enumError PassthruReencodeMedia (ccp preview_path, ccp source_path)
 // text lets the caller grep for that message and retry with an alternate
 // key. Falls back to plain run_program() (inherited stdio, no retry
 // possible) if the capture file can't be opened.
+#ifdef __MINGW32__
+static int run_program_capture (char *const argv[], ccp capture_path)
+{
+	// Redirect the child's stdout/stderr into capture_path by temporarily
+	// swapping fds 1/2 around a _spawnv() call (no fork()/dup2()-into-child
+	// on native Windows).
+	const int fd = open (capture_path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+	if (fd < 0)
+		return run_program (argv);
+
+	fflush (stdout);
+	fflush (stderr);
+	const int saved_out = dup (1);
+	const int saved_err = dup (2);
+	dup2 (fd, 1);
+	dup2 (fd, 2);
+	close (fd);
+
+	const intptr_t rc = SpawnWaitQuoted (argv, false);
+	const int err = errno;
+
+	fflush (stdout);
+	fflush (stderr);
+	dup2 (saved_out, 1);
+	dup2 (saved_err, 2);
+	close (saved_out);
+	close (saved_err);
+
+	if (rc == -1)
+		return -err;
+	return (int)rc;
+}
+#else
 static int run_program_capture (char *const argv[], ccp capture_path)
 {
 	const int fd = open (capture_path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
@@ -902,6 +1000,7 @@ static int run_program_capture (char *const argv[], ccp capture_path)
 		return WEXITSTATUS (status);
 	return -1;
 }
+#endif
 
 // True if a run_program_capture() log contains hactool's hash-verification
 // failure message for at least one section.
@@ -1726,12 +1825,12 @@ static enumError passthru_archive (
 	ccp toolname = 0;
 	if (is_disc)
 	{
-		tool = resolve_tool (opt_with_wit, "wit");
+		tool = resolve_bundled_tool (opt_with_wit, "wit");
 		toolname = "wit";
 	}
 	else if (is_ds || is_wad)
 	{
-		tool = resolve_tool (opt_with_wit, "wit");
+		tool = resolve_bundled_tool (opt_with_wit, "wit");
 		use_wit_x = wit_supports_xcontainers (tool);
 		if (use_wit_x)
 			toolname = "wit";
@@ -1789,7 +1888,7 @@ static enumError passthru_archive (
 		// diagnosing a stall/failure on a multi-GB disc image instead of
 		// getting nothing but our own before/after log lines.
 		char *argv[]
-			= { (char *)tool, "EXTRACT", "-D", stage, "--overwrite", "-vv", (char *)src, 0 };
+			= { (char *)tool, "EXTRACT", "-D", (char *)stage, "--overwrite", "-vv", (char *)src, 0 };
 		const int rc = run_program (argv);
 		if (rc != 0)
 			return ERROR0 (
@@ -2248,6 +2347,28 @@ static enumError passthru_archive (
 // has no output-directory flag -- it always mkdir()s a 10-char title-id
 // folder (read from the disc itself) relative to its own cwd -- so this is
 // the only way to control where that folder lands.
+#ifdef __MINGW32__
+static int run_program_in_dir (char *const argv[], ccp workdir)
+{
+	// No fork()/chdir()-in-child on native Windows: temporarily chdir()
+	// the whole (single-threaded, at this point) process, _spawnv(), then
+	// restore -- CreateProcess() has no per-child working directory
+	// override reachable from _spawnv()'s interface.
+	char saved_cwd[PATH_MAX];
+	if (!_getcwd (saved_cwd, sizeof (saved_cwd)))
+		return -1;
+	if (chdir (workdir) != 0)
+		return -1;
+
+	const intptr_t rc = SpawnWaitQuoted (argv, false);
+	const int err = errno;
+	chdir (saved_cwd);
+
+	if (rc == -1)
+		return -err;
+	return (int)rc;
+}
+#else
 static int run_program_in_dir (char *const argv[], ccp workdir)
 {
 	const pid_t pid = fork ();
@@ -2268,6 +2389,7 @@ static int run_program_in_dir (char *const argv[], ccp workdir)
 		return WEXITSTATUS (status);
 	return -1;
 }
+#endif
 
 // Wii U retail disc common key, shared across every title (paired with a
 // per-title key to decrypt that title's partition). Constant is public --
@@ -2470,18 +2592,255 @@ bool wux_compress (ccp src, ccp dst)
 	return ok;
 }
 
-// Locate the sibling <basename>.key file next to SRC (the common Redump
-// Wii U disc-key distribution convention: a raw 16-byte binary title key
-// with the same basename as the .wud/.wux, ".key" extension). Returns
-// false if not found or not exactly 16 bytes.
-static bool find_sibling_title_key (ccp src, char *keypath, uint keypath_size)
+// Probe the 16-byte encrypted TOC header block (at offset 0x18000 of a WUD)
+// against every candidate key in the bundled keys.txt database.
+// When decrypted with AES-128 (zero IV), a valid TOC begins with signature 0xCCA6E67B.
+static bool probe_wiiu_disc_key_by_toc (const u8 enc_toc[16], u8 out_key[16])
 {
-	ccp dot = strrchr (src, '.');
-	ccp end = dot && dot > src ? dot : src + strlen (src);
-	snprintf (keypath, keypath_size, "%.*s.key", (int)(end - src), src);
+	char ktxt[PATH_MAX];
+	if (!locate_wiiu_resource ("keys.txt", ktxt, sizeof (ktxt)))
+		return false;
 
+	FILE *f = fopen (ktxt, "r");
+	if (!f)
+		return false;
+
+	char line[512];
+	while (fgets (line, sizeof (line), f))
+	{
+		char *p = line;
+		while (*p == ' ' || *p == '\t')
+			p++;
+		if (*p == '#' || *p == ';' || !*p)
+			continue;
+
+		char hex[33] = "";
+		int hlen = 0;
+		while (p[hlen] && isxdigit ((unsigned char)p[hlen]) && hlen < 32)
+		{
+			hex[hlen] = p[hlen];
+			hlen++;
+		}
+		if (hlen != 32)
+			continue;
+		hex[32] = '\0';
+
+		u8 cand_key[16];
+		int parsed = 0;
+		for (int i = 0; i < 16; i++)
+		{
+			uint hi, lo;
+			if (sscanf (hex + 2 * i, "%1x", &hi) == 1 && sscanf (hex + 2 * i + 1, "%1x", &lo) == 1)
+			{
+				cand_key[i] = (hi << 4) | lo;
+				parsed++;
+			}
+		}
+		if (parsed != 16)
+			continue;
+
+		aes128_ctx_t ctx;
+		AES128_Init (&ctx, cand_key);
+		u8 block[16];
+		memcpy (block, enc_toc, 16);
+		AES128_DecryptBlock (&ctx, block);
+
+		if (be32 (block) == 0xcca6e67bu)
+		{
+			memcpy (out_key, cand_key, 16);
+			fclose (f);
+			return true;
+		}
+	}
+
+	fclose (f);
+	return false;
+}
+
+// Locate the 16-byte Wii U disc key for SRC (.wud/.wux).
+// Sources checked:
+// 1. WIIU_DISC_KEY environment variable (32 hex characters)
+// 2. Sibling <basename>.key or <source>.key next to SRC (raw 16 bytes or 32 hex chars)
+// 3. Bundled wiiu_keys/<basename>.key
+// 4. Bundled keys.txt matching game title
+// Writes a resolved 16-byte key to STAGE/disc.key if found from bundle/env/keys.txt,
+// or sets OUT_KEYPATH directly to the existing 16-byte .key file.
+// Returns true on success.
+static bool find_wiiu_disc_key (ccp src, ccp stage, char *out_keypath, size_t out_size)
+{
+	out_keypath[0] = '\0';
+
+	// 1. Environment variable
+	ccp env = getenv ("WIIU_DISC_KEY");
+	if (env && strlen (env) >= 32)
+	{
+		u8 bkey[16];
+		int parsed = 0;
+		for (int i = 0; i < 16; i++)
+		{
+			uint hi, lo;
+			if (sscanf (env + 2 * i, "%1x", &hi) == 1 && sscanf (env + 2 * i + 1, "%1x", &lo) == 1)
+			{
+				bkey[i] = (hi << 4) | lo;
+				parsed++;
+			}
+		}
+		if (parsed == 16)
+		{
+			snprintf (out_keypath, out_size, "%s/disc.key", stage);
+			FILE *kf = fopen (out_keypath, "wb");
+			if (kf)
+			{
+				fwrite (bkey, 1, 16, kf);
+				fclose (kf);
+				return true;
+			}
+		}
+	}
+
+	// Extract base filename without path or extension
+	ccp slash = strrchr (src, '/');
+#if defined(_WIN32) || defined(__CYGWIN__)
+	ccp bslash = strrchr (src, '\\');
+	if (bslash && (!slash || bslash > slash))
+		slash = bslash;
+#endif
+	ccp fname = slash ? slash + 1 : src;
+	ccp fdot = strrchr (fname, '.');
+	int blen = fdot && fdot > fname ? (int)(fdot - fname) : (int)strlen (fname);
+	char base[256];
+	snprintf (base, sizeof (base), "%.*s", blen, fname);
+
+	// 2. Sibling <src_dir>/<basename>.key or <src>.key
+	char sib[PATH_MAX];
+	ccp sdot = strrchr (src, '.');
+	ccp send = sdot && sdot > src ? sdot : src + strlen (src);
+	snprintf (sib, sizeof (sib), "%.*s.key", (int)(send - src), src);
 	struct stat st;
-	return !stat (keypath, &st) && S_ISREG (st.st_mode) && st.st_size == 16;
+	if (!stat (sib, &st) && S_ISREG (st.st_mode))
+	{
+		if (st.st_size == 16)
+		{
+			snprintf (out_keypath, out_size, "%s", sib);
+			return true;
+		}
+		if (st.st_size >= 32)
+		{
+			FILE *sf = fopen (sib, "r");
+			if (sf)
+			{
+				char hex[64] = "";
+				if (fscanf (sf, "%32s", hex) == 1 && strlen (hex) == 32)
+				{
+					u8 bkey[16];
+					int p = 0;
+					for (int i = 0; i < 16; i++)
+					{
+						uint hi, lo;
+						if (sscanf (hex + 2 * i, "%1x", &hi) == 1 && sscanf (hex + 2 * i + 1, "%1x", &lo) == 1)
+						{
+							bkey[i] = (hi << 4) | lo;
+							p++;
+						}
+					}
+					if (p == 16)
+					{
+						snprintf (out_keypath, out_size, "%s/disc.key", stage);
+						FILE *kf = fopen (out_keypath, "wb");
+						if (kf)
+						{
+							fwrite (bkey, 1, 16, kf);
+							fclose (kf);
+							fclose (sf);
+							return true;
+						}
+					}
+				}
+				fclose (sf);
+			}
+		}
+	}
+
+	// 3. Bundled wiiu_keys/<basename>.key
+	char wdir[PATH_MAX];
+	if (locate_wiiu_resource ("wiiu_keys", wdir, sizeof (wdir)))
+	{
+		char candidate[PATH_MAX];
+		snprintf (candidate, sizeof (candidate), "%s/%s.key", wdir, base);
+		if (!stat (candidate, &st) && S_ISREG (st.st_mode) && st.st_size == 16)
+		{
+			snprintf (out_keypath, out_size, "%s", candidate);
+			return true;
+		}
+	}
+
+	// 4. Bundled keys.txt matching title comment
+	char ktxt[PATH_MAX];
+	if (locate_wiiu_resource ("keys.txt", ktxt, sizeof (ktxt)))
+	{
+		FILE *f = fopen (ktxt, "r");
+		if (f)
+		{
+			char line[512];
+			while (fgets (line, sizeof (line), f))
+			{
+				char *p = line;
+				while (*p == ' ' || *p == '\t')
+					p++;
+				if (*p == '#' || *p == ';' || !*p)
+					continue;
+				char *hash = strchr (p, '#');
+				if (!hash)
+					continue;
+				char *comment = hash + 1;
+				while (*comment == ' ' || *comment == '\t')
+					comment++;
+				char *endc = comment + strlen (comment);
+				while (endc > comment && (endc[-1] == '\r' || endc[-1] == '\n' || endc[-1] == ' ' || endc[-1] == '\t'))
+					*--endc = '\0';
+
+				if (strcasecmp (comment, base) == 0 || strstr (base, comment) != NULL || strstr (comment, base) != NULL)
+				{
+					char hex[33] = "";
+					int hlen = 0;
+					while (p[hlen] && isxdigit ((unsigned char)p[hlen]) && hlen < 32)
+					{
+						hex[hlen] = p[hlen];
+						hlen++;
+					}
+					if (hlen == 32)
+					{
+						u8 bkey[16];
+						int pcount = 0;
+						for (int i = 0; i < 16; i++)
+						{
+							uint hi, lo;
+							if (sscanf (hex + 2 * i, "%1x", &hi) == 1 && sscanf (hex + 2 * i + 1, "%1x", &lo) == 1)
+							{
+								bkey[i] = (hi << 4) | lo;
+								pcount++;
+							}
+						}
+						if (pcount == 16)
+						{
+							snprintf (out_keypath, out_size, "%s/disc.key", stage);
+							FILE *kf = fopen (out_keypath, "wb");
+							if (kf)
+							{
+								fwrite (bkey, 1, 16, kf);
+								fclose (kf);
+								fclose (f);
+								return true;
+							}
+						}
+					}
+				}
+			}
+			fclose (f);
+		}
+	}
+
+	return false;
 }
 
 // Recursively delete DIR (files + subdirs). Used to drop intermediate
@@ -2566,6 +2925,22 @@ bool is_dir_newer_than (ccp dirpath, time_t target_mtime)
 				continue;
 			if (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".byml.yaml"))
 				continue;
+			if (nlen > 9 && !strcasecmp (de->d_name + nlen - 9, ".aamp.yml"))
+				continue;
+			if (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".aamp.yaml"))
+				continue;
+			if (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".baamp.yml"))
+				continue;
+			if (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".baamp.yaml"))
+				continue;
+			if (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".bparam.yml"))
+				continue;
+			if (nlen > 12 && !strcasecmp (de->d_name + nlen - 12, ".bparam.yaml"))
+				continue;
+			if (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".bgenv.yml"))
+				continue;
+			if (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".bgenv.yaml"))
+				continue;
 			if (nlen > 9 && !strcasecmp (de->d_name + nlen - 9, ".ncer.xml"))
 				continue;
 			if (nlen > 9 && !strcasecmp (de->d_name + nlen - 9, ".nanr.xml"))
@@ -2639,16 +3014,6 @@ static enumError passthru_wiiu_disc (
 			src);
 	}
 
-	char keypath[PATH_MAX];
-	if (!find_sibling_title_key (src, keypath, sizeof (keypath)))
-	{
-		*staged_dir = 0;
-		return ERROR0 (ERR_WARNING,
-			"Wii U disc needs its 16-byte title key next to it (%s); place"
-			" it there (e.g. from a Redump key set) to extract: %s",
-			keypath, src);
-	}
-
 	// is_pure_dir=true: unlike the other passthru_archive() branches, no
 	// external tool creates STAGE itself here -- wud2app needs it to exist
 	// as its cwd before it ever runs, since it has no output-dir flag.
@@ -2664,10 +3029,14 @@ static enumError passthru_wiiu_disc (
 		return ERR_OK;
 	}
 
-	char abs_stage[PATH_MAX], abs_key[PATH_MAX], abs_common[PATH_MAX], abs_wud[PATH_MAX];
-	if (!realpath (stage, abs_stage) || !realpath (keypath, abs_key))
-		return ERROR0 (ERR_ERROR, "Cannot resolve pass-through paths for %s", src);
+	char abs_stage[PATH_MAX];
+	if (!realpath (stage, abs_stage))
+		return ERROR0 (ERR_ERROR, "Cannot resolve pass-through stage for %s", src);
 
+	char keypath[PATH_MAX] = "";
+	bool has_key = find_wiiu_disc_key (src, abs_stage, keypath, sizeof (keypath));
+
+	char abs_common[PATH_MAX], abs_wud[PATH_MAX];
 	snprintf (abs_common, sizeof (abs_common), "%s/common.key", abs_stage);
 	FILE *ck = fopen (abs_common, "wb");
 	if (!ck || fwrite (WiiUDiscCommonKey, 1, 16, ck) != 16)
@@ -2695,6 +3064,55 @@ static enumError passthru_wiiu_disc (
 		return ERROR0 (ERR_ERROR, "Cannot resolve %s", src);
 	}
 
+	// If key was not found by filename, probe the TOC at offset 0x18000 of the WUD
+	if (!has_key)
+	{
+		FILE *wf = fopen (abs_wud, "rb");
+		if (wf)
+		{
+			if (fseeko (wf, 0x18000, SEEK_SET) == 0)
+			{
+				u8 enc_toc[16];
+				if (fread (enc_toc, 1, 16, wf) == 16)
+				{
+					u8 matched_key[16];
+					if (probe_wiiu_disc_key_by_toc (enc_toc, matched_key))
+					{
+						snprintf (keypath, sizeof (keypath), "%s/disc.key", abs_stage);
+						FILE *kf = fopen (keypath, "wb");
+						if (kf)
+						{
+							fwrite (matched_key, 1, 16, kf);
+							fclose (kf);
+							has_key = true;
+						}
+					}
+				}
+			}
+			fclose (wf);
+		}
+	}
+
+	if (!has_key)
+	{
+		unlink (abs_common);
+		if (*temp_wud)
+			unlink (temp_wud);
+		*staged_dir = 0;
+		return ERROR0 (ERR_WARNING,
+			"Wii U disc needs its 16-byte title key next to it or in bundled wiiu_keys: %s",
+			src);
+	}
+
+	char abs_key[PATH_MAX];
+	if (!realpath (keypath, abs_key))
+	{
+		unlink (abs_common);
+		if (*temp_wud)
+			unlink (temp_wud);
+		return ERROR0 (ERR_ERROR, "Cannot resolve pass-through key path %s for %s", keypath, src);
+	}
+
 	// snapshot stage's entries so the new title-id folder wud2app creates
 	// (name comes from the disc itself, not something we choose) can be
 	// told apart from common.key/the temp .wud/anything already there.
@@ -2713,6 +3131,8 @@ static enumError passthru_wiiu_disc (
 	const int rc = run_program_in_dir (argv, abs_stage);
 
 	unlink (abs_common);
+	if (strstr (keypath, "disc.key"))
+		unlink (keypath);
 	if (*temp_wud)
 		unlink (temp_wud);
 
@@ -3160,7 +3580,7 @@ enumError PassthruPack (ccp src_dir, ccp dest)
 	// 1. Wii / GameCube disc images (.wbfs, .iso, .ciso, .wdf, .wia, .gcz, .gcm, .gca, .raw, .img)
 	if (is_disc_ext (dest))
 	{
-		ccp tool = resolve_tool (opt_with_wit, "wit");
+		ccp tool = resolve_bundled_tool (opt_with_wit, "wit");
 		if (!tool || !*tool)
 			return make_stage_dir (dest, true);
 
@@ -3196,7 +3616,7 @@ enumError PassthruPack (ccp src_dir, ccp dest)
 	// 2. Nintendo DS ROM (.nds, .srl, .dsi)
 	if (is_ds_ext (dest))
 	{
-		ccp tool = resolve_tool (opt_with_wit, "wit");
+		ccp tool = resolve_bundled_tool (opt_with_wit, "wit");
 		bool use_ndstool = !wit_supports_xcontainers (tool);
 		if (use_ndstool)
 			tool = resolve_tool (opt_with_ndstool, "ndstool");
@@ -3305,7 +3725,7 @@ enumError PassthruPack (ccp src_dir, ccp dest)
 		// above), so a WAD round-trip no longer needs sharpii installed at
 		// all. Fall back to sharpii's "WAD -p" when wit is unavailable or
 		// lacks the fork-only X commands; it reads the same staged contents.
-		ccp tool = resolve_tool (opt_with_wit, "wit");
+		ccp tool = resolve_bundled_tool (opt_with_wit, "wit");
 		bool use_sharpii = !wit_supports_xcontainers (tool);
 		ccp tool_name = use_sharpii ? "sharpii" : "wit";
 		if (use_sharpii)

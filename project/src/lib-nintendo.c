@@ -60,6 +60,19 @@ __attribute__ ((weak)) bool IsG1TGZ (const u8 *data, uint size)
 	(void)size;
 	return false;
 }
+__attribute__ ((weak)) bool IsNTTF (const u8 *data, uint size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
+__attribute__ ((weak)) bool IsSHDVAR (const u8 *data, uint size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
+
 __attribute__ ((weak)) enumError DecodeQuickLZ (
 	u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 {
@@ -492,7 +505,7 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		{
 			const bool be = (d[0] == 'B' && d[1] == 'Y');
 			const u16 ver = be ? rd_be16 (d + 2) : rd_le16 (d + 2);
-			if (ver >= 1 && ver <= 4)
+			if (ver >= 1 && ver <= 7)
 				return make_info (NFMT_BYML, be, false, 0);
 		}
 
@@ -531,6 +544,12 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		if (size >= 0x70 && !memcmp (d + size - 7, "XET", 3))
 			return make_info (NFMT_NUTEXB, false, false, 0);
 
+		if (IsNTTF (d, size))
+			return make_info (NFMT_NTTF, false, false, 0);
+
+		if (IsSHDVAR (d, size))
+			return make_info (NFMT_SHDVAR, false, false, 0);
+
 		// QuickLZ is checked before the single-byte heuristics: its test is
 		// exact (the header's own recorded compressed length must equal the
 		// buffer) whereas the tests below are one-byte guesses.
@@ -547,11 +566,17 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		if (d[0] == 0x19 && size >= 4 && CxIsCompressedLZX (d, size))
 			return make_info (NFMT_LZX, false, true, (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);
 		if (d[0] == 0x80 && size >= 4)
-			return make_info (
-				NFMT_DIFF8, false, true, (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);
+		{
+			const u32 usize = (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16;
+			if (usize && (size <= 4 || size >= 4 + usize))
+				return make_info (NFMT_DIFF8, false, true, usize);
+		}
 		if (d[0] == 0x81 && size >= 4)
-			return make_info (
-				NFMT_DIFF16, false, true, (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);
+		{
+			const u32 usize = (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16;
+			if (usize && (size <= 4 || size >= 4 + ((usize + 1) & ~1u)))
+				return make_info (NFMT_DIFF16, false, true, usize);
+		}
 		if ((d[0] == 0x10 || d[0] == 0x11) && size >= 4)
 		{
 			u32 usize = (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16;

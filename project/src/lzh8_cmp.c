@@ -1116,6 +1116,8 @@ int LZH8_Huff_flatten_tree (
 #if EXPLAIN_TABLE
 			printf (
 				" found fitting subtree, %d, size %d\n", fitting_subtree_idx, fitting_subtree_size);
+#else
+			(void)fitting_subtree_size;
 #endif
 
 			/* POLICY: breadth first traversal, left child first */

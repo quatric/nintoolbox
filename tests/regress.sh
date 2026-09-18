@@ -119,6 +119,47 @@ else
     "$(tail -1 /tmp/_r_gtx_encode_build.log 2>/dev/null)"
 fi
 
+if ${CC:-cc} -O2 -ffunction-sections -fdata-sections -Isrc -Idclib \
+    ../tests/test-bntx-formats.c ./lib-bntx.o src/astc/astc_wrapper.o src/astc/astc_decomp.o \
+    src/bcn-decoder/bcn_wrapper.o src/bcn-decoder/bcn.o -lc++ -Wl,--gc-sections \
+    -o /tmp/_r_bntx_formats >/tmp/_r_bntx_formats_build.log 2>&1 \
+    || ${CC:-cc} -O2 -ffunction-sections -fdata-sections -Isrc -Idclib \
+    ../tests/test-bntx-formats.c ./lib-bntx.o src/astc/astc_wrapper.o src/astc/astc_decomp.o \
+    src/bcn-decoder/bcn_wrapper.o src/bcn-decoder/bcn.o -lc++ -Wl,-dead_strip \
+    -o /tmp/_r_bntx_formats >>/tmp/_r_bntx_formats_build.log 2>&1; then
+  if /tmp/_r_bntx_formats; then
+    ok "BNTX format matrix: formats, platforms, UserData and container parsing"
+  else
+    no "BNTX format matrix" "runtime check failed"
+  fi
+else
+  no "BNTX format matrix" \
+    "$(tail -1 /tmp/_r_bntx_formats_build.log 2>/dev/null)"
+fi
+
+# AGL Light Probe (BGLPBD) matrix test
+if ${CC:-cc} -O2 -ffunction-sections -fdata-sections -Isrc -Idclib -Isrc/libyaml     ../tests/test-bglpbd.c ./lib-bglpbd.o ./lib-aamp.o src/libyaml/*.c     dclib*.o -lz -lcurses -Wl,--gc-sections     -o /tmp/_r_bglpbd >/tmp/_r_bglpbd_build.log 2>&1     || ${CC:-cc} -O2 -ffunction-sections -fdata-sections -Isrc -Idclib -Isrc/libyaml     ../tests/test-bglpbd.c ./lib-bglpbd.o ./lib-aamp.o src/libyaml/*.c     dclib*.o -lz -lcurses -Wl,-dead_strip     -o /tmp/_r_bglpbd >>/tmp/_r_bglpbd_build.log 2>&1; then
+  if /tmp/_r_bglpbd; then
+    ok "BGLPBD (AGL light probes): SH math, Unity import, bounds generation, and AAMP roundtrip"
+  else
+    no "BGLPBD (AGL light probes)" "runtime check failed"
+  fi
+else
+  no "BGLPBD (AGL light probes)"     "$(tail -1 /tmp/_r_bglpbd_build.log 2>/dev/null)"
+fi
+
+# Wii U retail disc key database and TOC probe test
+if ${CC:-cc} -O2 -Isrc -Idclib ../tests/test-wiiu-keys.c ./lib-aes.o \
+    -o /tmp/_r_wiiu_keys >/tmp/_r_wiiu_keys_build.log 2>&1; then
+  if /tmp/_r_wiiu_keys "$PWD_PROJECT/third_party" >/tmp/_r_wiiu_keys_run.log 2>&1; then
+    ok "Wii U bundled keys (keys.txt, wiiu_keys/) and TOC decryption probe"
+  else
+    no "Wii U bundled keys and TOC decryption probe" "$(tail -1 /tmp/_r_wiiu_keys_run.log 2>/dev/null)"
+  fi
+else
+  no "Wii U bundled keys and TOC decryption probe" "$(tail -1 /tmp/_r_wiiu_keys_build.log 2>/dev/null)"
+fi
+
 # Arika INFO.DAT/GAME.DAT archives + ALZ1 compression (Dr. Mario Online Rx,
 # Dr. Mario Express, the original DS Endless Ocean, and -- via the shared
 # RF2 sub-container path -- Endless Ocean: Blue World). No retail sample was
@@ -2381,6 +2422,17 @@ t_container_roundtrips(){
     && "$B/wimgt" DECODE "$d/test.bntx" --dest "$d/bntx_out.png" --overwrite >/dev/null 2>&1 \
     && [ -f "$d/bntx_out.png" ]; then
       ok "BNTX encode -> decode roundtrip"
+      if "$B/wszst" DUMP "$d/test.bntx" 2>&1 | grep -q "BNTX Container: platform 'NX  '"; then
+        ok "wszst DUMP BNTX structural inspection"
+      else
+        no "wszst DUMP BNTX" "failed structure dump"
+      fi
+      if "$B/wszst" EXTRACT "$d/test.bntx" --dest "$d/bntx_extracted/" --overwrite >/dev/null 2>&1 \
+      && [ -s "$d/bntx_extracted/test.png" ]; then
+        ok "wszst EXTRACT BNTX -> PNG"
+      else
+        no "wszst EXTRACT BNTX" "extraction failed"
+      fi
     else
       no "BNTX encode -> decode" "mismatch"
     fi
@@ -3382,31 +3434,30 @@ open('$d/huff4.bin', 'wb').write(bytes([0x24, 4, 0, 0, 1, 0xC0, 0x00, 1, 2]) + s
 }
 t_huffman
 
-echo "== Mario Party BIN (wmpbpack/wmpbdump, Hudson mpbin-tools port) =="
+echo "== Mario Party BIN (wszst native MPBIN CREATE/xx) =="
 # The synthetic round-trip still catches encoder/decoder symmetry. A curated
 # mariomdl0.bin from retail GMPE01 (Mario Party 4 USA Rev 1) separately proves
 # the real Hudson fast-slide path and yields two duplicate HSFV037 models.
-# Both tools used to call
-# getchar() on every error/warning path (ported straight from the original
-# Windows console EXEs), which silently hangs forever under any script or
-# CI runner with no output at all -- removed.
+# MPBIN pack/unpack used to go through standalone wmpbpack/wmpbdump ports of
+# the original Hudson tools; wszst's own MPBIN support (lib-mpbin.c) already
+# covers both directions (CREATE from a "*.bin.d" dir with an optional
+# mpbin-setup.txt, "xx" for raw member extraction), so the round-trip now
+# exercises wszst exclusively instead of shipping a second implementation.
 t_mpb(){
   local d; d=$(mktemp -d)
   printf 'AAAAAAAAAABBBBBBBBBBCCCCCCCCCC %.0s' {1..50} > "$d/in.dat"
   printf 'The quick brown fox. %.0s' {1..30} >> "$d/in.dat"
   local all_ok=1
   for ct in 0 1 2 5 7; do  # none, LZSS, YAZ0-like slide, RLE, inflate
-    # wmpbdump's own success path returns 1, not 0 (ported as-is from the
-    # original source) -- gate on the round-tripped bytes, not exit codes.
-    ( cd "$d" && echo "compress_type=$ct: in.dat" > list.txt
-      timeout 10 "$PWD_PROJECT/wmpbpack" list.txt "out$ct.bin" >/dev/null 2>&1
-      timeout 10 "$PWD_PROJECT/wmpbdump" "out$ct.bin" >/dev/null 2>&1
-      cmp -s "out${ct}_file0.dat" in.dat ) || all_ok=0
-    ( cd "$d" && timeout 10 "$PWD_PROJECT/bin/wszst" xx "out$ct.bin" --dest "out${ct}_xx.d" --overwrite >/dev/null 2>&1
+    ( cd "$d" && mkdir -p "pack$ct"
+      cp in.dat "pack$ct/file000.dat"
+      printf 'file0\tcompress_type=%d\n' "$ct" > "pack$ct/mpbin-setup.txt"
+      timeout 10 "$PWD_PROJECT/bin/wszst" CREATE "pack$ct" --dest "out$ct.bin" --overwrite >/dev/null 2>&1
+      timeout 10 "$PWD_PROJECT/bin/wszst" xx "out$ct.bin" --dest "out${ct}_xx.d" --overwrite >/dev/null 2>&1
       cmp -s "out${ct}_xx.d/file000.dat" in.dat ) || all_ok=0
   done
   rm -rf "$d"
-  [ "$all_ok" = 1 ] && ok "Mario Party BIN round-trip (compress_type 0/1/2/5/7, synthetic + wszst xx)" \
+  [ "$all_ok" = 1 ] && ok "Mario Party BIN round-trip (compress_type 0/1/2/5/7, wszst CREATE + xx)" \
     || no "Mario Party BIN round-trip" "one or more compress_type mismatched"
 }
 t_mpb
@@ -3458,9 +3509,9 @@ t_mpb_retail(){
   local d
   d=$(mktemp -d /tmp/_r_mp4_retail.XXXXXX) || { no "Mario Party 4 retail BIN" "mktemp failed"; return; }
   cp "$src" "$d/model.bin"
-  ( cd "$d" && timeout 15 "$PWD_PROJECT/wmpbdump" model.bin >run.log 2>&1 )
+  "$B/wszst" xx "$d/model.bin" --dest "$d/raw" --overwrite >"$d/xx.log" 2>&1
   "$B/wszst" EXTRACT "$d/model.bin" --dest "$d/decoded" --overwrite >"$d/wszst.log" 2>&1
-  local a="$d/model_file0.hsf" b="$d/model_file1.hsf"
+  local a="$d/raw/file000.dat" b="$d/raw/file001.dat"
   local glb="$d/decoded/file000.glb"
   local motion="$glb.motion.json"
   local textured=0
@@ -3478,7 +3529,7 @@ PY
   if [ -s "$a" ] && [ -s "$b" ] \
       && [ "$(head -c 7 "$a")" = HSFV037 ] \
       && cmp -s "$a" "$b" \
-      && ! grep -q 'Failed\|Unknown Compression' "$d/run.log" \
+      && ! grep -qi 'Failed\|Unknown Compression' "$d/xx.log" "$d/wszst.log" \
       && [ "$textured" = 1 ] && [ "$(find "$d/decoded" -name '*.png' | wc -l)" -ge 5 ] \
       && python3 -c 'import json,sys;j=json.load(open(sys.argv[1]));assert len(j["motions"][0]["tracks"])==1082' "$motion"; then
     ok "Mario Party 4 retail BIN -> 2 textured, hierarchical, skinned HSF models"
@@ -5558,6 +5609,90 @@ JSON
   ok "Switch BFRES inject multimesh (multi-mesh round-trip preserves vertex counts and vertex edits)"
 }
 t_switch_bfres_inject_multimesh
+
+# -- BFRES facets / submeshes test --
+# Verifies Switch and Wii U BFRES files with multiple facets/submeshes
+# correctly decode into separate submeshes with sliced indices.
+t_bfres_facets(){
+  local sw_fixture="$PWD_PROJECT/../tests/fixtures/synthetic_switch.bfres"
+  local wiiu_fixture="$PWD_PROJECT/../tests/fixtures/bfres_wiiu_splatoon_clt.bfres"
+  [ -f "$sw_fixture" ] && [ -f "$wiiu_fixture" ] || { sk "BFRES facets / submeshes (no fixtures)"; return; }
+
+  local d=/tmp/_r_bfres_facets; rm -rf "$d"; mkdir -p "$d"
+
+  python3 -c "
+import struct, subprocess, json
+
+# 1. Switch BFRES multi-facet test
+with open('$sw_fixture', 'rb') as f:
+    d = bytearray(f.read())
+v = struct.unpack('<I', d[8:12])[0]
+vmajor = (v >> 16) & 0xFFFF
+fmdl_arr = struct.unpack('<q', d[0x28:0x30])[0]
+fhdr = 4 if vmajor >= 9 else 12
+shapes_val = struct.unpack('<q', d[fmdl_arr + 4 + fhdr + 32:fmdl_arr + 4 + fhdr + 40])[0]
+shdr = 4 if vmajor >= 9 else 12
+sname_off = shapes_val + 4 + shdr
+mesh_arr = struct.unpack('<q', d[sname_off+16:sname_off+24])[0]
+
+submesh_arr_offset = len(d)
+d += struct.pack('<IIII', 0, 24, 48, 24)
+struct.pack_into('<q', d, mesh_arr, submesh_arr_offset)
+struct.pack_into('<H', d, mesh_arr + 52, 2)
+
+sw_out = '$d/sw_multi.bfres'
+with open(sw_out, 'wb') as f:
+    f.write(d)
+
+res = subprocess.run(['$B/wmdlt', 'ENCODE', sw_out, '-d', '$d/sw_multi.glb', '--overwrite'], capture_output=True, text=True)
+assert res.returncode == 0, f'Switch multi-facet encode failed: {res.stderr}'
+
+with open('$d/sw_multi.glb', 'rb') as f:
+    glbd = f.read()
+chunk_len = struct.unpack('<I', glbd[12:16])[0]
+js = json.loads(glbd[20:20+chunk_len].decode('utf-8'))
+mesh_names = [m.get('name') for m in js.get('meshes', [])]
+assert len(mesh_names) == 2, f'Expected 2 Switch submeshes, got {len(mesh_names)}'
+assert 'collision_sub0' in mesh_names, 'collision_sub0 not found'
+assert 'collision_sub1' in mesh_names, 'collision_sub1 not found'
+
+# 2. Wii U BFRES multi-facet test
+with open('$wiiu_fixture', 'rb') as f:
+    d = bytearray(f.read())
+def rel(off): return off + struct.unpack('>i', d[off:off+4])[0]
+grp = rel(0x20)
+m = rel(grp + 8 + 16 + 12)
+fshp_grp = rel(m + 0x14)
+sh = rel(fshp_grp + 8 + 16 + 12)
+lod = rel(sh + 0x24)
+
+submesh_arr_offset = len(d)
+d += struct.pack('>IIII', 0, 966, 1932, 966)
+struct.pack_into('>H', d, lod + 0x0C, 2)
+struct.pack_into('>i', d, lod + 0x10, submesh_arr_offset - (lod + 0x10))
+
+wiiu_out = '$d/wiiu_multi.bfres'
+with open(wiiu_out, 'wb') as f:
+    f.write(d)
+
+res = subprocess.run(['$B/wmdlt', 'ENCODE', wiiu_out, '-d', '$d/wiiu_multi.glb', '--overwrite'], capture_output=True, text=True)
+assert res.returncode == 0, f'Wii U multi-facet encode failed: {res.stderr}'
+
+with open('$d/wiiu_multi.glb', 'rb') as f:
+    glbd = f.read()
+chunk_len = struct.unpack('<I', glbd[12:16])[0]
+js = json.loads(glbd[20:20+chunk_len].decode('utf-8'))
+mesh_names = [m.get('name') for m in js.get('meshes', [])]
+assert len(mesh_names) == 2, f'Expected 2 Wii U submeshes, got {len(mesh_names)}'
+assert any('_sub0' in n for n in mesh_names), 'Wii U _sub0 not found'
+assert any('_sub1' in n for n in mesh_names), 'Wii U _sub1 not found'
+" >/dev/null 2>&1 \
+    && ok "BFRES facets / submeshes (Switch + Wii U multi-submesh extraction to GLB)" \
+    || no "BFRES facets / submeshes" "facet extraction failed"
+
+  rm -rf "$d"
+}
+t_bfres_facets
 
 echo "== canonical byte-for-byte encoder determinism =="
 t_byte_exact_encoders(){

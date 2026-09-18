@@ -19,13 +19,16 @@ if os.path.isdir('extra_tools/share'):
     datas.append(('extra_tools/share', 'share'))
 
 # Bundled data files resolved next to the running tool by lib-passthru.c
-# (seeddb.bin for ctrtool, prod.keys/title.keys for the Switch tools -- see
-# resolve_bundled_tool()/locate_switch_key()): flat via --contents-directory .
-# so the lookup that checks ProgramDirectory() first finds them.
-for name in ('seeddb.bin', 'prod.keys', 'title.keys'):
+# (seeddb.bin for ctrtool, prod.keys/title.keys for the Switch tools, keys.txt/wiiu_keys
+# for Wii U disc extraction -- see resolve_bundled_tool()/locate_switch_key()/locate_wiiu_resource()):
+# flat via --contents-directory . so the lookup that checks ProgramDirectory() first finds them.
+for name in ('seeddb.bin', 'prod.keys', 'title.keys', 'keys.txt'):
     path = os.path.join('project', 'third_party', name)
     if os.path.isfile(path):
         datas.append((path, '.'))
+wkeys = os.path.join('project', 'third_party', 'wiiu_keys')
+if os.path.isdir(wkeys):
+    datas.append((wkeys, 'wiiu_keys'))
 
 a = Analysis(
     ['nintoolbox.py'],

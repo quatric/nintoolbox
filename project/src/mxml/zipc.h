@@ -42,9 +42,12 @@
  * Types...
  */
 
-#  ifdef WIN32
+#  if defined(WIN32) && !defined(__MINGW32__)
 typedef long ssize_t;
 #  endif /* WIN32 */
+/* mingw-w64's own <corecrt.h> (pulled in above via <stdlib.h>) already
+   typedefs ssize_t (as a 64-bit __int64), so the WIN32 case above -- meant
+   for plain MSVC, which has no ssize_t at all -- would conflict with it. */
 
 typedef struct _zipc_s zipc_t;		/* ZIP container */
 typedef struct _zipc_file_s zipc_file_t;/* File/directory in ZIP container */

@@ -134,7 +134,18 @@ void ResetBNTX (bntx_t *bntx)
 {
 	if (!bntx)
 		return;
-	FREE (bntx->textures);
+	if (bntx->textures)
+	{
+		for (uint i = 0; i < bntx->n_textures; i++)
+		{
+			FREE (bntx->textures[i].mip_offsets);
+			if (bntx->textures[i].user_data)
+				FREE (bntx->textures[i].user_data);
+		}
+		FREE (bntx->textures);
+	}
+	FREE (bntx->reloc_table.sections);
+	FREE (bntx->reloc_table.entries);
 	memset (bntx, 0, sizeof (*bntx));
 }
 
@@ -149,17 +160,18 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 		return EINVAL; // big-endian BNTX does not occur in practice
 	const uint first_blk = brd16 (data + 22);
 
-	// The texture container ("NX  " target) follows the 32-byte header.
+	// The texture container ("NX  ", "Ounc", "PC  ") follows the 32-byte binary header.
 	const uint tc = 0x20;
 	if (tc + 0x30 > size)
 		return EINVAL;
+	(void)first_blk;
 	const uint count = brd32 (data + tc + 4);
 	const u64 info_ptrs_addr = brd64 (data + tc + 8);
 	if (!count || count > 0x10000)
 		return EINVAL;
-	if (info_ptrs_addr + (u64)count * 8 > size)
+	// Bound the base address before range arithmetic to avoid overflow near UINT64_MAX.
+	if (info_ptrs_addr >= size || (u64)count * 8 > size - info_ptrs_addr)
 		return EINVAL;
-	(void)first_blk;
 
 	bntx_texture_t *tex = CALLOC (count, sizeof (*tex));
 	if (!tex)
@@ -169,7 +181,7 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 	for (uint i = 0; i < count; i++)
 	{
 		const u64 blk = brd64 (data + info_ptrs_addr + i * 8);
-		if (blk + 16 + TI_SIZE > size)
+		if (blk >= size || 16 + TI_SIZE > size - blk)
 			continue;
 		if (memcmp (data + blk, "BRTI", 4))
 			continue;
@@ -182,24 +194,31 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 		const u64 name_addr = brd64 (ti + TI_NAME_ADDR);
 		ccp name = "texture";
 		// Names are length-prefixed (u16) strings in the string table.
-		if (name_addr && name_addr + 2 < size)
+		if (name_addr && name_addr < size && size - name_addr > 2)
 		{
 			const uint len = brd16 (data + name_addr);
-			if (name_addr + 2 + len < size && !data[name_addr + 2 + len])
+			if (len < size - name_addr - 2 && !data[name_addr + 2 + len])
 				name = (ccp)(data + name_addr + 2);
 		}
 
 		const u64 ptrs_addr = brd64 (ti + TI_PTRS_ADDR);
-		if (ptrs_addr + 8 > size)
+		if (ptrs_addr >= size || 8 > size - ptrs_addr)
 			continue;
 		const u64 data_addr = brd64 (data + ptrs_addr);
 		const uint image_size = brd32 (ti + TI_IMAGE_SIZE);
-		if (!image_size || data_addr + image_size > size)
+		if (!image_size || data_addr >= size || image_size > size - data_addr)
 			continue;
 
 		tex[n].name = name;
 		tex[n].width = w;
 		tex[n].height = h;
+		tex[n].dim = ti[1];
+		tex[n].depth = brd32 (ti + 0x1c);
+		if (!tex[n].depth)
+			tex[n].depth = 1;
+		tex[n].array_count = brd32 (ti + 0x20);
+		if (!tex[n].array_count)
+			tex[n].array_count = 1;
 		tex[n].format = brd32 (ti + TI_FORMAT);
 		tex[n].comp_sel = brd32 (ti + TI_COMP_SEL);
 		tex[n].tile_mode = brd16 (ti + TI_TILE_MODE);
@@ -207,6 +226,72 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 		tex[n].n_mips = brd16 (ti + TI_NUM_MIPS);
 		tex[n].data = data + data_addr;
 		tex[n].data_size = image_size;
+
+		// Read mip offsets if available
+		if (tex[n].n_mips > 1 && ptrs_addr < size && (u64)tex[n].n_mips * 8 <= size - ptrs_addr)
+		{
+			tex[n].mip_offsets = CALLOC (tex[n].n_mips, sizeof (u64));
+			if (tex[n].mip_offsets)
+			{
+				for (uint m = 0; m < tex[n].n_mips; m++)
+				{
+					const u64 m_addr = brd64 (data + ptrs_addr + m * 8);
+					if (m_addr >= data_addr && m_addr <= size)
+						tex[n].mip_offsets[m] = m_addr - data_addr;
+				}
+			}
+		}
+
+		// Read UserData if present (dictionary at 0x88, array at 0x68)
+		const u64 ud_dict_addr = brd64 (ti + 0x88);
+		const u64 ud_addr = brd64 (ti + 0x68);
+		if (ud_dict_addr && ud_dict_addr + 8 <= size && ud_addr && ud_addr < size
+			&& !memcmp (data + ud_dict_addr, "_DIC", 4))
+		{
+			const uint ud_count = brd32 (data + ud_dict_addr + 4);
+			if (ud_count > 0 && ud_count <= 256
+				&& ud_dict_addr + 8 + (u64)(ud_count + 1) * 16 <= size
+				&& ud_addr + (u64)ud_count * 0x40 <= size)
+			{
+				bntx_user_data_t *uds = CALLOC (ud_count, sizeof (*uds));
+				if (uds)
+				{
+					for (uint u = 0; u < ud_count; u++)
+					{
+						const u8 *udh = data + ud_addr + u * 0x40;
+						const u64 u_name_addr = brd64 (udh + 0x00);
+						const u64 u_data_addr = brd64 (udh + 0x08);
+						const uint u_cnt = brd32 (udh + 0x10);
+						const uint u_type = udh[0x14];
+
+						ccp u_name = "";
+						if (u_name_addr && u_name_addr + 2 <= size)
+						{
+							const uint ulen = brd16 (data + u_name_addr);
+							if (ulen < size - u_name_addr - 2 && !data[u_name_addr + 2 + ulen])
+								u_name = (ccp)(data + u_name_addr + 2);
+						}
+						uds[u].name = u_name;
+						uds[u].type = (bntx_user_data_type_t)u_type;
+						uds[u].count = u_cnt;
+						if (u_data_addr && u_data_addr < size)
+						{
+							if (u_type == BNTX_UD_INT32 && u_data_addr + (u64)u_cnt * 4 <= size)
+								uds[u].val.i32 = (const s32 *)(data + u_data_addr);
+							else if (u_type == BNTX_UD_SINGLE && u_data_addr + (u64)u_cnt * 4 <= size)
+								uds[u].val.f32 = (const float *)(data + u_data_addr);
+							else if (u_type == BNTX_UD_BYTE && u_data_addr + u_cnt <= size)
+								uds[u].val.bytes = data + u_data_addr;
+							else if (u_type == BNTX_UD_WSTRING && u_data_addr + (u64)u_cnt * 2 <= size)
+								uds[u].val.wstr = (const u16 *)(data + u_data_addr);
+						}
+					}
+					tex[n].n_user_data = ud_count;
+					tex[n].user_data = uds;
+				}
+			}
+		}
+
 		n++;
 	}
 
@@ -218,8 +303,64 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 	memset (bntx, 0, sizeof (*bntx));
 	bntx->data = data;
 	bntx->size = size;
+	memcpy (bntx->platform, data + tc, 4);
+	bntx->platform[4] = 0;
+	bntx->version_micro = data[8];
+	bntx->version_minor = data[9];
+	bntx->version_major = brd16 (data + 10);
 	bntx->textures = tex;
 	bntx->n_textures = n;
+
+	// Parse Relocation Table (_RLT) if present
+	const u32 rlt_addr = brd32 (data + 24);
+	if (rlt_addr && rlt_addr + 16 <= size && !memcmp (data + rlt_addr, "_RLT", 4))
+	{
+		const u32 sec_count = brd32 (data + rlt_addr + 8);
+		if (sec_count > 0 && sec_count <= 256
+			&& rlt_addr + 16 + (u64)sec_count * 24 <= size)
+		{
+			bntx_reloc_section_t *sections = CALLOC (sec_count, sizeof (*sections));
+			if (sections)
+			{
+				uint total_entries = 0;
+				for (uint s = 0; s < sec_count; s++)
+				{
+					const u8 *sp = data + rlt_addr + 16 + s * 24;
+					sections[s].pointer = brd64 (sp + 0);
+					sections[s].offset = brd32 (sp + 8);
+					sections[s].size = (s32)brd32 (sp + 12);
+					sections[s].first_entry_index = (s32)brd32 (sp + 16);
+					sections[s].entry_count = (s32)brd32 (sp + 20);
+					if (sections[s].entry_count > 0)
+						total_entries += sections[s].entry_count;
+				}
+				bntx->reloc_table.offset = rlt_addr;
+				bntx->reloc_table.n_sections = sec_count;
+				bntx->reloc_table.sections = sections;
+
+				const u64 entries_addr = rlt_addr + 16 + (u64)sec_count * 24;
+				if (total_entries > 0 && total_entries <= 65536
+					&& entries_addr + (u64)total_entries * 8 <= size)
+				{
+					bntx_reloc_entry_t *entries = CALLOC (total_entries, sizeof (*entries));
+					if (entries)
+					{
+						for (uint e = 0; e < total_entries; e++)
+						{
+							const u8 *ep = data + entries_addr + e * 8;
+							entries[e].pointers_offset = (s32)brd32 (ep + 0);
+							entries[e].array_count = brd16 (ep + 4);
+							entries[e].pointer_count = ep[6];
+							entries[e].padding_count = ep[7];
+						}
+						bntx->reloc_table.n_entries = total_entries;
+						bntx->reloc_table.entries = entries;
+					}
+				}
+			}
+		}
+	}
+
 	return ERR_OK;
 }
 
@@ -473,14 +614,138 @@ void decode_bc5_signed_block (const u8 *b, u8 *out)
 	}
 }
 
-// Format identifiers and ASTC footprints follow aboood40091/BNTX-Extractor.
+ccp GetBNTXFormatName (uint format)
+{
+	const uint fmt = (format >> 8) & 0xff;
+	const uint type = format & 0xff;
+	switch (fmt)
+	{
+		case 0x02:
+			return type == 2 ? "R8_SNORM" : type == 3 ? "R8_UINT" : type == 4 ? "R8_SINT" : "R8_UNORM";
+		case 0x03: return "R4G4B4A4_UNORM";
+		case 0x05: return "R5G5B5A1_UNORM";
+		case 0x06: return "A1B5G5R5_UNORM";
+		case 0x07: return "R5G6B5_UNORM";
+		case 0x08: return "B5G6R5_UNORM";
+		case 0x09:
+			return type == 2 ? "R8G8_SNORM" : type == 3 ? "R8G8_UINT" : type == 4 ? "R8G8_SINT" : "R8G8_UNORM";
+		case 0x0a:
+			return type == 5 ? "R16_FLOAT" : type == 7 ? "Z16_DEPTH" : type == 2 ? "R16_SNORM" : "R16_UNORM";
+		case 0x0b:
+			return type == 6 ? "R8G8B8A8_SRGB" : type == 2 ? "R8G8B8A8_SNORM" : "R8G8B8A8_UNORM";
+		case 0x0c:
+			return type == 6 ? "B8G8R8A8_SRGB" : "B8G8R8A8_UNORM";
+		case 0x0d: return "R9G9B9E5F_FLOAT";
+		case 0x0e: return type == 3 ? "R10G10B10A2_UINT" : "R10G10B10A2_UNORM";
+		case 0x0f: return "R11G11B10F_FLOAT";
+		case 0x12:
+			return type == 5 ? "R16G16_FLOAT" : type == 2 ? "R16G16_SNORM" : "R16G16_UNORM";
+		case 0x13: return "D24S8_DEPTH";
+		case 0x14:
+			return type == 7 ? "D32F_DEPTH" : type == 5 ? "R32_FLOAT" : type == 3 ? "R32_UINT" : "R32_SINT";
+		case 0x15:
+			return type == 5 ? "R16G16B16A16_FLOAT" : type == 2 ? "R16G16B16A16_SNORM" : "R16G16B16A16_UNORM";
+		case 0x16: return "D32FS8_DEPTH";
+		case 0x17: return type == 5 ? "R32G32_FLOAT" : "R32G32_UINT";
+		case 0x18: return type == 5 ? "R32G32B32_FLOAT" : "R32G32B32_UINT";
+		case 0x19: return type == 5 ? "R32G32B32A32_FLOAT" : "R32G32B32A32_UINT";
+		case 0x1a: return type == 6 ? "BC1_SRGB" : "BC1_UNORM";
+		case 0x1b: return type == 6 ? "BC2_SRGB" : "BC2_UNORM";
+		case 0x1c: return type == 6 ? "BC3_SRGB" : "BC3_UNORM";
+		case 0x1d: return type == 2 ? "BC4_SNORM" : "BC4_UNORM";
+		case 0x1e: return type == 2 ? "BC5_SNORM" : "BC5_UNORM";
+		case 0x1f: return type == 10 ? "BC6H_UF16" : "BC6H_SF16";
+		case 0x20: return type == 6 ? "BC7_SRGB" : "BC7_UNORM";
+		case 0x2d: return type == 6 ? "ASTC_4x4_SRGB" : "ASTC_4x4_UNORM";
+		case 0x2e: return type == 6 ? "ASTC_5x4_SRGB" : "ASTC_5x4_UNORM";
+		case 0x2f: return type == 6 ? "ASTC_5x5_SRGB" : "ASTC_5x5_UNORM";
+		case 0x30: return type == 6 ? "ASTC_6x5_SRGB" : "ASTC_6x5_UNORM";
+		case 0x31: return type == 6 ? "ASTC_6x6_SRGB" : "ASTC_6x6_UNORM";
+		case 0x32: return type == 6 ? "ASTC_8x5_SRGB" : "ASTC_8x5_UNORM";
+		case 0x33: return type == 6 ? "ASTC_8x6_SRGB" : "ASTC_8x6_UNORM";
+		case 0x34: return type == 6 ? "ASTC_8x8_SRGB" : "ASTC_8x8_UNORM";
+		case 0x35: return type == 6 ? "ASTC_10x5_SRGB" : "ASTC_10x5_UNORM";
+		case 0x36: return type == 6 ? "ASTC_10x6_SRGB" : "ASTC_10x6_UNORM";
+		case 0x37: return type == 6 ? "ASTC_10x8_SRGB" : "ASTC_10x8_UNORM";
+		case 0x38: return type == 6 ? "ASTC_10x10_SRGB" : "ASTC_10x10_UNORM";
+		case 0x39: return type == 6 ? "ASTC_12x10_SRGB" : "ASTC_12x10_UNORM";
+		case 0x3a: return type == 6 ? "ASTC_12x12_SRGB" : "ASTC_12x12_UNORM";
+		case 0x3b: return "B5G5R5A1_UNORM";
+		default: return "UNKNOWN";
+	}
+}
+
+void DumpStructureBNTX (FILE *out, const bntx_t *bntx, int indent)
+{
+	if (!out || !bntx)
+		return;
+	fprintf (out, "%*sBNTX Container: platform '%s', version %u.%u.%u, textures %u\n",
+		indent, "", bntx->platform[0] ? bntx->platform : "NX  ",
+		bntx->version_major, bntx->version_minor, bntx->version_micro,
+		bntx->n_textures);
+	for (uint i = 0; i < bntx->n_textures; i++)
+	{
+		const bntx_texture_t *t = bntx->textures + i;
+		fprintf (out, "%*sTexture [%u] '%s':\n", indent + 2, "", i, t->name ? t->name : "");
+		fprintf (out, "%*sSize: %ux%u", indent + 4, "", t->width, t->height);
+		if (t->depth > 1)
+			fprintf (out, "x%u", t->depth);
+		if (t->array_count > 1)
+			fprintf (out, " (array count %u)", t->array_count);
+		fprintf (out, ", mips %u\n", t->n_mips);
+		fprintf (out, "%*sFormat: 0x%04x (%s)\n", indent + 4, "", t->format, GetBNTXFormatName (t->format));
+		fprintf (out, "%*sTile mode: %u, Block height log2: %u\n", indent + 4, "", t->tile_mode, t->block_height_log2);
+		static const char ch_names[6] = "01RGBA";
+		fprintf (out, "%*sChannels: %c%c%c%c\n", indent + 4, "",
+			ch_names[(t->comp_sel & 0xff) <= 5 ? (t->comp_sel & 0xff) : 2],
+			ch_names[((t->comp_sel >> 8) & 0xff) <= 5 ? ((t->comp_sel >> 8) & 0xff) : 3],
+			ch_names[((t->comp_sel >> 16) & 0xff) <= 5 ? ((t->comp_sel >> 16) & 0xff) : 4],
+			ch_names[((t->comp_sel >> 24) & 0xff) <= 5 ? ((t->comp_sel >> 24) & 0xff) : 5]);
+		fprintf (out, "%*sData size: 0x%x (%u bytes)\n", indent + 4, "", t->data_size, t->data_size);
+		if (t->n_user_data > 0)
+		{
+			fprintf (out, "%*sUserData (%u entries):\n", indent + 4, "", t->n_user_data);
+			for (uint u = 0; u < t->n_user_data; u++)
+			{
+				const bntx_user_data_t *ud = t->user_data + u;
+				fprintf (out, "%*s'%s': type %u, count %u\n", indent + 6, "",
+					ud->name ? ud->name : "", (uint)ud->type, ud->count);
+			}
+		}
+	}
+	if (bntx->reloc_table.n_sections > 0)
+	{
+		fprintf (out, "%*sRelocation Table (_RLT): offset 0x%x, sections %u, entries %u\n",
+			indent + 2, "", bntx->reloc_table.offset,
+			bntx->reloc_table.n_sections, bntx->reloc_table.n_entries);
+		for (uint s = 0; s < bntx->reloc_table.n_sections; s++)
+		{
+			const bntx_reloc_section_t *sec = bntx->reloc_table.sections + s;
+			fprintf (out, "%*sSection [%u]: off 0x%x, size 0x%x, first entry %d, count %d\n",
+				indent + 4, "", s, sec->offset, sec->size,
+				sec->first_entry_index, sec->entry_count);
+		}
+	}
+}
+
+// Format identifiers and ASTC footprints follow NintendoSDK / BntxLibrary.
 // BC6H/BC7 use K0lb3/texture2ddecoder's MIT decoder; ASTC uses the existing
 // Apache-2.0 drawElements-derived decoder in src/astc.
-enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *bntx, uint index)
+enumError DecodeBNTX_Mip_RGBA (
+	u8 **dest, uint *width, uint *height, const bntx_t *bntx, uint index, uint mip_level)
 {
 	if (!dest || !width || !height || !bntx || index >= bntx->n_textures)
 		return EINVAL;
 	const bntx_texture_t *t = bntx->textures + index;
+	if (mip_level >= t->n_mips)
+		return EINVAL;
+
+	const uint w = (t->width >> mip_level) ? (t->width >> mip_level) : 1;
+	const uint h = (t->height >> mip_level) ? (t->height >> mip_level) : 1;
+	const u8 *src_data = (mip_level > 0 && t->mip_offsets) ? t->data + t->mip_offsets[mip_level] : t->data;
+	const uint src_size = (mip_level > 0 && t->mip_offsets && t->mip_offsets[mip_level] < t->data_size)
+		? (t->data_size - (uint)t->mip_offsets[mip_level]) : t->data_size;
+	const uint bh_log2 = t->block_height_log2 > mip_level ? t->block_height_log2 - mip_level : 0;
 
 	const uint fmt = (t->format >> 8) & 0xFF;
 	const uint type = t->format & 0xFF;
@@ -493,10 +758,22 @@ enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *b
 		F_RGBA8,
 		F_BGRA8,
 		F_RGB565,
+		F_BGR565,
 		F_RGB5A1,
+		F_BGR5A1,
+		F_ABGR1555,
 		F_RGBA4,
+		F_R9G9B9E5F,
+		F_R10G10B10A2,
 		F_R11G11B10F,
-		F_R32F,
+		F_R16G16,
+		F_D24S8,
+		F_R32,
+		F_R16G16B16A16,
+		F_D32FS8,
+		F_R32G32,
+		F_R32G32B32,
+		F_R32G32B32A32,
 		F_BC1,
 		F_BC2,
 		F_BC3,
@@ -513,14 +790,26 @@ enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *b
 			bpp = 1;
 			kind = F_R8;
 			break;
+		case 0x03:
+			bpp = 2;
+			kind = F_RGBA4;
+			break;
+		case 0x05:
+			bpp = 2;
+			kind = F_RGB5A1;
+			break;
+		case 0x06:
+			bpp = 2;
+			kind = F_ABGR1555;
+			break;
 		case 0x07:
 			bpp = 2;
 			kind = F_RGB565;
-			break; // R5G6B5
+			break;
 		case 0x08:
 			bpp = 2;
-			kind = F_RGB5A1;
-			break; // R5G5B5A1
+			kind = F_BGR565;
+			break;
 		case 0x09:
 			bpp = 2;
 			kind = F_RG8;
@@ -532,22 +821,54 @@ enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *b
 		case 0x0b:
 			bpp = 4;
 			kind = F_RGBA8;
-			break; // R8G8B8A8
+			break;
 		case 0x0c:
 			bpp = 4;
 			kind = F_BGRA8;
-			break; // legacy B8G8R8A8
-		case 0x05:
-			bpp = 2;
-			kind = F_RGBA4;
-			break; // R4G4B4A4
+			break;
+		case 0x0d:
+			bpp = 4;
+			kind = F_R9G9B9E5F;
+			break;
+		case 0x0e:
+			bpp = 4;
+			kind = F_R10G10B10A2;
+			break;
 		case 0x0f:
 			bpp = 4;
 			kind = F_R11G11B10F;
 			break;
+		case 0x12:
+			bpp = 4;
+			kind = F_R16G16;
+			break;
+		case 0x13:
+			bpp = 4;
+			kind = F_D24S8;
+			break;
 		case 0x14:
 			bpp = 4;
-			kind = F_R32F;
+			kind = F_R32;
+			break;
+		case 0x15:
+			bpp = 8;
+			kind = F_R16G16B16A16;
+			break;
+		case 0x16:
+			bpp = 8;
+			kind = F_D32FS8;
+			break;
+		case 0x17:
+			bpp = 8;
+			kind = F_R32G32;
+			break;
+		case 0x18:
+			bpp = 12;
+			kind = F_R32G32B32;
+			break;
+		case 0x19:
+			bpp = 16;
+			kind = F_R32G32B32A32;
 			break;
 		case 0x1a:
 			bpp = 8;
@@ -668,6 +989,10 @@ enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *b
 			blk_h = 12;
 			kind = F_ASTC;
 			break;
+		case 0x3b:
+			bpp = 2;
+			kind = F_BGR5A1;
+			break;
 		default:
 			return ERROR0 (ERR_INVALID_IFORM, "Unsupported BNTX texture format 0x%02x in '%s'\n",
 				fmt, t->name);
@@ -675,12 +1000,11 @@ enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *b
 
 	u8 *linear = 0;
 	uint linear_size = 0;
-	enumError err = BntxDeswizzle (&linear, &linear_size, t->data, t->data_size, t->width,
-		t->height, blk_w, blk_h, bpp, t->tile_mode, t->block_height_log2, true);
+	enumError err = BntxDeswizzle (&linear, &linear_size, src_data, src_size, w,
+		h, blk_w, blk_h, bpp, t->tile_mode, bh_log2, true);
 	if (err)
 		return err;
 
-	const uint w = t->width, h = t->height;
 	if ((u64)w * h > BNTX_MAX_OUTPUT / 4)
 	{
 		FREE (linear);
@@ -777,6 +1101,15 @@ enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *b
 						d[3] = 255;
 						break;
 					}
+					case F_BGR565:
+					{
+						const u16 c = brd16 (p);
+						d[0] = expand5b (c & 31);
+						d[1] = expand6b ((c >> 5) & 63);
+						d[2] = expand5b (c >> 11);
+						d[3] = 255;
+						break;
+					}
 					case F_RGB5A1:
 					{
 						const u16 c = brd16 (p);
@@ -784,6 +1117,24 @@ enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *b
 						d[1] = expand5b ((c >> 6) & 31);
 						d[2] = expand5b ((c >> 1) & 31);
 						d[3] = (c & 1) ? 255 : 0;
+						break;
+					}
+					case F_BGR5A1:
+					{
+						const u16 c = brd16 (p);
+						d[0] = expand5b ((c >> 1) & 31);
+						d[1] = expand5b ((c >> 6) & 31);
+						d[2] = expand5b (c >> 11);
+						d[3] = (c & 1) ? 255 : 0;
+						break;
+					}
+					case F_ABGR1555:
+					{
+						const u16 c = brd16 (p);
+						d[0] = expand5b (c & 31);
+						d[1] = expand5b ((c >> 5) & 31);
+						d[2] = expand5b ((c >> 10) & 31);
+						d[3] = (c & 0x8000) ? 255 : 0;
 						break;
 					}
 					case F_RGBA4:
@@ -795,6 +1146,26 @@ enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *b
 						d[3] = (u8)((c & 15) * 17);
 						break;
 					}
+					case F_R9G9B9E5F:
+					{
+						const u32 v = brd32 (p);
+						const int exp = (int)((v >> 27) & 31) - 15 - 9;
+						const float scale = ldexpf (1.0f, exp);
+						d[0] = float_to_u8 ((float)(v & 0x1ff) * scale);
+						d[1] = float_to_u8 ((float)((v >> 9) & 0x1ff) * scale);
+						d[2] = float_to_u8 ((float)((v >> 18) & 0x1ff) * scale);
+						d[3] = 255;
+						break;
+					}
+					case F_R10G10B10A2:
+					{
+						const u32 v = brd32 (p);
+						d[0] = (u8)(((v & 0x3ff) * 255 + 511) / 1023);
+						d[1] = (u8)((((v >> 10) & 0x3ff) * 255 + 511) / 1023);
+						d[2] = (u8)((((v >> 20) & 0x3ff) * 255 + 511) / 1023);
+						d[3] = (u8)(((v >> 30) & 3) * 85);
+						break;
+					}
 					case F_R11G11B10F:
 					{
 						const u32 value = brd32 (p);
@@ -804,12 +1175,108 @@ enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *b
 						d[3] = 255;
 						break;
 					}
-					case F_R32F:
+					case F_R16G16:
+					{
+						const u16 r16 = brd16 (p), g16 = brd16 (p + 2);
+						if (type == 5)
+						{
+							d[0] = float_to_u8 (half_to_float (r16));
+							d[1] = float_to_u8 (half_to_float (g16));
+						}
+						else if (type == 2)
+						{
+							s16 r = (s16)r16, g = (s16)g16;
+							if (r < -32767) r = -32767;
+							if (g < -32767) g = -32767;
+							d[0] = (u8)(((s64)r + 32767) * 255 / 65534);
+							d[1] = (u8)(((s64)g + 32767) * 255 / 65534);
+						}
+						else
+						{
+							d[0] = (u8)(((u32)r16 * 255 + 32767) / 65535);
+							d[1] = (u8)(((u32)g16 * 255 + 32767) / 65535);
+						}
+						d[2] = 0;
+						d[3] = 255;
+						break;
+					}
+					case F_D24S8:
+					{
+						const u32 v = brd32 (p);
+						const u8 depth = (u8)((v & 0xffffff) >> 16);
+						d[0] = d[1] = d[2] = depth;
+						d[3] = 255;
+						break;
+					}
+					case F_R32:
 					{
 						float value;
 						memcpy (&value, p, sizeof (value));
 						d[0] = d[1] = d[2] = float_to_u8 (value);
 						d[3] = 255;
+						break;
+					}
+					case F_R16G16B16A16:
+					{
+						for (int c = 0; c < 4; c++)
+						{
+							const u16 v16 = brd16 (p + c * 2);
+							if (type == 5)
+								d[c] = float_to_u8 (half_to_float (v16));
+							else if (type == 2)
+							{
+								s16 s = (s16)v16;
+								if (s < -32767) s = -32767;
+								d[c] = (u8)(((s64)s + 32767) * 255 / 65534);
+							}
+							else
+								d[c] = (u8)(((u32)v16 * 255 + 32767) / 65535);
+						}
+						break;
+					}
+					case F_D32FS8:
+					{
+						float f;
+						memcpy (&f, p, 4);
+						const u8 depth = float_to_u8 (f);
+						d[0] = d[1] = d[2] = depth;
+						d[3] = 255;
+						break;
+					}
+					case F_R32G32:
+					{
+						float rf, gf;
+						memcpy (&rf, p, 4);
+						memcpy (&gf, p + 4, 4);
+						d[0] = float_to_u8 (rf);
+						d[1] = float_to_u8 (gf);
+						d[2] = 0;
+						d[3] = 255;
+						break;
+					}
+					case F_R32G32B32:
+					{
+						float rf, gf, bf;
+						memcpy (&rf, p, 4);
+						memcpy (&gf, p + 4, 4);
+						memcpy (&bf, p + 8, 4);
+						d[0] = float_to_u8 (rf);
+						d[1] = float_to_u8 (gf);
+						d[2] = float_to_u8 (bf);
+						d[3] = 255;
+						break;
+					}
+					case F_R32G32B32A32:
+					{
+						float rf, gf, bf, af;
+						memcpy (&rf, p, 4);
+						memcpy (&gf, p + 4, 4);
+						memcpy (&bf, p + 8, 4);
+						memcpy (&af, p + 12, 4);
+						d[0] = float_to_u8 (rf);
+						d[1] = float_to_u8 (gf);
+						d[2] = float_to_u8 (bf);
+						d[3] = float_to_u8 (af);
 						break;
 					}
 					default:
@@ -897,6 +1364,11 @@ enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *b
 	return ERR_OK;
 }
 
+enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *bntx, uint index)
+{
+	return DecodeBNTX_Mip_RGBA (dest, width, height, bntx, index, 0);
+}
+
 //-----------------------------------------------------------------------------
 ///////////////			format encoding			///////////////
 //-----------------------------------------------------------------------------
@@ -961,15 +1433,68 @@ enumError EncodeBNTX_RGBA (
 				memcpy (swizzled + pos, rgba + 4 * ((size_t)y * width + x), 4);
 		}
 
-	const uint header_size = 0x200;
-	const uint file_name_off = 0x100;
 	ccp file_name = "output.bntx";
-	const uint tex_name_off = 0x140;
-
 	const size_t file_name_len = strlen (file_name);
 	const size_t tex_name_len = strlen (name);
 
-	const u64 total_size = (u64)header_size + surf_size;
+	// String table: entry 0 = "", entry 1 = name, entry 2 = file_name
+	// Each string entry: u16 length, string bytes, 0 terminator, 2-byte aligned
+	const uint s0_len = 0;
+	const uint s0_size = 2 + s0_len + 1 + 1; // 4 bytes (aligned)
+	const uint s1_size = round_up (2 + (uint)tex_name_len + 1, 2);
+	const uint s2_size = round_up (2 + (uint)file_name_len + 1, 2);
+
+	const uint str_payload_size = 4 + s0_size + s1_size + s2_size; // count (4) + entries
+	const uint str_block_size = round_up (16 + str_payload_size, 8); // aligned to 8
+
+	// Dictionary table (_DIC): count (4) + root node (16) + texture node (16) = 36 -> 40 (aligned to 8)
+	const uint dic_block_size = 8 + 16 * 2;
+
+	// Layout offsets
+	const uint ofs_bin_hdr = 0;
+	const uint ofs_bntx_hdr = 0x20;
+	const uint ofs_mem_pool = 0x58; // 0x140 bytes
+	const uint ofs_tex_ptrs = ofs_mem_pool + 0x140; // 0x198, 8 bytes
+	const uint ofs_str = ofs_tex_ptrs + 8; // 0x1a0
+	const uint ofs_dic = ofs_str + str_block_size;
+	const uint ofs_brti = ofs_dic + dic_block_size;
+
+	// String positions
+	const uint abs_str_base = ofs_str + 16 + 4;
+	const uint abs_str_empty = abs_str_base;
+	const uint abs_str_tex = abs_str_empty + s0_size;
+	const uint abs_str_file = abs_str_tex + s1_size;
+
+	// BRTI layout:
+	// 16-byte block header
+	// 144-byte ResBntxTextureInfo
+	// 256-byte texture runtime data
+	// 256-byte texture view runtime data
+	// 8-byte mip offsets array
+	const uint ofs_ti = ofs_brti + 16;
+	const uint ofs_tex_rt = ofs_ti + 144;
+	const uint ofs_tex_view_rt = ofs_tex_rt + 256;
+	const uint ofs_mip_offsets = ofs_tex_view_rt + 256;
+	const uint ofs_sec1_end = ofs_mip_offsets + 8;
+	const uint brti_block_size = ofs_sec1_end - ofs_brti;
+	const uint ofs_sec1_aligned = round_up (ofs_sec1_end, 8);
+
+	// BRTD block is placed immediately before data aligned to 4096:
+	// ofs_brtd_data % 4096 == 0, and ofs_brtd = ofs_brtd_data - 16
+	const uint ofs_brtd_data = round_up (ofs_sec1_aligned + 16, 4096);
+	const uint ofs_brtd = ofs_brtd_data - 16;
+	const uint ofs_sec2_start = ofs_brtd;
+	const uint ofs_sec2_end = ofs_brtd_data + (uint)surf_size;
+
+	// Relocation table placed at 4096 alignment following BRTD
+	const uint ofs_rlt = round_up (ofs_sec2_end, 4096);
+
+	const uint n_sec1_entries = 8;
+	const uint n_sec2_entries = 2;
+	const uint total_rlt_entries = n_sec1_entries + n_sec2_entries;
+	const uint rlt_size = 16 + 2 * 24 + total_rlt_entries * 8;
+	const uint total_size = ofs_rlt + rlt_size;
+
 	if (total_size > BNTX_MAX_OUTPUT)
 	{
 		FREE (swizzled);
@@ -983,68 +1508,160 @@ enumError EncodeBNTX_RGBA (
 		return ERR_CANT_CREATE;
 	}
 
-	// BNTX main header at 0x00
+	// 1. Binary Header (0x00)
 	memcpy (buf, "BNTX\0\0\0\0", 8);
-	bwr32 (buf + 0x08, 0x00040000);
-	bwr16 (buf + 0x0c, 0xfeff);
-	buf[0x0e] = 12;
-	buf[0x0f] = 64;
-	bwr32 (buf + 0x10, file_name_off);
-	bwr16 (buf + 0x14, 0);
-	bwr16 (buf + 0x16, 0x20);
-	bwr32 (buf + 0x18, 0);
-	bwr32 (buf + 0x1c, (u32)total_size);
+	buf[0x08] = 0; // micro
+	buf[0x09] = 0; // minor
+	bwr16 (buf + 0x0a, 4); // major = 4
+	bwr16 (buf + 0x0c, 0xfeff); // BOM
+	buf[0x0e] = 12; // align shift (4096)
+	buf[0x0f] = 64; // target addr size
+	bwr32 (buf + 0x10, abs_str_file + 2); // NameOffset (points directly to string content)
+	bwr16 (buf + 0x14, 0); // Flag
+	bwr16 (buf + 0x16, (u16)ofs_str); // BlockOffset (points to first block _STR)
+	bwr32 (buf + 0x18, ofs_rlt); // RelocationTableOffset
+	bwr32 (buf + 0x1c, total_size); // FileSize
 
-	// NX header at 0x20
-	memcpy (buf + 0x20, "NX  ", 4);
-	bwr32 (buf + 0x24, 1);
-	bwr64 (buf + 0x28, 0x50); // info_ptrs_addr
+	// 2. BNTX Header (0x20)
+	memcpy (buf + ofs_bntx_hdr, "NX  ", 4);
+	bwr32 (buf + ofs_bntx_hdr + 4, 1); // TextureCount
+	bwr64 (buf + ofs_bntx_hdr + 8, ofs_tex_ptrs); // TextureInfoPointer
+	bwr64 (buf + ofs_bntx_hdr + 16, ofs_brtd); // TextureDataPointer
+	bwr64 (buf + ofs_bntx_hdr + 24, ofs_dic); // TextureDictionaryPointer
+	bwr64 (buf + ofs_bntx_hdr + 32, ofs_mem_pool); // MemoryPoolPointer
 
-	// info_ptrs at 0x50
-	bwr64 (buf + 0x50, 0x60); // BRTI offset
+	// 3. Texture Pointers array
+	bwr64 (buf + ofs_tex_ptrs, ofs_brti);
 
-	// data_ptrs at 0x58
-	bwr64 (buf + 0x58, header_size); // texture data offset
+	// 4. _STR Block
+	memcpy (buf + ofs_str, "_STR", 4);
+	bwr32 (buf + ofs_str + 4, str_block_size);
+	bwr64 (buf + ofs_str + 8, str_block_size);
+	bwr32 (buf + ofs_str + 16, 2); // 2 non-empty strings (or count - 1)
 
-	// BRTI header at 0x60
-	memcpy (buf + 0x60, "BRTI", 4);
-	bwr32 (buf + 0x64, 0xA0);
-	bwr64 (buf + 0x68, 0xA0);
+	// String 0: ""
+	bwr16 (buf + abs_str_empty, 0);
+	buf[abs_str_empty + 2] = 0;
 
-	// TextureInfo at 0x70
-	u8 *ti = buf + 0x70;
-	ti[0] = 0;
-	ti[1] = 2;
-	bwr16 (ti + 0x02, 0); // tile_mode = 0
-	bwr16 (ti + 0x06, 1); // num_mips = 1
-	bwr32 (ti + 0x08, 1); // num_samples = 1
-	bwr32 (ti + 0x0c, 0x0b01); // format = RGBA8
-	bwr32 (ti + 0x10, 0x20); // access_flags
+	// String 1: name
+	bwr16 (buf + abs_str_tex, (u16)tex_name_len);
+	memcpy (buf + abs_str_tex + 2, name, tex_name_len);
+	buf[abs_str_tex + 2 + tex_name_len] = 0;
+
+	// String 2: file_name
+	bwr16 (buf + abs_str_file, (u16)file_name_len);
+	memcpy (buf + abs_str_file + 2, file_name, file_name_len);
+	buf[abs_str_file + 2 + file_name_len] = 0;
+
+	// 5. _DIC Block
+	memcpy (buf + ofs_dic, "_DIC", 4);
+	bwr32 (buf + ofs_dic + 4, 1); // count = 1
+	// Node 0 (root): ref = 0xffffffff, left = 1, right = 0, name_ptr = abs_str_empty
+	bwr32 (buf + ofs_dic + 8, 0xffffffff);
+	bwr16 (buf + ofs_dic + 12, 1);
+	bwr16 (buf + ofs_dic + 14, 0);
+	bwr64 (buf + ofs_dic + 16, abs_str_empty);
+	// Node 1: ref = 1, left = 0, right = 1, name_ptr = abs_str_tex
+	bwr32 (buf + ofs_dic + 24, 1);
+	bwr16 (buf + ofs_dic + 28, 0);
+	bwr16 (buf + ofs_dic + 30, 1);
+	bwr64 (buf + ofs_dic + 32, abs_str_tex);
+
+	// 6. BRTI Block
+	memcpy (buf + ofs_brti, "BRTI", 4);
+	bwr32 (buf + ofs_brti + 4, brti_block_size);
+	bwr64 (buf + ofs_brti + 8, brti_block_size);
+
+	// ResBntxTextureInfo at ofs_ti
+	u8 *ti = buf + ofs_ti;
+	ti[0] = 0; // Flags
+	ti[1] = 2; // Dim = 2D
+	bwr16 (ti + 0x02, 0); // TileMode
+	bwr16 (ti + 0x04, 0); // Swizzle
+	bwr16 (ti + 0x06, 1); // MipCount = 1
+	bwr32 (ti + 0x08, 1); // SampleCount = 1
+	bwr32 (ti + 0x0c, 0x0b01); // ImageFormat = RGBA8_UNORM
+	bwr32 (ti + 0x10, 0x20); // GpuAccessFlags = Texture
 	bwr32 (ti + 0x14, width);
 	bwr32 (ti + 0x18, height);
-	bwr32 (ti + 0x1c, 1);
-	bwr32 (ti + 0x20, 1);
-	bwr32 (ti + 0x24, bh_log2);
-	bwr32 (ti + 0x28, 2);
-	bwr32 (ti + 0x40, (u32)surf_size);
-	bwr32 (ti + 0x44, 512);
-	bwr32 (ti + 0x48, 0x05040302); // R,G,B,A selectors
-	bwr64 (ti + 0x50, tex_name_off);
-	bwr64 (ti + 0x60, 0x58);
+	bwr32 (ti + 0x1c, 1); // Depth
+	bwr32 (ti + 0x20, 1); // ArrayCount
+	bwr32 (ti + 0x24, bh_log2); // TextureLayout
+	bwr32 (ti + 0x28, 2); // TextureLayout2
+	bwr32 (ti + 0x40, (u32)surf_size); // ImageSize
+	bwr32 (ti + 0x44, 512); // Alignment
+	bwr32 (ti + 0x48, 0x05040302); // Channels R,G,B,A (2,3,4,5)
+	bwr64 (ti + 0x50, abs_str_tex); // NameOffset
+	bwr64 (ti + 0x58, ofs_bntx_hdr); // BntxHeaderOffset (0x20)
+	bwr64 (ti + 0x60, ofs_mip_offsets); // DataPointersOffset
+	bwr64 (ti + 0x68, 0); // UserDataOffset
+	bwr64 (ti + 0x70, ofs_tex_rt); // TexturePointer
+	bwr64 (ti + 0x78, ofs_tex_view_rt); // TextureViewPointer
+	bwr64 (ti + 0x80, 0); // DescSlotOffset
+	bwr64 (ti + 0x88, 0); // UserDataDictionaryOffset
 
-	// String pool
-	bwr16 (buf + file_name_off, (u16)file_name_len);
-	memcpy (buf + file_name_off + 2, file_name, file_name_len);
+	// Mip offset pointer
+	bwr64 (buf + ofs_mip_offsets, ofs_brtd_data);
 
-	bwr16 (buf + tex_name_off, (u16)tex_name_len);
-	memcpy (buf + tex_name_off + 2, name, tex_name_len);
-
-	// Texture payload
-	memcpy (buf + header_size, swizzled, (size_t)surf_size);
+	// 7. BRTD Block
+	const uint brtd_block_size = 16 + (uint)surf_size;
+	memcpy (buf + ofs_brtd, "BRTD", 4);
+	bwr32 (buf + ofs_brtd + 4, brtd_block_size);
+	bwr64 (buf + ofs_brtd + 8, brtd_block_size);
+	memcpy (buf + ofs_brtd_data, swizzled, (size_t)surf_size);
 	FREE (swizzled);
+
+	// 8. Relocation Table (_RLT)
+	u8 *rlt = buf + ofs_rlt;
+	memcpy (rlt, "_RLT", 4);
+	bwr32 (rlt + 4, ofs_rlt);
+	bwr32 (rlt + 8, 2); // 2 sections
+	bwr32 (rlt + 12, 0); // padding
+
+	// Section 0
+	bwr64 (rlt + 16, 0); // pointer
+	bwr32 (rlt + 24, 0); // offset
+	bwr32 (rlt + 28, ofs_sec2_start); // size
+	bwr32 (rlt + 32, 0); // first entry
+	bwr32 (rlt + 36, n_sec1_entries); // entry count
+
+	// Section 1
+	bwr64 (rlt + 40, 0); // pointer
+	bwr32 (rlt + 48, ofs_sec2_start); // offset
+	bwr32 (rlt + 52, ofs_rlt - ofs_sec2_start); // size
+	bwr32 (rlt + 56, n_sec1_entries); // first entry
+	bwr32 (rlt + 60, n_sec2_entries); // entry count
+
+	// Relocation Entries
+	u8 *ep = rlt + 16 + 2 * 24;
+	struct {
+		s32 ofs;
+		u16 arr;
+		u8 pcnt;
+		u8 padc;
+	} entries[10] = {
+		{ 40, 2, 1, 1 },
+		{ 64, 1, 1, 0 },
+		{ (s32)ofs_tex_ptrs, 1, 1, 0 },
+		{ (s32)ofs_dic + 16, 2, 1, 1 },
+		{ (s32)ofs_ti + 0x50, 1, 3, 0 },
+		{ (s32)ofs_ti + 0x50 + 24, 1, 1, 0 },
+		{ (s32)ofs_ti + 0x50 + 32, 1, 2, 0 },
+		{ (s32)ofs_ti + 0x50 + 56, 1, 1, 0 },
+		{ 48, 1, 1, 0 },
+		{ (s32)ofs_mip_offsets, 1, 1, 0 }
+	};
+
+	for (uint e = 0; e < total_rlt_entries; e++)
+	{
+		bwr32 (ep + e * 8 + 0, (u32)entries[e].ofs);
+		bwr16 (ep + e * 8 + 4, entries[e].arr);
+		ep[e * 8 + 6] = entries[e].pcnt;
+		ep[e * 8 + 7] = entries[e].padc;
+	}
 
 	*dest = buf;
 	if (dest_size)
-		*dest_size = (uint)total_size;
+		*dest_size = total_size;
 	return ERR_OK;
 }

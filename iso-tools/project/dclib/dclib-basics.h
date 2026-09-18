@@ -2296,7 +2296,7 @@ typedef struct sizeof_info_t
 {
 	int size;
 	ccp name;
-} __attribute__ ((packed)) sizeof_info_t;
+} sizeof_info_t;
 
 //-----------------------------------------------------------------------------
 
@@ -6774,7 +6774,7 @@ typedef struct SaveRestoreTab_t
 		};
 		// struct SaveRestoreTab_t *ref;
 	};
-} __attribute__ ((packed)) SaveRestoreTab_t;
+} SaveRestoreTab_t;
 
 //-----------------------------------------------------------------------------
 

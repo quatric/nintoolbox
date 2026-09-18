@@ -1729,6 +1729,14 @@
 	" no slash, it is searched in the directories of the environment" \
 	" variable @'PATH'@. Default is the name @'hacbrewpack'@." )
 
+#:def_opt( "WITH_GSHCOMPILE", "with-gshcompile|withgshcompile", "GP", \
+	"path|name", \
+	"Define the path or name of the Cafe SDK {gshCompile} tool used to" \
+	" compile the shader sources of a SHARC directory when creating a" \
+	" SHARCFB file. It is only needed for programs without a compiled" \
+	" @'<program>/out.gsh'@. If the value contains no slash, it is" \
+	" searched in the directories of the environment variable @'PATH'@." )
+
 #:def_opt( "WITH_BMS", "with-bms|bms", "GP", \
 	"path", \
 	"Add a QuickBMS script as a drop-in extraction stage. Any unrecognized" \

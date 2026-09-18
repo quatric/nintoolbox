@@ -42,6 +42,8 @@
 #include <zlib.h>
 
 #include "lib-szs.h"
+#include "fastyz.h"
+#include "trueyz.h"
 #include "lib-kcl.h"
 #include "lib-rarc.h"
 #include "lib-pack.h"
@@ -1214,7 +1216,7 @@ static void GrowDestYAZ (yaz_compr_t *yaz)
 ///////////////////////////////////////////////////////////////////////////////
 // back tracking
 
-const uint BACK_TRACK_MAX_DEPTH = 50;
+enum { BACK_TRACK_MAX_DEPTH = 50 };
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1693,6 +1695,44 @@ enumError ClassicCompressYAZ (yaz_compr_t *yaz, int compr)
 
 //
 ///////////////////////////////////////////////////////////////////////////////
+///////////////		FastYZ / TrueYZ compression		///////////////
+///////////////////////////////////////////////////////////////////////////////
+// FastYZ (aboood40091/FastYZ): very fast, ratio not optimized.
+// TrueYZ (aboood40091/TrueYZ): byte-for-byte identical to Nintendo's encoder.
+// Both write a Yaz0 header + stream; the header is skipped here, because
+// CompressYAZ() builds its own.
+
+static enumError ExternalCompressYAZ (yaz_compr_t *yaz, bool exact)
+{
+	DASSERT (yaz);
+	if (yaz->src_len > 0x7fffffff - 0x1000)
+		return ERR_WARNING;
+
+	const uint bound = FASTYZ_BOUND (yaz->src_len) + 0x40;
+	u8 *tmp = MALLOC (bound);
+	int n;
+	if (exact)
+		n = trueyz_compress (yaz->src, yaz->src_len, tmp);
+	else
+		n = yaz0_compress (yaz->src, yaz->src_len, tmp);
+
+	if (n < (int)sizeof (yaz0_header_t))
+	{
+		FREE (tmp);
+		return ERR_INTERNAL;
+	}
+
+	const uint len = n - sizeof (yaz0_header_t);
+	yaz->dest_buf_size = len;
+	yaz->dest_buf = MALLOC (len ? len : 1);
+	memcpy (yaz->dest_buf, tmp + sizeof (yaz0_header_t), len);
+	yaz->dest_ptr = yaz->dest_end = yaz->dest_buf + len;
+	FREE (tmp);
+	return ERR_OK;
+}
+
+//
+///////////////////////////////////////////////////////////////////////////////
 ///////////////			CompressWith()			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1806,7 +1846,9 @@ enumError CompressYAZ (szs_file_t *szs, int compr, bool remove_uncompressed)
 	enumError err;
 	if (compr == COMPR_DEFAULT)
 		compr = 9;
-	if (compr > 0)
+	if (opt_compr_mode == 12 || opt_compr_mode == 13)
+		err = ExternalCompressYAZ (&yaz, opt_compr_mode == 13);
+	else if (compr > 0)
 		err = ClassicCompressYAZ (&yaz, compr);
 	else
 	{
@@ -3375,7 +3417,7 @@ enumError CreateU8 (szs_file_t *szs, // valid szs
 	if (u8_head_size > sizeof (u8_header_t))
 		memset (u8head->padding, 0xcc, u8_head_size - sizeof (u8_header_t));
 
-	const int MAX_DIR_DEPTH = 50;
+	enum { MAX_DIR_DEPTH = 50 };
 	u32 basedir[MAX_DIR_DEPTH + 1];
 	memset (basedir, 0, sizeof (basedir));
 
@@ -4175,7 +4217,7 @@ void UiCheck (ui_check_t *uc, szs_file_t *szs)
 			if (isalpha (ch))
 			{
 				if (ch == 'R')
-					uc->is_korean = true;
+					uc->is_korean = OFFON_ON;
 				else
 					uc->ui_lang = ch;
 			}
@@ -4234,7 +4276,7 @@ int IterateFilesU8 (struct szs_iterator_t *it, // iterator struct with all infos
 
 	//----- setup stack
 
-	const int MAX_DEPTH = 25; // maximum supported directory depth
+	enum { MAX_DEPTH = 25 }; // maximum supported directory depth
 	typedef struct stack_t
 	{
 		const u8_node_t *dir_end;

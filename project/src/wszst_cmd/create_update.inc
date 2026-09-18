@@ -70,6 +70,37 @@ static enumError cmd_create (bool create)
 				max_err = y_err;
 			continue;
 		}
+		const bool is_aamp_sidecar =
+			(arg_len > 9 && !strcasecmp (arg + arg_len - 9, ".aamp.yml"))
+			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".aamp.yaml"))
+			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".baamp.yml"))
+			|| (arg_len > 11 && !strcasecmp (arg + arg_len - 11, ".baamp.yaml"))
+			|| (arg_len > 11 && !strcasecmp (arg + arg_len - 11, ".bparam.yml"))
+			|| (arg_len > 12 && !strcasecmp (arg + arg_len - 12, ".bparam.yaml"))
+			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".bgenv.yml"))
+			|| (arg_len > 11 && !strcasecmp (arg + arg_len - 11, ".bgenv.yaml"))
+			|| (arg_len > 11 && !strcasecmp (arg + arg_len - 11, ".bglpbd.yml"))
+			|| (arg_len > 12 && !strcasecmp (arg + arg_len - 12, ".bglpbd.yaml"));
+
+		if (create && is_aamp_sidecar)
+		{
+			char y_dest[PATH_MAX];
+			if (opt_dest)
+				SubstDest (y_dest, sizeof (y_dest), arg, opt_dest, 0, ".aamp", false);
+			else
+			{
+				snprintf (y_dest, sizeof (y_dest), "%s", arg);
+				// Strip .yml (preferred) or the older .yaml sidecar suffix.
+				y_dest[arg_len - (is_ext (arg, ".yml") ? 4 : 5)] = 0;
+			}
+			const enumError y_err = encode_aamp_file (arg, y_dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE AAMP %s -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", arg, y_dest);
+			if (max_err < y_err)
+				max_err = y_err;
+			continue;
+		}
 		int src_len = strlen (arg);
 		while (src_len > 0 && arg[src_len - 1] == '/')
 			src_len--;
@@ -87,7 +118,7 @@ static enumError cmd_create (bool create)
 				max_err = tree_err;
 
 			// Clean up all leftover .d folders and preview/companion artifacts from the tree
-			cleanup_extracted_artifacts (source_dir, true);
+			cleanup_extracted_artifacts (source_dir, true, 0);
 
 			// If it's a general directory tree and no explicit --dest was given, tree repacking is
 			// done.
@@ -768,6 +799,24 @@ static enumError cmd_create (bool create)
 			ResetSetupParam (&sp);
 			continue;
 		}
+		if (create && ext && (!strcasecmp (ext, ".sharc") || !strcasecmp (ext, ".sharcfb"))
+			&& LooksLikeSHARCDir (source_dir))
+		{
+			const bool fb = !strcasecmp (ext, ".sharcfb");
+			enumError err = fb ? CreateSHARCFBFromDir (source_dir, dest)
+							   : CreateSHARCFromDir (source_dir, dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE %s %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", fb ? "SHARCFB" : "SHARC", source_dir, dest);
+			if (max_err < err)
+				max_err = err;
+			// compiling keeps the directory: it is the editable SHARC source
+			if (!fb && err <= ERR_WARNING && src_len > 2
+				&& !strcasecmp (source_dir + src_len - 2, ".d") && !testmode)
+				remove_dir_recursive (source_dir);
+			ResetSetupParam (&sp);
+			continue;
+		}
 		if (create && ext && !strcasecmp (ext, ".gsh"))
 		{
 			enumError err = create_gsh_dir (source_dir, dest);
@@ -1013,6 +1062,119 @@ static enumError cmd_create (bool create)
 			ResetSetupParam (&sp);
 			continue;
 		}
+		if (create && ext && (!strcasecmp (ext, ".bglpbd") || (is_ext (dest, "bglpbd.szs")))
+			&& (is_ext (arg, ".bfres") || is_ext (arg, ".szs") || is_ext (arg, ".glb") || is_ext (arg, ".dae")))
+		{
+			// Generating AGL light probes from course model bounds
+			u8 *mdata = NULL;
+			size_t msize = 0;
+			enumError err = LoadFileAlloc (arg, 0, 0, &mdata, &msize, 0, 0, 0, false);
+			if (!err && mdata)
+			{
+				model_t *mdl = NULL;
+				bool is_sw = is_ext (dest, ".szs");
+				if (msize >= 4 && !memcmp (mdata, "FRES", 4))
+				{
+					mdl = ParseBFRES (mdata, msize);
+					if (!mdl)
+					{
+						mdl = ParseBFRESSwitch (mdata, msize);
+						if (mdl) is_sw = true;
+					}
+				}
+				else if (is_ext (arg, ".glb") || is_ext (arg, ".dae"))
+				{
+					mdl = ParseGLB (mdata, msize);
+				}
+
+				if (mdl)
+				{
+					bglpbd_file_t pfile;
+					err = CreateBGLPBD_FromModel (&pfile, mdl, NULL, is_sw);
+					if (!err)
+					{
+						u8 *bin = NULL;
+						size_t bin_sz = 0;
+						err = EncodeBGLPBD (&pfile, &bin, &bin_sz);
+						if (!err && bin)
+						{
+							szs_file_t out_szs;
+							InitializeSZS (&out_szs);
+							out_szs.data = bin;
+							out_szs.size = bin_sz;
+							err = SaveSZS (&out_szs, dest, opt_overwrite > 0, is_sw);
+							out_szs.data = NULL;
+							ResetSZS (&out_szs);
+							FREE (bin);
+						}
+					}
+					ResetBGLPBD (&pfile);
+					FreeModel (mdl);
+				}
+				FREE (mdata);
+			}
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE BGLPBD (Model) %s -> %s\n",
+					verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest);
+			if (max_err < err)
+				max_err = err;
+			ResetSetupParam (&sp);
+			continue;
+		}
+		if (create && ext && (!strcasecmp (ext, ".bglpbd") || !strcasecmp (ext, ".szs"))
+			&& is_ext (arg, ".txt"))
+		{
+			// Importing Unity light probe text file to bglpbd
+			u8 *tdata = NULL;
+			size_t tsize = 0;
+			enumError err = LoadFileAlloc (arg, 0, 0, &tdata, &tsize, 0, 0, 0, false);
+			if (!err && tdata)
+			{
+				bglpbd_file_t pfile;
+				bool is_sw = !strcasecmp (ext, ".szs") || (opt_dest && strcasestr (opt_dest, ".szs"));
+				err = CreateBGLPBD_FromUnityText (&pfile, (const char *)tdata, tsize, NULL, is_sw);
+				if (!err)
+				{
+					u8 *bin = NULL;
+					size_t bin_sz = 0;
+					err = EncodeBGLPBD (&pfile, &bin, &bin_sz);
+					if (!err && bin)
+					{
+						szs_file_t out_szs;
+						InitializeSZS (&out_szs);
+						out_szs.data = bin;
+						out_szs.size = bin_sz;
+						err = SaveSZS (&out_szs, dest, opt_overwrite > 0, is_sw);
+						out_szs.data = NULL;
+						ResetSZS (&out_szs);
+						FREE (bin);
+					}
+				}
+				ResetBGLPBD (&pfile);
+				FREE (tdata);
+			}
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE BGLPBD (Unity TXT) %s -> %s\n",
+					verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest);
+			if (max_err < err)
+				max_err = err;
+			ResetSetupParam (&sp);
+			continue;
+		}
+		if (create && ext
+			&& (!strcasecmp (ext, ".aamp") || !strcasecmp (ext, ".baamp")
+				|| !strcasecmp (ext, ".bparam") || !strcasecmp (ext, ".bgenv")
+				|| !strcasecmp (ext, ".bglpbd")))
+		{
+			enumError err = encode_aamp_file (arg, dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE AAMP %s -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", arg, dest);
+			if (max_err < err)
+				max_err = err;
+			ResetSetupParam (&sp);
+			continue;
+		}
 		if (create && ext && !strcasecmp (ext, ".ctpk"))
 		{
 			enumError err = create_ctpk_dir (source_dir, dest);
@@ -1123,6 +1285,35 @@ static enumError cmd_create (bool create)
 					testmode ? "WOULD " : "", arg, dest);
 			if (max_err < err)
 				max_err = err;
+			ResetSetupParam (&sp);
+			continue;
+		}
+
+		if (create && ext && (!strcasecmp (ext, ".eff") || !strcasecmp (ext, ".effn")))
+		{
+			enumError err = create_effn_dir (source_dir, dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE EFFN %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", source_dir, dest);
+			if (max_err < err)
+				max_err = err;
+			if (err <= ERR_WARNING && src_len > 2 && !strcasecmp (source_dir + src_len - 2, ".d")
+				&& !testmode)
+				remove_dir_recursive (source_dir);
+			ResetSetupParam (&sp);
+			continue;
+		}
+		if (create && ext && (!strcasecmp (ext, ".ptcl") || !strcasecmp (ext, ".vfxb") || !strcasecmp (ext, ".eset")))
+		{
+			enumError err = create_pctl_dir (source_dir, dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE VFXB %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", source_dir, dest);
+			if (max_err < err)
+				max_err = err;
+			if (err <= ERR_WARNING && src_len > 2 && !strcasecmp (source_dir + src_len - 2, ".d")
+				&& !testmode)
+				remove_dir_recursive (source_dir);
 			ResetSetupParam (&sp);
 			continue;
 		}
@@ -3092,8 +3283,21 @@ static enumError extract_gpkg_file (ccp arg, ccp basedir, uint depth)
 		if (testmode || !e->data)
 			continue;
 
+		// e->name is a raw 0x20-byte field copied straight out of the
+		// archive by ScanGPKG() with no sanitizing -- an entry named e.g.
+		// "../../../tmp/evil" would otherwise escape 'dest'. Substitute a
+		// synthetic name instead of aborting the whole archive over it, same
+		// fallback the other named-entry extractors below use.
+		ccp name = e->name;
+		char safe_name[32];
+		if (!valid_sarc_path (name))
+		{
+			snprintf (safe_name, sizeof (safe_name), "%04u.bin", i);
+			name = safe_name;
+		}
+
 		char path[PATH_MAX];
-		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", e->name);
+		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", name);
 		File_t F;
 		err = CreateFileOpt (&F, true, path, false, arg);
 		if (F.f && e->size && fwrite (e->data, 1, e->size, F.f) != e->size)
@@ -4264,8 +4468,21 @@ static enumError extract_warc_file (ccp arg, ccp basedir, uint depth)
 		if (!e->name || testmode)
 			continue;
 
+		// ScanWARC() builds e->name straight out of the archive's own
+		// folder/file string table (see lib-warc.c) with no ".." filtering;
+		// an entry naming a folder like "../../tmp" would otherwise escape
+		// 'dest'. Substitute a synthetic name rather than losing the whole
+		// archive over one bad entry, matching the fallback used elsewhere.
+		ccp name = e->name;
+		char safe_name[32];
+		if (!valid_sarc_path (name))
+		{
+			snprintf (safe_name, sizeof (safe_name), "%04u.bin", i);
+			name = safe_name;
+		}
+
 		char path[PATH_MAX];
-		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", e->name);
+		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", name);
 		File_t F;
 		err = CreateFileOpt (&F, true, path, false, arg);
 		if (F.f && e->size && fwrite (e->data, 1, e->size, F.f) != e->size)
@@ -4517,6 +4734,77 @@ static enumError extract_ctxb_file (ccp arg, ccp basedir, uint depth)
 	return err;
 }
 
+static enumError extract_bntx_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".bntx"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err || raw_size > UINT_MAX || raw_size < 0x40 || memcmp (raw, "BNTX", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	bntx_t bntx;
+	err = ScanBNTX (&bntx, raw, (uint)raw_size);
+	if (err || !bntx.n_textures)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	// For single-texture BNTX files without an explicit destination directory,
+	// let decode_wimg_file convert it beside the source without creating a directory.
+	if (bntx.n_textures <= 1 && (!opt_dest || !*opt_dest))
+	{
+		ResetBNTX (&bntx);
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest_dir[PATH_MAX];
+	if (opt_dest && *opt_dest)
+		snprintf (dest_dir, sizeof (dest_dir), "%s", opt_dest);
+	else
+		SubstDest (dest_dir, sizeof (dest_dir), arg, 0, "%P/%N.d", ".d", false);
+
+	if (!testmode)
+		CreatePath (dest_dir, true);
+
+	for (uint i = 0; i < bntx.n_textures; i++)
+	{
+		ccp tname = bntx.textures[i].name;
+		if (!tname || !*tname)
+			tname = "texture";
+
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/%s.png", dest_dir, tname);
+
+		if (!opt_overwrite && !access (path, F_OK))
+			continue;
+
+		u8 *rgba = 0;
+		uint w = 0, h = 0;
+		if (!DecodeBNTX_RGBA (&rgba, &w, &h, &bntx, i) && rgba)
+		{
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sEXTRACT BNTX:%s[%s] -> PNG:%s\n",
+					verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, tname, path);
+			if (!testmode)
+				SaveDecodedRGBAToPNG (rgba, w, h, &le_func, path, 0, false);
+			else
+				FREE (rgba);
+		}
+	}
+
+	ResetBNTX (&bntx);
+	FREE (raw);
+	return ERR_OK;
+}
+
 // Export each Latte program embedded in a shader-only Gfx2/GSH container to
 // a semantic listing with a lossless raw section. Reassembling the RAW fields
 // reproduces the complete program, including clauses and unknown opcodes/bits.
@@ -4582,6 +4870,20 @@ static enumError extract_gsh_shaders (ccp arg, ccp basedir, uint depth)
 		else
 			written++;
 		FREE (text);
+	}
+	if (!testmode)
+	{
+		char manifest_dest[PATH_MAX];
+		snprintf (manifest_dest, sizeof (manifest_dest), "%s.txt", arg);
+		File_t MF;
+		InitializeFile (&MF);
+		enumError mferr = CreateFileOpt (&MF, true, manifest_dest, false, arg);
+		if (!mferr && MF.f)
+		{
+			DecodeGSH_Text (MF.f, raw, raw_size);
+			written++;
+		}
+		ResetFile (&MF, false);
 	}
 	ResetGTX (&gtx);
 	FREE (raw);
@@ -4779,9 +5081,18 @@ static enumError extract_bea_file (ccp arg, ccp basedir, uint depth)
 	{
 		for (uint i = 0; i < bea.n_files; i++)
 		{
+			// bea.files[i].name is read straight out of the archive's own
+			// string table by ScanBEA()/load_bea_string() -- a crafted
+			// "../../../tmp/evil" entry would otherwise escape 'dest'.
+			ccp name = bea.files[i].name;
+			char safe_name[32];
+			if (!valid_sarc_path (name))
+			{
+				snprintf (safe_name, sizeof (safe_name), "%04u.bin", i);
+				name = safe_name;
+			}
 			char path[PATH_MAX];
-			snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "",
-				bea.files[i].name);
+			snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", name);
 			File_t F;
 			CreateFileOpt (&F, true, path, false, arg);
 			if (F.f && bea.files[i].size)
@@ -4801,6 +5112,286 @@ static enumError extract_bea_file (ccp arg, ccp basedir, uint depth)
 			err = sub;
 	}
 	return err;
+}
+
+static enumError extract_mpbin_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err || raw_size < 16 || raw_size > UINT_MAX || !IsMPBIN (raw, (uint)raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	nintendo_sarc_entry_t *entries = 0;
+	uint n_entries = 0;
+	err = ScanMPBIN (&entries, &n_entries, raw, (uint)raw_size);
+	FREE (raw);
+	if (err || !n_entries)
+		return ERR_NOTHING_TO_DO;
+
+	return write_owned_entries (arg, basedir, depth, "MPBIN", entries, n_entries);
+}
+
+static enumError extract_atb_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err || raw_size < 20 || raw_size > UINT_MAX || !IsATB (raw, (uint)raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	atb_archive_t atb;
+	err = ScanATB (&atb, raw, (uint)raw_size);
+	if (err)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT ATB:%s -> %s/ (%u textures, %u patterns, %u banks)\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest,
+			atb.num_textures, atb.num_patterns, atb.num_banks);
+
+	if (!testmode)
+	{
+		char setup_path[PATH_MAX];
+		snprintf (setup_path, sizeof (setup_path), "%s/%satb-setup.txt", dest, basedir ? basedir : "");
+		File_t SF;
+		CreateFileOpt (&SF, true, setup_path, false, arg);
+		FILE *f = SF.f;
+
+		if (f)
+		{
+			fprintf (f, "# ATB setup manifest\n");
+			fprintf (f, "references %u\n\n", atb.num_references);
+		}
+
+		for (uint i = 0; i < atb.num_textures; i++)
+		{
+			atb_texture_t *t = &atb.textures[i];
+			char raw_name[64], png_name[64];
+			snprintf (raw_name, sizeof (raw_name), "tex_%03u.raw", i);
+			snprintf (png_name, sizeof (png_name), "tex_%03u.png", i);
+
+			if (f)
+				fprintf (f, "texture %u format=%u bpp=%u pal_size=%u size=%u,%u raw=%s png=%s\n",
+					i, t->format, t->bpp, t->palette_size, t->width, t->height, raw_name, png_name);
+
+			char raw_path[PATH_MAX];
+			snprintf (raw_path, sizeof (raw_path), "%s/%s%s", dest, basedir ? basedir : "", raw_name);
+			File_t RF;
+			CreateFileOpt (&RF, true, raw_path, false, arg);
+			if (RF.f)
+			{
+				if (t->palette_size > 0 && t->palette_data)
+					fwrite (t->palette_data, 1, t->palette_size * 2, RF.f);
+				if (t->image_size > 0 && t->image_data)
+					fwrite (t->image_data, 1, t->image_size, RF.f);
+			}
+			ResetFile (&RF, opt_preserve);
+
+			// Decode to PNG
+			uint gx_fmt = 6;
+			uint pal_fmt = 2;
+			switch (t->format)
+			{
+				case 0x00: gx_fmt = 6; break;
+				case 0x01:
+				case 0x02: gx_fmt = 5; break;
+				case 0x03: gx_fmt = 9; pal_fmt = 2; break;
+				case 0x04: gx_fmt = 8; pal_fmt = 2; break;
+				case 0x05:
+				case 0x09: gx_fmt = 3; break;
+				case 0x06: gx_fmt = 2; break;
+				case 0x07: gx_fmt = 1; break;
+				case 0x08: gx_fmt = 0; break;
+				case 0x0a: gx_fmt = 14; break;
+				default: gx_fmt = 6; break;
+			}
+
+			if (t->width && t->height && t->image_data)
+			{
+				u8 *rgba = 0;
+				if (!DecodeGXTexture_RGBA (&rgba, t->width, t->height, gx_fmt,
+						t->image_data, t->image_size, t->palette_data, t->palette_size, pal_fmt))
+				{
+					char png_path[PATH_MAX];
+					snprintf (png_path, sizeof (png_path), "%s/%s%s", dest, basedir ? basedir : "", png_name);
+					SaveDecodedRGBAToPNG (rgba, t->width, t->height, &be_func, png_path, 0, true);
+				}
+			}
+		}
+
+		if (f)
+		{
+			fprintf (f, "\n# Patterns\n");
+			for (uint i = 0; i < atb.num_patterns; i++)
+			{
+				atb_pattern_t *p = &atb.patterns[i];
+				fprintf (f, "pattern %u center=%d,%d size=%d,%d\n",
+					i, p->center_x, p->center_y, p->width, p->height);
+				for (uint l = 0; l < p->layer_count; l++)
+				{
+					atb_layer_t *layer = &p->layers[l];
+					fprintf (f, "layer pattern=%u tex=%d alpha=%u flip=%u coord=%d,%d,%d,%d shift=%d,%d vtx=%d,%d,%d,%d,%d,%d,%d,%d\n",
+						i, layer->texture_index, layer->alpha, layer->flip,
+						layer->tex_coord_tl_x, layer->tex_coord_tl_y, layer->tex_coord_w, layer->tex_coord_h,
+						layer->shift_x, layer->shift_y,
+						layer->vtx_tl_x, layer->vtx_tl_y, layer->vtx_tr_x, layer->vtx_tr_y,
+						layer->vtx_br_x, layer->vtx_br_y, layer->vtx_bl_x, layer->vtx_bl_y);
+				}
+			}
+
+			fprintf (f, "\n# Banks\n");
+			for (uint i = 0; i < atb.num_banks; i++)
+			{
+				atb_bank_t *b = &atb.banks[i];
+				fprintf (f, "bank %u\n", i);
+				for (uint k = 0; k < b->frame_count; k++)
+				{
+					atb_anim_frame_t *fr = &b->frames[k];
+					fprintf (f, "frame bank=%u pattern=%d length=%d shift=%d,%d flip=%d unk=%d\n",
+						i, fr->pattern_index, fr->frame_length, fr->shift_x, fr->shift_y, fr->flip, fr->unk);
+				}
+			}
+			ResetFile (&SF, opt_preserve);
+		}
+	}
+
+	ResetATB (&atb);
+	FREE (raw);
+
+	if (!err && !testmode)
+	{
+		enumError sub = extract_tree_complete (dest, depth + 1);
+		if (err < sub)
+			err = sub;
+	}
+	return err;
+}
+
+static enumError extract_ptd_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err || raw_size < 32 || raw_size > UINT_MAX || !IsPTD (raw, (uint)raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	nintendo_sarc_entry_t *entries = 0;
+	uint n_entries = 0;
+	err = ScanPTD (&entries, &n_entries, raw, (uint)raw_size);
+	FREE (raw);
+	if (err || !n_entries)
+		return ERR_NOTHING_TO_DO;
+
+	return write_owned_entries (arg, basedir, depth, "PTD", entries, n_entries);
+}
+
+static enumError extract_lzbin_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err || raw_size < 16 || raw_size > UINT_MAX || !IsLZBIN (raw, (uint)raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	nintendo_sarc_entry_t *entries = 0;
+	uint n_entries = 0;
+	err = ScanLZBIN (&entries, &n_entries, raw, (uint)raw_size);
+	FREE (raw);
+	if (err || !n_entries)
+		return ERR_NOTHING_TO_DO;
+
+	return write_owned_entries (arg, basedir, depth, "LZBIN", entries, n_entries);
+}
+
+static enumError extract_effn_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 magic[4];
+	FILE *f = fopen (arg, "rb");
+	if (!f)
+		return ERR_NOTHING_TO_DO;
+	size_t n = fread (magic, 1, 4, f);
+	fclose (f);
+	if (n < 4 || memcmp (magic, "EFFN", 4) != 0)
+		return ERR_NOTHING_TO_DO;
+
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT EFFN:%s -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+		return ERR_OK;
+
+	enumError err = ExtractEFFNArchive (arg, dest);
+	if (!err && opt_recurse > depth)
+		extract_tree_complete (dest, depth + 1);
+	return err;
+}
+
+static enumError extract_pctl_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 magic[4];
+	FILE *f = fopen (arg, "rb");
+	if (!f)
+		return ERR_NOTHING_TO_DO;
+	size_t n = fread (magic, 1, 4, f);
+	fclose (f);
+	if (n < 4 || memcmp (magic, "VFXB", 4) != 0)
+		return ERR_NOTHING_TO_DO;
+
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT VFXB:%s -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+		return ERR_OK;
+
+	enumError err = ExtractPCTLArchive (arg, dest);
+	if (!err && opt_recurse > depth)
+		extract_tree_complete (dest, depth + 1);
+	return err;
+}
+
+static enumError extract_hbdf_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err || raw_size < 8 || raw_size > UINT_MAX || !IsHBDF (raw, (uint)raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	nintendo_sarc_entry_t *entries = 0;
+	uint n_entries = 0;
+	err = ScanHBDF (&entries, &n_entries, raw, (uint)raw_size);
+	FREE (raw);
+	if (err || !n_entries)
+		return ERR_NOTHING_TO_DO;
+
+	return write_owned_entries (arg, basedir, depth, "HBDF", entries, n_entries);
 }
 
 static enumError extract_mii_file (ccp arg, ccp basedir, uint depth)
@@ -6876,157 +7467,6 @@ static void decompress_mpbin_inflate (u8 *out, uint out_size, const u8 *src, uin
 	}
 }
 
-static enumError extract_mpbin_file (ccp arg, ccp basedir, uint depth)
-{
-	ccp ext = strrchr (arg, '.');
-	if (!ext || strcasecmp (ext, ".bin"))
-		return ERR_NOTHING_TO_DO;
-
-	u8 *raw = 0;
-	size_t raw_size = 0;
-	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
-	if (err)
-		return err;
-	if (raw_size < 8 || raw_size > UINT_MAX)
-	{
-		FREE (raw);
-		return ERR_NOTHING_TO_DO;
-	}
-
-	u32 num_files = ((u32)raw[0] << 24) | ((u32)raw[1] << 16) | ((u32)raw[2] << 8) | raw[3];
-	if (num_files < 1 || num_files > 4096 || 4 + 4 * num_files > raw_size)
-	{
-		FREE (raw);
-		return ERR_NOTHING_TO_DO;
-	}
-
-	u32 first_off = ((u32)raw[4] << 24) | ((u32)raw[5] << 16) | ((u32)raw[6] << 8) | raw[7];
-	if (first_off < 4 + 4 * num_files || first_off >= raw_size)
-	{
-		FREE (raw);
-		return ERR_NOTHING_TO_DO;
-	}
-
-	for (uint i = 0; i < num_files; i++)
-	{
-		u32 off = ((u32)raw[4 + 4 * i] << 24) | ((u32)raw[4 + 4 * i + 1] << 16)
-			| ((u32)raw[4 + 4 * i + 2] << 8) | raw[4 + 4 * i + 3];
-		if (off + 8 > raw_size)
-		{
-			FREE (raw);
-			return ERR_NOTHING_TO_DO;
-		}
-		u32 ctype = ((u32)raw[off + 4] << 24) | ((u32)raw[off + 5] << 16) | ((u32)raw[off + 6] << 8)
-			| raw[off + 7];
-		if (ctype != 0 && ctype != 1 && ctype != 2 && ctype != 3 && ctype != 4 && ctype != 5
-			&& ctype != 7)
-		{
-			FREE (raw);
-			return ERR_NOTHING_TO_DO;
-		}
-	}
-
-	char dest[PATH_MAX];
-	beside_source_dest (dest, sizeof (dest), arg);
-	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT MPBIN:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
-			testmode ? "WOULD " : "", arg, num_files, dest);
-
-	for (uint i = 0; !err && i < num_files; i++)
-	{
-		u32 off = ((u32)raw[4 + 4 * i] << 24) | ((u32)raw[4 + 4 * i + 1] << 16)
-			| ((u32)raw[4 + 4 * i + 2] << 8) | raw[4 + 4 * i + 3];
-		u32 uncomp_size = ((u32)raw[off] << 24) | ((u32)raw[off + 1] << 16)
-			| ((u32)raw[off + 2] << 8) | raw[off + 3];
-		u32 ctype = ((u32)raw[off + 4] << 24) | ((u32)raw[off + 5] << 16) | ((u32)raw[off + 6] << 8)
-			| raw[off + 7];
-
-		if (uncomp_size == 0)
-			continue;
-		if (uncomp_size > 256 * 1024 * 1024)
-		{
-			err = ERR_FILE_TOO_BIG;
-			break;
-		}
-
-		if (testmode)
-			continue;
-
-		u8 *dest_buf = CALLOC (1, uncomp_size + 16);
-		if (!dest_buf)
-		{
-			err = ENOMEM;
-			break;
-		}
-
-		switch (ctype)
-		{
-			case 0:
-				if (off + 8 + uncomp_size <= raw_size)
-					memcpy (dest_buf, raw + off + 8, uncomp_size);
-				break;
-			case 1:
-				decompress_mpbin_lzss (
-					dest_buf, uncomp_size, raw + off + 8, (uint)(raw_size - (off + 8)));
-				break;
-			case 2:
-			case 3:
-			case 4:
-				if (off + 12 <= raw_size)
-					decompress_mpbin_slide (
-						dest_buf, uncomp_size, raw + off + 12, (uint)(raw_size - (off + 12)));
-				break;
-			case 5:
-				decompress_mpbin_rle (
-					dest_buf, uncomp_size, raw + off + 8, (uint)(raw_size - (off + 8)));
-				break;
-			case 7:
-				if (off + 16 <= raw_size)
-				{
-					u32 comp_size = ((u32)raw[off + 12] << 24) | ((u32)raw[off + 13] << 16)
-						| ((u32)raw[off + 14] << 8) | raw[off + 15];
-					decompress_mpbin_inflate (dest_buf, uncomp_size, raw + off + 16, comp_size);
-				}
-				break;
-			default:
-				break;
-		}
-
-		ccp sub_ext = "dat";
-		if (uncomp_size >= 7 && !memcmp (dest_buf, "HSFV037", 7))
-			sub_ext = "hsf";
-		else if (uncomp_size >= 16 && dest_buf[12] == 0 && dest_buf[13] == 0 && dest_buf[14] == 0
-			&& dest_buf[15] == 20)
-			sub_ext = "atb";
-		else if (uncomp_size >= 4 && !memcmp (dest_buf, "ARC\0", 4))
-			sub_ext = "pac";
-		else if (uncomp_size >= 4 && !memcmp (dest_buf, "darc", 4))
-			sub_ext = "darc";
-		else if (uncomp_size >= 4 && !memcmp (dest_buf, "SARC", 4))
-			sub_ext = "sarc";
-
-		char path[PATH_MAX];
-		snprintf (
-			path, sizeof (path), "%s/%sfile%03u.%s", dest, basedir ? basedir : "", i, sub_ext);
-		File_t F;
-		err = CreateFileOpt (&F, true, path, false, arg);
-		if (F.f && fwrite (dest_buf, 1, uncomp_size, F.f) != uncomp_size)
-			err = FILEERROR1 (
-				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", uncomp_size, path);
-		ResetFile (&F, opt_preserve);
-		FREE (dest_buf);
-	}
-
-	FREE (raw);
-	if (!err && !testmode)
-	{
-		enumError sub_err = extract_tree_complete (dest, depth + 1);
-		if (err < sub_err)
-			err = sub_err;
-	}
-	return err;
-}
-
 // Export the structural half of a Switch ("NX") BFRES container as XML.
 // Wii U BFRES (ParseBFRES() in lib-bfres.c) is big-endian, version 3.x, and
 // self-relative offsets; Switch reuses the "FRES" magic but is little-endian
@@ -7327,6 +7767,890 @@ static enumError extract_prc_manifest (ccp arg)
 		err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing XML failed: %s\n", dest);
 	ResetFile (&F, opt_preserve);
 	FREE (xml);
+	return err;
+}
+
+static enumError extract_rstb_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".rstb"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsRSTB (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE RSTB:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeRSTB_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_aamp_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".aamp") && !is_ext (arg, ".baamp") && !is_ext (arg, ".bparam") && !is_ext (arg, ".bgenv") && !is_ext (arg, ".bglpbd"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsAAMP (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, "\1N.aamp.yml", ".aamp.yml", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.yml", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE AAMP:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+	{
+		ccp ext = strrchr (dest, '.');
+		if (ext && !strcasecmp (ext, ".json"))
+			err = DecodeAAMP_JSON (F.f, raw, raw_size);
+		else
+			err = DecodeAAMP_YAML (F.f, raw, raw_size);
+	}
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_sharc_manifest (ccp arg)
+{
+	const bool is_fb = is_ext (arg, ".sharcfb");
+	if (!is_fb && !is_ext (arg, ".sharc"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (is_fb ? !IsSHARCFB (raw, raw_size) : !IsSHARC (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	// Source archives are extracted into an editable directory (sources,
+	// macros, tables) when that provably rebuilds to the same bytes.
+	if (!is_fb && !testmode)
+	{
+		char dir[PATH_MAX];
+		beside_source_dest (dir, sizeof (dir), arg);
+		err = ExtractSHARCDir (raw, raw_size, dir, arg);
+		if (err != ERR_NOTHING_TO_DO)
+		{
+			if (verbose >= 0)
+				fprintf (stdlog, "%sEXTRACT SHARC:%s -> %s/\n", verbose > 0 ? "\n" : "", arg,
+					dir);
+			FREE (raw);
+			return err;
+		}
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE %s:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", is_fb ? "SHARCFB" : "SHARC", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = is_fb ? DecodeSHARCFB_Text (F.f, raw, raw_size) : DecodeSHARC_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_bnsh_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".bnsh"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsBNSH (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE BNSH:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeBNSH_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_nushdb_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".nushdb"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsNUSHDB (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE NUSHDB:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeNUSHDB_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_numatb_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".numatb"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsNUMATB (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE NUMATB:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeNUMATB_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_nusktb_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".nusktb"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsNUSKTB (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE NUSKTB:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeNUSKTB_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_nufxlb_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".nufxlb"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsNUFXLB (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE NUFXLB:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeNUFXLB_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_numdlb_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".numdlb") && !is_ext (arg, ".nusrcmdlb"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsNUMDLB (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE NUMDLB:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeNUMDLB_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_nuhlpb_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".nuhlpb"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsNUHLPB (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE NUHLPB:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeNUHLPB_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_nulstb_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".nulstb"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsNULSTB (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE NULSTB:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeNULSTB_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_nurpdb_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".nurpdb"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsNURPDB (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE NURPDB:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeNURPDB_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_nuanmb_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".nuanmb"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsNUANMB (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE NUANMB:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeNUANMB_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_bfsha_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".bfsha"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsBFSHA (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE BFSHA:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeBFSHA_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_effn_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".eff") && !is_ext (arg, ".effn"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsEFFN (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE EFFN:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeEFFN_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_pctl_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".ptcl"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsPCTL (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE VFXB:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodePCTL_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+// Extract a WTB (.wta/.wtb) texture archive: a text manifest of every texture's dimensions/
+// format, plus (when a decoder for its format exists and the pixel data is reachable) a
+// sibling PNG per texture. If the header points at an external .wtp, that sibling file is
+// loaded automatically when present; otherwise PNG extraction is skipped and the manifest
+// says so rather than guessing at a filename.
+static enumError extract_wtb_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".wta") && !is_ext (arg, ".wtb"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsWTB (raw, raw_size) || raw_size > UINT_MAX)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	wtb_t wtb;
+	err = ScanWTB (&wtb, raw, (uint)raw_size);
+	if (err)
+	{
+		FREE (raw);
+		return ERROR0 (ERR_INVALID_DATA, "WTB: %s: invalid texture archive\n", arg);
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE WTB:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (!testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, arg);
+		if (F.f)
+			err = DecodeWTB_Text (F.f, &wtb);
+		ResetFile (&F, opt_preserve);
+	}
+
+	// Figure out where the actual pixels live: this same buffer, or a sibling .wtp.
+	const u8 *img_data = raw;
+	uint img_size = (uint)raw_size;
+	u8 *wtp_raw = 0;
+	if (wtb.external_data)
+	{
+		char wtp_path[PATH_MAX];
+		snprintf (wtp_path, sizeof (wtp_path), "%s", arg);
+		char *dot = strrchr (wtp_path, '.');
+		if (dot && (!strcmp (dot, ".wta") || !strcmp (dot, ".wtb")))
+			strcpy (dot, ".wtp");
+		else
+			snprintf (wtp_path, sizeof (wtp_path), "%s.wtp", arg);
+
+		size_t wtp_size = 0;
+		if (!LoadFileAlloc (wtp_path, 0, 0, &wtp_raw, &wtp_size, 0, 0, 0, false)
+			&& wtp_size <= UINT_MAX)
+		{
+			img_data = wtp_raw;
+			img_size = (uint)wtp_size;
+		}
+		else
+			img_data = 0; // no sibling .wtp found -- skip PNG extraction, manifest still written
+	}
+
+	if (img_data && !testmode)
+	{
+		char base[PATH_MAX];
+		snprintf (base, sizeof (base), "%s", arg);
+		char *dot = strrchr (base, '.');
+		if (dot && (dot == base || dot[-1] != '/'))
+			*dot = 0;
+
+		for (uint i = 0; i < wtb.n_textures; i++)
+		{
+			char path[PATH_MAX];
+			snprintf (path, sizeof (path), "%s.%03u.png", base, i);
+			if (!opt_overwrite && !access (path, F_OK))
+				continue;
+
+			u8 *rgba = 0;
+			uint w = 0, h = 0;
+			if (!DecodeWTB_RGBA (&rgba, &w, &h, &wtb, img_data, img_size, i) && rgba)
+			{
+				if (verbose >= 0)
+					fprintf (stdlog, "EXTRACT WTB:%s[%u] -> PNG:%s\n", arg, i, path);
+				SaveDecodedRGBAToPNG (rgba, w, h, &le_func, path, 0, opt_overwrite);
+			}
+		}
+	}
+
+	FREE (wtp_raw);
+	ResetWTB (&wtb);
+	FREE (raw);
+	return err;
+}
+
+// Extract a TRPAK (.trpak) FlatBuffers archive: a text manifest of every entry (hash,
+// compression, sizes), plus its raw data blob per entry. Entries carry no archive-supplied name
+// string at all -- only a bare u64 hash meant to be looked up in an external, game-specific name
+// database this project doesn't have -- so there is nothing here that needs valid_sarc_path():
+// filenames are built purely from the entry index and its hash, never from archive content.
+// An OODLE-compressed entry's bytes are written verbatim (still compressed, ".oodle.bin"
+// extension) since no Oodle decompressor exists in this codebase, same "don't guess, don't
+// mislabel" approach as extract_rpak_file's own decompress_failed fallback.
+static enumError extract_trpak_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".trpak"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+	if (raw_size > UINT_MAX)
+	{
+		FREE (raw);
+		return ERR_FILE_TOO_BIG;
+	}
+	if (!IsTRPAK (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	trpak_t trpak;
+	err = ScanTRPAK (&trpak, raw, (uint) raw_size);
+	if (err)
+	{
+		FREE (raw);
+		return ERROR0 (ERR_INVALID_DATA, "TRPAK: %s: invalid archive\n", arg);
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT TRPAK:%s (%u entries) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, trpak.n_entries, dest);
+
+	if (!testmode)
+	{
+		char manifest[PATH_MAX];
+		snprintf (manifest, sizeof (manifest), "%s/trpak.txt", dest);
+		File_t F;
+		err = CreateFileOpt (&F, true, manifest, false, arg);
+		if (F.f)
+			err = DecodeTRPAK_Text (F.f, &trpak);
+		ResetFile (&F, opt_preserve);
+	}
+
+	for (uint i = 0; !err && i < trpak.n_entries && !testmode; i++)
+	{
+		const trpak_entry_t *e = trpak.entries + i;
+		if ((u64) e->data_offset + e->data_size > raw_size) // ScanTRPAK already guarantees this;
+			continue;                                        // kept as defense in depth
+
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/%04u_%016llx.%s", dest, i,
+			(unsigned long long) e->hash, e->compression == 3 ? "oodle.bin" : "bin");
+
+		File_t F;
+		err = CreateFileOpt (&F, true, path, false, arg);
+		if (F.f && e->data_size && fwrite (raw + e->data_offset, 1, e->data_size, F.f) != e->data_size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", e->data_size, path);
+		ResetFile (&F, opt_preserve);
+	}
+
+	ResetTRPAK (&trpak);
+	FREE (raw);
+	if (!err && !testmode)
+	{
+		enumError sub_err = extract_tree_complete (dest, depth + 1);
+		if (err < sub_err)
+			err = sub_err;
+	}
 	return err;
 }
 
@@ -8547,7 +9871,12 @@ static enumError decode_byml_if_possible (ccp arg)
 {
 	if (export_count <= 0)
 		return ERR_NOTHING_TO_DO;
-	if (!is_ext (arg, ".byml") && !is_ext (arg, ".byaml") && !is_ext (arg, ".bin"))
+	if (!is_ext (arg, ".byml") && !is_ext (arg, ".byaml") && !is_ext (arg, ".bin")
+		&& !is_ext (arg, ".bgyml") && !is_ext (arg, ".bgdata") && !is_ext (arg, ".sbgdata")
+		&& !is_ext (arg, ".bquestpack") && !is_ext (arg, ".sbquestpack") && !is_ext (arg, ".sbyml")
+		&& !is_ext (arg, ".mubin") && !is_ext (arg, ".smubin") && !is_ext (arg, ".baischedule")
+		&& !is_ext (arg, ".sbaischedule") && !is_ext (arg, ".baniminfo") && !is_ext (arg, ".sbaniminfo")
+		&& !is_ext (arg, ".bgsvdata") && !is_ext (arg, ".sbgsvdata"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *data = 0;
@@ -8575,7 +9904,7 @@ static enumError decode_byml_if_possible (ccp arg)
 		snprintf (dest, sizeof (dest), "%s.yml", arg);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sDECODE BYML:%s -> YML:%s\n", verbose > 0 ? "\n" : "",
+		fprintf (stdlog, "%s%sDECODE BYML:%s -> %s\n", verbose > 0 ? "\n" : "",
 			testmode ? "WOULD " : "", arg, dest);
 	if (testmode)
 	{
@@ -8590,7 +9919,13 @@ static enumError decode_byml_if_possible (ccp arg)
 		FREE (data);
 		return err;
 	}
-	err = DecodeBYML_YAML (F.f, data, size);
+	ccp ext = strrchr (dest, '.');
+	if (ext && !strcasecmp (ext, ".xml"))
+		err = DecodeBYML_XML (F.f, data, size);
+	else if (ext && !strcasecmp (ext, ".json"))
+		err = DecodeBYML_JSON (F.f, data, size);
+	else
+		err = DecodeBYML_YAML (F.f, data, size);
 	ResetFile (&F, opt_preserve);
 	FREE (data);
 	return err;
@@ -8821,6 +10156,27 @@ static enumError extract_nds_banner_metadata (ccp arg)
 			ResetFile (&F, 0);
 		}
 		FREE (text);
+	}
+
+	// Static banner icon
+	char static_png[PATH_MAX];
+	if (opt_dest)
+		SubstDest (static_png, sizeof (static_png), arg, opt_dest, 0, ".png", false);
+	else
+		snprintf (static_png, sizeof (static_png), "%s.png", arg);
+
+	if (opt_overwrite || access (static_png, F_OK))
+	{
+		if (verbose >= 0 || testmode)
+			fprintf (stdlog, "%sEXTRACT NDS static banner icon:%s -> %s\n",
+				testmode ? "WOULD " : "", arg, static_png);
+		if (!testmode)
+		{
+			u8 *rgba = 0;
+			uint w = 0, h = 0;
+			if (!DecodeNDSBannerIcon_RGBA (&rgba, &w, &h, &banner, NDS_BANNER_ICON_STATIC))
+				err = SaveDecodedRGBAToPNG (rgba, w, h, &le_func, static_png, 0, opt_overwrite);
+		}
 	}
 
 	// Animated icon, if any.  A 64-step sequence typically cycles through the
@@ -9426,6 +10782,16 @@ static enumError convert_brsar_if_possible (ccp arg)
 		return ERR_OK;
 
 	char *const child_argv[] = { tool, (char *)arg, dest, 0 };
+#ifdef __MINGW32__
+	// No fork()/exec() on native Windows; _spawnv() (mingw's
+	// CreateProcess-based process.h API) runs the child and blocks for its
+	// exit code directly.
+	intptr_t rc = _spawnv (_P_WAIT, tool, (const char *const *)child_argv);
+	if (rc == -1)
+		rc = _spawnvp (_P_WAIT, tool, (const char *const *)child_argv);
+	if (rc != 0)
+		return ERROR0 (ERR_WARNING, "%s failed for %s\n", using_vgmtrans ? "vgmtrans" : "wbrsar", arg);
+#else
 	const pid_t pid = fork ();
 	if (pid < 0)
 		return ERROR0 (ERR_CANT_CREATE, "fork() failed converting sound archive: %s\n", arg);
@@ -9440,6 +10806,7 @@ static enumError convert_brsar_if_possible (ccp arg)
 		;
 	if (!WIFEXITED (status) || WEXITSTATUS (status) != 0)
 		return ERROR0 (ERR_WARNING, "%s failed for %s\n", using_vgmtrans ? "vgmtrans" : "wbrsar", arg);
+#endif
 	return ERR_OK;
 }
 
@@ -9504,6 +10871,9 @@ static enumError export_models_tree (ccp root, uint depth)
 			const enumError byml_err = decode_byml_if_possible (path);
 			if (byml_err != ERR_NOTHING_TO_DO && err < byml_err)
 				err = byml_err;
+			const enumError aamp_err = decode_aamp_if_possible (path);
+			if (aamp_err != ERR_NOTHING_TO_DO && err < aamp_err)
+				err = aamp_err;
 			const enumError kcl_err = export_kcl_glb_if_possible (path);
 			if (kcl_err != ERR_NOTHING_TO_DO && err < kcl_err)
 				err = kcl_err;

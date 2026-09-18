@@ -649,7 +649,7 @@ enumError SaveTextITEMSLOT (const itemslot_t *itemslot, // pointer to valid ITEM
 	//--- print tables
 
 	uint active_offset = 0;
-	const uint N_SUM = 20;
+	enum { N_SUM = 20 };
 	uint sum[N_SUM];
 
 	const KeywordTab_t *par;

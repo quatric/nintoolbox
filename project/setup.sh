@@ -104,7 +104,18 @@ case "$SYSTEM" in
     x86_64)
 	[[ -s /usr/lib64/libpng.a ]] && libpng="/usr/lib64/libpng.a -lz"
 	;;
-esac    
+
+    mingw64)
+	# mingw-w64 ships neither zlib nor libpng; MINGW_LIBS points at a
+	# prefix (include/, lib/) holding cross-built static libs for
+	# x86_64-w64-mingw32 (see the mingw-w64 CI job / local build notes
+	# for how those are produced).
+	if [[ -n "$MINGW_LIBS" && -s "$MINGW_LIBS/lib/libpng.a" ]]
+	then
+	    libpng="$MINGW_LIBS/lib/libpng.a $MINGW_LIBS/lib/libz.a"
+	fi
+	;;
+esac
 
 #----- have_pcre
 

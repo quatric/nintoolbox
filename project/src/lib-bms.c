@@ -32,8 +32,12 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <sys/stat.h>
+#ifdef __MINGW32__
+#include <process.h> // _spawnv() -- see RunBmsScript() below
+#else
 #include <sys/wait.h>
 #include <unistd.h>
+#endif
 #include <zlib.h>
 #include "lib-std.h"
 #include "lib-szs.h"
@@ -387,7 +391,11 @@ static void save_span (bms_ctx_t *ctx, const char *name, const uint8_t *file, si
 	mkdirs (path);
 	if (off > file_size)
 		off = file_size;
-	if (off + size > file_size)
+	// 'size' comes from a script variable that can be attacker-influenced
+	// via file-derived values (including negative int64 -> huge size_t);
+	// compare against the remaining span instead of off+size, which could
+	// itself wrap around SIZE_MAX and slip past the bounds check.
+	if (size > file_size - off)
 		size = file_size - off;
 	FILE *f = fopen (path, ctx->append ? "ab" : "wb");
 	if (!f)
@@ -513,7 +521,9 @@ static void clog_span (bms_ctx_t *ctx, const char *name, const uint8_t *file, si
 	mkdirs (path);
 	if (off > file_size)
 		off = file_size;
-	if (off + comp_size > file_size)
+	// Same off+size wraparound hazard as save_span(): compare against the
+	// remaining span rather than the (possibly overflowing) sum.
+	if (comp_size > file_size - off)
 		comp_size = file_size - off;
 	const u8 *src = file + off;
 
@@ -1453,6 +1463,20 @@ enumError RunBmsScript (ccp script_path, ccp infile, ccp outdir)
 	if (!engine)
 		engine = "quickbms";
 
+#ifdef __MINGW32__
+	// No fork()/execlp() on native Windows; _spawnv() (mingw's
+	// CreateProcess-based process.h API) runs the child and blocks for its
+	// exit code directly, without needing a POSIX-style child branch.
+	char *const args[] = { (char *)engine, (char *)script_path, (char *)infile, (char *)outdir, 0 };
+	intptr_t rc = SpawnWaitQuoted (args, true);
+	if (rc == -1 && !strcmp (engine, "quickbms"))
+		// A source checkout remains useful before its bundled dependency has
+		// been built. Do not make that look like full QuickBMS compatibility.
+		return RunNativeBmsScript (script_path, infile, outdir);
+	if (rc == -1)
+		return ERROR0 (ERR_ERROR, "Can't start QuickBMS\n");
+	return rc ? ERR_ERROR : ERR_OK;
+#else
 	pid_t pid = fork ();
 	if (pid < 0)
 		return ERROR0 (ERR_ERROR, "Can't start QuickBMS\n");
@@ -1473,4 +1497,5 @@ enumError RunBmsScript (ccp script_path, ccp infile, ccp outdir)
 	if (WIFEXITED (status))
 		return WEXITSTATUS (status) ? ERR_ERROR : ERR_OK;
 	return ERR_ERROR;
+#endif
 }

@@ -1743,6 +1743,7 @@ typedef struct bf_rctx_t
 	bool is_rlyt; // Wii RLYT / RLAN
 	bool is_wiiu; // Wii U FLYT / FLAN (see readpane())
 	u32 version; // header version
+	uint version_major; // major version
 	const u8 *data; // whole file
 	uint size;
 	bf_node_t *tree; // root
@@ -2128,26 +2129,91 @@ static enumError r_mat1 (bf_rctx_t *ctx, const u8 *d, uint size)
 			FREE (name);
 			ptr += 28;
 
-			bf_node_t *color = BFNodeSetNode (mat, "foreground-color");
-			if (!color)
+			u32 flags;
+			if (ctx->version_major >= 8)
 			{
-				FREE (offsets);
-				return ERR_OUT_OF_MEMORY;
+				flags = rd32 (d + ptr, ctx->be);
+				ptr += 4;
+				BFE (BFNodeSetInt (mat, "flags", (int)flags));
+				uint cpos = ptr;
+				if (!rb_ok (ctx, ptr, 2))
+				{
+					FREE (offsets);
+					return ERR_INVALID_DATA;
+				}
+				u8 colortype = d[ptr];
+				u8 colorcount = d[ptr + 1];
+				ptr += 2;
+				if (!rb_ok (ctx, ptr, colorcount))
+				{
+					FREE (offsets);
+					return ERR_INVALID_DATA;
+				}
+				const u8 *coloroffsets = d + ptr;
+				ptr += colorcount;
+				for (uint c = 0; c < colorcount; c++)
+				{
+					uint coff = cpos + coloroffsets[c];
+					u8 ctype = (colortype >> c) & 1;
+					char ckey[24];
+					if (c == 0)
+						strcpy (ckey, "foreground-color");
+					else if (c == 1)
+						strcpy (ckey, "background-color");
+					else
+						snprintf (ckey, sizeof (ckey), "color-%u", c);
+					bf_node_t *color = BFNodeSetNode (mat, ckey);
+					if (!color)
+					{
+						FREE (offsets);
+						return ERR_OUT_OF_MEMORY;
+					}
+					if (ctype == 0)
+					{
+						if (!rb_ok (ctx, coff, 4))
+						{
+							FREE (offsets);
+							return ERR_INVALID_DATA;
+						}
+						BFE (rb_color (ctx, d, size, coff, color));
+					}
+					else
+					{
+						if (!rb_ok (ctx, coff, 16))
+						{
+							FREE (offsets);
+							return ERR_INVALID_DATA;
+						}
+						BFE (BFNodeSetFloat (color, "r", rdf32 (d + coff, ctx->be)));
+						BFE (BFNodeSetFloat (color, "g", rdf32 (d + coff + 4, ctx->be)));
+						BFE (BFNodeSetFloat (color, "b", rdf32 (d + coff + 8, ctx->be)));
+						BFE (BFNodeSetFloat (color, "a", rdf32 (d + coff + 12, ctx->be)));
+					}
+				}
 			}
-			BFE (rb_color (ctx, d, size, ptr, color));
-			ptr += 4;
-			color = BFNodeSetNode (mat, "background-color");
-			if (!color)
+			else
 			{
-				FREE (offsets);
-				return ERR_OUT_OF_MEMORY;
-			}
-			BFE (rb_color (ctx, d, size, ptr, color));
-			ptr += 4;
+				bf_node_t *color = BFNodeSetNode (mat, "foreground-color");
+				if (!color)
+				{
+					FREE (offsets);
+					return ERR_OUT_OF_MEMORY;
+				}
+				BFE (rb_color (ctx, d, size, ptr, color));
+				ptr += 4;
+				color = BFNodeSetNode (mat, "background-color");
+				if (!color)
+				{
+					FREE (offsets);
+					return ERR_OUT_OF_MEMORY;
+				}
+				BFE (rb_color (ctx, d, size, ptr, color));
+				ptr += 4;
 
-			u32 flags = rd32 (d + ptr, ctx->be);
-			ptr += 4;
-			BFE (BFNodeSetInt (mat, "flags", (int)flags));
+				flags = rd32 (d + ptr, ctx->be);
+				ptr += 4;
+				BFE (BFNodeSetInt (mat, "flags", (int)flags));
+			}
 
 			uint texref = (flags >> 0) & 3;
 			uint texturesrt = (flags >> 2) & 3;
@@ -2227,7 +2293,8 @@ static enumError r_mat1 (bf_rctx_t *ctx, const u8 *d, uint size)
 			}
 			for (uint k = 0; k < mapsettings; k++)
 			{
-				if (!rb_ok (ctx, ptr, 8))
+				uint map_size = (ctx->version_major >= 8) ? 16 : 8;
+				if (!rb_ok (ctx, ptr, map_size))
 				{
 					FREE (offsets);
 					return ERR_INVALID_DATA;
@@ -2248,7 +2315,7 @@ static enumError r_mat1 (bf_rctx_t *ctx, const u8 *d, uint size)
 				}
 				BFE (BFNodeSetInt (fn, "unknown", d[ptr]));
 				BFE (BFNodeSetStr (fn, "method", MAPPING_METHODS[method]));
-				ptr += 8;
+				ptr += map_size;
 			}
 			for (uint k = 0; k < combiners; k++)
 			{
@@ -2838,6 +2905,52 @@ static enumError r_pan1 (bf_rctx_t *ctx, const u8 *d, uint size)
 	return readpane (ctx, d, size, &p, node);
 }
 
+static enumError r_ali1 (bf_rctx_t *ctx, const u8 *d, uint size)
+{
+	char key[64];
+	snprintf (key, sizeof (key), "ali1-%s", ctx->prevname);
+	bf_node_t *node = BFNodeSetNode (ctx->actnode, key);
+	if (!node)
+		return ERR_OUT_OF_MEMORY;
+	uint p = 8;
+	BFE (readpane (ctx, d, size, &p, node));
+	if (!rb_ok (ctx, p, 12))
+		return ERR_INVALID_DATA;
+	BFE (BFNodeSetFloat (node, "align-x", rdf32 (d + p, ctx->be)));
+	p += 4;
+	BFE (BFNodeSetFloat (node, "align-y", rdf32 (d + p, ctx->be)));
+	p += 4;
+	BFE (BFNodeSetFloat (node, "align-z", rdf32 (d + p, ctx->be)));
+	p += 4;
+	if (p < size)
+		BFE (BFNodeSetBytes (node, "extra", d + p, size - p));
+	return ERR_OK;
+}
+
+static enumError r_scr1 (bf_rctx_t *ctx, const u8 *d, uint size)
+{
+	char key[64];
+	snprintf (key, sizeof (key), "scr1-%s", ctx->prevname);
+	bf_node_t *node = BFNodeSetNode (ctx->actnode, key);
+	if (!node)
+		return ERR_OUT_OF_MEMORY;
+	uint p = 8;
+	BFE (readpane (ctx, d, size, &p, node));
+	if (p < size)
+		BFE (BFNodeSetBytes (node, "extra", d + p, size - p));
+	return ERR_OK;
+}
+
+static enumError r_ctl1 (bf_rctx_t *ctx, const u8 *d, uint size)
+{
+	bf_node_t *node = BFNodeSetNode (ctx->actnode, "ctl1");
+	if (!node)
+		return ERR_OUT_OF_MEMORY;
+	if (size > 8)
+		BFE (BFNodeSetBytes (node, "data", d + 8, size - 8));
+	return ERR_OK;
+}
+
 static enumError r_pas1 (bf_rctx_t *ctx, const u8 *d, uint size)
 {
 	char key[64];
@@ -3098,6 +3211,13 @@ static enumError r_txt1 (bf_rctx_t *ctx, const u8 *d, uint size)
 		p += 4;
 		BFE (BFNodeSetFloat (node, "shadow-italic-tilt", rdf32 (d + p, ctx->be)));
 		p += 4;
+		if (ctx->version_major >= 8)
+		{
+			u32 linetrans_off = rd32 (d + p, ctx->be);
+			p += 4;
+			if (linetrans_off)
+				BFE (BFNodeSetInt (node, "line-transform-offset", (int)linetrans_off));
+		}
 		u32 perchar_off = rd32 (d + p, ctx->be);
 		p += 4;
 		if (perchar_off)
@@ -3371,6 +3491,12 @@ static enumError r_usd1 (bf_rctx_t *ctx, const u8 *d, uint size)
 				return ERR_OUT_OF_MEMORY;
 			for (uint j = 0; j < datanum; j++)
 				BFE (BFListAddFloat (dl, rdf32 (d + dataoff + j * 4, ctx->be)));
+		}
+		else if (datatype == 3)
+		{
+			if (dataoff > size || datanum > size - dataoff)
+				return ERR_INVALID_DATA;
+			BFE (BFNodeSetBytes (en, "data", d + dataoff, datanum));
 		}
 		else
 			return ERR_INVALID_DATA;
@@ -3702,6 +3828,12 @@ static enumError r_section (bf_rctx_t *ctx, u32 magic, const u8 *d, uint size)
 			return r_prt1 (ctx, d, size);
 		case BFLYT_CHUNK_cnt1:
 			return r_cnt1 (ctx, d, size);
+		case BFLYT_CHUNK_ali1:
+			return r_ali1 (ctx, d, size);
+		case BFLYT_CHUNK_scr1:
+			return r_scr1 (ctx, d, size);
+		case BFLYT_CHUNK_ctl1:
+			return r_ctl1 (ctx, d, size);
 		default:
 		{
 			char key[8];
@@ -3714,6 +3846,135 @@ static enumError r_section (bf_rctx_t *ctx, u32 magic, const u8 *d, uint size)
 			return ERR_OK;
 		}
 	}
+}
+
+bool IsSHDVAR_BE (const u8 *data, uint size)
+{
+	if (!data || size < 12 || (size % 4) != 0)
+		return false;
+	u32 num = rd32 (data, true);
+	if (num == 0 || num > 100000)
+		return false;
+	uint ptr = 4;
+	bool has_known = false;
+	for (u32 i = 0; i < num; i++)
+	{
+		if (ptr + 8 > size)
+			return false;
+		for (int c = 0; c < 4; c++)
+		{
+			u8 ch = data[ptr + c];
+			if (ch < 0x20 || ch > 0x7E)
+				return false;
+		}
+		if (!memcmp (data + ptr, "DTCB", 4) || !memcmp (data + ptr, "CBUS", 4) ||
+		    !memcmp (data + ptr, "DTSH", 4) || !memcmp (data + ptr, "DRSH", 4) ||
+		    !memcmp (data + ptr, "NORM", 4))
+			has_known = true;
+		u32 words = rd32 (data + ptr + 4, true);
+		if (words > (size - (ptr + 8)) / 4)
+			return false;
+		ptr += 8 + words * 4;
+	}
+	return (ptr == size && has_known);
+}
+
+bool IsSHDVAR (const u8 *data, uint size)
+{
+	if (!data || size < 12 || (size % 4) != 0)
+		return false;
+	u32 num = rd32 (data, false);
+	if (num > 0 && num <= 100000)
+	{
+		uint ptr = 4;
+		bool has_known = false;
+		bool ok = true;
+		for (u32 i = 0; i < num; i++)
+		{
+			if (ptr + 8 > size)
+			{
+				ok = false;
+				break;
+			}
+			for (int c = 0; c < 4; c++)
+			{
+				u8 ch = data[ptr + c];
+				if (ch < 0x20 || ch > 0x7E)
+				{
+					ok = false;
+					break;
+				}
+			}
+			if (!ok)
+				break;
+			if (!memcmp (data + ptr, "DTCB", 4) || !memcmp (data + ptr, "CBUS", 4) ||
+			    !memcmp (data + ptr, "DTSH", 4) || !memcmp (data + ptr, "DRSH", 4) ||
+			    !memcmp (data + ptr, "NORM", 4))
+				has_known = true;
+			u32 words = rd32 (data + ptr + 4, false);
+			if (words > (size - (ptr + 8)) / 4)
+			{
+				ok = false;
+				break;
+			}
+			ptr += 8 + words * 4;
+		}
+		if (ok && ptr == size && has_known)
+			return true;
+	}
+	return IsSHDVAR_BE (data, size);
+}
+
+static enumError parse_binary_shdvar (
+	bflyt_t *bflyt, const u8 *data, uint data_size, bool be)
+{
+	bf_node_t *tree = &bflyt->tree;
+	u32 num = rd32 (data, be);
+
+	BFE (BFNodeSetStr (tree, "byte-order", be ? ">" : "<"));
+	BFE (BFNodeSetInt (tree, "version", 1));
+	BFE (BFNodeSetStr (tree, "magic", "SVT"));
+
+	bf_node_t *svt_node = BFNodeSetNode (tree, "SVT");
+	if (!svt_node)
+		return ERR_OUT_OF_MEMORY;
+
+	uint ptr = 4;
+	for (u32 i = 0; i < num; i++)
+	{
+		char kind[5];
+		memcpy (kind, data + ptr, 4);
+		kind[4] = 0;
+		u32 words = rd32 (data + ptr + 4, be);
+		ptr += 8;
+
+		char vname[32];
+		snprintf (vname, sizeof (vname), "variation-%u", i);
+		bf_node_t *vn = BFNodeSetNode (svt_node, vname);
+		if (!vn)
+			return ERR_OUT_OF_MEMORY;
+
+		BFE (BFNodeSetStr (vn, "kind", kind));
+		BFE (BFNodeSetInt (vn, "words", (int)words));
+
+		if (!strcmp (kind, "CBUS"))
+		{
+			uint len = words * 4;
+			char *str = (char *)MALLOC (len + 1);
+			if (!str)
+				return ERR_OUT_OF_MEMORY;
+			memcpy (str, data + ptr, len);
+			str[len] = 0;
+			BFE (BFNodeSetStr (vn, "code-file", str));
+			FREE (str);
+		}
+		if (words > 0)
+		{
+			BFE (BFNodeSetBytes (vn, "data", data + ptr, words * 4));
+		}
+		ptr += words * 4;
+	}
+	return ERR_OK;
 }
 
 //
@@ -3730,6 +3991,7 @@ static enumError parse_binary (bflyt_t *bflyt, const u8 *data, uint data_size)
 	if (data_size < (is_rlyt ? 16u : 20u))
 		return ERR_INVALID_DATA;
 	bool be = !(data[4] == 0xFF && data[5] == 0xFE);
+	u32 version_u32 = is_rlyt ? (u32)rd16 (data + 6, be) : rd32 (data + 8, be);
 	u32 version = is_rlyt ? rd16 (data + 6, be) : rd16 (data + 8, be);
 	uint secnum = is_rlyt ? rd16 (data + 14, be) : rd16 (data + 16, be);
 
@@ -3766,6 +4028,7 @@ static enumError parse_binary (bflyt_t *bflyt, const u8 *data, uint data_size)
 	ctx.is_rlyt = is_rlyt;
 	ctx.is_wiiu = (fmagic == BFLYT_MAGIC_FLYT || fmagic == BFLYT_MAGIC_FLAN);
 	ctx.version = version;
+	ctx.version_major = is_rlyt ? (ctx.version / 10) : (version_u32 >> 24);
 	ctx.data = data;
 	ctx.size = data_size;
 	ctx.tree = tree;
@@ -4462,6 +4725,51 @@ static enumError p_pan1 (bf_pctx_t *ctx, bf_buf_t *out, const bf_val_t *v)
 	return p_pane_sec (ctx, out, "pan1", v->u.node, 0);
 }
 
+static enumError p_ali1_extra (bf_pctx_t *ctx, bf_buf_t *out, const bf_node_t *node)
+{
+	BFE (bf_buf_f32 (out, ctx->be, (float)bf_get_float (node, "align-x", 0)));
+	BFE (bf_buf_f32 (out, ctx->be, (float)bf_get_float (node, "align-y", 0)));
+	BFE (bf_buf_f32 (out, ctx->be, (float)bf_get_float (node, "align-z", 0)));
+	bf_val_t *ex = BFNodeGet ((bf_node_t *)node, "extra");
+	if (ex && ex->type == BF_T_BYTES && ex->u.by.n)
+		BFE (bf_buf_raw (out, ex->u.by.d, ex->u.by.n));
+	return ERR_OK;
+}
+
+static enumError p_ali1 (bf_pctx_t *ctx, bf_buf_t *out, const bf_val_t *v)
+{
+	if (v->type != BF_T_NODE)
+		return ERR_INVALID_DATA;
+	return p_pane_sec (ctx, out, "ali1", v->u.node, p_ali1_extra);
+}
+
+static enumError p_scr1_extra (bf_pctx_t *ctx, bf_buf_t *out, const bf_node_t *node)
+{
+	bf_val_t *ex = BFNodeGet ((bf_node_t *)node, "extra");
+	if (ex && ex->type == BF_T_BYTES && ex->u.by.n)
+		BFE (bf_buf_raw (out, ex->u.by.d, ex->u.by.n));
+	return ERR_OK;
+}
+
+static enumError p_scr1 (bf_pctx_t *ctx, bf_buf_t *out, const bf_val_t *v)
+{
+	if (v->type != BF_T_NODE)
+		return ERR_INVALID_DATA;
+	return p_pane_sec (ctx, out, "scr1", v->u.node, p_scr1_extra);
+}
+
+static enumError p_ctl1 (bf_pctx_t *ctx, bf_buf_t *out, const bf_val_t *v)
+{
+	if (v->type != BF_T_NODE)
+		return ERR_INVALID_DATA;
+	bf_val_t *data_v = BFNodeGet (v->u.node, "data");
+	uint n = (data_v && data_v->type == BF_T_BYTES) ? data_v->u.by.n : 0;
+	BFE (bf_buf_sechdr (out, ctx->be, "ctl1", n));
+	if (n)
+		BFE (bf_buf_raw (out, data_v->u.by.d, n));
+	return ERR_OK;
+}
+
 static enumError p_pic1 (bf_pctx_t *ctx, bf_buf_t *out, const bf_val_t *v)
 {
 	if (v->type != BF_T_NODE)
@@ -4892,6 +5200,13 @@ static enumError p_usd1 (bf_pctx_t *ctx, bf_buf_t *out, const bf_val_t *v)
 					BFE (bf_buf_u32 (&datatbl, ctx->be, (u32)it->u.i));
 			}
 		}
+		else if (data && data->type == BF_T_BYTES)
+		{
+			dtype = 3;
+			dnum = data->u.by.n;
+			if (dnum)
+				BFE (bf_buf_raw (&datatbl, data->u.by.d, dnum));
+		}
 		datatypes[i] = (u8)dtype;
 		datanums[i] = dnum;
 	}
@@ -5193,9 +5508,19 @@ static pack_func pack_dispatch (ccp magic)
 			if (!strcmp (magic, "usd1"))
 				return p_usd1;
 			break;
+		case 'a':
+			if (!strcmp (magic, "ali1"))
+				return p_ali1;
+			break;
+		case 's':
+			if (!strcmp (magic, "scr1"))
+				return p_scr1;
+			break;
 		case 'c':
 			if (!strcmp (magic, "cnt1"))
 				return p_cnt1;
+			if (!strcmp (magic, "ctl1"))
+				return p_ctl1;
 			break;
 	}
 	return 0;
@@ -5331,6 +5656,71 @@ static enumError build_binary (const bf_node_t *tree, u8 **dest, uint *dest_size
 	return ERR_OK;
 }
 
+static enumError build_binary_shdvar (
+	const bf_node_t *tree, u8 **dest, uint *dest_size)
+{
+	bf_val_t *bo_v = BFNodeGet ((bf_node_t *)tree, "byte-order");
+	bool be = (bo_v && bo_v->type == BF_T_STR && !strcmp (bo_v->u.s, ">"));
+
+	bf_val_t *svt_v = BFNodeGet ((bf_node_t *)tree, "SVT");
+	if (!svt_v || svt_v->type != BF_T_NODE)
+		return ERR_INVALID_DATA;
+
+	const bf_node_t *svt = svt_v->u.node;
+	u32 count = svt->n;
+
+	bf_buf_t buf;
+	memset (&buf, 0, sizeof (buf));
+	BFE (bf_buf_u32 (&buf, be, count));
+
+	for (u32 i = 0; i < count; i++)
+	{
+		const bf_val_t *v = &svt->kv[i].val;
+		if (v->type != BF_T_NODE)
+			continue;
+		const bf_node_t *vn = v->u.node;
+
+		bf_val_t *kind_v = BFNodeGet ((bf_node_t *)vn, "kind");
+		ccp kind = (kind_v && kind_v->type == BF_T_STR) ? kind_v->u.s : "NORM";
+		char sig[4] = { 'N', 'O', 'R', 'M' };
+		size_t klen = strlen (kind);
+		if (klen > 4)
+			klen = 4;
+		memcpy (sig, kind, klen);
+		BFE (bf_buf_raw (&buf, sig, 4));
+
+		bf_val_t *data_v = BFNodeGet ((bf_node_t *)vn, "data");
+		bf_val_t *cf_v = BFNodeGet ((bf_node_t *)vn, "code-file");
+		if (data_v && data_v->type == BF_T_BYTES)
+		{
+			u32 words = (data_v->u.by.n + 3) / 4;
+			BFE (bf_buf_u32 (&buf, be, words));
+			BFE (bf_buf_raw (&buf, data_v->u.by.d, data_v->u.by.n));
+			if (data_v->u.by.n % 4)
+			{
+				u8 pad[4] = { 0 };
+				BFE (bf_buf_raw (&buf, pad, 4 - (data_v->u.by.n % 4)));
+			}
+		}
+		else if (cf_v && cf_v->type == BF_T_STR)
+		{
+			u8 cbus_data[96];
+			memset (cbus_data, 0, sizeof (cbus_data));
+			strncpy ((char *)cbus_data, cf_v->u.s, sizeof (cbus_data) - 1);
+			BFE (bf_buf_u32 (&buf, be, 96 / 4));
+			BFE (bf_buf_raw (&buf, cbus_data, sizeof (cbus_data)));
+		}
+		else
+		{
+			BFE (bf_buf_u32 (&buf, be, 0));
+		}
+	}
+
+	*dest = buf.d;
+	*dest_size = buf.n;
+	return ERR_OK;
+}
+
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			API			///////////////
@@ -5379,6 +5769,9 @@ enumError ScanBFLYT (bflyt_t *bflyt, bool init, const u8 *data, uint data_size)
 		|| fmagic == BRLYT_MAGIC_TYLR || fmagic == BRLYT_MAGIC_NALR)
 		return parse_binary (bflyt, data, data_size);
 
+	if (IsSHDVAR (data, data_size))
+		return parse_binary_shdvar (bflyt, data, data_size, IsSHDVAR_BE (data, data_size));
+
 	// XML or legacy txtree text?
 	ccp first = (ccp)data;
 	while (isspace ((u8)*first))
@@ -5392,7 +5785,7 @@ enumError ScanBFLYT (bflyt_t *bflyt, bool init, const u8 *data, uint data_size)
 		bf_val_t *magic_v = BFNodeGet (&bflyt->tree, "magic");
 		ccp m = (magic_v && magic_v->type == BF_T_STR) ? magic_v->u.s : "FLYT";
 		bflyt->magic = ((u32)m[0] << 24) | ((u32)m[1] << 16) | ((u32)m[2] << 8) | (u32)m[3];
-		if (!strlen (m) || strlen (m) != 4)
+		if (!strlen (m) || (strlen (m) != 4 && strcmp (m, "SVT")))
 			bflyt->magic = BFLYT_MAGIC_FLYT;
 		return ERR_OK;
 	}
@@ -5409,6 +5802,10 @@ enumError BuildBFLYT (const bflyt_t *bflyt, u8 **dest, uint *dest_size)
 	DASSERT (dest_size);
 	*dest = 0;
 	*dest_size = 0;
+	bf_val_t *magic_v = BFNodeGet ((bf_node_t *)&bflyt->tree, "magic");
+	ccp m = (magic_v && magic_v->type == BF_T_STR) ? magic_v->u.s : "";
+	if (!strcmp (m, "SVT"))
+		return build_binary_shdvar (&bflyt->tree, dest, dest_size);
 	return build_binary (&bflyt->tree, dest, dest_size);
 }
 

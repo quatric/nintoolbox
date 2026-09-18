@@ -20,11 +20,20 @@ permissions:
 # every leg here.
 #
 # Verification status: the macOS jobs run the same build that is exercised
-# locally on every commit. The Linux cross jobs and the Cygwin job have NOT
-# been executed -- there is no Docker or Windows host available here to try
-# them on. The mingw cross targets that used to be listed were removed after
-# actually attempting one: dclib needs POSIX headers mingw does not ship, so
-# those jobs could never have passed.
+# locally on every commit. The Linux cross jobs have NOT been executed --
+# there is no Docker host available here to try them on.
+#
+# Windows (build-windows/build-gui-windows) builds with a native MinGW-w64
+# toolchain (MSYS2's mingw64 environment) instead of Cygwin. Cygwin's runtime
+# does low-level tricks (fixed-address memory mapping for its POSIX heap/fork
+# emulation, SEH-based signal delivery) that Windows' x64 emulator (used to
+# run x86_64 binaries on Windows-on-ARM) doesn't faithfully replicate --
+# Cygwin-built exes crashed there with STATUS_ACCESS_VIOLATION even on a
+# no-op command, while a plain MinGW build has none of that runtime and works
+# fine under the same emulator. dclib was ported to build cleanly under
+# x86_64-w64-mingw32-gcc (see project/dclib/dclib-mingw-compat.h) and every
+# companion tool bundled into the GUI package builds under the same
+# toolchain -- see each job's own comments for per-tool notes.
 
 jobs:
   build-linux:
@@ -109,6 +118,7 @@ jobs:
             "${old_ui_flags[@]}" \
             ${{ matrix.cross_prefix && format('PRE={0}', matrix.cross_prefix) || '' }} \
             ${{ matrix.cross && 'NO_CTRTOOL=1' || '' }} \
+            ${{ matrix.cross && 'NO_VGMTRANS=1' || '' }} \
             ${{ matrix.cross && 'NO_SENTRY=1' || '' }} \
             ${{ matrix.cflags && format('XFLAGS={0}', matrix.cflags) || '' }} \
             -j$(nproc) all
@@ -133,76 +143,70 @@ jobs:
           path: dist/${{ matrix.target }}
           if-no-files-found: error
 
-  # Windows is built under Cygwin, which is the environment this codebase
-  # actually supports: dclib includes POSIX headers (arpa/inet.h, sys/ioctl.h)
-  # that mingw does not provide, and the Makefile has explicit cygwin handling.
-  # A mingw cross build was tried and fails immediately on those includes.
+  # Windows is built with a native MinGW-w64 toolchain (via MSYS2's mingw64
+  # environment) instead of Cygwin. Cygwin's runtime does low-level tricks
+  # (fixed-address memory mapping for its POSIX heap/fork emulation,
+  # SEH-based signal delivery) that Windows' x64 emulator (used to run
+  # x86_64 binaries on Windows-on-ARM) doesn't faithfully replicate -- every
+  # Cygwin-built exe in the old bundle crashed instantly with
+  # STATUS_ACCESS_VIOLATION there, even on a no-op command. A MinGW-built
+  # binary has none of that runtime and works fine under the same emulator,
+  # with no downside for native Windows-on-x86_64 users. dclib was ported to
+  # build cleanly under x86_64-w64-mingw32-gcc (see dclib-mingw-compat.h) and
+  # the Makefile's SYSTEM=mingw64 branch links everything statically
+  # (LDFLAGS += -static), so the resulting .exe has zero cyg*.dll or even
+  # libgcc_s_seh-1.dll/libstdc++-6.dll dependencies.
   build-windows:
     name: windows-x86_64
     runs-on: windows-latest
     defaults:
       run:
-        shell: C:\cygwin\bin\bash.exe --login -o igncr '{0}'
+        shell: msys2 {0}
     steps:
       - uses: actions/checkout@v4
-      - uses: cygwin/cygwin-install-action@master
+      - uses: msys2/setup-msys2@v2
         with:
-          packages: gcc-core gcc-g++ make libpng-devel zlib-devel libncurses-devel binutils
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-libpng
+            mingw-w64-x86_64-ncurses
+            make
       - name: Build
         # See the Linux job's Build step for why -o (--assume-old) is used
         # here instead of a pre-touch: templated .inc files get regenerated
         # with fresh mtimes during the build itself, which would otherwise
         # still make the committed ui-*.c/h look stale partway through.
         #
-        # NO_CTRTOOL=1: the bundled ctrtool's own makefile detects native
-        # Windows (OS=Windows_NT, which Cygwin also sets) and takes its
-        # MSVC-oriented WIN32 branch instead of a plain POSIX one, untested
-        # under Cygwin's gcc -- skip it here rather than guess.
+        # NO_CTRTOOL=1 / NO_SENTRY=1: same reasoning as before -- ctrtool's
+        # own makefile takes an untested MSVC-oriented WIN32 branch under
+        # OS=Windows_NT, and sentry-native's cmake configure needs curl/cmake
+        # dev packages this toolchain install doesn't provide. Skip both
+        # rather than provision them blind.
         #
-        # NO_SENTRY=1: the cygwin-install-action package list above installs
-        # neither cmake nor libcurl-devel, both of which sentry-native's
-        # configure needs; without them `make sentry` fails inside its own
-        # build directory (the outer cmake configure step succeeds against
-        # whatever's on PATH, but produces a Makefile missing the "sentry"
-        # target). Skip it here rather than provision an unverified Cygwin
-        # cmake/curl toolchain blind.
+        # No PRE= cross-prefix and no MINGW_LIBS: MSYS2's mingw64 shell's
+        # own gcc/g++ already target x86_64-w64-mingw32 natively, and
+        # mingw-w64-x86_64-zlib/-libpng install straight into that shell's
+        # standard include/lib search path.
         run: |
           cd "${GITHUB_WORKSPACE}/project"
           old_ui_flags=()
           for f in src/ui/ui-*.c src/ui/ui-*.h src/ui/ui.def; do
             old_ui_flags+=(-o "$(basename "$f")")
           done
-          make "${old_ui_flags[@]}" NO_CTRTOOL=1 NO_SENTRY=1 -j$(nproc) all
+          make SYSTEM=mingw64 "${old_ui_flags[@]}" NO_CTRTOOL=1 NO_SENTRY=1 -j$(nproc) all
       - name: Smoke test
         run: |
           cd "${GITHUB_WORKSPACE}/project"
-          ./bin/wszst VERSION
-          ./bin/wwc24crypt selftest
+          ./bin/wszst.exe VERSION
+          ./bin/wwc24crypt.exe selftest
       - name: Stage binaries
         run: |
           cd "${GITHUB_WORKSPACE}"
           mkdir -p dist/windows-x86_64
-          cp project/bin/* dist/windows-x86_64/ || true
-
-          # wszst and friends are dynamically linked against the Cygwin
-          # runtime (cygwin1.dll, cygpng16-16.dll, cygz-1.dll, ...) -- without
-          # those DLLs next to the .exe, Windows refuses to start it at all
-          # ("the code execution cannot proceed because X.dll was not
-          # found"). The official szs.wiimm.de Windows build ships the same
-          # DLLs alongside its .exe files for this reason. cygcheck lists
-          # every DLL each binary loads; keep only the ones it resolves from
-          # the Cygwin install itself (.../bin/cyg*.dll) -- plain system DLLs
-          # like kernel32.dll are already on every Windows machine and don't
-          # need bundling.
-          cd project
-          for f in bin/*; do
-            [ -f "$f" ] && [ -x "$f" ] && cygcheck "$f" 2>/dev/null
-          done \
-            | tr -d '\r' | tr '\\' '/' | sed -E 's|^[[:space:]]+||' \
-            | grep -iE '/bin/cyg[^/]*\.dll$' | sort -u \
-            | while IFS= read -r dll; do
-                cp -u "$(cygpath -u "$dll")" "${GITHUB_WORKSPACE}/dist/windows-x86_64/" 2>/dev/null || true
-              done
+          cp project/bin/*.exe dist/windows-x86_64/ 2>/dev/null || true
           ls "${GITHUB_WORKSPACE}/dist/windows-x86_64"
       - uses: actions/upload-artifact@v4
         with:
@@ -310,6 +314,8 @@ jobs:
           # files that make hactool abort.
           cp project/third_party/prod.keys dist/macos-universal/prod.keys
           cp project/third_party/title.keys dist/macos-universal/title.keys
+          cp project/third_party/keys.txt dist/macos-universal/keys.txt
+          cp -Rp project/third_party/wiiu_keys dist/macos-universal/wiiu_keys
 
       - uses: actions/upload-artifact@v4
         with:
@@ -558,21 +564,14 @@ jobs:
             echo "::warning::gba-mus-ripper clone failed -- skipping"
           fi
 
-          # 12. vgmtrans: NOT bundled. wbrsar always delegates BRSAR/BFSAR/
-          # BCSAR conversion to an external vgmtrans binary via --with-
-          # vgmtrans/PATH lookup (see project/src/wbrsar.c) if one is
-          # present, but no batch CLI target actually exists to fetch or
-          # build here: magcius/vgmtrans's "siiva" branch (previously used)
-          # has no vgmtrans_cli target at all -- it's the plain Qt GUI
-          # (find_package(Qt5Widgets REQUIRED) fails outright without Qt
-          # installed). The actively-maintained vgmtrans/vgmtrans does have
-          # a non-GUI target (ENABLE_SHELL's vgmtrans-shell), but it's an
-          # interactive REPL (see src/ui/shell/vgmtrans-shell.cpp's main),
-          # not a one-shot "convert this file" tool -- bundling it as
-          # "vgmtrans" would make wbrsar's execv(tool, {in_file, out_dir})
-          # hang against an interactive prompt instead of just falling back
-          # to the raw asset dump it already does when no external tool is
-          # found. Revisit if either project ships a real batch CLI.
+          # 12. vgmtrans (khang06/vgmtrans siiva branch with headless CLI)
+          if [ -f artifact/vgmtrans ]; then
+            cp artifact/vgmtrans "$GITHUB_WORKSPACE/extra_tools/"
+          elif [ -d project/third_party/vgmtrans ]; then
+            (cd project/third_party/vgmtrans && make -j"$(sysctl -n hw.ncpu)" && \
+              cp bin/vgmtrans "$GITHUB_WORKSPACE/extra_tools/") || \
+              echo "::warning::vgmtrans build failed -- skipping"
+          fi
 
           chmod +x extra_tools/* 2>/dev/null || true
           ls -la extra_tools
@@ -596,6 +595,8 @@ jobs:
           # --contents-directory . below, matching locate_switch_key()'s lookup.
           DATA_ARGS+=(--add-data project/third_party/prod.keys:.)
           DATA_ARGS+=(--add-data project/third_party/title.keys:.)
+          DATA_ARGS+=(--add-data project/third_party/keys.txt:.)
+          DATA_ARGS+=(--add-data project/third_party/wiiu_keys:wiiu_keys)
           pyinstaller --name nintoolbox --windowed \
             "${BINARY_ARGS[@]}" "${DATA_ARGS[@]}" --icon=logo.icns \
             --contents-directory . \
@@ -654,41 +655,49 @@ jobs:
         with:
           dotnet-version: '7.0.x'
 
-      - uses: cygwin/cygwin-install-action@master
+      - uses: msys2/setup-msys2@v2
         with:
-          packages: gcc-core gcc-g++ make autoconf automake libtool zlib-devel libyaml-devel libncurses-devel binutils
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-libpng
+            mingw-w64-x86_64-ncurses
+            autoconf
+            automake
+            libtool
+            make
+            git
+            unzip
 
-      # Companion tools that are plain C/C++ and build fine under Cygwin
-      # (same toolchain family build-windows already uses for wszst itself).
-      # mbedtls/libblz for makerom are vendored+built by its own Makefile via
-      # `make deps`, same as the macOS job.
+      # Companion tools that are plain C/C++ and build fine under the same
+      # native MinGW-w64 toolchain (via MSYS2's mingw64 environment)
+      # build-windows already uses for wszst itself -- see that job's
+      # comment for why MinGW replaced Cygwin here. mbedtls/libblz for
+      # makerom are vendored+built by its own Makefile via `make deps`, same
+      # as the macOS job. autoconf/automake/libtool above are MSYS2 base
+      # packages (ndstool's ./autogen.sh needs them), separate from the
+      # mingw-w64-x86_64-toolchain packages that provide gcc/g++/make itself.
       - name: Fetch and build companion passthrough tools for bundling (best-effort)
-        shell: C:\cygwin\bin\bash.exe --login -o igncr '{0}'
+        shell: msys2 {0}
         run: |
           cd "${GITHUB_WORKSPACE}"
           mkdir -p extra_tools
-
-          # All git clone/curl calls below use $GITHUB_WORKSPACE-relative
-          # paths rather than /tmp: git/curl on this runner are native
-          # Windows tools, which resolve an absolute /tmp path differently
-          # than Cygwin's bash does, so a file written by one is invisible
-          # to the other (same issue the mobipeg fetch below had).
           TMP="$GITHUB_WORKSPACE/tmp_build"
           mkdir -p "$TMP"
 
           # 1. wit (quatric/wiimms-iso-tools-plus) -- same Makefile family as
           # this repo, so build it the same way build-windows builds wszst.
           if git clone --depth 1 https://github.com/quatric/wiimms-iso-tools-plus.git "$TMP/wit-src" 2>/dev/null; then
-            (cd "$TMP/wit-src/iso-tools/project" && make -j"$(nproc)" NO_ZSTD=1 all && \
+            (cd "$TMP/wit-src/iso-tools/project" && make SYSTEM=mingw64 -j"$(nproc)" NO_ZSTD=1 all && \
               for t in wit wwt wdf wtest wfuse; do
-                if [ -f "bin/$t" ]; then cp -p "bin/$t" "$GITHUB_WORKSPACE/extra_tools/$t.exe"; fi
+                if [ -f "bin/$t.exe" ]; then cp -p "bin/$t.exe" "$GITHUB_WORKSPACE/extra_tools/$t.exe"; \
+                elif [ -f "bin/$t" ]; then cp -p "bin/$t" "$GITHUB_WORKSPACE/extra_tools/$t.exe"; fi
               done) || echo "::warning::wit source build failed -- skipping"
           fi
           if [ -x extra_tools/wit.exe ]; then
             mkdir -p extra_tools/share
-            # Download to a file rather than piping curl straight into
-            # wit.exe: curl here is the native Windows tool, and its pipe
-            # doesn't talk cleanly to a Cygwin-built binary's stdin.
             if curl -fsSL -o "$TMP/titles-raw.txt" http://gametdb.com/titles.txt && \
                extra_tools/wit.exe titles / "$TMP/titles-raw.txt" > extra_tools/share/titles.txt && \
                [ -s extra_tools/share/titles.txt ]; then
@@ -700,10 +709,6 @@ jobs:
           fi
 
           # 2. mobipeg (quatric/mobipeg) -- fetch its Windows release build.
-          # Downloaded under $GITHUB_WORKSPACE (not /tmp): curl/git on this
-          # runner are native Windows tools, which resolve an absolute /tmp
-          # path differently than Cygwin's bash does, so a file written by
-          # one is invisible to the other.
           if curl -fsSL -o mobipeg-win.zip https://github.com/quatric/mobipeg/releases/latest/download/mobipeg-windows-x86_64.zip; then
             unzip -q -o mobipeg-win.zip -d extra_tools && \
               [ -f extra_tools/ffmpeg.exe ] && mv extra_tools/ffmpeg.exe extra_tools/mobipeg.exe
@@ -713,22 +718,27 @@ jobs:
           fi
 
           # 5. makerom (3DSGuy/Project_CTR) -- force PROJECT_PLATFORM=GNU:
-          # its Makefile auto-detects Windows_NT (true under Cygwin too) and
-          # defaults to cross-compiling with mingw, which isn't installed
-          # here; GNU mode uses plain gcc/g++, i.e. Cygwin's own toolchain.
+          # its Makefile auto-detects Windows_NT and otherwise tries to
+          # cross-compile with an i686-w64-mingw32-* prefixed toolchain that
+          # doesn't exist under this name here; GNU mode uses plain gcc/g++,
+          # which in this MSYS2 mingw64 shell IS the mingw-w64 toolchain, so
+          # this already produces a native mingw .exe with zero source
+          # changes. Its own `ar` (used internally by its deps step) also
+          # already resolves to the correct mingw-w64 ar in this shell, so no
+          # PATH shim is needed here (unlike the macOS-hosted cross build).
           if git clone --depth 1 https://github.com/3DSGuy/Project_CTR.git "$TMP/project-ctr-src" 2>/dev/null; then
             (cd "$TMP/project-ctr-src/makerom" && make -j"$(nproc)" PROJECT_PLATFORM=GNU deps && make -j"$(nproc)" PROJECT_PLATFORM=GNU && \
               cp bin/makerom.exe "$GITHUB_WORKSPACE/extra_tools/" 2>/dev/null || cp bin/makerom "$GITHUB_WORKSPACE/extra_tools/makerom.exe") || \
               echo "::warning::makerom source build failed -- skipping"
           fi
 
-          # 6. wud2app (PAK-VIN/wud2app-macOS) -- plain C, portable despite the
-          # name. Its source calls glibc-only fseeko64/ftello64, which
-          # Cygwin's newlib doesn't provide (its own off_t is already 64-bit,
-          # so fseeko/ftello are equivalent) -- remap them via -D rather than
-          # patching the vendored source.
-          if git clone --depth 1 https://github.com/PAK-VIN/wud2app-macOS.git "$TMP/wud2app-src" 2>/dev/null; then
-            (cd "$TMP/wud2app-src" && gcc -Wall -Wextra -O3 -include sys/stat.h -Dfseeko64=fseeko -Dftello64=ftello main.c wudparts.c rijndael.c sha1.c -o "$GITHUB_WORKSPACE/extra_tools/wud2app.exe") || \
+          # 6. wud2app -- our own fork/branch (quatric/wud2app-macOS,
+          # mingw-port), not upstream PAK-VIN/wud2app-macOS: upstream calls
+          # POSIX two-arg mkdir(path,mode), which MinGW's headers don't
+          # declare; the fork patches that one call. Plain C otherwise, no
+          # further flags needed under the native mingw64 toolchain.
+          if git clone --depth 1 -b mingw-port https://github.com/quatric/wud2app-macOS.git "$TMP/wud2app-src" 2>/dev/null; then
+            (cd "$TMP/wud2app-src" && gcc -Wall -Wextra -O3 main.c wudparts.c rijndael.c sha1.c -o "$GITHUB_WORKSPACE/extra_tools/wud2app.exe") || \
               echo "::warning::wud2app source build failed -- skipping"
           fi
 
@@ -761,23 +771,31 @@ jobs:
           fi
 
           # 11. gba-mus-ripper -- its own makefile already targets mingw's
-          # CPPC/CC, which is exactly Cygwin's toolchain here, so build it
-          # unmodified rather than overriding compiler flags as the macOS
-          # job has to.
+          # CPPC/CC, which is exactly this shell's own toolchain now (this is
+          # the one companion tool whose upstream build already assumed
+          # mingw, unlike the others which assumed Cygwin/native gcc).
           if git clone --depth 1 https://github.com/berg8793/gba-mus-ripper.git "$TMP/gba-mus-ripper-src"; then
             (cd "$TMP/gba-mus-ripper-src" && make -j"$(nproc)" && \
               cp out/gba_mus_ripper.exe "$GITHUB_WORKSPACE/extra_tools/" 2>/dev/null || cp out/gba_mus_ripper "$GITHUB_WORKSPACE/extra_tools/gba-mus-ripper.exe") || \
               echo "::warning::gba-mus-ripper source build failed -- skipping"
           fi
 
+          # 12. vgmtrans (khang06/vgmtrans siiva branch with headless CLI)
+          if [ -f artifact/vgmtrans.exe ]; then
+            cp artifact/vgmtrans.exe "$GITHUB_WORKSPACE/extra_tools/"
+          elif [ -d project/third_party/vgmtrans ]; then
+            (cd project/third_party/vgmtrans && make -j"$(nproc)" && \
+              cp bin/vgmtrans.exe "$GITHUB_WORKSPACE/extra_tools/") || \
+              echo "::warning::vgmtrans build failed -- skipping"
+          fi
+
           chmod +x extra_tools/* 2>/dev/null || true
           ls -la extra_tools
 
       # sharpii (TheShadowEevee/Sharpii-NetCore) -- self-contained single-file
-      # publish, native Windows dotnet rather than Cygwin (dotnet isn't a
-      # Cygwin package).
+      # publish, native Windows dotnet (unrelated to the Cygwin/MinGW switch).
       - name: Build sharpii
-        shell: C:\cygwin\bin\bash.exe --login -o igncr '{0}'
+        shell: bash
         run: |
           TMP="$GITHUB_WORKSPACE/tmp_build"
           mkdir -p "$TMP"
@@ -790,7 +808,7 @@ jobs:
 
       # nsz (nicoboss/nsz) -- pure-Python, standalone pyinstaller build.
       - name: Build nsz
-        shell: C:\cygwin\bin\bash.exe --login -o igncr '{0}'
+        shell: bash
         run: |
           TMP="$GITHUB_WORKSPACE/tmp_build"
           mkdir -p "$TMP"
@@ -803,7 +821,7 @@ jobs:
           fi
 
       - name: Build GUI app
-        shell: C:\cygwin\bin\bash.exe --login -o igncr '{0}'
+        shell: bash
         run: |
           cd "${GITHUB_WORKSPACE}"
           mkdir -p extra_tools
@@ -817,8 +835,10 @@ jobs:
           [ -d extra_tools/share ] && DATA_ARGS+=(--add-data extra_tools/share:bin/share)
           DATA_ARGS+=(--add-data project/third_party/prod.keys:bin)
           DATA_ARGS+=(--add-data project/third_party/title.keys:bin)
+          DATA_ARGS+=(--add-data project/third_party/keys.txt:bin)
+          DATA_ARGS+=(--add-data project/third_party/wiiu_keys:bin/wiiu_keys)
           pyinstaller --name nintoolbox --windowed \
-            "${BINARY_ARGS[@]}" "${DATA_ARGS[@]}" \
+            "${BINARY_ARGS[@]}" "${DATA_ARGS[@]}" --icon=logo.ico \
             --distpath pyinst_dist nintoolbox.py
           mkdir -p dist/gui-windows-x86_64
           # Every CLI tool (wszst.exe, the Cygwin runtime DLLs it needs, the
@@ -966,8 +986,14 @@ jobs:
               echo "::warning::gba-mus-ripper source build failed -- skipping"
           fi
 
-          # 12. vgmtrans: NOT bundled, same reasoning as gui-macos-universal
-          # (no batch CLI target exists upstream -- see that job's comment).
+          # 12. vgmtrans (khang06/vgmtrans siiva branch with headless CLI)
+          if [ -f artifact/vgmtrans ]; then
+            cp artifact/vgmtrans "$GITHUB_WORKSPACE/extra_tools/"
+          elif [ -d project/third_party/vgmtrans ]; then
+            (cd project/third_party/vgmtrans && make -j"$(nproc)" && \
+              cp bin/vgmtrans "$GITHUB_WORKSPACE/extra_tools/") || \
+              echo "::warning::vgmtrans build failed -- skipping"
+          fi
 
           chmod +x extra_tools/* 2>/dev/null || true
           ls -la extra_tools
@@ -985,6 +1011,8 @@ jobs:
           [ -d extra_tools/share ] && DATA_ARGS+=(--add-data extra_tools/share:share)
           DATA_ARGS+=(--add-data project/third_party/prod.keys:.)
           DATA_ARGS+=(--add-data project/third_party/title.keys:.)
+          DATA_ARGS+=(--add-data project/third_party/keys.txt:.)
+          DATA_ARGS+=(--add-data project/third_party/wiiu_keys:wiiu_keys)
           pyinstaller --name nintoolbox \
             "${BINARY_ARGS[@]}" "${DATA_ARGS[@]}" \
             --contents-directory . \

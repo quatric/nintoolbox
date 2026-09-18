@@ -34,11 +34,26 @@ static bool looks_like_f9res_dir (ccp source)
 	return found;
 }
 
+static enumError create_effn_dir (ccp source, ccp dest)
+{
+	return CreateEFFNArchive (source, dest);
+}
+
+static enumError create_pctl_dir (ccp source, ccp dest)
+{
+	return CreatePCTLArchive (source, dest);
+}
+
 static enumError create_archive_from_dir (ccp source_dir, ccp dest, int known_lz_type)
 {
 	ccp ext = strrchr (dest, '.');
 	if (!ext)
 		ext = "";
+
+	if (!strcasecmp (ext, ".eff") || !strcasecmp (ext, ".effn"))
+		return create_effn_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".ptcl") || !strcasecmp (ext, ".vfxb") || !strcasecmp (ext, ".eset"))
+		return create_pctl_dir (source_dir, dest);
 
 	if (!strcasecmp (ext, ".sdat"))
 		return PassthruPack (source_dir, dest);
@@ -137,6 +152,10 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest, int known_lz
 		return create_mkgpdx_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".pkg") || !strcasecmp (ext, ".gpkg"))
 		return create_gpkg_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".sharcfb") && LooksLikeSHARCDir (source_dir))
+		return CreateSHARCFBFromDir (source_dir, dest);
+	if (!strcasecmp (ext, ".sharc") && LooksLikeSHARCDir (source_dir))
+		return CreateSHARCFromDir (source_dir, dest);
 	if (!strcasecmp (ext, ".gsh"))
 		return create_gsh_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".dat") && looks_like_sfzdat_dir (source_dir))
@@ -158,6 +177,12 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest, int known_lz
 	}
 	if (!strcasecmp (ext, ".bea") && looks_like_bea_dir (source_dir))
 		return create_bea_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".mpbin") && looks_like_mpbin_dir (source_dir))
+		return create_mpbin_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".atb") && looks_like_atb_dir (source_dir))
+		return create_atb_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".lzbin") && looks_like_lzbin_dir (source_dir))
+		return create_lzbin_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".gfa"))
 		return create_gfa_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".nus3audio") || !strcasecmp (ext, ".nus3bank"))
@@ -270,7 +295,7 @@ static const char *cand_archive_exts[] = { ".wbfs", ".iso", ".ciso", ".wdf", ".w
 	".darc", ".pac", ".pcs", ".gfa", ".rarc", ".warc", ".bcsar", ".bfsar", ".bcwar", ".bfwar",
 	".bcgrp", ".bfgrp", ".rst", ".car", ".res", ".trk", ".lvl", ".wu8", ".wbz", ".wlz", ".bntx",
 	".bcres", ".bfres", ".bch", ".big", ".xc", ".xpck", ".ztab", ".tab", ".mdr", ".vff", ".pvol",
-	".srd", ".stpk", ".zlarc", ".zdat", ".one", 0 };
+	".srd", ".stpk", ".zlarc", ".zdat", ".one", ".ptcl", ".eff", ".effn", ".vfxb", ".eset", 0 };
 
 // A number of retail Wii titles keep otherwise ordinary BRRES/U8 resources
 // in a raw Nintendo LZ10/LZ11 stream, conventionally named "*.lz".  The
@@ -381,8 +406,14 @@ static bool is_archive_dir_name (ccp dir, size_t len)
 	return false;
 }
 
-static void cleanup_extracted_artifacts (ccp root, bool is_root)
+static void cleanup_extracted_artifacts (ccp root, bool is_root, uint depth)
 {
+	// Unlike repack_tree_bottom_up() (its sibling recursive tree-walker just
+	// above), this one had no depth cap at all: a directory tree nested more
+	// than a few thousand levels deep -- trivially producible, malicious or
+	// not -- recursed until the stack blew up. Cap it the same way.
+	if (depth > 32)
+		return;
 	DIR *dir = opendir (root);
 	if (!dir)
 		return;
@@ -392,7 +423,9 @@ static void cleanup_extracted_artifacts (ccp root, bool is_root)
 		if (!strcmp (de->d_name, ".") || !strcmp (de->d_name, ".."))
 			continue;
 		char path[PATH_MAX];
-		snprintf (path, sizeof (path), "%s/%s", root, de->d_name);
+		const int len = snprintf (path, sizeof (path), "%s/%s", root, de->d_name);
+		if (len < 0 || (uint)len >= sizeof (path))
+			continue;
 		struct stat st;
 		if (lstat (path, &st))
 			continue;
@@ -406,7 +439,7 @@ static void cleanup_extracted_artifacts (ccp root, bool is_root)
 			}
 			else
 			{
-				cleanup_extracted_artifacts (path, false);
+				cleanup_extracted_artifacts (path, false, depth + 1);
 			}
 		}
 		else if (S_ISREG (st.st_mode))
@@ -485,10 +518,28 @@ static void cleanup_extracted_artifacts (ccp root, bool is_root)
 					unlink (path);
 			}
 			// Companion YAML files
-			if (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".byml.yaml"))
+			if ((nlen > 9 && !strcasecmp (de->d_name + nlen - 9, ".byml.yml"))
+				|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".byml.yaml")))
 			{
 				char cand[PATH_MAX];
-				snprintf (cand, sizeof (cand), "%.*s", (int)(strlen (path) - 5), path);
+				snprintf (cand, sizeof (cand), "%.*s", (int)(strlen (path) - (is_ext (path, ".yml") ? 4 : 5)), path);
+				struct stat st_c;
+				if (stat (cand, &st_c) == 0 && S_ISREG (st_c.st_mode))
+					unlink (path);
+			}
+			if ((nlen > 9 && !strcasecmp (de->d_name + nlen - 9, ".aamp.yml"))
+				|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".aamp.yaml"))
+				|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".baamp.yml"))
+				|| (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".baamp.yaml"))
+				|| (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".bparam.yml"))
+				|| (nlen > 12 && !strcasecmp (de->d_name + nlen - 12, ".bparam.yaml"))
+				|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".bgenv.yml"))
+				|| (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".bgenv.yaml"))
+				|| (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".bglpbd.yml"))
+				|| (nlen > 12 && !strcasecmp (de->d_name + nlen - 12, ".bglpbd.yaml")))
+			{
+				char cand[PATH_MAX];
+				snprintf (cand, sizeof (cand), "%.*s", (int)(strlen (path) - (is_ext (path, ".yml") ? 4 : 5)), path);
 				struct stat st_c;
 				if (stat (cand, &st_c) == 0 && S_ISREG (st_c.st_mode))
 					unlink (path);
@@ -742,7 +793,13 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 		if (!strcmp (de->d_name, ".") || !strcmp (de->d_name, ".."))
 			continue;
 		char path[PATH_MAX];
-		snprintf (path, sizeof (path), "%s/%s", root, de->d_name);
+		const int len = snprintf (path, sizeof (path), "%s/%s", root, de->d_name);
+		if (len < 0 || (uint)len >= sizeof (path))
+		{
+			if (max_err < ERR_FILE_TOO_BIG)
+				max_err = ERR_FILE_TOO_BIG;
+			continue;
+		}
 		struct stat st;
 		if (lstat (path, &st))
 			continue;
@@ -775,7 +832,13 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 		if (!strcmp (de->d_name, ".") || !strcmp (de->d_name, ".."))
 			continue;
 		char path[PATH_MAX];
-		snprintf (path, sizeof (path), "%s/%s", root, de->d_name);
+		const int len = snprintf (path, sizeof (path), "%s/%s", root, de->d_name);
+		if (len < 0 || (uint)len >= sizeof (path))
+		{
+			if (max_err < ERR_FILE_TOO_BIG)
+				max_err = ERR_FILE_TOO_BIG;
+			continue;
+		}
 		struct stat st;
 		if (lstat (path, &st))
 			continue;
@@ -1132,10 +1195,12 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 			}
 			unlink (path);
 		}
-		if (S_ISREG (st.st_mode) && nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".byml.yaml"))
+		if (S_ISREG (st.st_mode) && ((nlen > 9 && !strcasecmp (de->d_name + nlen - 9, ".byml.yml"))
+			|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".byml.yaml"))))
 		{
 			char target_byml[PATH_MAX];
-			snprintf (target_byml, sizeof (target_byml), "%.*s", (int)(strlen (path) - 5), path);
+			snprintf (target_byml, sizeof (target_byml), "%.*s",
+				(int)(strlen (path) - (is_ext (path, ".yml") ? 4 : 5)), path);
 			struct stat st_byml;
 			time_t ref_x_mtime = 0;
 			if (stat (target_byml, &st_byml) == 0)
@@ -1151,6 +1216,41 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 				enumError err = encode_byml_file (path, target_byml);
 				if (err <= ERR_WARNING && verbose >= 0)
 					fprintf (stdlog, "REPACK BYML %s -> %s\n", path, target_byml);
+				else if (max_err < err)
+					max_err = err;
+			}
+			unlink (path);
+		}
+		if (S_ISREG (st.st_mode)
+			&& ((nlen > 9 && !strcasecmp (de->d_name + nlen - 9, ".aamp.yml"))
+				|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".aamp.yaml"))
+				|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".baamp.yml"))
+				|| (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".baamp.yaml"))
+				|| (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".bparam.yml"))
+				|| (nlen > 12 && !strcasecmp (de->d_name + nlen - 12, ".bparam.yaml"))
+				|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".bgenv.yml"))
+				|| (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".bgenv.yaml"))
+				|| (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".bglpbd.yml"))
+				|| (nlen > 12 && !strcasecmp (de->d_name + nlen - 12, ".bglpbd.yaml"))))
+		{
+			char target_aamp[PATH_MAX];
+			snprintf (target_aamp, sizeof (target_aamp), "%.*s",
+				(int)(strlen (path) - (is_ext (path, ".yml") ? 4 : 5)), path);
+			struct stat st_aamp;
+			time_t ref_x_mtime = 0;
+			if (stat (target_aamp, &st_aamp) == 0)
+				ref_x_mtime = st_aamp.st_mtime;
+			struct stat st_s;
+			char s_path[PATH_MAX];
+			snprintf (s_path, sizeof (s_path), "%s/%s", root, SZS_SETUP_FILE);
+			if (stat (s_path, &st_s) == 0 && st_s.st_mtime > ref_x_mtime)
+				ref_x_mtime = st_s.st_mtime;
+
+			if (ref_x_mtime == 0 || st.st_mtime > ref_x_mtime + 2)
+			{
+				enumError err = encode_aamp_file (path, target_aamp);
+				if (err <= ERR_WARNING && verbose >= 0)
+					fprintf (stdlog, "REPACK AAMP %s -> %s\n", path, target_aamp);
 				else if (max_err < err)
 					max_err = err;
 			}

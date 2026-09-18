@@ -57,7 +57,10 @@ enumError ScanLSPK (lspk_t *pak, const u8 *pkh_data, uint pkh_size, const u8 *pk
 		}
 
 		const u32 stored_size = com_size ? com_size : dec_size;
-		if (off + stored_size > pk_size)
+		// 'off' is a full 64-bit file offset for the row==24 layout, so
+		// off+stored_size can itself wrap past UINT64_MAX and pass the
+		// bounds check; test against the remaining span instead.
+		if (off > pk_size || stored_size > pk_size - off)
 			continue;
 
 		entries[i].data = pk_data + off;

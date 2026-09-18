@@ -2102,6 +2102,14 @@
 		" directories of the environment variable @'PATH'@."
 		" Default is the name @'hacbrewpack'@." },
 
+  { T_OPT_GP,	"WITH_GSHCOMPILE",	"with-gshcompile|withgshcompile",
+		"path|name",
+		"Define the path or name of the Cafe SDK {gshCompile} tool used to"
+		" compile the shader sources of a SHARC directory when creating a"
+		" SHARCFB file. It is only needed for programs without a compiled"
+		" @'<program>/out.gsh'@. If the value contains no slash, it is"
+		" searched in the directories of the environment variable @'PATH'@." },
+
   { T_OPT_GP,	"WITH_BMS",	"with-bms|bms",
 		"path",
 		"Add a QuickBMS script as a drop-in extraction stage."

@@ -15,7 +15,11 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <sys/wait.h>
+#ifdef __MINGW32__
+  #include <process.h>
+#else
+  #include <sys/wait.h>
+#endif
 #include <errno.h>
 #include "lib-std.h"
 #include "lib-brsar.h"
@@ -76,6 +80,18 @@ static const char *find_vgmtrans_tool (const char *explicit_path, const char *ar
 	return NULL;
 }
 
+#ifdef __MINGW32__
+static int run_external_vgmtrans (const char *tool, const char *in_file, const char *out_dir)
+{
+	// No fork()/exec() on native Windows: _spawnv() runs the child (via
+	// CreateProcess internally) and blocks for its exit code directly.
+	char *const child_argv[] = { (char *)tool, (char *)in_file, (char *)out_dir, 0 };
+	const intptr_t rc = SpawnWaitQuoted (child_argv, false);
+	if (rc == 0)
+		return 0;
+	return -1;
+}
+#else
 static int run_external_vgmtrans (const char *tool, const char *in_file, const char *out_dir)
 {
 	char *const child_argv[] = { (char *)tool, (char *)in_file, (char *)out_dir, 0 };
@@ -95,6 +111,7 @@ static int run_external_vgmtrans (const char *tool, const char *in_file, const c
 		return 0;
 	return -1;
 }
+#endif
 
 static int cmd_pack (int argc, char *argv[])
 {

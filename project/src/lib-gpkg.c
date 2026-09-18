@@ -10,7 +10,7 @@ void ResetGPKG (gpkg_t *pkg)
 	if (!pkg)
 		return;
 	FREE (pkg->entries);
-	FREE (pkg->data);
+	FREE ((void *)pkg->data);
 	memset (pkg, 0, sizeof (*pkg));
 }
 

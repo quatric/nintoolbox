@@ -44,7 +44,9 @@
 #include <errno.h>
 #include <sys/time.h>
 #include <fcntl.h>
+#ifndef __MINGW32__
 #include <sys/ioctl.h>
+#endif
 
 #include "dclib-basics.h"
 #include "dclib-debug.h"
@@ -1031,6 +1033,59 @@ static void inc_sig_handler (volatile int *level, volatile uint *sec)
 
 ///////////////////////////////////////////////////////////////////////////////
 
+#ifdef __MINGW32__
+// MinGW's signal.h only has SIGINT/SIGTERM/SIGABRT/SIGFPE/SIGILL/SIGSEGV
+// (no SIGHUP/SIGCHLD/SIGALRM/SIGUSR1/SIGUSR2/SIGPIPE, no sigaction()/
+// kill()); nothing in src/*.c calls SetupSignalHandler() anyway, so only
+// a minimal SIGINT/SIGTERM handler (via plain signal()) is provided here
+// instead of porting the full POSIX signal-level-tracking logic above.
+static void sig_handler (int signum)
+{
+	fflush (stdout);
+
+	switch (signum)
+	{
+		case SIGINT:
+			if (ignore_SIGINT)
+				break;
+			// fall through
+
+		case SIGTERM:
+		{
+			inc_sig_handler (&SIGINT_level, &SIGINT_sec);
+			ccp signame = signum == SIGINT ? "INT" : "TERM";
+			if (SIGINT_level > 1)
+				PrintLogFile (&log_signal_file, "#SIGNAL %s: level set to %d/%d\n", signame,
+					SIGINT_level, SIGINT_level_max);
+			if (SIGINT_level >= SIGINT_level_max)
+			{
+				PrintLogFile (&log_signal_file, "#SIGNAL %s: TERMINATE IMMEDIATELY!\n", signame);
+				exit (0);
+			}
+			break;
+		}
+
+		default:
+			PrintLogFile (&log_signal_file, "#SIGNAL: %d\n", signum);
+	}
+	fflush (stderr);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void SetupSignalHandler (int max_sigint_level, FILE *log_file)
+{
+	SIGINT_level_max = max_sigint_level;
+	if (log_file)
+	{
+		log_signal_file.log = log_file;
+		log_signal_file.flush = true;
+	}
+
+	signal (SIGTERM, &sig_handler);
+	signal (SIGINT, &sig_handler);
+}
+#else
 static void sig_handler (int signum)
 {
 	fflush (stdout);
@@ -1131,6 +1186,7 @@ void SetupSignalHandler (int max_sigint_level, FILE *log_file)
 		sigaction (sigtab[i], &sa, 0);
 	}
 }
+#endif // __MINGW32__
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -6318,7 +6374,8 @@ s64 ScanKeywordListP (KeyListParam_t *par, // NULL or parameters and extended re
 
 	for (;;)
 	{
-		while (arg < arg_end && (uchar)*arg <= ' ' || *arg == ',' || *arg == '.')
+		// missing parens let ',' or '.' bypass the arg_end bounds check (OOB read)
+		while (arg < arg_end && ((uchar)*arg <= ' ' || *arg == ',' || *arg == '.'))
 			arg++;
 
 		if (arg >= arg_end)
@@ -10956,7 +11013,9 @@ void LogGrowBuffer (FILE *f, // output file
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(__MINGW32__)
+// (fmemopen() isn't available on MinGW either, same as __APPLE__ above;
+// nothing in src/*.c calls OpenFileGrowBuffer()/CloseFileGrowBuffer())
 
 FILE *OpenFileGrowBuffer (
 	// returns a FILE opened by fmemopen() => call CloseFileGrowBuffer()

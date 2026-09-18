@@ -36,7 +36,9 @@
 
 #include <string.h>
 #include <limits.h>
+#ifndef __MINGW32__
 #include <arpa/inet.h>
+#endif
 
 #include "dclib-basics.h"
 #include "dclib-debug.h"
@@ -361,17 +363,25 @@ u32 GetUTF8Char (ccp str)
 			return result;
 
 		case DC_UTF8_2CHAR:
-			return (result & 0x1f) << 6 | (str[1] & 0x3f);
+			// don't read behind a NUL terminator on a truncated sequence
+			return !str[1] ? result : (result & 0x1f) << 6 | (str[1] & 0x3f);
 
 		case DC_UTF8_3CHAR:
-			return (result & 0x0f) << 12 | (str[1] & 0x3f) << 6 | (str[2] & 0x3f);
+			return !str[1] ? result
+				 : !str[2] ? (result & 0x0f) << 12 | (str[1] & 0x3f) << 6
+						   : (result & 0x0f) << 12 | (str[1] & 0x3f) << 6 | (str[2] & 0x3f);
 
 		case DC_UTF8_4CHAR:
-			return (result & 0x07) << 18 | (str[1] & 0x3f) << 12 | (str[2] & 0x3f) << 6
-				| (str[3] & 0x3f);
+			return !str[1] ? result
+				 : !str[2] ? (result & 0x07) << 18 | (str[1] & 0x3f) << 12
+				 : !str[3] ? (result & 0x07) << 18 | (str[1] & 0x3f) << 12 | (str[2] & 0x3f) << 6
+						   : (result & 0x07) << 18 | (str[1] & 0x3f) << 12 | (str[2] & 0x3f) << 6
+							 | (str[3] & 0x3f);
 
 		case DC_UTF8_CONT_ANY:
-			return (result & 0x3f) << 12 | (str[1] & 0x3f) << 6 | (str[2] & 0x3f);
+			return !str[1] ? result
+				 : !str[2] ? (result & 0x3f) << 12 | (str[1] & 0x3f) << 6
+						   : (result & 0x3f) << 12 | (str[1] & 0x3f) << 6 | (str[2] & 0x3f);
 
 		default: // DC_UTF8_ILLEGAL
 			return result & 0x7f | S32_MIN;
@@ -818,18 +828,19 @@ int ScanUTF8LengthE (ccp str, ccp end)
 			switch (CheckUTF8Mode (ch))
 			{
 				case DC_UTF8_2CHAR:
-					if (CheckUTF8Mode (*ptr) == DC_UTF8_CONT_ANY)
+					// bounded variant: never read at/behind 'end'
+					if (ptr < end && CheckUTF8Mode (*ptr) == DC_UTF8_CONT_ANY)
 						ptr++;
 					break;
 
 				case DC_UTF8_3CHAR:
-					if (CheckUTF8Mode (ptr[0]) == DC_UTF8_CONT_ANY
+					if (ptr + 1 < end && CheckUTF8Mode (ptr[0]) == DC_UTF8_CONT_ANY
 						&& CheckUTF8Mode (ptr[1]) == DC_UTF8_CONT_ANY)
 						ptr += 2;
 					break;
 
 				case DC_UTF8_4CHAR:
-					if (CheckUTF8Mode (ptr[0]) == DC_UTF8_CONT_ANY
+					if (ptr + 2 < end && CheckUTF8Mode (ptr[0]) == DC_UTF8_CONT_ANY
 						&& CheckUTF8Mode (ptr[1]) == DC_UTF8_CONT_ANY
 						&& CheckUTF8Mode (ptr[2]) == DC_UTF8_CONT_ANY)
 						ptr += 3;
@@ -916,18 +927,19 @@ int ScanEUTF8LengthE (ccp str, ccp end)
 			switch (CheckUTF8Mode (ch))
 			{
 				case DC_UTF8_2CHAR:
-					if (CheckUTF8Mode (*ptr) == DC_UTF8_CONT_ANY)
+					// bounded variant: never read at/behind 'end'
+					if (ptr < end && CheckUTF8Mode (*ptr) == DC_UTF8_CONT_ANY)
 						ptr++;
 					break;
 
 				case DC_UTF8_3CHAR:
-					if (CheckUTF8Mode (ptr[0]) == DC_UTF8_CONT_ANY
+					if (ptr + 1 < end && CheckUTF8Mode (ptr[0]) == DC_UTF8_CONT_ANY
 						&& CheckUTF8Mode (ptr[1]) == DC_UTF8_CONT_ANY)
 						ptr += 2;
 					break;
 
 				case DC_UTF8_4CHAR:
-					if (CheckUTF8Mode (ptr[0]) == DC_UTF8_CONT_ANY
+					if (ptr + 2 < end && CheckUTF8Mode (ptr[0]) == DC_UTF8_CONT_ANY
 						&& CheckUTF8Mode (ptr[1]) == DC_UTF8_CONT_ANY
 						&& CheckUTF8Mode (ptr[2]) == DC_UTF8_CONT_ANY)
 						ptr += 3;

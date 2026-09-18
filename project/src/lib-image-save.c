@@ -45,6 +45,8 @@
 #include "lib-ctxb.h"
 #include "lib-ajpg.h"
 #include "lib-pica3ds.h"
+#include "lib-dds.h"
+#include "lib-astc-file.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			MipmapOptions_t			///////////////
@@ -436,6 +438,10 @@ enumError SaveIMG (Image_t *img, // pointer to valid img
 			return SaveNUT (img, f, fname, overwrite);
 		case FF_NSBTX:
 			return SaveNSBTX (img, f, fname, overwrite);
+		case FF_DDS:
+			return SaveDDSFile (img, f, fname, overwrite);
+		case FF_ASTC:
+			return SaveASTCFile (img, f, fname, overwrite);
 
 		default:
 			return ERROR0 (ERR_INVALID_IFORM, "Can_t create image [file type=%s]: %s\n",
