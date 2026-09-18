@@ -47,6 +47,33 @@ typedef struct bntx_user_data_t
 	} val;
 } bntx_user_data_t;
 
+// Relocation table structs matching NintendoSDK / BntxLibrary (_RLT)
+typedef struct bntx_reloc_section_t
+{
+	u64 pointer;
+	u32 offset;
+	s32 size;
+	s32 first_entry_index;
+	s32 entry_count;
+} bntx_reloc_section_t;
+
+typedef struct bntx_reloc_entry_t
+{
+	s32 pointers_offset;
+	u16 array_count;
+	u8 pointer_count;
+	u8 padding_count;
+} bntx_reloc_entry_t;
+
+typedef struct bntx_reloc_table_t
+{
+	u32 offset;
+	uint n_sections;
+	bntx_reloc_section_t *sections; // owned
+	uint n_entries;
+	bntx_reloc_entry_t *entries; // owned
+} bntx_reloc_table_t;
+
 // One texture inside a BNTX container.
 typedef struct bntx_texture_t
 {
@@ -76,6 +103,7 @@ typedef struct bntx_t
 	u8 version_micro;
 	uint n_textures;
 	bntx_texture_t *textures; // owned
+	bntx_reloc_table_t reloc_table; // owned
 } bntx_t;
 
 enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size);

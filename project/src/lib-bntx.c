@@ -144,6 +144,8 @@ void ResetBNTX (bntx_t *bntx)
 		}
 		FREE (bntx->textures);
 	}
+	FREE (bntx->reloc_table.sections);
+	FREE (bntx->reloc_table.entries);
 	memset (bntx, 0, sizeof (*bntx));
 }
 
@@ -308,6 +310,57 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 	bntx->version_major = brd16 (data + 10);
 	bntx->textures = tex;
 	bntx->n_textures = n;
+
+	// Parse Relocation Table (_RLT) if present
+	const u32 rlt_addr = brd32 (data + 24);
+	if (rlt_addr && rlt_addr + 16 <= size && !memcmp (data + rlt_addr, "_RLT", 4))
+	{
+		const u32 sec_count = brd32 (data + rlt_addr + 8);
+		if (sec_count > 0 && sec_count <= 256
+			&& rlt_addr + 16 + (u64)sec_count * 24 <= size)
+		{
+			bntx_reloc_section_t *sections = CALLOC (sec_count, sizeof (*sections));
+			if (sections)
+			{
+				uint total_entries = 0;
+				for (uint s = 0; s < sec_count; s++)
+				{
+					const u8 *sp = data + rlt_addr + 16 + s * 24;
+					sections[s].pointer = brd64 (sp + 0);
+					sections[s].offset = brd32 (sp + 8);
+					sections[s].size = (s32)brd32 (sp + 12);
+					sections[s].first_entry_index = (s32)brd32 (sp + 16);
+					sections[s].entry_count = (s32)brd32 (sp + 20);
+					if (sections[s].entry_count > 0)
+						total_entries += sections[s].entry_count;
+				}
+				bntx->reloc_table.offset = rlt_addr;
+				bntx->reloc_table.n_sections = sec_count;
+				bntx->reloc_table.sections = sections;
+
+				const u64 entries_addr = rlt_addr + 16 + (u64)sec_count * 24;
+				if (total_entries > 0 && total_entries <= 65536
+					&& entries_addr + (u64)total_entries * 8 <= size)
+				{
+					bntx_reloc_entry_t *entries = CALLOC (total_entries, sizeof (*entries));
+					if (entries)
+					{
+						for (uint e = 0; e < total_entries; e++)
+						{
+							const u8 *ep = data + entries_addr + e * 8;
+							entries[e].pointers_offset = (s32)brd32 (ep + 0);
+							entries[e].array_count = brd16 (ep + 4);
+							entries[e].pointer_count = ep[6];
+							entries[e].padding_count = ep[7];
+						}
+						bntx->reloc_table.n_entries = total_entries;
+						bntx->reloc_table.entries = entries;
+					}
+				}
+			}
+		}
+	}
+
 	return ERR_OK;
 }
 
@@ -658,6 +711,19 @@ void DumpStructureBNTX (FILE *out, const bntx_t *bntx, int indent)
 				fprintf (out, "%*s'%s': type %u, count %u\n", indent + 6, "",
 					ud->name ? ud->name : "", (uint)ud->type, ud->count);
 			}
+		}
+	}
+	if (bntx->reloc_table.n_sections > 0)
+	{
+		fprintf (out, "%*sRelocation Table (_RLT): offset 0x%x, sections %u, entries %u\n",
+			indent + 2, "", bntx->reloc_table.offset,
+			bntx->reloc_table.n_sections, bntx->reloc_table.n_entries);
+		for (uint s = 0; s < bntx->reloc_table.n_sections; s++)
+		{
+			const bntx_reloc_section_t *sec = bntx->reloc_table.sections + s;
+			fprintf (out, "%*sSection [%u]: off 0x%x, size 0x%x, first entry %d, count %d\n",
+				indent + 4, "", s, sec->offset, sec->size,
+				sec->first_entry_index, sec->entry_count);
 		}
 	}
 }
@@ -1367,15 +1433,68 @@ enumError EncodeBNTX_RGBA (
 				memcpy (swizzled + pos, rgba + 4 * ((size_t)y * width + x), 4);
 		}
 
-	const uint header_size = 0x200;
-	const uint file_name_off = 0x100;
 	ccp file_name = "output.bntx";
-	const uint tex_name_off = 0x140;
-
 	const size_t file_name_len = strlen (file_name);
 	const size_t tex_name_len = strlen (name);
 
-	const u64 total_size = (u64)header_size + surf_size;
+	// String table: entry 0 = "", entry 1 = name, entry 2 = file_name
+	// Each string entry: u16 length, string bytes, 0 terminator, 2-byte aligned
+	const uint s0_len = 0;
+	const uint s0_size = 2 + s0_len + 1 + 1; // 4 bytes (aligned)
+	const uint s1_size = round_up (2 + (uint)tex_name_len + 1, 2);
+	const uint s2_size = round_up (2 + (uint)file_name_len + 1, 2);
+
+	const uint str_payload_size = 4 + s0_size + s1_size + s2_size; // count (4) + entries
+	const uint str_block_size = round_up (16 + str_payload_size, 8); // aligned to 8
+
+	// Dictionary table (_DIC): count (4) + root node (16) + texture node (16) = 36 -> 40 (aligned to 8)
+	const uint dic_block_size = 8 + 16 * 2;
+
+	// Layout offsets
+	const uint ofs_bin_hdr = 0;
+	const uint ofs_bntx_hdr = 0x20;
+	const uint ofs_mem_pool = 0x58; // 0x140 bytes
+	const uint ofs_tex_ptrs = ofs_mem_pool + 0x140; // 0x198, 8 bytes
+	const uint ofs_str = ofs_tex_ptrs + 8; // 0x1a0
+	const uint ofs_dic = ofs_str + str_block_size;
+	const uint ofs_brti = ofs_dic + dic_block_size;
+
+	// String positions
+	const uint abs_str_base = ofs_str + 16 + 4;
+	const uint abs_str_empty = abs_str_base;
+	const uint abs_str_tex = abs_str_empty + s0_size;
+	const uint abs_str_file = abs_str_tex + s1_size;
+
+	// BRTI layout:
+	// 16-byte block header
+	// 144-byte ResBntxTextureInfo
+	// 256-byte texture runtime data
+	// 256-byte texture view runtime data
+	// 8-byte mip offsets array
+	const uint ofs_ti = ofs_brti + 16;
+	const uint ofs_tex_rt = ofs_ti + 144;
+	const uint ofs_tex_view_rt = ofs_tex_rt + 256;
+	const uint ofs_mip_offsets = ofs_tex_view_rt + 256;
+	const uint ofs_sec1_end = ofs_mip_offsets + 8;
+	const uint brti_block_size = ofs_sec1_end - ofs_brti;
+	const uint ofs_sec1_aligned = round_up (ofs_sec1_end, 8);
+
+	// BRTD block is placed immediately before data aligned to 4096:
+	// ofs_brtd_data % 4096 == 0, and ofs_brtd = ofs_brtd_data - 16
+	const uint ofs_brtd_data = round_up (ofs_sec1_aligned + 16, 4096);
+	const uint ofs_brtd = ofs_brtd_data - 16;
+	const uint ofs_sec2_start = ofs_brtd;
+	const uint ofs_sec2_end = ofs_brtd_data + (uint)surf_size;
+
+	// Relocation table placed at 4096 alignment following BRTD
+	const uint ofs_rlt = round_up (ofs_sec2_end, 4096);
+
+	const uint n_sec1_entries = 8;
+	const uint n_sec2_entries = 2;
+	const uint total_rlt_entries = n_sec1_entries + n_sec2_entries;
+	const uint rlt_size = 16 + 2 * 24 + total_rlt_entries * 8;
+	const uint total_size = ofs_rlt + rlt_size;
+
 	if (total_size > BNTX_MAX_OUTPUT)
 	{
 		FREE (swizzled);
@@ -1389,68 +1508,160 @@ enumError EncodeBNTX_RGBA (
 		return ERR_CANT_CREATE;
 	}
 
-	// BNTX main header at 0x00
+	// 1. Binary Header (0x00)
 	memcpy (buf, "BNTX\0\0\0\0", 8);
-	bwr32 (buf + 0x08, 0x00040000);
-	bwr16 (buf + 0x0c, 0xfeff);
-	buf[0x0e] = 12;
-	buf[0x0f] = 64;
-	bwr32 (buf + 0x10, file_name_off);
-	bwr16 (buf + 0x14, 0);
-	bwr16 (buf + 0x16, 0x20);
-	bwr32 (buf + 0x18, 0);
-	bwr32 (buf + 0x1c, (u32)total_size);
+	buf[0x08] = 0; // micro
+	buf[0x09] = 0; // minor
+	bwr16 (buf + 0x0a, 4); // major = 4
+	bwr16 (buf + 0x0c, 0xfeff); // BOM
+	buf[0x0e] = 12; // align shift (4096)
+	buf[0x0f] = 64; // target addr size
+	bwr32 (buf + 0x10, abs_str_file + 2); // NameOffset (points directly to string content)
+	bwr16 (buf + 0x14, 0); // Flag
+	bwr16 (buf + 0x16, (u16)ofs_str); // BlockOffset (points to first block _STR)
+	bwr32 (buf + 0x18, ofs_rlt); // RelocationTableOffset
+	bwr32 (buf + 0x1c, total_size); // FileSize
 
-	// NX header at 0x20
-	memcpy (buf + 0x20, "NX  ", 4);
-	bwr32 (buf + 0x24, 1);
-	bwr64 (buf + 0x28, 0x50); // info_ptrs_addr
+	// 2. BNTX Header (0x20)
+	memcpy (buf + ofs_bntx_hdr, "NX  ", 4);
+	bwr32 (buf + ofs_bntx_hdr + 4, 1); // TextureCount
+	bwr64 (buf + ofs_bntx_hdr + 8, ofs_tex_ptrs); // TextureInfoPointer
+	bwr64 (buf + ofs_bntx_hdr + 16, ofs_brtd); // TextureDataPointer
+	bwr64 (buf + ofs_bntx_hdr + 24, ofs_dic); // TextureDictionaryPointer
+	bwr64 (buf + ofs_bntx_hdr + 32, ofs_mem_pool); // MemoryPoolPointer
 
-	// info_ptrs at 0x50
-	bwr64 (buf + 0x50, 0x60); // BRTI offset
+	// 3. Texture Pointers array
+	bwr64 (buf + ofs_tex_ptrs, ofs_brti);
 
-	// data_ptrs at 0x58
-	bwr64 (buf + 0x58, header_size); // texture data offset
+	// 4. _STR Block
+	memcpy (buf + ofs_str, "_STR", 4);
+	bwr32 (buf + ofs_str + 4, str_block_size);
+	bwr64 (buf + ofs_str + 8, str_block_size);
+	bwr32 (buf + ofs_str + 16, 2); // 2 non-empty strings (or count - 1)
 
-	// BRTI header at 0x60
-	memcpy (buf + 0x60, "BRTI", 4);
-	bwr32 (buf + 0x64, 0xA0);
-	bwr64 (buf + 0x68, 0xA0);
+	// String 0: ""
+	bwr16 (buf + abs_str_empty, 0);
+	buf[abs_str_empty + 2] = 0;
 
-	// TextureInfo at 0x70
-	u8 *ti = buf + 0x70;
-	ti[0] = 0;
-	ti[1] = 2;
-	bwr16 (ti + 0x02, 0); // tile_mode = 0
-	bwr16 (ti + 0x06, 1); // num_mips = 1
-	bwr32 (ti + 0x08, 1); // num_samples = 1
-	bwr32 (ti + 0x0c, 0x0b01); // format = RGBA8
-	bwr32 (ti + 0x10, 0x20); // access_flags
+	// String 1: name
+	bwr16 (buf + abs_str_tex, (u16)tex_name_len);
+	memcpy (buf + abs_str_tex + 2, name, tex_name_len);
+	buf[abs_str_tex + 2 + tex_name_len] = 0;
+
+	// String 2: file_name
+	bwr16 (buf + abs_str_file, (u16)file_name_len);
+	memcpy (buf + abs_str_file + 2, file_name, file_name_len);
+	buf[abs_str_file + 2 + file_name_len] = 0;
+
+	// 5. _DIC Block
+	memcpy (buf + ofs_dic, "_DIC", 4);
+	bwr32 (buf + ofs_dic + 4, 1); // count = 1
+	// Node 0 (root): ref = 0xffffffff, left = 1, right = 0, name_ptr = abs_str_empty
+	bwr32 (buf + ofs_dic + 8, 0xffffffff);
+	bwr16 (buf + ofs_dic + 12, 1);
+	bwr16 (buf + ofs_dic + 14, 0);
+	bwr64 (buf + ofs_dic + 16, abs_str_empty);
+	// Node 1: ref = 1, left = 0, right = 1, name_ptr = abs_str_tex
+	bwr32 (buf + ofs_dic + 24, 1);
+	bwr16 (buf + ofs_dic + 28, 0);
+	bwr16 (buf + ofs_dic + 30, 1);
+	bwr64 (buf + ofs_dic + 32, abs_str_tex);
+
+	// 6. BRTI Block
+	memcpy (buf + ofs_brti, "BRTI", 4);
+	bwr32 (buf + ofs_brti + 4, brti_block_size);
+	bwr64 (buf + ofs_brti + 8, brti_block_size);
+
+	// ResBntxTextureInfo at ofs_ti
+	u8 *ti = buf + ofs_ti;
+	ti[0] = 0; // Flags
+	ti[1] = 2; // Dim = 2D
+	bwr16 (ti + 0x02, 0); // TileMode
+	bwr16 (ti + 0x04, 0); // Swizzle
+	bwr16 (ti + 0x06, 1); // MipCount = 1
+	bwr32 (ti + 0x08, 1); // SampleCount = 1
+	bwr32 (ti + 0x0c, 0x0b01); // ImageFormat = RGBA8_UNORM
+	bwr32 (ti + 0x10, 0x20); // GpuAccessFlags = Texture
 	bwr32 (ti + 0x14, width);
 	bwr32 (ti + 0x18, height);
-	bwr32 (ti + 0x1c, 1);
-	bwr32 (ti + 0x20, 1);
-	bwr32 (ti + 0x24, bh_log2);
-	bwr32 (ti + 0x28, 2);
-	bwr32 (ti + 0x40, (u32)surf_size);
-	bwr32 (ti + 0x44, 512);
-	bwr32 (ti + 0x48, 0x05040302); // R,G,B,A selectors
-	bwr64 (ti + 0x50, tex_name_off);
-	bwr64 (ti + 0x60, 0x58);
+	bwr32 (ti + 0x1c, 1); // Depth
+	bwr32 (ti + 0x20, 1); // ArrayCount
+	bwr32 (ti + 0x24, bh_log2); // TextureLayout
+	bwr32 (ti + 0x28, 2); // TextureLayout2
+	bwr32 (ti + 0x40, (u32)surf_size); // ImageSize
+	bwr32 (ti + 0x44, 512); // Alignment
+	bwr32 (ti + 0x48, 0x05040302); // Channels R,G,B,A (2,3,4,5)
+	bwr64 (ti + 0x50, abs_str_tex); // NameOffset
+	bwr64 (ti + 0x58, ofs_bntx_hdr); // BntxHeaderOffset (0x20)
+	bwr64 (ti + 0x60, ofs_mip_offsets); // DataPointersOffset
+	bwr64 (ti + 0x68, 0); // UserDataOffset
+	bwr64 (ti + 0x70, ofs_tex_rt); // TexturePointer
+	bwr64 (ti + 0x78, ofs_tex_view_rt); // TextureViewPointer
+	bwr64 (ti + 0x80, 0); // DescSlotOffset
+	bwr64 (ti + 0x88, 0); // UserDataDictionaryOffset
 
-	// String pool
-	bwr16 (buf + file_name_off, (u16)file_name_len);
-	memcpy (buf + file_name_off + 2, file_name, file_name_len);
+	// Mip offset pointer
+	bwr64 (buf + ofs_mip_offsets, ofs_brtd_data);
 
-	bwr16 (buf + tex_name_off, (u16)tex_name_len);
-	memcpy (buf + tex_name_off + 2, name, tex_name_len);
-
-	// Texture payload
-	memcpy (buf + header_size, swizzled, (size_t)surf_size);
+	// 7. BRTD Block
+	const uint brtd_block_size = 16 + (uint)surf_size;
+	memcpy (buf + ofs_brtd, "BRTD", 4);
+	bwr32 (buf + ofs_brtd + 4, brtd_block_size);
+	bwr64 (buf + ofs_brtd + 8, brtd_block_size);
+	memcpy (buf + ofs_brtd_data, swizzled, (size_t)surf_size);
 	FREE (swizzled);
+
+	// 8. Relocation Table (_RLT)
+	u8 *rlt = buf + ofs_rlt;
+	memcpy (rlt, "_RLT", 4);
+	bwr32 (rlt + 4, ofs_rlt);
+	bwr32 (rlt + 8, 2); // 2 sections
+	bwr32 (rlt + 12, 0); // padding
+
+	// Section 0
+	bwr64 (rlt + 16, 0); // pointer
+	bwr32 (rlt + 24, 0); // offset
+	bwr32 (rlt + 28, ofs_sec2_start); // size
+	bwr32 (rlt + 32, 0); // first entry
+	bwr32 (rlt + 36, n_sec1_entries); // entry count
+
+	// Section 1
+	bwr64 (rlt + 40, 0); // pointer
+	bwr32 (rlt + 48, ofs_sec2_start); // offset
+	bwr32 (rlt + 52, ofs_rlt - ofs_sec2_start); // size
+	bwr32 (rlt + 56, n_sec1_entries); // first entry
+	bwr32 (rlt + 60, n_sec2_entries); // entry count
+
+	// Relocation Entries
+	u8 *ep = rlt + 16 + 2 * 24;
+	struct {
+		s32 ofs;
+		u16 arr;
+		u8 pcnt;
+		u8 padc;
+	} entries[10] = {
+		{ 40, 2, 1, 1 },
+		{ 64, 1, 1, 0 },
+		{ (s32)ofs_tex_ptrs, 1, 1, 0 },
+		{ (s32)ofs_dic + 16, 2, 1, 1 },
+		{ (s32)ofs_ti + 0x50, 1, 3, 0 },
+		{ (s32)ofs_ti + 0x50 + 24, 1, 1, 0 },
+		{ (s32)ofs_ti + 0x50 + 32, 1, 2, 0 },
+		{ (s32)ofs_ti + 0x50 + 56, 1, 1, 0 },
+		{ 48, 1, 1, 0 },
+		{ (s32)ofs_mip_offsets, 1, 1, 0 }
+	};
+
+	for (uint e = 0; e < total_rlt_entries; e++)
+	{
+		bwr32 (ep + e * 8 + 0, (u32)entries[e].ofs);
+		bwr16 (ep + e * 8 + 4, entries[e].arr);
+		ep[e * 8 + 6] = entries[e].pcnt;
+		ep[e * 8 + 7] = entries[e].padc;
+	}
 
 	*dest = buf;
 	if (dest_size)
-		*dest_size = (uint)total_size;
+		*dest_size = total_size;
 	return ERR_OK;
 }

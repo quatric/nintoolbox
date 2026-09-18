@@ -69,6 +69,8 @@ int main (void)
 	assert (!strcmp (bntx.textures[0].name, "test_tex"));
 	assert (bntx.textures[0].width == 16);
 	assert (bntx.textures[0].height == 16);
+	assert (bntx.reloc_table.n_sections == 2);
+	assert (bntx.reloc_table.n_entries == 10);
 
 	u8 *decoded = NULL;
 	uint dw = 0, dh = 0;
