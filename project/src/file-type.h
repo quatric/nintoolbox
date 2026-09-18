@@ -395,6 +395,9 @@ typedef enum file_format_t
 	FF_DDS,    // 300 - DirectDraw Surface texture (.dds)
 	FF_ASTC,   // 301 - Adaptive Scalable Texture Compression (.astc)
 	FF_EFFN,   // 302 - Bandai Namco Effect File (.eff / .effn, EFFN)
+	FF_XB,     // 303 - Nd Cube Binary XML (.xml / XB)
+	FF_MPMESS, // 304 - Mario Party GCN/Wii Message File (.dat / board.dat / mini.dat)
+	FF_MPBOARD,// 305 - Mario Party Board Data (.bin / .csv)
 
 	//--- number of elements
 

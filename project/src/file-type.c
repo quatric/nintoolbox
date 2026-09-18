@@ -1623,6 +1623,24 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 'E', 'F', 'F', 'N' }, 0, MinusString, MinusString,
 		"Bandai Namco Effect File (.eff / .effn, Super Smash Bros)" },
 
+	// FF_XB = 303 (Nd Cube Binary XML)
+	{ FF_XB, FF_XB, 0, "XB", ".xml", ".xml", ".xml",
+		FFT_VALID | FFT_DECODE, 2,
+		{ 'X', 'B' }, 0, MinusString, MinusString,
+		"Nd Cube Binary XML (.xml / XB, Mario Party 10 / Wii Party U)" },
+
+	// FF_MPMESS = 304 (Mario Party GCN/Wii Message File)
+	{ FF_MPMESS, FF_MPMESS, 0, "MPMESS", ".dat", ".dat", ".dat",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Mario Party GCN/Wii Message File (.dat, board.dat / mini.dat)" },
+
+	// FF_MPBOARD = 305 (Mario Party Board Data)
+	{ FF_MPBOARD, FF_MPBOARD, 0, "MPBOARD", ".bin", ".bin", ".bin",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Mario Party Board Data (.bin / .csv, Mario Party 4-8 & SMP)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1805,6 +1823,9 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_ASTC, "ASTC", 0, 0x3009 },
 	{ FF_EFFN, "EFFN", "EFF", 0xe05 },
 	{ FF_EFFN, "EFF", 0, 0xe05 },
+	{ FF_XB, "XB", 0, 0x3001 },
+	{ FF_MPMESS, "MPMESS", 0, 0xe05 },
+	{ FF_MPBOARD, "MPBOARD", 0, 0x3001 },
 
 	{ 0, 0, 0, 0 }
 };

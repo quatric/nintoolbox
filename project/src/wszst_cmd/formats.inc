@@ -2555,6 +2555,93 @@ static enumError cmd_convert (bool binary) // cmd_binary() cmd_text()
 			continue;
 		}
 
+		if (!ff_dest && (raw.fform == FF_XB || IsXB (raw.data, raw.data_size)))
+		{
+			SubstDest (dest, sizeof (dest), arg, opt_dest, "\\1P/\\1N.xml", ".xml", false);
+			if (verbose >= 0)
+			{
+				fprintf (stdlog, "%sCREATE/TEXT XB:%s => %s\n", verbose > 0 ? "\n" : "", arg, dest);
+				fflush (stdlog);
+			}
+			if (!testmode)
+			{
+				File_t F;
+				err = CreateFileOpt (&F, true, dest, false, arg);
+				if (!F.f)
+					err = ERR_WRITE_FAILED;
+				else
+				{
+					err = DecodeXB (F.f, raw.data, raw.data_size);
+					ResetFile (&F, opt_preserve);
+				}
+			}
+			if (err && max_err < err)
+				max_err = err;
+			continue;
+		}
+
+		if (!ff_dest && (raw.fform == FF_MPMESS || IsMPMESS (raw.data, raw.data_size)))
+		{
+			SubstDest (dest, sizeof (dest), arg, opt_dest, "\\1P/\\1N.txt", ".txt", false);
+			if (verbose >= 0)
+			{
+				fprintf (stdlog, "%sCREATE/TEXT MPMESS:%s => %s\n", verbose > 0 ? "\n" : "", arg, dest);
+				fflush (stdlog);
+			}
+			if (!testmode)
+			{
+				File_t F;
+				err = CreateFileOpt (&F, true, dest, false, arg);
+				if (!F.f)
+					err = ERR_WRITE_FAILED;
+				else
+				{
+					err = DecodeMPMESS_Text (F.f, raw.data, raw.data_size);
+					ResetFile (&F, opt_preserve);
+				}
+			}
+			if (err && max_err < err)
+				max_err = err;
+			continue;
+		}
+
+		if (!ff_dest && (raw.fform == FF_MPBOARD || IsMPBoard (raw.data, raw.data_size)))
+		{
+			ccp out_ext = (opt_dest && strcasestr (opt_dest, ".csv")) ? ".csv" : ".txt";
+			char def_pat[32];
+			snprintf (def_pat, sizeof (def_pat), "\\1P/\\1N%s", out_ext);
+			SubstDest (dest, sizeof (dest), arg, opt_dest, def_pat, out_ext, false);
+			if (verbose >= 0)
+			{
+				fprintf (stdlog, "%sCREATE/TEXT MPBOARD:%s => %s\n", verbose > 0 ? "\n" : "", arg, dest);
+				fflush (stdlog);
+			}
+			if (!testmode)
+			{
+				File_t F;
+				err = CreateFileOpt (&F, true, dest, false, arg);
+				if (!F.f)
+					err = ERR_WRITE_FAILED;
+				else
+				{
+					mp_board_t board;
+					err = ScanMPBoard (&board, raw.data, raw.data_size, 0);
+					if (!err)
+					{
+						if (!strcmp (out_ext, ".csv"))
+							err = DecodeMPBoard_CSV (F.f, &board);
+						else
+							err = DecodeMPBoard_Text (F.f, &board);
+					}
+					ResetMPBoard (&board);
+					ResetFile (&F, opt_preserve);
+				}
+			}
+			if (err && max_err < err)
+				max_err = err;
+			continue;
+		}
+
 		if (!ff_dest && raw.data_size >= 12 && !memcmp (raw.data, "AAMP", 4))
 		{
 			SubstDest (dest, sizeof (dest), arg, opt_dest, "\\1P/\\1N.yml", ".yml", false);

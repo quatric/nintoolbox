@@ -482,7 +482,7 @@ SZS_O		:= lib-std.o lib-file.o lib-numeric.o lib-nds-banner.o lib-wii-banner.o \
 		   lib-owned-entries.o lib-mvdk.o lib-vlx.o lib-pucrunch.o lib-lzx.o \
 		   lib-diff.o lib-lzovl.o lib-alar.o lib-sadl.o lib-psdk.o lib-sszl.o \
 		   lib-rflres.o lib-bea.o \
-		   lib-atb.o lib-ptd.o lib-lzbin.o lib-hbdf.o \
+		   lib-atb.o lib-ptd.o lib-lzbin.o lib-hbdf.o lib-xb.o lib-mpmess.o lib-mpboard.o \
 		   lib-rarc.o lib-pack.o lib-rkc.o lib-brres.o lib-breff.o \
 		   file-type.o db-mkw.o lib-mkw.o lib-dol.o \
 		   sha1dgst.o sha1_one.o lib-bzip2.o lib-lzma.o lib-zstd.o lib-lz4.o lib-rvz.o \

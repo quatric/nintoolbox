@@ -80,6 +80,9 @@
 #include "lib-lzma.h"
 #include "lib-checksum.h"
 #include "lib-effn.h"
+#include "lib-xb.h"
+#include "lib-mpmess.h"
+#include "lib-mpboard.h"
 #include "config.inc"
 
 //
@@ -904,6 +907,12 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_PTD;
 		if (IsLZBIN (data8, data_size))
 			return FF_LZBIN;
+		if (IsXB (data8, data_size))
+			return FF_XB;
+		if (IsMPMESS (data8, data_size))
+			return FF_MPMESS;
+		if (IsMPBoard (data8, data_size))
+			return FF_MPBOARD;
 	}
 
 	if (data_size >= 8)
