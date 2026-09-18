@@ -348,6 +348,23 @@ int GetProgramPath (
 		return StringCopyS (buf, buf_size, path) - buf;
 	}
 
+#elif defined(__MINGW32__)
+
+	//--- native Windows: no /proc, ask the loader for the module path
+
+	{
+		extern unsigned long __stdcall GetModuleFileNameA (void *, char *, unsigned long);
+		char wpath[PATH_MAX];
+		const unsigned long wlen = GetModuleFileNameA (0, wpath, sizeof (wpath));
+		if (wlen > 0 && wlen < sizeof (wpath))
+		{
+			for (char *p = wpath; *p; p++)
+				if (*p == '\\')
+					*p = '/';
+			return StringCopyS (buf, buf_size, wpath) - buf;
+		}
+	}
+
 #else // !__APPLE__
 
 	//--- read files of /proc/...

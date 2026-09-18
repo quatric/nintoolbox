@@ -34,6 +34,13 @@
 #include "lib-aes.h"
 #include "lib-rvz.h"
 
+#ifdef __MINGW32__
+// msvcrt's access() rejects X_OK (mode 1) with EINVAL, so every "is this tool
+// executable?" probe failed on native Windows; existence is the best it offers.
+#undef X_OK
+#define X_OK F_OK
+#endif
+
 // option state, bound in tab-wszst.inc / CheckOptions() of wszst.c
 bool opt_no_passthrough = false; // --no-passthrough: disable pass-through
 ccp opt_with_wit = 0; // --with-wit=path|name
