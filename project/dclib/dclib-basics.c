@@ -353,9 +353,8 @@ int GetProgramPath (
 	//--- native Windows: no /proc, ask the loader for the module path
 
 	{
-		extern unsigned long __stdcall GetModuleFileNameA (void *, char *, unsigned long);
 		char wpath[PATH_MAX];
-		const unsigned long wlen = GetModuleFileNameA (0, wpath, sizeof (wpath));
+		const unsigned long wlen = GetModuleFileNameA (NULL, wpath, sizeof (wpath));
 		if (wlen > 0 && wlen < sizeof (wpath))
 		{
 			for (char *p = wpath; *p; p++)
