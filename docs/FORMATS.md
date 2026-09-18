@@ -84,7 +84,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **NSBMD / NSBTX** | DS / 3D Graphics | ✅ | ✅ | Nitro 3D models and textures |
 | **NUD** | Wii U / 3DS / Model | ✅ | ✅ | Bandai Namco 3D model container (Smash 4 NDP3/NDWU and Pokkén NDWD multi-mesh) |
 | **NUMSHB** | Switch / Model | ✅ | ❌ | Bandai Namco SSBH 3D mesh model (Smash Ultimate) |
-| **SHARC / SHARCFB** | Wii U / Switch / Shader Archive | ✅ | ❌ | NintendoWare shader source and binary archive |
+| **SHARC / SHARCFB** | Wii U / Switch / Shader Archive | ✅ | ✅ | NintendoWare shader source and binary archive (SHARC v10-12 round-trips; Wii U SHARCFB is compiled from GSH) |
 | **VFXB** | Wii U / Switch / Effect Archive | ✅ | ❌ | NintendoWare particle effect binary archive |
 | **NUT** | Wii U / 3DS / Texture | ✅ | ❌ | Bandai Namco texture package (Smash 4) |
 | **NUTEXB** | Switch / Texture | ✅ | ✅ | Super Smash Bros. Ultimate texture container |

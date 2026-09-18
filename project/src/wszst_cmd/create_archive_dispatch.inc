@@ -137,6 +137,10 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest, int known_lz
 		return create_mkgpdx_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".pkg") || !strcasecmp (ext, ".gpkg"))
 		return create_gpkg_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".sharcfb") && LooksLikeSHARCDir (source_dir))
+		return CreateSHARCFBFromDir (source_dir, dest);
+	if (!strcasecmp (ext, ".sharc") && LooksLikeSHARCDir (source_dir))
+		return CreateSHARCFromDir (source_dir, dest);
 	if (!strcasecmp (ext, ".gsh"))
 		return create_gsh_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".dat") && looks_like_sfzdat_dir (source_dir))

@@ -353,7 +353,7 @@ XOBJ_IMAGE	= lib-image-core.o lib-image-convert.o lib-image-load.o lib-image-gen
 			lib-tpl.o lib-bti.o lib-tex0.o lib-breft.o lib-ajpg.o \
 			lib-plt0.o lib-bntx.o \
 		lib-smdh.o \
-		lib-gtx.o \
+		lib-gtx.o lib-sharc-edit.o \
 		lib-nitro.o \
 		lib-retro-txtr.o \
 			$(LATTE_CXX_OBJS) $(BCN_CXX_OBJS) \

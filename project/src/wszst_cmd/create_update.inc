@@ -768,6 +768,24 @@ static enumError cmd_create (bool create)
 			ResetSetupParam (&sp);
 			continue;
 		}
+		if (create && ext && (!strcasecmp (ext, ".sharc") || !strcasecmp (ext, ".sharcfb"))
+			&& LooksLikeSHARCDir (source_dir))
+		{
+			const bool fb = !strcasecmp (ext, ".sharcfb");
+			enumError err = fb ? CreateSHARCFBFromDir (source_dir, dest)
+							   : CreateSHARCFromDir (source_dir, dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE %s %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", fb ? "SHARCFB" : "SHARC", source_dir, dest);
+			if (max_err < err)
+				max_err = err;
+			// compiling keeps the directory: it is the editable SHARC source
+			if (!fb && err <= ERR_WARNING && src_len > 2
+				&& !strcasecmp (source_dir + src_len - 2, ".d") && !testmode)
+				remove_dir_recursive (source_dir);
+			ResetSetupParam (&sp);
+			continue;
+		}
 		if (create && ext && !strcasecmp (ext, ".gsh"))
 		{
 			enumError err = create_gsh_dir (source_dir, dest);
@@ -7430,6 +7448,23 @@ static enumError extract_sharc_manifest (ccp arg)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
+	}
+
+	// Source archives are extracted into an editable directory (sources,
+	// macros, tables) when that provably rebuilds to the same bytes.
+	if (!is_fb && !testmode)
+	{
+		char dir[PATH_MAX];
+		beside_source_dest (dir, sizeof (dir), arg);
+		err = ExtractSHARCDir (raw, raw_size, dir, arg);
+		if (err != ERR_NOTHING_TO_DO)
+		{
+			if (verbose >= 0)
+				fprintf (stdlog, "%sEXTRACT SHARC:%s -> %s/\n", verbose > 0 ? "\n" : "", arg,
+					dir);
+			FREE (raw);
+			return err;
+		}
 	}
 
 	char dest[PATH_MAX];

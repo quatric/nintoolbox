@@ -163,3 +163,6 @@ We acknowledge and credit the following tools and authors whose research, format
 
 * **Custom Mario Kart Wii (Wiiki) Community:** Documentation, specifications, and research on KMP, KCL, BRRES, and associated formats (<http://wiki.tockdom.com/>).
 * **Nintendo Reverse Engineering Community:** Documentation and research on 3DS (CTR/NW4C), Wii U (Cafe/NW4F), and Switch (NX/NW4N) layout, sound, and model formats.
+
+- **FastYZ** and **TrueYZ** by aboood40091 (MIT): the `--compr=fastyz` and `--compr=trueyz` Yaz0 encoders (`project/src/fastyz.*`, `project/src/trueyz.*`).
+- **SharcEditor** and **SharcCompiler** by aboood40091: format knowledge behind the SHARC directory round trip and the Wii U SHARCFB builder (`project/src/lib-sharc-edit.c`), reimplemented in C.

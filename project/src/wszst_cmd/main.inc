@@ -622,6 +622,9 @@ static enumError CheckOptions (int argc, char **argv, bool is_env)
 			case GO_WITH_HACBREWPACK:
 				opt_with_hacbrewpack = optarg;
 				break;
+			case GO_WITH_GSHCOMPILE:
+				opt_with_gshcompile = optarg;
+				break;
 			case GO_WITH_BMS:
 				opt_with_bms = optarg;
 				break;

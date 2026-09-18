@@ -113,7 +113,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **SARC** | `.sarc`, `.szs` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4F & NintendoSDK sorted archive (Wii U / Switch / 3DS). |
 | **SFZDAT** | `.dat` | ✅ | 🟡 | — | ✅ | *Star Fox Zero* (Wii U) flat archive (`DAT\0`). |
 | **CPK** | `.cpk` | ✅ | — | — | ✅ | CRIWARE CPK archive (*Star Fox Zero*, Wii U) |
-| **SHARC / SHARCFB** | `.sharc`, `.sharcfb` | ✅ | — | — | ✅ | NintendoWare shader source & binary archive (Wii U / Switch). |
+| **SHARC / SHARCFB** | `.sharc`, `.sharcfb` | ✅ | ✅ | — | ✅ | NintendoWare shader source & binary archive (Wii U / Switch). `.sharc` extracts to an editable directory (sources, macros, tables) and rebuilds byte-exact; `CREATE dir --dest x.sharcfb` compiles a Wii U SHARCFB from per-program `out.gsh` files (or via `--with-gshcompile`). |
 | **SIR0** | `.sir0` | ✅ | ✅ | ✅ | ✅ | Pokémon Mystery Dungeon resource container (DS / 3DS). |
 | **STPK** | `.srd`, `.stpk` | ✅ | ✅ | ✅ | 🟡 | *Jump Super Stars* & *Jump Ultimate Stars* DS resource archive. |
 | **Storybook ONE** | `.one` | ✅ | ✅ | — | ✅ | Sonic Team *Sonic and the Secret Rings* / *Black Knight* PRS-compressed container. |

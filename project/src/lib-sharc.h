@@ -21,4 +21,17 @@ enumError DecodeSHARC_Text (FILE *out, const u8 *data, size_t size);
 // structure (see SHARCFBNX.cs).
 enumError DecodeSHARCFB_Text (FILE *out, const u8 *data, size_t size);
 
+// Editable directory form of a SHARC source archive (v10-12, either byte
+// order): sharc.txt manifest, sources/<name> and programs/NNN.bin. EXTRACT
+// refuses (ERR_NOTHING_TO_DO) unless the directory rebuilds to the exact input.
+enumError ExtractSHARCDir (const u8 *data, size_t size, ccp dest_dir, ccp source);
+enumError CreateSHARCFromDir (ccp source_dir, ccp dest);
+bool LooksLikeSHARCDir (ccp dir);
+
+// Compiles a SHARC directory to a Wii U SHARCFB (SharcCompiler's job). Each
+// program needs <dir>/<program>/out.gsh from gshCompile; missing ones are
+// produced with --with-gshcompile when given.
+enumError CreateSHARCFBFromDir (ccp source_dir, ccp dest);
+extern ccp opt_with_gshcompile; // --with-gshcompile=path|name
+
 #endif // LIB_SHARC_H
