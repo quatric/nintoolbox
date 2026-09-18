@@ -1097,7 +1097,11 @@ static void AddTables ( FILE * df )
 
 int ui_main ( int argc, char ** argv )
 {
+#if defined(_WIN32) || defined(__CYGWIN__)
+    static ccp def_null_name = "NUL";
+#else
     static ccp def_null_name = "/dev/null";
+#endif
     FILE * nf = fopen(def_null_name,"wb");
     if (!nf)
     {
