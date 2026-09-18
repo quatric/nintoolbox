@@ -7329,7 +7329,7 @@ valid_t IsValidLTA (const void *data, // data
 static char *quote_win_arg (ccp arg)
 {
 	const size_t len = strlen (arg);
-	char *out = malloc (len * 2 + 3);
+	char *out = MALLOC (len * 2 + 3);
 	if (!out)
 		return 0;
 	if (*arg && !strpbrk (arg, " \t\"\n\v"))
@@ -7372,7 +7372,7 @@ intptr_t SpawnWaitQuoted (char *const argv[], bool search_path)
 	int argc = 0;
 	while (argv[argc])
 		argc++;
-	char **q = calloc (argc + 1, sizeof (*q));
+	char **q = CALLOC (argc + 1, sizeof (*q));
 	if (!q)
 	{
 		errno = ENOMEM;
@@ -7384,8 +7384,8 @@ intptr_t SpawnWaitQuoted (char *const argv[], bool search_path)
 		if (!q[i])
 		{
 			while (i-- > 0)
-				free (q[i]);
-			free (q);
+				FREE (q[i]);
+			FREE (q);
 			errno = ENOMEM;
 			return -1;
 		}
@@ -7395,8 +7395,8 @@ intptr_t SpawnWaitQuoted (char *const argv[], bool search_path)
 		: _spawnv (_P_WAIT, argv[0], (const char *const *)q);
 	const int err = errno;
 	for (int i = 0; i < argc; i++)
-		free (q[i]);
-	free (q);
+		FREE (q[i]);
+	FREE (q);
 	errno = err;
 	return rc;
 }
