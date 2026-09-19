@@ -8777,6 +8777,19 @@ with open(sys.argv[1], "wb") as f:
     fno "Blitz .rev package" "mk_rev.py failed"
   fi
 
+  # Rainbow Studios (Disney-Pixar Cars) .gct texture + .gcg geometry
+  mkdir -p "$d/cars_test"
+  if python3 "$PWD_PROJECT/../tests/mk_cars.py" "$d/cars_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/cars_test/Tex/red.gct" "$d/cars_test/Geo/quad.gcg" --overwrite >/dev/null 2>&1 \
+    && python3 "$PNGTOOL" pixel "$d/cars_test/Tex/red.png" 0 0 255 0 0 255 2>/dev/null \
+    && g=$(python3 "$GLTF_COUNT" "$d/cars_test/Geo/quad.glb" geometry 2>/dev/null || true) \
+    && [ "${g:-0}" -eq 1 ] 2>/dev/null \
+    && fok "Cars .gct texture -> PNG, .gcg geometry -> textured GLB" \
+    || fno "Cars .gct/.gcg" "failed to convert synthetic assets"
+  else
+    fno "Cars .gct/.gcg" "mk_cars.py failed"
+  fi
+
   # Nintendo Binary Audio Resource Archive (.bars / BARS) test
   mkdir -p "$d/bars_test"
   python3 -c '
