@@ -1685,7 +1685,16 @@ static bool valid_utf8 (ccp s)
 
 static bool valid_sarc_path (ccp path)
 {
-	return path && *path && path[0] != '/' && !strchr (path, '\\') && strncmp (path, "../", 3)
+	if (!path)
+		return false;
+	// Control characters are never a real member name, and Windows refuses
+	// them in file names outright ("Invalid argument"). Seen as misread RST
+	// names ("\x02", twice) in Excitebike: World Rally's common.res, where
+	// the duplicate then aborted the rest of the archive on every platform.
+	for (const u8 *p = (const u8 *)path; *p; p++)
+		if (*p < 0x20 || *p == 0x7f)
+			return false;
+	return *path && path[0] != '/' && !strchr (path, '\\') && strncmp (path, "../", 3)
 		&& strcmp (path, "..") && !strstr (path, "/../") && valid_utf8 (path);
 }
 
@@ -6715,7 +6724,10 @@ static enumError extract_rst_file (ccp arg, ccp basedir, uint depth)
 			slash ? (int)(slash - arg + 1) : 0, arg);
 		u8 *index_data = 0;
 		size_t index_size = 0;
-		if (!LoadFileAlloc (tocres_path, 0, 0, &index_data, &index_size, 0, 0, 0, false))
+		// optional: a nested RST (e.g. extracted from info.res) has no
+		// tocres.res beside it, which is not an error
+		if (!access (tocres_path, R_OK)
+			&& !LoadFileAlloc (tocres_path, 0, 0, &index_data, &index_size, 0, 0, 0, false))
 		{
 			nintendo_sarc_entry_t *toc_entries = 0;
 			uint n_toc_entries = 0;
