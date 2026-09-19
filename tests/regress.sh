@@ -8801,6 +8801,19 @@ with open(sys.argv[1], "wb") as f:
     fno "DC2 .dcx/.dct" "mk_dc2.py failed"
   fi
 
+  # Gamebryo .nif (Pocoyo Racing, Wii): embedded RGBA8 texture -> PNG, INDEX mesh -> GLB
+  mkdir -p "$d/nif_test"
+  if python3 "$PWD_PROJECT/../tests/mk_nif.py" "$d/nif_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/nif_test/tri.nif" --overwrite >/dev/null 2>&1 \
+    && python3 "$PNGTOOL" pixel "$d/nif_test/red.png" 0 0 255 0 0 255 2>/dev/null \
+    && g=$(python3 "$GLTF_COUNT" "$d/nif_test/tri.glb" geometry 2>/dev/null || true) \
+    && [ "${g:-0}" -eq 1 ] 2>/dev/null \
+    && fok "Gamebryo .nif (Wii) -> texture PNG + world-space GLB" \
+    || fno "Gamebryo .nif" "failed to convert synthetic .nif"
+  else
+    fno "Gamebryo .nif" "mk_nif.py failed"
+  fi
+
   # Rainbow Studios (Disney-Pixar Cars) .gct texture + .gcg geometry
   mkdir -p "$d/cars_test"
   if python3 "$PWD_PROJECT/../tests/mk_cars.py" "$d/cars_test" >/dev/null 2>&1; then
