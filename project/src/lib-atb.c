@@ -173,10 +173,14 @@ enumError ScanATB (atb_archive_t *atb, const u8 *data, uint size)
 			const u8 *bp = data + bank_off + i * 8;
 			const u16 frame_cnt = rd_be16 (bp);
 			const u32 frame_off = rd_be32 (bp + 4);
-			atb->banks[i].frame_count = frame_cnt;
 
+			// Counts are only kept alongside a frame table that was actually
+			// read: an out-of-bounds table (e.g. a non-ATB file that passed the
+			// header sniff) left frame_count set with frames == NULL, and the
+			// manifest writer then dereferenced NULL.
 			if (frame_cnt > 0 && frame_off + (u64)frame_cnt * 12 <= size)
 			{
+				atb->banks[i].frame_count = frame_cnt;
 				atb->banks[i].frames = CALLOC (frame_cnt, sizeof (atb_anim_frame_t));
 				if (!atb->banks[i].frames)
 					return ERR_CANT_CREATE;
@@ -210,11 +214,11 @@ enumError ScanATB (atb_archive_t *atb, const u8 *data, uint size)
 			atb->patterns[i].center_y = (s16)rd_be16 (pp + 4);
 			atb->patterns[i].width = (s16)rd_be16 (pp + 6);
 			atb->patterns[i].height = (s16)rd_be16 (pp + 8);
-			atb->patterns[i].layer_count = layer_cnt;
 
 			const u32 layer_off = rd_be32 (pp + 12);
 			if (layer_cnt > 0 && layer_off + (u64)layer_cnt * 32 <= size)
 			{
+				atb->patterns[i].layer_count = layer_cnt;
 				atb->patterns[i].layers = CALLOC (layer_cnt, sizeof (atb_layer_t));
 				if (!atb->patterns[i].layers)
 					return ERR_CANT_CREATE;

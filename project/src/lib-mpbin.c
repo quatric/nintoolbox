@@ -120,6 +120,14 @@ bool IsMPBIN (const u8 *data, uint size)
 	if (decomp_size > 0x10000000) // max 256MB
 		return false;
 
+	// A stored (uncompressed) entry cannot be larger than its own slot.
+	// Without this a 48-byte text file (Tetris Party Deluxe's
+	// lng/*/mess/000_defwin.bin: "\0\0\0\3" string count, UTF-16 "Ja")
+	// passed as MPBIN with a 4.8 MB "stored" entry.
+	const u32 first_end = num_files > 1 ? rd_be32 (data + 8) : size;
+	if (comp_type == MPBIN_COMP_NONE && first_off + 8 + (u64)decomp_size > first_end)
+		return false;
+
 	return true;
 }
 
@@ -729,7 +737,9 @@ enumError ScanMPBIN (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 
 		u8 *uncomp = 0;
 		if (decomp_size > 0)
 		{
-			uncomp = MALLOC (decomp_size);
+			// zeroed: a short payload or failed decompression must not leak
+			// uninitialized heap memory into the extracted file
+			uncomp = CALLOC (1, decomp_size);
 			if (!uncomp)
 				continue;
 
