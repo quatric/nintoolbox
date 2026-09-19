@@ -3395,6 +3395,23 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 			src, basedir, stage, staged_dir, staged_dir_size, is_ds, false, false, is_disc, false);
 	}
 
+	// These extensions name nothing but a whole disc image. Without a disc
+	// signature the file is empty, truncated (e.g. an interrupted download)
+	// or mislabelled, and the native probes below only ever report a silent
+	// "EXTRACT ?:" with exit 0 -- which looked like passthrough being broken.
+	// (.iso/.img/.raw are left out: those names are also used for plain
+	// members inside game archives.)
+	if (is_ext (src, ".wbfs") || is_ext (src, ".wdf") || is_ext (src, ".ciso")
+		|| is_ext (src, ".gcm") || is_ext (src, ".wia") || is_ext (src, ".rvz"))
+	{
+		struct stat st;
+		const u64 fsize = stat (src, &st) ? 0 : (u64)st.st_size;
+		return ERROR0 (ERR_INVALID_FILE,
+			"Not a Wii/GameCube disc image (no WBFS/WDF/CISO/WIA/RVZ/ISO header; %llu bytes,"
+			" starts with %02x %02x %02x %02x) -- empty, truncated or mislabelled?\n%s",
+			fsize, head[0], head[1], head[2], head[3], src);
+	}
+
 	// Wii U disc image (strong pass, header-only -- this MUST run before any
 	// native probe, same reasoning as the Wii/GC disc claim above: a raw WUD
 	// is a full 20-25GB disc image, and even a WUX is multi-GB, so either
