@@ -551,7 +551,7 @@ static mt_layout_t *mt_parse_layouts (const u8 *d, size_t n, uint *n_out)
 			FREE (lay.attrs);
 			continue;
 		}
-		mt_layout_t *nl = realloc (layouts, (nlay + 1) * sizeof (*nl));
+		mt_layout_t *nl = REALLOC (layouts, (nlay + 1) * sizeof (*nl));
 		if (!nl)
 		{
 			FREE (lay.attrs);
@@ -696,7 +696,7 @@ static int mt_inf_add (mt_inf_t **tab, size_t *n, size_t *cap, const int *bones,
 		size_t ncap = *cap ? *cap * 2 : 64;
 		if (ncap > 65536)
 			return -1;
-		mt_inf_t *nt = realloc (*tab, ncap * sizeof (**tab));
+		mt_inf_t *nt = REALLOC (*tab, ncap * sizeof (**tab));
 		if (!nt)
 			return -1;
 		*tab = nt;
@@ -1049,7 +1049,7 @@ void *ParseMTMOD (const u8 *data, size_t size, ccp sibling_dir)
 
 		mesh_t *mesh = NULL;
 		{
-			mesh_t *nm = realloc (out->meshes, (out->num_meshes + 1) * sizeof (*nm));
+			mesh_t *nm = REALLOC (out->meshes, (out->num_meshes + 1) * sizeof (*nm));
 			if (!nm)
 			{
 				FREE (tri);

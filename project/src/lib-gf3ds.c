@@ -11,6 +11,7 @@
 // GFTexture, GFMotion, GFModelPack, GFPackage, GFLXPack, GF1MotionPack).
 
 #include "lib-gf3ds.h"
+#include "lib-archive-util.h"
 #include "lib-nintendo.h"
 #include "lib-ctpk.h"
 #include "lib-model-glb.h"
@@ -671,7 +672,7 @@ static int gf_inf_add (gf_inf_t **tab, size_t *n, size_t *cap, const int *bones,
 		size_t ncap = *cap ? *cap * 2 : 64;
 		if (ncap > 65536)
 			return -1;
-		gf_inf_t *nt = realloc (*tab, ncap * sizeof (**tab));
+		gf_inf_t *nt = REALLOC (*tab, ncap * sizeof (**tab));
 		if (!nt)
 			return -1;
 		*tab = nt;
@@ -779,7 +780,7 @@ void *ParseGFModel (const u8 *data, size_t size)
 				break;
 			if (t == 2)
 			{
-				char (*nn)[0x40] = realloc (mat_names, (n_mat + 1) * 0x40);
+				char (*nn)[0x40] = REALLOC (mat_names, (n_mat + 1) * 0x40);
 				if (!nn)
 				{
 					r.err = 1;
@@ -790,7 +791,7 @@ void *ParseGFModel (const u8 *data, size_t size)
 			}
 			else if (t == 3)
 			{
-				char (*nn)[0x40] = realloc (mesh_names, (n_mesh + 1) * 0x40);
+				char (*nn)[0x40] = REALLOC (mesh_names, (n_mesh + 1) * 0x40);
 				if (!nn)
 				{
 					r.err = 1;
@@ -1227,7 +1228,7 @@ void *ParseGFModel (const u8 *data, size_t size)
 
 			mesh_t *mesh = NULL;
 			{
-				mesh_t *nm = realloc (out->meshes, (out->num_meshes + 1) * sizeof (*nm));
+				mesh_t *nm = REALLOC (out->meshes, (out->num_meshes + 1) * sizeof (*nm));
 				if (!nm)
 				{
 					FREE (tri);
