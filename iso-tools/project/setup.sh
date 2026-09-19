@@ -22,22 +22,32 @@ revision_next=$revision_num
 tim=($(date '+%s %Y-%m-%d %T'))
 defines=
 
+# A MinGW cross build (see MINGW_LIBS below) has no FUSE, no system OpenSSL,
+# and gets zlib from MINGW_LIBS rather than the host's /usr/include.
+case "$PRE" in
+    *mingw32-|*mingw64-) is_mingw=1 ;;
+    *) is_mingw=0 ;;
+esac
+
 have_fuse=0
-[[ $NO_FUSE != 1 && -r /usr/include/fuse.h || -r /usr/local/include/fuse.h ]] \
+[[ $is_mingw != 1 && ( $NO_FUSE != 1 && -r /usr/include/fuse.h || -r /usr/local/include/fuse.h ) ]] \
 	&& have_fuse=1
 
 have_md5=0
-[[ -r /usr/include/openssl/md5.h ]] && have_md5=1
+[[ $is_mingw != 1 && -r /usr/include/openssl/md5.h ]] && have_md5=1
 
 have_sha=0
-[[ -r /usr/include/openssl/sha.h ]] && have_sha=1
+[[ $is_mingw != 1 && -r /usr/include/openssl/sha.h ]] && have_sha=1
 
 have_zlib=0
-if [[ $NO_ZLIB != 1 && -r /usr/include/zlib.h || -r /usr/local/include/zlib.h ]]
+if [[ $is_mingw = 1 ]]
+then
+    [[ -n $MINGW_LIBS && -r $MINGW_LIBS/include/zlib.h ]] && have_zlib=1
+elif [[ $NO_ZLIB != 1 && -r /usr/include/zlib.h || -r /usr/local/include/zlib.h ]]
 then
     have_zlib=1
-    defines="$defines -DHAVE_ZLIB=1"
 fi
+[[ $have_zlib = 1 ]] && defines="$defines -DHAVE_ZLIB=1"
 
 if [[ $M32 = 1 ]]
 then
@@ -67,10 +77,15 @@ fi
 #--- Zstandard, needed to read RVZ images
 
 HAVE_ZSTD=0
-for d in /usr/include /usr/local/include /opt/homebrew/include /opt/local/include
-do
-    [[ -r $d/zstd.h ]] && HAVE_ZSTD=1 && break
-done
+if [[ $is_mingw = 1 ]]
+then
+    [[ -n $MINGW_LIBS && -r $MINGW_LIBS/include/zstd.h ]] && HAVE_ZSTD=1
+else
+    for d in /usr/include /usr/local/include /opt/homebrew/include /opt/local/include
+    do
+	[[ -r $d/zstd.h ]] && HAVE_ZSTD=1 && break
+    done
+fi
 
 #--------------------------------------------------
 
@@ -81,7 +96,16 @@ GCC_VERSION="$( ${PRE}gcc --version | head -n1 | sed 's/([^)]*)//'|awk '{print $
 # the host's plain gcc -- otherwise SYSTEM/ARCH come out as the build
 # machine's, and makefiles-local/Makefile.local.$(SYSTEM) then injects
 # host-specific flags (e.g. -march=x86-64) into a cross-arm64/armhf build.
+#
+# Apple clang's -E (unlike GNU cpp) emits all of system.c's result_* macro
+# expansions on a single physical line instead of one per line, which used
+# to make the awk filter below fold every assignment after the first into
+# garbage appended to result_SYSTEM (e.g. "SYSTEM := mac result_SYSTEM2 =
+# ..."), silently defeating every ifeq($(SYSTEM),mac) check in the
+# Makefile. Split on " result_" first so each assignment gets its own line
+# regardless of which preprocessor produced the input.
 ${PRE}gcc $xflags -E -DPRINT_SYSTEM_SETTINGS system.c \
+	| sed 's/ result_/\nresult_/g' \
 	| awk -F= '/^result_/ { gsub(/"/,"",$2); printf("%s := %s\n",substr($1,8),$2) }' \
 	> Makefile.setup
 

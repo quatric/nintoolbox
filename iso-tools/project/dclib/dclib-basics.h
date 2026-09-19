@@ -38,8 +38,12 @@
 #define _GNU_SOURCE 1
 
 #include <sys/types.h>
-#include <arpa/inet.h>
-#include <sys/un.h>
+#ifdef __MINGW32__
+  #include "dclib-mingw-compat.h"
+#else
+  #include <arpa/inet.h>
+  #include <sys/un.h>
+#endif
 #include <limits.h>
 #include <stdlib.h>
 #include <stdio.h>

@@ -39,7 +39,11 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#ifdef __MINGW32__
+#include "dclib/dclib-mingw-compat.h"
+#else
 #include <arpa/inet.h>
+#endif
 
 #include <fcntl.h>
 #include <unistd.h>
