@@ -246,6 +246,7 @@ wszst xx <source> [--dest <dir>] [--auto] [--overwrite] [delegation options]
 - Nintendo standard: **SARC** (Big-Endian & Little-Endian), **DARC**, **PAC / MRG**, **RARC**
 - GameCube / Wii: **FSYS** (Pokémon Colosseum/XD), **F9RES**, **MDR** (DDR Mario Mix), **PVOL** (Pikmin), **MPBIN** (Mario Party), **ZTAB** (Camelot), **ARCV** (Pac-Man Party), **AT7** (Koei Tecmo), **BIGF** (EA), **VCRA**
 - Nintendo DS / 3DS / Wii U: **GFA** / **BPE** (Good-Feel), **XPCK** (Level-5), **STPK** (Jump Super Stars), **ZLARC** (NES Remix), **BG4** (Mario & Luigi), **CRAM** (Xenoblade 3D), **WARC** (Game & Wario), **CA01** / **SA01** (Mii Maker)
+- SPICA / 3dsTools family: **GFMPACK** (named model/texture/shader members), **GFPKG** (Gen6/Gen7 offset-table packages), **GFLX** (Switch LZ4 members); **GFMOT** / **GF1MOT** (motion), **MTMRL** / **MTMFX** (materials/shaders), **MTMOD** (models → GLB beside the source) and **MBN** decode to `.txt` manifests / GLB instead of directories
 
 Factor 5 VID1 DivX movies (GameCube `.vid`) are not archives and have no native decoder: `VID1`-magic files are sent to an external VID1 decoder when one is installed (`VID1DEC=/path/to/binary`, else `NeversoftMultitool` on `PATH`), which writes a `.mp4` preview next to the source's extraction directory. Without the decoder the file is skipped cleanly.
 
@@ -330,6 +331,18 @@ wmdlt DECODE Model.bmd --dest Model.glb
 
 # Inspect a J3D model without converting (section sizes, textures):
 wmdlt DECODE Model.bmd --dest Model.glb --profile
+
+# Game Freak 3DS model (Pokémon X/Y/ORAS, SPICA GFModel) to GLB --
+# skeleton, materials with texture names, PICA200 geometry + skinning:
+wmdlt DECODE Model.gfmodel --dest Model.glb
+
+# Capcom MT Framework Mobile model (3DS, SPICA MTModel) to GLB --
+# vertex layouts resolve through a sibling .mfx/.lfx, materials and
+# texture names through a sibling .mrl (same directory, like SPICA):
+wmdlt DECODE Actor.mod --dest Actor.glb
+
+# ModelBinary deltas (SPICA MBn) applied onto the sibling .bch base scene:
+wmdlt DECODE Patch.mbn --dest Patch.glb
 ```
 
 ---
@@ -607,6 +620,8 @@ wbmsx <script.bms> <input_file> <output_dir>
   (`XET` wrapper), `XTX` (`DFvN` intermediate texture; decode-only)
 - **Nintendo Wii U**: `BFLIM` (GX2 formats: BC1, BC2, BC3, BC4, BC5, RGBA8), `GTX`
 - **Nintendo 3DS**: `BCLIM` (CTR formats: L8, A8, LA4, LA8, RGB565, RGB8, RGBA8, ETC1, ETC1A4), `CTPK`
+- **Game Freak 3DS** (SPICA, Pokémon X/Y/ORAS): `GFTEX` (PICA200 payloads incl. ETC1/ETC1A4)
+- **Capcom MT Framework Mobile** (SPICA, 3DS): `MTTEX` (`TEX\0` PICA200 payloads incl. ETC1/ETC1A4)
 - **Nintendo DS**: `NCGR` (tile sheets with palette integration), `NCLR` (palettes), `NSBTX` (3D textures), `DSB` (Animal Crossing Wild World), `AJPG` / `AJJPG`
 - **Retro Studios**: `TXTR` old revision (*Metroid Prime 1-3* / *DKCR*, Wii: decode + encode) and Tropical Freeze revision (Wii U: decode-only)
 - **Bandai Namco**: `NUT` (Super Smash Bros. 4)
@@ -616,6 +631,9 @@ wbmsx <script.bms> <input_file> <output_dir>
 ```bash
 # Decode Switch BNTX texture to PNG:
 wimgt DECODE texture.bntx --dest texture.png
+# Game Freak 3DS and MT Framework Mobile textures decode the same way:
+wimgt DECODE texture.gftex --dest texture.png
+wimgt DECODE texture.tex --dest texture.png
 # Multi-texture containers emit one PNG per texture instead:
 # texture.img000.png, texture.img001.png, ...
 
