@@ -323,6 +323,10 @@ int IsGFPackage (const u8 *data, size_t size)
 		return 0;
 	if (data[0] < 'A' || data[0] > 'Z' || data[1] < 'A' || data[1] > 'Z')
 		return 0;
+	// Windows BMP ("BM" + file size): its zero-filled header parses as an
+	// offset table.
+	if (data[0] == 'B' && data[1] == 'M' && rd_le32 (data + 2) == size)
+		return 0;
 	u32 count = data[2] | (u32)data[3] << 8;
 	// 8192 also keeps far-apart magic collisions (e.g. "BARS", whose RS
 	// bytes decode to a count of 21330) out of this detector.

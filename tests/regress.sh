@@ -8777,6 +8777,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Blitz .rev package" "mk_rev.py failed"
   fi
 
+  # Data Design Interactive WADH archive (Ninjabread Man DataWII.wad)
+  mkdir -p "$d/wadh_test"
+  if python3 "$PWD_PROJECT/../tests/mk_wadh.py" "$d/wadh_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/wadh_test/DataWII.wad" --dest "$d/wadh_test/out" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/wadh_test/out/DATA/Interface/a.txt")" = "hello wadh" ] \
+    && [ "$(wc -c < "$d/wadh_test/out/DATA/b.bin" | tr -d ' ')" -eq 40 ] \
+    && fok "WADH archive (Ninjabread Man DataWII.wad) unpacks with directory tree" \
+    || fno "WADH archive" "failed to unpack synthetic DataWII.wad"
+  else
+    fno "WADH archive" "mk_wadh.py failed"
+  fi
+
   # Rainbow Studios (Disney-Pixar Cars) .gct texture + .gcg geometry
   mkdir -p "$d/cars_test"
   if python3 "$PWD_PROJECT/../tests/mk_cars.py" "$d/cars_test" >/dev/null 2>&1; then

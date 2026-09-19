@@ -1450,6 +1450,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x6F660100: // "of\x01\x00" -- 3DS retail DTLS lookup (real Smash 4 romfs/ls)
 				return FF_DTLS;
 
+			// DirectDraw Surface (must win over the magic-less NFMT walkers,
+			// which otherwise mistake DDS headers for WWRSC / GFPKG blobs)
+			case 0x44445320: // "DDS "
+				return FF_DDS;
 			// CRIWARE CPK archive (Star Fox Zero Wii U content/*.cpk)
 			case 0x43504b20: // "CPK "
 				return FF_CPK;

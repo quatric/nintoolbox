@@ -85,6 +85,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **HSD (.dat)** | GameCube / Model | ✅ | ✅ | HAL Laboratory sysdolphin object graph; also archive bundles (many archives in one file, `scene_data` roots, e.g. Doraemon `map*_dat.mdl`) merged into one GLB |
 | **HSF** | GameCube / Wii / Model | ✅ | ✅ | Hudson Mario Party 3D model |
 | **IPK** | Wii / Wii U / Switch / Archive | ✅ | ❌ | Ubisoft UbiArt archive (*Just Dance*, *Rayman Origins/Legends*): stored + zlib/LZMA members, old/new path-name orders |
+| **WADH** | Wii / Archive | ✅ | ❌ | Data Design Interactive `DataWII.wad` (*Ninjabread Man*): stored members, directory tree via last-child / previous-sibling links |
 | **Blitz REV** | Wii / GameCube / Archive | ✅ | ❌ | Blitz Games "Babel" `.rev` (Wii) and `.gcp` (GameCube) packages (*SpongeBob SquarePants: Creature from the Krusty Krab*, `Packages_Rev/` + `AudioRev/`): CRC-keyed index with names matched by CRC; textures (RGBA8 / RGB5A3 / RGB565 / CI4 / CI8 / CMPR / I4 / I8) → PNG; static and soft-skinned actors → GLB (bind pose, no bones) |
 | **Cars GCT / GCG** | GameCube / Wii / Texture + Model | ✅ | ❌ | Rainbow Studios engine (*Disney-Pixar Cars*; assets ship loose on GameCube, inside U8 `.arc` on Wii): `.gct` CMPR / CI8 textures → PNG; `.gcg` indexed-strip geometry → GLB with the texture named by the material's `.gcm`. Multi-object animation `.gcg` files are recognised but not converted |
 | **Hyrule Warriors Legends** | 3DS / Archive | ✅ | ✅ | Split `.idx` / `.bin` archive pair |
