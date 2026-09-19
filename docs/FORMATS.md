@@ -85,7 +85,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **HSD (.dat)** | GameCube / Model | ✅ | ✅ | HAL Laboratory sysdolphin object graph; also archive bundles (many archives in one file, `scene_data` roots, e.g. Doraemon `map*_dat.mdl`) merged into one GLB |
 | **HSF** | GameCube / Wii / Model | ✅ | ✅ | Hudson Mario Party 3D model |
 | **IPK** | Wii / Wii U / Switch / Archive | ✅ | ❌ | Ubisoft UbiArt archive (*Just Dance*, *Rayman Origins/Legends*): stored + zlib/LZMA members, old/new path-name orders |
-| **Blitz REV** | Wii / Archive | ✅ | ❌ | Blitz Games "Babel" `.rev` packages (*SpongeBob SquarePants: Creature from the Krusty Krab*, `Packages_Rev/` + `AudioRev/`): CRC-keyed index with names matched by CRC; textures (RGBA8 / RGB5A3 / RGB565 / CI4 / CI8 / CMPR / I4 / I8) → PNG; static and soft-skinned actors → GLB (bind pose, no bones) |
+| **Blitz REV** | Wii / GameCube / Archive | ✅ | ❌ | Blitz Games "Babel" `.rev` (Wii) and `.gcp` (GameCube) packages (*SpongeBob SquarePants: Creature from the Krusty Krab*, `Packages_Rev/` + `AudioRev/`): CRC-keyed index with names matched by CRC; textures (RGBA8 / RGB5A3 / RGB565 / CI4 / CI8 / CMPR / I4 / I8) → PNG; static and soft-skinned actors → GLB (bind pose, no bones) |
 | **Hyrule Warriors Legends** | 3DS / Archive | ✅ | ✅ | Split `.idx` / `.bin` archive pair |
 | **BFSHA** | Wii U / Switch / Shader Archive | ✅ | ❌ | NintendoWare shader archive (FSHA): per-model option choice values, sampler extras, uniform-block type names; embedded `.bnsh` sidecars |
 | **BNSH** | Switch / Shader | ✅ | ❌ | NintendoWare binary shader: dual source/binary programs per variation, zlib-compressed stages, per-program MemoryData; stage blobs extract as `.bin` / `.glsl` / `.zlib.bin` sidecars |

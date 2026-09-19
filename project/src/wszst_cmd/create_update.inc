@@ -6272,7 +6272,7 @@ static enumError extract_ipk_file (ccp arg, ccp basedir, uint depth)
 // below convert them to PNG / GLB once the package is unpacked.
 static enumError extract_rev_file (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext (arg, ".rev"))
+	if (!is_ext (arg, ".rev") && !is_ext (arg, ".gcp"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;
