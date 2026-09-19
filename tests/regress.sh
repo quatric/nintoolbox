@@ -8814,6 +8814,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Gamebryo .nif" "mk_nif.py failed"
   fi
 
+  # Grip Entertainment .res package (Sesame Street: Elmo's Musical Monsterpiece)
+  mkdir -p "$d/gripres_test"
+  if python3 "$PWD_PROJECT/../tests/mk_gripres.py" "$d/gripres_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/gripres_test/test.res" --dest "$d/gripres_test/out" --overwrite >/dev/null 2>&1 \
+    && grep -q "test/red" "$d/gripres_test/out/index.txt" \
+    && python3 "$PNGTOOL" pixel "$d/gripres_test/out/0002_surf.png" 0 0 255 0 0 255 2>/dev/null \
+    && fok "Grip .res package unpacks (index names), .surf GX texture -> PNG" \
+    || fno "Grip .res" "failed to unpack/convert synthetic test.res"
+  else
+    fno "Grip .res" "mk_gripres.py failed"
+  fi
+
   # Rainbow Studios (Disney-Pixar Cars) .gct texture + .gcg geometry
   mkdir -p "$d/cars_test"
   if python3 "$PWD_PROJECT/../tests/mk_cars.py" "$d/cars_test" >/dev/null 2>&1; then
