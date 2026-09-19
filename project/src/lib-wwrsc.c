@@ -108,7 +108,13 @@ enumError ScanWWRSC (wwrsc_entry_t **entries, uint *n_entries, u8 unknowns[32],
 		if (n > 100000)
 			return ERR_INVALID_DATA;
 		if (!next)
+		{
+			// a real container's last member runs to the end of the file;
+			// zero-filled blobs would otherwise pass as one empty member
+			if ((u64)off + 32 + sz + 64 < size)
+				return ERR_INVALID_DATA;
 			break;
+		}
 		if (next <= off || next >= size || (next & 31))
 			return ERR_INVALID_DATA;
 		off = next;
