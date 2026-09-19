@@ -522,11 +522,18 @@ enumError DecodeFLIM_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, 
 				d[2] = (c >> 4 & 15) * 17;
 				d[3] = (c & 15) * 17;
 			}
-			else // CTR/GX2 RGBA8 byte storage is A,B,G,R.
+			else if (ctr_clim) // legacy CTR RGBA8 byte storage is A,B,G,R.
 			{
 				d[0] = p[3];
 				d[1] = p[2];
 				d[2] = p[1];
+				d[3] = p[0];
+			}
+			else // FLIM-style header RGBA8 (as written by EncodeFLIM_RGBA): A,R,G,B.
+			{
+				d[0] = p[1];
+				d[1] = p[2];
+				d[2] = p[3];
 				d[3] = p[0];
 			}
 		}
@@ -556,9 +563,9 @@ enumError EncodeFLIM_RGBA (
 			const u8 *s = rgba + 4 * (y * width + x);
 			u8 *d = out + 4 * pos;
 			d[0] = s[3];
-			d[1] = s[2];
+			d[1] = s[0];
 			d[2] = s[1];
-			d[3] = s[0]; // A,B,G,R
+			d[3] = s[2]; // A,R,G,B
 		}
 	u8 *foot = out + image_size;
 	memcpy (foot, bclim ? "CLIM" : "FLIM", 4);
