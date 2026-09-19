@@ -4,7 +4,7 @@
 The input is one or more HSD ("scene_data") archives concatenated back to back
 with 0xCD fill between them (seen in the Doraemon GameCube game). Each archive
 becomes <name>_NNN.obj + .mtl + textures as PNG. Exported: positions, normals,
-UV0, materials/textures (CMPR, I4/I8, IA4/IA8, RGB565, RGB5A3, RGBA8, CI4/CI8).
+UV0 (normals also from NBT), materials/textures (CMPR, I4/I8, IA4/IA8, RGB565, RGB5A3, RGBA8, CI4/CI8).
 Enveloped meshes are emitted in bind pose. Colour attributes are read when
 present. A <name>_NNN_uv1.obj is written only if UV1 differs from UV0.
 
@@ -129,6 +129,7 @@ def parse_dl(a,pobj,tris,verts_out):
     def ncomp(v):
         if v['at']==9: return 2 if v['cnt']==0 else 3
         if v['at']==10: return 3
+        if v['at']==25: return 9 if v['cnt']==1 else 3
         if v['at']>=13: return 1 if v['cnt']==0 else 2
         return v['cnt']
     def direct_len(v):
@@ -171,7 +172,7 @@ def parse_dl(a,pobj,tris,verts_out):
                         if v['at']==9: pos=read_val(v,p)
                         if v['at']==13: uv=read_val(v,p)
                         if v['at']==14: uv1=read_val(v,p)
-                        if v['at']==10: nrm=read_val(v,p)
+                        if v['at'] in (10,25): nrm=read_val(v,p)[:3]
                         if v['at']==11: clr=read_clr(v,p)
                         p+=direct_len(v)
                     elif ty in(2,3):
@@ -180,7 +181,7 @@ def parse_dl(a,pobj,tris,verts_out):
                         if v['at']==9: pos=read_val(v,None,i)
                         if v['at']==13: uv=read_val(v,None,i)
                         if v['at']==14: uv1=read_val(v,None,i)
-                        if v['at']==10: nrm=read_val(v,None,i)
+                        if v['at'] in (10,25): nrm=read_val(v,None,i)[:3]
                         if v['at']==11: clr=read_clr(v,None,i)
                 if pos is None: continue
                 vs.append((pos if len(pos)==3 else pos+(0,), uv[:2], nrm, clr, (uv1 or uv)[:2]))
