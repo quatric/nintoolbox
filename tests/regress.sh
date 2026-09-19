@@ -8683,6 +8683,100 @@ with open(sys.argv[1], "wb") as f:
     fno "Game Freak Pokemon Archive" "failed to extract .gfpak sample";
   fi
 
+  # SPICA/3dsTools family (Game Freak 3DS + MT Framework Mobile + MBN):
+  # synthetic fixtures from tests/mk_gf3ds.py and tests/mk_mtmob.py cover
+  # FILETYPE recognition, wmdlt/wimgt decode and wszst xx extraction.
+  mkdir -p "$d/gf3ds_test"
+  python3 "$PWD_PROJECT/../tests/mk_gf3ds.py" "$d/gf3ds_test/fx" >/dev/null 2>&1 \
+  && python3 "$PWD_PROJECT/../tests/mk_mtmob.py" "$d/gf3ds_test/fx" >/dev/null 2>&1
+  if [ -f "$d/gf3ds_test/fx/gfmodel.gfmodel" ]; then
+    chk_ft() { "$B/wszst" FILETYPE "$d/gf3ds_test/fx/$1" 2>/dev/null | grep -q "^$2"; }
+    chk_ft gfmodel.gfmodel GFMODEL && chk_ft gftex.gftex GFTEX && chk_ft gfmot.gfmot GFMOT \
+    && chk_ft gf1mot.gf1mot GF1MOT && chk_ft gfpack.gfpack GFMPACK \
+    && chk_ft sample.gfpkg GFPKG && chk_ft sample.gflxpack GFLX \
+    && chk_ft mtmod.mod MTMOD && chk_ft mttex.tex MTTEX && chk_ft mtmrl.mrl MTMRL \
+    && chk_ft companion.mfx MTMFX && chk_ft sample.mbn MBN \
+    && fok "SPICA family FILETYPE recognition (12 types)" \
+    || fno "SPICA family FILETYPE" "misidentified synthetic fixture"
+    g=$("$B/wmdlt" DECODE "$d/gf3ds_test/fx/gfmodel.gfmodel" \
+      -d "$d/gf3ds_test/model.glb" --overwrite >/dev/null 2>&1 \
+      && python3 "$GLTF_COUNT" "$d/gf3ds_test/model.glb" geometry 2>/dev/null || true); g=${g:-0}
+    if [ "$g" -eq 1 ] 2>/dev/null; then
+      fok "Game Freak 3DS model (.gfmodel) -> GLB geometry"
+    else
+      fno "Game Freak 3DS model" "expected 1 geometry, got $g"
+    fi
+    "$B/wimgt" DECODE "$d/gf3ds_test/fx/gftex.gftex" -d "$d/gf3ds_test/tex.png" \
+      --overwrite >/dev/null 2>&1 \
+    && "$B/wimgt" DECODE "$d/gf3ds_test/fx/mttex.tex" -d "$d/gf3ds_test/mttex.png" \
+      --overwrite >/dev/null 2>&1 \
+    && python3 "$PNGTOOL" pixel "$d/gf3ds_test/tex.png" 0 0 255 0 0 255 2>/dev/null \
+    && python3 "$PNGTOOL" pixel "$d/gf3ds_test/tex.png" 2 0 0 255 0 255 2>/dev/null \
+    && python3 "$PNGTOOL" pixel "$d/gf3ds_test/mttex.png" 0 0 255 0 0 255 2>/dev/null \
+    && python3 "$PNGTOOL" pixel "$d/gf3ds_test/mttex.png" 2 0 0 255 0 255 2>/dev/null \
+    && fok "Game Freak / MT textures (.gftex/.tex) -> PNG pixels" \
+    || fno "Game Freak / MT textures" "failed to decode synthetic textures"
+    g=$("$B/wmdlt" DECODE "$d/gf3ds_test/fx/mtmod.mod" -d "$d/gf3ds_test/mtmod.glb" \
+      --overwrite >/dev/null 2>&1 \
+      && python3 "$GLTF_COUNT" "$d/gf3ds_test/mtmod.glb" geometry 2>/dev/null || true); g=${g:-0}
+    gm=$("$B/wmdlt" DECODE "$d/gf3ds_test/fx/mtmod_mfx.mod" -d "$d/gf3ds_test/mtmod_mfx.glb" \
+      --overwrite >/dev/null 2>&1 \
+      && python3 "$GLTF_COUNT" "$d/gf3ds_test/mtmod_mfx.glb" geometry 2>/dev/null || true); gm=${gm:-0}
+    if [ "$g" -eq 1 ] 2>/dev/null && [ "$gm" -eq 1 ] 2>/dev/null; then
+      fok "MT Framework Mobile models (.mod fallback + .mfx layouts) -> GLB"
+    else
+      fno "MT Framework Mobile models" "fallback=$g mfx=$gm (want 1/1)"
+    fi
+    "$B/wszst" x "$d/gf3ds_test/fx/gfpack.gfpack" --dest "$d/gf3ds_test/packout" \
+      --overwrite >/dev/null 2>&1 \
+    && [ -f "$d/gf3ds_test/packout/model_model0.gfmodel" ] \
+    && [ -f "$d/gf3ds_test/packout/tex_tex0.gftex" ] \
+    && "$B/wszst" x "$d/gf3ds_test/fx/sample.gfpkg" --dest "$d/gf3ds_test/pkgout" \
+      --overwrite >/dev/null 2>&1 \
+    && [ -f "$d/gf3ds_test/pkgout/file_0000.gftex" ] \
+    && [ -f "$d/gf3ds_test/pkgout/file_0001.gfmot" ] \
+    && "$B/wszst" x "$d/gf3ds_test/fx/sample.gflxpack" --dest "$d/gf3ds_test/gflxout" \
+      --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/gf3ds_test/gflxout/file_0000.bin")" = "GFLXHello" ] \
+    && fok "SPICA containers (.gfpack/.gfpkg/.gflxpack) extraction" \
+    || fno "SPICA containers" "failed to extract synthetic packs"
+    "$B/wszst" x "$d/gf3ds_test/fx/gfmot.gfmot" --dest "$d/gf3ds_test/gfmot.txt" \
+      --overwrite >/dev/null 2>&1 \
+    && grep -q "frames: 30" "$d/gf3ds_test/gfmot.txt" \
+    && "$B/wszst" x "$d/gf3ds_test/fx/gf1mot.gf1mot" --dest "$d/gf3ds_test/gf1mot.txt" \
+      --overwrite >/dev/null 2>&1 \
+    && grep -q "bone\[1\]" "$d/gf3ds_test/gf1mot.txt" \
+    && "$B/wszst" x "$d/gf3ds_test/fx/mtmrl.mrl" --dest "$d/gf3ds_test/mtmrl.txt" \
+      --overwrite >/dev/null 2>&1 \
+    && grep -q "diffuse=tex0" "$d/gf3ds_test/mtmrl.txt" \
+    && "$B/wszst" x "$d/gf3ds_test/fx/companion.mfx" --dest "$d/gf3ds_test/mtmfx.txt" \
+      --overwrite >/dev/null 2>&1 \
+    && grep -q "stride=20" "$d/gf3ds_test/mtmfx.txt" \
+    && "$B/wszst" x "$d/gf3ds_test/fx/sample.mbn" --dest "$d/gf3ds_test/mbn.txt" \
+      --overwrite >/dev/null 2>&1 \
+    && grep -q "sub\[0\]: bones=0 indices=3" "$d/gf3ds_test/mbn.txt" \
+    && fok "SPICA manifests (.gfmot/.gf1mot/.mrl/.mfx/.mbn) text dumps" \
+    || fno "SPICA manifests" "failed to dump synthetic manifests"
+  else
+    fno "SPICA family fixtures" "mk_gf3ds.py/mk_mtmob.py failed"
+  fi
+
+  # Blitz Games .rev package (SpongeBob: Creature from the Krusty Krab):
+  # tests/mk_rev.py builds a package with one RGBA8 texture and one static
+  # actor; extraction must unpack it and convert both (PNG pixel, GLB geometry).
+  mkdir -p "$d/rev_test"
+  if python3 "$PWD_PROJECT/../tests/mk_rev.py" "$d/rev_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/rev_test/blitz.rev" --dest "$d/rev_test/out" --overwrite >/dev/null 2>&1 \
+    && [ -f "$d/rev_test/out/tex1.bltex" ] && [ -f "$d/rev_test/out/tri_m.blact" ] \
+    && python3 "$PNGTOOL" pixel "$d/rev_test/out/tex1.png" 0 0 255 0 0 255 2>/dev/null \
+    && g=$(python3 "$GLTF_COUNT" "$d/rev_test/out/tri_m.glb" geometry 2>/dev/null || true) \
+    && [ "${g:-0}" -eq 1 ] 2>/dev/null \
+    && fok "Blitz .rev package (names by CRC) -> texture PNG + actor GLB" \
+    || fno "Blitz .rev package" "failed to unpack/convert synthetic .rev"
+  else
+    fno "Blitz .rev package" "mk_rev.py failed"
+  fi
+
   # Nintendo Binary Audio Resource Archive (.bars / BARS) test
   mkdir -p "$d/bars_test"
   python3 -c '
@@ -12315,6 +12409,65 @@ open("'"$d"'/crilayla.cpk", "wb").write(cpk2)
   rm -rf "$d"
 }
 t_cpk
+
+t_ipk(){
+  # Ubisoft UbiArt IPK (Just Dance, Rayman Origins/Legends; Wii/Wii U/
+  # Switch/PC): `50 EC 12 BA` header, per-entry path/name pairs (order
+  # swaps between old and new titles), stored + zlib members, flag1==2
+  # entries with 8 extra bytes. Fully synthetic layout (no retail bytes).
+  local d; d=$(mktemp -d /tmp/_r_ipk.XXXXXX) || { no "IPK synth" "mktemp failed"; return; }
+  python3 -c '
+import struct, zlib
+def entry(flag1, dlen, slen, s1, s2, flag2=0):
+    b = bytearray()
+    b += struct.pack(">III", flag1, dlen, slen)
+    b += struct.pack(">Q", 7)
+    b += struct.pack(">Q", 0)
+    if flag1 == 2:
+        b += struct.pack(">II", 1, 2)
+    s1b, s2b = s1.encode(), s2.encode()
+    b += struct.pack(">I", len(s1b)) + s1b
+    b += struct.pack(">I", len(s2b)) + s2b
+    b += struct.pack(">II", 0, flag2)
+    return bytes(b)
+def make(path, ents):
+    dirsize = sum(len(e) for e, _ in ents)
+    base = 0x30 + dirsize
+    hdr = struct.pack(">IIII", 0x50EC12BA, 5, 8, base)
+    hdr += struct.pack(">I", len(ents)) + bytes(28)
+    blob = bytearray(hdr)
+    off, payload = 0, bytearray()
+    for e, p in ents:
+        c = bytearray(e)
+        struct.pack_into(">Q", c, 20, off)
+        blob += c
+        payload += p
+        off += len(p)
+    blob += payload
+    open(path, "wb").write(bytes(blob))
+raw = b"hello-stored-world"
+zd = b"zdata-payload-" * 100
+zs = zlib.compress(zd)
+make("'"$d"'/synth.ipk", [
+    (entry(1, len(raw), 0, "world/maps/", "level.isg"), raw),
+    (entry(1, len(zd), len(zs), "world/maps/", "tex.png.ckd", 2), zs),
+    (entry(1, len(raw), 0, "rootfile.bin", ""), raw),
+    (entry(2, len(raw), 0, "extra/", "x.dat"), raw),
+])
+' 2>/dev/null
+  if "$B/wszst" FILETYPE "$d/synth.ipk" 2>/dev/null | grep -q '^IPK' \
+  && "$B/wszst" xx "$d/synth.ipk" --dest "$d/sout" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/sout/world/maps/level.isg" <(printf 'hello-stored-world') \
+  && cmp -s "$d/sout/rootfile.bin" <(printf 'hello-stored-world') \
+  && cmp -s "$d/sout/extra/x.dat" <(printf 'hello-stored-world') \
+  && cmp -s "$d/sout/world/maps/tex.png.ckd" <(python3 -c 'import sys; sys.stdout.buffer.write(b"zdata-payload-" * 100)'); then
+    ok "IPK synthetic stored+zlib+v3-order+flag1-2 -> byte-exact paths + bytes"
+  else
+    no "IPK synthetic" "failed to extract synthetic IPK"
+  fi
+  rm -rf "$d"
+}
+t_ipk
 
 t_wta(){
   # PlatinumGames WTA/WTP texture bundle, Wii U big-endian form

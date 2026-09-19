@@ -63,6 +63,8 @@
 #include "lib-pik1.h"
 #include "lib-wwrsc.h"
 #include "lib-hbdf.h"
+#include "lib-gf3ds.h"
+#include "lib-mtmob.h"
 #include "lib-numsh.h"
 #include "lib-mpr-cmdl.h"
 #include "lib-wmb.h"
@@ -1483,6 +1485,33 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 
 		if (is_model_dest && is_mod_in)
 		{
+			// Capcom MT Framework Mobile shares ".mod" with Monster Games
+			// NDL (SPICA MTModel vs Excite Truck); the "MOD\0" magic wins.
+			if (raw.data_size >= 4 && !memcmp (raw.data, "MOD", 3) && !raw.data[3])
+			{
+				if (!testmode)
+				{
+					char sibdir[PATH_MAX];
+					snprintf (sibdir, sizeof (sibdir), "%s", arg);
+					char *slash = strrchr (sibdir, '/');
+					if (slash)
+						*slash = 0;
+					else
+						snprintf (sibdir, sizeof (sibdir), ".");
+					model_t *model = ParseMTMOD (raw.data, raw.data_size, sibdir);
+					if (!model)
+					{
+						ERROR0 (ERR_INVALID_DATA, "Failed to decode MT MOD: %s\n", arg);
+						return ERR_INVALID_DATA;
+					}
+					if (verbose >= 0)
+						fprintf (stdlog, "%sEXPORT MTMOD:%s -> GLB:%s\n",
+							verbose > 0 ? "\n" : "", arg, dest);
+					ExportModelToGLB (model, dest);
+					FreeModel (model);
+				}
+				continue;
+			}
 			if (!testmode)
 			{
 				err = DecodeExciteMOD (raw.data, (uint)raw.data_size, 0, 0, dest);
@@ -1491,6 +1520,69 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 					ERROR0 (err, "Failed to decode MOD: %s\n", arg);
 					return err;
 				}
+			}
+			continue;
+		}
+
+		// Game Freak 3DS model (GFModel, SPICA): magic LE 0x15122117,
+		// usually extensionless or .gfmodel inside romfs.
+		if (is_model_dest && raw.data_size >= 4 && rd_le32 (raw.data) == GF_MAGIC_MODEL)
+		{
+			if (!testmode)
+			{
+				if (!IsGFModel (raw.data, raw.data_size))
+				{
+					ERROR0 (ERR_INVALID_DATA, "Failed to decode GF model: %s\n", arg);
+					return ERR_INVALID_DATA;
+				}
+				model_t *model = ParseGFModel (raw.data, raw.data_size);
+				if (!model)
+				{
+					ERROR0 (ERR_INVALID_DATA, "Failed to decode GF model: %s\n", arg);
+					return ERR_INVALID_DATA;
+				}
+				if (verbose >= 0)
+					fprintf (stdlog, "%sEXPORT GFMODEL:%s -> GLB:%s\n", verbose > 0 ? "\n" : "",
+						arg, dest);
+				ExportModelToGLB (model, dest);
+				FreeModel (model);
+			}
+			continue;
+		}
+
+		// ModelBinary (.mbn, SPICA MBn): replacement buffers for a sibling
+		// .bch base scene of the same basename.
+		if (is_model_dest && is_ext (arg, ".mbn"))
+		{
+			if (!testmode)
+			{
+				u8 *bch = 0;
+				size_t bch_size = 0;
+				char bch_path[PATH_MAX];
+				snprintf (bch_path, sizeof (bch_path), "%s", arg);
+				char *dot = strrchr (bch_path, '.');
+				char *slash = strrchr (bch_path, '/');
+				if (dot && (!slash || dot > slash))
+					*dot = 0;
+				snprintf (bch_path + strlen (bch_path), sizeof (bch_path) - strlen (bch_path),
+					".bch");
+				model_t *model = NULL;
+				if (!LoadFileAlloc (bch_path, 0, 0, &bch, &bch_size, 0, 0, 0, false))
+				{
+					model = ParseMBN (raw.data, raw.data_size, bch, bch_size);
+					FREE (bch);
+				}
+				if (!model)
+				{
+					ERROR0 (ERR_INVALID_DATA,
+						"Failed to decode MBN (needs sibling .bch base scene): %s\n", arg);
+					return ERR_INVALID_DATA;
+				}
+				if (verbose >= 0)
+					fprintf (stdlog, "%sEXPORT MBN:%s -> GLB:%s\n", verbose > 0 ? "\n" : "",
+						arg, dest);
+				ExportModelToGLB (model, dest);
+				FreeModel (model);
 			}
 			continue;
 		}

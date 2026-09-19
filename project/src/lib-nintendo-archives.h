@@ -25,6 +25,8 @@
 #include "lib-pgdat.h"
 #include "lib-wta.h"
 #include "lib-gfpak.h"
+#include "lib-gf3ds.h"
+#include "lib-mtmob.h"
 #include "lib-bars.h"
 #include "lib-nlgdict.h"
 #include "lib-nlg-lm.h"

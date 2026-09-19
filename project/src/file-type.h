@@ -435,6 +435,7 @@ typedef enum file_format_t
 	FF_MTMRL, // 340 - Capcom MT Framework Mobile materials (.mrl / MRL)
 	FF_MTMFX, // 341 - Capcom MT Framework Mobile shader effects (.mfx / MFX)
 	FF_MBN, // 342 - ModelBinary companion buffers (.mbn, SPICA MBn)
+	FF_IPK, // 343 - Ubisoft UbiArt IPK archive (.ipk, Just Dance / Rayman)
 
 	//--- number of elements
 

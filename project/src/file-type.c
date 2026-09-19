@@ -1852,6 +1852,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	{ FF_MBN, FF_MBN, 0, "MBN", ".mbn", ".glb", ".mbn", FFT_VALID | FFT_CUT | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString, "ModelBinary companion buffers (.mbn)" },
 
+	// FF_IPK = 343 (Ubisoft UbiArt IPK archive)
+	{ FF_IPK, FF_IPK, 0, "IPK", ".ipk", ".szs", ".ipk",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 0x50, 0xec, 0x12, 0xba }, 0, MinusString, MinusString,
+		"Ubisoft UbiArt IPK archive (.ipk; Just Dance, Rayman Origins/Legends)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2074,6 +2080,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_MTMRL, "MTMRL", "MTMRL", 0xe05 },
 	{ FF_MTMFX, "MTMFX", "MTMFX", 0xe05 },
 	{ FF_MBN, "MBN", 0, 0x3001 },
+	{ FF_IPK, "IPK", 0, 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

@@ -68,10 +68,24 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **FSYS** | GameCube / Archive | ✅ | ✅ | Genius Sonority Pokémon archive |
 | **FZIP** | Wii U / Compression | ✅ | ✅ | Game & Wario Zlib container |
 | **GFA** | 3DS / Archive | ✅ | ✅ | GFAC archive |
+| **GF1MOT** | 3DS / Animation | ✅ | ❌ | Game Freak XY/ORAS bone-motion pack (SPICA GF1MotionPack): skeleton + per-anim frame/octet listing as text |
+| **GFLX** | Switch / Archive | ✅ | ❌ | Game Freak GFLXPack archive (SPICA GFLXPack): raw-LZ4 members, magic-sniffed extensions |
+| **GFMOT** | 3DS / Animation | ✅ | ❌ | Game Freak skeletal/material/visibility motion (SPICA GFMotion): frames, tracks and constants as text |
+| **GFMPACK** | 3DS / Archive | ✅ | ❌ | Game Freak model/texture/shader pack (SPICA GFModelPack): named members with sniffed extensions |
+| **GFMODEL** | 3DS / Model | ✅ | ❌ | Game Freak GFL2 3D model (SPICA GFModel, Pokémon X/Y/ORAS): skeleton, materials with texture names, PICA200 command-buffer geometry with smooth skinning → GLB |
+| **GFPKG** | 3DS / Archive | ✅ | ❌ | Game Freak Gen6/Gen7 package (SPICA GFPackage): offset-table members with sniffed extensions |
+| **GFTEX** | 3DS / Texture | ✅ | ❌ | Game Freak GFL2 texture (SPICA GFTexture): PICA200 payloads incl. ETC1 → PNG |
+| **MBN** | 3DS / Model | ✅ | ❌ | ModelBinary companion buffers (SPICA MBn): replacement vertex/index buffers applied onto the sibling `.bch` base scene → GLB; descriptor listing as text standalone |
+| **MTMFX** | 3DS / Shader | ✅ | ❌ | Capcom MT Framework Mobile shader effects (SPICA MTShaderEffects): input-layout table (vertex attribute names/formats/offsets) as text; layouts drive `wmdlt` MOD decoding |
+| **MTMOD** | 3DS / Model | ✅ | ❌ | Capcom MT Framework Mobile model (SPICA MTModel): skeleton always; vertices via sibling `.mfx`/`.lfx` input layouts (else validated float fallback); materials/textures via sibling `.mrl` → GLB |
+| **MTMRL** | 3DS / Material | ✅ | ❌ | Capcom MT Framework Mobile materials (SPICA MTMaterials): CRC32-keyed texture bindings as text |
+| **MTTEX** | 3DS / Texture | ✅ | ❌ | Capcom MT Framework Mobile texture (SPICA MTTexture): PICA200 payloads incl. ETC1 → PNG |
 | **GTX** | Wii U / Texture | ✅ | ✅ | Wii U GX2 texture container |
 | **GSH** | Wii U / Shader | ✅ | ✅ | Wii U Latte GPU shader container |
 | **HSD (.dat)** | GameCube / Model | ✅ | ✅ | HAL Laboratory sysdolphin object graph; also archive bundles (many archives in one file, `scene_data` roots, e.g. Doraemon `map*_dat.mdl`) merged into one GLB |
 | **HSF** | GameCube / Wii / Model | ✅ | ✅ | Hudson Mario Party 3D model |
+| **IPK** | Wii / Wii U / Switch / Archive | ✅ | ❌ | Ubisoft UbiArt archive (*Just Dance*, *Rayman Origins/Legends*): stored + zlib/LZMA members, old/new path-name orders |
+| **Blitz REV** | Wii / Archive | ✅ | ❌ | Blitz Games "Babel" `.rev` packages (*SpongeBob SquarePants: Creature from the Krusty Krab*, `Packages_Rev/` + `AudioRev/`): CRC-keyed index with names matched by CRC; textures (RGBA8 / RGB5A3 / RGB565 / CI4 / CI8 / CMPR / I4 / I8) → PNG; static and soft-skinned actors → GLB (bind pose, no bones) |
 | **Hyrule Warriors Legends** | 3DS / Archive | ✅ | ✅ | Split `.idx` / `.bin` archive pair |
 | **BFSHA** | Wii U / Switch / Shader Archive | ✅ | ❌ | NintendoWare shader archive (FSHA): per-model option choice values, sampler extras, uniform-block type names; embedded `.bnsh` sidecars |
 | **BNSH** | Switch / Shader | ✅ | ❌ | NintendoWare binary shader: dual source/binary programs per variation, zlib-compressed stages, per-program MemoryData; stage blobs extract as `.bin` / `.glsl` / `.zlib.bin` sidecars |

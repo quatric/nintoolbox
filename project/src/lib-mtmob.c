@@ -15,8 +15,9 @@
 #include <dirent.h>
 
 // ---------------------------------------------------------------------------
-// IEEE CRC32 (SPICA CRC32Hash: standard polynomial, used for MRL material
-// hashes and MFX input-layout keys)
+// CRC32 exactly as SPICA CRC32Hash.Hash (IEEE table, init 0xFFFFFFFF,
+// NO final negation -- HashNegated() is a separate function). Retail MRL
+// material hashes and MFX input-layout keys use this value.
 // ---------------------------------------------------------------------------
 
 static u32 mt_crc32 (const u8 *d, size_t n)
@@ -28,7 +29,7 @@ static u32 mt_crc32 (const u8 *d, size_t n)
 		for (int k = 0; k < 8; k++)
 			crc = (crc >> 1) ^ (0xedb88320u & (0u - (crc & 1)));
 	}
-	return ~crc;
+	return crc;
 }
 
 static u32 mt_crc32_str (const char *s)
@@ -119,6 +120,14 @@ static void mtr_seek (mtr_t *r, size_t p)
 // probes
 // ---------------------------------------------------------------------------
 
+// The FILETYPE probe is only 0x800 bytes (CHECK_FILE_SIZE): tables that
+// run past `size` can only be excused when the probe itself is saturated.
+// Full data (decode paths) always validates strictly.
+static int mt_truncated (size_t size)
+{
+	return size >= 0x800;
+}
+
 int IsMTMOD (const u8 *data, size_t size)
 {
 	if (!data || size < 0x74 || memcmp (data, "MOD", 3) || data[3] != 0)
@@ -128,22 +137,23 @@ int IsMTMOD (const u8 *data, size_t size)
 	u32 mats = data[10] | (u32)data[11] << 8;
 	if (!meshes || meshes > 4096 || bones > 4096 || mats > 4096)
 		return 0;
-	u32 skel = rd_le32 (data + 0x28);
 	u32 meshaddr = rd_le32 (data + 0x34);
 	u32 vbuf = rd_le32 (data + 0x38);
 	u32 ibuf = rd_le32 (data + 0x3c);
 	u32 flen = rd_le32 (data + 0x40);
-	if (meshaddr >= size || vbuf > size || ibuf > size)
-		return 0;
-	if ((u64)meshaddr + (u64)meshes * 0x30 > size)
-		return 0;
-	if (flen && flen != size)
+	if (meshaddr >= size)
+		return mt_truncated (size);
+	if (!mt_truncated (size))
+	{
+		if ((u64)meshaddr + (u64)meshes * 0x28 > size || vbuf > size || ibuf > size)
+			return 0;
+	}
+	if (flen && flen != size && !mt_truncated (size))
 	{
 		// retail MODs record their length; tolerate trailing slop of 16 bytes
 		if (flen > size || size - flen > 16)
 			return 0;
 	}
-	(void)skel;
 	return 1;
 }
 
@@ -186,9 +196,11 @@ int IsMTMRL (const u8 *data, size_t size)
 		return 0;
 	u32 lutaddr = rd_le32 (data + (rd_le32 (data + 4) == 0xc ? 0x18 : 0x14));
 	u32 mataddr = rd_le32 (data + (rd_le32 (data + 4) == 0xc ? 0x1c : 0x18));
-	if ((mats && mataddr >= size) || (luts && lutaddr >= size))
+	if (mats && mataddr >= size)
+		return mt_truncated (size);
+	if (luts && lutaddr >= size && !mt_truncated (size))
 		return 0;
-	if (mats && (u64)mataddr + (u64)mats * 0x3c > size)
+	if (mats && !mt_truncated (size) && (u64)mataddr + (u64)mats * 0x3c > size)
 		return 0;
 	return 1;
 }
@@ -197,21 +209,20 @@ int IsMTMFX (const u8 *data, size_t size)
 {
 	if (!data || size < 0x30 || memcmp (data, "MFX", 3) || data[3] != 0)
 		return 0;
-	// after the NUL-terminated magic: 8 unknown bytes, then counts/addrs
-	size_t p = 8;
-	while (p < size && data[p])
-		p++;
-	p++; // NUL ("MFX" + NUL = 4 bytes, then padding to 8?)
-	// SPICA reads magic with ReadNullTerminatedString then seeks +8 for the
-	// unknown block; be lenient and validate the descriptor table instead.
-	if (size < 0x28)
+	// SPICA reads the NUL-terminated magic ("MFX\0") then seeks +8 over an
+	// unknown block, so the count/address table starts at absolute +12;
+	// be lenient and validate the descriptor table instead.
+	if (size < 0x2c)
 		return 0;
 	u32 ndesc = rd_le32 (data + 12);
 	if (ndesc > 4096)
 		return 0;
-	u32 fmtaddr = rd_le32 (data + 0x24);
-	if (ndesc && (fmtaddr >= size || (u64)fmtaddr + (u64)ndesc * 4 > size))
-		return 0;
+	// descriptor pointer table at absolute +40 (see mt_parse_layouts)
+	const u32 fmtaddr = 40;
+	if (!ndesc)
+		return 1;
+	if (fmtaddr >= size || (u64)fmtaddr + (u64)ndesc * 4 > size)
+		return mt_truncated (size);
 	return 1;
 }
 
@@ -481,12 +492,13 @@ static mt_layout_t *mt_parse_layouts (const u8 *d, size_t n, uint *n_out)
 		*n_out = 0;
 	if (!IsMTMFX (d, n))
 		return NULL;
-	// magic is NUL-terminated ("MFX\0"); header words follow at fixed offsets
-	// from the SPICA reader: +8 skip, then counts/addrs. The magic occupies
-	// bytes 0..3, so fields below are absolute.
+	// magic is NUL-terminated ("MFX\0", 4 bytes); SPICA then skips 8 more
+	// bytes, so the count/address table below starts at absolute +12 and
+	// the descriptor pointer table sits at absolute +40 (VtxFormatsAddr
+	// is the current position, not another indirection).
 	u32 ndesc = rd_le32 (d + 12);
-	u32 strtab = rd_le32 (d + 28);
-	u32 fmttab = rd_le32 (d + 36);
+	u32 strtab = rd_le32 (d + 32);
+	const u32 fmttab = 40;
 	if (!ndesc || strtab >= n || fmttab >= n)
 		return NULL;
 	mt_layout_t *layouts = NULL;
@@ -609,7 +621,8 @@ static mt_mattex_t *mt_parse_mrl (const u8 *d, size_t n, uint *n_out)
 			for (u32 t = 0; t < tcnt; t++)
 			{
 				u32 flags = rd_le32 (d + taddr + t * 12);
-				s32 tidx = (s32)rd_le32 (d + taddr + t * 12 + 4);
+				// SPICA stores texIdxPlus1 (0 = none); the LUT index is one less
+				s32 tidx = (s32)rd_le32 (d + taddr + t * 12 + 4) - 1;
 				if ((flags & 0xf) != 3 || tidx < 0)
 					continue;
 				size_t L = (size_t)lutaddr + (size_t)tidx * 0x4c + 0x0c;
@@ -926,8 +939,8 @@ void *ParseMTMOD (const u8 *data, size_t size, ccp sibling_dir)
 	}
 	for (u32 mi = 0; mi < nmeshes; mi++)
 	{
-		size_t mo = (size_t)meshaddr + mi * 0x30;
-		if (mo + 0x30 > size)
+		size_t mo = (size_t)meshaddr + mi * 0x28;
+		if (mo + 0x28 > size)
 			break;
 		u32 vertcount = data[mo + 2] | (u32)data[mo + 3] << 8;
 		u32 matmesh = rd_le32 (data + mo + 4);
@@ -1682,8 +1695,8 @@ enumError DecodeMTMOD_Text (FILE *f, const u8 *data, size_t size)
 	u32 meshaddr = rd_le32 (data + 0x34);
 	for (u32 i = 0; i < meshes; i++)
 	{
-		size_t mo = (size_t)meshaddr + i * 0x30;
-		if (mo + 0x30 > size)
+		size_t mo = (size_t)meshaddr + i * 0x28;
+		if (mo + 0x28 > size)
 			break;
 		u32 vc = data[mo + 2] | (u32)data[mo + 3] << 8;
 		u32 mm = rd_le32 (data + mo + 4);

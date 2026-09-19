@@ -1453,6 +1453,9 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			// CRIWARE CPK archive (Star Fox Zero Wii U content/*.cpk)
 			case 0x43504b20: // "CPK "
 				return FF_CPK;
+			// Ubisoft UbiArt IPK archive (Just Dance, Rayman; Wii/Wii U/Switch/PC)
+			case 0x50ec12ba: // "P\xec\x12\xba"
+				return FF_IPK;
 			// PlatinumGames WMB model (Star Fox Zero Wii U, big-endian)
 			case 0x00424d57: // "\0BMW"
 				return FF_WMB;
@@ -2003,6 +2006,15 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 	if (data_size >= 4 && IsLZ4 (data, data_size) >= 0)
 		return FF_LZ4;
 
+	// Magic-less SPICA-family containers: the structural gates (validated
+	// offset tables plus a skeleton/probe byte) are specific enough to run
+	// ahead of the looser NFMT walkers below (e.g. ScanWWRSC, which also
+	// accepts magic-less blobs).
+	if (IsGF1Motion (data8, data_size))
+		return FF_GF1MOT;
+	if (IsGFPackage (data8, data_size))
+		return FF_GFPKG;
+
 	const nfmt_info_t nfmt = DetectNintendoFormat (data, data_size, 0);
 	switch (nfmt.type)
 	{
@@ -2170,6 +2182,18 @@ file_format_t GetFileTypeByMagic (
 			return FF_DIRECTORY;
 
 		ccp ext = fname ? strrchr (fname, '.') : 0;
+		// Capcom MT Framework Mobile shares ".mod" with Monster Games NDL
+		// display lists (FF_MOD, resolved by the shortcut below). The
+		// "MOD\0" magic plus the structural probe decide first.
+		if (ext && !strcasecmp (ext, ".mod") && sizeof (buf) >= 0x74 && !memcmp (buf, "MOD", 3)
+			&& !buf[3])
+		{
+			size_t probe = sizeof (buf);
+			if ((size_t)fatt->size < probe)
+				probe = (size_t)fatt->size;
+			if (IsMTMOD ((const u8 *)buf, probe))
+				return FF_MTMOD;
+		}
 		if (ext
 			&& (!strcasecmp (ext, ".msh") || !strcasecmp (ext, ".mod") || !strcasecmp (ext, ".glg")
 				|| !strcasecmp (ext, ".rlg") || !strcasecmp (ext, ".pers")
@@ -2198,17 +2222,6 @@ file_format_t GetFileTypeByMagic (
 		// since that entry comes earlier in FileTypeTab.
 		if (ff == FF_UNKNOWN && ext && !strcasecmp (ext, ".tex") && fatt->size >= 0x80)
 			return FF_TEX3DS;
-		// ".mod" is shared by Monster Games NDL display lists (FF_MOD) and
-		// Capcom MT Framework Mobile (FF_MTMOD); ".tex" by TEX0/TEX3DS and
-		// MT Framework Mobile (FF_MTTEX). The MT magics ("MOD\0", "TEX\0")
-		// decide, with a structural probe so unrelated files keep their
-		// extension-based type.
-		if (ext && !strcasecmp (ext, ".mod") && sizeof (buf) >= 0x74
-			&& !memcmp (buf, "MOD", 3) && !buf[3] && IsMTMOD (buf, sizeof (buf)))
-			return FF_MTMOD;
-		if (ext && !strcasecmp (ext, ".tex") && sizeof (buf) >= 0x10
-			&& !memcmp (buf, "TEX", 3) && !buf[3] && IsMTTEX (buf, sizeof (buf)))
-			return FF_MTTEX;
 		if (ff == FF_UNKNOWN && ext)
 		{
 			const file_type_t *ft = GetFileTypeByExt (ext, false);

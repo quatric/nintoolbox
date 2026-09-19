@@ -1075,6 +1075,22 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
+	err = extract_ipk_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_rev_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_bltex_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_blact_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
 	err = extract_wta_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
@@ -1266,6 +1282,18 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		return err;
 
 	err = ExtractWTAArchive (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = ExtractGFLXPackArchive (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = ExtractGFModelPackArchive (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = ExtractGFPackageArchive (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
@@ -1494,6 +1522,30 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		return err;
 
 	err = extract_nuanmb_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_gfmotion_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_gf1motion_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_mtmrl_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_mtmfx_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_mtmod_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_mbn_manifest (arg);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 

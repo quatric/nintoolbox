@@ -94,9 +94,13 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **GAR / ZAR** | `.zar`, `.gar` | ✅ | ✅ | ✅ | ✅ | Grezzo Zelda & Luigi's Mansion archive (*OoT3D*, *MM3D*, *LM3DS*). |
 | **GFA** | `.gfa` | ✅ | ✅ | ✅ | ✅ | Good-Feel GFAC container (Wii / 3DS / Wii U). |
 | **GFPAK** | `.gfpak` | ✅ | — | — | — | Game Freak Pokémon archive (`GFLXPACK`). |
+| **GFMPACK** | `.gfpack` | ✅ | — | — | — | Game Freak 3DS model/texture/shader pack (SPICA `GFModelPack`; *Pokémon X/Y/ORAS*). Named members extract with content-sniffed extensions. |
+| **GFPKG** | `.gfpkg`, `.bin`, `.pak` | ✅ | — | — | — | Game Freak Gen6/Gen7 package (SPICA `GFPackage`; 2-letter magic + offset table). |
+| **GFLX** | `.gflxpack` | ✅ | — | — | — | Game Freak Switch `GFLXPACK` archive (SPICA `GFLXPack`): raw-LZ4 members (BNTX/BNSH/`gfbmdl`/raw). |
 | **HBDF** | `.hbdf`, `.hsdf` | ✅ | — | — | — | Hudson Soft Nitro 3D model container (*Mario Party DS*). MDLF ObjectBlock/MeshBlock Nitro GX display lists decode to GLB via `wmdlt` (shared NSBMD interpreter, parent-chain transforms baked, one mesh per PolyGroup material range); raw members still extract via `wszst xx`. |
 | **Hyrule Warriors** | `.idx`, `.bin` | ✅ | ✅ | ✅ | — | Koei Tecmo / Omega Force split index archive (3DS) |
 | **IQIPACK** | `.pak` | ✅ | — | — | — | NVIDIA Shield iQiyi PAK archive with XXTEA encryption |
+| **IPK** | `.ipk` | ✅ | — | — | — | Ubisoft UbiArt IPK archive (*Just Dance*, *Rayman Origins/Legends*, *Child of Light*; Wii / Wii U / Switch / PC; zlib + LZMA members, old/new path-name orders) |
 | **JARC** | `.jarc` | ✅ | ✅ | ✅ | — | Level-5 DS archive container (DS) |
 | **KPBIN** | `.kpbin` | ✅ | ✅ | — | — | Koopatlas binary world map (`KP_m`, *New Super Mario Bros. Wii* level-editor community format). |
 | **LSPK** | `.pk`, `.pkh`, `.lspk` | ✅ | ✅ | ✅ | ✅ | Level-5 / Mistwalker flat package (*The Last Story*). |
@@ -177,6 +181,11 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **SANIM** | `.sanim` | *(text dump)* | ✅ | — | — | — | Mario Strikers skeleton animation stream (`0x7000`..`0x7103` chunks): headers, track parameters and rotation/translation key counts. |
 | **GFBANM** | `.gfbanm` | *(identification only)* | — | — | — | — | Game Freak FlatBuffer animation (recognized for extraction boundaries; not decoded). |
 | **GFBMDL** | `.gfbmdl` | *(identification only)* | — | — | — | — | Game Freak FlatBuffer model (recognized for extraction boundaries; not decoded). |
+| **GFMODEL** | `.gfmodel` | **GLB** | ✅ | — | — | — | Game Freak 3DS model (SPICA `GFModel`; *Pokémon X/Y/ORAS*): skeleton, materials with texture names, PICA200 command-buffer geometry with smooth skinning. |
+| **GFMOT** | `.gfmot` | *(text dump)* | ✅ | — | — | — | Game Freak 3DS skeletal/material/visibility motion (SPICA `GFMotion`): frames, loop flag, bone/material/visibility tracks and constants. |
+| **GF1MOT** | `.gf1mot` | *(text dump)* | ✅ | — | — | — | Game Freak XY/ORAS bone-motion pack (SPICA `GF1MotionPack`): skeleton binds plus per-animation frame/octet listing. |
+| **MBN** | `.mbn` | **GLB** | ✅ | — | — | — | ModelBinary companion buffers (SPICA `MBn`): replacement vertex/index buffers applied onto the sibling `.bch` base scene; descriptor listing as text standalone. |
+| **MTMOD** | `.mod` | **GLB** | ✅ | — | — | — | Capcom MT Framework Mobile model (SPICA `MTModel`; 3DS *Resident Evil / Monster Hunter* era): skeleton always; vertices via sibling `.mfx`/`.lfx` input layouts (validated float fallback otherwise); materials/textures via sibling `.mrl`. Shares `.mod` with Monster Games NDL — the `MOD\0` magic decides. |
 | **HSD** | `.dat` | **GLB** | ✅ | ✅ | ✅ | ✅ | HAL Laboratory `sysdolphin` object graph (GameCube); a file holding several archives back to back (Doraemon `map*_dat.mdl`) exports as one GLB |
 | **HSF** | `.hsf` | **GLB** | ✅ | ✅ | ✅ | ✅ | Hudson Soft 3D model format (GameCube / Wii) |
 | **LMD** | `.lmd` | — | — | — | — | — | Unidentified. |
@@ -233,6 +242,8 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **MPR TXTR** | `.txtr` / `.mpr.txtr` | ✅ | ✅ | ✅ | ✅ | Retro Studios texture, Remastered revision (*Metroid Prime Remastered*, Switch) |
 | **DDS** | `.dds` | ✅ | ✅ | — | — | Microsoft DirectDraw Surface texture. |
 | **G1T** | `.g1t` | ✅ | — | — | ✅ | Koei Tecmo texture container (*Hyrule Warriors Legends*, 3DS; *Fire Emblem Warriors*) |
+| **GFTEX** | `.gftex` | ✅ | — | — | — | Game Freak 3DS texture (SPICA `GFTexture`; *Pokémon X/Y/ORAS*): PICA200 payloads incl. ETC1/ETC1A4. |
+| **MTTEX** | `.tex` | ✅ | — | — | — | Capcom MT Framework Mobile texture (SPICA `MTTexture`; 3DS): PICA200 payloads incl. ETC1/ETC1A4. Shares `.tex` with Wii TEX0 and headerless 3DS textures — the `TEX\0` magic decides. |
 | **GTX** | `.gtx` | ✅ | ✅ | ✅ | ✅ | Nintendo Wii U GX2 surface container (Wii U) |
 | **GVR** | `.gvr` | ✅ | — | — | ✅ | Sega GameCube & Wii texture container (GCIX / GVRT). |
 | **NDS banner** | `banner.bin` | ✅ | — | — | ✅ | Nintendo DS ROM banner (DS / DSi) |
@@ -296,6 +307,8 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | **AAMP** | `.aamp` | ✅ | ✅ | ✅ | — | Nintendo binary parameter archive (Wii U / Switch); YAML/JSON text conversion. |
 | **MIO** | `.mio` | ✅ | — | — | ✅ | *WarioWare: D.I.Y.* / *Made in Ore* Game, Comic & Record data (DS / Wii) |
 | **MSBT / MSBP / MSBF** | `.msbt`, `.msbp`, `.msbf` | ✅ | ✅ | ✅ | ✅ | Nintendo Message Studio binary text, project & flow (3DS / Wii U / Switch) |
+| **MTMRL** | `.mrl` | ✅ | — | — | — | Capcom MT Framework Mobile materials (SPICA `MTMaterials`; 3DS): CRC32-keyed texture bindings as text. |
+| **MTMFX** | `.mfx`, `.lfx` | ✅ | — | — | — | Capcom MT Framework Mobile shader effects (SPICA `MTShaderEffects`; 3DS): input-layout table (vertex attribute names/formats/offsets) as text; layouts drive `wmdlt` MOD decoding. |
 | **BGLPBD** | `.bglpbd` | ✅ | ✅ | ✅ | — | AGL light-probe data (AAMP-based, Wii U / Switch): spherical-harmonics math, PNG dump, generation from BFRES/GLB/DAE bounds or Unity probe text. |
 
 `Byte-Exact Roundtrip` = encode → semantic text → re-encode reproduces the file's

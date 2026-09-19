@@ -54,6 +54,8 @@
 #include "lib-nintendo.h"
 #include "lib-excite.h"
 #include "lib-pica3ds.h"
+#include "lib-gf3ds.h"
+#include "lib-mtmob.h"
 #include "lib-gvr.h"
 #include "ajpg/ajpg.h"
 #include "lib-dds.h"
@@ -645,6 +647,24 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		AssignDecodedRGBA (img, rgba, width, height, &le_func, fname);
 		img->info_fform = FF_CMAB;
 		img->info_n_image = cmab.texture_count;
+		return PatchListIMG (img);
+	}
+
+	// Game Freak 3DS texture (GFTexture, SPICA) and Capcom MT Framework
+	// Mobile texture (TEX\0, SPICA MTTexture): single-image PICA200 blobs.
+	if (IsGFTexture (data, data_size) || IsMTTEX (data, data_size))
+	{
+		u8 *rgba = 0;
+		uint width = 0, height = 0;
+		const bool is_gf = IsGFTexture (data, data_size);
+		enumError err = is_gf ? DecodeGFTexture_RGBA (&rgba, &width, &height, data, data_size)
+							  : DecodeMTTEX_RGBA (&rgba, &width, &height, data, data_size);
+		if (err || !rgba)
+			return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported %s texture: %s\n",
+				is_gf ? "GFTEX" : "MTTEX", fname);
+		AssignDecodedRGBA (img, rgba, width, height, &le_func, fname);
+		img->info_fform = is_gf ? FF_GFTEX : FF_MTTEX;
+		img->info_n_image = 1;
 		return PatchListIMG (img);
 	}
 

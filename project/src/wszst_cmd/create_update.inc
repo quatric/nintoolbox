@@ -5811,6 +5811,40 @@ static enumError extract_mod_file (ccp arg, ccp basedir, uint depth)
 	char sibling_can[PATH_MAX];
 	beside_source_dest_ext (sibling_can, sizeof (sibling_can), arg, ".can");
 	u8 *can_raw = 0;
+
+	// Capcom MT Framework Mobile shares ".mod" with Monster Games NDL
+	// (SPICA MTModel); the "MOD\0" magic routes to its own decoder so an
+	// MT model never reaches DecodeExciteMOD below.
+	if (raw_size >= 4 && !memcmp (raw, "MOD", 3) && !raw[3] && IsMTMOD (raw, raw_size))
+	{
+		char mtdest[PATH_MAX];
+		beside_source_dest_ext (mtdest, sizeof (mtdest), arg, ".glb");
+		if (testmode)
+		{
+			FREE (raw);
+			fprintf (stdlog, "WOULD EXTRACT MTMOD:%s -> GLB:%s\n", arg, mtdest);
+			return ERR_OK;
+		}
+		char sibdir[PATH_MAX];
+		snprintf (sibdir, sizeof (sibdir), "%s", arg);
+		char *slash = strrchr (sibdir, '/');
+		if (slash)
+			*slash = 0;
+		else
+			snprintf (sibdir, sizeof (sibdir), ".");
+		model_t *model = ParseMTMOD (raw, raw_size, sibdir);
+		FREE (raw);
+		if (!model)
+			return ERROR0 (ERR_INVALID_DATA, "Failed to decode MT MOD: %s\n", arg);
+		err = ExportModelToGLB (model, mtdest);
+		FreeModel (model);
+		if (err)
+			return err;
+		StampFileMtime (mtdest, arg);
+		if (verbose >= 0)
+			fprintf (stdlog, "%sEXTRACT MTMOD:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, mtdest);
+		return ERR_OK;
+	}
 	size_t can_raw_size = 0;
 	const bool have_can = !access (sibling_can, F_OK)
 		&& !LoadFileAlloc (sibling_can, 0, 0, &can_raw, &can_raw_size, 0, 0, 0, false)
@@ -6201,6 +6235,226 @@ static enumError extract_cpk_file (ccp arg, ccp basedir, uint depth)
 	if (err || !n_entries)
 		return ERR_NOTHING_TO_DO;
 	return write_owned_entries (arg, basedir, depth, "CPK", entries, n_entries);
+}
+
+// Ubisoft UbiArt IPK archive (Just Dance, Rayman Origins/Legends;
+// Wii / Wii U / Switch / PC), ported from just_dance_2014.bms and the
+// PartyService/ubiart-archive-tools packer semantics. Extract-only,
+// like CPK: members may be zlib- or LZMA-compressed.
+static enumError extract_ipk_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".ipk"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+	if (raw_size > UINT_MAX)
+	{
+		FREE (raw);
+		return ERR_FILE_TOO_BIG;
+	}
+
+	nintendo_sarc_entry_t *entries = 0;
+	uint n_entries = 0;
+	err = ScanIPK (&entries, &n_entries, raw, (uint)raw_size);
+	FREE (raw);
+	if (err || !n_entries)
+		return ERR_NOTHING_TO_DO;
+	return write_owned_entries (arg, basedir, depth, "IPK", entries, n_entries);
+}
+
+// Blitz Games "Babel" .rev packages (SpongeBob: Creature from the Krusty
+// Krab, Wii): Packages_Rev/ and AudioRev/. ScanREV() suffixes the game's
+// texture and actor resources with .bltex / .blact so the two extractors
+// below convert them to PNG / GLB once the package is unpacked.
+static enumError extract_rev_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".rev"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+	if (raw_size > UINT_MAX)
+	{
+		FREE (raw);
+		return ERR_FILE_TOO_BIG;
+	}
+
+	nintendo_sarc_entry_t *entries = 0;
+	uint n_entries = 0;
+	err = ScanREV (&entries, &n_entries, raw, (uint)raw_size);
+	FREE (raw);
+	if (err || !n_entries)
+		return ERR_NOTHING_TO_DO;
+	return write_owned_entries (arg, basedir, depth, "REV", entries, n_entries);
+}
+
+// True when DEST already exists and is not older than SRC: the extraction
+// tree walk reaches every converted file twice.
+static bool blitz_output_current (ccp src, ccp dest)
+{
+	struct stat a, b;
+	return !stat (src, &a) && !stat (dest, &b) && b.st_mtime >= a.st_mtime;
+}
+
+static enumError write_blitz_texture_png (const u8 *raw, uint raw_size, ccp png)
+{
+	u8 *rgba = 0;
+	uint w = 0, h = 0;
+	enumError err = DecodeBlitzTexture (&rgba, &w, &h, raw, raw_size);
+	if (err)
+		return err;
+	return SaveDecodedRGBAToPNG (rgba, w, h, &be_func, png, 0, true);
+}
+
+static enumError extract_bltex_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".bltex"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+	if (raw_size > UINT_MAX || !IsBlitzTexture (raw, (uint)raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest_ext (dest, sizeof (dest), arg, ".png");
+	if (testmode)
+	{
+		FREE (raw);
+		fprintf (stdlog, "WOULD EXTRACT BLTEX:%s -> PNG:%s\n", arg, dest);
+		return ERR_OK;
+	}
+	if (blitz_output_current (arg, dest))
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+	err = write_blitz_texture_png (raw, (uint)raw_size, dest);
+	FREE (raw);
+	if (!err && verbose >= 0)
+		fprintf (stdlog, "%sEXTRACT BLTEX:%s -> PNG:%s\n", verbose > 0 ? "\n" : "", arg, dest);
+	return err;
+}
+
+// Actors name their textures by CRC; resolve them against the .bltex files
+// unpacked beside the actor and make sure the sibling PNG exists so the GLB
+// exporter can embed it.
+typedef struct
+{
+	char dir[PATH_MAX];
+	char png[PATH_MAX];
+} blitz_tex_ctx_t;
+
+static ccp blitz_texname (void *vctx, u32 crc)
+{
+	blitz_tex_ctx_t *c = vctx;
+	DIR *dir = opendir (c->dir);
+	if (!dir)
+		return 0;
+	ccp result = 0;
+	struct dirent *de;
+	while (!result && (de = readdir (dir)))
+	{
+		const size_t len = strlen (de->d_name);
+		if (len <= 6 || len >= sizeof (c->png) - 8 || strcmp (de->d_name + len - 6, ".bltex"))
+			continue;
+		char base[PATH_MAX];
+		memcpy (base, de->d_name, len - 6);
+		base[len - 6] = 0;
+		if (RevNameCRC (base) != crc)
+			continue;
+		char src[PATH_MAX];
+		snprintf (src, sizeof (src), "%s/%s", c->dir, de->d_name);
+		snprintf (c->png, sizeof (c->png), "%s.png", base);
+		char png[PATH_MAX];
+		snprintf (png, sizeof (png), "%s/%s", c->dir, c->png);
+		struct stat st;
+		if (stat (png, &st))
+		{
+			u8 *raw = 0;
+			size_t raw_size = 0;
+			if (!LoadFileAlloc (src, 0, 0, &raw, &raw_size, 0, 0, 0, false) && raw
+				&& raw_size <= UINT_MAX)
+				write_blitz_texture_png (raw, (uint)raw_size, png);
+			FREE (raw);
+			if (stat (png, &st))
+				continue;
+		}
+		result = c->png;
+	}
+	closedir (dir);
+	return result;
+}
+
+static enumError extract_blact_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".blact"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+	if (raw_size > UINT_MAX || !IsBlitzActor (raw, (uint)raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest_ext (dest, sizeof (dest), arg, ".glb");
+	if (testmode)
+	{
+		FREE (raw);
+		fprintf (stdlog, "WOULD EXTRACT BLACT:%s -> GLB:%s\n", arg, dest);
+		return ERR_OK;
+	}
+
+	if (blitz_output_current (arg, dest))
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	blitz_tex_ctx_t *ctx = CALLOC (1, sizeof (*ctx));
+	if (!ctx)
+	{
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+	StringCopyS (ctx->dir, sizeof (ctx->dir), arg);
+	char *slash = strrchr (ctx->dir, '/');
+	if (slash)
+		*slash = 0;
+	else
+		StringCopyS (ctx->dir, sizeof (ctx->dir), ".");
+
+	model_t *model = ParseBlitzActor (raw, (uint)raw_size, blitz_texname, ctx);
+	FREE (raw);
+	FREE (ctx);
+	if (!model)
+		return ERR_OK; // camera / animation-only actors carry no geometry
+
+	ExportModelToGLB (model, dest);
+	FreeModel (model);
+
+	if (verbose >= 0)
+		fprintf (stdlog, "%sEXTRACT BLACT:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, dest);
+	return ERR_OK;
 }
 
 // Locate the .wtp payload sibling for a .wta index. Retail trees split
@@ -8555,6 +8809,261 @@ static enumError extract_nuanmb_manifest (ccp arg)
 	err = CreateFileOpt (&F, true, dest, false, arg);
 	if (F.f)
 		err = DecodeNUANMB_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+// Game Freak / MT Framework Mobile / ModelBinary manifests (SPICA family).
+// Each follows the extract_*_manifest pattern: extension gate, structural
+// probe, then a .txt decode next to the source.
+static enumError extract_gfmotion_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".gfmot") && !is_ext (arg, ".bin"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsGFMotion (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE GFMOT:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeGFMotion_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_gf1motion_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".gf1mot") && !is_ext (arg, ".bin"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsGF1Motion (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE GF1MOT:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeGF1Motion_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_mtmrl_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".mrl"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsMTMRL (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE MTMRL:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeMTMRL_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_mtmfx_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".mfx") && !is_ext (arg, ".lfx"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsMTMFX (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE MTMFX:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeMTMFX_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_mtmod_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".mod") && !is_ext (arg, ".mtmod"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsMTMOD (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE MTMOD:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeMTMOD_Text (F.f, raw, raw_size);
+	ResetFile (&F, opt_preserve);
+	FREE (raw);
+	return err;
+}
+
+static enumError extract_mbn_manifest (ccp arg)
+{
+	if (!is_ext (arg, ".mbn"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsMBN (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	if (opt_dest)
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);
+	else
+		snprintf (dest, sizeof (dest), "%s.txt", arg);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE MBN:%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	File_t F;
+	err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f)
+		err = DecodeMBN_Text (F.f, raw, raw_size);
 	ResetFile (&F, opt_preserve);
 	FREE (raw);
 	return err;

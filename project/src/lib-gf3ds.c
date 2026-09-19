@@ -13,6 +13,7 @@
 #include "lib-gf3ds.h"
 #include "lib-archive-util.h"
 #include "lib-nintendo.h"
+#include "lib-archive-util.h"
 #include "lib-ctpk.h"
 #include "lib-model-glb.h"
 #include "lib-szs.h"
@@ -179,6 +180,15 @@ static float gf_float24 (u32 v)
 // structural probes
 // ---------------------------------------------------------------------------
 
+// The FILETYPE probe is only 0x800 bytes (CHECK_FILE_SIZE): tables that
+// run past `size` can only be excused when the probe itself is saturated,
+// otherwise a short corrupt file would validate. Full data (decode/extract
+// paths) always validates strictly.
+static int gf_truncated (size_t size)
+{
+	return size >= 0x800;
+}
+
 int IsGFModel (const u8 *data, size_t size)
 {
 	// Probe-lenient: the FILETYPE probe is only 2KB, so hash tables that
@@ -196,7 +206,7 @@ int IsGFModel (const u8 *data, size_t size)
 		return 0;
 	// first hash table (shaders) must parse: count sane, names NUL-padded
 	if (r.p + 4 > r.n)
-		return 1; // truncated probe: header matched
+		return gf_truncated (size); // truncated probe: header matched
 	u32 n = rd_le32 (data + r.p);
 	if (n > 4096)
 		return 0;
@@ -204,7 +214,7 @@ int IsGFModel (const u8 *data, size_t size)
 	for (u32 i = 0; i < n; i++)
 	{
 		if (r.p + 4 + 0x40 > r.n)
-			return 1; // truncated probe: accept on header
+			return gf_truncated (size); // truncated probe: accept on header
 		r.p += 4 + 0x40;
 	}
 	return 1;
@@ -277,6 +287,8 @@ int IsGFMotion (const u8 *data, size_t size)
 
 int IsGFModelPack (const u8 *data, size_t size)
 {
+	// Probe-lenient (see IsGFModel): pointer tables running past the
+	// FILETYPE probe are accepted on the strength of the header.
 	if (!data || size < 0x30 || rd_le32 (data) != GF_MAGIC_MODELPACK)
 		return 0;
 	u32 total = 0;
@@ -290,7 +302,7 @@ int IsGFModelPack (const u8 *data, size_t size)
 	if (!total || total > 4096)
 		return 0;
 	if (0x18 + (size_t)total * 4 > size)
-		return 0;
+		return gf_truncated (size); // table runs past the FILETYPE probe
 	// every pointer must land inside the file and on a readable entry
 	size_t tab = 0x18;
 	for (u32 i = 0; i < total; i++)
@@ -312,15 +324,20 @@ int IsGFPackage (const u8 *data, size_t size)
 	if (data[0] < 'A' || data[0] > 'Z' || data[1] < 'A' || data[1] > 'Z')
 		return 0;
 	u32 count = data[2] | (u32)data[3] << 8;
-	if (!count || count > 100000)
+	// 8192 also keeps far-apart magic collisions (e.g. "BARS", whose RS
+	// bytes decode to a count of 21330) out of this detector.
+	if (!count || count > 8192)
 		return 0;
 	if (4 + ((size_t)count + 1) * 4 > size)
-		return 0;
+		return gf_truncated (size);
 	u32 prev = 0;
+	int trunc = gf_truncated (size);
 	for (u32 i = 0; i <= count; i++)
 	{
 		u32 off = rd_le32 (data + 4 + i * 4);
-		if (off > size || off < prev)
+		// monotonicity always holds; absolute bounds only excuse a
+		// saturated probe (members routinely extend past 2KB)
+		if (off < prev || (!trunc && off > size))
 			return 0;
 		prev = off;
 	}
@@ -339,7 +356,9 @@ int IsGFLXPack (const u8 *data, size_t size)
 	if (!count || count > 100000)
 		return 0;
 	if (info >= size || info + (u64)count * 24 > size)
-		return 0;
+		return gf_truncated (size);
+	if (info + 24 > size)
+		return gf_truncated (size); // entry 0 not in probe: header matched
 	// The plain 3DS member table shares magic, count and info offsets, so
 	// tell them apart through entry 0: a GFLXPack entry is (id, decomp,
 	// comp, dummy, dataOff) with LZ4-plausible sizes, while a plain entry
@@ -353,9 +372,11 @@ int IsGFLXPack (const u8 *data, size_t size)
 	u64 doff = (u64)rd_le32 (data + info + 16) | (u64)rd_le32 (data + info + 20) << 32;
 	u16 zip = data[info + 2] | (u16)data[info + 3] << 8;
 	(void)id;
-	if (!dlen || dlen > 0x4000000 || !clen || clen > 0x4000000 || clen > dlen)
+	// NOTE: no comp<=decomp rule: LZ4 may expand tiny/incompressible
+	// members (e.g. a 9-byte payload in a 10-byte block).
+	if (!dlen || dlen > 0x4000000 || !clen || clen > 0x4000000)
 		return 0;
-	if (doff >= size || doff + clen > size)
+	if (!gf_truncated (size) && (doff >= size || doff + clen > size))
 		return 0;
 	if (zip >= 1 && zip <= 3)
 		return 0; // plain member table
@@ -372,10 +393,12 @@ int IsGF1Motion (const u8 *data, size_t size)
 	if (count < 2 || count > 4096)
 		return 0;
 	if (4 + (size_t)count * 4 > size)
-		return 0;
+		return gf_truncated (size);
 	u32 skel = rd_le32 (data + 4);
-	if (!skel || skel >= size)
+	if (!skel)
 		return 0;
+	if (skel + 2 > size)
+		return gf_truncated (size);
 	// skeleton starts with u8 bone count + u8 first-bone index
 	if (data[skel] < 1 || data[skel] > 200)
 		return 0;
@@ -1152,6 +1175,7 @@ void *ParseGFModel (const u8 *data, size_t size)
 			if (ix.prim == 0)
 			{
 				tri = idx;
+				idx = NULL; // aliased: freed once via tri below
 				ntri = nicount / 3 * 3;
 			}
 			else
@@ -2026,11 +2050,16 @@ enumError ExtractGFModelPackArchive (ccp arg, ccp basedir, uint depth)
 enumError ExtractGFPackageArchive (ccp arg, ccp basedir, uint depth)
 {
 	(void)depth;
-	// Gen6/Gen7 packages are usually extensionless or .bin/.pak inside romfs;
-	// the structural gate in IsGFPackage is strict, so accept wide extensions
-	// but keep clear of GFLXPACK (handled by its own extractor first).
-	if (!is_ext_match (arg, ".bin") && !is_ext_match (arg, ".pak") && !is_ext_match (arg, ".dat")
-		&& !is_ext_match (arg, ".gfpkg") && !is_ext_match (arg, ".arc"))
+	// Gen6/Gen7 packages are usually extensionless or .bin/.pak inside
+	// romfs; the structural gate in IsGFPackage is strict (2 uppercase
+	// bytes, small count, monotonic in-bounds offsets), so accept those
+	// names but keep clear of everything else.
+	const char *dot = strrchr (arg, '.');
+	const char *slash = strrchr (arg, '/');
+	int no_ext = !dot || (slash && dot < slash);
+	if (!no_ext && !is_ext_match (arg, ".bin") && !is_ext_match (arg, ".pak")
+		&& !is_ext_match (arg, ".dat") && !is_ext_match (arg, ".gfpkg")
+		&& !is_ext_match (arg, ".arc"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;
@@ -2039,6 +2068,13 @@ enumError ExtractGFPackageArchive (ccp arg, ccp basedir, uint depth)
 	if (err)
 		return ERR_NOTHING_TO_DO;
 	if (!IsGFPackage (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	// GF1 motion packs share the offset-table shape; their count field can
+	// rarely pass the package gate, so let the motion manifest own them.
+	if (IsGF1Motion (raw, raw_size))
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;

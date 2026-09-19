@@ -91,6 +91,7 @@ const KeywordTab_t cmdtab_transform[] = { //--- file formats
 	{ FF_BREFT_IMG, "BT-IMG", "BTIMG", TM_IDX_FILE }, { FF_PNG, "PNG", 0, TM_IDX_FILE },
 	{ FF_AJPG, "AJPG", 0, TM_IDX_FILE }, { FF_CTXB, "CTXB", 0, TM_IDX_FILE },
 	{ FF_NFTR, "NFTR", 0, TM_IDX_FILE }, { FF_BCFNT, "BCFNT", 0, TM_IDX_FILE },
+	{ FF_GFTEX, "GFTEX", 0, TM_IDX_FILE }, { FF_MTTEX, "MTTEX", 0, TM_IDX_FILE },
 
 	//--- image formats
 
