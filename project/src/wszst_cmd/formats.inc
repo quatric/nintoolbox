@@ -579,11 +579,18 @@ static enumError decode_image_if_possible (ccp arg)
 	snprintf (dir_dest, sizeof (dir_dest), "%s.d", arg);
 	for (uint image_index = 0; image_index < record_images; image_index++)
 	{
+		char sub_dest[PATH_MAX];
+		snprintf (sub_dest, sizeof (sub_dest), "%s/image_%03u.png", dir_dest, image_index);
+		// Same "already decoded" rule as the single-image "<file>.png" check
+		// above, per image: that check never matches a multi-image output
+		// directory, so XX's second whole-tree pass (the model/texture export
+		// sweep) re-decoded e.g. Tetris Party Deluxe's system/save.tpl and
+		// failed with "File already exists" on every image.
+		if (!opt_overwrite && !access (sub_dest, F_OK))
+			continue;
 		const enumError load_err = LoadIMG (&img, true, arg, image_index, false, true, false);
 		if (load_err)
 			continue;
-		char sub_dest[PATH_MAX];
-		snprintf (sub_dest, sizeof (sub_dest), "%s/image_%03u.png", dir_dest, image_index);
 		if (verbose >= 0 || testmode)
 			fprintf (stdlog, "%s%sDECODE %s:%s[%u] -> PNG:%s\n", verbose > 0 ? "\n" : "",
 				testmode ? "WOULD " : "", GetNameFF (img.info_fform, 0), arg, image_index,
