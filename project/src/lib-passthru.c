@@ -2124,7 +2124,14 @@ static enumError passthru_archive (
 		}
 		else
 		{
-			char *argv[] = { (char *)tool, "WAD", "-u", (char *)src, (char *)stage, 0 };
+			// -cid: name each content "<content id>.app", the same as wit's
+			// XEXTRACT. Without it libWiiSharp names contents by TMD *index*,
+			// so any WAD whose IDs differ from their indices (e.g. the Photo
+			// Channel: indices 0..2 hold IDs 4/6/7) came out mislabelled.
+			// "WAD -p" (libWiiSharp CreateNew) looks up <content id>.app
+			// first, so the repack side reads this layout unchanged.
+			char *argv[]
+				= { (char *)tool, "WAD", "-u", (char *)src, (char *)stage, "-cid", 0 };
 			const int rc = run_program (argv);
 			if (rc != 0)
 				return ERROR0 (ERR_SUBJOB_FAILED,
