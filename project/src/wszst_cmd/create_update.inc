@@ -5147,6 +5147,8 @@ static enumError extract_bea_file (ccp arg, ccp basedir, uint depth)
 
 static enumError extract_mpbin_file (ccp arg, ccp basedir, uint depth)
 {
+	if (is_ext (arg, ".body") || is_ext (arg, ".bmsh") || is_ext (arg, ".gshd"))
+		return ERR_NOTHING_TO_DO; // Grip .res object sections
 	u8 *raw = 0;
 	size_t raw_size = 0;
 	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
@@ -5168,6 +5170,9 @@ static enumError extract_mpbin_file (ccp arg, ccp basedir, uint depth)
 
 static enumError extract_atb_file (ccp arg, ccp basedir, uint depth)
 {
+	// Grip .res animation sections share the header shape of the magic-less ATB
+	if (is_ext (arg, ".banm"))
+		return ERR_NOTHING_TO_DO;
 	u8 *raw = 0;
 	size_t raw_size = 0;
 	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);

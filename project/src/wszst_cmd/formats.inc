@@ -889,6 +889,13 @@ static enumError extract_one_file (ccp arg, ccp basedir, uint depth)
 
 static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 {
+	// Grip .res sections other than textures are opaque object data; keep the
+	// magic-less sniffers from unpacking them into junk ".d" folders.
+	{
+		ccp slash = strrchr (arg, '/');
+		if (slash && slash - arg > 6 && !memcmp (slash - 6, ".res.d", 6) && !is_ext (arg, ".surf"))
+			return ERR_OK;
+	}
 	char pbase_buf[PATH_MAX] = "";
 	ccp pbase = opt_dest && *opt_dest ? opt_dest : basedir;
 	if (pbase)

@@ -101,6 +101,11 @@ bool IsATB (const u8 *data, uint size)
 	if (num_banks == 0 && num_patterns == 0 && num_textures == 0)
 		return false;
 
+	// unused tables must carry a zero or in-file offset, not arbitrary data
+	if ((!num_banks && bank_off && (bank_off < 20 || bank_off > size))
+		|| (!num_patterns && pattern_off && (pattern_off < 20 || pattern_off > size))
+		|| (!num_textures && texture_off && (texture_off < 20 || texture_off > size)))
+		return false;
 	if (num_banks > 0)
 	{
 		if (bank_off < 20 || bank_off + (u64)num_banks * 8 > size)

@@ -2186,6 +2186,11 @@ file_format_t GetFileTypeByMagic (
 			return FF_DIRECTORY;
 
 		ccp ext = fname ? strrchr (fname, '.') : 0;
+		// Grip .res object sections (Elmo's Musical Monsterpiece) are unpacked
+		// as opaque data; their headers must not be sniffed as other formats.
+		if (ext && (!strcasecmp (ext, ".banm") || !strcasecmp (ext, ".bmsh")
+				|| !strcasecmp (ext, ".body") || !strcasecmp (ext, ".gshd")))
+			return FF_UNKNOWN;
 		// Capcom MT Framework Mobile shares ".mod" with Monster Games NDL
 		// display lists (FF_MOD, resolved by the shortcut below). The
 		// "MOD\0" magic plus the structural probe decide first.
