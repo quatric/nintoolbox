@@ -4310,6 +4310,31 @@ char *NormalizeFileName (
 				source += drv_len;
 			}
 		}
+#elif defined(__MINGW32__)
+		// Native Windows keeps "C:/" as-is: without this the ':' below became
+		// " - " and every backslash a space, so "C:\a b\x.d" turned into the
+		// relative "C - a b x.d" and nested output landed in the wrong place.
+		if (allow_slash)
+		{
+			const int drv_len = IsWindowsDriveSpec (source);
+			if (drv_len && dest + 3 <= end)
+			{
+				*dest++ = *source;
+				*dest++ = ':';
+				if (drv_len == 3)
+					*dest++ = '/';
+				source += drv_len;
+			}
+			// UNC "\\server\share": keep the leading double separator,
+			// which the slash de-duplication below would collapse otherwise.
+			else if ((source[0] == '/' || source[0] == '\\')
+				&& (source[1] == '/' || source[1] == '\\') && dest + 2 <= end)
+			{
+				*dest++ = '/';
+				*dest++ = '/';
+				source += 2;
+			}
+		}
 #endif
 
 		bool skip_space = true;
@@ -4344,7 +4369,7 @@ char *NormalizeFileName (
 					*dest++ = ch;
 					skip_space = false;
 				}
-#ifdef __CYGWIN__
+#if defined(__CYGWIN__) || defined(__MINGW32__)
 				else if ((ch == '/' || ch == '\\') && allow_slash)
 #else
 				else if (ch == '/' && allow_slash)
