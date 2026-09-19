@@ -59,6 +59,54 @@ ccp opt_with_vgmtrans = 0; // --with-vgmtrans=path|name
 // here since these helpers are used from single-threaded option parsing.
 static char prog_buf[PATH_MAX];
 
+// Scratch directory for probe/capture files. A literal "/tmp" is wrong on
+// native Windows: msvcrt resolves it to "\tmp" on the current drive (usually
+// "C:\tmp", which does not exist), so every capture file failed to open.
+// For the wit XEXTRACT probe that silently fell back to ndstool/sharpii --
+// "Pass-through tool not found" even with wit.exe right next to wszst.exe.
+static ccp temp_dir (void)
+{
+	static char buf[PATH_MAX];
+	if (*buf)
+		return buf;
+
+	// Only accept a directory that exists and is writable: a stale %TMP%
+	// (or an MSYS-style TMPDIR=/tmp leaking into a native Windows process)
+	// must not make every capture file fail again.
+#if defined(__MINGW32__) || defined(_WIN32)
+	static ccp names[] = { "TMP", "TEMP", "LOCALAPPDATA", "USERPROFILE", 0 };
+	static ccp suffix[] = { "", "", "/Temp", "/AppData/Local/Temp", 0 };
+#else
+	static ccp names[] = { "TMPDIR", "TMP", "TEMP", 0 };
+	static ccp suffix[] = { "", "", "", 0 };
+#endif
+	for (int i = 0; names[i]; i++)
+	{
+		ccp v = getenv (names[i]);
+		if (!v || !*v)
+			continue;
+		snprintf (buf, sizeof (buf), "%s%s", v, suffix[i]);
+		if (IsDirectory (buf, false) && !access (buf, W_OK))
+			return buf;
+	}
+#if !defined(__MINGW32__) && !defined(_WIN32)
+	if (IsDirectory ("/tmp", false) && !access ("/tmp", W_OK))
+		return strcpy (buf, "/tmp");
+#endif
+	return strcpy (buf, ".");
+}
+
+// $HOME, or %USERPROFILE% on native Windows where HOME is usually unset.
+static ccp home_dir (void)
+{
+	ccp home = getenv ("HOME");
+#if defined(__MINGW32__) || defined(_WIN32)
+	if (!home || !*home)
+		home = getenv ("USERPROFILE");
+#endif
+	return home && *home ? home : 0;
+}
+
 static enumError make_stage_dir (ccp stage, bool tool_missing);
 
 static enumError passthru_claim (
@@ -140,7 +188,7 @@ static const char *find_program (ccp name)
 
 	const char *dirs = getenv ("PATH");
 	if (!dirs)
-		return 0;
+		dirs = "";
 
 	// A Cygwin binary launched directly from cmd.exe (rather than a Cygwin
 	// shell) inherits the native Windows PATH verbatim: ';'-separated, with
@@ -168,6 +216,23 @@ static const char *find_program (ccp name)
 #endif
 		}
 		dirs = end ? end + 1 : 0;
+	}
+
+	// Last resort: the directory wszst itself lives in. Windows users unpack
+	// the companion tools next to wszst.exe and run it from anywhere without
+	// touching PATH (Windows' own exe lookup searches the program directory
+	// first too), so ndstool/sharpii/hactool/nsz/7z beside wszst must count.
+	ccp pdir = ProgramDirectory ();
+	if (pdir && *pdir)
+	{
+		snprintf (prog_buf, sizeof (prog_buf), "%s/%s", pdir, name);
+		if (!access (prog_buf, X_OK))
+			return prog_buf;
+#if defined(__CYGWIN__) || defined(_WIN32)
+		snprintf (prog_buf, sizeof (prog_buf), "%s/%s.exe", pdir, name);
+		if (!access (prog_buf, X_OK))
+			return prog_buf;
+#endif
 	}
 	return 0;
 }
@@ -225,7 +290,7 @@ static bool locate_switch_key (ccp name, char *buf, size_t size)
 		if (!access (buf, R_OK))
 			return true;
 	}
-	const char *home = getenv ("HOME");
+	const char *home = home_dir ();
 	if (home)
 	{
 		snprintf (buf, size, "%s/.switch/%s", home, name);
@@ -257,7 +322,7 @@ static bool locate_wiiu_resource (ccp name, char *buf, size_t size)
 		if (!access (buf, R_OK))
 			return true;
 	}
-	const char *home = getenv ("HOME");
+	const char *home = home_dir ();
 	if (home)
 	{
 		snprintf (buf, size, "%s/.cemu/%s", home, name);
@@ -279,7 +344,7 @@ static ccp resolve_mobipeg (void)
 	ccp found = find_program ("mobipeg");
 	if (found)
 		return found;
-	const char *home = getenv ("HOME");
+	const char *home = home_dir ();
 	if (home)
 	{
 		snprintf (prog_buf, sizeof (prog_buf), "%s/bin/mobipeg", home);
@@ -461,10 +526,10 @@ enumError PassthruDecodeVID1 (ccp src_path, ccp dest_mp4)
 		return ERR_OK;
 
 	// The decoder takes a directory of .vid files, not a bare file, so
-	// stage a copy under /tmp (copy, not symlink: the tree also builds
+	// stage a copy under temp_dir() (copy, not symlink: the tree also builds
 	// for Windows, where symlinks need privileges).
 	char in_dir[PATH_MAX], in_file[PATH_MAX];
-	snprintf (in_dir, sizeof (in_dir), "/tmp/wszst-vid1dec-%d", (int)getpid ());
+	snprintf (in_dir, sizeof (in_dir), "%s/wszst-vid1dec-%d", temp_dir (), (int)getpid ());
 	snprintf (in_file, sizeof (in_file), "%s/%s", in_dir,
 		strrchr (src_path, '/') ? strrchr (src_path, '/') + 1 : src_path);
 	if (CreatePath (in_dir, true))
@@ -733,7 +798,7 @@ enumError PassthruEncodeAudio (ccp wav_path, ccp dest_path, ccp format, s64 loop
 
 	char capture_path[PATH_MAX];
 	snprintf (
-		capture_path, sizeof (capture_path), "/tmp/wszst-mobipeg-encode-%d.log", (int)getpid ());
+		capture_path, sizeof (capture_path), "%s/wszst-mobipeg-encode-%d.log", temp_dir (), (int)getpid ());
 
 	const int rc = run_program_capture (argv, capture_path);
 	enumError err = ERR_OK;
@@ -801,7 +866,7 @@ enumError PassthruReencodeMedia (ccp preview_path, ccp source_path)
 		char probe_path[PATH_MAX];
 		snprintf (probe_path, sizeof (probe_path), "%s", probe);
 		char capture[PATH_MAX];
-		snprintf (capture, sizeof (capture), "/tmp/wszst-mobipeg-probe-%d.log", (int)getpid ());
+		snprintf (capture, sizeof (capture), "%s/wszst-mobipeg-probe-%d.log", temp_dir (), (int)getpid ());
 		char *pargv[] = { probe_path, "-v", "error", "-select_streams", "v:0", "-show_entries",
 			"stream=avg_frame_rate,bit_rate,width,height", "-of", "default=nw=0:nk=0", (char *)source_path, 0 };
 		if (!run_program_capture (pargv, capture))
@@ -838,7 +903,7 @@ enumError PassthruReencodeMedia (ccp preview_path, ccp source_path)
 	if (mobi_generation && *mobi_generation == '0' && probe)
 	{
 		char capture[PATH_MAX];
-		snprintf (capture, sizeof (capture), "/tmp/wszst-mobipeg-audio-%d.log", (int)getpid ());
+		snprintf (capture, sizeof (capture), "%s/wszst-mobipeg-audio-%d.log", temp_dir (), (int)getpid ());
 		char *pargv[] = { (char *)probe, "-v", "error", "-select_streams", "a:0", "-show_entries",
 			"stream=codec_name", "-of", "default=nw=0:nk=0", (char *)source_path, 0 };
 		if (!run_program_capture (pargv, capture))
@@ -1058,7 +1123,7 @@ static bool wit_supports_xcontainers (ccp tool)
 		return false;
 
 	char capture_path[PATH_MAX];
-	snprintf (capture_path, sizeof (capture_path), "/tmp/wszst-wit-probe-%d.log", (int)getpid ());
+	snprintf (capture_path, sizeof (capture_path), "%s/wszst-wit-probe-%d.log", temp_dir (), (int)getpid ());
 	char *argv[] = { (char *)tool, "HELP", "XEXTRACT", 0 };
 	const int rc = run_program_capture (argv, capture_path);
 
@@ -1727,8 +1792,17 @@ static void precreate_romfs_dirs (ccp tool, ccp prod_keys, ccp titlekey, ccp src
 	if (titlekey && *titlekey)
 		snprintf (t_opt, sizeof (t_opt), "--titlekey=%s", titlekey);
 
+#if defined(__MINGW32__) || defined(_WIN32)
+	// popen() runs "cmd.exe /c <cmd>": there is no /dev/null, and cmd strips
+	// the first and last quote of a line that starts with one, which breaks
+	// a quoted tool path followed by more quoted arguments. Wrapping the
+	// whole line in one extra pair of quotes survives that stripping.
+	snprintf (cmd, sizeof (cmd), "\"\"%s\" %s %s --listromfs \"%s\" 2>NUL\"", tool, k_opt, t_opt,
+		src);
+#else
 	snprintf (
 		cmd, sizeof (cmd), "\"%s\" %s %s --listromfs \"%s\" 2>/dev/null", tool, k_opt, t_opt, src);
+#endif
 
 	FILE *p = popen (cmd, "r");
 	if (!p)
@@ -2006,7 +2080,7 @@ static enumError passthru_archive (
 			}
 			if (!*seeddb)
 			{
-				ccp home = getenv ("HOME");
+				ccp home = home_dir ();
 				if (home)
 				{
 					snprintf (seeddb, sizeof (seeddb), "%s/.3ds/seeddb.bin", home);
