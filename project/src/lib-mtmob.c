@@ -338,7 +338,7 @@ enumError DecodeMTTEX_RGBA (u8 **dest, uint *width, uint *height, const u8 *data
 		default:
 			return EINVAL;
 	}
-	size_t head = ver > 0xa3 ? 16 : 12;
+	size_t head = ver > 0xa3 ? 20 : 16; // magic + 3 words (+ version word)
 	if (head >= size)
 		return EINVAL;
 	return DecodePicaTexture (dest, width, height, data + head, w, h, pica, (uint)(size - head));
