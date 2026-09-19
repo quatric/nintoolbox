@@ -542,7 +542,9 @@ static uint find_textures (const hsd_t *hsd, hsd_tex_t **ret_tex)
 ///////////////			     export			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-int ExportHSDTextures (const hsd_t *hsd, ccp dest_dir, ccp basename)
+// 'exact' stages only "<base>.tex###.png", the name a model's material slots
+// use, so that several archives can share one output directory.
+static int hsd_export_textures (const hsd_t *hsd, ccp dest_dir, ccp basename, bool exact)
 {
 	if (!hsd || !hsd->data || !dest_dir)
 		return -1;
@@ -605,7 +607,14 @@ int ExportHSDTextures (const hsd_t *hsd, ccp dest_dir, ccp basename)
 		char path_glb[PATH_MAX];
 		snprintf (path_glb, sizeof (path_glb), "%s/tex%03u.png", dir, i);
 
-		if (!ConvertIMG (&img, false, 0, IMG_X_RGB, PAL_INVALID)
+		if (exact)
+		{
+			snprintf (path, sizeof (path), "%s/%s.tex%03u.png", dir, base, i);
+			if (!ConvertIMG (&img, false, 0, IMG_X_RGB, PAL_INVALID)
+				&& !SavePNG (&img, false, 0, path, 0, 0, true, 0))
+				written++;
+		}
+		else if (!ConvertIMG (&img, false, 0, IMG_X_RGB, PAL_INVALID)
 			&& !SavePNG (&img, false, 0, path, 0, 0, true, 0))
 		{
 			SavePNG (&img, false, 0, path_glb, 0, 0, true, 0);
@@ -616,6 +625,13 @@ int ExportHSDTextures (const hsd_t *hsd, ccp dest_dir, ccp basename)
 
 	FREE (tex);
 	return written;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+int ExportHSDTextures (const hsd_t *hsd, ccp dest_dir, ccp basename)
+{
+	return hsd_export_textures (hsd, dest_dir, basename, false);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1308,6 +1324,9 @@ typedef struct hsd_model_ctx_t
 	uint n_tex_names;
 	hsd_tex_lookup_t *tex_lookup;
 	uint n_tex_lookup;
+	// true: materials reference tex_names[] (unique per archive, bundles);
+	// false: the legacy "tex###" slot names of a single archive.
+	bool named_tex;
 } hsd_model_ctx_t;
 
 static int hsd_find_joint_by_offset (const hsd_model_ctx_t *ctx, u32 jobj_off)
@@ -1443,7 +1462,12 @@ static int hsd_read_mobj (hsd_model_ctx_t *ctx, u32 mobj_off)
 				if (ctx->tex_lookup[j].data_off != img_data)
 					continue;
 				const uint tex_idx = ctx->tex_lookup[j].idx;
-				snprintf (mat->textures[layer], sizeof (mat->textures[layer]), "tex%03u", tex_idx);
+				if (ctx->named_tex)
+					snprintf (mat->textures[layer], sizeof (mat->textures[layer]), "%s",
+						ctx->tex_names[tex_idx]);
+				else
+					snprintf (
+						mat->textures[layer], sizeof (mat->textures[layer]), "tex%03u", tex_idx);
 				mat->texture_coord[layer] = (int)be32 (ctx->hsd->data + t + HSD_TOBJ_COORD_OFF);
 				mat->wrap_s[layer] = (uint8_t)be32 (ctx->hsd->data + t + HSD_TOBJ_WRAP_S_OFF);
 				mat->wrap_t[layer] = (uint8_t)be32 (ctx->hsd->data + t + HSD_TOBJ_WRAP_T_OFF);
@@ -2018,172 +2042,187 @@ static void hsd_walk_jobj_meshes (hsd_model_ctx_t *ctx, u32 off, int parent_idx,
 
 //-----------------------------------------------------------------------------
 
-int ExportHSDModel (const hsd_t *hsd, ccp out_glb_file)
+// Root JOBJs of one root-table entry. A plain root is the JOBJ itself; the
+// "scene_data" root of scene-style archives (Doraemon GC maps, some Kirby Air
+// Ride/Melee menu files) is a struct whose first field points to a NULL
+// terminated list of JObjDesc, each of which starts with its root JOBJ.
+static uint hsd_root_jobjs (const hsd_t *hsd, uint idx, u32 *out, uint max)
 {
-	if (!hsd || !hsd->data || !out_glb_file)
-		return -1;
-
-	// Root table: (offset,name-offset) pairs right after the relocation
-	// table, offsets 0x20-relative like everywhere else (verified: root[0]
-	// of TyBox.dat resolves to "ToyBoxModel_TopN_joint", a real JOBJ).
 	const u32 root_table = hsd->reloc_off + 4 * hsd->n_reloc;
+	if ((u64)root_table + 8 * (idx + 1) > hsd->size)
+		return 0;
 
-	hsd_model_ctx_t ctx = { .hsd = hsd };
+	const u32 root_off = be32 (hsd->data + root_table + 8 * idx) + HSD_DATA_BASE;
+	if (root_off < HSD_DATA_BASE || root_off + 4 > hsd->reloc_off)
+		return 0;
 
-	// Build texture lookup so hsd_read_mobj() can bind TOBJ textures
+	const u32 str_tab = root_table + 8 * (hsd->n_root + hsd->n_ref);
+	const u32 name_off = str_tab + be32 (hsd->data + root_table + 8 * idx + 4);
+	if (name_off + 11 <= hsd->size && !memcmp (hsd->data + name_off, "scene_data", 11))
+	{
+		uint n = 0;
+		u32 list = get_ptr (hsd, root_off);
+		for (; list && n < max && (u64)list + 4 <= hsd->reloc_off; list += 4)
+		{
+			const u32 desc = get_ptr (hsd, list);
+			if (!desc)
+				break;
+			const u32 jobj = get_ptr (hsd, desc);
+			if (jobj)
+				out[n++] = jobj;
+		}
+		return n;
+	}
+
+	out[0] = root_off;
+	return 1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+// Bind textures and discover joints and meshes of one archive into 'ctx'.
+// Texture slots are named "<tex_base>.tex###".
+static void hsd_collect_model (
+	const hsd_t *hsd, ccp tex_base, bool named_tex, hsd_model_ctx_t *ctx, hsd_tex_t **ret_tex)
+{
+	memset (ctx, 0, sizeof (*ctx));
+	ctx->hsd = hsd;
+	ctx->named_tex = named_tex;
+
 	hsd_tex_t *tex = 0;
 	const uint n_tex = find_textures (hsd, &tex);
+	*ret_tex = tex;
 	if (n_tex)
 	{
-		ctx.tex_names = CALLOC (n_tex, sizeof (*ctx.tex_names));
-		ctx.tex_lookup = CALLOC (n_tex, sizeof (*ctx.tex_lookup));
-		ctx.n_tex_names = n_tex;
-
-		char base[80];
-		// extract basename from out_glb_file path for texture naming
-		ccp slash = strrchr (out_glb_file, '/');
-		ccp bname = slash ? slash + 1 : out_glb_file;
-		StringCopyS (base, sizeof (base), bname);
-		char *dot = strrchr (base, '.');
-		if (dot)
-			*dot = 0;
+		ctx->tex_names = CALLOC (n_tex, sizeof (*ctx->tex_names));
+		ctx->tex_lookup = CALLOC (n_tex, sizeof (*ctx->tex_lookup));
+		ctx->n_tex_names = n_tex;
 
 		for (uint i = 0; i < n_tex; i++)
 		{
 			char name[80];
-			snprintf (name, sizeof (name), "%s.tex%03u", base, i);
+			snprintf (name, sizeof (name), "%s.tex%03u", tex_base, i);
 			// Tex_names[] is char** not ccp* so we can FREE it later.
 			// Use CALLOC + StringCopyS to avoid the banned strdup().
 			char *s = CALLOC (1, strlen (name) + 1);
 			StringCopyS (s, strlen (name) + 1, name);
-			ctx.tex_names[i] = s;
+			ctx->tex_names[i] = s;
 
-			ctx.tex_lookup[i].data_off = tex[i].data_off;
-			ctx.tex_lookup[i].idx = i;
+			ctx->tex_lookup[i].data_off = tex[i].data_off;
+			ctx->tex_lookup[i].idx = i;
 		}
-		ctx.n_tex_lookup = n_tex;
+		ctx->n_tex_lookup = n_tex;
 	}
+
+	// Root table: (offset,name-offset) pairs right after the relocation
+	// table, offsets 0x20-relative like everywhere else (verified: root[0]
+	// of TyBox.dat resolves to "ToyBoxModel_TopN_joint", a real JOBJ).
+	enum { MAX_ROOT_JOBJ = 256 };
+	u32 jobjs[MAX_ROOT_JOBJ];
+	uint n_jobjs = 0;
+	for (uint i = 0; i < hsd->n_root && n_jobjs < MAX_ROOT_JOBJ; i++)
+		n_jobjs += hsd_root_jobjs (hsd, i, jobjs + n_jobjs, MAX_ROOT_JOBJ - n_jobjs);
 
 	// Two-pass approach: first discover all joints, then build meshes.
 	// This ensures all joints are in jobj_map before envelope resolution.
-	for (uint i = 0; i < hsd->n_root; i++)
-	{
-		if ((u64)root_table + 8 * (i + 1) > hsd->size)
-			break;
-		const s32 root_off_raw = (s32)be32 (hsd->data + root_table + 8 * i);
-		const u32 root_off = (u32)root_off_raw + HSD_DATA_BASE;
-		if (root_off < HSD_DATA_BASE || root_off >= hsd->reloc_off)
-			continue;
-		hsd_walk_jobj_skeleton (&ctx, root_off, -1, 0);
-	}
-	for (uint i = 0; i < hsd->n_root; i++)
-	{
-		if ((u64)root_table + 8 * (i + 1) > hsd->size)
-			break;
-		const s32 root_off_raw = (s32)be32 (hsd->data + root_table + 8 * i);
-		const u32 root_off = (u32)root_off_raw + HSD_DATA_BASE;
-		if (root_off < HSD_DATA_BASE || root_off >= hsd->reloc_off)
-			continue;
-		hsd_walk_jobj_meshes (&ctx, root_off, -1, 0);
-	}
+	for (uint i = 0; i < n_jobjs; i++)
+		hsd_walk_jobj_skeleton (ctx, jobjs[i], -1, 0);
+	for (uint i = 0; i < n_jobjs; i++)
+		hsd_walk_jobj_meshes (ctx, jobjs[i], -1, 0);
+}
 
-	int written = -1;
-	if (ctx.n_meshes)
-	{
-		model_t model;
-		memset (&model, 0, sizeof (model));
-		model.meshes = ctx.meshes;
-		model.num_meshes = ctx.n_meshes;
-		model.joints = ctx.joints;
-		model.num_joints = ctx.n_joints;
-		model.materials = ctx.materials;
-		model.num_materials = ctx.n_materials;
-		model.node_influences = ctx.node_influences;
-		model.num_node_influences = ctx.n_node_influences;
-		ComputeModelTRSBinds (&model);
+///////////////////////////////////////////////////////////////////////////////
 
-		// HSD display lists store vertices in joint-local space. Transform
-		// them into bind-pose model space using accumulated joint matrices.
-		for (size_t mi = 0; mi < model.num_meshes; mi++)
+// HSD display lists store vertices in joint-local space. Transform them
+// into bind-pose model space using accumulated joint matrices.
+static void hsd_bind_model (model_t *model)
+{
+	ComputeModelTRSBinds (model);
+	// HSD display lists store vertices in joint-local space. Transform
+	// them into bind-pose model space using accumulated joint matrices.
+	for (size_t mi = 0; mi < model->num_meshes; mi++)
+	{
+		mesh_t *mesh = model->meshes + mi;
+		if (!mesh->positions || !mesh->position_node)
+			continue;
+
+		for (size_t pi = 0; pi < mesh->num_positions; pi++)
 		{
-			mesh_t *mesh = model.meshes + mi;
-			if (!mesh->positions || !mesh->position_node)
+			const int ni = mesh->position_node[pi];
+			if (ni < 0 || (size_t)ni >= model->num_node_influences)
 				continue;
 
-			for (size_t pi = 0; pi < mesh->num_positions; pi++)
+			const node_influence_t *inf = model->node_influences + ni;
+			if (!inf->weights || !inf->num_weights)
+				continue;
+
+			const vec3_t p = mesh->positions[pi];
+			vec3_t p_out = { 0, 0, 0 };
+
+			for (size_t w = 0; w < inf->num_weights; w++)
 			{
-				const int ni = mesh->position_node[pi];
-				if (ni < 0 || (size_t)ni >= model.num_node_influences)
+				const int bi = inf->weights[w].bone_idx;
+				if (bi < 0 || (size_t)bi >= model->num_joints)
 					continue;
 
-				const node_influence_t *inf = model.node_influences + ni;
+				const float *m = model->joints[bi].bind;
+				const float wt = inf->weights[w].weight;
+
+				p_out.x += wt * (m[0] * p.x + m[1] * p.y + m[2] * p.z + m[3]);
+				p_out.y += wt * (m[4] * p.x + m[5] * p.y + m[6] * p.z + m[7]);
+				p_out.z += wt * (m[8] * p.x + m[9] * p.y + m[10] * p.z + m[11]);
+			}
+			mesh->positions[pi] = p_out;
+		}
+
+		if (mesh->normals)
+		{
+			for (size_t vi = 0; vi < mesh->num_vertices; vi++)
+			{
+				const int ni = (mesh->position_node && vi < mesh->num_positions)
+					? mesh->position_node[vi]
+					: -1;
+				if (ni < 0 || (size_t)ni >= model->num_node_influences)
+					continue;
+
+				const int nrm_i = mesh->vertices[vi].normal_idx;
+				if (nrm_i < 0 || (size_t)nrm_i >= mesh->num_normals)
+					continue;
+
+				const node_influence_t *inf = model->node_influences + ni;
 				if (!inf->weights || !inf->num_weights)
 					continue;
 
-				const vec3_t p = mesh->positions[pi];
-				vec3_t p_out = { 0, 0, 0 };
+				const vec3_t n = mesh->normals[nrm_i];
+				vec3_t n_out = { 0, 0, 0 };
 
 				for (size_t w = 0; w < inf->num_weights; w++)
 				{
 					const int bi = inf->weights[w].bone_idx;
-					if (bi < 0 || (size_t)bi >= model.num_joints)
+					if (bi < 0 || (size_t)bi >= model->num_joints)
 						continue;
 
-					const float *m = model.joints[bi].bind;
+					const float *m = model->joints[bi].bind;
 					const float wt = inf->weights[w].weight;
 
-					p_out.x += wt * (m[0] * p.x + m[1] * p.y + m[2] * p.z + m[3]);
-					p_out.y += wt * (m[4] * p.x + m[5] * p.y + m[6] * p.z + m[7]);
-					p_out.z += wt * (m[8] * p.x + m[9] * p.y + m[10] * p.z + m[11]);
+					n_out.x += wt * (m[0] * n.x + m[1] * n.y + m[2] * n.z);
+					n_out.y += wt * (m[4] * n.x + m[5] * n.y + m[6] * n.z);
+					n_out.z += wt * (m[8] * n.x + m[9] * n.y + m[10] * n.z);
 				}
-				mesh->positions[pi] = p_out;
-			}
-
-			if (mesh->normals)
-			{
-				for (size_t vi = 0; vi < mesh->num_vertices; vi++)
-				{
-					const int ni = (mesh->position_node && vi < mesh->num_positions)
-						? mesh->position_node[vi]
-						: -1;
-					if (ni < 0 || (size_t)ni >= model.num_node_influences)
-						continue;
-
-					const int nrm_i = mesh->vertices[vi].normal_idx;
-					if (nrm_i < 0 || (size_t)nrm_i >= mesh->num_normals)
-						continue;
-
-					const node_influence_t *inf = model.node_influences + ni;
-					if (!inf->weights || !inf->num_weights)
-						continue;
-
-					const vec3_t n = mesh->normals[nrm_i];
-					vec3_t n_out = { 0, 0, 0 };
-
-					for (size_t w = 0; w < inf->num_weights; w++)
-					{
-						const int bi = inf->weights[w].bone_idx;
-						if (bi < 0 || (size_t)bi >= model.num_joints)
-							continue;
-
-						const float *m = model.joints[bi].bind;
-						const float wt = inf->weights[w].weight;
-
-						n_out.x += wt * (m[0] * n.x + m[1] * n.y + m[2] * n.z);
-						n_out.y += wt * (m[4] * n.x + m[5] * n.y + m[6] * n.z);
-						n_out.z += wt * (m[8] * n.x + m[9] * n.y + m[10] * n.z);
-					}
-					mesh->normals[nrm_i] = n_out;
-				}
+				mesh->normals[nrm_i] = n_out;
 			}
 		}
-
-		written = (ExportModelToGLB (&model, out_glb_file)) == 0 ? (int)ctx.n_meshes : -1;
 	}
 
-	for (uint i = 0; i < ctx.n_meshes; i++)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+static void hsd_free_meshes (mesh_t *meshes, uint n)
+{
+	for (uint i = 0; i < n; i++)
 	{
-		mesh_t *m = ctx.meshes + i;
+		mesh_t *m = meshes + i;
 		FREE (m->positions);
 		FREE (m->normals);
 		FREE (m->tangents);
@@ -2198,19 +2237,68 @@ int ExportHSDModel (const hsd_t *hsd, ccp out_glb_file)
 		FREE (m->morph_targets);
 		FREE (m->morph_weights);
 	}
-	FREE (ctx.meshes);
-	FREE (ctx.joints);
-	for (uint i = 0; i < ctx.n_node_influences; i++)
-		FREE (ctx.node_influences[i].weights);
-	FREE (ctx.node_influences);
-	FREE (ctx.materials);
-	FREE (ctx.jobj_map);
-	FREE (ctx.mat_slots);
+	FREE (meshes);
+}
+
+static void hsd_free_influences (node_influence_t *inf, uint n)
+{
+	for (uint i = 0; i < n; i++)
+		FREE (inf[i].weights);
+	FREE (inf);
+}
+
+static void hsd_free_ctx (hsd_model_ctx_t *ctx, hsd_tex_t *tex)
+{
+	hsd_free_meshes (ctx->meshes, ctx->n_meshes);
+	FREE (ctx->joints);
+	hsd_free_influences (ctx->node_influences, ctx->n_node_influences);
+	FREE (ctx->materials);
+	FREE (ctx->jobj_map);
+	FREE (ctx->mat_slots);
 	FREE (tex);
-	for (uint i = 0; i < ctx.n_tex_names; i++)
-		FREE (ctx.tex_names[i]);
-	FREE (ctx.tex_names);
-	FREE (ctx.tex_lookup);
+	for (uint i = 0; i < ctx->n_tex_names; i++)
+		FREE (ctx->tex_names[i]);
+	FREE (ctx->tex_names);
+	FREE (ctx->tex_lookup);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+int ExportHSDModel (const hsd_t *hsd, ccp out_glb_file)
+{
+	if (!hsd || !hsd->data || !out_glb_file)
+		return -1;
+
+	char base[80];
+	ccp slash = strrchr (out_glb_file, '/');
+	StringCopyS (base, sizeof (base), slash ? slash + 1 : out_glb_file);
+	char *dot = strrchr (base, '.');
+	if (dot)
+		*dot = 0;
+
+	hsd_model_ctx_t ctx;
+	hsd_tex_t *tex = 0;
+	hsd_collect_model (hsd, base, false, &ctx, &tex);
+
+	int written = -1;
+	if (ctx.n_meshes)
+	{
+		model_t model;
+		memset (&model, 0, sizeof (model));
+		model.meshes = ctx.meshes;
+		model.num_meshes = ctx.n_meshes;
+		model.joints = ctx.joints;
+		model.num_joints = ctx.n_joints;
+		model.materials = ctx.materials;
+		model.num_materials = ctx.n_materials;
+		model.node_influences = ctx.node_influences;
+		model.num_node_influences = ctx.n_node_influences;
+		hsd_bind_model (&model);
+
+		written = (ExportModelToGLB (&model, out_glb_file)) == 0 ? (int)ctx.n_meshes : -1;
+	}
+
+	hsd_free_ctx (&ctx, tex);
 	return written;
 }
 
@@ -2224,6 +2312,242 @@ int ExportHSDModelFromData (const u8 *data, uint size, ccp out_glb_file)
 	const int stat = ExportHSDModel (&hsd, out_glb_file);
 	ResetHSD (&hsd);
 	return stat;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////			   archive bundles		///////////////
+///////////////////////////////////////////////////////////////////////////////
+
+// Some titles (Doraemon, GameCube) ship one file holding many complete HSD
+// archives back to back. Each has its own header, whose file-size field is
+// the true (unpadded) length of that archive; the gap up to the next one is
+// filled with 0xCD bytes.
+
+// Length of the archive at 'off', or 0 when none starts there.
+static uint hsd_bundle_span (const u8 *data, uint size, uint off)
+{
+	if (off + 0x40 > size)
+		return 0;
+	const uint fsize = be32 (data + off);
+	if (fsize < 0x40 || fsize > size - off)
+		return 0;
+	return check_hsd_header (data + off, fsize, 0, 0, 0, 0) ? fsize : 0;
+}
+
+static uint hsd_bundle_next (const u8 *data, uint size, uint off, uint fsize)
+{
+	off += fsize;
+	while (off < size && data[off] == 0xCD)
+		off++;
+	return off;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+bool IsHSDBundle (const u8 *data, uint size)
+{
+	if (!data || size < 0x40)
+		return false;
+
+	uint off = 0, n = 0;
+	while (off < size)
+	{
+		const uint fsize = hsd_bundle_span (data, size, off);
+		if (!fsize)
+			return false;
+		n++;
+		off = hsd_bundle_next (data, size, off, fsize);
+	}
+	// a single archive that fills the file is a plain HSD, not a bundle
+	return n > 1 || be32 (data) < size;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+uint CountHSDBundle (const u8 *data, uint size)
+{
+	uint off = 0, n = 0;
+	while (off < size)
+	{
+		const uint fsize = hsd_bundle_span (data, size, off);
+		if (!fsize)
+			break;
+		n++;
+		off = hsd_bundle_next (data, size, off, fsize);
+	}
+	return n;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+int SplitHSDBundle (const u8 *data, uint size, ccp dest_dir, ccp basename)
+{
+	if (!data || !dest_dir)
+		return -1;
+
+	char dir[PATH_MAX];
+	StringCopyS (dir, sizeof (dir), dest_dir);
+	CreatePath (dir, true);
+
+	uint off = 0, n = 0;
+	while (off < size)
+	{
+		const uint fsize = hsd_bundle_span (data, size, off);
+		if (!fsize)
+			break;
+
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/%s_%03u.dat", dir, basename, n);
+		FILE *f = fopen (path, "wb");
+		if (!f)
+			return -1;
+		const bool ok = fwrite (data + off, 1, fsize, f) == fsize;
+		if (fclose (f) || !ok)
+			return -1;
+
+		n++;
+		off = hsd_bundle_next (data, size, off, fsize);
+	}
+	return (int)n;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+// Move the collected data of one archive into the merged model, re-basing
+// every joint, material and skin-node index by what is already there.
+static void hsd_merge_ctx (model_t *acc, hsd_model_ctx_t *ctx, uint arc)
+{
+	const size_t jb = acc->num_joints, mb = acc->num_materials, nb = acc->num_node_influences;
+
+	acc->joints = REALLOC (acc->joints, (jb + ctx->n_joints) * sizeof (*acc->joints));
+	for (uint i = 0; i < ctx->n_joints; i++)
+	{
+		joint_t *j = acc->joints + jb + i;
+		*j = ctx->joints[i];
+		if (j->parent_idx >= 0)
+			j->parent_idx += (int)jb;
+		char name[64];
+		snprintf (name, sizeof (name), "a%03u_%.50s", arc, j->name);
+		StringCopyS (j->name, sizeof (j->name), name);
+	}
+	acc->num_joints += ctx->n_joints;
+
+	acc->materials = REALLOC (acc->materials, (mb + ctx->n_materials) * sizeof (*acc->materials));
+	if (ctx->n_materials)
+		memcpy (acc->materials + mb, ctx->materials, ctx->n_materials * sizeof (*acc->materials));
+	acc->num_materials += ctx->n_materials;
+
+	acc->node_influences = REALLOC (
+		acc->node_influences, (nb + ctx->n_node_influences) * sizeof (*acc->node_influences));
+	for (uint i = 0; i < ctx->n_node_influences; i++)
+	{
+		node_influence_t *ni = acc->node_influences + nb + i;
+		*ni = ctx->node_influences[i];
+		for (size_t w = 0; w < ni->num_weights; w++)
+			if (ni->weights[w].bone_idx >= 0)
+				ni->weights[w].bone_idx += (int)jb;
+	}
+	acc->num_node_influences += ctx->n_node_influences;
+
+	const size_t sb = acc->num_meshes;
+	acc->meshes = REALLOC (acc->meshes, (sb + ctx->n_meshes) * sizeof (*acc->meshes));
+	for (uint i = 0; i < ctx->n_meshes; i++)
+	{
+		mesh_t *m = acc->meshes + sb + i;
+		*m = ctx->meshes[i];
+		if (m->material_idx >= 0)
+			m->material_idx += (int)mb;
+		for (size_t t = 0; t < m->num_vertices / 3 && m->triangle_materials; t++)
+			if (m->triangle_materials[t] >= 0)
+				m->triangle_materials[t] += (int)mb;
+		for (size_t p = 0; p < m->num_positions && m->position_node; p++)
+			if (m->position_node[p] >= 0)
+				m->position_node[p] += (int)nb;
+	}
+	acc->num_meshes += ctx->n_meshes;
+
+	// ownership moved
+	FREE (ctx->joints), ctx->joints = 0, ctx->n_joints = 0;
+	FREE (ctx->materials), ctx->materials = 0, ctx->n_materials = 0;
+	FREE (ctx->node_influences), ctx->node_influences = 0, ctx->n_node_influences = 0;
+	FREE (ctx->meshes), ctx->meshes = 0, ctx->n_meshes = 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+int ExportHSDBundleModel (const u8 *data, uint size, ccp out_glb_file)
+{
+	if (!data || !out_glb_file)
+		return -1;
+
+	char dir[PATH_MAX];
+	StringCopyS (dir, sizeof (dir), out_glb_file);
+	char *dslash = strrchr (dir, '/');
+	if (dslash)
+		*dslash = 0;
+	else
+		StringCopyS (dir, sizeof (dir), ".");
+
+	char base[80];
+	ccp slash = strrchr (out_glb_file, '/');
+	StringCopyS (base, sizeof (base), slash ? slash + 1 : out_glb_file);
+	char *dot = strrchr (base, '.');
+	if (dot)
+		*dot = 0;
+
+	model_t acc;
+	memset (&acc, 0, sizeof (acc));
+
+	uint off = 0, arc = 0;
+	while (off < size)
+	{
+		const uint fsize = hsd_bundle_span (data, size, off);
+		if (!fsize)
+			break;
+
+		hsd_t hsd;
+		if (ScanHSD (&hsd, data + off, fsize))
+		{
+			char prefix[96];
+			snprintf (prefix, sizeof (prefix), "%s_%03u", base, arc);
+			hsd_export_textures (&hsd, dir, prefix, true);
+
+			hsd_model_ctx_t ctx;
+			hsd_tex_t *tex = 0;
+			hsd_collect_model (&hsd, prefix, true, &ctx, &tex);
+			if (ctx.n_meshes)
+			{
+				model_t part;
+				memset (&part, 0, sizeof (part));
+				part.meshes = ctx.meshes;
+				part.num_meshes = ctx.n_meshes;
+				part.joints = ctx.joints;
+				part.num_joints = ctx.n_joints;
+				part.materials = ctx.materials;
+				part.num_materials = ctx.n_materials;
+				part.node_influences = ctx.node_influences;
+				part.num_node_influences = ctx.n_node_influences;
+				hsd_bind_model (&part);
+				hsd_merge_ctx (&acc, &ctx, arc);
+			}
+			hsd_free_ctx (&ctx, tex);
+			ResetHSD (&hsd);
+		}
+		arc++;
+		off = hsd_bundle_next (data, size, off, fsize);
+	}
+
+	int written = -1;
+	if (acc.num_meshes)
+		written = ExportModelToGLB (&acc, out_glb_file) == 0 ? (int)acc.num_meshes : -1;
+	else
+		written = 0;
+
+	hsd_free_meshes (acc.meshes, (uint)acc.num_meshes);
+	FREE (acc.joints);
+	FREE (acc.materials);
+	hsd_free_influences (acc.node_influences, (uint)acc.num_node_influences);
+	return written;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

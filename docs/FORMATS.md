@@ -70,7 +70,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **GFA** | 3DS / Archive | ✅ | ✅ | GFAC archive |
 | **GTX** | Wii U / Texture | ✅ | ✅ | Wii U GX2 texture container |
 | **GSH** | Wii U / Shader | ✅ | ✅ | Wii U Latte GPU shader container |
-| **HSD (.dat)** | GameCube / Model | ✅ | ✅ | HAL Laboratory sysdolphin object graph |
+| **HSD (.dat)** | GameCube / Model | ✅ | ✅ | HAL Laboratory sysdolphin object graph; also archive bundles (many archives in one file, `scene_data` roots, e.g. Doraemon `map*_dat.mdl`) merged into one GLB |
 | **HSF** | GameCube / Wii / Model | ✅ | ✅ | Hudson Mario Party 3D model |
 | **Hyrule Warriors Legends** | 3DS / Archive | ✅ | ✅ | Split `.idx` / `.bin` archive pair |
 | **BFSHA** | Wii U / Switch / Shader Archive | ✅ | ❌ | NintendoWare shader archive (FSHA): per-model option choice values, sampler extras, uniform-block type names; embedded `.bnsh` sidecars |

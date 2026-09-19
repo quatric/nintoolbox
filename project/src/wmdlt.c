@@ -1154,7 +1154,9 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		const bool is_wwmodel_in = IsWWModel (raw.data, raw.data_size);
 		const bool is_bnfm_in
 			= is_ext (arg, ".bnfm") || (raw.data_size >= 4 && !memcmp (raw.data, "BNFM", 4));
-		const bool is_hsd_in = is_ext (arg, ".dat")
+		const bool is_hsdbundle_in
+			= raw.data_size >= 0x40 && IsHSDBundle (raw.data, (uint)raw.data_size);
+		const bool is_hsd_in = is_hsdbundle_in || is_ext (arg, ".dat")
 			|| (raw.data_size >= 0x40 && IsHSD (raw.data, (uint)raw.data_size));
 		const bool is_msh_in = is_ext (arg, ".msh")
 			|| (raw.data_size >= 4
@@ -1390,8 +1392,14 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				if (dot)
 					*dot = 0;
 
-				ExportHSDTexturesFromData (raw.data, (uint)raw.data_size, dest_dir, base);
-				int nm = ExportHSDModelFromData (raw.data, (uint)raw.data_size, dest);
+				int nm;
+				if (is_hsdbundle_in)
+					nm = ExportHSDBundleModel (raw.data, (uint)raw.data_size, dest);
+				else
+				{
+					ExportHSDTexturesFromData (raw.data, (uint)raw.data_size, dest_dir, base);
+					nm = ExportHSDModelFromData (raw.data, (uint)raw.data_size, dest);
+				}
 				if (nm < 0)
 				{
 					ERROR0 (ERR_INVALID_DATA, "Failed to decode HSD: %s\n", arg);

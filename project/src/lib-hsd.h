@@ -135,6 +135,32 @@ int ExportHSDModel (const hsd_t *hsd, // valid, scanned HSD file
 // Convenience wrapper: scan 'data' and export its model.
 int ExportHSDModelFromData (const u8 *data, uint size, ccp out_glb_file);
 
+//
+///////////////////////////////////////////////////////////////////////////////
+///////////////			   archive bundles		///////////////
+///////////////////////////////////////////////////////////////////////////////
+//
+// One file holding several complete HSD archives back to back (each with its
+// own header; 0xCD fill between them), as shipped by Doraemon on GameCube
+// (map1_dat.mdl, ...). Every archive's root is "scene_data", a list of
+// JObjDesc entries whose first field is the root JOBJ.
+
+// True if the whole file is a chain of two or more (or one padded) archives.
+bool IsHSDBundle (const u8 *data, uint size);
+
+// Number of archives in the chain.
+uint CountHSDBundle (const u8 *data, uint size);
+
+// Write each archive as "<basename>_NNN.dat" into 'dest_dir'. Returns the
+// number written, or -1 on error.
+int SplitHSDBundle (const u8 *data, uint size, ccp dest_dir, ccp basename);
+
+// Export the models of all archives as ONE glTF/GLB (joints are prefixed
+// "aNNN_" per archive) and stage each archive's textures next to it as
+// "<glb-base>_NNN.texMMM.png". Returns the number of meshes, 0 if there were
+// none, or -1 on error.
+int ExportHSDBundleModel (const u8 *data, uint size, ccp out_glb_file);
+
 // Encode a portable static HSD (sysdolphin .dat) model file. Geometry,
 // normals, UVs, vertex colors, materials and the joint/object hierarchy
 // are written in sysdolphin's serialized object graph layout.

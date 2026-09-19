@@ -5429,6 +5429,27 @@ t_hsd_tybox(){
 }
 t_hsd_tybox
 
+t_hsd_bundle(){
+  # Several complete HSD archives back to back with 0xCD fill (Doraemon GC
+  # map*_dat.mdl): two copies of the TyBox fixture must merge into ONE glb
+  # holding both models (2 x 5 meshes), textures embedded.
+  local dat="$PWD_PROJECT/../tests/fixtures/TyBox.dat"
+  [ -f "$dat" ] || { sk "HSD bundle model export (no fixture)"; return; }
+  local d=/tmp/_r_hsd_bundle; rm -rf $d; mkdir -p $d
+  python3 - "$dat" "$d/box2.mdl" <<'PY'
+import sys
+a = open(sys.argv[1], "rb").read()
+open(sys.argv[2], "wb").write(a + b"\xcd" * (-len(a) % 32) + a)
+PY
+  "$B/wszst" XX "$d/box2.mdl" --dest "$d" --overwrite >$d/log 2>&1
+  local glb="$d/box2.mdl.glb"
+  grep -q "2 archives, 10 meshes" $d/log && [ -s "$glb" ] \
+    && python3 "$PWD_PROJECT/../tests/validate-glb.py" "$glb" >$d/v.log 2>&1 \
+    && ok "HSD archive bundle -> one GLB (2 archives, 10 meshes)" \
+    || no "HSD archive bundle -> GLB" "$d/log"
+}
+t_hsd_bundle
+
 t_hsd_plmr(){
   # PlMr.dat: Melee Mr. Game & Watch — 7-byte vertex format (matrix indices
   # + INDEX16 POS + INDEX16 NRM), 8 DOBJs, 20 POBJs, 17754 total triangles.

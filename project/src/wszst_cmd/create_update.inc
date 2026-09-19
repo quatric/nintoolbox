@@ -11720,7 +11720,9 @@ static void hal_texture_dest (char *dest, uint dest_size, ccp arg)
 
 static enumError extract_hsd_textures (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext (arg, ".dat"))
+	// ".mdl" only for HSD archive bundles (Doraemon GC map*_dat.mdl): many
+	// complete archives in one file, checked structurally below.
+	if (!is_ext (arg, ".dat") && !is_ext (arg, ".mdl"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;
@@ -11728,7 +11730,9 @@ static enumError extract_hsd_textures (ccp arg, ccp basedir, uint depth)
 	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
 	if (err)
 		return ERR_NOTHING_TO_DO;
-	if (raw_size < 0x40 || raw_size > 0x40000000 || !IsHSD (raw, (uint)raw_size))
+	const bool is_bundle = raw_size >= 0x40 && raw_size <= 0x40000000
+		&& IsHSDBundle (raw, (uint)raw_size);
+	if (raw_size < 0x40 || raw_size > 0x40000000 || (!is_bundle && !IsHSD (raw, (uint)raw_size)))
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
@@ -11739,7 +11743,19 @@ static enumError extract_hsd_textures (ccp arg, ccp basedir, uint depth)
 	ccp base = strrchr (arg, '/');
 	base = base ? base + 1 : arg;
 
-	if (!testmode)
+	if (is_bundle && !testmode)
+	{
+		// All archives merge into one <name>.glb; each archive's textures
+		// land beside it as <name>_NNN.texMMM.png.
+		char glb_path[PATH_MAX];
+		snprintf (glb_path, sizeof (glb_path), "%s/%s.glb", dest, base);
+		CreatePath (glb_path, false);
+		const int nm = ExportHSDBundleModel (raw, (uint)raw_size, glb_path);
+		if (nm > 0 && verbose >= 0)
+			fprintf (stdlog, "  - HSD bundle model (%u archives, %d mesh%s) extracted from %s -> %s\n",
+				CountHSDBundle (raw, (uint)raw_size), nm, nm == 1 ? "" : "es", arg, glb_path);
+	}
+	else if (!testmode)
 	{
 		const int n = ExportHSDTexturesFromData (raw, (uint)raw_size, dest, base);
 		if (n > 0 && verbose >= 0)

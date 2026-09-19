@@ -160,6 +160,28 @@ static nfmt_info_t make_info (nfmt_type_t type, bool be, bool compressed, u32 si
 	return inf;
 }
 
+// Several complete HSD archives back to back with 0xCD fill between them
+// (Doraemon, GameCube). Header-only walk; lib-hsd.c has the full probe.
+static bool hsd_bundle_chain (const u8 *d, size_t size)
+{
+	size_t off = 0;
+	uint n = 0;
+	while (off < size)
+	{
+		if (size - off < 0x20)
+			return false;
+		const u32 fs = rd_be32 (d + off), ds = rd_be32 (d + off + 4);
+		const u32 roots = rd_be32 (d + off + 12);
+		if (fs < 0x40 || fs > size - off || ds == 0 || ds > fs || roots == 0 || roots >= 0x10000)
+			return false;
+		n++;
+		off += fs;
+		while (off < size && d[off] == 0xCD)
+			off++;
+	}
+	return n > 1;
+}
+
 nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 {
 	const u8 *d = vdata;
@@ -278,7 +300,8 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			if (fs >= 0x20 && ds > 0 && ds <= fs && (roots > 0 || refs > 0) && roots < 0x10000
 				&& refs < 0x10000
 				&& (fs == size
-					|| (ext && (!strcasecmp (ext, ".dat") || !strcasecmp (ext, ".sys")))))
+					|| (ext && (!strcasecmp (ext, ".dat") || !strcasecmp (ext, ".sys")))
+					|| hsd_bundle_chain (d, size)))
 				return make_info (NFMT_HSD, true, false, 0);
 		}
 		if (size >= 12 && !memcmp (d, "BNFM", 4))
