@@ -1212,7 +1212,7 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 			if (!testmode)
 			{
 				model_t *model = is_nlg_model_in
-					? ParseNLGModel (raw.data, raw.data_size)
+					? ParseNLGModel (raw.data, raw.data_size, 0)
 					: ParseNLGSkeleton (raw.data, raw.data_size);
 				if (model)
 				{

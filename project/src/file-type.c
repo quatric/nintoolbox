@@ -1787,6 +1787,71 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Wario World static/rigged/map model (GameCube)" },
 
+	// FF_GFMODEL = 331 (Game Freak 3DS model, SPICA GFModel)
+	{ FF_GFMODEL, FF_GFMODEL, 0, "GFMODEL", ".gfmodel", ".glb", ".gfmodel",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 0x17, 0x21, 0x12, 0x15 }, // 0x15122117 LE
+		0, MinusString, MinusString,
+		"Game Freak 3DS model (.gfmodel / 0x15122117, Pokemon X/Y/ORAS)" },
+
+	// FF_GFTEX = 332 (Game Freak 3DS texture, SPICA GFTexture)
+	{ FF_GFTEX, FF_GFTEX, 0, "GFTEX", ".gftex", ".png", ".gftex",
+		FFT_VALID | FFT_GRAPHIC | FFT_CUT | FFT_DECODE, 4, { 0x13, 0x12, 0x04, 0x15 }, // 0x15041213 LE
+		0, MinusString, MinusString, "Game Freak 3DS texture (.gftex / 0x15041213)" },
+
+	// FF_GFMOT = 333 (Game Freak 3DS motion, SPICA GFMotion)
+	{ FF_GFMOT, FF_GFMOT, 0, "GFMOT", ".gfmot", ".txt", ".gfmot",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 0x00, 0x00, 0x06, 0x00 }, // 0x00060000 LE
+		0, MinusString, MinusString, "Game Freak 3DS motion (.gfmot / 0x00060000)" },
+
+	// FF_GFMPACK = 334 (Game Freak model pack, SPICA GFModelPack)
+	{ FF_GFMPACK, FF_GFMPACK, 0, "GFMPACK", ".gfpack", ".szs", ".gfpack",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
+		{ 0x00, 0x00, 0x01, 0x00 }, // 0x00010000 LE
+		0, MinusString, MinusString, "Game Freak model pack (.gfpack / 0x00010000)" },
+
+	// FF_GFPKG = 335 (Game Freak Gen6/Gen7 package, SPICA GFPackage)
+	// No magic: 2 uppercase ASCII bytes + offset table (see IsGFPackage).
+	{ FF_GFPKG, FF_GFPKG, 0, "GFPKG", ".gfpkg", ".szs", ".gfpkg",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0, { 0 }, 0, MinusString,
+		MinusString, "Game Freak Gen6/Gen7 package (.gfpkg)" },
+
+	// FF_GFLX = 336 (Game Freak GFLXPack archive, SPICA GFLXPack)
+	{ FF_GFLX, FF_GFLX, 0, "GFLX", ".gflxpack", ".szs", ".gflxpack",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 8,
+		{ 'G', 'F', 'L', 'X', 'P', 'A', 'C', 'K' }, 0, MinusString, MinusString,
+		"Game Freak GFLXPack archive (.gflxpack / GFLXPACK)" },
+
+	// FF_GF1MOT = 337 (Game Freak XY/ORAS motion pack, SPICA GF1MotionPack)
+	// No magic: validated offset table (see IsGF1Motion).
+	{ FF_GF1MOT, FF_GF1MOT, 0, "GF1MOT", ".gf1mot", ".txt", ".gf1mot",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Game Freak XY/ORAS motion pack (.gf1mot)" },
+
+	// FF_MTMOD = 338 (Capcom MT Framework Mobile model, SPICA MTModel)
+	{ FF_MTMOD, FF_MTMOD, 0, "MTMOD", ".mtmod", ".glb", ".mod",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 'M', 'O', 'D', 0 }, 0, MinusString, MinusString,
+		"Capcom MT Framework Mobile model (.mod / MOD\\0, 3DS)" },
+
+	// FF_MTTEX = 339 (Capcom MT Framework Mobile texture, SPICA MTTexture)
+	{ FF_MTTEX, FF_MTTEX, 0, "MTTEX", ".mttex", ".png", ".tex",
+		FFT_VALID | FFT_GRAPHIC | FFT_CUT | FFT_DECODE, 4, { 'T', 'E', 'X', 0 }, 0, MinusString,
+		MinusString, "Capcom MT Framework Mobile texture (.tex / TEX\\0, 3DS)" },
+
+	// FF_MTMRL = 340 (Capcom MT Framework Mobile materials, SPICA MTMaterials)
+	{ FF_MTMRL, FF_MTMRL, 0, "MTMRL", ".mrl", ".txt", ".mrl",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 'M', 'R', 'L', 0 }, 0, MinusString, MinusString,
+		"Capcom MT Framework Mobile materials (.mrl / MRL)" },
+
+	// FF_MTMFX = 341 (Capcom MT Framework Mobile shader effects, SPICA MTShaderEffects)
+	{ FF_MTMFX, FF_MTMFX, 0, "MTMFX", ".mfx", ".txt", ".mfx",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 'M', 'F', 'X', 0 }, 0, MinusString, MinusString,
+		"Capcom MT Framework Mobile shader effects (.mfx / MFX)" },
+
+	// FF_MBN = 342 (ModelBinary companion buffers, SPICA MBn)
+	// No magic: validated descriptor chain (see IsMBN).
+	{ FF_MBN, FF_MBN, 0, "MBN", ".mbn", ".glb", ".mbn", FFT_VALID | FFT_CUT | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString, "ModelBinary companion buffers (.mbn)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -1997,6 +2062,18 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_LMSLK, "LMSLK", 0, 0xe05 },
 	{ FF_LMSLS, "LMSLS", 0, 0xe05 },
 	{ FF_WWMODEL, "WWMODEL", 0, 0x3001 },
+	{ FF_GFMODEL, "GFMODEL", "GFMODEL", 0x3001 },
+	{ FF_GFTEX, "GFTEX", "GFTEX", 0x3809 },
+	{ FF_GFMOT, "GFMOT", "GFMOT", 0xe05 },
+	{ FF_GFMPACK, "GFMPACK", "GFMPACK", 0xe05 },
+	{ FF_GFPKG, "GFPKG", "GFPKG", 0xe05 },
+	{ FF_GFLX, "GFLX", "GFLXPACK", 0xe05 },
+	{ FF_GF1MOT, "GF1MOT", "GF1MOT", 0xe05 },
+	{ FF_MTMOD, "MTMOD", "MTMOD", 0x3001 },
+	{ FF_MTTEX, "MTTEX", "MTTEX", 0x3809 },
+	{ FF_MTMRL, "MTMRL", "MTMRL", 0xe05 },
+	{ FF_MTMFX, "MTMFX", "MTMFX", 0xe05 },
+	{ FF_MBN, "MBN", 0, 0x3001 },
 
 	{ 0, 0, 0, 0 }
 };

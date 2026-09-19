@@ -110,9 +110,17 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 	const u8 *data_raw, size_t data_raw_size, nlg_variant_t variant,
 	bool is_compressed);
 
+// Known texture path hashes, for material diffuse resolution.
+typedef struct
+{
+	const u32 *hash;
+	uint n;
+} nlg_texset_t;
+
 // Standalone FEDM/FEDS/FEDT containers, versions 1 (Federation Force),
-// 2 (LM2) and 3 (LM3). Version 1 delegates to lib-fedforce.c.
-model_t *ParseNLGModel (const u8 *data, size_t size);
+// 2 (LM2) and 3 (LM3). Version 1 delegates to lib-fedforce.c. TS may be
+// NULL (standalone decode: materials keep names but bind no PNG).
+model_t *ParseNLGModel (const u8 *data, size_t size, const nlg_texset_t *ts);
 model_t *ParseNLGSkeleton (const u8 *data, size_t size);
 enumError DecodeNLGTexture (u8 **dest, uint *width, uint *height,
 	const u8 *data, size_t size);

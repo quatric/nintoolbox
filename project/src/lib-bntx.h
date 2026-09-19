@@ -143,6 +143,29 @@ void DumpStructureBNTX (FILE *out, const bntx_t *bntx, int indent);
 enumError EncodeBNTX_RGBA (
 	u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height, ccp name);
 
+// Block-preserving DDS -> BNTX encoder (SourceToBinaryCmd `-bntx` parity).
+//
+// Converts a DDS file's native blocks (BC1-BC7, RGBA8, including mipmaps) to
+// a Switch BNTX container without decoding to RGBA8 first, swizzling each
+// mip into the Tegra block-linear layout. Returns ERR_NOTHING_TO_DO when the
+// DDS variant isn't suitable for the direct path (uncompressed pixel formats
+// outside RGBA8, volume/array textures, ...); the caller should then fall
+// back to decode-then-EncodeBNTX_RGBA.
+enumError EncodeBNTX_FromDDS (
+	u8 **dest, uint *dest_size, const u8 *dds, uint dds_size, ccp name);
+
+// Multi-texture variant (SourceToBinaryCmd `-bntx` without `--split`):
+// combines N DDS sources (each with its own native blocks, format and mip
+// chain) into a single BNTX container with N textures. DDS_DATAS[i] points
+// to the i-th DDS file image of DDS_SIZES[i] bytes, NAMES[i] gives its
+// texture name (NULL/empty -> "textureN"). Unsupported DDS variants decline
+// the whole batch with ERR_NOTHING_TO_DO so the caller can fall back to
+// per-file RGBA8 encoding; truncated payloads fail with ERR_INVALID_DATA.
+// Duplicate texture names are made unique by appending _1, _2, ... like the
+// reference tool's RenameDuplicateString.
+enumError EncodeBNTX_FromDDSList (u8 **dest, uint *dest_size, const u8 **dds_datas,
+	const uint *dds_sizes, ccp const *names, uint n_tex);
+
 // Single-block BC1..BC5 decoders (16 RGBA8 pixels out). Exposed so other
 // containers using the same standard block-compression formats (e.g. BFLIM,
 // see DecodeFLIM_RGBA in lib-nintendo.c) can reuse them instead of

@@ -50,7 +50,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **BRRES (MDL0, TEX0)** | Wii / Graphics | ✅ | ✅ | NW4R models, textures, animations |
 | **BRSAR** | Wii / Audio Archive | ✅ | ✅ | NW4R sound archive |
 | **BRSTM / BFSTM / BCSTM** | Wii/Wii U/3DS / Audio Stream | ✅ | ✅ | Multichannel ADPCM/PCM streams |
-| **BYAML / BYML** | Wii U / Switch / Data | ✅ | ✅ | Binary YAML format; Yaz0-wrapped BotW containers (`.sbyml`, `.smubin`, …) decode transparently and re-compress on CREATE; `wszst BYMLFIND` searches keys/values |
+| **BYAML / BYML** | Wii U / Switch / Data | ✅ | ✅ | Binary YAML format (versions 1–7, big- and little-endian, string/path/hash tables incl. reloc maps); path tables ride any version, not just v1; Yaz0-wrapped BotW containers (`.sbyml`, `.smubin`, …) decode transparently and re-compress on CREATE; encoder honors `.be`/`.vN` dest markers and `# byml version=N endian=..` headers; `wszst BYMLFIND` searches keys/values |
 | **CA01 / SA01** | 3DS / Wii U / Archive | ✅ | ✅ | Mii Maker & amiibo settings flat archives |
 | **CCF** | Wii / Switch / Archive | ✅ | ✅ | Virtual Console container |
 | **CGFX** | 3DS / Model | ✅ | ✅ | CTR NW4C model container |

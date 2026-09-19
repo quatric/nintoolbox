@@ -1033,13 +1033,14 @@ enumError DecodeBYML_YAML (FILE *out, const u8 *data, size_t size)
 	u32 root_node_off = byml_u32 (data + 12, is_le);
 	bool supports_paths = false;
 
-	if (version == 1 && size >= 20)
+	if (size >= 20)
 	{
 		u32 third = byml_u32 (data + 12, is_le);
 		u32 fourth = byml_u32 (data + 16, is_le);
 		if ((third == 0 || (third + 4 <= size && data[third] == BYML_T_PATH_ARRAY))
 			&& fourth + 4 <= size && (data[fourth] == BYML_T_ARRAY || data[fourth] == BYML_T_MAP
-				|| data[fourth] == BYML_T_HASHMAP32 || data[fourth] == BYML_T_HASHMAP64))
+				|| data[fourth] == BYML_T_HASHMAP32 || data[fourth] == BYML_T_HASHMAP64
+				|| data[fourth] == BYML_T_RELOC_HASHMAP32 || data[fourth] == BYML_T_RELOC_HASHMAP64))
 		{
 			supports_paths = true;
 			path_table_off = third;
@@ -1284,13 +1285,14 @@ enumError DecodeBYML_XML (FILE *out, const u8 *data, size_t size)
 	u32 root_node_off = byml_u32 (data + 12, is_le);
 	bool supports_paths = false;
 
-	if (version == 1 && size >= 20)
+	if (size >= 20)
 	{
 		u32 third = byml_u32 (data + 12, is_le);
 		u32 fourth = byml_u32 (data + 16, is_le);
 		if ((third == 0 || (third + 4 <= size && data[third] == BYML_T_PATH_ARRAY))
 			&& fourth + 4 <= size && (data[fourth] == BYML_T_ARRAY || data[fourth] == BYML_T_MAP
-				|| data[fourth] == BYML_T_HASHMAP32 || data[fourth] == BYML_T_HASHMAP64))
+				|| data[fourth] == BYML_T_HASHMAP32 || data[fourth] == BYML_T_HASHMAP64
+				|| data[fourth] == BYML_T_RELOC_HASHMAP32 || data[fourth] == BYML_T_RELOC_HASHMAP64))
 		{
 			supports_paths = true;
 			path_table_off = third;
@@ -1523,13 +1525,14 @@ enumError DecodeBYML_JSON (FILE *out, const u8 *data, size_t size)
 	u32 root_node_off = byml_u32 (data + 12, is_le);
 	bool supports_paths = false;
 
-	if (version == 1 && size >= 20)
+	if (size >= 20)
 	{
 		u32 third = byml_u32 (data + 12, is_le);
 		u32 fourth = byml_u32 (data + 16, is_le);
 		if ((third == 0 || (third + 4 <= size && data[third] == BYML_T_PATH_ARRAY))
 			&& fourth + 4 <= size && (data[fourth] == BYML_T_ARRAY || data[fourth] == BYML_T_MAP
-				|| data[fourth] == BYML_T_HASHMAP32 || data[fourth] == BYML_T_HASHMAP64))
+				|| data[fourth] == BYML_T_HASHMAP32 || data[fourth] == BYML_T_HASHMAP64
+				|| data[fourth] == BYML_T_RELOC_HASHMAP32 || data[fourth] == BYML_T_RELOC_HASHMAP64))
 		{
 			supports_paths = true;
 			path_table_off = third;
@@ -2203,7 +2206,33 @@ static enumError byml_write_binary (
 
 	collect_symbols (root, &keys, &strs, &paths);
 
-	if (paths.count > 0)
+	// NintenTools.Byaml's supportPaths flag is orthogonal to the version:
+	// any version may carry the 20-byte header with a path-table slot.
+	// v1 always carries the slot (even when empty, as in MK8 files), and an
+	// explicit version is preserved instead of being forced back to v1.
+	u16 out_ver = version ? version : (support_paths || paths.count > 0 ? 1 : 2);
+	if (out_ver < 1 || out_ver > 7)
+	{
+		str_list_free (&keys);
+		str_list_free (&strs);
+		FREE (paths.paths);
+		return ERR_SEMANTIC;
+	}
+
+	// Like NintenTools.Byaml, only containers may be the root. Inline
+	// (primitive) roots have no out-of-line body, so there is nothing the
+	// header offset could point at; fail fast instead of writing garbage.
+	if (root && root->type != BYML_T_ARRAY && root->type != BYML_T_MAP
+		&& root->type != BYML_T_HASHMAP32 && root->type != BYML_T_HASHMAP64
+		&& root->type != BYML_T_RELOC_HASHMAP32 && root->type != BYML_T_RELOC_HASHMAP64)
+	{
+		str_list_free (&keys);
+		str_list_free (&strs);
+		FREE (paths.paths);
+		return ERR_SEMANTIC;
+	}
+
+	if (out_ver == 1 || paths.count > 0)
 		support_paths = true;
 
 	if (keys.count > 1)
@@ -2214,7 +2243,7 @@ static enumError byml_write_binary (
 	byml_writer_t w;
 	bw_init (&w, is_le);
 
-	uint header_size = (support_paths && version == 1) ? 20 : 16;
+	uint header_size = support_paths ? 20 : 16;
 	bw_append (&w, 0, header_size);
 
 	uint key_table_off = write_byml_str_table (&w, &keys);
@@ -2227,14 +2256,13 @@ static enumError byml_write_binary (
 
 	w.buf[0] = is_le ? 'Y' : 'B';
 	w.buf[1] = is_le ? 'B' : 'Y';
-	u16 out_ver = version ? version : (support_paths ? 1 : 2);
 
 	if (is_le)
 	{
 		wr_le16 (w.buf + 2, out_ver);
 		wr_le32 (w.buf + 4, key_table_off);
 		wr_le32 (w.buf + 8, str_table_off);
-		if (support_paths && out_ver == 1)
+		if (support_paths)
 		{
 			wr_le32 (w.buf + 12, path_table_off);
 			wr_le32 (w.buf + 16, root_val);
@@ -2249,7 +2277,7 @@ static enumError byml_write_binary (
 		wr_be16 (w.buf + 2, out_ver);
 		wr_be32 (w.buf + 4, key_table_off);
 		wr_be32 (w.buf + 8, str_table_off);
-		if (support_paths && out_ver == 1)
+		if (support_paths)
 		{
 			wr_be32 (w.buf + 12, path_table_off);
 			wr_be32 (w.buf + 16, root_val);
@@ -2815,6 +2843,169 @@ enumError EncodeBYML_XML (
 	return err;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// Explicit save settings (cf. NintenTools.Byaml's ByamlFile.Save ByteOrder
+// argument and ByamlSerializerSettings{ByteOrder, Version}).
+//
+// The XML encoding already carries both as yamlconv:* attributes. YAML text
+// has no standard header for them, so they can additionally be given via
+// the destination name (e.g. out.be.byml, out.v3.byml) or a leading
+// "# byml version=N endian=..." comment. Dest markers win over in-file
+// comments, comments win over auto (LE, v1 with paths else v2).
+///////////////////////////////////////////////////////////////////////////////
+
+static bool byml_tok_eq (const char *s, size_t n, ccp tok)
+{
+	size_t t = strlen (tok);
+	if (n != t)
+		return false;
+	return !strncasecmp (s, tok, n);
+}
+
+static bool byml_dest_has_tok (ccp dest, ccp tok)
+{
+	if (!dest || !tok || !*tok)
+		return false;
+	ccp p = dest;
+	while (*p)
+	{
+		if (p != dest)
+		{
+			char prev = p[-1];
+			if (prev != '.' && prev != '_' && prev != '-' && prev != '/')
+			{
+				p++;
+				continue;
+			}
+		}
+		ccp e = p;
+		while (*e && *e != '.' && *e != '_' && *e != '-' && *e != '/')
+			e++;
+		if (e > p && byml_tok_eq (p, (size_t)(e - p), tok))
+			return true;
+		p = *e ? e + 1 : e;
+	}
+	return false;
+}
+
+// 1 = big-endian requested, -1 = little-endian requested, 0 = auto (LE).
+int byml_dest_endian_req (ccp dest)
+{
+	if (byml_dest_has_tok (dest, "be") || byml_dest_has_tok (dest, "big")
+		|| byml_dest_has_tok (dest, "bigendian") || byml_dest_has_tok (dest, "bendian"))
+		return 1;
+	if (byml_dest_has_tok (dest, "le") || byml_dest_has_tok (dest, "little")
+		|| byml_dest_has_tok (dest, "littleendian") || byml_dest_has_tok (dest, "lendian"))
+		return -1;
+	return 0;
+}
+
+u16 byml_dest_version (ccp dest)
+{
+	static const char *const vtoks[] =
+		{ "v1", "v2", "v3", "v4", "v5", "v6", "v7", 0 };
+	for (uint i = 0; vtoks[i]; i++)
+		if (byml_dest_has_tok (dest, vtoks[i]))
+			return (u16)(i + 1);
+	static const char *const wtoks[] =
+		{ "version1", "version2", "version3", "version4", "version5", "version6", "version7", 0 };
+	for (uint i = 0; wtoks[i]; i++)
+		if (byml_dest_has_tok (dest, wtoks[i]))
+			return (u16)(i + 1);
+	return 0;
+}
+
+void byml_scan_text_header (const char *text, uint len, u16 *ver_out, int *endian_out)
+{
+	if (ver_out)
+		*ver_out = 0;
+	if (endian_out)
+		*endian_out = 0;
+	if (!text || !len)
+		return;
+	uint pos = 0;
+	for (uint lines = 0; pos < len && lines < 16; lines++)
+	{
+		uint eol = pos;
+		while (eol < len && text[eol] != '\n')
+			eol++;
+		uint s = pos;
+		while (s < eol && (text[s] == ' ' || text[s] == '\t' || text[s] == '\r'))
+			s++;
+		if (s < eol && text[s] == '#')
+		{
+			char line[512];
+			uint llen = eol - s;
+			if (llen > sizeof (line) - 1)
+				llen = sizeof (line) - 1;
+			for (uint i = 0; i < llen; i++)
+				line[i] = tolower ((unsigned char)text[s + i]);
+			line[llen] = 0;
+			if (ver_out && !*ver_out)
+			{
+				ccp vp = strstr (line, "version");
+				if (!vp)
+					vp = strstr (line, "ver");
+				if (vp)
+				{
+					ccp q = vp;
+					while (*q && *q != '=' && *q != ':' && (*q < '0' || *q > '9'))
+						q++;
+					if (*q == '=' || *q == ':')
+					{
+						q++;
+						while (*q == ' ' || *q == '\t')
+							q++;
+					}
+					if (*q >= '1' && *q <= '7')
+						*ver_out = (u16)(*q - '0');
+				}
+				if (!*ver_out)
+				{
+					// Standalone vN token, e.g. "# byml v2".
+					for (ccp q = line; *q; q++)
+					{
+						if ((q == line || q[-1] == ' ' || q[-1] == '\t' || q[-1] == '#')
+							&& q[0] == 'v' && q[1] >= '1' && q[1] <= '7'
+							&& (q[2] == 0 || q[2] == ' ' || q[2] == '\t' || q[2] == '\r'))
+						{
+							*ver_out = (u16)(q[1] - '0');
+							break;
+						}
+					}
+				}
+			}
+			if (endian_out && !*endian_out)
+			{
+				ccp ep = strstr (line, "endian");
+				if (!ep)
+					ep = strstr (line, "byteorder");
+				if (!ep)
+					ep = strstr (line, "byte-order");
+				if (!ep)
+					ep = strstr (line, "byte_order");
+				if (ep)
+				{
+					ccp q = ep;
+					while (*q && *q != '=' && *q != ':')
+						q++;
+					if (*q == '=' || *q == ':')
+					{
+						q++;
+						while (*q == ' ' || *q == '\t')
+							q++;
+						if (!strncmp (q, "big", 3) || !strncmp (q, "be", 2) || *q == 'b')
+							*endian_out = 1;
+						else if (!strncmp (q, "little", 6) || !strncmp (q, "le", 2) || *q == 'l')
+							*endian_out = -1;
+					}
+				}
+			}
+		}
+		pos = eol + 1;
+	}
+}
+
 enumError encode_byml_file (ccp source, ccp dest)
 {
 	u8 *text = 0;
@@ -2825,16 +3016,36 @@ enumError encode_byml_file (ccp source, ccp dest)
 
 	u8 *byml = 0;
 	uint byml_size = 0;
-	ccp ext = strrchr (dest, '.');
 	bool is_le = true;
-	if (ext && !strcasecmp (ext, ".be"))
+	u16 version = 0;
+	const int dest_endian = byml_dest_endian_req (dest);
+	if (dest_endian > 0)
 		is_le = false;
+	else if (dest_endian < 0)
+		is_le = true;
+	const u16 dest_ver = byml_dest_version (dest);
+	if (dest_ver)
+		version = dest_ver;
 
 	ccp src_ext = strrchr (source, '.');
-	if (src_ext && !strcasecmp (src_ext, ".xml"))
-		err = EncodeBYML_XML (&byml, &byml_size, (const char *)text, (uint)text_len, is_le, 0);
+	const bool is_xml = src_ext && !strcasecmp (src_ext, ".xml");
+	if (!is_xml)
+	{
+		u16 hver = 0;
+		int hend = 0;
+		byml_scan_text_header ((const char *)text,
+			text_len > 4096 ? 4096 : (uint)text_len, &hver, &hend);
+		if (!version && hver)
+			version = hver;
+		if (!dest_endian && hend > 0)
+			is_le = false;
+		else if (!dest_endian && hend < 0)
+			is_le = true;
+	}
+	if (is_xml)
+		err = EncodeBYML_XML (&byml, &byml_size, (const char *)text, (uint)text_len, is_le, version);
 	else
-		err = EncodeBYML_Text (&byml, &byml_size, (const char *)text, (uint)text_len, is_le, 0);
+		err = EncodeBYML_Text (&byml, &byml_size, (const char *)text, (uint)text_len, is_le, version);
 
 	FREE (text);
 	if (err)
@@ -3171,13 +3382,14 @@ enumError SearchBYML (FILE *out, const u8 *data, size_t size, ccp pattern, uint 
 	u32 root_node_off = byml_u32 (data + 12, is_le);
 	bool supports_paths = false;
 
-	if (version == 1 && size >= 20)
+	if (size >= 20)
 	{
 		u32 third = byml_u32 (data + 12, is_le);
 		u32 fourth = byml_u32 (data + 16, is_le);
 		if ((third == 0 || (third + 4 <= size && data[third] == BYML_T_PATH_ARRAY))
 			&& fourth + 4 <= size && (data[fourth] == BYML_T_ARRAY || data[fourth] == BYML_T_MAP
-				|| data[fourth] == BYML_T_HASHMAP32 || data[fourth] == BYML_T_HASHMAP64))
+				|| data[fourth] == BYML_T_HASHMAP32 || data[fourth] == BYML_T_HASHMAP64
+				|| data[fourth] == BYML_T_RELOC_HASHMAP32 || data[fourth] == BYML_T_RELOC_HASHMAP64))
 		{
 			supports_paths = true;
 			path_table_off = third;

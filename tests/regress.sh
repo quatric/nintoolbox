@@ -1527,6 +1527,72 @@ t_bntx_native(){
   else
     no "wszst DUMP BNTX" "field mismatch"
   fi
+
+  # 8. DDS -> BNTX native single (SourceToBinaryCmd `-bntx` parity): forged
+  # BC1 (2 mips) + BC3 (1 mip) DDS sources keep their native blocks and mip
+  # chains instead of decoding via RGBA8. The round trip BNTX -> DDS is
+  # block-exact on mip 0.
+  python3 - "$d" <<'PY' >/dev/null 2>&1
+import struct, sys
+d = sys.argv[1]
+def wdds(path, w, h, mips, fourcc):
+    hdr = bytearray(128)
+    struct.pack_into('<I', hdr, 0, 0x20534444)
+    struct.pack_into('<I', hdr, 4, 124)
+    flags = 0x1|0x2|0x4|0x1000|0x80000
+    if mips > 1: flags |= 0x20000
+    struct.pack_into('<I', hdr, 8, flags)
+    struct.pack_into('<I', hdr, 12, h)
+    struct.pack_into('<I', hdr, 16, w)
+    struct.pack_into('<I', hdr, 20, 32)
+    struct.pack_into('<I', hdr, 28, mips)
+    struct.pack_into('<I', hdr, 76, 32)
+    struct.pack_into('<I', hdr, 80, 0x4)
+    struct.pack_into('<I', hdr, 84, fourcc)
+    struct.pack_into('<I', hdr, 108, 0x1000|0x400000|0x8 if mips > 1 else 0x1000)
+    bpp = 8 if fourcc == 0x31545844 else 16
+    pay = b''
+    ww, hh = w, h
+    for m in range(mips):
+        pay += b'\xCD' * (((ww+3)//4) * ((hh+3)//4) * bpp)
+        ww, hh = max(1, ww//2), max(1, hh//2)
+    open(path, 'wb').write(bytes(hdr) + pay)
+wdds(d + "/s1.dds", 8, 8, 2, 0x31545844)
+wdds(d + "/s3.dds", 8, 8, 1, 0x35545844)
+PY
+  "$B/wimgt" ENCODE "$d/s1.dds" --dest "$d/s1.bntx" --overwrite >/dev/null 2>&1 \
+  && "$B/wimgt" ENCODE "$d/s3.dds" --dest "$d/s3.bntx" --overwrite >/dev/null 2>&1 \
+  && "$B/wimgt" DECODE "$d/s1.bntx" --dest "$d/s1_rt.dds" --overwrite >/dev/null 2>&1 \
+  && "$B/wimgt" DECODE "$d/s3.bntx" --dest "$d/s3_rt.dds" --overwrite >/dev/null 2>&1 \
+  && python3 - "$d" <<'PY' >/dev/null 2>&1
+import sys
+d = sys.argv[1]
+for base, n in (("s1", 32), ("s3", 64)):
+    orig = open(f"{d}/{base}.dds", 'rb').read()[128:]
+    rt = open(f"{d}/{base}_rt.dds", 'rb').read()[128:]
+    assert orig[:n] == rt[:n], base
+PY
+  if [ $? -eq 0 ]; then
+    ok "DDS -> BNTX single (BC1 2-mip / BC3 block-exact)"
+  else
+    no "DDS -> BNTX single" "block mismatch"
+  fi
+
+  # 9. DDS -> BNTX multi combine (SourceToBinaryCmd `-bntx` without `--split`):
+  # several DDS inputs sharing one .bntx destination merge into a single
+  # multi-texture container; split output (directory dest) stays per-file.
+  if "$B/wimgt" ENCODE "$d/s1.dds" "$d/s3.dds" --dest "$d/combo.bntx" --overwrite >/dev/null 2>&1 \
+  && python3 - "$d/combo.bntx" <<'PY' >/dev/null 2>&1
+import struct, sys
+d = open(sys.argv[1], 'rb').read()
+assert d[:4] == b'BNTX'
+assert struct.unpack('<I', d[0x24:0x28])[0] == 2
+PY
+  then
+    ok "DDS -> BNTX combine (2 textures, one container)"
+  else
+    no "DDS -> BNTX combine" "container mismatch"
+  fi
   rm -rf "$d"
 }
 t_bntx_native
@@ -2538,6 +2604,62 @@ t_bymlfind(){
   rm -rf "$d"
 }
 t_bymlfind
+
+t_byml_settings(){
+  # BYML save settings (NintenTools.Byaml ByteOrder/Version ports):
+  # .be/.vN dest markers and "# byml version=N endian=.." headers control
+  # the encoder; path tables ride any version; scalar roots are rejected.
+  local fix="$PWD_PROJECT/../tests/fixtures/sm3dl_camera.byml"
+  [ -f "$fix" ] || { sk "BYML encode settings"; return; }
+  local d; d=$(mktemp -d)
+  "$B/wszst" TEXT "$fix" --dest "$d/ref.yaml" --overwrite >/dev/null 2>&1 || { no "BYML settings setup" "TEXT fixture failed"; rm -rf "$d"; return; }
+
+  if "$B/wszst" CREATE "$d/ref.yaml" --dest "$d/out.be.byml" --overwrite >/dev/null 2>&1 \
+  && [ "$(head -c 2 "$d/out.be.byml")" = "BY" ] \
+  && "$B/wszst" TEXT "$d/out.be.byml" --dest "$d/be.yaml" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/ref.yaml" "$d/be.yaml"; then
+    ok "BYML .be dest marker -> big-endian roundtrip"
+  else
+    no "BYML .be dest marker" "not BY magic or yaml differs"
+  fi
+
+  if "$B/wszst" CREATE "$d/ref.yaml" --dest "$d/out.v3.byml" --overwrite >/dev/null 2>&1 \
+  && [ "$(python3 -c "import struct;print(struct.unpack('<H',open('$d/out.v3.byml','rb').read()[2:4])[0])")" = "3" ] \
+  && "$B/wszst" TEXT "$d/out.v3.byml" --dest "$d/v3.yaml" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/ref.yaml" "$d/v3.yaml"; then
+    ok "BYML .v3 dest marker -> version 3 roundtrip"
+  else
+    no "BYML .v3 dest marker" "version byte wrong or yaml differs"
+  fi
+
+  { echo "# byml version=5 endian=big"; cat "$d/ref.yaml"; } > "$d/hdr.yaml"
+  if "$B/wszst" CREATE "$d/hdr.yaml" --dest "$d/hdr.byml" --overwrite >/dev/null 2>&1 \
+  && [ "$(head -c 2 "$d/hdr.byml")" = "BY" ] \
+  && [ "$(python3 -c "import struct;print(struct.unpack('>H',open('$d/hdr.byml','rb').read()[2:4])[0])")" = "5" ]; then
+    ok "BYML header comment -> version 5 big-endian"
+  else
+    no "BYML header comment" "magic or version wrong"
+  fi
+
+  printf 'Actors:\n  Path:\n    - {X: 1.0, Y: 2.0, Z: 3.0, NX: 0.0, NY: 1.0, NZ: 0.0, Value: 5}\n' > "$d/path.yaml"
+  if "$B/wszst" CREATE "$d/path.yaml" --dest "$d/path.v2.byml" --overwrite >/dev/null 2>&1 \
+  && [ "$(python3 -c "import struct;d=open('$d/path.v2.byml','rb').read();po=struct.unpack('<I',d[12:16])[0];print(struct.unpack('<H',d[2:4])[0],d[po] if po<len(d) else -1)")" = "2 195" ] \
+  && "$B/wszst" TEXT "$d/path.v2.byml" --dest "$d/path.yaml.out" --overwrite >/dev/null 2>&1 \
+  && grep -q "Value" "$d/path.yaml.out"; then
+    ok "BYML v2 carries path table (version-agnostic)"
+  else
+    no "BYML v2 path table" "header wrong or path lost"
+  fi
+
+  echo "just a string" > "$d/bad.yaml"
+  if "$B/wszst" CREATE "$d/bad.yaml" --dest "$d/bad.byml" --overwrite >/dev/null 2>&1; then
+    no "BYML scalar root" "expected failure, got success"
+  else
+    ok "BYML scalar root rejected"
+  fi
+  rm -rf "$d"
+}
+t_byml_settings
 
 t_narc(){
   # NARC (Nitro Archive, DS / 3DS):
@@ -8596,10 +8718,11 @@ with open(sys.argv[1], "wb") as f:
   && grep -q "quality=high" "$d/nlg_lm2_test/out/1.nlg_013CA3BF_config.txt" \
   && grep -q "Font" "$d/nlg_lm2_test/out/06.nlg_26E9A854_font.nlgfont"; then
     g=$(python3 "$GLTF_COUNT" "$d/nlg_lm2_test/out/00.nlg_267D154E_model.fedmodel.glb" geometry 2>/dev/null || true); g=${g:-0}
-    if [ "$g" -ge 1 ] 2>/dev/null; then
+    im=$(python3 "$GLTF_COUNT" "$d/nlg_lm2_test/out/00.nlg_267D154E_model.fedmodel.glb" image 2>/dev/null || true); im=${im:-0}
+    if [ "$g" -ge 2 ] 2>/dev/null && [ "$im" -ge 1 ] 2>/dev/null; then
       fok "Next Level Games LM2 typed chunks (.dict -> GLB/PNG/text)"
     else
-      fno "Next Level Games LM2 typed chunks" "model GLB has no geometry";
+      fno "Next Level Games LM2 typed chunks" "model GLB lacks meshes/textures (g=$g im=$im)";
     fi
   else
     fno "Next Level Games LM2 typed chunks" "missing typed outputs";
@@ -8616,10 +8739,11 @@ with open(sys.argv[1], "wb") as f:
   && grep -q "Medium.script" "$d/nlg_lm3_test/out/05.nlg_26D78FD3_script.txt" \
   && grep -q "Test" "$d/nlg_lm3_test/out/07.nlg_26FBC0D5_type_7020.txt"; then
     g=$(python3 "$GLTF_COUNT" "$d/nlg_lm3_test/out/00.nlg_267D154E_model.fedmodel.glb" geometry 2>/dev/null || true); g=${g:-0}
-    if [ "$g" -ge 1 ] 2>/dev/null; then
+    im=$(python3 "$GLTF_COUNT" "$d/nlg_lm3_test/out/00.nlg_267D154E_model.fedmodel.glb" image 2>/dev/null || true); im=${im:-0}
+    if [ "$g" -ge 2 ] 2>/dev/null && [ "$im" -ge 1 ] 2>/dev/null; then
       fok "Next Level Games LM3 typed chunks (.dict -> GLB/PNG/text)"
     else
-      fno "Next Level Games LM3 typed chunks" "model GLB has no geometry";
+      fno "Next Level Games LM3 typed chunks" "model GLB lacks meshes/textures (g=$g im=$im)";
     fi
   else
     fno "Next Level Games LM3 typed chunks" "missing typed outputs";

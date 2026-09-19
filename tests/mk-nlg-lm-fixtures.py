@@ -86,21 +86,27 @@ def be_nloc():
 
 def lm2_pair(outdir):
     H_TEX = 0xA11CE001
+    H_DIFFUSE = nlg_hash("diffusevertcolor/default")
     pay = bytearray()
 
     def place(b):
         off = len(pay)
         pay.extend(b)
-        return off
+        return off, bytes(b)
 
-    o_b002 = place(struct.pack("<4I", 0x11111111, 1, 0, 0))
-    mesh = struct.pack("<IHHHHIIIIIHHI",
-                       0, 3, 0, 0, 0,
-                       0x4821B2DF, 0xDEADBEEF, 0, 0, 0,
-                       3, 0, 0xAABBCCDD)
-    assert len(mesh) == 40
-    o_b003 = place(mesh)
-    o_b004 = place(struct.pack("<I", 6))
+    # mesh0 = unknown preset (fallback scan), mesh1 = preset slot path
+    o_b002, b002 = place(struct.pack("<4I", 0x11111111, 2, 0, 0))
+
+    def lm2mesh(mat, lut):
+        return struct.pack("<IHHHHIIIIIHHI",
+                           0, 3, 0, 0, 0,
+                           0x4821B2DF, mat, 0, 0, lut,
+                           3, 0, 0xAABBCCDD)
+
+    mesh = lm2mesh(0xDEADBEEF, 0) + lm2mesh(H_DIFFUSE, 2)
+    assert len(mesh) == 80
+    o_b003, b003 = place(mesh)
+    o_b004, b004 = place(struct.pack("<2I", 6, 6))
 
     def l4vert(x, y, z):
         return struct.pack("<fff", x, y, z) + bytes([0, 0, 127, 0]) \
@@ -109,11 +115,13 @@ def lm2_pair(outdir):
     b005 = struct.pack("<HHH", 0, 1, 2) + l4vert(0, 0, 0) \
         + l4vert(1, 0, 0) + l4vert(0, 1, 0)
     assert len(b005) == 66
-    o_b005 = place(b005)
-    o_b006 = place(struct.pack("<I", H_TEX))
-    o_b007 = place(struct.pack("<I", 0))
-    o_b001 = place(struct.pack("<16f", 1, 0, 0, 0, 0, 1, 0, 0,
-                               0, 0, 1, 0, 0, 0, 0, 1))
+    o_b005, b005 = place(b005)
+    b006 = struct.pack("<5I", 0x12345678, H_TEX, H_TEX, 0, 0)
+    o_b006, b006 = place(b006)
+    b007 = struct.pack("<5I", 0, 4, 0xFFFFFFFF, 0xFFFFFFFF, 8)
+    o_b007, b007 = place(b007)
+    o_b001, b001 = place(struct.pack("<16f", 1, 0, 0, 0, 0, 1, 0, 0,
+                                     0, 0, 1, 0, 0, 0, 0, 1))
 
     b501 = bytearray(48)
     struct.pack_into("<I", b501, 0, 256)
@@ -121,49 +129,57 @@ def lm2_pair(outdir):
     struct.pack_into("<H", b501, 16, 8)
     struct.pack_into("<H", b501, 18, 8)
     b501[44] = 0
-    o_b501 = place(bytes(b501))
-    o_b502 = place(pica_tile_rgba8(8, 8, GRAD))
+    o_b501, b501 = place(bytes(b501))
+    o_b502, b502 = place(pica_tile_rgba8(8, 8, GRAD))
 
     s101 = struct.pack("<7I", 1, 0, 0, 0, 0, 0, 0)
     s102 = struct.pack("<I", H_BIP) + struct.pack("<h", -1) \
         + struct.pack("<hHBB", 0, 0, 0, 0)
     assert len(s102) == 12
     s103 = struct.pack("<10f", 0, 0, 0, 1, 1, 2, 3, 1, 1, 1)
-    o_s101 = place(s101)
-    o_s102 = place(s102)
-    o_s103 = place(s103)
+    o_s101, s101 = place(s101)
+    o_s102, s102 = place(s102)
+    o_s103, s103 = place(s103)
 
-    o_5014 = place(struct.pack("<IIHH", H_EASY, 0, 0, 0))
+    el = struct.pack("<IIHH", H_EASY, 0, 0, 0)
+    o_5014, el = place(el)
     sdata = struct.pack("<4I", 0, 2, 4, 3) + struct.pack("<I", P_MODEL) \
         + bytes([0x38, 0]) + b"hi\x00"
-    o_5012 = place(sdata)
-    o_7011 = place(FONT_TEXT)
+    o_5012, sdata = place(sdata)
+    o_7011, font = place(FONT_TEXT)
 
     anim = struct.pack("<IHHfI", 0, 1, 4, 1.0, 0)
     anim += struct.pack("<IBBBBI", H_BIP, 0, 0, 1, 0x0B, 28)
     anim += struct.pack("<fff", 7, 8, 9)
     assert len(anim) == 40
-    o_anim = place(anim)
+    o_anim, anim = place(anim)
     nloc = be_nloc()
-    o_msg = place(nloc)
-    o_cfg = place(b"quality=high\n")
+    o_msg, nloc = place(nloc)
+    o_cfg, cfg = place(b"quality=high\n")
     PAY = bytes(pay)
 
     files = [
-        (0xB000, P_MODEL, [(0xB001, o_b001, 64), (0xB002, o_b002, 16),
-                           (0xB003, o_b003, 40), (0xB004, o_b004, 4),
-                           (0xB005, o_b005, 66), (0xB006, o_b006, 4),
-                           (0xB007, o_b007, 4)]),
-        (0xB500, P_TEX, [(0xB501, o_b501, 48), (0xB502, o_b502, 256)]),
-        (0x7100, P_MODEL, [(0x7101, o_s101, 28), (0x7102, o_s102, 12),
-                           (0x7103, o_s103, 40)]),
-        (0x7100, P_SKELB, [(0x7101, o_s101, 28), (0x7102, o_s102, 12),
-                           (0x7103, o_s103, 40)]),
-        (0x7000, P_ANIM, None, o_anim, 40),
-        (0x5000, P_SCRIPT, [(0x5014, o_5014, 12), (0x5012, o_5012, len(sdata))]),
-        (0x7010, P_FONT, [(0x7011, o_7011, len(FONT_TEXT))]),
+        (0xB000, P_MODEL, [(0xB001, o_b001, len(b001)),
+                           (0xB002, o_b002, len(b002)),
+                           (0xB003, o_b003, len(b003)),
+                           (0xB004, o_b004, len(b004)),
+                           (0xB005, o_b005, len(b005)),
+                           (0xB006, o_b006, len(b006)),
+                           (0xB007, o_b007, len(b007))]),
+        (0xB500, P_TEX, [(0xB501, o_b501, len(b501)),
+                         (0xB502, o_b502, len(b502))]),
+        (0x7100, P_MODEL, [(0x7101, o_s101, len(s101)),
+                           (0x7102, o_s102, len(s102)),
+                           (0x7103, o_s103, len(s103))]),
+        (0x7100, P_SKELB, [(0x7101, o_s101, len(s101)),
+                           (0x7102, o_s102, len(s102)),
+                           (0x7103, o_s103, len(s103))]),
+        (0x7000, P_ANIM, None, o_anim, len(anim)),
+        (0x5000, P_SCRIPT, [(0x5014, o_5014, len(el)),
+                            (0x5012, o_5012, len(sdata))]),
+        (0x7010, P_FONT, [(0x7011, o_7011, len(font))]),
         (0x7020, P_MSG, None, o_msg, len(nloc)),
-        (0x0031, P_CFG, None, o_cfg, 13),
+        (0x0031, P_CFG, None, o_cfg, len(cfg)),
     ]
     entries = []
     for f in files:
@@ -207,6 +223,7 @@ def lm2_pair(outdir):
 
 def lm3_pair(outdir):
     H_TEX = 0xA11CE003
+    H_LUIGI = nlg_hash("base_luigi")
     b53 = bytearray()
     b65 = bytearray()
     b69 = bytearray()
@@ -214,16 +231,22 @@ def lm3_pair(outdir):
     def place(buf, b):
         off = len(buf)
         buf.extend(b)
-        return off
+        return off, bytes(b)
 
-    o_b002 = place(b53, struct.pack("<IIHH", 0x11111111, 0, 1, 0))
-    mesh = struct.pack("<IIIIBBHHHIIIIHHIIIII",
-                       0xAAAAAAAA, 0, 3, 3, 0, 1, 0, 0, 0,
-                       0xDEADBEEF, 0, 0, 0xFFFFFF, 0, 0,
-                       0, 0, 0, 0, 0)
-    assert len(mesh) == 64
-    o_b003 = place(b53, mesh)
-    o_b004 = place(b53, struct.pack("<3I", 6, 0, 0))
+    o_b002, b002 = place(b53, struct.pack("<IIHH", 0x11111111, 0, 2, 0))
+
+    def lm3mesh(mat, nlk):
+        return struct.pack("<IIIIBBHHHIIIIHHIIIII",
+                           0xAAAAAAAA, 0, 3, 3, 0, nlk, 0, 0, 0,
+                           mat, 0, 0, 0xFFFFFF, 0, 0,
+                           0, 0, 0, 0, 0)
+
+    # mesh0 = unknown preset (fallback scan, 1 pointer), mesh1 =
+    # "base_luigi" (preset slot path, 17 pointers, slot 16)
+    mesh = lm3mesh(0xDEADBEEF, 1) + lm3mesh(H_LUIGI, 17)
+    assert len(mesh) == 128
+    o_b003, b003 = place(b53, mesh)
+    o_b004, b004 = place(b53, struct.pack("<6I", 6, 0, 0, 6, 0, 0))
 
     def lm3vert(x, y, z, u, v):
         return struct.pack("<fff", x, y, z) + struct.pack("<f", u) \
@@ -233,16 +256,19 @@ def lm3_pair(outdir):
     b005 = struct.pack("<HHH", 0, 1, 2) + lm3vert(0, 0, 0, 0, 0) \
         + lm3vert(1, 0, 0, 1, 0) + lm3vert(0, 1, 0, 0, 1)
     assert len(b005) == 150
-    o_b005 = place(b53, b005)
-    o_b006 = place(b53, struct.pack("<I", H_TEX))
-    o_b007 = place(b53, struct.pack("<I", 0))
-    o_b001 = place(b53, struct.pack("<16f", 1, 0, 0, 0, 0, 1, 0, 0,
-                                    0, 0, 1, 0, 0, 0, 0, 1))
+    o_b005, b005 = place(b53, b005)
+    b006 = struct.pack("<3I", 0x12345678, H_TEX, H_TEX)
+    o_b006, b006 = place(b53, b006)
+    b007 = struct.pack("<I", 4) + struct.pack("<17I",
+                                              *([0xFFFFFFFF] * 16 + [8]))
+    o_b007, b007 = place(b53, b007)
+    o_b001, b001 = place(b53, struct.pack("<16f", 1, 0, 0, 0, 0, 1, 0, 0,
+                                          0, 0, 1, 0, 0, 0, 0, 1))
 
     b501 = struct.pack("<IHHBBBBBBH", H_TEX, 8, 8, 0, 0, 1, 0, 0, 0, 0)
     assert len(b501) == 16
-    o_b501 = place(b53, b501)
-    o_b502 = place(b65, tegra_tile_rgba8(8, 8, GRAD))
+    o_b501, b501 = place(b53, b501)
+    o_b502, b502 = place(b65, tegra_tile_rgba8(8, 8, GRAD))
 
     def skel_chunks():
         s101 = struct.pack("<8I", 0, 0, 0, 0, 0, 1, 0, 0)
@@ -250,35 +276,44 @@ def lm3_pair(outdir):
         assert len(s102) == 8
         s103 = struct.pack("<7f", 0, 0, 0, 1, 4, 5, 6)
         s106 = struct.pack("<h", -1)
-        return [(0x7101, place(b53, s101), 32), (0x7102, place(b53, s102), 8),
-                (0x7103, place(b53, s103), 28), (0x7106, place(b53, s106), 2)]
+        o1, b1 = place(b53, s101)
+        o2, b2 = place(b53, s102)
+        o3, b3 = place(b53, s103)
+        o4, b4 = place(b53, s106)
+        return [(0x7101, o1, len(b1)), (0x7102, o2, len(b2)),
+                (0x7103, o3, len(b3)), (0x7106, o4, len(b4))]
 
     skelA = skel_chunks()
     skelB = skel_chunks()
 
-    o_5014 = place(b53, struct.pack("<IIHH", H_MED, 0, 0, 0))
+    el = struct.pack("<IIHH", H_MED, 0, 0, 0)
+    o_5014, el = place(b53, el)
     sdata = struct.pack("<5I", 0, 0, 4, 2, 3) + struct.pack("<I", P_MODEL) \
         + bytes([0x38, 0]) + b"hi\x00"
-    o_5012 = place(b53, sdata)
-    o_7011 = place(b53, FONT_TEXT)
+    o_5012, sdata = place(b53, sdata)
+    o_7011, font = place(b53, FONT_TEXT)
 
     anim = struct.pack("<IHHfI", 0, 1, 2, 2.0, 0)
     anim += struct.pack("<IBBBBI", H_BIP, 0, 0, 3, 0x0B, 28)
     anim += struct.pack("<fff", 10, 11, 12)
     assert len(anim) == 40
-    o_anim = place(b53, anim)
-    o_cfg = place(b53, b"quality=high\n")
+    o_anim, anim = place(b53, anim)
+    o_cfg, cfg = place(b53, b"quality=high\n")
 
     nloc = be_nloc()
-    o_mleaf = place(b69, nloc)
+    o_mleaf, nloc = place(b69, nloc)
     B53, B65, B69 = bytes(b53), bytes(b65), bytes(b69)
 
     files = [
-        (0xB000, P_MODEL, 52, [(0xB002, o_b002, 12), (0xB003, o_b003, 64),
-                               (0xB004, o_b004, 12), (0xB005, o_b005, 150),
-                               (0xB006, o_b006, 4), (0xB007, o_b007, 4),
-                               (0xB001, o_b001, 64)]),
-        (0xB500, P_TEX, 63, [(0xB501, o_b501, 16), (0xB502, o_b502, len(B65))]),
+        (0xB000, P_MODEL, 52, [(0xB002, o_b002, len(b002)),
+                               (0xB003, o_b003, len(b003)),
+                               (0xB004, o_b004, len(b004)),
+                               (0xB005, o_b005, len(b005)),
+                               (0xB006, o_b006, len(b006)),
+                               (0xB007, o_b007, len(b007)),
+                               (0xB001, o_b001, len(b001))]),
+        (0xB500, P_TEX, 63, [(0xB501, o_b501, len(b501)),
+                             (0xB502, o_b502, len(B65))]),
         (0x7100, P_MODEL, 52, skelA),
         (0x7100, P_SKELB, 52, skelB),
         (0x7000, P_ANIM, 52, None, o_anim, 40),

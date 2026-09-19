@@ -1119,13 +1119,6 @@ static float nlg_f32 (const u8 *p)
 	return v;
 }
 
-// Known texture path hashes, for material diffuse resolution.
-typedef struct
-{
-	const u32 *hash;
-	uint n;
-} nlg_texset_t;
-
 static bool nlg_tex_known (const nlg_texset_t *ts, u32 h)
 {
 	if (!ts)
@@ -1177,7 +1170,7 @@ static bool nlg_parse_lm2_model (model_t *model,
 	const u8 *b005, uint b005_size,
 	const u8 *b006, uint b006_size,
 	const u8 *b007, uint b007_size,
-	const nlg_texset_t *ts, ccp png_suffix)
+	const nlg_texset_t *ts)
 {
 	if (!model || !b002 || !b003 || !b004 || !b005)
 		return false;
@@ -1221,8 +1214,7 @@ static bool nlg_parse_lm2_model (model_t *model,
 			u32 vert_ptr = rd_le32 (b004 + (size_t)ptr_idx * 4);
 			ptr_idx++;
 			uint stride = nlg_lm2_stride (vfmt);
-			if (!stride || !vert_count || !index_count || vert_count > (4u << 20)
-				|| index_count > (16u << 20))
+			if (!stride || !vert_count || !index_count)
 				continue;
 			if ((u64)vert_ptr + (u64)vert_count * stride > b005_size)
 				continue;
@@ -2021,7 +2013,7 @@ static enumError nlg_dump_anim (u8 **dest, uint *dest_size,
 	u16 n_tracks = rd_le16 (blob + 4);
 	u16 n_frames = rd_le16 (blob + 6);
 	float dur = nlg_f32 (blob + 8);
-	if (!n_tracks || n_tracks > 100000)
+	if (!n_tracks)
 		return EINVAL;
 	if (16 + (size_t)n_tracks * 12 > blob_size)
 		return EINVAL;
@@ -2269,7 +2261,7 @@ static enumError nlg_build_fedt (u8 **dest, uint *dest_size, u16 ver,
 	return ERR_OK;
 }
 
-model_t *ParseNLGModel (const u8 *data, size_t size)
+model_t *ParseNLGModel (const u8 *data, size_t size, const nlg_texset_t *ts)
 {
 	nlg_part_t *parts = 0;
 	uint n = 0;
@@ -2312,14 +2304,14 @@ model_t *ParseNLGModel (const u8 *data, size_t size)
 				b002->data, b002->size, b003->data, b003->size,
 				b004->data, b004->size, b005->data, b005->size,
 				b006 ? b006->data : 0, b006 ? b006->size : 0,
-				b007 ? b007->data : 0, b007 ? b007->size : 0, 0, 0);
+				b007 ? b007->data : 0, b007 ? b007->size : 0, ts);
 		else
 			ok = nlg_parse_lm3_model (model,
 				b001 ? b001->data : 0, b001 ? b001->size : 0,
 				b002->data, b002->size, b003->data, b003->size,
 				b004->data, b004->size, b005->data, b005->size,
 				b006 ? b006->data : 0, b006 ? b006->size : 0,
-				b007 ? b007->data : 0, b007 ? b007->size : 0, 0);
+				b007 ? b007->data : 0, b007 ? b007->size : 0, ts);
 	}
 	if (ok && s101 && s102 && s103)
 	{
@@ -2521,13 +2513,10 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 	if (!table_data || table_size < 12
 		|| ScanNLGChunks (&tab, &n_tab, table_data, table_size) != ERR_OK)
 		goto done;
-	{
-		uint ref_count = 0;
-		if (variant == NLG_FEDFORCE && fed_ref.file_section_count
-			&& fed_ref.file_section_count < n_tab)
-			n_tab = fed_ref.file_section_count;
-		(void)ref_count;
-	}
+	// Federation Force table size hint (0 = trust the buffer).
+	if (variant == NLG_FEDFORCE && fed_ref.file_section_count
+		&& fed_ref.file_section_count < n_tab)
+		n_tab = fed_ref.file_section_count;
 	nlg_file_t *files = CALLOC (n_tab + 1, sizeof (*files));
 	if (!files)
 	{
@@ -2703,7 +2692,7 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 				continue;
 			snprintf (path, sizeof (path), "%s/%s_model.fedmodel", dest, base);
 			nlg_save (path, fedm, fedm_size);
-			model_t *model = ParseNLGModel (fedm, fedm_size);
+			model_t *model = ParseNLGModel (fedm, fedm_size, &ts);
 			FREE (fedm);
 			if (model)
 			{

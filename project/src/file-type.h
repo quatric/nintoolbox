@@ -423,6 +423,18 @@ typedef enum file_format_t
 	FF_LMSLK,  // 328 - Luigi's Mansion shape animation (.slk)
 	FF_LMSLS,  // 329 - Luigi's Mansion morph data (.sls)
 	FF_WWMODEL,// 330 - Wario World static/rigged/map model (.ww_static_model, ...)
+	FF_GFMODEL, // 331 - Game Freak 3DS model (.gfmodel / 0x15122117, Pokemon X/Y/ORAS)
+	FF_GFTEX, // 332 - Game Freak 3DS texture (.gftex / 0x15041213)
+	FF_GFMOT, // 333 - Game Freak 3DS motion (.gfmot / 0x00060000)
+	FF_GFMPACK, // 334 - Game Freak model pack container (.gfpack / 0x00010000)
+	FF_GFPKG, // 335 - Game Freak Gen6/Gen7 package (.gfpkg, 2-letter magic)
+	FF_GFLX, // 336 - Game Freak GFLXPack archive (.gflxpack / GFLXPACK)
+	FF_GF1MOT, // 337 - Game Freak XY/ORAS motion pack (.gf1mot)
+	FF_MTMOD, // 338 - Capcom MT Framework Mobile model (.mod / MOD\0, 3DS)
+	FF_MTTEX, // 339 - Capcom MT Framework Mobile texture (.tex / TEX\0, 3DS)
+	FF_MTMRL, // 340 - Capcom MT Framework Mobile materials (.mrl / MRL)
+	FF_MTMFX, // 341 - Capcom MT Framework Mobile shader effects (.mfx / MFX)
+	FF_MBN, // 342 - ModelBinary companion buffers (.mbn, SPICA MBn)
 
 	//--- number of elements
 

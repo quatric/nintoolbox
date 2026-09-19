@@ -84,6 +84,8 @@
 #include "lib-mpmess.h"
 #include "lib-mpboard.h"
 #include "lib-nlg-probe.h"
+#include "lib-gf3ds.h"
+#include "lib-mtmob.h"
 #include "config.inc"
 
 //
@@ -1475,11 +1477,61 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x42415253: // "BARS"
 				return FF_BARS;
 
-			// Game Freak Pokemon Archive (GFLXPACK)
-			case 0x47464c58: // "GFLX"
-				if (data_size >= 8 && !memcmp (data, "GFLXPACK", 8))
-					return FF_GFPAK;
-				break;
+		// Game Freak GFLXPACK family: the Switch-era GFLXPack archive
+		// (LZ4 members, SPICA GFLXPack) shares its 8-byte magic with the
+		// plain 3DS member table (FF_GFPAK), so probe the LZ4 layout first.
+		case 0x47464c58: // "GFLX"
+			if (data_size >= 8 && !memcmp (data, "GFLXPACK", 8))
+				return IsGFLXPack (data8, data_size) ? FF_GFLX : FF_GFPAK;
+			break;
+
+		// Game Freak 3DS model (GFModel, SPICA): LE 0x15122117
+		case 0x17211215: // 17 21 12 15
+			if (IsGFModel (data8, data_size))
+				return FF_GFMODEL;
+			break;
+
+		// Game Freak 3DS texture (GFTexture, SPICA): LE 0x15041213
+		case 0x13120415: // 13 12 04 15
+			if (IsGFTexture (data8, data_size))
+				return FF_GFTEX;
+			break;
+
+		// Game Freak 3DS motion (GFMotion, SPICA): LE 0x00060000
+		case 0x00000600: // 00 00 06 00
+			if (IsGFMotion (data8, data_size))
+				return FF_GFMOT;
+			break;
+
+		// Game Freak model pack (GFModelPack, SPICA): LE 0x00010000
+		case 0x00000100: // 00 00 01 00
+			if (IsGFModelPack (data8, data_size))
+				return FF_GFMPACK;
+			break;
+
+		// Capcom MT Framework Mobile model (SPICA MTModel)
+		case 0x4d4f4400: // "MOD\0"
+			if (IsMTMOD (data8, data_size))
+				return FF_MTMOD;
+			break;
+
+		// Capcom MT Framework Mobile texture (SPICA MTTexture)
+		case 0x54455800: // "TEX\0"
+			if (IsMTTEX (data8, data_size))
+				return FF_MTTEX;
+			break;
+
+		// Capcom MT Framework Mobile materials (SPICA MTMaterials)
+		case 0x4d524c00: // "MRL\0"
+			if (IsMTMRL (data8, data_size))
+				return FF_MTMRL;
+			break;
+
+		// Capcom MT Framework Mobile shader effects (SPICA MTShaderEffects)
+		case 0x4d465800: // "MFX\0"
+			if (IsMTMFX (data8, data_size))
+				return FF_MTMFX;
+			break;
 
 			// Next Level Games Texture To Go (6PK0)
 			case 0x36504b30: // "6PK0"
@@ -2146,6 +2198,17 @@ file_format_t GetFileTypeByMagic (
 		// since that entry comes earlier in FileTypeTab.
 		if (ff == FF_UNKNOWN && ext && !strcasecmp (ext, ".tex") && fatt->size >= 0x80)
 			return FF_TEX3DS;
+		// ".mod" is shared by Monster Games NDL display lists (FF_MOD) and
+		// Capcom MT Framework Mobile (FF_MTMOD); ".tex" by TEX0/TEX3DS and
+		// MT Framework Mobile (FF_MTTEX). The MT magics ("MOD\0", "TEX\0")
+		// decide, with a structural probe so unrelated files keep their
+		// extension-based type.
+		if (ext && !strcasecmp (ext, ".mod") && sizeof (buf) >= 0x74
+			&& !memcmp (buf, "MOD", 3) && !buf[3] && IsMTMOD (buf, sizeof (buf)))
+			return FF_MTMOD;
+		if (ext && !strcasecmp (ext, ".tex") && sizeof (buf) >= 0x10
+			&& !memcmp (buf, "TEX", 3) && !buf[3] && IsMTTEX (buf, sizeof (buf)))
+			return FF_MTTEX;
 		if (ff == FF_UNKNOWN && ext)
 		{
 			const file_type_t *ft = GetFileTypeByExt (ext, false);

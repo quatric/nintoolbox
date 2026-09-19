@@ -1806,6 +1806,1363 @@ enumError EncodeBNTX_RGBA (
 }
 
 //-----------------------------------------------------------------------------
+///////////////		block-preserving DDS -> BNTX encoding		///////////////
+//-----------------------------------------------------------------------------
+//
+// SourceToBinaryCmd `-bntx` parity: that tool builds a Switch BNTX container
+// directly from a DDS file's native blocks (FromDDS + SwizzleSurfaceMipMaps
+// in Source2Binary/FileFormats/Nintendo/BNTX.cs), preserving the block
+// compression, the mip chain and the sRGB variant instead of decoding to
+// RGBA8 first. wimgt's SaveBNTX path could only emit a single RGBA8 texture,
+// so every BC DDS source was flattened through DecodeDDS_RGBA.
+//
+// EncodeBNTX_FromDDS closes that gap: it parses the DDS header (legacy
+// FourCC codes as well as the DX10 extension), maps the payload to a BNTX
+// format word, swizzles each mip into the Tegra block-linear layout with the
+// same block-height derivation as EncodeBNTX_RGBA, and writes a standard
+// single-texture BNTX container with the full mip chain.
+//
+// DDS variants outside the directly storable set (uncompressed pixel formats
+// other than RGBA8, volume/array textures, ...) decline with
+// ERR_NOTHING_TO_DO so the caller can fall back to the RGBA8 path.
+
+// DDS FourCC codes (see Source2Binary/FileFormats/Generic/DDS/DDS.cs and
+// lib-dds.c).
+#define BNTX_DDS_FOURCC_DXT1 0x31545844
+#define BNTX_DDS_FOURCC_DXT3 0x33545844
+#define BNTX_DDS_FOURCC_DXT5 0x35545844
+#define BNTX_DDS_FOURCC_ATI1 0x31495441
+#define BNTX_DDS_FOURCC_BC4U 0x55344342
+#define BNTX_DDS_FOURCC_BC4S 0x53344342
+#define BNTX_DDS_FOURCC_ATI2 0x32495441
+#define BNTX_DDS_FOURCC_BC5U 0x55354342
+#define BNTX_DDS_FOURCC_BC5S 0x53354342
+#define BNTX_DDS_FOURCC_DX10 0x30315844
+
+// Maps a DDS payload description to a BNTX format word and its native
+// storage layout. IS_DX10 selects the DXGI_FORMAT table (DXGI_FMT), otherwise
+// the legacy FourCC table (FOURCC). Returns false for payloads with no direct
+// BNTX representation.
+static bool dds_to_bntx_format (u32 fourcc, u32 dxgi_fmt, bool is_dx10,
+	uint *bntx_fmt, uint *bpp, uint *blk_w, uint *blk_h)
+{
+	uint fmt = 0, b = 0, bw = 4, bh = 4;
+	if (!is_dx10)
+	{
+		switch (fourcc)
+		{
+			case BNTX_DDS_FOURCC_DXT1: fmt = 0x1a01; b = 8; break;
+			case BNTX_DDS_FOURCC_DXT3: fmt = 0x1b01; b = 16; break;
+			case BNTX_DDS_FOURCC_DXT5: fmt = 0x1c01; b = 16; break;
+			case BNTX_DDS_FOURCC_ATI1:
+			case BNTX_DDS_FOURCC_BC4U: fmt = 0x1d01; b = 8; break;
+			case BNTX_DDS_FOURCC_BC4S: fmt = 0x1d02; b = 8; break;
+			case BNTX_DDS_FOURCC_ATI2:
+			case BNTX_DDS_FOURCC_BC5U: fmt = 0x1e01; b = 16; break;
+			case BNTX_DDS_FOURCC_BC5S: fmt = 0x1e02; b = 16; break;
+			default: return false;
+		}
+	}
+	else
+	{
+		switch (dxgi_fmt)
+		{
+			case 70: // BC1_TYPELESS
+			case 71: fmt = 0x1a01; b = 8; break; // BC1_UNORM
+			case 72: fmt = 0x1a06; b = 8; break; // BC1_SRGB
+			case 73: // BC2_TYPELESS
+			case 74: fmt = 0x1b01; b = 16; break; // BC2_UNORM
+			case 75: fmt = 0x1b06; b = 16; break; // BC2_SRGB
+			case 76: // BC3_TYPELESS
+			case 77: fmt = 0x1c01; b = 16; break; // BC3_UNORM
+			case 78: fmt = 0x1c06; b = 16; break; // BC3_SRGB
+			case 79: // BC4_TYPELESS
+			case 80: fmt = 0x1d01; b = 8; break; // BC4_UNORM
+			case 81: fmt = 0x1d02; b = 8; break; // BC4_SNORM
+			case 82: // BC5_TYPELESS
+			case 83: fmt = 0x1e01; b = 16; break; // BC5_UNORM
+			case 84: fmt = 0x1e02; b = 16; break; // BC5_SNORM
+			case 94: // BC6H_TYPELESS
+			case 95: fmt = 0x1f0a; b = 16; break; // BC6H_UF16
+			case 96: fmt = 0x1f0b; b = 16; break; // BC6H_SF16
+			case 97: // BC7_TYPELESS
+			case 98: fmt = 0x2001; b = 16; break; // BC7_UNORM
+			case 99: fmt = 0x2006; b = 16; break; // BC7_SRGB
+			case 27: // RGBA8_TYPELESS
+			case 28: // RGBA8_UNORM
+			case 30: fmt = 0x0b01; b = 4; bw = bh = 1; break; // RGBA8_UINT
+			case 29: fmt = 0x0b06; b = 4; bw = bh = 1; break; // RGBA8_SRGB
+			default: return false;
+		}
+	}
+	if (bntx_fmt)
+		*bntx_fmt = fmt;
+	if (bpp)
+		*bpp = b;
+	if (blk_w)
+		*blk_w = bw;
+	if (blk_h)
+		*blk_h = bh;
+	return true;
+}
+
+enumError EncodeBNTX_FromDDS (
+	u8 **dest, uint *dest_size, const u8 *dds, uint dds_size, ccp name)
+{
+	if (!dest || !dds || dds_size < 128)
+		return EINVAL;
+	if (memcmp (dds, "DDS ", 4))
+		return ERROR0 (ERR_INVALID_DATA, "Not a DDS image (missing 'DDS ' magic)\n");
+	if (brd32 (dds + 4) != 124)
+		return ERROR0 (ERR_INVALID_DATA, "Invalid DDS header size %u (expected 124)\n",
+			brd32 (dds + 4));
+
+	const uint height = brd32 (dds + 12);
+	const uint width = brd32 (dds + 16);
+	if (!width || !height || width > 16384 || height > 16384)
+		return ERROR0 (ERR_INVALID_DATA, "Invalid DDS dimensions %ux%u\n", width, height);
+
+	const uint pf_flags = brd32 (dds + 80);
+	const uint fourcc = brd32 (dds + 84);
+	const bool is_dx10 = (pf_flags & 0x04) && fourcc == BNTX_DDS_FOURCC_DX10;
+
+	uint payload_off = 128, dxgi_fmt = 0;
+	if (is_dx10)
+	{
+		if (dds_size < 148)
+			return ERROR0 (ERR_INVALID_DATA, "DDS DX10 header truncated\n");
+		dxgi_fmt = brd32 (dds + 128);
+		if (brd32 (dds + 140) != 1) // array size
+			return ERR_NOTHING_TO_DO;
+		if (brd32 (dds + 132) != 3) // not a 2D texture
+			return ERR_NOTHING_TO_DO;
+		payload_off = 148;
+	}
+	else if (brd32 (dds + 24) > 1) // depth > 1: volume texture
+		return ERR_NOTHING_TO_DO;
+
+	uint bntx_fmt = 0, bpp = 0, blk_w = 4, blk_h = 4;
+	if (!dds_to_bntx_format (fourcc, dxgi_fmt, is_dx10, &bntx_fmt, &bpp, &blk_w, &blk_h))
+		return ERR_NOTHING_TO_DO;
+
+	if (payload_off >= dds_size)
+		return ERROR0 (ERR_INVALID_DATA, "DDS payload missing\n");
+	const u8 *payload = dds + payload_off;
+	const uint payload_size = dds_size - payload_off;
+
+	// Mip chain: honour the header count, clamped to the dimension-derived
+	// maximum and to whatever the payload actually holds (simple single-mip
+	// files often carry count 0/1; over-declared counts are truncated).
+	uint mip_count = brd32 (dds + 28);
+	if (!mip_count)
+		mip_count = 1;
+	uint max_mips = 1;
+	for (uint m = width > height ? width : height; m > 1; m >>= 1)
+		max_mips++;
+	if (mip_count > max_mips)
+		mip_count = max_mips;
+
+	uint lin_off[16];
+	uint lin_size[16];
+	uint n_mips = 0;
+	uint cursor = 0;
+	for (uint m = 0; m < mip_count && m < 16; m++)
+	{
+		const uint w = width >> m ? width >> m : 1;
+		const uint h = height >> m ? height >> m : 1;
+		const u64 sz = (u64)div_round_up (w, blk_w) * div_round_up (h, blk_h) * bpp;
+		if (sz > payload_size - cursor)
+			break;
+		lin_off[m] = cursor;
+		lin_size[m] = (uint)sz;
+		cursor += (uint)sz;
+		n_mips++;
+	}
+	if (!n_mips)
+		return ERROR0 (ERR_INVALID_DATA, "DDS payload truncated\n");
+	mip_count = n_mips;
+
+	if (!name || !*name)
+		name = "texture";
+
+	// Block-height derivation mirrors EncodeBNTX_RGBA so RGBA8 files stay
+	// consistent; per-mip levels follow the decoder's bh - mip rule in
+	// DecodeBNTX_Mip_RGBA.
+	uint bh_log2;
+	if (height <= 16)
+		bh_log2 = 0;
+	else if (height <= 32)
+		bh_log2 = 1;
+	else if (height <= 64)
+		bh_log2 = 2;
+	else if (height <= 128)
+		bh_log2 = 3;
+	else
+		bh_log2 = 4;
+
+	// Swizzle every mip; later mips start 512-aligned like the reference
+	// SwizzleSurfaceMipMaps implementation.
+	u64 mip_rel[16];
+	u64 total_surf = 0;
+	for (uint m = 0; m < mip_count; m++)
+	{
+		if (m)
+			total_surf = round_up ((uint)total_surf, 512);
+		if (total_surf > BNTX_MAX_OUTPUT)
+			return EFBIG;
+		mip_rel[m] = total_surf;
+		const uint w = width >> m ? width >> m : 1;
+		const uint h = height >> m ? height >> m : 1;
+		const uint bh = bh_log2 > m ? bh_log2 - m : 0;
+		const uint block_height = 1u << bh;
+		const uint wb = div_round_up (w, blk_w);
+		const uint hb = div_round_up (h, blk_h);
+		const u64 pitch = round_up (wb * bpp, 64);
+		const u64 rows = round_up (hb, block_height * 8);
+		if (pitch > BNTX_MAX_OUTPUT / (rows ? rows : 1))
+			return EFBIG;
+		total_surf += pitch * rows;
+	}
+	if (!total_surf || total_surf > BNTX_MAX_OUTPUT)
+		return EFBIG;
+
+	u8 *swizzled = CALLOC (1, (size_t)total_surf);
+	if (!swizzled)
+		return ERR_CANT_CREATE;
+	for (uint m = 0; m < mip_count; m++)
+	{
+		const uint w = width >> m ? width >> m : 1;
+		const uint h = height >> m ? height >> m : 1;
+		const uint bh = bh_log2 > m ? bh_log2 - m : 0;
+		const uint block_height = 1u << bh;
+		const uint wb = div_round_up (w, blk_w);
+		const uint hb = div_round_up (h, blk_h);
+		const uint pitch = round_up (wb * bpp, 64);
+		const uint rows = round_up (hb, block_height * 8);
+		const u64 surf_size = (u64)pitch * rows;
+		const u8 *src = payload + lin_off[m];
+		u8 *base = swizzled + mip_rel[m];
+		for (uint y = 0; y < hb; y++)
+			for (uint x = 0; x < wb; x++)
+			{
+				const u64 pos = addr_block_linear (x, y, wb, bpp, 0, block_height);
+				if (pos + bpp > surf_size)
+					continue;
+				memcpy (base + pos, src + ((u64)y * wb + x) * bpp, bpp);
+			}
+	}
+
+	// Container layout: same single-texture structure as EncodeBNTX_RGBA,
+	// with an 8-byte mip offset per level.
+	ccp file_name = "output.bntx";
+	const size_t file_name_len = strlen (file_name);
+	const size_t tex_name_len = strlen (name);
+
+	const uint s0_size = 2 + 0 + 1 + 1;
+	const uint s1_size = round_up (2 + (uint)tex_name_len + 1, 2);
+	const uint s2_size = round_up (2 + (uint)file_name_len + 1, 2);
+
+	const uint str_payload_size = 4 + s0_size + s1_size + s2_size;
+	const uint str_block_size = round_up (16 + str_payload_size, 8);
+	const uint dic_block_size = 8 + 16 * 2;
+
+	const uint ofs_bin_hdr = 0;
+	const uint ofs_bntx_hdr = 0x20;
+	const uint ofs_mem_pool = 0x58;
+	const uint ofs_tex_ptrs = ofs_mem_pool + 0x140;
+	const uint ofs_str = ofs_tex_ptrs + 8;
+	const uint ofs_dic = ofs_str + str_block_size;
+	const uint ofs_brti = ofs_dic + dic_block_size;
+
+	const uint abs_str_base = ofs_str + 16 + 4;
+	const uint abs_str_empty = abs_str_base;
+	const uint abs_str_tex = abs_str_empty + s0_size;
+	const uint abs_str_file = abs_str_tex + s1_size;
+
+	const uint ofs_ti = ofs_brti + 16;
+	const uint ofs_tex_rt = ofs_ti + 144;
+	const uint ofs_tex_view_rt = ofs_tex_rt + 256;
+	const uint ofs_mip_offsets = ofs_tex_view_rt + 256;
+	const uint ofs_sec1_end = ofs_mip_offsets + 8 * mip_count;
+	const uint brti_block_size = ofs_sec1_end - ofs_brti;
+	const uint ofs_sec1_aligned = round_up (ofs_sec1_end, 8);
+
+	const uint ofs_brtd_data = round_up (ofs_sec1_aligned + 16, 4096);
+	const uint ofs_brtd = ofs_brtd_data - 16;
+	const uint ofs_sec2_start = ofs_brtd;
+	const u64 ofs_sec2_end64 = (u64)ofs_brtd_data + total_surf;
+	if (ofs_sec2_end64 > BNTX_MAX_OUTPUT)
+	{
+		FREE (swizzled);
+		return EFBIG;
+	}
+	const uint ofs_sec2_end = (uint)ofs_sec2_end64;
+	const uint ofs_rlt = round_up (ofs_sec2_end, 4096);
+
+	const uint n_sec1_entries = 8;
+	const uint n_sec2_entries = 2;
+	const uint total_rlt_entries = n_sec1_entries + n_sec2_entries;
+	const uint rlt_size = 16 + 2 * 24 + total_rlt_entries * 8;
+	const u64 total_size64 = (u64)ofs_rlt + rlt_size;
+	if (total_size64 > BNTX_MAX_OUTPUT)
+	{
+		FREE (swizzled);
+		return EFBIG;
+	}
+	const uint total_size = (uint)total_size64;
+
+	(void)ofs_bin_hdr;
+
+	u8 *buf = CALLOC (1, (size_t)total_size);
+	if (!buf)
+	{
+		FREE (swizzled);
+		return ERR_CANT_CREATE;
+	}
+
+	memcpy (buf, "BNTX\0\0\0\0", 8);
+	buf[0x08] = 0;
+	buf[0x09] = 0;
+	bwr16 (buf + 0x0a, 4);
+	bwr16 (buf + 0x0c, 0xfeff);
+	buf[0x0e] = 12;
+	buf[0x0f] = 64;
+	bwr32 (buf + 0x10, abs_str_file + 2);
+	bwr16 (buf + 0x14, 0);
+	bwr16 (buf + 0x16, (u16)ofs_str);
+	bwr32 (buf + 0x18, ofs_rlt);
+	bwr32 (buf + 0x1c, total_size);
+
+	memcpy (buf + ofs_bntx_hdr, "NX  ", 4);
+	bwr32 (buf + ofs_bntx_hdr + 4, 1);
+	bwr64 (buf + ofs_bntx_hdr + 8, ofs_tex_ptrs);
+	bwr64 (buf + ofs_bntx_hdr + 16, ofs_brtd);
+	bwr64 (buf + ofs_bntx_hdr + 24, ofs_dic);
+	bwr64 (buf + ofs_bntx_hdr + 32, ofs_mem_pool);
+
+	bwr64 (buf + ofs_tex_ptrs, ofs_brti);
+
+	memcpy (buf + ofs_str, "_STR", 4);
+	bwr32 (buf + ofs_str + 4, str_block_size);
+	bwr64 (buf + ofs_str + 8, str_block_size);
+	bwr32 (buf + ofs_str + 16, 2);
+
+	bwr16 (buf + abs_str_empty, 0);
+	buf[abs_str_empty + 2] = 0;
+
+	bwr16 (buf + abs_str_tex, (u16)tex_name_len);
+	memcpy (buf + abs_str_tex + 2, name, tex_name_len);
+	buf[abs_str_tex + 2 + tex_name_len] = 0;
+
+	bwr16 (buf + abs_str_file, (u16)file_name_len);
+	memcpy (buf + abs_str_file + 2, file_name, file_name_len);
+	buf[abs_str_file + 2 + file_name_len] = 0;
+
+	memcpy (buf + ofs_dic, "_DIC", 4);
+	bwr32 (buf + ofs_dic + 4, 1);
+	bwr32 (buf + ofs_dic + 8, 0xffffffff);
+	bwr16 (buf + ofs_dic + 12, 1);
+	bwr16 (buf + ofs_dic + 14, 0);
+	bwr64 (buf + ofs_dic + 16, abs_str_empty);
+	bwr32 (buf + ofs_dic + 24, 1);
+	bwr16 (buf + ofs_dic + 28, 0);
+	bwr16 (buf + ofs_dic + 30, 1);
+	bwr64 (buf + ofs_dic + 32, abs_str_tex);
+
+	memcpy (buf + ofs_brti, "BRTI", 4);
+	bwr32 (buf + ofs_brti + 4, brti_block_size);
+	bwr64 (buf + ofs_brti + 8, brti_block_size);
+
+	u8 *ti = buf + ofs_ti;
+	ti[0] = 0;
+	ti[1] = 2;
+	bwr16 (ti + 0x02, 0);
+	bwr16 (ti + 0x04, 0);
+	bwr16 (ti + 0x06, (u16)mip_count);
+	bwr32 (ti + 0x08, 1);
+	bwr32 (ti + 0x0c, bntx_fmt);
+	bwr32 (ti + 0x10, 0x20);
+	bwr32 (ti + 0x14, width);
+	bwr32 (ti + 0x18, height);
+	bwr32 (ti + 0x1c, 1);
+	bwr32 (ti + 0x20, 1);
+	bwr32 (ti + 0x24, bh_log2);
+	bwr32 (ti + 0x28, 2);
+	bwr32 (ti + 0x40, (u32)total_surf);
+	bwr32 (ti + 0x44, 512);
+	bwr32 (ti + 0x48, 0x05040302);
+	bwr64 (ti + 0x50, abs_str_tex);
+	bwr64 (ti + 0x58, ofs_bntx_hdr);
+	bwr64 (ti + 0x60, ofs_mip_offsets);
+	bwr64 (ti + 0x68, 0);
+	bwr64 (ti + 0x70, ofs_tex_rt);
+	bwr64 (ti + 0x78, ofs_tex_view_rt);
+	bwr64 (ti + 0x80, 0);
+	bwr64 (ti + 0x88, 0);
+
+	for (uint m = 0; m < mip_count; m++)
+		bwr64 (buf + ofs_mip_offsets + 8 * m, (u64)ofs_brtd_data + mip_rel[m]);
+
+	const uint brtd_block_size = (uint)(16 + total_surf);
+	memcpy (buf + ofs_brtd, "BRTD", 4);
+	bwr32 (buf + ofs_brtd + 4, brtd_block_size);
+	bwr64 (buf + ofs_brtd + 8, brtd_block_size);
+	memcpy (buf + ofs_brtd_data, swizzled, (size_t)total_surf);
+	FREE (swizzled);
+
+	u8 *rlt = buf + ofs_rlt;
+	memcpy (rlt, "_RLT", 4);
+	bwr32 (rlt + 4, ofs_rlt);
+	bwr32 (rlt + 8, 2);
+	bwr32 (rlt + 12, 0);
+
+	bwr64 (rlt + 16, 0);
+	bwr32 (rlt + 24, 0);
+	bwr32 (rlt + 28, ofs_sec2_start);
+	bwr32 (rlt + 32, 0);
+	bwr32 (rlt + 36, n_sec1_entries);
+
+	bwr64 (rlt + 40, 0);
+	bwr32 (rlt + 48, ofs_sec2_start);
+	bwr32 (rlt + 52, ofs_rlt - ofs_sec2_start);
+	bwr32 (rlt + 56, n_sec1_entries);
+	bwr32 (rlt + 60, n_sec2_entries);
+
+	u8 *ep = rlt + 16 + 2 * 24;
+	struct {
+		s32 ofs;
+		u16 arr;
+		u8 pcnt;
+		u8 padc;
+	} entries[10] = {
+		{ 40, 2, 1, 1 },
+		{ 64, 1, 1, 0 },
+		{ (s32)ofs_tex_ptrs, 1, 1, 0 },
+		{ (s32)ofs_dic + 16, 2, 1, 1 },
+		{ (s32)ofs_ti + 0x50, 1, 3, 0 },
+		{ (s32)ofs_ti + 0x50 + 24, 1, 1, 0 },
+		{ (s32)ofs_ti + 0x50 + 32, 1, 2, 0 },
+		{ (s32)ofs_ti + 0x50 + 56, 1, 1, 0 },
+		{ 48, 1, 1, 0 },
+		{ (s32)ofs_mip_offsets, 1, 1, 0 }
+	};
+
+	for (uint e = 0; e < total_rlt_entries; e++)
+	{
+		bwr32 (ep + e * 8 + 0, (u32)entries[e].ofs);
+		bwr16 (ep + e * 8 + 4, entries[e].arr);
+		ep[e * 8 + 6] = entries[e].pcnt;
+		ep[e * 8 + 7] = entries[e].padc;
+	}
+
+	*dest = buf;
+	if (dest_size)
+		*dest_size = total_size;
+	return ERR_OK;
+}
+
+//-----------------------------------------------------------------------------
+///////////////		multi-texture DDS -> BNTX (combine)		///////////////
+//-----------------------------------------------------------------------------
+//
+// SourceToBinaryCmd `-bntx` without `--split` merges every input DDS into one
+// BNTX container (CreateBNTX(path, textures) in
+// Source2Binary/FileFormats/Nintendo/BNTX.cs). wimgt's per-file loop is the
+// `--split` equivalent; this writer closes the combine gap so
+// `wimgt ENCODE a.dds b.dds --dest out.bntx` keeps every source's native
+// blocks, format word and mip chain in a single file.
+//
+// Container layout generalizes the single-texture writer above: one _STR with
+// N+1 names, one _DIC Patricia trie with N entries, N BRTI blocks (each with
+// its own mip-offset array), one BRTD holding all swizzled surfaces
+// (each texture base 4096-aligned, later mips 512-aligned within the texture
+// like SwizzleSurfaceMipMaps), and a programmatic _RLT covering every file
+// offset pointer.
+
+//--- Patricia trie for _DIC (port of lib-bea.c BuildBeaDict, same NintendoSDK
+//--- ResDict format: ref u32, left u16, right u16, name u64 LE). ---
+typedef struct bntx_dic_node_t
+{
+	ccp data;
+	int data_len;
+	int bit_idx;
+	struct bntx_dic_node_t *parent;
+	struct bntx_dic_node_t *child[2];
+} bntx_dic_node_t;
+
+typedef struct bntx_dic_tree_t
+{
+	bntx_dic_node_t **entries;
+	uint n_entries, cap_entries;
+	bntx_dic_node_t *root;
+	bntx_dic_node_t **all_nodes;
+	uint n_all, cap_all;
+} bntx_dic_tree_t;
+
+static int bntx_dic_bit (ccp str, int len, int b)
+{
+	if (b < 0)
+		return 0;
+	const int byte_from_end = b / 8;
+	if (byte_from_end >= len)
+		return 0;
+	const u8 byte = (u8)str[len - 1 - byte_from_end];
+	return (byte >> (b % 8)) & 1;
+}
+
+static int bntx_dic_bit_length (ccp str, int len)
+{
+	for (int i = 0; i < len; i++)
+	{
+		if ((u8)str[i])
+		{
+			int hi = 7;
+			while (!(((u8)str[i] >> hi) & 1))
+				hi--;
+			return (len - i - 1) * 8 + hi + 1;
+		}
+	}
+	return 1;
+}
+
+static int bntx_dic_first_1bit (ccp str, int len)
+{
+	const int bl = bntx_dic_bit_length (str, len);
+	for (int i = 0; i < bl; i++)
+		if (bntx_dic_bit (str, len, i))
+			return i;
+	return 0;
+}
+
+static int bntx_dic_mismatch (ccp a, int alen, ccp b, int blen)
+{
+	const int bla = bntx_dic_bit_length (a, alen);
+	const int blb = bntx_dic_bit_length (b, blen);
+	const int hi = bla > blb ? bla : blb;
+	for (int i = 0; i < hi; i++)
+		if (bntx_dic_bit (a, alen, i) != bntx_dic_bit (b, blen, i))
+			return i;
+	return -1;
+}
+
+static bntx_dic_node_t *bntx_dic_new_node (
+	bntx_dic_tree_t *tree, ccp data, int data_len, int bit_idx, bntx_dic_node_t *parent)
+{
+	bntx_dic_node_t *n = CALLOC (1, sizeof (*n));
+	if (!n)
+		return NULL;
+	n->data = data;
+	n->data_len = data_len;
+	n->bit_idx = bit_idx;
+	n->parent = parent ? parent : n;
+	n->child[0] = n->child[1] = n;
+	if (tree->n_all == tree->cap_all)
+	{
+		const uint ncap = tree->cap_all ? tree->cap_all * 2 : 16;
+		void *mem = REALLOC (tree->all_nodes, ncap * sizeof (*tree->all_nodes));
+		if (!mem)
+		{
+			FREE (n);
+			return NULL;
+		}
+		tree->all_nodes = mem;
+		tree->cap_all = ncap;
+	}
+	tree->all_nodes[tree->n_all++] = n;
+	return n;
+}
+
+static uint bntx_dic_insert_entry (bntx_dic_tree_t *tree, ccp data, int data_len,
+	bntx_dic_node_t *node)
+{
+	for (uint i = 0; i < tree->n_entries; i++)
+	{
+		bntx_dic_node_t *e = tree->entries[i];
+		if (e->data_len == data_len && !memcmp (e->data, data, data_len))
+		{
+			tree->entries[i] = node;
+			return i;
+		}
+	}
+	if (tree->n_entries == tree->cap_entries)
+	{
+		const uint ncap = tree->cap_entries ? tree->cap_entries * 2 : 16;
+		void *mem = REALLOC (tree->entries, ncap * sizeof (*tree->entries));
+		if (!mem)
+			return tree->n_entries;
+		tree->entries = mem;
+		tree->cap_entries = ncap;
+	}
+	tree->entries[tree->n_entries] = node;
+	return tree->n_entries++;
+}
+
+static uint bntx_dic_index_of (bntx_dic_tree_t *tree, ccp data, int data_len)
+{
+	for (uint i = 0; i < tree->n_entries; i++)
+		if (tree->entries[i]->data_len == data_len
+			&& !memcmp (tree->entries[i]->data, data, data_len))
+			return i;
+	return 0;
+}
+
+static bntx_dic_node_t *bntx_dic_search (
+	bntx_dic_tree_t *tree, ccp data, int data_len, bool want_prev)
+{
+	if (tree->root->child[0] == tree->root)
+		return tree->root;
+	bntx_dic_node_t *node = tree->root->child[0];
+	bntx_dic_node_t *prev_node = node;
+	for (;;)
+	{
+		prev_node = node;
+		node = node->child[bntx_dic_bit (data, data_len, node->bit_idx)];
+		if (node->bit_idx <= prev_node->bit_idx)
+			break;
+	}
+	return want_prev ? prev_node : node;
+}
+
+static bool bntx_dic_insert (bntx_dic_tree_t *tree, ccp key, int key_len)
+{
+	bntx_dic_node_t *current = bntx_dic_search (tree, key, key_len, true);
+	int bit_idx = bntx_dic_mismatch (current->data, current->data_len, key, key_len);
+	while (bit_idx < current->parent->bit_idx)
+		current = current->parent;
+
+	if (bit_idx < current->bit_idx)
+	{
+		bntx_dic_node_t *nn = bntx_dic_new_node (tree, key, key_len, bit_idx, current->parent);
+		if (!nn)
+			return false;
+		nn->child[bntx_dic_bit (key, key_len, bit_idx) ^ 1] = current;
+		current->parent->child[bntx_dic_bit (key, key_len, current->parent->bit_idx)] = nn;
+		current->parent = nn;
+		bntx_dic_insert_entry (tree, key, key_len, nn);
+	}
+	else if (bit_idx > current->bit_idx)
+	{
+		bntx_dic_node_t *nn = bntx_dic_new_node (tree, key, key_len, bit_idx, current);
+		if (!nn)
+			return false;
+		const int b = bntx_dic_bit (key, key_len, bit_idx) ^ 1;
+		nn->child[b] = bntx_dic_bit (current->data, current->data_len, bit_idx) == b
+			? current
+			: tree->root;
+		current->child[bntx_dic_bit (key, key_len, current->bit_idx)] = nn;
+		bntx_dic_insert_entry (tree, key, key_len, nn);
+	}
+	else
+	{
+		int new_bit_idx = bntx_dic_first_1bit (key, key_len);
+		bntx_dic_node_t *branch = current->child[bntx_dic_bit (key, key_len, bit_idx)];
+		if (branch != tree->root)
+			new_bit_idx = bntx_dic_mismatch (branch->data, branch->data_len, key, key_len);
+		bntx_dic_node_t *nn = bntx_dic_new_node (tree, key, key_len, new_bit_idx, current);
+		if (!nn)
+			return false;
+		nn->child[bntx_dic_bit (key, key_len, new_bit_idx) ^ 1] = branch;
+		current->child[bntx_dic_bit (key, key_len, bit_idx)] = nn;
+		bntx_dic_insert_entry (tree, key, key_len, nn);
+	}
+	return true;
+}
+
+typedef struct bntx_dic_entry_t
+{
+	u32 reference;
+	u16 idx_left, idx_right;
+	ccp key;
+	int key_len;
+} bntx_dic_entry_t;
+
+static void bntx_dic_free_tree (bntx_dic_tree_t *tree)
+{
+	for (uint i = 0; i < tree->n_all; i++)
+		FREE (tree->all_nodes[i]);
+	FREE (tree->all_nodes);
+	FREE (tree->entries);
+	memset (tree, 0, sizeof (*tree));
+}
+
+// Builds a Patricia node table for NAMES[0..n-1]. Returns CALLOC-owned array
+// of n+1 entries (index 0 is the root with empty key); NULL on OOM. Caller
+// frees the array (keys are borrowed, not owned).
+static bntx_dic_entry_t *bntx_dic_build (ccp const *names, uint n)
+{
+	bntx_dic_tree_t tree = { 0 };
+	tree.root = bntx_dic_new_node (&tree, "", 0, -1, 0);
+	if (!tree.root)
+		return NULL;
+	tree.root->parent = tree.root;
+	tree.root->child[0] = tree.root->child[1] = tree.root;
+	bntx_dic_insert_entry (&tree, "", 0, tree.root);
+
+	for (uint i = 0; i < n; i++)
+	{
+		if (!bntx_dic_insert (&tree, names[i], (int)strlen (names[i])))
+		{
+			bntx_dic_free_tree (&tree);
+			return NULL;
+		}
+	}
+
+	bntx_dic_entry_t *out = CALLOC (tree.n_entries, sizeof (*out));
+	if (!out)
+	{
+		bntx_dic_free_tree (&tree);
+		return NULL;
+	}
+	for (uint i = 0; i < tree.n_entries; i++)
+	{
+		bntx_dic_node_t *node = tree.entries[i];
+		out[i].reference = (u32)node->bit_idx;
+		out[i].idx_left = (u16)bntx_dic_index_of (&tree, node->child[0]->data,
+			node->child[0]->data_len);
+		out[i].idx_right = (u16)bntx_dic_index_of (&tree, node->child[1]->data,
+			node->child[1]->data_len);
+		out[i].key = node->data;
+		out[i].key_len = node->data_len;
+	}
+	bntx_dic_free_tree (&tree);
+	return out;
+}
+
+//--- Per-texture parsed + swizzled state. ---
+typedef struct bntx_combine_tex_t
+{
+	char name[128];
+	uint width, height;
+	uint format;
+	uint bpp, blk_w, blk_h;
+	uint bh_log2;
+	uint mip_count;
+	u64 mip_rel[16];
+	u8 *swizzled;
+	u64 total_surf;
+} bntx_combine_tex_t;
+
+static void bntx_combine_free (bntx_combine_tex_t *texs, uint n)
+{
+	if (!texs)
+		return;
+	for (uint i = 0; i < n; i++)
+		FREE (texs[i].swizzled);
+	FREE (texs);
+}
+
+// Parses one DDS into TEX (native blocks preserved). Returns ERR_NOTHING_TO_DO
+// for variants with no direct BNTX representation (caller falls back).
+static enumError bntx_combine_parse_dds (
+	const u8 *dds, uint dds_size, ccp name, bntx_combine_tex_t *tex)
+{
+	if (!dds || dds_size < 128 || !tex)
+		return EINVAL;
+	if (memcmp (dds, "DDS ", 4))
+		return ERROR0 (ERR_INVALID_DATA, "Not a DDS image (missing 'DDS ' magic)\n");
+	if (brd32 (dds + 4) != 124)
+		return ERROR0 (ERR_INVALID_DATA, "Invalid DDS header size %u (expected 124)\n",
+			brd32 (dds + 4));
+
+	const uint width = brd32 (dds + 16);
+	const uint height = brd32 (dds + 12);
+	if (!width || !height || width > 16384 || height > 16384)
+		return ERROR0 (ERR_INVALID_DATA, "Invalid DDS dimensions %ux%u\n", width, height);
+
+	const uint pf_flags = brd32 (dds + 80);
+	const uint fourcc = brd32 (dds + 84);
+	const bool is_dx10 = (pf_flags & 0x04) && fourcc == BNTX_DDS_FOURCC_DX10;
+
+	uint payload_off = 128, dxgi_fmt = 0;
+	if (is_dx10)
+	{
+		if (dds_size < 148)
+			return ERROR0 (ERR_INVALID_DATA, "DDS DX10 header truncated\n");
+		dxgi_fmt = brd32 (dds + 128);
+		if (brd32 (dds + 140) != 1)
+			return ERR_NOTHING_TO_DO;
+		if (brd32 (dds + 132) != 3)
+			return ERR_NOTHING_TO_DO;
+		payload_off = 148;
+	}
+	else if (brd32 (dds + 24) > 1)
+		return ERR_NOTHING_TO_DO;
+
+	uint bntx_fmt = 0, bpp = 0, blk_w = 4, blk_h = 4;
+	if (!dds_to_bntx_format (fourcc, dxgi_fmt, is_dx10, &bntx_fmt, &bpp, &blk_w, &blk_h))
+		return ERR_NOTHING_TO_DO;
+
+	if (payload_off >= dds_size)
+		return ERROR0 (ERR_INVALID_DATA, "DDS payload missing\n");
+	const u8 *payload = dds + payload_off;
+	const uint payload_size = dds_size - payload_off;
+
+	uint mip_count = brd32 (dds + 28);
+	if (!mip_count)
+		mip_count = 1;
+	uint max_mips = 1;
+	for (uint m = width > height ? width : height; m > 1; m >>= 1)
+		max_mips++;
+	if (mip_count > max_mips)
+		mip_count = max_mips;
+
+	uint lin_off[16];
+	uint lin_size[16];
+	uint n_mips = 0;
+	uint cursor = 0;
+	for (uint m = 0; m < mip_count && m < 16; m++)
+	{
+		const uint w = width >> m ? width >> m : 1;
+		const uint h = height >> m ? height >> m : 1;
+		const u64 sz = (u64)div_round_up (w, blk_w) * div_round_up (h, blk_h) * bpp;
+		if (sz > payload_size - cursor)
+			break;
+		lin_off[m] = cursor;
+		lin_size[m] = (uint)sz;
+		cursor += (uint)sz;
+		n_mips++;
+	}
+	if (!n_mips)
+		return ERROR0 (ERR_INVALID_DATA, "DDS payload truncated\n");
+	(void)lin_size;
+
+	uint bh_log2;
+	if (height <= 16)
+		bh_log2 = 0;
+	else if (height <= 32)
+		bh_log2 = 1;
+	else if (height <= 64)
+		bh_log2 = 2;
+	else if (height <= 128)
+		bh_log2 = 3;
+	else
+		bh_log2 = 4;
+
+	u64 mip_rel[16];
+	u64 total_surf = 0;
+	for (uint m = 0; m < n_mips; m++)
+	{
+		if (m)
+			total_surf = round_up ((uint)total_surf, 512);
+		if (total_surf > BNTX_MAX_OUTPUT)
+			return EFBIG;
+		mip_rel[m] = total_surf;
+		const uint w = width >> m ? width >> m : 1;
+		const uint h = height >> m ? height >> m : 1;
+		const uint bh = bh_log2 > m ? bh_log2 - m : 0;
+		const uint block_height = 1u << bh;
+		const uint wb = div_round_up (w, blk_w);
+		const uint hb = div_round_up (h, blk_h);
+		const u64 pitch = round_up (wb * bpp, 64);
+		const u64 rows = round_up (hb, block_height * 8);
+		if (pitch > BNTX_MAX_OUTPUT / (rows ? rows : 1))
+			return EFBIG;
+		total_surf += pitch * rows;
+	}
+	if (!total_surf || total_surf > BNTX_MAX_OUTPUT)
+		return EFBIG;
+
+	u8 *swizzled = CALLOC (1, (size_t)total_surf);
+	if (!swizzled)
+		return ERR_CANT_CREATE;
+	for (uint m = 0; m < n_mips; m++)
+	{
+		const uint w = width >> m ? width >> m : 1;
+		const uint h = height >> m ? height >> m : 1;
+		const uint bh = bh_log2 > m ? bh_log2 - m : 0;
+		const uint block_height = 1u << bh;
+		const uint wb = div_round_up (w, blk_w);
+		const uint hb = div_round_up (h, blk_h);
+		const uint pitch = round_up (wb * bpp, 64);
+		const uint rows = round_up (hb, block_height * 8);
+		const u64 surf_size = (u64)pitch * rows;
+		const u8 *src = payload + lin_off[m];
+		u8 *base = swizzled + mip_rel[m];
+		for (uint y = 0; y < hb; y++)
+			for (uint x = 0; x < wb; x++)
+			{
+				const u64 pos = addr_block_linear (x, y, wb, bpp, 0, block_height);
+				if (pos + bpp > surf_size)
+					continue;
+				memcpy (base + pos, src + ((u64)y * wb + x) * bpp, bpp);
+			}
+	}
+
+	memset (tex, 0, sizeof (*tex));
+	snprintf (tex->name, sizeof (tex->name), "%s", name && *name ? name : "texture");
+	tex->width = width;
+	tex->height = height;
+	tex->format = bntx_fmt;
+	tex->bpp = bpp;
+	tex->blk_w = blk_w;
+	tex->blk_h = blk_h;
+	tex->bh_log2 = bh_log2;
+	tex->mip_count = n_mips;
+	memcpy (tex->mip_rel, mip_rel, sizeof (mip_rel));
+	tex->swizzled = swizzled;
+	tex->total_surf = total_surf;
+	return ERR_OK;
+}
+
+enumError EncodeBNTX_FromDDSList (u8 **dest, uint *dest_size, const u8 **dds_datas,
+	const uint *dds_sizes, ccp const *names, uint n_tex)
+{
+	if (!dest || !dds_datas || !dds_sizes || !names || !n_tex || n_tex > 256)
+		return EINVAL;
+
+	bntx_combine_tex_t *texs = CALLOC (n_tex, sizeof (*texs));
+	if (!texs)
+		return ERR_CANT_CREATE;
+
+	// Parse every DDS first so a single unsupported variant declines the
+	// whole batch (caller falls back to per-file RGBA8) instead of writing
+	// a partial container. Duplicate names get _1, _2 suffixes.
+	for (uint i = 0; i < n_tex; i++)
+	{
+		char uname[128];
+		snprintf (uname, sizeof (uname), "%s",
+			names[i] && *names[i] ? names[i] : "texture");
+		// Deduplicate against earlier textures.
+		for (uint k = 0; k < i; k++)
+		{
+			if (!strcmp (texs[k].name, uname))
+			{
+				uint suffix = 1;
+				char cand[128];
+				do
+					snprintf (cand, sizeof (cand), "%s_%u", uname, suffix++);
+				while (0);
+				// Re-check against all earlier names.
+				bool clash = false;
+				for (uint j = 0; j < i; j++)
+					if (!strcmp (texs[j].name, cand))
+					{
+						clash = true;
+						break;
+					}
+				if (!clash)
+				{
+					snprintf (uname, sizeof (uname), "%s", cand);
+					break;
+				}
+				// On repeated clash keep bumping the suffix.
+				for (;; suffix++)
+				{
+					snprintf (cand, sizeof (cand), "%s_%u", names[i], suffix);
+					clash = false;
+					for (uint j = 0; j < i; j++)
+						if (!strcmp (texs[j].name, cand))
+						{
+							clash = true;
+							break;
+						}
+					if (!clash)
+					{
+						snprintf (uname, sizeof (uname), "%s", cand);
+						break;
+					}
+				}
+				break;
+			}
+		}
+		const enumError err = bntx_combine_parse_dds (
+			dds_datas[i], dds_sizes[i], uname, &texs[i]);
+		if (err)
+		{
+			bntx_combine_free (texs, i);
+			return err;
+		}
+	}
+
+	ccp file_name = "output.bntx";
+
+	// String table: "" + N names + file name.
+	uint *str_sizes = CALLOC (n_tex + 2, sizeof (*str_sizes));
+	uint *str_offs = CALLOC (n_tex + 2, sizeof (*str_offs));
+	ccp *str_vals = CALLOC (n_tex + 2, sizeof (*str_vals));
+	if (!str_sizes || !str_offs || !str_vals)
+	{
+		FREE (str_sizes);
+		FREE (str_offs);
+		FREE (str_vals);
+		bntx_combine_free (texs, n_tex);
+		return ERR_CANT_CREATE;
+	}
+	str_vals[0] = "";
+	for (uint i = 0; i < n_tex; i++)
+		str_vals[1 + i] = texs[i].name;
+	str_vals[1 + n_tex] = file_name;
+	for (uint i = 0; i < n_tex + 2; i++)
+		str_sizes[i] = round_up (2 + (uint)strlen (str_vals[i]) + 1, 2);
+	uint str_payload = 4;
+	for (uint i = 0; i < n_tex + 2; i++)
+		str_payload += str_sizes[i];
+	const uint str_block_size = round_up (16 + str_payload, 8);
+
+	// Dictionary via Patricia trie over the N texture names.
+	ccp *dic_names = CALLOC (n_tex, sizeof (*dic_names));
+	if (!dic_names)
+	{
+		FREE (str_sizes);
+		FREE (str_offs);
+		FREE (str_vals);
+		bntx_combine_free (texs, n_tex);
+		return ERR_CANT_CREATE;
+	}
+	for (uint i = 0; i < n_tex; i++)
+		dic_names[i] = texs[i].name;
+	bntx_dic_entry_t *dic = bntx_dic_build (dic_names, n_tex);
+	FREE (dic_names);
+	if (!dic)
+	{
+		FREE (str_sizes);
+		FREE (str_offs);
+		FREE (str_vals);
+		bntx_combine_free (texs, n_tex);
+		return ERR_CANT_CREATE;
+	}
+	const uint dic_block_size = 8 + 16 * (n_tex + 1);
+
+	const uint ofs_bntx_hdr = 0x20;
+	const uint ofs_mem_pool = 0x58;
+	const uint ofs_tex_ptrs = ofs_mem_pool + 0x140;
+	const uint ofs_str = ofs_tex_ptrs + 8 * n_tex;
+	const uint ofs_dic = ofs_str + str_block_size;
+	uint ofs_brti_cur = ofs_dic + dic_block_size;
+
+	uint *ofs_brti = CALLOC (n_tex, sizeof (*ofs_brti));
+	uint *ofs_ti = CALLOC (n_tex, sizeof (*ofs_ti));
+	uint *ofs_mip_offs = CALLOC (n_tex, sizeof (*ofs_mip_offs));
+	uint *brti_size = CALLOC (n_tex, sizeof (*brti_size));
+	if (!ofs_brti || !ofs_ti || !ofs_mip_offs || !brti_size)
+	{
+		FREE (ofs_brti);
+		FREE (ofs_ti);
+		FREE (ofs_mip_offs);
+		FREE (brti_size);
+		FREE (str_sizes);
+		FREE (str_offs);
+		FREE (str_vals);
+		FREE (dic);
+		bntx_combine_free (texs, n_tex);
+		return ERR_CANT_CREATE;
+	}
+	for (uint i = 0; i < n_tex; i++)
+	{
+		ofs_brti[i] = round_up (ofs_brti_cur, 8);
+		ofs_ti[i] = ofs_brti[i] + 16;
+		ofs_mip_offs[i] = ofs_ti[i] + 144 + 256 + 256;
+		brti_size[i] = 16 + 144 + 256 + 256 + 8 * texs[i].mip_count;
+		ofs_brti_cur = ofs_brti[i] + brti_size[i];
+	}
+	const uint ofs_sec1_aligned = round_up (ofs_brti_cur, 8);
+
+	// BRTD data: each texture base 4096-aligned, mips 512-aligned within.
+	u64 *tex_base_rel = CALLOC (n_tex, sizeof (*tex_base_rel));
+	if (!tex_base_rel)
+	{
+		FREE (ofs_brti);
+		FREE (ofs_ti);
+		FREE (ofs_mip_offs);
+		FREE (brti_size);
+		FREE (str_sizes);
+		FREE (str_offs);
+		FREE (str_vals);
+		FREE (dic);
+		bntx_combine_free (texs, n_tex);
+		return ERR_CANT_CREATE;
+	}
+	u64 brtd_payload = 0;
+	for (uint i = 0; i < n_tex; i++)
+	{
+		brtd_payload = round_up ((uint)brtd_payload, 4096);
+		// First texture keeps the single-texture invariant that BRTD data
+		// starts 4096-aligned right after the header; later textures follow
+		// at the next 4096 boundary.
+		tex_base_rel[i] = brtd_payload;
+		brtd_payload += texs[i].total_surf;
+		if (brtd_payload > BNTX_MAX_OUTPUT)
+		{
+			FREE (tex_base_rel);
+			FREE (ofs_brti);
+			FREE (ofs_ti);
+			FREE (ofs_mip_offs);
+			FREE (brti_size);
+			FREE (str_sizes);
+			FREE (str_offs);
+			FREE (str_vals);
+			FREE (dic);
+			bntx_combine_free (texs, n_tex);
+			return EFBIG;
+		}
+	}
+	const uint ofs_brtd_data = round_up (ofs_sec1_aligned + 16, 4096);
+	const uint ofs_brtd = ofs_brtd_data - 16;
+	const uint ofs_sec2_start = ofs_brtd;
+	const u64 sec2_end64 = (u64)ofs_brtd_data + brtd_payload;
+	if (sec2_end64 > BNTX_MAX_OUTPUT)
+	{
+		FREE (tex_base_rel);
+		FREE (ofs_brti);
+		FREE (ofs_ti);
+		FREE (ofs_mip_offs);
+		FREE (brti_size);
+		FREE (str_sizes);
+		FREE (str_offs);
+		FREE (str_vals);
+		FREE (dic);
+		bntx_combine_free (texs, n_tex);
+		return EFBIG;
+	}
+	const uint ofs_sec2_end = (uint)sec2_end64;
+	const uint ofs_rlt = round_up (ofs_sec2_end, 4096);
+
+	// Relocation: one entry per pointer (unmerged runs stay valid, just
+	// larger). Collect: BNTX hdr (4) + tex ptrs (N) + dict names (N+1) +
+	// per texture (name, hdr, mip array ptr, tex/view ptrs = 5 + desc/user
+	// slots covered as singletons) + mip offsets (sum mips).
+	uint total_mips = 0;
+	for (uint i = 0; i < n_tex; i++)
+		total_mips += texs[i].mip_count;
+	const uint n_ptr_entries = 4 + n_tex + (n_tex + 1) + n_tex * 5 + total_mips;
+	const uint rlt_size = 16 + 2 * 24 + n_ptr_entries * 8;
+	const u64 total_size64 = (u64)ofs_rlt + rlt_size;
+	if (total_size64 > BNTX_MAX_OUTPUT)
+	{
+		FREE (tex_base_rel);
+		FREE (ofs_brti);
+		FREE (ofs_ti);
+		FREE (ofs_mip_offs);
+		FREE (brti_size);
+		FREE (str_sizes);
+		FREE (str_offs);
+		FREE (str_vals);
+		FREE (dic);
+		bntx_combine_free (texs, n_tex);
+		return EFBIG;
+	}
+	const uint total_size = (uint)total_size64;
+
+	u8 *buf = CALLOC (1, (size_t)total_size);
+	if (!buf)
+	{
+		FREE (tex_base_rel);
+		FREE (ofs_brti);
+		FREE (ofs_ti);
+		FREE (ofs_mip_offs);
+		FREE (brti_size);
+		FREE (str_sizes);
+		FREE (str_offs);
+		FREE (str_vals);
+		FREE (dic);
+		bntx_combine_free (texs, n_tex);
+		return ERR_CANT_CREATE;
+	}
+
+	// Binary + BNTX headers.
+	memcpy (buf, "BNTX\0\0\0\0", 8);
+	buf[0x08] = 0;
+	buf[0x09] = 0;
+	bwr16 (buf + 0x0a, 4);
+	bwr16 (buf + 0x0c, 0xfeff);
+	buf[0x0e] = 12;
+	buf[0x0f] = 64;
+	// NameOffset patched after string layout below.
+	bwr16 (buf + 0x14, 0);
+	bwr16 (buf + 0x16, (u16)ofs_str);
+	bwr32 (buf + 0x18, ofs_rlt);
+	bwr32 (buf + 0x1c, total_size);
+
+	memcpy (buf + ofs_bntx_hdr, "NX  ", 4);
+	bwr32 (buf + ofs_bntx_hdr + 4, n_tex);
+	bwr64 (buf + ofs_bntx_hdr + 8, ofs_tex_ptrs);
+	bwr64 (buf + ofs_bntx_hdr + 16, ofs_brtd);
+	bwr64 (buf + ofs_bntx_hdr + 24, ofs_dic);
+	bwr64 (buf + ofs_bntx_hdr + 32, ofs_mem_pool);
+
+	for (uint i = 0; i < n_tex; i++)
+		bwr64 (buf + ofs_tex_ptrs + 8 * i, ofs_brti[i]);
+
+	// String table.
+	memcpy (buf + ofs_str, "_STR", 4);
+	bwr32 (buf + ofs_str + 4, str_block_size);
+	bwr64 (buf + ofs_str + 8, str_block_size);
+	bwr32 (buf + ofs_str + 16, n_tex + 1);
+	uint str_cur = ofs_str + 16 + 4;
+	for (uint i = 0; i < n_tex + 2; i++)
+	{
+		str_offs[i] = str_cur;
+		const size_t L = strlen (str_vals[i]);
+		bwr16 (buf + str_cur, (u16)L);
+		memcpy (buf + str_cur + 2, str_vals[i], L);
+		buf[str_cur + 2 + L] = 0;
+		str_cur += str_sizes[i];
+	}
+	bwr32 (buf + 0x10, str_offs[n_tex + 1] + 2);
+
+	// Dictionary: entries follow the Patricia build order; each node's name
+	// pointer resolves via its key (root key "" -> str_offs[0], texture keys
+	// -> matching str_offs[1+i]).
+	memcpy (buf + ofs_dic, "_DIC", 4);
+	bwr32 (buf + ofs_dic + 4, n_tex);
+	for (uint i = 0; i < n_tex + 1; i++)
+	{
+		u64 name_ptr = str_offs[0];
+		if (dic[i].key_len)
+		{
+			for (uint k = 0; k < n_tex; k++)
+				if ((int)strlen (texs[k].name) == dic[i].key_len
+					&& !memcmp (texs[k].name, dic[i].key, dic[i].key_len))
+				{
+					name_ptr = str_offs[1 + k];
+					break;
+				}
+		}
+		bwr32 (buf + ofs_dic + 8 + 16 * i, dic[i].reference);
+		bwr16 (buf + ofs_dic + 8 + 16 * i + 4, dic[i].idx_left);
+		bwr16 (buf + ofs_dic + 8 + 16 * i + 6, dic[i].idx_right);
+		bwr64 (buf + ofs_dic + 8 + 16 * i + 8, name_ptr);
+	}
+	FREE (dic);
+
+	// BRTI blocks.
+	for (uint i = 0; i < n_tex; i++)
+	{
+		memcpy (buf + ofs_brti[i], "BRTI", 4);
+		bwr32 (buf + ofs_brti[i] + 4, brti_size[i]);
+		bwr64 (buf + ofs_brti[i] + 8, brti_size[i]);
+		u8 *ti = buf + ofs_ti[i];
+		ti[0] = 0;
+		ti[1] = 2;
+		bwr16 (ti + 0x02, 0);
+		bwr16 (ti + 0x04, 0);
+		bwr16 (ti + 0x06, (u16)texs[i].mip_count);
+		bwr32 (ti + 0x08, 1);
+		bwr32 (ti + 0x0c, texs[i].format);
+		bwr32 (ti + 0x10, 0x20);
+		bwr32 (ti + 0x14, texs[i].width);
+		bwr32 (ti + 0x18, texs[i].height);
+		bwr32 (ti + 0x1c, 1);
+		bwr32 (ti + 0x20, 1);
+		bwr32 (ti + 0x24, texs[i].bh_log2);
+		bwr32 (ti + 0x28, 2);
+		bwr32 (ti + 0x40, (u32)texs[i].total_surf);
+		bwr32 (ti + 0x44, 512);
+		bwr32 (ti + 0x48, 0x05040302);
+		bwr64 (ti + 0x50, str_offs[1 + i]);
+		bwr64 (ti + 0x58, ofs_bntx_hdr);
+		bwr64 (ti + 0x60, ofs_mip_offs[i]);
+		bwr64 (ti + 0x68, 0);
+		bwr64 (ti + 0x70, ofs_ti[i] + 144);
+		bwr64 (ti + 0x78, ofs_ti[i] + 144 + 256);
+		bwr64 (ti + 0x80, 0);
+		bwr64 (ti + 0x88, 0);
+		for (uint m = 0; m < texs[i].mip_count; m++)
+			bwr64 (buf + ofs_mip_offs[i] + 8 * m,
+				(u64)ofs_brtd_data + tex_base_rel[i] + texs[i].mip_rel[m]);
+	}
+
+	// BRTD with all surfaces.
+	const uint brtd_block_size = (uint)(16 + brtd_payload);
+	memcpy (buf + ofs_brtd, "BRTD", 4);
+	bwr32 (buf + ofs_brtd + 4, brtd_block_size);
+	bwr64 (buf + ofs_brtd + 8, brtd_block_size);
+	for (uint i = 0; i < n_tex; i++)
+		memcpy (buf + ofs_brtd_data + tex_base_rel[i], texs[i].swizzled,
+			(size_t)texs[i].total_surf);
+
+	// Relocation table (two sections, one entry per pointer).
+	u8 *rlt = buf + ofs_rlt;
+	memcpy (rlt, "_RLT", 4);
+	bwr32 (rlt + 4, ofs_rlt);
+	bwr32 (rlt + 8, 2);
+	bwr32 (rlt + 12, 0);
+	bwr64 (rlt + 16, 0);
+	bwr32 (rlt + 24, 0);
+	bwr32 (rlt + 28, ofs_sec2_start);
+	bwr32 (rlt + 32, 0);
+	// Section 0 entry count patched below; section 1 covers BRTD->_RLT.
+	const uint sec0_count = n_ptr_entries - 1;
+	bwr32 (rlt + 36, sec0_count);
+	bwr64 (rlt + 40, 0);
+	bwr32 (rlt + 48, ofs_sec2_start);
+	bwr32 (rlt + 52, ofs_rlt - ofs_sec2_start);
+	bwr32 (rlt + 56, sec0_count);
+	bwr32 (rlt + 60, 1);
+
+	u32 *ptr_list = CALLOC (n_ptr_entries, sizeof (*ptr_list));
+	if (!ptr_list)
+	{
+		FREE (tex_base_rel);
+		FREE (ofs_brti);
+		FREE (ofs_ti);
+		FREE (ofs_mip_offs);
+		FREE (brti_size);
+		FREE (str_sizes);
+		FREE (str_offs);
+		FREE (str_vals);
+		bntx_combine_free (texs, n_tex);
+		FREE (buf);
+		return ERR_CANT_CREATE;
+	}
+	uint pi = 0;
+	ptr_list[pi++] = ofs_bntx_hdr + 8;
+	ptr_list[pi++] = ofs_bntx_hdr + 16;
+	ptr_list[pi++] = ofs_bntx_hdr + 24;
+	ptr_list[pi++] = ofs_bntx_hdr + 32;
+	for (uint i = 0; i < n_tex; i++)
+		ptr_list[pi++] = ofs_tex_ptrs + 8 * i;
+	for (uint i = 0; i < n_tex + 1; i++)
+		ptr_list[pi++] = ofs_dic + 8 + 16 * i + 8;
+	for (uint i = 0; i < n_tex; i++)
+	{
+		ptr_list[pi++] = ofs_ti[i] + 0x50;
+		ptr_list[pi++] = ofs_ti[i] + 0x58;
+		ptr_list[pi++] = ofs_ti[i] + 0x60;
+		ptr_list[pi++] = ofs_ti[i] + 0x70;
+		ptr_list[pi++] = ofs_ti[i] + 0x78;
+		for (uint m = 0; m < texs[i].mip_count; m++)
+			ptr_list[pi++] = ofs_mip_offs[i] + 8 * m;
+	}
+	// Sort for deterministic output (insertion sort, n is small).
+	for (uint i = 1; i < pi; i++)
+	{
+		const u32 v = ptr_list[i];
+		uint j = i;
+		while (j > 0 && ptr_list[j - 1] > v)
+		{
+			ptr_list[j] = ptr_list[j - 1];
+			j--;
+		}
+		ptr_list[j] = v;
+	}
+	u8 *ep = rlt + 16 + 2 * 24;
+	for (uint e = 0; e < pi; e++)
+	{
+		bwr32 (ep + e * 8 + 0, ptr_list[e]);
+		bwr16 (ep + e * 8 + 4, 1);
+		ep[e * 8 + 6] = 1;
+		ep[e * 8 + 7] = 0;
+	}
+	FREE (ptr_list);
+
+	FREE (tex_base_rel);
+	FREE (ofs_brti);
+	FREE (ofs_ti);
+	FREE (ofs_mip_offs);
+	FREE (brti_size);
+	FREE (str_sizes);
+	FREE (str_offs);
+	FREE (str_vals);
+	bntx_combine_free (texs, n_tex);
+
+	*dest = buf;
+	if (dest_size)
+		*dest_size = total_size;
+	return ERR_OK;
+}
+
+//-----------------------------------------------------------------------------
 ///////////////		native DDS / ASTC export		///////////////
 //-----------------------------------------------------------------------------
 //

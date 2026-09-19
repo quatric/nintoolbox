@@ -194,6 +194,22 @@ wszst CREATE pack.sarc.d/actor.sbyml.yml --overwrite
 wszst CREATE params.yaml --dest params.sbyml --overwrite
 ```
 
+#### BYML encode settings
+`wszst CREATE` encodes YAML/XML text back to BYML as little-endian with an automatic version (v1 when path data is present, else v2) unless told otherwise — the CLI counterpart of NintenTools.Byaml's `ByteOrder` / `Version` save settings. The XML encoding already carries both as `yamlconv:endianness`, `yamlconv:byamlVersion` and `yamlconv:offsetCount` attributes; for YAML text (which has no standard header) they can also be given via the destination name or a leading comment. Destination markers win over in-file comments, comments win over auto:
+
+```bash
+# Big-endian and explicit versions via dot-separated dest markers:
+wszst CREATE params.yaml --dest params.be.byml --overwrite
+wszst CREATE params.yaml --dest params.v3.byml --overwrite
+wszst CREATE params.yaml --dest params.v2.be.sbyml --overwrite
+
+# Or per-file via a leading YAML comment (any of the first lines):
+# byml version=5 endian=big
+wszst CREATE params.yaml --dest params.byml --overwrite
+```
+
+Path tables are version-agnostic: any version 1–7 may carry the 20-byte header with a path-table slot (v1 always does, as in MK8 files), and `0xA1` nodes resolve against it on every version. Only container roots (array, map, hash maps) are accepted for encoding.
+
 ---
 
 ## 2. Extended Features in Classic `wszst` Commands
@@ -610,6 +626,21 @@ wimgt DECODE texture.bntx --dest texture.dds
 wimgt DECODE texture.bntx --dest texture.astc
 # CONVERT/ENCODE to .dds/.astc uses the native blocks when the BNTX format
 # fits, and converts via RGBA otherwise.
+
+# Encode DDS to Switch BNTX texture (SourceToBinaryCmd `-bntx` parity):
+# block-compressed DDS sources (BC1-BC7, RGBA8 via legacy FourCC or the DX10
+# extension, including mipmaps and sRGB variants) keep their native blocks
+# instead of decoding to RGBA8 first -- the round trip BNTX -> DDS is
+# block-exact. Other inputs (PNG, uncompressed DDS, ...) encode as RGBA8:
+wimgt ENCODE texture.dds --dest texture.bntx
+wimgt ENCODE texture.png --dest texture.bntx
+# Combine several DDS sources into one multi-texture BNTX (SourceToBinaryCmd
+# `-bntx` without `--split`; one `--dest` file shared by all inputs). A
+# directory `--dest` (or per-file names) stays in split mode -- one BNTX per
+# input, the `--split` equivalent. Duplicate texture names get _1, _2, ...
+# suffixes:
+wimgt ENCODE a.dds b.dds c.dds --dest combined.bntx
+wimgt ENCODE *.dds --dest outdir/
 
 # Encode PNG to Wii U BFLIM texture:
 wimgt ENCODE texture.png --dest texture.bflim

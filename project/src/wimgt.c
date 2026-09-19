@@ -994,6 +994,174 @@ static enumError SaveNCLR (Image_t *img, ccp dest, ccp source)
 	return err;
 }
 
+// SourceToBinaryCmd `-bntx` parity: a DDS source keeps its native blocks
+// (BC1-BC7/RGBA8, including mipmaps) instead of decoding to RGBA8 first.
+// Returns ERR_NOTHING_TO_DO when the source isn't a directly storable DDS
+// variant so the caller can convert via RGBA instead.
+static enumError encode_bntx_from_dds (ccp arg, ccp dest)
+{
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return err;
+	if (!raw || raw_size < 128 || memcmp (raw, "DDS ", 4)
+		|| raw_size > (size_t)0x20000000)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	ccp base = strrchr (dest, '/');
+	base = base ? base + 1 : dest;
+	char name[128];
+	snprintf (name, sizeof (name), "%s", base ? base : "texture");
+	char *dot = strrchr (name, '.');
+	if (dot)
+		*dot = 0;
+	u8 *data = 0;
+	uint size = 0;
+	err = EncodeBNTX_FromDDS (&data, &size, raw, (uint)raw_size, name);
+	FREE (raw);
+	if (err)
+		return err;
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sENCODE DDS:%s -> BNTX:%s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+	if (!testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, arg);
+		if (!err && F.f && fwrite (data, 1, size, F.f) != size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED,
+				"Writing %u bytes failed: %s\n", size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (data);
+	return err;
+}
+
+// SourceToBinaryCmd `-bntx` without `--split`: merge every input DDS into one
+// BNTX container. Called at the top of cmd_convert when several inputs map to
+// the same .bntx destination (e.g. `wimgt ENCODE a.dds b.dds --dest out.bntx`).
+// Returns ERR_NOTHING_TO_DO when the batch isn't combinable (single input,
+// non-.bntx dest, split outputs, non-DDS sources, ...) so the caller falls
+// back to the per-file loop, which is the `--split` equivalent.
+static enumError try_bntx_combine (
+	ccp cmd_name, StringField_t *plist, ccp opt_dest_arg, ccp def_path)
+{
+	if (!plist || plist->used < 2 || !opt_dest_arg || !*opt_dest_arg)
+		return ERR_NOTHING_TO_DO;
+	const size_t dlen = strlen (opt_dest_arg);
+	if (dlen < 5 || strcasecmp (opt_dest_arg + dlen - 5, ".bntx"))
+		return ERR_NOTHING_TO_DO;
+
+	// All inputs must resolve to the same destination file; a directory dest
+	// (or per-file patterns) stays in split mode.
+	char first_dest[PATH_MAX];
+	SubstDest (first_dest, sizeof (first_dest), plist->field[0],
+		opt_dest_arg, def_path, 0, false);
+	for (int i = 1; i < plist->used; i++)
+	{
+		char d[PATH_MAX];
+		SubstDest (d, sizeof (d), plist->field[i], opt_dest_arg, def_path, 0, false);
+		if (strcmp (d, first_dest))
+			return ERR_NOTHING_TO_DO;
+	}
+
+	const uint n = (uint)plist->used;
+	const u8 **datas = CALLOC (n, sizeof (*datas));
+	uint *sizes = CALLOC (n, sizeof (*sizes));
+	char **names = CALLOC (n, sizeof (*names));
+	if (!datas || !sizes || !names)
+	{
+		FREE (datas);
+		FREE (sizes);
+		if (names)
+		{
+			for (uint i = 0; i < n; i++)
+				FREE (names[i]);
+			FREE (names);
+		}
+		return ERR_CANT_CREATE;
+	}
+
+	enumError err = ERR_OK;
+	for (uint i = 0; i < n; i++)
+	{
+		u8 *raw = 0;
+		size_t raw_size = 0;
+		err = LoadFileAlloc (plist->field[i], 0, 0, &raw, &raw_size, 0, 0, 0, false);
+		if (err)
+			break;
+		if (!raw || raw_size < 128 || memcmp (raw, "DDS ", 4)
+			|| raw_size > (size_t)0x20000000)
+		{
+			FREE (raw);
+			err = ERR_NOTHING_TO_DO;
+			break;
+		}
+		datas[i] = raw;
+		sizes[i] = (uint)raw_size;
+		ccp base = strrchr (plist->field[i], '/');
+		base = base ? base + 1 : plist->field[i];
+		names[i] = MALLOC (128);
+		if (!names[i])
+		{
+			err = ERR_CANT_CREATE;
+			break;
+		}
+		snprintf (names[i], 128, "%s", base);
+		char *dot = strrchr (names[i], '.');
+		if (dot)
+			*dot = 0;
+		if (!*names[i])
+			snprintf (names[i], 128, "texture%u", i);
+	}
+	if (err)
+	{
+		for (uint i = 0; i < n; i++)
+		{
+			FREE ((void *)datas[i]);
+			FREE (names[i]);
+		}
+		FREE (datas);
+		FREE (sizes);
+		FREE (names);
+		return err;
+	}
+
+	u8 *out = 0;
+	uint out_size = 0;
+	err = EncodeBNTX_FromDDSList (&out, &out_size, datas, sizes,
+		(ccp const *)names, n);
+	for (uint i = 0; i < n; i++)
+	{
+		FREE ((void *)datas[i]);
+		FREE (names[i]);
+	}
+	FREE (datas);
+	FREE (sizes);
+	FREE (names);
+	if (err)
+		return err;
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sENCODE DDSx%u -> BNTX:%s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", n, first_dest);
+	if (!testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, first_dest, false, plist->field[0]);
+		if (!err && F.f && fwrite (out, 1, out_size, F.f) != out_size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED,
+				"Writing %u bytes failed: %s\n", out_size, first_dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (out);
+	(void)cmd_name;
+	return err;
+}
+
 static enumError SaveBNTX (Image_t *img, ccp dest, ccp source)
 {
 	Transform2XIMG (img);
@@ -1311,6 +1479,17 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 	StringField_t plist = { 0 };
 	CollectExpandParam (&plist, first_param, -1, WM__DEFAULT);
 
+	// SourceToBinaryCmd `-bntx` combine: several DDS inputs sharing one .bntx
+	// destination merge into a single multi-texture container. Split output
+	// (directory dest / per-file names) stays in the per-file loop below,
+	// which is the `--split` equivalent.
+	if (cmd_id == CMD_ENCODE)
+	{
+		const enumError cerr = try_bntx_combine (cmd_name, &plist, opt_dest, def_path);
+		if (cerr != ERR_NOTHING_TO_DO)
+			return cerr;
+	}
+
 	for (int argi = 0; argi < plist.used; argi++)
 	{
 		ccp arg = plist.field[argi];
@@ -1426,6 +1605,19 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		}
 		if (dot && !strcasecmp (dot, ".bntx"))
 		{
+			// SourceToBinaryCmd parity: DDS sources keep their native
+			// blocks when possible; otherwise convert via RGBA as before.
+			if (src_f == FF_DDS)
+			{
+				err = encode_bntx_from_dds (arg, dest);
+				if (err != ERR_NOTHING_TO_DO)
+				{
+					ResetIMG (&img);
+					if (err > ERR_WARNING)
+						return err;
+					continue;
+				}
+			}
 			if (verbose >= 0 || testmode)
 				fprintf (stdlog, "%s%s%s %s:%s -> BNTX:%s\n", verbose > 0 ? "\n" : "",
 					testmode ? "WOULD " : "", cmd_name, PrintFormat3 (src_f, src_i, src_p), arg,

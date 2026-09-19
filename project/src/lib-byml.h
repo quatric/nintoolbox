@@ -13,6 +13,13 @@ enumError EncodeBYML_Text (
 enumError EncodeBYML_XML (
 	u8 **dest, uint *dest_size, const char *xml, uint xml_len, bool is_le, u16 version);
 
+// Explicit save settings (cf. NintenTools.Byaml's ByamlFile.Save ByteOrder
+// argument and ByamlSerializerSettings{ByteOrder, Version}).
+//  1 = big-endian requested, -1 = little-endian requested, 0 = auto (LE).
+int byml_dest_endian_req (ccp dest);
+u16 byml_dest_version (ccp dest);
+void byml_scan_text_header (const char *text, uint len, u16 *ver_out, int *endian_out);
+
 enumError encode_byml_file (ccp source, ccp dest);
 
 // BotW-style S-prefixed BYML containers (.sbyml, .smubin, ...) are Yaz0
