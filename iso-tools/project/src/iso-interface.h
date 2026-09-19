@@ -332,6 +332,7 @@ typedef struct Iterator_t
 	struct WBFS_t *wbfs; // open WBFS
 	dev_t open_dev; // dev_t of open output file
 	ino_t open_ino; // ino_t of open output file
+	bool open_valid; // true if open_dev/open_ino describe an open output file
 	PrintScript_t *ps; // for script output
 
 } Iterator_t;

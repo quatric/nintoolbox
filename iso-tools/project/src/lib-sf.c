@@ -5669,8 +5669,12 @@ check_file:
 			ERROR0 (ERR_CANT_OPEN, "Can't open file X: %s\n", path);
 		goto abort;
 	}
-	else if (it->act_open < ACT_ALLOW && sf.f.st.st_dev == it->open_dev
-		&& sf.f.st.st_ino == it->open_ino)
+	// open_valid: only compare against an output file that is actually open.
+	// open_ino != 0: native Windows (MinGW/msvcrt stat) reports st_ino 0 for
+	// every file, so without it every source "equals" the output and is
+	// skipped ("Ignore input=output", then "No valid source file found").
+	else if (it->act_open < ACT_ALLOW && it->open_valid && it->open_ino
+		&& sf.f.st.st_dev == it->open_dev && sf.f.st.st_ino == it->open_ino)
 	{
 		if (!it->wbfs || !*sf.f.id6_dest || !ExistsWDisc (it->wbfs, sf.f.id6_dest))
 		{

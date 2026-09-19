@@ -254,6 +254,13 @@ void SetupLib (int argc, char **argv, ccp p_progname, enumProgID prid)
 	setmode (fileno (stderr), O_BINARY);
 // setlocale(LC_ALL,"en_US.utf-8");
 #endif
+#ifdef __MINGW32__
+	// msvcrt opens files in text mode unless told otherwise: reads translate
+	// CR/LF and stop at the first 0x1A byte, writes expand every 0x0A into
+	// 0x0D 0x0A. Every raw open()/fopen() without an explicit "b"/O_BINARY
+	// would corrupt binary data, so make binary the process-wide default.
+	_fmode = _O_BINARY;
+#endif
 
 	SetupTimezone (true);
 	GetTimerMSec ();
