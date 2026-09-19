@@ -8789,6 +8789,18 @@ with open(sys.argv[1], "wb") as f:
     fno "WADH archive" "mk_wadh.py failed"
   fi
 
+  # DC2 engine (Jakers! Kart Racing): .dcx archive holding a GX CMPR .dct texture
+  mkdir -p "$d/dc2_test"
+  if python3 "$PWD_PROJECT/../tests/mk_dc2.py" "$d/dc2_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/dc2_test/maps.dcx" --dest "$d/dc2_test/out" --overwrite >/dev/null 2>&1 \
+    && [ -f "$d/dc2_test/out/Textures/red.DCT" ] \
+    && python3 "$PNGTOOL" pixel "$d/dc2_test/out/Textures/red.png" 0 0 255 0 0 255 2>/dev/null \
+    && fok "DC2 .dcx archive unpacks, .dct GX texture -> PNG" \
+    || fno "DC2 .dcx/.dct" "failed to unpack/convert synthetic maps.dcx"
+  else
+    fno "DC2 .dcx/.dct" "mk_dc2.py failed"
+  fi
+
   # Rainbow Studios (Disney-Pixar Cars) .gct texture + .gcg geometry
   mkdir -p "$d/cars_test"
   if python3 "$PWD_PROJECT/../tests/mk_cars.py" "$d/cars_test" >/dev/null 2>&1; then
