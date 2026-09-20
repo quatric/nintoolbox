@@ -8893,6 +8893,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Bj engine" "mk_bj.py failed"
   fi
 
+  # Torus Games hunkfile (Barbie: Puppy Rescue, Wii): CMPR texture -> PNG, DSP stream -> WAV
+  mkdir -p "$d/torus_test"
+  if python3 "$PWD_PROJECT/../tests/mk_torus.py" "$d/torus_test" >/dev/null 2>&1; then
+    "$B/wszst" extract "$d/torus_test/HUNKFILES/T.hnk" >/dev/null 2>&1
+    [ "$(head -c 4 "$d/torus_test/HUNKFILES/T.hnk.d/Tex_d.png" | tail -c 3)" = "PNG" ] \
+    && [ "$(wc -c < "$d/torus_test/HUNKFILES/T.hnk.d/Voice_1A.wav" | tr -d ' ')" -eq 100 ] \
+    && fok "Torus hunkfile: TSETexture -> PNG, SqueakStream -> WAV" \
+    || fno "Torus hunkfile" "failed to extract synthetic hunkfile"
+  else
+    fno "Torus hunkfile" "mk_torus.py failed"
+  fi
+
   # Vblank Wii packages: BFP2 (zlib/stored/slot members, hash names) and BPP3 (DSP stream -> WAV)
   mkdir -p "$d/vblank_test"
   if python3 "$PWD_PROJECT/../tests/mk_vblank.py" "$d/vblank_test" >/dev/null 2>&1; then
