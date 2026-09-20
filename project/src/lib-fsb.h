@@ -26,4 +26,6 @@
 
 enumError ScanFSB (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size);
 
+enumError ScanKRAW (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size);
+
 #endif

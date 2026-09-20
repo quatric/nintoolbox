@@ -346,3 +346,33 @@ enumError ScanFSB (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 		return scan_fsb5 (entries, n_entries, data, size);
 	return EINVAL;
 }
+
+// Kuju "kRAW" streamed music (Geometry Wars: Galaxies, Wii): "kRAW", u32, then
+// headerless big-endian s16 mono samples (one file per stereo channel), 32 kHz.
+enumError ScanKRAW (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size)
+{
+	if (size < 16 || memcmp (data, "kRAW", 4))
+		return ERR_INVALID_DATA;
+	const uint frames = (uint)((size - 8) / 2);
+	s16 *pcm = MALLOC ((size_t)frames * 2);
+	if (!pcm)
+		return ERR_OUT_OF_MEMORY;
+	for (uint i = 0; i < frames; i++)
+		pcm[i] = (s16)((data[8 + 2 * i] << 8) | data[9 + 2 * i]);
+	size_t wsz = 0;
+	u8 *wav = fsb_wav (pcm, frames, 1, 32000, &wsz);
+	FREE (pcm);
+	if (!wav)
+		return ERR_OUT_OF_MEMORY;
+	nintendo_sarc_entry_t *out = CALLOC (1, sizeof (*out));
+	if (!out || !OwnedEntryAdd (out, 0, "audio.wav", wav, (uint)wsz))
+	{
+		FREE (wav);
+		FREE (out);
+		return ERR_OUT_OF_MEMORY;
+	}
+	FREE (wav);
+	*entries = out;
+	*n_entries = 1;
+	return ERR_OK;
+}

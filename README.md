@@ -100,6 +100,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **EFFN** | `.eff`, `.effn` | ✅ | ✅ | ✅ | ✅ | Bandai Namco Super Smash Bros. 4 / Ultimate particle effect container archive (`EFFN`). |
 | **F9RES** | `.res` | ✅ | ✅ | ✅ | — | GameCube resource archive container |
 | **FMOD FSB** | `.fsb` | ✅ | — | — | ✅ | FMOD sound bank (FSB3 / FSB4 / FSB5, Wii); DSP-ADPCM and PCM16 samples decoded to WAV |
+| **kRAW music** | `.kRAW` | ✅ | — | — | ✅ | Kuju streamed music (*Geometry Wars: Galaxies*, Wii): headerless big-endian PCM16, one mono file per stereo channel, decoded to 32 kHz WAV |
 | **FSYS** | `.fsys` | ✅ | ✅ | ✅ | — | Genius Sonority archive system (GameCube / Wii) |
 | **GAR / ZAR** | `.zar`, `.gar` | ✅ | ✅ | ✅ | ✅ | Grezzo Zelda & Luigi's Mansion archive (*OoT3D*, *MM3D*, *LM3DS*). |
 | **GFA** | `.gfa` | ✅ | ✅ | ✅ | ✅ | Good-Feel GFAC container (Wii / 3DS / Wii U). |

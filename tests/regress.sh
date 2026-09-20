@@ -9002,6 +9002,14 @@ with open(sys.argv[1], "wb") as f:
     fno "Vblank packages" "mk_vblank.py failed"
   fi
 
+  # Kuju kRAW music decodes to WAV
+  mkdir -p "$d/kraw_test"
+  python3 -c "import struct,sys;open(sys.argv[1],'wb').write(b'kRAW'+struct.pack('>I',8)+struct.pack('>4h',1,-2,3,-4))" "$d/kraw_test/T.kRAW" \
+  && "$B/wszst" x "$d/kraw_test/T.kRAW" --overwrite >/dev/null 2>&1 \
+  && [ "$(wc -c < "$d/kraw_test/T.kRAW.d/audio.wav" | tr -d ' ')" -eq 52 ] \
+    && fok "kRAW music decodes to WAV" \
+    || fno "kRAW music" "failed to decode synthetic T.kRAW"
+
   # FMOD FSB4 sound bank (Wii DSP-ADPCM) decodes to WAV
   mkdir -p "$d/fsb_test"
   if python3 "$PWD_PROJECT/../tests/mk_fsb.py" "$d/fsb_test" >/dev/null 2>&1; then
