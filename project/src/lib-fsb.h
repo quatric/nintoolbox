@@ -8,6 +8,8 @@
 //         u16 channels, ...; from +0x50 one 0x2e-byte block per channel for
 //         GCADPCM (16 big-endian s16 coefficients + state). Data follows the
 //         headers, samples back to back.
+//   FSB3: 0x18 header {"FSB3", u32 n_samples, u32 header_size, u32 data_size,
+//         u32 version (0x30001), u32 mode}, then the same sample headers as FSB4.
 //   FSB5: 0x3c header {"FSB5", u32 version(1), u32 n_samples, u32 header_size,
 //         u32 name_size, u32 data_size, u32 codec}; per sample a u64
 //         {hasChunks:1, frequency:4, twoChannels:1, offset/16:28,

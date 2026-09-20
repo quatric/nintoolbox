@@ -6379,7 +6379,7 @@ static enumError extract_vblank_file (ccp arg, ccp basedir, uint depth)
 	return write_owned_entries (arg, basedir, depth, bfp ? "VBLANK-BFP" : "VBLANK-BAP", entries, n_entries);
 }
 
-// FMOD FSB4 / FSB5 sound banks (DSP-ADPCM and PCM16 samples decoded to WAV). Extract-only.
+// FMOD FSB3 / FSB4 / FSB5 sound banks (DSP-ADPCM and PCM16 samples decoded to WAV). Extract-only.
 static enumError extract_fsb_file (ccp arg, ccp basedir, uint depth)
 {
 	if (!is_ext (arg, ".fsb"))

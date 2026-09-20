@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 //-----------------------------------------------------------------------------
-// FMOD FSB4 / FSB5 sound bank scanner; see lib-fsb.h for the layout.
+// FMOD FSB3 / FSB4 / FSB5 sound bank scanner; see lib-fsb.h for the layout.
 //-----------------------------------------------------------------------------
 #include "lib-std.h"
 #include "lib-fsb.h"
@@ -146,16 +146,16 @@ static bool fsb_emit (nintendo_sarc_entry_t *out, uint *n, const fsb_sample_t *s
 	return ok;
 }
 
-static enumError scan_fsb4 (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d, size_t size)
+static enumError scan_fsb4 (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d, size_t size, u64 hdr)
 {
 	const u32 n = fsb_le32 (d + 4), shd = fsb_le32 (d + 8), gmode = fsb_le32 (d + 20);
-	if (!n || n > FSB_MAX_SAMPLES || 0x30ull + shd > size)
+	if (!n || n > FSB_MAX_SAMPLES || hdr + shd > size)
 		return EINVAL;
 	nintendo_sarc_entry_t *out = CALLOC (n, sizeof (*out));
 	if (!out)
 		return ERR_CANT_CREATE;
 	uint cnt = 0;
-	u64 hp = 0x30, dp = 0x30 + (u64)shd;
+	u64 hp = hdr, dp = hdr + (u64)shd;
 	fsb_sample_t first;
 	u32 first_mode = 0;
 	memset (&first, 0, sizeof (first));
@@ -167,7 +167,7 @@ static enumError scan_fsb4 (nintendo_sarc_entry_t **entries, uint *n_entries, co
 		u32 mode, hsz;
 		if (i && (gmode & 2)) // FSOUND_FSB_SOURCE_BASICHEADERS: 8 bytes + codec data
 		{
-			if (hp + 8 > 0x30ull + shd)
+			if (hp + 8 > hdr + shd)
 				break;
 			s = first;
 			s.samples = fsb_le32 (h);
@@ -176,7 +176,7 @@ static enumError scan_fsb4 (nintendo_sarc_entry_t **entries, uint *n_entries, co
 			hsz = 8 + (mode & 0x02000000 ? 0x2eu * s.channels : 0);
 			s.name[0] = 0;
 			s.have_coefs = false;
-			if (hp + hsz > 0x30ull + shd)
+			if (hp + hsz > hdr + shd)
 				break;
 			if (mode & 0x02000000)
 			{
@@ -188,10 +188,10 @@ static enumError scan_fsb4 (nintendo_sarc_entry_t **entries, uint *n_entries, co
 		}
 		else
 		{
-			if (hp + 0x50 > 0x30ull + shd)
+			if (hp + 0x50 > hdr + shd)
 				break;
 			hsz = fsb_le16 (h);
-			if (hsz < 0x50 || hp + hsz > 0x30ull + shd)
+			if (hsz < 0x50 || hp + hsz > hdr + shd)
 				break;
 			memcpy (s.name, h + 2, 30);
 			s.samples = fsb_le32 (h + 32);
@@ -334,12 +334,14 @@ static enumError scan_fsb5 (nintendo_sarc_entry_t **entries, uint *n_entries, co
 
 enumError ScanFSB (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size)
 {
-	if (!entries || !n_entries || !data || size < 0x30)
+	if (!entries || !n_entries || !data || size < 0x18)
 		return EINVAL;
 	*entries = 0;
 	*n_entries = 0;
 	if (!memcmp (data, "FSB4", 4))
-		return scan_fsb4 (entries, n_entries, data, size);
+		return scan_fsb4 (entries, n_entries, data, size, 0x30);
+	if (!memcmp (data, "FSB3", 4)) // same sample headers, 0x18 byte container header
+		return scan_fsb4 (entries, n_entries, data, size, 0x18);
 	if (!memcmp (data, "FSB5", 4))
 		return scan_fsb5 (entries, n_entries, data, size);
 	return EINVAL;
