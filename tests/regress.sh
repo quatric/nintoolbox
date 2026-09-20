@@ -8918,6 +8918,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Toshi TSFB" "mk_toshi.py failed"
   fi
 
+  # h.a.n.d. FBC bundle (Miffy no Omochabako, Wii): members named from the size/name slot tables
+  mkdir -p "$d/fbc_test"
+  if python3 "$PWD_PROJECT/../tests/mk_fbc.py" "$d/fbc_test" >/dev/null 2>&1; then
+    "$B/wszst" extract "$d/fbc_test/T.fbc" >/dev/null 2>&1
+    [ "$(wc -c < "$d/fbc_test/T.fbc.d/a.bin" | tr -d ' ')" -eq 100 ] \
+    && [ "$(wc -c < "$d/fbc_test/T.fbc.d/B.TXT" | tr -d ' ')" -eq 2000 ] \
+    && fok "FBC bundle: members extracted by name" \
+    || fno "FBC bundle" "failed to extract synthetic bundle"
+  else
+    fno "FBC bundle" "mk_fbc.py failed"
+  fi
+
   # Vblank Wii packages: BFP2 (zlib/stored/slot members, hash names) and BPP3 (DSP stream -> WAV)
   mkdir -p "$d/vblank_test"
   if python3 "$PWD_PROJECT/../tests/mk_vblank.py" "$d/vblank_test" >/dev/null 2>&1; then

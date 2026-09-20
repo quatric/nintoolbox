@@ -108,6 +108,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **Bj engine** | `.tx1`/`.tx2`, `.mtm`, `.bsi`, `.bsm` | ✅ | — | — | ✅ | *Super Karts* (Wii): 8-bit paletted textures to PNG, mesh trees to textured GLB, sound banks and streamed music to WAV |
 | **Torus Games hunkfile** | `.hnk` | ✅ | — | — | ✅ | *Barbie & Her Sisters: Puppy Rescue* (Wii): CMPR/RGBA8/I8 textures to PNG, DSP-ADPCM streams (raw files in `../SOUND`) to WAV; models/animations not decoded |
 | **Toshi TSFB** | `.ttl` (`.trb`, `.tkl`) | ✅ | — | — | ✅ | *Nickelodeon Barnyard* (Wii): BTEC-compressed TSFB containers; `.ttl` texture libraries (RGBA8, CMPR, I/IA, CI4/CI8 with palettes) to PNG; models and key libraries not decoded |
+| **h.a.n.d. FBC** | `.fbc` | ✅ | — | — | ✅ | *Oyako de Asobo: Miffy no Omochabako* (Wii): nested file bundles unpacked by name (`.brres`, `.tpl`, `.brasd`, scripts, message tables) |
 | **Vblank BFP / BAP** | `.bfp`, `.bap` | ✅ | — | — | ✅ | Vblank Entertainment Wii packages (*Retro City Rampage DX*, *Shakedown: Hawaii*): `BFP2` game data (zlib/stored members, names recovered via the games' own case-insensitive name hash, numbered slots as `slot_NNN`), `BPP3` audio (Ogg Vorbis music, DSP-ADPCM effects to WAV) and `BAP1` chiptune modules (`BTRK` + raw sample pool) |
 | **FMOD FSB** | `.fsb` | ✅ | — | — | ✅ | FMOD sound bank (FSB3 / FSB4 / FSB5, Wii); DSP-ADPCM and PCM16 samples decoded to WAV |
 | **Avalanche THB/TBB** | `.thb` + `.tbb` | ✅ | — | — | ✅ | Avalanche Software texture pair (*Cars 2*, Wii); single textures and atlases to PNG |
