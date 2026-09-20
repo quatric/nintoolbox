@@ -107,7 +107,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **Asobo BigFile** | `.drv` | ✅ | — | — | ✅ | Asobo Studio volume (*Ratatouille*, Wii); stored and LZRS members, `Bitmap_Z` to PNG, `Sound_Z` to WAV, `Mesh_Z` to textured GLB |
 | **Bj engine** | `.tx1`/`.tx2`, `.mtm`, `.bsi`, `.bsm` | ✅ | — | — | ✅ | *Super Karts* (Wii): 8-bit paletted textures to PNG, mesh trees to textured GLB, sound banks and streamed music to WAV |
 | **Torus Games hunkfile** | `.hnk` | ✅ | — | — | ✅ | *Barbie & Her Sisters: Puppy Rescue* (Wii): CMPR/RGBA8/I8 textures to PNG, DSP-ADPCM streams (raw files in `../SOUND`) to WAV; models/animations not decoded |
-| **Atomic Planet PUB** | `.pub` | ✅ | — | — | ✅ | *AMF Bowling: Pinbusters!* (Wii): `*WII.PUB` packages; C8 / RGBA8 / I8 textures to PNG; meshes, audio and other resources not decoded |
+| **Atomic Planet PUB** | `.pub` | ✅ | — | — | ✅ | *AMF Bowling: Pinbusters!* (Wii): `*WII.PUB` packages; C8 / RGBA8 / I8 textures to PNG, meshes to textured GLB (positions, normals, UVs; skinning not decoded); audio and other resources not decoded |
 | **Humongous Resource.rez** | `.rez` | ✅ | — | — | ✅ | *Backyard Football '10* (Wii): grouped, LZ-compressed resource archive; GX textures (C4 / C8 / RGB5A3 / RGBA8) to PNG; models, animation and sound resources not decoded |
 | **Toshi TSFB** | `.ttl` (`.trb`, `.tkl`) | ✅ | — | — | ✅ | *Nickelodeon Barnyard* (Wii): BTEC-compressed TSFB containers; `.ttl` texture libraries (RGBA8, CMPR, I/IA, CI4/CI8 with palettes) to PNG; models and key libraries not decoded |
 | **h.a.n.d. FBC** | `.fbc` | ✅ | — | — | ✅ | *Oyako de Asobo: Miffy no Omochabako* (Wii): nested file bundles unpacked by name (`.brres`, `.tpl`, `.brasd`, scripts, message tables) |
