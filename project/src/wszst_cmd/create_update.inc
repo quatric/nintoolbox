@@ -6575,7 +6575,8 @@ static enumError extract_ho_texture_file (ccp arg, ccp basedir, uint depth)
 	return err;
 }
 
-// Avalanche .thb texture header + sibling .tbb pixels (Cars 2) -> PNG.
+// Avalanche .thb texture header + sibling .tbb pixels (Cars 2) -> PNG. One
+// texture writes name.png; an atlas header writes name_0.png, name_1.png, ...
 static enumError extract_avalanche_tex_file (ccp arg, ccp basedir, uint depth)
 {
 	if (!is_ext (arg, ".thb"))
@@ -6586,7 +6587,8 @@ static enumError extract_avalanche_tex_file (ccp arg, ccp basedir, uint depth)
 	enumError err = LoadFileAlloc (arg, 0, 0, &thb, &thb_size, 0, 0, 0, false);
 	if (err)
 		return ERR_NOTHING_TO_DO;
-	if (!IsAvalancheTexHeader (thb, thb_size))
+	const uint count = AvalancheTexCount (thb, thb_size);
+	if (!count)
 	{
 		FREE (thb);
 		return ERR_NOTHING_TO_DO;
@@ -6602,27 +6604,41 @@ static enumError extract_avalanche_tex_file (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 	}
 
-	char dest[PATH_MAX];
-	beside_source_dest_ext (dest, sizeof (dest), arg, ".png");
-	if (testmode || blitz_output_current (arg, dest))
+	enumError result = ERR_OK;
+	for (uint i = 0; i < count && !result; i++)
 	{
-		FREE (thb);
-		FREE (tbb);
+		char ext[24], dest[PATH_MAX];
+		if (count == 1)
+			snprintf (ext, sizeof (ext), ".png");
+		else
+			snprintf (ext, sizeof (ext), "_%u.png", i);
+		beside_source_dest_ext (dest, sizeof (dest), arg, ext);
 		if (testmode)
+		{
 			fprintf (stdlog, "WOULD EXTRACT AVALANCHE-TEX:%s -> PNG:%s\n", arg, dest);
-		return ERR_OK;
+			continue;
+		}
+		if (blitz_output_current (arg, dest))
+			continue;
+		u8 *rgba = 0;
+		uint w = 0, h = 0;
+		err = DecodeAvalancheTex (&rgba, &w, &h, thb, thb_size, tbb, tbb_size, i);
+		if (err)
+		{
+			// one undecodable entry must not stop the rest of the atlas
+			if (err != ERR_NOTHING_TO_DO)
+				result = err;
+			continue;
+		}
+		err = SaveDecodedRGBAToPNG (rgba, w, h, &be_func, dest, 0, true);
+		if (err)
+			result = err;
+		else if (verbose >= 0)
+			fprintf (stdlog, "%sEXTRACT AVALANCHE-TEX:%s -> PNG:%s\n", verbose > 0 ? "\n" : "", arg, dest);
 	}
-	u8 *rgba = 0;
-	uint w = 0, h = 0;
-	err = DecodeAvalancheTex (&rgba, &w, &h, thb, thb_size, tbb, tbb_size);
 	FREE (thb);
 	FREE (tbb);
-	if (err)
-		return err;
-	err = SaveDecodedRGBAToPNG (rgba, w, h, &be_func, dest, 0, true);
-	if (!err && verbose >= 0)
-		fprintf (stdlog, "%sEXTRACT AVALANCHE-TEX:%s -> PNG:%s\n", verbose > 0 ? "\n" : "", arg, dest);
-	return err;
+	return result;
 }
 
 // Asobo Sound_Z (Ratatouille .DRV member, DSP-ADPCM) -> WAV.

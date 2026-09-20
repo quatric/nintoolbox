@@ -8892,7 +8892,8 @@ with open(sys.argv[1], "wb") as f:
   if python3 "$PWD_PROJECT/../tests/mk_avtex.py" "$d/avtex_test" >/dev/null 2>&1; then
     "$B/wszst" xx "$d/avtex_test" --dest "$d/avtex_test/out" --overwrite >/dev/null 2>&1 \
     && [ -s "$d/avtex_test/tex.png" ] \
-    && fok "Avalanche .thb/.tbb texture converts to PNG" \
+    && [ -s "$d/avtex_test/atlas_0.png" ] && [ -s "$d/avtex_test/atlas_1.png" ] \
+    && fok "Avalanche .thb/.tbb textures convert to PNG (single texture and atlas)" \
     || fno "Avalanche texture" "failed to convert synthetic tex.thb"
   else
     fno "Avalanche texture" "mk_avtex.py failed"

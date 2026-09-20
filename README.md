@@ -106,7 +106,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **Heavy Iron HO** | `.ho` | ✅ | — | — | ✅ | Good Engine package (*WALL-E*, *Up*, Wii); assets with debug names, GX textures to PNG |
 | **Asobo BigFile** | `.drv` | ✅ | — | — | ✅ | Asobo Studio volume (*Ratatouille*, Wii); stored and LZRS members, `Bitmap_Z` to PNG, `Sound_Z` to WAV |
 | **FMOD FSB** | `.fsb` | ✅ | — | — | ✅ | FMOD sound bank (FSB4 / FSB5, Wii); DSP-ADPCM and PCM16 samples decoded to WAV |
-| **Avalanche THB/TBB** | `.thb` + `.tbb` | ✅ | — | — | ✅ | Avalanche Software texture pair (*Cars 2*, Wii); single-texture headers to PNG |
+| **Avalanche THB/TBB** | `.thb` + `.tbb` | ✅ | — | — | ✅ | Avalanche Software texture pair (*Cars 2*, Wii); single textures and atlases to PNG |
 | **Terminal Reality POD** | `.pod` | ✅ | — | — | ✅ | POD3/4/5 archive (*Nickelodeon Dance*, Wii); stored members with a directory tree |
 | **DC2 DCX / DCT** | `.dcx`, `.dct` | ✅ | — | — | — | *Jakers! Kart Racing* (Wii): directory archives; GX CMPR / RGBA8 textures → PNG |
 | **NIF (Gamebryo 20.6, Wii)** | `.nif` | ✅ | — | — | — | *Pocoyo Racing* (Wii): embedded DXT1 / RGBA textures → PNG, `NiMesh` scenes → textured GLB (world space, bind pose) |
