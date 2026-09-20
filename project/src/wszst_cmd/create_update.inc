@@ -7182,6 +7182,18 @@ static enumError extract_rez_file (ccp arg, ccp basedir, uint depth)
 
 	enumError err = ERR_OK;
 	char png[64];
+	// the skeleton of the first skinned model dresses the motions
+	model_t *skeleton = 0;
+	for (uint i = 0; i < count && !skeleton && !testmode; i++)
+		if (list[i].kind == REZ_MESH)
+		{
+			size_t n = 0;
+			u8 *res = LoadRezResource (raw, raw_size, list + i, &n);
+			model_t *model = res ? ParseRezModel (res, n, 0, 0) : 0;
+			skeleton = CopyRezSkeleton (model);
+			FreeModel (model);
+			FREE (res);
+		}
 	for (uint i = 0; i < count && !err && !testmode; i++)
 	{
 		const rez_res_t *r = list + i;
@@ -7192,7 +7204,8 @@ static enumError extract_rez_file (ccp arg, ccp basedir, uint depth)
 		if (!res)
 			continue;
 		char path[PATH_MAX];
-		const ccp ext = r->kind == REZ_TEXTURE ? "png" : r->kind == REZ_SOUND ? "wav" : r->kind == REZ_MESH ? "glb" : "thp";
+		const ccp ext = r->kind == REZ_TEXTURE ? "png" : r->kind == REZ_SOUND ? "wav"
+			: r->kind == REZ_MESH || r->kind == REZ_MOTION ? "glb" : "thp";
 		snprintf (path, sizeof (path), "%s/%s%04u_%03u.%s", dest, basedir ? basedir : "", r->group, r->index, ext);
 		if (r->kind == REZ_TEXTURE)
 		{
@@ -7200,6 +7213,15 @@ static enumError extract_rez_file (ccp arg, ccp basedir, uint depth)
 			uint w = 0, h = 0;
 			if (!DecodeRezTexture (&rgba, &w, &h, res, n))
 				err = SaveDecodedRGBAToPNG (rgba, w, h, &be_func, path, 0, true);
+		}
+		else if (r->kind == REZ_MOTION)
+		{
+			model_t *model = ParseRezMotion (res, n, skeleton);
+			if (model)
+			{
+				ExportModelToGLB (model, path);
+				FreeModel (model);
+			}
 		}
 		else if (r->kind == REZ_MESH)
 		{
@@ -7243,6 +7265,7 @@ static enumError extract_rez_file (ccp arg, ccp basedir, uint depth)
 		}
 		FREE (res);
 	}
+	FreeModel (skeleton);
 	FREE (list);
 	FREE (raw);
 	return err;

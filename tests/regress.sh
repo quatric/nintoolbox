@@ -8901,7 +8901,9 @@ with open(sys.argv[1], "wb") as f:
     && [ "$(wc -c < "$d/rez_test/Resource.rez.d/0000_001.wav" | tr -d ' ')" -eq 100 ] \
     && [ "$(head -c 4 "$d/rez_test/Resource.rez.d/0000_002.glb")" = "glTF" ] \
     && grep -aq '"animations"' "$d/rez_test/Resource.rez.d/0000_002.glb" \
-    && fok "Humongous Resource.rez: texture -> PNG, sound -> WAV, model + animation -> GLB" \
+    && grep -aq '"skins"' "$d/rez_test/Resource.rez.d/0000_004.glb" \
+    && grep -aq '"animations"' "$d/rez_test/Resource.rez.d/0001_000.glb" \
+    && fok "Humongous Resource.rez: texture -> PNG, sound -> WAV, model + animation, skinned model, motion -> GLB" \
     || fno "Humongous Resource.rez" "failed to extract synthetic archive"
   else
     fno "Humongous Resource.rez" "mk_rez.py failed"

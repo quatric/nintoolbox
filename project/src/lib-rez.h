@@ -45,7 +45,12 @@
 // order {u32 ?, u32 frames, f32 speed, u32 ptr, u32 children, u32 ptr,
 // frames * {f32 position[3], quaternion[4], scale[3]}, children * u32, the
 // children}. A frame replaces the object's rest transform about its pivot.
-// Types 7, 24, 44, 46, 52 are plain data and not decoded.
+// Type 7 (a slot on its own) is a skeletal motion: {u32 frames, u32 bones, f32
+// speed, u32 frame stride (12 + 8 * bones), tagged ptr}, frames at +0x14, each
+// {f32 root offset[3], per bone s16 quaternion[4] xyzw / 32767}. The rotations
+// replace the bind pose (none) of the skeleton of a skinned model; the root
+// offset is exported relative to the first frame.
+// Types 24, 44, 46, 52 are plain data and not decoded.
 //-----------------------------------------------------------------------------
 #ifndef SZS_LIB_REZ_H
 #define SZS_LIB_REZ_H 1
@@ -53,7 +58,7 @@
 #include "lib-std.h"
 #include "lib-model-glb.h"
 
-typedef enum { REZ_TEXTURE = 73, REZ_SOUND = 76, REZ_VIDEO = 1, REZ_MESH = 75, REZ_ANIM = 86 } rez_kind_t;
+typedef enum { REZ_TEXTURE = 73, REZ_SOUND = 76, REZ_VIDEO = 1, REZ_MESH = 75, REZ_ANIM = 86, REZ_MOTION = 7 } rez_kind_t;
 
 typedef struct
 {
@@ -81,6 +86,14 @@ model_t *ParseRezModel (const u8 *res, size_t size, RezTexFunc texname, void *ct
 
 // Add the object animation ANIM (type 86, the resource after the model) to the
 // model parsed from RES. False if the two trees do not match.
+// A skeleton-only model animated by the type 7 motion RES: the joints of REF
+// (a skinned model of the same file) plus one animation; NULL if the bone
+// count differs or RES is not a motion.
+model_t *ParseRezMotion (const u8 *res, size_t size, const model_t *ref);
+
+// Copy of the skeleton of MODEL (joints only), or NULL.
+model_t *CopyRezSkeleton (const model_t *model);
+
 bool AddRezAnimation (model_t *model, const u8 *res, size_t size, const u8 *anim, size_t anim_size);
 
 // 16-bit PCM WAV of a type 76 resource.

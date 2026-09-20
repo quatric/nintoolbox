@@ -101,7 +101,7 @@ static bool rz_add (rez_res_t **list, uint *count, uint *cap, const rez_res_t *e
 static bool rz_res (const u8 *r, size_t size, uint g, uint i, rez_res_t *e)
 {
 	const int type = (s16)rz_be16 (r + 12);
-	if (type != REZ_TEXTURE && type != REZ_SOUND && type != REZ_VIDEO && type != REZ_MESH && type != REZ_ANIM)
+	if (type != REZ_TEXTURE && type != REZ_SOUND && type != REZ_VIDEO && type != REZ_MESH && type != REZ_ANIM && type != REZ_MOTION)
 		return false;
 	e->group = g;
 	e->index = i;
@@ -134,7 +134,9 @@ rez_res_t *ListRezResources (const u8 *d, size_t size, uint *count)
 		if (hs < 0x20)
 		{
 			// a resource on its own; only videos are recognisable without unpacking
-			if (rz_res (s, size, g + start, 0, &e) && (e.kind != REZ_VIDEO || (e.usize > 0x40 && !(e.flags & 1) && !memcmp (d + e.offset, "THP", 4))))
+			if (rz_res (s, size, g + start, 0, &e) && (e.kind != REZ_VIDEO || (e.usize > 0x40 && !(e.flags & 1) && !memcmp (d + e.offset, "THP", 4)))
+				&& (e.kind != REZ_MOTION || (!(e.flags & 1) && e.csize > 0x40 && rz_be32 (d + e.offset + 12) == 12 + 8 * rz_be32 (d + e.offset + 4)
+					&& 0x14 + (size_t)rz_be32 (d + e.offset) * rz_be32 (d + e.offset + 12) <= e.csize)))
 				if (!rz_add (&list, count, &cap, &e))
 					return list;
 			continue;
@@ -146,7 +148,7 @@ rez_res_t *ListRezResources (const u8 *d, size_t size, uint *count)
 		if (!cnt || 16 + cnt * 24 > hs || rz_be32 (t + 16) < off || rz_be32 (t + 16) >= off + sz)
 			continue;
 		for (uint i = 0; i < cnt; i++)
-			if (rz_res (t + 16 + i * 24, size, g + start, i, &e) && e.kind != REZ_VIDEO)
+			if (rz_res (t + 16 + i * 24, size, g + start, i, &e) && e.kind != REZ_VIDEO && e.kind != REZ_MOTION)
 				if (!rz_add (&list, count, &cap, &e))
 					return list;
 	}
@@ -755,4 +757,90 @@ bool AddRezAnimation (model_t *m, const u8 *d, size_t size, const u8 *a, size_t 
 	FREE (t.nodes);
 	FREE (an);
 	return true;
+}
+
+//-----------------------------------------------------------------------------
+// skeletal motion (type 7)
+
+model_t *CopyRezSkeleton (const model_t *m)
+{
+	if (!m || !m->num_joints)
+		return 0;
+	model_t *c = CALLOC (1, sizeof (*c));
+	if (!c)
+		return 0;
+	c->joints = MALLOC (m->num_joints * sizeof (joint_t));
+	if (!c->joints)
+	{
+		FREE (c);
+		return 0;
+	}
+	memcpy (c->joints, m->joints, m->num_joints * sizeof (joint_t));
+	c->num_joints = m->num_joints;
+	return c;
+}
+
+model_t *ParseRezMotion (const u8 *d, size_t size, const model_t *ref)
+{
+	if (!ref || size < 0x40)
+		return 0;
+	const size_t nf = rz_be32 (d), nb = rz_be32 (d + 4), stride = rz_be32 (d + 12);
+	if (nb != ref->num_joints || stride != 12 + 8 * nb || !nf || nf > 0x10000 || 0x14 + nf * stride > size)
+		return 0;
+	model_t *m = CopyRezSkeleton (ref);
+	if (!m)
+		return 0;
+	m->animations = CALLOC (1, sizeof (*m->animations));
+	m->animations->channels = CALLOC (nb + 1, sizeof (model_anim_channel_t));
+	if (!m->animations || !m->animations->channels)
+	{
+		FreeModel (m);
+		return 0;
+	}
+	m->num_animations = 1;
+	snprintf (m->animations->name, sizeof (m->animations->name), "motion");
+	model_animation_t *an = m->animations;
+	for (size_t j = 0; j <= nb; j++)
+	{
+		// channel NB: root offset, others: rotation of bone J
+		model_anim_channel_t *ch = an->channels + an->num_channels++;
+		ch->node_idx = j == nb ? 0 : (int)j;
+		ch->path = j == nb ? MODEL_ANIM_TRANSLATION : MODEL_ANIM_ROTATION;
+		ch->components = j == nb ? 3 : 4;
+		ch->count = nf;
+		ch->times = CALLOC (nf, sizeof (float));
+		ch->values = CALLOC (nf, ch->components * sizeof (float));
+		if (!ch->times || !ch->values)
+		{
+			FreeModel (m);
+			return 0;
+		}
+		float prev[4] = { 0, 0, 0, 1 };
+		for (size_t f = 0; f < nf; f++)
+		{
+			const u8 *fr = d + 0x14 + f * stride;
+			ch->times[f] = f / REZ_ANIM_FPS;
+			if (j == nb)
+			{
+				const u8 *f0 = d + 0x14;
+				for (uint i = 0; i < 3; i++)
+					ch->values[3 * f + i] = m->joints[0].translate.x * (i == 0) + m->joints[0].translate.y * (i == 1)
+						+ m->joints[0].translate.z * (i == 2) + rz_f (fr + 4 * i) - rz_f (f0 + 4 * i);
+				continue;
+			}
+			float q[4], dot = 0;
+			for (uint i = 0; i < 4; i++)
+			{
+				q[i] = (s16)rz_be16 (fr + 12 + 8 * j + 2 * i) / 32767.0f;
+				dot += q[i] * prev[i];
+			}
+			for (uint i = 0; i < 4; i++)
+			{
+				if (dot < 0)
+					q[i] = -q[i];
+				ch->values[4 * f + i] = prev[i] = q[i];
+			}
+		}
+	}
+	return m;
 }
