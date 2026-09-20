@@ -8876,6 +8876,21 @@ with open(sys.argv[1], "wb") as f:
     fno "Asobo BigFile" "mk_asobo.py failed"
   fi
 
+  # Vblank Wii packages: BFP2 (zlib/stored/slot members, hash names) and BPP3 (DSP stream -> WAV)
+  mkdir -p "$d/vblank_test"
+  if python3 "$PWD_PROJECT/../tests/mk_vblank.py" "$d/vblank_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/vblank_test/TEST.bfp" --dest "$d/vblank_test/bfp" --overwrite >/dev/null 2>&1 \
+    && "$B/wszst" xx "$d/vblank_test/TEST.bap" --dest "$d/vblank_test/bap" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/vblank_test/bfp/$(cat "$d/vblank_test/names.txt").bin")" = "$(python3 -c "print('hello vblank '*20,end='')")" ] \
+    && [ "$(cat "$d/vblank_test/bfp/palettes.bin")" = "stored member" ] \
+    && [ -s "$d/vblank_test/bfp/slot_000.bin" ] \
+    && [ "$(wc -c < "$d/vblank_test/bap/001_Beep.wav" | tr -d ' ')" -eq 100 ] \
+    && fok "Vblank BFP2 (zlib/stored/slot, hashed names) and BPP3 (DSP -> WAV) unpack" \
+    || fno "Vblank packages" "failed to unpack synthetic TEST.bfp/TEST.bap"
+  else
+    fno "Vblank packages" "mk_vblank.py failed"
+  fi
+
   # FMOD FSB4 sound bank (Wii DSP-ADPCM) decodes to WAV
   mkdir -p "$d/fsb_test"
   if python3 "$PWD_PROJECT/../tests/mk_fsb.py" "$d/fsb_test" >/dev/null 2>&1; then
