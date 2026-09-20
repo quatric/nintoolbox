@@ -86,7 +86,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **Bj engine** | `.tx1`/`.tx2`, `.mtm`, `.bsi`, `.bsm` | ✅ | — | — | ✅ | *Super Karts* (Wii): textures to PNG, meshes to GLB, sounds and music to WAV. |
 | **Blue Tongue TRB** | `.trb` | ✅ | — | — | ✅ | *de Blob 2* (Wii): `ttex` textures (I4 to CMPR, paletted) to PNG, embedded XUR UI scenes, `tcmd` level and prop geometry to GLB (positions, normals, UVs; no materials; some batch variants skipped). |
 | **BNS Archive** | `.bns` | ✅ | — | — | ✅ | Koei Tecmo *Samurai Warriors 3* multi-file asset archive (`LINKDATA*.BNS`). |
-| **BombShell data pack** | `.xwi`, `.xdx9` | ✅ | — | — | ✅ | Smart Bomb Interactive engine (*Bee Movie Game*, Wii / PC): textures to PNG, sounds to FSB / WAV. |
+| **BombShell data pack** | `.xwi`, `.xdx9` | ✅ | — | — | ✅ | Smart Bomb Interactive engine (*Bee Movie Game*, Wii / PC): textures to PNG, sounds to FSB / WAV, Wii models to GLB (geometry only). |
 | **CA01 / SA01** | `.ca01`, `.sa01` | ✅ | ✅ | ✅ | — | Nintendo Network Mii & amiibo system archive (3DS / Wii U) |
 | **CCF** | `.ccf` | ✅ | ✅ | ✅ | — | Nintendo Virtual Console container (Wii / Switch) |
 | **CDGaCube CAR** | `.car` | ✅ | — | — | ✅ | Cat Daddy Games archive (*Birthday Party Bash*, Wii); stored and zlib members |
