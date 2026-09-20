@@ -8,7 +8,7 @@ os.makedirs(out, exist_ok=True)
 tex = bytearray(0x80)
 struct.pack_into('>4H', tex, 0, 8, 8, 8, 9)
 tex += bytes(range(64))
-tex += b''.join(struct.pack('>H', 0x8000 | (i << 10) | (i << 5) | i) for i in range(256))
+tex += b''.join(struct.pack('>H', 0x8000 | ((i & 31) << 10) | ((i & 31) << 5) | (i & 31)) for i in range(256))
 # literal-only compression: u32 unpacked size, then runs of <= 127 bytes
 packed = struct.pack('>I', len(tex))
 for i in range(0, len(tex), 127):
