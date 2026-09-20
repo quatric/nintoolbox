@@ -32,7 +32,8 @@ f[0x2800:0x2808] = b'XUIBTEST'
 D, G = 0x1000, 0x3000
 struct.pack_into('>5I', f, D + 0x100, 4, 0x06500309, 0x0210060a, 0x06500c0d, 0x0650080e)
 rec = D + 0x200
-struct.pack_into('>I', f, rec + 4, 0x100)
+struct.pack_into('>2I', f, rec + 4, 0x100, 1)
+struct.pack_into('>I', f, rec + 0x14, 0x248)                          # array pairs (after the two display list words)
 struct.pack_into('>2I', f, rec + 0x40, 16, 0)
 for k, (arr, attr, size, cnt) in enumerate([(0x10, 9, 6, 3), (0x30, 10, 3, 1), (0x40, 13, 4, 3), (0x50, 14, 4, 1)]):
     struct.pack_into('>2I', f, rec + 0x48 + 8 * k, arr, attr << 24 | size << 16 | cnt)
