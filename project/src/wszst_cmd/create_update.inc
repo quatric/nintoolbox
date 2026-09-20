@@ -7147,16 +7147,15 @@ static enumError extract_pub_file (ccp arg, ccp basedir, uint depth)
 // Humongous / Cat Daddy Resource.rez (Backyard Football '10, Wii): GX
 // textures -> PNG, DSP-ADPCM sounds -> WAV and THP videos, named GROUP_INDEX,
 // in a directory named after the file.
-typedef struct
+static ccp rez_texname (void *vctx, u32 id)
 {
-	uint group;
-	char png[64];
-} rez_tex_ctx_t;
-
-static ccp rez_texname (void *vctx)
-{
-	const rez_tex_ctx_t *c = vctx;
-	return *c->png ? c->png : 0;
+	char *png = vctx;
+	// ids below 0x10000 name a slot (a resource on its own) directly
+	if (id >> 16)
+		snprintf (png, 64, "%04u_%03u.png", id >> 16, id & 0xffff);
+	else
+		snprintf (png, 64, "%04u_000.png", id);
+	return png;
 }
 
 static enumError extract_rez_file (ccp arg, ccp basedir, uint depth)
@@ -7182,10 +7181,12 @@ static enumError extract_rez_file (ccp arg, ccp basedir, uint depth)
 			testmode ? "WOULD " : "", arg, count, dest);
 
 	enumError err = ERR_OK;
-	rez_tex_ctx_t tctx = { 0, "" };
+	char png[64];
 	for (uint i = 0; i < count && !err && !testmode; i++)
 	{
 		const rez_res_t *r = list + i;
+		if (r->kind == REZ_ANIM)
+			continue;	// written with its model
 		size_t n = 0;
 		u8 *res = LoadRezResource (raw, raw_size, r, &n);
 		if (!res)
@@ -7197,20 +7198,22 @@ static enumError extract_rez_file (ccp arg, ccp basedir, uint depth)
 		{
 			u8 *rgba = 0;
 			uint w = 0, h = 0;
-			if (!DecodeRezTexture (&rgba, &w, &h, res, n) && !SaveDecodedRGBAToPNG (rgba, w, h, &be_func, path, 0, true))
-			{
-				// a mesh is textured by the last texture of its group
-				tctx.group = r->group;
-				snprintf (tctx.png, sizeof (tctx.png), "%04u_%03u.png", r->group, r->index);
-			}
+			if (!DecodeRezTexture (&rgba, &w, &h, res, n))
+				err = SaveDecodedRGBAToPNG (rgba, w, h, &be_func, path, 0, true);
 		}
 		else if (r->kind == REZ_MESH)
 		{
-			if (tctx.group != r->group)
-				*tctx.png = 0;
-			model_t *model = ParseRezMesh (res, n, rez_texname, &tctx);
+			model_t *model = ParseRezModel (res, n, rez_texname, png);
 			if (model)
 			{
+				// the animation is the resource after the model
+				const rez_res_t *ar = i + 1 < count ? list + i + 1 : 0;
+				size_t an = 0;
+				u8 *anim = ar && ar->kind == REZ_ANIM && ar->group == r->group && ar->index == r->index + 1
+					? LoadRezResource (raw, raw_size, ar, &an) : 0;
+				if (anim)
+					AddRezAnimation (model, res, n, anim, an);
+				FREE (anim);
 				ExportModelToGLB (model, path);
 				FreeModel (model);
 			}
