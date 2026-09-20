@@ -65,59 +65,55 @@ wbrsar Sound.sdat --both --dest Sound.d
 | --- | --- | --- | --- | --- | --- | --- |
 | **ABE BigFile** | `.bf` | ✅ | — | — | ✅ | Ubisoft *Rabbids Go Home* BigFile archive (ABE\0 with segmented LZO1X chunks). |
 | **ALAR** | `.alar` | ✅ | — | — | ✅ | Nintendo DS Nitro ALAR archive (*Jump Ultimate Stars*). |
-| **And-Kensaku** | `.rz` | ✅ | — | — | — | CyberConnect2 "Pres" archive, whole-stream Nintendo LZ77 (type 0x10/0x11) wrapped (Nintendo DS *Kanji Sonomama Rakubiki Jiten* / *And-Kensaku* family). |
+| **And-Kensaku** | `.rz` | ✅ | — | — | — | CyberConnect2 "Pres" archive with LZ77 wrapping (Nintendo DS, *And-Kensaku* family). |
 | **APAK** | `.apak` | ✅ | ✅ | ✅ | — | Nintendo / Pokémon APAK archive format (Wii U / Switch) |
-| **ARC0** | `.fa` | 🟡 | — | — | 🟡 | Level-5 flat archive (*Yo-Kai Watch*, 3DS). |
 | **ARC / U8** | `.arc`, `.szs` | ✅ | ✅ | ✅ | — | Nintendo standard U8 archive (Wii / GameCube NintendoWare & EAD) |
+| **ARC0** | `.fa` | 🟡 | — | — | 🟡 | Level-5 flat archive (*Yo-Kai Watch*, 3DS). |
 | **ARCV** | `.arc` | ✅ | ✅ | ✅ | — | Namco / Tose Wii archive format |
 | **Arika Archive** | `INFO.DAT`, `GAME.DAT`, `.arika` | ✅ | ✅ | ✅ | — | Arika DS / DSi / Wii archive system |
+| **Asobo BigFile** | `.drv` | ✅ | — | — | ✅ | Asobo Studio volume (*Ratatouille*, Wii): textures to PNG, sounds to WAV, meshes to GLB. |
 | **AT7** | `.at7` | ✅ | ✅ | ✅ | — | Koei Tecmo container format (Wii / PS2) |
 | **ATB** | `.atb` | ✅ | — | — | — | Hudson Soft Animation Texture Bank (*Mario Party 4-8*). |
+| **Atomic Planet PUB** | `.pub` | ✅ | — | — | ✅ | *AMF Bowling: Pinbusters!* (Wii): textures to PNG, meshes to GLB. |
+| **Avalanche THB/TBB** | `.thb` + `.tbb` | ✅ | — | — | ✅ | Avalanche Software texture pair (*Cars 2*, Wii); single textures and atlases to PNG |
 | **BCGRP** | `.bcgrp` | ✅ | ✅ | — | — | Nintendo 3DS Sound Group (`CGRP`). |
 | **BEA** | `.bea`, `.nx.bea` | ✅ | — | — | — | Nintendo EAD Bezel Engine Archive (`SCNE`, *WarioWare* / *Mario Party*). |
 | **BFGRP** | `.bfgrp` | ✅ | ✅ | — | — | Nintendo Wii U / Switch Sound Group (`FGRP`). |
 | **BFMA** | `.bfma` | ✅ | ✅ | — | — | Nintendo Wii U manual archive (SARC-based). |
+| **BFSHA / BNSH** | `.bfsha`, `.bnsh` | ✅ | — | — | ✅ | NintendoWare shader archive (Wii U / Switch). |
 | **BG4** | `.bg4` | ✅ | ✅ | ✅ | — | AlphaDream 3DS flat archive with BLZ member compression |
 | **BIGF** | `.big` | ✅ | ✅ | ✅ | — | Electronic Arts Wii asset archive |
+| **Bj engine** | `.tx1`/`.tx2`, `.mtm`, `.bsi`, `.bsm` | ✅ | — | — | ✅ | *Super Karts* (Wii): textures to PNG, meshes to GLB, sounds and music to WAV. |
 | **BNS Archive** | `.bns` | ✅ | — | — | ✅ | Koei Tecmo *Samurai Warriors 3* multi-file asset archive (`LINKDATA*.BNS`). |
-| **BFSHA / BNSH** | `.bfsha`, `.bnsh` | ✅ | — | — | ✅ | NintendoWare shader archive (Wii U / Switch). |
+| **BombShell data pack** | `.xwi`, `.xdx9` | ✅ | — | — | ✅ | Smart Bomb Interactive engine (*Bee Movie Game*, Wii / PC): textures to PNG, sounds to FSB / WAV. |
 | **CA01 / SA01** | `.ca01`, `.sa01` | ✅ | ✅ | ✅ | — | Nintendo Network Mii & amiibo system archive (3DS / Wii U) |
 | **CCF** | `.ccf` | ✅ | ✅ | ✅ | — | Nintendo Virtual Console container (Wii / Switch) |
+| **CDGaCube CAR** | `.car` | ✅ | — | — | ✅ | Cat Daddy Games archive (*Birthday Party Bash*, Wii); stored and zlib members |
 | **CNUT** | `.cnut` | ✅ | ✅ | ✅ | ✅ | *Wii Party* compiled Squirrel script & message container (`SQIR`). |
 | **COD PAK0** | `.pak` | ✅ | ✅ | ✅ | ✅ | *Call of Duty: Black Ops* / *MW3* (Wii) sound archive (`PAK0`). |
+| **CPK** | `.cpk` | ✅ | — | — | ✅ | CRIWARE CPK archive (*Star Fox Zero*, Wii U) |
 | **CRAM** | `.arc`, `.cram` | ✅ | ✅ | ✅ | — | Monolith Soft 3DS flat archive container |
 | **DARC / BCMA** | `.darc`, `.bcma`, `.arc` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C directory archive & 3DS electronic manual archive (3DS). |
+| **DC2 DCX / DCT** | `.dcx`, `.dct` | ✅ | — | — | — | *Jakers! Kart Racing* (Wii): directory archives; GX CMPR / RGBA8 textures → PNG |
 | **DTLS** | `dt00`, `ls00`, `.ls` | ✅ | ✅ | ✅ | ✅ | Bandai Namco composite package & lookup archive (*Super Smash Bros. 4*, Wii U / 3DS) |
 | **EFFN** | `.eff`, `.effn` | ✅ | ✅ | ✅ | ✅ | Bandai Namco Super Smash Bros. 4 / Ultimate particle effect container archive (`EFFN`). |
 | **F9RES** | `.res` | ✅ | ✅ | ✅ | — | GameCube resource archive container |
+| **FMOD FSB** | `.fsb` | ✅ | — | — | ✅ | FMOD sound bank (FSB3 / FSB4 / FSB5, Wii); DSP-ADPCM and PCM16 samples decoded to WAV |
 | **FSYS** | `.fsys` | ✅ | ✅ | ✅ | — | Genius Sonority archive system (GameCube / Wii) |
 | **GAR / ZAR** | `.zar`, `.gar` | ✅ | ✅ | ✅ | ✅ | Grezzo Zelda & Luigi's Mansion archive (*OoT3D*, *MM3D*, *LM3DS*). |
 | **GFA** | `.gfa` | ✅ | ✅ | ✅ | ✅ | Good-Feel GFAC container (Wii / 3DS / Wii U). |
-| **GFPAK** | `.gfpak` | ✅ | — | — | — | Game Freak Pokémon archive (`GFLXPACK`). |
-| **GFMPACK** | `.gfpack` | ✅ | — | — | — | Game Freak 3DS model/texture/shader pack (SPICA `GFModelPack`; *Pokémon X/Y/ORAS*). Named members extract with content-sniffed extensions. |
-| **GFPKG** | `.gfpkg`, `.bin`, `.pak` | ✅ | — | — | — | Game Freak Gen6/Gen7 package (SPICA `GFPackage`; 2-letter magic + offset table). |
 | **GFLX** | `.gflxpack` | ✅ | — | — | — | Game Freak Switch `GFLXPACK` archive (SPICA `GFLXPack`): raw-LZ4 members (BNTX/BNSH/`gfbmdl`/raw). |
-| **HBDF** | `.hbdf`, `.hsdf` | ✅ | — | — | — | Hudson Soft Nitro 3D model container (*Mario Party DS*). MDLF ObjectBlock/MeshBlock Nitro GX display lists decode to GLB via `wmdlt` (shared NSBMD interpreter, parent-chain transforms baked, one mesh per PolyGroup material range); raw members still extract via `wszst xx`. |
-| **Hyrule Warriors** | `.idx`, `.bin` | ✅ | ✅ | ✅ | — | Koei Tecmo / Omega Force split index archive (3DS) |
-| **IQIPACK** | `.pak` | ✅ | — | — | — | NVIDIA Shield iQiyi PAK archive with XXTEA encryption |
-| **IPK** | `.ipk` | ✅ | — | — | — | Ubisoft UbiArt IPK archive (*Just Dance*, *Rayman Origins/Legends*, *Child of Light*; Wii / Wii U / Switch / PC; zlib + LZMA members, old/new path-name orders) |
-| **WADH** | `.wad` (DataWII.wad) | ✅ | — | — | — | Data Design Interactive archive (*Ninjabread Man*, Wii); stored members with a directory tree |
-| **CDGaCube CAR** | `.car` | ✅ | — | — | ✅ | Cat Daddy Games archive (*Birthday Party Bash*, Wii); stored and zlib members |
+| **GFMPACK** | `.gfpack` | ✅ | — | — | — | Game Freak 3DS model / texture / shader pack (*Pokémon X/Y/ORAS*). |
+| **GFPAK** | `.gfpak` | ✅ | — | — | — | Game Freak Pokémon archive (`GFLXPACK`). |
+| **GFPKG** | `.gfpkg`, `.bin`, `.pak` | ✅ | — | — | — | Game Freak Gen6/Gen7 package (SPICA `GFPackage`; 2-letter magic + offset table). |
+| **Grip RES** | `.res` | ✅ | — | — | — | *Sesame Street: Elmo's Musical Monsterpiece* (Wii): resource packages, `surf` textures to PNG. |
+| **h.a.n.d. FBC** | `.fbc` | ✅ | — | — | ✅ | *Oyako de Asobo: Miffy no Omochabako* (Wii): nested file bundles unpacked by name. |
+| **HBDF** | `.hbdf`, `.hsdf` | ✅ | — | — | — | Hudson Soft Nitro 3D model container (*Mario Party DS*), decoded to GLB. |
 | **Heavy Iron HO** | `.ho` | ✅ | — | — | ✅ | Good Engine package (*WALL-E*, *Up*, Wii); assets with debug names, GX textures to PNG |
-| **Asobo BigFile** | `.drv` | ✅ | — | — | ✅ | Asobo Studio volume (*Ratatouille*, Wii); stored and LZRS members, `Bitmap_Z` to PNG, `Sound_Z` to WAV, `Mesh_Z` to textured GLB |
-| **Bj engine** | `.tx1`/`.tx2`, `.mtm`, `.bsi`, `.bsm` | ✅ | — | — | ✅ | *Super Karts* (Wii): 8-bit paletted textures to PNG, mesh trees to textured GLB, sound banks and streamed music to WAV |
-| **Torus Games hunkfile** | `.hnk` | ✅ | — | — | ✅ | *Barbie & Her Sisters: Puppy Rescue* (Wii): CMPR/RGBA8/I8 textures to PNG, DSP-ADPCM streams (raw files in `../SOUND`) to WAV; models/animations not decoded |
-| **Atomic Planet PUB** | `.pub` | ✅ | — | — | ✅ | *AMF Bowling: Pinbusters!* (Wii): `*WII.PUB` packages; C8 / RGBA8 / I8 textures to PNG, meshes to textured GLB (positions, normals, UVs; skinning not decoded); audio and other resources not decoded |
-| **Humongous Resource.rez** | `.rez` | ✅ | — | — | ✅ | *Backyard Football '10* (Wii): grouped, LZ-compressed resource archive; GX textures (C4 / C8 / RGB5A3 / RGBA8) to PNG, mono DSP-ADPCM sounds to WAV, models (type 75) with their object animations (type 86) to textured, animated GLB, THP videos copied out; skinned models (skeleton, bone weights) to skinned GLB, 282 skeletal motions (type 7) to skeleton-only animated GLB; plain data types not decoded |
-| **Toshi TSFB** | `.ttl` (`.trb`, `.tkl`) | ✅ | — | — | ✅ | *Nickelodeon Barnyard* (Wii): BTEC-compressed TSFB containers; `.ttl` texture libraries (RGBA8, CMPR, I/IA, CI4/CI8 with palettes) to PNG; models and key libraries not decoded |
-| **h.a.n.d. FBC** | `.fbc` | ✅ | — | — | ✅ | *Oyako de Asobo: Miffy no Omochabako* (Wii): nested file bundles unpacked by name (`.brres`, `.tpl`, `.brasd`, scripts, message tables) |
-| **Vblank BFP / BAP** | `.bfp`, `.bap` | ✅ | — | — | ✅ | Vblank Entertainment Wii packages (*Retro City Rampage DX*, *Shakedown: Hawaii*): `BFP2` game data (zlib/stored members, names recovered via the games' own case-insensitive name hash, numbered slots as `slot_NNN`), `BPP3` audio (Ogg Vorbis music, DSP-ADPCM effects to WAV) and `BAP1` chiptune modules (`BTRK` + raw sample pool) |
-| **FMOD FSB** | `.fsb` | ✅ | — | — | ✅ | FMOD sound bank (FSB3 / FSB4 / FSB5, Wii); DSP-ADPCM and PCM16 samples decoded to WAV |
-| **Avalanche THB/TBB** | `.thb` + `.tbb` | ✅ | — | — | ✅ | Avalanche Software texture pair (*Cars 2*, Wii); single textures and atlases to PNG |
-| **Terminal Reality POD** | `.pod` | ✅ | — | — | ✅ | POD3/4/5 archive (*Nickelodeon Dance*, Wii); stored members with a directory tree |
-| **DC2 DCX / DCT** | `.dcx`, `.dct` | ✅ | — | — | — | *Jakers! Kart Racing* (Wii): directory archives; GX CMPR / RGBA8 textures → PNG |
-| **NIF (Gamebryo 20.6, Wii)** | `.nif` | ✅ | — | — | — | *Pocoyo Racing* (Wii): embedded DXT1 / RGBA textures → PNG, `NiMesh` scenes → textured GLB (world space, bind pose) |
-| **Grip RES** | `.res` | ✅ | — | — | — | *Sesame Street: Elmo's Musical Monsterpiece* (Wii): resource packages split into sections with index names; `surf` textures → PNG |
+| **Humongous Resource.rez** | `.rez` | ✅ | — | — | ✅ | *Backyard Football '10* (Wii): textures to PNG, sounds to WAV, models and animations to GLB, THP videos. |
+| **Hyrule Warriors** | `.idx`, `.bin` | ✅ | ✅ | ✅ | — | Koei Tecmo / Omega Force split index archive (3DS) |
+| **IPK** | `.ipk` | ✅ | — | — | — | Ubisoft UbiArt archive (*Just Dance*, *Rayman Origins/Legends*; Wii / Wii U / Switch / PC). |
+| **IQIPACK** | `.pak` | ✅ | — | — | — | NVIDIA Shield iQiyi PAK archive with XXTEA encryption |
 | **JARC** | `.jarc` | ✅ | ✅ | ✅ | — | Level-5 DS archive container (DS) |
 | **KPBIN** | `.kpbin` | ✅ | ✅ | — | — | Koopatlas binary world map (`KP_m`, *New Super Mario Bros. Wii* level-editor community format). |
 | **LSPK** | `.pk`, `.pkh`, `.lspk` | ✅ | ✅ | ✅ | ✅ | Level-5 / Mistwalker flat package (*The Last Story*). |
@@ -130,41 +126,46 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **MTXT** | `.mtxt` | ✅ | ✅ | ✅ | — | Nintendo Switch MTXT texture archive (gzip-wrapped XTX). |
 | **NARC** | `.narc` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro standard archive (DS / DSi) |
 | **NCCARC** | `.nccarc` | ✅ | ✅ | ✅ | — | Nintendo DS flat blob container |
-| **NLG DICT** | `.dict`, `.data` | ✅ | — | — | ✅ | Next Level Games dictionary archive (*Metroid Prime: Federation Force*, *Luigi's Mansion: Dark Moon* / LM2HD, *Luigi's Mansion 3*, *Mario Strikers: Battle League Football*). Typed chunk pass: LM2/LM3/Federation Force models → `.fedmodel` + GLB, textures → `.fedtex` + PNG, skeletons → `.fedskel`, animations/scripts → text, NLOC/font/config passthrough, everything else hash-resolved raw dumps. |
 | **NDS / SRL / DSI** | `.nds`, `.srl`, `.dsi` | ✅ | — | — | — | Nintendo DS & DSi ROM images and executables |
+| **NIF (Gamebryo 20.6, Wii)** | `.nif` | ✅ | — | — | — | *Pocoyo Racing* (Wii): textures to PNG, `NiMesh` scenes to textured GLB. |
+| **NLG DICT** | `.dict`, `.data` | ✅ | — | — | ✅ | Next Level Games dictionary archive (*Federation Force*, *Luigi's Mansion 2/3*, *Strikers*). |
 | **NXARC** | `.nxarc` | ✅ | ✅ | ✅ | — | Nintendo Switch NX archive (`RAXN`) |
 | **PAC (Nd Cube)** | `.bin` | ✅ | ✅ | ✅ | ✅ | Nd Cube Wii U flat container (`PAC\0`, *Mario Party 10* / *Animal Crossing: amiibo Festival*). |
 | **PAC / MRG** | `.pac`, `.mrg` | ✅ | ✅ | ✅ | — | HAL Laboratory / Game Arts Wii archive container |
-| **PKG / GPKG / GPAK** | `.pkg`, `.pak`, `.gpak` | ✅ | ✅ | ✅ | ✅ | Gorilla Games *Bonsai Barber* PKG, 2D Boy *World of Goo* GPAK, and Sonic Team Storybook archive (*Secret Rings* / *Black Knight*). |
+| **PKG / GPKG / GPAK** | `.pkg`, `.pak`, `.gpak` | ✅ | ✅ | ✅ | ✅ | Gorilla Games *Bonsai Barber*, 2D Boy *World of Goo* and Sonic Team Storybook archives. |
 | **PKZ** | `.pkz` | ✅ | ✅ | ✅ | — | PlatinumGames archive format (*Bayonetta*, *Astral Chain*) |
-| **PRC** | `.prc`, `.param` | ✅ | — | — | — | Smash parameter binary: Ultimate `paracobn` fully decoded to ParamXML-dialect XML; Smash 4 era variants (`parambinary`, `PRC\0`, `BPAR`) recognised |
-| **PTD** | `.ptd`, `.pdt` | ✅ | ✅ | ✅ | — | Hudson Soft DSP-ADPCM audio archive (*Mario Party 4-8*). Extracts mono/stereo streams to `.dsp`; full-container rebuild preserves coefs, loop starts and the flags==23871488 144-byte blob (byte-exact roundtrip). |
+| **PRC** | `.prc`, `.param` | ✅ | — | — | — | Smash parameter binary (Ultimate `paracobn` decoded to ParamXML; Smash 4 variants recognised). |
+| **PTD** | `.ptd`, `.pdt` | ✅ | ✅ | ✅ | — | Hudson Soft DSP-ADPCM audio archive (*Mario Party 4-8*); streams extract to `.dsp`. |
 | **PVOL** | `.pvol` | 🟡 | ✅ | ✅ | 🟡 | *Pikmin 1 & 2* model & resource container archive. |
 | **RARC** | `.rarc`, `.arc` | ✅ | ✅ | ✅ | — | Nintendo standard resource archive (GameCube / Wii) |
 | **RFL_Res** | `RFL_Res.dat`, `.dat` | ✅ | ✅ | ✅ | ✅ | Revolution Face Library Mii resource database (Wii / 3DS / Wii U). |
 | **RPAK** | `.rpak`, `.pak` | ✅ | ✅ | — | ✅ | Retro Studios asset container (*Donkey Kong Country Returns*, Wii). |
 | **RST / TOC** | `.rst`, `.toc` | ✅ | ✅ | ✅ | ✅ | Monster Games archive & table of contents (*Excite Truck* / *Excitebots*). |
-| **RZPK** | `.rzpk` | ✅ | ✅ | ✅ | — | Mario Party 3DS compressed archive (`RZPK`, zlib members; reference: MPLibrary 3DS/ZDAT.cs). Canonical extract/rebuild roundtrip. |
+| **RZPK** | `.rzpk` | ✅ | ✅ | ✅ | — | Mario Party 3DS compressed archive (zlib members). |
 | **SARC** | `.sarc`, `.szs` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4F & NintendoSDK sorted archive (Wii U / Switch / 3DS). |
 | **SFZDAT** | `.dat` | ✅ | 🟡 | — | ✅ | *Star Fox Zero* (Wii U) flat archive (`DAT\0`). |
-| **CPK** | `.cpk` | ✅ | — | — | ✅ | CRIWARE CPK archive (*Star Fox Zero*, Wii U) |
-| **SHARC / SHARCFB** | `.sharc`, `.sharcfb` | ✅ | ✅ | — | ✅ | NintendoWare shader source & binary archive (Wii U / Switch). `.sharc` extracts to an editable directory (sources, macros, tables) and rebuilds byte-exact; `CREATE dir --dest x.sharcfb` compiles a Wii U SHARCFB from per-program `out.gsh` files (or via `--with-gshcompile`). |
+| **SHARC / SHARCFB** | `.sharc`, `.sharcfb` | ✅ | ✅ | — | ✅ | NintendoWare shader source and binary archive (Wii U / Switch). |
 | **SIR0** | `.sir0` | ✅ | ✅ | ✅ | ✅ | Pokémon Mystery Dungeon resource container (DS / 3DS). |
-| **STPK** | `.srd`, `.stpk` | ✅ | ✅ | ✅ | 🟡 | *Jump Super Stars* & *Jump Ultimate Stars* DS resource archive. |
 | **SMASH-ARC** | `.arc` | ✅ | ✅ | — | — | *Super Smash Bros. Ultimate* `data.arc` (Switch). |
 | **Storybook ONE** | `.one` | ✅ | ✅ | — | ✅ | Sonic Team *Sonic and the Secret Rings* / *Black Knight* PRS-compressed container. |
+| **STPK** | `.srd`, `.stpk` | ✅ | ✅ | ✅ | 🟡 | *Jump Super Stars* & *Jump Ultimate Stars* DS resource archive. |
+| **Terminal Reality POD** | `.pod` | ✅ | — | — | ✅ | POD3/4/5 archive (*Nickelodeon Dance*, Wii); stored members with a directory tree |
 | **TMPK** | `.pack`, `.tmpk` | ✅ | ✅ | ✅ | ✅ | *The Legend of Zelda: Twilight Princess HD* archive (`TMPK`). |
-| **VCRA** | `.bin`, `.vcra` | ✅ | ✅ | ✅ | ✅ | Bandai Namco Museum Remix archive format (Wii). |
+| **Torus Games hunkfile** | `.hnk` | ✅ | — | — | ✅ | *Barbie & Her Sisters: Puppy Rescue* (Wii): textures to PNG, DSP-ADPCM streams to WAV. |
+| **Toshi TSFB** | `.ttl` (`.trb`, `.tkl`) | ✅ | — | — | ✅ | *Nickelodeon Barnyard* (Wii): compressed containers, `.ttl` texture libraries to PNG. |
 | **TRPAK** | `.trpak` | ✅ | — | — | — | Nintendo Switch "tr Package" FlatBuffers archive (no magic; recognized by extension). |
 | **UE4 PAK** | `.pak` | ✅ | ✅ | — | — | Unreal Engine 4 archive (*Mario & Luigi: Brothership*, Switch). |
+| **Vblank BFP / BAP** | `.bfp`, `.bap` | ✅ | — | — | ✅ | Vblank Entertainment Wii packages (*Retro City Rampage DX*, *Shakedown: Hawaii*): game data, audio, chiptune modules. |
+| **VCRA** | `.bin`, `.vcra` | ✅ | ✅ | ✅ | ✅ | Bandai Namco Museum Remix archive format (Wii). |
+| **VFF** | `.vff` | ✅ | — | — | — | Nintendo VFF virtual FAT volume (PrFILE2 / eSOL), used by Wii channels and save data. |
 | **VFXB / PTCL** | `.ptcl`, `.eset`, `.vfxb` | ✅ | ✅ | ✅ | ✅ | NintendoWare particle effect binary archive (Wii U / Switch). |
 | **VIBS** | `.vibs` | ✅ | ✅ | ✅ | — | Nintendo Switch Joy-Con vibration archive |
+| **WADH** | `.wad` (DataWII.wad) | ✅ | — | — | — | Data Design Interactive archive (*Ninjabread Man*, Wii); stored members with a directory tree |
 | **WARC** | `.warc` | ✅ | ✅ | ✅ | ✅ | Nintendo / Intelligent Systems flat archive (Wii U). |
 | **WTA / WTP** | `.wta` + `.wtp` | ✅ | — | — | ✅ | PlatinumGames texture bundle (*Star Fox Zero*, Wii U) |
 | **WUD / WUX** | `.wud`, `.wux` | ✅ | — | — | — | Nintendo Wii U optical disc images (raw & compressed) |
-| **XPCK** | `.xc`, `.xpck` | ✅ | ✅ | ✅ | ✅ | Level-5 container archive (*Inazuma Eleven*, *Professor Layton*, *Yo-kai Watch*). |
 | **XMSG** | `.bin` | ✅ | ✅ | — | — | *Wii Party* message / text archive (`mess.bin`, `XMSG`). |
-| **VFF** | `.vff` | ✅ | — | — | — | Nintendo VFF virtual FAT volume (PrFILE2 / eSOL), used by Wii channels and save data. |
+| **XPCK** | `.xc`, `.xpck` | ✅ | ✅ | ✅ | ✅ | Level-5 container archive (*Inazuma Eleven*, *Professor Layton*, *Yo-kai Watch*). |
 | **ZDAT** | `.zdat` | ✅ | ✅ | — | ✅ | Animal Crossing: Pocket Camp asset container (DeNA/Nintendo, mobile). |
 | **ZLARC** | `.zlarc` | ✅ | ✅ | ✅ | ✅ | indieszero compressed package archive (*NES Remix*, *NES Remix 2*, *NES Remix Pack*). |
 | **ZTAB** | `.ztab`, `.tab` | ✅ | ✅ | ✅ | ✅ | Camelot archive table (*Mario Golf: Toadstool Tour*, *Mario Power Tennis*) |
@@ -179,53 +180,53 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 
 | Format | Extensions | Target Output | Decode Tested | Encode Tested | Byte-Exact Roundtrip | Retail Source Tested | Middleware / Engine / Platform Context |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| **ADJB** | `.adjb` | **TXT manifest** | ✅ | — | — | — | Bandai Namco mesh triangle adjacency sidecar (*Super Smash Bros. Ultimate*, Switch; `model.adjb` beside its `.numshb`) |
+| **ADJB** | `.adjb` | **TXT manifest** | ✅ | — | — | — | Bandai Namco mesh adjacency sidecar (*Super Smash Bros. Ultimate*). |
 | **BCH** | `.bch` | **GLB** | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C H3D binary character model (3DS) |
-| **BCMDL / CGFX** | `.bcmdl`, `.cgfx` | **GLB** | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C CGFX 3D model resource (3DS). Decodes vertex colours, tangents, UV1/UV2 and rigid/smooth skinning into GLB (COLOR_0/TANGENT/TEXCOORD_1/JOINTS_0/WEIGHTS_0 + skins); re-encode preserves them with per-submesh bone palettes and U8/U16 indices. `wszst XX` also drops each TXOB texture as PNG plus a TextureMeta `.json` sidecar (PICA format, size). |
-| **BCRES** | `.bcres` | **GLB** | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C CGFX 3D graphics and model resource container (3DS). Same geometry coverage as BCMDL/CGFX (colours, tangents, extra UVs, skinning, texture `.json` sidecars). |
+| **BCMDL / CGFX** | `.bcmdl`, `.cgfx` | **GLB** | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C CGFX 3D model (3DS): skinned GLB, textures to PNG. |
+| **BCRES** | `.bcres` | **GLB** | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C CGFX graphics and model container (3DS). |
 | **BFRES** | `.bfres` | **GLB** | ✅ | — | — | ✅ | Nintendo GX2 / NintendoSDK 3D model & surface resource archive (Wii U / Switch). |
 | **BMD** | `.bmd`, `.bdhc` | **GLB** | ✅ | ✅ | ✅ | — | Early Nintendo DS 3D model format (DS) |
-| **J3D BMD** | `.bmd` | **GLB** | ✅ | ✅ | — | — | Nintendo GameCube/Wii binary model (`J3D2bmd3`, legacy `bmd2`). SuperBMD-compatible: geometry, skinning, materials, all GX texture formats incl. mipmaps; encode rebuilds canonical single-TEV materials (RGBA32/CMPR, triangle lists) with `--mat` / `--texheader` JSON sidecars, `--rotate`, `--profile`. |
-| **J3D BDL** | `.bdl` | **GLB** | ✅ | ✅ | — | — | Nintendo GameCube/Wii binary display list (`J3D2bdl4`). Same coverage as J3D BMD; MDL3 section written as a parseable stub (prefer BMD for in-game use). |
-| **BNFM** | `.bnfm` | **GLB** | ✅ | ✅ | ✅ | ✅ | Nd Cube Wii U 3D model format (*Mario Party 10*, *Animal Crossing: amiibo Festival*). BNFMSA skeletal animation sidecars (`.bnfmsa`, 10 SRT tracks/bone, Normal/Hermite keys) attach automatically to the GLB when present beside the model. |
-| **CSB** | `.csb` | **GLB** | ✅ | ✅ | — | ✅ | Paper Mario collision scene (TTYD Switch / Origami King little-endian, Color Splash big-endian `--csb-big`): meshes with `MAT{attr}_FLAG{flag}` materials plus sphere/box trigger volumes as `MAPOBJ_*` instances; `--csb-mobj` writes split map-object models. Retail `.csb.zst` Zstandard form supported. |
-| **CTB** | `.ctb` | *(text dump)* | ✅ | — | — | ✅ | Paper Mario collision search table: XZ-quadtree over the `.csb` triangles, regenerated as a sidecar on every CSB encode. |
+| **BNFM** | `.bnfm` | **GLB** | ✅ | ✅ | ✅ | ✅ | Nd Cube Wii U 3D model (*Mario Party 10*, *Animal Crossing: amiibo Festival*) with `.bnfmsa` animations. |
+| **CSB** | `.csb` | **GLB** | ✅ | ✅ | — | ✅ | Paper Mario collision scene (TTYD, Origami King, Color Splash): meshes and trigger volumes. |
+| **CTB** | `.ctb` | *(text dump)* | ✅ | — | — | ✅ | Paper Mario collision search table, regenerated beside every CSB. |
+| **FEDMODEL** | `.fedmodel` | **GLB** | ✅ | — | — | — | Next Level Games model container (Federation Force / LM2 / LM3), decoded to GLB. |
+| **FEDSKEL** | `.fedskel` | **GLB** | ✅ | — | — | — | Next Level Games skeleton container (Federation Force / LM2 / LM3), joints exported to GLB. |
 | **G1M** | `.g1m` | **GLB** | ✅ | — | — | ❌ | Koei Tecmo 3D model format (*Hyrule Warriors Legends*, 3DS; *Fire Emblem Warriors*). |
 | **G4PKM** | `.g4pkm` | — | — | — | — | — | Unidentified. |
-| **GLG / RLG** | `.glg`, `.rlg` | **GLB** | ✅ | ✅ | ✅ | ✅ | Next Level Games 3D model format (*Super Mario Strikers*, *Mario Strikers Charged*) |
-| **FEDMODEL** | `.fedmodel` | **GLB** | ✅ | — | — | — | Next Level Games model container: extractor intermediate for Federation Force / LM2 / LM3 `0xB000` chunks (versions 1..3), decoded to GLB with joints when a same-hash `0x7100` skeleton rides along. |
-| **FEDSKEL** | `.fedskel` | **GLB** | ✅ | — | — | — | Next Level Games skeleton container: extractor intermediate for `0x7101`..`0x7106` chunks (LM2 carries parents inline, LM3 in `0x7106`), joints exported to GLB. |
-| **SANIM** | `.sanim` | *(text dump)* | ✅ | — | — | — | Mario Strikers skeleton animation stream (`0x7000`..`0x7103` chunks): headers, track parameters and rotation/translation key counts. |
+| **GF1MOT** | `.gf1mot` | *(text dump)* | ✅ | — | — | — | Game Freak XY/ORAS bone-motion pack. |
 | **GFBANM** | `.gfbanm` | *(identification only)* | — | — | — | — | Game Freak FlatBuffer animation (recognized for extraction boundaries; not decoded). |
 | **GFBMDL** | `.gfbmdl` | *(identification only)* | — | — | — | — | Game Freak FlatBuffer model (recognized for extraction boundaries; not decoded). |
-| **GFMODEL** | `.gfmodel` | **GLB** | ✅ | — | — | — | Game Freak 3DS model (SPICA `GFModel`; *Pokémon X/Y/ORAS*): skeleton, materials with texture names, PICA200 command-buffer geometry with smooth skinning. |
-| **GFMOT** | `.gfmot` | *(text dump)* | ✅ | — | — | — | Game Freak 3DS skeletal/material/visibility motion (SPICA `GFMotion`): frames, loop flag, bone/material/visibility tracks and constants. |
-| **GF1MOT** | `.gf1mot` | *(text dump)* | ✅ | — | — | — | Game Freak XY/ORAS bone-motion pack (SPICA `GF1MotionPack`): skeleton binds plus per-animation frame/octet listing. |
-| **MBN** | `.mbn` | **GLB** | ✅ | — | — | — | ModelBinary companion buffers (SPICA `MBn`): replacement vertex/index buffers applied onto the sibling `.bch` base scene; descriptor listing as text standalone. |
-| **MTMOD** | `.mod` | **GLB** | ✅ | — | — | — | Capcom MT Framework Mobile model (SPICA `MTModel`; 3DS *Resident Evil / Monster Hunter* era): skeleton always; vertices via sibling `.mfx`/`.lfx` input layouts (validated float fallback otherwise); materials/textures via sibling `.mrl`. Shares `.mod` with Monster Games NDL — the `MOD\0` magic decides. |
-| **HSD** | `.dat` | **GLB** | ✅ | ✅ | ✅ | ✅ | HAL Laboratory `sysdolphin` object graph (GameCube); a file holding several archives back to back (Doraemon `map*_dat.mdl`) exports as one GLB |
+| **GFMODEL** | `.gfmodel` | **GLB** | ✅ | — | — | — | Game Freak 3DS model (*Pokémon X/Y/ORAS*): skeleton, materials, skinned geometry. |
+| **GFMOT** | `.gfmot` | *(text dump)* | ✅ | — | — | — | Game Freak 3DS skeletal / material / visibility motion. |
+| **GLG / RLG** | `.glg`, `.rlg` | **GLB** | ✅ | ✅ | ✅ | ✅ | Next Level Games 3D model format (*Super Mario Strikers*, *Mario Strikers Charged*) |
+| **HSD** | `.dat` | **GLB** | ✅ | ✅ | ✅ | ✅ | HAL Laboratory `sysdolphin` object graph (GameCube), exported to GLB. |
 | **HSF** | `.hsf` | **GLB** | ✅ | ✅ | ✅ | ✅ | Hudson Soft 3D model format (GameCube / Wii) |
+| **J3D BDL** | `.bdl` | **GLB** | ✅ | ✅ | — | — | Nintendo GameCube / Wii binary display-list model (`J3D2bdl4`); same coverage as BMD. |
+| **J3D BMD** | `.bmd` | **GLB** | ✅ | ✅ | — | — | Nintendo GameCube / Wii binary model (`J3D2bmd3`, `bmd2`): geometry, skinning, materials, GX textures. |
 | **LMD** | `.lmd` | — | — | — | — | — | Unidentified. |
+| **MBN** | `.mbn` | **GLB** | ✅ | — | — | — | ModelBinary companion buffers applied onto the sibling `.bch` scene. |
 | **MDL0 / BRRES** | `.mdl0`, `.brres` | **GLB** | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4R binary resource model (Wii). |
 | **MOD** | `.mod` | **GLB** | ✅ | ✅ | ✅ | ✅ | Monster Games NDL3/NDL2 display list model (Wii) |
-| **MSH (PMsh)** | `.msh` | **GLB** | ✅ | ✅ | ✅ | ✅ | Monster Games collision mesh format (Wii) |
-| **NSBMD** | `.nsbmd`, `.bmd` | **GLB** | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro 3D model format (DS). |
-| **NUD** | `.nud` | **GLB** | ✅ | ✅ | ✅ | ✅ | Bandai Namco 3D model format (*Super Smash Bros. 4* Wii U / 3DS, *Pokkén Tournament* NDP3/NDWU/NDWD multi-mesh/submesh geometry). |
-| **NUMSHB** | `.numshb` | **GLB** | ✅ | — | — | ✅ | Bandai Namco SSBH 3D mesh model (*Super Smash Bros. Ultimate*, Switch) |
 | **MPR CMDL / SMDL / WMDL** | `.cmdl`, `.smdl`, `.wmdl` | **GLB** | ✅ | — | — | ✅ | Retro Studios static, skinned & world models (*Metroid Prime Remastered*, Switch; *DKCTF*). |
-| **NUMDLB** | `.numdlb` | *(text dump)* | ✅ | — | — | 🟡 | Bandai Namco SSBH model descriptor tying mesh, skeleton, material and animation files together (*Super Smash Bros. Ultimate*). |
-| **NUSKTB** | `.nusktb` | *(text dump)* | ✅ | — | — | ✅ | Bandai Namco SSBH skeleton: bone indices, parents, billboard types and world positions (verified against 151 retail skeletons). |
-| **NUMATB** | `.numatb` | *(text dump)* | ✅ | — | — | 🟡 | Bandai Namco SSBH material container: materials, shader labels and named parameters. |
-| **NUANMB** | `.nuanmb` | *(text dump)* | ✅ | — | — | 🟡 | Bandai Namco SSBH skeletal/material animation: track hierarchy and per-track metadata (compressed keyframe data is not unpacked). |
-| **NUHLPB** | `.nuhlpb` | *(text dump)* | ✅ | — | — | 🟡 | Bandai Namco SSBH helper-bone aim/orient constraints. |
-| **NUSHDB** | `.nushdb` | *(text dump)* | ✅ | — | — | ✅ | Bandai Namco SSBH compiled-shader container (entries listed; NVN GPU binaries are not disassembled). |
-| **NUFXLB** | `.nufxlb` | *(text dump)* | ✅ | — | — | 🟡 | Bandai Namco SSBH shader-effects library: shader programs, render passes and vertex attributes. |
-| **NURPDB** | `.nurpdb` | *(text dump)* | ✅ | — | — | 🟡 | Bandai Namco SSBH render-pass data (framebuffers, state objects, passes; partially understood upstream). |
-| **NULSTB** | `.nulstb` | *(text dump)* | ✅ | — | — | 🟡 | Bandai Namco SSBH file-name list. |
 | **MPR SKEL** | `.skel` | **GLB** | ✅ | — | — | ✅ | Retro Studios skeletal hierarchy (*Metroid Prime Remastered*, Switch; *DKCTF*). |
+| **MSH (PMsh)** | `.msh` | **GLB** | ✅ | ✅ | ✅ | ✅ | Monster Games collision mesh format (Wii) |
+| **MTMOD** | `.mod` | **GLB** | ✅ | — | — | — | Capcom MT Framework Mobile model (3DS *Resident Evil / Monster Hunter* era). |
+| **NSBMD** | `.nsbmd`, `.bmd` | **GLB** | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro 3D model format (DS). |
+| **NUANMB** | `.nuanmb` | *(text dump)* | ✅ | — | — | 🟡 | Bandai Namco SSBH animation (*Super Smash Bros. Ultimate*); keyframe data not unpacked. |
+| **NUD** | `.nud` | **GLB** | ✅ | ✅ | ✅ | ✅ | Bandai Namco 3D model (*Super Smash Bros. 4*, *Pokkén Tournament*). |
+| **NUFXLB** | `.nufxlb` | *(text dump)* | ✅ | — | — | 🟡 | Bandai Namco SSBH shader-effects library: shader programs, render passes and vertex attributes. |
+| **NUHLPB** | `.nuhlpb` | *(text dump)* | ✅ | — | — | 🟡 | Bandai Namco SSBH helper-bone aim/orient constraints. |
+| **NULSTB** | `.nulstb` | *(text dump)* | ✅ | — | — | 🟡 | Bandai Namco SSBH file-name list. |
+| **NUMATB** | `.numatb` | *(text dump)* | ✅ | — | — | 🟡 | Bandai Namco SSBH material container: materials, shader labels and named parameters. |
+| **NUMDLB** | `.numdlb` | *(text dump)* | ✅ | — | — | 🟡 | Bandai Namco SSBH model descriptor (*Super Smash Bros. Ultimate*). |
+| **NUMSHB** | `.numshb` | **GLB** | ✅ | — | — | ✅ | Bandai Namco SSBH 3D mesh model (*Super Smash Bros. Ultimate*, Switch) |
+| **NURPDB** | `.nurpdb` | *(text dump)* | ✅ | — | — | 🟡 | Bandai Namco SSBH render-pass data (framebuffers, state objects, passes; partially understood upstream). |
+| **NUSHDB** | `.nushdb` | *(text dump)* | ✅ | — | — | ✅ | Bandai Namco SSBH compiled-shader container (entries listed; NVN GPU binaries are not disassembled). |
+| **NUSKTB** | `.nusktb` | *(text dump)* | ✅ | — | — | ✅ | Bandai Namco SSBH skeleton (*Super Smash Bros. Ultimate*). |
 | **PERS** | `.pers` | *(raw payload)* | ✅ | — | — | ✅ | Pokémon Stadium (N64) PERS-SZP container |
-| **WMB** | `.wmb` | **GLB** | ✅ | — | — | ✅ | PlatinumGames model (*Star Fox Zero*, Wii U) |
+| **SANIM** | `.sanim` | *(text dump)* | ✅ | — | — | — | Mario Strikers skeleton animation stream. |
 | **TTMODEL** | `.model` | **GLB** | ✅ | — | — | — | TT Games NTT engine model (*LEGO Star Wars: The Skywalker Saga*). |
+| **WMB** | `.wmb` | **GLB** | ✅ | — | — | ✅ | PlatinumGames model (*Star Fox Zero*, Wii U) |
 
 `Byte-Exact Roundtrip` = decode → GLB → re-encode reproduces the original file's bytes identically (canonical fixed-point verified), not just a successful encode.
 
@@ -237,55 +238,55 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | --- | --- | --- | --- | --- | --- | --- |
 | **AJPG / ODH** | `.ajpg` | ✅ | ✅ | — | — | ActImagine baseline-JPEG-derived still image format (GBA / Wii Message Board) |
 | **ART / IMG** | `.art`, `.img` | ✅ | ✅ | ✅ | ✅ | Monster Games GUI image format (Wii) |
+| **ASTC** | `.astc` | ✅ | ✅ | — | — | Adaptive Scalable Texture Compression (ARM ASTC) files. |
 | **BCFNT / BFFNT / BRFNT** | `.bcfnt`, `.bffnt`, `.brfnt` | ✅ | ✅ | ✅ | ✅ | NintendoWare font resource (3DS / Wii U / Wii). |
 | **BCLIM** | `.bclim` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C texture container (3DS) |
 | **BFLIM** | `.bflim` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4F texture format (Wii U) |
 | **BNR** | `.bnr` | ✅ | — | — | — | Nintendo GameCube & Wii game opening banner icon (RGB5A3) |
-| **ASTC** | `.astc` | ✅ | ✅ | — | — | Adaptive Scalable Texture Compression (ARM ASTC) files. |
-| **BNTX** | `.bntx` | ✅ | ✅ | ✅ | ✅ | NintendoSDK Tegra block-linear texture container (Switch); native DDS/ASTC block export, block-preserving DDS encode (BC1-BC7/RGBA8 + mipmaps, SourceToBinaryCmd `-bntx` parity) |
-| **BREFT** | `.breft`, `.bt-img` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4R particle effect texture (Wii) |
-| **BTI / TPL** | `.bti`, `.tpl` | ✅ | ✅ | ✅ | ✅ | Nintendo standard texture palette library (GameCube / Wii) |
-| **BTGA / LGA** | `.btga`, `.lga` | ✅ | ✅ | — | — | Nintendo 3DS PICA texture wrapper (Lego titles) |
 | **BNSTX** | `.bnstx` | ✅ | — | — | — | Nintendo Switch texture package. |
-| **Camelot GX bank** | *(none)*, `.stpl`, `.sbn` | ✅ | — | — | ✅ | Camelot GX texture bank, standalone or inline in a model module (*Mario Golf: Toadstool Tour*, *Mario Power Tennis* GC & Wii, *We Love Golf!*) |
-| **CMB** | `.cmb` | ✅ | ✅ | — | — | Grezzo Nintendo 3DS model container (*Ocarina of Time 3D*, *Majora's Mask 3D*, *Ever Oasis*, *Luigi's Mansion 3D*) |
-| **CMAB** | `.cmab` | ✅ | — | — | — | Grezzo Nintendo 3DS material animation with embedded `txpt` PICA textures (*Ocarina of Time 3D*, *Majora's Mask 3D*). |
+| **BNTX** | `.bntx` | ✅ | ✅ | ✅ | ✅ | NintendoSDK Tegra block-linear texture container (Switch); DDS / ASTC export and DDS encode. |
+| **BREFT** | `.breft`, `.bt-img` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4R particle effect texture (Wii) |
+| **BTGA / LGA** | `.btga`, `.lga` | ✅ | ✅ | — | — | Nintendo 3DS PICA texture wrapper (Lego titles) |
+| **BTI / TPL** | `.bti`, `.tpl` | ✅ | ✅ | ✅ | ✅ | Nintendo standard texture palette library (GameCube / Wii) |
+| **Camelot GX bank** | *(none)*, `.stpl`, `.sbn` | ✅ | — | — | ✅ | Camelot GX texture bank (*Mario Golf: Toadstool Tour*, *Mario Power Tennis*, *We Love Golf!*). |
+| **CAN** | `.can` | ✅ | — | — | ✅ | Monster Games skeletal animation (*Excite Truck* / *ExciteBots*, Wii) |
+| **CMAB** | `.cmab` | ✅ | — | — | — | Grezzo Nintendo 3DS material animation (*Ocarina of Time 3D*, *Majora's Mask 3D*). |
+| **CMB** | `.cmb` | ✅ | ✅ | — | — | Grezzo Nintendo 3DS model container (*Ocarina of Time 3D*, *Majora's Mask 3D*, *Ever Oasis*). |
 | **CTPK** | `.ctpk` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C texture package (3DS) |
 | **CTXB** | `.ctxb` | ✅ | ✅ | ✅ | ✅ | Grezzo 3DS texture container (*Ocarina of Time 3D*, *Majora's Mask 3D*). |
-| **DSB / TXTR** | `.dsb` | ✅ | ✅ | ✅ | — | Animal Crossing: Wild World DS menu texture: 32-entry RGB555 palette + A3I5 texels. |
-| **DMPBM** | `.dmpbm` | ✅ | ✅ | — | — | Atlus Nintendo 3DS tiled bitmap (*Shin Megami Tensei: Devil Survivor Overclocked*), including indexed A1B5G5R5 palettes. |
-| **Retro TXTR** | `.txtr` | ✅ | ✅ | ✅ | ✅ | Retro Studios texture, old revision (*Metroid Prime 1-3*, *Donkey Kong Country Returns*, Wii) |
-| **Tropical TXTR** | `.txtr` | ✅ | — | — | — | Retro Studios texture, new revision (*Donkey Kong Country: Tropical Freeze*, Wii U) |
-| **MPR TXTR** | `.txtr` / `.mpr.txtr` | ✅ | ✅ | ✅ | ✅ | Retro Studios texture, Remastered revision (*Metroid Prime Remastered*, Switch) |
 | **DDS** | `.dds` | ✅ | ✅ | — | — | Microsoft DirectDraw Surface texture. |
+| **DMPBM** | `.dmpbm` | ✅ | ✅ | — | — | Atlus Nintendo 3DS tiled bitmap (*Shin Megami Tensei: Devil Survivor Overclocked*). |
+| **DSB / TXTR** | `.dsb` | ✅ | ✅ | ✅ | — | Animal Crossing: Wild World DS menu texture: 32-entry RGB555 palette + A3I5 texels. |
+| **FEDTEX** | `.fedtex` | ✅ | — | — | — | Next Level Games texture container (Federation Force / LM2 / LM3), decoded to PNG. |
 | **G1T** | `.g1t` | ✅ | — | — | ✅ | Koei Tecmo texture container (*Hyrule Warriors Legends*, 3DS; *Fire Emblem Warriors*) |
 | **GFTEX** | `.gftex` | ✅ | — | — | — | Game Freak 3DS texture (SPICA `GFTexture`; *Pokémon X/Y/ORAS*): PICA200 payloads incl. ETC1/ETC1A4. |
-| **MTTEX** | `.tex` | ✅ | — | — | — | Capcom MT Framework Mobile texture (SPICA `MTTexture`; 3DS): PICA200 payloads incl. ETC1/ETC1A4. Shares `.tex` with Wii TEX0 and headerless 3DS textures — the `TEX\0` magic decides. |
 | **GTX** | `.gtx` | ✅ | ✅ | ✅ | ✅ | Nintendo Wii U GX2 surface container (Wii U) |
 | **GVR** | `.gvr` | ✅ | — | — | ✅ | Sega GameCube & Wii texture container (GCIX / GVRT). |
-| **NDS banner** | `banner.bin` | ✅ | — | — | ✅ | Nintendo DS ROM banner (DS / DSi) |
-| **Wii banner** | `opening.bnr`, `IMET`, `IMD5` | ✅ | — | — | ✅ | Wii channel/disc banner (Wii) |
-| **WIBN** | `banner.bin`, `.bnr` | ✅ | — | — | — | Wii save game banner (Wii) |
+| **MPR TXTR** | `.txtr` / `.mpr.txtr` | ✅ | ✅ | ✅ | ✅ | Retro Studios texture, Remastered revision (*Metroid Prime Remastered*, Switch) |
+| **MTTEX** | `.tex` | ✅ | — | — | — | Capcom MT Framework Mobile texture (3DS): PICA200 payloads including ETC1 / ETC1A4. |
 | **NCER / NANR** | `.ncer`, `.nanr` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro cell & animation resources (DS) |
 | **NCGR / NCLR** | `.ncgr`, `.nclr` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro 2D graphics & palette (DS) |
-| **NSCR** | `.nscr` | ✅ | — | — | ✅ | Nintendo DS Nitro screen/tilemap resource, rendered against its NCGR tiles and NCLR palette (DS) |
+| **NDS banner** | `banner.bin` | ✅ | — | — | ✅ | Nintendo DS ROM banner (DS / DSi) |
 | **NSBCA / NSBTA / NSBTP / NSBVA / NSBMA** | `.nsbca`, `.nsbta`, `.nsbtp`, `.nsbva`, `.nsbma` | ✅ | — | — | ✅ | Nintendo DS Nitro animation family (joint, texture SRT, texture pattern, visibility, material colour). |
 | **NSBTX** | `.nsbtx` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro 3D texture container (DS) |
+| **NSCR** | `.nscr` | ✅ | — | — | ✅ | Nintendo DS Nitro screen/tilemap resource, rendered against its NCGR tiles and NCLR palette (DS) |
+| **NTTF** | `.nttf`, `.bnttf` | ✅ | — | — | — | Nintendo DS / DSi manual texture. |
 | **NUT** | `.nut` | ✅ | ✅ | ✅ | ✅ | Bandai Namco texture package (*Super Smash Bros. 4*, Wii U / 3DS) |
 | **NUTEXB** | `.nutexb` | ✅ | ✅ | ✅ | — | Bandai Namco / Nintendo Switch texture wrapper (Switch) |
+| **PLT0** | `.plt0` | — | — | — | — | Nintendo DS / Wii palette file (identification only). |
 | **PTLG** | `.glt`, `.rlt` | ✅ | ✅ | ✅ | ✅ | Next Level Games texture container, extracted as TPL (*Super Mario Strikers*, *Mario Strikers Charged*). |
-| **FEDTEX** | `.fedtex` | ✅ | — | — | — | Next Level Games texture container: extractor intermediate for `0xB500` chunks (Federation Force / LM2 CTR PICA, LM3 Switch RGBA8/BCn/ASTC), decoded to PNG. |
+| **Retro TXTR** | `.txtr` | ✅ | ✅ | ✅ | ✅ | Retro Studios texture, old revision (*Metroid Prime 1-3*, *Donkey Kong Country Returns*, Wii) |
 | **SMDH** | `.smdh` | ✅ | ✅ | — | ✅ | Nintendo 3DS application icon, publisher info & title metadata. |
 | **STEX** | `.stex` | ✅ | ✅ | — | — | Atlus Nintendo 3DS PICA texture (*Etrian Odyssey IV*, *Shin Megami Tensei IV*). |
-| **NTTF** | `.nttf`, `.bnttf` | ✅ | — | — | — | Nintendo DS / DSi manual texture. |
 | **TEX** | `.tex` | ✅ | ✅ | ✅ | ✅ | Monster Games GX texture format (Wii) |
-| **TM0** | `.tm0` | ✅ | — | — | ✅ | Monster Games high-resolution texture (*Excite Truck*, Wii) |
-| **PLT0** | `.plt0` | — | — | — | — | Nintendo DS / Wii palette file (identification only). |
-| **CAN** | `.can` | ✅ | — | — | ✅ | Monster Games skeletal animation (*Excite Truck* / *ExciteBots*, Wii) |
 | **TEX0** | `.tex0` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4R texture resource (Wii) |
 | **TEX3DS** | `.tex` | — | — | — | — | Nintendo 3DS proprietary texture (identification only) |
+| **TM0** | `.tm0` | ✅ | — | — | ✅ | Monster Games high-resolution texture (*Excite Truck*, Wii) |
+| **Tropical TXTR** | `.txtr` | ✅ | — | — | — | Retro Studios texture, new revision (*Donkey Kong Country: Tropical Freeze*, Wii U) |
+| **WIBN** | `banner.bin`, `.bnr` | ✅ | — | — | — | Wii save game banner (Wii) |
+| **Wii banner** | `opening.bnr`, `IMET`, `IMD5` | ✅ | — | — | ✅ | Wii channel/disc banner (Wii) |
 | **XIMG** | `.xi` | — | — | — | — | Level-5 3DS/Switch image & texture container |
-| **XTX** | `.xtx` | ✅ | — | — | — | Nintendo Switch intermediate texture container (`DFvN`/`HBvN`, Tegra block-linear RGBA8/BC1-BC7/ASTC; every texture exports, not just index 0) |
+| **XTX** | `.xtx` | ✅ | — | — | — | Nintendo Switch intermediate texture container (Tegra block-linear RGBA8 / BCn / ASTC). |
 
 `Byte-Exact Roundtrip` = encode → decode → re-encode to the same destination name
 reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regress.sh`
@@ -316,26 +317,24 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 
 | Format | Extensions | Decode Tested | Encode Tested | Byte-Exact Roundtrip | Retail Source Tested | Middleware / Engine / Platform Context |
 | --- | --- | --- | --- | --- | --- | --- |
+| **AAMP** | `.aamp` | ✅ | ✅ | ✅ | — | Nintendo binary parameter archive (Wii U / Switch); YAML/JSON text conversion. |
 | **BCLYT / BCLAN** | `.bclyt`, `.bclan` | ✅ | ✅ | ✅ | — | NintendoWare NW4C 2D layout & animation (3DS) |
 | **BFLYT / BFLAN** | `.bflyt`, `.bflan` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4F 2D layout & animation (Wii U) |
+| **BGLPBD** | `.bglpbd` | ✅ | ✅ | ✅ | — | AGL light-probe data (Wii U / Switch). |
 | **BMG** | `.bmg` | ✅ | ✅ | ✅ | ✅ | Nintendo standard binary message format (GameCube / Wii) |
 | **BRLYT / BRLAN** | `.brlyt`, `.brlan` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4R 2D layout & animation (Wii; *Super Mario 3D All-Stars* TYLR/NALR reversed definitions) |
-| **BYAML / BYML** | `.byaml`, `.byml`, `.sbyml`, `.smubin` + other BotW `S`-prefixed Yaz0 containers | ✅ | ✅ | ✅ | ✅ | Nintendo binary YAML data format (Wii / Wii U / Switch); Yaz0-wrapped inputs decode transparently and re-compress on CREATE; `wszst BYMLFIND` searches keys/values |
-| **AAMP** | `.aamp` | ✅ | ✅ | ✅ | — | Nintendo binary parameter archive (Wii U / Switch); YAML/JSON text conversion. |
-| **MIO** | `.mio` | ✅ | — | — | ✅ | *WarioWare: D.I.Y.* / *Made in Ore* Game, Comic & Record data (DS / Wii) |
-| **MSBT / MSBP / MSBF** | `.msbt`, `.msbp`, `.msbf` | ✅ | ✅ | ✅ | ✅ | Nintendo Message Studio binary text, project & flow (3DS / Wii U / Switch) |
-| **MTMRL** | `.mrl` | ✅ | — | — | — | Capcom MT Framework Mobile materials (SPICA `MTMaterials`; 3DS): CRC32-keyed texture bindings as text. |
-| **MTMFX** | `.mfx`, `.lfx` | ✅ | — | — | — | Capcom MT Framework Mobile shader effects (SPICA `MTShaderEffects`; 3DS): input-layout table (vertex attribute names/formats/offsets) as text; layouts drive `wmdlt` MOD decoding. |
-| **BGLPBD** | `.bglpbd` | ✅ | ✅ | ✅ | — | AGL light-probe data (AAMP-based, Wii U / Switch): spherical-harmonics math, PNG dump, generation from BFRES/GLB/DAE bounds or Unity probe text. |
-
-`Byte-Exact Roundtrip` = encode → semantic text → re-encode reproduces the file's
-bytes. Exercised by `t_byte_fixed_points()` in `tests/regress.sh`. BRLYT/BRLAN
+| **BYAML / BYML** | `.byaml`, `.byml`, `.sbyml`, `.smubin` + other BotW `S`-prefixed Yaz0 containers | ✅ | ✅ | ✅ | ✅ | Nintendo binary YAML (Wii / Wii U / Switch); Yaz0-wrapped inputs decode transparently. |
 | **KPMAP** | `.kpmap` | ✅ | ✅ | — | — | Koopatlas map project (JSON; *New Super Mario Bros. Wii* level-editor community format). |
-canonical fixed point and semantic roundtrips are validated against retail Wii layouts.
-| **MPBOARD** | `.bin`, `.csv`, `.xml` | ✅ | ✅ | ✅ | — | Mario Party board data: GameCube / Wii binary boards (MP4-MP8, struct encode), *Super Mario Party* Switch CSV nodes (Shift-JIS, typed parse/encode) and *Mario Party 10* Wii U MasuData XML (typed parse/encode/CSV) on top of XB decode. |
-| **MPMESS** | `.dat` | ✅ | ✅ | ✅ | — | Mario Party 4-7 GameCube message files (`board.dat`, `mini.dat`, `*_e.dat`), extracted to text / JSON. Explicit v4/v5/v6 handling with tag-codec both ways and byte-exact rebuilds. |
-| **XB** | `.xml` (binary) | ✅ | ✅ | ✅ | — | Nd Cube Binary XML (*Mario Party 10* board XML payloads; reference: MPLibrary BinaryXML.cs). Decodes to XML text; canonical re-encode (u16/u32, text- and byte-stable roundtrips). |
-| **XMB** | `.xmb` | ✅ | — | — | — | Smash XMB material/LOD metadata (Smash 4 / Ultimate; `model.xmb` / `lod.xmb` beside `.numdlb`, decoded to XMBDec-mapping XML). |
+| **MIO** | `.mio` | ✅ | — | — | ✅ | *WarioWare: D.I.Y.* / *Made in Ore* Game, Comic & Record data (DS / Wii) |
+| **MPBOARD** | `.bin`, `.csv`, `.xml` | ✅ | ✅ | ✅ | — | Mario Party board data (GameCube / Wii binary, *Super Mario Party* CSV, *Mario Party 10* XML). |
+| **MPMESS** | `.dat` | ✅ | ✅ | ✅ | — | Mario Party 4-7 GameCube message files, extracted to text / JSON. |
+| **MSBT / MSBP / MSBF** | `.msbt`, `.msbp`, `.msbf` | ✅ | ✅ | ✅ | ✅ | Nintendo Message Studio binary text, project & flow (3DS / Wii U / Switch) |
+| **MTMFX** | `.mfx`, `.lfx` | ✅ | — | — | — | Capcom MT Framework Mobile shader effects (3DS): input-layout tables. |
+| **MTMRL** | `.mrl` | ✅ | — | — | — | Capcom MT Framework Mobile materials (SPICA `MTMaterials`; 3DS): CRC32-keyed texture bindings as text. |
+| **XB** | `.xml` (binary) | ✅ | ✅ | ✅ | — | Nd Cube Binary XML (*Mario Party 10*), decoded to XML text. |
+| **XMB** | `.xmb` | ✅ | — | — | — | Smash XMB material / LOD metadata (Smash 4 / Ultimate). |
+
+`Byte-Exact Roundtrip` = encode → semantic text → re-encode reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regress.sh`. BRLYT/BRLAN canonical fixed point and semantic roundtrips are validated against retail Wii layouts.
 
 ---
 
@@ -349,24 +348,24 @@ canonical fixed point and semantic roundtrips are validated against retail Wii l
 | **BPE / GFCP** | `GFCP` (zip mode 1) | ✅ | ✅ | Good-Feel Byte Pair Encoding (Wii Kirby's Epic Yarn / Yoshi's Woolly World) |
 | **Bzip2** | `BZh` | ✅ | ✅ | Standard high-compression block-sorting codec |
 | **Camelot LZ** | `0x01` / `0x02` prefix | ✅ | ✅ | Camelot Software Planning LZ77 compression (*Mario Golf*, *Mario Tennis* GameCube / Wii) |
+| **CMP** | `.cmp` (`0x11` prefix) | ✅ | ✅ | HAL Laboratory LZ11-compressed file wrapper |
 | **Deflate / Zlib** | `78 01`, `78 9C`, `78 DA` | ✅ | ✅ | Standard RFC 1950 / 1951 stream compression |
 | **Diff8 / Diff16** | `0x81`, `0x82` | ✅ | ✅ | Nintendo DS differential delta filter encoding |
 | **FZIP** | `FZIP` | ✅ | ✅ | *Game & Wario* Zlib stream container (Wii U). |
 | **Huffman (4-bit / 8-bit)** | `0x24`, `0x28` | ✅ | ✅ | Nintendo DS Huffman stream compression |
 | **LZ10** | `0x10` (LZSS) | ✅ | ✅ | Nintendo standard LZ77 (GameCube / Wii / DS / GBA) |
 | **LZ11** | `0x11` (Extended LZSS) | ✅ | ✅ | Nintendo extended LZSS with 4-byte match lengths (DS / 3DS) |
+| **LZ4** | `04 22 4D 18` | ✅ | ✅ | Standard LZ4 frame compression |
 | **LZO / LZOvl** | Overlay trailer | ✅ | ✅ | Nintendo DS reverse LZO overlay compression |
 | **LZX** | `LZX` | ✅ | ✅ | Capcom Ace Attorney / Ghost Trick LZSS (DS) |
 | **MVDK** | `MVDK` | ✅ | ✅ | Nintendo Mario vs. Donkey Kong LZSS (DS) |
 | **PSDK** | `PSDK` / `AT4PX` | ✅ | ✅ | Chunsoft Pokémon Mystery Dungeon Explorers LZSS (DS) |
-| **CMP** | `.cmp` (`0x11` prefix) | ✅ | ✅ | HAL Laboratory LZ11-compressed file wrapper |
 | **PuCrunch** | `0x50 0x75` (`Pu`) | ✅ | ✅ | Retro / Nitro hybrid LZ + RLE stream compression |
 | **QuickLZ** | `QLZ` | ✅ | ✅ | Fast byte-oriented block compression (Level 1 / 3) |
 | **RLE** | `0x30` | ✅ | ✅ | Nintendo DS run-length encoding |
 | **RNC1 / RNC2** | `RNC\1`, `RNC\2` | ✅ | ✅ | Rob Northen Computing ProPack Method 1 / Method 2 |
 | **SSZL** | `SSZL` | ✅ | ✅ | Bandai Namco Museum Remix LZSS0 stream compression (Wii) |
 | **VLX** | `VLX` | ✅ | ✅ | Level-5 Professor Layton / Inazuma Eleven LZSS (DS) |
-| **LZ4** | `04 22 4D 18` | ✅ | ✅ | Standard LZ4 frame compression |
 | **Yay0 (SZP)** | `Yay0` | ✅ | ✅ | Nintendo early LZSS container (Nintendo 64 / GameCube) |
 | **Yaz0 (SZS)** | `Yaz0` | ✅ | ✅ | Nintendo standard byte-aligned LZSS (GameCube / Wii / Switch) |
 | **Zstandard (Zstd)** | `28 B5 2F FD` | ✅ | ✅ | Modern high-ratio dictionary compression (Switch / F-Zero 99) |
@@ -386,9 +385,9 @@ When extracting or repacking game trees with `wszst xx` / `wszst create`, unsupp
 | **Nintendo 3DS Containers** | `.3ds`, `.cci`, `.cxi`, `.cfa`, `.cia`, `.app` | **`ctrtool`** (bundled) / **`makerom`** (`--with-ctrtool`) | NCCH/NCSD partition extraction, ExeFS/RomFS unpacking & CIA installation packages |
 | **Nintendo DS / DSi ROMs** | `.nds`, `.srl`, `.dsi` | **`ndstool`** (`--with-ndstool`) | Nitro ROM header, banner, arm9/arm7 binary & NitroFS extraction/rebuild |
 | **Nintendo Switch Packages** | `.nsp`, `.xci`, `.nca`, `.nsz`, `.xcz` | **`hactool`** / **`hacbrewpack`** / **`nsz`** (`--with-hactool`, `--with-hacbrewpack`, `--with-nsz`) | PFS0 / HFS0 / NCA content extraction, NSZ/XCZ decompression & homebrew NSP repacking |
+| **SFX** | `.sfx` | **`mobipeg`** / **`ffmpeg`** | Monster Games DSP-ADPCM audio (*Excite Truck*, *ExciteBots*, Wii). |
 | **Sound Archives** | `.brsar`, `.sdat`, `.bfsar`, `.bcsar` | **`wbrsar`** / **`vgmtrans`** (bundled; `--with-vgmtrans`) | Nintendo sound archive translation to MIDI + SoundFont, asset pack/unpack |
 | **THP & Media Video** | `.thp`, `.h4m`, `.vid`, `.dpg`, `.fv`, `.ppm`, `.kwz`, `.mmstr`, `.rvid`, `.vx` | **`mobipeg`** / **`ffmpeg`** | GameCube/Wii THP, HVQM4, DPG, FastVideo & Flipnote animation decoding. |
-| **SFX** | `.sfx` | **`mobipeg`** / **`ffmpeg`** | Monster Games DSP-ADPCM audio (*Excite Truck*, *ExciteBots*, Wii). |
 | **Wii / GameCube Disc Images** | `.iso`, `.wbfs`, `.wdf`, `.ciso`, `.wia` | **`wit`** (`--with-wit`) | Disc partition extraction & scrubbed disc creation |
 | **Wii U Optical Discs** | `.wud`, `.wux` | **`wud2app`** + **`cdecrypt`** | Automated compressed WUX disc decompression, partition dump & decryption |
 | **Wii WAD Packages** | `.wad`, `.app` | **`sharpii`** (`--with-sharpii`) | Wii title & IOS WAD archive unpacking and repacking |

@@ -8909,6 +8909,21 @@ with open(sys.argv[1], "wb") as f:
     fno "Humongous Resource.rez" "mk_rez.py failed"
   fi
 
+  # Smart Bomb BombShell data packs (Bee Movie Game .xwi / .xdx9): CMPR / DXT1 texture -> PNG, sounds
+  mkdir -p "$d/bombshell_test"
+  if python3 "$PWD_PROJECT/../tests/mk_bombshell.py" "$d/bombshell_test" >/dev/null 2>&1; then
+    "$B/wszst" extract "$d/bombshell_test/T.xwi" >/dev/null 2>&1
+    "$B/wszst" extract "$d/bombshell_test/T.xdx9" >/dev/null 2>&1
+    [ "$(head -c 4 "$d/bombshell_test/T.xwi.d/0_world/textures/tex_a.png" | tail -c 3)" = "PNG" ] \
+    && [ "$(head -c 4 "$d/bombshell_test/T.xdx9.d/0_world/textures/tex_a.png" | tail -c 3)" = "PNG" ] \
+    && [ -s "$d/bombshell_test/T.xwi.d/0_world/sounds/beep.fsb" ] \
+    && [ "$(head -c 4 "$d/bombshell_test/T.xdx9.d/0_world/sounds/beep.wav")" = "RIFF" ] \
+    && fok "BombShell data pack: .xwi CMPR + alpha / .xdx9 DXT1 texture -> PNG, FSB / WAV sounds" \
+    || fno "BombShell data pack" "failed to extract synthetic packs"
+  else
+    fno "BombShell data pack" "mk_bombshell.py failed"
+  fi
+
   # Atomic Planet PUB package (AMF Bowling: Pinbusters!, Wii): GX texture -> PNG, mesh -> GLB
   mkdir -p "$d/pub_test"
   if python3 "$PWD_PROJECT/../tests/mk_pub.py" "$d/pub_test" >/dev/null 2>&1; then
