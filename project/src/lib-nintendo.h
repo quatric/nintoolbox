@@ -491,6 +491,8 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-asobo.h"
 #include "lib-fsb.h"
 #include "lib-avtex.h"
+#include "lib-cs-dct.h"
+#include "lib-dsp.h"
 #include "lib-dc2.h"
 #include "lib-nif.h"
 #include "lib-gripres.h"

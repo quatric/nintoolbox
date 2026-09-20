@@ -907,6 +907,20 @@ __attribute__((weak)) bool IsTTModel (const u8 *data, size_t size)
 	return false;
 }
 
+__attribute__((weak)) bool IsCSDCT (const u8 *data, size_t size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
+
+__attribute__((weak)) bool IsDSP (const u8 *data, size_t size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
+
 
 file_format_t GetByMagicFF (const void *data, // pointer to data
 	uint data_size, // size of data
@@ -2018,6 +2032,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_GF1MOT;
 	if (IsGFPackage (data8, data_size))
 		return FF_GFPKG;
+	if (IsCSDCT (data8, data_size))
+		return FF_CS_DCT;
+	if (IsDSP (data8, data_size))
+		return FF_DSP;
 
 	const nfmt_info_t nfmt = DetectNintendoFormat (data, data_size, 0);
 	switch (nfmt.type)

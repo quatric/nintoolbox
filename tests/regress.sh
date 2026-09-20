@@ -13900,6 +13900,54 @@ t_gamecube_rvz_repack "Pikmin 2" "/Volumes/SSD/szs-retail-test/GameCube/Pikmin 2
 t_gamecube_rvz_repack "Super Mario Strikers" "/Volumes/SSD/szs-retail-test/GameCube/Super Mario Strikers (USA).rvz"
 t_gamecube_rvz_repack "Dance Dance Revolution - Mario Mix" "/Volumes/SSD/szs-retail-test/GameCube/Dance Dance Revolution - Mario Mix (USA) (Rev 1).rvz"
 
+# Chicken Shoot (Wii) custom stage DCT and DSP audio streams
+t_chicken_shoot(){
+  local label="Chicken Shoot DCT and DSP extraction"
+  local cs_dir=""
+  for cand in "/Volumes/SSD/antigravity-data/scratch/chicken_shoot/DATA/files/cs" "$HOME/Downloads/Chicken Shoot" "/Volumes/SSD/dlz/Folders/Chicken Shoot"; do
+    if [ -d "$cand" ]; then cs_dir="$cand"; break; fi
+  done
+  [ -n "$cs_dir" ] || { sk "$label"; return; }
+
+  local d; d=$(mktemp -d "/tmp/_r_cs_XXXXXX") || { no "$label" "mktemp failed"; return; }
+
+  # Test DCT archive extraction
+  local dct="$cs_dir/panel.dct"
+  if [ -f "$dct" ]; then
+    "$B/wszst" xx "$dct" --dest "$d/panel.d" --overwrite >"$d/dct.log" 2>&1
+    if [ -f "$d/panel.d/manifest.json" ] && [ -d "$d/panel.d/backgrounds" ]; then
+      local n_bgr; n_bgr=$(find "$d/panel.d/backgrounds" -iname '*.png' | wc -l)
+      if [ "$n_bgr" -ge 1 ]; then
+        ok "Chicken Shoot DCT archive extraction ($n_bgr backgrounds)"
+      else
+        no "Chicken Shoot DCT archive extraction" "no PNG backgrounds extracted"
+      fi
+    else
+      no "Chicken Shoot DCT archive extraction" "manifest.json missing"
+    fi
+  else
+    sk "Chicken Shoot DCT archive extraction"
+  fi
+
+  # Test DSP audio extraction
+  local dsp="$cs_dir/die/S01.dsp"
+  if [ ! -f "$dsp" ]; then dsp=$(find "$cs_dir" -iname '*.dsp' | head -1); fi
+  if [ -n "$dsp" ] && [ -f "$dsp" ]; then
+    "$B/wszst" xx "$dsp" --dest "$d/test.wav" --overwrite >"$d/dsp.log" 2>&1
+    if [ -s "$d/test.wav" ] && [ "$(head -c 4 "$d/test.wav")" = "RIFF" ]; then
+      ok "Chicken Shoot DSP audio decode -> WAV"
+    else
+      no "Chicken Shoot DSP audio decode -> WAV" "invalid or missing WAV"
+    fi
+  else
+    sk "Chicken Shoot DSP audio decode -> WAV"
+  fi
+
+  rm -rf "$d"
+}
+t_chicken_shoot
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
+

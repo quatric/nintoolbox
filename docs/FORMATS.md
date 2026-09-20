@@ -56,10 +56,12 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **CGFX** | 3DS / Model | ✅ | ✅ | CTR NW4C model container |
 | **CRAM (.arc)** | 3DS / Archive | ✅ | ✅ | Xenoblade Chronicles 3D archive |
 | **CSB** | Switch/Wii U / Collision | ✅ | ✅ | Paper Mario collision scene (TTYD/Origami King LE, Color Splash BE): triangle meshes with material/collision flags + sphere/box trigger volumes, GLB round-trip with generated `.ctb` |
+| **CS_DCT** | Wii / Archive + Graphics | ✅ | ❌ | *Chicken Shoot* (Wii) stage archive (`.dct`): background planes (LZ-compressed indexed pixels + RGB555 palette) → PNG, animated sprites with per-frame bounding geometry → PNG, object placement metadata → `manifest.json` and raw binaries |
 | **CTB** | Switch/Wii U / Collision | ✅ | ❌ | Paper Mario collision search table (XZ-quadtree over `.csb` triangles; regenerated on encode, inspected with `wmdlt CAT`) |
 | **CTPK** | 3DS / Texture | ✅ | ✅ | CTR texture container |
 | **DARC** | 3DS / Archive | ✅ | ✅ | Differential archive container |
 | **DSB (TXTR)** | DS / Texture | ✅ | ✅ | Animal Crossing: Wild World menu texture (RGB555 palette + A3I5 texels); retail regression covers decode → encode → decode pixels |
+| **DSP** | GameCube / Wii / Audio | ✅ | ❌ | Nintendo GameCube/Wii DSP-ADPCM standalone audio stream (`.dsp`): mono/stereo ADPCM coefficients, nibble predictor/scale decoding → 16-bit PCM WAV |
 | **Retro TXTR** | Wii / Texture | ✅ | ✅ | Retro Studios texture (*Metroid Prime 1-3*, *DKCR*): GX-tiled, indexed + direct |
 | **Tropical TXTR** | Wii U / Texture | ✅ | ❌ | Retro Studios texture (*Tropical Freeze*): RFRM form, GX2 detile |
 | **DAT (Star Fox Zero)** | Wii U / Archive | ✅ | 🟡 | Big-endian flat archive |

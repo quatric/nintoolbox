@@ -436,6 +436,8 @@ typedef enum file_format_t
 	FF_MTMFX, // 341 - Capcom MT Framework Mobile shader effects (.mfx / MFX)
 	FF_MBN, // 342 - ModelBinary companion buffers (.mbn, SPICA MBn)
 	FF_IPK, // 343 - Ubisoft UbiArt IPK archive (.ipk, Just Dance / Rayman)
+	FF_CS_DCT, // 344 - Chicken Shoot DCT stage/graphics archive (.dct)
+	FF_DSP, // 345 - Nintendo GameCube/Wii DSP-ADPCM audio stream (.dsp)
 
 	//--- number of elements
 

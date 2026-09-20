@@ -1858,6 +1858,18 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x50, 0xec, 0x12, 0xba }, 0, MinusString, MinusString,
 		"Ubisoft UbiArt IPK archive (.ipk; Just Dance, Rayman Origins/Legends)" },
 
+	// FF_CS_DCT = 344 (Chicken Shoot DCT stage archive)
+	{ FF_CS_DCT, FF_CS_DCT, 0, "CS_DCT", ".dct", ".szs", ".dct",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Chicken Shoot DCT Stage Archive (.dct; Wii/PC)" },
+
+	// FF_DSP = 345 (Nintendo GameCube/Wii DSP-ADPCM audio)
+	{ FF_DSP, FF_DSP, 0, "DSP", ".dsp", ".wav", ".dsp",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Nintendo GameCube/Wii DSP-ADPCM audio stream (.dsp)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2081,6 +2093,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_MTMFX, "MTMFX", "MTMFX", 0xe05 },
 	{ FF_MBN, "MBN", 0, 0x3001 },
 	{ FF_IPK, "IPK", 0, 0xe05 },
+	{ FF_CS_DCT, "CS_DCT", "CS_DCT", 0xe05 },
+	{ FF_DSP, "DSP", "DSP", 0x3801 },
 
 	{ 0, 0, 0, 0 }
 };
