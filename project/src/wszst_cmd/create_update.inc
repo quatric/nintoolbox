@@ -6665,6 +6665,234 @@ static enumError extract_avalanche_tex_file (ccp arg, ccp basedir, uint depth)
 	return result;
 }
 
+// "Bj" engine (Super Karts, Wii) .tx1 headers + sibling .tx2 pixels -> one
+// PNG per texture (name_0.png, name_1.png, ...).
+static enumError extract_bj_tx_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".tx1"))
+		return ERR_NOTHING_TO_DO;
+	u8 *t1 = 0, *t2 = 0;
+	size_t s1 = 0, s2 = 0;
+	if (LoadFileAlloc (arg, 0, 0, &t1, &s1, 0, 0, 0, false) || !t1)
+		return ERR_NOTHING_TO_DO;
+	const uint count = IsBjTx1 (t1, s1) ? BjTx1Count (t1, s1) : 0;
+	char tx2[PATH_MAX];
+	snprintf (tx2, sizeof (tx2), "%.*s.tx2", (int)(strlen (arg) - 4), arg);
+	if (!count || LoadFileAlloc (tx2, 0, 0, &t2, &s2, 0, 0, 0, false) || !t2)
+	{
+		FREE (t1);
+		return ERR_NOTHING_TO_DO;
+	}
+	enumError result = ERR_OK;
+	for (uint i = 0; i < count && !result; i++)
+	{
+		char ext[24], dest[PATH_MAX];
+		snprintf (ext, sizeof (ext), "_%u.png", i);
+		beside_source_dest_ext (dest, sizeof (dest), arg, ext);
+		if (testmode)
+		{
+			fprintf (stdlog, "WOULD EXTRACT BJ-TEX:%s -> PNG:%s\n", arg, dest);
+			continue;
+		}
+		if (blitz_output_current (arg, dest))
+			continue;
+		u8 *rgba = 0;
+		uint w = 0, h = 0;
+		if (DecodeBjTexture (&rgba, &w, &h, t1, s1, t2, s2, i))
+			continue;
+		const enumError err = SaveDecodedRGBAToPNG (rgba, w, h, &be_func, dest, 0, true);
+		if (err)
+			result = err;
+		else if (verbose >= 0)
+			fprintf (stdlog, "%sEXTRACT BJ-TEX:%s -> PNG:%s\n", verbose > 0 ? "\n" : "", arg, dest);
+	}
+	FREE (t1);
+	FREE (t2);
+	return result;
+}
+
+// "Bj" engine sound banks (.bsi, mono PCM8 samples -> name_N.wav) and
+// streamed music (.bsm, planar stereo PCM8 -> name.wav).
+static enumError bj_write_wav (ccp arg, ccp dest, u8 *wav, size_t wav_size, ccp label)
+{
+	File_t F;
+	enumError err = CreateFileOpt (&F, true, dest, false, arg);
+	if (F.f && fwrite (wav, 1, wav_size, F.f) != wav_size)
+		err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", wav_size, dest);
+	ResetFile (&F, opt_preserve);
+	FREE (wav);
+	if (!err && verbose >= 0)
+		fprintf (stdlog, "%sEXTRACT %s:%s -> WAV:%s\n", verbose > 0 ? "\n" : "", label, arg, dest);
+	return err;
+}
+
+static enumError extract_bj_audio_file (ccp arg, ccp basedir, uint depth)
+{
+	const bool bsi = is_ext (arg, ".bsi");
+	if (!bsi && !is_ext (arg, ".bsm"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false) || !raw)
+		return ERR_NOTHING_TO_DO;
+	enumError result = ERR_OK;
+	if (bsi)
+	{
+		const uint count = BjBsiCount (raw, raw_size);
+		if (!count)
+		{
+			FREE (raw);
+			return ERR_NOTHING_TO_DO;
+		}
+		for (uint i = 0; i < count && !result; i++)
+		{
+			char ext[24], dest[PATH_MAX];
+			snprintf (ext, sizeof (ext), "_%u.wav", i);
+			beside_source_dest_ext (dest, sizeof (dest), arg, ext);
+			if (testmode)
+			{
+				fprintf (stdlog, "WOULD EXTRACT BJ-SOUND:%s -> WAV:%s\n", arg, dest);
+				continue;
+			}
+			if (blitz_output_current (arg, dest))
+				continue;
+			u8 *wav = 0;
+			size_t wav_size = 0;
+			if (DecodeBjBsiSample (&wav, &wav_size, raw, raw_size, i))
+				continue;
+			result = bj_write_wav (arg, dest, wav, wav_size, "BJ-SOUND");
+		}
+	}
+	else
+	{
+		char dest[PATH_MAX];
+		beside_source_dest_ext (dest, sizeof (dest), arg, ".wav");
+		if (testmode)
+			fprintf (stdlog, "WOULD EXTRACT BJ-MUSIC:%s -> WAV:%s\n", arg, dest);
+		else if (!blitz_output_current (arg, dest))
+		{
+			u8 *wav = 0;
+			size_t wav_size = 0;
+			result = DecodeBjMusic (&wav, &wav_size, raw, raw_size);
+			if (!result)
+				result = bj_write_wav (arg, dest, wav, wav_size, "BJ-MUSIC");
+		}
+	}
+	FREE (raw);
+	return result;
+}
+
+// "Bj" engine .mtm mesh tree -> GLB. Textures live in the sibling 8_16/*.tx1
+// (+ .tx2); the ones a model uses are written as PNGs beside the GLB.
+typedef struct
+{
+	char dir[PATH_MAX];
+	char png[PATH_MAX];
+	u8 *t1, *t2;
+	size_t s1, s2;
+	char base[256];
+} bj_tex_ctx_t;
+
+static ccp bj_texname (void *vctx, uint id)
+{
+	bj_tex_ctx_t *c = vctx;
+	if (!c->t1)
+		return 0;
+	snprintf (c->png, sizeof (c->png), "%s_%u.png", c->base, id);
+	char path[PATH_MAX];
+	snprintf (path, sizeof (path), "%s/%s", c->dir, c->png);
+	struct stat st;
+	if (!stat (path, &st))
+		return c->png;
+	u8 *rgba = 0;
+	uint w = 0, h = 0;
+	if (DecodeBjTexture (&rgba, &w, &h, c->t1, c->s1, c->t2, c->s2, id)
+		|| SaveDecodedRGBAToPNG (rgba, w, h, &be_func, path, 0, true))
+		return 0;
+	return c->png;
+}
+
+static enumError extract_bj_mtm_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".mtm"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false) || !raw)
+		return ERR_NOTHING_TO_DO;
+	if (!IsBjMtm (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	char dest[PATH_MAX];
+	beside_source_dest_ext (dest, sizeof (dest), arg, ".glb");
+	if (testmode)
+	{
+		FREE (raw);
+		fprintf (stdlog, "WOULD EXTRACT BJ-MESH:%s -> GLB:%s\n", arg, dest);
+		return ERR_OK;
+	}
+	if (blitz_output_current (arg, dest))
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+	bj_tex_ctx_t *ctx = CALLOC (1, sizeof (*ctx));
+	if (!ctx)
+	{
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+	StringCopyS (ctx->dir, sizeof (ctx->dir), dest);
+	char *slash = strrchr (ctx->dir, '/');
+	if (slash)
+		*slash = 0;
+	else
+		StringCopyS (ctx->dir, sizeof (ctx->dir), ".");
+	// first *.tx1 in ../8_16 (or the model's own directory)
+	static const ccp subdirs[] = { "/../8_16", "", 0 };
+	for (uint i = 0; subdirs[i] && !ctx->t1; i++)
+	{
+		char td[PATH_MAX];
+		snprintf (td, sizeof (td), "%s%s", ctx->dir, subdirs[i]);
+		DIR *dh = opendir (td);
+		struct dirent *de;
+		while (dh && !ctx->t1 && (de = readdir (dh)))
+		{
+			const size_t l = strlen (de->d_name);
+			if (l < 5 || strcasecmp (de->d_name + l - 4, ".tx1"))
+				continue;
+			char p1[PATH_MAX], p2[PATH_MAX];
+			snprintf (p1, sizeof (p1), "%s/%s", td, de->d_name);
+			snprintf (p2, sizeof (p2), "%s/%.*s.tx2", td, (int)(l - 4), de->d_name);
+			if (LoadFileAlloc (p1, 0, 0, &ctx->t1, &ctx->s1, 0, 0, 0, false) || !ctx->t1
+				|| LoadFileAlloc (p2, 0, 0, &ctx->t2, &ctx->s2, 0, 0, 0, false) || !ctx->t2)
+			{
+				FREE (ctx->t1);
+				FREE (ctx->t2);
+				ctx->t1 = ctx->t2 = 0;
+				continue;
+			}
+			snprintf (ctx->base, sizeof (ctx->base), "%.*s", (int)(l - 4), de->d_name);
+		}
+		if (dh)
+			closedir (dh);
+	}
+	model_t *model = ParseBjMtm (raw, raw_size, bj_texname, ctx);
+	FREE (raw);
+	FREE (ctx->t1);
+	FREE (ctx->t2);
+	FREE (ctx);
+	if (!model)
+		return ERR_OK;
+	ExportModelToGLB (model, dest);
+	FreeModel (model);
+	if (verbose >= 0)
+		fprintf (stdlog, "%sEXTRACT BJ-MESH:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, dest);
+	return ERR_OK;
+}
+
 // Asobo Sound_Z (Ratatouille .DRV member, DSP-ADPCM) -> WAV.
 static enumError extract_asobo_sound_file (ccp arg, ccp basedir, uint depth)
 {

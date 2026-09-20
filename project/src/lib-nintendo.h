@@ -490,6 +490,7 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-termpod.h"
 #include "lib-ho.h"
 #include "lib-asobo.h"
+#include "lib-bj.h"
 #include "lib-fsb.h"
 #include "lib-avtex.h"
 #include "lib-cs-dct.h"

@@ -105,6 +105,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **CDGaCube CAR** | `.car` | ✅ | — | — | ✅ | Cat Daddy Games archive (*Birthday Party Bash*, Wii); stored and zlib members |
 | **Heavy Iron HO** | `.ho` | ✅ | — | — | ✅ | Good Engine package (*WALL-E*, *Up*, Wii); assets with debug names, GX textures to PNG |
 | **Asobo BigFile** | `.drv` | ✅ | — | — | ✅ | Asobo Studio volume (*Ratatouille*, Wii); stored and LZRS members, `Bitmap_Z` to PNG, `Sound_Z` to WAV, `Mesh_Z` to textured GLB |
+| **Bj engine** | `.tx1`/`.tx2`, `.mtm`, `.bsi`, `.bsm` | ✅ | — | — | ✅ | *Super Karts* (Wii): 8-bit paletted textures to PNG, mesh trees to textured GLB, sound banks and streamed music to WAV |
 | **Vblank BFP / BAP** | `.bfp`, `.bap` | ✅ | — | — | ✅ | Vblank Entertainment Wii packages (*Retro City Rampage DX*, *Shakedown: Hawaii*): `BFP2` game data (zlib/stored members, names recovered via the games' own case-insensitive name hash, numbered slots as `slot_NNN`), `BPP3` audio (Ogg Vorbis music, DSP-ADPCM effects to WAV) and `BAP1` chiptune modules (`BTRK` + raw sample pool) |
 | **FMOD FSB** | `.fsb` | ✅ | — | — | ✅ | FMOD sound bank (FSB4 / FSB5, Wii); DSP-ADPCM and PCM16 samples decoded to WAV |
 | **Avalanche THB/TBB** | `.thb` + `.tbb` | ✅ | — | — | ✅ | Avalanche Software texture pair (*Cars 2*, Wii); single textures and atlases to PNG |

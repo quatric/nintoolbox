@@ -226,7 +226,7 @@ bool LocateNUMSHBBuffers (const uint8_t *data, size_t size, nshb_buffer_loc_t *l
 uint8_t *ExtractNUMSHBPrefix (const uint8_t *data, size_t size)
 {
 	nshb_buffer_loc_t loc;
-	uint8_t *out = malloc (size);
+	uint8_t *out = MALLOC (size);
 	if (!out)
 		return NULL;
 	memcpy (out, data, size);
@@ -249,7 +249,7 @@ uint8_t *RebuildNUMSHB (const uint8_t *prefix, size_t prefix_size, const nshb_bu
 	if (loc->idx_off + loc->idx_size > prefix_size)
 		return NULL;
 
-	uint8_t *out = malloc (prefix_size);
+	uint8_t *out = MALLOC (prefix_size);
 	if (!out)
 		return NULL;
 	memcpy (out, prefix, prefix_size);
@@ -328,13 +328,13 @@ model_t *ParseNUMSHBSkinned (
 			return NULL;
 	}
 
-	model_t *model = calloc (1, sizeof (model_t));
+	model_t *model = CALLOC (1, sizeof (model_t));
 	if (!model)
 		return NULL;
-	model->meshes = calloc (obj_count, sizeof (mesh_t));
+	model->meshes = CALLOC (obj_count, sizeof (mesh_t));
 	if (!model->meshes)
 	{
-		free (model);
+		FREE (model);
 		return NULL;
 	}
 
@@ -352,7 +352,7 @@ model_t *ParseNUMSHBSkinned (
 		if (bone_count && bone_count <= 0x1000 && bone_off + bone_count * 0x10 <= skel_size
 			&& world_off + bone_count * 64 <= skel_size && inv_off + bone_count * 64 <= skel_size)
 		{
-			model->joints = calloc (bone_count, sizeof (joint_t));
+			model->joints = CALLOC (bone_count, sizeof (joint_t));
 			if (model->joints)
 			{
 				model->num_joints = bone_count;
@@ -445,7 +445,7 @@ model_t *ParseNUMSHBSkinned (
 			const uint8_t *vb = data + vb_off[buffer] + base + within;
 			if (usage == 0)
 			{
-				mesh->positions = calloc (v_count, sizeof (vec3_t));
+				mesh->positions = CALLOC (v_count, sizeof (vec3_t));
 				if (!mesh->positions)
 					break;
 				for (uint32_t v = 0; v < v_count; v++)
@@ -459,7 +459,7 @@ model_t *ParseNUMSHBSkinned (
 			}
 			else if (usage == 1)
 			{
-				mesh->normals = calloc (v_count, sizeof (vec3_t));
+				mesh->normals = CALLOC (v_count, sizeof (vec3_t));
 				if (!mesh->normals)
 					continue;
 				for (uint32_t v = 0; v < v_count; v++)
@@ -473,7 +473,7 @@ model_t *ParseNUMSHBSkinned (
 			}
 			else
 			{
-				mesh->texcoords = calloc (v_count, sizeof (vec2_t));
+				mesh->texcoords = CALLOC (v_count, sizeof (vec2_t));
 				if (!mesh->texcoords)
 					continue;
 				for (uint32_t v = 0; v < v_count; v++)
@@ -513,7 +513,7 @@ model_t *ParseNUMSHBSkinned (
 
 			if (inside)
 			{
-				mesh->positions = calloc (v_count, sizeof (vec3_t));
+				mesh->positions = CALLOC (v_count, sizeof (vec3_t));
 				if (mesh->positions)
 				{
 					for (uint32_t v = 0; v < v_count; v++)
@@ -530,9 +530,9 @@ model_t *ParseNUMSHBSkinned (
 
 		if (!mesh->positions)
 		{
-			free (mesh->normals);
-			free (mesh->texcoords);
-			free (mesh->position_node);
+			FREE (mesh->normals);
+			FREE (mesh->texcoords);
+			FREE (mesh->position_node);
 			memset (mesh, 0, sizeof (*mesh));
 			continue;
 		}
@@ -562,8 +562,8 @@ model_t *ParseNUMSHBSkinned (
 				// expression of a list of (bone, weight) pairs.
 				if (!mesh->position_node)
 				{
-					mesh->position_node = malloc (v_count * sizeof (int));
-					model->node_influences = realloc (model->node_influences,
+					mesh->position_node = MALLOC (v_count * sizeof (int));
+					model->node_influences = REALLOC (model->node_influences,
 						(model->num_node_influences + v_count) * sizeof (node_influence_t));
 					if (!mesh->position_node || !model->node_influences)
 						break;
@@ -598,7 +598,7 @@ model_t *ParseNUMSHBSkinned (
 							continue;
 						node_influence_t *ni = model->node_influences + node_base + vi;
 						influence_t *grown
-							= realloc (ni->weights, (ni->num_weights + 1) * sizeof (influence_t));
+							= REALLOC (ni->weights, (ni->num_weights + 1) * sizeof (influence_t));
 						if (!grown)
 							continue;
 						ni->weights = grown;
@@ -623,7 +623,7 @@ model_t *ParseNUMSHBSkinned (
 					node_influence_t *ni = model->node_influences + node_base + v;
 					if (ni->num_weights || parent_joint < 0)
 						continue;
-					ni->weights = calloc (1, sizeof (influence_t));
+					ni->weights = CALLOC (1, sizeof (influence_t));
 					if (!ni->weights)
 						continue;
 					ni->weights[0].bone_idx = parent_joint;
@@ -634,12 +634,12 @@ model_t *ParseNUMSHBSkinned (
 		}
 
 		// Plain triangle list.
-		vertex_t *verts = calloc (i_count, sizeof (vertex_t));
+		vertex_t *verts = CALLOC (i_count, sizeof (vertex_t));
 		if (!verts)
 		{
-			free (mesh->positions);
-			free (mesh->normals);
-			free (mesh->texcoords);
+			FREE (mesh->positions);
+			FREE (mesh->normals);
+			FREE (mesh->texcoords);
 			memset (mesh, 0, sizeof (*mesh));
 			continue;
 		}
@@ -660,11 +660,11 @@ model_t *ParseNUMSHBSkinned (
 		}
 		if (!nv)
 		{
-			free (verts);
-			free (mesh->positions);
-			free (mesh->normals);
-			free (mesh->texcoords);
-			free (mesh->position_node);
+			FREE (verts);
+			FREE (mesh->positions);
+			FREE (mesh->normals);
+			FREE (mesh->texcoords);
+			FREE (mesh->position_node);
 			memset (mesh, 0, sizeof (*mesh));
 			continue;
 		}
@@ -677,8 +677,8 @@ model_t *ParseNUMSHBSkinned (
 
 	if (!model->num_meshes)
 	{
-		free (model->meshes);
-		free (model);
+		FREE (model->meshes);
+		FREE (model);
 		return NULL;
 	}
 	return model;

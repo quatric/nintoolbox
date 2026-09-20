@@ -8876,6 +8876,23 @@ with open(sys.argv[1], "wb") as f:
     fno "Asobo BigFile" "mk_asobo.py failed"
   fi
 
+  # "Bj" engine (Super Karts, Wii): .tx1/.tx2 -> PNG, .mtm -> GLB, .bsi/.bsm -> WAV
+  mkdir -p "$d/bj_test"
+  if python3 "$PWD_PROJECT/../tests/mk_bj.py" "$d/bj_test" >/dev/null 2>&1; then
+    "$B/wszst" extract "$d/bj_test/8_16/T.tx1" >/dev/null 2>&1
+    "$B/wszst" extract "$d/bj_test/m1/M.mtm" >/dev/null 2>&1
+    "$B/wszst" extract "$d/bj_test/S.bsi" >/dev/null 2>&1
+    "$B/wszst" extract "$d/bj_test/S.bsm" >/dev/null 2>&1
+    [ -s "$d/bj_test/8_16/T_0.png" ] \
+    && [ "$(head -c 4 "$d/bj_test/m1/M.glb")" = "glTF" ] \
+    && [ "$(wc -c < "$d/bj_test/S_0.wav" | tr -d ' ')" -eq 60 ] \
+    && [ "$(wc -c < "$d/bj_test/S.wav" | tr -d ' ')" -eq 16428 ] \
+    && fok "Bj engine: .tx1/.tx2 -> PNG, .mtm -> GLB, .bsi/.bsm -> WAV" \
+    || fno "Bj engine" "failed to extract synthetic assets"
+  else
+    fno "Bj engine" "mk_bj.py failed"
+  fi
+
   # Vblank Wii packages: BFP2 (zlib/stored/slot members, hash names) and BPP3 (DSP stream -> WAV)
   mkdir -p "$d/vblank_test"
   if python3 "$PWD_PROJECT/../tests/mk_vblank.py" "$d/vblank_test" >/dev/null 2>&1; then
