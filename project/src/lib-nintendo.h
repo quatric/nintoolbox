@@ -495,6 +495,7 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-pub.h"
 #include "lib-rez.h"
 #include "lib-bombshell.h"
+#include "lib-bttrb.h"
 #include "lib-toshi.h"
 #include "lib-fbc.h"
 #include "lib-fsb.h"

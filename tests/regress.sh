@@ -8924,6 +8924,18 @@ with open(sys.argv[1], "wb") as f:
     fno "BombShell data pack" "mk_bombshell.py failed"
   fi
 
+  # Blue Tongue TRB package (de Blob 2, Wii): ttex texture -> PNG, XUR section
+  mkdir -p "$d/bttrb_test"
+  if python3 "$PWD_PROJECT/../tests/mk_bttrb.py" "$d/bttrb_test" >/dev/null 2>&1; then
+    "$B/wszst" extract "$d/bttrb_test/T.trb" >/dev/null 2>&1
+    [ "$(head -c 4 "$d/bttrb_test/T.trb.d/textures/test.png" | tail -c 3)" = "PNG" ] \
+    && [ "$(head -c 4 "$d/bttrb_test/T.trb.d/T.xur")" = "XUIB" ] \
+    && fok "Blue Tongue TRB: ttex texture -> PNG, XUR section" \
+    || fno "Blue Tongue TRB" "failed to extract synthetic package"
+  else
+    fno "Blue Tongue TRB" "mk_bttrb.py failed"
+  fi
+
   # Atomic Planet PUB package (AMF Bowling: Pinbusters!, Wii): GX texture -> PNG, mesh -> GLB
   mkdir -p "$d/pub_test"
   if python3 "$PWD_PROJECT/../tests/mk_pub.py" "$d/pub_test" >/dev/null 2>&1; then

@@ -7343,6 +7343,63 @@ static enumError extract_bombshell_file (ccp arg, ccp basedir, uint depth)
 	return err;
 }
 
+// Blue Tongue "TRB\0" package (de Blob 2, Wii): "ttex" textures -> PNG in
+// textures/, an embedded XUR section -> NAME.xur.
+static enumError extract_bttrb_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".trb"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false) || !raw)
+		return ERR_NOTHING_TO_DO;
+	uint count = 0;
+	u32 xur_size = 0;
+	const bool is_trb = IsBlueTongueTrb (raw, raw_size);
+	bttrb_tex_t *list = is_trb ? ListBlueTongueTextures (raw, raw_size, &count) : 0;
+	const u8 *xur = is_trb ? FindBlueTongueSection (raw, raw_size, "XUR", &xur_size) : 0;
+	if (!count && !xur)
+	{
+		FREE (list);
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT BLUETONGUE-TRB:%s (%u textures) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, count, dest);
+
+	enumError err = ERR_OK;
+	for (uint i = 0; i < count && !err && !testmode; i++)
+	{
+		u8 *rgba = 0;
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/%stextures/%s.png", dest, basedir ? basedir : "", list[i].name);
+		if (!DecodeBlueTongueTexture (&rgba, raw, raw_size, list + i))
+			err = SaveDecodedRGBAToPNG (rgba, list[i].width, list[i].height, &be_func, path, 0, true);
+	}
+	if (xur && !err && !testmode)
+	{
+		ccp base = strrchr (arg, '/');
+		base = base ? base + 1 : arg;
+		char stem[128], path[PATH_MAX];
+		snprintf (stem, sizeof (stem), "%s", base);
+		char *dot = strrchr (stem, '.');
+		if (dot)
+			*dot = 0;
+		snprintf (path, sizeof (path), "%s/%s%s.xur", dest, basedir ? basedir : "", stem);
+		File_t F;
+		err = CreateFileOpt (&F, true, path, false, arg);
+		if (F.f && fwrite (xur, 1, xur_size, F.f) != xur_size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", xur_size, path);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (list);
+	FREE (raw);
+	return err;
+}
+
 // Asobo Sound_Z (Ratatouille .DRV member, DSP-ADPCM) -> WAV.
 static enumError extract_asobo_sound_file (ccp arg, ccp basedir, uint depth)
 {

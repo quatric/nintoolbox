@@ -3583,6 +3583,8 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 	//   .ppm   "PARA"      (Flipnote Studio animation, not the netpbm image)
 	//   .kwz   "KFH" | "KIC"
 	//   .rvid  "RVID" + version 5
+	//   .bik   "BIK" + revision letter, or "KB2" (Bink 1 / 2; RAD Game Tools,
+	//          decoded by libavcodec's binkvideo / binkaudio decoders)
 	//   .bwav  "BWAV" + UTF-16 BOM  (mobipeg routes .bwav through its bfstm
 	//          demuxer, which ignores the tag but wants the BOM at offset 4)
 	// .mmstr has no header magic at all -- mobipeg's gbavideo demuxer probes
@@ -3595,6 +3597,7 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 			|| (is_ext (src, ".ppm") && !memcmp (head, "PARA", 4))
 			|| (is_ext (src, ".kwz") && (!memcmp (head, "KFH", 3) || !memcmp (head, "KIC", 3)))
 			|| (is_ext (src, ".rvid") && !memcmp (head, "RVID", 4) && le32 (head + 4) == 5)
+			|| (is_ext (src, ".bik") && (!memcmp (head, "BIK", 3) || !memcmp (head, "KB2", 3)))
 			|| (is_ext (src, ".bwav") && is_bwav_magic)
 			|| is_ext (src, ".mmstr"));
 
