@@ -21,14 +21,23 @@
 // Type 73 is a texture: u16 width, u16 height, u16 (size hint), u16 GX format
 // (5 RGB5A3, 6 RGBA8, 8 C4, 9 C8), then pixels at +0x80 (paletted, RGB5A3
 // palette right after the pixels) or +0x60 (direct). Any mip levels follow.
-// Other types (models, animation, sound, ...) are not decoded.
+// Type 75 is a run of geometry objects {u32 0x7843, u32 ?, u32 display list
+// bytes, {u32 tagged ptr, u32 count} for the display list (count = position
+// count), positions f32x3 (+0x14), {0, 0}, {u32 normal count, ptr} f32x3,
+// {u32 uv count, ptr} f32x2, ...}. Pointers are 0x010b0000 | offset + 0x20
+// into the unpacked resource. Arrays follow the display list in order
+// (positions, normals, uvs). The display list is GX (0x98 strip, 0x90
+// triangles, 0x80 quads, 0xa0 fan; u16 count) with one index per position,
+// normal and uv, 1 byte each when the array has at most 256 entries, else 2.
+// Types 7 / 24 (animation) and 44 / 46 / 52 / 86 are not decoded.
 //-----------------------------------------------------------------------------
 #ifndef SZS_LIB_REZ_H
 #define SZS_LIB_REZ_H 1
 
 #include "lib-std.h"
+#include "lib-model-glb.h"
 
-typedef enum { REZ_TEXTURE = 73, REZ_SOUND = 76, REZ_VIDEO = 1 } rez_kind_t;
+typedef enum { REZ_TEXTURE = 73, REZ_SOUND = 76, REZ_VIDEO = 1, REZ_MESH = 75 } rez_kind_t;
 
 typedef struct
 {
@@ -47,6 +56,12 @@ rez_res_t *ListRezResources (const u8 *data, size_t size, uint *count);
 u8 *LoadRezResource (const u8 *data, size_t size, const rez_res_t *r, size_t *out_size);
 
 enumError DecodeRezTexture (u8 **rgba, uint *width, uint *height, const u8 *res, size_t res_size);
+
+// Name of the PNG texturing the mesh, or NULL.
+typedef ccp (*RezTexFunc) (void *ctx);
+
+// Geometry objects of a type 75 resource as a model; NULL if there are none.
+model_t *ParseRezMesh (const u8 *res, size_t size, RezTexFunc texname, void *ctx);
 
 // 16-bit PCM WAV of a type 76 resource.
 enumError DecodeRezSound (u8 **wav, size_t *wav_size, const u8 *res, size_t res_size);

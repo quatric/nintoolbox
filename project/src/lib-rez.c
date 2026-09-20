@@ -100,7 +100,7 @@ static bool rz_add (rez_res_t **list, uint *count, uint *cap, const rez_res_t *e
 static bool rz_res (const u8 *r, size_t size, uint g, uint i, rez_res_t *e)
 {
 	const int type = (s16)rz_be16 (r + 12);
-	if (type != REZ_TEXTURE && type != REZ_SOUND && type != REZ_VIDEO)
+	if (type != REZ_TEXTURE && type != REZ_SOUND && type != REZ_VIDEO && type != REZ_MESH)
 		return false;
 	e->group = g;
 	e->index = i;
@@ -245,4 +245,167 @@ enumError DecodeRezSound (u8 **wav, size_t *wav_size, const u8 *r, size_t n)
 	*wav = w;
 	*wav_size = out;
 	return ERR_OK;
+}
+
+//-----------------------------------------------------------------------------
+// geometry (type 75)
+
+static float rz_f (const u8 *p)
+{
+	const u32 u = rz_be32 (p);
+	float f;
+	memcpy (&f, &u, 4);
+	return f;
+}
+
+static bool rz_ok (size_t size, size_t off, size_t len) { return off <= size && len <= size - off; }
+
+// Offset of a tagged pointer, or ~0.
+static size_t rz_ptr (u32 v)
+{
+	return (v >> 16) == 0x010b && (v & 0xffff) >= 0x20 ? (v & 0xffff) - 0x20 : (size_t)-1;
+}
+
+static bool rz_object (const u8 *d, size_t size, size_t o, model_t *m, uint num, RezTexFunc texname, void *ctx)
+{
+	const u32 dlsz = rz_be32 (d + o + 8);
+	const size_t dl = rz_ptr (rz_be32 (d + o + 0x0c)), pos = rz_ptr (rz_be32 (d + o + 0x14)),
+		nrm = rz_ptr (rz_be32 (d + o + 0x24)), uv = rz_ptr (rz_be32 (d + o + 0x2c));
+	const uint np = rz_be32 (d + o + 0x10), nn = rz_be32 (d + o + 0x20), nu = rz_be32 (d + o + 0x28);
+	if (!dlsz || !np || !nn || !nu || dl == (size_t)-1 || pos == (size_t)-1 || nrm == (size_t)-1 || uv == (size_t)-1
+		|| np > 0x4000 || nn > 0x4000 || nu > 0x4000 || !rz_ok (size, dl, dlsz) || !rz_ok (size, pos, np * 12)
+		|| !rz_ok (size, nrm, nn * 12) || !rz_ok (size, uv, nu * 8))
+		return false;
+	const uint wp = np > 256 ? 2 : 1, wn = nn > 256 ? 2 : 1, wu = nu > 256 ? 2 : 1, vs = wp + wn + wu;
+	const u8 *p = d + dl, *end = d + dl + dlsz;
+	size_t cap = 3072, cnt = 0;
+	uint (*soup)[3] = MALLOC (cap * sizeof (*soup));
+	if (!soup)
+		return true;
+	uint idx[8192][3];
+	while (p + 3 <= end && *p)
+	{
+		const uint cmd = *p & 0xf8;
+		uint n = rz_be16 (p + 1);
+		p += 3;
+		if (n > 8192 || (size_t)(end - p) < (size_t)n * vs || (cmd != 0x80 && cmd != 0x90 && cmd != 0x98 && cmd != 0xa0))
+			break;
+		for (uint i = 0; i < n; i++)
+		{
+			idx[i][0] = wp == 2 ? rz_be16 (p) : p[0];
+			p += wp;
+			idx[i][1] = wn == 2 ? rz_be16 (p) : p[0];
+			p += wn;
+			idx[i][2] = wu == 2 ? rz_be16 (p) : p[0];
+			p += wu;
+			if (idx[i][0] >= np || idx[i][1] >= nn || idx[i][2] >= nu)
+				n = 0;
+		}
+		if (!n)
+			break;
+		#define REMIT(a, b, c) do { \
+			if (cnt + 3 > cap) { cap *= 2; uint (*ns)[3] = REALLOC (soup, cap * sizeof (*soup)); if (!ns) { FREE (soup); return true; } soup = ns; } \
+			memcpy (soup[cnt++], idx[a], sizeof (idx[0])); memcpy (soup[cnt++], idx[b], sizeof (idx[0])); \
+			memcpy (soup[cnt++], idx[c], sizeof (idx[0])); } while (0)
+		if (cmd == 0x90)
+			for (uint i = 0; i + 2 < n; i += 3)
+				REMIT (i, i + 1, i + 2);
+		else if (cmd == 0x80)
+			for (uint i = 0; i + 3 < n; i += 4)
+			{
+				REMIT (i, i + 1, i + 2);
+				REMIT (i, i + 2, i + 3);
+			}
+		else if (cmd == 0x98)
+			for (uint i = 0; i + 2 < n; i++)
+			{
+				if (idx[i][0] == idx[i + 1][0] || idx[i + 1][0] == idx[i + 2][0] || idx[i][0] == idx[i + 2][0])
+					continue;
+				if (i & 1)
+					REMIT (i + 1, i, i + 2);
+				else
+					REMIT (i, i + 1, i + 2);
+			}
+		else
+			for (uint i = 1; i + 1 < n; i++)
+				REMIT (0, i, i + 1);
+		#undef REMIT
+	}
+	if (!cnt)
+	{
+		FREE (soup);
+		return true;
+	}
+	mesh_t *nm = REALLOC (m->meshes, (m->num_meshes + 1) * sizeof (*nm));
+	if (!nm)
+	{
+		FREE (soup);
+		return true;
+	}
+	m->meshes = nm;
+	mesh_t *mesh = m->meshes + m->num_meshes++;
+	memset (mesh, 0, sizeof (*mesh));
+	snprintf (mesh->name, sizeof (mesh->name), "obj%u", num);
+	mesh->vertices = CALLOC (cnt, sizeof (*mesh->vertices));
+	mesh->positions = CALLOC (cnt, sizeof (*mesh->positions));
+	mesh->normals = CALLOC (cnt, sizeof (*mesh->normals));
+	mesh->texcoords = CALLOC (cnt, sizeof (*mesh->texcoords));
+	if (!mesh->vertices || !mesh->positions || !mesh->normals || !mesh->texcoords)
+	{
+		FREE (soup);
+		return false;
+	}
+	for (size_t i = 0; i < cnt; i++)
+	{
+		const u8 *pp = d + pos + 12 * (size_t)soup[i][0], *np_ = d + nrm + 12 * (size_t)soup[i][1],
+			*tp = d + uv + 8 * (size_t)soup[i][2];
+		mesh->positions[i] = (vec3_t){ rz_f (pp), rz_f (pp + 4), rz_f (pp + 8) };
+		mesh->normals[i] = (vec3_t){ rz_f (np_), rz_f (np_ + 4), rz_f (np_ + 8) };
+		mesh->texcoords[i] = (vec2_t){ rz_f (tp), rz_f (tp + 4) };
+		vertex_t *v = mesh->vertices + i;
+		v->position_idx = v->normal_idx = v->texcoord_idx = (int)i;
+		v->tangent_idx = v->matrix_idx = -1;
+		v->color_idx[0] = v->color_idx[1] = -1;
+		for (int e = 0; e < 7; e++)
+			v->extra_texcoord_idx[e] = -1;
+	}
+	mesh->num_positions = mesh->num_normals = mesh->num_texcoords = mesh->num_vertices = cnt;
+	FREE (soup);
+
+	m->materials = REALLOC (m->materials, (m->num_materials + 1) * sizeof (*m->materials));
+	material_t *mt = m->materials + m->num_materials;
+	memset (mt, 0, sizeof (*mt));
+	mt->diffuse[0] = mt->diffuse[1] = mt->diffuse[2] = mt->diffuse[3] = 1.0f;
+	snprintf (mt->name, sizeof (mt->name), "mat%u", num);
+	ccp tn = texname ? texname (ctx) : 0;
+	if (tn)
+	{
+		snprintf (mt->textures[0], sizeof (mt->textures[0]), "%s", tn);
+		mt->num_textures = 1;
+		mt->wrap_s[0] = mt->wrap_t[0] = 1;
+		mt->min_filter[0] = mt->mag_filter[0] = 1;
+		mt->has_alpha = 1;
+	}
+	mesh->material_idx = (int)m->num_materials++;
+	return true;
+}
+
+model_t *ParseRezMesh (const u8 *d, size_t size, RezTexFunc texname, void *ctx)
+{
+	model_t *m = CALLOC (1, sizeof (*m));
+	if (!m)
+		return 0;
+	uint num = 0;
+	for (size_t o = 0; o + 0x40 <= size; o += 4)
+		if (rz_be32 (d + o) == 0x7843 && rz_object (d, size, o, m, num, texname, ctx))
+		{
+			num++;
+			o += 0x3c;
+		}
+	if (!m->num_meshes)
+	{
+		FreeModel (m);
+		return 0;
+	}
+	return m;
 }

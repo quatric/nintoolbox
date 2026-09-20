@@ -7147,6 +7147,18 @@ static enumError extract_pub_file (ccp arg, ccp basedir, uint depth)
 // Humongous / Cat Daddy Resource.rez (Backyard Football '10, Wii): GX
 // textures -> PNG, DSP-ADPCM sounds -> WAV and THP videos, named GROUP_INDEX,
 // in a directory named after the file.
+typedef struct
+{
+	uint group;
+	char png[64];
+} rez_tex_ctx_t;
+
+static ccp rez_texname (void *vctx)
+{
+	const rez_tex_ctx_t *c = vctx;
+	return *c->png ? c->png : 0;
+}
+
 static enumError extract_rez_file (ccp arg, ccp basedir, uint depth)
 {
 	if (!is_ext (arg, ".rez"))
@@ -7170,6 +7182,7 @@ static enumError extract_rez_file (ccp arg, ccp basedir, uint depth)
 			testmode ? "WOULD " : "", arg, count, dest);
 
 	enumError err = ERR_OK;
+	rez_tex_ctx_t tctx = { 0, "" };
 	for (uint i = 0; i < count && !err && !testmode; i++)
 	{
 		const rez_res_t *r = list + i;
@@ -7178,14 +7191,29 @@ static enumError extract_rez_file (ccp arg, ccp basedir, uint depth)
 		if (!res)
 			continue;
 		char path[PATH_MAX];
-		const ccp ext = r->kind == REZ_TEXTURE ? "png" : r->kind == REZ_SOUND ? "wav" : "thp";
+		const ccp ext = r->kind == REZ_TEXTURE ? "png" : r->kind == REZ_SOUND ? "wav" : r->kind == REZ_MESH ? "glb" : "thp";
 		snprintf (path, sizeof (path), "%s/%s%04u_%03u.%s", dest, basedir ? basedir : "", r->group, r->index, ext);
 		if (r->kind == REZ_TEXTURE)
 		{
 			u8 *rgba = 0;
 			uint w = 0, h = 0;
-			if (!DecodeRezTexture (&rgba, &w, &h, res, n))
-				err = SaveDecodedRGBAToPNG (rgba, w, h, &be_func, path, 0, true);
+			if (!DecodeRezTexture (&rgba, &w, &h, res, n) && !SaveDecodedRGBAToPNG (rgba, w, h, &be_func, path, 0, true))
+			{
+				// a mesh is textured by the last texture of its group
+				tctx.group = r->group;
+				snprintf (tctx.png, sizeof (tctx.png), "%04u_%03u.png", r->group, r->index);
+			}
+		}
+		else if (r->kind == REZ_MESH)
+		{
+			if (tctx.group != r->group)
+				*tctx.png = 0;
+			model_t *model = ParseRezMesh (res, n, rez_texname, &tctx);
+			if (model)
+			{
+				ExportModelToGLB (model, path);
+				FreeModel (model);
+			}
 		}
 		else
 		{
