@@ -8886,6 +8886,17 @@ with open(sys.argv[1], "wb") as f:
     fno "FSB4 bank" "mk_fsb.py failed"
   fi
 
+  # Avalanche Software .thb/.tbb texture pair (Cars 2) -> PNG
+  mkdir -p "$d/avtex_test"
+  if python3 "$PWD_PROJECT/../tests/mk_avtex.py" "$d/avtex_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/avtex_test" --dest "$d/avtex_test/out" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/avtex_test/tex.png" ] \
+    && fok "Avalanche .thb/.tbb texture converts to PNG" \
+    || fno "Avalanche texture" "failed to convert synthetic tex.thb"
+  else
+    fno "Avalanche texture" "mk_avtex.py failed"
+  fi
+
   # Rainbow Studios (Disney-Pixar Cars) .gct texture + .gcg geometry
   mkdir -p "$d/cars_test"
   if python3 "$PWD_PROJECT/../tests/mk_cars.py" "$d/cars_test" >/dev/null 2>&1; then

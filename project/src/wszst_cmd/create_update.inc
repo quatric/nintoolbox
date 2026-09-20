@@ -6575,6 +6575,56 @@ static enumError extract_ho_texture_file (ccp arg, ccp basedir, uint depth)
 	return err;
 }
 
+// Avalanche .thb texture header + sibling .tbb pixels (Cars 2) -> PNG.
+static enumError extract_avalanche_tex_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".thb"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *thb = 0;
+	size_t thb_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &thb, &thb_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+	if (!IsAvalancheTexHeader (thb, thb_size))
+	{
+		FREE (thb);
+		return ERR_NOTHING_TO_DO;
+	}
+	char tbb_path[PATH_MAX];
+	snprintf (tbb_path, sizeof (tbb_path), "%.*s.tbb", (int)(strlen (arg) - 4), arg);
+	u8 *tbb = 0;
+	size_t tbb_size = 0;
+	err = LoadFileAlloc (tbb_path, 0, 0, &tbb, &tbb_size, 0, 0, 0, false);
+	if (err)
+	{
+		FREE (thb);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest_ext (dest, sizeof (dest), arg, ".png");
+	if (testmode || blitz_output_current (arg, dest))
+	{
+		FREE (thb);
+		FREE (tbb);
+		if (testmode)
+			fprintf (stdlog, "WOULD EXTRACT AVALANCHE-TEX:%s -> PNG:%s\n", arg, dest);
+		return ERR_OK;
+	}
+	u8 *rgba = 0;
+	uint w = 0, h = 0;
+	err = DecodeAvalancheTex (&rgba, &w, &h, thb, thb_size, tbb, tbb_size);
+	FREE (thb);
+	FREE (tbb);
+	if (err)
+		return err;
+	err = SaveDecodedRGBAToPNG (rgba, w, h, &be_func, dest, 0, true);
+	if (!err && verbose >= 0)
+		fprintf (stdlog, "%sEXTRACT AVALANCHE-TEX:%s -> PNG:%s\n", verbose > 0 ? "\n" : "", arg, dest);
+	return err;
+}
+
 // Rainbow Studios .gcg geometry (Disney-Pixar Cars) -> GLB. Materials name a
 // .gcm ini file (beside the geometry or in a sibling Tex directory) whose
 // TextureMap_1 names the .gct texture; that texture is written as a PNG beside
