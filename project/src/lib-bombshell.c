@@ -208,6 +208,7 @@ bombshell_asset_t *ListBombshell (const u8 *d, size_t size, uint *count)
 			a->width = w;
 			a->height = h;
 			a->format = fmt;
+			a->index = i;
 			a->off = pix;
 			a->size = bytes;
 			const u32 alpha = bs_u32 (&c, r + 20), aux = bs_u32 (&c, r + 12);
@@ -316,7 +317,7 @@ enumError DecodeBombshellTexture (u8 **rgba, const u8 *d, size_t size, const bom
 
 // Absolute offsets of the model records of a big-endian pack (with the pointer
 // bias M of their datapack). Returns the count.
-static uint bs_models (const bs_ctx_t *c, u32 *rec, u32 *bias, uint max)
+static uint bs_models (const bs_ctx_t *c, u32 *rec, u32 *bias, u32 *dps, uint max)
 {
 	if (!c->be)
 		return 0;
@@ -350,6 +351,7 @@ static uint bs_models (const bs_ctx_t *c, u32 *rec, u32 *bias, uint max)
 			if (dup)
 				continue;
 			rec[n] = (u32)r;
+			dps[n] = (u32)dp;
 			bias[n++] = (u32)m;
 		}
 	}
@@ -361,8 +363,8 @@ uint CountBombshellModels (const u8 *d, size_t size)
 	bs_ctx_t c;
 	if (!bs_init (&c, d, size))
 		return 0;
-	u32 *rec = MALLOC (BS_MAX_MODELS * 8);
-	const uint n = rec ? bs_models (&c, rec, rec + BS_MAX_MODELS, BS_MAX_MODELS) : 0;
+	u32 *rec = MALLOC (BS_MAX_MODELS * 12);
+	const uint n = rec ? bs_models (&c, rec, rec + BS_MAX_MODELS, rec + 2 * BS_MAX_MODELS, BS_MAX_MODELS) : 0;
 	FREE (rec);
 	return n;
 }
@@ -376,7 +378,8 @@ static void bs_tri (uint (*out)[3], uint *n, uint a, uint b, uint c)
 }
 
 // Builds one mesh from a sub-mesh record R; false when it is not decodable.
-static bool bs_submesh (model_t *m, const bs_ctx_t *c, u32 r, u32 bias, uint index)
+static bool bs_submesh (model_t *m, const bs_ctx_t *c, u32 r, u32 bias, uint index, u32 dp,
+	const bombshell_asset_t *assets, uint n_assets)
 {
 	const u8 *d = c->d;
 	const size_t size = c->size;
@@ -549,26 +552,72 @@ static bool bs_submesh (model_t *m, const bs_ctx_t *c, u32 r, u32 bias, uint ind
 	mesh->num_positions = mesh->num_normals = mesh->num_texcoords = mesh->num_vertices = nout;
 	FREE (tri);
 	FREE (vidx);
+
+	// texture: the patch list entry whose pointer is the sub-mesh's +48 / +56 field
+	char texname[96] = "";
+	uint dir = 0;
+	for (uint k = 0; k < bs_u32 (c, 12); k++)
+		if (16 + 24ull * bs_u32 (c, 12) + bs_u32 (c, 16 + 24 * (size_t)k + 20) == dp)
+			dir = k;
+	const u32 ntp = bs_u32 (c, dp + 16);
+	const s64 ip = (s64)bias - 8 * ((s64)ntp + bs_u32 (c, dp + 52) + bs_u32 (c, dp + 28) + bs_u32 (c, dp + 84));
+	for (uint f = 0; f < 2 && !*texname && ip >= 0; f++)
+		for (uint i = 0; i < ntp && ip + 8 * (s64)i + 8 <= (s64)size; i++)
+			if (bs_u32 (c, (size_t)ip + 8 * i) + (u64)bias == (u64)r + (f ? 56 : 48))
+			{
+				const uint ti = d[ip + 8 * i + 6] << 8 | d[ip + 8 * i + 7];
+				for (uint a = 0; a < n_assets; a++)
+					if (assets[a].kind == BSA_TEXTURE && assets[a].index == ti && assets[a].dir == dir)
+						snprintf (texname, sizeof (texname), "%s", assets[a].name);
+				break;
+			}
+	material_t *nmat = REALLOC (m->materials, (m->num_materials + 1) * sizeof (*m->materials));
+	if (nmat)
+	{
+		m->materials = nmat;
+		material_t *mt = m->materials + m->num_materials;
+		memset (mt, 0, sizeof (*mt));
+		mt->diffuse[0] = mt->diffuse[1] = mt->diffuse[2] = mt->diffuse[3] = 1.0f;
+		snprintf (mt->name, sizeof (mt->name), "part%u", index);
+		if (*texname && (flags & 8))
+		{
+			snprintf (mt->textures[0], sizeof (mt->textures[0]), "../textures/%s", texname);
+			mt->num_textures = 1;
+			mt->wrap_s[0] = mt->wrap_t[0] = 1;
+			mt->min_filter[0] = mt->mag_filter[0] = 1;
+			mt->has_alpha = 1;
+		}
+		mesh->material_idx = (int)m->num_materials++;
+	}
 	return true;
 }
 
-model_t *BuildBombshellModel (const u8 *d, size_t size, uint index, char *name, size_t name_size)
+model_t *BuildBombshellModel (const u8 *d, size_t size, uint index, char *name, size_t name_size,
+	const bombshell_asset_t *assets, uint n_assets, uint *dir_out, uint *type_out)
 {
 	bs_ctx_t c;
 	if (!bs_init (&c, d, size))
 		return 0;
-	u32 *rec = MALLOC (BS_MAX_MODELS * 8);
+	u32 *rec = MALLOC (BS_MAX_MODELS * 12);
 	if (!rec)
 		return 0;
-	u32 *bias = rec + BS_MAX_MODELS;
-	const uint n = bs_models (&c, rec, bias, BS_MAX_MODELS);
+	u32 *bias = rec + BS_MAX_MODELS, *dps = rec + 2 * BS_MAX_MODELS;
+	const uint n = bs_models (&c, rec, bias, dps, BS_MAX_MODELS);
 	if (index >= n)
 	{
 		FREE (rec);
 		return 0;
 	}
-	const u32 r = rec[index], b = bias[index];
+	const u32 r = rec[index], b = bias[index], dp = dps[index];
 	FREE (rec);
+	for (uint k = 0; k < bs_u32 (&c, 12); k++)
+		if (16 + 24ull * bs_u32 (&c, 12) + bs_u32 (&c, 16 + 24 * (size_t)k + 20) == dp)
+		{
+			if (dir_out)
+				*dir_out = k;
+			if (type_out)
+				*type_out = bs_u32 (&c, 16 + 24 * (size_t)k + 4);
+		}
 	if (name)
 	{
 		const size_t no = (size_t)bs_u32 (&c, r + 4) + b;
@@ -589,21 +638,13 @@ model_t *BuildBombshellModel (const u8 *d, size_t size, uint index, char *name, 
 		{
 			const u32 sub = bs_u32 (&c, (size_t)arr + 4 * i);
 			if (sub)
-				bs_submesh (m, &c, sub + b, b, i);
+				bs_submesh (m, &c, sub + b, b, i, dp, assets, n_assets);
 		}
 	}
 	if (!m->num_meshes)
 	{
 		FreeModel (m);
 		return 0;
-	}
-	m->materials = CALLOC (1, sizeof (*m->materials));
-	if (m->materials)
-	{
-		m->num_materials = 1;
-		snprintf (m->materials[0].name, sizeof (m->materials[0].name), "material");
-		m->materials[0].diffuse[0] = m->materials[0].diffuse[1] = m->materials[0].diffuse[2]
-			= m->materials[0].diffuse[3] = 1.0f;
 	}
 	return m;
 }

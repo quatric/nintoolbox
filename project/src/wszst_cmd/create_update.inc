@@ -7339,7 +7339,8 @@ static enumError extract_bombshell_file (ccp arg, ccp basedir, uint depth)
 	for (uint i = 0; used && i < n_models && !err; i++)
 	{
 		char mname[64];
-		model_t *model = BuildBombshellModel (raw, raw_size, i, mname, sizeof (mname));
+		uint mdir_k = 0, mdir_type = 0;
+		model_t *model = BuildBombshellModel (raw, raw_size, i, mname, sizeof (mname), list, count, &mdir_k, &mdir_type);
 		if (!model)
 			continue;
 		char clean[64], base[64];
@@ -7356,7 +7357,8 @@ static enumError extract_bombshell_file (ccp arg, ccp basedir, uint depth)
 		}
 		snprintf (used[n_used++], 64, "%s", clean);
 		char mdir[PATH_MAX], path[PATH_MAX];
-		snprintf (mdir, sizeof (mdir), "%s/%smodels", dest, basedir ? basedir : "");
+		snprintf (mdir, sizeof (mdir), "%s/%s%u_%s/models", dest, basedir ? basedir : "", mdir_k,
+			mdir_type < sizeof (dir_names) / sizeof (*dir_names) ? dir_names[mdir_type] : "data");
 		snprintf (path, sizeof (path), "%s/%s.glb", mdir, clean);
 		if (!CreatePath (mdir, true))
 			ExportModelToGLB (model, path);

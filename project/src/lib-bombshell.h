@@ -58,12 +58,18 @@ typedef struct bombshell_asset_t
 	u32 off, size;		// texture pixels / sound data (absolute)
 	u32 off_alpha, off_aux;	// textures: alpha image and aux blob (absolute, 0 = none)
 	uint width, height, format;
+	uint index;		// textures: index within its directory
 	bool big_endian;
 } bombshell_asset_t;
 
 // Wii models: NAME receives the model name; one mesh per sub-mesh of LOD 0.
 uint CountBombshellModels (const u8 *d, size_t size);
-model_t *BuildBombshellModel (const u8 *d, size_t size, uint index, char *name, size_t name_size);
+// ASSETS (from ListBombshell) name the textures the sub-meshes refer to (patch list
+// entry for the u32 at sub-mesh +48 / +56: its second u16 is the texture index).
+// DIR / DIR_TYPE receive the directory of the model; textures are referenced as
+// ../textures/NAME (models are written to DIR/models next to DIR/textures).
+model_t *BuildBombshellModel (const u8 *d, size_t size, uint index, char *name, size_t name_size,
+	const bombshell_asset_t *assets, uint n_assets, uint *dir, uint *dir_type);
 
 bool IsBombshellPack (const u8 *d, size_t size);
 
