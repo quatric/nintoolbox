@@ -8905,6 +8905,19 @@ with open(sys.argv[1], "wb") as f:
     fno "Torus hunkfile" "mk_torus.py failed"
   fi
 
+  # Toshi TSFB texture libraries (Nickelodeon Barnyard, Wii): plain and BTEC sections -> PNG
+  mkdir -p "$d/toshi_test"
+  if python3 "$PWD_PROJECT/../tests/mk_toshi.py" "$d/toshi_test" >/dev/null 2>&1; then
+    "$B/wszst" extract "$d/toshi_test/A.ttl" >/dev/null 2>&1
+    "$B/wszst" extract "$d/toshi_test/B.ttl" >/dev/null 2>&1
+    [ "$(head -c 4 "$d/toshi_test/A.ttl.d/Test_tex.png" | tail -c 3)" = "PNG" ] \
+    && [ "$(head -c 4 "$d/toshi_test/B.ttl.d/Test_tex.png" | tail -c 3)" = "PNG" ] \
+    && fok "Toshi TSFB: .ttl textures (plain and BTEC) -> PNG" \
+    || fno "Toshi TSFB" "failed to extract synthetic texture libraries"
+  else
+    fno "Toshi TSFB" "mk_toshi.py failed"
+  fi
+
   # Vblank Wii packages: BFP2 (zlib/stored/slot members, hash names) and BPP3 (DSP stream -> WAV)
   mkdir -p "$d/vblank_test"
   if python3 "$PWD_PROJECT/../tests/mk_vblank.py" "$d/vblank_test" >/dev/null 2>&1; then
