@@ -26,12 +26,21 @@
 // (all offsets relative to E). Wii formats 0x45 / 0xc5 / 0xc6 are CMPR; 0xc5
 // and 0xc6 keep the alpha as a second CMPR image (its red channel). PC formats
 // are 0x45 DXT1, 0xca DXT5, 0xa0 BGRA8 and 0x18 BGR8. Only the base level is
-// decoded. Models and world data are not decoded.
+// decoded. Wii models: the model patch list (+56 entries {u32 pointer, u16, u16}
+// at datapack + u32(+0) + m, with m = patch list offset - u32(+0)) leads to
+// {u16 ?, u16 ?, u32 name, ..., +16 list count, +20 list of {count, pointer
+// array}} model records; a sub-mesh record (224 bytes, type u32(+0) 0 / 1) has
+// vertex flags u32(+0xb0) (bit 0 position, 1 normal, 2 colour, 3 UV: one BE u16
+// index each per vertex, in that order), float positions +180, colours +188
+// (type 0) / +184 (type 1), float normals +192, s16 8.8 UVs +196 and +200
+// {0, byte count, pointer} a GX display list {command, BE u16 count, vertices}.
+// World data and the PC (.xdx9) models are not decoded.
 //-----------------------------------------------------------------------------
 #ifndef SZS_LIB_BOMBSHELL_H
 #define SZS_LIB_BOMBSHELL_H 1
 
 #include "lib-std.h"
+#include "lib-model-glb.h"
 
 typedef enum bombshell_kind_t
 {
@@ -51,6 +60,10 @@ typedef struct bombshell_asset_t
 	uint width, height, format;
 	bool big_endian;
 } bombshell_asset_t;
+
+// Wii models: NAME receives the model name; one mesh per sub-mesh of LOD 0.
+uint CountBombshellModels (const u8 *d, size_t size);
+model_t *BuildBombshellModel (const u8 *d, size_t size, uint index, char *name, size_t name_size);
 
 bool IsBombshellPack (const u8 *d, size_t size);
 

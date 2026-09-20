@@ -7332,6 +7332,37 @@ static enumError extract_bombshell_file (ccp arg, ccp basedir, uint depth)
 			ResetFile (&F, opt_preserve);
 		}
 	}
+	// Wii models: one GLB per model record
+	const uint n_models = !err && !testmode ? CountBombshellModels (raw, raw_size) : 0;
+	char (*used)[64] = n_models ? CALLOC (n_models, 64) : 0;
+	uint n_used = 0;
+	for (uint i = 0; used && i < n_models && !err; i++)
+	{
+		char mname[64];
+		model_t *model = BuildBombshellModel (raw, raw_size, i, mname, sizeof (mname));
+		if (!model)
+			continue;
+		char clean[64], base[64];
+		snprintf (clean, sizeof (clean), "%s", *mname ? mname : "model");
+		snprintf (base, sizeof (base), "%.56s", clean);
+		for (uint k = 2;; k++)
+		{
+			bool clash = false;
+			for (uint u = 0; u < n_used && !clash; u++)
+				clash = !strcasecmp (used[u], clean);
+			if (!clash)
+				break;
+			snprintf (clean, sizeof (clean), "%s_%u", base, k);
+		}
+		snprintf (used[n_used++], 64, "%s", clean);
+		char mdir[PATH_MAX], path[PATH_MAX];
+		snprintf (mdir, sizeof (mdir), "%s/%smodels", dest, basedir ? basedir : "");
+		snprintf (path, sizeof (path), "%s/%s.glb", mdir, clean);
+		if (!CreatePath (mdir, true))
+			ExportModelToGLB (model, path);
+		FreeModel (model);
+	}
+	FREE (used);
 	FREE (list);
 	FREE (raw);
 	if (!err && !testmode)

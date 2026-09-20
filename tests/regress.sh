@@ -8917,8 +8917,9 @@ with open(sys.argv[1], "wb") as f:
     [ "$(head -c 4 "$d/bombshell_test/T.xwi.d/0_world/textures/tex_a.png" | tail -c 3)" = "PNG" ] \
     && [ "$(head -c 4 "$d/bombshell_test/T.xdx9.d/0_world/textures/tex_a.png" | tail -c 3)" = "PNG" ] \
     && [ -s "$d/bombshell_test/T.xwi.d/0_world/sounds/beep.fsb" ] \
+    && [ "$(head -c 4 "$d/bombshell_test/T.xwi.d/models/tri_model.glb")" = "glTF" ] \
     && [ "$(head -c 4 "$d/bombshell_test/T.xdx9.d/0_world/sounds/beep.wav")" = "RIFF" ] \
-    && fok "BombShell data pack: .xwi CMPR + alpha / .xdx9 DXT1 texture -> PNG, FSB / WAV sounds" \
+    && fok "BombShell data pack: .xwi CMPR + alpha / .xdx9 DXT1 texture -> PNG, FSB / WAV sounds, Wii model -> GLB" \
     || fno "BombShell data pack" "failed to extract synthetic packs"
   else
     fno "BombShell data pack" "mk_bombshell.py failed"

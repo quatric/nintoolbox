@@ -6,6 +6,7 @@
 #include "lib-bombshell.h"
 #include "lib-bntx.h"
 #include "lib-excite.h"
+#include <math.h>
 
 #define BS_MAGIC0 0x020100a0u
 #define BS_MAGIC1 0x040100afu
@@ -48,6 +49,14 @@ bool IsBombshellPack (const u8 *d, size_t size)
 		return false;
 	const u32 n = bs_u32 (&c, 12);
 	return n && n <= BS_MAX_DIRS && 16 + 24ull * n <= size;
+}
+
+static float bs_f32 (const u8 *p)
+{
+	const u32 v = (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
+	float f;
+	memcpy (&f, &v, 4);
+	return f;
 }
 
 static u32 bs_align (const bs_ctx_t *c, u32 v)
@@ -297,4 +306,304 @@ enumError DecodeBombshellTexture (u8 **rgba, const u8 *d, size_t size, const bom
 	}
 	*rgba = img;
 	return ERR_OK;
+}
+
+//-----------------------------------------------------------------------------
+// Wii models
+//-----------------------------------------------------------------------------
+
+#define BS_MAX_MODELS 4096
+
+// Absolute offsets of the model records of a big-endian pack (with the pointer
+// bias M of their datapack). Returns the count.
+static uint bs_models (const bs_ctx_t *c, u32 *rec, u32 *bias, uint max)
+{
+	if (!c->be)
+		return 0;
+	const u32 ndir = bs_u32 (c, 12);
+	const size_t glob = 16 + 24ull * ndir;
+	uint n = 0;
+	for (uint k = 0; k < ndir; k++)
+	{
+		const size_t o = 16 + 24ull * k;
+		const size_t dp = glob + bs_u32 (c, o + 20);
+		const u64 end = dp + (u64)bs_u32 (c, o + 16);
+		const u32 nm = bs_u32 (c, dp + 56), words = bs_u32 (c, dp + 12);
+		if (!nm || nm > BS_MAX_MODELS || dp + 192 > c->size || end > c->size)
+			continue;
+		const s64 list = (s64)end - ((s64)words * 4 + (s64)nm * 8);
+		const s64 m = list - (s64)bs_u32 (c, dp);
+		if (list < 0 || m < 0 || list + 8 * (s64)nm > (s64)c->size)
+			continue;
+		for (uint i = 0; i < nm && n < max; i++)
+		{
+			const u32 ptr = bs_u32 (c, (size_t)list + 8 * i);
+			if ((u64)ptr + m + 4 > c->size)
+				continue;
+			const u64 r = (u64)bs_u32 (c, (size_t)(ptr + m)) + m;
+			const u64 name = (u64)bs_u32 (c, (size_t)r + 4) + m;
+			if (r + 0x20 > c->size || name + 8 > c->size || memcmp (c->d + name, "Content", 7))
+				continue;
+			bool dup = false;
+			for (uint j = 0; j < n && !dup; j++)
+				dup = rec[j] == r;
+			if (dup)
+				continue;
+			rec[n] = (u32)r;
+			bias[n++] = (u32)m;
+		}
+	}
+	return n;
+}
+
+uint CountBombshellModels (const u8 *d, size_t size)
+{
+	bs_ctx_t c;
+	if (!bs_init (&c, d, size))
+		return 0;
+	u32 *rec = MALLOC (BS_MAX_MODELS * 8);
+	const uint n = rec ? bs_models (&c, rec, rec + BS_MAX_MODELS, BS_MAX_MODELS) : 0;
+	FREE (rec);
+	return n;
+}
+
+static void bs_tri (uint (*out)[3], uint *n, uint a, uint b, uint c)
+{
+	out[*n][0] = a;
+	out[*n][1] = b;
+	out[*n][2] = c;
+	(*n)++;
+}
+
+// Builds one mesh from a sub-mesh record R; false when it is not decodable.
+static bool bs_submesh (model_t *m, const bs_ctx_t *c, u32 r, u32 bias, uint index)
+{
+	const u8 *d = c->d;
+	const size_t size = c->size;
+	const u32 type = bs_u32 (c, r);
+	if ((type != 0 && type != 1) || (u64)r + 0xe0 > size)
+		return false;
+	const u32 flags = bs_u32 (c, r + 0xb0) & 0xf;
+	if (!(flags & 1))
+		return false;
+	const u64 pos = (u64)bs_u32 (c, r + 180), nrm = (u64)bs_u32 (c, r + 192), uv = (u64)bs_u32 (c, r + 196),
+		col = (u64)bs_u32 (c, r + (type ? 184 : 188)), dlh = (u64)bs_u32 (c, r + 200);
+	if (!pos || !dlh || dlh + bias + 12 > size)
+		return false;
+	const u64 dl_bytes = bs_u32 (c, (size_t)(dlh + bias) + 4), dl = (u64)bs_u32 (c, (size_t)(dlh + bias) + 8) + bias;
+	if (!dl_bytes || dl + dl_bytes > size)
+		return false;
+	uint per = 0;
+	for (uint b = 0; b < 4; b++)
+		per += (flags >> b & 1) * 2;
+
+	// pass 1: count vertices and triangles, and the largest indices
+	uint maxi[4] = { 0, 0, 0, 0 };
+	size_t nv = 0, nt = 0;
+	for (int pass = 0; pass < 2; pass++)
+	{
+		size_t p = 0;
+		nv = 0;
+		nt = 0;
+		while (p + 3 <= dl_bytes)
+		{
+			const u8 cmd = d[dl + p];
+			if (!cmd)
+			{
+				p++;
+				continue;
+			}
+			const uint n = d[dl + p + 1] << 8 | d[dl + p + 2];
+			p += 3;
+			const uint kind = cmd & 0xf8;
+			if ((kind != 0x80 && kind != 0x90 && kind != 0x98 && kind != 0xa0) || p + (size_t)n * per > dl_bytes)
+				return false;
+			for (uint i = 0; i < n; i++)
+			{
+				const u8 *q = d + dl + p + (size_t)i * per;
+				uint b = 0;
+				for (uint a = 0; a < 4; a++)
+					if (flags >> a & 1)
+					{
+						const uint v = q[b] << 8 | q[b + 1];
+						b += 2;
+						if (v > maxi[a])
+							maxi[a] = v;
+					}
+			}
+			nv += n;
+			nt += kind == 0x90 ? n / 3 : kind == 0x80 ? n / 4 * 2 : n >= 2 ? n - 2 : 0;
+			p += (size_t)n * per;
+		}
+		break;
+	}
+	if (!nt || nv > 400000)
+		return false;
+	const u8 *arr[4] = { d + pos, d + nrm, d + col, d + uv };
+	const uint width[4] = { 12, 12, 4, 4 };
+	const u64 base[4] = { pos, nrm, col, uv };
+	for (uint a = 0; a < 4; a++)
+		if ((flags >> a & 1) && (!base[a] || base[a] + bias + (u64)(maxi[a] + 1) * width[a] > size))
+			return false;
+	(void)arr;
+
+	mesh_t *nmesh = REALLOC (m->meshes, (m->num_meshes + 1) * sizeof (*nmesh));
+	if (!nmesh)
+		return false;
+	m->meshes = nmesh;
+	mesh_t *mesh = m->meshes + m->num_meshes++;
+	memset (mesh, 0, sizeof (*mesh));
+	snprintf (mesh->name, sizeof (mesh->name), "part%u", index);
+	const size_t cnt = nt * 3;
+	mesh->positions = CALLOC (cnt, sizeof (vec3_t));
+	mesh->normals = CALLOC (cnt, sizeof (vec3_t));
+	mesh->texcoords = CALLOC (cnt, sizeof (vec2_t));
+	mesh->vertices = CALLOC (cnt, sizeof (vertex_t));
+	uint (*tri)[3] = CALLOC (nt, sizeof (*tri));
+	uint *vidx = CALLOC (nv, 4 * sizeof (uint));
+	if (!mesh->positions || !mesh->normals || !mesh->texcoords || !mesh->vertices || !tri || !vidx)
+	{
+		FREE (tri);
+		FREE (vidx);
+		return false;
+	}
+	// pass 2: gather vertex index tuples and triangulate
+	size_t p = 0, v0 = 0;
+	uint ntri = 0;
+	while (p + 3 <= dl_bytes)
+	{
+		const u8 cmd = d[dl + p];
+		if (!cmd)
+		{
+			p++;
+			continue;
+		}
+		const uint n = d[dl + p + 1] << 8 | d[dl + p + 2];
+		p += 3;
+		const uint kind = cmd & 0xf8;
+		for (uint i = 0; i < n; i++)
+		{
+			const u8 *q = d + dl + p + (size_t)i * per;
+			uint b = 0;
+			for (uint a = 0; a < 4; a++)
+				vidx[(v0 + i) * 4 + a] = flags >> a & 1 ? (b += 2, q[b - 2] << 8 | q[b - 1]) : 0;
+		}
+		if (kind == 0x90)
+			for (uint i = 0; i + 2 < n; i += 3)
+				bs_tri (tri, &ntri, v0 + i, v0 + i + 1, v0 + i + 2);
+		else if (kind == 0x98)
+			for (uint i = 2; i < n; i++)
+			{
+				if (i & 1)
+					bs_tri (tri, &ntri, v0 + i - 1, v0 + i - 2, v0 + i);
+				else
+					bs_tri (tri, &ntri, v0 + i - 2, v0 + i - 1, v0 + i);
+			}
+		else if (kind == 0xa0)
+			for (uint i = 2; i < n; i++)
+				bs_tri (tri, &ntri, v0, v0 + i, v0 + i - 1);
+		else
+			for (uint i = 0; i + 3 < n; i += 4)
+			{
+				bs_tri (tri, &ntri, v0 + i, v0 + i + 1, v0 + i + 2);
+				bs_tri (tri, &ntri, v0 + i, v0 + i + 2, v0 + i + 3);
+			}
+		v0 += n;
+		p += (size_t)n * per;
+	}
+	size_t nout = 0;
+	for (uint t = 0; t < ntri && nout + 3 <= cnt; t++)
+	{
+		// strips are joined with repeated vertices: skip those degenerate triangles
+		const uint *v0i = vidx + 4 * (size_t)tri[t][0], *v1i = vidx + 4 * (size_t)tri[t][1],
+			*v2i = vidx + 4 * (size_t)tri[t][2];
+		if (v0i[0] == v1i[0] || v1i[0] == v2i[0] || v0i[0] == v2i[0])
+			continue;
+		for (uint k = 0; k < 3; k++)
+		{
+			const size_t o = nout + k;
+			const uint *ix = vidx + 4 * (size_t)tri[t][k];
+			const u8 *pp = d + pos + bias + 12 * (size_t)ix[0];
+			mesh->positions[o] = (vec3_t){ bs_f32 (pp), bs_f32 (pp + 4), bs_f32 (pp + 8) };
+			if (flags & 2)
+			{
+				const u8 *np_ = d + nrm + bias + 12 * (size_t)ix[1];
+				mesh->normals[o] = (vec3_t){ bs_f32 (np_), bs_f32 (np_ + 4), bs_f32 (np_ + 8) };
+			}
+			else
+				mesh->normals[o] = (vec3_t){ 0, 0, 1 };
+			if (flags & 8)
+			{
+				const u8 *tp = d + uv + bias + 4 * (size_t)ix[3];
+				mesh->texcoords[o] = (vec2_t){ (int16_t)(tp[0] << 8 | tp[1]) / 256.0f, (int16_t)(tp[2] << 8 | tp[3]) / 256.0f };
+			}
+			vertex_t *vt = mesh->vertices + o;
+			vt->position_idx = vt->normal_idx = vt->texcoord_idx = (int)o;
+			vt->tangent_idx = vt->matrix_idx = -1;
+			vt->color_idx[0] = vt->color_idx[1] = -1;
+			for (int e = 0; e < 7; e++)
+				vt->extra_texcoord_idx[e] = -1;
+		}
+		nout += 3;
+	}
+	mesh->num_positions = mesh->num_normals = mesh->num_texcoords = mesh->num_vertices = nout;
+	FREE (tri);
+	FREE (vidx);
+	return true;
+}
+
+model_t *BuildBombshellModel (const u8 *d, size_t size, uint index, char *name, size_t name_size)
+{
+	bs_ctx_t c;
+	if (!bs_init (&c, d, size))
+		return 0;
+	u32 *rec = MALLOC (BS_MAX_MODELS * 8);
+	if (!rec)
+		return 0;
+	u32 *bias = rec + BS_MAX_MODELS;
+	const uint n = bs_models (&c, rec, bias, BS_MAX_MODELS);
+	if (index >= n)
+	{
+		FREE (rec);
+		return 0;
+	}
+	const u32 r = rec[index], b = bias[index];
+	FREE (rec);
+	if (name)
+	{
+		const size_t no = (size_t)bs_u32 (&c, r + 4) + b;
+		char raw[160];
+		snprintf (raw, sizeof (raw), "%.*s", (int)(no < size ? (size - no < 159 ? size - no : 159) : 0), (ccp)d + no);
+		bs_clean_name (name, name_size, (const u8 *)raw, strlen (raw), index);
+	}
+	model_t *m = CALLOC (1, sizeof (*m));
+	if (!m)
+		return 0;
+	const u32 nl = bs_u32 (&c, r + 16);
+	const u64 lists = (u64)bs_u32 (&c, r + 20) + b;
+	if (nl && lists + 8 <= size)
+	{
+		const u32 cnt = bs_u32 (&c, (size_t)lists);
+		const u64 arr = (u64)bs_u32 (&c, (size_t)lists + 4) + b;
+		for (uint i = 0; i < cnt && i < 256 && arr + 4ull * (i + 1) <= size; i++)
+		{
+			const u32 sub = bs_u32 (&c, (size_t)arr + 4 * i);
+			if (sub)
+				bs_submesh (m, &c, sub + b, b, i);
+		}
+	}
+	if (!m->num_meshes)
+	{
+		FreeModel (m);
+		return 0;
+	}
+	m->materials = CALLOC (1, sizeof (*m->materials));
+	if (m->materials)
+	{
+		m->num_materials = 1;
+		snprintf (m->materials[0].name, sizeof (m->materials[0].name), "material");
+		m->materials[0].diffuse[0] = m->materials[0].diffuse[1] = m->materials[0].diffuse[2]
+			= m->materials[0].diffuse[3] = 1.0f;
+	}
+	return m;
 }
