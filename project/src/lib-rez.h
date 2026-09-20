@@ -35,8 +35,12 @@
 // the children. The display list is GX (0x98 strip, 0x90 triangles, 0x80
 // quads, 0xa0 fan; u16 count) with one index per position, normal, colour
 // and UV (in that order), 1 byte each when the array has at most 256
-// entries, else 2. Vertices are already in world space. Skinned models
-// (skeleton flag) are not decoded.
+// entries, else 2. Vertices are already in world space. Skinned models (+0x44
+// set, flags & 0x100) carry per position {u8 bone[4] (0xff = none), f32
+// weight[3]} right after the normals, and after the batches a skeleton
+// {u32 bones, 12 bytes, 2 x bones u32 (identity)} followed by the bone tree,
+// depth first, 32 bytes each {f32 offset from the parent[3], 0, u32 children,
+// ...}; bone indices are that order. The bind pose has no rotation.
 // Type 86 is the object animation of the model before it: a tree in the same
 // order {u32 ?, u32 frames, f32 speed, u32 ptr, u32 children, u32 ptr,
 // frames * {f32 position[3], quaternion[4], scale[3]}, children * u32, the

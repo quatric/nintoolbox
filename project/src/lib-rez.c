@@ -269,6 +269,8 @@ typedef struct
 	uint np, ncol, nn, nuv, nb, nch;
 	float t[3], q[4], s[3], pv[3];
 	uint depth;
+	size_t weights, bones;	// per-position influences, first bone of the skeleton
+	uint nbones;
 } rz_node_t;
 
 typedef struct
@@ -279,6 +281,18 @@ typedef struct
 	uint n;
 	bool skinned;
 } rz_tree_t;
+
+// A bone (32 bytes {f32 offset[3], 0, u32 children, ...}) and its children.
+static size_t rz_bones (const u8 *d, size_t size, size_t p, uint *n)
+{
+	if (++*n > 256 || !rz_ok (size, p, 32))
+		return (size_t)-1;
+	const uint nc = rz_be32 (d + p + 16);
+	p += 32;
+	for (uint i = 0; i < nc && p != (size_t)-1; i++)
+		p = rz_bones (d, size, p, n);
+	return p;
+}
 
 // One object at BASE and (depth first) its children; returns the end offset or ~0.
 static size_t rz_walk (rz_tree_t *t, size_t base, uint depth)
@@ -316,7 +330,10 @@ static size_t rz_walk (rz_tree_t *t, size_t base, uint depth)
 	o->nrm = c;
 	c += (size_t)o->nn * 12;
 	if (rz_be32 (d + base) & 0x100)
+	{
+		o->weights = c;
 		c += (size_t)o->np * 16;
+	}
 	o->uv = c;
 	c += (size_t)o->nuv * 8;
 	o->bat = c;
@@ -325,9 +342,14 @@ static size_t rz_walk (rz_tree_t *t, size_t base, uint depth)
 		return (size_t)-1;
 	if (rz_be32 (d + base + 0x44))
 	{
-		// skinned model: the skeleton's size is not known
-		t->skinned = true;
-		return (size_t)-1;
+		// skeleton {u32 bones, 12 bytes, 2 x bones u32}, then the bone tree
+		if (!rz_ok (t->size, c, 16))
+			return (size_t)-1;
+		const size_t nb = rz_be32 (d + c);
+		c += 16 + nb * 8;
+		o->bones = c;
+		if ((c = rz_bones (d, t->size, c, &o->nbones)) == (size_t)-1 || o->nbones != nb)
+			return (size_t)-1;
 	}
 	c += 32 - ((c - base) & 31);
 	for (uint i = 0; i < o->nch; i++)
@@ -463,6 +485,50 @@ static bool rz_mesh (model_t *m, const rz_tree_t *t, uint k, uint batch, size_t 
 			v->texcoord_idx = (int)i;
 		}
 	}
+	if (o->weights && m->num_joints)
+	{
+		// per-position bone influences (u8 bone[4], f32 weight[3]), shared between equal sets
+		mesh->position_node = CALLOC (cnt, sizeof (int));
+		if (!mesh->position_node)
+			return false;
+		for (size_t i = 0; i < cnt; i++)
+		{
+			const u8 *w = d + o->weights + 16 * (size_t)soup[i][0];
+			node_influence_t inf = { 0, 0 };
+			influence_t wt[3];
+			for (uint k = 0; k < 3; k++)
+			{
+				const float f = rz_f (w + 4 + 4 * k);
+				if (w[k] != 0xff && w[k] < m->num_joints && f > 0)
+					wt[inf.num_weights++] = (influence_t){ w[k], f };
+			}
+			int found = -1;
+			for (size_t j = 0; j < m->num_node_influences && found < 0; j++)
+			{
+				const node_influence_t *e = m->node_influences + j;
+				bool same = e->num_weights == inf.num_weights;
+				for (size_t k = 0; same && k < e->num_weights; k++)
+					same = e->weights[k].bone_idx == wt[k].bone_idx && e->weights[k].weight == wt[k].weight;
+				if (same)
+					found = (int)j;
+			}
+			if (found < 0 && inf.num_weights)
+			{
+				node_influence_t *ni = REALLOC (m->node_influences, (m->num_node_influences + 1) * sizeof (*ni));
+				if (!ni)
+					return false;
+				m->node_influences = ni;
+				ni += m->num_node_influences;
+				ni->num_weights = inf.num_weights;
+				ni->weights = MALLOC (inf.num_weights * sizeof (influence_t));
+				if (!ni->weights)
+					return false;
+				memcpy (ni->weights, wt, inf.num_weights * sizeof (influence_t));
+				found = (int)m->num_node_influences++;
+			}
+			mesh->position_node[i] = found;
+		}
+	}
 	mesh->num_positions = mesh->num_vertices = cnt;
 	mesh->num_normals = o->nn ? cnt : 0;
 	mesh->num_texcoords = o->nuv ? cnt : 0;
@@ -489,6 +555,29 @@ static bool rz_mesh (model_t *m, const rz_tree_t *t, uint k, uint batch, size_t 
 	return true;
 }
 
+// The bone tree as joints (bind pose, no rotation): local offsets and the
+// inverse of the bone's world translation.
+static void rz_joints (model_t *m, const u8 *d, size_t *p, int parent, float wx, float wy, float wz)
+{
+	const uint idx = (uint)m->num_joints++;
+	const size_t b = *p;
+	joint_t *j = m->joints + idx;
+	snprintf (j->name, sizeof (j->name), "bone%u", idx);
+	j->parent_idx = parent;
+	j->translate = (vec3_t){ rz_f (d + b), rz_f (d + b + 4), rz_f (d + b + 8) };
+	j->scale = (vec3_t){ 1, 1, 1 };
+	wx += j->translate.x, wy += j->translate.y, wz += j->translate.z;
+	j->bind[0] = j->bind[5] = j->bind[10] = 1;
+	j->bind[3] = wx, j->bind[7] = wy, j->bind[11] = wz;
+	j->inverse_bind[0] = j->inverse_bind[5] = j->inverse_bind[10] = 1;
+	j->inverse_bind[3] = -wx, j->inverse_bind[7] = -wy, j->inverse_bind[11] = -wz;
+	j->has_inverse_bind = 1;
+	const uint nc = rz_be32 (d + b + 16);
+	*p += 32;
+	for (uint i = 0; i < nc; i++)
+		rz_joints (m, d, p, (int)idx, wx, wy, wz);
+}
+
 model_t *ParseRezModel (const u8 *d, size_t size, RezTexFunc texname, void *ctx)
 {
 	rz_tree_t t = { d, size, CALLOC (REZ_MAX_NODES, sizeof (rz_node_t)), 0, false };
@@ -500,6 +589,16 @@ model_t *ParseRezModel (const u8 *d, size_t size, RezTexFunc texname, void *ctx)
 		return 0;
 	}
 	rz_walk (&t, 0, 0);	// a failed walk still leaves the objects read so far
+	for (uint k = 0; k < t.n && !m->num_joints; k++)
+		if (t.nodes[k].bones && t.nodes[k].nbones)
+		{
+			m->joints = CALLOC (t.nodes[k].nbones, sizeof (joint_t));
+			if (m->joints)
+			{
+				size_t p = t.nodes[k].bones;
+				rz_joints (m, d, &p, -1, 0, 0, 0);
+			}
+		}
 	for (uint k = 0; k < t.n; k++)
 	{
 		const rz_node_t *o = t.nodes + k;
@@ -578,7 +677,7 @@ bool AddRezAnimation (model_t *m, const u8 *d, size_t size, const u8 *a, size_t 
 	}
 	uint na = 0;
 	rz_walk (&t, 0, 0);
-	const bool ok = !t.skinned && t.n && rz_awalk (a, asize, 0, an, &na, REZ_MAX_NODES) != (size_t)-1 && na == t.n;
+	const bool ok = !m->num_joints && t.n && rz_awalk (a, asize, 0, an, &na, REZ_MAX_NODES) != (size_t)-1 && na == t.n;
 	model_animation_t *anims = ok ? REALLOC (m->animations, (m->num_animations + 1) * sizeof (*anims)) : 0;
 	if (!anims)
 	{
