@@ -102,6 +102,8 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **IQIPACK** | `.pak` | ✅ | — | — | — | NVIDIA Shield iQiyi PAK archive with XXTEA encryption |
 | **IPK** | `.ipk` | ✅ | — | — | — | Ubisoft UbiArt IPK archive (*Just Dance*, *Rayman Origins/Legends*, *Child of Light*; Wii / Wii U / Switch / PC; zlib + LZMA members, old/new path-name orders) |
 | **WADH** | `.wad` (DataWII.wad) | ✅ | — | — | — | Data Design Interactive archive (*Ninjabread Man*, Wii); stored members with a directory tree |
+| **CDGaCube CAR** | `.car` | ✅ | — | — | ✅ | Cat Daddy Games archive (*Birthday Party Bash*, Wii); stored and zlib members |
+| **Terminal Reality POD** | `.pod` | ✅ | — | — | ✅ | POD3/4/5 archive (*Nickelodeon Dance*, Wii); stored members with a directory tree |
 | **DC2 DCX / DCT** | `.dcx`, `.dct` | ✅ | — | — | — | *Jakers! Kart Racing* (Wii): directory archives; GX CMPR / RGBA8 textures → PNG |
 | **NIF (Gamebryo 20.6, Wii)** | `.nif` | ✅ | — | — | — | *Pocoyo Racing* (Wii): embedded DXT1 / RGBA textures → PNG, `NiMesh` scenes → textured GLB (world space, bind pose) |
 | **Grip RES** | `.res` | ✅ | — | — | — | *Sesame Street: Elmo's Musical Monsterpiece* (Wii): resource packages split into sections with index names; `surf` textures → PNG |

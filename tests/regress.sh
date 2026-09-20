@@ -8826,6 +8826,30 @@ with open(sys.argv[1], "wb") as f:
     fno "Grip .res" "mk_gripres.py failed"
   fi
 
+  # Cat Daddy Games CDGaCube archive (Birthday Party Bash birthday.CAR)
+  mkdir -p "$d/catcar_test"
+  if python3 "$PWD_PROJECT/../tests/mk_catcar.py" "$d/catcar_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/catcar_test/test.CAR" --dest "$d/catcar_test/out" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/catcar_test/out/Data/a.txt")" = "hello catcar" ] \
+    && [ "$(head -c 11 "$d/catcar_test/out/Data/sub/b.txt")" = "zlib member" ] \
+    && fok "CDGaCube archive (Birthday Party Bash .CAR) unpacks stored and zlib members" \
+    || fno "CDGaCube archive" "failed to unpack synthetic test.CAR"
+  else
+    fno "CDGaCube archive" "mk_catcar.py failed"
+  fi
+
+  # Terminal Reality POD5 archive (Nickelodeon Dance WII*.POD)
+  mkdir -p "$d/termpod_test"
+  if python3 "$PWD_PROJECT/../tests/mk_termpod.py" "$d/termpod_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/termpod_test/TEST.POD" --dest "$d/termpod_test/out" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/termpod_test/out/data/b.txt")" = "hello pod" ] \
+    && [ -f "$d/termpod_test/out/sound/a.wav" ] \
+    && fok "POD5 archive (Nickelodeon Dance .POD) unpacks with directory tree" \
+    || fno "POD5 archive" "failed to unpack synthetic TEST.POD"
+  else
+    fno "POD5 archive" "mk_termpod.py failed"
+  fi
+
   # Rainbow Studios (Disney-Pixar Cars) .gct texture + .gcg geometry
   mkdir -p "$d/cars_test"
   if python3 "$PWD_PROJECT/../tests/mk_cars.py" "$d/cars_test" >/dev/null 2>&1; then

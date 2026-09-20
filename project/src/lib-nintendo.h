@@ -485,6 +485,8 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-cpk.h"
 #include "lib-ipk.h"
 #include "lib-wadh.h"
+#include "lib-catcar.h"
+#include "lib-termpod.h"
 #include "lib-dc2.h"
 #include "lib-nif.h"
 #include "lib-gripres.h"
