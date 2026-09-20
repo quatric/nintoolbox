@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Synthetic Asobo BigFile volume (see project/src/lib-asobo.h) with one stored
-UserDefine_Z resource and one LZRS-compressed Bitmap_Z. usage: mk_asobo.py OUTDIR -> OUTDIR/TEST.DRV"""
+UserDefine_Z resource, one LZRS-compressed Bitmap_Z and one DSP Sound_Z. usage: mk_asobo.py OUTDIR -> OUTDIR/TEST.DRV"""
 import os, struct, sys
 
 def h(s):
@@ -29,9 +29,14 @@ comp = lzrs_literals(bmp_plain)
 comp_body = struct.pack('<II', len(bmp_plain), len(comp) + 8) + comp
 r1 = B(len(text) + 8, 8, len(text), 0, h('UserDefine_Z'), 0x1234) + b'\0' * 8 + text
 r2 = B(len(comp_body) + 4, 4, len(bmp_plain), len(comp_body), h('Bitmap_Z'), 0x5678) + b'\0' * 4 + comp_body
-block = r1 + r2
+# Sound_Z: 10-byte prefix + DSP header (28 samples, 32 nibbles, 22050 Hz) + 2 silent frames
+dsp = struct.pack('>IIIHH', 28, 32, 22050, 0, 0) + struct.pack('>III', 0, 0, 2) + b''.join(struct.pack('>h', c) for c in [0x800] + [0] * 15)
+dsp = dsp.ljust(0x60, b'\0')
+snd = b'\0\0' + struct.pack('>I', 0x60 + 16) + b'\0\0\0\0' + dsp + bytes(16)
+r3 = B(len(snd) + 8, 8, len(snd), 0, h('Sound_Z'), 0x9abc) + b'\0' * 8 + snd
+block = r1 + r2 + r3
 padded = (len(block) + 2047) & ~2047
-blockdesc = B(2, padded, len(block), 0, 0x1234, 0)
+blockdesc = B(3, padded, len(block), 0, 0x1234, 0)
 head = b'v1.06.63.01 - Asobo Studio - Internal Cross Technology'.ljust(0x100, b'\0')
 head += B(0, 1, padded, padded, padded, 1, 0, 0) + blockdesc
 out = head.ljust(0x800, b'\0') + block.ljust(padded, b'\0')

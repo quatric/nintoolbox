@@ -910,7 +910,7 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	// Asobo BigFile members ("hash.Class_Z" plus ".lnk" link headers) are
 	// opaque engine data apart from bitmaps.
 	if ((is_ext (arg, ".lnk") || (strlen (arg) > 2 && !strcasecmp (arg + strlen (arg) - 2, "_Z")))
-		&& !is_ext (arg, ".bitmap_z"))
+		&& !is_ext (arg, ".bitmap_z") && !is_ext (arg, ".sound_z"))
 		return ERR_OK;
 	// Grip .res sections other than textures are opaque object data; keep the
 	// magic-less sniffers from unpacking them into junk ".d" folders.
@@ -1158,6 +1158,10 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		return err;
 
 	err = extract_bltex_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_asobo_sound_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 

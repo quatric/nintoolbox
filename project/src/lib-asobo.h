@@ -34,6 +34,12 @@
 bool IsAsoboBitmap (const u8 *data, size_t size);
 enumError DecodeAsoboBitmap (u8 **rgba, uint *width, uint *height, const u8 *data, size_t size);
 
+// Sound_Z body: 10 bytes (u16 0, u32 size, u32) then a standard Nintendo DSP
+// header (0x60 bytes: samples, nibbles, rate, coefficients, history) and the
+// DSP-ADPCM frames. Decodes to a mono 16-bit WAV (owned buffer).
+bool IsAsoboSound (const u8 *data, size_t size);
+enumError DecodeAsoboSound (u8 **wav, size_t *wav_size, const u8 *data, size_t size);
+
 enumError ScanAsoboDrv (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size);
 
 #endif

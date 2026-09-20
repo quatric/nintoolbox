@@ -6,6 +6,7 @@
 #include "lib-asobo.h"
 #include <string.h>
 #include "lib-excite.h"
+#include "lib-dspadpcm.h"
 
 #define ASOBO_MAX_BLOCKS 0x10000
 #define ASOBO_MAX_RESOURCES 0x1000000
@@ -223,4 +224,63 @@ enumError DecodeAsoboBitmap (u8 **rgba, uint *width, uint *height, const u8 *d, 
 		*height = h;
 	}
 	return err;
+}
+
+#define AS_SND_DSP 10
+#define AS_SND_DATA (AS_SND_DSP + 0x60)
+
+bool IsAsoboSound (const u8 *d, size_t size)
+{
+	if (size < AS_SND_DATA + 8)
+		return false;
+	const u8 *h = d + AS_SND_DSP;
+	const u32 samples = as_rd32 (h), nibbles = as_rd32 (h + 4), rate = as_rd32 (h + 8);
+	if (!samples || samples > 0x8000000 || rate < 4000 || rate > 96000 || (h[0xe] | h[0xf]))
+		return false;
+	// nibbles cover the samples (14 per 16-nibble frame) and must fit the data
+	const u64 frames = ((u64)samples + 13) / 14;
+	return nibbles >= frames * 16 - 15 && nibbles <= frames * 16 && (nibbles + 1) / 2 <= size - AS_SND_DATA;
+}
+
+enumError DecodeAsoboSound (u8 **wav, size_t *wav_size, const u8 *d, size_t size)
+{
+	if (!IsAsoboSound (d, size))
+		return ERR_NOTHING_TO_DO;
+	const u8 *h = d + AS_SND_DSP, *adpcm = d + AS_SND_DATA;
+	const u32 samples = as_rd32 (h), rate = as_rd32 (h + 8);
+	s16 coefs[16];
+	for (uint i = 0; i < 16; i++)
+		coefs[i] = (s16)(h[0x1c + 2 * i] << 8 | h[0x1d + 2 * i]);
+	int h1 = (s16)(h[0x40] << 8 | h[0x41]), h2 = (s16)(h[0x42] << 8 | h[0x43]);
+	const size_t bytes = 44 + (size_t)samples * 2;
+	u8 *w = MALLOC (bytes);
+	if (!w)
+		return ERR_CANT_CREATE;
+	memcpy (w, "RIFF", 4);
+	const u32 riff = (u32)(bytes - 8);
+	w[4] = riff, w[5] = riff >> 8, w[6] = riff >> 16, w[7] = riff >> 24;
+	memcpy (w + 8, "WAVEfmt ", 8);
+	const u32 fmt[] = { 16, 0x10001, rate, rate * 2 };
+	for (uint i = 0; i < 4; i++)
+		for (uint k = 0; k < 4; k++)
+			w[16 + 4 * i + k] = fmt[i] >> (8 * k);
+	w[32] = 2, w[33] = 0, w[34] = 16, w[35] = 0;
+	memcpy (w + 36, "data", 4);
+	const u32 dsz = samples * 2;
+	w[40] = dsz, w[41] = dsz >> 8, w[42] = dsz >> 16, w[43] = dsz >> 24;
+	for (u32 done = 0, f = 0; done < samples; f++)
+	{
+		s16 out[14];
+		const uint cnt = samples - done < 14 ? samples - done : 14;
+		DspAdpcmDecodeBlock (adpcm + (size_t)f * 8, cnt, out, coefs, &h1, &h2);
+		for (uint k = 0; k < cnt; k++)
+		{
+			w[44 + 2 * (done + k)] = out[k];
+			w[45 + 2 * (done + k)] = out[k] >> 8;
+		}
+		done += cnt;
+	}
+	*wav = w;
+	*wav_size = bytes;
+	return ERR_OK;
 }
