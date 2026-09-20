@@ -7106,6 +7106,47 @@ static enumError extract_pub_file (ccp arg, ccp basedir, uint depth)
 	return err;
 }
 
+// Humongous / Cat Daddy Resource.rez (Backyard Football '10, Wii): GX textures
+// -> PNG, named GROUP_INDEX, in a directory named after the file.
+static enumError extract_rez_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".rez"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false) || !raw)
+		return ERR_NOTHING_TO_DO;
+	uint count = 0;
+	rez_texture_t *list = IsHumongousRez (raw, raw_size) ? ListRezTextures (raw, raw_size, &count) : 0;
+	if (!list || !count)
+	{
+		FREE (list);
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT REZ:%s (%u textures) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, count, dest);
+
+	enumError err = ERR_OK;
+	for (uint i = 0; i < count && !err && !testmode; i++)
+	{
+		u8 *rgba = 0;
+		uint w = 0, h = 0;
+		if (DecodeRezTexture (&rgba, &w, &h, raw, raw_size, list + i))
+			continue;
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/%s%04u_%03u.png", dest, basedir ? basedir : "", list[i].group,
+			list[i].index);
+		err = SaveDecodedRGBAToPNG (rgba, w, h, &be_func, path, 0, true);
+	}
+	FREE (list);
+	FREE (raw);
+	return err;
+}
+
 // Asobo Sound_Z (Ratatouille .DRV member, DSP-ADPCM) -> WAV.
 static enumError extract_asobo_sound_file (ccp arg, ccp basedir, uint depth)
 {

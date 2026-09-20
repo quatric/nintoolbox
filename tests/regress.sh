@@ -8893,6 +8893,17 @@ with open(sys.argv[1], "wb") as f:
     fno "Bj engine" "mk_bj.py failed"
   fi
 
+  # Humongous Resource.rez (Backyard Football '10, Wii): compressed C8 texture -> PNG
+  mkdir -p "$d/rez_test"
+  if python3 "$PWD_PROJECT/../tests/mk_rez.py" "$d/rez_test" >/dev/null 2>&1; then
+    "$B/wszst" extract "$d/rez_test/Resource.rez" >/dev/null 2>&1
+    [ "$(head -c 4 "$d/rez_test/Resource.rez.d/0000_000.png" | tail -c 3)" = "PNG" ] \
+    && fok "Humongous Resource.rez: texture -> PNG" \
+    || fno "Humongous Resource.rez" "failed to extract synthetic archive"
+  else
+    fno "Humongous Resource.rez" "mk_rez.py failed"
+  fi
+
   # Atomic Planet PUB package (AMF Bowling: Pinbusters!, Wii): GX texture -> PNG
   mkdir -p "$d/pub_test"
   if python3 "$PWD_PROJECT/../tests/mk_pub.py" "$d/pub_test" >/dev/null 2>&1; then
