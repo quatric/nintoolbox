@@ -27,6 +27,7 @@
 #define SZS_LIB_ASOBO_H 1
 
 #include "lib-nintendo.h"
+#include "lib-model-glb.h"
 
 // Bitmap_Z body: u32 width, u32 height, u32 size, u8 format (7 = RGB565,
 // 12 = RGBA8, 14 = CMPR, GX tiled), u8 copy, u8 palette, u8 transp, u8 mips,
@@ -39,6 +40,23 @@ enumError DecodeAsoboBitmap (u8 **rgba, uint *width, uint *height, const u8 *dat
 // DSP-ADPCM frames. Decodes to a mono 16-bit WAV (owned buffer).
 bool IsAsoboSound (const u8 *data, size_t size);
 enumError DecodeAsoboSound (u8 **wav, size_t *wav_size, const u8 *data, size_t size);
+
+// Mesh_Z body, Wii flavour (packed, big-endian, fields not 4-aligned):
+//   8 x u32 0 (the classic vertex arrays are unused),
+//   u32 n, n x u32 Material_Z names, 24 bytes (distances / counts),
+//   5 x {u32 n, n records}: sphere (24), box (72), cylinder (44) collision
+//   volumes, AABB faces (8) and nodes (32),
+//   u32 n, n x s16[3] positions (1/4096),  u32 n, n x s16 UV components (1/1024),
+//   u32 n, n x s8 normal components (1/64),
+//   u32 k, k x {u32 padded, u32 size, GX display list}, u32 k, k x u32 hashes.
+// Display list i belongs to material i; vertices are u16 (position, normal,
+// UV) indices; primitives are triangle strips / lists / fans.
+// TEXNAME maps a Material_Z name hash to a PNG file name (or NULL).
+typedef ccp (*AsoboTexFunc) (void *ctx, u32 material_hash);
+bool IsAsoboMesh (const u8 *data, size_t size);
+model_t *ParseAsoboMesh (const u8 *data, size_t size, AsoboTexFunc texname, void *ctx);
+// First texture (Bitmap_Z name) referenced by a Material_Z body, or 0.
+u32 AsoboMaterialTexture (const u8 *data, size_t size);
 
 enumError ScanAsoboDrv (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size);
 

@@ -5,6 +5,7 @@
 #include "lib-std.h"
 #include "lib-asobo.h"
 #include <string.h>
+#include <math.h>
 #include "lib-excite.h"
 #include "lib-dspadpcm.h"
 
@@ -283,4 +284,319 @@ enumError DecodeAsoboSound (u8 **wav, size_t *wav_size, const u8 *d, size_t size
 	*wav = w;
 	*wav_size = bytes;
 	return ERR_OK;
+}
+
+//-----------------------------------------------------------------------------
+///////////////			Mesh_Z				///////////////
+//-----------------------------------------------------------------------------
+
+#define AS_MESH_MAX_DL 64
+
+typedef struct
+{
+	uint n_mat;
+	u32 mat[AS_MESH_MAX_DL];
+	uint n_pos, n_uv, n_nrm, n_dl;
+	const u8 *pos, *uv, *nrm;
+	const u8 *dl[AS_MESH_MAX_DL];
+	uint dl_size[AS_MESH_MAX_DL];
+} as_mesh_t;
+
+static bool as_mesh_layout (as_mesh_t *m, const u8 *d, size_t size)
+{
+	memset (m, 0, sizeof (*m));
+	size_t o = 0;
+#define NEED(n) ((u64)o + (u64)(n) <= size)
+	if (!NEED (0x24))
+		return false;
+	for (uint i = 0; i < 8; i++, o += 4)
+		if (as_rd32 (d + o))
+			return false;
+	m->n_mat = as_rd32 (d + o);
+	o += 4;
+	if (!m->n_mat || m->n_mat > AS_MESH_MAX_DL || !NEED (4ull * m->n_mat + 24))
+		return false;
+	for (uint i = 0; i < m->n_mat; i++, o += 4)
+		m->mat[i] = as_rd32 (d + o);
+	o += 24;
+	static const uint rec[] = { 24, 72, 44, 8, 32 };
+	for (uint i = 0; i < 5; i++)
+	{
+		if (!NEED (4))
+			return false;
+		const u32 n = as_rd32 (d + o);
+		o += 4;
+		if (n > 0x1000000 || !NEED ((u64)n * rec[i]))
+			return false;
+		o += (size_t)n * rec[i];
+	}
+	if (!NEED (4))
+		return false;
+	m->n_pos = as_rd32 (d + o);
+	o += 4;
+	if (!m->n_pos || !NEED (6ull * m->n_pos))
+		return false;
+	m->pos = d + o;
+	o += 6ull * m->n_pos;
+	if (!NEED (4))
+		return false;
+	m->n_uv = as_rd32 (d + o);
+	o += 4;
+	if (m->n_uv & 1 || !NEED (2ull * m->n_uv))
+		return false;
+	m->uv = d + o;
+	o += 2ull * m->n_uv;
+	m->n_uv /= 2;
+	if (!NEED (4))
+		return false;
+	m->n_nrm = as_rd32 (d + o);
+	o += 4;
+	if (m->n_nrm % 3 || !NEED (m->n_nrm))
+		return false;
+	m->nrm = d + o;
+	o += m->n_nrm;
+	m->n_nrm /= 3;
+	if (!NEED (4))
+		return false;
+	m->n_dl = as_rd32 (d + o);
+	o += 4;
+	if (m->n_dl != m->n_mat)
+		return false;
+	for (uint i = 0; i < m->n_dl; i++)
+	{
+		if (!NEED (8))
+			return false;
+		const u32 padded = as_rd32 (d + o), sz = as_rd32 (d + o + 4);
+		o += 8;
+		if (sz > padded || !NEED (padded))
+			return false;
+		m->dl[i] = d + o;
+		m->dl_size[i] = sz;
+		o += padded;
+	}
+	if (!NEED (4 + 4ull * m->n_dl) || as_rd32 (d + o) != m->n_dl)
+		return false;
+	o += 4 + 4ull * m->n_dl;
+#undef NEED
+	return o == size;
+}
+
+bool IsAsoboMesh (const u8 *d, size_t size)
+{
+	as_mesh_t m;
+	return as_mesh_layout (&m, d, size);
+}
+
+u32 AsoboMaterialTexture (const u8 *d, size_t size)
+{
+	return size == 161 ? as_rd32 (d + 145) : 0;
+}
+
+typedef struct
+{
+	int *pos_map, *nrm_map, *uv_map; // source index -> mesh-local index
+	uint n_tri;
+} as_remap_t;
+
+static bool as_add_mesh (model_t *model, const as_mesh_t *m, uint dl_idx, uint mesh_idx)
+{
+	const u8 *dl = m->dl[dl_idx];
+	const uint sz = m->dl_size[dl_idx];
+
+	// expand the display list to a triangle soup of (pos, nrm, uv) index triples
+	size_t cap = 0, num = 0;
+	u16 (*soup)[3] = 0;
+	for (uint i = 0; i < sz;)
+	{
+		const uint op = dl[i];
+		if (!op)
+		{
+			i++;
+			continue;
+		}
+		const uint kind = op & 0xf8;
+		if ((kind != 0x90 && kind != 0x98 && kind != 0xa0) || i + 3 > sz)
+			break;
+		const uint n = dl[i + 1] << 8 | dl[i + 2];
+		i += 3;
+		if ((u64)i + 6ull * n > sz)
+			break;
+		const u8 *v = dl + i;
+		i += 6 * n;
+		for (uint t = 0; t + 2 < n; t++)
+		{
+			uint a, b, c;
+			if (kind == 0x98)
+			{
+				a = t + 2;
+				b = (t & 1) ? t : t + 1;
+				c = (t & 1) ? t + 1 : t;
+			}
+			else if (kind == 0x90)
+			{
+				if (t % 3)
+					continue;
+				a = t, b = t + 1, c = t + 2;
+			}
+			else
+				a = t + 1, b = t + 2, c = 0;
+			if (num + 3 > cap)
+			{
+				cap = cap ? cap * 2 : 768;
+				u16 (*ns)[3] = REALLOC (soup, cap * sizeof (*ns));
+				if (!ns)
+				{
+					FREE (soup);
+					return false;
+				}
+				soup = ns;
+			}
+			const uint idx[3] = { a, b, c };
+			bool ok = true;
+			u16 tmp[3][3];
+			for (uint k = 0; k < 3; k++)
+			{
+				const u8 *q = v + 6 * idx[k];
+				tmp[k][0] = q[0] << 8 | q[1];
+				tmp[k][1] = q[2] << 8 | q[3];
+				tmp[k][2] = q[4] << 8 | q[5];
+				ok = ok && tmp[k][0] < m->n_pos && tmp[k][1] < m->n_nrm && tmp[k][2] < m->n_uv;
+			}
+			// strips are joined with degenerate triangles: drop them
+			if (!ok || (tmp[0][0] == tmp[1][0] || tmp[1][0] == tmp[2][0] || tmp[0][0] == tmp[2][0]))
+				continue;
+			memcpy (soup + num, tmp, sizeof (tmp));
+			num += 3;
+		}
+	}
+	if (!num)
+	{
+		FREE (soup);
+		return true;
+	}
+
+	mesh_t *nm = REALLOC (model->meshes, (model->num_meshes + 1) * sizeof (*nm));
+	if (!nm)
+	{
+		FREE (soup);
+		return false;
+	}
+	model->meshes = nm;
+	mesh_t *mesh = model->meshes + model->num_meshes;
+	memset (mesh, 0, sizeof (*mesh));
+	model->num_meshes++;
+	snprintf (mesh->name, sizeof (mesh->name), "mesh_%u", mesh_idx);
+	mesh->material_idx = (int)dl_idx;
+
+	// compact the arrays to the entries this list uses
+	int *pmap = MALLOC (m->n_pos * sizeof (int)), *nmap = MALLOC (m->n_nrm * sizeof (int)),
+	    *umap = MALLOC (m->n_uv * sizeof (int));
+	mesh->vertices = CALLOC (num, sizeof (*mesh->vertices));
+	mesh->positions = CALLOC (m->n_pos, sizeof (*mesh->positions));
+	mesh->normals = CALLOC (m->n_nrm, sizeof (*mesh->normals));
+	mesh->texcoords = CALLOC (m->n_uv, sizeof (*mesh->texcoords));
+	if (!pmap || !nmap || !umap || !mesh->vertices || !mesh->positions || !mesh->normals || !mesh->texcoords)
+	{
+		FREE (pmap);
+		FREE (nmap);
+		FREE (umap);
+		FREE (soup);
+		return false;
+	}
+	memset (pmap, -1, m->n_pos * sizeof (int));
+	memset (nmap, -1, m->n_nrm * sizeof (int));
+	memset (umap, -1, m->n_uv * sizeof (int));
+	for (size_t i = 0; i < num; i++)
+	{
+		const u16 *t = soup[i];
+		if (pmap[t[0]] < 0)
+		{
+			const u8 *p = m->pos + 6 * (size_t)t[0];
+			pmap[t[0]] = (int)mesh->num_positions;
+			mesh->positions[mesh->num_positions].x = (s16)(p[0] << 8 | p[1]) / 4096.0f;
+			mesh->positions[mesh->num_positions].y = (s16)(p[2] << 8 | p[3]) / 4096.0f;
+			mesh->positions[mesh->num_positions].z = (s16)(p[4] << 8 | p[5]) / 4096.0f;
+			mesh->num_positions++;
+		}
+		if (nmap[t[1]] < 0)
+		{
+			const s8 *q = (const s8 *)m->nrm + 3 * (size_t)t[1];
+			float x = q[0] / 64.0f, y = q[1] / 64.0f, z = q[2] / 64.0f;
+			const float l = sqrtf (x * x + y * y + z * z);
+			if (l > 1e-6f)
+				x /= l, y /= l, z /= l;
+			nmap[t[1]] = (int)mesh->num_normals;
+			mesh->normals[mesh->num_normals].x = x;
+			mesh->normals[mesh->num_normals].y = y;
+			mesh->normals[mesh->num_normals].z = z;
+			mesh->num_normals++;
+		}
+		if (umap[t[2]] < 0)
+		{
+			const u8 *q = m->uv + 4 * (size_t)t[2];
+			umap[t[2]] = (int)mesh->num_texcoords;
+			mesh->texcoords[mesh->num_texcoords].u = (s16)(q[0] << 8 | q[1]) / 1024.0f;
+			mesh->texcoords[mesh->num_texcoords].v = (s16)(q[2] << 8 | q[3]) / 1024.0f;
+			mesh->num_texcoords++;
+		}
+		vertex_t *v = mesh->vertices + i;
+		v->position_idx = pmap[t[0]];
+		v->normal_idx = nmap[t[1]];
+		v->tangent_idx = -1;
+		v->texcoord_idx = umap[t[2]];
+		v->matrix_idx = -1;
+		v->color_idx[0] = v->color_idx[1] = -1;
+		for (int e = 0; e < 7; e++)
+			v->extra_texcoord_idx[e] = -1;
+	}
+	mesh->num_vertices = num;
+	FREE (pmap);
+	FREE (nmap);
+	FREE (umap);
+	FREE (soup);
+	return true;
+}
+
+model_t *ParseAsoboMesh (const u8 *d, size_t size, AsoboTexFunc texname, void *ctx)
+{
+	as_mesh_t m;
+	if (!as_mesh_layout (&m, d, size))
+		return 0;
+	model_t *model = CALLOC (1, sizeof (*model));
+	if (!model)
+		return 0;
+	model->num_materials = m.n_mat;
+	model->materials = CALLOC (m.n_mat, sizeof (*model->materials));
+	if (!model->materials)
+	{
+		FREE (model);
+		return 0;
+	}
+	for (uint i = 0; i < m.n_mat; i++)
+	{
+		material_t *mt = model->materials + i;
+		snprintf (mt->name, sizeof (mt->name), "material_%08x", m.mat[i]);
+		mt->diffuse[0] = mt->diffuse[1] = mt->diffuse[2] = mt->diffuse[3] = 1.0f;
+		ccp tn = texname ? texname (ctx, m.mat[i]) : 0;
+		if (tn)
+		{
+			snprintf (mt->textures[0], sizeof (mt->textures[0]), "%s", tn);
+			mt->num_textures = 1;
+			mt->wrap_s[0] = mt->wrap_t[0] = 1;
+			mt->min_filter[0] = mt->mag_filter[0] = 1;
+			mt->has_alpha = 1;
+		}
+	}
+	for (uint i = 0; i < m.n_dl; i++)
+		if (!as_add_mesh (model, &m, i, i))
+		{
+			FreeModel (model);
+			return 0;
+		}
+	if (!model->num_meshes)
+	{
+		FreeModel (model);
+		return 0;
+	}
+	return model;
 }

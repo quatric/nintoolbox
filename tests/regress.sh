@@ -8869,7 +8869,8 @@ with open(sys.argv[1], "wb") as f:
     && [ "$(cat "$d/asobo_test/out/00001234.UserDefine_Z")" = "user define data" ] \
     && [ -s "$d/asobo_test/out/00005678.png" ] \
     && [ "$(wc -c < "$d/asobo_test/out/00009abc.wav" | tr -d ' ')" -eq 100 ] \
-    && fok "Asobo BigFile (.DRV) unpacks stored and LZRS members; Bitmap_Z -> PNG, Sound_Z -> WAV" \
+    && [ "$(head -c 4 "$d/asobo_test/out/0000def0.glb")" = "glTF" ] \
+    && fok "Asobo BigFile (.DRV) unpacks stored and LZRS members; Bitmap_Z -> PNG, Sound_Z -> WAV, Mesh_Z -> GLB" \
     || fno "Asobo BigFile" "failed to unpack synthetic TEST.DRV"
   else
     fno "Asobo BigFile" "mk_asobo.py failed"

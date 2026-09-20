@@ -104,7 +104,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **WADH** | `.wad` (DataWII.wad) | ✅ | — | — | — | Data Design Interactive archive (*Ninjabread Man*, Wii); stored members with a directory tree |
 | **CDGaCube CAR** | `.car` | ✅ | — | — | ✅ | Cat Daddy Games archive (*Birthday Party Bash*, Wii); stored and zlib members |
 | **Heavy Iron HO** | `.ho` | ✅ | — | — | ✅ | Good Engine package (*WALL-E*, *Up*, Wii); assets with debug names, GX textures to PNG |
-| **Asobo BigFile** | `.drv` | ✅ | — | — | ✅ | Asobo Studio volume (*Ratatouille*, Wii); stored and LZRS members, `Bitmap_Z` to PNG, `Sound_Z` to WAV |
+| **Asobo BigFile** | `.drv` | ✅ | — | — | ✅ | Asobo Studio volume (*Ratatouille*, Wii); stored and LZRS members, `Bitmap_Z` to PNG, `Sound_Z` to WAV, `Mesh_Z` to textured GLB |
 | **FMOD FSB** | `.fsb` | ✅ | — | — | ✅ | FMOD sound bank (FSB4 / FSB5, Wii); DSP-ADPCM and PCM16 samples decoded to WAV |
 | **Avalanche THB/TBB** | `.thb` + `.tbb` | ✅ | — | — | ✅ | Avalanche Software texture pair (*Cars 2*, Wii); single textures and atlases to PNG |
 | **Terminal Reality POD** | `.pod` | ✅ | — | — | ✅ | POD3/4/5 archive (*Nickelodeon Dance*, Wii); stored members with a directory tree |

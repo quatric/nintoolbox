@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Synthetic Asobo BigFile volume (see project/src/lib-asobo.h) with one stored
-UserDefine_Z resource, one LZRS-compressed Bitmap_Z and one DSP Sound_Z. usage: mk_asobo.py OUTDIR -> OUTDIR/TEST.DRV"""
+UserDefine_Z resource, one LZRS-compressed Bitmap_Z one DSP Sound_Z and one Mesh_Z triangle. usage: mk_asobo.py OUTDIR -> OUTDIR/TEST.DRV"""
 import os, struct, sys
 
 def h(s):
@@ -34,9 +34,17 @@ dsp = struct.pack('>IIIHH', 28, 32, 22050, 0, 0) + struct.pack('>III', 0, 0, 2) 
 dsp = dsp.ljust(0x60, b'\0')
 snd = b'\0\0' + struct.pack('>I', 0x60 + 16) + b'\0\0\0\0' + dsp + bytes(16)
 r3 = B(len(snd) + 8, 8, len(snd), 0, h('Sound_Z'), 0x9abc) + b'\0' * 8 + snd
-block = r1 + r2 + r3
+# Mesh_Z (Wii layout): one triangle from a GX triangle-list display list
+pos = b''.join(struct.pack('>3h', *v) for v in [(0, 0, 0), (4096, 0, 0), (0, 4096, 0)])
+uvs = b''.join(struct.pack('>2h', *v) for v in [(0, 0), (1024, 0), (0, 1024)])
+nrm = bytes([0, 0, 64] * 3)
+dl = bytes([0x90]) + struct.pack('>H', 3) + b''.join(struct.pack('>3H', i, i, i) for i in range(3))
+mesh = bytes(32) + B(1, 0xfeedf00d) + bytes(24) + bytes(20)
+mesh += B(3) + pos + B(6) + uvs + B(9) + nrm + B(1, 32, len(dl)) + dl.ljust(32, b'\xcd') + B(1, 0x1)
+r4 = B(len(mesh) + 8, 8, len(mesh), 0, h('Mesh_Z'), 0xdef0) + b'\0' * 8 + mesh
+block = r1 + r2 + r3 + r4
 padded = (len(block) + 2047) & ~2047
-blockdesc = B(3, padded, len(block), 0, 0x1234, 0)
+blockdesc = B(4, padded, len(block), 0, 0x1234, 0)
 head = b'v1.06.63.01 - Asobo Studio - Internal Cross Technology'.ljust(0x100, b'\0')
 head += B(0, 1, padded, padded, padded, 1, 0, 0) + blockdesc
 out = head.ljust(0x800, b'\0') + block.ljust(padded, b'\0')
