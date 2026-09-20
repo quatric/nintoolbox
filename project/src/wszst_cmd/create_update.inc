@@ -7144,8 +7144,9 @@ static enumError extract_pub_file (ccp arg, ccp basedir, uint depth)
 	return err;
 }
 
-// Humongous / Cat Daddy Resource.rez (Backyard Football '10, Wii): GX textures
-// -> PNG, named GROUP_INDEX, in a directory named after the file.
+// Humongous / Cat Daddy Resource.rez (Backyard Football '10, Wii): GX
+// textures -> PNG, DSP-ADPCM sounds -> WAV and THP videos, named GROUP_INDEX,
+// in a directory named after the file.
 static enumError extract_rez_file (ccp arg, ccp basedir, uint depth)
 {
 	if (!is_ext (arg, ".rez"))
@@ -7155,7 +7156,7 @@ static enumError extract_rez_file (ccp arg, ccp basedir, uint depth)
 	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false) || !raw)
 		return ERR_NOTHING_TO_DO;
 	uint count = 0;
-	rez_texture_t *list = IsHumongousRez (raw, raw_size) ? ListRezTextures (raw, raw_size, &count) : 0;
+	rez_res_t *list = IsHumongousRez (raw, raw_size) ? ListRezResources (raw, raw_size, &count) : 0;
 	if (!list || !count)
 	{
 		FREE (list);
@@ -7165,20 +7166,51 @@ static enumError extract_rez_file (ccp arg, ccp basedir, uint depth)
 	char dest[PATH_MAX];
 	beside_source_dest (dest, sizeof (dest), arg);
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT REZ:%s (%u textures) -> %s/\n", verbose > 0 ? "\n" : "",
+		fprintf (stdlog, "%s%sEXTRACT REZ:%s (%u resources) -> %s/\n", verbose > 0 ? "\n" : "",
 			testmode ? "WOULD " : "", arg, count, dest);
 
 	enumError err = ERR_OK;
 	for (uint i = 0; i < count && !err && !testmode; i++)
 	{
-		u8 *rgba = 0;
-		uint w = 0, h = 0;
-		if (DecodeRezTexture (&rgba, &w, &h, raw, raw_size, list + i))
+		const rez_res_t *r = list + i;
+		size_t n = 0;
+		u8 *res = LoadRezResource (raw, raw_size, r, &n);
+		if (!res)
 			continue;
 		char path[PATH_MAX];
-		snprintf (path, sizeof (path), "%s/%s%04u_%03u.png", dest, basedir ? basedir : "", list[i].group,
-			list[i].index);
-		err = SaveDecodedRGBAToPNG (rgba, w, h, &be_func, path, 0, true);
+		const ccp ext = r->kind == REZ_TEXTURE ? "png" : r->kind == REZ_SOUND ? "wav" : "thp";
+		snprintf (path, sizeof (path), "%s/%s%04u_%03u.%s", dest, basedir ? basedir : "", r->group, r->index, ext);
+		if (r->kind == REZ_TEXTURE)
+		{
+			u8 *rgba = 0;
+			uint w = 0, h = 0;
+			if (!DecodeRezTexture (&rgba, &w, &h, res, n))
+				err = SaveDecodedRGBAToPNG (rgba, w, h, &be_func, path, 0, true);
+		}
+		else
+		{
+			u8 *wav = 0;
+			size_t wav_size = 0;
+			const u8 *out = res;
+			size_t out_size = n;
+			if (r->kind == REZ_SOUND)
+			{
+				if (DecodeRezSound (&wav, &wav_size, res, n))
+				{
+					FREE (res);
+					continue;
+				}
+				out = wav;
+				out_size = wav_size;
+			}
+			File_t F;
+			err = CreateFileOpt (&F, true, path, false, arg);
+			if (F.f && fwrite (out, 1, out_size, F.f) != out_size)
+				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", out_size, path);
+			ResetFile (&F, opt_preserve);
+			FREE (wav);
+		}
+		FREE (res);
 	}
 	FREE (list);
 	FREE (raw);
