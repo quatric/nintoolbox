@@ -7358,7 +7358,7 @@ static enumError extract_bttrb_file (ccp arg, ccp basedir, uint depth)
 	const bool is_trb = IsBlueTongueTrb (raw, raw_size);
 	bttrb_tex_t *list = is_trb ? ListBlueTongueTextures (raw, raw_size, &count) : 0;
 	const u8 *xur = is_trb ? FindBlueTongueSection (raw, raw_size, "XUR", &xur_size) : 0;
-	if (!count && !xur)
+	if (!count && !xur && !(is_trb && CountBlueTongueModels (raw, raw_size)))
 	{
 		FREE (list);
 		FREE (raw);
@@ -7394,6 +7394,41 @@ static enumError extract_bttrb_file (ccp arg, ccp basedir, uint depth)
 		if (F.f && fwrite (xur, 1, xur_size, F.f) != xur_size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", xur_size, path);
 		ResetFile (&F, opt_preserve);
+	}
+	// models: one GLB per "tcmd" object
+	const uint n_models = is_trb && !testmode && !err ? CountBlueTongueModels (raw, raw_size) : 0;
+	char used[256][64];
+	uint n_used = 0;
+	for (uint i = 0; i < n_models && !err && n_used < 256; i++)
+	{
+		char mname[64], clean[64];
+		model_t *model = BuildBlueTongueModel (raw, raw_size, i, mname, sizeof (mname));
+		if (!model)
+			continue;
+		snprintf (clean, sizeof (clean), "%s", mname);
+		for (char *c = clean; *c; c++)
+			if (!isalnum ((u8)*c) && *c != '_' && *c != '-' && *c != '.')
+				*c = '_';
+		if (!*clean)
+			snprintf (clean, sizeof (clean), "model");
+		char base[64];
+		snprintf (base, sizeof (base), "%.56s", clean);
+		for (uint k = 2;; k++)
+		{
+			bool clash = false;
+			for (uint u = 0; u < n_used && !clash; u++)
+				clash = !strcasecmp (used[u], clean);
+			if (!clash)
+				break;
+			snprintf (clean, sizeof (clean), "%s_%u", base, k);
+		}
+		snprintf (used[n_used++], 64, "%s", clean);
+		char mdir[PATH_MAX], path[PATH_MAX];
+		snprintf (mdir, sizeof (mdir), "%s/%smodels", dest, basedir ? basedir : "");
+		snprintf (path, sizeof (path), "%s/%s.glb", mdir, clean);
+		if (!CreatePath (mdir, true))
+			ExportModelToGLB (model, path);
+		FreeModel (model);
 	}
 	FREE (list);
 	FREE (raw);

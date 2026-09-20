@@ -84,7 +84,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **BG4** | `.bg4` | ✅ | ✅ | ✅ | — | AlphaDream 3DS flat archive with BLZ member compression |
 | **BIGF** | `.big` | ✅ | ✅ | ✅ | — | Electronic Arts Wii asset archive |
 | **Bj engine** | `.tx1`/`.tx2`, `.mtm`, `.bsi`, `.bsm` | ✅ | — | — | ✅ | *Super Karts* (Wii): textures to PNG, meshes to GLB, sounds and music to WAV. |
-| **Blue Tongue TRB** | `.trb` | ✅ | — | — | ✅ | *de Blob 2* (Wii): `ttex` textures (I4 to CMPR, paletted) to PNG, embedded XUR UI scenes. Models not decoded. |
+| **Blue Tongue TRB** | `.trb` | ✅ | — | — | ✅ | *de Blob 2* (Wii): `ttex` textures (I4 to CMPR, paletted) to PNG, embedded XUR UI scenes, `tcmd` level and prop geometry to GLB (positions, normals, UVs; no materials; some batch variants skipped). |
 | **BNS Archive** | `.bns` | ✅ | — | — | ✅ | Koei Tecmo *Samurai Warriors 3* multi-file asset archive (`LINKDATA*.BNS`). |
 | **BombShell data pack** | `.xwi`, `.xdx9` | ✅ | — | — | ✅ | Smart Bomb Interactive engine (*Bee Movie Game*, Wii / PC): textures to PNG, sounds to FSB / WAV. |
 | **CA01 / SA01** | `.ca01`, `.sa01` | ✅ | ✅ | ✅ | — | Nintendo Network Mii & amiibo system archive (3DS / Wii U) |
