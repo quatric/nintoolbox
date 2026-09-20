@@ -8874,6 +8874,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Asobo BigFile" "mk_asobo.py failed"
   fi
 
+  # FMOD FSB4 sound bank (Wii DSP-ADPCM) decodes to WAV
+  mkdir -p "$d/fsb_test"
+  if python3 "$PWD_PROJECT/../tests/mk_fsb.py" "$d/fsb_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/fsb_test/TEST.fsb" --dest "$d/fsb_test/out" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/fsb_test/out/silent_one.wav" | tr -d ' ')" -eq 100 ] \
+    && [ "$(head -c 4 "$d/fsb_test/out/silent_one.wav")" = "RIFF" ] \
+    && fok "FSB4 bank (GCADPCM) decodes to WAV" \
+    || fno "FSB4 bank" "failed to decode synthetic TEST.fsb"
+  else
+    fno "FSB4 bank" "mk_fsb.py failed"
+  fi
+
   # Rainbow Studios (Disney-Pixar Cars) .gct texture + .gcg geometry
   mkdir -p "$d/cars_test"
   if python3 "$PWD_PROJECT/../tests/mk_cars.py" "$d/cars_test" >/dev/null 2>&1; then
