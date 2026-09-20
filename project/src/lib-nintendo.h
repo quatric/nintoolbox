@@ -492,6 +492,7 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-asobo.h"
 #include "lib-bj.h"
 #include "lib-torus.h"
+#include "lib-pub.h"
 #include "lib-toshi.h"
 #include "lib-fbc.h"
 #include "lib-fsb.h"

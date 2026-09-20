@@ -8893,6 +8893,17 @@ with open(sys.argv[1], "wb") as f:
     fno "Bj engine" "mk_bj.py failed"
   fi
 
+  # Atomic Planet PUB package (AMF Bowling: Pinbusters!, Wii): GX texture -> PNG
+  mkdir -p "$d/pub_test"
+  if python3 "$PWD_PROJECT/../tests/mk_pub.py" "$d/pub_test" >/dev/null 2>&1; then
+    "$B/wszst" extract "$d/pub_test/T_WII.PUB" >/dev/null 2>&1
+    [ "$(head -c 4 "$d/pub_test/T_WII.PUB.d/0000_deadbeef.png" | tail -c 3)" = "PNG" ] \
+    && fok "Atomic Planet PUB: texture -> PNG" \
+    || fno "Atomic Planet PUB" "failed to extract synthetic package"
+  else
+    fno "Atomic Planet PUB" "mk_pub.py failed"
+  fi
+
   # Torus Games hunkfile (Barbie: Puppy Rescue, Wii): CMPR texture -> PNG, DSP stream -> WAV
   mkdir -p "$d/torus_test"
   if python3 "$PWD_PROJECT/../tests/mk_torus.py" "$d/torus_test" >/dev/null 2>&1; then

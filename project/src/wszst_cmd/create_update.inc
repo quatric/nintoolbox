@@ -7067,6 +7067,45 @@ static enumError extract_fbc_file (ccp arg, ccp basedir, uint depth)
 	return write_owned_entries (arg, basedir, depth, "FBC", entries, n_entries);
 }
 
+// Atomic Planet PUB package (*WII.PUB, Wii): GX textures -> PNG, in a
+// directory named after the package.
+static enumError extract_pub_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".pub"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false) || !raw)
+		return ERR_NOTHING_TO_DO;
+	uint count = 0;
+	pub_texture_t *list = IsAtomicPub (raw, raw_size) ? ListPubTextures (raw, raw_size, &count) : 0;
+	if (!list || !count)
+	{
+		FREE (list);
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT PUB:%s (%u textures) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, count, dest);
+
+	enumError err = ERR_OK;
+	for (uint i = 0; i < count && !err && !testmode; i++)
+	{
+		u8 *rgba = 0;
+		if (DecodePubTexture (&rgba, list + i))
+			continue;
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/%s%04u_%08x.png", dest, basedir ? basedir : "", i, list[i].hash);
+		err = SaveDecodedRGBAToPNG (rgba, list[i].width, list[i].height, &be_func, path, 0, true);
+	}
+	FREE (list);
+	FREE (raw);
+	return err;
+}
+
 // Asobo Sound_Z (Ratatouille .DRV member, DSP-ADPCM) -> WAV.
 static enumError extract_asobo_sound_file (ccp arg, ccp basedir, uint depth)
 {
