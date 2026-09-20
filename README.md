@@ -103,6 +103,8 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **IPK** | `.ipk` | ✅ | — | — | — | Ubisoft UbiArt IPK archive (*Just Dance*, *Rayman Origins/Legends*, *Child of Light*; Wii / Wii U / Switch / PC; zlib + LZMA members, old/new path-name orders) |
 | **WADH** | `.wad` (DataWII.wad) | ✅ | — | — | — | Data Design Interactive archive (*Ninjabread Man*, Wii); stored members with a directory tree |
 | **CDGaCube CAR** | `.car` | ✅ | — | — | ✅ | Cat Daddy Games archive (*Birthday Party Bash*, Wii); stored and zlib members |
+| **Heavy Iron HO** | `.ho` | ✅ | — | — | ✅ | Good Engine package (*WALL-E*, *Up*, Wii); assets with debug names, GX textures to PNG |
+| **Asobo BigFile** | `.drv` | ✅ | — | — | ✅ | Asobo Studio volume (*Ratatouille*, Wii); stored and LZRS members, `Bitmap_Z` to PNG |
 | **Terminal Reality POD** | `.pod` | ✅ | — | — | ✅ | POD3/4/5 archive (*Nickelodeon Dance*, Wii); stored members with a directory tree |
 | **DC2 DCX / DCT** | `.dcx`, `.dct` | ✅ | — | — | — | *Jakers! Kart Racing* (Wii): directory archives; GX CMPR / RGBA8 textures → PNG |
 | **NIF (Gamebryo 20.6, Wii)** | `.nif` | ✅ | — | — | — | *Pocoyo Racing* (Wii): embedded DXT1 / RGBA textures → PNG, `NiMesh` scenes → textured GLB (world space, bind pose) |

@@ -8850,6 +8850,30 @@ with open(sys.argv[1], "wb") as f:
     fno "POD5 archive" "mk_termpod.py failed"
   fi
 
+  # Heavy Iron Good Engine .ho package (WALL-E / Up)
+  mkdir -p "$d/ho_test"
+  if python3 "$PWD_PROJECT/../tests/mk_ho.py" "$d/ho_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/ho_test/TEST.ho" --dest "$d/ho_test/out" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/ho_test/out/first_asset.11223344")" = "hello ho" ] \
+    && [ "$(wc -c < "$d/ho_test/out/second_asset.55667788" | tr -d ' ')" -eq 40 ] \
+    && fok "Heavy Iron .ho package unpacks assets with debug names" \
+    || fno "Heavy Iron .ho package" "failed to unpack synthetic TEST.ho"
+  else
+    fno "Heavy Iron .ho package" "mk_ho.py failed"
+  fi
+
+  # Asobo BigFile volume (Ratatouille .DRV): stored + LZRS members, Bitmap_Z -> PNG
+  mkdir -p "$d/asobo_test"
+  if python3 "$PWD_PROJECT/../tests/mk_asobo.py" "$d/asobo_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/asobo_test/TEST.DRV" --dest "$d/asobo_test/out" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/asobo_test/out/00001234.UserDefine_Z")" = "user define data" ] \
+    && [ -s "$d/asobo_test/out/00005678.png" ] \
+    && fok "Asobo BigFile (.DRV) unpacks stored and LZRS members; Bitmap_Z -> PNG" \
+    || fno "Asobo BigFile" "failed to unpack synthetic TEST.DRV"
+  else
+    fno "Asobo BigFile" "mk_asobo.py failed"
+  fi
+
   # Rainbow Studios (Disney-Pixar Cars) .gct texture + .gcg geometry
   mkdir -p "$d/cars_test"
   if python3 "$PWD_PROJECT/../tests/mk_cars.py" "$d/cars_test" >/dev/null 2>&1; then

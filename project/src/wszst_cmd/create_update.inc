@@ -6313,6 +6313,48 @@ static enumError extract_termpod_file (ccp arg, ccp basedir, uint depth)
 	return write_owned_entries (arg, basedir, depth, "TERMPOD", entries, n_entries);
 }
 
+// Heavy Iron Good Engine .ho packages (Ratatouille, WALL-E, Up). Extract-only.
+static enumError extract_ho_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".ho"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	nintendo_sarc_entry_t *entries = 0;
+	uint n_entries = 0;
+	err = ScanHO (&entries, &n_entries, raw, raw_size);
+	FREE (raw);
+	if (err || !n_entries)
+		return ERR_NOTHING_TO_DO;
+	return write_owned_entries (arg, basedir, depth, "HO", entries, n_entries);
+}
+
+// Asobo Studio BigFile volumes (Ratatouille .DRV). Extract-only.
+static enumError extract_asobo_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".drv"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+
+	nintendo_sarc_entry_t *entries = 0;
+	uint n_entries = 0;
+	err = ScanAsoboDrv (&entries, &n_entries, raw, raw_size);
+	FREE (raw);
+	if (err || !n_entries)
+		return ERR_NOTHING_TO_DO;
+	return write_owned_entries (arg, basedir, depth, "ASOBO", entries, n_entries);
+}
+
 // Data Design Interactive "WADH" archives (DataWII.wad, Ninjabread Man).
 // Extract-only; members are stored uncompressed.
 static enumError extract_wadh_file (ccp arg, ccp basedir, uint depth)
@@ -6426,6 +6468,89 @@ static enumError extract_gct_file (ccp arg, ccp basedir, uint depth)
 	err = SaveDecodedRGBAToPNG (rgba, w, h, &be_func, dest, 0, true);
 	if (!err && verbose >= 0)
 		fprintf (stdlog, "%sEXTRACT GCT:%s -> PNG:%s\n", verbose > 0 ? "\n" : "", arg, dest);
+	return err;
+}
+
+// Asobo Bitmap_Z texture (Ratatouille .DRV member) -> PNG.
+static enumError extract_asobo_bitmap_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".bitmap_z"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+	if (raw_size > UINT_MAX || !IsAsoboBitmap (raw, (uint)raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest_ext (dest, sizeof (dest), arg, ".png");
+	if (testmode)
+	{
+		FREE (raw);
+		fprintf (stdlog, "WOULD EXTRACT ASOBO-BITMAP:%s -> PNG:%s\n", arg, dest);
+		return ERR_OK;
+	}
+	if (blitz_output_current (arg, dest))
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+	u8 *rgba = 0;
+	uint w = 0, h = 0;
+	err = DecodeAsoboBitmap (&rgba, &w, &h, raw, (uint)raw_size);
+	FREE (raw);
+	if (err)
+		return err;
+	err = SaveDecodedRGBAToPNG (rgba, w, h, &be_func, dest, 0, true);
+	if (!err && verbose >= 0)
+		fprintf (stdlog, "%sEXTRACT ASOBO-BITMAP:%s -> PNG:%s\n", verbose > 0 ? "\n" : "", arg, dest);
+	return err;
+}
+
+// Heavy Iron .ho texture pixel blob (WALL-E / Up) -> PNG. The blob has no
+// telltale extension (its type hash varies per game), so it is recognised by
+// content.
+static enumError extract_ho_texture_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+	if (raw_size > UINT_MAX || !IsHoTexture (raw, (uint)raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest_ext (dest, sizeof (dest), arg, ".png");
+	if (testmode)
+	{
+		FREE (raw);
+		fprintf (stdlog, "WOULD EXTRACT HO-TEXTURE:%s -> PNG:%s\n", arg, dest);
+		return ERR_OK;
+	}
+	if (blitz_output_current (arg, dest))
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+	u8 *rgba = 0;
+	uint w = 0, h = 0;
+	err = DecodeHoTexture (&rgba, &w, &h, raw, (uint)raw_size);
+	FREE (raw);
+	if (err)
+		return err;
+	err = SaveDecodedRGBAToPNG (rgba, w, h, &be_func, dest, 0, true);
+	if (!err && verbose >= 0)
+		fprintf (stdlog, "%sEXTRACT HO-TEXTURE:%s -> PNG:%s\n", verbose > 0 ? "\n" : "", arg, dest);
 	return err;
 }
 

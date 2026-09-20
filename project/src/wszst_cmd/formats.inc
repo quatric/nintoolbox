@@ -887,8 +887,31 @@ static enumError extract_one_file (ccp arg, ccp basedir, uint depth)
 	return err;
 }
 
+// Heavy Iron .ho assets are written as "name.<8 hex digits of the type hash>";
+// their payloads are opaque engine data.
+static bool is_ho_asset_name (ccp arg)
+{
+	ccp dot = strrchr (arg, '.');
+	if (!dot || dot == arg || strlen (dot) != 9)
+		return false;
+	for (uint i = 1; i < 9; i++)
+		if (!isxdigit ((u8)dot[i]))
+			return false;
+	return true;
+}
+
 static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 {
+	if (is_ho_asset_name (arg))
+	{
+		const enumError terr = extract_ho_texture_file (arg, basedir, depth);
+		return terr == ERR_NOTHING_TO_DO ? ERR_OK : terr;
+	}
+	// Asobo BigFile members ("hash.Class_Z" plus ".lnk" link headers) are
+	// opaque engine data apart from bitmaps.
+	if ((is_ext (arg, ".lnk") || (strlen (arg) > 2 && !strcasecmp (arg + strlen (arg) - 2, "_Z")))
+		&& !is_ext (arg, ".bitmap_z"))
+		return ERR_OK;
 	// Grip .res sections other than textures are opaque object data; keep the
 	// magic-less sniffers from unpacking them into junk ".d" folders.
 	{
@@ -1098,6 +1121,14 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
+	err = extract_ho_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_asobo_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
 	err = extract_dcx_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
@@ -1123,6 +1154,10 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		return err;
 
 	err = extract_bltex_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_asobo_bitmap_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
