@@ -220,6 +220,7 @@ enumError DecodeBlueTongueTexture (u8 **rgba, const u8 *d, size_t size, const bt
 
 #define BT_TCMD 0x646d6374u
 #define BT_MAX_BATCHES 4096
+#define BT_MAX_ATTR 8
 #define BT_MAX_VERTS 200000
 
 static bool bt_section_named (const u8 *d, size_t size, ccp name, bt_sec_t *out)
@@ -278,29 +279,32 @@ uint CountBlueTongueModels (const u8 *d, size_t size)
 
 typedef struct bt_batch_t
 {
+	uint n;			// attributes stored per vertex (BT_MAX_ATTR at most)
 	u32 dl_size, dl_off;
-	u32 arr[4], cnt[4];
-	uint frac[4];
+	uint attr[BT_MAX_ATTR];	// GX attribute ids, in vertex order (< 9: inline byte, no array)
+	u32 arr[BT_MAX_ATTR], cnt[BT_MAX_ATTR], elem[BT_MAX_ATTR], frac[BT_MAX_ATTR];
+	bool shared[BT_MAX_ATTR];	// array not stored here (bit 15 of its count)
+	const u8 *src[BT_MAX_ATTR];	// start of the gpu_data holding the array
 } bt_batch_t;
 
-static void bt_vert (const u8 *q, const uint wd[4], uint out[4])
+static void bt_vert (const u8 *q, const uint wd[BT_MAX_ATTR], uint out[BT_MAX_ATTR])
 {
-	for (uint k = 0; k < 4; k++)
+	for (uint k = 0; k < BT_MAX_ATTR; k++)
 	{
-		out[k] = wd[k] == 1 ? q[0] : q[0] << 8 | q[1];
+		out[k] = wd[k] == 0 ? 0 : wd[k] == 1 ? q[0] : q[0] << 8 | q[1];
 		q += wd[k];
 	}
 }
 
 // Triangulates the display list; fills IDX (when given) and returns the number
 // of vertices, or 0 for a malformed list.
-static size_t bt_dl_verts (const u8 *d, size_t size, const bt_sec_t *gpu, const bt_batch_t *b, uint (*idx)[4],
+static size_t bt_dl_verts (const u8 *d, size_t size, const bt_sec_t *gpu, const bt_batch_t *b, uint (*idx)[BT_MAX_ATTR],
 	size_t max)
 {
-	uint wd[4];
-	for (uint a = 0; a < 4; a++)
-		wd[a] = b->cnt[a] > 256 ? 2 : 1;
-	const size_t stride = wd[0] + wd[1] + wd[2] + wd[3];
+	uint wd[BT_MAX_ATTR] = { 0 };
+	size_t stride = 0;
+	for (uint a = 0; a < b->n; a++)
+		stride += wd[a] = b->attr[a] < 9 || b->cnt[a] <= 256 ? 1 : 2;
 	if (b->dl_off + (u64)b->dl_size > gpu->size || (u64)gpu->off + gpu->size > size)
 		return 0;
 	const u8 *dl = d + gpu->off + b->dl_off;
@@ -353,9 +357,86 @@ static size_t bt_dl_verts (const u8 *d, size_t size, const bt_sec_t *gpu, const 
 	return out;
 }
 
-model_t *BuildBlueTongueModel (const u8 *d, size_t size, uint index, char *name, size_t name_size)
+// Parses batch record R of the package into B; false when it cannot be read.
+static bool bt_parse_batch (const u8 *d, size_t size, const bt_sec_t *data, const bt_sec_t *gpu, size_t r,
+	bt_batch_t *b)
 {
-	const u64 obj = bt_tcmd (d, size, index, name, name_size);
+	memset (b, 0, sizeof (*b));
+	const u32 fmt = bt_u32 (d, size, r + 4), pairs = bt_u32 (d, size, r + 0x14);
+	if (fmt + 0x14ull > data->size || pairs < 8 || pairs + 40ull > data->size)
+		return false;
+	b->n = bt_u32 (d, size, (size_t)data->off + fmt);
+	if (!b->n || b->n > BT_MAX_ATTR || fmt + 4 + 4ull * b->n > data->size)
+		return false;
+	b->dl_size = bt_u32 (d, size, (size_t)data->off + pairs - 8);
+	b->dl_off = bt_u32 (d, size, (size_t)data->off + pairs - 4);
+	bool ok = b->dl_size != 0;
+	bool has[16] = { 0 };
+	uint np = 0;
+	for (uint a = 0; a < b->n && ok; a++)
+	{
+		const u32 fd = bt_u32 (d, size, (size_t)data->off + fmt + 4 + 4 * a);
+		b->attr[a] = fd & 0xff;
+		b->frac[a] = fd >> 8 & 0xff;
+		b->src[a] = d + gpu->off;
+		if (b->attr[a] < 9)
+			continue;			// matrix index bytes: nothing stored
+		const size_t po = (size_t)data->off + pairs + 8 * np++;
+		b->arr[a] = bt_u32 (d, size, po);
+		const u32 desc = bt_u32 (d, size, po + 4);
+		b->elem[a] = desc >> 16 & 0xff;
+		b->cnt[a] = desc & 0xffff;
+		b->shared[a] = (desc & 0x8000) != 0;
+		if (b->shared[a])
+		{
+			b->cnt[a] = 0;
+			ok = (desc >> 24) == b->attr[a] && b->attr[a] < 16 && !has[b->attr[a]];
+			has[b->attr[a]] = true;
+			continue;
+		}
+		ok = (desc >> 24) == b->attr[a] && b->cnt[a] && b->attr[a] < 16
+			&& ((b->attr[a] == 9 && b->elem[a] == 6) || (b->attr[a] == 10 && b->elem[a] == 3)
+				|| (b->attr[a] >= 13 && b->elem[a] == 4) || b->attr[a] == 11 || b->attr[a] == 12)
+			&& !has[b->attr[a]] && (u64)b->arr[a] + (u64)b->cnt[a] * b->elem[a] <= gpu->size
+			&& pairs + 8ull * np <= data->size;
+		has[b->attr[a]] = true;
+	}
+	return ok;
+}
+
+// Batch K of the library package's model NAME with NB batches (own arrays only).
+static bool bt_lib_batch (const u8 *d, size_t size, ccp name, uint nb, uint k, bt_batch_t *out)
+{
+	bt_sec_t data, gpu;
+	if (!bt_section_named (d, size, ".data", &data) || !bt_section_named (d, size, "gpu_data", &gpu))
+		return false;
+	char nm[64];
+	for (uint i = 0; bt_tcmd (d, size, i, nm, sizeof (nm)); i++)
+	{
+		if (strcmp (nm, name))
+			continue;
+		const u64 obj = bt_tcmd (d, size, i, 0, 0);
+		if (bt_u32 (d, size, obj + 0x10) != nb)
+			continue;
+		const u32 arr = bt_u32 (d, size, obj + 0x14);
+		if (arr + 4ull * nb > data.size)
+			continue;
+		const u32 rec = bt_u32 (d, size, (size_t)data.off + arr + 4 * k);
+		if (rec + 0x68ull > data.size)
+			continue;
+		if (bt_parse_batch (d, size, &data, &gpu, (size_t)data.off + rec, out))
+			return true;
+	}
+	return false;
+}
+
+model_t *BuildBlueTongueModel (const u8 *d, size_t size, uint index, char *name, size_t name_size, const u8 *lib,
+	size_t lib_size)
+{
+	char name_of_model[64];
+	const u64 obj = bt_tcmd (d, size, index, name_of_model, sizeof (name_of_model));
+	if (name)
+		snprintf (name, name_size, "%s", name_of_model);
 	bt_sec_t data, gpu;
 	if (!obj || !bt_section_named (d, size, ".data", &data) || !bt_section_named (d, size, "gpu_data", &gpu))
 		return 0;
@@ -373,32 +454,48 @@ model_t *BuildBlueTongueModel (const u8 *d, size_t size, uint index, char *name,
 			continue;
 		const size_t r = (size_t)data.off + rec;
 		bt_batch_t b;
-		memset (&b, 0, sizeof (b));
-		b.dl_size = bt_u32 (d, size, r + 0x40);
-		b.dl_off = bt_u32 (d, size, r + 0x44);
-		bool ok = b.dl_size != 0;
-		for (uint a = 0; a < 4; a++)
+		if (!bt_parse_batch (d, size, &data, &gpu, r, &b))
+			continue;
+		bool any_shared = false;
+		for (uint a = 0; a < b.n; a++)
+			any_shared = any_shared || b.shared[a];
+		if (any_shared)
 		{
-			b.arr[a] = bt_u32 (d, size, r + 0x48 + 8 * a);
-			const u32 desc = bt_u32 (d, size, r + 0x4c + 8 * a);
-			b.cnt[a] = desc & 0xffff;
-			ok = ok && !(desc & 0x8000) && b.cnt[a] && (desc >> 24) == (a == 0 ? 9u : a == 1 ? 10u : a == 2 ? 13u : 14u);
+			// the arrays come from the same-named model of the library package
+			bt_batch_t lb;
+			if (!lib || !bt_lib_batch (lib, lib_size, name_of_model, nb, k, &lb))
+				continue;
+			bool fine = true;
+			for (uint a = 0; a < b.n && fine; a++)
+			{
+				if (!b.shared[a])
+					continue;
+				uint j = 0;
+				while (j < lb.n && lb.attr[j] != b.attr[a])
+					j++;
+				fine = j < lb.n && !lb.shared[j];
+				if (fine)
+				{
+					b.arr[a] = lb.arr[j];
+					b.cnt[a] = lb.cnt[j];
+					b.elem[a] = lb.elem[j];
+					b.frac[a] = lb.frac[j];
+					b.src[a] = lb.src[0];
+				}
+			}
+			if (!fine)
+				continue;
 		}
-		const u32 fmt = bt_u32 (d, size, r + 4);
-		if (!ok || fmt + 0x14ull > data.size || bt_u32 (d, size, (size_t)data.off + fmt) != 4)
-			continue;
-		for (uint a = 0; a < 4; a++)
-			b.frac[a] = bt_u32 (d, size, (size_t)data.off + fmt + 4 + 4 * a) >> 8 & 0xff;
-		const u32 elem[4] = { 6, 3, 4, 4 };
-		for (uint a = 0; a < 4 && ok; a++)
-			ok = (u64)b.arr[a] + (u64)b.cnt[a] * elem[a] <= gpu.size;
-		if (!ok)
-			continue;
 
+		bool has_pos = false;
+		for (uint a = 0; a < b.n; a++)
+			has_pos = has_pos || b.attr[a] == 9;
+		if (!has_pos)
+			continue;
 		const size_t nv = bt_dl_verts (d, size, &gpu, &b, 0, 0);
 		if (!nv || nv > BT_MAX_VERTS)
 			continue;
-		uint (*idx)[4] = MALLOC (nv * sizeof (*idx));
+		uint (*idx)[BT_MAX_ATTR] = MALLOC (nv * sizeof (*idx));
 		if (!idx)
 			continue;
 		bt_dl_verts (d, size, &gpu, &b, idx, nv);
@@ -423,29 +520,34 @@ model_t *BuildBlueTongueModel (const u8 *d, size_t size, uint index, char *name,
 			FreeModel (m);
 			return 0;
 		}
-		const float sp = 1.0f / (float)(1u << (b.frac[0] & 15)), sn = 1.0f / (float)(1u << (b.frac[1] & 15)),
-			st = 1.0f / (float)(1u << (b.frac[2] & 15));
 		for (size_t i = 0; i < nv; i++)
 		{
-			const uint ip = idx[i][0] < b.cnt[0] ? idx[i][0] : 0, in = idx[i][1] < b.cnt[1] ? idx[i][1] : 0,
-				it = idx[i][2] < b.cnt[2] ? idx[i][2] : 0;
-			const u8 *pp = d + gpu.off + b.arr[0] + 6 * (size_t)ip;
-			mesh->positions[i] = (vec3_t){ (int16_t)(pp[0] << 8 | pp[1]) * sp, (int16_t)(pp[2] << 8 | pp[3]) * sp,
-				(int16_t)(pp[4] << 8 | pp[5]) * sp };
-			const u8 *np_ = d + gpu.off + b.arr[1] + 3 * (size_t)in;
-			vec3_t n = { (int8_t)np_[0] * sn, (int8_t)np_[1] * sn, (int8_t)np_[2] * sn };
-			const float len = sqrtf (n.x * n.x + n.y * n.y + n.z * n.z);
-			if (len > 0)
-				n = (vec3_t){ n.x / len, n.y / len, n.z / len };
-			mesh->normals[i] = n;
-			const u8 *tp = d + gpu.off + b.arr[2] + 4 * (size_t)it;
-			mesh->texcoords[i] = (vec2_t){ (int16_t)(tp[0] << 8 | tp[1]) * st, (int16_t)(tp[2] << 8 | tp[3]) * st };
 			vertex_t *v = mesh->vertices + i;
 			v->position_idx = v->normal_idx = v->texcoord_idx = (int)i;
 			v->tangent_idx = v->matrix_idx = -1;
 			v->color_idx[0] = v->color_idx[1] = -1;
 			for (int e = 0; e < 7; e++)
 				v->extra_texcoord_idx[e] = -1;
+			mesh->normals[i] = (vec3_t){ 0, 0, 1 };
+			for (uint a = 0; a < b.n; a++)
+			{
+				if (b.attr[a] < 9)
+					continue;
+				const uint ix = idx[i][a] < b.cnt[a] ? idx[i][a] : 0;
+				const u8 *q = b.src[a] + b.arr[a] + (size_t)b.elem[a] * ix;
+				const float sc = 1.0f / (float)(1u << (b.frac[a] & 15));
+				if (b.attr[a] == 9)
+					mesh->positions[i] = (vec3_t){ (int16_t)(q[0] << 8 | q[1]) * sc, (int16_t)(q[2] << 8 | q[3]) * sc,
+						(int16_t)(q[4] << 8 | q[5]) * sc };
+				else if (b.attr[a] == 10)
+				{
+					vec3_t n = { (int8_t)q[0] * sc, (int8_t)q[1] * sc, (int8_t)q[2] * sc };
+					const float len = sqrtf (n.x * n.x + n.y * n.y + n.z * n.z);
+					mesh->normals[i] = len > 0 ? (vec3_t){ n.x / len, n.y / len, n.z / len } : n;
+				}
+				else if (b.attr[a] == 13)
+					mesh->texcoords[i] = (vec2_t){ (int16_t)(q[0] << 8 | q[1]) * sc, (int16_t)(q[2] << 8 | q[3]) * sc };
+			}
 		}
 		mesh->num_positions = mesh->num_normals = mesh->num_texcoords = mesh->num_vertices = nv;
 		FREE (idx);

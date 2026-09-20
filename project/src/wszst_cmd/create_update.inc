@@ -7397,12 +7397,28 @@ static enumError extract_bttrb_file (ccp arg, ccp basedir, uint depth)
 	}
 	// models: one GLB per "tcmd" object
 	const uint n_models = is_trb && !testmode && !err ? CountBlueTongueModels (raw, raw_size) : 0;
-	char used[256][64];
+	// batches sharing arrays by name (props placed in a cell) find them in the level's LevelAssets.trb
+	u8 *lib = 0;
+	size_t lib_size = 0;
+	if (n_models && !strstr (arg, "LevelAssets.trb"))
+	{
+		char lpath[PATH_MAX];
+		snprintf (lpath, sizeof (lpath), "%s", arg);
+		char *slash = strrchr (lpath, '/');
+		snprintf (slash ? slash + 1 : lpath, lpath + sizeof (lpath) - (slash ? slash + 1 : lpath), "LevelAssets.trb");
+		if (LoadFileAlloc (lpath, 0, 0, &lib, &lib_size, 0, 0, 0, false) || !lib || !IsBlueTongueTrb (lib, lib_size))
+		{
+			FREE (lib);
+			lib = 0;
+			lib_size = 0;
+		}
+	}
+	char (*used)[64] = n_models ? CALLOC (n_models, 64) : 0;
 	uint n_used = 0;
-	for (uint i = 0; i < n_models && !err && n_used < 256; i++)
+	for (uint i = 0; used && i < n_models && !err; i++)
 	{
 		char mname[64], clean[64];
-		model_t *model = BuildBlueTongueModel (raw, raw_size, i, mname, sizeof (mname));
+		model_t *model = BuildBlueTongueModel (raw, raw_size, i, mname, sizeof (mname), lib, lib_size);
 		if (!model)
 			continue;
 		snprintf (clean, sizeof (clean), "%s", mname);
@@ -7430,6 +7446,8 @@ static enumError extract_bttrb_file (ccp arg, ccp basedir, uint depth)
 			ExportModelToGLB (model, path);
 		FreeModel (model);
 	}
+	FREE (used);
+	FREE (lib);
 	FREE (list);
 	FREE (raw);
 	return err;

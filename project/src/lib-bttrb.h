@@ -56,7 +56,10 @@ enumError DecodeBlueTongueTexture (u8 **rgba, const u8 *d, size_t size, const bt
 // Model symbols: number of "tcmd" objects and the decoded object INDEX (mesh
 // per batch, positions / normals / UV0). NAME receives the symbol name.
 uint CountBlueTongueModels (const u8 *d, size_t size);
-model_t *BuildBlueTongueModel (const u8 *d, size_t size, uint index, char *name, size_t name_size);
+// LIB is an optional second package (the level's LevelAssets.trb) supplying the
+// arrays that batches with bit 15 set in their counts share by model name.
+model_t *BuildBlueTongueModel (const u8 *d, size_t size, uint index, char *name, size_t name_size, const u8 *lib,
+	size_t lib_size);
 
 // The bytes of a named section (points into D), or 0.
 const u8 *FindBlueTongueSection (const u8 *d, size_t size, ccp name, u32 *len);
