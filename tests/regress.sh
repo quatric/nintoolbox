@@ -2403,6 +2403,27 @@ t_gfa(){
 }
 t_gfa
 
+t_txd(){
+  # Bully: Scholarship Edition (Wii) "TDCT" texture dictionary. Uses a
+  # committed fixture (a real, small liEU.txd straight off the retail
+  # disc) so this doesn't depend on the WBFS being present in $SEARCH.
+  # Asserts the one texture in this file decodes to a real, correctly
+  # sized PNG -- this is the case that caught a width/height field swap
+  # (both orders produce a "verified" byte count, since GX tile sizes are
+  # symmetric under it; only the actual pixel content shows it's wrong).
+  local f="$PWD_PROJECT/../tests/fixtures/txd_liEU.txd"
+  [ -f "$f" ] || { sk "TXD (Bully Wii texture dictionary)"; return; }
+  rm -rf /tmp/_r_txd; mkdir -p /tmp/_r_txd
+  $B/wszst EXTRACT "$f" --dest /tmp/_r_txd --overwrite >/tmp/_r_txd.log 2>&1
+  local info; info=$(file /tmp/_r_txd/BullyB3.png 2>/dev/null)
+  if echo "$info" | grep -q "PNG image data, 256 x 64,"; then
+    ok "TXD (Bully Wii texture dictionary) -> BullyB3.png 256x64 ($f)"
+  else
+    no "TXD (Bully Wii texture dictionary)" "$f ($info)"
+  fi
+}
+t_txd
+
 t_warc(){
   # WARC ("WARC" magic): Game & Wario (Wii U) flat archive, big-endian,
   # uncompressed, unrelated to Excite's TOC/RES despite the naming
@@ -14158,6 +14179,41 @@ t_chicken_shoot(){
   rm -rf "$d"
 }
 t_chicken_shoot
+
+t_bully_txd(){
+  # Bully: Scholarship Edition (Wii) texture dictionary. Self-discovered by
+  # extension (not in the shared magic IDX above) + real "TDCT" magic check,
+  # same spirit as the rest of this file's real-sample tests.
+  local f=""
+  for d in $SEARCH; do
+    [ -d "$d" ] || continue
+    f=$(find -L "$d" -maxdepth 10 -type f -iname '*.txd' -size -65M ! -path '*claude-*' 2>/dev/null \
+      | while IFS= read -r c; do
+          [ "$(head -c 4 "$c" 2>/dev/null)" = "TDCT" ] && { printf '%s\n' "$c"; break; }
+        done)
+    [ -n "$f" ] && break
+  done
+  [ -n "$f" ] || { sk "Bully TXD -> PNG"; return; }
+
+  local d=/tmp/_r_txd.d
+  rm -rf "$d"
+  $B/wszst EXTRACT "$f" --dest "$d" --overwrite >/tmp/_r_txd.log 2>&1
+  local n; n=$(find "$d" -iname '*.png' 2>/dev/null | wc -l | tr -d ' ')
+  if [ "${n:-0}" -gt 0 ]; then
+    ok "Bully TXD -> PNG ($n texture(s) decoded from $(basename "$f"))"
+  else
+    # a record-magic scan with no format it can reconcile is still a valid,
+    # honest outcome (raw sidecars) -- only a hard failure to even recognize
+    # the container ("nothing extracted at all") counts as a real FAIL here
+    if find "$d" -iname '*.raw.bin' 2>/dev/null | grep -q .; then
+      ok "Bully TXD -> raw sidecar(s) (no texture in $(basename "$f") reconciled a known GX size)"
+    else
+      no "Bully TXD -> PNG" "nothing extracted from $f"
+    fi
+  fi
+  rm -rf "$d"
+}
+t_bully_txd
 
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
