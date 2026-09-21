@@ -6,7 +6,13 @@ import threading
 import os
 import sys
 import shutil
-import sentry_sdk
+import shlex
+import queue
+
+try:
+    import sentry_sdk
+except ImportError:
+    sentry_sdk = None
 
 try:
     from tkinterdnd2 import TkinterDnD, DND_FILES
@@ -14,12 +20,13 @@ except ImportError:
     TkinterDnD = None
     DND_FILES = None
 
-sentry_sdk.init(
-    dsn="https://04887b3ebaf8072bdf4bf9287d7bebe0@o107347.ingest.us.sentry.io/4512040246509568",
-    # Add data like request headers and IP for users,
-    # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
-    send_default_pii=True,
-)
+if sentry_sdk is not None:
+    sentry_sdk.init(
+        dsn="https://04887b3ebaf8072bdf4bf9287d7bebe0@o107347.ingest.us.sentry.io/4512040246509568",
+        # Add data like request headers and IP for users,
+        # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
+        send_default_pii=True,
+    )
 
 SUPPORTED_FAMILIES = [
     ("Wii / GameCube Games", "*.wbfs *.iso *.ciso *.wdf *.wia *.gcz *.gcm *.wad"),
@@ -143,16 +150,22 @@ class CollapsibleSection(ttk.Frame):
 
 
 def _parse_dnd_path(data):
-    """Extract the first path from a <<Drop>> event's data string. Tkdnd
-    wraps any path containing a space in {curly braces} and space-separates
-    multiple dropped paths; only the first dropped item is used here since
-    every input field takes a single file/directory.
-    """
-    data = data.strip()
-    if data.startswith("{"):
-        end = data.find("}")
-        return data[1:end] if end != -1 else data[1:]
-    return data.split()[0] if data else ""
+    """Tkdnd supplies a Tcl list, including Tcl quoting and escaping."""
+    try:
+        paths = tk.Tcl().splitlist(data)
+    except tk.TclError:
+        return ""
+    return paths[0] if paths else ""
+
+
+def _parse_extra_args(data):
+    """Group quoted arguments while preserving Windows path separators."""
+    lexer = shlex.shlex(data, posix=True)
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    if os.name == "nt":
+        lexer.escape = ""
+    return list(lexer)
 
 
 class NintoolboxGUI(TkinterDnD.Tk if TkinterDnD else tk.Tk):
@@ -163,6 +176,7 @@ class NintoolboxGUI(TkinterDnD.Tk if TkinterDnD else tk.Tk):
         self.minsize(660, 520)
         self.configure(padx=15, pady=15)
 
+        self._command_running = False
         self.wszst_path = find_wszst_binary()
         # Companion tools: wit (disc images), mobipeg (video/audio transcoding),
         # sharpii (Wii WADs), nsz (Switch NSZ/XCZ), vgmtrans/wbrsar (audio archives),
@@ -332,9 +346,6 @@ class NintoolboxGUI(TkinterDnD.Tk if TkinterDnD else tk.Tk):
 
     def on_unpack_input_changed(self):
         val = self.unpack_input_var.get().strip()
-        if val.startswith("{") and val.endswith("}"):
-            val = val[1:-1]
-            self.unpack_input_var.set(val)
         if val and (os.path.isfile(val) or os.path.isdir(val)):
             # Default output directory: "<input>.d" or alongside input
             if val.endswith(".d"):
@@ -428,14 +439,13 @@ class NintoolboxGUI(TkinterDnD.Tk if TkinterDnD else tk.Tk):
 
     def on_pack_input_changed(self):
         val = self.pack_input_var.get().strip()
-        if val.startswith("{") and val.endswith("}"):
-            val = val[1:-1]
-            self.pack_input_var.set(val)
         if val and os.path.isdir(val):
             # If folder ends with .d, default target is without .d
             if val.endswith(".d"):
                 target = val[:-2]
                 self.pack_target_var.set(target)
+            else:
+                self.pack_target_var.set("")
 
     # -------------------------------------------------------------------------
     # COMMON ACTIONS & RUNNERS
@@ -560,41 +570,59 @@ class NintoolboxGUI(TkinterDnD.Tk if TkinterDnD else tk.Tk):
         self.console.config(state="disabled")
 
     def execute_cmd(self, cmd, btn):
-        btn.config(state="disabled")
+        if self._command_running:
+            return
+        self._command_running = True
+        for button in (self.unpack_run_btn, self.pack_run_btn):
+            button.config(state="disabled")
         self.console.config(state="normal")
         self.console.delete(1.0, tk.END)
         self.console.config(state="disabled")
-        self.append_console(f"$ {' '.join(cmd)}\n\n")
+        self.append_console(f"$ {shlex.join(cmd)}\n\n")
 
         wszst_dir = os.path.dirname(os.path.abspath(self.wszst_path))
         env = dict(os.environ)
-        env["PATH"] = f"{wszst_dir}{os.pathsep}{env.get('PATH', '')}"
+        env["PATH"] = os.pathsep.join((bundle_dir(), wszst_dir, env.get("PATH", "")))
+        output = queue.Queue()
 
         def run_thread():
             try:
-                process = subprocess.Popen(
+                with subprocess.Popen(
                     cmd,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,
+                    errors="replace",
                     bufsize=1,
                     env=env,
-                )
-                for line in process.stdout:
-                    self.after(0, self.append_console, line)
-
-                process.wait()
-                self.after(
-                    0,
-                    self.append_console,
-                    f"\nProcess finished with exit code {process.returncode}\n",
-                )
+                ) as process:
+                    for line in process.stdout:
+                        output.put(line)
+                    process.wait()
+                    output.put(f"\nProcess finished with exit code {process.returncode}\n")
             except Exception as e:
-                self.after(0, self.append_console, f"\nExecution error: {e}\n")
+                output.put(f"\nExecution error: {e}\n")
             finally:
-                self.after(0, lambda: btn.config(state="normal"))
+                output.put(None)
+
+        def poll_output():
+            # All Tk calls stay on the main thread, including after(). Limit
+            # each batch so a verbose child cannot starve the event loop.
+            for _ in range(200):
+                try:
+                    line = output.get_nowait()
+                except queue.Empty:
+                    break
+                if line is None:
+                    self._command_running = False
+                    for button in (self.unpack_run_btn, self.pack_run_btn):
+                        button.config(state="normal")
+                    return
+                self.append_console(line)
+            self.after(50, poll_output)
 
         threading.Thread(target=run_thread, daemon=True).start()
+        self.after(50, poll_output)
 
     def with_companion_tool_flags(self):
         """--with-wit/--with-mobipeg/--with-sharpii/--with-nsz/--with-vgmtrans/--with-ctrtool/
@@ -642,10 +670,13 @@ class NintoolboxGUI(TkinterDnD.Tk if TkinterDnD else tk.Tk):
             cmd.extend(["-d", outdir])
 
         extra = self.unpack_extra_var.get().strip()
-        if extra:
-            cmd.extend(extra.split())
+        try:
+            cmd.extend(_parse_extra_args(extra))
+        except ValueError as exc:
+            messagebox.showerror("Invalid arguments", str(exc))
+            return
 
-        cmd.append(inp)
+        cmd.extend(["--", inp])
         self.execute_cmd(cmd, self.unpack_run_btn)
 
     def run_pack(self):
@@ -666,10 +697,13 @@ class NintoolboxGUI(TkinterDnD.Tk if TkinterDnD else tk.Tk):
             cmd.extend(["-d", target])
 
         extra = self.pack_extra_var.get().strip()
-        if extra:
-            cmd.extend(extra.split())
+        try:
+            cmd.extend(_parse_extra_args(extra))
+        except ValueError as exc:
+            messagebox.showerror("Invalid arguments", str(exc))
+            return
 
-        cmd.append(inp)
+        cmd.extend(["--", inp])
         self.execute_cmd(cmd, self.pack_run_btn)
 
 
