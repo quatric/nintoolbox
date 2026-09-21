@@ -1289,6 +1289,16 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
+	// Check the complete MDR chunk headers and wrapped G1T signature before
+	// the less distinctive MPBIN and ATB structures.
+	err = ExtractMDRArchive (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = ExtractG1TArchive (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
 	err = extract_mpbin_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
@@ -1385,19 +1395,6 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
-	// MPBIN before MDR: a Hudson MPBIN header (BE32 count + offset table)
-	// structurally satisfies MDR's weak count/bounds gate, so MDR would
-	// swallow every Mario Party .bin if it ran first. MPBIN's gate is
-	// strict (every member offset in bounds, every compress_type
-	// whitelisted), so genuine MDR files fall through to MDR below;
-	// .mdr files never reach MPBIN anyway (it requires a .bin name).
-	err = extract_mpbin_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-
-	err = ExtractMDRArchive (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
 
 	err = ExtractPVOLArchive (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
@@ -1487,6 +1484,10 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
+	err = ExtractGDSArchive (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
 	err = ExtractNLGDictArchive (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
@@ -1523,9 +1524,7 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
-	err = ExtractG1TArchive (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
+
 
 	err = ExtractPERSFile (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
