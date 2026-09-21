@@ -29,6 +29,8 @@
 #include "lib-mtmob.h"
 #include "lib-bars.h"
 #include "lib-fsb.h"
+#include "lib-cspak.h"
+#include "lib-sbt.h"
 #include "lib-nlgdict.h"
 #include "lib-nlg-lm.h"
 #include "lib-txtg.h"

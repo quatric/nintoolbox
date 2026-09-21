@@ -1479,6 +1479,14 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
+	err = ExtractCSPakArchive (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = ExtractSBTArchive (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
 	err = ExtractNLGDictArchive (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
