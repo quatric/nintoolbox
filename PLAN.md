@@ -2188,3 +2188,74 @@ New module `project/src/lib-nlg-lm.c` (+ `.h`, + dependency-free probes in
   tool round-trips, FILETYPE ids) all green. Retail verification remains
   open: no LM2/LM3/SANIM retail sample was available, so the Retail Source
   Tested column stays blank for the new rows by design.
+
+## 40. 2026-09-20 — Nintendo RSO module extractor (*Skylanders: SuperChargers Racing*, Wii)
+
+Ran the standard `wszst XX --dest ... --max-file-size=512m` baseline pipeline
+against `Skylanders - SuperChargers Racing (USA) (En,Fr,Es,Pt).wbfs` (1.7 GB,
+no prior unpacking). Two Toys for Bob-specific things showed up in
+`DATA/files/Data/`: 784 `.pkz` files (all correctly identified as `DIFF`
+GBA-style Diff8 compression by the existing decoder and decompressed to raw
+`.bin` blobs) and a single `gamelogic.rso` (4,745,824 bytes, reported `?` by
+`wszst FILETYPE` -- completely unrecognized).
+
+Investigated the `.pkz` payloads first since there were so many of them:
+decompressed content has an identical byte-for-byte header run across
+completely unrelated character/vehicle files (`0000_Whirlwind.pkz`,
+`3234_TechBike_Weapon.pkz`, etc.), is not zlib/deflate, and does not render
+as a coherent image at its natural 256x256/65536-byte size (rendered as an
+8bpp grayscale PNG for inspection -- mostly high-entropy noise with some
+banding, not a real picture). No AGI magic, no other known container magic
+inside. Concluded this needs real reverse engineering time this session
+didn't have and left it alone rather than guess at a decoder -- Diff8
+decompression (the useful, verified part) already worked correctly before
+this session.
+
+`gamelogic.rso` was the tractable, well-documented gap: Nintendo's RSO
+("Relocatable Static Object") PowerPC module format, used by several
+GameCube/Wii SDK titles as a REL/DOL alternative for dynamically-loaded code.
+Confirmed by hand-parsing the header in Python: `next`/`prev` module-list
+pointers both zero (always true on disk -- patched at runtime), `num_sections
+= 28`, `section_info_offset = 0x58`, `name_offset = 0x31d268`, `name_size =
+59`, `version = 1`, `bss_size = 367020`, and the name string landing exactly
+on a clean, fully-printable path: `Y:\sky2015-3ds-wii\gameassets\Builds\WII\
+Data\gamelogic.plf`. The section table has one entry per section (offset,
+size); a zero offset with nonzero size marks the BSS section (uninitialized,
+no on-disk bytes) rather than a bit flag -- confirmed by round-tripping an
+initial implementation that assumed the low offset bit was a BSS flag: it
+extracted the BSS region as a bogus 367,020-byte "section_05.bin" full of
+whatever bytes happened to sit at file offset 0 (the header itself), caught
+by checking the size against `bss_size` and fixed before committing.
+
+Implemented `ScanRSO()` in `project/src/lib-rso.c` (+ `lib-rso.h`): detects
+the format structurally since RSO has no magic bytes (zero module-list
+pointers + bounds-checked section table + printable module name, the same
+"no magic, verify structurally" approach already used for RPAK and the Mii
+resource archives), then extracts every non-BSS section as a raw
+`section_NN.bin` plus one `rso_info.txt` summary (version, section count,
+bss_size, module name) -- extract-only, matching how this repo already
+treats other magic-less/opaque payload formats (RPAK's raw entries, AGI's
+`.igz` members) rather than attempting relocation/linking.
+
+Wired the usual way: `#include "lib-rso.h"` in `lib-nintendo.h`, `lib-rso.o`
+added to the `XOBJ_LIB` line in `project/Makefile` (via a small Python
+in-place edit, not sed, since it's one very long line), `extract_rso_file()`
+in `wszst_cmd/create_update.inc` (gated on the `.rso` extension), and its
+dispatch call in `extract_one_file_inner()` in `wszst_cmd/formats.inc` right
+after the AGI check.
+
+Verified against the real retail file: `wszst XX` on the isolated
+`gamelogic.rso` extracts exactly 6 entries -- 5 real payload sections
+(3,094,492 / 3,232 / 12 / 83,716 / 83,352 bytes, matching the hand-parsed
+Python reference exactly) plus `rso_info.txt`, with the BSS section
+correctly skipped. Re-ran the full `wszst XX` disc pipeline after rebuilding:
+the disc's one and only `.rso` file (1/1) decodes end-to-end into
+`gamelogic.rso.d/` with the same 6 entries. Added synthetic fixture
+`tests/mk_rso.py` (two payload sections + one BSS section) and regression
+test `t_rso` in `tests/regress.sh`, asserting both payload sections extract
+with correct content, the info file names the module, and no file is written
+for the BSS section. Full suite: `PASS=540 FAIL=27 SKIP=28`, the same 27
+pre-existing unrelated failures (BGLPBD, ZDAT, MOD, SFX, LZO1X/CMPD, BRFNA,
+BFLYT, SFZ DAT family, THP, VID1, RSEQ, `.mdr`, `.bin` container, SMDH,
+G1TGZ, BCSTM -- none touched by this change) seen before this session
+started; the new RSO case passes.

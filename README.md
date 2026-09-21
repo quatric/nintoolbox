@@ -143,6 +143,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **RARC** | `.rarc`, `.arc` | ✅ | ✅ | ✅ | — | Nintendo standard resource archive (GameCube / Wii) |
 | **RFL_Res** | `RFL_Res.dat`, `.dat` | ✅ | ✅ | ✅ | ✅ | Revolution Face Library Mii resource database (Wii / 3DS / Wii U). |
 | **RPAK** | `.rpak`, `.pak` | ✅ | ✅ | — | ✅ | Retro Studios asset container (*Donkey Kong Country Returns*, Wii). |
+| **RSO** | `.rso` | ✅ | — | — | ✅ | Nintendo relocatable PowerPC module (*Skylanders: SuperChargers Racing*, Wii); raw code/data sections extracted, BSS skipped. |
 | **RST / TOC** | `.rst`, `.toc` | ✅ | ✅ | ✅ | ✅ | Monster Games archive & table of contents (*Excite Truck* / *Excitebots*). |
 | **RZPK** | `.rzpk` | ✅ | ✅ | ✅ | — | Mario Party 3DS compressed archive (zlib members). |
 | **SARC** | `.sarc`, `.szs` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4F & NintendoSDK sorted archive (Wii U / Switch / 3DS). |

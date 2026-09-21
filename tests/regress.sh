@@ -8850,6 +8850,33 @@ with open(sys.argv[1], "wb") as f:
     fno "AGI archive" "mk_agi.py failed"
   fi
 
+  # Skylanders SuperChargers Racing voice/SFX sound bank (files/Data/*.pkz)
+  mkdir -p "$d/tfbsnd_test"
+  if python3 "$PWD_PROJECT/../tests/mk_tfbsnd.py" "$d/tfbsnd_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/tfbsnd_test/test.pkz" --dest "$d/tfbsnd_test/out" --overwrite >/dev/null 2>&1 \
+    && [ -f "$d/tfbsnd_test/out/vo_test_emote_pain_01.wav" ] \
+    && [ -f "$d/tfbsnd_test/out/SFX_Test_Impact-002.wav" ] \
+    && [ "$(file -b "$d/tfbsnd_test/out/vo_test_emote_pain_01.wav")" = "RIFF (big-endian) data, WAVE audio, mono 22050 Hz" ] \
+    && fok "TFBSND sound bank (Skylanders SuperChargers Racing .pkz) unpacks named RIFX voice clips" \
+    || fno "TFBSND sound bank" "failed to unpack synthetic test.pkz"
+  else
+    fno "TFBSND sound bank" "mk_tfbsnd.py failed"
+  fi
+
+  # Nintendo RSO relocatable module (Skylanders: SuperChargers Racing gamelogic.rso)
+  mkdir -p "$d/rso_test"
+  if python3 "$PWD_PROJECT/../tests/mk_rso.py" "$d/rso_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/rso_test/test.rso" --dest "$d/rso_test/out" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/rso_test/out/section_00.bin")" = "TEXT_SECTION_PAYLOAD" ] \
+    && [ "$(cat "$d/rso_test/out/section_01.bin")" = "data section payload" ] \
+    && grep -q 'test.rso' "$d/rso_test/out/rso_info.txt" \
+    && [ ! -e "$d/rso_test/out/section_02.bin" ] \
+    && fok "RSO module (Skylanders: SuperChargers Racing gamelogic.rso) unpacks sections, skips BSS" \
+    || fno "RSO module" "failed to unpack synthetic test.rso"
+  else
+    fno "RSO module" "mk_rso.py failed"
+  fi
+
   # Terminal Reality POD5 archive (Nickelodeon Dance WII*.POD)
   mkdir -p "$d/termpod_test"
   if python3 "$PWD_PROJECT/../tests/mk_termpod.py" "$d/termpod_test" >/dev/null 2>&1; then

@@ -146,6 +146,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **RARC** | GameCube / Wii / Archive | ✅ | ✅ | Nintendo standard resource archive |
 | **RFL_Res.dat** | Wii/3DS/Wii U / Mii Database | ✅ | ✅ | Revolution Face Library resource container |
 | **RNC1 / RNC2** | Compression | ✅ | ✅ | ProPack compression |
+| **RSO** | Wii / Code Module | ✅ | ❌ | Nintendo relocatable PowerPC module (`gamelogic.rso`, *Skylanders: SuperChargers Racing*): no magic, detected structurally (zero module-list pointers, bounds-checked section table); raw code/data sections extracted, BSS section (zero on-disk offset) skipped; extract-only, relocation/linking out of scope |
 | **RSEQ / CSEQ / FSEQ / SSEQ** | Wii/3DS/Wii U/DS / Sequence | ✅ | ✅ | Music sequence MML / MIDI |
 | **SDAT** | DS / Sound Archive | ✅ | ✅ | Nitro Sound Archive |
 | **SMDH** | 3DS / Metadata | ✅ | ✅ | Application icon & title metadata |
