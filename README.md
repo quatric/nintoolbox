@@ -110,6 +110,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **GFPAK** | `.gfpak` | ✅ | — | — | — | Game Freak Pokémon archive (`GFLXPACK`). |
 | **GFPKG** | `.gfpkg`, `.bin`, `.pak` | ✅ | — | — | — | Game Freak Gen6/Gen7 package (SPICA `GFPackage`; 2-letter magic + offset table). |
 | **Grip RES** | `.res` | ✅ | — | — | — | *Sesame Street: Elmo's Musical Monsterpiece* (Wii): resource packages, `surf` textures to PNG. |
+| **Goliath GS Package** | `.pkz` | ✅ | — | — | ✅ | Goliath engine asset package (*Skylanders: SuperChargers Racing*, Wii): self-checking big-endian chunk tree; named resource manifest, GameCube CMPR/RGB5A3 textures to PNG (+ separate I8 alpha plane), RIFX DSP-ADPCM voice/SFX streams to WAV. Unrelated to the PlatinumGames `.pkz` archive already in this repo (different magic). Verified against all 782 retail packages on the disc (760 with extractable content: 7031/7055 textures, 4994/4994 audio streams, 73900 names). |
 | **h.a.n.d. FBC** | `.fbc` | ✅ | — | — | ✅ | *Oyako de Asobo: Miffy no Omochabako* (Wii): nested file bundles unpacked by name. |
 | **HBDF** | `.hbdf`, `.hsdf` | ✅ | — | — | — | Hudson Soft Nitro 3D model container (*Mario Party DS*), decoded to GLB. |
 | **Heavy Iron HO** | `.ho` | ✅ | — | — | ✅ | Good Engine package (*WALL-E*, *Up*, Wii); assets with debug names, GX textures to PNG |

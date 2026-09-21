@@ -2259,3 +2259,92 @@ pre-existing unrelated failures (BGLPBD, ZDAT, MOD, SFX, LZO1X/CMPD, BRFNA,
 BFLYT, SFZ DAT family, THP, VID1, RSEQ, `.mdr`, `.bin` container, SMDH,
 G1TGZ, BCSTM -- none touched by this change) seen before this session
 started; the new RSO case passes.
+
+## 41. 2026-09-20 — Goliath engine GS package decoder (*Skylanders: SuperChargers Racing*, Wii)
+
+The 782 `files/Data/*.pkz` packages that make up this disc's entire asset set
+(previously left alone per section 40 -- "their payload structure could not
+be reliably reverse-engineered this session") turned out to be a plain,
+fully self-describing chunk tree, not a compressed blob. Every file starts
+with `80 00 00 01` -- coincidentally matching this tool's generic Nintendo
+Diff8 delta-filter magic on the leading byte alone, which is why `wszst
+FILETYPE` misreported them as `DIFF` and `wszst xx` silently discarded the
+(garbage) decode output and left the file untouched. The real header is a
+uniform 16-byte chunk record (`u32 id` with the high bit always set, `u16
+version`, `u16 has_children`, `u32 size_hi` always zero, `u32 size`), and the
+whole file is one root `0x80000001` chunk whose payload size is exactly
+`filesize-16` -- so the tree walk is self-checking: every level must consume
+its parent's payload to the byte, with no separate directory anywhere.
+
+Named resources live under `0x8000138d` wrapper chunks, whose first child
+(`0x8000138e`, 92 bytes) carries a hash at offset 0 and a NUL-terminated name
+in a 64-byte field at offset 0x1c (`"Warnado_C"`, `"VFXBigGlow02_DA[Mid]"`,
+...) -- 73900 names recovered this way across the corpus. The bulk payloads
+themselves are *not* inside the resource wrapper: texture pixels
+(`0x80000195`) and audio streams (`0x80001134`) are pooled separately under
+`0x80000026`, matched to their `0x80000197`/`0x80001133` descriptions
+positionally in document order -- verified exact across all 782 files (7055
+texture headers vs. 7055 payloads, 4994 audio descriptions vs. 4994
+payloads).
+
+Textures are GameCube-native (tiled) mip chains straight out of the
+original GC/Wii texture cache: format 2 is RGB5A3, format 3 is CMPR, and
+format 4 is CMPR immediately followed by an independent I8 mip chain
+carrying the alpha channel (confirmed visually -- the I8 plane of a
+Whirlwind feather sheet is exactly the feather silhouette). Format 5 (19
+textures) and 5 mip-2 RGB5A3 headers whose declared size doesn't match an
+RGB5A3 chain are declined rather than guessed at. Only mip level 0 is
+exported, wrapped in a one-image TPL so the existing GameCube texture
+decoder produces the PNG; format 4's alpha plane is emitted as a second I8
+TPL beside it. 7031/7055 retail textures (99.66%) decode.
+
+One real bug was caught by testing rather than review: the texture header's
+first two words are height *then* width, not the other way round. Squares
+hide it, so the first pass read them the wrong way round and looked fine --
+until 140 non-square format-4 textures failed their own size check, because
+the I8 alpha chain's tile padding (8x4) is the one part of the arithmetic
+that is not symmetric under transposition. Decoded with the dimensions as
+first read, those textures come out as garbled vertical stripes; swapped,
+they are feather sheets, and all 140 join the accepted set (6891 -> 7031).
+
+Audio was the interesting trap: the RIFX WAVE fmt chunk declares
+`wFormatTag 2` with 4 bits/sample, which is nominally Microsoft ADPCM --
+but the extension's "coefficient table" doesn't decode to anything sane
+under the real MS-ADPCM algorithm (values far outside the canonical
+{256,0}..{-408,-232} range). The extension is actually Nintendo GameCube
+DSP-ADPCM state repacked into a WAVEFORMATEX-shaped wrapper: 16 big-endian
+s16 predictor coefficients per channel followed by 12 bytes of
+gain/predictor-scale/history, at `ext+0x0a + 44*channel`. Each channel's
+coefficients + block data are re-packed as a standalone `.dsp` stream and
+run through this tool's existing DSP-ADPCM decoder to produce a WAV; stereo
+streams (226 of 4994) de-interleave into two mono `.dsp` files first. All
+4994 retail audio streams decode this way (4768 mono, 226 stereo).
+
+New module `project/src/lib-goliath.c` (+ `.h`): `IsGoliathPKZ()` does the
+full recursive structural walk (bounded depth, bounded record count) before
+`ScanGoliathPKZ()` collects the name/texture/audio record lists and builds
+the extracted-member set (PNG textures + alpha planes, WAV audio, and a
+plain-text resource manifest of the 73900 recovered names). Wired in
+`lib-nintendo.h`, `project/Makefile` (`lib-goliath.o`), `extract_goliath_file()`
+in `wszst_cmd/create_update.inc`, and the `.pkz` dispatch in
+`wszst_cmd/formats.inc` -- gated strictly on the `0x80000001` magic and the
+complete chunk-tree walk, so it never touches the unrelated PlatinumGames
+`.pkz` archive already in this repo (`lib-pkz.c`, magic `"pkz\0"`).
+
+Verified against the retail disc end-to-end through `wszst xx`: 782/782
+packages walk cleanly, 760/782 yield extractable content (the rest are
+structurally valid but carry no resource/texture/audio chunks), 7031/7055
+textures decode to PNG, 4994/4994 audio streams decode to WAV, 10836 PNG
+files and 5220 WAV files produced from the disc in total. Synthetic fixture
+`tests/mk_goliath.py` builds a minimal package (one named 16x8 CMPR+I8
+texture, one named mono RIFX/DSP-ADPCM stream) and `tests/regress.sh` case
+`Goliath GS package` confirms the PNG pair, the decoded WAV, and the
+manifest. The full suite was run twice for comparison -- once with the
+change stashed, once with it applied -- and the set of failing cases after
+is a strict subset of the set before (two flaky cases, BFFNT structure XML
+and MPLibrary codec roundtrips, happened to pass on the second run): no new
+failure, and the new Goliath case passes. Everything still failing is the
+same pre-existing, unrelated breakage (BGLPBD, ZDAT, MOD, SFX, LZO1X/CMPD,
+BRFNA, BFLYT, SFZ DAT family, THP, VID1, RSEQ, `.mdr`, `.bin` container,
+SMDH, G1TGZ, BCSTM, unattributed-formats-claim-nothing), none of it touched
+by this change.

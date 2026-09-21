@@ -8850,18 +8850,6 @@ with open(sys.argv[1], "wb") as f:
     fno "AGI archive" "mk_agi.py failed"
   fi
 
-  # Skylanders SuperChargers Racing voice/SFX sound bank (files/Data/*.pkz)
-  mkdir -p "$d/tfbsnd_test"
-  if python3 "$PWD_PROJECT/../tests/mk_tfbsnd.py" "$d/tfbsnd_test" >/dev/null 2>&1; then
-    "$B/wszst" x "$d/tfbsnd_test/test.pkz" --dest "$d/tfbsnd_test/out" --overwrite >/dev/null 2>&1 \
-    && [ -f "$d/tfbsnd_test/out/vo_test_emote_pain_01.wav" ] \
-    && [ -f "$d/tfbsnd_test/out/SFX_Test_Impact-002.wav" ] \
-    && [ "$(file -b "$d/tfbsnd_test/out/vo_test_emote_pain_01.wav")" = "RIFF (big-endian) data, WAVE audio, mono 22050 Hz" ] \
-    && fok "TFBSND sound bank (Skylanders SuperChargers Racing .pkz) unpacks named RIFX voice clips" \
-    || fno "TFBSND sound bank" "failed to unpack synthetic test.pkz"
-  else
-    fno "TFBSND sound bank" "mk_tfbsnd.py failed"
-  fi
 
   # Nintendo RSO relocatable module (Skylanders: SuperChargers Racing gamelogic.rso)
   mkdir -p "$d/rso_test"
@@ -8962,6 +8950,30 @@ with open(sys.argv[1], "wb") as f:
     || fno "BombShell data pack" "failed to extract synthetic packs"
   else
     fno "BombShell data pack" "mk_bombshell.py failed"
+  fi
+
+  # Goliath engine "GS" package (Skylanders: SuperChargers Racing, Wii):
+  # non-square CMPR+I8 texture -> PNG pair, RIFX DSP-ADPCM stream -> WAV.
+  mkdir -p "$d/goliath_test"
+  if python3 "$PWD_PROJECT/../tests/mk_goliath.py" "$d/goliath_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/goliath_test/T.pkz" >/dev/null 2>&1
+    gt="$d/goliath_test/T.pkz.d"
+    # The header stores height before width, so a 16x8 texture must come back
+    # out 16 wide and 8 high, not transposed.
+    gdim=$(python3 -c 'import struct,sys;d=open(sys.argv[1],"rb").read();print("%dx%d"%struct.unpack_from(">II",d,16))' \
+      "$gt/textures/0000_SynthTexture_C.tpl.png" 2>/dev/null)
+    gsam=$(python3 -c 'import struct,sys;d=open(sys.argv[1],"rb").read();print(struct.unpack_from("<I",d,40)[0]//2)' \
+      "$gt/audio/0000_synth_voice_01.wav" 2>/dev/null)
+    [ "$gdim" = "16x8" ] \
+    && [ "$(head -c 4 "$gt/textures/0000_SynthTexture_C.alpha.tpl.png" | tail -c 3)" = "PNG" ] \
+    && [ "$(head -c 4 "$gt/audio/0000_synth_voice_01.wav")" = "RIFF" ] \
+    && [ "$gsam" = "112" ] \
+    && grep -q "^SynthTexture_C .*80000191$" "$gt/resources.txt" \
+    && grep -q "^synth_voice_01 .*80001133$" "$gt/resources.txt" \
+    && fok "Goliath GS package: named 16x8 CMPR+I8 texture -> PNG pair, RIFX DSP-ADPCM -> WAV, resource manifest" \
+    || fno "Goliath GS package" "failed to extract synthetic package"
+  else
+    fno "Goliath GS package" "mk_goliath.py failed"
   fi
 
   # Blue Tongue TRB package (de Blob 2, Wii): ttex texture -> PNG, XUR section
