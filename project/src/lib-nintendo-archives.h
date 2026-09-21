@@ -33,6 +33,7 @@
 #include "lib-sbt.h"
 #include "lib-gds.h"
 #include "lib-chx.h"
+#include "lib-mapbad.h"
 #include "lib-nlgdict.h"
 #include "lib-nlg-lm.h"
 #include "lib-txtg.h"
