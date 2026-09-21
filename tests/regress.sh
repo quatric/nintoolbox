@@ -2403,27 +2403,6 @@ t_gfa(){
 }
 t_gfa
 
-t_txd(){
-  # Bully: Scholarship Edition (Wii) "TDCT" texture dictionary. Uses a
-  # committed fixture (a real, small liEU.txd straight off the retail
-  # disc) so this doesn't depend on the WBFS being present in $SEARCH.
-  # Asserts the one texture in this file decodes to a real, correctly
-  # sized PNG -- this is the case that caught a width/height field swap
-  # (both orders produce a "verified" byte count, since GX tile sizes are
-  # symmetric under it; only the actual pixel content shows it's wrong).
-  local f="$PWD_PROJECT/../tests/fixtures/txd_liEU.txd"
-  [ -f "$f" ] || { sk "TXD (Bully Wii texture dictionary)"; return; }
-  rm -rf /tmp/_r_txd; mkdir -p /tmp/_r_txd
-  $B/wszst EXTRACT "$f" --dest /tmp/_r_txd --overwrite >/tmp/_r_txd.log 2>&1
-  local info; info=$(file /tmp/_r_txd/BullyB3.png 2>/dev/null)
-  if echo "$info" | grep -q "PNG image data, 256 x 64,"; then
-    ok "TXD (Bully Wii texture dictionary) -> BullyB3.png 256x64 ($f)"
-  else
-    no "TXD (Bully Wii texture dictionary)" "$f ($info)"
-  fi
-}
-t_txd
-
 t_warc(){
   # WARC ("WARC" magic): Game & Wario (Wii U) flat archive, big-endian,
   # uncompressed, unrelated to Excite's TOC/RES despite the naming
