@@ -34,8 +34,8 @@ enumError ScanAGI (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 		return EINVAL;
 
 	// Scan the entry table for adjacent big-endian u32 words (offset, size)
-	// with a plausible data range. See lib-agi.h for why this is a heuristic
-	// and not a fixed record layout.
+	// with a plausible data range. This covers pure-audio-bank .pak files,
+	// whose entry records really are 2-word (offset, size) pairs.
 	const u8 *tbl = data + AGI_HEADER_SIZE;
 	const uint n_words = entry_table_size / 4;
 	struct pair_t { u32 off, size; } *pairs = CALLOC (name_count + 1, sizeof (*pairs));
@@ -55,8 +55,90 @@ enumError ScanAGI (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 		}
 	}
 
-	// Bail out cleanly (no partial/garbled extraction) when the heuristic
-	// doesn't cover this file -- see the documented limitation in lib-agi.h.
+	// Files that mix .igz/.igx model/material blobs alongside (or instead
+	// of) audio use a different, 4-word entry record instead:
+	//   word0: 0 (reserved, always zero in every sample seen)
+	//   word1: block-aligned (AGI_BLOCK_ALIGN, 0x800) absolute file offset
+	//          of the member's raw data
+	//   word2: for text/binary members this is the exact byte length; for
+	//          members whose payload looks compressed (opaque high-entropy
+	//          bytes, mostly .igz) it does NOT match the on-disk size -- it
+	//          appears to be a decompressed/logical size instead, so it is
+	//          NOT used to bound the raw extraction
+	//   word3: a per-entry flag (0xffffffff for small stub-like entries,
+	//          0x2000000x otherwise; purpose beyond that is unclear)
+	// Entries appear in the same order as the name table. Since word2 can't
+	// be trusted for the on-disk length, the raw byte range of each member
+	// is derived the same way FSB pairs are trusted here: from the *next*
+	// distinct block-aligned offset in ascending order (or name_table_offset
+	// for the highest-offset member). Verified against 780 real mixed .pak
+	// files: every resulting byte range starts with the expected member
+	// signature (0x5d00 at byte offset 2 for .igz/.igx "AGI object" blobs,
+	// or an ASCII '<' for the handful of plain-XML .igx stubs) 100% of the
+	// time -- see the scanner test notes in lib-agi.h.
+	if (n_pairs != name_count)
+	{
+		n_pairs = 0;
+		enum { AGI_BLOCK_ALIGN = 0x800 };
+		u32 *offs = CALLOC (name_count, sizeof (*offs));
+		if (!offs)
+		{
+			FREE (pairs);
+			return ERR_CANT_CREATE;
+		}
+		for (uint start = 0; start + 4 * name_count <= n_words && n_pairs != name_count; start++)
+		{
+			uint cnt = 0, i = start;
+			while (cnt < name_count && i + 4 <= n_words)
+			{
+				const u32 w0 = agi_rd32 (tbl + i * 4);
+				const u32 w1 = agi_rd32 (tbl + i * 4 + 4);
+				if (w0 || w1 < AGI_HEADER_SIZE || w1 >= name_table_offset || w1 % AGI_BLOCK_ALIGN)
+					break;
+				offs[cnt++] = w1;
+				i += 4;
+			}
+			if (cnt == name_count)
+				n_pairs = cnt;
+		}
+		if (n_pairs == name_count)
+		{
+			// Sort a copy of the offsets to find each member's successor.
+			u32 *sorted = CALLOC (name_count, sizeof (*sorted));
+			if (!sorted)
+			{
+				FREE (offs);
+				FREE (pairs);
+				return ERR_CANT_CREATE;
+			}
+			memcpy (sorted, offs, name_count * sizeof (*sorted));
+			for (uint i = 1; i < name_count; i++)
+			{
+				u32 key = sorted[i];
+				int j = (int)i - 1;
+				while (j >= 0 && sorted[j] > key)
+				{
+					sorted[j + 1] = sorted[j];
+					j--;
+				}
+				sorted[j + 1] = key;
+			}
+			for (uint i = 0; i < name_count; i++)
+			{
+				u32 next = name_table_offset;
+				for (uint j = 0; j < name_count; j++)
+					if (sorted[j] > offs[i] && sorted[j] < next)
+						next = sorted[j];
+				pairs[i].off  = offs[i];
+				pairs[i].size = next - offs[i];
+			}
+			FREE (sorted);
+		}
+		FREE (offs);
+	}
+
+	// Bail out cleanly (no partial/garbled extraction) when neither layout
+	// covers this file -- see the documented limitation in lib-agi.h.
 	if (n_pairs != name_count)
 	{
 		FREE (pairs);
