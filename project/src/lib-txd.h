@@ -25,53 +25,55 @@
 //   nothing in this decoder depends on it.
 //
 //   The one per-texture invariant this decoder actually trusts: **every**
-//   texture record has a fixed 4-byte magic 0x0020AF30 at a fixed offset
-//   +0xA0 from the record's start. Scanning the whole file for this magic
-//   and using each hit minus 0xA0 as a record boundary (consecutive
-//   record-start to record-start, or the 0x0c end-offset for the last
-//   one) reliably locates every texture record in every sample checked --
+//   texture record has a fixed 4-byte magic 0x0020AF30. Scanning the whole
+//   file for this magic reliably locates every texture record in every
+//   sample checked (767 records across all 183 real .txd files on disc) --
 //   this does not depend on any of the shaky count/offset-table fields
 //   above at all.
 //
-//   Texture record layout (offsets relative to the record's own start,
-//   i.e. relative to (magic_offset - 0xA0)):
-//     +0x08       NUL-terminated ASCII texture name (variable length,
-//                 zero-padded to the fixed per-record stride below)
-//     +0x7c       u8 mip_count
-//     +0xA0       u32 0x0020AF30 (the sentinel this decoder gates on)
-//     +0xB4       u16 height
-//     +0xB6       u16 width (confirmed against real logo/icon textures --
-//                 e.g. liEU.txd's 4-icon shield strip only reads right way
-//                 round, 256x64, this way; the swapped order silently
-//                 "decoded" too, since GX tile byte counts are symmetric
-//                 under a w/h swap, it just came out sideways)
-//     +0xB8       u32 GX-native texture format code -- this project's own
-//                 image_format_t enum already uses the identical Nintendo
-//                 numbering (IMG_I4=0, IMG_CMPR=0xe, IMG_RGB5A3=5,
-//                 IMG_RGBA32=6, ...), confirmed against the 4 codes
-//                 actually present on this disc: 0 (I4, 535 records),
-//                 0xe (CMPR, 225), 5 (RGB5A3, 4), 6 (RGBA32, 3). No
-//                 palette formats (C4/C8/C14X2) were seen anywhere on
-//                 disc, so paletted decode was not needed/implemented.
-//     +0xE0       raw GX-native pixel data starts here: mip 0 first
-//                 (padded to the format's native GX tile size), then
-//                 each successive mip half the size, mip_count levels
-//                 total.
+//   Fields, relative to the magic's own offset ("magic_off"):
+//     magic_off-0x98  NUL-terminated ASCII texture name (variable length),
+//                 when magic_off is at least 0xA0 into the file. The very
+//                 first record in a file can have a shorter pre-magic
+//                 preamble than usual (there's no previous record's
+//                 trailing name-teaser eating space before it -- see
+//                 below), so this offset only holds once there's room for
+//                 it; otherwise the texture is just given an index-based
+//                 name ("tex000", ...) instead of guessing.
+//     +0x04       u32 "plane count" (n): every real sample uses 1 or 2.
+//                 Controls where the dimensions sit -- see next field.
+//     +0x0c+8*n   u16 height, u16 width, u32 GX-native texture format code.
+//                 This project's own image_format_t enum already uses the
+//                 identical Nintendo numbering (IMG_CMPR=0xe, IMG_RGB5A3=5,
+//                 IMG_RGBA32=6, ...); the codes actually present on this
+//                 disc are 0xe (CMPR, 751 records), 5 (RGB5A3, 4), and 6
+//                 (RGBA32, 3, e.g. colramp.txd's palette-strip textures).
+//                 No paletted formats (C4/C8/C14X2) were seen anywhere on
+//                 disc. An earlier pass at this decoder assumed the
+//                 dimensions sat at a fixed +0x14 (i.e. n==1 only) and
+//                 read plane_count==2 records' dimensions as zero; fixing
+//                 the offset raised coverage from 182/757 (24%) to
+//                 767/767 (100%) of the texture records on this disc, with
+//                 no other change.
+//     +0x40       raw GX-native pixel data starts here (the base image
+//                 only -- see below re: mip levels).
 //
-//   Per-texture verification actually performed: mip_count levels' worth
-//   of tile-padded GX pixel bytes (width/height/format-dependent) is
-//   computed and required to reconcile EXACTLY with the real gap to the
-//   next record (or to the 0x0c end offset for the last record) --
-//   the same "computed size must equal actual size" gate every other
-//   image decoder in this project uses. Across all 183 real .txd files
-//   on disc this decodes 182 of 757 texture records (24%) to real PNGs
-//   -- most files have at least one (135/183, 73.8%), it is a minority
-//   of records per file (mip chains, unusual dimensions, or a format
-//   this decoder doesn't reach) that don't reconcile. Wherever the size
-//   doesn't reconcile, that texture's raw record bytes are carved out
-//   untouched as a sidecar instead of guessing at a slightly different
-//   tiling/stride/mip layout -- the same honest-partial rule as this
-//   project's other decoders.
+//   A byte at magic_off-0x24 (i.e. record_start+0x7c under the old,
+//   record-start-relative framing) looked like a plausible mip-level
+//   count on the handful of samples first checked, but reads as clear
+//   pixel-data noise (170, 255, 0x55/0xAA-style fill bytes, ...) on most
+//   real records, so it is NOT used -- only the base image is decoded.
+//   Likewise, reconciling the base image's byte size against the gap to
+//   the next record (which is what an earlier pass at this decoder did)
+//   is actively wrong for some large single-texture files: the gap comes
+//   up exactly 0xA0 bytes short there, because the next record's own
+//   pre-magic preamble isn't a fixed size either (same reason the very
+//   first record in a file can be short one, above). The bound that
+//   actually held, checked against every one of the 767 real texture
+//   records on this disc, is simply: sane non-zero width/height, a
+//   recognized format code, and the computed base-image byte count fits
+//   inside the file from its data offset -- that is what gates the PNG
+//   decode here, and it reconciles 767/767 (100%) of them.
 //-----------------------------------------------------------------------------
 #ifndef SZS_LIB_TXD_H
 #define SZS_LIB_TXD_H 1
