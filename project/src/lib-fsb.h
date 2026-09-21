@@ -28,4 +28,12 @@ enumError ScanFSB (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 
 enumError ScanKRAW (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size);
 
+// Extraction entry point (dest.inc): decodes any file whose content is an
+// FSB3/FSB4/FSB5 bank or a kRAW stream, whatever its extension -- both are
+// used on real Wii discs as unlabelled/oddly-extensioned blobs (e.g.
+// Collision Studios' "Brave: A Warrior's Tale", which stores FSB4 banks as
+// .csa/.psk/.mib). Writes one WAV (or .bin for an undecodable codec) per
+// sample.
+enumError ExtractFSBArchive (ccp arg, ccp basedir, uint depth);
+
 #endif

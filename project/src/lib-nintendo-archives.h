@@ -28,6 +28,7 @@
 #include "lib-gf3ds.h"
 #include "lib-mtmob.h"
 #include "lib-bars.h"
+#include "lib-fsb.h"
 #include "lib-nlgdict.h"
 #include "lib-nlg-lm.h"
 #include "lib-txtg.h"

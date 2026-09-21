@@ -5,6 +5,7 @@
 #include "lib-std.h"
 #include "lib-fsb.h"
 #include "lib-dspadpcm.h"
+#include "lib-archive-util.h"
 #include <string.h>
 
 #define FSB_MAX_SAMPLES 0x40000
@@ -374,5 +375,74 @@ enumError ScanKRAW (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *
 	FREE (wav);
 	*entries = out;
 	*n_entries = 1;
+	return ERR_OK;
+}
+
+// ----------------------------------------------------------------------------
+// Extraction entry point: gated on content magic only (FSB3/FSB4/FSB5/kRAW),
+// never on extension -- these banks turn up under arbitrary/misleading
+// extensions in the wild (Collision Studios' "Brave: A Warrior's Tale" Wii
+// disc stores FSB4 banks as .csa/.psk/.mib with no ".fsb" anywhere).
+// ----------------------------------------------------------------------------
+enumError ExtractFSBArchive (ccp arg, ccp basedir, uint depth)
+{
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false))
+		return ERR_NOTHING_TO_DO;
+
+	const bool is_fsb = raw_size >= 0x18
+		&& (!memcmp (raw, "FSB3", 4) || !memcmp (raw, "FSB4", 4) || !memcmp (raw, "FSB5", 4));
+	const bool is_kraw = !is_fsb && raw_size >= 16 && !memcmp (raw, "kRAW", 4);
+	if (!is_fsb && !is_kraw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	nintendo_sarc_entry_t *entries = 0;
+	uint n_entries = 0;
+	enumError err = is_fsb ? ScanFSB (&entries, &n_entries, raw, raw_size)
+			       : ScanKRAW (&entries, &n_entries, raw, raw_size);
+	FREE (raw);
+	if (err || !n_entries)
+		return ERR_NOTHING_TO_DO;
+
+	char dest[PATH_MAX];
+	get_dest_dir (dest, sizeof (dest), arg, basedir);
+	CreatePath (dest, true);
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT %s:%s (%u sample%s) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", is_fsb ? "FSB" : "kRAW", arg, n_entries,
+			n_entries == 1 ? "" : "s", dest);
+
+	uint written = 0;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		char out[PATH_MAX];
+		snprintf (out, sizeof (out), "%s/%s", dest, entries[i].name);
+		char *slash = strrchr (out, '/');
+		if (slash)
+		{
+			*slash = 0;
+			CreatePath (out, true);
+			*slash = '/';
+		}
+		if (!testmode)
+		{
+			if (!SaveFile (out, 0, 0, entries[i].data, entries[i].size, 0))
+				written++;
+		}
+		else
+			written++;
+		if (verbose > 0)
+			fprintf (stdlog, "  %-40s %8u bytes\n", entries[i].name, entries[i].size);
+	}
+
+	ResetOwnedEntries (entries, n_entries);
+	(void)depth;
+	if (!written)
+		return ERR_INVALID_DATA;
 	return ERR_OK;
 }
