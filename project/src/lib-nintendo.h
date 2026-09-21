@@ -471,6 +471,8 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-bg4.h"
 #include "lib-hwl.h"
 #include "lib-cram.h"
+#include "lib-sumostz.h"
+#include "lib-sumowas.h"
 #include "lib-rflres.h"
 #include "lib-bea.h"
 #include "lib-mpbin.h"

@@ -8976,6 +8976,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Goliath GS package" "mk_goliath.py failed"
   fi
 
+  # Sumo Digital .stz container (Sonic & Sega All-Stars Racing, Wii): zlib
+  # payload inflated to its FourCC-tagged blob (PTEX in every retail sample).
+  mkdir -p "$d/sumostz_test"
+  if python3 "$PWD_PROJECT/../tests/mk_sumostz.py" "$d/sumostz_test" >/dev/null 2>&1; then
+    "$B/wszst" extract "$d/sumostz_test/T.stz" >/dev/null 2>&1
+    [ "$(head -c 4 "$d/sumostz_test/T.stz.d/data.ptex")" = "PTEX" ] \
+    && fok "Sumo Digital .stz: zlib payload -> raw PTEX chunk blob" \
+    || fno "Sumo Digital .stz" "failed to extract synthetic container"
+  else
+    fno "Sumo Digital .stz" "mk_sumostz.py failed"
+  fi
+
   # Blue Tongue TRB package (de Blob 2, Wii): ttex texture -> PNG, XUR section
   mkdir -p "$d/bttrb_test"
   if python3 "$PWD_PROJECT/../tests/mk_bttrb.py" "$d/bttrb_test" >/dev/null 2>&1; then
