@@ -96,37 +96,21 @@ bool IsMPBIN (const u8 *data, uint size)
 	if (tab_size > size)
 		return false;
 
-	const u32 first_off = rd_be32 (data + 4);
-	if (first_off < tab_size || first_off >= size)
-		return false;
-
-	u32 prev_off = first_off;
-	for (u32 i = 1; i < num_files; i++)
+	// Every member must contain its own complete header and payload. Checking
+	// only the first entry lets later slots underflow their payload lengths.
+	for (u32 i = 0; i < num_files; i++)
 	{
-		const u32 cur_off = rd_be32 (data + 4 + i * 4);
-		if (cur_off < prev_off || cur_off >= size)
+		const u32 off = rd_be32 (data + 4 + i * 4);
+		const u32 end = i + 1 < num_files ? rd_be32 (data + 8 + i * 4) : size;
+		if (off < tab_size || end > size || (u64)off + 8 > end)
 			return false;
-		prev_off = cur_off;
+		const u32 decomp_size = rd_be32 (data + off);
+		const u32 comp_type = rd_be32 (data + off + 4);
+		if (comp_type > 7 || comp_type == 6 || decomp_size > 0x10000000)
+			return false;
+		if (comp_type == MPBIN_COMP_NONE && (u64)off + 8 + decomp_size > end)
+			return false;
 	}
-
-	// Verify first entry's header
-	if (first_off + 8 > size)
-		return false;
-	const u32 decomp_size = rd_be32 (data + first_off);
-	const u32 comp_type = rd_be32 (data + first_off + 4);
-
-	if (comp_type > 7 || comp_type == 6)
-		return false;
-	if (decomp_size > 0x10000000) // max 256MB
-		return false;
-
-	// A stored (uncompressed) entry cannot be larger than its own slot.
-	// Without this a 48-byte text file (Tetris Party Deluxe's
-	// lng/*/mess/000_defwin.bin: "\0\0\0\3" string count, UTF-16 "Ja")
-	// passed as MPBIN with a 4.8 MB "stored" entry.
-	const u32 first_end = num_files > 1 ? rd_be32 (data + 8) : size;
-	if (comp_type == MPBIN_COMP_NONE && first_off + 8 + (u64)decomp_size > first_end)
-		return false;
 
 	return true;
 }
@@ -294,7 +278,7 @@ enumError DecompressMPBIN_Inflate (u8 *dst, uint dst_len, const u8 *src, uint sr
 
 	int ret = inflate (&strm, Z_FINISH);
 	inflateEnd (&strm);
-	return (ret == Z_OK || ret == Z_STREAM_END) ? ERR_OK : ERR_WARNING;
+	return ret == Z_STREAM_END && strm.total_out == dst_len ? ERR_OK : ERR_WARNING;
 }
 
 //-----------------------------------------------------------------------------
@@ -703,12 +687,14 @@ enumError CompressMPBIN_Inflate (u8 **dest, uint *dest_size, const u8 *src, uint
 
 enumError ScanMPBIN (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
 {
-	if (!entries || !n_entries || !data || !IsMPBIN (data, size))
+	if (!entries || !n_entries)
+		return ERR_INVALID_DATA;
+	*entries = 0;
+	*n_entries = 0;
+	if (!IsMPBIN (data, size))
 		return ERR_INVALID_DATA;
 
 	const u32 num_files = rd_be32 (data);
-	*entries = 0;
-	*n_entries = 0;
 
 	// Total entries: num_files + 1 (for setup file)
 	nintendo_sarc_entry_t *out = CALLOC (num_files + 1, sizeof (*out));
@@ -717,17 +703,16 @@ enumError ScanMPBIN (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 
 
 	dyn_buf_t setup;
 	dyn_init (&setup);
+	enumError err = ERR_OUT_OF_MEMORY;
+	uint out_cnt = 0;
 	char line[256];
 	snprintf (line, sizeof (line), "# MPBIN setup manifest\n# total_files = %u\n\n", num_files);
-	dyn_write (&setup, line, (uint)strlen (line));
-
-	uint out_cnt = 0;
+	if (!dyn_write (&setup, line, (uint)strlen (line)))
+		goto fail;
 	for (u32 i = 0; i < num_files; i++)
 	{
 		const u32 file_off = rd_be32 (data + 4 + i * 4);
 		const u32 next_off = (i + 1 < num_files) ? rd_be32 (data + 4 + (i + 1) * 4) : size;
-		if (file_off + 8 > size || next_off > size || file_off >= next_off)
-			continue;
 
 		const u32 decomp_size = rd_be32 (data + file_off);
 		const u32 comp_type = rd_be32 (data + file_off + 4);
@@ -737,17 +722,15 @@ enumError ScanMPBIN (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 
 		u8 *uncomp = 0;
 		if (decomp_size > 0)
 		{
-			// zeroed: a short payload or failed decompression must not leak
-			// uninitialized heap memory into the extracted file
-			uncomp = CALLOC (1, decomp_size);
+			uncomp = MALLOC (decomp_size);
 			if (!uncomp)
-				continue;
+				goto fail;
 
-			enumError err = ERR_OK;
+			err = ERR_OK;
 			switch (comp_type)
 			{
 				case MPBIN_COMP_NONE:
-					memcpy (uncomp, payload, decomp_size <= payload_size ? decomp_size : payload_size);
+					memcpy (uncomp, payload, decomp_size);
 					break;
 				case MPBIN_COMP_LZSS:
 					err = DecompressMPBIN_LZSS (uncomp, decomp_size, payload, payload_size);
@@ -764,10 +747,15 @@ enumError ScanMPBIN (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 
 					err = DecompressMPBIN_Inflate (uncomp, decomp_size, payload, payload_size);
 					break;
 				default:
-					memcpy (uncomp, payload, decomp_size <= payload_size ? decomp_size : payload_size);
+					err = ERR_INVALID_DATA;
 					break;
 			}
-			(void)err;
+			if (err)
+			{
+				FREE (uncomp);
+				err = ERR_INVALID_DATA;
+				goto fail;
+			}
 		}
 
 		// Detect extension
@@ -798,19 +786,29 @@ enumError ScanMPBIN (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 
 		snprintf (fname, sizeof (fname), "file%03u.%s", i, ext);
 
 		snprintf (line, sizeof (line), "file%03u\tcompress_type=%u\tname=%s\n", i, comp_type, fname);
-		dyn_write (&setup, line, (uint)strlen (line));
-
-		OwnedEntryAdd (out, out_cnt++, fname, uncomp ? uncomp : (const u8 *)"", decomp_size);
+		const bool ok = dyn_write (&setup, line, (uint)strlen (line))
+			&& OwnedEntryAdd (out, out_cnt, fname, uncomp ? uncomp : (const u8 *)"", decomp_size);
 		FREE (uncomp);
+		err = ERR_OUT_OF_MEMORY;
+		if (!ok)
+			goto fail;
+		out_cnt++;
 	}
 
 	// Add setup file as last entry
-	OwnedEntryAdd (out, out_cnt++, MPBIN_SETUP_FILE, setup.data, setup.size);
+	if (!OwnedEntryAdd (out, out_cnt, MPBIN_SETUP_FILE, setup.data, setup.size))
+		goto fail;
+	out_cnt++;
 	dyn_free (&setup);
 
 	*entries = out;
 	*n_entries = out_cnt;
 	return ERR_OK;
+
+fail:
+	dyn_free (&setup);
+	ResetOwnedEntries (out, out_cnt);
+	return err;
 }
 
 //-----------------------------------------------------------------------------

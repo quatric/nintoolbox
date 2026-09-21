@@ -5215,8 +5215,10 @@ static enumError extract_mpbin_file (ccp arg, ccp basedir, uint depth)
 	uint n_entries = 0;
 	err = ScanMPBIN (&entries, &n_entries, raw, (uint)raw_size);
 	FREE (raw);
-	if (err || !n_entries)
-		return ERR_NOTHING_TO_DO;
+	if (err)
+		return err;
+	if (!n_entries)
+		return ERR_INVALID_DATA;
 
 	return write_owned_entries (arg, basedir, depth, "MPBIN", entries, n_entries);
 }

@@ -1436,6 +1436,14 @@ test-zdat-bounds: version.h
 	$(CC) $(ZDAT_TEST_CFLAGS) -ffunction-sections -fdata-sections -I. -Isrc -Idclib ../tests/test-zdat-bounds.c src/lib-zdat.c $(COMPRESSION_TEST_LDFLAGS) -o bin/test-zdat-bounds
 	@./bin/test-zdat-bounds
 
+.PHONY : test-mpbin
+# Recompile the decoder so this target also supports sanitizer instrumentation.
+MPBIN_TEST_CFLAGS ?= -O2
+test-mpbin: version.h $(ALL_OBJECTS) $(TOBJ_wtest)
+	@mkdir -p bin
+	$(CC) $(CFLAGS) $(DEFINES) $(MPBIN_TEST_CFLAGS) $(LDFLAGS) ../tests/test-mpbin.c src/lib-mpbin.c $(filter-out lib-mpbin.o,$(ALL_OBJECTS)) $(filter-out lib-mpbin.o $(ALL_OBJECTS),$(TOBJ_wtest)) $(LIBS) $(TOPT_wtest) -o bin/test-mpbin
+	@./bin/test-mpbin
+
 .PHONY : test-nitro
 # Use the same format dependencies and platform libraries as wtest so the
 # suite stays linkable when codec implementations move into separate files.

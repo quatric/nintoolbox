@@ -62,6 +62,17 @@ class ArchiveDetectionTests(unittest.TestCase):
             self.tool('EXTRACT', source, '-d', root / 'out')
             self.assertEqual((root / 'out' / 'file000.dat').read_bytes(), payload)
 
+    def test_mpbin_rejects_truncated_compressed_members(self):
+        for compression in (1, 2, 3, 4, 5, 7):
+            with self.subTest(compression=compression), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                source = root / 'input.bin'
+                source.write_bytes(struct.pack('>4I', 1, 8, 100, compression) + b'X')
+                result = subprocess.run([str(BINARY), 'EXTRACT', str(source), '-d', str(root / 'out')],
+                                        capture_output=True, text=True, timeout=30)
+                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertFalse(list((root / 'out').glob('file*')))
+
     def test_wrapped_g1t_precedes_atb(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
