@@ -5,6 +5,7 @@
 #include "lib-nintendo.h"
 
 // Dance Dance Revolution Mario Mix Chunk Archive (.mdr)
+bool IsMDR (const u8 *data, uint size);
 enumError ExtractMDRArchive (ccp arg, ccp basedir, uint depth);
 enumError CreateMDRArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries);

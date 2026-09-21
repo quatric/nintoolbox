@@ -18,6 +18,27 @@
 // ----------------------------------------------------------------------------
 // 3. Dance Dance Revolution Mario Mix Chunk Archive (.mdr)
 // ----------------------------------------------------------------------------
+bool IsMDR (const u8 *data, uint size)
+{
+	if (!data || size < 8)
+		return false;
+	const u32 count = rd_be32 (data);
+	const u64 table_end = 4 + (u64)count * 4;
+	if (!count || count > 100000 || table_end > size)
+		return false;
+	for (uint i = 0; i < count; i++)
+	{
+		const u32 off = rd_be32 (data + 4 + i * 4);
+		const u32 end = i + 1 < count ? rd_be32 (data + 8 + i * 4) : size;
+		if (off < table_end || end > size || (u64)off + 16 > end)
+			return false;
+		if (rd_be32 (data + off) != rd_be32 (data + off + 8)
+			|| (u64)off + 16 + rd_be32 (data + off + 12) > end)
+			return false;
+	}
+	return true;
+}
+
 enumError ExtractMDRArchive (ccp arg, ccp basedir, uint depth)
 {
 	if (!is_ext_match (arg, ".mdr") && !is_ext_match (arg, ".bin"))
@@ -29,54 +50,12 @@ enumError ExtractMDRArchive (ccp arg, ccp basedir, uint depth)
 	if (err)
 		return ERR_NOTHING_TO_DO;
 
-	if (raw_size < 8)
+	if (raw_size > UINT_MAX || !IsMDR (raw, (uint)raw_size))
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
 	}
-
 	const u32 count = rd_be32 (raw);
-	if (!count || count > 100000 || (uint64_t)4 + (uint64_t)count * 4 > raw_size)
-	{
-		FREE (raw);
-		return ERR_NOTHING_TO_DO;
-	}
-
-	// Validate first offset
-	const u32 first_off = rd_be32 (raw + 4);
-	if ((uint64_t)first_off < (uint64_t)4 + (uint64_t)count * 4
-		|| (uint64_t)first_off + 16 > raw_size)
-	{
-		FREE (raw);
-		return ERR_NOTHING_TO_DO;
-	}
-	if ((uint64_t)first_off + 16 + rd_be32(raw + first_off + 12) > raw_size)
-	{
-		FREE(raw);
-		return ERR_NOTHING_TO_DO;
-	}
-
-	// MDR has no magic. Validate that at least one complete chunk survives
-	// the same 64-bit bounds checks used below before claiming a generic .bin.
-	// Otherwise arbitrary compressed data can be expanded into a bogus tree.
-	bool have_chunk = false;
-	for (uint i = 0; i < count; i++)
-	{
-		const u32 off = rd_be32(raw + 4 + i * 4);
-		if ((uint64_t)off + 16 > raw_size)
-			continue;
-		const u32 comp_sz = rd_be32(raw + off + 12);
-		if ((uint64_t)off + 16 + comp_sz <= raw_size)
-		{
-			have_chunk = true;
-			break;
-		}
-	}
-	if (!have_chunk)
-	{
-		FREE(raw);
-		return ERR_NOTHING_TO_DO;
-	}
 
 	char dest[PATH_MAX];
 	get_dest_dir (dest, sizeof (dest), arg, basedir);
@@ -116,22 +95,24 @@ enumError ExtractMDRArchive (ccp arg, ccp basedir, uint depth)
 				&& decomp_data)
 			{
 				snprintf (out_path, sizeof (out_path), "%s/chunk_%02u_flags_%08x_zlib.bin", dest, i, flags);
-				SaveFile (out_path, 0, 0, decomp_data, decomp_sz, 0);
+				err = SaveFile (out_path, 0, 0, decomp_data, decomp_sz, 0);
 				FREE (decomp_data);
 			}
-			else if (comp_sz > 0)
+			else
 			{
 				// Not valid zlib data -- the chunk is stored raw/uncompressed.
 				// Marked "_raw" so CreateMDRArchive() can store it back verbatim
 				// instead of zlib-compressing it, keeping retail files byte-exact.
 				snprintf (out_path, sizeof (out_path), "%s/chunk_%02u_flags_%08x_raw.bin", dest, i, flags);
-				SaveFile (out_path, 0, 0, raw + off + 16, comp_sz, 0);
+				err = SaveFile (out_path, 0, 0, raw + off + 16, comp_sz, 0);
 			}
 		}
+		if (err)
+			break;
 	}
 
 	FREE (raw);
-	return ERR_OK;
+	return err;
 }
 
 

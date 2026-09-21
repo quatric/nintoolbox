@@ -52,6 +52,8 @@
 #include "lib-std.h"
 #include "lib-szs.h"
 #include "lib-rarc.h"
+#include "lib-mdr.h"
+#include "lib-g1t.h"
 #include "lib-pack.h"
 #include "lib-brres.h"
 #include "lib-breff.h"
@@ -851,6 +853,13 @@ __attribute__((weak)) bool IsNTTF (const u8 *data, uint size)
 	return false;
 }
 
+__attribute__((weak)) bool IsMDR (const u8 *data, uint size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
+
 __attribute__((weak)) bool IsMPBIN (const u8 *data, uint size)
 {
 	(void)data;
@@ -951,6 +960,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_MIO;
 		if (IsNTTF (data8, file_size))
 			return FF_NTTF;
+		if (IsMDR (data8, data_size))
+			return FF_MDR;
+		if (IsG1TGZ (data8, data_size))
+			return FF_G1T;
 		if (IsMPBIN (data8, data_size))
 			return FF_MPBIN;
 		if (IsATB (data8, data_size))
