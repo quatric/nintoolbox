@@ -17,21 +17,21 @@ int CxIsCompressedLZOvl (const unsigned char *src, unsigned int size)
 	// container magics that used to be excluded here is no longer needed.
 	const u32 extra = (u32)src[size - 4] | ((u32)src[size - 3] << 8) | ((u32)src[size - 2] << 16)
 		| ((u32)src[size - 1] << 24);
-	if (extra == 0 || extra > NFMT_MAX_OUTPUT)
+	if (extra == 0 || size > NFMT_MAX_OUTPUT || extra > NFMT_MAX_OUTPUT - size)
 		return 0;
 	const u8 hdr_len = src[size - 5];
 	if (hdr_len < 8 || hdr_len > 11 || size <= hdr_len)
 		return 0;
 	const u32 comp_len
 		= (u32)src[size - 8] | ((u32)src[size - 7] << 8) | ((u32)src[size - 6] << 16);
-	if (comp_len < hdr_len || comp_len > size - hdr_len)
+	if (comp_len <= hdr_len || comp_len > size)
 		return 0;
 	return 1;
 }
 
 enumError DecodeLZOvl (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 {
-	if (!dest || !dest_size || !src || src_size < 8)
+	if (!dest || !dest_size || !src || src_size < 4)
 		return EINVAL;
 
 	const u32 extra = (u32)src[src_size - 4] | ((u32)src[src_size - 3] << 8)
@@ -39,6 +39,8 @@ enumError DecodeLZOvl (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 	if (extra == 0)
 	{
 		const uint out_len = src_size - 4;
+		if (!out_len || out_len > NFMT_MAX_OUTPUT)
+			return EINVAL;
 		u8 *out = MALLOC (out_len);
 		if (!out)
 			return ERR_CANT_CREATE;
@@ -48,17 +50,15 @@ enumError DecodeLZOvl (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 		return ERR_OK;
 	}
 
-	const u8 hdr_len = src[src_size - 5];
-	if (hdr_len < 8 || hdr_len > src_size)
+	if (!CxIsCompressedLZOvl (src, src_size))
 		return EINVAL;
+	const u8 hdr_len = src[src_size - 5];
 
 	const u32 comp_len
 		= (u32)src[src_size - 8] | ((u32)src[src_size - 7] << 8) | ((u32)src[src_size - 6] << 16);
-	const u32 uncomp_len = src_size - hdr_len - comp_len;
+	// The trailer is included in comp_len, just as in the BLZ wrapper.
+	const u32 uncomp_len = src_size - comp_len;
 	const u32 total_out = src_size + extra;
-
-	if (total_out > NFMT_MAX_OUTPUT || total_out < uncomp_len)
-		return EINVAL;
 
 	u8 *out = MALLOC (total_out);
 	if (!out)
@@ -78,19 +78,19 @@ enumError DecodeLZOvl (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 			if ((flags & (1 << b)) == 0)
 			{
 				if (src_pos <= uncomp_len)
-					break;
+					goto invalid;
 				out[--out_pos] = src[--src_pos];
 			}
 			else
 			{
 				if (src_pos < uncomp_len + 2)
-					break;
+					goto invalid;
 				const u8 b1 = src[--src_pos];
 				const u8 b2 = src[--src_pos];
 				const uint len = (b1 >> 4) + 3;
 				const uint disp = (((b1 & 0xF) << 8) | b2) + 3;
-				if (out_pos + disp > total_out || len > out_pos - uncomp_len)
-					break;
+				if (disp > total_out - out_pos || len > out_pos - uncomp_len)
+					goto invalid;
 				for (uint i = 0; i < len; i++)
 				{
 					out_pos--;
@@ -100,9 +100,16 @@ enumError DecodeLZOvl (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 		}
 	}
 
+	if (out_pos != uncomp_len)
+		goto invalid;
+
 	*dest = out;
 	*dest_size = total_out;
 	return ERR_OK;
+
+invalid:
+	FREE (out);
+	return EINVAL;
 }
 
 enumError EncodeLZOvl (u8 **dest, uint *dest_size, const u8 *src, uint src_size)

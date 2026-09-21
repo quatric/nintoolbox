@@ -17,7 +17,7 @@ enumError DecodeSSZL (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 	const u32 usize
 		= (u32)src[12] | ((u32)src[13] << 8) | ((u32)src[14] << 16) | ((u32)src[15] << 24);
 
-	if (!usize || usize > NFMT_MAX_OUTPUT || 16 + zsize > src_size)
+	if (!usize || usize > NFMT_MAX_OUTPUT || zsize > src_size - 16)
 		return EINVAL;
 
 	u8 *out = MALLOC (usize);

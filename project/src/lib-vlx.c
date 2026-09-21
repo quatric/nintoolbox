@@ -40,23 +40,15 @@ static u32 vlx_read_bits (vlx_buffer_t *b, int n)
 		return 0;
 	while (b->bits_left < n)
 	{
-		if (b->srcpos + 4 > b->size)
+		if (b->srcpos >= b->size)
 		{
-			// Read remaining bytes with zero padding
-			u32 w = 0;
-			for (uint i = 0; i < 4; i++)
-				if (b->srcpos + i < b->size)
-					w |= (u32)b->src[b->srcpos + i] << (i * 8);
-			b->cur_word |= w << b->bits_left;
-			b->srcpos = b->size;
-			b->bits_left += 32;
-			break;
+			b->error = true;
+			return 0;
 		}
-		const u32 w = (u32)b->src[b->srcpos] | ((u32)b->src[b->srcpos + 1] << 8)
-			| ((u32)b->src[b->srcpos + 2] << 16) | ((u32)b->src[b->srcpos + 3] << 24);
-		b->srcpos += 4;
-		b->cur_word |= w << b->bits_left;
-		b->bits_left += 32;
+		// Fields are at most 15 bits. Refill a byte at a time so pending
+		// bits cannot discard the high end of a 32-bit word.
+		b->cur_word |= (u32)b->src[b->srcpos++] << b->bits_left;
+		b->bits_left += 8;
 	}
 	const u32 val = b->cur_word & ((1u << n) - 1);
 	b->cur_word >>= n;
@@ -78,7 +70,7 @@ static uint vlx_read_next_val (vlx_buffer_t *b, const vlx_tree_node_t *nodes, ui
 		if ((int)mb > b->bits_left)
 			continue;
 		const u32 code = b->cur_word & ((1u << mb) - 1);
-		if ((code << (32 - mb)) == nodes[i].encoding)
+		if (code == nodes[i].encoding)
 		{
 			b->cur_word >>= mb;
 			b->bits_left -= mb;
@@ -256,7 +248,7 @@ enumError EncodeVLX (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 	out[7] = 0x00;
 
 	// Write literal tokens (1 bit '0' length token + 8 bits data)
-	uint bitpos = 0;
+	u64 bitpos = 0;
 	u8 *bitstream = out + 8;
 	for (uint i = 0; i < src_size; i++)
 	{

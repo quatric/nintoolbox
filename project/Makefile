@@ -1412,6 +1412,22 @@ st:
 	@printf "* N="
 	@svn diff | grep ^+ | wc -l
 
+.PHONY : test-compression-bounds
+COMPRESSION_TEST_CFLAGS ?= -O2
+COMPRESSION_TEST_LDFLAGS = -Wl,--gc-sections
+ifeq ($(SYSTEM),mac)
+  COMPRESSION_TEST_LDFLAGS = -Wl,-dead_strip
+endif
+COMPRESSION_TEST_SOURCES = ../tests/test-compression-bounds.c src/lib-nintendo.c \
+                          src/lib-diff.c src/lib-vlx.c src/lib-lzovl.c src/lib-sszl.c
+
+# Override COMPRESSION_TEST_CFLAGS with -g -O1 -fsanitize=address,undefined
+# to check every decoder and the shared allocator with sanitizers.
+test-compression-bounds: version.h
+	@mkdir -p bin
+	$(CC) $(COMPRESSION_TEST_CFLAGS) -ffunction-sections -fdata-sections -I. -Isrc -Idclib $(COMPRESSION_TEST_SOURCES) $(COMPRESSION_TEST_LDFLAGS) -o bin/test-compression-bounds
+	@./bin/test-compression-bounds
+
 .PHONY : test-nitro
 NITRO_SPLIT_O	= lib-darc.o lib-diff.o lib-lzovl.o lib-lzx.o lib-mvdk.o lib-psdk.o \
 		  lib-pucrunch.o lib-sadl.o lib-sszl.o lib-vlx.o lib-alar.o lib-owned-entries.o

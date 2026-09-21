@@ -69,12 +69,14 @@ enumError DecodeDiff16 (u8 **dest, uint *dest_size, const u8 *src, uint src_size
 
 	u8 *out = *dest;
 	u16 prev = 0;
-	for (uint i = 0; i + 1 < uncomp_size && 4 + i + 1 < src_size; i += 2)
+	// The final delta is padded to 16 bits even for an odd output size.
+	for (uint i = 0; i < uncomp_size; i += 2)
 	{
 		const u16 diff = (u16)src[4 + i] | ((u16)src[4 + i + 1] << 8);
 		prev += diff;
 		out[i] = (u8)(prev & 0xFF);
-		out[i + 1] = (u8)(prev >> 8);
+		if (i + 1 < uncomp_size)
+			out[i + 1] = (u8)(prev >> 8);
 	}
 	return ERR_OK;
 }
