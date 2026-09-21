@@ -34,6 +34,7 @@
 #include "lib-gds.h"
 #include "lib-chx.h"
 #include "lib-mapbad.h"
+#include "lib-bam.h"
 #include "lib-csfnt.h"
 #include "lib-cscsi.h"
 #include "lib-nlgdict.h"
