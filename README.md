@@ -72,6 +72,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **ARCV** | `.arc` | ✅ | ✅ | ✅ | — | Namco / Tose Wii archive format |
 | **Arika Archive** | `INFO.DAT`, `GAME.DAT`, `.arika` | ✅ | ✅ | ✅ | — | Arika DS / DSi / Wii archive system |
 | **Asobo BigFile** | `.drv` | ✅ | — | — | ✅ | Asobo Studio volume (*Ratatouille*, Wii): textures to PNG, sounds to WAV, meshes to GLB. |
+| **AGI** | `.pak` | ✅ | — | — | ✅ | Toys for Bob archive (*Skylanders: Swap Force*, Wii); audio-bank `.pak` files extract to FSB5 → WAV, raw `.igz`/`.igx` model/material members; mixed-layout `.pak` files are skipped cleanly. |
 | **AT7** | `.at7` | ✅ | ✅ | ✅ | — | Koei Tecmo container format (Wii / PS2) |
 | **ATB** | `.atb` | ✅ | — | — | — | Hudson Soft Animation Texture Bank (*Mario Party 4-8*). |
 | **Atomic Planet PUB** | `.pub` | ✅ | — | — | ✅ | *AMF Bowling: Pinbusters!* (Wii): textures to PNG, meshes to GLB. |

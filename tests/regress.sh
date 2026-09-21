@@ -8838,6 +8838,18 @@ with open(sys.argv[1], "wb") as f:
     fno "CDGaCube archive" "mk_catcar.py failed"
   fi
 
+  # Toys for Bob AGI archive (Skylanders: Swap Force files/*.pak)
+  mkdir -p "$d/agi_test"
+  if python3 "$PWD_PROJECT/../tests/mk_agi.py" "$d/agi_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/agi_test/test.pak" --dest "$d/agi_test/out" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/agi_test/out/a.txt")" = "hello agi" ] \
+    && [ "$(cat "$d/agi_test/out/b.igz")" = "member two" ] \
+    && fok "AGI archive (Skylanders: Swap Force .pak) unpacks named members" \
+    || fno "AGI archive" "failed to unpack synthetic test.pak"
+  else
+    fno "AGI archive" "mk_agi.py failed"
+  fi
+
   # Terminal Reality POD5 archive (Nickelodeon Dance WII*.POD)
   mkdir -p "$d/termpod_test"
   if python3 "$PWD_PROJECT/../tests/mk_termpod.py" "$d/termpod_test" >/dev/null 2>&1; then

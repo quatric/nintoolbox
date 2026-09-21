@@ -16,6 +16,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **ARCV** | Wii / Archive | ✅ | ✅ | Pac-Man Party (Wii) archive; byte-exact round-trip |
 | **ART / IMG** | Wii / Texture | ✅ | ✅ | Monster Games GUI image format |
 | **ASH0** | GameCube/Wii / Compression | ✅ | ✅ | Nintendo ASH0 compression (System Menu, Animal Crossing, My Pokémon Ranch; automatic 11/15-bit distance tree fallback) |
+| **AGI** | Wii / Archive | ✅ | ❌ | Toys for Bob "AGI" archive (`\x1AAGI`, *Skylanders: Swap Force* `files/*.pak`): big-endian header + heuristic entry-table scan (adjacent `(offset,size)` word pairs) + backslash-path name table; extract-only, and only for the ~2/3 of retail `.pak` files where the pair count matches the name count (audio-bank-only files; mixed model/material `.pak` files use a non-uniform record layout not yet decoded and are skipped cleanly). Raw `FSB5` audio members are tagged `.fsb` and auto-decoded to WAV via the existing FSB4/FSB5 decoder; `.igz`/`.igx` model/material members are extracted raw (IGZ internals out of scope) |
 | **AT7** | PS2/Wii / Archive | ✅ | ✅ | Koei Tecmo container |
 | **BCFNT** | 3DS / Font | ✅ | ✅ | 3DS bitmap font to PNG atlas |
 | **BCH** | 3DS / Model | ✅ | ✅ | CTR H3D model container |

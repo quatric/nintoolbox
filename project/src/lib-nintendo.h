@@ -499,6 +499,7 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-toshi.h"
 #include "lib-fbc.h"
 #include "lib-fsb.h"
+#include "lib-agi.h"
 #include "lib-avtex.h"
 #include "lib-cs-dct.h"
 #include "lib-dsp.h"
