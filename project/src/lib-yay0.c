@@ -9,6 +9,8 @@ enumError DecodeYay0 (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 	if (!src || src_size < 16 || memcmp (src, "Yay0", 4))
 		return EINVAL;
 	const u32 out_len = rd_be32 (src + 4), link = rd_be32 (src + 8), chunk = rd_be32 (src + 12);
+	if (link < 16 || link > chunk || chunk > src_size)
+		return EINVAL;
 	enumError err = AllocOutput (dest, dest_size, out_len);
 	if (err)
 		return err;
@@ -18,7 +20,7 @@ enumError DecodeYay0 (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 	{
 		if (!bits)
 		{
-			if (mask + 4 > src_size)
+			if (link - mask < 4)
 				goto invalid;
 			code = rd_be32 (src + mask);
 			mask += 4;
@@ -32,7 +34,7 @@ enumError DecodeYay0 (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 		}
 		else
 		{
-			if (lp + 2 > src_size)
+			if (chunk - lp < 2)
 				goto invalid;
 			u16 v = (u16)src[lp] << 8 | src[lp + 1];
 			lp += 2;

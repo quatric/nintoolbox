@@ -102,16 +102,16 @@ static enumError cmd_compress ()
 // overwrite path. They are deliberately handled before LoadSZS(), because
 // their payload is not an archive.
 static enumError decompress_nintendo_file3 (
-	ccp arg, char *dest_out, uint dest_out_size, bool *is_final_out);
+	ccp arg, char *dest_out, uint dest_out_size, bool *is_final_out, bool report_error);
 
 static enumError decompress_nintendo_file (ccp arg)
 {
-	return decompress_nintendo_file3 (arg, 0, 0, 0);
+	return decompress_nintendo_file3 (arg, 0, 0, 0, false);
 }
 
 static enumError decompress_nintendo_file2 (ccp arg, char *dest_out, uint dest_out_size)
 {
-	return decompress_nintendo_file3 (arg, dest_out, dest_out_size, 0);
+	return decompress_nintendo_file3 (arg, dest_out, dest_out_size, 0, false);
 }
 
 // 'is_final_out' distinguishes this function's two kinds of output. Most
@@ -120,7 +120,7 @@ static enumError decompress_nintendo_file2 (ccp arg, char *dest_out, uint dest_o
 // instead *convert* to a finished deliverable -- BXWAV -> WAV is one -- and
 // those must survive that discard. See extract_one_file().
 static enumError decompress_nintendo_file3 (
-	ccp arg, char *dest_out, uint dest_out_size, bool *is_final_out)
+	ccp arg, char *dest_out, uint dest_out_size, bool *is_final_out, bool report_error)
 {
 	if (is_final_out)
 		*is_final_out = false;
@@ -588,7 +588,14 @@ static enumError decompress_nintendo_file3 (
 	}
 	FREE (data);
 	if (err)
-		return ERR_NOTHING_TO_DO;
+	{
+		// Recursive extraction probes arbitrary files, so a failed candidate
+		// is quiet there. An explicit DECOMPRESS must report a codec failure.
+		return report_error
+			? ERROR0 (ERR_INVALID_DATA, "Can't decompress %s data: %s\n",
+				GetNintendoFormatName (info.type), arg)
+			: ERR_NOTHING_TO_DO;
+	}
 
 	char dest[PATH_MAX];
 	if (opt_dest && strcmp (opt_dest, "\1P/\1N\1?T"))
@@ -698,7 +705,7 @@ static enumError cmd_decompress ()
 	for (int argi = 0; argi < plist.used; argi++)
 	{
 		ccp arg = plist.field[argi];
-		enumError native_err = decompress_nintendo_file (arg);
+		enumError native_err = decompress_nintendo_file3 (arg, 0, 0, 0, true);
 		if (native_err != ERR_NOTHING_TO_DO)
 		{
 			if (max_err < native_err)
@@ -778,4 +785,3 @@ static enumError cmd_decompress ()
 	ResetStringField (&plist);
 	return max_err;
 }
-

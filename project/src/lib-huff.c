@@ -19,37 +19,31 @@ enumError DecodeNintendoHuff (u8 **dest, uint *dest_size, const u8 *src, uint sr
 		tree_off = 8;
 	}
 	const uint tree_size = 2u * (src[tree_off] + 1);
-	const uint tree_base = tree_off + 1;
-	if (!out_size || tree_size > src_size - tree_base || src_size - (tree_base + tree_size) < 4)
+	// Tree offsets are relative to aligned pairs in the file. Include the
+	// size byte at index 0 so the root at index 1 keeps that alignment.
+	if (!out_size || tree_size > src_size - tree_off || src_size - tree_off - tree_size < 4)
 		return EINVAL;
 	enumError err = AllocOutput (dest, dest_size, out_size);
 	if (err)
 		return err;
-	const u8 *tree = src + tree_base;
+	const u8 *tree = src + tree_off;
 	const u8 *bits = tree + tree_size;
+	const uint bits_size = src_size - tree_off - tree_size;
 	uint bits_pos = 0, bits_left = 0, out_pos = 0;
 	u32 word = 0;
 	int half = -1;
 	while (out_pos < out_size)
 	{
-		uint node = 0;
+		uint node = 1;
 		u8 symbol = 0;
 		for (;;)
 		{
 			if (node >= tree_size)
-			{
-				FREE (*dest);
-				*dest = 0;
-				return EINVAL;
-			}
+				goto invalid;
 			if (!bits_left)
 			{
-				if (bits_pos > src_size - (bits - tree) - 4)
-				{
-					FREE (*dest);
-					*dest = 0;
-					return EINVAL;
-				}
+				if (bits_size - bits_pos < 4)
+					goto invalid;
 				word = rd_le32 (bits + bits_pos);
 				bits_pos += 4;
 				bits_left = 32;
@@ -59,11 +53,7 @@ enumError DecodeNintendoHuff (u8 **dest, uint *dest_size, const u8 *src, uint sr
 			const u8 entry = tree[node];
 			const uint child = (node & ~1u) + 2 + 2 * (entry & 0x3f) + (bit ? 1 : 0);
 			if (child >= tree_size)
-			{
-				FREE (*dest);
-				*dest = 0;
-				return EINVAL;
-			}
+				goto invalid;
 			if (entry & (bit ? 0x40 : 0x80))
 			{
 				symbol = tree[child];
@@ -74,20 +64,22 @@ enumError DecodeNintendoHuff (u8 **dest, uint *dest_size, const u8 *src, uint sr
 		if (!four_bit)
 			(*dest)[out_pos++] = symbol;
 		else if (half < 0)
-			half = symbol << 4;
+			half = symbol & 15;
 		else
 		{
-			(*dest)[out_pos++] = half | (symbol & 15);
+			(*dest)[out_pos++] = half | ((symbol & 15) << 4);
 			half = -1;
 		}
 	}
 	if (half >= 0)
-	{
-		FREE (*dest);
-		*dest = 0;
-		return EINVAL;
-	}
+		goto invalid;
 	return ERR_OK;
+
+invalid:
+	FREE (*dest);
+	*dest = 0;
+	*dest_size = 0;
+	return EINVAL;
 }
 
 typedef struct hnode_t
@@ -226,7 +218,7 @@ enumError EncodeNintendoHuff (
 	u8 tree[1024] = { 0 };
 	bfs_q_t q[512];
 	int q_head = 0, q_tail = 0;
-	q[q_tail++] = (bfs_q_t) { root, 0 };
+	q[q_tail++] = (bfs_q_t) { root, 1 };
 	uint next_pair = 2;
 
 	while (q_head < q_tail)
@@ -274,6 +266,7 @@ enumError EncodeNintendoHuff (
 
 	uint tree_size = next_pair;
 	u8 tree_size_byte = (u8)((tree_size / 2) - 1);
+	tree[0] = tree_size_byte;
 
 	uint max_bits_bytes = src_size * 2 + 1024;
 	u8 *bits_buf = MALLOC (max_bits_bytes);
@@ -291,7 +284,7 @@ enumError EncodeNintendoHuff (
 		if (four_bit)
 		{
 			uint byte_i = s_idx / 2;
-			sym = (s_idx % 2 == 0) ? ((src[byte_i] >> 4) & 0xF) : (src[byte_i] & 0xF);
+			sym = (s_idx % 2 == 0) ? (src[byte_i] & 0xF) : ((src[byte_i] >> 4) & 0xF);
 		}
 		else
 		{
@@ -346,7 +339,7 @@ enumError EncodeNintendoHuff (
 	}
 
 	const uint tree_off = 4;
-	const uint total_out = tree_off + 1 + tree_size + bits_pos;
+	const uint total_out = tree_off + tree_size + bits_pos;
 	u8 *out = CALLOC (1, total_out);
 	if (!out)
 	{
@@ -358,9 +351,8 @@ enumError EncodeNintendoHuff (
 	out[1] = src_size & 0xFF;
 	out[2] = (src_size >> 8) & 0xFF;
 	out[3] = (src_size >> 16) & 0xFF;
-	out[tree_off] = tree_size_byte;
-	memcpy (out + tree_off + 1, tree, tree_size);
-	memcpy (out + tree_off + 1 + tree_size, bits_buf, bits_pos);
+	memcpy (out + tree_off, tree, tree_size);
+	memcpy (out + tree_off + tree_size, bits_buf, bits_pos);
 	FREE (bits_buf);
 
 	*dest = out;

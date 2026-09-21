@@ -1850,7 +1850,7 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	char decompressed_path[PATH_MAX];
 	bool decompressed_is_final = false;
 	err = decompress_nintendo_file3 (
-		arg, decompressed_path, sizeof (decompressed_path), &decompressed_is_final);
+		arg, decompressed_path, sizeof (decompressed_path), &decompressed_is_final, false);
 	if (err == ERR_OK)
 	{
 		// Every check above (SARC/GFA/PAC/DARC, BRFNT/BFLYT auto-decode,

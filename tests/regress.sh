@@ -3971,20 +3971,20 @@ t_huffman(){
 import struct
 bits = '01011001' + '0'*24
 stream = struct.pack('<I', int(bits, 2))
-open('$d/huff8.bin', 'wb').write(bytes([0x28, 8, 0, 0, 1, 0xC0, 0x00, ord(\"A\"), ord(\"B\")]) + stream)
-open('$d/huff4.bin', 'wb').write(bytes([0x24, 4, 0, 0, 1, 0xC0, 0x00, 1, 2]) + stream)
+open('$d/huff8.bin', 'wb').write(bytes([0x28, 8, 0, 0, 1, 0xC0, ord(\"A\"), ord(\"B\")]) + stream)
+open('$d/huff4.bin', 'wb').write(bytes([0x24, 4, 0, 0, 1, 0xC0, 1, 2]) + stream)
 "
   local ok=1
   "$B/wszst" DECOMPRESS "$d/huff8.bin" --dest "$d/out8.bin" --overwrite >/dev/null 2>&1
   [ "$(cat "$d/out8.bin" 2>/dev/null)" = "ABABBAAB" ] || ok=0
   "$B/wszst" DECOMPRESS "$d/huff4.bin" --dest "$d/out4.bin" --overwrite >/dev/null 2>&1
-  [ "$(od -An -tx1 "$d/out4.bin" 2>/dev/null | tr -d ' \n')" = "12122112" ] || ok=0
+  [ "$(od -An -tx1 "$d/out4.bin" 2>/dev/null | tr -d ' \n')" = "21211221" ] || ok=0
   printf 'COMTYPE huff8\nCLOG "out8.dat" 0 %d\n' "$(fsize_of "$d/huff8.bin")" > "$d/test8.bms"
   printf 'COMTYPE huff4\nCLOG "out4.dat" 0 %d\n' "$(fsize_of "$d/huff4.bin")" > "$d/test4.bms"
   "$B/wbmsx" "$d/test8.bms" "$d/huff8.bin" "$d/out8_bms" >/dev/null 2>&1
   [ "$(cat "$d/out8_bms/out8.dat" 2>/dev/null)" = "ABABBAAB" ] || ok=0
   "$B/wbmsx" "$d/test4.bms" "$d/huff4.bin" "$d/out4_bms" >/dev/null 2>&1
-  [ "$(od -An -tx1 "$d/out4_bms/out4.dat" 2>/dev/null | tr -d ' \n')" = "12122112" ] || ok=0
+  [ "$(od -An -tx1 "$d/out4_bms/out4.dat" 2>/dev/null | tr -d ' \n')" = "21211221" ] || ok=0
   rm -rf "$d"
   [ "$ok" = 1 ] && ok "Nintendo Huffman 4-bit + 8-bit (wszst + wbmsx)" \
     || no "Nintendo Huffman 4-bit + 8-bit" "mismatch"

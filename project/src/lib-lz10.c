@@ -150,6 +150,8 @@ enumError EncodeLZ10LZ11 (u8 **dest, uint *dest_size, const u8 *src, uint src_si
 
 enumError EncodeLZ10Raw (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 {
+	if (!dest || !dest_size)
+		return EINVAL;
 	u8 *lz10 = 0;
 	uint lz10_size = 0;
 	enumError err = EncodeLZ10LZ11 (&lz10, &lz10_size, src, src_size, false);
