@@ -138,7 +138,7 @@ else
 fi
 
 # AGL Light Probe (BGLPBD) matrix test
-if ${CC:-cc} -O2 -ffunction-sections -fdata-sections -Isrc -Idclib -Isrc/libyaml     ../tests/test-bglpbd.c ./lib-bglpbd.o ./lib-aamp.o src/libyaml/*.c     dclib*.o -lz -lcurses -Wl,--gc-sections     -o /tmp/_r_bglpbd >/tmp/_r_bglpbd_build.log 2>&1     || ${CC:-cc} -O2 -ffunction-sections -fdata-sections -Isrc -Idclib -Isrc/libyaml     ../tests/test-bglpbd.c ./lib-bglpbd.o ./lib-aamp.o src/libyaml/*.c     dclib*.o -lz -lcurses -Wl,-dead_strip     -o /tmp/_r_bglpbd >>/tmp/_r_bglpbd_build.log 2>&1; then
+if ${CC:-cc} -O2 -ffunction-sections -fdata-sections -I. -Isrc -Idclib -Isrc/libyaml     ../tests/test-bglpbd.c ./lib-bglpbd.o ./lib-aamp.o src/libyaml/*.c     dclib*.o -lz -lcurses -Wl,--gc-sections     -o /tmp/_r_bglpbd >/tmp/_r_bglpbd_build.log 2>&1     || ${CC:-cc} -O2 -ffunction-sections -fdata-sections -I. -Isrc -Idclib -Isrc/libyaml     ../tests/test-bglpbd.c ./lib-bglpbd.o ./lib-aamp.o src/libyaml/*.c     dclib*.o -lz -lcurses -Wl,-dead_strip     -o /tmp/_r_bglpbd >>/tmp/_r_bglpbd_build.log 2>&1; then
   if /tmp/_r_bglpbd; then
     ok "BGLPBD (AGL light probes): SH math, Unity import, bounds generation, and AAMP roundtrip"
   else
@@ -224,7 +224,7 @@ assert total == len(d), ("bundle disagrees about its own size", total, len(d))
   # Seven files, and the names carry the game's own variant tag.
   if "$B/wszst" EXTRACT "$PWD_PROJECT/../tests/fixtures/acpc_common_multi.zdat" \
        --dest "$zd/many" --overwrite >/dev/null 2>&1; then
-    zn=$(find "$zd/many" -type f | wc -l | tr -d ' ')
+    zn=$(find "$zd/many" -type f ! -name ".zdat-cache.txt" | wc -l | tr -d ' ')
     zu=$(find "$zd/many" -type f -exec sh -c 'head -c 8 "$1" | grep -q UnityFS && echo y' \
            _ {} \; | wc -l | tr -d ' ')
     if [ "$zn" = 7 ] && [ "$zu" = 7 ] && [ -s "$zd/many/f37cb2a3.unity3dcommon" ]; then
@@ -658,10 +658,10 @@ fi
 # Retro's Metroid Prime CMPD segments use LZO1X alongside raw and zlib
 # segments. These are hand-authored streams so this remains a decoder test,
 # independent from any external LZO implementation or a self-made encoder.
-if ${CC:-cc} -O2 -ffunction-sections -fdata-sections -Isrc -Idclib \
+if ${CC:-cc} -O2 -ffunction-sections -fdata-sections -I. -Isrc -Idclib \
     ../tests/test-lzo1x.c ./lib-nintendo.o ./lib-lzo.o ./lib-rpak.o ./lib-szs.o -lz -Wl,--gc-sections \
     -o /tmp/_r_lzo1x >/tmp/_r_lzo1x_build.log 2>&1 \
-    || ${CC:-cc} -O2 -ffunction-sections -fdata-sections -Isrc -Idclib \
+    || ${CC:-cc} -O2 -ffunction-sections -fdata-sections -I. -Isrc -Idclib \
     ../tests/test-lzo1x.c ./lib-nintendo.o ./lib-lzo.o ./lib-rpak.o ./lib-szs.o -lz -Wl,-dead_strip \
     -o /tmp/_r_lzo1x >>/tmp/_r_lzo1x_build.log 2>&1; then
   if /tmp/_r_lzo1x; then

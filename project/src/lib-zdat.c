@@ -82,7 +82,7 @@ static int zdat_unmask (u8 *p, uint size, u8 *key_out)
 {
 	*key_out = 0;
 	static const char sig[] = "UnityFS";
-	const uint siglen = sizeof (sig) - 1;
+	const uint siglen = sizeof (sig);
 	if (size < 0x20)
 		return 0;
 
@@ -91,32 +91,31 @@ static int zdat_unmask (u8 *p, uint size, u8 *key_out)
 		if ((p[i] ^ key) != (u8)sig[i])
 			return 0;
 
-	for (uint i = 0; i < size; i++)
-		p[i] ^= key;
-
-	*key_out = key;
-
 	// UnityFS: signature, u32 format, two NUL-terminated version strings,
-	// then the bundle's own total size as a big-endian u64.
+	// then the bundle's own total size as a big-endian u64. Inspect masked
+	// bytes first: failed probes must leave the payload and key unchanged.
 	uint off = 8 + 4;
 	for (int i = 0; i < 2; i++)
 	{
-		uint start = off;
-		while (off < size && p[off])
+		while (off < size && (p[off] ^ key))
 			off++;
-		if (off >= size || off == start + 0)
-			; // an empty version string is unusual but not fatal
 		if (off >= size)
 			return 0;
 		off++;
 	}
-	if (off + 8 > size)
+	if (size - off < 8)
 		return 0;
 
 	u64 total = 0;
 	for (int i = 0; i < 8; i++)
-		total = total << 8 | p[off + i];
-	return total == size;
+		total = total << 8 | (p[off + i] ^ key);
+	if (total != size)
+		return 0;
+
+	for (uint i = 0; i < size; i++)
+		p[i] ^= key;
+	*key_out = key;
+	return 1;
 }
 
 
@@ -286,9 +285,9 @@ enumError CreateZDATArchive (
 	{
 		const ccp name = entries[i].name ? entries[i].name : "";
 		const uint nlen = (uint)strlen (name);
-		if (!nlen || nlen > 4096)
+		if (!nlen || nlen > 4096 || (entries[i].size && !entries[i].data))
 			return EINVAL;
-		cur += nlen + entries[i].size;
+		cur += (u64)nlen + entries[i].size;
 		if (data_off + nlen > 0xffff || cur > NFMT_MAX_OUTPUT)
 			return EFBIG;
 		data_off += nlen;
@@ -321,7 +320,8 @@ enumError CreateZDATArchive (
 		name_pos += nlen;
 
 		const uint size = entries[i].size;
-		memcpy (out + data_pos, entries[i].data, size);
+		if (size)
+			memcpy (out + data_pos, entries[i].data, size);
 		const u8 key = mask_keys ? mask_keys[i] : 0;
 		if (key)
 			for (uint j = 0; j < size; j++)
@@ -788,4 +788,3 @@ enumError create_rzpk_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

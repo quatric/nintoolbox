@@ -1429,12 +1429,19 @@ test-compression-bounds: version.h
 	$(CC) $(COMPRESSION_TEST_CFLAGS) -ffunction-sections -fdata-sections -I. -Isrc -Idclib $(COMPRESSION_TEST_SOURCES) $(COMPRESSION_TEST_LDFLAGS) -o bin/test-compression-bounds
 	@./bin/test-compression-bounds
 
-.PHONY : test-nitro
-NITRO_SPLIT_O	= lib-darc.o lib-diff.o lib-lzovl.o lib-lzx.o lib-mvdk.o lib-psdk.o \
-		  lib-pucrunch.o lib-sadl.o lib-sszl.o lib-vlx.o lib-alar.o lib-owned-entries.o
+.PHONY : test-zdat-bounds
+ZDAT_TEST_CFLAGS ?= -O2
+test-zdat-bounds: version.h
+	@mkdir -p bin
+	$(CC) $(ZDAT_TEST_CFLAGS) -ffunction-sections -fdata-sections -I. -Isrc -Idclib ../tests/test-zdat-bounds.c src/lib-zdat.c $(COMPRESSION_TEST_LDFLAGS) -o bin/test-zdat-bounds
+	@./bin/test-zdat-bounds
 
-test-nitro: lib-nintendo.o lib-nitro.o lib-smdh.o lib-bntx.o lib-gtx.o lib-aes.o file-type.o lib-file.o $(NITRO_SPLIT_O) src/astc/astc_decomp.o src/astc/astc_wrapper.o $(BCN_CXX_OBJS) $(LATTE_CXX_OBJS)
-	@$(CC) -O2 -ffunction-sections -fdata-sections -Isrc -Idclib ../tests/test-nitro.c lib-nitro.o lib-nintendo.o lib-smdh.o lib-bntx.o lib-gtx.o lib-aes.o $(NITRO_SPLIT_O) src/astc/astc_decomp.o src/astc/astc_wrapper.o $(BCN_CXX_OBJS) $(LATTE_CXX_OBJS) lib-szs.o fastyz.o trueyz.o lib-quicklz.o qlz120.o qlz140.o lzh8_dec.o lzh8_cmp.o lzh8_util.o dclib*.o -lcurses -lz -lc++ -Wl,-dead_strip -o bin/test-nitro
+.PHONY : test-nitro
+# Use the same format dependencies and platform libraries as wtest so the
+# suite stays linkable when codec implementations move into separate files.
+test-nitro: version.h $(ALL_OBJECTS) $(TOBJ_wtest)
+	@mkdir -p bin
+	$(CC) $(CFLAGS) $(DEFINES) $(LDFLAGS) ../tests/test-nitro.c $(ALL_OBJECTS) $(filter-out $(ALL_OBJECTS),$(TOBJ_wtest)) $(LIBS) $(TOPT_wtest) -o bin/test-nitro
 	@./bin/test-nitro
 
 .PHONY : test

@@ -3,6 +3,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#undef malloc
+#undef calloc
+#undef realloc
+#undef free
+#undef strdup
+
 void trace_free (ccp f, ccp p, uint l, void *v)
 {
 	(void)f;
