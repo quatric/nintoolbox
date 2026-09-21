@@ -8988,6 +8988,21 @@ with open(sys.argv[1], "wb") as f:
     fno "Sumo Digital .stz" "mk_sumostz.py failed"
   fi
 
+  # Sumo Digital .was standalone audio stream (Sonic & Sega All-Stars Racing,
+  # Wii): iSWS header + one lib-dsp-identical DSP-ADPCM sub-header -> WAV.
+  mkdir -p "$d/sumowas_test"
+  if python3 "$PWD_PROJECT/../tests/mk_sumowas.py" "$d/sumowas_test" >/dev/null 2>&1; then
+    "$B/wszst" extract "$d/sumowas_test/T.was" -d "$d/sumowas_test/T.wav" --overwrite >/dev/null 2>&1
+    wsam=$(python3 -c 'import struct,sys;d=open(sys.argv[1],"rb").read();print((len(d)-44)//2)' \
+      "$d/sumowas_test/T.wav" 2>/dev/null)
+    [ "$(head -c 4 "$d/sumowas_test/T.wav")" = "RIFF" ] \
+    && [ "$wsam" = "14" ] \
+    && fok "Sumo Digital .was: iSWS + DSP-ADPCM sub-header -> WAV (sample count)" \
+    || fno "Sumo Digital .was" "failed to extract synthetic stream"
+  else
+    fno "Sumo Digital .was" "mk_sumowas.py failed"
+  fi
+
   # Blue Tongue TRB package (de Blob 2, Wii): ttex texture -> PNG, XUR section
   mkdir -p "$d/bttrb_test"
   if python3 "$PWD_PROJECT/../tests/mk_bttrb.py" "$d/bttrb_test" >/dev/null 2>&1; then
