@@ -50,7 +50,8 @@ enumError ExtractMDRArchive (ccp arg, ccp basedir, uint depth)
 	if (err)
 		return ERR_NOTHING_TO_DO;
 
-	if (raw_size > UINT_MAX || !IsMDR (raw, (uint)raw_size))
+	if (raw_size > UINT_MAX || !IsMDR (raw, (uint)raw_size)
+		|| (is_ext_match (arg, ".bin") && IsMPBINInflate (raw, (uint)raw_size)))
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;

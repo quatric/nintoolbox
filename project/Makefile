@@ -1441,7 +1441,7 @@ test-zdat-bounds: version.h
 MPBIN_TEST_CFLAGS ?= -O2
 test-mpbin: version.h $(ALL_OBJECTS) $(TOBJ_wtest)
 	@mkdir -p bin
-	$(CC) $(CFLAGS) $(DEFINES) $(MPBIN_TEST_CFLAGS) $(LDFLAGS) ../tests/test-mpbin.c src/lib-mpbin.c $(filter-out lib-mpbin.o,$(ALL_OBJECTS)) $(filter-out lib-mpbin.o $(ALL_OBJECTS),$(TOBJ_wtest)) $(LIBS) $(TOPT_wtest) -o bin/test-mpbin
+	$(CC) $(CFLAGS) $(DEFINES) $(MPBIN_TEST_CFLAGS) $(LDFLAGS) -include ../tests/test-mpbin-alloc.h ../tests/test-mpbin.c src/lib-mpbin.c $(filter-out lib-mpbin.o,$(ALL_OBJECTS)) $(filter-out lib-mpbin.o $(ALL_OBJECTS),$(TOBJ_wtest)) $(LIBS) $(TOPT_wtest) -o bin/test-mpbin
 	@./bin/test-mpbin
 
 .PHONY : test-nitro

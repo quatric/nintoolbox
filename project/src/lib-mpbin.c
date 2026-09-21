@@ -14,6 +14,9 @@
 
 ccp MPBIN_SETUP_FILE = "mpbin-setup.txt";
 
+#define MPBIN_MAX_FILES 4000
+#define MPBIN_MAX_FILE_SIZE 0x10000000u
+
 #define WINDOW_START 958
 #define WINDOW_SIZE 1024
 #define SHORTEST_MATCH_LENGTH 3
@@ -45,11 +48,21 @@ static inline void dyn_free (dyn_buf_t *b)
 
 static inline bool dyn_reserve (dyn_buf_t *b, uint needed)
 {
-	if (b->size + needed <= b->alloc)
+	if (needed > UINT_MAX - b->size)
+		return false;
+	const uint required = b->size + needed;
+	if (required <= b->alloc)
 		return true;
-	uint nalloc = b->alloc ? b->alloc * 2 : 1024;
-	while (nalloc < b->size + needed)
+	uint nalloc = b->alloc ? b->alloc : 1024;
+	while (nalloc < required)
+	{
+		if (nalloc > UINT_MAX / 2)
+		{
+			nalloc = required;
+			break;
+		}
 		nalloc *= 2;
+	}
 	u8 *ndata = REALLOC (b->data, nalloc);
 	if (!ndata)
 		return false;
@@ -60,7 +73,9 @@ static inline bool dyn_reserve (dyn_buf_t *b, uint needed)
 
 static inline bool dyn_write (dyn_buf_t *b, const void *src, uint len)
 {
-	if (!dyn_reserve (b, len))
+	if (!len)
+		return true;
+	if (!src || !dyn_reserve (b, len))
 		return false;
 	memcpy (b->data + b->size, src, len);
 	b->size += len;
@@ -89,7 +104,7 @@ bool IsMPBIN (const u8 *data, uint size)
 		return false;
 
 	const u32 num_files = rd_be32 (data);
-	if (num_files < 1 || num_files > 4000)
+	if (num_files < 1 || num_files > MPBIN_MAX_FILES)
 		return false;
 
 	const u64 tab_size = 4 + (u64)num_files * 4;
@@ -106,12 +121,29 @@ bool IsMPBIN (const u8 *data, uint size)
 			return false;
 		const u32 decomp_size = rd_be32 (data + off);
 		const u32 comp_type = rd_be32 (data + off + 4);
-		if (comp_type > 7 || comp_type == 6 || decomp_size > 0x10000000)
+		if (comp_type > 7 || comp_type == 6 || decomp_size > MPBIN_MAX_FILE_SIZE)
 			return false;
 		if (comp_type == MPBIN_COMP_NONE && (u64)off + 8 + decomp_size > end)
 			return false;
 	}
 
+	return true;
+}
+
+// The redundant size and compressed-size fields of inflate members coincide
+// with MDR's chunk headers. Prefer MPBIN for this ambiguous shape unless the
+// caller has an explicit .mdr filename.
+bool IsMPBINInflate (const u8 *data, uint size)
+{
+	if (!IsMPBIN (data, size))
+		return false;
+	const uint count = rd_be32 (data);
+	for (uint i = 0; i < count; i++)
+	{
+		const uint off = rd_be32 (data + 4 + i * 4);
+		if (rd_be32 (data + off + 4) != MPBIN_COMP_INFLATE)
+			return false;
+	}
 	return true;
 }
 
@@ -401,8 +433,15 @@ static void lzss_delete (lzss_tree_t *sp, int p)
 
 enumError CompressMPBIN_LZSS (u8 **dest, uint *dest_size, const u8 *src, uint src_len)
 {
-	if (!dest || !dest_size || !src)
+	if (!dest || !dest_size)
 		return ERR_INVALID_DATA;
+	*dest = 0;
+	*dest_size = 0;
+	if ((!src && src_len) || src_len > MPBIN_MAX_FILE_SIZE)
+		return ERR_INVALID_DATA;
+
+	if (!src_len)
+		return ERR_OK;
 
 	lzss_tree_t *sp = CALLOC (1, sizeof (*sp));
 	if (!sp)
@@ -446,7 +485,8 @@ enumError CompressMPBIN_LZSS (u8 **dest, uint *dest_size, const u8 *src, uint sr
 		mask <<= 1;
 		if (mask == 0)
 		{
-			dyn_write (&out, code_buf, code_buf_ptr);
+			if (!dyn_write (&out, code_buf, code_buf_ptr))
+				goto fail;
 			code_buf[0] = 0;
 			code_buf_ptr = 1;
 			mask = 1;
@@ -474,13 +514,18 @@ enumError CompressMPBIN_LZSS (u8 **dest, uint *dest_size, const u8 *src, uint sr
 		}
 	} while (len > 0);
 
-	if (code_buf_ptr > 1)
-		dyn_write (&out, code_buf, code_buf_ptr);
+	if (code_buf_ptr > 1 && !dyn_write (&out, code_buf, code_buf_ptr))
+		goto fail;
 
 	FREE (sp);
 	*dest = out.data;
 	*dest_size = out.size;
 	return ERR_OK;
+
+fail:
+	FREE (sp);
+	dyn_free (&out);
+	return ERR_OUT_OF_MEMORY;
 }
 
 static u32 slide_simple_enc (const u8 *src, uint size, uint pos, u32 *pMatchPos)
@@ -538,14 +583,19 @@ static u32 slide_nintendo_enc (const u8 *src, uint size, uint pos, u32 *pMatchPo
 
 enumError CompressMPBIN_Slide (u8 **dest, uint *dest_size, const u8 *src, uint src_len)
 {
-	if (!dest || !dest_size || !src)
+	if (!dest || !dest_size)
+		return ERR_INVALID_DATA;
+	*dest = 0;
+	*dest_size = 0;
+	if ((!src && src_len) || src_len > MPBIN_MAX_FILE_SIZE)
 		return ERR_INVALID_DATA;
 
 	dyn_buf_t out;
 	dyn_init (&out);
 
 	// First 4 bytes: decompressed size (big endian)
-	dyn_write_be32 (&out, src_len);
+	if (!dyn_write_be32 (&out, src_len))
+		goto fail;
 
 	uint src_pos = 0;
 	u8 dst_block[96];
@@ -587,8 +637,10 @@ enumError CompressMPBIN_Slide (u8 **dest, uint *dest_size, const u8 *src, uint s
 		bit_count++;
 		if (bit_count == 32)
 		{
-			dyn_write_be32 (&out, code_word);
-			dyn_write (&out, dst_block, dst_block_len);
+			if (!dyn_write_be32 (&out, code_word))
+				goto fail;
+			if (!dyn_write (&out, dst_block, dst_block_len))
+				goto fail;
 			code_word = 0;
 			bit_count = 0;
 			dst_block_len = 0;
@@ -596,18 +648,28 @@ enumError CompressMPBIN_Slide (u8 **dest, uint *dest_size, const u8 *src, uint s
 	}
 	if (bit_count > 0)
 	{
-		dyn_write_be32 (&out, code_word);
-		dyn_write (&out, dst_block, dst_block_len);
+		if (!dyn_write_be32 (&out, code_word))
+			goto fail;
+		if (!dyn_write (&out, dst_block, dst_block_len))
+			goto fail;
 	}
 
 	*dest = out.data;
 	*dest_size = out.size;
 	return ERR_OK;
+
+fail:
+	dyn_free (&out);
+	return ERR_OUT_OF_MEMORY;
 }
 
 enumError CompressMPBIN_RLE (u8 **dest, uint *dest_size, const u8 *src, uint src_len)
 {
-	if (!dest || !dest_size || !src)
+	if (!dest || !dest_size)
+		return ERR_INVALID_DATA;
+	*dest = 0;
+	*dest_size = 0;
+	if ((!src && src_len) || src_len > MPBIN_MAX_FILE_SIZE)
 		return ERR_INVALID_DATA;
 
 	dyn_buf_t out;
@@ -623,8 +685,10 @@ enumError CompressMPBIN_RLE (u8 **dest, uint *dest_size, const u8 *src, uint src
 
 		if (run >= 3 || pos + run == src_len)
 		{
-			dyn_write_u8 (&out, (u8)run);
-			dyn_write_u8 (&out, src[pos]);
+			if (!dyn_write_u8 (&out, (u8)run))
+				goto fail;
+			if (!dyn_write_u8 (&out, src[pos]))
+				goto fail;
 			pos += run;
 		}
 		else
@@ -637,19 +701,29 @@ enumError CompressMPBIN_RLE (u8 **dest, uint *dest_size, const u8 *src, uint src
 					break;
 				lit++;
 			}
-			dyn_write_u8 (&out, (u8)(0x80 | lit));
-			dyn_write (&out, src + pos, lit);
+			if (!dyn_write_u8 (&out, (u8)(0x80 | lit)))
+				goto fail;
+			if (!dyn_write (&out, src + pos, lit))
+				goto fail;
 			pos += lit;
 		}
 	}
 	*dest = out.data;
 	*dest_size = out.size;
 	return ERR_OK;
+
+fail:
+	dyn_free (&out);
+	return ERR_OUT_OF_MEMORY;
 }
 
 enumError CompressMPBIN_Inflate (u8 **dest, uint *dest_size, const u8 *src, uint src_len)
 {
-	if (!dest || !dest_size || !src)
+	if (!dest || !dest_size)
+		return ERR_INVALID_DATA;
+	*dest = 0;
+	*dest_size = 0;
+	if ((!src && src_len) || src_len > MPBIN_MAX_FILE_SIZE)
 		return ERR_INVALID_DATA;
 
 	uLongf bound = compressBound (src_len);
@@ -669,9 +743,14 @@ enumError CompressMPBIN_Inflate (u8 **dest, uint *dest_size, const u8 *src, uint
 		FREE (comp);
 		return ERR_INVALID_DATA;
 	}
-	deflate (&strm, Z_FINISH);
+	const int ret = deflate (&strm, Z_FINISH);
 	u32 comp_len = (u32)strm.total_out;
 	deflateEnd (&strm);
+	if (ret != Z_STREAM_END)
+	{
+		FREE (comp);
+		return ERR_CANT_CREATE;
+	}
 
 	wr_be32 (comp, src_len);
 	wr_be32 (comp + 4, comp_len);
@@ -839,144 +918,164 @@ bool looks_like_mpbin_dir (ccp dir)
 
 enumError CreateMPBIN (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {
-	if (!dest || !dest_size || !entries || !n_entries)
+	if (!dest || !dest_size)
+		return ERR_INVALID_DATA;
+	*dest = 0;
+	*dest_size = 0;
+	if (!entries || !n_entries)
 		return ERR_INVALID_DATA;
 
-	// Parse mpbin-setup.txt if present among entries
-	uint comp_types[4096];
-	memset (comp_types, 0, sizeof (comp_types));
-	for (int i = 0; i < 4096; i++)
-		comp_types[i] = MPBIN_COMP_LZSS; // default LZSS
-
+	const nintendo_sarc_entry_t *files[MPBIN_MAX_FILES];
+	uint comp_types[MPBIN_MAX_FILES];
 	uint real_file_count = 0;
 	for (uint i = 0; i < n_entries; i++)
 	{
-		if (entries[i].name && !strcmp (leaf_name (entries[i].name), MPBIN_SETUP_FILE))
-		{
-			// Parse lines
-			char *copy = MALLOC (entries[i].size + 1);
-			if (copy)
-			{
-				memcpy (copy, entries[i].data, entries[i].size);
-				copy[entries[i].size] = 0;
-				char *line = strtok (copy, "\r\n");
-				while (line)
-				{
-					uint idx = 0, ctype = 0;
-					if (sscanf (line, "file%u\tcompress_type=%u", &idx, &ctype) == 2)
-					{
-						if (idx < 4096)
-							comp_types[idx] = ctype;
-					}
-					else if (sscanf (line, "compress_type=%u:", &ctype) == 1)
-					{
-						// Alternative format: compress_type=X: filename
-						if (real_file_count < 4096)
-							comp_types[real_file_count] = ctype;
-					}
-					line = strtok (NULL, "\r\n");
-				}
-				FREE (copy);
-			}
-		}
-		else if (entries[i].name && OwnedNameOk (entries[i].name))
-		{
-			real_file_count++;
-		}
+		const nintendo_sarc_entry_t *e = entries + i;
+		if (!e->name || !OwnedNameOk (e->name))
+			continue;
+		if ((e->size && !e->data) || e->size > MPBIN_MAX_FILE_SIZE)
+			return ERR_INVALID_DATA;
+		if (!strcmp (leaf_name (e->name), MPBIN_SETUP_FILE))
+			continue;
+		if (real_file_count == MPBIN_MAX_FILES)
+			return ERR_INVALID_DATA;
+		files[real_file_count] = e;
+		comp_types[real_file_count++] = MPBIN_COMP_LZSS;
 	}
-
 	if (!real_file_count)
 		return ERR_NOTHING_TO_DO;
 
-	// Compress subfiles
-	u8 **comp_data = CALLOC (real_file_count, sizeof (u8 *));
-	uint *comp_sizes = CALLOC (real_file_count, sizeof (uint));
-	uint *uncomp_sizes = CALLOC (real_file_count, sizeof (uint));
-	uint *entry_comp_types = CALLOC (real_file_count, sizeof (uint));
-
-	uint file_idx = 0;
+	// Resolve the manifest after collecting members, independently of its
+	// position in the input list. Named settings refer to actual members.
 	for (uint i = 0; i < n_entries; i++)
 	{
-		if (!entries[i].name || !strcmp (leaf_name (entries[i].name), MPBIN_SETUP_FILE) || !OwnedNameOk (entries[i].name))
+		const nintendo_sarc_entry_t *e = entries + i;
+		if (!e->name || !OwnedNameOk (e->name)
+			|| strcmp (leaf_name (e->name), MPBIN_SETUP_FILE))
 			continue;
-
-		uint ctype = comp_types[file_idx];
-		entry_comp_types[file_idx] = ctype;
-		uncomp_sizes[file_idx] = entries[i].size;
-
-		u8 *cd = 0;
-		uint cs = 0;
-		switch (ctype)
+		char *copy = MALLOC ((size_t)e->size + 1);
+		if (!copy)
+			return ERR_OUT_OF_MEMORY;
+		if (e->size)
+			memcpy (copy, e->data, e->size);
+		copy[e->size] = 0;
+		char *save = 0;
+		for (char *line = strtok_r (copy, "\r\n", &save); line; line = strtok_r (0, "\r\n", &save))
 		{
-			case MPBIN_COMP_NONE:
-				cd = MALLOC (entries[i].size);
-				if (cd) { memcpy (cd, entries[i].data, entries[i].size); cs = entries[i].size; }
-				break;
-			case MPBIN_COMP_LZSS:
-				CompressMPBIN_LZSS (&cd, &cs, entries[i].data, entries[i].size);
-				break;
-			case MPBIN_COMP_SLIDE:
-			case MPBIN_COMP_FSLIDE_ALT:
-			case MPBIN_COMP_FSLIDE:
-				CompressMPBIN_Slide (&cd, &cs, entries[i].data, entries[i].size);
-				break;
-			case MPBIN_COMP_RLE:
-				CompressMPBIN_RLE (&cd, &cs, entries[i].data, entries[i].size);
-				break;
-			case MPBIN_COMP_INFLATE:
-				CompressMPBIN_Inflate (&cd, &cs, entries[i].data, entries[i].size);
-				break;
-			default:
-				CompressMPBIN_LZSS (&cd, &cs, entries[i].data, entries[i].size);
-				break;
+			uint idx = 0, ctype = 0;
+			if (sscanf (line, "file%u\tcompress_type=%u", &idx, &ctype) == 2)
+			{
+				if (idx >= real_file_count || ctype > 7 || ctype == 6)
+				{
+					FREE (copy);
+					return ERR_INVALID_DATA;
+				}
+				comp_types[idx] = ctype;
+			}
+			else
+			{
+				int name_off = 0;
+				if (sscanf (line, "compress_type=%u: %n", &ctype, &name_off) != 1 || !name_off)
+					continue;
+				char *name = line + name_off;
+				size_t len = strlen (name);
+				while (len && isspace ((unsigned char)name[len-1]))
+					name[--len] = 0;
+				for (idx = 0; idx < real_file_count; idx++)
+					if (!strcmp (files[idx]->name, name))
+						break;
+				if (idx == real_file_count || ctype > 7 || ctype == 6)
+				{
+					FREE (copy);
+					return ERR_INVALID_DATA;
+				}
+				comp_types[idx] = ctype;
+			}
 		}
-		comp_data[file_idx] = cd;
-		comp_sizes[file_idx] = cs;
-		file_idx++;
+		FREE (copy);
 	}
 
-	// Calculate header and offsets
-	dyn_buf_t out;
-	dyn_init (&out);
+	u8 **comp_data = CALLOC (real_file_count, sizeof (*comp_data));
+	uint *comp_sizes = CALLOC (real_file_count, sizeof (*comp_sizes));
+	enumError err = ERR_OUT_OF_MEMORY;
+	if (!comp_data || !comp_sizes)
+		goto cleanup;
 
-	dyn_write_be32 (&out, real_file_count);
-
-	// Offsets table placeholder
-	uint tab_off = out.size;
-	for (uint i = 0; i < real_file_count; i++)
-		dyn_write_be32 (&out, 0);
-
-	// Align to 32 bytes before first file payload
-	while (out.size % 32 != 0)
-		dyn_write_u8 (&out, 0);
-
-	// Write files
+	const uint header_size = (4 + real_file_count * 4 + 31) & ~31u;
+	u64 total_size = header_size;
 	for (uint i = 0; i < real_file_count; i++)
 	{
-		uint cur_off = out.size;
-		wr_be32 (out.data + tab_off + i * 4, cur_off);
-
-		dyn_write_be32 (&out, uncomp_sizes[i]);
-		dyn_write_be32 (&out, entry_comp_types[i]);
-		if (comp_data[i] && comp_sizes[i])
-			dyn_write (&out, comp_data[i], comp_sizes[i]);
-
-		// Align files to 4 bytes
-		while (out.size % 4 != 0)
-			dyn_write_u8 (&out, 0);
+		const nintendo_sarc_entry_t *e = files[i];
+		err = ERR_OK;
+		// Empty members require no payload and may have a null data pointer.
+		if (e->size)
+		{
+			switch (comp_types[i])
+			{
+				case MPBIN_COMP_NONE:
+					comp_data[i] = MALLOC (e->size);
+					if (!comp_data[i])
+						err = ERR_OUT_OF_MEMORY;
+					else
+					{
+						memcpy (comp_data[i], e->data, e->size);
+						comp_sizes[i] = e->size;
+					}
+					break;
+				case MPBIN_COMP_LZSS:
+					err = CompressMPBIN_LZSS (comp_data + i, comp_sizes + i, e->data, e->size);
+					break;
+				case MPBIN_COMP_SLIDE:
+				case MPBIN_COMP_FSLIDE_ALT:
+				case MPBIN_COMP_FSLIDE:
+					err = CompressMPBIN_Slide (comp_data + i, comp_sizes + i, e->data, e->size);
+					break;
+				case MPBIN_COMP_RLE:
+					err = CompressMPBIN_RLE (comp_data + i, comp_sizes + i, e->data, e->size);
+					break;
+				case MPBIN_COMP_INFLATE:
+					err = CompressMPBIN_Inflate (comp_data + i, comp_sizes + i, e->data, e->size);
+					break;
+			}
+		}
+		if (err)
+			goto cleanup;
+		total_size = (total_size + 8 + comp_sizes[i] + 3) & ~(u64)3;
+		if (total_size > UINT_MAX)
+		{
+			err = ERR_INVALID_DATA;
+			goto cleanup;
+		}
 	}
 
-	// Cleanup
+	u8 *out = CALLOC ((size_t)total_size, 1);
+	if (!out)
+	{
+		err = ERR_OUT_OF_MEMORY;
+		goto cleanup;
+	}
+	wr_be32 (out, real_file_count);
+	uint offset = header_size;
 	for (uint i = 0; i < real_file_count; i++)
-		FREE (comp_data[i]);
+	{
+		wr_be32 (out + 4 + i * 4, offset);
+		wr_be32 (out + offset, files[i]->size);
+		wr_be32 (out + offset + 4, comp_types[i]);
+		if (comp_sizes[i])
+			memcpy (out + offset + 8, comp_data[i], comp_sizes[i]);
+		offset = (offset + 8 + comp_sizes[i] + 3) & ~3u;
+	}
+	*dest = out;
+	*dest_size = (uint)total_size;
+	err = ERR_OK;
+
+cleanup:
+	if (comp_data)
+		for (uint i = 0; i < real_file_count; i++)
+			FREE (comp_data[i]);
 	FREE (comp_data);
 	FREE (comp_sizes);
-	FREE (uncomp_sizes);
-	FREE (entry_comp_types);
-
-	*dest = out.data;
-	*dest_size = out.size;
-	return ERR_OK;
+	return err;
 }
 
 enumError create_mpbin_dir (ccp source, ccp dest)

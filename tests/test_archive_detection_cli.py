@@ -73,6 +73,64 @@ class ArchiveDetectionTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertFalse(list((root / 'out').glob('file*')))
 
+    def test_mpbin_create_extract_all_compression_modes(self):
+        payload = b'A' * 100 + b'bravo member' * 100
+        for compression in (0, 1, 2, 3, 4, 5, 7):
+            with self.subTest(compression=compression), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                source = root / 'source'
+                source.mkdir()
+                (source / 'file000.dat').write_bytes(payload)
+                (source / 'mpbin-setup.txt').write_text(f'file000\tcompress_type={compression}\n')
+                archive = root / 'archive.bin'
+                self.tool('CREATE', source, '-d', archive)
+                self.assertIn('MPBIN', self.tool('FILETYPE', archive))
+                self.tool('EXTRACT', archive, '-d', root / 'out')
+                self.assertEqual((root / 'out' / 'file000.dat').read_bytes(), payload)
+
+    def test_explicit_mdr_with_ambiguous_flags(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payload = b'MDR payload'
+            data = bytearray(mdr([(payload, True)]))
+            struct.pack_into('>I', data, 12, 7)
+            source = root / 'input.mdr'
+            source.write_bytes(data)
+            self.tool('EXTRACT', source, '-d', root / 'out')
+            self.assertEqual((root / 'out' / 'chunk_00_flags_00000007_zlib.bin').read_bytes(), payload)
+
+    def test_mpbin_create_uses_named_compression_settings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / 'source'
+            source.mkdir()
+            (source / 'a.bin').write_bytes(b'alpha member')
+            (source / 'b.bin').write_bytes(b'bravo member')
+            (source / 'mpbin-setup.txt').write_text('compress_type=5: b.bin\ncompress_type=0: a.bin\n')
+            archive = root / 'archive.bin'
+            self.tool('CREATE', source, '-d', archive)
+            data = archive.read_bytes()
+            count, first, second = struct.unpack_from('>3I', data)
+            self.assertEqual(count, 2)
+            self.assertEqual(struct.unpack_from('>I', data, first + 4)[0], 0)
+            self.assertEqual(struct.unpack_from('>I', data, second + 4)[0], 5)
+            self.tool('EXTRACT', archive, '-d', root / 'out')
+            self.assertEqual((root / 'out' / 'file000.dat').read_bytes(), b'alpha member')
+            self.assertEqual((root / 'out' / 'file001.dat').read_bytes(), b'bravo member')
+
+    def test_mpbin_create_rejects_unsupported_compression(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / 'source'
+            source.mkdir()
+            (source / 'a.bin').write_bytes(b'payload')
+            (source / 'mpbin-setup.txt').write_text('file000\tcompress_type=6\n')
+            archive = root / 'archive.bin'
+            result = subprocess.run([str(BINARY), 'CREATE', str(source), '-d', str(archive)],
+                                    capture_output=True, text=True, timeout=30)
+            self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertFalse(archive.exists())
+
     def test_wrapped_g1t_precedes_atb(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

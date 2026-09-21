@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 
+long mpbin_fail_after = -1;
+bool mpbin_allocation_failed;
 static int failures;
 #define CHECK(cond) do { if (!(cond)) { fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #cond); failures++; } } while (0)
 
@@ -13,6 +15,133 @@ static void expect_invalid (const u8 *data, uint size)
 	uint count = 99;
 	CHECK (ScanMPBIN (&entries, &count, data, size) != ERR_OK);
 	CHECK (!entries && !count);
+}
+
+static void expect_build_invalid (const nintendo_sarc_entry_t *entries, uint count)
+{
+	u8 *out = (void *)1;
+	uint size = 99;
+	CHECK (CreateMPBIN (&out, &size, entries, count) != ERR_OK);
+	CHECK (!out && !size);
+}
+
+static void test_builder (void)
+{
+	nintendo_sarc_entry_t input[3] = {0};
+	input[0].name = "first.bin";
+	input[0].data = (const u8 *)"first member payload";
+	input[0].size = strlen ((const char *)input[0].data);
+	input[1].name = "second.bin";
+	input[1].data = (const u8 *)"second member payload";
+	input[1].size = strlen ((const char *)input[1].data);
+	input[2].name = MPBIN_SETUP_FILE;
+	input[2].data = (const u8 *)"compress_type=0: second.bin\ncompress_type=5: first.bin\n";
+	input[2].size = strlen ((const char *)input[2].data);
+	for (uint order = 0; order < 3; order++)
+	{
+		nintendo_sarc_entry_t ordered[3];
+		uint file = 0;
+		for (uint i = 0; i < 3; i++)
+			ordered[i] = input[i == order ? 2 : file++];
+		u8 *out = 0;
+		uint size = 0;
+		CHECK (CreateMPBIN (&out, &size, ordered, 3) == ERR_OK);
+		if (out)
+		{
+			CHECK (rd_be32 (out + rd_be32 (out + 4) + 4) == MPBIN_COMP_RLE);
+			CHECK (rd_be32 (out + rd_be32 (out + 8) + 4) == MPBIN_COMP_NONE);
+		}
+		FREE (out);
+	}
+
+	const char *invalid[] = {"file000\tcompress_type=6", "file000\tcompress_type=8",
+		"file4096\tcompress_type=0", "compress_type=6: first.bin"};
+	for (uint i = 0; i < sizeof invalid / sizeof *invalid; i++)
+	{
+		input[2].data = (const u8 *)invalid[i];
+		input[2].size = strlen (invalid[i]);
+		expect_build_invalid (input, 3);
+	}
+	input[2].data = 0;
+	input[2].size = 1;
+	expect_build_invalid (input, 3);
+	input[2].size = UINT_MAX;
+	expect_build_invalid (input, 3);
+	input[0].data = 0;
+	expect_build_invalid (input, 1);
+	input[0].data = (const u8 *)"";
+	input[0].size = 0x10000001u;
+	expect_build_invalid (input, 1);
+
+	// The creator must obey the same member limit as the reader.
+	nintendo_sarc_entry_t *many = CALLOC (4097, sizeof (*many));
+	CHECK (many != 0);
+	if (many)
+	{
+		for (uint i = 0; i < 4097; i++)
+			many[i].name = "empty.bin";
+		u8 *out = 0;
+		uint size = 0;
+		CHECK (CreateMPBIN (&out, &size, many, 4000) == ERR_OK);
+		CHECK (IsMPBIN (out, size));
+		FREE (out);
+		expect_build_invalid (many, 4001);
+		expect_build_invalid (many, 4097);
+		FREE (many);
+	}
+
+	// Fail each allocation in turn, including compressor buffer growth and
+	// the final output allocation. No failure may return a partial archive.
+	u8 payload[4096];
+	u32 state = 1;
+	for (uint i = 0; i < sizeof payload; i++)
+	{
+		state = state * 1664525u + 1013904223u;
+		payload[i] = state >> 24;
+	}
+	input[0].data = payload;
+	input[0].size = sizeof payload;
+	const uint types[] = {0, 1, 2, 3, 4, 5, 7};
+	for (uint type = 0; type < sizeof types / sizeof *types; type++)
+	{
+		char setup[128];
+		snprintf (setup, sizeof setup, "file000\tcompress_type=%u\nfile001\tcompress_type=%u\n", types[type], types[type]);
+		input[2].data = (const u8 *)setup;
+		input[2].size = strlen (setup);
+		bool completed = false;
+		for (long point = 0; point < 100; point++)
+		{
+			mpbin_fail_after = point;
+			mpbin_allocation_failed = false;
+			u8 *out = (void *)1;
+			uint size = 99;
+			enumError err = CreateMPBIN (&out, &size, input, 3);
+			mpbin_fail_after = -1;
+			if (mpbin_allocation_failed)
+			{
+				CHECK (err != ERR_OK);
+				CHECK (!out && !size);
+			}
+			else
+			{
+				CHECK (err == ERR_OK && IsMPBIN (out, size));
+				nintendo_sarc_entry_t *decoded = 0;
+				uint count = 0;
+				CHECK (ScanMPBIN (&decoded, &count, out, size) == ERR_OK);
+				CHECK (count == 3);
+				if (count == 3)
+				{
+					CHECK (decoded[0].size == sizeof payload && !memcmp (decoded[0].data, payload, sizeof payload));
+					CHECK (decoded[1].size == input[1].size && !memcmp (decoded[1].data, input[1].data, input[1].size));
+				}
+				ResetOwnedEntries (decoded, count);
+				FREE (out);
+				completed = true;
+				break;
+			}
+		}
+		CHECK (completed);
+	}
 }
 
 int main (void)
@@ -110,7 +239,24 @@ int main (void)
 			CHECK (entries[0].size == sizeof plain && !memcmp (entries[0].data, plain, sizeof plain));
 		ResetOwnedEntries (entries, count);
 		FREE (archive);
+
+		input[0].data = 0;
+		input[0].size = 0;
+		CHECK (CreateMPBIN (&archive, &size, input, 2) == ERR_OK);
+		entries = 0;
+		count = 0;
+		CHECK (ScanMPBIN (&entries, &count, archive, size) == ERR_OK);
+		CHECK (count == 2);
+		if (count == 2)
+			CHECK (entries[0].size == 0);
+		ResetOwnedEntries (entries, count);
+		FREE (archive);
 	}
+	u8 *empty = (void *)1;
+	uint empty_size = 99;
+	CHECK (CompressMPBIN_LZSS (&empty, &empty_size, 0, 0) == ERR_OK);
+	CHECK (!empty && !empty_size);
+	test_builder ();
 	printf ("MPBIN regressions: %d failures\n", failures);
 	return failures != 0;
 }

@@ -867,6 +867,13 @@ __attribute__((weak)) bool IsMPBIN (const u8 *data, uint size)
 	return false;
 }
 
+__attribute__((weak)) bool IsMPBINInflate (const u8 *data, uint size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
+
 __attribute__((weak)) bool IsATB (const u8 *data, uint size)
 {
 	(void)data;
@@ -960,7 +967,7 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_MIO;
 		if (IsNTTF (data8, file_size))
 			return FF_NTTF;
-		if (IsMDR (data8, data_size))
+		if (IsMDR (data8, data_size) && !IsMPBINInflate (data8, data_size))
 			return FF_MDR;
 		if (IsG1TGZ (data8, data_size))
 			return FF_G1T;
