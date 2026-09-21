@@ -35,6 +35,7 @@
 #include "lib-chx.h"
 #include "lib-mapbad.h"
 #include "lib-csfnt.h"
+#include "lib-cscsi.h"
 #include "lib-nlgdict.h"
 #include "lib-nlg-lm.h"
 #include "lib-txtg.h"
