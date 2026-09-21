@@ -117,128 +117,129 @@ enumError ExtractMDRArchive (ccp arg, ccp basedir, uint depth)
 }
 
 
+static bool mdr_chunk_index (ccp name, ulong *index)
+{
+	if (!name || strncmp (name, "chunk_", 6) || name[6] < '0' || name[6] > '9')
+		return false;
+	char *end = 0;
+	*index = strtoul (name + 6, &end, 10);
+	return *index <= UINT_MAX && !strncmp (end, "_flags_", 7);
+}
+
+static int compare_mdr_entries (const void *a, const void *b)
+{
+	const nintendo_sarc_entry_t *ea = a, *eb = b;
+	ulong ia = 0, ib = 0;
+	const bool numbered_a = mdr_chunk_index (ea->name, &ia);
+	const bool numbered_b = mdr_chunk_index (eb->name, &ib);
+	if (numbered_a != numbered_b)
+		return numbered_a ? -1 : 1;
+	if (numbered_a && ia != ib)
+		return ia < ib ? -1 : 1;
+	return compare_archive_entries (a, b);
+}
+
 // 3. Dance Dance Revolution Mario Mix Chunk Archive (.mdr)
 enumError CreateMDRArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {
-	if (!dest || !dest_size || !entries || !n_entries)
+	if (!dest || !dest_size)
+		return ERR_INVALID_DATA;
+	*dest = 0;
+	*dest_size = 0;
+	if (!entries || !n_entries || n_entries > 100000)
 		return ERR_INVALID_DATA;
 
+	const uint header_size = 4 + n_entries * 4;
+	u64 minimum_size = header_size + (u64)n_entries * 16;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		if (entries[i].size && !entries[i].data)
+			return ERR_INVALID_DATA;
+		if (entries[i].name && strstr (entries[i].name, "_raw."))
+			minimum_size += ((u64)entries[i].size + 1) & ~(u64)1;
+		else
+		{
+			const uLong bound = compressBound (entries[i].size);
+			if (bound < entries[i].size || bound > UINT_MAX)
+				return ERR_INVALID_DATA;
+		}
+		if (minimum_size > UINT_MAX)
+			return ERR_INVALID_DATA;
+	}
+
 	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
-	if (!sorted)
-		return ERR_OUT_OF_MEMORY;
+	u8 **compressed = CALLOC (n_entries, sizeof (*compressed));
+	uint *stored_sizes = CALLOC (n_entries, sizeof (*stored_sizes));
+	enumError err = ERR_OUT_OF_MEMORY;
+	if (!sorted || !compressed || !stored_sizes)
+		goto cleanup;
 	memcpy (sorted, entries, n_entries * sizeof (*sorted));
-	qsort (sorted, n_entries, sizeof (*sorted), compare_archive_entries);
+	qsort (sorted, n_entries, sizeof (*sorted), compare_mdr_entries);
 
-	u8 **comp_chunks = CALLOC (n_entries, sizeof (u8 *));
-	u32 *comp_sizes = CALLOC (n_entries, sizeof (u32));
-	u32 *flags = CALLOC (n_entries, sizeof (u32));
-
-	if (!comp_chunks || !comp_sizes || !flags)
-	{
-		FREE (sorted);
-		FREE (comp_chunks);
-		FREE (comp_sizes);
-		FREE (flags);
-		return ERR_OUT_OF_MEMORY;
-	}
-
+	u64 total_size = header_size;
 	for (uint i = 0; i < n_entries; i++)
 	{
-		ccp name = sorted[i].name ? sorted[i].name : "";
-		const char *fpos = strstr (name, "flags_");
-		if (fpos)
-			sscanf (fpos + 6, "%x", &flags[i]);
-
-		// "_raw" chunks came from a retail archive whose bytes were stored
-		// uncompressed (ExtractMDRArchive's zlib-decode fallback); store them
-		// back verbatim instead of zlib-compressing so the rebuild stays
-		// byte-exact against the original. Anything else is re-deflated.
-		const bool is_raw = strstr (name, "_raw.") != 0;
-
-		if (sorted[i].size > 0 && sorted[i].data)
+		const nintendo_sarc_entry_t *e = sorted + i;
+		const bool is_raw = e->name && strstr (e->name, "_raw.");
+		if (is_raw)
+			stored_sizes[i] = e->size;
+		else if (e->size)
 		{
-			if (is_raw)
+			uLongf capacity = compressBound (e->size);
+			compressed[i] = MALLOC (capacity);
+			if (!compressed[i])
+				goto cleanup;
+			if (compress (compressed[i], &capacity, e->data, e->size) != Z_OK)
 			{
-				comp_chunks[i] = MALLOC (sorted[i].size);
-				memcpy (comp_chunks[i], sorted[i].data, sorted[i].size);
-				comp_sizes[i] = sorted[i].size;
+				err = ERR_CANT_CREATE;
+				goto cleanup;
 			}
-			else
-			{
-				uLongf bound = compressBound (sorted[i].size);
-				comp_chunks[i] = MALLOC (bound);
-				uLongf actual = bound;
-				if (compress (comp_chunks[i], &actual, sorted[i].data, sorted[i].size) == Z_OK)
-				{
-					comp_sizes[i] = (u32)actual;
-				}
-				else
-				{
-					FREE (comp_chunks[i]);
-					comp_chunks[i] = 0;
-					comp_sizes[i] = 0;
-				}
-			}
+			stored_sizes[i] = (uint)capacity;
+		}
+		total_size = (total_size + 16 + stored_sizes[i] + 1) & ~(u64)1;
+		if (total_size > UINT_MAX)
+		{
+			err = ERR_INVALID_DATA;
+			goto cleanup;
 		}
 	}
 
-	// Chunks are only 2-byte (even) aligned in retail files (not 16),
-	// confirmed against the real DDR Mario Mix mgconst.mdr byte offsets.
-	const u32 header_sz = (4 + n_entries * 4 + 1) & ~1u;
-	u32 cur_off = header_sz;
-	u32 *chunk_ptrs = CALLOC (n_entries, sizeof (u32));
-	for (uint i = 0; i < n_entries; i++)
-	{
-		chunk_ptrs[i] = cur_off;
-		cur_off = (cur_off + 16 + comp_sizes[i] + 1) & ~1u;
-	}
-
-	u8 *buf = CALLOC (cur_off, 1);
+	u8 *buf = CALLOC ((size_t)total_size, 1);
 	if (!buf)
-	{
-		for (uint i = 0; i < n_entries; i++)
-			FREE (comp_chunks[i]);
-		FREE (comp_chunks);
-		FREE (comp_sizes);
-		FREE (flags);
-		FREE (chunk_ptrs);
-		FREE (sorted);
-		return ERR_OUT_OF_MEMORY;
-	}
-
+		goto cleanup;
 	wr_be32 (buf, n_entries);
-	for (uint i = 0; i < n_entries; i++)
-		wr_be32 (buf + 4 + i * 4, chunk_ptrs[i]);
-
+	uint offset = header_size;
 	for (uint i = 0; i < n_entries; i++)
 	{
-		const u32 coff = chunk_ptrs[i];
-		// The field at +8 mirrors the decompressed size at +0 in every
-		// observed retail chunk (not a separate "unknown"/reserved value).
-		wr_be32 (buf + coff, sorted[i].size);
-		wr_be32 (buf + coff + 4, flags[i]);
-		wr_be32 (buf + coff + 8, sorted[i].size);
-		wr_be32 (buf + coff + 12, comp_sizes[i]);
-
-		if (comp_chunks[i] && comp_sizes[i] > 0)
-		{
-			memcpy (buf + coff + 16, comp_chunks[i], comp_sizes[i]);
-			FREE (comp_chunks[i]);
-		}
+		const nintendo_sarc_entry_t *e = sorted + i;
+		uint flags = 0;
+		const char *fpos = e->name ? strstr (e->name, "flags_") : 0;
+		if (fpos)
+			sscanf (fpos + 6, "%x", &flags);
+		wr_be32 (buf + 4 + i * 4, offset);
+		wr_be32 (buf + offset, e->size);
+		wr_be32 (buf + offset + 4, flags);
+		wr_be32 (buf + offset + 8, e->size);
+		wr_be32 (buf + offset + 12, stored_sizes[i]);
+		if (stored_sizes[i])
+			memcpy (buf + offset + 16, compressed[i] ? compressed[i] : e->data, stored_sizes[i]);
+		// Retail chunks are aligned to two bytes, not sixteen.
+		offset = (offset + 16 + stored_sizes[i] + 1) & ~1u;
 	}
-
-	FREE (comp_chunks);
-	FREE (comp_sizes);
-	FREE (flags);
-	FREE (chunk_ptrs);
-	FREE (sorted);
-
 	*dest = buf;
-	*dest_size = cur_off;
-	return ERR_OK;
-}
+	*dest_size = (uint)total_size;
+	err = ERR_OK;
 
+cleanup:
+	if (compressed)
+		for (uint i = 0; i < n_entries; i++)
+			FREE (compressed[i]);
+	FREE (compressed);
+	FREE (stored_sizes);
+	FREE (sorted);
+	return err;
+}
 
 enumError create_mdr_dir (ccp source, ccp dest)
 {

@@ -1436,6 +1436,13 @@ test-zdat-bounds: version.h
 	$(CC) $(ZDAT_TEST_CFLAGS) -ffunction-sections -fdata-sections -I. -Isrc -Idclib ../tests/test-zdat-bounds.c src/lib-zdat.c $(COMPRESSION_TEST_LDFLAGS) -o bin/test-zdat-bounds
 	@./bin/test-zdat-bounds
 
+.PHONY : test-mdr-bounds
+MDR_TEST_CFLAGS ?= -O2
+test-mdr-bounds: version.h
+	@mkdir -p bin
+	$(CC) $(MDR_TEST_CFLAGS) -ffunction-sections -fdata-sections -I. -Isrc -Idclib ../tests/test-mdr-bounds.c src/lib-mdr.c $(COMPRESSION_TEST_LDFLAGS) -lz -o bin/test-mdr-bounds
+	@./bin/test-mdr-bounds
+
 .PHONY : test-mpbin
 # Recompile the decoder so this target also supports sanitizer instrumentation.
 MPBIN_TEST_CFLAGS ?= -O2

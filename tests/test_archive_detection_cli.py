@@ -41,6 +41,18 @@ class ArchiveDetectionTests(unittest.TestCase):
                 files = sorted(output.glob('chunk_*.bin'))
                 self.assertEqual([p.read_bytes() for p in files], [p for p, _ in members])
 
+    def test_mdr_rebuild_preserves_more_than_100_chunk_order(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            original = mdr([(bytes([i]), False) for i in range(105)])
+            source = root / 'input.mdr'
+            source.write_bytes(original)
+            output = root / 'out'
+            self.tool('EXTRACT', source, '-d', output)
+            rebuilt = root / 'rebuilt.mdr'
+            self.tool('CREATE', output, '-d', rebuilt)
+            self.assertEqual(rebuilt.read_bytes(), original)
+
     def test_mdr_reports_member_write_failure(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
