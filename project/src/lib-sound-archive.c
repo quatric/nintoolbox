@@ -698,7 +698,7 @@ enumError DecodeBXWAV (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 						u8 byte = src[src_off + 1 + (i >> 1)];
 						u8 nib = (i & 1) ? (byte & 0x0F) : (byte >> 4);
 						s8 snib = (s8)(nib << 4) >> 4;
-						s32 raw = (((s32)snib * scale) << 11) + 1024 + (c1 * hist1 + c2 * hist2);
+						s32 raw = (s32)snib * scale * 2048 + 1024 + (c1 * hist1 + c2 * hist2);
 						raw >>= 11;
 						s16 sample = raw > 0x7FFF ? 0x7FFF : raw < -0x8000 ? -0x8000 : (s16)raw;
 						pcm16[ch][done] = (u16)sample;

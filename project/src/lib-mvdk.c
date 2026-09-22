@@ -347,7 +347,7 @@ static void CxiBitReaderFetch (CxiBitReader *reader)
 		{
 			// fetch word
 			reader->current = reader->pos[0] | (reader->pos[1] << 8) | (reader->pos[2] << 16)
-				| (reader->pos[3] << 24);
+				| ((uint32_t)reader->pos[3] << 24);
 			if (reader->beBytes)
 			{
 				reader->current = CxiByteSwap (reader->current);
@@ -943,7 +943,7 @@ DEFLATE_TREE_NODE *CxiHuffmanReadTree (DEFLATE_WORK_BUFFER *auxBuffer, CxiBitRea
 	DEFLATE_TREE_NODE *nodeBuffer, unsigned int nNodes)
 {
 	unsigned int i, j;
-	int paths[32];
+	uint32_t paths[32];
 	int depthCounts[32];
 
 	DEFLATE_TREE_NODE *nodeEnd = nodeBuffer + 855;
@@ -1004,7 +1004,7 @@ DEFLATE_TREE_NODE *CxiHuffmanReadTree (DEFLATE_WORK_BUFFER *auxBuffer, CxiBitRea
 	if (i > nNodes)
 		return NULL;
 
-	int depth = 0;
+	uint32_t depth = 0; // canonical code accumulator (unsigned: corrupt counts may overflow)
 	depthCounts[0] = 0;
 	for (i = 1; i < 32; i++)
 	{
@@ -1053,10 +1053,17 @@ uint32_t CxiLookupTreeNode (DEFLATE_TREE_NODE *node, CxiBitReader *reader)
 	return node->value;
 }
 
-unsigned char *CxiDecompressDeflateChunk (DEFLATE_WORK_BUFFER *auxBuffer, unsigned char *destBase,
-	const unsigned char **pPos, unsigned char *dest, unsigned char *end,
-	const unsigned char *srcEnd, int write)
+// Decodes one chunk into destBase[destOfs .. destSize) and returns the new
+// output offset, or (size_t)-1 on error. Works on offsets rather than
+// pointers so validation (write == 0, destBase NULL) can size the output
+// without doing arithmetic on a null or out-of-object pointer.
+static size_t CxiDecompressDeflateChunk (DEFLATE_WORK_BUFFER *auxBuffer, unsigned char *destBase,
+	const unsigned char **pPos, size_t destOfs, size_t destSize, const unsigned char *srcEnd,
+	int write)
 {
+	const size_t fail = (size_t)-1;
+	size_t d = destOfs;
+
 	// init reader
 	CxiBitReader reader;
 	const unsigned char *pos = *pPos;
@@ -1065,22 +1072,21 @@ unsigned char *CxiDecompressDeflateChunk (DEFLATE_WORK_BUFFER *auxBuffer, unsign
 
 	int isCompressed = CxiBitReaderReadBit (&reader);
 	if (reader.error)
-		return NULL;
+		return fail;
 	uint32_t chunkLen = CxiBitReaderReadBits (&reader, 31);
 	if (reader.error)
-		return NULL;
+		return fail;
 
 	if (!isCompressed)
 	{
 		// uncompressed chunk, just memcpy out
-		if ((dest + chunkLen) > end || (dest + chunkLen) < destBase
-			|| (pos + 4 + chunkLen) > srcEnd)
-			return NULL;
+		if (chunkLen > destSize - d || srcEnd - pos < 4 || chunkLen > (size_t)(srcEnd - pos) - 4)
+			return fail;
 		if (write)
-			memcpy (dest, pos + 4, chunkLen);
+			memcpy (destBase + d, pos + 4, chunkLen);
 
 		nBytesConsumed = chunkLen + 4;
-		dest += chunkLen;
+		d += chunkLen;
 	}
 	else
 	{
@@ -1088,13 +1094,13 @@ unsigned char *CxiDecompressDeflateChunk (DEFLATE_WORK_BUFFER *auxBuffer, unsign
 		// bits in the stream.
 		uint32_t lzLen2 = CxiBitReaderReadBits (&reader, 16);
 		uint32_t table1SizeBytes = (lzLen2 + 7) >> 3;
+		if (table1SizeBytes > (size_t)(srcEnd - reader.pos))
+			return fail; // Validate tree size
 		const unsigned char *postTree = reader.pos + table1SizeBytes;
 		DEFLATE_TREE_NODE *huffRoot1
 			= CxiHuffmanReadTree (auxBuffer, &reader, auxBuffer->symbolNodeBuffer, 0x11D);
 		if (huffRoot1 == NULL)
-			return NULL; // Huffman tree error
-		if (postTree > srcEnd)
-			return NULL; // Validate tree size
+			return fail; // Huffman tree error
 
 		// Reposition stream after the Huffman tree. Read out the LZ distance tree next.
 		// Its size in bits is given by the following 16 bits from the stream.
@@ -1102,72 +1108,69 @@ unsigned char *CxiDecompressDeflateChunk (DEFLATE_WORK_BUFFER *auxBuffer, unsign
 		reader.nBitsRead = (postTree - pos) * 8;
 		lzLen2 = CxiBitReaderReadBits (&reader, 16);
 		uint32_t table2SizeBytes = (lzLen2 + 7) >> 3;
+		if (table2SizeBytes > (size_t)(srcEnd - reader.pos))
+			return fail; // Validate tree size
 
 		postTree = reader.pos + table2SizeBytes;
 		DEFLATE_TREE_NODE *huffDistancesRoot
 			= CxiHuffmanReadTree (auxBuffer, &reader, auxBuffer->lengthNodeBuffer, 0x1E);
 		if (huffDistancesRoot == NULL)
-			return NULL; // Huffman tree error
-		if (postTree > srcEnd)
-			return NULL; // Validate tree size
+			return fail; // Huffman tree error
 
 		// Reposition stream after this tree to prepare for reading the compressed sequence.
 		CxiBitReaderInit (&reader, postTree, srcEnd, 0, 0);
 		reader.nBitsRead = (reader.pos - pos) * 8;
 
-		while (reader.nBitsRead < chunkLen && dest < end)
+		while (reader.nBitsRead < chunkLen && d < destSize)
 		{
 			uint32_t huffVal = CxiLookupTreeNode (huffRoot1, &reader);
 			if (huffVal == (uint32_t)-1)
-				return NULL;
+				return fail;
 
 			if (huffVal < 0x100)
 			{
 				// simple byte value Huffman
 				if (write)
-					*dest = (unsigned char)huffVal;
-				dest++;
+					destBase[d] = (unsigned char)huffVal;
+				d++;
 			}
 			else
 			{
 				// LZ part Huffman
 				if (huffVal >= 0x100 + 29)
-					return NULL;
+					return fail;
 
 				// read out length
 				uint32_t nLengthMinorBits = sDeflateLengthTable[huffVal - 0x100].nMinorBits;
 				uint32_t lzLen1 = sDeflateLengthTable[huffVal - 0x100].majorPart;
 				uint32_t lzLen2 = CxiBitReaderReadBits (&reader, nLengthMinorBits);
 				if (reader.error)
-					return NULL;
+					return fail;
 				uint32_t lzLen = lzLen1 + lzLen2 + 3;
 
 				// read out offset
 				uint32_t nodeVal2 = CxiLookupTreeNode (huffDistancesRoot, &reader);
 				if (nodeVal2 == (uint32_t)-1 || nodeVal2 >= 30)
-					return NULL;
+					return fail;
 
 				uint32_t nOffsetMinorBits = sDeflateOffsetTable[nodeVal2].nMinorBits;
 				uint32_t lzOffset1 = sDeflateOffsetTable[nodeVal2].majorPart;
 				uint32_t lzOffset2 = CxiBitReaderReadBits (&reader, nOffsetMinorBits);
 				if (reader.error)
-					return NULL;
+					return fail;
 				uint32_t lzOffset = lzOffset1 + lzOffset2 + 1;
 
-				size_t curoffs = dest - destBase;
-				size_t remaining = end - dest;
-				if (lzOffset > curoffs)
-					return NULL;
-				if (lzLen > remaining)
-					return NULL;
+				if (lzOffset > d)
+					return fail;
+				if (lzLen > destSize - d)
+					return fail;
 
-				unsigned char *lzSrc = dest - lzOffset;
-				unsigned int i;
-				for (i = 0; i < lzLen && dest < end; i++)
+				size_t lzSrc = d - lzOffset;
+				for (unsigned int i = 0; i < lzLen; i++)
 				{
 					if (write)
-						*dest = *lzSrc;
-					dest++, lzSrc++;
+						destBase[d] = destBase[lzSrc];
+					d++, lzSrc++;
 				}
 			}
 		}
@@ -1175,7 +1178,7 @@ unsigned char *CxiDecompressDeflateChunk (DEFLATE_WORK_BUFFER *auxBuffer, unsign
 	}
 
 	*pPos = pos + nBytesConsumed;
-	return dest;
+	return d;
 }
 
 int CxDecompressDeflate (
@@ -1185,16 +1188,16 @@ int CxDecompressDeflate (
 		return 0;
 
 	const unsigned char *pos = filebuf + 4;
-	unsigned char *destBase = dest;
-	unsigned char *end = dest + ((*(uint32_t *)filebuf) >> 2);
+	const size_t destSize = (*(uint32_t *)filebuf) >> 2;
 
-	while (dest < end)
+	size_t d = 0;
+	while (d < destSize)
 	{
-		unsigned char *next = CxiDecompressDeflateChunk (
-			(DEFLATE_WORK_BUFFER *)auxBuffer, destBase, &pos, dest, end, filebuf + size, 1);
-		if (!next || next <= dest)
+		const size_t next = CxiDecompressDeflateChunk (
+			(DEFLATE_WORK_BUFFER *)auxBuffer, dest, &pos, d, destSize, filebuf + size, 1);
+		if (next == (size_t)-1 || next <= d)
 			return 0;
-		dest = next;
+		d = next;
 	}
 	return 1;
 }
@@ -1233,27 +1236,26 @@ static int CxiMvdkIsValidRL (const unsigned char *buffer, unsigned int size)
 static int CxiMvdkIsValidDeflate (const unsigned char *buffer, unsigned int size)
 {
 	const unsigned char *pos = buffer + 4;
-	unsigned char *dest = NULL; // won't be written to
-	unsigned char *destBase = dest;
-	unsigned char *end = dest + ((*(uint32_t *)buffer) >> 2); // for address comparison
+	const size_t destSize = (*(uint32_t *)buffer) >> 2; // sized only, never written
 	DEFLATE_WORK_BUFFER *work = (DEFLATE_WORK_BUFFER *)calloc (1, sizeof (DEFLATE_WORK_BUFFER));
 	if (!work)
 		return 0;
 
-	while (dest < end)
+	size_t d = 0;
+	while (d < destSize)
 	{
-		unsigned char *next
-			= CxiDecompressDeflateChunk (work, destBase, &pos, dest, end, buffer + size, 0);
+		const size_t next
+			= CxiDecompressDeflateChunk (work, NULL, &pos, d, destSize, buffer + size, 0);
 		// Validation must be bounded even for arbitrary input. A malformed
-		// bitstream can otherwise return the unchanged destination pointer,
+		// bitstream can otherwise return the unchanged destination offset,
 		// turning this probe into an infinite loop before a real container
 		// recognizer gets a chance to claim the file.
-		if (!next || next <= dest)
+		if (next == (size_t)-1 || next <= d)
 		{
 			free (work);
 			return 0;
 		}
-		dest = next;
+		d = next;
 	}
 	free (work);
 

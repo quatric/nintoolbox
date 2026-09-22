@@ -20,7 +20,7 @@ static uint32_t read_u32 (bcres_stream_t *stream)
 	if (stream->pos + 4 > stream->size)
 		return 0;
 	uint32_t val = stream->data[stream->pos] | (stream->data[stream->pos + 1] << 8)
-		| (stream->data[stream->pos + 2] << 16) | (stream->data[stream->pos + 3] << 24);
+		| (stream->data[stream->pos + 2] << 16) | ((u32)stream->data[stream->pos + 3] << 24);
 	stream->pos += 4;
 	return val;
 }
