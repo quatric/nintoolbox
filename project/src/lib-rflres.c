@@ -134,7 +134,7 @@ enumError ScanMiiRes (nintendo_sarc_entry_t **entries, uint *n_entries, const u8
 	{
 		const u32 arc_off = is_be ? rd_be32 (data + 4 + i * 4) : rd_le32 (data + 4 + i * 4);
 		const u16 num = is_be ? rd_be16 (data + arc_off) : rd_le16 (data + arc_off);
-		const u32 data_base = arc_off + 4 + ((uint)num + 1) * 4;
+		const u64 data_base = (u64)arc_off + 4 + ((u64)num + 1) * 4;
 
 		ccp cat_name = i < 18 ? mii_arc_names[i] : "subarc";
 		char cat_buf[32];
@@ -164,7 +164,7 @@ enumError ScanMiiRes (nintendo_sarc_entry_t **entries, uint *n_entries, const u8
 				return ERR_CANT_CREATE;
 			}
 			if (file_sz)
-				memcpy (file_buf, data + data_base + f_off, file_sz);
+				memcpy (file_buf, data + (size_t)data_base + f_off, file_sz);
 
 			char name_buf[128];
 			snprintf (name_buf, sizeof (name_buf), "%s/%03u.bin", cat_name, j);
@@ -295,10 +295,10 @@ enumError CreateMiiRes (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t 
 	const uint hdr_size = 4 + max_cat * 4;
 	u32 *arc_offsets = CALLOC (max_cat, sizeof (u32));
 
-	uint cur_offset = hdr_size;
+	u64 cur_offset = hdr_size;
 	for (uint i = 0; i < max_cat; i++)
 	{
-		arc_offsets[i] = cur_offset;
+		arc_offsets[i] = (u32)cur_offset;
 		const uint num = cats[i].count;
 		cur_offset += 4 + (num + 1) * 4;
 		for (uint j = 0; j < num; j++)
@@ -306,7 +306,16 @@ enumError CreateMiiRes (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t 
 		cur_offset = (cur_offset + 3) & ~3u;
 	}
 
-	u8 *buf = CALLOC (1, cur_offset);
+	if (cur_offset > 0x7fffffff)
+	{
+		for (uint i = 0; i < max_cat; i++)
+			FREE (cats[i].files);
+		FREE (cats);
+		FREE (arc_offsets);
+		return EFBIG;
+	}
+
+	u8 *buf = CALLOC (1, (size_t)cur_offset);
 	if (!buf)
 	{
 		for (uint i = 0; i < max_cat; i++)

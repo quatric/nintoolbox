@@ -4448,6 +4448,10 @@ static enumError extract_hwlegends_file (ccp arg, ccp basedir, uint depth)
 	char bin_path[PATH_MAX];
 	snprintf (bin_path, sizeof (bin_path), "%.*s%s", (int)(len - 4), arg,
 		arg[len - 3] >= 'a' && arg[len - 3] <= 'z' ? ".bin" : ".BIN");
+	struct stat st_bin;
+	if (stat (bin_path, &st_bin))
+		snprintf (bin_path, sizeof (bin_path), "%.*s%s", (int)(len - 4), arg,
+			arg[len - 3] >= 'a' && arg[len - 3] <= 'z' ? ".BIN" : ".bin");
 
 	u8 *idx = 0, *bin = 0;
 	size_t idx_size = 0, bin_size = 0;
@@ -9364,7 +9368,7 @@ static enumError extract_thp_file (ccp arg, ccp basedir, uint depth)
 	for (uint i = 0; i < n_entries; i++)
 	{
 		FREE ((void *)entries[i].name);
-		FREE (entries[i].data);
+		FREE ((void *)entries[i].data);
 	}
 	FREE (entries);
 

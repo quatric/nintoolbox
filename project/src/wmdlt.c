@@ -949,7 +949,7 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 							ERROR0 (err, "Failed to encode BNFM: %s\n", dest);
 						else if (verbose >= 0)
 							fprintf (stdlog, "%sENCODE BNFM:%s -> %s\n",
-								arg, dest);
+								verbose > 0 ? "\n" : "", arg, dest);
 						continue;
 					}
 					if (is_lmbin)

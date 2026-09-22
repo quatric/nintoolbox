@@ -536,7 +536,7 @@ static void print_single_option (FILE *f, // valid output stream
 	ccp iop = io->param;
 	ccp sep = !iop										  ? ""
 		: !io->optional_parm							  ? " "
-		: iop[0] == '=' || iop[0] == '[' && iop[0] == '=' ? ""
+		: iop[0] == '=' || (iop[0] == '[' && iop[1] == '=') ? ""
 														  : "=";
 
 	int len;

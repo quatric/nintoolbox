@@ -746,4 +746,5 @@ int main (int argc, char *argv[])
 	// compress and write result
 	len = qlz_compress (src, dst, len);
 	fwrite (dst, len, 1, ofile);
+	return 0;
 }

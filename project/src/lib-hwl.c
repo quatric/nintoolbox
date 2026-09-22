@@ -164,9 +164,14 @@ enumError create_hwl_dir (ccp source, ccp dest)
 		char *dot = strrchr (idx_path, '.');
 		if (dot && !strcasecmp (dot, ".bin"))
 			strcpy (dot, ".idx");
+		else if (!dot || strcasecmp (dot, ".idx"))
+			snprintf (idx_path, sizeof (idx_path), "%s.idx", dest);
+
 		dot = strrchr (bin_path, '.');
 		if (dot && !strcasecmp (dot, ".idx"))
 			strcpy (dot, ".bin");
+		else if (!dot || strcasecmp (dot, ".bin"))
+			snprintf (bin_path, sizeof (bin_path), "%s.bin", dest);
 
 		File_t F;
 		err = CreateFileOpt (&F, true, idx_path, false, source);

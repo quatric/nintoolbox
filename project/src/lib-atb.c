@@ -568,7 +568,7 @@ enumError create_atb_dir (ccp source, ccp dest)
 			continue;
 		}
 
-		uint tidx = 0, fmt = 0, bpp = 0, ps = 0, w = 0, h = 0, isz = 0;
+		uint tidx = 0, fmt = 0, bpp = 0, ps = 0, w = 0, h = 0;
 		char rname[256], pname[256];
 		rname[0] = pname[0] = 0;
 		if (sscanf (p, "texture %u format=%u bpp=%u pal_size=%u size=%u,%u raw=%255s png=%255s",

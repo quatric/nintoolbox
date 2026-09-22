@@ -116,6 +116,8 @@ enumError CreateBG4 (
 		names_size += (uint)strlen (name) + 1;
 	}
 	names_size = (names_size + 3) & ~3u;
+	if (names_size > 0xFFFF)
+		return EFBIG;
 
 	const uint header_and_meta = 16 + tab_size + names_size;
 	const uint data_start = (header_and_meta + 15) & ~15u;
