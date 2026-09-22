@@ -34,8 +34,8 @@ SUPPORTED_FAMILIES = [
     ("Nintendo 3DS", "*.3ds *.cia *.cxi *.ncch *.darc *.bcsar"),
     ("Wii U", "*.wud *.wux *.rpx *.rpl *.bfsar"),
     ("Nintendo Switch", "*.nsp *.xci *.nca"),
-    ("SZS / Archives", "*.szs *.carc *.arc *.brres *.sarc *.pac *.pcs *.gfa *.rarc"),
-    ("Textures & Images", "*.tpl *.bti *.tex0 *.bflim *.bclim *.ncgr *.nclr *.bntx"),
+    ("SZS / Archives", "*.szs *.carc *.arc *.brres *.sarc *.pac *.pcs *.gfa *.rarc *.pak *.zdat"),
+    ("Textures & Images", "*.tpl *.bti *.tex0 *.bflim *.bclim *.ncgr *.nclr *.bntx *.txd"),
     ("3D Models & Collision", "*.mdl0 *.bcres *.bfres *.bch *.kcl *.csb *.ctb"),
     ("Layouts & Sequences", "*.brlyt *.brlan *.bflyt *.bflan *.ncer *.nanr *.rseq *.cseq *.sseq"),
     ("Flash / ActionScript", "*.swf"),
@@ -87,13 +87,24 @@ def find_wszst_binary():
     the tool.
     """
     base_dir = bundle_dir()
-    for candidate in (
+    candidates = [
         os.path.join(base_dir, "wszst"),
         os.path.join(base_dir, "project", "bin", "wszst"),
         os.path.join(base_dir, "project", "wszst"),
         os.path.join(base_dir, "bin", "wszst"),
-        "/usr/local/bin/wszst",
-    ):
+    ]
+    parent = os.path.dirname(base_dir)
+    for sibling in ("Frameworks", "MacOS", "Resources"):
+        candidates.append(os.path.join(parent, sibling, "wszst"))
+        candidates.append(os.path.join(parent, sibling, "bin", "wszst"))
+    if sys.platform == "win32":
+        local_app = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
+        candidates.append(os.path.join(local_app, "nintoolbox", "bin", "wszst"))
+    else:
+        candidates.append(os.path.expanduser("~/.local/bin/wszst"))
+        candidates.append("/usr/local/bin/wszst")
+
+    for candidate in candidates:
         found = _find_executable(candidate)
         if found:
             return found
@@ -110,15 +121,25 @@ def find_companion_tool(name, wszst_path):
     lib-passthru.c), so passing an explicit absolute path via --with-<tool>=
     guarantees the bundled copy is always preferred.
     """
-    found = _find_executable(os.path.join(bundle_dir(), name))
-    if found:
-        return found
-    # wszst_path may point outside bundle_dir() (PATH/system install); check
-    # alongside it too before giving up to PATH search.
-    wszst_dir = os.path.dirname(os.path.abspath(wszst_path))
-    found = _find_executable(os.path.join(wszst_dir, name))
-    if found:
-        return found
+    base = bundle_dir()
+    candidates = [
+        os.path.join(base, name),
+        os.path.join(base, "bin", name),
+        os.path.join(base, "extra_tools", name),
+    ]
+    if wszst_path and wszst_path != "wszst":
+        wszst_dir = os.path.dirname(os.path.abspath(wszst_path))
+        candidates.append(os.path.join(wszst_dir, name))
+        candidates.append(os.path.join(wszst_dir, "extra_tools", name))
+    parent = os.path.dirname(base)
+    for sibling in ("Frameworks", "MacOS", "Resources"):
+        candidates.append(os.path.join(parent, sibling, name))
+        candidates.append(os.path.join(parent, sibling, "bin", name))
+
+    for cand in candidates:
+        found = _find_executable(cand)
+        if found:
+            return found
     return shutil.which(name)
 
 
@@ -159,6 +180,18 @@ def _parse_dnd_path(data):
     return paths[0] if paths else ""
 
 
+def _clean_path(path):
+    """Strip leading/trailing whitespace and matching outer quote/brace pairs."""
+    path = path.strip()
+    if len(path) >= 2 and (
+        (path[0] == '"' and path[-1] == '"')
+        or (path[0] == "'" and path[-1] == "'")
+        or (path[0] == "{" and path[-1] == "}")
+    ):
+        return path[1:-1].strip()
+    return path
+
+
 def _parse_extra_args(data):
     """Group quoted arguments while preserving Windows path separators."""
     lexer = shlex.shlex(data, posix=True)
@@ -170,6 +203,19 @@ def _parse_extra_args(data):
 
 
 class NintoolboxGUI(TkinterDnD.Tk if TkinterDnD else tk.Tk):
+    def report_callback_exception(self, exc, val, tb):
+        if sentry_sdk is not None:
+            try:
+                sentry_sdk.capture_exception((exc, val, tb))
+            except Exception:
+                pass
+        try:
+            super().report_callback_exception(exc, val, tb)
+        except (TypeError, AttributeError):
+            import traceback
+            traceback.print_exception(exc, val, tb)
+
+
     def __init__(self):
         super().__init__()
         self.title("nintoolbox — Nintendo Toolbox")
@@ -347,7 +393,7 @@ class NintoolboxGUI(TkinterDnD.Tk if TkinterDnD else tk.Tk):
         )
 
     def on_unpack_input_changed(self):
-        val = self.unpack_input_var.get().strip()
+        val = _clean_path(self.unpack_input_var.get())
         if val and (os.path.isfile(val) or os.path.isdir(val)):
             # Default output directory: "<input>.d" or alongside input
             if val.endswith(".d"):
@@ -440,7 +486,7 @@ class NintoolboxGUI(TkinterDnD.Tk if TkinterDnD else tk.Tk):
         )
 
     def on_pack_input_changed(self):
-        val = self.pack_input_var.get().strip()
+        val = _clean_path(self.pack_input_var.get())
         if val and os.path.isdir(val):
             # If folder ends with .d, default target is without .d
             if val.endswith(".d"):
@@ -487,52 +533,117 @@ class NintoolboxGUI(TkinterDnD.Tk if TkinterDnD else tk.Tk):
             self.pack_target_var.set(filename)
 
     def install_cli_tools(self):
-        """Copy every bundled CLI tool (and share/ data) onto the user's
+        """Copy every bundled CLI tool (and share/ data, keys) onto the user's
         PATH, and add the destination to PATH if it isn't already there.
         Mirrors installer/install.sh and installer/install.ps1, but as a
         one-click in-app action instead of a script the user runs by hand.
         """
         tools_dir = bundle_dir()
-        gui_names = {"nintoolbox", "nintoolbox.exe"}
+        gui_names = {
+            "nintoolbox", "nintoolbox.exe",
+            "python", "python3", "python.exe", "python3.exe", "pythonw.exe",
+        }
+        skip_exts = {
+            ".dylib", ".so", ".a", ".o", ".framework", ".plist", ".py", ".pyc", ".pyd"
+        }
 
         if sys.platform == "win32":
             dest = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "nintoolbox", "bin")
-            is_exe = lambda p: p.lower().endswith(".exe")
+            def is_tool(p):
+                name = os.path.basename(p).lower()
+                return name.endswith((".exe", ".dll")) and name not in gui_names
         else:
             dest = os.path.expanduser("~/.local/bin")
-            is_exe = lambda p: os.access(p, os.X_OK)
+            def is_tool(p):
+                name = os.path.basename(p)
+                if name.lower() in gui_names or any(name.endswith(ext) for ext in skip_exts) or ".so." in name:
+                    return False
+                return os.path.isfile(p) and os.access(p, os.X_OK)
 
         try:
             os.makedirs(dest, exist_ok=True)
             installed = []
-            for name in sorted(os.listdir(tools_dir)):
-                if name in gui_names or name == "share":
-                    continue
-                src = os.path.join(tools_dir, name)
-                if not os.path.isfile(src) or not is_exe(src):
-                    continue
-                shutil.copy2(src, os.path.join(dest, name))
-                installed.append(name)
+            search_dirs = [tools_dir]
+            for sub in ("bin", "project/bin", "extra_tools"):
+                d = os.path.join(tools_dir, sub)
+                if os.path.isdir(d):
+                    search_dirs.append(d)
+            parent = os.path.dirname(tools_dir)
+            for sibling in ("Frameworks", "MacOS", "Resources"):
+                d = os.path.join(parent, sibling)
+                if os.path.isdir(d):
+                    search_dirs.append(d)
 
-            share_src = os.path.join(tools_dir, "share")
-            if os.path.isdir(share_src):
-                share_dest = os.path.join(os.path.dirname(dest), "share")
-                os.makedirs(share_dest, exist_ok=True)
-                for name in os.listdir(share_src):
-                    shutil.copy2(os.path.join(share_src, name), os.path.join(share_dest, name))
+            seen_tools = set()
+            for sdir in search_dirs:
+                for name in sorted(os.listdir(sdir)):
+                    if name in seen_tools:
+                        continue
+                    src = os.path.join(sdir, name)
+                    if not is_tool(src):
+                        continue
+                    shutil.copy2(src, os.path.join(dest, name))
+                    seen_tools.add(name)
+                    installed.append(name)
 
-            ffdec_jar = os.path.join(tools_dir, "ffdec.jar")
-            if os.path.isfile(ffdec_jar):
-                shutil.copy2(ffdec_jar, os.path.join(dest, "ffdec.jar"))
-                installed.append("ffdec.jar")
+            # Copy bundled key files
+            for key_file in ("seeddb.bin", "prod.keys", "title.keys", "keys.txt"):
+                for sdir in search_dirs:
+                    kpath = os.path.join(sdir, key_file)
+                    if os.path.isfile(kpath):
+                        shutil.copy2(kpath, os.path.join(dest, key_file))
+                        installed.append(key_file)
+                        break
 
-            lib_src = os.path.join(tools_dir, "lib")
-            if os.path.isdir(lib_src):
-                lib_dest = os.path.join(dest, "lib")
-                os.makedirs(lib_dest, exist_ok=True)
-                for name in os.listdir(lib_src):
-                    shutil.copy2(os.path.join(lib_src, name), os.path.join(lib_dest, name))
-                installed.append("lib/")
+            # Copy wiiu_keys directory
+            wiiu_dest = os.path.join(dest, "wiiu_keys")
+            for sdir in search_dirs:
+                wpath = os.path.join(sdir, "wiiu_keys")
+                if os.path.isdir(wpath):
+                    os.makedirs(wiiu_dest, exist_ok=True)
+                    for item in os.listdir(wpath):
+                        src_item = os.path.join(wpath, item)
+                        if os.path.isfile(src_item):
+                            shutil.copy2(src_item, os.path.join(wiiu_dest, item))
+                    installed.append("wiiu_keys/")
+                    break
+
+            # Copy share/ directory
+            share_dest = os.path.join(os.path.dirname(dest), "share", "nintoolbox")
+            for sdir in search_dirs:
+                spath = os.path.join(sdir, "share")
+                if os.path.isdir(spath):
+                    os.makedirs(share_dest, exist_ok=True)
+                    for item in os.listdir(spath):
+                        src_item = os.path.join(spath, item)
+                        if os.path.isfile(src_item):
+                            shutil.copy2(src_item, os.path.join(share_dest, item))
+                    if sys.platform == "win32":
+                        win_share = os.path.join(dest, "share")
+                        os.makedirs(win_share, exist_ok=True)
+                        for item in os.listdir(spath):
+                            src_item = os.path.join(spath, item)
+                            if os.path.isfile(src_item):
+                                shutil.copy2(src_item, os.path.join(win_share, item))
+                    installed.append("share/")
+                    break
+
+            for sdir in search_dirs:
+                ffdec_jar = os.path.join(sdir, "ffdec.jar")
+                if os.path.isfile(ffdec_jar):
+                    shutil.copy2(ffdec_jar, os.path.join(dest, "ffdec.jar"))
+                    installed.append("ffdec.jar")
+                    break
+
+            for sdir in search_dirs:
+                lib_src = os.path.join(sdir, "lib")
+                if os.path.isdir(lib_src):
+                    lib_dest = os.path.join(dest, "lib")
+                    os.makedirs(lib_dest, exist_ok=True)
+                    for name in os.listdir(lib_src):
+                        shutil.copy2(os.path.join(lib_src, name), os.path.join(lib_dest, name))
+                    installed.append("lib/")
+                    break
 
             if not installed:
                 messagebox.showwarning(
@@ -595,10 +706,29 @@ class NintoolboxGUI(TkinterDnD.Tk if TkinterDnD else tk.Tk):
         self.console.config(state="disabled")
         self.append_console(f"$ {shlex.join(cmd)}\n\n")
 
-        wszst_dir = os.path.dirname(os.path.abspath(self.wszst_path))
+        wszst_dir = (
+            os.path.dirname(os.path.abspath(self.wszst_path))
+            if self.wszst_path and self.wszst_path != "wszst"
+            else ""
+        )
         env = dict(os.environ)
-        env["PATH"] = os.pathsep.join((bundle_dir(), wszst_dir, env.get("PATH", "")))
+        path_entries = [bundle_dir()]
+        if wszst_dir:
+            path_entries.append(wszst_dir)
+        bin_sub = os.path.join(bundle_dir(), "bin")
+        if os.path.isdir(bin_sub):
+            path_entries.append(bin_sub)
+        parent_dir = os.path.dirname(bundle_dir())
+        for sibling in ("MacOS", "Frameworks", "Resources"):
+            sib_dir = os.path.join(parent_dir, sibling)
+            if os.path.isdir(sib_dir):
+                path_entries.append(sib_dir)
+        env["PATH"] = os.pathsep.join(path_entries + [env.get("PATH", "")])
         output = queue.Queue()
+
+        popen_kwargs = {}
+        if sys.platform == "win32":
+            popen_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
 
         def run_thread():
             try:
@@ -610,6 +740,7 @@ class NintoolboxGUI(TkinterDnD.Tk if TkinterDnD else tk.Tk):
                     errors="replace",
                     bufsize=1,
                     env=env,
+                    **popen_kwargs,
                 ) as process:
                     for line in process.stdout:
                         output.put(line)
@@ -670,8 +801,8 @@ class NintoolboxGUI(TkinterDnD.Tk if TkinterDnD else tk.Tk):
         return flags
 
     def run_unpack(self):
-        inp = self.unpack_input_var.get().strip()
-        outdir = self.unpack_outdir_var.get().strip()
+        inp = _clean_path(self.unpack_input_var.get())
+        outdir = _clean_path(self.unpack_outdir_var.get())
 
         if not inp:
             messagebox.showwarning("Warning", "Please select an input game or archive file.")
@@ -697,8 +828,8 @@ class NintoolboxGUI(TkinterDnD.Tk if TkinterDnD else tk.Tk):
         self.execute_cmd(cmd, self.unpack_run_btn)
 
     def run_pack(self):
-        inp = self.pack_input_var.get().strip()
-        target = self.pack_target_var.get().strip()
+        inp = _clean_path(self.pack_input_var.get())
+        target = _clean_path(self.pack_target_var.get())
 
         if not inp:
             messagebox.showwarning(

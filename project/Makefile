@@ -29,6 +29,7 @@
 # global settings
 
 MYMAKE			:= $(lastword $(MAKEFILE_LIST))
+.DEFAULT_GOAL		:= default_rule
 
 SHELL			= /usr/bin/env bash
 
@@ -401,10 +402,6 @@ TOBJ_wbrstm	= lib-dspadpcm.o lib-brstm.o lib-passthru.o lib-bms.o lib-aes.o $(XO
 TOBJ_wrbnk	= lib-rbnk.o $(XOBJ_OBJECT)
 TOBJ_wbfsar	= lib-bfsar.o $(XOBJ_OBJECT)
 
-src/ajpg/odh_core.o: src/ajpg/odh_core.c src/ajpg/ajpg.h
-	@printf "$(LOGFORMAT_CC)" +object "$@" "$(MODE)"
-	@$(CC) $(CFLAGS) $(XFLAGS) -w -c src/ajpg/odh_core.c -o $@
-
 #-------------------------------------------------------------------------------
 # sub libs
 
@@ -498,9 +495,9 @@ SZS_O		:= $(XOBJ_IMAGE) lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-nsbmd
 # object groups
 UI_OBJECTS	= $(sort $(MAIN_TOOLS_OBJ))
 # astc_decomp.o/astc_wrapper.o are C++ (see the dedicated rules below) and
-# must stay out of the generic %.o: %.c pattern used for C_OBJECTS.
+# src/ajpg/odh_core.o has its own recipe; both must stay out of the generic %.o: %.c pattern.
 ASTC_CXX_OBJS	= src/astc/astc_decomp.o src/astc/astc_wrapper.o
-C_OBJECTS	= $(filter-out $(ASTC_CXX_OBJS) $(LATTE_CXX_OBJS) $(BCN_CXX_OBJS), $(sort $(OTHER_TOOLS_OBJ) $(SZS_O) $(TOBJ_NO_WRAPPER)))
+C_OBJECTS	= $(filter-out $(ASTC_CXX_OBJS) $(LATTE_CXX_OBJS) $(BCN_CXX_OBJS) src/ajpg/odh_core.o, $(sort $(OTHER_TOOLS_OBJ) $(SZS_O) $(TOBJ_NO_WRAPPER)))
 ASM_OBJECTS	= ssl-asm.o
 
 # These C++ objects live below src/, so the root-level *.{o,d} clean glob does
@@ -508,7 +505,7 @@ ASM_OBJECTS	= ssl-asm.o
 # place for the arm64 leg; ld then ignored latte_bridge.o and reported its C
 # bridge symbols as undefined.  Remove both objects and dependency files so
 # each architecture is rebuilt with the active target flags.
-NESTED_CXX_OBJS	= $(ASTC_CXX_OBJS) $(LATTE_CXX_OBJS) $(BCN_CXX_OBJS)
+NESTED_CXX_OBJS	= $(ASTC_CXX_OBJS) $(LATTE_CXX_OBJS) $(BCN_CXX_OBJS) src/ajpg/odh_core.o
 RM_FILES	+= $(NESTED_CXX_OBJS) $(patsubst %.o,%.d,$(NESTED_CXX_OBJS))
 
 # all objects + sources
@@ -785,6 +782,12 @@ endif
 $(UI_OBJECTS): %.o: %.c ui-%.c ui-%.h version.h Makefile
 	@printf "$(LOGFORMAT_CC)" +object "$@" "$(MODE)"
 	@$(CC) $(CFLAGS) $(DEPFLAGS) $(DEFINES) -c $< -o $@
+
+#--------------------------
+
+src/ajpg/odh_core.o: src/ajpg/odh_core.c src/ajpg/ajpg.h version.h Makefile
+	@printf "$(LOGFORMAT_CC)" +object "$@" "$(MODE)"
+	@$(CC) $(CFLAGS) $(XFLAGS) -w -c src/ajpg/odh_core.c -o $@
 
 #--------------------------
 
