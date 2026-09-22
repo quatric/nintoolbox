@@ -110,11 +110,40 @@ bool IsATB (const u8 *data, uint size)
 	{
 		if (bank_off < 20 || bank_off + (u64)num_banks * 8 > size)
 			return false;
+
+		// Bounds-only on the bank table itself let unrelated headerless
+		// formats with a plausible-looking offset word (e.g. a Mii resource
+		// archive's own sub-archive table, confirmed live on Wii RFL_Res.dat)
+		// false-positive as ATB, because every real .atb sample happened to
+		// also have num_textures>0 and only the texture table below got
+		// walked. Require the same per-entry structural proof for banks that
+		// ScanATB() itself needs to read a frame table, matching the rigor
+		// the texture loop already has.
+		for (u16 i = 0; i < num_banks; i++)
+		{
+			const u8 *bp = data + bank_off + i * 8;
+			const u16 frame_cnt = rd_be16 (bp);
+			const u32 frame_off = rd_be32 (bp + 4);
+			if (frame_cnt > 0 && frame_off + (u64)frame_cnt * 12 > size)
+				return false;
+		}
 	}
 	if (num_patterns > 0)
 	{
 		if (pattern_off < 20 || pattern_off + (u64)num_patterns * 16 > size)
 			return false;
+
+		// Same reasoning as the bank loop above: walk every pattern's own
+		// layer table instead of trusting the bounds-checked-only pattern
+		// array header.
+		for (u16 i = 0; i < num_patterns; i++)
+		{
+			const u8 *pp = data + pattern_off + i * 16;
+			const u16 layer_cnt = rd_be16 (pp);
+			const u32 layer_off = rd_be32 (pp + 12);
+			if (layer_cnt > 0 && layer_off + (u64)layer_cnt * 32 > size)
+				return false;
+		}
 	}
 	if (num_textures > 0)
 	{

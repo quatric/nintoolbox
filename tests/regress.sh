@@ -12122,6 +12122,30 @@ for y in range(4):
 }
 t_atb_rgb565
 
+# IsATB() only fully walked the texture table, so a headerless format with a
+# plausible-looking bank/pattern offset word could false-positive as ATB
+# purely from small in-range counts -- confirmed live on Wii RFL_Res.dat
+# (a Mii resource archive) being misclassified as ATB and stealing the match
+# from IsMiiRes(). Reproduces the shape with a tiny synthetic file: 2 patterns,
+# the first with no layers (valid), the second declaring an out-of-bounds
+# layer table -- structurally analogous to RFL_Res.dat's own offset table.
+t_atb_false_positive(){
+  python3 -c "
+import struct
+def be16(v): return struct.pack('>H', v)
+def be32(v): return struct.pack('>I', v)
+header = be16(0) + be16(2) + be16(0) + be16(0) + be32(0) + be32(20) + be32(0)
+p0 = be16(0) + be16(0)*4 + be32(0)
+p1 = be16(0xF000) + be16(0)*4 + be32(0)
+open('/tmp/_r_atb_falsepos.bin', 'wb').write(header + p0 + p1)
+"
+  local t; t=$("$B/wszst" FILETYPE /tmp/_r_atb_falsepos.bin 2>/dev/null | awk 'NR==4{print $1}')
+  rm -f /tmp/_r_atb_falsepos.bin
+  [ "$t" != "ATB" ] && ok "ATB false-positive rejected (structurally invalid pattern table)" \
+    || no "ATB false-positive" "IsATB() accepted a file with an out-of-bounds pattern layer table"
+}
+t_atb_false_positive
+
 # Smash Ultimate parameter binary (.prc, "paracobn"). Types, offsets and the
 # ParamXML tag dialect follow prc-rs; struct keys sort by label index.
 t_prc_paracobn(){
