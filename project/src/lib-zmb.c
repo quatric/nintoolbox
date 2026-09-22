@@ -45,17 +45,31 @@
 // array's own second field (a float) against a compiled-in threshold and
 // picks a per-table record stride of 0x38 or 0x50 (a whole-table
 // high/low-detail toggle) -- since the threshold is a constant baked into
-// main.dol this decoder never reads, it instead trusts 0x50 (both retail
-// samples' 0x50-strided records decode to clean, identical-looking colour
-// data across every material, while 0x38 produces garbage past the first
-// record on the multi-material sample). A 0x50-byte record's first 8
-// bytes are two RGBA8 colours (both `0x959595ff` on every sample so far --
-// plausibly a neutral default, since real material variation likely comes
-// from its bound texture rather than this colour); a field 12 bytes later
-// looks like a texture-layer count, but which texture(s) a material binds
-// is not resolved. This decoder does not attempt to pick apart individual
-// material fields yet -- it only walks the table far enough to report the
-// count.
+// main.dol this decoder never reads, it instead trusts 0x50, and that
+// choice is now confirmed two ways: (1) both retail samples' 0x50-strided
+// records decode to clean, identical-looking colour data across every
+// material, while 0x38 produces garbage past the first record on the
+// multi-material sample; (2) the render function (FUN_800ce884, which
+// walks the same bone/submesh loop as the loader) computes each draw
+// call's material record address as `material_array_base +
+// bone_record_stride(+0xd0 == 0x50) * submesh's own material index field`
+// -- i.e. the game itself uses stride 0x50 to index into this table by
+// the exact submesh+0x00 field this decoder already reads as a material
+// index (see below). A 0x50-byte record's first 8 bytes are two RGBA8
+// colours (both `0x959595ff` on every sample so far -- plausibly a
+// neutral default, since real material variation likely comes from its
+// bound texture rather than this colour); +0x13 is a one-byte draw-mode
+// selector the renderer switches on (0 = skip, 1 = one draw path, else a
+// second) to call one of two texture-binding draw functions
+// (FUN_800d7c0c / FUN_800d7d84) that use Gekko/Broadway paired-single SIMD
+// instructions this Ghidra install's generic PowerPC language can't
+// disassemble (no Gekko-specific processor variant available), which is
+// where this investigation had to stop -- so which texture(s) a material
+// binds is still not resolved. Materials also chain via a `next` pointer
+// at +0x2c (count at +0x2a) for multi-pass/LOD material variants, walked
+// by the same render function. This decoder does not attempt to pick
+// apart individual material fields yet -- it only walks the table far
+// enough to report the count.
 //
 // Bone table: u32 count, f32 2.0 (unknown constant), u32 offset to the
 // record array. Records are a fixed 0xa0 bytes:
