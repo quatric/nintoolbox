@@ -121,9 +121,10 @@ void NifClose (nif_t *nif)
 {
 	if (!nif)
 		return;
-	for (uint i = 0; i < nif->n_types; i++)
+	// NifOpen() can fail after reading a count but before allocating its array
+	for (uint i = 0; nif->types && i < nif->n_types; i++)
 		FREE (nif->types[i]);
-	for (uint i = 0; i < nif->n_strings; i++)
+	for (uint i = 0; nif->strings && i < nif->n_strings; i++)
 		FREE (nif->strings[i]);
 	FREE (nif->types);
 	FREE (nif->strings);

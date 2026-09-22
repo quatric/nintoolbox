@@ -57,7 +57,7 @@ enumError ScanMiiRes (nintendo_sarc_entry_t **entries, uint *n_entries, const u8
 		for (uint i = 0; i < be_arc; i++)
 		{
 			const u32 off = rd_be32 (data + 4 + i * 4);
-			if (off < 4 + (uint)be_arc * 4 || off + 4 > size || (i > 0 && off < prev))
+			if (off < 4 + (uint)be_arc * 4 || (u64)off + 4 > size || (i > 0 && off < prev))
 			{
 				ok = false;
 				break;
@@ -68,7 +68,7 @@ enumError ScanMiiRes (nintendo_sarc_entry_t **entries, uint *n_entries, const u8
 		{
 			const u32 a0 = rd_be32 (data + 4);
 			const u16 n0 = rd_be16 (data + a0);
-			if (a0 + 4 + ((uint)n0 + 1) * 4 <= size)
+			if ((u64)a0 + 4 + ((u64)n0 + 1) * 4 <= size)
 			{
 				is_be = true;
 				valid = true;
@@ -88,7 +88,7 @@ enumError ScanMiiRes (nintendo_sarc_entry_t **entries, uint *n_entries, const u8
 			for (uint i = 0; i < le_arc; i++)
 			{
 				const u32 off = rd_le32 (data + 4 + i * 4);
-				if (off < 4 + (uint)le_arc * 4 || off + 4 > size || (i > 0 && off < prev))
+				if (off < 4 + (uint)le_arc * 4 || (u64)off + 4 > size || (i > 0 && off < prev))
 				{
 					ok = false;
 					break;
@@ -99,7 +99,7 @@ enumError ScanMiiRes (nintendo_sarc_entry_t **entries, uint *n_entries, const u8
 			{
 				const u32 a0 = rd_le32 (data + 4);
 				const u16 n0 = rd_le16 (data + a0);
-				if (a0 + 4 + ((uint)n0 + 1) * 4 <= size)
+				if ((u64)a0 + 4 + ((u64)n0 + 1) * 4 <= size)
 				{
 					is_be = false;
 					valid = true;
@@ -117,7 +117,7 @@ enumError ScanMiiRes (nintendo_sarc_entry_t **entries, uint *n_entries, const u8
 	{
 		const u32 arc_off = is_be ? rd_be32 (data + 4 + i * 4) : rd_le32 (data + 4 + i * 4);
 		const u16 num = is_be ? rd_be16 (data + arc_off) : rd_le16 (data + arc_off);
-		if (arc_off + 4 + ((uint)num + 1) * 4 > size)
+		if ((u64)arc_off + 4 + ((u64)num + 1) * 4 > size)
 			return EINVAL;
 		total_files += num;
 	}
@@ -150,7 +150,7 @@ enumError ScanMiiRes (nintendo_sarc_entry_t **entries, uint *n_entries, const u8
 									: rd_le32 (data + arc_off + 4 + j * 4);
 			const u32 next_off = is_be ? rd_be32 (data + arc_off + 4 + (j + 1) * 4)
 									   : rd_le32 (data + arc_off + 4 + (j + 1) * 4);
-			if (next_off < f_off || data_base + next_off > size)
+			if (next_off < f_off || (u64)data_base + next_off > size)
 			{
 				ResetOwnedEntries (res, out_idx);
 				return EINVAL;

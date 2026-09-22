@@ -48,7 +48,8 @@ enumError ScanNUT (nut_t *nut, const u8 *data, size_t size)
 
 	for (uint i = 0; i < nut->n_textures; i++)
 	{
-		if (p + 32 > end)
+		// p never passes 'end' (see the advance below), so this can't wrap
+		if ((size_t)(end - p) < 32)
 			break;
 
 		nut_texture_t *t = &nut->textures[i];
@@ -69,12 +70,13 @@ enumError ScanNUT (nut_t *nut, const u8 *data, size_t size)
 
 		snprintf (t->name, sizeof (t->name), "texture_%03u", i);
 
-		// Resolve data pointer
-		if (t->data_offset > 0 && t->data_offset + t->data_size <= size)
+		// Resolve data pointer (64-bit sums: every term is file-controlled)
+		const u64 pos = p - data;
+		if (t->data_offset > 0 && (u64)t->data_offset + t->data_size <= size)
 			t->data = data + t->data_offset;
-		else if ((size_t)(p - data) + t->header_size + t->data_size <= size)
+		else if (pos + t->header_size + t->data_size <= size)
 			t->data = p + t->header_size;
-		else if (p + 32 + t->data_size <= end)
+		else if (pos + 32 + (u64)t->data_size <= size)
 			t->data = p + 32;
 
 		size_t adv = t->header_size >= 32 ? t->header_size : 48;
@@ -84,6 +86,8 @@ enumError ScanNUT (nut_t *nut, const u8 *data, size_t size)
 			&& t->data_offset == 0)
 			adv = t->total_size;
 
+		if (adv > (size_t)(end - p))
+			break;
 		p += adv;
 	}
 

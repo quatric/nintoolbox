@@ -2013,7 +2013,7 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			while (name > beg && isalnum ((int)(name[-1])))
 				name--;
 			noPRINT ("|%.*s|%.*s|\n", (int)(name - beg), beg, (int)(ptr - name), name);
-			if (!memcmp (beg, "#!", 2))
+			if (end - beg >= 2 && !memcmp (beg, "#!", 2))
 			{
 				switch (ptr - name)
 				{
@@ -2039,7 +2039,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 				}
 				return FF_SCRIPT;
 			}
-			if (!memcmp (beg, "<?", 2) && !strncasecmp (name, "php", 3))
+			if (end - beg >= 2 && !memcmp (beg, "<?", 2) && ptr - name >= 3
+				&& !strncasecmp (name, "php", 3))
 				return FF_PHP;
 		}
 	}

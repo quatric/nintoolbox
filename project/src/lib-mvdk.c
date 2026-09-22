@@ -742,6 +742,8 @@ int CxIsCompressedLZ (const unsigned char *buffer, unsigned int size)
 	uint32_t dstOffset = 0;
 	while (1)
 	{
+		if (offset >= size)
+			return 0;
 		uint8_t head = buffer[offset];
 		offset++;
 
@@ -1211,6 +1213,8 @@ static int CxiMvdkIsValidDeflate (const unsigned char *buffer, unsigned int size
 	unsigned char *destBase = dest;
 	unsigned char *end = dest + ((*(uint32_t *)buffer) >> 2); // for address comparison
 	DEFLATE_WORK_BUFFER *work = (DEFLATE_WORK_BUFFER *)calloc (1, sizeof (DEFLATE_WORK_BUFFER));
+	if (!work)
+		return 0;
 
 	while (dest < end)
 	{
@@ -1260,8 +1264,14 @@ unsigned char *CxDecompressLZ (
 	// initialize variables
 	uint32_t offset = 4;
 	uint32_t dstOffset = 0;
+	if (!length)
+		return result;
+	// Same bounds as CxIsCompressedLZ(), so a stream that was not validated
+	// first fails instead of reading/writing out of range.
 	while (1)
 	{
+		if (offset >= size)
+			goto fail;
 		uint8_t head = buffer[offset];
 		offset++;
 		// loop 8 times
@@ -1272,6 +1282,8 @@ unsigned char *CxDecompressLZ (
 
 			if (!flag)
 			{
+				if (offset >= size)
+					goto fail;
 				result[dstOffset] = buffer[offset];
 				dstOffset++, offset++;
 				if (dstOffset == length)
@@ -1279,12 +1291,16 @@ unsigned char *CxDecompressLZ (
 			}
 			else
 			{
+				if (offset + 1 >= size)
+					goto fail;
 				uint8_t high = buffer[offset++];
 				uint8_t low = buffer[offset++];
 
 				// length of uncompressed chunk and offset
 				uint32_t offs = (((high & 0xF) << 8) | low) + 1;
 				uint32_t len = (high >> 4) + 3;
+				if (dstOffset < offs)
+					goto fail;
 				for (uint32_t j = 0; j < len; j++)
 				{
 					result[dstOffset] = result[dstOffset - offs];
@@ -1295,7 +1311,10 @@ unsigned char *CxDecompressLZ (
 			}
 		}
 	}
-	return result;
+fail:
+	free (result);
+	*uncompressedSize = 0;
+	return NULL;
 }
 
 unsigned char *CxDecompressRL (

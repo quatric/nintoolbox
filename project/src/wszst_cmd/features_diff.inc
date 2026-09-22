@@ -1506,7 +1506,10 @@ static enumError DecodeZlib (
 		int ret = inflate (&strm, Z_NO_FLUSH);
 		if (ret == Z_STREAM_END)
 			break;
-		if (ret != Z_OK && ret != Z_BUF_ERROR)
+		// Z_BUF_ERROR with output space left means the input ran out before
+		// the end of the stream (truncated file): no further call can make
+		// progress, so stop instead of spinning forever.
+		if ((ret != Z_OK && ret != Z_BUF_ERROR) || (ret == Z_BUF_ERROR && strm.avail_out))
 		{
 			FREE (buf);
 			inflateEnd (&strm);
@@ -1514,6 +1517,13 @@ static enumError DecodeZlib (
 		}
 		if (strm.avail_out == 0)
 		{
+			// avail_out and *dest_size are 32-bit
+			if (out_cap > 0x7fffffff)
+			{
+				FREE (buf);
+				inflateEnd (&strm);
+				return ERR_FILE_TOO_BIG;
+			}
 			size_t new_cap = out_cap * 2;
 			u8 *new_buf = REALLOC (buf, new_cap);
 			if (!new_buf)

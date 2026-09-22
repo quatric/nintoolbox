@@ -459,13 +459,13 @@ static inline u16 be16 (const void *be_data_ptr)
 static inline u32 be24 (const void *be_data_ptr)
 {
 	const u8 *d = be_data_ptr;
-	return (d[0] << 8 | d[1]) << 8 | d[2];
+	return ((u32)d[0] << 8 | d[1]) << 8 | d[2];
 }
 
 static inline u32 be32 (const void *be_data_ptr)
 {
 	const u8 *d = be_data_ptr;
-	return ((d[0] << 8 | d[1]) << 8 | d[2]) << 8 | d[3];
+	return (((u32)d[0] << 8 | d[1]) << 8 | d[2]) << 8 | d[3];
 }
 
 static inline u64 be40 (const void *be_data_ptr)
@@ -540,13 +540,13 @@ static inline u16 le16 (const void *le_data_ptr)
 static inline u32 le24 (const void *le_data_ptr)
 {
 	const u8 *d = le_data_ptr;
-	return (d[2] << 8 | d[1]) << 8 | d[0];
+	return ((u32)d[2] << 8 | d[1]) << 8 | d[0];
 }
 
 static inline u32 le32 (const void *le_data_ptr)
 {
 	const u8 *d = le_data_ptr;
-	return ((d[3] << 8 | d[2]) << 8 | d[1]) << 8 | d[0];
+	return (((u32)d[3] << 8 | d[2]) << 8 | d[1]) << 8 | d[0];
 }
 
 static inline u64 le40 (const void *le_data_ptr)

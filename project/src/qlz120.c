@@ -9,6 +9,10 @@
 // Every non-static symbol the vendor file exports is listed below; the set was
 // taken from nm(1) on the compiled object, not guessed.
 
+// wszst decodes untrusted files: enable the vendor's bounds-checked match
+// copies (wqlz_comp_120.c ships this commented out).
+#define memory_safe
+
 #define main qlz120_vendor_main_unused
 #define fast_read qlz120_fast_read
 #define fast_read_safe qlz120_fast_read_safe

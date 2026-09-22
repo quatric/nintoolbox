@@ -286,11 +286,12 @@ static int seq_find_blocks (const u8 *data, size_t size, bool is_le,
 		u32 dsz = read_be32 (data + 0x14);
 		u32 loff = read_be32 (data + 0x18);
 		u32 lsz = read_be32 (data + 0x1C);
-		if (doff + 8 > size || memcmp (data + doff, "DATA", 4))
+		// 64-bit sums: every offset/size here is file-controlled
+		if ((u64)doff + 12 > size || memcmp (data + doff, "DATA", 4))
 			return 0;
-		if (loff && (loff + 8 > size || memcmp (data + loff, "LABL", 4)))
+		if (loff && ((u64)loff + 8 > size || memcmp (data + loff, "LABL", 4)))
 			return 0;
-		if (dsz < 8 || doff + dsz > size || (loff && loff + lsz > size))
+		if (dsz < 12 || (u64)doff + dsz > size || (loff && (u64)loff + lsz > size))
 			return 0;
 		// Unlike FSEQ's bare {sig,size}+code DATA block, RSEQ keeps the
 		// legacy base-offset word: code starts at DATA+base_off.
@@ -407,6 +408,27 @@ static void seq_read_labels (const u8 *labl, size_t labl_size, bool is_le, label
 // and appending has_time's trailing operand afterwards (TIME's trailing
 // parameter is only read by u8-operand commands -- matching the player's
 // argType2 behavior -- notes, jumps and EX commands take none).
+// Point *code at data + start + base_off, spanning sec_size - base_off bytes
+// (or, with rest_if_short, the rest of the file when sec_size <= base_off),
+// clamped to 'size'. Offsets are file-controlled: an out-of-range start
+// yields an empty region instead of a wild pointer / wrapped size.
+static void seq_code_region (const u8 *data, size_t size, u64 start, u32 base_off, u32 sec_size,
+	bool rest_if_short, const u8 **code, size_t *code_size)
+{
+	const u64 s = start + base_off;
+	if (s >= size)
+	{
+		*code = data;
+		*code_size = 0;
+		return;
+	}
+	u64 n = sec_size > base_off ? (u64)(sec_size - base_off) : rest_if_short ? size - s : 0;
+	if (n > size - s)
+		n = size - s;
+	*code = data + s;
+	*code_size = n;
+}
+
 typedef struct
 {
 	bool has_if;
@@ -770,16 +792,13 @@ enumError DisassembleSequence (char **out_text, size_t *out_size, const u8 *data
 		&& (!memcmp (data, "RSEQ", 4) || !memcmp (data, "CSEQ", 4) || !memcmp (data, "FSEQ", 4)))
 	{
 		u32 data_off = is_le ? read_le32 (data + 0x10) : read_be32 (data + 0x10);
-		if (data_off + 12 <= size && !memcmp (data + data_off, "DATA", 4))
+		if ((u64)data_off + 12 <= size && !memcmp (data + data_off, "DATA", 4))
 		{
 			u32 base_off
 				= is_le ? read_le32 (data + data_off + 8) : read_be32 (data + data_off + 8);
 			u32 sec_size
 				= is_le ? read_le32 (data + data_off + 4) : read_be32 (data + data_off + 4);
-			code = data + data_off + base_off;
-			code_size = (sec_size > base_off) ? (sec_size - base_off) : 0;
-			if (data_off + base_off + code_size > size)
-				code_size = size - (data_off + base_off);
+			seq_code_region (data, size, data_off, base_off, sec_size, false, &code, &code_size);
 		}
 	}
 	else if (size >= 0x10 && !memcmp (data, "SSEQ", 4))
@@ -788,18 +807,14 @@ enumError DisassembleSequence (char **out_text, size_t *out_size, const u8 *data
 		{
 			u32 base_off = read_le32 (data + 0x10 + 8);
 			u32 sec_size = read_le32 (data + 0x10 + 4);
-			code = data + 0x10 + base_off;
-			code_size = (sec_size > base_off) ? (sec_size - base_off) : 0;
-			if (0x10 + base_off + code_size > size)
-				code_size = size - (0x10 + base_off);
+			seq_code_region (data, size, 0x10, base_off, sec_size, false, &code, &code_size);
 		}
 	}
-	else if (!memcmp (data, "DATA", 4))
+	else if (size >= 12 && !memcmp (data, "DATA", 4))
 	{
 		u32 base_off = is_le ? read_le32 (data + 8) : read_be32 (data + 8);
 		u32 sec_size = is_le ? read_le32 (data + 4) : read_be32 (data + 4);
-		code = data + base_off;
-		code_size = (sec_size > base_off) ? (sec_size - base_off) : (size - base_off);
+		seq_code_region (data, size, 0, base_off, sec_size, true, &code, &code_size);
 	}
 
 	if (code_size == 0)
@@ -2413,16 +2428,14 @@ enumError SequenceToMIDI (u8 **out_midi, size_t *out_size, const u8 *seq_data, s
 			|| !memcmp (seq_data, "FSEQ", 4)))
 	{
 		u32 data_off = is_le ? read_le32 (seq_data + 0x10) : read_be32 (seq_data + 0x10);
-		if (data_off + 12 <= seq_size && !memcmp (seq_data + data_off, "DATA", 4))
+		if ((u64)data_off + 12 <= seq_size && !memcmp (seq_data + data_off, "DATA", 4))
 		{
 			u32 base_off
 				= is_le ? read_le32 (seq_data + data_off + 8) : read_be32 (seq_data + data_off + 8);
 			u32 sec_size
 				= is_le ? read_le32 (seq_data + data_off + 4) : read_be32 (seq_data + data_off + 4);
-			code = seq_data + data_off + base_off;
-			code_size = (sec_size > base_off) ? (sec_size - base_off) : 0;
-			if (data_off + base_off + code_size > seq_size)
-				code_size = seq_size - (data_off + base_off);
+			seq_code_region (
+				seq_data, seq_size, data_off, base_off, sec_size, false, &code, &code_size);
 		}
 	}
 	else if (seq_size >= 0x10 && !memcmp (seq_data, "SSEQ", 4))
@@ -2431,18 +2444,15 @@ enumError SequenceToMIDI (u8 **out_midi, size_t *out_size, const u8 *seq_data, s
 		{
 			u32 base_off = read_le32 (seq_data + 0x10 + 8);
 			u32 sec_size = read_le32 (seq_data + 0x10 + 4);
-			code = seq_data + 0x10 + base_off;
-			code_size = (sec_size > base_off) ? (sec_size - base_off) : 0;
-			if (0x10 + base_off + code_size > seq_size)
-				code_size = seq_size - (0x10 + base_off);
+			seq_code_region (
+				seq_data, seq_size, 0x10, base_off, sec_size, false, &code, &code_size);
 		}
 	}
-	else if (!memcmp (seq_data, "DATA", 4))
+	else if (seq_size >= 12 && !memcmp (seq_data, "DATA", 4))
 	{
 		u32 base_off = is_le ? read_le32 (seq_data + 8) : read_be32 (seq_data + 8);
 		u32 sec_size = is_le ? read_le32 (seq_data + 4) : read_be32 (seq_data + 4);
-		code = seq_data + base_off;
-		code_size = (sec_size > base_off) ? (sec_size - base_off) : (seq_size - base_off);
+		seq_code_region (seq_data, seq_size, 0, base_off, sec_size, true, &code, &code_size);
 	}
 
 	if (code_size == 0)

@@ -62,17 +62,18 @@ enumError ExtractPVOLArchive (ccp arg, ccp basedir, uint depth)
 		const u32 toff = 4 + i * 8;
 		const u32 off = rd_le32 (raw + toff);
 		const u32 len = rd_le32 (raw + toff + 4);
-		if ((uint64_t)off < table_sz || (uint64_t)off + len > raw_size || off < prev_off)
+		if ((uint64_t)off < table_sz || (uint64_t)off + 0x28 + len > raw_size || off < prev_off)
 		{
 			FREE (raw);
-			return ERR_NOTHING_TO_DO;
+			return ERR_INVALID_DATA;
 		}
 		prev_off = off;
 	}
 
 	char dest[PATH_MAX];
 	get_dest_dir (dest, sizeof (dest), arg, basedir);
-	CreatePath (dest, true);
+	if (!testmode)
+		CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
 		fprintf (stdlog, "%s%sEXTRACT PVOL:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
@@ -82,60 +83,80 @@ enumError ExtractPVOLArchive (ccp arg, ccp basedir, uint depth)
 	{
 		const u32 toff = 4 + i * 8;
 		const u32 off = rd_le32 (raw + toff);
-		u32 len = rd_le32 (raw + toff + 4);
+		const u32 len = rd_le32 (raw + toff + 4);
 
-		if (off >= raw_size)
-			continue;
-
-		char name1[33] = "";
-		char name2[33] = "";
-		if (off + 0x20 <= raw_size)
-			StringCopyS (name1, sizeof (name1), (ccp)(raw + off));
-		if (off + 0x28 <= raw_size)
-			StringCopyS (name2, sizeof (name2), (ccp)(raw + off + 0x20));
-
+		// The two name fields are fixed-width byte strings, not necessarily
+		// terminated. Never scan into the payload when reading either field.
+		char name1[33] = {0};
+		char name2[9] = {0};
+		memcpy (name1, raw + off, 32);
+		memcpy (name2, raw + off + 32, 8);
 		char full_name[80];
-		if (name1[0] || name2[0])
-			snprintf (full_name, sizeof (full_name), "%s%s", name1, name2);
-		else
+		snprintf (full_name, sizeof (full_name), "%s%s", name1, name2);
+		if (!OwnedNameOk (full_name))
 			snprintf (full_name, sizeof (full_name), "file_%04u.bin", i);
 
 		const u32 data_off = off + 0x28;
-		if (data_off + len > raw_size)
-			len = raw_size > data_off ? (uint)(raw_size - data_off) : 0;
 
 		char out_path[PATH_MAX];
 		snprintf (out_path, sizeof (out_path), "%s/%s", dest, full_name);
 
-		if (!testmode && len > 0 && data_off < raw_size)
-			SaveFile (out_path, 0, 0, raw + data_off, len, 0);
+		if (!testmode)
+		{
+			err = SaveFile (out_path, 0, 0, raw + data_off, len, 0);
+			if (err)
+				break;
+		}
 	}
 
 	FREE (raw);
-	return ERR_OK;
+	return err;
 }
 
+
+static int compare_pvol_entries (const void *a, const void *b)
+{
+	const nintendo_sarc_entry_t *ea = a, *eb = b;
+	return strcmp (leaf_name (ea->name), leaf_name (eb->name));
+}
 
 // 4. Pikmin 1 & 2 Model/Archive Container (.pvol)
 enumError CreatePVOLArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {
-	if (!dest || !dest_size || !entries || !n_entries)
+	if (!dest || !dest_size)
 		return ERR_INVALID_DATA;
+	*dest = 0;
+	*dest_size = 0;
+	if (!entries || !n_entries || n_entries > 99999)
+		return ERR_INVALID_DATA;
+
+	const uint data_start = (4 + n_entries * 8 + 31) & ~31u;
+	u64 total_size = data_start;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		const ccp name = leaf_name (entries[i].name);
+		if (!OwnedNameOk (name) || strlen (name) > 40 || (entries[i].size && !entries[i].data))
+			return ERR_INVALID_DATA;
+		total_size = (total_size + 0x28 + entries[i].size + 15) & ~(u64)15;
+		if (total_size > UINT_MAX)
+			return ERR_INVALID_DATA;
+	}
 
 	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
 	if (!sorted)
 		return ERR_OUT_OF_MEMORY;
 	memcpy (sorted, entries, n_entries * sizeof (*sorted));
-	qsort (sorted, n_entries, sizeof (*sorted), compare_archive_entries);
+	qsort (sorted, n_entries, sizeof (*sorted), compare_pvol_entries);
+	for (uint i = 1; i < n_entries; i++)
+		if (!compare_pvol_entries (sorted + i - 1, sorted + i))
+		{
+			FREE (sorted);
+			return ERR_INVALID_DATA;
+		}
 
 	const u32 fcount = n_entries + 1;
-	const u32 table_sz = 4 + (fcount - 1) * 8;
-	u32 data_start = (table_sz + 31) & ~31;
-
-	u32 cur_off = data_start;
-	for (uint i = 0; i < n_entries; i++)
-		cur_off = (cur_off + 0x28 + sorted[i].size + 15) & ~15;
+	const uint cur_off = (uint)total_size;
 
 	u8 *buf = CALLOC (cur_off, 1);
 	if (!buf)

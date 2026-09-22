@@ -189,7 +189,7 @@ enumError ScanChannelScript (chans_script_t *cs, const void *data, size_t size)
 	u32 base = 0x20;
 
 	// Load bytecode (FDS)
-	if (fds_size > 0 && base + fds_offset + fds_size <= size)
+	if (fds_size > 0 && (u64)base + fds_offset + fds_size <= size)
 	{
 		cs->bytecode_size = fds_size;
 		cs->bytecode = MALLOC (fds_size);
@@ -198,7 +198,7 @@ enumError ScanChannelScript (chans_script_t *cs, const void *data, size_t size)
 	}
 
 	// Table 1: Local methods
-	if (table1_count > 0 && base + table1_offset + table1_count * 8 <= size)
+	if (table1_count > 0 && (u64)base + table1_offset + (u64)table1_count * 8 <= size)
 	{
 		cs->method_count = table1_count;
 		cs->methods = MALLOC (table1_count * sizeof (chans_method_t));
@@ -216,7 +216,7 @@ enumError ScanChannelScript (chans_script_t *cs, const void *data, size_t size)
 	}
 
 	// Table 2: Imported symbols
-	if (table2_count > 0 && base + table2_offset + table2_count * 4 <= size)
+	if (table2_count > 0 && (u64)base + table2_offset + (u64)table2_count * 4 <= size)
 	{
 		cs->imported_count = table2_count;
 		cs->imported = MALLOC (table2_count * sizeof (chans_symbol_t));
@@ -231,14 +231,14 @@ enumError ScanChannelScript (chans_script_t *cs, const void *data, size_t size)
 				cs->imported[i].name = NULL;
 
 				if (cs->imported[i].length > 0
-					&& base + table2_offset + cs->imported[i].offset + cs->imported[i].length
+					&& (u64)base + table2_offset + cs->imported[i].offset + cs->imported[i].length
 						<= size)
 				{
 					cs->imported[i].name = MALLOC (cs->imported[i].length + 1);
 					if (cs->imported[i].name)
 					{
 						memcpy (cs->imported[i].name,
-							p + base + table2_offset + cs->imported[i].offset,
+							p + (u64)base + table2_offset + cs->imported[i].offset,
 							cs->imported[i].length);
 						cs->imported[i].name[cs->imported[i].length] = '\0';
 					}
@@ -248,12 +248,14 @@ enumError ScanChannelScript (chans_script_t *cs, const void *data, size_t size)
 	}
 
 	// Table 3: String literals (UTF-16BE)
-	if (table3_count > 0 && base + table3_offset < size)
+	if (table3_count > 0 && (u64)base + table3_offset < size)
 	{
-		cs->string_count = table3_count;
-		cs->strings = MALLOC (table3_count * sizeof (chans_string_t));
+		// zeroed: the loop below can stop early, and later lookups check
+		// strings[i].utf8 for every index below string_count
+		cs->strings = CALLOC (table3_count, sizeof (chans_string_t));
 		if (cs->strings)
 		{
+			cs->string_count = table3_count;
 			const u8 *cur = p + base + table3_offset;
 			for (u32 i = 0; i < table3_count; i++)
 			{
@@ -276,7 +278,7 @@ enumError ScanChannelScript (chans_script_t *cs, const void *data, size_t size)
 	}
 
 	// Table 4: Exported symbols
-	if (table4_count > 0 && base + table4_offset + table4_count * 4 <= size)
+	if (table4_count > 0 && (u64)base + table4_offset + (u64)table4_count * 4 <= size)
 	{
 		cs->exported_count = table4_count;
 		cs->exported = MALLOC (table4_count * sizeof (chans_symbol_t));
@@ -291,14 +293,14 @@ enumError ScanChannelScript (chans_script_t *cs, const void *data, size_t size)
 				cs->exported[i].name = NULL;
 
 				if (cs->exported[i].length > 0
-					&& base + table4_offset + cs->exported[i].offset + cs->exported[i].length
+					&& (u64)base + table4_offset + cs->exported[i].offset + cs->exported[i].length
 						<= size)
 				{
 					cs->exported[i].name = MALLOC (cs->exported[i].length + 1);
 					if (cs->exported[i].name)
 					{
 						memcpy (cs->exported[i].name,
-							p + base + table4_offset + cs->exported[i].offset,
+							p + (u64)base + table4_offset + cs->exported[i].offset,
 							cs->exported[i].length);
 						cs->exported[i].name[cs->exported[i].length] = '\0';
 					}
@@ -309,7 +311,7 @@ enumError ScanChannelScript (chans_script_t *cs, const void *data, size_t size)
 
 	// Table 5: Line start bitmasks
 	u32 block_count = (fds_size + 255) / 256;
-	if (block_count > 0 && base + table5_offset + block_count * 0x24 <= size)
+	if (block_count > 0 && (u64)base + table5_offset + (u64)block_count * 0x24 <= size)
 	{
 		cs->block_count = block_count;
 		cs->blocks = MALLOC (block_count * sizeof (chans_line_block_t));

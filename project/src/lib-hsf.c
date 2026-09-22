@@ -395,10 +395,13 @@ static void hsf_build_animations (
 	for (uint m = 0; m < nm; m++)
 	{
 		const u8 *h = data + off[HSF_IDX_MOTIONS] + m * 16;
-		uint nt = hsf_be32 (h + 4), rel = hsf_be32 (h + 8),
-			 frames = (uint)floorf (hsf_bef32 (h + 12) + 0.0001f) + 1;
-		if (!frames || frames > 100000)
+		uint nt = hsf_be32 (h + 4), rel = hsf_be32 (h + 8);
+		// range-check the float first: converting a negative, huge or NaN
+		// length to uint is undefined behaviour, not just a wrong value
+		const float len = floorf (hsf_bef32 (h + 12) + 0.0001f);
+		if (!(len >= 0.0f && len < 100000.0f))
 			continue;
+		const uint frames = (uint)len + 1;
 		model_animation_t *an = model->animations + m;
 		hsf_safe_name (
 			an->name, sizeof (an->name), hsf_str (data, size, str_off, hsf_be32 (h)), "motion");

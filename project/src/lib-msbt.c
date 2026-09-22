@@ -548,6 +548,9 @@ enumError ScanMSBT (msbt_file_t *msbt, const u8 *data, uint data_size, ccp fname
 		if (cur + 16 > data_size)
 			break;
 		u32 sec_size = r32 (data + cur + 4, be);
+		// Every section parser below trusts sec_size as its body length.
+		if (sec_size > data_size - cur - 16)
+			sec_size = data_size - cur - 16;
 		const u8 *sec_body = data + cur + 16;
 
 		if (!strcmp (sec_magic, "LBL1"))
@@ -1834,6 +1837,9 @@ static char **msbp_parse_labels (
 			if (pos + nlen + 4 > size)
 				break;
 			u32 idx = r32 (data + pos + nlen, be);
+			// idx sizes the label table; a garbage value would wrap idx + 16
+			if (idx > 0xfffff)
+				break;
 			if (idx >= cap)
 			{
 				uint ncap = idx + 16;
@@ -1987,6 +1993,9 @@ enumError ScanMSBP (msbp_file_t *msbp, const u8 *data, uint data_size, ccp fname
 		if (cur + 16 > data_size)
 			break;
 		u32 sec_size = r32 (data + cur + 4, be);
+		// Every section parser below trusts sec_size as its body length.
+		if (sec_size > data_size - cur - 16)
+			sec_size = data_size - cur - 16;
 		const u8 *sec_body = data + cur + 16;
 
 		if (!strcmp (sec_magic, "CLR1"))
@@ -3512,6 +3521,9 @@ enumError ScanMSBF (msbf_file_t *msbf, const u8 *data, uint data_size, ccp fname
 		if (cur + 16 > data_size)
 			break;
 		u32 sec_size = r32 (data + cur + 4, be);
+		// Every section parser below trusts sec_size as its body length.
+		if (sec_size > data_size - cur - 16)
+			sec_size = data_size - cur - 16;
 		const u8 *sec_body = data + cur + 16;
 
 		if (!strcmp (sec_magic, "FLW3"))

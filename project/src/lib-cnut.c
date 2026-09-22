@@ -179,7 +179,12 @@ static void free_proto (cnut_funcproto_t *proto)
 	memset (proto, 0, sizeof (*proto));
 }
 
-static enumError parse_proto (const u8 **pos_ptr, const u8 *end, cnut_funcproto_t *proto)
+// Squirrel closures nest a handful of levels; the cap keeps a corrupt
+// file from recursing until the stack runs out.
+#define CNUT_MAX_PROTO_DEPTH 64
+
+static enumError parse_proto (
+	const u8 **pos_ptr, const u8 *end, cnut_funcproto_t *proto, uint depth)
 {
 	const u8 *p = *pos_ptr;
 	memset (proto, 0, sizeof (*proto));
@@ -228,6 +233,16 @@ static enumError parse_proto (const u8 **pos_ptr, const u8 *end, cnut_funcproto_
 	proto->n_instructions = be32 (p + 24);
 	proto->n_functions = be32 (p + 28);
 	p += 32;
+
+	// Every element of every table takes at least one byte of input, so a
+	// count beyond what is left is corrupt -- and would otherwise size a
+	// multi-gigabyte CALLOC that free_proto() then walks element by element.
+	const size_t left = end - p;
+	if (proto->n_literals > left || proto->n_parameters > left || proto->n_outervalues > left
+		|| proto->n_localvars > left || proto->n_lineinfos > left
+		|| proto->n_defaultparams > left || proto->n_instructions > left
+		|| proto->n_functions > left || (proto->n_functions && depth >= CNUT_MAX_PROTO_DEPTH))
+		return ERR_INVALID_DATA;
 
 	// 3. Literals
 	if (p + 4 > end || memcmp (p, "PART", 4))
@@ -407,7 +422,7 @@ static enumError parse_proto (const u8 **pos_ptr, const u8 *end, cnut_funcproto_
 
 		for (uint i = 0; i < proto->n_functions; i++)
 		{
-			err = parse_proto (&p, end, &proto->functions[i]);
+			err = parse_proto (&p, end, &proto->functions[i], depth + 1);
 			if (err)
 				return err;
 		}
@@ -442,7 +457,7 @@ enumError ScanCNUT (cnut_t *cnut, const u8 *data, size_t size)
 	const u8 *p = data + 10;
 	const u8 *end = data + size;
 
-	enumError err = parse_proto (&p, end, &cnut->root);
+	enumError err = parse_proto (&p, end, &cnut->root, 0);
 	if (err)
 	{
 		ResetCNUT (cnut);

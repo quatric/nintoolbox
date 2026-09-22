@@ -7169,11 +7169,12 @@ static enumError extract_toshi_ttl_file (ccp arg, ccp basedir, uint depth)
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
 	}
-	FREE (raw);
+	// trb.symb points into 'raw', so it must outlive every ToshiSymbol() lookup
 	const uint count = ToshiTtlCount (&trb);
 	if (!count)
 	{
 		ResetToshiTrb (&trb);
+		FREE (raw);
 		return ERR_NOTHING_TO_DO;
 	}
 	char dest[PATH_MAX];
@@ -7219,6 +7220,7 @@ static enumError extract_toshi_ttl_file (ccp arg, ccp basedir, uint depth)
 	}
 	FREE (used);
 	ResetToshiTrb (&trb);
+	FREE (raw);
 	return err;
 }
 
@@ -12536,12 +12538,13 @@ static enumError extract_cfnt_manifest (ccp arg)
 	{
 		uint ptr_glyph = CF32 (d + finf + 0x10);
 		size_t tglp = (ptr_glyph >= 8) ? (size_t)ptr_glyph - 8 : (size_t)-1;
-		if (tglp + 0x20 > size || memcmp (d + tglp, "TGLP", 4))
+		// tglp is (size_t)-1 for ptr_glyph < 8; check it before adding to it
+		if (tglp >= size || tglp + 0x20 > size || memcmp (d + tglp, "TGLP", 4))
 		{
 			ptr_glyph = (finf_len >= 0x20 && (size_t)finf + 0x18 <= size) ? CF32 (d + finf + 0x14) : 0;
 			tglp = (ptr_glyph >= 8) ? (size_t)ptr_glyph - 8 : (size_t)-1;
 		}
-		if (ptr_glyph >= 8 && tglp + 0x20 <= size && !memcmp (d + tglp, "TGLP", 4))
+		if (ptr_glyph >= 8 && tglp < size && tglp + 0x20 <= size && !memcmp (d + tglp, "TGLP", 4))
 		{
 			fprintf (F.f,
 				"  <tglp cell-width=\"%u\" cell-height=\"%u\" baseline=\"%u\" "

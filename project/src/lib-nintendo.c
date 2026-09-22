@@ -436,7 +436,8 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		if (ext && !strcasecmp (ext, ".mdr"))
 			return make_info (NFMT_MDR, true, false, 0);
 		if ((size >= 8 && !memcmp (d, "PERS-SZP", 8))
-			|| (size >= 16 && !memcmp (d + 8, "FRAGMENT", 8)) || !memcmp (d, "FRAGMENT", 8))
+			|| (size >= 16 && !memcmp (d + 8, "FRAGMENT", 8))
+			|| (size >= 8 && !memcmp (d, "FRAGMENT", 8)))
 			return make_info (NFMT_PERS, true, false, 0);
 		if (ext && !strcasecmp (ext, ".pers"))
 			return make_info (NFMT_PERS, true, false, 0);

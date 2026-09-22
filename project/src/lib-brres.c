@@ -739,9 +739,17 @@ enumError CreateBRRES (szs_file_t *szs, // valid szs
 ///////////////			brres file iterator		///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
+// Real BRRES nest at most a few levels (root -> type folder -> file); a
+// corrupt file whose groups share children would otherwise be walked
+// exponentially, so cap both the depth and the total entries visited. A
+// sane walk visits each 16-byte entry once, so the file size bounds it.
+#define BRRES_MAX_GROUP_DEPTH 16
+
 static int iterate_brres_group (szs_iterator_t *it, // valid iterator
 	const brres_group_t *grp, // valid grp
-	uint path_len // current path length
+	uint path_len, // current path length
+	uint depth, // nesting level, 0 for the root group
+	uint *visits // entry-visit budget left, shared by the whole walk
 )
 {
 	DASSERT (it);
@@ -753,8 +761,19 @@ static int iterate_brres_group (szs_iterator_t *it, // valid iterator
 
 	szs_file_t *szs = it->szs;
 
+	// Groups and their entries come straight from the file: keep them (and
+	// everything they point at) inside szs->data, see the checks below.
+	const size_t grp_off = (u8 *)grp - szs->data;
+	if ((u8 *)grp < szs->data || grp_off > szs->size
+		|| szs->size - grp_off < sizeof (*grp) + sizeof (brres_entry_t))
+		return 0;
+
 	const uint base_dir_index = it->index;
-	const uint n_entries = it->endian->rd32 (&grp->n_entries);
+	uint n_entries = it->endian->rd32 (&grp->n_entries);
+	const size_t max_entries
+		= (szs->size - grp_off - sizeof (*grp) - sizeof (brres_entry_t)) / sizeof (brres_entry_t);
+	if (n_entries > max_entries)
+		n_entries = max_entries;
 	const brres_entry_t *entry = grp->entry + 1;
 	const brres_entry_t *entry_end = entry + n_entries;
 	int stat = 0;
@@ -773,19 +792,23 @@ static int iterate_brres_group (szs_iterator_t *it, // valid iterator
 
 	for (; entry < entry_end && !stat; entry++)
 	{
+		if (!*visits)
+			break;
+		--*visits;
 		it->name = 0;
 		ccp name = "";
 		int name_len = 0;
 		uint new_path_len = path_len;
 		const uint name_off = it->endian->rd32 (&entry->name_off);
 
-		if (name_off && name_off < szs->size)
+		// name_off is relative to the group; the u32 length precedes the name
+		if (name_off >= 4 && name_off < szs->size - grp_off)
 		{
 			it->name = name = (ccp)grp + name_off;
 			name_len = it->endian->rd32 (name - 4);
 			if (name_len < 0)
-				name_len = strlen (name);
-			if (name_len < 1 || name_off + name_len > szs->size)
+				name_len = strnlen (name, szs->size - grp_off - name_off);
+			if (name_len < 1 || (size_t)name_len > szs->size - grp_off - name_off)
 				name_len = 0;
 		}
 
@@ -805,10 +828,18 @@ static int iterate_brres_group (szs_iterator_t *it, // valid iterator
 			it->path[new_path_len] = 0;
 		}
 
-		const u8 *data = (u8 *)grp + it->endian->rd32 (&entry->data_off);
+		const u32 data_off = it->endian->rd32 (&entry->data_off);
+		const u8 *data = (u8 *)grp + data_off;
 		it->index++;
+		if (data_off >= szs->size - grp_off)
+			continue;
 		if (data < it->root_end)
 		{
+			// Subgroups follow their parent; one pointing back at itself or
+			// an ancestor would recurse forever.
+			if (data <= (u8 *)grp || new_path_len + 2 >= sizeof (it->path)
+				|| depth >= BRRES_MAX_GROUP_DEPTH)
+				continue;
 			it->is_dir = true;
 			it->off = base_dir_index;
 			it->size = 0;
@@ -816,13 +847,18 @@ static int iterate_brres_group (szs_iterator_t *it, // valid iterator
 			it->path[new_path_len] = 0;
 			stat = it->func_it (it, false);
 			if (!stat)
-				stat = iterate_brres_group (it, (brres_group_t *)data, new_path_len);
+				stat = iterate_brres_group (
+					it, (brres_group_t *)data, new_path_len, depth + 1, visits);
 		}
 		else
 		{
 			it->is_dir = false;
-			it->off = (u8 *)grp - szs->data + it->endian->rd32 (&entry->data_off);
+			it->off = grp_off + data_off;
+			if (szs->size - it->off < 8)
+				continue;
 			it->size = it->endian->rd32 (szs->data + it->off + 4);
+			if (it->size > szs->size - it->off)
+				it->size = szs->size - it->off;
 
 			if (szs->min_data_off > it->off)
 				szs->min_data_off = it->off;
@@ -886,11 +922,15 @@ int IterateFilesBRRES (struct szs_iterator_t *it, // iterator struct with all in
 
 	//--- root
 
+	if (szs->size - root_off < sizeof (brres_root_t) + sizeof (brres_group_t))
+		return -1;
 	const brres_root_t *root = (brres_root_t *)(szs->data + root_off);
 	if (!IsRepairMagic () && memcmp (root->magic, BRRES_ROOT_MAGIC, sizeof (root->magic)))
 		return -1;
 
-	const uint root_size = endian->rd32 (&root->size);
+	uint root_size = endian->rd32 (&root->size);
+	if (root_size > szs->size - root_off)
+		root_size = szs->size - root_off;
 	const u8 *root_end = (u8 *)root + root_size;
 
 	//----- cut files?
@@ -923,7 +963,8 @@ int IterateFilesBRRES (struct szs_iterator_t *it, // iterator struct with all in
 	szs->min_data_off = ~(u32)0;
 	it->endian = endian;
 	it->root_end = root_end;
-	int stat = iterate_brres_group (it, BRRES_ROOT_GROUP (root), 0);
+	uint visits = szs->size / sizeof (brres_entry_t);
+	int stat = iterate_brres_group (it, BRRES_ROOT_GROUP (root), 0, 0, &visits);
 
 	if (!stat && szs->max_data_off)
 	{
@@ -959,12 +1000,15 @@ ccp GetStringBRSUB (const void *data, // relevant data
 	if (offset && !(offset & 3) && offset < data_size && data)
 	{
 		offset += (u8 *)base - (u8 *)data;
-		if (offset >= min_sp_off && offset < data_size)
+		if (offset >= min_sp_off && offset >= 4 && offset < data_size)
 		{
 			ccp ptr = (ccp)data + offset;
 			if (!endian)
 				endian = &be_func;
-			if (endian->rd32 (ptr - 4) == strlen (ptr))
+			// bounded: without end_of_src data_size is only a sentinel
+			const size_t max = end_of_src ? data_size - offset : ~(size_t)0 >> 1;
+			const size_t len = strnlen (ptr, max);
+			if (len < max && endian->rd32 (ptr - 4) == len)
 				return ptr;
 		}
 	}
@@ -1007,6 +1051,17 @@ ccp GetStringBRRES (const szs_file_t *szs, // base BRRES file
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			BRSUB iterator			///////////////
 ///////////////////////////////////////////////////////////////////////////////
+
+// Every string reference a BRSUB walk finds is an in-file u32 at a
+// file-controlled offset: only hand callbacks those that lie inside the file
+// (the callbacks read and may rewrite *ptr).
+static int brsub_call_string (brsub_iterator_t *it, u8 *base, u32 *ptr)
+{
+	const u8 *beg = (u8 *)it->brsub, *p = (u8 *)ptr;
+	if (p < beg || p > beg + it->file_size || beg + it->file_size - p < sizeof (u32))
+		return 0;
+	return it->string_func (it, base, ptr);
+}
 
 static int brsub_string_func (brsub_cut_t *bcut, // pointer to data structure
 	int grp, // index of group, <0: grp_entry_t
@@ -1052,14 +1107,14 @@ static int brsub_string_func (brsub_cut_t *bcut, // pointer to data structure
 				for (i = 0; i < ana.n_sect0; i++)
 				{
 					pat_s0_belem_t *elem = ana.s0_base->elem + i;
-					it->index += brit->string_func (brit, data, &elem->offset_name);
+					it->index += brsub_call_string (brit, data, &elem->offset_name);
 				}
 
 				for (i = 0; i < PAT_MAX_ELEM; i++)
 				{
 					pat_s0_sref_t *sref = ana.s0_sref[i];
 					if (sref)
-						it->index += brit->string_func (brit, (u8 *)sref, &sref->offset_name);
+						it->index += brsub_call_string (brit, (u8 *)sref, &sref->offset_name);
 				}
 				HEXDUMP16 (10, 0, data, it->size);
 			}
@@ -1077,7 +1132,7 @@ static int brsub_string_func (brsub_cut_t *bcut, // pointer to data structure
 				HEXDUMP16 (10, 0, data, it->size);
 				uint i;
 				for (i = 0; i < ana.n_sect1; i++)
-					it->index += brit->string_func (brit, data, (u32 *)data + i);
+					it->index += brsub_call_string (brit, data, (u32 *)data + i);
 				HEXDUMP16 (10, 0, data, it->size);
 			}
 			break;
@@ -1101,7 +1156,7 @@ static int brsub_string_func (brsub_cut_t *bcut, // pointer to data structure
 
 		if (brit->string_func)
 		{
-			it->index += brit->string_func (brit, (u8 *)bcut->gptr, &bcut->eptr->name_off);
+			it->index += brsub_call_string (brit, (u8 *)bcut->gptr, &bcut->eptr->name_off);
 
 			u32 data_off = endian->rd32 (&bcut->eptr->data_off);
 			u8 *data = (u8 *)bcut->gptr + data_off;
@@ -1114,33 +1169,42 @@ static int brsub_string_func (brsub_cut_t *bcut, // pointer to data structure
 					switch (grp)
 					{
 						case 1:
-							it->index += brit->string_func (brit, data, (u32 *)(data + 0x08));
+							it->index += brsub_call_string (brit, data, (u32 *)(data + 0x08));
 							break;
 
 						case 2:
 						case 3:
 						case 4:
 						case 5:
-							it->index += brit->string_func (brit, data, (u32 *)(data + 0x0c));
+							it->index += brsub_call_string (brit, data, (u32 *)(data + 0x0c));
 							break;
 
 						case 8:
 						{
-							it->index += brit->string_func (brit, data, (u32 *)(data + 0x08));
+							it->index += brsub_call_string (brit, data, (u32 *)(data + 0x08));
 
-							const uint n_layer = endian->rd32 (data + 0x2c);
+							if (data_end - data < 0x34)
+								break;
+							// n_layer and layer_off are file-controlled; the
+							// callback rejects references outside the file, but
+							// the loop itself must stay bounded too
+							uint n_layer = endian->rd32 (data + 0x2c);
 							u32 layer_off = endian->rd32 (data + 0x30);
+							const size_t max_layer = (data_end - data) / 0x34;
+							if (n_layer > max_layer)
+								n_layer = max_layer;
 							uint i;
-							for (i = 0; i < n_layer; i++, layer_off += 0x34)
+							for (i = 0; i < n_layer && layer_off < (size_t)(data_end - data);
+								 i++, layer_off += 0x34)
 							{
 								u8 *d = data + layer_off;
-								it->index += brit->string_func (brit, d, (u32 *)d);
+								it->index += brsub_call_string (brit, d, (u32 *)d);
 							}
 						}
 						break;
 
 						case 10:
-							it->index += brit->string_func (brit, data, (u32 *)(data + 0x38));
+							it->index += brsub_call_string (brit, data, (u32 *)(data + 0x38));
 							break;
 					}
 				}
@@ -1153,16 +1217,16 @@ static int brsub_string_func (brsub_cut_t *bcut, // pointer to data structure
 						case BRSUB_MODE2 (FF_CLR, 4):
 						case BRSUB_MODE2 (FF_SRT, 4):
 						case BRSUB_MODE2 (FF_SRT, 5):
-							it->index += brit->string_func (brit, data, (u32 *)(data + 0x00));
+							it->index += brsub_call_string (brit, data, (u32 *)(data + 0x00));
 							break;
 
 						case BRSUB_MODE2 (FF_SHP, 4):
-							it->index += brit->string_func (brit, data, (u32 *)(data + 0x04));
+							it->index += brsub_call_string (brit, data, (u32 *)(data + 0x04));
 							break;
 
 						case BRSUB_MODE2 (FF_SCN, 4):
 						case BRSUB_MODE2 (FF_SCN, 5):
-							it->index += brit->string_func (brit, data, (u32 *)(data + 0x20));
+							it->index += brsub_call_string (brit, data, (u32 *)(data + 0x20));
 							break;
 
 						case BRSUB_MODE2 (FF_PAT, 4):
@@ -1231,7 +1295,7 @@ int IterateStringsBRSUB (brsub_iterator_t *it // valid iterator data
 		count += it->offset_func (it, brsub_data, &bh->brres_offset);
 
 	if (it->string_func && n_grp >= 0)
-		count += it->string_func (it, brsub_data, (u32 *)(brsub_data + name_off));
+		count += brsub_call_string (it, brsub_data, (u32 *)(brsub_data + name_off));
 
 	it->fform = FF_UNKNOWN;
 

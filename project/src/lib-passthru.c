@@ -3578,9 +3578,9 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 	// is magic + u32 file_count + u32 string_table_size + u32 reserved
 	// (reserved must be 0); require file_count/string_table_size to be
 	// sane and reserved to actually be 0 before trusting the magic alone.
-	u32 pfs0_file_count = head[4] | head[5] << 8 | head[6] << 16 | head[7] << 24;
-	u32 pfs0_str_size = head[8] | head[9] << 8 | head[10] << 16 | head[11] << 24;
-	u32 pfs0_reserved = head[12] | head[13] << 8 | head[14] << 16 | head[15] << 24;
+	u32 pfs0_file_count = head[4] | head[5] << 8 | head[6] << 16 | (u32)head[7] << 24;
+	u32 pfs0_str_size = head[8] | head[9] << 8 | head[10] << 16 | (u32)head[11] << 24;
+	u32 pfs0_reserved = head[12] | head[13] << 8 | head[14] << 16 | (u32)head[15] << 24;
 	bool is_nsp = !memcmp (head, "PFS0", 4) && pfs0_reserved == 0 && pfs0_file_count > 0
 		&& pfs0_file_count < 10000 && pfs0_str_size < 0x100000;
 	// Same false-positive risk as PFS0 above: a bare 4-byte "HEAD" match at

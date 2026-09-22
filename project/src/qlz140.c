@@ -1,6 +1,10 @@
 // QuickLZ 1.4.0 compiled as a namespaced translation unit.
 // See qlz120.c for why the renaming lives here and not in the vendor file.
 
+// wszst decodes untrusted files: enable the vendor's bounds-checked decoder
+// (quicklz.h ships this commented out).
+#define QLZ_MEMORY_SAFE
+
 #define main qlz140_vendor_main_unused
 #define qlz_compress qlz140_compress
 #define qlz_decompress qlz140_decompress

@@ -770,7 +770,8 @@ static int bfres_curve_read (const uint8_t *d, size_t size, size_t c,
 	const size_t kw = out->key_type == 0 ? 4 : (out->key_type == 1 ? 2 : 1);
 
 	out->frames = malloc (sizeof (float) * num_key);
-	out->keys = malloc (sizeof (float *) * num_key);
+	// zeroed: bfres_curve_free() frees every slot, even ones not reached yet
+	out->keys = calloc (num_key, sizeof (float *));
 	if (!out->frames || !out->keys)
 	{
 		bfres_curve_free (out);
@@ -2114,7 +2115,8 @@ static int bfres_curve_read_switch (const uint8_t *d, size_t size, size_t c, bfr
 	const size_t kw = out->key_type == 0 ? 4 : (out->key_type == 1 ? 2 : 1);
 
 	out->frames = malloc (sizeof (float) * num_key);
-	out->keys = malloc (sizeof (float *) * num_key);
+	// zeroed: bfres_curve_free() frees every slot, even ones not reached yet
+	out->keys = calloc (num_key, sizeof (float *));
 	if (!out->frames || !out->keys)
 	{
 		bfres_curve_free (out);

@@ -6603,7 +6603,12 @@ valid_t IsValidTEXCT (const void *data, // data
 	if (img_off <= CT_CODE_TEX_OFFSET || file_size && img_off >= file_size)
 		return VALID_WRONG_FF;
 
-	return IsValidCTCODE (data + CT_CODE_TEX_OFFSET, img_off - CT_CODE_TEX_OFFSET,
+	// img_off comes from the file; only hand over bytes that are really in
+	// 'data' (callers probing a short head buffer pass far less than that)
+	if (data_size <= CT_CODE_TEX_OFFSET)
+		return VALID_WRONG_FF;
+	const uint ct_end = img_off < data_size ? img_off : data_size;
+	return IsValidCTCODE (data + CT_CODE_TEX_OFFSET, ct_end - CT_CODE_TEX_OFFSET,
 		file_size ? file_size - CT_CODE_TEX_OFFSET : 0, fname);
 }
 
@@ -6620,7 +6625,7 @@ valid_t IsValidCTCODE (const void *data, // data
 
 	const ctcode_header_t *ch = (ctcode_header_t *)data;
 	const uint n_sect = be32 (&ch->n_sect);
-	const u32 min_data_off = sizeof (ctcode_header_t) + n_sect * sizeof (ctcode_sect_info_t);
+	const u64 min_data_off = sizeof (ctcode_header_t) + (u64)n_sect * sizeof (ctcode_sect_info_t);
 	if (n_sect < 2 || data_size < min_data_off || be32 (&ch->magic) != CT1_DATA_MAGIC_NUM
 		|| memcmp (ch->sect_info[0].name, "CUP1", 4) || memcmp (ch->sect_info[1].name, "CRS1", 4))
 	{
