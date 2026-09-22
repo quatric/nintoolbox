@@ -98,20 +98,36 @@ static void bs_clean_name (char *out, size_t out_size, const u8 *src, size_t max
 
 // Make the name unique among the assets of the same kind and directory (the
 // file system is case-insensitive).
+// Rename list[n] to "<name>_<k>" if an earlier asset of the same kind and
+// directory already uses its name. One pass finds the highest suffix in use:
+// retrying _2, _3, ... with a rescan each was cubic in the asset count, which
+// a corrupt pack repeating one record BS_MAX_ASSETS times turns into a hang.
 static void bs_unique (bombshell_asset_t *list, uint n)
 {
 	bombshell_asset_t *a = list + n;
 	char base[sizeof (a->name)];
 	snprintf (base, sizeof (base), "%s", a->name);
-	for (uint k = 2;; k++)
+	const size_t tlen = strnlen (base, 80); // suffixed names keep %.80s of it
+	bool clash = false;
+	uint max_k = 1;
+	for (uint i = 0; i < n; i++)
 	{
-		bool clash = false;
-		for (uint i = 0; i < n && !clash; i++)
-			clash = list[i].kind == a->kind && list[i].dir == a->dir && !strcasecmp (list[i].name, a->name);
-		if (!clash)
-			return;
-		snprintf (a->name, sizeof (a->name), "%.80s_%u", base, k);
+		const bombshell_asset_t *o = list + i;
+		if (o->kind != a->kind || o->dir != a->dir)
+			continue;
+		if (!strcasecmp (o->name, base))
+			clash = true;
+		else if (!strncasecmp (o->name, base, tlen) && o->name[tlen] == '_'
+			&& isdigit ((uchar)o->name[tlen + 1]))
+		{
+			char *end;
+			const unsigned long k = strtoul (o->name + tlen + 1, &end, 10);
+			if (!*end && k >= max_k && k < UINT_MAX)
+				max_k = (uint)k;
+		}
 	}
+	if (clash)
+		snprintf (a->name, sizeof (a->name), "%.80s_%u", base, max_k + 1);
 }
 
 static u32 bs_tex_bytes (const bs_ctx_t *c, uint fmt, uint w, uint h)

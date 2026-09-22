@@ -351,7 +351,13 @@ static size_t rz_walk (rz_tree_t *t, size_t base, uint depth)
 		c += 16 + nb * 8;
 		o->bones = c;
 		if ((c = rz_bones (d, t->size, c, &o->nbones)) == (size_t)-1 || o->nbones != nb)
+		{
+			// ParseRezModel() keeps the nodes of a failed walk: don't leave
+			// it an unvalidated bone tree for rz_joints() to follow
+			o->bones = 0;
+			o->nbones = 0;
 			return (size_t)-1;
+		}
 	}
 	c += 32 - ((c - base) & 31);
 	for (uint i = 0; i < o->nch; i++)

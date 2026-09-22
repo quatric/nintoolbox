@@ -159,7 +159,12 @@ s64 ToshiSymbol (const toshi_trb_t *t, ccp name)
 	return -1;
 }
 
-static bool ts_ptr (const toshi_trb_t *t, u32 off, u32 len) { return off <= t->sect_size && len <= t->sect_size - off; }
+// 64-bit on purpose: callers pass count * stride products that must not be
+// truncated before the check.
+static bool ts_ptr (const toshi_trb_t *t, u64 off, u64 len)
+{
+	return off <= t->sect_size && len <= t->sect_size - off;
+}
 
 static uint ts_ttl_entries (const toshi_trb_t *t, u32 *ents)
 {
