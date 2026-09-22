@@ -135,6 +135,100 @@ class GuiTests(unittest.TestCase):
         output = self.run_child([sys.executable, "-c", "import os; print(os.environ['PATH'].split(os.pathsep)[0])"])
         self.assertIn(gui.bundle_dir() + "\n", output)
 
+    def test_clean_path_strips_quotes_and_braces(self):
+        self.assertEqual(gui._clean_path('  "/path/to/game.iso"  '), "/path/to/game.iso")
+        self.assertEqual(gui._clean_path("  '/path/to/game.iso'  "), "/path/to/game.iso")
+        self.assertEqual(gui._clean_path("  {/path/to/game.iso}  "), "/path/to/game.iso")
+        self.assertEqual(gui._clean_path("plain_path.iso"), "plain_path.iso")
+        self.assertEqual(gui._clean_path('"'), '"')
+
+    def test_quoted_paths_in_unpack_and_pack_are_cleaned(self):
+        with tempfile.TemporaryDirectory() as root:
+            archive = Path(root) / "game.arc"
+            archive.touch()
+            extract_dir = Path(root) / "game.arc.d"
+            extract_dir.mkdir()
+
+            form = self.make_form()
+            form.unpack_input_var.set(f'"{archive}"')
+            gui.NintoolboxGUI.on_unpack_input_changed(form)
+            self.assertEqual(form.unpack_outdir_var.get(), f"{archive}.d")
+
+            form.unpack_outdir_var.set(f'"{extract_dir}"')
+            gui.NintoolboxGUI.run_unpack(form)
+            cmd = form.execute_cmd.call_args.args[0]
+            self.assertIn("-d", cmd)
+            dest_idx = cmd.index("-d") + 1
+            self.assertEqual(cmd[dest_idx], str(extract_dir))
+            self.assertEqual(cmd[-1], str(archive))
+
+            form.pack_input_var.set(f'"{extract_dir}"')
+            gui.NintoolboxGUI.on_pack_input_changed(form)
+            self.assertEqual(form.pack_target_var.get(), str(extract_dir)[:-2])
+
+            form.pack_target_var.set(f'"{archive}"')
+            gui.NintoolboxGUI.run_pack(form)
+            cmd = form.execute_cmd.call_args.args[0]
+            self.assertIn("-d", cmd)
+            dest_idx = cmd.index("-d") + 1
+            self.assertEqual(cmd[dest_idx], str(archive))
+            self.assertEqual(cmd[-1], str(extract_dir))
+
+    def test_install_cli_tools_filters_runtimes_and_copies_assets(self):
+        with tempfile.TemporaryDirectory() as tools_tmp, tempfile.TemporaryDirectory() as dest_tmp:
+            troot = Path(tools_tmp)
+            droot = Path(dest_tmp)
+
+            # Executable tools
+            wszst = troot / "wszst"
+            wszst.write_text("#!/bin/sh\n")
+            wszst.chmod(0o755)
+
+            # Runtimes and libraries that must NOT be installed to bin
+            python_bin = troot / "Python"
+            python_bin.write_text("binary")
+            python_bin.chmod(0o755)
+
+            dylib = troot / "libcrypto.3.dylib"
+            dylib.write_text("lib")
+            dylib.chmod(0o755)
+
+            # Keys and data
+            (troot / "keys.txt").write_text("key")
+            (troot / "prod.keys").write_text("key")
+            wiiu_keys = troot / "wiiu_keys"
+            wiiu_keys.mkdir()
+            (wiiu_keys / "game.key").write_text("wiiukey")
+
+            share = troot / "share"
+            share.mkdir()
+            (share / "titles.txt").write_text("title")
+
+            form = SimpleNamespace(append_console=Mock(), _add_to_path=Mock(return_value="PATH OK"))
+            with patch.object(gui, "bundle_dir", return_value=str(troot)), \
+                 patch.object(gui.os.path, "expanduser", return_value=str(droot)), \
+                 patch.object(gui.messagebox, "showinfo") as info:
+                gui.NintoolboxGUI.install_cli_tools(form)
+                info.assert_called_once()
+
+            installed_files = set(p.name for p in droot.iterdir())
+            self.assertIn("wszst", installed_files)
+            self.assertIn("keys.txt", installed_files)
+            self.assertIn("prod.keys", installed_files)
+            self.assertIn("wiiu_keys", installed_files)
+            self.assertNotIn("Python", installed_files)
+            self.assertNotIn("libcrypto.3.dylib", installed_files)
+            self.assertTrue((droot / "wiiu_keys" / "game.key").is_file())
+
+    def test_report_callback_exception_invokes_sentry(self):
+        mock_sentry = Mock()
+        with patch.object(gui, "sentry_sdk", mock_sentry):
+            form = SimpleNamespace()
+            exc, val, tb = ValueError, ValueError("err"), None
+            gui.NintoolboxGUI.report_callback_exception(form, exc, val, tb)
+            mock_sentry.capture_exception.assert_called_once_with((exc, val, tb))
+
 
 if __name__ == "__main__":
     unittest.main()
+

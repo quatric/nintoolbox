@@ -17,6 +17,16 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+BIN_DIRS=()
+for d in "$HERE/../Frameworks" "$HERE/bin" "$HERE"; do
+	[[ -d "$d" ]] && BIN_DIRS+=("$d")
+done
+
+DATA_DIRS=()
+for d in "$HERE/../Resources" "$HERE/bin" "$HERE"; do
+	[[ -d "$d" ]] && DATA_DIRS+=("$d")
+done
+
 DEST="${1:-}"
 if [[ -z "$DEST" ]]; then
 	if [[ -w /usr/local/bin || $(id -u) = 0 ]]; then
@@ -30,18 +40,26 @@ mkdir -p "$DEST"
 
 echo "Installing to $DEST"
 installed=0
-for f in "$HERE"/*; do
-	name="$(basename "$f")"
-	case "$name" in
-		install.sh|nintoolbox|*.app|share) continue ;;
-		# PyInstaller's own support libraries land flat alongside the tools
-		# under --contents-directory . -- never CLI tools, always skip.
-		*.so|*.so.*|*.dylib|*.dll) continue ;;
-	esac
-	[[ -f "$f" && -x "$f" ]] || continue
-	cp -p "$f" "$DEST/$name"
-	echo "  $name"
-	installed=$((installed + 1))
+seen=()
+for bdir in "${BIN_DIRS[@]}"; do
+	for f in "$bdir"/*; do
+		[[ -e "$f" ]] || continue
+		name="$(basename "$f")"
+		case "$name" in
+			install.sh|nintoolbox|*.app|share|Python|python|python3|*.framework) continue ;;
+			# PyInstaller's own support libraries land flat alongside the tools
+			# under --contents-directory . -- never CLI tools, always skip.
+			*.so|*.so.*|*.dylib|*.dll|*.a|*.o|*.plist) continue ;;
+		esac
+		[[ -f "$f" && -x "$f" ]] || continue
+		if [[ " ${seen[*]:-} " =~ " $name " ]]; then
+			continue
+		fi
+		cp -p "$f" "$DEST/$name"
+		echo "  $name"
+		seen+=("$name")
+		installed=$((installed + 1))
+	done
 done
 
 if (( installed == 0 )); then
@@ -56,30 +74,42 @@ fi
 # loop above skips them -- copy them explicitly so the installed CLI tools keep
 # working out of the box.
 for data in seeddb.bin prod.keys title.keys keys.txt ffdec.jar; do
-	if [[ -f "$HERE/$data" ]]; then
-		cp -p "$HERE/$data" "$DEST/$data"
-		echo "  $data"
+	for d in "${DATA_DIRS[@]}"; do
+		if [[ -f "$d/$data" ]]; then
+			cp -p "$d/$data" "$DEST/$data"
+			echo "  $data"
+			break
+		fi
+	done
+done
+
+for d in "${DATA_DIRS[@]}"; do
+	if [[ -d "$d/lib" ]]; then
+		mkdir -p "$DEST/lib"
+		cp -Rp "$d/lib/." "$DEST/lib/"
+		echo "  lib/ (bundled Java libraries)"
+		break
 	fi
 done
 
-if [[ -d "$HERE/lib" ]]; then
-	mkdir -p "$DEST/lib"
-	cp -Rp "$HERE/lib/." "$DEST/lib/"
-	echo "  lib/ (bundled Java libraries)"
-fi
+for d in "${DATA_DIRS[@]}"; do
+	if [[ -d "$d/wiiu_keys" ]]; then
+		mkdir -p "$DEST/wiiu_keys"
+		cp -Rp "$d/wiiu_keys/." "$DEST/wiiu_keys/"
+		echo "  wiiu_keys/ (Wii U retail disc keys)"
+		break
+	fi
+done
 
-if [[ -d "$HERE/wiiu_keys" ]]; then
-	mkdir -p "$DEST/wiiu_keys"
-	cp -Rp "$HERE/wiiu_keys/." "$DEST/wiiu_keys/"
-	echo "  wiiu_keys/ (Wii U retail disc keys)"
-fi
-
-if [[ -d "$HERE/share" ]]; then
-	SHARE_DEST="$DEST/../share/nintoolbox"
-	mkdir -p "$SHARE_DEST"
-	cp -Rp "$HERE/share/." "$SHARE_DEST/"
-	echo "Installed shared data (titles.txt etc.) to $SHARE_DEST"
-fi
+for d in "${DATA_DIRS[@]}"; do
+	if [[ -d "$d/share" ]]; then
+		SHARE_DEST="$DEST/../share/nintoolbox"
+		mkdir -p "$SHARE_DEST"
+		cp -Rp "$d/share/." "$SHARE_DEST/"
+		echo "Installed shared data (titles.txt etc.) to $SHARE_DEST"
+		break
+	fi
+done
 
 case ":$PATH:" in
 	*":$DEST:"*) ;;
