@@ -71,13 +71,19 @@
 // per-material float vectors, divides by a computed length and writes
 // two floats back into the vertex's UV slot -- classic procedural
 // texture-coordinate generation (planar/reflection-mapped texgen), not
-// texture selection. So which texture(s) a material binds is still not
-// resolved; it must be a separate, plainer GX texture-bind call this
-// decoder hasn't located. Materials also chain via a `next` pointer at
-// +0x2c (count at +0x2a) for multi-pass/LOD material variants, walked
-// by the same render function. This decoder does not attempt to pick
-// apart individual material fields yet -- it only walks the table far
-// enough to report the count.
+// texture selection. The actual texture bind turned out to be one call
+// deeper, in FUN_800cee48 (reached from a second render-dispatch function,
+// FUN_800ce120, alongside FUN_800ce884): +0x18 is a chunk-relative pointer
+// to a small u32[] of texture indices, one per customization variant (the
+// renderer picks among them with a per-bone override field read from
+// model+0x34, e.g. for player-selectable hair/eye colour); element [0] is
+// the model's authored default. Verified against CHR040.bin: material 2's
+// (used by the "wb_04_body" bone's first submesh) default slot resolves to
+// texture 2 ("wb_04_body.tga"), and material 4's (its third submesh) to
+// texture 3 ("wb_04_body_a.tga") -- exactly the assignment the submesh
+// material-index field above already implied. Materials also chain via a
+// `next` pointer at +0x2c (count at +0x2a) for multi-pass/LOD material
+// variants, walked by the same render function.
 //
 // Bone table: u32 count, f32 2.0 (unknown constant), u32 offset to the
 // record array. Records are a fixed 0xa0 bytes:
