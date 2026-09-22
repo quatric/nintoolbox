@@ -14194,6 +14194,26 @@ t_bully_txd(){
 }
 t_bully_txd
 
+t_bully_ideimg(){
+  # Bully: Scholarship Edition (Wii) Objects/IDE.dir+IDE.img archive pair
+  # (classic GTA-era sector-table format). Uses committed fixtures so this
+  # doesn't depend on the WBFS being present in $SEARCH.
+  local f="$PWD_PROJECT/../tests/fixtures/bully_IDE.dir"
+  local imgf="$PWD_PROJECT/../tests/fixtures/bully_IDE.img"
+  [ -f "$f" ] && [ -f "$imgf" ] || { sk "Bully IDE.dir/img"; return; }
+  local d=/tmp/_r_ideimg.d
+  rm -rf "$d"
+  $B/wszst EXTRACT "$f" --dest "$d" --overwrite >/tmp/_r_ideimg.log 2>&1
+  local n; n=$(find "$d" -iname '*.idb' 2>/dev/null | wc -l | tr -d ' ')
+  if [ "${n:-0}" -eq 77 ] && [ -s "$d/default.idb" ]; then
+    ok "Bully IDE.dir/img -> 77 members ($f)"
+  else
+    no "Bully IDE.dir/img" "expected 77 .idb members with default.idb non-empty, got $n"
+  fi
+  rm -rf "$d"
+}
+t_bully_ideimg
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]

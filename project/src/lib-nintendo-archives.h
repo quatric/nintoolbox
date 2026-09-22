@@ -35,6 +35,7 @@
 #include "lib-chx.h"
 #include "lib-mapbad.h"
 #include "lib-txd.h"
+#include "lib-ideimg.h"
 #include "lib-bam.h"
 #include "lib-csfnt.h"
 #include "lib-cscsi.h"
