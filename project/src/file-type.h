@@ -438,6 +438,7 @@ typedef enum file_format_t
 	FF_IPK, // 343 - Ubisoft UbiArt IPK archive (.ipk, Just Dance / Rayman)
 	FF_CS_DCT, // 344 - Chicken Shoot DCT stage/graphics archive (.dct)
 	FF_DSP, // 345 - Nintendo GameCube/Wii DSP-ADPCM audio stream (.dsp)
+	FF_HUFF, // 346 - Nintendo Huffman-compressed file (4-bit or 8-bit, GBA BIOS style)
 
 	//--- number of elements
 

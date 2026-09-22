@@ -3991,6 +3991,33 @@ open('$d/huff4.bin', 'wb').write(bytes([0x24, 4, 0, 0, 1, 0xC0, 1, 2]) + stream)
 }
 t_huffman
 
+# AquaSpace (WiiWare) BRRES members are a genuine HUFF8 stream preceded by
+# an unrecognized 4-byte "CX00" tag, mirroring the CX00-wrapped LZ10/LZ11
+# case elsewhere in this file. Fixture is a real HUFF8 stream (produced by
+# `wszst COMPRESS`, magic 0x28) for the 64-byte payload "bres"+0..59,
+# prefixed with the literal bytes "CX00". Before the fix, FILETYPE fell
+# through to the ".brres" extension guess (never seeing the real HUFF8
+# stream at offset 4), and DECOMPRESS decoded from offset 0, corrupting
+# the tree/bitstream layout instead of skipping the wrapper.
+t_huffman_cx00_wrapped(){
+  local f="$PWD_PROJECT/../tests/fixtures/cx00_huff8_wrapped.brres"
+  [ -f "$f" ] || { sk "CX00-wrapped HUFF8 (AquaSpace BRRES)"; return; }
+  local d; d=$(mktemp -d)
+  local ok=1
+  [ "$("$B/wszst" FILETYPE "$f" 2>/dev/null | tail -1 | awk '{print $1}')" = "HUFF" ] || ok=0
+  "$B/wszst" DECOMPRESS "$f" --dest "$d/out.bin" --overwrite >/dev/null 2>&1
+  python3 -c "
+import sys
+data = open('$d/out.bin', 'rb').read()
+expect = b'bres' + bytes(range(60))
+sys.exit(0 if data == expect else 1)
+" 2>/dev/null || ok=0
+  rm -rf "$d"
+  [ "$ok" = 1 ] && ok "CX00-wrapped HUFF8 (AquaSpace BRRES) -> correct type + decompressed bytes" \
+    || no "CX00-wrapped HUFF8 (AquaSpace BRRES)" "FILETYPE or DECOMPRESS mismatch"
+}
+t_huffman_cx00_wrapped
+
 echo "== Mario Party BIN (wszst native MPBIN CREATE/xx) =="
 # The synthetic round-trip still catches encoder/decoder symmetry. A curated
 # mariomdl0.bin from retail GMPE01 (Mario Party 4 USA Rev 1) separately proves

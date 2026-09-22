@@ -2066,6 +2066,9 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_CMP;
 		case NFMT_LZX:
 			return FF_LZX;
+		case NFMT_HUFF4:
+		case NFMT_HUFF8:
+			return FF_HUFF;
 		case NFMT_PUCRUNCH:
 			return FF_PUCRUNCH;
 		case NFMT_DIFF8:

@@ -58,6 +58,7 @@
 #include "lib-checksum.h"
 #include "lib-nintendo.h"
 #include "lib-lz10.h"
+#include "lib-huff.h"
 #include "dclib-utf8.h"
 #include "crypt.h"
 
@@ -900,6 +901,8 @@ enumError DecompressSZS (szs_file_t *szs, // valid SZS source, use cdata
 			return DecompressZSTD (szs, rm_compressed);
 		case FF_LZ4:
 			return DecompressLZ4 (szs, rm_compressed);
+		case FF_HUFF:
+			return DecompressHUFF (szs, rm_compressed);
 		case FF_CMP:
 		{
 			u8 *data = 0;
@@ -2547,6 +2550,52 @@ enumError DecompressLZ (szs_file_t *szs, bool rm_compressed)
 	szs->fform_arch = szs->fform_current = GetByMagicFF (data, size, size);
 	szs->ff_attrib = GetAttribFF (szs->fform_arch);
 	// [[version-suffix]]
+	szs->ff_version = GetVersionFF (szs->fform_arch, szs->data, szs->size, 0);
+
+	ClearContainerSZS (szs);
+	if (rm_compressed)
+		ClearCompressedSZS (szs);
+	return ERR_OK;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+enumError DecompressHUFF (szs_file_t *szs, bool rm_compressed)
+{
+	PRINT ("DecompressHUFF(%p,%d)\n", szs, rm_compressed);
+	DASSERT (szs);
+
+	if (!szs->csize || !szs->cdata || szs->data)
+		return ERR_OK;
+
+	// Real 0x24/0x28 magic at offset 0, or the same magic preceded by an
+	// unrecognized 4-byte tag ("CX00", origin unknown, verified byte-for-byte
+	// against a real disc for AquaSpace's (WiiWare) BRRES members -- mirrors
+	// the equivalent CX00-wrapped LZ10/LZ11 case just above). A genuine
+	// Huffman stream always declares a nonzero decompressed size in the
+	// 3 bytes after the magic; reject the zero-size case as the cheap
+	// disambiguator against unrelated data that happens to carry 0x24/0x28
+	// at the wrapped offset.
+	uint off = 0;
+	if (szs->cdata[0] != 0x24 && szs->cdata[0] != 0x28)
+	{
+		if (szs->csize < 8 || (szs->cdata[4] != 0x24 && szs->cdata[4] != 0x28)
+			|| !((u32)szs->cdata[5] | (u32)szs->cdata[6] << 8 | (u32)szs->cdata[7] << 16))
+			return ERR_NOTHING_TO_DO;
+		off = 4;
+	}
+
+	u8 *data = 0;
+	uint size = 0;
+	if (DecodeNintendoHuff (&data, &size, szs->cdata + off, szs->csize - off) != ERR_OK || !data)
+		return ERR_NOTHING_TO_DO;
+
+	szs->data = data;
+	szs->size = size;
+	szs->file_size = size;
+	szs->data_alloced = true;
+	szs->fform_arch = szs->fform_current = GetByMagicFF (data, size, size);
+	szs->ff_attrib = GetAttribFF (szs->fform_arch);
 	szs->ff_version = GetVersionFF (szs->fform_arch, szs->data, szs->size, 0);
 
 	ClearContainerSZS (szs);

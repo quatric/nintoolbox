@@ -528,7 +528,7 @@ static enumError decompress_nintendo_file3 (
 			break;
 		case NFMT_HUFF4:
 		case NFMT_HUFF8:
-			err = DecodeNintendoHuff (&decoded, &decoded_size, data, size);
+			err = DecodeNintendoHuff (&decoded, &decoded_size, pdata, psize);
 			break;
 		case NFMT_RL:
 			err = DecodeNintendoRL (&decoded, &decoded_size, data, size);

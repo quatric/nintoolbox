@@ -708,6 +708,24 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		if ((d[0] == 0x24 || d[0] == 0x28) && size >= 5)
 			return make_info (d[0] == 0x24 ? NFMT_HUFF4 : NFMT_HUFF8, false, true,
 				(u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);
+		// Same CX00-prefix wrapper as the LZ10/LZ11 case above, but for a
+		// Huffman-compressed member -- confirmed on AquaSpace's (WiiWare)
+		// "zkn_tmn.brres": CX00 followed by a real HUFF8 stream ("bres"
+		// magic appears right after decoding). Same nonzero-size
+		// disambiguator to avoid stealing plain files that coincidentally
+		// carry 0x24/0x28 at this offset. DecompressHUFF() re-derives this
+		// same 4-byte shift independently from the raw bytes, so this branch
+		// only needs to get the *type* right for GetByMagicFF() callers --
+		// payload_offset is set for consistency with the LZ10/11 case above,
+		// but no caller currently reads it off this path.
+		if (d[0] != 0x24 && d[0] != 0x28 && size >= 8 && (d[4] == 0x24 || d[4] == 0x28)
+			&& ((u32)d[5] | (u32)d[6] << 8 | (u32)d[7] << 16))
+		{
+			nfmt_info_t inf = make_info (d[4] == 0x24 ? NFMT_HUFF4 : NFMT_HUFF8, false, true,
+				(u32)d[5] | (u32)d[6] << 8 | (u32)d[7] << 16);
+			inf.payload_offset = 4;
+			return inf;
+		}
 		if (d[0] == 0x30 && size >= 4)
 			return make_info (NFMT_RL, false, true, (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);
 		// LZH8: 0x40 followed by a 24-bit LE size.  WarioWare Snapped wraps

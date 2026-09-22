@@ -1870,6 +1870,11 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Nintendo GameCube/Wii DSP-ADPCM audio stream (.dsp)" },
 
+	// FF_HUFF = 346 (Nintendo Huffman-compressed file)
+	{ FF_HUFF, 0, 0, "HUFF", ".huff", ".szs", ".huff", FFT_VALID | FFT_COMPRESS | FFT_TRACK, 1,
+		{ 0x28 }, 0, MinusString, MinusString,
+		"Nintendo Huffman-compressed file (4-bit or 8-bit, GBA BIOS style)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2095,6 +2100,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_IPK, "IPK", 0, 0xe05 },
 	{ FF_CS_DCT, "CS_DCT", "CS_DCT", 0xe05 },
 	{ FF_DSP, "DSP", "DSP", 0x3801 },
+	{ FF_HUFF, "HUFF", 0, 0x103 },
 
 	{ 0, 0, 0, 0 }
 };

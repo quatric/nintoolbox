@@ -1449,6 +1449,7 @@ enumError CompressBZIP2 (szs_file_t *szs, int compr, bool remove_uncompressed);
 //-----------------------------------------------------------------------------
 
 enumError DecompressLZ (szs_file_t *szs, bool rm_compressed);
+enumError DecompressHUFF (szs_file_t *szs, bool rm_compressed);
 enumError DecompressYLZ (szs_file_t *szs, bool rm_compressed);
 enumError DecompressLZMA (szs_file_t *szs, bool rm_compressed);
 
