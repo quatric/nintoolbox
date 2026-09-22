@@ -155,6 +155,10 @@ enumError CreatePVOLArchive (
 			return ERR_INVALID_DATA;
 		}
 
+	// Collision checking uses stored basenames; preserve the established
+	// source-path ordering when serializing distinct entries.
+	qsort (sorted, n_entries, sizeof (*sorted), compare_archive_entries);
+
 	const u32 fcount = n_entries + 1;
 	const uint cur_off = (uint)total_size;
 

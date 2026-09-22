@@ -141,6 +141,19 @@ int main (void)
 		}
 	}
 	CHECK (completed);
+	nintendo_sarc_entry_t ordered[] = {
+		{ "z-folder/a.bin", payload, sizeof payload },
+		{ "a-folder/z.bin", payload, sizeof payload }
+	};
+	u8 *out = 0;
+	uint size = 0;
+	CHECK (CreatePVOLArchive (&out, &size, ordered, 2) == ERR_OK);
+	if (out)
+	{
+		CHECK (!strcmp ((const char *)out + rd_le32 (out + 4), "z.bin"));
+		CHECK (!strcmp ((const char *)out + rd_le32 (out + 12), "a.bin"));
+		free (out);
+	}
 	printf ("PVOL builder regressions: %d failures\n", failures);
 	return failures != 0;
 }
