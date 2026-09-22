@@ -44,9 +44,18 @@
 // record array. Records are NOT fixed size: the loader compares the record
 // array's own second field (a float) against a compiled-in threshold and
 // picks a per-table record stride of 0x38 or 0x50 (a whole-table
-// high/low-detail toggle). This decoder does not attempt to pick apart
-// individual material fields yet -- it only walks the table far enough to
-// report the count and stride.
+// high/low-detail toggle) -- since the threshold is a constant baked into
+// main.dol this decoder never reads, it instead trusts 0x50 (both retail
+// samples' 0x50-strided records decode to clean, identical-looking colour
+// data across every material, while 0x38 produces garbage past the first
+// record on the multi-material sample). A 0x50-byte record's first 8
+// bytes are two RGBA8 colours (both `0x959595ff` on every sample so far --
+// plausibly a neutral default, since real material variation likely comes
+// from its bound texture rather than this colour); a field 12 bytes later
+// looks like a texture-layer count, but which texture(s) a material binds
+// is not resolved. This decoder does not attempt to pick apart individual
+// material fields yet -- it only walks the table far enough to report the
+// count.
 //
 // Bone table: u32 count, f32 2.0 (unknown constant), u32 offset to the
 // record array. Records are a fixed 0xa0 bytes:
@@ -65,6 +74,11 @@
 //
 // Submesh record: fixed 0x40 bytes, owning four parallel attribute pools
 // (all chunk-relative offsets; a null offset means that attribute is absent):
+//   +0x00  u32 material index into the chunk's material table (verified:
+//          CHR040.bin's "wb_04_body" bone has 3 submeshes using indices
+//          2, 3, 4 out of that chunk's 5 materials, one index each, no
+//          repeats or gaps -- a clean fit for "which material this
+//          submesh's faces are drawn with")
 //   +0x04  u16 LOD/format flag (nonzero selects a richer 0x20-byte vertex-
 //          block layout instead of 0x14, with 3 more optional index arrays
 //          this decoder does not read)
@@ -275,7 +289,9 @@ static void zmb_dump_chunk ( FILE *f, const u8 *data, uint size, u32 chunk_off, 
 			if ( sm + SUBMESH_STRIDE > size )
 				break;
 			const u16 vblock_count = zmb_be16 (data + sm + 0xa);
-			fprintf (f, "        - vertex_block_count: %u\n", vblock_count);
+			const u32 material_idx = zmb_be32 (data + sm);
+			fprintf (f, "        - material_index: %u\n", material_idx);
+			fprintf (f, "          vertex_block_count: %u\n", vblock_count);
 		}
 	}
 }
@@ -385,7 +401,7 @@ zmb_obj_ctx_t;
 // one fan-triangulated 'f' line per vertex block. Silently skips whatever
 // doesn't fit in 'size' (best-effort against truncated/corrupt input).
 static void zmb_write_submesh_obj ( zmb_obj_ctx_t *ctx, const u8 *data, uint size,
-	u32 chunk_off, u32 sm, ccp group_name, const zmb_mat_t *world )
+	u32 chunk_off, u32 sm, ccp group_name, const zmb_mat_t *world, ccp mtl_name )
 {
 	const u32 pos_off  = chunk_off + zmb_be32 (data + sm + 0x24);
 	const u32 norm_off = chunk_off + zmb_be32 (data + sm + 0x2c);
@@ -428,7 +444,7 @@ static void zmb_write_submesh_obj ( zmb_obj_ctx_t *ctx, const u8 *data, uint siz
 	if ( !have_pos )
 		return;
 
-	fprintf (ctx->f, "g %s\n", group_name);
+	fprintf (ctx->f, "g %s\nusemtl %s\n", group_name, mtl_name);
 	for ( u32 i = 0; i < pos_cnt; i++ )
 	{
 		float in[3] = {
@@ -565,7 +581,9 @@ static void zmb_write_chunk_obj ( zmb_obj_ctx_t *ctx, const u8 *data, uint size,
 			char group[80];
 			snprintf (group, sizeof(group), "chunk%u_%s%s_sm%u",
 				chunk_idx, len ? bone_name : "bone", len ? "" : "0", s);
-			zmb_write_submesh_obj (ctx, data, size, chunk_off, sm, group, bone_world);
+			char mtl_name[40];
+			snprintf (mtl_name, sizeof(mtl_name), "chunk%u_mat%u", chunk_idx, zmb_be32 (data + sm));
+			zmb_write_submesh_obj (ctx, data, size, chunk_off, sm, group, bone_world, mtl_name);
 		}
 	}
 
@@ -579,6 +597,20 @@ static void zmb_replace_ext ( char *dest, uint dest_size, ccp src, ccp new_ext )
 	ccp slash = strrchr (src, '/');
 	const uint base_len = dot && ( !slash || dot > slash ) ? (uint)(dot - src) : (uint)strlen (src);
 	snprintf (dest, dest_size, "%.*s%s", base_len, src, new_ext);
+}
+
+// Placeholder material per index in the chunk's material table -- a plain
+// grey (matches the one colour value seen so far in retail records; which
+// texture, if any, a material actually binds is not decoded, see lib-zmb.c
+// above) -- so faces at least group correctly by material for later editing.
+static void zmb_write_mtl_chunk ( FILE *f, const u8 *data, uint size, u32 chunk_off, uint chunk_idx )
+{
+	const u32 mat_off = chunk_off + zmb_be32 (data + chunk_off + 0x1c);
+	if ( !zmb_in_bounds (size, mat_off, 4) )
+		return;
+	const u32 mat_count = zmb_be32 (data + mat_off);
+	for ( u32 i = 0; i < mat_count; i++ )
+		fprintf (f, "newmtl chunk%u_mat%u\nKd 0.584 0.584 0.584\n", chunk_idx, i);
 }
 
 //-----------------------------------------------------------------------------
@@ -604,13 +636,27 @@ enumError DecodeZMB ( const u8 *data, uint size, ccp out_path )
 
 	fclose (f);
 
-	char obj_path[PATH_MAX];
+	char obj_path[PATH_MAX], mtl_path[PATH_MAX];
 	zmb_replace_ext (obj_path, sizeof(obj_path), out_path, ".obj");
+	zmb_replace_ext (mtl_path, sizeof(mtl_path), out_path, ".mtl");
+
+	FILE *mtl = fopen (mtl_path, "wb");
+	if (mtl)
+	{
+		zmb_write_mtl_chunk (mtl, data, size, chunk0_off, 0);
+		if ( have_chunk1 )
+			zmb_write_mtl_chunk (mtl, data, size, chunk1_off, 1);
+		fclose (mtl);
+	}
+
 	FILE *obj = fopen (obj_path, "wb");
 	if (obj)
 	{
+		ccp mtl_base = strrchr (mtl_path, '/');
+		mtl_base = mtl_base ? mtl_base + 1 : mtl_path;
 		fprintf (obj, "# Konami ZMB model, decoded by nintoolbox\n"
-			"# Rigid per-bone attachment, no per-vertex skin blending -- see lib-zmb.c\n");
+			"# Rigid per-bone attachment, no per-vertex skin blending -- see lib-zmb.c\n"
+			"mtllib %s\n", mtl_base);
 		zmb_obj_ctx_t ctx = { obj, 1, 1, 1 };
 		zmb_write_chunk_obj (&ctx, data, size, chunk0_off, 0, &zmb_identity);
 
