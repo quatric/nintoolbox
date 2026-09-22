@@ -58,15 +58,23 @@
 // index (see below). A 0x50-byte record's first 8 bytes are two RGBA8
 // colours (both `0x959595ff` on every sample so far -- plausibly a
 // neutral default, since real material variation likely comes from its
-// bound texture rather than this colour); +0x13 is a one-byte draw-mode
-// selector the renderer switches on (0 = skip, 1 = one draw path, else a
-// second) to call one of two texture-binding draw functions
-// (FUN_800d7c0c / FUN_800d7d84) that use Gekko/Broadway paired-single SIMD
-// instructions this Ghidra install's generic PowerPC language can't
-// disassemble (no Gekko-specific processor variant available), which is
-// where this investigation had to stop -- so which texture(s) a material
-// binds is still not resolved. Materials also chain via a `next` pointer
-// at +0x2c (count at +0x2a) for multi-pass/LOD material variants, walked
+// bound texture rather than this colour); +0x13 is a one-byte mode
+// selector the renderer switches on (0 = skip, 1 = one path, 2/3/4
+// select among three more paths in the second function below) to call
+// one of two functions (FUN_800d7c0c / FUN_800d7d84). Decompiling those
+// needed a Gekko/Broadway-aware Ghidra language (this Ghidra install's
+// default PowerPC language can't decode the paired-single SIMD
+// instructions they're full of) -- installed aldelaro5/ghidra-gekko-
+// broadway-lang and re-decompiled successfully, but the result shows
+// +0x13 is a UV-generation mode, not a texture-bind mode: every path
+// normalizes a vertex position/normal, takes a dot product against
+// per-material float vectors, divides by a computed length and writes
+// two floats back into the vertex's UV slot -- classic procedural
+// texture-coordinate generation (planar/reflection-mapped texgen), not
+// texture selection. So which texture(s) a material binds is still not
+// resolved; it must be a separate, plainer GX texture-bind call this
+// decoder hasn't located. Materials also chain via a `next` pointer at
+// +0x2c (count at +0x2a) for multi-pass/LOD material variants, walked
 // by the same render function. This decoder does not attempt to pick
 // apart individual material fields yet -- it only walks the table far
 // enough to report the count.
