@@ -1050,6 +1050,17 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
+	// Bully: Scholarship Edition's collision.pak shares the ".pak" extension
+	// with several weaker, extension-driven probes below (extract_pac_file
+	// and friends), which would otherwise claim it first and silently
+	// produce nothing. Its own gate is strictly content-based (declared
+	// size, a fully chained offset/size table, and every member starting
+	// with a real GTA-family COL FourCC), so it is safe to try ahead of
+	// those weaker heuristics.
+	err = ExtractCollPakArchive (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
 	err = extract_pac_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

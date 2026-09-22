@@ -14214,6 +14214,25 @@ t_bully_ideimg(){
 }
 t_bully_ideimg
 
+t_bully_collpak(){
+  # Bully: Scholarship Edition (Wii) Coll/collision.pak: a flat table of
+  # GTA-family COL collision chunks. Uses a committed fixture so this
+  # doesn't depend on the WBFS being present in $SEARCH.
+  local f="$PWD_PROJECT/../tests/fixtures/bully_collision.pak"
+  [ -f "$f" ] || { sk "Bully collision.pak"; return; }
+  local d=/tmp/_r_collpak.d
+  rm -rf "$d"
+  $B/wszst EXTRACT "$f" --dest "$d" --overwrite >/tmp/_r_collpak.log 2>&1
+  local n; n=$(find "$d" -iname '*.col' 2>/dev/null | wc -l | tr -d ' ')
+  if [ "${n:-0}" -eq 485 ]; then
+    ok "Bully collision.pak -> 485 .col members ($f)"
+  else
+    no "Bully collision.pak" "expected 485 .col members, got $n"
+  fi
+  rm -rf "$d"
+}
+t_bully_collpak
+
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
