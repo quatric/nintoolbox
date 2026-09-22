@@ -98,10 +98,10 @@ bool IsG1TGZ (const u8 *data, uint size);
 // One size-prefixed stream at *pos: validates table[i], inflates
 // exactly, advances past it. Returns false on any violation.
 static bool g1tgz_stream (const u8 *src, uint size, uint *pos, uint want, u8 **out, uint *out_len,
-	uint *out_cap)
+	uint *out_cap, uint limit)
 {
 	uint p = *pos;
-	if (p + 4 > size)
+	if ((u64)p + 4 > size)
 		return false;
 	const uint sz = rd_be32 (src + p);
 	if (!sz || (u64)p + 4 + sz > size)
@@ -117,39 +117,37 @@ static bool g1tgz_stream (const u8 *src, uint size, uint *pos, uint want, u8 **o
 	strm.avail_in = sz;
 	if (inflateInit (&strm) != Z_OK)
 		return false;
-	// Grow like DecodeZlibGrow, but require exact framing: the stream
-	// must end exactly at its declared size.
-	uint cap = sz * 4 + 4096;
-	if (cap > (64u << 20))
-		cap = 64u << 20;
 	bool ok = false;
 	for (;;)
 	{
-		if (*out_len + cap > *out_cap)
+		if (*out_len == *out_cap && *out_cap < limit)
 		{
-			if (*out_len + cap > G1TGZ_MAX_OUTPUT)
-				break;
-			u8 *grown = REALLOC (*out, *out_len + cap);
+			const u64 proposed = *out_cap ? (u64)*out_cap * 2 : (u64)sz * 4 + 4096;
+			const uint capacity = proposed > limit ? limit : (uint)proposed;
+			u8 *grown = REALLOC (*out, capacity);
 			if (!grown)
 				break;
 			*out = grown;
-			*out_cap = *out_len + cap;
+			*out_cap = capacity;
 		}
-		strm.next_out = *out + *out_len;
-		strm.avail_out = *out_cap - *out_len;
-		const uint before = *out_len;
+		// A stream can finish its checksum, or be empty, after the declared
+		// output is full. Allow that framing, but reject another output byte.
+		u8 extra;
+		const uint available = *out_cap - *out_len;
+		strm.next_out = available ? *out + *out_len : &extra;
+		strm.avail_out = available ? available : 1;
 		const int ret = inflate (&strm, Z_FINISH);
-		*out_len += (uint)(strm.next_out - (*out + before));
+		const uint produced = (available ? available : 1) - strm.avail_out;
+		if (!available && produced)
+			break;
+		*out_len += produced;
 		if (ret == Z_STREAM_END)
 		{
-			ok = strm.avail_in == 0 && *out_len > before;
+			ok = strm.avail_in == 0;
 			break;
 		}
-		if (ret != Z_OK && ret != Z_BUF_ERROR)
+		if ((ret != Z_OK && ret != Z_BUF_ERROR) || strm.avail_out)
 			break;
-		if (cap >= (64u << 20))
-			break;
-		cap *= 2;
 	}
 	inflateEnd (&strm);
 	if (!ok)
@@ -160,13 +158,13 @@ static bool g1tgz_stream (const u8 *src, uint size, uint *pos, uint want, u8 **o
 
 enumError DecodeG1TGZ (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 {
-	if (!dest || !dest_size || !src)
-		return EINVAL;
+	if (!dest || !dest_size)
+		return ERR_INVALID_DATA;
 	*dest = 0;
 	*dest_size = 0;
 	uint n = 0, decomp = 0;
 	if (!g1tgz_probe (src, src_size, &n, &decomp))
-		return EINVAL;
+		return ERR_INVALID_DATA;
 
 	u8 *out = 0;
 	uint out_len = 0, out_cap = 0;
@@ -180,7 +178,7 @@ enumError DecodeG1TGZ (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 		// position instead of skipping blindly.
 		bool placed = false;
 		const uint gap0 = pos;
-		while (pos + 6 <= src_size && pos - gap0 < G1TGZ_MAX_SCAN)
+		while ((u64)pos + 6 <= src_size && pos - gap0 < G1TGZ_MAX_SCAN)
 		{
 			const uint sz = rd_be32 (src + pos);
 			const uint want = rd_be32 (src + 12 + i * 4);
@@ -208,7 +206,7 @@ enumError DecodeG1TGZ (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 			}
 			used_sparse = true;
 			const uint want = rd_be32 (src + 12 + i * 4);
-			if ((u64)out_len + want > G1TGZ_MAX_OUTPUT)
+			if ((u64)out_len + want > decomp)
 				ok = false;
 			else
 			{
@@ -226,7 +224,7 @@ enumError DecodeG1TGZ (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 			break;
 		}
 		if (!g1tgz_stream (src, src_size, &pos, rd_be32 (src + 12 + i * 4), &out, &out_len,
-				&out_cap))
+				&out_cap, decomp))
 			ok = false;
 	}
 	if (ok)
@@ -247,7 +245,7 @@ enumError DecodeG1TGZ (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 	if (!ok)
 	{
 		FREE (out);
-		return EINVAL;
+		return ERR_INVALID_DATA;
 	}
 	*dest = out;
 	*dest_size = out_len;
@@ -264,10 +262,11 @@ bool IsG1TGZ (const u8 *data, uint size)
 	// First size word must validate (bounds the false-positive rate
 	// of the 4-byte magic on its own).
 	uint pos = 12 + n * 4;
-	while (pos + 6 <= size && (uint)(pos - (12 + n * 4)) < 1024)
+	while ((u64)pos + 6 <= size && (uint)(pos - (12 + n * 4)) < 1024)
 	{
 		const uint sz = rd_be32 (data + pos);
-		if (sz && sz < size && data[pos + 4] == 0x78 && rd_be32 (data + 12) == sz + 4)
+		if (sz && (u64)pos + 4 + sz <= size && data[pos + 4] == 0x78
+			&& rd_be32 (data + 12) == sz + 4)
 			return true;
 		if (data[pos] != 0)
 			return false;

@@ -144,20 +144,23 @@ class ArchiveDetectionTests(unittest.TestCase):
             self.assertFalse(archive.exists())
 
     def test_wrapped_g1t_precedes_atb(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            payload = b'RAW_G1T_MEMBER_PAYLOAD_BYTES....'
-            body = struct.pack('<I', 4) + bytes([1, 255, 0x33, 0]) + bytes(16) + payload
-            container = b'GT1G0600' + struct.pack('<4I', 48 + len(body), 48, 1, 5) + bytes(24) + body
-            streams = [zlib.compress(container[:60]), zlib.compress(container[60:])]
-            wrapper = struct.pack('>5I', 0x10000, 2, len(container), len(streams[0]) + 4, len(streams[1]) + 4)
-            wrapper += struct.pack('>I', len(streams[0])) + streams[0] + bytes(24)
-            wrapper += struct.pack('>I', len(streams[1])) + streams[1] + bytes(40)
-            source = root / 'sample.g1t.gz'
-            source.write_bytes(wrapper)
-            self.assertIn('G1T', self.tool('FILETYPE', source))
-            self.tool('EXTRACT', source, '-d', root / 'out')
-            self.assertEqual((root / 'out' / 'sample.g1t.gz_0000.bin').read_bytes(), container[72:])
+        for empty_position in (None, 0, 1, 2):
+            with self.subTest(empty_position=empty_position), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                payload = b'RAW_G1T_MEMBER_PAYLOAD_BYTES....'
+                body = struct.pack('<I', 4) + bytes([1, 255, 0x33, 0]) + bytes(16) + payload
+                container = b'GT1G0600' + struct.pack('<4I', 48 + len(body), 48, 1, 5) + bytes(24) + body
+                streams = [zlib.compress(container[:60]), zlib.compress(container[60:])]
+                if empty_position is not None:
+                    streams.insert(empty_position, zlib.compress(b''))
+                wrapper = struct.pack('>3I', 0x10000, len(streams), len(container))
+                wrapper += b''.join(struct.pack('>I', len(stream) + 4) for stream in streams)
+                wrapper += b''.join(struct.pack('>I', len(stream)) + stream + bytes(24) for stream in streams)
+                source = root / 'sample.g1t.gz'
+                source.write_bytes(wrapper)
+                self.assertIn('G1T', self.tool('FILETYPE', source))
+                self.tool('EXTRACT', source, '-d', root / 'out')
+                self.assertEqual((root / 'out' / 'sample.g1t.gz_0000.bin').read_bytes(), container[72:])
 
 
 if __name__ == '__main__':

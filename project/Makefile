@@ -1439,6 +1439,13 @@ test-zdat-bounds: version.h
 	$(CC) $(ZDAT_TEST_CFLAGS) -ffunction-sections -fdata-sections -I. -Isrc -Idclib ../tests/test-zdat-bounds.c src/lib-zdat.c $(COMPRESSION_TEST_LDFLAGS) -o bin/test-zdat-bounds
 	@./bin/test-zdat-bounds
 
+.PHONY : test-g1tgz
+G1TGZ_TEST_CFLAGS ?= -O2
+test-g1tgz: version.h
+	@mkdir -p bin
+	$(CC) $(G1TGZ_TEST_CFLAGS) -ffunction-sections -fdata-sections -I. -Isrc -Idclib ../tests/test-g1tgz.c src/lib-g1t.c $(COMPRESSION_TEST_LDFLAGS) -lz -o bin/test-g1tgz
+	@./bin/test-g1tgz
+
 .PHONY : test-zlib-grow
 ZLIB_GROW_TEST_CFLAGS ?= -O2
 test-zlib-grow: version.h
