@@ -59,6 +59,7 @@
 #include "lib-cod-pak.h"
 #include "lib-bigf.h"
 #include "lib-mpbin.h"
+#include "lib-zmb.h"
 #include "lib-gtx.h"
 #include "lib-g1m.h"
 #include "lib-glg.h"

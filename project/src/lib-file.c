@@ -937,6 +937,13 @@ __attribute__((weak)) bool IsDSP (const u8 *data, size_t size)
 	return false;
 }
 
+__attribute__((weak)) bool IsZMB (const u8 *data, uint size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
+
 
 file_format_t GetByMagicFF (const void *data, // pointer to data
 	uint data_size, // size of data
@@ -973,6 +980,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_G1T;
 		if (IsMPBIN (data8, data_size))
 			return FF_MPBIN;
+		if (IsZMB (data8, data_size))
+			return FF_ZMB;
 		if (IsATB (data8, data_size))
 			return FF_ATB;
 		if (IsPTD (data8, data_size))

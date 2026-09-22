@@ -1875,6 +1875,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x28 }, 0, MinusString, MinusString,
 		"Nintendo Huffman-compressed file (4-bit or 8-bit, GBA BIOS style)" },
 
+	// FF_ZMB = 347 (Konami Bemani skinned character/prop model)
+	{ FF_ZMB, FF_ZMB, 0, "ZMB", ".bin", ".bin", ".bin",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Konami Bemani skinned character/prop model (.bin, Dance Dance Revolution: Winx Club)" },
+
 	// FF_N
 	{ 0 }
 };
