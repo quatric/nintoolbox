@@ -76,7 +76,7 @@ enumError ExtractPKZArchive (ccp arg, ccp basedir, uint depth)
 			= (u64)rd_le32 (raw + entry_pos + 24) | ((u64)rd_le32 (raw + entry_pos + 28) << 32);
 
 		char name[PATH_MAX];
-		const uint full_name_pos = str_table_pos + (uint)name_offset;
+		const u64 full_name_pos = (u64)str_table_pos + name_offset;
 		if (full_name_pos < raw_size)
 		{
 			const char *s = (const char *)(raw + full_name_pos);
@@ -86,13 +86,15 @@ enumError ExtractPKZArchive (ccp arg, ccp basedir, uint depth)
 			size_t slen = strnlen (s, max_len);
 			memcpy (name, s, slen);
 			name[slen] = 0;
+			if (!OwnedNameOk (name))
+				snprintf (name, sizeof (name), "file_%04u.bin", i);
 		}
 		else
 		{
 			snprintf (name, sizeof (name), "file_%04u.bin", i);
 		}
 
-		if (file_offset >= raw_size)
+		if (file_offset >= raw_size || comp_size > raw_size || file_offset > raw_size - comp_size)
 			continue;
 
 		char out_path[PATH_MAX];
@@ -106,7 +108,7 @@ enumError ExtractPKZArchive (ccp arg, ccp basedir, uint depth)
 			*slash = '/';
 		}
 
-		if (!testmode && comp_size > 0 && (size_t)(file_offset + comp_size) <= raw_size)
+		if (!testmode && comp_size > 0 && comp_size <= UINT_MAX)
 		{
 			if (comp_size != file_size && file_size > 0)
 			{
@@ -140,7 +142,7 @@ enumError ExtractPKZArchive (ccp arg, ccp basedir, uint depth)
 enumError CreatePKZArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {
-	if (!dest || !dest_size || !entries || !n_entries)
+	if (!dest || !dest_size || !entries || !n_entries || n_entries > 100000)
 		return ERR_INVALID_DATA;
 
 	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
@@ -154,12 +156,26 @@ enumError CreatePKZArchive (
 
 	u32 names_len = 0;
 	for (uint i = 0; i < n_entries; i++)
-		names_len += (u32)strlen (leaf_name (sorted[i].name)) + 1;
+	{
+		ccp name = leaf_name (sorted[i].name);
+		if (!OwnedNameOk (name))
+		{
+			FREE (sorted);
+			return ERR_INVALID_DATA;
+		}
+		names_len += (u32)strlen (name) + 1;
+	}
 
 	const u32 data_start = align_up (str_table_pos + names_len, 16);
-	u32 total = data_start;
+	u64 total64 = data_start;
 	for (uint i = 0; i < n_entries; i++)
-		total = align_up (total + sorted[i].size, 16);
+		total64 = (total64 + sorted[i].size + 15) & ~(u64)15;
+	if (total64 > UINT_MAX)
+	{
+		FREE (sorted);
+		return ERR_INVALID_DATA;
+	}
+	const u32 total = (u32)total64;
 
 	u8 *buf = CALLOC (total, 1);
 	if (!buf)

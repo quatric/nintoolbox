@@ -74,16 +74,28 @@ enumError ExtractXPCKArchive (ccp arg, ccp basedir, uint depth)
 
 		off |= (off_ext << 16);
 		sz |= (sz_ext << 16);
-		off = off * 4 + data_offset;
-
-		if (off + sz > raw_size)
-			sz = raw_size > off ? (uint)(raw_size - off) : 0;
+		const u64 off64 = (u64)off * 4 + data_offset;
+		if (off64 >= raw_size)
+			continue;
+		off = (u32)off64;
+		if (off64 + sz > raw_size)
+			sz = (u32)(raw_size - off64);
 
 		char fname[64];
 		if (names_ptr && name_pos < filename_table_size && names_ptr[name_pos])
 		{
-			snprintf (fname, sizeof (fname), "%s", names_ptr + name_pos);
-			name_pos += strlen (names_ptr + name_pos) + 1;
+			const size_t max_len = filename_table_size - name_pos;
+			size_t slen = strnlen (names_ptr + name_pos, max_len);
+			if (slen >= sizeof (fname))
+				slen = sizeof (fname) - 1;
+			memcpy (fname, names_ptr + name_pos, slen);
+			fname[slen] = 0;
+			if (slen < max_len && names_ptr[name_pos + slen] == 0)
+				name_pos += (uint)slen + 1;
+			else
+				name_pos += (uint)slen;
+			if (!OwnedNameOk (fname))
+				snprintf (fname, sizeof (fname), "file_%04u.bin", i);
 		}
 		else
 		{
@@ -106,7 +118,7 @@ enumError ExtractXPCKArchive (ccp arg, ccp basedir, uint depth)
 enumError CreateXPCKArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {
-	if (!dest || !dest_size || !entries || !n_entries)
+	if (!dest || !dest_size || !entries || !n_entries || n_entries > 0xFFF)
 		return ERR_INVALID_DATA;
 
 	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
@@ -119,23 +131,47 @@ enumError CreateXPCKArchive (
 	const u32 file_info_sz = n_entries * 12;
 	const u32 file_names_start = header_sz + file_info_sz;
 
-	u32 names_len = 0;
+	u64 names_len = 0;
 	for (uint i = 0; i < n_entries; i++)
 	{
 		ccp name = sorted[i].name ? sorted[i].name : "";
 		ccp slash = strrchr (name, '/');
 		if (slash)
 			name = slash + 1;
+		if (!OwnedNameOk (name))
+		{
+			FREE (sorted);
+			return ERR_INVALID_DATA;
+		}
 		names_len += strlen (name) + 1;
 	}
-	const u32 filename_table_size = (names_len + 3) & ~3;
-	const u32 data_start = (file_names_start + filename_table_size + 15) & ~15;
+	const u64 filename_table_size = (names_len + 3) & ~3ull;
+	const u64 data_start = (file_names_start + filename_table_size + 15) & ~15ull;
 
-	u32 cur_data_off = data_start;
+	if (file_names_start / 4 > 0xFFFF || data_start / 4 > 0xFFFF
+		|| filename_table_size / 4 > 0xFFFF)
+	{
+		FREE (sorted);
+		return EFBIG;
+	}
+
+	u64 cur_data_off = data_start;
 	for (uint i = 0; i < n_entries; i++)
-		cur_data_off = (cur_data_off + sorted[i].size + 3) & ~3;
+	{
+		if (sorted[i].size > 0xFFFFFF)
+		{
+			FREE (sorted);
+			return EFBIG;
+		}
+		cur_data_off = (cur_data_off + sorted[i].size + 3) & ~3ull;
+		if (cur_data_off > 0xFFFFFFFFull || (cur_data_off - data_start) / 4 > 0xFFFFFF)
+		{
+			FREE (sorted);
+			return EFBIG;
+		}
+	}
 
-	u8 *buf = CALLOC (cur_data_off, 1);
+	u8 *buf = CALLOC ((size_t)cur_data_off, 1);
 	if (!buf)
 	{
 		FREE (sorted);

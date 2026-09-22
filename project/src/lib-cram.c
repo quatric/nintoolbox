@@ -90,26 +90,28 @@ enumError CreateCramARC (
 		return EINVAL;
 
 	const uint files = n_entries;
-	const uint tab = 16;
-	const uint nametab = tab + files * 16;
-	const uint names_off = nametab + files * 4;
+	const u64 tab = 16;
+	const u64 nametab = tab + (u64)files * 16;
+	const u64 names_off = nametab + (u64)files * 4;
 
-	uint names_size = 0;
+	u64 names_size = 0;
 	for (uint i = 0; i < files; i++)
 	{
-		ccp name = entries[i].name ? entries[i].name : "";
-		names_size += (uint)strlen (name) + 1;
+		ccp name = entries[i].name ? leaf_name (entries[i].name) : "";
+		if (!OwnedNameOk (name))
+			return EINVAL;
+		names_size += strlen (name) + 1;
 	}
-	names_size = (names_size + 3) & ~3u;
+	names_size = (names_size + 3) & ~3ull;
 
-	const uint header_meta = names_off + names_size;
-	const uint data_start = (header_meta + 15) & ~15u;
+	const u64 header_meta = names_off + names_size;
+	const u64 data_start = (header_meta + 15) & ~15ull;
 
 	u64 total_size = data_start;
 	for (uint i = 0; i < files; i++)
 	{
 		total_size += entries[i].size;
-		total_size = (total_size + 15) & ~15u;
+		total_size = (total_size + 15) & ~15ull;
 	}
 
 	if (total_size > 0x7fffffff)
@@ -122,15 +124,15 @@ enumError CreateCramARC (
 	memcpy (out, "cram", 4);
 	wr_le32 (out + 4, files);
 	wr_le32 (out + 8, 0x80);
-	wr_le32 (out + 12, names_off);
+	wr_le32 (out + 12, (u32)names_off);
 
 	uint cur_name_off = 0;
-	u32 cur_data_off = (u32)data_start;
+	u64 cur_data_off = data_start;
 
 	for (uint i = 0; i < files; i++)
 	{
-		u8 *e = out + tab + i * 16;
-		ccp name = entries[i].name ? entries[i].name : "";
+		u8 *e = out + tab + (size_t)i * 16;
+		ccp name = entries[i].name ? leaf_name (entries[i].name) : "";
 		const uint name_len = (uint)strlen (name);
 
 		u32 crc = (u32)crc32 (0, (const Bytef *)name, name_len);
@@ -147,10 +149,10 @@ enumError CreateCramARC (
 		}
 		memcpy (e + 4, type, 4);
 
-		wr_le32 (e + 8, cur_data_off);
+		wr_le32 (e + 8, (u32)cur_data_off);
 		wr_le32 (e + 12, entries[i].size);
 
-		wr_le32 (out + nametab + i * 4, cur_name_off);
+		wr_le32 (out + nametab + (size_t)i * 4, cur_name_off);
 		memcpy (out + names_off + cur_name_off, name, name_len + 1);
 		cur_name_off += name_len + 1;
 
@@ -158,7 +160,7 @@ enumError CreateCramARC (
 			memcpy (out + cur_data_off, entries[i].data, entries[i].size);
 
 		cur_data_off += entries[i].size;
-		cur_data_off = (cur_data_off + 15) & ~15u;
+		cur_data_off = (cur_data_off + 15) & ~15ull;
 	}
 
 	*dest = out;

@@ -96,7 +96,8 @@ enumError ExtractBARSArchive (ccp arg, ccp basedir, uint depth)
 				{
 					memcpy (name, str, slen);
 					name[slen] = 0;
-					name_found = true;
+					if (OwnedNameOk (name))
+						name_found = true;
 				}
 			}
 		}
@@ -126,7 +127,7 @@ enumError ExtractBARSArchive (ccp arg, ccp basedir, uint depth)
 				}
 			}
 
-			if (audio_sz == 0 || audio_offset + audio_sz > raw_size)
+			if (audio_sz == 0 || (u64)audio_offset + audio_sz > raw_size)
 			{
 				// Bound by raw_size or next asset/offset
 				audio_sz = (u32)(raw_size - audio_offset);
@@ -152,11 +153,11 @@ enumError ExtractBARSArchive (ccp arg, ccp basedir, uint depth)
 		}
 
 		// Also extract AMTA metadata chunk alongside if available
-		if (amta_offset < raw_size && amta_offset + 12 <= raw_size
+		if (amta_offset < raw_size && (u64)amta_offset + 12 <= raw_size
 			&& !memcmp (raw + amta_offset, "AMTA", 4))
 		{
 			u32 amta_sz = big ? rd_be32 (raw + amta_offset + 8) : rd_le32 (raw + amta_offset + 8);
-			if (amta_sz == 0 || amta_offset + amta_sz > raw_size)
+			if (amta_sz == 0 || (u64)amta_offset + amta_sz > raw_size)
 				amta_sz = (u32)(raw_size - amta_offset);
 
 			char out_amta[PATH_MAX];

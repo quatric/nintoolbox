@@ -96,6 +96,8 @@ enumError ExtractGARArchive (ccp arg, ccp basedir, uint depth)
 				size_t slen = strnlen (s, max_len);
 				memcpy (ext, s, slen);
 				ext[slen] = 0;
+				if (!OwnedNameOk (ext))
+					ext[0] = 0;
 			}
 
 			for (uint f = 0; f < grp_file_count; f++)
@@ -118,6 +120,8 @@ enumError ExtractGARArchive (ccp arg, ccp basedir, uint depth)
 					size_t slen = strnlen (s, max_len);
 					memcpy (name, s, slen);
 					name[slen] = 0;
+					if (!OwnedNameOk (name))
+						snprintf (name, sizeof (name), "file_%u_%u", g, f);
 				}
 				else
 				{
@@ -206,6 +210,8 @@ enumError ExtractGARArchive (ccp arg, ccp basedir, uint depth)
 					size_t slen = strnlen (s, max_len);
 					memcpy (name, s, slen);
 					name[slen] = 0;
+					if (!OwnedNameOk (name))
+						snprintf (name, sizeof (name), "file_%04u.bin", file_idx);
 				}
 				else
 				{
@@ -243,7 +249,7 @@ enumError ExtractGARArchive (ccp arg, ccp basedir, uint depth)
 enumError CreateGARArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {
-	if (!dest || !dest_size || !entries || !n_entries)
+	if (!dest || !dest_size || !entries || !n_entries || n_entries > 0xFFFF)
 		return ERR_INVALID_DATA;
 
 	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
@@ -262,7 +268,15 @@ enumError CreateGARArchive (
 
 	u32 str_tbl_len = 0;
 	for (uint i = 0; i < n_entries; i++)
-		str_tbl_len += (u32)strlen (leaf_name (sorted[i].name)) + 1;
+	{
+		ccp name = leaf_name (sorted[i].name);
+		if (!OwnedNameOk (name))
+		{
+			FREE (sorted);
+			return ERR_INVALID_DATA;
+		}
+		str_tbl_len += (u32)strlen (name) + 1;
+	}
 
 	const u32 str_tbl_off = 0x20;
 	const u32 grp_off = align_up (str_tbl_off + str_tbl_len, 16);
@@ -270,9 +284,15 @@ enumError CreateGARArchive (
 	const u32 data_tbl_off = info_off + n_entries * 8;
 	const u32 first_data_off = align_up (data_tbl_off + n_entries * 4, 16);
 
-	u32 total = first_data_off;
+	u64 total64 = first_data_off;
 	for (uint i = 0; i < n_entries; i++)
-		total = align_up (total + sorted[i].size, 16);
+		total64 = (total64 + sorted[i].size + 15) & ~(u64)15;
+	if (total64 > UINT_MAX)
+	{
+		FREE (sorted);
+		return ERR_INVALID_DATA;
+	}
+	const u32 total = (u32)total64;
 
 	u8 *buf = CALLOC (total, 1);
 	if (!buf)

@@ -82,17 +82,19 @@ enumError ExtractMKGPDXPacArchive (ccp arg, ccp basedir, uint depth)
 		const u32 offset = rd_le32 (raw + entry_pos + 8);
 		u32 size = rd_le32 (raw + entry_pos + 12);
 
-		const u32 name_pos = data_block_pos + str_pool_offset + name_offset;
+		const u64 name_pos64 = (u64)data_block_pos + str_pool_offset + name_offset;
 		char name[PATH_MAX];
-		if (name_pos < raw_size)
+		if (name_pos64 < raw_size)
 		{
-			const char *s = (const char *)(raw + name_pos);
+			const char *s = (const char *)(raw + name_pos64);
 			size_t max_len = sizeof (name) - 1;
-			if (max_len > raw_size - name_pos)
-				max_len = raw_size - name_pos;
+			if (max_len > raw_size - name_pos64)
+				max_len = raw_size - name_pos64;
 			size_t slen = strnlen (s, max_len);
 			memcpy (name, s, slen);
 			name[slen] = 0;
+			if (!OwnedNameOk (name))
+				snprintf (name, sizeof (name), "file_%04u.bin", i);
 		}
 		else
 		{
@@ -139,7 +141,7 @@ enumError ExtractMKGPDXPacArchive (ccp arg, ccp basedir, uint depth)
 enumError CreateMKGPDXPacArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {
-	if (!dest || !dest_size || !entries || !n_entries)
+	if (!dest || !dest_size || !entries || !n_entries || n_entries > 100000)
 		return ERR_INVALID_DATA;
 
 	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
@@ -153,16 +155,30 @@ enumError CreateMKGPDXPacArchive (
 
 	u32 names_len = 0;
 	for (uint i = 0; i < n_entries; i++)
-		names_len += (u32)strlen (leaf_name (sorted[i].name)) + 1;
+	{
+		ccp name = leaf_name (sorted[i].name);
+		if (!OwnedNameOk (name))
+		{
+			FREE (sorted);
+			return ERR_INVALID_DATA;
+		}
+		names_len += (u32)strlen (name) + 1;
+	}
 
 	// Member offsets are relative to data_block_pos, and the name pool
 	// occupies the start of the block.
 	const u32 first_member_rel = align_up (names_len, alignment);
-	u32 total_rel = first_member_rel;
+	u64 total_rel = first_member_rel;
 	for (uint i = 0; i < n_entries; i++)
-		total_rel = align_up (total_rel + sorted[i].size, alignment);
+		total_rel = (total_rel + sorted[i].size + (alignment - 1)) & ~(u64)(alignment - 1);
 
-	const u32 total = data_block_pos + total_rel;
+	const u64 total64 = (u64)data_block_pos + total_rel;
+	if (total64 > UINT_MAX)
+	{
+		FREE (sorted);
+		return ERR_INVALID_DATA;
+	}
+	const u32 total = (u32)total64;
 	u8 *buf = CALLOC (total, 1);
 	if (!buf)
 	{

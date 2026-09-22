@@ -120,7 +120,8 @@ static u32 lspk_hash_name (ccp name)
 enumError CreateLSPKArchive (u8 **dest_pkh, uint *dest_pkh_size, u8 **dest_pk, uint *dest_pk_size,
 	const nintendo_sarc_entry_t *entries, uint n_entries)
 {
-	if (!dest_pkh || !dest_pkh_size || !dest_pk || !dest_pk_size || !entries || !n_entries)
+	if (!dest_pkh || !dest_pkh_size || !dest_pk || !dest_pk_size || !entries || !n_entries
+		|| n_entries > 1000000)
 		return ERR_INVALID_DATA;
 
 	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
@@ -128,6 +129,19 @@ enumError CreateLSPKArchive (u8 **dest_pkh, uint *dest_pkh_size, u8 **dest_pk, u
 		return ERR_OUT_OF_MEMORY;
 	memcpy (sorted, entries, n_entries * sizeof (*sorted));
 	qsort (sorted, n_entries, sizeof (*sorted), compare_lspk_entries);
+
+	for (uint i = 0; i < n_entries; i++)
+	{
+		ccp name = sorted[i].name ? sorted[i].name : "";
+		ccp slash = strrchr (name, '/');
+		if (slash)
+			name = slash + 1;
+		if (!OwnedNameOk (name))
+		{
+			FREE (sorted);
+			return ERR_INVALID_DATA;
+		}
+	}
 
 	// PKH table: 4 bytes entry count + 16 bytes per entry
 	const uint pkh_sz = 4 + n_entries * 16;
@@ -140,14 +154,26 @@ enumError CreateLSPKArchive (u8 **dest_pkh, uint *dest_pkh_size, u8 **dest_pk, u
 	wr_be32 (pkh, n_entries);
 
 	// Compute PK size: aligned to 16 bytes per entry payload
-	u32 cur_pk_off = 0;
+	u64 cur_pk_off = 0;
 	for (uint i = 0; i < n_entries; i++)
 	{
-		cur_pk_off = (cur_pk_off + 15) & ~15;
+		cur_pk_off = (cur_pk_off + 15) & ~15ull;
 		cur_pk_off += sorted[i].size;
+		if (cur_pk_off > 0xFFFFFFFFull)
+		{
+			FREE (pkh);
+			FREE (sorted);
+			return EFBIG;
+		}
 	}
-	const u32 pk_sz = (cur_pk_off + 15) & ~15;
-	u8 *pk = CALLOC (pk_sz ? pk_sz : 16, 1);
+	const u64 pk_sz = (cur_pk_off + 15) & ~15ull;
+	if (pk_sz > 0xFFFFFFFFull)
+	{
+		FREE (pkh);
+		FREE (sorted);
+		return EFBIG;
+	}
+	u8 *pk = CALLOC ((size_t)(pk_sz ? pk_sz : 16), 1);
 	if (!pk)
 	{
 		FREE (pkh);

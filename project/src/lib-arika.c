@@ -176,10 +176,16 @@ typedef struct arika_list_t
 
 static void arika_list_push (arika_list_t *list, ccp name, const u8 *data, u32 size)
 {
+	if (!OwnedNameOk (name))
+		return;
 	if (list->n == list->cap)
 	{
-		list->cap = list->cap ? list->cap * 2 : 16;
-		list->entries = REALLOC (list->entries, list->cap * sizeof (*list->entries));
+		uint ncap = list->cap ? list->cap * 2 : 16;
+		nintendo_sarc_entry_t *ne = REALLOC (list->entries, ncap * sizeof (*ne));
+		if (!ne)
+			return;
+		list->entries = ne;
+		list->cap = ncap;
 	}
 	nintendo_sarc_entry_t *e = list->entries + list->n++;
 	e->name = STRDUP (name);
@@ -225,9 +231,9 @@ static void walk_rf2_or_leaf (
 				char sub[300];
 				snprintf (sub, sizeof (sub), "%s/%.20s", name, raw);
 				const u32 ssize = rd_le32 (rec + 20);
-				const u32 soff = rd_le32 (rec + 24) + base_off;
-				if (ssize)
-					walk_rf2_or_leaf (list, data, size, soff, ssize, sub);
+				const u64 soff64 = (u64)rd_le32 (rec + 24) + base_off;
+				if (ssize && soff64 < size && soff64 + ssize <= size)
+					walk_rf2_or_leaf (list, data, size, (uint)soff64, ssize, sub);
 			}
 			return;
 		}
@@ -342,6 +348,18 @@ enumError CreateArika (u8 **dest_info, uint *dest_info_size, u8 **dest_game, uin
 		FREE (payload);
 		FREE (psize);
 		return ERR_CANT_CREATE;
+	}
+
+	for (uint i = 0; i < n_entries; i++)
+	{
+		ccp nm = entries[i].name ? leaf_name (entries[i].name) : "";
+		if (!OwnedNameOk (nm))
+		{
+			FREE (info);
+			FREE (payload);
+			FREE (psize);
+			return EINVAL;
+		}
 	}
 
 	u64 game_size = 0;

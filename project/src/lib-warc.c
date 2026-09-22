@@ -84,7 +84,9 @@ enumError ScanWARC (warc_t *warc, const u8 *data, uint size)
 	}
 
 	warc_entry_t *out_entries = CALLOC (files, sizeof (*out_entries));
-	char *names = CALLOC (1, size);
+	uint pathlen = (uint)strlen (path);
+	const size_t names_cap = (size_t)size + (size_t)files * ((size_t)pathlen + 2);
+	char *names = CALLOC (1, names_cap);
 	if (!out_entries || !names)
 	{
 		FREE (file_off);
@@ -94,7 +96,6 @@ enumError ScanWARC (warc_t *warc, const u8 *data, uint size)
 		return ERR_CANT_CREATE;
 	}
 	uint name_pos = 0;
-	uint pathlen = (uint)strlen (path);
 
 	uint i;
 	for (i = 0; i < files; i++)
@@ -110,6 +111,10 @@ enumError ScanWARC (warc_t *warc, const u8 *data, uint size)
 
 		if ((u64)file_off[i] + file_size[i] > size)
 			continue;
+
+		const size_t need = (pathlen ? (size_t)pathlen + 1 : 0) + namelen + 1;
+		if (name_pos + need > names_cap)
+			break;
 
 		out_entries[i].name = names + name_pos;
 		if (pathlen)
@@ -146,7 +151,7 @@ enumError ScanWARC (warc_t *warc, const u8 *data, uint size)
 enumError CreateWARC (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {
-	if (!dest || !dest_size || !entries || !n_entries || n_entries > 0x100000)
+	if (!dest || !dest_size || !entries || !n_entries || n_entries > 0xFFFF)
 		return EINVAL;
 
 	ccp folder = "";
@@ -174,6 +179,11 @@ enumError CreateWARC (
 	for (uint i = 0; i < n_entries; i++)
 	{
 		ccp name = entries[i].name ? entries[i].name : "";
+		if (!OwnedNameOk (name))
+		{
+			FREE (fname);
+			return EINVAL;
+		}
 		if (folder_len && !strncmp (name, folder, folder_len) && name[folder_len] == '/')
 			fname[i] = name + folder_len + 1;
 		else

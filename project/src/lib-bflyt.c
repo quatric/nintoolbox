@@ -5358,11 +5358,25 @@ static enumError p_cnt1 (bf_pctx_t *ctx, bf_buf_t *out, const bf_val_t *v)
 	if (v->type != BF_T_NODE)
 		return ERR_INVALID_DATA;
 	const bf_node_t *node = v->u.node;
-	bf_buf_t b, sec1, sec2, sec3;
+	bf_buf_t b, sec1, sec2, sec3, anbuf, names, name;
 	memset (&b, 0, sizeof (b));
 	memset (&sec1, 0, sizeof (sec1));
 	memset (&sec2, 0, sizeof (sec2));
 	memset (&sec3, 0, sizeof (sec3));
+	memset (&anbuf, 0, sizeof (anbuf));
+	memset (&names, 0, sizeof (names));
+	memset (&name, 0, sizeof (name));
+	uint *offsets = NULL;
+	enumError err = ERR_OK;
+
+#define CHK_ERR(stmt)                                                                              \
+	do                                                                                             \
+	{                                                                                              \
+		err = (stmt);                                                                          \
+		if (err)                                                                               \
+			goto cleanup;                                                                  \
+	} while (0)
+
 	uint partnum = 0, animnum = 0;
 	bf_list_t *parts = bf_get_list (node, "parts");
 	if (parts)
@@ -5371,7 +5385,7 @@ static enumError p_cnt1 (bf_pctx_t *ctx, bf_buf_t *out, const bf_val_t *v)
 		for (uint i = 0; i < partnum; i++)
 		{
 			ccp s = parts->items[i].type == BF_T_STR ? parts->items[i].u.s : "";
-			BFE (bf_buf_str (&sec1, s, 24));
+			CHK_ERR (bf_buf_str (&sec1, s, 24));
 		}
 	}
 	const bf_node_t *an = bf_get_node (node, "anim-part");
@@ -5382,74 +5396,73 @@ static enumError p_cnt1 (bf_pctx_t *ctx, bf_buf_t *out, const bf_val_t *v)
 		ccp animname = bf_get_str (an, "name");
 		if (!animname)
 			animname = "";
-		bf_buf_t anbuf;
-		memset (&anbuf, 0, sizeof (anbuf));
-		BFE (bf_buf_str4 (&anbuf, animname));
-		BFE (bf_buf_u32 (&sec2, ctx->be, (u32)bf_get_int (an, "anim-part-number", (int)animnum)));
-		BFE (bf_buf_u32 (&sec2, ctx->be, anbuf.n));
-		BFE (bf_buf_raw (&sec2, anbuf.d, anbuf.n));
+		CHK_ERR (bf_buf_str4 (&anbuf, animname));
+		CHK_ERR (bf_buf_u32 (&sec2, ctx->be, (u32)bf_get_int (an, "anim-part-number", (int)animnum)));
+		CHK_ERR (bf_buf_u32 (&sec2, ctx->be, anbuf.n));
+		CHK_ERR (bf_buf_raw (&sec2, anbuf.d, anbuf.n));
 		bf_buf_free (&anbuf);
 		if (animnum)
 		{
-			uint *offsets = (uint *)MALLOC (animnum * 4);
+			offsets = (uint *)MALLOC (animnum * 4);
 			if (!offsets)
 			{
-				bf_buf_free (&b);
-				bf_buf_free (&sec1);
-				bf_buf_free (&sec2);
-				bf_buf_free (&sec3);
-				return ERR_OUT_OF_MEMORY;
+				err = ERR_OUT_OF_MEMORY;
+				goto cleanup;
 			}
-			bf_buf_t names;
-			memset (&names, 0, sizeof (names));
 			offsets[0] = 4 * animnum;
 			for (uint i = 0; i < animnum; i++)
 			{
 				ccp s = anims->items[i].type == BF_T_STR ? anims->items[i].u.s : "";
 				if (i)
 					offsets[i] = offsets[0] + names.n;
-				BFE (bf_buf_str (&names, s, 0));
+				CHK_ERR (bf_buf_str (&names, s, 0));
 			}
 			if (names.n & 3)
-				BFE (bf_buf_pad (&names, 4 - (names.n & 3)));
+				CHK_ERR (bf_buf_pad (&names, 4 - (names.n & 3)));
 			for (uint i = 0; i < animnum; i++)
-				BFE (bf_buf_u32 (&sec3, ctx->be, offsets[i]));
-			BFE (bf_buf_raw (&sec3, names.d, names.n));
+				CHK_ERR (bf_buf_u32 (&sec3, ctx->be, offsets[i]));
+			CHK_ERR (bf_buf_raw (&sec3, names.d, names.n));
 			FREE (offsets);
+			offsets = NULL;
 			bf_buf_free (&names);
 		}
 	}
-	bf_buf_t name;
-	memset (&name, 0, sizeof (name));
-	BFE (bf_buf_str4 (&name, bf_get_str (node, "name") ? bf_get_str (node, "name") : ""));
+	CHK_ERR (bf_buf_str4 (&name, bf_get_str (node, "name") ? bf_get_str (node, "name") : ""));
 	uint nlen = name.n;
 	uint offset1 = nlen + 28;
 	uint offset2 = nlen * 2 + 28;
 	uint offset3 = sec1.n + nlen * 2 + 28;
 	uint offset4 = offset3 + sec2.n;
-	BFE (bf_buf_u32 (&b, ctx->be, offset1));
-	BFE (bf_buf_u32 (&b, ctx->be, offset2));
-	BFE (bf_buf_u16 (&b, ctx->be, (u16)partnum));
-	BFE (bf_buf_u16 (&b, ctx->be, (u16)animnum));
-	BFE (bf_buf_u32 (&b, ctx->be, offset3));
-	BFE (bf_buf_u32 (&b, ctx->be, offset4));
-	BFE (bf_buf_raw (&b, name.d, name.n));
-	BFE (bf_buf_raw (&b, name.d, name.n));
-	BFE (bf_buf_raw (&b, sec1.d, sec1.n));
-	BFE (bf_buf_raw (&b, sec2.d, sec2.n));
-	BFE (bf_buf_raw (&b, sec3.d, sec3.n));
+	CHK_ERR (bf_buf_u32 (&b, ctx->be, offset1));
+	CHK_ERR (bf_buf_u32 (&b, ctx->be, offset2));
+	CHK_ERR (bf_buf_u16 (&b, ctx->be, (u16)partnum));
+	CHK_ERR (bf_buf_u16 (&b, ctx->be, (u16)animnum));
+	CHK_ERR (bf_buf_u32 (&b, ctx->be, offset3));
+	CHK_ERR (bf_buf_u32 (&b, ctx->be, offset4));
+	CHK_ERR (bf_buf_raw (&b, name.d, name.n));
+	CHK_ERR (bf_buf_raw (&b, name.d, name.n));
+	CHK_ERR (bf_buf_raw (&b, sec1.d, sec1.n));
+	CHK_ERR (bf_buf_raw (&b, sec2.d, sec2.n));
+	CHK_ERR (bf_buf_raw (&b, sec3.d, sec3.n));
 	bf_val_t *dump = BFNodeGet ((bf_node_t *)node, "dump");
 	if (dump && dump->type == BF_T_BYTES)
-		BFE (bf_buf_raw (&b, dump->u.by.d, dump->u.by.n));
+		CHK_ERR (bf_buf_raw (&b, dump->u.by.d, dump->u.by.n));
 	bf_buf_free (&name);
-	enumError err = bf_buf_sechdr (out, ctx->be, "cnt1", b.n);
+	err = bf_buf_sechdr (out, ctx->be, "cnt1", b.n);
 	if (!err)
 		err = bf_buf_raw (out, b.d, b.n);
+
+cleanup:
+	FREE (offsets);
+	bf_buf_free (&name);
+	bf_buf_free (&names);
+	bf_buf_free (&anbuf);
 	bf_buf_free (&b);
 	bf_buf_free (&sec1);
 	bf_buf_free (&sec2);
 	bf_buf_free (&sec3);
 	return err;
+#undef CHK_ERR
 }
 
 typedef enumError (*pack_func) (bf_pctx_t *ctx, bf_buf_t *out, const bf_val_t *v);

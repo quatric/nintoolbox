@@ -110,7 +110,7 @@ enumError DecodePTLGToPNGDir (const u8 *data, uint size, ccp dest_dir, uint *n_w
 			continue;
 
 		const u32 img_size = sect_size - hdr;
-		if (abs + hdr + img_size > size)
+		if (abs + (u64)hdr + img_size > size)
 			continue;
 
 		const u32 tpl_hdr = sizeof (tpl_header_t);
@@ -228,7 +228,7 @@ enumError ExtractPTLGArchive (ccp arg, ccp basedir, uint depth)
 			continue;
 
 		const u32 img_size = sect_size - hdr;
-		if (abs + hdr + img_size > raw_size)
+		if (abs + (u64)hdr + img_size > raw_size)
 			continue;
 
 		// Wrap the GX pixel data in a minimal single-image TPL.
@@ -236,6 +236,8 @@ enumError ExtractPTLGArchive (ccp arg, ccp basedir, uint depth)
 		const u32 tpl_tab = tpl_hdr + sizeof (tpl_imgtab_t); // 0x14
 		const u32 tpl_data = tpl_tab + sizeof (tpl_img_header_t);
 		u8 *tpl = CALLOC (tpl_data + img_size, 1);
+		if (!tpl)
+			continue;
 
 		write_be32 (tpl, TPL_MAGIC_NUM);
 		write_be32 (tpl + 4, 1);
@@ -270,7 +272,7 @@ enumError ExtractPTLGArchive (ccp arg, ccp basedir, uint depth)
 enumError CreatePTLGArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries, bool is_gc)
 {
-	if (!dest || !dest_size || !entries || !n_entries)
+	if (!dest || !dest_size || !entries || !n_entries || n_entries > 0x10000)
 		return ERR_INVALID_DATA;
 
 	// Calculate section sizes
@@ -280,7 +282,7 @@ enumError CreatePTLGArchive (
 	const u32 th_size = is_gc ? 16 : 32;
 
 	// Pass 1: compute offsets and total size
-	u32 cur_img_off = 0;
+	u64 cur_img_off = 0;
 	for (uint i = 0; i < n_entries; i++)
 	{
 		const nintendo_sarc_entry_t *e = &entries[i];
@@ -309,7 +311,10 @@ enumError CreatePTLGArchive (
 		cur_img_off += sect_size;
 	}
 
-	const u32 total_size = data_base + cur_img_off;
+	const u64 total_size64 = (u64)data_base + cur_img_off;
+	if (total_size64 > UINT_MAX)
+		return ERR_INVALID_DATA;
+	const u32 total_size = (u32)total_size64;
 	u8 *buf = CALLOC (1, total_size);
 	if (!buf)
 		return ERR_OUT_OF_MEMORY;

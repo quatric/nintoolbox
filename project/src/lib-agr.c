@@ -24,27 +24,36 @@ enumError ExtractAGRArchive (ccp arg, ccp basedir, uint depth)
 	// the file must land EXACTLY on EOF, with every chunk actually
 	// starting with the magic. A garbled or unrelated file is extremely
 	// unlikely to satisfy this by chance.
-	size_t off[AGR_MAX_CHUNKS];
+	size_t *off = MALLOC (AGR_MAX_CHUNKS * sizeof (*off));
+	if (!off)
+	{
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+
 	uint n = 0;
 	size_t pos = 0;
 	while (pos + 12 <= raw_size && n < AGR_MAX_CHUNKS)
 	{
 		if (memcmp (raw + pos, "ANIM", 4))
 		{
+			FREE (off);
 			FREE (raw);
 			return ERR_NOTHING_TO_DO;
 		}
 		const u32 chunk_size = rd_be32 (raw + pos + 8);
 		if (!chunk_size || pos + 8 + (u64) chunk_size > raw_size)
 		{
+			FREE (off);
 			FREE (raw);
 			return ERR_NOTHING_TO_DO;
 		}
 		off[n++] = pos;
-		pos += 8 + chunk_size;
+		pos += 8 + (size_t)chunk_size;
 	}
 	if (!n || pos != raw_size)
 	{
+		FREE (off);
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
 	}
@@ -72,6 +81,7 @@ enumError ExtractAGRArchive (ccp arg, ccp basedir, uint depth)
 		}
 	}
 
+	FREE (off);
 	FREE (raw);
 	(void) depth;
 	return err;

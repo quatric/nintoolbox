@@ -60,7 +60,7 @@ enumError ExtractVIBSArchive (ccp arg, ccp basedir, uint depth)
 		memcpy (name, raw + entry_pos, 24);
 		name[24] = 0;
 
-		if (!name[0])
+		if (!name[0] || !OwnedNameOk (name))
 			snprintf (name, sizeof (name), "vibration_%04u.bnvib", i);
 
 		u32 data_len = rd_le32 (raw + entry_pos + 32);
@@ -68,7 +68,7 @@ enumError ExtractVIBSArchive (ccp arg, ccp basedir, uint depth)
 
 		if (data_offset >= raw_size)
 			continue;
-		if (data_offset + data_len > raw_size)
+		if ((u64)data_offset + data_len > raw_size)
 			data_len = (u32)(raw_size - data_offset);
 
 		char out_path[PATH_MAX];
@@ -95,7 +95,7 @@ enumError ExtractVIBSArchive (ccp arg, ccp basedir, uint depth)
 enumError CreateVIBSArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {
-	if (!dest || !dest_size || !entries || !n_entries)
+	if (!dest || !dest_size || !entries || !n_entries || n_entries > 100000)
 		return ERR_INVALID_DATA;
 
 	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
@@ -104,12 +104,27 @@ enumError CreateVIBSArchive (
 	memcpy (sorted, entries, n_entries * sizeof (*sorted));
 	qsort (sorted, n_entries, sizeof (*sorted), compare_archive_entries);
 
+	for (uint i = 0; i < n_entries; i++)
+	{
+		if (!OwnedNameOk (leaf_name (sorted[i].name)))
+		{
+			FREE (sorted);
+			return ERR_INVALID_DATA;
+		}
+	}
+
 	const u32 data_start = align_up (8 + n_entries * 44, 16);
-	u32 total = data_start;
+	u64 total = data_start;
 	for (uint i = 0; i < n_entries; i++)
 		total = align_up (total + sorted[i].size, 16);
 
-	u8 *buf = CALLOC (total, 1);
+	if (total > 0xFFFFFFFFull)
+	{
+		FREE (sorted);
+		return EFBIG;
+	}
+
+	u8 *buf = CALLOC ((size_t)total, 1);
 	if (!buf)
 	{
 		FREE (sorted);
@@ -134,7 +149,7 @@ enumError CreateVIBSArchive (
 
 	FREE (sorted);
 	*dest = buf;
-	*dest_size = total;
+	*dest_size = (uint)total;
 	return ERR_OK;
 }
 

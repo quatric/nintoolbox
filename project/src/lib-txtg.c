@@ -48,6 +48,11 @@ enumError ExtractTXTGArchive (ccp arg, ccp basedir, uint depth)
 	// 0x13: u32 FormatSetting (or padding)
 	// 0x44: u16 Format
 	const u16 header_size = rd_le16 (raw);
+	if (header_size < 0x50 || header_size >= raw_size)
+	{
+		FREE (raw);
+		return ERR_INVALID_DATA;
+	}
 	const u16 width = rd_le16 (raw + 8);
 	const u16 height = rd_le16 (raw + 10);
 	const u16 depth_cnt = rd_le16 (raw + 12);
@@ -73,9 +78,9 @@ enumError ExtractTXTGArchive (ccp arg, ccp basedir, uint depth)
 	// Surface headers follow header_size
 	// First table: total_surfaces * 4 bytes (u16 ArrayLevel, u8 MipLevel, u8 unk)
 	// Second table: total_surfaces * 8 bytes (u32 Size, u32 unk)
-	const uint table1_off = header_size;
-	const uint table2_off = table1_off + total_surfaces * 4;
-	const uint data_start = table2_off + total_surfaces * 8;
+	const u64 table1_off = header_size;
+	const u64 table2_off = table1_off + (u64)total_surfaces * 4;
+	const u64 data_start = table2_off + (u64)total_surfaces * 8;
 
 	if (data_start > raw_size)
 	{
@@ -83,7 +88,7 @@ enumError ExtractTXTGArchive (ccp arg, ccp basedir, uint depth)
 		return ERR_INVALID_DATA;
 	}
 
-	u32 cur_data_off = data_start;
+	u64 cur_data_off = data_start;
 	for (uint i = 0; i < total_surfaces; i++)
 	{
 		const u16 array_lvl = rd_le16 (raw + table1_off + i * 4);
@@ -94,15 +99,15 @@ enumError ExtractTXTGArchive (ccp arg, ccp basedir, uint depth)
 			break;
 
 		const u32 to_write
-			= (u64)cur_data_off + surf_sz <= raw_size ? surf_sz : (u32)(raw_size - cur_data_off);
+			= cur_data_off + surf_sz <= raw_size ? surf_sz : (u32)(raw_size - cur_data_off);
 
 		char out_path[PATH_MAX];
 		snprintf (out_path, sizeof (out_path), "%s/surface_a%u_m%u.bin", dest, array_lvl, mip_lvl);
 
 		if (!testmode && to_write > 0)
-			SaveFile (out_path, 0, 0, raw + cur_data_off, to_write, 0);
+			SaveFile (out_path, 0, 0, raw + (size_t)cur_data_off, to_write, 0);
 
-		cur_data_off = (cur_data_off + surf_sz + 15) & ~15;
+		cur_data_off = (cur_data_off + surf_sz + 15) & ~(u64)15;
 	}
 
 	FREE (raw);

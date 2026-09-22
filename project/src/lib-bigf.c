@@ -18,13 +18,23 @@ enumError create_bigf_dir (ccp source, ccp dest)
 	if (!err && !list.used)
 		err = ERR_NOTHING_TO_DO;
 
-	uint table_size = 0;
+	u64 table_size = 0;
 	for (uint i = 0; !err && i < list.used; i++)
+	{
+		if (!list.entry[i].name || !OwnedNameOk (list.entry[i].name))
+		{
+			err = ERR_INVALID_DATA;
+			break;
+		}
 		table_size += 8 + strlen (list.entry[i].name) + 1;
+	}
 	// Retail terminates the variable-length table with a four-byte "L234"
 	// marker and pads with zeros up to the (4-byte aligned) data offset.
 	const uint header_size = 16;
-	const uint data_off = (header_size + table_size + 4 + 3) & ~3u;
+	const u64 data_off64 = (header_size + table_size + 4 + 3) & ~(u64)3;
+	if (data_off64 > UINT_MAX)
+		err = ERR_FILE_TOO_BIG;
+	const u32 data_off = (u32)data_off64;
 
 	u64 total_size = data_off;
 	for (uint i = 0; !err && i < list.used; i++)

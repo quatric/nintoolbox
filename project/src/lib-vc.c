@@ -156,9 +156,19 @@ enumError CreateCCF (u8 **dest, uint *dest_size, const struct nintendo_sarc_entr
 	if (!payloads)
 		return ERR_CANT_CREATE;
 
-	u32 current_offset = data_start;
+	u64 current_offset64 = data_start;
 	for (uint i = 0; i < n_entries; i++)
 	{
+		ccp name = entries[i].name ? leaf_name (entries[i].name) : "";
+		if (!OwnedNameOk (name))
+		{
+			for (uint k = 0; k < i; k++)
+				if (payloads[k].is_alloced)
+					FREE (payloads[k].data);
+			FREE (payloads);
+			return EINVAL;
+		}
+
 		payloads[i].decomp_size = entries[i].size;
 		payloads[i].stored_size = entries[i].size;
 		payloads[i].data = (u8 *)entries[i].data;
@@ -183,8 +193,18 @@ enumError CreateCCF (u8 **dest, uint *dest_size, const struct nintendo_sarc_entr
 				}
 			}
 		}
-		current_offset = (current_offset + payloads[i].stored_size + mult - 1) & ~(mult - 1);
+		current_offset64 = (current_offset64 + payloads[i].stored_size + mult - 1) & ~(u64)(mult - 1);
 	}
+
+	if (current_offset64 > UINT_MAX)
+	{
+		for (uint i = 0; i < n_entries; i++)
+			if (payloads[i].is_alloced)
+				FREE (payloads[i].data);
+		FREE (payloads);
+		return EFBIG;
+	}
+	const u32 current_offset = (u32)current_offset64;
 
 	u8 *out = CALLOC (1, current_offset);
 	if (!out)

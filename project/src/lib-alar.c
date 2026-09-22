@@ -22,7 +22,7 @@ enumError DecodeALAR (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 			| ((uint)src[16 + 7] << 24);
 		const uint sz0 = (uint)src[16 + 8] | ((uint)src[16 + 9] << 8) | ((uint)src[16 + 10] << 16)
 			| ((uint)src[16 + 11] << 24);
-		if (ofs0 + sz0 <= src_size && sz0 > 0)
+		if ((u64)ofs0 + sz0 <= src_size && sz0 > 0)
 		{
 			u8 *out = MALLOC (sz0);
 			if (!out)
@@ -37,13 +37,13 @@ enumError DecodeALAR (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 	{
 		const uint num_files
 			= (uint)src[6] | ((uint)src[7] << 8) | ((uint)src[8] << 16) | ((uint)src[9] << 24);
-		if (!num_files || src_size < 32)
+		if (!num_files || src_size < 32 || (u64)16 + (u64)num_files * 16 > src_size)
 			return EINVAL;
 		const uint ofs0 = (uint)src[16 + 4] | ((uint)src[16 + 5] << 8) | ((uint)src[16 + 6] << 16)
 			| ((uint)src[16 + 7] << 24);
 		const uint sz0 = (uint)src[16 + 8] | ((uint)src[16 + 9] << 8) | ((uint)src[16 + 10] << 16)
 			| ((uint)src[16 + 11] << 24);
-		if (ofs0 + sz0 <= src_size && sz0 > 0)
+		if ((u64)ofs0 + sz0 <= src_size && sz0 > 0)
 		{
 			u8 *out = MALLOC (sz0);
 			if (!out)

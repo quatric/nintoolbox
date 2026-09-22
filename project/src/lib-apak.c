@@ -70,12 +70,12 @@ enumError ExtractAPAKArchive (ccp arg, ccp basedir, uint depth)
 		memcpy (name, raw + entry_pos + 32, 32);
 		name[32] = 0;
 
-		if (!name[0])
+		if (!name[0] || !OwnedNameOk (name))
 			snprintf (name, sizeof (name), "file_%04u.bin", i);
 
 		if (data_offset >= raw_size)
 			continue;
-		if (data_offset + file_size > raw_size)
+		if ((u64)data_offset + file_size > raw_size)
 			file_size = (u32)(raw_size - data_offset);
 
 		char out_path[PATH_MAX];
@@ -102,7 +102,7 @@ enumError ExtractAPAKArchive (ccp arg, ccp basedir, uint depth)
 enumError CreateAPAKArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {
-	if (!dest || !dest_size || !entries || !n_entries)
+	if (!dest || !dest_size || !entries || !n_entries || n_entries > 100000)
 		return ERR_INVALID_DATA;
 
 	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
@@ -111,12 +111,28 @@ enumError CreateAPAKArchive (
 	memcpy (sorted, entries, n_entries * sizeof (*sorted));
 	qsort (sorted, n_entries, sizeof (*sorted), compare_archive_entries);
 
+	for (uint i = 0; i < n_entries; i++)
+	{
+		ccp name = leaf_name (sorted[i].name);
+		if (!OwnedNameOk (name))
+		{
+			FREE (sorted);
+			return ERR_INVALID_DATA;
+		}
+	}
+
 	const u32 file_info_size = n_entries * 64;
 	const u32 data_start = align_up (24 + file_info_size, 32);
 
-	u32 total = data_start;
+	u64 total64 = data_start;
 	for (uint i = 0; i < n_entries; i++)
-		total = align_up (total + sorted[i].size, 32);
+		total64 = (total64 + sorted[i].size + 31) & ~(u64)31;
+	if (total64 > UINT_MAX)
+	{
+		FREE (sorted);
+		return ERR_INVALID_DATA;
+	}
+	const u32 total = (u32)total64;
 
 	u8 *buf = CALLOC (total, 1);
 	if (!buf)

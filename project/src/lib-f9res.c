@@ -69,16 +69,19 @@ enumError ExtractF9ResArchive (ccp arg, ccp basedir, uint depth)
 			if (tag[c] < 32 || tag[c] > 126)
 				tag[c] = '_';
 
-		const u32 off = rd_be32 (raw + coff + 4) + header_offset;
+		const u64 off64 = (u64)rd_be32 (raw + coff + 4) + header_offset;
+		if (off64 >= raw_size)
+			continue;
+		const u32 off = (u32)off64;
 		u32 sz = rd_be32 (raw + coff + 8);
 
-		if (off + sz > raw_size)
-			sz = raw_size > off ? (uint)(raw_size - off) : 0;
+		if (off64 + sz > raw_size)
+			sz = (u32)(raw_size - off64);
 
 		char out_path[PATH_MAX];
 		snprintf (out_path, sizeof (out_path), "%s/%s_%04u.bin", dest, tag, i);
 
-		if (!testmode && sz > 0 && off < raw_size)
+		if (!testmode && sz > 0)
 			SaveFile (out_path, 0, 0, raw + off, sz, 0);
 	}
 
@@ -91,7 +94,7 @@ enumError ExtractF9ResArchive (ccp arg, ccp basedir, uint depth)
 enumError CreateF9ResArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {
-	if (!dest || !dest_size || !entries || !n_entries)
+	if (!dest || !dest_size || !entries || !n_entries || n_entries > 100000)
 		return ERR_INVALID_DATA;
 
 	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
@@ -105,11 +108,17 @@ enumError CreateF9ResArchive (
 	const u32 chunks_table_sz = 8 + n_entries * 20;
 	u32 data_start = (chunks_offset + chunks_table_sz + 15) & ~15;
 
-	u32 cur_data_off = data_start;
+	u64 cur_data_off = data_start;
 	for (uint i = 0; i < n_entries; i++)
-		cur_data_off = (cur_data_off + sorted[i].size + 15) & ~15;
+		cur_data_off = (cur_data_off + sorted[i].size + 15) & ~15ull;
 
-	u8 *buf = CALLOC (cur_data_off, 1);
+	if (cur_data_off > 0xFFFFFFFFull)
+	{
+		FREE (sorted);
+		return EFBIG;
+	}
+
+	u8 *buf = CALLOC ((size_t)cur_data_off, 1);
 	if (!buf)
 	{
 		FREE (sorted);

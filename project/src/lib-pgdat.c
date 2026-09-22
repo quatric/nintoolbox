@@ -79,11 +79,13 @@ enumError ExtractPGDATArchive (ccp arg, ccp basedir, uint depth)
 			size_t slen = strnlen (s, max_len);
 			memcpy (name, s, slen);
 			name[slen] = 0;
+			if (!OwnedNameOk (name))
+				snprintf (name, sizeof (name), "file_%04u.bin", i);
 		}
 		else
 		{
 			char ext[8] = "bin";
-			if (offset_file_ext_tbl > 0 && offset_file_ext_tbl + (i + 1) * 4 <= raw_size)
+			if (offset_file_ext_tbl > 0 && (u64)offset_file_ext_tbl + (u64)(i + 1) * 4 <= raw_size)
 			{
 				const char *e = (const char *)(raw + offset_file_ext_tbl + i * 4);
 				uint elen = 0;
@@ -93,6 +95,8 @@ enumError ExtractPGDATArchive (ccp arg, ccp basedir, uint depth)
 				{
 					memcpy (ext, e, elen);
 					ext[elen] = 0;
+					if (!OwnedNameOk (ext))
+						snprintf (ext, sizeof (ext), "bin");
 				}
 			}
 			snprintf (name, sizeof (name), "file_%04u.%s", i, ext);

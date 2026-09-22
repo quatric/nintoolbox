@@ -70,6 +70,13 @@ enumError ScanSmashPac (nintendo_sarc_entry_t **entries, uint *n_entries,
 		const u32 doff = smashpac_rd32 (data + 16 + (size_t)n * 4 + (size_t)i * 4, be);
 		const u32 sz = smashpac_rd32 (data + 16 + (size_t)n * 8 + (size_t)i * 4, be);
 		res[i].name = STRDUP ((const char *)(data + soff));
+		if (!res[i].name)
+		{
+			for (u32 j = 0; j < i; j++)
+				FREE ((void *)res[j].name);
+			FREE (res);
+			return ERR_CANT_CREATE;
+		}
 		res[i].data = data + doff;
 		res[i].size = sz;
 	}
@@ -81,12 +88,16 @@ enumError ScanSmashPac (nintendo_sarc_entry_t **entries, uint *n_entries,
 enumError CreateSmashPac (u8 **out, uint *out_size,
 	const nintendo_sarc_entry_t *entries, uint n_entries, bool big_endian)
 {
-	if (!out || !out_size || !entries || !n_entries)
+	if (!out || !out_size || !entries || !n_entries || n_entries > 100000)
 		return EINVAL;
 
 	size_t names_len = 0;
 	for (uint i = 0; i < n_entries; i++)
-		names_len += strlen (entries[i].name ? entries[i].name : "") + 1;
+	{
+		if (!entries[i].name || !OwnedNameOk (entries[i].name))
+			return EINVAL;
+		names_len += strlen (entries[i].name) + 1;
+	}
 
 	size_t hdr = 16 + (size_t)n_entries * 12;
 	size_t total = hdr + names_len;
@@ -95,6 +106,8 @@ enumError CreateSmashPac (u8 **out, uint *out_size,
 		total = (total + 15) & ~(size_t)15;
 		total += entries[i].size;
 	}
+	if (total > UINT_MAX)
+		return EINVAL;
 
 	u8 *buf = CALLOC (1, total ? total : 1);
 	if (!buf)
@@ -197,9 +210,13 @@ enumError ExtractSmashPacArchive (ccp arg, ccp basedir, uint depth)
 		}
 		for (uint i = 0; i < n_list; i++)
 		{
-			ccp name = list[i].name && *list[i].name ? list[i].name : "member.bin";
-			while (*name == '/')
-				name++;
+			char fallback[64];
+			ccp name = list[i].name;
+			if (!name || !OwnedNameOk (name))
+			{
+				snprintf (fallback, sizeof (fallback), "member_%04u.bin", i);
+				name = fallback;
+			}
 			char out_path[PATH_MAX];
 			snprintf (out_path, sizeof (out_path), "%s/%s", dest, name);
 			if (list[i].size)

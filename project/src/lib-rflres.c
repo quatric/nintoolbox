@@ -170,6 +170,12 @@ enumError ScanMiiRes (nintendo_sarc_entry_t **entries, uint *n_entries, const u8
 			snprintf (name_buf, sizeof (name_buf), "%s/%03u.bin", cat_name, j);
 
 			res[out_idx].name = STRDUP (name_buf);
+			if (!res[out_idx].name)
+			{
+				FREE (file_buf);
+				ResetOwnedEntries (res, out_idx);
+				return ERR_CANT_CREATE;
+			}
 			res[out_idx].data = file_buf;
 			res[out_idx].size = file_sz;
 			out_idx++;
@@ -286,20 +292,45 @@ enumError CreateMiiRes (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t 
 		mii_cat_t *c = cats + cat_idx;
 		if (c->count >= c->alloc)
 		{
-			c->alloc = c->alloc ? c->alloc * 2 : 16;
-			c->files = REALLOC (c->files, c->alloc * sizeof (*c->files));
+			uint new_alloc = c->alloc ? c->alloc * 2 : 16;
+			const nintendo_sarc_entry_t **new_files
+				= REALLOC (c->files, new_alloc * sizeof (*new_files));
+			if (!new_files)
+			{
+				for (uint k = 0; k < max_cat; k++)
+					FREE (cats[k].files);
+				FREE (cats);
+				return ERR_CANT_CREATE;
+			}
+			c->alloc = new_alloc;
+			c->files = new_files;
 		}
 		c->files[c->count++] = entries + i;
 	}
 
 	const uint hdr_size = 4 + max_cat * 4;
 	u32 *arc_offsets = CALLOC (max_cat, sizeof (u32));
+	if (!arc_offsets)
+	{
+		for (uint i = 0; i < max_cat; i++)
+			FREE (cats[i].files);
+		FREE (cats);
+		return ERR_CANT_CREATE;
+	}
 
 	u64 cur_offset = hdr_size;
 	for (uint i = 0; i < max_cat; i++)
 	{
 		arc_offsets[i] = (u32)cur_offset;
 		const uint num = cats[i].count;
+		if (num > 0xFFFF)
+		{
+			for (uint k = 0; k < max_cat; k++)
+				FREE (cats[k].files);
+			FREE (cats);
+			FREE (arc_offsets);
+			return EFBIG;
+		}
 		cur_offset += 4 + (num + 1) * 4;
 		for (uint j = 0; j < num; j++)
 			cur_offset += cats[i].files[j]->size;

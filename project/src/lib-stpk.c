@@ -57,18 +57,25 @@ enumError ExtractSTPKArchive (ccp arg, ccp basedir, uint depth)
 		const u32 off = rd_be32 (raw + eoff);
 		u32 sz = rd_be32 (raw + eoff + 4);
 
-		char name[33] = "";
-		StringCopyS (name, sizeof (name), (ccp)(raw + eoff + 0x10));
-		if (!name[0])
-			snprintf (name, sizeof (name), "res_%04u.bin", i);
+		char slot[33] = { 0 };
+		memcpy (slot, raw + eoff + 0x10, 32);
+		slot[32] = 0;
 
-		if (off + sz > raw_size)
-			sz = raw_size > off ? (uint)(raw_size - off) : 0;
+		char name[64];
+		if (!slot[0] || !OwnedNameOk (slot))
+			snprintf (name, sizeof (name), "res_%04u.bin", i);
+		else
+			snprintf (name, sizeof (name), "%s", slot);
+
+		if (off >= raw_size)
+			continue;
+		if ((u64)off + sz > raw_size)
+			sz = (u32)(raw_size - off);
 
 		char out_path[PATH_MAX];
 		snprintf (out_path, sizeof (out_path), "%s/%s", dest, name);
 
-		if (!testmode && sz > 0 && off < raw_size)
+		if (!testmode && sz > 0)
 			SaveFile (out_path, 0, 0, raw + off, sz, 0);
 	}
 
@@ -81,7 +88,7 @@ enumError ExtractSTPKArchive (ccp arg, ccp basedir, uint depth)
 enumError CreateSTPKArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {
-	if (!dest || !dest_size || !entries || !n_entries)
+	if (!dest || !dest_size || !entries || !n_entries || n_entries > 100000)
 		return ERR_INVALID_DATA;
 
 	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
@@ -90,15 +97,34 @@ enumError CreateSTPKArchive (
 	memcpy (sorted, entries, n_entries * sizeof (*sorted));
 	qsort (sorted, n_entries, sizeof (*sorted), compare_archive_entries);
 
+	for (uint i = 0; i < n_entries; i++)
+	{
+		ccp name = sorted[i].name ? sorted[i].name : "";
+		ccp slash = strrchr (name, '/');
+		if (slash)
+			name = slash + 1;
+		if (!OwnedNameOk (name))
+		{
+			FREE (sorted);
+			return ERR_INVALID_DATA;
+		}
+	}
+
 	const u32 header_sz = 0x10;
 	const u32 table_sz = n_entries * 0x30;
 	u32 data_start = (header_sz + table_sz + 15) & ~15;
 
-	u32 cur_data_off = data_start;
+	u64 cur_data_off = data_start;
 	for (uint i = 0; i < n_entries; i++)
-		cur_data_off = (cur_data_off + sorted[i].size + 15) & ~15;
+		cur_data_off = (cur_data_off + sorted[i].size + 15) & ~15ull;
 
-	u8 *buf = CALLOC (cur_data_off, 1);
+	if (cur_data_off > 0xFFFFFFFFull)
+	{
+		FREE (sorted);
+		return EFBIG;
+	}
+
+	u8 *buf = CALLOC ((size_t)cur_data_off, 1);
 	if (!buf)
 	{
 		FREE (sorted);
@@ -131,7 +157,7 @@ enumError CreateSTPKArchive (
 
 	FREE (sorted);
 	*dest = buf;
-	*dest_size = cur_data_off;
+	*dest_size = (uint)cur_data_off;
 	return ERR_OK;
 }
 

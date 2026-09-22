@@ -895,8 +895,8 @@ static const DEFLATE_TABLE_ENTRY sDeflateOffsetTable[] = { { 0, 0x0000 }, { 0, 0
 
 // ----- Huffman tree construction
 
-void CxiHuffmanInsertNode (DEFLATE_WORK_BUFFER *auxBuffer, DEFLATE_TREE_NODE *root,
-	DEFLATE_TREE_NODE *node2, unsigned int depth)
+static int CxiHuffmanInsertNode (DEFLATE_WORK_BUFFER *auxBuffer, DEFLATE_TREE_NODE *nodeEnd,
+	DEFLATE_TREE_NODE *root, DEFLATE_TREE_NODE *node2, unsigned int depth)
 {
 	// 0 for left, 1 for right
 	int pathbit = (node2->path >> depth) & 1;
@@ -905,14 +905,10 @@ void CxiHuffmanInsertNode (DEFLATE_WORK_BUFFER *auxBuffer, DEFLATE_TREE_NODE *ro
 	if (depth == 0)
 	{
 		if (pathbit)
-		{
 			root->right = node2;
-		}
 		else
-		{
 			root->left = node2;
-		}
-		return;
+		return 1;
 	}
 
 	if (pathbit)
@@ -920,22 +916,26 @@ void CxiHuffmanInsertNode (DEFLATE_WORK_BUFFER *auxBuffer, DEFLATE_TREE_NODE *ro
 		// create a right node if it doesn't exist
 		if (root->right == NULL)
 		{
+			if (auxBuffer->nextAvailable >= nodeEnd)
+				return 0;
 			DEFLATE_TREE_NODE *available = auxBuffer->nextAvailable;
 			auxBuffer->nextAvailable++;
 			root->right = available;
 		}
-		CxiHuffmanInsertNode (auxBuffer, root->right, node2, depth - 1);
+		return CxiHuffmanInsertNode (auxBuffer, nodeEnd, root->right, node2, depth - 1);
 	}
 	else
 	{
 		// create a left node if it doesn't exist
 		if (root->left == NULL)
 		{
+			if (auxBuffer->nextAvailable >= nodeEnd)
+				return 0;
 			DEFLATE_TREE_NODE *available = auxBuffer->nextAvailable;
 			auxBuffer->nextAvailable++;
 			root->left = available;
 		}
-		CxiHuffmanInsertNode (auxBuffer, root->left, node2, depth - 1);
+		return CxiHuffmanInsertNode (auxBuffer, nodeEnd, root->left, node2, depth - 1);
 	}
 }
 
@@ -946,8 +946,10 @@ DEFLATE_TREE_NODE *CxiHuffmanReadTree (DEFLATE_WORK_BUFFER *auxBuffer, CxiBitRea
 	int paths[32];
 	int depthCounts[32];
 
-	// clear buffers
-	memset (nodeBuffer, 0, nNodes * 2 * sizeof (DEFLATE_TREE_NODE));
+	DEFLATE_TREE_NODE *nodeEnd = nodeBuffer + 855;
+
+	// clear entire node buffer to prevent stale pointers across chunks
+	memset (nodeBuffer, 0, 855 * sizeof (DEFLATE_TREE_NODE));
 	memset (depthCounts, 0, sizeof (depthCounts));
 	memset (paths, 0, sizeof (paths));
 
@@ -1023,7 +1025,8 @@ DEFLATE_TREE_NODE *CxiHuffmanReadTree (DEFLATE_WORK_BUFFER *auxBuffer, CxiBitRea
 			node->path = paths[node->depth];
 			node->value = i;
 			paths[node->depth]++;
-			CxiHuffmanInsertNode (auxBuffer, root, node, node->depth - 1);
+			if (!CxiHuffmanInsertNode (auxBuffer, nodeEnd, root, node, node->depth - 1))
+				return NULL;
 		}
 	}
 	return root;
@@ -1128,21 +1131,27 @@ unsigned char *CxiDecompressDeflateChunk (DEFLATE_WORK_BUFFER *auxBuffer, unsign
 			else
 			{
 				// LZ part Huffman
+				if (huffVal >= 0x100 + 29)
+					return NULL;
 
 				// read out length
 				uint32_t nLengthMinorBits = sDeflateLengthTable[huffVal - 0x100].nMinorBits;
 				uint32_t lzLen1 = sDeflateLengthTable[huffVal - 0x100].majorPart;
 				uint32_t lzLen2 = CxiBitReaderReadBits (&reader, nLengthMinorBits);
+				if (reader.error)
+					return NULL;
 				uint32_t lzLen = lzLen1 + lzLen2 + 3;
 
 				// read out offset
 				uint32_t nodeVal2 = CxiLookupTreeNode (huffDistancesRoot, &reader);
-				if (nodeVal2 == (uint32_t)-1)
+				if (nodeVal2 == (uint32_t)-1 || nodeVal2 >= 30)
 					return NULL;
 
 				uint32_t nOffsetMinorBits = sDeflateOffsetTable[nodeVal2].nMinorBits;
 				uint32_t lzOffset1 = sDeflateOffsetTable[nodeVal2].majorPart;
 				uint32_t lzOffset2 = CxiBitReaderReadBits (&reader, nOffsetMinorBits);
+				if (reader.error)
+					return NULL;
 				uint32_t lzOffset = lzOffset1 + lzOffset2 + 1;
 
 				size_t curoffs = dest - destBase;
@@ -1169,24 +1178,35 @@ unsigned char *CxiDecompressDeflateChunk (DEFLATE_WORK_BUFFER *auxBuffer, unsign
 	return dest;
 }
 
-void CxDecompressDeflate (
+int CxDecompressDeflate (
 	const unsigned char *filebuf, unsigned char *dest, void *auxBuffer, unsigned int size)
 {
+	if (!filebuf || !dest || !auxBuffer || size < 4)
+		return 0;
+
 	const unsigned char *pos = filebuf + 4;
 	unsigned char *destBase = dest;
 	unsigned char *end = dest + ((*(uint32_t *)filebuf) >> 2);
 
 	while (dest < end)
 	{
-		dest = CxiDecompressDeflateChunk (
+		unsigned char *next = CxiDecompressDeflateChunk (
 			(DEFLATE_WORK_BUFFER *)auxBuffer, destBase, &pos, dest, end, filebuf + size, 1);
+		if (!next || next <= dest)
+			return 0;
+		dest = next;
 	}
+	return 1;
 }
 static int CxiMvdkIsValidLZ (const unsigned char *buffer, unsigned int size)
 {
+	if (size < 4)
+		return 0;
 	// same format as standard LZ, with different header
 	uint32_t uncompSize = (*(uint32_t *)buffer) >> 2;
 	unsigned char *copy = (unsigned char *)malloc (size);
+	if (!copy)
+		return 0;
 	memcpy (copy, buffer, size);
 	*(uint32_t *)copy = 0x10 | (uncompSize << 8);
 	int valid = CxIsCompressedLZ (copy, size);
@@ -1196,9 +1216,13 @@ static int CxiMvdkIsValidLZ (const unsigned char *buffer, unsigned int size)
 
 static int CxiMvdkIsValidRL (const unsigned char *buffer, unsigned int size)
 {
+	if (size < 4)
+		return 0;
 	// same format as standard LZ, with different header
 	uint32_t uncompSize = (*(uint32_t *)buffer) >> 2;
 	unsigned char *copy = (unsigned char *)malloc (size);
+	if (!copy)
+		return 0;
 	memcpy (copy, buffer, size);
 	*(uint32_t *)copy = 0x30 | (uncompSize << 8);
 	int valid = CxIsCompressedRL (copy, size);
@@ -1320,37 +1344,61 @@ fail:
 unsigned char *CxDecompressRL (
 	const unsigned char *buffer, unsigned int size, unsigned int *uncompressedSize)
 {
+	if (!buffer || size < 4 || !uncompressedSize)
+	{
+		if (uncompressedSize)
+			*uncompressedSize = 0;
+		return NULL;
+	}
 	unsigned int uncompSize = (*(uint32_t *)buffer) >> 8;
+	if (!uncompSize)
+	{
+		*uncompressedSize = 0;
+		return NULL;
+	}
 	unsigned char *out = (unsigned char *)calloc (uncompSize, 1);
+	if (!out)
+	{
+		*uncompressedSize = 0;
+		return NULL;
+	}
 	*uncompressedSize = uncompSize;
 
 	unsigned int dstOfs = 0;
 	unsigned int srcOfs = 4;
 	while (dstOfs < uncompSize)
 	{
+		if (srcOfs >= size)
+			goto fail;
 		unsigned char head = buffer[srcOfs++];
 
 		int compressed = head >> 7;
 		if (compressed)
 		{
-			int chunkLen = (head & 0x7F) + 3;
+			unsigned int chunkLen = (head & 0x7F) + 3;
+			if (srcOfs >= size || dstOfs + chunkLen > uncompSize)
+				goto fail;
 			unsigned char b = buffer[srcOfs++];
-			for (int i = 0; i < chunkLen; i++)
-			{
-				out[dstOfs++] = b;
-			}
+			memset (out + dstOfs, b, chunkLen);
+			dstOfs += chunkLen;
 		}
 		else
 		{
-			int chunkLen = (head & 0x7F) + 1;
-			for (int i = 0; i < chunkLen; i++)
-			{
-				out[dstOfs++] = buffer[srcOfs++];
-			}
+			unsigned int chunkLen = (head & 0x7F) + 1;
+			if (srcOfs + chunkLen > size || dstOfs + chunkLen > uncompSize)
+				goto fail;
+			memcpy (out + dstOfs, buffer + srcOfs, chunkLen);
+			dstOfs += chunkLen;
+			srcOfs += chunkLen;
 		}
 	}
 
 	return out;
+
+fail:
+	free (out);
+	*uncompressedSize = 0;
+	return NULL;
 }
 
 static int CxiMvdkGetCompressionType (const unsigned char *buffer, unsigned int size)
@@ -1389,20 +1437,46 @@ int CxIsCompressedMvDK (const unsigned char *buffer, unsigned int size)
 static unsigned char *CxiMvdkDecompressDummy (
 	const unsigned char *buffer, unsigned int size, unsigned int *uncompressedSize)
 {
+	if (size < 4)
+	{
+		*uncompressedSize = 0;
+		return NULL;
+	}
 	uint32_t outlen = (*(uint32_t *)buffer) >> 2;
-	unsigned char *out = (unsigned char *)malloc (outlen);
+	if (outlen > size - 4)
+	{
+		*uncompressedSize = 0;
+		return NULL;
+	}
+	unsigned char *out = (unsigned char *)malloc (outlen ? outlen : 1);
+	if (!out)
+	{
+		*uncompressedSize = 0;
+		return NULL;
+	}
 	*uncompressedSize = outlen;
 
-	memcpy (out, buffer + 4, outlen);
+	if (outlen)
+		memcpy (out, buffer + 4, outlen);
 	return out;
 }
 
 static unsigned char *CxiMvdkDecompressLZ (
 	const unsigned char *buffer, unsigned int size, unsigned int *uncompressedSize)
 {
+	if (size < 4)
+	{
+		*uncompressedSize = 0;
+		return NULL;
+	}
 	uint32_t outlen = (*(uint32_t *)buffer) >> 2;
 
 	unsigned char *copy = (unsigned char *)malloc (size);
+	if (!copy)
+	{
+		*uncompressedSize = 0;
+		return NULL;
+	}
 	memcpy (copy, buffer, size);
 	*(uint32_t *)copy = 0x10 | (outlen << 8);
 	unsigned char *out = CxDecompressLZ (copy, size, uncompressedSize);
@@ -1414,9 +1488,19 @@ static unsigned char *CxiMvdkDecompressLZ (
 static unsigned char *CxiMvdkDecompressRL (
 	const unsigned char *buffer, unsigned int size, unsigned int *uncompressedSize)
 {
+	if (size < 4)
+	{
+		*uncompressedSize = 0;
+		return NULL;
+	}
 	uint32_t outlen = (*(uint32_t *)buffer) >> 2;
 
 	unsigned char *copy = (unsigned char *)malloc (size);
+	if (!copy)
+	{
+		*uncompressedSize = 0;
+		return NULL;
+	}
 	memcpy (copy, buffer, size);
 	*(uint32_t *)copy = 0x30 | (outlen << 8);
 	unsigned char *out = CxDecompressRL (copy, size, uncompressedSize);
@@ -1428,12 +1512,34 @@ static unsigned char *CxiMvdkDecompressRL (
 static unsigned char *CxiMvdkDecompressDeflate (
 	const unsigned char *buffer, unsigned int size, unsigned int *uncompressedSize)
 {
+	if (size < 4)
+	{
+		*uncompressedSize = 0;
+		return NULL;
+	}
 	uint32_t outlen = (*(uint32_t *)buffer) >> 2;
 	*uncompressedSize = outlen;
-	unsigned char *dest = malloc (outlen);
+	unsigned char *dest = malloc (outlen ? outlen : 1);
+	if (!dest)
+	{
+		*uncompressedSize = 0;
+		return NULL;
+	}
 
 	void *aux = calloc (1, sizeof (DEFLATE_WORK_BUFFER));
-	CxDecompressDeflate (buffer, dest, aux, size);
+	if (!aux)
+	{
+		free (dest);
+		*uncompressedSize = 0;
+		return NULL;
+	}
+	if (!CxDecompressDeflate (buffer, dest, aux, size))
+	{
+		free (dest);
+		free (aux);
+		*uncompressedSize = 0;
+		return NULL;
+	}
 	free (aux);
 	return dest;
 }
@@ -1441,6 +1547,12 @@ static unsigned char *CxiMvdkDecompressDeflate (
 unsigned char *CxDecompressMvDK (
 	const unsigned char *buffer, unsigned int size, unsigned int *uncompressedSize)
 {
+	if (!buffer || size < 4 || !uncompressedSize)
+	{
+		if (uncompressedSize)
+			*uncompressedSize = 0;
+		return NULL;
+	}
 	int type = (*(uint32_t *)buffer) & 3;
 	switch (type)
 	{

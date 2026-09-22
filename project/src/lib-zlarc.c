@@ -67,12 +67,12 @@ enumError ExtractZLARCArchive (ccp arg, ccp basedir, uint depth)
 	for (uint i = 0; i < count; i++)
 	{
 		const u32 desc_off = rd_be32 (raw + 4 + i * 4);
-		if (desc_off + 12 > raw_size)
+		if ((u64)desc_off + 12 > raw_size)
 			continue;
 		const u32 name_len = rd_be32 (raw + desc_off + 8);
-		const u32 meta_end = desc_off + 12 + name_len;
-		if (meta_end > data_start)
-			data_start = meta_end;
+		const u64 meta_end = (u64)desc_off + 12 + name_len;
+		if (meta_end <= raw_size && meta_end > data_start)
+			data_start = (u32)meta_end;
 	}
 
 	if (data_start >= raw_size)
@@ -92,7 +92,7 @@ enumError ExtractZLARCArchive (ccp arg, ccp basedir, uint depth)
 	for (uint i = 0; i < count; i++)
 	{
 		const u32 desc_off = rd_be32 (raw + 4 + i * 4);
-		if (desc_off + 12 > raw_size)
+		if ((u64)desc_off + 12 > raw_size)
 			continue;
 
 		const u32 data_off = rd_be32 (raw + desc_off);
@@ -100,22 +100,27 @@ enumError ExtractZLARCArchive (ccp arg, ccp basedir, uint depth)
 		const u32 name_len = rd_be32 (raw + desc_off + 8);
 
 		char name[PATH_MAX];
-		if (desc_off + 12 + name_len <= raw_size && name_len > 0)
+		if ((u64)desc_off + 12 + name_len <= raw_size && name_len > 0)
 		{
 			uint cpy = name_len < sizeof (name) - 1 ? name_len : (uint)sizeof (name) - 1;
 			memcpy (name, raw + desc_off + 12, cpy);
 			name[cpy] = 0;
 			while (cpy > 0 && name[cpy - 1] == 0)
 				name[--cpy] = 0;
+			if (!name[0] || !OwnedNameOk (name))
+				snprintf (name, sizeof (name), "file_%04u.bin", i);
 		}
 		else
 		{
 			snprintf (name, sizeof (name), "file_%04u.bin", i);
 		}
 
-		const u32 file_off = data_start + data_off;
-		if (file_off + data_sz > raw_size)
-			data_sz = raw_size > file_off ? (uint)(raw_size - file_off) : 0;
+		const u64 file_off64 = (u64)data_start + data_off;
+		if (file_off64 >= raw_size)
+			continue;
+		const u32 file_off = (u32)file_off64;
+		if (file_off64 + data_sz > raw_size)
+			data_sz = (u32)(raw_size - file_off64);
 
 		char out_path[PATH_MAX];
 		snprintf (out_path, sizeof (out_path), "%s/%s", dest, name);
@@ -128,7 +133,7 @@ enumError ExtractZLARCArchive (ccp arg, ccp basedir, uint depth)
 			*slash = '/';
 		}
 
-		if (!testmode && data_sz > 0 && file_off < raw_size)
+		if (!testmode && data_sz > 0)
 			SaveFile (out_path, 0, 0, raw + file_off, data_sz, 0);
 	}
 
@@ -140,7 +145,7 @@ enumError ExtractZLARCArchive (ccp arg, ccp basedir, uint depth)
 enumError CreateZLARCArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {
-	if (!dest || !dest_size || !entries || !n_entries)
+	if (!dest || !dest_size || !entries || !n_entries || n_entries > 100000)
 		return ERR_INVALID_DATA;
 
 	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
@@ -150,23 +155,34 @@ enumError CreateZLARCArchive (
 	qsort (sorted, n_entries, sizeof (*sorted), compare_archive_entries);
 
 	const u32 header_sz = 4 + n_entries * 4;
-	u32 descriptors_sz = 0;
+	u64 descriptors_sz = 0;
 	for (uint i = 0; i < n_entries; i++)
 	{
 		ccp name = sorted[i].name ? sorted[i].name : "";
 		ccp slash = strrchr (name, '/');
 		if (slash)
 			name = slash + 1;
+		if (!OwnedNameOk (name))
+		{
+			FREE (sorted);
+			return ERR_INVALID_DATA;
+		}
 		descriptors_sz += 12 + strlen (name) + 1;
 	}
 
-	const u32 data_start = header_sz + descriptors_sz;
-	u32 total_data_sz = 0;
+	const u64 data_start = (u64)header_sz + descriptors_sz;
+	u64 total_data_sz = 0;
 	for (uint i = 0; i < n_entries; i++)
 		total_data_sz += sorted[i].size;
 
-	const u32 uncomp_sz = data_start + total_data_sz;
-	u8 *uncomp = CALLOC (uncomp_sz, 1);
+	const u64 uncomp_sz = data_start + total_data_sz;
+	if (uncomp_sz > 0xFFFFFFFFull)
+	{
+		FREE (sorted);
+		return EFBIG;
+	}
+
+	u8 *uncomp = CALLOC ((size_t)uncomp_sz, 1);
 	if (!uncomp)
 	{
 		FREE (sorted);
@@ -194,7 +210,7 @@ enumError CreateZLARCArchive (
 		memcpy (uncomp + cur_desc_off + 12, name, nlen);
 
 		if (sorted[i].data && sorted[i].size > 0)
-			memcpy (uncomp + data_start + cur_data_off, sorted[i].data, sorted[i].size);
+			memcpy (uncomp + (size_t)data_start + cur_data_off, sorted[i].data, sorted[i].size);
 
 		cur_desc_off += 12 + nlen;
 		cur_data_off += sorted[i].size;
@@ -202,10 +218,15 @@ enumError CreateZLARCArchive (
 
 	FREE (sorted);
 
-	uLongf bound = compressBound (uncomp_sz);
+	uLongf bound = compressBound ((uLong)uncomp_sz);
 	u8 *comp = MALLOC (bound);
+	if (!comp)
+	{
+		FREE (uncomp);
+		return ERR_OUT_OF_MEMORY;
+	}
 	uLongf comp_len = bound;
-	if (compress (comp, &comp_len, uncomp, uncomp_sz) != Z_OK)
+	if (compress (comp, &comp_len, uncomp, (uLong)uncomp_sz) != Z_OK)
 	{
 		FREE (uncomp);
 		FREE (comp);

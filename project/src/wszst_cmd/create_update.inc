@@ -4645,9 +4645,16 @@ static enumError extract_ccf_file (ccp arg, ccp basedir, uint depth)
 		if (err)
 			continue;
 
+		ccp ename = e->name;
+		char fallback[32];
+		if (!valid_sarc_path (ename))
+		{
+			snprintf (fallback, sizeof (fallback), "file_%04u.bin", i);
+			ename = fallback;
+		}
+
 		char path[PATH_MAX];
-		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "",
-			e->name[0] ? e->name : "file.bin");
+		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", ename);
 		File_t F;
 		err = CreateFileOpt (&F, true, path, false, arg);
 		if (F.f && decomp_size && fwrite (decomp, 1, decomp_size, F.f) != decomp_size)
