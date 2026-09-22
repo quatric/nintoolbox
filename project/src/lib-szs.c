@@ -2903,8 +2903,9 @@ enumError DecodeFZIP (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 	strm.next_out = out;
 	strm.avail_out = cap;
 
+	int win_bits = 15 + 32;
 	int ret = Z_DATA_ERROR;
-	if (inflateInit2 (&strm, 15 + 32) == Z_OK)
+	if (inflateInit2 (&strm, win_bits) == Z_OK)
 	{
 		ret = inflate (&strm, Z_FINISH);
 		if (ret != Z_STREAM_END && ret != Z_OK)
@@ -2915,7 +2916,8 @@ enumError DecodeFZIP (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 			strm.avail_in = csize;
 			strm.next_out = out;
 			strm.avail_out = cap;
-			if (inflateInit2 (&strm, -15) == Z_OK)
+			win_bits = -15;
+			if (inflateInit2 (&strm, win_bits) == Z_OK)
 			{
 				ret = inflate (&strm, Z_FINISH);
 				inflateEnd (&strm);
@@ -2931,8 +2933,9 @@ enumError DecodeFZIP (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 	{
 		if (ret == Z_BUF_ERROR || ret == Z_OK)
 		{
+			const uint max_growth = (csize && csize < (512u << 10)) ? csize * 1024u : (512u << 20);
 			uint cur_cap = cap ? cap * 2 + 1024 : 4096;
-			while (cur_cap <= (512u << 20) && cur_cap < (csize ? csize * 1024u : 1024 * 1024))
+			while (cur_cap <= (512u << 20) && cur_cap <= max_growth)
 			{
 				u8 *nout = REALLOC (out, cur_cap);
 				if (!nout)
@@ -2946,14 +2949,16 @@ enumError DecodeFZIP (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 				strm.avail_in = csize;
 				strm.next_out = out;
 				strm.avail_out = cur_cap;
-				if (inflateInit2 (&strm, 15 + 32) == Z_OK)
+				if (inflateInit2 (&strm, win_bits) == Z_OK)
 				{
 					ret = inflate (&strm, Z_FINISH);
 					inflateEnd (&strm);
 					if (ret == Z_STREAM_END)
 						break;
 				}
-				cur_cap *= 2;
+				if (cur_cap >= (512u << 20))
+					break;
+				cur_cap = cur_cap > (256u << 20) ? (512u << 20) : cur_cap * 2;
 			}
 		}
 	}

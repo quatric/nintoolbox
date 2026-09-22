@@ -523,8 +523,16 @@ static void zmb_write_submesh_obj ( zmb_obj_ctx_t *ctx, const u8 *data, uint siz
 			continue;
 
 		u32 corner[256];
+		bool valid = true;
 		for ( u16 c = 0; c < n; c++ )
+		{
 			corner[c] = zmb_be32 (data + pos_idx_off + c * 4);
+			if ( corner[c] >= pos_cnt ) { valid = false; break; }
+			if ( norm_idx_off && zmb_be32 (data + norm_idx_off + c * 4) >= norm_cnt ) { valid = false; break; }
+			if ( uv_idx_off && zmb_be32 (data + uv_idx_off + c * 4) >= uv_cnt ) { valid = false; break; }
+		}
+		if ( !valid )
+			continue;
 
 		// Fan-triangulate the N-gon: (0,c,c+1) for c in [1,N-2].
 		for ( u16 c = 1; c + 1 < n; c++ )
@@ -628,6 +636,9 @@ static void zmb_replace_ext ( char *dest, uint dest_size, ccp src, ccp new_ext )
 {
 	ccp dot = strrchr (src, '.');
 	ccp slash = strrchr (src, '/');
+	ccp bslash = strrchr (src, '\\');
+	if ( bslash && ( !slash || bslash > slash ) )
+		slash = bslash;
 	const uint base_len = dot && ( !slash || dot > slash ) ? (uint)(dot - src) : (uint)strlen (src);
 	snprintf (dest, dest_size, "%.*s%s", base_len, src, new_ext);
 }
@@ -686,6 +697,9 @@ enumError DecodeZMB ( const u8 *data, uint size, ccp out_path )
 	if (obj)
 	{
 		ccp mtl_base = strrchr (mtl_path, '/');
+		ccp mtl_bs = strrchr (mtl_path, '\\');
+		if ( mtl_bs && ( !mtl_base || mtl_bs > mtl_base ) )
+			mtl_base = mtl_bs;
 		mtl_base = mtl_base ? mtl_base + 1 : mtl_path;
 		fprintf (obj, "# Konami ZMB model, decoded by nintoolbox\n"
 			"# Rigid per-bone attachment, no per-vertex skin blending -- see lib-zmb.c\n"

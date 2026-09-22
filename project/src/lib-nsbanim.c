@@ -33,6 +33,10 @@
 #undef malloc
 #undef realloc
 #undef free
+#define malloc(s) MALLOC(s)
+#define calloc(n,s) CALLOC(n,s)
+#define realloc(p,s) REALLOC(p,s)
+#define free(p) FREE(p)
 
 //-----------------------------------------------------------------------------
 // Little-endian readers
