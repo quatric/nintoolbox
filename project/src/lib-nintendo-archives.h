@@ -37,6 +37,7 @@
 #include "lib-txd.h"
 #include "lib-ideimg.h"
 #include "lib-collpak.h"
+#include "lib-agr.h"
 #include "lib-bam.h"
 #include "lib-csfnt.h"
 #include "lib-cscsi.h"
