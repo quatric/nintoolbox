@@ -33,9 +33,12 @@ bool IsZMB (const u8 *data, uint size);
 // chunk's own hierarchy is additionally re-rooted under the first chunk's
 // "mii_head" bone, so the head sits attached on the body instead of posing
 // in its own disconnected local space. Vertex colours are read but not
-// written (OBJ has no standard vertex colour). Rigid per-bone attachment
-// only: per-vertex bone-index skinning/blending is not decoded -- see
-// lib-zmb.c.
+// written (OBJ has no standard vertex colour). Geometry is exported at the
+// bind pose only (rigid per-submesh attachment to its owning bone); the
+// file does carry real per-vertex skin-blend weights (see lib-zmb.c), but
+// applying them is provably a no-op at the bind pose -- they would only
+// matter for posing the model away from it, i.e. animation, which this
+// format doesn't itself carry.
 // Returns ERR_NOTHING_TO_DO if 'data' isn't a ZMB file.
 enumError DecodeZMB (const u8 *data, uint size, ccp out_path);
 

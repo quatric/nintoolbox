@@ -137,10 +137,29 @@
 // "LeftLeg"'s +0x60 x-translation of 3.485 is the thigh length), so
 // world_vertex = world_transform(owning_bone) * local_vertex.
 //
-// Not decoded here: per-vertex bone-index skinning (assigned by the game at
-// load time via a closest-bone match against submesh+0x10/+0x28, not stored
-// as blend weights -- this decoder instead attaches each submesh rigidly to
-// its one owning bone), the material<->texture binding, and the trailing
+// Per-vertex skin weights (decoded, but deliberately not applied -- see
+// below): submesh+0x10 is a count equal to the submesh's own position-pool
+// count (i.e. one entry per vertex), and submesh+0x28 a relocated pointer
+// to that many 8-byte records {u32 influence_count, u32 offset (chunk-
+// relative) to influence_count 0x40-byte influence records}. Each influence
+// record starts with a NUL-terminated bone-name string (resolved against
+// every bone's own name with a plain strcmp -- FUN_800b598c, which really
+// is just strcmp -- so the byte overwritten with the resolved bone index in
+// the loader's own copy is at the record's start, i.e. over the name) and
+// carries its blend weight as an f32 at +0x3c; verified on wb_04_body's
+// submesh 0: multi-influence vertices' weights sum to 1.0 (e.g. a 2-bone
+// vertex split 0.333/"Head" + 0.667/"Spine1"). This is real normalized
+// skin-blend data, not just a closest-bone assignment as first guessed --
+// but it is a no-op for what this decoder exports: at the bind pose (the
+// only pose available -- ZMB carries no animation data), every influence
+// bone's world transform equals its bind transform, so the standard skin
+// formula World_k * BindInverse_k collapses to the identity for every k
+// regardless of weight, and the blended result is exactly the same
+// point this decoder already computes via rigid attachment to the
+// submesh's owning bone. It would matter for posing the model away from
+// bind pose (i.e. real animation), which is out of scope here.
+//
+// Not decoded here: the material<->texture binding, and the trailing
 // subsection (presumed embedded GX texture pixels).
 
 static inline u32 zmb_be32 (const u8 *p)
