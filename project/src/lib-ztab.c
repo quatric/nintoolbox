@@ -42,9 +42,22 @@ enumError ExtractZTABArchive (ccp arg, ccp basedir, uint depth)
 		return ERR_INVALID_DATA;
 	}
 
+	// Validate every range before writing anything. Adding in 32 bits can
+	// wrap, and clamping a truncated entry silently loses its data.
+	for (uint i = 0; i < count; i++)
+	{
+		const u8 *entry = raw + 8 + i * 16;
+		if ((u64)rd_be32 (entry + 4) + rd_be32 (entry + 8) > raw_size)
+		{
+			FREE (raw);
+			return ERR_INVALID_DATA;
+		}
+	}
+
 	char dest[PATH_MAX];
 	get_dest_dir (dest, sizeof (dest), arg, basedir);
-	CreatePath (dest, true);
+	if (!testmode)
+		CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
 		fprintf (stdlog, "%s%sEXTRACT ZTAB:%s (%u entries) -> %s/\n", verbose > 0 ? "\n" : "",
@@ -55,43 +68,76 @@ enumError ExtractZTABArchive (ccp arg, ccp basedir, uint depth)
 		const u32 eoff = 8 + i * 16;
 		const u32 flags = rd_be32 (raw + eoff);
 		const u32 off = rd_be32 (raw + eoff + 4);
-		u32 sz = rd_be32 (raw + eoff + 8);
-
-		if (off + sz > raw_size)
-			sz = raw_size > off ? (uint)(raw_size - off) : 0;
+		const u32 sz = rd_be32 (raw + eoff + 8);
 
 		char out_path[PATH_MAX];
 		snprintf (out_path, sizeof (out_path), "%s/entry_%04u_flags_%08x.bin", dest, i, flags);
 
-		if (!testmode && sz > 0 && off < raw_size)
-			SaveFile (out_path, 0, 0, raw + off, sz, 0);
+		if (!testmode)
+		{
+			err = SaveFile (out_path, 0, 0, raw + off, sz, 0);
+			if (err)
+				break;
+		}
 	}
 
 	FREE (raw);
-	return ERR_OK;
+	return err;
 }
 
+static bool ztab_entry_index (ccp name, ulong *index)
+{
+	name = leaf_name (name);
+	if (strncmp (name, "entry_", 6) || name[6] < '0' || name[6] > '9')
+		return false;
+	char *end = 0;
+	*index = strtoul (name + 6, &end, 10);
+	return *index <= UINT_MAX && !strncmp (end, "_flags_", 7);
+}
+
+static int compare_ztab_entries (const void *a, const void *b)
+{
+	const nintendo_sarc_entry_t *ea = a, *eb = b;
+	ulong ia = 0, ib = 0;
+	const bool indexed_a = ztab_entry_index (ea->name, &ia);
+	const bool indexed_b = ztab_entry_index (eb->name, &ib);
+	if (indexed_a != indexed_b)
+		return indexed_a ? -1 : 1;
+	if (indexed_a && ia != ib)
+		return ia < ib ? -1 : 1;
+	return compare_archive_entries (a, b);
+}
 
 // 2. Camelot Archive Table (.ztab / .tab)
 enumError CreateZTABArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {
-	if (!dest || !dest_size || !entries || !n_entries)
+	if (!dest || !dest_size)
 		return ERR_INVALID_DATA;
+	*dest = 0;
+	*dest_size = 0;
+	if (!entries || !n_entries || n_entries > 100000)
+		return ERR_INVALID_DATA;
+
+	const uint data_start = (8 + n_entries * 16 + 15) & ~15u;
+	u64 total_size = data_start;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		if (entries[i].size && !entries[i].data)
+			return ERR_INVALID_DATA;
+		total_size = (total_size + entries[i].size + 15) & ~(u64)15;
+		if (total_size > UINT_MAX)
+			return ERR_INVALID_DATA;
+	}
 
 	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
 	if (!sorted)
 		return ERR_OUT_OF_MEMORY;
 	memcpy (sorted, entries, n_entries * sizeof (*sorted));
-	qsort (sorted, n_entries, sizeof (*sorted), compare_archive_entries);
+	qsort (sorted, n_entries, sizeof (*sorted), compare_ztab_entries);
 
 	const u32 header_sz = 8;
-	const u32 table_sz = n_entries * 16;
-	u32 data_start = (header_sz + table_sz + 15) & ~15;
-
-	u32 cur_data_off = data_start;
-	for (uint i = 0; i < n_entries; i++)
-		cur_data_off = (cur_data_off + sorted[i].size + 15) & ~15;
+	const uint cur_data_off = (uint)total_size;
 
 	u8 *buf = CALLOC (cur_data_off, 1);
 	if (!buf)
