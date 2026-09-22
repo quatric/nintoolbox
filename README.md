@@ -159,7 +159,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **Terminal Reality POD** | `.pod` | ✅ | — | — | ✅ | POD3/4/5 archive (*Nickelodeon Dance*, Wii); stored members with a directory tree |
 | **TMPK** | `.pack`, `.tmpk` | ✅ | ✅ | ✅ | ✅ | *The Legend of Zelda: Twilight Princess HD* archive (`TMPK`). |
 | **Torus Games hunkfile** | `.hnk` | ✅ | — | — | ✅ | *Barbie & Her Sisters: Puppy Rescue* (Wii): textures to PNG, DSP-ADPCM streams to WAV. |
-| **Toshi TSFB** | `.ttl` (`.trb`, `.tkl`) | ✅ | — | — | ✅ | *Nickelodeon Barnyard* (Wii): compressed containers, `.ttl` texture libraries to PNG. |
+| **Toshi TSFB** | `.ttl`, `.tkl` (`.trb`) | ✅ | — | — | ✅ | *Nickelodeon Barnyard* (Wii): compressed containers, `.ttl` texture libraries to PNG, `.tkl` keyframe libraries to YAML. |
 | **TRPAK** | `.trpak` | ✅ | — | — | — | Nintendo Switch "tr Package" FlatBuffers archive (no magic; recognized by extension). |
 | **UE4 PAK** | `.pak` | ✅ | ✅ | — | — | Unreal Engine 4 archive (*Mario & Luigi: Brothership*, Switch). |
 | **Vblank BFP / BAP** | `.bfp`, `.bap` | ✅ | — | — | ✅ | Vblank Entertainment Wii packages (*Retro City Rampage DX*, *Shakedown: Hawaii*): game data, audio, chiptune modules. |

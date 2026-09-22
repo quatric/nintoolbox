@@ -214,3 +214,76 @@ enumError DecodeToshiTexture (const toshi_trb_t *t, uint idx, ccp *name, u8 **rg
 		*width = w, *height = h;
 	return err;
 }
+
+static s32 ts_be32s (const u8 *p) { return (s32)ts_be32 (p); }
+
+static float ts_bef32 (const u8 *p)
+{
+	const u32 u = ts_be32 (p);
+	float f;
+	memcpy (&f, &u, 4);
+	return f;
+}
+
+enumError OpenToshiTkl (const toshi_trb_t *t, toshi_tkl_t *tkl)
+{
+	memset (tkl, 0, sizeof (*tkl));
+	const s64 base = ToshiSymbol (t, "keylib");
+	if (base < 0 || !ts_ptr (t, base, 52))
+		return ERR_INVALID_DATA;
+	const u8 *h = t->sect + base;
+	const u32 no = ts_be32 (h);
+	if (!ts_ptr (t, no, 1))
+		return ERR_INVALID_DATA;
+	tkl->name     = (ccp)t->sect + no;
+	tkl->scale[0] = ts_bef32 (h + 4);
+	tkl->scale[1] = ts_bef32 (h + 8);
+	tkl->scale[2] = ts_bef32 (h + 12);
+	tkl->num_t    = (u32)ts_be32s (h + 16);
+	tkl->num_q    = (u32)ts_be32s (h + 20);
+	tkl->num_s    = (u32)ts_be32s (h + 24);
+	tkl->tsize    = (u32)ts_be32s (h + 28);
+	tkl->qsize    = (u32)ts_be32s (h + 32);
+	tkl->ssize    = (u32)ts_be32s (h + 36);
+	const u32 to = ts_be32 (h + 40), qo = ts_be32 (h + 44), so = ts_be32 (h + 48);
+	if (!ts_ptr (t, to, (u64)tkl->num_t * tkl->tsize)
+		|| !ts_ptr (t, qo, (u64)tkl->num_q * tkl->qsize)
+		|| !ts_ptr (t, so, (u64)tkl->num_s * tkl->ssize))
+		return ERR_INVALID_DATA;
+	tkl->t_data = t->sect + to;
+	tkl->q_data = t->sect + qo;
+	tkl->s_data = t->sect + so;
+	return ERR_OK;
+}
+
+bool ToshiTklTranslation (const toshi_tkl_t *t, uint idx, float out[3])
+{
+	if (idx >= t->num_t || t->tsize < 6)
+		return false;
+	const u8 *p = t->t_data + (size_t)idx * t->tsize;
+	for (uint i = 0; i < 3; i++)
+		out[i] = (s16)ts_be16 (p + 2 * i) * t->scale[i];
+	return true;
+}
+
+bool ToshiTklQuaternion (const toshi_tkl_t *t, uint idx, float out[4])
+{
+	if (idx >= t->num_q || t->qsize < 8)
+		return false;
+	const u8 *p = t->q_data + (size_t)idx * t->qsize;
+	for (uint i = 0; i < 4; i++)
+		out[i] = (s16)ts_be16 (p + 2 * i) / 32767.0f;
+	return true;
+}
+
+bool ToshiTklScale (const toshi_tkl_t *t, uint idx, float *out)
+{
+	if (idx >= t->num_s)
+		return false;
+	const u8 *p = t->s_data + (size_t)idx * t->ssize;
+	// BEST-EFFORT: no disc sample with numScales>0 has been found to confirm
+	// this branch; float is the natural size match, s16/32767 is by analogy
+	// with the verified quaternion encoding.
+	*out = t->ssize >= 4 ? ts_bef32 (p) : t->ssize == 2 ? (s16)ts_be16 (p) / 32767.0f : 0.0f;
+	return true;
+}

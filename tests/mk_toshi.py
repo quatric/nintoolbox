@@ -30,3 +30,30 @@ while p < len(sect):
 btec = b'CETB' + struct.pack('>HH', 1, 2) + B(len(cmds), len(sect)) + cmds
 open(out + '/A.ttl', 'wb').write(tsfb(hunk(b'TCES', sect)))
 open(out + '/B.ttl', 'wb').write(tsfb(hunk(b'CCES', btec)))
+
+# C.tkl: a "keylib" symbol (Toshi::TKeyframeLibrary::TRBHeader, see lib-toshi.h)
+# with 2 translations, 1 quaternion, 0 scales.
+tname = b'Test\0'
+thdr_off = 0
+name_off = 52
+t_off = (name_off + len(tname) + 3) & ~3
+q_off = t_off + 2 * 6
+end = q_off + 1 * 8
+import struct as _s
+f32 = lambda v: _s.pack('>f', v)
+thdr = (
+    B(name_off)
+    + f32(0.0001) + f32(0.0001) + f32(0.0001)
+    + B(2, 1, 0, 6, 8, 4)
+    + B(t_off, q_off, end)
+)
+tsect = thdr + tname + bytes(t_off - name_off - len(tname))
+tsect += struct.pack('>3h', 100, -200, 300) + struct.pack('>3h', -100, 200, -300)
+tsect += struct.pack('>4h', 0, 0, 0, 32767)
+tsymb = B(1) + struct.pack('>HHII', 0, 0, 0x1234, thdr_off) + b'keylib\0'
+
+def tsfb_tkl(sec_hunk, symb_pl):
+    body = b'FBRT' + hunk(b'XRDH', bytes(24)) + sec_hunk + hunk(b'BMYS', symb_pl)
+    return b'TSFB' + B(len(body)) + body + bytes(1024)
+
+open(out + '/C.tkl', 'wb').write(tsfb_tkl(hunk(b'TCES', tsect), tsymb))

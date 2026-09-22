@@ -9076,8 +9076,27 @@ with open(sys.argv[1], "wb") as f:
     && [ "$(head -c 4 "$d/toshi_test/B.ttl.d/Test_tex.png" | tail -c 3)" = "PNG" ] \
     && fok "Toshi TSFB: .ttl textures (plain and BTEC) -> PNG" \
     || fno "Toshi TSFB" "failed to extract synthetic texture libraries"
+    "$B/wszst" extract "$d/toshi_test/C.tkl" >/dev/null 2>&1
+    grep -q "^translations: # 2 entries" "$d/toshi_test/C.tkl.yaml" 2>/dev/null \
+    && grep -q "^quaternions: # 1 entries" "$d/toshi_test/C.tkl.yaml" 2>/dev/null \
+    && fok "Toshi TSFB: .tkl keyframe library -> YAML" \
+    || fno "Toshi TSFB" "failed to extract synthetic keyframe library"
   else
     fno "Toshi TSFB" "mk_toshi.py failed"
+  fi
+
+  # Toshi TSFB keyframe library (Nickelodeon Barnyard, Wii): .tkl -> YAML
+  mkdir -p "$d/tkl_test"
+  if python3 "$PWD_PROJECT/../tests/mk_tkl.py" "$d/tkl_test" >/dev/null 2>&1; then
+    "$B/wszst" extract "$d/tkl_test/Test.tkl" >/dev/null 2>&1
+    [ -s "$d/tkl_test/Test.tkl.yaml" ] \
+    && grep -q '^name: Test$' "$d/tkl_test/Test.tkl.yaml" \
+    && grep -q 'translations: # 2 entries' "$d/tkl_test/Test.tkl.yaml" \
+    && grep -q 'quaternions: # 3 entries' "$d/tkl_test/Test.tkl.yaml" \
+    && fok "Toshi TSFB: .tkl keyframe library -> YAML" \
+    || fno "Toshi TSFB .tkl" "failed to extract synthetic keyframe library"
+  else
+    fno "Toshi TSFB .tkl" "mk_tkl.py failed"
   fi
 
   # h.a.n.d. FBC bundle (Miffy no Omochabako, Wii): members named from the size/name slot tables
