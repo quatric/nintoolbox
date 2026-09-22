@@ -195,6 +195,19 @@ int main (void)
 		}
 		CHECK (completed);
 	}
+
+	// FZIP encode/decode roundtrip
+	u8 *fzip_out = 0;
+	uint fzip_out_sz = 0;
+	CHECK (EncodeFZIP (&fzip_out, &fzip_out_sz, plain, sizeof plain) == ERR_OK);
+	CHECK (fzip_out && fzip_out_sz > 8 && !memcmp (fzip_out, "FZIP", 4));
+	u8 *fzip_dec = 0;
+	uint fzip_dec_sz = 0;
+	CHECK (DecodeFZIP (&fzip_dec, &fzip_dec_sz, fzip_out, fzip_out_sz) == ERR_OK);
+	CHECK (fzip_dec && fzip_dec_sz == sizeof plain && !memcmp (fzip_dec, plain, sizeof plain));
+	free (fzip_dec);
+	free (fzip_out);
+
 	printf ("Zlib growth regressions: %d failures\n", failures);
 	return failures != 0;
 }

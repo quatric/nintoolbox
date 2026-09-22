@@ -22,7 +22,7 @@ fsize_of(){ stat -c %s "$1" 2>/dev/null || stat -f%z "$1" 2>/dev/null; }
 # mislabelled file is still classified by content. Set SEARCH to redirect.
 IDX=$(mktemp); trap 'rm -f "$IDX"' EXIT
 for d in $SEARCH; do [ -d "$d" ] || continue
-  # Exclude claude-* session scratch dirs and this script's own throwaway
+  # Exclude scratch-* session scratch dirs and this script's own throwaway
   # fixture basenames (test.*/test_*) -- both classes of file legitimately
   # match these extensions but are synthetic, single-glyph/tiny artifacts
   # from manual dev sessions, not real retail samples, and can otherwise
@@ -30,7 +30,7 @@ for d in $SEARCH; do [ -d "$d" ] || continue
   # "suspiciously small/blank" heuristic for reasons that have nothing to
   # do with the decoder under test.
   find -L "$d" -maxdepth 8 -type f -size -65M \
-      ! -path '*claude-*' ! -path '*/_r_*' ! -iname '_r_*' ! -iname 'test.*' ! -iname 'test_*' \
+      ! -path '*scratch-*' ! -path '*/_r_*' ! -iname '_r_*' ! -iname 'test.*' ! -iname 'test_*' \
       ! -path '*/same.*' ! -iname 'same.*' ! -path '*/fixed-probe.*' ! -path '*/image-byte*' ! -path '*/byte-probe*' \( \
       -iname '*.bch' -o -iname '*.bcres' -o -iname '*.cgfx' -o -iname '*.nsbmd' \
       -o -iname '*.bfres' -o -iname '*.bntx' -o -iname '*.bmd' -o -iname '*.gtx' \
@@ -5464,7 +5464,7 @@ t_hsd_model(){
   # against a regression on whatever single sample is available locally.
   local f; f=$(for d in $SEARCH; do [ -d "$d" ] || continue
       find -L "$d" -maxdepth 8 -type f -iname '*.dat' -size -8M \
-        ! -path '*claude-*' ! -iname 'test.*' ! -iname 'test_*' 2>/dev/null
+        ! -path '*scratch-*' ! -iname 'test.*' ! -iname 'test_*' 2>/dev/null
     done | head -20)
   local hit=""
   for cand in $f; do
@@ -5657,7 +5657,7 @@ t_extex(){
   # purely from the mip-chain-consistency heuristic, no stored format field).
   local f; f=$(for d in $SEARCH; do [ -d "$d" ] || continue
       find -L "$d" -maxdepth 8 -type f -iname '*.tex' -size -65M \
-        ! -path '*claude-*' ! -path '*_r_*' ! -iname 'test.*' ! -iname 'test_*' 2>/dev/null
+        ! -path '*scratch-*' ! -path '*_r_*' ! -iname 'test.*' ! -iname 'test_*' 2>/dev/null
     done | head -1)
   [ -n "$f" ] || { sk "Excite .tex GX texture"; return; }
   rm -rf /tmp/_r_extex; mkdir -p /tmp/_r_extex
@@ -5768,7 +5768,7 @@ t_exart(){
   # copies of it that otherwise sort ahead of the actual .art/.img fixtures.
   local f; f=$(for d in $SEARCH; do [ -d "$d" ] || continue
       find -L "$d" -maxdepth 8 -type f \( -iname '*.art' -o -iname '*.img' \) -size -65M \
-        ! -path '*claude-*' ! -path '*_r_*' ! -iname 'test.*' ! -iname 'test_*' \
+        ! -path '*scratch-*' ! -path '*_r_*' ! -iname 'test.*' ! -iname 'test_*' \
         ! -iname 'apploader.img' 2>/dev/null
     done | head -1)
   [ -n "$f" ] || { sk "Excite .art/.img GUI image"; return; }
@@ -14330,7 +14330,7 @@ t_bully_txd(){
   local f=""
   for d in $SEARCH; do
     [ -d "$d" ] || continue
-    f=$(find -L "$d" -maxdepth 10 -type f -iname '*.txd' -size -65M ! -path '*claude-*' 2>/dev/null \
+    f=$(find -L "$d" -maxdepth 10 -type f -iname '*.txd' -size -65M ! -path '*scratch-*' 2>/dev/null \
       | while IFS= read -r c; do
           [ "$(head -c 4 "$c" 2>/dev/null)" = "TDCT" ] && { printf '%s\n' "$c"; break; }
         done)
