@@ -314,15 +314,30 @@ enumError ExtractG1TArchive (ccp arg, ccp basedir, uint depth)
 	const u32 tbl = be ? rd_be32 (raw + 0x0c) : rd_le32 (raw + 0x0c);
 	const u32 count = be ? rd_be32 (raw + 0x10) : rd_le32 (raw + 0x10);
 	const u32 platform = be ? rd_be32 (raw + 0x14) : rd_le32 (raw + 0x14);
-	if (total != raw_size || !count || count > 0x1000 || (u64)tbl + (u64)count * 4 > raw_size)
+	if (total != raw_size || !count || count > 0x1000 || tbl < 0x18
+		|| (u64)tbl + (u64)count * 4 > raw_size)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
 	}
 
+	uint offsets[0x1000];
+	for (uint i = 0; i < count; i++)
+	{
+		const uint rel = be ? rd_be32 (raw + tbl + i * 4) : rd_le32 (raw + tbl + i * 4);
+		const u64 absolute = (u64)tbl + rel;
+		if (rel < count * 4 || absolute + 8 > raw_size)
+		{
+			FREE (raw);
+			return ERR_INVALID_DATA;
+		}
+		offsets[i] = (uint)absolute;
+	}
+
 	char dest[PATH_MAX];
 	get_dest_dir (dest, sizeof (dest), arg, basedir);
-	CreatePath (dest, true);
+	if (!testmode)
+		CreatePath (dest, true);
 
 	ccp stem = strrchr (arg, '/');
 	stem = stem ? stem + 1 : arg;
@@ -332,21 +347,34 @@ enumError ExtractG1TArchive (ccp arg, ccp basedir, uint depth)
 			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, count, count == 1 ? "" : "s",
 			platform, dest);
 
+	if (testmode)
+	{
+		FREE (raw);
+		return ERR_OK;
+	}
+
+	enumError result = ERR_OK;
 	uint written = 0;
 	for (u32 i = 0; i < count; i++)
 	{
-		const u32 rel = be ? rd_be32 (raw + tbl + i * 4) : rd_le32 (raw + tbl + i * 4);
-		const u64 hdr = (u64)tbl + rel;
-		if (hdr + 8 > raw_size)
+		const u64 hdr = offsets[i];
+		u64 member_end = raw_size;
+		// Offset tables may be unordered or contain aliases. The next
+		// physical texture bounds this member, regardless of table order.
+		for (uint j = 0; j < count; j++)
+			if (offsets[j] > hdr && offsets[j] < member_end)
+				member_end = offsets[j];
+		if (hdr + 8 > member_end)
+		{
+			result = ERR_INVALID_DATA;
 			continue;
+		}
 
 		const u8 *th = raw + hdr;
 		const uint mips = th[0] >> 4 ? th[0] >> 4 : 1;
 		const uint format = th[1];
 		const uint w = 1u << (th[2] >> 4);
 		const uint h = 1u << (th[2] & 15);
-		if (!w || !h || w > 8192 || h > 8192)
-			continue;
 
 		// Bit depths derived the same way as the layout: for every texture
 		// on the Hyrule Warriors Legends cart, the mip chain at this depth
@@ -377,30 +405,43 @@ enumError ExtractG1TArchive (ccp arg, ccp basedir, uint depth)
 		// Prefer the 12-byte extended header, fall back to none, and take
 		// whichever actually accounts for the bytes that are there.
 		u64 data_off = hdr + 8 + 12;
-		if (data_off >= raw_size)
+		if (data_off > member_end)
 			data_off = hdr + 8;
-		if (data_off >= raw_size)
-			continue;
 
 		if (!known_format)
 		{
 			char raw_out[PATH_MAX];
 			snprintf (raw_out, sizeof (raw_out), "%s/%s_%04u.bin", dest, stem, i);
-			if (SaveFile (raw_out, 0, 0, raw + data_off, (uint)(raw_size - (size_t)data_off), 0))
+			const enumError err = SaveFile (raw_out, 0, 0, raw + data_off, (uint)(member_end - data_off), 0);
+			if (err)
+			{
+				result = err;
 				continue;
+			}
 			written++;
 			continue;
 		}
 
-		const uint need = g1t_mip_pixels (w, h, mips) * bits / 8;
-		if (data_off + need > raw_size)
-			data_off = hdr + 8;
-		if (data_off + need > raw_size)
+		if (w > 8192 || h > 8192)
+		{
+			result = ERR_INVALID_DATA;
 			continue;
+		}
+		const uint need = g1t_mip_pixels (w, h, mips) * bits / 8;
+		if (data_off + need > member_end)
+			data_off = hdr + 8;
+		if (data_off + need > member_end)
+		{
+			result = ERR_INVALID_DATA;
+			continue;
+		}
 
 		u8 *rgba = CALLOC ((size_t)w * h, 4);
 		if (!rgba)
+		{
+			result = ERR_OUT_OF_MEMORY;
 			continue;
+		}
 		// Only the base level is exported; the mip chain follows it.
 		const uint base = w * h * bits / 8;
 		enumError derr = ERR_OK;
@@ -433,6 +474,7 @@ enumError ExtractG1TArchive (ccp arg, ccp basedir, uint depth)
 							 : decode_etc1a4_tiled (rgba, raw + data_off, w, h, base);
 		if (derr)
 		{
+			result = derr;
 			FREE (rgba);
 			continue;
 		}
@@ -452,11 +494,14 @@ enumError ExtractG1TArchive (ccp arg, ccp basedir, uint depth)
 		img.info_n_image = 1;
 		img.endian = &le_func;
 		img.path = out;
-		if (SaveIMG (&img, FF_PNG, 0, 0, out, true) == ERR_OK)
+		const enumError err = SaveIMG (&img, FF_PNG, 0, 0, out, true);
+		if (err)
+			result = err;
+		else
 			written++;
 		ResetIMG (&img);
 	}
 
 	FREE (raw);
-	return written ? ERR_OK : ERR_INVALID_DATA;
+	return result ? result : written ? ERR_OK : ERR_INVALID_DATA;
 }
