@@ -29,9 +29,13 @@ bool IsZMB (const u8 *data, uint size);
 // normals and UVs, one group per bone/submesh, fan-triangulated from each
 // vertex block's N-gon and composed through the full parent-bone chain (so
 // the whole model assembles into one coherent pose, not scattered per-bone
-// local spaces). Vertex colours are read but not written (OBJ has no
-// standard vertex colour). Rigid per-bone attachment only: per-vertex
-// bone-index skinning/blending is not decoded -- see lib-zmb.c.
+// local spaces). For a two-chunk character file, the second (head/hair)
+// chunk's own hierarchy is additionally re-rooted under the first chunk's
+// "mii_head" bone, so the head sits attached on the body instead of posing
+// in its own disconnected local space. Vertex colours are read but not
+// written (OBJ has no standard vertex colour). Rigid per-bone attachment
+// only: per-vertex bone-index skinning/blending is not decoded -- see
+// lib-zmb.c.
 // Returns ERR_NOTHING_TO_DO if 'data' isn't a ZMB file.
 enumError DecodeZMB (const u8 *data, uint size, ccp out_path);
 

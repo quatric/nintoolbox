@@ -152,6 +152,11 @@ static bool zmb_is_chunk (const u8 *data, uint size, u32 off)
 	return off + 8 <= size && !memcmp (data + off, "ZMB GC\0\0", 8);
 }
 
+static bool zmb_in_bounds ( uint size, u32 off, u32 len )
+{
+	return off <= size && len <= size - off;
+}
+
 bool IsZMB (const u8 *data, uint size)
 {
 	if ( size < 0x24 || memcmp (data, "WII\0", 4) )
@@ -308,7 +313,11 @@ static void zmb_mat_compose ( const zmb_mat_t *parent, const zmb_mat_t *local, z
 
 // One zmb_mat_t per bone record in table order, or NULL on allocation
 // failure (callers must then fall back to unposed/identity geometry).
-static zmb_mat_t * zmb_compute_world_mats ( const u8 *data, uint size, u32 bone_rec, u32 bone_count )
+// 'base' re-roots the whole chunk under an outside transform (used to
+// attach a character's head chunk to the body chunk's mii_head bone); pass
+// &zmb_identity for a chunk's own, unattached hierarchy.
+static zmb_mat_t * zmb_compute_world_mats ( const u8 *data, uint size, u32 bone_rec, u32 bone_count,
+	const zmb_mat_t *base )
 {
 	zmb_mat_t *world = MALLOC (bone_count * sizeof(*world));
 	if (!world)
@@ -331,12 +340,32 @@ static zmb_mat_t * zmb_compute_world_mats ( const u8 *data, uint size, u32 bone_
 		local.t[2] = zmb_bef32 (data + b + 0x68);
 
 		const s32 parent = (s32)zmb_be32 (data + b + 0x94);
-		if ( parent < 0 || (u32)parent >= i ) // root, or not yet computed (corrupt/out-of-order data)
+		if ( parent < 0 ) // root: re-rooted under 'base' instead of left at identity
+			zmb_mat_compose (base, &local, &world[i]);
+		else if ( (u32)parent >= i ) // not yet computed (corrupt/out-of-order data): best effort
 			world[i] = local;
 		else
 			zmb_mat_compose (&world[parent], &local, &world[i]);
 	}
 	return world;
+}
+
+// Find a bone by exact name within a chunk's own table (used to locate the
+// body chunk's "mii_head" attachment point); returns bone index or -1.
+static s32 zmb_find_bone ( const u8 *data, uint size, u32 bone_rec, u32 bone_count, ccp name )
+{
+	const size_t len = strlen (name);
+	if ( len >= 0x20 )
+		return -1;
+	for ( u32 i = 0; i < bone_count; i++ )
+	{
+		const u32 b = bone_rec + i * 0xa0;
+		if ( !zmb_in_bounds (size, b, 0x20) )
+			break;
+		if ( !memcmp (data + b, name, len) && ( len == 0x20 || !data[b + len] ) )
+			return (s32)i;
+	}
+	return -1;
 }
 
 //-----------------------------------------------------------------------------
@@ -351,11 +380,6 @@ typedef struct zmb_obj_ctx_t
 	u32	next_uv;
 }
 zmb_obj_ctx_t;
-
-static bool zmb_in_bounds ( uint size, u32 off, u32 len )
-{
-	return off <= size && len <= size - off;
-}
 
 // Write one submesh's position/normal/UV pools as 'v'/'vn'/'vt' lines, then
 // one fan-triangulated 'f' line per vertex block. Silently skips whatever
@@ -485,18 +509,30 @@ static void zmb_write_submesh_obj ( zmb_obj_ctx_t *ctx, const u8 *data, uint siz
 	ctx->next_uv   += have_uv ? uv_cnt : 0;
 }
 
-static void zmb_write_chunk_obj ( zmb_obj_ctx_t *ctx, const u8 *data, uint size,
-	u32 chunk_off, uint chunk_idx )
+// Locates a chunk's bone table; returns false (and leaves *bone_count/
+// *bone_rec untouched) if the chunk header doesn't check out.
+static bool zmb_chunk_bones ( const u8 *data, uint size, u32 chunk_off, u32 *bone_count, u32 *bone_rec )
 {
 	const u32 bone_off = chunk_off + zmb_be32 (data + chunk_off + 0x20);
 	if ( !zmb_in_bounds (size, bone_off, 0xc) )
-		return;
-	const u32 bone_count = zmb_be32 (data + bone_off);
-	const u32 bone_rec = chunk_off + zmb_be32 (data + bone_off + 8);
-	if ( !zmb_in_bounds (size, bone_rec, bone_count * 0xa0) )
+		return false;
+	const u32 count = zmb_be32 (data + bone_off);
+	const u32 rec = chunk_off + zmb_be32 (data + bone_off + 8);
+	if ( !zmb_in_bounds (size, rec, count * 0xa0) )
+		return false;
+	*bone_count = count;
+	*bone_rec = rec;
+	return true;
+}
+
+static void zmb_write_chunk_obj ( zmb_obj_ctx_t *ctx, const u8 *data, uint size,
+	u32 chunk_off, uint chunk_idx, const zmb_mat_t *base )
+{
+	u32 bone_count, bone_rec;
+	if ( !zmb_chunk_bones (data, size, chunk_off, &bone_count, &bone_rec) )
 		return;
 
-	zmb_mat_t *world = zmb_compute_world_mats (data, size, bone_rec, bone_count);
+	zmb_mat_t *world = zmb_compute_world_mats (data, size, bone_rec, bone_count, base);
 
 	enum { BONE_STRIDE = 0xa0, SUBMESH_STRIDE = 0x40 };
 	for ( u32 i = 0; i < bone_count; i++ )
@@ -576,9 +612,29 @@ enumError DecodeZMB ( const u8 *data, uint size, ccp out_path )
 		fprintf (obj, "# Konami ZMB model, decoded by nintoolbox\n"
 			"# Rigid per-bone attachment, no per-vertex skin blending -- see lib-zmb.c\n");
 		zmb_obj_ctx_t ctx = { obj, 1, 1, 1 };
-		zmb_write_chunk_obj (&ctx, data, size, chunk0_off, 0);
+		zmb_write_chunk_obj (&ctx, data, size, chunk0_off, 0, &zmb_identity);
+
 		if ( have_chunk1 )
-			zmb_write_chunk_obj (&ctx, data, size, chunk1_off, 1);
+		{
+			// A character's second chunk (head/hair) is a standalone model
+			// attached at chunk 0's "mii_head" bone; re-root its own
+			// hierarchy under that bone's world transform so the two
+			// chunks pose as one figure instead of two independent ones.
+			zmb_mat_t head_base = zmb_identity;
+			u32 bc0, br0;
+			if ( zmb_chunk_bones (data, size, chunk0_off, &bc0, &br0) )
+			{
+				zmb_mat_t *world0 = zmb_compute_world_mats (data, size, br0, bc0, &zmb_identity);
+				if (world0)
+				{
+					const s32 head_bone = zmb_find_bone (data, size, br0, bc0, "mii_head");
+					if ( head_bone >= 0 )
+						head_base = world0[head_bone];
+					FREE (world0);
+				}
+			}
+			zmb_write_chunk_obj (&ctx, data, size, chunk1_off, 1, &head_base);
+		}
 		fclose (obj);
 	}
 
