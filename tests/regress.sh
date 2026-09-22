@@ -12070,6 +12070,31 @@ assert [c.text for c in bc] == ["0", "0", "0", "0"]
 }
 t_numatb_xml
 
+# Hudson ATB (Animation Texture Bank) texture format=2 must decode as
+# RGB565, not RGB5A3: both are 16bpp so the byte layout alone can't tell
+# them apart, only the decoded pixels can.
+t_atb_rgb565(){
+  local d; d=$(mktemp -d /tmp/_r_atb.XXXXXX) || { no "ATB RGB565" "mktemp failed"; return; }
+  python3 "$PWD_PROJECT/../tests/mk_atb.py" "$d/m.atb" >/dev/null 2>&1
+  if "$B/wszst" EXTRACT "$d/m.atb" --overwrite >/dev/null 2>&1 \
+  && python3 -c '
+import sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert("RGBA")
+assert im.size == (4, 4), im.size
+for y in range(4):
+    for x in range(4):
+        px = im.getpixel((x, y))
+        assert px[3] == 255, ("pixel not opaque, RGB565 misread as RGB5A3?", x, y, px)
+' "$d/m.atb.d/tex_000.png"; then
+    ok "ATB format=2 -> RGB565 (opaque), not RGB5A3"
+  else
+    no "ATB RGB565" "texture decoded as translucent RGB5A3 instead of RGB565"
+  fi
+  rm -rf "$d"
+}
+t_atb_rgb565
+
 # Smash Ultimate parameter binary (.prc, "paracobn"). Types, offsets and the
 # ParamXML tag dialect follow prc-rs; struct keys sort by label index.
 t_prc_paracobn(){
@@ -14232,6 +14257,25 @@ t_bully_collpak(){
   rm -rf "$d"
 }
 t_bully_collpak
+
+t_bully_agr(){
+  # Bully: Scholarship Edition (Wii) .agr animation clip container: a flat
+  # sequence of self-sized "ANIM" chunks. Uses a committed fixture so this
+  # doesn't depend on the WBFS being present in $SEARCH.
+  local f="$PWD_PROJECT/../tests/fixtures/bully_Grap.agr"
+  [ -f "$f" ] || { sk "Bully .agr animation container"; return; }
+  local d=/tmp/_r_agr.d
+  rm -rf "$d"
+  $B/wszst EXTRACT "$f" --dest "$d" --overwrite >/tmp/_r_agr.log 2>&1
+  local n; n=$(find "$d" -iname '*.anim' 2>/dev/null | wc -l | tr -d ' ')
+  if [ "${n:-0}" -eq 59 ]; then
+    ok "Bully .agr animation container -> 59 clips ($f)"
+  else
+    no "Bully .agr animation container" "expected 59 clips, got $n"
+  fi
+  rm -rf "$d"
+}
+t_bully_agr
 
 echo
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"

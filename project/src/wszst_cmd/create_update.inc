@@ -5296,8 +5296,8 @@ static enumError extract_atb_file (ccp arg, ccp basedir, uint depth)
 			switch (t->format)
 			{
 				case 0x00: gx_fmt = 6; break;
-				case 0x01:
-				case 0x02: gx_fmt = 5; break;
+				case 0x01: gx_fmt = 5; break;
+				case 0x02: gx_fmt = 4; break;
 				case 0x03: gx_fmt = 9; pal_fmt = 2; break;
 				case 0x04: gx_fmt = 8; pal_fmt = 2; break;
 				case 0x05:
