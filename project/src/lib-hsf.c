@@ -2058,7 +2058,9 @@ enumError DecodeHSF (const u8 *data, uint size, ccp out_path)
 				u64 po = (u64)pos_base + pos_hdr[pi].data_off;
 				if (po + (u64)mt->num_positions * 12 > size)
 				{
+					// cleared: hsf_free_mesh_content() frees every target's deltas
 					FREE (mt->position_deltas);
+					mt->position_deltas = 0;
 					mt->num_positions = 0;
 					continue;
 				}
