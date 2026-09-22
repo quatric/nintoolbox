@@ -105,11 +105,29 @@
 // {1,0}/{1,1} on the first sample -- not a coincidence four floats would
 // produce by chance.
 //
+// Bone hierarchy, for composing a submesh's local-pool geometry into a
+// single posed model: each bone record also carries
+//   +0x30..+0x5c  3x3 float rotation, row-major, 0x10-byte row stride
+//                 (the 4th float of each 0x10 row, printed above as part of
+//                 a naively-assumed 3x4 matrix, is unused padding)
+//   +0x60,+0x64,+0x68  f32[3] translation, relative to the parent bone
+//   +0x94  s32 parent bone index, or -1 for the root
+// (found by noticing +0x94 -- previously read only as a -1 "no mesh"
+// sentinel for type 2 -- is in fact a complete, valid parent-index array:
+// e.g. on CHR040.bin, bone 9 "RightLeg" has +0x94 = 8 = bone 8
+// "RightUpLeg", bone 16 "LeftCollar" has +0x94 = 14 = bone 14 "Spine1", and
+// so on for the entire 54-bone rig). A bone's world transform is its
+// parent's world transform composed with its own local rotation+
+// translation; a submesh's position pool is in its owning bone's local
+// space (translation magnitudes match plausible limb lengths, e.g.
+// "LeftLeg"'s +0x60 x-translation of 3.485 is the thigh length), so
+// world_vertex = world_transform(owning_bone) * local_vertex.
+//
 // Not decoded here: per-vertex bone-index skinning (assigned by the game at
 // load time via a closest-bone match against submesh+0x10/+0x28, not stored
-// as blend weights), the material<->texture binding, composing a submesh's
-// geometry through its owning bone's (and ancestors') bind-pose transform,
-// and the trailing subsection (presumed embedded GX texture pixels).
+// as blend weights -- this decoder instead attaches each submesh rigidly to
+// its one owning bone), the material<->texture binding, and the trailing
+// subsection (presumed embedded GX texture pixels).
 
 static inline u32 zmb_be32 (const u8 *p)
 {
@@ -258,6 +276,70 @@ static void zmb_dump_chunk ( FILE *f, const u8 *data, uint size, u32 chunk_off, 
 }
 
 //-----------------------------------------------------------------------------
+///////////////		bone world-transform composition		///////////////
+//-----------------------------------------------------------------------------
+
+typedef struct zmb_mat_t
+{
+	float r[9]; // 3x3 rotation, row-major: r[row*3+col]
+	float t[3]; // translation
+}
+zmb_mat_t;
+
+static const zmb_mat_t zmb_identity = { { 1,0,0, 0,1,0, 0,0,1 }, { 0, 0, 0 } };
+
+static void zmb_mat_apply ( const zmb_mat_t *m, const float in[3], float out[3], bool translate )
+{
+	for ( uint row = 0; row < 3; row++ )
+		out[row] = m->r[row * 3] * in[0] + m->r[row * 3 + 1] * in[1] + m->r[row * 3 + 2] * in[2]
+			+ ( translate ? m->t[row] : 0 );
+}
+
+// world = parent_world composed with this bone's own local rotation+translation.
+static void zmb_mat_compose ( const zmb_mat_t *parent, const zmb_mat_t *local, zmb_mat_t *out )
+{
+	for ( uint row = 0; row < 3; row++ )
+		for ( uint col = 0; col < 3; col++ )
+			out->r[row * 3 + col] = parent->r[row * 3] * local->r[col]
+				+ parent->r[row * 3 + 1] * local->r[3 + col]
+				+ parent->r[row * 3 + 2] * local->r[6 + col];
+	zmb_mat_apply (parent, local->t, out->t, true);
+}
+
+// One zmb_mat_t per bone record in table order, or NULL on allocation
+// failure (callers must then fall back to unposed/identity geometry).
+static zmb_mat_t * zmb_compute_world_mats ( const u8 *data, uint size, u32 bone_rec, u32 bone_count )
+{
+	zmb_mat_t *world = MALLOC (bone_count * sizeof(*world));
+	if (!world)
+		return 0;
+
+	for ( u32 i = 0; i < bone_count; i++ )
+	{
+		const u32 b = bone_rec + i * 0xa0;
+		zmb_mat_t local;
+		// The stored 3 rows of 4 floats (0x10-byte stride) are columns of
+		// the rotation matrix, not rows -- confirmed empirically: reading
+		// them as rows composes a leg chain that runs UP from the hip;
+		// transposed, it runs down to a foot near y=0 and a toe that
+		// extends forward, exactly as a bind-pose leg should.
+		for ( uint row = 0; row < 3; row++ )
+			for ( uint col = 0; col < 3; col++ )
+				local.r[row * 3 + col] = zmb_bef32 (data + b + 0x30 + col * 0x10 + row * 4);
+		local.t[0] = zmb_bef32 (data + b + 0x60);
+		local.t[1] = zmb_bef32 (data + b + 0x64);
+		local.t[2] = zmb_bef32 (data + b + 0x68);
+
+		const s32 parent = (s32)zmb_be32 (data + b + 0x94);
+		if ( parent < 0 || (u32)parent >= i ) // root, or not yet computed (corrupt/out-of-order data)
+			world[i] = local;
+		else
+			zmb_mat_compose (&world[parent], &local, &world[i]);
+	}
+	return world;
+}
+
+//-----------------------------------------------------------------------------
 ///////////////		mesh export (Wavefront .obj)			///////////////
 //-----------------------------------------------------------------------------
 
@@ -279,7 +361,7 @@ static bool zmb_in_bounds ( uint size, u32 off, u32 len )
 // one fan-triangulated 'f' line per vertex block. Silently skips whatever
 // doesn't fit in 'size' (best-effort against truncated/corrupt input).
 static void zmb_write_submesh_obj ( zmb_obj_ctx_t *ctx, const u8 *data, uint size,
-	u32 chunk_off, u32 sm, ccp group_name )
+	u32 chunk_off, u32 sm, ccp group_name, const zmb_mat_t *world )
 {
 	const u32 pos_off  = chunk_off + zmb_be32 (data + sm + 0x24);
 	const u32 norm_off = chunk_off + zmb_be32 (data + sm + 0x2c);
@@ -324,16 +406,26 @@ static void zmb_write_submesh_obj ( zmb_obj_ctx_t *ctx, const u8 *data, uint siz
 
 	fprintf (ctx->f, "g %s\n", group_name);
 	for ( u32 i = 0; i < pos_cnt; i++ )
-		fprintf (ctx->f, "v %g %g %g\n",
+	{
+		float in[3] = {
 			zmb_bef32 (data + pos_off + i * 12),
 			zmb_bef32 (data + pos_off + i * 12 + 4),
-			zmb_bef32 (data + pos_off + i * 12 + 8) );
+			zmb_bef32 (data + pos_off + i * 12 + 8) };
+		float out[3];
+		zmb_mat_apply (world, in, out, true);
+		fprintf (ctx->f, "v %g %g %g\n", out[0], out[1], out[2]);
+	}
 	if ( have_norm )
 		for ( u32 i = 0; i < norm_cnt; i++ )
-			fprintf (ctx->f, "vn %g %g %g\n",
+		{
+			float in[3] = {
 				zmb_bef32 (data + norm_off + i * 12),
 				zmb_bef32 (data + norm_off + i * 12 + 4),
-				zmb_bef32 (data + norm_off + i * 12 + 8) );
+				zmb_bef32 (data + norm_off + i * 12 + 8) };
+			float out[3];
+			zmb_mat_apply (world, in, out, false);
+			fprintf (ctx->f, "vn %g %g %g\n", out[0], out[1], out[2]);
+		}
 	if ( have_uv )
 		for ( u32 i = 0; i < uv_cnt; i++ )
 			fprintf (ctx->f, "vt %g %g\n",
@@ -401,6 +493,10 @@ static void zmb_write_chunk_obj ( zmb_obj_ctx_t *ctx, const u8 *data, uint size,
 		return;
 	const u32 bone_count = zmb_be32 (data + bone_off);
 	const u32 bone_rec = chunk_off + zmb_be32 (data + bone_off + 8);
+	if ( !zmb_in_bounds (size, bone_rec, bone_count * 0xa0) )
+		return;
+
+	zmb_mat_t *world = zmb_compute_world_mats (data, size, bone_rec, bone_count);
 
 	enum { BONE_STRIDE = 0xa0, SUBMESH_STRIDE = 0x40 };
 	for ( u32 i = 0; i < bone_count; i++ )
@@ -413,6 +509,7 @@ static void zmb_write_chunk_obj ( zmb_obj_ctx_t *ctx, const u8 *data, uint size,
 		if ( !submesh_count )
 			continue;
 		const u32 sub0 = chunk_off + zmb_be32 (data + b + 0x9c);
+		const zmb_mat_t *bone_world = world ? &world[i] : &zmb_identity;
 
 		char bone_name[0x21];
 		uint len = 0;
@@ -432,9 +529,12 @@ static void zmb_write_chunk_obj ( zmb_obj_ctx_t *ctx, const u8 *data, uint size,
 			char group[80];
 			snprintf (group, sizeof(group), "chunk%u_%s%s_sm%u",
 				chunk_idx, len ? bone_name : "bone", len ? "" : "0", s);
-			zmb_write_submesh_obj (ctx, data, size, chunk_off, sm, group);
+			zmb_write_submesh_obj (ctx, data, size, chunk_off, sm, group, bone_world);
 		}
 	}
+
+	if (world)
+		FREE (world);
 }
 
 static void zmb_replace_ext ( char *dest, uint dest_size, ccp src, ccp new_ext )
@@ -474,8 +574,7 @@ enumError DecodeZMB ( const u8 *data, uint size, ccp out_path )
 	if (obj)
 	{
 		fprintf (obj, "# Konami ZMB model, decoded by nintoolbox\n"
-			"# Geometry is in raw file pool coordinates, not posed through\n"
-			"# the bone hierarchy -- see lib-zmb.c\n");
+			"# Rigid per-bone attachment, no per-vertex skin blending -- see lib-zmb.c\n");
 		zmb_obj_ctx_t ctx = { obj, 1, 1, 1 };
 		zmb_write_chunk_obj (&ctx, data, size, chunk0_off, 0);
 		if ( have_chunk1 )

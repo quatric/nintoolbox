@@ -25,12 +25,13 @@ bool IsZMB (const u8 *data, uint size);
 // write a YAML text dump of textures, materials, bones (name, type,
 // bind-pose transform / anchor point, submesh count) to 'out_path', plus a
 // sibling Wavefront .obj (same path with its extension replaced by ".obj")
-// containing the actual triangulated geometry -- positions, normals and UVs,
-// one object per bone/submesh -- fan-triangulated from each vertex block's
-// N-gon. Vertex colours are read but not written (OBJ has no standard vertex
-// colour). Geometry is in the file's own untransformed pool coordinates, not
-// posed through the bone hierarchy (parent-relative bind-pose composition
-// and per-vertex skin-index assignment are not decoded -- see lib-zmb.c).
+// containing the actual triangulated, fully posed geometry -- positions,
+// normals and UVs, one group per bone/submesh, fan-triangulated from each
+// vertex block's N-gon and composed through the full parent-bone chain (so
+// the whole model assembles into one coherent pose, not scattered per-bone
+// local spaces). Vertex colours are read but not written (OBJ has no
+// standard vertex colour). Rigid per-bone attachment only: per-vertex
+// bone-index skinning/blending is not decoded -- see lib-zmb.c.
 // Returns ERR_NOTHING_TO_DO if 'data' isn't a ZMB file.
 enumError DecodeZMB (const u8 *data, uint size, ccp out_path);
 
