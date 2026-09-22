@@ -651,18 +651,64 @@ static void zmb_replace_ext ( char *dest, uint dest_size, ccp src, ccp new_ext )
 	snprintf (dest, dest_size, "%.*s%s", base_len, src, new_ext);
 }
 
-// Placeholder material per index in the chunk's material table -- a plain
-// grey (matches the one colour value seen so far in retail records; which
-// texture, if any, a material actually binds is not decoded, see lib-zmb.c
-// above) -- so faces at least group correctly by material for later editing.
+// One material per index in the chunk's material table -- a plain grey (the
+// one colour value seen so far in every retail record) plus, when the
+// material's default texture slot resolves to an in-bounds texture, a
+// map_Kd pointing at that texture's decoded name (the caller is expected to
+// have extracted textures to PNGs named after their original .tga stem
+// beside the .obj/.mtl; this decoder does not extract texture pixels
+// itself, see lib-zmb.c above).
 static void zmb_write_mtl_chunk ( FILE *f, const u8 *data, uint size, u32 chunk_off, uint chunk_idx )
 {
 	const u32 mat_off = chunk_off + zmb_be32 (data + chunk_off + 0x1c);
-	if ( !zmb_in_bounds (size, mat_off, 4) )
+	if ( !zmb_in_bounds (size, mat_off, 0xc) )
 		return;
 	const u32 mat_count = zmb_be32 (data + mat_off);
+	const u32 mat_rec = chunk_off + zmb_be32 (data + mat_off + 8);
+	enum { MAT_STRIDE = 0x50 };
+
+	const u32 tex_hdr = chunk_off + zmb_be32 (data + chunk_off + 0x18);
+	u32 tex_count = 0, tex_names = 0;
+	if ( zmb_in_bounds (size, tex_hdr, 0xc) )
+	{
+		tex_count = zmb_be32 (data + tex_hdr);
+		tex_names = chunk_off + zmb_be32 (data + tex_hdr + 8);
+	}
+
 	for ( u32 i = 0; i < mat_count; i++ )
+	{
 		fprintf (f, "newmtl chunk%u_mat%u\nKd 0.584 0.584 0.584\n", chunk_idx, i);
+
+		const u32 r = mat_rec + i * MAT_STRIDE;
+		if ( !zmb_in_bounds (size, r, MAT_STRIDE) )
+			continue;
+		// +0x18: chunk-relative pointer to a per-material u32[] of texture
+		// indices, one per customization variant (e.g. hair/eye colour);
+		// element [0] is the model's authored default. Verified against
+		// CHR040.bin: material 2's default slot resolves to texture 2
+		// ("wb_04_body.tga"), material 4's to texture 3
+		// ("wb_04_body_a.tga") -- matches FUN_800cee48's texture-bind
+		// path in main.dol byte for byte (the Gekko/Broadway-aware
+		// re-decompile that finally showed +0x13 is a UV-texgen mode,
+		// not a texture-bind mode, also showed this chain).
+		const u32 slot_arr = chunk_off + zmb_be32 (data + r + 0x18);
+		if ( !zmb_in_bounds (size, slot_arr, 4) )
+			continue;
+		const u32 tex_idx = zmb_be32 (data + slot_arr);
+		if ( tex_idx < tex_count && zmb_in_bounds (size, tex_names, (tex_idx + 1) * 0x20) )
+		{
+			const u8 *name = data + tex_names + tex_idx * 0x20;
+			uint len = 0;
+			while ( len < 0x20 && name[len] )
+				len++;
+			if ( len > 4 && !memcmp (name + len - 4, ".tga", 4) )
+				len -= 4; // strip the on-disk ".tga" extension
+			// PNGs extracted from this or a sibling texture-pack file are
+			// expected to keep the same stem as the on-disk .tga name
+			// (see the "eye01".."eye07" blink-frame naming, etc.).
+			fprintf (f, "map_Kd %.*s.png\n", (int)len, name);
+		}
+	}
 }
 
 //-----------------------------------------------------------------------------
