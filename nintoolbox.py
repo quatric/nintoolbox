@@ -20,12 +20,20 @@ except ImportError:
     TkinterDnD = None
     DND_FILES = None
 
+def _sentry_before_send(event, hint):
+    if "exc_info" in hint:
+        _, exc_value, _ = hint["exc_info"]
+        if "tkdnd" in str(exc_value).lower():
+            return None
+    return event
+
 if sentry_sdk is not None:
     sentry_sdk.init(
         dsn="https://04887b3ebaf8072bdf4bf9287d7bebe0@o107347.ingest.us.sentry.io/4512040246509568",
         # Add data like request headers and IP for users,
         # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
         send_default_pii=True,
+        before_send=_sentry_before_send,
     )
 
 SUPPORTED_FAMILIES = [
@@ -217,7 +225,13 @@ class NintoolboxGUI(TkinterDnD.Tk if TkinterDnD else tk.Tk):
 
 
     def __init__(self):
-        super().__init__()
+        self._dnd_enabled = False
+        try:
+            super().__init__()
+            self._dnd_enabled = bool(TkinterDnD)
+        except (RuntimeError, Exception):
+            tk.Tk.__init__(self)
+            self._dnd_enabled = False
         self.title("nintoolbox — Nintendo Toolbox")
         self.geometry("760x680")
         self.minsize(660, 520)
@@ -514,10 +528,13 @@ class NintoolboxGUI(TkinterDnD.Tk if TkinterDnD else tk.Tk):
         """Let WIDGET accept a dragged-in file/folder and write its path into
         VAR. No-op if tkinterdnd2 isn't available (e.g. it failed to bundle).
         """
-        if DND_FILES is None:
+        if DND_FILES is None or not getattr(self, "_dnd_enabled", False):
             return
-        widget.drop_target_register(DND_FILES)
-        widget.dnd_bind("<<Drop>>", lambda e: var.set(_parse_dnd_path(e.data)))
+        try:
+            widget.drop_target_register(DND_FILES)
+            widget.dnd_bind("<<Drop>>", lambda e: var.set(_parse_dnd_path(e.data)))
+        except Exception:
+            pass
 
     def browse_save_pack(self):
         current = self.pack_target_var.get().strip()
