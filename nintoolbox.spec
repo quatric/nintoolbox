@@ -17,6 +17,10 @@ for src_dir in ('project/bin', 'extra_tools'):
 datas = [('logo.png', '.')]
 if os.path.isdir('extra_tools/share'):
     datas.append(('extra_tools/share', 'share'))
+if os.path.isfile('extra_tools/ffdec.jar'):
+    datas.append(('extra_tools/ffdec.jar', '.'))
+if os.path.isdir('extra_tools/lib'):
+    datas.append(('extra_tools/lib', 'lib'))
 
 # Bundled data files resolved next to the running tool by lib-passthru.c
 # (seeddb.bin for ctrtool, prod.keys/title.keys for the Switch tools, keys.txt/wiiu_keys

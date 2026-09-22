@@ -5374,6 +5374,43 @@ t_gzip_passthru(){
 }
 t_gzip_passthru
 
+t_swf_passthru(){
+  # Flash SWF decompiler pass-through via ffdec (JPEXS Free Flash Decompiler).
+  # Synthesizes an uncompressed SWF (FWS magic) and verifies that wszst
+  # routes it to ffdec when --with-ffdec or a mock/tool is provided, or
+  # skips cleanly when ffdec is not installed.
+  local d; d=$(mktemp -d)
+  # Minimal valid SWF header: 'F' 'W' 'S' version 8, 32-bit length 32, RECT, frame rate, frame count, End tag
+  printf '\x46\x57\x53\x08\x20\x00\x00\x00\x78\x00\x05\x5f\x00\x00\x0f\xa0\x00\x00\x0c\x01\x00\x44\x11\x08\x00\x00\x00\x00\x00\x00\x00\x00' > "$d/sample.swf"
+  local ok=1
+  # Test with mock ffdec script
+  cat <<'MOCK' > "$d/mock_ffdec"
+#!/bin/sh
+out=""
+src=""
+while [ $# -gt 0 ]; do
+  if [ "$1" = "-export" ]; then
+    shift 2
+    out="$1"
+    src="$2"
+    break
+  fi
+  shift
+done
+mkdir -p "$out/scripts"
+echo "// ActionScript mock" > "$out/scripts/Main.as"
+exit 0
+MOCK
+  chmod +x "$d/mock_ffdec"
+
+  "$B/wszst" EXTRACT "$d/sample.swf" --with-ffdec="$d/mock_ffdec" --dest "$d/out" --overwrite >/dev/null 2>&1 || ok=0
+  { [ -f "$d/out/scripts/Main.as" ] || [ -f "$d/out/sample.d/scripts/Main.as" ]; } || ok=0
+  rm -rf "$d"
+  [ "$ok" = 1 ] && ok "SWF flash decompiler pass-through (FWS header + --with-ffdec)" \
+    || no "SWF flash decompiler pass-through" "wszst EXTRACT on SWF with --with-ffdec did not extract expected assets"
+}
+t_swf_passthru
+
 t_bzip2_roundtrip(){
   local d; d=$(mktemp -d)
   local ok=1

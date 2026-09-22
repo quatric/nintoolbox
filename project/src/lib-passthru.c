@@ -54,6 +54,7 @@ ccp opt_with_mobipeg = 0; // --with-mobipeg=path|name
 ccp opt_with_7z = 0; // --with-7z=path|name
 ccp opt_with_nsz = 0; // --with-nsz=path|name
 ccp opt_with_vgmtrans = 0; // --with-vgmtrans=path|name
+ccp opt_with_ffdec = 0; // --with-ffdec=path|name
 
 // Curried static result buffer, only valid until the next call.  Reasonable
 // here since these helpers are used from single-threaded option parsing.
@@ -627,6 +628,118 @@ static enumError passthru_7z (
 	const int rc = run_program (argv);
 	if (rc != 0)
 		return ERROR0 (ERR_SUBJOB_FAILED, "pass-through 7z failed for %s (exit %d)", src, rc);
+
+	snprintf (staged_dir, staged_dir_size, "%s", stage);
+	return ERR_OK;
+}
+
+// Locate the external Flash decompiler tool (JPEXS Free Flash Decompiler,
+// ffdec). An explicit --with-ffdec=PATH wins; otherwise check bundled
+// launcher/jar next to the running binary (see bundle_dir()/extra_tools)
+// before searching PATH.
+static ccp resolve_ffdec (void)
+{
+	if (opt_with_ffdec && *opt_with_ffdec)
+		return find_program (opt_with_ffdec);
+
+	ccp dir = ProgramDirectory ();
+	if (dir && *dir)
+	{
+		snprintf (prog_buf, sizeof (prog_buf), "%s/ffdec", dir);
+		if (!access (prog_buf, X_OK))
+			return prog_buf;
+#if defined(__CYGWIN__) || defined(_WIN32)
+		snprintf (prog_buf, sizeof (prog_buf), "%s/ffdec.exe", dir);
+		if (!access (prog_buf, F_OK))
+			return prog_buf;
+		snprintf (prog_buf, sizeof (prog_buf), "%s/ffdec.bat", dir);
+		if (!access (prog_buf, F_OK))
+			return prog_buf;
+#endif
+		snprintf (prog_buf, sizeof (prog_buf), "%s/ffdec.sh", dir);
+		if (!access (prog_buf, X_OK))
+			return prog_buf;
+		snprintf (prog_buf, sizeof (prog_buf), "%s/ffdec.jar", dir);
+		if (!access (prog_buf, R_OK))
+			return prog_buf;
+	}
+
+	ccp found = find_program ("ffdec");
+	if (found)
+		return found;
+#if defined(__CYGWIN__) || defined(_WIN32)
+	found = find_program ("ffdec.exe");
+	if (found)
+		return found;
+	found = find_program ("ffdec.bat");
+	if (found)
+		return found;
+#endif
+	found = find_program ("ffdec.sh");
+	if (found)
+		return found;
+
+	return 0;
+}
+
+// Adobe Flash SWF decompiler pass-through. Shells out to JPEXS Free Flash
+// Decompiler (ffdec) with -onerror ignore -export all <stage> <src> to unpack
+// ActionScript 1/2/3 scripts, shapes, images, sounds, fonts, texts and binary
+// data into the stage directory.
+static enumError passthru_ffdec (
+	ccp src, ccp basedir, ccp stage, char *staged_dir, uint staged_dir_size)
+{
+	(void)basedir;
+
+	ccp tool = resolve_ffdec ();
+	if (!tool || !*tool)
+	{
+		*staged_dir = 0;
+		return make_stage_dir (stage, true);
+	}
+
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT flash decompiler passthrough: %s -> %s (%s)\n",
+			testmode ? "WOULD " : "", verbose > 0 ? "\n" : "", src, stage, tool);
+
+	if (testmode)
+	{
+		snprintf (staged_dir, staged_dir_size, "%s", stage);
+		return ERR_OK;
+	}
+
+	if (CreatePath (stage, false))
+		return ERROR0 (ERR_CANT_CREATE_DIR, "Cannot create dest dir: %s", stage);
+
+	char *argv[16];
+	int argc = 0;
+	bool is_jar = (strlen (tool) > 4 && !strcmp (tool + strlen (tool) - 4, ".jar"));
+	char java_bin[PATH_MAX] = "java";
+	if (is_jar)
+	{
+		ccp j = find_program ("java");
+		if (j)
+			snprintf (java_bin, sizeof (java_bin), "%s", j);
+		argv[argc++] = java_bin;
+		argv[argc++] = "-Djava.awt.headless=true";
+		argv[argc++] = "-jar";
+		argv[argc++] = (char *)tool;
+	}
+	else
+	{
+		argv[argc++] = (char *)tool;
+	}
+	argv[argc++] = "-onerror";
+	argv[argc++] = "ignore";
+	argv[argc++] = "-export";
+	argv[argc++] = "all";
+	argv[argc++] = (char *)stage;
+	argv[argc++] = (char *)src;
+	argv[argc] = 0;
+
+	const int rc = run_program (argv);
+	if (rc != 0)
+		return ERROR0 (ERR_SUBJOB_FAILED, "pass-through ffdec failed for %s (exit %d)", src, rc);
 
 	snprintf (staged_dir, staged_dir_size, "%s", stage);
 	return ERR_OK;
@@ -3501,6 +3614,12 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 	if (is_7z_magic || is_rar_magic || is_tar_magic || is_gzip_magic)
 		return passthru_7z (src, basedir, stage, staged_dir, staged_dir_size, is_rar_magic);
 
+	// Adobe Flash SWF (strong pass: FWS uncompressed, CWS zlib, ZWS lzma)
+	bool is_swf_magic = (head[0] == 'F' || head[0] == 'C' || head[0] == 'Z')
+		&& head[1] == 'W' && head[2] == 'S' && head[3] > 0 && head[3] <= 60;
+	if (is_swf_magic && is_ext (src, ".swf"))
+		return passthru_ffdec (src, basedir, stage, staged_dir, staged_dir_size);
+
 	// ----- claimed by extension alone (weak path only) -----
 
 	// Nintendo DS ROM  (by extension: .nds, .srl, .dsi)
@@ -3550,6 +3669,10 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 			|| is_ext (src, ".tar") || is_ext (src, ".tgz") || is_ext (src, ".tbz2")
 			|| is_ext (src, ".txz") || (is_ext (src, ".gz") && !is_ext (src, ".g1t.gz"))))
 		return passthru_7z (src, basedir, stage, staged_dir, staged_dir_size, is_ext (src, ".rar"));
+
+	// Adobe Flash SWF (by extension or header match)
+	if (!strong_only && (is_ext (src, ".swf") || is_swf_magic))
+		return passthru_ffdec (src, basedir, stage, staged_dir, staged_dir_size);
 
 	// Media files (THP, Mobiclip, BRSTM, BCSTM, BFSTM, BNS, BTSND, AST, DSP, HVQM4, VID1, etc.)
 	bool is_thp = !memcmp (head, "THP\0", 4) || (!strong_only && is_ext (src, ".thp"));

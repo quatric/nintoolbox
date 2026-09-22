@@ -573,6 +573,29 @@ jobs:
               echo "::warning::vgmtrans build failed -- skipping"
           fi
 
+          # 13. ffdec (jindrapetrik/jpexs-decompiler), JPEXS Free Flash Decompiler
+          FFDEC_ZIP_URL=$(curl -fsSL https://api.github.com/repos/jindrapetrik/jpexs-decompiler/releases/latest 2>/dev/null | grep -o 'https://github.com/jindrapetrik/jpexs-decompiler/releases/download/[^"]*ffdec_[0-9.]*\.zip' | head -n 1 || true)
+          if [ -z "$FFDEC_ZIP_URL" ]; then
+            FFDEC_ZIP_URL="https://github.com/jindrapetrik/jpexs-decompiler/releases/download/version26.3.0/ffdec_26.3.0.zip"
+          fi
+          echo "fetching FFDec from $FFDEC_ZIP_URL"
+          if curl -fsSL -o /tmp/ffdec.zip "$FFDEC_ZIP_URL"; then
+            unzip -q -o /tmp/ffdec.zip -d /tmp/ffdec-extracted
+            cp /tmp/ffdec-extracted/ffdec.jar extra_tools/ 2>/dev/null || true
+            if [ -d /tmp/ffdec-extracted/lib ]; then
+              mkdir -p extra_tools/lib
+              cp -Rp /tmp/ffdec-extracted/lib/* extra_tools/lib/ 2>/dev/null || true
+            fi
+            if [ -f /tmp/ffdec-extracted/ffdec.sh ]; then
+              cp /tmp/ffdec-extracted/ffdec.sh extra_tools/ffdec.sh
+              chmod +x extra_tools/ffdec.sh
+            fi
+            printf '#!/bin/sh\nDIR="$(cd "$(dirname "$0")" && pwd)"\nif [ -f "$DIR/ffdec.jar" ]; then\n  exec java -Djava.awt.headless=true -jar "$DIR/ffdec.jar" "$@"\nelif [ -f "$DIR/ffdec.sh" ]; then\n  exec "$DIR/ffdec.sh" "$@"\nelse\n  exec java -Djava.awt.headless=true -jar ffdec.jar "$@"\nfi\n' > extra_tools/ffdec
+            chmod +x extra_tools/ffdec extra_tools/ffdec.jar 2>/dev/null || true
+          else
+            echo "::warning::ffdec fetch failed -- skipping"
+          fi
+
           chmod +x extra_tools/* 2>/dev/null || true
           ls -la extra_tools
 
@@ -587,6 +610,8 @@ jobs:
           done
           DATA_ARGS=(--add-data logo.png:.)
           [ -d extra_tools/share ] && DATA_ARGS+=(--add-data extra_tools/share:share)
+          [ -f extra_tools/ffdec.jar ] && DATA_ARGS+=(--add-data extra_tools/ffdec.jar:.)
+          [ -d extra_tools/lib ] && DATA_ARGS+=(--add-data extra_tools/lib:lib)
           # seeddb.bin (titleid -> seed map): ctrtool needs it to decrypt RomFS
           # on post-2015 3DS titles using seed crypto. Flat next to ctrtool via
           # --contents-directory . below, matching resolve_bundled_tool()'s lookup.
@@ -789,6 +814,30 @@ jobs:
               echo "::warning::vgmtrans build failed -- skipping"
           fi
 
+          # 13. ffdec (jindrapetrik/jpexs-decompiler), JPEXS Free Flash Decompiler
+          FFDEC_ZIP_URL=$(curl -fsSL https://api.github.com/repos/jindrapetrik/jpexs-decompiler/releases/latest 2>/dev/null | grep -o 'https://github.com/jindrapetrik/jpexs-decompiler/releases/download/[^"]*ffdec_[0-9.]*\.zip' | head -n 1 || true)
+          if [ -z "$FFDEC_ZIP_URL" ]; then
+            FFDEC_ZIP_URL="https://github.com/jindrapetrik/jpexs-decompiler/releases/download/version26.3.0/ffdec_26.3.0.zip"
+          fi
+          echo "fetching FFDec from $FFDEC_ZIP_URL"
+          if curl -fsSL -o "$TMP/ffdec.zip" "$FFDEC_ZIP_URL"; then
+            unzip -q -o "$TMP/ffdec.zip" -d "$TMP/ffdec-extracted"
+            cp "$TMP/ffdec-extracted/ffdec.jar" "$GITHUB_WORKSPACE/extra_tools/" 2>/dev/null || true
+            if [ -d "$TMP/ffdec-extracted/lib" ]; then
+              mkdir -p "$GITHUB_WORKSPACE/extra_tools/lib"
+              cp -Rp "$TMP/ffdec-extracted/lib"/* "$GITHUB_WORKSPACE/extra_tools/lib/" 2>/dev/null || true
+            fi
+            if [ -f "$TMP/ffdec-extracted/ffdec.exe" ]; then
+              cp "$TMP/ffdec-extracted/ffdec.exe" "$GITHUB_WORKSPACE/extra_tools/ffdec.exe" 2>/dev/null || true
+            fi
+            if [ -f "$TMP/ffdec-extracted/ffdec.bat" ]; then
+              cp "$TMP/ffdec-extracted/ffdec.bat" "$GITHUB_WORKSPACE/extra_tools/ffdec.bat" 2>/dev/null || true
+            fi
+            printf '@echo off\r\nset "DIR=%%~dp0"\r\nif exist "%%DIR%%ffdec.jar" (\r\n  java -Djava.awt.headless=true -jar "%%DIR%%ffdec.jar" %%*\r\n) else (\r\n  java -Djava.awt.headless=true -jar ffdec.jar %%*\r\n)\r\n' > "$GITHUB_WORKSPACE/extra_tools/ffdec.bat"
+          else
+            echo "::warning::ffdec fetch failed -- skipping"
+          fi
+
           chmod +x extra_tools/* 2>/dev/null || true
           ls -la extra_tools
 
@@ -833,6 +882,8 @@ jobs:
           done
           DATA_ARGS=(--add-data logo.png:.)
           [ -d extra_tools/share ] && DATA_ARGS+=(--add-data extra_tools/share:bin/share)
+          [ -f extra_tools/ffdec.jar ] && DATA_ARGS+=(--add-data extra_tools/ffdec.jar:bin)
+          [ -d extra_tools/lib ] && DATA_ARGS+=(--add-data extra_tools/lib:bin/lib)
           DATA_ARGS+=(--add-data project/third_party/prod.keys:bin)
           DATA_ARGS+=(--add-data project/third_party/title.keys:bin)
           DATA_ARGS+=(--add-data project/third_party/keys.txt:bin)
@@ -995,6 +1046,29 @@ jobs:
               echo "::warning::vgmtrans build failed -- skipping"
           fi
 
+          # 13. ffdec (jindrapetrik/jpexs-decompiler), JPEXS Free Flash Decompiler
+          FFDEC_ZIP_URL=$(curl -fsSL https://api.github.com/repos/jindrapetrik/jpexs-decompiler/releases/latest 2>/dev/null | grep -o 'https://github.com/jindrapetrik/jpexs-decompiler/releases/download/[^"]*ffdec_[0-9.]*\.zip' | head -n 1 || true)
+          if [ -z "$FFDEC_ZIP_URL" ]; then
+            FFDEC_ZIP_URL="https://github.com/jindrapetrik/jpexs-decompiler/releases/download/version26.3.0/ffdec_26.3.0.zip"
+          fi
+          echo "fetching FFDec from $FFDEC_ZIP_URL"
+          if curl -fsSL -o /tmp/ffdec.zip "$FFDEC_ZIP_URL"; then
+            unzip -q -o /tmp/ffdec.zip -d /tmp/ffdec-extracted
+            cp /tmp/ffdec-extracted/ffdec.jar extra_tools/ 2>/dev/null || true
+            if [ -d /tmp/ffdec-extracted/lib ]; then
+              mkdir -p extra_tools/lib
+              cp -Rp /tmp/ffdec-extracted/lib/* extra_tools/lib/ 2>/dev/null || true
+            fi
+            if [ -f /tmp/ffdec-extracted/ffdec.sh ]; then
+              cp /tmp/ffdec-extracted/ffdec.sh extra_tools/ffdec.sh
+              chmod +x extra_tools/ffdec.sh
+            fi
+            printf '#!/bin/sh\nDIR="$(cd "$(dirname "$0")" && pwd)"\nif [ -f "$DIR/ffdec.jar" ]; then\n  exec java -Djava.awt.headless=true -jar "$DIR/ffdec.jar" "$@"\nelif [ -f "$DIR/ffdec.sh" ]; then\n  exec "$DIR/ffdec.sh" "$@"\nelse\n  exec java -Djava.awt.headless=true -jar ffdec.jar "$@"\nfi\n' > extra_tools/ffdec
+            chmod +x extra_tools/ffdec extra_tools/ffdec.jar 2>/dev/null || true
+          else
+            echo "::warning::ffdec fetch failed -- skipping"
+          fi
+
           chmod +x extra_tools/* 2>/dev/null || true
           ls -la extra_tools
 
@@ -1009,6 +1083,8 @@ jobs:
           done
           DATA_ARGS=(--add-data logo.png:.)
           [ -d extra_tools/share ] && DATA_ARGS+=(--add-data extra_tools/share:share)
+          [ -f extra_tools/ffdec.jar ] && DATA_ARGS+=(--add-data extra_tools/ffdec.jar:.)
+          [ -d extra_tools/lib ] && DATA_ARGS+=(--add-data extra_tools/lib:lib)
           DATA_ARGS+=(--add-data project/third_party/prod.keys:.)
           DATA_ARGS+=(--add-data project/third_party/title.keys:.)
           DATA_ARGS+=(--add-data project/third_party/keys.txt:.)

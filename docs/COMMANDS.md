@@ -239,6 +239,7 @@ wszst xx <source> [--dest <dir>] [--auto] [--overwrite] [delegation options]
   - `--with-7z=<path>`: Custom path to `7z` / `7zz`.
   - `--with-nsz=<path>`: Custom path to `nsz` (Nintendo Switch NSZ/XCZ decompressor).
   - `--with-vgmtrans=<path>`: Custom path to `vgmtrans` (BRSAR/SDAT sound archive translator).
+  - `--with-ffdec=<path>`: Custom path to `ffdec` (JPEXS Free Flash Decompiler for SWF decompilation and resource extraction).
   - `--with-gshcompile=<path>`: Custom path to the Cafe SDK `gshCompile` tool, used when creating a Wii U `.sharcfb` from a SHARC directory whose programs have no precompiled `<program>/out.gsh`.
 
 #### Newly Supported Archive Formats

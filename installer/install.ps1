@@ -23,7 +23,7 @@ New-Item -ItemType Directory -Force -Path $Dest | Out-Null
 
 Write-Host "Installing to $Dest"
 $installed = 0
-Get-ChildItem -Path $binSrc -Include *.exe, *.dll, *.keys, *.txt, *.bin -File -Recurse | Where-Object {
+Get-ChildItem -Path $binSrc -Include *.exe, *.dll, *.keys, *.txt, *.bin, *.jar, *.bat -File -Recurse | Where-Object {
     $_.Name -ne "nintoolbox.exe"
 } | ForEach-Object {
     Copy-Item $_.FullName -Destination (Join-Path $Dest $_.Name) -Force
@@ -34,6 +34,14 @@ Get-ChildItem -Path $binSrc -Include *.exe, *.dll, *.keys, *.txt, *.bin -File -R
 if ($installed -eq 0) {
     Write-Warning "No .exe/.dll files found under $binSrc -- nothing installed."
     exit 1
+}
+
+$libSrc = Join-Path $binSrc "lib"
+if (Test-Path $libSrc) {
+    $libDest = Join-Path $Dest "lib"
+    New-Item -ItemType Directory -Force -Path $libDest | Out-Null
+    Copy-Item "$libSrc\*" -Destination $libDest -Recurse -Force
+    Write-Host "Installed lib\ (bundled Java libraries)"
 }
 
 $wiiuKeysSrc = Join-Path $binSrc "wiiu_keys"

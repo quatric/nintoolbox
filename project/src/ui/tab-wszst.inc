@@ -2148,6 +2148,13 @@
 		" translating BRSAR and SDAT sound archives to MIDI and SoundFont."
 		" Default is 'vgmtrans' on PATH." },
 
+  { T_OPT_GP,	"WITH_FFDEC",	"with-ffdec|withffdec|ffdec",
+		"path|name",
+		"Define the path or name of the external {ffdec} tool (JPEXS Free"
+		" Flash Decompiler) used for SWF decompilation and resource extraction."
+		" If the value contains no slash, it is searched in the directories"
+		" of the environment variable @'PATH'@. Default is the name @'ffdec'@." },
+
   { T_SEP_OPT,	0,0,0,0 }, //----- separator -----
 
   { T_OPT_CP,	"TRANSFORM",	"x|transform",

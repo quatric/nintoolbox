@@ -55,12 +55,18 @@ fi
 # locate_switch_key(), locate_wiiu_resource()). They are non-executable so the
 # loop above skips them -- copy them explicitly so the installed CLI tools keep
 # working out of the box.
-for data in seeddb.bin prod.keys title.keys keys.txt; do
+for data in seeddb.bin prod.keys title.keys keys.txt ffdec.jar; do
 	if [[ -f "$HERE/$data" ]]; then
 		cp -p "$HERE/$data" "$DEST/$data"
 		echo "  $data"
 	fi
 done
+
+if [[ -d "$HERE/lib" ]]; then
+	mkdir -p "$DEST/lib"
+	cp -Rp "$HERE/lib/." "$DEST/lib/"
+	echo "  lib/ (bundled Java libraries)"
+fi
 
 if [[ -d "$HERE/wiiu_keys" ]]; then
 	mkdir -p "$DEST/wiiu_keys"

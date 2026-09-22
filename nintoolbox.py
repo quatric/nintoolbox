@@ -38,6 +38,7 @@ SUPPORTED_FAMILIES = [
     ("Textures & Images", "*.tpl *.bti *.tex0 *.bflim *.bclim *.ncgr *.nclr *.bntx"),
     ("3D Models & Collision", "*.mdl0 *.bcres *.bfres *.bch *.kcl *.csb *.ctb"),
     ("Layouts & Sequences", "*.brlyt *.brlan *.bflyt *.bflan *.ncer *.nanr *.rseq *.cseq *.sseq"),
+    ("Flash / ActionScript", "*.swf"),
 ]
 
 GRID_COLUMNS = 3
@@ -194,6 +195,7 @@ class NintoolboxGUI(TkinterDnD.Tk if TkinterDnD else tk.Tk):
         self.sevenz_path = find_companion_tool("7zz", self.wszst_path) or find_companion_tool("7z", self.wszst_path)
         self.makerom_path = find_companion_tool("makerom", self.wszst_path)
         self.wud2app_path = find_companion_tool("wud2app", self.wszst_path)
+        self.ffdec_path = find_companion_tool("ffdec", self.wszst_path)
 
         try:
             base_path = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
@@ -519,6 +521,19 @@ class NintoolboxGUI(TkinterDnD.Tk if TkinterDnD else tk.Tk):
                 for name in os.listdir(share_src):
                     shutil.copy2(os.path.join(share_src, name), os.path.join(share_dest, name))
 
+            ffdec_jar = os.path.join(tools_dir, "ffdec.jar")
+            if os.path.isfile(ffdec_jar):
+                shutil.copy2(ffdec_jar, os.path.join(dest, "ffdec.jar"))
+                installed.append("ffdec.jar")
+
+            lib_src = os.path.join(tools_dir, "lib")
+            if os.path.isdir(lib_src):
+                lib_dest = os.path.join(dest, "lib")
+                os.makedirs(lib_dest, exist_ok=True)
+                for name in os.listdir(lib_src):
+                    shutil.copy2(os.path.join(lib_src, name), os.path.join(lib_dest, name))
+                installed.append("lib/")
+
             if not installed:
                 messagebox.showwarning(
                     "Install CLI Tools",
@@ -650,6 +665,8 @@ class NintoolboxGUI(TkinterDnD.Tk if TkinterDnD else tk.Tk):
             flags.append(f"--with-hacbrewpack={self.hacbrewpack_path}")
         if self.sevenz_path:
             flags.append(f"--with-7z={self.sevenz_path}")
+        if self.ffdec_path:
+            flags.append(f"--with-ffdec={self.ffdec_path}")
         return flags
 
     def run_unpack(self):

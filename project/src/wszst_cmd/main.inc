@@ -640,6 +640,9 @@ static enumError CheckOptions (int argc, char **argv, bool is_env)
 			case GO_WITH_VGMTRANS:
 				opt_with_vgmtrans = optarg;
 				break;
+			case GO_WITH_FFDEC:
+				opt_with_ffdec = optarg;
+				break;
 
 			case GO_ENCODE_ALL:
 				opt_encode_all = true;
