@@ -23,11 +23,14 @@ bool IsZMB (const u8 *data, uint size);
 // Decode every "WII\0"-wrapped "ZMB GC" chunk found back to back in 'data'
 // (a character file is body+head, two chunks; a prop file is one chunk) and
 // write a YAML text dump of textures, materials, bones (name, type,
-// bind-pose transform / anchor point, submesh count) and, per submesh, its
-// vertex-block count and the position bounding box the game itself would
-// compute for culling. Mesh topology (vertex-block index arrays into the
-// shared position pool), UV coordinates and per-vertex bone-index skinning
-// are read and counted but not yet exported as geometry -- see lib-zmb.c.
+// bind-pose transform / anchor point, submesh count) to 'out_path', plus a
+// sibling Wavefront .obj (same path with its extension replaced by ".obj")
+// containing the actual triangulated geometry -- positions, normals and UVs,
+// one object per bone/submesh -- fan-triangulated from each vertex block's
+// N-gon. Vertex colours are read but not written (OBJ has no standard vertex
+// colour). Geometry is in the file's own untransformed pool coordinates, not
+// posed through the bone hierarchy (parent-relative bind-pose composition
+// and per-vertex skin-index assignment are not decoded -- see lib-zmb.c).
 // Returns ERR_NOTHING_TO_DO if 'data' isn't a ZMB file.
 enumError DecodeZMB (const u8 *data, uint size, ccp out_path);
 

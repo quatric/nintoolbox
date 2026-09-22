@@ -63,23 +63,53 @@
 //   +0x9a  u16 submesh count
 //   +0x9c  u32 offset to the submesh record array
 //
-// Submesh record: fixed 0x40 bytes.
-//   +0x04  u16 LOD/format flag (nonzero selects a richer vertex-block
-//          layout and extra relocations this decoder does not decode)
+// Submesh record: fixed 0x40 bytes, owning four parallel attribute pools
+// (all chunk-relative offsets; a null offset means that attribute is absent):
+//   +0x04  u16 LOD/format flag (nonzero selects a richer 0x20-byte vertex-
+//          block layout instead of 0x14, with 3 more optional index arrays
+//          this decoder does not read)
 //   +0x0a  u16 vertex-block count
+//   +0x0c  u32 position-pool entry count
+//   +0x14  u32 normal-pool entry count
+//   +0x18  u32 UV-pool flag (nonzero -- the actual count is implied by the
+//          index arrays, not stored separately)
+//   +0x1c  u32 colour-pool entry count (unreliable -- see below)
 //   +0x20  u32 offset to the vertex-block array
-// Each vertex block holds a u16 index count and a relocated array of
-// (12-byte-stride) indices into one shared f32[3] position pool for the
-// whole chunk; the loader computes a min/max bounding box over each
-// block's referenced positions on load, for runtime culling, which is
-// what this decoder reports per submesh instead of raw geometry (the
-// index-to-position addressing needed to emit real triangles is not
-// fully traced yet -- see FORMATS.md).
+//   +0x24  u32 offset to the position pool: tightly packed f32[3], 12-byte
+//          stride (also confirmed independently by bbox cross-checking
+//          against bone anchor points on single-submesh samples)
+//   +0x2c  u32 offset to the normal pool: f32[3], 12-byte stride
+//   +0x30  u32 offset to the UV pool: f32[2], 8-byte stride
+//   +0x34  u32 offset to the colour pool: RGBA8, 4-byte stride (the loader's
+//          default-fill path writes {0,0,0,0xff} per entry when this is
+//          absent, which is how the 4-byte stride was inferred; the count
+//          field above was observed smaller than the highest index actually
+//          used against it on a real sample, so trust the index values, not
+//          this count, when sizing the pool)
 //
-// Not decoded here: UV coordinates, per-vertex bone-index skinning
-// (assigned by the game at load time via a closest-bone match, not stored
-// as blend weights), the material<->texture binding, and the trailing
-// subsection (presumed embedded GX texture pixels).
+// Vertex-block record: fixed 0x14 bytes (0x20 with the LOD flag above):
+//   +0x00  u16 unknown (1 in every sample seen)
+//   +0x02  u16 N, the polygon's corner count (observed 3..7 -- arbitrary
+//          N-gons, not just triangles/quads)
+//   +0x04  u32 offset to a u32[N] index array into the position pool
+//   +0x08  u32 offset to a u32[N] index array into the normal pool (0 if
+//          the polygon has no normals)
+//   +0x0c  u32 offset to a u32[N] index array into the UV pool (0 if none)
+//   +0x10  u32 offset to a u32[N] index array into the colour pool (0 if
+//          none)
+// All four index arrays, when present, are parallel: index array entry i
+// names the attribute for the polygon's i-th corner. Verified end to end on
+// two retail samples (mii_head_acc08.bin, 2 quads; mii_head_acc07.bin, 14
+// N-gon faces): position indices decode to sane, bone-anchor-bounded
+// coordinates, and the UV pool decodes to an exact unit-square {0,1}/{0,0}/
+// {1,0}/{1,1} on the first sample -- not a coincidence four floats would
+// produce by chance.
+//
+// Not decoded here: per-vertex bone-index skinning (assigned by the game at
+// load time via a closest-bone match against submesh+0x10/+0x28, not stored
+// as blend weights), the material<->texture binding, composing a submesh's
+// geometry through its owning bone's (and ancestors') bind-pose transform,
+// and the trailing subsection (presumed embedded GX texture pixels).
 
 static inline u32 zmb_be32 (const u8 *p)
 {
@@ -228,6 +258,194 @@ static void zmb_dump_chunk ( FILE *f, const u8 *data, uint size, u32 chunk_off, 
 }
 
 //-----------------------------------------------------------------------------
+///////////////		mesh export (Wavefront .obj)			///////////////
+//-----------------------------------------------------------------------------
+
+typedef struct zmb_obj_ctx_t
+{
+	FILE	*f;
+	u32	next_pos;  // 1-based running OBJ vertex-index base
+	u32	next_norm;
+	u32	next_uv;
+}
+zmb_obj_ctx_t;
+
+static bool zmb_in_bounds ( uint size, u32 off, u32 len )
+{
+	return off <= size && len <= size - off;
+}
+
+// Write one submesh's position/normal/UV pools as 'v'/'vn'/'vt' lines, then
+// one fan-triangulated 'f' line per vertex block. Silently skips whatever
+// doesn't fit in 'size' (best-effort against truncated/corrupt input).
+static void zmb_write_submesh_obj ( zmb_obj_ctx_t *ctx, const u8 *data, uint size,
+	u32 chunk_off, u32 sm, ccp group_name )
+{
+	const u32 pos_off  = chunk_off + zmb_be32 (data + sm + 0x24);
+	const u32 norm_off = chunk_off + zmb_be32 (data + sm + 0x2c);
+	const u32 uv_off   = chunk_off + zmb_be32 (data + sm + 0x30);
+	const u32 pos_cnt  = zmb_be32 (data + sm + 0xc);
+	const u32 norm_cnt = zmb_be32 (data + sm + 0x14);
+	const u16 vblock_count = zmb_be16 (data + sm + 0xa);
+	const u16 lod_flag = zmb_be16 (data + sm + 4);
+	const u32 vb_stride = lod_flag ? 0x20 : 0x14;
+	const u32 vb_arr = chunk_off + zmb_be32 (data + sm + 0x20);
+
+	if ( !vblock_count || !zmb_in_bounds (size, vb_arr, (u32)vblock_count * vb_stride) )
+		return;
+
+	// A submesh's UV pool has no reliable stored count (see the comment
+	// above), so size it from the highest index any of its vertex blocks
+	// actually uses.
+	u32 uv_cnt = 0;
+	for ( u16 s = 0; s < vblock_count; s++ )
+	{
+		const u32 vb = vb_arr + s * vb_stride;
+		const u16 n = zmb_be16 (data + vb + 2);
+		const u32 uv_idx = zmb_be32 (data + vb + 0xc);
+		if ( !uv_idx || !n )
+			continue;
+		const u32 idx_arr = chunk_off + uv_idx;
+		if ( !zmb_in_bounds (size, idx_arr, (u32)n * 4) )
+			continue;
+		for ( u16 c = 0; c < n; c++ )
+		{
+			const u32 idx = zmb_be32 (data + idx_arr + c * 4);
+			if ( idx + 1 > uv_cnt )
+				uv_cnt = idx + 1;
+		}
+	}
+
+	const bool have_pos  = pos_cnt  && zmb_in_bounds (size, pos_off,  pos_cnt  * 12);
+	const bool have_norm = norm_cnt && zmb_in_bounds (size, norm_off, norm_cnt * 12);
+	const bool have_uv   = uv_cnt   && zmb_in_bounds (size, uv_off,   uv_cnt   * 8);
+	if ( !have_pos )
+		return;
+
+	fprintf (ctx->f, "g %s\n", group_name);
+	for ( u32 i = 0; i < pos_cnt; i++ )
+		fprintf (ctx->f, "v %g %g %g\n",
+			zmb_bef32 (data + pos_off + i * 12),
+			zmb_bef32 (data + pos_off + i * 12 + 4),
+			zmb_bef32 (data + pos_off + i * 12 + 8) );
+	if ( have_norm )
+		for ( u32 i = 0; i < norm_cnt; i++ )
+			fprintf (ctx->f, "vn %g %g %g\n",
+				zmb_bef32 (data + norm_off + i * 12),
+				zmb_bef32 (data + norm_off + i * 12 + 4),
+				zmb_bef32 (data + norm_off + i * 12 + 8) );
+	if ( have_uv )
+		for ( u32 i = 0; i < uv_cnt; i++ )
+			fprintf (ctx->f, "vt %g %g\n",
+				zmb_bef32 (data + uv_off + i * 8),
+				zmb_bef32 (data + uv_off + i * 8 + 4) );
+
+	for ( u16 s = 0; s < vblock_count; s++ )
+	{
+		const u32 vb = vb_arr + s * vb_stride;
+		const u16 n = zmb_be16 (data + vb + 2);
+		if ( n < 3 || n > 256 )
+			continue;
+
+		const u32 pos_idx_off  = chunk_off + zmb_be32 (data + vb + 4);
+		const u32 norm_idx_off = zmb_be32 (data + vb + 8) ? chunk_off + zmb_be32 (data + vb + 8) : 0;
+		const u32 uv_idx_off   = zmb_be32 (data + vb + 0xc) ? chunk_off + zmb_be32 (data + vb + 0xc) : 0;
+		if ( !zmb_in_bounds (size, pos_idx_off, (u32)n * 4) )
+			continue;
+		if ( norm_idx_off && ( !have_norm || !zmb_in_bounds (size, norm_idx_off, (u32)n * 4) ) )
+			continue;
+		if ( uv_idx_off && ( !have_uv || !zmb_in_bounds (size, uv_idx_off, (u32)n * 4) ) )
+			continue;
+
+		u32 corner[256];
+		for ( u16 c = 0; c < n; c++ )
+			corner[c] = zmb_be32 (data + pos_idx_off + c * 4);
+
+		// Fan-triangulate the N-gon: (0,c,c+1) for c in [1,N-2].
+		for ( u16 c = 1; c + 1 < n; c++ )
+		{
+			fprintf (ctx->f, "f");
+			const u16 tri[3] = { 0, c, (u16)(c + 1) };
+			for ( uint k = 0; k < 3; k++ )
+			{
+				const u32 p = ctx->next_pos + corner[tri[k]];
+				if ( uv_idx_off )
+				{
+					const u32 t = ctx->next_uv + zmb_be32 (data + uv_idx_off + tri[k] * 4);
+					if ( norm_idx_off )
+						fprintf (ctx->f, " %u/%u/%u", p, t,
+							ctx->next_norm + zmb_be32 (data + norm_idx_off + tri[k] * 4));
+					else
+						fprintf (ctx->f, " %u/%u", p, t);
+				}
+				else if ( norm_idx_off )
+					fprintf (ctx->f, " %u//%u", p,
+						ctx->next_norm + zmb_be32 (data + norm_idx_off + tri[k] * 4));
+				else
+					fprintf (ctx->f, " %u", p);
+			}
+			fprintf (ctx->f, "\n");
+		}
+	}
+
+	ctx->next_pos  += pos_cnt;
+	ctx->next_norm += have_norm ? norm_cnt : 0;
+	ctx->next_uv   += have_uv ? uv_cnt : 0;
+}
+
+static void zmb_write_chunk_obj ( zmb_obj_ctx_t *ctx, const u8 *data, uint size,
+	u32 chunk_off, uint chunk_idx )
+{
+	const u32 bone_off = chunk_off + zmb_be32 (data + chunk_off + 0x20);
+	if ( !zmb_in_bounds (size, bone_off, 0xc) )
+		return;
+	const u32 bone_count = zmb_be32 (data + bone_off);
+	const u32 bone_rec = chunk_off + zmb_be32 (data + bone_off + 8);
+
+	enum { BONE_STRIDE = 0xa0, SUBMESH_STRIDE = 0x40 };
+	for ( u32 i = 0; i < bone_count; i++ )
+	{
+		const u32 b = bone_rec + i * BONE_STRIDE;
+		if ( !zmb_in_bounds (size, b, BONE_STRIDE) )
+			break;
+
+		const u16 submesh_count = zmb_be16 (data + b + 0x9a);
+		if ( !submesh_count )
+			continue;
+		const u32 sub0 = chunk_off + zmb_be32 (data + b + 0x9c);
+
+		char bone_name[0x21];
+		uint len = 0;
+		while ( len < 0x20 && data[b + len] )
+			len++;
+		memcpy (bone_name, data + b, len);
+		bone_name[len] = 0;
+		for ( uint k = 0; k < len; k++ )
+			if ( (u8)bone_name[k] < 0x20 || (u8)bone_name[k] >= 0x7f || bone_name[k] == ' ' )
+				bone_name[k] = '_';
+
+		for ( u16 s = 0; s < submesh_count; s++ )
+		{
+			const u32 sm = sub0 + s * SUBMESH_STRIDE;
+			if ( !zmb_in_bounds (size, sm, SUBMESH_STRIDE) )
+				break;
+			char group[80];
+			snprintf (group, sizeof(group), "chunk%u_%s%s_sm%u",
+				chunk_idx, len ? bone_name : "bone", len ? "" : "0", s);
+			zmb_write_submesh_obj (ctx, data, size, chunk_off, sm, group);
+		}
+	}
+}
+
+static void zmb_replace_ext ( char *dest, uint dest_size, ccp src, ccp new_ext )
+{
+	ccp dot = strrchr (src, '.');
+	ccp slash = strrchr (src, '/');
+	const uint base_len = dot && ( !slash || dot > slash ) ? (uint)(dot - src) : (uint)strlen (src);
+	snprintf (dest, dest_size, "%.*s%s", base_len, src, new_ext);
+}
+
+//-----------------------------------------------------------------------------
 
 enumError DecodeZMB ( const u8 *data, uint size, ccp out_path )
 {
@@ -244,9 +462,26 @@ enumError DecodeZMB ( const u8 *data, uint size, ccp out_path )
 	zmb_dump_chunk (f, data, size, chunk0_off, "0");
 
 	const u32 chunk1_off = zmb_be32 (data + 0x18);
-	if ( chunk1_off && zmb_is_chunk (data, size, chunk1_off) )
+	const bool have_chunk1 = chunk1_off && zmb_is_chunk (data, size, chunk1_off);
+	if ( have_chunk1 )
 		zmb_dump_chunk (f, data, size, chunk1_off, "1");
 
 	fclose (f);
+
+	char obj_path[PATH_MAX];
+	zmb_replace_ext (obj_path, sizeof(obj_path), out_path, ".obj");
+	FILE *obj = fopen (obj_path, "wb");
+	if (obj)
+	{
+		fprintf (obj, "# Konami ZMB model, decoded by nintoolbox\n"
+			"# Geometry is in raw file pool coordinates, not posed through\n"
+			"# the bone hierarchy -- see lib-zmb.c\n");
+		zmb_obj_ctx_t ctx = { obj, 1, 1, 1 };
+		zmb_write_chunk_obj (&ctx, data, size, chunk0_off, 0);
+		if ( have_chunk1 )
+			zmb_write_chunk_obj (&ctx, data, size, chunk1_off, 1);
+		fclose (obj);
+	}
+
 	return ERR_OK;
 }
