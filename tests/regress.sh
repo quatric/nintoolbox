@@ -12753,7 +12753,12 @@ t_cpk(){
   local d; d=$(mktemp -d /tmp/_r_cpk.XXXXXX) || { no "CPK synth" "mktemp failed"; return; }
   python3 -c '
 import struct
-def utf_table(cols, rows, name=b"CPK"):
+def utf_table(cols, rows, consts=None, name=b"CPK"):
+    # cols: (flag, name) pairs. A CONSTANT-storage column (flag&0xf0==0x30)
+    # takes its single shared value from `consts[name]` and is absent from
+    # each row list; a PERROW column (flag&0xf0==0x50) takes one value per
+    # row, in column order, from `rows`.
+    consts = consts or {}
     strings = bytearray(b"\x00" + name + b"\x00")
     stroffs = {}
     def intern(s):
@@ -12761,20 +12766,25 @@ def utf_table(cols, rows, name=b"CPK"):
             stroffs[s] = len(strings)
             strings.extend(s + b"\x00")
         return stroffs[s]
+    def pack_val(fl, v, buf):
+        ty = fl & 0x0f
+        if ty in (0, 1): buf.append(v)
+        elif ty in (2, 3): buf.extend(struct.pack(">H", v))
+        elif ty in (4, 5): buf.extend(struct.pack(">I", v))
+        elif ty in (6, 7): buf.extend(struct.pack(">Q", v))
+        elif ty == 0x0a: buf.extend(struct.pack(">I", intern(v)))
+        else: raise AssertionError(fl)
     colbin = bytearray()
     for fl, nm in cols:
         colbin.append(fl)
         colbin.extend(struct.pack(">I", intern(nm)))
+        if (fl & 0xf0) == 0x30:
+            pack_val(fl, consts[nm], colbin)
+    perrow = [c for c in cols if (c[0] & 0xf0) != 0x30]
     rowbin = bytearray()
     for r in rows:
-        for (fl, _), v in zip(cols, r):
-            ty = fl & 0x0f
-            if ty in (0, 1): rowbin.append(v)
-            elif ty in (2, 3): rowbin.extend(struct.pack(">H", v))
-            elif ty in (4, 5): rowbin.extend(struct.pack(">I", v))
-            elif ty in (6, 7): rowbin.extend(struct.pack(">Q", v))
-            elif ty == 0x0a: rowbin.extend(struct.pack(">I", intern(v)))
-            else: raise AssertionError(fl)
+        for (fl, _), v in zip(perrow, r):
+            pack_val(fl, v, rowbin)
     rl = len(rowbin) // max(len(rows), 1)
     cols_off = 32
     rows_off = cols_off + len(colbin)
@@ -12812,6 +12822,22 @@ cpk2 += packet(b"TOC ", toc2_hdr)
 while len(cpk2) < 0x1000: cpk2 += b"\x00"
 cpk2 += span + m3
 open("'"$d"'/crilayla.cpk", "wb").write(cpk2)
+# Retail layout (428: Fuusa Sareta Shibuya de, PS3/Wii port): DirName is a
+# CONSTANT-storage column (not one string per row), and ExtractSize differs
+# from FileSize on plain, uncompressed members -- CRILAYLA must not be
+# assumed just because the two sizes disagree.
+m4 = b"plain-padded-member"
+cpk3_hdr = utf_table([(0x56, b"TocOffset"), (0x56, b"ContentOffset"), (0x54, b"Files"), (0x52, b"Align")],
+    [[0x800, 0x1000, 1, 2048]])
+toc3_hdr = utf_table([(0x3a, b"DirName"), (0x5a, b"FileName"), (0x54, b"FileSize"), (0x54, b"ExtractSize"), (0x56, b"FileOffset")],
+    [[b"padded.bin", len(m4), len(m4) + 500, 0x1000 - 0x800]],
+    consts={b"DirName": b""})
+cpk3 = packet(b"CPK ", cpk3_hdr)
+while len(cpk3) < 0x800: cpk3 += b"\x00"
+cpk3 += packet(b"TOC ", toc3_hdr)
+while len(cpk3) < 0x1000: cpk3 += b"\x00"
+cpk3 += m4
+open("'"$d"'/constdir.cpk", "wb").write(cpk3)
 ' 2>/dev/null
   if "$B/wszst" FILETYPE "$d/stored.cpk" 2>/dev/null | grep -q '^CPK' \
   && "$B/wszst" xx "$d/stored.cpk" --dest "$d/sout" --overwrite >/dev/null 2>&1 \
@@ -12829,6 +12855,12 @@ open("'"$d"'/crilayla.cpk", "wb").write(cpk2)
     ok "CPK synthetic CRILAYLA member -> BXM magic, exact 1484 bytes"
   else
     no "CPK synthetic CRILAYLA" "failed to decode CRILAYLA member"
+  fi
+  if "$B/wszst" xx "$d/constdir.cpk" --dest "$d/dout" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/dout/padded.bin" <(printf 'plain-padded-member'); then
+    ok "CPK CONSTANT-storage DirName + non-CRILAYLA ExtractSize mismatch -> raw member extracted"
+  else
+    no "CPK retail layout" "CONSTANT DirName column or unmarked size mismatch broke extraction"
   fi
   rm -rf "$d"
 }

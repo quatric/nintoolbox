@@ -27,6 +27,44 @@ typedef struct cpk_utf_t
 	const u8 *rows; // row data base
 } cpk_utf_t;
 
+// UTF column storage class (flags & 0xf0).
+#define CPK_STORAGE_NONE 0x00
+#define CPK_STORAGE_ZERO 0x10
+#define CPK_STORAGE_CONSTANT 0x30
+#define CPK_STORAGE_PERROW 0x50
+
+// Byte width of one value of UTF type (flags & 0x0f), as stored inline
+// (constant value) or per-row. String/data types store a fixed-size
+// offset/size pair rather than the payload itself.
+static uint cpk_utf_type_size (u8 type)
+{
+	switch (type)
+	{
+		case 0:
+		case 1: return 1;
+		case 2:
+		case 3: return 2;
+		case 4:
+		case 5:
+		case 8: return 4;
+		case 6:
+		case 7:
+		case 0xb: return 8;
+		case 0xa: return 4; // string: BE32 pool offset
+		default: return 0;
+	}
+}
+
+// Byte size of one column descriptor: flags(1) + name offset(4), plus an
+// inline constant value when the column's storage class is CONSTANT.
+static uint cpk_utf_col_size (u8 flags)
+{
+	uint sz = 5;
+	if ((flags & 0xf0) == CPK_STORAGE_CONSTANT)
+		sz += cpk_utf_type_size (flags & 0x0f);
+	return sz;
+}
+
 static void cpk_utf_free (cpk_utf_t *t)
 {
 	if (t && t->owned)
@@ -80,7 +118,8 @@ static bool cpk_utf_parse (cpk_utf_t *t, const u8 *payload, uint payload_size)
 			FREE ((void *)pkt);
 		return false;
 	}
-	// Column descriptors: flags u8 (+3 pad when 0) + BE32 name offset.
+	// Column descriptors: flags u8 + BE32 name offset, plus an inline
+	// constant value for CONSTANT-storage columns (see cpk_utf_col_size).
 	uint cp = 32;
 	for (uint i = 0; i < nc; i++)
 	{
@@ -90,7 +129,7 @@ static bool cpk_utf_parse (cpk_utf_t *t, const u8 *payload, uint payload_size)
 				FREE ((void *)pkt);
 			return false;
 		}
-		cp += pkt[cp] == 0 ? 9 : 5;
+		cp += cpk_utf_col_size (pkt[cp]);
 		if (cp > payload_size)
 		{
 			if (owned)
@@ -117,8 +156,10 @@ static bool cpk_utf_parse (cpk_utf_t *t, const u8 *payload, uint payload_size)
 	return true;
 }
 
-// Column descriptor i: flags + name. Returns false out of bounds.
-static bool cpk_utf_col (const cpk_utf_t *t, uint payload_size, uint i, u8 *flags, const u8 **name)
+// Column descriptor i: flags + name + (optionally) the flag-byte offset,
+// needed to locate an inline CONSTANT value. Returns false out of bounds.
+static bool cpk_utf_col_at (const cpk_utf_t *t, uint payload_size, uint i, u8 *flags, const u8 **name,
+	uint *cp_out)
 {
 	if (!t || i >= t->n_cols)
 		return false;
@@ -127,14 +168,7 @@ static bool cpk_utf_col (const cpk_utf_t *t, uint payload_size, uint i, u8 *flag
 	{
 		if (cp >= payload_size)
 			return false;
-		u8 fl = t->payload[cp];
-		if (fl == 0)
-		{
-			if ((u64)cp + 9 > payload_size)
-				return false;
-			cp += 4;
-			fl = t->payload[cp];
-		}
+		const u8 fl = t->payload[cp];
 		if (k == i)
 		{
 			if ((u64)cp + 5 > payload_size)
@@ -154,11 +188,78 @@ static bool cpk_utf_col (const cpk_utf_t *t, uint payload_size, uint i, u8 *flag
 				*flags = fl;
 			if (name)
 				*name = s;
+			if (cp_out)
+				*cp_out = cp;
 			return true;
 		}
-		cp += 5;
+		cp += cpk_utf_col_size (fl);
+		if (cp > payload_size)
+			return false;
 	}
 	return false;
+}
+
+static bool cpk_utf_col (const cpk_utf_t *t, uint payload_size, uint i, u8 *flags, const u8 **name)
+{
+	return cpk_utf_col_at (t, payload_size, i, flags, name, 0);
+}
+
+// Read a CONSTANT-storage column's single shared value (same for every row).
+static bool cpk_utf_const (const cpk_utf_t *t, uint payload_size, uint col, u64 *num, const u8 **str)
+{
+	u8 flags = 0;
+	uint cp = 0;
+	if (!cpk_utf_col_at (t, payload_size, col, &flags, 0, &cp))
+		return false;
+	if ((flags & 0xf0) != CPK_STORAGE_CONSTANT)
+		return false;
+	const uint vp = cp + 5; // right after flags(1) + name offset(4)
+	const uint sz = cpk_utf_type_size (flags & 0x0f);
+	if (!sz || (u64)vp + sz > payload_size)
+		return false;
+	const u8 *rp = t->payload + vp;
+	switch (flags & 0x0f)
+	{
+		case 0:
+		case 1:
+			if (num)
+				*num = rp[0];
+			return true;
+		case 2:
+		case 3:
+			if (num)
+				*num = (u64)rp[0] << 8 | rp[1];
+			return true;
+		case 4:
+		case 5:
+		case 8:
+			if (num)
+				*num = rd_be32 (rp);
+			return true;
+		case 6:
+		case 7:
+			if (num)
+				*num = (u64)rd_be32 (rp) << 32 | rd_be32 (rp + 4);
+			return true;
+		case 0xa:
+		{
+			const uint no = rd_be32 (rp);
+			const u8 *base = t->strings;
+			if ((u64)(base - t->payload) + no >= payload_size)
+				return false;
+			const u8 *s = base + no;
+			uint len = 0;
+			while ((u64)(s - t->payload) + len < payload_size && s[len] && len < 256)
+				len++;
+			if ((u64)(s - t->payload) + len >= payload_size)
+				return false;
+			if (str)
+				*str = s;
+			return true;
+		}
+		default:
+			return false;
+	}
 }
 
 // Read one PERROW cell as u64. Strings resolve to *str (NUL-checked);
@@ -171,7 +272,9 @@ static bool cpk_utf_cell (const cpk_utf_t *t, uint payload_size, uint row, uint 
 	u8 flags = 0;
 	if (!cpk_utf_col (t, payload_size, col, &flags, 0))
 		return false;
-	if ((flags & 0xf0) != 0x50)
+	if ((flags & 0xf0) == CPK_STORAGE_CONSTANT)
+		return cpk_utf_const (t, payload_size, col, num, str);
+	if ((flags & 0xf0) != CPK_STORAGE_PERROW)
 		return false;
 	// Cell offset: fixed-width prefix per preceding PERROW column.
 	uint off = row * t->row_len;
@@ -610,8 +713,12 @@ enumError ScanCPK (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 		if (!OwnedNameOk (name))
 			snprintf (name, sizeof (name), "%04u.bin", i);
 
+		// ExtractSize often differs from FileSize for reasons other than
+		// CRILAYLA compression (padded/pooled sizes, seen e.g. on shared
+		// texture slots): only attempt to decompress when the payload
+		// actually starts with the CRILAYLA magic.
 		bool ok = false;
-		if (has_ex && decomp != fsize)
+		if (has_ex && decomp != fsize && fsize >= 8 && !memcmp (data + abs_off, "CRILAYLA", 8))
 		{
 			u8 *dec = 0;
 			uint dec_size = 0;
@@ -621,19 +728,13 @@ enumError ScanCPK (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 				ok = OwnedEntryAdd (out, n, name, dec, dec_size);
 				FREE (dec);
 			}
-			// Undecodable members are skipped, never emitted raw:
-			// the stored bytes are still CRILAYLA-compressed.
+			// Undecodable-but-tagged members are skipped, never emitted
+			// raw: the stored bytes are still CRILAYLA-compressed.
 		}
 		else
 			ok = OwnedEntryAdd (out, n, name, data + abs_off, (uint)fsize);
 		if (!ok)
-		{
-			ResetOwnedEntries (out, n);
-			FREE (out);
-			cpk_utf_free (&toc);
-			cpk_utf_free (&hdr);
-			return ERR_CANT_CREATE;
-		}
+			continue;
 		n++;
 	}
 
