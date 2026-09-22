@@ -22,7 +22,7 @@ class CompressionCliTests(unittest.TestCase):
             root = Path(directory)
             source = root / 'input.bin'
             source.write_bytes(payload)
-            for extension in ('huff4', 'huff8', 'yay0', 'lz10'):
+            for extension in ('huff4', 'huff8', 'yay0', 'lz10', 'zlib'):
                 with self.subTest(format=extension):
                     packed = root / ('packed.' + extension)
                     output = root / ('output.' + extension)

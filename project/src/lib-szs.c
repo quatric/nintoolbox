@@ -3035,14 +3035,17 @@ int IsZlib (cvp data, uint size)
 
 enumError DecodeZlibGrow (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 {
-	if (!dest || !dest_size || !src)
+	if (!dest || !dest_size)
 		return ERR_SEMANTIC;
 	*dest = 0;
 	*dest_size = 0;
 
-	uint cap = src_size * 4 + 4096;
-	if (cap > (256u << 20))
-		cap = 256u << 20;
+	if (!src || !src_size)
+		return ERR_INVALID_DATA;
+
+	const uint limit = 256u << 20;
+	const u64 initial_cap = (u64)src_size * 4 + 4096;
+	uint cap = initial_cap > limit ? limit : (uint)initial_cap;
 	u8 *out = MALLOC (cap);
 	if (!out)
 		return ERR_OUT_OF_MEMORY;
@@ -3064,6 +3067,7 @@ enumError DecodeZlibGrow (u8 **dest, uint *dest_size, const u8 *src, uint src_si
 		}
 		ret = inflate (&strm, Z_FINISH);
 		const uint produced = cap - strm.avail_out;
+		const bool full = strm.avail_out == 0;
 		inflateEnd (&strm);
 		if (ret == Z_STREAM_END)
 		{
@@ -3076,17 +3080,18 @@ enumError DecodeZlibGrow (u8 **dest, uint *dest_size, const u8 *src, uint src_si
 			windowBits = -15;
 			continue;
 		}
-		if (ret != Z_OK && ret != Z_BUF_ERROR)
+		// More output space cannot repair input that ended prematurely.
+		if ((ret != Z_OK && ret != Z_BUF_ERROR) || !full)
 		{
 			FREE (out);
 			return ERR_INVALID_DATA;
 		}
-		if (cap >= (256u << 20))
+		if (cap >= limit)
 		{
 			FREE (out);
 			return ERR_FILE_TOO_BIG;
 		}
-		cap = cap * 2;
+		cap = cap > limit / 2 ? limit : cap * 2;
 		u8 *nout = REALLOC (out, cap);
 		if (!nout)
 		{
