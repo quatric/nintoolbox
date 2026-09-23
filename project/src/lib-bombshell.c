@@ -23,7 +23,7 @@ typedef struct bs_ctx_t
 
 static u32 bs_u32 (const bs_ctx_t *c, size_t o)
 {
-	if (o + 4 > c->size)
+	if (!c || c->size < 4 || o > c->size - 4)
 		return 0;
 	const u8 *p = c->d + o;
 	return c->be ? (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3] : (u32)p[3] << 24 | p[2] << 16 | p[1] << 8 | p[0];
@@ -290,6 +290,8 @@ enumError DecodeBombshellTexture (u8 **rgba, const u8 *d, size_t size, const bom
 	}
 
 	u8 *img = MALLOC ((size_t)w * h * 4);
+	if (!img)
+		return ERR_OUT_OF_MEMORY;
 	const u8 *src = d + a->off;
 	switch (a->format)
 	{
@@ -470,7 +472,7 @@ static bool bs_submesh (model_t *m, const bs_ctx_t *c, u32 r, u32 bias, uint ind
 	if (!nmesh)
 		return false;
 	m->meshes = nmesh;
-	mesh_t *mesh = m->meshes + m->num_meshes++;
+	mesh_t *mesh = m->meshes + m->num_meshes;
 	memset (mesh, 0, sizeof (*mesh));
 	snprintf (mesh->name, sizeof (mesh->name), "part%u", index);
 	const size_t cnt = nt * 3;
@@ -482,10 +484,15 @@ static bool bs_submesh (model_t *m, const bs_ctx_t *c, u32 r, u32 bias, uint ind
 	uint *vidx = CALLOC (nv, 4 * sizeof (uint));
 	if (!mesh->positions || !mesh->normals || !mesh->texcoords || !mesh->vertices || !tri || !vidx)
 	{
+		FREE (mesh->positions);
+		FREE (mesh->normals);
+		FREE (mesh->texcoords);
+		FREE (mesh->vertices);
 		FREE (tri);
 		FREE (vidx);
 		return false;
 	}
+	m->num_meshes++;
 	// pass 2: gather vertex index tuples and triangulate
 	size_t p = 0, v0 = 0;
 	uint ntri = 0;
@@ -638,7 +645,9 @@ model_t *BuildBombshellModel (const u8 *d, size_t size, uint index, char *name, 
 	{
 		const size_t no = (size_t)bs_u32 (&c, r + 4) + b;
 		char raw[160];
-		snprintf (raw, sizeof (raw), "%.*s", (int)(no < size ? (size - no < 159 ? size - no : 159) : 0), (ccp)d + no);
+		ccp src_p = no < size ? (ccp)d + no : "";
+		int src_len = no < size ? (int)(size - no < 159 ? size - no : 159) : 0;
+		snprintf (raw, sizeof (raw), "%.*s", src_len, src_p);
 		bs_clean_name (name, name_size, (const u8 *)raw, strlen (raw), index);
 	}
 	model_t *m = CALLOC (1, sizeof (*m));

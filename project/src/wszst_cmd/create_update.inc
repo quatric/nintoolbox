@@ -3408,7 +3408,7 @@ static enumError extract_cod_pak0_file (ccp arg, ccp basedir, uint depth)
 	char *dot = strrchr (stem, '.');
 	if (dot)
 		*dot = 0;
-	if (!*stem)
+	if (!*stem || !OwnedNameOk (stem))
 		snprintf (stem, sizeof (stem), "sound");
 
 	for (uint i = 0; !err && i < n_entries; i++)
@@ -6302,11 +6302,10 @@ static enumError extract_dtls_file (ccp arg, ccp basedir, uint depth)
 					fwrite (entries[i].data, 1, entries[i].size, F.f);
 				ResetFile (&F, opt_preserve);
 			}
-			FREE ((void *)entries[i].name);
 		}
 	}
 
-	FREE (entries);
+	ResetOwnedEntries (entries, n_entries);
 	FREE (ls_raw);
 	if (dt_raw) FREE (dt_raw);
 	return ERR_OK;
@@ -7128,7 +7127,12 @@ static enumError extract_torus_hnk_file (ccp arg, ccp basedir, uint depth)
 				break;
 			dup++;
 		}
-		snprintf (path, sizeof (path), "%s/%s%s.%s", dest, basedir ? basedir : "", name, ext);
+		char safe_name[160];
+		if (!OwnedNameOk (name))
+			snprintf (safe_name, sizeof (safe_name), "asset_%04u", i);
+		else
+			snprintf (safe_name, sizeof (safe_name), "%s", name);
+		snprintf (path, sizeof (path), "%s/%s%s.%s", dest, basedir ? basedir : "", safe_name, ext);
 		if (a->kind == TORUS_TEXTURE)
 		{
 			u8 *rgba = 0;
@@ -7138,6 +7142,8 @@ static enumError extract_torus_hnk_file (ccp arg, ccp basedir, uint depth)
 		}
 		else
 		{
+			if (!OwnedNameOk (a->raw) || strstr (a->raw, ".."))
+				continue;
 			char rawpath[PATH_MAX];
 			snprintf (rawpath, sizeof (rawpath), "%s/../SOUND/%s", sounddir, a->raw);
 			u8 *snd = 0, *wav = 0;
@@ -7699,6 +7705,8 @@ static enumError extract_bttrb_file (ccp arg, ccp basedir, uint depth)
 		char *dot = strrchr (stem, '.');
 		if (dot)
 			*dot = 0;
+		if (!*stem || !OwnedNameOk (stem))
+			snprintf (stem, sizeof (stem), "data");
 		snprintf (path, sizeof (path), "%s/%s%s.xur", dest, basedir ? basedir : "", stem);
 		File_t F;
 		err = CreateFileOpt (&F, true, path, false, arg);

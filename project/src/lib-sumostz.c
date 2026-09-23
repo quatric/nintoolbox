@@ -80,6 +80,12 @@ enumError DecodeSumoSTZ (u8 **dest, uint *dest_size, const u8 *d, size_t size, c
 	{
 		if (got == cap)
 		{
+			if (cap >= 0x10000000u)
+			{
+				inflateEnd (&zs);
+				FREE (out);
+				return ERR_INVALID_DATA;
+			}
 			const u32 ncap = cap > 0x08000000u ? 0x10000000u : cap * 2;
 			u8 *nout = REALLOC (out, ncap);
 			if (!nout)

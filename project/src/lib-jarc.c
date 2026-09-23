@@ -36,6 +36,8 @@ enumError DecodeJCMP (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 
 	if (comp_type == 6 || (payload_size > 0 && payload[0] == 0x78))
 	{
+		if (src_size > 0x3fffffff)
+			return ERR_FILE_TOO_BIG;
 		uint out_cap = src_size * 4 + 65536;
 		if (out_cap < 256 * 1024)
 			out_cap = 256 * 1024;
@@ -417,10 +419,21 @@ enumError create_jarc_dir (ccp source, ccp dest)
 			ERROR0 (err, "Can't load jARC input: %s\n", path);
 			break;
 		}
+		if (fsize > UINT_MAX)
+		{
+			FREE (data);
+			err = ERR_FILE_TOO_BIG;
+			break;
+		}
 		list[used].index = idx;
 		list[used].data = data;
 		list[used].size = fsize;
 		used++;
+		if (used > 1000000)
+		{
+			err = ERR_FILE_TOO_BIG;
+			break;
+		}
 	}
 	closedir (dir);
 

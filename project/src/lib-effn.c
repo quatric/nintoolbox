@@ -98,6 +98,13 @@ enumError DecodeEFFN_Text (FILE *out, const u8 *data, size_t size)
 	char **entry_names = CALLOC (num_effects ? num_effects : 1, sizeof (char *));
 	char **model_names = CALLOC (num_external_models ? num_external_models : 1, sizeof (char *));
 	char **bone_names = CALLOC (multi_part_effects ? multi_part_effects : 1, sizeof (char *));
+	if (!entry_names || !model_names || !bone_names)
+	{
+		FREE (entry_names);
+		FREE (model_names);
+		FREE (bone_names);
+		return ERR_OUT_OF_MEMORY;
+	}
 
 	for (uint i = 0; i < num_effects; i++)
 		entry_names[i] = read_effn_string (data, size, &cur);
@@ -248,6 +255,14 @@ enumError ExtractEFFNArchive (ccp source_file, ccp dest_dir)
 	char **entry_names = CALLOC (num_effects ? num_effects : 1, sizeof (char *));
 	char **model_names = CALLOC (num_external_models ? num_external_models : 1, sizeof (char *));
 	char **bone_names = CALLOC (multi_part_effects ? multi_part_effects : 1, sizeof (char *));
+	if (!entry_names || !model_names || !bone_names)
+	{
+		FREE (entry_names);
+		FREE (model_names);
+		FREE (bone_names);
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
 
 	for (uint i = 0; i < num_effects; i++)
 		entry_names[i] = read_effn_string (raw, raw_size, &cur);

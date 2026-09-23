@@ -45,15 +45,22 @@ enumError ScanTermPod (nintendo_sarc_entry_t **entries, uint *n_entries, const u
 			return EINVAL;
 		}
 		char name[512];
-		const size_t l = strnlen ((ccp)names + noff, names_size - noff);
-		if (l >= sizeof (name))
+		const void *nul = memchr (names + noff, 0, names_size - noff);
+		if (!nul)
 			snprintf (name, sizeof (name), "%05u.bin", i);
 		else
 		{
-			for (size_t k = 0; k <= l; k++)
-				name[k] = names[noff + k] == '\\' ? '/' : names[noff + k];
-			if (!OwnedNameOk (name))
+			const size_t l = (const u8 *)nul - (names + noff);
+			if (l >= sizeof (name))
 				snprintf (name, sizeof (name), "%05u.bin", i);
+			else
+			{
+				for (size_t k = 0; k < l; k++)
+					name[k] = names[noff + k] == '\\' ? '/' : names[noff + k];
+				name[l] = 0;
+				if (!OwnedNameOk (name))
+					snprintf (name, sizeof (name), "%05u.bin", i);
+			}
 		}
 		if (!OwnedEntryAdd (out, n, name, data + off, fsize))
 		{

@@ -532,7 +532,7 @@ enumError ExtractPCTLArchive (ccp source_file, ccp dest_dir)
 				char eset_name[128] = "";
 				if (eset_bin_off != PCTL_NULL_OFFSET)
 					read_cstr (eset_name, sizeof (eset_name), raw, raw_size, eset_pos + eset_bin_off + 16, 64);
-				if (!*eset_name)
+				if (!*eset_name || !OwnedNameOk (eset_name))
 					snprintf (eset_name, sizeof (eset_name), "EmitterSet_%03u", ei);
 
 				if (einf)
@@ -561,7 +561,7 @@ enumError ExtractPCTLArchive (ccp source_file, ccp dest_dir)
 						char emtr_name[128] = "";
 						if (emtr_bin_off != PCTL_NULL_OFFSET)
 							read_cstr (emtr_name, sizeof (emtr_name), raw, raw_size, emtr_pos + emtr_bin_off + 16, 64);
-						if (!*emtr_name)
+						if (!*emtr_name || !OwnedNameOk (emtr_name))
 							snprintf (emtr_name, sizeof (emtr_name), "Emitter_%03u", mi);
 
 						if (eordf)

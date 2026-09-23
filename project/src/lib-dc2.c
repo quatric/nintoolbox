@@ -68,14 +68,19 @@ enumError ScanDCX (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 		for (char *p = name; *p; p++)
 			if (*p == '\\')
 				*p = '/';
-		while (name[0] == '/')
-			memmove (name, name + 1, strlen (name));
+		const char *sp = name;
+		while (*sp == '/')
+			sp++;
+		if (sp != name)
+			memmove (name, sp, strlen (sp) + 1);
 		if (!OwnedNameOk (name))
 			snprintf (name, sizeof (name), "%04u.bin", i);
 		for (uint k = 0; k < n; k++)
 			if (!strcmp (out[k].name, name))
 			{
-				snprintf (name + strlen (name), 12, ".%u", i);
+				const size_t l = strlen (name);
+				if (l + 12 < sizeof (name))
+					snprintf (name + l, sizeof (name) - l, ".%u", i);
 				break;
 			}
 		if (!OwnedEntryAdd (out, n, name, data + off, fsize))

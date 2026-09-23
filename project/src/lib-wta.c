@@ -73,8 +73,8 @@ enumError ExtractWTAArchive (ccp arg, ccp basedir, uint depth)
 		u32 comp_sz = 0;
 		u32 uncomp_sz = 0;
 
-		if (offset_pos_table >= 32 && offset_pos_table + (i + 1) * 4 <= raw_size
-			&& offset_size_table >= 32 && offset_size_table + (i + 1) * 4 <= raw_size)
+		if (offset_pos_table >= 32 && (u64)offset_pos_table + (u64)(i + 1) * 4 <= raw_size
+			&& offset_size_table >= 32 && (u64)offset_size_table + (u64)(i + 1) * 4 <= raw_size)
 		{
 			cur_data_offset = big ? rd_be32 (raw + offset_pos_table + i * 4)
 								  : rd_le32 (raw + offset_pos_table + i * 4);
@@ -98,7 +98,7 @@ enumError ExtractWTAArchive (ccp arg, ccp basedir, uint depth)
 
 		if (cur_data_offset < raw_size && comp_sz > 0)
 		{
-			if (cur_data_offset + comp_sz > raw_size)
+			if ((u64)cur_data_offset + comp_sz > raw_size)
 				comp_sz = (u32)(raw_size - cur_data_offset);
 
 			char out_path[PATH_MAX];
@@ -186,7 +186,7 @@ enumError ScanWTA (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *w
 		const u32 size = rd_be32 (wta + rec + 0x20);
 		if (!size || size > WTA_MAX_OUTPUT || (u64)start + size > wtp_size)
 			continue;
-		if ((u64)o5 + 0x9c > wta_size || rec + 0x9c > wta_size)
+		if ((u64)o5 + 0x9c > wta_size || (u64)rec + 0x9c > wta_size)
 			continue;
 
 		// Gfx2 v7.1 shell (matches ScanGTX: 32-byte header, gpu 2).

@@ -83,7 +83,7 @@ static char *hbdf_read_name_block (const u8 *data, size_t size, size_t *pos)
 	if (memcmp (data + *pos, "NAME", 4))
 		return NULL;
 	const u32 nsize = rd_le32 (data + *pos + 4);
-	if (*pos + 8 + nsize > size)
+	if (*pos + 8 + nsize > size || nsize > 1024)
 		return NULL;
 
 	char *str = CALLOC (nsize + 1, 1);
@@ -94,7 +94,7 @@ static char *hbdf_read_name_block (const u8 *data, size_t size, size_t *pos)
 }
 
 // Helper to parse TEXS chunk and unpack embedded images / palettes
-static void hbdf_unpack_texs (nintendo_sarc_entry_t *out, uint *out_cnt, const u8 *data, size_t texs_size, uint blk_idx)
+static void hbdf_unpack_texs (nintendo_sarc_entry_t *out, uint *out_cnt, uint max_entries, const u8 *data, size_t texs_size, uint blk_idx)
 {
 	if (texs_size < 16)
 		return;
@@ -109,6 +109,8 @@ static void hbdf_unpack_texs (nintendo_sarc_entry_t *out, uint *out_cnt, const u
 
 	for (uint s = 0; s < total_subblocks && pos + 8 <= texs_size; s++)
 	{
+		if (*out_cnt >= max_entries)
+			break;
 		char subtag[5];
 		memcpy (subtag, data + pos, 4);
 		subtag[4] = '\0';
@@ -132,11 +134,12 @@ static void hbdf_unpack_texs (nintendo_sarc_entry_t *out, uint *out_cnt, const u
 				const u32 comp_flags = rd_le32 (sub_ptr + ipos + 20);
 				const size_t raw_data_pos = ipos + 24;
 
-				if (raw_data_pos + tex_size <= sub_len)
+				if (raw_data_pos + tex_size <= sub_len && *out_cnt < max_entries)
 				{
+					const char *clean_name = (tex_name && *tex_name && OwnedNameOk (tex_name)) ? tex_name : "image";
 					char entry_name[128];
 					snprintf (entry_name, sizeof (entry_name), "%02u_TEXS_%s_%ux%u.bin",
-						blk_idx, tex_name && tex_name[0] ? tex_name : "image", w, h);
+						blk_idx, clean_name, w, h);
 
 					if (comp_flags == 1)
 					{
@@ -171,11 +174,12 @@ static void hbdf_unpack_texs (nintendo_sarc_entry_t *out, uint *out_cnt, const u
 				const u32 pal_sz = rd_le32 (sub_ptr + ppos);
 				const u32 comp_flags = rd_le32 (sub_ptr + ppos + 4);
 				const size_t pal_data_pos = ppos + 8;
-				if (pal_data_pos + pal_sz <= sub_len)
+				if (pal_data_pos + pal_sz <= sub_len && *out_cnt < max_entries)
 				{
+					const char *clean_name = (pal_name && *pal_name && OwnedNameOk (pal_name)) ? pal_name : "pal";
 					char entry_name[128];
 					snprintf (entry_name, sizeof (entry_name), "%02u_PLTO_%s.bin",
-						blk_idx, pal_name && pal_name[0] ? pal_name : "pal");
+						blk_idx, clean_name);
 
 					if (comp_flags == 1)
 					{
@@ -223,7 +227,19 @@ enumError ScanHBDF (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *
 		const u32 bsize = rd_le32 (data + pos + 4);
 		if (bsize < 8 || pos + bsize > limit)
 			break;
-		block_cnt += 64; // Allow extra slots for texture/palette sub-blocks
+		block_cnt++;
+		if (!memcmp (data + pos, "TEXS", 4) && bsize >= 16)
+		{
+			const u16 ni = rd_le16 (data + pos + 8);
+			const u16 nimg = rd_le16 (data + pos + 10);
+			const u16 npal = rd_le16 (data + pos + 12);
+			const uint sub = (uint)ni + (uint)nimg + (uint)npal;
+			if (block_cnt + sub < block_cnt)
+				return ERR_FILE_TOO_BIG;
+			block_cnt += sub;
+		}
+		if (block_cnt > 100000)
+			return ERR_FILE_TOO_BIG;
 		pos += bsize;
 	}
 
@@ -237,7 +253,7 @@ enumError ScanHBDF (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *
 	uint out_cnt = 0;
 	pos = 8;
 	uint i = 0;
-	while (pos + 8 <= limit)
+	while (pos + 8 <= limit && out_cnt < block_cnt)
 	{
 		char tag[5];
 		memcpy (tag, data + pos, 4);
@@ -253,11 +269,17 @@ enumError ScanHBDF (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *
 
 		if (!strcmp (tag, "TEXS"))
 		{
-			hbdf_unpack_texs (out, &out_cnt, data + pos, bsize, i);
+			hbdf_unpack_texs (out, &out_cnt, block_cnt, data + pos, bsize, i);
 		}
 
 		pos += bsize;
 		i++;
+	}
+
+	if (!out_cnt)
+	{
+		FREE (out);
+		return ERR_NOTHING_TO_DO;
 	}
 
 	*entries = out;
@@ -974,9 +996,14 @@ model_t *ParseHBDF (const u8 *data, uint size)
 						for (uint j = 0; j < count; j++)
 						{
 							const uint sj = start + j;
-							float px = src->positions[src->vertices[sj].position_idx].x;
-							float py = src->positions[src->vertices[sj].position_idx].y;
-							float pz = src->positions[src->vertices[sj].position_idx].z;
+							float px = 0, py = 0, pz = 0;
+							if (src->vertices[sj].position_idx >= 0
+								&& (uint)src->vertices[sj].position_idx < src->num_positions)
+							{
+								px = src->positions[src->vertices[sj].position_idx].x;
+								py = src->positions[src->vertices[sj].position_idx].y;
+								pz = src->positions[src->vertices[sj].position_idx].z;
+							}
 							hbdf_m4_point (&world, &px, &py, &pz);
 							nm.positions[j].x = px;
 							nm.positions[j].y = py;

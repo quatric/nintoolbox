@@ -107,17 +107,28 @@ static void bt_clean_name (char *out, size_t out_size, ccp src, uint fallback)
 
 static void bt_unique (bttrb_tex_t *list, uint n)
 {
-	char base[sizeof (list->name)];
-	snprintf (base, sizeof (base), "%s", list[n].name);
-	for (uint k = 2;; k++)
+	bttrb_tex_t *a = list + n;
+	char base[sizeof (a->name)];
+	snprintf (base, sizeof (base), "%s", a->name);
+	const size_t tlen = strnlen (base, 80);
+	bool clash = false;
+	uint max_k = 1;
+	for (uint i = 0; i < n; i++)
 	{
-		bool clash = false;
-		for (uint i = 0; i < n && !clash; i++)
-			clash = !strcasecmp (list[i].name, list[n].name);
-		if (!clash)
-			return;
-		snprintf (list[n].name, sizeof (list[n].name), "%.80s_%u", base, k);
+		const bttrb_tex_t *o = list + i;
+		if (!strcasecmp (o->name, base))
+			clash = true;
+		else if (!strncasecmp (o->name, base, tlen) && o->name[tlen] == '_'
+			&& isdigit ((uchar)o->name[tlen + 1]))
+		{
+			char *end;
+			const unsigned long k = strtoul (o->name + tlen + 1, &end, 10);
+			if (!*end && k >= max_k && k < UINT_MAX)
+				max_k = (uint)k;
+		}
 	}
+	if (clash)
+		snprintf (a->name, sizeof (a->name), "%.80s_%u", base, max_k + 1);
 }
 
 bttrb_tex_t *ListBlueTongueTextures (const u8 *d, size_t size, uint *count)

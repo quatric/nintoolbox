@@ -158,8 +158,10 @@ enumError ScanREV (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 			const uint psize = rd_be32 (e + 8);
 			if (pass)
 				snprintf (nbuf, sizeof (nbuf), "%08x", rd_be32 (e + 4));
-			else
+			else if (nm[i] && *nm[i] && OwnedNameOk (nm[i]))
 				snprintf (nbuf, sizeof (nbuf), "%s", nm[i]);
+			else
+				snprintf (nbuf, sizeof (nbuf), "%08x", rd_be32 (e + 4));
 			// give the game resources a suffix the extractor recognises
 			ccp ext = IsBlitzTexture (payload, psize) ? ".bltex"
 					: IsBlitzActor (payload, psize)	  ? ".blact"

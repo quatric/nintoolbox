@@ -76,7 +76,13 @@ enumError ScanHO (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *da
 		if (!memcmp (data + meta, "PSLD", 4))
 		{
 			lay[i].tag = 2;
-			n_names += ho_rd32 (data + meta + 8);
+			const u32 nm_cnt = ho_rd32 (data + meta + 8);
+			if (n_names + nm_cnt < n_names || n_names + nm_cnt > 0x100000)
+			{
+				FREE (lay);
+				return EINVAL;
+			}
+			n_names += nm_cnt;
 		}
 		else if (!memcmp (data + meta, "PSL\0", 4))
 			lay[i].tag = 1;
@@ -125,7 +131,16 @@ enumError ScanHO (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *da
 				continue;
 			const u64 tab = lay[i].start + ho_rd32 (s + 4);
 			if (tab + 0x20 <= size)
-				n_assets += ho_rd32 (data + tab) > HO_MAX_ASSETS ? 0 : ho_rd32 (data + tab);
+			{
+				const u32 acnt = ho_rd32 (data + tab);
+				if (acnt <= HO_MAX_ASSETS)
+				{
+					if (n_assets + acnt > HO_MAX_ASSETS || n_assets + acnt < n_assets)
+						n_assets = HO_MAX_ASSETS;
+					else
+						n_assets += acnt;
+				}
+			}
 		}
 	}
 	nintendo_sarc_entry_t *out = n_assets ? CALLOC (n_assets, sizeof (*out)) : 0;

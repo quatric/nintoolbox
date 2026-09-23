@@ -17,6 +17,8 @@ static u32 car_rd32 (const u8 *p) { return p[0] | p[1] << 8 | p[2] << 16 | (u32)
 // owned buffer or NULL when the bytes are not such a stream.
 static u8 *car_inflate (const u8 *src, size_t src_size, size_t *out_size)
 {
+	if (!src || !src_size || src_size > 0x1fffffff)
+		return 0;
 	z_stream strm;
 	memset (&strm, 0, sizeof (strm));
 	if (inflateInit (&strm) != Z_OK)
@@ -24,6 +26,8 @@ static u8 *car_inflate (const u8 *src, size_t src_size, size_t *out_size)
 	strm.next_in = (Bytef *)src;
 	strm.avail_in = (uInt)src_size;
 	size_t cap = src_size * 4 + 4096;
+	if (cap > 0x20000000u)
+		cap = 0x20000000u;
 	u8 *out = MALLOC (cap);
 	int ret = Z_OK;
 	while (out)
@@ -33,14 +37,24 @@ static u8 *car_inflate (const u8 *src, size_t src_size, size_t *out_size)
 		ret = inflate (&strm, Z_NO_FLUSH);
 		if (ret != Z_OK || strm.avail_out)
 			break;
-		u8 *n = REALLOC (out, cap *= 2);
+		if (cap >= 0x20000000u)
+		{
+			FREE (out);
+			out = 0;
+			break;
+		}
+		const size_t ncap = cap > 0x10000000u ? 0x20000000u : cap * 2;
+		u8 *n = REALLOC (out, ncap);
 		if (!n)
 		{
 			FREE (out);
 			out = 0;
 		}
 		else
+		{
 			out = n;
+			cap = ncap;
+		}
 	}
 	const bool ok = out && ret == Z_STREAM_END && !strm.avail_in;
 	*out_size = strm.total_out;

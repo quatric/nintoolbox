@@ -26,6 +26,9 @@ static bool wadh_path (char *dest, size_t dest_size, const u32 *parent, const u8
 		const u32 noff = wadh_rd32 (dir + 32 * (size_t)cur);
 		if (noff >= names_size)
 			return false;
+		const void *nul = memchr (names + noff, 0, names_size - noff);
+		if (!nul)
+			return false;
 		parts[np++] = names + noff;
 	}
 	size_t pos = 0;

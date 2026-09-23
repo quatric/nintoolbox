@@ -93,32 +93,44 @@ enumError ScanDTLS (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *
 
 		char name[64];
 		snprintf (name, sizeof (name), "%08X.bin", hash ? hash : i);
-		res[i].name = STRDUP (name);
 
-		if (dt_data && off + comp_sz <= dt_size)
+		const u8 *payload = 0;
+		uint payload_sz = 0;
+		u8 *dec = 0;
+
+		if (dt_data && (u64)off + comp_sz <= dt_size)
 		{
-			if ((flags & 1) && decomp_sz > comp_sz)
+			if ((flags & 1) && decomp_sz > comp_sz && decomp_sz <= 0x10000000u)
 			{
-				u8 *dec = MALLOC (decomp_sz);
+				dec = MALLOC (decomp_sz);
 				uLongf dsz = decomp_sz;
 				if (dec && uncompress (dec, &dsz, dt_data + off, comp_sz) == Z_OK)
 				{
-					res[i].data = dec;
-					res[i].size = (uint)dsz;
+					payload = dec;
+					payload_sz = (uint)dsz;
 				}
 				else
 				{
 					FREE (dec);
-					res[i].data = dt_data + off;
-					res[i].size = comp_sz;
+					dec = 0;
+					payload = dt_data + off;
+					payload_sz = comp_sz;
 				}
 			}
 			else
 			{
-				res[i].data = dt_data + off;
-				res[i].size = comp_sz;
+				payload = dt_data + off;
+				payload_sz = comp_sz;
 			}
 		}
+
+		if (!OwnedEntryAdd (res, i, name, payload ? payload : (const u8 *)"", payload_sz))
+		{
+			FREE (dec);
+			ResetOwnedEntries (res, i);
+			return ERR_CANT_CREATE;
+		}
+		FREE (dec);
 	}
 
 	*entries = res;
@@ -129,7 +141,7 @@ enumError ScanDTLS (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *
 enumError CreateDTLS (u8 **out_ls, uint *out_ls_size, u8 **out_dt, uint *out_dt_size,
 	const nintendo_sarc_entry_t *entries, uint n_entries, bool compress, bool big_endian)
 {
-	if (!out_ls || !out_ls_size || !out_dt || !out_dt_size || !entries || !n_entries)
+	if (!out_ls || !out_ls_size || !out_dt || !out_dt_size || !entries || !n_entries || n_entries > 0x100000)
 		return EINVAL;
 
 	const size_t ls_total = 8 + (size_t)n_entries * 24;
@@ -137,15 +149,15 @@ enumError CreateDTLS (u8 **out_ls, uint *out_ls_size, u8 **out_dt, uint *out_dt_
 	if (!ls)
 		return ERR_CANT_CREATE;
 
-	memcpy (ls, big_endian ? "LS\0\0" : "\0\0SL", 4);
-	if (big_endian)
-		wr_be32 (ls + 4, n_entries);
-	else
-		wr_le32 (ls + 4, n_entries);
-
-	size_t dt_capacity = 0;
+	u64 dt_calc = 0;
 	for (uint i = 0; i < n_entries; i++)
-		dt_capacity += (entries[i].size + 31) & ~31u;
+		dt_calc += ((u64)entries[i].size + 31) & ~31ull;
+	if (dt_calc > 0xffffffffull)
+	{
+		FREE (ls);
+		return ERR_FILE_TOO_BIG;
+	}
+	size_t dt_capacity = (size_t)dt_calc;
 	if (dt_capacity == 0)
 		dt_capacity = 32;
 

@@ -98,12 +98,11 @@ enumError ScanGripRES (nintendo_sarc_entry_t **entries, uint *n_entries, const u
 		{
 			// "type offset name" per public resource
 			const u32 cnt = sec[i].size >= 8 ? rd_be32 (p) : 0;
-			char *txt = CALLOC (1, 32 + (size_t)cnt * 300);
-			if (!txt || 8 + 12ull * cnt > sec[i].size)
-			{
-				FREE (txt);
+			if (cnt > 0x10000 || 8 + 12ull * cnt > sec[i].size)
 				continue;
-			}
+			char *txt = CALLOC (1, 32 + (size_t)cnt * 300);
+			if (!txt)
+				continue;
 			size_t l = 0;
 			for (uint k = 0; k < cnt; k++)
 			{
@@ -114,8 +113,10 @@ enumError ScanGripRES (nintendo_sarc_entry_t **entries, uint *n_entries, const u
 					continue;
 				char t[5];
 				res_type_name (t, e + 4);
-				l += snprintf (txt + l, 300, "%-5s 0x%08x %.240s\n", t, rd_be32 (e + 8),
-					(const char *)data + np);
+				const size_t avail = (size_t)size - (size_t)np;
+				const int max_len = avail < 240 ? (int)avail : 240;
+				l += snprintf (txt + l, 300, "%-5s 0x%08x %.*s\n", t, rd_be32 (e + 8),
+					max_len, (const char *)data + np);
 			}
 			ok = OwnedEntryAdd (out, n, "index.txt", (const u8 *)txt, (uint)l);
 			FREE (txt);

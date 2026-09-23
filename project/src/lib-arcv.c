@@ -106,10 +106,21 @@ enumError create_arcv_dir (ccp source, ccp dest)
 			ERROR0 (err, "Can't load ARCV input: %s\n", path);
 			break;
 		}
+		if (fsize > UINT_MAX)
+		{
+			FREE (data);
+			err = ERR_FILE_TOO_BIG;
+			break;
+		}
 		list[used].index = idx;
 		list[used].data = data;
 		list[used].size = fsize;
 		used++;
+		if (used > 1000000)
+		{
+			err = ERR_FILE_TOO_BIG;
+			break;
+		}
 	}
 	closedir (dir);
 
