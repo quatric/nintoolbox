@@ -1904,6 +1904,16 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Sega/CRI AFS archive (.afs, Dragon Ball Z: Budokai Tenkaichi 3)" },
 
+	// FF_THOR = 351 (Behaviour Interactive "Thor" resource package)
+	// No magic bytes are registered here (see IsThorPkg() special-case check
+	// in GetByMagicFF instead): the signature isn't at offset 0 and the
+	// extension ".wii" would otherwise collide with generic handling, so
+	// detection and dispatch (wszst_cmd/formats.inc) go by content + ext.
+	{ FF_THOR, FF_THOR, 0, "THOR", ".wii", ".wii", ".wii",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Behaviour Interactive \"Thor\" resource package (.wii, Phineas and Ferb: Quest for Cool Stuff)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2134,6 +2144,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_PK2, "PK2", "PK2", 0xe05 },
 	{ FF_MPT, "MPT", "MPT", 0x3809 },
 	{ FF_AFS, "AFS", "AFS", 0xe05 },
+	{ FF_THOR, "THOR", "THOR", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

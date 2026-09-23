@@ -965,6 +965,13 @@ __attribute__((weak)) bool IsAFS (const u8 *data, size_t size)
 	return false;
 }
 
+__attribute__((weak)) bool IsThorPkg (const u8 *data, size_t size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
+
 
 file_format_t GetByMagicFF (const void *data, // pointer to data
 	uint data_size, // size of data
@@ -2096,6 +2103,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_PK2;
 	if (IsAFS (data8, data_size))
 		return FF_AFS;
+	if (IsThorPkg (data8, data_size))
+		return FF_THOR;
 
 	const nfmt_info_t nfmt = DetectNintendoFormat (data, data_size, 0);
 	switch (nfmt.type)

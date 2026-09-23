@@ -443,6 +443,7 @@ typedef enum file_format_t
 	FF_PK2, // 348 - Nordcurrent BigFile multi-part archive (.pk2)
 	FF_MPT, // 349 - Nordcurrent texture (.mpt)
 	FF_AFS, // 350 - Sega/CRI AFS archive (.afs)
+	FF_THOR, // 351 - Behaviour Interactive "Thor" resource package (.wii)
 
 	//--- number of elements
 

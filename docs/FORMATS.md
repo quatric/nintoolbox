@@ -12,6 +12,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **ADJB** | Switch / Model sidecar | ✅ | ❌ | Smash Ultimate mesh triangle adjacency (model.adjb): per-mesh id + u16 index lists, sized like Adjb.cs |
 | **AFS** | Wii / Archive | ✅ | ❌ | Sega/CRI-style flat archive reused by Spike Co.'s engine for *Dragon Ball Z: Budokai Tenkaichi 3* (`wzs3us0/1/2.afs`); magic `AFS\0` + u32 LE file count, then that many `{offset,size}` u32 LE pairs, one trailing pair pointing at a 48-byte-per-entry name/date metadata table; decode-only, verified against retail samples by direct hexdump |
 | **ALAR** | DS / Archive | ✅ | ✅ | Nitro ALAR archive |
+| **THOR** | Wii / Resource package | ✅ | ❌ | Behaviour Interactive resource package (`.wii`, *Phineas and Ferb: Quest for Cool Stuff*) -- not a disc image; 0x40-byte header with an ASCII "Thor" marker at 0x3C, a mostly-empty run of 8-byte BE (key,val) slots ending in a `{0xFFFFFFFF,count}`/`{table_offset,0}` marker pair, then `count` 12-byte BE `{id,offset,size}` resource records; many blobs carry a small `0xABABABAB`-prefixed envelope with an embedded name used for extraction, others are dumped raw by index; decode-only, verified against all 85 retail samples by direct byte analysis |
 | **ALZ1** | DS / Compression | ✅ | ✅ | Arika 4096-byte window LZSS with inverted flag bits |
 | **Arika (INFO.DAT/GAME.DAT)** | DS/DSi / Archive | ✅ | ✅ | Obfuscated directory decryption and member decompression |
 | **ARCV** | Wii / Archive | ✅ | ✅ | Pac-Man Party (Wii) archive; byte-exact round-trip |

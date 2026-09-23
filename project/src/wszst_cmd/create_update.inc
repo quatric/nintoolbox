@@ -8231,6 +8231,16 @@ static enumError extract_pk2_file (ccp arg, ccp basedir, uint depth)
 	return ExtractPK2Archive (arg, basedir, depth);
 }
 
+// Behaviour Interactive "Thor" resource package (.wii; Phineas and Ferb:
+// Quest for Cool Stuff, Wii) -- NOT a Wii disc image.
+static enumError extract_thor_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".wii"))
+		return ERR_NOTHING_TO_DO;
+
+	return ExtractThorPkg (arg, basedir, depth);
+}
+
 // Sega/CRI AFS archive (.afs; Dragon Ball Z: Budokai Tenkaichi 3, Wii)
 static enumError extract_afs_file (ccp arg, ccp basedir, uint depth)
 {

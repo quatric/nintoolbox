@@ -525,5 +525,6 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-pk2.h"
 #include "lib-mpt.h"
 #include "lib-afs.h"
+#include "lib-thor.h"
 
 #endif
