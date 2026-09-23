@@ -442,6 +442,8 @@ enumError SaveIMG (Image_t *img, // pointer to valid img
 			return SaveDDSFile (img, f, fname, overwrite);
 		case FF_ASTC:
 			return SaveASTCFile (img, f, fname, overwrite);
+		case FF_MPT:
+			return SaveMPT (img, f, fname, overwrite);
 
 		default:
 			return ERROR0 (ERR_INVALID_IFORM, "Can_t create image [file type=%s]: %s\n",

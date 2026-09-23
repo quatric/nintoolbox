@@ -1881,6 +1881,18 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Konami Bemani skinned character/prop model (.bin, Dance Dance Revolution: Winx Club)" },
 
+	// FF_PK2 = 348 (Nordcurrent BigFile multi-part archive)
+	{ FF_PK2, FF_PK2, 0, "PK2", ".pk2", ".pk2", ".pk2",
+		FFT_VALID | FFT_DECODE | FFT_ENCODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Nordcurrent BigFile multi-part archive (.pk2, 101-in-1 Party Megamix)" },
+
+	// FF_MPT = 349 (Nordcurrent texture)
+	{ FF_MPT, FF_MPT, 0, "MPT", ".mpt", ".mpt", ".mpt",
+		FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE, 4,
+		{ 0x4d, 0x50, 0x54, 0x20 }, 0, MinusString, MinusString,
+		"Nordcurrent texture (.mpt, 101-in-1 Party Megamix)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2107,6 +2119,9 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_CS_DCT, "CS_DCT", "CS_DCT", 0xe05 },
 	{ FF_DSP, "DSP", "DSP", 0x3801 },
 	{ FF_HUFF, "HUFF", 0, 0x103 },
+	{ FF_ZMB, "ZMB", 0, 0x3001 },
+	{ FF_PK2, "PK2", "PK2", 0xe05 },
+	{ FF_MPT, "MPT", "MPT", 0x3809 },
 
 	{ 0, 0, 0, 0 }
 };

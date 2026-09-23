@@ -440,6 +440,8 @@ typedef enum file_format_t
 	FF_DSP, // 345 - Nintendo GameCube/Wii DSP-ADPCM audio stream (.dsp)
 	FF_HUFF, // 346 - Nintendo Huffman-compressed file (4-bit or 8-bit, GBA BIOS style)
 	FF_ZMB, // 347 - Konami Bemani skinned character/prop model (.bin, Dance Dance Revolution: Winx Club)
+	FF_PK2, // 348 - Nordcurrent BigFile multi-part archive (.pk2)
+	FF_MPT, // 349 - Nordcurrent texture (.mpt)
 
 	//--- number of elements
 

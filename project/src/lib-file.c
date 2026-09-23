@@ -944,6 +944,20 @@ __attribute__((weak)) bool IsZMB (const u8 *data, uint size)
 	return false;
 }
 
+__attribute__((weak)) bool IsPK2 (const u8 *data, size_t size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
+
+__attribute__((weak)) bool IsMPT (const u8 *data, size_t size)
+{
+	(void)data;
+	(void)size;
+	return false;
+}
+
 
 file_format_t GetByMagicFF (const void *data, // pointer to data
 	uint data_size, // size of data
@@ -1497,6 +1511,11 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			// which otherwise mistake DDS headers for WWRSC / GFPKG blobs)
 			case 0x44445320: // "DDS "
 				return FF_DDS;
+			// Nordcurrent MPT Texture (101-in-1 Party Megamix, Wii)
+			case 0x4d505420: // "MPT "
+				if (IsMPT (data8, data_size))
+					return FF_MPT;
+				break;
 			// CRIWARE CPK archive (Star Fox Zero Wii U content/*.cpk)
 			case 0x43504b20: // "CPK "
 				return FF_CPK;
@@ -2066,6 +2085,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_CS_DCT;
 	if (IsDSP (data8, data_size))
 		return FF_DSP;
+	if (IsPK2 (data8, data_size))
+		return FF_PK2;
 
 	const nfmt_info_t nfmt = DetectNintendoFormat (data, data_size, 0);
 	switch (nfmt.type)

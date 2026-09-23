@@ -89,6 +89,8 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest, int known_lz
 		return create_darc_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".pac") || !strcasecmp (ext, ".pcs"))
 		return create_pac_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".pk2"))
+		return create_pk2_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".warc")
 		|| (strlen (dest) >= 10 && !strcasecmp (dest + strlen (dest) - 10, ".warc.fzip")))
 		return create_warc_dir (source_dir, dest);

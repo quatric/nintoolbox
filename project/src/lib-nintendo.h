@@ -520,5 +520,7 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-sfx.h"
 #include "lib-vff.h"
 #include "lib-smash-arc.h"
+#include "lib-pk2.h"
+#include "lib-mpt.h"
 
 #endif

@@ -361,7 +361,7 @@ XOBJ_IMAGE	= lib-image-core.o lib-image-convert.o lib-image-load.o lib-image-gen
 			lib-quicklz.o qlz120.o qlz140.o src/ajpg/odh_core.o lib-bflyt.o \
 			src/astc/astc_decomp.o src/astc/astc_wrapper.o lib-at7.o lib-ash0.o lib-camelot.o lib-rnc.o \
 			lib-lz10.o lib-huff.o lib-nintendo-rl.o lib-blz.o lib-yay0.o lib-lzh8.o lib-ncer.o \
-			lib-flim.o lib-nutexb.o lib-astc-file.o lib-ctpk.o lib-cmab.o lib-nut.o lib-xtx.o
+			lib-flim.o lib-nutexb.o lib-astc-file.o lib-ctpk.o lib-cmab.o lib-nut.o lib-xtx.o lib-mpt.o
 XOBJ_PARSER	= lib-parser.o lib-parser-func.o
 XOBJ_OBJECT	= lib-object.o db-object.o db-file.o lib-bmg.o
 XOBJ_KCL	= lib-kcl.o lib-kcl-v2.o db-kcl.o
@@ -377,7 +377,7 @@ XOBJ_LIB	= analyze.o lib-szs-create.o lib-analyze.o lib-xbmg.o lib-msbt.o \
 			lib-staticr.o db-dol.o db-ctcode.o getopt.o \
 			$(XOBJ_KMP) $(XOBJ_COMMON) $(XOBJ_KCL) lib-kcl-image.o lib-rkg.o \
 			$(XOBJ_OBJECT) $(XOBJ_PARSER) 		$(XOBJ_IMAGE) lib-model-glb.o lib-mpr-cmdl.o cgltf_impl.o lib-brres-model.o lib-brres-inject.o lib-dtls.o lib-mio.o lib-bglpbd.o lib-smash-arc.o lib-warc.o lib-nccarc.o lib-ndcubepac.o lib-nus3audio.o lib-camtexbank.o lib-pers.o lib-zdat.o lib-one.o lib-g1t.o lib-ptlg.o lib-sir0.o lib-mtxt.o lib-tvol.o lib-romfs.o lib-txtg.o lib-nlgdict.o lib-fedforce.o lib-nlg-lm.o lib-bars.o lib-gfpak.o lib-wta.o lib-pgdat.o lib-vibs.o lib-pkz.o lib-apak.o lib-nxarc.o lib-tmpk.o lib-mkgpdxpac.o lib-gar.o lib-zlarc.o lib-f9res.o lib-stpk.o lib-pvol.o lib-mdr.o lib-ztab.o lib-xpck.o lib-fsys.o lib-gfa.o lib-pac.o lib-darc.o lib-narc.o lib-byml.o lib-sound-archive.o lib-arika.o lib-jarc.o lib-lzo.o lib-gpkg.o lib-gpak.o lib-bns.o lib-rpak.o lib-lspk.o lib-sfzdat.o lib-bg4.o lib-hwl.o lib-cram.o lib-sze.o lib-sa01.o lib-msr.o lib-miirender.o lib-kensaku.o 		   lib-wimg.o lib-cpk.o lib-ipk.o lib-wadh.o lib-catcar.o lib-termpod.o lib-ho.o lib-asobo.o lib-bj.o lib-torus.o lib-pub.o lib-rez.o lib-bombshell.o lib-bttrb.o lib-toshi.o lib-fbc.o lib-vblank.o lib-fsb.o lib-cspak.o lib-sbt.o lib-gds.o lib-chx.o lib-mapbad.o lib-txd.o lib-ideimg.o lib-collpak.o lib-agr.o lib-bam.o lib-csfnt.o lib-cscsi.o lib-agi.o lib-goliath.o lib-rso.o lib-sumostz.o lib-sumowas.o lib-avtex.o lib-cs-dct.o lib-dsp.o lib-dspadpcm.o lib-dc2.o lib-nif.o lib-gripres.o lib-rev.o lib-rainbow.o lib-wmb.o lib-nttmodel.o \
-			lib-arcv.o lib-bigf.o lib-cod-pak.o lib-mpbin.o lib-vcra.o lib-wtb.o lib-trpak.o lib-zmb.o
+			lib-arcv.o lib-bigf.o lib-cod-pak.o lib-mpbin.o lib-vcra.o lib-wtb.o lib-trpak.o lib-zmb.o lib-pk2.o
 
 TOBJ_gen-ui	= $(XOBJ_OBJECT)
 TOBJ_wszst	= $(XOBJ_LIB) lib-hsd.o lib-halbank.o lib-bcres.o lib-bfres.o lib-nsbmd.o lib-nsbanim.o lib-nud.o lib-numsh.o lib-j3d.o lib-hbdf.o lib-passthru.o $(WRAPPER_OBJ) lzh8_cmp.o lzh8_dec.o lzh8_util.o
