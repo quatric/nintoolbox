@@ -1777,10 +1777,13 @@ static void bake_hermite (float *dense, int numFrames, const br_key_t *keys, int
 	}
 }
 
-// Decode one AnimDataFormat block (I4=1,I6=2,I12=3,L1=4,L2=5,L4=6) into a
+// Decode one AnimDataFormat block (I4=0,I6=1,I12=2,L1=3,L2=4,L4=5) into a
 // dense per-frame array. `entry` is the CHR0Entry's own start address --
 // I4/I6/I12/L1/L2/L4 offsets are relative to the entry, not the file or the
-// containing group (see AnimationConverter.DecodeCHR0Keyframes).
+// containing group (see AnimationConverter.DecodeCHR0Keyframes). The format
+// bitfields (scaleFmt/transFmt: 2 bits, rotFmt: 3 bits) are 0-indexed, so
+// I4 is encoded as 0, not 1 -- a format value of 0 is a normal, common case,
+// not "absent".
 static int decode_anim_format (float *dense, int numFrames, const uint8_t *fbase, size_t fsize,
 	const uint8_t *entry, uint32_t rel_offset, int format)
 {
@@ -1789,13 +1792,13 @@ static int decode_anim_format (float *dense, int numFrames, const uint8_t *fbase
 		return 0;
 	switch (format)
 	{
-		case 6: // L4: straight float array, no header
+		case 5: // L4: straight float array, no header
 			if (!in_bounds (fbase, fsize, p, (size_t)numFrames * 4))
 				return 0;
 			for (int f = 0; f < numFrames; f++)
 				dense[f] = bef32p (p + f * 4);
 			return 1;
-		case 5:
+		case 4:
 		{ // L2: step/base header + u16 array
 			const float step = bef32p (p), base = bef32p (p + 4);
 			const uint8_t *d = p + 8;
@@ -1805,7 +1808,7 @@ static int decode_anim_format (float *dense, int numFrames, const uint8_t *fbase
 				dense[f] = base + be16p (d + f * 2) * step;
 			return 1;
 		}
-		case 4:
+		case 3:
 		{ // L1: step/base header + u8 array
 			const float step = bef32p (p), base = bef32p (p + 4);
 			const uint8_t *d = p + 8;
@@ -1815,7 +1818,7 @@ static int decode_anim_format (float *dense, int numFrames, const uint8_t *fbase
 				dense[f] = base + d[f] * step;
 			return 1;
 		}
-		case 3:
+		case 2:
 		{ // I12: numFrames(u16)+pad(u16), then {index,value,tangent} floats
 			const int fCount = be16p (p);
 			const uint8_t *d = p + 8;
@@ -1834,7 +1837,7 @@ static int decode_anim_format (float *dense, int numFrames, const uint8_t *fbase
 			free (keys);
 			return 1;
 		}
-		case 2:
+		case 1:
 		{ // I6: numFrames(u16)+unk(u16)+frameScale(f32,unused)+step(f32)+base(f32), then 6-byte
 		  // entries
 			const int fCount = be16p (p);
@@ -1857,7 +1860,7 @@ static int decode_anim_format (float *dense, int numFrames, const uint8_t *fbase
 			free (keys);
 			return 1;
 		}
-		case 1:
+		case 0:
 		{ // I4: entries(u16)+unk(u16)+frameScale(f32,unused)+step(f32)+base(f32), then packed
 		  // 4-byte entries
 			const int fCount = be16p (p);
