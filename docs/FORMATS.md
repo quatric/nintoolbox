@@ -10,6 +10,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 |---|---|---|---|---|
 | **AJJPG / AJPG** | GBA / Still Image | ✅ | ✅ | GBA-era still image container |
 | **ADJB** | Switch / Model sidecar | ✅ | ❌ | Smash Ultimate mesh triangle adjacency (model.adjb): per-mesh id + u16 index lists, sized like Adjb.cs |
+| **AFS** | Wii / Archive | ✅ | ❌ | Sega/CRI-style flat archive reused by Spike Co.'s engine for *Dragon Ball Z: Budokai Tenkaichi 3* (`wzs3us0/1/2.afs`); magic `AFS\0` + u32 LE file count, then that many `{offset,size}` u32 LE pairs, one trailing pair pointing at a 48-byte-per-entry name/date metadata table; decode-only, verified against retail samples by direct hexdump |
 | **ALAR** | DS / Archive | ✅ | ✅ | Nitro ALAR archive |
 | **ALZ1** | DS / Compression | ✅ | ✅ | Arika 4096-byte window LZSS with inverted flag bits |
 | **Arika (INFO.DAT/GAME.DAT)** | DS/DSi / Archive | ✅ | ✅ | Obfuscated directory decryption and member decompression |

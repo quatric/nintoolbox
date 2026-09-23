@@ -150,7 +150,8 @@ ccp GetNintendoFormatName (nfmt_type_t type)
 		"LMGEB",
 		"LMSLK",
 		"LMSLS",
-		"WWMODEL" };
+		"WWMODEL",
+		"AFS" };
 	return type < sizeof (tab) / sizeof (*tab) ? tab[type] : "UNKNOWN";
 }
 
@@ -207,6 +208,8 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_JCMP, true, true, size >= 8 ? rd_be32 (d + 4) : 0);
 		if (!memcmp (d, "jARC", 4) || !memcmp (d, "JARC", 4))
 			return make_info (NFMT_JARC, true, false, 0);
+		if (!memcmp (d, "AFS\0", 4))
+			return make_info (NFMT_AFS, false, false, 0);
 		if (!memcmp (d, "FZIP", 4))
 			return make_info (NFMT_FZIP, true, true, size >= 8 ? rd_be32 (d + 4) : 0);
 		if (size >= 6 && IsZlib (d, size) >= 0 && ext

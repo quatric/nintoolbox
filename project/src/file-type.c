@@ -1893,6 +1893,17 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x4d, 0x50, 0x54, 0x20 }, 0, MinusString, MinusString,
 		"Nordcurrent texture (.mpt, 101-in-1 Party Megamix)" },
 
+	// FF_AFS = 350 (Sega/CRI AFS archive)
+	// No magic bytes are registered here (see IsAFS() special-case check in
+	// GetByMagicFF instead): claiming the "AFS\0" magic in this generic table
+	// would route the file through the core SZS/passthrough archive loader,
+	// which does not understand the AFS layout, before our own extractor
+	// (wired by extension in wszst_cmd/formats.inc) gets a chance to run.
+	{ FF_AFS, FF_AFS, 0, "AFS", ".afs", ".afs", ".afs",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Sega/CRI AFS archive (.afs, Dragon Ball Z: Budokai Tenkaichi 3)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2122,6 +2133,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_ZMB, "ZMB", 0, 0x3001 },
 	{ FF_PK2, "PK2", "PK2", 0xe05 },
 	{ FF_MPT, "MPT", "MPT", 0x3809 },
+	{ FF_AFS, "AFS", "AFS", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

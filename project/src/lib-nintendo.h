@@ -184,7 +184,8 @@ typedef enum nfmt_type_t
 	NFMT_LMGEB,
 	NFMT_LMSLK,
 	NFMT_LMSLS,
-	NFMT_WWMODEL
+	NFMT_WWMODEL,
+	NFMT_AFS
 } nfmt_type_t;
 
 typedef struct nfmt_info_t
@@ -452,6 +453,7 @@ enumError DecodeBPE (u8 *dest, uint dest_size, const u8 *src, uint src_size);
 #include "lib-narc.h"
 
 #include "lib-jarc.h"
+#include "lib-afs.h"
 #include "lib-sound-archive.h"
 
 //-----------------------------------------------------------------------------
@@ -522,5 +524,6 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-smash-arc.h"
 #include "lib-pk2.h"
 #include "lib-mpt.h"
+#include "lib-afs.h"
 
 #endif

@@ -442,6 +442,7 @@ typedef enum file_format_t
 	FF_ZMB, // 347 - Konami Bemani skinned character/prop model (.bin, Dance Dance Revolution: Winx Club)
 	FF_PK2, // 348 - Nordcurrent BigFile multi-part archive (.pk2)
 	FF_MPT, // 349 - Nordcurrent texture (.mpt)
+	FF_AFS, // 350 - Sega/CRI AFS archive (.afs)
 
 	//--- number of elements
 
