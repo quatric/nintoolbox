@@ -172,9 +172,27 @@ void ResetThorPkg (thor_t *thor)
 // Try to pull a real resource name out of the small envelope some blobs
 // carry right at their start (see file header comment). Returns true and
 // fills 'out' (sanitized, safe for a path component) if found.
+//
+// Two envelope variants are confirmed by byte evidence:
+//   A) +0  4 bytes 0xAB 0xAB 0xAB 0xAB marker, +4 u32 unknown, +8 u32 zero,
+//      +12 u32 id, +16 NUL-terminated name. Seen on compiled script/stub
+//      resources.
+//   B) +0  12 zero bytes, +12 u32 id, +16 NUL-terminated name (a short
+//      logical resource name, e.g. "metal136", "flamefire02" -- texture
+//      resources referenced from level/asset packages). Confirmed on
+//      211/212 previously-unresolved fallback blobs across the sample
+//      corpus (assets.wii and per-level texture tables): id field always
+//      matches the owning table entry's id, and the following bytes are a
+//      short printable name. Only the name is recovered here -- the pixel
+//      data's own layout/format is not decoded (see file header comment).
 static bool try_envelope_name (const u8 *blob, u32 blob_size, u32 id, char *out, size_t out_size)
 {
-	if (blob_size < 20 || memcmp (blob, "\xab\xab\xab\xab", 4))
+	if (blob_size < 20)
+		return false;
+
+	bool variant_a = !memcmp (blob, "\xab\xab\xab\xab", 4);
+	bool variant_b = !variant_a && !memcmp (blob, "\0\0\0\0\0\0\0\0\0\0\0\0", 12);
+	if (!variant_a && !variant_b)
 		return false;
 	if (rd_be32 (blob + 12) != id)
 		return false;
