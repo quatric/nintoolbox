@@ -88,6 +88,7 @@
 #include "lib-nlg-probe.h"
 #include "lib-gf3ds.h"
 #include "lib-opoona.h"
+#include "lib-monster4x4.h"
 #include "lib-mtmob.h"
 #include "config.inc"
 
@@ -2115,6 +2116,11 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_OPOONA_MOT;
 	if (IsOpoonaMOL (data8, data_size, file_size))
 		return FF_OPOONA_MOL;
+	// Monster 4x4: Stunt Racer "CHNK" chunked container: real magic bytes,
+	// but also requires the header's own size field to equal the real file
+	// size, so it is gated alongside the other structural checks here.
+	if (IsCHNK (data8, data_size, file_size))
+		return FF_CHNK;
 
 	const nfmt_info_t nfmt = DetectNintendoFormat (data, data_size, 0);
 	switch (nfmt.type)

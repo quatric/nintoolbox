@@ -446,6 +446,7 @@ typedef enum file_format_t
 	FF_THOR, // 351 - Behaviour Interactive "Thor" resource package (.wii)
 	FF_OPOONA_MOL, // 352 - Opoona character manifest (.mol)
 	FF_OPOONA_MOT, // 353 - Opoona skeletal animation clip (.mot)
+	FF_CHNK, // 354 - Monster 4x4: Stunt Racer chunked container (.bnk/.d4l/.d4c/.gfx/.mec/.pmu/.pak/.ppx/.an4)
 
 	//--- number of elements
 

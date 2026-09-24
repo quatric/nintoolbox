@@ -1933,6 +1933,16 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Opoona skeletal animation clip (.mot, Wii, ArtePiazza; bind pose only)" },
 
+	// FF_CHNK = 354 (Monster 4x4: Stunt Racer chunked container)
+	// Magic "CHNK" plus a header size field confirmed byte-exact against
+	// the real on-disk file size (see IsCHNK() in lib-monster4x4.c). Only
+	// the top-level chunk table (tag/offset/size) is decoded; individual
+	// chunk payloads (geometry, textures, audio, layout) are not.
+	{ FF_CHNK, FF_CHNK, 0, "CHNK", ".d4c", ".txt", ".d4c",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Monster 4x4: Stunt Racer chunked container (CHNK, Wii)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2166,6 +2176,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_THOR, "THOR", "THOR", 0xe05 },
 	{ FF_OPOONA_MOL, "OPOONA-MOL", "OPOONA-MOL", 0xe05 },
 	{ FF_OPOONA_MOT, "OPOONA-MOT", "OPOONA-MOT", 0xe05 },
+	{ FF_CHNK, "CHNK", "CHNK", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };
