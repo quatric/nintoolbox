@@ -476,6 +476,10 @@ typedef enum file_format_t
 	FF_ZACKWIKI_WHD, // 378 - Zack & Wiki sound bank (.whd)
 	FF_ZACKWIKI_MDS, // 379 - Zack & Wiki MDSV resource/level container (.mds; header only)
 	FF_ZACKWIKI_SSD, // 383 - Zack & Wiki streamed ADPCM audio (.ssd; extension only, no confirmed structure)
+	FF_SAFECRACKER_TOC, // 384 - Safecracker bigfile table-of-contents (.TOC, pairs with .DAT)
+	FF_PAK_TATE, // 385 - Go West! A Lucky Luke Adventure "TATE" media archive (.PAK)
+	FF_PF2_PIFF, // 386 - Pony Friends 2 "FFIP" asset container (.rbh; outer shell only)
+	FF_T3PK, // 387 - Top Trumps - Doctor Who "T3PK4.00" resource pack (.t3p)
 
 	//--- number of elements
 

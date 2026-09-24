@@ -97,6 +97,10 @@
 #include "lib-zackwiki.h"
 #include "lib-g3res.h"
 #include "lib-teszip.h"
+#include "lib-safecracker.h"
+#include "lib-pak-tate.h"
+#include "lib-pf2-piff.h"
+#include "lib-t3pk.h"
 #include "lib-mtmob.h"
 #include "config.inc"
 
@@ -1017,6 +1021,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		// formats above (see lib-teszip.h).
 		if (IsTEZip (data8, data_size))
 			return FF_TE_ZIP;
+		// Safecracker bigfile table-of-contents: "LE" magic at offset 4
+		// plus a sane slot table (see lib-safecracker.h).
+		if (IsSafecrackerTOC (data8, data_size))
+			return FF_SAFECRACKER_TOC;
 		if (IsMDR (data8, data_size) && !IsMPBINInflate (data8, data_size))
 			return FF_MDR;
 		if (IsG1TGZ (data8, data_size))
@@ -2129,6 +2137,12 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_THOR;
 	if (IsG3Res (data8, data_size))
 		return FF_G3RES;
+	if (IsPakTate (data8, data_size))
+		return FF_PAK_TATE;
+	if (IsPF2Piff (data8, data_size))
+		return FF_PF2_PIFF;
+	if (IsT3PK (data8, data_size))
+		return FF_T3PK;
 	// Opoona .mol/.mot (reverse-engineered, no magic): the .mot probe
 	// requires an internally-consistent bone count plus a plausible
 	// frame-rate float, and .mol requires a run of structurally valid

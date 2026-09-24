@@ -17,6 +17,40 @@
 static const char *const g3_container_tags[] = {
 	"GRO3", "GDEN", "G3TX", "G3MD", "HTEX", "HTSF", "HMDL",
 	"UCOG", "UCOA", "UCUR", "UGR3", "ARMS", "ABDA", "UMDL",
+	// Extended cross-file (2026 survey of .abd/.abr/.amf/.arm/.asd/.bs1/
+	// .dia/.bf1/.gtp/.msb/.urs): the SAME generic 16-byte tag/size/
+	// child_offset/flags chunk header is reused as the root of a much
+	// wider family of asset containers than just the G3/GDEN model tree.
+	// Each tag below was confirmed structurally (its child_offset, when
+	// non-zero, lands on another printable/valid chunk header) across
+	// multiple independent sample files before being added here.
+	// Root/branch containers confirmed with real (non-garbage) children:
+	"ABRS", // .abr - root of "arrows"/attack-range data, wraps ABDA image data
+	"ABST", // .asd - root, event/cutscene still-image sequence data
+	"URES", // .urs - root, "unit resource" (SLG battle unit), wraps GRO3+ABDA
+	"AMMP", // .amf - root variant ("AMxx" family; motion/animation table)
+	"HSPR", // sprite-table branch seen under AMCT/AMIN roots (.amf)
+	0
+};
+
+// Root magics that are recognized here but whose payload -- while it does
+// start with a valid 16-byte tag/size/child_offset/flags header -- was
+// confirmed NOT to have a further nested chunk at its child_offset (the
+// bytes there are raw binary, e.g. a table of offsets or timestamp-shaped
+// constants, not another tag). They are still reported by DecodeG3Res_Text()
+// as a single opaque top-level leaf (tag + fields only), which is enough to
+// positively identify/dispatch the file even though its body is not decoded.
+static const char *const g3_root_only_tags[] = {
+	"ABDT", // seen as an ABDA/URES sub-chunk AND as some files' own root
+	"MSCR", // .msb - dialogue/script container (body not decoded: no
+	        // readable Shift-JIS/ASCII strings found directly after the
+	        // header; likely tokenized/compiled script bytecode)
+	"GTPA", // .gtp, and an alternate .arm root; child_offset points at a
+	        // u32 count + u32[] offset table, not a nested chunk
+	"MPLN", // .grd - ground/plane geometry data
+	"BS1 ", // .bs1 - battle-stage layout (tag is "BS1" + one space pad)
+	"AMCT", "AMIN", "AMPP", "AMWN", // .amf root variants (AM = "anim
+	                                // motion"?); HSPR/KSPR sub-chunks
 	0
 };
 
@@ -36,11 +70,25 @@ static int g3_tag_printable (const u8 *tag)
 	return 1;
 }
 
+static int g3_is_root_only_tag (const u8 *tag4)
+{
+	for (int i = 0; g3_root_only_tags[i]; i++)
+		if (!memcmp (tag4, g3_root_only_tags[i], 4))
+			return 1;
+	return 0;
+}
+
 int IsG3Res (const u8 *data, size_t size)
 {
 	if (!data || size < G3_CHUNK_HEADER_SIZE)
 		return 0;
-	return !memcmp (data, "GRO3", 4) || !memcmp (data, "GDEN", 4);
+	if (!memcmp (data, "GRO3", 4) || !memcmp (data, "GDEN", 4))
+		return 1;
+	if (g3_is_container_tag ((const char *) data))
+		return 1;
+	if (g3_is_root_only_tag (data))
+		return 1;
+	return 0;
 }
 
 // Decodes the well-known PVR texture sub-header that follows a "PVRT" tag:

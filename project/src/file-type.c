@@ -1933,6 +1933,42 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Opoona skeletal animation clip (.mot, Wii, ArtePiazza; bind pose only)" },
 
+	// FF_TE_ZIP = 354 (T&E Soft "Super Swing Golf"/"We Love Golf" container)
+	// Ordinary PKZIP local-file-header magic "PK\x03\x04": the game's .szip
+	// files, and surprisingly its top-level .iff files too, are plain zlib-
+	// deflate ZIP archives with no custom wrapper at all (see IsTEZip() and
+	// DecodeTEZip() in lib-teszip.c). Confirmed byte-exact against a plain
+	// Python zipfile.ZipFile() read on multiple samples.
+	{ FF_TE_ZIP, FF_TE_ZIP, 0, "TE-ZIP", ".szip", ".txt", ".szip",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"T&E Soft ZIP container (.szip/.iff, Wii, Super Swing Golf / We Love Golf)" },
+
+	// FF_G3RES = 355 (Sakura Wars: So Long, My Love "G3" resource-chunk tree)
+	// Magic "GRO3" (.g3n/.g3r model files) or "GDEN" (.gdn/.gdr/.gde garden/
+	// scene files, which wrap a nested GRO3 chunk among others). Generic
+	// recursive tag/size/child-offset chunk tree, reverse-engineered from
+	// scratch (see IsG3Res()/DecodeG3Res_Text() in lib-g3res.c); only the
+	// container shell and one leaf sub-header (PVRT textures) are decoded,
+	// mesh/animation/texel payloads are not.
+	{ FF_G3RES, FF_G3RES, 0, "G3RES", ".g3n", ".txt", ".g3n",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Sakura Wars \"G3\" resource-chunk tree (.g3n/.g3r/.gdn/.gdr/.gde, Wii)" },
+
+	// FF_FPK = 356 (Traveller's Tales FPK resource package)
+	// No magic bytes registered here (dispatch is by extension in
+	// wszst_cmd/formats.inc, like FF_AFS): the real 0x1234567A LE magic at
+	// offset 0 is checked structurally in ScanFPK() (lib-fpk.c), reverse
+	// engineered from the retail "Bionicle Heroes" disc's DATA/files/audio/
+	// *_ngc.fpk packages -- no public spec exists. Little-endian
+	// (offset,size,name) entry table + tightly packed name string table;
+	// payload is always raw (no compression observed in any sample).
+	{ FF_FPK, FF_FPK, 0, "FPK", ".fpk", ".fpk", ".fpk",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Traveller's Tales FPK resource package (.fpk, Bionicle Heroes)" },
+
 	// FF_CHNK = 354 (Monster 4x4: Stunt Racer chunked container)
 	// Magic "CHNK" plus a header size field confirmed byte-exact against
 	// the real on-disk file size (see IsCHNK() in lib-monster4x4.c). Only
@@ -2149,41 +2185,58 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Zack & Wiki streamed ADPCM audio (.ssd, Wii; NOT reverse-engineered, extension only)" },
 
-	// FF_TE_ZIP = 354 (T&E Soft "Super Swing Golf"/"We Love Golf" container)
-	// Ordinary PKZIP local-file-header magic "PK\x03\x04": the game's .szip
-	// files, and surprisingly its top-level .iff files too, are plain zlib-
-	// deflate ZIP archives with no custom wrapper at all (see IsTEZip() and
-	// DecodeTEZip() in lib-teszip.c). Confirmed byte-exact against a plain
-	// Python zipfile.ZipFile() read on multiple samples.
-	{ FF_TE_ZIP, FF_TE_ZIP, 0, "TE-ZIP", ".szip", ".txt", ".szip",
+	// FF_SAFECRACKER_TOC = 384 (Safecracker bigfile table-of-contents)
+	// Little-endian fixed-slot record table: header carries a slot_count
+	// and "LE" magic at offset 4, each 36-byte slot holds an id, a constant
+	// 0xb067ebb2 tag, a size and an offset (redundantly repeated 3x) into
+	// the paired .DAT; offsets are simply the running sum of prior sizes.
+	// See IsSafecrackerTOC()/DecodeSafecrackerTOC() in lib-safecracker.c.
+	// The .DAT payload itself is not decoded.
+	{ FF_SAFECRACKER_TOC, FF_SAFECRACKER_TOC, 0, "SAFECRACKER-TOC", ".TOC", ".txt", ".TOC",
 		FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
-		"T&E Soft ZIP container (.szip/.iff, Wii, Super Swing Golf / We Love Golf)" },
+		"Safecracker bigfile table-of-contents (.TOC, Wii; indexes paired .DAT, payload not decoded)" },
 
-	// FF_G3RES = 355 (Sakura Wars: So Long, My Love "G3" resource-chunk tree)
-	// Magic "GRO3" (.g3n/.g3r model files) or "GDEN" (.gdn/.gdr/.gde garden/
-	// scene files, which wrap a nested GRO3 chunk among others). Generic
-	// recursive tag/size/child-offset chunk tree, reverse-engineered from
-	// scratch (see IsG3Res()/DecodeG3Res_Text() in lib-g3res.c); only the
-	// container shell and one leaf sub-header (PVRT textures) are decoded,
-	// mesh/animation/texel payloads are not.
-	{ FF_G3RES, FF_G3RES, 0, "G3RES", ".g3n", ".txt", ".g3n",
+	// FF_PAK_TATE = 385 (Go West! A Lucky Luke Adventure "TATE" media archive)
+	// Magic "TATE" at offset 0, u32 LE total-file-size at +0x04 (validated
+	// against the real file size), u32 LE entry count at +0x08. Fixed
+	// 0x80-byte little-endian entry headers with no gap between an entry's
+	// data and the next header (rounded up to 0x80); see IsPakTate()/
+	// ScanPakTate() in lib-pak-tate.c. Cross-checked byte-exact against
+	// three real .PAK samples of very different sizes; only the outer
+	// table (name/offset/size) is decoded, per-item payload formats (the
+	// undeciphered inner "tate" sub-header, and whatever follows it) are not.
+	{ FF_PAK_TATE, FF_PAK_TATE, 0, "PAK-TATE", ".PAK", ".txt", ".PAK",
 		FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
-		"Sakura Wars \"G3\" resource-chunk tree (.g3n/.g3r/.gdn/.gdr/.gde, Wii)" },
+		"Go West! A Lucky Luke Adventure \"TATE\" media archive (.PAK, Wii)" },
 
-	// FF_FPK = 356 (Traveller's Tales FPK resource package)
-	// No magic bytes registered here (dispatch is by extension in
-	// wszst_cmd/formats.inc, like FF_AFS): the real 0x1234567A LE magic at
-	// offset 0 is checked structurally in ScanFPK() (lib-fpk.c), reverse
-	// engineered from the retail "Bionicle Heroes" disc's DATA/files/audio/
-	// *_ngc.fpk packages -- no public spec exists. Little-endian
-	// (offset,size,name) entry table + tightly packed name string table;
-	// payload is always raw (no compression observed in any sample).
-	{ FF_FPK, FF_FPK, 0, "FPK", ".fpk", ".fpk", ".fpk",
+	// FF_PF2_PIFF = 386 (Pony Friends 2 "FFIP" asset container)
+	// Magic "FFIP" at offset 0, big-endian u32 body-size at +4 equal to
+	// (file_size - 8) -- see IsPF2Piff()/DecodePF2Piff_Text() in
+	// lib-pf2-piff.c. Confirmed byte-exact against six real .rbh samples
+	// (both plain header files and *VRAM.rbh texel-data files) of very
+	// different sizes. Only this 8-byte outer shell is decoded; the
+	// original "byte-order-flipped RIFF/WAVE" hypothesis was refuted, and
+	// the internal reflection-style record table is not understood well
+	// enough to parse structurally, so it is not.
+	{ FF_PF2_PIFF, FF_PF2_PIFF, 0, "PF2-PIFF", ".rbh", ".txt", ".rbh",
 		FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
-		"Traveller's Tales FPK resource package (.fpk, Bionicle Heroes)" },
+		"Pony Friends 2 \"FFIP\" asset container (.rbh, Wii; outer shell only)" },
+
+	// FF_T3PK = 387 (Top Trumps - Doctor Who "T3PK4.00" resource pack)
+	// Magic "T3PK4.00" (8 bytes) at offset 0, u32 BE entry count at +0x08,
+	// fixed 40-byte BE entry table at fixed offset 0x40 -- see IsT3PK()/
+	// DecodeT3PK_Text() in lib-t3pk.c. Only one real sample exists on the
+	// disc (DATA/files/packwii.t3p); the (data_offset,data_size) pair of
+	// each entry is confirmed (contiguous packing for ~85% of entries),
+	// the remaining per-entry fields and an unindexed ~306 KB gap right
+	// after the table are not understood -- see lib-t3pk.h for details.
+	{ FF_T3PK, FF_T3PK, 0, "T3PK", ".t3p", ".txt", ".t3p",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Top Trumps - Doctor Who \"T3PK4.00\" resource pack (.t3p, Wii)" },
 
 	// FF_N
 	{ 0 }
@@ -2447,6 +2500,10 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_ZACKWIKI_WHD, "ZACKWIKI-WHD", "ZACKWIKI-WHD", 0xe05 },
 	{ FF_ZACKWIKI_MDS, "ZACKWIKI-MDS", "ZACKWIKI-MDS", 0xe05 },
 	{ FF_ZACKWIKI_SSD, "ZACKWIKI-SSD", "ZACKWIKI-SSD", 0xe05 },
+	{ FF_SAFECRACKER_TOC, "SAFECRACKER-TOC", "SAFECRACKER-TOC", 0xe05 },
+	{ FF_PAK_TATE, "PAK-TATE", "PAK-TATE", 0xe05 },
+	{ FF_PF2_PIFF, "PF2-PIFF", "PF2-PIFF", 0xe05 },
+	{ FF_T3PK, "T3PK", "T3PK", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };
