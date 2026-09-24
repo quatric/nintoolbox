@@ -88,7 +88,9 @@ static ccp chr_strdup_bounded (const u8 *base, size_t data_size, u32 off)
 //   bit  1        identity (scale 1, rot 0, trans 0)
 //   bit  2        rotation and translation are zero
 //   bit  3        scale is one
-//   bits 4,5,6    scale / rotation / translation is isotropic
+//   bit  4        scale is isotropic (one shared value for X/Y/Z)
+//   bit  5        rotation group is exactly zero (mirrors "rotation exists")
+//   bit  6        translation group is exactly zero (mirrors "translation exists")
 //   bits 7,8,9    use the model's own scale / rotation / translation
 //   bits 10,11    Maya scale-compensation flags
 //   bit  12       SoftImage "classic scale off"
@@ -126,8 +128,17 @@ static ccp chr_strdup_bounded (const u8 *base, size_t data_size, u32 off)
 // version 3 and version 5. We therefore read BrawlLib's documented field and
 // fall back to I12 when it reads None, which reproduces all 25 observed
 // scale/translation tracks exactly.
+//
+// Nintendo's own nw4r::g3d source (ResAnmChrNodeData::Flag, recovered from
+// the NSMBW decompilation) confirms bit 4 is the only isotropic flag
+// (FLAG_SCALE_UNIFORM) -- there is no such bit for rotation or translation.
+// Bits 5 and 6 are FLAG_ROT_ZERO / FLAG_TRANS_ZERO instead: in every entry in
+// this project's fixtures they are the exact complement of the group's
+// "exists" bit (22..24), so treating them as a second isotropic flag for
+// rotation/translation was unreachable dead code here, but wrong should a
+// file ever set exists=1 with the zero bit also set.
 
-#define CHR0_BIT_ISOTROPIC 4 // +0 scale, +1 rotation, +2 translation
+#define CHR0_BIT_SCALE_ISOTROPIC 4 // scale only; no rotation/translation equivalent
 #define CHR0_BIT_FIXED 13 // +0..2 scale XYZ, +3..5 rotation, +6..8 translation
 #define CHR0_BIT_EXISTS 22 // +0 scale, +1 rotation, +2 translation
 
@@ -350,7 +361,7 @@ enumError ScanRawCHR0 (chr0_t *chr, bool init_chr, const void *data, uint data_s
 		{
 			chr0_group_t *g = e->group + grp;
 			g->exists = (e->code >> (CHR0_BIT_EXISTS + grp) & 1) != 0;
-			g->isotropic = (e->code >> (CHR0_BIT_ISOTROPIC + grp) & 1) != 0;
+			g->isotropic = grp == 0 && (e->code >> CHR0_BIT_SCALE_ISOTROPIC & 1) != 0;
 			g->format = chr_get_format (e->code, version, grp);
 			if (!g->exists)
 				continue;
@@ -905,7 +916,7 @@ enumError ScanTextCHR0 (chr0_t *chr, bool init_chr, ccp src_fname)
 			{
 				chr0_group_t *g = cur->group + grp;
 				g->exists = (cur->code >> (CHR0_BIT_EXISTS + grp) & 1) != 0;
-				g->isotropic = (cur->code >> (CHR0_BIT_ISOTROPIC + grp) & 1) != 0;
+				g->isotropic = grp == 0 && (cur->code >> CHR0_BIT_SCALE_ISOTROPIC & 1) != 0;
 				g->format = chr_get_format (cur->code, chr->version, grp);
 			}
 		}
