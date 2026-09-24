@@ -94,6 +94,7 @@
 #include "lib-dogisland.h"
 #include "lib-muramasa.h"
 #include "lib-redsteel2.h"
+#include "lib-zackwiki.h"
 #include "lib-mtmob.h"
 #include "config.inc"
 
@@ -2189,6 +2190,23 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_REDSTEEL2_ABE;
 	if (IsRedSteel2Rel (data8, data_size, file_size))
 		return FF_REDSTEEL2_REL;
+	// Zack & Wiki: Quest for Barbaros' Treasure (Wii) formats -- see
+	// lib-zackwiki.h. ".ssd" is intentionally NOT probed here (no
+	// confirmed magic/structure was found; it would false-positive on
+	// arbitrary data) -- it is only reachable via explicit extension
+	// match in wszst_cmd/create_update.inc. ".tsb" and ".whd" share the
+	// exact same structural shape (chunk-offset directory + tagged
+	// chunks) and are NOT distinguishable by content alone, so only
+	// ".tsb" is probed here by magic; ".whd" is reachable via its own
+	// extension match in wszst_cmd/create_update.inc.
+	if (IsZackWikiTm2 (data8, data_size, file_size))
+		return FF_ZACKWIKI_TM2;
+	if (IsZackWikiPpg (data8, data_size, file_size))
+		return FF_ZACKWIKI_PPG;
+	if (IsZackWikiTsb (data8, data_size, file_size))
+		return FF_ZACKWIKI_TSB;
+	if (IsZackWikiMds (data8, data_size, file_size))
+		return FF_ZACKWIKI_MDS;
 
 	const nfmt_info_t nfmt = DetectNintendoFormat (data, data_size, 0);
 	switch (nfmt.type)

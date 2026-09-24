@@ -2102,6 +2102,53 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Nintendo REL relocatable module (.rel, Wii/GC; header + section table decoded)" },
 
+	// FF_ZACKWIKI_TM2 = 375 (Zack & Wiki PS2-ported TIM2 texture)
+	// Standard PS2 TIM2 header + per-image header decoded; GS registers
+	// and indexed pixel/palette data not decoded.
+	{ FF_ZACKWIKI_TM2, FF_ZACKWIKI_TM2, 0, "ZACKWIKI-TM2", ".tm2", ".txt", ".tm2",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Zack & Wiki PS2-ported TIM2 texture (.tm2, Wii; GS pixel data not decoded)" },
+
+	// FF_ZACKWIKI_PPG = 376 (Zack & Wiki pCMP zlib-compressed container)
+	// Confirmed 16-byte BE header + zlib stream per block, verified by
+	// clean zlib inflate against real samples; decompressed payload
+	// contents not decoded.
+	{ FF_ZACKWIKI_PPG, FF_ZACKWIKI_PPG, 0, "ZACKWIKI-PPG", ".ppg", ".txt", ".ppg",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Zack & Wiki pCMP zlib-compressed container (.ppg, Wii; decompressed payload not decoded)" },
+
+	// FF_ZACKWIKI_TSB = 377 (Zack & Wiki sound bank)
+	// Confirmed chunk-offset directory + tagged chunk headers (REV/DEL/
+	// CHR/RND/TSB); per-record field layout not fully confirmed.
+	{ FF_ZACKWIKI_TSB, FF_ZACKWIKI_TSB, 0, "ZACKWIKI-TSB", ".tsb", ".txt", ".tsb",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Zack & Wiki sound bank (.tsb, Wii; chunk directory decoded, record fields not fully decoded)" },
+
+	// FF_ZACKWIKI_WHD = 378 (Zack & Wiki sound bank)
+	// Same chunk-directory shape as .tsb (PROG/SPLT tagged chunks).
+	{ FF_ZACKWIKI_WHD, FF_ZACKWIKI_WHD, 0, "ZACKWIKI-WHD", ".whd", ".txt", ".whd",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Zack & Wiki sound bank (.whd, Wii; chunk directory decoded, record fields not fully decoded)" },
+
+	// FF_ZACKWIKI_MDS = 379 (Zack & Wiki MDSV resource/level container)
+	// Structural probe only: magic + LOAD/MDFD tag presence.
+	{ FF_ZACKWIKI_MDS, FF_ZACKWIKI_MDS, 0, "ZACKWIKI-MDS", ".mds", ".txt", ".mds",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Zack & Wiki MDSV resource/level container (.mds, Wii; header only, chunk body not decoded)" },
+
+	// FF_ZACKWIKI_SSD = 380 (Zack & Wiki streamed ADPCM audio)
+	// No confirmed magic/structure was found in any real sample;
+	// extension-recognized only, same as The Dog Island's .sci/.qci.
+	{ FF_ZACKWIKI_SSD, FF_ZACKWIKI_SSD, 0, "ZACKWIKI-SSD", ".ssd", ".txt", ".ssd",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Zack & Wiki streamed ADPCM audio (.ssd, Wii; NOT reverse-engineered, extension only)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2356,6 +2403,12 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_MURAMASA_NSI, "MURAMASA-NSI", "MURAMASA-NSI", 0xe05 },
 	{ FF_REDSTEEL2_ABE, "REDSTEEL2-ABE", "REDSTEEL2-ABE", 0xe05 },
 	{ FF_REDSTEEL2_REL, "REDSTEEL2-REL", "REDSTEEL2-REL", 0xe05 },
+	{ FF_ZACKWIKI_TM2, "ZACKWIKI-TM2", "ZACKWIKI-TM2", 0xe05 },
+	{ FF_ZACKWIKI_PPG, "ZACKWIKI-PPG", "ZACKWIKI-PPG", 0xe05 },
+	{ FF_ZACKWIKI_TSB, "ZACKWIKI-TSB", "ZACKWIKI-TSB", 0xe05 },
+	{ FF_ZACKWIKI_WHD, "ZACKWIKI-WHD", "ZACKWIKI-WHD", 0xe05 },
+	{ FF_ZACKWIKI_MDS, "ZACKWIKI-MDS", "ZACKWIKI-MDS", 0xe05 },
+	{ FF_ZACKWIKI_SSD, "ZACKWIKI-SSD", "ZACKWIKI-SSD", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

@@ -941,6 +941,26 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_redsteel2_rel_manifest (arg);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	// Zack & Wiki: Quest for Barbaros' Treasure (Wii) formats -- see
+	// lib-zackwiki.h.
+	err = extract_zackwiki_tm2_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_zackwiki_ppg_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_zackwiki_tsb_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_zackwiki_whd_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_zackwiki_mds_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_zackwiki_ssd_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 
 	char pbase_buf[PATH_MAX] = "";
 	ccp pbase = opt_dest && *opt_dest ? opt_dest : basedir;

@@ -467,6 +467,12 @@ typedef enum file_format_t
 	FF_MURAMASA_NSI, // 372 - Muramasa .nsi sound info table (header only)
 	FF_REDSTEEL2_ABE, // 373 - Red Steel 2 Ubisoft "ABE" bigfile (.bbf/.BF; header only)
 	FF_REDSTEEL2_REL, // 374 - Red Steel 2 Nintendo REL relocatable module (.rel)
+	FF_ZACKWIKI_TM2, // 375 - Zack & Wiki PS2-ported TIM2 texture (.tm2)
+	FF_ZACKWIKI_PPG, // 376 - Zack & Wiki pCMP zlib-compressed container (.ppg)
+	FF_ZACKWIKI_TSB, // 377 - Zack & Wiki sound bank (.tsb)
+	FF_ZACKWIKI_WHD, // 378 - Zack & Wiki sound bank (.whd)
+	FF_ZACKWIKI_MDS, // 379 - Zack & Wiki MDSV resource/level container (.mds; header only)
+	FF_ZACKWIKI_SSD, // 380 - Zack & Wiki streamed ADPCM audio (.ssd; extension only, no confirmed structure)
 
 	//--- number of elements
 

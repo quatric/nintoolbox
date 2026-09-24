@@ -11390,6 +11390,60 @@ DEFINE_EXTRACT_REDSTEEL2 (rel, is_ext (arg, ".rel"), IsRedSteel2Rel, DecodeRedSt
 
 #undef DEFINE_EXTRACT_REDSTEEL2
 
+// Zack & Wiki: Quest for Barbaros' Treasure (Wii) formats -- see
+// lib-zackwiki.h. Same manifest-emitting shape as the formats above.
+#define DEFINE_EXTRACT_ZACKWIKI(name,ext_expr,is_fn,decode_fn) \
+static enumError extract_zackwiki_##name##_manifest (ccp arg) \
+{ \
+	if (!(ext_expr)) \
+		return ERR_NOTHING_TO_DO; \
+\
+	u8 *raw = 0; \
+	size_t raw_size = 0; \
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false); \
+	if (err) \
+		return ERR_NOTHING_TO_DO; \
+\
+	if (!is_fn (raw, raw_size, raw_size)) \
+	{ \
+		FREE (raw); \
+		return ERR_NOTHING_TO_DO; \
+	} \
+\
+	char dest[PATH_MAX]; \
+	if (opt_dest) \
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false); \
+	else \
+		snprintf (dest, sizeof (dest), "%s.txt", arg); \
+\
+	if (verbose >= 0 || testmode) \
+		fprintf (stdlog, "%s%sDECODE ZACKWIKI-" #name ":%s -> %s\n", verbose > 0 ? "\n" : "", \
+			testmode ? "WOULD " : "", arg, dest); \
+\
+	if (testmode) \
+	{ \
+		FREE (raw); \
+		return ERR_OK; \
+	} \
+\
+	File_t F; \
+	err = CreateFileOpt (&F, true, dest, false, arg); \
+	if (F.f) \
+		err = decode_fn (F.f, raw, raw_size, raw_size); \
+	ResetFile (&F, opt_preserve); \
+	FREE (raw); \
+	return err; \
+}
+
+DEFINE_EXTRACT_ZACKWIKI (tm2, is_ext (arg, ".tm2"), IsZackWikiTm2, DecodeZackWikiTm2_Text)
+DEFINE_EXTRACT_ZACKWIKI (ppg, is_ext (arg, ".ppg"), IsZackWikiPpg, DecodeZackWikiPpg_Text)
+DEFINE_EXTRACT_ZACKWIKI (tsb, is_ext (arg, ".tsb"), IsZackWikiTsb, DecodeZackWikiTsb_Text)
+DEFINE_EXTRACT_ZACKWIKI (whd, is_ext (arg, ".whd"), IsZackWikiWhd, DecodeZackWikiWhd_Text)
+DEFINE_EXTRACT_ZACKWIKI (mds, is_ext (arg, ".mds"), IsZackWikiMds, DecodeZackWikiMds_Text)
+DEFINE_EXTRACT_ZACKWIKI (ssd, is_ext (arg, ".ssd"), IsZackWikiSsd, DecodeZackWikiSsd_Text)
+
+#undef DEFINE_EXTRACT_ZACKWIKI
+
 static enumError extract_mtmrl_manifest (ccp arg)
 {
 	if (!is_ext (arg, ".mrl"))
