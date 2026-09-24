@@ -1530,7 +1530,7 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		{
 			if (!testmode)
 			{
-				if (!IsGFModel (raw.data, raw.data_size))
+				if (!IsGFModel (raw.data, raw.data_size, raw.data_size))
 				{
 					ERROR0 (ERR_INVALID_DATA, "Failed to decode GF model: %s\n", arg);
 					return ERR_INVALID_DATA;

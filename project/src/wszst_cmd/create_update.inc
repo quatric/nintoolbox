@@ -11024,7 +11024,7 @@ static enumError extract_gf1motion_manifest (ccp arg)
 	if (err)
 		return ERR_NOTHING_TO_DO;
 
-	if (!IsGF1Motion (raw, raw_size))
+	if (!IsGF1Motion (raw, raw_size, raw_size))
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;

@@ -23,16 +23,24 @@
 
 // Structural probes. Each validates beyond the bare magic so weak magics
 // such as 0x00010000 never misfire on unrelated files.
-int IsGFModel (const u8 *data, size_t size);
+//
+// 'file_size' is the true total size of the file being probed; 'size' is
+// how much of it is actually available at 'data' (a FILETYPE probe may
+// only hand over a short prefix). Pass file_size == size when the full
+// file is already loaded (decode/extract paths): a table that then runs
+// past 'size' is a genuine format mismatch, not a truncated view, and
+// must not be excused. Only a caller that knowingly passes a shorter
+// 'size' than the real 'file_size' gets the truncated-probe leniency.
+int IsGFModel (const u8 *data, size_t size, size_t file_size);
 int IsGFTexture (const u8 *data, size_t size);
 int IsGFMotion (const u8 *data, size_t size);
-int IsGFModelPack (const u8 *data, size_t size);
+int IsGFModelPack (const u8 *data, size_t size, size_t file_size);
 // Gen6/Gen7 package: 2 ASCII uppercase bytes + u16 count + offset table.
-int IsGFPackage (const u8 *data, size_t size);
+int IsGFPackage (const u8 *data, size_t size, size_t file_size);
 // Switch-era LZ4 archive ("GFLXPACK", 8 bytes).
-int IsGFLXPack (const u8 *data, size_t size);
+int IsGFLXPack (const u8 *data, size_t size, size_t file_size);
 // XY/ORAS motion pack: u32 anim count + offset table (no magic).
-int IsGF1Motion (const u8 *data, size_t size);
+int IsGF1Motion (const u8 *data, size_t size, size_t file_size);
 
 // GFTexture (0x15041213) -> RGBA8. The pixel payload uses the same PICA200
 // layouts as CTPK/BCH, so this maps GFTextureFormat to PICATextureFormat

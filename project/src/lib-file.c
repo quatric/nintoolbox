@@ -1565,12 +1565,12 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		// plain 3DS member table (FF_GFPAK), so probe the LZ4 layout first.
 		case 0x47464c58: // "GFLX"
 			if (data_size >= 8 && !memcmp (data, "GFLXPACK", 8))
-				return IsGFLXPack (data8, data_size) ? FF_GFLX : FF_GFPAK;
+				return IsGFLXPack (data8, data_size, file_size) ? FF_GFLX : FF_GFPAK;
 			break;
 
 		// Game Freak 3DS model (GFModel, SPICA): LE 0x15122117
 		case 0x17211215: // 17 21 12 15
-			if (IsGFModel (data8, data_size))
+			if (IsGFModel (data8, data_size, file_size))
 				return FF_GFMODEL;
 			break;
 
@@ -1588,7 +1588,7 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 
 		// Game Freak model pack (GFModelPack, SPICA): LE 0x00010000
 		case 0x00000100: // 00 00 01 00
-			if (IsGFModelPack (data8, data_size))
+			if (IsGFModelPack (data8, data_size, file_size))
 				return FF_GFMPACK;
 			break;
 
@@ -2091,9 +2091,9 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 	// offset tables plus a skeleton/probe byte) are specific enough to run
 	// ahead of the looser NFMT walkers below (e.g. ScanWWRSC, which also
 	// accepts magic-less blobs).
-	if (IsGF1Motion (data8, data_size))
+	if (IsGF1Motion (data8, data_size, file_size))
 		return FF_GF1MOT;
-	if (IsGFPackage (data8, data_size))
+	if (IsGFPackage (data8, data_size, file_size))
 		return FF_GFPKG;
 	if (IsCSDCT (data8, data_size))
 		return FF_CS_DCT;

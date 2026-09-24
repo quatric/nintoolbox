@@ -180,20 +180,21 @@ static float gf_float24 (u32 v)
 // structural probes
 // ---------------------------------------------------------------------------
 
-// The FILETYPE probe is only 0x800 bytes (CHECK_FILE_SIZE): tables that
-// run past `size` can only be excused when the probe itself is saturated,
-// otherwise a short corrupt file would validate. Full data (decode/extract
-// paths) always validates strictly.
-static int gf_truncated (size_t size)
+// True only when 'size' is a known-short prefix of a larger 'file_size':
+// then a table running past 'size' is a truncated probe, not a format
+// mismatch. When the caller already holds the whole file (file_size ==
+// size), a table running past 'size' means the format doesn't match,
+// full stop -- this must not be excused just because the file is large.
+static int gf_truncated (size_t size, size_t file_size)
 {
-	return size >= 0x800;
+	return size < file_size;
 }
 
-int IsGFModel (const u8 *data, size_t size)
+int IsGFModel (const u8 *data, size_t size, size_t file_size)
 {
-	// Probe-lenient: the FILETYPE probe is only 2KB, so hash tables that
-	// run past `size` are accepted on the strength of the header. Full
-	// validation happens at decode time.
+	// Probe-lenient: a short FILETYPE probe hands over less than the real
+	// file size, so hash tables that run past `size` are accepted on the
+	// strength of the header. Full validation happens at decode time.
 	if (!data || size < 0x20 || rd_le32 (data) != GF_MAGIC_MODEL)
 		return 0;
 	gfr_t r = { data, size, 4, 0 };
@@ -206,7 +207,7 @@ int IsGFModel (const u8 *data, size_t size)
 		return 0;
 	// first hash table (shaders) must parse: count sane, names NUL-padded
 	if (r.p + 4 > r.n)
-		return gf_truncated (size); // truncated probe: header matched
+		return gf_truncated (size, file_size); // truncated probe: header matched
 	u32 n = rd_le32 (data + r.p);
 	if (n > 4096)
 		return 0;
@@ -214,7 +215,7 @@ int IsGFModel (const u8 *data, size_t size)
 	for (u32 i = 0; i < n; i++)
 	{
 		if (r.p + 4 + 0x40 > r.n)
-			return gf_truncated (size); // truncated probe: accept on header
+			return gf_truncated (size, file_size); // truncated probe: accept on header
 		r.p += 4 + 0x40;
 	}
 	return 1;
@@ -285,10 +286,10 @@ int IsGFMotion (const u8 *data, size_t size)
 	return 1;
 }
 
-int IsGFModelPack (const u8 *data, size_t size)
+int IsGFModelPack (const u8 *data, size_t size, size_t file_size)
 {
-	// Probe-lenient (see IsGFModel): pointer tables running past the
-	// FILETYPE probe are accepted on the strength of the header.
+	// Probe-lenient (see IsGFModel): pointer tables running past a known
+	// truncated probe are accepted on the strength of the header.
 	if (!data || size < 0x30 || rd_le32 (data) != GF_MAGIC_MODELPACK)
 		return 0;
 	u32 total = 0;
@@ -302,7 +303,7 @@ int IsGFModelPack (const u8 *data, size_t size)
 	if (!total || total > 4096)
 		return 0;
 	if (0x18 + (size_t)total * 4 > size)
-		return gf_truncated (size); // table runs past the FILETYPE probe
+		return gf_truncated (size, file_size); // table runs past the FILETYPE probe
 	// every pointer must land inside the file and on a readable entry
 	size_t tab = 0x18;
 	for (u32 i = 0; i < total; i++)
@@ -317,7 +318,7 @@ int IsGFModelPack (const u8 *data, size_t size)
 // Gen6/Gen7 package (SPICA.WinForms GFPackage): 2 uppercase ASCII bytes,
 // u16 count, then count+1 u32 offsets at 0x04. Genuine files are >= 0x80
 // bytes and every offset lands in bounds in non-decreasing order.
-int IsGFPackage (const u8 *data, size_t size)
+int IsGFPackage (const u8 *data, size_t size, size_t file_size)
 {
 	if (!data || size < 0x80)
 		return 0;
@@ -333,9 +334,9 @@ int IsGFPackage (const u8 *data, size_t size)
 	if (!count || count > 8192)
 		return 0;
 	if (4 + ((size_t)count + 1) * 4 > size)
-		return gf_truncated (size);
+		return gf_truncated (size, file_size);
 	u32 prev = 0;
-	int trunc = gf_truncated (size);
+	int trunc = gf_truncated (size, file_size);
 	for (u32 i = 0; i <= count; i++)
 	{
 		u32 off = rd_le32 (data + 4 + i * 4);
@@ -351,7 +352,7 @@ int IsGFPackage (const u8 *data, size_t size)
 	return 1;
 }
 
-int IsGFLXPack (const u8 *data, size_t size)
+int IsGFLXPack (const u8 *data, size_t size, size_t file_size)
 {
 	if (!data || size < 0x38 || memcmp (data, "GFLXPACK", 8))
 		return 0;
@@ -360,9 +361,9 @@ int IsGFLXPack (const u8 *data, size_t size)
 	if (!count || count > 100000)
 		return 0;
 	if (info >= size || info + (u64)count * 24 > size)
-		return gf_truncated (size);
+		return gf_truncated (size, file_size);
 	if (info + 24 > size)
-		return gf_truncated (size); // entry 0 not in probe: header matched
+		return gf_truncated (size, file_size); // entry 0 not in probe: header matched
 	// The plain 3DS member table shares magic, count and info offsets, so
 	// tell them apart through entry 0: a GFLXPack entry is (id, decomp,
 	// comp, dummy, dataOff) with LZ4-plausible sizes, while a plain entry
@@ -380,7 +381,7 @@ int IsGFLXPack (const u8 *data, size_t size)
 	// members (e.g. a 9-byte payload in a 10-byte block).
 	if (!dlen || dlen > 0x4000000 || !clen || clen > 0x4000000)
 		return 0;
-	if (!gf_truncated (size) && (doff >= size || doff + clen > size))
+	if (!gf_truncated (size, file_size) && (doff >= size || doff + clen > size))
 		return 0;
 	if (zip >= 1 && zip <= 3)
 		return 0; // plain member table
@@ -389,7 +390,7 @@ int IsGFLXPack (const u8 *data, size_t size)
 
 // XY/ORAS motion pack (SPICA GF1MotionPack): u32 count, then count u32
 // offsets; entry 0 is the skeleton, the rest are animations (0 = absent).
-int IsGF1Motion (const u8 *data, size_t size)
+int IsGF1Motion (const u8 *data, size_t size, size_t file_size)
 {
 	if (!data || size < 0x20)
 		return 0;
@@ -397,12 +398,12 @@ int IsGF1Motion (const u8 *data, size_t size)
 	if (count < 2 || count > 4096)
 		return 0;
 	if (4 + (size_t)count * 4 > size)
-		return gf_truncated (size);
+		return gf_truncated (size, file_size);
 	u32 skel = rd_le32 (data + 4);
 	if (!skel)
 		return 0;
 	if (skel + 2 > size)
-		return gf_truncated (size);
+		return gf_truncated (size, file_size);
 	// skeleton starts with u8 bone count + u8 first-bone index
 	if (data[skel] < 1 || data[skel] > 200)
 		return 0;
@@ -768,7 +769,7 @@ static int gf_parse_material (const u8 *data, size_t size, size_t off, gf_mat_t 
 
 void *ParseGFModel (const u8 *data, size_t size)
 {
-	if (!IsGFModel (data, size))
+	if (!IsGFModel (data, size, size))
 		return NULL;
 	gfr_t r = { data, size, 8, 0 }; // magic + section count already validated
 	gfr_align16 (&r);
@@ -1800,7 +1801,7 @@ enumError DecodeGF1Motion_Text (FILE *f, const u8 *data, size_t size)
 {
 	if (!f)
 		return EINVAL;
-	if (!IsGF1Motion (data, size))
+	if (!IsGF1Motion (data, size, size))
 		return EINVAL;
 	u32 count = rd_le32 (data);
 	fprintf (f, "# GF1MotionPack (Game Freak XY/ORAS bone motion, SPICA GF1MotionPack)\n");
@@ -1884,7 +1885,7 @@ enumError DecodeGFModelPack_Text (FILE *f, const u8 *data, size_t size)
 {
 	if (!f)
 		return EINVAL;
-	if (!IsGFModelPack (data, size))
+	if (!IsGFModelPack (data, size, size))
 		return EINVAL;
 	static const char *snames[5] = { "Model", "Texture", "Unknown2", "Unknown3", "Shader" };
 	fprintf (f, "# GFModelPack (Game Freak model/texture/shader container)\n");
@@ -1983,7 +1984,7 @@ enumError ExtractGFModelPackArchive (ccp arg, ccp basedir, uint depth)
 	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
 	if (err)
 		return ERR_NOTHING_TO_DO;
-	if (!IsGFModelPack (raw, raw_size))
+	if (!IsGFModelPack (raw, raw_size, raw_size))
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
@@ -2071,14 +2072,14 @@ enumError ExtractGFPackageArchive (ccp arg, ccp basedir, uint depth)
 	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
 	if (err)
 		return ERR_NOTHING_TO_DO;
-	if (!IsGFPackage (raw, raw_size))
+	if (!IsGFPackage (raw, raw_size, raw_size))
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
 	}
 	// GF1 motion packs share the offset-table shape; their count field can
 	// rarely pass the package gate, so let the motion manifest own them.
-	if (IsGF1Motion (raw, raw_size))
+	if (IsGF1Motion (raw, raw_size, raw_size))
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
@@ -2121,7 +2122,7 @@ enumError ExtractGFLXPackArchive (ccp arg, ccp basedir, uint depth)
 	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
 	if (err)
 		return ERR_NOTHING_TO_DO;
-	if (!IsGFLXPack (raw, raw_size))
+	if (!IsGFLXPack (raw, raw_size, raw_size))
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
