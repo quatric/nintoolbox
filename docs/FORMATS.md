@@ -45,6 +45,11 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **BERMUDA-PLANETG** | Wii / Generic Data | 🟡 | ❌ | *Bermuda Triangle - Saving the Coral* "PLANETG" tagged-object resource (`.MWG`/`.MSP`): every length-prefixed ASCII tag/string name decoded via a heuristic walk; exact tree shape and interleaved numeric-field semantics not reverse-engineered |
 | **BERMUDA-PKI** | Wii / Container | ✅ | ❌ | *Bermuda Triangle - Saving the Coral* "IMAGE_WII_COMPACT_FILE_VERSION_1" texture-pack container (`.PKI`): confirmed header + full name/size/offset entry table |
 | **BERMUDA-PGF** | Wii / Font | 🟡 | ❌ | *Bermuda Triangle - Saving the Coral* font resource (`.pgf`): confirmed header (family name + point size); per-glyph offset table not conclusively reverse-engineered |
+| **AQUAPANIC-RKET** | Wii / Scene | 🟡 | ❌ | *Aqua Panic!* "RKET" resource container (`.rck`/`.spa`, shared magic between per-level scene data and localized language packs): confirmed fixed outer header (hash, version, flags, size field); resource-graph/scene-node structure that follows not reverse-engineered |
+| **AQUAPANIC-MAT** | Wii / Material | ✅ | ❌ | *Aqua Panic!* "MATF" material chunk table (`.mat`): confirmed outer header and tag/size chunk table, walked to EOF across 100 real samples; per-chunk ("MAT "/"TEX ") payload contents not reverse-engineered |
+| **AQUAPANIC-MB2** | Wii / Metadata | ✅ | ❌ | *Aqua Panic!* "BNAM" bone/node name-string table (`.mb2`): fully decoded header plus length-prefixed name list, confirmed to consume every one of 100 real samples exactly to EOF |
+| **AQUAPANIC-VIS** | Wii / Visibility | ✅ | ❌ | *Aqua Panic!* visibility/flag record (`.vis`, magic-less): fixed 24-byte record, byte-for-byte identical across all 100 real samples; fully decoded |
+| **AQUAPANIC-LIT** | Wii / Lighting | ✅ | ❌ | *Aqua Panic!* single-light record (`.lit`, magic-less): fixed 48-byte record with float32 color/position fields, plus a confirmed 12-byte empty variant; fully decoded across all 100 real samples |
 | **BLZ** | DS / Compression | ✅ | ✅ | Nitro backward-LZSS |
 | **BPE / GFCP** | Wii / Compression | ✅ | ✅ | Good-Feel Byte Pair Encoding (GFAC mode 1) |
 | **BMD** | DS / Model | ✅ | ✅ | Early Nitro 3D models |
