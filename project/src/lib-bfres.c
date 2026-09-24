@@ -2780,7 +2780,11 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 
 							// Parent index (s16)
 							if (boff + parent_off + 2 <= size)
-								j->parent_idx = (int)(int16_t)le16 (d + boff + parent_off);
+							{
+								const int16_t parent = (int16_t)le16 (d + boff + parent_off);
+								if (parent >= 0 && (uint16_t)parent < n_bones)
+									j->parent_idx = (int)parent;
+							}
 
 							// TRS: scale 3f at base, rotation (euler 3f or
 							// quaternion 4f) 12 bytes later, position 16

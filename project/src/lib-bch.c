@@ -382,7 +382,7 @@ static void pica_replay (pica_state_t *st, const u8 *data, uint size, u32 ptr, u
 			// parameters, then the pad word that keeps pairs 8-byte aligned.
 			for (uint k = 0; k < extra && i < count; k++)
 				i++;
-			if ((extra + 1) & 1 && extra > 0 && i < count)
+			if ((extra & 1) && i < count)
 				i++;
 		}
 		(void)n_written;
@@ -602,7 +602,7 @@ void *ParseBCH (const u8 *data, uint size)
 			continue;
 
 		// Count the indices first so the arrays can be sized once.
-		u32 total_idx = 0;
+		u64 total_idx = 0;
 		for (uint si = 0; si < smc; si++)
 		{
 			const u32 sm = smp + si * 0x34;
@@ -612,6 +612,8 @@ void *ParseBCH (const u8 *data, uint size)
 			memset (&ist, 0, sizeof (ist));
 			pica_replay (&ist, b, bsize, hrd32 (b + sm + 0x2c), hrd32 (b + sm + 0x30));
 			total_idx += ist.n_vertices;
+			if (total_idx > 0x1000000)
+				break;
 		}
 		if (!total_idx || total_idx > 0x1000000)
 			continue;
@@ -797,7 +799,7 @@ enumError DecodeBCHTexture (u8 **dest, uint *width, uint *height, const bch_t *b
 			{
 				for (uint k = 0; k < extra && i < cmd0_len; k++)
 					i++;
-				if ((extra + 1) & 1 && extra > 0 && i < cmd0_len)
+				if ((extra & 1) && i < cmd0_len)
 					i++;
 			}
 		}
