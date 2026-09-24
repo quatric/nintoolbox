@@ -89,6 +89,7 @@
 #include "lib-gf3ds.h"
 #include "lib-opoona.h"
 #include "lib-monster4x4.h"
+#include "lib-magma.h"
 #include "lib-mtmob.h"
 #include "config.inc"
 
@@ -2121,6 +2122,16 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 	// size, so it is gated alongside the other structural checks here.
 	if (IsCHNK (data8, data_size, file_size))
 		return FF_CHNK;
+	// Ubisoft Magma self-indexed bigfile: magic "BIG\0" plus light header
+	// sanity (see IsMagmaBigfile()/lib-magma.h -- the internal table is
+	// not decoded).
+	if (IsMagmaBigfile (data8, data_size, file_size))
+		return FF_MAGMA_BF;
+	// Ubisoft Magma bigfile index: no fixed magic, gated structurally by
+	// requiring the whole file to parse as a tightly packed run of
+	// self-offset/data-offset/data-size/path records (see IsMagmaFat()).
+	if (IsMagmaFat (data8, data_size, file_size))
+		return FF_MAGMA_FAT;
 
 	const nfmt_info_t nfmt = DetectNintendoFormat (data, data_size, 0);
 	switch (nfmt.type)

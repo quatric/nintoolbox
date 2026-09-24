@@ -1943,6 +1943,25 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Monster 4x4: Stunt Racer chunked container (CHNK, Wii)" },
 
+	// FF_MAGMA_FAT = 355 (Ubisoft Magma bigfile index)
+	// Structural detection only (no fixed magic bytes): a tightly packed
+	// run of self-offset/data-offset/data-size/path records that consumes
+	// the whole file exactly (see IsMagmaFat() in lib-magma.c). Shared,
+	// byte-identical, across Prince of Persia - Rival Swords, Cloudy with
+	// a Chance of Meatballs and NCIS - Based on the TV Series.
+	{ FF_MAGMA_FAT, FF_MAGMA_FAT, 0, "MAGMA-FAT", ".fat", ".txt", ".fat",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Ubisoft Magma bigfile index (.fat, Wii)" },
+
+	// FF_MAGMA_BF = 356 (Ubisoft Magma self-indexed bigfile)
+	// Magic "BIG\0" plus light header sanity only; the internal table is
+	// NOT decoded (see lib-magma.h for what was and wasn't determined).
+	{ FF_MAGMA_BF, FF_MAGMA_BF, 0, "MAGMA-BF", ".bf", ".txt", ".bf",
+		FFT_VALID, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Ubisoft Magma self-indexed bigfile (.bf, Wii; internal table not decoded)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2177,6 +2196,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_OPOONA_MOL, "OPOONA-MOL", "OPOONA-MOL", 0xe05 },
 	{ FF_OPOONA_MOT, "OPOONA-MOT", "OPOONA-MOT", 0xe05 },
 	{ FF_CHNK, "CHNK", "CHNK", 0xe05 },
+	{ FF_MAGMA_FAT, "MAGMA-FAT", "MAGMA-FAT", 0xe05 },
+	{ FF_MAGMA_BF, "MAGMA-BF", "MAGMA-BF", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };
