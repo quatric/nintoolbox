@@ -32,6 +32,7 @@
 #include "lib-thevoice.h"
 #include "lib-dogisland.h"
 #include "lib-muramasa.h"
+#include "lib-redsteel2.h"
 #include "lib-mtmob.h"
 #include "lib-bars.h"
 #include "lib-fsb.h"

@@ -934,6 +934,13 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_muramasa_fcmp_manifest (arg);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	// Red Steel 2 (Wii) formats -- see lib-redsteel2.h.
+	err = extract_redsteel2_abe_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_redsteel2_rel_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 
 	char pbase_buf[PATH_MAX] = "";
 	ccp pbase = opt_dest && *opt_dest ? opt_dest : basedir;

@@ -93,6 +93,7 @@
 #include "lib-thevoice.h"
 #include "lib-dogisland.h"
 #include "lib-muramasa.h"
+#include "lib-redsteel2.h"
 #include "lib-mtmob.h"
 #include "config.inc"
 
@@ -2183,6 +2184,11 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_MURAMASA_OTB;
 	if (IsMuramasaNsi (data8, data_size, file_size))
 		return FF_MURAMASA_NSI;
+	// Red Steel 2 (Wii) formats -- see lib-redsteel2.h.
+	if (IsRedSteel2Abe (data8, data_size, file_size))
+		return FF_REDSTEEL2_ABE;
+	if (IsRedSteel2Rel (data8, data_size, file_size))
+		return FF_REDSTEEL2_REL;
 
 	const nfmt_info_t nfmt = DetectNintendoFormat (data, data_size, 0);
 	switch (nfmt.type)

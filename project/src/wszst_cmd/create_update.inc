@@ -11338,6 +11338,58 @@ DEFINE_EXTRACT_MURAMASA (nsi, is_ext (arg, ".nsi"), IsMuramasaNsi, DecodeMuramas
 
 #undef DEFINE_EXTRACT_MURAMASA
 
+// Red Steel 2 (Wii) formats -- see lib-redsteel2.h. Same manifest-emitting
+// shape as the Muramasa formats above.
+#define DEFINE_EXTRACT_REDSTEEL2(name,ext_expr,is_fn,decode_fn) \
+static enumError extract_redsteel2_##name##_manifest (ccp arg) \
+{ \
+	if (!(ext_expr)) \
+		return ERR_NOTHING_TO_DO; \
+\
+	u8 *raw = 0; \
+	size_t raw_size = 0; \
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false); \
+	if (err) \
+		return ERR_NOTHING_TO_DO; \
+\
+	if (!is_fn (raw, raw_size, raw_size)) \
+	{ \
+		FREE (raw); \
+		return ERR_NOTHING_TO_DO; \
+	} \
+\
+	char dest[PATH_MAX]; \
+	if (opt_dest) \
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false); \
+	else \
+		snprintf (dest, sizeof (dest), "%s.txt", arg); \
+\
+	if (verbose >= 0 || testmode) \
+		fprintf (stdlog, "%s%sDECODE REDSTEEL2-" #name ":%s -> %s\n", verbose > 0 ? "\n" : "", \
+			testmode ? "WOULD " : "", arg, dest); \
+\
+	if (testmode) \
+	{ \
+		FREE (raw); \
+		return ERR_OK; \
+	} \
+\
+	File_t F; \
+	err = CreateFileOpt (&F, true, dest, false, arg); \
+	if (F.f) \
+		err = decode_fn (F.f, raw, raw_size, raw_size); \
+	ResetFile (&F, opt_preserve); \
+	FREE (raw); \
+	return err; \
+}
+
+DEFINE_EXTRACT_REDSTEEL2 (abe,
+	is_ext (arg, ".bbf") || is_ext (arg, ".bf"),
+	IsRedSteel2Abe, DecodeRedSteel2Abe_Text)
+DEFINE_EXTRACT_REDSTEEL2 (rel, is_ext (arg, ".rel"), IsRedSteel2Rel, DecodeRedSteel2Rel_Text)
+
+#undef DEFINE_EXTRACT_REDSTEEL2
+
 static enumError extract_mtmrl_manifest (ccp arg)
 {
 	if (!is_ext (arg, ".mrl"))

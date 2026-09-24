@@ -465,6 +465,8 @@ typedef enum file_format_t
 	FF_MURAMASA_FCMP, // 370 - Muramasa FCMP compressed container (.mbs/.ftx/.esb/.nsb/.abf/.nms; payload not decoded)
 	FF_MURAMASA_OTB, // 371 - Muramasa .otb table (header only)
 	FF_MURAMASA_NSI, // 372 - Muramasa .nsi sound info table (header only)
+	FF_REDSTEEL2_ABE, // 373 - Red Steel 2 Ubisoft "ABE" bigfile (.bbf/.BF; header only)
+	FF_REDSTEEL2_REL, // 374 - Red Steel 2 Nintendo REL relocatable module (.rel)
 
 	//--- number of elements
 

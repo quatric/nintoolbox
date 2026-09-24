@@ -2087,6 +2087,21 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Muramasa .nsi sound info table (Wii; header only, entry table not decoded)" },
 
+	// FF_REDSTEEL2_ABE = 373 (Red Steel 2 Ubisoft "ABE" bigfile)
+	// Confirmed 64-byte header only, directory-tree table not decoded.
+	{ FF_REDSTEEL2_ABE, FF_REDSTEEL2_ABE, 0, "REDSTEEL2-ABE", ".bbf", ".txt", ".bbf",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Red Steel 2 Ubisoft ABE bigfile (.bbf/.BF, Wii; header only, directory table not decoded)" },
+
+	// FF_REDSTEEL2_REL = 374 (Red Steel 2 / standard Nintendo REL module)
+	// Full header + section table decode; relocation/import table bodies
+	// not decoded.
+	{ FF_REDSTEEL2_REL, FF_REDSTEEL2_REL, 0, "REDSTEEL2-REL", ".rel", ".txt", ".rel",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Nintendo REL relocatable module (.rel, Wii/GC; header + section table decoded)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2339,6 +2354,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_MURAMASA_FCMP, "MURAMASA-FCMP", "MURAMASA-FCMP", 0xe05 },
 	{ FF_MURAMASA_OTB, "MURAMASA-OTB", "MURAMASA-OTB", 0xe05 },
 	{ FF_MURAMASA_NSI, "MURAMASA-NSI", "MURAMASA-NSI", 0xe05 },
+	{ FF_REDSTEEL2_ABE, "REDSTEEL2-ABE", "REDSTEEL2-ABE", 0xe05 },
+	{ FF_REDSTEEL2_REL, "REDSTEEL2-REL", "REDSTEEL2-REL", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };
