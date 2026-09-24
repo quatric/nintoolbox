@@ -107,6 +107,7 @@
 #include "lib-runefactoryfrontier.h"
 #include "lib-httyd.h"
 #include "lib-bermudatriangle.h"
+#include "lib-aquapanic.h"
 #include "lib-mtmob.h"
 #include "config.inc"
 
@@ -2189,6 +2190,18 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_RFF_FBTI;
 	if (IsSpookyGes (data8, data_size, file_size))
 		return FF_SPOOKY_GES;
+	// DreamWorks How to Train Your Dragon (Wii) formats -- see
+	// lib-httyd.h. The .RWS/.mtd chunk-tree container is magic
+	// (marker-word) identified but the same probe matches either
+	// extension; report it as FF_HTTYD_RWS (the more common of the
+	// two) since GetByMagicFF has no file name to disambiguate with.
+	// ".KRV" is deliberately NOT wired in here: its only signature is
+	// the bare gzip magic (1f 8b 08), which is far too generic to claim
+	// in the shared magic-detection path (would misclassify unrelated
+	// gzip-compressed content from other titles) -- extension match only,
+	// same policy as Mercury Meltdown Revolution's ".mat"/".nav".
+	if (IsHTTYDRws (data8, data_size, file_size))
+		return FF_HTTYD_RWS;
 	// Bermuda Triangle - Saving the Coral (Wii) formats -- see
 	// lib-bermudatriangle.h.
 	if (IsBermudaMwt (data8, data_size, file_size))
@@ -2199,6 +2212,21 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_BERMUDA_PKI;
 	if (IsBermudaPgf (data8, data_size, file_size))
 		return FF_BERMUDA_PGF;
+	// Aqua Panic! (Wii) formats -- see lib-aquapanic.h. ".mb2"/".mat" are
+	// gated behind an EOF-consistent chunk/table walk since they are
+	// (mostly) magic-based already; ".vis"/".lit" are magic-less fixed-
+	// size records gated by file_size below alongside the other
+	// structural checks in this function.
+	if (IsAquaPanicRket (data8, data_size, file_size))
+		return FF_AQUAPANIC_RKET;
+	if (IsAquaPanicMat (data8, data_size, file_size))
+		return FF_AQUAPANIC_MAT;
+	if (IsAquaPanicMb2 (data8, data_size, file_size))
+		return FF_AQUAPANIC_MB2;
+	if (IsAquaPanicVis (data8, data_size, file_size))
+		return FF_AQUAPANIC_VIS;
+	if (IsAquaPanicLit (data8, data_size, file_size))
+		return FF_AQUAPANIC_LIT;
 	// Opoona .mol/.mot (reverse-engineered, no magic): the .mot probe
 	// requires an internally-consistent bone count plus a plausible
 	// frame-rate float, and .mol requires a run of structurally valid

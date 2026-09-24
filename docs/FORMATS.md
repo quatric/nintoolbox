@@ -41,6 +41,10 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **BFWAV** | Wii U / Switch / Audio | ✅ | ✅ | Sound Wave |
 | **BFWAR** | Wii U / Switch / Audio Archive | ✅ | ✅ | Sound Wave Archive (FWAR) |
 | **BFGRP** | Wii U / Switch / Audio Archive | ✅ | ✅ | Sound Group Archive (FGRP) |
+| **BERMUDA-MWT** | Wii / Texture | ✅ | ❌ | *Bermuda Triangle - Saving the Coral* "GDATAVERSION" resource envelope (`.MWT`): confirmed 0x40-byte outer header (size/width/height/flags); payload is, in every sample checked, an already-supported Camelot-style GX texture bank (magic 0x0020af30) |
+| **BERMUDA-PLANETG** | Wii / Generic Data | 🟡 | ❌ | *Bermuda Triangle - Saving the Coral* "PLANETG" tagged-object resource (`.MWG`/`.MSP`): every length-prefixed ASCII tag/string name decoded via a heuristic walk; exact tree shape and interleaved numeric-field semantics not reverse-engineered |
+| **BERMUDA-PKI** | Wii / Container | ✅ | ❌ | *Bermuda Triangle - Saving the Coral* "IMAGE_WII_COMPACT_FILE_VERSION_1" texture-pack container (`.PKI`): confirmed header + full name/size/offset entry table |
+| **BERMUDA-PGF** | Wii / Font | 🟡 | ❌ | *Bermuda Triangle - Saving the Coral* font resource (`.pgf`): confirmed header (family name + point size); per-glyph offset table not conclusively reverse-engineered |
 | **BLZ** | DS / Compression | ✅ | ✅ | Nitro backward-LZSS |
 | **BPE / GFCP** | Wii / Compression | ✅ | ✅ | Good-Feel Byte Pair Encoding (GFAC mode 1) |
 | **BMD** | DS / Model | ✅ | ✅ | Early Nitro 3D models |
@@ -140,6 +144,8 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **RFF-HXGB** | Wii / Geometry | ✅ | ❌ | *Rune Factory: Frontier* "HX" geometry family (`.Hvg`, magic `HXGB0001`): confirmed shared 32-byte HX-family header only, also seen embedded as a leading sub-resource inside `RFF-FBTI` `.Mod` sections; post-header record layout not reverse-engineered |
 | **RFF-HXTP** | Wii / Collision | ✅ | ❌ | *Rune Factory: Frontier* "HX" triangle/points index (`.Hmt`, magic `HXTP0001`): confirmed shared 32-byte HX-family header only; post-header record layout not reverse-engineered |
 | **RFF-FBTI** | Wii / Model | ✅ | ❌ | *Rune Factory: Frontier* "FBTI" model/motion section container (`.Mod`/`.Mot`, magic `FBTI0001`): confirmed header and fully decoded offset/size section table, verified contiguous across all sections and against total file size; per-section payload content (beyond an embedded HX-family header, when present) not reverse-engineered |
+| **HTTYD-RWS** / **HTTYD-MTD** | Wii / Audio | ✅ | ❌ | *DreamWorks How to Train Your Dragon* chunk-tree container (`.RWS`/`.mtd`): confirmed recursive 12-byte chunk headers (`u32 type`, `u32 size`, `u32 marker=0x1c020065`, all little-endian) walked exactly to EOF across all 118 real `.RWS` samples plus the single `.mtd` sample; leaf audio-sample payload contents not reverse-engineered |
+| **HTTYD-KRV** | Wii / Text | ✅ | ❌ | *DreamWorks How to Train Your Dragon* gzip-wrapped localization string table (`.KRV`): outer gzip wrapper decoded directly; decompressed payload's leading integer header fields not fully pinned down, but the UTF-16LE NUL-terminated string run that follows is enumerated in full (confirmed readable English/French game text across multiple samples) |
 | **MSH (PMsh)** | Wii / Model | ✅ | ✅ | Monster Games collision mesh |
 | **MSBF / MSBP / MSBT** | Wii/3DS/Wii U/Switch / Text | ✅ | ✅ | Message Studio Binary Text and Flow |
 | **MSR** | 3DS / Archive | 🟡 | ⛔ | Metroid: Samus Returns archive |

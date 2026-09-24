@@ -2460,6 +2460,47 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Bermuda Triangle font resource (.pgf, Wii; header only)" },
 
+	// FF_AQUAPANIC_RKET = 415 (Aqua Panic! RKET resource container)
+	// Shared magic/header between .rck (per-level scene) and .spa
+	// (localized language/UI pack); resource-graph structure after the
+	// outer header not reverse-engineered.
+	{ FF_AQUAPANIC_RKET, FF_AQUAPANIC_RKET, 0, "AQUAPANIC-RKET", ".rck", ".txt", ".rck",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Aqua Panic! RKET resource container (.rck/.spa, Wii; outer header only)" },
+
+	// FF_AQUAPANIC_MAT = 416 (Aqua Panic! MATF material chunk table)
+	// Confirmed outer header and tag/size chunk table, walked to EOF in
+	// every one of 100 real samples; per-chunk payload not decoded.
+	{ FF_AQUAPANIC_MAT, FF_AQUAPANIC_MAT, 0, "AQUAPANIC-MAT", ".mat", ".txt", ".mat",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Aqua Panic! MATF material chunk table (.mat, Wii; chunk table decoded, payload data not decoded)" },
+
+	// FF_AQUAPANIC_MB2 = 417 (Aqua Panic! BNAM name-string table)
+	// Fully decoded: header plus the length-prefixed bone/node name list,
+	// confirmed to consume every one of 100 real samples exactly to EOF.
+	{ FF_AQUAPANIC_MB2, FF_AQUAPANIC_MB2, 0, "AQUAPANIC-MB2", ".mb2", ".txt", ".mb2",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Aqua Panic! BNAM bone/node name-string table (.mb2, Wii; fully decoded)" },
+
+	// FF_AQUAPANIC_VIS = 418 (Aqua Panic! visibility/flag record)
+	// Magic-less, fixed 24-byte record, byte-for-byte identical across
+	// all 100 real samples on the disc; fully decoded.
+	{ FF_AQUAPANIC_VIS, FF_AQUAPANIC_VIS, 0, "AQUAPANIC-VIS", ".vis", ".txt", ".vis",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Aqua Panic! visibility/flag record (.vis, Wii; magic-less, fixed 24 bytes, fully decoded)" },
+
+	// FF_AQUAPANIC_LIT = 419 (Aqua Panic! single-light record)
+	// Magic-less, fixed 48-byte record (plus a confirmed 12-byte empty
+	// variant) with float32 color/position fields; fully decoded.
+	{ FF_AQUAPANIC_LIT, FF_AQUAPANIC_LIT, 0, "AQUAPANIC-LIT", ".lit", ".txt", ".lit",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Aqua Panic! single-light record (.lit, Wii; magic-less, fixed 48 bytes, fully decoded)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2753,6 +2794,11 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_BERMUDA_PLANETG, "BERMUDA-PLANETG", "BERMUDA-PLANETG", 0xe05 },
 	{ FF_BERMUDA_PKI, "BERMUDA-PKI", "BERMUDA-PKI", 0xe05 },
 	{ FF_BERMUDA_PGF, "BERMUDA-PGF", "BERMUDA-PGF", 0xe05 },
+	{ FF_AQUAPANIC_RKET, "AQUAPANIC-RKET", "AQUAPANIC-RKET", 0xe05 },
+	{ FF_AQUAPANIC_MAT, "AQUAPANIC-MAT", "AQUAPANIC-MAT", 0xe05 },
+	{ FF_AQUAPANIC_MB2, "AQUAPANIC-MB2", "AQUAPANIC-MB2", 0xe05 },
+	{ FF_AQUAPANIC_VIS, "AQUAPANIC-VIS", "AQUAPANIC-VIS", 0xe05 },
+	{ FF_AQUAPANIC_LIT, "AQUAPANIC-LIT", "AQUAPANIC-LIT", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

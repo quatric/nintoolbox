@@ -3708,6 +3708,13 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 	//   .rvid  "RVID" + version 5
 	//   .bik   "BIK" + revision letter, or "KB2" (Bink 1 / 2; RAD Game Tools,
 	//          decoded by libavcodec's binkvideo / binkaudio decoders)
+	//   .VID   same "BIKi"/"BIK*" magic occurs under a ".VID" extension in
+	//          at least one retail title (DreamWorks How to Train Your
+	//          Dragon, Wii: MOVIE/*/*.VID are plain Bink videos, confirmed
+	//          by the "BIKi" header) -- accepted as an alias so magic-true
+	//          Bink content is not missed just because this title renamed
+	//          the extension; a bare ".vid" with no VID1/BIK magic still
+	//          falls through to the generic media group below
 	//   .bwav  "BWAV" + UTF-16 BOM  (mobipeg routes .bwav through its bfstm
 	//          demuxer, which ignores the tag but wants the BOM at offset 4)
 	// .mmstr has no header magic at all -- mobipeg's gbavideo demuxer probes
@@ -3720,7 +3727,8 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 			|| (is_ext (src, ".ppm") && !memcmp (head, "PARA", 4))
 			|| (is_ext (src, ".kwz") && (!memcmp (head, "KFH", 3) || !memcmp (head, "KIC", 3)))
 			|| (is_ext (src, ".rvid") && !memcmp (head, "RVID", 4) && le32 (head + 4) == 5)
-			|| (is_ext (src, ".bik") && (!memcmp (head, "BIK", 3) || !memcmp (head, "KB2", 3)))
+			|| ((is_ext (src, ".bik") || is_ext (src, ".vid"))
+				&& (!memcmp (head, "BIK", 3) || !memcmp (head, "KB2", 3)))
 			|| (is_ext (src, ".bwav") && is_bwav_magic)
 			|| is_ext (src, ".mmstr"));
 
@@ -3738,7 +3746,8 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 	// tool these files are skipped. A bare `.vid' extension with no VID1
 	// magic stays in the generic media group below (plain AVIs).
 	bool is_vid1_magic = !memcmp (head, "VID1", 4);
-	bool is_vid1_ext = !strong_only && !is_vid1_magic && is_ext (src, ".vid");
+	bool is_bink_magic = !memcmp (head, "BIK", 3) || !memcmp (head, "KB2", 3);
+	bool is_vid1_ext = !strong_only && !is_vid1_magic && !is_bink_magic && is_ext (src, ".vid");
 
 	// Only THP and Mobiclip have reciprocal mobipeg builders. Keep the other
 	// derived media previews out of regular staging trees; --export/XEXPORT is
