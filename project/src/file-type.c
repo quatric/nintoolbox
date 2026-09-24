@@ -1914,6 +1914,25 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Behaviour Interactive \"Thor\" resource package (.wii, Phineas and Ferb: Quest for Cool Stuff)" },
 
+	// FF_OPOONA_MOL = 352 (Opoona character manifest, reverse-engineered)
+	// No magic bytes: a table of (offset,size,name) records (see
+	// IsOpoonaMOL() in lib-opoona.c). Only the manifest/lookup structure is
+	// understood; the offset field's exact runtime meaning is not.
+	{ FF_OPOONA_MOL, FF_OPOONA_MOL, 0, "OPOONA-MOL", ".mol", ".txt", ".mol",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Opoona character manifest (.mol, Wii, ArtePiazza)" },
+
+	// FF_OPOONA_MOT = 353 (Opoona skeletal animation clip, reverse-engineered)
+	// No magic bytes: a validated header shape plus a bind-pose bone array
+	// (see IsOpoonaMOT() in lib-opoona.c). Only the header and the static
+	// bind-pose skeleton are decoded; any per-frame animation-curve data
+	// that follows the bone array is NOT decoded (see lib-opoona.h).
+	{ FF_OPOONA_MOT, FF_OPOONA_MOT, 0, "OPOONA-MOT", ".mot", ".txt", ".mot",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Opoona skeletal animation clip (.mot, Wii, ArtePiazza; bind pose only)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2145,6 +2164,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_MPT, "MPT", "MPT", 0x3809 },
 	{ FF_AFS, "AFS", "AFS", 0xe05 },
 	{ FF_THOR, "THOR", "THOR", 0xe05 },
+	{ FF_OPOONA_MOL, "OPOONA-MOL", "OPOONA-MOL", 0xe05 },
+	{ FF_OPOONA_MOT, "OPOONA-MOT", "OPOONA-MOT", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

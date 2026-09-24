@@ -11055,6 +11055,18 @@ static enumError extract_gf1motion_manifest (ccp arg)
 	return err;
 }
 
+// NOTE: Opoona .mol/.mot manifest-dump wrappers (extract_opoona_mol_manifest/
+// extract_opoona_mot_manifest, following the extract_gf1motion_manifest
+// pattern above) are intentionally not defined here. Wiring them into the
+// `wszst xx` dispatch chain requires registering them in formats.inc, and
+// this session's standing instructions are to leave that file untouched
+// (it carries an unrelated, concurrent uncommitted change from someone
+// else's work in this tree). FILETYPE recognition (IsOpoonaMOL/IsOpoonaMOT
+// in lib-opoona.c, wired via lib-file.c and file-type.c) and the
+// DecodeOpoonaMOL_Text/DecodeOpoonaMOT_Text dumpers themselves are fully
+// implemented and ready to wire in exactly this shape once formats.inc can
+// be touched again.
+
 static enumError extract_mtmrl_manifest (ccp arg)
 {
 	if (!is_ext (arg, ".mrl"))

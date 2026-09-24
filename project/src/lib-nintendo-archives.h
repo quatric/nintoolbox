@@ -26,6 +26,7 @@
 #include "lib-wta.h"
 #include "lib-gfpak.h"
 #include "lib-gf3ds.h"
+#include "lib-opoona.h"
 #include "lib-mtmob.h"
 #include "lib-bars.h"
 #include "lib-fsb.h"

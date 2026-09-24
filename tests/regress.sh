@@ -8825,6 +8825,22 @@ with open(sys.argv[1], "wb") as f:
     fno "SPICA family fixtures" "mk_gf3ds.py/mk_mtmob.py failed"
   fi
 
+  # Opoona (Wii, ArtePiazza) character manifest/animation (.mol/.mot):
+  # from-scratch reverse-engineered, no public documentation exists.
+  # Only FILETYPE recognition is exercised here -- the wszst xx text-dump
+  # dispatch is not wired into formats.inc yet (see lib-opoona.h/.c and
+  # wszst_cmd/create_update.inc for what is implemented and why).
+  mkdir -p "$d/opoona_test"
+  python3 "$PWD_PROJECT/../tests/mk_opoona.py" "$d/opoona_test/fx" >/dev/null 2>&1
+  if [ -f "$d/opoona_test/fx/sample.mol" ] && [ -f "$d/opoona_test/fx/sample.mot" ]; then
+    chk_ft_op() { "$B/wszst" FILETYPE "$d/opoona_test/fx/$1" 2>/dev/null | grep -q "^$2"; }
+    chk_ft_op sample.mol OPOONA-MOL && chk_ft_op sample.mot OPOONA-MOT \
+    && fok "Opoona family FILETYPE recognition (.mol/.mot)" \
+    || fno "Opoona family FILETYPE" "misidentified synthetic fixture"
+  else
+    fno "Opoona family fixtures" "mk_opoona.py failed"
+  fi
+
   # Blitz Games .rev package (SpongeBob: Creature from the Krusty Krab):
   # tests/mk_rev.py builds a package with one RGBA8 texture and one static
   # actor; extraction must unpack it and convert both (PNG pixel, GLB geometry).

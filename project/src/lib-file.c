@@ -87,6 +87,7 @@
 #include "lib-mpboard.h"
 #include "lib-nlg-probe.h"
 #include "lib-gf3ds.h"
+#include "lib-opoona.h"
 #include "lib-mtmob.h"
 #include "config.inc"
 
@@ -2105,6 +2106,15 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_AFS;
 	if (IsThorPkg (data8, data_size))
 		return FF_THOR;
+	// Opoona .mol/.mot (reverse-engineered, no magic): the .mot probe
+	// requires an internally-consistent bone count plus a plausible
+	// frame-rate float, and .mol requires a run of structurally valid
+	// (offset,size,name) records, so both run late alongside the other
+	// magic-less structural gates above.
+	if (IsOpoonaMOT (data8, data_size, file_size))
+		return FF_OPOONA_MOT;
+	if (IsOpoonaMOL (data8, data_size, file_size))
+		return FF_OPOONA_MOL;
 
 	const nfmt_info_t nfmt = DetectNintendoFormat (data, data_size, 0);
 	switch (nfmt.type)
