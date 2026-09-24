@@ -67,6 +67,8 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **ALAR** | `.alar` | ✅ | — | — | ✅ | Nintendo DS Nitro ALAR archive (*Jump Ultimate Stars*). |
 | **And-Kensaku** | `.rz` | ✅ | — | — | — | CyberConnect2 "Pres" archive with LZ77 wrapping (Nintendo DS, *And-Kensaku* family). |
 | **APAK** | `.apak` | ✅ | ✅ | ✅ | — | Nintendo / Pokémon APAK archive format (Wii U / Switch) |
+| **AQUAPANIC-RKET** | `.rck`, `.spa` | 🟡 | — | — | ✅ | *Aqua Panic!* "RKET" resource container (per-level scene data / localized packs, Wii): outer header decoded, resource-graph body not reverse-engineered. |
+| **BERMUDA-PKI** | `.PKI` | ✅ | — | — | ✅ | *Bermuda Triangle - Saving the Coral* "IMAGE_WII_COMPACT_FILE_VERSION_1" texture-pack container (Wii): full name/size/offset entry table decoded. |
 | **ARC / U8** | `.arc`, `.szs` | ✅ | ✅ | ✅ | — | Nintendo standard U8 archive (Wii / GameCube NintendoWare & EAD) |
 | **ARC0** | `.fa` | 🟡 | — | — | 🟡 | Level-5 flat archive (*Yo-Kai Watch*, 3DS). |
 | **ARCV** | `.arc` | ✅ | ✅ | ✅ | — | Namco / Tose Wii archive format |
@@ -115,6 +117,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **HBDF** | `.hbdf`, `.hsdf` | ✅ | — | — | — | Hudson Soft Nitro 3D model container (*Mario Party DS*), decoded to GLB. |
 | **Heavy Iron HO** | `.ho` | ✅ | — | — | ✅ | Good Engine package (*WALL-E*, *Up*, Wii); assets with debug names, GX textures to PNG |
 | **Humongous Resource.rez** | `.rez` | ✅ | — | — | ✅ | *Backyard Football '10* (Wii): textures to PNG, sounds to WAV, models and animations to GLB, THP videos. |
+| **HTTYD-RWS / MTD** | `.RWS`, `.mtd` | ✅ | — | — | ✅ | *DreamWorks How to Train Your Dragon* recursive chunk-tree container (Wii): 12-byte chunk headers walked exactly to EOF across all 118 real `.RWS` samples plus the `.mtd` sample; leaf audio-sample payload not reverse-engineered. |
 | **Hyrule Warriors** | `.idx`, `.bin` | ✅ | ✅ | ✅ | — | Koei Tecmo / Omega Force split index archive (3DS) |
 | **IPK** | `.ipk` | ✅ | — | — | — | Ubisoft UbiArt archive (*Just Dance*, *Rayman Origins/Legends*; Wii / Wii U / Switch / PC). |
 | **IQIPACK** | `.pak` | ✅ | — | — | — | NVIDIA Shield iQiyi PAK archive with XXTEA encryption |
@@ -147,7 +150,10 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **RSO** | `.rso` | ✅ | — | — | ✅ | Nintendo relocatable PowerPC module (*Skylanders: SuperChargers Racing*, Wii); raw code/data sections extracted, BSS skipped. |
 | **RST / TOC** | `.rst`, `.toc` | ✅ | ✅ | ✅ | ✅ | Monster Games archive & table of contents (*Excite Truck* / *Excitebots*). |
 | **RZPK** | `.rzpk` | ✅ | ✅ | ✅ | — | Mario Party 3DS compressed archive (zlib members). |
+| **RFF-FBTI** | `.Mod`, `.Mot` | ✅ | — | — | ✅ | *Rune Factory: Frontier* "FBTI" model/motion section container (Wii): header + offset/size section table fully decoded and verified contiguous; per-section payload not reverse-engineered. |
+| **OCTOMANIA-SEC** | `.sec` | ✅ | — | — | ✅ | *Octomania* "secB" scene/demo container (Wii): header + 32-byte chunk table with resolved names via a shared string table; per-chunk payload not reverse-engineered. |
 | **SARC** | `.sarc`, `.szs` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4F & NintendoSDK sorted archive (Wii U / Switch / 3DS). |
+| **SPOOKY-AST** | `.ast` | ✅ | — | — | ✅ | *I Spy Spooky Mansion* "SDASSETF" asset-bundle container (Wii): outer header and top-level chunk table decoded to EOF for flat files; nested model/animation/texture sub-chunks not reverse-engineered. |
 | **SFZDAT** | `.dat` | ✅ | 🟡 | — | ✅ | *Star Fox Zero* (Wii U) flat archive (`DAT\0`). |
 | **SHARC / SHARCFB** | `.sharc`, `.sharcfb` | ✅ | ✅ | — | ✅ | NintendoWare shader source and binary archive (Wii U / Switch). |
 | **SIR0** | `.sir0` | ✅ | ✅ | ✅ | ✅ | Pokémon Mystery Dungeon resource container (DS / 3DS). |
@@ -249,6 +255,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **BCFNT / BFFNT / BRFNT** | `.bcfnt`, `.bffnt`, `.brfnt` | ✅ | ✅ | ✅ | ✅ | NintendoWare font resource (3DS / Wii U / Wii). |
 | **BCLIM** | `.bclim` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C texture container (3DS) |
 | **BFLIM** | `.bflim` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4F texture format (Wii U) |
+| **BERMUDA-MWT** | `.MWT` | ✅ | — | — | ✅ | *Bermuda Triangle - Saving the Coral* "GDATAVERSION" texture envelope (Wii): 0x40-byte header wrapping an already-supported Camelot-style GX texture bank. |
 | **BNR** | `.bnr` | ✅ | — | — | — | Nintendo GameCube & Wii game opening banner icon (RGB5A3) |
 | **BNSTX** | `.bnstx` | ✅ | — | — | — | Nintendo Switch texture package. |
 | **BNTX** | `.bntx` | ✅ | ✅ | ✅ | ✅ | NintendoSDK Tegra block-linear texture container (Switch); DDS / ASTC export and DDS encode. |
@@ -269,6 +276,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **GFTEX** | `.gftex` | ✅ | — | — | — | Game Freak 3DS texture (SPICA `GFTexture`; *Pokémon X/Y/ORAS*): PICA200 payloads incl. ETC1/ETC1A4. |
 | **GTX** | `.gtx` | ✅ | ✅ | ✅ | ✅ | Nintendo Wii U GX2 surface container (Wii U) |
 | **GVR** | `.gvr` | ✅ | — | — | ✅ | Sega GameCube & Wii texture container (GCIX / GVRT). |
+| **MERCURY-PST** | `.pst` | 🟡 | — | — | ✅ | *Mercury Meltdown Revolution* paletted texture (Wii): "TSPA" magic and BE width/height header confirmed; pixel data layout not reverse-engineered. |
 | **MPR TXTR** | `.txtr` / `.mpr.txtr` | ✅ | ✅ | ✅ | ✅ | Retro Studios texture, Remastered revision (*Metroid Prime Remastered*, Switch) |
 | **MTTEX** | `.tex` | ✅ | — | — | — | Capcom MT Framework Mobile texture (3DS): PICA200 payloads including ETC1 / ETC1A4. |
 | **NCER / NANR** | `.ncer`, `.nanr` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro cell & animation resources (DS) |
@@ -314,6 +322,8 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | **BRSAR / RBNK / RWAV** | `.brsar`, `.rbnk`, `.rwav` | ✅ | ✅ | ✅ | NintendoWare NW4R sound archive, instrument bank & wave format (Wii) |
 | **BRSTM / BCSTM / BFSTM** | `.brstm`, `.bcstm`, `.bfstm` | ✅ | ✅ | ✅ | Nintendo multi-channel stream audio (Wii / 3DS / Wii U / Switch) |
 | **NUS3AUDIO** | `.nus3audio`, `.nus3bank` | ✅ | ✅ | — | Bandai Namco NUS3 audio archive (*Super Smash Bros. Ultimate*, Switch) |
+| **OCTOMANIA-WT** | `.wt` | ✅ | — | ✅ | *Octomania* wavetable sample-offset index (Wii): leading table of BE sample offsets into the companion `.pcm`; trailing MIDI-program index map not reverse-engineered. |
+| **SPOOKY-EID** | `.eid` | ✅ | — | ✅ | *I Spy Spooky Mansion* sound-event/effect table (Wii): header, effect table and "VARS" field records decoded byte-for-byte across 160/161 real samples. |
 | **RSEQ / CSEQ / FSEQ / SSEQ** | `.rseq`, `.cseq`, `.fseq`, `.sseq` | ✅ | ✅ | ✅ | Nintendo sequence music format (Wii / 3DS / Wii U / DS). |
 | **SADL** | `.sad`, `.sadl` | ✅ | — | ✅ | Level-5 / *Professor Layton* audio stream container (DS) |
 | **SDAT** | `.sdat` | ✅ | ✅ | ✅ | Nintendo DS Nitro sound archive (DS) |
@@ -325,19 +335,39 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | Format | Extensions | Decode Tested | Encode Tested | Byte-Exact Roundtrip | Retail Source Tested | Middleware / Engine / Platform Context |
 | --- | --- | --- | --- | --- | --- | --- |
 | **AAMP** | `.aamp` | ✅ | ✅ | ✅ | — | Nintendo binary parameter archive (Wii U / Switch); YAML/JSON text conversion. |
+| **AQUAPANIC-MAT** | `.mat` | ✅ | — | — | ✅ | *Aqua Panic!* "MATF" material chunk table (Wii): outer header and tag/size chunk table walked to EOF across 100 real samples; per-chunk payload not reverse-engineered. |
+| **AQUAPANIC-MB2** | `.mb2` | ✅ | — | — | ✅ | *Aqua Panic!* "BNAM" bone/node name-string table (Wii): fully decoded header plus length-prefixed name list across all 100 real samples. |
+| **AQUAPANIC-VIS** | `.vis` | ✅ | — | — | ✅ | *Aqua Panic!* visibility/flag record (Wii, magic-less): fixed 24-byte record, fully decoded, identical across all 100 real samples. |
+| **AQUAPANIC-LIT** | `.lit` | ✅ | — | — | ✅ | *Aqua Panic!* single-light record (Wii, magic-less): fixed 48-byte float32 color/position record, fully decoded across all 100 real samples. |
+| **BERMUDA-PLANETG** | `.MWG`, `.MSP` | 🟡 | — | — | ✅ | *Bermuda Triangle - Saving the Coral* "PLANETG" tagged-object resource (Wii): every length-prefixed tag/string name decoded; exact tree shape and numeric-field semantics not reverse-engineered. |
+| **BERMUDA-PGF** | `.pgf` | 🟡 | — | — | ✅ | *Bermuda Triangle - Saving the Coral* font resource (Wii): header (family name + point size) confirmed; per-glyph offset table not conclusively reverse-engineered. |
 | **BCLYT / BCLAN** | `.bclyt`, `.bclan` | ✅ | ✅ | ✅ | — | NintendoWare NW4C 2D layout & animation (3DS) |
 | **BFLYT / BFLAN** | `.bflyt`, `.bflan` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4F 2D layout & animation (Wii U) |
 | **BGLPBD** | `.bglpbd` | ✅ | ✅ | ✅ | — | AGL light-probe data (Wii U / Switch). |
 | **BMG** | `.bmg` | ✅ | ✅ | ✅ | ✅ | Nintendo standard binary message format (GameCube / Wii) |
 | **BRLYT / BRLAN** | `.brlyt`, `.brlan` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4R 2D layout & animation (Wii; *Super Mario 3D All-Stars* TYLR/NALR reversed definitions) |
 | **BYAML / BYML** | `.byaml`, `.byml`, `.sbyml`, `.smubin` + other BotW `S`-prefixed Yaz0 containers | ✅ | ✅ | ✅ | ✅ | Nintendo binary YAML (Wii / Wii U / Switch); Yaz0-wrapped inputs decode transparently. |
+| **HTTYD-KRV** | `.KRV` | ✅ | — | — | ✅ | *DreamWorks How to Train Your Dragon* gzip-wrapped localization string table (Wii): outer gzip decoded; UTF-16LE NUL-terminated string run enumerated in full; leading header integer fields not fully pinned down. |
 | **KPMAP** | `.kpmap` | ✅ | ✅ | — | — | Koopatlas map project (JSON; *New Super Mario Bros. Wii* level-editor community format). |
+| **MERCURY-ZEN** | `.zen` | ✅ | — | — | ✅ | *Mercury Meltdown Revolution* scene file (Wii): "DAED" magic + fixed header + NUL-terminated authoring source-path string; fields after the path not reverse-engineered. |
+| **MERCURY-COL** | `.col`, `.cam` | ✅ | — | — | ✅ | *Mercury Meltdown Revolution* "COL0" collision/camera table (Wii, shared magic): magic/count and each record's leading name decoded; per-record tagged property data not reverse-engineered. |
+| **MERCURY-MAT** | `.mat` | 🟡 | — | — | ✅ | *Mercury Meltdown Revolution* material float-record table (Wii, magic-less): no confirmed record layout found; extension-recognized only. |
+| **MERCURY-NAV** | `.nav` | 🟡 | — | — | ✅ | *Mercury Meltdown Revolution* navigation-mesh table (Wii, magic-less): many samples zero-length, no confirmed header shape found; extension-recognized only. |
 | **MIO** | `.mio` | ✅ | — | — | ✅ | *WarioWare: D.I.Y.* / *Made in Ore* Game, Comic & Record data (DS / Wii) |
 | **MPBOARD** | `.bin`, `.csv`, `.xml` | ✅ | ✅ | ✅ | — | Mario Party board data (GameCube / Wii binary, *Super Mario Party* CSV, *Mario Party 10* XML). |
 | **MPMESS** | `.dat` | ✅ | ✅ | ✅ | — | Mario Party 4-7 GameCube message files, extracted to text / JSON. |
 | **MSBT / MSBP / MSBF** | `.msbt`, `.msbp`, `.msbf` | ✅ | ✅ | ✅ | ✅ | Nintendo Message Studio binary text, project & flow (3DS / Wii U / Switch) |
 | **MTMFX** | `.mfx`, `.lfx` | ✅ | — | — | — | Capcom MT Framework Mobile shader effects (3DS): input-layout tables. |
 | **MTMRL** | `.mrl` | ✅ | — | — | — | Capcom MT Framework Mobile materials (SPICA `MTMaterials`; 3DS): CRC32-keyed texture bindings as text. |
+| **RFF-HXTB** | `.hvt`, `.Hvt` | ✅ | — | — | ✅ | *Rune Factory: Frontier* "HX Table" entry directory (Wii, magic `HXTB0001`): header and 32-byte-stride entry table (name, hash, data range) fully decoded; per-entity payload not reverse-engineered. |
+| **RFF-HXCB** | `.Hvc` | 🟡 | — | — | ✅ | *Rune Factory: Frontier* "HX" collision-box family (Wii, magic `HXCB0002`): shared 32-byte HX header only; post-header record layout not reverse-engineered. |
+| **RFF-HXAA** | `.Hvb` | 🟡 | — | — | ✅ | *Rune Factory: Frontier* "HX" animation family (Wii, magic `HXAA0001`/`HXAB0001`): shared 32-byte HX header only; post-header record layout not reverse-engineered. |
+| **RFF-HXMB** | `.Hvm` | 🟡 | — | — | ✅ | *Rune Factory: Frontier* "HX" map/motion family (Wii, magic `HXMB0001`): shared 32-byte HX header only; post-header record layout not reverse-engineered. |
+| **RFF-HXHB** | `.Hvh` | 🟡 | — | — | ✅ | *Rune Factory: Frontier* "HX" hull/height family (Wii, magic `HXHB0001`): shared 32-byte HX header only; post-header record layout not reverse-engineered. |
+| **RFF-HXGB** | `.Hvg` | 🟡 | — | — | ✅ | *Rune Factory: Frontier* "HX" geometry family (Wii, magic `HXGB0001`): shared 32-byte HX header only, also seen embedded inside `RFF-FBTI` `.Mod` sections; post-header record layout not reverse-engineered. |
+| **RFF-HXTP** | `.Hmt` | 🟡 | — | — | ✅ | *Rune Factory: Frontier* "HX" triangle/points index (Wii, magic `HXTP0001`): shared 32-byte HX header only; post-header record layout not reverse-engineered. |
+| **SPOOKY-SDF** | `.sdf` | ✅ | — | — | ✅ | *I Spy Spooky Mansion* asset-type registry table (Wii): "TYPE"-tag record table and embedded "VARS" field-record tables decoded (single real sample). |
+| **SPOOKY-GES** | `.ges` | ✅ | — | ✅ | ✅ | *I Spy Spooky Mansion* Wiimote gesture recording (Wii, magic-less): fixed 10-point x/y/z float32 layout, fully decoded, identical across all 28 real samples. |
 | **XB** | `.xml` (binary) | ✅ | ✅ | ✅ | — | Nd Cube Binary XML (*Mario Party 10*), decoded to XML text. |
 | **XMB** | `.xmb` | ✅ | — | — | — | Smash XMB material / LOD metadata (Smash 4 / Ultimate). |
 
