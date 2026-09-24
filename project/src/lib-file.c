@@ -90,6 +90,7 @@
 #include "lib-opoona.h"
 #include "lib-monster4x4.h"
 #include "lib-magma.h"
+#include "lib-thevoice.h"
 #include "lib-mtmob.h"
 #include "config.inc"
 
@@ -2132,6 +2133,19 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 	// self-offset/data-offset/data-size/path records (see IsMagmaFat()).
 	if (IsMagmaFat (data8, data_size, file_size))
 		return FF_MAGMA_FAT;
+	// The Voice (Wii karaoke) plain-text asset scripts: each is gated by
+	// its own fixed top-level keyword (or, for .song, root element +
+	// namespace) -- see lib-thevoice.h.
+	if (IsVoiceSong (data8, data_size, file_size))
+		return FF_VOICE_SONG;
+	if (IsVoiceAmc (data8, data_size, file_size))
+		return FF_VOICE_AMC;
+	if (IsVoiceAms (data8, data_size, file_size))
+		return FF_VOICE_AMS;
+	if (IsVoicePalcat (data8, data_size, file_size))
+		return FF_VOICE_PALCAT;
+	if (IsVoicePalseq (data8, data_size, file_size))
+		return FF_VOICE_PALSEQ;
 
 	const nfmt_info_t nfmt = DetectNintendoFormat (data, data_size, 0);
 	switch (nfmt.type)

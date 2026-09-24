@@ -11166,6 +11166,60 @@ static enumError extract_magma_fat_manifest (ccp arg)
 	return err;
 }
 
+// The Voice (Wii karaoke) plain-text asset scripts: all five share this
+// shape, differing only in extension, detector and decoder -- see
+// lib-thevoice.h.
+#define DEFINE_EXTRACT_VOICE(name,ext,is_fn,decode_fn) \
+static enumError extract_voice_##name##_manifest (ccp arg) \
+{ \
+	if (!is_ext (arg, ext)) \
+		return ERR_NOTHING_TO_DO; \
+\
+	u8 *raw = 0; \
+	size_t raw_size = 0; \
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false); \
+	if (err) \
+		return ERR_NOTHING_TO_DO; \
+\
+	if (!is_fn (raw, raw_size, raw_size)) \
+	{ \
+		FREE (raw); \
+		return ERR_NOTHING_TO_DO; \
+	} \
+\
+	char dest[PATH_MAX]; \
+	if (opt_dest) \
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false); \
+	else \
+		snprintf (dest, sizeof (dest), "%s.txt", arg); \
+\
+	if (verbose >= 0 || testmode) \
+		fprintf (stdlog, "%s%sDECODE VOICE-" #name ":%s -> %s\n", verbose > 0 ? "\n" : "", \
+			testmode ? "WOULD " : "", arg, dest); \
+\
+	if (testmode) \
+	{ \
+		FREE (raw); \
+		return ERR_OK; \
+	} \
+\
+	File_t F; \
+	err = CreateFileOpt (&F, true, dest, false, arg); \
+	if (F.f) \
+		err = decode_fn (F.f, raw, raw_size, raw_size); \
+	ResetFile (&F, opt_preserve); \
+	FREE (raw); \
+	return err; \
+}
+
+DEFINE_EXTRACT_VOICE (song,   ".song",   IsVoiceSong,   DecodeVoiceSong_Text)
+DEFINE_EXTRACT_VOICE (amc,    ".amc",    IsVoiceAmc,    DecodeVoiceAmc_Text)
+DEFINE_EXTRACT_VOICE (ams,    ".ams",    IsVoiceAms,    DecodeVoiceAms_Text)
+DEFINE_EXTRACT_VOICE (palcat, ".palcat", IsVoicePalcat, DecodeVoicePalcat_Text)
+DEFINE_EXTRACT_VOICE (palseq, ".palseq", IsVoicePalseq, DecodeVoicePalseq_Text)
+
+#undef DEFINE_EXTRACT_VOICE
+
 static enumError extract_mtmrl_manifest (ccp arg)
 {
 	if (!is_ext (arg, ".mrl"))

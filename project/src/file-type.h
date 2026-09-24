@@ -449,6 +449,11 @@ typedef enum file_format_t
 	FF_CHNK, // 354 - Monster 4x4: Stunt Racer chunked container (.bnk/.d4l/.d4c/.gfx/.mec/.pmu/.pak/.ppx/.an4)
 	FF_MAGMA_FAT, // 355 - Ubisoft Magma bigfile index (.fat)
 	FF_MAGMA_BF, // 356 - Ubisoft Magma self-indexed bigfile (.bf)
+	FF_VOICE_SONG, // 357 - The Voice song script (.song)
+	FF_VOICE_AMC, // 358 - The Voice animesh catalogue (.amc)
+	FF_VOICE_AMS, // 359 - The Voice animesh sequence (.ams)
+	FF_VOICE_PALCAT, // 360 - The Voice palette catalogue (.palcat)
+	FF_VOICE_PALSEQ, // 361 - The Voice palette sequence (.palseq)
 
 	//--- number of elements
 

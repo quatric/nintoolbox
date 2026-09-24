@@ -1962,6 +1962,46 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Ubisoft Magma self-indexed bigfile (.bf, Wii; internal table not decoded)" },
 
+	// FF_VOICE_SONG = 357 (The Voice song script)
+	// Plain-text XML, xmlns="zoe:Song". Decoded to a normalized manifest
+	// of game-mode setups and performance events (see lib-thevoice.h).
+	{ FF_VOICE_SONG, FF_VOICE_SONG, 0, "VOICE-SONG", ".song", ".txt", ".song",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"The Voice song script (.song, Wii)" },
+
+	// FF_VOICE_AMC = 358 (The Voice animesh catalogue)
+	// Plain-text Lua-like "animeshcatalogue={...}" list of referenced
+	// ".tas" animated-mesh scenes.
+	{ FF_VOICE_AMC, FF_VOICE_AMC, 0, "VOICE-AMC", ".amc", ".txt", ".amc",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"The Voice animesh catalogue (.amc, Wii)" },
+
+	// FF_VOICE_AMS = 359 (The Voice animesh sequence)
+	// Plain-text Lua-like "animeshsequence={...}" list of timed ".tas"
+	// placements.
+	{ FF_VOICE_AMS, FF_VOICE_AMS, 0, "VOICE-AMS", ".ams", ".txt", ".ams",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"The Voice animesh sequence (.ams, Wii)" },
+
+	// FF_VOICE_PALCAT = 360 (The Voice palette catalogue)
+	// Plain-text Lua-like "palettecatalogue={...}" list of referenced
+	// ".pal" raw-RGBA palettes.
+	{ FF_VOICE_PALCAT, FF_VOICE_PALCAT, 0, "VOICE-PALCAT", ".palcat", ".txt", ".palcat",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"The Voice palette catalogue (.palcat, Wii)" },
+
+	// FF_VOICE_PALSEQ = 361 (The Voice palette sequence)
+	// Plain-text Lua-like "palettesequence={...}" list of timed palette
+	// index swaps.
+	{ FF_VOICE_PALSEQ, FF_VOICE_PALSEQ, 0, "VOICE-PALSEQ", ".palseq", ".txt", ".palseq",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"The Voice palette sequence (.palseq, Wii)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2198,6 +2238,11 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_CHNK, "CHNK", "CHNK", 0xe05 },
 	{ FF_MAGMA_FAT, "MAGMA-FAT", "MAGMA-FAT", 0xe05 },
 	{ FF_MAGMA_BF, "MAGMA-BF", "MAGMA-BF", 0xe05 },
+	{ FF_VOICE_SONG, "VOICE-SONG", "VOICE-SONG", 0xe05 },
+	{ FF_VOICE_AMC, "VOICE-AMC", "VOICE-AMC", 0xe05 },
+	{ FF_VOICE_AMS, "VOICE-AMS", "VOICE-AMS", 0xe05 },
+	{ FF_VOICE_PALCAT, "VOICE-PALCAT", "VOICE-PALCAT", 0xe05 },
+	{ FF_VOICE_PALSEQ, "VOICE-PALSEQ", "VOICE-PALSEQ", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

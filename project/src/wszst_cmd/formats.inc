@@ -1789,6 +1789,26 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
+	err = extract_voice_song_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_voice_amc_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_voice_ams_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_voice_palcat_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_voice_palseq_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
 	err = extract_mtmfx_manifest (arg);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
