@@ -101,6 +101,7 @@
 #include "lib-pak-tate.h"
 #include "lib-pf2-piff.h"
 #include "lib-t3pk.h"
+#include "lib-mercurymeltdown.h"
 #include "lib-mtmob.h"
 #include "config.inc"
 
@@ -2143,6 +2144,15 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_PF2_PIFF;
 	if (IsT3PK (data8, data_size))
 		return FF_T3PK;
+	// Mercury Meltdown Revolution (Wii) formats -- see
+	// lib-mercurymeltdown.h. ".mat"/".nav" are magic-less and
+	// intentionally NOT wired in here (extension match only).
+	if (IsMercuryZen (data8, data_size, file_size))
+		return FF_MERCURY_ZEN;
+	if (IsMercuryCol (data8, data_size, file_size))
+		return FF_MERCURY_COL;
+	if (IsMercuryPst (data8, data_size, file_size))
+		return FF_MERCURY_PST;
 	// Opoona .mol/.mot (reverse-engineered, no magic): the .mot probe
 	// requires an internally-consistent bone count plus a plausible
 	// frame-rate float, and .mol requires a run of structurally valid

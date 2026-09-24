@@ -121,6 +121,11 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **MPR SKEL** | Switch / Skeleton | ✅ | ❌ | Retro Studios skeletal hierarchy (*Metroid Prime Remastered*, *DKCTF*) |
 | **MPR PACK** | Switch / Archive | ✅ | ❌ | Retro Studios asset container (*Metroid Prime Remastered*): LE RFRM PACK v1 + TOCC v3, LZSS members |
 | **MPR TXTR** | Switch / Texture | ✅ | ✅ | Retro Studios texture (*Metroid Prime Remastered*): LE RFRM TXTR v47/51, Tegra detile, BC1-7/ASTC; `wimgt ENCODE` writes single-mip RGBA8 with a `.mpr.txtr` destination |
+| **MERCURY-ZEN** | Wii / Scene | ✅ | ❌ | *Mercury Meltdown Revolution* scene file (`.zen`): "DAED" magic + fixed header + NUL-terminated authoring source-path string; fields after the path not reverse-engineered |
+| **MERCURY-COL** | Wii / Collision | ✅ | ❌ | *Mercury Meltdown Revolution* "COL0" collision/camera table (`.col`/`.cam`, shared magic+shape); magic/count and each record's leading name decoded, per-record tagged property data not reverse-engineered |
+| **MERCURY-PST** | Wii / Texture | ✅ | ❌ | *Mercury Meltdown Revolution* paletted texture (`.pst`): "TSPA" magic, BE width/height header confirmed; pixel data layout not reverse-engineered |
+| **MERCURY-MAT** | Wii / Material | 🟡 | ❌ | *Mercury Meltdown Revolution* material float-record table (`.mat`): magic-less, no confirmed record layout found; extension-recognized only |
+| **MERCURY-NAV** | Wii / Navigation | 🟡 | ❌ | *Mercury Meltdown Revolution* navigation-mesh table (`.nav`): magic-less, many samples zero-length, no confirmed header shape found; extension-recognized only |
 | **MSH (PMsh)** | Wii / Model | ✅ | ✅ | Monster Games collision mesh |
 | **MSBF / MSBP / MSBT** | Wii/3DS/Wii U/Switch / Text | ✅ | ✅ | Message Studio Binary Text and Flow |
 | **MSR** | 3DS / Archive | 🟡 | ⛔ | Metroid: Samus Returns archive |

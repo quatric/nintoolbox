@@ -480,6 +480,12 @@ typedef enum file_format_t
 	FF_PAK_TATE, // 385 - Go West! A Lucky Luke Adventure "TATE" media archive (.PAK)
 	FF_PF2_PIFF, // 386 - Pony Friends 2 "FFIP" asset container (.rbh; outer shell only)
 	FF_T3PK, // 387 - Top Trumps - Doctor Who "T3PK4.00" resource pack (.t3p)
+	FF_MERCURY_ZEN, // 388 - Mercury Meltdown Revolution "DAED" scene file (.zen; outer header only)
+	FF_MERCURY_COL, // 389 - Mercury Meltdown Revolution "COL0" collision/camera table (.col/.cam)
+	FF_MERCURY_PST, // 390 - Mercury Meltdown Revolution "TSPA" paletted texture (.pst)
+	FF_MERCURY_MAT, // 391 - Mercury Meltdown Revolution material float-record table (.mat; magic-less)
+	FF_MERCURY_NAV, // 392 - Mercury Meltdown Revolution navigation mesh table (.nav; magic-less, header only)
+	FF_MERCURY_TEX, // 393 - Mercury Meltdown Revolution "#TEX FILE" texture reference list (.TEX)
 
 	//--- number of elements
 

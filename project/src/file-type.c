@@ -2238,6 +2238,53 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Top Trumps - Doctor Who \"T3PK4.00\" resource pack (.t3p, Wii)" },
 
+	// FF_MERCURY_ZEN = 388 (Mercury Meltdown Revolution scene file)
+	// Confirmed fixed "DAED" header plus a NUL-terminated source-path
+	// string; the fields after the path are not reverse-engineered.
+	{ FF_MERCURY_ZEN, FF_MERCURY_ZEN, 0, "MERCURY-ZEN", ".zen", ".txt", ".zen",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Mercury Meltdown Revolution DAED scene file (.zen, Wii; outer header + source path only)" },
+
+	// FF_MERCURY_COL = 389 (Mercury Meltdown Revolution COL0 table)
+	// Also seen reused (often as an empty 12-byte instance) for ".cam";
+	// only the magic/count and each record's leading name are decoded.
+	{ FF_MERCURY_COL, FF_MERCURY_COL, 0, "MERCURY-COL", ".col", ".txt", ".col",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Mercury Meltdown Revolution COL0 collision/camera table (.col/.cam, Wii; record property data not decoded)" },
+
+	// FF_MERCURY_PST = 390 (Mercury Meltdown Revolution paletted texture)
+	// Confirmed fixed "TSPA" header including big-endian width/height.
+	{ FF_MERCURY_PST, FF_MERCURY_PST, 0, "MERCURY-PST", ".pst", ".txt", ".pst",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Mercury Meltdown Revolution TSPA paletted texture (.pst, Wii; pixel data not decoded)" },
+
+	// FF_MERCURY_MAT = 391 (Mercury Meltdown Revolution material table)
+	// No confirmed magic/record layout was found; extension-recognized
+	// only, same policy as The Dog Island's .sci/.qci.
+	{ FF_MERCURY_MAT, FF_MERCURY_MAT, 0, "MERCURY-MAT", ".mat", ".txt", ".mat",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Mercury Meltdown Revolution material float-record table (.mat, Wii; NOT reverse-engineered, extension only)" },
+
+	// FF_MERCURY_NAV = 392 (Mercury Meltdown Revolution navigation mesh)
+	// No confirmed header shape was found (and many samples are
+	// zero-length); extension-recognized only.
+	{ FF_MERCURY_NAV, FF_MERCURY_NAV, 0, "MERCURY-NAV", ".nav", ".txt", ".nav",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Mercury Meltdown Revolution navigation-mesh table (.nav, Wii; NOT reverse-engineered, extension only)" },
+
+	// FF_MERCURY_TEX = 393 (Mercury Meltdown Revolution texture reference list)
+	// Fully decoded plain-text format: "#TEX FILE" header line followed
+	// by one source ".tga" authoring path per line.
+	{ FF_MERCURY_TEX, FF_MERCURY_TEX, 0, "MERCURY-TEX", ".TEX", ".txt", ".TEX",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Mercury Meltdown Revolution texture reference list (.TEX, Wii; plain text)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2504,6 +2551,12 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_PAK_TATE, "PAK-TATE", "PAK-TATE", 0xe05 },
 	{ FF_PF2_PIFF, "PF2-PIFF", "PF2-PIFF", 0xe05 },
 	{ FF_T3PK, "T3PK", "T3PK", 0xe05 },
+	{ FF_MERCURY_ZEN, "MERCURY-ZEN", "MERCURY-ZEN", 0xe05 },
+	{ FF_MERCURY_COL, "MERCURY-COL", "MERCURY-COL", 0xe05 },
+	{ FF_MERCURY_PST, "MERCURY-PST", "MERCURY-PST", 0xe05 },
+	{ FF_MERCURY_MAT, "MERCURY-MAT", "MERCURY-MAT", 0xe05 },
+	{ FF_MERCURY_NAV, "MERCURY-NAV", "MERCURY-NAV", 0xe05 },
+	{ FF_MERCURY_TEX, "MERCURY-TEX", "MERCURY-TEX", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };
