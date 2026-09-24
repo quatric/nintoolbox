@@ -42,14 +42,19 @@ int IsTEZip ( const u8 *data, size_t size )
 
 //-----------------------------------------------------------------------------
 
-static void ListPush ( te_zip_list_t *list, const te_zip_entry_t *e )
+static bool ListPush ( te_zip_list_t *list, const te_zip_entry_t *e )
 {
     if ( list->n == list->n_alloc )
     {
-	list->n_alloc = list->n_alloc ? list->n_alloc * 2 : 16;
-	list->entry = REALLOC( list->entry, list->n_alloc * sizeof(te_zip_entry_t) );
+	u32 new_alloc = list->n_alloc ? list->n_alloc * 2 : 16;
+	te_zip_entry_t *new_entry = REALLOC( list->entry, new_alloc * sizeof(te_zip_entry_t) );
+	if ( !new_entry )
+	    return false;
+	list->entry = new_entry;
+	list->n_alloc = new_alloc;
     }
     list->entry[list->n++] = *e;
+    return true;
 }
 
 //-----------------------------------------------------------------------------
@@ -85,9 +90,16 @@ enumError DecodeTEZip ( te_zip_list_t *list, const u8 *data, size_t size )
 	    break;
 	}
 
-	const size_t hdr_end = off + TE_ZIP_LOCAL_HEADER_SIZE + name_len + extra_len;
-	if ( hdr_end + comp_size > size )
+	if ( method != 0 && method != 8 )
+	    break; // unsupported compression method
+
+	if ( uncomp_size > 0x10000000 || comp_size > 0x10000000 )
+	    break; // reject unreasonable allocation sizes (> 256MB)
+
+	const u64 hdr_end64 = (u64)off + TE_ZIP_LOCAL_HEADER_SIZE + name_len + extra_len;
+	if ( hdr_end64 + comp_size > size )
 	    break; // truncated / malformed -- stop, keep what was already decoded
+	const size_t hdr_end = (size_t)hdr_end64;
 
 	te_zip_entry_t e;
 	memset( &e, 0, sizeof(e) );
@@ -103,12 +115,18 @@ enumError DecodeTEZip ( te_zip_list_t *list, const u8 *data, size_t size )
 
 	if ( method == 0 )
 	{
+	    if ( (u64)hdr_end + uncomp_size > size || uncomp_size != comp_size )
+		break;
 	    e.data = MALLOC( uncomp_size ? uncomp_size : 1 );
+	    if ( !e.data )
+		break;
 	    memcpy( e.data, payload, uncomp_size );
 	}
 	else // method == 8, deflate (raw, no zlib/gzip wrapper)
 	{
 	    e.data = MALLOC( uncomp_size ? uncomp_size : 1 );
+	    if ( !e.data )
+		break;
 
 	    z_stream zs;
 	    memset( &zs, 0, sizeof(zs) );
@@ -124,7 +142,11 @@ enumError DecodeTEZip ( te_zip_list_t *list, const u8 *data, size_t size )
 	    }
 	}
 
-	ListPush( list, &e );
+	if ( !ListPush( list, &e ) )
+	{
+	    FREE( e.data );
+	    break;
+	}
 	off = hdr_end + comp_size;
     }
 

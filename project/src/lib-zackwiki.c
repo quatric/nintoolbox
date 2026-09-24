@@ -132,7 +132,7 @@ enumError DecodeZackWikiTm2_Text (FILE *f, const u8 *data, size_t size, size_t f
 static size_t ppg_inflate_one (const u8 *src, size_t src_size, size_t *out_size)
 {
 	*out_size = 0;
-	if (!src || src_size < 6)
+	if (!src || src_size < 6 || src_size > 0x1fffffff)
 		return 0;
 
 	z_stream strm;
@@ -147,6 +147,12 @@ static size_t ppg_inflate_one (const u8 *src, size_t src_size, size_t *out_size)
 	if (cap > 0x08000000u)
 		cap = 0x08000000u;
 	u8 *out = MALLOC (cap);
+	if (!out)
+	{
+		inflateEnd (&strm);
+		return 0;
+	}
+
 	int ret = Z_OK;
 	while (out)
 	{
@@ -226,7 +232,7 @@ enumError DecodeZackWikiPpg_Text (FILE *f, const u8 *data, size_t size, size_t f
 		// residual 1-2 byte gap was observed in practice (see header
 		// comment).
 		size_t next = pos + block_size;
-		if (next + 4 <= size && !memcmp (data + next, "pCMP", 4))
+		if (next > pos && next + 4 <= size && !memcmp (data + next, "pCMP", 4))
 		{
 			pos = next;
 		}
@@ -243,7 +249,7 @@ enumError DecodeZackWikiPpg_Text (FILE *f, const u8 *data, size_t size, size_t f
 					break;
 				}
 			}
-			if (!found)
+			if (!found || found <= pos)
 				break;
 			pos = found;
 		}

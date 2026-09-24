@@ -253,7 +253,7 @@ static int compare_midi_events (const void *a, const void *b)
 	return 0;
 }
 
-static void append_varlen (u8 **ptr, uint val)
+static void append_varlen (u8 **ptr, u8 *end, uint val)
 {
 	u8 buf[5];
 	int i = 0;
@@ -264,7 +264,7 @@ static void append_varlen (u8 **ptr, uint val)
 		buf[i++] = (val & 0x7F) | 0x80;
 		val >>= 7;
 	}
-	while (i > 0)
+	while (i > 0 && *ptr < end)
 	{
 		*(*ptr)++ = buf[--i];
 	}
@@ -288,13 +288,19 @@ u8 *DecodeMIORecordMIDI (const u8 *data, size_t size, uint *out_size)
 	// Track 0: Tempo & Time Signature
 	// Tracks 1..4: Melodic tracks 0..3 (MIDI channels 0..3)
 	// Track 5: Drum track (MIDI channel 9 / 0x99)
-	u8 *mid_buf = CALLOC (1, 65536);
+	u8 *mid_buf = CALLOC (1, 131072);
 	if (!mid_buf)
 		return 0;
 
 	u8 *p = mid_buf;
+	u8 *mid_end = mid_buf + 131072;
 
 	// MThd Header
+	if (p + 14 > mid_end)
+	{
+		FREE (mid_buf);
+		return 0;
+	}
 	memcpy (p, "MThd", 4);
 	p += 4;
 	wr_be32 (p, 6);
@@ -307,6 +313,7 @@ u8 *DecodeMIORecordMIDI (const u8 *data, size_t size, uint *out_size)
 	p += 2;
 
 	// Track 0: Tempo / Time Signature
+	if (p + 8 <= mid_end)
 	{
 		u8 *trk_start = p;
 		memcpy (p, "MTrk", 4);
@@ -314,29 +321,38 @@ u8 *DecodeMIORecordMIDI (const u8 *data, size_t size, uint *out_size)
 		u8 *trk_data = p;
 
 		// Delta 0, Set Tempo
-		append_varlen (&p, 0);
-		*p++ = 0xFF;
-		*p++ = 0x51;
-		*p++ = 0x03;
-		*p++ = (us_per_beat >> 16) & 0xFF;
-		*p++ = (us_per_beat >> 8) & 0xFF;
-		*p++ = us_per_beat & 0xFF;
+		append_varlen (&p, mid_end, 0);
+		if (p + 6 <= mid_end)
+		{
+			*p++ = 0xFF;
+			*p++ = 0x51;
+			*p++ = 0x03;
+			*p++ = (us_per_beat >> 16) & 0xFF;
+			*p++ = (us_per_beat >> 8) & 0xFF;
+			*p++ = us_per_beat & 0xFF;
+		}
 
 		// Delta 0, Time Signature 4/4
-		append_varlen (&p, 0);
-		*p++ = 0xFF;
-		*p++ = 0x58;
-		*p++ = 0x04;
-		*p++ = 0x04;
-		*p++ = 0x02;
-		*p++ = 0x18;
-		*p++ = 0x08;
+		append_varlen (&p, mid_end, 0);
+		if (p + 7 <= mid_end)
+		{
+			*p++ = 0xFF;
+			*p++ = 0x58;
+			*p++ = 0x04;
+			*p++ = 0x04;
+			*p++ = 0x02;
+			*p++ = 0x18;
+			*p++ = 0x08;
+		}
 
 		// End of track
-		append_varlen (&p, 0);
-		*p++ = 0xFF;
-		*p++ = 0x2F;
-		*p++ = 0x00;
+		append_varlen (&p, mid_end, 0);
+		if (p + 3 <= mid_end)
+		{
+			*p++ = 0xFF;
+			*p++ = 0x2F;
+			*p++ = 0x00;
+		}
 
 		uint trk_len = (uint)(p - trk_data);
 		wr_be32 (trk_start + 4, trk_len);
@@ -423,6 +439,8 @@ u8 *DecodeMIORecordMIDI (const u8 *data, size_t size, uint *out_size)
 		// Sort events by tick
 		qsort (events, n_events, sizeof (midi_event_t), compare_midi_events);
 
+		if (p + 8 > mid_end)
+			break;
 		u8 *trk_start = p;
 		memcpy (p, "MTrk", 4);
 		p += 8;
@@ -432,17 +450,20 @@ u8 *DecodeMIORecordMIDI (const u8 *data, size_t size, uint *out_size)
 		for (uint i = 0; i < n_events; i++)
 		{
 			uint delta = events[i].tick >= last_tick ? (events[i].tick - last_tick) : 0;
-			append_varlen (&p, delta);
-			for (uint k = 0; k < events[i].len; k++)
+			append_varlen (&p, mid_end, delta);
+			for (uint k = 0; k < events[i].len && p < mid_end; k++)
 				*p++ = events[i].bytes[k];
 			last_tick = events[i].tick;
 		}
 
 		// End of track
-		append_varlen (&p, 0);
-		*p++ = 0xFF;
-		*p++ = 0x2F;
-		*p++ = 0x00;
+		append_varlen (&p, mid_end, 0);
+		if (p + 3 <= mid_end)
+		{
+			*p++ = 0xFF;
+			*p++ = 0x2F;
+			*p++ = 0x00;
+		}
 
 		uint trk_len = (uint)(p - trk_data);
 		wr_be32 (trk_start + 4, trk_len);
@@ -493,28 +514,34 @@ u8 *DecodeMIORecordMIDI (const u8 *data, size_t size, uint *out_size)
 
 		qsort (drum_events, n_drum_events, sizeof (midi_event_t), compare_midi_events);
 
-		u8 *trk_start = p;
-		memcpy (p, "MTrk", 4);
-		p += 8;
-		u8 *trk_data = p;
-
-		uint last_tick = 0;
-		for (uint i = 0; i < n_drum_events; i++)
+		if (p + 8 <= mid_end)
 		{
-			uint delta = drum_events[i].tick >= last_tick ? (drum_events[i].tick - last_tick) : 0;
-			append_varlen (&p, delta);
-			for (uint k = 0; k < drum_events[i].len; k++)
-				*p++ = drum_events[i].bytes[k];
-			last_tick = drum_events[i].tick;
+			u8 *trk_start = p;
+			memcpy (p, "MTrk", 4);
+			p += 8;
+			u8 *trk_data = p;
+
+			uint last_tick = 0;
+			for (uint i = 0; i < n_drum_events; i++)
+			{
+				uint delta = drum_events[i].tick >= last_tick ? (drum_events[i].tick - last_tick) : 0;
+				append_varlen (&p, mid_end, delta);
+				for (uint k = 0; k < drum_events[i].len && p < mid_end; k++)
+					*p++ = drum_events[i].bytes[k];
+				last_tick = drum_events[i].tick;
+			}
+
+			append_varlen (&p, mid_end, 0);
+			if (p + 3 <= mid_end)
+			{
+				*p++ = 0xFF;
+				*p++ = 0x2F;
+				*p++ = 0x00;
+			}
+
+			uint trk_len = (uint)(p - trk_data);
+			wr_be32 (trk_start + 4, trk_len);
 		}
-
-		append_varlen (&p, 0);
-		*p++ = 0xFF;
-		*p++ = 0x2F;
-		*p++ = 0x00;
-
-		uint trk_len = (uint)(p - trk_data);
-		wr_be32 (trk_start + 4, trk_len);
 	}
 
 	uint total_mid_len = (uint)(p - mid_buf);
@@ -576,7 +603,7 @@ enumError ExtractMIOArchive (ccp arg, ccp basedir, uint depth)
 
 	// Create output folder and write metadata.txt
 	char meta_path[PATH_MAX];
-	snprintf (meta_path, sizeof (meta_path), "%s/%smetadata.txt", dest, basedir ? basedir : "");
+	snprintf (meta_path, sizeof (meta_path), "%s/metadata.txt", dest);
 	char meta_buf[1024];
 	int meta_len = snprintf (meta_buf, sizeof (meta_buf),
 		"Title: %s\nBrand: %s\nCreator: %s\nDescription: %s\nType: %s\n", meta.name, meta.brand,
@@ -597,8 +624,7 @@ enumError ExtractMIOArchive (ccp arg, ccp basedir, uint depth)
 			if (rgba)
 			{
 				char png_path[PATH_MAX];
-				snprintf (png_path, sizeof (png_path), "%s/%spanel_%u.png", dest,
-					basedir ? basedir : "", p);
+				snprintf (png_path, sizeof (png_path), "%s/panel_%u.png", dest, p);
 				SaveDecodedRGBAToPNG (rgba, pw, ph, &be_func, png_path, 0, true);
 			}
 		}
@@ -611,7 +637,7 @@ enumError ExtractMIOArchive (ccp arg, ccp basedir, uint depth)
 		if (bg_rgba)
 		{
 			char bg_path[PATH_MAX];
-			snprintf (bg_path, sizeof (bg_path), "%s/%sbg.png", dest, basedir ? basedir : "");
+			snprintf (bg_path, sizeof (bg_path), "%s/bg.png", dest);
 			SaveDecodedRGBAToPNG (bg_rgba, bw, bh, &be_func, bg_path, 0, true);
 		}
 
@@ -635,8 +661,8 @@ enumError ExtractMIOArchive (ccp arg, ccp basedir, uint depth)
 					if (sp_rgba)
 					{
 						char sp_path[PATH_MAX];
-						snprintf (sp_path, sizeof (sp_path), "%s/%sobj%02u_art%u_f%u.png", dest,
-							basedir ? basedir : "", obj, art, f);
+						snprintf (sp_path, sizeof (sp_path), "%s/obj%02u_art%u_f%u.png", dest,
+							obj, art, f);
 						SaveDecodedRGBAToPNG (sp_rgba, sw, sh, &be_func, sp_path, 0, true);
 					}
 				}
@@ -651,7 +677,7 @@ enumError ExtractMIOArchive (ccp arg, ccp basedir, uint depth)
 		if (mid_data && mid_size > 0)
 		{
 			char mid_path[PATH_MAX];
-			snprintf (mid_path, sizeof (mid_path), "%s/%smusic.mid", dest, basedir ? basedir : "");
+			snprintf (mid_path, sizeof (mid_path), "%s/music.mid", dest);
 			SaveFile (mid_path, 0, 0, mid_data, mid_size, 0);
 			FREE (mid_data);
 		}

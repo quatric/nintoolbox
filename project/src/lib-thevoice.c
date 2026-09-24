@@ -142,6 +142,8 @@ static char *read_xml_value (const char *after_key, const char *end)
 		return 0;
 	size_t len = p - start;
 	char *out = MALLOC (len + 1);
+	if (!out)
+		return 0;
 	memcpy (out, start, len);
 	out[len] = 0;
 	return out;
@@ -167,6 +169,8 @@ static char *read_lua_value (const char *after_key, const char *end)
 			return 0;
 		size_t len = p - start;
 		char *out = MALLOC (len + 1);
+		if (!out)
+			return 0;
 		memcpy (out, start, len);
 		out[len] = 0;
 		return out;
@@ -178,6 +182,8 @@ static char *read_lua_value (const char *after_key, const char *end)
 	while (len && (start[len - 1] == ' ' || start[len - 1] == '\t' || start[len - 1] == '\r'))
 		len--;
 	char *out = MALLOC (len + 1);
+	if (!out)
+		return 0;
 	memcpy (out, start, len);
 	out[len] = 0;
 	return out;
@@ -188,6 +194,8 @@ static char *read_lua_value (const char *after_key, const char *end)
 static char *dup_text (const u8 *data, size_t size)
 {
 	char *out = MALLOC (size + 1);
+	if (!out)
+		return 0;
 	memcpy (out, data, size);
 	out[size] = 0;
 	return out;
@@ -205,6 +213,8 @@ enumError DecodeVoiceSong_Text (FILE *f, const u8 *data, size_t size, size_t fil
 		return EINVAL;
 
 	char *text = dup_text (data, size);
+	if (!text)
+		return ERR_OUT_OF_MEMORY;
 	const char *end = text + size;
 
 	fprintf (f, "# The Voice: song script (.song)\n");

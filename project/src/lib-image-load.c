@@ -1302,15 +1302,17 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 			{
 				if (data_size < 0x28)
 					return ERR_INVALID_IFORM;
-				const u32 codec = *(const u32 *)(data + 8);
+				const u32 codec = rd_le32 (data + 8);
 				if (codec == 0x504d4357) // "WCMP"
 					iform = IMG_CMPR;
 				else if (codec == 0x32336957) // "Wi32"
 					iform = IMG_RGBA32;
 				else
 					return ERR_INVALID_IFORM;
-				width = *(const u32 *)(data + 0x18);
-				height = *(const u32 *)(data + 0x1c);
+				width = rd_le32 (data + 0x18);
+				height = rd_le32 (data + 0x1c);
+				if (width == 0 || height == 0 || width > 0x8000 || height > 0x8000)
+					return ERR_INVALID_IFORM;
 				idata = data + 0x28;
 				calc_geo = true;
 			}

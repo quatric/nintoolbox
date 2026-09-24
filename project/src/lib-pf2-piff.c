@@ -18,7 +18,7 @@ static const char *const known_tags[] = { "FHBR", "HHBR", "YDOB", "KCAP", 0 };
 
 enumError DecodePF2Piff_Text (FILE *f, const u8 *data, size_t size)
 {
-	if (!IsPF2Piff (data, size))
+	if (!f || !IsPF2Piff (data, size))
 		return ERR_INVALID_DATA;
 
 	const u32 body_size = rd_be32 (data + 4);

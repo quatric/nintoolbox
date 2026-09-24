@@ -39,7 +39,7 @@ bool IsDSP (const u8 *data, size_t size)
 
 enumError DecodeDSPToWAV (const u8 *data, size_t size, u8 **wav_out, size_t *wav_size_out)
 {
-	if (!IsDSP (data, size))
+	if (!wav_out || !wav_size_out || !IsDSP (data, size))
 		return ERR_INVALID_DATA;
 
 	const u32 nsamples = rd_be32 (data);

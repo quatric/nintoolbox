@@ -38,7 +38,7 @@ enumError ExtractF9ResArchive (ccp arg, ccp basedir, uint depth)
 	const u32 header_offset = rd_be32 (raw + 8);
 	const u32 chunks_offset = rd_be32 (raw + 0x1C);
 
-	if (chunks_offset + 8 > raw_size)
+	if ((u64)chunks_offset + 8 > raw_size)
 	{
 		FREE (raw);
 		return ERR_INVALID_DATA;
@@ -66,7 +66,7 @@ enumError ExtractF9ResArchive (ccp arg, ccp basedir, uint depth)
 		char tag[5] = { 0 };
 		memcpy (tag, raw + coff, 4);
 		for (int c = 0; c < 4; c++)
-			if (tag[c] < 32 || tag[c] > 126)
+			if (tag[c] <= 32 || tag[c] >= 127 || tag[c] == '/' || tag[c] == '\\' || tag[c] == '.' || tag[c] == ':')
 				tag[c] = '_';
 
 		const u64 off64 = (u64)rd_be32 (raw + coff + 4) + header_offset;
@@ -75,7 +75,7 @@ enumError ExtractF9ResArchive (ccp arg, ccp basedir, uint depth)
 		const u32 off = (u32)off64;
 		u32 sz = rd_be32 (raw + coff + 8);
 
-		if (off64 + sz > raw_size)
+		if (sz > raw_size - off64)
 			sz = (u32)(raw_size - off64);
 
 		char out_path[PATH_MAX];

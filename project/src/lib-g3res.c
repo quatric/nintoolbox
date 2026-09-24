@@ -170,7 +170,8 @@ static void g3_walk (FILE *f, const u8 *data, size_t size,
 			return;
 		}
 
-		if (coff && pos + coff + G3_CHUNK_HEADER_SIZE <= size)
+		if (coff && (u64)pos + coff + G3_CHUNK_HEADER_SIZE <= chunk_end
+			&& (u64)pos + coff >= (u64)pos + G3_CHUNK_HEADER_SIZE)
 			g3_walk (f, data, size, pos + coff, chunk_end, depth + 1);
 
 		if (csize == 0 && !strcmp (tag, "EOFC"))

@@ -98,22 +98,18 @@ enumError ScanMPBoard (mp_board_t *board, const u8 *data, size_t size, uint vers
 			pos += 2;
 		}
 		s->type_id = be16 (data + pos); pos += 2;
-		s->num_links = be16 (data + pos); pos += 2;
+		const u16 file_links = be16 (data + pos); pos += 2;
 
-		if (s->num_links > 16)
-			s->num_links = 16;
-
-		if (pos + s->num_links * 2 > size)
+		if (pos + (size_t)file_links * 2 > size)
 		{
 			ResetMPBoard (board);
 			return ERR_INVALID_DATA;
 		}
 
+		s->num_links = file_links > 16 ? 16 : file_links;
 		for (uint k = 0; k < s->num_links; k++)
-		{
-			s->links[k] = be16 (data + pos);
-			pos += 2;
-		}
+			s->links[k] = be16 (data + pos + k * 2);
+		pos += (size_t)file_links * 2;
 	}
 
 	return ERR_OK;
@@ -269,6 +265,8 @@ enumError CreateMPBoard (u8 **dest, uint *dest_size, const mp_board_t *board)
 // lib-byml.c's byml_sjis_to_utf8).
 static char *smp_sjis_to_utf8 (const u8 *src, size_t len)
 {
+	if (len > 0x3fffffff)
+		return 0;
 	char *out = MALLOC (len * 4 + 1);
 	if (!out)
 		return 0;
@@ -355,6 +353,8 @@ enumError ScanSMPBoard (smp_board_t *board, const u8 *data, size_t size)
 		return ERR_INVALID_DATA;
 	}
 	uint n_spaces = n_lines >= 1 ? n_lines - 1 : 0;
+	if (n_spaces > 100000)
+		n_spaces = 100000;
 	// Trailing newline creates an empty last "line"; drop empties later.
 	smp_space_t *spaces = CALLOC (n_spaces ? n_spaces : 1, sizeof (*spaces));
 	if (!spaces)

@@ -111,8 +111,10 @@ enumError ExtractFPKArchive (ccp arg, ccp basedir, uint depth)
 		// and not a valid subdirectory separator here, so flatten it to a
 		// leaf filename and always prefix with the entry index (entries
 		// are not guaranteed unique even as leaf names).
-		ccp leaf = strrchr (e->name, '\\');
-		leaf = leaf ? leaf + 1 : e->name;
+		ccp slash1 = strrchr (e->name, '\\');
+		ccp slash2 = strrchr (e->name, '/');
+		ccp slash = slash1 > slash2 ? slash1 : slash2;
+		ccp leaf = slash ? slash + 1 : e->name;
 
 		char out_path[PATH_MAX];
 		if (leaf[0] && OwnedNameOk (leaf))

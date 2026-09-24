@@ -286,14 +286,14 @@ enumError DecodeSpookyAst_Text (FILE *f, const u8 *data, size_t size, size_t fil
 		fprintf (f, "\nchunk[%u]: tag=\"%s\" version=0x%x size=%u field4=0x%x offset=0x%x\n",
 			n, tag, cver, chunksize, field4, o);
 
-		u32 end = o + AST_CHUNK_HEADER_SIZE + chunksize;
-		u32 next = (end + 15) & ~15u;
+		u64 end = (u64)o + AST_CHUNK_HEADER_SIZE + chunksize;
+		u64 next = (end + 15) & ~(u64)15;
 		if (next <= o || next > size)
 		{
 			fprintf (f, "# nested/sub-chunk payload not reverse-engineered -- see lib-ispyspookymansion.h note (2)\n");
 			break;
 		}
-		o = next;
+		o = (u32)next;
 		n++;
 	}
 
@@ -357,6 +357,8 @@ enumError DecodeSpookySdf_Text (FILE *f, const u8 *data, size_t size, size_t fil
 		else
 			fprintf (f, "  # type body is not a 'VARS' record table -- not decoded\n");
 
+		if ((u64) body_ofs + len > size)
+			break;
 		body_ofs += len;
 		o += SDF_TYPE_RECORD_SIZE;
 	}

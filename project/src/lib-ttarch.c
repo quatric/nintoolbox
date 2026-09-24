@@ -265,8 +265,11 @@ enumError ReadTtarchEntry (const ttarch_t *tt, const ttarch_entry_t *e, u8 **out
 	// chunk decompresses to exactly tt->chunk_size bytes (confirmed against
 	// every chunk checked, including mid-stream ones picked at random --
 	// there is no cross-chunk dictionary/back-reference dependency).
+	if ((u64)e->offset + e->size > (u64)tt->chunk_count * tt->chunk_size)
+		return ERR_INVALID_DATA;
+
 	const u32 start_chunk = e->offset / tt->chunk_size;
-	const u32 last_byte = e->size ? e->offset + e->size - 1 : e->offset;
+	const u32 last_byte = e->size ? (u32)(e->offset + e->size - 1) : e->offset;
 	const u32 end_chunk = last_byte / tt->chunk_size;
 	if (end_chunk >= tt->chunk_count)
 		return ERR_INVALID_DATA;
@@ -304,8 +307,8 @@ enumError ReadTtarchEntry (const ttarch_t *tt, const ttarch_entry_t *e, u8 **out
 
 		const u64 chunk_logical_start = (u64)c * tt->chunk_size;
 		const u64 want_start = chunk_logical_start > e->offset ? chunk_logical_start : e->offset;
-		const u64 want_end_excl = e->offset + (u64)e->size < chunk_logical_start + produced
-			? e->offset + (u64)e->size : chunk_logical_start + produced;
+		const u64 want_end_excl = (u64)e->offset + e->size < chunk_logical_start + produced
+			? (u64)e->offset + e->size : chunk_logical_start + produced;
 		if (want_end_excl > want_start)
 			memcpy (buf + (want_start - e->offset), chunk + (want_start - chunk_logical_start),
 				want_end_excl - want_start);

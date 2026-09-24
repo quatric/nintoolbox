@@ -198,7 +198,7 @@ static void flatten_darc_node (
 enumError CreateDARC (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {
-	if (!dest || !dest_size || !entries || !n_entries || n_entries > 0xFFFF)
+	if (!dest || !dest_size || !entries || !n_entries || n_entries >= 1000)
 		return EINVAL;
 
 	darc_build_node_t nodes[1024];
@@ -427,19 +427,16 @@ enumError DecodeDARC (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 	if (!dest || !dest_size || !src || src_size < 12 || memcmp (src, "DARC", 4))
 		return EINVAL;
 
-	const uint num_files
-		= (uint)src[4] | ((uint)src[5] << 8) | ((uint)src[6] << 16) | ((uint)src[7] << 24);
-	if (!num_files || 8 + num_files * 4 > src_size)
+	const u32 num_files = rd_le32 (src + 4);
+	if (!num_files || (u64)8 + (u64)num_files * 4 > src_size)
 		return EINVAL;
 
-	const uint rel_ofs0
-		= (uint)src[8] | ((uint)src[9] << 8) | ((uint)src[10] << 16) | ((uint)src[11] << 24);
-	const uint abs_ofs0 = 8 + 4 + rel_ofs0;
+	const u32 rel_ofs0 = rd_le32 (src + 8);
+	const u64 abs_ofs0 = (u64)8 + 4 + rel_ofs0;
 	if (abs_ofs0 >= 4 && abs_ofs0 <= src_size)
 	{
-		const uint sz0 = (uint)src[abs_ofs0 - 4] | ((uint)src[abs_ofs0 - 3] << 8)
-			| ((uint)src[abs_ofs0 - 2] << 16) | ((uint)src[abs_ofs0 - 1] << 24);
-		if (abs_ofs0 + sz0 <= src_size && sz0 > 0)
+		const u32 sz0 = rd_le32 (src + abs_ofs0 - 4);
+		if (sz0 > 0 && abs_ofs0 + sz0 <= src_size)
 		{
 			u8 *out = MALLOC (sz0);
 			if (!out)

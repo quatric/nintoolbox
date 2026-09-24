@@ -114,17 +114,13 @@ enumError DecodeDogIslandWds_Text (FILE *f, const u8 *data, size_t size, size_t 
 	for (u32 i = 0; i < count; i++)
 	{
 		u32 off = rd_le32 (data + 12 + 2 * i * 4);
-		size_t pos = base + off;
+		size_t pos = ((u64)base + off <= size) ? (size_t)(base + off) : size;
 		size_t next_pos = size;
 		if (i + 1 < count)
 		{
 			u32 next_off = rd_le32 (data + 12 + 2 * (i + 1) * 4);
-			next_pos = base + next_off;
+			next_pos = ((u64)base + next_off <= size) ? (size_t)(base + next_off) : size;
 		}
-		if (pos > size)
-			pos = size;
-		if (next_pos > size)
-			next_pos = size;
 
 		fprintf (f, "[%u] offset=0x%x: \"", i, off);
 		if (pos < next_pos)
@@ -204,6 +200,8 @@ enumError DecodeDogIslandWdb_Text (FILE *f, const u8 *data, size_t size, size_t 
 		const u8 *r = data + 16 + (size_t)i * WDB_RECORD_SIZE;
 		u32 start = rd_le32 (r);
 		size_t next = (i + 1 < count) ? rd_le32 (r + WDB_RECORD_SIZE) : size;
+		if (start > size)
+			start = (u32)size;
 		if (next > size)
 			next = size;
 
@@ -395,6 +393,8 @@ enumError DecodeDogIslandCprm_Text (FILE *f, const u8 *data, size_t size, size_t
 		return EINVAL;
 
 	u32 count = rd_be32 (data);
+	if ((u64)16 + (u64)count * CPRM_RECORD_SIZE > size)
+		return EINVAL;
 	fprintf (f, "# The Dog Island .cprm fixed-record table (big-endian)\n");
 	fprintf (f, "# %u records of 64 bytes each; per-field meaning not understood\n\n", count);
 

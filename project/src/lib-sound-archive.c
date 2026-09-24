@@ -145,7 +145,7 @@ enumError ScanSoundArchive (sound_archive_t *sar, const u8 *data, size_t size)
 			sar->entries[i].file_id = i;
 			sar->entries[i].offset = sar_r32 (wp + 4, be);
 			sar->entries[i].size = sar_r32 (wp + 8, be);
-			if (sar->entries[i].offset + sar->entries[i].size <= max_file_payload)
+			if ((u64)sar->entries[i].offset + sar->entries[i].size <= max_file_payload)
 				sar->entries[i].data = file_body + sar->entries[i].offset;
 			snprintf (
 				sar->entries[i].ext, sizeof (sar->entries[i].ext), is_fwar ? ".bfwav" : ".bcwav");
@@ -177,7 +177,7 @@ enumError ScanSoundArchive (sound_archive_t *sar, const u8 *data, size_t size)
 			sar->entries[i].file_id = fid;
 			sar->entries[i].offset = foff;
 			sar->entries[i].size = fsz;
-			if (foff + fsz <= max_file_payload)
+			if ((u64)foff + fsz <= max_file_payload)
 			{
 				sar->entries[i].data = file_body + foff;
 				const u8 *d = sar->entries[i].data;
@@ -287,20 +287,20 @@ enumError ScanSoundArchive (sound_archive_t *sar, const u8 *data, size_t size)
 	{
 		sar->entries[i].file_id = i;
 		s32 ref_off = sar_rs32 (file_tab + 4 + i * 8 + 4, be);
-		if (ref_off < 0 || (uint)ref_off + 8 > info_size)
+		if (ref_off < 0 || (uint)file_tab_off + 4 + (uint)ref_off + 8 > info_size)
 			continue;
 		const u8 *fe = file_tab + ref_off;
 		u16 loc_type = sar_r16 (fe, be);
 		s32 loc_off = sar_rs32 (fe + 4, be);
 
-		if (loc_type == 0x220c && loc_off >= 0 && (uint)loc_off + 12 <= info_size) // Internal
+		if (loc_type == 0x220c && loc_off >= 0 && (uint)file_tab_off + 4 + (uint)ref_off + (uint)loc_off + 12 <= info_size) // Internal
 		{
 			const u8 *ib = fe + loc_off;
 			u32 foff = sar_r32 (ib + 4, be);
 			u32 fsz = sar_r32 (ib + 8, be);
 			sar->entries[i].offset = foff;
 			sar->entries[i].size = fsz;
-			if (foff + fsz <= max_file_payload)
+			if ((u64)foff + fsz <= max_file_payload)
 				sar->entries[i].data = file_body + foff;
 		}
 	}
@@ -315,7 +315,7 @@ enumError ScanSoundArchive (sound_archive_t *sar, const u8 *data, size_t size)
 		for (uint s = 0; s < n_snds && s < 0x20000; s++)
 		{
 			s32 ref_off = sar_rs32 (snd_tab + 4 + s * 8 + 4, be);
-			if (ref_off < 0 || (uint)ref_off + 16 > info_size)
+			if (ref_off < 0 || (uint)snd_tab_off + 4 + (uint)ref_off + 0x1c > info_size)
 				continue;
 			const u8 *sp = snd_tab + ref_off;
 			u32 fid = sar_r32 (sp, be);
@@ -342,7 +342,7 @@ enumError ScanSoundArchive (sound_archive_t *sar, const u8 *data, size_t size)
 		for (uint b = 0; b < n_bnks && b < 0x20000; b++)
 		{
 			s32 ref_off = sar_rs32 (bnk_tab + 4 + b * 8 + 4, be);
-			if (ref_off < 0 || (uint)ref_off + 12 > info_size)
+			if (ref_off < 0 || (uint)bnk_tab_off + 4 + (uint)ref_off + 0x10 > info_size)
 				continue;
 			const u8 *bp = bnk_tab + ref_off;
 			u32 fid = sar_r32 (bp, be);
@@ -368,7 +368,7 @@ enumError ScanSoundArchive (sound_archive_t *sar, const u8 *data, size_t size)
 		for (uint w = 0; w < n_wars && w < 0x20000; w++)
 		{
 			s32 ref_off = sar_rs32 (war_tab + 4 + w * 8 + 4, be);
-			if (ref_off < 0 || (uint)ref_off + 12 > info_size)
+			if (ref_off < 0 || (uint)war_tab_off + 4 + (uint)ref_off + 0x10 > info_size)
 				continue;
 			const u8 *wp = war_tab + ref_off;
 			u32 fid = sar_r32 (wp, be);
@@ -394,7 +394,7 @@ enumError ScanSoundArchive (sound_archive_t *sar, const u8 *data, size_t size)
 		for (uint g = 0; g < n_grps && g < 0x20000; g++)
 		{
 			s32 ref_off = sar_rs32 (grp_tab + 4 + g * 8 + 4, be);
-			if (ref_off < 0 || (uint)ref_off + 8 > info_size)
+			if (ref_off < 0 || (uint)grp_tab_off + 4 + (uint)ref_off + 0x0c > info_size)
 				continue;
 			const u8 *gp = grp_tab + ref_off;
 			u32 fid = sar_r32 (gp, be);
@@ -655,6 +655,11 @@ enumError DecodeBXWAV (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 					break;
 				}
 				pcm8[ch] = MALLOC (num_samples);
+				if (!pcm8[ch])
+				{
+					err = ERR_OUT_OF_MEMORY;
+					break;
+				}
 				for (s32 i = 0; i < num_samples; i++)
 					pcm8[ch][i] = (u8)(src[ch_data_off[ch] + i] ^ 0x80);
 				break;
@@ -666,7 +671,12 @@ enumError DecodeBXWAV (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 					err = EINVAL;
 					break;
 				}
-				pcm16[ch] = MALLOC (num_samples * 2);
+				pcm16[ch] = MALLOC ((size_t)num_samples * 2);
+				if (!pcm16[ch])
+				{
+					err = ERR_OUT_OF_MEMORY;
+					break;
+				}
 				for (s32 i = 0; i < num_samples; i++)
 					pcm16[ch][i] = BW16 (ch_data_off[ch] + i * 2);
 				break;
@@ -674,12 +684,17 @@ enumError DecodeBXWAV (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 			case 2: // Standard GC/Wii/3DS DSP-ADPCM: 8-byte frames, 14 samples each
 			{
 				pcm16[ch] = MALLOC ((size_t)num_samples * 2 + 2);
+				if (!pcm16[ch])
+				{
+					err = ERR_OUT_OF_MEMORY;
+					break;
+				}
 				s16 hist1 = 0, hist2 = 0;
 				u32 src_off = ch_data_off[ch];
 				s32 done = 0;
 				while (done < num_samples)
 				{
-					if (src_off + 8 > src_size)
+					if ((u64)src_off + 8 > src_size)
 					{
 						err = EINVAL;
 						break;
@@ -727,6 +742,11 @@ enumError DecodeBXWAV (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 					break;
 				}
 				pcm16[ch] = MALLOC ((size_t)num_samples * 2 + 2);
+				if (!pcm16[ch])
+				{
+					err = ERR_OUT_OF_MEMORY;
+					break;
+				}
 				s32 predictor = ch_coef[ch][0];
 				int step_index = ch_coef[ch][1];
 				if (step_index < 0)
@@ -778,6 +798,15 @@ enumError DecodeBXWAV (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 	uint data_size = (uint)num_samples * block_align;
 	uint total = 44 + data_size;
 	u8 *out = MALLOC (total);
+	if (!out)
+	{
+		for (uint ch = 0; ch < channels; ch++)
+		{
+			FREE (pcm16[ch]);
+			FREE (pcm8[ch]);
+		}
+		return ERR_OUT_OF_MEMORY;
+	}
 	memcpy (out + 0, "RIFF", 4);
 	wr_le32 (out + 4, total - 8);
 	memcpy (out + 8, "WAVE", 4);

@@ -80,7 +80,7 @@ enumError DecodeRedSteel2Abe_Text (FILE *f, const u8 *data, size_t size, size_t 
 	fprintf (f, "field_i      = %u  # 0x%x (unexplained)\n", field_i, field_i);
 	fprintf (f, "field_j      = %u  # 0x%x (unexplained)\n", field_j, field_j);
 
-	if (file_size && table_offset && table_offset + 32 <= file_size)
+	if (table_offset && (u64)table_offset + 32 <= size)
 	{
 		fprintf (f, "\n# first 32 bytes at table_offset (directory table, structure not decoded):\n# ");
 		for (uint i = 0; i < 32; i++)
@@ -94,7 +94,7 @@ enumError DecodeRedSteel2Abe_Text (FILE *f, const u8 *data, size_t size, size_t 
 //-----------------------------------------------------------------------------
 // (2) ".rel" Nintendo/CodeWarrior REL relocatable module (big endian)
 
-#define REL_HEADER_MIN_SIZE  0x30 // through unresolved_offset; align/bss_align/fix_size are v2/v3 extras
+#define REL_HEADER_MIN_SIZE  0x40 // through unresolved_offset; align/bss_align/fix_size are v2/v3 extras
 #define REL_MAX_SECTIONS     4096
 
 int IsRedSteel2Rel (const u8 *data, size_t size, size_t file_size)
@@ -197,7 +197,7 @@ enumError DecodeRedSteel2Rel_Text (FILE *f, const u8 *data, size_t size, size_t 
 	for (u32 i = 0; i < num_sections; i++)
 	{
 		u64 rec_off = (u64)section_info_off + (u64)i * 8;
-		if (file_size && rec_off + 8 > file_size)
+		if (rec_off + 8 > size)
 			break;
 		u32 raw_off = rd_be32 (data + rec_off);
 		u32 length  = rd_be32 (data + rec_off + 4);

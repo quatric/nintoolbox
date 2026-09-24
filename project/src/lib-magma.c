@@ -177,6 +177,15 @@ enumError ExtractMagmaFat (ccp fat_path, ccp data_path, ccp dest_dir)
 			break;
 		ccp path = (ccp)(e + 20);
 
+		if (!OwnedNameOk (path))
+		{
+			fprintf (stderr,
+				"WARNING: Magma entry '%s' has unsafe path -- skipped\n", path);
+			off += 20 + path_len;
+			result = ERR_WARNING;
+			continue;
+		}
+
 		if (data_total < 0 || (u64)data_off + data_size > (u64)data_total)
 		{
 			fprintf (stderr,
@@ -192,6 +201,14 @@ enumError ExtractMagmaFat (ccp fat_path, ccp data_path, ccp dest_dir)
 		CreatePath (out_path, true);
 
 		u8 *buf = MALLOC (data_size ? data_size : 1);
+		if (!buf)
+		{
+			fprintf (stderr, "WARNING: out of memory for Magma entry '%s' -- skipped\n",
+				path);
+			off += 20 + path_len;
+			result = ERR_WARNING;
+			continue;
+		}
 		if (fseek (df, data_off, SEEK_SET) || fread (buf, 1, data_size, df) != data_size)
 		{
 			fprintf (stderr, "WARNING: failed to read Magma entry '%s' from '%s'\n",

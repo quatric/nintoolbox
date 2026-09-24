@@ -35,14 +35,19 @@ int IsSafecrackerTOC ( const u8 *data, size_t size )
 
 //-----------------------------------------------------------------------------
 
-static void ListPush ( sf_toc_t *toc, const sf_toc_entry_t *e )
+static bool ListPush ( sf_toc_t *toc, const sf_toc_entry_t *e )
 {
     if ( toc->n == toc->n_alloc )
     {
-	toc->n_alloc = toc->n_alloc ? toc->n_alloc * 2 : 16;
-	toc->entry = REALLOC( toc->entry, toc->n_alloc * sizeof(sf_toc_entry_t) );
+	u32 new_alloc = toc->n_alloc ? toc->n_alloc * 2 : 16;
+	sf_toc_entry_t *new_entry = REALLOC( toc->entry, new_alloc * sizeof(sf_toc_entry_t) );
+	if ( !new_entry )
+	    return false;
+	toc->entry = new_entry;
+	toc->n_alloc = new_alloc;
     }
     toc->entry[toc->n++] = *e;
+    return true;
 }
 
 //-----------------------------------------------------------------------------
@@ -75,7 +80,11 @@ enumError DecodeSafecrackerTOC ( sf_toc_t *toc, const u8 *data, size_t size )
 	e.id     = id;
 	e.size   = rsize;
 	e.offset = roff;
-	ListPush( toc, &e );
+	if ( !ListPush( toc, &e ) )
+	{
+	    FreeSafecrackerTOC( toc );
+	    return ERR_CANT_CREATE;
+	}
     }
 
     return ERR_OK;
@@ -109,8 +118,8 @@ enumError DecodeSafecrackerTOC_Text ( FILE *f, const u8 *data, size_t size )
     for ( uint i = 0; i < toc.n; i++ )
     {
 	const sf_toc_entry_t *e = toc.entry + i;
-	fprintf( f, "%3u. id=%5u  offset=%9u  size=%8u  end=%9u\n",
-		i, e->id, e->offset, e->size, e->offset + e->size );
+	fprintf( f, "%3u. id=%5u  offset=%9u  size=%8u  end=%llu\n",
+		i, e->id, e->offset, e->size, (u64)e->offset + e->size );
     }
 
     FreeSafecrackerTOC( &toc );

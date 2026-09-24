@@ -352,7 +352,7 @@ enumError ExtractCSDCTArchive (ccp arg, ccp basedir, uint depth, const u8 *data,
 		{
 			const u32 clen = rd_le32 (data + pos);
 			pos += 4;
-			if (pos + clen <= size)
+			if ((u64)pos + clen <= size)
 			{
 				dec_pixels = MALLOC ((size_t)w * h);
 				if (dec_pixels)
@@ -362,6 +362,8 @@ enumError ExtractCSDCTArchive (ccp arg, ccp basedir, uint depth, const u8 *data,
 				}
 				pos += clen;
 			}
+			else
+				pos = size;
 		}
 
 		const u8 *pal_raw = 0;
@@ -374,7 +376,10 @@ enumError ExtractCSDCTArchive (ccp arg, ccp basedir, uint depth, const u8 *data,
 		if (bgrs[i].aux_flag != 0 && pos + 4 <= size)
 		{
 			const u32 aux_clen = rd_le32 (data + pos);
-			pos += 4 + aux_clen;
+			if ((u64)pos + 4 + aux_clen <= size)
+				pos += 4 + aux_clen;
+			else
+				pos = size;
 		}
 
 		if (dec_pixels)
@@ -438,7 +443,7 @@ enumError ExtractCSDCTArchive (ccp arg, ccp basedir, uint depth, const u8 *data,
 		{
 			const u32 clen = rd_le32 (data + pos);
 			pos += 4;
-			if (pos + clen <= size)
+			if ((u64)pos + clen <= size)
 			{
 				dec_frames = MALLOC (total_pixels);
 				if (dec_frames)
@@ -448,6 +453,8 @@ enumError ExtractCSDCTArchive (ccp arg, ccp basedir, uint depth, const u8 *data,
 				}
 				pos += clen;
 			}
+			else
+				pos = size;
 		}
 
 		if (dec_frames)
@@ -495,7 +502,7 @@ enumError ExtractCSDCTArchive (ccp arg, ccp basedir, uint depth, const u8 *data,
 	{
 		const u32 clen = rd_le32 (data + pos);
 		pos += 4;
-		if (pos + clen <= size)
+		if ((u64)pos + clen <= size)
 		{
 			const size_t obj_size = (size_t)num_obj * 2;
 			u8 *dec_obj = MALLOC (obj_size);
@@ -510,13 +517,15 @@ enumError ExtractCSDCTArchive (ccp arg, ccp basedir, uint depth, const u8 *data,
 			}
 			pos += clen;
 		}
+		else
+			pos = size;
 	}
 
 	uint extra_idx = 0;
 	while (pos + 4 <= size)
 	{
 		const u32 clen = rd_le32 (data + pos);
-		if (pos + 4 + clen > size)
+		if ((u64)pos + 4 + clen > size)
 			break;
 		pos += 4;
 		u8 *dec_extra = MALLOC (128);

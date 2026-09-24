@@ -18,20 +18,20 @@ bool IsMPT (const u8 *data, size_t size)
 		return false;
 
 	// Check version 0x00020100
-	const u32 vers = *(const u32 *)(data + 4);
+	const u32 vers = rd_le32 (data + 4);
 	if (vers != 0x00020100)
 		return false;
 
-	const u32 codec = *(const u32 *)(data + 8);
+	const u32 codec = rd_le32 (data + 8);
 	if (codec != 0x504d4357 && codec != 0x32336957) // "WCMP" or "Wi32"
 		return false;
 
 	if (memcmp (data + 0x10, "RGBA", 4) != 0)
 		return false;
 
-	const u32 total_size = *(const u32 *)(data + 0x14);
-	const u32 data_size = *(const u32 *)(data + 0x24);
-	if (size < total_size || total_size != data_size + 0x28)
+	const u32 total_size = rd_le32 (data + 0x14);
+	const u32 data_size = rd_le32 (data + 0x24);
+	if (total_size < 0x28 || size < total_size || total_size - 0x28 != data_size)
 		return false;
 
 	return true;
@@ -60,6 +60,11 @@ enumError SaveMPT (Image_t *img, FILE *f, ccp fname, bool overwrite)
 
 	const u32 codec = (src->iform == IMG_RGBA32) ? 0x32336957 : 0x504d4357; // "Wi32" or "WCMP"
 	const u32 data_size = src->data_size;
+	if (data_size > 0xFFFFFFFFu - 0x28)
+	{
+		ResetIMG (&conv_img);
+		return ERR_FILE_TOO_BIG;
+	}
 	const u32 total_size = data_size + 0x28;
 
 	u8 header[0x28] = { 0 };

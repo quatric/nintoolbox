@@ -39,6 +39,11 @@ enumError ScanT3PK (t3pk_t *pk, const u8 *data, size_t size)
 		const u32 data_size = rd_be32 (rec + 4);
 		if (!data_off && !data_size)
 			break;			// terminator record
+		if ((u64)data_off + data_size > size)
+		{
+			FREE (entries);
+			return ERR_INVALID_DATA;
+		}
 
 		t3pk_entry_t *e = entries + n++;
 		e->data_offset = data_off;

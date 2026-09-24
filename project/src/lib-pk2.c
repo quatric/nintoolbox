@@ -44,24 +44,28 @@ static void parse_pk2_trie (const u8 *data, ccp const *ext_tab, uint num_exts,
                            size_t pos, size_t end,
                            char *path_buf, size_t path_len,
                            FILE **slices, uint num_slices,
-                           ccp dest_dir, uint *file_count)
+                           ccp dest_dir, uint *file_count, uint depth)
 {
+	if (depth >= 64)
+		return;
+
 	while (pos < end)
 	{
 		u64 child_len = 0;
 		while (pos < end)
 		{
 			const u8 b = data[pos++];
-			child_len = (child_len << 7) | (b & 0x7f);
+			if (child_len > (U64_MAX >> 7))
+				child_len = U64_MAX;
+			else
+				child_len = (child_len << 7) | (b & 0x7f);
 			if (!(b & 0x80))
 				break;
 		}
 		if (child_len == 0)
 			break;
 
-		size_t node_end = pos + child_len;
-		if (node_end > end)
-			node_end = end;
+		size_t node_end = (child_len > end - pos) ? end : pos + (size_t)child_len;
 
 		const size_t name_start = pos;
 		while (pos < node_end && data[pos] != 0)
@@ -84,7 +88,7 @@ static void parse_pk2_trie (const u8 *data, ccp const *ext_tab, uint num_exts,
 				path_buf[path_len] = 0;
 			}
 			parse_pk2_trie (data, ext_tab, num_exts, pos, node_end,
-			                path_buf, path_len, slices, num_slices, dest_dir, file_count);
+			                path_buf, path_len, slices, num_slices, dest_dir, file_count, depth + 1);
 			path_buf[old_len] = 0;
 			path_len = old_len;
 		}
@@ -96,12 +100,12 @@ static void parse_pk2_trie (const u8 *data, ccp const *ext_tab, uint num_exts,
 			ccp ext = (ext_idx > 0 && ext_idx <= num_exts && ext_tab[ext_idx])
 			              ? ext_tab[ext_idx] : "";
 
-			if (pos + 13 <= end)
+			if (pos + 13 <= node_end)
 			{
 				// pos[0] is leaf flag (0)
-				const u32 off_lo = *(const u32 *)(data + pos + 1);
-				const u32 off_hi = *(const u32 *)(data + pos + 5);
-				u32 size = *(const u32 *)(data + pos + 9);
+				const u32 off_lo = rd_le32 (data + pos + 1);
+				const u32 off_hi = rd_le32 (data + pos + 5);
+				u32 size = rd_le32 (data + pos + 9);
 				u64 offset = (u64)off_lo | ((u64)off_hi << 32);
 
 				char rel_path[1024];
@@ -115,6 +119,16 @@ static void parse_pk2_trie (const u8 *data, ccp const *ext_tab, uint num_exts,
 				for (char *p = rel_path; *p; p++)
 					if (*p == '\\')
 						*p = '/';
+
+				if (!OwnedNameOk (rel_path))
+				{
+					if (*ext)
+						snprintf (rel_path, sizeof (rel_path), "file_%06u.%s",
+						          file_count ? *file_count : 0, ext);
+					else
+						snprintf (rel_path, sizeof (rel_path), "file_%06u",
+						          file_count ? *file_count : 0);
+				}
 
 				char full_dest[2048];
 				snprintf (full_dest, sizeof (full_dest), "%s/%s", dest_dir, rel_path);
@@ -251,7 +265,7 @@ enumError ExtractPK2Archive (ccp arg, ccp basedir, uint depth)
 	char path_buf[1024] = { 0 };
 	uint file_count = 0;
 	parse_pk2_trie (raw, ext_tab, num_exts, ext_len, raw_size,
-	                path_buf, 0, slices, open_count, dest, &file_count);
+	                path_buf, 0, slices, open_count, dest, &file_count, 0);
 
 	for (uint i = 0; i < open_count; i++)
 		if (slices[i])
@@ -345,6 +359,9 @@ static void scan_pk2_dir (ccp root, ccp sub, pk2_collect_t *col)
 		}
 		else if (S_ISREG (st.st_mode))
 		{
+			if (col->count >= 1000000)
+				continue;
+
 			if (col->count >= col->alloc)
 			{
 				col->alloc = col->alloc ? col->alloc * 2 : 128;
@@ -545,7 +562,19 @@ enumError create_pk2_dir (ccp source_dir, ccp dest_file)
 		{
 			snprintf (slice_path, sizeof (slice_path), "%.*s.p%02u", base_len, dest_file, slice_idx);
 			slice_file = fopen (slice_path, "wb");
-			if (slice_idx == 0 && slice_file)
+			if (!slice_file)
+			{
+				fclose (in);
+				for (uint j = 0; j < col.count; j++)
+				{
+					FREE (col.items[j].disk_path);
+					FREE (col.items[j].rel_path);
+					FREE (col.items[j].base_name);
+				}
+				FREE (col.items);
+				return ERR_CANT_CREATE;
+			}
+			if (slice_idx == 0)
 			{
 				fwrite ("PKF", 1, 3, slice_file);
 				cur_total_offset = 3;
@@ -580,6 +609,18 @@ enumError create_pk2_dir (ccp source_dir, ccp dest_file)
 				slice_idx++;
 				snprintf (slice_path, sizeof (slice_path), "%.*s.p%02u", base_len, dest_file, slice_idx);
 				slice_file = fopen (slice_path, "wb");
+				if (!slice_file)
+				{
+					fclose (in);
+					for (uint j = 0; j < col.count; j++)
+					{
+						FREE (col.items[j].disk_path);
+						FREE (col.items[j].rel_path);
+						FREE (col.items[j].base_name);
+					}
+					FREE (col.items);
+					return ERR_CANT_CREATE;
+				}
 			}
 		}
 		fclose (in);

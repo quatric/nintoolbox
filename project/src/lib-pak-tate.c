@@ -60,12 +60,18 @@ enumError ScanPakTate (pak_tate_t *pak, const u8 *data, size_t size)
 
 		pak_tate_entry_t *e = entries + n++;
 		memcpy (e->name, hdr + 0x10, sizeof (e->name) - 1);
+		e->name[sizeof (e->name) - 1] = 0;
 		e->data_offset = (u32) data_off;
 		e->data_size   = data_size;
 
 		const size_t data_end = data_off + data_size;
 		off = (data_end + TATE_ENTRY_HEADER_SIZE - 1)
 			& ~((size_t) TATE_ENTRY_HEADER_SIZE - 1);
+		if (off > size)
+		{
+			FREE (entries);
+			return ERR_INVALID_DATA;
+		}
 	}
 
 	if (n != declared_count)
