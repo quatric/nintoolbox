@@ -492,6 +492,21 @@ typedef enum file_format_t
 	FF_SPOOKY_AST, // 397 - I Spy Spooky Mansion "SDASSETF" asset-bundle container (.ast)
 	FF_SPOOKY_SDF, // 398 - I Spy Spooky Mansion asset-type registry table (.sdf)
 	FF_SPOOKY_GES, // 399 - I Spy Spooky Mansion Wiimote gesture recording (.ges; magic-less)
+	FF_RFF_HXTB, // 400 - Rune Factory: Frontier "HX Table" entry directory (.hvt/.Hvt; entry table decoded)
+	FF_RFF_HXCB, // 401 - Rune Factory: Frontier "HX" collision-box family (.Hvc; header only)
+	FF_RFF_HXAA, // 402 - Rune Factory: Frontier "HX" animation family (.Hvb; header only)
+	FF_RFF_HXMB, // 403 - Rune Factory: Frontier "HX" map/motion family (.Hvm; header only)
+	FF_RFF_HXHB, // 404 - Rune Factory: Frontier "HX" hull/height family (.Hvh; header only)
+	FF_RFF_HXGB, // 405 - Rune Factory: Frontier "HX" geometry family (.Hvg; header only)
+	FF_RFF_HXTP, // 406 - Rune Factory: Frontier "HX" triangle/points index (.Hmt; header only)
+	FF_RFF_FBTI, // 407 - Rune Factory: Frontier "FBTI" model/motion section container (.Mod/.Mot)
+	FF_HTTYD_RWS, // 408 - DreamWorks How to Train Your Dragon chunk-tree audio container (.RWS)
+	FF_HTTYD_MTD, // 409 - DreamWorks How to Train Your Dragon chunk-tree container (.mtd; same layout as .RWS)
+	FF_HTTYD_KRV, // 410 - DreamWorks How to Train Your Dragon gzip-wrapped localization string table (.KRV)
+	FF_BERMUDA_MWT, // 411 - Bermuda Triangle "GDATAVERSION" resource envelope (.MWT; wraps a Camelot GX texture bank)
+	FF_BERMUDA_PLANETG, // 412 - Bermuda Triangle "PLANETG" tagged-object resource (.MWG/.MSP)
+	FF_BERMUDA_PKI, // 413 - Bermuda Triangle "IMAGE_WII_COMPACT" texture-pack container (.PKI)
+	FF_BERMUDA_PGF, // 414 - Bermuda Triangle font resource (.pgf; header only)
 
 	//--- number of elements
 

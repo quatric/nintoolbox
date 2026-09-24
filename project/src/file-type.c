@@ -2333,6 +2333,133 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"I Spy Spooky Mansion Wiimote gesture recording (.ges, Wii; magic-less)" },
 
+	// FF_RFF_HXTB = 400 (Rune Factory: Frontier "HX Table" entry directory)
+	// Confirmed 0x20-byte header plus a fully decoded 0x20-byte-stride
+	// entry table (name + hash + data byte-range); per-entity data-blob
+	// payload content not reverse-engineered.
+	{ FF_RFF_HXTB, FF_RFF_HXTB, 0, "RFF-HXTB", ".hvt", ".txt", ".hvt",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Rune Factory: Frontier \"HX Table\" entry directory (.hvt/.Hvt, Wii; entry table decoded)" },
+
+	// FF_RFF_HXCB = 401 (Rune Factory: Frontier "HX" collision-box family)
+	// Confirmed 0x20-byte header only; post-header record layout not
+	// reverse-engineered.
+	{ FF_RFF_HXCB, FF_RFF_HXCB, 0, "RFF-HXCB", ".Hvc", ".txt", ".Hvc",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Rune Factory: Frontier \"HX\" collision-box family (.Hvc, Wii; header only)" },
+
+	// FF_RFF_HXAA = 402 (Rune Factory: Frontier "HX" animation family)
+	// Confirmed 0x20-byte header only (magic "HXAA0001" or "HXAB0001");
+	// post-header record layout not reverse-engineered.
+	{ FF_RFF_HXAA, FF_RFF_HXAA, 0, "RFF-HXAA", ".Hvb", ".txt", ".Hvb",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Rune Factory: Frontier \"HX\" animation family (.Hvb, Wii; header only)" },
+
+	// FF_RFF_HXMB = 403 (Rune Factory: Frontier "HX" map/motion family)
+	// Confirmed 0x20-byte header only; post-header record layout not
+	// reverse-engineered.
+	{ FF_RFF_HXMB, FF_RFF_HXMB, 0, "RFF-HXMB", ".Hvm", ".txt", ".Hvm",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Rune Factory: Frontier \"HX\" map/motion family (.Hvm, Wii; header only)" },
+
+	// FF_RFF_HXHB = 404 (Rune Factory: Frontier "HX" hull/height family)
+	// Confirmed 0x20-byte header only; post-header record layout not
+	// reverse-engineered.
+	{ FF_RFF_HXHB, FF_RFF_HXHB, 0, "RFF-HXHB", ".Hvh", ".txt", ".Hvh",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Rune Factory: Frontier \"HX\" hull/height family (.Hvh, Wii; header only)" },
+
+	// FF_RFF_HXGB = 405 (Rune Factory: Frontier "HX" geometry family)
+	// Confirmed 0x20-byte header only; also seen embedded as a leading
+	// sub-resource inside FBTI .Mod sections. Post-header record layout
+	// not reverse-engineered.
+	{ FF_RFF_HXGB, FF_RFF_HXGB, 0, "RFF-HXGB", ".Hvg", ".txt", ".Hvg",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Rune Factory: Frontier \"HX\" geometry family (.Hvg, Wii; header only)" },
+
+	// FF_RFF_HXTP = 406 (Rune Factory: Frontier "HX" triangle/points index)
+	// Confirmed 0x20-byte header only; post-header record layout not
+	// reverse-engineered.
+	{ FF_RFF_HXTP, FF_RFF_HXTP, 0, "RFF-HXTP", ".Hmt", ".txt", ".Hmt",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Rune Factory: Frontier \"HX\" triangle/points index (.Hmt, Wii; header only)" },
+
+	// FF_RFF_FBTI = 407 (Rune Factory: Frontier "FBTI" model/motion
+	// section container)
+	// Confirmed header plus a fully decoded offset/size section table
+	// (.Mod/.Mot); per-section payload content beyond an embedded HX
+	// header, when present, not reverse-engineered.
+	{ FF_RFF_FBTI, FF_RFF_FBTI, 0, "RFF-FBTI", ".Mod", ".txt", ".Mod",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Rune Factory: Frontier \"FBTI\" model/motion section container (.Mod/.Mot, Wii; section table decoded)" },
+
+	// FF_HTTYD_RWS = 408 (DreamWorks How to Train Your Dragon chunk-tree
+	// audio container). Confirmed recursive 12-byte chunk headers
+	// (type/size/marker) walked exactly to EOF across all 118 real
+	// samples; leaf audio-sample payload contents not reverse-engineered.
+	{ FF_HTTYD_RWS, FF_HTTYD_RWS, 0, "HTTYD-RWS", ".RWS", ".txt", ".RWS",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"DreamWorks How to Train Your Dragon chunk-tree audio container (.RWS, Wii; chunk tree decoded, leaf payloads not decoded)" },
+
+	// FF_HTTYD_MTD = 409 (DreamWorks How to Train Your Dragon chunk-tree
+	// container, same 12-byte chunk-header layout as .RWS above).
+	{ FF_HTTYD_MTD, FF_HTTYD_MTD, 0, "HTTYD-MTD", ".mtd", ".txt", ".mtd",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"DreamWorks How to Train Your Dragon chunk-tree container (.mtd, Wii; same layout as .RWS)" },
+
+	// FF_HTTYD_KRV = 410 (DreamWorks How to Train Your Dragon gzip-wrapped
+	// localization string table). Outer gzip wrapper decoded directly by
+	// this module; leading integer header fields not fully pinned down,
+	// but the UTF-16LE string run that follows is enumerated in full.
+	{ FF_HTTYD_KRV, FF_HTTYD_KRV, 0, "HTTYD-KRV", ".KRV", ".txt", ".KRV",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"DreamWorks How to Train Your Dragon gzip-wrapped localization string table (.KRV, Wii)" },
+
+	// FF_BERMUDA_MWT = 411 (Bermuda Triangle - Saving the Coral
+	// "GDATAVERSION" resource envelope). Outer header decoded directly;
+	// the payload it wraps is, in every sample checked, an already
+	// supported Camelot-style GX texture bank (see lib-camtexbank.c).
+	{ FF_BERMUDA_MWT, FF_BERMUDA_MWT, 0, "BERMUDA-MWT", ".MWT", ".txt", ".MWT",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Bermuda Triangle GDATAVERSION resource envelope (.MWT, Wii; wraps a Camelot GX texture bank)" },
+
+	// FF_BERMUDA_PLANETG = 412 (Bermuda Triangle "PLANETG" tagged-object
+	// resource, shared by .MWG and .MSP). Every tag/string name is
+	// decoded via a heuristic walk; exact tree shape and numeric field
+	// semantics not fully pinned down.
+	{ FF_BERMUDA_PLANETG, FF_BERMUDA_PLANETG, 0, "BERMUDA-PLANETG", ".MWG", ".txt", ".MWG",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Bermuda Triangle PLANETG tagged-object resource (.MWG/.MSP, Wii; tag names decoded)" },
+
+	// FF_BERMUDA_PKI = 413 (Bermuda Triangle "IMAGE_WII_COMPACT" texture
+	// pack container). Header and full name/size/offset entry table
+	// decoded.
+	{ FF_BERMUDA_PKI, FF_BERMUDA_PKI, 0, "BERMUDA-PKI", ".PKI", ".txt", ".PKI",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Bermuda Triangle IMAGE_WII_COMPACT texture-pack container (.PKI, Wii; entry table decoded)" },
+
+	// FF_BERMUDA_PGF = 414 (Bermuda Triangle font resource). Header
+	// (family name + point size) decoded; per-glyph offset table that
+	// follows not conclusively reverse-engineered.
+	{ FF_BERMUDA_PGF, FF_BERMUDA_PGF, 0, "BERMUDA-PGF", ".pgf", ".txt", ".pgf",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Bermuda Triangle font resource (.pgf, Wii; header only)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2611,6 +2738,21 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_SPOOKY_AST, "SPOOKY-AST", "SPOOKY-AST", 0xe05 },
 	{ FF_SPOOKY_SDF, "SPOOKY-SDF", "SPOOKY-SDF", 0xe05 },
 	{ FF_SPOOKY_GES, "SPOOKY-GES", "SPOOKY-GES", 0xe05 },
+	{ FF_RFF_HXTB, "RFF-HXTB", "RFF-HXTB", 0xe05 },
+	{ FF_RFF_HXCB, "RFF-HXCB", "RFF-HXCB", 0xe05 },
+	{ FF_RFF_HXAA, "RFF-HXAA", "RFF-HXAA", 0xe05 },
+	{ FF_RFF_HXMB, "RFF-HXMB", "RFF-HXMB", 0xe05 },
+	{ FF_RFF_HXHB, "RFF-HXHB", "RFF-HXHB", 0xe05 },
+	{ FF_RFF_HXGB, "RFF-HXGB", "RFF-HXGB", 0xe05 },
+	{ FF_RFF_HXTP, "RFF-HXTP", "RFF-HXTP", 0xe05 },
+	{ FF_RFF_FBTI, "RFF-FBTI", "RFF-FBTI", 0xe05 },
+	{ FF_HTTYD_RWS, "HTTYD-RWS", "HTTYD-RWS", 0xe05 },
+	{ FF_HTTYD_MTD, "HTTYD-MTD", "HTTYD-MTD", 0xe05 },
+	{ FF_HTTYD_KRV, "HTTYD-KRV", "HTTYD-KRV", 0xe05 },
+	{ FF_BERMUDA_MWT, "BERMUDA-MWT", "BERMUDA-MWT", 0xe05 },
+	{ FF_BERMUDA_PLANETG, "BERMUDA-PLANETG", "BERMUDA-PLANETG", 0xe05 },
+	{ FF_BERMUDA_PKI, "BERMUDA-PKI", "BERMUDA-PKI", 0xe05 },
+	{ FF_BERMUDA_PGF, "BERMUDA-PGF", "BERMUDA-PGF", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

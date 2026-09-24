@@ -104,6 +104,9 @@
 #include "lib-mercurymeltdown.h"
 #include "lib-octomania.h"
 #include "lib-ispyspookymansion.h"
+#include "lib-runefactoryfrontier.h"
+#include "lib-httyd.h"
+#include "lib-bermudatriangle.h"
 #include "lib-mtmob.h"
 #include "config.inc"
 
@@ -2167,8 +2170,35 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_SPOOKY_AST;
 	if (IsSpookySdf (data8, data_size, file_size))
 		return FF_SPOOKY_SDF;
+	// Rune Factory: Frontier (Wii) formats -- see lib-runefactoryfrontier.h.
+	if (IsRFFHxtb (data8, data_size, file_size))
+		return FF_RFF_HXTB;
+	if (IsRFFHxcb (data8, data_size, file_size))
+		return FF_RFF_HXCB;
+	if (IsRFFHxaa (data8, data_size, file_size))
+		return FF_RFF_HXAA;
+	if (IsRFFHxmb (data8, data_size, file_size))
+		return FF_RFF_HXMB;
+	if (IsRFFHxhb (data8, data_size, file_size))
+		return FF_RFF_HXHB;
+	if (IsRFFHxgb (data8, data_size, file_size))
+		return FF_RFF_HXGB;
+	if (IsRFFHxtp (data8, data_size, file_size))
+		return FF_RFF_HXTP;
+	if (IsRFFFbti (data8, data_size, file_size))
+		return FF_RFF_FBTI;
 	if (IsSpookyGes (data8, data_size, file_size))
 		return FF_SPOOKY_GES;
+	// Bermuda Triangle - Saving the Coral (Wii) formats -- see
+	// lib-bermudatriangle.h.
+	if (IsBermudaMwt (data8, data_size, file_size))
+		return FF_BERMUDA_MWT;
+	if (IsBermudaPlanetG (data8, data_size, file_size))
+		return FF_BERMUDA_PLANETG;
+	if (IsBermudaPki (data8, data_size, file_size))
+		return FF_BERMUDA_PKI;
+	if (IsBermudaPgf (data8, data_size, file_size))
+		return FF_BERMUDA_PGF;
 	// Opoona .mol/.mot (reverse-engineered, no magic): the .mot probe
 	// requires an internally-consistent bone count plus a plausible
 	// frame-rate float, and .mol requires a run of structurally valid
