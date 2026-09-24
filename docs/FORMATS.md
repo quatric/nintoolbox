@@ -128,6 +128,10 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **MERCURY-NAV** | Wii / Navigation | 🟡 | ❌ | *Mercury Meltdown Revolution* navigation-mesh table (`.nav`): magic-less, many samples zero-length, no confirmed header shape found; extension-recognized only |
 | **OCTOMANIA-SEC** | Wii / Scene | ✅ | ❌ | *Octomania* "secB" scene/demo container (`.sec`): confirmed header + 32-byte chunk table with resolved names via a shared string table; per-chunk binary payload data not reverse-engineered |
 | **OCTOMANIA-WT** | Wii / Audio | ✅ | ❌ | *Octomania* wavetable sample-offset index (`.wt`): confirmed leading table of big-endian sample byte-offsets into the companion `.pcm` file; trailing MIDI-program index map not reverse-engineered |
+| **SPOOKY-EID** | Wii / Audio | ✅ | ❌ | *I Spy Spooky Mansion* sound-event/effect table (`.eid`): confirmed header, effect table and "VARS" field-record table, decoded byte-for-byte identically across 160 of 161 real samples (one sample is byte-order-swapped and left unrecognized) |
+| **SPOOKY-AST** | Wii / Container | ✅ | ❌ | *I Spy Spooky Mansion* "SDASSETF" asset-bundle container (`.ast`): confirmed outer header and top-level chunk table (tag/version/size), walked to EOF for flat sibling-chunk files; nested sub-chunk payloads (models/animations/textures) not reverse-engineered |
+| **SPOOKY-SDF** | Wii / Metadata | ✅ | ❌ | *I Spy Spooky Mansion* asset-type registry table (`.sdf`): confirmed "TYPE"-tag record table and its embedded "VARS" field-record tables (only 1 real sample) |
+| **SPOOKY-GES** | Wii / Input | ✅ | ❌ | *I Spy Spooky Mansion* Wiimote gesture recording (`.ges`, magic-less): confirmed fixed 10-point x/y/z float32 layout, identical across all 28 real samples |
 | **MSH (PMsh)** | Wii / Model | ✅ | ✅ | Monster Games collision mesh |
 | **MSBF / MSBP / MSBT** | Wii/3DS/Wii U/Switch / Text | ✅ | ✅ | Message Studio Binary Text and Flow |
 | **MSR** | 3DS / Archive | 🟡 | ⛔ | Metroid: Samus Returns archive |

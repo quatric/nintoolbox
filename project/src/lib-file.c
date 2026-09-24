@@ -103,6 +103,7 @@
 #include "lib-t3pk.h"
 #include "lib-mercurymeltdown.h"
 #include "lib-octomania.h"
+#include "lib-ispyspookymansion.h"
 #include "lib-mtmob.h"
 #include "config.inc"
 
@@ -2159,6 +2160,15 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_OCTOMANIA_SEC;
 	if (IsOctomaniaWt (data8, data_size, file_size))
 		return FF_OCTOMANIA_WT;
+	// I Spy Spooky Mansion (Wii) formats -- see lib-ispyspookymansion.h.
+	if (IsSpookyEid (data8, data_size, file_size))
+		return FF_SPOOKY_EID;
+	if (IsSpookyAst (data8, data_size, file_size))
+		return FF_SPOOKY_AST;
+	if (IsSpookySdf (data8, data_size, file_size))
+		return FF_SPOOKY_SDF;
+	if (IsSpookyGes (data8, data_size, file_size))
+		return FF_SPOOKY_GES;
 	// Opoona .mol/.mot (reverse-engineered, no magic): the .mot probe
 	// requires an internally-consistent bone count plus a plausible
 	// frame-rate float, and .mol requires a run of structurally valid

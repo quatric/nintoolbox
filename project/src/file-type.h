@@ -488,6 +488,10 @@ typedef enum file_format_t
 	FF_MERCURY_TEX, // 393 - Mercury Meltdown Revolution "#TEX FILE" texture reference list (.TEX)
 	FF_OCTOMANIA_SEC, // 394 - Octomania "secB" scene/demo resource container (.sec)
 	FF_OCTOMANIA_WT, // 395 - Octomania wavetable sample-offset index (.wt, pairs with .pcm)
+	FF_SPOOKY_EID, // 396 - I Spy Spooky Mansion sound-event/effect table (.eid)
+	FF_SPOOKY_AST, // 397 - I Spy Spooky Mansion "SDASSETF" asset-bundle container (.ast)
+	FF_SPOOKY_SDF, // 398 - I Spy Spooky Mansion asset-type registry table (.sdf)
+	FF_SPOOKY_GES, // 399 - I Spy Spooky Mansion Wiimote gesture recording (.ges; magic-less)
 
 	//--- number of elements
 

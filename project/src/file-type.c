@@ -2301,6 +2301,38 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Octomania wavetable sample-offset index (.wt, Wii; leading offset table only)" },
 
+	// FF_SPOOKY_EID = 396 (I Spy Spooky Mansion sound-event/effect table)
+	// Confirmed header, effect table and "VARS" field-record table,
+	// decoded byte-for-byte identically across 160 of the 161 samples.
+	{ FF_SPOOKY_EID, FF_SPOOKY_EID, 0, "SPOOKY-EID", ".eid", ".txt", ".eid",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"I Spy Spooky Mansion sound-event/effect table (.eid, Wii)" },
+
+	// FF_SPOOKY_AST = 397 (I Spy Spooky Mansion "SDASSETF" asset bundle)
+	// Confirmed outer header and first top-level chunk header; nested
+	// sub-chunk payloads (models/anims/textures) not reverse-engineered.
+	{ FF_SPOOKY_AST, FF_SPOOKY_AST, 0, "SPOOKY-AST", ".ast", ".txt", ".ast",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"I Spy Spooky Mansion \"SDASSETF\" asset-bundle container (.ast, Wii; outer chunk table only)" },
+
+	// FF_SPOOKY_SDF = 398 (I Spy Spooky Mansion asset-type registry table)
+	// Confirmed against the single real sample seen; TYPE-tag records and
+	// their embedded "VARS" tables decoded.
+	{ FF_SPOOKY_SDF, FF_SPOOKY_SDF, 0, "SPOOKY-SDF", ".sdf", ".txt", ".sdf",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"I Spy Spooky Mansion asset-type registry table (.sdf, Wii)" },
+
+	// FF_SPOOKY_GES = 399 (I Spy Spooky Mansion Wiimote gesture recording)
+	// Magic-less; confirmed byte-for-byte identical shape across all 28
+	// real samples (fixed 10-point x/y/z float32 gesture recording).
+	{ FF_SPOOKY_GES, FF_SPOOKY_GES, 0, "SPOOKY-GES", ".ges", ".txt", ".ges",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"I Spy Spooky Mansion Wiimote gesture recording (.ges, Wii; magic-less)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2575,6 +2607,10 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_MERCURY_TEX, "MERCURY-TEX", "MERCURY-TEX", 0xe05 },
 	{ FF_OCTOMANIA_SEC, "OCTOMANIA-SEC", "OCTOMANIA-SEC", 0xe05 },
 	{ FF_OCTOMANIA_WT, "OCTOMANIA-WT", "OCTOMANIA-WT", 0xe05 },
+	{ FF_SPOOKY_EID, "SPOOKY-EID", "SPOOKY-EID", 0xe05 },
+	{ FF_SPOOKY_AST, "SPOOKY-AST", "SPOOKY-AST", 0xe05 },
+	{ FF_SPOOKY_SDF, "SPOOKY-SDF", "SPOOKY-SDF", 0xe05 },
+	{ FF_SPOOKY_GES, "SPOOKY-GES", "SPOOKY-GES", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };
