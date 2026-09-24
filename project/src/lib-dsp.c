@@ -115,6 +115,8 @@ enumError ExtractDSPAudio (ccp arg, ccp basedir, uint depth, const u8 *data, siz
 	size_t blen = strlen (base);
 	if (blen > 4 && !strcasecmp (base + blen - 4, ".dsp"))
 		blen -= 4;
+	else if (blen > 6 && !strcasecmp (base + blen - 6, ".adpcm"))
+		blen -= 6;
 
 	if (basedir && *basedir)
 	{

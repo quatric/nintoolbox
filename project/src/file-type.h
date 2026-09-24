@@ -446,7 +446,10 @@ typedef enum file_format_t
 	FF_THOR, // 351 - Behaviour Interactive "Thor" resource package (.wii)
 	FF_OPOONA_MOL, // 352 - Opoona character manifest (.mol)
 	FF_OPOONA_MOT, // 353 - Opoona skeletal animation clip (.mot)
-	FF_CHNK, // 354 - Monster 4x4: Stunt Racer chunked container (.bnk/.d4l/.d4c/.gfx/.mec/.pmu/.pak/.ppx/.an4)
+	FF_TE_ZIP, // 354 - T&E Soft PKZIP container (.szip/.iff, Super Swing Golf)
+	FF_G3RES, // 355 - Sakura Wars "G3" resource-chunk tree (.g3n/.g3r/.gdn/.gdr/.gde)
+	FF_FPK, // 356 - Traveller's Tales FPK resource package (.fpk)
+	FF_CHNK, // 357 - Monster 4x4: Stunt Racer chunked container (.bnk/.d4l/.d4c/.gfx/.mec/.pmu/.pak/.ppx/.an4)
 	FF_MAGMA_FAT, // 355 - Ubisoft Magma bigfile index (.fat)
 	FF_MAGMA_BF, // 356 - Ubisoft Magma self-indexed bigfile (.bf)
 	FF_VOICE_SONG, // 357 - The Voice song script (.song)
@@ -472,7 +475,7 @@ typedef enum file_format_t
 	FF_ZACKWIKI_TSB, // 377 - Zack & Wiki sound bank (.tsb)
 	FF_ZACKWIKI_WHD, // 378 - Zack & Wiki sound bank (.whd)
 	FF_ZACKWIKI_MDS, // 379 - Zack & Wiki MDSV resource/level container (.mds; header only)
-	FF_ZACKWIKI_SSD, // 380 - Zack & Wiki streamed ADPCM audio (.ssd; extension only, no confirmed structure)
+	FF_ZACKWIKI_SSD, // 383 - Zack & Wiki streamed ADPCM audio (.ssd; extension only, no confirmed structure)
 
 	//--- number of elements
 

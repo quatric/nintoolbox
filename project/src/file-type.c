@@ -2149,6 +2149,42 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Zack & Wiki streamed ADPCM audio (.ssd, Wii; NOT reverse-engineered, extension only)" },
 
+	// FF_TE_ZIP = 354 (T&E Soft "Super Swing Golf"/"We Love Golf" container)
+	// Ordinary PKZIP local-file-header magic "PK\x03\x04": the game's .szip
+	// files, and surprisingly its top-level .iff files too, are plain zlib-
+	// deflate ZIP archives with no custom wrapper at all (see IsTEZip() and
+	// DecodeTEZip() in lib-teszip.c). Confirmed byte-exact against a plain
+	// Python zipfile.ZipFile() read on multiple samples.
+	{ FF_TE_ZIP, FF_TE_ZIP, 0, "TE-ZIP", ".szip", ".txt", ".szip",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"T&E Soft ZIP container (.szip/.iff, Wii, Super Swing Golf / We Love Golf)" },
+
+	// FF_G3RES = 355 (Sakura Wars: So Long, My Love "G3" resource-chunk tree)
+	// Magic "GRO3" (.g3n/.g3r model files) or "GDEN" (.gdn/.gdr/.gde garden/
+	// scene files, which wrap a nested GRO3 chunk among others). Generic
+	// recursive tag/size/child-offset chunk tree, reverse-engineered from
+	// scratch (see IsG3Res()/DecodeG3Res_Text() in lib-g3res.c); only the
+	// container shell and one leaf sub-header (PVRT textures) are decoded,
+	// mesh/animation/texel payloads are not.
+	{ FF_G3RES, FF_G3RES, 0, "G3RES", ".g3n", ".txt", ".g3n",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Sakura Wars \"G3\" resource-chunk tree (.g3n/.g3r/.gdn/.gdr/.gde, Wii)" },
+
+	// FF_FPK = 356 (Traveller's Tales FPK resource package)
+	// No magic bytes registered here (dispatch is by extension in
+	// wszst_cmd/formats.inc, like FF_AFS): the real 0x1234567A LE magic at
+	// offset 0 is checked structurally in ScanFPK() (lib-fpk.c), reverse
+	// engineered from the retail "Bionicle Heroes" disc's DATA/files/audio/
+	// *_ngc.fpk packages -- no public spec exists. Little-endian
+	// (offset,size,name) entry table + tightly packed name string table;
+	// payload is always raw (no compression observed in any sample).
+	{ FF_FPK, FF_FPK, 0, "FPK", ".fpk", ".fpk", ".fpk",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Traveller's Tales FPK resource package (.fpk, Bionicle Heroes)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2382,6 +2418,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_THOR, "THOR", "THOR", 0xe05 },
 	{ FF_OPOONA_MOL, "OPOONA-MOL", "OPOONA-MOL", 0xe05 },
 	{ FF_OPOONA_MOT, "OPOONA-MOT", "OPOONA-MOT", 0xe05 },
+	{ FF_TE_ZIP, "TE-ZIP", "TE-ZIP", 0xe05 },
+	{ FF_G3RES, "G3RES", "G3RES", 0xe05 },
 	{ FF_CHNK, "CHNK", "CHNK", 0xe05 },
 	{ FF_MAGMA_FAT, "MAGMA-FAT", "MAGMA-FAT", 0xe05 },
 	{ FF_MAGMA_BF, "MAGMA-BF", "MAGMA-BF", 0xe05 },

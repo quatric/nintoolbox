@@ -1231,7 +1231,27 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
+	err = extract_rtdp_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_cxd_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_fpk_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_fpk_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
 	err = extract_thor_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_ttarch_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
@@ -2144,10 +2164,10 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 			return depth > 0 ? ERR_OK : ERR_NOTHING_TO_DO;
 		}
 
-		if (depth > 0 && !IsArchiveFF (szs.fform_arch) && !IsBRSUB (szs.fform_arch))
+		if (!IsArchiveFF (szs.fform_arch) && !IsBRSUB (szs.fform_arch))
 		{
 			ResetSZS (&szs);
-			return ERR_OK;
+			return depth > 0 ? ERR_OK : ERR_NOTHING_TO_DO;
 		}
 
 		have_patch_count -= 1000000;

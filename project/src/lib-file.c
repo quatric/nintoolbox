@@ -95,6 +95,8 @@
 #include "lib-muramasa.h"
 #include "lib-redsteel2.h"
 #include "lib-zackwiki.h"
+#include "lib-g3res.h"
+#include "lib-teszip.h"
 #include "lib-mtmob.h"
 #include "config.inc"
 
@@ -1010,6 +1012,11 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_MIO;
 		if (IsNTTF (data8, file_size))
 			return FF_NTTF;
+		// T&E Soft "Super Swing Golf" .szip/.iff: ordinary PKZIP local file
+		// header magic, checked early alongside the other exact-magic
+		// formats above (see lib-teszip.h).
+		if (IsTEZip (data8, data_size))
+			return FF_TE_ZIP;
 		if (IsMDR (data8, data_size) && !IsMPBINInflate (data8, data_size))
 			return FF_MDR;
 		if (IsG1TGZ (data8, data_size))
@@ -2120,6 +2127,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_AFS;
 	if (IsThorPkg (data8, data_size))
 		return FF_THOR;
+	if (IsG3Res (data8, data_size))
+		return FF_G3RES;
 	// Opoona .mol/.mot (reverse-engineered, no magic): the .mot probe
 	// requires an internally-consistent bone count plus a plausible
 	// frame-rate float, and .mol requires a run of structurally valid

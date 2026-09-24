@@ -6414,9 +6414,17 @@ static enumError extract_goliath_file (ccp arg, ccp basedir, uint depth)
 // Nintendo RSO relocatable modules (Skylanders: SuperChargers Racing
 // gamelogic.rso and similar PowerPC dynamic-load modules). Extract-only;
 // see lib-rso.h for the layout and the no-magic detection heuristic.
+//
+// Worms: Battle Islands (Wii, Team17) ships the identical on-disk layout
+// under DataWii/Wow3.sel (byte-for-byte the same header/section-table
+// shape as its sibling DataWii/Modules.rso -- confirmed by hand: same
+// zeroed link pointers, section_info_offset==0x58, and a clean printable
+// module name at name_offset, "c:\...\Wow3.elf"); ".sel" just appears to
+// be this title's own name for a loadable RSO module, so it's accepted
+// here alongside ".rso" rather than treated as a separate format.
 static enumError extract_rso_file (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext (arg, ".rso"))
+	if (!is_ext (arg, ".rso") && !is_ext (arg, ".sel"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;
@@ -8248,6 +8256,42 @@ static enumError extract_afs_file (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 
 	return ExtractAFSArchive (arg, basedir, depth);
+}
+
+// imageEpoch RTDP flat archive (.vol; Arc Rise Fantasia, Wii)
+static enumError extract_rtdp_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".vol"))
+		return ERR_NOTHING_TO_DO;
+
+	return ExtractRTDPArchive (arg, basedir, depth);
+}
+
+// LZ10-compressed RTDP/WTMD wrapper (.cxd; Arc Rise Fantasia, Wii)
+static enumError extract_cxd_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".cxd"))
+		return ERR_NOTHING_TO_DO;
+
+	return ExtractCXDFile (arg, basedir, depth);
+}
+
+// Traveller's Tales FPK resource package (.fpk; Bionicle Heroes, Wii)
+static enumError extract_fpk_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".fpk"))
+		return ERR_NOTHING_TO_DO;
+
+	return ExtractFPKArchive (arg, basedir, depth);
+}
+
+// Telltale Tool legacy archive (.ttarch; Back to the Future: The Game, Wii)
+static enumError extract_ttarch_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".ttarch"))
+		return ERR_NOTHING_TO_DO;
+
+	return ExtractTtarch (arg, basedir, depth);
 }
 
 // Sumo Digital "SSR_Wii" engine multi-channel DSP-ADPCM audio (.was;
