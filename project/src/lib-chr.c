@@ -68,6 +68,16 @@ static inline void chr_wf (u8 *p, float f)
 	chr_w32 (p, raw);
 }
 
+// STRDUP() an in-buffer C string only if a NUL terminator actually exists
+// before 'data_size' -- 'off' is only known to be < data_size, not that the
+// string it points at is properly terminated within the buffer.
+static ccp chr_strdup_bounded (const u8 *base, size_t data_size, u32 off)
+{
+	if (!off || off >= data_size || !memchr (base + off, 0, data_size - off))
+		return NULL;
+	return STRDUP ((ccp)(base + off));
+}
+
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			code word layout		///////////////
@@ -301,10 +311,8 @@ enumError ScanRawCHR0 (chr0_t *chr, bool init_chr, const void *data, uint data_s
 	off += 4;
 	chr->scaling_rule = chr_rd32 (base + off);
 
-	if (string_off && string_off < data_size)
-		chr->name = STRDUP ((ccp)(base + string_off));
-	if (orig_path_off && orig_path_off < data_size)
-		chr->orig_path = STRDUP ((ccp)(base + orig_path_off));
+	chr->name = chr_strdup_bounded (base, data_size, string_off);
+	chr->orig_path = chr_strdup_bounded (base, data_size, orig_path_off);
 
 	if (!data_off || (u64)data_off + 8 > data_size)
 		return ERROR0 (ERR_INVALID_DATA, "CHR0: invalid group offset\n");
@@ -313,7 +321,7 @@ enumError ScanRawCHR0 (chr0_t *chr, bool init_chr, const void *data, uint data_s
 	const u32 n_entries = chr_rd32 (group + 4);
 	if (n_entries != n_entries_hdr)
 		; // the group's own count is authoritative
-	if ((u64)data_off + 8 + (u64)(n_entries + 1) * 16 > data_size)
+	if ((u64)data_off + 8 + ((u64)n_entries + 1) * 16 > data_size)
 		return ERROR0 (ERR_INVALID_DATA, "CHR0: group entry table exceeds file size\n");
 
 	const uint frame_limit = GetFrameLimitCHR0 (chr);
@@ -329,8 +337,10 @@ enumError ScanRawCHR0 (chr0_t *chr, bool init_chr, const void *data, uint data_s
 		const u8 *entry = group + entry_off;
 		const uint entry_pos = data_off + entry_off; // absolute file position
 
-		ccp name = name_off && (u64)data_off + name_off < data_size
-			? (ccp)(base + data_off + name_off)
+		const u64 name_pos = (u64)data_off + name_off;
+		ccp name = name_off && name_pos < data_size
+				&& memchr (base + name_pos, 0, data_size - name_pos)
+			? (ccp)(base + name_pos)
 			: "";
 		chr0_entry_t *e = AppendEntryCHR0 (chr, name);
 		e->code = chr_rd32 (entry + 4);

@@ -315,9 +315,12 @@ static int decode_gx_primitives (
 			continue;
 		}
 
+		// GX_LINES/LINESTRIP/POINTS (0xa8/0xb0/0xb8) carry no triangulation
+		// and would otherwise be silently skipped below with no vertices
+		// emitted, indistinguishable from an empty/corrupt mesh -- fail
+		// explicitly instead so the caller's error path is used.
 		const uint8_t primitive = command & 0xf8;
-		if (primitive != 0x80 && primitive != 0x90 && primitive != 0x98 && primitive != 0xa0
-			&& primitive != 0xa8 && primitive != 0xb0 && primitive != 0xb8)
+		if (primitive != 0x80 && primitive != 0x90 && primitive != 0x98 && primitive != 0xa0)
 			return 0;
 		if (off + 2 > (size_t)prim_size)
 			return 0;
@@ -487,7 +490,7 @@ static const uint8_t *get_group_resource (
 		return NULL;
 	const uint32_t count = swap32 (group->numNodes);
 	if ((uint32_t)id >= count
-		|| !in_bounds (data, size, group + 1, (size_t)(count + 1) * sizeof (ResourceEntry)))
+		|| !in_bounds (data, size, group + 1, ((size_t)count + 1) * sizeof (ResourceEntry)))
 		return NULL;
 	ResourceEntry *entries = (ResourceEntry *)(group + 1);
 	const int32_t offset = (int32_t)swap32 (entries[id + 1].dataOffset);
@@ -921,7 +924,7 @@ static void read_draw_materials (const uint8_t *data, size_t size, uint32_t vers
 	if (!defs)
 		return;
 	uint32_t count = swap32 (defs->numNodes);
-	if (!in_bounds (data, size, defs + 1, (size_t)(count + 1) * sizeof (ResourceEntry)))
+	if (!in_bounds (data, size, defs + 1, ((size_t)count + 1) * sizeof (ResourceEntry)))
 		return;
 	ResourceEntry *entries = (ResourceEntry *)(defs + 1);
 	for (uint32_t i = 1; i <= count; i++)
@@ -951,7 +954,7 @@ static void read_node_mix_transforms (
 	if (!defs)
 		return;
 	const uint32_t count = swap32 (defs->numNodes);
-	if (!in_bounds (data, size, defs + 1, (size_t)(count + 1) * sizeof (ResourceEntry)))
+	if (!in_bounds (data, size, defs + 1, ((size_t)count + 1) * sizeof (ResourceEntry)))
 		return;
 	ResourceEntry *entries = (ResourceEntry *)(defs + 1);
 	const uint8_t *p = NULL;
@@ -1219,6 +1222,11 @@ model_t *ParseMDL0 (const uint8_t *data, size_t size)
 			goto skip_bones;
 		model->num_joints = numBones;
 		model->joints = calloc (numBones, sizeof (joint_t));
+		if (!model->joints)
+		{
+			model->num_joints = 0;
+			goto skip_bones;
+		}
 		MDL0Bone **bone_nodes = calloc (numBones, sizeof (*bone_nodes));
 
 		ResourceEntry *entries = (ResourceEntry *)(grp + 1);
@@ -1288,12 +1296,35 @@ model_t *ParseMDL0 (const uint8_t *data, size_t size)
 				if (!in_bounds (data, size, parent, sizeof (MDL0Bone)))
 					continue;
 				for (int j = 0; j < numBones; j++)
-					if ((const uint8_t *)bone_nodes[j] == parent)
+					if (j != i && (const uint8_t *)bone_nodes[j] == parent)
 					{
 						model->joints[i].parent_idx = j;
 						break;
 					}
 			}
+
+		// A malformed file could still chain distinct bones into a cycle
+		// (A's parent resolves to B, B's back to A); break any such cycle
+		// here rather than leaving it for every future parent-chain walker
+		// to defend against on its own.
+		for (int i = 0; i < numBones; i++)
+		{
+			int slow = i, fast = i;
+			for (int steps = 0; steps <= numBones; steps++)
+			{
+				slow = model->joints[slow].parent_idx;
+				fast = model->joints[fast].parent_idx;
+				if (fast >= 0)
+					fast = model->joints[fast].parent_idx;
+				if (slow < 0 || fast < 0)
+					break;
+				if (slow == fast)
+				{
+					model->joints[i].parent_idx = -1;
+					break;
+				}
+			}
+		}
 		free (bone_nodes);
 	}
 skip_bones:
@@ -1312,6 +1343,11 @@ skip_bones:
 			goto skip_materials;
 		model->num_materials = numMats;
 		model->materials = calloc (numMats, sizeof (material_t));
+		if (!model->materials)
+		{
+			model->num_materials = 0;
+			goto skip_materials;
+		}
 
 		ResourceEntry *entries = (ResourceEntry *)(grp + 1);
 		for (int i = 1; i <= numMats; i++)
@@ -1359,6 +1395,8 @@ skip_materials:
 			goto skip_meshes;
 		model->meshes = calloc (numMeshes, sizeof (mesh_t));
 		model->num_meshes = 0;
+		if (!model->meshes)
+			goto skip_meshes;
 		int *object_material = malloc ((size_t)numMeshes * sizeof (*object_material));
 		if (!object_material)
 			goto skip_meshes;
@@ -1506,6 +1544,15 @@ skip_materials:
 				continue;
 			}
 
+			// In NBT mode tangents share the same index space as normals --
+			// capture that here, before apply_bind_pose_transforms's normal
+			// dedup/remap below renumbers normal_idx, since mesh->tangents
+			// itself is loaded 1:1 with the original, pre-dedup normal array
+			// and is never remapped.
+			if (mesh->num_tangents)
+				for (size_t p = 0; p < mesh->num_vertices; p++)
+					mesh->vertices[p].tangent_idx = mesh->vertices[p].normal_idx;
+
 			if (!apply_bind_pose_transforms (
 					mesh, object_node, node_transforms, num_node_transforms))
 			{
@@ -1544,10 +1591,6 @@ skip_materials:
 			mesh->material_idx = object_material[i - 1];
 			if (mesh->material_idx < 0 && model->num_materials == 1)
 				mesh->material_idx = 0;
-			// In NBT mode tangents share the same index space as normals.
-			if (mesh->num_tangents)
-				for (size_t p = 0; p < mesh->num_vertices; p++)
-					mesh->vertices[p].tangent_idx = mesh->vertices[p].normal_idx;
 			// Keep the object's real name (polygon0, mune_M, ...). BrawlCrate
 			// uses it for the geometry/controller/node ids, so a DAE that
 			// renames every mesh to mesh_N cannot be matched back to the MDL0.
@@ -1739,8 +1782,10 @@ static float bef32p (const uint8_t *p)
 
 // BrawlLib's KeyframeEntry.Interpolate() Hermite curve, evaluated at every
 // integer frame in [0,numFrames) from a sparse (frame,value,tangent) key
-// list. Non-looped edge clamp only -- looped wraparound isn't reproduced.
-static void bake_hermite (float *dense, int numFrames, const br_key_t *keys, int numKeys)
+// list. When 'loop' is set, ParseCHR0IntoModel appends one synthetic frame
+// at numFrames-1 for the wrap point: interpolate the last real key toward
+// the first key's value/tangent there instead of clamping flat.
+static void bake_hermite (float *dense, int numFrames, const br_key_t *keys, int numKeys, int loop)
 {
 	if (numKeys <= 0)
 	{
@@ -1748,6 +1793,9 @@ static void bake_hermite (float *dense, int numFrames, const br_key_t *keys, int
 			dense[f] = 0.0f;
 		return;
 	}
+	const br_key_t wrap = { numFrames - 1, keys[0].value, keys[0].tangent };
+	const int has_wrap = loop && numFrames - 1 > keys[numKeys - 1].frame;
+	int k = 0; // monotonic in f: carried across iterations instead of rescanned from 0
 	for (int f = 0; f < numFrames; f++)
 	{
 		if (f <= keys[0].frame)
@@ -1755,15 +1803,19 @@ static void bake_hermite (float *dense, int numFrames, const br_key_t *keys, int
 			dense[f] = keys[0].value;
 			continue;
 		}
-		if (f >= keys[numKeys - 1].frame)
+		if (!has_wrap && f >= keys[numKeys - 1].frame)
 		{
 			dense[f] = keys[numKeys - 1].value;
 			continue;
 		}
-		int k = 0;
+		if (has_wrap && f >= wrap.frame)
+		{
+			dense[f] = wrap.value;
+			continue;
+		}
 		while (k + 1 < numKeys && keys[k + 1].frame <= f)
 			k++;
-		const br_key_t *a = &keys[k], *b = &keys[k + 1];
+		const br_key_t *a = &keys[k], *b = k + 1 < numKeys ? &keys[k + 1] : &wrap;
 		const float span = (float)(b->frame - a->frame);
 		const float offset = (float)(f - a->frame);
 		if (offset <= 0 || span <= 0)
@@ -1785,7 +1837,7 @@ static void bake_hermite (float *dense, int numFrames, const br_key_t *keys, int
 // I4 is encoded as 0, not 1 -- a format value of 0 is a normal, common case,
 // not "absent".
 static int decode_anim_format (float *dense, int numFrames, const uint8_t *fbase, size_t fsize,
-	const uint8_t *entry, uint32_t rel_offset, int format)
+	const uint8_t *entry, uint32_t rel_offset, int format, int short_i6_header, int loop)
 {
 	const uint8_t *p = entry + rel_offset;
 	if (numFrames <= 0 || !in_bounds (fbase, fsize, p, 8))
@@ -1833,16 +1885,19 @@ static int decode_anim_format (float *dense, int numFrames, const uint8_t *fbase
 				keys[i].value = bef32p (d + i * 12 + 4);
 				keys[i].tangent = bef32p (d + i * 12 + 8);
 			}
-			bake_hermite (dense, numFrames, keys, fCount);
+			bake_hermite (dense, numFrames, keys, fCount, loop);
 			free (keys);
 			return 1;
 		}
 		case 1:
 		{ // I6: numFrames(u16)+unk(u16)+frameScale(f32,unused)+step(f32)+base(f32), then 6-byte
-		  // entries
+		  // entries -- CHR0 version < 4 uses an 8-byte header (count+unk+frameScale only,
+		  // fixed step=1/256 and base=0) instead of BrawlLib's 16-byte I6Header
 			const int fCount = be16p (p);
-			const float step = bef32p (p + 8), base = bef32p (p + 12);
-			const uint8_t *d = p + 16;
+			const int hdr = short_i6_header ? 8 : 16;
+			const float step = short_i6_header ? 1.0f / 256.0f : bef32p (p + 8);
+			const float base = short_i6_header ? 0.0f : bef32p (p + 12);
+			const uint8_t *d = p + hdr;
 			if (fCount <= 0 || !in_bounds (fbase, fsize, d, (size_t)fCount * 6))
 				return 0;
 			br_key_t *keys = malloc (sizeof (br_key_t) * (size_t)fCount);
@@ -1856,7 +1911,7 @@ static int decode_anim_format (float *dense, int numFrames, const uint8_t *fbase
 				keys[i].value = base + rawstep * step;
 				keys[i].tangent = exp / 256.0f;
 			}
-			bake_hermite (dense, numFrames, keys, fCount);
+			bake_hermite (dense, numFrames, keys, fCount, loop);
 			free (keys);
 			return 1;
 		}
@@ -1880,7 +1935,7 @@ static int decode_anim_format (float *dense, int numFrames, const uint8_t *fbase
 				keys[i].value = base + step12 * step;
 				keys[i].tangent = tan12 / 32.0f;
 			}
-			bake_hermite (dense, numFrames, keys, fCount);
+			bake_hermite (dense, numFrames, keys, fCount, loop);
 			free (keys);
 			return 1;
 		}
@@ -1916,8 +1971,8 @@ static void free_chr0_track (chr0_track_t *t)
 	{                                                                                              \
 		track->dense[idx] = malloc (sizeof (float) * (size_t)numFrames);                           \
 		if (track->dense[idx]                                                                      \
-			&& !decode_anim_format (                                                               \
-				track->dense[idx], numFrames, fbase, fsize, entry, (off), (fmt)))                  \
+			&& !decode_anim_format (track->dense[idx], numFrames, fbase, fsize, entry, (off),      \
+				(fmt), short_i6_header, loop))                                                     \
 		{                                                                                          \
 			free (track->dense[idx]);                                                              \
 			track->dense[idx] = NULL;                                                              \
@@ -1929,7 +1984,7 @@ static void free_chr0_track (chr0_track_t *t)
 // per present, non-isotropic axis (or one shared value/offset when
 // isotropic). `code` is the entry's already-endian-swapped 32-bit flags.
 static void decode_chr0_entry (chr0_track_t *track, const uint8_t *fbase, size_t fsize,
-	const uint8_t *entry, uint32_t code, int numFrames)
+	const uint8_t *entry, uint32_t code, int numFrames, uint32_t version, int loop)
 {
 	memset (track, 0, sizeof (*track));
 	const uint8_t *sp = entry + 8; // CHR0Entry::Data
@@ -1939,7 +1994,23 @@ static void decode_chr0_entry (chr0_track_t *track, const uint8_t *fbase, size_t
 	const int sxFix = (code >> 13) & 1, syFix = (code >> 14) & 1, szFix = (code >> 15) & 1;
 	const int rxFix = (code >> 16) & 1, ryFix = (code >> 17) & 1, rzFix = (code >> 18) & 1;
 	const int txFix = (code >> 19) & 1, tyFix = (code >> 20) & 1, tzFix = (code >> 21) & 1;
-	const int scaleFmt = (code >> 25) & 3, rotFmt = (code >> 27) & 7, transFmt = (code >> 30) & 3;
+
+	// BrawlLib documents the format fields at bits 25..26 (scale), 27..29
+	// (rotation) and 30..31 (translation), which only holds for CHR0 version
+	// 4 and 5 -- retail version-3 files place the same block 2 bits lower.
+	// Each raw field is BrawlLib's 1-indexed banim_format_t (0=None, 1=I4,
+	// ..., 6=L4); decode_anim_format's switch is 0-indexed, so subtract 1.
+	// A present, non-fixed axis always carries a real track, so a raw value
+	// of 0 (None) only happens for scale/translation, where every observed
+	// retail track is I12; for rotation it means invalid/undecodable data.
+	const int rotShift = version < 4 ? 25 : 27;
+	const uint32_t scaleRaw = (code >> (rotShift - 2)) & 3;
+	const uint32_t rotRaw = (code >> rotShift) & 7;
+	const uint32_t transRaw = (code >> (rotShift + 3)) & 3;
+	const int scaleFmt = scaleRaw ? (int)scaleRaw - 1 : 2; // fallback: I12
+	const int rotFmt = rotRaw ? (int)rotRaw - 1 : -1; // no fallback: fails safely
+	const int transFmt = transRaw ? (int)transRaw - 1 : 2; // fallback: I12
+	const int short_i6_header = version < 4;
 
 	if (hasScale)
 	{
@@ -2215,7 +2286,7 @@ int ParseCHR0IntoModel (model_t *model, const uint8_t *data, size_t size, const 
 		return 0;
 	const uint8_t *group = data + dataOffset;
 	const uint32_t numEntries = be32p (group + 4);
-	if (!in_bounds (data, size, group + 8, (size_t)(numEntries + 1) * 16))
+	if (!in_bounds (data, size, group + 8, ((size_t)numEntries + 1) * 16))
 		return 0;
 
 	const int numFramesHdr = version == 5 ? be16p (data + 0x20) : be16p (data + 0x1C);
@@ -2251,7 +2322,7 @@ int ParseCHR0IntoModel (model_t *model, const uint8_t *data, size_t size, const 
 
 		const uint32_t code = be32p (entry + 4);
 		chr0_track_t track;
-		decode_chr0_entry (&track, data, size, entry, code, numFrames);
+		decode_chr0_entry (&track, data, size, entry, code, numFrames, version, loop);
 
 		if (track.dense[0] || track.dense[1] || track.dense[2])
 		{
