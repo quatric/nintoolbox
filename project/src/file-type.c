@@ -2285,6 +2285,22 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Mercury Meltdown Revolution texture reference list (.TEX, Wii; plain text)" },
 
+	// FF_OCTOMANIA_SEC = 394 (Octomania secB scene/demo container)
+	// Confirmed "secB" header plus a decoded chunk table (names + tags);
+	// per-chunk binary payload data not reverse-engineered.
+	{ FF_OCTOMANIA_SEC, FF_OCTOMANIA_SEC, 0, "OCTOMANIA-SEC", ".sec", ".txt", ".sec",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Octomania secB scene/demo container (.sec, Wii; chunk table decoded, payload data not decoded)" },
+
+	// FF_OCTOMANIA_WT = 395 (Octomania wavetable sample-offset index)
+	// Confirmed leading table of sample byte-offsets into the companion
+	// .pcm file; trailing index/metadata not reverse-engineered.
+	{ FF_OCTOMANIA_WT, FF_OCTOMANIA_WT, 0, "OCTOMANIA-WT", ".wt", ".txt", ".wt",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Octomania wavetable sample-offset index (.wt, Wii; leading offset table only)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2557,6 +2573,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_MERCURY_MAT, "MERCURY-MAT", "MERCURY-MAT", 0xe05 },
 	{ FF_MERCURY_NAV, "MERCURY-NAV", "MERCURY-NAV", 0xe05 },
 	{ FF_MERCURY_TEX, "MERCURY-TEX", "MERCURY-TEX", 0xe05 },
+	{ FF_OCTOMANIA_SEC, "OCTOMANIA-SEC", "OCTOMANIA-SEC", 0xe05 },
+	{ FF_OCTOMANIA_WT, "OCTOMANIA-WT", "OCTOMANIA-WT", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

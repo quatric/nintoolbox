@@ -102,6 +102,7 @@
 #include "lib-pf2-piff.h"
 #include "lib-t3pk.h"
 #include "lib-mercurymeltdown.h"
+#include "lib-octomania.h"
 #include "lib-mtmob.h"
 #include "config.inc"
 
@@ -2153,6 +2154,11 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_MERCURY_COL;
 	if (IsMercuryPst (data8, data_size, file_size))
 		return FF_MERCURY_PST;
+	// Octomania (Wii) formats -- see lib-octomania.h.
+	if (IsOctomaniaSec (data8, data_size, file_size))
+		return FF_OCTOMANIA_SEC;
+	if (IsOctomaniaWt (data8, data_size, file_size))
+		return FF_OCTOMANIA_WT;
 	// Opoona .mol/.mot (reverse-engineered, no magic): the .mot probe
 	// requires an internally-consistent bone count plus a plausible
 	// frame-rate float, and .mol requires a run of structurally valid

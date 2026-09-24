@@ -126,6 +126,8 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **MERCURY-PST** | Wii / Texture | ✅ | ❌ | *Mercury Meltdown Revolution* paletted texture (`.pst`): "TSPA" magic, BE width/height header confirmed; pixel data layout not reverse-engineered |
 | **MERCURY-MAT** | Wii / Material | 🟡 | ❌ | *Mercury Meltdown Revolution* material float-record table (`.mat`): magic-less, no confirmed record layout found; extension-recognized only |
 | **MERCURY-NAV** | Wii / Navigation | 🟡 | ❌ | *Mercury Meltdown Revolution* navigation-mesh table (`.nav`): magic-less, many samples zero-length, no confirmed header shape found; extension-recognized only |
+| **OCTOMANIA-SEC** | Wii / Scene | ✅ | ❌ | *Octomania* "secB" scene/demo container (`.sec`): confirmed header + 32-byte chunk table with resolved names via a shared string table; per-chunk binary payload data not reverse-engineered |
+| **OCTOMANIA-WT** | Wii / Audio | ✅ | ❌ | *Octomania* wavetable sample-offset index (`.wt`): confirmed leading table of big-endian sample byte-offsets into the companion `.pcm` file; trailing MIDI-program index map not reverse-engineered |
 | **MSH (PMsh)** | Wii / Model | ✅ | ✅ | Monster Games collision mesh |
 | **MSBF / MSBP / MSBT** | Wii/3DS/Wii U/Switch / Text | ✅ | ✅ | Message Studio Binary Text and Flow |
 | **MSR** | 3DS / Archive | 🟡 | ⛔ | Metroid: Samus Returns archive |

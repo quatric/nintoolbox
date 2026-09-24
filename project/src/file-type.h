@@ -486,6 +486,8 @@ typedef enum file_format_t
 	FF_MERCURY_MAT, // 391 - Mercury Meltdown Revolution material float-record table (.mat; magic-less)
 	FF_MERCURY_NAV, // 392 - Mercury Meltdown Revolution navigation mesh table (.nav; magic-less, header only)
 	FF_MERCURY_TEX, // 393 - Mercury Meltdown Revolution "#TEX FILE" texture reference list (.TEX)
+	FF_OCTOMANIA_SEC, // 394 - Octomania "secB" scene/demo resource container (.sec)
+	FF_OCTOMANIA_WT, // 395 - Octomania wavetable sample-offset index (.wt, pairs with .pcm)
 
 	//--- number of elements
 
