@@ -2501,6 +2501,16 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Aqua Panic! single-light record (.lit, Wii; magic-less, fixed 48 bytes, fully decoded)" },
 
+	// FF_DIABOLIK_RES = 420 (Diabolik: The Original Sin FAAFFAAF resource container)
+	// One shared tagged-block container used unchanged across every one of
+	// .cfg/.gam/.loc/.ls/.rgn; the TAG/SIZE block tree, embedded ASCII
+	// names/ids, and embedded UTF-16BE dialogue/subtitle text are decoded,
+	// but individual numeric fields' meaning was not fully pinned down.
+	{ FF_DIABOLIK_RES, FF_DIABOLIK_RES, 0, "DIABOLIK-RES", ".gam", ".txt", ".gam",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Diabolik: The Original Sin FAAFFAAF resource container (.cfg/.gam/.loc/.ls/.rgn, Wii; block tree and embedded text decoded)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2799,6 +2809,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_AQUAPANIC_MB2, "AQUAPANIC-MB2", "AQUAPANIC-MB2", 0xe05 },
 	{ FF_AQUAPANIC_VIS, "AQUAPANIC-VIS", "AQUAPANIC-VIS", 0xe05 },
 	{ FF_AQUAPANIC_LIT, "AQUAPANIC-LIT", "AQUAPANIC-LIT", 0xe05 },
+	{ FF_DIABOLIK_RES, "DIABOLIK-RES", "DIABOLIK-RES", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

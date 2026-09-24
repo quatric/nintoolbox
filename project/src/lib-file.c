@@ -108,6 +108,7 @@
 #include "lib-httyd.h"
 #include "lib-bermudatriangle.h"
 #include "lib-aquapanic.h"
+#include "lib-diabolik.h"
 #include "lib-mtmob.h"
 #include "config.inc"
 
@@ -2227,6 +2228,13 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_AQUAPANIC_VIS;
 	if (IsAquaPanicLit (data8, data_size, file_size))
 		return FF_AQUAPANIC_LIT;
+	// Diabolik: The Original Sin (Wii) FAAFFAAF tagged-block resource
+	// container -- see lib-diabolik.h. Shared unchanged across
+	// .cfg/.gam/.loc/.ls/.rgn; gated by requiring the outer block's
+	// size field to span exactly to EOF and the trailing FEEFFEEF
+	// sentinel to be present.
+	if (IsDiabolikRes (data8, data_size, file_size))
+		return FF_DIABOLIK_RES;
 	// Opoona .mol/.mot (reverse-engineered, no magic): the .mot probe
 	// requires an internally-consistent bone count plus a plausible
 	// frame-rate float, and .mol requires a run of structurally valid
