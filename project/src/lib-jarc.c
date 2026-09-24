@@ -80,9 +80,15 @@ enumError DecodeJCMP (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 						zs.next_out = (Bytef *)out;
 						zs.avail_out = out_cap;
 						ret = inflate (&zs, Z_FINISH);
-						inflateEnd (&zs);
 						if (ret == Z_STREAM_END || ret == Z_OK)
-							break;
+						{
+							uint total_out = (uint)zs.total_out;
+							inflateEnd (&zs);
+							*dest = out;
+							*dest_size = total_out;
+							return ERR_OK;
+						}
+						inflateEnd (&zs);
 					}
 				}
 				FREE (out);
@@ -263,21 +269,12 @@ enumError ScanJARC (jarc_t *jarc, const u8 *data, size_t size)
 			return ERR_CANT_CREATE;
 		jarc->n_entries = n_files;
 
+		const uint entry_stride = ((u64)toc_offset + (u64)n_files * 16 <= bsize) ? 16 : 8;
 		for (uint i = 0; i < n_files; i++)
 		{
-			const u8 *entry_ptr = buf + toc_offset + i * 16;
-			u32 off = 0, len = 0;
-			if ((u64)toc_offset + (u64)(i + 1) * 16 <= bsize)
-			{
-				off = is_be ? rd_be32 (entry_ptr) : rd_le32 (entry_ptr);
-				len = is_be ? rd_be32 (entry_ptr + 4) : rd_le32 (entry_ptr + 4);
-			}
-			else
-			{
-				entry_ptr = buf + toc_offset + i * 8;
-				off = is_be ? rd_be32 (entry_ptr) : rd_le32 (entry_ptr);
-				len = is_be ? rd_be32 (entry_ptr + 4) : rd_le32 (entry_ptr + 4);
-			}
+			const u8 *entry_ptr = buf + toc_offset + i * entry_stride;
+			u32 off = is_be ? rd_be32 (entry_ptr) : rd_le32 (entry_ptr);
+			u32 len = is_be ? rd_be32 (entry_ptr + 4) : rd_le32 (entry_ptr + 4);
 
 			if (off < bsize && (u64)off + len <= bsize && len > 0)
 			{

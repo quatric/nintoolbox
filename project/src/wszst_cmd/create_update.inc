@@ -1694,6 +1694,11 @@ static bool valid_sarc_path (ccp path)
 	for (const u8 *p = (const u8 *)path; *p; p++)
 		if (*p < 0x20 || *p == 0x7f)
 			return false;
+	const size_t plen = strlen (path);
+	if (plen >= 3 && !strcmp (path + plen - 3, "/.."))
+		return false;
+	if (strchr (path, ':'))
+		return false;
 	return *path && path[0] != '/' && !strchr (path, '\\') && strncmp (path, "../", 3)
 		&& strcmp (path, "..") && !strstr (path, "/../") && valid_utf8 (path);
 }
@@ -1710,9 +1715,12 @@ static bool valid_sarc_path (ccp path)
 // "..\..\evil" or "../evil" can never climb out of the output directory.
 static bool valid_at7_path (ccp path)
 {
-	if (!path || !*path || path[0] == '/' || path[0] == '\\' || !valid_utf8 (path))
+	if (!path || !*path || path[0] == '/' || path[0] == '\\' || !valid_utf8 (path) || strchr (path, ':'))
 		return false;
 	if (!strcmp (path, ".") || !strcmp (path, ".."))
+		return false;
+	const size_t plen = strlen (path);
+	if (plen >= 3 && (!strcmp (path + plen - 3, "/..") || !strcmp (path + plen - 3, "\\..")))
 		return false;
 	if (strstr (path, "/../") || strstr (path, "\\..\\")
 		|| strstr (path, "\\../") || strstr (path, "/..\\"))

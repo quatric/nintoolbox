@@ -182,7 +182,7 @@ static bool cpk_utf_col_at (const cpk_utf_t *t, uint payload_size, uint i, u8 *f
 			uint len = 0;
 			while ((u64)(s - t->payload) + len < payload_size && s[len] && len < 256)
 				len++;
-			if ((u64)(s - t->payload) + len >= payload_size)
+			if ((u64)(s - t->payload) + len >= payload_size || s[len])
 				return false;
 			if (flags)
 				*flags = fl;
@@ -251,7 +251,7 @@ static bool cpk_utf_const (const cpk_utf_t *t, uint payload_size, uint col, u64 
 			uint len = 0;
 			while ((u64)(s - t->payload) + len < payload_size && s[len] && len < 256)
 				len++;
-			if ((u64)(s - t->payload) + len >= payload_size)
+			if ((u64)(s - t->payload) + len >= payload_size || s[len])
 				return false;
 			if (str)
 				*str = s;
@@ -364,7 +364,7 @@ static bool cpk_utf_cell (const cpk_utf_t *t, uint payload_size, uint row, uint 
 			uint len = 0;
 			while ((u64)(s - t->payload) + len < payload_size && s[len] && len < 256)
 				len++;
-			if ((u64)(s - t->payload) + len >= payload_size)
+			if ((u64)(s - t->payload) + len >= payload_size || s[len])
 				return false;
 			if (str)
 				*str = s;
@@ -548,7 +548,7 @@ enumError DecodeCRILAYLA (u8 **dest, uint *dest_size, const u8 *src, uint src_si
 				if (err)
 					break;
 			}
-			if (bro < 0 || (u64)len > (u64)usize - bytes_output)
+			if (bro < 0 || bro > output_end || (long)len > bro + 1 || (u64)len > (u64)usize - bytes_output)
 			{
 				err = EINVAL;
 				break;

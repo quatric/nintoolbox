@@ -2824,7 +2824,7 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 								if (sidx_off + 2 <= size)
 								{
 									int sidx = (int)(int16_t)le16 (d + sidx_off);
-									if (sidx >= 0)
+									if (sidx >= 0 && (uint)sidx < n_smooth)
 									{
 										const size_t moff
 											= (size_t)matrix_off + (size_t)sidx * 48;

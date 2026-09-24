@@ -232,9 +232,14 @@ enumError ScanUE4Pak (ue4_pak_t *pak, const u8 *data, size_t size)
 			e->block_count = le32 (p);
 			p += 4;
 
-			if (e->block_count > 0 && e->block_count < 100000 && p + e->block_count * 16 <= end)
+			if (e->block_count > 0 && e->block_count < 100000 && p + (u64)e->block_count * 16 <= end)
 			{
 				e->blocks = CALLOC (e->block_count, sizeof (ue4_pak_block_t));
+				if (!e->blocks)
+				{
+					e->block_count = 0;
+					break;
+				}
 				for (uint b = 0; b < e->block_count; b++)
 				{
 					e->blocks[b].comp_start = le64 (p);
@@ -242,6 +247,11 @@ enumError ScanUE4Pak (ue4_pak_t *pak, const u8 *data, size_t size)
 					e->blocks[b].comp_end = le64 (p);
 					p += 8;
 				}
+			}
+			else
+			{
+				e->block_count = 0;
+				break;
 			}
 		}
 
@@ -297,6 +307,9 @@ enumError ExtractUE4PakEntry (const ue4_pak_t *pak, uint index, u8 **dest, size_
 		return ERR_OK;
 	}
 
+	if (e->uncompressed_size > NFMT_MAX_OUTPUT)
+		return ERR_FILE_TOO_BIG;
+
 	u8 *out = MALLOC (e->uncompressed_size + 1);
 	if (!out)
 		return ERR_OUT_OF_MEMORY;
@@ -323,6 +336,12 @@ enumError ExtractUE4PakEntry (const ue4_pak_t *pak, uint index, u8 **dest, size_
 		return ERR_OK;
 	}
 
+	if (!e->blocks || !e->block_count || !e->block_size)
+	{
+		FREE (out);
+		return ERR_INVALID_DATA;
+	}
+
 	// Compressed entry: iterate compression blocks
 	bool is_zstd = !strcasecmp (e->method_name, "Zstd") || e->compression_method == 2;
 	size_t written_total = 0;
@@ -340,6 +359,11 @@ enumError ExtractUE4PakEntry (const ue4_pak_t *pak, uint index, u8 **dest, size_
 		size_t clen = (size_t)(cend - cstart);
 		const u8 *csrc = pak->data + cstart;
 		size_t dst_off = (size_t)b * e->block_size;
+		if (dst_off >= e->uncompressed_size)
+		{
+			FREE (out);
+			return ERR_INVALID_DATA;
+		}
 		size_t expected_dst = e->block_size;
 		if (dst_off + expected_dst > e->uncompressed_size)
 			expected_dst = e->uncompressed_size - dst_off;
@@ -411,17 +435,28 @@ enumError CreateUE4Pak (u8 **dest, size_t *dest_size, const char *mount_point, u
 
 	size_t index_size = 4 + strlen (mp) + 1 + 4;
 	for (uint i = 0; i < n_files; i++)
+	{
+		if (!rel_paths[i])
+			return ERR_INVALID_DATA;
 		index_size += 4 + strlen (rel_paths[i]) + 1 + 8 + 8 + 8 + 4 + 20 + 1 + 4;
+	}
 
 	size_t footer_size = 221;
 	size_t total_size = data_payload_size + index_size + footer_size;
+	if (total_size > NFMT_MAX_OUTPUT)
+		return ERR_FILE_TOO_BIG;
 
 	u8 *buf = CALLOC (1, total_size);
 	if (!buf)
 		return ERR_OUT_OF_MEMORY;
 
 	u8 *p = buf;
-	u64 *offsets = CALLOC (n_files, sizeof (u64));
+	u64 *offsets = CALLOC (n_files ? n_files : 1, sizeof (u64));
+	if (!offsets)
+	{
+		FREE (buf);
+		return ERR_OUT_OF_MEMORY;
+	}
 
 	// Write data payloads
 	for (uint i = 0; i < n_files; i++)

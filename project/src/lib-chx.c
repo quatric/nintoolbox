@@ -38,7 +38,10 @@ enumError ExtractCHXArchive (ccp arg, ccp basedir, uint depth)
 			if (n_strs == cap)
 			{
 				cap = cap ? cap * 2 : 32;
-				strs = REALLOC (strs, cap * sizeof (*strs));
+				ccp *new_strs = REALLOC (strs, cap * sizeof (*strs));
+				if (!new_strs)
+					break;
+				strs = new_strs;
 			}
 			strs[n_strs++] = (ccp)(raw + start);
 		}
@@ -68,19 +71,29 @@ enumError ExtractCHXArchive (ccp arg, ccp basedir, uint depth)
 		size_t total = 0;
 		for (uint k = 0; k < n_strs; k++)
 			total += strlen (strs[k]) + 1;
-		char *text = MALLOC (total + 1);
-		char *w = text;
-		for (uint k = 0; k < n_strs; k++)
+		if (total > NFMT_MAX_OUTPUT)
+			err = ERR_FILE_TOO_BIG;
+		else
 		{
-			const size_t l = strlen (strs[k]);
-			memcpy (w, strs[k], l);
-			w += l;
-			*w++ = '\n';
+			char *text = MALLOC (total + 1);
+			if (!text)
+				err = ERR_OUT_OF_MEMORY;
+			else
+			{
+				char *w = text;
+				for (uint k = 0; k < n_strs; k++)
+				{
+					const size_t l = strlen (strs[k]);
+					memcpy (w, strs[k], l);
+					w += l;
+					*w++ = '\n';
+				}
+				*w = 0;
+				if (SaveFile (out, 0, 0, (const u8 *)text, (uint)(w - text), 0))
+					err = ERR_CANT_CREATE;
+				FREE (text);
+			}
 		}
-		*w = 0;
-		if (SaveFile (out, 0, 0, (const u8 *)text, (uint)(w - text), 0))
-			err = ERR_CANT_CREATE;
-		FREE (text);
 	}
 
 	FREE (strs);

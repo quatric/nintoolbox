@@ -312,6 +312,8 @@ enumError DecodeVoiceAmc_Text (FILE *f, const u8 *data, size_t size, size_t file
 		return EINVAL;
 
 	char *text = dup_text (data, size);
+	if (!text)
+		return ERR_OUT_OF_MEMORY;
 	const char *end = text + size;
 
 	fprintf (f, "# The Voice: animesh catalogue (.amc)\n");
@@ -345,6 +347,8 @@ enumError DecodeVoiceAms_Text (FILE *f, const u8 *data, size_t size, size_t file
 		return EINVAL;
 
 	char *text = dup_text (data, size);
+	if (!text)
+		return ERR_OUT_OF_MEMORY;
 	const char *end = text + size;
 
 	fprintf (f, "# The Voice: animesh sequence (.ams)\n");
@@ -409,6 +413,8 @@ enumError DecodeVoicePalcat_Text (FILE *f, const u8 *data, size_t size, size_t f
 		return EINVAL;
 
 	char *text = dup_text (data, size);
+	if (!text)
+		return ERR_OUT_OF_MEMORY;
 	const char *end = text + size;
 
 	fprintf (f, "# The Voice: palette catalogue (.palcat)\n");
@@ -445,6 +451,8 @@ enumError DecodeVoicePalseq_Text (FILE *f, const u8 *data, size_t size, size_t f
 		return EINVAL;
 
 	char *text = dup_text (data, size);
+	if (!text)
+		return ERR_OUT_OF_MEMORY;
 	const char *end = text + size;
 
 	fprintf (f, "# The Voice: palette sequence (.palseq)\n");

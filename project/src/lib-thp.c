@@ -34,6 +34,8 @@ enumError ExtractTHP (
 	// Allocate entries (up to frame_count * num_comps)
 	nintendo_sarc_entry_t *entries
 		= CALLOC (frame_count * num_comps, sizeof (nintendo_sarc_entry_t));
+	if (!entries)
+		return ERR_CANT_CREATE;
 	uint count = 0;
 
 	u32 cur_off = movie_data_off;
@@ -63,18 +65,33 @@ enumError ExtractTHP (
 				else
 					snprintf (name, sizeof (name), "audio_%05u_%u.bin", f, c);
 
-				entries[count].name = STRDUP (name);
+				char *nm = STRDUP (name);
+				if (!nm)
+					break;
+				u8 *copy = MALLOC (csz);
+				if (!copy)
+				{
+					FREE (nm);
+					break;
+				}
+				memcpy (copy, thp_data + comp_payload_off, csz);
+				entries[count].name = nm;
 				entries[count].size = csz;
-				entries[count].data = MALLOC (csz);
-				memcpy ((void *)entries[count].data, thp_data + comp_payload_off, csz);
+				entries[count].data = copy;
 				count++;
 				comp_payload_off += csz;
 			}
 		}
 
-		if (next_frame_size == 0)
+		if (next_frame_size == 0 || (u64)cur_off + next_frame_size > thp_size)
 			break;
 		cur_off += next_frame_size;
+	}
+
+	if (!count)
+	{
+		FREE (entries);
+		return ERR_INVALID_DATA;
 	}
 
 	*out_entries = entries;

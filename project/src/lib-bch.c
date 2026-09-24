@@ -667,6 +667,8 @@ void *ParseBCH (const u8 *data, uint size)
 
 			for (u32 k = 0; k < ist.n_vertices; k++)
 			{
+				if (n >= total_idx)
+					break;
 				const u32 vi
 					= is16 ? (u32)((u16)b[ia + k * 2] | (u16)b[ia + k * 2 + 1] << 8) : b[ia + k];
 				const u64 vo = vbase + (u64)vi * vst.stride;
@@ -805,7 +807,7 @@ enumError DecodeBCHTexture (u8 **dest, uint *width, uint *height, const bch_t *b
 		}
 	}
 
-	if (!w || !h || !data_addr || (u64)data_addr >= bsize)
+	if (!w || !h || w > 4096 || h > 4096 || !data_addr || (u64)data_addr >= bsize)
 		return EINVAL;
 
 	const u8 *src = b + data_addr;
@@ -855,13 +857,28 @@ enumError ExportBCHTextures (const bch_t *bch, const char *dest_path_or_dir)
 		else
 			snprintf (clean_name, sizeof (clean_name), "tex_%03u", i);
 
+		for (char *c = clean_name; *c; c++)
+			if (*c == '/' || *c == '\\' || *c == ':')
+				*c = '_';
+
 		char out_path[PATH_MAX];
 		snprintf (out_path, sizeof (out_path), "%s/%s.png", dir, clean_name);
 
 		Image_t img;
 		InitializeIMG (&img);
 		const uint xw = EXPAND8 (w), xh = EXPAND8 (h);
-		u8 *padded = xw == w && xh == h ? rgba : CALLOC (1, xw * xh * 4);
+		if ((u64)xw * xh * 4 > 0x40000000)
+		{
+			FREE (rgba);
+			continue;
+		}
+		const size_t padded_size = (size_t)xw * xh * 4;
+		u8 *padded = (xw == w && xh == h) ? rgba : CALLOC (1, padded_size);
+		if (!padded)
+		{
+			FREE (rgba);
+			continue;
+		}
 		if (padded != rgba)
 		{
 			for (uint y = 0; y < h; y++)
@@ -870,7 +887,7 @@ enumError ExportBCHTextures (const bch_t *bch, const char *dest_path_or_dir)
 		}
 		img.data = padded;
 		img.data_alloced = true;
-		img.data_size = xw * xh * 4;
+		img.data_size = padded_size;
 		img.width = w;
 		img.xwidth = xw;
 		img.height = h;

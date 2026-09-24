@@ -205,20 +205,21 @@ enumError ScanIPK (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 			for (char *p = full; *p; p++)
 				if (*p == '\\')
 					*p = '/';
-			while (full[0] == '/')
-				memmove (full, full + 1, strlen (full));
-			if (!OwnedNameOk (full))
+			ccp clean_full = full;
+			while (*clean_full == '/')
+				clean_full++;
+			if (!*clean_full || !OwnedNameOk (clean_full))
 				snprintf (name, sizeof (name), "%04u.bin", i);
 			else
 			{
-				snprintf (name, sizeof (name), "%s", full);
+				snprintf (name, sizeof (name), "%s", clean_full);
 				name[sizeof (name) - 1] = 0;
 			}
 		}
 
 		// Data slice: stored bytes are zsize (compressed) or size.
 		const u32 stored = zsize ? zsize : fsize;
-		if ((u64)base + foff + stored > size)
+		if (foff >= size || stored > size || (u64)base + foff + stored > size)
 		{
 			ResetOwnedEntries (out, n);
 			return EINVAL;

@@ -187,11 +187,19 @@ static void arika_list_push (arika_list_t *list, ccp name, const u8 *data, u32 s
 		list->entries = ne;
 		list->cap = ncap;
 	}
-	nintendo_sarc_entry_t *e = list->entries + list->n++;
-	e->name = STRDUP (name);
+	char *nm = STRDUP (name);
+	if (!nm)
+		return;
 	u8 *copy = size ? MALLOC (size) : 0;
+	if (size && !copy)
+	{
+		FREE (nm);
+		return;
+	}
 	if (copy)
 		memcpy (copy, data, size);
+	nintendo_sarc_entry_t *e = list->entries + list->n++;
+	e->name = nm;
 	e->data = copy;
 	e->size = size;
 }
@@ -213,8 +221,10 @@ static void arika_list_push (arika_list_t *list, ccp name, const u8 *data, u32 s
 // Sub-entry (20h bytes): 14h-byte name, 4-byte size, 4-byte offset (relative
 // to the RF2 tag's own offset), 4-byte flags (unused).
 static void walk_rf2_or_leaf (
-	arika_list_t *list, const u8 *data, uint size, uint off, u32 leaf_size, ccp name)
+	arika_list_t *list, const u8 *data, uint size, uint off, u32 leaf_size, ccp name, uint depth)
 {
+	if (depth > 16)
+		return;
 	if (off + 16 <= size && !memcmp (data + off, "RF2", 3))
 	{
 		const uint base_off = off;
@@ -233,7 +243,7 @@ static void walk_rf2_or_leaf (
 				const u32 ssize = rd_le32 (rec + 20);
 				const u64 soff64 = (u64)rd_le32 (rec + 24) + base_off;
 				if (ssize && soff64 < size && soff64 + ssize <= size)
-					walk_rf2_or_leaf (list, data, size, (uint)soff64, ssize, sub);
+					walk_rf2_or_leaf (list, data, size, (uint)soff64, ssize, sub, depth + 1);
 			}
 			return;
 		}
@@ -289,8 +299,8 @@ enumError ExtractArika (nintendo_sarc_entry_t **out_entries, uint *out_n_entries
 		if (zsize == dsize)
 		{
 			// Stored raw (and possibly itself an RF2 group).
-			if (zsize <= avail)
-				walk_rf2_or_leaf (&list, game_data, game_size, (uint)byte_off, zsize, name);
+			if (zsize <= avail && zsize <= NFMT_MAX_OUTPUT)
+				walk_rf2_or_leaf (&list, game_data, game_size, (uint)byte_off, zsize, name, 0);
 			continue;
 		}
 
@@ -310,7 +320,7 @@ enumError ExtractArika (nintendo_sarc_entry_t **out_entries, uint *out_n_entries
 		if (!blob)
 			continue;
 		if (!DecodeALZ1 (blob, dsize, e + hdr, zsize - hdr))
-			walk_rf2_or_leaf (&list, blob, dsize, 0, dsize, name);
+			walk_rf2_or_leaf (&list, blob, dsize, 0, dsize, name, 0);
 		FREE (blob);
 	}
 
@@ -376,6 +386,16 @@ enumError CreateArika (u8 **dest_info, uint *dest_info_size, u8 **dest_game, uin
 		if (zdata && zsize + 4 < ssize)
 		{
 			payload[i] = MALLOC (zsize + 4);
+			if (!payload[i])
+			{
+				FREE (zdata);
+				for (uint k = 0; k < i; k++)
+					FREE (payload[k]);
+				FREE (payload);
+				FREE (psize);
+				FREE (info);
+				return ERR_CANT_CREATE;
+			}
 			memcpy (payload[i], "ALZ1", 4);
 			memcpy (payload[i] + 4, zdata, zsize);
 			psize[i] = zsize + 4;
@@ -383,6 +403,16 @@ enumError CreateArika (u8 **dest_info, uint *dest_info_size, u8 **dest_game, uin
 		else
 		{
 			payload[i] = ssize ? MALLOC (ssize) : 0;
+			if (ssize && !payload[i])
+			{
+				FREE (zdata);
+				for (uint k = 0; k < i; k++)
+					FREE (payload[k]);
+				FREE (payload);
+				FREE (psize);
+				FREE (info);
+				return ERR_CANT_CREATE;
+			}
 			if (ssize)
 				memcpy (payload[i], src, ssize);
 			psize[i] = ssize;
