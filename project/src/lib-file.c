@@ -92,6 +92,7 @@
 #include "lib-magma.h"
 #include "lib-thevoice.h"
 #include "lib-dogisland.h"
+#include "lib-muramasa.h"
 #include "lib-mtmob.h"
 #include "config.inc"
 
@@ -2175,6 +2176,13 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_DOGISLAND_MPQ;
 	if (IsDogIslandScript (data8, data_size, file_size))
 		return FF_DOGISLAND_SCRIPT;
+	// Muramasa - The Demon Blade (Wii) formats -- see lib-muramasa.h.
+	if (IsMuramasaFcmp (data8, data_size, file_size))
+		return FF_MURAMASA_FCMP;
+	if (IsMuramasaOtb (data8, data_size, file_size))
+		return FF_MURAMASA_OTB;
+	if (IsMuramasaNsi (data8, data_size, file_size))
+		return FF_MURAMASA_NSI;
 
 	const nfmt_info_t nfmt = DetectNintendoFormat (data, data_size, 0);
 	switch (nfmt.type)

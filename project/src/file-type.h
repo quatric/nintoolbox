@@ -462,6 +462,9 @@ typedef enum file_format_t
 	FF_DOGISLAND_CPRM, // 367 - The Dog Island fixed float record table (.cprm)
 	FF_DOGISLAND_SCRIPT, // 368 - The Dog Island script bytecode (.efi/.sci/.qci)
 	FF_DOGISLAND_MPQ, // 369 - The Dog Island custom MPQ-like container (.mpq; NOT Blizzard MPQ)
+	FF_MURAMASA_FCMP, // 370 - Muramasa FCMP compressed container (.mbs/.ftx/.esb/.nsb/.abf/.nms; payload not decoded)
+	FF_MURAMASA_OTB, // 371 - Muramasa .otb table (header only)
+	FF_MURAMASA_NSI, // 372 - Muramasa .nsi sound info table (header only)
 
 	//--- number of elements
 

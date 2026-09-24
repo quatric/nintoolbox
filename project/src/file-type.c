@@ -2064,6 +2064,29 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"The Dog Island custom MPQ-like container (.mpq, Wii; NOT Blizzard MPQ, archive table not decoded)" },
 
+	// FF_MURAMASA_FCMP = 370 (Muramasa FCMP compressed container)
+	// Wraps ".mbs"/".ftx"/".esb"/".nsb"/".abf"/".nms"; only the outer
+	// header + inner sub-blob tag are decoded, the compressed payload
+	// itself is not (Yaz0/Yaz1 ruled out; see lib-muramasa.h).
+	{ FF_MURAMASA_FCMP, FF_MURAMASA_FCMP, 0, "MURAMASA-FCMP", ".mbs", ".txt", ".mbs",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Muramasa FCMP compressed container (.mbs/.ftx/.esb/.nsb/.abf/.nms, Wii; payload not decoded)" },
+
+	// FF_MURAMASA_OTB = 371 (Muramasa .otb table)
+	// Confirmed header only, entry table not reverse-engineered.
+	{ FF_MURAMASA_OTB, FF_MURAMASA_OTB, 0, "MURAMASA-OTB", ".otb", ".txt", ".otb",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Muramasa .otb table (Wii; header only, entry table not decoded)" },
+
+	// FF_MURAMASA_NSI = 372 (Muramasa .nsi sound info table)
+	// Confirmed header only, entry table not reverse-engineered.
+	{ FF_MURAMASA_NSI, FF_MURAMASA_NSI, 0, "MURAMASA-NSI", ".nsi", ".txt", ".nsi",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Muramasa .nsi sound info table (Wii; header only, entry table not decoded)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2313,6 +2336,9 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_DOGISLAND_CPRM, "DOGISLAND-CPRM", "DOGISLAND-CPRM", 0xe05 },
 	{ FF_DOGISLAND_SCRIPT, "DOGISLAND-SCRIPT", "DOGISLAND-SCRIPT", 0xe05 },
 	{ FF_DOGISLAND_MPQ, "DOGISLAND-MPQ", "DOGISLAND-MPQ", 0xe05 },
+	{ FF_MURAMASA_FCMP, "MURAMASA-FCMP", "MURAMASA-FCMP", 0xe05 },
+	{ FF_MURAMASA_OTB, "MURAMASA-OTB", "MURAMASA-OTB", 0xe05 },
+	{ FF_MURAMASA_NSI, "MURAMASA-NSI", "MURAMASA-NSI", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

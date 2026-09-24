@@ -919,6 +919,22 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		if (slash && slash - arg > 6 && !memcmp (slash - 6, ".res.d", 6) && !is_ext (arg, ".surf"))
 			return ERR_OK;
 	}
+	// Muramasa (Wii) ".otb"/".nsi" tables have loose, magic-less-looking
+	// internal count/offset fields that a generic archive/table sniffer
+	// further down this function can mistake for its own format (observed:
+	// ".otb" spuriously matched as an unknown/generic member archive). Give
+	// the extension-gated Muramasa probes first refusal, before any of the
+	// generic sniffers below get a chance to misfire on them.
+	enumError err = extract_muramasa_otb_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_muramasa_nsi_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_muramasa_fcmp_manifest (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
 	char pbase_buf[PATH_MAX] = "";
 	ccp pbase = opt_dest && *opt_dest ? opt_dest : basedir;
 	if (pbase)
@@ -946,7 +962,7 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	// plausible object-flow version/count pair. Extension plus the strict
 	// texture-header/size validation must therefore get first refusal before
 	// generic format/pass-through probes classify them as OBFLOW.
-	enumError err = extract_tex_file (arg, basedir, depth);
+	err = extract_tex_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_ctxb_file (arg, basedir, depth);

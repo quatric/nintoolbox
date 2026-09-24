@@ -11282,6 +11282,62 @@ DEFINE_EXTRACT_DOGISLAND (mpq,  is_ext (arg, ".mpq"),  IsDogIslandMpq,  DecodeDo
 
 #undef DEFINE_EXTRACT_DOGISLAND
 
+// Muramasa - The Demon Blade (Wii) formats -- see lib-muramasa.h. The
+// "FCMP" container decoder is shared across all six on-disc extensions it
+// wraps, since detection/decode only depend on the outer header + inner
+// sub-blob tag, not the extension itself.
+#define DEFINE_EXTRACT_MURAMASA(name,ext_expr,is_fn,decode_fn) \
+static enumError extract_muramasa_##name##_manifest (ccp arg) \
+{ \
+	if (!(ext_expr)) \
+		return ERR_NOTHING_TO_DO; \
+\
+	u8 *raw = 0; \
+	size_t raw_size = 0; \
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false); \
+	if (err) \
+		return ERR_NOTHING_TO_DO; \
+\
+	if (!is_fn (raw, raw_size, raw_size)) \
+	{ \
+		FREE (raw); \
+		return ERR_NOTHING_TO_DO; \
+	} \
+\
+	char dest[PATH_MAX]; \
+	if (opt_dest) \
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false); \
+	else \
+		snprintf (dest, sizeof (dest), "%s.txt", arg); \
+\
+	if (verbose >= 0 || testmode) \
+		fprintf (stdlog, "%s%sDECODE MURAMASA-" #name ":%s -> %s\n", verbose > 0 ? "\n" : "", \
+			testmode ? "WOULD " : "", arg, dest); \
+\
+	if (testmode) \
+	{ \
+		FREE (raw); \
+		return ERR_OK; \
+	} \
+\
+	File_t F; \
+	err = CreateFileOpt (&F, true, dest, false, arg); \
+	if (F.f) \
+		err = decode_fn (F.f, raw, raw_size, raw_size); \
+	ResetFile (&F, opt_preserve); \
+	FREE (raw); \
+	return err; \
+}
+
+DEFINE_EXTRACT_MURAMASA (fcmp,
+	is_ext (arg, ".mbs") || is_ext (arg, ".ftx") || is_ext (arg, ".esb") ||
+	is_ext (arg, ".nsb") || is_ext (arg, ".abf") || is_ext (arg, ".nms"),
+	IsMuramasaFcmp, DecodeMuramasaFcmp_Text)
+DEFINE_EXTRACT_MURAMASA (otb, is_ext (arg, ".otb"), IsMuramasaOtb, DecodeMuramasaOtb_Text)
+DEFINE_EXTRACT_MURAMASA (nsi, is_ext (arg, ".nsi"), IsMuramasaNsi, DecodeMuramasaNsi_Text)
+
+#undef DEFINE_EXTRACT_MURAMASA
+
 static enumError extract_mtmrl_manifest (ccp arg)
 {
 	if (!is_ext (arg, ".mrl"))
