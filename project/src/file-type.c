@@ -2002,6 +2002,68 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"The Voice palette sequence (.palseq, Wii)" },
 
+	// FF_DOGISLAND_WDS = 362 (The Dog Island WARDP dialogue table)
+	// Confirmed interleaved offset/index table plus a raw string blob;
+	// decoded to one text field per entry (see lib-dogisland.h).
+	{ FF_DOGISLAND_WDS, FF_DOGISLAND_WDS, 0, "DOGISLAND-WDS", ".wds", ".txt", ".wds",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"The Dog Island WARDP dialogue table (.wds, Wii)" },
+
+	// FF_DOGISLAND_WDB = 363 (The Dog Island offset/string table)
+	// Confirmed fixed 24-byte record table with start/end string offsets.
+	{ FF_DOGISLAND_WDB, FF_DOGISLAND_WDB, 0, "DOGISLAND-WDB", ".wdb", ".txt", ".wdb",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"The Dog Island offset/string table (.wdb, Wii)" },
+
+	// FF_DOGISLAND_YOBJ = 364 (The Dog Island YOBJ model)
+	// Bare or DUMY-wrapped "YOBJ" chunk; only the outer header is
+	// decoded, the internal bone/mesh table is not reverse-engineered.
+	{ FF_DOGISLAND_YOBJ, FF_DOGISLAND_YOBJ, 0, "DOGISLAND-YOBJ", ".ymg", ".txt", ".ymg",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"The Dog Island YOBJ model (.ymg/.ymm, Wii; internal table not decoded)" },
+
+	// FF_DOGISLAND_PMS = 365 (The Dog Island EVNT event script)
+	// Confirmed fixed header (magic + LE event id matching the filename);
+	// the script bytecode body is not reverse-engineered.
+	{ FF_DOGISLAND_PMS, FF_DOGISLAND_PMS, 0, "DOGISLAND-PMS", ".pms", ".txt", ".pms",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"The Dog Island EVNT event script (.pms, Wii; bytecode body not decoded)" },
+
+	// FF_DOGISLAND_MTT = 366 (The Dog Island DUMY+POF0 container)
+	// Also seen reused for ".ypc"/".pac"; only the outer DUMY+POF0 shell
+	// is decoded, the packed pointer table is not reverse-engineered.
+	{ FF_DOGISLAND_MTT, FF_DOGISLAND_MTT, 0, "DOGISLAND-MTT", ".mtt", ".txt", ".mtt",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"The Dog Island DUMY+POF0 pointer-fixup container (.mtt/.ypc/.pac, Wii; pointer table not decoded)" },
+
+	// FF_DOGISLAND_CPRM = 367 (The Dog Island fixed float record table)
+	// Fully confirmed big-endian header + 64-byte record layout.
+	{ FF_DOGISLAND_CPRM, FF_DOGISLAND_CPRM, 0, "DOGISLAND-CPRM", ".cprm", ".txt", ".cprm",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"The Dog Island fixed float record table (.cprm, Wii)" },
+
+	// FF_DOGISLAND_SCRIPT = 368 (The Dog Island script bytecode)
+	// Covers ".efi"/".sci"/".qci"; structural header probe only, opcode
+	// semantics are not reverse-engineered.
+	{ FF_DOGISLAND_SCRIPT, FF_DOGISLAND_SCRIPT, 0, "DOGISLAND-SCRIPT", ".efi", ".txt", ".efi",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"The Dog Island script bytecode (.efi/.sci/.qci, Wii; opcodes not decoded)" },
+
+	// FF_DOGISLAND_MPQ = 369 (The Dog Island custom "MPQ" container)
+	// Magic "MPQ\0" -- verified NOT to be Blizzard's MPQ format (which
+	// uses "MPQ\x1A" and a different header layout). Outer header only.
+	{ FF_DOGISLAND_MPQ, FF_DOGISLAND_MPQ, 0, "DOGISLAND-MPQ", ".mpq", ".txt", ".mpq",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"The Dog Island custom MPQ-like container (.mpq, Wii; NOT Blizzard MPQ, archive table not decoded)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2243,6 +2305,14 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_VOICE_AMS, "VOICE-AMS", "VOICE-AMS", 0xe05 },
 	{ FF_VOICE_PALCAT, "VOICE-PALCAT", "VOICE-PALCAT", 0xe05 },
 	{ FF_VOICE_PALSEQ, "VOICE-PALSEQ", "VOICE-PALSEQ", 0xe05 },
+	{ FF_DOGISLAND_WDS, "DOGISLAND-WDS", "DOGISLAND-WDS", 0xe05 },
+	{ FF_DOGISLAND_WDB, "DOGISLAND-WDB", "DOGISLAND-WDB", 0xe05 },
+	{ FF_DOGISLAND_YOBJ, "DOGISLAND-YOBJ", "DOGISLAND-YOBJ", 0xe05 },
+	{ FF_DOGISLAND_PMS, "DOGISLAND-PMS", "DOGISLAND-PMS", 0xe05 },
+	{ FF_DOGISLAND_MTT, "DOGISLAND-MTT", "DOGISLAND-MTT", 0xe05 },
+	{ FF_DOGISLAND_CPRM, "DOGISLAND-CPRM", "DOGISLAND-CPRM", 0xe05 },
+	{ FF_DOGISLAND_SCRIPT, "DOGISLAND-SCRIPT", "DOGISLAND-SCRIPT", 0xe05 },
+	{ FF_DOGISLAND_MPQ, "DOGISLAND-MPQ", "DOGISLAND-MPQ", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

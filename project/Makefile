@@ -473,7 +473,7 @@ CFLAGS		+= -I$(DCLIB_DIR)
 
 # other objects
 # lib-hbdf.o/lib-image-load.o (in every tool) reference these, so link them everywhere
-SZS_O		:= $(XOBJ_IMAGE) lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-nsbmd.o lib-nlg-lm.o lib-fedforce.o lib-excite.o lib-gf3ds.o lib-opoona.o lib-monster4x4.o lib-magma.o lib-thevoice.o lib-mtmob.o lib-bch.o lib-std.o lib-file.o lib-numeric.o lib-nds-banner.o lib-wii-banner.o \
+SZS_O		:= $(XOBJ_IMAGE) lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-nsbmd.o lib-nlg-lm.o lib-fedforce.o lib-excite.o lib-gf3ds.o lib-opoona.o lib-monster4x4.o lib-magma.o lib-thevoice.o lib-dogisland.o lib-mtmob.o lib-bch.o lib-std.o lib-file.o lib-numeric.o lib-nds-banner.o lib-wii-banner.o \
 		   lib-szs.o fastyz.o trueyz.o lib-checksum.o lib-nintendo.o lib-nlg-probe.o \
 		   lib-dsb.o lib-bnr.o lib-brfnt.o lib-brfna.o lib-bcfnt.o lib-mpr-pak.o \
 		   lib-ncgr.o lib-nclr.o lib-sarc.o lib-nw4r.o lib-rst.o lib-thp.o \

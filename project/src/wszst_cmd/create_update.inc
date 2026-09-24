@@ -11220,6 +11220,68 @@ DEFINE_EXTRACT_VOICE (palseq, ".palseq", IsVoicePalseq, DecodeVoicePalseq_Text)
 
 #undef DEFINE_EXTRACT_VOICE
 
+// The Dog Island (Wii) formats -- differ only in extension-match
+// expression, detector and decoder; see lib-dogisland.h. 'ext_expr' is a
+// full boolean expression (built from is_ext()) so a decoder can be
+// shared across multiple on-disc extensions (".mtt"/".ypc"/".pac" and
+// ".efi"/".sci"/".qci" both reuse the same on-disc container/probe).
+#define DEFINE_EXTRACT_DOGISLAND(name,ext_expr,is_fn,decode_fn) \
+static enumError extract_dogisland_##name##_manifest (ccp arg) \
+{ \
+	if (!(ext_expr)) \
+		return ERR_NOTHING_TO_DO; \
+\
+	u8 *raw = 0; \
+	size_t raw_size = 0; \
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false); \
+	if (err) \
+		return ERR_NOTHING_TO_DO; \
+\
+	if (!is_fn (raw, raw_size, raw_size)) \
+	{ \
+		FREE (raw); \
+		return ERR_NOTHING_TO_DO; \
+	} \
+\
+	char dest[PATH_MAX]; \
+	if (opt_dest) \
+		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false); \
+	else \
+		snprintf (dest, sizeof (dest), "%s.txt", arg); \
+\
+	if (verbose >= 0 || testmode) \
+		fprintf (stdlog, "%s%sDECODE DOGISLAND-" #name ":%s -> %s\n", verbose > 0 ? "\n" : "", \
+			testmode ? "WOULD " : "", arg, dest); \
+\
+	if (testmode) \
+	{ \
+		FREE (raw); \
+		return ERR_OK; \
+	} \
+\
+	File_t F; \
+	err = CreateFileOpt (&F, true, dest, false, arg); \
+	if (F.f) \
+		err = decode_fn (F.f, raw, raw_size, raw_size); \
+	ResetFile (&F, opt_preserve); \
+	FREE (raw); \
+	return err; \
+}
+
+DEFINE_EXTRACT_DOGISLAND (wds,  is_ext (arg, ".wds"),  IsDogIslandWds,  DecodeDogIslandWds_Text)
+DEFINE_EXTRACT_DOGISLAND (wdb,  is_ext (arg, ".wdb"),  IsDogIslandWdb,  DecodeDogIslandWdb_Text)
+DEFINE_EXTRACT_DOGISLAND (yobj, is_ext (arg, ".ymg") || is_ext (arg, ".ymm"),
+	IsDogIslandYobj, DecodeDogIslandYobj_Text)
+DEFINE_EXTRACT_DOGISLAND (pms,  is_ext (arg, ".pms"),  IsDogIslandPms,  DecodeDogIslandPms_Text)
+DEFINE_EXTRACT_DOGISLAND (mtt,  is_ext (arg, ".mtt") || is_ext (arg, ".ypc") || is_ext (arg, ".pac"),
+	IsDogIslandMtt, DecodeDogIslandMtt_Text)
+DEFINE_EXTRACT_DOGISLAND (cprm, is_ext (arg, ".cprm"), IsDogIslandCprm, DecodeDogIslandCprm_Text)
+DEFINE_EXTRACT_DOGISLAND (script, is_ext (arg, ".efi") || is_ext (arg, ".sci") || is_ext (arg, ".qci"),
+	IsDogIslandScript, DecodeDogIslandScript_Text)
+DEFINE_EXTRACT_DOGISLAND (mpq,  is_ext (arg, ".mpq"),  IsDogIslandMpq,  DecodeDogIslandMpq_Text)
+
+#undef DEFINE_EXTRACT_DOGISLAND
+
 static enumError extract_mtmrl_manifest (ccp arg)
 {
 	if (!is_ext (arg, ".mrl"))

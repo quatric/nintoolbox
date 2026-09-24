@@ -30,6 +30,7 @@
 #include "lib-monster4x4.h"
 #include "lib-magma.h"
 #include "lib-thevoice.h"
+#include "lib-dogisland.h"
 #include "lib-mtmob.h"
 #include "lib-bars.h"
 #include "lib-fsb.h"

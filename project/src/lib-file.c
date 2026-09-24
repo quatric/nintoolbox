@@ -91,6 +91,7 @@
 #include "lib-monster4x4.h"
 #include "lib-magma.h"
 #include "lib-thevoice.h"
+#include "lib-dogisland.h"
 #include "lib-mtmob.h"
 #include "config.inc"
 
@@ -1024,6 +1025,13 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_TTMODEL;
 		if (IsXB (data8, data_size))
 			return FF_XB;
+		// The Dog Island .cprm fixed float record table happens to also
+		// satisfy IsMPMESS()'s looser header check on some sample sizes
+		// (both are magic-less BE count/offset headers), so this
+		// narrower, exact-size-match probe is checked first -- see
+		// lib-dogisland.h.
+		if (IsDogIslandCprm (data8, data_size, file_size))
+			return FF_DOGISLAND_CPRM;
 		if (IsMPMESS (data8, data_size))
 			return FF_MPMESS;
 		if (IsMPBoard (data8, data_size))
@@ -2146,6 +2154,27 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_VOICE_PALCAT;
 	if (IsVoicePalseq (data8, data_size, file_size))
 		return FF_VOICE_PALSEQ;
+	// The Dog Island (Wii) formats -- see lib-dogisland.h for exactly
+	// what is and is not understood about each. ".efi"/".sci"/".qci" have
+	// no fixed magic and only a loose structural probe (small header_size
+	// + zero word), so they run last among these, after the
+	// stricter-magic formats below have already had a chance to match.
+	if (IsDogIslandWds (data8, data_size, file_size))
+		return FF_DOGISLAND_WDS;
+	if (IsDogIslandWdb (data8, data_size, file_size))
+		return FF_DOGISLAND_WDB;
+	if (IsDogIslandYobj (data8, data_size, file_size))
+		return FF_DOGISLAND_YOBJ;
+	if (IsDogIslandPms (data8, data_size, file_size))
+		return FF_DOGISLAND_PMS;
+	if (IsDogIslandMtt (data8, data_size, file_size))
+		return FF_DOGISLAND_MTT;
+	if (IsDogIslandCprm (data8, data_size, file_size))
+		return FF_DOGISLAND_CPRM;
+	if (IsDogIslandMpq (data8, data_size, file_size))
+		return FF_DOGISLAND_MPQ;
+	if (IsDogIslandScript (data8, data_size, file_size))
+		return FF_DOGISLAND_SCRIPT;
 
 	const nfmt_info_t nfmt = DetectNintendoFormat (data, data_size, 0);
 	switch (nfmt.type)

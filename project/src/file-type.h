@@ -454,6 +454,14 @@ typedef enum file_format_t
 	FF_VOICE_AMS, // 359 - The Voice animesh sequence (.ams)
 	FF_VOICE_PALCAT, // 360 - The Voice palette catalogue (.palcat)
 	FF_VOICE_PALSEQ, // 361 - The Voice palette sequence (.palseq)
+	FF_DOGISLAND_WDS, // 362 - The Dog Island WARDP dialogue table (.wds)
+	FF_DOGISLAND_WDB, // 363 - The Dog Island offset/string table (.wdb)
+	FF_DOGISLAND_YOBJ, // 364 - The Dog Island YOBJ model (.ymg/.ymm)
+	FF_DOGISLAND_PMS, // 365 - The Dog Island EVNT event script (.pms)
+	FF_DOGISLAND_MTT, // 366 - The Dog Island DUMY+POF0 container (.mtt/.ypc/.pac)
+	FF_DOGISLAND_CPRM, // 367 - The Dog Island fixed float record table (.cprm)
+	FF_DOGISLAND_SCRIPT, // 368 - The Dog Island script bytecode (.efi/.sci/.qci)
+	FF_DOGISLAND_MPQ, // 369 - The Dog Island custom MPQ-like container (.mpq; NOT Blizzard MPQ)
 
 	//--- number of elements
 
