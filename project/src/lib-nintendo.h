@@ -480,6 +480,7 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-mpbin.h"
 #include "lib-atb.h"
 #include "lib-ptd.h"
+#include "lib-donkeykonga.h"
 #include "lib-lzbin.h"
 #include "lib-hbdf.h"
 #include "lib-sa01.h"

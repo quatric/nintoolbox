@@ -98,6 +98,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **CRAM** | `.arc`, `.cram` | ✅ | ✅ | ✅ | — | Monolith Soft 3DS flat archive container |
 | **DARC / BCMA** | `.darc`, `.bcma`, `.arc` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4C directory archive & 3DS electronic manual archive (3DS). |
 | **DC2 DCX / DCT** | `.dcx`, `.dct` | ✅ | — | — | — | *Jakers! Kart Racing* (Wii): directory archives; GX CMPR / RGBA8 textures → PNG |
+| **DKZF** | `.tpl.dkz` | ✅ | — | — | ✅ | *Donkey Konga* (GameCube, disc 1 only) trivial zlib texture wrapper: 8-byte big-endian header (magic + decompressed size) over a standard raw zlib stream; the revealed file (always a `.tpl` in every sample seen) is handed back into this repo's ordinary decode path, so it comes out as a `.png` the same way any other plain `.tpl` already does. Verified against all 64 retail `.tpl.dkz` files on the disc: 64/64 inflate to exactly the declared decompressed size with a valid TPL signature. *Donkey Konga 2* and *3* ship plain `.nut` textures instead and carry no `.dkz` files at all. |
 | **DTLS** | `dt00`, `ls00`, `.ls` | ✅ | ✅ | ✅ | ✅ | Bandai Namco composite package & lookup archive (*Super Smash Bros. 4*, Wii U / 3DS) |
 | **EFFN** | `.eff`, `.effn` | ✅ | ✅ | ✅ | ✅ | Bandai Namco Super Smash Bros. 4 / Ultimate particle effect container archive (`EFFN`). |
 | **F9RES** | `.res` | ✅ | ✅ | ✅ | — | GameCube resource archive container |
