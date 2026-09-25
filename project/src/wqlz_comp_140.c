@@ -255,7 +255,10 @@ static size_t qlz_compress_core (const unsigned char *source, unsigned char *des
 #elif QLZ_COMPRESSION_LEVEL >= 2
 		{
 			const unsigned char *o, *offset2;
-			ui32 hash, matchlen, k, m, best_k;
+			ui32 hash, matchlen, k, m;
+#if QLZ_COMPRESSION_LEVEL == 2
+			ui32 best_k;
+#endif
 			unsigned char c;
 			size_t remaining = (last_byte - UNCOMPRESSED_END - src + 1) > 255
 				? 255
@@ -265,7 +268,9 @@ static size_t qlz_compress_core (const unsigned char *source, unsigned char *des
 			hash = hash_func (fetch);
 
 			c = hash_counter[hash];
+			#if QLZ_COMPRESSION_LEVEL == 2
 			best_k = 0;
+#endif
 
 			offset2 = hashtable[hash].offset[0];
 			if (offset2 < src - MINOFFSET && c > 0
@@ -302,7 +307,9 @@ static size_t qlz_compress_core (const unsigned char *source, unsigned char *des
 					{
 						offset2 = o;
 						matchlen = m;
+						#if QLZ_COMPRESSION_LEVEL == 2
 						best_k = k;
+#endif
 					}
 				}
 			}

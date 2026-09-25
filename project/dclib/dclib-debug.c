@@ -1089,8 +1089,8 @@ void *dclib_xcalloc (size_t nmemb, size_t size)
 	void *res = calloc (nmemb, size);
 	if (!res)
 		PrintError (__FUNCTION__, __FILE__, __LINE__, 0, ERR_OUT_OF_MEMORY,
-			"Out of memory while calloc() %zu bytes (%zu*%zu=0x%zx)\n", nmemb * size, nmemb, size,
-			nmemb * size);
+			"Out of memory while calloc() %llu bytes (%llu*%llu=0x%llx)\n",
+			(u64)(nmemb * size), (u64)nmemb, (u64)size, (u64)(nmemb * size));
 	return res;
 }
 
@@ -1101,7 +1101,7 @@ void *dclib_xmalloc (size_t size)
 	void *res = malloc (size);
 	if (!res)
 		PrintError (__FUNCTION__, __FILE__, __LINE__, 0, ERR_OUT_OF_MEMORY,
-			"Out of memory while malloc() %zu bytes (0x%zx)\n", size, size);
+			"Out of memory while malloc() %llu bytes (0x%llx)\n", (u64)size, (u64)size);
 	return res;
 }
 
@@ -1112,7 +1112,7 @@ void *dclib_xrealloc (void *ptr, size_t size)
 	void *res = realloc (ptr, size);
 	if (!res && size)
 		PrintError (__FUNCTION__, __FILE__, __LINE__, 0, ERR_OUT_OF_MEMORY,
-			"Out of memory while realloc() %zu bytes (0x%zx)\n", size, size);
+			"Out of memory while realloc() %llu bytes (0x%llx)\n", (u64)size, (u64)size);
 	return res;
 }
 
@@ -1137,8 +1137,8 @@ void *dclib_calloc (MPARAM size_t nmemb, size_t size)
 {
 	void *res = calloc (nmemb, size);
 	if (!res)
-		PRINT_OOM ("Out of memory while calloc() %zu bytes (%zu*%zu=0x%zx)\n", nmemb * size, nmemb,
-			size, nmemb * size);
+		PRINT_OOM ("Out of memory while calloc() %llu bytes (%llu*%llu=0x%llx)\n",
+			(u64)(nmemb * size), (u64)nmemb, (u64)size, (u64)(nmemb * size));
 	return res;
 }
 
@@ -1148,7 +1148,7 @@ void *dclib_malloc (MPARAM size_t size)
 {
 	void *res = malloc (size);
 	if (!res)
-		PRINT_OOM ("Out of memory while malloc() %zu bytes (0x%zx)\n", size, size);
+		PRINT_OOM ("Out of memory while malloc() %llu bytes (0x%llx)\n", (u64)size, (u64)size);
 	return res;
 }
 
@@ -1158,7 +1158,7 @@ void *dclib_realloc (MPARAM void *ptr, size_t size)
 {
 	void *res = realloc (ptr, size);
 	if (!res && size)
-		PRINT_OOM ("Out of memory while realloc() %zu bytes (0x%zx)\n", size, size);
+		PRINT_OOM ("Out of memory while realloc() %llu bytes (0x%llx)\n", (u64)size, (u64)size);
 	return res;
 }
 
@@ -1679,8 +1679,8 @@ void *trace_malloc (ccp func, ccp file, uint line, size_t size)
 {
 	u8 *res = malloc (size + 2 * MEM_FILLER_SIZE);
 	if (!res)
-		PRINT_OOM ("Out of memory while allocate %zu+%u bytes (0x%zx)\n", size, 2 * MEM_FILLER_SIZE,
-			size + 2 * MEM_FILLER_SIZE);
+		PRINT_OOM ("Out of memory while allocate %llu+%u bytes (0x%llx)\n", (u64)size, 2 * MEM_FILLER_SIZE,
+			(u64)(size + 2 * MEM_FILLER_SIZE));
 
 	res += MEM_FILLER_SIZE;
 #if TRACE_ALLOC_MODE > 2
@@ -1706,8 +1706,8 @@ void *trace_realloc (ccp func, ccp file, uint line, void *ptr, size_t size)
 	ptr = UnregisterAlloc (func, file, line, ptr);
 	u8 *res = realloc (ptr, size + 2 * MEM_FILLER_SIZE);
 	if (!res)
-		PRINT_OOM ("Out of memory while re allocate %zu+%u bytes (0x%zx)\n", size,
-			2 * MEM_FILLER_SIZE, size + 2 * MEM_FILLER_SIZE);
+		PRINT_OOM ("Out of memory while re allocate %llu+%u bytes (0x%llx)\n", (u64)size,
+			2 * MEM_FILLER_SIZE, (u64)(size + 2 * MEM_FILLER_SIZE));
 
 	res += MEM_FILLER_SIZE;
 #if TRACE_ALLOC_MODE > 2
@@ -1876,8 +1876,8 @@ void MemCheckSetup (const void *ptr, uint size)
 		mem_check_ptr = ptr;
 		if (size > sizeof (mem_check_buf))
 		{
-			ERROR0 (ERR_WARNING, "MemCheckSetup(), max watch size = %zx (<%x)",
-				sizeof (mem_check_buf), size);
+			ERROR0 (ERR_WARNING, "MemCheckSetup(), max watch size = %llx (<%x)",
+				(u64)sizeof (mem_check_buf), size);
 			size = sizeof (mem_check_buf);
 		}
 		mem_check_size = size;

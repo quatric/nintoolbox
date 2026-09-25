@@ -483,7 +483,7 @@ void WAIT_ARG_FUNC (ccp format, va_list arg);
 #define PRINT_IF1(cond, ...)                                                                       \
 	if (cond)                                                                                      \
 	PRINT_FUNC (__VA_ARGS__)
-#define PRINT_SIZEOF1(t) PRINT_FUNC ("%7zd ==%6zx/hex == sizeof(%s)\n", sizeof (t), sizeof (t), #t)
+#define PRINT_SIZEOF1(t) PRINT_FUNC ("%7llu ==%6llx/hex == sizeof(%s)\n", (u64)sizeof (t), (u64)sizeof (t), #t)
 #define BINGO1 BINGO_FUNC (__FUNCTION__, __LINE__, __FILE__)
 
 #if defined(DEBUG) && defined(TEST)

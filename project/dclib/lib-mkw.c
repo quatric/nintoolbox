@@ -2100,11 +2100,11 @@ ccp PrintLEFL8col (le_flags_t flags, bool aligned, ColorSet_t *col)
 
 ccp PrintLEFL16 (le_flags_t flags, bool aligned)
 {
-	char *buf = GetCircBuf (7);
+	char *buf = GetCircBuf (10);
 
 	if (flags & ~G_LEFL__XALL)
 	{
-		snprintf (buf, 7, "?0x%03x ", flags);
+		snprintf (buf, 10, "?0x%03x ", flags);
 		return buf;
 	}
 

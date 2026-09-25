@@ -169,12 +169,12 @@ static int cmd_pack (int argc, char *argv[])
 	err = CreateFileOpt (&F, true, output_path, false, input_dir);
 	if (F.f && fwrite (data, 1, size, F.f) != size)
 		err = FILEERROR1 (
-			&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", size, output_path);
+			&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n", (u64)size, output_path);
 	ResetFile (&F, 0);
 	FREE (data);
 
 	if (!err)
-		printf ("wbrsar: packed %s -> %s (%zu bytes)\n", input_dir, output_path, size);
+		printf ("wbrsar: packed %s -> %s (%llu bytes)\n", input_dir, output_path, (u64)size);
 	return err;
 }
 

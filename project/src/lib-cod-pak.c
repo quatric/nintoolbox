@@ -230,7 +230,7 @@ enumError create_cod_pak_dir (ccp source, ccp dest)
 		File_t F;
 		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (out, 1, out_len, F.f) != out_len)
-			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", out_len, dest);
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n", (u64)out_len, dest);
 		ResetFile (&F, opt_preserve);
 	}
 

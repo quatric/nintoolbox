@@ -3252,7 +3252,7 @@ enumError encode_sequence_file (ccp source, ccp dest)
 		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (out, 1, out_size, F.f) != out_size)
 			err = FILEERROR1 (
-				&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", out_size, dest);
+				&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n", (u64)out_size, dest);
 		ResetFile (&F, opt_preserve);
 	}
 	FREE (out);

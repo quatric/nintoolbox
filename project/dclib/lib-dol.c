@@ -704,7 +704,7 @@ uint TranslateDolSections (const dol_header_t *dol_head, // valid DOL header
 			if (*mi->info)
 				StringCopyS (mi->info, sizeof (mi->info), "...");
 			else
-				snprintf (mi->info, sizeof (mi->info), "section %s", dol_section_name[sect]);
+				snprintf (mi->info, sizeof (mi->info), "section %.4s", dol_section_name[sect]);
 		}
 	}
 

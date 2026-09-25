@@ -1006,7 +1006,7 @@ ccp GetStringBRSUB (const void *data, // relevant data
 			if (!endian)
 				endian = &be_func;
 			// bounded: without end_of_src data_size is only a sentinel
-			const size_t max = end_of_src ? data_size - offset : ~(size_t)0 >> 1;
+			const size_t max = end_of_src ? data_size - offset : 0x100000;
 			const size_t len = strnlen (ptr, max);
 			if (len < max && endian->rd32 (ptr - 4) == len)
 				return ptr;

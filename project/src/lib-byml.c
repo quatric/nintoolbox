@@ -1131,7 +1131,7 @@ static void format_single_val (const byml_node_t *n, char *buf, size_t buf_sz)
 		case BYML_T_DOUBLE:
 			snprintf (buf, buf_sz, "%.16gd", n->u.d);
 			break;
-		default: snprintf (buf, buf_sz, ""); break;
+		default: if (buf_sz) buf[0] = 0; break;
 	}
 }
 

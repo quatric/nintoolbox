@@ -162,8 +162,8 @@ enumError ScanRawITEMSLOT (itemslot_t *itemslot, // ITEMSLOT data structure
 
 	SetupBZ2MgrITEMSLOT (itemslot, true);
 	if (!data || data_size != ITEMSLT_SIZE6 && data_size != ITEMSLT_SIZE12)
-		return ERROR0 (ERR_INVALID_DATA, "Invalid file size (%u but not %zu bytes: %s\n", data_size,
-			sizeof (itemslot->data), itemslot->fname);
+		return ERROR0 (ERR_INVALID_DATA, "Invalid file size (%u but not %llu bytes: %s\n", data_size,
+			(u64)sizeof (itemslot->data), itemslot->fname);
 
 	memcpy (&itemslot->data, data, data_size);
 	itemslot->add_battle = data_size == ITEMSLT_SIZE12;

@@ -238,7 +238,7 @@ enumError DecodeBlitzTexture (u8 **rgba, uint *width, uint *height, const u8 *d,
 {
 	if (!IsBlitzTexture (d, size))
 		return ERR_NOTHING_TO_DO;
-	rev_texfmt_t f;
+	rev_texfmt_t f = {0};
 	rev_texfmt (rd_be32 (d + 0x28), &f);
 	const uint w = rd_be32 (d + 0x20), h = rd_be32 (d + 0x24);
 	const uint pix = rd_be32 (d + 0x70), pal = rd_be32 (d + 0x6c);

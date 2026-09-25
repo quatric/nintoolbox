@@ -559,7 +559,7 @@ enumError SaveSZSCache (bool force)
 	{
 		time_t tim = szs_cache_last_scan;
 		struct tm *tm = localtime (&tim);
-		strftime (tbuf, sizeof (tbuf), "%F %T %z", tm);
+		strftime (tbuf, sizeof (tbuf), "%Y-%m-%d %H:%M:%S %z", tm);
 	}
 	else
 		StringCopyS (tbuf, sizeof (tbuf), "-");
@@ -620,7 +620,7 @@ enumError AppendSZSCache ()
 	{
 		char tbuf[50];
 		struct tm *tm = localtime (&tim);
-		strftime (tbuf, sizeof (tbuf), "%F %T %z", tm);
+		strftime (tbuf, sizeof (tbuf), "%Y-%m-%d %H:%M:%S %z", tm);
 		fprintf (F.f, "\n@APPEND = %s\n", tbuf);
 	}
 

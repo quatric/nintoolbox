@@ -36,7 +36,7 @@
 // entries, 5 with real on-disk payloads (sizes 3,094,492 / 3,232 / 12 /
 // 83,716 / 83,352 bytes, all within file bounds), one BSS-flagged entry
 // whose size matches the header's `bss_size` (367,020) exactly, and the
-// module name string ("Y:\sky2015-3ds-wii\gameassets\Builds\WII\Data\
+// module name string ("Y:/sky2015-3ds-wii/gameassets/Builds/WII/Data/
 // gamelogic.plf") landing on a clean, fully-printable, NUL-terminated run
 // at `name_offset`. Extract-only: sections are dumped as raw numbered
 // blobs (their internal code/relocation layout is out of scope, matching

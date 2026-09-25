@@ -7724,10 +7724,9 @@ ccp GetShiftJISStatistics ()
 	{
 		dbl_tab++;
 		dbl_total += ptr->count;
-		u16 code = ptr->sect << 8 | ptr->from;
 		const u16 *p = ptr->tab;
 		const u16 *e = p + ptr->count;
-		for (; p < e; p++, code++)
+		for (; p < e; p++)
 			if (*p != SJIS_INVALID_CODE)
 				dbl_count++;
 	}

@@ -243,7 +243,10 @@ enumError SavePica3DSTexture (Image_t *img, file_format_t fform,
 		wr_le32 (te, raw_size); wr_le16 (te+8, img->width); wr_le16 (te+10, img->height);
 		wr_le16 (te+12, 0x6752); wr_le16 (te+14, 0x1401);
 		ccp base = FindFilename (path, 0); size_t n = base ? strcspn (base,".") : 0;
-		if (n > 15) n = 15; if (n) memcpy (te+20, base, n);
+		if (n > 15)
+		n = 15;
+	if (n)
+		memcpy (te+20, base, n);
 	}
 	memcpy (out + head_size, raw, raw_size);
 	FREE(raw);

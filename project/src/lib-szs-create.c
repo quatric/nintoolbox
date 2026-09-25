@@ -5016,9 +5016,9 @@ static int extract_func (struct szs_iterator_t *it, // iterator struct with all 
 	{
 		if (it->size != M1 (it->size) && WARN_MODE & WARN_INVALID_OFFSET && ErrorLogEnabled ())
 			ERROR0 (ERR_WARNING,
-				"Invalid offset [%x..%x, size=%zx] for subfile.\n"
+				"Invalid offset [%x..%x, size=%llx] for subfile.\n"
 				"=> File ignored: %s%s%s\n",
-				it->off, it->off + it->size, szs->size, szs->fname, *szs->fname ? "/" : "",
+				it->off, it->off + it->size, (u64)szs->size, szs->fname, *szs->fname ? "/" : "",
 				it->path);
 		return 0;
 	}
@@ -5191,7 +5191,7 @@ static int extract_func (struct szs_iterator_t *it, // iterator struct with all 
 			}
 
 			if (err)
-				FILEERROR1 (&F, err, "Writing %zu bytes failed: %s\n", subszs.size, pathptr);
+				FILEERROR1 (&F, err, "Writing %llu bytes failed: %s\n", (u64)subszs.size, pathptr);
 		}
 	}
 no_create:;

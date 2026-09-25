@@ -1597,6 +1597,7 @@ enumError EncodeBNTX_RGBA (
 	const uint ofs_str = ofs_tex_ptrs + 8; // 0x1a0
 	const uint ofs_dic = ofs_str + str_block_size;
 	const uint ofs_brti = ofs_dic + dic_block_size;
+	(void)ofs_bin_hdr;
 
 	// String positions
 	const uint abs_str_base = ofs_str + 16 + 4;
@@ -1981,6 +1982,7 @@ enumError EncodeBNTX_FromDDS (
 	if (!n_mips)
 		return ERROR0 (ERR_INVALID_DATA, "DDS payload truncated\n");
 	mip_count = n_mips;
+	(void)lin_size;
 
 	if (!name || !*name)
 		name = "texture";
@@ -2073,6 +2075,7 @@ enumError EncodeBNTX_FromDDS (
 	const uint ofs_str = ofs_tex_ptrs + 8;
 	const uint ofs_dic = ofs_str + str_block_size;
 	const uint ofs_brti = ofs_dic + dic_block_size;
+	(void)ofs_bin_hdr;
 
 	const uint abs_str_base = ofs_str + 16 + 4;
 	const uint abs_str_empty = abs_str_base;

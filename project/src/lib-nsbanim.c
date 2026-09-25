@@ -576,8 +576,8 @@ int ParseNSBCAIntoModel (model_t *model, const uint8_t *data, size_t size, const
 				// Scale always advances 2 u32 per axis: animated stores
 				// (info,offset); constant stores two fx32 (scale, invscale).
 				const int const_ax[3] = { !!(tag & SRT_CONST_SX), !!(tag & SRT_CONST_SY), !!(tag & SRT_CONST_SZ) };
-				float const_v[3];
-				uint32_t info[3], off[3];
+				float const_v[3] = {0};
+				uint32_t info[3] = {0}, off[3] = {0};
 				for (int ax = 0; ax < 3; ax++)
 				{
 					if (const_ax[ax])
@@ -1845,7 +1845,7 @@ uint8_t *BuildNSBTP (uint32_t num_frame, uint32_t num_tex, uint32_t num_pltt,
 	for (uint32_t i = 0; i < num_tex && ok; i++)
 	{
 		uint8_t name16[16];
-		char nm[8];
+		char nm[16];
 		snprintf (nm, sizeof (nm), "Tex%02u", i);
 		nsb_write_name16 (name16, nm);
 		ok = ok && nb_bytes (&c, name16, 16);
@@ -1853,7 +1853,7 @@ uint8_t *BuildNSBTP (uint32_t num_frame, uint32_t num_tex, uint32_t num_pltt,
 	for (uint32_t i = 0; i < num_pltt && ok; i++)
 	{
 		uint8_t name16[16];
-		char nm[8];
+		char nm[16];
 		snprintf (nm, sizeof (nm), "Pltt%02u", i);
 		nsb_write_name16 (name16, nm);
 		ok = ok && nb_bytes (&c, name16, 16);

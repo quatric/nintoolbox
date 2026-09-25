@@ -587,7 +587,7 @@ enumError ExecAnalyzeSZS (analyze_param_t *ap)
 
 	PrintHeaderAP (ap, "track");
 	PrintScriptVars (&ap->ps, 0,
-		"size=%zd\n"
+		"size=%llu\n"
 		"db64=\"%s\"\n"
 		"sha1=\"%s\"\n"
 		"sha1_norm=\"%s\"\n"
@@ -635,7 +635,7 @@ enumError ExecAnalyzeSZS (analyze_param_t *ap)
 		"name_attributes=\"%.*s\"\n"
 
 		,
-		szs->size, as.db64, as.sha1_szs, as.sha1_szs_norm, as.sha1_kcl, as.sha1_kmp,
+		(u64)szs->size, as.db64, as.sha1_szs, as.sha1_szs_norm, as.sha1_kcl, as.sha1_kmp,
 		as.sha1_kmp_norm, as.sha1_course, as.sha1_vrcorn, as.sha1_minimap, as.sha1_kcl_slot,
 		as.sha1_kmp_slot, as.sha1_kmp_norm_slot, as.sha1_minimap_slot, as.valid_track,
 		szs->is_arena, is_arena_name[szs->is_arena], as.ckpt0_count, as.lap_count, as.speed_factor,
@@ -732,14 +732,14 @@ enumError ExecAnalyzeLECODE (analyze_param_t *ap)
 			"edit_by_szs=\"%u, %s\"\n"
 
 			,
-			ana.head->v3.phase, ana.header_vers, ntohl (ana.head->v3.build_number),
+			ana.head->v3.phase, ana.header_vers, (uint)ntohl (ana.head->v3.build_number),
 			ana.head->v3.region == 'P'		 ? "PAL"
 				: ana.head->v3.region == 'E' ? "USA"
 				: ana.head->v3.region == 'J' ? "Japan"
 				: ana.head->v3.region == 'K' ? "Korea"
 											 : "?",
 			IsBuildModeDebug (ana.head->v3.build_mode), IsBuildModeTest (ana.head->v3.build_mode),
-			ana.identifier, ana.header_size, ntohl (ana.head->v3.file_size), ana.creation_time,
+			ana.identifier, ana.header_size, (uint)ntohl (ana.head->v3.file_size), ana.creation_time,
 			ana.creation_time ? PrintTimeByFormat ("%F %T %Z", ana.creation_time) : "-",
 			ana.edit_time, ana.edit_time ? PrintTimeByFormat ("%F %T %Z", ana.edit_time) : "-",
 			ana.szs_required, ana.szs_required ? DecodeVersion (ana.szs_required) : "-",

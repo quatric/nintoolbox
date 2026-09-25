@@ -857,8 +857,8 @@ ccp GetBuildLECODE (mem_t lecode)
 
 	const u_sec_t creation_time = GetCreateTimeLECODE (lecode);
 	const le_binary_head_v4_t *head = (le_binary_head_v4_t *)lecode.ptr;
-	return !creation_time ? PrintCircBuf ("%u", ntohl (head->build_number))
-						  : PrintCircBuf ("%u (%.10s)", ntohl (head->build_number),
+	return !creation_time ? PrintCircBuf ("%u", (uint)ntohl (head->build_number))
+						  : PrintCircBuf ("%u (%.10s)", (uint)ntohl (head->build_number),
 								PrintTimeByFormat ("%F %T %Z", creation_time));
 }
 
@@ -889,10 +889,10 @@ ccp GetInfoLECODE (mem_t lecode)
 
 	return ref_time
 		? PrintCircBuf ("%s%s%s v%u, build %u (%s), %u bytes", region, debug, test,
-			  ntohl (head->v3.version), ntohl (head->v3.build_number),
-			  PrintTimeByFormat ("%F %T %Z", ref_time), ntohl (head->v3.file_size))
+			  (uint)ntohl (head->v3.version), (uint)ntohl (head->v3.build_number),
+			  PrintTimeByFormat ("%F %T %Z", ref_time), (uint)ntohl (head->v3.file_size))
 		: PrintCircBuf ("%s%s%s v%u, build %u, %u bytes", region, debug, test,
-			  ntohl (head->v3.version), ntohl (head->v3.build_number), ntohl (head->v3.file_size));
+			  (uint)ntohl (head->v3.version), (uint)ntohl (head->v3.build_number), (uint)ntohl (head->v3.file_size));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2129,7 +2129,7 @@ enumError AnalyzeLEBinary (le_analyze_t *ana, // NULL or destination of analysis
 		ana->valid |= LE_HEAD_VERSION;
 
 	snprintf (ana->identifier, sizeof (ana->identifier), "v%u-b%02u-h%02u-%c%c",
-		ntohl (ana->head->v3.version), ntohl (ana->head->v3.build_number), ana->header_size,
+		(uint)ntohl (ana->head->v3.version), (uint)ntohl (ana->head->v3.build_number), ana->header_size,
 		tolower (ana->head->v3.build_mode), tolower (ana->head->v3.region));
 
 	//--- analyse parameters (prepare)
@@ -3236,13 +3236,13 @@ void DumpLEAnalyse (FILE *f, uint indent, const le_analyze_t *ana)
 			"Version:           %u, %c = %s\n"
 			"%*s"
 			"Build:             %u, %c = %s\n",
-			indent, "", ntohl (h->version), h->region,
+			indent, "", (uint)ntohl (h->version), h->region,
 			h->region == 'P'	   ? "PAL"
 				: h->region == 'E' ? "USA"
 				: h->region == 'J' ? "Japan"
 				: h->region == 'K' ? "Korea"
 								   : "?",
-			indent, "", ntohl (h->build_number), h->build_mode,
+			indent, "", (uint)ntohl (h->build_number), h->build_mode,
 			h->build_mode == 'R'	   ? "Release"
 				: h->build_mode == 'T' ? "Release with test code"
 				: h->build_mode == 'D' ? "Debug"
@@ -3267,9 +3267,9 @@ void DumpLEAnalyse (FILE *f, uint indent, const le_analyze_t *ana)
 			"Base address:      %8x/hex\n"
 			"%*s"
 			"Entry point:       %8x/hex\n",
-			indent, "", ana->header_size, ana->header_size, indent, "", ntohl (h->file_size),
-			ntohl (h->file_size), indent, "", ntohl (h->off_param), indent, "",
-			ntohl (h->base_address), indent, "", ntohl (h->entry_point));
+			indent, "", ana->header_size, ana->header_size, indent, "", (uint)ntohl (h->file_size),
+			(uint)ntohl (h->file_size), indent, "", (uint)ntohl (h->off_param), indent, "",
+			(uint)ntohl (h->base_address), indent, "", (uint)ntohl (h->entry_point));
 
 		if (ana->commit_time)
 			fprintf (f,
@@ -3368,7 +3368,7 @@ void DumpLEAnalyse (FILE *f, uint indent, const le_analyze_t *ana)
 			"LPAR Version:      %u\n"
 			"%*s"
 			"LPAR size:         %x/hex = %u bytes\n",
-			indent - 2, "", col.heading, h->magic, col.reset, indent, "", ntohl (h->version),
+			indent - 2, "", col.heading, h->magic, col.reset, indent, "", (uint)ntohl (h->version),
 			indent, "", lpar_size, lpar_size);
 
 		if (sizeof (le_binpar_v1_t) < lpar_size)

@@ -1750,8 +1750,8 @@ enumError WriteFileAt (File_t *F, // file to write
 				noPRINT ("FILL/ZERO %zx/%zx\n", write_size, fill_size);
 				const size_t written = fwrite (buf, 1, write_size, F->f);
 				if (written != write_size)
-					return ERROR1 (ERR_WRITE_FAILED, "Writing %zu NULL bytes failed: %s\n",
-						write_size, F->fname);
+					return ERROR1 (ERR_WRITE_FAILED, "Writing %llu NULL bytes failed: %s\n",
+						(u64)write_size, F->fname);
 				fill_size -= write_size;
 			}
 		}
@@ -1760,8 +1760,8 @@ enumError WriteFileAt (File_t *F, // file to write
 	PRINT0 ("WRITE %zx @%zx -> %zx\n", size, offset, offset + size);
 	const size_t written = fwrite (data, 1, size, F->f);
 	if (written != size)
-		return ERROR1 (ERR_WRITE_FAILED, "Writing %zu bytes at offset %zu failed: %s\n", size,
-			offset, F->fname);
+		return ERROR1 (ERR_WRITE_FAILED, "Writing %llu bytes at offset %llu failed: %s\n", (u64)size,
+			(u64)offset, F->fname);
 
 	*cur_offset = offset + size;
 	return ERR_OK;
@@ -1815,7 +1815,7 @@ enumError SkipFile (File_t *F, // file to write
 		{
 			if (feof (F->f))
 				break;
-			return ERROR1 (ERR_READ_FAILED, "Reading %zu to skip failed: %s\n", skip, F->fname);
+			return ERROR1 (ERR_READ_FAILED, "Reading %llu to skip failed: %s\n", (u64)skip, F->fname);
 		}
 		skip -= stat;
 	}

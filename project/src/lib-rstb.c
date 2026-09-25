@@ -36,8 +36,8 @@ enumError DecodeRSTB_Text (FILE *out, const u8 *data, size_t size)
 	const u64 need = (u64)RSTB_HDR_SIZE + (u64)crc_count * RSTB_CRC_ENTRY_SIZE
 		+ (u64)name_count * RSTB_NAME_ENTRY_SIZE;
 	if (need > size)
-		return ERROR0 (ERR_INVALID_DATA, "RSTB: truncated file (need %llu, have %zu bytes)\n",
-			(unsigned long long)need, size);
+		return ERROR0 (ERR_INVALID_DATA, "RSTB: truncated file (need %llu, have %llu bytes)\n",
+			(unsigned long long)need, (u64)size);
 
 	fprintf (out, "#RSTB\n"
 		"# Resource Size Table -- decoded by " "wszst" "\n"

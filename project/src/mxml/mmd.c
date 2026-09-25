@@ -122,6 +122,7 @@ mmdCopyAllText(mmd_t *node)		/* I - Parent node */
       else
       {
         allsize += textlen + (size_t)current->whitespace;
+        size_t alloffset = (size_t)(allptr - all);
         temp    = realloc(all, allsize);
 
         if (!temp)
@@ -130,7 +131,7 @@ mmdCopyAllText(mmd_t *node)		/* I - Parent node */
           return (NULL);
         }
 
-        allptr = temp + (allptr - all);
+        allptr = temp + alloffset;
         all    = temp;
       }
 

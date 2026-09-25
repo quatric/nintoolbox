@@ -165,7 +165,7 @@ static enumError AddSectionHelper2 (
 	if (seg->main_entry)
 	{
 		if (verbose >= 1)
-			fprintf (stdlog, "- Change entry point from 0x%08x to 0x%08x\n", ntohl (dh->entry_addr),
+			fprintf (stdlog, "- Change entry point from 0x%08x to 0x%08x\n", (uint)ntohl (dh->entry_addr),
 				seg->main_entry);
 		write_be32 (&dh->entry_addr, seg->main_entry);
 	}

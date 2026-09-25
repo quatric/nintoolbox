@@ -82,15 +82,15 @@ ifeq ($(DCLIB_GCC),)
     DCLIB_GCC	:= gcc
 endif
 
-DCLIB_GCC_VERSION = $(shell $(DCLIB_GCC) -dumpversion)
+DCLIB_GCC_VERSION = $(shell $(DCLIB_GCC) -dumpversion | cut -d. -f1)
 
-ifeq ($(shell expr $(DCLIB_GCC_VERSION) '>=' 7 ),1)
+ifeq ($(shell expr $$(echo "$(DCLIB_GCC_VERSION)" | grep -E "^[0-9]+$$") '>=' 7 2>/dev/null),1)
   DCLIB_CFLAGS += -Wno-format-truncation
 else
   DCLIB_CFLAGS += -Wno-pragmas -Wno-unknown-pragmas
 endif
 
-ifeq ($(shell expr $(DCLIB_GCC_VERSION) '>=' 9 ),1)
+ifeq ($(shell expr $$(echo "$(DCLIB_GCC_VERSION)" | grep -E "^[0-9]+$$") '>=' 9 2>/dev/null),1)
   DCLIB_CFLAGS += -Wno-address-of-packed-member
 endif
 

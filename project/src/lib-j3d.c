@@ -62,7 +62,10 @@ static void j3d_buf_reserve (j3d_buf_t *b, size_t extra)
 		nc *= 2;
 	uint8_t *np = REALLOC (b->data, nc);
 	if (!np)
-		return; // caller checks size growth implicitly via cap
+	{
+		ASSERT (0);
+		exit (ERR_OUT_OF_MEMORY);
+	}
 	b->data = np;
 	b->cap = nc;
 }
@@ -1202,7 +1205,7 @@ static int j3d_parse_evp1 (const uint8_t *data, size_t size, size_t sect, j3d_de
 		int nm = (int)((ssize - o_m) / 48);
 		if (nm < 0 || nm > 100000)
 			return 0;
-		d->evp_inv = CALLOC ((size_t)nm * 12 ? (size_t)nm * 12 : 12, sizeof (float));
+		d->evp_inv = CALLOC ((size_t)nm ? (size_t)nm * 12 : 12, sizeof (float));
 		if (!d->evp_inv)
 			return 0;
 		d->num_inv = nm;
@@ -1379,7 +1382,7 @@ static int j3d_parse_mat3 (const uint8_t *data, size_t size, size_t sect, j3d_de
 	int nmats = matcount; // model_t uses entry order (post-remap copies)
 	d->num_mats = nmats;
 	d->mnames = CALLOC ((size_t)nmats ? (size_t)nmats : 1, sizeof (char *));
-	d->mdiffuse = CALLOC ((size_t)nmats * 4 ? (size_t)nmats * 4 : 4, sizeof (float));
+	d->mdiffuse = CALLOC ((size_t)nmats ? (size_t)nmats * 4 : 4, sizeof (float));
 	d->mtex = CALLOC ((size_t)nmats ? (size_t)nmats : 1, sizeof (*d->mtex));
 	d->mcull = CALLOC ((size_t)nmats ? (size_t)nmats : 1, 1);
 	if (!d->mnames || !d->mdiffuse || !d->mtex || !d->mcull)
@@ -2398,7 +2401,7 @@ model_t *ParseJ3D (const uint8_t *data, size_t size)
 	uint32_t shp_size = j3d_rd32 (data + o_shp1 + 4);
 	int entry_count = j3d_rds16 (data + o_shp1 + 8);
 	uint32_t o_shape = j3d_rd32 (data + o_shp1 + 12), o_remap = j3d_rd32 (data + o_shp1 + 16),
-		o_attr = j3d_rd32 (data + o_shp1 + 24), o_midx = j3d_rd32 (data + o_shp1 + 28),
+		/* o_attr = j3d_rd32 (data + o_shp1 + 24), */ o_midx = j3d_rd32 (data + o_shp1 + 28),
 		o_prim = j3d_rd32 (data + o_shp1 + 32), o_mdat = j3d_rd32 (data + o_shp1 + 36),
 		o_pinf = j3d_rd32 (data + o_shp1 + 40);
 	if (entry_count < 0 || entry_count > 100000 || !j3d_ok (data, size, o_shp1 + o_remap, 2))
@@ -3705,7 +3708,7 @@ static void j3d_apply_materials_json (j3d_enc_t *e, const char *json_path, int n
 						{
 							if (!pr[k])
 							{
-								snprintf (e->mat_texstr[m][k], 64, "");
+								e->mat_texstr[m][k][0] = 0;
 								e->mat_texnames[m][k] = -1;
 							}
 							else if (tx[k][0])

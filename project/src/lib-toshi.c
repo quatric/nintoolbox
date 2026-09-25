@@ -193,7 +193,8 @@ enumError DecodeToshiTexture (const toshi_trb_t *t, uint idx, ccp *name, u8 **rg
 	const u8 *e = t->sect + po + 52 * idx;
 	const u32 fmt = ts_be32 (e), np = ts_be32 (e + 4), w = ts_be32 (e + 8), h = ts_be32 (e + 12);
 	const u32 dp = ts_be32 (e + 20), dsz = ts_be32 (e + 24), pp = ts_be32 (e + 28);
-	const u32 npal = ts_be32 (e + 36), tlut = ts_be32 (e + 40);
+	const u32 npal = ts_be32 (e + 36);
+	(void)e;
 	static const u8 gx[] = { 0, 2, 1, 3, 4, 5, 6, 14 }; // 0x301..0x308
 	static const u8 ci_gx[] = { 8, 8, 9, 9, 9 }, ci_pal[] = { 1, 2, 1, 2, 0 }; // 0x30c..0x310
 	uint gxfmt;

@@ -3507,7 +3507,7 @@ ccp PrintNSecByFormat (
 	char *at = strchr (buf, '@');
 	if (at)
 	{
-		char nbuf[10];
+		char nbuf[16];
 		snprintf (nbuf, sizeof (nbuf), "%09u", nsec);
 		ccp src = nbuf;
 		while (*at == '@' && *src)
@@ -3534,7 +3534,7 @@ ccp PrintNSecByFormatUTC (
 	char *at = strchr (buf, '@');
 	if (at)
 	{
-		char nbuf[10];
+		char nbuf[16];
 		snprintf (nbuf, sizeof (nbuf), "%09u", nsec);
 		ccp src = nbuf;
 		while (*at == '@' && *src)
@@ -3710,7 +3710,7 @@ ccp PrintTimeSec (char *buf, // result buffer (>19 bytes are good)
 
 	time_t time = sec;
 	struct tm *tm = localtime (&time);
-	strftime (buf, buf_size, "%F %T", tm);
+	strftime (buf, buf_size, "%Y-%m-%d %H:%M:%S", tm);
 	return buf;
 }
 
@@ -3728,7 +3728,7 @@ ccp PrintTimeMSec (char *buf, // result buffer (>23 bytes are good)
 
 	time_t time = msec / MSEC_PER_SEC;
 	struct tm *tm = localtime (&time);
-	uint len = strftime (buf, buf_size, "%F %T", tm);
+	uint len = strftime (buf, buf_size, "%Y-%m-%d %H:%M:%S", tm);
 
 	if (fraction && len + 4 < buf_size)
 	{
@@ -3755,7 +3755,7 @@ ccp PrintTimeUSec (char *buf, // result buffer (>26 bytes are good)
 
 	time_t time = usec / USEC_PER_SEC;
 	struct tm *tm = localtime (&time);
-	uint len = strftime (buf, buf_size, "%F %T", tm);
+	uint len = strftime (buf, buf_size, "%Y-%m-%d %H:%M:%S", tm);
 
 	if (fraction && len + 7 < buf_size)
 	{
@@ -3782,7 +3782,7 @@ ccp PrintTimeNSec (char *buf, // result buffer (>26 bytes are good)
 
 	time_t time = nsec / NSEC_PER_SEC;
 	struct tm *tm = localtime (&time);
-	uint len = strftime (buf, buf_size, "%F %T", tm);
+	uint len = strftime (buf, buf_size, "%Y-%m-%d %H:%M:%S", tm);
 
 	if (fraction && len + 10 < buf_size)
 	{

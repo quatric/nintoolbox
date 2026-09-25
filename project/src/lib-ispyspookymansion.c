@@ -231,7 +231,7 @@ static int is_ascii_tag (const char tag[5])
 int IsSpookyAst (const u8 *data, size_t size, size_t file_size)
 {
 	(void) file_size;
-	int swapped;
+	int swapped = 0;
 	if (!check_ast_magic (data, size, &swapped))
 		return 0;
 
@@ -255,7 +255,7 @@ enumError DecodeSpookyAst_Text (FILE *f, const u8 *data, size_t size, size_t fil
 	if (!f || !data || !IsSpookyAst (data, size, file_size))
 		return EINVAL;
 
-	int swapped;
+	int swapped = 0;
 	check_ast_magic (data, size, &swapped);
 	u32 version = ast_u32 (data, 8, swapped);
 	u32 count   = ast_u32 (data, 12, swapped);

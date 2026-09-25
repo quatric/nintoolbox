@@ -193,8 +193,12 @@ enumError DecodeASH0 (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 }
 
 
+#ifndef min
 #define min(a,b)    (((a)<(b))?(a):(b))
+#endif
+#ifndef max
 #define max(a,b)    (((a)>(b))?(a):(b))
+#endif
 
 
 // ----- assertions

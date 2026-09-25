@@ -329,8 +329,8 @@ enumError DecodePCTL_Text (FILE *out, const u8 *data, size_t size)
 	if ((u64)block_offset > size)
 		return ERROR0 (ERR_INVALID_DATA, "VFXB: block_offset out of bounds\n");
 	if (file_size && (u64)file_size > size)
-		return ERROR0 (ERR_INVALID_DATA, "VFXB: header file_size (%u) exceeds actual size (%zu)\n",
-			file_size, size);
+		return ERROR0 (ERR_INVALID_DATA, "VFXB: header file_size (%u) exceeds actual size (%llu)\n",
+			file_size, (u64)size);
 
 	char name[33] = "";
 	if (size >= 64)

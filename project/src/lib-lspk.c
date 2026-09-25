@@ -225,15 +225,16 @@ enumError create_lspk_dir (ccp source, ccp dest)
 			list.entry, list.used);
 	if (!err && !testmode)
 	{
+		char base_path[PATH_MAX];
 		char pkh_path[PATH_MAX];
 		char pk_path[PATH_MAX];
-		snprintf (pk_path, sizeof (pk_path), "%s", dest);
-		char *dot = strrchr (pk_path, '.');
-		char *slash = strrchr (pk_path, '/');
+		snprintf (base_path, sizeof (base_path), "%s", dest);
+		char *dot = strrchr (base_path, '.');
+		char *slash = strrchr (base_path, '/');
 		if (dot && (!slash || dot > slash))
 			*dot = 0;
-		snprintf (pkh_path, sizeof (pkh_path), "%s.pkh", pk_path);
-		snprintf (pk_path, sizeof (pk_path), "%s.pk", pk_path);
+		snprintf (pkh_path, sizeof (pkh_path), "%s.pkh", base_path);
+		snprintf (pk_path, sizeof (pk_path), "%s.pk", base_path);
 
 		File_t F_pkh, F_pk;
 		err = CreateFileOpt (&F_pkh, true, pkh_path, false, source);

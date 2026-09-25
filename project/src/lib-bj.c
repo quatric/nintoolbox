@@ -71,6 +71,7 @@ enumError DecodeBjTexture (u8 **rgba, uint *width, uint *height, const u8 *d, si
 			fsz += (size_t)s * s;
 	}
 	(void)frames;
+	(void)fsz;
 	const size_t start = (size_t)(loc & 0xffff) * 2048;
 	if (start + (size_t)w * h > size2)
 		return ERR_INVALID_DATA;

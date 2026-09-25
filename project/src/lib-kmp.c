@@ -6854,8 +6854,7 @@ int CheckKMP (
 		n = njgpt;
 		if (n > sizeof (jgpt_usage) / sizeof (*jgpt_usage))
 			n = sizeof (jgpt_usage) / sizeof (*jgpt_usage);
-		const kmp_jgpt_entry_t *jgpt = (kmp_jgpt_entry_t *)kmp->dlist[KMP_CKPT].list;
-		for (i = 0; i < n; i++, jgpt++)
+		for (i = 0; i < n; i++)
 			if (!jgpt_usage[i])
 			{
 				const int start = i;

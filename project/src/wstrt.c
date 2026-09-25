@@ -825,8 +825,8 @@ static enumError cmd_https ()
 	{
 		const str_server_list_t *sl;
 		for (sl = ServerList; sl->name; sl++)
-			ASSERT_MSG (sl->domain_len == strlen (sl->domain), "ServerList[%i], len = %zu\n",
-				(int)(sl - ServerList), strlen (sl->domain));
+			ASSERT_MSG (sl->domain_len == strlen (sl->domain), "ServerList[%i], len = %llu\n",
+				(int)(sl - ServerList), (u64)strlen (sl->domain));
 	}
 #endif
 

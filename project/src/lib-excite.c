@@ -1832,9 +1832,9 @@ enumError EncodeExciteMSH (const model_t *model, ccp out_path)
 		if (!m->positions || !m->vertices || m->num_vertices % 3)
 		{
 			err = ERROR0 (ERR_INVALID_DATA,
-				"EncodeExciteMSH: mesh #%u has %zu vertices"
+				"EncodeExciteMSH: mesh #%u has %llu vertices"
 				" (multiple of 3 required)\n",
-				mi, m->num_vertices);
+				mi, (u64)m->num_vertices);
 			break;
 		}
 		for (size_t vi = 0; vi < m->num_vertices && !err; vi++)
@@ -1843,9 +1843,9 @@ enumError EncodeExciteMSH (const model_t *model, ccp out_path)
 			if (v->position_idx < 0 || (size_t)v->position_idx >= m->num_positions)
 			{
 				err = ERROR0 (ERR_INVALID_DATA,
-					"EncodeExciteMSH: mesh #%u vertex #%zu references"
-					" position %d / %zu\n",
-					mi, vi, v->position_idx, m->num_positions);
+					"EncodeExciteMSH: mesh #%u vertex #%llu references"
+					" position %d / %llu\n",
+					mi, (u64)vi, v->position_idx, (u64)m->num_positions);
 				break;
 			}
 			const vec3_t *src = m->positions + v->position_idx;
@@ -2056,7 +2056,7 @@ enumError EncodeExciteMSH (const model_t *model, ccp out_path)
 	const enumError rc = SaveFILE (out_path, 0, true, buf, (uint)total, 0);
 	FREE (buf);
 	if (rc <= ERR_WARNING && verbose >= 0)
-		fprintf (stdlog, "ENCODE MSH: -> %s (%zu bytes, %u tris, %u buckets)\n", out_path, total,
+		fprintf (stdlog, "ENCODE MSH: -> %s (%llu bytes, %u tris, %u buckets)\n", out_path, (u64)total,
 			num_tri, n_buckets);
 	return rc <= ERR_WARNING ? ERR_OK : rc;
 }
@@ -3042,9 +3042,9 @@ enumError EncodeExciteMOD (const model_t *model, ccp out_path)
 		if (!m->positions || !m->vertices || m->num_vertices % 3)
 		{
 			err = ERROR0 (ERR_INVALID_DATA,
-				"EncodeExciteMOD: mesh #%u has %zu vertices"
+				"EncodeExciteMOD: mesh #%u has %llu vertices"
 				" (multiple of 3 required)\n",
-				mi, m->num_vertices);
+				mi, (u64)m->num_vertices);
 			break;
 		}
 		if (num_corn + m->num_vertices > corn_cap)
@@ -3059,9 +3059,9 @@ enumError EncodeExciteMOD (const model_t *model, ccp out_path)
 			if (v->position_idx < 0 || (size_t)v->position_idx >= m->num_positions)
 			{
 				err = ERROR0 (ERR_INVALID_DATA,
-					"EncodeExciteMOD: mesh #%u vertex #%zu references"
-					" position %d / %zu\n",
-					mi, vi, v->position_idx, m->num_positions);
+					"EncodeExciteMOD: mesh #%u vertex #%llu references"
+					" position %d / %llu\n",
+					mi, (u64)vi, v->position_idx, (u64)m->num_positions);
 				break;
 			}
 			vec3_t p3 = m->positions[v->position_idx];

@@ -3006,10 +3006,10 @@ static enumError test_scan_hex (int argc, char **argv)
 	PRINT_SIZEOF1 (Var_t);
 	PRINT_SIZEOF1 (FastBuf_t);
 
-	PRINT1 ("offsetof(Var_t,name)     = %zu\n", offsetof (Var_t, name));
-	PRINT1 ("offsetof(Var_t,mode)     = %zu\n", offsetof (Var_t, mode));
-	PRINT1 ("offsetof(Var_t,int_mode) = %zu\n", offsetof (Var_t, int_mode));
-	PRINT1 ("offsetof(Var_t,i)        = %zu\n", offsetof (Var_t, i));
+	PRINT1 ("offsetof(Var_t,name)     = %llu\n", (u64)offsetof (Var_t, name));
+	PRINT1 ("offsetof(Var_t,mode)     = %llu\n", (u64)offsetof (Var_t, mode));
+	PRINT1 ("offsetof(Var_t,int_mode) = %llu\n", (u64)offsetof (Var_t, int_mode));
+	PRINT1 ("offsetof(Var_t,i)        = %llu\n", (u64)offsetof (Var_t, i));
 
 	FastBuf_t fb;
 	InitializeFastBuf (&fb, 1000);

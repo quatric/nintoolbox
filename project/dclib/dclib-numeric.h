@@ -493,11 +493,10 @@ static inline float3 TransformF3D34 (const double34 *d34, const float3 *val)
 {
 	DASSERT (d34);
 	DASSERT (val);
-	const double *m = d34->v;
 	float3 res;
-	res.x = m[0] * val->x + m[1] * val->y + m[2] * val->z + m[3];
-	res.y = m[4 + 0] * val->x + m[4 + 1] * val->y + m[4 + 2] * val->z + m[4 + 3];
-	res.z = m[8 + 0] * val->x + m[8 + 1] * val->y + m[8 + 2] * val->z + m[8 + 3];
+	res.x = d34->v[0] * val->x + d34->v[1] * val->y + d34->v[2] * val->z + d34->v[3];
+	res.y = d34->v[4 + 0] * val->x + d34->v[4 + 1] * val->y + d34->v[4 + 2] * val->z + d34->v[4 + 3];
+	res.z = d34->v[8 + 0] * val->x + d34->v[8 + 1] * val->y + d34->v[8 + 2] * val->z + d34->v[8 + 3];
 	return res;
 }
 
@@ -505,11 +504,10 @@ static inline double3 TransformD3D34 (const double34 *d34, const double3 *val)
 {
 	DASSERT (d34);
 	DASSERT (val);
-	const double *m = d34->v;
 	double3 res;
-	res.x = m[0] * val->x + m[1] * val->y + m[2] * val->z + m[3];
-	res.y = m[4 + 0] * val->x + m[4 + 1] * val->y + m[4 + 2] * val->z + m[4 + 3];
-	res.z = m[8 + 0] * val->x + m[8 + 1] * val->y + m[8 + 2] * val->z + m[8 + 3];
+	res.x = d34->v[0] * val->x + d34->v[1] * val->y + d34->v[2] * val->z + d34->v[3];
+	res.y = d34->v[4 + 0] * val->x + d34->v[4 + 1] * val->y + d34->v[4 + 2] * val->z + d34->v[4 + 3];
+	res.z = d34->v[8 + 0] * val->x + d34->v[8 + 1] * val->y + d34->v[8 + 2] * val->z + d34->v[8 + 3];
 	return res;
 }
 
@@ -517,11 +515,10 @@ static inline float3 TransformF3F34 (const float34 *d34, const float3 *val)
 {
 	DASSERT (d34);
 	DASSERT (val);
-	const float *m = d34->v;
 	float3 res;
-	res.x = m[0] * val->x + m[1] * val->y + m[2] * val->z + m[3];
-	res.y = m[4 + 0] * val->x + m[4 + 1] * val->y + m[4 + 2] * val->z + m[4 + 3];
-	res.z = m[8 + 0] * val->x + m[8 + 1] * val->y + m[8 + 2] * val->z + m[8 + 3];
+	res.x = d34->v[0] * val->x + d34->v[1] * val->y + d34->v[2] * val->z + d34->v[3];
+	res.y = d34->v[4 + 0] * val->x + d34->v[4 + 1] * val->y + d34->v[4 + 2] * val->z + d34->v[4 + 3];
+	res.z = d34->v[8 + 0] * val->x + d34->v[8 + 1] * val->y + d34->v[8 + 2] * val->z + d34->v[8 + 3];
 	return res;
 }
 
@@ -529,11 +526,10 @@ static inline double3 TransformD3F34 (const float34 *d34, const double3 *val)
 {
 	DASSERT (d34);
 	DASSERT (val);
-	const float *m = d34->v;
 	double3 res;
-	res.x = m[0] * val->x + m[1] * val->y + m[2] * val->z + m[3];
-	res.y = m[4 + 0] * val->x + m[4 + 1] * val->y + m[4 + 2] * val->z + m[4 + 3];
-	res.z = m[8 + 0] * val->x + m[8 + 1] * val->y + m[8 + 2] * val->z + m[8 + 3];
+	res.x = d34->v[0] * val->x + d34->v[1] * val->y + d34->v[2] * val->z + d34->v[3];
+	res.y = d34->v[4 + 0] * val->x + d34->v[4 + 1] * val->y + d34->v[4 + 2] * val->z + d34->v[4 + 3];
+	res.z = d34->v[8 + 0] * val->x + d34->v[8 + 1] * val->y + d34->v[8 + 2] * val->z + d34->v[8 + 3];
 	return res;
 }
 

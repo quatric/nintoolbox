@@ -2211,8 +2211,8 @@ char *GetCircBuf (
 	buf_size = buf_size + 3 & ~3;
 	if (buf_size > CIRC_BUF_MAX_ALLOC)
 	{
-		ERROR0 (ERR_OUT_OF_MEMORY, "Circulary buffer too small: needed=%u, half-size=%zu\n",
-			buf_size, sizeof (circ_buf) / 2);
+		ERROR0 (ERR_OUT_OF_MEMORY, "Circulary buffer too small: needed=%u, half-size=%llu\n",
+			buf_size, (u64)(sizeof (circ_buf) / 2));
 		ASSERT (0);
 		exit (ERR_OUT_OF_MEMORY);
 	}
@@ -2469,8 +2469,8 @@ FastBuf_t *InitializeFastBuf (void *mem, uint size)
 	if (buf_size < sizeof (fb->fast_buf))
 	{
 		PrintError (__FUNCTION__, __FILE__, __LINE__, 0, ERR_OUT_OF_MEMORY,
-			"Out of memory, FastBuf_t is at least %zd bytes to short.",
-			sizeof (fb->fast_buf) - size);
+			"Out of memory, FastBuf_t is at least %lld bytes to short.",
+			(s64)(sizeof (fb->fast_buf) - size));
 		ASSERT (0);
 		return 0;
 	}
@@ -11367,7 +11367,7 @@ void Sha1SizeBin2Hex (sha1_size_hex_t hex, cvp bin)
 	DASSERT (hex);
 	DASSERT (bin);
 
-	snprintf (hex, sizeof (sha1_hex_t), "%08x%08x%08x%08x%08x%08x", be32 (bin), be32 (bin + 4),
+	snprintf (hex, sizeof (sha1_size_hex_t), "%08x%08x%08x%08x%08x%08x", be32 (bin), be32 (bin + 4),
 		be32 (bin + 8), be32 (bin + 12), be32 (bin + 16), be32 (bin + 20));
 }
 

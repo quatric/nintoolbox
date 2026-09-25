@@ -610,12 +610,10 @@ uint AnalyseRouteLinksKMP (kmp_linfo_t *li, const kmp_t *kmp, uint sect_pt)
 	if (max < n)
 		max = n;
 
-	const kmp_enpt_entry_t *p = (kmp_enpt_entry_t *)kmp->dlist[li->sect_pt].list;
-
 	//--- iterate points
 
 	uint i;
-	for (i = 0; i < n; i++, p++)
+	for (i = 0; i < n; i++)
 	{
 		if (i > 0 && !(li->summary[i] & LINFO_G_PREV))
 		{
@@ -1611,13 +1609,12 @@ static int SearchNearestDP (kmp_group_list_t *gl, // group list
 		return -1;
 
 	int i, found = -1;
-	kmp_group_t *grp;
 	double found_distance = 0.0;
 
 	List_t *list = kmp->dlist + ph->sect_ph;
 	kmp_enph_entry_t *ph_list = (kmp_enph_entry_t *)(list->list);
 
-	for (i = 0, grp = gl->group; i < gl->used; i++, grp++)
+	for (i = 0; i < gl->used; i++)
 	{
 		const kmp_gopt2_t *go2 = ph->gopt + i;
 		if (go2->rtype_active != KMP_RT_DISPATCH)
@@ -1696,7 +1693,7 @@ static void TermGL (kmp_group_list_t *gl, // group list
 	kmp_ph_t *ph = gl->ph;
 	DASSERT (ph);
 
-	for (i = 0, grp = gl->group; i < gl->used; i++, grp++)
+	for (i = 0; i < gl->used; i++)
 	{
 		//--- NEXT links
 
@@ -1795,7 +1792,7 @@ static void TermGL (kmp_group_list_t *gl, // group list
 
 		const kmp_linfo_t *li = SetupRouteLinksKMP (kmp, sect_ph, true);
 
-		for (i = 0, grp = gl->group; i < gl->used; i++, grp++)
+		for (i = 0; i < gl->used; i++)
 		{
 			const kmp_gopt2_t *go2 = ph->gopt + i;
 			if (go2->rtype_active == KMP_RT_DISPATCH)
@@ -1844,7 +1841,7 @@ static void TermGL (kmp_group_list_t *gl, // group list
 
 		li = SetupRouteLinksKMP (kmp, sect_ph, true);
 
-		for (i = 0, grp = gl->group; i < gl->used; i++, grp++)
+		for (i = 0; i < gl->used; i++)
 		{
 			const kmp_gopt2_t *go2 = ph->gopt + i;
 			if (go2->rtype_active != KMP_RT_DISPATCH || go2->next.lclass == KCLS_OFF)

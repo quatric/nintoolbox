@@ -792,7 +792,7 @@ static bool build_mesh (build_t *b, uint blockno, const nif_av_t *av, const cur_
 
 	sem_t sems[24];
 	uint nsem = 0;
-	stream_t dl_stream, idx_stream;
+	stream_t dl_stream = {0}, idx_stream = {0};
 	bool has_dl = false, has_idx = false;
 	for (uint i = 0; i < nstreams && c.ok; i++)
 	{
@@ -1053,7 +1053,7 @@ static bool walk (build_t *b, uint blockno, const xf_t *parent, uint depth)
 	const bool node = is_node_type (t);
 	if (!node && strcmp (t, "NiMesh"))
 		return true;
-	uint size;
+	uint size = 0;
 	const u8 *d = blk (n, blockno, &size);
 	cur_t c = { d, d + size, true };
 	nif_av_t av;

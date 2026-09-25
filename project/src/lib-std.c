@@ -4434,7 +4434,7 @@ enumError cmd_filetype ()
 				else if (fform1 == FF_PORTDB)
 				{
 					const addr_port_version_t *update = (addr_port_version_t *)buf1;
-					snprintf (vbuf, sizeof (vbuf), "r%u ", ntohl (update->revision));
+					snprintf (vbuf, sizeof (vbuf), "r%u ", (uint)ntohl (update->revision));
 					valid = VALID_UNKNOWN; // no further tests
 				}
 				else

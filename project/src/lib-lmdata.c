@@ -101,7 +101,7 @@ static uint32_t lmjmp_hash1 (const char *s)
 	{
 		h <<= 8;
 		h += (u8)*s;
-		const uint32_t r6 = (uint32_t)((4993ul * h) >> 32);
+		const uint32_t r6 = (uint32_t)((4993ull * h) >> 32);
 		const uint32_t r0 = (uint8_t)(((h - r6) / 2 + r6) >> 24);
 		h -= r0 * 33554393u;
 	}

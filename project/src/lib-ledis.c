@@ -6584,8 +6584,11 @@ enumError CreateDebugLD (FILE *f, const le_distrib_t *ld)
 
 	fprintf (f, "%s  Summaries by track status:%s\r\n", colset->heading, colset->reset);
 	for (int i = 0; i < LTS__N; i++)
+	{
+		ccp st_name = GetNameLTS (i);
 		if (n_status[i])
-			fprintf (f, "%8u of status %s\r\n", n_status[i], GetNameLTS (i));
+			fprintf (f, "%8u of status %s\r\n", n_status[i], st_name ? st_name : "?");
+	}
 
 	fprintf (f, "%s  Summaries by track type:%s\r\n", colset->heading, colset->reset);
 	if (n_arena)
@@ -8881,7 +8884,7 @@ ccp GetNameLTS (le_track_status_t lts)
 		case LTS__N:
 			break;
 	}
-	return 0;
+	return "?";
 }
 
 //

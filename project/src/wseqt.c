@@ -82,10 +82,10 @@ int main (int argc, char **argv)
 			err = CreateFileOpt (&F, true, output_path, false, input_path);
 			if (F.f && fwrite (text, 1, text_size, F.f) != text_size)
 				err = FILEERROR1 (
-					&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", text_size, output_path);
+					&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n", (u64)text_size, output_path);
 			ResetFile (&F, 0);
 			FREE (text);
-			printf ("Disassembled %s -> %s (%zu bytes)\n", input_path, output_path, text_size);
+			printf ("Disassembled %s -> %s (%llu bytes)\n", input_path, output_path, (u64)text_size);
 		}
 	}
 	else if (!strcasecmp (cmd, "asm") || !strcasecmp (cmd, "assemble") || !strcasecmp (cmd, "a"))
@@ -115,11 +115,11 @@ int main (int argc, char **argv)
 			err = CreateFileOpt (&F, true, output_path, false, input_path);
 			if (F.f && fwrite (bin, 1, bin_size, F.f) != bin_size)
 				err = FILEERROR1 (
-					&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", bin_size, output_path);
+					&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n", (u64)bin_size, output_path);
 			ResetFile (&F, 0);
 			FREE (bin);
-			printf ("Assembled %s -> %s (%zu bytes, format: %s)\n", input_path, output_path,
-				bin_size, GetSequenceFormatName (target_fmt));
+			printf ("Assembled %s -> %s (%llu bytes, format: %s)\n", input_path, output_path,
+				(u64)bin_size, GetSequenceFormatName (target_fmt));
 		}
 	}
 	else if (!strcasecmp (cmd, "to_midi") || !strcasecmp (cmd, "to-midi")
@@ -140,10 +140,10 @@ int main (int argc, char **argv)
 			err = CreateFileOpt (&F, true, output_path, false, input_path);
 			if (F.f && fwrite (midi, 1, midi_size, F.f) != midi_size)
 				err = FILEERROR1 (
-					&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", midi_size, output_path);
+					&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n", (u64)midi_size, output_path);
 			ResetFile (&F, 0);
 			FREE (midi);
-			printf ("Converted %s -> %s (%zu bytes MIDI)\n", input_path, output_path, midi_size);
+			printf ("Converted %s -> %s (%llu bytes MIDI)\n", input_path, output_path, (u64)midi_size);
 		}
 	}
 	else if (!strcasecmp (cmd, "from_midi") || !strcasecmp (cmd, "from-midi"))
@@ -168,11 +168,11 @@ int main (int argc, char **argv)
 			err = CreateFileOpt (&F, true, output_path, false, input_path);
 			if (F.f && fwrite (seq, 1, seq_size, F.f) != seq_size)
 				err = FILEERROR1 (
-					&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", seq_size, output_path);
+					&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n", (u64)seq_size, output_path);
 			ResetFile (&F, 0);
 			FREE (seq);
-			printf ("Converted MIDI %s -> %s (%zu bytes, format: %s)\n", input_path, output_path,
-				seq_size, GetSequenceFormatName (target_fmt));
+			printf ("Converted MIDI %s -> %s (%llu bytes, format: %s)\n", input_path, output_path,
+				(u64)seq_size, GetSequenceFormatName (target_fmt));
 		}
 	}
 	else if (!strcasecmp (cmd, "invert"))
@@ -192,7 +192,7 @@ int main (int argc, char **argv)
 			err = CreateFileOpt (&F, true, output_path, false, input_path);
 			if (F.f && fwrite (inv, 1, inv_size, F.f) != inv_size)
 				err = FILEERROR1 (
-					&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", inv_size, output_path);
+					&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n", (u64)inv_size, output_path);
 			ResetFile (&F, 0);
 			FREE (inv);
 			printf ("Inverted %s -> %s (center: %d)\n", input_path, output_path, center_note);
@@ -201,7 +201,7 @@ int main (int argc, char **argv)
 	else if (!strcasecmp (cmd, "info"))
 	{
 		seq_format_t fmt = DetectSequenceFormat (raw, raw_size);
-		printf ("File: %s\nSize: %zu bytes\nDetected Format: %s\n", input_path, raw_size,
+		printf ("File: %s\nSize: %llu bytes\nDetected Format: %s\n", input_path, (u64)raw_size,
 			GetSequenceFormatName (fmt));
 	}
 	else
