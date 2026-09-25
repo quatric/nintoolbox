@@ -8958,6 +8958,38 @@ with open(sys.argv[1], "wb") as f:
     fno "botb .bag" "mk_bag.py failed"
   fi
 
+  # Havok classic packfile (.HKX, Tenchu: Shadow Assassins) -- detect +
+  # decode only: verify FILETYPE recognition and that flipping the
+  # little-endian layout-rule byte is still recognized as HKX (the decoder
+  # just declines to walk its section table).
+  mkdir -p "$d/hkx_test"
+  if python3 "$PWD_PROJECT/../tests/mk_hkx.py" "$d/hkx_test/test.hkx" >/dev/null 2>&1; then
+    if "$B/wszst" FT "$d/hkx_test/test.hkx" 2>/dev/null | grep -q "HKX"; then
+      fok "Havok classic packfile (.HKX) recognized by FILETYPE"
+    else
+      fno "hkx" "FILETYPE did not recognize synthetic test.hkx"
+    fi
+  else
+    fno "hkx" "mk_hkx.py failed"
+  fi
+
+  # Tenchu: Shadow Assassins "T4-*" tagged resource (.b) -- detect + decode
+  # only: verify FILETYPE recognition and that a non-".b" extension with the
+  # same bytes is correctly declined (extension-gated detection, since ".b"
+  # is shared with unrelated magic-less layouts in this title).
+  mkdir -p "$d/t4res_test"
+  if python3 "$PWD_PROJECT/../tests/mk_t4res.py" "$d/t4res_test/test.b" >/dev/null 2>&1; then
+    cp "$d/t4res_test/test.b" "$d/t4res_test/test.notb"
+    if "$B/wszst" FT "$d/t4res_test/test.b" 2>/dev/null | grep -q "T4-RES" \
+      && ! "$B/wszst" FT "$d/t4res_test/test.notb" 2>/dev/null | grep -q "T4-RES"; then
+      fok "Tenchu: Shadow Assassins T4-* tagged resource recognized by FILETYPE"
+    else
+      fno "t4res" "FILETYPE did not recognize synthetic test.b, or wrongly matched test.notb"
+    fi
+  else
+    fno "t4res" "mk_t4res.py failed"
+  fi
+
 
   # Barking Lizards Technologies "pkg\0" archive (Nickelodeon: The Naked
   # Brothers Band - The Video Game, Wii)

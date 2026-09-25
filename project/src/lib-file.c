@@ -1018,6 +1018,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 	const u8 *data8 = (u8 *)data;
 	if (data_size >= 16)
 	{
+		// Havok classic packfile (.HKX): exact two-word magic, no
+		// extension ambiguity to resolve first.
+		if (IsHKX (data8, data_size, file_size))
+			return FF_HKX;
 		if ((file_size == 65536 || file_size == 14336 || file_size == 8192 || data_size == 65536
 				|| data_size == 14336 || data_size == 8192)
 			&& !memcmp (data8 + 8, "DSMIO_S\0", 8))
@@ -2537,6 +2541,12 @@ file_format_t GetFileTypeByMagic (
 		// the extension alone.
 		if (ext && !strcasecmp (ext, ".bag") && IsBotbBag ((const u8 *)buf, sizeof (buf), fatt->size))
 			return FF_BOTB_BAG;
+		// Tenchu: Shadow Assassins "T4-*" tagged resource: shares the
+		// generic ".b" extension with several unrelated magic-less layouts
+		// in the same title, so verify the "T4-" tag via IsT4Res() rather
+		// than trusting the extension alone.
+		if (ext && !strcasecmp (ext, ".b") && IsT4Res ((const u8 *)buf, sizeof (buf), fatt->size))
+			return FF_T4RES;
 		file_format_t ff = GetByMagicFF (buf, sizeof (buf), fatt->size);
 		if (ff == FF_SARC && ext && !strcasecmp (ext, ".bfma"))
 			return FF_BFMA;

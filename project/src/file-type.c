@@ -2530,6 +2530,26 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Battle of the Bands .bag asset container (Wii; header and sub-resource manifest decoded)" },
 
+	// FF_HKX = 423 (Havok classic packfile)
+	// Havok 4.6.1-era binary tagfile (magic 0x57E0E057), self-describing
+	// via an embedded class/type reflection table; header and section
+	// table are decoded, plus every embedded Havok class name. The
+	// "__data__" section's binary content is not deserialized.
+	{ FF_HKX, FF_HKX, 0, "HKX", ".hkx", ".txt", ".hkx",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Havok classic packfile (.HKX, Wii; header, section table, and embedded class names decoded)" },
+
+	// FF_T4RES = 424 (Tenchu: Shadow Assassins "T4-*" tagged resource)
+	// A family of authoring-tool-exported ".b" resources (camera sets, AI
+	// voice/status/script tables) sharing a "T4-<TypeName>" tag plus a
+	// packed-BCD date; only the shared tag/date header is decoded, not the
+	// type-specific record tables that follow.
+	{ FF_T4RES, FF_T4RES, 0, "T4-RES", ".b", ".txt", ".b",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Tenchu: Shadow Assassins \"T4-*\" tagged resource (.b, Wii; tag/date header only, not the record table)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2831,6 +2851,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_DIABOLIK_RES, "DIABOLIK-RES", "DIABOLIK-RES", 0xe05 },
 	{ FF_DIG, "DIG", "DIG", 0xe05 },
 	{ FF_BOTB_BAG, "BOTB-BAG", "BOTB-BAG", 0xe05 },
+	{ FF_HKX, "HKX", "HKX", 0xe05 },
+	{ FF_T4RES, "T4-RES", "T4-RES", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

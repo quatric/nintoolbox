@@ -515,6 +515,8 @@ typedef enum file_format_t
 	FF_DIABOLIK_RES, // 420 - Diabolik: The Original Sin FAAFFAAF tagged-block resource container (.cfg/.gam/.loc/.ls/.rgn)
 	FF_DIG, // 421 - Bomberman Land "cddata*.dig" streaming resource package (.dig; extract-only, flat table variant)
 	FF_BOTB_BAG, // 422 - Battle of the Bands ".bag" asset container (header + sub-resource manifest only)
+	FF_HKX, // 423 - Havok classic packfile (.HKX; header + section table + embedded class names)
+	FF_T4RES, // 424 - Tenchu: Shadow Assassins "T4-*" tagged resource (.b; header/name/date only)
 
 	//--- number of elements
 
