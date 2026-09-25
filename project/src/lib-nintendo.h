@@ -505,6 +505,7 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-fbc.h"
 #include "lib-fsb.h"
 #include "lib-agi.h"
+#include "lib-blpkg.h"
 #include "lib-goliath.h"
 #include "lib-rso.h"
 #include "lib-avtex.h"

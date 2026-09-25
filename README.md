@@ -140,6 +140,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **NXARC** | `.nxarc` | ✅ | ✅ | ✅ | — | Nintendo Switch NX archive (`RAXN`) |
 | **PAC (Nd Cube)** | `.bin` | ✅ | ✅ | ✅ | ✅ | Nd Cube Wii U flat container (`PAC\0`, *Mario Party 10* / *Animal Crossing: amiibo Festival*). |
 | **PAC / MRG** | `.pac`, `.mrg` | ✅ | ✅ | ✅ | — | HAL Laboratory / Game Arts Wii archive container |
+| **PKG (Barking Lizards)** | `.pkg` | ✅ | — | — | ✅ | *Nickelodeon: The Naked Brothers Band - The Video Game* (Wii) script/data archive (`pkg\0`); gzip-compressed and stored members, extracted by content-sniffed magic to avoid colliding with the unrelated `.pkg` format above. Verified against all 256 retail `.pkg` files (scripts, actors, menus, songs, world/entities, gameboards, instruments, venues): every entry's declared size/offset matches its real gzip stream length or stored-byte span byte-for-byte. |
 | **PKG / GPKG / GPAK** | `.pkg`, `.pak`, `.gpak` | ✅ | ✅ | ✅ | ✅ | Gorilla Games *Bonsai Barber*, 2D Boy *World of Goo* and Sonic Team Storybook archives. |
 | **PKI** | `.PKI` | ✅ | — | — | ✅ | *Bermuda Triangle: Saving the Coral* (Wii) texture-pack container. |
 | **PKZ** | `.pkz` | ✅ | ✅ | ✅ | — | PlatinumGames archive format (*Bayonetta*, *Astral Chain*) |

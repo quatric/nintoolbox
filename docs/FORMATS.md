@@ -173,6 +173,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **NUT** | Wii U / 3DS / Texture | ✅ | ❌ | Bandai Namco texture package (Smash 4) |
 | **NUTEXB** | Switch / Texture | ✅ | ✅ | Super Smash Bros. Ultimate texture container |
 | **PAC** | Wii / Archive | ✅ | ✅ | Super Smash Bros. Brawl archive |
+| **PKG (Barking Lizards)** | Wii / Archive | ✅ | ❌ | *Nickelodeon: The Naked Brothers Band - The Video Game* script/data archive (`pkg\0`): 16-byte header + 32-byte stats block, then a name(32)+fields(20) table (packed index/type word, decompressed size, compressed size, absolute offset, reserved); type 0 members are stored raw, type 1 are full standard gzip streams; content-sniffed by magic (not extension) since it shares the plain `.pkg` extension with an unrelated existing format; decode-only, verified against all 256 retail `.pkg` files byte-for-byte |
 | **PLT0** | Wii / Animation | ✅ | ✅ | NW4R palette animation |
 | **PRC** | Switch / Param | ✅ | ❌ | Smash Ultimate "paracobn" parameter binary to ParamXML-dialect XML (bool/sbyte/byte/short/ushort/int/uint/float/hash40/string/list/struct); Smash 4 era variants recognised |
 | **PSDK** | Wii / Compression | ✅ | ✅ | Prosonic SDK LZSS container |

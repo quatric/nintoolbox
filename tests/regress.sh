@@ -8931,6 +8931,19 @@ with open(sys.argv[1], "wb") as f:
   fi
 
 
+  # Barking Lizards Technologies "pkg\0" archive (Nickelodeon: The Naked
+  # Brothers Band - The Video Game, Wii)
+  mkdir -p "$d/blpkg_test"
+  if python3 "$PWD_PROJECT/../tests/mk_blpkg.py" "$d/blpkg_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/blpkg_test/test.pkg" --dest "$d/blpkg_test/out" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -1 "$d/blpkg_test/out/hello.lua")" = 'print("hello from blpkg")' ] \
+    && [ "$(cat "$d/blpkg_test/out/data.bin")" = "stored payload bytes" ] \
+    && fok "Barking Lizards pkg archive (Naked Brothers Band) unpacks gzip and stored members" \
+    || fno "Barking Lizards pkg archive" "failed to unpack synthetic test.pkg"
+  else
+    fno "Barking Lizards pkg archive" "mk_blpkg.py failed"
+  fi
+
   # Nintendo RSO relocatable module (Skylanders: SuperChargers Racing gamelogic.rso)
   mkdir -p "$d/rso_test"
   if python3 "$PWD_PROJECT/../tests/mk_rso.py" "$d/rso_test" >/dev/null 2>&1; then
