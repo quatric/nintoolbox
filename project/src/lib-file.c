@@ -2526,6 +2526,13 @@ file_format_t GetFileTypeByMagic (
 			return FF_CSB;
 		if (ext && !strcasecmp (ext, ".ctb"))
 			return FF_CTB;
+		// Bomberman Land cddata*.dig streaming resource package: no magic,
+		// resolved by extension plus a light structural sanity check (the
+		// unsupported "type == 2" composite files fail this and fall
+		// through to normal detection instead of being misreported).
+		if (ext && !strcasecmp (ext, ".dig") && (size_t)fatt->size >= 0x800
+			&& IsDIG ((const u8 *)buf, sizeof (buf), fatt->size))
+			return FF_DIG;
 		file_format_t ff = GetByMagicFF (buf, sizeof (buf), fatt->size);
 		if (ff == FF_SARC && ext && !strcasecmp (ext, ".bfma"))
 			return FF_BFMA;

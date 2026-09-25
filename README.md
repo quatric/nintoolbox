@@ -78,6 +78,7 @@ wbrsar Sound.sdat --both --dest Sound.d
 | **ATB** | `.atb` | ✅ | — | — | — | Hudson Soft Animation Texture Bank (*Mario Party 4-8*). |
 | **Atomic Planet PUB** | `.pub` | ✅ | — | — | ✅ | *AMF Bowling: Pinbusters!* (Wii): textures to PNG, meshes to GLB. |
 | **Avalanche THB/TBB** | `.thb` + `.tbb` | ✅ | — | — | ✅ | Avalanche Software texture pair (*Cars 2*, Wii); single textures and atlases to PNG |
+| **Battle of the Bands BAG** | `.bag` | ✅ | — | — | — | *Battle of the Bands* (Wii) asset container: fixed 32-byte `"1.00 <N>"` text header over a payload of concatenated sub-resources; an embedded plain-text manifest of `name,size,offset` records is decoded and every record whose offset begins a zlib stream is verified to inflate (confirmed across all 215 `.bag` samples on the retail disc). Individual sub-resource binary layouts (textures, level geometry) not further decoded. |
 | **BCGRP** | `.bcgrp` | ✅ | ✅ | — | — | Nintendo 3DS Sound Group (`CGRP`). |
 | **BEA** | `.bea`, `.nx.bea` | ✅ | — | — | — | Nintendo EAD Bezel Engine Archive (`SCNE`, *WarioWare* / *Mario Party*). |
 | **BFGRP** | `.bfgrp` | ✅ | ✅ | — | — | Nintendo Wii U / Switch Sound Group (`FGRP`). |

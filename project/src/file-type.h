@@ -513,6 +513,7 @@ typedef enum file_format_t
 	FF_AQUAPANIC_VIS, // 418 - Aqua Panic! visibility/flag record (.vis; magic-less, fixed 24 bytes)
 	FF_AQUAPANIC_LIT, // 419 - Aqua Panic! single-light record (.lit; magic-less, fixed 48 bytes)
 	FF_DIABOLIK_RES, // 420 - Diabolik: The Original Sin FAAFFAAF tagged-block resource container (.cfg/.gam/.loc/.ls/.rgn)
+	FF_DIG, // 421 - Bomberman Land "cddata*.dig" streaming resource package (.dig; extract-only, flat table variant)
 
 	//--- number of elements
 

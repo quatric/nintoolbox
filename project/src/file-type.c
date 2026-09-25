@@ -2511,6 +2511,16 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Diabolik: The Original Sin FAAFFAAF resource container (.cfg/.gam/.loc/.ls/.rgn, Wii; block tree and embedded text decoded)" },
 
+	// FF_DIG = 421 (Bomberman Land "cddata*.dig" streaming resource package)
+	// Magic-less flat sector-table container (files/cddata.dig,
+	// files/cddata1.dig .. files/cddata14.dig); members carry no on-disk
+	// name and are extracted as numbered blobs. The rarer "type == 2"
+	// composite table variant (5 of 15 real samples) is not supported.
+	{ FF_DIG, FF_DIG, 0, "DIG", ".dig", ".dig", ".dig",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Bomberman Land cddata*.dig streaming resource package (.dig, Wii; flat sector-table variant only)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2810,6 +2820,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_AQUAPANIC_VIS, "AQUAPANIC-VIS", "AQUAPANIC-VIS", 0xe05 },
 	{ FF_AQUAPANIC_LIT, "AQUAPANIC-LIT", "AQUAPANIC-LIT", 0xe05 },
 	{ FF_DIABOLIK_RES, "DIABOLIK-RES", "DIABOLIK-RES", 0xe05 },
+	{ FF_DIG, "DIG", "DIG", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };
