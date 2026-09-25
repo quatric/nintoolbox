@@ -8930,6 +8930,18 @@ with open(sys.argv[1], "wb") as f:
     fno "AGI archive" "mk_agi.py failed"
   fi
 
+  # Bomberman Land cddata*.dig streaming resource package (Wii)
+  mkdir -p "$d/dig_test"
+  if python3 "$PWD_PROJECT/../tests/mk_dig.py" "$d/dig_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/dig_test/test.dig" --dest "$d/dig_test/out" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 19 "$d/dig_test/out/entry_0000.bin")" = "hello dig entry one" ] \
+    && [ "$(head -c 25 "$d/dig_test/out/entry_0001.bin")" = "second dig entry payload" ] \
+    && fok "Bomberman Land cddata*.dig unpacks numbered blobs" \
+    || fno "cddata.dig" "failed to unpack synthetic test.dig"
+  else
+    fno "cddata.dig" "mk_dig.py failed"
+  fi
+
 
   # Barking Lizards Technologies "pkg\0" archive (Nickelodeon: The Naked
   # Brothers Band - The Video Game, Wii)
