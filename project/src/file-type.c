@@ -2521,6 +2521,15 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Bomberman Land cddata*.dig streaming resource package (.dig, Wii; flat sector-table variant only)" },
 
+	// FF_BOTB_BAG = 422 (Battle of the Bands ".bag" asset container)
+	// Fixed 32-byte ASCII "1.00 <N>\n" header over a payload of concatenated
+	// sub-resources; a plain-text "name,size,offset" manifest lists them.
+	// Individual sub-resource binary layouts are not decoded.
+	{ FF_BOTB_BAG, FF_BOTB_BAG, 0, "BOTB-BAG", ".bag", ".txt", ".bag",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Battle of the Bands .bag asset container (Wii; header and sub-resource manifest decoded)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2821,6 +2830,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_AQUAPANIC_LIT, "AQUAPANIC-LIT", "AQUAPANIC-LIT", 0xe05 },
 	{ FF_DIABOLIK_RES, "DIABOLIK-RES", "DIABOLIK-RES", 0xe05 },
 	{ FF_DIG, "DIG", "DIG", 0xe05 },
+	{ FF_BOTB_BAG, "BOTB-BAG", "BOTB-BAG", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

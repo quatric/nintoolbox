@@ -8942,6 +8942,22 @@ with open(sys.argv[1], "wb") as f:
     fno "cddata.dig" "mk_dig.py failed"
   fi
 
+  # Battle of the Bands ".bag" asset container (Wii) -- detect + decode only,
+  # no EXTRACT: verify FILETYPE recognition and that a non-.bag file with the
+  # same bytes is correctly declined (extension-gated detection).
+  mkdir -p "$d/bag_test"
+  if python3 "$PWD_PROJECT/../tests/mk_bag.py" "$d/bag_test/test.bag" >/dev/null 2>&1; then
+    cp "$d/bag_test/test.bag" "$d/bag_test/test.notbag"
+    if "$B/wszst" FT "$d/bag_test/test.bag" 2>/dev/null | grep -q "BOTB-BAG" \
+      && ! "$B/wszst" FT "$d/bag_test/test.notbag" 2>/dev/null | grep -q "BOTB-BAG"; then
+      fok "Battle of the Bands .bag container recognized by FILETYPE"
+    else
+      fno "botb .bag" "FILETYPE did not recognize synthetic test.bag, or wrongly matched test.notbag"
+    fi
+  else
+    fno "botb .bag" "mk_bag.py failed"
+  fi
+
 
   # Barking Lizards Technologies "pkg\0" archive (Nickelodeon: The Naked
   # Brothers Band - The Video Game, Wii)

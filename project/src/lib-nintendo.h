@@ -490,6 +490,7 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-cpk.h"
 #include "lib-ipk.h"
 #include "lib-dig.h"
+#include "lib-botbbag.h"
 #include "lib-wadh.h"
 #include "lib-catcar.h"
 #include "lib-vblank.h"

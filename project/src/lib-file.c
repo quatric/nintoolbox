@@ -2532,6 +2532,11 @@ file_format_t GetFileTypeByMagic (
 		// composite files instead of emitting a bad extraction).
 		if (ext && !strcasecmp (ext, ".dig") && (size_t)fatt->size >= 0x800)
 			return FF_DIG;
+		// Battle of the Bands .bag asset container: fixed ASCII header,
+		// no binary magic, so verify with IsBotbBag() rather than trusting
+		// the extension alone.
+		if (ext && !strcasecmp (ext, ".bag") && IsBotbBag ((const u8 *)buf, sizeof (buf), fatt->size))
+			return FF_BOTB_BAG;
 		file_format_t ff = GetByMagicFF (buf, sizeof (buf), fatt->size);
 		if (ff == FF_SARC && ext && !strcasecmp (ext, ".bfma"))
 			return FF_BFMA;

@@ -4261,6 +4261,13 @@ enumError cmd_filetype ()
 					fform1 = FF_BFMA;
 				else if (fform1 == FF_DARC && ext && !strcasecmp (ext, ".bcma"))
 					fform1 = FF_BCMA;
+				else if (ext && !strcasecmp (ext, ".bag")
+						&& IsBotbBag ((const u8 *)buf1, bufsize, fatt.size))
+					// Battle of the Bands .bag has no binary magic of its
+					// own, so some real samples coincidentally match
+					// another format's magic bytes; the ASCII header check
+					// takes priority over that guess.
+					fform1 = FF_BOTB_BAG;
 				else if (fform1 == FF_UNKNOWN)
 				{
 					// Same ".tex" disambiguation as GetFileTypeByMagic():
