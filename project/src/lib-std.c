@@ -4268,6 +4268,17 @@ enumError cmd_filetype ()
 					// another format's magic bytes; the ASCII header check
 					// takes priority over that guess.
 					fform1 = FF_BOTB_BAG;
+				else if (ext && !strcasecmp (ext, ".b")
+						&& IsT4Res ((const u8 *)buf1, bufsize, fatt.size))
+					fform1 = FF_T4RES;
+				else if (ext && !strcasecmp (ext, ".hd")
+						&& IsHdVoice ((const u8 *)buf1, bufsize, fatt.size))
+					// Tenchu voice-line manifests have no binary magic of
+					// their own, so some real samples (e.g. MENU.hd,
+					// COMMON.hd) coincidentally match another format's
+					// heuristic magic (DSP); the full structural walk
+					// takes priority over that guess.
+					fform1 = FF_HDVOICE;
 				else if (fform1 == FF_UNKNOWN)
 				{
 					// Same ".tex" disambiguation as GetFileTypeByMagic():

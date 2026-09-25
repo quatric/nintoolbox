@@ -8990,6 +8990,24 @@ with open(sys.argv[1], "wb") as f:
     fno "t4res" "mk_t4res.py failed"
   fi
 
+  # Tenchu: Shadow Assassins voice-line manifest (.hd) -- detect + decode
+  # only: verify FILETYPE recognition and that a non-".hd" extension with
+  # the same bytes is correctly declined (magic-less, extension-gated
+  # detection, since the structural walk alone isn't a unique enough
+  # signature to trust without the extension).
+  mkdir -p "$d/hdvoice_test"
+  if python3 "$PWD_PROJECT/../tests/mk_hdvoice.py" "$d/hdvoice_test/test.hd" >/dev/null 2>&1; then
+    cp "$d/hdvoice_test/test.hd" "$d/hdvoice_test/test.nothd"
+    if "$B/wszst" FT "$d/hdvoice_test/test.hd" 2>/dev/null | grep -q "HDVOICE" \
+      && ! "$B/wszst" FT "$d/hdvoice_test/test.nothd" 2>/dev/null | grep -q "HDVOICE"; then
+      fok "Tenchu: Shadow Assassins voice-line manifest recognized by FILETYPE"
+    else
+      fno "hdvoice" "FILETYPE did not recognize synthetic test.hd, or wrongly matched test.nothd"
+    fi
+  else
+    fno "hdvoice" "mk_hdvoice.py failed"
+  fi
+
 
   # Barking Lizards Technologies "pkg\0" archive (Nickelodeon: The Naked
   # Brothers Band - The Video Game, Wii)

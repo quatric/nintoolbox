@@ -2547,6 +2547,11 @@ file_format_t GetFileTypeByMagic (
 		// than trusting the extension alone.
 		if (ext && !strcasecmp (ext, ".b") && IsT4Res ((const u8 *)buf, sizeof (buf), fatt->size))
 			return FF_T4RES;
+		// Tenchu: Shadow Assassins voice-line manifest: magic-less, so
+		// verify the full slot/parameter table walk via IsHdVoice() rather
+		// than trusting the extension alone.
+		if (ext && !strcasecmp (ext, ".hd") && IsHdVoice ((const u8 *)buf, sizeof (buf), fatt->size))
+			return FF_HDVOICE;
 		file_format_t ff = GetByMagicFF (buf, sizeof (buf), fatt->size);
 		if (ff == FF_SARC && ext && !strcasecmp (ext, ".bfma"))
 			return FF_BFMA;

@@ -517,6 +517,7 @@ typedef enum file_format_t
 	FF_BOTB_BAG, // 422 - Battle of the Bands ".bag" asset container (header + sub-resource manifest only)
 	FF_HKX, // 423 - Havok classic packfile (.HKX; header + section table + embedded class names)
 	FF_T4RES, // 424 - Tenchu: Shadow Assassins "T4-*" tagged resource (.b; header/name/date only)
+	FF_HDVOICE, // 425 - Tenchu: Shadow Assassins voice-line manifest (.hd; slot table + parameter table, fully decoded)
 
 	//--- number of elements
 

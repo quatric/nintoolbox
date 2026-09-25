@@ -2550,6 +2550,17 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Tenchu: Shadow Assassins \"T4-*\" tagged resource (.b, Wii; tag/date header only, not the record table)" },
 
+	// FF_HDVOICE = 425 (Tenchu: Shadow Assassins voice-line manifest)
+	// Magic-less but structurally unique to this title's ".hd" files
+	// (confirmed on all 102 real samples): a fixed-size slot table mapping
+	// per-character voice-line IDs (category/variant) to an index into a
+	// parameter table (volume/pitch/priority/etc.), or a sentinel for IDs
+	// not recorded in this localization. Fully decoded.
+	{ FF_HDVOICE, FF_HDVOICE, 0, "HDVOICE", ".hd", ".txt", ".hd",
+		FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Tenchu: Shadow Assassins voice-line manifest (.hd, Wii; slot table and parameter table fully decoded)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2853,6 +2864,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_BOTB_BAG, "BOTB-BAG", "BOTB-BAG", 0xe05 },
 	{ FF_HKX, "HKX", "HKX", 0xe05 },
 	{ FF_T4RES, "T4-RES", "T4-RES", 0xe05 },
+	{ FF_HDVOICE, "HDVOICE", "HDVOICE", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };
