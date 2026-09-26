@@ -78,10 +78,10 @@ typedef struct ttarch_t
 	u32 version;
 	u32 encryption;
 	u32 files_mode;
-	u32 chunk_size;			// bytes (0 if files_mode < 2)
+	u32 chunk_size; // bytes (0 if files_mode < 2)
 	u32 chunk_count;
-	const u32 *block_size;			// chunk_count entries, still points into 'raw'
-	u32 files_offset;			// absolute offset of the data region
+	const u32 *block_size; // chunk_count entries, still points into 'raw'
+	u32 files_offset; // absolute offset of the data region
 	uint n_entries;
 	ttarch_entry_t *entries;
 } ttarch_t;

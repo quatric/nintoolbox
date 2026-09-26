@@ -88,9 +88,9 @@
 // looking for the format's fixed top-level assignment keyword (or, for
 // ".song", the "<Song" root element + "zoe:Song" namespace).
 
-int IsVoiceSong   (const u8 *data, size_t size, size_t file_size);
-int IsVoiceAmc    (const u8 *data, size_t size, size_t file_size);
-int IsVoiceAms    (const u8 *data, size_t size, size_t file_size);
+int IsVoiceSong (const u8 *data, size_t size, size_t file_size);
+int IsVoiceAmc (const u8 *data, size_t size, size_t file_size);
+int IsVoiceAms (const u8 *data, size_t size, size_t file_size);
 int IsVoicePalcat (const u8 *data, size_t size, size_t file_size);
 int IsVoicePalseq (const u8 *data, size_t size, size_t file_size);
 
@@ -99,9 +99,9 @@ int IsVoicePalseq (const u8 *data, size_t size, size_t file_size);
 // (rather than copying it) and re-emits the extracted fields in a fixed,
 // readable layout.
 
-enumError DecodeVoiceSong_Text   (FILE *f, const u8 *data, size_t size, size_t file_size);
-enumError DecodeVoiceAmc_Text    (FILE *f, const u8 *data, size_t size, size_t file_size);
-enumError DecodeVoiceAms_Text    (FILE *f, const u8 *data, size_t size, size_t file_size);
+enumError DecodeVoiceSong_Text (FILE *f, const u8 *data, size_t size, size_t file_size);
+enumError DecodeVoiceAmc_Text (FILE *f, const u8 *data, size_t size, size_t file_size);
+enumError DecodeVoiceAms_Text (FILE *f, const u8 *data, size_t size, size_t file_size);
 enumError DecodeVoicePalcat_Text (FILE *f, const u8 *data, size_t size, size_t file_size);
 enumError DecodeVoicePalseq_Text (FILE *f, const u8 *data, size_t size, size_t file_size);
 

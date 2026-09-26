@@ -50,8 +50,8 @@ void SH_SetConstantColor (float *sh_data_27, const float color[3])
 	if (!sh_data_27)
 		return;
 	memset (sh_data_27, 0, 27 * sizeof (float));
-	sh_data_27[0] = color[0];  // Red L00
-	sh_data_27[9] = color[1];  // Green L00
+	sh_data_27[0] = color[0]; // Red L00
+	sh_data_27[9] = color[1]; // Green L00
 	sh_data_27[18] = color[2]; // Blue L00
 }
 
@@ -186,31 +186,17 @@ void SH_GetRGBColor (const float normal[3], const float sh_data_rgba[7][4], floa
 {
 	const float normal4[4] = { normal[0], normal[1], normal[2], 1.0f };
 
-	float x0[3] = {
-		dot4 (sh_data_rgba[0], normal4),
-		dot4 (sh_data_rgba[1], normal4),
-		dot4 (sh_data_rgba[2], normal4)
-	};
+	float x0[3] = { dot4 (sh_data_rgba[0], normal4), dot4 (sh_data_rgba[1], normal4),
+		dot4 (sh_data_rgba[2], normal4) };
 
-	float v_b[4] = {
-		normal4[0] * normal4[1],
-		normal4[1] * normal4[2],
-		normal4[2] * normal4[0],
-		normal4[2] * normal4[2]
-	};
+	float v_b[4] = { normal4[0] * normal4[1], normal4[1] * normal4[2], normal4[2] * normal4[0],
+		normal4[2] * normal4[2] };
 
-	float x1[3] = {
-		dot4 (sh_data_rgba[3], v_b),
-		dot4 (sh_data_rgba[4], v_b),
-		dot4 (sh_data_rgba[5], v_b)
-	};
+	float x1[3]
+		= { dot4 (sh_data_rgba[3], v_b), dot4 (sh_data_rgba[4], v_b), dot4 (sh_data_rgba[5], v_b) };
 
 	float v_c = normal4[0] * normal4[0] - normal4[1] * normal4[1];
-	float x2[3] = {
-		sh_data_rgba[6][0] * v_c,
-		sh_data_rgba[6][1] * v_c,
-		sh_data_rgba[6][2] * v_c
-	};
+	float x2[3] = { sh_data_rgba[6][0] * v_c, sh_data_rgba[6][1] * v_c, sh_data_rgba[6][2] * v_c };
 
 	for (int c = 0; c < 3; c++)
 	{
@@ -273,7 +259,8 @@ static const aamp_param_object_t *find_object (const aamp_param_list_t *list, co
 	return NULL;
 }
 
-static void calc_stride (const float min_pos[3], const float max_pos[3], const float step[3], u32 stride[3])
+static void calc_stride (
+	const float min_pos[3], const float max_pos[3], const float step[3], u32 stride[3])
 {
 	for (int i = 0; i < 3; i++)
 	{
@@ -307,9 +294,12 @@ enumError ScanBGLPBD (bglpbd_file_t *file, const u8 *data, size_t size)
 		const aamp_param_entry_t *e_min = find_entry (root_grid, "aabb_min_pos");
 		const aamp_param_entry_t *e_max = find_entry (root_grid, "aabb_max_pos");
 		const aamp_param_entry_t *e_step = find_entry (root_grid, "voxel_step_pos");
-		if (e_min) memcpy (file->root_min, e_min->vec, 3 * sizeof (float));
-		if (e_max) memcpy (file->root_max, e_max->vec, 3 * sizeof (float));
-		if (e_step) memcpy (file->root_step, e_step->vec, 3 * sizeof (float));
+		if (e_min)
+			memcpy (file->root_min, e_min->vec, 3 * sizeof (float));
+		if (e_max)
+			memcpy (file->root_max, e_max->vec, 3 * sizeof (float));
+		if (e_step)
+			memcpy (file->root_step, e_step->vec, 3 * sizeof (float));
 	}
 
 	// Check root param_obj
@@ -317,10 +307,14 @@ enumError ScanBGLPBD (bglpbd_file_t *file, const u8 *data, size_t size)
 	if (root_param)
 	{
 		const aamp_param_entry_t *e;
-		if ((e = find_entry (root_param, "dir_light_indirect"))) file->settings.dir_light_indirect = e->f;
-		if ((e = find_entry (root_param, "point_light_indirect"))) file->settings.point_light_indirect = e->f;
-		if ((e = find_entry (root_param, "spot_light_indirect"))) file->settings.spot_light_indirect = e->f;
-		if ((e = find_entry (root_param, "emission_scale"))) file->settings.emission_scale = e->f;
+		if ((e = find_entry (root_param, "dir_light_indirect")))
+			file->settings.dir_light_indirect = e->f;
+		if ((e = find_entry (root_param, "point_light_indirect")))
+			file->settings.point_light_indirect = e->f;
+		if ((e = find_entry (root_param, "spot_light_indirect")))
+			file->settings.spot_light_indirect = e->f;
+		if ((e = find_entry (root_param, "emission_scale")))
+			file->settings.emission_scale = e->f;
 	}
 
 	// Scan boxes (child lists of root)
@@ -339,9 +333,12 @@ enumError ScanBGLPBD (bglpbd_file_t *file, const u8 *data, size_t size)
 				const aamp_param_entry_t *e_min = find_entry (grid, "aabb_min_pos");
 				const aamp_param_entry_t *e_max = find_entry (grid, "aabb_max_pos");
 				const aamp_param_entry_t *e_step = find_entry (grid, "voxel_step_pos");
-				if (e_min) memcpy (box->min_pos, e_min->vec, 3 * sizeof (float));
-				if (e_max) memcpy (box->max_pos, e_max->vec, 3 * sizeof (float));
-				if (e_step) memcpy (box->step_pos, e_step->vec, 3 * sizeof (float));
+				if (e_min)
+					memcpy (box->min_pos, e_min->vec, 3 * sizeof (float));
+				if (e_max)
+					memcpy (box->max_pos, e_max->vec, 3 * sizeof (float));
+				if (e_step)
+					memcpy (box->step_pos, e_step->vec, 3 * sizeof (float));
 				calc_stride (box->min_pos, box->max_pos, box->step_pos, box->stride);
 			}
 
@@ -349,7 +346,9 @@ enumError ScanBGLPBD (bglpbd_file_t *file, const u8 *data, size_t size)
 			if (idx_obj)
 			{
 				const aamp_param_entry_t *e_idx = find_entry (idx_obj, "index_buffer");
-				if (e_idx && (e_idx->type == AAMP_TYPE_BUFFER_UINT || e_idx->type == AAMP_TYPE_BUFFER_INT) && e_idx->buf.data)
+				if (e_idx
+					&& (e_idx->type == AAMP_TYPE_BUFFER_UINT || e_idx->type == AAMP_TYPE_BUFFER_INT)
+					&& e_idx->buf.data)
 				{
 					const u32 *packed = (const u32 *)e_idx->buf.data;
 					size_t num_u32 = e_idx->buf.count;
@@ -554,7 +553,8 @@ enumError BGLPBD_ToAAMP (const bglpbd_file_t *file, aamp_file_t *aamp)
 		if (b_idx->entry_count >= b_idx->entry_alloc)
 		{
 			b_idx->entry_alloc = b_idx->entry_alloc ? b_idx->entry_alloc * 2 : 8;
-			b_idx->entries = REALLOC (b_idx->entries, b_idx->entry_alloc * sizeof (aamp_param_entry_t));
+			b_idx->entries
+				= REALLOC (b_idx->entries, b_idx->entry_alloc * sizeof (aamp_param_entry_t));
 		}
 		b_idx->entries[b_idx->entry_count++] = e_idx_buf;
 
@@ -579,7 +579,8 @@ enumError BGLPBD_ToAAMP (const bglpbd_file_t *file, aamp_file_t *aamp)
 		if (b_sh->entry_count >= b_sh->entry_alloc)
 		{
 			b_sh->entry_alloc = b_sh->entry_alloc ? b_sh->entry_alloc * 2 : 8;
-			b_sh->entries = REALLOC (b_sh->entries, b_sh->entry_alloc * sizeof (aamp_param_entry_t));
+			b_sh->entries
+				= REALLOC (b_sh->entries, b_sh->entry_alloc * sizeof (aamp_param_entry_t));
 		}
 		b_sh->entries[b_sh->entry_count++] = e_sh_buf;
 	}
@@ -603,8 +604,9 @@ enumError EncodeBGLPBD (const bglpbd_file_t *file, u8 **dest, size_t *dest_size)
 // Generator from Bounds & Model
 ///////////////////////////////////////////////////////////////////////////////
 
-enumError CreateBGLPBD_FromBounds (bglpbd_file_t *file, const float min_pos[3], const float max_pos[3],
-	const float step_pos[3], const bglpbd_settings_t *settings, bool is_switch)
+enumError CreateBGLPBD_FromBounds (bglpbd_file_t *file, const float min_pos[3],
+	const float max_pos[3], const float step_pos[3], const bglpbd_settings_t *settings,
+	bool is_switch)
 {
 	if (!file)
 		return ERR_INVALID_DATA;
@@ -642,33 +644,24 @@ enumError CreateBGLPBD_FromBounds (bglpbd_file_t *file, const float min_pos[3], 
 	box->num_sh_data = 8;
 	box->sh_buffer = CALLOC (8 * 27, sizeof (float));
 
-	const float default_colors[8][3] = {
-		{ 1.0f, 0.0f, 0.0f },
-		{ 0.0f, 1.0f, 0.0f },
-		{ 0.0f, 0.0f, 1.0f },
-		{ 1.0f, 1.0f, 0.0f },
-		{ 0.0f, 1.0f, 1.0f },
-		{ 0.5f, 1.0f, 0.5f },
-		{ 0.0f, 0.5f, 1.0f },
-		{ 1.0f, 0.5f, 0.5f }
-	};
+	const float default_colors[8][3] = { { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f },
+		{ 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f, 1.0f }, { 0.5f, 1.0f, 0.5f },
+		{ 0.0f, 0.5f, 1.0f }, { 1.0f, 0.5f, 0.5f } };
 
 	// If a custom non-default color was passed in settings, scale them
 	for (int i = 0; i < 8; i++)
 	{
-		float c[3] = {
-			default_colors[i][0] * file->settings.color[0],
+		float c[3] = { default_colors[i][0] * file->settings.color[0],
 			default_colors[i][1] * file->settings.color[1],
-			default_colors[i][2] * file->settings.color[2]
-		};
+			default_colors[i][2] * file->settings.color[2] };
 		SH_SetConstantColor (box->sh_buffer + i * 27, c);
 	}
 
 	return ERR_OK;
 }
 
-enumError CreateBGLPBD_FromModel (bglpbd_file_t *file, const model_t *model,
-	const bglpbd_settings_t *settings, bool is_switch)
+enumError CreateBGLPBD_FromModel (
+	bglpbd_file_t *file, const model_t *model, const bglpbd_settings_t *settings, bool is_switch)
 {
 	if (!file || !model || model->num_meshes == 0)
 		return ERR_INVALID_DATA;
@@ -683,12 +676,18 @@ enumError CreateBGLPBD_FromModel (bglpbd_file_t *file, const model_t *model,
 		for (size_t v = 0; v < mesh->num_positions; v++)
 		{
 			const vec3_t *p = &mesh->positions[v];
-			if (p->x < min_p[0]) min_p[0] = p->x;
-			if (p->y < min_p[1]) min_p[1] = p->y;
-			if (p->z < min_p[2]) min_p[2] = p->z;
-			if (p->x > max_p[0]) max_p[0] = p->x;
-			if (p->y > max_p[1]) max_p[1] = p->y;
-			if (p->z > max_p[2]) max_p[2] = p->z;
+			if (p->x < min_p[0])
+				min_p[0] = p->x;
+			if (p->y < min_p[1])
+				min_p[1] = p->y;
+			if (p->z < min_p[2])
+				min_p[2] = p->z;
+			if (p->x > max_p[0])
+				max_p[0] = p->x;
+			if (p->y > max_p[1])
+				max_p[1] = p->y;
+			if (p->z > max_p[2])
+				max_p[2] = p->z;
 			found_vtx = true;
 		}
 	}
@@ -714,18 +713,27 @@ static float *lerp_sh (const float a[27], const float b[27], float t, float out[
 	return out;
 }
 
-static const float *get_unity_point (const float *buffer, size_t total_sh, u32 sx, u32 sy, u32 sz, int x, int y, int z)
+static const float *get_unity_point (
+	const float *buffer, size_t total_sh, u32 sx, u32 sy, u32 sz, int x, int y, int z)
 {
-	if (x < 0) x = 0;
-	if (x >= (int)sx) x = (int)sx - 1;
-	if (y < 0) y = 0;
-	if (y >= (int)sy) y = (int)sy - 1;
-	if (z < 0) z = 0;
-	if (z >= (int)sz) z = (int)sz - 1;
+	if (x < 0)
+		x = 0;
+	if (x >= (int)sx)
+		x = (int)sx - 1;
+	if (y < 0)
+		y = 0;
+	if (y >= (int)sy)
+		y = (int)sy - 1;
+	if (z < 0)
+		z = 0;
+	if (z >= (int)sz)
+		z = (int)sz - 1;
 
 	int inv_x = (int)(sx - x);
-	if (inv_x < 0) inv_x = 0;
-	if (inv_x >= (int)sx) inv_x = (int)sx - 1;
+	if (inv_x < 0)
+		inv_x = 0;
+	if (inv_x >= (int)sx)
+		inv_x = (int)sx - 1;
 
 	size_t idx = (size_t)(sx * sz * y + sx * z + inv_x);
 	if (idx >= total_sh)
@@ -794,10 +802,12 @@ enumError CreateBGLPBD_FromUnityText (bglpbd_file_t *file, const char *txt_conte
 			break;
 		char fbuf[64];
 		size_t fi = 0;
-		while (p < end && *p != '\r' && *p != '\n' && *p != ' ' && *p != '\t' && fi < sizeof (fbuf) - 1)
+		while (p < end && *p != '\r' && *p != '\n' && *p != ' ' && *p != '\t'
+			&& fi < sizeof (fbuf) - 1)
 		{
 			char c = *p++;
-			if (c == ',') c = '.';
+			if (c == ',')
+				c = '.';
 			fbuf[fi++] = c;
 		}
 		fbuf[fi] = '\0';
@@ -855,8 +865,11 @@ enumError CreateBGLPBD_FromUnityText (bglpbd_file_t *file, const char *txt_conte
 			{
 				for (int i = 0; i < 8; i++)
 				{
-					size_t p_idx = (size_t)(box->stride[0] * box->stride[2] * y + box->stride[0] * z + x) * 8 + i;
-					const float *orig_sh = get_unity_point (u_buffer, total_sh, box->stride[0], box->stride[1], box->stride[2], x, y, z);
+					size_t p_idx
+						= (size_t)(box->stride[0] * box->stride[2] * y + box->stride[0] * z + x) * 8
+						+ i;
+					const float *orig_sh = get_unity_point (u_buffer, total_sh, box->stride[0],
+						box->stride[1], box->stride[2], x, y, z);
 
 					float sh_data[27];
 					memcpy (sh_data, orig_sh, 27 * sizeof (float));
@@ -865,35 +878,59 @@ enumError CreateBGLPBD_FromUnityText (bglpbd_file_t *file, const char *txt_conte
 					switch (i)
 					{
 						case 0: // Top front right: x+1, y+1, z+1
-							lerp_sh (sh_data, get_unity_point (u_buffer, total_sh, box->stride[0], box->stride[1], box->stride[2], x+1, y+1, z+1), lerp_ratio, tmp_sh);
+							lerp_sh (sh_data,
+								get_unity_point (u_buffer, total_sh, box->stride[0], box->stride[1],
+									box->stride[2], x + 1, y + 1, z + 1),
+								lerp_ratio, tmp_sh);
 							memcpy (sh_data, tmp_sh, 27 * sizeof (float));
 							break;
 						case 1: // Top front left: x-1, y+1, z+1
-							lerp_sh (sh_data, get_unity_point (u_buffer, total_sh, box->stride[0], box->stride[1], box->stride[2], x-1, y+1, z+1), lerp_ratio, tmp_sh);
+							lerp_sh (sh_data,
+								get_unity_point (u_buffer, total_sh, box->stride[0], box->stride[1],
+									box->stride[2], x - 1, y + 1, z + 1),
+								lerp_ratio, tmp_sh);
 							memcpy (sh_data, tmp_sh, 27 * sizeof (float));
 							break;
 						case 2: // Top back right: x+1, y+1, z-1
-							lerp_sh (sh_data, get_unity_point (u_buffer, total_sh, box->stride[0], box->stride[1], box->stride[2], x+1, y+1, z-1), lerp_ratio, tmp_sh);
+							lerp_sh (sh_data,
+								get_unity_point (u_buffer, total_sh, box->stride[0], box->stride[1],
+									box->stride[2], x + 1, y + 1, z - 1),
+								lerp_ratio, tmp_sh);
 							memcpy (sh_data, tmp_sh, 27 * sizeof (float));
 							break;
 						case 3: // Top back left: x-1, y+1, z-1
-							lerp_sh (sh_data, get_unity_point (u_buffer, total_sh, box->stride[0], box->stride[1], box->stride[2], x-1, y+1, z-1), lerp_ratio, tmp_sh);
+							lerp_sh (sh_data,
+								get_unity_point (u_buffer, total_sh, box->stride[0], box->stride[1],
+									box->stride[2], x - 1, y + 1, z - 1),
+								lerp_ratio, tmp_sh);
 							memcpy (sh_data, tmp_sh, 27 * sizeof (float));
 							break;
 						case 4: // Bottom front right: x+1, y-1, z+1
-							lerp_sh (sh_data, get_unity_point (u_buffer, total_sh, box->stride[0], box->stride[1], box->stride[2], x+1, y-1, z+1), lerp_ratio, tmp_sh);
+							lerp_sh (sh_data,
+								get_unity_point (u_buffer, total_sh, box->stride[0], box->stride[1],
+									box->stride[2], x + 1, y - 1, z + 1),
+								lerp_ratio, tmp_sh);
 							memcpy (sh_data, tmp_sh, 27 * sizeof (float));
 							break;
 						case 5: // Bottom front left: x-1, y-1, z+1
-							lerp_sh (sh_data, get_unity_point (u_buffer, total_sh, box->stride[0], box->stride[1], box->stride[2], x-1, y-1, z+1), lerp_ratio, tmp_sh);
+							lerp_sh (sh_data,
+								get_unity_point (u_buffer, total_sh, box->stride[0], box->stride[1],
+									box->stride[2], x - 1, y - 1, z + 1),
+								lerp_ratio, tmp_sh);
 							memcpy (sh_data, tmp_sh, 27 * sizeof (float));
 							break;
 						case 6: // Bottom back right: x+1, y-1, z-1
-							lerp_sh (sh_data, get_unity_point (u_buffer, total_sh, box->stride[0], box->stride[1], box->stride[2], x+1, y-1, z-1), lerp_ratio, tmp_sh);
+							lerp_sh (sh_data,
+								get_unity_point (u_buffer, total_sh, box->stride[0], box->stride[1],
+									box->stride[2], x + 1, y - 1, z - 1),
+								lerp_ratio, tmp_sh);
 							memcpy (sh_data, tmp_sh, 27 * sizeof (float));
 							break;
 						case 7: // Bottom back left: x-1, y-1, z-1
-							lerp_sh (sh_data, get_unity_point (u_buffer, total_sh, box->stride[0], box->stride[1], box->stride[2], x-1, y-1, z-1), lerp_ratio, tmp_sh);
+							lerp_sh (sh_data,
+								get_unity_point (u_buffer, total_sh, box->stride[0], box->stride[1],
+									box->stride[2], x - 1, y - 1, z - 1),
+								lerp_ratio, tmp_sh);
 							memcpy (sh_data, tmp_sh, 27 * sizeof (float));
 							break;
 					}
@@ -983,12 +1020,18 @@ enumError DumpBGLPBD_Images (const bglpbd_file_t *file, const char *out_prefix, 
 				{
 					for (u32 x = 0; x < box->stride[0]; x++)
 					{
-						size_t probe_linear_idx = (size_t)(box->stride[0] * box->stride[2] * y + box->stride[0] * z + x) * 8 + dir_idx;
+						size_t probe_linear_idx
+							= (size_t)(box->stride[0] * box->stride[2] * y + box->stride[0] * z + x)
+								* 8
+							+ dir_idx;
 						size_t pixel_idx = ((size_t)y * box->stride[2] + z) * box->stride[0] + x;
 						u8 *px = rgba + pixel_idx * 4;
 
-						u16 p_idx = (probe_linear_idx < box->num_indices) ? box->probe_indices[probe_linear_idx] : BGLPBD_EMPTY_PROBE_IDX;
-						if (p_idx == BGLPBD_INIT_PROBE_IDX || p_idx == BGLPBD_INV_PROBE_IDX || p_idx == BGLPBD_EMPTY_PROBE_IDX)
+						u16 p_idx = (probe_linear_idx < box->num_indices)
+							? box->probe_indices[probe_linear_idx]
+							: BGLPBD_EMPTY_PROBE_IDX;
+						if (p_idx == BGLPBD_INIT_PROBE_IDX || p_idx == BGLPBD_INV_PROBE_IDX
+							|| p_idx == BGLPBD_EMPTY_PROBE_IDX)
 						{
 							px[0] = 0;
 							px[1] = 0;

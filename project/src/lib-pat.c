@@ -1849,8 +1849,8 @@ enumError SaveTextPAT (pat_t *pat, // pointer to valid PAT
 		"@UNKNOWN-14 = %#6x\r\n"
 		"@UNKNOWN-16 = %#6x\r\n"
 		"\r\n",
-		(uint)ntohl (bh->size), calc_on_scan, (uint)ntohs (bh->unknown_04), ntohs (bh->n_elem), calc_on_scan,
-		ntohs (bh->unknown_08), ntohs (bh->unknown_0a), ntohs (bh->n_unknown),
+		(uint)ntohl (bh->size), calc_on_scan, (uint)ntohs (bh->unknown_04), ntohs (bh->n_elem),
+		calc_on_scan, ntohs (bh->unknown_08), ntohs (bh->unknown_0a), ntohs (bh->n_unknown),
 		ntohs (bh->unknown_0e), ntohs (bh->unknown_10), ntohs (bh->unknown_12),
 		ntohs (bh->unknown_14), ntohs (bh->unknown_16));
 

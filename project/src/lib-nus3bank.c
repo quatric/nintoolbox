@@ -106,8 +106,7 @@ bool IsNUS3Bank (const u8 *data, size_t size)
 
 // --- section readers (bounds-checked; used by both text + extract) ---
 
-static bool nus3bank_prop (nus3bank_t *b, char *proj, size_t projsz,
-	char *ts, size_t tssz)
+static bool nus3bank_prop (nus3bank_t *b, char *proj, size_t projsz, char *ts, size_t tssz)
 {
 	const u8 *d = b->data;
 	// exact mirror of the reference reader (note the irregular skips:
@@ -162,8 +161,8 @@ static bool nus3bank_binf (nus3bank_t *b, char *name, size_t namesz, u32 *flag)
 // Group/tone entries open with a reserved s32, then a length-prefixed
 // name (u8 length including NUL, chars, align-4). Returns the name and
 // the position just past it.
-static bool nus3bank_entry_name (const u8 *data, size_t size, size_t pos,
-	char *dst, size_t dstsz, size_t *after)
+static bool nus3bank_entry_name (
+	const u8 *data, size_t size, size_t pos, char *dst, size_t dstsz, size_t *after)
 {
 	if (pos + 5 > size)
 		return false;
@@ -206,11 +205,12 @@ enumError DecodeNUS3Bank_Text (FILE *out, const u8 *data, size_t size)
 	const u32 ngrp = nus3bank_table_count (&b, &b.grp);
 	const u32 ndes = nus3bank_table_count (&b, &b.dton);
 	const u32 ntone = nus3bank_table_count (&b, &b.tone);
-	if (ngrp == UINT32_MAX || ndes == UINT32_MAX || ntone == UINT32_MAX
-		|| ngrp > 100000 || ndes > 100000 || ntone > 100000)
+	if (ngrp == UINT32_MAX || ndes == UINT32_MAX || ntone == UINT32_MAX || ngrp > 100000
+		|| ndes > 100000 || ntone > 100000)
 		return ERR_INVALID_DATA;
 
-	fprintf (out, "#NUS3BANK\n# Super Smash Bros. 4 sound bank\n\n"
+	fprintf (out,
+		"#NUS3BANK\n# Super Smash Bros. 4 sound bank\n\n"
 		"project = %s\ntimestamp = %s\nbank = %s\nbank_flags = 0x%x\n"
 		"groups = %u\ntone_descriptors = %u\ntones = %u\n",
 		proj, ts, bank, flag, ngrp, ndes, ntone);
@@ -224,8 +224,7 @@ enumError DecodeNUS3Bank_Text (FILE *out, const u8 *data, size_t size)
 		const u32 off = rd_le32 (data + epos);
 		char gname[256] = { 0 };
 		size_t after;
-		if (!nus3bank_entry_name (data, size, b.grp.payload + off, gname,
-			sizeof (gname), &after))
+		if (!nus3bank_entry_name (data, size, b.grp.payload + off, gname, sizeof (gname), &after))
 			return ERR_INVALID_DATA;
 		fprintf (out, "group%u = %s\n", i, gname);
 	}
@@ -284,9 +283,8 @@ enumError ExtractNUS3BankArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT NUS3BANK:%s (%u tones) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "",
-			arg, ntone, dest);
+		fprintf (stdlog, "%s%sEXTRACT NUS3BANK:%s (%u tones) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, ntone, dest);
 
 	if (!testmode)
 	{

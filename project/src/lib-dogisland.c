@@ -135,7 +135,7 @@ enumError DecodeDogIslandWds_Text (FILE *f, const u8 *data, size_t size, size_t 
 // (2) ".wdb" offset/string table
 
 #define WDB_RECORD_SIZE 24
-#define WDB_MAX_COUNT   100000
+#define WDB_MAX_COUNT 100000
 
 // NOTE: only the record's first dword ("start", a byte offset into the
 // trailing string blob) was confirmed to be stable across every real
@@ -205,8 +205,8 @@ enumError DecodeDogIslandWdb_Text (FILE *f, const u8 *data, size_t size, size_t 
 		if (next > size)
 			next = size;
 
-		fprintf (f, "[%u] start=0x%x raw=%08x,%08x,%08x,%08x,%08x: \"", i, start,
-			rd_le32 (r + 4), rd_le32 (r + 8), rd_le32 (r + 12), rd_le32 (r + 16), rd_le32 (r + 20));
+		fprintf (f, "[%u] start=0x%x raw=%08x,%08x,%08x,%08x,%08x: \"", i, start, rd_le32 (r + 4),
+			rd_le32 (r + 8), rd_le32 (r + 12), rd_le32 (r + 16), rd_le32 (r + 20));
 		if (start < next)
 			print_escaped_multi (f, data + start, next - start);
 		fprintf (f, "\"\n");
@@ -218,8 +218,8 @@ enumError DecodeDogIslandWdb_Text (FILE *f, const u8 *data, size_t size, size_t 
 //-----------------------------------------------------------------------------
 // (3) ".ymg"/".ymm" YOBJ model, bare or DUMY-wrapped
 
-static int yobj_header_at (const u8 *data, size_t size, size_t file_size,
-	size_t off, u32 *out_size, int *out_be)
+static int yobj_header_at (
+	const u8 *data, size_t size, size_t file_size, size_t off, u32 *out_size, int *out_be)
 {
 	if (off + 8 > size)
 		return 0;
@@ -301,7 +301,7 @@ enumError DecodeDogIslandYobj_Text (FILE *f, const u8 *data, size_t size, size_t
 
 int IsDogIslandPms (const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!data || size < 16 || memcmp (data, "EVNT", 4))
 		return 0;
 	for (int i = 4; i < 12; i++)
@@ -366,7 +366,7 @@ enumError DecodeDogIslandMtt_Text (FILE *f, const u8 *data, size_t size, size_t 
 // (6) ".cprm" fixed 64-byte-record BE float table
 
 #define CPRM_RECORD_SIZE 64
-#define CPRM_MAX_COUNT   100000
+#define CPRM_MAX_COUNT 100000
 
 int IsDogIslandCprm (const u8 *data, size_t size, size_t file_size)
 {
@@ -407,7 +407,7 @@ enumError DecodeDogIslandCprm_Text (FILE *f, const u8 *data, size_t size, size_t
 			u32 raw = rd_be32 (r + w * 4);
 			float fval;
 			memcpy (&fval, &raw, 4);
-			fprintf (f, " %g", (double) fval);
+			fprintf (f, " %g", (double)fval);
 		}
 		fprintf (f, "\n");
 	}
@@ -420,7 +420,7 @@ enumError DecodeDogIslandCprm_Text (FILE *f, const u8 *data, size_t size, size_t
 
 int IsDogIslandScript (const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!data || size < 16)
 		return 0;
 
@@ -454,7 +454,7 @@ enumError DecodeDogIslandScript_Text (FILE *f, const u8 *data, size_t size, size
 
 int IsDogIslandMpq (const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!data || size < 20)
 		return 0;
 	// Blizzard MPQ magic is "MPQ\x1A"; this format uses "MPQ\0" -- the

@@ -29,8 +29,8 @@ enumError ExtractCSCsiArchive (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 	}
 
-	const size_t name_scan_end = raw_size < CSCSI_NAME_OFF + CSCSI_NAME_MAX ? raw_size
-									      : CSCSI_NAME_OFF + CSCSI_NAME_MAX;
+	const size_t name_scan_end
+		= raw_size < CSCSI_NAME_OFF + CSCSI_NAME_MAX ? raw_size : CSCSI_NAME_OFF + CSCSI_NAME_MAX;
 	const u8 *nul = memchr (raw + CSCSI_NAME_OFF, 0, name_scan_end - CSCSI_NAME_OFF);
 	bool name_ok = nul != 0 && nul > raw + CSCSI_NAME_OFF;
 	if (name_ok)

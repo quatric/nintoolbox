@@ -788,8 +788,8 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, MinusString, MinusString, "Sega GameCube/Wii texture (GCIX/GVRT)" },
 
 	// FF_SMDH = 148 (3DS icon/title metadata)
-	{ FF_SMDH, 0, 0, "SMDH", ".smdh", ".smdh", ".smdh", FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE, 4,
-		{ 0x53, 0x4d, 0x44, 0x48 }, // "SMDH"
+	{ FF_SMDH, 0, 0, "SMDH", ".smdh", ".smdh", ".smdh",
+		FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE, 4, { 0x53, 0x4d, 0x44, 0x48 }, // "SMDH"
 		0, MinusString, MinusString, "3DS application icon/title metadata (SMDH)" },
 
 	// FF_SARC = 149 (Nintendo SARC archive)
@@ -1273,9 +1273,9 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, { 0 }, 0, MinusString, MinusString, "Nintendo 3DS CLIM Texture (.bclim / CLIM)" },
 
 	// FF_AAMP = 242 (Nintendo Binary Parameter Archive)
-	{ FF_AAMP, FF_AAMP, 0, "AAMP", ".aamp", ".szs", ".aamp", FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
-		{ 'A', 'A', 'M', 'P' }, 0, MinusString, MinusString,
-		"Nintendo Binary Parameter Archive (.aamp / AAMP)" },
+	{ FF_AAMP, FF_AAMP, 0, "AAMP", ".aamp", ".szs", ".aamp",
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4, { 'A', 'A', 'M', 'P' }, 0, MinusString,
+		MinusString, "Nintendo Binary Parameter Archive (.aamp / AAMP)" },
 
 	// FF_BYML = 243 (Nintendo Binary YAML)
 	{ FF_BYML, FF_BYML, 0, "BYML", ".byml", ".szs", ".byml", FFT_VALID | FFT_CUT | FFT_DECODE, 2,
@@ -1337,38 +1337,32 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// FF_NCGR
 	{ FF_NCGR, 0, 0, "NCGR", ".ncgr", ".ncgr", ".ncgr", FFT_VALID | FFT_GRAPHIC | FFT_DECODE, 4,
 		{ 0x52, 0x47, 0x43, 0x4e }, // "RGCN"
-		0, MinusString, MinusString,
-		"Nintendo DS character/tile graphics (NCGR)" },
+		0, MinusString, MinusString, "Nintendo DS character/tile graphics (NCGR)" },
 
 	// FF_NCLR
 	{ FF_NCLR, 0, 0, "NCLR", ".nclr", ".nclr", ".nclr", FFT_VALID | FFT_GRAPHIC | FFT_DECODE, 4,
 		{ 0x52, 0x4c, 0x43, 0x4e }, // "RLCN"
-		0, MinusString, MinusString,
-		"Nintendo DS palette resource (NCLR)" },
+		0, MinusString, MinusString, "Nintendo DS palette resource (NCLR)" },
 
 	// FF_NSCR
 	{ FF_NSCR, 0, 0, "NSCR", ".nscr", ".nscr", ".nscr", FFT_VALID | FFT_GRAPHIC | FFT_DECODE, 4,
 		{ 0x52, 0x43, 0x53, 0x4e }, // "RCSN"
-		0, MinusString, MinusString,
-		"Nintendo DS screen/tilemap resource (NSCR)" },
+		0, MinusString, MinusString, "Nintendo DS screen/tilemap resource (NSCR)" },
 
 	// FF_NSBMD
 	{ FF_NSBMD, 0, 0, "NSBMD", ".nsbmd", ".nsbmd", ".nsbmd", FFT_VALID | FFT_DECODE, 4,
 		{ 0x42, 0x4d, 0x44, 0x30 }, // "BMD0"
-		0, MinusString, MinusString,
-		"Nintendo DS 3D model (NSBMD)" },
+		0, MinusString, MinusString, "Nintendo DS 3D model (NSBMD)" },
 
 	// FF_NSBCA
 	{ FF_NSBCA, 0, 0, "NSBCA", ".nsbca", ".nsbca", ".nsbca", FFT_VALID | FFT_DECODE, 4,
 		{ 0x42, 0x43, 0x41, 0x30 }, // "BCA0"
-		0, MinusString, MinusString,
-		"Nintendo DS joint animation (NSBCA)" },
+		0, MinusString, MinusString, "Nintendo DS joint animation (NSBCA)" },
 
 	// FF_NSBTA
 	{ FF_NSBTA, 0, 0, "NSBTA", ".nsbta", ".nsbta", ".nsbta", FFT_VALID, 4,
 		{ 0x42, 0x54, 0x41, 0x30 }, // "BTA0"
-		0, MinusString, MinusString,
-		"Nintendo DS texture SRT animation (NSBTA); not decoded yet" },
+		0, MinusString, MinusString, "Nintendo DS texture SRT animation (NSBTA); not decoded yet" },
 
 	// FF_NSBTP
 	{ FF_NSBTP, 0, 0, "NSBTP", ".nsbtp", ".nsbtp", ".nsbtp", FFT_VALID, 4,
@@ -1379,8 +1373,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// FF_NSBVA
 	{ FF_NSBVA, 0, 0, "NSBVA", ".nsbva", ".nsbva", ".nsbva", FFT_VALID, 4,
 		{ 0x42, 0x56, 0x41, 0x30 }, // "BVA0"
-		0, MinusString, MinusString,
-		"Nintendo DS visibility animation (NSBVA); not decoded yet" },
+		0, MinusString, MinusString, "Nintendo DS visibility animation (NSBVA); not decoded yet" },
 
 	// FF_NSBMA
 	{ FF_NSBMA, 0, 0, "NSBMA", ".nsbma", ".nsbma", ".nsbma", FFT_VALID, 4,
@@ -1391,8 +1384,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// FF_NSBCK
 	{ FF_NSBCK, 0, 0, "NSBCK", ".nsbck", ".nsbck", ".nsbck", FFT_VALID, 4,
 		{ 0x42, 0x43, 0x4b, 0x30 }, // "BCK0"
-		0, MinusString, MinusString,
-		"Nintendo DS character animation (NSBCK); not decoded yet" },
+		0, MinusString, MinusString, "Nintendo DS character animation (NSBCK); not decoded yet" },
 
 	// FF_LZ4 = 262 (LZ4 compression)
 	{ FF_LZ4, 0, 0, "LZ4", ".lz4", ".lz4", ".lz4", FFT_VALID | FFT_COMPRESS | FFT_TRACK, 4,
@@ -1402,49 +1394,50 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// FF_TM0 = 263 (Monster Games high-res GX texture)
 	{ FF_TM0, FF_TM0, 0, "TM0", ".tm0", ".png", ".tm0", FFT_VALID | FFT_CUT | FFT_DECODE, 0,
 		{ 0 }, // no fixed magic, identified by ScanTM0() header+chain-size math
-		0, MinusString, MinusString,
-		"Monster Games high-res GX texture (Excite Truck .tm0)" },
+		0, MinusString, MinusString, "Monster Games high-res GX texture (Excite Truck .tm0)" },
 
 	// FF_PAC = 265 (Nd Cube Wii U flat container)
 	{ FF_PAC, FF_PAC, 0, "PAC", ".bin", ".szs", ".bin",
-		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
-		{ 'P', 'A', 'C', 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4, { 'P', 'A', 'C', 0 }, 0,
+		MinusString, MinusString,
 		"Nd Cube Wii U flat container (.bin / \"PAC\\0\"); members are ordinary "
 		"zlib-compressed data, not encrypted (Mario Party 10 / Animal Crossing: amiibo Festival)" },
 
 	// FF_CPK = 266 (CRIWARE CPK archive)
 	{ FF_CPK, FF_CPK, 0, "CPK", ".cpk", ".szs", ".cpk",
-		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
-		{ 'C', 'P', 'K', ' ' }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4, { 'C', 'P', 'K', ' ' }, 0,
+		MinusString, MinusString,
 		"CRIWARE CPK archive (.cpk / \"CPK \"); UTF tables (optionally XOR-encrypted), "
 		"CRILAYLA-compressed members (Star Fox Zero)" },
 
 	// FF_WMB = 267 (PlatinumGames WMB model)
-	{ FF_WMB, FF_WMB, 0, "WMB", ".wmb", ".szs", ".wmb",
-		FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+	{ FF_WMB, FF_WMB, 0, "WMB", ".wmb", ".szs", ".wmb", FFT_VALID | FFT_CUT | FFT_DECODE, 4,
 		{ 0, 'B', 'M', 'W' }, 0, MinusString, MinusString,
 		"PlatinumGames WMB model (.wmb / \"\\0BMW\", Star Fox Zero)" },
 
 	// FF_RFL_RES = 268 (Revolution Face Library Mii resource database)
 	{ FF_RFL_RES, FF_RFL_RES, 0, "RFL-RES", ".dat", ".szs", ".dat",
-		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Revolution Face Library Mii resource database (RFL_Res.dat)" },
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0, { 0 }, 0, MinusString,
+		MinusString, "Revolution Face Library Mii resource database (RFL_Res.dat)" },
 
 	// FF_CMAB = 269 (Grezzo 3DS material animation with embedded textures)
-	{ FF_CMAB, 0, 0, "CMAB", ".cmab", ".cmab", ".cmab", FFT_VALID | FFT_GRAPHIC | FFT_DECODE,
-		4, { 0x63, 0x6d, 0x61, 0x62 }, // "cmab"
+	{ FF_CMAB, 0, 0, "CMAB", ".cmab", ".cmab", ".cmab", FFT_VALID | FFT_GRAPHIC | FFT_DECODE, 4,
+		{ 0x63, 0x6d, 0x61, 0x62 }, // "cmab"
 		0, MinusString, MinusString,
 		"Grezzo 3DS material animation with embedded PICA textures (.cmab)" },
 
-	{ FF_BTGA, 0, 0, "BTGA", ".btga", ".btga", ".btga", FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE,
-		0, { 0 }, 0, MinusString, MinusString, "Nintendo 3DS PICA texture wrapper (.btga/.lga)" },
-	{ FF_DMPBM, 0, 0, "DMPBM", ".dmpbm", ".dmpbm", ".dmpbm", FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE,
-		5, { 'D', 'M', 'P', 'B', 'M' }, 0, MinusString, MinusString, "Atlus Nintendo 3DS PICA bitmap (.dmpbm)" },
-	{ FF_STEX, 0, 0, "STEX", ".stex", ".stex", ".stex", FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE,
-		4, { 'S', 'T', 'E', 'X' }, 0, MinusString, MinusString, "Atlus Nintendo 3DS PICA texture (.stex)" },
-	{ FF_CMB, 0, 0, "CMB", ".cmb", ".cmb", ".cmb", FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE,
-		4, { 'c', 'm', 'b', ' ' }, 0, MinusString, MinusString, "Grezzo Nintendo 3DS model texture container (.cmb)" },
+	{ FF_BTGA, 0, 0, "BTGA", ".btga", ".btga", ".btga",
+		FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Nintendo 3DS PICA texture wrapper (.btga/.lga)" },
+	{ FF_DMPBM, 0, 0, "DMPBM", ".dmpbm", ".dmpbm", ".dmpbm",
+		FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE, 5, { 'D', 'M', 'P', 'B', 'M' }, 0,
+		MinusString, MinusString, "Atlus Nintendo 3DS PICA bitmap (.dmpbm)" },
+	{ FF_STEX, 0, 0, "STEX", ".stex", ".stex", ".stex",
+		FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE, 4, { 'S', 'T', 'E', 'X' }, 0,
+		MinusString, MinusString, "Atlus Nintendo 3DS PICA texture (.stex)" },
+	{ FF_CMB, 0, 0, "CMB", ".cmb", ".cmb", ".cmb",
+		FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE, 4, { 'c', 'm', 'b', ' ' }, 0,
+		MinusString, MinusString, "Grezzo Nintendo 3DS model texture container (.cmb)" },
 
 	// FF_BCMA = 274 (Nintendo 3DS manual archive)
 	{ FF_BCMA, 0, 0, "BCMA", ".bcma", ".bcma", ".bcma",
@@ -1452,18 +1445,18 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, MinusString, MinusString, "Nintendo 3DS manual archive (BCMA)" },
 
 	// FF_BCFNT = 275 (Nintendo 3DS / Wii U binary font)
-	{ FF_BCFNT, 0, 0, "BCFNT", ".bcfnt", ".bcfnt", ".bcfnt",
-		FFT_VALID | FFT_GRAPHIC | FFT_DECODE, 4, { 0x43, 0x46, 0x4e, 0x54 }, // "CFNT"
+	{ FF_BCFNT, 0, 0, "BCFNT", ".bcfnt", ".bcfnt", ".bcfnt", FFT_VALID | FFT_GRAPHIC | FFT_DECODE,
+		4, { 0x43, 0x46, 0x4e, 0x54 }, // "CFNT"
 		0, MinusString, MinusString, "Nintendo 3DS / Wii U binary font (BCFNT / BFFNT)" },
 
 	// FF_BFSHA = 276 (NintendoWare Shader Archive)
-	{ FF_BFSHA, 0, 0, "BFSHA", ".bfsha", ".bfsha", ".bfsha",
-		FFT_VALID | FFT_ARCHIVE, 4, { 0x46, 0x53, 0x48, 0x41 }, // "FSHA"
+	{ FF_BFSHA, 0, 0, "BFSHA", ".bfsha", ".bfsha", ".bfsha", FFT_VALID | FFT_ARCHIVE, 4,
+		{ 0x46, 0x53, 0x48, 0x41 }, // "FSHA"
 		0, MinusString, MinusString, "NintendoWare Shader Archive (BFSHA)" },
 
 	// FF_SHARC = 277 (NintendoWare Shader Source Archive)
-	{ FF_SHARC, 0, 0, "SHARC", ".sharc", ".sharc", ".sharc",
-		FFT_VALID | FFT_ARCHIVE | FFT_DECODE, 4, { 0x41, 0x41, 0x48, 0x53 }, // "AAHS" / "SHAA"
+	{ FF_SHARC, 0, 0, "SHARC", ".sharc", ".sharc", ".sharc", FFT_VALID | FFT_ARCHIVE | FFT_DECODE,
+		4, { 0x41, 0x41, 0x48, 0x53 }, // "AAHS" / "SHAA"
 		0, MinusString, MinusString, "NintendoWare Shader Source Archive (SHARC)" },
 
 	// FF_SHARCFB = 278 (NintendoWare Shader Binary Archive)
@@ -1475,12 +1468,13 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	{ FF_VFXB, FF_VFXB, 0, "VFXB", ".ptcl", ".ptcl", ".ptcl",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
 		{ 0x56, 0x46, 0x58, 0x42 }, // "VFXB"
-		0, MinusString, MinusString, "NintendoWare Particle Effect Archive (VFXB / .ptcl / .eset)" },
+		0, MinusString, MinusString,
+		"NintendoWare Particle Effect Archive (VFXB / .ptcl / .eset)" },
 
 	// FF_BEA = 280 (Nintendo EAD Bezel Engine Archive)
 	{ FF_BEA, FF_BEA, 0, "BEA", ".bea", ".szs", ".bea",
-		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
-		{ 'S', 'C', 'N', 'E' }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4, { 'S', 'C', 'N', 'E' }, 0,
+		MinusString, MinusString,
 		"Nintendo EAD Bezel Engine Archive (.bea / .nx.bea, WarioWare/Mario Party)" },
 
 	// FF_RSTB = 281 (Nintendo Switch Resource Size Table)
@@ -1565,226 +1559,191 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, MinusString, MinusString, "Bandai Namco SSBH skeletal/material animation (NUANMB)" },
 
 	// FF_NTTF = 293 (Nintendo DS / DSi manual texture)
-	{ FF_NTTF, 0, 0, "NTTF", ".nttf", ".nttf", ".nttf",
-		FFT_VALID | FFT_GRAPHIC | FFT_DECODE, 0, { 0 },
-		0, MinusString, MinusString, "Nintendo DS / DSi manual texture (.nttf / .bnttf)" },
+	{ FF_NTTF, 0, 0, "NTTF", ".nttf", ".nttf", ".nttf", FFT_VALID | FFT_GRAPHIC | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString, "Nintendo DS / DSi manual texture (.nttf / .bnttf)" },
 
 	// FF_MPBIN = 294 (Hudson Soft Mario Party Archive)
 	{ FF_MPBIN, FF_MPBIN, 0, "MPBIN", ".bin", ".bin", ".bin",
-		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Hudson Soft Mario Party Archive (.bin / .mpb, Mario Party 4-8)" },
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0, { 0 }, 0, MinusString,
+		MinusString, "Hudson Soft Mario Party Archive (.bin / .mpb, Mario Party 4-8)" },
 
 	// FF_ATB = 295 (Hudson Soft Animation Texture Bank)
 	{ FF_ATB, FF_ATB, 0, "ATB", ".atb", ".atb", ".atb",
-		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Hudson Soft Animation Texture Bank (.atb, Mario Party 4-8)" },
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0, { 0 }, 0, MinusString,
+		MinusString, "Hudson Soft Animation Texture Bank (.atb, Mario Party 4-8)" },
 
 	// FF_PTD = 296 (Hudson Soft DSP Audio Archive)
 	{ FF_PTD, FF_PTD, 0, "PTD", ".ptd", ".ptd", ".ptd",
-		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Hudson Soft DSP ADPCM Audio Archive (.ptd / .pdt, Mario Party 4-8)" },
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0, { 0 }, 0, MinusString,
+		MinusString, "Hudson Soft DSP ADPCM Audio Archive (.ptd / .pdt, Mario Party 4-8)" },
 
 	// FF_HBDF = 297 (Hudson Soft Nitro 3D Model)
 	{ FF_HBDF, FF_HBDF, 0, "HBDF", ".hbdf", ".hbdf", ".hbdf",
-		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
-		{ 'H', 'B', 'D', 'F' }, 0, MinusString, MinusString,
-		"Hudson Soft Nitro 3D Model (.hbdf / .hsdf, Mario Party DS)" },
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4, { 'H', 'B', 'D', 'F' }, 0,
+		MinusString, MinusString, "Hudson Soft Nitro 3D Model (.hbdf / .hsdf, Mario Party DS)" },
 
 	// FF_LZBIN = 298 (Hudson Soft Nitro Compressed Archive)
 	{ FF_LZBIN, FF_LZBIN, 0, "LZBIN", ".bin", ".bin", ".bin",
-		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Hudson Soft Nitro Compressed Archive (.bin / .lzbin, Mario Party DS)" },
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0, { 0 }, 0, MinusString,
+		MinusString, "Hudson Soft Nitro Compressed Archive (.bin / .lzbin, Mario Party DS)" },
 
 	// FF_SHDVAR = 299 (NintendoWare Layout Shader Variation Table)
 	{ FF_SHDVAR, FF_SHDVAR, 0, "SHDVAR", ".shdvartbl", ".shdvartbl", ".shdvartbl",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"NintendoWare Layout Shader Variation Table (.shdvartbl / .svt)" },
 
 	// FF_DDS = 300 (DirectDraw Surface texture)
 	{ FF_DDS, 0, 0, "DDS", ".dds", ".dds", ".dds",
-		FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE, 4,
-		{ 'D', 'D', 'S', ' ' }, 0, MinusString, MinusString,
-		"DirectDraw Surface texture (.dds)" },
+		FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE, 4, { 'D', 'D', 'S', ' ' }, 0,
+		MinusString, MinusString, "DirectDraw Surface texture (.dds)" },
 
 	// FF_ASTC = 301 (Adaptive Scalable Texture Compression)
 	{ FF_ASTC, 0, 0, "ASTC", ".astc", ".astc", ".astc",
-		FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE, 4,
-		{ 0x13, 0xab, 0xa1, 0x5c }, 0, MinusString, MinusString,
-		"Adaptive Scalable Texture Compression (.astc)" },
+		FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE, 4, { 0x13, 0xab, 0xa1, 0x5c }, 0,
+		MinusString, MinusString, "Adaptive Scalable Texture Compression (.astc)" },
 
 	// FF_EFFN = 302 (Bandai Namco Effect File)
 	{ FF_EFFN, FF_EFFN, 0, "EFFN", ".eff", ".eff", ".eff",
-		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
-		{ 'E', 'F', 'F', 'N' }, 0, MinusString, MinusString,
-		"Bandai Namco Effect File (.eff / .effn, Super Smash Bros)" },
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4, { 'E', 'F', 'F', 'N' }, 0,
+		MinusString, MinusString, "Bandai Namco Effect File (.eff / .effn, Super Smash Bros)" },
 
 	// FF_XB = 303 (Nd Cube Binary XML)
-	{ FF_XB, FF_XB, 0, "XB", ".xml", ".xml", ".xml",
-		FFT_VALID | FFT_DECODE, 2,
-		{ 'X', 'B' }, 0, MinusString, MinusString,
-		"Nd Cube Binary XML (.xml / XB, Mario Party 10 / Wii Party U)" },
+	{ FF_XB, FF_XB, 0, "XB", ".xml", ".xml", ".xml", FFT_VALID | FFT_DECODE, 2, { 'X', 'B' }, 0,
+		MinusString, MinusString, "Nd Cube Binary XML (.xml / XB, Mario Party 10 / Wii Party U)" },
 
 	// FF_MPMESS = 304 (Mario Party GCN/Wii Message File)
 	{ FF_MPMESS, FF_MPMESS, 0, "MPMESS", ".dat", ".dat", ".dat",
-		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Mario Party GCN/Wii Message File (.dat, board.dat / mini.dat)" },
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0, { 0 }, 0, MinusString,
+		MinusString, "Mario Party GCN/Wii Message File (.dat, board.dat / mini.dat)" },
 
 	// FF_MPBOARD = 305 (Mario Party Board Data)
-	{ FF_MPBOARD, FF_MPBOARD, 0, "MPBOARD", ".bin", ".bin", ".bin",
-		FFT_VALID | FFT_DECODE, 0,
+	{ FF_MPBOARD, FF_MPBOARD, 0, "MPBOARD", ".bin", ".bin", ".bin", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"Mario Party Board Data (.bin GC/Wii 4-8, .csv SMP Switch, .xml MP10 Wii U MasuData)" },
 
 	// FF_BGLPBD = 306 (AGL Light Probe Data)
 	{ FF_BGLPBD, FF_BGLPBD, 0, "BGLPBD", ".bglpbd", ".szs", ".bglpbd",
-		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
-		{ 'A', 'A', 'M', 'P' }, 0, MinusString, MinusString,
-		"AGL Light Probe Data (.bglpbd / glpbd)" },
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4, { 'A', 'A', 'M', 'P' }, 0, MinusString,
+		MinusString, "AGL Light Probe Data (.bglpbd / glpbd)" },
 
 	// FF_J3DBMD = 307 (Nintendo GameCube/Wii Binary Model)
-	{ FF_J3DBMD, FF_J3DBMD, 0, "J3DBMD", ".bmd", ".szs", ".bmd",
-		FFT_VALID | FFT_CUT | FFT_DECODE, 8,
-		{ 0x4a, 0x33, 0x44, 0x32, 0x62, 0x6d, 0x64, 0x33 }, // "J3D2bmd3"
+	{ FF_J3DBMD, FF_J3DBMD, 0, "J3DBMD", ".bmd", ".szs", ".bmd", FFT_VALID | FFT_CUT | FFT_DECODE,
+		8, { 0x4a, 0x33, 0x44, 0x32, 0x62, 0x6d, 0x64, 0x33 }, // "J3D2bmd3"
 		0, MinusString, MinusString,
 		"Nintendo GameCube/Wii binary model (J3D BMD, SuperBMD-compatible)" },
 
 	// FF_J3DBDL = 308 (Nintendo GameCube/Wii Binary Display List)
-	{ FF_J3DBDL, FF_J3DBDL, 0, "J3DBDL", ".bdl", ".szs", ".bdl",
-		FFT_VALID | FFT_CUT | FFT_DECODE, 8,
-		{ 0x4a, 0x33, 0x44, 0x32, 0x62, 0x64, 0x6c, 0x34 }, // "J3D2bdl4"
+	{ FF_J3DBDL, FF_J3DBDL, 0, "J3DBDL", ".bdl", ".szs", ".bdl", FFT_VALID | FFT_CUT | FFT_DECODE,
+		8, { 0x4a, 0x33, 0x44, 0x32, 0x62, 0x64, 0x6c, 0x34 }, // "J3D2bdl4"
 		0, MinusString, MinusString,
 		"Nintendo GameCube/Wii binary display list (J3D BDL, SuperBMD-compatible)" },
 
 	// FF_XMB = 309 (Smash XMB material/LOD metadata)
-	{ FF_XMB, FF_XMB, 0, "XMB", ".xmb", ".szs", ".xmb",
-		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 0x58, 0x4d, 0x42, 0x20 }, // "XMB "
+	{ FF_XMB, FF_XMB, 0, "XMB", ".xmb", ".szs", ".xmb", FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+		{ 0x58, 0x4d, 0x42, 0x20 }, // "XMB "
 		0, MinusString, MinusString, "Smash XMB material/LOD metadata (.xmb)" },
 
 	// FF_ADJB = 310 (Smash mesh triangle adjacency; no magic, extension-keyed)
-	{ FF_ADJB, FF_ADJB, 0, "ADJB", ".adjb", ".szs", ".adjb",
-		FFT_VALID | FFT_CUT | FFT_DECODE, 0, { 0 },
-		0, MinusString, MinusString, "Smash mesh triangle adjacency (model.adjb)" },
+	{ FF_ADJB, FF_ADJB, 0, "ADJB", ".adjb", ".szs", ".adjb", FFT_VALID | FFT_CUT | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString, "Smash mesh triangle adjacency (model.adjb)" },
 
 	// FF_FEDMODEL = 311 (Next Level Games model container)
 	{ FF_FEDMODEL, FF_FEDMODEL, 0, "FEDMODEL", ".fedmodel", ".szs", ".fedmodel",
-		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 'F', 'E', 'D', 'M' },
-		0, MinusString, MinusString, "Next Level Games model container (.fedmodel / FEDM)" },
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 'F', 'E', 'D', 'M' }, 0, MinusString, MinusString,
+		"Next Level Games model container (.fedmodel / FEDM)" },
 
 	// FF_FEDTEX = 312 (Next Level Games texture container)
 	{ FF_FEDTEX, FF_FEDTEX, 0, "FEDTEX", ".fedtex", ".szs", ".fedtex",
-		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 'F', 'E', 'D', 'T' },
-		0, MinusString, MinusString, "Next Level Games texture container (.fedtex / FEDT)" },
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 'F', 'E', 'D', 'T' }, 0, MinusString, MinusString,
+		"Next Level Games texture container (.fedtex / FEDT)" },
 
 	// FF_FEDSKEL = 313 (Next Level Games skeleton container)
 	{ FF_FEDSKEL, FF_FEDSKEL, 0, "FEDSKEL", ".fedskel", ".szs", ".fedskel",
-		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 'F', 'E', 'D', 'S' },
-		0, MinusString, MinusString, "Next Level Games skeleton container (.fedskel / FEDS)" },
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 'F', 'E', 'D', 'S' }, 0, MinusString, MinusString,
+		"Next Level Games skeleton container (.fedskel / FEDS)" },
 
 	// FF_SANIM = 314 (Mario Strikers skeleton animation; chunk-walked, extension-keyed)
 	{ FF_SANIM, FF_SANIM, 0, "SANIM", ".sanim", ".szs", ".sanim",
-		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0, { 0 },
-		0, MinusString, MinusString, "Mario Strikers skeleton animation (.sanim)" },
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0, { 0 }, 0, MinusString,
+		MinusString, "Mario Strikers skeleton animation (.sanim)" },
 
 	// FF_RZPK = 315 (Mario Party 3DS compressed archive, MPLibrary 3DS/ZDAT.cs)
 	{ FF_RZPK, FF_RZPK, 0, "RZPK", ".rzpk", ".szs", ".rzpk",
-		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT | FFT_CREATE, 4,
-		{ 'R', 'Z', 'P', 'K' }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT | FFT_CREATE, 4, { 'R', 'Z', 'P', 'K' }, 0,
+		MinusString, MinusString,
 		"Mario Party 3DS compressed archive (.rzpk / RZPK, zlib members)" },
 
 	// FF_TTMODEL = 316 (TT Games NTT engine model)
 	{ FF_TTMODEL, FF_TTMODEL, 0, "TTMODEL", ".model", ".glb", ".model",
-		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_CUT | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"TT Games NTT engine model (.model, LEGO Star Wars: The Skywalker Saga)" },
 
 	// FF_CSB = 317 (Paper Mario collision scene)
 	{ FF_CSB, FF_CSB, 0, "CSB", ".csb", ".glb", ".csb",
-		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Paper Mario collision scene (TTYD Switch / Origami King LE, Color Splash BE)" },
 
 	// FF_CTB = 318 (Paper Mario collision search table)
-	{ FF_CTB, FF_CTB, 0, "CTB", ".ctb", ".txt", ".ctb",
-		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+	{ FF_CTB, FF_CTB, 0, "CTB", ".ctb", ".txt", ".ctb", FFT_VALID | FFT_CUT | FFT_DECODE, 0, { 0 },
+		0, MinusString, MinusString,
 		"Paper Mario collision search table (octree over the .csb triangles)" },
 
 	// FF_LMMDL = 319 (Luigi's Mansion actor model)
 	{ FF_LMMDL, FF_LMMDL, 0, "LMMDL", ".mdl", ".glb", ".mdl",
-		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4,
-		{ 0x04, 0xb4, 0x00, 0x00 }, 0, MinusString, MinusString,
-		"Luigi's Mansion actor model (.mdl, GameCube)" },
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4, { 0x04, 0xb4, 0x00, 0x00 }, 0,
+		MinusString, MinusString, "Luigi's Mansion actor model (.mdl, GameCube)" },
 
 	// FF_LMBIN = 320 (Luigi's Mansion room model)
 	{ FF_LMBIN, FF_LMBIN, 0, "LMBIN", ".bin", ".glb", ".bin",
-		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Luigi's Mansion room model (.bin version 2, GameCube)" },
 
 	// FF_PIKMOD = 321 (Pikmin 1 model)
 	{ FF_PIKMOD, FF_PIKMOD, 0, "PIKMOD", ".mod", ".glb", ".mod",
-		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Pikmin 1 model (.mod chunked, GameCube)" },
 
 	// FF_PIKARC = 322 (Pikmin 1 archive pair)
 	{ FF_PIKARC, FF_PIKARC, 0, "PIKARC", ".dir", ".szs", ".dir",
-		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT | FFT_CREATE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT | FFT_CREATE, 0, { 0 }, 0, MinusString, MinusString,
 		"Pikmin 1 archive pair (.arc data + .dir index, GameCube)" },
 
 	// FF_WWRSC = 323 (Wario World resource container)
 	{ FF_WWRSC, FF_WWRSC, 0, "WWRSC", ".rsc", ".szs", ".rsc",
-		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT | FFT_CREATE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT | FFT_CREATE, 0, { 0 }, 0, MinusString, MinusString,
 		"Wario World resource container (.rsc, GameCube)" },
 
 	// FF_LMJMP = 324 (Luigi's Mansion parameter table)
 	{ FF_LMJMP, FF_LMJMP, 0, "LMJMP", ".jmp", ".txt", ".jmp",
-		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Luigi's Mansion parameter table (.jmp, GameCube)" },
 
 	// FF_LMKEY = 325 (Luigi's Mansion skeletal animation)
 	{ FF_LMKEY, FF_LMKEY, 0, "LMKEY", ".key", ".txt", ".key",
-		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Luigi's Mansion skeletal animation (.key, GameCube)" },
 
 	// FF_LMTMB = 326 (Luigi's Mansion fade-effect timing)
 	{ FF_LMTMB, FF_LMTMB, 0, "LMTMB", ".tmb", ".txt", ".tmb",
-		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Luigi's Mansion fade-effect timing (.tmb, GameCube)" },
 
 	// FF_LMGEB = 327 (Luigi's Mansion sprite data)
 	{ FF_LMGEB, FF_LMGEB, 0, "LMGEB", ".geb", ".txt", ".geb",
-		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Luigi's Mansion sprite data (.geb, GameCube)" },
 
 	// FF_LMSLK = 328 (Luigi's Mansion shape animation)
-	{ FF_LMSLK, FF_LMSLK, 0, "LMSLK", ".slk", ".txt", ".slk",
-		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Luigi's Mansion shape animation (.slk, GameCube)" },
+	{ FF_LMSLK, FF_LMSLK, 0, "LMSLK", ".slk", ".txt", ".slk", FFT_VALID | FFT_CUT | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString, "Luigi's Mansion shape animation (.slk, GameCube)" },
 
 	// FF_LMSLS = 329 (Luigi's Mansion morph data)
-	{ FF_LMSLS, FF_LMSLS, 0, "LMSLS", ".sls", ".txt", ".sls",
-		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Luigi's Mansion morph data (.sls, GameCube)" },
+	{ FF_LMSLS, FF_LMSLS, 0, "LMSLS", ".sls", ".txt", ".sls", FFT_VALID | FFT_CUT | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString, "Luigi's Mansion morph data (.sls, GameCube)" },
 
 	// FF_WWMODEL = 330 (Wario World static/rigged/map model)
 	{ FF_WWMODEL, FF_WWMODEL, 0, "WWMODEL", ".ww_static_model", ".glb", ".ww_static_model",
-		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_CUT | FFT_DECODE | FFT_ENCODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Wario World static/rigged/map model (GameCube)" },
 
 	// FF_GFMODEL = 331 (Game Freak 3DS model, SPICA GFModel)
@@ -1795,12 +1754,13 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 
 	// FF_GFTEX = 332 (Game Freak 3DS texture, SPICA GFTexture)
 	{ FF_GFTEX, FF_GFTEX, 0, "GFTEX", ".gftex", ".png", ".gftex",
-		FFT_VALID | FFT_GRAPHIC | FFT_CUT | FFT_DECODE, 4, { 0x13, 0x12, 0x04, 0x15 }, // 0x15041213 LE
+		FFT_VALID | FFT_GRAPHIC | FFT_CUT | FFT_DECODE, 4,
+		{ 0x13, 0x12, 0x04, 0x15 }, // 0x15041213 LE
 		0, MinusString, MinusString, "Game Freak 3DS texture (.gftex / 0x15041213)" },
 
 	// FF_GFMOT = 333 (Game Freak 3DS motion, SPICA GFMotion)
-	{ FF_GFMOT, FF_GFMOT, 0, "GFMOT", ".gfmot", ".txt", ".gfmot",
-		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 0x00, 0x00, 0x06, 0x00 }, // 0x00060000 LE
+	{ FF_GFMOT, FF_GFMOT, 0, "GFMOT", ".gfmot", ".txt", ".gfmot", FFT_VALID | FFT_CUT | FFT_DECODE,
+		4, { 0x00, 0x00, 0x06, 0x00 }, // 0x00060000 LE
 		0, MinusString, MinusString, "Game Freak 3DS motion (.gfmot / 0x00060000)" },
 
 	// FF_GFMPACK = 334 (Game Freak model pack, SPICA GFModelPack)
@@ -1828,8 +1788,8 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		"Game Freak XY/ORAS motion pack (.gf1mot)" },
 
 	// FF_MTMOD = 338 (Capcom MT Framework Mobile model, SPICA MTModel)
-	{ FF_MTMOD, FF_MTMOD, 0, "MTMOD", ".mtmod", ".glb", ".mod",
-		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 'M', 'O', 'D', 0 }, 0, MinusString, MinusString,
+	{ FF_MTMOD, FF_MTMOD, 0, "MTMOD", ".mtmod", ".glb", ".mod", FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+		{ 'M', 'O', 'D', 0 }, 0, MinusString, MinusString,
 		"Capcom MT Framework Mobile model (.mod / MOD\\0, 3DS)" },
 
 	// FF_MTTEX = 339 (Capcom MT Framework Mobile texture, SPICA MTTexture)
@@ -1838,37 +1798,34 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		MinusString, "Capcom MT Framework Mobile texture (.tex / TEX\\0, 3DS)" },
 
 	// FF_MTMRL = 340 (Capcom MT Framework Mobile materials, SPICA MTMaterials)
-	{ FF_MTMRL, FF_MTMRL, 0, "MTMRL", ".mrl", ".txt", ".mrl",
-		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 'M', 'R', 'L', 0 }, 0, MinusString, MinusString,
+	{ FF_MTMRL, FF_MTMRL, 0, "MTMRL", ".mrl", ".txt", ".mrl", FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+		{ 'M', 'R', 'L', 0 }, 0, MinusString, MinusString,
 		"Capcom MT Framework Mobile materials (.mrl / MRL)" },
 
 	// FF_MTMFX = 341 (Capcom MT Framework Mobile shader effects, SPICA MTShaderEffects)
-	{ FF_MTMFX, FF_MTMFX, 0, "MTMFX", ".mfx", ".txt", ".mfx",
-		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 'M', 'F', 'X', 0 }, 0, MinusString, MinusString,
+	{ FF_MTMFX, FF_MTMFX, 0, "MTMFX", ".mfx", ".txt", ".mfx", FFT_VALID | FFT_CUT | FFT_DECODE, 4,
+		{ 'M', 'F', 'X', 0 }, 0, MinusString, MinusString,
 		"Capcom MT Framework Mobile shader effects (.mfx / MFX)" },
 
 	// FF_MBN = 342 (ModelBinary companion buffers, SPICA MBn)
 	// No magic: validated descriptor chain (see IsMBN).
-	{ FF_MBN, FF_MBN, 0, "MBN", ".mbn", ".glb", ".mbn", FFT_VALID | FFT_CUT | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString, "ModelBinary companion buffers (.mbn)" },
+	{ FF_MBN, FF_MBN, 0, "MBN", ".mbn", ".glb", ".mbn", FFT_VALID | FFT_CUT | FFT_DECODE, 0, { 0 },
+		0, MinusString, MinusString, "ModelBinary companion buffers (.mbn)" },
 
 	// FF_IPK = 343 (Ubisoft UbiArt IPK archive)
 	{ FF_IPK, FF_IPK, 0, "IPK", ".ipk", ".szs", ".ipk",
-		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
-		{ 0x50, 0xec, 0x12, 0xba }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4, { 0x50, 0xec, 0x12, 0xba },
+		0, MinusString, MinusString,
 		"Ubisoft UbiArt IPK archive (.ipk; Just Dance, Rayman Origins/Legends)" },
 
 	// FF_CS_DCT = 344 (Chicken Shoot DCT stage archive)
 	{ FF_CS_DCT, FF_CS_DCT, 0, "CS_DCT", ".dct", ".szs", ".dct",
-		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Chicken Shoot DCT Stage Archive (.dct; Wii/PC)" },
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0, { 0 }, 0, MinusString,
+		MinusString, "Chicken Shoot DCT Stage Archive (.dct; Wii/PC)" },
 
 	// FF_DSP = 345 (Nintendo GameCube/Wii DSP-ADPCM audio)
-	{ FF_DSP, FF_DSP, 0, "DSP", ".dsp", ".wav", ".dsp",
-		FFT_VALID | FFT_CUT | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Nintendo GameCube/Wii DSP-ADPCM audio stream (.dsp)" },
+	{ FF_DSP, FF_DSP, 0, "DSP", ".dsp", ".wav", ".dsp", FFT_VALID | FFT_CUT | FFT_DECODE, 0, { 0 },
+		0, MinusString, MinusString, "Nintendo GameCube/Wii DSP-ADPCM audio stream (.dsp)" },
 
 	// FF_HUFF = 346 (Nintendo Huffman-compressed file)
 	{ FF_HUFF, 0, 0, "HUFF", ".huff", ".szs", ".huff", FFT_VALID | FFT_COMPRESS | FFT_TRACK, 1,
@@ -1876,22 +1833,19 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		"Nintendo Huffman-compressed file (4-bit or 8-bit, GBA BIOS style)" },
 
 	// FF_ZMB = 347 (Konami Bemani skinned character/prop model)
-	{ FF_ZMB, FF_ZMB, 0, "ZMB", ".bin", ".bin", ".bin",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+	{ FF_ZMB, FF_ZMB, 0, "ZMB", ".bin", ".bin", ".bin", FFT_VALID | FFT_DECODE, 0, { 0 }, 0,
+		MinusString, MinusString,
 		"Konami Bemani skinned character/prop model (.bin, Dance Dance Revolution: Winx Club)" },
 
 	// FF_PK2 = 348 (Nordcurrent BigFile multi-part archive)
-	{ FF_PK2, FF_PK2, 0, "PK2", ".pk2", ".pk2", ".pk2",
-		FFT_VALID | FFT_DECODE | FFT_ENCODE, 0,
+	{ FF_PK2, FF_PK2, 0, "PK2", ".pk2", ".pk2", ".pk2", FFT_VALID | FFT_DECODE | FFT_ENCODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"Nordcurrent BigFile multi-part archive (.pk2, 101-in-1 Party Megamix)" },
 
 	// FF_MPT = 349 (Nordcurrent texture)
 	{ FF_MPT, FF_MPT, 0, "MPT", ".mpt", ".mpt", ".mpt",
-		FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE, 4,
-		{ 0x4d, 0x50, 0x54, 0x20 }, 0, MinusString, MinusString,
-		"Nordcurrent texture (.mpt, 101-in-1 Party Megamix)" },
+		FFT_VALID | FFT_GRAPHIC | FFT_DECODE | FFT_ENCODE, 4, { 0x4d, 0x50, 0x54, 0x20 }, 0,
+		MinusString, MinusString, "Nordcurrent texture (.mpt, 101-in-1 Party Megamix)" },
 
 	// FF_AFS = 350 (Sega/CRI AFS archive)
 	// No magic bytes are registered here (see IsAFS() special-case check in
@@ -1899,9 +1853,8 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// would route the file through the core SZS/passthrough archive loader,
 	// which does not understand the AFS layout, before our own extractor
 	// (wired by extension in wszst_cmd/formats.inc) gets a chance to run.
-	{ FF_AFS, FF_AFS, 0, "AFS", ".afs", ".afs", ".afs",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+	{ FF_AFS, FF_AFS, 0, "AFS", ".afs", ".afs", ".afs", FFT_VALID | FFT_DECODE, 0, { 0 }, 0,
+		MinusString, MinusString,
 		"Sega/CRI AFS archive (.afs, Dragon Ball Z: Budokai Tenkaichi 3)" },
 
 	// FF_THOR = 351 (Behaviour Interactive "Thor" resource package)
@@ -1909,18 +1862,17 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// in GetByMagicFF instead): the signature isn't at offset 0 and the
 	// extension ".wii" would otherwise collide with generic handling, so
 	// detection and dispatch (wszst_cmd/formats.inc) go by content + ext.
-	{ FF_THOR, FF_THOR, 0, "THOR", ".wii", ".wii", ".wii",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Behaviour Interactive \"Thor\" resource package (.wii, Phineas and Ferb: Quest for Cool Stuff)" },
+	{ FF_THOR, FF_THOR, 0, "THOR", ".wii", ".wii", ".wii", FFT_VALID | FFT_DECODE, 0, { 0 }, 0,
+		MinusString, MinusString,
+		"Behaviour Interactive \"Thor\" resource package (.wii, Phineas and Ferb: Quest for Cool "
+		"Stuff)" },
 
 	// FF_OPOONA_MOL = 352 (Opoona character manifest, reverse-engineered)
 	// No magic bytes: a table of (offset,size,name) records (see
 	// IsOpoonaMOL() in lib-opoona.c). Only the manifest/lookup structure is
 	// understood; the offset field's exact runtime meaning is not.
-	{ FF_OPOONA_MOL, FF_OPOONA_MOL, 0, "OPOONA-MOL", ".mol", ".txt", ".mol",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+	{ FF_OPOONA_MOL, FF_OPOONA_MOL, 0, "OPOONA-MOL", ".mol", ".txt", ".mol", FFT_VALID | FFT_DECODE,
+		0, { 0 }, 0, MinusString, MinusString,
 		"Opoona character manifest (.mol, Wii, ArtePiazza)" },
 
 	// FF_OPOONA_MOT = 353 (Opoona skeletal animation clip, reverse-engineered)
@@ -1928,9 +1880,8 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// (see IsOpoonaMOT() in lib-opoona.c). Only the header and the static
 	// bind-pose skeleton are decoded; any per-frame animation-curve data
 	// that follows the bone array is NOT decoded (see lib-opoona.h).
-	{ FF_OPOONA_MOT, FF_OPOONA_MOT, 0, "OPOONA-MOT", ".mot", ".txt", ".mot",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+	{ FF_OPOONA_MOT, FF_OPOONA_MOT, 0, "OPOONA-MOT", ".mot", ".txt", ".mot", FFT_VALID | FFT_DECODE,
+		0, { 0 }, 0, MinusString, MinusString,
 		"Opoona skeletal animation clip (.mot, Wii, ArtePiazza; bind pose only)" },
 
 	// FF_TE_ZIP = 354 (T&E Soft "Super Swing Golf"/"We Love Golf" container)
@@ -1939,9 +1890,8 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// deflate ZIP archives with no custom wrapper at all (see IsTEZip() and
 	// DecodeTEZip() in lib-teszip.c). Confirmed byte-exact against a plain
 	// Python zipfile.ZipFile() read on multiple samples.
-	{ FF_TE_ZIP, FF_TE_ZIP, 0, "TE-ZIP", ".szip", ".txt", ".szip",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+	{ FF_TE_ZIP, FF_TE_ZIP, 0, "TE-ZIP", ".szip", ".txt", ".szip", FFT_VALID | FFT_DECODE, 0, { 0 },
+		0, MinusString, MinusString,
 		"T&E Soft ZIP container (.szip/.iff, Wii, Super Swing Golf / We Love Golf)" },
 
 	// FF_G3RES = 355 (Sakura Wars: So Long, My Love "G3" resource-chunk tree)
@@ -1951,9 +1901,8 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// scratch (see IsG3Res()/DecodeG3Res_Text() in lib-g3res.c); only the
 	// container shell and one leaf sub-header (PVRT textures) are decoded,
 	// mesh/animation/texel payloads are not.
-	{ FF_G3RES, FF_G3RES, 0, "G3RES", ".g3n", ".txt", ".g3n",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+	{ FF_G3RES, FF_G3RES, 0, "G3RES", ".g3n", ".txt", ".g3n", FFT_VALID | FFT_DECODE, 0, { 0 }, 0,
+		MinusString, MinusString,
 		"Sakura Wars \"G3\" resource-chunk tree (.g3n/.g3r/.gdn/.gdr/.gde, Wii)" },
 
 	// FF_FPK = 356 (Traveller's Tales FPK resource package)
@@ -1964,9 +1913,8 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// *_ngc.fpk packages -- no public spec exists. Little-endian
 	// (offset,size,name) entry table + tightly packed name string table;
 	// payload is always raw (no compression observed in any sample).
-	{ FF_FPK, FF_FPK, 0, "FPK", ".fpk", ".fpk", ".fpk",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+	{ FF_FPK, FF_FPK, 0, "FPK", ".fpk", ".fpk", ".fpk", FFT_VALID | FFT_DECODE, 0, { 0 }, 0,
+		MinusString, MinusString,
 		"Traveller's Tales FPK resource package (.fpk, Bionicle Heroes)" },
 
 	// FF_CHNK = 354 (Monster 4x4: Stunt Racer chunked container)
@@ -1974,10 +1922,8 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// the real on-disk file size (see IsCHNK() in lib-monster4x4.c). Only
 	// the top-level chunk table (tag/offset/size) is decoded; individual
 	// chunk payloads (geometry, textures, audio, layout) are not.
-	{ FF_CHNK, FF_CHNK, 0, "CHNK", ".d4c", ".txt", ".d4c",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Monster 4x4: Stunt Racer chunked container (CHNK, Wii)" },
+	{ FF_CHNK, FF_CHNK, 0, "CHNK", ".d4c", ".txt", ".d4c", FFT_VALID | FFT_DECODE, 0, { 0 }, 0,
+		MinusString, MinusString, "Monster 4x4: Stunt Racer chunked container (CHNK, Wii)" },
 
 	// FF_MAGMA_FAT = 355 (Ubisoft Magma bigfile index)
 	// Structural detection only (no fixed magic bytes): a tightly packed
@@ -1985,165 +1931,145 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// the whole file exactly (see IsMagmaFat() in lib-magma.c). Shared,
 	// byte-identical, across Prince of Persia - Rival Swords, Cloudy with
 	// a Chance of Meatballs and NCIS - Based on the TV Series.
-	{ FF_MAGMA_FAT, FF_MAGMA_FAT, 0, "MAGMA-FAT", ".fat", ".txt", ".fat",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Ubisoft Magma bigfile index (.fat, Wii)" },
+	{ FF_MAGMA_FAT, FF_MAGMA_FAT, 0, "MAGMA-FAT", ".fat", ".txt", ".fat", FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString, "Ubisoft Magma bigfile index (.fat, Wii)" },
 
 	// FF_MAGMA_BF = 356 (Ubisoft Magma self-indexed bigfile)
 	// Magic "BIG\0" plus light header sanity only; the internal table is
 	// NOT decoded (see lib-magma.h for what was and wasn't determined).
-	{ FF_MAGMA_BF, FF_MAGMA_BF, 0, "MAGMA-BF", ".bf", ".txt", ".bf",
-		FFT_VALID, 0,
-		{ 0 }, 0, MinusString, MinusString,
+	{ FF_MAGMA_BF, FF_MAGMA_BF, 0, "MAGMA-BF", ".bf", ".txt", ".bf", FFT_VALID, 0, { 0 }, 0,
+		MinusString, MinusString,
 		"Ubisoft Magma self-indexed bigfile (.bf, Wii; internal table not decoded)" },
 
 	// FF_VOICE_SONG = 357 (The Voice song script)
 	// Plain-text XML, xmlns="zoe:Song". Decoded to a normalized manifest
 	// of game-mode setups and performance events (see lib-thevoice.h).
 	{ FF_VOICE_SONG, FF_VOICE_SONG, 0, "VOICE-SONG", ".song", ".txt", ".song",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"The Voice song script (.song, Wii)" },
 
 	// FF_VOICE_AMC = 358 (The Voice animesh catalogue)
 	// Plain-text Lua-like "animeshcatalogue={...}" list of referenced
 	// ".tas" animated-mesh scenes.
-	{ FF_VOICE_AMC, FF_VOICE_AMC, 0, "VOICE-AMC", ".amc", ".txt", ".amc",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"The Voice animesh catalogue (.amc, Wii)" },
+	{ FF_VOICE_AMC, FF_VOICE_AMC, 0, "VOICE-AMC", ".amc", ".txt", ".amc", FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString, "The Voice animesh catalogue (.amc, Wii)" },
 
 	// FF_VOICE_AMS = 359 (The Voice animesh sequence)
 	// Plain-text Lua-like "animeshsequence={...}" list of timed ".tas"
 	// placements.
-	{ FF_VOICE_AMS, FF_VOICE_AMS, 0, "VOICE-AMS", ".ams", ".txt", ".ams",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"The Voice animesh sequence (.ams, Wii)" },
+	{ FF_VOICE_AMS, FF_VOICE_AMS, 0, "VOICE-AMS", ".ams", ".txt", ".ams", FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString, "The Voice animesh sequence (.ams, Wii)" },
 
 	// FF_VOICE_PALCAT = 360 (The Voice palette catalogue)
 	// Plain-text Lua-like "palettecatalogue={...}" list of referenced
 	// ".pal" raw-RGBA palettes.
 	{ FF_VOICE_PALCAT, FF_VOICE_PALCAT, 0, "VOICE-PALCAT", ".palcat", ".txt", ".palcat",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"The Voice palette catalogue (.palcat, Wii)" },
 
 	// FF_VOICE_PALSEQ = 361 (The Voice palette sequence)
 	// Plain-text Lua-like "palettesequence={...}" list of timed palette
 	// index swaps.
 	{ FF_VOICE_PALSEQ, FF_VOICE_PALSEQ, 0, "VOICE-PALSEQ", ".palseq", ".txt", ".palseq",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"The Voice palette sequence (.palseq, Wii)" },
 
 	// FF_DOGISLAND_WDS = 362 (The Dog Island WARDP dialogue table)
 	// Confirmed interleaved offset/index table plus a raw string blob;
 	// decoded to one text field per entry (see lib-dogisland.h).
 	{ FF_DOGISLAND_WDS, FF_DOGISLAND_WDS, 0, "DOGISLAND-WDS", ".wds", ".txt", ".wds",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"The Dog Island WARDP dialogue table (.wds, Wii)" },
 
 	// FF_DOGISLAND_WDB = 363 (The Dog Island offset/string table)
 	// Confirmed fixed 24-byte record table with start/end string offsets.
 	{ FF_DOGISLAND_WDB, FF_DOGISLAND_WDB, 0, "DOGISLAND-WDB", ".wdb", ".txt", ".wdb",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"The Dog Island offset/string table (.wdb, Wii)" },
 
 	// FF_DOGISLAND_YOBJ = 364 (The Dog Island YOBJ model)
 	// Bare or DUMY-wrapped "YOBJ" chunk; only the outer header is
 	// decoded, the internal bone/mesh table is not reverse-engineered.
 	{ FF_DOGISLAND_YOBJ, FF_DOGISLAND_YOBJ, 0, "DOGISLAND-YOBJ", ".ymg", ".txt", ".ymg",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"The Dog Island YOBJ model (.ymg/.ymm, Wii; internal table not decoded)" },
 
 	// FF_DOGISLAND_PMS = 365 (The Dog Island EVNT event script)
 	// Confirmed fixed header (magic + LE event id matching the filename);
 	// the script bytecode body is not reverse-engineered.
 	{ FF_DOGISLAND_PMS, FF_DOGISLAND_PMS, 0, "DOGISLAND-PMS", ".pms", ".txt", ".pms",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"The Dog Island EVNT event script (.pms, Wii; bytecode body not decoded)" },
 
 	// FF_DOGISLAND_MTT = 366 (The Dog Island DUMY+POF0 container)
 	// Also seen reused for ".ypc"/".pac"; only the outer DUMY+POF0 shell
 	// is decoded, the packed pointer table is not reverse-engineered.
 	{ FF_DOGISLAND_MTT, FF_DOGISLAND_MTT, 0, "DOGISLAND-MTT", ".mtt", ".txt", ".mtt",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"The Dog Island DUMY+POF0 pointer-fixup container (.mtt/.ypc/.pac, Wii; pointer table not decoded)" },
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"The Dog Island DUMY+POF0 pointer-fixup container (.mtt/.ypc/.pac, Wii; pointer table not "
+		"decoded)" },
 
 	// FF_DOGISLAND_CPRM = 367 (The Dog Island fixed float record table)
 	// Fully confirmed big-endian header + 64-byte record layout.
 	{ FF_DOGISLAND_CPRM, FF_DOGISLAND_CPRM, 0, "DOGISLAND-CPRM", ".cprm", ".txt", ".cprm",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"The Dog Island fixed float record table (.cprm, Wii)" },
 
 	// FF_DOGISLAND_SCRIPT = 368 (The Dog Island script bytecode)
 	// Covers ".efi"/".sci"/".qci"; structural header probe only, opcode
 	// semantics are not reverse-engineered.
 	{ FF_DOGISLAND_SCRIPT, FF_DOGISLAND_SCRIPT, 0, "DOGISLAND-SCRIPT", ".efi", ".txt", ".efi",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"The Dog Island script bytecode (.efi/.sci/.qci, Wii; opcodes not decoded)" },
 
 	// FF_DOGISLAND_MPQ = 369 (The Dog Island custom "MPQ" container)
 	// Magic "MPQ\0" -- verified NOT to be Blizzard's MPQ format (which
 	// uses "MPQ\x1A" and a different header layout). Outer header only.
 	{ FF_DOGISLAND_MPQ, FF_DOGISLAND_MPQ, 0, "DOGISLAND-MPQ", ".mpq", ".txt", ".mpq",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"The Dog Island custom MPQ-like container (.mpq, Wii; NOT Blizzard MPQ, archive table not decoded)" },
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"The Dog Island custom MPQ-like container (.mpq, Wii; NOT Blizzard MPQ, archive table not "
+		"decoded)" },
 
 	// FF_MURAMASA_FCMP = 370 (Muramasa FCMP compressed container)
 	// Wraps ".mbs"/".ftx"/".esb"/".nsb"/".abf"/".nms"; only the outer
 	// header + inner sub-blob tag are decoded, the compressed payload
 	// itself is not (Yaz0/Yaz1 ruled out; see lib-muramasa.h).
 	{ FF_MURAMASA_FCMP, FF_MURAMASA_FCMP, 0, "MURAMASA-FCMP", ".mbs", ".txt", ".mbs",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Muramasa FCMP compressed container (.mbs/.ftx/.esb/.nsb/.abf/.nms, Wii; payload not decoded)" },
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Muramasa FCMP compressed container (.mbs/.ftx/.esb/.nsb/.abf/.nms, Wii; payload not "
+		"decoded)" },
 
 	// FF_MURAMASA_OTB = 371 (Muramasa .otb table)
 	// Confirmed header only, entry table not reverse-engineered.
 	{ FF_MURAMASA_OTB, FF_MURAMASA_OTB, 0, "MURAMASA-OTB", ".otb", ".txt", ".otb",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Muramasa .otb table (Wii; header only, entry table not decoded)" },
 
 	// FF_MURAMASA_NSI = 372 (Muramasa .nsi sound info table)
 	// Confirmed header only, entry table not reverse-engineered.
 	{ FF_MURAMASA_NSI, FF_MURAMASA_NSI, 0, "MURAMASA-NSI", ".nsi", ".txt", ".nsi",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Muramasa .nsi sound info table (Wii; header only, entry table not decoded)" },
 
 	// FF_REDSTEEL2_ABE = 373 (Red Steel 2 Ubisoft "ABE" bigfile)
 	// Confirmed 64-byte header only, directory-tree table not decoded.
 	{ FF_REDSTEEL2_ABE, FF_REDSTEEL2_ABE, 0, "REDSTEEL2-ABE", ".bbf", ".txt", ".bbf",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Red Steel 2 Ubisoft ABE bigfile (.bbf/.BF, Wii; header only, directory table not decoded)" },
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Red Steel 2 Ubisoft ABE bigfile (.bbf/.BF, Wii; header only, directory table not "
+		"decoded)" },
 
 	// FF_REDSTEEL2_REL = 374 (Red Steel 2 / standard Nintendo REL module)
 	// Full header + section table decode; relocation/import table bodies
 	// not decoded.
 	{ FF_REDSTEEL2_REL, FF_REDSTEEL2_REL, 0, "REDSTEEL2-REL", ".rel", ".txt", ".rel",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Nintendo REL relocatable module (.rel, Wii/GC; header + section table decoded)" },
 
 	// FF_ZACKWIKI_TM2 = 375 (Zack & Wiki PS2-ported TIM2 texture)
 	// Standard PS2 TIM2 header + per-image header decoded; GS registers
 	// and indexed pixel/palette data not decoded.
 	{ FF_ZACKWIKI_TM2, FF_ZACKWIKI_TM2, 0, "ZACKWIKI-TM2", ".tm2", ".txt", ".tm2",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Zack & Wiki PS2-ported TIM2 texture (.tm2, Wii; GS pixel data not decoded)" },
 
 	// FF_ZACKWIKI_PPG = 376 (Zack & Wiki pCMP zlib-compressed container)
@@ -2151,38 +2077,37 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// clean zlib inflate against real samples; decompressed payload
 	// contents not decoded.
 	{ FF_ZACKWIKI_PPG, FF_ZACKWIKI_PPG, 0, "ZACKWIKI-PPG", ".ppg", ".txt", ".ppg",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Zack & Wiki pCMP zlib-compressed container (.ppg, Wii; decompressed payload not decoded)" },
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Zack & Wiki pCMP zlib-compressed container (.ppg, Wii; decompressed payload not "
+		"decoded)" },
 
 	// FF_ZACKWIKI_TSB = 377 (Zack & Wiki sound bank)
 	// Confirmed chunk-offset directory + tagged chunk headers (REV/DEL/
 	// CHR/RND/TSB); per-record field layout not fully confirmed.
 	{ FF_ZACKWIKI_TSB, FF_ZACKWIKI_TSB, 0, "ZACKWIKI-TSB", ".tsb", ".txt", ".tsb",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Zack & Wiki sound bank (.tsb, Wii; chunk directory decoded, record fields not fully decoded)" },
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Zack & Wiki sound bank (.tsb, Wii; chunk directory decoded, record fields not fully "
+		"decoded)" },
 
 	// FF_ZACKWIKI_WHD = 378 (Zack & Wiki sound bank)
 	// Same chunk-directory shape as .tsb (PROG/SPLT tagged chunks).
 	{ FF_ZACKWIKI_WHD, FF_ZACKWIKI_WHD, 0, "ZACKWIKI-WHD", ".whd", ".txt", ".whd",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Zack & Wiki sound bank (.whd, Wii; chunk directory decoded, record fields not fully decoded)" },
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Zack & Wiki sound bank (.whd, Wii; chunk directory decoded, record fields not fully "
+		"decoded)" },
 
 	// FF_ZACKWIKI_MDS = 379 (Zack & Wiki MDSV resource/level container)
 	// Structural probe only: magic + LOAD/MDFD tag presence.
 	{ FF_ZACKWIKI_MDS, FF_ZACKWIKI_MDS, 0, "ZACKWIKI-MDS", ".mds", ".txt", ".mds",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Zack & Wiki MDSV resource/level container (.mds, Wii; header only, chunk body not decoded)" },
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Zack & Wiki MDSV resource/level container (.mds, Wii; header only, chunk body not "
+		"decoded)" },
 
 	// FF_ZACKWIKI_SSD = 380 (Zack & Wiki streamed ADPCM audio)
 	// No confirmed magic/structure was found in any real sample;
 	// extension-recognized only, same as The Dog Island's .sci/.qci.
 	{ FF_ZACKWIKI_SSD, FF_ZACKWIKI_SSD, 0, "ZACKWIKI-SSD", ".ssd", ".txt", ".ssd",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Zack & Wiki streamed ADPCM audio (.ssd, Wii; NOT reverse-engineered, extension only)" },
 
 	// FF_SAFECRACKER_TOC = 384 (Safecracker bigfile table-of-contents)
@@ -2193,9 +2118,9 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// See IsSafecrackerTOC()/DecodeSafecrackerTOC() in lib-safecracker.c.
 	// The .DAT payload itself is not decoded.
 	{ FF_SAFECRACKER_TOC, FF_SAFECRACKER_TOC, 0, "SAFECRACKER-TOC", ".TOC", ".txt", ".TOC",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Safecracker bigfile table-of-contents (.TOC, Wii; indexes paired .DAT, payload not decoded)" },
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Safecracker bigfile table-of-contents (.TOC, Wii; indexes paired .DAT, payload not "
+		"decoded)" },
 
 	// FF_PAK_TATE = 385 (Go West! A Lucky Luke Adventure "TATE" media archive)
 	// Magic "TATE" at offset 0, u32 LE total-file-size at +0x04 (validated
@@ -2206,8 +2131,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// three real .PAK samples of very different sizes; only the outer
 	// table (name/offset/size) is decoded, per-item payload formats (the
 	// undeciphered inner "tate" sub-header, and whatever follows it) are not.
-	{ FF_PAK_TATE, FF_PAK_TATE, 0, "PAK-TATE", ".PAK", ".txt", ".PAK",
-		FFT_VALID | FFT_DECODE, 0,
+	{ FF_PAK_TATE, FF_PAK_TATE, 0, "PAK-TATE", ".PAK", ".txt", ".PAK", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"Go West! A Lucky Luke Adventure \"TATE\" media archive (.PAK, Wii)" },
 
@@ -2220,8 +2144,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// original "byte-order-flipped RIFF/WAVE" hypothesis was refuted, and
 	// the internal reflection-style record table is not understood well
 	// enough to parse structurally, so it is not.
-	{ FF_PF2_PIFF, FF_PF2_PIFF, 0, "PF2-PIFF", ".rbh", ".txt", ".rbh",
-		FFT_VALID | FFT_DECODE, 0,
+	{ FF_PF2_PIFF, FF_PF2_PIFF, 0, "PF2-PIFF", ".rbh", ".txt", ".rbh", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"Pony Friends 2 \"FFIP\" asset container (.rbh, Wii; outer shell only)" },
 
@@ -2233,144 +2156,133 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// each entry is confirmed (contiguous packing for ~85% of entries),
 	// the remaining per-entry fields and an unindexed ~306 KB gap right
 	// after the table are not understood -- see lib-t3pk.h for details.
-	{ FF_T3PK, FF_T3PK, 0, "T3PK", ".t3p", ".txt", ".t3p",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+	{ FF_T3PK, FF_T3PK, 0, "T3PK", ".t3p", ".txt", ".t3p", FFT_VALID | FFT_DECODE, 0, { 0 }, 0,
+		MinusString, MinusString,
 		"Top Trumps - Doctor Who \"T3PK4.00\" resource pack (.t3p, Wii)" },
 
 	// FF_MERCURY_ZEN = 388 (Mercury Meltdown Revolution scene file)
 	// Confirmed fixed "DAED" header plus a NUL-terminated source-path
 	// string; the fields after the path are not reverse-engineered.
 	{ FF_MERCURY_ZEN, FF_MERCURY_ZEN, 0, "MERCURY-ZEN", ".zen", ".txt", ".zen",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Mercury Meltdown Revolution DAED scene file (.zen, Wii; outer header + source path only)" },
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Mercury Meltdown Revolution DAED scene file (.zen, Wii; outer header + source path "
+		"only)" },
 
 	// FF_MERCURY_COL = 389 (Mercury Meltdown Revolution COL0 table)
 	// Also seen reused (often as an empty 12-byte instance) for ".cam";
 	// only the magic/count and each record's leading name are decoded.
 	{ FF_MERCURY_COL, FF_MERCURY_COL, 0, "MERCURY-COL", ".col", ".txt", ".col",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Mercury Meltdown Revolution COL0 collision/camera table (.col/.cam, Wii; record property data not decoded)" },
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Mercury Meltdown Revolution COL0 collision/camera table (.col/.cam, Wii; record property "
+		"data not decoded)" },
 
 	// FF_MERCURY_PST = 390 (Mercury Meltdown Revolution paletted texture)
 	// Confirmed fixed "TSPA" header including big-endian width/height.
 	{ FF_MERCURY_PST, FF_MERCURY_PST, 0, "MERCURY-PST", ".pst", ".txt", ".pst",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Mercury Meltdown Revolution TSPA paletted texture (.pst, Wii; pixel data not decoded)" },
 
 	// FF_MERCURY_MAT = 391 (Mercury Meltdown Revolution material table)
 	// No confirmed magic/record layout was found; extension-recognized
 	// only, same policy as The Dog Island's .sci/.qci.
 	{ FF_MERCURY_MAT, FF_MERCURY_MAT, 0, "MERCURY-MAT", ".mat", ".txt", ".mat",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Mercury Meltdown Revolution material float-record table (.mat, Wii; NOT reverse-engineered, extension only)" },
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Mercury Meltdown Revolution material float-record table (.mat, Wii; NOT "
+		"reverse-engineered, extension only)" },
 
 	// FF_MERCURY_NAV = 392 (Mercury Meltdown Revolution navigation mesh)
 	// No confirmed header shape was found (and many samples are
 	// zero-length); extension-recognized only.
 	{ FF_MERCURY_NAV, FF_MERCURY_NAV, 0, "MERCURY-NAV", ".nav", ".txt", ".nav",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Mercury Meltdown Revolution navigation-mesh table (.nav, Wii; NOT reverse-engineered, extension only)" },
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Mercury Meltdown Revolution navigation-mesh table (.nav, Wii; NOT reverse-engineered, "
+		"extension only)" },
 
 	// FF_MERCURY_TEX = 393 (Mercury Meltdown Revolution texture reference list)
 	// Fully decoded plain-text format: "#TEX FILE" header line followed
 	// by one source ".tga" authoring path per line.
 	{ FF_MERCURY_TEX, FF_MERCURY_TEX, 0, "MERCURY-TEX", ".TEX", ".txt", ".TEX",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Mercury Meltdown Revolution texture reference list (.TEX, Wii; plain text)" },
 
 	// FF_OCTOMANIA_SEC = 394 (Octomania secB scene/demo container)
 	// Confirmed "secB" header plus a decoded chunk table (names + tags);
 	// per-chunk binary payload data not reverse-engineered.
 	{ FF_OCTOMANIA_SEC, FF_OCTOMANIA_SEC, 0, "OCTOMANIA-SEC", ".sec", ".txt", ".sec",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Octomania secB scene/demo container (.sec, Wii; chunk table decoded, payload data not decoded)" },
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Octomania secB scene/demo container (.sec, Wii; chunk table decoded, payload data not "
+		"decoded)" },
 
 	// FF_OCTOMANIA_WT = 395 (Octomania wavetable sample-offset index)
 	// Confirmed leading table of sample byte-offsets into the companion
 	// .pcm file; trailing index/metadata not reverse-engineered.
 	{ FF_OCTOMANIA_WT, FF_OCTOMANIA_WT, 0, "OCTOMANIA-WT", ".wt", ".txt", ".wt",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Octomania wavetable sample-offset index (.wt, Wii; leading offset table only)" },
 
 	// FF_SPOOKY_EID = 396 (I Spy Spooky Mansion sound-event/effect table)
 	// Confirmed header, effect table and "VARS" field-record table,
 	// decoded byte-for-byte identically across 160 of the 161 samples.
-	{ FF_SPOOKY_EID, FF_SPOOKY_EID, 0, "SPOOKY-EID", ".eid", ".txt", ".eid",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+	{ FF_SPOOKY_EID, FF_SPOOKY_EID, 0, "SPOOKY-EID", ".eid", ".txt", ".eid", FFT_VALID | FFT_DECODE,
+		0, { 0 }, 0, MinusString, MinusString,
 		"I Spy Spooky Mansion sound-event/effect table (.eid, Wii)" },
 
 	// FF_SPOOKY_AST = 397 (I Spy Spooky Mansion "SDASSETF" asset bundle)
 	// Confirmed outer header and first top-level chunk header; nested
 	// sub-chunk payloads (models/anims/textures) not reverse-engineered.
-	{ FF_SPOOKY_AST, FF_SPOOKY_AST, 0, "SPOOKY-AST", ".ast", ".txt", ".ast",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"I Spy Spooky Mansion \"SDASSETF\" asset-bundle container (.ast, Wii; outer chunk table only)" },
+	{ FF_SPOOKY_AST, FF_SPOOKY_AST, 0, "SPOOKY-AST", ".ast", ".txt", ".ast", FFT_VALID | FFT_DECODE,
+		0, { 0 }, 0, MinusString, MinusString,
+		"I Spy Spooky Mansion \"SDASSETF\" asset-bundle container (.ast, Wii; outer chunk table "
+		"only)" },
 
 	// FF_SPOOKY_SDF = 398 (I Spy Spooky Mansion asset-type registry table)
 	// Confirmed against the single real sample seen; TYPE-tag records and
 	// their embedded "VARS" tables decoded.
-	{ FF_SPOOKY_SDF, FF_SPOOKY_SDF, 0, "SPOOKY-SDF", ".sdf", ".txt", ".sdf",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+	{ FF_SPOOKY_SDF, FF_SPOOKY_SDF, 0, "SPOOKY-SDF", ".sdf", ".txt", ".sdf", FFT_VALID | FFT_DECODE,
+		0, { 0 }, 0, MinusString, MinusString,
 		"I Spy Spooky Mansion asset-type registry table (.sdf, Wii)" },
 
 	// FF_SPOOKY_GES = 399 (I Spy Spooky Mansion Wiimote gesture recording)
 	// Magic-less; confirmed byte-for-byte identical shape across all 28
 	// real samples (fixed 10-point x/y/z float32 gesture recording).
-	{ FF_SPOOKY_GES, FF_SPOOKY_GES, 0, "SPOOKY-GES", ".ges", ".txt", ".ges",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+	{ FF_SPOOKY_GES, FF_SPOOKY_GES, 0, "SPOOKY-GES", ".ges", ".txt", ".ges", FFT_VALID | FFT_DECODE,
+		0, { 0 }, 0, MinusString, MinusString,
 		"I Spy Spooky Mansion Wiimote gesture recording (.ges, Wii; magic-less)" },
 
 	// FF_RFF_HXTB = 400 (Rune Factory: Frontier "HX Table" entry directory)
 	// Confirmed 0x20-byte header plus a fully decoded 0x20-byte-stride
 	// entry table (name + hash + data byte-range); per-entity data-blob
 	// payload content not reverse-engineered.
-	{ FF_RFF_HXTB, FF_RFF_HXTB, 0, "RFF-HXTB", ".hvt", ".txt", ".hvt",
-		FFT_VALID | FFT_DECODE, 0,
+	{ FF_RFF_HXTB, FF_RFF_HXTB, 0, "RFF-HXTB", ".hvt", ".txt", ".hvt", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
-		"Rune Factory: Frontier \"HX Table\" entry directory (.hvt/.Hvt, Wii; entry table decoded)" },
+		"Rune Factory: Frontier \"HX Table\" entry directory (.hvt/.Hvt, Wii; entry table "
+		"decoded)" },
 
 	// FF_RFF_HXCB = 401 (Rune Factory: Frontier "HX" collision-box family)
 	// Confirmed 0x20-byte header only; post-header record layout not
 	// reverse-engineered.
-	{ FF_RFF_HXCB, FF_RFF_HXCB, 0, "RFF-HXCB", ".Hvc", ".txt", ".Hvc",
-		FFT_VALID | FFT_DECODE, 0,
+	{ FF_RFF_HXCB, FF_RFF_HXCB, 0, "RFF-HXCB", ".Hvc", ".txt", ".Hvc", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"Rune Factory: Frontier \"HX\" collision-box family (.Hvc, Wii; header only)" },
 
 	// FF_RFF_HXAA = 402 (Rune Factory: Frontier "HX" animation family)
 	// Confirmed 0x20-byte header only (magic "HXAA0001" or "HXAB0001");
 	// post-header record layout not reverse-engineered.
-	{ FF_RFF_HXAA, FF_RFF_HXAA, 0, "RFF-HXAA", ".Hvb", ".txt", ".Hvb",
-		FFT_VALID | FFT_DECODE, 0,
+	{ FF_RFF_HXAA, FF_RFF_HXAA, 0, "RFF-HXAA", ".Hvb", ".txt", ".Hvb", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"Rune Factory: Frontier \"HX\" animation family (.Hvb, Wii; header only)" },
 
 	// FF_RFF_HXMB = 403 (Rune Factory: Frontier "HX" map/motion family)
 	// Confirmed 0x20-byte header only; post-header record layout not
 	// reverse-engineered.
-	{ FF_RFF_HXMB, FF_RFF_HXMB, 0, "RFF-HXMB", ".Hvm", ".txt", ".Hvm",
-		FFT_VALID | FFT_DECODE, 0,
+	{ FF_RFF_HXMB, FF_RFF_HXMB, 0, "RFF-HXMB", ".Hvm", ".txt", ".Hvm", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"Rune Factory: Frontier \"HX\" map/motion family (.Hvm, Wii; header only)" },
 
 	// FF_RFF_HXHB = 404 (Rune Factory: Frontier "HX" hull/height family)
 	// Confirmed 0x20-byte header only; post-header record layout not
 	// reverse-engineered.
-	{ FF_RFF_HXHB, FF_RFF_HXHB, 0, "RFF-HXHB", ".Hvh", ".txt", ".Hvh",
-		FFT_VALID | FFT_DECODE, 0,
+	{ FF_RFF_HXHB, FF_RFF_HXHB, 0, "RFF-HXHB", ".Hvh", ".txt", ".Hvh", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"Rune Factory: Frontier \"HX\" hull/height family (.Hvh, Wii; header only)" },
 
@@ -2378,16 +2290,14 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// Confirmed 0x20-byte header only; also seen embedded as a leading
 	// sub-resource inside FBTI .Mod sections. Post-header record layout
 	// not reverse-engineered.
-	{ FF_RFF_HXGB, FF_RFF_HXGB, 0, "RFF-HXGB", ".Hvg", ".txt", ".Hvg",
-		FFT_VALID | FFT_DECODE, 0,
+	{ FF_RFF_HXGB, FF_RFF_HXGB, 0, "RFF-HXGB", ".Hvg", ".txt", ".Hvg", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"Rune Factory: Frontier \"HX\" geometry family (.Hvg, Wii; header only)" },
 
 	// FF_RFF_HXTP = 406 (Rune Factory: Frontier "HX" triangle/points index)
 	// Confirmed 0x20-byte header only; post-header record layout not
 	// reverse-engineered.
-	{ FF_RFF_HXTP, FF_RFF_HXTP, 0, "RFF-HXTP", ".Hmt", ".txt", ".Hmt",
-		FFT_VALID | FFT_DECODE, 0,
+	{ FF_RFF_HXTP, FF_RFF_HXTP, 0, "RFF-HXTP", ".Hmt", ".txt", ".Hmt", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"Rune Factory: Frontier \"HX\" triangle/points index (.Hmt, Wii; header only)" },
 
@@ -2396,33 +2306,32 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// Confirmed header plus a fully decoded offset/size section table
 	// (.Mod/.Mot); per-section payload content beyond an embedded HX
 	// header, when present, not reverse-engineered.
-	{ FF_RFF_FBTI, FF_RFF_FBTI, 0, "RFF-FBTI", ".Mod", ".txt", ".Mod",
-		FFT_VALID | FFT_DECODE, 0,
+	{ FF_RFF_FBTI, FF_RFF_FBTI, 0, "RFF-FBTI", ".Mod", ".txt", ".Mod", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
-		"Rune Factory: Frontier \"FBTI\" model/motion section container (.Mod/.Mot, Wii; section table decoded)" },
+		"Rune Factory: Frontier \"FBTI\" model/motion section container (.Mod/.Mot, Wii; section "
+		"table decoded)" },
 
 	// FF_HTTYD_RWS = 408 (DreamWorks How to Train Your Dragon chunk-tree
 	// audio container). Confirmed recursive 12-byte chunk headers
 	// (type/size/marker) walked exactly to EOF across all 118 real
 	// samples; leaf audio-sample payload contents not reverse-engineered.
-	{ FF_HTTYD_RWS, FF_HTTYD_RWS, 0, "HTTYD-RWS", ".RWS", ".txt", ".RWS",
-		FFT_VALID | FFT_DECODE, 0,
+	{ FF_HTTYD_RWS, FF_HTTYD_RWS, 0, "HTTYD-RWS", ".RWS", ".txt", ".RWS", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
-		"DreamWorks How to Train Your Dragon chunk-tree audio container (.RWS, Wii; chunk tree decoded, leaf payloads not decoded)" },
+		"DreamWorks How to Train Your Dragon chunk-tree audio container (.RWS, Wii; chunk tree "
+		"decoded, leaf payloads not decoded)" },
 
 	// FF_HTTYD_MTD = 409 (DreamWorks How to Train Your Dragon chunk-tree
 	// container, same 12-byte chunk-header layout as .RWS above).
-	{ FF_HTTYD_MTD, FF_HTTYD_MTD, 0, "HTTYD-MTD", ".mtd", ".txt", ".mtd",
-		FFT_VALID | FFT_DECODE, 0,
+	{ FF_HTTYD_MTD, FF_HTTYD_MTD, 0, "HTTYD-MTD", ".mtd", ".txt", ".mtd", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
-		"DreamWorks How to Train Your Dragon chunk-tree container (.mtd, Wii; same layout as .RWS)" },
+		"DreamWorks How to Train Your Dragon chunk-tree container (.mtd, Wii; same layout as "
+		".RWS)" },
 
 	// FF_HTTYD_KRV = 410 (DreamWorks How to Train Your Dragon gzip-wrapped
 	// localization string table). Outer gzip wrapper decoded directly by
 	// this module; leading integer header fields not fully pinned down,
 	// but the UTF-16LE string run that follows is enumerated in full.
-	{ FF_HTTYD_KRV, FF_HTTYD_KRV, 0, "HTTYD-KRV", ".KRV", ".txt", ".KRV",
-		FFT_VALID | FFT_DECODE, 0,
+	{ FF_HTTYD_KRV, FF_HTTYD_KRV, 0, "HTTYD-KRV", ".KRV", ".txt", ".KRV", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"DreamWorks How to Train Your Dragon gzip-wrapped localization string table (.KRV, Wii)" },
 
@@ -2431,33 +2340,31 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// the payload it wraps is, in every sample checked, an already
 	// supported Camelot-style GX texture bank (see lib-camtexbank.c).
 	{ FF_BERMUDA_MWT, FF_BERMUDA_MWT, 0, "BERMUDA-MWT", ".MWT", ".txt", ".MWT",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Bermuda Triangle GDATAVERSION resource envelope (.MWT, Wii; wraps a Camelot GX texture bank)" },
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Bermuda Triangle GDATAVERSION resource envelope (.MWT, Wii; wraps a Camelot GX texture "
+		"bank)" },
 
 	// FF_BERMUDA_PLANETG = 412 (Bermuda Triangle "PLANETG" tagged-object
 	// resource, shared by .MWG and .MSP). Every tag/string name is
 	// decoded via a heuristic walk; exact tree shape and numeric field
 	// semantics not fully pinned down.
 	{ FF_BERMUDA_PLANETG, FF_BERMUDA_PLANETG, 0, "BERMUDA-PLANETG", ".MWG", ".txt", ".MWG",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Bermuda Triangle PLANETG tagged-object resource (.MWG/.MSP, Wii; tag names decoded)" },
 
 	// FF_BERMUDA_PKI = 413 (Bermuda Triangle "IMAGE_WII_COMPACT" texture
 	// pack container). Header and full name/size/offset entry table
 	// decoded.
 	{ FF_BERMUDA_PKI, FF_BERMUDA_PKI, 0, "BERMUDA-PKI", ".PKI", ".txt", ".PKI",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Bermuda Triangle IMAGE_WII_COMPACT texture-pack container (.PKI, Wii; entry table decoded)" },
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Bermuda Triangle IMAGE_WII_COMPACT texture-pack container (.PKI, Wii; entry table "
+		"decoded)" },
 
 	// FF_BERMUDA_PGF = 414 (Bermuda Triangle font resource). Header
 	// (family name + point size) decoded; per-glyph offset table that
 	// follows not conclusively reverse-engineered.
 	{ FF_BERMUDA_PGF, FF_BERMUDA_PGF, 0, "BERMUDA-PGF", ".pgf", ".txt", ".pgf",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Bermuda Triangle font resource (.pgf, Wii; header only)" },
 
 	// FF_AQUAPANIC_RKET = 415 (Aqua Panic! RKET resource container)
@@ -2465,40 +2372,37 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// (localized language/UI pack); resource-graph structure after the
 	// outer header not reverse-engineered.
 	{ FF_AQUAPANIC_RKET, FF_AQUAPANIC_RKET, 0, "AQUAPANIC-RKET", ".rck", ".txt", ".rck",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Aqua Panic! RKET resource container (.rck/.spa, Wii; outer header only)" },
 
 	// FF_AQUAPANIC_MAT = 416 (Aqua Panic! MATF material chunk table)
 	// Confirmed outer header and tag/size chunk table, walked to EOF in
 	// every one of 100 real samples; per-chunk payload not decoded.
 	{ FF_AQUAPANIC_MAT, FF_AQUAPANIC_MAT, 0, "AQUAPANIC-MAT", ".mat", ".txt", ".mat",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Aqua Panic! MATF material chunk table (.mat, Wii; chunk table decoded, payload data not decoded)" },
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Aqua Panic! MATF material chunk table (.mat, Wii; chunk table decoded, payload data not "
+		"decoded)" },
 
 	// FF_AQUAPANIC_MB2 = 417 (Aqua Panic! BNAM name-string table)
 	// Fully decoded: header plus the length-prefixed bone/node name list,
 	// confirmed to consume every one of 100 real samples exactly to EOF.
 	{ FF_AQUAPANIC_MB2, FF_AQUAPANIC_MB2, 0, "AQUAPANIC-MB2", ".mb2", ".txt", ".mb2",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Aqua Panic! BNAM bone/node name-string table (.mb2, Wii; fully decoded)" },
 
 	// FF_AQUAPANIC_VIS = 418 (Aqua Panic! visibility/flag record)
 	// Magic-less, fixed 24-byte record, byte-for-byte identical across
 	// all 100 real samples on the disc; fully decoded.
 	{ FF_AQUAPANIC_VIS, FF_AQUAPANIC_VIS, 0, "AQUAPANIC-VIS", ".vis", ".txt", ".vis",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Aqua Panic! visibility/flag record (.vis, Wii; magic-less, fixed 24 bytes, fully decoded)" },
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Aqua Panic! visibility/flag record (.vis, Wii; magic-less, fixed 24 bytes, fully "
+		"decoded)" },
 
 	// FF_AQUAPANIC_LIT = 419 (Aqua Panic! single-light record)
 	// Magic-less, fixed 48-byte record (plus a confirmed 12-byte empty
 	// variant) with float32 color/position fields; fully decoded.
 	{ FF_AQUAPANIC_LIT, FF_AQUAPANIC_LIT, 0, "AQUAPANIC-LIT", ".lit", ".txt", ".lit",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Aqua Panic! single-light record (.lit, Wii; magic-less, fixed 48 bytes, fully decoded)" },
 
 	// FF_DIABOLIK_RES = 420 (Diabolik: The Original Sin FAAFFAAF resource container)
@@ -2507,9 +2411,9 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// names/ids, and embedded UTF-16BE dialogue/subtitle text are decoded,
 	// but individual numeric fields' meaning was not fully pinned down.
 	{ FF_DIABOLIK_RES, FF_DIABOLIK_RES, 0, "DIABOLIK-RES", ".gam", ".txt", ".gam",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Diabolik: The Original Sin FAAFFAAF resource container (.cfg/.gam/.loc/.ls/.rgn, Wii; block tree and embedded text decoded)" },
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Diabolik: The Original Sin FAAFFAAF resource container (.cfg/.gam/.loc/.ls/.rgn, Wii; "
+		"block tree and embedded text decoded)" },
 
 	// FF_DIG = 421 (Bomberman Land "cddata*.dig" streaming resource package)
 	// Magic-less flat sector-table container (files/cddata.dig,
@@ -2517,38 +2421,39 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// name and are extracted as numbered blobs. The rarer "type == 2"
 	// composite table variant (5 of 15 real samples) is not supported.
 	{ FF_DIG, FF_DIG, 0, "DIG", ".dig", ".dig", ".dig",
-		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Bomberman Land cddata*.dig streaming resource package (.dig, Wii; flat sector-table variant only)" },
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0, { 0 }, 0, MinusString,
+		MinusString,
+		"Bomberman Land cddata*.dig streaming resource package (.dig, Wii; flat sector-table "
+		"variant only)" },
 
 	// FF_BOTB_BAG = 422 (Battle of the Bands ".bag" asset container)
 	// Fixed 32-byte ASCII "1.00 <N>\n" header over a payload of concatenated
 	// sub-resources; a plain-text "name,size,offset" manifest lists them.
 	// Individual sub-resource binary layouts are not decoded.
-	{ FF_BOTB_BAG, FF_BOTB_BAG, 0, "BOTB-BAG", ".bag", ".txt", ".bag",
-		FFT_VALID | FFT_DECODE, 0,
+	{ FF_BOTB_BAG, FF_BOTB_BAG, 0, "BOTB-BAG", ".bag", ".txt", ".bag", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
-		"Battle of the Bands .bag asset container (Wii; header and sub-resource manifest decoded)" },
+		"Battle of the Bands .bag asset container (Wii; header and sub-resource manifest "
+		"decoded)" },
 
 	// FF_HKX = 423 (Havok classic packfile)
 	// Havok 4.6.1-era binary tagfile (magic 0x57E0E057), self-describing
 	// via an embedded class/type reflection table; header and section
 	// table are decoded, plus every embedded Havok class name. The
 	// "__data__" section's binary content is not deserialized.
-	{ FF_HKX, FF_HKX, 0, "HKX", ".hkx", ".txt", ".hkx",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Havok classic packfile (.HKX, Wii; header, section table, and embedded class names decoded)" },
+	{ FF_HKX, FF_HKX, 0, "HKX", ".hkx", ".txt", ".hkx", FFT_VALID | FFT_DECODE, 0, { 0 }, 0,
+		MinusString, MinusString,
+		"Havok classic packfile (.HKX, Wii; header, section table, and embedded class names "
+		"decoded)" },
 
 	// FF_T4RES = 424 (Tenchu: Shadow Assassins "T4-*" tagged resource)
 	// A family of authoring-tool-exported ".b" resources (camera sets, AI
 	// voice/status/script tables) sharing a "T4-<TypeName>" tag plus a
 	// packed-BCD date; only the shared tag/date header is decoded, not the
 	// type-specific record tables that follow.
-	{ FF_T4RES, FF_T4RES, 0, "T4-RES", ".b", ".txt", ".b",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Tenchu: Shadow Assassins \"T4-*\" tagged resource (.b, Wii; tag/date header only, not the record table)" },
+	{ FF_T4RES, FF_T4RES, 0, "T4-RES", ".b", ".txt", ".b", FFT_VALID | FFT_DECODE, 0, { 0 }, 0,
+		MinusString, MinusString,
+		"Tenchu: Shadow Assassins \"T4-*\" tagged resource (.b, Wii; tag/date header only, not the "
+		"record table)" },
 
 	// FF_HDVOICE = 425 (Tenchu: Shadow Assassins voice-line manifest)
 	// Magic-less but structurally unique to this title's ".hd" files
@@ -2556,10 +2461,10 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// per-character voice-line IDs (category/variant) to an index into a
 	// parameter table (volume/pitch/priority/etc.), or a sentinel for IDs
 	// not recorded in this localization. Fully decoded.
-	{ FF_HDVOICE, FF_HDVOICE, 0, "HDVOICE", ".hd", ".txt", ".hd",
-		FFT_VALID | FFT_DECODE, 0,
-		{ 0 }, 0, MinusString, MinusString,
-		"Tenchu: Shadow Assassins voice-line manifest (.hd, Wii; slot table and parameter table fully decoded)" },
+	{ FF_HDVOICE, FF_HDVOICE, 0, "HDVOICE", ".hd", ".txt", ".hd", FFT_VALID | FFT_DECODE, 0, { 0 },
+		0, MinusString, MinusString,
+		"Tenchu: Shadow Assassins voice-line manifest (.hd, Wii; slot table and parameter table "
+		"fully decoded)" },
 
 	// FF_XTD = 426 (Genki "GTI Club: Supermini Festa!" car resource table)
 	// Little-endian directory of tagged sub-resources -- distinct from the
@@ -2569,7 +2474,8 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	{ FF_XTD, FF_XTD, 0, "XTD", ".xtd", ".bin", ".xtd",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 4, { 0x58, 0x54, 0x44, 0x00 }, // "XTD\0"
 		0, MinusString, MinusString,
-		"Genki \"GTI Club: Supermini Festa!\" car resource table (.unq.xtd, Wii; wraps raw Nintendo TPL textures)" },
+		"Genki \"GTI Club: Supermini Festa!\" car resource table (.unq.xtd, Wii; wraps raw "
+		"Nintendo TPL textures)" },
 
 	// FF_XMD = 427 (Genki "GTI Club: Supermini Festa!" car model container)
 	// A thin wrapper concatenating a "RESOURCE:GX" geometry block (same
@@ -2579,7 +2485,8 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	{ FF_XMD, FF_XMD, 0, "XMD", ".mdl", ".bin", ".mdl",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 4, { 0x58, 0x4d, 0x44, 0x01 }, // "XMD\1"
 		0, MinusString, MinusString,
-		"Genki \"GTI Club: Supermini Festa!\" car model container (.mdl, Wii; RESOURCE:GX geometry + XTD textures)" },
+		"Genki \"GTI Club: Supermini Festa!\" car model container (.mdl, Wii; RESOURCE:GX geometry "
+		"+ XTD textures)" },
 
 	// FF_PFCTEX = 428 (Nintendo Pocket Football Club UI texture)
 	// No text magic -- detected structurally by IsPFCTex() (fixed header
@@ -2589,7 +2496,8 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// an 8x8-Morton-tiled RGBA4444 surface. See lib-pfctex.h.
 	{ FF_PFCTEX, FF_PFCTEX, 0, "PFCTEX", ".bin", ".bin", ".bin",
 		FFT_VALID | FFT_DECODE | FFT_EXTRACT, 0, { 0 }, 0, MinusString, MinusString,
-		"Nintendo Pocket Football Club \"CALCIO3DS\" UI texture (.bin, 3DS; LZ11 + 8x8-tiled RGBA4444)" },
+		"Nintendo Pocket Football Club \"CALCIO3DS\" UI texture (.bin, 3DS; LZ11 + 8x8-tiled "
+		"RGBA4444)" },
 
 	// FF_N
 	{ 0 }
@@ -2668,28 +2576,27 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_BRLAN, "BRLAN", 0, 0x3001 }, { FF_BFLYT, "BFLYT", 0, 0x3001 },
 	{ FF_BCLYT, "BCLYT", 0, 0x3001 }, { FF_BNTX, "BNTX", 0, 0x3001 }, { FF_GFA, "GFA", 0, 0x3001 },
 	{ FF_BCH, "BCH", 0, 0x3001 }, { FF_BCRES, "BCRES", "CGFX", 0x3001 },
-	{ FF_CMAB, "CMAB", 0, 0x3809 },
-	{ FF_AJPG, "AJPG", "AJPG", 0x0100 }, { FF_RST, "RST", "0TSR", 0xe05 },
-	{ FF_RST_TOC, "RST-TOC", "0SERCOTE", 0xc05 }, { FF_THP, "THP", "THP", 0x3801 },
-	{ FF_MSBT, "MSBT", "MSGSTDBN", 0x3001 }, { FF_MSBP, "MSBP", "MSGPRJBN", 0x3001 },
-	{ FF_MSBF, "MSBF", "MSGFLWBN", 0x3001 }, { FF_MSBT_TXT, "MSBT-TXT", "MSBTTXT", 0x7011 },
-	{ FF_MSBP_TXT, "MSBP-TXT", "MSBPTXT", 0x7011 }, { FF_MSBF_TXT, "MSBF-TXT", "MSBFTXT", 0x7011 },
-	{ FF_SDAT, "SDAT", "SDAT", 0x3801 }, { FF_BCSAR, "BCSAR", "CSAR", 0x3801 },
-	{ FF_BFSAR, "BFSAR", "FSAR", 0x3801 }, { FF_BCWAR, "BCWAR", "CWAR", 0x3801 },
-	{ FF_BFWAR, "BFWAR", "FWAR", 0x3801 }, { FF_BCGRP, "BCGRP", "CGRP", 0x3801 },
-	{ FF_BFGRP, "BFGRP", "FGRP", 0x3801 }, { FF_GTX, "GTX", "GFX2", 0x3001 },
-	{ FF_FZIP, "FZIP", "FZIP", 0x103 }, { FF_GVR, "GVR", "GCIX", 0x3809 },
-	{ FF_SMDH, "SMDH", 0, 0x3009 }, { FF_SARC, "SARC", "SARC", 0xe05 },
-	{ FF_AAMP, "AAMP", "AAMP", 0x3001 },
+	{ FF_CMAB, "CMAB", 0, 0x3809 }, { FF_AJPG, "AJPG", "AJPG", 0x0100 },
+	{ FF_RST, "RST", "0TSR", 0xe05 }, { FF_RST_TOC, "RST-TOC", "0SERCOTE", 0xc05 },
+	{ FF_THP, "THP", "THP", 0x3801 }, { FF_MSBT, "MSBT", "MSGSTDBN", 0x3001 },
+	{ FF_MSBP, "MSBP", "MSGPRJBN", 0x3001 }, { FF_MSBF, "MSBF", "MSGFLWBN", 0x3001 },
+	{ FF_MSBT_TXT, "MSBT-TXT", "MSBTTXT", 0x7011 }, { FF_MSBP_TXT, "MSBP-TXT", "MSBPTXT", 0x7011 },
+	{ FF_MSBF_TXT, "MSBF-TXT", "MSBFTXT", 0x7011 }, { FF_SDAT, "SDAT", "SDAT", 0x3801 },
+	{ FF_BCSAR, "BCSAR", "CSAR", 0x3801 }, { FF_BFSAR, "BFSAR", "FSAR", 0x3801 },
+	{ FF_BCWAR, "BCWAR", "CWAR", 0x3801 }, { FF_BFWAR, "BFWAR", "FWAR", 0x3801 },
+	{ FF_BCGRP, "BCGRP", "CGRP", 0x3801 }, { FF_BFGRP, "BFGRP", "FGRP", 0x3801 },
+	{ FF_GTX, "GTX", "GFX2", 0x3001 }, { FF_FZIP, "FZIP", "FZIP", 0x103 },
+	{ FF_GVR, "GVR", "GCIX", 0x3809 }, { FF_SMDH, "SMDH", 0, 0x3009 },
+	{ FF_SARC, "SARC", "SARC", 0xe05 }, { FF_AAMP, "AAMP", "AAMP", 0x3001 },
 	{ FF_BFMA, "BFMA", "BFMA", 0xe05 }, { FF_ZLIB, "ZLIB", "ZLIB", 0x103 },
 	{ FF_ZLIB, "DEFLATE", 0, 0x103 }, { FF_ZSTD, "ZSTD", "ZSTD", 0x103 },
 	{ FF_ZSTD, "ZST", "ZST", 0x103 }, { FF_ZSTD, "ZS", "ZS", 0x103 },
-	{ FF_LZ4, "LZ4", "LZ4", 0x103 },
-	{ FF_NSBTX, "NSBTX", "BTX0", 0x3829 }, { FF_NFTR, "NFTR", "FNTR", 0x3809 },
-	{ FF_BNFR, "BNFR", "RNFB", 0x3809 }, { FF_BNLL, "BNLL", "LLNB", 0x3001 },
-	{ FF_BNCL, "BNCL", "LCNB", 0x3001 }, { FF_BNBL, "BNBL", "LBNB", 0x3001 },
-	{ FF_VLX, "VLX", 0, 0x103 }, { FF_PUCRUNCH, "PUCRUNCH", "PCRUNCH", 0x103 },
-	{ FF_LZX, "LZX", 0, 0x103 }, { FF_DIFF, "DIFF", 0, 0x103 }, { FF_LZOVL, "LZOVL", "OVL", 0x103 },
+	{ FF_LZ4, "LZ4", "LZ4", 0x103 }, { FF_NSBTX, "NSBTX", "BTX0", 0x3829 },
+	{ FF_NFTR, "NFTR", "FNTR", 0x3809 }, { FF_BNFR, "BNFR", "RNFB", 0x3809 },
+	{ FF_BNLL, "BNLL", "LLNB", 0x3001 }, { FF_BNCL, "BNCL", "LCNB", 0x3001 },
+	{ FF_BNBL, "BNBL", "LBNB", 0x3001 }, { FF_VLX, "VLX", 0, 0x103 },
+	{ FF_PUCRUNCH, "PUCRUNCH", "PCRUNCH", 0x103 }, { FF_LZX, "LZX", 0, 0x103 },
+	{ FF_DIFF, "DIFF", 0, 0x103 }, { FF_LZOVL, "LZOVL", "OVL", 0x103 },
 	{ FF_ALAR, "ALAR", 0, 0xe05 }, { FF_DARC, "DARC", 0, 0xe05 }, { FF_SADL, "SADL", 0, 0x861 },
 	{ FF_NCER, "NCER", "RECN", 0x3001 }, { FF_NANR, "NANR", "RNAN", 0x3001 },
 	{ FF_NUT, "NUT", "NTP3", 0x3809 }, { FF_NUD, "NUD", "NDP3", 0x3001 },
@@ -2716,8 +2623,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_NLG_DICT, "NLG-DICT", "DICT", 0xe05 }, { FF_TXTG, "TXTG", "6PK0", 0xe05 },
 	{ FF_NLOC, "NLOC", 0, 0x3001 }, { FF_XLNK, "XLNK", "BSLNK", 0x3001 },
 	{ FF_ROMFS, "ROMFS", "IVFC", 0xe05 }, { FF_XTX, "XTX", "DFVN", 0xe05 },
-	{ FF_TVOL, "TVOL", 0, 0xe05 }, { FF_TXE, "TXE", 0, 0x3809 },
-	{ FF_MTXT, "MTXT", 0, 0xe05 },
+	{ FF_TVOL, "TVOL", 0, 0xe05 }, { FF_TXE, "TXE", 0, 0x3809 }, { FF_MTXT, "MTXT", 0, 0xe05 },
 	{ FF_SIR0, "SIR0", 0, 0xe05 }, { FF_TEX3DS, "TEX3DS", "TEX", 0x3809 },
 	{ FF_PTLG, "PTLG", "RLT", 0xe05 },
 	// Super Mario Strikers (GameCube) names the same container .glt, which
@@ -2735,98 +2641,51 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_NSBMA, "NSBMA", "BMA0", 0x1 }, { FF_MIO, "MIO", 0, 0xe05 },
 	{ FF_ZDAT, "ZDAT", "ZDAT", 0xe05 }, { FF_SFX, "SFX", 0, 0xe05 },
 	{ FF_VFF, "VFF", "VFF", 0xe05 }, { FF_IQIPACK, "IQIPACK", "PACK", 0xe05 },
-	{ FF_CPK, "CPK", 0, 0xe05 },
-	{ FF_WMB, "WMB", 0, 0xe05 },
-	{ FF_RFL_RES, "RFL-RES", "RFLRES", 0xe05 },
-	{ FF_BTGA, "BTGA", 0, 0x3809 }, { FF_BTGA, "LGA", 0, 0x3809 },
-	{ FF_DMPBM, "DMPBM", 0, 0x3809 }, { FF_STEX, "STEX", 0, 0x3809 },
-	{ FF_CMB, "CMB", 0, 0x3809 },
-	{ FF_BCMA, "BCMA", "BCMA", 0xe05 },
-	{ FF_BCFNT, "BCFNT", "CFNT", 0x3009 },
-	{ FF_BCFNT, "BFFNT", "FFNT", 0x3009 },
-	{ FF_BFSHA, "BFSHA", "FSHA", 0xe05 },
-	{ FF_SHARC, "SHARC", "SHAA", 0xe05 },
-	{ FF_SHARCFB, "SHARCFB", "SHAB", 0xe05 },
-	{ FF_VFXB, "VFXB", "VFXB", 0xe05 },
-	{ FF_BEA, "BEA", "SCNE", 0xe05 },
-	{ FF_RSTB, "RSTB", "RSTB", 0xe05 },
-	{ FF_WTB, "WTB", "WTB", 0xe05 },
-	{ FF_NUSHDB, "NUSHDB", "SSBH", 0x3001 },
-	{ FF_NUMATB, "NUMATB", "SSBH", 0x3001 },
-	{ FF_NUSKTB, "NUSKTB", "SSBH", 0x3001 },
-	{ FF_NUFXLB, "NUFXLB", "SSBH", 0x3001 },
-	{ FF_NUMDLB, "NUMDLB", "SSBH", 0x3001 },
-	{ FF_NUHLPB, "NUHLPB", "SSBH", 0x3001 },
-	{ FF_NULSTB, "NULSTB", "SSBH", 0x3001 },
-	{ FF_NURPDB, "NURPDB", "SSBH", 0x3001 },
-	{ FF_NUANMB, "NUANMB", "SSBH", 0x3001 },
-	{ FF_NTTF, "NTTF", 0, 0x1409 },
-	{ FF_NTTF, "BNTTF", 0, 0x1409 },
-	{ FF_MPBIN, "MPBIN", "MPB", 0xe05 },
-	{ FF_ATB, "ATB", 0, 0xe05 },
-	{ FF_PTD, "PTD", "PDT", 0xe05 },
-	{ FF_HBDF, "HBDF", "HSDF", 0x3001 },
-	{ FF_LZBIN, "LZBIN", 0, 0xe05 },
-	{ FF_SHDVAR, "SHDVAR", "SVT", 0x3001 },
-	{ FF_SHDVAR, "SHDVARTBL", 0, 0x3001 },
-	{ FF_DDS, "DDS", 0, 0x3009 },
-	{ FF_ASTC, "ASTC", 0, 0x3009 },
-	{ FF_EFFN, "EFFN", "EFF", 0xe05 },
-	{ FF_EFFN, "EFF", 0, 0xe05 },
-	{ FF_XB, "XB", 0, 0x3001 },
-	{ FF_MPMESS, "MPMESS", 0, 0xe05 },
-	{ FF_MPBOARD, "MPBOARD", 0, 0x3001 },
-	{ FF_BGLPBD, "BGLPBD", 0, 0x3001 },
-	{ FF_XMB, "XMB", "XMB ", 0x3001 },
-	{ FF_ADJB, "ADJB", 0, 0x3001 },
-	{ FF_FEDMODEL, "FEDMODEL", "FEDM", 0x3001 },
-	{ FF_FEDTEX, "FEDTEX", "FEDT", 0x3001 },
-	{ FF_FEDSKEL, "FEDSKEL", "FEDS", 0x3001 },
-	{ FF_SANIM, "SANIM", 0, 0xe05 },
-	{ FF_J3DBMD, "J3DBMD", 0, 0x3001 },
-	{ FF_J3DBDL, "J3DBDL", 0, 0x3001 },
-	{ FF_RZPK, "RZPK", "RZPK", 0xe05 },
-	{ FF_TTMODEL, "TTMODEL", 0, 0x3001 },
-	{ FF_CSB, "CSB", 0, 0x3001 },
-	{ FF_CTB, "CTB", 0, 0x3001 },
-	{ FF_LMMDL, "LMMDL", 0, 0x3001 },
-	{ FF_LMBIN, "LMBIN", 0, 0x3001 },
-	{ FF_PIKMOD, "PIKMOD", 0, 0x3001 },
-	{ FF_PIKARC, "PIKARC", 0, 0xe05 },
-	{ FF_WWRSC, "WWRSC", 0, 0xe05 },
-	{ FF_LMJMP, "LMJMP", 0, 0xe05 },
-	{ FF_LMKEY, "LMKEY", 0, 0xe05 },
-	{ FF_LMTMB, "LMTMB", 0, 0xe05 },
-	{ FF_LMGEB, "LMGEB", 0, 0xe05 },
-	{ FF_LMSLK, "LMSLK", 0, 0xe05 },
-	{ FF_LMSLS, "LMSLS", 0, 0xe05 },
-	{ FF_WWMODEL, "WWMODEL", 0, 0x3001 },
-	{ FF_GFMODEL, "GFMODEL", "GFMODEL", 0x3001 },
-	{ FF_GFTEX, "GFTEX", "GFTEX", 0x3809 },
-	{ FF_GFMOT, "GFMOT", "GFMOT", 0xe05 },
-	{ FF_GFMPACK, "GFMPACK", "GFMPACK", 0xe05 },
-	{ FF_GFPKG, "GFPKG", "GFPKG", 0xe05 },
-	{ FF_GFLX, "GFLX", "GFLXPACK", 0xe05 },
-	{ FF_GF1MOT, "GF1MOT", "GF1MOT", 0xe05 },
-	{ FF_MTMOD, "MTMOD", "MTMOD", 0x3001 },
-	{ FF_MTTEX, "MTTEX", "MTTEX", 0x3809 },
-	{ FF_MTMRL, "MTMRL", "MTMRL", 0xe05 },
-	{ FF_MTMFX, "MTMFX", "MTMFX", 0xe05 },
-	{ FF_MBN, "MBN", 0, 0x3001 },
-	{ FF_IPK, "IPK", 0, 0xe05 },
-	{ FF_CS_DCT, "CS_DCT", "CS_DCT", 0xe05 },
-	{ FF_DSP, "DSP", "DSP", 0x3801 },
-	{ FF_HUFF, "HUFF", 0, 0x103 },
-	{ FF_ZMB, "ZMB", 0, 0x3001 },
-	{ FF_PK2, "PK2", "PK2", 0xe05 },
-	{ FF_MPT, "MPT", "MPT", 0x3809 },
-	{ FF_AFS, "AFS", "AFS", 0xe05 },
-	{ FF_THOR, "THOR", "THOR", 0xe05 },
-	{ FF_OPOONA_MOL, "OPOONA-MOL", "OPOONA-MOL", 0xe05 },
-	{ FF_OPOONA_MOT, "OPOONA-MOT", "OPOONA-MOT", 0xe05 },
-	{ FF_TE_ZIP, "TE-ZIP", "TE-ZIP", 0xe05 },
-	{ FF_G3RES, "G3RES", "G3RES", 0xe05 },
-	{ FF_CHNK, "CHNK", "CHNK", 0xe05 },
+	{ FF_CPK, "CPK", 0, 0xe05 }, { FF_WMB, "WMB", 0, 0xe05 },
+	{ FF_RFL_RES, "RFL-RES", "RFLRES", 0xe05 }, { FF_BTGA, "BTGA", 0, 0x3809 },
+	{ FF_BTGA, "LGA", 0, 0x3809 }, { FF_DMPBM, "DMPBM", 0, 0x3809 }, { FF_STEX, "STEX", 0, 0x3809 },
+	{ FF_CMB, "CMB", 0, 0x3809 }, { FF_BCMA, "BCMA", "BCMA", 0xe05 },
+	{ FF_BCFNT, "BCFNT", "CFNT", 0x3009 }, { FF_BCFNT, "BFFNT", "FFNT", 0x3009 },
+	{ FF_BFSHA, "BFSHA", "FSHA", 0xe05 }, { FF_SHARC, "SHARC", "SHAA", 0xe05 },
+	{ FF_SHARCFB, "SHARCFB", "SHAB", 0xe05 }, { FF_VFXB, "VFXB", "VFXB", 0xe05 },
+	{ FF_BEA, "BEA", "SCNE", 0xe05 }, { FF_RSTB, "RSTB", "RSTB", 0xe05 },
+	{ FF_WTB, "WTB", "WTB", 0xe05 }, { FF_NUSHDB, "NUSHDB", "SSBH", 0x3001 },
+	{ FF_NUMATB, "NUMATB", "SSBH", 0x3001 }, { FF_NUSKTB, "NUSKTB", "SSBH", 0x3001 },
+	{ FF_NUFXLB, "NUFXLB", "SSBH", 0x3001 }, { FF_NUMDLB, "NUMDLB", "SSBH", 0x3001 },
+	{ FF_NUHLPB, "NUHLPB", "SSBH", 0x3001 }, { FF_NULSTB, "NULSTB", "SSBH", 0x3001 },
+	{ FF_NURPDB, "NURPDB", "SSBH", 0x3001 }, { FF_NUANMB, "NUANMB", "SSBH", 0x3001 },
+	{ FF_NTTF, "NTTF", 0, 0x1409 }, { FF_NTTF, "BNTTF", 0, 0x1409 },
+	{ FF_MPBIN, "MPBIN", "MPB", 0xe05 }, { FF_ATB, "ATB", 0, 0xe05 },
+	{ FF_PTD, "PTD", "PDT", 0xe05 }, { FF_HBDF, "HBDF", "HSDF", 0x3001 },
+	{ FF_LZBIN, "LZBIN", 0, 0xe05 }, { FF_SHDVAR, "SHDVAR", "SVT", 0x3001 },
+	{ FF_SHDVAR, "SHDVARTBL", 0, 0x3001 }, { FF_DDS, "DDS", 0, 0x3009 },
+	{ FF_ASTC, "ASTC", 0, 0x3009 }, { FF_EFFN, "EFFN", "EFF", 0xe05 }, { FF_EFFN, "EFF", 0, 0xe05 },
+	{ FF_XB, "XB", 0, 0x3001 }, { FF_MPMESS, "MPMESS", 0, 0xe05 },
+	{ FF_MPBOARD, "MPBOARD", 0, 0x3001 }, { FF_BGLPBD, "BGLPBD", 0, 0x3001 },
+	{ FF_XMB, "XMB", "XMB ", 0x3001 }, { FF_ADJB, "ADJB", 0, 0x3001 },
+	{ FF_FEDMODEL, "FEDMODEL", "FEDM", 0x3001 }, { FF_FEDTEX, "FEDTEX", "FEDT", 0x3001 },
+	{ FF_FEDSKEL, "FEDSKEL", "FEDS", 0x3001 }, { FF_SANIM, "SANIM", 0, 0xe05 },
+	{ FF_J3DBMD, "J3DBMD", 0, 0x3001 }, { FF_J3DBDL, "J3DBDL", 0, 0x3001 },
+	{ FF_RZPK, "RZPK", "RZPK", 0xe05 }, { FF_TTMODEL, "TTMODEL", 0, 0x3001 },
+	{ FF_CSB, "CSB", 0, 0x3001 }, { FF_CTB, "CTB", 0, 0x3001 }, { FF_LMMDL, "LMMDL", 0, 0x3001 },
+	{ FF_LMBIN, "LMBIN", 0, 0x3001 }, { FF_PIKMOD, "PIKMOD", 0, 0x3001 },
+	{ FF_PIKARC, "PIKARC", 0, 0xe05 }, { FF_WWRSC, "WWRSC", 0, 0xe05 },
+	{ FF_LMJMP, "LMJMP", 0, 0xe05 }, { FF_LMKEY, "LMKEY", 0, 0xe05 },
+	{ FF_LMTMB, "LMTMB", 0, 0xe05 }, { FF_LMGEB, "LMGEB", 0, 0xe05 },
+	{ FF_LMSLK, "LMSLK", 0, 0xe05 }, { FF_LMSLS, "LMSLS", 0, 0xe05 },
+	{ FF_WWMODEL, "WWMODEL", 0, 0x3001 }, { FF_GFMODEL, "GFMODEL", "GFMODEL", 0x3001 },
+	{ FF_GFTEX, "GFTEX", "GFTEX", 0x3809 }, { FF_GFMOT, "GFMOT", "GFMOT", 0xe05 },
+	{ FF_GFMPACK, "GFMPACK", "GFMPACK", 0xe05 }, { FF_GFPKG, "GFPKG", "GFPKG", 0xe05 },
+	{ FF_GFLX, "GFLX", "GFLXPACK", 0xe05 }, { FF_GF1MOT, "GF1MOT", "GF1MOT", 0xe05 },
+	{ FF_MTMOD, "MTMOD", "MTMOD", 0x3001 }, { FF_MTTEX, "MTTEX", "MTTEX", 0x3809 },
+	{ FF_MTMRL, "MTMRL", "MTMRL", 0xe05 }, { FF_MTMFX, "MTMFX", "MTMFX", 0xe05 },
+	{ FF_MBN, "MBN", 0, 0x3001 }, { FF_IPK, "IPK", 0, 0xe05 },
+	{ FF_CS_DCT, "CS_DCT", "CS_DCT", 0xe05 }, { FF_DSP, "DSP", "DSP", 0x3801 },
+	{ FF_HUFF, "HUFF", 0, 0x103 }, { FF_ZMB, "ZMB", 0, 0x3001 }, { FF_PK2, "PK2", "PK2", 0xe05 },
+	{ FF_MPT, "MPT", "MPT", 0x3809 }, { FF_AFS, "AFS", "AFS", 0xe05 },
+	{ FF_THOR, "THOR", "THOR", 0xe05 }, { FF_OPOONA_MOL, "OPOONA-MOL", "OPOONA-MOL", 0xe05 },
+	{ FF_OPOONA_MOT, "OPOONA-MOT", "OPOONA-MOT", 0xe05 }, { FF_TE_ZIP, "TE-ZIP", "TE-ZIP", 0xe05 },
+	{ FF_G3RES, "G3RES", "G3RES", 0xe05 }, { FF_CHNK, "CHNK", "CHNK", 0xe05 },
 	{ FF_MAGMA_FAT, "MAGMA-FAT", "MAGMA-FAT", 0xe05 },
 	{ FF_MAGMA_BF, "MAGMA-BF", "MAGMA-BF", 0xe05 },
 	{ FF_VOICE_SONG, "VOICE-SONG", "VOICE-SONG", 0xe05 },
@@ -2854,10 +2713,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_ZACKWIKI_MDS, "ZACKWIKI-MDS", "ZACKWIKI-MDS", 0xe05 },
 	{ FF_ZACKWIKI_SSD, "ZACKWIKI-SSD", "ZACKWIKI-SSD", 0xe05 },
 	{ FF_SAFECRACKER_TOC, "SAFECRACKER-TOC", "SAFECRACKER-TOC", 0xe05 },
-	{ FF_PAK_TATE, "PAK-TATE", "PAK-TATE", 0xe05 },
-	{ FF_PF2_PIFF, "PF2-PIFF", "PF2-PIFF", 0xe05 },
-	{ FF_T3PK, "T3PK", "T3PK", 0xe05 },
-	{ FF_MERCURY_ZEN, "MERCURY-ZEN", "MERCURY-ZEN", 0xe05 },
+	{ FF_PAK_TATE, "PAK-TATE", "PAK-TATE", 0xe05 }, { FF_PF2_PIFF, "PF2-PIFF", "PF2-PIFF", 0xe05 },
+	{ FF_T3PK, "T3PK", "T3PK", 0xe05 }, { FF_MERCURY_ZEN, "MERCURY-ZEN", "MERCURY-ZEN", 0xe05 },
 	{ FF_MERCURY_COL, "MERCURY-COL", "MERCURY-COL", 0xe05 },
 	{ FF_MERCURY_PST, "MERCURY-PST", "MERCURY-PST", 0xe05 },
 	{ FF_MERCURY_MAT, "MERCURY-MAT", "MERCURY-MAT", 0xe05 },
@@ -2869,14 +2726,10 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_SPOOKY_AST, "SPOOKY-AST", "SPOOKY-AST", 0xe05 },
 	{ FF_SPOOKY_SDF, "SPOOKY-SDF", "SPOOKY-SDF", 0xe05 },
 	{ FF_SPOOKY_GES, "SPOOKY-GES", "SPOOKY-GES", 0xe05 },
-	{ FF_RFF_HXTB, "RFF-HXTB", "RFF-HXTB", 0xe05 },
-	{ FF_RFF_HXCB, "RFF-HXCB", "RFF-HXCB", 0xe05 },
-	{ FF_RFF_HXAA, "RFF-HXAA", "RFF-HXAA", 0xe05 },
-	{ FF_RFF_HXMB, "RFF-HXMB", "RFF-HXMB", 0xe05 },
-	{ FF_RFF_HXHB, "RFF-HXHB", "RFF-HXHB", 0xe05 },
-	{ FF_RFF_HXGB, "RFF-HXGB", "RFF-HXGB", 0xe05 },
-	{ FF_RFF_HXTP, "RFF-HXTP", "RFF-HXTP", 0xe05 },
-	{ FF_RFF_FBTI, "RFF-FBTI", "RFF-FBTI", 0xe05 },
+	{ FF_RFF_HXTB, "RFF-HXTB", "RFF-HXTB", 0xe05 }, { FF_RFF_HXCB, "RFF-HXCB", "RFF-HXCB", 0xe05 },
+	{ FF_RFF_HXAA, "RFF-HXAA", "RFF-HXAA", 0xe05 }, { FF_RFF_HXMB, "RFF-HXMB", "RFF-HXMB", 0xe05 },
+	{ FF_RFF_HXHB, "RFF-HXHB", "RFF-HXHB", 0xe05 }, { FF_RFF_HXGB, "RFF-HXGB", "RFF-HXGB", 0xe05 },
+	{ FF_RFF_HXTP, "RFF-HXTP", "RFF-HXTP", 0xe05 }, { FF_RFF_FBTI, "RFF-FBTI", "RFF-FBTI", 0xe05 },
 	{ FF_HTTYD_RWS, "HTTYD-RWS", "HTTYD-RWS", 0xe05 },
 	{ FF_HTTYD_MTD, "HTTYD-MTD", "HTTYD-MTD", 0xe05 },
 	{ FF_HTTYD_KRV, "HTTYD-KRV", "HTTYD-KRV", 0xe05 },
@@ -2889,14 +2742,10 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_AQUAPANIC_MB2, "AQUAPANIC-MB2", "AQUAPANIC-MB2", 0xe05 },
 	{ FF_AQUAPANIC_VIS, "AQUAPANIC-VIS", "AQUAPANIC-VIS", 0xe05 },
 	{ FF_AQUAPANIC_LIT, "AQUAPANIC-LIT", "AQUAPANIC-LIT", 0xe05 },
-	{ FF_DIABOLIK_RES, "DIABOLIK-RES", "DIABOLIK-RES", 0xe05 },
-	{ FF_DIG, "DIG", "DIG", 0xe05 },
-	{ FF_BOTB_BAG, "BOTB-BAG", "BOTB-BAG", 0xe05 },
-	{ FF_HKX, "HKX", "HKX", 0xe05 },
-	{ FF_T4RES, "T4-RES", "T4-RES", 0xe05 },
-	{ FF_HDVOICE, "HDVOICE", "HDVOICE", 0xe05 },
-	{ FF_XTD, "XTD", "XTD", 0xe05 },
-	{ FF_XMD, "XMD", "XMD", 0xe05 },
+	{ FF_DIABOLIK_RES, "DIABOLIK-RES", "DIABOLIK-RES", 0xe05 }, { FF_DIG, "DIG", "DIG", 0xe05 },
+	{ FF_BOTB_BAG, "BOTB-BAG", "BOTB-BAG", 0xe05 }, { FF_HKX, "HKX", "HKX", 0xe05 },
+	{ FF_T4RES, "T4-RES", "T4-RES", 0xe05 }, { FF_HDVOICE, "HDVOICE", "HDVOICE", 0xe05 },
+	{ FF_XTD, "XTD", "XTD", 0xe05 }, { FF_XMD, "XMD", "XMD", 0xe05 },
 	{ FF_PFCTEX, "PFCTEX", "PFCTEX", 0xe05 },
 
 	{ 0, 0, 0, 0 }

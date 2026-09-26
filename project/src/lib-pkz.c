@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // ----------------------------------------------------------------------------
 // 13. PlatinumGames Archive (.pkz / pkz)
 // ----------------------------------------------------------------------------
@@ -137,7 +136,6 @@ enumError ExtractPKZArchive (ccp arg, ccp basedir, uint depth)
 	return ERR_OK;
 }
 
-
 // PlatinumGames Archive (.pkz), little-endian, members stored uncompressed
 enumError CreatePKZArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
@@ -214,7 +212,6 @@ enumError CreatePKZArchive (
 	return ERR_OK;
 }
 
-
 enumError create_pkz_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -237,4 +234,3 @@ enumError create_pkz_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

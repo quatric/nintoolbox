@@ -19,18 +19,18 @@
 
 typedef struct thor_entry_t
 {
-	u32 id;			// packed type/index id, meaning not fully decoded
-	u32 offset;		// absolute file offset of the resource blob
-	u32 size;		// size of the resource blob
+	u32 id; // packed type/index id, meaning not fully decoded
+	u32 offset; // absolute file offset of the resource blob
+	u32 size; // size of the resource blob
 } thor_entry_t;
 
 typedef struct thor_t
 {
 	const u8 *raw;
 	size_t raw_size;
-	char name[13];		// header name field (e.g. "garage06")
-	char category[13];	// header category field (e.g. "phinferb")
-	u32 table_offset;	// absolute offset of the resource table
+	char name[13]; // header name field (e.g. "garage06")
+	char category[13]; // header category field (e.g. "phinferb")
+	u32 table_offset; // absolute offset of the resource table
 	uint n_entries;
 	thor_entry_t *entries;
 } thor_t;

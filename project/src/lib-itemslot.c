@@ -162,8 +162,8 @@ enumError ScanRawITEMSLOT (itemslot_t *itemslot, // ITEMSLOT data structure
 
 	SetupBZ2MgrITEMSLOT (itemslot, true);
 	if (!data || data_size != ITEMSLT_SIZE6 && data_size != ITEMSLT_SIZE12)
-		return ERROR0 (ERR_INVALID_DATA, "Invalid file size (%u but not %llu bytes: %s\n", data_size,
-			(u64)sizeof (itemslot->data), itemslot->fname);
+		return ERROR0 (ERR_INVALID_DATA, "Invalid file size (%u but not %llu bytes: %s\n",
+			data_size, (u64)sizeof (itemslot->data), itemslot->fname);
 
 	memcpy (&itemslot->data, data, data_size);
 	itemslot->add_battle = data_size == ITEMSLT_SIZE12;
@@ -649,7 +649,10 @@ enumError SaveTextITEMSLOT (const itemslot_t *itemslot, // pointer to valid ITEM
 	//--- print tables
 
 	uint active_offset = 0;
-	enum { N_SUM = 20 };
+	enum
+	{
+		N_SUM = 20
+	};
 	uint sum[N_SUM];
 
 	const KeywordTab_t *par;

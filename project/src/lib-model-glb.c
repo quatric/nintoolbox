@@ -23,7 +23,8 @@ typedef struct
 	char *path;
 } dae_texture_entry_t;
 
-static const char b64_alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static const char b64_alphabet[]
+	= "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 static char *base64_encode (const uint8_t *src, size_t size)
 {
@@ -35,8 +36,7 @@ static char *base64_encode (const uint8_t *src, size_t size)
 		return NULL;
 	for (size_t i = 0, j = 0; i < size; i += 3)
 	{
-		const unsigned v = (unsigned)src[i] << 16
-			| (unsigned)(i + 1 < size ? src[i + 1] : 0) << 8
+		const unsigned v = (unsigned)src[i] << 16 | (unsigned)(i + 1 < size ? src[i + 1] : 0) << 8
 			| (unsigned)(i + 2 < size ? src[i + 2] : 0);
 		out[j++] = b64_alphabet[v >> 18];
 		out[j++] = b64_alphabet[(v >> 12) & 63];
@@ -49,11 +49,16 @@ static char *base64_encode (const uint8_t *src, size_t size)
 
 static int base64_value (char c)
 {
-	if (c >= 'A' && c <= 'Z') return c - 'A';
-	if (c >= 'a' && c <= 'z') return c - 'a' + 26;
-	if (c >= '0' && c <= '9') return c - '0' + 52;
-	if (c == '+') return 62;
-	if (c == '/') return 63;
+	if (c >= 'A' && c <= 'Z')
+		return c - 'A';
+	if (c >= 'a' && c <= 'z')
+		return c - 'a' + 26;
+	if (c >= '0' && c <= '9')
+		return c - '0' + 52;
+	if (c == '+')
+		return 62;
+	if (c == '/')
+		return 63;
 	return -1;
 }
 
@@ -61,21 +66,27 @@ static uint8_t *base64_decode (const char *src, size_t size, size_t *out_size)
 {
 	if (!src || size % 4)
 		return NULL;
-	const size_t padding = size && src[size-1] == '=' ? 1 + (size > 1 && src[size-2] == '=') : 0;
+	const size_t padding
+		= size && src[size - 1] == '=' ? 1 + (size > 1 && src[size - 2] == '=') : 0;
 	uint8_t *out = malloc (size / 4 * 3 - padding);
 	if (!out)
 		return NULL;
 	for (size_t i = 0, j = 0; i < size; i += 4)
 	{
-		int a = base64_value (src[i]), b = base64_value (src[i+1]);
-		int c = src[i+2] == '=' ? 0 : base64_value (src[i+2]);
-		int d = src[i+3] == '=' ? 0 : base64_value (src[i+3]);
-		if (a < 0 || b < 0 || c < 0 || d < 0 || (src[i+2] == '=' && i + 4 != size))
-		{ free (out); return NULL; }
+		int a = base64_value (src[i]), b = base64_value (src[i + 1]);
+		int c = src[i + 2] == '=' ? 0 : base64_value (src[i + 2]);
+		int d = src[i + 3] == '=' ? 0 : base64_value (src[i + 3]);
+		if (a < 0 || b < 0 || c < 0 || d < 0 || (src[i + 2] == '=' && i + 4 != size))
+		{
+			free (out);
+			return NULL;
+		}
 		unsigned v = (unsigned)a << 18 | (unsigned)b << 12 | (unsigned)c << 6 | (unsigned)d;
 		out[j++] = v >> 16;
-		if (src[i+2] != '=') out[j++] = v >> 8;
-		if (src[i+3] != '=') out[j++] = v;
+		if (src[i + 2] != '=')
+			out[j++] = v >> 8;
+		if (src[i + 3] != '=')
+			out[j++] = v;
 	}
 	*out_size = size / 4 * 3 - padding;
 	return out;
@@ -523,8 +534,7 @@ static int png_has_real_alpha (const char *path)
 	uint8_t hdr[33];
 	size_t n = fread (hdr, 1, sizeof (hdr), fp);
 	int result = 1;
-	if (n == sizeof (hdr) && !memcmp (hdr, "\x89PNG\r\n\x1a\n", 8)
-		&& !memcmp (hdr + 12, "IHDR", 4))
+	if (n == sizeof (hdr) && !memcmp (hdr, "\x89PNG\r\n\x1a\n", 8) && !memcmp (hdr + 12, "IHDR", 4))
 	{
 		uint8_t color_type = hdr[25];
 		switch (color_type)
@@ -1030,8 +1040,7 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 	data.images = calloc (model->num_materials * 8 + 1, sizeof (cgltf_image));
 	data.textures = calloc (model->num_materials * 8 + 1, sizeof (cgltf_texture));
 	data.samplers = calloc (model->num_materials * 8 + 1, sizeof (cgltf_sampler));
-	data.materials
-		= calloc (model->num_materials + 1, sizeof (cgltf_material));
+	data.materials = calloc (model->num_materials + 1, sizeof (cgltf_material));
 	data.meshes = calloc (model->num_meshes > 0 ? model->num_meshes : 1, sizeof (cgltf_mesh));
 	size_t max_nodes = model->num_joints + model->num_meshes + model->num_instances
 		+ model->num_cameras + model->num_lights;
@@ -1109,8 +1118,8 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 		if (wants_blend && primary >= 0)
 		{
 			char primary_path[PATH_MAX];
-			if (dae_texture_path (primary_path, sizeof (primary_path), out_glb_file,
-					mat->textures[primary])
+			if (dae_texture_path (
+					primary_path, sizeof (primary_path), out_glb_file, mat->textures[primary])
 				&& !png_has_real_alpha (primary_path))
 				wants_blend = 0;
 		}
@@ -2865,12 +2874,13 @@ static model_t *BuildModelFromCgltf (cgltf_data *data)
 	// arbitrary JSON.
 	const char *extra = data->asset.extras.data;
 	const char prefix[] = "{\"wszst_bcres_raw\":\"";
-	if (extra && !strncmp (extra, prefix, sizeof(prefix)-1))
+	if (extra && !strncmp (extra, prefix, sizeof (prefix) - 1))
 	{
-		const char *payload = extra + sizeof(prefix) - 1;
+		const char *payload = extra + sizeof (prefix) - 1;
 		const char *end = strchr (payload, '\"');
 		if (end && !strcmp (end, "\"}"))
-			model->bcres_raw = base64_decode (payload, (size_t)(end - payload), &model->bcres_raw_size);
+			model->bcres_raw
+				= base64_decode (payload, (size_t)(end - payload), &model->bcres_raw_size);
 	}
 	return model;
 }

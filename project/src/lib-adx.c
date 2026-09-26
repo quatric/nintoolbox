@@ -73,33 +73,33 @@ enumError ScanADXHeader (adx_header_t *hd, const u8 *data, size_t size)
 		return ERR_INVALID_DATA;
 	memset (hd, 0, sizeof (*hd));
 
-	hd->copyright_offset	= rd_be16 (data + 2);
-	hd->encoding_type	= data[4];
-	hd->block_size		= data[5];
-	hd->sample_bitdepth	= data[6];
-	hd->channel_count	= data[7];
-	hd->sample_rate		= rd_be32 (data + 8);
-	hd->total_samples	= rd_be32 (data + 12);
-	hd->highpass_freq	= rd_be16 (data + 16);
-	hd->version		= data[18];
-	hd->flags		= data[19];
+	hd->copyright_offset = rd_be16 (data + 2);
+	hd->encoding_type = data[4];
+	hd->block_size = data[5];
+	hd->sample_bitdepth = data[6];
+	hd->channel_count = data[7];
+	hd->sample_rate = rd_be32 (data + 8);
+	hd->total_samples = rd_be32 (data + 12);
+	hd->highpass_freq = rd_be16 (data + 16);
+	hd->version = data[18];
+	hd->flags = data[19];
 
 	// Loop block: only decoded when the fixed offset (0x20) and the whole
 	// 20-byte block fit before the copyright tag / EOF, and loop_enabled
 	// reads exactly 1 (never seen any other value in real samples; a
 	// non-1 value here is treated as "no loop" rather than guessed at).
-	if (size >= 0x34 && (size_t) hd->copyright_offset >= 0x34)
+	if (size >= 0x34 && (size_t)hd->copyright_offset >= 0x34)
 	{
 		const u16 enabled = rd_be16 (data + 0x22);
 		if (enabled == 1)
 		{
-			hd->valid_loop		= true;
-			hd->loop_align_samples	= rd_be16 (data + 0x20);
-			hd->loop_enabled	= enabled;
-			hd->loop_start_sample	= rd_be32 (data + 0x24);
-			hd->loop_start_byte	= rd_be32 (data + 0x28);
-			hd->loop_end_sample	= rd_be32 (data + 0x2c);
-			hd->loop_end_byte	= rd_be32 (data + 0x30);
+			hd->valid_loop = true;
+			hd->loop_align_samples = rd_be16 (data + 0x20);
+			hd->loop_enabled = enabled;
+			hd->loop_start_sample = rd_be32 (data + 0x24);
+			hd->loop_start_byte = rd_be32 (data + 0x28);
+			hd->loop_end_sample = rd_be32 (data + 0x2c);
+			hd->loop_end_byte = rd_be32 (data + 0x30);
 		}
 	}
 
@@ -110,12 +110,18 @@ static ccp adx_encoding_name (u8 enc)
 {
 	switch (enc)
 	{
-		case 2:    return "ADX (fixed coefficients)";
-		case 3:    return "ADX (standard)";
-		case 4:    return "ADX (exponential scale)";
-		case 0x10: return "AHX (level 2)";
-		case 0x11: return "AHX (level 3)";
-		default:   return "unknown";
+		case 2:
+			return "ADX (fixed coefficients)";
+		case 3:
+			return "ADX (standard)";
+		case 4:
+			return "ADX (exponential scale)";
+		case 0x10:
+			return "AHX (level 2)";
+		case 0x11:
+			return "AHX (level 3)";
+		default:
+			return "unknown";
 	}
 }
 
@@ -130,7 +136,8 @@ enumError DecodeADX_Text (FILE *f, const u8 *data, size_t size)
 		return err;
 
 	fprintf (f, "#ADX\n");
-	fprintf (f, "encoding-type    = %u (%s)\n", hd.encoding_type, adx_encoding_name (hd.encoding_type));
+	fprintf (
+		f, "encoding-type    = %u (%s)\n", hd.encoding_type, adx_encoding_name (hd.encoding_type));
 	fprintf (f, "version          = %u\n", hd.version);
 	fprintf (f, "flags            = 0x%02x\n", hd.flags);
 	fprintf (f, "block-size       = %u\n", hd.block_size);

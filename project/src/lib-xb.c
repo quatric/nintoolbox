@@ -124,12 +124,24 @@ static void sb_puts_escaped (xb_sb_t *sb, const char *s)
 	{
 		switch (*p)
 		{
-			case '&': sb_puts (sb, "&amp;"); break;
-			case '<': sb_puts (sb, "&lt;"); break;
-			case '>': sb_puts (sb, "&gt;"); break;
-			case '"': sb_puts (sb, "&quot;"); break;
-			case '\'': sb_puts (sb, "&apos;"); break;
-			default: sb_putc (sb, *p); break;
+			case '&':
+				sb_puts (sb, "&amp;");
+				break;
+			case '<':
+				sb_puts (sb, "&lt;");
+				break;
+			case '>':
+				sb_puts (sb, "&gt;");
+				break;
+			case '"':
+				sb_puts (sb, "&quot;");
+				break;
+			case '\'':
+				sb_puts (sb, "&apos;");
+				break;
+			default:
+				sb_putc (sb, *p);
+				break;
 		}
 	}
 }
@@ -164,8 +176,8 @@ enumError DecodeXB_String (char **out_str, size_t *out_size, const u8 *data, siz
 	size_t tmp_pos = cur_pos;
 	const u32 first_offset = xb_read_val (data, size, &tmp_pos, dt);
 
-	// Tag stack for XML hierarchy
-	#define MAX_XB_TAGS 256
+// Tag stack for XML hierarchy
+#define MAX_XB_TAGS 256
 	ccp tag_stack[MAX_XB_TAGS];
 	int stack_top = 0;
 
@@ -206,9 +218,13 @@ enumError DecodeXB_String (char **out_str, size_t *out_size, const u8 *data, siz
 		}
 
 		const u32 num_attrs = xb_read_val (data, size, &cur_pos, dt);
-		// Collect attributes
-		#define MAX_XB_ATTRS 64
-		struct { ccp name; ccp val; } attrs[MAX_XB_ATTRS];
+// Collect attributes
+#define MAX_XB_ATTRS 64
+		struct
+		{
+			ccp name;
+			ccp val;
+		} attrs[MAX_XB_ATTRS];
 		uint attr_count = num_attrs < MAX_XB_ATTRS ? num_attrs : MAX_XB_ATTRS;
 		for (uint i = 0; i < num_attrs; i++)
 		{
@@ -383,9 +399,16 @@ static size_t xb_unescape (char *s)
 	{
 		if (s[r] == '&')
 		{
-			struct { const char *e; char c; } tab[] = {
-				{ "&amp;", '&' }, { "&lt;", '<' }, { "&gt;", '>' },
-				{ "&quot;", '"' }, { "&apos;", '\'' },
+			struct
+			{
+				const char *e;
+				char c;
+			} tab[] = {
+				{ "&amp;", '&' },
+				{ "&lt;", '<' },
+				{ "&gt;", '>' },
+				{ "&quot;", '"' },
+				{ "&apos;", '\'' },
 			};
 			bool hit = false;
 			for (size_t k = 0; k < sizeof (tab) / sizeof (*tab); k++)
@@ -421,8 +444,7 @@ static char *xb_strndup (const char *s, size_t n)
 
 // Parses the decoder's XML subset into a forest. Returns 0 on success with
 // *roots_out (array of *n_out, caller frees trees + array).
-static int xb_parse_xml (
-	const char *xml, size_t len, xb_node_t ***roots_out, size_t *n_out)
+static int xb_parse_xml (const char *xml, size_t len, xb_node_t ***roots_out, size_t *n_out)
 {
 	*roots_out = 0;
 	*n_out = 0;
@@ -499,14 +521,14 @@ static int xb_parse_xml (
 			while (p < inner_len)
 			{
 				while (p < inner_len
-					&& (inner[p] == ' ' || inner[p] == '\t' || inner[p] == '\n'
-						|| inner[p] == '\r' || inner[p] == '/'))
+					&& (inner[p] == ' ' || inner[p] == '\t' || inner[p] == '\n' || inner[p] == '\r'
+						|| inner[p] == '/'))
 					p++;
 				if (p >= inner_len)
 					break;
 				size_t an = 0;
-				while (p + an < inner_len && inner[p + an] != '='
-					&& inner[p + an] != ' ' && inner[p + an] != '\t')
+				while (p + an < inner_len && inner[p + an] != '=' && inner[p + an] != ' '
+					&& inner[p + an] != '\t')
 					an++;
 				if (!an || p + an >= inner_len || inner[p + an] != '=')
 					break; // trailing junk (e.g. lone '/'); stop
@@ -517,8 +539,7 @@ static int xb_parse_xml (
 				const char *ve = memchr (vs, '"', (size_t)(inner + inner_len - vs));
 				if (!ve)
 					break;
-				xb_attr_t *na = REALLOC (node->attrs,
-					(node->n_attrs + 1) * sizeof (*na));
+				xb_attr_t *na = REALLOC (node->attrs, (node->n_attrs + 1) * sizeof (*na));
 				if (!na)
 				{
 					xb_free_tree (node);
@@ -527,8 +548,7 @@ static int xb_parse_xml (
 				node->attrs = na;
 				node->attrs[node->n_attrs].name = xb_strndup (inner + p, an);
 				node->attrs[node->n_attrs].value = xb_strndup (vs, (size_t)(ve - vs));
-				if (!node->attrs[node->n_attrs].name
-					|| !node->attrs[node->n_attrs].value)
+				if (!node->attrs[node->n_attrs].name || !node->attrs[node->n_attrs].value)
 				{
 					xb_free_tree (node);
 					goto done;
@@ -542,8 +562,7 @@ static int xb_parse_xml (
 				if (depth > 0)
 				{
 					xb_node_t *par = stack[depth - 1];
-					xb_node_t **nc = REALLOC (par->children,
-						(par->n_children + 1) * sizeof (*nc));
+					xb_node_t **nc = REALLOC (par->children, (par->n_children + 1) * sizeof (*nc));
 					if (!nc)
 					{
 						xb_free_tree (node);
@@ -573,8 +592,7 @@ static int xb_parse_xml (
 				if (depth > 0)
 				{
 					xb_node_t *par = stack[depth - 1];
-					xb_node_t **nc = REALLOC (par->children,
-						(par->n_children + 1) * sizeof (*nc));
+					xb_node_t **nc = REALLOC (par->children, (par->n_children + 1) * sizeof (*nc));
 					if (!nc)
 					{
 						xb_free_tree (node);
@@ -894,9 +912,7 @@ enumError EncodeXB (u8 **dest, uint *dest_size, const char *xml, size_t xml_len,
 			recs_size += (3 + 2 * items[i].node->n_attrs) * vsz;
 			const bool last = i + 1 >= n_items;
 			const int next_depth = last ? 0 : items[i + 1].depth;
-			const int closes = last
-				? items[i].depth
-				: items[i].depth - next_depth + 1;
+			const int closes = last ? items[i].depth : items[i].depth - next_depth + 1;
 			if (closes < 0)
 			{
 				recs_size = 0;
@@ -980,17 +996,14 @@ enumError EncodeXB (u8 **dest, uint *dest_size, const char *xml, size_t xml_len,
 		{
 			const xb_node_t *nd = items[i].node;
 			ok = ok && xb_val (&out, xb_strtab_find (&tab, nd->name), w);
-			ok = ok && xb_val (&out,
-				nd->n_children == 0 ? xb_strtab_find (&tab, nd->value) : 0, w);
+			ok = ok && xb_val (&out, nd->n_children == 0 ? xb_strtab_find (&tab, nd->value) : 0, w);
 			ok = ok && xb_val (&out, (u32)nd->n_attrs, w);
 			for (size_t a = 0; ok && a < nd->n_attrs; a++)
 				ok = ok && xb_val (&out, xb_strtab_find (&tab, nd->attrs[a].name), w)
 					&& xb_val (&out, xb_strtab_find (&tab, nd->attrs[a].value), w);
 			const bool last = i + 1 >= n_items;
 			const int next_depth = last ? 0 : items[i + 1].depth;
-			const int closes = last
-				? items[i].depth
-				: items[i].depth - next_depth + 1;
+			const int closes = last ? items[i].depth : items[i].depth - next_depth + 1;
 			for (int c = 0; ok && c < closes; c++)
 				ok = ok && xb_val (&out, w ? 0xFFFFFFFFu : 0xFFFFu, w);
 		}

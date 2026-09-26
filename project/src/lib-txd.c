@@ -55,20 +55,20 @@ static uint find_txd_records (const u8 *raw, size_t size, txd_tex_t **ret_tex)
 		if (rd_be32 (raw + off) != TXD_REC_MAGIC)
 			continue;
 
-		const u32 data_off = (u32) (off + (TXD_REC_DATA_OFF - TXD_REC_MAGIC_OFF));
+		const u32 data_off = (u32)(off + (TXD_REC_DATA_OFF - TXD_REC_MAGIC_OFF));
 		if (data_off > size)
 			continue;
 
 		const u32 plane_count = rd_be32 (raw + off + 0x04);
 		if (plane_count > 16) // sanity clamp; real samples only ever use 1-2
 			continue;
-		const size_t dim_off = off + 0x0c + 8 * (size_t) plane_count;
+		const size_t dim_off = off + 0x0c + 8 * (size_t)plane_count;
 		if (dim_off + 12 > size)
 			continue;
 
 		txd_tex_t *t = tex + n;
 		t->data_off = data_off;
-		t->name = off >= TXD_REC_MAGIC_OFF ? (ccp) (raw + off - TXD_REC_MAGIC_OFF + 0x08) : 0;
+		t->name = off >= TXD_REC_MAGIC_OFF ? (ccp)(raw + off - TXD_REC_MAGIC_OFF + 0x08) : 0;
 		t->height = rd_be16 (raw + dim_off);
 		t->width = rd_be16 (raw + dim_off + 2);
 		t->format = rd_be32 (raw + dim_off + 4);
@@ -119,8 +119,8 @@ enumError ExtractTXDArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT TXD:%s (%u textures) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, n_tex, dest);
+		fprintf (stdlog, "%s%sEXTRACT TXD:%s (%u textures) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, n_tex, dest);
 
 	enumError err = ERR_OK;
 	uint n_png = 0, n_raw = 0;
@@ -150,7 +150,7 @@ enumError ExtractTXDArchive (ccp arg, ccp basedir, uint depth)
 			const uint name_max = TXD_REC_DATA_OFF - 0x08;
 			bool name_ok = t->name && *t->name != 0;
 			for (uint k = 0; name_ok && k < name_max && t->name[k]; k++)
-				if ((u8) t->name[k] < 0x20 || (u8) t->name[k] > 0x7e)
+				if ((u8)t->name[k] < 0x20 || (u8)t->name[k] > 0x7e)
 					name_ok = false;
 			if (name_ok && !memchr (t->name, 0, name_max))
 				name_ok = false;
@@ -162,7 +162,7 @@ enumError ExtractTXDArchive (ccp arg, ccp basedir, uint depth)
 				snprintf (name, sizeof (name), "tex%03u", i);
 			// sanitize: this is only ever used as a filename component
 			for (char *p = name; *p; p++)
-				if (*p == '/' || *p == '\\' || (u8) *p < 0x20)
+				if (*p == '/' || *p == '\\' || (u8)*p < 0x20)
 					*p = '_';
 
 			// Decode just the base image. A per-record mip-level-count byte
@@ -193,11 +193,12 @@ enumError ExtractTXDArchive (ccp arg, ccp basedir, uint depth)
 				img.data_size = base_size;
 				img.width = t->width;
 				img.height = t->height;
-				img.iform = img.info_iform = (image_format_t) t->format;
+				img.iform = img.info_iform = (image_format_t)t->format;
 				img.info_fform = FF_PNG;
 				img.info_n_image = 1;
 				img.endian = &be_func;
-				CalcImageGeometry (img.iform, img.width, img.height, &img.xwidth, &img.xheight, 0, 0, 0);
+				CalcImageGeometry (
+					img.iform, img.width, img.height, &img.xwidth, &img.xheight, 0, 0, 0);
 
 				snprintf (path, sizeof (path), "%s/%s.png", dest, name);
 				if (!ConvertIMG (&img, false, 0, IMG_X_RGB, PAL_INVALID)
@@ -219,12 +220,13 @@ enumError ExtractTXDArchive (ccp arg, ccp basedir, uint depth)
 		}
 
 		if (verbose >= 0)
-			fprintf (stdlog, "  %u texture(s) decoded to PNG, %u carved out raw (unrecovered size)\n",
-				n_png, n_raw);
+			fprintf (stdlog,
+				"  %u texture(s) decoded to PNG, %u carved out raw (unrecovered size)\n", n_png,
+				n_raw);
 	}
 
 	FREE (tex);
 	FREE (raw);
-	(void) depth;
+	(void)depth;
 	return err;
 }

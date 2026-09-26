@@ -23,9 +23,9 @@ enumError DecodeBFSHA_Text (FILE *out, const u8 *data, size_t size);
 // One shader model's embedded BNSH blob location, as found by ScanBFSHA_ModelRefs().
 typedef struct bfsha_model_ref_t
 {
-	char name[256];    // dictionary key, or "<unnamed>" if the key pointer was invalid
-	u64  bnsh_offset;  // absolute offset of the embedded BNSH file within the .bfsha buffer
-	u32  bnsh_size;    // that BNSH file's own recorded size (its BinaryHeader.FileSize)
+	char name[256]; // dictionary key, or "<unnamed>" if the key pointer was invalid
+	u64 bnsh_offset; // absolute offset of the embedded BNSH file within the .bfsha buffer
+	u32 bnsh_size; // that BNSH file's own recorded size (its BinaryHeader.FileSize)
 } bfsha_model_ref_t;
 
 typedef struct bfsha_models_t

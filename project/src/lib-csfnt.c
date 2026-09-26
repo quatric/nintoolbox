@@ -64,10 +64,10 @@ enumError ExtractCSFontArchive (ccp arg, ccp basedir, uint depth)
 				continue;
 			const u8 *rec = raw + glyph_off + (u64)glyph * CSFNT_REC_SIZE;
 			const uint x = rd_be16 (rec), y = rd_be16 (rec + 2), x_end = rd_be16 (rec + 4),
-				   height = rd_be16 (rec + 6), advance = rd_be16 (rec + 10);
+					   height = rd_be16 (rec + 6), advance = rd_be16 (rec + 10);
 			const char printable = isprint (code) ? (char)code : '.';
-			len += (size_t)snprintf (text + len, cap - len, "%u('%c')\t%u\t%u\t%u\t%u\t%u\t%u\n", code,
-				printable, glyph, x, y, x_end - x, height, advance);
+			len += (size_t)snprintf (text + len, cap - len, "%u('%c')\t%u\t%u\t%u\t%u\t%u\t%u\n",
+				code, printable, glyph, x, y, x_end - x, height, advance);
 		}
 		if (SaveFile (out, 0, 0, (const u8 *)text, (uint)len, 0))
 			err = ERR_CANT_CREATE;

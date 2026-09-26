@@ -13,9 +13,9 @@
 
 enum
 {
-	HTTYD_RWS_HEADER_SIZE	= 0x0c,
-	HTTYD_RWS_MARKER	= 0x1c020065,
-	HTTYD_RWS_MAX_DEPTH	= 16, // safety stop for the recursive walk below
+	HTTYD_RWS_HEADER_SIZE = 0x0c,
+	HTTYD_RWS_MARKER = 0x1c020065,
+	HTTYD_RWS_MAX_DEPTH = 16, // safety stop for the recursive walk below
 };
 
 int IsHTTYDRws (const u8 *data, size_t size, size_t file_size)
@@ -28,27 +28,19 @@ int IsHTTYDRws (const u8 *data, size_t size, size_t file_size)
 	const u32 marker = le32 (data + 0x08);
 	if (marker != HTTYD_RWS_MARKER)
 		return 0;
-	(void) type;
+	(void)type;
 
 	// The outer chunk's payload must exactly reach EOF (confirmed true in
 	// every real sample, both .RWS and .mtd), which is what tells this
 	// container apart from arbitrary data that happens to contain the
 	// marker constant somewhere.
-	const u64 total = (u64) HTTYD_RWS_HEADER_SIZE + pay_size;
+	const u64 total = (u64)HTTYD_RWS_HEADER_SIZE + pay_size;
 	if (file_size)
 		return total == file_size;
 	return total == size;
 }
 
-static void httyd_rws_walk
-(
-	FILE		*f,
-	const u8	*data,
-	size_t		size,
-	size_t		off,
-	size_t		end,
-	int		depth
-)
+static void httyd_rws_walk (FILE *f, const u8 *data, size_t size, size_t off, size_t end, int depth)
 {
 	while (off + HTTYD_RWS_HEADER_SIZE <= end)
 	{
@@ -57,30 +49,29 @@ static void httyd_rws_walk
 		const u32 marker = le32 (data + off + 0x08);
 		if (marker != HTTYD_RWS_MARKER)
 		{
-			fprintf (f, "%*s# @0x%zx: marker mismatch (0x%08x) -- stopping walk\n",
-				depth * 2, "", off, marker);
+			fprintf (f, "%*s# @0x%zx: marker mismatch (0x%08x) -- stopping walk\n", depth * 2, "",
+				off, marker);
 			return;
 		}
 
 		const size_t pay_off = off + HTTYD_RWS_HEADER_SIZE;
 		const size_t chunk_end = pay_off + pay_size;
-		fprintf (f, "%*schunk @0x%zx: type=0x%x size=0x%x payload=0x%zx..0x%zx\n",
-			depth * 2, "", off, type, pay_size, pay_off, chunk_end);
+		fprintf (f, "%*schunk @0x%zx: type=0x%x size=0x%x payload=0x%zx..0x%zx\n", depth * 2, "",
+			off, type, pay_size, pay_off, chunk_end);
 
 		if (chunk_end > end)
 		{
-			fprintf (f, "%*s# payload runs past enclosing chunk/EOF -- stopping walk\n",
-				depth * 2, "");
+			fprintf (
+				f, "%*s# payload runs past enclosing chunk/EOF -- stopping walk\n", depth * 2, "");
 			return;
 		}
 
 		// Recurse only when the payload itself begins with another chunk
 		// header carrying the same marker and a size that fits inside
 		// this chunk -- confirmed shape of every non-leaf chunk seen.
-		if (depth < HTTYD_RWS_MAX_DEPTH
-			&& pay_size >= HTTYD_RWS_HEADER_SIZE
+		if (depth < HTTYD_RWS_MAX_DEPTH && pay_size >= HTTYD_RWS_HEADER_SIZE
 			&& le32 (data + pay_off + 0x08) == HTTYD_RWS_MARKER
-			&& (u64) le32 (data + pay_off + 0x04) + HTTYD_RWS_HEADER_SIZE <= pay_size )
+			&& (u64)le32 (data + pay_off + 0x04) + HTTYD_RWS_HEADER_SIZE <= pay_size)
 		{
 			httyd_rws_walk (f, data, size, pay_off, chunk_end, depth + 1);
 		}
@@ -98,8 +89,8 @@ static void httyd_rws_walk
 					scan++;
 				if (scan - start >= 4)
 				{
-					fprintf (f, "%*s  tag = \"%.*s\"\n", depth * 2, "",
-						(int) (scan - start), data + start);
+					fprintf (f, "%*s  tag = \"%.*s\"\n", depth * 2, "", (int)(scan - start),
+						data + start);
 					break;
 				}
 				scan++;
@@ -116,7 +107,8 @@ enumError DecodeHTTYDRws_Text (FILE *f, const u8 *data, size_t size, size_t file
 		return EINVAL;
 
 	fprintf (f, "# DreamWorks How to Train Your Dragon .RWS/.mtd chunk-tree container\n");
-	fprintf (f, "# 12-byte chunk headers: u32 type, u32 size, u32 marker(=0x%x), all little-endian\n",
+	fprintf (f,
+		"# 12-byte chunk headers: u32 type, u32 size, u32 marker(=0x%x), all little-endian\n",
 		HTTYD_RWS_MARKER);
 	fprintf (f, "# leaf payload contents (audio/DSP sample data) not reverse-engineered\n\n");
 
@@ -129,7 +121,7 @@ enumError DecodeHTTYDRws_Text (FILE *f, const u8 *data, size_t size, size_t file
 
 int IsHTTYDKrv (const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!data || size < 10)
 		return 0;
 
@@ -139,12 +131,12 @@ int IsHTTYDKrv (const u8 *data, size_t size, size_t file_size)
 
 // Inflate a full gzip member into a heap buffer. Returns NULL on failure.
 // Caller must FREE() the result.
-static u8 * httyd_krv_inflate (const u8 *data, size_t size, size_t *out_size)
+static u8 *httyd_krv_inflate (const u8 *data, size_t size, size_t *out_size)
 {
 	z_stream strm;
 	memset (&strm, 0, sizeof (strm));
-	strm.next_in = (Bytef *) data;
-	strm.avail_in = (uInt) size;
+	strm.next_in = (Bytef *)data;
+	strm.avail_in = (uInt)size;
 
 	if (inflateInit2 (&strm, 15 + 32) != Z_OK) // 32: auto-detect gzip/zlib header
 		return 0;
@@ -161,7 +153,7 @@ static u8 * httyd_krv_inflate (const u8 *data, size_t size, size_t *out_size)
 	for (;;)
 	{
 		strm.next_out = buf + strm.total_out;
-		strm.avail_out = (uInt) (cap - strm.total_out);
+		strm.avail_out = (uInt)(cap - strm.total_out);
 
 		int ret = inflate (&strm, Z_NO_FLUSH);
 		if (ret == Z_STREAM_END)
@@ -180,7 +172,7 @@ static u8 * httyd_krv_inflate (const u8 *data, size_t size, size_t *out_size)
 			if (!n)
 				break;
 			buf = n;
-			(void) used;
+			(void)used;
 		}
 	}
 
@@ -247,7 +239,7 @@ enumError DecodeHTTYDKrv_Text (FILE *f, const u8 *data, size_t size, size_t file
 			if (c < 0x20 || c > 0x7e)
 				break;
 			if (ulen < sizeof (utf8) - 1)
-				utf8[ulen++] = (char) c;
+				utf8[ulen++] = (char)c;
 			j += 2;
 		}
 

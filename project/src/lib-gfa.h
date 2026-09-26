@@ -24,37 +24,40 @@ typedef struct gfa_t
 
 void ResetGFA (gfa_t *gfa);
 enumError ScanGFA (gfa_t *gfa, const u8 *data, uint size);
-enumError CreateGFA (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries,
+enumError CreateGFA (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries,
+	uint n_entries,
 	uint compression, // GFCP compression id to re-encode with: 1=BPE, 2 or 3=raw LZ10.
-		// Any other value (including 0, "unknown") falls back to BPE (1) --
-		// every retail .gfa checked against this format uses BPE, so that's
-		// the realistic default for a brand new archive. A caller repacking
-		// an existing archive should still always pass the id it actually
-		// read back from that archive's own GFCP header (see
-		// peek_gfa_compression() in compress.inc), not 0, or every re-CREATE
-		// whose original compression can't be peeked (destination doesn't
-		// exist yet, or was renamed) silently changes format even though
-		// nothing about its content changed.
-	const ParamField_t *hash_hint); // NULL, or a name->value table (see
-		// ReadGFAHashHints()) supplying the opaque per-entry value that goes
-		// in each 16-byte record's first 4 bytes. That value isn't a
-		// recomputable name hash (verified against retail files) and its
-		// real meaning is unknown, but zeroing it -- the only option without
-		// a hint -- has been observed to make the game crash accessing the
-		// repacked content, so a caller repacking an existing archive should
-		// always supply the hints read from the file being replaced. Entries
-		// with no matching name in the table get 0, same as before.
-enumError PeekGFACompression (ccp path, uint *compression); // read just the
-	// GFCP compression id from an existing on-disk .gfa file, without
-	// decompressing its payload; returns an error (and leaves *compression
-	// untouched) if 'path' isn't readable or isn't a valid GFAC file.
-enumError ReadGFAHashHints (ccp path, ParamField_t *out); // read the
-	// per-entry opaque rec+0 values (see CreateGFA's 'hash_hint' doc) from an
-	// existing on-disk .gfa file into 'out' (already-initialized, keyed by
-	// entry name), without decompressing the payload. Returns an error (and
-	// leaves 'out' untouched) if 'path' isn't readable or isn't a valid
-	// GFAC file.
+					  // Any other value (including 0, "unknown") falls back to BPE (1) --
+					  // every retail .gfa checked against this format uses BPE, so that's
+					  // the realistic default for a brand new archive. A caller repacking
+					  // an existing archive should still always pass the id it actually
+					  // read back from that archive's own GFCP header (see
+					  // peek_gfa_compression() in compress.inc), not 0, or every re-CREATE
+					  // whose original compression can't be peeked (destination doesn't
+					  // exist yet, or was renamed) silently changes format even though
+					  // nothing about its content changed.
+	const ParamField_t
+		*hash_hint); // NULL, or a name->value table (see
+					 // ReadGFAHashHints()) supplying the opaque per-entry value that goes
+					 // in each 16-byte record's first 4 bytes. That value isn't a
+					 // recomputable name hash (verified against retail files) and its
+					 // real meaning is unknown, but zeroing it -- the only option without
+					 // a hint -- has been observed to make the game crash accessing the
+					 // repacked content, so a caller repacking an existing archive should
+					 // always supply the hints read from the file being replaced. Entries
+					 // with no matching name in the table get 0, same as before.
+enumError PeekGFACompression (ccp path,
+	uint *compression); // read just the
+						// GFCP compression id from an existing on-disk .gfa file, without
+						// decompressing its payload; returns an error (and leaves *compression
+						// untouched) if 'path' isn't readable or isn't a valid GFAC file.
+enumError ReadGFAHashHints (
+	ccp path, ParamField_t *out); // read the
+								  // per-entry opaque rec+0 values (see CreateGFA's 'hash_hint' doc)
+								  // from an existing on-disk .gfa file into 'out'
+								  // (already-initialized, keyed by entry name), without
+								  // decompressing the payload. Returns an error (and leaves 'out'
+								  // untouched) if 'path' isn't readable or isn't a valid GFAC file.
 
 enumError DecodeLZ10Raw (u8 *dest, uint dest_size, const u8 *src, uint src_size);
 enumError EncodeLZ10Raw (u8 **dest, uint *dest_size, const u8 *src, uint src_size);

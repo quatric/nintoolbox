@@ -29,7 +29,7 @@ enumError ExtractCollPakArchive (ccp arg, ccp basedir, uint depth)
 	const u32 declared_size = rd_be32 (raw);
 	const u32 count = rd_be32 (raw + 4); // includes this header record itself
 	if (declared_size != raw_size || !count || count > COLLPAK_MAX_ENTRIES
-		|| (u64) count * COLLPAK_REC_SIZE > raw_size)
+		|| (u64)count * COLLPAK_REC_SIZE > raw_size)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
@@ -48,7 +48,7 @@ enumError ExtractCollPakArchive (ccp arg, ccp basedir, uint depth)
 		const u32 size = rd_be32 (rec + 4);
 		if (i == 0)
 			expect_off = off; // first entry sets the (16-byte-aligned) base
-		if (off != expect_off || !size || (u64) off + size > raw_size)
+		if (off != expect_off || !size || (u64)off + size > raw_size)
 		{
 			FREE (raw);
 			return ERR_NOTHING_TO_DO;
@@ -66,8 +66,8 @@ enumError ExtractCollPakArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT COLL-PAK:%s (%u member(s)) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, n, dest);
+		fprintf (stdlog, "%s%sEXTRACT COLL-PAK:%s (%u member(s)) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, n, dest);
 
 	enumError err = ERR_OK;
 	if (!testmode)
@@ -87,6 +87,6 @@ enumError ExtractCollPakArchive (ccp arg, ccp basedir, uint depth)
 	}
 
 	FREE (raw);
-	(void) depth;
+	(void)depth;
 	return err;
 }

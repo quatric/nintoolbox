@@ -14,15 +14,15 @@
 
 typedef struct bea_file_t
 {
-	ccp  name; // relative member path, e.g. "Bonus/BonusCulture/Layout.lyt" (owned)
-	u8  *data; // decompressed content (owned)
+	ccp name; // relative member path, e.g. "Bonus/BonusCulture/Layout.lyt" (owned)
+	u8 *data; // decompressed content (owned)
 	uint size; // decompressed size
 
-	u16  unk1, unk2; // always present; unk2 varies per member (looks like a type tag)
-	u32  unknown3;
+	u16 unk1, unk2; // always present; unk2 varies per member (looks like a type tag)
+	u32 unknown3;
 
 	// Only meaningful when the owning archive's version_major2 >= 6
-	u64  file_id1, file_id2;
+	u64 file_id1, file_id2;
 
 	// Only meaningful when the owning archive's version_major2 >= 5
 	char file_type[9]; // up to 8 ASCII bytes + NUL
@@ -44,15 +44,15 @@ typedef struct bea_dic_entry_t
 
 typedef struct bea_archive_t
 {
-	u8  version_major, version_major2, version_minor, version_minor2;
+	u8 version_major, version_major2, version_minor, version_minor2;
 	u16 byte_order;
-	u8  alignment;
-	u8  target_address_size;
+	u8 alignment;
+	u8 target_address_size;
 
 	ccp name; // owned, may be NULL
 
 	// Only meaningful when version_major2 >= 5
-	ccp  compression_name; // owned, may be NULL
+	ccp compression_name; // owned, may be NULL
 	ccp *reference_list; // owned array of owned strings, may be NULL
 	uint n_references;
 

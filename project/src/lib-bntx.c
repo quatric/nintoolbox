@@ -352,7 +352,8 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 						{
 							if (u_type == BNTX_UD_INT32 && u_data_addr + (u64)u_cnt * 4 <= size)
 								uds[u].val.i32 = (const s32 *)(data + u_data_addr);
-							else if (u_type == BNTX_UD_SINGLE && u_data_addr + (u64)u_cnt * 4 <= size)
+							else if (u_type == BNTX_UD_SINGLE
+								&& u_data_addr + (u64)u_cnt * 4 <= size)
 								uds[u].val.f32 = (const float *)(data + u_data_addr);
 							else if (u_type == BNTX_UD_BYTE && u_data_addr + u_cnt <= size)
 								uds[u].val.bytes = data + u_data_addr;
@@ -427,8 +428,7 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 	if (rlt_addr && rlt_addr + 16 <= size && !memcmp (data + rlt_addr, "_RLT", 4))
 	{
 		const u32 sec_count = brd32 (data + rlt_addr + 8);
-		if (sec_count > 0 && sec_count <= 256
-			&& rlt_addr + 16 + (u64)sec_count * 24 <= size)
+		if (sec_count > 0 && sec_count <= 256 && rlt_addr + 16 + (u64)sec_count * 24 <= size)
 		{
 			bntx_reloc_section_t *sections = CALLOC (sec_count, sizeof (*sections));
 			if (sections)
@@ -732,69 +732,131 @@ ccp GetBNTXFormatName (uint format)
 	switch (fmt)
 	{
 		case 0x02:
-			return type == 2 ? "R8_SNORM" : type == 3 ? "R8_UINT" : type == 4 ? "R8_SINT" : "R8_UNORM";
-		case 0x03: return "R4G4B4A4_UNORM";
-		case 0x05: return "R5G5B5A1_UNORM";
-		case 0x06: return "A1B5G5R5_UNORM";
-		case 0x07: return "R5G6B5_UNORM";
-		case 0x08: return "B5G6R5_UNORM";
+			return type == 2 ? "R8_SNORM"
+				: type == 3	 ? "R8_UINT"
+				: type == 4	 ? "R8_SINT"
+							 : "R8_UNORM";
+		case 0x03:
+			return "R4G4B4A4_UNORM";
+		case 0x05:
+			return "R5G5B5A1_UNORM";
+		case 0x06:
+			return "A1B5G5R5_UNORM";
+		case 0x07:
+			return "R5G6B5_UNORM";
+		case 0x08:
+			return "B5G6R5_UNORM";
 		case 0x09:
-			return type == 2 ? "R8G8_SNORM" : type == 3 ? "R8G8_UINT" : type == 4 ? "R8G8_SINT" : "R8G8_UNORM";
+			return type == 2 ? "R8G8_SNORM"
+				: type == 3	 ? "R8G8_UINT"
+				: type == 4	 ? "R8G8_SINT"
+							 : "R8G8_UNORM";
 		case 0x0a:
-			return type == 5 ? "R16_FLOAT" : type == 7 ? "Z16_DEPTH" : type == 2 ? "R16_SNORM" : "R16_UNORM";
+			return type == 5 ? "R16_FLOAT"
+				: type == 7	 ? "Z16_DEPTH"
+				: type == 2	 ? "R16_SNORM"
+							 : "R16_UNORM";
 		case 0x0b:
 			return type == 6 ? "R8G8B8A8_SRGB" : type == 2 ? "R8G8B8A8_SNORM" : "R8G8B8A8_UNORM";
 		case 0x0c:
 			return type == 6 ? "B8G8R8A8_SRGB" : "B8G8R8A8_UNORM";
-		case 0x0d: return "R9G9B9E5F_FLOAT";
-		case 0x0e: return type == 3 ? "R10G10B10A2_UINT" : "R10G10B10A2_UNORM";
-		case 0x0f: return "R11G11B10F_FLOAT";
+		case 0x0d:
+			return "R9G9B9E5F_FLOAT";
+		case 0x0e:
+			return type == 3 ? "R10G10B10A2_UINT" : "R10G10B10A2_UNORM";
+		case 0x0f:
+			return "R11G11B10F_FLOAT";
 		case 0x12:
 			return type == 5 ? "R16G16_FLOAT" : type == 2 ? "R16G16_SNORM" : "R16G16_UNORM";
-		case 0x13: return "D24S8_DEPTH";
+		case 0x13:
+			return "D24S8_DEPTH";
 		case 0x14:
-			return type == 7 ? "D32F_DEPTH" : type == 5 ? "R32_FLOAT" : type == 3 ? "R32_UINT" : "R32_SINT";
+			return type == 7 ? "D32F_DEPTH"
+				: type == 5	 ? "R32_FLOAT"
+				: type == 3	 ? "R32_UINT"
+							 : "R32_SINT";
 		case 0x15:
-			return type == 5 ? "R16G16B16A16_FLOAT" : type == 2 ? "R16G16B16A16_SNORM" : "R16G16B16A16_UNORM";
-		case 0x16: return "D32FS8_DEPTH";
-		case 0x17: return type == 5 ? "R32G32_FLOAT" : "R32G32_UINT";
-		case 0x18: return type == 5 ? "R32G32B32_FLOAT" : "R32G32B32_UINT";
-		case 0x19: return type == 5 ? "R32G32B32A32_FLOAT" : "R32G32B32A32_UINT";
-		case 0x1a: return type == 6 ? "BC1_SRGB" : "BC1_UNORM";
-		case 0x1b: return type == 6 ? "BC2_SRGB" : "BC2_UNORM";
-		case 0x1c: return type == 6 ? "BC3_SRGB" : "BC3_UNORM";
-		case 0x1d: return type == 2 ? "BC4_SNORM" : "BC4_UNORM";
-		case 0x1e: return type == 2 ? "BC5_SNORM" : "BC5_UNORM";
-		case 0x1f: return type == 10 ? "BC6H_UF16" : "BC6H_SF16";
-		case 0x20: return type == 6 ? "BC7_SRGB" : "BC7_UNORM";
-		case 0x21: return "EAC_R11_UNORM";
-		case 0x22: return "EAC_R11_G11_UNORM";
-		case 0x23: return type == 6 ? "ETC1_SRGB" : "ETC1_UNORM";
-		case 0x24: return type == 6 ? "ETC2_SRGB" : "ETC2_UNORM";
-		case 0x25: return type == 6 ? "ETC2_MASK_SRGB" : "ETC2_MASK_UNORM";
-		case 0x26: return type == 6 ? "ETC2_ALPHA_SRGB" : "ETC2_ALPHA_UNORM";
-		case 0x27: return "PVRTC1_28PP_UNORM";
-		case 0x28: return "PVRTC1_48PP_UNORM";
-		case 0x29: return "PVRTC1_ALPHA_28PP_UNORM";
-		case 0x2a: return "PVRTC1_ALPHA_48PP_UNORM";
-		case 0x2b: return "PVRTC2_ALPHA_28PP_UNORM";
-		case 0x2c: return "PVRTC2_ALPHA_48PP_UNORM";
-		case 0x2d: return type == 6 ? "ASTC_4x4_SRGB" : "ASTC_4x4_UNORM";
-		case 0x2e: return type == 6 ? "ASTC_5x4_SRGB" : "ASTC_5x4_UNORM";
-		case 0x2f: return type == 6 ? "ASTC_5x5_SRGB" : "ASTC_5x5_UNORM";
-		case 0x30: return type == 6 ? "ASTC_6x5_SRGB" : "ASTC_6x5_UNORM";
-		case 0x31: return type == 6 ? "ASTC_6x6_SRGB" : "ASTC_6x6_UNORM";
-		case 0x32: return type == 6 ? "ASTC_8x5_SRGB" : "ASTC_8x5_UNORM";
-		case 0x33: return type == 6 ? "ASTC_8x6_SRGB" : "ASTC_8x6_UNORM";
-		case 0x34: return type == 6 ? "ASTC_8x8_SRGB" : "ASTC_8x8_UNORM";
-		case 0x35: return type == 6 ? "ASTC_10x5_SRGB" : "ASTC_10x5_UNORM";
-		case 0x36: return type == 6 ? "ASTC_10x6_SRGB" : "ASTC_10x6_UNORM";
-		case 0x37: return type == 6 ? "ASTC_10x8_SRGB" : "ASTC_10x8_UNORM";
-		case 0x38: return type == 6 ? "ASTC_10x10_SRGB" : "ASTC_10x10_UNORM";
-		case 0x39: return type == 6 ? "ASTC_12x10_SRGB" : "ASTC_12x10_UNORM";
-		case 0x3a: return type == 6 ? "ASTC_12x12_SRGB" : "ASTC_12x12_UNORM";
-		case 0x3b: return "B5G5R5A1_UNORM";
-		default: return "UNKNOWN";
+			return type == 5 ? "R16G16B16A16_FLOAT"
+				: type == 2	 ? "R16G16B16A16_SNORM"
+							 : "R16G16B16A16_UNORM";
+		case 0x16:
+			return "D32FS8_DEPTH";
+		case 0x17:
+			return type == 5 ? "R32G32_FLOAT" : "R32G32_UINT";
+		case 0x18:
+			return type == 5 ? "R32G32B32_FLOAT" : "R32G32B32_UINT";
+		case 0x19:
+			return type == 5 ? "R32G32B32A32_FLOAT" : "R32G32B32A32_UINT";
+		case 0x1a:
+			return type == 6 ? "BC1_SRGB" : "BC1_UNORM";
+		case 0x1b:
+			return type == 6 ? "BC2_SRGB" : "BC2_UNORM";
+		case 0x1c:
+			return type == 6 ? "BC3_SRGB" : "BC3_UNORM";
+		case 0x1d:
+			return type == 2 ? "BC4_SNORM" : "BC4_UNORM";
+		case 0x1e:
+			return type == 2 ? "BC5_SNORM" : "BC5_UNORM";
+		case 0x1f:
+			return type == 10 ? "BC6H_UF16" : "BC6H_SF16";
+		case 0x20:
+			return type == 6 ? "BC7_SRGB" : "BC7_UNORM";
+		case 0x21:
+			return "EAC_R11_UNORM";
+		case 0x22:
+			return "EAC_R11_G11_UNORM";
+		case 0x23:
+			return type == 6 ? "ETC1_SRGB" : "ETC1_UNORM";
+		case 0x24:
+			return type == 6 ? "ETC2_SRGB" : "ETC2_UNORM";
+		case 0x25:
+			return type == 6 ? "ETC2_MASK_SRGB" : "ETC2_MASK_UNORM";
+		case 0x26:
+			return type == 6 ? "ETC2_ALPHA_SRGB" : "ETC2_ALPHA_UNORM";
+		case 0x27:
+			return "PVRTC1_28PP_UNORM";
+		case 0x28:
+			return "PVRTC1_48PP_UNORM";
+		case 0x29:
+			return "PVRTC1_ALPHA_28PP_UNORM";
+		case 0x2a:
+			return "PVRTC1_ALPHA_48PP_UNORM";
+		case 0x2b:
+			return "PVRTC2_ALPHA_28PP_UNORM";
+		case 0x2c:
+			return "PVRTC2_ALPHA_48PP_UNORM";
+		case 0x2d:
+			return type == 6 ? "ASTC_4x4_SRGB" : "ASTC_4x4_UNORM";
+		case 0x2e:
+			return type == 6 ? "ASTC_5x4_SRGB" : "ASTC_5x4_UNORM";
+		case 0x2f:
+			return type == 6 ? "ASTC_5x5_SRGB" : "ASTC_5x5_UNORM";
+		case 0x30:
+			return type == 6 ? "ASTC_6x5_SRGB" : "ASTC_6x5_UNORM";
+		case 0x31:
+			return type == 6 ? "ASTC_6x6_SRGB" : "ASTC_6x6_UNORM";
+		case 0x32:
+			return type == 6 ? "ASTC_8x5_SRGB" : "ASTC_8x5_UNORM";
+		case 0x33:
+			return type == 6 ? "ASTC_8x6_SRGB" : "ASTC_8x6_UNORM";
+		case 0x34:
+			return type == 6 ? "ASTC_8x8_SRGB" : "ASTC_8x8_UNORM";
+		case 0x35:
+			return type == 6 ? "ASTC_10x5_SRGB" : "ASTC_10x5_UNORM";
+		case 0x36:
+			return type == 6 ? "ASTC_10x6_SRGB" : "ASTC_10x6_UNORM";
+		case 0x37:
+			return type == 6 ? "ASTC_10x8_SRGB" : "ASTC_10x8_UNORM";
+		case 0x38:
+			return type == 6 ? "ASTC_10x10_SRGB" : "ASTC_10x10_UNORM";
+		case 0x39:
+			return type == 6 ? "ASTC_12x10_SRGB" : "ASTC_12x10_UNORM";
+		case 0x3a:
+			return type == 6 ? "ASTC_12x12_SRGB" : "ASTC_12x12_UNORM";
+		case 0x3b:
+			return "B5G5R5A1_UNORM";
+		default:
+			return "UNKNOWN";
 	}
 }
 
@@ -802,10 +864,9 @@ void DumpStructureBNTX (FILE *out, const bntx_t *bntx, int indent)
 {
 	if (!out || !bntx)
 		return;
-	fprintf (out, "%*sBNTX Container: platform '%s', version %u.%u.%u, textures %u\n",
-		indent, "", bntx->platform[0] ? bntx->platform : "NX  ",
-		bntx->version_major, bntx->version_minor, bntx->version_micro,
-		bntx->n_textures);
+	fprintf (out, "%*sBNTX Container: platform '%s', version %u.%u.%u, textures %u\n", indent, "",
+		bntx->platform[0] ? bntx->platform : "NX  ", bntx->version_major, bntx->version_minor,
+		bntx->version_micro, bntx->n_textures);
 	for (uint i = 0; i < bntx->n_textures; i++)
 	{
 		const bntx_texture_t *t = bntx->textures + i;
@@ -816,7 +877,8 @@ void DumpStructureBNTX (FILE *out, const bntx_t *bntx, int indent)
 		if (t->array_count > 1)
 			fprintf (out, " (array count %u)", t->array_count);
 		fprintf (out, ", mips %u\n", t->n_mips);
-		fprintf (out, "%*sFormat: 0x%04x (%s)\n", indent + 4, "", t->format, GetBNTXFormatName (t->format));
+		fprintf (out, "%*sFormat: 0x%04x (%s)\n", indent + 4, "", t->format,
+			GetBNTXFormatName (t->format));
 		fprintf (out, "%*sTile mode: %u, Block height log2: %u, Swizzle: %u, Flags: %u, Dim: %u\n",
 			indent + 4, "", t->tile_mode, t->block_height_log2, t->swizzle, t->flags, t->dim);
 		static const char ch_names[6] = "01RGBA";
@@ -825,8 +887,8 @@ void DumpStructureBNTX (FILE *out, const bntx_t *bntx, int indent)
 			ch_names[((t->comp_sel >> 8) & 0xff) <= 5 ? ((t->comp_sel >> 8) & 0xff) : 3],
 			ch_names[((t->comp_sel >> 16) & 0xff) <= 5 ? ((t->comp_sel >> 16) & 0xff) : 4],
 			ch_names[((t->comp_sel >> 24) & 0xff) <= 5 ? ((t->comp_sel >> 24) & 0xff) : 5]);
-		fprintf (out, "%*sData size: 0x%x (%u bytes), Alignment: %u\n",
-			indent + 4, "", t->data_size, t->data_size, t->alignment);
+		fprintf (out, "%*sData size: 0x%x (%u bytes), Alignment: %u\n", indent + 4, "",
+			t->data_size, t->data_size, t->alignment);
 		if (t->n_user_data > 0)
 		{
 			fprintf (out, "%*sUserData (%u entries):\n", indent + 4, "", t->n_user_data);
@@ -855,14 +917,14 @@ void DumpStructureBNTX (FILE *out, const bntx_t *bntx, int indent)
 	if (bntx->reloc_table.n_sections > 0)
 	{
 		fprintf (out, "%*sRelocation Table (_RLT): offset 0x%x, sections %u, entries %u\n",
-			indent + 2, "", bntx->reloc_table.offset,
-			bntx->reloc_table.n_sections, bntx->reloc_table.n_entries);
+			indent + 2, "", bntx->reloc_table.offset, bntx->reloc_table.n_sections,
+			bntx->reloc_table.n_entries);
 		for (uint s = 0; s < bntx->reloc_table.n_sections; s++)
 		{
 			const bntx_reloc_section_t *sec = bntx->reloc_table.sections + s;
 			fprintf (out, "%*sSection [%u]: off 0x%x, size 0x%x, first entry %d, count %d\n",
-				indent + 4, "", s, sec->offset, sec->size,
-				sec->first_entry_index, sec->entry_count);
+				indent + 4, "", s, sec->offset, sec->size, sec->first_entry_index,
+				sec->entry_count);
 		}
 	}
 }
@@ -881,9 +943,12 @@ enumError DecodeBNTX_Mip_RGBA (
 
 	const uint w = (t->width >> mip_level) ? (t->width >> mip_level) : 1;
 	const uint h = (t->height >> mip_level) ? (t->height >> mip_level) : 1;
-	const u8 *src_data = (mip_level > 0 && t->mip_offsets) ? t->data + t->mip_offsets[mip_level] : t->data;
-	const uint src_size = (mip_level > 0 && t->mip_offsets && t->mip_offsets[mip_level] < t->data_size)
-		? (t->data_size - (uint)t->mip_offsets[mip_level]) : t->data_size;
+	const u8 *src_data
+		= (mip_level > 0 && t->mip_offsets) ? t->data + t->mip_offsets[mip_level] : t->data;
+	const uint src_size
+		= (mip_level > 0 && t->mip_offsets && t->mip_offsets[mip_level] < t->data_size)
+		? (t->data_size - (uint)t->mip_offsets[mip_level])
+		: t->data_size;
 	const uint bh_log2 = t->block_height_log2 > mip_level ? t->block_height_log2 - mip_level : 0;
 
 	const uint fmt = (t->format >> 8) & 0xFF;
@@ -1139,8 +1204,8 @@ enumError DecodeBNTX_Mip_RGBA (
 
 	u8 *linear = 0;
 	uint linear_size = 0;
-	enumError err = BntxDeswizzle (&linear, &linear_size, src_data, src_size, w,
-		h, blk_w, blk_h, bpp, t->tile_mode, bh_log2, true);
+	enumError err = BntxDeswizzle (&linear, &linear_size, src_data, src_size, w, h, blk_w, blk_h,
+		bpp, t->tile_mode, bh_log2, true);
 	if (err)
 		return err;
 
@@ -1325,8 +1390,10 @@ enumError DecodeBNTX_Mip_RGBA (
 						else if (type == 2)
 						{
 							s16 r = (s16)r16, g = (s16)g16;
-							if (r < -32767) r = -32767;
-							if (g < -32767) g = -32767;
+							if (r < -32767)
+								r = -32767;
+							if (g < -32767)
+								g = -32767;
 							d[0] = (u8)(((s64)r + 32767) * 255 / 65534);
 							d[1] = (u8)(((s64)g + 32767) * 255 / 65534);
 						}
@@ -1365,7 +1432,8 @@ enumError DecodeBNTX_Mip_RGBA (
 							else if (type == 2)
 							{
 								s16 s = (s16)v16;
-								if (s < -32767) s = -32767;
+								if (s < -32767)
+									s = -32767;
 								d[c] = (u8)(((s64)s + 32767) * 255 / 65534);
 							}
 							else
@@ -1586,7 +1654,8 @@ enumError EncodeBNTX_RGBA (
 	const uint str_payload_size = 4 + s0_size + s1_size + s2_size; // count (4) + entries
 	const uint str_block_size = round_up (16 + str_payload_size, 8); // aligned to 8
 
-	// Dictionary table (_DIC): count (4) + root node (16) + texture node (16) = 36 -> 40 (aligned to 8)
+	// Dictionary table (_DIC): count (4) + root node (16) + texture node (16) = 36 -> 40 (aligned
+	// to 8)
 	const uint dic_block_size = 8 + 16 * 2;
 
 	// Layout offsets
@@ -1774,23 +1843,16 @@ enumError EncodeBNTX_RGBA (
 
 	// Relocation Entries
 	u8 *ep = rlt + 16 + 2 * 24;
-	struct {
+	struct
+	{
 		s32 ofs;
 		u16 arr;
 		u8 pcnt;
 		u8 padc;
-	} entries[10] = {
-		{ 40, 2, 1, 1 },
-		{ 64, 1, 1, 0 },
-		{ (s32)ofs_tex_ptrs, 1, 1, 0 },
-		{ (s32)ofs_dic + 16, 2, 1, 1 },
-		{ (s32)ofs_ti + 0x50, 1, 3, 0 },
-		{ (s32)ofs_ti + 0x50 + 24, 1, 1, 0 },
-		{ (s32)ofs_ti + 0x50 + 32, 1, 2, 0 },
-		{ (s32)ofs_ti + 0x50 + 56, 1, 1, 0 },
-		{ 48, 1, 1, 0 },
-		{ (s32)ofs_mip_offsets, 1, 1, 0 }
-	};
+	} entries[10] = { { 40, 2, 1, 1 }, { 64, 1, 1, 0 }, { (s32)ofs_tex_ptrs, 1, 1, 0 },
+		{ (s32)ofs_dic + 16, 2, 1, 1 }, { (s32)ofs_ti + 0x50, 1, 3, 0 },
+		{ (s32)ofs_ti + 0x50 + 24, 1, 1, 0 }, { (s32)ofs_ti + 0x50 + 32, 1, 2, 0 },
+		{ (s32)ofs_ti + 0x50 + 56, 1, 1, 0 }, { 48, 1, 1, 0 }, { (s32)ofs_mip_offsets, 1, 1, 0 } };
 
 	for (uint e = 0; e < total_rlt_entries; e++)
 	{
@@ -1844,24 +1906,46 @@ enumError EncodeBNTX_RGBA (
 // storage layout. IS_DX10 selects the DXGI_FORMAT table (DXGI_FMT), otherwise
 // the legacy FourCC table (FOURCC). Returns false for payloads with no direct
 // BNTX representation.
-static bool dds_to_bntx_format (u32 fourcc, u32 dxgi_fmt, bool is_dx10,
-	uint *bntx_fmt, uint *bpp, uint *blk_w, uint *blk_h)
+static bool dds_to_bntx_format (
+	u32 fourcc, u32 dxgi_fmt, bool is_dx10, uint *bntx_fmt, uint *bpp, uint *blk_w, uint *blk_h)
 {
 	uint fmt = 0, b = 0, bw = 4, bh = 4;
 	if (!is_dx10)
 	{
 		switch (fourcc)
 		{
-			case BNTX_DDS_FOURCC_DXT1: fmt = 0x1a01; b = 8; break;
-			case BNTX_DDS_FOURCC_DXT3: fmt = 0x1b01; b = 16; break;
-			case BNTX_DDS_FOURCC_DXT5: fmt = 0x1c01; b = 16; break;
+			case BNTX_DDS_FOURCC_DXT1:
+				fmt = 0x1a01;
+				b = 8;
+				break;
+			case BNTX_DDS_FOURCC_DXT3:
+				fmt = 0x1b01;
+				b = 16;
+				break;
+			case BNTX_DDS_FOURCC_DXT5:
+				fmt = 0x1c01;
+				b = 16;
+				break;
 			case BNTX_DDS_FOURCC_ATI1:
-			case BNTX_DDS_FOURCC_BC4U: fmt = 0x1d01; b = 8; break;
-			case BNTX_DDS_FOURCC_BC4S: fmt = 0x1d02; b = 8; break;
+			case BNTX_DDS_FOURCC_BC4U:
+				fmt = 0x1d01;
+				b = 8;
+				break;
+			case BNTX_DDS_FOURCC_BC4S:
+				fmt = 0x1d02;
+				b = 8;
+				break;
 			case BNTX_DDS_FOURCC_ATI2:
-			case BNTX_DDS_FOURCC_BC5U: fmt = 0x1e01; b = 16; break;
-			case BNTX_DDS_FOURCC_BC5S: fmt = 0x1e02; b = 16; break;
-			default: return false;
+			case BNTX_DDS_FOURCC_BC5U:
+				fmt = 0x1e01;
+				b = 16;
+				break;
+			case BNTX_DDS_FOURCC_BC5S:
+				fmt = 0x1e02;
+				b = 16;
+				break;
+			default:
+				return false;
 		}
 	}
 	else
@@ -1869,31 +1953,82 @@ static bool dds_to_bntx_format (u32 fourcc, u32 dxgi_fmt, bool is_dx10,
 		switch (dxgi_fmt)
 		{
 			case 70: // BC1_TYPELESS
-			case 71: fmt = 0x1a01; b = 8; break; // BC1_UNORM
-			case 72: fmt = 0x1a06; b = 8; break; // BC1_SRGB
+			case 71:
+				fmt = 0x1a01;
+				b = 8;
+				break; // BC1_UNORM
+			case 72:
+				fmt = 0x1a06;
+				b = 8;
+				break; // BC1_SRGB
 			case 73: // BC2_TYPELESS
-			case 74: fmt = 0x1b01; b = 16; break; // BC2_UNORM
-			case 75: fmt = 0x1b06; b = 16; break; // BC2_SRGB
+			case 74:
+				fmt = 0x1b01;
+				b = 16;
+				break; // BC2_UNORM
+			case 75:
+				fmt = 0x1b06;
+				b = 16;
+				break; // BC2_SRGB
 			case 76: // BC3_TYPELESS
-			case 77: fmt = 0x1c01; b = 16; break; // BC3_UNORM
-			case 78: fmt = 0x1c06; b = 16; break; // BC3_SRGB
+			case 77:
+				fmt = 0x1c01;
+				b = 16;
+				break; // BC3_UNORM
+			case 78:
+				fmt = 0x1c06;
+				b = 16;
+				break; // BC3_SRGB
 			case 79: // BC4_TYPELESS
-			case 80: fmt = 0x1d01; b = 8; break; // BC4_UNORM
-			case 81: fmt = 0x1d02; b = 8; break; // BC4_SNORM
+			case 80:
+				fmt = 0x1d01;
+				b = 8;
+				break; // BC4_UNORM
+			case 81:
+				fmt = 0x1d02;
+				b = 8;
+				break; // BC4_SNORM
 			case 82: // BC5_TYPELESS
-			case 83: fmt = 0x1e01; b = 16; break; // BC5_UNORM
-			case 84: fmt = 0x1e02; b = 16; break; // BC5_SNORM
+			case 83:
+				fmt = 0x1e01;
+				b = 16;
+				break; // BC5_UNORM
+			case 84:
+				fmt = 0x1e02;
+				b = 16;
+				break; // BC5_SNORM
 			case 94: // BC6H_TYPELESS
-			case 95: fmt = 0x1f0a; b = 16; break; // BC6H_UF16
-			case 96: fmt = 0x1f0b; b = 16; break; // BC6H_SF16
+			case 95:
+				fmt = 0x1f0a;
+				b = 16;
+				break; // BC6H_UF16
+			case 96:
+				fmt = 0x1f0b;
+				b = 16;
+				break; // BC6H_SF16
 			case 97: // BC7_TYPELESS
-			case 98: fmt = 0x2001; b = 16; break; // BC7_UNORM
-			case 99: fmt = 0x2006; b = 16; break; // BC7_SRGB
+			case 98:
+				fmt = 0x2001;
+				b = 16;
+				break; // BC7_UNORM
+			case 99:
+				fmt = 0x2006;
+				b = 16;
+				break; // BC7_SRGB
 			case 27: // RGBA8_TYPELESS
 			case 28: // RGBA8_UNORM
-			case 30: fmt = 0x0b01; b = 4; bw = bh = 1; break; // RGBA8_UINT
-			case 29: fmt = 0x0b06; b = 4; bw = bh = 1; break; // RGBA8_SRGB
-			default: return false;
+			case 30:
+				fmt = 0x0b01;
+				b = 4;
+				bw = bh = 1;
+				break; // RGBA8_UINT
+			case 29:
+				fmt = 0x0b06;
+				b = 4;
+				bw = bh = 1;
+				break; // RGBA8_SRGB
+			default:
+				return false;
 		}
 	}
 	if (bntx_fmt)
@@ -1907,16 +2042,15 @@ static bool dds_to_bntx_format (u32 fourcc, u32 dxgi_fmt, bool is_dx10,
 	return true;
 }
 
-enumError EncodeBNTX_FromDDS (
-	u8 **dest, uint *dest_size, const u8 *dds, uint dds_size, ccp name)
+enumError EncodeBNTX_FromDDS (u8 **dest, uint *dest_size, const u8 *dds, uint dds_size, ccp name)
 {
 	if (!dest || !dds || dds_size < 128)
 		return EINVAL;
 	if (memcmp (dds, "DDS ", 4))
 		return ERROR0 (ERR_INVALID_DATA, "Not a DDS image (missing 'DDS ' magic)\n");
 	if (brd32 (dds + 4) != 124)
-		return ERROR0 (ERR_INVALID_DATA, "Invalid DDS header size %u (expected 124)\n",
-			brd32 (dds + 4));
+		return ERROR0 (
+			ERR_INVALID_DATA, "Invalid DDS header size %u (expected 124)\n", brd32 (dds + 4));
 
 	const uint height = brd32 (dds + 12);
 	const uint width = brd32 (dds + 16);
@@ -2232,23 +2366,16 @@ enumError EncodeBNTX_FromDDS (
 	bwr32 (rlt + 60, n_sec2_entries);
 
 	u8 *ep = rlt + 16 + 2 * 24;
-	struct {
+	struct
+	{
 		s32 ofs;
 		u16 arr;
 		u8 pcnt;
 		u8 padc;
-	} entries[10] = {
-		{ 40, 2, 1, 1 },
-		{ 64, 1, 1, 0 },
-		{ (s32)ofs_tex_ptrs, 1, 1, 0 },
-		{ (s32)ofs_dic + 16, 2, 1, 1 },
-		{ (s32)ofs_ti + 0x50, 1, 3, 0 },
-		{ (s32)ofs_ti + 0x50 + 24, 1, 1, 0 },
-		{ (s32)ofs_ti + 0x50 + 32, 1, 2, 0 },
-		{ (s32)ofs_ti + 0x50 + 56, 1, 1, 0 },
-		{ 48, 1, 1, 0 },
-		{ (s32)ofs_mip_offsets, 1, 1, 0 }
-	};
+	} entries[10] = { { 40, 2, 1, 1 }, { 64, 1, 1, 0 }, { (s32)ofs_tex_ptrs, 1, 1, 0 },
+		{ (s32)ofs_dic + 16, 2, 1, 1 }, { (s32)ofs_ti + 0x50, 1, 3, 0 },
+		{ (s32)ofs_ti + 0x50 + 24, 1, 1, 0 }, { (s32)ofs_ti + 0x50 + 32, 1, 2, 0 },
+		{ (s32)ofs_ti + 0x50 + 56, 1, 1, 0 }, { 48, 1, 1, 0 }, { (s32)ofs_mip_offsets, 1, 1, 0 } };
 
 	for (uint e = 0; e < total_rlt_entries; e++)
 	{
@@ -2375,8 +2502,8 @@ static bntx_dic_node_t *bntx_dic_new_node (
 	return n;
 }
 
-static uint bntx_dic_insert_entry (bntx_dic_tree_t *tree, ccp data, int data_len,
-	bntx_dic_node_t *node)
+static uint bntx_dic_insert_entry (
+	bntx_dic_tree_t *tree, ccp data, int data_len, bntx_dic_node_t *node)
 {
 	for (uint i = 0; i < tree->n_entries; i++)
 	{
@@ -2449,9 +2576,8 @@ static bool bntx_dic_insert (bntx_dic_tree_t *tree, ccp key, int key_len)
 		if (!nn)
 			return false;
 		const int b = bntx_dic_bit (key, key_len, bit_idx) ^ 1;
-		nn->child[b] = bntx_dic_bit (current->data, current->data_len, bit_idx) == b
-			? current
-			: tree->root;
+		nn->child[b]
+			= bntx_dic_bit (current->data, current->data_len, bit_idx) == b ? current : tree->root;
 		current->child[bntx_dic_bit (key, key_len, current->bit_idx)] = nn;
 		bntx_dic_insert_entry (tree, key, key_len, nn);
 	}
@@ -2520,10 +2646,10 @@ static bntx_dic_entry_t *bntx_dic_build (ccp const *names, uint n)
 	{
 		bntx_dic_node_t *node = tree.entries[i];
 		out[i].reference = (u32)node->bit_idx;
-		out[i].idx_left = (u16)bntx_dic_index_of (&tree, node->child[0]->data,
-			node->child[0]->data_len);
-		out[i].idx_right = (u16)bntx_dic_index_of (&tree, node->child[1]->data,
-			node->child[1]->data_len);
+		out[i].idx_left
+			= (u16)bntx_dic_index_of (&tree, node->child[0]->data, node->child[0]->data_len);
+		out[i].idx_right
+			= (u16)bntx_dic_index_of (&tree, node->child[1]->data, node->child[1]->data_len);
 		out[i].key = node->data;
 		out[i].key_len = node->data_len;
 	}
@@ -2564,8 +2690,8 @@ static enumError bntx_combine_parse_dds (
 	if (memcmp (dds, "DDS ", 4))
 		return ERROR0 (ERR_INVALID_DATA, "Not a DDS image (missing 'DDS ' magic)\n");
 	if (brd32 (dds + 4) != 124)
-		return ERROR0 (ERR_INVALID_DATA, "Invalid DDS header size %u (expected 124)\n",
-			brd32 (dds + 4));
+		return ERROR0 (
+			ERR_INVALID_DATA, "Invalid DDS header size %u (expected 124)\n", brd32 (dds + 4));
 
 	const uint width = brd32 (dds + 16);
 	const uint height = brd32 (dds + 12);
@@ -2723,8 +2849,7 @@ enumError EncodeBNTX_FromDDSList (u8 **dest, uint *dest_size, const u8 **dds_dat
 	for (uint i = 0; i < n_tex; i++)
 	{
 		char uname[128];
-		snprintf (uname, sizeof (uname), "%s",
-			names[i] && *names[i] ? names[i] : "texture");
+		snprintf (uname, sizeof (uname), "%s", names[i] && *names[i] ? names[i] : "texture");
 		// Deduplicate against earlier textures.
 		for (uint k = 0; k < i; k++)
 		{
@@ -2768,8 +2893,7 @@ enumError EncodeBNTX_FromDDSList (u8 **dest, uint *dest_size, const u8 **dds_dat
 				break;
 			}
 		}
-		const enumError err = bntx_combine_parse_dds (
-			dds_datas[i], dds_sizes[i], uname, &texs[i]);
+		const enumError err = bntx_combine_parse_dds (dds_datas[i], dds_sizes[i], uname, &texs[i]);
 		if (err)
 		{
 			bntx_combine_free (texs, i);
@@ -3071,8 +3195,8 @@ enumError EncodeBNTX_FromDDSList (u8 **dest, uint *dest_size, const u8 **dds_dat
 	bwr32 (buf + ofs_brtd + 4, brtd_block_size);
 	bwr64 (buf + ofs_brtd + 8, brtd_block_size);
 	for (uint i = 0; i < n_tex; i++)
-		memcpy (buf + ofs_brtd_data + tex_base_rel[i], texs[i].swizzled,
-			(size_t)texs[i].total_surf);
+		memcpy (
+			buf + ofs_brtd_data + tex_base_rel[i], texs[i].swizzled, (size_t)texs[i].total_surf);
 
 	// Relocation table (two sections, one entry per pointer).
 	u8 *rlt = buf + ofs_rlt;
@@ -3208,8 +3332,8 @@ typedef enum bntx_native_dds_kind_t
 // for formats the reference extractor cannot export either (anything
 // outside its formats table). IS_ASTC selects the raw .astc path;
 // otherwise DDSK selects the DDS header variant.
-static bool bntx_native_layout (uint format, uint *bpp, uint *blk_w, uint *blk_h,
-	uint *ddsk, bool *is_astc)
+static bool bntx_native_layout (
+	uint format, uint *bpp, uint *blk_w, uint *blk_h, uint *ddsk, bool *is_astc)
 {
 	const uint fmt = (format >> 8) & 0xff, type = format & 0xff;
 	uint b = 0, bw = 1, bh = 1, kind = 0;
@@ -3239,9 +3363,21 @@ static bool bntx_native_layout (uint format, uint *bpp, uint *blk_w, uint *blk_h
 			b = 2;
 			kind = BNTX_DDSK_R8G8;
 			break;
-		case 0x1a: b = 8; bw = bh = 4; kind = BNTX_DDSK_BC1; break;
-		case 0x1b: b = 16; bw = bh = 4; kind = BNTX_DDSK_BC2; break;
-		case 0x1c: b = 16; bw = bh = 4; kind = BNTX_DDSK_BC3; break;
+		case 0x1a:
+			b = 8;
+			bw = bh = 4;
+			kind = BNTX_DDSK_BC1;
+			break;
+		case 0x1b:
+			b = 16;
+			bw = bh = 4;
+			kind = BNTX_DDSK_BC2;
+			break;
+		case 0x1c:
+			b = 16;
+			bw = bh = 4;
+			kind = BNTX_DDSK_BC3;
+			break;
 		case 0x1d:
 			b = 8;
 			bw = bh = 4;
@@ -3266,21 +3402,95 @@ static bool bntx_native_layout (uint format, uint *bpp, uint *blk_w, uint *blk_h
 			else
 				return false;
 			break;
-		case 0x20: b = 16; bw = bh = 4; kind = BNTX_DDSK_BC7; break;
-		case 0x2d: b = 16; bw = 4; bh = 4; astc = true; break;
-		case 0x2e: b = 16; bw = 5; bh = 4; astc = true; break;
-		case 0x2f: b = 16; bw = 5; bh = 5; astc = true; break;
-		case 0x30: b = 16; bw = 6; bh = 5; astc = true; break;
-		case 0x31: b = 16; bw = 6; bh = 6; astc = true; break;
-		case 0x32: b = 16; bw = 8; bh = 5; astc = true; break;
-		case 0x33: b = 16; bw = 8; bh = 6; astc = true; break;
-		case 0x34: b = 16; bw = 8; bh = 8; astc = true; break;
-		case 0x35: b = 16; bw = 10; bh = 5; astc = true; break;
-		case 0x36: b = 16; bw = 10; bh = 6; astc = true; break;
-		case 0x37: b = 16; bw = 10; bh = 8; astc = true; break;
-		case 0x38: b = 16; bw = 10; bh = 10; astc = true; break;
-		case 0x39: b = 16; bw = 12; bh = 10; astc = true; break;
-		case 0x3a: b = 16; bw = 12; bh = 12; astc = true; break;
+		case 0x20:
+			b = 16;
+			bw = bh = 4;
+			kind = BNTX_DDSK_BC7;
+			break;
+		case 0x2d:
+			b = 16;
+			bw = 4;
+			bh = 4;
+			astc = true;
+			break;
+		case 0x2e:
+			b = 16;
+			bw = 5;
+			bh = 4;
+			astc = true;
+			break;
+		case 0x2f:
+			b = 16;
+			bw = 5;
+			bh = 5;
+			astc = true;
+			break;
+		case 0x30:
+			b = 16;
+			bw = 6;
+			bh = 5;
+			astc = true;
+			break;
+		case 0x31:
+			b = 16;
+			bw = 6;
+			bh = 6;
+			astc = true;
+			break;
+		case 0x32:
+			b = 16;
+			bw = 8;
+			bh = 5;
+			astc = true;
+			break;
+		case 0x33:
+			b = 16;
+			bw = 8;
+			bh = 6;
+			astc = true;
+			break;
+		case 0x34:
+			b = 16;
+			bw = 8;
+			bh = 8;
+			astc = true;
+			break;
+		case 0x35:
+			b = 16;
+			bw = 10;
+			bh = 5;
+			astc = true;
+			break;
+		case 0x36:
+			b = 16;
+			bw = 10;
+			bh = 6;
+			astc = true;
+			break;
+		case 0x37:
+			b = 16;
+			bw = 10;
+			bh = 8;
+			astc = true;
+			break;
+		case 0x38:
+			b = 16;
+			bw = 10;
+			bh = 10;
+			astc = true;
+			break;
+		case 0x39:
+			b = 16;
+			bw = 12;
+			bh = 10;
+			astc = true;
+			break;
+		case 0x3a:
+			b = 16;
+			bw = 12;
+			bh = 12;
+			astc = true;
+			break;
 		default:
 			return false;
 	}
@@ -3300,14 +3510,14 @@ static bool bntx_native_layout (uint format, uint *bpp, uint *blk_w, uint *blk_h
 
 // Deswizzles mip 0 of texture T and returns the first SIZE bytes of linear
 // surface data (the reference extractor's `result[:size]` truncation).
-static enumError bntx_native_linear (u8 **dest, const bntx_texture_t *t,
-	uint bpp, uint blk_w, uint blk_h, uint size)
+static enumError bntx_native_linear (
+	u8 **dest, const bntx_texture_t *t, uint bpp, uint blk_w, uint blk_h, uint size)
 {
 	u8 *linear = 0;
 	uint linear_size = 0;
 	const uint bh_log2 = t->block_height_log2 > 5 ? 5 : t->block_height_log2;
-	const enumError err = BntxDeswizzle (&linear, &linear_size, t->data, t->data_size,
-		t->width, t->height, blk_w, blk_h, bpp, t->tile_mode, bh_log2, true);
+	const enumError err = BntxDeswizzle (&linear, &linear_size, t->data, t->data_size, t->width,
+		t->height, blk_w, blk_h, bpp, t->tile_mode, bh_log2, true);
 	if (err)
 		return err;
 	if (linear_size < size)
@@ -3332,8 +3542,8 @@ static enumError bntx_native_linear (u8 **dest, const bntx_texture_t *t,
 // BC6H/BC7) into HDR, matching dds.py generateHeader() with num_mipmaps=1.
 // SEL holds the four BNTX channel selectors, low byte (red) first, with
 // the reference tool's 0-means-identity fix already applied.
-static void bntx_dds_header (u8 *hdr, uint *hdr_len, uint w, uint h,
-	uint ddsk, const uint sel[4], uint payload_size)
+static void bntx_dds_header (
+	u8 *hdr, uint *hdr_len, uint w, uint h, uint ddsk, const uint sel[4], uint payload_size)
 {
 	static const u8 dxgi_ext[7][4] = {
 		{ 0x50, 0x00, 0x00, 0x00 }, // BC4U -> DXGI 80
@@ -3366,10 +3576,14 @@ static void bntx_dds_header (u8 *hdr, uint *hdr_len, uint w, uint h,
 			{ 0, 0, 0xff, 0x0000, 0x0000, 0x00000000 }, // R8 (luminance)
 			{ 0, 0, 0xff, 0xff00, 0x0000, 0x00000000 }, // R8G8 (luminance+alpha)
 		};
-		const uint row = ddsk == BNTX_DDSK_RGB565 ? 1 : ddsk == BNTX_DDSK_R8 ? 2
-			: ddsk == BNTX_DDSK_R8G8 ? 3 : 0;
-		const uint fmtbpp = ddsk == BNTX_DDSK_RGBA8 ? 4 : ddsk == BNTX_DDSK_RGB565 ? 2
-			: ddsk == BNTX_DDSK_R8 ? 1 : 2;
+		const uint row = ddsk == BNTX_DDSK_RGB565 ? 1
+			: ddsk == BNTX_DDSK_R8				  ? 2
+			: ddsk == BNTX_DDSK_R8G8			  ? 3
+												  : 0;
+		const uint fmtbpp = ddsk == BNTX_DDSK_RGBA8 ? 4
+			: ddsk == BNTX_DDSK_RGB565				? 2
+			: ddsk == BNTX_DDSK_R8					? 1
+													: 2;
 		const bool luminance = row == 2 || row == 3;
 		const bool rgb = row <= 1;
 		bool has_alpha = true;
@@ -3416,13 +3630,26 @@ static void bntx_dds_header (u8 *hdr, uint *hdr_len, uint w, uint h,
 			case BNTX_DDSK_BC3:
 				memcpy (hdr + 84, "DXT5", 4);
 				break;
-			case BNTX_DDSK_BC4U: dxgi = 0; break;
-			case BNTX_DDSK_BC4S: dxgi = 1; break;
-			case BNTX_DDSK_BC5U: dxgi = 2; break;
-			case BNTX_DDSK_BC5S: dxgi = 3; break;
-			case BNTX_DDSK_BC6UF: dxgi = 4; break;
-			case BNTX_DDSK_BC6SF: dxgi = 5; break;
-			default: break; // BC7
+			case BNTX_DDSK_BC4U:
+				dxgi = 0;
+				break;
+			case BNTX_DDSK_BC4S:
+				dxgi = 1;
+				break;
+			case BNTX_DDSK_BC5U:
+				dxgi = 2;
+				break;
+			case BNTX_DDSK_BC5S:
+				dxgi = 3;
+				break;
+			case BNTX_DDSK_BC6UF:
+				dxgi = 4;
+				break;
+			case BNTX_DDSK_BC6SF:
+				dxgi = 5;
+				break;
+			default:
+				break; // BC7
 		}
 		if (ddsk == BNTX_DDSK_BC1 || ddsk == BNTX_DDSK_BC2 || ddsk == BNTX_DDSK_BC3)
 		{
@@ -3462,8 +3689,7 @@ bool BntxCanNativeExport (const bntx_t *bntx, uint index, bool want_dds)
 	return want_dds ? !is_astc : is_astc;
 }
 
-enumError EncodeBNTXNativeDDS (
-	u8 **dest, uint *dest_size, const bntx_t *bntx, uint index)
+enumError EncodeBNTXNativeDDS (u8 **dest, uint *dest_size, const bntx_t *bntx, uint index)
 {
 	if (!dest || !bntx || index >= bntx->n_textures)
 		return EINVAL;
@@ -3472,15 +3698,14 @@ enumError EncodeBNTXNativeDDS (
 	// Like the reference tool's "Unsupported number of faces" refusal.
 	if (t->array_count > 1 || t->depth > 1)
 		return ERROR0 (ERR_INVALID_IFORM,
-			"Can't export '%s' as DDS: multi-face/array textures are not supported\n",
-			t->name);
+			"Can't export '%s' as DDS: multi-face/array textures are not supported\n", t->name);
 
 	uint bpp = 0, blk_w = 1, blk_h = 1, ddsk = 0;
 	bool is_astc = false;
 	if (!bntx_native_layout (t->format, &bpp, &blk_w, &blk_h, &ddsk, &is_astc) || is_astc)
 		return ERROR0 (ERR_INVALID_IFORM,
-			"Can't export '%s' as DDS: unsupported BNTX format 0x%04x (%s)\n",
-			t->name, t->format, GetBNTXFormatName (t->format));
+			"Can't export '%s' as DDS: unsupported BNTX format 0x%04x (%s)\n", t->name, t->format,
+			GetBNTXFormatName (t->format));
 
 	const uint size = div_round_up (t->width, blk_w) * div_round_up (t->height, blk_h) * bpp;
 	u8 *linear = 0;
@@ -3518,8 +3743,7 @@ enumError EncodeBNTXNativeDDS (
 	return ERR_OK;
 }
 
-enumError EncodeBNTXNativeASTC (
-	u8 **dest, uint *dest_size, const bntx_t *bntx, uint index)
+enumError EncodeBNTXNativeASTC (u8 **dest, uint *dest_size, const bntx_t *bntx, uint index)
 {
 	if (!dest || !bntx || index >= bntx->n_textures)
 		return EINVAL;
@@ -3527,15 +3751,14 @@ enumError EncodeBNTXNativeASTC (
 
 	if (t->array_count > 1 || t->depth > 1)
 		return ERROR0 (ERR_INVALID_IFORM,
-			"Can't export '%s' as ASTC: multi-face/array textures are not supported\n",
-			t->name);
+			"Can't export '%s' as ASTC: multi-face/array textures are not supported\n", t->name);
 
 	uint bpp = 0, blk_w = 1, blk_h = 1, ddsk = 0;
 	bool is_astc = false;
 	if (!bntx_native_layout (t->format, &bpp, &blk_w, &blk_h, &ddsk, &is_astc) || !is_astc)
 		return ERROR0 (ERR_INVALID_IFORM,
-			"Can't export '%s' as ASTC: unsupported BNTX format 0x%04x (%s)\n",
-			t->name, t->format, GetBNTXFormatName (t->format));
+			"Can't export '%s' as ASTC: unsupported BNTX format 0x%04x (%s)\n", t->name, t->format,
+			GetBNTXFormatName (t->format));
 
 	const uint size = div_round_up (t->width, blk_w) * div_round_up (t->height, blk_h) * bpp;
 	u8 *linear = 0;

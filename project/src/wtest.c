@@ -631,7 +631,10 @@ static enumError test_cmpr (int argc, char **argv)
 
 	//---- collect data
 
-	enum { n_info = 3 };
+	enum
+	{
+		n_info = 3
+	};
 	cmpr_info_t info_tab[n_info];
 
 	const uint N_LOOP = 100000;

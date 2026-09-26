@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // ----------------------------------------------------------------------------
 // Nd Cube Wii U flat container (.bin / "PAC\0") -- Mario Party 10 /
 // Animal Crossing: amiibo Festival
@@ -51,7 +50,10 @@
 // payload is ZSIZE zlib-compressed bytes (standard 0x78 0xda header) at
 // FILESTART, inflating to exactly SIZE bytes.
 
-enum { PAC_ENTRY_SIZE = 0x30 };
+enum
+{
+	PAC_ENTRY_SIZE = 0x30
+};
 
 enumError ExtractPACArchive (ccp arg, ccp basedir, uint depth)
 {
@@ -70,9 +72,9 @@ enumError ExtractPACArchive (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 	}
 
-	const u32 file_total       = rd_be32 (raw + 0x20);
-	const u32 fileheaderstart  = rd_be32 (raw + 0x38);
-	const u32 stringstart      = rd_be32 (raw + 0x3c);
+	const u32 file_total = rd_be32 (raw + 0x20);
+	const u32 fileheaderstart = rd_be32 (raw + 0x38);
+	const u32 stringstart = rd_be32 (raw + 0x3c);
 
 	if (!file_total || file_total > 200000
 		|| (u64)fileheaderstart + (u64)file_total * PAC_ENTRY_SIZE > raw_size
@@ -87,17 +89,17 @@ enumError ExtractPACArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT PAC:%s (%u files) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, file_total, dest);
+		fprintf (stdlog, "%s%sEXTRACT PAC:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, file_total, dest);
 
 	uint n_ok = 0, n_fail = 0;
 	for (uint i = 0; i < file_total; i++)
 	{
-		const u64 entry_pos    = (u64)fileheaderstart + (u64)i * PAC_ENTRY_SIZE;
-		const u32 name_offset  = rd_be32 (raw + entry_pos);
-		const u32 file_start   = rd_be32 (raw + entry_pos + 0x10);
-		const u32 size         = rd_be32 (raw + entry_pos + 0x14);
-		const u32 zsize        = rd_be32 (raw + entry_pos + 0x18);
+		const u64 entry_pos = (u64)fileheaderstart + (u64)i * PAC_ENTRY_SIZE;
+		const u32 name_offset = rd_be32 (raw + entry_pos);
+		const u32 file_start = rd_be32 (raw + entry_pos + 0x10);
+		const u32 size = rd_be32 (raw + entry_pos + 0x14);
+		const u32 zsize = rd_be32 (raw + entry_pos + 0x18);
 
 		char name[PATH_MAX];
 		if (name_offset < raw_size)
@@ -131,9 +133,8 @@ enumError ExtractPACArchive (ccp arg, ccp basedir, uint depth)
 			// Trust the actual inflate output over a mismatched header
 			// field rather than truncating/padding it.
 			if (verbose > 0)
-				fprintf (stdlog,
-					"PAC: %s decompressed to %u bytes, header says %u\n",
-					name, decomp_size, size);
+				fprintf (stdlog, "PAC: %s decompressed to %u bytes, header says %u\n", name,
+					decomp_size, size);
 		}
 
 		char out_path[PATH_MAX];

@@ -869,132 +869,131 @@ ccp GetMagicExtFF (file_format_t ff1, file_format_t ff2)
 ///////////////////////////////////////////////////////////////////////////////
 //  [[GetByMagicFF]]
 
-__attribute__((weak)) bool IsNTTF (const u8 *data, uint size)
+__attribute__ ((weak)) bool IsNTTF (const u8 *data, uint size)
 {
 	(void)data;
 	(void)size;
 	return false;
 }
 
-__attribute__((weak)) bool IsMDR (const u8 *data, uint size)
+__attribute__ ((weak)) bool IsMDR (const u8 *data, uint size)
 {
 	(void)data;
 	(void)size;
 	return false;
 }
 
-__attribute__((weak)) bool IsMPBIN (const u8 *data, uint size)
+__attribute__ ((weak)) bool IsMPBIN (const u8 *data, uint size)
 {
 	(void)data;
 	(void)size;
 	return false;
 }
 
-__attribute__((weak)) bool IsMPBINInflate (const u8 *data, uint size)
+__attribute__ ((weak)) bool IsMPBINInflate (const u8 *data, uint size)
 {
 	(void)data;
 	(void)size;
 	return false;
 }
 
-__attribute__((weak)) bool IsATB (const u8 *data, uint size)
+__attribute__ ((weak)) bool IsATB (const u8 *data, uint size)
 {
 	(void)data;
 	(void)size;
 	return false;
 }
 
-__attribute__((weak)) bool IsPTD (const u8 *data, uint size)
+__attribute__ ((weak)) bool IsPTD (const u8 *data, uint size)
 {
 	(void)data;
 	(void)size;
 	return false;
 }
 
-__attribute__((weak)) bool IsLZBIN (const u8 *data, uint size)
+__attribute__ ((weak)) bool IsLZBIN (const u8 *data, uint size)
 {
 	(void)data;
 	(void)size;
 	return false;
 }
 
-__attribute__((weak)) bool IsRZPK (const u8 *data, size_t size)
+__attribute__ ((weak)) bool IsRZPK (const u8 *data, size_t size)
 {
 	(void)data;
 	(void)size;
 	return false;
 }
 
-__attribute__((weak)) bool IsSMPBoard (const u8 *data, size_t size)
+__attribute__ ((weak)) bool IsSMPBoard (const u8 *data, size_t size)
 {
 	(void)data;
 	(void)size;
 	return false;
 }
 
-__attribute__((weak)) bool IsMP10Board (const u8 *data, size_t size)
+__attribute__ ((weak)) bool IsMP10Board (const u8 *data, size_t size)
 {
 	(void)data;
 	(void)size;
 	return false;
 }
 
-__attribute__((weak)) bool IsTTModel (const u8 *data, size_t size)
+__attribute__ ((weak)) bool IsTTModel (const u8 *data, size_t size)
 {
 	(void)data;
 	(void)size;
 	return false;
 }
 
-__attribute__((weak)) bool IsCSDCT (const u8 *data, size_t size)
+__attribute__ ((weak)) bool IsCSDCT (const u8 *data, size_t size)
 {
 	(void)data;
 	(void)size;
 	return false;
 }
 
-__attribute__((weak)) bool IsDSP (const u8 *data, size_t size)
+__attribute__ ((weak)) bool IsDSP (const u8 *data, size_t size)
 {
 	(void)data;
 	(void)size;
 	return false;
 }
 
-__attribute__((weak)) bool IsZMB (const u8 *data, uint size)
+__attribute__ ((weak)) bool IsZMB (const u8 *data, uint size)
 {
 	(void)data;
 	(void)size;
 	return false;
 }
 
-__attribute__((weak)) bool IsPK2 (const u8 *data, size_t size)
+__attribute__ ((weak)) bool IsPK2 (const u8 *data, size_t size)
 {
 	(void)data;
 	(void)size;
 	return false;
 }
 
-__attribute__((weak)) bool IsMPT (const u8 *data, size_t size)
+__attribute__ ((weak)) bool IsMPT (const u8 *data, size_t size)
 {
 	(void)data;
 	(void)size;
 	return false;
 }
 
-__attribute__((weak)) bool IsAFS (const u8 *data, size_t size)
+__attribute__ ((weak)) bool IsAFS (const u8 *data, size_t size)
 {
 	(void)data;
 	(void)size;
 	return false;
 }
 
-__attribute__((weak)) bool IsThorPkg (const u8 *data, size_t size)
+__attribute__ ((weak)) bool IsThorPkg (const u8 *data, size_t size)
 {
 	(void)data;
 	(void)size;
 	return false;
 }
-
 
 file_format_t GetByMagicFF (const void *data, // pointer to data
 	uint data_size, // size of data
@@ -1504,7 +1503,7 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x04b40000:
 				return FF_LMMDL;
 
-		// Mario Party 3DS compressed archive (MPLibrary 3DS/ZDAT.cs)
+				// Mario Party 3DS compressed archive (MPLibrary 3DS/ZDAT.cs)
 			case 0x525A504B: // "RZPK"
 				return FF_RZPK;
 
@@ -1613,61 +1612,61 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x42415253: // "BARS"
 				return FF_BARS;
 
-		// Game Freak GFLXPACK family: the Switch-era GFLXPack archive
-		// (LZ4 members, SPICA GFLXPack) shares its 8-byte magic with the
-		// plain 3DS member table (FF_GFPAK), so probe the LZ4 layout first.
-		case 0x47464c58: // "GFLX"
-			if (data_size >= 8 && !memcmp (data, "GFLXPACK", 8))
-				return IsGFLXPack (data8, data_size, file_size) ? FF_GFLX : FF_GFPAK;
-			break;
+			// Game Freak GFLXPACK family: the Switch-era GFLXPack archive
+			// (LZ4 members, SPICA GFLXPack) shares its 8-byte magic with the
+			// plain 3DS member table (FF_GFPAK), so probe the LZ4 layout first.
+			case 0x47464c58: // "GFLX"
+				if (data_size >= 8 && !memcmp (data, "GFLXPACK", 8))
+					return IsGFLXPack (data8, data_size, file_size) ? FF_GFLX : FF_GFPAK;
+				break;
 
-		// Game Freak 3DS model (GFModel, SPICA): LE 0x15122117
-		case 0x17211215: // 17 21 12 15
-			if (IsGFModel (data8, data_size, file_size))
-				return FF_GFMODEL;
-			break;
+			// Game Freak 3DS model (GFModel, SPICA): LE 0x15122117
+			case 0x17211215: // 17 21 12 15
+				if (IsGFModel (data8, data_size, file_size))
+					return FF_GFMODEL;
+				break;
 
-		// Game Freak 3DS texture (GFTexture, SPICA): LE 0x15041213
-		case 0x13120415: // 13 12 04 15
-			if (IsGFTexture (data8, data_size))
-				return FF_GFTEX;
-			break;
+			// Game Freak 3DS texture (GFTexture, SPICA): LE 0x15041213
+			case 0x13120415: // 13 12 04 15
+				if (IsGFTexture (data8, data_size))
+					return FF_GFTEX;
+				break;
 
-		// Game Freak 3DS motion (GFMotion, SPICA): LE 0x00060000
-		case 0x00000600: // 00 00 06 00
-			if (IsGFMotion (data8, data_size))
-				return FF_GFMOT;
-			break;
+			// Game Freak 3DS motion (GFMotion, SPICA): LE 0x00060000
+			case 0x00000600: // 00 00 06 00
+				if (IsGFMotion (data8, data_size))
+					return FF_GFMOT;
+				break;
 
-		// Game Freak model pack (GFModelPack, SPICA): LE 0x00010000
-		case 0x00000100: // 00 00 01 00
-			if (IsGFModelPack (data8, data_size, file_size))
-				return FF_GFMPACK;
-			break;
+			// Game Freak model pack (GFModelPack, SPICA): LE 0x00010000
+			case 0x00000100: // 00 00 01 00
+				if (IsGFModelPack (data8, data_size, file_size))
+					return FF_GFMPACK;
+				break;
 
-		// Capcom MT Framework Mobile model (SPICA MTModel)
-		case 0x4d4f4400: // "MOD\0"
-			if (IsMTMOD (data8, data_size))
-				return FF_MTMOD;
-			break;
+			// Capcom MT Framework Mobile model (SPICA MTModel)
+			case 0x4d4f4400: // "MOD\0"
+				if (IsMTMOD (data8, data_size))
+					return FF_MTMOD;
+				break;
 
-		// Capcom MT Framework Mobile texture (SPICA MTTexture)
-		case 0x54455800: // "TEX\0"
-			if (IsMTTEX (data8, data_size))
-				return FF_MTTEX;
-			break;
+			// Capcom MT Framework Mobile texture (SPICA MTTexture)
+			case 0x54455800: // "TEX\0"
+				if (IsMTTEX (data8, data_size))
+					return FF_MTTEX;
+				break;
 
-		// Capcom MT Framework Mobile materials (SPICA MTMaterials)
-		case 0x4d524c00: // "MRL\0"
-			if (IsMTMRL (data8, data_size))
-				return FF_MTMRL;
-			break;
+			// Capcom MT Framework Mobile materials (SPICA MTMaterials)
+			case 0x4d524c00: // "MRL\0"
+				if (IsMTMRL (data8, data_size))
+					return FF_MTMRL;
+				break;
 
-		// Capcom MT Framework Mobile shader effects (SPICA MTShaderEffects)
-		case 0x4d465800: // "MFX\0"
-			if (IsMTMFX (data8, data_size))
-				return FF_MTMFX;
-			break;
+			// Capcom MT Framework Mobile shader effects (SPICA MTShaderEffects)
+			case 0x4d465800: // "MFX\0"
+				if (IsMTMFX (data8, data_size))
+					return FF_MTMFX;
+				break;
 
 			// Next Level Games Texture To Go (6PK0)
 			case 0x36504b30: // "6PK0"
@@ -2510,7 +2509,8 @@ file_format_t GetFileTypeByMagic (
 		ccp ext = fname ? strrchr (fname, '.') : 0;
 		// Grip .res object sections (Elmo's Musical Monsterpiece) are unpacked
 		// as opaque data; their headers must not be sniffed as other formats.
-		if (ext && (!strcasecmp (ext, ".banm") || !strcasecmp (ext, ".bmsh")
+		if (ext
+			&& (!strcasecmp (ext, ".banm") || !strcasecmp (ext, ".bmsh")
 				|| !strcasecmp (ext, ".body") || !strcasecmp (ext, ".gshd")))
 			return FF_UNKNOWN;
 		// Capcom MT Framework Mobile shares ".mod" with Monster Games NDL
@@ -2550,7 +2550,8 @@ file_format_t GetFileTypeByMagic (
 		// Battle of the Bands .bag asset container: fixed ASCII header,
 		// no binary magic, so verify with IsBotbBag() rather than trusting
 		// the extension alone.
-		if (ext && !strcasecmp (ext, ".bag") && IsBotbBag ((const u8 *)buf, sizeof (buf), fatt->size))
+		if (ext && !strcasecmp (ext, ".bag")
+			&& IsBotbBag ((const u8 *)buf, sizeof (buf), fatt->size))
 			return FF_BOTB_BAG;
 		// Tenchu: Shadow Assassins "T4-*" tagged resource: shares the
 		// generic ".b" extension with several unrelated magic-less layouts
@@ -2561,7 +2562,8 @@ file_format_t GetFileTypeByMagic (
 		// Tenchu: Shadow Assassins voice-line manifest: magic-less, so
 		// verify the full slot/parameter table walk via IsHdVoice() rather
 		// than trusting the extension alone.
-		if (ext && !strcasecmp (ext, ".hd") && IsHdVoice ((const u8 *)buf, sizeof (buf), fatt->size))
+		if (ext && !strcasecmp (ext, ".hd")
+			&& IsHdVoice ((const u8 *)buf, sizeof (buf), fatt->size))
 			return FF_HDVOICE;
 		file_format_t ff = GetByMagicFF (buf, sizeof (buf), fatt->size);
 		if (ff == FF_SARC && ext && !strcasecmp (ext, ".bfma"))
@@ -5113,7 +5115,10 @@ void AnalyzeSlotAttrib (slot_info_t *si, bool reset_si, mem_t attrib)
 		memset (si, 0, sizeof (*si));
 	si->source = attrib;
 
-	enum { MAX_ATTRIB = 100 };
+	enum
+	{
+		MAX_ATTRIB = 100
+	};
 	mem_t list[MAX_ATTRIB];
 	const uint n_attrib = SplitByCharMem (list, MAX_ATTRIB, attrib, ',');
 
@@ -5751,7 +5756,10 @@ const KeywordTab_t *GetCategoryKeywordTab (mkw_category_list_t *clist)
 
 			if (tcat->attrib && *tcat->attrib)
 			{
-				enum { MAX_ATTRIB = 100 };
+				enum
+				{
+					MAX_ATTRIB = 100
+				};
 				mem_t list[MAX_ATTRIB];
 				const uint n_attrib
 					= SplitByCharMem (list, MAX_ATTRIB, MemByString0 (tcat->attrib), ',');
@@ -6202,7 +6210,10 @@ void AnalyseSPF (split_filename_t *spf, // valid pointer
 	if (!source || !*source || src_end && src_end <= source)
 		return;
 
-	enum { max_attrib = 100 };
+	enum
+	{
+		max_attrib = 100
+	};
 	char buf[100];
 
 	//--- store input data

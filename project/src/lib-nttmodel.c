@@ -232,8 +232,8 @@ static bool ntt_decode_attr (float out[4], const u8 *p, uint fmt)
 
 // Locate the chunk at pos. On success sets *chunk_size, *kind (0=hierarchy,
 // 1=scene, -1=other) and the payload range. False when truncated/insane.
-static bool ntt_chunk_at (const u8 *data, size_t size, size_t pos,
-	u32 *chunk_size, int *kind, size_t *pay_off, size_t *pay_end)
+static bool ntt_chunk_at (const u8 *data, size_t size, size_t pos, u32 *chunk_size, int *kind,
+	size_t *pay_off, size_t *pay_end)
 {
 	if (pos + 20 > size)
 		return false;
@@ -258,8 +258,8 @@ static bool ntt_chunk_at (const u8 *data, size_t size, size_t pos,
 
 // Validate one buffer header at *cur (DXTV magic, attribute table) without
 // consuming vertex data. Fills attrs/strides, advances *cur past the table.
-static bool ntt_scan_buffer_head (const u8 *data, size_t *cur, size_t hi,
-	ntt_attr_t *attrs, uint *n_attrs, uint *stride)
+static bool ntt_scan_buffer_head (
+	const u8 *data, size_t *cur, size_t hi, ntt_attr_t *attrs, uint *n_attrs, uint *stride)
 {
 	if (*cur + 12 > hi || memcmp (data + *cur, "DXTV", 4))
 		return false;
@@ -450,11 +450,9 @@ static bool ntt_grow_materials (model_t *model, size_t *cap)
 
 // Decode one buffer's vertices at explicit base VBASE into the preallocated
 // attribute arrays. Returns false when an attribute fails to decode.
-static bool ntt_decode_one_buffer (const u8 *data, size_t vbase,
-	ntt_attr_t *attrs, uint na, uint st, uint nverts,
-	vec3_t *pos, vec3_t *nrm, vec2_t *uv0, vec2_t *uv1,
-	color4_t *col0, color4_t *col1, vec3_t *tan,
-	bool have_pos, bool have_nrm, bool have_uv0, bool have_uv1,
+static bool ntt_decode_one_buffer (const u8 *data, size_t vbase, ntt_attr_t *attrs, uint na,
+	uint st, uint nverts, vec3_t *pos, vec3_t *nrm, vec2_t *uv0, vec2_t *uv1, color4_t *col0,
+	color4_t *col1, vec3_t *tan, bool have_pos, bool have_nrm, bool have_uv0, bool have_uv1,
 	bool have_col0, bool have_col1, bool have_tan, bool *uv_ok)
 {
 	for (uint v = 0; v < nverts; v++)
@@ -562,8 +560,7 @@ static bool ntt_decode_one_buffer (const u8 *data, size_t vbase,
 }
 
 // Positions must exist and be finite; normals only need finiteness.
-static bool ntt_check_pos_nrm (vec3_t *pos, vec3_t *nrm,
-	uint nverts, bool have_pos, bool have_nrm)
+static bool ntt_check_pos_nrm (vec3_t *pos, vec3_t *nrm, uint nverts, bool have_pos, bool have_nrm)
 {
 	if (!have_pos)
 		return false;
@@ -648,8 +645,7 @@ model_t *ParseTTModel (const u8 *data, size_t size)
 			{
 				uint na = 0, st = 0;
 				size_t head = cur;
-				if (!ntt_scan_buffer_head (data, &head, end,
-						attrs + b * NTT_MAX_ATTRS, &na, &st))
+				if (!ntt_scan_buffer_head (data, &head, end, attrs + b * NTT_MAX_ATTRS, &na, &st))
 					ok = false;
 				else if ((u64)st * (u64)nverts + 16 > (u64)(end - head))
 					ok = false;
@@ -708,8 +704,8 @@ model_t *ParseTTModel (const u8 *data, size_t size)
 			color4_t *vcol1 = have_col1 ? CALLOC (nverts, sizeof (*vcol1)) : 0;
 			vec3_t *vtan = have_tan ? CALLOC (nverts, sizeof (*vtan)) : 0;
 			if ((have_pos && !vpos) || (have_nrm && !vnrm) || (have_uv0 && !vuv0)
-				|| (have_uv1 && !vuv1) || (have_col0 && !vcol0)
-				|| (have_col1 && !vcol1) || (have_tan && !vtan))
+				|| (have_uv1 && !vuv1) || (have_col0 && !vcol0) || (have_col1 && !vcol1)
+				|| (have_tan && !vtan))
 			{
 				FREE (vpos);
 				FREE (vnrm);
@@ -724,11 +720,9 @@ model_t *ParseTTModel (const u8 *data, size_t size)
 			bool uv_ok = true;
 			bool dec_ok = true;
 			for (uint b = 0; dec_ok && b < nbuf; b++)
-				dec_ok = ntt_decode_one_buffer (data, voffs[b],
-					attrs + b * NTT_MAX_ATTRS, nas[b], strides[b], nverts,
-					vpos, vnrm, vuv0, vuv1, vcol0, vcol1, vtan,
-					have_pos, have_nrm, have_uv0, have_uv1,
-					have_col0, have_col1, have_tan, &uv_ok);
+				dec_ok = ntt_decode_one_buffer (data, voffs[b], attrs + b * NTT_MAX_ATTRS, nas[b],
+					strides[b], nverts, vpos, vnrm, vuv0, vuv1, vcol0, vcol1, vtan, have_pos,
+					have_nrm, have_uv0, have_uv1, have_col0, have_col1, have_tan, &uv_ok);
 			if (dec_ok)
 				dec_ok = ntt_check_pos_nrm (vpos, vnrm, nverts, have_pos, have_nrm);
 

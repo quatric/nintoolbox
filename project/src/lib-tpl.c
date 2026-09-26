@@ -259,7 +259,6 @@ enumError SaveTPL (Image_t *src_img, // pointer to valid source img
 	return err;
 }
 
-
 uint GetNImagesTPL (const u8 *data, // TPL data
 	uint data_size, // size of tpl data
 	const endian_func_t *endian // endian functions
@@ -366,4 +365,3 @@ abort:
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			    BTI support			///////////////
-

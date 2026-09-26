@@ -143,7 +143,6 @@ enumError CreateHWLegends (u8 **dest_idx, uint *dest_idx_size, u8 **dest_bin, ui
 	return ERR_OK;
 }
 
-
 enumError create_hwl_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -176,14 +175,16 @@ enumError create_hwl_dir (ccp source, ccp dest)
 		File_t F;
 		err = CreateFileOpt (&F, true, idx_path, false, source);
 		if (F.f && fwrite (idx_data, 1, idx_size, F.f) != idx_size)
-			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", idx_size, idx_path);
+			err = FILEERROR1 (
+				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", idx_size, idx_path);
 		ResetFile (&F, opt_preserve);
 
 		if (!err)
 		{
 			err = CreateFileOpt (&F, true, bin_path, false, source);
 			if (F.f && fwrite (bin_data, 1, bin_size, F.f) != bin_size)
-				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", bin_size, bin_path);
+				err = FILEERROR1 (
+					&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", bin_size, bin_path);
 			ResetFile (&F, opt_preserve);
 		}
 	}
@@ -193,4 +194,3 @@ enumError create_hwl_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

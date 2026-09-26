@@ -81,11 +81,12 @@ int main (int argc, char **argv)
 			File_t F;
 			err = CreateFileOpt (&F, true, output_path, false, input_path);
 			if (F.f && fwrite (text, 1, text_size, F.f) != text_size)
-				err = FILEERROR1 (
-					&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n", (u64)text_size, output_path);
+				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n",
+					(u64)text_size, output_path);
 			ResetFile (&F, 0);
 			FREE (text);
-			printf ("Disassembled %s -> %s (%llu bytes)\n", input_path, output_path, (u64)text_size);
+			printf (
+				"Disassembled %s -> %s (%llu bytes)\n", input_path, output_path, (u64)text_size);
 		}
 	}
 	else if (!strcasecmp (cmd, "asm") || !strcasecmp (cmd, "assemble") || !strcasecmp (cmd, "a"))
@@ -114,8 +115,8 @@ int main (int argc, char **argv)
 			File_t F;
 			err = CreateFileOpt (&F, true, output_path, false, input_path);
 			if (F.f && fwrite (bin, 1, bin_size, F.f) != bin_size)
-				err = FILEERROR1 (
-					&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n", (u64)bin_size, output_path);
+				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n",
+					(u64)bin_size, output_path);
 			ResetFile (&F, 0);
 			FREE (bin);
 			printf ("Assembled %s -> %s (%llu bytes, format: %s)\n", input_path, output_path,
@@ -139,11 +140,12 @@ int main (int argc, char **argv)
 			File_t F;
 			err = CreateFileOpt (&F, true, output_path, false, input_path);
 			if (F.f && fwrite (midi, 1, midi_size, F.f) != midi_size)
-				err = FILEERROR1 (
-					&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n", (u64)midi_size, output_path);
+				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n",
+					(u64)midi_size, output_path);
 			ResetFile (&F, 0);
 			FREE (midi);
-			printf ("Converted %s -> %s (%llu bytes MIDI)\n", input_path, output_path, (u64)midi_size);
+			printf (
+				"Converted %s -> %s (%llu bytes MIDI)\n", input_path, output_path, (u64)midi_size);
 		}
 	}
 	else if (!strcasecmp (cmd, "from_midi") || !strcasecmp (cmd, "from-midi"))
@@ -167,8 +169,8 @@ int main (int argc, char **argv)
 			File_t F;
 			err = CreateFileOpt (&F, true, output_path, false, input_path);
 			if (F.f && fwrite (seq, 1, seq_size, F.f) != seq_size)
-				err = FILEERROR1 (
-					&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n", (u64)seq_size, output_path);
+				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n",
+					(u64)seq_size, output_path);
 			ResetFile (&F, 0);
 			FREE (seq);
 			printf ("Converted MIDI %s -> %s (%llu bytes, format: %s)\n", input_path, output_path,
@@ -191,8 +193,8 @@ int main (int argc, char **argv)
 			File_t F;
 			err = CreateFileOpt (&F, true, output_path, false, input_path);
 			if (F.f && fwrite (inv, 1, inv_size, F.f) != inv_size)
-				err = FILEERROR1 (
-					&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n", (u64)inv_size, output_path);
+				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n",
+					(u64)inv_size, output_path);
 			ResetFile (&F, 0);
 			FREE (inv);
 			printf ("Inverted %s -> %s (center: %d)\n", input_path, output_path, center_note);

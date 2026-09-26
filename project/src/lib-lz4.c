@@ -126,15 +126,14 @@ enumError DecodeLZ4 (u8 **dest_ptr, uint *dest_written, const void *src, uint sr
 	if (LZ4F_isError (hint))
 	{
 		LZ4F_freeDecompressionContext (dctx);
-		return ERROR0 (
-			ERR_INVALID_DATA, "LZ4 decompression error: %s\n", LZ4F_getErrorName (hint));
+		return ERROR0 (ERR_INVALID_DATA, "LZ4 decompression error: %s\n", LZ4F_getErrorName (hint));
 	}
 
 	const u8 *src_ptr = (const u8 *)src + src_consumed;
 	size_t src_remain = src_size - src_consumed;
 
 	size_t dst_cap = info.contentSize ? (size_t)info.contentSize
-		: (src_size < 16384 ? 65536 : (size_t)src_size * 4);
+									  : (src_size < 16384 ? 65536 : (size_t)src_size * 4);
 	u8 *dest = MALLOC (dst_cap ? dst_cap : 1);
 	if (!dest)
 	{

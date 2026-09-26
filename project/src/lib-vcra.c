@@ -5,7 +5,6 @@
 #include "lib-archive-util.h"
 #include "lib-vcra.h"
 
-
 // Repack a directory extracted by extract_namco_vcra_file() into a Namco
 // Museum Remix VCRA archive.
 //
@@ -78,4 +77,3 @@ enumError create_vcra_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

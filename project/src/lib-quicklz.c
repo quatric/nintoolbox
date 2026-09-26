@@ -105,7 +105,8 @@ enumError DecodeQuickLZ (u8 **dest, uint *dest_size, const u8 *src, uint src_siz
 
 	const size_t size = h.decomp_size;
 	if (size > 0x40000000)
-		return ERROR0 (ERR_INVALID_DATA, "QuickLZ: implausible decompressed size: %llu\n", (u64)size);
+		return ERROR0 (
+			ERR_INVALID_DATA, "QuickLZ: implausible decompressed size: %llu\n", (u64)size);
 
 	// Even in their memory-safe modes the vendor decoders read whole words
 	// past the header/stream end, and 1.20 copies literals without checking
@@ -132,8 +133,8 @@ enumError DecodeQuickLZ (u8 **dest, uint *dest_size, const u8 *src, uint src_siz
 	if (written != size)
 	{
 		FREE (buf);
-		return ERROR0 (
-			ERR_INVALID_DATA, "QuickLZ: decompressed %llu of %llu bytes.\n", (u64)written, (u64)size);
+		return ERROR0 (ERR_INVALID_DATA, "QuickLZ: decompressed %llu of %llu bytes.\n",
+			(u64)written, (u64)size);
 	}
 
 	*dest = buf;

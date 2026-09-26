@@ -424,8 +424,8 @@ static inline void wb_wr32 (u8 *p, u32 v)
 	p[3] = (u8)v;
 }
 
-enumError WrapWiiBannerFile (u8 **dest, uint *dest_size,
-	const u8 *payload, uint payload_size, bool compress, bool lz11)
+enumError WrapWiiBannerFile (
+	u8 **dest, uint *dest_size, const u8 *payload, uint payload_size, bool compress, bool lz11)
 {
 	if (!dest || !dest_size || (!payload && payload_size))
 		return EINVAL;
@@ -489,9 +489,8 @@ enumError WrapWiiBannerFile (u8 **dest, uint *dest_size,
 	return ERR_OK;
 }
 
-enumError CreateIMET (u8 **dest, uint *dest_size,
-	const u8 *u8_data, uint u8_size,
-	const u8 *orig, uint orig_size, uint icon_size, uint banner_size, uint sound_size)
+enumError CreateIMET (u8 **dest, uint *dest_size, const u8 *u8_data, uint u8_size, const u8 *orig,
+	uint orig_size, uint icon_size, uint banner_size, uint sound_size)
 {
 	if (!dest || !dest_size || !orig || (!u8_data && u8_size))
 		return EINVAL;

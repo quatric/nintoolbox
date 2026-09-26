@@ -1195,7 +1195,7 @@ static int brsub_string_func (brsub_cut_t *bcut, // pointer to data structure
 								n_layer = max_layer;
 							uint i;
 							for (i = 0; i < n_layer && layer_off < (size_t)(data_end - data);
-								 i++, layer_off += 0x34)
+								i++, layer_off += 0x34)
 							{
 								u8 *d = data + layer_off;
 								it->index += brsub_call_string (brit, d, (u32 *)d);

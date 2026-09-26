@@ -43,8 +43,7 @@ bool IsNUMDLB (const u8 *data, size_t size)
 // Reads a NUL-terminated string at the relative offset stored at 'field_off' (an
 // SsbhString field), bounds-checked against 'size'. Leaves 'dest' empty and returns
 // false on a null or out-of-range offset instead of aborting the whole decode.
-static bool read_ssbh_string (
-	char *dest, uint destsz, const u8 *data, size_t size, u64 field_off)
+static bool read_ssbh_string (char *dest, uint destsz, const u8 *data, size_t size, u64 field_off)
 {
 	dest[0] = 0;
 	if (field_off + 8 > size)
@@ -120,16 +119,15 @@ enumError DecodeNUMDLB_Text (FILE *out, const u8 *data, size_t size)
 	read_ssbh_string (mesh_name, sizeof (mesh_name), data, size, NUMDLB_SUBHDR_OFF + 0x30);
 	read_indirect_ssbh_string (anim_name, sizeof (anim_name), data, size, NUMDLB_SUBHDR_OFF + 0x28);
 
-	fprintf (out, "#NUMDLB\n"
+	fprintf (out,
+		"#NUMDLB\n"
 		"version = %u.%u\n"
 		"model_name = %s\n"
 		"skeleton_file_name = %s\n"
 		"mesh_file_name = %s\n"
 		"animation_file_name = %s\n\n",
-		major, minor,
-		model_name[0] ? model_name : "<none>",
-		skeleton_name[0] ? skeleton_name : "<none>",
-		mesh_name[0] ? mesh_name : "<none>",
+		major, minor, model_name[0] ? model_name : "<none>",
+		skeleton_name[0] ? skeleton_name : "<none>", mesh_name[0] ? mesh_name : "<none>",
 		anim_name[0] ? anim_name : "<none>");
 
 	u64 mat_base, mat_count;

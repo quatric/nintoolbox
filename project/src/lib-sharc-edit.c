@@ -4,7 +4,7 @@
 
 #include <sys/stat.h>
 #ifndef __MINGW32__
-  #include <sys/wait.h>
+#include <sys/wait.h>
 #endif
 
 // SHARC (agl::ResShaderArchive) <-> directory, and directory -> SHARCFB
@@ -283,9 +283,8 @@ static bool sb_str (sbuf_t *b, ccp s)
 static enumError sharc_build (const sharc_t *s, u8 **out, uint *out_size)
 {
 	sbuf_t b = { 0, 0, 0, s->be };
-	bool ok = sb_put (&b, s->be ? "SHAA" : "AAHS", 4) && sb_u32 (&b, s->version)
-		&& sb_u32 (&b, 0) && sb_u32 (&b, s->be ? 0 : 1) && sb_u32 (&b, strlen (s->name) + 1)
-		&& sb_str (&b, s->name);
+	bool ok = sb_put (&b, s->be ? "SHAA" : "AAHS", 4) && sb_u32 (&b, s->version) && sb_u32 (&b, 0)
+		&& sb_u32 (&b, s->be ? 0 : 1) && sb_u32 (&b, strlen (s->name) + 1) && sb_str (&b, s->name);
 
 	const uint plist = b.n;
 	ok = ok && sb_u32 (&b, 0) && sb_u32 (&b, s->n_prog);
@@ -322,9 +321,9 @@ static enumError sharc_build (const sharc_t *s, u8 **out, uint *out_size)
 	{
 		const sharc_src_t *sr = s->src + i;
 		const uint nl = strlen (sr->name) + 1;
-		ok = sb_u32 (&b, 16 + nl + sr->code_size) && sb_u32 (&b, nl)
-			&& sb_u32 (&b, sr->code_size) && sb_u32 (&b, sr->code_size)
-			&& sb_put (&b, sr->name, nl) && sb_put (&b, sr->code, sr->code_size);
+		ok = sb_u32 (&b, 16 + nl + sr->code_size) && sb_u32 (&b, nl) && sb_u32 (&b, sr->code_size)
+			&& sb_u32 (&b, sr->code_size) && sb_put (&b, sr->name, nl)
+			&& sb_put (&b, sr->code, sr->code_size);
 	}
 	if (ok)
 	{
@@ -547,7 +546,8 @@ static enumError sharc_read_dir (sharc_t *s, ccp dir)
 			}
 			*tab++ = 0;
 			const uint k = line[0] == 'v' ? 0 : line[0] == 'f' ? 1 : 2;
-			cur->macro[k] = REALLOC (cur->macro[k], (cur->n_macro[k] + 1) * sizeof (*cur->macro[k]));
+			cur->macro[k]
+				= REALLOC (cur->macro[k], (cur->n_macro[k] + 1) * sizeof (*cur->macro[k]));
 			cur->macro[k][cur->n_macro[k]].name = STRDUP (arg);
 			cur->macro[k][cur->n_macro[k]++].value = STRDUP (tab);
 		}
@@ -584,7 +584,8 @@ static enumError sharc_read_dir (sharc_t *s, ccp dir)
 		for (uint k = 0; k < 3; k++)
 			if (!p->macro[k])
 				p->macro[k] = CALLOC (1, sizeof (*p->macro[k]));
-		if (!rest_file[i] || strncmp (rest_file[i], "programs/", 9) || !safe_name (rest_file[i] + 9))
+		if (!rest_file[i] || strncmp (rest_file[i], "programs/", 9)
+			|| !safe_name (rest_file[i] + 9))
 		{
 			err = ERROR0 (ERR_SYNTAX, "SHARC manifest: program %s has no 'rest' file\n", p->name);
 			break;
@@ -778,10 +779,10 @@ static enumError gx2_shader_to_fb (
 	bool ok = true;
 	for (uint i = 0; ok && i < nregs; i++)
 		ok = sb_u32 (&b, rd32 (h + i * 4, true));
-	ok = ok && sb_u32 (&b, code_size) && sb_u32 (&b, 0) && sb_u32 (&b, mode) && sb_u32 (&b, ub.count)
-		&& sb_u32 (&b, ub_off) && sb_u32 (&b, uv.count) && sb_u32 (&b, uv_off) && sb_u32 (&b, 0)
-		&& sb_u32 (&b, 0) && sb_u32 (&b, loop.count) && sb_u32 (&b, loop_off)
-		&& sb_u32 (&b, samp.count) && sb_u32 (&b, samp_off);
+	ok = ok && sb_u32 (&b, code_size) && sb_u32 (&b, 0) && sb_u32 (&b, mode)
+		&& sb_u32 (&b, ub.count) && sb_u32 (&b, ub_off) && sb_u32 (&b, uv.count)
+		&& sb_u32 (&b, uv_off) && sb_u32 (&b, 0) && sb_u32 (&b, 0) && sb_u32 (&b, loop.count)
+		&& sb_u32 (&b, loop_off) && sb_u32 (&b, samp.count) && sb_u32 (&b, samp_off);
 	if (vertex)
 	{
 		ok = ok && sb_u32 (&b, att.count) && sb_u32 (&b, att_off) && sb_u32 (&b, ring)
@@ -919,8 +920,8 @@ static char *prepare_source (const sharc_src_t *sr, const sharc_macro_t *mac, ui
 				if (strlen (mac[i].name) == (uint)(ne - q) && !memcmp (mac[i].name, q, ne - q))
 				{
 					char line[512];
-					int n = snprintf (line, sizeof (line), "#define %s %s\n", mac[i].name,
-						mac[i].value);
+					int n = snprintf (
+						line, sizeof (line), "#define %s %s\n", mac[i].name, mac[i].value);
 					sb_put (&b, line, n);
 					(*replaced)++;
 					done = true;
@@ -945,8 +946,8 @@ static enumError compile_program (
 			gsh_path);
 	if (p->shader[0] < 0 || p->shader[1] < 0 || p->shader[2] != -1 || (uint)p->shader[0] >= s->n_src
 		|| (uint)p->shader[1] >= s->n_src)
-		return ERROR0 (ERR_INVALID_DATA,
-			"Program %s needs exactly a vertex and a fragment shader\n", p->name);
+		return ERROR0 (
+			ERR_INVALID_DATA, "Program %s needs exactly a vertex and a fragment shader\n", p->name);
 
 	const sharc_src_t *vs = s->src + p->shader[0], *fs = s->src + p->shader[1];
 	char rel[PATH_MAX], vpath[PATH_MAX], fpath[PATH_MAX], hpath[PATH_MAX];
@@ -1026,8 +1027,8 @@ enumError CreateSHARCFBFromDir (ccp source_dir, ccp dest)
 	if (s.be || s.version == 12)
 	{
 		sharc_free (&s);
-		return ERROR0 (ERR_INVALID_DATA,
-			"Only little endian SHARC v10/v11 can be compiled to SHARCFB\n");
+		return ERROR0 (
+			ERR_INVALID_DATA, "Only little endian SHARC v10/v11 can be compiled to SHARCFB\n");
 	}
 
 	sbuf_t out = { 0, 0, 0, false };
@@ -1048,8 +1049,8 @@ enumError CreateSHARCFBFromDir (ccp source_dir, ccp dest)
 		const sharc_prog_t *p = s.prog + i;
 		if (!safe_name (p->name))
 		{
-			err = ERROR0 (ERR_INVALID_DATA, "Program name is not a usable directory name: %s\n",
-				p->name);
+			err = ERROR0 (
+				ERR_INVALID_DATA, "Program name is not a usable directory name: %s\n", p->name);
 			break;
 		}
 		char gsh[PATH_MAX];
@@ -1078,15 +1079,19 @@ enumError CreateSHARCFBFromDir (ccp source_dir, ccp dest)
 		for (uint k = 0; k < gtx.n_shaders; k++)
 		{
 			const gtx_shader_t *g = gtx.shaders + k;
-			const int idx = g->stage == GTX_SHADER_VERTEX ? 0 : g->stage == GTX_SHADER_PIXEL ? 1 : -1;
+			const int idx = g->stage == GTX_SHADER_VERTEX ? 0
+				: g->stage == GTX_SHADER_PIXEL			  ? 1
+														  : -1;
 			if (idx < 0 || !g->header || !g->program)
 				continue;
 			if (sh[idx])
-				err = ERROR0 (ERR_INVALID_DATA, "GSH file has several shaders of one kind: %s\n", gsh);
+				err = ERROR0 (
+					ERR_INVALID_DATA, "GSH file has several shaders of one kind: %s\n", gsh);
 			sh[idx] = g;
 		}
 		if (!err && (!sh[0] || !sh[1]))
-			err = ERROR0 (ERR_INVALID_DATA, "GSH file needs a vertex and a pixel shader: %s\n", gsh);
+			err = ERROR0 (
+				ERR_INVALID_DATA, "GSH file needs a vertex and a pixel shader: %s\n", gsh);
 		for (uint k = 0; !err && k < 2; k++)
 		{
 			const uint item = out.n;

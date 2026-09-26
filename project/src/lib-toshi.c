@@ -9,8 +9,14 @@
 
 #define TOSHI_MAX_SECTION (512u << 20)
 
-static u32 ts_be32 (const u8 *p) { return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
-static u32 ts_be16 (const u8 *p) { return p[0] << 8 | p[1]; }
+static u32 ts_be32 (const u8 *p)
+{
+	return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
+}
+static u32 ts_be16 (const u8 *p)
+{
+	return p[0] << 8 | p[1];
+}
 
 bool IsToshiTsfb (const u8 *d, size_t size)
 {
@@ -31,7 +37,7 @@ static enumError ts_btec (u8 **out, size_t *out_size, const u8 *b, size_t n)
 	{
 		if (n < 20)
 			return ERR_INVALID_DATA;
-		xor = ts_be32 (b + 16);
+		xor= ts_be32 (b + 16);
 		p = 20;
 	}
 	u8 *o = MALLOC (size ? size : 1);
@@ -91,7 +97,7 @@ static enumError ts_btec (u8 **out, size_t *out_size, const u8 *b, size_t n)
 		goto bad;
 	if (xor)
 		for (size_t i = 0; i < size; i++)
-			o[i] ^= (u8)xor;
+			o[i] ^= (u8) xor ;
 	*out = o;
 	*out_size = size;
 	return ERR_OK;
@@ -184,7 +190,8 @@ uint ToshiTtlCount (const toshi_trb_t *t)
 	return ts_ttl_entries (t, &po);
 }
 
-enumError DecodeToshiTexture (const toshi_trb_t *t, uint idx, ccp *name, u8 **rgba, uint *width, uint *height)
+enumError DecodeToshiTexture (
+	const toshi_trb_t *t, uint idx, ccp *name, u8 **rgba, uint *width, uint *height)
 {
 	u32 po;
 	const uint n = ts_ttl_entries (t, &po);
@@ -215,13 +222,17 @@ enumError DecodeToshiTexture (const toshi_trb_t *t, uint idx, ccp *name, u8 **rg
 	if (!w || !h || w > 4096 || h > 4096 || !ts_ptr (t, dp, dsz) || !ts_ptr (t, np, 1))
 		return ERR_INVALID_DATA;
 	*name = (ccp)t->sect + np;
-	const enumError err = DecodeGXTexture_RGBA (rgba, w, h, gxfmt, t->sect + dp, dsz, pal, npal, pal_fmt);
+	const enumError err
+		= DecodeGXTexture_RGBA (rgba, w, h, gxfmt, t->sect + dp, dsz, pal, npal, pal_fmt);
 	if (!err)
 		*width = w, *height = h;
 	return err;
 }
 
-static s32 ts_be32s (const u8 *p) { return (s32)ts_be32 (p); }
+static s32 ts_be32s (const u8 *p)
+{
+	return (s32)ts_be32 (p);
+}
 
 static float ts_bef32 (const u8 *p)
 {
@@ -241,16 +252,16 @@ enumError OpenToshiTkl (const toshi_trb_t *t, toshi_tkl_t *tkl)
 	const u32 no = ts_be32 (h);
 	if (!ts_ptr (t, no, 1))
 		return ERR_INVALID_DATA;
-	tkl->name     = (ccp)t->sect + no;
+	tkl->name = (ccp)t->sect + no;
 	tkl->scale[0] = ts_bef32 (h + 4);
 	tkl->scale[1] = ts_bef32 (h + 8);
 	tkl->scale[2] = ts_bef32 (h + 12);
-	tkl->num_t    = (u32)ts_be32s (h + 16);
-	tkl->num_q    = (u32)ts_be32s (h + 20);
-	tkl->num_s    = (u32)ts_be32s (h + 24);
-	tkl->tsize    = (u32)ts_be32s (h + 28);
-	tkl->qsize    = (u32)ts_be32s (h + 32);
-	tkl->ssize    = (u32)ts_be32s (h + 36);
+	tkl->num_t = (u32)ts_be32s (h + 16);
+	tkl->num_q = (u32)ts_be32s (h + 20);
+	tkl->num_s = (u32)ts_be32s (h + 24);
+	tkl->tsize = (u32)ts_be32s (h + 28);
+	tkl->qsize = (u32)ts_be32s (h + 32);
+	tkl->ssize = (u32)ts_be32s (h + 36);
 	const u32 to = ts_be32 (h + 40), qo = ts_be32 (h + 44), so = ts_be32 (h + 48);
 	if (!ts_ptr (t, to, (u64)tkl->num_t * tkl->tsize)
 		|| !ts_ptr (t, qo, (u64)tkl->num_q * tkl->qsize)

@@ -200,7 +200,8 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		uint width = 0, height = 0;
 		const enumError err = DecodeTropicalTXTR_RGBA (&rgba, &width, &height, data, data_size);
 		if (err)
-			return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported Tropical TXTR texture: %s\n", fname);
+			return ERROR0 (
+				ERR_INVALID_IFORM, "Invalid or unsupported Tropical TXTR texture: %s\n", fname);
 		AssignDecodedRGBA (img, rgba, width, height, &le_func, fname);
 		return PatchListIMG (img);
 	}
@@ -211,7 +212,8 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		uint width = 0, height = 0;
 		const enumError err = DecodeMPRTXTR_RGBA (&rgba, &width, &height, data, data_size);
 		if (err)
-			return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported MPR TXTR texture: %s\n", fname);
+			return ERROR0 (
+				ERR_INVALID_IFORM, "Invalid or unsupported MPR TXTR texture: %s\n", fname);
 		AssignDecodedRGBA (img, rgba, width, height, &le_func, fname);
 		return PatchListIMG (img);
 	}
@@ -222,7 +224,8 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		uint width = 0, height = 0;
 		const enumError err = DecodeRetroTXTR_RGBA (&rgba, &width, &height, data, data_size);
 		if (err)
-			return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported Retro TXTR texture: %s\n", fname);
+			return ERROR0 (
+				ERR_INVALID_IFORM, "Invalid or unsupported Retro TXTR texture: %s\n", fname);
 		AssignDecodedRGBA (img, rgba, width, height, &be_func, fname);
 		return PatchListIMG (img);
 	}
@@ -310,7 +313,8 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 			return ERROR0 (ERR_INVALID_IFORM, "Invalid NDS banner: %s\n", fname);
 		u8 *rgba = 0;
 		uint w = 0, h = 0;
-		const enumError berr = DecodeNDSBannerIcon_RGBA (&rgba, &w, &h, &banner, NDS_BANNER_ICON_STATIC);
+		const enumError berr
+			= DecodeNDSBannerIcon_RGBA (&rgba, &w, &h, &banner, NDS_BANNER_ICON_STATIC);
 		ResetNDSBanner (&banner);
 		if (berr)
 			return berr;
@@ -538,7 +542,8 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		if (serr != ERR_NOTHING_TO_DO)
 		{
 			if (serr || !rgba)
-				return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported 3DS texture: %s\n", fname);
+				return ERROR0 (
+					ERR_INVALID_IFORM, "Invalid or unsupported 3DS texture: %s\n", fname);
 			AssignDecodedRGBA (img, rgba, width, height, &le_func, fname);
 			img->info_fform = serr_fform;
 			return PatchListIMG (img);
@@ -633,17 +638,19 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		if (err)
 			return ERROR0 (ERR_INVALID_IFORM, "Invalid or unsupported CMAB container: %s\n", fname);
 		if (img_index >= cmab.texture_count)
-			return ERROR0 (ERR_INVALID_IFORM, "CMAB texture index %u is out of range: %s\n", img_index,
-				fname);
+			return ERROR0 (
+				ERR_INVALID_IFORM, "CMAB texture index %u is out of range: %s\n", img_index, fname);
 		cmab_entry_t entry;
 		err = GetCMABEntry (&cmab, img_index, &entry);
 		if (err)
-			return ERROR0 (ERR_INVALID_IFORM, "Invalid CMAB texture entry %u: %s\n", img_index, fname);
+			return ERROR0 (
+				ERR_INVALID_IFORM, "Invalid CMAB texture entry %u: %s\n", img_index, fname);
 		u8 *rgba = 0;
 		uint width = 0, height = 0;
 		err = DecodeCMABTexture_RGBA (&rgba, &width, &height, &entry);
 		if (err)
-			return ERROR0 (ERR_INVALID_IFORM, "Failed decoding CMAB texture %u: %s\n", img_index, fname);
+			return ERROR0 (
+				ERR_INVALID_IFORM, "Failed decoding CMAB texture %u: %s\n", img_index, fname);
 		AssignDecodedRGBA (img, rgba, width, height, &le_func, fname);
 		img->info_fform = FF_CMAB;
 		img->info_n_image = cmab.texture_count;
@@ -755,8 +762,8 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 					{
 						const uint avail = data_size - tex_start;
 						const uint use_size = img_size <= avail ? img_size : avail;
-						enumError derr = DecodePicaTexture (&rgba, &width, &height, data + tex_start,
-							width, height, pica_fmt, use_size);
+						enumError derr = DecodePicaTexture (&rgba, &width, &height,
+							data + tex_start, width, height, pica_fmt, use_size);
 						if (!derr && rgba)
 						{
 							found_tex = true;
@@ -854,9 +861,9 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 
 	if (nfmt.type == NFMT_NFTR || nfmt.type == NFMT_BNFR
 		|| (data_size >= 4
-			&& (!memcmp (data, "RTNF", 4) || !memcmp (data, "FNTR", 4)
-				|| !memcmp (data, "RTFN", 4) || !memcmp (data, "NFTR", 4)
-				|| !memcmp (data, "RNFB", 4) || !memcmp (data, "BNFR", 4))))
+			&& (!memcmp (data, "RTNF", 4) || !memcmp (data, "FNTR", 4) || !memcmp (data, "RTFN", 4)
+				|| !memcmp (data, "NFTR", 4) || !memcmp (data, "RNFB", 4)
+				|| !memcmp (data, "BNFR", 4))))
 	{
 		u8 *atlas = 0;
 		uint width = 0, height = 0;
@@ -1055,7 +1062,8 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 			ptr_glyph = BCF32 (data + bcfnt_hdr + 0x14);
 			if (ptr_glyph < 8 || ptr_glyph - 8 + 0x20 > data_size
 				|| memcmp (data + ptr_glyph - 8, "TGLP", 4))
-				return ERR_NOTHING_TO_DO; // Outline, scalable, or glyph-only font without raster TGLP sheets
+				return ERR_NOTHING_TO_DO; // Outline, scalable, or glyph-only font without raster
+										  // TGLP sheets
 		}
 		const u8 *btglp = data + (ptr_glyph - 8);
 		const uint bsheet_sz = BCF32 (btglp + 0x0C);
@@ -1299,24 +1307,24 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 			break;
 
 		case FF_MPT:
-			{
-				if (data_size < 0x28)
-					return ERR_INVALID_IFORM;
-				const u32 codec = rd_le32 (data + 8);
-				if (codec == 0x504d4357) // "WCMP"
-					iform = IMG_CMPR;
-				else if (codec == 0x32336957) // "Wi32"
-					iform = IMG_RGBA32;
-				else
-					return ERR_INVALID_IFORM;
-				width = rd_le32 (data + 0x18);
-				height = rd_le32 (data + 0x1c);
-				if (width == 0 || height == 0 || width > 0x8000 || height > 0x8000)
-					return ERR_INVALID_IFORM;
-				idata = data + 0x28;
-				calc_geo = true;
-			}
-			break;
+		{
+			if (data_size < 0x28)
+				return ERR_INVALID_IFORM;
+			const u32 codec = rd_le32 (data + 8);
+			if (codec == 0x504d4357) // "WCMP"
+				iform = IMG_CMPR;
+			else if (codec == 0x32336957) // "Wi32"
+				iform = IMG_RGBA32;
+			else
+				return ERR_INVALID_IFORM;
+			width = rd_le32 (data + 0x18);
+			height = rd_le32 (data + 0x1c);
+			if (width == 0 || height == 0 || width > 0x8000 || height > 0x8000)
+				return ERR_INVALID_IFORM;
+			idata = data + 0x28;
+			calc_geo = true;
+		}
+		break;
 
 		default:
 			return opt_ignore || fform == FF_UNKNOWN

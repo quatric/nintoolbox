@@ -31,7 +31,8 @@
 // "__s00000" section, +0x14 palette offset, +0x18 palette format, +0x1c size
 // of the stored image with its mip levels, and two width / height pairs
 // (u16 x4, at F + 0x40, or F + 0x44 in the UI files; lightmaps are not
-// powers of two): the first pair is the stored size. The texture's name (a .tga path) follows, 0x54 or 0x58 after F.
+// powers of two): the first pair is the stored size. The texture's name (a .tga path) follows, 0x54
+// or 0x58 after F.
 //-----------------------------------------------------------------------------
 #ifndef SZS_LIB_BTTRB_H
 #define SZS_LIB_BTTRB_H 1
@@ -41,9 +42,9 @@
 
 typedef struct bttrb_tex_t
 {
-	char name[96];		// unique, file-system safe, no extension
+	char name[96]; // unique, file-system safe, no extension
 	uint width, height, format;
-	u32 off, size;		// absolute file offsets of the pixels
+	u32 off, size; // absolute file offsets of the pixels
 	u32 pal_off, pal_format;
 } bttrb_tex_t;
 
@@ -58,8 +59,8 @@ enumError DecodeBlueTongueTexture (u8 **rgba, const u8 *d, size_t size, const bt
 uint CountBlueTongueModels (const u8 *d, size_t size);
 // LIB is an optional second package (the level's LevelAssets.trb) supplying the
 // arrays that batches with bit 15 set in their counts share by model name.
-model_t *BuildBlueTongueModel (const u8 *d, size_t size, uint index, char *name, size_t name_size, const u8 *lib,
-	size_t lib_size);
+model_t *BuildBlueTongueModel (const u8 *d, size_t size, uint index, char *name, size_t name_size,
+	const u8 *lib, size_t lib_size);
 
 // The bytes of a named section (points into D), or 0.
 const u8 *FindBlueTongueSection (const u8 *d, size_t size, ccp name, u32 *len);

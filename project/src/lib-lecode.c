@@ -375,7 +375,10 @@ int ScanOptEngine (ccp arg)
 		return 0;
 	}
 
-	enum { MAX = sizeof (opt_engine) / sizeof (*opt_engine) };
+	enum
+	{
+		MAX = sizeof (opt_engine) / sizeof (*opt_engine)
+	};
 	double val[MAX], sum = 0.0;
 	ccp src = arg;
 	uint n = 0;
@@ -892,7 +895,8 @@ ccp GetInfoLECODE (mem_t lecode)
 			  (uint)ntohl (head->v3.version), (uint)ntohl (head->v3.build_number),
 			  PrintTimeByFormat ("%F %T %Z", ref_time), (uint)ntohl (head->v3.file_size))
 		: PrintCircBuf ("%s%s%s v%u, build %u, %u bytes", region, debug, test,
-			  (uint)ntohl (head->v3.version), (uint)ntohl (head->v3.build_number), (uint)ntohl (head->v3.file_size));
+			  (uint)ntohl (head->v3.version), (uint)ntohl (head->v3.build_number),
+			  (uint)ntohl (head->v3.file_size));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2129,8 +2133,8 @@ enumError AnalyzeLEBinary (le_analyze_t *ana, // NULL or destination of analysis
 		ana->valid |= LE_HEAD_VERSION;
 
 	snprintf (ana->identifier, sizeof (ana->identifier), "v%u-b%02u-h%02u-%c%c",
-		(uint)ntohl (ana->head->v3.version), (uint)ntohl (ana->head->v3.build_number), ana->header_size,
-		tolower (ana->head->v3.build_mode), tolower (ana->head->v3.region));
+		(uint)ntohl (ana->head->v3.version), (uint)ntohl (ana->head->v3.build_number),
+		ana->header_size, tolower (ana->head->v3.build_mode), tolower (ana->head->v3.region));
 
 	//--- analyse parameters (prepare)
 

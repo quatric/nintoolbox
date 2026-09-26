@@ -12,10 +12,10 @@
 //-----------------------------------------------------------------------------
 // constants
 
-#define BAG_HDR_SIZE     32
-#define BAG_MAX_NAME     64
-#define BAG_MAX_ENTRIES   4096
-#define BAG_INFLATE_CAP  (64u * 1024u * 1024u) // sanity cap per blob
+#define BAG_HDR_SIZE 32
+#define BAG_MAX_NAME 64
+#define BAG_MAX_ENTRIES 4096
+#define BAG_INFLATE_CAP (64u * 1024u * 1024u) // sanity cap per blob
 
 //-----------------------------------------------------------------------------
 // header parsing
@@ -40,7 +40,7 @@ static int parse_header (const u8 *data, size_t size, u64 *n)
 	{
 		if (data[i] < '0' || data[i] > '9')
 			return 0;
-		val = val * 10 + (u64) (data[i] - '0');
+		val = val * 10 + (u64)(data[i] - '0');
 	}
 
 	for (size_t i = nl + 1; i < BAG_HDR_SIZE; i++)
@@ -76,9 +76,9 @@ int IsBotbBag (const u8 *data, size_t size, size_t file_size)
 
 typedef struct bag_entry_t
 {
-	char   name[BAG_MAX_NAME];
-	u64    csize;   // "size" field as declared in the manifest
-	u64    offset;  // absolute file offset
+	char name[BAG_MAX_NAME];
+	u64 csize; // "size" field as declared in the manifest
+	u64 offset; // absolute file offset
 
 } bag_entry_t;
 
@@ -88,8 +88,8 @@ typedef struct bag_entry_t
 static size_t try_entry (const u8 *data, size_t size, size_t pos, bag_entry_t *ent)
 {
 	size_t p = pos, name_start = pos;
-	while (p < size && p - name_start < BAG_MAX_NAME - 1 &&
-	       (isalnum (data[p]) || data[p] == '_' || data[p] == '.' || data[p] == '-'))
+	while (p < size && p - name_start < BAG_MAX_NAME - 1
+		&& (isalnum (data[p]) || data[p] == '_' || data[p] == '.' || data[p] == '-'))
 		p++;
 	size_t name_len = p - name_start;
 	if (!name_len || p >= size || data[p] != ',')
@@ -97,7 +97,11 @@ static size_t try_entry (const u8 *data, size_t size, size_t pos, bag_entry_t *e
 	// require at least one letter, so we don't match stray numeric noise
 	int has_alpha = 0;
 	for (size_t i = name_start; i < p; i++)
-		if (isalpha (data[i])) { has_alpha = 1; break; }
+		if (isalpha (data[i]))
+		{
+			has_alpha = 1;
+			break;
+		}
 	if (!has_alpha)
 		return 0;
 	p++; // skip ','
@@ -105,7 +109,7 @@ static size_t try_entry (const u8 *data, size_t size, size_t pos, bag_entry_t *e
 	u64 csize = 0;
 	size_t d0 = p;
 	while (p < size && isdigit (data[p]) && p - d0 < 12)
-		csize = csize * 10 + (u64) (data[p++] - '0');
+		csize = csize * 10 + (u64)(data[p++] - '0');
 	if (p == d0 || p >= size || data[p] != ',')
 		return 0;
 	p++; // skip ','
@@ -113,14 +117,14 @@ static size_t try_entry (const u8 *data, size_t size, size_t pos, bag_entry_t *e
 	u64 off = 0;
 	size_t d1 = p;
 	while (p < size && isdigit (data[p]) && p - d1 < 12)
-		off = off * 10 + (u64) (data[p++] - '0');
+		off = off * 10 + (u64)(data[p++] - '0');
 	if (p == d1 || p >= size || data[p] != '\n')
 		return 0;
 	p++; // skip '\n'
 
 	memcpy (ent->name, data + name_start, name_len);
 	ent->name[name_len] = 0;
-	ent->csize  = csize;
+	ent->csize = csize;
 	ent->offset = off;
 	return p - pos;
 }
@@ -130,8 +134,9 @@ static size_t try_entry (const u8 *data, size_t size, size_t pos, bag_entry_t *e
 
 static int try_inflate (const u8 *data, size_t size, u64 off, size_t *out_dec_size)
 {
-	if (off + 2 > size || data[off] != 0x78 || data[off + 1] != 0x9c
-	    && data[off + 1] != 0x5e && data[off + 1] != 0x01 && data[off + 1] != 0xda)
+	if (off + 2 > size || data[off] != 0x78
+		|| data[off + 1] != 0x9c && data[off + 1] != 0x5e && data[off + 1] != 0x01
+			&& data[off + 1] != 0xda)
 		return 0;
 
 	z_stream zs;
@@ -139,8 +144,8 @@ static int try_inflate (const u8 *data, size_t size, u64 off, size_t *out_dec_si
 	if (inflateInit (&zs) != Z_OK)
 		return 0;
 
-	zs.next_in  = (Bytef *) (data + off);
-	zs.avail_in = (uInt) (size - off);
+	zs.next_in = (Bytef *)(data + off);
+	zs.avail_in = (uInt)(size - off);
 
 	size_t cap = 65536, total = 0;
 	u8 *buf = MALLOC (cap);
@@ -149,17 +154,21 @@ static int try_inflate (const u8 *data, size_t size, u64 off, size_t *out_dec_si
 	{
 		if (total == cap)
 		{
-			if (cap >= BAG_INFLATE_CAP) break;
+			if (cap >= BAG_INFLATE_CAP)
+				break;
 			cap *= 2;
 			buf = REALLOC (buf, cap);
 		}
-		zs.next_out  = buf + total;
-		zs.avail_out = (uInt) (cap - total);
+		zs.next_out = buf + total;
+		zs.avail_out = (uInt)(cap - total);
 		ret = inflate (&zs, Z_NO_FLUSH);
 		total = cap - zs.avail_out;
-		if (ret == Z_STREAM_END) { ok = 1; break; }
-	}
-	while (ret == Z_OK && zs.avail_in);
+		if (ret == Z_STREAM_END)
+		{
+			ok = 1;
+			break;
+		}
+	} while (ret == Z_OK && zs.avail_in);
 
 	inflateEnd (&zs);
 	FREE (buf);
@@ -184,7 +193,7 @@ enumError DecodeBotbBag_Text (FILE *f, const u8 *data, size_t size, size_t file_
 	fprintf (f, "header_ok = %d\n", hdr_ok);
 	if (hdr_ok)
 	{
-		fprintf (f, "header_n  = %llu\n", (unsigned long long) n);
+		fprintf (f, "header_n  = %llu\n", (unsigned long long)n);
 		fprintf (f, "payload_len = %zu\n", size - BAG_HDR_SIZE);
 	}
 
@@ -206,14 +215,13 @@ enumError DecodeBotbBag_Text (FILE *f, const u8 *data, size_t size, size_t file_
 		if (ent.offset < size)
 			is_zlib = try_inflate (data, size, ent.offset, &dec_size);
 
-		fprintf (f, "%-40s size=%-10llu offset=0x%06llx%s\n",
-			ent.name, (unsigned long long) ent.csize,
-			(unsigned long long) ent.offset,
-			is_zlib ? "" : "");
+		fprintf (f, "%-40s size=%-10llu offset=0x%06llx%s\n", ent.name,
+			(unsigned long long)ent.csize, (unsigned long long)ent.offset, is_zlib ? "" : "");
 		if (is_zlib)
 			fprintf (f, "    zlib: inflates OK, decompressed_size=%zu\n", dec_size);
 
-		if (is_zlib) n_zlib++;
+		if (is_zlib)
+			n_zlib++;
 		n_entries++;
 		if (n_entries >= BAG_MAX_ENTRIES)
 			break;

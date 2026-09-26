@@ -124,7 +124,7 @@ bool IsDKSoundBank (const u8 *chd_data, size_t chd_size);
 // header's own cbd_size field, are rejected/skipped defensively rather
 // than trusted blindly. Output entries are named "clip###.wav" in header
 // order; 'entries' is malloc-owned (see OwnedEntryAdd/ResetOwnedEntries).
-enumError ScanDKSoundBank (nintendo_sarc_entry_t **entries, uint *n_entries,
-	const u8 *chd_data, size_t chd_size, const u8 *cbd_data, size_t cbd_size);
+enumError ScanDKSoundBank (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *chd_data,
+	size_t chd_size, const u8 *cbd_data, size_t cbd_size);
 
 #endif // SZS_LIB_DONKEYKONGA_H

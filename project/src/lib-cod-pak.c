@@ -20,8 +20,7 @@ typedef struct
 bool parse_cod_pak_crc (ccp name, uint *crc)
 {
 	const size_t len = strlen (name);
-	if (len < 15 || memcmp (name + len - 15, "_0x", 3)
-		|| strcasecmp (name + len - 4, ".dsp"))
+	if (len < 15 || memcmp (name + len - 15, "_0x", 3) || strcasecmp (name + len - 4, ".dsp"))
 		return false;
 	uint v = 0;
 	for (uint i = 0; i < 8; i++)
@@ -42,7 +41,6 @@ bool parse_cod_pak_crc (ccp name, uint *crc)
 		*crc = v;
 	return true;
 }
-
 
 // Heuristic used to route CREATE *.pak.d trees between the PAK0 and GPAK
 // builders (".pak" is shared by both formats; see extract_gpak_file()).
@@ -68,13 +66,11 @@ bool looks_like_cod_pak_dir (ccp source)
 	return found;
 }
 
-
 int cmp_cod_pak (const void *a, const void *b)
 {
 	const cod_pak_member_t *const ma = a, *const mb = b;
 	return ma->crc < mb->crc ? -1 : ma->crc > mb->crc ? 1 : 0;
 }
-
 
 enumError create_cod_pak_dir (ccp source, ccp dest)
 {
@@ -137,8 +133,8 @@ enumError create_cod_pak_dir (ccp source, ccp dest)
 		// it is a valid PAK0 with exactly our members and unchanged sizes.
 		u8 *raw = 0;
 		size_t raw_size = 0;
-		if (!LoadFileAlloc (dest, 0, 0, &raw, &raw_size, 0, 0, 0, false)
-			&& raw_size >= 20 && !memcmp (raw, "PAK0", 4))
+		if (!LoadFileAlloc (dest, 0, 0, &raw, &raw_size, 0, 0, 0, false) && raw_size >= 20
+			&& !memcmp (raw, "PAK0", 4))
 		{
 			const uint n = rd_le32 (raw + 8);
 			const uint mult = rd_le32 (raw + 12);
@@ -230,7 +226,8 @@ enumError create_cod_pak_dir (ccp source, ccp dest)
 		File_t F;
 		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (out, 1, out_len, F.f) != out_len)
-			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n", (u64)out_len, dest);
+			err = FILEERROR1 (
+				&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n", (u64)out_len, dest);
 		ResetFile (&F, opt_preserve);
 	}
 
@@ -239,4 +236,3 @@ enumError create_cod_pak_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

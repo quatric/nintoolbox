@@ -39,14 +39,14 @@ static u32 csb_rd32be (const u8 *p)
 
 static u64 csb_rd64le (const u8 *p)
 {
-	return (u64)p[0] | (u64)p[1] << 8 | (u64)p[2] << 16 | (u64)p[3] << 24
-		| (u64)p[4] << 32 | (u64)p[5] << 40 | (u64)p[6] << 48 | (u64)p[7] << 56;
+	return (u64)p[0] | (u64)p[1] << 8 | (u64)p[2] << 16 | (u64)p[3] << 24 | (u64)p[4] << 32
+		| (u64)p[5] << 40 | (u64)p[6] << 48 | (u64)p[7] << 56;
 }
 
 static u64 csb_rd64be (const u8 *p)
 {
-	return (u64)p[0] << 56 | (u64)p[1] << 48 | (u64)p[2] << 40 | (u64)p[3] << 32
-		| (u64)p[4] << 24 | (u64)p[5] << 16 | (u64)p[6] << 8 | (u64)p[7];
+	return (u64)p[0] << 56 | (u64)p[1] << 48 | (u64)p[2] << 40 | (u64)p[3] << 32 | (u64)p[4] << 24
+		| (u64)p[5] << 16 | (u64)p[6] << 8 | (u64)p[7];
 }
 
 static float csb_bits_f32 (u32 v)
@@ -495,8 +495,7 @@ static bool csb_parse_model_body (csb_reader_t *r, csb_model_t *m, bool is_split
 			m->triangles[i].c = csb_rd32 (r);
 			csb_rdvec (r, &m->triangles[i].normal);
 			if (!r->err
-				&& (m->triangles[i].a >= m->n_positions
-					|| m->triangles[i].b >= m->n_positions
+				&& (m->triangles[i].a >= m->n_positions || m->triangles[i].b >= m->n_positions
 					|| m->triangles[i].c >= m->n_positions))
 				r->err = true; // index out of range
 		}
@@ -926,8 +925,7 @@ static bool csb_parse (csb_t *csb, const u8 *data, u32 size, bool be)
 			return false;
 		}
 		u32 total = csb->n_models + n_split;
-		csb_model_t *nd
-			= REALLOC (csb->models, (size_t)total * sizeof (csb_model_t));
+		csb_model_t *nd = REALLOC (csb->models, (size_t)total * sizeof (csb_model_t));
 		if (!nd)
 		{
 			FreeCSB (csb);
@@ -1291,8 +1289,7 @@ static bool ctb_parse (ctb_t *ctb, const u8 *data, u32 size, bool be)
 		n->n_triangles = csb_rd32 (r);
 		if (!(n->size > 0.0f) || n->size >= 1e30f)
 			r->err = true;
-		if ((i == 0 ? n->root_flag != 1 : n->root_flag != 0x7F)
-			|| n->n_triangles > 10000000)
+		if ((i == 0 ? n->root_flag != 1 : n->root_flag != 0x7F) || n->n_triangles > 10000000)
 			r->err = true;
 	}
 	if (r->err)
@@ -1530,8 +1527,7 @@ static bool csb_tri_overlaps (const csb_model_t *m, u32 tri, vec3_t center, floa
 #define CSB_OCT_MAXTRIS 10
 #define CSB_OCT_MAXDEPTH 6
 
-static bool oct_build (oct_node_t *n, const csb_model_t *m, const u32 *all, u32 n_all,
-	int depth)
+static bool oct_build (oct_node_t *n, const csb_model_t *m, const u32 *all, u32 n_all, int depth)
 {
 	u32 *contained = MALLOC ((size_t)n_all * sizeof (u32));
 	if (!contained)
@@ -1806,20 +1802,19 @@ static int csb_mat_index (model_t *model, u32 attr, u64 flag)
 	for (size_t i = 0; i < model->num_materials; i++)
 		if (!strcmp (model->materials[i].name, name))
 			return (int)i;
-	material_t *nm = REALLOC (model->materials,
-		(model->num_materials + 1) * sizeof (*nm));
+	material_t *nm = REALLOC (model->materials, (model->num_materials + 1) * sizeof (*nm));
 	if (!nm)
 		return -1;
 	model->materials = nm;
 	memset (model->materials + model->num_materials, 0, sizeof (*nm));
-	snprintf (model->materials[model->num_materials].name,
-		sizeof (model->materials[0].name), "%s", name);
+	snprintf (
+		model->materials[model->num_materials].name, sizeof (model->materials[0].name), "%s", name);
 	return (int)model->num_materials++;
 }
 
 // Append one decoded mesh (positions POOL[0..N_POS), triangle list TRIS) to MODEL.
-static bool csb_emit_mesh (model_t *model, ccp name, u32 mat_attr, u64 colflag,
-	const vec3_t *pool, u32 n_pos, const csb_tri_t *tris, u32 n_tris)
+static bool csb_emit_mesh (model_t *model, ccp name, u32 mat_attr, u64 colflag, const vec3_t *pool,
+	u32 n_pos, const csb_tri_t *tris, u32 n_tris)
 {
 	// deduplicate positions (exact float bits) into a local pool
 	vec3_t *lpos = 0;
@@ -1972,9 +1967,8 @@ static model_t *csb_to_model (const csb_t *csb)
 			const csb_mesh_t *sm = m0->meshes + i;
 			if (!sm->n_tris)
 				continue;
-			if (!csb_emit_mesh (model, sm->name, sm->mat_attr, sm->colflag,
-					m0->positions, m0->n_positions,
-					m0->triangles + sm->tri_start, sm->n_tris))
+			if (!csb_emit_mesh (model, sm->name, sm->mat_attr, sm->colflag, m0->positions,
+					m0->n_positions, m0->triangles + sm->tri_start, sm->n_tris))
 				goto fail;
 		}
 		// split models carry their own buffers
@@ -1983,9 +1977,8 @@ static model_t *csb_to_model (const csb_t *csb)
 			const csb_model_t *sm = csb->models + i;
 			if (!sm->n_triangles)
 				continue;
-			if (!csb_emit_mesh (model, sm->name, sm->mat_attr, sm->colflag,
-					sm->positions, sm->n_positions, sm->triangles,
-					sm->n_triangles))
+			if (!csb_emit_mesh (model, sm->name, sm->mat_attr, sm->colflag, sm->positions,
+					sm->n_positions, sm->triangles, sm->n_triangles))
 				goto fail;
 		}
 	}
@@ -2037,8 +2030,7 @@ static model_t *csb_to_model (const csb_t *csb)
 			model_instance_t *in = model->instances + model->num_instances++;
 			char base[128];
 			snprintf (base, sizeof (base), "%s%s",
-				o->is_sphere ? CSB_MAPOBJ_SPHERE_PREFIX : CSB_MAPOBJ_BOX_PREFIX,
-				o->name);
+				o->is_sphere ? CSB_MAPOBJ_SPHERE_PREFIX : CSB_MAPOBJ_BOX_PREFIX, o->name);
 			if (o->colflag)
 				snprintf (in->name, sizeof (in->name), "%s#FLAG%llu", base,
 					(unsigned long long)o->colflag);
@@ -2216,8 +2208,8 @@ static bool csb_geom_add_mesh (csb_geom_t *g, const mesh_t *mesh, u32 *out_base_
 
 // Split "MAPOBJ_SPHERE_name[#FLAGf]" / "MAPOBJ_BOX_name[#FLAGf]".
 // Returns 1 = sphere, 0 = box, -1 = no MAPOBJ joint.
-static int csb_parse_mapobj (ccp jname, bool *is_sphere, char *name_buf, size_t name_size,
-	u64 *flag)
+static int csb_parse_mapobj (
+	ccp jname, bool *is_sphere, char *name_buf, size_t name_size, u64 *flag)
 {
 	*flag = 0;
 	size_t sl = strlen (CSB_MAPOBJ_SPHERE_PREFIX), bl = strlen (CSB_MAPOBJ_BOX_PREFIX);
@@ -2364,8 +2356,7 @@ static bool csb_build_nodes (csb_t *csb, u32 n_entries, u32 *entry_node)
 	return true;
 }
 
-static enumError csb_from_model (csb_t *csb, const model_t *model, bool big_endian,
-	bool map_object)
+static enumError csb_from_model (csb_t *csb, const model_t *model, bool big_endian, bool map_object)
 {
 	memset (csb, 0, sizeof (*csb));
 	csb->big_endian = big_endian;
@@ -2390,8 +2381,7 @@ static enumError csb_from_model (csb_t *csb, const model_t *model, bool big_endi
 		bool is_sphere = false;
 		char dummy[8];
 		u64 f = 0;
-		if (csb_parse_mapobj (model->instances[j].name, &is_sphere, dummy,
-				sizeof (dummy), &f) < 0)
+		if (csb_parse_mapobj (model->instances[j].name, &is_sphere, dummy, sizeof (dummy), &f) < 0)
 			continue;
 		mapobj_ref_t *nd = REALLOC (mrefs, (n_mrefs + 1) * sizeof (*nd));
 		if (!nd)
@@ -2442,8 +2432,7 @@ static enumError csb_from_model (csb_t *csb, const model_t *model, bool big_endi
 			r = in->rotate;
 			s = in->scale;
 		}
-		if (!csb_append_object (
-				csb, is_sphere, name, flag, entry_node[i], &t, &r, &s))
+		if (!csb_append_object (csb, is_sphere, name, flag, entry_node[i], &t, &r, &s))
 		{
 			FREE (mrefs);
 			FREE (entry_node);
@@ -2489,8 +2478,7 @@ static enumError csb_from_model (csb_t *csb, const model_t *model, bool big_endi
 			u32 mat_attr = 0;
 			u64 colflag = 0;
 			if ((size_t)sm->material_idx < model->num_materials)
-				csb_parse_material (model->materials[sm->material_idx].name, &mat_attr,
-					&colflag);
+				csb_parse_material (model->materials[sm->material_idx].name, &mat_attr, &colflag);
 			if (!csb_geom_add_mesh (&g, sm, &base_tri))
 				ok = false;
 			else
@@ -2560,8 +2548,8 @@ static enumError csb_from_model (csb_t *csb, const model_t *model, bool big_endi
 			dm->node_index = entry_node[n_mrefs + n_included];
 			n_included++;
 			if ((size_t)sm->material_idx < model->num_materials)
-				csb_parse_material (model->materials[sm->material_idx].name,
-					&dm->mat_attr, &dm->colflag);
+				csb_parse_material (
+					model->materials[sm->material_idx].name, &dm->mat_attr, &dm->colflag);
 			csb_geom_t g;
 			memset (&g, 0, sizeof (g));
 			u32 base_tri = 0;
@@ -2685,8 +2673,7 @@ static enumError csb_write_file (ccp path, const u8 *data, u32 size)
 	return err;
 }
 
-enumError EncodeCSB (
-	const model_t *model, ccp out_csb_path, bool big_endian, bool map_object)
+enumError EncodeCSB (const model_t *model, ccp out_csb_path, bool big_endian, bool map_object)
 {
 	if (!model || !out_csb_path)
 		return ERR_INVALID_DATA;
@@ -2737,27 +2724,27 @@ enumError DumpCSB (FILE *f, const csb_t *csb)
 	{
 		const csb_object_t *o = csb->objects + i;
 		if (o->is_sphere)
-			fprintf (f, "  object %u: sphere '%s' center (%g,%g,%g) radius %g flag 0x%llx node %u\n",
-				i, o->name, o->p1.x, o->p1.y, o->p1.z, o->radius,
-				(unsigned long long)o->colflag, o->node_index);
+			fprintf (f,
+				"  object %u: sphere '%s' center (%g,%g,%g) radius %g flag 0x%llx node %u\n", i,
+				o->name, o->p1.x, o->p1.y, o->p1.z, o->radius, (unsigned long long)o->colflag,
+				o->node_index);
 		else
 			fprintf (f, "  object %u: box '%s' p1 (%g,%g,%g) size (%g,%g,%g) flag 0x%llx node %u\n",
-				i, o->name, o->p1.x, o->p1.y, o->p1.z, o->size.x, o->size.y,
-				o->size.z, (unsigned long long)o->colflag, o->node_index);
+				i, o->name, o->p1.x, o->p1.y, o->p1.z, o->size.x, o->size.y, o->size.z,
+				(unsigned long long)o->colflag, o->node_index);
 	}
 	for (u32 i = 0; i < csb->n_models; i++)
 	{
 		const csb_model_t *m = csb->models + i;
-		fprintf (f, "  model %u: '%s' %u vertices, %u triangles, bbox (%g,%g,%g)-(%g,%g,%g)\n",
-			i, m->name, m->n_positions, m->n_triangles, m->bbox.min.x, m->bbox.min.y,
-			m->bbox.min.z, m->bbox.max.x, m->bbox.max.y, m->bbox.max.z);
+		fprintf (f, "  model %u: '%s' %u vertices, %u triangles, bbox (%g,%g,%g)-(%g,%g,%g)\n", i,
+			m->name, m->n_positions, m->n_triangles, m->bbox.min.x, m->bbox.min.y, m->bbox.min.z,
+			m->bbox.max.x, m->bbox.max.y, m->bbox.max.z);
 		for (u32 j = 0; j < m->n_meshes; j++)
 		{
 			const csb_mesh_t *mesh = m->meshes + j;
-			fprintf (f, "    mesh %u: '%s' MAT%u FLAG%llu tris %u+%u vtx %u+%u node %d\n",
-				j, mesh->name, mesh->mat_attr, (unsigned long long)mesh->colflag,
-				mesh->tri_start, mesh->n_tris, mesh->vtx_start, mesh->n_vtx,
-				mesh->node_index);
+			fprintf (f, "    mesh %u: '%s' MAT%u FLAG%llu tris %u+%u vtx %u+%u node %d\n", j,
+				mesh->name, mesh->mat_attr, (unsigned long long)mesh->colflag, mesh->tri_start,
+				mesh->n_tris, mesh->vtx_start, mesh->n_vtx, mesh->node_index);
 		}
 		if (i)
 			fprintf (f, "    split flags: MAT%u FLAG%llu node %u\n", m->mat_attr,
@@ -2771,18 +2758,17 @@ enumError DumpCTB (FILE *f, const ctb_t *ctb)
 	if (!f || !ctb)
 		return ERR_INVALID_DATA;
 	fprintf (f, "CTB collision table (%s-endian): %u node(s), root size %g at (%g,%g,%g)\n",
-		ctb->big_endian ? "big" : "little", ctb->n_nodes, ctb->root_size,
-		ctb->root_position.x, ctb->root_position.y, ctb->root_position.z);
+		ctb->big_endian ? "big" : "little", ctb->n_nodes, ctb->root_size, ctb->root_position.x,
+		ctb->root_position.y, ctb->root_position.z);
 	u32 show = ctb->n_nodes > 16 ? 16 : ctb->n_nodes;
 	for (u32 i = 0; i < show; i++)
 	{
 		const ctb_node_t *n = ctb->nodes + i;
 		fprintf (f, "  node %u: pos (%g,%g,%g) size %g id %u children 0x%02x tris %u\n", i,
-			n->position.x, n->position.y, n->position.z, n->size, n->node_id,
-			n->child_bits, n->n_triangles);
+			n->position.x, n->position.y, n->position.z, n->size, n->node_id, n->child_bits,
+			n->n_triangles);
 	}
 	if (show < ctb->n_nodes)
 		fprintf (f, "  ... (%u more nodes)\n", ctb->n_nodes - show);
 	return ERR_OK;
 }
-

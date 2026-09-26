@@ -54,9 +54,10 @@ enum
 // both use the exact same layout (confirmed byte-for-byte identical).
 static enumError decode_vars_block (FILE *f, const u8 *data, size_t size, u32 vars_ofs, int indent)
 {
-	if ((u64) vars_ofs + EID_VARS_HEADER_SIZE > size || memcmp (data + vars_ofs, "VARS", 4))
+	if ((u64)vars_ofs + EID_VARS_HEADER_SIZE > size || memcmp (data + vars_ofs, "VARS", 4))
 	{
-		fprintf (f, "%*s# 'VARS' block at 0x%x invalid/out-of-bounds -- not decoded\n", indent, "", vars_ofs);
+		fprintf (f, "%*s# 'VARS' block at 0x%x invalid/out-of-bounds -- not decoded\n", indent, "",
+			vars_ofs);
 		return ERR_OK;
 	}
 
@@ -67,16 +68,16 @@ static enumError decode_vars_block (FILE *f, const u8 *data, size_t size, u32 va
 
 	for (u32 i = 0; i < field_count; i++)
 	{
-		if ((u64) ro + EID_FIELD_RECORD_SIZE > size)
+		if ((u64)ro + EID_FIELD_RECORD_SIZE > size)
 		{
 			fprintf (f, "%*s# field table truncated -- not decoded further\n", indent, "");
 			break;
 		}
 
 		u32 name_ofs = rd_be32 (data + ro);
-		u32 type     = rd_be32 (data + ro + 4);
+		u32 type = rd_be32 (data + ro + 4);
 		const u8 *tag = data + ro + 8;
-		u32 value    = rd_be32 (data + ro + 12);
+		u32 value = rd_be32 (data + ro + 12);
 		float valuef;
 		memcpy (&valuef, &value, 4);
 
@@ -115,7 +116,7 @@ static enumError decode_vars_block (FILE *f, const u8 *data, size_t size, u32 va
 
 int IsSpookyEid (const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!data || size < 0x14)
 		return 0;
 	if (memcmp (data, "EID\0", 4))
@@ -124,7 +125,7 @@ int IsSpookyEid (const u8 *data, size_t size, size_t file_size)
 		return 0;
 
 	u32 count = rd_be32 (data + 0x10);
-	if ((u64) 0x14 + (u64) count * EID_EFF_ENTRY_SIZE > size)
+	if ((u64)0x14 + (u64)count * EID_EFF_ENTRY_SIZE > size)
 		return 0;
 
 	// Validate the effect-table entries structurally so magic-only false
@@ -136,7 +137,7 @@ int IsSpookyEid (const u8 *data, size_t size, size_t file_size)
 		if (memcmp (data + o, "EFF\0", 4) || memcmp (data + o + 8, "OGG\0", 4))
 			return 0;
 		u32 vars_ofs = rd_be32 (data + o + 12);
-		if ((u64) vars_ofs + EID_VARS_HEADER_SIZE > size || memcmp (data + vars_ofs, "VARS", 4))
+		if ((u64)vars_ofs + EID_VARS_HEADER_SIZE > size || memcmp (data + vars_ofs, "VARS", 4))
 			return 0;
 		o += EID_EFF_ENTRY_SIZE;
 	}
@@ -156,8 +157,9 @@ enumError DecodeSpookyEid_Text (FILE *f, const u8 *data, size_t size, size_t fil
 	for (u32 i = 0; i < count; i++)
 	{
 		u32 string_tab_ofs = rd_be32 (data + o + 4);
-		u32 vars_ofs        = rd_be32 (data + o + 12);
-		fprintf (f, "\neffect[%u]: string_table_ofs=0x%x vars_ofs=0x%x\n", i, string_tab_ofs, vars_ofs);
+		u32 vars_ofs = rd_be32 (data + o + 12);
+		fprintf (
+			f, "\neffect[%u]: string_table_ofs=0x%x vars_ofs=0x%x\n", i, string_tab_ofs, vars_ofs);
 		decode_vars_block (f, data, size, vars_ofs, 2);
 		o += EID_EFF_ENTRY_SIZE;
 	}
@@ -167,7 +169,11 @@ enumError DecodeSpookyEid_Text (FILE *f, const u8 *data, size_t size, size_t fil
 //-----------------------------------------------------------------------------
 // (2) ".ast" "SDASSETF" asset-bundle container
 
-enum { AST_HEADER_SIZE = 16, AST_CHUNK_HEADER_SIZE = 16 };
+enum
+{
+	AST_HEADER_SIZE = 16,
+	AST_CHUNK_HEADER_SIZE = 16
+};
 
 // Returns 1 and sets *swapped if the 8-byte magic matches "SDASSETF"
 // either directly (big-endian samples) or word-swapped (little-endian
@@ -219,7 +225,7 @@ static int is_ascii_tag (const char tag[5])
 	int any = 0;
 	for (int i = 0; i < 4; i++)
 	{
-		u8 c = (u8) tag[i];
+		u8 c = (u8)tag[i];
 		if (c && (c < 0x20 || c >= 0x7f))
 			return 0;
 		if (c)
@@ -230,7 +236,7 @@ static int is_ascii_tag (const char tag[5])
 
 int IsSpookyAst (const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	int swapped = 0;
 	if (!check_ast_magic (data, size, &swapped))
 		return 0;
@@ -245,7 +251,7 @@ int IsSpookyAst (const u8 *data, size_t size, size_t file_size)
 	if (!is_ascii_tag (tag))
 		return 0;
 	u32 chunk_size = ast_u32 (data, AST_HEADER_SIZE + 8, swapped);
-	if ((u64) AST_HEADER_SIZE + AST_CHUNK_HEADER_SIZE + chunk_size > size)
+	if ((u64)AST_HEADER_SIZE + AST_CHUNK_HEADER_SIZE + chunk_size > size)
 		return 0;
 	return 1;
 }
@@ -258,7 +264,7 @@ enumError DecodeSpookyAst_Text (FILE *f, const u8 *data, size_t size, size_t fil
 	int swapped = 0;
 	check_ast_magic (data, size, &swapped);
 	u32 version = ast_u32 (data, 8, swapped);
-	u32 count   = ast_u32 (data, 12, swapped);
+	u32 count = ast_u32 (data, 12, swapped);
 
 	fprintf (f, "# I Spy Spooky Mansion \"SDASSETF\" asset-bundle container (.ast)\n");
 	fprintf (f, "byte_order = %s\n", swapped ? "little-endian (word-swapped)" : "big-endian");
@@ -273,24 +279,28 @@ enumError DecodeSpookyAst_Text (FILE *f, const u8 *data, size_t size, size_t fil
 		ast_tag (data, o, swapped, tag);
 		if (!is_ascii_tag (tag))
 			break;
-		u32 cver      = ast_u32 (data, o + 4, swapped);
+		u32 cver = ast_u32 (data, o + 4, swapped);
 		u32 chunksize = ast_u32 (data, o + 8, swapped);
-		u32 field4    = ast_u32 (data, o + 12, swapped);
-		if ((u64) o + AST_CHUNK_HEADER_SIZE + chunksize > size)
+		u32 field4 = ast_u32 (data, o + 12, swapped);
+		if ((u64)o + AST_CHUNK_HEADER_SIZE + chunksize > size)
 		{
-			fprintf (f, "\n# chunk table stops at offset 0x%x (out-of-bounds size field) --\n"
-				"# remainder not decoded, see lib-ispyspookymansion.h note (2)\n", o);
+			fprintf (f,
+				"\n# chunk table stops at offset 0x%x (out-of-bounds size field) --\n"
+				"# remainder not decoded, see lib-ispyspookymansion.h note (2)\n",
+				o);
 			break;
 		}
 
-		fprintf (f, "\nchunk[%u]: tag=\"%s\" version=0x%x size=%u field4=0x%x offset=0x%x\n",
-			n, tag, cver, chunksize, field4, o);
+		fprintf (f, "\nchunk[%u]: tag=\"%s\" version=0x%x size=%u field4=0x%x offset=0x%x\n", n,
+			tag, cver, chunksize, field4, o);
 
 		u64 end = (u64)o + AST_CHUNK_HEADER_SIZE + chunksize;
 		u64 next = (end + 15) & ~(u64)15;
 		if (next <= o || next > size)
 		{
-			fprintf (f, "# nested/sub-chunk payload not reverse-engineered -- see lib-ispyspookymansion.h note (2)\n");
+			fprintf (f,
+				"# nested/sub-chunk payload not reverse-engineered -- see lib-ispyspookymansion.h "
+				"note (2)\n");
 			break;
 		}
 		o = (u32)next;
@@ -298,8 +308,10 @@ enumError DecodeSpookyAst_Text (FILE *f, const u8 *data, size_t size, size_t fil
 	}
 
 	if (n < count)
-		fprintf (f, "\n# only %u of %u declared top-level chunks could be walked; the rest\n"
-			"# (or this chunk's nested payload) was not reverse-engineered\n", n, count);
+		fprintf (f,
+			"\n# only %u of %u declared top-level chunks could be walked; the rest\n"
+			"# (or this chunk's nested payload) was not reverse-engineered\n",
+			n, count);
 
 	return ERR_OK;
 }
@@ -307,11 +319,15 @@ enumError DecodeSpookyAst_Text (FILE *f, const u8 *data, size_t size, size_t fil
 //-----------------------------------------------------------------------------
 // (3) ".sdf" asset-type registry table
 
-enum { SDF_HEADER_SIZE = 16, SDF_TYPE_RECORD_SIZE = 12 };
+enum
+{
+	SDF_HEADER_SIZE = 16,
+	SDF_TYPE_RECORD_SIZE = 12
+};
 
 int IsSpookySdf (const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!data || size < SDF_HEADER_SIZE)
 		return 0;
 	if (memcmp (data, "SDF\0", 4))
@@ -320,7 +336,7 @@ int IsSpookySdf (const u8 *data, size_t size, size_t file_size)
 		return 0;
 
 	u32 count = rd_be32 (data + 0xc);
-	if ((u64) SDF_HEADER_SIZE + (u64) count * SDF_TYPE_RECORD_SIZE > size)
+	if ((u64)SDF_HEADER_SIZE + (u64)count * SDF_TYPE_RECORD_SIZE > size)
 		return 0;
 
 	u32 o = SDF_HEADER_SIZE;
@@ -352,12 +368,12 @@ enumError DecodeSpookySdf_Text (FILE *f, const u8 *data, size_t size, size_t fil
 		u32 len = rd_be32 (data + o + 8);
 
 		fprintf (f, "\ntype[%u]: tag=\"%s\" length=%u body_ofs=0x%x\n", i, type_tag, len, body_ofs);
-		if ((u64) body_ofs + EID_VARS_HEADER_SIZE <= size && !memcmp (data + body_ofs, "VARS", 4))
+		if ((u64)body_ofs + EID_VARS_HEADER_SIZE <= size && !memcmp (data + body_ofs, "VARS", 4))
 			decode_vars_block (f, data, size, body_ofs, 2);
 		else
 			fprintf (f, "  # type body is not a 'VARS' record table -- not decoded\n");
 
-		if ((u64) body_ofs + len > size)
+		if ((u64)body_ofs + len > size)
 			break;
 		body_ofs += len;
 		o += SDF_TYPE_RECORD_SIZE;
@@ -368,11 +384,15 @@ enumError DecodeSpookySdf_Text (FILE *f, const u8 *data, size_t size, size_t fil
 //-----------------------------------------------------------------------------
 // (4) ".ges" Wiimote gesture recording
 
-enum { GES_SIZE = 136, GES_POINT_COUNT = 10 };
+enum
+{
+	GES_SIZE = 136,
+	GES_POINT_COUNT = 10
+};
 
 int IsSpookyGes (const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!data || size != GES_SIZE)
 		return 0;
 	if (rd_be32 (data) != GES_POINT_COUNT)

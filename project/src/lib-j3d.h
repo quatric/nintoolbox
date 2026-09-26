@@ -58,7 +58,7 @@ typedef struct j3d_encode_opt_t
 void SetupDefaultJ3DEncodeOpt (j3d_encode_opt_t *opt);
 
 // GLB/model -> BMD (is_bdl=0) or BDL (is_bdl=1).
-enumError EncodeModelToJ3D (const model_t *model, const char *out_path,
-	const j3d_encode_opt_t *opt);
+enumError EncodeModelToJ3D (
+	const model_t *model, const char *out_path, const j3d_encode_opt_t *opt);
 
 #endif

@@ -1,5 +1,5 @@
-	FREE (packed);
-	return err;
+FREE (packed);
+return err;
 }
 
 static enumError cmd_compress ()
@@ -342,7 +342,9 @@ static enumError decompress_nintendo_file3 (
 	// without the magic path here the inner frame is left undecoded on the
 	// second hop.  (Contrast IsZlib, whose 2-byte check stays gated on
 	// !dest_out because it false-positives on arbitrary data.)
-	if ((src_ext && (!strcasecmp (src_ext, ".zs") || !strcasecmp (src_ext, ".zst") || !strcasecmp (src_ext, ".zstd")))
+	if ((src_ext
+			&& (!strcasecmp (src_ext, ".zs") || !strcasecmp (src_ext, ".zst")
+				|| !strcasecmp (src_ext, ".zstd")))
 		|| (size >= 4 && IsZSTD (data, size) > 0))
 	{
 		err = DecodeZSTD (&decoded, &decoded_size, data, size);
@@ -377,7 +379,9 @@ static enumError decompress_nintendo_file3 (
 			snprintf (dest, sizeof (dest), "%s", arg);
 			char *dot = strrchr (dest, '.');
 			bool stripped = false;
-			if (dot && (!strcasecmp (dot, ".zs") || !strcasecmp (dot, ".zst") || !strcasecmp (dot, ".zstd")))
+			if (dot
+				&& (!strcasecmp (dot, ".zs") || !strcasecmp (dot, ".zst")
+					|| !strcasecmp (dot, ".zstd")))
 			{
 				*dot = 0;
 				stripped = true;
@@ -427,8 +431,7 @@ static enumError decompress_nintendo_file3 (
 	// LZ4 frame and skippable-frame magics are unambiguous.  As with zstd
 	// above, use them at every XX recursion level rather than requiring a
 	// .lz4 suffix on an extracted member.
-	if ((src_ext && !strcasecmp (src_ext, ".lz4"))
-		|| (size >= 4 && IsLZ4 (data, size) > 0))
+	if ((src_ext && !strcasecmp (src_ext, ".lz4")) || (size >= 4 && IsLZ4 (data, size) > 0))
 	{
 		err = DecodeLZ4 (&decoded, &decoded_size, data, size);
 		FREE (data);
@@ -636,10 +639,9 @@ static enumError decompress_nintendo_file3 (
 	{
 		// Recursive extraction probes arbitrary files, so a failed candidate
 		// is quiet there. An explicit DECOMPRESS must report a codec failure.
-		return report_error
-			? ERROR0 (ERR_INVALID_DATA, "Can't decompress %s data: %s\n",
-				GetNintendoFormatName (info.type), arg)
-			: ERR_NOTHING_TO_DO;
+		return report_error ? ERROR0 (ERR_INVALID_DATA, "Can't decompress %s data: %s\n",
+								  GetNintendoFormatName (info.type), arg)
+							: ERR_NOTHING_TO_DO;
 	}
 
 	char dest[PATH_MAX];

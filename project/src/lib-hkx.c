@@ -11,8 +11,8 @@
 
 //-----------------------------------------------------------------------------
 
-#define HKX_MAGIC0   0x57e0e057
-#define HKX_MAGIC1   0x10c0c010
+#define HKX_MAGIC0 0x57e0e057
+#define HKX_MAGIC1 0x10c0c010
 #define HKX_HDR_SIZE 0x40 // through contentsVersion[16] + 16 bytes padding
 #define HKX_SEC_SIZE 48
 #define HKX_MAX_SECTIONS 64
@@ -29,8 +29,8 @@ int IsHKX (const u8 *data, size_t size, size_t file_size)
 typedef struct hkx_section_t
 {
 	char name[21];
-	u32  data_start;
-	u32  end_offset; // relative to data_start
+	u32 data_start;
+	u32 end_offset; // relative to data_start
 } hkx_section_t;
 
 enumError DecodeHKX_Text (FILE *f, const u8 *data, size_t size, size_t file_size)
@@ -38,21 +38,21 @@ enumError DecodeHKX_Text (FILE *f, const u8 *data, size_t size, size_t file_size
 	if (!f || !IsHKX (data, size, file_size))
 		return EINVAL;
 
-	const u32 user_tag       = be32 (data + 0x08);
-	const u32 file_version   = be32 (data + 0x0c);
-	const u8  ptr_size       = data[0x10];
-	const u8  little_endian  = data[0x11];
-	const u32 num_sections   = be32 (data + 0x14);
-	const u32 cont_sec_idx   = be32 (data + 0x18);
-	const u32 cont_sec_off   = be32 (data + 0x1c);
-	const u32 cont_cls_idx   = be32 (data + 0x20);
-	const u32 cont_cls_off   = be32 (data + 0x24);
+	const u32 user_tag = be32 (data + 0x08);
+	const u32 file_version = be32 (data + 0x0c);
+	const u8 ptr_size = data[0x10];
+	const u8 little_endian = data[0x11];
+	const u32 num_sections = be32 (data + 0x14);
+	const u32 cont_sec_idx = be32 (data + 0x18);
+	const u32 cont_sec_off = be32 (data + 0x1c);
+	const u32 cont_cls_idx = be32 (data + 0x20);
+	const u32 cont_cls_off = be32 (data + 0x24);
 
 	char version[17];
 	memcpy (version, data + 0x28, 16);
 	version[16] = 0;
 	for (int i = 0; i < 16; i++)
-		if (!isprint ((unsigned char) version[i]))
+		if (!isprint ((unsigned char)version[i]))
 		{
 			version[i] = 0;
 			break;
@@ -101,17 +101,17 @@ enumError DecodeHKX_Text (FILE *f, const u8 *data, size_t size, size_t file_size
 		for (int c = 0; c < 20; c++)
 			if (!name[c])
 				break;
-			else if (!isprint ((unsigned char) name[c]))
+			else if (!isprint ((unsigned char)name[c]))
 			{
 				name[c] = 0;
 				break;
 			}
 
 		const u32 data_start = be32 (s + 20);
-		const u32 end_off    = be32 (s + 44);
+		const u32 end_off = be32 (s + 44);
 
-		fprintf (f, "  [%u] %-16s data_start=0x%06x size=0x%06x (ends 0x%06x)\n",
-			i, name, data_start, end_off, data_start + end_off);
+		fprintf (f, "  [%u] %-16s data_start=0x%06x size=0x%06x (ends 0x%06x)\n", i, name,
+			data_start, end_off, data_start + end_off);
 
 		if (nsec < HKX_MAX_SECTIONS)
 		{
@@ -134,7 +134,7 @@ enumError DecodeHKX_Text (FILE *f, const u8 *data, size_t size, size_t file_size
 			continue;
 
 		const size_t start = sec[i].data_start;
-		const size_t end   = start + sec[i].end_offset;
+		const size_t end = start + sec[i].end_offset;
 		if (start >= size || end > size || end <= start)
 			break;
 
@@ -144,7 +144,7 @@ enumError DecodeHKX_Text (FILE *f, const u8 *data, size_t size, size_t file_size
 		while (p < end)
 		{
 			if ((data[p] == 'h' && p + 1 < end && (data[p + 1] == 'k' || data[p + 1] == 'c'))
-				&& isupper ((unsigned char) data[p + 2]))
+				&& isupper ((unsigned char)data[p + 2]))
 			{
 				size_t q = p;
 				while (q < end && data[q])
@@ -152,7 +152,7 @@ enumError DecodeHKX_Text (FILE *f, const u8 *data, size_t size, size_t file_size
 				size_t len = q - p;
 				if (len >= 3 && len < 128)
 				{
-					fprintf (f, "  %.*s\n", (int) len, data + p);
+					fprintf (f, "  %.*s\n", (int)len, data + p);
 					n_classes++;
 					p = q;
 					continue;

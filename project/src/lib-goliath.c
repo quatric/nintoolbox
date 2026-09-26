@@ -38,8 +38,14 @@
 // Sanity caps so a corrupt size field cannot make us allocate wildly.
 #define GS_MAX_RECORDS 0x40000
 
-static u32 gs_rd32 (const u8 *p) { return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
-static u16 gs_rd16 (const u8 *p) { return (u16)((u16)p[0] << 8 | p[1]); }
+static u32 gs_rd32 (const u8 *p)
+{
+	return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
+}
+static u16 gs_rd16 (const u8 *p)
+{
+	return (u16)((u16)p[0] << 8 | p[1]);
+}
 
 // Walk one level of the tree; returns false unless the children consume
 // [off,end) exactly. Every chunk must carry the high id bit, a zero size
@@ -179,7 +185,8 @@ static void gs_collect (gs_scan_t *s, size_t off, size_t end, uint depth)
 
 		// A resource wrapper's typed children are done; record what it was
 		// so the manifest can list even the types not decoded here.
-		if (id == GS_ID_RESOURCE && s->cur_name && !gs_push (&s->resources, body, size, s->cur_name))
+		if (id == GS_ID_RESOURCE && s->cur_name
+			&& !gs_push (&s->resources, body, size, s->cur_name))
 			s->overflow = true;
 
 		off = body + size;
@@ -463,8 +470,8 @@ static void gs_extract_audio (gs_scan_t *s, gs_out_t *out)
 			uint size = 0;
 			u8 *dsp = gs_make_dsp (fmt, data, data_size, srate, samples, 0, &size);
 			if (dsp)
-				gs_emit (out, gs_member_name ("audio", i, s->audio_desc.v[i].name, ".dsp"), dsp,
-					size);
+				gs_emit (
+					out, gs_member_name ("audio", i, s->audio_desc.v[i].name, ".dsp"), dsp, size);
 			continue;
 		}
 

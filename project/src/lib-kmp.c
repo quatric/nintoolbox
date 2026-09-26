@@ -6451,7 +6451,10 @@ int CheckKMP (
 	char buf[50];
 	u8 done[0x100];
 
-	enum { route_usage_size = 0xff };
+	enum
+	{
+		route_usage_size = 0xff
+	};
 	u8 route_usage[route_usage_size];
 	memset (route_usage, 0, sizeof (route_usage));
 	enum

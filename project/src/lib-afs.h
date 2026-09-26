@@ -23,7 +23,7 @@ typedef struct afs_entry_t
 {
 	u32 offset;
 	u32 size;
-	char name[33];			// from the metadata table, or empty if absent
+	char name[33]; // from the metadata table, or empty if absent
 	u16 year, month, day;
 	u16 hour, minute, second;
 } afs_entry_t;
@@ -34,7 +34,7 @@ typedef struct afs_t
 	size_t raw_size;
 	uint n_entries;
 	afs_entry_t *entries;
-	u32 meta_offset;		// 0 if no metadata table was found/usable
+	u32 meta_offset; // 0 if no metadata table was found/usable
 	u32 meta_size;
 } afs_t;
 

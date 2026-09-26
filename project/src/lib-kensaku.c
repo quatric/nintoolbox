@@ -44,17 +44,17 @@ static enumError ScanKensakuPres (kensaku_t *k, u8 *blob, uint blob_size, uint c
 		return EINVAL;
 	}
 
-	// End of the 0x20-byte entry table that starts right after the 0x80-byte
-	// header. The u32 at header offset 0x60 holds it directly for almost every
-	// archive; a few (menu, system) leave it zero and instead the u32 at 0x80
-	// -- the first member's data offset -- marks the end because the member
-	// blob follows the table immediately. Auriemma's and_kensaku.bms only
-	// knows the second form and mis-sizes the rest, so it over-runs into the
-	// trailing SSA/animation chunk region; we keep both and, below, also stop
-	// at the first entry whose 16 reserved bytes are non-zero.
-	#define KENSAKU_TABLE_END_OK(v) \
-		((v) >= KENSAKU_PRES_HEADER && (v) <= blob_size \
-			&& !(((v) - KENSAKU_PRES_HEADER) % KENSAKU_ENTRY_SIZE))
+// End of the 0x20-byte entry table that starts right after the 0x80-byte
+// header. The u32 at header offset 0x60 holds it directly for almost every
+// archive; a few (menu, system) leave it zero and instead the u32 at 0x80
+// -- the first member's data offset -- marks the end because the member
+// blob follows the table immediately. Auriemma's and_kensaku.bms only
+// knows the second form and mis-sizes the rest, so it over-runs into the
+// trailing SSA/animation chunk region; we keep both and, below, also stop
+// at the first entry whose 16 reserved bytes are non-zero.
+#define KENSAKU_TABLE_END_OK(v)                                                                    \
+	((v) >= KENSAKU_PRES_HEADER && (v) <= blob_size                                                \
+		&& !(((v) - KENSAKU_PRES_HEADER) % KENSAKU_ENTRY_SIZE))
 	u32 table_end = rd_le32 (blob + 0x60);
 	if (!KENSAKU_TABLE_END_OK (table_end))
 		table_end = rd_le32 (blob + KENSAKU_PRES_HEADER);
@@ -67,13 +67,17 @@ static enumError ScanKensakuPres (kensaku_t *k, u8 *blob, uint blob_size, uint c
 			const u8 *r = blob + table_end;
 			bool zero = true;
 			for (uint j = 0x10; j < KENSAKU_ENTRY_SIZE; j++)
-				if (r[j]) { zero = false; break; }
+				if (r[j])
+				{
+					zero = false;
+					break;
+				}
 			if (!zero)
 				break;
 			table_end += KENSAKU_ENTRY_SIZE;
 		}
 	}
-	#undef KENSAKU_TABLE_END_OK
+#undef KENSAKU_TABLE_END_OK
 	uint n = (table_end - KENSAKU_PRES_HEADER) / KENSAKU_ENTRY_SIZE;
 	if (!n || n > KENSAKU_MAX_ENTRIES)
 	{
@@ -108,7 +112,11 @@ static enumError ScanKensakuPres (kensaku_t *k, u8 *blob, uint blob_size, uint c
 		// into the trailing chunk region -- stop, don't emit garbage.
 		bool tail_zero = true;
 		for (uint j = 0x10; j < KENSAKU_ENTRY_SIZE; j++)
-			if (rec[j]) { tail_zero = false; break; }
+			if (rec[j])
+			{
+				tail_zero = false;
+				break;
+			}
 		if (!tail_zero)
 			break;
 
@@ -153,13 +161,16 @@ static enumError ScanKensakuPres (kensaku_t *k, u8 *blob, uint blob_size, uint c
 		{
 			bool clash = false;
 			for (uint p = 0; p < used; p++)
-				if (!strcmp (entries[p].name, rel)) { clash = true; break; }
+				if (!strcmp (entries[p].name, rel))
+				{
+					clash = true;
+					break;
+				}
 			if (!clash)
 				break;
 			ccp dot = strrchr (orig, '.');
 			if (dot && dot != orig)
-				snprintf (rel, sizeof (rel), "%.*s~%u%s",
-					(int)(dot - orig), orig, dup, dot);
+				snprintf (rel, sizeof (rel), "%.*s~%u%s", (int)(dot - orig), orig, dup, dot);
 			else
 				snprintf (rel, sizeof (rel), "%s~%u", orig, dup);
 		}

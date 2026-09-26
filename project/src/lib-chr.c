@@ -349,8 +349,8 @@ enumError ScanRawCHR0 (chr0_t *chr, bool init_chr, const void *data, uint data_s
 		const uint entry_pos = data_off + entry_off; // absolute file position
 
 		const u64 name_pos = (u64)data_off + name_off;
-		ccp name = name_off && name_pos < data_size
-				&& memchr (base + name_pos, 0, data_size - name_pos)
+		ccp name
+			= name_off && name_pos < data_size && memchr (base + name_pos, 0, data_size - name_pos)
 			? (ccp)(base + name_pos)
 			: "";
 		chr0_entry_t *e = AppendEntryCHR0 (chr, name);

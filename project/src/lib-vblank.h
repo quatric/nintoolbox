@@ -27,9 +27,11 @@
 #include "lib-nintendo.h"
 
 bool IsVblankBfp (const u8 *data, size_t size);
-enumError ScanVblankBfp (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size);
+enumError ScanVblankBfp (
+	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size);
 
 bool IsVblankBap (const u8 *data, size_t size);
-enumError ScanVblankBap (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size);
+enumError ScanVblankBap (
+	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size);
 
 #endif // SZS_LIB_VBLANK_H

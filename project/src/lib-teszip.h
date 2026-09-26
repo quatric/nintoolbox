@@ -46,36 +46,34 @@
 //   offset 0x1e  ...  name[name_len], extra[extra_len], payload[comp_size]
 #define TE_ZIP_LOCAL_HEADER_SIZE 0x1e
 
-#define TE_ZIP_LOCAL_MAGIC   0x04034b50  // "PK\x03\x04"
-#define TE_ZIP_CENTRAL_MAGIC 0x02014b50  // "PK\x01\x02"
-#define TE_ZIP_END_MAGIC     0x06054b50  // "PK\x05\x06"
+#define TE_ZIP_LOCAL_MAGIC 0x04034b50 // "PK\x03\x04"
+#define TE_ZIP_CENTRAL_MAGIC 0x02014b50 // "PK\x01\x02"
+#define TE_ZIP_END_MAGIC 0x06054b50 // "PK\x05\x06"
 
 //-----------------------------------------------------------------------------
 // One decoded (and, for deflate entries, inflated) entry.
 typedef struct te_zip_entry_t
 {
-	char  name[256];	// NUL-terminated, truncated if longer
-	u16   method;
-	u32   crc32;
-	u32   comp_size;
-	u32   uncomp_size;
-	u8    *data;		// MALLOC'd uncompressed payload, uncomp_size bytes
-}
-te_zip_entry_t;
+	char name[256]; // NUL-terminated, truncated if longer
+	u16 method;
+	u32 crc32;
+	u32 comp_size;
+	u32 uncomp_size;
+	u8 *data; // MALLOC'd uncompressed payload, uncomp_size bytes
+} te_zip_entry_t;
 
 typedef struct te_zip_list_t
 {
 	te_zip_entry_t *entry;
-	uint            n;
-	uint            n_alloc;
-}
-te_zip_list_t;
+	uint n;
+	uint n_alloc;
+} te_zip_list_t;
 
 //-----------------------------------------------------------------------------
 // Magic-only probe: true if 'data' begins with a PKZIP local file header
 // whose fixed fields are internally consistent (method is 0 or 8, name_len
 // is plausible and the header+name fits within 'size').
-int IsTEZip ( const u8 *data, size_t size );
+int IsTEZip (const u8 *data, size_t size);
 
 // Walks every sequential local file header starting at offset 0, stopping
 // at the first non-local-file-header signature (central directory / end of
@@ -83,13 +81,13 @@ int IsTEZip ( const u8 *data, size_t size );
 // payload. Returns ERR_OK and a populated, caller-owned list (free with
 // FreeTEZipList) even if zero entries were found; returns an error only on
 // a structurally malformed header (never on "ran out of entries").
-enumError DecodeTEZip ( te_zip_list_t *list, const u8 *data, size_t size );
+enumError DecodeTEZip (te_zip_list_t *list, const u8 *data, size_t size);
 
 // Frees every entry's data buffer and the entry array itself.
-void FreeTEZipList ( te_zip_list_t *list );
+void FreeTEZipList (te_zip_list_t *list);
 
 // Text dump: one line per entry (index, method, comp/uncomp size, crc32,
 // name). Does not require the entries to have been inflated.
-enumError DecodeTEZip_Text ( FILE *f, const u8 *data, size_t size );
+enumError DecodeTEZip_Text (FILE *f, const u8 *data, size_t size);
 
 #endif // LIB_TESZIP_H

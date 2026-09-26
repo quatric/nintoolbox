@@ -45,17 +45,17 @@ enumError DecodeSmashATKD_Text (FILE *out, const u8 *data, size_t size)
 	if (!out || !smashatkd_ok (data, size, &n))
 		return ERR_INVALID_DATA;
 
-	fprintf (out, "#ATKD\n# Super Smash Bros. 4 attack/subaction frame rects\n\n"
+	fprintf (out,
+		"#ATKD\n# Super Smash Bros. 4 attack/subaction frame rects\n\n"
 		"entries = %u\ncommon_subactions = %u\nunique_subactions = %u\n\n"
 		"[entries]\n# idx | subaction | frames | x_min x_max y_min y_max\n",
 		n, rd_be32 (data + 8), rd_be32 (data + 12));
 	for (u32 i = 0; i < n; i++)
 	{
 		const u8 *e = data + 16 + (size_t)i * 24;
-		fprintf (out, "%u | %u | %u..%u | %.6g %.6g %.6g %.6g\n", i,
-			rd_be16 (e), rd_be16 (e + 4), rd_be16 (e + 6),
-			smashatkd_f32 (e + 8), smashatkd_f32 (e + 12),
-			smashatkd_f32 (e + 16), smashatkd_f32 (e + 20));
+		fprintf (out, "%u | %u | %u..%u | %.6g %.6g %.6g %.6g\n", i, rd_be16 (e), rd_be16 (e + 4),
+			rd_be16 (e + 6), smashatkd_f32 (e + 8), smashatkd_f32 (e + 12), smashatkd_f32 (e + 16),
+			smashatkd_f32 (e + 20));
 	}
 	return ERR_OK;
 }

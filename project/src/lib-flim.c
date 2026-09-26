@@ -174,14 +174,12 @@ static enumError decode_etc1a4_tiled_surface (
 
 enumError decode_etc1_tiled (u8 *rgba, const u8 *src, uint w, uint h, uint data_size)
 {
-	return decode_etc1_tiled_surface (
-		rgba, src, w, h, (w + 7) & ~7u, (h + 7) & ~7u, data_size);
+	return decode_etc1_tiled_surface (rgba, src, w, h, (w + 7) & ~7u, (h + 7) & ~7u, data_size);
 }
 
 enumError decode_etc1a4_tiled (u8 *rgba, const u8 *src, uint w, uint h, uint data_size)
 {
-	return decode_etc1a4_tiled_surface (
-		rgba, src, w, h, (w + 7) & ~7u, (h + 7) & ~7u, data_size);
+	return decode_etc1a4_tiled_surface (rgba, src, w, h, (w + 7) & ~7u, (h + 7) & ~7u, data_size);
 }
 
 static void bc1_block_wrap (const u8 *b, u8 *out)
@@ -369,8 +367,10 @@ enumError DecodeFLIM_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, 
 		{
 			storage_w = 8;
 			storage_h = 8;
-			while (storage_w < w) storage_w <<= 1;
-			while (storage_h < h) storage_h <<= 1;
+			while (storage_w < w)
+				storage_w <<= 1;
+			while (storage_h < h)
+				storage_h <<= 1;
 		}
 		enumError err = fmt == 11
 			? decode_etc1a4_tiled_surface (rgba, src, w, h, storage_w, storage_h, data_size)

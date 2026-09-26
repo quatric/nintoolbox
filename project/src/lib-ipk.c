@@ -18,8 +18,7 @@
 // Assign the two on-disk strings to (path, name). Older titles store
 // name first, newer ones path first; the dotted string is the file name
 // (just_dance_2014.bms heuristic), the slash-bearing string is the path.
-static void ipk_split_names (const char *s1, const char *s2,
-	ccp *out_path, ccp *out_name)
+static void ipk_split_names (const char *s1, const char *s2, ccp *out_path, ccp *out_name)
 {
 	const bool s1_slash = strchr (s1, '/') != 0 || strchr (s1, '\\') != 0;
 	const bool s2_slash = strchr (s2, '/') != 0 || strchr (s2, '\\') != 0;
@@ -60,8 +59,7 @@ static void ipk_split_names (const char *s1, const char *s2,
 
 enumError ScanIPK (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
 {
-	if (!entries || !n_entries || !data || size < IPK_HEADER_SIZE
-		|| rd_be32 (data) != IPK_MAGIC)
+	if (!entries || !n_entries || !data || size < IPK_HEADER_SIZE || rd_be32 (data) != IPK_MAGIC)
 		return EINVAL;
 	*entries = 0;
 	*n_entries = 0;
@@ -235,8 +233,7 @@ enumError ScanIPK (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 		{
 			u8 *dec = 0;
 			uint dec_size = 0;
-			if (DecodeZlibGrow (&dec, &dec_size, sptr, zsize) == ERR_OK
-				&& dec && dec_size == fsize)
+			if (DecodeZlibGrow (&dec, &dec_size, sptr, zsize) == ERR_OK && dec && dec_size == fsize)
 				ok = OwnedEntryAdd (out, n, name, dec, dec_size);
 			else
 			{
@@ -249,8 +246,8 @@ enumError ScanIPK (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 				// Gated on the quiet IsLZMA() sniff: DecodeLZMAbin
 				// logs on failure, so never call it blindly.
 				if (IsLZMA (sptr, zsize) >= 0
-					&& DecodeLZMAbin (&ldec, &ldec_size, 0, sptr, zsize) == ERR_OK
-					&& ldec && ldec_size == fsize)
+					&& DecodeLZMAbin (&ldec, &ldec_size, 0, sptr, zsize) == ERR_OK && ldec
+					&& ldec_size == fsize)
 					ok = OwnedEntryAdd (out, n, name, ldec, ldec_size);
 				else
 				{

@@ -43,8 +43,8 @@ enumError DecodeDKZF (const u8 *data, size_t size, u8 **dest, uint *dest_size)
 		return ERR_OUT_OF_MEMORY;
 
 	uLongf destLen = dsize;
-	const int zerr = uncompress (out, &destLen, data + DKZF_HEADER_SIZE,
-		(uLong)(size - DKZF_HEADER_SIZE));
+	const int zerr
+		= uncompress (out, &destLen, data + DKZF_HEADER_SIZE, (uLong)(size - DKZF_HEADER_SIZE));
 	if (zerr != Z_OK || destLen != dsize)
 	{
 		FREE (out);
@@ -60,14 +60,14 @@ enumError DecodeDKZF (const u8 *data, size_t size, u8 **dest, uint *dest_size)
 // (2) ".chd" / ".c3d" "CHDp" / "C3Dp" + ".cbd" hit-sound bank
 
 #define DKSB_BASE_HEADER_SIZE 16
-#define DKSB_ENTRY_SIZE       176
-#define DKSB_MAX_ENTRIES      4096
+#define DKSB_ENTRY_SIZE 176
+#define DKSB_MAX_ENTRIES 4096
 
 // Offsets within one 176-byte entry.
-#define DKSB_E_OFFSET      0x00
-#define DKSB_E_NIBBLES     0x54
-#define DKSB_E_SRATE       0x58
-#define DKSB_E_COEF        0x68
+#define DKSB_E_OFFSET 0x00
+#define DKSB_E_NIBBLES 0x54
+#define DKSB_E_SRATE 0x58
+#define DKSB_E_COEF 0x68
 
 static bool dksb_check_magic (const u8 *data, size_t size)
 {
@@ -95,8 +95,8 @@ bool IsDKSoundBank (const u8 *chd_data, size_t chd_size)
 	return table_end <= chd_size;
 }
 
-enumError ScanDKSoundBank (nintendo_sarc_entry_t **entries, uint *n_entries,
-	const u8 *chd_data, size_t chd_size, const u8 *cbd_data, size_t cbd_size)
+enumError ScanDKSoundBank (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *chd_data,
+	size_t chd_size, const u8 *cbd_data, size_t cbd_size)
 {
 	if (entries)
 		*entries = 0;

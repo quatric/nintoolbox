@@ -8,11 +8,11 @@
 #include <stdio.h>
 #include <string.h>
 
-#define MAGMA_FAT_RECORD_MIN   21   // 20-byte fixed part + at least a NUL
-#define MAGMA_FAT_MAX_RECORDS  200000 // sanity cap
-#define MAGMA_FAT_MAX_PATH     4096   // sanity cap on a single path_len
+#define MAGMA_FAT_RECORD_MIN 21 // 20-byte fixed part + at least a NUL
+#define MAGMA_FAT_MAX_RECORDS 200000 // sanity cap
+#define MAGMA_FAT_MAX_PATH 4096 // sanity cap on a single path_len
 
-#define MAGMA_BF_HEADER_SIZE   16
+#define MAGMA_BF_HEADER_SIZE 16
 
 //-----------------------------------------------------------------------------
 
@@ -104,9 +104,8 @@ enumError DecodeMagmaFat_Text (FILE *f, const u8 *data, size_t size, size_t file
 		if (off + 20 + path_len > size)
 			break;
 
-		fprintf (f, "%5u  0x%08x 0x%08x 0x%08x %5u  %.*s\n",
-			idx, self_off, data_off, data_size, zero,
-			(int)(path_len ? path_len - 1 : 0), e + 20);
+		fprintf (f, "%5u  0x%08x 0x%08x 0x%08x %5u  %.*s\n", idx, self_off, data_off, data_size,
+			zero, (int)(path_len ? path_len - 1 : 0), e + 20);
 
 		off += 20 + path_len;
 		idx++;
@@ -132,7 +131,7 @@ int IsMagmaBigfile (const u8 *data, size_t size, size_t file_size)
 	if (!field_c || field_c > 4096)
 		return 0;
 
-	(void) file_size;
+	(void)file_size;
 	return 1;
 }
 
@@ -170,17 +169,16 @@ enumError ExtractMagmaFat (ccp fat_path, ccp data_path, ccp dest_dir)
 	while (off + 20 <= fat_size)
 	{
 		const u8 *e = fat + off;
-		u32 data_off  = rd_le32 (e + 4);
+		u32 data_off = rd_le32 (e + 4);
 		u32 data_size = rd_le32 (e + 8);
-		u32 path_len  = rd_le32 (e + 16);
+		u32 path_len = rd_le32 (e + 16);
 		if (off + 20 + path_len > fat_size)
 			break;
 		ccp path = (ccp)(e + 20);
 
 		if (!OwnedNameOk (path))
 		{
-			fprintf (stderr,
-				"WARNING: Magma entry '%s' has unsafe path -- skipped\n", path);
+			fprintf (stderr, "WARNING: Magma entry '%s' has unsafe path -- skipped\n", path);
 			off += 20 + path_len;
 			result = ERR_WARNING;
 			continue;
@@ -189,7 +187,8 @@ enumError ExtractMagmaFat (ccp fat_path, ccp data_path, ccp dest_dir)
 		if (data_total < 0 || (u64)data_off + data_size > (u64)data_total)
 		{
 			fprintf (stderr,
-				"WARNING: Magma entry '%s' (offset 0x%x, size 0x%x) exceeds '%s' (%ld bytes) -- skipped\n",
+				"WARNING: Magma entry '%s' (offset 0x%x, size 0x%x) exceeds '%s' (%ld bytes) -- "
+				"skipped\n",
 				path, data_off, data_size, data_path, data_total);
 			off += 20 + path_len;
 			result = ERR_WARNING;
@@ -203,16 +202,15 @@ enumError ExtractMagmaFat (ccp fat_path, ccp data_path, ccp dest_dir)
 		u8 *buf = MALLOC (data_size ? data_size : 1);
 		if (!buf)
 		{
-			fprintf (stderr, "WARNING: out of memory for Magma entry '%s' -- skipped\n",
-				path);
+			fprintf (stderr, "WARNING: out of memory for Magma entry '%s' -- skipped\n", path);
 			off += 20 + path_len;
 			result = ERR_WARNING;
 			continue;
 		}
 		if (fseek (df, data_off, SEEK_SET) || fread (buf, 1, data_size, df) != data_size)
 		{
-			fprintf (stderr, "WARNING: failed to read Magma entry '%s' from '%s'\n",
-				path, data_path);
+			fprintf (
+				stderr, "WARNING: failed to read Magma entry '%s' from '%s'\n", path, data_path);
 			FREE (buf);
 			off += 20 + path_len;
 			result = ERR_WARNING;

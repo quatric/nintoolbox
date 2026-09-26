@@ -302,18 +302,21 @@ enumError ScanATB (atb_archive_t *atb, const u8 *data, uint size)
 			const u32 pal_off = rd_be32 (tp + 12);
 			const u32 img_off = rd_be32 (tp + 16);
 
-			if (atb->textures[i].palette_size > 0 && pal_off + atb->textures[i].palette_size * 2 <= size)
+			if (atb->textures[i].palette_size > 0
+				&& pal_off + atb->textures[i].palette_size * 2 <= size)
 			{
 				atb->textures[i].palette_data = MALLOC (atb->textures[i].palette_size * 2);
 				if (atb->textures[i].palette_data)
-					memcpy (atb->textures[i].palette_data, data + pal_off, atb->textures[i].palette_size * 2);
+					memcpy (atb->textures[i].palette_data, data + pal_off,
+						atb->textures[i].palette_size * 2);
 			}
 
 			if (atb->textures[i].image_size > 0 && img_off + atb->textures[i].image_size <= size)
 			{
 				atb->textures[i].image_data = MALLOC (atb->textures[i].image_size);
 				if (atb->textures[i].image_data)
-					memcpy (atb->textures[i].image_data, data + img_off, atb->textures[i].image_size);
+					memcpy (
+						atb->textures[i].image_data, data + img_off, atb->textures[i].image_size);
 			}
 		}
 	}
@@ -572,7 +575,8 @@ enumError create_atb_dir (ccp source, ccp dest)
 		char rname[256], pname[256];
 		rname[0] = pname[0] = 0;
 		if (sscanf (p, "texture %u format=%u bpp=%u pal_size=%u size=%u,%u raw=%255s png=%255s",
-				&tidx, &fmt, &bpp, &ps, &w, &h, rname, pname) >= 7)
+				&tidx, &fmt, &bpp, &ps, &w, &h, rname, pname)
+			>= 7)
 		{
 			if (tidx < 256)
 			{
@@ -581,8 +585,10 @@ enumError create_atb_dir (ccp source, ccp dest)
 				tex_list[tidx].palette_size = (u16)ps;
 				tex_list[tidx].width = (u16)w;
 				tex_list[tidx].height = (u16)h;
-				snprintf (tex_raw_names[tidx], sizeof (tex_raw_names[tidx]), "%s/%s", source, rname);
-				snprintf (tex_png_names[tidx], sizeof (tex_png_names[tidx]), "%s/%s", source, pname);
+				snprintf (
+					tex_raw_names[tidx], sizeof (tex_raw_names[tidx]), "%s/%s", source, rname);
+				snprintf (
+					tex_png_names[tidx], sizeof (tex_png_names[tidx]), "%s/%s", source, pname);
 				if (tidx >= atb.num_textures)
 					atb.num_textures = tidx + 1;
 			}
@@ -608,9 +614,12 @@ enumError create_atb_dir (ccp source, ccp dest)
 		uint l_pidx = 0, alpha = 0, flip = 0;
 		int tex_idx = 0, tlx = 0, tly = 0, tcw = 0, tch = 0, sx = 0, sy = 0;
 		int vtlx = 0, vtly = 0, vtrx = 0, vtry = 0, vbrx = 0, vbry = 0, vblx = 0, vbly = 0;
-		if (sscanf (p, "layer pattern=%u tex=%d alpha=%u flip=%u coord=%d,%d,%d,%d shift=%d,%d vtx=%d,%d,%d,%d,%d,%d,%d,%d",
-				&l_pidx, &tex_idx, &alpha, &flip, &tlx, &tly, &tcw, &tch, &sx, &sy,
-				&vtlx, &vtly, &vtrx, &vtry, &vbrx, &vbry, &vblx, &vbly) == 18)
+		if (sscanf (p,
+				"layer pattern=%u tex=%d alpha=%u flip=%u coord=%d,%d,%d,%d shift=%d,%d "
+				"vtx=%d,%d,%d,%d,%d,%d,%d,%d",
+				&l_pidx, &tex_idx, &alpha, &flip, &tlx, &tly, &tcw, &tch, &sx, &sy, &vtlx, &vtly,
+				&vtrx, &vtry, &vbrx, &vbry, &vblx, &vbly)
+			== 18)
 		{
 			if (l_pidx < 1024 && layer_pool_cnt < 4096)
 			{
@@ -650,8 +659,9 @@ enumError create_atb_dir (ccp source, ccp dest)
 
 		uint f_bidx = 0;
 		int pat_idx = 0, flen = 0, fsx = 0, fsy = 0, fflip = 0, funk = 0;
-		if (sscanf (p, "frame bank=%u pattern=%d length=%d shift=%d,%d flip=%d unk=%d",
-				&f_bidx, &pat_idx, &flen, &fsx, &fsy, &fflip, &funk) == 7)
+		if (sscanf (p, "frame bank=%u pattern=%d length=%d shift=%d,%d flip=%d unk=%d", &f_bidx,
+				&pat_idx, &flen, &fsx, &fsy, &fflip, &funk)
+			== 7)
 		{
 			if (f_bidx < 512 && frame_pool_cnt < 4096)
 			{
@@ -677,7 +687,8 @@ enumError create_atb_dir (ccp source, ccp dest)
 	{
 		u8 *raw = 0;
 		size_t rsize = 0;
-		if (tex_raw_names[i][0] && !LoadFileAlloc (tex_raw_names[i], 0, 0, &raw, &rsize, 0, 0, 0, false))
+		if (tex_raw_names[i][0]
+			&& !LoadFileAlloc (tex_raw_names[i], 0, 0, &raw, &rsize, 0, 0, 0, false))
 		{
 			const uint psz = tex_list[i].palette_size * 2;
 			if (rsize >= psz)

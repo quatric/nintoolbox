@@ -78,10 +78,14 @@ static const ccp nuanmb_track_type_v1_name (u64 v)
 {
 	switch (v)
 	{
-		case 0: return "Transform";
-		case 2: return "UvTransform";
-		case 5: return "Visibility";
-		default: return "?";
+		case 0:
+			return "Transform";
+		case 2:
+			return "UvTransform";
+		case 5:
+			return "Visibility";
+		default:
+			return "?";
 	}
 }
 
@@ -89,13 +93,20 @@ static const ccp nuanmb_track_type_v2_name (u8 v)
 {
 	switch (v)
 	{
-		case 1: return "Transform";
-		case 2: return "UvTransform";
-		case 3: return "Float";
-		case 5: return "PatternIndex";
-		case 8: return "Boolean";
-		case 9: return "Vector4";
-		default: return "?";
+		case 1:
+			return "Transform";
+		case 2:
+			return "UvTransform";
+		case 3:
+			return "Float";
+		case 5:
+			return "PatternIndex";
+		case 8:
+			return "Boolean";
+		case 9:
+			return "Vector4";
+		default:
+			return "?";
 	}
 }
 
@@ -103,11 +114,16 @@ static const ccp nuanmb_compression_type_name (u8 v)
 {
 	switch (v)
 	{
-		case 1: return "Direct";
-		case 2: return "ConstTransform";
-		case 4: return "Compressed";
-		case 5: return "Constant";
-		default: return "?";
+		case 1:
+			return "Direct";
+		case 2:
+			return "ConstTransform";
+		case 4:
+			return "Compressed";
+		case 5:
+			return "Constant";
+		default:
+			return "?";
 	}
 }
 
@@ -115,11 +131,16 @@ static const ccp nuanmb_group_type_name (u64 v)
 {
 	switch (v)
 	{
-		case 1: return "Transform";
-		case 2: return "Visibility";
-		case 4: return "Material";
-		case 5: return "Camera";
-		default: return "?";
+		case 1:
+			return "Transform";
+		case 2:
+			return "Visibility";
+		case 4:
+			return "Material";
+		case 5:
+			return "Camera";
+		default:
+			return "?";
 	}
 }
 
@@ -133,8 +154,7 @@ bool IsNUANMB (const u8 *data, size_t size)
 		|| !memcmp (data + NUANMB_SUBHDR_OFF, "ANIM", 4);
 }
 
-static bool read_ssbh_string (
-	char *dest, uint destsz, const u8 *data, size_t size, u64 field_off)
+static bool read_ssbh_string (char *dest, uint destsz, const u8 *data, size_t size, u64 field_off)
 {
 	dest[0] = 0;
 	if (field_off + 8 > size)
@@ -251,89 +271,95 @@ static int anim_direct (FILE *out, const u8 *data, u64 off, u64 end, int ttype)
 {
 	switch (ttype)
 	{
-	case 1: // Transform: 9 floats, then compensate-scale i32
-		if (end - off < 44)
-			return -1;
-		fputs ("pos=(", out);
-		anim_f32 (out, data, off + 28); fputs (", ", out);
-		anim_f32 (out, data, off + 32); fputs (", ", out);
-		anim_f32 (out, data, off + 36);
-		fputs (") rot=(", out);
-		anim_f32 (out, data, off + 12); fputs (", ", out);
-		anim_f32 (out, data, off + 16); fputs (", ", out);
-		anim_f32 (out, data, off + 20); fputs (", ", out);
-		anim_f32 (out, data, off + 24);
-		fputs (") scale=(", out);
-		anim_f32 (out, data, off); fputs (", ", out);
-		anim_f32 (out, data, off + 4); fputs (", ", out);
-		anim_f32 (out, data, off + 8);
-		fprintf (out, ") compensate=%d", (int)rd_le32 (data + off + 40));
-		return 44;
+		case 1: // Transform: 9 floats, then compensate-scale i32
+			if (end - off < 44)
+				return -1;
+			fputs ("pos=(", out);
+			anim_f32 (out, data, off + 28);
+			fputs (", ", out);
+			anim_f32 (out, data, off + 32);
+			fputs (", ", out);
+			anim_f32 (out, data, off + 36);
+			fputs (") rot=(", out);
+			anim_f32 (out, data, off + 12);
+			fputs (", ", out);
+			anim_f32 (out, data, off + 16);
+			fputs (", ", out);
+			anim_f32 (out, data, off + 20);
+			fputs (", ", out);
+			anim_f32 (out, data, off + 24);
+			fputs (") scale=(", out);
+			anim_f32 (out, data, off);
+			fputs (", ", out);
+			anim_f32 (out, data, off + 4);
+			fputs (", ", out);
+			anim_f32 (out, data, off + 8);
+			fprintf (out, ") compensate=%d", (int)rd_le32 (data + off + 40));
+			return 44;
 
-	case 2: // UvTransform texture block: 4 floats, then i32
-		if (end - off < 20)
-			return -1;
-		fputc ('[', out);
-		for (int c = 0; c < 4; c++)
-		{
-			if (c)
-				fputs (", ", out);
-			anim_f32 (out, data, off + (u64)c * 4);
-		}
-		fprintf (out, ", %d]", (int)rd_le32 (data + off + 16));
-		return 20;
+		case 2: // UvTransform texture block: 4 floats, then i32
+			if (end - off < 20)
+				return -1;
+			fputc ('[', out);
+			for (int c = 0; c < 4; c++)
+			{
+				if (c)
+					fputs (", ", out);
+				anim_f32 (out, data, off + (u64)c * 4);
+			}
+			fprintf (out, ", %d]", (int)rd_le32 (data + off + 16));
+			return 20;
 
-	case 3: // Float
-		if (end - off < 4)
-			return -1;
-		anim_f32 (out, data, off);
-		return 4;
+		case 3: // Float
+			if (end - off < 4)
+				return -1;
+			anim_f32 (out, data, off);
+			return 4;
 
-	case 5: // PatternIndex
-		if (end - off < 4)
-			return -1;
-		fprintf (out, "%d", (int)rd_le32 (data + off));
-		return 4;
+		case 5: // PatternIndex
+			if (end - off < 4)
+				return -1;
+			fprintf (out, "%d", (int)rd_le32 (data + off));
+			return 4;
 
-	case 8: // Boolean
-		if (end - off < 1)
-			return -1;
-		fputs (data[off] ? "true" : "false", out);
-		return 1;
+		case 8: // Boolean
+			if (end - off < 1)
+				return -1;
+			fputs (data[off] ? "true" : "false", out);
+			return 1;
 
-	case 9: // Vector4
-		if (end - off < 16)
-			return -1;
-		fputc ('(', out);
-		for (int c = 0; c < 4; c++)
-		{
-			if (c)
-				fputs (", ", out);
-			anim_f32 (out, data, off + (u64)c * 4);
-		}
-		fputc (')', out);
-		return 16;
+		case 9: // Vector4
+			if (end - off < 16)
+				return -1;
+			fputc ('(', out);
+			for (int c = 0; c < 4; c++)
+			{
+				if (c)
+					fputs (", ", out);
+				anim_f32 (out, data, off + (u64)c * 4);
+			}
+			fputc (')', out);
+			return 16;
 
-	default:
-		return -1;
+		default:
+			return -1;
 	}
 }
 
 static void anim_transform_frame (FILE *out, const float *v, int compensate)
 {
-	fprintf (out, "pos=(%.9g, %.9g, %.9g) rot=(%.9g, %.9g, %.9g, %.9g)"
+	fprintf (out,
+		"pos=(%.9g, %.9g, %.9g) rot=(%.9g, %.9g, %.9g, %.9g)"
 		" scale=(%.9g, %.9g, %.9g) compensate=%d",
-		(double)v[7], (double)v[8], (double)v[9],
-		(double)v[3], (double)v[4], (double)v[5], (double)v[6],
-		(double)v[0], (double)v[1], (double)v[2], compensate);
+		(double)v[7], (double)v[8], (double)v[9], (double)v[3], (double)v[4], (double)v[5],
+		(double)v[6], (double)v[0], (double)v[1], (double)v[2], compensate);
 }
 
 // Compressed Transform / Vector4 payloads (DecompressTransform /
 // DecompressValues in the reference). Scale-item gating, the uniform-scale
 // quirk ((flags & 3) == 2 parses no scale items at all) and the quaternion-W
 // reconstruction (sqrt + sign bit) are all ported as-is.
-static void anim_compressed (FILE *out, const u8 *data, u64 base, u64 span,
-	int ttype, ccp indent)
+static void anim_compressed (FILE *out, const u8 *data, u64 base, u64 span, int ttype, ccp indent)
 {
 	if (span < 16)
 	{
@@ -366,8 +392,8 @@ static void anim_compressed (FILE *out, const u8 *data, u64 base, u64 span,
 		u64 nframes = frames < 0 ? 0 : (u64)frames;
 		if (nframes > NUANMB_MAX_FRAMES)
 		{
-			fprintf (out, "%s  <frame count %u exceeds the %u-frame display cap>\n",
-				indent, (unsigned)frames, NUANMB_MAX_FRAMES);
+			fprintf (out, "%s  <frame count %u exceeds the %u-frame display cap>\n", indent,
+				(unsigned)frames, NUANMB_MAX_FRAMES);
 			return;
 		}
 		for (u64 f = 0; f < nframes && !bb.fail; f++)
@@ -375,8 +401,8 @@ static void anim_compressed (FILE *out, const u8 *data, u64 base, u64 span,
 			const u32 v = abit_read (&bb, bits_per_entry);
 			if (bb.fail)
 				break;
-			fprintf (out, "%s  [%llu] %s\n", indent,
-				(unsigned long long)f, v == 1 ? "true" : "false");
+			fprintf (
+				out, "%s  [%llu] %s\n", indent, (unsigned long long)f, v == 1 ? "true" : "false");
 		}
 		if (bb.fail)
 			fprintf (out, "%s  <truncated bitstream>\n", indent);
@@ -399,8 +425,8 @@ static void anim_compressed (FILE *out, const u8 *data, u64 base, u64 span,
 		counts[k] = rd_le64 (data + io + 8);
 		if (counts[k] > 31)
 		{
-			fprintf (out, "%s  <item %d claims %llu bits>\n", indent,
-				k, (unsigned long long)counts[k]);
+			fprintf (
+				out, "%s  <item %d claims %llu bits>\n", indent, k, (unsigned long long)counts[k]);
 			return;
 		}
 	}
@@ -414,8 +440,7 @@ static void anim_compressed (FILE *out, const u8 *data, u64 base, u64 span,
 	float defs[10];
 	for (int k = 0; k < ndef; k++)
 		memcpy (&defs[k], data + base + def_rel + (u64)k * 4, 4);
-	const int compensate = is_transform
-		? (int)rd_le32 (data + base + def_rel + 40) : 0;
+	const int compensate = is_transform ? (int)rd_le32 (data + base + def_rel + 40) : 0;
 
 	abit_t b;
 	b.d = data;
@@ -428,8 +453,8 @@ static void anim_compressed (FILE *out, const u8 *data, u64 base, u64 span,
 	u64 nframes = (u64)frames;
 	if (nframes > NUANMB_MAX_FRAMES)
 	{
-		fprintf (out, "%s  <frame count %u exceeds the %u-frame display cap>\n",
-			indent, (unsigned)frames, NUANMB_MAX_FRAMES);
+		fprintf (out, "%s  <frame count %u exceeds the %u-frame display cap>\n", indent,
+			(unsigned)frames, NUANMB_MAX_FRAMES);
 		return;
 	}
 
@@ -444,10 +469,8 @@ static void anim_compressed (FILE *out, const u8 *data, u64 base, u64 span,
 			if (is_transform)
 			{
 				const int scaletype = flags & 3;
-				const int gated = (k == 0 && scaletype == 3)
-					|| (k >= 0 && k <= 2 && scaletype == 1)
-					|| (k > 2 && k <= 5 && (flags & 4))
-					|| (k > 5 && k <= 8 && (flags & 8));
+				const int gated = (k == 0 && scaletype == 3) || (k >= 0 && k <= 2 && scaletype == 1)
+					|| (k > 2 && k <= 5 && (flags & 4)) || (k > 5 && k <= 8 && (flags & 8));
 				if (!gated)
 					continue;
 			}
@@ -493,8 +516,8 @@ static void anim_compressed (FILE *out, const u8 *data, u64 base, u64 span,
 		if (is_transform)
 			anim_transform_frame (out, v, compensate);
 		else
-			fprintf (out, "(%.9g, %.9g, %.9g, %.9g)",
-				(double)v[0], (double)v[1], (double)v[2], (double)v[3]);
+			fprintf (out, "(%.9g, %.9g, %.9g, %.9g)", (double)v[0], (double)v[1], (double)v[2],
+				(double)v[3]);
 		fputc ('\n', out);
 	}
 	if (b.fail)
@@ -518,7 +541,8 @@ static void print_trackv2 (FILE *out, const u8 *data, size_t size, u64 e, u64 id
 		nuanmb_track_type_v2_name (track_type), nuanmb_compression_type_name (compression_type),
 		frame_count);
 	if (transform_flags)
-		fprintf (out, "%s  transform_flags = 0x%x (override_translation=%d,"
+		fprintf (out,
+			"%s  transform_flags = 0x%x (override_translation=%d,"
 			" override_rotation=%d, override_scale=%d, override_compensate_scale=%d)\n",
 			indent, transform_flags, transform_flags & 1, transform_flags >> 1 & 1,
 			transform_flags >> 2 & 1, transform_flags >> 3 & 1);
@@ -530,15 +554,12 @@ static void print_trackv2 (FILE *out, const u8 *data, size_t size, u64 e, u64 id
 		fprintf (out, "%s  <no buffer to decode>\n", indent);
 	else if ((u64)data_offset + data_size > buf_size || (u64)data_offset > buf_size)
 		fprintf (out, "%s  <payload outside the buffer>\n", indent);
-	else if (track_type == 2 && compression_type == 4
-		|| track_type == 3 && compression_type == 4
+	else if (track_type == 2 && compression_type == 4 || track_type == 3 && compression_type == 4
 		|| track_type == 5 && compression_type == 4)
-		fprintf (out, "%s  <compressed %s payloads are TODO in the reference decoder>\n",
-			indent, nuanmb_track_type_v2_name (track_type));
-	else if (compression_type == 4
-		&& (track_type == 1 || track_type == 8 || track_type == 9))
-		anim_compressed (out, data, buf_base + data_offset, data_size,
-			track_type, indent);
+		fprintf (out, "%s  <compressed %s payloads are TODO in the reference decoder>\n", indent,
+			nuanmb_track_type_v2_name (track_type));
+	else if (compression_type == 4 && (track_type == 1 || track_type == 8 || track_type == 9))
+		anim_compressed (out, data, buf_base + data_offset, data_size, track_type, indent);
 	else if (compression_type == 1 || compression_type == 2 || compression_type == 5)
 	{
 		const u64 frames = compression_type == 1 ? frame_count : 1;
@@ -548,16 +569,15 @@ static void print_trackv2 (FILE *out, const u8 *data, size_t size, u64 e, u64 id
 		{
 			if (off >= end)
 			{
-				fprintf (out, "%s  <truncated after %llu frame(s)>\n", indent,
-					(unsigned long long)f);
+				fprintf (
+					out, "%s  <truncated after %llu frame(s)>\n", indent, (unsigned long long)f);
 				break;
 			}
 			fprintf (out, "%s  [%llu] ", indent, (unsigned long long)f);
 			const int used = anim_direct (out, data, off, end, track_type);
 			if (used < 0)
 			{
-				fprintf (out, "<undecodable %s value>\n",
-					nuanmb_track_type_v2_name (track_type));
+				fprintf (out, "<undecodable %s value>\n", nuanmb_track_type_v2_name (track_type));
 				break;
 			}
 			fputc ('\n', out);
@@ -574,8 +594,8 @@ static enumError decode_v12 (FILE *out, const u8 *data, size_t size)
 	read_ssbh_string (name, sizeof (name), data, size, NUANMB_FIELDS_OFF);
 	const float final_frame_index = read_f32 (data, NUANMB_FIELDS_OFF + 0x0c);
 
-	fprintf (out, "name = %s\nfinal_frame_index = %g\n\n",
-		name[0] ? name : "<unnamed>", (double)final_frame_index);
+	fprintf (out, "name = %s\nfinal_frame_index = %g\n\n", name[0] ? name : "<unnamed>",
+		(double)final_frame_index);
 
 	u64 trk_base, trk_count;
 	fprintf (out, "[tracks]\n");
@@ -644,8 +664,8 @@ static enumError decode_v12 (FILE *out, const u8 *data, size_t size)
 			if (!rel || be + rel + count < be + rel || be + rel + count > size)
 				fprintf (out, "  [%llu] <out of bounds>\n", (unsigned long long)i);
 			else
-				fprintf (out, "  [%llu] size = %llu\n",
-					(unsigned long long)i, (unsigned long long)count);
+				fprintf (out, "  [%llu] size = %llu\n", (unsigned long long)i,
+					(unsigned long long)count);
 		}
 	}
 
@@ -658,8 +678,8 @@ static enumError decode_v2x (FILE *out, const u8 *data, size_t size)
 	char name[128];
 	read_ssbh_string (name, sizeof (name), data, size, NUANMB_FIELDS_OFF + 8);
 
-	fprintf (out, "name = %s\nfinal_frame_index = %g\n\n",
-		name[0] ? name : "<unnamed>", (double)final_frame_index);
+	fprintf (out, "name = %s\nfinal_frame_index = %g\n\n", name[0] ? name : "<unnamed>",
+		(double)final_frame_index);
 
 	// File-level keyframe buffer (SsbhByteBuffer: relative offset + size).
 	u64 buf_base = 0, buf_size = 0;
@@ -678,8 +698,8 @@ static enumError decode_v2x (FILE *out, const u8 *data, size_t size)
 			}
 		}
 	}
-	fprintf (out, "buffer = %s%llu bytes\n\n",
-		have_buf ? "" : "<missing> ", (unsigned long long)buf_size);
+	fprintf (out, "buffer = %s%llu bytes\n\n", have_buf ? "" : "<missing> ",
+		(unsigned long long)buf_size);
 
 	u64 grp_base, grp_count;
 	fprintf (out, "[groups]\n");
@@ -731,8 +751,7 @@ static enumError decode_v2x (FILE *out, const u8 *data, size_t size)
 					fprintf (out, "      [%llu] <out of bounds>\n", (unsigned long long)t);
 					break;
 				}
-				print_trackv2 (out, data, size, te, t, "      ",
-					buf_base, buf_size, have_buf);
+				print_trackv2 (out, data, size, te, t, "      ", buf_base, buf_size, have_buf);
 			}
 		}
 	}

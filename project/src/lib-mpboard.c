@@ -30,7 +30,8 @@ bool IsMPBoard (const u8 *data, size_t size)
 		return false;
 
 	// Check if sizes plausibly align with space nodes
-	// Each space has: pos(12) + rot(12) + scale(12) + p1(2) + p2(2) + [p3(2)] + type(2) + links(2) = 42 or 44 bytes + links*2
+	// Each space has: pos(12) + rot(12) + scale(12) + p1(2) + p2(2) + [p3(2)] + type(2) + links(2)
+	// = 42 or 44 bytes + links*2
 	const size_t min_size = 4 + num_spaces * 42;
 	if (min_size > size)
 		return false;
@@ -66,7 +67,8 @@ enumError ScanMPBoard (mp_board_t *board, const u8 *data, size_t size, uint vers
 
 	for (uint i = 0; i < num_spaces; i++)
 	{
-		const size_t base_size = 36 + (has_param3 ? 6 : 4) + 4; // pos/rot/scale(36) + params + type(2) + num_links(2)
+		const size_t base_size
+			= 36 + (has_param3 ? 6 : 4) + 4; // pos/rot/scale(36) + params + type(2) + num_links(2)
 		if (pos + base_size > size)
 		{
 			ResetMPBoard (board);
@@ -90,15 +92,19 @@ enumError ScanMPBoard (mp_board_t *board, const u8 *data, size_t size, uint vers
 			pos += 4;
 		}
 
-		s->param1 = be16 (data + pos); pos += 2;
-		s->param2 = be16 (data + pos); pos += 2;
+		s->param1 = be16 (data + pos);
+		pos += 2;
+		s->param2 = be16 (data + pos);
+		pos += 2;
 		if (has_param3)
 		{
 			s->param3 = be16 (data + pos);
 			pos += 2;
 		}
-		s->type_id = be16 (data + pos); pos += 2;
-		const u16 file_links = be16 (data + pos); pos += 2;
+		s->type_id = be16 (data + pos);
+		pos += 2;
+		const u16 file_links = be16 (data + pos);
+		pos += 2;
 
 		if (pos + (size_t)file_links * 2 > size)
 		{
@@ -130,16 +136,16 @@ enumError DecodeMPBoard_Text (FILE *out, const mp_board_t *board)
 	if (!out || !board)
 		return ERR_INVALID_DATA;
 
-	fprintf (out, "# Mario Party Board (Spaces: %u, Version: %u)\n\n", board->num_spaces, board->version);
+	fprintf (out, "# Mario Party Board (Spaces: %u, Version: %u)\n\n", board->num_spaces,
+		board->version);
 	for (uint i = 0; i < board->num_spaces; i++)
 	{
 		const mp_space_node_t *s = board->spaces + i;
-		fprintf (out, "Space %3u: Type=%u, Param1=%u, Param2=%u, Param3=%u\n",
-			i, s->type_id, s->param1, s->param2, s->param3);
+		fprintf (out, "Space %3u: Type=%u, Param1=%u, Param2=%u, Param3=%u\n", i, s->type_id,
+			s->param1, s->param2, s->param3);
 		fprintf (out, "  Pos=(%.2f, %.2f, %.2f) Rot=(%.2f, %.2f, %.2f) Scale=(%.2f, %.2f, %.2f)\n",
-			s->pos[0], s->pos[1], s->pos[2],
-			s->rot[0], s->rot[1], s->rot[2],
-			s->scale[0], s->scale[1], s->scale[2]);
+			s->pos[0], s->pos[1], s->pos[2], s->rot[0], s->rot[1], s->rot[2], s->scale[0],
+			s->scale[1], s->scale[2]);
 		fprintf (out, "  Links (%u): [", s->num_links);
 		for (uint k = 0; k < s->num_links; k++)
 			fprintf (out, "%s%u", k == 0 ? "" : ", ", s->links[k]);
@@ -153,15 +159,14 @@ enumError DecodeMPBoard_CSV (FILE *out, const mp_board_t *board)
 	if (!out || !board)
 		return ERR_INVALID_DATA;
 
-	fprintf (out, "ID,PosX,PosY,PosZ,RotX,RotY,RotZ,ScaleX,ScaleY,ScaleZ,Type,Param1,Param2,Param3,Links\n");
+	fprintf (out,
+		"ID,PosX,PosY,PosZ,RotX,RotY,RotZ,ScaleX,ScaleY,ScaleZ,Type,Param1,Param2,Param3,Links\n");
 	for (uint i = 0; i < board->num_spaces; i++)
 	{
 		const mp_space_node_t *s = board->spaces + i;
-		fprintf (out, "%u,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%u,%u,%u,%u,",
-			i, s->pos[0], s->pos[1], s->pos[2],
-			s->rot[0], s->rot[1], s->rot[2],
-			s->scale[0], s->scale[1], s->scale[2],
-			s->type_id, s->param1, s->param2, s->param3);
+		fprintf (out, "%u,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%u,%u,%u,%u,", i, s->pos[0],
+			s->pos[1], s->pos[2], s->rot[0], s->rot[1], s->rot[2], s->scale[0], s->scale[1],
+			s->scale[2], s->type_id, s->param1, s->param2, s->param3);
 		for (uint k = 0; k < s->num_links; k++)
 			fprintf (out, "%s%u", k == 0 ? "" : ";", s->links[k]);
 		fprintf (out, "\n");
@@ -184,7 +189,11 @@ enumError DecodeSMPBoard_Text (FILE *out, const u8 *data, size_t size)
 // GC/Wii board encode (MPLibrary/GCWii/Board.cs Write).
 static inline void wr_befloat (u8 *p, float f)
 {
-	union { u32 u; float f; } u;
+	union
+	{
+		u32 u;
+		float f;
+	} u;
 	u.f = f;
 	p[0] = u.u >> 24;
 	p[1] = u.u >> 16;
@@ -238,17 +247,29 @@ enumError CreateMPBoard (u8 **dest, uint *dest_size, const mp_board_t *board)
 			wr_befloat (out + pos, s->scale[c]);
 			pos += 4;
 		}
-		out[pos] = s->param1 >> 8; out[pos + 1] = s->param1; pos += 2;
-		out[pos] = s->param2 >> 8; out[pos + 1] = s->param2; pos += 2;
+		out[pos] = s->param1 >> 8;
+		out[pos + 1] = s->param1;
+		pos += 2;
+		out[pos] = s->param2 >> 8;
+		out[pos + 1] = s->param2;
+		pos += 2;
 		if (has_param3)
 		{
-			out[pos] = s->param3 >> 8; out[pos + 1] = s->param3; pos += 2;
+			out[pos] = s->param3 >> 8;
+			out[pos + 1] = s->param3;
+			pos += 2;
 		}
-		out[pos] = s->type_id >> 8; out[pos + 1] = s->type_id; pos += 2;
-		out[pos] = s->num_links >> 8; out[pos + 1] = s->num_links; pos += 2;
+		out[pos] = s->type_id >> 8;
+		out[pos + 1] = s->type_id;
+		pos += 2;
+		out[pos] = s->num_links >> 8;
+		out[pos + 1] = s->num_links;
+		pos += 2;
 		for (uint k = 0; k < s->num_links; k++)
 		{
-			out[pos] = s->links[k] >> 8; out[pos + 1] = s->links[k]; pos += 2;
+			out[pos] = s->links[k] >> 8;
+			out[pos + 1] = s->links[k];
+			pos += 2;
 		}
 	}
 
@@ -383,7 +404,7 @@ enumError ScanSMPBoard (smp_board_t *board, const u8 *data, size_t size)
 			size_t lens[8] = { 0 };
 			int ncols = 0;
 			const char *start = line;
-			for (const char *p = line; ; p++)
+			for (const char *p = line;; p++)
 			{
 				if (*p == ',' || !*p)
 				{
@@ -494,8 +515,8 @@ enumError CreateSMPBoard (u8 **dest, uint *dest_size, const smp_board_t *board)
 			snprintf (c2, sizeof (c2), "%u", s->links[2]);
 		if (s->num_links > 3)
 			snprintf (c3, sizeof (c3), "%u", s->links[3]);
-		int w = snprintf (tmp + pos, cap - pos, "%s,%s,%s,%s,%s,%s,%s,%s\n",
-			s->id, c0, c1, c2, c3, s->type[0] ? s->type : "EMPTY", s->attr1, s->attr2);
+		int w = snprintf (tmp + pos, cap - pos, "%s,%s,%s,%s,%s,%s,%s,%s\n", s->id, c0, c1, c2, c3,
+			s->type[0] ? s->type : "EMPTY", s->attr1, s->attr2);
 		if (w < 0 || pos + (size_t)w >= cap)
 		{
 			FREE (tmp);
@@ -550,16 +571,14 @@ static const char *mp10_find_tag (const char *p, const char *tag, const char *en
 		if (!lt || lt >= end)
 			return 0;
 		if (!strncmp (lt + 1, tag, tlen)
-			&& (lt[1 + tlen] == '>' || lt[1 + tlen] == ' '
-				|| lt[1 + tlen] == '/'))
+			&& (lt[1 + tlen] == '>' || lt[1 + tlen] == ' ' || lt[1 + tlen] == '/'))
 			return lt;
 		p = lt + 1;
 	}
 	return 0;
 }
 
-static bool mp10_get_text (const char *xml, const char *end, const char *tag,
-	char *dst, size_t cap)
+static bool mp10_get_text (const char *xml, const char *end, const char *tag, char *dst, size_t cap)
 {
 	const char *open = mp10_find_tag (xml, tag, end);
 	if (!open)
@@ -639,7 +658,7 @@ enumError ScanMP10Board (mp10_board_t *board, const u8 *data, size_t size)
 
 	// Count MasuData blocks.
 	uint n = 0;
-	for (const char *p = xml; (p = mp10_find_tag (p, "MasuData", end)); )
+	for (const char *p = xml; (p = mp10_find_tag (p, "MasuData", end));)
 	{
 		n++;
 		p++;
@@ -797,10 +816,10 @@ enumError DecodeMP10Board_Text (FILE *out, const mp10_board_t *board)
 	for (uint i = 0; i < board->num_masu; i++)
 	{
 		const mp10_masu_t *m = board->masu + i;
-		fprintf (out, "Masu %d: Area=%d Name=%s Type=%s Param=%d\n",
-			m->id, m->area, m->name, m->type, m->param);
-		fprintf (out, "  Pos=(%.2f, %.2f, %.2f) Quat=(%.3f, %.3f, %.3f, %.3f)\n",
-			m->pos[0], m->pos[1], m->pos[2], m->quat[0], m->quat[1], m->quat[2], m->quat[3]);
+		fprintf (out, "Masu %d: Area=%d Name=%s Type=%s Param=%d\n", m->id, m->area, m->name,
+			m->type, m->param);
+		fprintf (out, "  Pos=(%.2f, %.2f, %.2f) Quat=(%.3f, %.3f, %.3f, %.3f)\n", m->pos[0],
+			m->pos[1], m->pos[2], m->quat[0], m->quat[1], m->quat[2], m->quat[3]);
 		fprintf (out, "  Next (%u): [", m->num_next);
 		for (uint k = 0; k < m->num_next; k++)
 			fprintf (out, "%s%d", k ? ", " : "", m->next[k]);
@@ -816,14 +835,14 @@ enumError DecodeMP10Board_CSV (FILE *out, const mp10_board_t *board)
 {
 	if (!out || !board || !board->masu)
 		return ERR_INVALID_DATA;
-	fprintf (out, "No,Area,NodeName,MasuName,Param,PosX,PosY,PosZ,QuatX,QuatY,QuatZ,QuatW,Next,Prev\n");
+	fprintf (
+		out, "No,Area,NodeName,MasuName,Param,PosX,PosY,PosZ,QuatX,QuatY,QuatZ,QuatW,Next,Prev\n");
 	for (uint i = 0; i < board->num_masu; i++)
 	{
 		const mp10_masu_t *m = board->masu + i;
-		fprintf (out, "%d,%d,%s,%s,%d,%.3f,%.3f,%.3f,%.4f,%.4f,%.4f,%.4f,\"",
-			m->id, m->area, m->name, m->type, m->param,
-			m->pos[0], m->pos[1], m->pos[2],
-			m->quat[0], m->quat[1], m->quat[2], m->quat[3]);
+		fprintf (out, "%d,%d,%s,%s,%d,%.3f,%.3f,%.3f,%.4f,%.4f,%.4f,%.4f,\"", m->id, m->area,
+			m->name, m->type, m->param, m->pos[0], m->pos[1], m->pos[2], m->quat[0], m->quat[1],
+			m->quat[2], m->quat[3]);
 		for (uint k = 0; k < m->num_next; k++)
 			fprintf (out, "%s%d", k ? ";" : "", m->next[k]);
 		fprintf (out, "\",\"");
@@ -845,9 +864,9 @@ enumError CreateMP10Board (u8 **dest, uint *dest_size, const mp10_board_t *board
 		return ERR_OUT_OF_MEMORY;
 	size_t pos = 0;
 	pos += snprintf (buf + pos, cap - pos,
-		"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<root>\n<XmlFile>%s</XmlFile>\n<Version>%.1f</Version>\n",
-		board->xmlfile[0] ? board->xmlfile : "board",
-		board->version ? board->version : 1.0f);
+		"<?xml version=\"1.0\" "
+		"encoding=\"utf-8\"?>\n<root>\n<XmlFile>%s</XmlFile>\n<Version>%.1f</Version>\n",
+		board->xmlfile[0] ? board->xmlfile : "board", board->version ? board->version : 1.0f);
 	for (uint i = 0; i < board->num_masu; i++)
 	{
 		const mp10_masu_t *m = board->masu + i;
@@ -868,24 +887,23 @@ enumError CreateMP10Board (u8 **dest, uint *dest_size, const mp10_board_t *board
 			"<Param>%d</Param><Uncountble>%d</Uncountble>"
 			"<OneWay>%d</OneWay><JumpStart>%d</JumpStart><JumpEnd>%d</JumpEnd>"
 			"<PunishNotReturn>%d</PunishNotReturn>",
-			m->id, m->area, m->name, m->type, m->param,
-			m->uncountble, m->oneway, m->jumpstart, m->jumpend, m->punish);
+			m->id, m->area, m->name, m->type, m->param, m->uncountble, m->oneway, m->jumpstart,
+			m->jumpend, m->punish);
 		pos += snprintf (buf + pos, cap - pos, "<NextNoList Size=\"%u\">", m->num_next);
 		for (uint k = 0; k < m->num_next; k++)
-			pos += snprintf (buf + pos, cap - pos,
-				"<NextNo Index=\"%u\">%d</NextNo>", k, m->next[k]);
+			pos += snprintf (
+				buf + pos, cap - pos, "<NextNo Index=\"%u\">%d</NextNo>", k, m->next[k]);
 		pos += snprintf (buf + pos, cap - pos, "</NextNoList>");
 		pos += snprintf (buf + pos, cap - pos, "<PrevNoList Size=\"%u\">", m->num_prev);
 		for (uint k = 0; k < m->num_prev; k++)
-			pos += snprintf (buf + pos, cap - pos,
-				"<PrevNo Index=\"%u\">%d</PrevNo>", k, m->prev[k]);
+			pos += snprintf (
+				buf + pos, cap - pos, "<PrevNo Index=\"%u\">%d</PrevNo>", k, m->prev[k]);
 		pos += snprintf (buf + pos, cap - pos, "</PrevNoList>");
 		pos += snprintf (buf + pos, cap - pos,
 			"<Position><X>%.4f</X><Y>%.4f</Y><Z>%.4f</Z></Position>"
 			"<Quaternion><X>%.5f</X><Y>%.5f</Y><Z>%.5f</Z><W>%.5f</W></Quaternion>"
 			"</MasuData>\n",
-			m->pos[0], m->pos[1], m->pos[2],
-			m->quat[0], m->quat[1], m->quat[2], m->quat[3]);
+			m->pos[0], m->pos[1], m->pos[2], m->quat[0], m->quat[1], m->quat[2], m->quat[3]);
 	}
 	pos += snprintf (buf + pos, cap - pos, "</root>\n");
 

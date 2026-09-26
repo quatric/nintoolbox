@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // ----------------------------------------------------------------------------
 // 3. Dance Dance Revolution Mario Mix Chunk Archive (.mdr)
 // ----------------------------------------------------------------------------
@@ -95,7 +94,8 @@ enumError ExtractMDRArchive (ccp arg, ccp basedir, uint depth)
 				&& DecodeZlibGrow (&decomp_data, &decomp_sz, raw + off + 16, comp_sz) == ERR_OK
 				&& decomp_data)
 			{
-				snprintf (out_path, sizeof (out_path), "%s/chunk_%02u_flags_%08x_zlib.bin", dest, i, flags);
+				snprintf (out_path, sizeof (out_path), "%s/chunk_%02u_flags_%08x_zlib.bin", dest, i,
+					flags);
 				err = SaveFile (out_path, 0, 0, decomp_data, decomp_sz, 0);
 				FREE (decomp_data);
 			}
@@ -104,7 +104,8 @@ enumError ExtractMDRArchive (ccp arg, ccp basedir, uint depth)
 				// Not valid zlib data -- the chunk is stored raw/uncompressed.
 				// Marked "_raw" so CreateMDRArchive() can store it back verbatim
 				// instead of zlib-compressing it, keeping retail files byte-exact.
-				snprintf (out_path, sizeof (out_path), "%s/chunk_%02u_flags_%08x_raw.bin", dest, i, flags);
+				snprintf (out_path, sizeof (out_path), "%s/chunk_%02u_flags_%08x_raw.bin", dest, i,
+					flags);
 				err = SaveFile (out_path, 0, 0, raw + off + 16, comp_sz, 0);
 			}
 		}
@@ -115,7 +116,6 @@ enumError ExtractMDRArchive (ccp arg, ccp basedir, uint depth)
 	FREE (raw);
 	return err;
 }
-
 
 static bool mdr_chunk_index (ccp name, ulong *index)
 {
@@ -263,4 +263,3 @@ enumError create_mdr_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

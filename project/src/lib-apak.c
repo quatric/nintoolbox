@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // ----------------------------------------------------------------------------
 // 12. Nintendo APAK Archive (.apak / APAK)
 // ----------------------------------------------------------------------------
@@ -97,7 +96,6 @@ enumError ExtractAPAKArchive (ccp arg, ccp basedir, uint depth)
 	return ERR_OK;
 }
 
-
 // Nintendo APAK Archive (.apak / APAK), big-endian, version 5
 enumError CreateAPAKArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
@@ -167,7 +165,6 @@ enumError CreateAPAKArchive (
 	return ERR_OK;
 }
 
-
 enumError create_apak_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -190,4 +187,3 @@ enumError create_apak_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

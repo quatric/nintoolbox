@@ -27,10 +27,10 @@ static ccp GetDefaultDest (ccp src, bool to_text)
 	{
 		// If input was e.g. foo.svt.xml or foo.shdvartbl.xml, strip .xml
 		ccp dot2 = strrchr (buf, '.');
-		if (dot2 && (!strcmp (dot2, ".svt") || !strcmp (dot2, ".shdvartbl")
-			|| !strcmp (dot2, ".bflyt") || !strcmp (dot2, ".bclyt")
-			|| !strcmp (dot2, ".brlyt") || !strcmp (dot2, ".bflan")
-			|| !strcmp (dot2, ".bclan") || !strcmp (dot2, ".brlan")))
+		if (dot2
+			&& (!strcmp (dot2, ".svt") || !strcmp (dot2, ".shdvartbl") || !strcmp (dot2, ".bflyt")
+				|| !strcmp (dot2, ".bclyt") || !strcmp (dot2, ".brlyt") || !strcmp (dot2, ".bflan")
+				|| !strcmp (dot2, ".bclan") || !strcmp (dot2, ".brlan")))
 		{
 			return buf;
 		}
@@ -115,7 +115,7 @@ int main (int argc, char *argv[])
 	if (argc < 3)
 	{
 		printf ("wlayt - Wiimms Layout Tool\n"
-			"Native BRLYT/BFLYT/BCLYT + BRLAN/BFLAN/BCLAN + SVT <-> XML converter.\n"
+				"Native BRLYT/BFLYT/BCLYT + BRLAN/BFLAN/BCLAN + SVT <-> XML converter.\n"
 				"Usage: %s decode <input> [output]\n"
 				"       %s encode <input> [output]\n",
 			argv[0], argv[0]);

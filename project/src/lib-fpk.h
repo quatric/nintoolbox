@@ -55,7 +55,7 @@ typedef struct fpk_entry_t
 	u32 data_offset;
 	u32 data_size;
 	u32 type;
-	char name[261];		// path as stored, truncated defensively
+	char name[261]; // path as stored, truncated defensively
 } fpk_entry_t;
 
 typedef struct fpk_t

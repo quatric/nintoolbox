@@ -10,8 +10,14 @@
 
 #define REZ_MAX_UNPACKED (64u << 20)
 
-static u32 rz_be32 (const u8 *p) { return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
-static u32 rz_be16 (const u8 *p) { return p[0] << 8 | p[1]; }
+static u32 rz_be32 (const u8 *p)
+{
+	return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
+}
+static u32 rz_be16 (const u8 *p)
+{
+	return p[0] << 8 | p[1];
+}
 
 // Locate the slot table: false if the footer does not describe one.
 static bool rz_slots (const u8 *d, size_t size, const u8 **slots, uint *n, uint *start)
@@ -40,7 +46,8 @@ bool IsHumongousRez (const u8 *d, size_t size)
 	{
 		const u8 *s = slots + (size_t)i * 24;
 		const size_t off = rz_be32 (s), sz = rz_be32 (s + 4), hs = rz_be16 (s + 14);
-		if (sz && hs >= 0x20 && hs <= sz && off + sz <= size - 2048 && rz_be32 (d + off + sz - hs) < 0x10000)
+		if (sz && hs >= 0x20 && hs <= sz && off + sz <= size - 2048
+			&& rz_be32 (d + off + sz - hs) < 0x10000)
 			groups++;
 	}
 	return groups > 0;
@@ -101,7 +108,8 @@ static bool rz_add (rez_res_t **list, uint *count, uint *cap, const rez_res_t *e
 static bool rz_res (const u8 *r, size_t size, uint g, uint i, rez_res_t *e)
 {
 	const int type = (s16)rz_be16 (r + 12);
-	if (type != REZ_TEXTURE && type != REZ_SOUND && type != REZ_VIDEO && type != REZ_MESH && type != REZ_ANIM && type != REZ_MOTION)
+	if (type != REZ_TEXTURE && type != REZ_SOUND && type != REZ_VIDEO && type != REZ_MESH
+		&& type != REZ_ANIM && type != REZ_MOTION)
 		return false;
 	e->group = g;
 	e->index = i;
@@ -110,7 +118,8 @@ static bool rz_res (const u8 *r, size_t size, uint g, uint i, rez_res_t *e)
 	e->csize = rz_be32 (r + 4);
 	e->usize = rz_be32 (r + 8);
 	e->flags = rz_be16 (r + 14);
-	return e->offset + (size_t)e->csize <= size && e->usize && (e->usize <= REZ_MAX_UNPACKED || type == REZ_VIDEO);
+	return e->offset + (size_t)e->csize <= size && e->usize
+		&& (e->usize <= REZ_MAX_UNPACKED || type == REZ_VIDEO);
 }
 
 rez_res_t *ListRezResources (const u8 *d, size_t size, uint *count)
@@ -134,9 +143,14 @@ rez_res_t *ListRezResources (const u8 *d, size_t size, uint *count)
 		if (hs < 0x20)
 		{
 			// a resource on its own; only videos are recognisable without unpacking
-			if (rz_res (s, size, g + start, 0, &e) && (e.kind != REZ_VIDEO || (e.usize > 0x40 && !(e.flags & 1) && !memcmp (d + e.offset, "THP", 4)))
-				&& (e.kind != REZ_MOTION || (!(e.flags & 1) && e.csize > 0x40 && rz_be32 (d + e.offset + 12) == 12 + 8 * rz_be32 (d + e.offset + 4)
-					&& 0x14 + (size_t)rz_be32 (d + e.offset) * rz_be32 (d + e.offset + 12) <= e.csize)))
+			if (rz_res (s, size, g + start, 0, &e)
+				&& (e.kind != REZ_VIDEO
+					|| (e.usize > 0x40 && !(e.flags & 1) && !memcmp (d + e.offset, "THP", 4)))
+				&& (e.kind != REZ_MOTION
+					|| (!(e.flags & 1) && e.csize > 0x40
+						&& rz_be32 (d + e.offset + 12) == 12 + 8 * rz_be32 (d + e.offset + 4)
+						&& 0x14 + (size_t)rz_be32 (d + e.offset) * rz_be32 (d + e.offset + 12)
+							<= e.csize)))
 				if (!rz_add (&list, count, &cap, &e))
 					return list;
 			continue;
@@ -148,7 +162,8 @@ rez_res_t *ListRezResources (const u8 *d, size_t size, uint *count)
 		if (!cnt || 16 + cnt * 24 > hs || rz_be32 (t + 16) < off || rz_be32 (t + 16) >= off + sz)
 			continue;
 		for (uint i = 0; i < cnt; i++)
-			if (rz_res (t + 16 + i * 24, size, g + start, i, &e) && e.kind != REZ_VIDEO && e.kind != REZ_MOTION)
+			if (rz_res (t + 16 + i * 24, size, g + start, i, &e) && e.kind != REZ_VIDEO
+				&& e.kind != REZ_MOTION)
 				if (!rz_add (&list, count, &cap, &e))
 					return list;
 	}
@@ -207,7 +222,10 @@ enumError DecodeRezTexture (u8 **rgba, uint *width, uint *height, const u8 *buf,
 	return err;
 }
 
-static void rz_put32 (u8 *p, u32 v) { p[0] = v, p[1] = v >> 8, p[2] = v >> 16, p[3] = v >> 24; }
+static void rz_put32 (u8 *p, u32 v)
+{
+	p[0] = v, p[1] = v >> 8, p[2] = v >> 16, p[3] = v >> 24;
+}
 
 enumError DecodeRezSound (u8 **wav, size_t *wav_size, const u8 *r, size_t n)
 {
@@ -263,7 +281,10 @@ static float rz_f (const u8 *p)
 	return f;
 }
 
-static bool rz_ok (size_t size, size_t off, size_t len) { return off <= size && len <= size - off; }
+static bool rz_ok (size_t size, size_t off, size_t len)
+{
+	return off <= size && len <= size - off;
+}
 
 typedef struct
 {
@@ -271,7 +292,7 @@ typedef struct
 	uint np, ncol, nn, nuv, nb, nch;
 	float t[3], q[4], s[3], pv[3];
 	uint depth;
-	size_t weights, bones;	// per-position influences, first bone of the skeleton
+	size_t weights, bones; // per-position influences, first bone of the skeleton
 	uint nbones;
 } rz_node_t;
 
@@ -314,8 +335,8 @@ static size_t rz_walk (rz_tree_t *t, size_t base, uint depth)
 	o->nuv = rz_be32 (d + base + 0x28);
 	o->nb = rz_be32 (d + base + 0x30);
 	o->nch = rz_be32 (d + base + 0x38);
-	if (o->np > 0x10000 || o->ncol > 0x10000 || o->nn > 0x10000 || o->nuv > 0x10000 || o->nb > 64 || o->nch > 256
-		|| o->dlsz > t->size)
+	if (o->np > 0x10000 || o->ncol > 0x10000 || o->nn > 0x10000 || o->nuv > 0x10000 || o->nb > 64
+		|| o->nch > 256 || o->dlsz > t->size)
 		return (size_t)-1;
 	for (uint i = 0; i < 3; i++)
 		o->t[i] = rz_f (d + base + 0x48 + 4 * i), o->s[i] = rz_f (d + base + 0x64 + 4 * i),
@@ -367,9 +388,11 @@ static size_t rz_walk (rz_tree_t *t, size_t base, uint depth)
 }
 
 // Triangles of one display list slice; indices are appended as u32 tuples.
-static size_t rz_dl (const rz_node_t *o, const u8 *d, size_t size, size_t dl, size_t dlsz, uint (**out)[4])
+static size_t rz_dl (
+	const rz_node_t *o, const u8 *d, size_t size, size_t dl, size_t dlsz, uint (**out)[4])
 {
-	const uint wp = o->np > 256 ? 2 : 1, wn = o->nn > 256 ? 2 : 1, wc = o->ncol > 256 ? 2 : 1, wu = o->nuv > 256 ? 2 : 1;
+	const uint wp = o->np > 256 ? 2 : 1, wn = o->nn > 256 ? 2 : 1, wc = o->ncol > 256 ? 2 : 1,
+			   wu = o->nuv > 256 ? 2 : 1;
 	const bool hn = o->nn, hc = o->ncol, hu = o->nuv;
 	const uint vs = wp + (hn ? wn : 0) + (hc ? wc : 0) + (hu ? wu : 0);
 	const u8 *p = d + dl, *end = d + dl + dlsz;
@@ -383,7 +406,8 @@ static size_t rz_dl (const rz_node_t *o, const u8 *d, size_t size, size_t dl, si
 		const uint cmd = *p & 0xf8;
 		uint n = rz_be16 (p + 1);
 		p += 3;
-		if (n > 8192 || (size_t)(end - p) < (size_t)n * vs || (cmd != 0x80 && cmd != 0x90 && cmd != 0x98 && cmd != 0xa0))
+		if (n > 8192 || (size_t)(end - p) < (size_t)n * vs
+			|| (cmd != 0x80 && cmd != 0x90 && cmd != 0x98 && cmd != 0xa0))
 			break;
 		bool bad = false;
 		for (uint i = 0; i < n; i++)
@@ -397,16 +421,30 @@ static size_t rz_dl (const rz_node_t *o, const u8 *d, size_t size, size_t dl, si
 				idx[i][2] = wc == 2 ? rz_be16 (p) : p[0], p += wc;
 			if (hu)
 				idx[i][3] = wu == 2 ? rz_be16 (p) : p[0], p += wu;
-			if (idx[i][0] >= o->np || idx[i][1] >= (hn ? o->nn : 1) || idx[i][2] >= (hc ? o->ncol : 1)
-				|| idx[i][3] >= (hu ? o->nuv : 1))
+			if (idx[i][0] >= o->np || idx[i][1] >= (hn ? o->nn : 1)
+				|| idx[i][2] >= (hc ? o->ncol : 1) || idx[i][3] >= (hu ? o->nuv : 1))
 				bad = true;
 		}
 		if (bad)
 			break;
-		#define REMIT(a, b, c) do { \
-			if (cnt + 3 > cap) { cap *= 2; uint (*ns)[4] = REALLOC (soup, cap * sizeof (*soup)); if (!ns) { FREE (soup); return 0; } soup = ns; } \
-			memcpy (soup[cnt++], idx[a], sizeof (idx[0])); memcpy (soup[cnt++], idx[b], sizeof (idx[0])); \
-			memcpy (soup[cnt++], idx[c], sizeof (idx[0])); } while (0)
+#define REMIT(a, b, c)                                                                             \
+	do                                                                                             \
+	{                                                                                              \
+		if (cnt + 3 > cap)                                                                         \
+		{                                                                                          \
+			cap *= 2;                                                                              \
+			uint (*ns)[4] = REALLOC (soup, cap * sizeof (*soup));                                  \
+			if (!ns)                                                                               \
+			{                                                                                      \
+				FREE (soup);                                                                       \
+				return 0;                                                                          \
+			}                                                                                      \
+			soup = ns;                                                                             \
+		}                                                                                          \
+		memcpy (soup[cnt++], idx[a], sizeof (idx[0]));                                             \
+		memcpy (soup[cnt++], idx[b], sizeof (idx[0]));                                             \
+		memcpy (soup[cnt++], idx[c], sizeof (idx[0]));                                             \
+	} while (0)
 		if (cmd == 0x90)
 			for (uint i = 0; i + 2 < n; i += 3)
 				REMIT (i, i + 1, i + 2);
@@ -419,7 +457,8 @@ static size_t rz_dl (const rz_node_t *o, const u8 *d, size_t size, size_t dl, si
 		else if (cmd == 0x98)
 			for (uint i = 0; i + 2 < n; i++)
 			{
-				if (idx[i][0] == idx[i + 1][0] || idx[i + 1][0] == idx[i + 2][0] || idx[i][0] == idx[i + 2][0])
+				if (idx[i][0] == idx[i + 1][0] || idx[i + 1][0] == idx[i + 2][0]
+					|| idx[i][0] == idx[i + 2][0])
 					continue;
 				if (i & 1)
 					REMIT (i + 1, i, i + 2);
@@ -429,7 +468,7 @@ static size_t rz_dl (const rz_node_t *o, const u8 *d, size_t size, size_t dl, si
 		else
 			for (uint i = 1; i + 1 < n; i++)
 				REMIT (0, i, i + 1);
-		#undef REMIT
+#undef REMIT
 	}
 	if (!cnt)
 	{
@@ -440,8 +479,8 @@ static size_t rz_dl (const rz_node_t *o, const u8 *d, size_t size, size_t dl, si
 	return cnt;
 }
 
-static bool rz_mesh (model_t *m, const rz_tree_t *t, uint k, uint batch, size_t dl, size_t dlsz, u32 tex_id,
-	RezTexFunc texname, void *ctx)
+static bool rz_mesh (model_t *m, const rz_tree_t *t, uint k, uint batch, size_t dl, size_t dlsz,
+	u32 tex_id, RezTexFunc texname, void *ctx)
 {
 	const rz_node_t *o = t->nodes + k;
 	const u8 *d = t->d;
@@ -465,7 +504,8 @@ static bool rz_mesh (model_t *m, const rz_tree_t *t, uint k, uint batch, size_t 
 		mesh->normals = CALLOC (cnt, sizeof (*mesh->normals));
 	if (o->nuv)
 		mesh->texcoords = CALLOC (cnt, sizeof (*mesh->texcoords));
-	if (!mesh->vertices || !mesh->positions || (o->nn && !mesh->normals) || (o->nuv && !mesh->texcoords))
+	if (!mesh->vertices || !mesh->positions || (o->nn && !mesh->normals)
+		|| (o->nuv && !mesh->texcoords))
 	{
 		FREE (soup);
 		return false;
@@ -473,7 +513,7 @@ static bool rz_mesh (model_t *m, const rz_tree_t *t, uint k, uint batch, size_t 
 	for (size_t i = 0; i < cnt; i++)
 	{
 		const u8 *pp = d + o->pos + 12 * (size_t)soup[i][0];
-		mesh->positions[i] = (vec3_t){ rz_f (pp), rz_f (pp + 4), rz_f (pp + 8) };
+		mesh->positions[i] = (vec3_t) { rz_f (pp), rz_f (pp + 4), rz_f (pp + 8) };
 		vertex_t *v = mesh->vertices + i;
 		v->position_idx = (int)i;
 		v->normal_idx = v->tangent_idx = v->matrix_idx = v->texcoord_idx = -1;
@@ -483,13 +523,13 @@ static bool rz_mesh (model_t *m, const rz_tree_t *t, uint k, uint batch, size_t 
 		if (o->nn)
 		{
 			const u8 *np_ = d + o->nrm + 12 * (size_t)soup[i][1];
-			mesh->normals[i] = (vec3_t){ rz_f (np_), rz_f (np_ + 4), rz_f (np_ + 8) };
+			mesh->normals[i] = (vec3_t) { rz_f (np_), rz_f (np_ + 4), rz_f (np_ + 8) };
 			v->normal_idx = (int)i;
 		}
 		if (o->nuv)
 		{
 			const u8 *tp = d + o->uv + 8 * (size_t)soup[i][3];
-			mesh->texcoords[i] = (vec2_t){ rz_f (tp), rz_f (tp + 4) };
+			mesh->texcoords[i] = (vec2_t) { rz_f (tp), rz_f (tp + 4) };
 			v->texcoord_idx = (int)i;
 		}
 	}
@@ -508,7 +548,7 @@ static bool rz_mesh (model_t *m, const rz_tree_t *t, uint k, uint batch, size_t 
 			{
 				const float f = rz_f (w + 4 + 4 * k);
 				if (w[k] != 0xff && w[k] < m->num_joints && f > 0)
-					wt[inf.num_weights++] = (influence_t){ w[k], f };
+					wt[inf.num_weights++] = (influence_t) { w[k], f };
 			}
 			int found = -1;
 			for (size_t j = 0; j < m->num_node_influences && found < 0; j++)
@@ -516,13 +556,15 @@ static bool rz_mesh (model_t *m, const rz_tree_t *t, uint k, uint batch, size_t 
 				const node_influence_t *e = m->node_influences + j;
 				bool same = e->num_weights == inf.num_weights;
 				for (size_t k = 0; same && k < e->num_weights; k++)
-					same = e->weights[k].bone_idx == wt[k].bone_idx && e->weights[k].weight == wt[k].weight;
+					same = e->weights[k].bone_idx == wt[k].bone_idx
+						&& e->weights[k].weight == wt[k].weight;
 				if (same)
 					found = (int)j;
 			}
 			if (found < 0 && inf.num_weights)
 			{
-				node_influence_t *ni = REALLOC (m->node_influences, (m->num_node_influences + 1) * sizeof (*ni));
+				node_influence_t *ni
+					= REALLOC (m->node_influences, (m->num_node_influences + 1) * sizeof (*ni));
 				if (!ni)
 					return false;
 				m->node_influences = ni;
@@ -572,8 +614,8 @@ static void rz_joints (model_t *m, const u8 *d, size_t *p, int parent, float wx,
 	joint_t *j = m->joints + idx;
 	snprintf (j->name, sizeof (j->name), "bone%u", idx);
 	j->parent_idx = parent;
-	j->translate = (vec3_t){ rz_f (d + b), rz_f (d + b + 4), rz_f (d + b + 8) };
-	j->scale = (vec3_t){ 1, 1, 1 };
+	j->translate = (vec3_t) { rz_f (d + b), rz_f (d + b + 4), rz_f (d + b + 8) };
+	j->scale = (vec3_t) { 1, 1, 1 };
 	wx += j->translate.x, wy += j->translate.y, wz += j->translate.z;
 	j->bind[0] = j->bind[5] = j->bind[10] = 1;
 	j->bind[3] = wx, j->bind[7] = wy, j->bind[11] = wz;
@@ -596,7 +638,7 @@ model_t *ParseRezModel (const u8 *d, size_t size, RezTexFunc texname, void *ctx)
 		FREE (m);
 		return 0;
 	}
-	rz_walk (&t, 0, 0);	// a failed walk still leaves the objects read so far
+	rz_walk (&t, 0, 0); // a failed walk still leaves the objects read so far
 	for (uint k = 0; k < t.n && !m->num_joints; k++)
 		if (t.nodes[k].bones && t.nodes[k].nbones)
 		{
@@ -685,8 +727,10 @@ bool AddRezAnimation (model_t *m, const u8 *d, size_t size, const u8 *a, size_t 
 	}
 	uint na = 0;
 	rz_walk (&t, 0, 0);
-	const bool ok = !m->num_joints && t.n && rz_awalk (a, asize, 0, an, &na, REZ_MAX_NODES) != (size_t)-1 && na == t.n;
-	model_animation_t *anims = ok ? REALLOC (m->animations, (m->num_animations + 1) * sizeof (*anims)) : 0;
+	const bool ok = !m->num_joints && t.n
+		&& rz_awalk (a, asize, 0, an, &na, REZ_MAX_NODES) != (size_t)-1 && na == t.n;
+	model_animation_t *anims
+		= ok ? REALLOC (m->animations, (m->num_animations + 1) * sizeof (*anims)) : 0;
 	if (!anims)
 	{
 		FREE (t.nodes);
@@ -714,7 +758,8 @@ bool AddRezAnimation (model_t *m, const u8 *d, size_t size, const u8 *a, size_t 
 		model_anim_channel_t *tr = nc + nch, *ro = tr + 1, *sc = tr + 2;
 		memset (tr, 0, 3 * sizeof (*tr));
 		tr->node_idx = ro->node_idx = sc->node_idx = (int)mi;
-		tr->path = MODEL_ANIM_TRANSLATION, ro->path = MODEL_ANIM_ROTATION, sc->path = MODEL_ANIM_SCALE;
+		tr->path = MODEL_ANIM_TRANSLATION, ro->path = MODEL_ANIM_ROTATION,
+		sc->path = MODEL_ANIM_SCALE;
 		tr->count = ro->count = sc->count = nf;
 		tr->components = sc->components = 3, ro->components = 4;
 		tr->times = CALLOC (nf, sizeof (float));
@@ -746,8 +791,10 @@ bool AddRezAnimation (model_t *m, const u8 *d, size_t size, const u8 *a, size_t 
 			float sp[3] = { rs[0] * o->pv[0], rs[1] * o->pv[1], rs[2] * o->pv[2] }, rot[3];
 			// rotate SP by RQ (v' = v + 2w(u x v) + 2 u x (u x v))
 			const float *u = rq, w = rq[3];
-			const float c1[3] = { u[1] * sp[2] - u[2] * sp[1], u[2] * sp[0] - u[0] * sp[2], u[0] * sp[1] - u[1] * sp[0] };
-			const float c2[3] = { u[1] * c1[2] - u[2] * c1[1], u[2] * c1[0] - u[0] * c1[2], u[0] * c1[1] - u[1] * c1[0] };
+			const float c1[3] = { u[1] * sp[2] - u[2] * sp[1], u[2] * sp[0] - u[0] * sp[2],
+				u[0] * sp[1] - u[1] * sp[0] };
+			const float c2[3] = { u[1] * c1[2] - u[2] * c1[1], u[2] * c1[0] - u[0] * c1[2],
+				u[0] * c1[1] - u[1] * c1[0] };
 			for (uint i = 0; i < 3; i++)
 				rot[i] = sp[i] + 2 * w * c1[i] + 2 * c2[i];
 			tr->times[f] = ro->times[f] = sc->times[f] = f / REZ_ANIM_FPS;
@@ -791,7 +838,8 @@ model_t *ParseRezMotion (const u8 *d, size_t size, const model_t *ref)
 	if (!ref || size < 0x40)
 		return 0;
 	const size_t nf = rz_be32 (d), nb = rz_be32 (d + 4), stride = rz_be32 (d + 12);
-	if (nb != ref->num_joints || stride != 12 + 8 * nb || !nf || nf > 0x10000 || 0x14 + nf * stride > size)
+	if (nb != ref->num_joints || stride != 12 + 8 * nb || !nf || nf > 0x10000
+		|| 0x14 + nf * stride > size)
 		return 0;
 	model_t *m = CopyRezSkeleton (ref);
 	if (!m)
@@ -830,8 +878,9 @@ model_t *ParseRezMotion (const u8 *d, size_t size, const model_t *ref)
 			{
 				const u8 *f0 = d + 0x14;
 				for (uint i = 0; i < 3; i++)
-					ch->values[3 * f + i] = m->joints[0].translate.x * (i == 0) + m->joints[0].translate.y * (i == 1)
-						+ m->joints[0].translate.z * (i == 2) + rz_f (fr + 4 * i) - rz_f (f0 + 4 * i);
+					ch->values[3 * f + i] = m->joints[0].translate.x * (i == 0)
+						+ m->joints[0].translate.y * (i == 1) + m->joints[0].translate.z * (i == 2)
+						+ rz_f (fr + 4 * i) - rz_f (f0 + 4 * i);
 				continue;
 			}
 			float q[4], dot = 0;

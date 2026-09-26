@@ -218,8 +218,7 @@ enumError DecodeCSB (const u8 *data, u32 size, ccp out_path);
 // layout (u32 flags, no compression); MAP_OBJECT writes one split model per
 // mesh and no .ctb, like upstream -mobj. Outputs ending in .zst/.zs/.zstd
 // are Zstandard-compressed.
-enumError EncodeCSB (
-	const model_t *model, ccp out_csb_path, bool big_endian, bool map_object);
+enumError EncodeCSB (const model_t *model, ccp out_csb_path, bool big_endian, bool map_object);
 
 //--- text dumps (wmdlt CAT) --------------------------------------------------
 

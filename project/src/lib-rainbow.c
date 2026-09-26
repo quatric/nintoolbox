@@ -152,8 +152,8 @@ static bool gcg_read_strip (const u8 *d, uint size, u64 *po, gcg_strip_t *s)
 		return false;
 	s->dl_size = rd_be32 (d + o);
 	o += 4;
-	const u64 total = (u64)s->npos * s->spos + (u64)s->nclr * s->sclr + (u64)s->ntex * s->stex
-		+ s->dl_size;
+	const u64 total
+		= (u64)s->npos * s->spos + (u64)s->nclr * s->sclr + (u64)s->ntex * s->stex + s->dl_size;
 	if (o + total > size)
 		return false;
 	s->pos = d + o;
@@ -207,10 +207,18 @@ static float gcg_comp (const u8 *p, uint type, uint frac)
 	float v;
 	switch (type)
 	{
-		case 0: v = p[0]; break;
-		case 1: v = (int8_t)p[0]; break;
-		case 2: v = (float)gcg_be16 (p); break;
-		case 3: v = (float)(int16_t)gcg_be16 (p); break;
+		case 0:
+			v = p[0];
+			break;
+		case 1:
+			v = (int8_t)p[0];
+			break;
+		case 2:
+			v = (float)gcg_be16 (p);
+			break;
+		case 3:
+			v = (float)(int16_t)gcg_be16 (p);
+			break;
 		default:
 		{
 			const u32 u = rd_be32 (p);
@@ -385,7 +393,8 @@ static bool gcg_add_strip (model_t *model, const gcg_strip_t *s, uint mat, ccp n
 	{
 		const u8 *p = s->tex + i * s->stex;
 		mesh->texcoords[i].u = gcg_comp (p, s->tex_type, s->tex_frac);
-		mesh->texcoords[i].v = s->stex >= 2 * tsz ? gcg_comp (p + tsz, s->tex_type, s->tex_frac) : 0;
+		mesh->texcoords[i].v
+			= s->stex >= 2 * tsz ? gcg_comp (p + tsz, s->tex_type, s->tex_frac) : 0;
 	}
 	mesh->num_vertices = num;
 	for (size_t i = 0; i < num; i++)

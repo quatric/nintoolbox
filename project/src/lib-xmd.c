@@ -6,7 +6,6 @@
 #include "lib-archive-util.h"
 #include <string.h>
 
-
 // ----------------------------------------------------------------------------
 // Genki "GTI Club: Supermini Festa!" model container (.mdl)
 // ----------------------------------------------------------------------------
@@ -85,8 +84,7 @@ enumError ExtractXMDArchive (ccp arg, ccp basedir, uint depth)
 		CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog,
-			"%s%sEXTRACT XMD:%s (geometry %u bytes, undecoded + textures) -> %s/\n",
+		fprintf (stdlog, "%s%sEXTRACT XMD:%s (geometry %u bytes, undecoded + textures) -> %s/\n",
 			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, geo_size, dest);
 
 	if (!testmode)

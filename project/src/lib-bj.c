@@ -12,8 +12,14 @@
 #define BJ_MAX_NODES 4096
 #define BJ_MAX_MESHES 65536
 
-static u32 bj_rd32 (const u8 *p) { return p[0] | p[1] << 8 | p[2] << 16 | (u32)p[3] << 24; }
-static u32 bj_rd16 (const u8 *p) { return p[0] | p[1] << 8; }
+static u32 bj_rd32 (const u8 *p)
+{
+	return p[0] | p[1] << 8 | p[2] << 16 | (u32)p[3] << 24;
+}
+static u32 bj_rd16 (const u8 *p)
+{
+	return p[0] | p[1] << 8;
+}
 static float bj_rdf (const u8 *p)
 {
 	const u32 u = bj_rd32 (p);
@@ -25,7 +31,10 @@ static float bj_rdf (const u8 *p)
 //-----------------------------------------------------------------------------
 // textures
 
-bool IsBjTx1 (const u8 *d, size_t size) { return size >= 0x48 && bj_rd32 (d) == BJ_TX_MAGIC; }
+bool IsBjTx1 (const u8 *d, size_t size)
+{
+	return size >= 0x48 && bj_rd32 (d) == BJ_TX_MAGIC;
+}
 
 // Offset of texture IDX's record, or 0.
 static u32 bj_tex_record (const u8 *d, size_t size, uint idx)
@@ -58,9 +67,11 @@ enumError DecodeBjTexture (u8 **rgba, uint *width, uint *height, const u8 *d, si
 		return ERR_INVALID_DATA;
 	const u32 loc = bj_rd32 (d + off + 12);
 	const uint fmt = d[off + 16], frames = d[off + 17] ? d[off + 17] : 1;
-	const uint flags = bj_rd16 (d + off + 20), w = bj_rd16 (d + off + 24), h = bj_rd16 (d + off + 26);
+	const uint flags = bj_rd16 (d + off + 20), w = bj_rd16 (d + off + 24),
+			   h = bj_rd16 (d + off + 26);
 	const u32 npal = bj_rd32 (d + off + 28);
-	if (fmt != 12 || !w || !h || w > 4096 || h > 4096 || npal > 256 || off + 0x20 + (size_t)npal * 4 > size1)
+	if (fmt != 12 || !w || !h || w > 4096 || h > 4096 || npal > 256
+		|| off + 0x20 + (size_t)npal * 4 > size1)
 		return ERR_INVALID_DATA;
 	const bool mips = (flags & 0xc0) == 0x80 && w == h;
 	size_t fsz = (size_t)w * h;
@@ -98,7 +109,10 @@ enumError DecodeBjTexture (u8 **rgba, uint *width, uint *height, const u8 *d, si
 //-----------------------------------------------------------------------------
 // meshes
 
-bool IsBjMtm (const u8 *d, size_t size) { return size >= 0x100 && bj_rd32 (d) == BJ_MTM_MAGIC; }
+bool IsBjMtm (const u8 *d, size_t size)
+{
+	return size >= 0x100 && bj_rd32 (d) == BJ_MTM_MAGIC;
+}
 
 typedef struct
 {
@@ -113,14 +127,18 @@ typedef struct
 	uint n_tex_ids;
 } bj_ctx_t;
 
-static bool bj_ok (const bj_ctx_t *c, u64 off, u64 len) { return off + len <= c->size; }
+static bool bj_ok (const bj_ctx_t *c, u64 off, u64 len)
+{
+	return off + len <= c->size;
+}
 
 static void bj_matmul (float *r, const float *a, const float *b)
 {
 	float t[16];
 	for (uint i = 0; i < 4; i++)
 		for (uint j = 0; j < 4; j++)
-			t[i * 4 + j] = a[i * 4] * b[j] + a[i * 4 + 1] * b[4 + j] + a[i * 4 + 2] * b[8 + j] + a[i * 4 + 3] * b[12 + j];
+			t[i * 4 + j] = a[i * 4] * b[j] + a[i * 4 + 1] * b[4 + j] + a[i * 4 + 2] * b[8 + j]
+				+ a[i * 4 + 3] * b[12 + j];
 	memcpy (r, t, sizeof (t));
 }
 
@@ -173,16 +191,17 @@ static bool bj_add_mesh (bj_ctx_t *c, u32 mo, const float *W, uint node_idx, uin
 	if (!bj_ok (c, mo, 192))
 		return true;
 	const u32 fl = bj_rd32 (d + mo + 8), tex = bj_rd32 (d + mo + 64);
-	const u32 npos = bj_rd32 (d + mo + 76), nvert = bj_rd32 (d + mo + 88), nidx = bj_rd32 (d + mo + 92),
-		  nprim = bj_rd32 (d + mo + 104);
-	const u32 ppos = bj_rd32 (d + mo + 116), pvert = bj_rd32 (d + mo + 128), pidx = bj_rd32 (d + mo + 132),
-		  pprim = bj_rd32 (d + mo + 144);
+	const u32 npos = bj_rd32 (d + mo + 76), nvert = bj_rd32 (d + mo + 88),
+			  nidx = bj_rd32 (d + mo + 92), nprim = bj_rd32 (d + mo + 104);
+	const u32 ppos = bj_rd32 (d + mo + 116), pvert = bj_rd32 (d + mo + 128),
+			  pidx = bj_rd32 (d + mo + 132), pprim = bj_rd32 (d + mo + 144);
 	uint vsz;
 	int uvoff;
 	bj_vfmt (fl, &vsz, &uvoff);
-	if (!npos || !nvert || !nprim || npos > 0x100000 || nvert > 0x100000 || nidx > 0x1000000 || nprim > 0x10000
-		|| !bj_ok (c, ppos, (u64)npos * 16) || !bj_ok (c, pvert, (u64)nvert * vsz)
-		|| !bj_ok (c, pidx, (u64)nidx * 2) || !bj_ok (c, pprim, (u64)nprim * 12))
+	if (!npos || !nvert || !nprim || npos > 0x100000 || nvert > 0x100000 || nidx > 0x1000000
+		|| nprim > 0x10000 || !bj_ok (c, ppos, (u64)npos * 16)
+		|| !bj_ok (c, pvert, (u64)nvert * vsz) || !bj_ok (c, pidx, (u64)nidx * 2)
+		|| !bj_ok (c, pprim, (u64)nprim * 12))
 		return true;
 
 	// triangle soup as vertex-record indices
@@ -225,7 +244,8 @@ static bool bj_add_mesh (bj_ctx_t *c, u32 mo, const float *W, uint node_idx, uin
 			u32 pi[3];
 			for (uint k = 0; k < 3; k++)
 				pi[k] = bj_rd16 (d + pvert + (size_t)v[k] * vsz);
-			if (pi[0] == pi[1] || pi[1] == pi[2] || pi[0] == pi[2] || pi[0] >= npos || pi[1] >= npos || pi[2] >= npos)
+			if (pi[0] == pi[1] || pi[1] == pi[2] || pi[0] == pi[2] || pi[0] >= npos || pi[1] >= npos
+				|| pi[2] >= npos)
 				continue;
 			if (num + 3 > cap)
 			{
@@ -355,11 +375,21 @@ model_t *ParseBjMtm (const u8 *d, size_t size, BjTexFunc texname, void *ctx)
 //-----------------------------------------------------------------------------
 // audio
 
-static u32 bj_be32 (const u8 *p) { return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
-static void bj_put32 (u8 *p, u32 v) { p[0] = v; p[1] = v >> 8; p[2] = v >> 16; p[3] = v >> 24; }
+static u32 bj_be32 (const u8 *p)
+{
+	return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
+}
+static void bj_put32 (u8 *p, u32 v)
+{
+	p[0] = v;
+	p[1] = v >> 8;
+	p[2] = v >> 16;
+	p[3] = v >> 24;
+}
 
 // 16-bit PCM WAV from planar signed 8-bit channels.
-static enumError bj_wav (u8 **wav, size_t *wav_size, const u8 *const *ch, uint n_ch, size_t frames, u32 rate)
+static enumError bj_wav (
+	u8 **wav, size_t *wav_size, const u8 *const *ch, uint n_ch, size_t frames, u32 rate)
 {
 	const size_t bytes = frames * n_ch * 2;
 	u8 *w = MALLOC (44 + bytes);
@@ -395,7 +425,10 @@ bool IsBjBsi (const u8 *d, size_t size)
 	return n && n < 4096 && tab == 0x10 && tab + (u64)n * 32 <= size;
 }
 
-uint BjBsiCount (const u8 *d, size_t size) { return IsBjBsi (d, size) ? bj_be32 (d + 4) : 0; }
+uint BjBsiCount (const u8 *d, size_t size)
+{
+	return IsBjBsi (d, size) ? bj_be32 (d + 4) : 0;
+}
 
 enumError DecodeBjBsiSample (u8 **wav, size_t *wav_size, const u8 *d, size_t size, uint idx)
 {

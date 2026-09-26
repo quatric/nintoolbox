@@ -209,7 +209,8 @@ enumError DecodeRVZFile (ccp src_path, ccp dest_path)
 	}
 
 	u8 *group_comp = MALLOC (group_size ? group_size : 1);
-	if (fseeko (f, (off_t)group_off, SEEK_SET) || fread (group_comp, 1, group_size, f) != group_size)
+	if (fseeko (f, (off_t)group_off, SEEK_SET)
+		|| fread (group_comp, 1, group_size, f) != group_size)
 	{
 		FREE (raw_data_t_buf);
 		FREE (group_comp);
@@ -273,7 +274,8 @@ enumError DecodeRVZFile (ccp src_path, ccp dest_path)
 			if (abs_off >= iso_file_size)
 				continue;
 			const u32 chunk_bytes
-				= (u32)((iso_file_size - abs_off < chunk_size) ? iso_file_size - abs_off : chunk_size);
+				= (u32)((iso_file_size - abs_off < chunk_size) ? iso_file_size - abs_off
+															   : chunk_size);
 
 			if (size == 0)
 				memset (chunk_buf, 0, chunk_bytes);
@@ -299,7 +301,8 @@ enumError DecodeRVZFile (ccp src_path, ccp dest_path)
 					enumError e2 = DecodeZSTD (&unpack_buf, &written, comp_buf, size);
 					if (e2 > ERR_WARNING || written != packed)
 					{
-						err = ERROR0 (ERR_INVALID_DATA, "group %u decompress failed: %s", gi, src_path);
+						err = ERROR0 (
+							ERR_INVALID_DATA, "group %u decompress failed: %s", gi, src_path);
 						break;
 					}
 					rvz_unpack (unpack_buf, chunk_buf, chunk_bytes);
@@ -307,10 +310,12 @@ enumError DecodeRVZFile (ccp src_path, ccp dest_path)
 				else if (compressed)
 				{
 					uint written = 0;
-					enumError e2 = DecodeZSTDpart (chunk_buf, chunk_bytes, &written, comp_buf, size);
+					enumError e2
+						= DecodeZSTDpart (chunk_buf, chunk_bytes, &written, comp_buf, size);
 					if (e2 > ERR_WARNING || written != chunk_bytes)
 					{
-						err = ERROR0 (ERR_INVALID_DATA, "group %u decompress failed: %s", gi, src_path);
+						err = ERROR0 (
+							ERR_INVALID_DATA, "group %u decompress failed: %s", gi, src_path);
 						break;
 					}
 				}
@@ -320,7 +325,8 @@ enumError DecodeRVZFile (ccp src_path, ccp dest_path)
 					memcpy (chunk_buf, comp_buf, chunk_bytes < size ? chunk_bytes : size);
 			}
 
-			if (fseeko (out, (off_t)abs_off, SEEK_SET) || fwrite (chunk_buf, 1, chunk_bytes, out) != chunk_bytes)
+			if (fseeko (out, (off_t)abs_off, SEEK_SET)
+				|| fwrite (chunk_buf, 1, chunk_bytes, out) != chunk_bytes)
 			{
 				err = ERROR0 (ERR_WRITE_FAILED, "Write failed at group %u: %s", gi, dest_path);
 				break;

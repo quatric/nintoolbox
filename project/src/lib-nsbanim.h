@@ -69,7 +69,7 @@ typedef struct
 	uint32_t num_keys; // NNSG3dResDictTexPatAnmData::numFV
 	uint32_t ratio_fx16; // NNSG3dResDictTexPatAnmData::ratioDataFrame (Q16)
 	const uint8_t *keys; // num_keys * 4 bytes of nsb_tp_key_t (u16 frame LE),
-			     // points into the caller's buffer, sorted by frame
+						 // points into the caller's buffer, sorted by frame
 } nsb_tp_clip_t;
 
 // Decode clip `clip_idx` of a BTP0 into `clip`. Returns 1 on success, 0 on
@@ -131,11 +131,10 @@ int DecodeNSBMA_Clip (nsb_ma_clip_t *clip, const uint8_t *data, size_t size, uin
 // Linearly interpolate one channel's colour between the surrounding keys of a
 // decoded clip.  Returns 1 and sets *color, or 0 when frame/channel is out of
 // range.
-int NSBMA_Lookup (const nsb_ma_clip_t *clip, uint32_t channel,
-	uint32_t frame, uint32_t *color);
+int NSBMA_Lookup (const nsb_ma_clip_t *clip, uint32_t channel, uint32_t frame, uint32_t *color);
 
-uint8_t *BuildNSBMA (uint32_t num_frame, const nsb_ma_clip_spec_t *clips,
-	size_t num_clips, size_t *out_size);
+uint8_t *BuildNSBMA (
+	uint32_t num_frame, const nsb_ma_clip_spec_t *clips, size_t num_clips, size_t *out_size);
 
 #define NSB_TEXSRT_PARAMS 5
 typedef struct
@@ -163,11 +162,10 @@ int DecodeNSBTA_Clip (nsb_ta_clip_t *clip, const uint8_t *data, size_t size, uin
 
 // Linearly interpolate the five SRT parameters between the surrounding keys of
 // a decoded clip.  Returns 1 and fills v[], or 0 when frame is out of range.
-int NSBTA_Lookup (const nsb_ta_clip_t *clip, uint32_t frame,
-	int16_t v[NSB_TEXSRT_PARAMS]);
+int NSBTA_Lookup (const nsb_ta_clip_t *clip, uint32_t frame, int16_t v[NSB_TEXSRT_PARAMS]);
 
-uint8_t *BuildNSBTA (uint32_t num_frame, const nsb_ta_clip_spec_t *clips,
-	size_t num_clips, size_t *out_size);
+uint8_t *BuildNSBTA (
+	uint32_t num_frame, const nsb_ta_clip_spec_t *clips, size_t num_clips, size_t *out_size);
 
 // BCK0 (CHR0) character (inverse-TRS) animation.  Each clip unit animates a
 // named skeleton: per node a 3x3 basis matrix (row-major) plus a translation
@@ -186,8 +184,8 @@ uint8_t *BuildNSBTA (uint32_t num_frame, const nsb_ta_clip_spec_t *clips,
 typedef enum
 {
 	NSB_CHR_AXIS_NONE = 0, // identity basis cell / zero position scalar
-	NSB_CHR_AXIS_CONST,    // single fx32 value
-	NSB_CHR_AXIS_ANIM      // per-frame fx32 stream (see step)
+	NSB_CHR_AXIS_CONST, // single fx32 value
+	NSB_CHR_AXIS_ANIM // per-frame fx32 stream (see step)
 } nsb_chr_axis_mode_t;
 
 typedef struct
@@ -225,11 +223,11 @@ int DecodeNSBCK_Clip (nsb_ck_clip_t *clip, const uint8_t *data, size_t size, uin
 // Sample a decoded clip's node transform at `frame`: 3x3 basis matrix `m`
 // (row-major, identity by default) and translation `pos` (zero by default).
 // Returns 1 on success, 0 when node/frame is out of range.
-int NSBCK_SampleMatrix (const nsb_ck_clip_t *clip, uint32_t node, uint32_t frame,
-	float m[9], float pos[3]);
+int NSBCK_SampleMatrix (
+	const nsb_ck_clip_t *clip, uint32_t node, uint32_t frame, float m[9], float pos[3]);
 
-uint8_t *BuildNSBCK (uint32_t num_frame, const nsb_ck_clip_spec_t *clips,
-	size_t num_clips, size_t *out_size);
+uint8_t *BuildNSBCK (
+	uint32_t num_frame, const nsb_ck_clip_spec_t *clips, size_t num_clips, size_t *out_size);
 
 // Encode model animations back to NSB* binary.
 // Returns a malloc'd buffer (free by caller), sets *out_size. NULL on error.

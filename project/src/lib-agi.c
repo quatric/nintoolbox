@@ -7,11 +7,14 @@
 #include "lib-agi.h"
 #include <string.h>
 
-#define AGI_MAGIC        0x1A414749
-#define AGI_HEADER_SIZE  0x40
-#define AGI_MAX_ENTRIES  0x100000
+#define AGI_MAGIC 0x1A414749
+#define AGI_HEADER_SIZE 0x40
+#define AGI_MAX_ENTRIES 0x100000
 
-static u32 agi_rd32 (const u8 *p) { return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
+static u32 agi_rd32 (const u8 *p)
+{
+	return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
+}
 
 enumError ScanAGI (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size)
 {
@@ -20,10 +23,10 @@ enumError ScanAGI (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 	*entries = 0;
 	*n_entries = 0;
 
-	const u32 entry_table_size  = agi_rd32 (data + 0x08);
-	const u32 name_count        = agi_rd32 (data + 0x0c);
+	const u32 entry_table_size = agi_rd32 (data + 0x08);
+	const u32 name_count = agi_rd32 (data + 0x0c);
 	const u32 name_table_offset = agi_rd32 (data + 0x2c);
-	const u32 name_table_size   = agi_rd32 (data + 0x30);
+	const u32 name_table_size = agi_rd32 (data + 0x30);
 
 	if (!name_count || name_count > AGI_MAX_ENTRIES)
 		return EINVAL;
@@ -38,7 +41,10 @@ enumError ScanAGI (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 	// whose entry records really are 2-word (offset, size) pairs.
 	const u8 *tbl = data + AGI_HEADER_SIZE;
 	const uint n_words = entry_table_size / 4;
-	struct pair_t { u32 off, size; } *pairs = CALLOC (name_count + 1, sizeof (*pairs));
+	struct pair_t
+	{
+		u32 off, size;
+	} *pairs = CALLOC (name_count + 1, sizeof (*pairs));
 	if (!pairs)
 		return ERR_CANT_CREATE;
 	uint n_pairs = 0;
@@ -48,7 +54,7 @@ enumError ScanAGI (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 		const u32 msz = agi_rd32 (tbl + i * 4 + 4);
 		if (off >= AGI_HEADER_SIZE && off < name_table_offset && (u64)off + msz <= size)
 		{
-			pairs[n_pairs].off  = off;
+			pairs[n_pairs].off = off;
 			pairs[n_pairs].size = msz;
 			n_pairs++;
 			i++; // consume both words of the pair
@@ -79,7 +85,10 @@ enumError ScanAGI (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 	if (n_pairs != name_count)
 	{
 		n_pairs = 0;
-		enum { AGI_BLOCK_ALIGN = 0x800 };
+		enum
+		{
+			AGI_BLOCK_ALIGN = 0x800
+		};
 		u32 *offs = CALLOC (name_count, sizeof (*offs));
 		if (!offs)
 		{
@@ -129,7 +138,7 @@ enumError ScanAGI (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 				for (uint j = 0; j < name_count; j++)
 					if (sorted[j] > offs[i] && sorted[j] < next)
 						next = sorted[j];
-				pairs[i].off  = offs[i];
+				pairs[i].off = offs[i];
 				pairs[i].size = next - offs[i];
 			}
 			FREE (sorted);

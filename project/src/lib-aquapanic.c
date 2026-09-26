@@ -39,7 +39,7 @@ static float rd_le_float (const u8 *p)
 
 int IsAquaPanicRket (const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!data || size < 24)
 		return 0;
 	return !memcmp (data, "RKET", 4) && rd_le32 (data + 4) == 0;
@@ -47,7 +47,7 @@ int IsAquaPanicRket (const u8 *data, size_t size, size_t file_size)
 
 enumError DecodeAquaPanicRket_Text (FILE *f, const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!f || !data || size < 24)
 		return EINVAL;
 
@@ -82,12 +82,12 @@ int IsAquaPanicMat (const u8 *data, size_t size, size_t file_size)
 			return 0;
 	}
 	u32 payload = rd_le32 (data + 20);
-	return (u64) 24 + payload <= file_size;
+	return (u64)24 + payload <= file_size;
 }
 
 enumError DecodeAquaPanicMat_Text (FILE *f, const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!f || !data || size < 16)
 		return EINVAL;
 
@@ -133,12 +133,12 @@ int IsAquaPanicMb2 (const u8 *data, size_t size, size_t file_size)
 	// Require the first name entry to look structurally valid and to fit
 	// within the file.
 	u32 len = rd_le32 (data + 17);
-	return len > 0 && (u64) 21 + len <= file_size;
+	return len > 0 && (u64)21 + len <= file_size;
 }
 
 enumError DecodeAquaPanicMb2_Text (FILE *f, const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!f || !data || size < 17)
 		return EINVAL;
 
@@ -167,18 +167,14 @@ int IsAquaPanicVis (const u8 *data, size_t size, size_t file_size)
 {
 	if (!data || size < 24 || file_size != 24)
 		return 0;
-	return rd_le32 (data) == 1
-		&& rd_le32 (data + 4) == 1
-		&& rd_le32 (data + 8) == 0
-		&& rd_le32 (data + 12) == 1
-		&& rd_le32 (data + 16) == 0
-		&& rd_le32 (data + 20) == 0;
+	return rd_le32 (data) == 1 && rd_le32 (data + 4) == 1 && rd_le32 (data + 8) == 0
+		&& rd_le32 (data + 12) == 1 && rd_le32 (data + 16) == 0 && rd_le32 (data + 20) == 0;
 }
 
 enumError DecodeAquaPanicVis_Text (FILE *f, const u8 *data, size_t size, size_t file_size)
 {
-	(void) data;
-	(void) file_size;
+	(void)data;
+	(void)file_size;
 	if (!f || size != 24)
 		return EINVAL;
 
@@ -210,7 +206,7 @@ int IsAquaPanicLit (const u8 *data, size_t size, size_t file_size)
 
 enumError DecodeAquaPanicLit_Text (FILE *f, const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!f || !data)
 		return EINVAL;
 

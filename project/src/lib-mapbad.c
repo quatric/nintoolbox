@@ -54,8 +54,8 @@ enumError ExtractMapBadArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT BAD:%s (%u areas, %u links) -> %s/\n", verbose > 0 ? "\n" : "",
-			testmode ? "WOULD " : "", arg, area_count, link_count, dest);
+		fprintf (stdlog, "%s%sEXTRACT BAD:%s (%u areas, %u links) -> %s/\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, area_count, link_count, dest);
 
 	enumError err = ERR_OK;
 	if (!testmode)
@@ -65,21 +65,22 @@ enumError ExtractMapBadArchive (ccp arg, ccp basedir, uint depth)
 		snprintf (links_path, sizeof (links_path), "%s/links.txt", dest);
 		snprintf (geo_path, sizeof (geo_path), "%s/geometry.bin", dest);
 
-		size_t cap = (size_t) (area_count + link_count) * 128 + 128, len = 0;
+		size_t cap = (size_t)(area_count + link_count) * 128 + 128, len = 0;
 		char *text = MALLOC (cap);
 		len += (size_t)snprintf (text + len, cap - len, "# idx\ta\tb\tscale_x\tscale_y\tscale_z\n");
 		for (u32 i = 0; i < area_count; i++)
 		{
 			const u8 *rec = raw + 0x0c + (u64)i * MAPBAD_REC_SIZE;
 			len += (size_t)snprintf (text + len, cap - len, "%u\t%u\t%u\t%g\t%g\t%g\n", i,
-				rd_be32 (rec), rd_be32 (rec + 4), rd_be_float (rec + 0x14), rd_be_float (rec + 0x18),
-				rd_be_float (rec + 0x1c));
+				rd_be32 (rec), rd_be32 (rec + 4), rd_be_float (rec + 0x14),
+				rd_be_float (rec + 0x18), rd_be_float (rec + 0x1c));
 		}
 		if (SaveFile (areas_path, 0, 0, (const u8 *)text, (uint)len, 0))
 			err = ERR_CANT_CREATE;
 
 		len = 0;
-		len += (size_t)snprintf (text + len, cap - len, "# idx\traw 8 big-endian u32 words (hex)\n");
+		len += (size_t)snprintf (
+			text + len, cap - len, "# idx\traw 8 big-endian u32 words (hex)\n");
 		for (u32 i = 0; i < link_count; i++)
 		{
 			const u8 *rec = raw + areas_end + (u64)i * MAPBAD_REC_SIZE;

@@ -15,7 +15,8 @@ bool IsEFFN (const u8 *data, size_t size);
 enumError DecodeEFFN_Text (FILE *out, const u8 *data, size_t size);
 
 // Extracts an EFFN archive into dest_dir:
-// - NamcoFile.json: JSON metadata mapping effect names, emitter sets, external models, and variants.
+// - NamcoFile.json: JSON metadata mapping effect names, emitter sets, external models, and
+// variants.
 // - particle.ptcl: The embedded NintendoWare VFXB particle effect binary.
 // - Base.ptcl: Exact duplicate copy of the particle file for reference.
 enumError ExtractEFFNArchive (ccp source_file, ccp dest_dir);

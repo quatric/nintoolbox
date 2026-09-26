@@ -632,7 +632,6 @@ enumError CreateRARC (
 ///////////////			    END				///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-
 enumError create_rarc_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -655,4 +654,3 @@ enumError create_rarc_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

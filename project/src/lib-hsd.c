@@ -2117,7 +2117,10 @@ static void hsd_collect_model (
 	// Root table: (offset,name-offset) pairs right after the relocation
 	// table, offsets 0x20-relative like everywhere else (verified: root[0]
 	// of TyBox.dat resolves to "ToyBoxModel_TopN_joint", a real JOBJ).
-	enum { MAX_ROOT_JOBJ = 256 };
+	enum
+	{
+		MAX_ROOT_JOBJ = 256
+	};
 	u32 jobjs[MAX_ROOT_JOBJ];
 	uint n_jobjs = 0;
 	for (uint i = 0; i < hsd->n_root && n_jobjs < MAX_ROOT_JOBJ; i++)
@@ -2213,7 +2216,6 @@ static void hsd_bind_model (model_t *model)
 			}
 		}
 	}
-
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -293,7 +293,8 @@ enumError ScanSoundArchive (sound_archive_t *sar, const u8 *data, size_t size)
 		u16 loc_type = sar_r16 (fe, be);
 		s32 loc_off = sar_rs32 (fe + 4, be);
 
-		if (loc_type == 0x220c && loc_off >= 0 && (uint)file_tab_off + 4 + (uint)ref_off + (uint)loc_off + 12 <= info_size) // Internal
+		if (loc_type == 0x220c && loc_off >= 0
+			&& (uint)file_tab_off + 4 + (uint)ref_off + (uint)loc_off + 12 <= info_size) // Internal
 		{
 			const u8 *ib = fe + loc_off;
 			u32 foff = sar_r32 (ib + 4, be);
@@ -1061,7 +1062,6 @@ enumError CreateSoundArchive (u8 **dest, uint *dest_size, const sound_archive_t 
 	return ERR_OK;
 }
 
-
 enumError create_sar_dir (ccp source, ccp dest, ccp magic_type)
 {
 	sarc_build_list_t list = { 0 };
@@ -1103,4 +1103,3 @@ enumError create_sar_dir (ccp source, ccp dest, ccp magic_type)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

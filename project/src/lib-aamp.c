@@ -74,8 +74,8 @@ void AAMP_InitHashDB (void)
 	if (s_raw_hash_strings)
 	{
 		uLongf dest_len = AAMP_HASH_DB_RAW_SIZE;
-		int zerr = uncompress ((Bytef *)s_raw_hash_strings, &dest_len,
-			aamp_hash_db_compressed, AAMP_HASH_DB_COMP_SIZE);
+		int zerr = uncompress ((Bytef *)s_raw_hash_strings, &dest_len, aamp_hash_db_compressed,
+			AAMP_HASH_DB_COMP_SIZE);
 		if (zerr == Z_OK)
 		{
 			s_raw_hash_strings[dest_len] = '\0';
@@ -101,8 +101,8 @@ void AAMP_InitHashDB (void)
 							char *fmt = strstr (start, "%d");
 							if (fmt)
 							{
-								snprintf (nbuf, sizeof (nbuf), "%.*s%d%s",
-									(int)(fmt - start), start, d, fmt + 2);
+								snprintf (nbuf, sizeof (nbuf), "%.*s%d%s", (int)(fmt - start),
+									start, d, fmt + 2);
 								u32 h = (u32)crc32 (0, (const Bytef *)nbuf, (uInt)strlen (nbuf));
 								aamp_insert_hash (h, STRDUP (nbuf));
 							}
@@ -397,9 +397,9 @@ static enumError aamp_scan_v1_entry (
 		case AAMP_TYPE_STRING_REF:
 		{
 			size_t max_l = (entry->type == AAMP_TYPE_STRING32) ? 32
-				: (entry->type == AAMP_TYPE_STRING64)           ? 64
-				: (entry->type == AAMP_TYPE_STRING256)          ? 256
-																: 1024;
+				: (entry->type == AAMP_TYPE_STRING64)		   ? 64
+				: (entry->type == AAMP_TYPE_STRING256)		   ? 256
+															   : 1024;
 			size_t act_l = 0;
 			while (act_l < payload_len && act_l < max_l && data[payload_off + act_l])
 				act_l++;
@@ -593,9 +593,9 @@ static enumError aamp_scan_v2_entry (
 		case AAMP_TYPE_STRING_REF:
 		{
 			size_t max_l = (entry->type == AAMP_TYPE_STRING32) ? 32
-				: (entry->type == AAMP_TYPE_STRING64)           ? 64
-				: (entry->type == AAMP_TYPE_STRING256)          ? 256
-																: (size - abs_off);
+				: (entry->type == AAMP_TYPE_STRING64)		   ? 64
+				: (entry->type == AAMP_TYPE_STRING256)		   ? 256
+															   : (size - abs_off);
 			size_t act_l = 0;
 			while (abs_off + act_l < size && act_l < max_l && data[abs_off + act_l])
 				act_l++;
@@ -726,7 +726,8 @@ enumError ScanAAMP (aamp_file_t *aamp, const u8 *data, size_t size)
 		u32 name_len = read_u32 (data + 20, le);
 		if (24 + name_len > size)
 			return ERR_INVALID_DATA;
-		snprintf (aamp->pio_type, sizeof (aamp->pio_type), "%.*s", (int)name_len, (const char *)(data + 24));
+		snprintf (aamp->pio_type, sizeof (aamp->pio_type), "%.*s", (int)name_len,
+			(const char *)(data + 24));
 		size_t root_off = 24 + name_len;
 		return aamp_scan_v1_list (&aamp->root, data, size, root_off, le);
 	}
@@ -969,8 +970,7 @@ static void aamp_write_v1_list (byte_buf_t *b, const aamp_param_list_t *list, bo
 	buf_patch_u32 (b, start, (u32)(b->size - start), le);
 }
 
-static enumError aamp_write_v1 (
-	const aamp_file_t *aamp, u8 **dest, size_t *dest_size, bool le)
+static enumError aamp_write_v1 (const aamp_file_t *aamp, u8 **dest, size_t *dest_size, bool le)
 {
 	byte_buf_t b;
 	buf_init (&b);
@@ -1027,8 +1027,7 @@ typedef struct v2_pool_entry_t
 	u32 entry_alloc;
 } v2_pool_entry_t;
 
-static enumError aamp_write_v2 (
-	const aamp_file_t *aamp, u8 **dest, size_t *dest_size, bool le)
+static enumError aamp_write_v2 (const aamp_file_t *aamp, u8 **dest, size_t *dest_size, bool le)
 {
 	byte_buf_t b;
 	buf_init (&b);
@@ -1313,8 +1312,7 @@ static enumError aamp_write_v2 (
 	return ERR_OK;
 }
 
-enumError WriteAAMP (
-	const aamp_file_t *aamp, u8 **dest, size_t *dest_size, u32 version, bool is_le)
+enumError WriteAAMP (const aamp_file_t *aamp, u8 **dest, size_t *dest_size, u32 version, bool is_le)
 {
 	if (!aamp || !dest || !dest_size)
 		return ERR_INVALID_DATA;
@@ -1371,19 +1369,20 @@ static void decode_yaml_entry (FILE *out, const aamp_param_entry_t *entry, int i
 			fprintf (out, "!vec2 [%.7g, %.7g]\n", entry->vec[0], entry->vec[1]);
 			break;
 		case AAMP_TYPE_VEC3:
-			fprintf (out, "!vec3 [%.7g, %.7g, %.7g]\n", entry->vec[0], entry->vec[1], entry->vec[2]);
+			fprintf (
+				out, "!vec3 [%.7g, %.7g, %.7g]\n", entry->vec[0], entry->vec[1], entry->vec[2]);
 			break;
 		case AAMP_TYPE_VEC4:
-			fprintf (out, "!vec4 [%.7g, %.7g, %.7g, %.7g]\n",
-				entry->vec[0], entry->vec[1], entry->vec[2], entry->vec[3]);
+			fprintf (out, "!vec4 [%.7g, %.7g, %.7g, %.7g]\n", entry->vec[0], entry->vec[1],
+				entry->vec[2], entry->vec[3]);
 			break;
 		case AAMP_TYPE_COLOR:
-			fprintf (out, "!color [%.7g, %.7g, %.7g, %.7g]\n",
-				entry->vec[0], entry->vec[1], entry->vec[2], entry->vec[3]);
+			fprintf (out, "!color [%.7g, %.7g, %.7g, %.7g]\n", entry->vec[0], entry->vec[1],
+				entry->vec[2], entry->vec[3]);
 			break;
 		case AAMP_TYPE_QUAT:
-			fprintf (out, "!quat [%.7g, %.7g, %.7g, %.7g]\n",
-				entry->vec[0], entry->vec[1], entry->vec[2], entry->vec[3]);
+			fprintf (out, "!quat [%.7g, %.7g, %.7g, %.7g]\n", entry->vec[0], entry->vec[1],
+				entry->vec[2], entry->vec[3]);
 			break;
 		case AAMP_TYPE_STRING32:
 			fprintf (out, "!str32 %s\n", entry->str ? entry->str : "");
@@ -1443,7 +1442,8 @@ static void decode_yaml_entry (FILE *out, const aamp_param_entry_t *entry, int i
 			{
 				if (c > 0)
 					fprintf (out, ", ");
-				fprintf (out, "%u,%u", entry->curve.curves[c].uints[0], entry->curve.curves[c].uints[1]);
+				fprintf (
+					out, "%u,%u", entry->curve.curves[c].uints[0], entry->curve.curves[c].uints[1]);
 				for (int f = 0; f < 30; f++)
 					fprintf (out, ",%.7g", entry->curve.curves[c].floats[f]);
 			}
@@ -1533,8 +1533,9 @@ typedef struct text_parser_t
 
 static void parse_skip_ws (text_parser_t *tp)
 {
-	while (tp->pos < tp->len && (tp->text[tp->pos] == ' ' || tp->text[tp->pos] == '\t'
-		|| tp->text[tp->pos] == '\r' || tp->text[tp->pos] == '\n'))
+	while (tp->pos < tp->len
+		&& (tp->text[tp->pos] == ' ' || tp->text[tp->pos] == '\t' || tp->text[tp->pos] == '\r'
+			|| tp->text[tp->pos] == '\n'))
 		tp->pos++;
 }
 
@@ -1576,11 +1577,16 @@ static aamp_param_list_t *aamp_add_list (aamp_param_list_t *list, u32 hash)
 
 static int aamp_b64_val (char c)
 {
-	if (c >= 'A' && c <= 'Z') return c - 'A';
-	if (c >= 'a' && c <= 'z') return c - 'a' + 26;
-	if (c >= '0' && c <= '9') return c - '0' + 52;
-	if (c == '+') return 62;
-	if (c == '/') return 63;
+	if (c >= 'A' && c <= 'Z')
+		return c - 'A';
+	if (c >= 'a' && c <= 'z')
+		return c - 'a' + 26;
+	if (c >= '0' && c <= '9')
+		return c - '0' + 52;
+	if (c == '+')
+		return 62;
+	if (c == '/')
+		return 63;
 	return -1;
 }
 
@@ -1589,36 +1595,44 @@ static u8 *aamp_b64_decode (const char *src, size_t *out_len)
 	size_t len = strlen (src);
 	u8 *out = MALLOC (len + 4);
 	size_t o = 0;
-	for (size_t i = 0; i < len; )
+	for (size_t i = 0; i < len;)
 	{
 		while (i < len && (src[i] == ' ' || src[i] == '\t' || src[i] == '\r' || src[i] == '\n'))
 			i++;
-		if (i >= len) break;
+		if (i >= len)
+			break;
 		int a = aamp_b64_val (src[i++]);
-		if (i >= len) break;
+		if (i >= len)
+			break;
 		int b = aamp_b64_val (src[i++]);
-		if (a < 0 || b < 0) break;
+		if (a < 0 || b < 0)
+			break;
 		out[o++] = (u8)((a << 2) | (b >> 4));
 		if (i < len && src[i] != '=')
 		{
 			int c = aamp_b64_val (src[i++]);
-			if (c < 0) break;
+			if (c < 0)
+				break;
 			out[o++] = (u8)(((b & 0xf) << 4) | (c >> 2));
 			if (i < len && src[i] != '=')
 			{
 				int d = aamp_b64_val (src[i++]);
-				if (d < 0) break;
+				if (d < 0)
+					break;
 				out[o++] = (u8)(((c & 0x3) << 6) | d);
 			}
-			else if (i < len) i++;
+			else if (i < len)
+				i++;
 		}
-		else if (i < len) i++;
+		else if (i < len)
+			i++;
 	}
 	*out_len = o;
 	return out;
 }
 
-static void parse_yaml_values_seq (yaml_parser_t *parser, yaml_event_t *ev, aamp_param_entry_t *entry, const char *tag)
+static void parse_yaml_values_seq (
+	yaml_parser_t *parser, yaml_event_t *ev, aamp_param_entry_t *entry, const char *tag)
 {
 	float fvals[256];
 	u32 uvals[256];
@@ -1729,8 +1743,10 @@ static void parse_yaml_values_seq (yaml_parser_t *parser, yaml_event_t *ev, aamp
 		u32 idx = 0;
 		for (u32 c = 0; c < num_curves; c++)
 		{
-			if (idx < count) entry->curve.curves[c].uints[0] = uvals[idx++];
-			if (idx < count) entry->curve.curves[c].uints[1] = uvals[idx++];
+			if (idx < count)
+				entry->curve.curves[c].uints[0] = uvals[idx++];
+			if (idx < count)
+				entry->curve.curves[c].uints[1] = uvals[idx++];
 			for (int f = 0; f < 30; f++)
 			{
 				if (idx < count)
@@ -1740,7 +1756,8 @@ static void parse_yaml_values_seq (yaml_parser_t *parser, yaml_event_t *ev, aamp
 	}
 }
 
-static void parse_yaml_param (yaml_parser_t *parser, aamp_param_object_t *obj, const char *key, yaml_event_t *val_ev)
+static void parse_yaml_param (
+	yaml_parser_t *parser, aamp_param_object_t *obj, const char *key, yaml_event_t *val_ev)
 {
 	aamp_param_entry_t entry;
 	memset (&entry, 0, sizeof (entry));
@@ -1818,7 +1835,8 @@ static void parse_yaml_param (yaml_parser_t *parser, aamp_param_object_t *obj, c
 	aamp_add_entry (obj, &entry);
 }
 
-static void parse_yaml_mapping_recursive (yaml_parser_t *parser, aamp_file_t *aamp, aamp_param_list_t *cur_list, aamp_param_object_t *cur_obj)
+static void parse_yaml_mapping_recursive (yaml_parser_t *parser, aamp_file_t *aamp,
+	aamp_param_list_t *cur_list, aamp_param_object_t *cur_obj)
 {
 	char key[256];
 	key[0] = '\0';
@@ -1858,13 +1876,17 @@ static void parse_yaml_mapping_recursive (yaml_parser_t *parser, aamp_file_t *aa
 			else if (!strcmp (key, "io_version") && ev.type == YAML_SCALAR_EVENT)
 				aamp->pio_version = (u32)atoi ((const char *)ev.data.scalar.value);
 			else if (!strcmp (key, "type") && ev.type == YAML_SCALAR_EVENT)
-				snprintf (aamp->pio_type, sizeof (aamp->pio_type), "%s", (const char *)ev.data.scalar.value);
-			else if ((!strcmp (key, "endian") || !strcmp (key, "byte_order")) && ev.type == YAML_SCALAR_EVENT)
+				snprintf (aamp->pio_type, sizeof (aamp->pio_type), "%s",
+					(const char *)ev.data.scalar.value);
+			else if ((!strcmp (key, "endian") || !strcmp (key, "byte_order"))
+				&& ev.type == YAML_SCALAR_EVENT)
 			{
 				const char *val = (const char *)ev.data.scalar.value;
-				if (!strcasecmp (val, "big") || !strcasecmp (val, "be") || !strcasecmp (val, "BigEndian"))
+				if (!strcasecmp (val, "big") || !strcasecmp (val, "be")
+					|| !strcasecmp (val, "BigEndian"))
 					aamp->is_le = false;
-				else if (!strcasecmp (val, "little") || !strcasecmp (val, "le") || !strcasecmp (val, "LittleEndian"))
+				else if (!strcasecmp (val, "little") || !strcasecmp (val, "le")
+					|| !strcasecmp (val, "LittleEndian"))
 					aamp->is_le = true;
 			}
 			else if (!strcmp (key, "is_le") && ev.type == YAML_SCALAR_EVENT)
@@ -1898,13 +1920,15 @@ static void parse_yaml_mapping_recursive (yaml_parser_t *parser, aamp_file_t *aa
 						if (oev.type == YAML_SCALAR_EVENT)
 						{
 							char obj_name[256];
-							snprintf (obj_name, sizeof (obj_name), "%s", (const char *)oev.data.scalar.value);
+							snprintf (obj_name, sizeof (obj_name), "%s",
+								(const char *)oev.data.scalar.value);
 							yaml_event_t sub;
 							if (yaml_parser_parse (parser, &sub))
 							{
 								if (sub.type == YAML_MAPPING_START_EVENT)
 								{
-									aamp_param_object_t *new_obj = aamp_add_object (cur_list, AAMP_NameToHash (obj_name));
+									aamp_param_object_t *new_obj
+										= aamp_add_object (cur_list, AAMP_NameToHash (obj_name));
 									parse_yaml_mapping_recursive (parser, aamp, NULL, new_obj);
 								}
 								yaml_event_delete (&sub);
@@ -1931,13 +1955,15 @@ static void parse_yaml_mapping_recursive (yaml_parser_t *parser, aamp_file_t *aa
 						if (lev.type == YAML_SCALAR_EVENT)
 						{
 							char list_name[256];
-							snprintf (list_name, sizeof (list_name), "%s", (const char *)lev.data.scalar.value);
+							snprintf (list_name, sizeof (list_name), "%s",
+								(const char *)lev.data.scalar.value);
 							yaml_event_t sub;
 							if (yaml_parser_parse (parser, &sub))
 							{
 								if (sub.type == YAML_MAPPING_START_EVENT)
 								{
-									aamp_param_list_t *new_list = aamp_add_list (cur_list, AAMP_NameToHash (list_name));
+									aamp_param_list_t *new_list
+										= aamp_add_list (cur_list, AAMP_NameToHash (list_name));
 									parse_yaml_mapping_recursive (parser, aamp, new_list, NULL);
 								}
 								yaml_event_delete (&sub);
@@ -1952,7 +1978,8 @@ static void parse_yaml_mapping_recursive (yaml_parser_t *parser, aamp_file_t *aa
 				const char *tag = (const char *)ev.data.mapping_start.tag;
 				if (tag && !strcmp (tag, "!obj"))
 				{
-					aamp_param_object_t *new_obj = aamp_add_object (cur_list, AAMP_NameToHash (key));
+					aamp_param_object_t *new_obj
+						= aamp_add_object (cur_list, AAMP_NameToHash (key));
 					parse_yaml_mapping_recursive (parser, aamp, NULL, new_obj);
 				}
 				else
@@ -2086,8 +2113,8 @@ static void decode_json_entry (FILE *out, const aamp_param_entry_t *entry, int i
 		case AAMP_TYPE_VEC4:
 		case AAMP_TYPE_COLOR:
 		case AAMP_TYPE_QUAT:
-			fprintf (out, "[%.7g, %.7g, %.7g, %.7g]\n",
-				entry->vec[0], entry->vec[1], entry->vec[2], entry->vec[3]);
+			fprintf (out, "[%.7g, %.7g, %.7g, %.7g]\n", entry->vec[0], entry->vec[1], entry->vec[2],
+				entry->vec[3]);
 			break;
 		case AAMP_TYPE_STRING32:
 		case AAMP_TYPE_STRING64:
@@ -2142,7 +2169,8 @@ static void decode_json_entry (FILE *out, const aamp_param_entry_t *entry, int i
 			{
 				if (c > 0)
 					fputs (", ", out);
-				fprintf (out, "[%u, %u", entry->curve.curves[c].uints[0], entry->curve.curves[c].uints[1]);
+				fprintf (out, "[%u, %u", entry->curve.curves[c].uints[0],
+					entry->curve.curves[c].uints[1]);
 				for (int f = 0; f < 30; f++)
 					fprintf (out, ", %.7g", entry->curve.curves[c].floats[f]);
 				fputs ("]", out);
@@ -2312,9 +2340,9 @@ enumError decode_aamp_if_possible (ccp arg)
 {
 	ccp arg_ext = strrchr (arg, '.');
 	if (!arg_ext
-	    || (strcasecmp (arg_ext, ".aamp") && strcasecmp (arg_ext, ".bparam")
-	        && strcasecmp (arg_ext, ".baamp") && strcasecmp (arg_ext, ".bgenv")
-	        && strcasecmp (arg_ext, ".bglpbd")))
+		|| (strcasecmp (arg_ext, ".aamp") && strcasecmp (arg_ext, ".bparam")
+			&& strcasecmp (arg_ext, ".baamp") && strcasecmp (arg_ext, ".bgenv")
+			&& strcasecmp (arg_ext, ".bglpbd")))
 		return ERR_NOTHING_TO_DO;
 
 	u8 head[32];
@@ -2364,15 +2392,15 @@ static void dump_list_inner (FILE *out, const aamp_param_list_t *l, int ind)
 {
 	char name_buf[32];
 	const char *name = AAMP_HashToName (l->hash, name_buf, sizeof (name_buf));
-	fprintf (out, "%*sList: %s (hash 0x%08X), %u lists, %u objects\n",
-		ind, "", name, l->hash, l->list_count, l->object_count);
+	fprintf (out, "%*sList: %s (hash 0x%08X), %u lists, %u objects\n", ind, "", name, l->hash,
+		l->list_count, l->object_count);
 
 	for (u32 o = 0; o < l->object_count; o++)
 	{
 		const aamp_param_object_t *obj = &l->objects[o];
 		const char *oname = AAMP_HashToName (obj->hash, name_buf, sizeof (name_buf));
-		fprintf (out, "%*sObject: %s (hash 0x%08X), %u params\n",
-			ind + 2, "", oname, obj->hash, obj->entry_count);
+		fprintf (out, "%*sObject: %s (hash 0x%08X), %u params\n", ind + 2, "", oname, obj->hash,
+			obj->entry_count);
 		for (u32 p = 0; p < obj->entry_count; p++)
 		{
 			const aamp_param_entry_t *e = &obj->entries[p];
@@ -2389,8 +2417,8 @@ void DumpStructureAAMP (FILE *out, const aamp_file_t *aamp, int indent)
 {
 	if (!out || !aamp)
 		return;
-	fprintf (out, "%*s[AAMP File] Version %u, PIO Version %u, Type '%s'\n",
-		indent, "", aamp->version, aamp->pio_version, aamp->pio_type);
+	fprintf (out, "%*s[AAMP File] Version %u, PIO Version %u, Type '%s'\n", indent, "",
+		aamp->version, aamp->pio_version, aamp->pio_type);
 
 	dump_list_inner (out, &aamp->root, indent + 2);
 }

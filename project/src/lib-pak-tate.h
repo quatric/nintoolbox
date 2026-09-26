@@ -34,10 +34,10 @@
 // sub-header, and total data length) is exposed.
 typedef struct pak_tate_entry_t
 {
-	char name[113];		// from +0x10, NUL-padded region is 0x70 bytes
-	u32 data_offset;	// absolute offset of this entry's data (starts
-				// with the undeciphered "tate" sub-header)
-	u32 data_size;		// byte length of that data
+	char name[113]; // from +0x10, NUL-padded region is 0x70 bytes
+	u32 data_offset; // absolute offset of this entry's data (starts
+					 // with the undeciphered "tate" sub-header)
+	u32 data_size; // byte length of that data
 } pak_tate_entry_t;
 
 typedef struct pak_tate_t

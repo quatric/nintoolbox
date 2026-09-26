@@ -484,7 +484,8 @@ enumError DecodeGFTexture_RGBA (u8 **dest, uint *width, uint *height, const u8 *
 	uint pica = gf_tex_to_pica (fmt);
 	if (pica > 13)
 		return EINVAL;
-	return DecodePicaTexture (dest, width, height, data + 0x80, w, h, pica, (uint)(size - 0x80) < rawlen ? (uint)(size - 0x80) : rawlen);
+	return DecodePicaTexture (dest, width, height, data + 0x80, w, h, pica,
+		(uint)(size - 0x80) < rawlen ? (uint)(size - 0x80) : rawlen);
 }
 
 // ---------------------------------------------------------------------------
@@ -499,7 +500,8 @@ typedef struct
 
 // Calls cb(reg, params, n_params, ctx) for every command. Consecutive-write
 // commands emit one call per register (reg + k), like SPICA's GetCommand.
-static void pica_walk (const pica_cmds_t *c, void (*cb) (u32 reg, const u32 *par, void *ctx), void *ctx)
+static void pica_walk (
+	const pica_cmds_t *c, void (*cb) (u32 reg, const u32 *par, void *ctx), void *ctx)
 {
 	if (!c || !c->w || !cb)
 		return;
@@ -678,7 +680,8 @@ typedef struct
 	int n;
 } gf_inf_t;
 
-static int gf_inf_add (gf_inf_t **tab, size_t *n, size_t *cap, const int *bones, const float *w, int cnt)
+static int gf_inf_add (
+	gf_inf_t **tab, size_t *n, size_t *cap, const int *bones, const float *w, int cnt)
 {
 	for (size_t i = 0; i < *n; i++)
 	{
@@ -686,8 +689,7 @@ static int gf_inf_add (gf_inf_t **tab, size_t *n, size_t *cap, const int *bones,
 			continue;
 		int same = 1;
 		for (int k = 0; k < cnt; k++)
-			if ((*tab)[i].bones[k] != bones[k]
-				|| fabsf ((*tab)[i].weights[k] - w[k]) > 1e-6f)
+			if ((*tab)[i].bones[k] != bones[k] || fabsf ((*tab)[i].weights[k] - w[k]) > 1e-6f)
 			{
 				same = 0;
 				break;
@@ -748,7 +750,8 @@ static int gf_parse_material (const u8 *data, size_t size, size_t off, gf_mat_t 
 		return 0;
 	if (out)
 		memcpy (out->diffuse, cols[11], sizeof (cols[11]));
-	gfr_skip (&r, (3 + 1 + 4 + 1 + 1 + 9 + 1) * 4 + 4 * 4); // edge/proj/rim/flags/bake/vtxtype/params
+	gfr_skip (
+		&r, (3 + 1 + 4 + 1 + 1 + 9 + 1) * 4 + 4 * 4); // edge/proj/rim/flags/bake/vtxtype/params
 	u32 nunits = gfr_u32 (&r);
 	if (r.err || nunits > 8)
 		return 0;
@@ -976,7 +979,8 @@ void *ParseGFModel (const u8 *data, size_t size)
 		for (int t = 0; t < 3; t++)
 			if (gm->tex[t][0])
 			{
-				snprintf (dm->textures[dm->num_textures], sizeof (dm->textures[0]), "%s", gm->tex[t]);
+				snprintf (
+					dm->textures[dm->num_textures], sizeof (dm->textures[0]), "%s", gm->tex[t]);
 				dm->texture_coord[dm->num_textures] = t;
 				dm->wrap_s[dm->num_textures] = dm->wrap_t[dm->num_textures] = 1;
 				dm->min_filter[dm->num_textures] = dm->mag_filter[dm->num_textures] = 1;
@@ -1117,8 +1121,10 @@ void *ParseGFModel (const u8 *data, size_t size)
 					a->name = nm2;
 					a->fixed = 1;
 					a->fval[0] = gf_float24 (en.fixed[ia][2] & 0xffffff);
-					a->fval[1] = gf_float24 ((en.fixed[ia][2] >> 24) | ((en.fixed[ia][1] & 0xffff) << 8));
-					a->fval[2] = gf_float24 ((en.fixed[ia][1] >> 16) | ((en.fixed[ia][0] & 0xff) << 16));
+					a->fval[1]
+						= gf_float24 ((en.fixed[ia][2] >> 24) | ((en.fixed[ia][1] & 0xffff) << 8));
+					a->fval[2]
+						= gf_float24 ((en.fixed[ia][1] >> 16) | ((en.fixed[ia][0] & 0xff) << 16));
 					a->fval[3] = gf_float24 (en.fixed[ia][0] >> 8);
 					float sc = (nm2 == GF_A_COL || nm2 == GF_A_WEIGHT) ? gf_scales[1] : 1.0f;
 					for (int k = 0; k < 4; k++)
@@ -1630,9 +1636,9 @@ enumError DecodeGFMotion_Text (FILE *f, const u8 *data, size_t size)
 	fprintf (f, "# GFMotion v1 (Game Freak 3DS skeletal/material/visibility animation)\n");
 	fprintf (f, "sections: %u\n", nsect);
 	for (u32 i = 0; i < nsect; i++)
-		fprintf (f, "section[%u]: id=%u (%s) length=%u address=0x%x\n", i, rd_le32 (data + 8 + i * 12),
-			gf_sect_name (rd_le32 (data + 8 + i * 12)), rd_le32 (data + 12 + i * 12),
-			rd_le32 (data + 16 + i * 12));
+		fprintf (f, "section[%u]: id=%u (%s) length=%u address=0x%x\n", i,
+			rd_le32 (data + 8 + i * 12), gf_sect_name (rd_le32 (data + 8 + i * 12)),
+			rd_le32 (data + 12 + i * 12), rd_le32 (data + 16 + i * 12));
 	// subheader
 	u32 saddr = rd_le32 (data + 16);
 	gfr_t r = { data, size, saddr, 0 };
@@ -1680,8 +1686,7 @@ enumError DecodeGFMotion_Text (FILE *f, const u8 *data, size_t size)
 				fprintf (f, "skeletal: <truncated names>\n");
 				continue;
 			}
-			static const char *tracks[9]
-				= { "SX", "SY", "SZ", "RX", "RY", "RZ", "TX", "TY", "TZ" };
+			static const char *tracks[9] = { "SX", "SY", "SZ", "RX", "RY", "RZ", "TX", "TY", "TZ" };
 			for (s32 b = 0; b < nb; b++)
 			{
 				u32 flags = gfr_u32 (&q);
@@ -1908,9 +1913,9 @@ enumError DecodeGFModelPack_Text (FILE *f, const u8 *data, size_t size)
 			}
 			u32 magic = rd_le32 (data + addr);
 			const char *kind = magic == GF_MAGIC_MODEL ? "gfmodel"
-				: magic == GF_MAGIC_TEXTURE ? "gftexture"
-				: magic == GF_MAGIC_MOTION ? "gfmotion"
-											 : "blob";
+				: magic == GF_MAGIC_TEXTURE			   ? "gftexture"
+				: magic == GF_MAGIC_MOTION			   ? "gfmotion"
+													   : "blob";
 			fprintf (f, "  [%u]: %s @0x%x (%s)\n", e, nm[0] ? nm : "<noname>", addr, kind);
 		}
 		tab += (size_t)c * 4;
@@ -1975,8 +1980,8 @@ static void gf_safe_name (char *dst, size_t dstsz, const char *src)
 enumError ExtractGFModelPackArchive (ccp arg, ccp basedir, uint depth)
 {
 	(void)depth;
-	if (!is_ext_match (arg, ".gfpack") && !is_ext_match (arg, ".bin") && !is_ext_match (arg, ".pack")
-		&& !is_ext_match (arg, ".dat"))
+	if (!is_ext_match (arg, ".gfpack") && !is_ext_match (arg, ".bin")
+		&& !is_ext_match (arg, ".pack") && !is_ext_match (arg, ".dat"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;
@@ -2101,8 +2106,8 @@ enumError ExtractGFPackageArchive (ccp arg, ccp basedir, uint depth)
 		if (e <= s || e - s > raw_size)
 			continue;
 		char out_path[PATH_MAX];
-		snprintf (out_path, sizeof (out_path), "%s/file_%04u%s", dest, i,
-			gf_sniff_ext (raw + s, e - s));
+		snprintf (
+			out_path, sizeof (out_path), "%s/file_%04u%s", dest, i, gf_sniff_ext (raw + s, e - s));
 		if (!testmode)
 			SaveFile (out_path, 0, 0, raw + s, e - s, 0);
 	}

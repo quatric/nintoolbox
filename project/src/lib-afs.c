@@ -58,10 +58,10 @@ enumError ScanAFS (afs_t *afs, const u8 *data, size_t size)
 			const u8 *rec = data + meta_off + (u64)i * 48;
 			memcpy (afs->entries[i].name, rec, 32);
 			afs->entries[i].name[32] = 0;
-			afs->entries[i].year   = rd_le16 (rec + 32);
-			afs->entries[i].month  = rd_le16 (rec + 34);
-			afs->entries[i].day    = rd_le16 (rec + 36);
-			afs->entries[i].hour   = rd_le16 (rec + 38);
+			afs->entries[i].year = rd_le16 (rec + 32);
+			afs->entries[i].month = rd_le16 (rec + 34);
+			afs->entries[i].day = rd_le16 (rec + 36);
+			afs->entries[i].hour = rd_le16 (rec + 38);
 			afs->entries[i].minute = rd_le16 (rec + 40);
 			afs->entries[i].second = rd_le16 (rec + 42);
 			// bytes 44..47 are an unverified/reserved trailing u32;
@@ -105,8 +105,8 @@ enumError ExtractAFSArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT AFS:%s (%u files) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, afs.n_entries, dest);
+		fprintf (stdlog, "%s%sEXTRACT AFS:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, afs.n_entries, dest);
 
 	for (uint i = 0; i < afs.n_entries; i++)
 	{

@@ -25,7 +25,7 @@ typedef struct effn_entry_raw_t
 	u16 unknown;
 	u32 emitter_set_id;
 	u32 external_model_idx; // 1-based index (0 = none)
-	u16 variant_start_idx;  // 1-based index (0 = none)
+	u16 variant_start_idx; // 1-based index (0 = none)
 	u16 variant_count;
 } effn_entry_raw_t;
 
@@ -61,21 +61,21 @@ enumError DecodeEFFN_Text (FILE *out, const u8 *data, size_t size)
 	if (!out || !IsEFFN (data, size))
 		return ERR_INVALID_DATA;
 
-	const u32 version             = rd_le32 (data + 4);
-	const u16 num_effects         = rd_le16 (data + 8);
+	const u32 version = rd_le32 (data + 4);
+	const u16 num_effects = rd_le16 (data + 8);
 	const u16 num_external_models = rd_le16 (data + 10);
-	const u16 multi_part_effects  = rd_le16 (data + 12);
-	const u16 header_chunk_align  = rd_le16 (data + 14);
+	const u16 multi_part_effects = rd_le16 (data + 12);
+	const u16 header_chunk_align = rd_le16 (data + 14);
 
-	fprintf (out, "#EFFN\n"
+	fprintf (out,
+		"#EFFN\n"
 		"# Bandai Namco Effect File (Super Smash Bros 4 / Ultimate)\n\n"
 		"version = %u (0x%08x)\n"
 		"num_effects = %u\n"
 		"num_external_models = %u\n"
 		"multi_part_effects = %u\n"
 		"header_chunk_align = %u\n\n",
-		version, version, num_effects, num_external_models,
-		multi_part_effects, header_chunk_align);
+		version, version, num_effects, num_external_models, multi_part_effects, header_chunk_align);
 
 	size_t cur = EFFN_HDR_SIZE;
 	const size_t entries_size = (size_t)num_effects * EFFN_ENTRY_SIZE;
@@ -143,8 +143,8 @@ enumError DecodeEFFN_Text (FILE *out, const u8 *data, size_t size)
 		const u16 var_count = rd_le16 (entries_ptr + ep + 14);
 
 		ccp name = entry_names[i] ? entry_names[i] : "<unnamed>";
-		fprintf (out, "  [%u] name=%s kind=%u unknown=%u emitter_set_id=%u\n",
-			i, name, kind, unknown, emitter_set_id);
+		fprintf (out, "  [%u] name=%s kind=%u unknown=%u emitter_set_id=%u\n", i, name, kind,
+			unknown, emitter_set_id);
 
 		if (model_idx > 0 && model_idx <= num_external_models)
 		{
@@ -163,15 +163,16 @@ enumError DecodeEFFN_Text (FILE *out, const u8 *data, size_t size)
 				const u16 start_frame = rd_le16 (variants_ptr + vp);
 				const u16 eset_id = rd_le16 (variants_ptr + vp + 2);
 				ccp bname = bone_names[sidx + j] ? bone_names[sidx + j] : "<none>";
-				fprintf (out, "      variant [%u]: start_frame=%u emitter_set_id=%u bone=%s\n",
-					j, start_frame, eset_id, bname);
+				fprintf (out, "      variant [%u]: start_frame=%u emitter_set_id=%u bone=%s\n", j,
+					start_frame, eset_id, bname);
 			}
 		}
 	}
 
 	if (vfxb_offset < size && !memcmp (data + vfxb_offset, "VFXB", 4))
 	{
-		fprintf (out, "\n[embedded_vfxb]\n"
+		fprintf (out,
+			"\n[embedded_vfxb]\n"
 			"offset = %zu\n"
 			"size = %zu\n\n",
 			vfxb_offset, size - vfxb_offset);
@@ -179,8 +180,10 @@ enumError DecodeEFFN_Text (FILE *out, const u8 *data, size_t size)
 	}
 	else
 	{
-		fprintf (out, "\n[embedded_vfxb]\n"
-			"<no valid VFXB found at aligned offset %zu>\n", vfxb_offset);
+		fprintf (out,
+			"\n[embedded_vfxb]\n"
+			"<no valid VFXB found at aligned offset %zu>\n",
+			vfxb_offset);
 	}
 
 	// Free strings
@@ -227,10 +230,10 @@ enumError ExtractEFFNArchive (ccp source_file, ccp dest_dir)
 		return ERR_INVALID_DATA;
 	}
 
-	const u16 num_effects         = rd_le16 (raw + 8);
+	const u16 num_effects = rd_le16 (raw + 8);
 	const u16 num_external_models = rd_le16 (raw + 10);
-	const u16 multi_part_effects  = rd_le16 (raw + 12);
-	const u16 header_chunk_align  = rd_le16 (raw + 14);
+	const u16 multi_part_effects = rd_le16 (raw + 12);
+	const u16 header_chunk_align = rd_le16 (raw + 14);
 
 	size_t cur = EFFN_HDR_SIZE;
 	const size_t entries_size = (size_t)num_effects * EFFN_ENTRY_SIZE;
@@ -318,7 +321,8 @@ enumError ExtractEFFNArchive (ccp source_file, ccp dest_dir)
 				uint midx = model_idx - 1;
 				u8 flag = models_ptr[midx];
 				ccp mname = model_names[midx] ? model_names[midx] : "";
-				fprintf (jf, ",\n    \"ExternalModelFlag\": %u,\n    \"ExternalModelString\": ", flag);
+				fprintf (
+					jf, ",\n    \"ExternalModelFlag\": %u,\n    \"ExternalModelString\": ", flag);
 				write_json_str (jf, mname);
 			}
 
@@ -574,7 +578,8 @@ enumError CreateEFFNArchive (ccp source_dir, ccp dest_file)
 									p = json_skip_ws (p);
 
 									if (!strcmp (vkey, "BoneName"))
-										p = json_parse_str_val (p, var->bone_name, sizeof (var->bone_name));
+										p = json_parse_str_val (
+											p, var->bone_name, sizeof (var->bone_name));
 									else if (!strcmp (vkey, "StartFrame"))
 									{
 										uint v = 0;

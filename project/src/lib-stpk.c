@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // ----------------------------------------------------------------------------
 // 5. Jump Super Stars / Jump Ultimate Stars DS Archive (.srd / .stpk / STPK)
 // ----------------------------------------------------------------------------
@@ -82,7 +81,6 @@ enumError ExtractSTPKArchive (ccp arg, ccp basedir, uint depth)
 	FREE (raw);
 	return ERR_OK;
 }
-
 
 // 5. Jump Super Stars / Jump Ultimate Stars DS Archive (.srd / .stpk)
 enumError CreateSTPKArchive (
@@ -161,7 +159,6 @@ enumError CreateSTPKArchive (
 	return ERR_OK;
 }
 
-
 enumError create_stpk_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -184,4 +181,3 @@ enumError create_stpk_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

@@ -365,8 +365,8 @@ enumError ScanLMJMP (lmjmp_t *jmp, const u8 *data, uint size)
 				case 1:
 				case 6:
 					is_str = true;
-					if (!lm_read_str (data, size, base + f->offset, tmp, sizeof (tmp),
-							f->type == 6))
+					if (!lm_read_str (
+							data, size, base + f->offset, tmp, sizeof (tmp), f->type == 6))
 					{
 						ResetLMJMP (jmp);
 						return ERR_INVALID_DATA;
@@ -549,13 +549,16 @@ enumError CreateLMJMP (u8 **dest, uint *dest_size, const lmjmp_t *jmp)
 				case 0:
 				{
 					const int32_t val = atoi (v);
-					const uint64_t fieldmask = ((uint64_t)f->bitmask) << (f->shift >= 0 ? f->shift : 0);
+					const uint64_t fieldmask = ((uint64_t)f->bitmask)
+						<< (f->shift >= 0 ? f->shift : 0);
 					uint32_t cur = be ? lm_be32 (vp) : lm_le32 (vp);
 					uint32_t nw;
 					if (f->shift >= 0)
-						nw = (cur & ~(uint32_t)fieldmask) | (((uint32_t)val << f->shift) & (uint32_t)fieldmask);
+						nw = (cur & ~(uint32_t)fieldmask)
+							| (((uint32_t)val << f->shift) & (uint32_t)fieldmask);
 					else
-						nw = (cur & ~(uint32_t)f->bitmask) | (((uint32_t)val >> (-f->shift)) & f->bitmask);
+						nw = (cur & ~(uint32_t)f->bitmask)
+							| (((uint32_t)val >> (-f->shift)) & f->bitmask);
 					if (be)
 						lm_wr32be (vp, nw);
 					else
@@ -577,9 +580,11 @@ enumError CreateLMJMP (u8 **dest, uint *dest_size, const lmjmp_t *jmp)
 					uint cur = be ? lm_be16 (vp) : lm_le16 (vp);
 					uint nw;
 					if (f->shift >= 0)
-						nw = (cur & ~(f->bitmask & 0xffffu)) | (((uint)val << f->shift) & (f->bitmask & 0xffffu));
+						nw = (cur & ~(f->bitmask & 0xffffu))
+							| (((uint)val << f->shift) & (f->bitmask & 0xffffu));
 					else
-						nw = (cur & ~(f->bitmask & 0xffffu)) | (((uint)val >> (-f->shift)) & (f->bitmask & 0xffffu));
+						nw = (cur & ~(f->bitmask & 0xffffu))
+							| (((uint)val >> (-f->shift)) & (f->bitmask & 0xffffu));
 					if (be)
 						lm_wr16be (vp, (u16)nw);
 					else
@@ -592,9 +597,11 @@ enumError CreateLMJMP (u8 **dest, uint *dest_size, const lmjmp_t *jmp)
 					uint cur = vp[0];
 					uint nw;
 					if (f->shift >= 0)
-						nw = (cur & ~(f->bitmask & 0xffu)) | (((uint)val << f->shift) & (f->bitmask & 0xffu));
+						nw = (cur & ~(f->bitmask & 0xffu))
+							| (((uint)val << f->shift) & (f->bitmask & 0xffu));
 					else
-						nw = (cur & ~(f->bitmask & 0xffu)) | (((uint)val >> (-f->shift)) & (f->bitmask & 0xffu));
+						nw = (cur & ~(f->bitmask & 0xffu))
+							| (((uint)val >> (-f->shift)) & (f->bitmask & 0xffu));
 					vp[0] = (u8)nw;
 					break;
 				}
@@ -836,8 +843,9 @@ enumError ParseLMJMPText (lmjmp_t *jmp, const char *text)
 			char name[64], type[16];
 			uint mask = 0xffffffffu, off = 0;
 			int shift = 0;
-			if (sscanf (line + 6, "%63s %15s mask=%x shift=%d off=%u", name, type, &mask,
-					&shift, &off) < 2)
+			if (sscanf (
+					line + 6, "%63s %15s mask=%x shift=%d off=%u", name, type, &mask, &shift, &off)
+				< 2)
 			{
 				FREE (copy);
 				for (uint k = 0; k < nkvs; k++)
@@ -872,8 +880,7 @@ enumError ParseLMJMPText (lmjmp_t *jmp, const char *text)
 		}
 		else if (!strncmp (line, "record ", 7))
 		{
-			lmjmp_record_t *nr
-				= REALLOC (jmp->records, (jmp->n_records + 1) * sizeof (*nr));
+			lmjmp_record_t *nr = REALLOC (jmp->records, (jmp->n_records + 1) * sizeof (*nr));
 			if (!nr)
 			{
 				FREE (copy);

@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // ----------------------------------------------------------------------------
 // 6. GameCube Resource Archive (.res / res\n)
 // ----------------------------------------------------------------------------
@@ -66,7 +65,8 @@ enumError ExtractF9ResArchive (ccp arg, ccp basedir, uint depth)
 		char tag[5] = { 0 };
 		memcpy (tag, raw + coff, 4);
 		for (int c = 0; c < 4; c++)
-			if (tag[c] <= 32 || tag[c] >= 127 || tag[c] == '/' || tag[c] == '\\' || tag[c] == '.' || tag[c] == ':')
+			if (tag[c] <= 32 || tag[c] >= 127 || tag[c] == '/' || tag[c] == '\\' || tag[c] == '.'
+				|| tag[c] == ':')
 				tag[c] = '_';
 
 		const u64 off64 = (u64)rd_be32 (raw + coff + 4) + header_offset;
@@ -88,7 +88,6 @@ enumError ExtractF9ResArchive (ccp arg, ccp basedir, uint depth)
 	FREE (raw);
 	return ERR_OK;
 }
-
 
 // 6. GameCube Resource Archive (.res / res\n)
 enumError CreateF9ResArchive (
@@ -163,7 +162,6 @@ enumError CreateF9ResArchive (
 	return ERR_OK;
 }
 
-
 enumError create_f9res_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -186,4 +184,3 @@ enumError create_f9res_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

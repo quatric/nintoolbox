@@ -104,14 +104,13 @@ enumError ScanRetroTXTR (retro_txtr_info_t *info, const u8 *data, uint size);
 
 // Decode mip level 0 to tightly packed width*height RGBA8. Supports every
 // format except C14X2 (no official texture uses it; fails cleanly).
-enumError DecodeRetroTXTR_RGBA (
-	u8 **dest, uint *width, uint *height, const u8 *src, uint src_size);
+enumError DecodeRetroTXTR_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, uint src_size);
 
 // Encode one width*height RGBA8 image as a single-mip old-Retro TXTR.
 // RETRO_FORMAT is a retro_txtr_format_t; indexed formats (C4/C8/C14X2) are
 // rejected — they need palette quantization this encoder does not do.
-enumError EncodeRetroTXTR_RGBA (u8 **dest, uint *dest_size, const u8 *rgba, uint width,
-	uint height, uint retro_format);
+enumError EncodeRetroTXTR_RGBA (
+	u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height, uint retro_format);
 
 //-----------------------------------------------------------------------------
 // Tropical Freeze TXTR (Wii U)
@@ -160,7 +159,7 @@ typedef struct mpr_txtr_info_t
 	uint mip_count;
 	uint decomp_size; // total decompressed (still block-linear tiled) bytes
 	const u8 *meta; // META chunk payload: unk1,unk2,alloc_category,gpu_offset,
-		// align,decompressed_size,info_count,info[],buffer_count,buffers[]
+					// align,decompressed_size,info_count,info[],buffer_count,buffers[]
 	uint meta_size;
 } mpr_txtr_info_t;
 
@@ -172,14 +171,12 @@ enumError ScanMPRTXTR (mpr_txtr_info_t *info, const u8 *data, uint size);
 // width*height RGBA8. Only 2D, depth-1 surfaces decode; anything else fails
 // cleanly with EINVAL. Supports the uncompressed R8/RGBA8, BC1-7 and ASTC
 // (4x4..12x12) surface formats -- the ones seen in real game textures.
-enumError DecodeMPRTXTR_RGBA (
-	u8 **dest, uint *width, uint *height, const u8 *src, uint src_size);
+enumError DecodeMPRTXTR_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, uint src_size);
 
 // Encode one width*height RGBA8 image as a single-mip Metroid Prime
 // Remastered TXTR. The result uses the version-47/51 little-endian RFRM
 // layout, a Tegra block-linear RGBA8 surface, and a mode-0 (stored) GPU
 // buffer so it can be used without an LZSS encoder.
-enumError EncodeMPRTXTR_RGBA (u8 **dest, uint *dest_size, const u8 *rgba, uint width,
-	uint height);
+enumError EncodeMPRTXTR_RGBA (u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height);
 
 #endif

@@ -14,9 +14,8 @@
 // fields may be trusted to walk into and past them. Any tag not in this
 // list is treated as an opaque leaf: reported by tag+offset only, never
 // recursed into.
-static const char *const g3_container_tags[] = {
-	"GRO3", "GDEN", "G3TX", "G3MD", "HTEX", "HTSF", "HMDL",
-	"UCOG", "UCOA", "UCUR", "UGR3", "ARMS", "ABDA", "UMDL",
+static const char *const g3_container_tags[] = { "GRO3", "GDEN", "G3TX", "G3MD", "HTEX", "HTSF",
+	"HMDL", "UCOG", "UCOA", "UCUR", "UGR3", "ARMS", "ABDA", "UMDL",
 	// Extended cross-file (2026 survey of .abd/.abr/.amf/.arm/.asd/.bs1/
 	// .dia/.bf1/.gtp/.msb/.urs): the SAME generic 16-byte tag/size/
 	// child_offset/flags chunk header is reused as the root of a much
@@ -30,8 +29,7 @@ static const char *const g3_container_tags[] = {
 	"URES", // .urs - root, "unit resource" (SLG battle unit), wraps GRO3+ABDA
 	"AMMP", // .amf - root variant ("AMxx" family; motion/animation table)
 	"HSPR", // sprite-table branch seen under AMCT/AMIN roots (.amf)
-	0
-};
+	0 };
 
 // Root magics that are recognized here but whose payload -- while it does
 // start with a valid 16-byte tag/size/child_offset/flags header -- was
@@ -40,19 +38,18 @@ static const char *const g3_container_tags[] = {
 // constants, not another tag). They are still reported by DecodeG3Res_Text()
 // as a single opaque top-level leaf (tag + fields only), which is enough to
 // positively identify/dispatch the file even though its body is not decoded.
-static const char *const g3_root_only_tags[] = {
-	"ABDT", // seen as an ABDA/URES sub-chunk AND as some files' own root
-	"MSCR", // .msb - dialogue/script container (body not decoded: no
-	        // readable Shift-JIS/ASCII strings found directly after the
-	        // header; likely tokenized/compiled script bytecode)
-	"GTPA", // .gtp, and an alternate .arm root; child_offset points at a
-	        // u32 count + u32[] offset table, not a nested chunk
-	"MPLN", // .grd - ground/plane geometry data
-	"BS1 ", // .bs1 - battle-stage layout (tag is "BS1" + one space pad)
-	"AMCT", "AMIN", "AMPP", "AMWN", // .amf root variants (AM = "anim
-	                                // motion"?); HSPR/KSPR sub-chunks
-	0
-};
+static const char *const g3_root_only_tags[]
+	= { "ABDT", // seen as an ABDA/URES sub-chunk AND as some files' own root
+		  "MSCR", // .msb - dialogue/script container (body not decoded: no
+				  // readable Shift-JIS/ASCII strings found directly after the
+				  // header; likely tokenized/compiled script bytecode)
+		  "GTPA", // .gtp, and an alternate .arm root; child_offset points at a
+				  // u32 count + u32[] offset table, not a nested chunk
+		  "MPLN", // .grd - ground/plane geometry data
+		  "BS1 ", // .bs1 - battle-stage layout (tag is "BS1" + one space pad)
+		  "AMCT", "AMIN", "AMPP", "AMWN", // .amf root variants (AM = "anim
+										  // motion"?); HSPR/KSPR sub-chunks
+		  0 };
 
 static int g3_is_container_tag (const char *tag4)
 {
@@ -84,7 +81,7 @@ int IsG3Res (const u8 *data, size_t size)
 		return 0;
 	if (!memcmp (data, "GRO3", 4) || !memcmp (data, "GDEN", 4))
 		return 1;
-	if (g3_is_container_tag ((const char *) data))
+	if (g3_is_container_tag ((const char *)data))
 		return 1;
 	if (g3_is_root_only_tag (data))
 		return 1;
@@ -108,13 +105,13 @@ static void g3_dump_pvrt (FILE *f, const char *indent, const u8 *data, size_t si
 	u8 data_flags = p[9];
 	u16 width = p[12] | p[13] << 8;
 	u16 height = p[14] | p[15] << 8;
-	fprintf (f, "%s  PVRT header: pixel_format=0x%02x data_flags=0x%02x "
+	fprintf (f,
+		"%s  PVRT header: pixel_format=0x%02x data_flags=0x%02x "
 		"width=%u height=%u texel_data_size=0x%x\n",
 		indent, pixel_format, data_flags, width, height, data_size);
 }
 
-static void g3_walk (FILE *f, const u8 *data, size_t size,
-	size_t start, size_t end, int depth)
+static void g3_walk (FILE *f, const u8 *data, size_t size, size_t start, size_t end, int depth)
 {
 	if (depth > 16) // sanity backstop, never hit on real files
 	{
@@ -124,7 +121,7 @@ static void g3_walk (FILE *f, const u8 *data, size_t size,
 
 	char indent[40];
 	int ind_len = depth * 2;
-	if (ind_len > (int) sizeof (indent) - 1)
+	if (ind_len > (int)sizeof (indent) - 1)
 		ind_len = sizeof (indent) - 1;
 	memset (indent, ' ', ind_len);
 	indent[ind_len] = 0;
@@ -135,8 +132,8 @@ static void g3_walk (FILE *f, const u8 *data, size_t size,
 		const u8 *hdr = data + pos;
 		if (!g3_tag_printable (hdr))
 		{
-			fprintf (f, "%s<non-chunk data at 0x%zx, %zu bytes remaining, not decoded>\n",
-				indent, pos, end - pos);
+			fprintf (f, "%s<non-chunk data at 0x%zx, %zu bytes remaining, not decoded>\n", indent,
+				pos, end - pos);
 			return;
 		}
 
@@ -147,8 +144,8 @@ static void g3_walk (FILE *f, const u8 *data, size_t size,
 		u32 coff = rd_le32 (hdr + 8);
 		u32 flags = rd_le32 (hdr + 12);
 
-		fprintf (f, "%s@0x%08zx %-4s size=0x%x child_off=0x%x flags=0x%x\n",
-			indent, pos, tag, csize, coff, flags);
+		fprintf (f, "%s@0x%08zx %-4s size=0x%x child_off=0x%x flags=0x%x\n", indent, pos, tag,
+			csize, coff, flags);
 
 		if (!strcmp (tag, "PVRT"))
 			g3_dump_pvrt (f, indent, data, size, pos);

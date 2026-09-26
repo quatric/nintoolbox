@@ -41,9 +41,8 @@ enumError ScanMetroidSR (
 	// In synthetic fixtures: 12 + files*12 == info_size and info_size + data_size == size.
 	// In retail 3DS files: header and table are padded to a multiple of 4 or block alignment,
 	// so table_end <= info_size + 4, and (info_size + 4) + data_size == size (or <= size).
-	if (!((u64)info_size + data_size == size
-		|| (u64)info_size + 4 + data_size == size
-		|| (table_end <= (u64)info_size + 4 && (u64)info_size + data_size <= size)))
+	if (!((u64)info_size + data_size == size || (u64)info_size + 4 + data_size == size
+			|| (table_end <= (u64)info_size + 4 && (u64)info_size + data_size <= size)))
 		return EINVAL;
 
 	const u32 first_off = rd_le32 (data + 12 + 4);

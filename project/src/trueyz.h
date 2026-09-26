@@ -35,7 +35,8 @@
 #endif
 
 #if defined(__cplusplus)
-extern "C" {
+extern "C"
+{
 #endif
 
 /**
@@ -104,7 +105,7 @@ extern "C" {
  *   TRUEYZ_STATE_SCRATCH
  *       State lives in caller-supplied scratch memory. Thread-safe.
  */
-#define TRUEYZ_STATE_STATIC  0
+#define TRUEYZ_STATE_STATIC 0
 #define TRUEYZ_STATE_SCRATCH 1
 
 #ifndef TRUEYZ_STATE
@@ -117,51 +118,52 @@ extern "C" {
  * These values are the observed property of the encoder being reproduced.
  * Hash bits is equal to zlib's default at MEM_LEVEL 8.
  */
-#define TRUEYZ_HASH_LOG    15u
+#define TRUEYZ_HASH_LOG 15u
 #define TRUEYZ_WINDOW_SIZE 4096u
 
 #if TRUEYZ_STATE == TRUEYZ_STATE_SCRATCH
-    /**
-     * Number of bytes of scratch memory trueyz_compress_scratch() requires.
-     */
-    #define TRUEYZ_SCRATCH_SIZE \
-        ((size_t)((1u << TRUEYZ_HASH_LOG) + TRUEYZ_WINDOW_SIZE + 1) * sizeof(uint32_t))
+/**
+ * Number of bytes of scratch memory trueyz_compress_scratch() requires.
+ */
+#define TRUEYZ_SCRATCH_SIZE                                                                        \
+	((size_t)((1u << TRUEYZ_HASH_LOG) + TRUEYZ_WINDOW_SIZE + 1) * sizeof (uint32_t))
 #endif
 
 #if TRUEYZ_STATE == TRUEYZ_STATE_SCRATCH
-/**
- * Compress a block of data using Yaz0 compression.
- *
- * Produces a valid Yaz0 stream complete with the standard 16-byte header,
- * identical byte for byte to the output of Nintendo's in-house encoder for
- * the same input.
- *
- * Thread-safe.
- *
- * @param input   Pointer to the input data to compress
- * @param length  Size of the input data in bytes
- * @param output  Pointer to the output buffer for compressed data
- *                Must be at least TRUEYZ_BOUND(length) bytes
- * @param scratch Scratch buffer, at least TRUEYZ_SCRATCH_SIZE bytes,
- *                aligned to at least alignof(uint32_t).
- *                It does not need to be initialized and may be reused
- *                across calls on the same thread.
- *
- * @return        Size of the compressed data in bytes,
- *                or 0 if compression failed
- *
- * @note The input and output buffers must not overlap.
- * @note The output includes the 16-byte Yaz0 header.
- */
-int trueyz_compress_scratch(const void* input, int length, void* output, void* scratch);
-/**
- * Alternative to trueyz_compress_scratch where the alignment hint can be provided.
- *
- * @param alignment Alignment hint to store in the Yaz0 header
- *                  Only relatively new games specify it
- *                  Fails if not greater than zero
- */
-int trueyz_compress_align_scratch(const void* input, int length, void* output, int alignment, void* scratch);
+	/**
+	 * Compress a block of data using Yaz0 compression.
+	 *
+	 * Produces a valid Yaz0 stream complete with the standard 16-byte header,
+	 * identical byte for byte to the output of Nintendo's in-house encoder for
+	 * the same input.
+	 *
+	 * Thread-safe.
+	 *
+	 * @param input   Pointer to the input data to compress
+	 * @param length  Size of the input data in bytes
+	 * @param output  Pointer to the output buffer for compressed data
+	 *                Must be at least TRUEYZ_BOUND(length) bytes
+	 * @param scratch Scratch buffer, at least TRUEYZ_SCRATCH_SIZE bytes,
+	 *                aligned to at least alignof(uint32_t).
+	 *                It does not need to be initialized and may be reused
+	 *                across calls on the same thread.
+	 *
+	 * @return        Size of the compressed data in bytes,
+	 *                or 0 if compression failed
+	 *
+	 * @note The input and output buffers must not overlap.
+	 * @note The output includes the 16-byte Yaz0 header.
+	 */
+	int trueyz_compress_scratch (const void *input, int length, void *output, void *scratch);
+	/**
+	 * Alternative to trueyz_compress_scratch where the alignment hint can be provided.
+	 *
+	 * @param alignment Alignment hint to store in the Yaz0 header
+	 *                  Only relatively new games specify it
+	 *                  Fails if not greater than zero
+	 */
+	int trueyz_compress_align_scratch (
+		const void *input, int length, void *output, int alignment, void *scratch);
 #else
 /**
  * Compress a block of data using Yaz0 compression.
@@ -183,7 +185,7 @@ int trueyz_compress_align_scratch(const void* input, int length, void* output, i
  * @note The input and output buffers must not overlap.
  * @note The output includes the 16-byte Yaz0 header.
  */
-int trueyz_compress(const void* input, int length, void* output);
+int trueyz_compress (const void *input, int length, void *output);
 /**
  * Alternative to trueyz_compress where the alignment hint can be provided.
  *
@@ -191,7 +193,7 @@ int trueyz_compress(const void* input, int length, void* output);
  *                  Only relatively new games specify it
  *                  Fails if not greater than zero
  */
-int trueyz_compress_align(const void* input, int length, void* output, int alignment);
+int trueyz_compress_align (const void *input, int length, void *output, int alignment);
 #endif
 
 #if defined(__cplusplus)

@@ -31,7 +31,6 @@ bool arcv_member_name_ok (ccp nm, uint *idx)
 	return false;
 }
 
-
 // ARCV shares the .arc extension with several other archive formats (RARC,
 // Brawl PAC, etc.), so disambiguate at CREATE time the same way looks_like_
 // sfzdat_dir()/looks_like_rflres_dir() do for the equally overloaded .dat
@@ -56,13 +55,11 @@ bool looks_like_arcv_dir (ccp source)
 	return n_members > 0;
 }
 
-
 int cmp_arcv_member (const void *a, const void *b)
 {
 	const arcv_member_t *ma = a, *mb = b;
 	return ma->index < mb->index ? -1 : ma->index > mb->index ? 1 : 0;
 }
-
 
 enumError create_arcv_dir (ccp source, ccp dest)
 {
@@ -133,8 +130,8 @@ enumError create_arcv_dir (ccp source, ccp dest)
 	for (uint i = 0; !err && i < used; i++)
 		if (list[i].index != i)
 			err = ERROR0 (ERR_INVALID_DATA,
-				"ARCV input directory has a non-contiguous member index: %s/file_%04u*\n",
-				source, list[i].index);
+				"ARCV input directory has a non-contiguous member index: %s/file_%04u*\n", source,
+				list[i].index);
 
 	if (!err && !testmode)
 	{
@@ -169,8 +166,8 @@ enumError create_arcv_dir (ccp source, ccp dest)
 				File_t F;
 				err = CreateFileOpt (&F, true, dest, false, dest);
 				if (F.f && fwrite (out, 1, total_size, F.f) != total_size)
-					err = FILEERROR1 (&F, ERR_WRITE_FAILED,
-						"Writing %llu bytes failed: %s\n", (unsigned long long)total_size, dest);
+					err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n",
+						(unsigned long long)total_size, dest);
 				ResetFile (&F, opt_preserve);
 				FREE (out);
 			}
@@ -182,4 +179,3 @@ enumError create_arcv_dir (ccp source, ccp dest)
 	FREE (list);
 	return err;
 }
-

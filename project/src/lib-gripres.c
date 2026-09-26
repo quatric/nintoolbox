@@ -115,8 +115,8 @@ enumError ScanGripRES (nintendo_sarc_entry_t **entries, uint *n_entries, const u
 				res_type_name (t, e + 4);
 				const size_t avail = (size_t)size - (size_t)np;
 				const int max_len = avail < 240 ? (int)avail : 240;
-				l += snprintf (txt + l, 300, "%-5s 0x%08x %.*s\n", t, rd_be32 (e + 8),
-					max_len, (const char *)data + np);
+				l += snprintf (txt + l, 300, "%-5s 0x%08x %.*s\n", t, rd_be32 (e + 8), max_len,
+					(const char *)data + np);
 			}
 			ok = OwnedEntryAdd (out, n, "index.txt", (const u8 *)txt, (uint)l);
 			FREE (txt);
@@ -201,7 +201,8 @@ enumError DecodeGripSurf (u8 **rgba, uint *width, uint *height, const u8 *data, 
 	if (!surf_parse (&s, data, size))
 		return ERR_NOTHING_TO_DO;
 	u8 *img = 0;
-	const enumError err = DecodeGXTexture_RGBA (&img, s.w, s.h, s.gx, data + s.data, s.need, 0, 0, 0);
+	const enumError err
+		= DecodeGXTexture_RGBA (&img, s.w, s.h, s.gx, data + s.data, s.need, 0, 0, 0);
 	if (err)
 		return err;
 	// rows are stored bottom-up

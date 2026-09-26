@@ -971,9 +971,8 @@ static void encode_msbt_newline (u8 *buf, uint *len, msbt_encoding_t enc, bool b
 	}
 }
 
-static void encode_msbt_tag_open (
-	u8 *buf, uint *len, u32 group, u32 tag, const u8 *params, uint num_params, msbt_encoding_t enc,
-	bool be)
+static void encode_msbt_tag_open (u8 *buf, uint *len, u32 group, u32 tag, const u8 *params,
+	uint num_params, msbt_encoding_t enc, bool be)
 {
 	if (enc == MSBT_ENC_UTF16)
 	{
@@ -1453,18 +1452,19 @@ enumError CreateMSBT (u8 **out_data, uint *out_size, const msbt_file_t *msbt)
 	memset (out + 0x16, 0, 0x0A);
 
 	uint cur_sec = 0x20;
-#define MSBT_EMIT_SEC(magic_, buf_, len_)                                                                  \
-	do {                                                                                               \
+#define MSBT_EMIT_SEC(magic_, buf_, len_)                                                          \
+	do                                                                                             \
+	{                                                                                              \
 		memcpy (out + cur_sec, magic_, 4);                                                         \
 		w32 (out + cur_sec + 4, len_, be);                                                         \
 		memset (out + cur_sec + 8, 0, 8);                                                          \
-		memcpy (out + cur_sec + 16, buf_, len_);                                                  \
+		memcpy (out + cur_sec + 16, buf_, len_);                                                   \
 		{                                                                                          \
-			uint end = cur_sec + 16 + len_;                                                    \
-			uint aligned = cur_sec + 16 + ((len_ + 15) & ~15);                                 \
-			for (uint p = end; p < aligned; p++)                                              \
-				out[p] = 0xAB;                                                             \
-			cur_sec = aligned;                                                                 \
+			uint end = cur_sec + 16 + len_;                                                        \
+			uint aligned = cur_sec + 16 + ((len_ + 15) & ~15);                                     \
+			for (uint p = end; p < aligned; p++)                                                   \
+				out[p] = 0xAB;                                                                     \
+			cur_sec = aligned;                                                                     \
 		}                                                                                          \
 		FREE (buf_);                                                                               \
 	} while (0)
@@ -1518,54 +1518,54 @@ enumError LoadTextMSBT (msbt_file_t *msbt, ccp src_fname)
 	bool in_entry = false;
 
 // Helper to flush one entry (keeps NLI1 IDs, attr strings and styles).
-#define MSBT_FLUSH_ENTRY()                                                                             \
-	do {                                                                                           \
-		uint text_len = strlen (cur_text);                                                     \
-		if (text_len && cur_text[text_len - 1] == '\n')                                         \
-			cur_text[text_len - 1] = 0;                                                    \
-		if (msbt->num_entries >= msbt->alloc_entries)                                          \
-		{                                                                                      \
-			msbt->alloc_entries = msbt->alloc_entries ? msbt->alloc_entries * 2 : 16;       \
-			msbt->entries = REALLOC (                                                     \
-				msbt->entries, msbt->alloc_entries * sizeof (msbt_entry_t));            \
-		}                                                                                      \
-		msbt_entry_t *e = msbt->entries + msbt->num_entries;                                   \
-		memset (e, 0, sizeof (*e));                                                           \
-		e->index = msbt->num_entries;                                                          \
-		e->msg_id = msbt->num_entries;                                                         \
-		if (msbt->uses_nli1)                                                                   \
-		{                                                                                      \
-			if (*cur_label && cur_label[0] != '#')                                          \
-				e->msg_id = (u32)strtoul (cur_label, 0, 10);                            \
-			else if (*cur_label == '#')                                                    \
-				e->msg_id = (u32)strtoul (cur_label + 1, 0, 10);                        \
-		}                                                                                      \
-		else if (*cur_label && cur_label[0] != '#')                                            \
-			e->label = STRDUP (cur_label);                                                 \
-		e->text = STRDUP (cur_text);                                                           \
-		if (cur_attr_len > 0)                                                                  \
-		{                                                                                      \
-			e->attrib = MALLOC (cur_attr_len);                                             \
-			e->attrib_size = cur_attr_len;                                                 \
-			memcpy (e->attrib, cur_attr, cur_attr_len);                                    \
-			uint eff = cur_attr_len + ((*cur_attrstr) ? 4 : 0);                            \
-			if (msbt->attr_item_size < eff)                                                \
-				msbt->attr_item_size = eff;                                            \
-		}                                                                                      \
-		if (*cur_attrstr)                                                                       \
-		{                                                                                      \
-			e->attr_str = STRDUP (cur_attrstr);                                            \
-			msbt->uses_attr_strings = true;                                                \
-			uint eff = cur_attr_len + 4;                                                   \
-			if (msbt->attr_item_size < eff)                                                \
-				msbt->attr_item_size = eff;                                            \
-		}                                                                                      \
-		if (cur_has_style)                                                                     \
-		{                                                                                      \
-			e->style_index = cur_style;                                                    \
-			msbt->has_tsy1 = true;                                                         \
-		}                                                                                      \
-		msbt->num_entries++;                                                                   \
+#define MSBT_FLUSH_ENTRY()                                                                         \
+	do                                                                                             \
+	{                                                                                              \
+		uint text_len = strlen (cur_text);                                                         \
+		if (text_len && cur_text[text_len - 1] == '\n')                                            \
+			cur_text[text_len - 1] = 0;                                                            \
+		if (msbt->num_entries >= msbt->alloc_entries)                                              \
+		{                                                                                          \
+			msbt->alloc_entries = msbt->alloc_entries ? msbt->alloc_entries * 2 : 16;              \
+			msbt->entries = REALLOC (msbt->entries, msbt->alloc_entries * sizeof (msbt_entry_t));  \
+		}                                                                                          \
+		msbt_entry_t *e = msbt->entries + msbt->num_entries;                                       \
+		memset (e, 0, sizeof (*e));                                                                \
+		e->index = msbt->num_entries;                                                              \
+		e->msg_id = msbt->num_entries;                                                             \
+		if (msbt->uses_nli1)                                                                       \
+		{                                                                                          \
+			if (*cur_label && cur_label[0] != '#')                                                 \
+				e->msg_id = (u32)strtoul (cur_label, 0, 10);                                       \
+			else if (*cur_label == '#')                                                            \
+				e->msg_id = (u32)strtoul (cur_label + 1, 0, 10);                                   \
+		}                                                                                          \
+		else if (*cur_label && cur_label[0] != '#')                                                \
+			e->label = STRDUP (cur_label);                                                         \
+		e->text = STRDUP (cur_text);                                                               \
+		if (cur_attr_len > 0)                                                                      \
+		{                                                                                          \
+			e->attrib = MALLOC (cur_attr_len);                                                     \
+			e->attrib_size = cur_attr_len;                                                         \
+			memcpy (e->attrib, cur_attr, cur_attr_len);                                            \
+			uint eff = cur_attr_len + ((*cur_attrstr) ? 4 : 0);                                    \
+			if (msbt->attr_item_size < eff)                                                        \
+				msbt->attr_item_size = eff;                                                        \
+		}                                                                                          \
+		if (*cur_attrstr)                                                                          \
+		{                                                                                          \
+			e->attr_str = STRDUP (cur_attrstr);                                                    \
+			msbt->uses_attr_strings = true;                                                        \
+			uint eff = cur_attr_len + 4;                                                           \
+			if (msbt->attr_item_size < eff)                                                        \
+				msbt->attr_item_size = eff;                                                        \
+		}                                                                                          \
+		if (cur_has_style)                                                                         \
+		{                                                                                          \
+			e->style_index = cur_style;                                                            \
+			msbt->has_tsy1 = true;                                                                 \
+		}                                                                                          \
+		msbt->num_entries++;                                                                       \
 	} while (0)
 
 	while (fgets (line, line_cap, f))
@@ -1615,8 +1615,7 @@ enumError LoadTextMSBT (msbt_file_t *msbt, ccp src_fname)
 					while (isxdigit ((u8)h[0]) && isxdigit ((u8)h[1]))
 					{
 						char hx[3] = { h[0], h[1], 0 };
-						msbt->ato1_data[msbt->ato1_size++]
-							= (u8)strtoul (hx, 0, 16);
+						msbt->ato1_data[msbt->ato1_size++] = (u8)strtoul (hx, 0, 16);
 						h += 2;
 					}
 					msbt->has_ato1 = msbt->ato1_size > 0;
@@ -1751,8 +1750,7 @@ void ResetMSBP (msbp_file_t *msbp)
 		{
 			if (msbp->attributes[i].name)
 				FREE (msbp->attributes[i].name);
-			msbp_free_str_list (
-				msbp->attributes[i].list_items, msbp->attributes[i].num_list_items);
+			msbp_free_str_list (msbp->attributes[i].list_items, msbp->attributes[i].num_list_items);
 			msbp->attributes[i].list_items = 0;
 			msbp->attributes[i].num_list_items = 0;
 		}
@@ -1778,8 +1776,7 @@ void ResetMSBP (msbp_file_t *msbp)
 						{
 							if (msbp->tag_groups[i].tags[k].params[p].name)
 								FREE (msbp->tag_groups[i].tags[k].params[p].name);
-							msbp_free_str_list (
-								msbp->tag_groups[i].tags[k].params[p].list_items,
+							msbp_free_str_list (msbp->tag_groups[i].tags[k].params[p].list_items,
 								msbp->tag_groups[i].tags[k].params[p].num_list_items);
 						}
 						FREE (msbp->tag_groups[i].tags[k].params);
@@ -1865,8 +1862,7 @@ static char **msbp_parse_labels (
 }
 
 // Build one LMS hash label block. labels[i] may be NULL (skipped).
-static u8 *msbp_build_labels (
-	bool be, u32 num_slots, char *const *labels, uint n, uint *out_len)
+static u8 *msbp_build_labels (bool be, u32 num_slots, char *const *labels, uint n, uint *out_len)
 {
 	if (out_len)
 		*out_len = 0;
@@ -2086,8 +2082,7 @@ enumError ScanMSBP (msbp_file_t *msbp, const u8 *data, uint data_size, ccp fname
 	{
 		uint n = 0;
 		uint slots = 0;
-		char **labels
-			= msbp_parse_labels (clb1_data, clb1_size, be, &n, &slots, msbp->num_colors);
+		char **labels = msbp_parse_labels (clb1_data, clb1_size, be, &n, &slots, msbp->num_colors);
 		if (slots)
 			msbp->label_slot_count = slots;
 		if (labels)
@@ -2132,8 +2127,7 @@ enumError ScanMSBP (msbp_file_t *msbp, const u8 *data, uint data_size, ccp fname
 			{
 				uint n = 0;
 				uint slots = 0;
-				char **labels = msbp_parse_labels (
-					alb1_data, alb1_size, be, &n, &slots, num_attrs);
+				char **labels = msbp_parse_labels (alb1_data, alb1_size, be, &n, &slots, num_attrs);
 				if (slots)
 					msbp->label_slot_count = slots;
 				if (labels)
@@ -2273,8 +2267,7 @@ enumError ScanMSBP (msbp_file_t *msbp, const u8 *data, uint data_size, ccp fname
 					raw_tags[i].num_pidx = npc;
 					for (uint k = 0; k < npc; k++)
 						raw_tags[i].pidx[k] = r16 (tag2_data + off + 2 + k * 2, be);
-					raw_tags[i].name = msbp_read_cstr (
-						tag2_data, tag2_size, off + 2 + npc * 2);
+					raw_tags[i].name = msbp_read_cstr (tag2_data, tag2_size, off + 2 + npc * 2);
 				}
 				else
 					raw_tags[i].name = STRDUP ("");
@@ -2352,8 +2345,8 @@ enumError ScanMSBP (msbp_file_t *msbp, const u8 *data, uint data_size, ccp fname
 						msbp_tag_param_t *par = t->params + p;
 						if (pi < num_raw_params)
 						{
-							par->name = raw_params[pi].name ? STRDUP (raw_params[pi].name)
-															: STRDUP ("");
+							par->name
+								= raw_params[pi].name ? STRDUP (raw_params[pi].name) : STRDUP ("");
 							par->type = raw_params[pi].type;
 							for (uint li = 0; li < raw_params[pi].num_items; li++)
 							{
@@ -2361,8 +2354,8 @@ enumError ScanMSBP (msbp_file_t *msbp, const u8 *data, uint data_size, ccp fname
 								const char *s = (si < num_tgl_strings && tgl_strings[si])
 									? tgl_strings[si]
 									: "";
-								par->list_items = REALLOC (par->list_items,
-									(par->num_list_items + 1) * sizeof (char *));
+								par->list_items = REALLOC (
+									par->list_items, (par->num_list_items + 1) * sizeof (char *));
 								par->list_items[par->num_list_items++] = STRDUP (s);
 							}
 						}
@@ -2491,8 +2484,8 @@ enumError SaveTextMSBP (const msbp_file_t *msbp, ccp dest_fname)
 		for (uint i = 0; i < msbp->num_attributes; i++)
 		{
 			const msbp_attribute_t *a = msbp->attributes + i;
-			fprintf (f, "  #%u: %s = type=%u offset=%u", i, a->name ? a->name : "",
-				a->type, a->offset);
+			fprintf (
+				f, "  #%u: %s = type=%u offset=%u", i, a->name ? a->name : "", a->type, a->offset);
 			if (a->type == 9 && a->num_list_items > 0)
 			{
 				fprintf (f, " list=");
@@ -2517,8 +2510,8 @@ enumError SaveTextMSBP (const msbp_file_t *msbp, ccp dest_fname)
 				for (uint p = 0; p < t->num_params; p++)
 				{
 					const msbp_tag_param_t *par = t->params + p;
-					fprintf (f, "      Param \"%s\" type=%u", par->name ? par->name : "",
-						par->type);
+					fprintf (
+						f, "      Param \"%s\" type=%u", par->name ? par->name : "", par->type);
 					if (par->type == 9 && par->num_list_items > 0)
 					{
 						fprintf (f, " list=");
@@ -2834,8 +2827,7 @@ enumError CreateMSBP (u8 **out_data, uint *out_size, const msbp_file_t *msbp)
 				{
 					for (uint p = 0; p < msbp->tag_groups[i].tags[k].num_params; p++)
 					{
-						const msbp_tag_param_t *par
-							= msbp->tag_groups[i].tags[k].params + p;
+						const msbp_tag_param_t *par = msbp->tag_groups[i].tags[k].params + p;
 						const char *nm = par->name ? par->name : "";
 						uint nl = strlen (nm) + 1;
 						uint len;
@@ -3048,13 +3040,14 @@ enumError CreateMSBP (u8 **out_data, uint *out_size, const msbp_file_t *msbp)
 	// ---- Assemble ----
 	u16 num_sections = 0;
 	uint total_size = 0x20;
-#define MSBP_ADD_SEC(buf_, len_)                                                                       \
-	do {                                                                                           \
-		if (buf_)                                                                              \
-		{                                                                                      \
-			num_sections++;                                                                \
-			total_size += 16 + ((len_ + 15) & ~15);                                         \
-		}                                                                                      \
+#define MSBP_ADD_SEC(buf_, len_)                                                                   \
+	do                                                                                             \
+	{                                                                                              \
+		if (buf_)                                                                                  \
+		{                                                                                          \
+			num_sections++;                                                                        \
+			total_size += 16 + ((len_ + 15) & ~15);                                                \
+		}                                                                                          \
 	} while (0)
 	MSBP_ADD_SEC (clr1_buf, clr1_len);
 	MSBP_ADD_SEC (clb1_buf, clb1_len);
@@ -3084,23 +3077,24 @@ enumError CreateMSBP (u8 **out_data, uint *out_size, const msbp_file_t *msbp)
 	memset (out + 0x16, 0, 0x0A);
 
 	uint pos = 0x20;
-#define MSBP_EMIT_SEC(magic_, buf_, len_)                                                              \
-	do {                                                                                           \
-		if (buf_)                                                                              \
-		{                                                                                      \
-			memcpy (out + pos, magic_, 4);                                                 \
-			w32 (out + pos + 4, len_, be);                                                 \
-			memset (out + pos + 8, 0, 8);                                                  \
-			memcpy (out + pos + 16, buf_, len_);                                          \
-			{                                                                              \
-				uint end = pos + 16 + len_;                                            \
-				uint aligned = pos + 16 + ((len_ + 15) & ~15);                         \
-				for (uint p = end; p < aligned; p++)                                  \
-					out[p] = 0xAB;                                                     \
-				pos = aligned;                                                             \
-			}                                                                                  \
-			FREE (buf_);                                                                       \
-		}                                                                                      \
+#define MSBP_EMIT_SEC(magic_, buf_, len_)                                                          \
+	do                                                                                             \
+	{                                                                                              \
+		if (buf_)                                                                                  \
+		{                                                                                          \
+			memcpy (out + pos, magic_, 4);                                                         \
+			w32 (out + pos + 4, len_, be);                                                         \
+			memset (out + pos + 8, 0, 8);                                                          \
+			memcpy (out + pos + 16, buf_, len_);                                                   \
+			{                                                                                      \
+				uint end = pos + 16 + len_;                                                        \
+				uint aligned = pos + 16 + ((len_ + 15) & ~15);                                     \
+				for (uint p = end; p < aligned; p++)                                               \
+					out[p] = 0xAB;                                                                 \
+				pos = aligned;                                                                     \
+			}                                                                                      \
+			FREE (buf_);                                                                           \
+		}                                                                                          \
 	} while (0)
 	MSBP_EMIT_SEC ("CLR1", clr1_buf, clr1_len);
 	MSBP_EMIT_SEC ("CLB1", clb1_buf, clb1_len);
@@ -3138,23 +3132,24 @@ enumError LoadTextMSBP (msbp_file_t *msbp, ccp src_fname)
 	msbp_tag_t *cur_tag = 0;
 
 	// Split a "a;b;c" list into heap strings
-#define MSBP_SPLIT_LIST(dst_, dstn_, src_)                                                                 \
-	do {                                                                                               \
+#define MSBP_SPLIT_LIST(dst_, dstn_, src_)                                                         \
+	do                                                                                             \
+	{                                                                                              \
 		dst_ = 0;                                                                                  \
 		dstn_ = 0;                                                                                 \
 		const char *_p = src_;                                                                     \
 		while (_p && *_p)                                                                          \
 		{                                                                                          \
-			const char *_e = strchr (_p, ';');                                                  \
-			uint _l = _e ? (uint)(_e - _p) : (uint)strlen (_p);                                 \
-			char *_s = MALLOC (_l + 1);                                                        \
-			memcpy (_s, _p, _l);                                                               \
-			_s[_l] = 0;                                                                        \
-			dst_ = REALLOC (dst_, (dstn_ + 1) * sizeof (char *));                              \
-			dst_[dstn_++] = _s;                                                                \
-			_p = _e ? _e + 1 : 0;                                                              \
-			if (!_e)                                                                           \
-				break;                                                                     \
+			const char *_e = strchr (_p, ';');                                                     \
+			uint _l = _e ? (uint)(_e - _p) : (uint)strlen (_p);                                    \
+			char *_s = MALLOC (_l + 1);                                                            \
+			memcpy (_s, _p, _l);                                                                   \
+			_s[_l] = 0;                                                                            \
+			dst_ = REALLOC (dst_, (dstn_ + 1) * sizeof (char *));                                  \
+			dst_[dstn_++] = _s;                                                                    \
+			_p = _e ? _e + 1 : 0;                                                                  \
+			if (!_e)                                                                               \
+				break;                                                                             \
 		}                                                                                          \
 	} while (0)
 
@@ -3299,8 +3294,8 @@ enumError LoadTextMSBP (msbp_file_t *msbp, ccp src_fname)
 			if (op)
 				off = (uint)strtoul (op + 7, 0, 10);
 			uint idx = msbp->num_attributes++;
-			msbp->attributes = REALLOC (
-				msbp->attributes, msbp->num_attributes * sizeof (msbp_attribute_t));
+			msbp->attributes
+				= REALLOC (msbp->attributes, msbp->num_attributes * sizeof (msbp_attribute_t));
 			memset (msbp->attributes + idx, 0, sizeof (msbp_attribute_t));
 			msbp->attributes[idx].name = STRDUP (name);
 			msbp->attributes[idx].type = (u8)type;
@@ -3308,8 +3303,8 @@ enumError LoadTextMSBP (msbp_file_t *msbp, ccp src_fname)
 			char *lp = strstr (rest, "list=");
 			if (lp)
 			{
-				MSBP_SPLIT_LIST (msbp->attributes[idx].list_items,
-					msbp->attributes[idx].num_list_items, lp + 5);
+				MSBP_SPLIT_LIST (
+					msbp->attributes[idx].list_items, msbp->attributes[idx].num_list_items, lp + 5);
 				msbp->attributes[idx].type = 9;
 			}
 			msbp->has_attributes = true;
@@ -3323,8 +3318,8 @@ enumError LoadTextMSBP (msbp_file_t *msbp, ccp src_fname)
 				char *q1 = strchr (s, '"');
 				char *q2 = q1 ? strchr (q1 + 1, '"') : 0;
 				uint idx = msbp->num_tag_groups++;
-				msbp->tag_groups = REALLOC (msbp->tag_groups,
-					msbp->num_tag_groups * sizeof (msbp_tag_group_t));
+				msbp->tag_groups
+					= REALLOC (msbp->tag_groups, msbp->num_tag_groups * sizeof (msbp_tag_group_t));
 				memset (msbp->tag_groups + idx, 0, sizeof (msbp_tag_group_t));
 				msbp->tag_groups[idx].group_id = (u16)gid;
 				if (q1 && q2 && q2 > q1 + 1)
@@ -3361,8 +3356,8 @@ enumError LoadTextMSBP (msbp_file_t *msbp, ccp src_fname)
 				char *q1 = strchr (s, '"');
 				char *q2 = q1 ? strchr (q1 + 1, '"') : 0;
 				uint idx = cur_tag->num_params++;
-				cur_tag->params = REALLOC (
-					cur_tag->params, cur_tag->num_params * sizeof (msbp_tag_param_t));
+				cur_tag->params
+					= REALLOC (cur_tag->params, cur_tag->num_params * sizeof (msbp_tag_param_t));
 				memset (cur_tag->params + idx, 0, sizeof (msbp_tag_param_t));
 				if (q1 && q2 && q2 > q1 + 1)
 				{
@@ -3774,8 +3769,8 @@ enumError SaveTextMSBF (const msbf_file_t *msbf, ccp dest_fname)
 				fprintf (f, "  type = Message (msg_index=%u, next=%u, group=%u)\n", n->msg_index,
 					n->next_node, n->msbt_index);
 			else
-				fprintf (f, "  type = Message (msg_index=%u, next=%u)\n", n->msg_index,
-					n->next_node);
+				fprintf (
+					f, "  type = Message (msg_index=%u, next=%u)\n", n->msg_index, n->next_node);
 		}
 		else if (n->type == MSBF_NODE_BRANCH)
 		{
@@ -4210,8 +4205,7 @@ enumError LoadTextMSBF (msbf_file_t *msbf, ccp src_fname)
 						if (cur_node->num_branches >= cap)
 						{
 							cap = cap ? cap * 2 : 4;
-							cur_node->branches = REALLOC (
-								cur_node->branches, cap * sizeof (u16));
+							cur_node->branches = REALLOC (cur_node->branches, cap * sizeof (u16));
 						}
 						cur_node->branches[cur_node->num_branches++] = (u16)tmp1;
 						while (*br >= '0' && *br <= '9')

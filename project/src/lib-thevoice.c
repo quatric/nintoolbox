@@ -55,18 +55,17 @@ static int looks_like_text (const u8 *data, size_t size)
 
 int IsVoiceSong (const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!looks_like_text (data, size))
 		return 0;
 	// root element + namespace, both required, order-independent within
 	// the header region
-	return has_token (data, size, 512, "<Song ")
-		&& has_token (data, size, 512, "zoe:Song");
+	return has_token (data, size, 512, "<Song ") && has_token (data, size, 512, "zoe:Song");
 }
 
 int IsVoiceAmc (const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!looks_like_text (data, size))
 		return 0;
 	return has_token (data, size, 256, "animeshcatalogue");
@@ -74,7 +73,7 @@ int IsVoiceAmc (const u8 *data, size_t size, size_t file_size)
 
 int IsVoiceAms (const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!looks_like_text (data, size))
 		return 0;
 	return has_token (data, size, 256, "animeshsequence");
@@ -82,7 +81,7 @@ int IsVoiceAms (const u8 *data, size_t size, size_t file_size)
 
 int IsVoicePalcat (const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!looks_like_text (data, size))
 		return 0;
 	return has_token (data, size, 256, "palettecatalogue");
@@ -90,7 +89,7 @@ int IsVoicePalcat (const u8 *data, size_t size, size_t file_size)
 
 int IsVoicePalseq (const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!looks_like_text (data, size))
 		return 0;
 	return has_token (data, size, 256, "palettesequence");
@@ -118,7 +117,7 @@ static const char *find_key (const char *text, const char *end, const char *key)
 			return 0;
 		// require the char right before the key to be a non-identifier
 		// char (so "FileName" doesn't match inside some longer key)
-		if (hit == text || !(isalnum ((unsigned char) hit[-1]) || hit[-1] == '_'))
+		if (hit == text || !(isalnum ((unsigned char)hit[-1]) || hit[-1] == '_'))
 			return hit + klen;
 		p = hit + klen;
 	}
@@ -206,7 +205,7 @@ static char *dup_text (const u8 *data, size_t size)
 
 enumError DecodeVoiceSong_Text (FILE *f, const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!f)
 		return EINVAL;
 	if (!IsVoiceSong (data, size, size))
@@ -224,11 +223,13 @@ enumError DecodeVoiceSong_Text (FILE *f, const u8 *data, size_t size, size_t fil
 		const char *sk = k ? find_key (k, end, "start=") : 0;
 		const char *ek = k ? find_key (k, end, "end=") : 0;
 		char *start_v = sk ? read_xml_value (sk, end) : 0;
-		char *end_v   = ek ? read_xml_value (ek, end) : 0;
+		char *end_v = ek ? read_xml_value (ek, end) : 0;
 		fprintf (f, "start = %s\n", start_v ? start_v : "?");
 		fprintf (f, "end   = %s\n", end_v ? end_v : "?");
-		if (start_v) FREE (start_v);
-		if (end_v) FREE (end_v);
+		if (start_v)
+			FREE (start_v);
+		if (end_v)
+			FREE (end_v);
 	}
 
 	fprintf (f, "\n# game modes\n");
@@ -260,12 +261,15 @@ enumError DecodeVoiceSong_Text (FILE *f, const u8 *data, size_t size, size_t fil
 				const char *partk = find_key (pk, scope_end, "part=");
 				char *part = partk ? read_xml_value (partk, scope_end) : 0;
 				fprintf (f, "  player part=%s\n", part ? part : "?");
-				if (part) FREE (part);
+				if (part)
+					FREE (part);
 				q = pk;
 			}
 
-			if (id) FREE (id);
-			if (mics) FREE (mics);
+			if (id)
+				FREE (id);
+			if (mics)
+				FREE (mics);
 			p = mk;
 		}
 	}
@@ -285,11 +289,14 @@ enumError DecodeVoiceSong_Text (FILE *f, const u8 *data, size_t size, size_t fil
 			char *st = stk ? read_xml_value (stk, end) : 0;
 			char *na = nak ? read_xml_value (nak, end) : 0;
 			char *en = enk ? read_xml_value (enk, end) : 0;
-			fprintf (f, "event start=%-10s name=%-24s enabled=%s\n",
-				st ? st : "?", na ? na : "?", en ? en : "?");
-			if (st) FREE (st);
-			if (na) FREE (na);
-			if (en) FREE (en);
+			fprintf (f, "event start=%-10s name=%-24s enabled=%s\n", st ? st : "?", na ? na : "?",
+				en ? en : "?");
+			if (st)
+				FREE (st);
+			if (na)
+				FREE (na);
+			if (en)
+				FREE (en);
 			count++;
 			p = evk;
 		}
@@ -305,7 +312,7 @@ enumError DecodeVoiceSong_Text (FILE *f, const u8 *data, size_t size, size_t fil
 
 enumError DecodeVoiceAmc_Text (FILE *f, const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!f)
 		return EINVAL;
 	if (!IsVoiceAmc (data, size, size))
@@ -328,7 +335,8 @@ enumError DecodeVoiceAmc_Text (FILE *f, const u8 *data, size_t size, size_t file
 			break;
 		char *v = read_lua_value (k, end);
 		fprintf (f, "scene = %s\n", v ? v : "?");
-		if (v) FREE (v);
+		if (v)
+			FREE (v);
 		count++;
 		p = k;
 	}
@@ -340,7 +348,7 @@ enumError DecodeVoiceAmc_Text (FILE *f, const u8 *data, size_t size, size_t file
 
 enumError DecodeVoiceAms_Text (FILE *f, const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!f)
 		return EINVAL;
 	if (!IsVoiceAms (data, size, size))
@@ -369,27 +377,32 @@ enumError DecodeVoiceAms_Text (FILE *f, const u8 *data, size_t size, size_t file
 			close = end;
 
 		const char *k;
-		char *st   = (k = find_key (open, close, "StartTime=")) ? read_lua_value (k, close) : 0;
-		char *fn   = (k = find_key (open, close, "FileName=")) ? read_lua_value (k, close) : 0;
-		char *pm   = (k = find_key (open, close, "PlayMode=")) ? read_lua_value (k, close) : 0;
-		char *pr   = (k = find_key (open, close, "PlayRate=")) ? read_lua_value (k, close) : 0;
-		char *fi   = (k = find_key (open, close, "FadeIn=")) ? read_lua_value (k, close) : 0;
-		char *fo   = (k = find_key (open, close, "FadeOut=")) ? read_lua_value (k, close) : 0;
+		char *st = (k = find_key (open, close, "StartTime=")) ? read_lua_value (k, close) : 0;
+		char *fn = (k = find_key (open, close, "FileName=")) ? read_lua_value (k, close) : 0;
+		char *pm = (k = find_key (open, close, "PlayMode=")) ? read_lua_value (k, close) : 0;
+		char *pr = (k = find_key (open, close, "PlayRate=")) ? read_lua_value (k, close) : 0;
+		char *fi = (k = find_key (open, close, "FadeIn=")) ? read_lua_value (k, close) : 0;
+		char *fo = (k = find_key (open, close, "FadeOut=")) ? read_lua_value (k, close) : 0;
 
 		if (fn) // only count/print real entries (skips a stray '{' before the list)
 		{
 			fprintf (f, "start=%-10s file=%-40s mode=%-3s rate=%-10s in=%-10s out=%s\n",
-				st ? st : "?", fn, pm ? pm : "?", pr ? pr : "?",
-				fi ? fi : "?", fo ? fo : "?");
+				st ? st : "?", fn, pm ? pm : "?", pr ? pr : "?", fi ? fi : "?", fo ? fo : "?");
 			count++;
 		}
 
-		if (st) FREE (st);
-		if (fn) FREE (fn);
-		if (pm) FREE (pm);
-		if (pr) FREE (pr);
-		if (fi) FREE (fi);
-		if (fo) FREE (fo);
+		if (st)
+			FREE (st);
+		if (fn)
+			FREE (fn);
+		if (pm)
+			FREE (pm);
+		if (pr)
+			FREE (pr);
+		if (fi)
+			FREE (fi);
+		if (fo)
+			FREE (fo);
 
 		p = close < end ? close + 1 : end;
 		if (p >= end)
@@ -406,7 +419,7 @@ enumError DecodeVoiceAms_Text (FILE *f, const u8 *data, size_t size, size_t file
 
 enumError DecodeVoicePalcat_Text (FILE *f, const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!f)
 		return EINVAL;
 	if (!IsVoicePalcat (data, size, size))
@@ -429,14 +442,17 @@ enumError DecodeVoicePalcat_Text (FILE *f, const u8 *data, size_t size, size_t f
 			break;
 		char *v = read_lua_value (k, end);
 		fprintf (f, "[%u] palette = %s\n", count, v ? v : "?");
-		if (v) FREE (v);
+		if (v)
+			FREE (v);
 		count++;
 		p = k;
 	}
 	fprintf (f, "\n# %u palette(s)\n", count);
 	if (count != 1)
-		fprintf (f, "# note: every sample on the source disc had exactly 1 entry here;\n"
-			"# this file has %u -- unconfirmed territory for this format\n", count);
+		fprintf (f,
+			"# note: every sample on the source disc had exactly 1 entry here;\n"
+			"# this file has %u -- unconfirmed territory for this format\n",
+			count);
 
 	FREE (text);
 	return ERR_OK;
@@ -444,7 +460,7 @@ enumError DecodeVoicePalcat_Text (FILE *f, const u8 *data, size_t size, size_t f
 
 enumError DecodeVoicePalseq_Text (FILE *f, const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!f)
 		return EINVAL;
 	if (!IsVoicePalseq (data, size, size))
@@ -480,15 +496,19 @@ enumError DecodeVoicePalseq_Text (FILE *f, const u8 *data, size_t size, size_t f
 
 		if (pi)
 		{
-			fprintf (f, "start=%-10s index=%-4s in=%-10s out=%s\n",
-				st ? st : "?", pi, fi ? fi : "?", fo ? fo : "?");
+			fprintf (f, "start=%-10s index=%-4s in=%-10s out=%s\n", st ? st : "?", pi,
+				fi ? fi : "?", fo ? fo : "?");
 			count++;
 		}
 
-		if (st) FREE (st);
-		if (pi) FREE (pi);
-		if (fi) FREE (fi);
-		if (fo) FREE (fo);
+		if (st)
+			FREE (st);
+		if (pi)
+			FREE (pi);
+		if (fi)
+			FREE (fi);
+		if (fo)
+			FREE (fo);
 
 		p = close < end ? close + 1 : end;
 		if (p >= end)

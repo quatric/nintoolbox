@@ -10,9 +10,9 @@
 
 //-----------------------------------------------------------------------------
 
-#define HDV_SLOT_SIZE  8
+#define HDV_SLOT_SIZE 8
 #define HDV_PARAM_SIZE 44
-#define HDV_MAX_SLOTS  (1u << 20) // sanity cap
+#define HDV_MAX_SLOTS (1u << 20) // sanity cap
 
 // Walks the slot table starting right after the 8-byte header. On success,
 // returns 1 and fills *n_real with the number of non-sentinel slots and
@@ -20,14 +20,14 @@
 // the caller still has to check that the remaining bytes exactly match
 // n_real * HDV_PARAM_SIZE. Returns 0 if the slot table doesn't parse as
 // "sequential index, or -1" all the way through.
-static int walk_slots (const u8 *data, size_t size, u32 total_slots,
-	u32 *n_real, size_t *table2_start)
+static int walk_slots (
+	const u8 *data, size_t size, u32 total_slots, u32 *n_real, size_t *table2_start)
 {
 	if (total_slots > HDV_MAX_SLOTS)
 		return 0;
 
 	size_t pos = 8;
-	const size_t need = (size_t) total_slots * HDV_SLOT_SIZE;
+	const size_t need = (size_t)total_slots * HDV_SLOT_SIZE;
 	if (pos + need > size)
 		return 0;
 
@@ -35,7 +35,7 @@ static int walk_slots (const u8 *data, size_t size, u32 total_slots,
 	u32 real = 0;
 	for (u32 i = 0; i < total_slots; i++, pos += HDV_SLOT_SIZE)
 	{
-		const s32 seq = (s32) be32 (data + pos + 4);
+		const s32 seq = (s32)be32 (data + pos + 4);
 		if (seq == last_seq + 1)
 		{
 			last_seq = seq;
@@ -62,7 +62,7 @@ int IsHdVoice (const u8 *data, size_t size, size_t file_size)
 		return 0;
 
 	const size_t remain = file_size - table2_start;
-	return remain == (size_t) n_real * HDV_PARAM_SIZE;
+	return remain == (size_t)n_real * HDV_PARAM_SIZE;
 }
 
 //-----------------------------------------------------------------------------
@@ -73,7 +73,7 @@ enumError DecodeHdVoice_Text (FILE *f, const u8 *data, size_t size, size_t file_
 		return EINVAL;
 
 	const u32 total_slots = be32 (data);
-	const u32 group       = be32 (data + 4);
+	const u32 group = be32 (data + 4);
 
 	u32 n_real;
 	size_t table2_start;
@@ -90,32 +90,34 @@ enumError DecodeHdVoice_Text (FILE *f, const u8 *data, size_t size, size_t file_
 	size_t pos = 8;
 	for (u32 i = 0; i < total_slots; i++, pos += HDV_SLOT_SIZE)
 	{
-		const u16 category = (u16) (be32 (data + pos) >> 16);
-		const u16 variant  = (u16) be32 (data + pos);
-		const s32 index    = (s32) be32 (data + pos + 4);
+		const u16 category = (u16)(be32 (data + pos) >> 16);
+		const u16 variant = (u16)be32 (data + pos);
+		const s32 index = (s32)be32 (data + pos + 4);
 		if (index == -1)
 			fprintf (f, "  [%u] category=%u variant=%u (unrecorded)\n", i, category, variant);
 		else
-			fprintf (f, "  [%u] category=%u variant=%u -> param[%d]\n", i, category, variant, index);
+			fprintf (
+				f, "  [%u] category=%u variant=%u -> param[%d]\n", i, category, variant, index);
 	}
 
 	fprintf (f, "\n# Parameter table (one per recorded slot)\n");
 	for (u32 i = 0; i < n_real; i++)
 	{
-		const u8 *p = data + table2_start + (size_t) i * HDV_PARAM_SIZE;
+		const u8 *p = data + table2_start + (size_t)i * HDV_PARAM_SIZE;
 		const u32 self_index = be32 (p + 0);
-		const u32 volume     = be32 (p + 4);
+		const u32 volume = be32 (p + 4);
 		const u32 pitch_bits = be32 (p + 12);
 		float pitch;
 		memcpy (&pitch, &pitch_bits, 4);
-		const u32 group2     = be32 (p + 20);
-		const u32 priority   = be32 (p + 24);
-		const u32 unknown7   = be32 (p + 28);
-		const u32 unknown8   = be32 (p + 32);
-		const u32 flag9      = be32 (p + 36);
-		const u32 flag10     = be32 (p + 40);
+		const u32 group2 = be32 (p + 20);
+		const u32 priority = be32 (p + 24);
+		const u32 unknown7 = be32 (p + 28);
+		const u32 unknown8 = be32 (p + 32);
+		const u32 flag9 = be32 (p + 36);
+		const u32 flag10 = be32 (p + 40);
 
-		fprintf (f, "  [%u] self=%u volume=%u pitch=%.3f group2=%u priority=%u"
+		fprintf (f,
+			"  [%u] self=%u volume=%u pitch=%.3f group2=%u priority=%u"
 			" unk7=%u unk8=%u flag9=%u flag10=%u\n",
 			i, self_index, volume, pitch, group2, priority, unknown7, unknown8, flag9, flag10);
 	}

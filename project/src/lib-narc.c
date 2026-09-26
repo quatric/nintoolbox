@@ -454,7 +454,6 @@ enumError CreateNARC (
 	return ERR_OK;
 }
 
-
 enumError create_narc_dir (ccp source, ccp dest, bool is_le)
 {
 	sarc_build_list_t list = { 0 };
@@ -477,4 +476,3 @@ enumError create_narc_dir (ccp source, ccp dest, bool is_le)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // ----------------------------------------------------------------------------
 // 9. Mario Kart Arcade GP DX Layout Archive (.pac / pack)
 // ----------------------------------------------------------------------------
@@ -127,7 +126,6 @@ enumError ExtractMKGPDXPacArchive (ccp arg, ccp basedir, uint depth)
 	return ERR_OK;
 }
 
-
 // Mario Kart Arcade GP DX layout archive ("pack"), little-endian.
 //
 // Offsets in the entry table are relative to the aligned data block rather
@@ -216,7 +214,6 @@ enumError CreateMKGPDXPacArchive (
 	return ERR_OK;
 }
 
-
 enumError create_mkgpdx_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -239,4 +236,3 @@ enumError create_mkgpdx_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

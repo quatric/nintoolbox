@@ -415,8 +415,8 @@ static enumError decode_image_if_possible (ccp arg)
 
 	// Don't decode already decoded PNGs, XMLs, YAMLs, GLBs, etc.
 	if (!memcmp (head, "\x89PNG", 4) || is_ext (arg, ".png") || is_ext (arg, ".xml")
-		|| is_ext (arg, ".yaml") || is_ext (arg, ".yml") || is_ext (arg, ".tflyt") || is_ext (arg, ".dae")
-		|| is_ext (arg, ".glb"))
+		|| is_ext (arg, ".yaml") || is_ext (arg, ".yml") || is_ext (arg, ".tflyt")
+		|| is_ext (arg, ".dae") || is_ext (arg, ".glb"))
 		return ERR_NOTHING_TO_DO;
 
 	bool is_image = false;
@@ -428,8 +428,8 @@ static enumError decode_image_if_possible (ccp arg)
 	// the original character map, widths, or multiple TGLP sheets.  Keep game
 	// fonts opaque in recursive game-image staging rather than accepting edits
 	// that CREATE would silently discard.
-	if (nfmt.type == NFMT_NFTR || nfmt.type == NFMT_BRFNT || is_ext(arg,".nftr")
-		|| is_ext(arg,".zftr") || is_ext(arg,".brfnt") || is_ext(arg,".bffnt"))
+	if (nfmt.type == NFMT_NFTR || nfmt.type == NFMT_BRFNT || is_ext (arg, ".nftr")
+		|| is_ext (arg, ".zftr") || is_ext (arg, ".brfnt") || is_ext (arg, ".bffnt"))
 		return ERR_NOTHING_TO_DO;
 
 	if (!memcmp (head, "RGCN", 4) || !memcmp (head, "NCGR", 4) || is_ext (arg, ".ncgr"))
@@ -458,8 +458,7 @@ static enumError decode_image_if_possible (ccp arg)
 	// the id must match); old Retro (Metroid Prime/DKCR) has no magic, so
 	// tiny textures are content-sniffed while the rest arrive via the
 	// .txtr extension (the 256-byte probe rarely holds a full base level).
-	else if (
-		(!memcmp (head, "RFRM", 4) && n_head >= 0x18 && !memcmp (head + 0x14, "TXTR", 4))
+	else if ((!memcmp (head, "RFRM", 4) && n_head >= 0x18 && !memcmp (head + 0x14, "TXTR", 4))
 		|| IsRetroTXTR (head, (uint)n_head) || is_ext (arg, ".txtr"))
 		is_image = true;
 	else if (fform == FF_GVR || is_ext (arg, ".gvr"))
@@ -469,8 +468,8 @@ static enumError decode_image_if_possible (ccp arg)
 		// round-trippable as its raw member, whereas sending it to LoadIMG()
 		// produces one hard error for every non-editable asset in Sonic games.
 		const uint gvr_format = n_head > 0x1b ? head[0x1b] : 0xff;
-		is_image = n_head >= 0x20 && !(head[0x1a] & 0x0b)
-			&& (gvr_format <= 6 || gvr_format == 0x0e);
+		is_image
+			= n_head >= 0x20 && !(head[0x1a] & 0x0b) && (gvr_format <= 6 || gvr_format == 0x0e);
 	}
 	else if (nfmt.type == NFMT_BFLIM || nfmt.type == NFMT_BCLIM || is_ext (arg, ".bflim")
 		|| is_ext (arg, ".bclim"))
@@ -1053,7 +1052,7 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_bigf_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
-	if (is_littlest_pet_shop_rpk(arg))
+	if (is_littlest_pet_shop_rpk (arg))
 		return ERR_OK;
 
 	err = extract_abe_file (arg, basedir, depth);
@@ -1140,7 +1139,7 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	// unchanged retail game appear editable even though CREATE cannot put its
 	// entry table, compression flags, and alignment back byte-for-byte.
 	// Keep the original .pak in the staged tree until the paired encoder exists.
-	if (is_rpak_file(arg))
+	if (is_rpak_file (arg))
 		return ERR_OK;
 	err = extract_mpr_pack_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
@@ -1520,7 +1519,6 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
-
 	err = ExtractPVOLArchive (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
@@ -1680,8 +1678,6 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = ExtractSIR0Archive (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
-
-
 
 	err = ExtractPERSFile (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
@@ -2372,8 +2368,8 @@ static enumError extract_tree (ccp root, uint depth)
 		enumError err = ERR_OK;
 		if (S_ISDIR (st.st_mode))
 		{
-			if ( !is_extractor_output_dir (path)
-			  && ( opt_with_update_part || strcasecmp (de->d_name, "UPDATE") ) )
+			if (!is_extractor_output_dir (path)
+				&& (opt_with_update_part || strcasecmp (de->d_name, "UPDATE")))
 			{
 				err = extract_tree (path, depth + 1);
 			}
@@ -2855,7 +2851,7 @@ static bool ConvertHelper (const u8 *data, // valid data
 					ResetSCN0 (&scn);
 					return false;
 				}
-				*err = testmode   ? ERR_OK
+				*err = testmode	  ? ERR_OK
 					: binary_dest ? SaveRawSCN0 (&scn, dest_fname, true)
 								  : SaveTextSCN0 (&scn, dest_fname, true);
 				ResetSCN0 (&scn);
@@ -2917,7 +2913,7 @@ static bool ConvertHelper (const u8 *data, // valid data
 				if (!*err)
 					*err = testmode	  ? ERR_OK
 						: binary_dest ? SaveRawBFLYT (&bflyt, dest_fname, true)
-							  : SaveXMLBFLYT (&bflyt, dest_fname, true);
+									  : SaveXMLBFLYT (&bflyt, dest_fname, true);
 				ResetBFLYT (&bflyt);
 			}
 			return true;
@@ -3066,7 +3062,8 @@ static enumError cmd_convert (bool binary) // cmd_binary() cmd_text()
 			SubstDest (dest, sizeof (dest), arg, opt_dest, "\\1P/\\1N.txt", ".txt", false);
 			if (verbose >= 0)
 			{
-				fprintf (stdlog, "%sCREATE/TEXT MPMESS:%s => %s\n", verbose > 0 ? "\n" : "", arg, dest);
+				fprintf (
+					stdlog, "%sCREATE/TEXT MPMESS:%s => %s\n", verbose > 0 ? "\n" : "", arg, dest);
 				fflush (stdlog);
 			}
 			if (!testmode)
@@ -3086,8 +3083,9 @@ static enumError cmd_convert (bool binary) // cmd_binary() cmd_text()
 			continue;
 		}
 
-		if (!ff_dest && (raw.fform == FF_MPBOARD || IsMPBoard (raw.data, raw.data_size)
-			|| IsSMPBoard (raw.data, raw.data_size) || IsMP10Board (raw.data, raw.data_size)))
+		if (!ff_dest
+			&& (raw.fform == FF_MPBOARD || IsMPBoard (raw.data, raw.data_size)
+				|| IsSMPBoard (raw.data, raw.data_size) || IsMP10Board (raw.data, raw.data_size)))
 		{
 			ccp out_ext = (opt_dest && strcasestr (opt_dest, ".csv")) ? ".csv" : ".txt";
 			char def_pat[32];
@@ -3095,7 +3093,8 @@ static enumError cmd_convert (bool binary) // cmd_binary() cmd_text()
 			SubstDest (dest, sizeof (dest), arg, opt_dest, def_pat, out_ext, false);
 			if (verbose >= 0)
 			{
-				fprintf (stdlog, "%sCREATE/TEXT MPBOARD:%s => %s\n", verbose > 0 ? "\n" : "", arg, dest);
+				fprintf (
+					stdlog, "%sCREATE/TEXT MPBOARD:%s => %s\n", verbose > 0 ? "\n" : "", arg, dest);
 				fflush (stdlog);
 			}
 			if (!testmode)
@@ -3172,7 +3171,8 @@ static enumError cmd_convert (bool binary) // cmd_binary() cmd_text()
 				SubstDest (dest, sizeof (dest), arg, opt_dest, "\1P/\1N.yml", ".yml", false);
 				if (verbose >= 0)
 				{
-					fprintf (stdlog, "%sCREATE/TEXT BGLPBD:%s => %s\n", verbose > 0 ? "\n" : "", arg, dest);
+					fprintf (stdlog, "%sCREATE/TEXT BGLPBD:%s => %s\n", verbose > 0 ? "\n" : "",
+						arg, dest);
 					fflush (stdlog);
 				}
 				if (!testmode)
@@ -3227,19 +3227,21 @@ static enumError cmd_convert (bool binary) // cmd_binary() cmd_text()
 			continue;
 		}
 
-		if (binary && !ff_dest && (is_ext (arg, ".yml") || is_ext (arg, ".yaml") || is_ext (arg, ".json")))
+		if (binary && !ff_dest
+			&& (is_ext (arg, ".yml") || is_ext (arg, ".yaml") || is_ext (arg, ".json")))
 		{
 			char b_dest[PATH_MAX];
 			SubstDest (b_dest, sizeof (b_dest), arg, opt_dest, "\\1P/\\1N.aamp", ".aamp", false);
 			ccp b_ext = strrchr (b_dest, '.');
-			if (b_ext && (!strcasecmp (b_ext, ".aamp") || !strcasecmp (b_ext, ".baamp")
-				|| !strcasecmp (b_ext, ".bparam") || !strcasecmp (b_ext, ".bgenv")
-				|| !strcasecmp (b_ext, ".bglpbd")))
+			if (b_ext
+				&& (!strcasecmp (b_ext, ".aamp") || !strcasecmp (b_ext, ".baamp")
+					|| !strcasecmp (b_ext, ".bparam") || !strcasecmp (b_ext, ".bgenv")
+					|| !strcasecmp (b_ext, ".bglpbd")))
 			{
 				if (verbose >= 0)
 				{
-					fprintf (
-						stdlog, "%sCREATE/BINARY AAMP:%s => %s\n", verbose > 0 ? "\n" : "", arg, b_dest);
+					fprintf (stdlog, "%sCREATE/BINARY AAMP:%s => %s\n", verbose > 0 ? "\n" : "",
+						arg, b_dest);
 					fflush (stdlog);
 				}
 				if (!testmode)
@@ -3609,8 +3611,8 @@ static enumError cmd_bymlfind ()
 	CheckOptDest ("-", false);
 
 	if (!first_param || !first_param->arg || !*first_param->arg)
-		return ERROR0 (ERR_SYNTAX,
-			"BYMLFIND needs a search pattern: wszst BYMLFIND pattern [source]...\n");
+		return ERROR0 (
+			ERR_SYNTAX, "BYMLFIND needs a search pattern: wszst BYMLFIND pattern [source]...\n");
 	ccp pattern = first_param->arg;
 
 	StringField_t plist = { 0 };
@@ -3618,8 +3620,7 @@ static enumError cmd_bymlfind ()
 	if (!plist.used)
 	{
 		ResetStringField (&plist);
-		return ERROR0 (ERR_SYNTAX,
-			"BYMLFIND needs at least one source file.\n");
+		return ERROR0 (ERR_SYNTAX, "BYMLFIND needs at least one source file.\n");
 	}
 
 	enumError max_err = ERR_OK;
@@ -3673,9 +3674,8 @@ static enumError cmd_bymlfind ()
 		}
 		if (verbose >= 0)
 		{
-			fprintf (stdlog, "%sBYMLFIND '%s' %s: %u match%s%s\n",
-				verbose > 0 ? "\n" : "", pattern, arg, found,
-				found == 1 ? "" : "es", testmode ? " (test mode)" : "");
+			fprintf (stdlog, "%sBYMLFIND '%s' %s: %u match%s%s\n", verbose > 0 ? "\n" : "", pattern,
+				arg, found, found == 1 ? "" : "es", testmode ? " (test mode)" : "");
 			fflush (stdlog);
 		}
 	}

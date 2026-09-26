@@ -5,8 +5,8 @@
 #include "lib-archive-util.h"
 #include <string.h>
 
-#define FPK_MAGIC	0x1234567au
-#define FPK_ENTRY_SIZE	28
+#define FPK_MAGIC 0x1234567au
+#define FPK_ENTRY_SIZE 28
 
 enumError ScanFPK (fpk_t *fpk, const u8 *data, size_t size)
 {
@@ -40,7 +40,7 @@ enumError ScanFPK (fpk_t *fpk, const u8 *data, size_t size)
 		const u32 data_size = rd_le32 (p + 8);
 		const u32 type = rd_le32 (p + 12);
 
-		if ( name_off >= size || (u64)data_off + data_size > size )
+		if (name_off >= size || (u64)data_off + data_size > size)
 		{
 			ResetFPK (fpk);
 			return ERR_INVALID_DATA;
@@ -49,13 +49,13 @@ enumError ScanFPK (fpk_t *fpk, const u8 *data, size_t size)
 		fpk_entry_t *e = fpk->entries + i;
 		e->name_offset = name_off;
 		e->data_offset = data_off;
-		e->data_size   = data_size;
-		e->type        = type;
+		e->data_size = data_size;
+		e->type = type;
 
 		// name is a NUL-terminated string somewhere before the end of file;
 		// bound the copy defensively in case of a corrupt/truncated table.
-		const size_t max_len = size - name_off < sizeof (e->name) - 1
-					? size - name_off : sizeof (e->name) - 1;
+		const size_t max_len
+			= size - name_off < sizeof (e->name) - 1 ? size - name_off : sizeof (e->name) - 1;
 		size_t len = 0;
 		while (len < max_len && data[name_off + len])
 			len++;
@@ -99,8 +99,8 @@ enumError ExtractFPKArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT FPK:%s (%u files) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, fpk.n_entries, dest);
+		fprintf (stdlog, "%s%sEXTRACT FPK:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, fpk.n_entries, dest);
 
 	for (uint i = 0; i < fpk.n_entries; i++)
 	{

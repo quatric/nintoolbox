@@ -1629,7 +1629,10 @@ void PrintV (FILE *f, // destination file
 	DASSERT (f);
 	DASSERT (v);
 
-	enum { max_str = 100 };
+	enum
+	{
+		max_str = 100
+	};
 	char strbuf[5 * max_str + 100];
 
 	switch (v->mode)

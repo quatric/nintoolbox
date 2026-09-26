@@ -233,8 +233,8 @@ enumError ScanRawMINIGAME (minigame_t *minigame, // MINIGAME data structure
 	if (!data || data_size != sizeof (minigame->data))
 	{
 		SetupBZ2MgrMINIGAME (minigame, true);
-		return ERROR0 (ERR_INVALID_DATA, "Invalid file size (%u but not %llu bytes: %s\n", data_size,
-			(u64)sizeof (minigame->data), minigame->fname);
+		return ERROR0 (ERR_INVALID_DATA, "Invalid file size (%u but not %llu bytes: %s\n",
+			data_size, (u64)sizeof (minigame->data), minigame->fname);
 	}
 	memcpy (&minigame->data, data, sizeof (minigame->data));
 	PatchMINIGAME (&minigame->data);

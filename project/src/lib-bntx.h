@@ -124,10 +124,8 @@ enumError DecodeBNTX_RGBA (u8 **dest, uint *width, uint *height, const bntx_t *b
 // uncompressed R8/R8G8/RGB565/RGBA8 formats) or in a raw .astc file
 // (EncodeBNTXNativeASTC, for ASTC textures) instead of decoding to RGBA8.
 // Only single-face 2D textures are supported, like the reference tool.
-enumError EncodeBNTXNativeDDS (
-	u8 **dest, uint *dest_size, const bntx_t *bntx, uint index);
-enumError EncodeBNTXNativeASTC (
-	u8 **dest, uint *dest_size, const bntx_t *bntx, uint index);
+enumError EncodeBNTXNativeDDS (u8 **dest, uint *dest_size, const bntx_t *bntx, uint index);
+enumError EncodeBNTXNativeASTC (u8 **dest, uint *dest_size, const bntx_t *bntx, uint index);
 
 // Returns true when texture INDEX can be exported with EncodeBNTXNativeDDS
 // (WANT_DDS is true) or EncodeBNTXNativeASTC (WANT_DDS is false).
@@ -151,8 +149,7 @@ enumError EncodeBNTX_RGBA (
 // DDS variant isn't suitable for the direct path (uncompressed pixel formats
 // outside RGBA8, volume/array textures, ...); the caller should then fall
 // back to decode-then-EncodeBNTX_RGBA.
-enumError EncodeBNTX_FromDDS (
-	u8 **dest, uint *dest_size, const u8 *dds, uint dds_size, ccp name);
+enumError EncodeBNTX_FromDDS (u8 **dest, uint *dest_size, const u8 *dds, uint dds_size, ccp name);
 
 // Multi-texture variant (SourceToBinaryCmd `-bntx` without `--split`):
 // combines N DDS sources (each with its own native blocks, format and mip

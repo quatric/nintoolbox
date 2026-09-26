@@ -157,8 +157,7 @@ static void prs_push (ccp d, uint size, uint pos)
 }
 
 // Longest match for position I against the window kept in prs_pos_slot.
-static void prs_find_match (
-	ccp d, uint size, uint i, uint *best_len, uint *best_dist)
+static void prs_find_match (ccp d, uint size, uint i, uint *best_len, uint *best_dist)
 {
 	*best_len = 0;
 	*best_dist = 0;
@@ -396,4 +395,3 @@ enumError create_one_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

@@ -57,7 +57,10 @@ typedef ccp (*PubTexFunc) (void *ctx, u32 hash);
 model_t *ParsePubMesh (const u8 *data, size_t size, PubTexFunc texname, void *ctx);
 
 // Class 8 objects of a package: {name hash, offset, size}; malloc'd.
-typedef struct { u32 hash, offset, size; } pub_object_t;
+typedef struct
+{
+	u32 hash, offset, size;
+} pub_object_t;
 pub_object_t *ListPubMeshes (const u8 *data, size_t size, uint *count);
 
 enumError DecodePubTexture (u8 **rgba, const pub_texture_t *t);

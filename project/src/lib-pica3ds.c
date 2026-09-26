@@ -59,12 +59,15 @@ enumError DecodeBTGA_RGBA (u8 **dest, uint *width, uint *height, const u8 *data,
 	const u32 kind = rd_le32 (data);
 	const uint w = kind == 1 ? rd_le16 (data + 0x0c) : kind == 0x400 ? rd_le16 (data + 0x18) : 0;
 	const uint h = kind == 1 ? rd_le16 (data + 0x0e) : kind == 0x400 ? rd_le16 (data + 0x1a) : 0;
-	const uint fmt = kind == 1 ? rd_le16 (data + 0x14) : kind == 0x400 ? rd_le16 (data + 0x20) : UINT_MAX;
+	const uint fmt = kind == 1 ? rd_le16 (data + 0x14)
+		: kind == 0x400		   ? rd_le16 (data + 0x20)
+							   : UINT_MAX;
 	if (!w || !h || fmt > 13)
 		return EINVAL;
 	uint pica_fmt = fmt;
 	u8 *rgba = 0;
-	enumError err = DecodePicaTexture (&rgba, width, height, data + 0x38, w, h, pica_fmt, size - 0x38);
+	enumError err
+		= DecodePicaTexture (&rgba, width, height, data + 0x38, w, h, pica_fmt, size - 0x38);
 	if (!err)
 		Pica3DSFlipRGBA (rgba, *width, *height);
 	*dest = rgba;
@@ -99,8 +102,8 @@ enumError DecodeDMPBM_RGBA (u8 **dest, uint *width, uint *height, const u8 *data
 	if (fmt != 4)
 	{
 		static const uint pica[] = { 8, 2, 4, 0 };
-		enumError err = DecodePicaTexture (dest, width, height, data + pixel_off, w, h, pica[fmt],
-			size - pixel_off);
+		enumError err = DecodePicaTexture (
+			dest, width, height, data + pixel_off, w, h, pica[fmt], size - pixel_off);
 		if (!err)
 			Pica3DSFlipRGBA (*dest, *width, *height);
 		return err;
@@ -135,7 +138,9 @@ enumError DecodeCMBTexture_RGBA (u8 **dest, uint *width, uint *height, const u8 
 	if (!dest || !width || !height || size < 0x38 || memcmp (data, "cmb ", 4))
 		return EINVAL;
 	const u32 revision = rd_le32 (data + 8);
-	const uint chunks = revision == 6 ? 6 : revision == 10 || revision == 12 || revision == 15 ? 7 : 0;
+	const uint chunks = revision == 6						 ? 6
+		: revision == 10 || revision == 12 || revision == 15 ? 7
+															 : 0;
 	const uint tex_index = revision == 6 ? 2 : 3;
 	const uint raw_count = revision == 6 ? 2 : chunks ? 3 : 0;
 	if (!chunks || 0x24 + 4 * (chunks + raw_count) > size)
@@ -157,16 +162,15 @@ enumError DecodeCMBTexture_RGBA (u8 **dest, uint *width, uint *height, const u8 
 	return DecodePicaTexture (dest, width, height, data + tex_data + rel, w, h, pica_fmt, bytes);
 }
 
-
-static enumError CreatePica3DSRGBA8 ( Image_t *img, bool flip_y,
-		u8 **dest, uint *dest_size )
+static enumError CreatePica3DSRGBA8 (Image_t *img, bool flip_y, u8 **dest, uint *dest_size)
 {
 	*dest = 0;
 	*dest_size = 0;
-	if ( img->iform != IMG_X_RGB && ConvertToRGB (img, img, PAL_AUTO) )
+	if (img->iform != IMG_X_RGB && ConvertToRGB (img, img, PAL_AUTO))
 		return ERR_INVALID_DATA;
 	if (!img->width || !img->height || img->width > 0xffff || img->height > 0xffff)
-		return ERROR0 (ERR_INVALID_DATA, "Invalid PICA texture dimensions: %ux%u\n", img->width, img->height);
+		return ERROR0 (
+			ERR_INVALID_DATA, "Invalid PICA texture dimensions: %ux%u\n", img->width, img->height);
 
 	const uint tw = (img->width + 7) & ~7u;
 	const uint th = (img->height + 7) & ~7u;
@@ -190,8 +194,7 @@ static enumError CreatePica3DSRGBA8 ( Image_t *img, bool flip_y,
 
 //-----------------------------------------------------------------------------
 
-enumError SavePica3DSTexture (Image_t *img, file_format_t fform,
-		FILE *fo, ccp path, bool overwrite)
+enumError SavePica3DSTexture (Image_t *img, file_format_t fform, FILE *fo, ccp path, bool overwrite)
 {
 	const bool flip_y = fform == FF_BTGA || fform == FF_DMPBM;
 	u8 *raw;
@@ -203,57 +206,85 @@ enumError SavePica3DSTexture (Image_t *img, file_format_t fform,
 	uint head_size;
 	switch (fform)
 	{
-		case FF_BTGA: head_size = 0x38; break;
-		case FF_DMPBM: head_size = 14; break;
-		case FF_STEX: head_size = 0x80; break;
-		case FF_CMB: head_size = 0x80; break;
-		default: FREE(raw); return ERR_INVALID_DATA;
+		case FF_BTGA:
+			head_size = 0x38;
+			break;
+		case FF_DMPBM:
+			head_size = 14;
+			break;
+		case FF_STEX:
+			head_size = 0x80;
+			break;
+		case FF_CMB:
+			head_size = 0x80;
+			break;
+		default:
+			FREE (raw);
+			return ERR_INVALID_DATA;
 	}
 	const uint total_size = head_size + raw_size;
 	u8 *out = CALLOC (1, total_size);
 	if (!out)
 	{
-		FREE(raw);
+		FREE (raw);
 		return ERR_CANT_CREATE;
 	}
 
 	if (fform == FF_BTGA)
 	{
-		wr_le32 (out, 1); wr_le32 (out+4, 0x20); wr_le32 (out+8, 0x20);
-		wr_le16 (out+12, img->width); wr_le16 (out+14, img->height);
-		wr_le16 (out+20, 0); wr_le32 (out+24, 1);
+		wr_le32 (out, 1);
+		wr_le32 (out + 4, 0x20);
+		wr_le32 (out + 8, 0x20);
+		wr_le16 (out + 12, img->width);
+		wr_le16 (out + 14, img->height);
+		wr_le16 (out + 20, 0);
+		wr_le32 (out + 24, 1);
 	}
 	else if (fform == FF_DMPBM)
 	{
-		memcpy (out, "DMPBM", 5); out[5] = 3;
-		wr_le32 (out+6, img->width); wr_le32 (out+10, img->height);
+		memcpy (out, "DMPBM", 5);
+		out[5] = 3;
+		wr_le32 (out + 6, img->width);
+		wr_le32 (out + 10, img->height);
 	}
 	else if (fform == FF_STEX)
 	{
-		memcpy (out, "STEX", 4); wr_le32 (out+12, img->width); wr_le32 (out+16, img->height);
-		wr_le32 (out+20, 0x1401); wr_le32 (out+24, 0x6752); wr_le32 (out+28, raw_size);
-		wr_le32 (out+32, head_size);
+		memcpy (out, "STEX", 4);
+		wr_le32 (out + 12, img->width);
+		wr_le32 (out + 16, img->height);
+		wr_le32 (out + 20, 0x1401);
+		wr_le32 (out + 24, 0x6752);
+		wr_le32 (out + 28, raw_size);
+		wr_le32 (out + 32, head_size);
 	}
 	else
 	{
-		memcpy (out, "cmb ", 4); wr_le32 (out+4, total_size); wr_le32 (out+8, 6);
-		wr_le32 (out+0x24+2*4, 0x50); wr_le32 (out+0x24+6*4+4, head_size);
-		memcpy (out+0x50, "tex ", 4); wr_le32 (out+0x54, 36); wr_le32 (out+0x58, 1);
+		memcpy (out, "cmb ", 4);
+		wr_le32 (out + 4, total_size);
+		wr_le32 (out + 8, 6);
+		wr_le32 (out + 0x24 + 2 * 4, 0x50);
+		wr_le32 (out + 0x24 + 6 * 4 + 4, head_size);
+		memcpy (out + 0x50, "tex ", 4);
+		wr_le32 (out + 0x54, 36);
+		wr_le32 (out + 0x58, 1);
 		u8 *te = out + 0x5c;
-		wr_le32 (te, raw_size); wr_le16 (te+8, img->width); wr_le16 (te+10, img->height);
-		wr_le16 (te+12, 0x6752); wr_le16 (te+14, 0x1401);
-		ccp base = FindFilename (path, 0); size_t n = base ? strcspn (base,".") : 0;
+		wr_le32 (te, raw_size);
+		wr_le16 (te + 8, img->width);
+		wr_le16 (te + 10, img->height);
+		wr_le16 (te + 12, 0x6752);
+		wr_le16 (te + 14, 0x1401);
+		ccp base = FindFilename (path, 0);
+		size_t n = base ? strcspn (base, ".") : 0;
 		if (n > 15)
-		n = 15;
-	if (n)
-		memcpy (te+20, base, n);
+			n = 15;
+		if (n)
+			memcpy (te + 20, base, n);
 	}
 	memcpy (out + head_size, raw, raw_size);
-	FREE(raw);
-	err = SaveImageBuffer (img, fo, path, overwrite, out, total_size, GetNameFF(0,fform));
-	FREE(out);
+	FREE (raw);
+	err = SaveImageBuffer (img, fo, path, overwrite, out, total_size, GetNameFF (0, fform));
+	FREE (out);
 	return err;
 }
 
 //-----------------------------------------------------------------------------
-

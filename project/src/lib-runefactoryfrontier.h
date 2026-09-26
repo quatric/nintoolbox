@@ -91,26 +91,26 @@
 //-----------------------------------------------------------------------------
 // (1) HXTB0001 -- "HX Table" entry directory (.hvt / .Hvt)
 
-int IsRFFHxtb ( const u8 *data, size_t size, size_t file_size );
-enumError DecodeRFFHxtb_Text ( FILE *f, const u8 *data, size_t size, size_t file_size );
+int IsRFFHxtb (const u8 *data, size_t size, size_t file_size);
+enumError DecodeRFFHxtb_Text (FILE *f, const u8 *data, size_t size, size_t file_size);
 
 //-----------------------------------------------------------------------------
 // (2) Other confirmed "HX" family magics -- header-only decode
 
-int IsRFFHxcb ( const u8 *data, size_t size, size_t file_size ); // HXCB0002 (.Hvc)
-int IsRFFHxaa ( const u8 *data, size_t size, size_t file_size ); // HXAA0001/HXAB0001 (.Hvb)
-int IsRFFHxmb ( const u8 *data, size_t size, size_t file_size ); // HXMB0001 (.Hvm)
-int IsRFFHxhb ( const u8 *data, size_t size, size_t file_size ); // HXHB0001 (.Hvh)
-int IsRFFHxgb ( const u8 *data, size_t size, size_t file_size ); // HXGB0001 (.Hvg)
-int IsRFFHxtp ( const u8 *data, size_t size, size_t file_size ); // HXTP0001 (.Hmt)
+int IsRFFHxcb (const u8 *data, size_t size, size_t file_size); // HXCB0002 (.Hvc)
+int IsRFFHxaa (const u8 *data, size_t size, size_t file_size); // HXAA0001/HXAB0001 (.Hvb)
+int IsRFFHxmb (const u8 *data, size_t size, size_t file_size); // HXMB0001 (.Hvm)
+int IsRFFHxhb (const u8 *data, size_t size, size_t file_size); // HXHB0001 (.Hvh)
+int IsRFFHxgb (const u8 *data, size_t size, size_t file_size); // HXGB0001 (.Hvg)
+int IsRFFHxtp (const u8 *data, size_t size, size_t file_size); // HXTP0001 (.Hmt)
 
 // Shared generic header + name-string-scan decoder for all of the above.
-enumError DecodeRFFHxGeneric_Text ( FILE *f, const u8 *data, size_t size, size_t file_size );
+enumError DecodeRFFHxGeneric_Text (FILE *f, const u8 *data, size_t size, size_t file_size);
 
 //-----------------------------------------------------------------------------
 // (3) FBTI0001 model/motion section container (.Mod / .Mot)
 
-int IsRFFFbti ( const u8 *data, size_t size, size_t file_size );
-enumError DecodeRFFFbti_Text ( FILE *f, const u8 *data, size_t size, size_t file_size );
+int IsRFFFbti (const u8 *data, size_t size, size_t file_size);
+enumError DecodeRFFFbti_Text (FILE *f, const u8 *data, size_t size, size_t file_size);
 
 #endif // SZS_LIB_RUNEFACTORYFRONTIER_H

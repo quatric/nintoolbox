@@ -41,17 +41,23 @@ static uint cpk_utf_type_size (u8 type)
 	switch (type)
 	{
 		case 0:
-		case 1: return 1;
+		case 1:
+			return 1;
 		case 2:
-		case 3: return 2;
+		case 3:
+			return 2;
 		case 4:
 		case 5:
-		case 8: return 4;
+		case 8:
+			return 4;
 		case 6:
 		case 7:
-		case 0xb: return 8;
-		case 0xa: return 4; // string: BE32 pool offset
-		default: return 0;
+		case 0xb:
+			return 8;
+		case 0xa:
+			return 4; // string: BE32 pool offset
+		default:
+			return 0;
 	}
 }
 
@@ -158,8 +164,8 @@ static bool cpk_utf_parse (cpk_utf_t *t, const u8 *payload, uint payload_size)
 
 // Column descriptor i: flags + name + (optionally) the flag-byte offset,
 // needed to locate an inline CONSTANT value. Returns false out of bounds.
-static bool cpk_utf_col_at (const cpk_utf_t *t, uint payload_size, uint i, u8 *flags, const u8 **name,
-	uint *cp_out)
+static bool cpk_utf_col_at (
+	const cpk_utf_t *t, uint payload_size, uint i, u8 *flags, const u8 **name, uint *cp_out)
 {
 	if (!t || i >= t->n_cols)
 		return false;
@@ -205,7 +211,8 @@ static bool cpk_utf_col (const cpk_utf_t *t, uint payload_size, uint i, u8 *flag
 }
 
 // Read a CONSTANT-storage column's single shared value (same for every row).
-static bool cpk_utf_const (const cpk_utf_t *t, uint payload_size, uint col, u64 *num, const u8 **str)
+static bool cpk_utf_const (
+	const cpk_utf_t *t, uint payload_size, uint col, u64 *num, const u8 **str)
 {
 	u8 flags = 0;
 	uint cp = 0;
@@ -264,8 +271,8 @@ static bool cpk_utf_const (const cpk_utf_t *t, uint payload_size, uint col, u64 
 
 // Read one PERROW cell as u64. Strings resolve to *str (NUL-checked);
 // DATA cells just advance. Returns false on any violation.
-static bool cpk_utf_cell (const cpk_utf_t *t, uint payload_size, uint row, uint col, u64 *num,
-	const u8 **str)
+static bool cpk_utf_cell (
+	const cpk_utf_t *t, uint payload_size, uint row, uint col, u64 *num, const u8 **str)
 {
 	if (!t || row >= t->n_rows || col >= t->n_cols)
 		return false;
@@ -401,8 +408,8 @@ static bool cpk_utf_find (const cpk_utf_t *t, uint payload_size, ccp want, uint 
 //--- packet framing --------------------------------------------------------
 // magic[4] + i32 LE unk + u64 LE size + payload.
 
-static bool cpk_packet (const u8 *d, uint size, uint off, const char magic[4], const u8 **payload,
-	uint *payload_size)
+static bool cpk_packet (
+	const u8 *d, uint size, uint off, const char magic[4], const u8 **payload, uint *payload_size)
 {
 	if (!d || (u64)off + 16 > size || memcmp (d + off, magic, 4))
 		return false;
@@ -471,44 +478,41 @@ enumError DecodeCRILAYLA (u8 **dest, uint *dest_size, const u8 *src, uint src_si
 					input_offset--;
 				}
 				uint take = bits_left < 1 - produced ? (uint)bits_left : 1 - produced;
-				bit = (bit << take)
-					| (uint)((bit_pool >> (bits_left - take)) & ((1u << take) - 1));
+				bit = (bit << take) | (uint)((bit_pool >> (bits_left - take)) & ((1u << take) - 1));
 				bits_left -= (int)take;
 				produced += take;
 			}
 			if (err)
 				break;
 		}
-#define CPK_BITS(n, dst)                                                                       \
-	do                                                                                     \
-	{                                                                                      \
-		uint need = (n), prod = 0;                                                     \
-		(dst) = 0;                                                                     \
-		while (prod < need)                                                            \
-		{                                                                              \
-			if (!bits_left)                                                        \
-			{                                                                      \
-				if (input_offset < 0)                                          \
-				{                                                              \
-					err = EINVAL;                                          \
-					break;                                                 \
-				}                                                              \
-				bit_pool = src[input_offset];                                  \
-				bits_left = 8;                                                 \
-				input_offset--;                                                \
-			}                                                                      \
-			{                                                                      \
-				uint take = (uint)bits_left < need - prod ? (uint)bits_left \
-									  : need - prod;   \
-				(dst) = ((dst) << take)                                            \
-					| (uint)((bit_pool >> (bits_left - (int)take))          \
-						& ((1u << take) - 1));                             \
-				bits_left -= (int)take;                                        \
-				prod += take;                                                  \
-			}                                                                      \
-		}                                                                              \
-		if (err)                                                                   \
-			break;                                                                 \
+#define CPK_BITS(n, dst)                                                                           \
+	do                                                                                             \
+	{                                                                                              \
+		uint need = (n), prod = 0;                                                                 \
+		(dst) = 0;                                                                                 \
+		while (prod < need)                                                                        \
+		{                                                                                          \
+			if (!bits_left)                                                                        \
+			{                                                                                      \
+				if (input_offset < 0)                                                              \
+				{                                                                                  \
+					err = EINVAL;                                                                  \
+					break;                                                                         \
+				}                                                                                  \
+				bit_pool = src[input_offset];                                                      \
+				bits_left = 8;                                                                     \
+				input_offset--;                                                                    \
+			}                                                                                      \
+			{                                                                                      \
+				uint take = (uint)bits_left < need - prod ? (uint)bits_left : need - prod;         \
+				(dst) = ((dst) << take)                                                            \
+					| (uint)((bit_pool >> (bits_left - (int)take)) & ((1u << take) - 1));          \
+				bits_left -= (int)take;                                                            \
+				prod += take;                                                                      \
+			}                                                                                      \
+		}                                                                                          \
+		if (err)                                                                                   \
+			break;                                                                                 \
 	} while (0)
 
 		if (bit > 0)
@@ -548,7 +552,8 @@ enumError DecodeCRILAYLA (u8 **dest, uint *dest_size, const u8 *src, uint src_si
 				if (err)
 					break;
 			}
-			if (bro < 0 || bro > output_end || (long)len > bro + 1 || (u64)len > (u64)usize - bytes_output)
+			if (bro < 0 || bro > output_end || (long)len > bro + 1
+				|| (u64)len > (u64)usize - bytes_output)
 			{
 				err = EINVAL;
 				break;
@@ -689,8 +694,7 @@ enumError ScanCPK (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 			continue;
 		if (!cpk_utf_cell (&toc, toc_size, i, t_off, &foff, 0))
 			continue;
-		if (has_extract && cpk_utf_cell (&toc, toc_size, i, t_extract, &extract, 0)
-			&& extract != 0)
+		if (has_extract && cpk_utf_cell (&toc, toc_size, i, t_extract, &extract, 0) && extract != 0)
 			has_ex = true;
 		if (foff + add > size)
 			continue;
@@ -722,8 +726,8 @@ enumError ScanCPK (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 		{
 			u8 *dec = 0;
 			uint dec_size = 0;
-			if (DecodeCRILAYLA (&dec, &dec_size, data + abs_off, (uint)fsize) == ERR_OK
-				&& dec && dec_size == decomp)
+			if (DecodeCRILAYLA (&dec, &dec_size, data + abs_off, (uint)fsize) == ERR_OK && dec
+				&& dec_size == decomp)
 			{
 				ok = OwnedEntryAdd (out, n, name, dec, dec_size);
 				FREE (dec);

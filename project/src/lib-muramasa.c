@@ -11,29 +11,20 @@
 //-----------------------------------------------------------------------------
 // (1) "FCMP" compressed container
 
-#define FCMP_HEADER_SIZE  13
-#define FCMP_RESERVED     0x12340000u
+#define FCMP_HEADER_SIZE 13
+#define FCMP_RESERVED 0x12340000u
 
 typedef struct fcmp_inner_map_t
 {
 	const char *inner_tag; // 4-byte inner sub-blob magic (not NUL terminated)
-	const char *ext;       // on-disc extension it corresponds to
-}
-fcmp_inner_map_t;
+	const char *ext; // on-disc extension it corresponds to
+} fcmp_inner_map_t;
 
 // Confirmed 1:1 mapping between the inner sub-blob tag and the on-disc
 // extension, checked against 307 real samples with zero exceptions -- see
 // lib-muramasa.h.
-static const fcmp_inner_map_t fcmp_inner_map[] =
-{
-	{ "FMBS", ".mbs" },
-	{ "FTEX", ".ftx" },
-	{ "EMBP", ".esb" },
-	{ "NSBD", ".nsb" },
-	{ "MLIB", ".abf" },
-	{ "NMSB", ".nms" },
-	{ 0, 0 }
-};
+static const fcmp_inner_map_t fcmp_inner_map[] = { { "FMBS", ".mbs" }, { "FTEX", ".ftx" },
+	{ "EMBP", ".esb" }, { "NSBD", ".nsb" }, { "MLIB", ".abf" }, { "NMSB", ".nms" }, { 0, 0 } };
 
 static const fcmp_inner_map_t *fcmp_find_inner (const u8 *tag)
 {
@@ -119,7 +110,7 @@ int IsMuramasaOtb (const u8 *data, size_t size, size_t file_size)
 
 	u32 body_size = rd_le32 (data + 4);
 	u32 header_size = rd_le32 (data + 8);
-	if ((u64) body_size + header_size != file_size)
+	if ((u64)body_size + header_size != file_size)
 		return 0;
 
 	u32 count = rd_le32 (data + 12);
@@ -154,7 +145,7 @@ int IsMuramasaNsi (const u8 *data, size_t size, size_t file_size)
 
 	u32 body_size = rd_le32 (data + 4);
 	u32 tail_size = rd_le32 (data + 8);
-	if ((u64) body_size + tail_size != file_size)
+	if ((u64)body_size + tail_size != file_size)
 		return 0;
 
 	return 1;
@@ -167,8 +158,8 @@ enumError DecodeMuramasaNsi_Text (FILE *f, const u8 *data, size_t size, size_t f
 
 	fprintf (f, "# Muramasa - The Demon Blade .nsi sound info table\n");
 	fprintf (f, "body_size = %u (0x%x)\n", rd_le32 (data + 4), rd_le32 (data + 4));
-	fprintf (f, "tail_size = %u (0x%x)  # body_size + tail_size == file_size\n",
-		rd_le32 (data + 8), rd_le32 (data + 8));
+	fprintf (f, "tail_size = %u (0x%x)  # body_size + tail_size == file_size\n", rd_le32 (data + 8),
+		rd_le32 (data + 8));
 	fprintf (f, "# entry table body not reverse-engineered (only one real sample on this\n");
 	fprintf (f, "# disc -- see lib-muramasa.h) -- only the header is decoded\n");
 	return ERR_OK;

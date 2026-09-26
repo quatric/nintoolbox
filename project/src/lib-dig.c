@@ -15,12 +15,12 @@
 // i.e. resolve to ranges that actually contain recognisable embedded
 // content such as Nintendo TPL texture headers, when the table is read
 // starting at byte 16).
-#define DIG_HEADER_SIZE   12
-#define DIG_TABLE_START   16
-#define DIG_TABLE_SIZE    0x800   // entry table fills exactly one sector
-#define DIG_ENTRY_SIZE    16
-#define DIG_MAX_ENTRIES   ((DIG_TABLE_SIZE - DIG_TABLE_START) / DIG_ENTRY_SIZE)
-#define DIG_SECTOR_SHIFT  11      // 1 sector == 2048 bytes == 1 << 11
+#define DIG_HEADER_SIZE 12
+#define DIG_TABLE_START 16
+#define DIG_TABLE_SIZE 0x800 // entry table fills exactly one sector
+#define DIG_ENTRY_SIZE 16
+#define DIG_MAX_ENTRIES ((DIG_TABLE_SIZE - DIG_TABLE_START) / DIG_ENTRY_SIZE)
+#define DIG_SECTOR_SHIFT 11 // 1 sector == 2048 bytes == 1 << 11
 
 bool IsDIG (const u8 *data, uint data_size, u64 real_size)
 {
@@ -30,12 +30,12 @@ bool IsDIG (const u8 *data, uint data_size, u64 real_size)
 	uint n = 0;
 	for (uint pos = DIG_TABLE_START; pos + DIG_ENTRY_SIZE <= DIG_TABLE_SIZE; pos += DIG_ENTRY_SIZE)
 	{
-		const u32 off_sect  = rd_be32 (data + pos);
+		const u32 off_sect = rd_be32 (data + pos);
 		const u32 size_sect = rd_be32 (data + pos + 4);
 		if (!off_sect && !size_sect)
 			continue;
 
-		const u64 off   = (u64)off_sect  << DIG_SECTOR_SHIFT;
+		const u64 off = (u64)off_sect << DIG_SECTOR_SHIFT;
 		const u64 dsize = (u64)size_sect << DIG_SECTOR_SHIFT;
 		if (!dsize || off >= real_size || off + dsize > real_size)
 			return false; // one bad record => likely "type == 2", not this layout
@@ -58,12 +58,12 @@ enumError ScanDIG (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 	uint n = 0;
 	for (uint pos = DIG_TABLE_START; pos + DIG_ENTRY_SIZE <= DIG_TABLE_SIZE; pos += DIG_ENTRY_SIZE)
 	{
-		const u32 off_sect  = rd_be32 (data + pos);
+		const u32 off_sect = rd_be32 (data + pos);
 		const u32 size_sect = rd_be32 (data + pos + 4);
 		if (!off_sect && !size_sect)
 			continue; // unused slot
 
-		const u64 off  = (u64)off_sect  << DIG_SECTOR_SHIFT;
+		const u64 off = (u64)off_sect << DIG_SECTOR_SHIFT;
 		const u64 dsize = (u64)size_sect << DIG_SECTOR_SHIFT;
 		if (!dsize || off >= size || off + dsize > size)
 		{

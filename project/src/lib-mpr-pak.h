@@ -101,12 +101,12 @@ void FormatMPRGUID (char out[37], const u8 guid[16]);
 // Build the FOOT form retrotool appends on extract (AINF + META + NAMEs)
 // into a fresh malloc'd buffer. META/NAMES come from the pak tables;
 // pass entry index I. NAMES_OUT receives the name count used.
-enumError BuildMPRPACKFoot (u8 **dest, uint *dest_size, const mpr_pack_t *pak, uint index,
-	uint comp_mode, u64 orig_offset);
+enumError BuildMPRPACKFoot (
+	u8 **dest, uint *dest_size, const mpr_pack_t *pak, uint index, uint comp_mode, u64 orig_offset);
 
 // Raw LZSS payload decoder (u32 LE mode word + stream) shared by the
 // entry path above. Exposed for unit tests.
-enumError DecodeMPR_LZSS (u8 **dest, uint *dest_size, const u8 *src, uint src_size,
-	uint decomp_size);
+enumError DecodeMPR_LZSS (
+	u8 **dest, uint *dest_size, const u8 *src, uint src_size, uint decomp_size);
 
 #endif

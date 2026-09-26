@@ -4,7 +4,6 @@
 #include "lib-archive-util.h"
 #include "lib-bigf.h"
 
-
 // Repack a directory extracted by extract_bigf_file() back into an EA BIGF
 // archive.  This is a plain, working reconstruction (member data emitted in
 // directory-scan order, packed with no inter-member padding) rather than a
@@ -73,8 +72,7 @@ enumError create_bigf_dir (ccp source, ccp dest)
 			File_t F;
 			err = CreateFileOpt (&F, true, dest, false, dest);
 			if (F.f && fwrite (data, 1, total_size, F.f) != total_size)
-				err = FILEERROR1 (
-					&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n",
+				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n",
 					(unsigned long long)total_size, dest);
 			ResetFile (&F, opt_preserve);
 			FREE (data);
@@ -83,4 +81,3 @@ enumError create_bigf_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

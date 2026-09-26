@@ -42,7 +42,7 @@ enumError ExtractAGRArchive (ccp arg, ccp basedir, uint depth)
 			return ERR_NOTHING_TO_DO;
 		}
 		const u32 chunk_size = rd_be32 (raw + pos + 8);
-		if (!chunk_size || pos + 8 + (u64) chunk_size > raw_size)
+		if (!chunk_size || pos + 8 + (u64)chunk_size > raw_size)
 		{
 			FREE (off);
 			FREE (raw);
@@ -76,13 +76,13 @@ enumError ExtractAGRArchive (ccp arg, ccp basedir, uint depth)
 
 			char out_path[PATH_MAX];
 			snprintf (out_path, sizeof (out_path), "%s/clip%04u.anim", dest, i);
-			if (SaveFile (out_path, 0, 0, raw + start, (uint) (end - start), 0))
+			if (SaveFile (out_path, 0, 0, raw + start, (uint)(end - start), 0))
 				err = ERR_CANT_CREATE;
 		}
 	}
 
 	FREE (off);
 	FREE (raw);
-	(void) depth;
+	(void)depth;
 	return err;
 }

@@ -19,7 +19,6 @@
 #include <string.h>
 #include <unistd.h>
 
-
 // Extract Next Level Games Dictionary Archive (.dict / LM2 / LM3 / Punch-Out!!)
 enumError ExtractNLGDictArchive (ccp arg, ccp basedir, uint depth)
 {
@@ -87,41 +86,45 @@ enumError ExtractNLGDictArchive (ccp arg, ccp basedir, uint depth)
 		// Mario Strikers: Battle League Football indicator at offset 0x40
 		const bool is_strikers = (raw_size >= 0x48
 			&& (rd_be32 (raw + 0x40) == 4247762216u || rd_le32 (raw + 0x40) == 4247762216u));
-		const bool is_lm2hd = (!is_lm3 && !is_fed && !is_strikers && raw_size >= 9 && (raw[8] % 7 == 0));
+		const bool is_lm2hd
+			= (!is_lm3 && !is_fed && !is_strikers && raw_size >= 9 && (raw[8] % 7 == 0));
 		const bool is_compressed = (raw[6] == 1);
 
 		nlg_variant_t nlg_variant = NLGDetectVariant (raw, (uint)raw_size);
 
-		ccp dict_name = nlg_variant == NLG_FEDFORCE ? "FEDFORCE-DICT"
-			: (nlg_variant == NLG_LM3 ? "LM3-DICT"
-				: (nlg_variant == NLG_LM2 ? "LM2-DICT"
-					: (is_lm2hd ? "LM2HD-DICT"
-						: (is_strikers ? "STRIKERS-DICT" : "LM2-DICT"))));
+		ccp dict_name = nlg_variant == NLG_FEDFORCE
+			? "FEDFORCE-DICT"
+			: (nlg_variant == NLG_LM3
+					  ? "LM3-DICT"
+					  : (nlg_variant == NLG_LM2
+								? "LM2-DICT"
+								: (is_lm2hd ? "LM2HD-DICT"
+											: (is_strikers ? "STRIKERS-DICT" : "LM2-DICT"))));
 
 		// Resolved block table for the file_*.bin dump: structural scans
 		// for the known variants, legacy offset heuristic otherwise.
-		typedef struct { u32 off, dec, comp; } dump_blk_t;
+		typedef struct
+		{
+			u32 off, dec, comp;
+		} dump_blk_t;
 		dump_blk_t *dump_blks = 0;
 		uint num_files = 0;
-		if (nlg_variant == NLG_LM3 || nlg_variant == NLG_LM2
-			|| nlg_variant == NLG_FEDFORCE)
+		if (nlg_variant == NLG_LM3 || nlg_variant == NLG_LM2 || nlg_variant == NLG_FEDFORCE)
 		{
 			nlg_block_t *bl = 0;
 			uint n_blocks = 0;
 			bool ok = false;
 			if (nlg_variant == NLG_LM3)
-				ok = ScanLM3Dict (raw, (uint)raw_size, &bl, &n_blocks,
-					0, 0, 0) == ERR_OK;
+				ok = ScanLM3Dict (raw, (uint)raw_size, &bl, &n_blocks, 0, 0, 0) == ERR_OK;
 			else if (nlg_variant == NLG_LM2)
-				ok = ScanLM2Dict (raw, (uint)raw_size, &bl, &n_blocks,
-					0, 0, 0) == ERR_OK;
+				ok = ScanLM2Dict (raw, (uint)raw_size, &bl, &n_blocks, 0, 0, 0) == ERR_OK;
 			else
 			{
 				fed_dict_block_t *fb = 0;
 				uint nfb = 0;
 				bool is_fed = false;
-				if (ScanFedForceDict (raw, (uint)raw_size, &is_fed,
-						&fb, &nfb, 0, 0, 0) == ERR_OK && is_fed)
+				if (ScanFedForceDict (raw, (uint)raw_size, &is_fed, &fb, &nfb, 0, 0, 0) == ERR_OK
+					&& is_fed)
 				{
 					bl = CALLOC (nfb ? nfb : 1, sizeof (*bl));
 					if (bl)
@@ -240,7 +243,8 @@ enumError ExtractNLGDictArchive (ccp arg, ccp basedir, uint depth)
 						if (decomp)
 						{
 							uint written = 0;
-							if (DecodeZSTDpart (decomp, decomp_size, &written, src, comp_size) == ERR_OK)
+							if (DecodeZSTDpart (decomp, decomp_size, &written, src, comp_size)
+								== ERR_OK)
 							{
 								SaveFile (out_path, 0, 0, decomp, written, 0);
 								extracted_count++;
@@ -294,8 +298,8 @@ enumError ExtractNLGDictArchive (ccp arg, ccp basedir, uint depth)
 		{
 			nlg_variant_t variant = NLGDetectVariant (raw, (uint)raw_size);
 			if (variant != NLG_UNKNOWN && data_raw && data_raw_size)
-				ExtractNLGTyped (dest, raw, (uint)raw_size,
-					data_raw, data_raw_size, variant, is_compressed);
+				ExtractNLGTyped (
+					dest, raw, (uint)raw_size, data_raw, data_raw_size, variant, is_compressed);
 		}
 	}
 	else if (is_po)

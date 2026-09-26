@@ -294,14 +294,13 @@ static enumError cmd_cat ()
 		if (err > ERR_WARNING)
 			return err;
 		// Paper Mario collision files are not MDL: summarize them here.
-		if (raw.fform == FF_CSB || raw.fform == FF_CTB
-			|| IsCSB (raw.data, (uint)raw.data_size)
+		if (raw.fform == FF_CSB || raw.fform == FF_CTB || IsCSB (raw.data, (uint)raw.data_size)
 			|| IsCTB (raw.data, (uint)raw.data_size))
 		{
 			if (verbose >= 0 || testmode)
 			{
-				fprintf (stdlog, "%sCAT %s:%s\n", verbose > 0 ? "\n" : "",
-					GetNameFF (raw.fform, 0), raw.fname);
+				fprintf (stdlog, "%sCAT %s:%s\n", verbose > 0 ? "\n" : "", GetNameFF (raw.fform, 0),
+					raw.fname);
 				fflush (stdlog);
 			}
 			if (!testmode)
@@ -795,8 +794,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		const bool is_lmbin = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".bin");
 		const bool is_wwmodel
 			= (dest_len > 16 && !strcasecmp (dest + dest_len - 16, ".ww_static_model"))
-				|| (dest_len > 16 && !strcasecmp (dest + dest_len - 16, ".ww_rigged_model"))
-				|| (dest_len > 13 && !strcasecmp (dest + dest_len - 13, ".ww_map_model"));
+			|| (dest_len > 16 && !strcasecmp (dest + dest_len - 16, ".ww_rigged_model"))
+			|| (dest_len > 13 && !strcasecmp (dest + dest_len - 13, ".ww_map_model"));
 		const bool is_bmd_dest = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".bmd");
 		const bool is_bdl_dest = dest_len > 4 && !strcasecmp (dest + dest_len - 4, ".bdl");
 		const bool is_model_dest = is_dae || is_glb;
@@ -807,11 +806,12 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		const bool is_nsbma_dest = dest_len > 6 && !strcasecmp (dest + dest_len - 6, ".nsbma");
 		const bool is_nsbck_dest = dest_len > 6 && !strcasecmp (dest + dest_len - 6, ".nsbck");
 		const unsigned nsb_dest_flags = is_nsbca_dest ? NSB_DEST_BFLAG_BCA
-			: is_nsbta_dest ? NSB_DEST_BFLAG_BTA
-			: is_nsbtp_dest ? NSB_DEST_BFLAG_BTP
-			: is_nsbva_dest ? NSB_DEST_BFLAG_BVA
-			: is_nsbma_dest ? NSB_DEST_BFLAG_BMA
-			: is_nsbck_dest ? NSB_DEST_BFLAG_BCK : 0;
+			: is_nsbta_dest							  ? NSB_DEST_BFLAG_BTA
+			: is_nsbtp_dest							  ? NSB_DEST_BFLAG_BTP
+			: is_nsbva_dest							  ? NSB_DEST_BFLAG_BVA
+			: is_nsbma_dest							  ? NSB_DEST_BFLAG_BMA
+			: is_nsbck_dest							  ? NSB_DEST_BFLAG_BCK
+													  : 0;
 		const bool is_nsb_dest = nsb_dest_flags != 0;
 
 		const int arg_len = strlen (arg);
@@ -862,9 +862,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 							ERROR0 (err, "Failed to encode J3D %s: %s\n",
 								jopt.is_bdl ? "BDL" : "BMD", dest);
 						else if (verbose >= 0)
-							fprintf (stdlog, "%sENCODE J3D %s:%s -> %s\n",
-								verbose > 0 ? "\n" : "", jopt.is_bdl ? "BDL" : "BMD",
-								arg, dest);
+							fprintf (stdlog, "%sENCODE J3D %s:%s -> %s\n", verbose > 0 ? "\n" : "",
+								jopt.is_bdl ? "BDL" : "BMD", arg, dest);
 						continue;
 					}
 					if (is_hsf)
@@ -948,8 +947,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 						if (err > ERR_WARNING)
 							ERROR0 (err, "Failed to encode BNFM: %s\n", dest);
 						else if (verbose >= 0)
-							fprintf (stdlog, "%sENCODE BNFM:%s -> %s\n",
-								verbose > 0 ? "\n" : "", arg, dest);
+							fprintf (stdlog, "%sENCODE BNFM:%s -> %s\n", verbose > 0 ? "\n" : "",
+								arg, dest);
 						continue;
 					}
 					if (is_lmbin)
@@ -959,8 +958,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 						if (err > ERR_WARNING)
 							ERROR0 (err, "Failed to encode LM BIN: %s\n", dest);
 						else if (verbose >= 0)
-							fprintf (stdlog, "%sENCODE LMBIN:%s -> %s\n",
-								verbose > 0 ? "\n" : "", arg, dest);
+							fprintf (stdlog, "%sENCODE LMBIN:%s -> %s\n", verbose > 0 ? "\n" : "",
+								arg, dest);
 						continue;
 					}
 					if (is_wwmodel)
@@ -970,8 +969,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 						if (err > ERR_WARNING)
 							ERROR0 (err, "Failed to encode WW model: %s\n", dest);
 						else if (verbose >= 0)
-							fprintf (stdlog, "%sENCODE WWMODEL:%s -> %s\n",
-								verbose > 0 ? "\n" : "", arg, dest);
+							fprintf (stdlog, "%sENCODE WWMODEL:%s -> %s\n", verbose > 0 ? "\n" : "",
+								arg, dest);
 						continue;
 					}
 					if (is_nsb_dest)
@@ -985,7 +984,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 							continue;
 						}
 						FreeModel (in_model);
-						ERROR0 (ERR_INVALID_DATA, "No NSB animation to write from %s: %s\n", arg, dest);
+						ERROR0 (
+							ERR_INVALID_DATA, "No NSB animation to write from %s: %s\n", arg, dest);
 						return ERR_INVALID_DATA;
 					}
 					if (is_bfres && (!opt_parent || !*opt_parent))
@@ -1010,8 +1010,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 						if (err > ERR_WARNING)
 							ERROR0 (err, "Failed to encode BCRES: %s\n", dest);
 						else if (verbose >= 0)
-							fprintf (stdlog, "%sENCODE BCRES:%s -> %s\n",
-								verbose > 0 ? "\n" : "", arg, dest);
+							fprintf (stdlog, "%sENCODE BCRES:%s -> %s\n", verbose > 0 ? "\n" : "",
+								arg, dest);
 						continue;
 					}
 
@@ -1145,8 +1145,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 		const bool is_hsf_in
 			= is_ext (arg, ".hsf") || (raw.data_size >= 7 && !memcmp (raw.data, "HSFV037", 7));
 		const bool is_lmmdl_in = raw.data_size >= 128 && IsLMMDL (raw.data, raw.data_size);
-		const bool is_lmbin_in = is_ext (arg, ".bin") && raw.data_size >= 64
-			&& IsLMBIN (raw.data, raw.data_size);
+		const bool is_lmbin_in
+			= is_ext (arg, ".bin") && raw.data_size >= 64 && IsLMBIN (raw.data, raw.data_size);
 		// Pikmin 1 MOD shares .mod with Monster Games MOD: the chunk
 		// walk decides (Monster files start with NDL3/NDL2 magic and
 		// fail it). Checked before is_mod_in below.
@@ -1206,18 +1206,17 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 
 		// Next Level Games containers (extractor intermediates, versions
 		// 1..3 = Federation Force / LM2 / LM3).
-		const bool is_nlg_model_in = is_ext (arg, ".fedmodel")
-			|| (raw.data_size >= 8 && !memcmp (raw.data, "FEDM", 4));
-		const bool is_nlg_skel_in = is_ext (arg, ".fedskel")
-			|| (raw.data_size >= 8 && !memcmp (raw.data, "FEDS", 4));
+		const bool is_nlg_model_in
+			= is_ext (arg, ".fedmodel") || (raw.data_size >= 8 && !memcmp (raw.data, "FEDM", 4));
+		const bool is_nlg_skel_in
+			= is_ext (arg, ".fedskel") || (raw.data_size >= 8 && !memcmp (raw.data, "FEDS", 4));
 
 		if (is_model_dest && (is_nlg_model_in || is_nlg_skel_in))
 		{
 			if (!testmode)
 			{
-				model_t *model = is_nlg_model_in
-					? ParseNLGModel (raw.data, raw.data_size, 0)
-					: ParseNLGSkeleton (raw.data, raw.data_size);
+				model_t *model = is_nlg_model_in ? ParseNLGModel (raw.data, raw.data_size, 0)
+												 : ParseNLGSkeleton (raw.data, raw.data_size);
 				if (model)
 				{
 					err = ExportModelToGLB (model, dest);
@@ -1290,8 +1289,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				char *slash = strrchr (anim_path, '/');
 				if (dot && (!slash || dot > slash))
 					*dot = 0;
-				snprintf (anim_path + strlen (anim_path),
-					sizeof (anim_path) - strlen (anim_path), ".bnfmsa");
+				snprintf (anim_path + strlen (anim_path), sizeof (anim_path) - strlen (anim_path),
+					".bnfmsa");
 				if (LoadFileAlloc (anim_path, 0, 0, &anim, &anim_size, 0, 0, 0, false)
 					|| !anim_size)
 				{
@@ -1300,8 +1299,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 					anim_size = 0;
 				}
 				if (anim)
-					err = DecodeBNFMWithAnim (raw.data, (uint)raw.data_size,
-						anim, (uint)anim_size, dest);
+					err = DecodeBNFMWithAnim (
+						raw.data, (uint)raw.data_size, anim, (uint)anim_size, dest);
 				else
 					err = DecodeBNFM (raw.data, (uint)raw.data_size, dest);
 				FREE (anim);
@@ -1433,8 +1432,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 			{
 				if (is_ctb_in && !is_csb_in)
 				{
-					ERROR0 (ERR_INVALID_DATA,
-						"CTB holds no geometry, use CAT to inspect it: %s\n", arg);
+					ERROR0 (ERR_INVALID_DATA, "CTB holds no geometry, use CAT to inspect it: %s\n",
+						arg);
 					return ERR_INVALID_DATA;
 				}
 				err = DecodeCSB (raw.data, (uint)raw.data_size, dest);
@@ -1442,8 +1441,7 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				{
 					// extension (or UNKNOWN probing) selected CSB, but the
 					// layout does not validate: report, do not skip
-					ERROR0 (ERR_INVALID_DATA, "Not a CSB collision file: %s\n",
-						arg);
+					ERROR0 (ERR_INVALID_DATA, "Not a CSB collision file: %s\n", arg);
 					return ERR_INVALID_DATA;
 				}
 				if (err > ERR_WARNING)
@@ -1505,8 +1503,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 						return ERR_INVALID_DATA;
 					}
 					if (verbose >= 0)
-						fprintf (stdlog, "%sEXPORT MTMOD:%s -> GLB:%s\n",
-							verbose > 0 ? "\n" : "", arg, dest);
+						fprintf (stdlog, "%sEXPORT MTMOD:%s -> GLB:%s\n", verbose > 0 ? "\n" : "",
+							arg, dest);
 					ExportModelToGLB (model, dest);
 					FreeModel (model);
 				}
@@ -1564,8 +1562,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				char *slash = strrchr (bch_path, '/');
 				if (dot && (!slash || dot > slash))
 					*dot = 0;
-				snprintf (bch_path + strlen (bch_path), sizeof (bch_path) - strlen (bch_path),
-					".bch");
+				snprintf (
+					bch_path + strlen (bch_path), sizeof (bch_path) - strlen (bch_path), ".bch");
 				model_t *model = NULL;
 				if (!LoadFileAlloc (bch_path, 0, 0, &bch, &bch_size, 0, 0, 0, false))
 				{
@@ -1579,8 +1577,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 					return ERR_INVALID_DATA;
 				}
 				if (verbose >= 0)
-					fprintf (stdlog, "%sEXPORT MBN:%s -> GLB:%s\n", verbose > 0 ? "\n" : "",
-						arg, dest);
+					fprintf (
+						stdlog, "%sEXPORT MBN:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, dest);
 				ExportModelToGLB (model, dest);
 				FreeModel (model);
 			}
@@ -1637,8 +1635,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				{
 					FreeModel (model);
 					if (verbose >= 0)
-						fprintf (stdlog, "%sENCODE NSB:%s -> %s\n", verbose > 0 ? "\n" : "",
-							arg, dest);
+						fprintf (
+							stdlog, "%sENCODE NSB:%s -> %s\n", verbose > 0 ? "\n" : "", arg, dest);
 					continue;
 				}
 				FreeModel (model);
@@ -1682,8 +1680,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				ExportJ3DMaterialsJSON (raw.data, raw.data_size, mat_path);
 				ExportJ3DTexHeadersJSON (raw.data, raw.data_size, tex_path);
 				if (verbose >= 0)
-					fprintf (stdlog, "%sEXPORT J3D:%s -> GLB:%s\n", verbose > 0 ? "\n" : "",
-						arg, dest);
+					fprintf (
+						stdlog, "%sEXPORT J3D:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, dest);
 				ExportModelToGLB (model, dest);
 				FreeModel (model);
 			}
@@ -1711,11 +1709,11 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				else if (is_bmd)
 					ExportEarlyDSBMDTextures (raw.data, raw.data_size, dest);
 
-				model_t *model = is_bmd			? ParseNSBMD (raw.data, raw.data_size)
-				: !memcmp (raw.data, "CGFX", 4) ? ParseBCRES (raw.data, raw.data_size)
-				: !memcmp (raw.data, "BCH\0", 4)
-				? (model_t *)ParseBCH (raw.data, (uint)raw.data_size)
-				: ParseBFRES (raw.data, raw.data_size);
+				model_t *model = is_bmd				? ParseNSBMD (raw.data, raw.data_size)
+					: !memcmp (raw.data, "CGFX", 4) ? ParseBCRES (raw.data, raw.data_size)
+					: !memcmp (raw.data, "BCH\0", 4)
+					? (model_t *)ParseBCH (raw.data, (uint)raw.data_size)
+					: ParseBFRES (raw.data, raw.data_size);
 				// A DS NSBMD is stored next to its NSB* animation captures; fold
 				// them into the model so the exported GLB carries the animations.
 				if (model && is_bmd)
@@ -2244,8 +2242,8 @@ static enumError CheckOptions (int argc, char **argv, bool is_env)
 					opt_j3d_tristrip = 2;
 				else
 				{
-					fprintf (stderr, "Unknown --tristrip mode: %s (use none, static or all)\n",
-						optarg);
+					fprintf (
+						stderr, "Unknown --tristrip mode: %s (use none, static or all)\n", optarg);
 					err++;
 				}
 				break;

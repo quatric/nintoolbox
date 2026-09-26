@@ -69,7 +69,8 @@ enumError DecodeSmashPath_Text (FILE *out, const u8 *data, size_t size)
 			&& (be = false, !smashcam_path_frames_ok (data, size, false, &n))))
 		return ERR_INVALID_DATA;
 
-	fprintf (out, "#PATH\n# Super Smash Bros. 4 stage path/camera spline\n\n"
+	fprintf (out,
+		"#PATH\n# Super Smash Bros. 4 stage path/camera spline\n\n"
 		"endian = %s\nframes = %u\n\n[frames]\n# idx | quat xyzw | pos xyz\n",
 		be ? "big" : "little", n);
 	for (u32 i = 0; i < n; i++)
@@ -112,9 +113,9 @@ enumError DecodeSmashCMR0_Text (FILE *out, const u8 *data, size_t size)
 		const u8 *m = data + 12 + (size_t)i * 48;
 		fprintf (out, "frame %u\n", i);
 		for (int r = 0; r < 3; r++)
-			fprintf (out, "  %.6g %.6g %.6g %.6g\n",
-				smashcam_f32be (m + r * 16), smashcam_f32be (m + r * 16 + 4),
-				smashcam_f32be (m + r * 16 + 8), smashcam_f32be (m + r * 16 + 12));
+			fprintf (out, "  %.6g %.6g %.6g %.6g\n", smashcam_f32be (m + r * 16),
+				smashcam_f32be (m + r * 16 + 4), smashcam_f32be (m + r * 16 + 8),
+				smashcam_f32be (m + r * 16 + 12));
 	}
 	return ERR_OK;
 }
@@ -126,8 +127,7 @@ enumError DecodeSmashCMR0_Text (FILE *out, const u8 *data, size_t size)
 // 4 lights { s32 enabled; float angle[3], hue, sat, val } + 4-byte fog,
 // then effect { u8 unknown, rgb[3], float pos[3] }.
 
-static bool smashcam_ligh_ok (const u8 *data, size_t size,
-	u32 *frames, u32 *ver, u32 offs[6])
+static bool smashcam_ligh_ok (const u8 *data, size_t size, u32 *frames, u32 *ver, u32 offs[6])
 {
 	if (!data || size < 12 || memcmp (data, "LIGH", 4))
 		return false;
@@ -173,17 +173,17 @@ enumError DecodeSmashLIGH_Text (FILE *out, const u8 *data, size_t size)
 	if (!out || !smashcam_ligh_ok (data, size, &nf, &ver, offs))
 		return ERR_INVALID_DATA;
 
-	static const char *const rgb_names[5] =
-	{
-		"fighter_fresnel_sky", "fighter_fresnel_ground",
-		"fighter_ambient_sky", "fighter_ambient_ground", "reflection"
-	};
-	fprintf (out, "#LIGH\n# Super Smash Bros. 4 stage lighting animation\n\n"
+	static const char *const rgb_names[5] = { "fighter_fresnel_sky", "fighter_fresnel_ground",
+		"fighter_ambient_sky", "fighter_ambient_ground", "reflection" };
+	fprintf (out,
+		"#LIGH\n# Super Smash Bros. 4 stage lighting animation\n\n"
 		"version = %u\nframes = %u\nframe_duration = %u\n\n",
 		ver, nf, ver == 5 ? rd_be32 (data + 12) : 1);
 	for (int i = 0; i < 5; i++)
 		fprintf (out, "rgb_%s = %s\n", rgb_names[i], offs[i + 1] ? "present" : "disabled");
-	fprintf (out, "\n[frames]\n# per frame: 17 light sets x 4 lights (enabled + angles + hsv) + fog + effect\n");
+	fprintf (out,
+		"\n[frames]\n# per frame: 17 light sets x 4 lights (enabled + angles + hsv) + fog + "
+		"effect\n");
 	for (u32 f = 0; f < nf; f++)
 	{
 		fprintf (out, "frame %u\n", f);
@@ -195,19 +195,17 @@ enumError DecodeSmashLIGH_Text (FILE *out, const u8 *data, size_t size)
 			{
 				const u8 *lp = data + p;
 				p += 28;
-				fprintf (out, "    light%d enabled=%d angle=%.4g %.4g %.4g hsv=%.4g %.4g %.4g\n",
-					l, (s32)rd_be32 (lp),
-					smashcam_f32be (lp + 4), smashcam_f32be (lp + 8),
-					smashcam_f32be (lp + 12), smashcam_f32be (lp + 16),
-					smashcam_f32be (lp + 20), smashcam_f32be (lp + 24));
+				fprintf (out, "    light%d enabled=%d angle=%.4g %.4g %.4g hsv=%.4g %.4g %.4g\n", l,
+					(s32)rd_be32 (lp), smashcam_f32be (lp + 4), smashcam_f32be (lp + 8),
+					smashcam_f32be (lp + 12), smashcam_f32be (lp + 16), smashcam_f32be (lp + 20),
+					smashcam_f32be (lp + 24));
 			}
-			fprintf (out, "    fog unk=%u rgb=%u %u %u\n",
-				data[p], data[p + 1], data[p + 2], data[p + 3]);
+			fprintf (out, "    fog unk=%u rgb=%u %u %u\n", data[p], data[p + 1], data[p + 2],
+				data[p + 3]);
 			p += 4;
 		}
-		fprintf (out, "  effect unk=%u rgb=%u %u %u pos=%.4g %.4g %.4g\n",
-			data[p], data[p + 1], data[p + 2], data[p + 3],
-			smashcam_f32be (data + p + 4), smashcam_f32be (data + p + 8),
+		fprintf (out, "  effect unk=%u rgb=%u %u %u pos=%.4g %.4g %.4g\n", data[p], data[p + 1],
+			data[p + 2], data[p + 3], smashcam_f32be (data + p + 4), smashcam_f32be (data + p + 8),
 			smashcam_f32be (data + p + 12));
 		for (int i = 0; i < 5; i++)
 		{

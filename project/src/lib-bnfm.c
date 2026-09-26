@@ -216,7 +216,11 @@ int AppendBNFMSAAnimation (model_t *model, const u8 *data, uint size)
 			for (uint k = 0; k < nframes; k++)
 			{
 				const u8 *kp = data + key_off + (size_t)k * stride;
-				union { u32 u; float f; } cv;
+				union
+				{
+					u32 u;
+					float f;
+				} cv;
 				keys[k].frame = (float)rd_be32 (kp);
 				cv.u = rd_be32 (kp + 4);
 				keys[k].value = cv.f;
@@ -227,7 +231,13 @@ int AppendBNFMSAAnimation (model_t *model, const u8 *data, uint size)
 		}
 
 		// Emit T/R/S channels for kinds with at least one track.
-		struct { int comps[4]; int n; model_anim_path_t path; float fb[4]; } kinds[3] = {
+		struct
+		{
+			int comps[4];
+			int n;
+			model_anim_path_t path;
+			float fb[4];
+		} kinds[3] = {
 			{ { 0, 1, 2, -1 }, 3, MODEL_ANIM_TRANSLATION, { 0, 0, 0 } },
 			{ { 3, 4, 5, -1 }, 3, MODEL_ANIM_SCALE, { 1, 1, 1 } },
 			{ { 6, 7, 8, 9 }, 4, MODEL_ANIM_ROTATION, { 0, 0, 0, 1 } },
@@ -309,13 +319,13 @@ int AppendBNFMSAAnimation (model_t *model, const u8 *data, uint size)
 				for (int c = 0; c < kinds[k].n; c++)
 				{
 					const int ti = kinds[k].comps[c];
-					ch.values[q * kinds[k].n + c] = bnfmsa_sample (
-						have[ti] ? tracks + ti : 0, frames[q], kinds[k].fb[c]);
+					ch.values[q * kinds[k].n + c]
+						= bnfmsa_sample (have[ti] ? tracks + ti : 0, frames[q], kinds[k].fb[c]);
 				}
 			}
 			FREE (frames);
-			model_anim_channel_t *nc = REALLOC (anim.channels,
-				(anim.num_channels + 1) * sizeof (*nc));
+			model_anim_channel_t *nc
+				= REALLOC (anim.channels, (anim.num_channels + 1) * sizeof (*nc));
 			if (!nc)
 			{
 				FREE (ch.times);
@@ -335,8 +345,7 @@ int AppendBNFMSAAnimation (model_t *model, const u8 *data, uint size)
 		FREE (anim.channels);
 		return 0;
 	}
-	model_animation_t *na = REALLOC (model->animations,
-		(model->num_animations + 1) * sizeof (*na));
+	model_animation_t *na = REALLOC (model->animations, (model->num_animations + 1) * sizeof (*na));
 	if (!na)
 	{
 		for (size_t c = 0; c < anim.num_channels; c++)

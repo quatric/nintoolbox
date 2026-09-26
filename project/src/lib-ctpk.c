@@ -399,7 +399,6 @@ enumError CreateCTPK (
 	return ERR_OK;
 }
 
-
 // See lib-ctpk.h: a CTPK entry carries at least two fields with no known
 // derivation -- a per-entry counter (0x18, 0x19, ... across a whole game's
 // asset database, not restartable per archive) and what look like Unix
@@ -439,8 +438,8 @@ enumError RebuildCTPKFromPrefix (u8 **dest, uint *dest_size, const u8 *prefix, u
 		ccp name = payload_entries[i].name ? leaf_name (payload_entries[i].name) : "";
 		const size_t nlen = strlen (name);
 		uint idx;
-		if (nlen < 8 || strcmp (name + nlen - 8, ".ctpktex")
-			|| sscanf (name, "%u_", &idx) != 1 || idx >= n_entries)
+		if (nlen < 8 || strcmp (name + nlen - 8, ".ctpktex") || sscanf (name, "%u_", &idx) != 1
+			|| idx >= n_entries)
 			continue;
 
 		const u8 *einfo = prefix + 0x20 + 0x20 * idx;
@@ -456,7 +455,6 @@ enumError RebuildCTPKFromPrefix (u8 **dest, uint *dest_size, const u8 *prefix, u
 	*dest_size = (uint)total;
 	return ERR_OK;
 }
-
 
 enumError create_ctpk_dir (ccp source, ccp dest)
 {
@@ -658,4 +656,3 @@ enumError create_ctpk_dir (ccp source, ccp dest)
 	FREE (out);
 	return err;
 }
-

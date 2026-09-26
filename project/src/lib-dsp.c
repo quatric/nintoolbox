@@ -127,7 +127,8 @@ enumError ExtractDSPAudio (ccp arg, ccp basedir, uint depth, const u8 *data, siz
 	{
 		ccp slash = strrchr (arg, '/');
 		if (slash)
-			snprintf (dest, sizeof (dest), "%.*s/%.*s.wav", (int)(slash - arg), arg, (int)blen, base);
+			snprintf (
+				dest, sizeof (dest), "%.*s/%.*s.wav", (int)(slash - arg), arg, (int)blen, base);
 		else
 			snprintf (dest, sizeof (dest), "%.*s.wav", (int)blen, base);
 	}

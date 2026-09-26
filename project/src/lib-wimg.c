@@ -18,8 +18,7 @@ static inline u16 wimg_be16 (const u8 *p)
 
 // GX texture tiling: pixels are stored tile by tile (row-major tiles, each
 // tile row-major inside). Walk the linear stream and map it to (x,y).
-enumError DecodeWIMG (u8 **rgba_out, uint *width_out, uint *height_out,
-	const u8 *data, uint size)
+enumError DecodeWIMG (u8 **rgba_out, uint *width_out, uint *height_out, const u8 *data, uint size)
 {
 	if (!rgba_out || !data || size < WIMG_HDR + 4 || memcmp (data, "WIMG", 4))
 		return EINVAL;
@@ -41,9 +40,24 @@ enumError DecodeWIMG (u8 **rgba_out, uint *width_out, uint *height_out,
 	uint tw, th, bpp, pal_n;
 	switch (fmt)
 	{
-		case 1:  tw = 8; th = 8; bpp = 4;  pal_n = 16;  break; // CI4
-		case 2:  tw = 8; th = 4; bpp = 8;  pal_n = 256; break; // CI8
-		case 9:  tw = 4; th = 4; bpp = 32; pal_n = 0;   break; // RGBA32
+		case 1:
+			tw = 8;
+			th = 8;
+			bpp = 4;
+			pal_n = 16;
+			break; // CI4
+		case 2:
+			tw = 8;
+			th = 4;
+			bpp = 8;
+			pal_n = 256;
+			break; // CI8
+		case 9:
+			tw = 4;
+			th = 4;
+			bpp = 32;
+			pal_n = 0;
+			break; // RGBA32
 		default:
 			FREE (rgba);
 			return EINVAL;
@@ -70,9 +84,9 @@ enumError DecodeWIMG (u8 **rgba_out, uint *width_out, uint *height_out,
 							continue;
 						u8 *px = rgba + ((u64)y * w + x) * 4;
 						px[0] = ar[k * 2 + 1]; // R
-						px[1] = gb[k * 2];     // G
+						px[1] = gb[k * 2]; // G
 						px[2] = gb[k * 2 + 1]; // B
-						px[3] = ar[k * 2];     // A
+						px[3] = ar[k * 2]; // A
 					}
 			}
 		*rgba_out = rgba;

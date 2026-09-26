@@ -300,7 +300,6 @@ enumError CreateSFZDAT (
 	return ERR_OK;
 }
 
-
 // Star Fox Zero DAT (Wii U). Names keep the "<ext>/<name>" folder shape the
 // extractor writes, which CreateSFZDAT turns back into the type section.
 // ".dat" is already spoken for on this tool's extract side (HAL's HSD and A2
@@ -348,7 +347,6 @@ bool looks_like_sfzdat_dir (ccp source)
 	return ok && n_type_dirs > 0;
 }
 
-
 enumError create_sfzdat_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -371,4 +369,3 @@ enumError create_sfzdat_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

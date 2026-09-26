@@ -8,8 +8,14 @@
 
 #define AV_MAX_TEXTURES 256
 
-static u32 av_rd32 (const u8 *p) { return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
-static uint av_rd16 (const u8 *p) { return p[0] << 8 | p[1]; }
+static u32 av_rd32 (const u8 *p)
+{
+	return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
+}
+static uint av_rd16 (const u8 *p)
+{
+	return p[0] << 8 | p[1];
+}
 
 static bool av_record_ok (const u8 *d, size_t size, uint i)
 {
@@ -48,7 +54,8 @@ enumError DecodeAvalancheTex (u8 **rgba, uint *width, uint *height, const u8 *th
 	const u32 rec = av_rd32 (t), off = av_rd32 (t + 4), bytes = av_rd32 (t + 8);
 	if ((u64)off + bytes > tbb_size)
 		return ERR_NOTHING_TO_DO;
-	const uint w = av_rd16 (thb + rec + 12), h = av_rd16 (thb + rec + 14), fmt = av_rd16 (thb + rec + 16);
+	const uint w = av_rd16 (thb + rec + 12), h = av_rd16 (thb + rec + 14),
+			   fmt = av_rd16 (thb + rec + 16);
 	const enumError err = DecodeGXTexture_RGBA (rgba, w, h, fmt, tbb + off, bytes, 0, 0, 0);
 	if (!err)
 	{

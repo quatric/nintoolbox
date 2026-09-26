@@ -69,8 +69,8 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest, int known_lz
 
 	// .lz is a wrapper around an archive rather than a standalone passthrough
 	// format. Let the generic archive path below rebuild its decoded content.
-	const bool is_raw_lz_ext = !strcasecmp(ext,".lz") || !strcasecmp(ext,".lz10")
-		|| !strcasecmp(ext,".lz11");
+	const bool is_raw_lz_ext
+		= !strcasecmp (ext, ".lz") || !strcasecmp (ext, ".lz10") || !strcasecmp (ext, ".lz11");
 	enumError pas_err = is_raw_lz_ext ? ERR_NOTHING_TO_DO : PassthruPack (source_dir, dest);
 	if (pas_err != ERR_NOTHING_TO_DO)
 		return pas_err;
@@ -133,8 +133,7 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest, int known_lz
 			return create_cod_pak_dir (source_dir, dest);
 		if (looks_like_gpak_dir (source_dir))
 			return create_gpak_dir (source_dir, dest);
-		return ERROR0 (ERR_INVALID_DATA,
-			"No PAK0 or GPAK members found in: %s\n", source_dir);
+		return ERROR0 (ERR_INVALID_DATA, "No PAK0 or GPAK members found in: %s\n", source_dir);
 	}
 	if (!strcasecmp (ext, ".vcra"))
 		return create_vcra_dir (source_dir, dest);
@@ -169,14 +168,16 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest, int known_lz
 	if (!strcasecmp (ext, ".one"))
 		return create_one_dir (source_dir, dest);
 	if ((!strcasecmp (ext, ".dat") || !strcasecmp (ext, ".rflres") || !strcasecmp (ext, ".rfl")
-		|| !strcasecmp (ext, ".fflres") || !strcasecmp (ext, ".ffl")
-		|| !strcasecmp (ext, ".cflres") || !strcasecmp (ext, ".cfl")
-		|| !strcasecmp (ext, ".aflres") || !strcasecmp (ext, ".afl")
-		|| !strcasecmp (ext, ".nflres") || !strcasecmp (ext, ".nfl") || !strcasecmp (ext, ".nfl_res")) && looks_like_rflres_dir (source_dir))
+			|| !strcasecmp (ext, ".fflres") || !strcasecmp (ext, ".ffl")
+			|| !strcasecmp (ext, ".cflres") || !strcasecmp (ext, ".cfl")
+			|| !strcasecmp (ext, ".aflres") || !strcasecmp (ext, ".afl")
+			|| !strcasecmp (ext, ".nflres") || !strcasecmp (ext, ".nfl")
+			|| !strcasecmp (ext, ".nfl_res"))
+		&& looks_like_rflres_dir (source_dir))
 	{
 		const bool be = strcasecmp (ext, ".cfl") && strcasecmp (ext, ".cflres")
-			&& strcasecmp (ext, ".afl") && strcasecmp (ext, ".aflres")
-			&& strcasecmp (ext, ".nfl") && strcasecmp (ext, ".nflres") && strcasecmp (ext, ".nfl_res");
+			&& strcasecmp (ext, ".afl") && strcasecmp (ext, ".aflres") && strcasecmp (ext, ".nfl")
+			&& strcasecmp (ext, ".nflres") && strcasecmp (ext, ".nfl_res");
 		return create_rflres_dir (source_dir, dest, be);
 	}
 	if (!strcasecmp (ext, ".bea") && looks_like_bea_dir (source_dir))
@@ -231,14 +232,16 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest, int known_lz
 	bool lz_wrapped = known_lz_type == 0x10 || known_lz_type == 0x11;
 	bool lz11 = known_lz_type == 0x11;
 	ccp dest_ext = strrchr (dest, '.');
-	const bool ash_wrapped = dest_ext && (!strcasecmp(dest_ext,".ash") || !strcasecmp(dest_ext,".ash0"));
-	if (!lz_wrapped && dest_ext && (!strcasecmp (dest_ext, ".lz") || !strcasecmp (dest_ext, ".lz10")
+	const bool ash_wrapped
+		= dest_ext && (!strcasecmp (dest_ext, ".ash") || !strcasecmp (dest_ext, ".ash0"));
+	if (!lz_wrapped && dest_ext
+		&& (!strcasecmp (dest_ext, ".lz") || !strcasecmp (dest_ext, ".lz10")
 			|| !strcasecmp (dest_ext, ".lz11")))
 	{
 		// Default before opening the file. CREATE can truncate its destination
 		// before reaching this helper, and Wii's unsuffixed .lz convention is LZ11.
 		lz_wrapped = true;
-		lz11 = strcasecmp(dest_ext,".lz10") != 0;
+		lz11 = strcasecmp (dest_ext, ".lz10") != 0;
 		u8 type = 0;
 		FILE *in = fopen (dest, "rb");
 		if (in && fread (&type, 1, 1, in) == 1 && (type == 0x10 || type == 0x11))
@@ -299,7 +302,8 @@ static const char *cand_archive_exts[] = { ".wbfs", ".iso", ".ciso", ".wdf", ".w
 	".darc", ".pac", ".pcs", ".gfa", ".rarc", ".warc", ".bcsar", ".bfsar", ".bcwar", ".bfwar",
 	".bcgrp", ".bfgrp", ".rst", ".car", ".res", ".trk", ".lvl", ".wu8", ".wbz", ".wlz", ".bntx",
 	".bcres", ".bfres", ".bch", ".big", ".xc", ".xpck", ".ztab", ".tab", ".mdr", ".vff", ".pvol",
-	".srd", ".stpk", ".zlarc", ".zdat", ".rzpk", ".one", ".ptcl", ".eff", ".effn", ".vfxb", ".eset", 0 };
+	".srd", ".stpk", ".zlarc", ".zdat", ".rzpk", ".one", ".ptcl", ".eff", ".effn", ".vfxb", ".eset",
+	0 };
 
 // A number of retail Wii titles keep otherwise ordinary BRRES/U8 resources
 // in a raw Nintendo LZ10/LZ11 stream, conventionally named "*.lz".  The
@@ -486,8 +490,7 @@ static void cleanup_extracted_artifacts (ccp root, bool is_root, uint depth)
 				// KCL exports append rather than replace the extension
 				// (e.g. "foo.kcl" -> "foo.kcl.glb", like "foo.kcl.obj"), so the
 				// stem itself -- not stem+".kcl" -- is the candidate source.
-				if (!did_unlink && stem_len > 4
-					&& !strcasecmp (path + stem_len - 4, ".kcl"))
+				if (!did_unlink && stem_len > 4 && !strcasecmp (path + stem_len - 4, ".kcl"))
 				{
 					char cand[PATH_MAX];
 					snprintf (cand, sizeof (cand), "%.*s", (int)stem_len, path);
@@ -508,12 +511,13 @@ static void cleanup_extracted_artifacts (ccp root, bool is_root, uint depth)
 					unlink (path);
 			}
 			// BFLYT/BCLYT/BRLYT/BRLAN layouts and animations decode to *.xml.
-			if (nlen > 10 && (!strcasecmp (de->d_name + nlen - 10, ".bflyt.xml")
-				|| !strcasecmp (de->d_name + nlen - 10, ".bflan.xml")
-				|| !strcasecmp (de->d_name + nlen - 10, ".bclyt.xml")
-				|| !strcasecmp (de->d_name + nlen - 10, ".bclan.xml")
-				|| !strcasecmp (de->d_name + nlen - 10, ".brlyt.xml")
-				|| !strcasecmp (de->d_name + nlen - 10, ".brlan.xml")))
+			if (nlen > 10
+				&& (!strcasecmp (de->d_name + nlen - 10, ".bflyt.xml")
+					|| !strcasecmp (de->d_name + nlen - 10, ".bflan.xml")
+					|| !strcasecmp (de->d_name + nlen - 10, ".bclyt.xml")
+					|| !strcasecmp (de->d_name + nlen - 10, ".bclan.xml")
+					|| !strcasecmp (de->d_name + nlen - 10, ".brlyt.xml")
+					|| !strcasecmp (de->d_name + nlen - 10, ".brlan.xml")))
 			{
 				char cand[PATH_MAX];
 				snprintf (cand, sizeof (cand), "%.*s", (int)(strlen (path) - 4), path);
@@ -530,7 +534,8 @@ static void cleanup_extracted_artifacts (ccp root, bool is_root, uint depth)
 				|| (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".sbyml.yaml")))
 			{
 				char cand[PATH_MAX];
-				snprintf (cand, sizeof (cand), "%.*s", (int)(strlen (path) - (is_ext (path, ".yml") ? 4 : 5)), path);
+				snprintf (cand, sizeof (cand), "%.*s",
+					(int)(strlen (path) - (is_ext (path, ".yml") ? 4 : 5)), path);
 				struct stat st_c;
 				if (stat (cand, &st_c) == 0 && S_ISREG (st_c.st_mode))
 					unlink (path);
@@ -547,7 +552,8 @@ static void cleanup_extracted_artifacts (ccp root, bool is_root, uint depth)
 				|| (nlen > 12 && !strcasecmp (de->d_name + nlen - 12, ".bglpbd.yaml")))
 			{
 				char cand[PATH_MAX];
-				snprintf (cand, sizeof (cand), "%.*s", (int)(strlen (path) - (is_ext (path, ".yml") ? 4 : 5)), path);
+				snprintf (cand, sizeof (cand), "%.*s",
+					(int)(strlen (path) - (is_ext (path, ".yml") ? 4 : 5)), path);
 				struct stat st_c;
 				if (stat (cand, &st_c) == 0 && S_ISREG (st_c.st_mode))
 					unlink (path);
@@ -571,11 +577,12 @@ static void cleanup_extracted_artifacts (ccp root, bool is_root, uint depth)
 				bool has_target = false;
 				if (stem_ext
 					&& (!strcasecmp (stem_ext, ".tpl") || !strcasecmp (stem_ext, ".tex0")
-						|| !strcasecmp (stem_ext, ".tex") || !strcasecmp (stem_ext, ".tm0") || !strcasecmp (stem_ext, ".bti")
-						|| !strcasecmp (stem_ext, ".bflim") || !strcasecmp (stem_ext, ".bclim")
-						|| !strcasecmp (stem_ext, ".ncgr") || !strcasecmp (stem_ext, ".nclr")
-						|| !strcasecmp (stem_ext, ".bntx") || !strcasecmp (stem_ext, ".dsb")
-						|| !strcasecmp (stem_ext, ".plt0") || !strcasecmp (stem_ext, ".breft")))
+						|| !strcasecmp (stem_ext, ".tex") || !strcasecmp (stem_ext, ".tm0")
+						|| !strcasecmp (stem_ext, ".bti") || !strcasecmp (stem_ext, ".bflim")
+						|| !strcasecmp (stem_ext, ".bclim") || !strcasecmp (stem_ext, ".ncgr")
+						|| !strcasecmp (stem_ext, ".nclr") || !strcasecmp (stem_ext, ".bntx")
+						|| !strcasecmp (stem_ext, ".dsb") || !strcasecmp (stem_ext, ".plt0")
+						|| !strcasecmp (stem_ext, ".breft")))
 				{
 					struct stat st_t;
 					if (stat (stem, &st_t) == 0 && S_ISREG (st_t.st_mode))
@@ -584,8 +591,8 @@ static void cleanup_extracted_artifacts (ccp root, bool is_root, uint depth)
 				if (!has_target)
 				{
 					static const char *cand_img_exts[]
-						= { ".tpl", ".tex0", ".tm0", ".bti", ".bflim", ".bclim", ".ncgr", ".nclr", ".bntx",
-							  ".dsb", ".plt0", ".breft", ".tex", ".art", ".img", 0 };
+						= { ".tpl", ".tex0", ".tm0", ".bti", ".bflim", ".bclim", ".ncgr", ".nclr",
+							  ".bntx", ".dsb", ".plt0", ".breft", ".tex", ".art", ".img", 0 };
 					for (int k = 0; cand_img_exts[k]; k++)
 					{
 						char cand[PATH_MAX];
@@ -698,7 +705,10 @@ static enumError repack_wii_banner_dir (ccp source_d, ccp target_file)
 	{
 		if (verbose >= 0)
 			fprintf (stdlog, "WOULD REPACK %s %s/ -> %s\n",
-				want_imet ? "IMET" : want_imd5 ? "IMD5" : "LZ77", source_d, target_file);
+				want_imet		? "IMET"
+					: want_imd5 ? "IMD5"
+								: "LZ77",
+				source_d, target_file);
 		FREE (orig);
 		return ERR_OK;
 	}
@@ -742,8 +752,8 @@ static enumError repack_wii_banner_dir (ccp source_d, ccp target_file)
 		banner_sz = wii_banner_member_size (member, banner_sz);
 		snprintf (member, sizeof (member), "%s/meta/sound.bin", source_d);
 		sound_sz = wii_banner_member_size (member, sound_sz);
-		err = CreateIMET (&out, &out_size, u8data, (uint)u8size,
-			orig, osize, icon_sz, banner_sz, sound_sz);
+		err = CreateIMET (
+			&out, &out_size, u8data, (uint)u8size, orig, osize, icon_sz, banner_sz, sound_sz);
 	}
 	else
 	{
@@ -778,7 +788,10 @@ static enumError repack_wii_banner_dir (ccp source_d, ccp target_file)
 		return err;
 	if (verbose >= 0)
 		fprintf (stdlog, "REPACK %s %s/ -> %s\n",
-			want_imet ? "IMET" : want_imd5 ? "IMD5" : "LZ77", source_d, target_file);
+			want_imet		? "IMET"
+				: want_imd5 ? "IMD5"
+							: "LZ77",
+			source_d, target_file);
 	remove_dir_recursive (source_d);
 	return ERR_OK;
 }
@@ -819,12 +832,12 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 			// Never recurse into that mirror when the canonical tree exists;
 			// doing so independently rebuilds every nested SZS before the real
 			// NSP pack even begins.
-			const size_t dlen = strlen(de->d_name);
-			if (dlen > 6 && !strcasecmp(de->d_name+dlen-6,".nca.d"))
+			const size_t dlen = strlen (de->d_name);
+			if (dlen > 6 && !strcasecmp (de->d_name + dlen - 6, ".nca.d"))
 			{
 				char canonical_romfs[PATH_MAX];
-				snprintf(canonical_romfs,sizeof(canonical_romfs),"%s/romfs",root);
-				if (IsDirectory(canonical_romfs,false))
+				snprintf (canonical_romfs, sizeof (canonical_romfs), "%s/romfs", root);
+				if (IsDirectory (canonical_romfs, false))
 					continue;
 			}
 			enumError err = repack_tree_bottom_up (path, depth + 1);
@@ -865,11 +878,12 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 			ccp stem_ext = strrchr (stem, '.');
 			if (stem_ext
 				&& (!strcasecmp (stem_ext, ".tpl") || !strcasecmp (stem_ext, ".tex0")
-					|| !strcasecmp (stem_ext, ".tex") || !strcasecmp (stem_ext, ".tm0") || !strcasecmp (stem_ext, ".bti")
-					|| !strcasecmp (stem_ext, ".bflim") || !strcasecmp (stem_ext, ".bclim")
-					|| !strcasecmp (stem_ext, ".ncgr") || !strcasecmp (stem_ext, ".nclr")
-					|| !strcasecmp (stem_ext, ".bntx") || !strcasecmp (stem_ext, ".dsb")
-					|| !strcasecmp (stem_ext, ".plt0") || !strcasecmp (stem_ext, ".breft")))
+					|| !strcasecmp (stem_ext, ".tex") || !strcasecmp (stem_ext, ".tm0")
+					|| !strcasecmp (stem_ext, ".bti") || !strcasecmp (stem_ext, ".bflim")
+					|| !strcasecmp (stem_ext, ".bclim") || !strcasecmp (stem_ext, ".ncgr")
+					|| !strcasecmp (stem_ext, ".nclr") || !strcasecmp (stem_ext, ".bntx")
+					|| !strcasecmp (stem_ext, ".dsb") || !strcasecmp (stem_ext, ".plt0")
+					|| !strcasecmp (stem_ext, ".breft")))
 			{
 				if (stat (stem, &st_target) == 0 && S_ISREG (st_target.st_mode))
 				{
@@ -882,8 +896,9 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 			// etc.
 			if (!found_target)
 			{
-				static const char *cand_img_exts[] = { ".tpl", ".tex0", ".tex", ".tm0", ".bti", ".bflim", ".bclim",
-					".ncgr", ".nclr", ".bntx", ".dsb", ".plt0", ".breft", ".art", ".img", 0 };
+				static const char *cand_img_exts[]
+					= { ".tpl", ".tex0", ".tex", ".tm0", ".bti", ".bflim", ".bclim", ".ncgr",
+						  ".nclr", ".bntx", ".dsb", ".plt0", ".breft", ".art", ".img", 0 };
 				for (int k = 0; cand_img_exts[k]; k++)
 				{
 					char cand[PATH_MAX];
@@ -936,8 +951,8 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 					// re-extract ran after the edit and refreshed those timestamps),
 					// the edit is now silently lost with no other trace. Log it so
 					// that scenario is at least visible instead of completely silent.
-					fprintf (stdlog, "DISCARD PNG preview (not newer than %s): %s\n",
-						target_img, path);
+					fprintf (
+						stdlog, "DISCARD PNG preview (not newer than %s): %s\n", target_img, path);
 				unlink (path);
 			}
 		}
@@ -974,156 +989,161 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 			}
 
 			for (int b = 0; model_bases[b] && !handled && !found_sibling; b++)
-			for (int k = 0; model_exts[k]; k++)
-			{
-				char parent_model[PATH_MAX];
-				snprintf (parent_model, sizeof (parent_model), "%s%s", model_bases[b],
-					model_exts[k]);
-				struct stat st_m;
-				// retail Switch collision is Zstandard-compressed: accept
-				// the .zst twin when the plain stem is absent (EncodeCSB
-				// re-compresses automatically for a .zst destination)
-				if ((stat (parent_model, &st_m) || !S_ISREG (st_m.st_mode))
-					&& !strcasecmp (model_exts[k], ".csb"))
+				for (int k = 0; model_exts[k]; k++)
 				{
-					snprintf (parent_model, sizeof (parent_model), "%s%s.zst",
-						model_bases[b], model_exts[k]);
-				}
-				if (!stat (parent_model, &st_m) && S_ISREG (st_m.st_mode))
-				{
-					found_sibling = true;
-					time_t ref_m_mtime = st_m.st_mtime;
-					struct stat st_s;
-					char s_path[PATH_MAX];
-					snprintf (s_path, sizeof (s_path), "%s/%s", root, SZS_SETUP_FILE);
-					if (stat (s_path, &st_s) == 0 && st_s.st_mtime > ref_m_mtime)
-						ref_m_mtime = st_s.st_mtime;
-
-					if (st.st_mtime > ref_m_mtime + 2)
+					char parent_model[PATH_MAX];
+					snprintf (
+						parent_model, sizeof (parent_model), "%s%s", model_bases[b], model_exts[k]);
+					struct stat st_m;
+					// retail Switch collision is Zstandard-compressed: accept
+					// the .zst twin when the plain stem is absent (EncodeCSB
+					// re-compresses automatically for a .zst destination)
+					if ((stat (parent_model, &st_m) || !S_ISREG (st_m.st_mode))
+						&& !strcasecmp (model_exts[k], ".csb"))
 					{
-						if (!strcasecmp (model_exts[k], ".hsf"))
-						{
-							model_t *mdl = ParseGLBFile (path);
-							if (mdl)
-							{
-								enumError enc = EncodeModelToHSF (mdl, parent_model);
-								if (enc <= ERR_WARNING && verbose >= 0)
-									fprintf (stdlog, "REPACK HSF %s -> %s\n", path, parent_model);
-								else if (max_err < enc)
-									max_err = enc;
-								FreeModel (mdl);
-							}
-							unlink (path);
-							handled = true;
-							break;
-						}
-						if (!strcasecmp (model_exts[k], ".msh"))
-						{
-							model_t *mdl = ParseGLBFile (path);
-							if (mdl)
-							{
-								enumError enc = EncodeExciteMSH (mdl, parent_model);
-								if (enc <= ERR_WARNING && verbose >= 0)
-									fprintf (stdlog, "REPACK MSH %s -> %s\n", path, parent_model);
-								else if (max_err < enc)
-									max_err = enc;
-								FreeModel (mdl);
-							}
-							unlink (path);
-							handled = true;
-							break;
-						}
-						if (!strcasecmp (model_exts[k], ".csb"))
-						{
-							model_t *mdl = ParseGLBFile (path);
-							if (mdl)
-							{
-								// keep the source layout (Color Splash is
-								// big-endian, everything else little-endian)
-								bool csb_big = false;
-								u8 *prev = 0;
-								size_t prev_size = 0;
-								if (!LoadFileAlloc (parent_model, 0, 0, &prev, &prev_size,
-										0, 0, 0, false)
-									&& prev_size <= UINT_MAX && prev_size)
-								{
-									const u8 *pdata = prev;
-									uint psize = (uint)prev_size;
-									u8 *pdecomp = 0;
-									uint pdecomp_size = 0;
-									if (IsZSTD (prev, psize) > 0
-										&& DecodeZSTD (&pdecomp, &pdecomp_size, prev,
-											psize) == ERR_OK
-										&& pdecomp_size)
-									{
-										pdata = pdecomp;
-										psize = pdecomp_size;
-									}
-									csb_t prev_csb;
-									if (!ScanCSB (&prev_csb, pdata, psize))
-										csb_big = prev_csb.big_endian;
-									FreeCSB (&prev_csb);
-									FREE (pdecomp);
-								}
-								FREE (prev);
-								enumError enc
-									= EncodeCSB (mdl, parent_model, csb_big, false);
-								if (enc <= ERR_WARNING && verbose >= 0)
-									fprintf (stdlog, "REPACK CSB %s -> %s\n", path, parent_model);
-								else if (max_err < enc)
-									max_err = enc;
-								FreeModel (mdl);
-							}
-							unlink (path);
-							handled = true;
-							break;
-						}
-						if (!strcasecmp (model_exts[k], ".mod"))
-						{
-							model_t *mdl = ParseGLBFile (path);
-							if (mdl)
-							{
-								enumError enc = EncodeExciteMOD (mdl, parent_model);
-								if (enc <= ERR_WARNING && verbose >= 0)
-									fprintf (stdlog, "REPACK MOD %s -> %s\n", path, parent_model);
-								else if (max_err < enc)
-									max_err = enc;
-								FreeModel (mdl);
-							}
-							unlink (path);
-							handled = true;
-							break;
-						}
-						raw_data_t parent_raw;
-						InitializeRawData (&parent_raw);
-						if (LoadRawData (&parent_raw, false, parent_model, 0, false, 0) == ERR_OK)
-						{
-							model_t *mdl = ParseGLBFile (path);
-							if (mdl)
-							{
-								uint8_t *injected = 0;
-								size_t inj_size = 0;
-								if (InjectDAEIntoModel (parent_raw.data, parent_raw.data_size, mdl,
-										&injected, &inj_size)
-									&& injected)
-								{
-									SaveFILE (parent_model, 0, true, injected, (uint)inj_size, 0);
-									FREE (injected);
-									unlink (path);
-									handled = true;
-									if (verbose >= 0)
-										fprintf (
-											stdlog, "REPACK INJECT %s -> %s\n", path, parent_model);
-								}
-								FreeModel (mdl);
-							}
-							ResetRawData (&parent_raw);
-						}
+						snprintf (parent_model, sizeof (parent_model), "%s%s.zst", model_bases[b],
+							model_exts[k]);
 					}
-					if (handled)
-						break;
+					if (!stat (parent_model, &st_m) && S_ISREG (st_m.st_mode))
+					{
+						found_sibling = true;
+						time_t ref_m_mtime = st_m.st_mtime;
+						struct stat st_s;
+						char s_path[PATH_MAX];
+						snprintf (s_path, sizeof (s_path), "%s/%s", root, SZS_SETUP_FILE);
+						if (stat (s_path, &st_s) == 0 && st_s.st_mtime > ref_m_mtime)
+							ref_m_mtime = st_s.st_mtime;
+
+						if (st.st_mtime > ref_m_mtime + 2)
+						{
+							if (!strcasecmp (model_exts[k], ".hsf"))
+							{
+								model_t *mdl = ParseGLBFile (path);
+								if (mdl)
+								{
+									enumError enc = EncodeModelToHSF (mdl, parent_model);
+									if (enc <= ERR_WARNING && verbose >= 0)
+										fprintf (
+											stdlog, "REPACK HSF %s -> %s\n", path, parent_model);
+									else if (max_err < enc)
+										max_err = enc;
+									FreeModel (mdl);
+								}
+								unlink (path);
+								handled = true;
+								break;
+							}
+							if (!strcasecmp (model_exts[k], ".msh"))
+							{
+								model_t *mdl = ParseGLBFile (path);
+								if (mdl)
+								{
+									enumError enc = EncodeExciteMSH (mdl, parent_model);
+									if (enc <= ERR_WARNING && verbose >= 0)
+										fprintf (
+											stdlog, "REPACK MSH %s -> %s\n", path, parent_model);
+									else if (max_err < enc)
+										max_err = enc;
+									FreeModel (mdl);
+								}
+								unlink (path);
+								handled = true;
+								break;
+							}
+							if (!strcasecmp (model_exts[k], ".csb"))
+							{
+								model_t *mdl = ParseGLBFile (path);
+								if (mdl)
+								{
+									// keep the source layout (Color Splash is
+									// big-endian, everything else little-endian)
+									bool csb_big = false;
+									u8 *prev = 0;
+									size_t prev_size = 0;
+									if (!LoadFileAlloc (
+											parent_model, 0, 0, &prev, &prev_size, 0, 0, 0, false)
+										&& prev_size <= UINT_MAX && prev_size)
+									{
+										const u8 *pdata = prev;
+										uint psize = (uint)prev_size;
+										u8 *pdecomp = 0;
+										uint pdecomp_size = 0;
+										if (IsZSTD (prev, psize) > 0
+											&& DecodeZSTD (&pdecomp, &pdecomp_size, prev, psize)
+												== ERR_OK
+											&& pdecomp_size)
+										{
+											pdata = pdecomp;
+											psize = pdecomp_size;
+										}
+										csb_t prev_csb;
+										if (!ScanCSB (&prev_csb, pdata, psize))
+											csb_big = prev_csb.big_endian;
+										FreeCSB (&prev_csb);
+										FREE (pdecomp);
+									}
+									FREE (prev);
+									enumError enc = EncodeCSB (mdl, parent_model, csb_big, false);
+									if (enc <= ERR_WARNING && verbose >= 0)
+										fprintf (
+											stdlog, "REPACK CSB %s -> %s\n", path, parent_model);
+									else if (max_err < enc)
+										max_err = enc;
+									FreeModel (mdl);
+								}
+								unlink (path);
+								handled = true;
+								break;
+							}
+							if (!strcasecmp (model_exts[k], ".mod"))
+							{
+								model_t *mdl = ParseGLBFile (path);
+								if (mdl)
+								{
+									enumError enc = EncodeExciteMOD (mdl, parent_model);
+									if (enc <= ERR_WARNING && verbose >= 0)
+										fprintf (
+											stdlog, "REPACK MOD %s -> %s\n", path, parent_model);
+									else if (max_err < enc)
+										max_err = enc;
+									FreeModel (mdl);
+								}
+								unlink (path);
+								handled = true;
+								break;
+							}
+							raw_data_t parent_raw;
+							InitializeRawData (&parent_raw);
+							if (LoadRawData (&parent_raw, false, parent_model, 0, false, 0)
+								== ERR_OK)
+							{
+								model_t *mdl = ParseGLBFile (path);
+								if (mdl)
+								{
+									uint8_t *injected = 0;
+									size_t inj_size = 0;
+									if (InjectDAEIntoModel (parent_raw.data, parent_raw.data_size,
+											mdl, &injected, &inj_size)
+										&& injected)
+									{
+										SaveFILE (
+											parent_model, 0, true, injected, (uint)inj_size, 0);
+										FREE (injected);
+										unlink (path);
+										handled = true;
+										if (verbose >= 0)
+											fprintf (stdlog, "REPACK INJECT %s -> %s\n", path,
+												parent_model);
+									}
+									FreeModel (mdl);
+								}
+								ResetRawData (&parent_raw);
+							}
+						}
+						if (handled)
+							break;
+					}
 				}
-			}
 
 			// Fallback: no sibling model file found; create a new Switch BFRES.
 			// Only do this in a directory our own decoder never touched, e.g. a
@@ -1154,7 +1174,8 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 						break;
 					}
 					char cache_marker[PATH_MAX];
-					snprintf (cache_marker, sizeof (cache_marker), "%s/%s", anc, SZS_HASH_CACHE_FILE);
+					snprintf (
+						cache_marker, sizeof (cache_marker), "%s/%s", anc, SZS_HASH_CACHE_FILE);
 					struct stat st_cache;
 					if (stat (cache_marker, &st_cache) == 0)
 					{
@@ -1257,12 +1278,13 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 			}
 			unlink (path);
 		}
-		if (S_ISREG (st.st_mode) && ((nlen > 9 && !strcasecmp (de->d_name + nlen - 9, ".byml.yml"))
-			|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".byml.yaml"))
-			|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".byaml.yml"))
-			|| (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".byaml.yaml"))
-			|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".sbyml.yml"))
-			|| (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".sbyml.yaml"))))
+		if (S_ISREG (st.st_mode)
+			&& ((nlen > 9 && !strcasecmp (de->d_name + nlen - 9, ".byml.yml"))
+				|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".byml.yaml"))
+				|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".byaml.yml"))
+				|| (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".byaml.yaml"))
+				|| (nlen > 10 && !strcasecmp (de->d_name + nlen - 10, ".sbyml.yml"))
+				|| (nlen > 11 && !strcasecmp (de->d_name + nlen - 11, ".sbyml.yaml"))))
 		{
 			char target_byml[PATH_MAX];
 			snprintf (target_byml, sizeof (target_byml), "%.*s",
@@ -1339,14 +1361,15 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 				// the real sibling is normally the pre-decompression name.  Resolve
 				// "foo.nsbtx.bin.d" back to "foo.nsbtx" before trying to invent
 				// candidates such as "foo.nsbtx.bin.nsbtx".
-				const size_t target_len = strlen(target_file);
-				if (target_len > 4 && !strcasecmp(target_file + target_len - 4, ".bin"))
+				const size_t target_len = strlen (target_file);
+				if (target_len > 4 && !strcasecmp (target_file + target_len - 4, ".bin"))
 				{
 					char raw_target[PATH_MAX];
-					snprintf(raw_target,sizeof(raw_target),"%.*s",(int)target_len-4,target_file);
-					if (stat(raw_target,&st_target) == 0 && S_ISREG(st_target.st_mode))
+					snprintf (
+						raw_target, sizeof (raw_target), "%.*s", (int)target_len - 4, target_file);
+					if (stat (raw_target, &st_target) == 0 && S_ISREG (st_target.st_mode))
 					{
-						snprintf(target_file,sizeof(target_file),"%s",raw_target);
+						snprintf (target_file, sizeof (target_file), "%s", raw_target);
 						target_exists = true;
 					}
 				}
@@ -1384,10 +1407,10 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 				for (int c = 0; !target_exists && cand_ash_exts[c]; c++)
 				{
 					char cand[PATH_MAX];
-					snprintf(cand,sizeof(cand),"%s%s",target_file,cand_ash_exts[c]);
-					if (stat(cand,&st_target) == 0 && S_ISREG(st_target.st_mode))
+					snprintf (cand, sizeof (cand), "%s%s", target_file, cand_ash_exts[c]);
+					if (stat (cand, &st_target) == 0 && S_ISREG (st_target.st_mode))
 					{
-						snprintf(target_file,sizeof(target_file),"%s",cand);
+						snprintf (target_file, sizeof (target_file), "%s", cand);
 						target_exists = true;
 					}
 				}
@@ -1398,10 +1421,11 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 					for (int l = 0; !target_exists && cand_lz_exts[l]; l++)
 					{
 						char cand[PATH_MAX];
-						snprintf(cand,sizeof(cand),"%s%s%s",target_file,cand_archive_exts[a],cand_lz_exts[l]);
-						if (stat(cand,&st_target) == 0 && S_ISREG(st_target.st_mode))
+						snprintf (cand, sizeof (cand), "%s%s%s", target_file, cand_archive_exts[a],
+							cand_lz_exts[l]);
+						if (stat (cand, &st_target) == 0 && S_ISREG (st_target.st_mode))
 						{
-							snprintf(target_file,sizeof(target_file),"%s",cand);
+							snprintf (target_file, sizeof (target_file), "%s", cand);
 							target_exists = true;
 						}
 					}
@@ -1409,10 +1433,11 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 					for (int x = 0; !target_exists && cand_ash_exts[x]; x++)
 					{
 						char cand[PATH_MAX];
-						snprintf(cand,sizeof(cand),"%s%s%s",target_file,cand_archive_exts[a],cand_ash_exts[x]);
-						if (stat(cand,&st_target) == 0 && S_ISREG(st_target.st_mode))
+						snprintf (cand, sizeof (cand), "%s%s%s", target_file, cand_archive_exts[a],
+							cand_ash_exts[x]);
+						if (stat (cand, &st_target) == 0 && S_ISREG (st_target.st_mode))
 						{
-							snprintf(target_file,sizeof(target_file),"%s",cand);
+							snprintf (target_file, sizeof (target_file), "%s", cand);
 							target_exists = true;
 						}
 					}
@@ -1462,14 +1487,20 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 				&& (!strcasecmp (t_ext, ".thp") || !strcasecmp (t_ext, ".moflex")
 					|| !strcasecmp (t_ext, ".mo") || !strcasecmp (t_ext, ".mods")))
 			{
-				DIR *md = opendir (path); struct dirent *me; char preview[PATH_MAX] = {0};
+				DIR *md = opendir (path);
+				struct dirent *me;
+				char preview[PATH_MAX] = { 0 };
 				while (md && (me = readdir (md)))
 				{
 					size_t ml = strlen (me->d_name);
 					if (ml > 4 && !strcasecmp (me->d_name + ml - 4, ".mp4"))
-						{ snprintf (preview, sizeof (preview), "%s/%s", path, me->d_name); break; }
+					{
+						snprintf (preview, sizeof (preview), "%s/%s", path, me->d_name);
+						break;
+					}
 				}
-				if (md) closedir (md);
+				if (md)
+					closedir (md);
 				struct stat ps;
 				const bool media_changed = *preview && target_exists && !stat (preview, &ps)
 					&& ps.st_mtime > st_target.st_mtime;
@@ -1480,12 +1511,14 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 					{
 						ERROR0 (ERR_WARNING,
 							"edited media retained because mobipeg is unavailable: %s", preview);
-						if (max_err < ERR_WARNING) max_err = ERR_WARNING;
+						if (max_err < ERR_WARNING)
+							max_err = ERR_WARNING;
 						continue;
 					}
 					if (err > ERR_WARNING)
 					{
-						if (max_err < err) max_err = err;
+						if (max_err < err)
+							max_err = err;
 						continue; // keep the edited preview so a failed encode loses nothing
 					}
 				}
@@ -1496,10 +1529,9 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 			// Audio previews and archives are not generic U8 directories.
 			if (t_ext
 				&& (!strcasecmp (t_ext, ".brsar") || !strcasecmp (t_ext, ".sdat")
-					|| !strcasecmp (t_ext, ".brstm")
-					|| !strcasecmp (t_ext, ".bcstm") || !strcasecmp (t_ext, ".bfstm")
-					|| !strcasecmp (t_ext, ".bns") || !strcasecmp (t_ext, ".ast")
-					|| !strcasecmp (t_ext, ".dsp")))
+					|| !strcasecmp (t_ext, ".brstm") || !strcasecmp (t_ext, ".bcstm")
+					|| !strcasecmp (t_ext, ".bfstm") || !strcasecmp (t_ext, ".bns")
+					|| !strcasecmp (t_ext, ".ast") || !strcasecmp (t_ext, ".dsp")))
 			{
 				remove_dir_recursive (path);
 				continue;
@@ -1525,12 +1557,12 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 				// silently skips rebuilding a sub-archive that did change. Run it
 				// at most once per tree and leave a marker behind.
 				char baseline_marker[PATH_MAX];
-				snprintf (baseline_marker, sizeof (baseline_marker), "%s/%s",
-					path, SZS_MTIME_BASELINE_FILE);
+				snprintf (baseline_marker, sizeof (baseline_marker), "%s/%s", path,
+					SZS_MTIME_BASELINE_FILE);
 				struct stat st_marker;
 				if (stat (baseline_marker, &st_marker) != 0)
 				{
-					normalize_legacy_tree_mtimes(path,ref_mtime);
+					normalize_legacy_tree_mtimes (path, ref_mtime);
 					FILE *mf = fopen (baseline_marker, "w");
 					if (mf)
 						fclose (mf);
@@ -1545,13 +1577,13 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 				int lz_type = 0;
 				if (target_exists)
 				{
-					FILE *in = fopen(target_file,"rb");
+					FILE *in = fopen (target_file, "rb");
 					if (in)
 					{
 						u8 type = 0;
-						if (fread(&type,1,1,in) == 1 && (type == 0x10 || type == 0x11))
+						if (fread (&type, 1, 1, in) == 1 && (type == 0x10 || type == 0x11))
 							lz_type = type;
-						fclose(in);
+						fclose (in);
 					}
 				}
 				// Wii banner wrappers (IMET / IMD5+"LZ77") decode to a plain

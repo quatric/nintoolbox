@@ -52,12 +52,13 @@ static enumError cmd_create (bool create)
 		}
 		// NOTE: is_ext() in this TU compares from the LAST dot only, so
 		// multi-dot sidecar suffixes need explicit suffix compares.
-		if (create && ((arg_len > 9 && !strcasecmp (arg + arg_len - 9, ".byml.yml"))
-			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".byml.yaml"))
-			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".byaml.yml"))
-			|| (arg_len > 11 && !strcasecmp (arg + arg_len - 11, ".byaml.yaml"))
-			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".sbyml.yml"))
-			|| (arg_len > 11 && !strcasecmp (arg + arg_len - 11, ".sbyml.yaml"))))
+		if (create
+			&& ((arg_len > 9 && !strcasecmp (arg + arg_len - 9, ".byml.yml"))
+				|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".byml.yaml"))
+				|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".byaml.yml"))
+				|| (arg_len > 11 && !strcasecmp (arg + arg_len - 11, ".byaml.yaml"))
+				|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".sbyml.yml"))
+				|| (arg_len > 11 && !strcasecmp (arg + arg_len - 11, ".sbyml.yaml"))))
 		{
 			char y_dest[PATH_MAX];
 			// Strip .yml (preferred) or the older .yaml sidecar suffix.
@@ -77,8 +78,7 @@ static enumError cmd_create (bool create)
 				max_err = y_err;
 			continue;
 		}
-		const bool is_aamp_sidecar =
-			(arg_len > 9 && !strcasecmp (arg + arg_len - 9, ".aamp.yml"))
+		const bool is_aamp_sidecar = (arg_len > 9 && !strcasecmp (arg + arg_len - 9, ".aamp.yml"))
 			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".aamp.yaml"))
 			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".baamp.yml"))
 			|| (arg_len > 11 && !strcasecmp (arg + arg_len - 11, ".baamp.yaml"))
@@ -307,7 +307,8 @@ static enumError cmd_create (bool create)
 			enumError err = create_darc_dir (source_dir, dest);
 			if (verbose >= 0 || testmode)
 				fprintf (stdlog, "%s%sCREATE %s %s/ -> %s\n", verbose > 0 ? "\n" : "",
-					testmode ? "WOULD " : "", !strcasecmp (ext, ".bcma") ? "BCMA" : "DARC", source_dir, dest);
+					testmode ? "WOULD " : "", !strcasecmp (ext, ".bcma") ? "BCMA" : "DARC",
+					source_dir, dest);
 			if (max_err < err)
 				max_err = err;
 			if (err <= ERR_WARNING && src_len > 2 && !strcasecmp (source_dir + src_len - 2, ".d")
@@ -683,7 +684,8 @@ static enumError cmd_create (bool create)
 			ResetSetupParam (&sp);
 			continue;
 		}
-		if (create && ext && (!strcasecmp (ext, ".dtls") || !strcasecmp (ext, ".ls") || !strcasecmp (ext, ".dt")))
+		if (create && ext
+			&& (!strcasecmp (ext, ".dtls") || !strcasecmp (ext, ".ls") || !strcasecmp (ext, ".dt")))
 		{
 			enumError err = create_dtls_dir (source_dir, dest);
 			if (verbose >= 0 || testmode)
@@ -697,7 +699,9 @@ static enumError cmd_create (bool create)
 			ResetSetupParam (&sp);
 			continue;
 		}
-		if (create && ext && (!strcasecmp (ext, ".glt") || !strcasecmp (ext, ".rlt") || !strcasecmp (ext, ".ptlg")))
+		if (create && ext
+			&& (!strcasecmp (ext, ".glt") || !strcasecmp (ext, ".rlt")
+				|| !strcasecmp (ext, ".ptlg")))
 		{
 			bool is_gc = !strcasecmp (ext, ".glt");
 			enumError err = create_ptlg_dir (source_dir, dest, is_gc);
@@ -784,8 +788,8 @@ static enumError cmd_create (bool create)
 			}
 			else
 			{
-				const enumError err = ERROR0 (ERR_INVALID_DATA,
-					"No PAK0 or GPAK members found in: %s\n", source_dir);
+				const enumError err = ERROR0 (
+					ERR_INVALID_DATA, "No PAK0 or GPAK members found in: %s\n", source_dir);
 				if (max_err < err)
 					max_err = err;
 			}
@@ -852,16 +856,19 @@ static enumError cmd_create (bool create)
 			ResetSetupParam (&sp);
 			continue;
 		}
-		if (create && ext && (!strcasecmp (ext, ".dat") || !strcasecmp (ext, ".rflres") || !strcasecmp (ext, ".rfl")
-			|| !strcasecmp (ext, ".fflres") || !strcasecmp (ext, ".ffl")
-			|| !strcasecmp (ext, ".cflres") || !strcasecmp (ext, ".cfl")
-			|| !strcasecmp (ext, ".aflres") || !strcasecmp (ext, ".afl")
-			|| !strcasecmp (ext, ".nflres") || !strcasecmp (ext, ".nfl") || !strcasecmp (ext, ".nfl_res"))
+		if (create && ext
+			&& (!strcasecmp (ext, ".dat") || !strcasecmp (ext, ".rflres")
+				|| !strcasecmp (ext, ".rfl") || !strcasecmp (ext, ".fflres")
+				|| !strcasecmp (ext, ".ffl") || !strcasecmp (ext, ".cflres")
+				|| !strcasecmp (ext, ".cfl") || !strcasecmp (ext, ".aflres")
+				|| !strcasecmp (ext, ".afl") || !strcasecmp (ext, ".nflres")
+				|| !strcasecmp (ext, ".nfl") || !strcasecmp (ext, ".nfl_res"))
 			&& looks_like_rflres_dir (source_dir))
 		{
 			const bool be = strcasecmp (ext, ".cfl") && strcasecmp (ext, ".cflres")
 				&& strcasecmp (ext, ".afl") && strcasecmp (ext, ".aflres")
-				&& strcasecmp (ext, ".nfl") && strcasecmp (ext, ".nflres") && strcasecmp (ext, ".nfl_res");
+				&& strcasecmp (ext, ".nfl") && strcasecmp (ext, ".nflres")
+				&& strcasecmp (ext, ".nfl_res");
 			enumError err = create_rflres_dir (source_dir, dest, be);
 			if (verbose >= 0 || testmode)
 				fprintf (stdlog, "%s%sCREATE MIIRES %s/ -> %s\n", verbose > 0 ? "\n" : "",
@@ -1058,8 +1065,9 @@ static enumError cmd_create (bool create)
 			ResetSetupParam (&sp);
 			continue;
 		}
-		if (create && ext && (!strcasecmp (ext, ".byml") || !strcasecmp (ext, ".byaml")
-			|| byml_dest_is_compressed (dest)))
+		if (create && ext
+			&& (!strcasecmp (ext, ".byml") || !strcasecmp (ext, ".byaml")
+				|| byml_dest_is_compressed (dest)))
 		{
 			enumError err = encode_byml_file (arg, dest);
 			if (verbose >= 0 || testmode)
@@ -1071,7 +1079,8 @@ static enumError cmd_create (bool create)
 			continue;
 		}
 		if (create && ext && (!strcasecmp (ext, ".bglpbd") || (is_ext (dest, "bglpbd.szs")))
-			&& (is_ext (arg, ".bfres") || is_ext (arg, ".szs") || is_ext (arg, ".glb") || is_ext (arg, ".dae")))
+			&& (is_ext (arg, ".bfres") || is_ext (arg, ".szs") || is_ext (arg, ".glb")
+				|| is_ext (arg, ".dae")))
 		{
 			// Generating AGL light probes from course model bounds
 			u8 *mdata = NULL;
@@ -1087,7 +1096,8 @@ static enumError cmd_create (bool create)
 					if (!mdl)
 					{
 						mdl = ParseBFRESSwitch (mdata, msize);
-						if (mdl) is_sw = true;
+						if (mdl)
+							is_sw = true;
 					}
 				}
 				else if (is_ext (arg, ".glb") || is_ext (arg, ".dae"))
@@ -1122,8 +1132,8 @@ static enumError cmd_create (bool create)
 				FREE (mdata);
 			}
 			if (verbose >= 0 || testmode)
-				fprintf (stdlog, "%s%sCREATE BGLPBD (Model) %s -> %s\n",
-					verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest);
+				fprintf (stdlog, "%s%sCREATE BGLPBD (Model) %s -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", arg, dest);
 			if (max_err < err)
 				max_err = err;
 			ResetSetupParam (&sp);
@@ -1139,7 +1149,8 @@ static enumError cmd_create (bool create)
 			if (!err && tdata)
 			{
 				bglpbd_file_t pfile;
-				bool is_sw = !strcasecmp (ext, ".szs") || (opt_dest && strcasestr (opt_dest, ".szs"));
+				bool is_sw
+					= !strcasecmp (ext, ".szs") || (opt_dest && strcasestr (opt_dest, ".szs"));
 				err = CreateBGLPBD_FromUnityText (&pfile, (const char *)tdata, tsize, NULL, is_sw);
 				if (!err)
 				{
@@ -1325,7 +1336,9 @@ static enumError cmd_create (bool create)
 			ResetSetupParam (&sp);
 			continue;
 		}
-		if (create && ext && (!strcasecmp (ext, ".ptcl") || !strcasecmp (ext, ".vfxb") || !strcasecmp (ext, ".eset")))
+		if (create && ext
+			&& (!strcasecmp (ext, ".ptcl") || !strcasecmp (ext, ".vfxb")
+				|| !strcasecmp (ext, ".eset")))
 		{
 			enumError err = create_pctl_dir (source_dir, dest);
 			if (verbose >= 0 || testmode)
@@ -1715,15 +1728,16 @@ static bool valid_sarc_path (ccp path)
 // "..\..\evil" or "../evil" can never climb out of the output directory.
 static bool valid_at7_path (ccp path)
 {
-	if (!path || !*path || path[0] == '/' || path[0] == '\\' || !valid_utf8 (path) || strchr (path, ':'))
+	if (!path || !*path || path[0] == '/' || path[0] == '\\' || !valid_utf8 (path)
+		|| strchr (path, ':'))
 		return false;
 	if (!strcmp (path, ".") || !strcmp (path, ".."))
 		return false;
 	const size_t plen = strlen (path);
 	if (plen >= 3 && (!strcmp (path + plen - 3, "/..") || !strcmp (path + plen - 3, "\\..")))
 		return false;
-	if (strstr (path, "/../") || strstr (path, "\\..\\")
-		|| strstr (path, "\\../") || strstr (path, "/..\\"))
+	if (strstr (path, "/../") || strstr (path, "\\..\\") || strstr (path, "\\../")
+		|| strstr (path, "/..\\"))
 		return false;
 	if (!strncmp (path, "../", 3) || !strncmp (path, "..\\", 3))
 		return false;
@@ -1775,7 +1789,8 @@ static enumError extract_zip_file (ccp arg, ccp basedir, uint depth)
 	const u8 *eocd = 0;
 	for (size_t pos = raw_size >= 22 ? raw_size - 22 : 0; raw_size >= 22 && pos >= begin; pos--)
 	{
-		if (!memcmp (raw + pos, "PK\x05\x06", 4) && pos + 22 + zip_le16 (raw + pos + 20) == raw_size)
+		if (!memcmp (raw + pos, "PK\x05\x06", 4)
+			&& pos + 22 + zip_le16 (raw + pos + 20) == raw_size)
 		{
 			eocd = raw + pos;
 			break;
@@ -1808,8 +1823,8 @@ static enumError extract_zip_file (ccp arg, ccp basedir, uint depth)
 			FREE (raw);
 			return ERR_NOTHING_TO_DO;
 		}
-		const size_t entry_size = 46u + zip_le16 (entry + 28) + zip_le16 (entry + 30)
-			+ zip_le16 (entry + 32);
+		const size_t entry_size
+			= 46u + zip_le16 (entry + 28) + zip_le16 (entry + 30) + zip_le16 (entry + 32);
 		if (entry_size > (size_t)(cd_end - entry))
 		{
 			FREE (raw);
@@ -1834,21 +1849,22 @@ static enumError extract_zip_file (ccp arg, ccp basedir, uint depth)
 	{
 		const uint name_len = zip_le16 (entry + 28), extra_len = zip_le16 (entry + 30);
 		const uint flags = zip_le16 (entry + 8), method = zip_le16 (entry + 10);
-		const u32 compressed_size = zip_le32 (entry + 20), uncompressed_size = zip_le32 (entry + 24);
+		const u32 compressed_size = zip_le32 (entry + 20),
+				  uncompressed_size = zip_le32 (entry + 24);
 		const u32 local_off = zip_le32 (entry + 42);
 		const char *name = (ccp)(entry + 46);
 
 		// Directories are implied by file paths. Reject encrypted, ZIP64 and
 		// unsupported-compression members rather than emitting corrupt bytes.
-		if (name_len >= PATH_MAX || !name_len || name[name_len-1] == '/')
+		if (name_len >= PATH_MAX || !name_len || name[name_len - 1] == '/')
 			goto next_zip_entry;
 		char rel[PATH_MAX];
 		memcpy (rel, name, name_len);
 		rel[name_len] = 0;
 		if (!valid_sarc_path (rel) || flags & 1 || local_off == 0xffffffff
 			|| compressed_size == 0xffffffff || uncompressed_size == 0xffffffff
-			|| (method != 0 && method != 8) || local_off > raw_size
-			|| raw_size - local_off < 30 || memcmp (raw + local_off, "PK\x03\x04", 4))
+			|| (method != 0 && method != 8) || local_off > raw_size || raw_size - local_off < 30
+			|| memcmp (raw + local_off, "PK\x03\x04", 4))
 			goto next_zip_entry;
 
 		const uint local_name_len = zip_le16 (raw + local_off + 26);
@@ -1876,8 +1892,9 @@ static enumError extract_zip_file (ccp arg, ccp basedir, uint depth)
 				zs.avail_in = compressed_size;
 				zs.next_out = out;
 				zs.avail_out = uncompressed_size;
-				if (inflateInit2 (&zs, -MAX_WBITS) != Z_OK || inflate (&zs, Z_FINISH) != Z_STREAM_END
-					|| zs.total_out != uncompressed_size || inflateEnd (&zs) != Z_OK)
+				if (inflateInit2 (&zs, -MAX_WBITS) != Z_OK
+					|| inflate (&zs, Z_FINISH) != Z_STREAM_END || zs.total_out != uncompressed_size
+					|| inflateEnd (&zs) != Z_OK)
 				{
 					FREE (out);
 					goto next_zip_entry;
@@ -1888,13 +1905,15 @@ static enumError extract_zip_file (ccp arg, ccp basedir, uint depth)
 			snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", rel);
 			File_t F;
 			err = CreateFileOpt (&F, true, path, false, arg);
-			if (F.f && uncompressed_size && fwrite (out, 1, uncompressed_size, F.f) != uncompressed_size)
-				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", uncompressed_size, path);
+			if (F.f && uncompressed_size
+				&& fwrite (out, 1, uncompressed_size, F.f) != uncompressed_size)
+				err = FILEERROR1 (
+					&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", uncompressed_size, path);
 			ResetFile (&F, opt_preserve);
 			FREE (out);
 		}
 
-next_zip_entry:
+	next_zip_entry:
 		entry += 46u + name_len + extra_len + zip_le16 (entry + 32);
 	}
 	FREE (raw);
@@ -2007,10 +2026,10 @@ static bool decode_storybook_prs (u8 *out, uint out_size, const u8 *in, uint in_
 	u8 control = in[ip++];
 	for (;;)
 	{
-		#define PRS_BIT() \
-			( --n_bits == 0 ? ( ip >= in_size ? -1 : ( control = in[ip++], n_bits = 8, control & 1 ) ) \
-				: control & 1 )
-		int bit = PRS_BIT();
+#define PRS_BIT()                                                                                  \
+	(--n_bits == 0 ? (ip >= in_size ? -1 : (control = in[ip++], n_bits = 8, control & 1))          \
+				   : control & 1)
+		int bit = PRS_BIT ();
 		if (bit < 0)
 			return false;
 		control >>= 1;
@@ -2022,7 +2041,7 @@ static bool decode_storybook_prs (u8 *out, uint out_size, const u8 *in, uint in_
 			continue;
 		}
 
-		bit = PRS_BIT();
+		bit = PRS_BIT ();
 		if (bit < 0)
 			return false;
 		control >>= 1;
@@ -2048,11 +2067,11 @@ static bool decode_storybook_prs (u8 *out, uint out_size, const u8 *in, uint in_
 		}
 		else
 		{
-			int b0 = PRS_BIT();
+			int b0 = PRS_BIT ();
 			if (b0 < 0)
 				return false;
 			control >>= 1;
-			int b1 = PRS_BIT();
+			int b1 = PRS_BIT ();
 			if (b1 < 0 || ip >= in_size)
 				return false;
 			control >>= 1;
@@ -2063,7 +2082,7 @@ static bool decode_storybook_prs (u8 *out, uint out_size, const u8 *in, uint in_
 			return false;
 		while (length--)
 			out[op] = out[op + offset], op++;
-		#undef PRS_BIT
+#undef PRS_BIT
 	}
 }
 
@@ -2078,9 +2097,10 @@ static enumError extract_storybook_one_file (ccp arg, ccp basedir, uint depth)
 	enumError err = ERR_NOTHING_TO_DO;
 	if (raw_size < 16 || raw_size > UINT_MAX)
 		goto cleanup;
-	const uint n_entries = be32 (raw), table = be32 (raw + 4), data = be32 (raw + 8), marker = be32 (raw + 12);
-	if (!n_entries || n_entries > (raw_size - 16) / 48 || table != 16 || (marker != 0 && marker != UINT_MAX)
-		|| data < table + n_entries * 48 || data > raw_size)
+	const uint n_entries = be32 (raw), table = be32 (raw + 4), data = be32 (raw + 8),
+			   marker = be32 (raw + 12);
+	if (!n_entries || n_entries > (raw_size - 16) / 48 || table != 16
+		|| (marker != 0 && marker != UINT_MAX) || data < table + n_entries * 48 || data > raw_size)
 		goto cleanup;
 
 	char dest[PATH_MAX];
@@ -2095,9 +2115,11 @@ static enumError extract_storybook_one_file (ccp arg, ccp basedir, uint depth)
 		char name[33];
 		memcpy (name, entry, 32);
 		name[32] = 0;
-		const uint offset = be32 (entry + 36), size = be32 (entry + 40), out_size = be32 (entry + 44);
-		if (!valid_sarc_path (name) || !*name || offset < data || offset > raw_size || size > raw_size - offset
-			|| !out_size || (opt_max_file_size && out_size > opt_max_file_size))
+		const uint offset = be32 (entry + 36), size = be32 (entry + 40),
+				   out_size = be32 (entry + 44);
+		if (!valid_sarc_path (name) || !*name || offset < data || offset > raw_size
+			|| size > raw_size - offset || !out_size
+			|| (opt_max_file_size && out_size > opt_max_file_size))
 		{
 			err = ERR_INVALID_DATA;
 			break;
@@ -2116,7 +2138,8 @@ static enumError extract_storybook_one_file (ccp arg, ccp basedir, uint depth)
 		File_t F;
 		err = CreateFileOpt (&F, true, path, false, arg);
 		if (F.f && fwrite (out, 1, out_size, F.f) != out_size)
-			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", out_size, path);
+			err = FILEERROR1 (
+				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", out_size, path);
 		ResetFile (&F, opt_preserve);
 		FREE (out);
 	}
@@ -2163,7 +2186,7 @@ static enumError write_abe_member (FILE *in, u64 off, u32 size, ccp path, ccp so
 		err = ERR_READ_FAILED;
 	for (u32 left = size; !err && left;)
 	{
-		const size_t want = left < sizeof(buf) ? left : sizeof(buf);
+		const size_t want = left < sizeof (buf) ? left : sizeof (buf);
 		const size_t got = fread (buf, 1, want, in);
 		if (got != want || fwrite (buf, 1, got, out.f) != got)
 			err = ERR_WRITE_FAILED;
@@ -2186,7 +2209,7 @@ static enumError extract_bigf_file (ccp arg, ccp basedir, uint depth)
 	FILE *in = fopen (arg, "rb");
 	if (!in)
 		return ERR_NOT_EXISTS;
-	if (!read_abe_at (in, 0, header, sizeof(header)) || memcmp (header, "BIGF", 4))
+	if (!read_abe_at (in, 0, header, sizeof (header)) || memcmp (header, "BIGF", 4))
 	{
 		fclose (in);
 		return ERR_NOTHING_TO_DO;
@@ -2202,42 +2225,43 @@ static enumError extract_bigf_file (ccp arg, ccp basedir, uint depth)
 	// BIGF's total-size field is the one little-endian field in this variant;
 	// its member table remains big-endian.  (Littlest Pet Shop's data.big is
 	// 947,545 bytes: header bytes 59 75 0e 00.)
-	const u32 archive_size = get_le32(header + 4);
-	const u32 n_entries = be32(header + 8);
-	const u32 data_off = be32(header + 12);
+	const u32 archive_size = get_le32 (header + 4);
+	const u32 n_entries = be32 (header + 8);
+	const u32 data_off = be32 (header + 12);
 	if (!file_size || archive_size != file_size || !n_entries || n_entries > 0x100000
-		|| data_off < sizeof(header) || data_off > file_size)
+		|| data_off < sizeof (header) || data_off > file_size)
 	{
 		fclose (in);
 		return ERR_INVALID_DATA;
 	}
 
 	char dest[PATH_MAX];
-	beside_source_dest (dest, sizeof(dest), arg);
+	beside_source_dest (dest, sizeof (dest), arg);
 	if (verbose >= 0 || testmode)
 		fprintf (stdlog, "%s%sEXTRACT EA BIGF:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
 			testmode ? "WOULD " : "", arg, n_entries, dest);
 
 	enumError err = ERR_OK;
-	u64 table_pos = sizeof(header);
+	u64 table_pos = sizeof (header);
 	for (u32 i = 0; !err && i < n_entries; i++)
 	{
 		u8 entry[8];
-		if (table_pos > data_off - sizeof(entry) || !read_abe_at(in, table_pos, entry, sizeof(entry)))
+		if (table_pos > data_off - sizeof (entry)
+			|| !read_abe_at (in, table_pos, entry, sizeof (entry)))
 		{
 			err = ERR_INVALID_DATA;
 			break;
 		}
-		table_pos += sizeof(entry);
-		const u64 member_off = be32(entry);
-		const u32 member_size = be32(entry + 4);
+		table_pos += sizeof (entry);
+		const u64 member_off = be32 (entry);
+		const u32 member_size = be32 (entry + 4);
 		char name[PATH_MAX];
 		uint name_len = 0;
 		for (;;)
 		{
 			u8 ch;
-			if (table_pos >= data_off || name_len + 1 >= sizeof(name)
-				|| !read_abe_at(in, table_pos++, &ch, 1))
+			if (table_pos >= data_off || name_len + 1 >= sizeof (name)
+				|| !read_abe_at (in, table_pos++, &ch, 1))
 			{
 				err = ERR_INVALID_DATA;
 				break;
@@ -2248,7 +2272,7 @@ static enumError extract_bigf_file (ccp arg, ccp basedir, uint depth)
 		}
 		if (err)
 			break;
-		if (!valid_sarc_path(name) || member_off < data_off || member_off > file_size
+		if (!valid_sarc_path (name) || member_off < data_off || member_off > file_size
 			|| member_size > file_size - member_off
 			|| (opt_max_file_size && member_size > opt_max_file_size))
 		{
@@ -2258,8 +2282,8 @@ static enumError extract_bigf_file (ccp arg, ccp basedir, uint depth)
 		if (!testmode)
 		{
 			char path[PATH_MAX];
-			snprintf(path, sizeof(path), "%s/%s", dest, name);
-			err = write_abe_member(in, member_off, member_size, path, arg);
+			snprintf (path, sizeof (path), "%s/%s", dest, name);
+			err = write_abe_member (in, member_off, member_size, path, arg);
 		}
 	}
 	// Retail BIGFs terminate their variable records with the four-byte L234
@@ -2268,20 +2292,21 @@ static enumError extract_bigf_file (ccp arg, ccp basedir, uint depth)
 	if (!err && table_pos != data_off)
 	{
 		u8 marker[4];
-		if (data_off - table_pos < sizeof(marker) || !read_abe_at(in, table_pos, marker, sizeof(marker))
-			|| memcmp(marker, "L234", sizeof(marker)))
+		if (data_off - table_pos < sizeof (marker)
+			|| !read_abe_at (in, table_pos, marker, sizeof (marker))
+			|| memcmp (marker, "L234", sizeof (marker)))
 			err = ERR_INVALID_DATA;
-		for (u64 pos = table_pos + sizeof(marker); !err && pos < data_off; pos++)
+		for (u64 pos = table_pos + sizeof (marker); !err && pos < data_off; pos++)
 		{
 			u8 pad;
-			if (!read_abe_at(in, pos, &pad, 1) || pad)
+			if (!read_abe_at (in, pos, &pad, 1) || pad)
 				err = ERR_INVALID_DATA;
 		}
 	}
-	fclose(in);
+	fclose (in);
 	if (!err && !testmode)
 	{
-		enumError sub = extract_tree_complete(dest, depth + 1);
+		enumError sub = extract_tree_complete (dest, depth + 1);
 		if (err < sub)
 			err = sub;
 	}
@@ -2295,15 +2320,15 @@ static enumError extract_bigf_file (ccp arg, ccp basedir, uint depth)
 // which otherwise creates a bogus .d directory and reports invalid data.
 static bool is_littlest_pet_shop_rpk (ccp arg)
 {
-	if (!is_ext(arg, ".rpk"))
+	if (!is_ext (arg, ".rpk"))
 		return false;
 	u8 head[12];
-	FILE *f = fopen(arg, "rb");
-	const size_t got = f ? fread(head, 1, sizeof(head), f) : 0;
+	FILE *f = fopen (arg, "rb");
+	const size_t got = f ? fread (head, 1, sizeof (head), f) : 0;
 	if (f)
-		fclose(f);
-	return got == sizeof(head) && head[0] == 0x15 && head[1] == 0xfb
-		&& !memcmp(head + 7, "STRM\0", 5);
+		fclose (f);
+	return got == sizeof (head) && head[0] == 0x15 && head[1] == 0xfb
+		&& !memcmp (head + 7, "STRM\0", 5);
 }
 
 // Jump Ultimate Stars / Jump Super Stars "ALAR" archive. FF_ALAR carries
@@ -2367,7 +2392,8 @@ static enumError extract_alar_file (ccp arg, ccp basedir, uint depth)
 			File_t F;
 			err = CreateFileOpt (&F, true, path, false, arg);
 			if (F.f && fwrite (raw + off, 1, size, F.f) != size)
-				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, path);
+				err = FILEERROR1 (
+					&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, path);
 			ResetFile (&F, opt_preserve);
 		}
 		emitted = 1;
@@ -2420,7 +2446,8 @@ static enumError extract_alar_file (ccp arg, ccp basedir, uint depth)
 			File_t F;
 			err = CreateFileOpt (&F, true, path, false, arg);
 			if (F.f && fwrite (raw + off, 1, size, F.f) != size)
-				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, path);
+				err = FILEERROR1 (
+					&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, path);
 			ResetFile (&F, opt_preserve);
 			emitted++;
 		}
@@ -2513,8 +2540,8 @@ static enumError extract_arc0_file (ccp arg, ccp basedir, uint depth)
 		if (!testmode)
 		{
 			char path[PATH_MAX];
-			snprintf (path, sizeof (path), "%s/%schunk_%06u.xpck", dest, basedir ? basedir : "",
-				emitted);
+			snprintf (
+				path, sizeof (path), "%s/%schunk_%06u.xpck", dest, basedir ? basedir : "", emitted);
 			File_t F;
 			err = CreateFileOpt (&F, true, path, false, arg);
 			if (F.f && fwrite (raw + pos, 1, sz, F.f) != sz)
@@ -2547,16 +2574,16 @@ static enumError extract_abe_file (ccp arg, ccp basedir, uint depth)
 	FILE *in = fopen (arg, "rb");
 	if (!in)
 		return ERR_NOT_EXISTS;
-	if (!read_abe_at (in, 0, header, sizeof(header)) || memcmp (header, "ABE\0", 4)
-		|| get_le32(header+4) != 4)
+	if (!read_abe_at (in, 0, header, sizeof (header)) || memcmp (header, "ABE\0", 4)
+		|| get_le32 (header + 4) != 4)
 	{
 		fclose (in);
 		return ERR_NOTHING_TO_DO;
 	}
 
-	const u32 ntab = get_le32(header+0x0c);
-	const u32 nfile = get_le32(header+0x2c);
-	u64 tab = get_le32(header+0x18);
+	const u32 ntab = get_le32 (header + 0x0c);
+	const u32 nfile = get_le32 (header + 0x2c);
+	u64 tab = get_le32 (header + 0x18);
 	if (!ntab || !nfile || ntab > 64 || !tab)
 	{
 		fclose (in);
@@ -2564,7 +2591,7 @@ static enumError extract_abe_file (ccp arg, ccp basedir, uint depth)
 	}
 
 	char dest[PATH_MAX];
-	beside_source_dest (dest, sizeof(dest), arg);
+	beside_source_dest (dest, sizeof (dest), arg);
 	if (verbose >= 0 || testmode)
 		fprintf (stdlog, "%s%sEXTRACT ABE:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
 			testmode ? "WOULD " : "", arg, nfile, dest);
@@ -2574,111 +2601,169 @@ static enumError extract_abe_file (ccp arg, ccp basedir, uint depth)
 	for (u32 ti = 0; !err && ti < ntab && emitted < nfile; ti++)
 	{
 		u8 th[12];
-		if (!read_abe_at(in,tab,th,sizeof(th))) { err = ERR_INVALID_DATA; break; }
-		const u32 count = get_le32(th);
-		const u32 link = get_le32(th+4);
-		const u32 next = get_le32(th+8);
+		if (!read_abe_at (in, tab, th, sizeof (th)))
+		{
+			err = ERR_INVALID_DATA;
+			break;
+		}
+		const u32 count = get_le32 (th);
+		const u32 link = get_le32 (th + 4);
+		const u32 next = get_le32 (th + 8);
 		if (count > nfile - emitted || tab > UINT_MAX - 12ULL - (u64)count * 0xc8)
-			{ err = ERR_INVALID_DATA; break; }
+		{
+			err = ERR_INVALID_DATA;
+			break;
+		}
 		for (u32 i = 0; !err && i < count; i++, emitted++)
 		{
 			u8 entry[0xc8], engine[0x20];
-			if (!read_abe_at(in,tab+12ULL+(u64)i*0xc8,entry,sizeof(entry)))
-				{ err = ERR_INVALID_DATA; break; }
+			if (!read_abe_at (in, tab + 12ULL + (u64)i * 0xc8, entry, sizeof (entry)))
+			{
+				err = ERR_INVALID_DATA;
+				break;
+			}
 			// The 64-byte name area holds two NUL-terminated strings back to
 			// back: the base name, then the extension (e.g. "fbf01f48\0bin\0").
 			char base[65];
-			memcpy(base,entry,64); base[64] = 0;
-			if (!valid_abe_name(base))
-				{ err = ERR_INVALID_DATA; break; }
-			const size_t base_len = strlen(base);
+			memcpy (base, entry, 64);
+			base[64] = 0;
+			if (!valid_abe_name (base))
+			{
+				err = ERR_INVALID_DATA;
+				break;
+			}
+			const size_t base_len = strlen (base);
 			ccp ext = base_len < 63 ? base + base_len + 1 : "";
 			char name[130];
-			if (*ext && valid_abe_name(ext))
-				snprintf(name,sizeof(name),"%s.%s",base,ext);
+			if (*ext && valid_abe_name (ext))
+				snprintf (name, sizeof (name), "%s.%s", base, ext);
 			else
-				snprintf(name,sizeof(name),"%s",base);
-			const u64 data_off = get_le32(entry+0x6c);
+				snprintf (name, sizeof (name), "%s", base);
+			const u64 data_off = get_le32 (entry + 0x6c);
 			char path[PATH_MAX];
-			snprintf(path,sizeof(path),"%s/%s",dest,name);
+			snprintf (path, sizeof (path), "%s/%s", dest, name);
 			if (testmode)
 				continue;
-			if (!read_abe_at(in,data_off,engine,sizeof(engine)))
-				{ err = ERR_INVALID_DATA; break; }
-			const u32 packed = get_le32(engine);
-			const u32 original = get_le32(engine+4);
-			const u32 type = get_le32(engine+12);
+			if (!read_abe_at (in, data_off, engine, sizeof (engine)))
+			{
+				err = ERR_INVALID_DATA;
+				break;
+			}
+			const u32 packed = get_le32 (engine);
+			const u32 original = get_le32 (engine + 4);
+			const u32 type = get_le32 (engine + 12);
 			if (type == 0 && original && packed <= UINT_MAX - 32)
 			{
 				if (packed == original)
-					err = write_abe_member(in,data_off+32,original,path,arg);
+					err = write_abe_member (in, data_off + 32, original, path, arg);
 				else
 				{
-					u8 *src = MALLOC(packed), *dec = 0; uint dec_size = 0;
-					if (!src || !read_abe_at(in,data_off+32,src,packed)) err = ERR_INVALID_DATA;
-					else err = DecodeLZO1XGrow(&dec,&dec_size,src,packed);
-					if (!err && dec_size != original) err = ERR_INVALID_DATA;
-					if (!err) { File_t out; err=CreateFileOpt(&out,true,path,false,arg); if (out.f) { if (fwrite(dec,1,dec_size,out.f)!=dec_size) err=ERR_WRITE_FAILED; ResetFile(&out,opt_preserve); } }
-					FREE(src); FREE(dec);
+					u8 *src = MALLOC (packed), *dec = 0;
+					uint dec_size = 0;
+					if (!src || !read_abe_at (in, data_off + 32, src, packed))
+						err = ERR_INVALID_DATA;
+					else
+						err = DecodeLZO1XGrow (&dec, &dec_size, src, packed);
+					if (!err && dec_size != original)
+						err = ERR_INVALID_DATA;
+					if (!err)
+					{
+						File_t out;
+						err = CreateFileOpt (&out, true, path, false, arg);
+						if (out.f)
+						{
+							if (fwrite (dec, 1, dec_size, out.f) != dec_size)
+								err = ERR_WRITE_FAILED;
+							ResetFile (&out, opt_preserve);
+						}
+					}
+					FREE (src);
+					FREE (dec);
 				}
 			}
 			else if (type == 2 && original)
-				err = write_abe_member(in,data_off+32,original,path,arg);
+				err = write_abe_member (in, data_off + 32, original, path, arg);
 			else if (!type && !original)
 				err = ERR_OK;
 			else if (type == 4 && original)
 			{
 				u8 count_buf[4];
-				if (!read_abe_at(in,data_off+32,count_buf,sizeof(count_buf))) { err=ERR_INVALID_DATA; break; }
-				const u32 chunks = get_le32(count_buf);
-				if (!chunks || chunks > 0x10000) { err=ERR_INVALID_DATA; break; }
-				u32 *sizes = MALLOC((size_t)chunks*sizeof(*sizes));
-				if (!sizes || !read_abe_at(in,data_off+36,sizes,(size_t)chunks*sizeof(*sizes))) err=ERR_INVALID_DATA;
-				File_t out = {0};
-				if (!err) err=CreateFileOpt(&out,true,path,false,arg);
-				u64 pos = data_off + 36ULL + (u64)chunks*4;
-				u32 left = original;
-				for (u32 j=0; !err && j<chunks && left; j++)
+				if (!read_abe_at (in, data_off + 32, count_buf, sizeof (count_buf)))
 				{
-					const u32 packed_size=get_le32((u8*)sizes+j*4);
-					const u32 want=left < 0x3fffc ? left : 0x3fffc;
+					err = ERR_INVALID_DATA;
+					break;
+				}
+				const u32 chunks = get_le32 (count_buf);
+				if (!chunks || chunks > 0x10000)
+				{
+					err = ERR_INVALID_DATA;
+					break;
+				}
+				u32 *sizes = MALLOC ((size_t)chunks * sizeof (*sizes));
+				if (!sizes
+					|| !read_abe_at (in, data_off + 36, sizes, (size_t)chunks * sizeof (*sizes)))
+					err = ERR_INVALID_DATA;
+				File_t out = { 0 };
+				if (!err)
+					err = CreateFileOpt (&out, true, path, false, arg);
+				u64 pos = data_off + 36ULL + (u64)chunks * 4;
+				u32 left = original;
+				for (u32 j = 0; !err && j < chunks && left; j++)
+				{
+					const u32 packed_size = get_le32 ((u8 *)sizes + j * 4);
+					const u32 want = left < 0x3fffc ? left : 0x3fffc;
 					if (!packed_size)
 					{
-						u8 *raw=MALLOC(want);
-						if (!raw || !read_abe_at(in,pos,raw,want) || fwrite(raw,1,want,out.f)!=want)
-							err=ERR_WRITE_FAILED;
-						FREE(raw);
+						u8 *raw = MALLOC (want);
+						if (!raw || !read_abe_at (in, pos, raw, want)
+							|| fwrite (raw, 1, want, out.f) != want)
+							err = ERR_WRITE_FAILED;
+						FREE (raw);
 					}
 					else
 					{
-						u8 *src=MALLOC(packed_size), *dec=0; uint dec_size=0;
-						if (!src || !read_abe_at(in,pos,src,packed_size)) err=ERR_INVALID_DATA;
-						else err=DecodeLZO1XGrow(&dec,&dec_size,src,packed_size);
-						if (!err && (dec_size != want || fwrite(dec,1,dec_size,out.f)!=dec_size)) err=ERR_WRITE_FAILED;
-						FREE(src); FREE(dec);
+						u8 *src = MALLOC (packed_size), *dec = 0;
+						uint dec_size = 0;
+						if (!src || !read_abe_at (in, pos, src, packed_size))
+							err = ERR_INVALID_DATA;
+						else
+							err = DecodeLZO1XGrow (&dec, &dec_size, src, packed_size);
+						if (!err
+							&& (dec_size != want || fwrite (dec, 1, dec_size, out.f) != dec_size))
+							err = ERR_WRITE_FAILED;
+						FREE (src);
+						FREE (dec);
 					}
 					pos += packed_size ? packed_size : want;
 					left -= want;
 				}
-				if (!err && left) err=ERR_INVALID_DATA;
-				if (out.f) ResetFile(&out,opt_preserve);
-				FREE(sizes);
+				if (!err && left)
+					err = ERR_INVALID_DATA;
+				if (out.f)
+					ResetFile (&out, opt_preserve);
+				FREE (sizes);
 			}
 			else
 				// Type 3 is a cross-BigFile shortcut. Keep its engine record so
 				// callers can resolve it against the companion archive.
-				err = write_abe_member(in,data_off,packed,path,arg);
+				err = write_abe_member (in, data_off, packed, path, arg);
 		}
-		if (link == 0 && next != UINT_MAX) tab = next;
-		else if (ti + 1 < ntab) { err = ERR_INVALID_DATA; break; }
+		if (link == 0 && next != UINT_MAX)
+			tab = next;
+		else if (ti + 1 < ntab)
+		{
+			err = ERR_INVALID_DATA;
+			break;
+		}
 	}
-	fclose(in);
+	fclose (in);
 	if (!err && emitted != nfile)
 		err = ERR_INVALID_DATA;
 	if (!err && !testmode)
 	{
-		enumError sub = extract_tree_complete(dest,depth+1);
-		if (err < sub) err = sub;
+		enumError sub = extract_tree_complete (dest, depth + 1);
+		if (err < sub)
+			err = sub;
 	}
 	return err;
 }
@@ -3176,8 +3261,8 @@ static enumError extract_namco_sszl_file (ccp arg, ccp basedir, uint depth)
 	size_t raw_size = 0;
 	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false))
 		return ERR_NOTHING_TO_DO;
-	if (raw_size < 16 || raw_size > UINT_MAX || memcmp (raw, "SSZL", 4)
-		|| le32 (raw + 4) || le32 (raw + 8) > raw_size - 16 || !le32 (raw + 12))
+	if (raw_size < 16 || raw_size > UINT_MAX || memcmp (raw, "SSZL", 4) || le32 (raw + 4)
+		|| le32 (raw + 8) > raw_size - 16 || !le32 (raw + 12))
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
@@ -3193,8 +3278,8 @@ static enumError extract_namco_sszl_file (ccp arg, ccp basedir, uint depth)
 	char dest[PATH_MAX];
 	beside_source_dest (dest, sizeof (dest), arg);
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT SSZL:%s (%u -> %u bytes) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, zsize, usize, dest);
+		fprintf (stdlog, "%s%sEXTRACT SSZL:%s (%u -> %u bytes) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, zsize, usize, dest);
 	enumError err = ERR_OK;
 	if (!testmode)
 	{
@@ -3211,7 +3296,8 @@ static enumError extract_namco_sszl_file (ccp arg, ccp basedir, uint depth)
 	if (!err && !testmode)
 	{
 		enumError sub = extract_tree_complete (dest, depth + 1);
-		if (err < sub) err = sub;
+		if (err < sub)
+			err = sub;
 	}
 	return err;
 }
@@ -3278,7 +3364,8 @@ static enumError extract_namco_vcra_file (ccp arg, ccp basedir, uint depth)
 	if (!err && !testmode)
 	{
 		enumError sub = extract_tree_complete (dest, depth + 1);
-		if (err < sub) err = sub;
+		if (err < sub)
+			err = sub;
 	}
 	return err;
 }
@@ -3429,8 +3516,8 @@ static enumError extract_cod_pak0_file (ccp arg, ccp basedir, uint depth)
 			continue;
 
 		char path[PATH_MAX];
-		snprintf (path, sizeof (path), "%s/%s%s_0x%08x.dsp", dest,
-			basedir ? basedir : "", stem, crc);
+		snprintf (
+			path, sizeof (path), "%s/%s%s_0x%08x.dsp", dest, basedir ? basedir : "", stem, crc);
 		File_t F;
 		err = CreateFileOpt (&F, true, path, false, arg);
 		if (F.f && size && fwrite (raw + off, 1, size, F.f) != size)
@@ -3645,8 +3732,7 @@ static enumError extract_mpr_pack_file (ccp arg, ccp basedir, uint depth)
 		{
 			char guid[37];
 			FormatMPRGUID (guid, e->guid);
-			snprintf (path, sizeof (path), "%s/%s%s.%s", dest, basedir ? basedir : "", guid,
-				type);
+			snprintf (path, sizeof (path), "%s/%s%s.%s", dest, basedir ? basedir : "", guid, type);
 		}
 		File_t F;
 		// STRG names may carry folder components and dest itself may not
@@ -3685,33 +3771,34 @@ static enumError extract_mpr_pack_file (ccp arg, ccp basedir, uint depth)
 // distinctive to recognize it cheaply without decoding every member.
 static bool is_rpak_file (ccp arg)
 {
-	if (!is_ext(arg,".pak"))
+	if (!is_ext (arg, ".pak"))
 		return false;
 	u8 head[0x84];
-	FILE *f = fopen(arg,"rb");
-	const size_t got = f ? fread(head,1,sizeof(head),f) : 0;
-	if (!f || got != sizeof(head))
+	FILE *f = fopen (arg, "rb");
+	const size_t got = f ? fread (head, 1, sizeof (head), f) : 0;
+	if (!f || got != sizeof (head))
 	{
-		if (f) fclose(f);
+		if (f)
+			fclose (f);
 		return false;
 	}
-	const u32 strg_length = rd_be32(head+0x48);
-	const u32 rshd_length = rd_be32(head+0x50);
+	const u32 strg_length = rd_be32 (head + 0x48);
+	const u32 rshd_length = rd_be32 (head + 0x50);
 	if (!strg_length && !rshd_length)
 	{
-		fclose(f);
+		fclose (f);
 		return false;
 	}
 	const u64 entries_off = (u64)0x80 + strg_length;
-	if (entries_off > LONG_MAX || fseek(f,(long)entries_off,SEEK_SET))
+	if (entries_off > LONG_MAX || fseek (f, (long)entries_off, SEEK_SET))
 	{
-		fclose(f);
+		fclose (f);
 		return false;
 	}
 	u8 count[4];
-	const bool valid = fread(count,1,sizeof(count),f) == sizeof(count)
-		&& rd_be32(count) > 0 && rd_be32(count) <= 0x1000000;
-	fclose(f);
+	const bool valid = fread (count, 1, sizeof (count), f) == sizeof (count) && rd_be32 (count) > 0
+		&& rd_be32 (count) <= 0x1000000;
+	fclose (f);
 	return valid;
 }
 
@@ -3873,8 +3960,7 @@ static enumError extract_jarc_file (ccp arg, ccp basedir, uint depth)
 		File_t F;
 		err = CreateFileOpt (&F, true, path, false, arg);
 		if (F.f && e->size && e->data && fwrite (e->data, 1, e->size, F.f) != e->size)
-			err = FILEERROR1 (
-				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", e->size, path);
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", e->size, path);
 		ResetFile (&F, opt_preserve);
 	}
 
@@ -4229,8 +4315,8 @@ static enumError extract_fsys_file (ccp arg, ccp basedir, uint depth)
 // writer below.
 //-----------------------------------------------------------------------------
 
-static enumError write_owned_entries (ccp arg, ccp basedir, uint depth, ccp label,
-	nintendo_sarc_entry_t *entries, uint n_entries)
+static enumError write_owned_entries (
+	ccp arg, ccp basedir, uint depth, ccp label, nintendo_sarc_entry_t *entries, uint n_entries)
 {
 	char dest[PATH_MAX];
 	beside_source_dest (dest, sizeof (dest), arg);
@@ -4935,8 +5021,8 @@ static enumError extract_bntx_file (ccp arg, ccp basedir, uint depth)
 		if (!DecodeBNTX_RGBA (&rgba, &w, &h, &bntx, i) && rgba)
 		{
 			if (verbose >= 0 || testmode)
-				fprintf (stdlog, "%s%sEXTRACT BNTX:%s[%s] -> PNG:%s\n",
-					verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, tname, path);
+				fprintf (stdlog, "%s%sEXTRACT BNTX:%s[%s] -> PNG:%s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", arg, tname, path);
 			if (!testmode)
 				SaveDecodedRGBAToPNG (rgba, w, h, &le_func, path, 0, false);
 			else
@@ -5048,7 +5134,8 @@ static void export_rflres_tex_png_if_possible (ccp bin_path)
 {
 	u8 *raw = 0;
 	size_t raw_size = 0;
-	if (LoadFileAlloc (bin_path, 0, 0, &raw, &raw_size, 0, 0, 0, false) || raw_size < sizeof (bti_header_t))
+	if (LoadFileAlloc (bin_path, 0, 0, &raw, &raw_size, 0, 0, 0, false)
+		|| raw_size < sizeof (bti_header_t))
 	{
 		FREE (raw);
 		return;
@@ -5088,12 +5175,13 @@ static enumError extract_rflres_file (ccp arg, ccp basedir, uint depth)
 	// extension-less/foreign model from gaining a destructive-looking .d
 	// sibling merely because its first few words resemble an offset table.
 	ccp ext = strrchr (arg, '.');
-	if (!ext || (strcasecmp (ext, ".dat") && strcasecmp (ext, ".rflres")
-				 && strcasecmp (ext, ".rfl") && strcasecmp (ext, ".fflres")
-				 && strcasecmp (ext, ".ffl") && strcasecmp (ext, ".cflres")
-				 && strcasecmp (ext, ".cfl") && strcasecmp (ext, ".aflres")
-				 && strcasecmp (ext, ".afl") && strcasecmp (ext, ".nflres")
-				 && strcasecmp (ext, ".nfl") && strcasecmp (ext, ".nfl_res")))
+	if (!ext
+		|| (strcasecmp (ext, ".dat") && strcasecmp (ext, ".rflres") && strcasecmp (ext, ".rfl")
+			&& strcasecmp (ext, ".fflres") && strcasecmp (ext, ".ffl")
+			&& strcasecmp (ext, ".cflres") && strcasecmp (ext, ".cfl")
+			&& strcasecmp (ext, ".aflres") && strcasecmp (ext, ".afl")
+			&& strcasecmp (ext, ".nflres") && strcasecmp (ext, ".nfl")
+			&& strcasecmp (ext, ".nfl_res")))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;
@@ -5125,7 +5213,8 @@ static enumError extract_rflres_file (ccp arg, ccp basedir, uint depth)
 		for (uint i = 0; i < n_entries; i++)
 		{
 			char path[PATH_MAX];
-			snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", entries[i].name);
+			snprintf (
+				path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", entries[i].name);
 			File_t F;
 			CreateFileOpt (&F, true, path, false, arg);
 			const bool wrote_file = F.f != 0;
@@ -5338,13 +5427,14 @@ static enumError extract_atb_file (ccp arg, ccp basedir, uint depth)
 	beside_source_dest (dest, sizeof (dest), arg);
 	if (verbose >= 0 || testmode)
 		fprintf (stdlog, "%s%sEXTRACT ATB:%s -> %s/ (%u textures, %u patterns, %u banks)\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest,
-			atb.num_textures, atb.num_patterns, atb.num_banks);
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest, atb.num_textures,
+			atb.num_patterns, atb.num_banks);
 
 	if (!testmode)
 	{
 		char setup_path[PATH_MAX];
-		snprintf (setup_path, sizeof (setup_path), "%s/%satb-setup.txt", dest, basedir ? basedir : "");
+		snprintf (
+			setup_path, sizeof (setup_path), "%s/%satb-setup.txt", dest, basedir ? basedir : "");
 		File_t SF;
 		CreateFileOpt (&SF, true, setup_path, false, arg);
 		FILE *f = SF.f;
@@ -5363,11 +5453,12 @@ static enumError extract_atb_file (ccp arg, ccp basedir, uint depth)
 			snprintf (png_name, sizeof (png_name), "tex_%03u.png", i);
 
 			if (f)
-				fprintf (f, "texture %u format=%u bpp=%u pal_size=%u size=%u,%u raw=%s png=%s\n",
-					i, t->format, t->bpp, t->palette_size, t->width, t->height, raw_name, png_name);
+				fprintf (f, "texture %u format=%u bpp=%u pal_size=%u size=%u,%u raw=%s png=%s\n", i,
+					t->format, t->bpp, t->palette_size, t->width, t->height, raw_name, png_name);
 
 			char raw_path[PATH_MAX];
-			snprintf (raw_path, sizeof (raw_path), "%s/%s%s", dest, basedir ? basedir : "", raw_name);
+			snprintf (
+				raw_path, sizeof (raw_path), "%s/%s%s", dest, basedir ? basedir : "", raw_name);
 			File_t RF;
 			CreateFileOpt (&RF, true, raw_path, false, arg);
 			if (RF.f)
@@ -5384,28 +5475,53 @@ static enumError extract_atb_file (ccp arg, ccp basedir, uint depth)
 			uint pal_fmt = 2;
 			switch (t->format)
 			{
-				case 0x00: gx_fmt = 6; break;
-				case 0x01: gx_fmt = 5; break;
-				case 0x02: gx_fmt = 4; break;
-				case 0x03: gx_fmt = 9; pal_fmt = 2; break;
-				case 0x04: gx_fmt = 8; pal_fmt = 2; break;
+				case 0x00:
+					gx_fmt = 6;
+					break;
+				case 0x01:
+					gx_fmt = 5;
+					break;
+				case 0x02:
+					gx_fmt = 4;
+					break;
+				case 0x03:
+					gx_fmt = 9;
+					pal_fmt = 2;
+					break;
+				case 0x04:
+					gx_fmt = 8;
+					pal_fmt = 2;
+					break;
 				case 0x05:
-				case 0x09: gx_fmt = 3; break;
-				case 0x06: gx_fmt = 2; break;
-				case 0x07: gx_fmt = 1; break;
-				case 0x08: gx_fmt = 0; break;
-				case 0x0a: gx_fmt = 14; break;
-				default: gx_fmt = 6; break;
+				case 0x09:
+					gx_fmt = 3;
+					break;
+				case 0x06:
+					gx_fmt = 2;
+					break;
+				case 0x07:
+					gx_fmt = 1;
+					break;
+				case 0x08:
+					gx_fmt = 0;
+					break;
+				case 0x0a:
+					gx_fmt = 14;
+					break;
+				default:
+					gx_fmt = 6;
+					break;
 			}
 
 			if (t->width && t->height && t->image_data)
 			{
 				u8 *rgba = 0;
-				if (!DecodeGXTexture_RGBA (&rgba, t->width, t->height, gx_fmt,
-						t->image_data, t->image_size, t->palette_data, t->palette_size, pal_fmt))
+				if (!DecodeGXTexture_RGBA (&rgba, t->width, t->height, gx_fmt, t->image_data,
+						t->image_size, t->palette_data, t->palette_size, pal_fmt))
 				{
 					char png_path[PATH_MAX];
-					snprintf (png_path, sizeof (png_path), "%s/%s%s", dest, basedir ? basedir : "", png_name);
+					snprintf (png_path, sizeof (png_path), "%s/%s%s", dest, basedir ? basedir : "",
+						png_name);
 					SaveDecodedRGBAToPNG (rgba, t->width, t->height, &be_func, png_path, 0, true);
 				}
 			}
@@ -5417,17 +5533,19 @@ static enumError extract_atb_file (ccp arg, ccp basedir, uint depth)
 			for (uint i = 0; i < atb.num_patterns; i++)
 			{
 				atb_pattern_t *p = &atb.patterns[i];
-				fprintf (f, "pattern %u center=%d,%d size=%d,%d\n",
-					i, p->center_x, p->center_y, p->width, p->height);
+				fprintf (f, "pattern %u center=%d,%d size=%d,%d\n", i, p->center_x, p->center_y,
+					p->width, p->height);
 				for (uint l = 0; l < p->layer_count; l++)
 				{
 					atb_layer_t *layer = &p->layers[l];
-					fprintf (f, "layer pattern=%u tex=%d alpha=%u flip=%u coord=%d,%d,%d,%d shift=%d,%d vtx=%d,%d,%d,%d,%d,%d,%d,%d\n",
-						i, layer->texture_index, layer->alpha, layer->flip,
-						layer->tex_coord_tl_x, layer->tex_coord_tl_y, layer->tex_coord_w, layer->tex_coord_h,
-						layer->shift_x, layer->shift_y,
-						layer->vtx_tl_x, layer->vtx_tl_y, layer->vtx_tr_x, layer->vtx_tr_y,
-						layer->vtx_br_x, layer->vtx_br_y, layer->vtx_bl_x, layer->vtx_bl_y);
+					fprintf (f,
+						"layer pattern=%u tex=%d alpha=%u flip=%u coord=%d,%d,%d,%d shift=%d,%d "
+						"vtx=%d,%d,%d,%d,%d,%d,%d,%d\n",
+						i, layer->texture_index, layer->alpha, layer->flip, layer->tex_coord_tl_x,
+						layer->tex_coord_tl_y, layer->tex_coord_w, layer->tex_coord_h,
+						layer->shift_x, layer->shift_y, layer->vtx_tl_x, layer->vtx_tl_y,
+						layer->vtx_tr_x, layer->vtx_tr_y, layer->vtx_br_x, layer->vtx_br_y,
+						layer->vtx_bl_x, layer->vtx_bl_y);
 				}
 			}
 
@@ -5440,7 +5558,8 @@ static enumError extract_atb_file (ccp arg, ccp basedir, uint depth)
 				{
 					atb_anim_frame_t *fr = &b->frames[k];
 					fprintf (f, "frame bank=%u pattern=%d length=%d shift=%d,%d flip=%d unk=%d\n",
-						i, fr->pattern_index, fr->frame_length, fr->shift_x, fr->shift_y, fr->flip, fr->unk);
+						i, fr->pattern_index, fr->frame_length, fr->shift_x, fr->shift_y, fr->flip,
+						fr->unk);
 				}
 			}
 			ResetFile (&SF, opt_preserve);
@@ -5618,7 +5737,8 @@ static enumError extract_mii_file (ccp arg, ccp basedir, uint depth)
 
 	if (verbose >= 0 || testmode)
 		fprintf (stdlog, "%s%sEXTRACT MII:   %s -> %s%s%s\n", verbose > 0 ? "\n" : "",
-			testmode ? "WOULD " : "", arg, png_data ? dest_png : "", (png_data && glb_data) ? " + " : "", glb_data ? dest_glb : "");
+			testmode ? "WOULD " : "", arg, png_data ? dest_png : "",
+			(png_data && glb_data) ? " + " : "", glb_data ? dest_glb : "");
 
 	if (!testmode)
 	{
@@ -5758,8 +5878,7 @@ static enumError extract_csb_file (ccp arg, ccp basedir, uint depth)
 	u8 *decomp = 0;
 	uint decomp_size = 0;
 	if (IsZSTD (raw, (uint)raw_size) > 0
-		&& DecodeZSTD (&decomp, &decomp_size, raw, (uint)raw_size) == ERR_OK
-		&& decomp_size)
+		&& DecodeZSTD (&decomp, &decomp_size, raw, (uint)raw_size) == ERR_OK && decomp_size)
 	{
 		data = decomp;
 		data_size = decomp_size;
@@ -5991,7 +6110,8 @@ static enumError extract_mod_file (ccp arg, ccp basedir, uint depth)
 			return err;
 		StampFileMtime (mtdest, arg);
 		if (verbose >= 0)
-			fprintf (stdlog, "%sEXTRACT MTMOD:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, mtdest);
+			fprintf (
+				stdlog, "%sEXTRACT MTMOD:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, mtdest);
 		return ERR_OK;
 	}
 	size_t can_raw_size = 0;
@@ -6246,7 +6366,8 @@ static enumError extract_nut_file (ccp arg, ccp basedir, uint depth)
 			continue;
 
 		char path[PATH_MAX];
-		snprintf (path, sizeof (path), "%s/%s%s%s", dest, basedir ? basedir : "", nut.textures[i].name, ext);
+		snprintf (path, sizeof (path), "%s/%s%s%s", dest, basedir ? basedir : "",
+			nut.textures[i].name, ext);
 
 		File_t F;
 		err = CreateFileOpt (&F, true, path, false, arg);
@@ -6273,8 +6394,9 @@ static enumError extract_dtls_file (ccp arg, ccp basedir, uint depth)
 	ccp fname = FindFilename (arg, 0);
 	// Retail Smash 4 ships the lookup as an extensionless `content/ls`
 	// beside `content/dt00`; accept that exact basename too.
-	if (!fname || (!strstr (fname, "ls00") && !strstr (fname, "ls01") && !is_ext (arg, ".ls")
-		&& strcmp (fname, "ls")))
+	if (!fname
+		|| (!strstr (fname, "ls00") && !strstr (fname, "ls01") && !is_ext (arg, ".ls")
+			&& strcmp (fname, "ls")))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *ls_raw = 0;
@@ -6328,7 +6450,8 @@ static enumError extract_dtls_file (ccp arg, ccp basedir, uint depth)
 	if (err)
 	{
 		FREE (ls_raw);
-		if (dt_raw) FREE (dt_raw);
+		if (dt_raw)
+			FREE (dt_raw);
 		return ERR_NOTHING_TO_DO;
 	}
 
@@ -6343,7 +6466,8 @@ static enumError extract_dtls_file (ccp arg, ccp basedir, uint depth)
 		for (uint i = 0; i < n_entries; i++)
 		{
 			char path[PATH_MAX];
-			snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", entries[i].name);
+			snprintf (
+				path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", entries[i].name);
 			File_t F;
 			if (!CreateFileOpt (&F, true, path, false, arg) && F.f)
 			{
@@ -6356,7 +6480,8 @@ static enumError extract_dtls_file (ccp arg, ccp basedir, uint depth)
 
 	ResetOwnedEntries (entries, n_entries);
 	FREE (ls_raw);
-	if (dt_raw) FREE (dt_raw);
+	if (dt_raw)
+		FREE (dt_raw);
 	return ERR_OK;
 }
 
@@ -6647,11 +6772,12 @@ static enumError extract_vblank_file (ccp arg, ccp basedir, uint depth)
 	nintendo_sarc_entry_t *entries = 0;
 	uint n_entries = 0;
 	err = bfp ? ScanVblankBfp (&entries, &n_entries, raw, raw_size)
-		  : ScanVblankBap (&entries, &n_entries, raw, raw_size);
+			  : ScanVblankBap (&entries, &n_entries, raw, raw_size);
 	FREE (raw);
 	if (err || !n_entries)
 		return ERR_NOTHING_TO_DO;
-	return write_owned_entries (arg, basedir, depth, bfp ? "VBLANK-BFP" : "VBLANK-BAP", entries, n_entries);
+	return write_owned_entries (
+		arg, basedir, depth, bfp ? "VBLANK-BFP" : "VBLANK-BAP", entries, n_entries);
 }
 
 // Kuju kRAW music (Geometry Wars: Galaxies): PCM16 to WAV. Extract-only.
@@ -6850,7 +6976,8 @@ static enumError extract_asobo_bitmap_file (ccp arg, ccp basedir, uint depth)
 		return err;
 	err = SaveDecodedRGBAToPNG (rgba, w, h, &be_func, dest, 0, true);
 	if (!err && verbose >= 0)
-		fprintf (stdlog, "%sEXTRACT ASOBO-BITMAP:%s -> PNG:%s\n", verbose > 0 ? "\n" : "", arg, dest);
+		fprintf (
+			stdlog, "%sEXTRACT ASOBO-BITMAP:%s -> PNG:%s\n", verbose > 0 ? "\n" : "", arg, dest);
 	return err;
 }
 
@@ -7069,7 +7196,8 @@ static enumError extract_avalanche_tex_file (ccp arg, ccp basedir, uint depth)
 		if (err)
 			result = err;
 		else if (verbose >= 0)
-			fprintf (stdlog, "%sEXTRACT AVALANCHE-TEX:%s -> PNG:%s\n", verbose > 0 ? "\n" : "", arg, dest);
+			fprintf (stdlog, "%sEXTRACT AVALANCHE-TEX:%s -> PNG:%s\n", verbose > 0 ? "\n" : "", arg,
+				dest);
 	}
 	FREE (thb);
 	FREE (tbb);
@@ -7376,7 +7504,8 @@ static enumError extract_torus_hnk_file (ccp arg, ccp basedir, uint depth)
 			u8 *snd = 0, *wav = 0;
 			size_t snd_size = 0, wav_size = 0;
 			struct stat rst;
-			if (stat (rawpath, &rst) || LoadFileAlloc (rawpath, 0, 0, &snd, &snd_size, 0, 0, 0, false) || !snd)
+			if (stat (rawpath, &rst)
+				|| LoadFileAlloc (rawpath, 0, 0, &snd, &snd_size, 0, 0, 0, false) || !snd)
 				continue;
 			const enumError derr = DecodeTorusStream (&wav, &wav_size, a, snd, snd_size);
 			FREE (snd);
@@ -7385,7 +7514,8 @@ static enumError extract_torus_hnk_file (ccp arg, ccp basedir, uint depth)
 			File_t F;
 			err = CreateFileOpt (&F, true, path, false, arg);
 			if (F.f && fwrite (wav, 1, wav_size, F.f) != wav_size)
-				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", wav_size, path);
+				err = FILEERROR1 (
+					&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", wav_size, path);
 			ResetFile (&F, opt_preserve);
 			FREE (wav);
 		}
@@ -7504,8 +7634,10 @@ static enumError extract_toshi_tkl_file (ccp arg, ccp basedir, uint depth)
 		snprintf (dest, sizeof (dest), "%s.yaml", arg);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT TOSHI-TKL:%s (%u translations, %u quaternions, %u scales) -> %s\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, tkl.num_t, tkl.num_q, tkl.num_s, dest);
+		fprintf (stdlog,
+			"%s%sEXTRACT TOSHI-TKL:%s (%u translations, %u quaternions, %u scales) -> %s\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, tkl.num_t, tkl.num_q, tkl.num_s,
+			dest);
 
 	enumError err = ERR_OK;
 	if (!testmode)
@@ -7522,8 +7654,8 @@ static enumError extract_toshi_tkl_file (ccp arg, ccp basedir, uint depth)
 				"# num-scales > 0 has been found to confirm their encoding.\n#\n",
 				arg);
 			fprintf (F.f, "name: %s\n", tkl.name);
-			fprintf (F.f, "translation-scale: [ %.9g, %.9g, %.9g ]\n",
-				tkl.scale[0], tkl.scale[1], tkl.scale[2]);
+			fprintf (F.f, "translation-scale: [ %.9g, %.9g, %.9g ]\n", tkl.scale[0], tkl.scale[1],
+				tkl.scale[2]);
 
 			fprintf (F.f, "translations: # %u entries, verified\n", tkl.num_t);
 			for (u32 i = 0; i < tkl.num_t && !err; i++)
@@ -7625,8 +7757,8 @@ static enumError extract_pub_file (ccp arg, ccp basedir, uint depth)
 	char dest[PATH_MAX];
 	beside_source_dest (dest, sizeof (dest), arg);
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT PUB:%s (%u textures, %u meshes) -> %s/\n", verbose > 0 ? "\n" : "",
-			testmode ? "WOULD " : "", arg, count, mcount, dest);
+		fprintf (stdlog, "%s%sEXTRACT PUB:%s (%u textures, %u meshes) -> %s/\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, count, mcount, dest);
 
 	enumError err = ERR_OK;
 	for (uint i = 0; i < count && !err && !testmode; i++)
@@ -7635,7 +7767,8 @@ static enumError extract_pub_file (ccp arg, ccp basedir, uint depth)
 		if (DecodePubTexture (&rgba, list + i))
 			continue;
 		char path[PATH_MAX];
-		snprintf (path, sizeof (path), "%s/%s%04u_%08x.png", dest, basedir ? basedir : "", i, list[i].hash);
+		snprintf (path, sizeof (path), "%s/%s%04u_%08x.png", dest, basedir ? basedir : "", i,
+			list[i].hash);
 		err = SaveDecodedRGBAToPNG (rgba, list[i].width, list[i].height, &be_func, path, 0, true);
 	}
 	pub_tex_ctx_t tctx = { list, count, "" };
@@ -7645,7 +7778,8 @@ static enumError extract_pub_file (ccp arg, ccp basedir, uint depth)
 		if (!model)
 			continue;
 		char path[PATH_MAX];
-		snprintf (path, sizeof (path), "%s/%smesh_%04u_%08x.glb", dest, basedir ? basedir : "", i, meshes[i].hash);
+		snprintf (path, sizeof (path), "%s/%smesh_%04u_%08x.glb", dest, basedir ? basedir : "", i,
+			meshes[i].hash);
 		ExportModelToGLB (model, path);
 		FreeModel (model);
 	}
@@ -7709,15 +7843,18 @@ static enumError extract_rez_file (ccp arg, ccp basedir, uint depth)
 	{
 		const rez_res_t *r = list + i;
 		if (r->kind == REZ_ANIM)
-			continue;	// written with its model
+			continue; // written with its model
 		size_t n = 0;
 		u8 *res = LoadRezResource (raw, raw_size, r, &n);
 		if (!res)
 			continue;
 		char path[PATH_MAX];
-		const ccp ext = r->kind == REZ_TEXTURE ? "png" : r->kind == REZ_SOUND ? "wav"
-			: r->kind == REZ_MESH || r->kind == REZ_MOTION ? "glb" : "thp";
-		snprintf (path, sizeof (path), "%s/%s%04u_%03u.%s", dest, basedir ? basedir : "", r->group, r->index, ext);
+		const ccp ext = r->kind == REZ_TEXTURE			   ? "png"
+			: r->kind == REZ_SOUND						   ? "wav"
+			: r->kind == REZ_MESH || r->kind == REZ_MOTION ? "glb"
+														   : "thp";
+		snprintf (path, sizeof (path), "%s/%s%04u_%03u.%s", dest, basedir ? basedir : "", r->group,
+			r->index, ext);
 		if (r->kind == REZ_TEXTURE)
 		{
 			u8 *rgba = 0;
@@ -7742,8 +7879,10 @@ static enumError extract_rez_file (ccp arg, ccp basedir, uint depth)
 				// the animation is the resource after the model
 				const rez_res_t *ar = i + 1 < count ? list + i + 1 : 0;
 				size_t an = 0;
-				u8 *anim = ar && ar->kind == REZ_ANIM && ar->group == r->group && ar->index == r->index + 1
-					? LoadRezResource (raw, raw_size, ar, &an) : 0;
+				u8 *anim = ar && ar->kind == REZ_ANIM && ar->group == r->group
+						&& ar->index == r->index + 1
+					? LoadRezResource (raw, raw_size, ar, &an)
+					: 0;
 				if (anim)
 					AddRezAnimation (model, res, n, anim, an);
 				FREE (anim);
@@ -7770,7 +7909,8 @@ static enumError extract_rez_file (ccp arg, ccp basedir, uint depth)
 			File_t F;
 			err = CreateFileOpt (&F, true, path, false, arg);
 			if (F.f && fwrite (out, 1, out_size, F.f) != out_size)
-				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", out_size, path);
+				err = FILEERROR1 (
+					&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", out_size, path);
 			ResetFile (&F, opt_preserve);
 			FREE (wav);
 		}
@@ -7794,7 +7934,8 @@ static enumError extract_bombshell_file (ccp arg, ccp basedir, uint depth)
 	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false) || !raw)
 		return ERR_NOTHING_TO_DO;
 	uint count = 0;
-	bombshell_asset_t *list = IsBombshellPack (raw, raw_size) ? ListBombshell (raw, raw_size, &count) : 0;
+	bombshell_asset_t *list
+		= IsBombshellPack (raw, raw_size) ? ListBombshell (raw, raw_size, &count) : 0;
 	if (!list || !count)
 	{
 		FREE (list);
@@ -7815,31 +7956,38 @@ static enumError extract_bombshell_file (ccp arg, ccp basedir, uint depth)
 		const bombshell_asset_t *a = list + i;
 		char sub[64], path[PATH_MAX];
 		snprintf (sub, sizeof (sub), "%u_%s", a->dir,
-			a->dir_type < sizeof (dir_names) / sizeof (*dir_names) ? dir_names[a->dir_type] : "data");
+			a->dir_type < sizeof (dir_names) / sizeof (*dir_names) ? dir_names[a->dir_type]
+																   : "data");
 		if (a->kind == BSA_TEXTURE)
 		{
 			u8 *rgba = 0;
-			snprintf (path, sizeof (path), "%s/%s%s/textures/%s.png", dest, basedir ? basedir : "", sub, a->name);
+			snprintf (path, sizeof (path), "%s/%s%s/textures/%s.png", dest, basedir ? basedir : "",
+				sub, a->name);
 			if (!DecodeBombshellTexture (&rgba, raw, raw_size, a))
 				err = SaveDecodedRGBAToPNG (rgba, a->width, a->height, &be_func, path, 0, true);
 			if (!err && a->off_aux)
 			{
-				snprintf (path, sizeof (path), "%s/%s%s/textures/%s.aux.bin", dest, basedir ? basedir : "", sub, a->name);
-				const u32 n = a->size * 2 < raw_size - a->off_aux ? a->size * 2 : (u32)(raw_size - a->off_aux);
+				snprintf (path, sizeof (path), "%s/%s%s/textures/%s.aux.bin", dest,
+					basedir ? basedir : "", sub, a->name);
+				const u32 n = a->size * 2 < raw_size - a->off_aux ? a->size * 2
+																  : (u32)(raw_size - a->off_aux);
 				File_t F;
 				err = CreateFileOpt (&F, true, path, false, arg);
 				if (F.f && fwrite (raw + a->off_aux, 1, n, F.f) != n)
-					err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", n, path);
+					err = FILEERROR1 (
+						&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", n, path);
 				ResetFile (&F, opt_preserve);
 			}
 		}
 		else
 		{
-			snprintf (path, sizeof (path), "%s/%s%s/sounds/%s.%s", dest, basedir ? basedir : "", sub, a->name, a->ext);
+			snprintf (path, sizeof (path), "%s/%s%s/sounds/%s.%s", dest, basedir ? basedir : "",
+				sub, a->name, a->ext);
 			File_t F;
 			err = CreateFileOpt (&F, true, path, false, arg);
 			if (F.f && fwrite (raw + a->off, 1, a->size, F.f) != a->size)
-				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", a->size, path);
+				err = FILEERROR1 (
+					&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", a->size, path);
 			ResetFile (&F, opt_preserve);
 		}
 	}
@@ -7851,7 +7999,8 @@ static enumError extract_bombshell_file (ccp arg, ccp basedir, uint depth)
 	{
 		char mname[64];
 		uint mdir_k = 0, mdir_type = 0;
-		model_t *model = BuildBombshellModel (raw, raw_size, i, mname, sizeof (mname), list, count, &mdir_k, &mdir_type);
+		model_t *model = BuildBombshellModel (
+			raw, raw_size, i, mname, sizeof (mname), list, count, &mdir_k, &mdir_type);
 		if (!model)
 			continue;
 		char clean[64], base[64];
@@ -7911,17 +8060,19 @@ static enumError extract_bttrb_file (ccp arg, ccp basedir, uint depth)
 	char dest[PATH_MAX];
 	beside_source_dest (dest, sizeof (dest), arg);
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT BLUETONGUE-TRB:%s (%u textures) -> %s/\n", verbose > 0 ? "\n" : "",
-			testmode ? "WOULD " : "", arg, count, dest);
+		fprintf (stdlog, "%s%sEXTRACT BLUETONGUE-TRB:%s (%u textures) -> %s/\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, count, dest);
 
 	enumError err = ERR_OK;
 	for (uint i = 0; i < count && !err && !testmode; i++)
 	{
 		u8 *rgba = 0;
 		char path[PATH_MAX];
-		snprintf (path, sizeof (path), "%s/%stextures/%s.png", dest, basedir ? basedir : "", list[i].name);
+		snprintf (path, sizeof (path), "%s/%stextures/%s.png", dest, basedir ? basedir : "",
+			list[i].name);
 		if (!DecodeBlueTongueTexture (&rgba, raw, raw_size, list + i))
-			err = SaveDecodedRGBAToPNG (rgba, list[i].width, list[i].height, &be_func, path, 0, true);
+			err = SaveDecodedRGBAToPNG (
+				rgba, list[i].width, list[i].height, &be_func, path, 0, true);
 	}
 	if (xur && !err && !testmode)
 	{
@@ -7938,12 +8089,14 @@ static enumError extract_bttrb_file (ccp arg, ccp basedir, uint depth)
 		File_t F;
 		err = CreateFileOpt (&F, true, path, false, arg);
 		if (F.f && fwrite (xur, 1, xur_size, F.f) != xur_size)
-			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", xur_size, path);
+			err = FILEERROR1 (
+				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", xur_size, path);
 		ResetFile (&F, opt_preserve);
 	}
 	// models: one GLB per "tcmd" object
 	const uint n_models = is_trb && !testmode && !err ? CountBlueTongueModels (raw, raw_size) : 0;
-	// batches sharing arrays by name (props placed in a cell) find them in the level's LevelAssets.trb
+	// batches sharing arrays by name (props placed in a cell) find them in the level's
+	// LevelAssets.trb
 	u8 *lib = 0;
 	size_t lib_size = 0;
 	if (n_models && !strstr (arg, "LevelAssets.trb"))
@@ -7951,8 +8104,10 @@ static enumError extract_bttrb_file (ccp arg, ccp basedir, uint depth)
 		char lpath[PATH_MAX];
 		snprintf (lpath, sizeof (lpath), "%s", arg);
 		char *slash = strrchr (lpath, '/');
-		snprintf (slash ? slash + 1 : lpath, lpath + sizeof (lpath) - (slash ? slash + 1 : lpath), "LevelAssets.trb");
-		if (LoadFileAlloc (lpath, 0, 0, &lib, &lib_size, 0, 0, 0, false) || !lib || !IsBlueTongueTrb (lib, lib_size))
+		snprintf (slash ? slash + 1 : lpath, lpath + sizeof (lpath) - (slash ? slash + 1 : lpath),
+			"LevelAssets.trb");
+		if (LoadFileAlloc (lpath, 0, 0, &lib, &lib_size, 0, 0, 0, false) || !lib
+			|| !IsBlueTongueTrb (lib, lib_size))
 		{
 			FREE (lib);
 			lib = 0;
@@ -7964,7 +8119,8 @@ static enumError extract_bttrb_file (ccp arg, ccp basedir, uint depth)
 	for (uint i = 0; used && i < n_models && !err; i++)
 	{
 		char mname[64], clean[64];
-		model_t *model = BuildBlueTongueModel (raw, raw_size, i, mname, sizeof (mname), lib, lib_size);
+		model_t *model
+			= BuildBlueTongueModel (raw, raw_size, i, mname, sizeof (mname), lib, lib_size);
 		if (!model)
 			continue;
 		snprintf (clean, sizeof (clean), "%s", mname);
@@ -8037,7 +8193,8 @@ static enumError extract_asobo_sound_file (ccp arg, ccp basedir, uint depth)
 	ResetFile (&F, opt_preserve);
 	FREE (wav);
 	if (!err && verbose >= 0)
-		fprintf (stdlog, "%sEXTRACT ASOBO-SOUND:%s -> WAV:%s\n", verbose > 0 ? "\n" : "", arg, dest);
+		fprintf (
+			stdlog, "%sEXTRACT ASOBO-SOUND:%s -> WAV:%s\n", verbose > 0 ? "\n" : "", arg, dest);
 	return err;
 }
 
@@ -8227,8 +8384,7 @@ static ccp rainbow_texname (void *vctx, ccp material)
 			u8 *rgba = 0;
 			uint w = 0, h = 0;
 			if (!LoadFileAlloc (gct, 0, 0, &raw, &raw_size, 0, 0, 0, false) && raw
-				&& raw_size <= UINT_MAX
-				&& !DecodeGCT (&rgba, &w, &h, raw, (uint)raw_size))
+				&& raw_size <= UINT_MAX && !DecodeGCT (&rgba, &w, &h, raw, (uint)raw_size))
 				SaveDecodedRGBAToPNG (rgba, w, h, &be_func, png, 0, true);
 			FREE (raw);
 			if (stat (png, &st))
@@ -8647,8 +8803,8 @@ static enumError extract_dksoundbank_file (ccp arg, ccp basedir, uint depth)
 
 	nintendo_sarc_entry_t *entries = 0;
 	uint n_entries = 0;
-	const enumError serr = ScanDKSoundBank (
-		&entries, &n_entries, chd_raw, chd_size, cbd_raw, cbd_size);
+	const enumError serr
+		= ScanDKSoundBank (&entries, &n_entries, chd_raw, chd_size, cbd_raw, cbd_size);
 	FREE (chd_raw);
 	FREE (cbd_raw);
 	if (serr || !n_entries)
@@ -8776,8 +8932,8 @@ static enumError extract_nif_file (ccp arg, ccp basedir, uint depth)
 			if (!NifDecodeTexture (nif, i, &rgba, &w, &h))
 			{
 				if (!SaveDecodedRGBAToPNG (rgba, w, h, &be_func, path, 0, true) && verbose >= 0)
-					fprintf (stdlog, "%sEXTRACT NIF:%s -> PNG:%s\n", verbose > 0 ? "\n" : "", arg,
-						path);
+					fprintf (
+						stdlog, "%sEXTRACT NIF:%s -> PNG:%s\n", verbose > 0 ? "\n" : "", arg, path);
 			}
 		}
 		if (!stat (path, &st))
@@ -8792,7 +8948,8 @@ static enumError extract_nif_file (ccp arg, ccp basedir, uint depth)
 			ExportModelToGLB (model, dest);
 			FreeModel (model);
 			if (verbose >= 0)
-				fprintf (stdlog, "%sEXTRACT NIF:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, dest);
+				fprintf (
+					stdlog, "%sEXTRACT NIF:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, dest);
 		}
 	}
 	FREE (png);
@@ -9065,8 +9222,7 @@ static bool wta_find_sibling (const char *wta_path, char *out, size_t out_size)
 		{
 			const char *cb = strrchr (cand, '/') + 1;
 			const size_t cbl = strlen (cb);
-			if (cbl == stem + 4 && !strncasecmp (cb, base, stem)
-				&& !strcasecmp (cb + stem, ".wtp"))
+			if (cbl == stem + 4 && !strncasecmp (cb, base, stem) && !strcasecmp (cb + stem, ".wtp"))
 			{
 				snprintf (out, out_size, "%s", cand);
 				found = true;
@@ -9366,8 +9522,8 @@ static enumError extract_gfa_file (ccp arg, ccp basedir, uint depth)
 		{
 			normalize_legacy_tree_mtimes (dest, st_arg.st_mtime);
 			char baseline_marker[PATH_MAX];
-			snprintf (baseline_marker, sizeof (baseline_marker), "%s/%s",
-				dest, SZS_MTIME_BASELINE_FILE);
+			snprintf (
+				baseline_marker, sizeof (baseline_marker), "%s/%s", dest, SZS_MTIME_BASELINE_FILE);
 			FILE *mf = fopen (baseline_marker, "w");
 			if (mf)
 				fclose (mf);
@@ -9448,7 +9604,8 @@ static enumError extract_kensaku_members (kensaku_t *kp, ccp arg, ccp basedir, u
 		enumError ferr = CreateFileOpt (&F, true, path, false, arg);
 		opt_mkdir = saved_mkdir;
 		if (F.f && fwrite (k.blob + e->offset, 1, e->size, F.f) != e->size)
-			ferr = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", e->size, path);
+			ferr
+				= FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", e->size, path);
 		ResetFile (&F, opt_preserve);
 		if (ferr > err)
 			err = ferr;
@@ -10633,7 +10790,8 @@ static enumError extract_ue4_pak_file (ccp arg, ccp basedir, uint depth)
 			continue;
 
 		const char *fname = pak.entries[i].filename;
-		while (*fname == '/' || *fname == '\\' || !strncmp (fname, "../", 3) || !strncmp (fname, "..\\", 3))
+		while (*fname == '/' || *fname == '\\' || !strncmp (fname, "../", 3)
+			|| !strncmp (fname, "..\\", 3))
 		{
 			if (*fname == '/' || *fname == '\\')
 				fname++;
@@ -10647,7 +10805,8 @@ static enumError extract_ue4_pak_file (ccp arg, ccp basedir, uint depth)
 		File_t F;
 		err = CreateFileOpt (&F, true, path, false, arg);
 		if (F.f && entry_size > 0 && fwrite (entry_data, 1, entry_size, F.f) != entry_size)
-			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", entry_size, path);
+			err = FILEERROR1 (
+				&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", entry_size, path);
 		ResetFile (&F, opt_preserve);
 		FREE (entry_data);
 	}
@@ -10756,7 +10915,8 @@ static enumError extract_rstb_manifest (ccp arg)
 
 static enumError extract_aamp_manifest (ccp arg)
 {
-	if (!is_ext (arg, ".aamp") && !is_ext (arg, ".baamp") && !is_ext (arg, ".bparam") && !is_ext (arg, ".bgenv") && !is_ext (arg, ".bglpbd"))
+	if (!is_ext (arg, ".aamp") && !is_ext (arg, ".baamp") && !is_ext (arg, ".bparam")
+		&& !is_ext (arg, ".bgenv") && !is_ext (arg, ".bglpbd"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;
@@ -10830,8 +10990,7 @@ static enumError extract_sharc_manifest (ccp arg)
 		if (err != ERR_NOTHING_TO_DO)
 		{
 			if (verbose >= 0)
-				fprintf (stdlog, "%sEXTRACT SHARC:%s -> %s/\n", verbose > 0 ? "\n" : "", arg,
-					dir);
+				fprintf (stdlog, "%sEXTRACT SHARC:%s -> %s/\n", verbose > 0 ? "\n" : "", arg, dir);
 			FREE (raw);
 			return err;
 		}
@@ -10856,7 +11015,8 @@ static enumError extract_sharc_manifest (ccp arg)
 	File_t F;
 	err = CreateFileOpt (&F, true, dest, false, arg);
 	if (F.f)
-		err = is_fb ? DecodeSHARCFB_Text (F.f, raw, raw_size) : DecodeSHARC_Text (F.f, raw, raw_size);
+		err = is_fb ? DecodeSHARCFB_Text (F.f, raw, raw_size)
+					: DecodeSHARC_Text (F.f, raw, raw_size);
 	ResetFile (&F, opt_preserve);
 	FREE (raw);
 	return err;
@@ -10872,8 +11032,8 @@ static void bnsh_stage_filename_safe (char *dest, uint destsz, ccp stage)
 		if (stage[i] == '(')
 			break;
 		char c = stage[i];
-		if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
-			|| (c >= '0' && c <= '9') || c == '_' || c == '-')
+		if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
+			|| c == '-')
 			dest[j++] = c;
 		else if (c == ' ' || c == '.')
 			dest[j++] = '_';
@@ -10944,12 +11104,10 @@ static enumError extract_bnsh_manifest (ccp arg)
 				const bnsh_blob_t *b = blobs.blobs + i;
 				char safe_stage[40];
 				bnsh_stage_filename_safe (safe_stage, sizeof (safe_stage), b->stage);
-				const ccp ext = b->is_source ? "glsl"
-					: b->is_compressed ? "zlib.bin" : "bin";
+				const ccp ext = b->is_source ? "glsl" : b->is_compressed ? "zlib.bin" : "bin";
 				char path[PATH_MAX];
-				snprintf (path, sizeof (path), "%s.v%02u.%s.%s.%u.%s",
-					base, b->variation, b->program_kind, safe_stage,
-					b->blob_index, ext);
+				snprintf (path, sizeof (path), "%s.v%02u.%s.%s.%u.%s", base, b->variation,
+					b->program_kind, safe_stage, b->blob_index, ext);
 				if (!opt_overwrite && !access (path, F_OK))
 					continue;
 				FILE *of = fopen (path, "wb");
@@ -10958,9 +11116,8 @@ static enumError extract_bnsh_manifest (ccp arg)
 				fwrite (raw + b->offset, 1, b->size, of);
 				fclose (of);
 				if (verbose >= 0)
-					fprintf (stdlog, "EXTRACT BNSH:%s[%u/%s/%s/%u] -> %s\n",
-						arg, b->variation, b->program_kind, b->stage,
-						b->blob_index, path);
+					fprintf (stdlog, "EXTRACT BNSH:%s[%u/%s/%s/%u] -> %s\n", arg, b->variation,
+						b->program_kind, b->stage, b->blob_index, path);
 			}
 		}
 		ResetBNSH_Blobs (&blobs);
@@ -11475,8 +11632,8 @@ static enumError extract_gf1motion_manifest (ccp arg)
 // table is dumped (see lib-monster4x4.h for what is not decoded).
 static enumError extract_chnk_manifest (ccp arg)
 {
-	static const ccp exts[] =
-		{ ".bnk", ".d4l", ".d4c", ".gfx", ".mec", ".pmu", ".pak", ".ppx", ".an4", 0 };
+	static const ccp exts[]
+		= { ".bnk", ".d4l", ".d4c", ".gfx", ".mec", ".pmu", ".pak", ".ppx", ".an4", 0 };
 	bool match = false;
 	for (int i = 0; exts[i]; i++)
 		if (is_ext (arg, exts[i]))
@@ -11572,52 +11729,52 @@ static enumError extract_magma_fat_manifest (ccp arg)
 // The Voice (Wii karaoke) plain-text asset scripts: all five share this
 // shape, differing only in extension, detector and decoder -- see
 // lib-thevoice.h.
-#define DEFINE_EXTRACT_VOICE(name,ext,is_fn,decode_fn) \
-static enumError extract_voice_##name##_manifest (ccp arg) \
-{ \
-	if (!is_ext (arg, ext)) \
-		return ERR_NOTHING_TO_DO; \
-\
-	u8 *raw = 0; \
-	size_t raw_size = 0; \
-	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false); \
-	if (err) \
-		return ERR_NOTHING_TO_DO; \
-\
-	if (!is_fn (raw, raw_size, raw_size)) \
-	{ \
-		FREE (raw); \
-		return ERR_NOTHING_TO_DO; \
-	} \
-\
-	char dest[PATH_MAX]; \
-	if (opt_dest) \
-		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false); \
-	else \
-		snprintf (dest, sizeof (dest), "%s.txt", arg); \
-\
-	if (verbose >= 0 || testmode) \
-		fprintf (stdlog, "%s%sDECODE VOICE-" #name ":%s -> %s\n", verbose > 0 ? "\n" : "", \
-			testmode ? "WOULD " : "", arg, dest); \
-\
-	if (testmode) \
-	{ \
-		FREE (raw); \
-		return ERR_OK; \
-	} \
-\
-	File_t F; \
-	err = CreateFileOpt (&F, true, dest, false, arg); \
-	if (F.f) \
-		err = decode_fn (F.f, raw, raw_size, raw_size); \
-	ResetFile (&F, opt_preserve); \
-	FREE (raw); \
-	return err; \
-}
+#define DEFINE_EXTRACT_VOICE(name, ext, is_fn, decode_fn)                                          \
+	static enumError extract_voice_##name##_manifest (ccp arg)                                     \
+	{                                                                                              \
+		if (!is_ext (arg, ext))                                                                    \
+			return ERR_NOTHING_TO_DO;                                                              \
+                                                                                                   \
+		u8 *raw = 0;                                                                               \
+		size_t raw_size = 0;                                                                       \
+		enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);                \
+		if (err)                                                                                   \
+			return ERR_NOTHING_TO_DO;                                                              \
+                                                                                                   \
+		if (!is_fn (raw, raw_size, raw_size))                                                      \
+		{                                                                                          \
+			FREE (raw);                                                                            \
+			return ERR_NOTHING_TO_DO;                                                              \
+		}                                                                                          \
+                                                                                                   \
+		char dest[PATH_MAX];                                                                       \
+		if (opt_dest)                                                                              \
+			SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);                      \
+		else                                                                                       \
+			snprintf (dest, sizeof (dest), "%s.txt", arg);                                         \
+                                                                                                   \
+		if (verbose >= 0 || testmode)                                                              \
+			fprintf (stdlog, "%s%sDECODE VOICE-" #name ":%s -> %s\n", verbose > 0 ? "\n" : "",     \
+				testmode ? "WOULD " : "", arg, dest);                                              \
+                                                                                                   \
+		if (testmode)                                                                              \
+		{                                                                                          \
+			FREE (raw);                                                                            \
+			return ERR_OK;                                                                         \
+		}                                                                                          \
+                                                                                                   \
+		File_t F;                                                                                  \
+		err = CreateFileOpt (&F, true, dest, false, arg);                                          \
+		if (F.f)                                                                                   \
+			err = decode_fn (F.f, raw, raw_size, raw_size);                                        \
+		ResetFile (&F, opt_preserve);                                                              \
+		FREE (raw);                                                                                \
+		return err;                                                                                \
+	}
 
-DEFINE_EXTRACT_VOICE (song,   ".song",   IsVoiceSong,   DecodeVoiceSong_Text)
-DEFINE_EXTRACT_VOICE (amc,    ".amc",    IsVoiceAmc,    DecodeVoiceAmc_Text)
-DEFINE_EXTRACT_VOICE (ams,    ".ams",    IsVoiceAms,    DecodeVoiceAms_Text)
+DEFINE_EXTRACT_VOICE (song, ".song", IsVoiceSong, DecodeVoiceSong_Text)
+DEFINE_EXTRACT_VOICE (amc, ".amc", IsVoiceAmc, DecodeVoiceAmc_Text)
+DEFINE_EXTRACT_VOICE (ams, ".ams", IsVoiceAms, DecodeVoiceAms_Text)
 DEFINE_EXTRACT_VOICE (palcat, ".palcat", IsVoicePalcat, DecodeVoicePalcat_Text)
 DEFINE_EXTRACT_VOICE (palseq, ".palseq", IsVoicePalseq, DecodeVoicePalseq_Text)
 
@@ -11628,60 +11785,61 @@ DEFINE_EXTRACT_VOICE (palseq, ".palseq", IsVoicePalseq, DecodeVoicePalseq_Text)
 // full boolean expression (built from is_ext()) so a decoder can be
 // shared across multiple on-disc extensions (".mtt"/".ypc"/".pac" and
 // ".efi"/".sci"/".qci" both reuse the same on-disc container/probe).
-#define DEFINE_EXTRACT_DOGISLAND(name,ext_expr,is_fn,decode_fn) \
-static enumError extract_dogisland_##name##_manifest (ccp arg) \
-{ \
-	if (!(ext_expr)) \
-		return ERR_NOTHING_TO_DO; \
-\
-	u8 *raw = 0; \
-	size_t raw_size = 0; \
-	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false); \
-	if (err) \
-		return ERR_NOTHING_TO_DO; \
-\
-	if (!is_fn (raw, raw_size, raw_size)) \
-	{ \
-		FREE (raw); \
-		return ERR_NOTHING_TO_DO; \
-	} \
-\
-	char dest[PATH_MAX]; \
-	if (opt_dest) \
-		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false); \
-	else \
-		snprintf (dest, sizeof (dest), "%s.txt", arg); \
-\
-	if (verbose >= 0 || testmode) \
-		fprintf (stdlog, "%s%sDECODE DOGISLAND-" #name ":%s -> %s\n", verbose > 0 ? "\n" : "", \
-			testmode ? "WOULD " : "", arg, dest); \
-\
-	if (testmode) \
-	{ \
-		FREE (raw); \
-		return ERR_OK; \
-	} \
-\
-	File_t F; \
-	err = CreateFileOpt (&F, true, dest, false, arg); \
-	if (F.f) \
-		err = decode_fn (F.f, raw, raw_size, raw_size); \
-	ResetFile (&F, opt_preserve); \
-	FREE (raw); \
-	return err; \
-}
+#define DEFINE_EXTRACT_DOGISLAND(name, ext_expr, is_fn, decode_fn)                                 \
+	static enumError extract_dogisland_##name##_manifest (ccp arg)                                 \
+	{                                                                                              \
+		if (!(ext_expr))                                                                           \
+			return ERR_NOTHING_TO_DO;                                                              \
+                                                                                                   \
+		u8 *raw = 0;                                                                               \
+		size_t raw_size = 0;                                                                       \
+		enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);                \
+		if (err)                                                                                   \
+			return ERR_NOTHING_TO_DO;                                                              \
+                                                                                                   \
+		if (!is_fn (raw, raw_size, raw_size))                                                      \
+		{                                                                                          \
+			FREE (raw);                                                                            \
+			return ERR_NOTHING_TO_DO;                                                              \
+		}                                                                                          \
+                                                                                                   \
+		char dest[PATH_MAX];                                                                       \
+		if (opt_dest)                                                                              \
+			SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);                      \
+		else                                                                                       \
+			snprintf (dest, sizeof (dest), "%s.txt", arg);                                         \
+                                                                                                   \
+		if (verbose >= 0 || testmode)                                                              \
+			fprintf (stdlog, "%s%sDECODE DOGISLAND-" #name ":%s -> %s\n", verbose > 0 ? "\n" : "", \
+				testmode ? "WOULD " : "", arg, dest);                                              \
+                                                                                                   \
+		if (testmode)                                                                              \
+		{                                                                                          \
+			FREE (raw);                                                                            \
+			return ERR_OK;                                                                         \
+		}                                                                                          \
+                                                                                                   \
+		File_t F;                                                                                  \
+		err = CreateFileOpt (&F, true, dest, false, arg);                                          \
+		if (F.f)                                                                                   \
+			err = decode_fn (F.f, raw, raw_size, raw_size);                                        \
+		ResetFile (&F, opt_preserve);                                                              \
+		FREE (raw);                                                                                \
+		return err;                                                                                \
+	}
 
-DEFINE_EXTRACT_DOGISLAND (wds,  is_ext (arg, ".wds"),  IsDogIslandWds,  DecodeDogIslandWds_Text)
-DEFINE_EXTRACT_DOGISLAND (wdb,  is_ext (arg, ".wdb"),  IsDogIslandWdb,  DecodeDogIslandWdb_Text)
-DEFINE_EXTRACT_DOGISLAND (yobj, is_ext (arg, ".ymg") || is_ext (arg, ".ymm"),
-	IsDogIslandYobj, DecodeDogIslandYobj_Text)
-DEFINE_EXTRACT_DOGISLAND (pms,  is_ext (arg, ".pms"),  IsDogIslandPms,  DecodeDogIslandPms_Text)
-DEFINE_EXTRACT_DOGISLAND (mtt,  is_ext (arg, ".mtt") || is_ext (arg, ".ypc") || is_ext (arg, ".pac"),
+DEFINE_EXTRACT_DOGISLAND (wds, is_ext (arg, ".wds"), IsDogIslandWds, DecodeDogIslandWds_Text)
+DEFINE_EXTRACT_DOGISLAND (wdb, is_ext (arg, ".wdb"), IsDogIslandWdb, DecodeDogIslandWdb_Text)
+DEFINE_EXTRACT_DOGISLAND (
+	yobj, is_ext (arg, ".ymg") || is_ext (arg, ".ymm"), IsDogIslandYobj, DecodeDogIslandYobj_Text)
+DEFINE_EXTRACT_DOGISLAND (pms, is_ext (arg, ".pms"), IsDogIslandPms, DecodeDogIslandPms_Text)
+DEFINE_EXTRACT_DOGISLAND (mtt, is_ext (arg, ".mtt") || is_ext (arg, ".ypc") || is_ext (arg, ".pac"),
 	IsDogIslandMtt, DecodeDogIslandMtt_Text)
 DEFINE_EXTRACT_DOGISLAND (cprm, is_ext (arg, ".cprm"), IsDogIslandCprm, DecodeDogIslandCprm_Text)
-DEFINE_EXTRACT_DOGISLAND (script, is_ext (arg, ".efi") || is_ext (arg, ".sci") || is_ext (arg, ".qci"),
-	IsDogIslandScript, DecodeDogIslandScript_Text)
-DEFINE_EXTRACT_DOGISLAND (mpq,  is_ext (arg, ".mpq"),  IsDogIslandMpq,  DecodeDogIslandMpq_Text)
+DEFINE_EXTRACT_DOGISLAND (script,
+	is_ext (arg, ".efi") || is_ext (arg, ".sci") || is_ext (arg, ".qci"), IsDogIslandScript,
+	DecodeDogIslandScript_Text)
+DEFINE_EXTRACT_DOGISLAND (mpq, is_ext (arg, ".mpq"), IsDogIslandMpq, DecodeDogIslandMpq_Text)
 
 #undef DEFINE_EXTRACT_DOGISLAND
 
@@ -11689,52 +11847,52 @@ DEFINE_EXTRACT_DOGISLAND (mpq,  is_ext (arg, ".mpq"),  IsDogIslandMpq,  DecodeDo
 // "FCMP" container decoder is shared across all six on-disc extensions it
 // wraps, since detection/decode only depend on the outer header + inner
 // sub-blob tag, not the extension itself.
-#define DEFINE_EXTRACT_MURAMASA(name,ext_expr,is_fn,decode_fn) \
-static enumError extract_muramasa_##name##_manifest (ccp arg) \
-{ \
-	if (!(ext_expr)) \
-		return ERR_NOTHING_TO_DO; \
-\
-	u8 *raw = 0; \
-	size_t raw_size = 0; \
-	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false); \
-	if (err) \
-		return ERR_NOTHING_TO_DO; \
-\
-	if (!is_fn (raw, raw_size, raw_size)) \
-	{ \
-		FREE (raw); \
-		return ERR_NOTHING_TO_DO; \
-	} \
-\
-	char dest[PATH_MAX]; \
-	if (opt_dest) \
-		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false); \
-	else \
-		snprintf (dest, sizeof (dest), "%s.txt", arg); \
-\
-	if (verbose >= 0 || testmode) \
-		fprintf (stdlog, "%s%sDECODE MURAMASA-" #name ":%s -> %s\n", verbose > 0 ? "\n" : "", \
-			testmode ? "WOULD " : "", arg, dest); \
-\
-	if (testmode) \
-	{ \
-		FREE (raw); \
-		return ERR_OK; \
-	} \
-\
-	File_t F; \
-	err = CreateFileOpt (&F, true, dest, false, arg); \
-	if (F.f) \
-		err = decode_fn (F.f, raw, raw_size, raw_size); \
-	ResetFile (&F, opt_preserve); \
-	FREE (raw); \
-	return err; \
-}
+#define DEFINE_EXTRACT_MURAMASA(name, ext_expr, is_fn, decode_fn)                                  \
+	static enumError extract_muramasa_##name##_manifest (ccp arg)                                  \
+	{                                                                                              \
+		if (!(ext_expr))                                                                           \
+			return ERR_NOTHING_TO_DO;                                                              \
+                                                                                                   \
+		u8 *raw = 0;                                                                               \
+		size_t raw_size = 0;                                                                       \
+		enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);                \
+		if (err)                                                                                   \
+			return ERR_NOTHING_TO_DO;                                                              \
+                                                                                                   \
+		if (!is_fn (raw, raw_size, raw_size))                                                      \
+		{                                                                                          \
+			FREE (raw);                                                                            \
+			return ERR_NOTHING_TO_DO;                                                              \
+		}                                                                                          \
+                                                                                                   \
+		char dest[PATH_MAX];                                                                       \
+		if (opt_dest)                                                                              \
+			SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);                      \
+		else                                                                                       \
+			snprintf (dest, sizeof (dest), "%s.txt", arg);                                         \
+                                                                                                   \
+		if (verbose >= 0 || testmode)                                                              \
+			fprintf (stdlog, "%s%sDECODE MURAMASA-" #name ":%s -> %s\n", verbose > 0 ? "\n" : "",  \
+				testmode ? "WOULD " : "", arg, dest);                                              \
+                                                                                                   \
+		if (testmode)                                                                              \
+		{                                                                                          \
+			FREE (raw);                                                                            \
+			return ERR_OK;                                                                         \
+		}                                                                                          \
+                                                                                                   \
+		File_t F;                                                                                  \
+		err = CreateFileOpt (&F, true, dest, false, arg);                                          \
+		if (F.f)                                                                                   \
+			err = decode_fn (F.f, raw, raw_size, raw_size);                                        \
+		ResetFile (&F, opt_preserve);                                                              \
+		FREE (raw);                                                                                \
+		return err;                                                                                \
+	}
 
 DEFINE_EXTRACT_MURAMASA (fcmp,
-	is_ext (arg, ".mbs") || is_ext (arg, ".ftx") || is_ext (arg, ".esb") ||
-	is_ext (arg, ".nsb") || is_ext (arg, ".abf") || is_ext (arg, ".nms"),
+	is_ext (arg, ".mbs") || is_ext (arg, ".ftx") || is_ext (arg, ".esb") || is_ext (arg, ".nsb")
+		|| is_ext (arg, ".abf") || is_ext (arg, ".nms"),
 	IsMuramasaFcmp, DecodeMuramasaFcmp_Text)
 DEFINE_EXTRACT_MURAMASA (otb, is_ext (arg, ".otb"), IsMuramasaOtb, DecodeMuramasaOtb_Text)
 DEFINE_EXTRACT_MURAMASA (nsi, is_ext (arg, ".nsi"), IsMuramasaNsi, DecodeMuramasaNsi_Text)
@@ -11743,100 +11901,99 @@ DEFINE_EXTRACT_MURAMASA (nsi, is_ext (arg, ".nsi"), IsMuramasaNsi, DecodeMuramas
 
 // Red Steel 2 (Wii) formats -- see lib-redsteel2.h. Same manifest-emitting
 // shape as the Muramasa formats above.
-#define DEFINE_EXTRACT_REDSTEEL2(name,ext_expr,is_fn,decode_fn) \
-static enumError extract_redsteel2_##name##_manifest (ccp arg) \
-{ \
-	if (!(ext_expr)) \
-		return ERR_NOTHING_TO_DO; \
-\
-	u8 *raw = 0; \
-	size_t raw_size = 0; \
-	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false); \
-	if (err) \
-		return ERR_NOTHING_TO_DO; \
-\
-	if (!is_fn (raw, raw_size, raw_size)) \
-	{ \
-		FREE (raw); \
-		return ERR_NOTHING_TO_DO; \
-	} \
-\
-	char dest[PATH_MAX]; \
-	if (opt_dest) \
-		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false); \
-	else \
-		snprintf (dest, sizeof (dest), "%s.txt", arg); \
-\
-	if (verbose >= 0 || testmode) \
-		fprintf (stdlog, "%s%sDECODE REDSTEEL2-" #name ":%s -> %s\n", verbose > 0 ? "\n" : "", \
-			testmode ? "WOULD " : "", arg, dest); \
-\
-	if (testmode) \
-	{ \
-		FREE (raw); \
-		return ERR_OK; \
-	} \
-\
-	File_t F; \
-	err = CreateFileOpt (&F, true, dest, false, arg); \
-	if (F.f) \
-		err = decode_fn (F.f, raw, raw_size, raw_size); \
-	ResetFile (&F, opt_preserve); \
-	FREE (raw); \
-	return err; \
-}
+#define DEFINE_EXTRACT_REDSTEEL2(name, ext_expr, is_fn, decode_fn)                                 \
+	static enumError extract_redsteel2_##name##_manifest (ccp arg)                                 \
+	{                                                                                              \
+		if (!(ext_expr))                                                                           \
+			return ERR_NOTHING_TO_DO;                                                              \
+                                                                                                   \
+		u8 *raw = 0;                                                                               \
+		size_t raw_size = 0;                                                                       \
+		enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);                \
+		if (err)                                                                                   \
+			return ERR_NOTHING_TO_DO;                                                              \
+                                                                                                   \
+		if (!is_fn (raw, raw_size, raw_size))                                                      \
+		{                                                                                          \
+			FREE (raw);                                                                            \
+			return ERR_NOTHING_TO_DO;                                                              \
+		}                                                                                          \
+                                                                                                   \
+		char dest[PATH_MAX];                                                                       \
+		if (opt_dest)                                                                              \
+			SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);                      \
+		else                                                                                       \
+			snprintf (dest, sizeof (dest), "%s.txt", arg);                                         \
+                                                                                                   \
+		if (verbose >= 0 || testmode)                                                              \
+			fprintf (stdlog, "%s%sDECODE REDSTEEL2-" #name ":%s -> %s\n", verbose > 0 ? "\n" : "", \
+				testmode ? "WOULD " : "", arg, dest);                                              \
+                                                                                                   \
+		if (testmode)                                                                              \
+		{                                                                                          \
+			FREE (raw);                                                                            \
+			return ERR_OK;                                                                         \
+		}                                                                                          \
+                                                                                                   \
+		File_t F;                                                                                  \
+		err = CreateFileOpt (&F, true, dest, false, arg);                                          \
+		if (F.f)                                                                                   \
+			err = decode_fn (F.f, raw, raw_size, raw_size);                                        \
+		ResetFile (&F, opt_preserve);                                                              \
+		FREE (raw);                                                                                \
+		return err;                                                                                \
+	}
 
-DEFINE_EXTRACT_REDSTEEL2 (abe,
-	is_ext (arg, ".bbf") || is_ext (arg, ".bf"),
-	IsRedSteel2Abe, DecodeRedSteel2Abe_Text)
+DEFINE_EXTRACT_REDSTEEL2 (
+	abe, is_ext (arg, ".bbf") || is_ext (arg, ".bf"), IsRedSteel2Abe, DecodeRedSteel2Abe_Text)
 DEFINE_EXTRACT_REDSTEEL2 (rel, is_ext (arg, ".rel"), IsRedSteel2Rel, DecodeRedSteel2Rel_Text)
 
 #undef DEFINE_EXTRACT_REDSTEEL2
 
 // Zack & Wiki: Quest for Barbaros' Treasure (Wii) formats -- see
 // lib-zackwiki.h. Same manifest-emitting shape as the formats above.
-#define DEFINE_EXTRACT_ZACKWIKI(name,ext_expr,is_fn,decode_fn) \
-static enumError extract_zackwiki_##name##_manifest (ccp arg) \
-{ \
-	if (!(ext_expr)) \
-		return ERR_NOTHING_TO_DO; \
-\
-	u8 *raw = 0; \
-	size_t raw_size = 0; \
-	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false); \
-	if (err) \
-		return ERR_NOTHING_TO_DO; \
-\
-	if (!is_fn (raw, raw_size, raw_size)) \
-	{ \
-		FREE (raw); \
-		return ERR_NOTHING_TO_DO; \
-	} \
-\
-	char dest[PATH_MAX]; \
-	if (opt_dest) \
-		SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false); \
-	else \
-		snprintf (dest, sizeof (dest), "%s.txt", arg); \
-\
-	if (verbose >= 0 || testmode) \
-		fprintf (stdlog, "%s%sDECODE ZACKWIKI-" #name ":%s -> %s\n", verbose > 0 ? "\n" : "", \
-			testmode ? "WOULD " : "", arg, dest); \
-\
-	if (testmode) \
-	{ \
-		FREE (raw); \
-		return ERR_OK; \
-	} \
-\
-	File_t F; \
-	err = CreateFileOpt (&F, true, dest, false, arg); \
-	if (F.f) \
-		err = decode_fn (F.f, raw, raw_size, raw_size); \
-	ResetFile (&F, opt_preserve); \
-	FREE (raw); \
-	return err; \
-}
+#define DEFINE_EXTRACT_ZACKWIKI(name, ext_expr, is_fn, decode_fn)                                  \
+	static enumError extract_zackwiki_##name##_manifest (ccp arg)                                  \
+	{                                                                                              \
+		if (!(ext_expr))                                                                           \
+			return ERR_NOTHING_TO_DO;                                                              \
+                                                                                                   \
+		u8 *raw = 0;                                                                               \
+		size_t raw_size = 0;                                                                       \
+		enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);                \
+		if (err)                                                                                   \
+			return ERR_NOTHING_TO_DO;                                                              \
+                                                                                                   \
+		if (!is_fn (raw, raw_size, raw_size))                                                      \
+		{                                                                                          \
+			FREE (raw);                                                                            \
+			return ERR_NOTHING_TO_DO;                                                              \
+		}                                                                                          \
+                                                                                                   \
+		char dest[PATH_MAX];                                                                       \
+		if (opt_dest)                                                                              \
+			SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ".txt", false);                      \
+		else                                                                                       \
+			snprintf (dest, sizeof (dest), "%s.txt", arg);                                         \
+                                                                                                   \
+		if (verbose >= 0 || testmode)                                                              \
+			fprintf (stdlog, "%s%sDECODE ZACKWIKI-" #name ":%s -> %s\n", verbose > 0 ? "\n" : "",  \
+				testmode ? "WOULD " : "", arg, dest);                                              \
+                                                                                                   \
+		if (testmode)                                                                              \
+		{                                                                                          \
+			FREE (raw);                                                                            \
+			return ERR_OK;                                                                         \
+		}                                                                                          \
+                                                                                                   \
+		File_t F;                                                                                  \
+		err = CreateFileOpt (&F, true, dest, false, arg);                                          \
+		if (F.f)                                                                                   \
+			err = decode_fn (F.f, raw, raw_size, raw_size);                                        \
+		ResetFile (&F, opt_preserve);                                                              \
+		FREE (raw);                                                                                \
+		return err;                                                                                \
+	}
 
 DEFINE_EXTRACT_ZACKWIKI (tm2, is_ext (arg, ".tm2"), IsZackWikiTm2, DecodeZackWikiTm2_Text)
 DEFINE_EXTRACT_ZACKWIKI (ppg, is_ext (arg, ".ppg"), IsZackWikiPpg, DecodeZackWikiPpg_Text)
@@ -12164,8 +12321,8 @@ static enumError extract_bfsha_manifest (ccp arg)
 				for (uint k = 0; m->name[k] && j + 1 < sizeof (safe_name); k++)
 				{
 					char c = m->name[k];
-					if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
-						|| (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.')
+					if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+						|| c == '_' || c == '-' || c == '.')
 						safe_name[j++] = c;
 					else
 						safe_name[j++] = '_';
@@ -12183,8 +12340,7 @@ static enumError extract_bfsha_manifest (ccp arg)
 				fwrite (raw + m->bnsh_offset, 1, m->bnsh_size, of);
 				fclose (of);
 				if (verbose >= 0)
-					fprintf (stdlog, "EXTRACT BFSHA:%s[%s] -> BNSH:%s\n",
-						arg, m->name, path);
+					fprintf (stdlog, "EXTRACT BFSHA:%s[%s] -> BNSH:%s\n", arg, m->name, path);
 			}
 		}
 		ResetBFSHA_ModelRefs (&models);
@@ -12414,7 +12570,7 @@ static enumError extract_trpak_file (ccp arg, ccp basedir, uint depth)
 	}
 
 	trpak_t trpak;
-	err = ScanTRPAK (&trpak, raw, (uint) raw_size);
+	err = ScanTRPAK (&trpak, raw, (uint)raw_size);
 	if (err)
 	{
 		FREE (raw);
@@ -12441,17 +12597,19 @@ static enumError extract_trpak_file (ccp arg, ccp basedir, uint depth)
 	for (uint i = 0; !err && i < trpak.n_entries && !testmode; i++)
 	{
 		const trpak_entry_t *e = trpak.entries + i;
-		if ((u64) e->data_offset + e->data_size > raw_size) // ScanTRPAK already guarantees this;
-			continue;                                        // kept as defense in depth
+		if ((u64)e->data_offset + e->data_size > raw_size) // ScanTRPAK already guarantees this;
+			continue; // kept as defense in depth
 
 		char path[PATH_MAX];
-		snprintf (path, sizeof (path), "%s/%04u_%016llx.%s", dest, i,
-			(unsigned long long) e->hash, e->compression == 3 ? "oodle.bin" : "bin");
+		snprintf (path, sizeof (path), "%s/%04u_%016llx.%s", dest, i, (unsigned long long)e->hash,
+			e->compression == 3 ? "oodle.bin" : "bin");
 
 		File_t F;
 		err = CreateFileOpt (&F, true, path, false, arg);
-		if (F.f && e->data_size && fwrite (raw + e->data_offset, 1, e->data_size, F.f) != e->data_size)
-			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", e->data_size, path);
+		if (F.f && e->data_size
+			&& fwrite (raw + e->data_offset, 1, e->data_size, F.f) != e->data_size)
+			err = FILEERROR1 (
+				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", e->data_size, path);
 		ResetFile (&F, opt_preserve);
 	}
 
@@ -12505,8 +12663,8 @@ static enumError extract_cnut_file (ccp arg, ccp basedir, uint depth)
 		snprintf (dest, sizeof (dest), "%s.nut", arg);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT CNUT (Wii Party):%s -> %s\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest);
+		fprintf (stdlog, "%s%sEXTRACT CNUT (Wii Party):%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
 
 	if (testmode)
 	{
@@ -12588,8 +12746,8 @@ static enumError extract_xmsg_file (ccp arg, ccp basedir, uint depth)
 		snprintf (dest, sizeof (dest), "%s.xml", arg);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT XMSG (Wii Party):%s -> %s\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest);
+		fprintf (stdlog, "%s%sEXTRACT XMSG (Wii Party):%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
 
 	if (testmode)
 	{
@@ -12918,15 +13076,16 @@ static enumError extract_kpbin_file (ccp arg, ccp basedir, uint depth)
 		snprintf (dest, sizeof (dest), "%s.txt", arg);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT KPBIN (Koopatlas Map):%s -> %s\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest);
+		fprintf (stdlog, "%s%sEXTRACT KPBIN (Koopatlas Map):%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
 
 	if (!testmode)
 	{
 		File_t F;
 		err = CreateFileOpt (&F, true, dest, false, arg);
 		if (F.f && fwrite (txt, 1, txt_len, F.f) != txt_len)
-			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing Koopatlas map text failed: %s\n", dest);
+			err = FILEERROR1 (
+				&F, ERR_WRITE_FAILED, "Writing Koopatlas map text failed: %s\n", dest);
 		ResetFile (&F, opt_preserve);
 	}
 
@@ -13030,15 +13189,16 @@ static enumError extract_chans_file (ccp arg, ccp basedir, uint depth)
 	}
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT CHANS (ChannelScript):%s -> %s\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest);
+		fprintf (stdlog, "%s%sEXTRACT CHANS (ChannelScript):%s -> %s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
 
 	if (!testmode)
 	{
 		File_t F;
 		err = CreateFileOpt (&F, true, dest, false, arg);
 		if (F.f && fwrite (dump, 1, dump_len, F.f) != dump_len)
-			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing ChannelScript dump failed: %s\n", dest);
+			err = FILEERROR1 (
+				&F, ERR_WRITE_FAILED, "Writing ChannelScript dump failed: %s\n", dest);
 		ResetFile (&F, opt_preserve);
 	}
 
@@ -13253,8 +13413,8 @@ static enumError extract_bfres_switch_manifest (ccp arg)
 					if (arch.slots[i].magic[j] < 32 || arch.slots[i].magic[j] > 126)
 						printable = false;
 				if (printable)
-					fprintf (F.f, "    <list class=\"%.*s\" count=\"%u\"/>\n",
-						4, arch.slots[i].magic, (unsigned)arch.slots[i].count_dict);
+					fprintf (F.f, "    <list class=\"%.*s\" count=\"%u\"/>\n", 4,
+						arch.slots[i].magic, (unsigned)arch.slots[i].count_dict);
 			}
 			fprintf (F.f, "  </resources>\n");
 		}
@@ -13380,7 +13540,8 @@ static enumError extract_cfnt_manifest (ccp arg)
 		// tglp is (size_t)-1 for ptr_glyph < 8; check it before adding to it
 		if (tglp >= size || tglp + 0x20 > size || memcmp (d + tglp, "TGLP", 4))
 		{
-			ptr_glyph = (finf_len >= 0x20 && (size_t)finf + 0x18 <= size) ? CF32 (d + finf + 0x14) : 0;
+			ptr_glyph
+				= (finf_len >= 0x20 && (size_t)finf + 0x18 <= size) ? CF32 (d + finf + 0x14) : 0;
 			tglp = (ptr_glyph >= 8) ? (size_t)ptr_glyph - 8 : (size_t)-1;
 		}
 		if (ptr_glyph >= 8 && tglp < size && tglp + 0x20 <= size && !memcmp (d + tglp, "TGLP", 4))
@@ -13604,13 +13765,12 @@ static enumError decode_bflyt_if_possible (ccp arg)
 	fclose (probe);
 
 	const bool is_lyt_magic = n_magic == sizeof (magic)
-		&& (!memcmp (magic, "FLYT", 4) || !memcmp (magic, "CLYT", 4)
-			|| !memcmp (magic, "FLAN", 4) || !memcmp (magic, "CLAN", 4)
-			|| !memcmp (magic, "RLYT", 4) || !memcmp (magic, "RLAN", 4));
+		&& (!memcmp (magic, "FLYT", 4) || !memcmp (magic, "CLYT", 4) || !memcmp (magic, "FLAN", 4)
+			|| !memcmp (magic, "CLAN", 4) || !memcmp (magic, "RLYT", 4)
+			|| !memcmp (magic, "RLAN", 4));
 	const bool is_lyt_ext = is_ext (arg, ".bflyt") || is_ext (arg, ".bclyt")
-		|| is_ext (arg, ".brlyt") || is_ext (arg, ".brlan")
-		|| is_ext (arg, ".bflan") || is_ext (arg, ".bclan")
-		|| is_ext (arg, ".flyt") || is_ext (arg, ".clyt")
+		|| is_ext (arg, ".brlyt") || is_ext (arg, ".brlan") || is_ext (arg, ".bflan")
+		|| is_ext (arg, ".bclan") || is_ext (arg, ".flyt") || is_ext (arg, ".clyt")
 		|| is_ext (arg, ".flan") || is_ext (arg, ".clan");
 
 	if (!is_lyt_magic && !is_lyt_ext)
@@ -13710,8 +13870,9 @@ static enumError decode_byml_if_possible (ccp arg)
 		&& !is_ext (arg, ".bgyml") && !is_ext (arg, ".bgdata") && !is_ext (arg, ".sbgdata")
 		&& !is_ext (arg, ".bquestpack") && !is_ext (arg, ".sbquestpack") && !is_ext (arg, ".sbyml")
 		&& !is_ext (arg, ".mubin") && !is_ext (arg, ".smubin") && !is_ext (arg, ".baischedule")
-		&& !is_ext (arg, ".sbaischedule") && !is_ext (arg, ".baniminfo") && !is_ext (arg, ".sbaniminfo")
-		&& !is_ext (arg, ".bgsvdata") && !is_ext (arg, ".sbgsvdata"))
+		&& !is_ext (arg, ".sbaischedule") && !is_ext (arg, ".baniminfo")
+		&& !is_ext (arg, ".sbaniminfo") && !is_ext (arg, ".bgsvdata")
+		&& !is_ext (arg, ".sbgsvdata"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *data = 0;
@@ -13909,8 +14070,8 @@ static enumError extract_imet_file (ccp arg, ccp basedir, uint depth)
 		snprintf (u8dest, sizeof (u8dest), "%s.u8", arg);
 	const uint u8_size = (uint)raw_size - imet.u8_offset;
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%sEXTRACT IMET payload:%s -> U8:%s\n", testmode ? "WOULD " : "", arg,
-			u8dest);
+		fprintf (
+			stdlog, "%sEXTRACT IMET payload:%s -> U8:%s\n", testmode ? "WOULD " : "", arg, u8dest);
 	if (!err && !testmode)
 	{
 		File_t F;
@@ -14158,8 +14319,8 @@ static enumError extract_wibn_metadata (ccp arg)
 		else
 			snprintf (png, sizeof (png), "%s%s", arg, suffix);
 		if (verbose >= 0 || testmode)
-			fprintf (stdlog, "%sEXTRACT WIBN save banner icon:%s -> %s\n",
-				testmode ? "WOULD " : "", arg, png);
+			fprintf (stdlog, "%sEXTRACT WIBN save banner icon:%s -> %s\n", testmode ? "WOULD " : "",
+				arg, png);
 		if (testmode)
 			continue;
 
@@ -14395,8 +14556,9 @@ static enumError export_model_if_possible (ccp arg)
 			|| !memcmp (magic + 4, "bdl4", 4));
 	if (n_magic < 4
 		|| ((memcmp (magic, "BMD0", 4) && memcmp (magic, "CGFX", 4) && memcmp (magic, "BCH\0", 4)
-			&& memcmp (magic, "FRES", 4) && memcmp (magic, "MDL0", 4) && memcmp (magic, "RFRM", 4)
-			&& !is_bmd_file) && !is_j3d))
+				&& memcmp (magic, "FRES", 4) && memcmp (magic, "MDL0", 4)
+				&& memcmp (magic, "RFRM", 4) && !is_bmd_file)
+			&& !is_j3d))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *data = 0;
@@ -14612,7 +14774,8 @@ static enumError convert_brsar_if_possible (ccp arg)
 		}
 	}
 	if (!*tool)
-		return ERROR0 (ERR_WARNING, "wbrsar / vgmtrans not found; cannot convert %s to MIDI+SF2: %s\n",
+		return ERROR0 (ERR_WARNING,
+			"wbrsar / vgmtrans not found; cannot convert %s to MIDI+SF2: %s\n",
 			is_sdat || is_ext (arg, ".sdat") ? "SDAT" : "BRSAR", arg);
 
 	// Same "<stem>.d" staging convention every other extractor in this
@@ -14642,7 +14805,8 @@ static enumError convert_brsar_if_possible (ccp arg)
 	if (rc == -1)
 		rc = _spawnvp (_P_WAIT, tool, (const char *const *)child_argv);
 	if (rc != 0)
-		return ERROR0 (ERR_WARNING, "%s failed for %s\n", using_vgmtrans ? "vgmtrans" : "wbrsar", arg);
+		return ERROR0 (
+			ERR_WARNING, "%s failed for %s\n", using_vgmtrans ? "vgmtrans" : "wbrsar", arg);
 #else
 	const pid_t pid = fork ();
 	if (pid < 0)
@@ -14657,7 +14821,8 @@ static enumError convert_brsar_if_possible (ccp arg)
 	while (waitpid (pid, &status, 0) < 0 && errno == EINTR)
 		;
 	if (!WIFEXITED (status) || WEXITSTATUS (status) != 0)
-		return ERROR0 (ERR_WARNING, "%s failed for %s\n", using_vgmtrans ? "vgmtrans" : "wbrsar", arg);
+		return ERROR0 (
+			ERR_WARNING, "%s failed for %s\n", using_vgmtrans ? "vgmtrans" : "wbrsar", arg);
 #endif
 	return ERR_OK;
 }
@@ -15005,8 +15170,8 @@ static enumError extract_bfres_textures (ccp arg, ccp basedir, uint depth)
 		{
 			static const char *const classes[6]
 				= { "FSKA", "FSHU", "FTXP", "FVIS", "FSHA", "FSCN" };
-			fprintf (stdlog, "%s%sANIM:%s[%s]", verbose > 0 ? "\n" : "",
-				testmode ? "WOULD " : "", arg, arch.name);
+			fprintf (stdlog, "%s%sANIM:%s[%s]", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "",
+				arg, arch.name);
 			for (int ci = 0; ci < 6; ci++)
 			{
 				uint n = 0, fmin = 0, fmax = 0, nc = 0, ok = 0;
@@ -15014,18 +15179,16 @@ static enumError extract_bfres_textures (ccp arg, ccp basedir, uint depth)
 					if (!memcmp (anims[i].cls, classes[ci], 4))
 					{
 						n++;
-						if (anims[i].frames >= 0
-							&& (!fmax || (uint)anims[i].frames < fmin))
+						if (anims[i].frames >= 0 && (!fmax || (uint)anims[i].frames < fmin))
 							fmin = (uint)anims[i].frames;
-						if (anims[i].frames >= 0
-							&& (uint)anims[i].frames > fmax)
+						if (anims[i].frames >= 0 && (uint)anims[i].frames > fmax)
 							fmax = (uint)anims[i].frames;
 						nc += anims[i].n_curve;
 						ok += anims[i].n_curve_ok;
 					}
 				if (n)
-					fprintf (stdlog, " %s n=%u frames=%u-%u curves=%u/%u", classes[ci],
-						n, fmin, fmax, ok, nc);
+					fprintf (stdlog, " %s n=%u frames=%u-%u curves=%u/%u", classes[ci], n, fmin,
+						fmax, ok, nc);
 			}
 			fprintf (stdlog, "\n");
 			FREE (anims);
@@ -15186,8 +15349,8 @@ static enumError extract_hsd_textures (ccp arg, ccp basedir, uint depth)
 	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
 	if (err)
 		return ERR_NOTHING_TO_DO;
-	const bool is_bundle = raw_size >= 0x40 && raw_size <= 0x40000000
-		&& IsHSDBundle (raw, (uint)raw_size);
+	const bool is_bundle
+		= raw_size >= 0x40 && raw_size <= 0x40000000 && IsHSDBundle (raw, (uint)raw_size);
 	if (raw_size < 0x40 || raw_size > 0x40000000 || (!is_bundle && !IsHSD (raw, (uint)raw_size)))
 	{
 		FREE (raw);
@@ -15208,7 +15371,8 @@ static enumError extract_hsd_textures (ccp arg, ccp basedir, uint depth)
 		CreatePath (glb_path, false);
 		const int nm = ExportHSDBundleModel (raw, (uint)raw_size, glb_path);
 		if (nm > 0 && verbose >= 0)
-			fprintf (stdlog, "  - HSD bundle model (%u archives, %d mesh%s) extracted from %s -> %s\n",
+			fprintf (stdlog,
+				"  - HSD bundle model (%u archives, %d mesh%s) extracted from %s -> %s\n",
 				CountHSDBundle (raw, (uint)raw_size), nm, nm == 1 ? "" : "es", arg, glb_path);
 	}
 	else if (!testmode)

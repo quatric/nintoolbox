@@ -91,8 +91,8 @@ void ResetBFSAR (bfsar_t *bfsar);
 // file%04u<ext> (extension by container magic, .bin fallback) plus a
 // files.txt manifest. Returns ERR_OK and stores the file count in
 // *out_n (may be NULL). Needs the scanned bfsar AND the raw bytes.
-enumError ExtractBFSARFiles (const bfsar_t *bfsar, const u8 *data, uint size,
-	ccp out_dir, uint *out_n);
+enumError ExtractBFSARFiles (
+	const bfsar_t *bfsar, const u8 *data, uint size, ccp out_dir, uint *out_n);
 
 // Dump as a lossless-structure XML, same convention as wrbnk's DumpRBNK_XML().
 enumError DumpBFSAR_XML (const bfsar_t *bfsar, FILE *f, ccp source_name);

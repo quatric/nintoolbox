@@ -12,7 +12,8 @@
 bool IsMPMESS (const u8 *data, size_t size);
 
 // Extracts the message file container into text / JSON / subfile strings.
-enumError ScanMPMESS (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size);
+enumError ScanMPMESS (
+	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size);
 
 // Dumps decoded message strings to out file stream.
 enumError DecodeMPMESS_Text (FILE *out, const u8 *data, size_t size);

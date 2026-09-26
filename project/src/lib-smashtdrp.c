@@ -146,8 +146,7 @@ enumError ExtractSmashDRPArchive (ccp arg, ccp basedir, uint depth)
 	}
 
 	const u32 count = rd_be16 (dec + 0x16);
-	if (!count || count >= 10000
-		|| 0x60 + (size_t)count * SMASHDRP_REC_SIZE > raw_size
+	if (!count || count >= 10000 || 0x60 + (size_t)count * SMASHDRP_REC_SIZE > raw_size
 		|| !smashdrp_name_ok (dec + 0x60))
 	{
 		FREE (dec);
@@ -159,9 +158,8 @@ enumError ExtractSmashDRPArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT DRP:%s (%u files) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "",
-			arg, count, dest);
+		fprintf (stdlog, "%s%sEXTRACT DRP:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, count, dest);
 
 	// locate each record's part data: records are fixed-size, part
 	// payloads follow the whole table
@@ -206,7 +204,9 @@ enumError ExtractSmashDRPArchive (ccp arg, ccp basedir, uint depth)
 		FILE *man = fopen (man_path, "w");
 		if (man)
 		{
-			fprintf (man, "#DRP\n# Super Smash Bros. 4 encrypted container\n\nfiles = %u\n\n[members]\n", count);
+			fprintf (man,
+				"#DRP\n# Super Smash Bros. 4 encrypted container\n\nfiles = %u\n\n[members]\n",
+				count);
 			for (u32 i = 0; i < count; i++)
 				fprintf (man, "%s\n", dec + 0x60 + (size_t)i * SMASHDRP_REC_SIZE);
 			fclose (man);
@@ -248,18 +248,16 @@ enumError ExtractSmashDRPArchive (ccp arg, ccp basedir, uint depth)
 			char mag[5] = { 0 };
 			if (flat && flat_len >= 4)
 				memcpy (mag, flat, 4);
-			bool printable = mag[0] >= 0x20 && mag[0] < 0x7F
-				&& mag[1] >= 0x20 && mag[1] < 0x7F
-				&& mag[2] >= 0x20 && mag[2] < 0x7F
-				&& mag[3] >= 0x20 && mag[3] < 0x7F;
+			bool printable = mag[0] >= 0x20 && mag[0] < 0x7F && mag[1] >= 0x20 && mag[1] < 0x7F
+				&& mag[2] >= 0x20 && mag[2] < 0x7F && mag[3] >= 0x20 && mag[3] < 0x7F;
 
 			char out_path[PATH_MAX];
 			if (c1 > 1)
-				snprintf (out_path, sizeof (out_path), "%s/%s.part%d.%.4s",
-					dest, (const char *)rec, j, printable ? mag : "bin");
+				snprintf (out_path, sizeof (out_path), "%s/%s.part%d.%.4s", dest, (const char *)rec,
+					j, printable ? mag : "bin");
 			else
-				snprintf (out_path, sizeof (out_path), "%s/%s.%.4s",
-					dest, (const char *)rec, printable ? mag : "bin");
+				snprintf (out_path, sizeof (out_path), "%s/%s.%.4s", dest, (const char *)rec,
+					printable ? mag : "bin");
 			if (flat && flat_len)
 				SaveFile (out_path, 0, 0, flat, flat_len, 0);
 			else if (comp_len)

@@ -100,8 +100,8 @@ static bool smashmta_vis_ok (const u8 *data, size_t size, u32 vis_off)
 	return (size_t)koff + (size_t)kcount * 4 <= size;
 }
 
-static bool smashmta_layout_ok (const u8 *data, size_t size,
-	u32 *mat_count, u32 *mat_off, u32 *vis_count, u32 *vis_off)
+static bool smashmta_layout_ok (
+	const u8 *data, size_t size, u32 *mat_count, u32 *mat_off, u32 *vis_count, u32 *vis_off)
 {
 	if (!data || size < 44 || memcmp (data, "MTA4", 4))
 		return false;
@@ -143,13 +143,12 @@ static void smashmta_dump_pat (FILE *out, const u8 *data, u32 pat_off)
 	const u32 koff = rd_be32 (data + pat_data + 8);
 	const s32 fcount = (s32)rd_be32 (data + pat_data + 12);
 	const s32 unk = (s32)rd_be32 (data + pat_data + 16);
-	fprintf (out, "PAT0\nDefault TexId,0x%08x\nKeyframe Count,%u\nPAT0_Unknown,%d\n",
-		def_tex, kcount, unk);
+	fprintf (out, "PAT0\nDefault TexId,0x%08x\nKeyframe Count,%u\nPAT0_Unknown,%d\n", def_tex,
+		kcount, unk);
 	for (u32 i = 0; i < kcount; i++)
 	{
 		const u8 *k = data + koff + (size_t)i * 8;
-		fprintf (out, "frameNum,%d,texId,0x%08x\n",
-			(s32)rd_be32 (k + 4), rd_be32 (k));
+		fprintf (out, "frameNum,%d,texId,0x%08x\n", (s32)rd_be32 (k + 4), rd_be32 (k));
 	}
 	fprintf (out, "Frame Count,%d\n###\n", fcount);
 	(void)unk;
@@ -163,8 +162,8 @@ enumError DecodeMTA_Text (FILE *out, const u8 *data, size_t size)
 
 	// Layout mirrors MTA.Decompile() so the text stays close to the
 	// reference tool's own exchange format.
-	fprintf (out, "Header\nHeader_Unknown,%u\nFrame Count,%u\nFrame Rate,%u\n",
-		rd_be32 (data + 4), rd_be32 (data + 8), rd_be32 (data + 20));
+	fprintf (out, "Header\nHeader_Unknown,%u\nFrame Count,%u\nFrame Rate,%u\n", rd_be32 (data + 4),
+		rd_be32 (data + 8), rd_be32 (data + 20));
 
 	for (u32 i = 0; i < mat_count; i++)
 	{
@@ -177,7 +176,8 @@ enumError DecodeMTA_Text (FILE *out, const u8 *data, size_t size)
 		const u32 pat_off = rd_be32 (data + mo + 20);
 		const u32 name2_off = rd_be32 (data + mo + 24);
 		const s32 hash2 = (s32)rd_be32 (data + mo + 28);
-		fprintf (out, "--------------------------------------\nMaterial\n%s\n"
+		fprintf (out,
+			"--------------------------------------\nMaterial\n%s\n"
 			"Material Hash,%08X\nHas PAT0,%s\n",
 			name, hash, has_pat ? "true" : "false");
 		if (name2_off)
@@ -194,7 +194,8 @@ enumError DecodeMTA_Text (FILE *out, const u8 *data, size_t size)
 			const u16 unk2 = rd_be16 (data + po + 16);
 			const u16 atype = rd_be16 (data + po + 18);
 			const u32 doff = rd_be32 (data + po + 20);
-			fprintf (out, "Material Property\n%s\nMatProp_Unk1,%d\n"
+			fprintf (out,
+				"Material Property\n%s\nMatProp_Unk1,%d\n"
 				"MatProp_Unk2,%u\nAnimation Type,%u\n",
 				pname, unk, unk2, atype);
 			for (u32 f = 0; f < fcount; f++)
@@ -219,14 +220,14 @@ enumError DecodeMTA_Text (FILE *out, const u8 *data, size_t size)
 		const u32 unk1 = rd_be16 (data + doff + 4);
 		const u32 kcount = (u16)rd_be16 (data + doff + 6);
 		const u32 koff = rd_be32 (data + doff + 8);
-		fprintf (out, "--------------------------------------\nVIS0\n%s\n"
+		fprintf (out,
+			"--------------------------------------\nVIS0\n%s\n"
 			"Frame Count,%d\nKeyframe Count,%u\nIs Constant,%s\n",
 			name, fcount, kcount, unk1 ? "true" : "false");
 		for (u32 k = 0; k < kcount; k++)
 		{
 			const u8 *kr = data + koff + (size_t)k * 4;
-			fprintf (out, "Frame,%d,State,%u,Unknown,%u\n",
-				(s16)rd_be16 (kr), kr[2], kr[3]);
+			fprintf (out, "Frame,%d,State,%u,Unknown,%u\n", (s16)rd_be16 (kr), kr[2], kr[3]);
 		}
 	}
 	fprintf (out, "\n");

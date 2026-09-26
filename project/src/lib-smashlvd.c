@@ -88,12 +88,12 @@ static void smashlvd_fixed_str (char *dst, size_t dstsz, smashlvd_cur_t *c, size
 	dst[n] = 0;
 }
 
-static const u8 smashlvd_magic_coll[12] =
-	{ 0x03, 0x04, 0x01, 0x01, 0x77, 0x35, 0xbb, 0x75, 0x00, 0x00, 0x00, 0x02 };
-static const u8 smashlvd_magic_spawn[12] =
-	{ 0x02, 0x04, 0x01, 0x01, 0x77, 0x35, 0xbb, 0x75, 0x00, 0x00, 0x00, 0x02 };
-static const u8 smashlvd_magic_item[12] =
-	{ 0x01, 0x04, 0x01, 0x01, 0x77, 0x35, 0xbb, 0x75, 0x00, 0x00, 0x00, 0x02 };
+static const u8 smashlvd_magic_coll[12]
+	= { 0x03, 0x04, 0x01, 0x01, 0x77, 0x35, 0xbb, 0x75, 0x00, 0x00, 0x00, 0x02 };
+static const u8 smashlvd_magic_spawn[12]
+	= { 0x02, 0x04, 0x01, 0x01, 0x77, 0x35, 0xbb, 0x75, 0x00, 0x00, 0x00, 0x02 };
+static const u8 smashlvd_magic_item[12]
+	= { 0x01, 0x04, 0x01, 0x01, 0x77, 0x35, 0xbb, 0x75, 0x00, 0x00, 0x00, 0x02 };
 
 static bool smashlvd_magic_ok (smashlvd_cur_t *c, const u8 *magic)
 {
@@ -108,7 +108,8 @@ static bool smashlvd_magic_ok (smashlvd_cur_t *c, const u8 *magic)
 }
 
 // Shared 223-byte entry base; prints the identity block when `out` != 0.
-static bool smashlvd_base (smashlvd_cur_t *c, const u8 *magic, FILE *out, const char *kind, uint idx)
+static bool smashlvd_base (
+	smashlvd_cur_t *c, const u8 *magic, FILE *out, const char *kind, uint idx)
 {
 	if (!smashlvd_magic_ok (c, magic) || c->bad)
 		return false;
@@ -143,10 +144,10 @@ static bool smashlvd_base (smashlvd_cur_t *c, const u8 *magic, FILE *out, const 
 	if (c->bad)
 		return false;
 	if (out)
-		fprintf (out, "[%s %u]\nname = %s\nsubname = %s\nbone = %s\n"
+		fprintf (out,
+			"[%s %u]\nname = %s\nsubname = %s\nbone = %s\n"
 			"start = %.6g %.6g %.6g (used=%u)\nunk1 = %d\nunk2 = %.6g %.6g %.6g\nunk3 = %d\n",
-			kind, idx, name, sub, bone, sx, sy, sz, use_sp,
-			unk1, u0, u1, u2, unk3);
+			kind, idx, name, sub, bone, sx, sy, sz, use_sp, unk1, u0, u1, u2, unk3);
 	return true;
 }
 
@@ -162,8 +163,8 @@ static bool smashlvd_shape (smashlvd_cur_t *c, FILE *out, const char *prefix)
 	if (npts < 0 || npts > 100000 || c->bad)
 		return false;
 	if (out)
-		fprintf (out, "%s shape_type = %d rect = %.6g %.6g %.6g %.6g points = %d\n",
-			prefix, type, x1, y1, x2, y2, npts);
+		fprintf (out, "%s shape_type = %d rect = %.6g %.6g %.6g %.6g points = %d\n", prefix, type,
+			x1, y1, x2, y2, npts);
 	for (s32 i = 0; i < npts; i++)
 	{
 		if (!smashlvd_tag (c))
@@ -259,12 +260,13 @@ static bool smashlvd_collision (smashlvd_cur_t *c, FILE *out, uint idx)
 			return false;
 		}
 		if (out)
-			fprintf (out, "mat%d = physics 0x%02x flags 0x%02x raw %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
-				i, c->data[c->pos + 3], c->data[c->pos + 10],
-				c->data[c->pos], c->data[c->pos + 1], c->data[c->pos + 2],
-				c->data[c->pos + 3], c->data[c->pos + 4], c->data[c->pos + 5],
-				c->data[c->pos + 6], c->data[c->pos + 7], c->data[c->pos + 8],
-				c->data[c->pos + 9], c->data[c->pos + 10], c->data[c->pos + 11]);
+			fprintf (out,
+				"mat%d = physics 0x%02x flags 0x%02x raw "
+				"%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
+				i, c->data[c->pos + 3], c->data[c->pos + 10], c->data[c->pos], c->data[c->pos + 1],
+				c->data[c->pos + 2], c->data[c->pos + 3], c->data[c->pos + 4], c->data[c->pos + 5],
+				c->data[c->pos + 6], c->data[c->pos + 7], c->data[c->pos + 8], c->data[c->pos + 9],
+				c->data[c->pos + 10], c->data[c->pos + 11]);
 		c->pos += 12;
 	}
 	return !c->bad;
@@ -451,8 +453,8 @@ static bool smashlvd_general_point (smashlvd_cur_t *c, FILE *out, uint idx)
 // Walk one of the 19 file-level lists; `parse` selects the entry reader
 // (0 = collision, 1 = spawn, 2 = bounds, 3 = enemy, 4 = damage,
 // 5 = item, 6 = general shape, 7 = general point, -1 = must be empty).
-static bool smashlvd_list (smashlvd_cur_t *c, FILE *out,
-	const char *lname, int parse, const char *kind)
+static bool smashlvd_list (
+	smashlvd_cur_t *c, FILE *out, const char *lname, int parse, const char *kind)
 {
 	if (!smashlvd_tag (c))
 		return false;
@@ -468,15 +470,32 @@ static bool smashlvd_list (smashlvd_cur_t *c, FILE *out,
 		bool ok = false;
 		switch (parse)
 		{
-			case 0: ok = smashlvd_collision (c, out, (uint)i); break;
-			case 1: ok = smashlvd_spawn (c, out, kind, (uint)i); break;
-			case 2: ok = smashlvd_bounds (c, out, kind, (uint)i); break;
-			case 3: ok = smashlvd_enemy (c, out, (uint)i); break;
-			case 4: ok = smashlvd_damage (c, out, (uint)i); break;
-			case 5: ok = smashlvd_item (c, out, (uint)i); break;
-			case 6: ok = smashlvd_general_shape (c, out, (uint)i); break;
-			case 7: ok = smashlvd_general_point (c, out, (uint)i); break;
-			default: return false;
+			case 0:
+				ok = smashlvd_collision (c, out, (uint)i);
+				break;
+			case 1:
+				ok = smashlvd_spawn (c, out, kind, (uint)i);
+				break;
+			case 2:
+				ok = smashlvd_bounds (c, out, kind, (uint)i);
+				break;
+			case 3:
+				ok = smashlvd_enemy (c, out, (uint)i);
+				break;
+			case 4:
+				ok = smashlvd_damage (c, out, (uint)i);
+				break;
+			case 5:
+				ok = smashlvd_item (c, out, (uint)i);
+				break;
+			case 6:
+				ok = smashlvd_general_shape (c, out, (uint)i);
+				break;
+			case 7:
+				ok = smashlvd_general_point (c, out, (uint)i);
+				break;
+			default:
+				return false;
 		}
 		if (!ok || c->bad)
 			return false;
@@ -488,8 +507,8 @@ static bool smashlvd_list (smashlvd_cur_t *c, FILE *out,
 
 static bool smashlvd_walk (const u8 *data, size_t size, FILE *out)
 {
-	if (!data || size < 10 || rd_be32 (data) != 1 || data[4] != 0x0A
-		|| data[5] != 0x01 || memcmp (data + 6, "LVD1", 4))
+	if (!data || size < 10 || rd_be32 (data) != 1 || data[4] != 0x0A || data[5] != 0x01
+		|| memcmp (data + 6, "LVD1", 4))
 		return false;
 	smashlvd_cur_t cur = { data, size, 10, false };
 	smashlvd_cur_t *c = &cur;
@@ -500,12 +519,9 @@ static bool smashlvd_walk (const u8 *data, size_t size, FILE *out)
 		&& smashlvd_list (c, out, "respawns", 1, "respawn")
 		&& smashlvd_list (c, out, "camera_bounds", 2, "camera")
 		&& smashlvd_list (c, out, "blast_zones", 2, "blast")
-		&& smashlvd_list (c, out, "enemies", 3, 0)
-		&& smashlvd_list (c, out, "reserved6", -1, 0)
-		&& smashlvd_list (c, out, "reserved7", -1, 0)
-		&& smashlvd_list (c, out, "reserved8", -1, 0)
-		&& smashlvd_list (c, out, "reserved9", -1, 0)
-		&& smashlvd_list (c, out, "reserved10", -1, 0)
+		&& smashlvd_list (c, out, "enemies", 3, 0) && smashlvd_list (c, out, "reserved6", -1, 0)
+		&& smashlvd_list (c, out, "reserved7", -1, 0) && smashlvd_list (c, out, "reserved8", -1, 0)
+		&& smashlvd_list (c, out, "reserved9", -1, 0) && smashlvd_list (c, out, "reserved10", -1, 0)
 		&& smashlvd_list (c, out, "damage_shapes", 4, 0)
 		&& smashlvd_list (c, out, "item_spawners", 5, 0)
 		&& smashlvd_list (c, out, "general_shapes", 6, 0)

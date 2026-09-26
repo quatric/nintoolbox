@@ -193,7 +193,8 @@ enumError CreateCCF (u8 **dest, uint *dest_size, const struct nintendo_sarc_entr
 				}
 			}
 		}
-		current_offset64 = (current_offset64 + payloads[i].stored_size + mult - 1) & ~(u64)(mult - 1);
+		current_offset64
+			= (current_offset64 + payloads[i].stored_size + mult - 1) & ~(u64)(mult - 1);
 	}
 
 	if (current_offset64 > UINT_MAX)
@@ -404,8 +405,6 @@ enumError EncodeRomC (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 	return ERR_OK;
 }
 
-
-
 enumError create_ccf_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -428,4 +427,3 @@ enumError create_ccf_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

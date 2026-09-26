@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // Extract Koei Tecmo / Gust Texture Volume Archive (.tvol)
 enumError ExtractTVOLArchive (ccp arg, ccp basedir, uint depth)
 {

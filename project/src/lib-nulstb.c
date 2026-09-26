@@ -22,8 +22,7 @@ bool IsNULSTB (const u8 *data, size_t size)
 		|| !memcmp (data + NULSTB_SUBHDR_OFF, "NLST", 4);
 }
 
-static bool read_ssbh_string (
-	char *dest, uint destsz, const u8 *data, size_t size, u64 field_off)
+static bool read_ssbh_string (char *dest, uint destsz, const u8 *data, size_t size, u64 field_off)
 {
 	dest[0] = 0;
 	if (field_off + 8 > size)
@@ -61,7 +60,8 @@ enumError DecodeNULSTB_Text (FILE *out, const u8 *data, size_t size)
 	const u64 rel = rd_le64 (data + array_field_off);
 	const u64 count = rd_le64 (data + array_field_off + 8);
 
-	fprintf (out, "#NULSTB\n"
+	fprintf (out,
+		"#NULSTB\n"
 		"version = %u.%u\n"
 		"file_count = %llu\n\n"
 		"[file_names]\n",

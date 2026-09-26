@@ -316,7 +316,6 @@ enumError ExtractVFFArchive (ccp arg, ccp basedir, uint depth)
 	return ERR_OK;
 }
 
-
 // ----------------------------------------------------------------------------
 // VFF creation. Builds a minimal FAT12/FAT16 volume with no slack space: one
 // data cluster per file (plus one per directory's own 32-byte-entry table),
@@ -521,12 +520,12 @@ static void vff_write_node (
 			else
 			{
 				const u64 off = (u64)c * cluster_size;
-				const uint want = off + cluster_size <= n->size ? cluster_size : (uint)(n->size - off);
+				const uint want
+					= off + cluster_size <= n->size ? cluster_size : (uint)(n->size - off);
 				memset (dst, 0, cluster_size);
 				memcpy (dst, n->data + off, want);
 			}
-			vff_wr_fat (fat, fat_bits, cluster_no,
-				c + 1 < n->n_cluster ? cluster_no + 1 : fat_eoc);
+			vff_wr_fat (fat, fat_bits, cluster_no, c + 1 < n->n_cluster ? cluster_no + 1 : fat_eoc);
 		}
 		FREE (buf);
 	}
@@ -609,7 +608,6 @@ enumError CreateVFFArchive (
 	return ERR_OK;
 }
 
-
 enumError create_vff_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -632,4 +630,3 @@ enumError create_vff_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

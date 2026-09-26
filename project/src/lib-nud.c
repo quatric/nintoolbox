@@ -144,7 +144,8 @@ model_t *ParseNUD (const uint8_t *data, size_t size)
 		= is_be ? (int32_t)rd_be32 (data + 0x1c) : (int32_t)rd_le32 (data + 0x1c);
 
 	const size_t poly_clump_start = 0x30 + (size_t)(poly_clump_rel > 0 ? poly_clump_rel : 0);
-	const size_t vert_clump_start = poly_clump_start + (size_t)(poly_clump_sz > 0 ? poly_clump_sz : 0);
+	const size_t vert_clump_start
+		= poly_clump_start + (size_t)(poly_clump_sz > 0 ? poly_clump_sz : 0);
 	const size_t vertadd_clump_start
 		= vert_clump_start + (size_t)(vert_clump_sz > 0 ? vert_clump_sz : 0);
 	const size_t name_start
@@ -180,16 +181,15 @@ model_t *ParseNUD (const uint8_t *data, size_t size)
 				size_t max_len = sizeof (mesh->name) - 1;
 				if (max_len > size - (name_start + name_rel))
 					max_len = size - (name_start + name_rel);
-				size_t nlen = strnlen ((const char *)(data + name_start + name_rel),
-					max_len);
+				size_t nlen = strnlen ((const char *)(data + name_start + name_rel), max_len);
 				memcpy (mesh->name, data + name_start + name_rel, nlen);
 				mesh->name[nlen] = '\0';
 			}
 			else
 				snprintf (mesh->name, sizeof (mesh->name), "nud_mesh_%zu", oi);
 
-			const uint16_t poly_count = is_be ? rd_be16 (data + obj_off + 42)
-											  : rd_le16 (data + obj_off + 42);
+			const uint16_t poly_count
+				= is_be ? rd_be16 (data + obj_off + 42) : rd_le16 (data + obj_off + 42);
 
 			size_t total_verts = 0;
 			size_t total_indices = 0;
@@ -247,8 +247,10 @@ model_t *ParseNUD (const uint8_t *data, size_t size)
 				uint8_t poly_size = pd[34];
 				uint8_t poly_flag = pd[35];
 
-				size_t p_poly_start = poly_clump_start + (size_t)(poly_start_rel > 0 ? poly_start_rel : 0);
-				size_t p_vert_start = vert_clump_start + (size_t)(vert_start_rel > 0 ? vert_start_rel : 0);
+				size_t p_poly_start
+					= poly_clump_start + (size_t)(poly_start_rel > 0 ? poly_start_rel : 0);
+				size_t p_vert_start
+					= vert_clump_start + (size_t)(vert_start_rel > 0 ? vert_start_rel : 0);
 				size_t p_vertadd_start
 					= vertadd_clump_start + (size_t)(vertadd_start_rel > 0 ? vertadd_start_rel : 0);
 
@@ -379,7 +381,8 @@ model_t *ParseNUD (const uint8_t *data, size_t size)
 						for (size_t ii = 0; ii < pcount; ii++)
 						{
 							if (poly_size == 4)
-								raw_idx[ii] = p_poly_start + ii < size ? data[p_poly_start + ii] : 0;
+								raw_idx[ii]
+									= p_poly_start + ii < size ? data[p_poly_start + ii] : 0;
 							else
 								raw_idx[ii] = p_poly_start + ii * 2 + 2 <= size
 									? (is_be ? rd_be16 (data + p_poly_start + ii * 2)

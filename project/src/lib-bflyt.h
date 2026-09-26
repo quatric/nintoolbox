@@ -12,7 +12,7 @@
 #define BRLYT_MAGIC_RLAN 0x524C414E // 'RLAN' (Wii)
 #define BRLYT_MAGIC_TYLR 0x54594C52 // 'TYLR' (RLYT reversed in SM3DAS)
 #define BRLYT_MAGIC_NALR 0x4E414C52 // 'NALR' (RLAN reversed in SM3DAS)
-#define BFLYT_MAGIC_SVT  0x53565400 // 'SVT\0'
+#define BFLYT_MAGIC_SVT 0x53565400 // 'SVT\0'
 
 // Text file magics (first 4 bytes of the '#FLYT' comment line)
 #define BFLYT_TEXT_MAGIC_FLYT 0x23464C59 // '#FLY'

@@ -578,11 +578,9 @@ static enumError decode_bntx_native (ccp arg, ccp dest, bool want_dds, bool fall
 			ccp ext = strrchr (dest, '.');
 			ccp slash = strrchr (dest, '/');
 			if (ext && (!slash || ext > slash))
-				snprintf (out, sizeof (out), "%.*s.img%03u%s",
-					(int)(ext - dest), dest, i, ext);
+				snprintf (out, sizeof (out), "%.*s.img%03u%s", (int)(ext - dest), dest, i, ext);
 			else
-				snprintf (out, sizeof (out), "%s.img%03u.%s", dest, i,
-					want_dds ? "dds" : "astc");
+				snprintf (out, sizeof (out), "%s.img%03u.%s", dest, i, want_dds ? "dds" : "astc");
 		}
 		else
 			snprintf (out, sizeof (out), "%s", dest);
@@ -606,8 +604,7 @@ static enumError decode_bntx_native (ccp arg, ccp dest, bool want_dds, bool fall
 			File_t F;
 			err = CreateFileOpt (&F, true, out, false, arg);
 			if (!err && F.f && fwrite (data, 1, size, F.f) != size)
-				err = FILEERROR1 (&F, ERR_WRITE_FAILED,
-					"Writing %u bytes failed: %s\n", size, out);
+				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, out);
 			ResetFile (&F, opt_preserve);
 			if (max_err < err)
 				max_err = err;
@@ -685,11 +682,10 @@ static enumError cmd_decode ()
 		// Switch/Wii U multi-texture containers (BNTX/GTX/XTX/NUT) decode every
 		// record the same way TextureConverter exports its whole TextureList,
 		// instead of silently dropping all but index 0.
-		const uint record_images
-			= IsTplFF (img.info_fform) || img.info_fform == FF_CMAB
+		const uint record_images = IsTplFF (img.info_fform) || img.info_fform == FF_CMAB
 				|| img.info_fform == FF_UNKNOWN && img.info_n_image > 1
 				|| (img.info_fform == FF_BNTX || img.info_fform == FF_GTX
-						|| img.info_fform == FF_XTX || img.info_fform == FF_NUT)
+					   || img.info_fform == FF_XTX || img.info_fform == FF_NUT)
 					&& img.info_n_image > 1
 			? img.info_n_image
 			: 1;
@@ -1005,8 +1001,7 @@ static enumError encode_bntx_from_dds (ccp arg, ccp dest)
 	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
 	if (err)
 		return err;
-	if (!raw || raw_size < 128 || memcmp (raw, "DDS ", 4)
-		|| raw_size > (size_t)0x20000000)
+	if (!raw || raw_size < 128 || memcmp (raw, "DDS ", 4) || raw_size > (size_t)0x20000000)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
@@ -1032,8 +1027,7 @@ static enumError encode_bntx_from_dds (ccp arg, ccp dest)
 		File_t F;
 		err = CreateFileOpt (&F, true, dest, false, arg);
 		if (!err && F.f && fwrite (data, 1, size, F.f) != size)
-			err = FILEERROR1 (&F, ERR_WRITE_FAILED,
-				"Writing %u bytes failed: %s\n", size, dest);
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
 		ResetFile (&F, opt_preserve);
 	}
 	FREE (data);
@@ -1058,8 +1052,7 @@ static enumError try_bntx_combine (
 	// All inputs must resolve to the same destination file; a directory dest
 	// (or per-file patterns) stays in split mode.
 	char first_dest[PATH_MAX];
-	SubstDest (first_dest, sizeof (first_dest), plist->field[0],
-		opt_dest_arg, def_path, 0, false);
+	SubstDest (first_dest, sizeof (first_dest), plist->field[0], opt_dest_arg, def_path, 0, false);
 	for (int i = 1; i < plist->used; i++)
 	{
 		char d[PATH_MAX];
@@ -1093,8 +1086,7 @@ static enumError try_bntx_combine (
 		err = LoadFileAlloc (plist->field[i], 0, 0, &raw, &raw_size, 0, 0, 0, false);
 		if (err)
 			break;
-		if (!raw || raw_size < 128 || memcmp (raw, "DDS ", 4)
-			|| raw_size > (size_t)0x20000000)
+		if (!raw || raw_size < 128 || memcmp (raw, "DDS ", 4) || raw_size > (size_t)0x20000000)
 		{
 			FREE (raw);
 			err = ERR_NOTHING_TO_DO;
@@ -1132,8 +1124,7 @@ static enumError try_bntx_combine (
 
 	u8 *out = 0;
 	uint out_size = 0;
-	err = EncodeBNTX_FromDDSList (&out, &out_size, datas, sizes,
-		(ccp const *)names, n);
+	err = EncodeBNTX_FromDDSList (&out, &out_size, datas, sizes, (ccp const *)names, n);
 	for (uint i = 0; i < n; i++)
 	{
 		FREE ((void *)datas[i]);
@@ -1153,8 +1144,8 @@ static enumError try_bntx_combine (
 		File_t F;
 		err = CreateFileOpt (&F, true, first_dest, false, plist->field[0]);
 		if (!err && F.f && fwrite (out, 1, out_size, F.f) != out_size)
-			err = FILEERROR1 (&F, ERR_WRITE_FAILED,
-				"Writing %u bytes failed: %s\n", out_size, first_dest);
+			err = FILEERROR1 (
+				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", out_size, first_dest);
 		ResetFile (&F, opt_preserve);
 	}
 	FREE (out);

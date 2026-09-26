@@ -16,7 +16,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // Extract Nintendo Switch XTX Texture Container (.xtx / DFvN)
 enumError ExtractXTXArchive (ccp arg, ccp basedir, uint depth)
 {
@@ -106,24 +105,63 @@ static bool xtx_map_format (uint nvn, uint *bntx_fmt, uint *bntx_type)
 	uint fmt = 0, type = 1;
 	switch (nvn)
 	{
-		case 0x01: fmt = 0x02; break; // R8
-		case 0x0d: fmt = 0x09; break; // RG8
-		case 0x25: fmt = 0x0b; break; // RGBA8
-		case 0x38: fmt = 0x0b; type = 6; break; // RGBA8_SRGB
-		case 0x39: fmt = 0x03; break; // RGBA4 (no B-first word exists; see below)
-		case 0x3b: fmt = 0x3b; break; // RGB5A1 (B5G5R5A1 in BNTX spelling)
-		case 0x3c: fmt = 0x08; break; // RGB565 (B5G6R5 in BNTX spelling)
-		case 0x3d: fmt = 0x0e; break; // RGB10A2
-		case 0x42: fmt = 0x1a; break; // DXT1 / BC1
-		case 0x43: fmt = 0x1b; break; // DXT3 / BC2
-		case 0x44: fmt = 0x1c; break; // DXT5 / BC3
-		case 0x49: fmt = 0x1d; break; // BC4U
-		case 0x4a: fmt = 0x1d; type = 2; break; // BC4S
-		case 0x4b: fmt = 0x1e; break; // BC5U
-		case 0x4c: fmt = 0x1e; type = 2; break; // BC5S
-		case 0x4d: fmt = 0x20; break; // BC7U
-		case 0x50: fmt = 0x1f; break; // BC6U (unsigned: decoder signs iff type 2/0xb)
-		case 0x6d: fmt = 0x0c; break; // BGRA8
+		case 0x01:
+			fmt = 0x02;
+			break; // R8
+		case 0x0d:
+			fmt = 0x09;
+			break; // RG8
+		case 0x25:
+			fmt = 0x0b;
+			break; // RGBA8
+		case 0x38:
+			fmt = 0x0b;
+			type = 6;
+			break; // RGBA8_SRGB
+		case 0x39:
+			fmt = 0x03;
+			break; // RGBA4 (no B-first word exists; see below)
+		case 0x3b:
+			fmt = 0x3b;
+			break; // RGB5A1 (B5G5R5A1 in BNTX spelling)
+		case 0x3c:
+			fmt = 0x08;
+			break; // RGB565 (B5G6R5 in BNTX spelling)
+		case 0x3d:
+			fmt = 0x0e;
+			break; // RGB10A2
+		case 0x42:
+			fmt = 0x1a;
+			break; // DXT1 / BC1
+		case 0x43:
+			fmt = 0x1b;
+			break; // DXT3 / BC2
+		case 0x44:
+			fmt = 0x1c;
+			break; // DXT5 / BC3
+		case 0x49:
+			fmt = 0x1d;
+			break; // BC4U
+		case 0x4a:
+			fmt = 0x1d;
+			type = 2;
+			break; // BC4S
+		case 0x4b:
+			fmt = 0x1e;
+			break; // BC5U
+		case 0x4c:
+			fmt = 0x1e;
+			type = 2;
+			break; // BC5S
+		case 0x4d:
+			fmt = 0x20;
+			break; // BC7U
+		case 0x50:
+			fmt = 0x1f;
+			break; // BC6U (unsigned: decoder signs iff type 2/0xb)
+		case 0x6d:
+			fmt = 0x0c;
+			break; // BGRA8
 		default:
 			if (nvn >= 0x79 && nvn <= 0x86) // ASTC_*_UNORM
 			{
@@ -147,24 +185,42 @@ ccp GetXTXFormatName (uint format)
 {
 	switch (format)
 	{
-		case 0x01: return "R8";
-		case 0x0d: return "RG8";
-		case 0x25: return "RGBA8";
-		case 0x38: return "RGBA8_SRGB";
-		case 0x39: return "RGBA4";
-		case 0x3b: return "RGB5A1";
-		case 0x3c: return "RGB565";
-		case 0x3d: return "RGB10A2";
-		case 0x42: return "DXT1";
-		case 0x43: return "DXT3";
-		case 0x44: return "DXT5";
-		case 0x49: return "BC4U";
-		case 0x4a: return "BC4S";
-		case 0x4b: return "BC5U";
-		case 0x4c: return "BC5S";
-		case 0x4d: return "BC7U";
-		case 0x50: return "BC6U";
-		case 0x6d: return "BGRA8";
+		case 0x01:
+			return "R8";
+		case 0x0d:
+			return "RG8";
+		case 0x25:
+			return "RGBA8";
+		case 0x38:
+			return "RGBA8_SRGB";
+		case 0x39:
+			return "RGBA4";
+		case 0x3b:
+			return "RGB5A1";
+		case 0x3c:
+			return "RGB565";
+		case 0x3d:
+			return "RGB10A2";
+		case 0x42:
+			return "DXT1";
+		case 0x43:
+			return "DXT3";
+		case 0x44:
+			return "DXT5";
+		case 0x49:
+			return "BC4U";
+		case 0x4a:
+			return "BC4S";
+		case 0x4b:
+			return "BC5U";
+		case 0x4c:
+			return "BC5S";
+		case 0x4d:
+			return "BC7U";
+		case 0x50:
+			return "BC6U";
+		case 0x6d:
+			return "BGRA8";
 		default:
 			if (format >= 0x79 && format <= 0x86)
 				return "ASTC_UNORM";
@@ -287,8 +343,7 @@ enumError ScanXTX (xtx_t *xtx, const u8 *data, uint size)
 		uint map_fmt = 0, map_type = 1;
 		if (!t->width || !t->height || !t->mip_count || !t->slice_size
 			|| hdr_datasize > t->data_size || t->mip_offsets[0] > t->data_size
-			|| t->block_height_log2 > 5
-			|| !xtx_map_format (t->format, &map_fmt, &map_type))
+			|| t->block_height_log2 > 5 || !xtx_map_format (t->format, &map_fmt, &map_type))
 		{
 			// Unknown pixel formats are rejected here, not at decode
 			// time, so AssignIMG() never claims an XTX it cannot draw.

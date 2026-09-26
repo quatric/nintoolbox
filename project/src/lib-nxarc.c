@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // ----------------------------------------------------------------------------
 // 11. Nintendo Switch NX Archive (.nxarc / RAXN)
 // ----------------------------------------------------------------------------
@@ -130,7 +129,6 @@ enumError ExtractNXARCArchive (ccp arg, ccp basedir, uint depth)
 	return ERR_OK;
 }
 
-
 // Nintendo Switch NX Archive (.nxarc / RAXN), little-endian
 enumError CreateNXARCArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
@@ -194,7 +192,6 @@ enumError CreateNXARCArchive (
 	return ERR_OK;
 }
 
-
 enumError create_nxarc_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -217,4 +214,3 @@ enumError create_nxarc_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

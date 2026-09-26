@@ -239,9 +239,9 @@ static enumError parse_proto (
 	// multi-gigabyte CALLOC that free_proto() then walks element by element.
 	const size_t left = end - p;
 	if (proto->n_literals > left || proto->n_parameters > left || proto->n_outervalues > left
-		|| proto->n_localvars > left || proto->n_lineinfos > left
-		|| proto->n_defaultparams > left || proto->n_instructions > left
-		|| proto->n_functions > left || (proto->n_functions && depth >= CNUT_MAX_PROTO_DEPTH))
+		|| proto->n_localvars > left || proto->n_lineinfos > left || proto->n_defaultparams > left
+		|| proto->n_instructions > left || proto->n_functions > left
+		|| (proto->n_functions && depth >= CNUT_MAX_PROTO_DEPTH))
 		return ERR_INVALID_DATA;
 
 	// 3. Literals

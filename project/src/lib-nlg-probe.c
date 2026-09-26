@@ -58,22 +58,22 @@ static bool nlg_sanim_known (u16 magic)
 {
 	switch (magic)
 	{
-	case 0x7000:
-	case 0x7001:
-	case 0x7002:
-	case 0x7003:
-	case 0x7004:
-	case 0x7005:
-	case 0x7006:
-	case 0x7007:
-	case 0x7008:
-	case 0x7100:
-	case 0x7101:
-	case 0x7102:
-	case 0x7103:
-		return true;
-	default:
-		return false;
+		case 0x7000:
+		case 0x7001:
+		case 0x7002:
+		case 0x7003:
+		case 0x7004:
+		case 0x7005:
+		case 0x7006:
+		case 0x7007:
+		case 0x7008:
+		case 0x7100:
+		case 0x7101:
+		case 0x7102:
+		case 0x7103:
+			return true;
+		default:
+			return false;
 	}
 }
 

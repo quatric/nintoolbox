@@ -98,8 +98,8 @@ enumError ScanRetroTXTR (retro_txtr_info_t *info, const u8 *data, uint size)
 		return EINVAL;
 
 	uint off = 12;
-	const bool indexed = format == RETRO_TXTR_C4 || format == RETRO_TXTR_C8
-		|| format == RETRO_TXTR_C14X2;
+	const bool indexed
+		= format == RETRO_TXTR_C4 || format == RETRO_TXTR_C8 || format == RETRO_TXTR_C14X2;
 	if (indexed)
 	{
 		if (size < off + 8)
@@ -192,8 +192,7 @@ static bool retro_to_gx (uint retro_fmt, uint *gx_fmt)
 	}
 }
 
-enumError DecodeRetroTXTR_RGBA (
-	u8 **dest, uint *width, uint *height, const u8 *src, uint src_size)
+enumError DecodeRetroTXTR_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, uint src_size)
 {
 	if (!dest || !width || !height)
 		return EINVAL;
@@ -206,9 +205,9 @@ enumError DecodeRetroTXTR_RGBA (
 	if (!retro_to_gx (info.format, &gx_fmt))
 		return EINVAL; // C14X2: no decoder, fail cleanly
 	u8 *rgba = 0;
-	const enumError err = DecodeGXTexture_RGBA (&rgba, info.width, info.height, gx_fmt,
-		info.pix_data, info.pix_size, info.palette, info.pal_count,
-		info.indexed ? info.pal_format : 0);
+	const enumError err
+		= DecodeGXTexture_RGBA (&rgba, info.width, info.height, gx_fmt, info.pix_data,
+			info.pix_size, info.palette, info.pal_count, info.indexed ? info.pal_format : 0);
 	if (err)
 		return err;
 	*dest = rgba;
@@ -231,7 +230,8 @@ static inline u8 retro_to_grey (const u8 *p)
 
 static void retro_gx_encode (uint gx_fmt, uint w, uint h, const u8 *rgba, u8 *out)
 {
-#define RGETPX(x, y) (rgba + ((size_t)((uint)(y) < h ? (y) : h - 1) * w + ((uint)(x) < w ? (x) : w - 1)) * 4)
+#define RGETPX(x, y)                                                                               \
+	(rgba + ((size_t)((uint)(y) < h ? (y) : h - 1) * w + ((uint)(x) < w ? (x) : w - 1)) * 4)
 	uint p = 0;
 	uint bw = 4, bh = 4;
 	switch (gx_fmt)
@@ -265,7 +265,8 @@ static void retro_gx_encode (uint gx_fmt, uint w, uint h, const u8 *rgba, u8 *ou
 						for (uint x = 0; x < 8; x += 2)
 						{
 							const u8 hi = retro_to_nibble (retro_to_grey (RGETPX (bx + x, by + y)));
-							const u8 lo = retro_to_nibble (retro_to_grey (RGETPX (bx + x + 1, by + y)));
+							const u8 lo
+								= retro_to_nibble (retro_to_grey (RGETPX (bx + x + 1, by + y)));
 							out[p++] = (u8)(hi << 4 | lo);
 						}
 					break;
@@ -279,7 +280,8 @@ static void retro_gx_encode (uint gx_fmt, uint w, uint h, const u8 *rgba, u8 *ou
 						for (uint x = 0; x < 8; x++)
 						{
 							const u8 *s = RGETPX (bx + x, by + y);
-							out[p++] = (u8)(retro_to_nibble (s[3]) << 4 | retro_to_nibble (retro_to_grey (s)));
+							out[p++] = (u8)(retro_to_nibble (s[3]) << 4
+								| retro_to_nibble (retro_to_grey (s)));
 						}
 					break;
 				case 3:
@@ -297,7 +299,8 @@ static void retro_gx_encode (uint gx_fmt, uint w, uint h, const u8 *rgba, u8 *ou
 						for (uint x = 0; x < 4; x++)
 						{
 							const u8 *s = RGETPX (bx + x, by + y);
-							const u16 v = (u16)((u16)(s[0] >> 3) << 11 | (u16)(s[1] >> 2) << 5 | (s[2] >> 3));
+							const u16 v = (u16)((u16)(s[0] >> 3) << 11 | (u16)(s[1] >> 2) << 5
+								| (s[2] >> 3));
 							out[p] = (u8)(v >> 8);
 							out[p + 1] = (u8)v;
 							p += 2;
@@ -310,10 +313,11 @@ static void retro_gx_encode (uint gx_fmt, uint w, uint h, const u8 *rgba, u8 *ou
 							const u8 *s = RGETPX (bx + x, by + y);
 							u16 v;
 							if (s[3] >= 224)
-								v = (u16)(0x8000 | (u16)(s[0] >> 3) << 10 | (u16)(s[1] >> 3) << 5 | (s[2] >> 3));
+								v = (u16)(0x8000 | (u16)(s[0] >> 3) << 10 | (u16)(s[1] >> 3) << 5
+									| (s[2] >> 3));
 							else
-								v = (u16)((u16)((s[3] * 7 + 127) / 255) << 12 | (u16)(s[0] >> 4) << 8
-									| (u16)(s[1] >> 4) << 4 | (s[2] >> 4));
+								v = (u16)((u16)((s[3] * 7 + 127) / 255) << 12
+									| (u16)(s[0] >> 4) << 8 | (u16)(s[1] >> 4) << 4 | (s[2] >> 4));
 							out[p] = (u8)(v >> 8);
 							out[p + 1] = (u8)v;
 							p += 2;
@@ -344,7 +348,8 @@ static void retro_gx_encode (uint gx_fmt, uint w, uint h, const u8 *rgba, u8 *ou
 							u8 vector[64];
 							for (uint y = 0; y < 4; y++)
 								for (uint x = 0; x < 4; x++)
-									memcpy (vector + (y * 4 + x) * 4, RGETPX (bx + sx + x, by + sy + y), 4);
+									memcpy (vector + (y * 4 + x) * 4,
+										RGETPX (bx + sx + x, by + sy + y), 4);
 							cmpr_info_t cinfo;
 							InitializeCmprInfo (&cinfo);
 							CMPR_wiimm (vector, &cinfo);
@@ -359,8 +364,8 @@ static void retro_gx_encode (uint gx_fmt, uint w, uint h, const u8 *rgba, u8 *ou
 #undef RGETPX
 }
 
-enumError EncodeRetroTXTR_RGBA (u8 **dest, uint *dest_size, const u8 *rgba, uint width,
-	uint height, uint retro_format)
+enumError EncodeRetroTXTR_RGBA (
+	u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height, uint retro_format)
 {
 	if (!dest || !dest_size || !rgba || !width || !height)
 		return EINVAL;
@@ -524,9 +529,9 @@ enumError ScanTropicalTXTR (tropical_txtr_info_t *info, const u8 *data, uint siz
 	const uint tile_mode = rd_be32 (hb + 0x14);
 	const uint swizzle_raw = rd_be32 (hb + 0x18);
 	const uint mip_count = rd_be32 (hb + 0x1c);
-	if (tex_type > 7 || tex_format > 0x21 || !w || !h || w > TROPICAL_MAX_DIM || h > TROPICAL_MAX_DIM
-		|| !depth || depth > 2048 || tile_mode > 15 || swizzle_raw > 7 || !mip_count
-		|| mip_count > TROPICAL_MAX_MIPS)
+	if (tex_type > 7 || tex_format > 0x21 || !w || !h || w > TROPICAL_MAX_DIM
+		|| h > TROPICAL_MAX_DIM || !depth || depth > 2048 || tile_mode > 15 || swizzle_raw > 7
+		|| !mip_count || mip_count > TROPICAL_MAX_MIPS)
 		return EINVAL;
 	if (0x20 + (u64)mip_count * 4 + 8 > head_size)
 		return EINVAL;
@@ -623,8 +628,8 @@ bool IsTropicalTXTR (const u8 *data, uint size)
 // Modes 1/2/3 copy 1/2/4-byte groups; mode 0 is stored. Bounds-checked:
 // any truncated or back-referencing descriptor fails instead of overrunning.
 
-static enumError tropical_lzss (u8 **dest, uint *dest_size, const u8 *src, uint src_size,
-	uint decomp_size)
+static enumError tropical_lzss (
+	u8 **dest, uint *dest_size, const u8 *src, uint src_size, uint decomp_size)
 {
 	if (!dest || !dest_size || !src || !decomp_size || decomp_size > RETRO_TXTR_MAX_OUTPUT)
 		return EINVAL;
@@ -760,9 +765,8 @@ enumError DecodeTropicalTXTR_RGBA (
 			else if (info.tile_mode == 6 || info.tile_mode == 10)
 				align = 8;
 		}
-		const uint ew = (gx2_fmt & 0x3f) >= 0x31 && (gx2_fmt & 0x3f) <= 0x35
-			? (info.width + 3) / 4
-			: info.width;
+		const uint ew = (gx2_fmt & 0x3f) >= 0x31 && (gx2_fmt & 0x3f) <= 0x35 ? (info.width + 3) / 4
+																			 : info.width;
 		const uint min_pitch = (ew + align - 1) & ~(align - 1);
 		uint bpp = 32;
 		switch (gx2_fmt & 0x3f)
@@ -793,9 +797,8 @@ enumError DecodeTropicalTXTR_RGBA (
 				bpp = 32;
 				break;
 		}
-		const u64 eh = (gx2_fmt & 0x3f) >= 0x31 && (gx2_fmt & 0x3f) <= 0x35
-			? (info.height + 3) / 4
-			: info.height;
+		const u64 eh = (gx2_fmt & 0x3f) >= 0x31 && (gx2_fmt & 0x3f) <= 0x35 ? (info.height + 3) / 4
+																			: info.height;
 		if (pitch < min_pitch || (u64)pitch * eh * bpp / 8 > info.decomp_size)
 			pitch = min_pitch;
 	}
@@ -859,8 +862,8 @@ enumError DecodeTropicalTXTR_RGBA (
 	uint w = 0, h = 0;
 	// dim 1 (2D), aa 0, slice/sample 0. Pitch is the validated value
 	// picked above, not the raw header derivation.
-	err = DecodeGX2SurfaceSlice_RGBA (&rgba, &w, &h, 1, info.width, info.height, 1, gx2_fmt,
-		0, info.tile_mode, pitch, info.swizzle, 0, 0, raw, wpos);
+	err = DecodeGX2SurfaceSlice_RGBA (&rgba, &w, &h, 1, info.width, info.height, 1, gx2_fmt, 0,
+		info.tile_mode, pitch, info.swizzle, 0, 0, raw, wpos);
 	FREE (raw);
 	if (err)
 		return err;
@@ -907,8 +910,8 @@ static bool mpr_read_form (const u8 *data, uint size, uint off, char id[4], u32 
 	return true;
 }
 
-static bool mpr_read_chunk (const u8 *data, uint size, uint off, char id[4], u64 *body_size,
-	uint *body_off)
+static bool mpr_read_chunk (
+	const u8 *data, uint size, uint off, char id[4], u64 *body_size, uint *body_off)
 {
 	if (!data || (u64)off + 0x18 > size)
 		return false;
@@ -935,7 +938,8 @@ enumError ScanMPRTXTR (mpr_txtr_info_t *info, const u8 *data, uint size)
 	u32 rver, wver;
 	u64 fsize;
 	uint fbody;
-	if (!mpr_read_form (data, size, 0, fid, &rver, &wver, &fsize, &fbody) || memcmp (fid, "TXTR", 4))
+	if (!mpr_read_form (data, size, 0, fid, &rver, &wver, &fsize, &fbody)
+		|| memcmp (fid, "TXTR", 4))
 		return EINVAL;
 	// The discriminator against Tropical Freeze, which shares this exact
 	// RFRM+"TXTR" shell byte-for-byte but never sets this pair: retrotool's
@@ -1096,8 +1100,8 @@ enum
 	MPR_K_ASTC
 };
 
-static bool mpr_format_info (uint fmt, uint *bpp, uint *blk_w, uint *blk_h, uint *kind,
-	bool *is_signed)
+static bool mpr_format_info (
+	uint fmt, uint *bpp, uint *blk_w, uint *blk_h, uint *kind, bool *is_signed)
 {
 	static const u8 astc_dim[14][2] = { { 4, 4 }, { 5, 4 }, { 5, 5 }, { 6, 5 }, { 6, 6 }, { 8, 5 },
 		{ 8, 6 }, { 8, 8 }, { 10, 5 }, { 10, 6 }, { 10, 8 }, { 10, 10 }, { 12, 10 }, { 12, 12 } };
@@ -1196,8 +1200,7 @@ static uint mpr_log2_pow2 (uint v)
 	return log2;
 }
 
-enumError DecodeMPRTXTR_RGBA (
-	u8 **dest, uint *width, uint *height, const u8 *src, uint src_size)
+enumError DecodeMPRTXTR_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, uint src_size)
 {
 	if (!dest || !width || !height)
 		return EINVAL;
@@ -1323,7 +1326,7 @@ enumError DecodeMPRTXTR_RGBA (
 	else if (kind == MPR_K_BC6 || kind == MPR_K_BC7)
 	{
 		const int ok = kind == MPR_K_BC6 ? szs_decode_bc6 (linear, w, h, is_signed, rgba)
-										  : szs_decode_bc7 (linear, w, h, rgba);
+										 : szs_decode_bc7 (linear, w, h, rgba);
 		if (!ok)
 		{
 			FREE (rgba);
@@ -1402,17 +1405,16 @@ static u64 mpr_block_linear_addr (uint x, uint y, uint width, uint bpp, uint blo
 {
 	const uint width_in_gobs = mpr_div_round_up (width * bpp, 64);
 	const u64 gob = (u64)(y / (8 * block_height)) * 512 * block_height * width_in_gobs
-		+ (u64)(x * bpp / 64) * 512 * block_height
-		+ (u64)((y % (8 * block_height)) / 8) * 512;
+		+ (u64)(x * bpp / 64) * 512 * block_height + (u64)((y % (8 * block_height)) / 8) * 512;
 	const uint xb = x * bpp;
-	return gob + (u64)((xb % 64) / 32) * 256 + (u64)((y % 8) / 2) * 64
-		+ (u64)((xb % 32) / 16) * 32 + (u64)(y % 2) * 16 + xb % 16;
+	return gob + (u64)((xb % 64) / 32) * 256 + (u64)((y % 8) / 2) * 64 + (u64)((xb % 32) / 16) * 32
+		+ (u64)(y % 2) * 16 + xb % 16;
 }
 
-enumError EncodeMPRTXTR_RGBA (
-	u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height)
+enumError EncodeMPRTXTR_RGBA (u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height)
 {
-	if (!dest || !dest_size || !rgba || !width || !height || width > MPR_MAX_DIM || height > MPR_MAX_DIM)
+	if (!dest || !dest_size || !rgba || !width || !height || width > MPR_MAX_DIM
+		|| height > MPR_MAX_DIM)
 		return EINVAL;
 	*dest = 0;
 	*dest_size = 0;

@@ -185,7 +185,6 @@ enumError CreateSARC (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *e
 	return ERR_OK;
 }
 
-
 // The conventional .sarc spelling keeps Nintendo's big-endian form.  The
 // explicit suffixes make it possible to create the Wii U/Switch-style little
 // endian variant without adding a global option whose meaning would leak into
@@ -230,4 +229,3 @@ enumError create_sarc_dir (ccp source, ccp dest, bool big_endian)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

@@ -30,7 +30,7 @@ enumError ScanRTDP (rtdp_t *rtdp, const u8 *data, size_t size)
 
 	const u32 header_size = rd_be32 (data + 4);
 	const u32 n = rd_be32 (data + 8);
-	if (n > RTDP_MAX_ENTRIES || 0x20 + (u64) n * 40 > header_size)
+	if (n > RTDP_MAX_ENTRIES || 0x20 + (u64)n * 40 > header_size)
 		return ERR_INVALID_DATA;
 
 	rtdp_entry_t *entries = CALLOC (n ? n : 1, sizeof (*entries));
@@ -39,19 +39,19 @@ enumError ScanRTDP (rtdp_t *rtdp, const u8 *data, size_t size)
 
 	for (uint i = 0; i < n; i++)
 	{
-		const u8 *rec = data + 0x20 + (u64) i * 40;
+		const u8 *rec = data + 0x20 + (u64)i * 40;
 		memcpy (entries[i].name, rec, 32);
 		entries[i].name[32] = 0;
 		const u32 esize = rd_be32 (rec + 32);
 		const u32 rel = rd_be32 (rec + 36);
-		const u64 abs_off = (u64) header_size + rel;
+		const u64 abs_off = (u64)header_size + rel;
 		if (abs_off + esize > size)
 		{
 			FREE (entries);
 			return ERR_INVALID_DATA;
 		}
 		entries[i].size = esize;
-		entries[i].offset = (u32) abs_off;
+		entries[i].offset = (u32)abs_off;
 	}
 
 	rtdp->raw = data;
@@ -94,10 +94,10 @@ enumError ExtractRTDPArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT RTDP:%s (%u files) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, rtdp.n_entries, dest);
+		fprintf (stdlog, "%s%sEXTRACT RTDP:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, rtdp.n_entries, dest);
 
-	(void) depth;
+	(void)depth;
 	for (uint i = 0; i < rtdp.n_entries; i++)
 	{
 		const rtdp_entry_t *e = rtdp.entries + i;
@@ -133,10 +133,10 @@ enumError ScanWTMDHeader (wtmd_header_t *hd, const u8 *data, size_t size)
 		return ERR_INVALID_DATA;
 	memset (hd, 0, sizeof (*hd));
 	hd->header_size = rd_be32 (data + 4);
-	hd->width	 = rd_be16 (data + 8);
-	hd->height	 = rd_be16 (data + 10);
-	hd->format_code	 = data[12];
-	hd->payload	 = data + hd->header_size;
+	hd->width = rd_be16 (data + 8);
+	hd->height = rd_be16 (data + 10);
+	hd->format_code = data[12];
+	hd->payload = data + hd->header_size;
 	hd->payload_size = size - hd->header_size;
 	return ERR_OK;
 }
@@ -239,7 +239,7 @@ enumError ExtractCXDFile (ccp arg, ccp basedir, uint depth)
 	// format's extension ("foo_vol.cxd" -> "foo_vol.vol"), then let that
 	// extension's own extractor (RTDP) take it from there for archives; a
 	// bare texture is just the decompressed file itself.
-	(void) basedir;
+	(void)basedir;
 	char base[PATH_MAX];
 	StringCopyS (base, sizeof (base), arg);
 	char *dot = strrchr (base, '.');

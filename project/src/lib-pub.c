@@ -7,8 +7,14 @@
 #include "lib-excite.h"
 #include <string.h>
 
-static u32 pb_be32 (const u8 *p) { return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
-static u32 pb_be16 (const u8 *p) { return p[0] << 8 | p[1]; }
+static u32 pb_be32 (const u8 *p)
+{
+	return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
+}
+static u32 pb_be16 (const u8 *p)
+{
+	return p[0] << 8 | p[1];
+}
 
 bool IsAtomicPub (const u8 *d, size_t size)
 {
@@ -104,7 +110,10 @@ typedef struct
 	uint count, off, stride, size;
 } pub_attr_t;
 
-static bool pb_ok (size_t size, size_t off, size_t len) { return off <= size && len <= size - off; }
+static bool pb_ok (size_t size, size_t off, size_t len)
+{
+	return off <= size && len <= size - off;
+}
 
 // First attribute record of slot S of the geometry struct at G.
 static bool pb_attr (const u8 *o, size_t size, u32 g, uint slot, pub_attr_t *a)
@@ -127,7 +136,8 @@ static bool pb_attr (const u8 *o, size_t size, u32 g, uint slot, pub_attr_t *a)
 	a->off = o[r + 10];
 	a->stride = o[r + 11];
 	a->size = o[r + 12];
-	return a->count && a->stride && (uint)a->off + a->size <= a->stride && pb_ok (size, a->data, (size_t)a->count * a->stride);
+	return a->count && a->stride && (uint)a->off + a->size <= a->stride
+		&& pb_ok (size, a->data, (size_t)a->count * a->stride);
 }
 
 static float pb_f (const u8 *p)
@@ -138,7 +148,8 @@ static float pb_f (const u8 *p)
 	return f;
 }
 
-static bool pb_part (const u8 *o, size_t size, model_t *m, uint part, u32 A, u32 B, u32 G, PubTexFunc texname, void *ctx)
+static bool pb_part (const u8 *o, size_t size, model_t *m, uint part, u32 A, u32 B, u32 G,
+	PubTexFunc texname, void *ctx)
 {
 	if (!pb_ok (size, A, 12) || !pb_ok (size, B, 16))
 		return true;
@@ -167,7 +178,8 @@ static bool pb_part (const u8 *o, size_t size, model_t *m, uint part, u32 A, u32
 	{
 		const uint cmd = *p & 0xf8, n = pb_be16 (p + 1);
 		p += 3;
-		if ((size_t)(end - p) < (size_t)n * 2 * nt || (cmd != 0x80 && cmd != 0x90 && cmd != 0x98 && cmd != 0xa0))
+		if ((size_t)(end - p) < (size_t)n * 2 * nt
+			|| (cmd != 0x80 && cmd != 0x90 && cmd != 0x98 && cmd != 0xa0))
 			break;
 		u32 idx[4096][4];
 		if (n > 4096)
@@ -175,11 +187,29 @@ static bool pb_part (const u8 *o, size_t size, model_t *m, uint part, u32 A, u32
 		for (uint i = 0; i < n; i++)
 			for (uint k = 0; k < nt; k++, p += 2)
 				idx[i][k] = pb_be16 (p);
-		// triangles as index tuples
-		#define EMIT(a, b, c) do { \
-			if (num + 3 > cap) { cap *= 2; u32 *ns = REALLOC (soup, cap * 3 * sizeof (u32) * nt); if (!ns) { FREE (soup); return false; } soup = ns; } \
-			for (uint k = 0; k < nt; k++) { soup[(num + 0) * nt + k] = idx[a][k]; soup[(num + 1) * nt + k] = idx[b][k]; soup[(num + 2) * nt + k] = idx[c][k]; } \
-			num += 3; } while (0)
+// triangles as index tuples
+#define EMIT(a, b, c)                                                                              \
+	do                                                                                             \
+	{                                                                                              \
+		if (num + 3 > cap)                                                                         \
+		{                                                                                          \
+			cap *= 2;                                                                              \
+			u32 *ns = REALLOC (soup, cap * 3 * sizeof (u32) * nt);                                 \
+			if (!ns)                                                                               \
+			{                                                                                      \
+				FREE (soup);                                                                       \
+				return false;                                                                      \
+			}                                                                                      \
+			soup = ns;                                                                             \
+		}                                                                                          \
+		for (uint k = 0; k < nt; k++)                                                              \
+		{                                                                                          \
+			soup[(num + 0) * nt + k] = idx[a][k];                                                  \
+			soup[(num + 1) * nt + k] = idx[b][k];                                                  \
+			soup[(num + 2) * nt + k] = idx[c][k];                                                  \
+		}                                                                                          \
+		num += 3;                                                                                  \
+	} while (0)
 		if (cmd == 0x90)
 			for (uint i = 0; i + 2 < n; i += 3)
 				EMIT (i, i + 1, i + 2);
@@ -192,7 +222,8 @@ static bool pb_part (const u8 *o, size_t size, model_t *m, uint part, u32 A, u32
 		else if (cmd == 0x98)
 			for (uint i = 0; i + 2 < n; i++)
 			{
-				if (idx[i][0] == idx[i + 1][0] || idx[i + 1][0] == idx[i + 2][0] || idx[i][0] == idx[i + 2][0])
+				if (idx[i][0] == idx[i + 1][0] || idx[i + 1][0] == idx[i + 2][0]
+					|| idx[i][0] == idx[i + 2][0])
 					continue;
 				if (i & 1)
 					EMIT (i + 1, i, i + 2);
@@ -202,7 +233,7 @@ static bool pb_part (const u8 *o, size_t size, model_t *m, uint part, u32 A, u32
 		else
 			for (uint i = 1; i + 1 < n; i++)
 				EMIT (0, i, i + 1);
-		#undef EMIT
+#undef EMIT
 	}
 	if (!num)
 	{
@@ -248,7 +279,8 @@ static bool pb_part (const u8 *o, size_t size, model_t *m, uint part, u32 A, u32
 		if (pos_i >= at[0].count || (hn && nrm_i >= at[3].count) || (ht && uv_i >= at[2].count))
 			pos_i = nrm_i = uv_i = 0;
 		const u8 *pp = o + at[0].data + (size_t)pos_i * at[0].stride + at[0].off;
-		mesh->positions[i].x = pb_f (pp), mesh->positions[i].y = pb_f (pp + 4), mesh->positions[i].z = pb_f (pp + 8);
+		mesh->positions[i].x = pb_f (pp), mesh->positions[i].y = pb_f (pp + 4),
+		mesh->positions[i].z = pb_f (pp + 8);
 		vertex_t *v = mesh->vertices + i;
 		v->position_idx = (int)i;
 		v->normal_idx = v->tangent_idx = v->matrix_idx = v->texcoord_idx = -1;
@@ -259,10 +291,10 @@ static bool pb_part (const u8 *o, size_t size, model_t *m, uint part, u32 A, u32
 		{
 			const u8 *np = o + at[3].data + (size_t)nrm_i * at[3].stride + at[3].off;
 			if (at[3].size == 12)
-				mesh->normals[i] = (vec3_t){ pb_f (np), pb_f (np + 4), pb_f (np + 8) };
+				mesh->normals[i] = (vec3_t) { pb_f (np), pb_f (np + 4), pb_f (np + 8) };
 			else
-				mesh->normals[i] = (vec3_t){ (s16)pb_be16 (np) / 16384.0f, (s16)pb_be16 (np + 2) / 16384.0f,
-					(s16)pb_be16 (np + 4) / 16384.0f };
+				mesh->normals[i] = (vec3_t) { (s16)pb_be16 (np) / 16384.0f,
+					(s16)pb_be16 (np + 2) / 16384.0f, (s16)pb_be16 (np + 4) / 16384.0f };
 			v->normal_idx = (int)i;
 		}
 		if (ht)
@@ -305,14 +337,15 @@ model_t *ParsePubMesh (const u8 *o, size_t size, PubTexFunc texname, void *ctx)
 	const u32 R = 0x74;
 	const uint n = pb_be16 (o + R + 0x10);
 	const u32 la = pb_be32 (o + R + 4), lb = pb_be32 (o + R + 8), lc = pb_be32 (o + R + 12);
-	if (!n || n > 512 || !pb_ok (size, la, n * 4) || !pb_ok (size, lb, n * 4) || !pb_ok (size, lc, n * 4))
+	if (!n || n > 512 || !pb_ok (size, la, n * 4) || !pb_ok (size, lb, n * 4)
+		|| !pb_ok (size, lc, n * 4))
 		return 0;
 	model_t *m = CALLOC (1, sizeof (*m));
 	if (!m)
 		return 0;
 	for (uint i = 0; i < n; i++)
-		if (!pb_part (o, size, m, i, pb_be32 (o + la + 4 * i), pb_be32 (o + lb + 4 * i), pb_be32 (o + lc + 4 * i),
-				texname, ctx))
+		if (!pb_part (o, size, m, i, pb_be32 (o + la + 4 * i), pb_be32 (o + lb + 4 * i),
+				pb_be32 (o + lc + 4 * i), texname, ctx))
 		{
 			FreeModel (m);
 			return 0;

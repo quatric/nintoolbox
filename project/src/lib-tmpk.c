@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // ----------------------------------------------------------------------------
 // 10. Twilight Princess HD / Zelda TMPK Archive (.pack / TMPK)
 // ----------------------------------------------------------------------------
@@ -97,7 +96,6 @@ enumError ExtractTMPKArchive (ccp arg, ccp basedir, uint depth)
 	return ERR_OK;
 }
 
-
 // Twilight Princess HD Archive (.pack / TMPK), big-endian
 enumError CreateTMPKArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
@@ -159,7 +157,6 @@ enumError CreateTMPKArchive (
 	return ERR_OK;
 }
 
-
 enumError create_tmpk_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -182,4 +179,3 @@ enumError create_tmpk_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

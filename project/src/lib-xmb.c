@@ -22,8 +22,8 @@ typedef struct
 
 // Bounded NUL-terminated string at an absolute offset. Returns NULL when the
 // offset is out of range or no terminator fits before 'limit'.
-static ccp xmb_string (const u8 *data, size_t size, u64 off, u64 limit,
-	char *tmp, uint tmpsz, int *ok)
+static ccp xmb_string (
+	const u8 *data, size_t size, u64 off, u64 limit, char *tmp, uint tmpsz, int *ok)
 {
 	if (off >= size || off >= limit)
 	{
@@ -54,11 +54,21 @@ static void xmb_write_escaped (FILE *out, ccp s, int attr)
 	{
 		switch (*s)
 		{
-			case '&': fputs ("&amp;", out); break;
-			case '<': fputs ("&lt;", out); break;
-			case '>': fputs ("&gt;", out); break;
-			case '"': fputs (attr ? "&quot;" : "\"", out); break;
-			default: fputc (*s, out); break;
+			case '&':
+				fputs ("&amp;", out);
+				break;
+			case '<':
+				fputs ("&lt;", out);
+				break;
+			case '>':
+				fputs ("&gt;", out);
+				break;
+			case '"':
+				fputs (attr ? "&quot;" : "\"", out);
+				break;
+			default:
+				fputc (*s, out);
+				break;
 		}
 	}
 }
@@ -91,8 +101,7 @@ bool IsXMB (const u8 *data, size_t size)
 	const u32 nodes = rd_le32 (data + 4);
 	const u32 values = rd_le32 (data + 8);
 	const u32 mapped = rd_le32 (data + 16);
-	if (!nodes || nodes > XMB_MAX_NODES || values > XMB_MAX_NODES * 64
-		|| mapped > XMB_MAX_NODES)
+	if (!nodes || nodes > XMB_MAX_NODES || values > XMB_MAX_NODES * 64 || mapped > XMB_MAX_NODES)
 		return false;
 	const u32 node_tab = rd_le32 (data + 0x18);
 	const u32 prop_tab = rd_le32 (data + 0x1c);
@@ -101,22 +110,21 @@ bool IsXMB (const u8 *data, size_t size)
 	const u32 values_off = rd_le32 (data + 0x28);
 	if ((u64)node_tab + (u64)nodes * XMB_ENTRY_SIZE > size
 		|| (u64)prop_tab + (u64)values * XMB_PROP_SIZE > size
-		|| (u64)map_off + (u64)mapped * XMB_MAP_SIZE > size
-		|| names_off >= size || values_off >= size)
+		|| (u64)map_off + (u64)mapped * XMB_MAP_SIZE > size || names_off >= size
+		|| values_off >= size)
 		return false;
 	return true;
 }
 
-static void xmb_write_node (FILE *out, const u8 *data, size_t size,
-	const xmb_node_t *nodes, u32 node_count, u32 prop_base, u32 prop_count,
-	u32 names_off, u32 values_off, int idx, int depth)
+static void xmb_write_node (FILE *out, const u8 *data, size_t size, const xmb_node_t *nodes,
+	u32 node_count, u32 prop_base, u32 prop_count, u32 names_off, u32 values_off, int idx,
+	int depth)
 {
 	if (depth > XMB_MAX_DEPTH)
 		return;
 	char tmp[512], pname[512], pval[1024];
 	int ok = 0;
-	ccp name = xmb_string (data, size, nodes[idx].name_at, size,
-		tmp, sizeof (tmp), &ok);
+	ccp name = xmb_string (data, size, nodes[idx].name_at, size, tmp, sizeof (tmp), &ok);
 	if (!ok || !*name)
 		name = "node";
 
@@ -136,10 +144,8 @@ static void xmb_write_node (FILE *out, const u8 *data, size_t size,
 		const u32 noff = rd_le32 (data + pe);
 		const u32 voff = rd_le32 (data + pe + 4);
 		int ok1 = 0, ok2 = 0;
-		ccp pn = xmb_string (data, size, (u64)names_off + noff, size,
-			pname, sizeof (pname), &ok1);
-		ccp pv = xmb_string (data, size, (u64)values_off + voff, size,
-			pval, sizeof (pval), &ok2);
+		ccp pn = xmb_string (data, size, (u64)names_off + noff, size, pname, sizeof (pname), &ok1);
+		ccp pv = xmb_string (data, size, (u64)values_off + voff, size, pval, sizeof (pval), &ok2);
 		if (!ok1 || !*pn)
 			continue;
 		fputc (' ', out);
@@ -166,8 +172,8 @@ static void xmb_write_node (FILE *out, const u8 *data, size_t size,
 	fputs (">\n", out);
 	for (u32 i = 0; i < node_count; i++)
 		if (nodes[i].parent == idx)
-			xmb_write_node (out, data, size, nodes, node_count,
-				prop_base, prop_count, names_off, values_off, (int)i, depth + 1);
+			xmb_write_node (out, data, size, nodes, node_count, prop_base, prop_count, names_off,
+				values_off, (int)i, depth + 1);
 	for (int d = 0; d < depth; d++)
 		fputs ("    ", out);
 	fputs ("</", out);
@@ -209,8 +215,7 @@ enumError DecodeXMB_XML (FILE *out, const u8 *data, size_t size)
 		nodes[i].first_prop = fprop < 0 ? 0 : fprop;
 		nodes[i].parent = parent;
 		nodes[i].name_at = names_off + nodes[i].name_off;
-		if (nodes[i].parent != -1
-			&& (nodes[i].parent < 0 || nodes[i].parent >= (int)node_count))
+		if (nodes[i].parent != -1 && (nodes[i].parent < 0 || nodes[i].parent >= (int)node_count))
 			nodes[i].parent = -2; // orphaned: never emitted as a child
 	}
 
@@ -223,8 +228,8 @@ enumError DecodeXMB_XML (FILE *out, const u8 *data, size_t size)
 
 	fprintf (out, "<?xml version=\"1.0\" ?>\n");
 	if (root >= 0)
-		xmb_write_node (out, data, size, nodes, node_count,
-			prop_tab, value_count, names_off, values_off, root, 0);
+		xmb_write_node (out, data, size, nodes, node_count, prop_tab, value_count, names_off,
+			values_off, root, 0);
 	FREE (nodes);
 	return ERR_OK;
 }

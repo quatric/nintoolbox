@@ -208,7 +208,7 @@ static inline u16 zmb_be16 (const u8 *p)
 	return (u16)p[0] << 8 | p[1];
 }
 
-static bool zmb_in_bounds ( uint size, u64 off, u64 len )
+static bool zmb_in_bounds (uint size, u64 off, u64 len)
 {
 	return off <= size && len <= (u64)size - off;
 }
@@ -220,7 +220,7 @@ static bool zmb_is_chunk (const u8 *data, uint size, u64 off)
 
 bool IsZMB (const u8 *data, uint size)
 {
-	if ( size < 0x24 || memcmp (data, "WII\0", 4) )
+	if (size < 0x24 || memcmp (data, "WII\0", 4))
 		return false;
 	const u32 chunk_off = zmb_be32 (data + 0x10);
 	return zmb_is_chunk (data, size, chunk_off);
@@ -228,18 +228,18 @@ bool IsZMB (const u8 *data, uint size)
 
 //-----------------------------------------------------------------------------
 
-static void zmb_dump_name ( FILE *f, ccp key, const u8 *name, uint max_len )
+static void zmb_dump_name (FILE *f, ccp key, const u8 *name, uint max_len)
 {
 	uint len = 0;
-	while ( len < max_len && name[len] )
+	while (len < max_len && name[len])
 		len++;
 	fprintf (f, "%s: \"", key);
-	for ( uint i = 0; i < len; i++ )
+	for (uint i = 0; i < len; i++)
 	{
 		const u8 c = name[i];
-		if ( c == '"' || c == '\\' )
+		if (c == '"' || c == '\\')
 			fputc ('\\', f);
-		if ( c >= 0x20 && c < 0x7f )
+		if (c >= 0x20 && c < 0x7f)
 			fputc (c, f);
 		else
 			fprintf (f, "\\x%02x", c);
@@ -247,9 +247,9 @@ static void zmb_dump_name ( FILE *f, ccp key, const u8 *name, uint max_len )
 	fprintf (f, "\"\n");
 }
 
-static void zmb_dump_chunk ( FILE *f, const u8 *data, uint size, u32 chunk_off, ccp label )
+static void zmb_dump_chunk (FILE *f, const u8 *data, uint size, u32 chunk_off, ccp label)
 {
-	if ( !zmb_is_chunk (data, size, chunk_off) )
+	if (!zmb_is_chunk (data, size, chunk_off))
 		return;
 	const u8 *chunk = data + chunk_off;
 	fprintf (f, "- chunk: %s\n", label);
@@ -258,12 +258,12 @@ static void zmb_dump_chunk ( FILE *f, const u8 *data, uint size, u32 chunk_off, 
 	//--- textures: {count, 0, name-array offset (chunk-relative)}, then
 	// 'count' fixed 0x20-byte NUL-padded names at that offset.
 	const u64 tex_hdr = (u64)chunk_off + zmb_be32 (chunk + 0x18);
-	if ( zmb_in_bounds (size, tex_hdr, 0xc) )
+	if (zmb_in_bounds (size, tex_hdr, 0xc))
 	{
 		const u32 tex_count = zmb_be32 (data + tex_hdr);
 		const u64 tex_names = (u64)chunk_off + zmb_be32 (data + tex_hdr + 8);
 		fprintf (f, "  textures:\n");
-		for ( u32 i = 0; i < tex_count && zmb_in_bounds (size, tex_names + (u64)i * 0x20, 0x20); i++ )
+		for (u32 i = 0; i < tex_count && zmb_in_bounds (size, tex_names + (u64)i * 0x20, 0x20); i++)
 		{
 			fprintf (f, "    - ");
 			zmb_dump_name (f, "name", data + tex_names + i * 0x20, 0x20);
@@ -273,7 +273,7 @@ static void zmb_dump_chunk ( FILE *f, const u8 *data, uint size, u32 chunk_off, 
 	//--- materials (count + stride only; per-record fields not decoded)
 	const u64 mat_off = (u64)chunk_off + zmb_be32 (chunk + 0x1c);
 	u32 mat_count = 0;
-	if ( zmb_in_bounds (size, mat_off, 4) )
+	if (zmb_in_bounds (size, mat_off, 4))
 	{
 		mat_count = zmb_be32 (data + mat_off);
 		fprintf (f, "  material_count: %u\n", mat_count);
@@ -281,10 +281,10 @@ static void zmb_dump_chunk ( FILE *f, const u8 *data, uint size, u32 chunk_off, 
 
 	//--- bones
 	const u64 bone_off = (u64)chunk_off + zmb_be32 (chunk + 0x20);
-	if ( !zmb_in_bounds (size, bone_off, 0xc) )
+	if (!zmb_in_bounds (size, bone_off, 0xc))
 		return;
 	const u32 bone_count = zmb_be32 (data + bone_off);
-	if ( bone_count > 0x10000 )
+	if (bone_count > 0x10000)
 		return;
 	// Relocated relative to the CHUNK start, not the bone table itself
 	// (matches the decompiled loader: "local_50[2] = iVar54 + local_50[2]").
@@ -292,12 +292,16 @@ static void zmb_dump_chunk ( FILE *f, const u8 *data, uint size, u32 chunk_off, 
 	fprintf (f, "  bone_count: %u\n", bone_count);
 	fprintf (f, "  bones:\n");
 
-	enum { BONE_STRIDE = 0xa0, SUBMESH_STRIDE = 0x40 };
+	enum
+	{
+		BONE_STRIDE = 0xa0,
+		SUBMESH_STRIDE = 0x40
+	};
 
-	for ( u32 i = 0; i < bone_count; i++ )
+	for (u32 i = 0; i < bone_count; i++)
 	{
 		const u64 b = bone_rec + (u64)i * BONE_STRIDE;
-		if ( !zmb_in_bounds (size, b, BONE_STRIDE) )
+		if (!zmb_in_bounds (size, b, BONE_STRIDE))
 			break;
 
 		fprintf (f, "    - ");
@@ -306,26 +310,24 @@ static void zmb_dump_chunk ( FILE *f, const u8 *data, uint size, u32 chunk_off, 
 		const u32 type = zmb_be32 (data + b + 0x2c);
 		fprintf (f, "      type: %u\n", type);
 
-		if ( type == 4 )
+		if (type == 4)
 		{
-			fprintf (f, "      anchor: [ %g, %g, %g ]\n",
-				zmb_bef32 (data + b + 0x70),
-				zmb_bef32 (data + b + 0x74),
-				zmb_bef32 (data + b + 0x78) );
+			fprintf (f, "      anchor: [ %g, %g, %g ]\n", zmb_bef32 (data + b + 0x70),
+				zmb_bef32 (data + b + 0x74), zmb_bef32 (data + b + 0x78));
 		}
-		else if ( type != 2 )
+		else if (type != 2)
 		{
 			fprintf (f, "      bind_pose:\n");
-			for ( uint row = 0; row < 3; row++ )
+			for (uint row = 0; row < 3; row++)
 				fprintf (f, "        - [ %g, %g, %g, %g ]\n",
 					zmb_bef32 (data + b + 0x30 + row * 0x10),
 					zmb_bef32 (data + b + 0x34 + row * 0x10),
 					zmb_bef32 (data + b + 0x38 + row * 0x10),
-					zmb_bef32 (data + b + 0x3c + row * 0x10) );
+					zmb_bef32 (data + b + 0x3c + row * 0x10));
 		}
 
 		const u16 submesh_count = zmb_be16 (data + b + 0x9a);
-		if ( !submesh_count )
+		if (!submesh_count)
 			continue;
 
 		// Chunk-relative on disk, like the texture/material/bone table
@@ -334,10 +336,10 @@ static void zmb_dump_chunk ( FILE *f, const u8 *data, uint size, u32 chunk_off, 
 
 		fprintf (f, "      submesh_count: %u\n", submesh_count);
 		fprintf (f, "      submeshes:\n");
-		for ( u16 s = 0; s < submesh_count; s++ )
+		for (u16 s = 0; s < submesh_count; s++)
 		{
 			const u64 sm = sub0 + (u64)s * SUBMESH_STRIDE;
-			if ( !zmb_in_bounds (size, sm, SUBMESH_STRIDE) )
+			if (!zmb_in_bounds (size, sm, SUBMESH_STRIDE))
 				break;
 			const u16 vblock_count = zmb_be16 (data + sm + 0xa);
 			const u32 material_idx = zmb_be32 (data + sm);
@@ -355,23 +357,22 @@ typedef struct zmb_mat_t
 {
 	float r[9]; // 3x3 rotation, row-major: r[row*3+col]
 	float t[3]; // translation
-}
-zmb_mat_t;
+} zmb_mat_t;
 
-static const zmb_mat_t zmb_identity = { { 1,0,0, 0,1,0, 0,0,1 }, { 0, 0, 0 } };
+static const zmb_mat_t zmb_identity = { { 1, 0, 0, 0, 1, 0, 0, 0, 1 }, { 0, 0, 0 } };
 
-static void zmb_mat_apply ( const zmb_mat_t *m, const float in[3], float out[3], bool translate )
+static void zmb_mat_apply (const zmb_mat_t *m, const float in[3], float out[3], bool translate)
 {
-	for ( uint row = 0; row < 3; row++ )
+	for (uint row = 0; row < 3; row++)
 		out[row] = m->r[row * 3] * in[0] + m->r[row * 3 + 1] * in[1] + m->r[row * 3 + 2] * in[2]
-			+ ( translate ? m->t[row] : 0 );
+			+ (translate ? m->t[row] : 0);
 }
 
 // world = parent_world composed with this bone's own local rotation+translation.
-static void zmb_mat_compose ( const zmb_mat_t *parent, const zmb_mat_t *local, zmb_mat_t *out )
+static void zmb_mat_compose (const zmb_mat_t *parent, const zmb_mat_t *local, zmb_mat_t *out)
 {
-	for ( uint row = 0; row < 3; row++ )
-		for ( uint col = 0; col < 3; col++ )
+	for (uint row = 0; row < 3; row++)
+		for (uint col = 0; col < 3; col++)
 			out->r[row * 3 + col] = parent->r[row * 3] * local->r[col]
 				+ parent->r[row * 3 + 1] * local->r[3 + col]
 				+ parent->r[row * 3 + 2] * local->r[6 + col];
@@ -383,19 +384,19 @@ static void zmb_mat_compose ( const zmb_mat_t *parent, const zmb_mat_t *local, z
 // 'base' re-roots the whole chunk under an outside transform (used to
 // attach a character's head chunk to the body chunk's mii_head bone); pass
 // &zmb_identity for a chunk's own, unattached hierarchy.
-static zmb_mat_t * zmb_compute_world_mats ( const u8 *data, uint size, u32 bone_rec, u32 bone_count,
-	const zmb_mat_t *base )
+static zmb_mat_t *zmb_compute_world_mats (
+	const u8 *data, uint size, u32 bone_rec, u32 bone_count, const zmb_mat_t *base)
 {
-	if ( !bone_count || bone_count > 0x10000 )
+	if (!bone_count || bone_count > 0x10000)
 		return 0;
-	zmb_mat_t *world = MALLOC ((size_t)bone_count * sizeof(*world));
+	zmb_mat_t *world = MALLOC ((size_t)bone_count * sizeof (*world));
 	if (!world)
 		return 0;
 
-	for ( u32 i = 0; i < bone_count; i++ )
+	for (u32 i = 0; i < bone_count; i++)
 	{
 		const u64 b = (u64)bone_rec + (u64)i * 0xa0;
-		if ( !zmb_in_bounds (size, b, 0xa0) )
+		if (!zmb_in_bounds (size, b, 0xa0))
 		{
 			FREE (world);
 			return 0;
@@ -406,17 +407,17 @@ static zmb_mat_t * zmb_compute_world_mats ( const u8 *data, uint size, u32 bone_
 		// them as rows composes a leg chain that runs UP from the hip;
 		// transposed, it runs down to a foot near y=0 and a toe that
 		// extends forward, exactly as a bind-pose leg should.
-		for ( uint row = 0; row < 3; row++ )
-			for ( uint col = 0; col < 3; col++ )
+		for (uint row = 0; row < 3; row++)
+			for (uint col = 0; col < 3; col++)
 				local.r[row * 3 + col] = zmb_bef32 (data + b + 0x30 + col * 0x10 + row * 4);
 		local.t[0] = zmb_bef32 (data + b + 0x60);
 		local.t[1] = zmb_bef32 (data + b + 0x64);
 		local.t[2] = zmb_bef32 (data + b + 0x68);
 
 		const s32 parent = (s32)zmb_be32 (data + b + 0x94);
-		if ( parent < 0 ) // root: re-rooted under 'base' instead of left at identity
+		if (parent < 0) // root: re-rooted under 'base' instead of left at identity
 			zmb_mat_compose (base, &local, &world[i]);
-		else if ( (u32)parent >= i ) // not yet computed (corrupt/out-of-order data): best effort
+		else if ((u32)parent >= i) // not yet computed (corrupt/out-of-order data): best effort
 			world[i] = local;
 		else
 			zmb_mat_compose (&world[parent], &local, &world[i]);
@@ -426,17 +427,17 @@ static zmb_mat_t * zmb_compute_world_mats ( const u8 *data, uint size, u32 bone_
 
 // Find a bone by exact name within a chunk's own table (used to locate the
 // body chunk's "mii_head" attachment point); returns bone index or -1.
-static s32 zmb_find_bone ( const u8 *data, uint size, u32 bone_rec, u32 bone_count, ccp name )
+static s32 zmb_find_bone (const u8 *data, uint size, u32 bone_rec, u32 bone_count, ccp name)
 {
 	const size_t len = strlen (name);
-	if ( len >= 0x20 )
+	if (len >= 0x20)
 		return -1;
-	for ( u32 i = 0; i < bone_count; i++ )
+	for (u32 i = 0; i < bone_count; i++)
 	{
 		const u64 b = (u64)bone_rec + (u64)i * 0xa0;
-		if ( !zmb_in_bounds (size, b, 0x20) )
+		if (!zmb_in_bounds (size, b, 0x20))
 			break;
-		if ( !memcmp (data + b, name, len) && ( len == 0x20 || !data[b + len] ) )
+		if (!memcmp (data + b, name, len) && (len == 0x20 || !data[b + len]))
 			return (s32)i;
 	}
 	return -1;
@@ -448,135 +449,144 @@ static s32 zmb_find_bone ( const u8 *data, uint size, u32 bone_rec, u32 bone_cou
 
 typedef struct zmb_obj_ctx_t
 {
-	FILE	*f;
-	u32	next_pos;  // 1-based running OBJ vertex-index base
-	u32	next_norm;
-	u32	next_uv;
-}
-zmb_obj_ctx_t;
+	FILE *f;
+	u32 next_pos; // 1-based running OBJ vertex-index base
+	u32 next_norm;
+	u32 next_uv;
+} zmb_obj_ctx_t;
 
 // Write one submesh's position/normal/UV pools as 'v'/'vn'/'vt' lines, then
 // one fan-triangulated 'f' line per vertex block. Silently skips whatever
 // doesn't fit in 'size' (best-effort against truncated/corrupt input).
-static void zmb_write_submesh_obj ( zmb_obj_ctx_t *ctx, const u8 *data, uint size,
-	u32 chunk_off, u32 sm, ccp group_name, const zmb_mat_t *world, ccp mtl_name )
+static void zmb_write_submesh_obj (zmb_obj_ctx_t *ctx, const u8 *data, uint size, u32 chunk_off,
+	u32 sm, ccp group_name, const zmb_mat_t *world, ccp mtl_name)
 {
-	const u64 pos_off  = (u64)chunk_off + zmb_be32 (data + sm + 0x24);
+	const u64 pos_off = (u64)chunk_off + zmb_be32 (data + sm + 0x24);
 	const u64 norm_off = (u64)chunk_off + zmb_be32 (data + sm + 0x2c);
-	const u64 uv_off   = (u64)chunk_off + zmb_be32 (data + sm + 0x30);
-	const u32 pos_cnt  = zmb_be32 (data + sm + 0xc);
+	const u64 uv_off = (u64)chunk_off + zmb_be32 (data + sm + 0x30);
+	const u32 pos_cnt = zmb_be32 (data + sm + 0xc);
 	const u32 norm_cnt = zmb_be32 (data + sm + 0x14);
 	const u16 vblock_count = zmb_be16 (data + sm + 0xa);
 	const u16 lod_flag = zmb_be16 (data + sm + 4);
 	const u32 vb_stride = lod_flag ? 0x20 : 0x14;
 	const u64 vb_arr = (u64)chunk_off + zmb_be32 (data + sm + 0x20);
 
-	if ( !vblock_count || !zmb_in_bounds (size, vb_arr, (u64)vblock_count * vb_stride) )
+	if (!vblock_count || !zmb_in_bounds (size, vb_arr, (u64)vblock_count * vb_stride))
 		return;
 
 	// A submesh's UV pool has no reliable stored count (see the comment
 	// above), so size it from the highest index any of its vertex blocks
 	// actually uses.
 	u32 uv_cnt = 0;
-	for ( u16 s = 0; s < vblock_count; s++ )
+	for (u16 s = 0; s < vblock_count; s++)
 	{
 		const u64 vb = vb_arr + (u64)s * vb_stride;
 		const u16 n = zmb_be16 (data + vb + 2);
 		const u32 uv_idx = zmb_be32 (data + vb + 0xc);
-		if ( !uv_idx || !n )
+		if (!uv_idx || !n)
 			continue;
 		const u64 idx_arr = (u64)chunk_off + uv_idx;
-		if ( !zmb_in_bounds (size, idx_arr, (u64)n * 4) )
+		if (!zmb_in_bounds (size, idx_arr, (u64)n * 4))
 			continue;
-		for ( u16 c = 0; c < n; c++ )
+		for (u16 c = 0; c < n; c++)
 		{
 			const u32 idx = zmb_be32 (data + idx_arr + c * 4);
-			if ( idx + 1 > uv_cnt )
+			if (idx + 1 > uv_cnt)
 				uv_cnt = idx + 1;
 		}
 	}
 
-	const bool have_pos  = pos_cnt  && zmb_in_bounds (size, pos_off,  (u64)pos_cnt  * 12);
+	const bool have_pos = pos_cnt && zmb_in_bounds (size, pos_off, (u64)pos_cnt * 12);
 	const bool have_norm = norm_cnt && zmb_in_bounds (size, norm_off, (u64)norm_cnt * 12);
-	const bool have_uv   = uv_cnt   && zmb_in_bounds (size, uv_off,   (u64)uv_cnt   * 8);
-	if ( !have_pos )
+	const bool have_uv = uv_cnt && zmb_in_bounds (size, uv_off, (u64)uv_cnt * 8);
+	if (!have_pos)
 		return;
 
 	fprintf (ctx->f, "g %s\nusemtl %s\n", group_name, mtl_name);
-	for ( u32 i = 0; i < pos_cnt; i++ )
+	for (u32 i = 0; i < pos_cnt; i++)
 	{
-		float in[3] = {
-			zmb_bef32 (data + pos_off + i * 12),
-			zmb_bef32 (data + pos_off + i * 12 + 4),
-			zmb_bef32 (data + pos_off + i * 12 + 8) };
+		float in[3] = { zmb_bef32 (data + pos_off + i * 12),
+			zmb_bef32 (data + pos_off + i * 12 + 4), zmb_bef32 (data + pos_off + i * 12 + 8) };
 		float out[3];
 		zmb_mat_apply (world, in, out, true);
 		fprintf (ctx->f, "v %g %g %g\n", out[0], out[1], out[2]);
 	}
-	if ( have_norm )
-		for ( u32 i = 0; i < norm_cnt; i++ )
+	if (have_norm)
+		for (u32 i = 0; i < norm_cnt; i++)
 		{
-			float in[3] = {
-				zmb_bef32 (data + norm_off + i * 12),
-				zmb_bef32 (data + norm_off + i * 12 + 4),
-				zmb_bef32 (data + norm_off + i * 12 + 8) };
+			float in[3]
+				= { zmb_bef32 (data + norm_off + i * 12), zmb_bef32 (data + norm_off + i * 12 + 4),
+					  zmb_bef32 (data + norm_off + i * 12 + 8) };
 			float out[3];
 			zmb_mat_apply (world, in, out, false);
 			fprintf (ctx->f, "vn %g %g %g\n", out[0], out[1], out[2]);
 		}
-	if ( have_uv )
-		for ( u32 i = 0; i < uv_cnt; i++ )
-			fprintf (ctx->f, "vt %g %g\n",
-				zmb_bef32 (data + uv_off + i * 8),
-				zmb_bef32 (data + uv_off + i * 8 + 4) );
+	if (have_uv)
+		for (u32 i = 0; i < uv_cnt; i++)
+			fprintf (ctx->f, "vt %g %g\n", zmb_bef32 (data + uv_off + i * 8),
+				zmb_bef32 (data + uv_off + i * 8 + 4));
 
-	for ( u16 s = 0; s < vblock_count; s++ )
+	for (u16 s = 0; s < vblock_count; s++)
 	{
 		const u64 vb = vb_arr + (u64)s * vb_stride;
 		const u16 n = zmb_be16 (data + vb + 2);
-		if ( n < 3 || n > 256 )
+		if (n < 3 || n > 256)
 			continue;
 
-		const u64 pos_idx_off  = (u64)chunk_off + zmb_be32 (data + vb + 4);
-		const u64 norm_idx_off = zmb_be32 (data + vb + 8) ? (u64)chunk_off + zmb_be32 (data + vb + 8) : 0;
-		const u64 uv_idx_off   = zmb_be32 (data + vb + 0xc) ? (u64)chunk_off + zmb_be32 (data + vb + 0xc) : 0;
-		if ( !zmb_in_bounds (size, pos_idx_off, (u64)n * 4) )
+		const u64 pos_idx_off = (u64)chunk_off + zmb_be32 (data + vb + 4);
+		const u64 norm_idx_off
+			= zmb_be32 (data + vb + 8) ? (u64)chunk_off + zmb_be32 (data + vb + 8) : 0;
+		const u64 uv_idx_off
+			= zmb_be32 (data + vb + 0xc) ? (u64)chunk_off + zmb_be32 (data + vb + 0xc) : 0;
+		if (!zmb_in_bounds (size, pos_idx_off, (u64)n * 4))
 			continue;
-		if ( norm_idx_off && ( !have_norm || !zmb_in_bounds (size, norm_idx_off, (u64)n * 4) ) )
+		if (norm_idx_off && (!have_norm || !zmb_in_bounds (size, norm_idx_off, (u64)n * 4)))
 			continue;
-		if ( uv_idx_off && ( !have_uv || !zmb_in_bounds (size, uv_idx_off, (u64)n * 4) ) )
+		if (uv_idx_off && (!have_uv || !zmb_in_bounds (size, uv_idx_off, (u64)n * 4)))
 			continue;
 
 		u32 corner[256];
 		bool valid = true;
-		for ( u16 c = 0; c < n; c++ )
+		for (u16 c = 0; c < n; c++)
 		{
 			corner[c] = zmb_be32 (data + pos_idx_off + c * 4);
-			if ( corner[c] >= pos_cnt ) { valid = false; break; }
-			if ( norm_idx_off && zmb_be32 (data + norm_idx_off + c * 4) >= norm_cnt ) { valid = false; break; }
-			if ( uv_idx_off && zmb_be32 (data + uv_idx_off + c * 4) >= uv_cnt ) { valid = false; break; }
+			if (corner[c] >= pos_cnt)
+			{
+				valid = false;
+				break;
+			}
+			if (norm_idx_off && zmb_be32 (data + norm_idx_off + c * 4) >= norm_cnt)
+			{
+				valid = false;
+				break;
+			}
+			if (uv_idx_off && zmb_be32 (data + uv_idx_off + c * 4) >= uv_cnt)
+			{
+				valid = false;
+				break;
+			}
 		}
-		if ( !valid )
+		if (!valid)
 			continue;
 
 		// Fan-triangulate the N-gon: (0,c,c+1) for c in [1,N-2].
-		for ( u16 c = 1; c + 1 < n; c++ )
+		for (u16 c = 1; c + 1 < n; c++)
 		{
 			fprintf (ctx->f, "f");
 			const u16 tri[3] = { 0, c, (u16)(c + 1) };
-			for ( uint k = 0; k < 3; k++ )
+			for (uint k = 0; k < 3; k++)
 			{
 				const u32 p = ctx->next_pos + corner[tri[k]];
-				if ( uv_idx_off )
+				if (uv_idx_off)
 				{
 					const u32 t = ctx->next_uv + zmb_be32 (data + uv_idx_off + tri[k] * 4);
-					if ( norm_idx_off )
+					if (norm_idx_off)
 						fprintf (ctx->f, " %u/%u/%u", p, t,
 							ctx->next_norm + zmb_be32 (data + norm_idx_off + tri[k] * 4));
 					else
 						fprintf (ctx->f, " %u/%u", p, t);
 				}
-				else if ( norm_idx_off )
+				else if (norm_idx_off)
 					fprintf (ctx->f, " %u//%u", p,
 						ctx->next_norm + zmb_be32 (data + norm_idx_off + tri[k] * 4));
 				else
@@ -586,71 +596,77 @@ static void zmb_write_submesh_obj ( zmb_obj_ctx_t *ctx, const u8 *data, uint siz
 		}
 	}
 
-	ctx->next_pos  += pos_cnt;
+	ctx->next_pos += pos_cnt;
 	ctx->next_norm += have_norm ? norm_cnt : 0;
-	ctx->next_uv   += have_uv ? uv_cnt : 0;
+	ctx->next_uv += have_uv ? uv_cnt : 0;
 }
 
 // Locates a chunk's bone table; returns false (and leaves *bone_count/
 // *bone_rec untouched) if the chunk header doesn't check out.
-static bool zmb_chunk_bones ( const u8 *data, uint size, u32 chunk_off, u32 *bone_count, u32 *bone_rec )
+static bool zmb_chunk_bones (
+	const u8 *data, uint size, u32 chunk_off, u32 *bone_count, u32 *bone_rec)
 {
 	const u64 bone_off = (u64)chunk_off + zmb_be32 (data + chunk_off + 0x20);
-	if ( !zmb_in_bounds (size, bone_off, 0xc) )
+	if (!zmb_in_bounds (size, bone_off, 0xc))
 		return false;
 	const u32 count = zmb_be32 (data + bone_off);
-	if ( !count || count > 0x10000 )
+	if (!count || count > 0x10000)
 		return false;
 	const u64 rec = (u64)chunk_off + zmb_be32 (data + bone_off + 8);
-	if ( !zmb_in_bounds (size, rec, (u64)count * 0xa0) )
+	if (!zmb_in_bounds (size, rec, (u64)count * 0xa0))
 		return false;
 	*bone_count = count;
 	*bone_rec = (u32)rec;
 	return true;
 }
 
-static void zmb_write_chunk_obj ( zmb_obj_ctx_t *ctx, const u8 *data, uint size,
-	u32 chunk_off, uint chunk_idx, const zmb_mat_t *base )
+static void zmb_write_chunk_obj (zmb_obj_ctx_t *ctx, const u8 *data, uint size, u32 chunk_off,
+	uint chunk_idx, const zmb_mat_t *base)
 {
 	u32 bone_count, bone_rec;
-	if ( !zmb_chunk_bones (data, size, chunk_off, &bone_count, &bone_rec) )
+	if (!zmb_chunk_bones (data, size, chunk_off, &bone_count, &bone_rec))
 		return;
 
 	zmb_mat_t *world = zmb_compute_world_mats (data, size, bone_rec, bone_count, base);
 
-	enum { BONE_STRIDE = 0xa0, SUBMESH_STRIDE = 0x40 };
-	for ( u32 i = 0; i < bone_count; i++ )
+	enum
+	{
+		BONE_STRIDE = 0xa0,
+		SUBMESH_STRIDE = 0x40
+	};
+	for (u32 i = 0; i < bone_count; i++)
 	{
 		const u32 b = bone_rec + i * BONE_STRIDE;
-		if ( !zmb_in_bounds (size, b, BONE_STRIDE) )
+		if (!zmb_in_bounds (size, b, BONE_STRIDE))
 			break;
 
 		const u16 submesh_count = zmb_be16 (data + b + 0x9a);
-		if ( !submesh_count )
+		if (!submesh_count)
 			continue;
 		const u32 sub0 = chunk_off + zmb_be32 (data + b + 0x9c);
 		const zmb_mat_t *bone_world = world ? &world[i] : &zmb_identity;
 
 		char bone_name[0x21];
 		uint len = 0;
-		while ( len < 0x20 && data[b + len] )
+		while (len < 0x20 && data[b + len])
 			len++;
 		memcpy (bone_name, data + b, len);
 		bone_name[len] = 0;
-		for ( uint k = 0; k < len; k++ )
-			if ( (u8)bone_name[k] < 0x20 || (u8)bone_name[k] >= 0x7f || bone_name[k] == ' ' )
+		for (uint k = 0; k < len; k++)
+			if ((u8)bone_name[k] < 0x20 || (u8)bone_name[k] >= 0x7f || bone_name[k] == ' ')
 				bone_name[k] = '_';
 
-		for ( u16 s = 0; s < submesh_count; s++ )
+		for (u16 s = 0; s < submesh_count; s++)
 		{
 			const u32 sm = sub0 + s * SUBMESH_STRIDE;
-			if ( !zmb_in_bounds (size, sm, SUBMESH_STRIDE) )
+			if (!zmb_in_bounds (size, sm, SUBMESH_STRIDE))
 				break;
 			char group[80];
-			snprintf (group, sizeof(group), "chunk%u_%s%s_sm%u",
-				chunk_idx, len ? bone_name : "bone", len ? "" : "0", s);
+			snprintf (group, sizeof (group), "chunk%u_%s%s_sm%u", chunk_idx,
+				len ? bone_name : "bone", len ? "" : "0", s);
 			char mtl_name[40];
-			snprintf (mtl_name, sizeof(mtl_name), "chunk%u_mat%u", chunk_idx, zmb_be32 (data + sm));
+			snprintf (
+				mtl_name, sizeof (mtl_name), "chunk%u_mat%u", chunk_idx, zmb_be32 (data + sm));
 			zmb_write_submesh_obj (ctx, data, size, chunk_off, sm, group, bone_world, mtl_name);
 		}
 	}
@@ -659,14 +675,14 @@ static void zmb_write_chunk_obj ( zmb_obj_ctx_t *ctx, const u8 *data, uint size,
 		FREE (world);
 }
 
-static void zmb_replace_ext ( char *dest, uint dest_size, ccp src, ccp new_ext )
+static void zmb_replace_ext (char *dest, uint dest_size, ccp src, ccp new_ext)
 {
 	ccp dot = strrchr (src, '.');
 	ccp slash = strrchr (src, '/');
 	ccp bslash = strrchr (src, '\\');
-	if ( bslash && ( !slash || bslash > slash ) )
+	if (bslash && (!slash || bslash > slash))
 		slash = bslash;
-	const uint base_len = dot && ( !slash || dot > slash ) ? (uint)(dot - src) : (uint)strlen (src);
+	const uint base_len = dot && (!slash || dot > slash) ? (uint)(dot - src) : (uint)strlen (src);
 	snprintf (dest, dest_size, "%.*s%s", base_len, src, new_ext);
 }
 
@@ -677,30 +693,33 @@ static void zmb_replace_ext ( char *dest, uint dest_size, ccp src, ccp new_ext )
 // have extracted textures to PNGs named after their original .tga stem
 // beside the .obj/.mtl; this decoder does not extract texture pixels
 // itself, see lib-zmb.c above).
-static void zmb_write_mtl_chunk ( FILE *f, const u8 *data, uint size, u32 chunk_off, uint chunk_idx )
+static void zmb_write_mtl_chunk (FILE *f, const u8 *data, uint size, u32 chunk_off, uint chunk_idx)
 {
 	const u64 mat_off = (u64)chunk_off + zmb_be32 (data + chunk_off + 0x1c);
-	if ( !zmb_in_bounds (size, mat_off, 0xc) )
+	if (!zmb_in_bounds (size, mat_off, 0xc))
 		return;
 	const u32 mat_count = zmb_be32 (data + mat_off);
 	const u64 mat_rec = (u64)chunk_off + zmb_be32 (data + mat_off + 8);
-	enum { MAT_STRIDE = 0x50 };
+	enum
+	{
+		MAT_STRIDE = 0x50
+	};
 
 	const u64 tex_hdr = (u64)chunk_off + zmb_be32 (data + chunk_off + 0x18);
 	u32 tex_count = 0;
 	u64 tex_names = 0;
-	if ( zmb_in_bounds (size, tex_hdr, 0xc) )
+	if (zmb_in_bounds (size, tex_hdr, 0xc))
 	{
 		tex_count = zmb_be32 (data + tex_hdr);
 		tex_names = (u64)chunk_off + zmb_be32 (data + tex_hdr + 8);
 	}
 
-	for ( u32 i = 0; i < mat_count && i < 0x10000; i++ )
+	for (u32 i = 0; i < mat_count && i < 0x10000; i++)
 	{
 		fprintf (f, "newmtl chunk%u_mat%u\nKd 0.584 0.584 0.584\n", chunk_idx, i);
 
 		const u64 r = mat_rec + (u64)i * MAT_STRIDE;
-		if ( !zmb_in_bounds (size, r, MAT_STRIDE) )
+		if (!zmb_in_bounds (size, r, MAT_STRIDE))
 			continue;
 		// +0x18: chunk-relative pointer to a per-material u32[] of texture
 		// indices, one per customization variant (e.g. hair/eye colour);
@@ -712,16 +731,16 @@ static void zmb_write_mtl_chunk ( FILE *f, const u8 *data, uint size, u32 chunk_
 		// re-decompile that finally showed +0x13 is a UV-texgen mode,
 		// not a texture-bind mode, also showed this chain).
 		const u64 slot_arr = (u64)chunk_off + zmb_be32 (data + r + 0x18);
-		if ( !zmb_in_bounds (size, slot_arr, 4) )
+		if (!zmb_in_bounds (size, slot_arr, 4))
 			continue;
 		const u32 tex_idx = zmb_be32 (data + slot_arr);
-		if ( tex_idx < tex_count && zmb_in_bounds (size, tex_names + (u64)tex_idx * 0x20, 0x20) )
+		if (tex_idx < tex_count && zmb_in_bounds (size, tex_names + (u64)tex_idx * 0x20, 0x20))
 		{
 			const u8 *name = data + tex_names + (u64)tex_idx * 0x20;
 			uint len = 0;
-			while ( len < 0x20 && name[len] )
+			while (len < 0x20 && name[len])
 				len++;
-			if ( len > 4 && !memcmp (name + len - 4, ".tga", 4) )
+			if (len > 4 && !memcmp (name + len - 4, ".tga", 4))
 				len -= 4; // strip the on-disk ".tga" extension
 			// PNGs extracted from this or a sibling texture-pack file are
 			// expected to keep the same stem as the on-disk .tga name
@@ -733,7 +752,7 @@ static void zmb_write_mtl_chunk ( FILE *f, const u8 *data, uint size, u32 chunk_
 
 //-----------------------------------------------------------------------------
 
-enumError DecodeZMB ( const u8 *data, uint size, ccp out_path )
+enumError DecodeZMB (const u8 *data, uint size, ccp out_path)
 {
 	if (!IsZMB (data, size))
 		return ERR_NOTHING_TO_DO;
@@ -749,20 +768,20 @@ enumError DecodeZMB ( const u8 *data, uint size, ccp out_path )
 
 	const u32 chunk1_off = zmb_be32 (data + 0x18);
 	const bool have_chunk1 = chunk1_off && zmb_is_chunk (data, size, chunk1_off);
-	if ( have_chunk1 )
+	if (have_chunk1)
 		zmb_dump_chunk (f, data, size, chunk1_off, "1");
 
 	fclose (f);
 
 	char obj_path[PATH_MAX], mtl_path[PATH_MAX];
-	zmb_replace_ext (obj_path, sizeof(obj_path), out_path, ".obj");
-	zmb_replace_ext (mtl_path, sizeof(mtl_path), out_path, ".mtl");
+	zmb_replace_ext (obj_path, sizeof (obj_path), out_path, ".obj");
+	zmb_replace_ext (mtl_path, sizeof (mtl_path), out_path, ".mtl");
 
 	FILE *mtl = fopen (mtl_path, "wb");
 	if (mtl)
 	{
 		zmb_write_mtl_chunk (mtl, data, size, chunk0_off, 0);
-		if ( have_chunk1 )
+		if (have_chunk1)
 			zmb_write_mtl_chunk (mtl, data, size, chunk1_off, 1);
 		fclose (mtl);
 	}
@@ -772,16 +791,18 @@ enumError DecodeZMB ( const u8 *data, uint size, ccp out_path )
 	{
 		ccp mtl_base = strrchr (mtl_path, '/');
 		ccp mtl_bs = strrchr (mtl_path, '\\');
-		if ( mtl_bs && ( !mtl_base || mtl_bs > mtl_base ) )
+		if (mtl_bs && (!mtl_base || mtl_bs > mtl_base))
 			mtl_base = mtl_bs;
 		mtl_base = mtl_base ? mtl_base + 1 : mtl_path;
-		fprintf (obj, "# Konami ZMB model, decoded by nintoolbox\n"
+		fprintf (obj,
+			"# Konami ZMB model, decoded by nintoolbox\n"
 			"# Rigid per-bone attachment, no per-vertex skin blending -- see lib-zmb.c\n"
-			"mtllib %s\n", mtl_base);
+			"mtllib %s\n",
+			mtl_base);
 		zmb_obj_ctx_t ctx = { obj, 1, 1, 1 };
 		zmb_write_chunk_obj (&ctx, data, size, chunk0_off, 0, &zmb_identity);
 
-		if ( have_chunk1 )
+		if (have_chunk1)
 		{
 			// A character's second chunk (head/hair) is a standalone model
 			// attached at chunk 0's "mii_head" bone; re-root its own
@@ -789,13 +810,13 @@ enumError DecodeZMB ( const u8 *data, uint size, ccp out_path )
 			// chunks pose as one figure instead of two independent ones.
 			zmb_mat_t head_base = zmb_identity;
 			u32 bc0, br0;
-			if ( zmb_chunk_bones (data, size, chunk0_off, &bc0, &br0) )
+			if (zmb_chunk_bones (data, size, chunk0_off, &bc0, &br0))
 			{
 				zmb_mat_t *world0 = zmb_compute_world_mats (data, size, br0, bc0, &zmb_identity);
 				if (world0)
 				{
 					const s32 head_bone = zmb_find_bone (data, size, br0, bc0, "mii_head");
-					if ( head_bone >= 0 )
+					if (head_bone >= 0)
 						head_base = world0[head_bone];
 					FREE (world0);
 				}

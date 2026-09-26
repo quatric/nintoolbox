@@ -201,4 +201,3 @@ invalid_gvr:
 	FREE (rgba);
 	return ERR_INVALID_DATA;
 }
-

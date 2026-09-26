@@ -161,8 +161,8 @@ static bool mpr_cmdl_form (const u8 *d, uint size, uint off, char id[4], u32 *rv
 	return true;
 }
 
-static bool mpr_cmdl_chunk (const u8 *d, uint size, uint off, char id[4], u64 *body_size,
-	uint *body_off)
+static bool mpr_cmdl_chunk (
+	const u8 *d, uint size, uint off, char id[4], u64 *body_size, uint *body_off)
 {
 	if (!d || (u64)off + 24 > size)
 		return false;
@@ -262,8 +262,8 @@ static bool mpr_cmdl_scan_mesh (const u8 *b, uint size, uint *mesh_count)
 
 // Walk one VBUF entry; on success *next is the offset past it
 // (num_buffers u8 included) and *nbufs is its buffer count.
-static bool mpr_cmdl_scan_vbuf_entry (const u8 *b, uint size, uint off, uint *next, uint *nbufs,
-	uint *nverts)
+static bool mpr_cmdl_scan_vbuf_entry (
+	const u8 *b, uint size, uint off, uint *next, uint *nbufs, uint *nverts)
 {
 	if ((u64)off + 8 > size)
 		return false;
@@ -554,8 +554,8 @@ bool IsMPRCMDL (const u8 *data, uint size)
 // One META buffer entry -> freshly decompressed bytes. Mode word u32 LE:
 // 0 = stored, 1-3 = Retro LZSS (same dispatch as DecodeMPR_LZSS, but a
 // short stored span is also accepted: the reference borrows the slice).
-static enumError mpr_cmdl_decomp (u8 **dest, uint *dest_size, const u8 *src, uint src_size,
-	uint want)
+static enumError mpr_cmdl_decomp (
+	u8 **dest, uint *dest_size, const u8 *src, uint src_size, uint want)
 {
 	if (!dest || !dest_size || !src || !want || want > MPR_CMDL_MAX_OUTPUT)
 		return EINVAL;
@@ -750,8 +750,7 @@ static bool mpr_cmdl_materials (const mpr_cmdl_t *m, model_t *model)
 		for (uint k = 0; k < nl; k++)
 			if (d[p + k] < 32 || d[p + k] >= 127)
 				goto bad;
-		snprintf (model->materials[i].name, sizeof (model->materials[i].name), "%.*s", nl,
-			d + p);
+		snprintf (model->materials[i].name, sizeof (model->materials[i].name), "%.*s", nl, d + p);
 		p += nl + 16 + 16 + 4 + 4;
 		if ((u64)p + 4 > size)
 			goto bad;
@@ -866,8 +865,7 @@ model_t *ParseMPRCMDL (const u8 *data, size_t size)
 		const uint roff = rd_le32 (meta + 12 + ri * 8 + 4);
 		uint got = 0;
 		if ((u64)roff + boff + bsize > size
-			|| mpr_cmdl_decomp (&vbufs[i], &got, data + roff + boff, bsize, bdst)
-			|| got != bdst)
+			|| mpr_cmdl_decomp (&vbufs[i], &got, data + roff + boff, bsize, bdst) || got != bdst)
 		{
 			FREE (vbufs[i]);
 			vbufs[i] = 0;
@@ -884,8 +882,7 @@ model_t *ParseMPRCMDL (const u8 *data, size_t size)
 		const uint roff = rd_le32 (meta + 12 + ri * 8 + 4);
 		uint got = 0;
 		if ((u64)roff + boff + bsize > size
-			|| mpr_cmdl_decomp (&ibufs[i], &got, data + roff + boff, bsize, bdst)
-			|| got != bdst)
+			|| mpr_cmdl_decomp (&ibufs[i], &got, data + roff + boff, bsize, bdst) || got != bdst)
 		{
 			FREE (ibufs[i]);
 			ibufs[i] = 0;
@@ -985,8 +982,8 @@ model_t *ParseMPRCMDL (const u8 *data, size_t size)
 		if (!vc || vc > MPR_CMDL_MAX_VERTS || cc > 64)
 			continue;
 		const uint first = entry_first[vei];
-		mpr_cmdl_attr_t pos = { 0, 0, 0 }, nor = { 0, 0, 0 }, uv = { 0, 0, 0 },
-						  col = { 0, 0, 0 }, skb = { 0, 0, 0 }, skw = { 0, 0, 0 };
+		mpr_cmdl_attr_t pos = { 0, 0, 0 }, nor = { 0, 0, 0 }, uv = { 0, 0, 0 }, col = { 0, 0, 0 },
+						skb = { 0, 0, 0 }, skw = { 0, 0, 0 };
 		uint uv_comp = 0;
 		bool bad = false;
 		for (uint c = 0; c < cc && !bad; c++)
@@ -1110,8 +1107,7 @@ model_t *ParseMPRCMDL (const u8 *data, size_t size)
 		for (uint v = 0; v < vc && ok; v++)
 		{
 			float p[4];
-			if (!mpr_cmdl_read_attr (p, pos.data + (size_t)v * pos.stride, pos.format,
-					MC_POSITION)
+			if (!mpr_cmdl_read_attr (p, pos.data + (size_t)v * pos.stride, pos.format, MC_POSITION)
 				|| !mpr_cmdl_finite3 (p))
 			{
 				ok = false;
@@ -1131,8 +1127,8 @@ model_t *ParseMPRCMDL (const u8 *data, size_t size)
 			if (have_nor)
 			{
 				float q[4];
-				if (!mpr_cmdl_read_attr (q, nor.data + (size_t)v * nor.stride, nor.format,
-						MC_NORMAL))
+				if (!mpr_cmdl_read_attr (
+						q, nor.data + (size_t)v * nor.stride, nor.format, MC_NORMAL))
 					have_nor = false;
 				else
 				{
@@ -1144,8 +1140,7 @@ model_t *ParseMPRCMDL (const u8 *data, size_t size)
 			if (have_uv)
 			{
 				float q[4];
-				if (!mpr_cmdl_read_attr (q, uv.data + (size_t)v * uv.stride, uv.format,
-						uv_comp))
+				if (!mpr_cmdl_read_attr (q, uv.data + (size_t)v * uv.stride, uv.format, uv_comp))
 					have_uv = false;
 				else
 				{
@@ -1156,8 +1151,8 @@ model_t *ParseMPRCMDL (const u8 *data, size_t size)
 			if (have_col)
 			{
 				float q[4];
-				if (!mpr_cmdl_read_attr (q, col.data + (size_t)v * col.stride, col.format,
-						MC_COLOR))
+				if (!mpr_cmdl_read_attr (
+						q, col.data + (size_t)v * col.stride, col.format, MC_COLOR))
 					have_col = false;
 				else
 				{
@@ -1211,8 +1206,9 @@ model_t *ParseMPRCMDL (const u8 *data, size_t size)
 		const u8 *idx = ibufs[iei] + (size_t)istart * elsz;
 		for (uint k = 0; k < icount; k++)
 		{
-			uint vi = elsz == 1 ? idx[k] : elsz == 2 ? rd_le16 (idx + (size_t)k * 2)
-													 : rd_le32 (idx + (size_t)k * 4);
+			uint vi = elsz == 1 ? idx[k]
+				: elsz == 2		? rd_le16 (idx + (size_t)k * 2)
+								: rd_le32 (idx + (size_t)k * 4);
 			if (vi >= vc)
 			{
 				nv = 0;

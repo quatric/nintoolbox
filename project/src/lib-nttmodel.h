@@ -21,8 +21,8 @@ extern "C"
 
 #include "lib-model-glb.h"
 
-bool IsTTModel (const u8 *data, size_t size);
-model_t *ParseTTModel (const u8 *data, size_t size);
+	bool IsTTModel (const u8 *data, size_t size);
+	model_t *ParseTTModel (const u8 *data, size_t size);
 
 #ifdef __cplusplus
 }

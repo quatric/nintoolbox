@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // ----------------------------------------------------------------------------
 // Pokemon Stadium (N64) PERS-SZP asset container
 //
@@ -73,7 +72,6 @@ static enumError zdat_read_header (
 	return ERR_OK;
 }
 
-
 // Recover the repeated byte from the known signature, then require the bundle
 // to agree about its own size. Returns 0 when this is not a bundle at all and
 // stores the repeated byte in *key_out (0 for non-bundles). The buffer is
@@ -117,7 +115,6 @@ static int zdat_unmask (u8 *p, uint size, u8 *key_out)
 	*key_out = key;
 	return 1;
 }
-
 
 enumError ExtractZDATArchive (ccp arg, ccp basedir, uint depth)
 {
@@ -263,12 +260,11 @@ enumError ExtractZDATArchive (ccp arg, ccp basedir, uint depth)
 	return written ? ERR_OK : ERR_INVALID_DATA;
 }
 
-
 // Rebuild a ZDAT archive. The layout mirrors ExtractZDATArchive's expectations
 // exactly (header words, entry records, names back to back, payloads), and
 // mask_keys restore the original payload bytes that the extractor unmasked.
-enumError CreateZDATArchive (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries, const u8 *mask_keys)
+enumError CreateZDATArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries,
+	uint n_entries, const u8 *mask_keys)
 {
 	if (!dest || !dest_size || !entries || !n_entries || n_entries > 0xffff)
 		return EINVAL;
@@ -334,7 +330,6 @@ enumError CreateZDATArchive (
 	return ERR_OK;
 }
 
-
 // Animal Crossing: Pocket Camp ZDAT. EXTRACT writes .zdat-cache.txt next to
 // the members so a CREATE can restore the original bytes: the XOR key is not
 // recoverable from the unmasked files on disk, and the archive's own entry
@@ -397,7 +392,6 @@ enumError read_zdat_cache (ccp source, ccp **names_out, u8 **keys_out, uint *n_o
 	*n_out = n;
 	return ERR_OK;
 }
-
 
 // Anonymous entries (never written into the directory) mean the container
 // cannot be reproduced byte for byte; they are still zipped up in sorted
@@ -486,7 +480,6 @@ enumError create_zdat_dir (ccp source, ccp dest)
 	return err;
 }
 
-
 // ----------------------------------------------------------------------------
 // Mario Party 3DS compressed archive ("RZPK").
 //
@@ -549,8 +542,8 @@ enumError ScanRZPK (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *
 
 		u8 *decomp = 0;
 		uint decomp_len = 0;
-		if (DecodeZlibGrow (&decomp, &decomp_len, data + data_off + rel_off, comp_size)
-			!= ERR_OK || !decomp)
+		if (DecodeZlibGrow (&decomp, &decomp_len, data + data_off + rel_off, comp_size) != ERR_OK
+			|| !decomp)
 			continue;
 		// Trust the inflate output but keep the header's size as a sanity
 		// check in verbose mode rather than truncating real data.
@@ -689,9 +682,9 @@ enumError CreateRZPKArchive (
 			return ERR_OUT_OF_MEMORY;
 		}
 		uLongf out_len = bound;
-		const int zerr = compress2 (comp_data[i], &out_len,
-			entries[i].data ? entries[i].data : (const u8 *)"",
-			entries[i].size, Z_BEST_COMPRESSION);
+		const int zerr
+			= compress2 (comp_data[i], &out_len, entries[i].data ? entries[i].data : (const u8 *)"",
+				entries[i].size, Z_BEST_COMPRESSION);
 		if (zerr != Z_OK)
 		{
 			for (uint k = 0; k <= i; k++)

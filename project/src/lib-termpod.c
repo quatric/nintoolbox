@@ -8,9 +8,13 @@
 
 #define POD_MAX_ENTRIES 0x100000
 
-static u32 pod_rd32 (const u8 *p) { return p[0] | p[1] << 8 | p[2] << 16 | (u32)p[3] << 24; }
+static u32 pod_rd32 (const u8 *p)
+{
+	return p[0] | p[1] << 8 | p[2] << 16 | (u32)p[3] << 24;
+}
 
-enumError ScanTermPod (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size)
+enumError ScanTermPod (
+	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size)
 {
 	if (!entries || !n_entries || !data || size < 0x120 || memcmp (data, "POD", 3))
 		return EINVAL;

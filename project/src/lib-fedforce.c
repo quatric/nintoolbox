@@ -54,33 +54,93 @@ u32 FedForceHash (const char *name, bool case_sensitive)
 // Known names for reverse lookup. Layout presets drive vertex decoding;
 // languages + fixed hashes come from the dumper's Hashing.cs.
 static const char *fed_known_layouts[] = {
-	"enemyrigidskin", "chameleonrigidskin", "rigidskinuvsliding",
-	"rigidskindiffuseconstcolor", "rigidskinconstcolor", "uvsliding",
-	"diffuselightmap", "chameleondiffuseconstcolor", "chameleonconstcolor",
-	"characterrigidskin", "transparent", "decalrigidskin", "chameleonmapgeo",
-	"chameleondiffuseconstcolorrimlight", "weaponrigidskin",
-	"rigidskindiffusevertcolor", "cockpitrigidskin",
-	"cockpitenvironmentmaprigidskin", "chameleondiffuselit",
-	"diffuselightmaprimlight", "SkyboxMaterial", "skyboxmaterial", "luigieyematerial",
-	"diffuseskin", "luigimaterial", "pestmaterial", "morphghostmaterial",
-	"morphluigimaterial", "morphpestmaterial", "windowrigidskin",
-	"skyboxmaterial", "ghostnonskinmaterial", "diffusevertcolor", "vertcolor",
-	"windowmaterial", "propsmaterial", "environmentspheremap",
-	"environmentspheremaprigidskin", "moolahmaterial", "uvslidingrigidskin",
-	"environmentmaterial", "environmentrigidskin",
-	"environmentspecularrigidskin", "environmentspecularmaterial",
-	"uvslidingmaterial", "diffuseconstcolor", "clothmaterial",
+	"enemyrigidskin",
+	"chameleonrigidskin",
+	"rigidskinuvsliding",
+	"rigidskindiffuseconstcolor",
+	"rigidskinconstcolor",
+	"uvsliding",
+	"diffuselightmap",
+	"chameleondiffuseconstcolor",
+	"chameleonconstcolor",
+	"characterrigidskin",
+	"transparent",
+	"decalrigidskin",
+	"chameleonmapgeo",
+	"chameleondiffuseconstcolorrimlight",
+	"weaponrigidskin",
+	"rigidskindiffusevertcolor",
+	"cockpitrigidskin",
+	"cockpitenvironmentmaprigidskin",
+	"chameleondiffuselit",
+	"diffuselightmaprimlight",
+	"SkyboxMaterial",
+	"skyboxmaterial",
+	"luigieyematerial",
+	"diffuseskin",
+	"luigimaterial",
+	"pestmaterial",
+	"morphghostmaterial",
+	"morphluigimaterial",
+	"morphpestmaterial",
+	"windowrigidskin",
+	"skyboxmaterial",
+	"ghostnonskinmaterial",
+	"diffusevertcolor",
+	"vertcolor",
+	"windowmaterial",
+	"propsmaterial",
+	"environmentspheremap",
+	"environmentspheremaprigidskin",
+	"moolahmaterial",
+	"uvslidingrigidskin",
+	"environmentmaterial",
+	"environmentrigidskin",
+	"environmentspecularrigidskin",
+	"environmentspecularmaterial",
+	"uvslidingmaterial",
+	"diffuseconstcolor",
+	"clothmaterial",
 	"uvslidingmaterialgs",
 };
 
 static const char *fed_known_fixed[] = {
-	"french", "german", "japanese", "korean", "nafrench", "naspanish",
-	"portuguese", "russian", "spanish", "italian", "dutch", "naportuguese",
-	"english", "ukenglish", "cnsimplified", "cntraditional",
-	"frenchhw", "germanhw", "japanesehw", "koreanhw", "englishhw",
-	"debughw", "debugenglish", "debugenglishhw", "shader", "feloc",
-	"material", "lightfield", "audiobank", "bank", "effecttemplate",
-	"collision", "localization", "gui", "materialparams", "shaderconstants",
+	"french",
+	"german",
+	"japanese",
+	"korean",
+	"nafrench",
+	"naspanish",
+	"portuguese",
+	"russian",
+	"spanish",
+	"italian",
+	"dutch",
+	"naportuguese",
+	"english",
+	"ukenglish",
+	"cnsimplified",
+	"cntraditional",
+	"frenchhw",
+	"germanhw",
+	"japanesehw",
+	"koreanhw",
+	"englishhw",
+	"debughw",
+	"debugenglish",
+	"debugenglishhw",
+	"shader",
+	"feloc",
+	"material",
+	"lightfield",
+	"audiobank",
+	"bank",
+	"effecttemplate",
+	"collision",
+	"localization",
+	"gui",
+	"materialparams",
+	"shaderconstants",
 };
 
 ccp FedForceHashName (u32 hash, char out[16])
@@ -186,9 +246,8 @@ enumError ScanFedForceChunks (fed_chunk_t **chunks, uint *n, const u8 *data, uin
 // FedForce .dict header scan
 //-----------------------------------------------------------------------------
 
-enumError ScanFedForceDict (const u8 *dict, uint dict_size, bool *is_fed,
-	fed_dict_block_t **blocks, uint *n_blocks,
-	fed_dict_ref_t *ref, const char ***strings, uint *n_strings)
+enumError ScanFedForceDict (const u8 *dict, uint dict_size, bool *is_fed, fed_dict_block_t **blocks,
+	uint *n_blocks, fed_dict_ref_t *ref, const char ***strings, uint *n_strings)
 {
 	if (is_fed)
 		*is_fed = false;
@@ -475,10 +534,10 @@ static uint fed_decode_vertex (fed_vertex_t *v, const u8 *p, uint avail, u32 mat
 		return 0;
 	switch (pr->layout)
 	{
-	case L_SKINNING:
-	case L_SKINNING_COLOR:
-	case L_SKINNING_MORPH:
-	case L_SKINNING_MORPH_COLOR:
+		case L_SKINNING:
+		case L_SKINNING_COLOR:
+		case L_SKINNING_MORPH:
+		case L_SKINNING_MORPH_COLOR:
 		{
 			float s = fed_short_pos_scale (mat_hash);
 			v->px = fed_rd_s16 (p) * s;
@@ -503,40 +562,40 @@ static uint fed_decode_vertex (fed_vertex_t *v, const u8 *p, uint avail, u32 mat
 			}
 			return (uint)pr->stride;
 		}
-	case L_POS_UV2:
-	case L_POS_UV2_COLOR:
-	case L_POS_ONLY:
-		v->px = fed_f32 (p);
-		v->py = fed_f32 (p + 4);
-		v->pz = fed_f32 (p + 8);
-		if (pr->layout == L_POS_ONLY)
-			return 12;
-		v->u0 = fed_rd_s16 (p + 12) * FED_UV_SCALE;
-		v->v0 = fed_rd_s16 (p + 14) * FED_UV_SCALE;
-		v->u2 = fed_rd_s16 (p + 16) * FED_UV_SCALE;
-		v->v2 = fed_rd_s16 (p + 18) * FED_UV_SCALE;
-		v->has_uv0 = v->has_uv2 = true;
-		if (pr->layout == L_POS_UV2_COLOR)
-		{
-			v->r = p[20] * FED_COLOR_SCALE;
-			v->g = p[21] * FED_COLOR_SCALE;
-			v->b = p[22] * FED_COLOR_SCALE;
-			v->a = p[23] * FED_COLOR_SCALE;
+		case L_POS_UV2:
+		case L_POS_UV2_COLOR:
+		case L_POS_ONLY:
+			v->px = fed_f32 (p);
+			v->py = fed_f32 (p + 4);
+			v->pz = fed_f32 (p + 8);
+			if (pr->layout == L_POS_ONLY)
+				return 12;
+			v->u0 = fed_rd_s16 (p + 12) * FED_UV_SCALE;
+			v->v0 = fed_rd_s16 (p + 14) * FED_UV_SCALE;
+			v->u2 = fed_rd_s16 (p + 16) * FED_UV_SCALE;
+			v->v2 = fed_rd_s16 (p + 18) * FED_UV_SCALE;
+			v->has_uv0 = v->has_uv2 = true;
+			if (pr->layout == L_POS_UV2_COLOR)
+			{
+				v->r = p[20] * FED_COLOR_SCALE;
+				v->g = p[21] * FED_COLOR_SCALE;
+				v->b = p[22] * FED_COLOR_SCALE;
+				v->a = p[23] * FED_COLOR_SCALE;
+				v->has_color = true;
+			}
+			return (uint)pr->stride;
+		case L_POS_COLOR_ONLY:
+			v->px = fed_f32 (p);
+			v->py = fed_f32 (p + 4);
+			v->pz = fed_f32 (p + 8);
+			v->r = p[12] * FED_COLOR_SCALE;
+			v->g = p[13] * FED_COLOR_SCALE;
+			v->b = p[14] * FED_COLOR_SCALE;
+			v->a = p[15] * FED_COLOR_SCALE;
 			v->has_color = true;
-		}
-		return (uint)pr->stride;
-	case L_POS_COLOR_ONLY:
-		v->px = fed_f32 (p);
-		v->py = fed_f32 (p + 4);
-		v->pz = fed_f32 (p + 8);
-		v->r = p[12] * FED_COLOR_SCALE;
-		v->g = p[13] * FED_COLOR_SCALE;
-		v->b = p[14] * FED_COLOR_SCALE;
-		v->a = p[15] * FED_COLOR_SCALE;
-		v->has_color = true;
-		return 16;
-	default:
-		break;
+			return 16;
+		default:
+			break;
 	}
 	// Normal layouts share the 16-byte position+normal+pad prefix.
 	v->px = fed_f32 (p);
@@ -633,8 +692,8 @@ typedef struct
 	u32 size;
 } fed_part_t;
 
-static enumError fed_parse_container (const u8 *data, size_t size,
-	const char magic[4], fed_part_t **parts, uint *n_parts)
+static enumError fed_parse_container (
+	const u8 *data, size_t size, const char magic[4], fed_part_t **parts, uint *n_parts)
 {
 	if (parts)
 		*parts = 0;
@@ -713,9 +772,8 @@ bool IsFedForceTexture (const u8 *data, size_t size)
 	return true;
 }
 
-enumError BuildFedForceTexture (u8 **dest, uint *dest_size,
-	uint width, uint height, uint pica_format, const u8 *pixels, uint pixels_size,
-	uint tex_hash)
+enumError BuildFedForceTexture (u8 **dest, uint *dest_size, uint width, uint height,
+	uint pica_format, const u8 *pixels, uint pixels_size, uint tex_hash)
 {
 	if (!dest || !dest_size || !pixels || !pixels_size || !width || !height)
 		return EINVAL;
@@ -741,8 +799,7 @@ enumError BuildFedForceTexture (u8 **dest, uint *dest_size,
 }
 
 // FEDT header is 24 bytes (see builder above).
-enumError DecodeFedForceTexture (u8 **dest, uint *width, uint *height,
-	const u8 *data, size_t size)
+enumError DecodeFedForceTexture (u8 **dest, uint *width, uint *height, const u8 *data, size_t size)
 {
 	if (!dest || !width || !height || !data || size < 24 || memcmp (data, "FEDT", 4))
 		return EINVAL;
@@ -756,14 +813,11 @@ enumError DecodeFedForceTexture (u8 **dest, uint *width, uint *height,
 	return DecodePicaTexture (dest, width, height, data + 24, w, h, fmt, ds);
 }
 
-enumError BuildFedForceModel (u8 **dest, uint *dest_size,
-	const u8 *b008, uint b008_size, const u8 *b009, uint b009_size,
-	const u8 *b001, uint b001_size, const u8 *b003, uint b003_size,
-	const u8 *b004, uint b004_size, const u8 *b005, uint b005_size,
-	const u8 *b006, uint b006_size, const u8 *b007, uint b007_size,
-	const u8 *b002, uint b002_size,
-	const u8 *s101, uint s101_size, const u8 *s102, uint s102_size,
-	const u8 *s103, uint s103_size, const u8 *s104, uint s104_size,
+enumError BuildFedForceModel (u8 **dest, uint *dest_size, const u8 *b008, uint b008_size,
+	const u8 *b009, uint b009_size, const u8 *b001, uint b001_size, const u8 *b003, uint b003_size,
+	const u8 *b004, uint b004_size, const u8 *b005, uint b005_size, const u8 *b006, uint b006_size,
+	const u8 *b007, uint b007_size, const u8 *b002, uint b002_size, const u8 *s101, uint s101_size,
+	const u8 *s102, uint s102_size, const u8 *s103, uint s103_size, const u8 *s104, uint s104_size,
 	const u8 *s105, uint s105_size)
 {
 	struct
@@ -829,16 +883,14 @@ enumError BuildFedForceModel (u8 **dest, uint *dest_size,
 // 0x7104 index list (ignored), 0x7105 hash list.
 //-----------------------------------------------------------------------------
 
-static void fed_quat_to_euler (float qx, float qy, float qz, float qw,
-	float *rx, float *ry, float *rz)
+static void fed_quat_to_euler (
+	float qx, float qy, float qz, float qw, float *rx, float *ry, float *rz)
 {
 	float sinr = 2.0f * (qw * qx + qy * qz);
 	float cosr = 1.0f - 2.0f * (qx * qx + qy * qy);
 	float roll = atan2f (sinr, cosr);
 	float sinp = 2.0f * (qw * qy - qz * qx);
-	float pitch = (fabsf (sinp) >= 1.0f)
-		? copysignf (1.57079632679f, sinp)
-		: asinf (sinp);
+	float pitch = (fabsf (sinp) >= 1.0f) ? copysignf (1.57079632679f, sinp) : asinf (sinp);
 	float siny = 2.0f * (qw * qz + qx * qy);
 	float cosy = 1.0f - 2.0f * (qy * qy + qz * qz);
 	float yaw = atan2f (siny, cosy);
@@ -877,12 +929,11 @@ static uint fed_parse_joints (const fed_part_t *parts, uint n, model_t *model)
 		char hex[16];
 		ccp nm = FedForceHashName (hash, hex);
 		snprintf (j->name, sizeof (j->name), "%s", nm ? nm : hex);
-		j->parent_idx = (parent < 0 || (uint)parent >= bone_count || (uint)parent == i)
-			? -1
-			: (int)parent;
+		j->parent_idx
+			= (parent < 0 || (uint)parent >= bone_count || (uint)parent == i) ? -1 : (int)parent;
 		const u8 *bt = h103->data + (size_t)i * 28;
-		float qx = fed_f32 (bt), qy = fed_f32 (bt + 4),
-			  qz = fed_f32 (bt + 8), qw = fed_f32 (bt + 12);
+		float qx = fed_f32 (bt), qy = fed_f32 (bt + 4), qz = fed_f32 (bt + 8),
+			  qw = fed_f32 (bt + 12);
 		float ql = sqrtf (qx * qx + qy * qy + qz * qz + qw * qw);
 		if (ql > 1e-6f && isfinite (ql))
 		{
@@ -900,8 +951,7 @@ static uint fed_parse_joints (const fed_part_t *parts, uint n, model_t *model)
 		j->translate.x = fed_f32 (bt + 16);
 		j->translate.y = fed_f32 (bt + 20);
 		j->translate.z = fed_f32 (bt + 24);
-		if (!isfinite (j->translate.x) || !isfinite (j->translate.y)
-			|| !isfinite (j->translate.z))
+		if (!isfinite (j->translate.x) || !isfinite (j->translate.y) || !isfinite (j->translate.z))
 		{
 			j->translate.x = j->translate.y = j->translate.z = 0.0f;
 		}
@@ -1126,11 +1176,9 @@ model_t *ParseFedForceModel (const u8 *data, size_t size)
 			material_t *mt = &model->materials[out_mesh];
 			char mhex[16], vhex[16];
 			ccp mn = FedForceHashName (s->mat_hash, mhex);
-			snprintf (dm->name, sizeof (dm->name), "mesh_%u_%s", out_mesh,
-				mn ? mn : mhex);
+			snprintf (dm->name, sizeof (dm->name), "mesh_%u_%s", out_mesh, mn ? mn : mhex);
 			ccp vn = FedForceHashName (s->variant_hash, vhex);
-			snprintf (mt->name, sizeof (mt->name), "%s",
-				vn ? vn : (mn ? mn : mhex));
+			snprintf (mt->name, sizeof (mt->name), "%s", vn ? vn : (mn ? mn : mhex));
 			mt->num_textures = 0;
 			// Diffuse hash: material map first, else B006 pointer heuristic
 			// (first pointer whose u32 target is nonzero), else none.
@@ -1160,8 +1208,8 @@ model_t *ParseFedForceModel (const u8 *data, size_t size)
 			{
 				char thex[16];
 				ccp tn = FedForceHashName (dif, thex);
-				snprintf (mt->textures[0], sizeof (mt->textures[0]), "%s.fedtex.png",
-					tn ? tn : thex);
+				snprintf (
+					mt->textures[0], sizeof (mt->textures[0]), "%s.fedtex.png", tn ? tn : thex);
 				mt->num_textures = 1;
 				mt->texture_coord[0] = 0;
 				mt->wrap_s[0] = mt->wrap_t[0] = 1;
@@ -1352,8 +1400,7 @@ bool IsFedForceNLOC (const u8 *data, size_t size)
 	// LE version2 probe: lang/enc/lang/count/unk plausible + entries fit.
 	u32 enc = rd_le32 (data + 4);
 	u32 n = rd_le32 (data + 8);
-	if ((enc != 1 && enc != 2 && enc != 0x01000000 && enc != 0x02000000) || n == 0
-		|| n > 100000)
+	if ((enc != 1 && enc != 2 && enc != 0x01000000 && enc != 0x02000000) || n == 0 || n > 100000)
 		return false;
 	if (0x14 + (size_t)n * 8 > size)
 		return false;
@@ -1370,8 +1417,8 @@ static u32 fed_rd_u32e (const u8 *p, bool be)
 	return be ? rd_be32 (p) : rd_le32 (p);
 }
 
-enumError ScanFedForceNLOC (const u8 *data, size_t size,
-	fed_nloc_msg_t **msgs, uint *n_msgs, u32 *language_id)
+enumError ScanFedForceNLOC (
+	const u8 *data, size_t size, fed_nloc_msg_t **msgs, uint *n_msgs, u32 *language_id)
 {
 	if (msgs)
 		*msgs = 0;
@@ -1557,8 +1604,7 @@ void FreeFedForceNLOC (fed_nloc_msg_t *msgs, uint n)
 	FREE (msgs);
 }
 
-enumError FedForceNLOCToText (u8 **dest, uint *dest_size,
-	const fed_nloc_msg_t *msgs, uint n)
+enumError FedForceNLOCToText (u8 **dest, uint *dest_size, const fed_nloc_msg_t *msgs, uint n)
 {
 	if (!dest || !dest_size)
 		return EINVAL;
@@ -1573,16 +1619,16 @@ enumError FedForceNLOCToText (u8 **dest, uint *dest_size,
 	{
 		char hex[16];
 		ccp nm = FedForceHashName (msgs[i].id, hex);
-		p += snprintf ((char *)out + p, total + 1 - p, "%08X %s\n%s\n\n",
-			msgs[i].id, nm ? nm : hex, msgs[i].text ? msgs[i].text : "");
+		p += snprintf ((char *)out + p, total + 1 - p, "%08X %s\n%s\n\n", msgs[i].id, nm ? nm : hex,
+			msgs[i].text ? msgs[i].text : "");
 	}
 	*dest = out;
 	*dest_size = (uint)p;
 	return ERR_OK;
 }
 
-enumError FedForceTextToNLOC (u8 **dest, uint *dest_size,
-	const u8 *text, uint text_size, u32 language_id, bool big_endian)
+enumError FedForceTextToNLOC (
+	u8 **dest, uint *dest_size, const u8 *text, uint text_size, u32 language_id, bool big_endian)
 {
 	if (!dest || !dest_size)
 		return EINVAL;

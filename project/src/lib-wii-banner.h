@@ -115,8 +115,7 @@ enumError UnwrapWiiBannerFile (
 // ("LZ77" + stream, LZ11 iff LZ11 is set) and prepends an IMD5 header with
 // a fresh payload MD5.  On success *DEST is a fresh buffer the caller FREEs.
 enumError WrapWiiBannerFile (
-	u8 **dest, uint *dest_size, const u8 *payload, uint payload_size,
-	bool compress, bool lz11);
+	u8 **dest, uint *dest_size, const u8 *payload, uint payload_size, bool compress, bool lz11);
 
 // Re-wraps a rebuilt U8 payload with the caller's original IMET header:
 // the header bytes (channel titles, file count, padding form) are preserved
@@ -125,10 +124,8 @@ enumError WrapWiiBannerFile (
 // meta/icon.bin, meta/banner.bin and meta/sound.bin in that order.
 // Returns ERR_INVALID_DATA if ORIG is not an IMET file.  On success *DEST
 // is a fresh buffer the caller FREEs.
-enumError CreateIMET (u8 **dest, uint *dest_size,
-	const u8 *u8_data, uint u8_size,
-	const u8 *orig, uint orig_size,
-	uint icon_size, uint banner_size, uint sound_size);
+enumError CreateIMET (u8 **dest, uint *dest_size, const u8 *u8_data, uint u8_size, const u8 *orig,
+	uint orig_size, uint icon_size, uint banner_size, uint sound_size);
 
 //-----------------------------------------------------------------------------
 // WIBN: the banner of a Wii *save game* rather than a channel.  It lives at
@@ -160,7 +157,7 @@ enumError CreateIMET (u8 **dest, uint *dest_size,
 #define WIBN_FLAG_NOCOPY 0x01 // save is marked as not copyable
 
 // Passed to DecodeWIBNImage_RGBA() instead of an icon index.
-#define WIBN_IMAGE_BANNER (~(uint) 0)
+#define WIBN_IMAGE_BANNER (~(uint)0)
 
 typedef struct wibn_t
 {

@@ -50,16 +50,14 @@ enumError DecodeADJB_Text (FILE *out, const u8 *data, size_t size)
 		u64 end = size;
 		for (int32_t j = 0; j < count; j++)
 		{
-			const u64 cand = tab_end + (u64)(int32_t)rd_le32 (
-				data + 4 + (u64)j * 8 + 4);
+			const u64 cand = tab_end + (u64)(int32_t)rd_le32 (data + 4 + (u64)j * 8 + 4);
 			if (cand > tab_end + (u64)off && cand < end)
 				end = cand;
 		}
 		const u64 begin = tab_end + (u64)off;
 		u64 nidx = end > begin ? (end - begin) / 2 : 0;
 
-		fprintf (out, "  [%d] id = %d, index_count = %llu\n",
-			i, id, (unsigned long long)nidx);
+		fprintf (out, "  [%d] id = %d, index_count = %llu\n", i, id, (unsigned long long)nidx);
 		for (u64 k = 0; k < nidx; k++)
 		{
 			if (!(k & 7))

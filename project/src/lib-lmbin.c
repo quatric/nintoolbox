@@ -84,8 +84,8 @@ static bool lmb_read_hdr (const u8 *data, uint size, lmb_off_t *o)
 	o->batch = lmb_be32 (data + 56);
 	o->graph = lmb_be32 (data + 60);
 	// every section must start inside the file, in header order
-	const u32 arr[] = { o->tex, o->samp, o->pos, o->nrm, o->at1, o->at2, o->uv, o->at3,
-		o->at4, o->at5, o->mat, o->batch, o->graph };
+	const u32 arr[] = { o->tex, o->samp, o->pos, o->nrm, o->at1, o->at2, o->uv, o->at3, o->at4,
+		o->at5, o->mat, o->batch, o->graph };
 	for (uint i = 0; i < 13; i++)
 		if (!arr[i] || arr[i] >= size || (i && arr[i] < arr[i - 1]))
 			return false;
@@ -653,8 +653,7 @@ model_t *ParseLMBIN (const u8 *data, size_t size)
 					return 0;
 				}
 				const int ti = lmb_be16s (data + o.samp + si * 20);
-				if (ti < 0 || ti >= (int)LMB_MAX_SECT
-					|| (u64)o.tex + (u64)ti * 12 + 12 > size)
+				if (ti < 0 || ti >= (int)LMB_MAX_SECT || (u64)o.tex + (u64)ti * 12 + 12 > size)
 				{
 					FREE (batch_seen);
 					FREE (mat_seen);
@@ -747,8 +746,8 @@ model_t *ParseLMBIN (const u8 *data, size_t size)
 		mesh->material_idx = parts[pi].mat < model->num_materials ? (int)parts[pi].mat : 0;
 		lmb_soup_t soup = { 0 };
 		bool hn = false, hu = false;
-		if (!lmb_walk_batch (data, (uint)size, &o, parts[pi].batch, &soup, &hn, &hu)
-			|| !soup.num || soup.num % 3)
+		if (!lmb_walk_batch (data, (uint)size, &o, parts[pi].batch, &soup, &hn, &hu) || !soup.num
+			|| soup.num % 3)
 		{
 			FREE (soup.v);
 			FREE (batch_seen);
@@ -760,9 +759,7 @@ model_t *ParseLMBIN (const u8 *data, size_t size)
 		}
 		for (size_t c = 0; c < soup.num; c++)
 		{
-			if (soup.v[c].pos < 0
-				|| (hn && soup.v[c].nrm < 0)
-				|| (hu && soup.v[c].uv < 0))
+			if (soup.v[c].pos < 0 || (hn && soup.v[c].nrm < 0) || (hu && soup.v[c].uv < 0))
 			{
 				FREE (soup.v);
 				FREE (batch_seen);
@@ -833,8 +830,8 @@ model_t *ParseLMBIN (const u8 *data, size_t size)
 		mesh->normals = hn ? MALLOC (soup.num * sizeof (*mesh->normals)) : 0;
 		mesh->texcoords = hu ? MALLOC (soup.num * sizeof (*mesh->texcoords)) : 0;
 		mesh->vertices = MALLOC (soup.num * sizeof (*mesh->vertices));
-		if (!mesh->positions || !mesh->position_node || !mesh->vertices
-			|| (hn && !mesh->normals) || (hu && !mesh->texcoords))
+		if (!mesh->positions || !mesh->position_node || !mesh->vertices || (hn && !mesh->normals)
+			|| (hu && !mesh->texcoords))
 		{
 			FREE (vpos);
 			FREE (vnrm);
@@ -1038,7 +1035,8 @@ enumError DecodeLMBIN (const u8 *data, uint size, ccp out_path)
 		for (int k = 0; k < model->materials[i].num_textures; k++)
 		{
 			uint ti = 0;
-			if (sscanf (model->materials[i].textures[k], "Texture%u.png", &ti) == 1 && ti + 1 > ntex)
+			if (sscanf (model->materials[i].textures[k], "Texture%u.png", &ti) == 1
+				&& ti + 1 > ntex)
 				ntex = ti + 1;
 		}
 	for (uint i = 0; i < ntex; i++)
@@ -1212,8 +1210,7 @@ enumError EncodeLMBIN (const model_t *model, u8 **out, uint *out_size)
 		for (size_t c = 0; c < mesh->num_vertices; c++)
 		{
 			const int pi = mesh->vertices[c].position_idx;
-			int node = (pi >= 0 && (size_t)pi < mesh->num_positions) ? mesh->position_node[pi]
-																	 : 0;
+			int node = (pi >= 0 && (size_t)pi < mesh->num_positions) ? mesh->position_node[pi] : 0;
 			if (node < 0 || (size_t)node >= nj)
 				node = 0;
 			votes[node]++;
@@ -1317,7 +1314,7 @@ enumError EncodeLMBIN (const model_t *model, u8 **out, uint *out_size)
 					if (nnrm >= cap_nrm)
 					{
 						const size_t nc = cap_nrm ? cap_nrm * 2 : 1024;
-						float(*nn)[3] = REALLOC (nrmpool, nc * sizeof (*nn));
+						float (*nn)[3] = REALLOC (nrmpool, nc * sizeof (*nn));
 						if (!nn)
 						{
 							FREE (blob);
@@ -1358,7 +1355,7 @@ enumError EncodeLMBIN (const model_t *model, u8 **out, uint *out_size)
 					if (nuv >= cap_uv)
 					{
 						const size_t nc = cap_uv ? cap_uv * 2 : 1024;
-						float(*nn)[2] = REALLOC (uvpool, nc * sizeof (*nn));
+						float (*nn)[2] = REALLOC (uvpool, nc * sizeof (*nn));
 						if (!nn)
 						{
 							FREE (blob);

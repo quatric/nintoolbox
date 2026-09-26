@@ -89,9 +89,8 @@ static size_t smashomo_interp_size (u32 flags)
 	return n;
 }
 
-static bool smashomo_layout_ok (const u8 *data, size_t size,
-	u32 *bone_count, u32 *frame_count, u32 *frame_size,
-	u32 *node_off, u32 *inter_off, u32 *key_off)
+static bool smashomo_layout_ok (const u8 *data, size_t size, u32 *bone_count, u32 *frame_count,
+	u32 *frame_size, u32 *node_off, u32 *inter_off, u32 *key_off)
 {
 	if (!data || size < 32 || memcmp (data, "OMO ", 4))
 		return false;
@@ -171,12 +170,14 @@ static const char *smashomo_sca_name (u32 flags)
 enumError DecodeOMO_Text (FILE *out, const u8 *data, size_t size)
 {
 	u32 bone_count, frame_count, frame_size, node_off, inter_off, key_off;
-	if (!out || !smashomo_layout_ok (data, size,
-		&bone_count, &frame_count, &frame_size, &node_off, &inter_off, &key_off))
+	if (!out
+		|| !smashomo_layout_ok (
+			data, size, &bone_count, &frame_count, &frame_size, &node_off, &inter_off, &key_off))
 		return ERR_INVALID_DATA;
 
 	const u8 *h = data + 4;
-	fprintf (out, "#OMO\n"
+	fprintf (out,
+		"#OMO\n"
 		"# Super Smash Bros. 4 object-motion animation\n\n"
 		"version = %u.%u\n"
 		"flags = 0x%08x\n"
@@ -184,10 +185,11 @@ enumError DecodeOMO_Text (FILE *out, const u8 *data, size_t size)
 		"bones = %u\n"
 		"frames = %u\n"
 		"frame_size = %u\n\n",
-		rd_be16 (h), rd_be16 (h + 2), rd_be32 (h + 4), rd_be16 (h + 8),
-		bone_count, frame_count, frame_size);
+		rd_be16 (h), rd_be16 (h + 2), rd_be32 (h + 4), rd_be16 (h + 8), bone_count, frame_count,
+		frame_size);
 
-	fprintf (out, "[nodes]\n"
+	fprintf (out,
+		"[nodes]\n"
 		"# idx | flags | hash | pos | rot | sca | key_offset | min/max floats\n");
 	for (u32 i = 0; i < bone_count; i++)
 	{
@@ -197,17 +199,16 @@ enumError DecodeOMO_Text (FILE *out, const u8 *data, size_t size)
 		const u32 rel = rd_be32 (n + 8);
 		const s32 koff = (s32)rd_be32 (n + 12);
 		const u8 *ip = data + inter_off + rel;
-		fprintf (out, "%u | 0x%08x | 0x%08x | %s | %s | %s | %d |",
-			i, flags, hash,
-			smashomo_pos_name (flags), smashomo_rot_name (flags),
-			smashomo_sca_name (flags), koff);
+		fprintf (out, "%u | 0x%08x | 0x%08x | %s | %s | %s | %d |", i, flags, hash,
+			smashomo_pos_name (flags), smashomo_rot_name (flags), smashomo_sca_name (flags), koff);
 		const size_t isz = smashomo_interp_size (flags);
 		for (size_t k = 0; k < isz; k += 4)
 			fprintf (out, " %.6g", smashomo_rd_f32 (ip + k));
 		fprintf (out, "\n");
 	}
 
-	fprintf (out, "\n[frames]\n"
+	fprintf (out,
+		"\n[frames]\n"
 		"# frame | u16 keys (hex)\n");
 	for (u32 f = 0; f < frame_count; f++)
 	{

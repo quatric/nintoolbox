@@ -67,7 +67,8 @@ enumError ScanREV (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 
 	const u32 align = rd_be32 (data + 4);
 	const u32 count = rd_be32 (data + 12);
-	if (align < 0x20 || align > 0x10000 || (align & (align - 1)) || !count || count > REV_MAX_ENTRIES)
+	if (align < 0x20 || align > 0x10000 || (align & (align - 1)) || !count
+		|| count > REV_MAX_ENTRIES)
 		return EINVAL;
 	const u64 index = (u64)rd_be32 (data + 0x10) * align;
 	const u64 names = (u64)rd_be32 (data + 0x28) * align;
@@ -164,8 +165,8 @@ enumError ScanREV (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 				snprintf (nbuf, sizeof (nbuf), "%08x", rd_be32 (e + 4));
 			// give the game resources a suffix the extractor recognises
 			ccp ext = IsBlitzTexture (payload, psize) ? ".bltex"
-					: IsBlitzActor (payload, psize)	  ? ".blact"
-					: pass							  ? ".bin"
+				: IsBlitzActor (payload, psize)		  ? ".blact"
+				: pass								  ? ".bin"
 													  : "";
 			const size_t l = strlen (nbuf);
 			if (l + strlen (ext) < sizeof (nbuf))
@@ -201,17 +202,37 @@ static bool rev_texfmt (uint fmt, rev_texfmt_t *f)
 {
 	switch (fmt)
 	{
-		case 15: *f = (rev_texfmt_t){ 6, 0, 0 }; return true;
-		case 16: *f = (rev_texfmt_t){ 5, 0, 0 }; return true;
-		case 17: *f = (rev_texfmt_t){ 9, 1, 256 }; return true;
-		case 18: *f = (rev_texfmt_t){ 9, 2, 256 }; return true;
-		case 19: *f = (rev_texfmt_t){ 8, 1, 16 }; return true;
-		case 20: *f = (rev_texfmt_t){ 8, 2, 16 }; return true;
-		case 21: *f = (rev_texfmt_t){ 14, 0, 0 }; return true;
-		case 22: *f = (rev_texfmt_t){ 0, 0, 0 }; return true;
-		case 23: *f = (rev_texfmt_t){ 4, 0, 0 }; return true;
+		case 15:
+			*f = (rev_texfmt_t) { 6, 0, 0 };
+			return true;
+		case 16:
+			*f = (rev_texfmt_t) { 5, 0, 0 };
+			return true;
+		case 17:
+			*f = (rev_texfmt_t) { 9, 1, 256 };
+			return true;
+		case 18:
+			*f = (rev_texfmt_t) { 9, 2, 256 };
+			return true;
+		case 19:
+			*f = (rev_texfmt_t) { 8, 1, 16 };
+			return true;
+		case 20:
+			*f = (rev_texfmt_t) { 8, 2, 16 };
+			return true;
+		case 21:
+			*f = (rev_texfmt_t) { 14, 0, 0 };
+			return true;
+		case 22:
+			*f = (rev_texfmt_t) { 0, 0, 0 };
+			return true;
+		case 23:
+			*f = (rev_texfmt_t) { 4, 0, 0 };
+			return true;
 		case 29:
-		case 30: *f = (rev_texfmt_t){ 1, 0, 0 }; return true;
+		case 30:
+			*f = (rev_texfmt_t) { 1, 0, 0 };
+			return true;
 	}
 	return false;
 }
@@ -238,12 +259,12 @@ enumError DecodeBlitzTexture (u8 **rgba, uint *width, uint *height, const u8 *d,
 {
 	if (!IsBlitzTexture (d, size))
 		return ERR_NOTHING_TO_DO;
-	rev_texfmt_t f = {0};
+	rev_texfmt_t f = { 0 };
 	rev_texfmt (rd_be32 (d + 0x28), &f);
 	const uint w = rd_be32 (d + 0x20), h = rd_be32 (d + 0x24);
 	const uint pix = rd_be32 (d + 0x70), pal = rd_be32 (d + 0x6c);
-	const enumError err = DecodeGXTexture_RGBA (rgba, w, h, f.gx, d + pix, size - pix,
-		f.pal_count ? d + pal : 0, f.pal_count, f.pal_fmt);
+	const enumError err = DecodeGXTexture_RGBA (
+		rgba, w, h, f.gx, d + pix, size - pix, f.pal_count ? d + pal : 0, f.pal_count, f.pal_fmt);
 	if (!err)
 	{
 		*width = w;
@@ -301,8 +322,8 @@ static bl_mat_t bl_local (const u8 *n)
 	else
 		qx = qy = qz = 0, qw = 1;
 	const float sx = rev_bef32 (n + 0x50), sy = rev_bef32 (n + 0x54), sz = rev_bef32 (n + 0x58);
-	bl_mat_t r = { { 1 - 2 * (qy * qy + qz * qz), 2 * (qx * qy - qz * qw), 2 * (qx * qz + qy * qw), 0,
-		2 * (qx * qy + qz * qw), 1 - 2 * (qx * qx + qz * qz), 2 * (qy * qz - qx * qw), 0,
+	bl_mat_t r = { { 1 - 2 * (qy * qy + qz * qz), 2 * (qx * qy - qz * qw), 2 * (qx * qz + qy * qw),
+		0, 2 * (qx * qy + qz * qw), 1 - 2 * (qx * qx + qz * qz), 2 * (qy * qz - qx * qw), 0,
 		2 * (qx * qz - qy * qw), 2 * (qy * qz + qx * qw), 1 - 2 * (qx * qx + qy * qy), 0 } };
 	for (int i = 0; i < 3; i++)
 	{
@@ -559,12 +580,12 @@ static bool bl_add_src (bl_ctx_t *c, const bl_src_t *s)
 			const float l = sqrtf (nx * nx + ny * ny + nz * nz);
 			if (l > 1e-6f)
 				nx /= l, ny /= l, nz /= l;
-			mesh->normals[i] = (vec3_t){ nx, ny, nz };
+			mesh->normals[i] = (vec3_t) { nx, ny, nz };
 		}
 		for (size_t i = 0; has_t && i < mesh->num_texcoords; i++)
 		{
 			const u8 *p = d + s->tex + i * 8;
-			mesh->texcoords[i] = (vec2_t){ rev_bef32 (p), rev_bef32 (p + 4) };
+			mesh->texcoords[i] = (vec2_t) { rev_bef32 (p), rev_bef32 (p + 4) };
 		}
 		mesh->num_vertices = cor.num;
 		for (size_t i = 0; i < cor.num; i++)

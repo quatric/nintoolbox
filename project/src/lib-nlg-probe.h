@@ -13,14 +13,14 @@ extern "C"
 {
 #endif
 
-// Standalone FEDM/FEDS/FEDT containers, versions 1..3 (Federation Force /
-// LM2 / LM3). Shape checks only; full parsing lives in lib-nlg-lm.c.
-bool IsNLGModel (const u8 *data, size_t size); // "FEDM"
-bool IsNLGSkeleton (const u8 *data, size_t size); // "FEDS"
-bool IsNLGTexture (const u8 *data, size_t size); // "FEDT"
+	// Standalone FEDM/FEDS/FEDT containers, versions 1..3 (Federation Force /
+	// LM2 / LM3). Shape checks only; full parsing lives in lib-nlg-lm.c.
+	bool IsNLGModel (const u8 *data, size_t size); // "FEDM"
+	bool IsNLGSkeleton (const u8 *data, size_t size); // "FEDS"
+	bool IsNLGTexture (const u8 *data, size_t size); // "FEDT"
 
-// Mario Strikers SANIM animation stream: strict structural chunk walk.
-bool IsSANIM (const u8 *data, size_t size);
+	// Mario Strikers SANIM animation stream: strict structural chunk walk.
+	bool IsSANIM (const u8 *data, size_t size);
 
 #ifdef __cplusplus
 }

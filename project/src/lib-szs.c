@@ -1219,7 +1219,10 @@ static void GrowDestYAZ (yaz_compr_t *yaz)
 ///////////////////////////////////////////////////////////////////////////////
 // back tracking
 
-enum { BACK_TRACK_MAX_DEPTH = 50 };
+enum
+{
+	BACK_TRACK_MAX_DEPTH = 50
+};
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -3476,7 +3479,10 @@ enumError CreateU8 (szs_file_t *szs, // valid szs
 	if (u8_head_size > sizeof (u8_header_t))
 		memset (u8head->padding, 0xcc, u8_head_size - sizeof (u8_header_t));
 
-	enum { MAX_DIR_DEPTH = 50 };
+	enum
+	{
+		MAX_DIR_DEPTH = 50
+	};
 	u32 basedir[MAX_DIR_DEPTH + 1];
 	memset (basedir, 0, sizeof (basedir));
 
@@ -4335,7 +4341,10 @@ int IterateFilesU8 (struct szs_iterator_t *it, // iterator struct with all infos
 
 	//----- setup stack
 
-	enum { MAX_DEPTH = 25 }; // maximum supported directory depth
+	enum
+	{
+		MAX_DEPTH = 25
+	}; // maximum supported directory depth
 	typedef struct stack_t
 	{
 		const u8_node_t *dir_end;

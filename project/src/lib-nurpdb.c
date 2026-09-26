@@ -60,8 +60,7 @@ bool IsNURPDB (const u8 *data, size_t size)
 		|| !memcmp (data + NURPDB_SUBHDR_OFF, "NRPD", 4);
 }
 
-static bool read_ssbh_string (
-	char *dest, uint destsz, const u8 *data, size_t size, u64 field_off)
+static bool read_ssbh_string (char *dest, uint destsz, const u8 *data, size_t size, u64 field_off)
 {
 	dest[0] = 0;
 	if (field_off + 8 > size)
@@ -105,8 +104,8 @@ static bool read_ssbh_array (
 // Follows one SsbhEnum64 array element at 'field_off' (16 bytes: rel offset + u64
 // discriminant) and reads the 'name' field (an SsbhString) at the payload's own
 // offset 0 -- true for every FrameBuffer/State/UnkItem2 variant.
-static void print_enum64_named (FILE *out, const u8 *data, size_t size, u64 field_off,
-	u64 idx, const ccp *variant_names, uint n_variants)
+static void print_enum64_named (FILE *out, const u8 *data, size_t size, u64 field_off, u64 idx,
+	const ccp *variant_names, uint n_variants)
 {
 	if (field_off + 16 > size)
 	{
@@ -124,8 +123,8 @@ static void print_enum64_named (FILE *out, const u8 *data, size_t size, u64 fiel
 		if (payload_off >= field_off)
 			read_ssbh_string (name, sizeof (name), data, size, payload_off);
 	}
-	fprintf (out, "  [%llu] %s (%s)\n", (unsigned long long)idx,
-		name[0] ? name : "<unnamed>", variant);
+	fprintf (
+		out, "  [%llu] %s (%s)\n", (unsigned long long)idx, name[0] ? name : "<unnamed>", variant);
 }
 
 static const ccp nurpdb_framebuffer_variant[5]
@@ -151,8 +150,8 @@ enumError DecodeNURPDB_Text (FILE *out, const u8 *data, size_t size)
 		&& count <= NURPDB_MAX_LIST)
 	{
 		for (u64 i = 0; i < count; i++)
-			print_enum64_named (out, data, size, base + i * NURPDB_ENUM64_SIZE, i,
-				nurpdb_framebuffer_variant, 5);
+			print_enum64_named (
+				out, data, size, base + i * NURPDB_ENUM64_SIZE, i, nurpdb_framebuffer_variant, 5);
 	}
 	else
 		fprintf (out, "  <none>\n");
@@ -162,8 +161,8 @@ enumError DecodeNURPDB_Text (FILE *out, const u8 *data, size_t size)
 		&& count <= NURPDB_MAX_LIST)
 	{
 		for (u64 i = 0; i < count; i++)
-			print_enum64_named (out, data, size, base + i * NURPDB_ENUM64_SIZE, i,
-				nurpdb_state_variant, 4);
+			print_enum64_named (
+				out, data, size, base + i * NURPDB_ENUM64_SIZE, i, nurpdb_state_variant, 4);
 	}
 	else
 		fprintf (out, "  <none>\n");
@@ -185,9 +184,8 @@ enumError DecodeNURPDB_Text (FILE *out, const u8 *data, size_t size)
 			u64 b1, c1 = 0, b2, c2 = 0;
 			read_ssbh_array (data, size, e + 0x08, &b1, &c1);
 			read_ssbh_array (data, size, e + 0x18, &b2, &c2);
-			fprintf (out, "  [%llu] %s (unk1_count=%llu, unk2_count=%llu)\n",
-				(unsigned long long)i, name[0] ? name : "<unnamed>",
-				(unsigned long long)c1, (unsigned long long)c2);
+			fprintf (out, "  [%llu] %s (unk1_count=%llu, unk2_count=%llu)\n", (unsigned long long)i,
+				name[0] ? name : "<unnamed>", (unsigned long long)c1, (unsigned long long)c2);
 		}
 	}
 	else
@@ -220,8 +218,8 @@ enumError DecodeNURPDB_Text (FILE *out, const u8 *data, size_t size)
 		&& count <= NURPDB_MAX_LIST)
 	{
 		for (u64 i = 0; i < count; i++)
-			print_enum64_named (out, data, size, base + i * NURPDB_ENUM64_SIZE, i,
-				nurpdb_unkitem2_variant, 5);
+			print_enum64_named (
+				out, data, size, base + i * NURPDB_ENUM64_SIZE, i, nurpdb_unkitem2_variant, 5);
 	}
 	else
 		fprintf (out, "  <none>\n");
@@ -271,17 +269,17 @@ enumError DecodeNURPDB_Text (FILE *out, const u8 *data, size_t size)
 	{
 		char unk9[128];
 		read_ssbh_string (unk9, sizeof (unk9), data, size, tail_off + 0x20);
-		fprintf (out, "\n"
+		fprintf (out,
+			"\n"
 			"unk_width1 = %u, unk_height1 = %u\n"
 			"unk3..unk8 = %u, %u, %u, %u, %u, %u\n"
 			"unk9 = %s\n"
 			"unk_width2 = %u, unk_height2 = %u\n"
 			"unk10 = %llu\n",
-			rd_le32 (data + tail_off), rd_le32 (data + tail_off + 4),
-			rd_le32 (data + tail_off + 8), rd_le32 (data + tail_off + 0xc),
-			rd_le32 (data + tail_off + 0x10), rd_le32 (data + tail_off + 0x14),
-			rd_le32 (data + tail_off + 0x18), rd_le32 (data + tail_off + 0x1c),
-			unk9[0] ? unk9 : "<empty>",
+			rd_le32 (data + tail_off), rd_le32 (data + tail_off + 4), rd_le32 (data + tail_off + 8),
+			rd_le32 (data + tail_off + 0xc), rd_le32 (data + tail_off + 0x10),
+			rd_le32 (data + tail_off + 0x14), rd_le32 (data + tail_off + 0x18),
+			rd_le32 (data + tail_off + 0x1c), unk9[0] ? unk9 : "<empty>",
 			rd_le32 (data + tail_off + 0x28), rd_le32 (data + tail_off + 0x2c),
 			(unsigned long long)rd_le64 (data + tail_off + 0x30));
 	}

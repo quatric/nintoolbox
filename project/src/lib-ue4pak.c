@@ -232,7 +232,8 @@ enumError ScanUE4Pak (ue4_pak_t *pak, const u8 *data, size_t size)
 			e->block_count = le32 (p);
 			p += 4;
 
-			if (e->block_count > 0 && e->block_count < 100000 && p + (u64)e->block_count * 16 <= end)
+			if (e->block_count > 0 && e->block_count < 100000
+				&& p + (u64)e->block_count * 16 <= end)
 			{
 				e->blocks = CALLOC (e->block_count, sizeof (ue4_pak_block_t));
 				if (!e->blocks)

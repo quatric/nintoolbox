@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // ----------------------------------------------------------------------------
 // 14. Nintendo Switch Joy-Con Vibration Archive (.vibs)
 // ----------------------------------------------------------------------------
@@ -90,7 +89,6 @@ enumError ExtractVIBSArchive (ccp arg, ccp basedir, uint depth)
 	return ERR_OK;
 }
 
-
 // Nintendo Switch Joy-Con Vibration Archive (.vibs), little-endian
 enumError CreateVIBSArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
@@ -153,7 +151,6 @@ enumError CreateVIBSArchive (
 	return ERR_OK;
 }
 
-
 enumError create_vibs_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -176,4 +173,3 @@ enumError create_vibs_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

@@ -626,4 +626,3 @@ enumError conv_to_CMPR (Image_t *dest_img, // valid destination
 	AssignData (dest_img, dest_img, data, img_size, IMG_CMPR);
 	return ERR_OK;
 }
-

@@ -61,8 +61,8 @@ typedef struct
 
 // Full structural walk. Unknowns (0x20 header) are preserved for rebuild.
 // Passing ENTRIES==NULL only validates (and optionally counts).
-enumError ScanWWRSC (wwrsc_entry_t **entries, uint *n_entries, u8 unknowns[32],
-	const u8 *data, uint size);
+enumError ScanWWRSC (
+	wwrsc_entry_t **entries, uint *n_entries, u8 unknowns[32], const u8 *data, uint size);
 
 // Rebuild a byte-exact RSC (same member order, 32-aligned).
 enumError CreateWWRSC (u8 **dest, uint *dest_size, const u8 unknowns[32],

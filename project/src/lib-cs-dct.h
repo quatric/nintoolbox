@@ -48,7 +48,8 @@
 #include <stdio.h>
 
 bool IsCSDCT (const u8 *data, size_t size);
-enumError DecompressCS_LZ (const u8 *src, size_t src_size, u8 *dst, size_t dst_size, size_t *produced);
+enumError DecompressCS_LZ (
+	const u8 *src, size_t src_size, u8 *dst, size_t dst_size, size_t *produced);
 enumError CompressCS_LZ (const u8 *src, size_t src_size, u8 **out_data, size_t *out_size);
 enumError DecodeCSDCT_Text (FILE *out, const u8 *data, size_t size);
 enumError ExtractCSDCTArchive (ccp arg, ccp basedir, uint depth, const u8 *data, size_t size);

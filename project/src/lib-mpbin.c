@@ -480,7 +480,8 @@ enumError CompressMPBIN_LZSS (u8 **dest, uint *dest_size, const u8 *src, uint sr
 		else
 		{
 			code_buf[code_buf_ptr++] = (u8)sp->match_position;
-			code_buf[code_buf_ptr++] = (u8)(((sp->match_position >> 2) & 0xc0) | (sp->match_length - (LZSS_THRESHOLD + 1)));
+			code_buf[code_buf_ptr++] = (u8)(((sp->match_position >> 2) & 0xc0)
+				| (sp->match_length - (LZSS_THRESHOLD + 1)));
 		}
 		mask <<= 1;
 		if (mask == 0)
@@ -553,7 +554,8 @@ static u32 slide_simple_enc (const u8 *src, uint size, uint pos, u32 *pMatchPos)
 	return max_match < 3 ? 1 : max_match;
 }
 
-static u32 slide_nintendo_enc (const u8 *src, uint size, uint pos, u32 *pMatchPos, int *prevFlag, u32 *prevMatchPos, u32 *prevNumBytes)
+static u32 slide_nintendo_enc (const u8 *src, uint size, uint pos, u32 *pMatchPos, int *prevFlag,
+	u32 *prevMatchPos, u32 *prevNumBytes)
 {
 	if (*prevFlag == 1)
 	{
@@ -609,7 +611,8 @@ enumError CompressMPBIN_Slide (u8 **dest, uint *dest_size, const u8 *src, uint s
 	while (src_pos < src_len)
 	{
 		u32 match_pos = 0;
-		u32 num_bytes = slide_nintendo_enc (src, src_len, src_pos, &match_pos, &prev_flag, &prev_match, &prev_num);
+		u32 num_bytes = slide_nintendo_enc (
+			src, src_len, src_pos, &match_pos, &prev_flag, &prev_match, &prev_num);
 
 		if (num_bytes < 3)
 		{
@@ -697,7 +700,8 @@ enumError CompressMPBIN_RLE (u8 **dest, uint *dest_size, const u8 *src, uint src
 			uint lit = 0;
 			while (pos + lit < src_len && lit < 127)
 			{
-				if (pos + lit + 2 < src_len && src[pos + lit] == src[pos + lit + 1] && src[pos + lit] == src[pos + lit + 2])
+				if (pos + lit + 2 < src_len && src[pos + lit] == src[pos + lit + 1]
+					&& src[pos + lit] == src[pos + lit + 2])
 					break;
 				lit++;
 			}
@@ -864,7 +868,8 @@ enumError ScanMPBIN (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 
 		char fname[64];
 		snprintf (fname, sizeof (fname), "file%03u.%s", i, ext);
 
-		snprintf (line, sizeof (line), "file%03u\tcompress_type=%u\tname=%s\n", i, comp_type, fname);
+		snprintf (
+			line, sizeof (line), "file%03u\tcompress_type=%u\tname=%s\n", i, comp_type, fname);
 		const bool ok = dyn_write (&setup, line, (uint)strlen (line))
 			&& OwnedEntryAdd (out, out_cnt, fname, uncomp ? uncomp : (const u8 *)"", decomp_size);
 		FREE (uncomp);
@@ -916,7 +921,8 @@ bool looks_like_mpbin_dir (ccp dir)
 	return false;
 }
 
-enumError CreateMPBIN (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+enumError CreateMPBIN (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {
 	if (!dest || !dest_size)
 		return ERR_INVALID_DATA;
@@ -950,8 +956,7 @@ enumError CreateMPBIN (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *
 	for (uint i = 0; i < n_entries; i++)
 	{
 		const nintendo_sarc_entry_t *e = entries + i;
-		if (!e->name || !OwnedNameOk (e->name)
-			|| strcmp (leaf_name (e->name), MPBIN_SETUP_FILE))
+		if (!e->name || !OwnedNameOk (e->name) || strcmp (leaf_name (e->name), MPBIN_SETUP_FILE))
 			continue;
 		char *copy = MALLOC ((size_t)e->size + 1);
 		if (!copy)
@@ -979,7 +984,7 @@ enumError CreateMPBIN (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *
 					continue;
 				char *name = line + name_off;
 				size_t len = strlen (name);
-				while (len && isspace ((unsigned char)name[len-1]))
+				while (len && isspace ((unsigned char)name[len - 1]))
 					name[--len] = 0;
 				for (idx = 0; idx < real_file_count; idx++)
 					if (!strcmp (files[idx]->name, name))

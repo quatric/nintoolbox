@@ -497,8 +497,10 @@ static void parse_bone_hierarchy (model_t *out, const uint8_t *cmds, size_t len)
 					const uint node_id = p[0];
 					const uint parent_id = p[1];
 					p += 3;
-					if (op & 0x40 && p < end) p++;
-					if (op & 0x20 && p < end) p++;
+					if (op & 0x40 && p < end)
+						p++;
+					if (op & 0x20 && p < end)
+						p++;
 					if (node_id < out->num_joints)
 					{
 						// cur_parent/parent_id start at matrix slot 0, the
@@ -1205,7 +1207,8 @@ model_t *ParseNSBMD (const uint8_t *data, size_t size)
 			const uint16_t dict_tex_off = rd16 (m + mat_off);
 			nitro_dict_t tex_dict;
 			if (dict_tex_off > 0 && mat_off + dict_tex_off < m_avail
-				&& read_dict (&tex_dict, m + mat_off + dict_tex_off, m_avail - (mat_off + dict_tex_off)))
+				&& read_dict (
+					&tex_dict, m + mat_off + dict_tex_off, m_avail - (mat_off + dict_tex_off)))
 			{
 				const uint8_t *tbase = m + mat_off + dict_tex_off;
 				for (uint ti = 0; ti < tex_dict.n; ti++)
@@ -1282,8 +1285,10 @@ model_t *ParseNSBMD (const uint8_t *data, size_t size)
 			else if (code == 0x06) // NODEDL / mult matrix
 			{
 				p += 3;
-				if (op & 0x40) p += 1;
-				if (op & 0x20) p += 1;
+				if (op & 0x40)
+					p += 1;
+				if (op & 0x20)
+					p += 1;
 			}
 			else if (code == 0x07)
 			{

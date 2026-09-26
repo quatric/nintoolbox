@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // ----------------------------------------------------------------------------
 // 1. Level-5 Container Archive (.xc / .xpck / XPCK / XPC2)
 // ----------------------------------------------------------------------------
@@ -112,7 +111,6 @@ enumError ExtractXPCKArchive (ccp arg, ccp basedir, uint depth)
 	FREE (raw);
 	return ERR_OK;
 }
-
 
 // 1. Level-5 Container Archive (.xc / .xpck)
 enumError CreateXPCKArchive (
@@ -224,7 +222,6 @@ enumError CreateXPCKArchive (
 	return ERR_OK;
 }
 
-
 enumError create_xpck_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -247,4 +244,3 @@ enumError create_xpck_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 ///////////////////////////////////////////////////////////////////////////////
 
 enumError ExtractPERSFile (ccp arg, ccp basedir, uint depth)

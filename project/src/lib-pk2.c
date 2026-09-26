@@ -40,11 +40,9 @@ bool IsPK2 (const u8 *data, size_t size)
 	return true;
 }
 
-static void parse_pk2_trie (const u8 *data, ccp const *ext_tab, uint num_exts,
-                           size_t pos, size_t end,
-                           char *path_buf, size_t path_len,
-                           FILE **slices, uint num_slices,
-                           ccp dest_dir, uint *file_count, uint depth)
+static void parse_pk2_trie (const u8 *data, ccp const *ext_tab, uint num_exts, size_t pos,
+	size_t end, char *path_buf, size_t path_len, FILE **slices, uint num_slices, ccp dest_dir,
+	uint *file_count, uint depth)
 {
 	if (depth >= 64)
 		return;
@@ -87,8 +85,8 @@ static void parse_pk2_trie (const u8 *data, ccp const *ext_tab, uint num_exts,
 				path_len += name_len;
 				path_buf[path_len] = 0;
 			}
-			parse_pk2_trie (data, ext_tab, num_exts, pos, node_end,
-			                path_buf, path_len, slices, num_slices, dest_dir, file_count, depth + 1);
+			parse_pk2_trie (data, ext_tab, num_exts, pos, node_end, path_buf, path_len, slices,
+				num_slices, dest_dir, file_count, depth + 1);
 			path_buf[old_len] = 0;
 			path_len = old_len;
 		}
@@ -97,8 +95,8 @@ static void parse_pk2_trie (const u8 *data, ccp const *ext_tab, uint num_exts,
 			// Leaf node: last char of name is 1-based extension index
 			const u8 ext_idx = name_len > 0 ? data[name_start + name_len - 1] : 0;
 			const size_t base_len = name_len > 0 ? name_len - 1 : 0;
-			ccp ext = (ext_idx > 0 && ext_idx <= num_exts && ext_tab[ext_idx])
-			              ? ext_tab[ext_idx] : "";
+			ccp ext
+				= (ext_idx > 0 && ext_idx <= num_exts && ext_tab[ext_idx]) ? ext_tab[ext_idx] : "";
 
 			if (pos + 13 <= node_end)
 			{
@@ -110,11 +108,11 @@ static void parse_pk2_trie (const u8 *data, ccp const *ext_tab, uint num_exts,
 
 				char rel_path[1024];
 				if (*ext)
-					snprintf (rel_path, sizeof (rel_path), "%.*s%.*s.%s",
-					          (int)path_len, path_buf, (int)base_len, (ccp)(data + name_start), ext);
+					snprintf (rel_path, sizeof (rel_path), "%.*s%.*s.%s", (int)path_len, path_buf,
+						(int)base_len, (ccp)(data + name_start), ext);
 				else
-					snprintf (rel_path, sizeof (rel_path), "%.*s%.*s",
-					          (int)path_len, path_buf, (int)base_len, (ccp)(data + name_start));
+					snprintf (rel_path, sizeof (rel_path), "%.*s%.*s", (int)path_len, path_buf,
+						(int)base_len, (ccp)(data + name_start));
 
 				for (char *p = rel_path; *p; p++)
 					if (*p == '\\')
@@ -124,10 +122,10 @@ static void parse_pk2_trie (const u8 *data, ccp const *ext_tab, uint num_exts,
 				{
 					if (*ext)
 						snprintf (rel_path, sizeof (rel_path), "file_%06u.%s",
-						          file_count ? *file_count : 0, ext);
+							file_count ? *file_count : 0, ext);
 					else
-						snprintf (rel_path, sizeof (rel_path), "file_%06u",
-						          file_count ? *file_count : 0);
+						snprintf (
+							rel_path, sizeof (rel_path), "file_%06u", file_count ? *file_count : 0);
 				}
 
 				char full_dest[2048];
@@ -163,7 +161,8 @@ static void parse_pk2_trie (const u8 *data, ccp const *ext_tab, uint num_exts,
 						fseek (slices[slice_idx], in_slice_off, SEEK_SET);
 						while (to_read > 0)
 						{
-							const u32 take = (to_read < sizeof (chunk)) ? to_read : (u32)sizeof (chunk);
+							const u32 take
+								= (to_read < sizeof (chunk)) ? to_read : (u32)sizeof (chunk);
 							const size_t rd = fread (chunk, 1, take, slices[slice_idx]);
 							if (!rd)
 								break;
@@ -248,10 +247,8 @@ enumError ExtractPK2Archive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0)
-		fprintf (stdlog, "%s%sEXTRACT PK2:%s (%u parts) -> %s/\n",
-		         verbose > 0 ? "\n" : "",
-		         testmode ? "WOULD " : "",
-		         arg, num_parts, dest);
+		fprintf (stdlog, "%s%sEXTRACT PK2:%s (%u parts) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, num_parts, dest);
 
 	if (testmode)
 	{
@@ -264,8 +261,8 @@ enumError ExtractPK2Archive (ccp arg, ccp basedir, uint depth)
 
 	char path_buf[1024] = { 0 };
 	uint file_count = 0;
-	parse_pk2_trie (raw, ext_tab, num_exts, ext_len, raw_size,
-	                path_buf, 0, slices, open_count, dest, &file_count, 0);
+	parse_pk2_trie (raw, ext_tab, num_exts, ext_len, raw_size, path_buf, 0, slices, open_count,
+		dest, &file_count, 0);
 
 	for (uint i = 0; i < open_count; i++)
 		if (slices[i])
@@ -418,8 +415,8 @@ static void scan_pk2_dir (ccp root, ccp sub, pk2_collect_t *col)
 	closedir (dir);
 }
 
-static void build_pk2_node (const pk2_file_item_t *items, uint start, uint end,
-                           size_t prefix_len, u8 **buf, size_t *used, size_t *alloc)
+static void build_pk2_node (const pk2_file_item_t *items, uint start, uint end, size_t prefix_len,
+	u8 **buf, size_t *used, size_t *alloc)
 {
 	if (start >= end)
 		return;
@@ -492,8 +489,8 @@ static void build_pk2_node (const pk2_file_item_t *items, uint start, uint end,
 	{
 		if (strlen (items[cur].rel_path) == prefix_len + common)
 		{
-			build_pk2_node (items, cur, cur + 1, prefix_len + common,
-			                &child_buf, &child_used, &child_alloc);
+			build_pk2_node (
+				items, cur, cur + 1, prefix_len + common, &child_buf, &child_used, &child_alloc);
 			cur++;
 		}
 		else
@@ -502,8 +499,8 @@ static void build_pk2_node (const pk2_file_item_t *items, uint start, uint end,
 			uint next = cur + 1;
 			while (next < end && items[next].rel_path[prefix_len + common] == c)
 				next++;
-			build_pk2_node (items, cur, next, prefix_len + common,
-			                &child_buf, &child_used, &child_alloc);
+			build_pk2_node (
+				items, cur, next, prefix_len + common, &child_buf, &child_used, &child_alloc);
 			cur = next;
 		}
 	}
@@ -542,8 +539,8 @@ enumError create_pk2_dir (ccp source_dir, ccp dest_file)
 	qsort (col.items, col.count, sizeof (pk2_file_item_t), compare_pk2_items);
 
 	const size_t dlen = strlen (dest_file);
-	const int base_len = (dlen >= 4 && !strcasecmp (dest_file + dlen - 4, ".pk2"))
-	                         ? (int)(dlen - 4) : (int)dlen;
+	const int base_len
+		= (dlen >= 4 && !strcasecmp (dest_file + dlen - 4, ".pk2")) ? (int)(dlen - 4) : (int)dlen;
 
 	// Write data slices (1 GiB each)
 	uint slice_idx = 0;
@@ -560,7 +557,8 @@ enumError create_pk2_dir (ccp source_dir, ccp dest_file)
 
 		if (!slice_file)
 		{
-			snprintf (slice_path, sizeof (slice_path), "%.*s.p%02u", base_len, dest_file, slice_idx);
+			snprintf (
+				slice_path, sizeof (slice_path), "%.*s.p%02u", base_len, dest_file, slice_idx);
 			slice_file = fopen (slice_path, "wb");
 			if (!slice_file)
 			{
@@ -607,7 +605,8 @@ enumError create_pk2_dir (ccp source_dir, ccp dest_file)
 			{
 				fclose (slice_file);
 				slice_idx++;
-				snprintf (slice_path, sizeof (slice_path), "%.*s.p%02u", base_len, dest_file, slice_idx);
+				snprintf (
+					slice_path, sizeof (slice_path), "%.*s.p%02u", base_len, dest_file, slice_idx);
 				slice_file = fopen (slice_path, "wb");
 				if (!slice_file)
 				{

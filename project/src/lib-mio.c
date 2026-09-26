@@ -524,7 +524,8 @@ u8 *DecodeMIORecordMIDI (const u8 *data, size_t size, uint *out_size)
 			uint last_tick = 0;
 			for (uint i = 0; i < n_drum_events; i++)
 			{
-				uint delta = drum_events[i].tick >= last_tick ? (drum_events[i].tick - last_tick) : 0;
+				uint delta
+					= drum_events[i].tick >= last_tick ? (drum_events[i].tick - last_tick) : 0;
 				append_varlen (&p, mid_end, delta);
 				for (uint k = 0; k < drum_events[i].len && p < mid_end; k++)
 					*p++ = drum_events[i].bytes[k];
@@ -661,8 +662,8 @@ enumError ExtractMIOArchive (ccp arg, ccp basedir, uint depth)
 					if (sp_rgba)
 					{
 						char sp_path[PATH_MAX];
-						snprintf (sp_path, sizeof (sp_path), "%s/obj%02u_art%u_f%u.png", dest,
-							obj, art, f);
+						snprintf (sp_path, sizeof (sp_path), "%s/obj%02u_art%u_f%u.png", dest, obj,
+							art, f);
 						SaveDecodedRGBAToPNG (sp_rgba, sw, sh, &be_func, sp_path, 0, true);
 					}
 				}

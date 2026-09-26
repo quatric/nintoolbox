@@ -40,10 +40,8 @@ static int opoona_mol_name_ok (const u8 *name)
 	while (len < OPOONA_MOL_NAME_LEN && name[len])
 	{
 		u8 c = name[len];
-		int ok = c >= 'a' && c <= 'z'
-			|| c >= 'A' && c <= 'Z'
-			|| c >= '0' && c <= '9'
-			|| c == '_' || c == '.' || c == '-';
+		int ok = c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_'
+			|| c == '.' || c == '-';
 		if (!ok)
 			return 0;
 		len++;
@@ -284,9 +282,9 @@ enumError DecodeOpoonaMOT_Text (FILE *f, const u8 *data, size_t size)
 		for (int k = 0; k < 4; k++)
 			quat[k] = opoona_be_f32 (rec + 0x40 + k * 4);
 
-		fprintf (f, "bone[%u]: scale=%g,%g,%g translate=%g,%g,%g quat=%g,%g,%g,%g\n", i,
-			scale[0], scale[1], scale[2], translate[0], translate[1], translate[2], quat[0],
-			quat[1], quat[2], quat[3]);
+		fprintf (f, "bone[%u]: scale=%g,%g,%g translate=%g,%g,%g quat=%g,%g,%g,%g\n", i, scale[0],
+			scale[1], scale[2], translate[0], translate[1], translate[2], quat[0], quat[1], quat[2],
+			quat[3]);
 	}
 
 	size_t pool_start = off;

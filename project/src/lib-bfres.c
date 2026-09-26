@@ -673,8 +673,8 @@ static void bfres_euler_rad_to_quat (float rx, float ry, float rz, float q[4])
 
 // Inverse of the above, for converting an FSKL bone whose rotation is stored
 // as a quaternion into the half-angle-Euler convention joint_t::rotate uses.
-static void bfres_quat_to_euler (float qx, float qy, float qz, float qw,
-	float *rx, float *ry, float *rz)
+static void bfres_quat_to_euler (
+	float qx, float qy, float qz, float qw, float *rx, float *ry, float *rz)
 {
 	const double x = qx, y = qy, z = qz, w = qw;
 	const double xx = x * x, yy = y * y, zz = z * z;
@@ -713,13 +713,13 @@ static void bfres_anim_add_channel (model_animation_t *anim, int node_idx, model
 
 typedef struct
 {
-	float *frames;   // decoded keyframe times, num_keys entries
-	float **keys;    // num_keys * elems_per_key decoded key coefficients
+	float *frames; // decoded keyframe times, num_keys entries
+	float **keys; // num_keys * elems_per_key decoded key coefficients
 	int num_keys;
 	int elems_per_key;
-	int frame_type;  // 0=Single, 1=Decimal10x5, 2=Byte
-	int key_type;    // 0=Single, 1=Int16, 2=SByte
-	int curve_type;  // 0=Cubic, 1=Linear, 2=BakedFloat, 4=StepInt, 5=BakedInt, 6=StepBool
+	int frame_type; // 0=Single, 1=Decimal10x5, 2=Byte
+	int key_type; // 0=Single, 1=Int16, 2=SByte
+	int curve_type; // 0=Cubic, 1=Linear, 2=BakedFloat, 4=StepInt, 5=BakedInt, 6=StepBool
 	float scale, offset;
 	uint32_t target; // AnimDataOffset this curve animates
 } bfres_curve_t;
@@ -736,8 +736,8 @@ static void bfres_curve_free (bfres_curve_t *c)
 
 // Reads one AnimCurve record. Wii U curve records are 0x24 bytes for
 // FRES >= 0x03040000 (explicit Delta), 0x20 before that.
-static int bfres_curve_read (const uint8_t *d, size_t size, size_t c,
-	int new_layout, bfres_curve_t *out)
+static int bfres_curve_read (
+	const uint8_t *d, size_t size, size_t c, int new_layout, bfres_curve_t *out)
 {
 	const size_t rec = new_layout ? 0x24 : 0x20;
 	memset (out, 0, sizeof (*out));
@@ -893,12 +893,13 @@ static float bfres_eval_curve (const bfres_curve_t *c, float t)
 		{
 			const float u = (t - f0) / dt;
 			const float c0 = c->keys[i][0] * c->scale + c->offset;
-			return c0 + u * (c->keys[i][1] * c->scale
-				+ u * (c->keys[i][2] * c->scale + u * (c->keys[i][3] * c->scale)));
+			return c0
+				+ u
+				* (c->keys[i][1] * c->scale
+					+ u * (c->keys[i][2] * c->scale + u * (c->keys[i][3] * c->scale)));
 		}
 		case 1: // linear: v = K0*scale + offset + (K1*scale) * (t - frame)
-			return c->keys[i][0] * c->scale + c->offset
-				+ c->keys[i][1] * c->scale * (t - f0);
+			return c->keys[i][0] * c->scale + c->offset + c->keys[i][1] * c->scale * (t - f0);
 		default: // step / baked: constant per segment
 			return bfres_key_value (c, c->keys[i][0]);
 	}
@@ -919,10 +920,10 @@ static int parse_fska_into_model (model_t *model, const uint8_t *d, size_t size,
 
 	const uint32_t flags = rb32 (d + fs + 0x0C);
 	const int euler_rot = (flags & 0x1000) != 0; // bit 0x1000 = EulerXYZ mode
-	const int num_frames_hdr = fr_version >= 0x03040000
-		? rbs32 (d + fs + 0x10) : (int)rb16 (d + fs + 0x10);
-	const uint16_t num_bone_anim = fr_version >= 0x03040000
-		? rb16 (d + fs + 0x14) : rb16 (d + fs + 0x12);
+	const int num_frames_hdr
+		= fr_version >= 0x03040000 ? rbs32 (d + fs + 0x10) : (int)rb16 (d + fs + 0x10);
+	const uint16_t num_bone_anim
+		= fr_version >= 0x03040000 ? rb16 (d + fs + 0x14) : rb16 (d + fs + 0x12);
 	const int num_frames = num_frames_hdr + (((flags & 0x2) != 0) ? 1 : 0); // loop pad
 	if (num_bone_anim == 0 || num_frames <= 0 || num_frames > 100000)
 		return 0;
@@ -932,8 +933,7 @@ static int parse_fska_into_model (model_t *model, const uint8_t *d, size_t size,
 		return 0;
 
 	model_animation_t anim = { 0 };
-	snprintf (anim.name, sizeof (anim.name), "%s",
-		clip_name && *clip_name ? clip_name : "fska");
+	snprintf (anim.name, sizeof (anim.name), "%s", clip_name && *clip_name ? clip_name : "fska");
 
 	const int new_curve_layout = fr_version >= 0x03040000;
 	int any = 0;
@@ -962,8 +962,9 @@ static int parse_fska_into_model (model_t *model, const uint8_t *d, size_t size,
 		int nread = 0;
 		for (uint8_t k = 0; k < num_curve && k < 9; k++)
 		{
-			if (bfres_curve_read (d, size, curve_base + (size_t)k * (new_curve_layout ? 0x24 : 0x20),
-					new_curve_layout, &curves[k]))
+			if (bfres_curve_read (d, size,
+					curve_base + (size_t)k * (new_curve_layout ? 0x24 : 0x20), new_curve_layout,
+					&curves[k]))
 				nread++;
 		}
 		if (!nread)
@@ -973,7 +974,8 @@ static int parse_fska_into_model (model_t *model, const uint8_t *d, size_t size,
 		// these to the whole TRS set before curves override single components.
 		const uint32_t base_flags = bflags & 0x38; // 0x8=scale 0x10=rotate 0x20=translate
 		float base[3][4] = { { 1, 1, 1, 1 }, { 0, 0, 0, 1 }, { 0, 0, 0, 1 } };
-		const int base_present[3] = { (base_flags & 0x8) != 0, (base_flags & 0x10) != 0, (base_flags & 0x20) != 0 };
+		const int base_present[3]
+			= { (base_flags & 0x8) != 0, (base_flags & 0x10) != 0, (base_flags & 0x20) != 0 };
 		const size_t base_off = REL (d, ba + 0x14);
 		if (base_off && base_off + 0x28 <= size)
 		{
@@ -995,25 +997,30 @@ static int parse_fska_into_model (model_t *model, const uint8_t *d, size_t size,
 		//   scale    0x04 0x08 0x0C
 		//   rotate   0x20 0x24 0x28 (+0x2C W for quaternion mode)
 		//   translate 0x10 0x14 0x18
-		int curve_of[3][4] =
-		{
-			{ -1, -1, -1, -1 },
-			{ -1, -1, -1, -1 },
-			{ -1, -1, -1, -1 }
-		};
+		int curve_of[3][4] = { { -1, -1, -1, -1 }, { -1, -1, -1, -1 }, { -1, -1, -1, -1 } };
 		for (int k = 0; k < nread; k++)
 		{
 			const uint32_t tgt = curves[k].target & 0xFFFFFFFC;
 			switch (tgt & 0xF0)
 			{
-				case 0x00: if (tgt >= 0x04 && tgt <= 0x0C) curve_of[0][(tgt - 4) / 4] = k; break;
-				case 0x10: if (tgt >= 0x10 && tgt <= 0x18) curve_of[2][(tgt - 0x10) / 4] = k; break;
-				case 0x20: if (tgt >= 0x20 && tgt <= 0x2C) curve_of[1][(tgt - 0x20) / 4] = k; break;
+				case 0x00:
+					if (tgt >= 0x04 && tgt <= 0x0C)
+						curve_of[0][(tgt - 4) / 4] = k;
+					break;
+				case 0x10:
+					if (tgt >= 0x10 && tgt <= 0x18)
+						curve_of[2][(tgt - 0x10) / 4] = k;
+					break;
+				case 0x20:
+					if (tgt >= 0x20 && tgt <= 0x2C)
+						curve_of[1][(tgt - 0x20) / 4] = k;
+					break;
 			}
 		}
 
 		const float fps = 60.0f;
-		const model_anim_path_t paths[3] = { MODEL_ANIM_SCALE, MODEL_ANIM_ROTATION, MODEL_ANIM_TRANSLATION };
+		const model_anim_path_t paths[3]
+			= { MODEL_ANIM_SCALE, MODEL_ANIM_ROTATION, MODEL_ANIM_TRANSLATION };
 
 		// Scale (3 components) and translation (3 components): a plane channel.
 		for (int set = 0; set < 3; set += 2)
@@ -1054,7 +1061,8 @@ static int parse_fska_into_model (model_t *model, const uint8_t *d, size_t size,
 
 		// Rotation. Euler (bit 0x1000): assemble XYZ then convert to a
 		// quaternion channel. Quaternion mode: use the base/curve components.
-		if (curve_of[1][0] >= 0 || curve_of[1][1] >= 0 || curve_of[1][2] >= 0 || curve_of[1][3] >= 0)
+		if (curve_of[1][0] >= 0 || curve_of[1][1] >= 0 || curve_of[1][2] >= 0
+			|| curve_of[1][3] >= 0)
 		{
 			const int comps = 4;
 			float *times = malloc (sizeof (float) * num_frames);
@@ -1096,7 +1104,8 @@ static int parse_fska_into_model (model_t *model, const uint8_t *d, size_t size,
 					}
 					memcpy (values + f * comps, v, sizeof (v));
 				}
-				bfres_anim_add_channel (&anim, joint_idx, MODEL_ANIM_ROTATION, times, values, num_frames, comps);
+				bfres_anim_add_channel (
+					&anim, joint_idx, MODEL_ANIM_ROTATION, times, values, num_frames, comps);
 				any = 1;
 			}
 			else
@@ -1131,7 +1140,6 @@ static int parse_fska_into_model (model_t *model, const uint8_t *d, size_t size,
 	model->animations[model->num_animations++] = anim;
 	return 1;
 }
-
 
 model_t *ParseBFRES (const uint8_t *data, size_t size)
 {
@@ -1325,8 +1333,7 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 			const size_t bone_arr = sk + 0x18 <= size ? REL (d, sk + 0x14) : 0;
 			const size_t mtx_arr = sk + 0x20 <= size ? REL (d, sk + 0x18) : 0;
 			const size_t inv_arr = sk + 0x20 <= size ? REL (d, sk + 0x1C) : 0;
-			if (n_bones && n_bones < 4096 && bone_arr
-				&& bone_arr + (size_t)n_bones * 0x40 <= size)
+			if (n_bones && n_bones < 4096 && bone_arr && bone_arr + (size_t)n_bones * 0x40 <= size)
 			{
 				out->num_joints = n_bones;
 				out->joints = calloc (n_bones, sizeof (joint_t));
@@ -1358,10 +1365,9 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 						else
 						{
 							float rx, ry, rz;
-							bfres_quat_to_euler (
-								read_be32f (d + boff + 0x20), read_be32f (d + boff + 0x24),
-								read_be32f (d + boff + 0x28), read_be32f (d + boff + 0x2C),
-								&rx, &ry, &rz);
+							bfres_quat_to_euler (read_be32f (d + boff + 0x20),
+								read_be32f (d + boff + 0x24), read_be32f (d + boff + 0x28),
+								read_be32f (d + boff + 0x2C), &rx, &ry, &rz);
 							j->rotate.x = rx;
 							j->rotate.y = ry;
 							j->rotate.z = rz;
@@ -1376,8 +1382,8 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 						// (NintenTools Skeleton.cs). Older files store one
 						// Matrix3x4 inline per bone--not observed in the
 						// retail corpus here, left as bind-identity.
-						if (bfr_version >= 0x03040000 && n_smooth
-							&& inv_arr && inv_arr + (size_t)n_smooth * 48 <= size)
+						if (bfr_version >= 0x03040000 && n_smooth && inv_arr
+							&& inv_arr + (size_t)n_smooth * 48 <= size)
 						{
 							const int16_t sidx = (int16_t)rb16 (d + boff + 8);
 							if (sidx >= 0 && (uint16_t)sidx < n_smooth)
@@ -1509,7 +1515,8 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 
 			mesh_t *mesh = out->meshes + out->num_meshes;
 			if (n_sub > 1)
-				snprintf (mesh->name, sizeof (mesh->name), "%s_sub%u", name && *name ? name : "shape", si);
+				snprintf (mesh->name, sizeof (mesh->name), "%s_sub%u",
+					name && *name ? name : "shape", si);
 			else
 				snprintf (mesh->name, sizeof (mesh->name), "%s", name && *name ? name : "shape");
 			const uint16_t fmat_idx = rb16 (d + sh + 0x0E); // FSHP+0x0E: FMAT index
@@ -1523,8 +1530,8 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 			mesh->colors[1] = fvtx.clr1 ? calloc (sm_count, sizeof (color4_t)) : NULL;
 			mesh->vertices = calloc (sm_count, sizeof (vertex_t));
 			// Skinning needs one node id per position (mirrors Switch path).
-			const int has_skin = fvtx.bone && fvtx.wt && n_skin_bones > 0 && skin_arr
-				&& out->num_joints > 0;
+			const int has_skin
+				= fvtx.bone && fvtx.wt && n_skin_bones > 0 && skin_arr && out->num_joints > 0;
 			if (has_skin)
 				mesh->position_node = calloc (sm_count, sizeof (int));
 			{
@@ -1640,13 +1647,11 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 					uint8_t bi[4] = { 0, 0, 0, 0 };
 					float bw[4] = { 0, 0, 0, 0 };
 					attr_read_uint8 (fvtx.bone + (size_t)vi * fvtx.stride_bone,
-						fvtx.avail_bone - (size_t)vi * fvtx.stride_bone,
-						fvtx.fmt_bone, bi);
+						fvtx.avail_bone - (size_t)vi * fvtx.stride_bone, fvtx.fmt_bone, bi);
 					{
 						float wb[4];
 						if (attr_read (fvtx.wt + (size_t)vi * fvtx.stride_wt,
-								fvtx.avail_wt - (size_t)vi * fvtx.stride_wt,
-								fvtx.fmt_wt, wb))
+								fvtx.avail_wt - (size_t)vi * fvtx.stride_wt, fvtx.fmt_wt, wb))
 						{
 							bw[0] = wb[0];
 							bw[1] = wb[1];
@@ -2187,8 +2192,8 @@ static int bfres_curve_read_switch (const uint8_t *d, size_t size, size_t c, bfr
 // target scheme as Wii U's BoneAnimData (Scale 0x4/0x8/0xC, Translate
 // 0x10/0x14/0x18, Rotate 0x20/0x24/0x28/0x2C), so bfres_eval_curve() and the
 // TRS assembly logic are shared with parse_fska_into_model() verbatim.
-static int parse_fska_into_model_switch (model_t *model, const uint8_t *d, size_t size,
-	size_t fs, const char *clip_name, uint vmajor)
+static int parse_fska_into_model_switch (
+	model_t *model, const uint8_t *d, size_t size, size_t fs, const char *clip_name, uint vmajor)
 {
 	const size_t fhdr_min = vmajor >= 9 ? 0x50 : 0x60;
 	if (fs + fhdr_min > size)
@@ -2205,12 +2210,12 @@ static int parse_fska_into_model_switch (model_t *model, const uint8_t *d, size_
 		return 0;
 
 	model_animation_t anim = { 0 };
-	snprintf (anim.name, sizeof (anim.name), "%s",
-		clip_name && *clip_name ? clip_name : "fska");
+	snprintf (anim.name, sizeof (anim.name), "%s", clip_name && *clip_name ? clip_name : "fska");
 
 	int any = 0;
 	const float fps = 60.0f;
-	const model_anim_path_t paths[3] = { MODEL_ANIM_SCALE, MODEL_ANIM_ROTATION, MODEL_ANIM_TRANSLATION };
+	const model_anim_path_t paths[3]
+		= { MODEL_ANIM_SCALE, MODEL_ANIM_ROTATION, MODEL_ANIM_TRANSLATION };
 
 	for (uint16_t bi = 0; bi < num_bone_anim; bi++)
 	{
@@ -2246,7 +2251,8 @@ static int parse_fska_into_model_switch (model_t *model, const uint8_t *d, size_
 
 		const uint32_t base_flags = bflags & 0x38; // 0x8=scale 0x10=rotate 0x20=translate
 		float base[3][4] = { { 1, 1, 1, 1 }, { 0, 0, 0, 1 }, { 0, 0, 0, 1 } };
-		const int base_present[3] = { (base_flags & 0x8) != 0, (base_flags & 0x10) != 0, (base_flags & 0x20) != 0 };
+		const int base_present[3]
+			= { (base_flags & 0x8) != 0, (base_flags & 0x10) != 0, (base_flags & 0x20) != 0 };
 		const int64_t base_off = les64 (d + ba + 0x10);
 		if (base_off > 0 && (size_t)base_off + 0x28 <= size)
 		{
@@ -2264,20 +2270,24 @@ static int parse_fska_into_model_switch (model_t *model, const uint8_t *d, size_
 					base[2][e] = read_le32f (d + p + (size_t)e * 4);
 		}
 
-		int curve_of[3][4] =
-		{
-			{ -1, -1, -1, -1 },
-			{ -1, -1, -1, -1 },
-			{ -1, -1, -1, -1 }
-		};
+		int curve_of[3][4] = { { -1, -1, -1, -1 }, { -1, -1, -1, -1 }, { -1, -1, -1, -1 } };
 		for (int k = 0; k < nread; k++)
 		{
 			const uint32_t tgt = curves[k].target & 0xFFFFFFFC;
 			switch (tgt & 0xF0)
 			{
-				case 0x00: if (tgt >= 0x04 && tgt <= 0x0C) curve_of[0][(tgt - 4) / 4] = k; break;
-				case 0x10: if (tgt >= 0x10 && tgt <= 0x18) curve_of[2][(tgt - 0x10) / 4] = k; break;
-				case 0x20: if (tgt >= 0x20 && tgt <= 0x2C) curve_of[1][(tgt - 0x20) / 4] = k; break;
+				case 0x00:
+					if (tgt >= 0x04 && tgt <= 0x0C)
+						curve_of[0][(tgt - 4) / 4] = k;
+					break;
+				case 0x10:
+					if (tgt >= 0x10 && tgt <= 0x18)
+						curve_of[2][(tgt - 0x10) / 4] = k;
+					break;
+				case 0x20:
+					if (tgt >= 0x20 && tgt <= 0x2C)
+						curve_of[1][(tgt - 0x20) / 4] = k;
+					break;
 			}
 		}
 
@@ -2313,11 +2323,13 @@ static int parse_fska_into_model_switch (model_t *model, const uint8_t *d, size_
 					values[f * comps + e] = v;
 				}
 			}
-			bfres_anim_add_channel (&anim, joint_idx, paths[set], times, values, frame_count, comps);
+			bfres_anim_add_channel (
+				&anim, joint_idx, paths[set], times, values, frame_count, comps);
 			any = 1;
 		}
 
-		if (curve_of[1][0] >= 0 || curve_of[1][1] >= 0 || curve_of[1][2] >= 0 || curve_of[1][3] >= 0)
+		if (curve_of[1][0] >= 0 || curve_of[1][1] >= 0 || curve_of[1][2] >= 0
+			|| curve_of[1][3] >= 0)
 		{
 			const int comps = 4;
 			float *times = malloc (sizeof (float) * frame_count);
@@ -2340,7 +2352,8 @@ static int parse_fska_into_model_switch (model_t *model, const uint8_t *d, size_
 					}
 					memcpy (values + f * comps, v, sizeof (v));
 				}
-				bfres_anim_add_channel (&anim, joint_idx, MODEL_ANIM_ROTATION, times, values, frame_count, comps);
+				bfres_anim_add_channel (
+					&anim, joint_idx, MODEL_ANIM_ROTATION, times, values, frame_count, comps);
 				any = 1;
 			}
 			else
@@ -2747,8 +2760,7 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 			{
 				// For v<9:  sk_base+0x10=bone array, sk_base+0x28=matrix, sk_base+0x4C=num bones
 				bone_arr = (size_t)sk_base + 0x18 <= size ? les64 (d + sk_base + 0x10) : 0;
-				matrix_off
-					= (size_t)sk_base + 0x28 <= size ? les64 (d + sk_base + 0x20) : 0;
+				matrix_off = (size_t)sk_base + 0x28 <= size ? les64 (d + sk_base + 0x20) : 0;
 				n_bones = (size_t)sk_base + 0x4E <= size ? le16 (d + sk_base + 0x4C) : 0;
 				n_smooth = n_bones;
 			}
@@ -2801,8 +2813,8 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 									float qy = read_le32f (d + boff + trs_off + 16);
 									float qz = read_le32f (d + boff + trs_off + 20);
 									float qw = read_le32f (d + boff + trs_off + 24);
-									bfres_quat_to_euler (qx, qy, qz, qw, &j->rotate.x,
-										&j->rotate.y, &j->rotate.z);
+									bfres_quat_to_euler (
+										qx, qy, qz, qw, &j->rotate.x, &j->rotate.y, &j->rotate.z);
 								}
 								else
 								{
@@ -2826,13 +2838,11 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 									int sidx = (int)(int16_t)le16 (d + sidx_off);
 									if (sidx >= 0 && (uint)sidx < n_smooth)
 									{
-										const size_t moff
-											= (size_t)matrix_off + (size_t)sidx * 48;
+										const size_t moff = (size_t)matrix_off + (size_t)sidx * 48;
 										if (moff + 48 <= size)
 										{
 											for (int k = 0; k < 12; k++)
-												j->inverse_bind[k]
-													= read_le32f (d + moff + k * 4);
+												j->inverse_bind[k] = read_le32f (d + moff + k * 4);
 											j->has_inverse_bind = 1;
 										}
 									}
@@ -2960,7 +2970,8 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 				{
 					const int64_t param_list = les64 (d + shader_assign + 0x20);
 					const uint16_t param_count = (size_t)shader_assign + 0x4C <= size
-						? le16 (d + shader_assign + 0x4A) : 0;
+						? le16 (d + shader_assign + 0x4A)
+						: 0;
 					const int64_t param_data = les64 (d + mp_base + 0x50);
 					if (param_list > 0 && param_data > 0 && param_count > 0 && param_count < 256)
 					{
@@ -3005,7 +3016,8 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 								const float rot = read_le32f (d + fo + 12);
 								const float tx = read_le32f (d + fo + 16);
 								const float ty = read_le32f (d + fo + 20);
-								if (sx != 1.0f || sy != 1.0f || rot != 0.0f || tx != 0.0f || ty != 0.0f)
+								if (sx != 1.0f || sy != 1.0f || rot != 0.0f || tx != 0.0f
+									|| ty != 0.0f)
 								{
 									mat->tex_scale_s[tidx] = sx;
 									mat->tex_scale_t[tidx] = sy;
@@ -3088,7 +3100,8 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 			const uint16_t submesh_cnt = (size_t)mesh + 54 <= size ? le16 (d + mesh + 52) : 0;
 
 			uint n_sub = 1;
-			if (submesh_cnt > 1 && submesh_arr > 0 && (size_t)submesh_arr + (size_t)submesh_cnt * 8 <= size)
+			if (submesh_cnt > 1 && submesh_arr > 0
+				&& (size_t)submesh_arr + (size_t)submesh_cnt * 8 <= size)
 				n_sub = submesh_cnt;
 
 			for (uint sidx = 0; sidx < n_sub; sidx++)
@@ -3131,7 +3144,8 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 
 				mesh_t *ms = out->meshes + out->num_meshes;
 				if (n_sub > 1)
-					snprintf (ms->name, sizeof (ms->name), "%s_sub%u", sname && *sname ? sname : "shape", sidx);
+					snprintf (ms->name, sizeof (ms->name), "%s_sub%u",
+						sname && *sname ? sname : "shape", sidx);
 				else
 					snprintf (ms->name, sizeof (ms->name), "%s", sname && *sname ? sname : "shape");
 				ms->material_idx = fmat_idx < out->num_materials ? (int)fmat_idx : -1;
@@ -3242,7 +3256,8 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 					for (uint e = 0; e < 6; e++)
 					{
 						if (fv.extra_uv[e] && ms->extra_texcoords[e]
-							&& attr_read_switch (fv.extra_uv[e] + (size_t)vi * fv.stride_extra_uv[e],
+							&& attr_read_switch (
+								fv.extra_uv[e] + (size_t)vi * fv.stride_extra_uv[e],
 								fv.avail_extra_uv[e] - (size_t)vi * fv.stride_extra_uv[e],
 								fv.fmt_extra_uv[e], v))
 						{
@@ -3340,7 +3355,8 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 								if (n_node_inf == cap_node_inf)
 								{
 									cap_node_inf = cap_node_inf ? cap_node_inf * 2 : 256;
-									node_inf = realloc (node_inf, cap_node_inf * sizeof (*node_inf));
+									node_inf
+										= realloc (node_inf, cap_node_inf * sizeof (*node_inf));
 								}
 								influence_t *wl = calloc (nw, sizeof (*wl));
 								if (wl)
@@ -3377,7 +3393,8 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 								if (n_node_inf == cap_node_inf)
 								{
 									cap_node_inf = cap_node_inf ? cap_node_inf * 2 : 256;
-									node_inf = realloc (node_inf, cap_node_inf * sizeof (*node_inf));
+									node_inf
+										= realloc (node_inf, cap_node_inf * sizeof (*node_inf));
 								}
 								influence_t *wl = calloc (1, sizeof (*wl));
 								if (wl)
@@ -3466,22 +3483,10 @@ int ParseBFRESArchive (const uint8_t *data, size_t size, bfres_archive_t *out)
 		const char *aname = rel_string_switch (data, size, name_off);
 		snprintf (out->name, sizeof (out->name), "%s", aname && *aname ? aname : "archive");
 
-		const size_t dict_fields[6] = {
-			0x30,
-			vmajor >= 9 ? 0x60 : 0x40,
-			vmajor >= 9 ? 0x70 : 0x50,
-			vmajor >= 9 ? 0x80 : 0x60,
-			vmajor >= 9 ? 0x90 : 0x70,
-			vmajor >= 9 ? 0xA0 : 0x80
-		};
-		const size_t val_fields[6] = {
-			0x28,
-			vmajor >= 9 ? 0x58 : 0x38,
-			vmajor >= 9 ? 0x68 : 0x48,
-			vmajor >= 9 ? 0x78 : 0x58,
-			vmajor >= 9 ? 0x88 : 0x68,
-			vmajor >= 9 ? 0x98 : 0x78
-		};
+		const size_t dict_fields[6] = { 0x30, vmajor >= 9 ? 0x60 : 0x40, vmajor >= 9 ? 0x70 : 0x50,
+			vmajor >= 9 ? 0x80 : 0x60, vmajor >= 9 ? 0x90 : 0x70, vmajor >= 9 ? 0xA0 : 0x80 };
+		const size_t val_fields[6] = { 0x28, vmajor >= 9 ? 0x58 : 0x38, vmajor >= 9 ? 0x68 : 0x48,
+			vmajor >= 9 ? 0x78 : 0x58, vmajor >= 9 ? 0x88 : 0x68, vmajor >= 9 ? 0x98 : 0x78 };
 
 		for (uint8_t slot = 0; slot < 6; slot++)
 		{
@@ -3593,8 +3598,8 @@ int ParseBFRESArchive (const uint8_t *data, size_t size, bfres_archive_t *out)
 // ENV303.bfres: 2 FSHA incl. 32/32 validated curves).
 //-----------------------------------------------------------------------------
 
-static int bfres_anim_count_curves (const uint8_t *d, size_t size,
-	size_t arr, uint32_t n, int new_layout, uint32_t *ok)
+static int bfres_anim_count_curves (
+	const uint8_t *d, size_t size, size_t arr, uint32_t n, int new_layout, uint32_t *ok)
 {
 	uint32_t good = 0;
 	const size_t rec = new_layout ? 0x24 : 0x20;
@@ -3697,7 +3702,8 @@ int ParseBFRESAnims (const uint8_t *data, size_t size, bfres_anim_entry_t **out_
 						for (uint8_t k = 0; k < nk; k++)
 						{
 							bfres_curve_t c;
-							if (bfres_curve_read_switch (data, size, (size_t)cb + (size_t)k * 0x30, &c))
+							if (bfres_curve_read_switch (
+									data, size, (size_t)cb + (size_t)k * 0x30, &c))
 							{
 								ok++;
 								bfres_curve_free (&c);
@@ -3744,9 +3750,9 @@ int ParseBFRESAnims (const uint8_t *data, size_t size, bfres_anim_entry_t **out_
 			char magic[5];
 			memcpy (magic, d + fs, 4);
 			magic[4] = 0;
-			if (memcmp (magic, "FSKA", 4) && memcmp (magic, "FSHU", 4)
-				&& memcmp (magic, "FTXP", 4) && memcmp (magic, "FVIS", 4)
-				&& memcmp (magic, "FSHA", 4) && memcmp (magic, "FSCN", 4))
+			if (memcmp (magic, "FSKA", 4) && memcmp (magic, "FSHU", 4) && memcmp (magic, "FTXP", 4)
+				&& memcmp (magic, "FVIS", 4) && memcmp (magic, "FSHA", 4)
+				&& memcmp (magic, "FSCN", 4))
 				continue;
 
 			if (n >= cap)
@@ -3960,8 +3966,8 @@ int ParseBFRESAnims (const uint8_t *data, size_t size, bfres_anim_entry_t **out_
 				// nFog@18 + 4 dict offsets@20. No frame count.
 				if (fs + 44 > size)
 					continue;
-				e->n_sub = (uint32_t)rb16 (d + fs + 14)
-					+ (uint32_t)rb16 (d + fs + 16) + (uint32_t)rb16 (d + fs + 18);
+				e->n_sub = (uint32_t)rb16 (d + fs + 14) + (uint32_t)rb16 (d + fs + 16)
+					+ (uint32_t)rb16 (d + fs + 18);
 			}
 			n++;
 		}

@@ -27,10 +27,10 @@ enumError DecodeASTCFile_RGBA (u8 **dest, uint *width, uint *height, const u8 *d
 	const uint block_z = data[6];
 
 	if (block_x < 4 || block_x > 12 || block_y < 4 || block_y > 12 || block_z == 0)
-		return ERROR0 (ERR_INVALID_DATA, "Unsupported ASTC block size %ux%ux%u\n",
-			block_x, block_y, block_z);
+		return ERROR0 (
+			ERR_INVALID_DATA, "Unsupported ASTC block size %ux%ux%u\n", block_x, block_y, block_z);
 
-	const uint w = (uint)data[7]  | ((uint)data[8]  << 8) | ((uint)data[9]  << 16);
+	const uint w = (uint)data[7] | ((uint)data[8] << 8) | ((uint)data[9] << 16);
 	const uint h = (uint)data[10] | ((uint)data[11] << 8) | ((uint)data[12] << 16);
 	const uint d = (uint)data[13] | ((uint)data[14] << 8) | ((uint)data[15] << 16);
 
@@ -90,8 +90,10 @@ enumError EncodeASTCFile_RGBA (
 	if (!dest || !dest_size || !rgba || !width || !height)
 		return EINVAL;
 
-	if (block_x < 4 || block_x > 12) block_x = 4;
-	if (block_y < 4 || block_y > 12) block_y = 4;
+	if (block_x < 4 || block_x > 12)
+		block_x = 4;
+	if (block_y < 4 || block_y > 12)
+		block_y = 4;
 
 	const uint n_blocks_x = (width + block_x - 1) / block_x;
 	const uint n_blocks_y = (height + block_y - 1) / block_y;
@@ -162,7 +164,8 @@ enumError EncodeASTCFile_RGBA (
 			// Bit 9: 0 (LDR)
 			// Bits 10..11: 0
 			// Bits 12..63: 0x1fff repeated 4 times (all 1s in 13-bit fields)
-			// Lower 64 bits: 0x1fc | (0x1ffffffffffffULL << 12) = 0xfffffffffffffffcULL with bits 0..11 set to 0x1fc
+			// Lower 64 bits: 0x1fc | (0x1ffffffffffffULL << 12) = 0xfffffffffffffffcULL with bits
+			// 0..11 set to 0x1fc
 			const u64 low = 0x1fcULL | (0x000fffffffffffffULL << 12);
 			const u16 r16 = (u16)((r8 << 8) | r8);
 			const u16 g16 = (u16)((g8 << 8) | g8);

@@ -209,7 +209,6 @@ enumError CreateLSPKArchive (u8 **dest_pkh, uint *dest_pkh_size, u8 **dest_pk, u
 	return ERR_OK;
 }
 
-
 enumError create_lspk_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -221,8 +220,8 @@ enumError create_lspk_dir (ccp source, ccp dest)
 	u8 *dest_pk = 0;
 	uint dest_pk_size = 0;
 	if (!err)
-		err = CreateLSPKArchive (&dest_pkh, &dest_pkh_size, &dest_pk, &dest_pk_size,
-			list.entry, list.used);
+		err = CreateLSPKArchive (
+			&dest_pkh, &dest_pkh_size, &dest_pk, &dest_pk_size, list.entry, list.used);
 	if (!err && !testmode)
 	{
 		char base_path[PATH_MAX];
@@ -255,4 +254,3 @@ enumError create_lspk_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

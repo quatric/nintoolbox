@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // ----------------------------------------------------------------------------
 // Next Level Games PTLG texture container (.glt / .rlt)
 //
@@ -63,7 +62,6 @@ static image_format_t ptlg_image_format (u8 format)
 			return IMG_INVALID;
 	}
 }
-
 
 // Decode every texture in a PTLG container to "<hash>.png" in DEST_DIR.
 //
@@ -148,7 +146,6 @@ enumError DecodePTLGToPNGDir (const u8 *data, uint size, ccp dest_dir, uint *n_w
 		*n_written = written;
 	return written ? ERR_OK : ERR_NOTHING_TO_DO;
 }
-
 
 enumError ExtractPTLGArchive (ccp arg, ccp basedir, uint depth)
 {
@@ -267,7 +264,6 @@ enumError ExtractPTLGArchive (ccp arg, ccp basedir, uint depth)
 	FREE (raw);
 	return written ? ERR_OK : ERR_NOTHING_TO_DO;
 }
-
 
 enumError CreatePTLGArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries, bool is_gc)
@@ -440,7 +436,6 @@ enumError CreatePTLGArchive (
 	return ERR_OK;
 }
 
-
 enumError create_ptlg_dir (ccp source, ccp dest, bool is_gc)
 {
 	sarc_build_list_t list = { 0 };
@@ -463,4 +458,3 @@ enumError create_ptlg_dir (ccp source, ccp dest, bool is_gc)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

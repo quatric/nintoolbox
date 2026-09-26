@@ -153,9 +153,9 @@ static void kcl_tri3_init (kcl_tri3_t *t, const double3 *pt)
 	t->v[2][2] = pt[2].z;
 
 	const double ax = t->v[1][0] - t->v[0][0], ay = t->v[1][1] - t->v[0][1],
-			   az = t->v[1][2] - t->v[0][2];
+				 az = t->v[1][2] - t->v[0][2];
 	const double bx = t->v[2][0] - t->v[0][0], by = t->v[2][1] - t->v[0][1],
-			   bz = t->v[2][2] - t->v[0][2];
+				 bz = t->v[2][2] - t->v[0][2];
 	double nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx;
 	const double len = sqrt (nx * nx + ny * ny + nz * nz);
 	if (len > 1e-18)
@@ -179,55 +179,55 @@ static bool kcl_tribox_overlap (const kcl_tri3_t *t, const double center[3], con
 	double e1[3] = { v2[0] - v1[0], v2[1] - v1[1], v2[2] - v1[2] };
 	double e2[3] = { v0[0] - v2[0], v0[1] - v2[1], v0[2] - v2[2] };
 
-#define KCL_AX_X01(ex, ey, fx, fy) \
-	{ \
-		const double _p0 = ex * v0[1] - ey * v0[2], _p2 = ex * v2[1] - ey * v2[2]; \
-		const double _mn = _p0 < _p2 ? _p0 : _p2, _mx = _p0 < _p2 ? _p2 : _p0; \
-		const double _r = fx * half[1] + fy * half[2]; \
-		if (_mn > _r || _mx < -_r) \
-			return false; \
+#define KCL_AX_X01(ex, ey, fx, fy)                                                                 \
+	{                                                                                              \
+		const double _p0 = ex * v0[1] - ey * v0[2], _p2 = ex * v2[1] - ey * v2[2];                 \
+		const double _mn = _p0 < _p2 ? _p0 : _p2, _mx = _p0 < _p2 ? _p2 : _p0;                     \
+		const double _r = fx * half[1] + fy * half[2];                                             \
+		if (_mn > _r || _mx < -_r)                                                                 \
+			return false;                                                                          \
 	}
-#define KCL_AX_Y02(ex, ez, fx, fz) \
-	{ \
-		const double _p0 = -ex * v0[0] + ez * v0[2], _p2 = -ex * v2[0] + ez * v2[2]; \
-		const double _mn = _p0 < _p2 ? _p0 : _p2, _mx = _p0 < _p2 ? _p2 : _p0; \
-		const double _r = fx * half[0] + fz * half[2]; \
-		if (_mn > _r || _mx < -_r) \
-			return false; \
+#define KCL_AX_Y02(ex, ez, fx, fz)                                                                 \
+	{                                                                                              \
+		const double _p0 = -ex * v0[0] + ez * v0[2], _p2 = -ex * v2[0] + ez * v2[2];               \
+		const double _mn = _p0 < _p2 ? _p0 : _p2, _mx = _p0 < _p2 ? _p2 : _p0;                     \
+		const double _r = fx * half[0] + fz * half[2];                                             \
+		if (_mn > _r || _mx < -_r)                                                                 \
+			return false;                                                                          \
 	}
-#define KCL_AX_Z12(ex, ey, fx, fy) \
-	{ \
-		const double _p1 = ex * v1[0] - ey * v1[1], _p2 = ex * v2[0] - ey * v2[1]; \
-		const double _mn = _p2 < _p1 ? _p2 : _p1, _mx = _p2 < _p1 ? _p1 : _p2; \
-		const double _r = fx * half[0] + fy * half[1]; \
-		if (!(_mn <= _r && _mx >= -_r)) \
-			return false; \
+#define KCL_AX_Z12(ex, ey, fx, fy)                                                                 \
+	{                                                                                              \
+		const double _p1 = ex * v1[0] - ey * v1[1], _p2 = ex * v2[0] - ey * v2[1];                 \
+		const double _mn = _p2 < _p1 ? _p2 : _p1, _mx = _p2 < _p1 ? _p1 : _p2;                     \
+		const double _r = fx * half[0] + fy * half[1];                                             \
+		if (!(_mn <= _r && _mx >= -_r))                                                            \
+			return false;                                                                          \
 	}
-#define KCL_AX_Z0(ex, ey, fx, fy) \
-	{ \
-		const double _p0 = ex * v0[0] - ey * v0[1], _p1 = ex * v1[0] - ey * v1[1]; \
-		const double _mn = _p0 < _p1 ? _p0 : _p1, _mx = _p0 < _p1 ? _p1 : _p0; \
-		const double _r = fx * half[0] + fy * half[1]; \
-		if (_mn > _r || _mx < -_r) \
-			return false; \
+#define KCL_AX_Z0(ex, ey, fx, fy)                                                                  \
+	{                                                                                              \
+		const double _p0 = ex * v0[0] - ey * v0[1], _p1 = ex * v1[0] - ey * v1[1];                 \
+		const double _mn = _p0 < _p1 ? _p0 : _p1, _mx = _p0 < _p1 ? _p1 : _p0;                     \
+		const double _r = fx * half[0] + fy * half[1];                                             \
+		if (_mn > _r || _mx < -_r)                                                                 \
+			return false;                                                                          \
 	}
-#define KCL_AX_X2(ex, ey, fx, fy) \
-	{ \
-		const double _p0 = ex * v0[1] - ey * v0[2], _p1 = ex * v1[1] - ey * v1[2]; \
-		const double _mn = _p0 < _p1 ? _p0 : _p1, _mx = _p0 < _p1 ? _p1 : _p0; \
-		const double _r = fx * half[0] + fy * half[1]; \
-		if (_mn > _r || _mx < -_r) \
-			return false; \
+#define KCL_AX_X2(ex, ey, fx, fy)                                                                  \
+	{                                                                                              \
+		const double _p0 = ex * v0[1] - ey * v0[2], _p1 = ex * v1[1] - ey * v1[2];                 \
+		const double _mn = _p0 < _p1 ? _p0 : _p1, _mx = _p0 < _p1 ? _p1 : _p0;                     \
+		const double _r = fx * half[0] + fy * half[1];                                             \
+		if (_mn > _r || _mx < -_r)                                                                 \
+			return false;                                                                          \
 	}
 	// KCL_AX_X2 BUG COMPAT: upstream uses half Y/Z here (see X01); the
 	// upstream variant only ever widens, so use the wider (correct) form.
-#define KCL_AX_Y1(ex, ez, fx, fz) \
-	{ \
-		const double _p0 = -ex * v0[0] + ez * v0[2], _p1 = -ex * v1[0] + ez * v1[2]; \
-		const double _mn = _p0 < _p1 ? _p0 : _p1, _mx = _p0 < _p1 ? _p1 : _p0; \
-		const double _r = fx * half[0] + fz * half[2]; \
-		if (_mn > _r || _mx < -_r) \
-			return false; \
+#define KCL_AX_Y1(ex, ez, fx, fz)                                                                  \
+	{                                                                                              \
+		const double _p0 = -ex * v0[0] + ez * v0[2], _p1 = -ex * v1[0] + ez * v1[2];               \
+		const double _mn = _p0 < _p1 ? _p0 : _p1, _mx = _p0 < _p1 ? _p1 : _p0;                     \
+		const double _r = fx * half[0] + fz * half[2];                                             \
+		if (_mn > _r || _mx < -_r)                                                                 \
+			return false;                                                                          \
 	}
 
 	double fex = fabs (e0[0]), fey = fabs (e0[1]), fez = fabs (e0[2]);
@@ -305,8 +305,8 @@ static bool kcl_tribox_overlap (const kcl_tri3_t *t, const double center[3], con
 
 //--- TriangleCubeOverlap port (box by min position + size) ---
 
-static bool kcl_axis_test (double a1, double a2, double b1, double b2, double c1,
-	double c2, double half)
+static bool kcl_axis_test (
+	double a1, double a2, double b1, double b2, double c1, double c2, double half)
 {
 	const double p = a1 * b1 + a2 * b2;
 	const double q = a1 * c1 + a2 * c2;
@@ -378,8 +378,8 @@ static bool kcl_tricube_overlap (const kcl_tri3_t *t, const double minpos[3], do
 
 // validate the V2 model octree: 8 keys at 'pos', Divide nodes recurse.
 // returns true if well formed and fully inside [0,size).
-static bool kcl_v2_validate_moct (const kcl_rw_t *rw, const u8 *data, uint size, uint pos,
-	int depth)
+static bool kcl_v2_validate_moct (
+	const kcl_rw_t *rw, const u8 *data, uint size, uint pos, int depth)
 {
 	if (depth > 16 || pos > size || size - pos < 8 * 4)
 		return false;
@@ -401,8 +401,8 @@ static bool kcl_v2_validate_moct (const kcl_rw_t *rw, const u8 *data, uint size,
 	return true;
 }
 
-enumError ScanRawKCL_V2 (kcl_t *kcl, const void *data, uint data_size,
-	const kcl_analyze_t *kap, bool use_data)
+enumError ScanRawKCL_V2 (
+	kcl_t *kcl, const void *data, uint data_size, const kcl_analyze_t *kap, bool use_data)
 {
 	DASSERT (kcl);
 	DASSERT (data);
@@ -417,7 +417,8 @@ enumError ScanRawKCL_V2 (kcl_t *kcl, const void *data, uint data_size,
 	kcl->fform = FF_KCL;
 
 	if (data_size < KCL_V2_HEAD_SIZE)
-		return ERROR0 (ERR_INVALID_DATA, "Invalid V2 KCL file: %s\n", kcl->fname ? kcl->fname : "?");
+		return ERROR0 (
+			ERR_INVALID_DATA, "Invalid V2 KCL file: %s\n", kcl->fname ? kcl->fname : "?");
 
 	const u32 oct_off = kcl_rd32 (rw, base + 4);
 	const u32 arr_off = kcl_rd32 (rw, base + 8);
@@ -426,16 +427,16 @@ enumError ScanRawKCL_V2 (kcl_t *kcl, const void *data, uint data_size,
 		|| arr_off < KCL_V2_HEAD_SIZE + 8 || arr_off > data_size
 		|| n_models > (data_size - arr_off) / 4)
 	{
-		return ERROR0 (ERR_INVALID_DATA, "Invalid V2 KCL header: %s\n",
-			kcl->fname ? kcl->fname : "?");
+		return ERROR0 (
+			ERR_INVALID_DATA, "Invalid V2 KCL header: %s\n", kcl->fname ? kcl->fname : "?");
 	}
 
 	// light validation of the model octree (data itself is not needed:
 	// all models are merged into a single triangle list)
 	if (!kcl_v2_validate_moct (rw, base, data_size, oct_off, 0))
 	{
-		return ERROR0 (ERR_INVALID_DATA, "Invalid V2 KCL model octree: %s\n",
-			kcl->fname ? kcl->fname : "?");
+		return ERROR0 (
+			ERR_INVALID_DATA, "Invalid V2 KCL model octree: %s\n", kcl->fname ? kcl->fname : "?");
 	}
 
 	// read model offsets
@@ -542,8 +543,8 @@ enumError ScanRawKCL_V2 (kcl_t *kcl, const void *data, uint data_size,
 	FREE (moff);
 
 	if (!kcl->tridata.used)
-		return ERROR0 (ERR_INVALID_DATA, "V2 KCL without triangles: %s\n",
-			kcl->fname ? kcl->fname : "?");
+		return ERROR0 (
+			ERR_INVALID_DATA, "V2 KCL without triangles: %s\n", kcl->fname ? kcl->fname : "?");
 
 	// same post processing as V1: clip box + triangle points
 	const bool clip = (KCL_MODE & KCLMD_CLIP) != 0;
@@ -613,8 +614,8 @@ static void kcl_grp_add (kcl_grp_t *g, uint ti)
 
 // subdivide [tris,n) within box (minpos,size) into 8 spatial groups.
 // triangles near borders are referenced by several groups (conservative).
-static kcl_grp_t **kcl_divide_models (const kcl_tridata_t *td_base, const uint *tris,
-	uint n, const double minpos[3], double boxsize, int level, int *n_groups)
+static kcl_grp_t **kcl_divide_models (const kcl_tridata_t *td_base, const uint *tris, uint n,
+	const double minpos[3], double boxsize, int level, int *n_groups)
 {
 	// single model fast path (also used at level 0 for small inputs)
 	if (level == 0 && n <= KCL_V2_MAX_MODEL_PRISMS)
@@ -637,8 +638,8 @@ static kcl_grp_t **kcl_divide_models (const kcl_tridata_t *td_base, const uint *
 			{
 				double cube[3]
 					= { minpos[0] + half * x, minpos[1] + half * y, minpos[2] + half * z };
-				double center[3] = { cube[0] + half / 2.0, cube[1] + half / 2.0,
-					cube[2] + half / 2.0 };
+				double center[3]
+					= { cube[0] + half / 2.0, cube[1] + half / 2.0, cube[2] + half / 2.0 };
 				// epsilon against float border misses (test is conservative anyway)
 				const double eps = half * 1e-7 + 1e-9;
 				double h[3] = { half / 2.0 + eps, half / 2.0 + eps, half / 2.0 + eps };
@@ -660,8 +661,8 @@ static kcl_grp_t **kcl_divide_models (const kcl_tridata_t *td_base, const uint *
 					uint *sub = MALLOC (g->n_tri * sizeof (*sub));
 					memcpy (sub, g->tri, g->n_tri * sizeof (*sub));
 					int n_sub = 0;
-					kcl_grp_t **children = kcl_divide_models (
-						td_base, sub, g->n_tri, cube, half, level + 1, &n_sub);
+					kcl_grp_t **children
+						= kcl_divide_models (td_base, sub, g->n_tri, cube, half, level + 1, &n_sub);
 					FREE (sub);
 					if (n_sub == 1 && !children[0]->subdivided)
 					{
@@ -710,8 +711,8 @@ static void kcl_pno_free (kcl_pno_t *n)
 	FREE (n);
 }
 
-static kcl_pno_t *kcl_pno_build (kcl_t *kcl, const kcl_tridata_t *td_base, const u16 *tris,
-	uint n, const double pos[3], double size, int blow, int depth)
+static kcl_pno_t *kcl_pno_build (kcl_t *kcl, const kcl_tridata_t *td_base, const u16 *tris, uint n,
+	const double pos[3], double size, int blow, int depth)
 {
 	kcl_pno_t *node = CALLOC (1, sizeof (*node));
 
@@ -741,8 +742,7 @@ static kcl_pno_t *kcl_pno_build (kcl_t *kcl, const kcl_tridata_t *td_base, const
 			for (int y = 0; y < 2; y++)
 				for (int x = 0; x < 2; x++)
 				{
-					double cp[3] = { pos[0] + half * x, pos[1] + half * y,
-						pos[2] + half * z };
+					double cp[3] = { pos[0] + half * x, pos[1] + half * y, pos[2] + half * z };
 					node->child[index++]
 						= kcl_pno_build (kcl, td_base, found, n_found, cp, half, blow, depth + 1);
 				}
@@ -882,8 +882,8 @@ static uint kcl_write_model (kcl_t *kcl, const kcl_rw_t *rw, const kcl_tridata_t
 	}
 	const double sz[3] = { mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2] };
 	const int ex = kcl_next2exp (sz[0]), ey = kcl_next2exp (sz[1]), ez = kcl_next2exp (sz[2]);
-	int cpow = kcl_next2exp (sz[0] < sz[1] ? (sz[0] < sz[2] ? sz[0] : sz[2])
-										   : (sz[1] < sz[2] ? sz[1] : sz[2]));
+	int cpow = kcl_next2exp (
+		sz[0] < sz[1] ? (sz[0] < sz[2] ? sz[0] : sz[2]) : (sz[1] < sz[2] ? sz[1] : sz[2]));
 	const int maxroot = kcl_next2exp ((double)kcl->max_cube_size);
 	if (cpow > maxroot)
 		cpow = maxroot;
@@ -891,8 +891,7 @@ static uint kcl_write_model (kcl_t *kcl, const kcl_rw_t *rw, const kcl_tridata_t
 	const uint yshift = (uint)(ex - cpow);
 	const uint zshift = (uint)(ex - cpow + ey - cpow);
 	const u32 mask[3] = { ex > 31 ? 0 : (u32)(0xffffffffu << ex),
-		ey > 31 ? 0 : (u32)(0xffffffffu << ey),
-		ez > 31 ? 0 : (u32)(0xffffffffu << ez) };
+		ey > 31 ? 0 : (u32)(0xffffffffu << ey), ez > 31 ? 0 : (u32)(0xffffffffu << ez) };
 	const uint csize = 1u << cpow;
 
 	//--- polygon octree over local prism indices 0..n-1
@@ -928,8 +927,7 @@ static uint kcl_write_model (kcl_t *kcl, const kcl_rw_t *rw, const kcl_tridata_t
 		for (uint y = 0; y < ncy; y++)
 			for (uint x = 0; x < ncx; x++)
 			{
-				double rp[3]
-					= { mn[0] + csize * x, mn[1] + csize * y, mn[2] + csize * z };
+				double rp[3] = { mn[0] + csize * x, mn[1] + csize * y, mn[2] + csize * z };
 				roots[ri++] = kcl_pno_build (
 					kcl, compact, local, n, rp, (double)csize, (int)kcl->cube_blow, 0);
 			}
@@ -1229,8 +1227,8 @@ enumError CreateRawKCL_V2 (kcl_t *kcl, bool out_le)
 	const double box = 1.0 * (1u << fmaxexp);
 
 	int n_groups = 0;
-	kcl_grp_t **groups = kcl_divide_models (
-		td_base, all, n_all, fmin, box > 0 ? box : 2.0, 0, &n_groups);
+	kcl_grp_t **groups
+		= kcl_divide_models (td_base, all, n_all, fmin, box > 0 ? box : 2.0, 0, &n_groups);
 	FREE (all);
 
 	//--- file model octree + model order (depth first, block order)
@@ -1392,9 +1390,8 @@ enumError CreateRawKCL_V2 (kcl_t *kcl, bool out_le)
 	kcl->octree_alloced = false;
 	kcl->octree_valid = false;
 
-	KCL_ACTION_LOG (
-		kcl, "CreateRawKCL_V2() N=%u models=%u size=%u [%s]\n", n_tri, n_models, data_off,
-		out_le ? "LE" : "BE");
+	KCL_ACTION_LOG (kcl, "CreateRawKCL_V2() N=%u models=%u size=%u [%s]\n", n_tri, n_models,
+		data_off, out_le ? "LE" : "BE");
 	FREE (old);
 	return ERR_OK;
 }

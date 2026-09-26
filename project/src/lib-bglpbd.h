@@ -6,9 +6,9 @@
 #include "lib-aamp.h"
 #include "lib-model-glb.h"
 
-#define BGLPBD_INV_PROBE_IDX   0xfff5
+#define BGLPBD_INV_PROBE_IDX 0xfff5
 #define BGLPBD_EMPTY_PROBE_IDX 0xfff6
-#define BGLPBD_INIT_PROBE_IDX  0xfff7
+#define BGLPBD_INIT_PROBE_IDX 0xfff7
 
 typedef struct
 {
@@ -61,12 +61,13 @@ enumError BGLPBD_ToAAMP (const bglpbd_file_t *file, aamp_file_t *aamp);
 enumError EncodeBGLPBD (const bglpbd_file_t *file, u8 **dest, size_t *dest_size);
 
 // Create BGLPBD from a model bounding box (or model_t)
-enumError CreateBGLPBD_FromBounds (bglpbd_file_t *file, const float min_pos[3], const float max_pos[3],
-	const float step_pos[3], const bglpbd_settings_t *settings, bool is_switch);
+enumError CreateBGLPBD_FromBounds (bglpbd_file_t *file, const float min_pos[3],
+	const float max_pos[3], const float step_pos[3], const bglpbd_settings_t *settings,
+	bool is_switch);
 
 // Create BGLPBD from model_t
-enumError CreateBGLPBD_FromModel (bglpbd_file_t *file, const model_t *model,
-	const bglpbd_settings_t *settings, bool is_switch);
+enumError CreateBGLPBD_FromModel (
+	bglpbd_file_t *file, const model_t *model, const bglpbd_settings_t *settings, bool is_switch);
 
 // Import Unity light probe txt format into BGLPBD
 enumError CreateBGLPBD_FromUnityText (bglpbd_file_t *file, const char *txt_content, size_t txt_len,

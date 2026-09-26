@@ -2343,7 +2343,10 @@ static enumError F_ptInConvexPolygon (struct Var_t *res, // store result here
 	int n_pol = (int)n_param - 1;
 	if (n_pol >= 3)
 	{
-		enum { max_pol = 100 };
+		enum
+		{
+			max_pol = 100
+		};
 		if (n_pol > max_pol)
 			n_pol = max_pol;
 
@@ -2390,7 +2393,10 @@ static enumError F_ptsInConvexTri (struct Var_t *res, // store result here
 	int n_pts = (int)n_param - 3;
 	if (n_pts > 0)
 	{
-		enum { max_pts = 100 };
+		enum
+		{
+			max_pts = 100
+		};
 		if (n_pts > max_pts)
 			n_pts = max_pts;
 
@@ -2439,7 +2445,10 @@ static enumError F_ptsInConvexQuad (struct Var_t *res, // store result here
 	int n_pts = (int)n_param - 3;
 	if (n_pts > 0)
 	{
-		enum { max_pts = 100 };
+		enum
+		{
+			max_pts = 100
+		};
 		if (n_pts > max_pts)
 			n_pts = max_pts;
 

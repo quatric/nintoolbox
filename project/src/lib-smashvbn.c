@@ -37,11 +37,16 @@ static const char *smashvbn_bone_type_name (u32 t)
 {
 	switch (t)
 	{
-		case 0: return "Normal";
-		case 1: return "Follow";
-		case 2: return "Helper";
-		case 3: return "Swing";
-		default: return "Unknown";
+		case 0:
+			return "Normal";
+		case 1:
+			return "Follow";
+		case 2:
+			return "Helper";
+		case 3:
+			return "Swing";
+		default:
+			return "Unknown";
 	}
 }
 
@@ -93,7 +98,8 @@ enumError DecodeVBN_Text (FILE *out, const u8 *data, size_t size)
 	const s16 unk2 = (s16)(be ? rd_be16 (h + 2) : rd_le16 (h + 2));
 	const u32 total = be ? rd_be32 (h + 4) : rd_le32 (h + 4);
 
-	fprintf (out, "#VBN\n"
+	fprintf (out,
+		"#VBN\n"
 		"# Super Smash Bros. 4 boneset (Namco Visual Bones)\n\n"
 		"endian = %s\n"
 		"unk_1 = %d\n"
@@ -103,14 +109,12 @@ enumError DecodeVBN_Text (FILE *out, const u8 *data, size_t size)
 		"count_follow = %u\n"
 		"count_helper = %u\n"
 		"count_swing = %u\n\n",
-		be ? "big" : "little",
-		unk1, unk2, total,
-		be ? rd_be32 (h + 8) : rd_le32 (h + 8),
-		be ? rd_be32 (h + 12) : rd_le32 (h + 12),
-		be ? rd_be32 (h + 16) : rd_le32 (h + 16),
+		be ? "big" : "little", unk1, unk2, total, be ? rd_be32 (h + 8) : rd_le32 (h + 8),
+		be ? rd_be32 (h + 12) : rd_le32 (h + 12), be ? rd_be32 (h + 16) : rd_le32 (h + 16),
 		be ? rd_be32 (h + 20) : rd_le32 (h + 20));
 
-	fprintf (out, "[bones]\n"
+	fprintf (out,
+		"[bones]\n"
 		"# idx | name | type | parent_idx | id | pos xyz | rot xyz | scale xyz\n");
 	const u8 *xforms = data + 28 + (size_t)total * 76;
 	for (u32 i = 0; i < total; i++)
@@ -128,13 +132,12 @@ enumError DecodeVBN_Text (FILE *out, const u8 *data, size_t size)
 			snprintf (parent, sizeof (parent), "root");
 		else
 			snprintf (parent, sizeof (parent), "%d", pi);
-		fprintf (out, "%u | %s | %s(%u) | %s | 0x%08x | "
+		fprintf (out,
+			"%u | %s | %s(%u) | %s | 0x%08x | "
 			"%.6g %.6g %.6g | %.6g %.6g %.6g | %.6g %.6g %.6g\n",
-			i, name, smashvbn_bone_type_name (btype), btype, parent, id,
-			smashvbn_rd_f32 (t, be), smashvbn_rd_f32 (t + 4, be),
-			smashvbn_rd_f32 (t + 8, be),
-			smashvbn_rd_f32 (t + 12, be), smashvbn_rd_f32 (t + 16, be),
-			smashvbn_rd_f32 (t + 20, be),
+			i, name, smashvbn_bone_type_name (btype), btype, parent, id, smashvbn_rd_f32 (t, be),
+			smashvbn_rd_f32 (t + 4, be), smashvbn_rd_f32 (t + 8, be), smashvbn_rd_f32 (t + 12, be),
+			smashvbn_rd_f32 (t + 16, be), smashvbn_rd_f32 (t + 20, be),
 			smashvbn_rd_f32 (t + 24, be), smashvbn_rd_f32 (t + 28, be),
 			smashvbn_rd_f32 (t + 32, be));
 	}
@@ -162,20 +165,21 @@ enumError DecodeSmashSB_Text (FILE *out, const u8 *data, size_t size)
 		return ERR_INVALID_DATA;
 
 	const u32 count = rd_le32 (data + 8);
-	fprintf (out, "#SB\n"
+	fprintf (out,
+		"#SB\n"
 		"# Super Smash Bros. 4 swing (cloth/hair-physics) bones\n\n"
 		"version = %u.%u\n"
 		"count = %u\n\n",
 		rd_le16 (data + 4), rd_le16 (data + 6), count);
 
-	fprintf (out, "[entries]\n"
+	fprintf (out,
+		"[entries]\n"
 		"# idx | hash | rx_range | ry_range | rz_range | chained_hashes[8] | factor\n");
 	for (u32 i = 0; i < count; i++)
 	{
 		const u8 *e = data + 12 + (size_t)i * SMASH_SB_ENTRY_SIZE;
 		const u32 hash = rd_le32 (e);
-		fprintf (out, "%u | 0x%08x | %.6g..%.6g | %.6g..%.6g | %.6g..%.6g |",
-			i, hash,
+		fprintf (out, "%u | 0x%08x | %.6g..%.6g | %.6g..%.6g | %.6g..%.6g |", i, hash,
 			smashvbn_rd_f32 (e + 28, false), smashvbn_rd_f32 (e + 32, false),
 			smashvbn_rd_f32 (e + 36, false), smashvbn_rd_f32 (e + 40, false),
 			smashvbn_rd_f32 (e + 44, false), smashvbn_rd_f32 (e + 48, false));
@@ -221,7 +225,8 @@ enumError DecodeSmashJTB_Text (FILE *out, const u8 *data, size_t size)
 		s1 = rd_le16 (data);
 		s2 = rd_le16 (data + 2);
 	}
-	fprintf (out, "#JTB\n"
+	fprintf (out,
+		"#JTB\n"
 		"# Super Smash Bros. 4 joint-index table (VBN bone-index remap)\n\n"
 		"endian = %s\n"
 		"table1_size = %u\n"
@@ -277,14 +282,16 @@ enumError DecodeSmashMOI_Text (FILE *out, const u8 *data, size_t size)
 		return ERR_INVALID_DATA;
 
 	const u32 n_ent = rd_be32 (data), n_other = rd_be32 (data + 4);
-	fprintf (out, "#MOI\n"
+	fprintf (out,
+		"#MOI\n"
 		"# Super Smash Bros. 4 model index\n\n"
 		"entries = %u\n"
 		"other_entries = %u\n\n",
 		n_ent, n_other);
 
 	const u32 start = rd_be32 (data + 8);
-	fprintf (out, "[entries]\n"
+	fprintf (out,
+		"[entries]\n"
 		"# idx | name | values[1..7]\n");
 	for (u32 i = 0; i < n_ent; i++)
 	{
@@ -295,13 +302,14 @@ enumError DecodeSmashMOI_Text (FILE *out, const u8 *data, size_t size)
 		fprintf (out, "\n");
 	}
 	const u32 ostart = rd_be32 (data + 24);
-	fprintf (out, "\n[other_entries]\n"
+	fprintf (out,
+		"\n[other_entries]\n"
 		"# idx | name | value1\n");
 	for (u32 i = 0; i < n_other; i++)
 	{
 		const u8 *e = data + ostart + (size_t)i * 8;
-		fprintf (out, "%u | %s | %d\n",
-			i, (const char *)(data + rd_be32 (e)), (s32)rd_be32 (e + 4));
+		fprintf (
+			out, "%u | %s | %d\n", i, (const char *)(data + rd_be32 (e)), (s32)rd_be32 (e + 4));
 	}
 	return ERR_OK;
 }

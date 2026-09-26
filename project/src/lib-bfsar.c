@@ -415,8 +415,8 @@ static ccp bfsar_asset_ext (const u8 *data, size_t size, bool is_ctr)
 	return ".bin";
 }
 
-enumError ExtractBFSARFiles (const bfsar_t *bfsar, const u8 *data, uint size,
-	ccp out_dir, uint *out_n)
+enumError ExtractBFSARFiles (
+	const bfsar_t *bfsar, const u8 *data, uint size, ccp out_dir, uint *out_n)
 {
 	if (out_n)
 		*out_n = 0;
@@ -470,5 +470,6 @@ enumError ExtractBFSARFiles (const bfsar_t *bfsar, const u8 *data, uint size,
 		fclose (mf);
 	if (out_n)
 		*out_n = extracted;
-	return extracted ? ERR_OK : ERROR0 (ERR_INVALID_DATA, "ExtractBFSARFiles: no assets extracted\n");
+	return extracted ? ERR_OK
+					 : ERROR0 (ERR_INVALID_DATA, "ExtractBFSARFiles: no assets extracted\n");
 }

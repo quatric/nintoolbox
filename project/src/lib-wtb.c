@@ -82,7 +82,8 @@ enumError ScanWTB (wtb_t *wtb, const u8 *data, uint size)
 		if (memcmp (info, "XT1 ", 4))
 		{
 			FREE (tex);
-			return ERROR0 (ERR_INVALID_DATA, "WTB: texture %u has an invalid TextureInfo magic\n", i);
+			return ERROR0 (
+				ERR_INVALID_DATA, "WTB: texture %u has an invalid TextureInfo magic\n", i);
 		}
 
 		tex[i].data_offset = rd_le32 (data + data_offset_table + (u64)i * 4);
@@ -110,7 +111,8 @@ enumError DecodeWTB_Text (FILE *out, const wtb_t *wtb)
 	if (!out || !wtb)
 		return ERR_INVALID_DATA;
 
-	fprintf (out, "#WTB\n"
+	fprintf (out,
+		"#WTB\n"
 		"texture_count = %u\n"
 		"external_data = %s\n\n"
 		"[textures]\n",

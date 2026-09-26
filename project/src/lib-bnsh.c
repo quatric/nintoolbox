@@ -91,9 +91,8 @@
 #define BNSH_VARIATION_SIZE 0x40
 #define BNSH_MAX_CODE_ENTRIES 4096
 
-static const ccp bnsh_stage_name[6] = {
-	"vertex", "tess_control(unk)", "tess_eval(unk2)", "geometry", "fragment", "compute"
-};
+static const ccp bnsh_stage_name[6]
+	= { "vertex", "tess_control(unk)", "tess_eval(unk2)", "geometry", "fragment", "compute" };
 
 bool IsBNSH (const u8 *data, size_t size)
 {
@@ -165,24 +164,24 @@ static void decode_bnsh_resdict (FILE *out, const u8 *data, size_t size, u64 dic
 	}
 }
 
-static void decode_bnsh_reflection (FILE *out, const u8 *data, size_t size, u64 refl_stage_off,
-	ccp stage_name, ccp indent)
+static void decode_bnsh_reflection (
+	FILE *out, const u8 *data, size_t size, u64 refl_stage_off, ccp stage_name, ccp indent)
 {
 	if (!refl_stage_off || refl_stage_off + 0x48 > size)
 		return;
 
-	const u64 in_dict   = rd_le64 (data + refl_stage_off + 0x00);
-	const u64 out_dict  = rd_le64 (data + refl_stage_off + 0x08);
+	const u64 in_dict = rd_le64 (data + refl_stage_off + 0x00);
+	const u64 out_dict = rd_le64 (data + refl_stage_off + 0x08);
 	const u64 samp_dict = rd_le64 (data + refl_stage_off + 0x10);
-	const u64 ubo_dict  = rd_le64 (data + refl_stage_off + 0x18);
+	const u64 ubo_dict = rd_le64 (data + refl_stage_off + 0x18);
 	const u64 ssbo_dict = rd_le64 (data + refl_stage_off + 0x20);
 
-	const s32 out_idx   = (s32)rd_le32 (data + refl_stage_off + 0x28);
-	const s32 samp_idx  = (s32)rd_le32 (data + refl_stage_off + 0x2c);
-	const s32 ubo_idx   = (s32)rd_le32 (data + refl_stage_off + 0x30);
-	const s32 ssbo_idx  = (s32)rd_le32 (data + refl_stage_off + 0x34);
+	const s32 out_idx = (s32)rd_le32 (data + refl_stage_off + 0x28);
+	const s32 samp_idx = (s32)rd_le32 (data + refl_stage_off + 0x2c);
+	const s32 ubo_idx = (s32)rd_le32 (data + refl_stage_off + 0x30);
+	const s32 ssbo_idx = (s32)rd_le32 (data + refl_stage_off + 0x34);
 
-	const u32 slot_off   = rd_le32 (data + refl_stage_off + 0x38);
+	const u32 slot_off = rd_le32 (data + refl_stage_off + 0x38);
 	const s32 slot_count = (s32)rd_le32 (data + refl_stage_off + 0x48);
 
 	s32 *slots = NULL;
@@ -201,8 +200,8 @@ static void decode_bnsh_reflection (FILE *out, const u8 *data, size_t size, u64 
 	snprintf (sub_indent, sizeof (sub_indent), "%s  ", indent);
 
 	if (in_dict)
-		decode_bnsh_resdict (out, data, size, in_dict, slots, (uint)(slots ? slot_count : 0),
-			0, "inputs", sub_indent);
+		decode_bnsh_resdict (out, data, size, in_dict, slots, (uint)(slots ? slot_count : 0), 0,
+			"inputs", sub_indent);
 	if (out_dict)
 		decode_bnsh_resdict (out, data, size, out_dict, slots, (uint)(slots ? slot_count : 0),
 			(uint)(out_idx >= 0 ? out_idx : 0), "outputs", sub_indent);
@@ -250,8 +249,7 @@ static void decode_bnsh_reflection (FILE *out, const u8 *data, size_t size, u64 
 // One ShaderProgram's stages + memory + reflection, shared by the summed-layout and the
 // BinaryShaderLibrary dual-program paths. 'label' is "shader_program", "source_program"
 // or "binary_program" and only affects the manifest's section headers.
-static void decode_bnsh_program (FILE *out, const u8 *data, size_t size, u64 base,
-	ccp label)
+static void decode_bnsh_program (FILE *out, const u8 *data, size_t size, u64 base, ccp label)
 {
 	if (base + 8 + 6 * 8 > size)
 	{
@@ -261,9 +259,11 @@ static void decode_bnsh_program (FILE *out, const u8 *data, size_t size, u64 bas
 	const u8 shader_type = data[base];
 	const u8 format = data[base + 1];
 	const u32 compression = (base + 8 <= size) ? rd_le32 (data + base + 4) : 0;
-	fprintf (out, "    %s: shader_type = %u, format = %u, compression = %u%s\n",
-		label, shader_type, format, compression,
-		compression == 1 ? " (zlib)" : compression ? " (unknown)" : "");
+	fprintf (out, "    %s: shader_type = %u, format = %u, compression = %u%s\n", label, shader_type,
+		format, compression,
+		compression == 1  ? " (zlib)"
+			: compression ? " (unknown)"
+						  : "");
 
 	for (uint s = 0; s < 6; s++)
 	{
@@ -293,8 +293,8 @@ static void decode_bnsh_program (FILE *out, const u8 *data, size_t size, u64 bas
 			if (code_ptr_s < 0 || (u64)code_ptr_s + comp_size > size)
 				fprintf (out, "        blob: <out of bounds>\n");
 			else
-				fprintf (out, "        blob: offset = %lld, size = %u\n",
-					(long long)code_ptr_s, comp_size);
+				fprintf (out, "        blob: offset = %lld, size = %u\n", (long long)code_ptr_s,
+					comp_size);
 		}
 		else if (format == 3)
 		{
@@ -325,8 +325,8 @@ static void decode_bnsh_program (FILE *out, const u8 *data, size_t size, u64 bas
 				if (code_off < 0 || (u64)code_off + code_len > size)
 					fprintf (out, "        [%u] <out of bounds>\n", i);
 				else
-					fprintf (out, "        [%u] offset = %lld, size = %u\n", i,
-						(long long)code_off, code_len);
+					fprintf (out, "        [%u] offset = %lld, size = %u\n", i, (long long)code_off,
+						code_len);
 			}
 		}
 		else
@@ -346,8 +346,8 @@ static void decode_bnsh_program (FILE *out, const u8 *data, size_t size, u64 bas
 			if (shader_offset < 0 || (u64)shader_offset + shader_size2 > size)
 				fprintf (out, "        blob0: <out of bounds>\n");
 			else
-				fprintf (out, "        blob0: offset = %lld, size = %u\n",
-					(long long)shader_offset, shader_size2);
+				fprintf (out, "        blob0: offset = %lld, size = %u\n", (long long)shader_offset,
+					shader_size2);
 			if (shader_offset2 < 0 || (u64)shader_offset2 + shader_size > size)
 				fprintf (out, "        blob1: <out of bounds>\n");
 			else
@@ -367,8 +367,8 @@ static void decode_bnsh_program (FILE *out, const u8 *data, size_t size, u64 bas
 			if (mem_off_s < 0 || (u64)mem_off_s + mem_size > size)
 				fprintf (out, "      memory: size = %u <out of bounds>\n", mem_size);
 			else
-				fprintf (out, "      memory: offset = %lld, size = %u\n",
-					(long long)mem_off_s, mem_size);
+				fprintf (out, "      memory: offset = %lld, size = %u\n", (long long)mem_off_s,
+					mem_size);
 		}
 	}
 
@@ -384,8 +384,8 @@ static void decode_bnsh_program (FILE *out, const u8 *data, size_t size, u64 bas
 				if (stage_refl_off)
 				{
 					fprintf (out, "      %s ", bnsh_stage_name[s]);
-					decode_bnsh_reflection (out, data, size, stage_refl_off,
-						bnsh_stage_name[s], "        ");
+					decode_bnsh_reflection (
+						out, data, size, stage_refl_off, bnsh_stage_name[s], "        ");
 				}
 			}
 		}
@@ -432,7 +432,8 @@ enumError DecodeBNSH_Text (FILE *out, const u8 *data, size_t size)
 	char filename[256];
 	read_pstring (filename, sizeof (filename), data, size, filename_ptr);
 
-	fprintf (out, "#BNSH\n"
+	fprintf (out,
+		"#BNSH\n"
 		"version = %u.%u.%u.%u\n"
 		"byte_order_mark = 0x%04x\n"
 		"alignment = %u\n"
@@ -444,9 +445,9 @@ enumError DecodeBNSH_Text (FILE *out, const u8 *data, size_t size)
 		"grsc.block_size = %llu\n"
 		"variation_count = %u\n\n"
 		"[variations]\n",
-		version >> 24, version >> 16 & 0xff, version >> 8 & 0xff, version & 0xff,
-		bom, alignment, target, filename, path_offset, file_size,
-		block_offset, (unsigned long long)block_size, variation_count);
+		version >> 24, version >> 16 & 0xff, version >> 8 & 0xff, version & 0xff, bom, alignment,
+		target, filename, path_offset, file_size, block_offset, (unsigned long long)block_size,
+		variation_count);
 
 	for (u32 v = 0; v < variation_count; v++)
 	{
@@ -462,11 +463,11 @@ enumError DecodeBNSH_Text (FILE *out, const u8 *data, size_t size)
 		const s64 shader_program_offset = (s64)rd_le64 (e + 16);
 		const s64 parent_offset = (s64)rd_le64 (e + 24);
 
-		fprintf (out, "  [%u] source_program_offset = %lld, binary_program_offset = %lld",
-			v, (long long)source_program_offset, (long long)shader_program_offset);
+		fprintf (out, "  [%u] source_program_offset = %lld, binary_program_offset = %lld", v,
+			(long long)source_program_offset, (long long)shader_program_offset);
 		if (unk2 || parent_offset)
-			fprintf (out, ", unk2 = %lld, parent_offset = %lld",
-				(long long)unk2, (long long)parent_offset);
+			fprintf (out, ", unk2 = %lld, parent_offset = %lld", (long long)unk2,
+				(long long)parent_offset);
 		fprintf (out, "\n");
 
 		// BinaryShaderLibrary loads SourceProgram and BinaryProgram independently;
@@ -474,8 +475,7 @@ enumError DecodeBNSH_Text (FILE *out, const u8 *data, size_t size)
 		// both offsets are plausible program headers, otherwise fall back to the sum.
 		const bool src_ok = bnsh_program_plausible (data, size, source_program_offset);
 		const bool bin_ok = bnsh_program_plausible (data, size, shader_program_offset);
-		if (src_ok && bin_ok
-			&& source_program_offset != shader_program_offset
+		if (src_ok && bin_ok && source_program_offset != shader_program_offset
 			&& source_program_offset + shader_program_offset != source_program_offset
 			&& source_program_offset + shader_program_offset != shader_program_offset)
 		{
@@ -508,8 +508,8 @@ enumError DecodeBNSH_Text (FILE *out, const u8 *data, size_t size)
 }
 
 // One extractable shader blob inside a BNSH file, for the EXTRACT sidecar writer.
-static void bnsh_collect_program_blobs (bnsh_blobs_t *blobs, const u8 *data, size_t size,
-	u64 base, uint variation, ccp program_kind)
+static void bnsh_collect_program_blobs (
+	bnsh_blobs_t *blobs, const u8 *data, size_t size, u64 base, uint variation, ccp program_kind)
 {
 	if (!blobs || base + 8 + 6 * 8 > size)
 		return;
@@ -532,8 +532,7 @@ static void bnsh_collect_program_blobs (bnsh_blobs_t *blobs, const u8 *data, siz
 			const s64 code_ptr_s = (s64)rd_le64 (data + stage_off + 8);
 			if (code_ptr_s <= 0 || (u64)code_ptr_s + comp_size > size || !comp_size)
 				continue;
-			bnsh_blob_t *b = REALLOC (blobs->blobs,
-				(blobs->n_blobs + 1) * sizeof (*b));
+			bnsh_blob_t *b = REALLOC (blobs->blobs, (blobs->n_blobs + 1) * sizeof (*b));
 			if (!b)
 				return;
 			blobs->blobs = b;
@@ -564,8 +563,7 @@ static void bnsh_collect_program_blobs (bnsh_blobs_t *blobs, const u8 *data, siz
 				const u32 code_len = rd_le32 (data + size_array + (u64)i * 4);
 				if (code_off <= 0 || (u64)code_off + code_len > size || !code_len)
 					continue;
-				bnsh_blob_t *b = REALLOC (blobs->blobs,
-					(blobs->n_blobs + 1) * sizeof (*b));
+				bnsh_blob_t *b = REALLOC (blobs->blobs, (blobs->n_blobs + 1) * sizeof (*b));
 				if (!b)
 					return;
 				blobs->blobs = b;
@@ -590,8 +588,7 @@ static void bnsh_collect_program_blobs (bnsh_blobs_t *blobs, const u8 *data, siz
 			const u32 sz1 = rd_le32 (data + stage_off + 28);
 			if (off0 > 0 && sz1 && (u64)off0 + sz1 <= size)
 			{
-				bnsh_blob_t *b = REALLOC (blobs->blobs,
-					(blobs->n_blobs + 1) * sizeof (*b));
+				bnsh_blob_t *b = REALLOC (blobs->blobs, (blobs->n_blobs + 1) * sizeof (*b));
 				if (!b)
 					return;
 				blobs->blobs = b;
@@ -606,8 +603,7 @@ static void bnsh_collect_program_blobs (bnsh_blobs_t *blobs, const u8 *data, siz
 			}
 			if (off1 > 0 && sz0 && (u64)off1 + sz0 <= size)
 			{
-				bnsh_blob_t *b = REALLOC (blobs->blobs,
-					(blobs->n_blobs + 1) * sizeof (*b));
+				bnsh_blob_t *b = REALLOC (blobs->blobs, (blobs->n_blobs + 1) * sizeof (*b));
 				if (!b)
 					return;
 				blobs->blobs = b;
@@ -680,4 +676,3 @@ void ResetBNSH_Blobs (bnsh_blobs_t *out)
 		out->n_blobs = 0;
 	}
 }
-

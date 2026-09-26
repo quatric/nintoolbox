@@ -11,9 +11,18 @@
 #define FSB_MAX_SAMPLES 0x40000
 #define FSB_MAX_CHANNELS 8
 
-static u32 fsb_le32 (const u8 *p) { return p[0] | p[1] << 8 | p[2] << 16 | (u32)p[3] << 24; }
-static u32 fsb_le16 (const u8 *p) { return p[0] | p[1] << 8; }
-static u32 fsb_be16 (const u8 *p) { return p[0] << 8 | p[1]; }
+static u32 fsb_le32 (const u8 *p)
+{
+	return p[0] | p[1] << 8 | p[2] << 16 | (u32)p[3] << 24;
+}
+static u32 fsb_le16 (const u8 *p)
+{
+	return p[0] | p[1] << 8;
+}
+static u32 fsb_be16 (const u8 *p)
+{
+	return p[0] << 8 | p[1];
+}
 
 typedef struct
 {
@@ -60,7 +69,8 @@ static u8 *fsb_wav (const s16 *pcm, uint frames, uint channels, uint freq, size_
 // Decode one sample to a WAV. Returns NULL when the codec is unsupported.
 static u8 *fsb_decode (const fsb_sample_t *s, size_t *out_size)
 {
-	if (!s->samples || !s->channels || s->channels > FSB_MAX_CHANNELS || s->samples > 0x10000000u / s->channels)
+	if (!s->samples || !s->channels || s->channels > FSB_MAX_CHANNELS
+		|| s->samples > 0x10000000u / s->channels)
 		return 0;
 	const uint ch = s->channels;
 	s16 *pcm = CALLOC ((size_t)s->samples * ch, sizeof (s16));
@@ -140,14 +150,15 @@ static bool fsb_emit (nintendo_sarc_entry_t *out, uint *n, const fsb_sample_t *s
 	else
 		snprintf (path, sizeof (path), "%s.%s", base, wav ? "wav" : "bin");
 	const bool ok = wav ? OwnedEntryAdd (out, *n, path, wav, (uint)wsz)
-			    : OwnedEntryAdd (out, *n, path, s->data, (uint)s->bytes);
+						: OwnedEntryAdd (out, *n, path, s->data, (uint)s->bytes);
 	FREE (wav);
 	if (ok)
 		(*n)++;
 	return ok;
 }
 
-static enumError scan_fsb4 (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d, size_t size, u64 hdr)
+static enumError scan_fsb4 (
+	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d, size_t size, u64 hdr)
 {
 	const u32 n = fsb_le32 (d + 4), shd = fsb_le32 (d + 8), gmode = fsb_le32 (d + 20);
 	if (!n || n > FSB_MAX_SAMPLES || hdr + shd > size)
@@ -222,7 +233,8 @@ static enumError scan_fsb4 (nintendo_sarc_entry_t **entries, uint *n_entries, co
 		s.codec = 0;
 		if (mode & 0x02000000)
 			s.codec = 1;
-		else if (!(mode & 0x0dc00000) && (mode & 0x100) && s.bytes == (size_t)s.samples * s.channels * 2)
+		else if (!(mode & 0x0dc00000) && (mode & 0x100)
+			&& s.bytes == (size_t)s.samples * s.channels * 2)
 			s.codec = 2;
 		if (!fsb_emit (out, &cnt, &s, i))
 		{
@@ -242,12 +254,15 @@ static enumError scan_fsb4 (nintendo_sarc_entry_t **entries, uint *n_entries, co
 	return ERR_OK;
 }
 
-static enumError scan_fsb5 (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d, size_t size)
+static enumError scan_fsb5 (
+	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d, size_t size)
 {
-	static const uint freqs[] = { 4000, 8000, 11000, 11025, 16000, 22050, 24000, 32000, 44100, 48000 };
+	static const uint freqs[]
+		= { 4000, 8000, 11000, 11025, 16000, 22050, 24000, 32000, 44100, 48000 };
 	if (size < 0x3c || fsb_le32 (d + 4) != 1)
 		return EINVAL;
-	const u32 n = fsb_le32 (d + 8), shd = fsb_le32 (d + 12), nsz = fsb_le32 (d + 16), dsz = fsb_le32 (d + 20);
+	const u32 n = fsb_le32 (d + 8), shd = fsb_le32 (d + 12), nsz = fsb_le32 (d + 16),
+			  dsz = fsb_le32 (d + 20);
 	const u32 codec = fsb_le32 (d + 24);
 	const u64 hs = 0x3c, names = hs + shd, data = names + nsz;
 	if (!n || n > FSB_MAX_SAMPLES || data + dsz > size)
@@ -403,7 +418,7 @@ enumError ExtractFSBArchive (ccp arg, ccp basedir, uint depth)
 	nintendo_sarc_entry_t *entries = 0;
 	uint n_entries = 0;
 	enumError err = is_fsb ? ScanFSB (&entries, &n_entries, raw, raw_size)
-			       : ScanKRAW (&entries, &n_entries, raw, raw_size);
+						   : ScanKRAW (&entries, &n_entries, raw, raw_size);
 	FREE (raw);
 	if (err || !n_entries)
 		return ERR_NOTHING_TO_DO;

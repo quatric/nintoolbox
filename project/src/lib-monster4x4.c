@@ -7,9 +7,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#define CHNK_HEADER_SIZE  16
-#define CHNK_ENTRY_SIZE   16
-#define CHNK_MAX_CHUNKS   4096 // sanity cap; real files use single digits to a few dozen
+#define CHNK_HEADER_SIZE 16
+#define CHNK_ENTRY_SIZE 16
+#define CHNK_MAX_CHUNKS 4096 // sanity cap; real files use single digits to a few dozen
 
 static int chnk_tag_ok (const u8 *tag)
 {
@@ -42,8 +42,8 @@ int IsCHNK (const u8 *data, size_t size, size_t file_size)
 
 	// Validate every table entry we can actually see (a FILETYPE probe may
 	// only hand over a short prefix, so don't require the whole table).
-	size_t avail_entries = size >= CHNK_HEADER_SIZE
-		? (size - CHNK_HEADER_SIZE) / CHNK_ENTRY_SIZE : 0;
+	size_t avail_entries
+		= size >= CHNK_HEADER_SIZE ? (size - CHNK_HEADER_SIZE) / CHNK_ENTRY_SIZE : 0;
 	if (avail_entries > count)
 		avail_entries = count;
 	if (!avail_entries)
@@ -54,8 +54,8 @@ int IsCHNK (const u8 *data, size_t size, size_t file_size)
 		const u8 *e = data + CHNK_HEADER_SIZE + i * CHNK_ENTRY_SIZE;
 		if (!chnk_tag_ok (e))
 			return 0;
-		u32 off  = rd_le32 (e + 4);
-		u32 dsz  = rd_le32 (e + 12);
+		u32 off = rd_le32 (e + 4);
+		u32 dsz = rd_le32 (e + 12);
 		if ((u64)off + (u64)dsz > total)
 			return 0;
 	}
@@ -81,8 +81,8 @@ enumError DecodeCHNK_Text (FILE *f, const u8 *data, size_t size, size_t file_siz
 	fprintf (f, "\n");
 	fprintf (f, "# idx  tag   offset     size       field_b field_c\n");
 
-	size_t avail_entries = size >= CHNK_HEADER_SIZE
-		? (size - CHNK_HEADER_SIZE) / CHNK_ENTRY_SIZE : 0;
+	size_t avail_entries
+		= size >= CHNK_HEADER_SIZE ? (size - CHNK_HEADER_SIZE) / CHNK_ENTRY_SIZE : 0;
 	if (avail_entries > count)
 		avail_entries = count;
 
@@ -93,15 +93,14 @@ enumError DecodeCHNK_Text (FILE *f, const u8 *data, size_t size, size_t file_siz
 		memcpy (tag, e, 4);
 		tag[4] = 0;
 		u32 off = rd_le32 (e + 4);
-		u16 fb  = rd_le16 (e + 8);
-		u16 fc  = rd_le16 (e + 10);
+		u16 fb = rd_le16 (e + 8);
+		u16 fc = rd_le16 (e + 10);
 		u32 dsz = rd_le32 (e + 12);
-		fprintf (f, "%4zu  %-4s  0x%08x 0x%08x %6u  %6u\n",
-			i, tag, off, dsz, fb, fc);
+		fprintf (f, "%4zu  %-4s  0x%08x 0x%08x %6u  %6u\n", i, tag, off, dsz, fb, fc);
 	}
 	if (avail_entries < count)
-		fprintf (f, "# ... %u more entries not shown (truncated input)\n",
-			count - (u32)avail_entries);
+		fprintf (
+			f, "# ... %u more entries not shown (truncated input)\n", count - (u32)avail_entries);
 
 	return ERR_OK;
 }

@@ -1,7 +1,6 @@
-	else if (IsValidDistribArena (slot))
-		AppendParamField (
-			dinf->arena + slot - DISTRIBUTION_ARENA_DELTA, fname, false, slot, STRDUP (checksum));
-	return ERR_OK;
+else if (IsValidDistribArena (slot)) AppendParamField (
+	dinf->arena + slot - DISTRIBUTION_ARENA_DELTA, fname, false, slot, STRDUP (checksum));
+return ERR_OK;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1563,12 +1562,13 @@ static enumError compress_nintendo_file (ccp arg)
 	if (!ext
 		|| (strcasecmp (ext, ".lz10") && strcasecmp (ext, ".lz11") && strcasecmp (ext, ".cmp")
 			&& strcasecmp (ext, ".rl") && strcasecmp (ext, ".yay0") && strcasecmp (ext, ".ash")
-			&& strcasecmp (ext, ".ash0") && strcasecmp (ext, ".lzh8") && strcasecmp (ext, ".lh") && strcasecmp (ext, ".qlz")
-			&& strcasecmp (ext, ".at7") && strcasecmp (ext, ".at7p") && strcasecmp (ext, ".blz")
-			&& strcasecmp (ext, ".huff4") && strcasecmp (ext, ".huff8") && strcasecmp (ext, ".huff")
-			&& strcasecmp (ext, ".stpl") && strcasecmp (ext, ".camelot") && strcasecmp (ext, ".rnc")
-			&& strcasecmp (ext, ".rnc1") && strcasecmp (ext, ".rnc2") && strcasecmp (ext, ".romc")
-			&& strcasecmp (ext, ".fzip") && strcasecmp (ext, ".zlib") && strcasecmp (ext, ".deflate")
+			&& strcasecmp (ext, ".ash0") && strcasecmp (ext, ".lzh8") && strcasecmp (ext, ".lh")
+			&& strcasecmp (ext, ".qlz") && strcasecmp (ext, ".at7") && strcasecmp (ext, ".at7p")
+			&& strcasecmp (ext, ".blz") && strcasecmp (ext, ".huff4") && strcasecmp (ext, ".huff8")
+			&& strcasecmp (ext, ".huff") && strcasecmp (ext, ".stpl")
+			&& strcasecmp (ext, ".camelot") && strcasecmp (ext, ".rnc") && strcasecmp (ext, ".rnc1")
+			&& strcasecmp (ext, ".rnc2") && strcasecmp (ext, ".romc") && strcasecmp (ext, ".fzip")
+			&& strcasecmp (ext, ".zlib") && strcasecmp (ext, ".deflate")
 			&& strcasecmp (ext, ".mvdk")))
 		return ERR_NOTHING_TO_DO;
 	u8 *data = 0, *packed = 0;
@@ -1584,7 +1584,7 @@ static enumError compress_nintendo_file (ccp arg)
 			: !strcasecmp (ext, ".yay0") ? EncodeYay0 (&packed, &packed_size, data, file_size)
 			: !strcasecmp (ext, ".lzh8") || !strcasecmp (ext, ".lh")
 			? EncodeLZH8 (&packed, &packed_size, data, file_size)
-			: !strcasecmp (ext, ".qlz")	 ? EncodeQuickLZ (&packed, &packed_size, data, file_size)
+			: !strcasecmp (ext, ".qlz") ? EncodeQuickLZ (&packed, &packed_size, data, file_size)
 			: !strcasecmp (ext, ".at7") || !strcasecmp (ext, ".at7p")
 			? EncodeAT7 (&packed, &packed_size, data, file_size)
 			: !strcasecmp (ext, ".blz") ? EncodeBLZ (&packed, &packed_size, data, file_size)

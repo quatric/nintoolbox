@@ -42,9 +42,8 @@
 #define NUFXLB_MAX_PROGRAMS 65536
 #define NUFXLB_MAX_LIST 4096
 
-static const ccp nufxlb_stage_name[6] = {
-	"vertex", "unk1", "unk2", "geometry", "pixel", "compute"
-};
+static const ccp nufxlb_stage_name[6]
+	= { "vertex", "unk1", "unk2", "geometry", "pixel", "compute" };
 
 bool IsNUFXLB (const u8 *data, size_t size)
 {
@@ -59,8 +58,7 @@ bool IsNUFXLB (const u8 *data, size_t size)
 // Reads a NUL-terminated string at the relative offset stored at 'field_off' (an
 // SsbhString field), bounds-checked against 'size'. Leaves 'dest' empty and returns
 // false on a null or out-of-range offset instead of aborting the whole decode.
-static bool read_ssbh_string (
-	char *dest, uint destsz, const u8 *data, size_t size, u64 field_off)
+static bool read_ssbh_string (char *dest, uint destsz, const u8 *data, size_t size, u64 field_off)
 {
 	dest[0] = 0;
 	if (field_off + 8 > size)
@@ -125,7 +123,8 @@ enumError DecodeNUFXLB_Text (FILE *out, const u8 *data, size_t size)
 	const bool have_programs
 		= read_ssbh_array (data, size, NUFXLB_SUBHDR_OFF + 8, &prog_base, &prog_count);
 
-	fprintf (out, "#NUFXLB\n"
+	fprintf (out,
+		"#NUFXLB\n"
 		"version = %u.%u\n"
 		"program_count = %llu\n\n"
 		"[programs]\n",
@@ -150,12 +149,11 @@ enumError DecodeNUFXLB_Text (FILE *out, const u8 *data, size_t size)
 		read_ssbh_string (name, sizeof (name), data, size, entry_off);
 		read_ssbh_string (render_pass, sizeof (render_pass), data, size, entry_off + 8);
 
-		fprintf (out, "  [%llu] %s\n    render_pass = %s\n    shaders:\n",
-			(unsigned long long)i, name[0] ? name : "<unnamed>",
-			render_pass[0] ? render_pass : "<unnamed>");
+		fprintf (out, "  [%llu] %s\n    render_pass = %s\n    shaders:\n", (unsigned long long)i,
+			name[0] ? name : "<unnamed>", render_pass[0] ? render_pass : "<unnamed>");
 		for (uint s = 0; s < 6; s++)
-			print_shader_stage (out, data, size, entry_off + 0x10 + (u64)s * 8,
-				nufxlb_stage_name[s]);
+			print_shader_stage (
+				out, data, size, entry_off + 0x10 + (u64)s * 8, nufxlb_stage_name[s]);
 
 		u64 attrs_field_off = 0, matparam_field_off;
 		if (v1)

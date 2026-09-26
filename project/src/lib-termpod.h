@@ -19,6 +19,7 @@
 
 #include "lib-nintendo.h"
 
-enumError ScanTermPod (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size);
+enumError ScanTermPod (
+	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size);
 
 #endif

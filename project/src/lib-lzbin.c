@@ -83,7 +83,8 @@ enumError ScanLZBIN (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 
 	return ERR_OK;
 }
 
-enumError CreateLZBIN (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
+enumError CreateLZBIN (
+	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {
 	if (!dest || !dest_size || !entries || !n_entries)
 		return ERR_INVALID_DATA;

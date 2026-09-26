@@ -210,8 +210,8 @@ int main (int argc, char **argv)
 			File_t F;
 			err = CreateFileOpt (&F, true, output_path, false, input_path);
 			if (F.f && fwrite (wav, 1, wav_size, F.f) != wav_size)
-				err = FILEERROR1 (
-					&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n", (u64)wav_size, output_path);
+				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n",
+					(u64)wav_size, output_path);
 			ResetFile (&F, 0);
 			FREE (wav);
 			FreeBRSTMAudio (&audio);

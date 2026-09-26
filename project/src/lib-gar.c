@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // ----------------------------------------------------------------------------
 // 8. Grezzo Zelda / Luigi's Mansion 3DS Archive (.zar / .gar)
 // ----------------------------------------------------------------------------
@@ -244,7 +243,6 @@ enumError ExtractGARArchive (ccp arg, ccp basedir, uint depth)
 	return ERR_OK;
 }
 
-
 // Grezzo Zelda / Luigi's Mansion 3DS Archive (.zar / ZAR\x01), little-endian
 enumError CreateGARArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
@@ -340,7 +338,6 @@ enumError CreateGARArchive (
 	return ERR_OK;
 }
 
-
 enumError create_gar_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -363,4 +360,3 @@ enumError create_gar_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

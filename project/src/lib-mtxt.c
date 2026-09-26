@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // Extract Nintendo Switch MTXT Texture Archive (.mtxt / MTXT)
 enumError ExtractMTXTArchive (ccp arg, ccp basedir, uint depth)
 {
@@ -166,7 +165,6 @@ enumError ExtractMTXTArchive (ccp arg, ccp basedir, uint depth)
 	return ERR_OK;
 }
 
-
 // Nintendo Switch MTXT texture archive (.mtxt): a four-byte magic, a flags
 // word, then a gzip stream wrapping one XTX texture container.
 //
@@ -234,7 +232,6 @@ enumError CreateMTXTArchive (
 	return ERR_OK;
 }
 
-
 enumError create_mtxt_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -257,4 +254,3 @@ enumError create_mtxt_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

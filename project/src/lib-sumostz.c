@@ -7,7 +7,7 @@
 #include <zlib.h>
 
 #define STZ_PAYLOAD_OFFSET 0x48
-#define STZ_SIZE_OFFSET    0x28
+#define STZ_SIZE_OFFSET 0x28
 
 static u32 stz_be32 (const u8 *p)
 {
@@ -101,8 +101,7 @@ enumError DecodeSumoSTZ (u8 **dest, uint *dest_size, const u8 *d, size_t size, c
 		zs.avail_out = cap - got;
 		zerr = inflate (&zs, Z_NO_FLUSH);
 		got = cap - zs.avail_out;
-	}
-	while (zerr == Z_OK && zs.avail_in);
+	} while (zerr == Z_OK && zs.avail_in);
 	inflateEnd (&zs);
 
 	if (zerr != Z_STREAM_END || !got)

@@ -9,9 +9,9 @@
 
 #include <string.h>
 
-#define WAS_GLOBAL_HDR_SIZE  0x20
-#define WAS_CHAN_HDR_SIZE    0x60
-#define WAS_MAX_CHANNELS     DSP_ADPCM_MAX_CHANNELS
+#define WAS_GLOBAL_HDR_SIZE 0x20
+#define WAS_CHAN_HDR_SIZE 0x60
+#define WAS_MAX_CHANNELS DSP_ADPCM_MAX_CHANNELS
 
 typedef struct was_chan_t
 {
@@ -21,8 +21,7 @@ typedef struct was_chan_t
 	u16 fmt;
 	s16 coefs[16];
 	int hist1, hist2;
-}
-was_chan_t;
+} was_chan_t;
 
 static bool was_parse (const u8 *d, size_t size, u32 *nchan_out, u32 *blocksize_out,
 	u32 *chan_bytes_out, size_t *header_end_out, was_chan_t chans[WAS_MAX_CHANNELS])
@@ -93,10 +92,14 @@ static bool was_parse (const u8 *d, size_t size, u32 *nchan_out, u32 *blocksize_
 	if (!nblocks || total > size)
 		return false;
 
-	if (nchan_out) *nchan_out = nchan;
-	if (blocksize_out) *blocksize_out = blocksize;
-	if (chan_bytes_out) *chan_bytes_out = span;
-	if (header_end_out) *header_end_out = header_end;
+	if (nchan_out)
+		*nchan_out = nchan;
+	if (blocksize_out)
+		*blocksize_out = blocksize;
+	if (chan_bytes_out)
+		*chan_bytes_out = span;
+	if (header_end_out)
+		*header_end_out = header_end;
 	return true;
 }
 
@@ -124,7 +127,10 @@ enumError DecodeSumoWASToWAV (const u8 *data, size_t size, u8 **wav_out, size_t 
 
 	memcpy (w, "RIFF", 4);
 	const u32 rsz = (u32)(wav_len - 8);
-	w[4] = (u8)rsz; w[5] = (u8)(rsz >> 8); w[6] = (u8)(rsz >> 16); w[7] = (u8)(rsz >> 24);
+	w[4] = (u8)rsz;
+	w[5] = (u8)(rsz >> 8);
+	w[6] = (u8)(rsz >> 16);
+	w[7] = (u8)(rsz >> 24);
 
 	memcpy (w + 8, "WAVEfmt ", 8);
 	const u32 block_align = nchan * 2;
@@ -140,7 +146,10 @@ enumError DecodeSumoWASToWAV (const u8 *data, size_t size, u8 **wav_out, size_t 
 
 	memcpy (w + 36, "data", 4);
 	const u32 dsz = nsamples * 2 * nchan;
-	w[40] = (u8)dsz; w[41] = (u8)(dsz >> 8); w[42] = (u8)(dsz >> 16); w[43] = (u8)(dsz >> 24);
+	w[40] = (u8)dsz;
+	w[41] = (u8)(dsz >> 8);
+	w[42] = (u8)(dsz >> 16);
+	w[43] = (u8)(dsz >> 24);
 
 	for (u32 c = 0; c < nchan; c++)
 	{
@@ -156,9 +165,8 @@ enumError DecodeSumoWASToWAV (const u8 *data, size_t size, u8 **wav_out, size_t 
 			// block-interleaved layout.
 			const u64 streampos = f * 8;
 			const u64 block_idx = streampos / blocksize;
-			const u64 file_off = header_end
-				+ (block_idx * nchan + c) * (u64)blocksize
-				+ streampos % blocksize;
+			const u64 file_off
+				= header_end + (block_idx * nchan + c) * (u64)blocksize + streampos % blocksize;
 
 			u8 block[8] = { 0 };
 			if (block_idx < nblocks && file_off < size)
@@ -202,7 +210,8 @@ enumError ExtractSumoWASAudio (ccp arg, ccp basedir, uint depth, const u8 *data,
 	{
 		ccp slash = strrchr (arg, '/');
 		if (slash)
-			snprintf (dest, sizeof (dest), "%.*s/%.*s.wav", (int)(slash - arg), arg, (int)blen, base);
+			snprintf (
+				dest, sizeof (dest), "%.*s/%.*s.wav", (int)(slash - arg), arg, (int)blen, base);
 		else
 			snprintf (dest, sizeof (dest), "%.*s.wav", (int)blen, base);
 	}

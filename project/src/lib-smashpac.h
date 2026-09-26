@@ -18,11 +18,11 @@
 
 bool IsSmashPac (const u8 *data, size_t size);
 
-enumError ScanSmashPac (nintendo_sarc_entry_t **entries, uint *n_entries,
-	const u8 *data, size_t size);
+enumError ScanSmashPac (
+	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size);
 
-enumError CreateSmashPac (u8 **out, uint *out_size,
-	const nintendo_sarc_entry_t *entries, uint n_entries, bool big_endian);
+enumError CreateSmashPac (u8 **out, uint *out_size, const nintendo_sarc_entry_t *entries,
+	uint n_entries, bool big_endian);
 
 enumError ExtractSmashPacArchive (ccp arg, ccp basedir, uint depth);
 enumError create_smashpac_dir (ccp source, ccp dest);

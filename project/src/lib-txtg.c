@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // Extract Next Level Games Texture To Go (.txtg / 6PK0)
 enumError ExtractTXTGArchive (ccp arg, ccp basedir, uint depth)
 {

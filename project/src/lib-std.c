@@ -3082,8 +3082,7 @@ int ScanOptCompr (ccp arg)
 		{ 0, "UNCOMPRESSED", 0, -1 },
 
 		{ 0, "NOCHUNKS", 0, 1 }, { 1, "FAST", 0, 1 }, { 9, "BEST", 0, 1 }, { 10, "ULTRA", 0, 1 },
-		{ 9, "FASTYZ", 0, 12 }, { 9, "TRUEYZ", "EXACT", 13 },
-		{ COMPR_DEFAULT, "DEFAULT", 0, 1 },
+		{ 9, "FASTYZ", 0, 12 }, { 9, "TRUEYZ", "EXACT", 13 }, { COMPR_DEFAULT, "DEFAULT", 0, 1 },
 
 		{ COMPR_DEFAULT, "T2", "TRY2", 2 }, { COMPR_DEFAULT, "T3", "TRY3", 3 },
 		{ COMPR_DEFAULT, "T4", "TRY4", 4 }, { COMPR_DEFAULT, "T5", "TRY5", 5 },
@@ -4262,17 +4261,17 @@ enumError cmd_filetype ()
 				else if (fform1 == FF_DARC && ext && !strcasecmp (ext, ".bcma"))
 					fform1 = FF_BCMA;
 				else if (ext && !strcasecmp (ext, ".bag")
-						&& IsBotbBag ((const u8 *)buf1, bufsize, fatt.size))
+					&& IsBotbBag ((const u8 *)buf1, bufsize, fatt.size))
 					// Battle of the Bands .bag has no binary magic of its
 					// own, so some real samples coincidentally match
 					// another format's magic bytes; the ASCII header check
 					// takes priority over that guess.
 					fform1 = FF_BOTB_BAG;
 				else if (ext && !strcasecmp (ext, ".b")
-						&& IsT4Res ((const u8 *)buf1, bufsize, fatt.size))
+					&& IsT4Res ((const u8 *)buf1, bufsize, fatt.size))
 					fform1 = FF_T4RES;
 				else if (ext && !strcasecmp (ext, ".hd")
-						&& IsHdVoice ((const u8 *)buf1, bufsize, fatt.size))
+					&& IsHdVoice ((const u8 *)buf1, bufsize, fatt.size))
 					// Tenchu voice-line manifests have no binary magic of
 					// their own, so some real samples (e.g. MENU.hd,
 					// COMMON.hd) coincidentally match another format's
@@ -6663,12 +6662,8 @@ valid_t IsValidCTCODE (const void *data, // data
 // Returns VALID_OK or VALID_ERROR. Stores variant info in 'ka'.
 //
 
-static valid_t AnalyzeKCL_V2 (kcl_analyze_t *ka,
-	const u8 *data,
-	uint data_size,
-	uint file_size,
-	bool le,
-	ccp fname)
+static valid_t AnalyzeKCL_V2 (
+	kcl_analyze_t *ka, const u8 *data, uint data_size, uint file_size, bool le, ccp fname)
 {
 	DASSERT (ka && data);
 	ka->version = KCL_V_V2;
@@ -6691,8 +6686,8 @@ static valid_t AnalyzeKCL_V2 (kcl_analyze_t *ka,
 	if (oct_off != KCL_V2_HEAD_SIZE || count < 1 || count > 4096 || arr_off & 3
 		|| arr_off < KCL_V2_HEAD_SIZE + 8 || (file_size && arr_off > file_size))
 	{
-		noPRINT ("INVALID KCL-V2: oct=%x arr=%x count=%u size=%x\n", oct_off, arr_off,
-			count, file_size);
+		noPRINT (
+			"INVALID KCL-V2: oct=%x arr=%x count=%u size=%x\n", oct_off, arr_off, count, file_size);
 		return ka->valid = VALID_ERROR;
 	}
 
@@ -6819,25 +6814,20 @@ valid_t IsValidKCL (kcl_analyze_t *ka, // not NULL: init and store stats
 			if (noff >= ka->head_size && data_size >= noff + 6)
 			{
 				float n0 = le ? lef4 ((u8 *)data + noff) : bef4 ((u8 *)data + noff);
-				float n1 = le ? lef4 ((u8 *)data + noff + 4)
-							  : bef4 ((u8 *)data + noff + 4);
+				float n1 = le ? lef4 ((u8 *)data + noff + 4) : bef4 ((u8 *)data + noff + 4);
 				// third float overlaps the next s16 triplet; use only 2 for a
 				// quick reject: real float normals have small components
 				if (n0 >= -2.0f && n0 <= 2.0f && n1 >= -2.0f && n1 <= 2.0f)
 				{
-					float n2 = le ? lef4 ((u8 *)data + noff + 8)
-								  : bef4 ((u8 *)data + noff + 8);
-					const double len = sqrt ((double)n0 * n0 + (double)n1 * n1
-						+ (double)n2 * n2);
+					float n2 = le ? lef4 ((u8 *)data + noff + 8) : bef4 ((u8 *)data + noff + 8);
+					const double len = sqrt ((double)n0 * n0 + (double)n1 * n1 + (double)n2 * n2);
 					if (len >= 0.5 && len <= 2.0)
 						is_ds = false; // float unit normal -> Wii
 				}
 			}
 		}
 	}
-	ka->version = is_ds ? KCL_V_DS
-		: ka->head_size == KCL_GC_HEAD_SIZE ? KCL_V_GC
-											: KCL_V_WII;
+	ka->version = is_ds ? KCL_V_DS : ka->head_size == KCL_GC_HEAD_SIZE ? KCL_V_GC : KCL_V_WII;
 
 	// non-DS files require 4-aligned sections (DS may be unpadded if not
 	// written by Nintendo tools)
@@ -6846,8 +6836,7 @@ valid_t IsValidKCL (kcl_analyze_t *ka, // not NULL: init and store stats
 
 	//--- calculate section sizes
 
-	uint elem_size[N_KCL_SECT]
-		= { sizeof (float3), sizeof (float3), sizeof (kcl_triangle_t) };
+	uint elem_size[N_KCL_SECT] = { sizeof (float3), sizeof (float3), sizeof (kcl_triangle_t) };
 	if (is_ds)
 		elem_size[1] = 6; // fx16 normal triplets
 
@@ -6997,25 +6986,31 @@ ccp GetValidInfoKCL (kcl_analyze_t *ka)
 	char buf[200];
 	uint len;
 	if (ka->version == KCL_V_V2)
-		len = snprintfS (buf, sizeof (buf),
-				  "%sV2 models=%u modelarr=%x / size=%x%s", order, ka->v2_n_models,
-				  ka->v2_modelarr_off, ka->file_size, ka->is_le ? " LE" : "")
+		len = snprintfS (buf, sizeof (buf), "%sV2 models=%u modelarr=%x / size=%x%s", order,
+				  ka->v2_n_models, ka->v2_modelarr_off, ka->file_size, ka->is_le ? " LE" : "")
 			+ 1;
 	else
 	{
 		ccp vname = "";
 		switch (ka->version)
 		{
-			case KCL_V_GC: vname = " GC"; break;
-			case KCL_V_DS: vname = " DS"; break;
-			case KCL_V_WII: vname = ""; break;
-			default: break;
+			case KCL_V_GC:
+				vname = " GC";
+				break;
+			case KCL_V_DS:
+				vname = " DS";
+				break;
+			case KCL_V_WII:
+				vname = "";
+				break;
+			default:
+				break;
 		}
 		len = snprintfS (buf, sizeof (buf),
-				  "%ssect=%x+%x, %x+%x, %x+%x, %x+%x, %x / N=%d,%d,%d,%d%s%s", order,
-				  ka->off[0], ka->size[0], ka->off[1], ka->size[1], ka->off[2],
-				  ka->size[2], ka->off[3], ka->size[3], ka->file_size, ka->n[0],
-				  ka->n[1], ka->n[2], ka->n[3], vname, ka->is_le ? " LE" : "")
+				  "%ssect=%x+%x, %x+%x, %x+%x, %x+%x, %x / N=%d,%d,%d,%d%s%s", order, ka->off[0],
+				  ka->size[0], ka->off[1], ka->size[1], ka->off[2], ka->size[2], ka->off[3],
+				  ka->size[3], ka->file_size, ka->n[0], ka->n[1], ka->n[2], ka->n[3], vname,
+				  ka->is_le ? " LE" : "")
 			+ 1;
 	}
 
@@ -7663,9 +7658,8 @@ intptr_t SpawnWaitQuoted (char *const argv[], bool search_path)
 			return -1;
 		}
 	}
-	const intptr_t rc = search_path
-		? _spawnvp (_P_WAIT, argv[0], (const char *const *)q)
-		: _spawnv (_P_WAIT, argv[0], (const char *const *)q);
+	const intptr_t rc = search_path ? _spawnvp (_P_WAIT, argv[0], (const char *const *)q)
+									: _spawnv (_P_WAIT, argv[0], (const char *const *)q);
 	const int err = errno;
 	for (int i = 0; i < argc; i++)
 		FREE (q[i]);
@@ -7674,4 +7668,3 @@ intptr_t SpawnWaitQuoted (char *const argv[], bool search_path)
 	return rc;
 }
 #endif
-

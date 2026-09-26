@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // ----------------------------------------------------------------------------
 // 7. NES Remix indieszero Archive (.zlarc)
 // ----------------------------------------------------------------------------
@@ -141,7 +140,6 @@ enumError ExtractZLARCArchive (ccp arg, ccp basedir, uint depth)
 	return ERR_OK;
 }
 
-
 enumError CreateZLARCArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {
@@ -239,7 +237,6 @@ enumError CreateZLARCArchive (
 	return ERR_OK;
 }
 
-
 enumError create_zlarc_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -262,4 +259,3 @@ enumError create_zlarc_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

@@ -58,14 +58,14 @@ static bool fb_field (const u8 *data, size_t size, u64 table_pos, u16 vtable_slo
 	u32 raw;
 	if (!fb_u32 (data, size, table_pos, &raw))
 		return false;
-	soffset = (s32) raw;
+	soffset = (s32)raw;
 
 	// vtable_pos = table_pos - soffset; do the subtraction at signed 64-bit width so a hostile
 	// soffset can't wrap the address space before the bounds check below catches it.
-	const s64 vtable_pos_s = (s64) table_pos - (s64) soffset;
-	if (vtable_pos_s < 0 || (u64) vtable_pos_s >= size)
+	const s64 vtable_pos_s = (s64)table_pos - (s64)soffset;
+	if (vtable_pos_s < 0 || (u64)vtable_pos_s >= size)
 		return false;
-	const u64 vtable_pos = (u64) vtable_pos_s;
+	const u64 vtable_pos = (u64)vtable_pos_s;
 
 	u16 vtable_size;
 	if (!fb_u16 (data, size, vtable_pos, &vtable_size))
@@ -88,8 +88,8 @@ static bool fb_field (const u8 *data, size_t size, u64 table_pos, u16 vtable_slo
 
 // Resolves a vector field at FIELD_POS (which holds a uoffset relative to itself pointing at
 // the vector's u32 length prefix) to its element count and the absolute start of its data.
-static bool fb_vector (const u8 *data, size_t size, u64 field_pos, uint elem_size,
-	u64 *out_data_start, u32 *out_count)
+static bool fb_vector (
+	const u8 *data, size_t size, u64 field_pos, uint elem_size, u64 *out_data_start, u32 *out_count)
 {
 	u32 off;
 	if (!fb_u32 (data, size, field_pos, &off))
@@ -103,7 +103,7 @@ static bool fb_vector (const u8 *data, size_t size, u64 field_pos, uint elem_siz
 		return false;
 
 	const u64 data_start = vec_pos + 4;
-	const u64 need = (u64) count * elem_size; // both operands already bounded, no overflow
+	const u64 need = (u64)count * elem_size; // both operands already bounded, no overflow
 	if (data_start + need > size)
 		return false;
 
@@ -156,7 +156,7 @@ enumError ScanTRPAK (trpak_t *trpak, const u8 *data, uint size)
 
 	u64 hashes_field, files_field;
 	const bool have_hashes = fb_field (data, size, root_pos, 4, &hashes_field);
-	const bool have_files  = fb_field (data, size, root_pos, 6, &files_field);
+	const bool have_files = fb_field (data, size, root_pos, 6, &files_field);
 
 	u64 hashes_start = 0, files_start = 0;
 	u32 hashes_count = 0, files_count = 0;
@@ -169,8 +169,8 @@ enumError ScanTRPAK (trpak_t *trpak, const u8 *data, uint size)
 	// corruption, not something to silently truncate around -- do the same rather than guessing
 	// which array to trust.
 	if (hashes_count != files_count)
-		return ERROR0 (ERR_INVALID_DATA,
-			"TRPAK: 'hashes' (%u) and 'files' (%u) length mismatch\n", hashes_count, files_count);
+		return ERROR0 (ERR_INVALID_DATA, "TRPAK: 'hashes' (%u) and 'files' (%u) length mismatch\n",
+			hashes_count, files_count);
 
 	const uint n = files_count;
 	trpak_entry_t *entries = n ? CALLOC (n, sizeof (*entries)) : 0;
@@ -179,9 +179,9 @@ enumError ScanTRPAK (trpak_t *trpak, const u8 *data, uint size)
 
 	for (uint i = 0; i < n; i++)
 	{
-		entries[i].hash = rd_le64 (data + hashes_start + (u64) i * 8);
+		entries[i].hash = rd_le64 (data + hashes_start + (u64)i * 8);
 
-		u64 elem_pos = files_start + (u64) i * 4;
+		u64 elem_pos = files_start + (u64)i * 4;
 		u64 file_pos;
 		if (!fb_indirect (data, size, elem_pos, &file_pos))
 		{
@@ -203,7 +203,8 @@ enumError ScanTRPAK (trpak_t *trpak, const u8 *data, uint size)
 		u64 data_field;
 		if (fb_field (data, size, file_pos, 12, &data_field))
 		{
-			u64 dstart; u32 dcount;
+			u64 dstart;
+			u32 dcount;
 			if (!fb_vector (data, size, data_field, 1, &dstart, &dcount))
 			{
 				FREE (entries);
@@ -233,9 +234,12 @@ static ccp trpak_compression_name (u8 c)
 {
 	switch (c)
 	{
-		case 3:   return "OODLE";
-		case 255: return "NONE";
-		default:  return "UNKNOWN";
+		case 3:
+			return "OODLE";
+		case 255:
+			return "NONE";
+		default:
+			return "UNKNOWN";
 	}
 }
 
@@ -244,22 +248,27 @@ enumError DecodeTRPAK_Text (FILE *out, const trpak_t *trpak)
 	if (!out || !trpak || !trpak->data)
 		return ERR_INVALID_DATA;
 
-	fprintf (out, "#TRPAK\n"
-		"# tr Package -- decoded by " "wszst" "\n"
-		"# entry_count=%u\n\n", trpak->n_entries);
+	fprintf (out,
+		"#TRPAK\n"
+		"# tr Package -- decoded by "
+		"wszst"
+		"\n"
+		"# entry_count=%u\n\n",
+		trpak->n_entries);
 
 	for (uint i = 0; i < trpak->n_entries; i++)
 	{
 		const trpak_entry_t *e = trpak->entries + i;
-		fprintf (out, "[%u]\n"
+		fprintf (out,
+			"[%u]\n"
 			"hash             = 0x%016llx\n"
 			"compression      = %s (%u)\n"
 			"decompressed_size = %llu\n"
 			"data_offset      = %llu\n"
 			"data_size        = %u\n\n",
-			i, (unsigned long long) e->hash, trpak_compression_name (e->compression),
-			e->compression, (unsigned long long) e->decompressed_size,
-			(unsigned long long) e->data_offset, e->data_size);
+			i, (unsigned long long)e->hash, trpak_compression_name (e->compression), e->compression,
+			(unsigned long long)e->decompressed_size, (unsigned long long)e->data_offset,
+			e->data_size);
 	}
 
 	return ERR_OK;

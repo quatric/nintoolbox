@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // ----------------------------------------------------------------------------
 // 4. Pikmin 1 & 2 Model/Archive Container (.pvol)
 // ----------------------------------------------------------------------------
@@ -87,8 +86,8 @@ enumError ExtractPVOLArchive (ccp arg, ccp basedir, uint depth)
 
 		// The two name fields are fixed-width byte strings, not necessarily
 		// terminated. Never scan into the payload when reading either field.
-		char name1[33] = {0};
-		char name2[9] = {0};
+		char name1[33] = { 0 };
+		char name2[9] = { 0 };
 		memcpy (name1, raw + off, 32);
 		memcpy (name2, raw + off + 32, 8);
 		char full_name[80];
@@ -112,7 +111,6 @@ enumError ExtractPVOLArchive (ccp arg, ccp basedir, uint depth)
 	FREE (raw);
 	return err;
 }
-
 
 static int compare_pvol_entries (const void *a, const void *b)
 {
@@ -205,7 +203,6 @@ enumError CreatePVOLArchive (
 	return ERR_OK;
 }
 
-
 enumError create_pvol_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -228,4 +225,3 @@ enumError create_pvol_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

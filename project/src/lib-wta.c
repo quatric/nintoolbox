@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // ----------------------------------------------------------------------------
 // 16. PlatinumGames WT Archive (.wta / WTA )
 // ----------------------------------------------------------------------------
@@ -151,8 +150,7 @@ enumError ExtractWTAArchive (ccp arg, ccp basedir, uint depth)
 enumError ScanWTA (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *wta, uint wta_size,
 	const u8 *wtp, uint wtp_size)
 {
-	if (!entries || !n_entries || !wta || !wtp || wta_size < 32
-		|| memcmp (wta, "\0BTW", 4))
+	if (!entries || !n_entries || !wta || !wtp || wta_size < 32 || memcmp (wta, "\0BTW", 4))
 		return EINVAL;
 	*entries = 0;
 	*n_entries = 0;

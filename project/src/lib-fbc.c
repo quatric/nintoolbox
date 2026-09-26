@@ -8,7 +8,10 @@
 
 #define FBC_MAX_FILES 0x10000
 
-static u32 fbc_rd32 (const u8 *p) { return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
+static u32 fbc_rd32 (const u8 *p)
+{
+	return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
+}
 
 bool IsFBC (const u8 *d, size_t size)
 {

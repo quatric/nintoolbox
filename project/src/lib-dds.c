@@ -28,11 +28,11 @@
 #define FOURCC_A32B32G32R32F 0x00000074
 
 #define DDPF_ALPHAPIXELS 0x00000001
-#define DDPF_ALPHA       0x00000002
-#define DDPF_FOURCC      0x00000004
-#define DDPF_RGB         0x00000040
-#define DDPF_YUV         0x00000200
-#define DDPF_LUMINANCE   0x00020000
+#define DDPF_ALPHA 0x00000002
+#define DDPF_FOURCC 0x00000004
+#define DDPF_RGB 0x00000040
+#define DDPF_YUV 0x00000200
+#define DDPF_LUMINANCE 0x00020000
 
 bool IsDDS (const u8 *data, uint size)
 {
@@ -43,8 +43,10 @@ bool IsDDS (const u8 *data, uint size)
 
 static inline u8 float_to_u8 (float v)
 {
-	if (!(v > 0.0f)) return 0;
-	if (v >= 1.0f) return 255;
+	if (!(v > 0.0f))
+		return 0;
+	if (v >= 1.0f)
+		return 255;
 	return (u8)(v * 255.0f + 0.5f);
 }
 
@@ -74,11 +76,13 @@ static inline float unsigned_float_component (uint value, uint mantissa_bits)
 
 static inline u8 mask_to_8 (u32 val, u32 mask)
 {
-	if (!mask) return 0;
+	if (!mask)
+		return 0;
 	int shift = __builtin_ctz (mask);
 	val = (val & mask) >> shift;
 	u32 max_val = mask >> shift;
-	if (max_val == 0) return 0;
+	if (max_val == 0)
+		return 0;
 	return (u8)(((u64)val * 255 + (max_val / 2)) / max_val);
 }
 
@@ -137,7 +141,11 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 			case 72: // BC1_UNORM_SRGB
 			{
 				const uint bw = (w + 3) / 4, bh = (h + 3) / 4;
-				if ((u64)bw * bh * 8 > payload_size) { FREE (rgba); return ERROR0 (ERR_INVALID_DATA, "DDS BC1 payload truncated\n"); }
+				if ((u64)bw * bh * 8 > payload_size)
+				{
+					FREE (rgba);
+					return ERROR0 (ERR_INVALID_DATA, "DDS BC1 payload truncated\n");
+				}
 				for (uint by = 0; by < bh; by++)
 					for (uint bx = 0; bx < bw; bx++)
 					{
@@ -145,7 +153,8 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 						decode_bc1_block (payload + ((u64)by * bw + bx) * 8, block, true);
 						for (uint py = 0; py < 4 && by * 4 + py < h; py++)
 							for (uint px = 0; px < 4 && bx * 4 + px < w; px++)
-								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)), block + 4 * (py * 4 + px), 4);
+								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)),
+									block + 4 * (py * 4 + px), 4);
 					}
 				break;
 			}
@@ -155,7 +164,11 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 			case 75: // BC2_UNORM_SRGB
 			{
 				const uint bw = (w + 3) / 4, bh = (h + 3) / 4;
-				if ((u64)bw * bh * 16 > payload_size) { FREE (rgba); return ERROR0 (ERR_INVALID_DATA, "DDS BC2 payload truncated\n"); }
+				if ((u64)bw * bh * 16 > payload_size)
+				{
+					FREE (rgba);
+					return ERROR0 (ERR_INVALID_DATA, "DDS BC2 payload truncated\n");
+				}
 				for (uint by = 0; by < bh; by++)
 					for (uint bx = 0; bx < bw; bx++)
 					{
@@ -163,7 +176,8 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 						decode_bc2_block (payload + ((u64)by * bw + bx) * 16, block);
 						for (uint py = 0; py < 4 && by * 4 + py < h; py++)
 							for (uint px = 0; px < 4 && bx * 4 + px < w; px++)
-								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)), block + 4 * (py * 4 + px), 4);
+								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)),
+									block + 4 * (py * 4 + px), 4);
 					}
 				break;
 			}
@@ -173,7 +187,11 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 			case 78: // BC3_UNORM_SRGB
 			{
 				const uint bw = (w + 3) / 4, bh = (h + 3) / 4;
-				if ((u64)bw * bh * 16 > payload_size) { FREE (rgba); return ERROR0 (ERR_INVALID_DATA, "DDS BC3 payload truncated\n"); }
+				if ((u64)bw * bh * 16 > payload_size)
+				{
+					FREE (rgba);
+					return ERROR0 (ERR_INVALID_DATA, "DDS BC3 payload truncated\n");
+				}
 				for (uint by = 0; by < bh; by++)
 					for (uint bx = 0; bx < bw; bx++)
 					{
@@ -181,7 +199,8 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 						decode_bc3_block (payload + ((u64)by * bw + bx) * 16, block);
 						for (uint py = 0; py < 4 && by * 4 + py < h; py++)
 							for (uint px = 0; px < 4 && bx * 4 + px < w; px++)
-								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)), block + 4 * (py * 4 + px), 4);
+								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)),
+									block + 4 * (py * 4 + px), 4);
 					}
 				break;
 			}
@@ -190,7 +209,11 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 			case 80: // BC4_UNORM
 			{
 				const uint bw = (w + 3) / 4, bh = (h + 3) / 4;
-				if ((u64)bw * bh * 8 > payload_size) { FREE (rgba); return ERROR0 (ERR_INVALID_DATA, "DDS BC4 payload truncated\n"); }
+				if ((u64)bw * bh * 8 > payload_size)
+				{
+					FREE (rgba);
+					return ERROR0 (ERR_INVALID_DATA, "DDS BC4 payload truncated\n");
+				}
 				for (uint by = 0; by < bh; by++)
 					for (uint bx = 0; bx < bw; bx++)
 					{
@@ -198,14 +221,19 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 						decode_bc4_block (payload + ((u64)by * bw + bx) * 8, block);
 						for (uint py = 0; py < 4 && by * 4 + py < h; py++)
 							for (uint px = 0; px < 4 && bx * 4 + px < w; px++)
-								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)), block + 4 * (py * 4 + px), 4);
+								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)),
+									block + 4 * (py * 4 + px), 4);
 					}
 				break;
 			}
 			case 81: // BC4_SNORM
 			{
 				const uint bw = (w + 3) / 4, bh = (h + 3) / 4;
-				if ((u64)bw * bh * 8 > payload_size) { FREE (rgba); return ERROR0 (ERR_INVALID_DATA, "DDS BC4_SNORM payload truncated\n"); }
+				if ((u64)bw * bh * 8 > payload_size)
+				{
+					FREE (rgba);
+					return ERROR0 (ERR_INVALID_DATA, "DDS BC4_SNORM payload truncated\n");
+				}
 				for (uint by = 0; by < bh; by++)
 					for (uint bx = 0; bx < bw; bx++)
 					{
@@ -213,7 +241,8 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 						decode_bc4_signed_block (payload + ((u64)by * bw + bx) * 8, block);
 						for (uint py = 0; py < 4 && by * 4 + py < h; py++)
 							for (uint px = 0; px < 4 && bx * 4 + px < w; px++)
-								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)), block + 4 * (py * 4 + px), 4);
+								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)),
+									block + 4 * (py * 4 + px), 4);
 					}
 				break;
 			}
@@ -222,7 +251,11 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 			case 83: // BC5_UNORM
 			{
 				const uint bw = (w + 3) / 4, bh = (h + 3) / 4;
-				if ((u64)bw * bh * 16 > payload_size) { FREE (rgba); return ERROR0 (ERR_INVALID_DATA, "DDS BC5 payload truncated\n"); }
+				if ((u64)bw * bh * 16 > payload_size)
+				{
+					FREE (rgba);
+					return ERROR0 (ERR_INVALID_DATA, "DDS BC5 payload truncated\n");
+				}
 				for (uint by = 0; by < bh; by++)
 					for (uint bx = 0; bx < bw; bx++)
 					{
@@ -230,14 +263,19 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 						decode_bc5_block (payload + ((u64)by * bw + bx) * 16, block);
 						for (uint py = 0; py < 4 && by * 4 + py < h; py++)
 							for (uint px = 0; px < 4 && bx * 4 + px < w; px++)
-								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)), block + 4 * (py * 4 + px), 4);
+								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)),
+									block + 4 * (py * 4 + px), 4);
 					}
 				break;
 			}
 			case 84: // BC5_SNORM
 			{
 				const uint bw = (w + 3) / 4, bh = (h + 3) / 4;
-				if ((u64)bw * bh * 16 > payload_size) { FREE (rgba); return ERROR0 (ERR_INVALID_DATA, "DDS BC5_SNORM payload truncated\n"); }
+				if ((u64)bw * bh * 16 > payload_size)
+				{
+					FREE (rgba);
+					return ERROR0 (ERR_INVALID_DATA, "DDS BC5_SNORM payload truncated\n");
+				}
 				for (uint by = 0; by < bh; by++)
 					for (uint bx = 0; bx < bw; bx++)
 					{
@@ -245,7 +283,8 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 						decode_bc5_signed_block (payload + ((u64)by * bw + bx) * 16, block);
 						for (uint py = 0; py < 4 && by * 4 + py < h; py++)
 							for (uint px = 0; px < 4 && bx * 4 + px < w; px++)
-								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)), block + 4 * (py * 4 + px), 4);
+								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)),
+									block + 4 * (py * 4 + px), 4);
 					}
 				break;
 			}
@@ -264,36 +303,106 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 				break;
 
 			// ASTC
-			case 134: case 135: // 4x4
-			case 138: case 139: // 5x4
-			case 142: case 143: // 5x5
-			case 146: case 147: // 6x5
-			case 150: case 151: // 6x6
-			case 154: case 155: // 8x5
-			case 158: case 159: // 8x6
-			case 162: case 163: // 8x8
-			case 166: case 167: // 10x5
-			case 170: case 171: // 10x6
-			case 174: case 175: // 10x8
-			case 178: case 179: // 10x10
-			case 182: case 183: // 12x10
-			case 186: case 187: // 12x12
+			case 134:
+			case 135: // 4x4
+			case 138:
+			case 139: // 5x4
+			case 142:
+			case 143: // 5x5
+			case 146:
+			case 147: // 6x5
+			case 150:
+			case 151: // 6x6
+			case 154:
+			case 155: // 8x5
+			case 158:
+			case 159: // 8x6
+			case 162:
+			case 163: // 8x8
+			case 166:
+			case 167: // 10x5
+			case 170:
+			case 171: // 10x6
+			case 174:
+			case 175: // 10x8
+			case 178:
+			case 179: // 10x10
+			case 182:
+			case 183: // 12x10
+			case 186:
+			case 187: // 12x12
 			{
 				uint blk_w = 4, blk_h = 4;
-				if (dxgi_fmt <= 135) { blk_w = 4; blk_h = 4; }
-				else if (dxgi_fmt <= 139) { blk_w = 5; blk_h = 4; }
-				else if (dxgi_fmt <= 143) { blk_w = 5; blk_h = 5; }
-				else if (dxgi_fmt <= 147) { blk_w = 6; blk_h = 5; }
-				else if (dxgi_fmt <= 151) { blk_w = 6; blk_h = 6; }
-				else if (dxgi_fmt <= 155) { blk_w = 8; blk_h = 5; }
-				else if (dxgi_fmt <= 159) { blk_w = 8; blk_h = 6; }
-				else if (dxgi_fmt <= 163) { blk_w = 8; blk_h = 8; }
-				else if (dxgi_fmt <= 167) { blk_w = 10; blk_h = 5; }
-				else if (dxgi_fmt <= 171) { blk_w = 10; blk_h = 6; }
-				else if (dxgi_fmt <= 175) { blk_w = 10; blk_h = 8; }
-				else if (dxgi_fmt <= 179) { blk_w = 10; blk_h = 10; }
-				else if (dxgi_fmt <= 183) { blk_w = 12; blk_h = 10; }
-				else { blk_w = 12; blk_h = 12; }
+				if (dxgi_fmt <= 135)
+				{
+					blk_w = 4;
+					blk_h = 4;
+				}
+				else if (dxgi_fmt <= 139)
+				{
+					blk_w = 5;
+					blk_h = 4;
+				}
+				else if (dxgi_fmt <= 143)
+				{
+					blk_w = 5;
+					blk_h = 5;
+				}
+				else if (dxgi_fmt <= 147)
+				{
+					blk_w = 6;
+					blk_h = 5;
+				}
+				else if (dxgi_fmt <= 151)
+				{
+					blk_w = 6;
+					blk_h = 6;
+				}
+				else if (dxgi_fmt <= 155)
+				{
+					blk_w = 8;
+					blk_h = 5;
+				}
+				else if (dxgi_fmt <= 159)
+				{
+					blk_w = 8;
+					blk_h = 6;
+				}
+				else if (dxgi_fmt <= 163)
+				{
+					blk_w = 8;
+					blk_h = 8;
+				}
+				else if (dxgi_fmt <= 167)
+				{
+					blk_w = 10;
+					blk_h = 5;
+				}
+				else if (dxgi_fmt <= 171)
+				{
+					blk_w = 10;
+					blk_h = 6;
+				}
+				else if (dxgi_fmt <= 175)
+				{
+					blk_w = 10;
+					blk_h = 8;
+				}
+				else if (dxgi_fmt <= 179)
+				{
+					blk_w = 10;
+					blk_h = 10;
+				}
+				else if (dxgi_fmt <= 183)
+				{
+					blk_w = 12;
+					blk_h = 10;
+				}
+				else
+				{
+					blk_w = 12;
+					blk_h = 12;
+				}
 
 				const uint bw = (w + blk_w - 1) / blk_w;
 				const uint bh = (h + blk_h - 1) / blk_h;
@@ -317,7 +426,8 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 			case 28: // RGBA8_UNORM
 			case 29: // RGBA8_UNORM_SRGB
 			case 30: // RGBA8_UINT
-				memcpy (rgba, payload, (size_t)w * h * 4 < payload_size ? (size_t)w * h * 4 : payload_size);
+				memcpy (rgba, payload,
+					(size_t)w * h * 4 < payload_size ? (size_t)w * h * 4 : payload_size);
 				break;
 
 			case 87: // BGRA8_UNORM
@@ -363,8 +473,10 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 				{
 					u32 val = rd_le32 (payload + i * 4);
 					rgba[i * 4 + 0] = float_to_u8 (unsigned_float_component (val & 0x7ff, 6));
-					rgba[i * 4 + 1] = float_to_u8 (unsigned_float_component ((val >> 11) & 0x7ff, 6));
-					rgba[i * 4 + 2] = float_to_u8 (unsigned_float_component ((val >> 22) & 0x3ff, 5));
+					rgba[i * 4 + 1]
+						= float_to_u8 (unsigned_float_component ((val >> 11) & 0x7ff, 6));
+					rgba[i * 4 + 2]
+						= float_to_u8 (unsigned_float_component ((val >> 22) & 0x3ff, 5));
 					rgba[i * 4 + 3] = 255;
 				}
 				break;
@@ -484,7 +596,11 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 			case FOURCC_DXT1:
 			{
 				const uint bw = (w + 3) / 4, bh = (h + 3) / 4;
-				if ((u64)bw * bh * 8 > payload_size) { FREE (rgba); return ERROR0 (ERR_INVALID_DATA, "DDS DXT1 payload truncated\n"); }
+				if ((u64)bw * bh * 8 > payload_size)
+				{
+					FREE (rgba);
+					return ERROR0 (ERR_INVALID_DATA, "DDS DXT1 payload truncated\n");
+				}
 				for (uint by = 0; by < bh; by++)
 					for (uint bx = 0; bx < bw; bx++)
 					{
@@ -492,7 +608,8 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 						decode_bc1_block (payload + ((u64)by * bw + bx) * 8, block, true);
 						for (uint py = 0; py < 4 && by * 4 + py < h; py++)
 							for (uint px = 0; px < 4 && bx * 4 + px < w; px++)
-								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)), block + 4 * (py * 4 + px), 4);
+								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)),
+									block + 4 * (py * 4 + px), 4);
 					}
 				break;
 			}
@@ -500,7 +617,11 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 			case FOURCC_DXT3:
 			{
 				const uint bw = (w + 3) / 4, bh = (h + 3) / 4;
-				if ((u64)bw * bh * 16 > payload_size) { FREE (rgba); return ERROR0 (ERR_INVALID_DATA, "DDS DXT3 payload truncated\n"); }
+				if ((u64)bw * bh * 16 > payload_size)
+				{
+					FREE (rgba);
+					return ERROR0 (ERR_INVALID_DATA, "DDS DXT3 payload truncated\n");
+				}
 				for (uint by = 0; by < bh; by++)
 					for (uint bx = 0; bx < bw; bx++)
 					{
@@ -508,7 +629,8 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 						decode_bc2_block (payload + ((u64)by * bw + bx) * 16, block);
 						for (uint py = 0; py < 4 && by * 4 + py < h; py++)
 							for (uint px = 0; px < 4 && bx * 4 + px < w; px++)
-								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)), block + 4 * (py * 4 + px), 4);
+								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)),
+									block + 4 * (py * 4 + px), 4);
 					}
 				break;
 			}
@@ -516,7 +638,11 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 			case FOURCC_DXT5:
 			{
 				const uint bw = (w + 3) / 4, bh = (h + 3) / 4;
-				if ((u64)bw * bh * 16 > payload_size) { FREE (rgba); return ERROR0 (ERR_INVALID_DATA, "DDS DXT5 payload truncated\n"); }
+				if ((u64)bw * bh * 16 > payload_size)
+				{
+					FREE (rgba);
+					return ERROR0 (ERR_INVALID_DATA, "DDS DXT5 payload truncated\n");
+				}
 				for (uint by = 0; by < bh; by++)
 					for (uint bx = 0; bx < bw; bx++)
 					{
@@ -524,7 +650,8 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 						decode_bc3_block (payload + ((u64)by * bw + bx) * 16, block);
 						for (uint py = 0; py < 4 && by * 4 + py < h; py++)
 							for (uint px = 0; px < 4 && bx * 4 + px < w; px++)
-								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)), block + 4 * (py * 4 + px), 4);
+								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)),
+									block + 4 * (py * 4 + px), 4);
 					}
 				break;
 			}
@@ -532,7 +659,11 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 			case FOURCC_BC4U:
 			{
 				const uint bw = (w + 3) / 4, bh = (h + 3) / 4;
-				if ((u64)bw * bh * 8 > payload_size) { FREE (rgba); return ERROR0 (ERR_INVALID_DATA, "DDS BC4 payload truncated\n"); }
+				if ((u64)bw * bh * 8 > payload_size)
+				{
+					FREE (rgba);
+					return ERROR0 (ERR_INVALID_DATA, "DDS BC4 payload truncated\n");
+				}
 				for (uint by = 0; by < bh; by++)
 					for (uint bx = 0; bx < bw; bx++)
 					{
@@ -540,14 +671,19 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 						decode_bc4_block (payload + ((u64)by * bw + bx) * 8, block);
 						for (uint py = 0; py < 4 && by * 4 + py < h; py++)
 							for (uint px = 0; px < 4 && bx * 4 + px < w; px++)
-								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)), block + 4 * (py * 4 + px), 4);
+								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)),
+									block + 4 * (py * 4 + px), 4);
 					}
 				break;
 			}
 			case FOURCC_BC4S:
 			{
 				const uint bw = (w + 3) / 4, bh = (h + 3) / 4;
-				if ((u64)bw * bh * 8 > payload_size) { FREE (rgba); return ERROR0 (ERR_INVALID_DATA, "DDS BC4S payload truncated\n"); }
+				if ((u64)bw * bh * 8 > payload_size)
+				{
+					FREE (rgba);
+					return ERROR0 (ERR_INVALID_DATA, "DDS BC4S payload truncated\n");
+				}
 				for (uint by = 0; by < bh; by++)
 					for (uint bx = 0; bx < bw; bx++)
 					{
@@ -555,7 +691,8 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 						decode_bc4_signed_block (payload + ((u64)by * bw + bx) * 8, block);
 						for (uint py = 0; py < 4 && by * 4 + py < h; py++)
 							for (uint px = 0; px < 4 && bx * 4 + px < w; px++)
-								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)), block + 4 * (py * 4 + px), 4);
+								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)),
+									block + 4 * (py * 4 + px), 4);
 					}
 				break;
 			}
@@ -563,7 +700,11 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 			case FOURCC_BC5U:
 			{
 				const uint bw = (w + 3) / 4, bh = (h + 3) / 4;
-				if ((u64)bw * bh * 16 > payload_size) { FREE (rgba); return ERROR0 (ERR_INVALID_DATA, "DDS BC5 payload truncated\n"); }
+				if ((u64)bw * bh * 16 > payload_size)
+				{
+					FREE (rgba);
+					return ERROR0 (ERR_INVALID_DATA, "DDS BC5 payload truncated\n");
+				}
 				for (uint by = 0; by < bh; by++)
 					for (uint bx = 0; bx < bw; bx++)
 					{
@@ -571,14 +712,19 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 						decode_bc5_block (payload + ((u64)by * bw + bx) * 16, block);
 						for (uint py = 0; py < 4 && by * 4 + py < h; py++)
 							for (uint px = 0; px < 4 && bx * 4 + px < w; px++)
-								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)), block + 4 * (py * 4 + px), 4);
+								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)),
+									block + 4 * (py * 4 + px), 4);
 					}
 				break;
 			}
 			case FOURCC_BC5S:
 			{
 				const uint bw = (w + 3) / 4, bh = (h + 3) / 4;
-				if ((u64)bw * bh * 16 > payload_size) { FREE (rgba); return ERROR0 (ERR_INVALID_DATA, "DDS BC5S payload truncated\n"); }
+				if ((u64)bw * bh * 16 > payload_size)
+				{
+					FREE (rgba);
+					return ERROR0 (ERR_INVALID_DATA, "DDS BC5S payload truncated\n");
+				}
 				for (uint by = 0; by < bh; by++)
 					for (uint bx = 0; bx < bw; bx++)
 					{
@@ -586,14 +732,19 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 						decode_bc5_signed_block (payload + ((u64)by * bw + bx) * 16, block);
 						for (uint py = 0; py < 4 && by * 4 + py < h; py++)
 							for (uint px = 0; px < 4 && bx * 4 + px < w; px++)
-								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)), block + 4 * (py * 4 + px), 4);
+								memcpy (rgba + 4 * ((by * 4 + py) * w + (bx * 4 + px)),
+									block + 4 * (py * 4 + px), 4);
 					}
 				break;
 			}
 			case FOURCC_RXGB:
 			{
 				const uint bw = (w + 3) / 4, bh = (h + 3) / 4;
-				if ((u64)bw * bh * 16 > payload_size) { FREE (rgba); return ERROR0 (ERR_INVALID_DATA, "DDS RXGB payload truncated\n"); }
+				if ((u64)bw * bh * 16 > payload_size)
+				{
+					FREE (rgba);
+					return ERROR0 (ERR_INVALID_DATA, "DDS RXGB payload truncated\n");
+				}
 				for (uint by = 0; by < bh; by++)
 					for (uint bx = 0; bx < bw; bx++)
 					{
@@ -678,7 +829,8 @@ enumError DecodeDDS_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, 
 
 		const bool has_alpha = (pf_flags & DDPF_ALPHAPIXELS) || (a_mask != 0);
 		const bool is_luminance = (pf_flags & DDPF_LUMINANCE);
-		const bool is_alpha_only = (pf_flags & DDPF_ALPHA) && !is_luminance && !(pf_flags & DDPF_RGB);
+		const bool is_alpha_only
+			= (pf_flags & DDPF_ALPHA) && !is_luminance && !(pf_flags & DDPF_RGB);
 
 		for (size_t i = 0; i < (size_t)w * h; i++)
 		{

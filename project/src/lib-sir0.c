@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // Extract Pokemon Mystery Dungeon Resource Container (.sir0 / SIR0)
 enumError ExtractSIR0Archive (ccp arg, ccp basedir, uint depth)
 {
@@ -84,7 +83,6 @@ enumError ExtractSIR0Archive (ccp arg, ccp basedir, uint depth)
 	return ERR_OK;
 }
 
-
 // Pokemon Mystery Dungeon Resource Container (.sir0 / SIR0), little-endian
 enumError CreateSIR0Archive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
@@ -146,7 +144,6 @@ enumError CreateSIR0Archive (
 	return ERR_OK;
 }
 
-
 enumError create_sir0_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -169,4 +166,3 @@ enumError create_sir0_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

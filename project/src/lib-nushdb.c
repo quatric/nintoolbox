@@ -30,9 +30,8 @@
 #define NUSHDB_SHADER_SIZE 0x38
 #define NUSHDB_MAX_SHADERS 65536
 
-static const ccp nushdb_stage_name[6] = {
-	"vertex", "unk1", "unk2", "geometry", "fragment", "compute"
-};
+static const ccp nushdb_stage_name[6]
+	= { "vertex", "unk1", "unk2", "geometry", "fragment", "compute" };
 
 bool IsNUSHDB (const u8 *data, size_t size)
 {
@@ -47,8 +46,7 @@ bool IsNUSHDB (const u8 *data, size_t size)
 // Reads a NUL-terminated string at the relative offset stored at 'field_off' (an
 // SsbhString field), bounds-checked against 'size'. Leaves 'dest' empty and returns
 // false on a null or out-of-range offset instead of aborting the whole decode.
-static bool read_ssbh_string (
-	char *dest, uint destsz, const u8 *data, size_t size, u64 field_off)
+static bool read_ssbh_string (char *dest, uint destsz, const u8 *data, size_t size, u64 field_off)
 {
 	dest[0] = 0;
 	if (field_off + 8 > size)
@@ -86,7 +84,8 @@ enumError DecodeNUSHDB_Text (FILE *out, const u8 *data, size_t size)
 	const u64 array_rel = rd_le64 (data + array_field_off);
 	const u64 shader_count = rd_le64 (data + array_field_off + 8);
 
-	fprintf (out, "#NUSHDB\n"
+	fprintf (out,
+		"#NUSHDB\n"
 		"version = %u.%u\n"
 		"shader_count = %llu\n\n"
 		"[shaders]\n",
@@ -118,12 +117,12 @@ enumError DecodeNUSHDB_Text (FILE *out, const u8 *data, size_t size)
 		const u64 blob_count = rd_le64 (data + entry_off + 0x18);
 		const u64 binary_size = rd_le64 (data + entry_off + 0x20);
 
-		fprintf (out, "  [%llu] %s\n"
+		fprintf (out,
+			"  [%llu] %s\n"
 			"    stage = %u (%s)\n"
 			"    binary_size = %llu\n",
-			(unsigned long long)i, name[0] ? name : "<unnamed>",
-			stage, stage < 6 ? nushdb_stage_name[stage] : "?",
-			(unsigned long long)binary_size);
+			(unsigned long long)i, name[0] ? name : "<unnamed>", stage,
+			stage < 6 ? nushdb_stage_name[stage] : "?", (unsigned long long)binary_size);
 
 		if (!blob_rel)
 		{
@@ -135,8 +134,8 @@ enumError DecodeNUSHDB_Text (FILE *out, const u8 *data, size_t size)
 		if (blob_off < blob_field_off || blob_off + blob_count > size)
 			fprintf (out, "    binary: <out of bounds>\n");
 		else
-			fprintf (out, "    binary: offset = %llu, size = %llu\n",
-				(unsigned long long)blob_off, (unsigned long long)blob_count);
+			fprintf (out, "    binary: offset = %llu, size = %llu\n", (unsigned long long)blob_off,
+				(unsigned long long)blob_count);
 	}
 
 	return ERR_OK;

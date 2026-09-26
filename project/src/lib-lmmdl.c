@@ -211,9 +211,8 @@ static bool lmm_read_hdr (const u8 *data, uint size, lmm_hdr_t *h)
 		|| h->nodes > LMMDL_MAX_NODES || h->elements > LMMDL_MAX_MESHES
 		|| h->packets > LMMDL_MAX_MESHES || h->materials > LMMDL_MAX_MESHES
 		|| h->shapes > LMMDL_MAX_MESHES || h->textures > 1024 || h->samplers > 1024
-		|| h->weights > 8192 || h->verts > LMMDL_MAX_VERTS
-		|| h->normals > LMMDL_MAX_VERTS || h->uvs > LMMDL_MAX_VERTS
-		|| h->colours > LMMDL_MAX_VERTS)
+		|| h->weights > 8192 || h->verts > LMMDL_MAX_VERTS || h->normals > LMMDL_MAX_VERTS
+		|| h->uvs > LMMDL_MAX_VERTS || h->colours > LMMDL_MAX_VERTS)
 		return false;
 	return true;
 }
@@ -222,8 +221,7 @@ static bool lmm_read_hdr (const u8 *data, uint size, lmm_hdr_t *h)
 static bool lmm_invert43 (float out[12], const float m[12])
 {
 	const double det = (double)m[0] * (m[5] * m[10] - m[6] * m[9])
-		- (double)m[1] * (m[4] * m[10] - m[6] * m[8])
-		+ (double)m[2] * (m[4] * m[9] - m[5] * m[8]);
+		- (double)m[1] * (m[4] * m[10] - m[6] * m[8]) + (double)m[2] * (m[4] * m[9] - m[5] * m[8]);
 	if (fabs (det) < 1e-20)
 		return false;
 	const float d = (float)(1.0 / det);
@@ -398,9 +396,9 @@ static bool lmm_emit_tris (lmm_corners_t *out, u8 op, const lmm_corner_t *v, uin
 
 // Walk one packet's display list, appending corners. SHAPE_NBT tells whether
 // tangent/binormal indices are present. Returns false on corrupt data.
-static bool lmm_walk_packet (const u8 *data, uint size, u32 off, u32 len,
-	const u16 *mats, uint n_mats, uint joints, bool has_nrm, bool shape_nbt,
-	bool has_col, bool has_uv, lmm_corners_t *out)
+static bool lmm_walk_packet (const u8 *data, uint size, u32 off, u32 len, const u16 *mats,
+	uint n_mats, uint joints, bool has_nrm, bool shape_nbt, bool has_col, bool has_uv,
+	lmm_corners_t *out)
 {
 	if ((u64)off + len > size)
 		return false;
@@ -509,8 +507,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 		|| (u64)h.matrix_off + (u64)h.joints * 48 > size
 		|| (u64)h.vert_off + (u64)h.verts * 12 > size
 		|| (u64)h.normal_off + (u64)h.normals * 12 > size
-		|| (u64)h.colour_off + (u64)h.colours * 4 > size
-		|| (u64)h.uv_off + (u64)h.uvs * 8 > size
+		|| (u64)h.colour_off + (u64)h.colours * 4 > size || (u64)h.uv_off + (u64)h.uvs * 8 > size
 		|| (u64)h.tex_off + (u64)h.textures * 4 > size
 		|| (u64)h.mat_off + (u64)h.materials * 288 > size
 		|| (u64)h.samp_off + (u64)h.samplers * 8 > size
@@ -518,7 +515,8 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 		|| (u64)h.elem_off + (u64)h.elements * 4 > size)
 		return 0;
 	if (h.weights
-		&& ((u64)h.wcnt_off + h.weights > size || (u64)h.weight_off > size || (u64)h.jidx_off > size))
+		&& ((u64)h.wcnt_off + h.weights > size || (u64)h.weight_off > size
+			|| (u64)h.jidx_off > size))
 		return 0;
 
 	model_t *model = CALLOC (1, sizeof (*model));
@@ -565,7 +563,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 		}
 	}
 
-		//--- materials + samplers ---
+	//--- materials + samplers ---
 	model->num_materials = h.materials ? h.materials : 1;
 	model->materials = CALLOC (model->num_materials, sizeof (*model->materials));
 	if (!model->materials)
@@ -680,8 +678,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 				finite = false;
 		if (!finite || !lmm_invert43 (worlds[j], stored))
 		{
-			static const float id[12]
-				= { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0 };
+			static const float id[12] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0 };
 			memcpy (worlds[j], id, sizeof (id));
 			memcpy (jt->inverse_bind, id, sizeof (id));
 		}
@@ -860,8 +857,8 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 			{
 				for (uint m = 0; m < nm; m++)
 					mats[m] = lmm_be16 (pp + 12 + m * 2);
-				ok = lmm_walk_packet (data, (uint)size, doff, dlen, mats, nm, h.joints,
-					has_nrm, nbt, has_col, has_uv, &soup);
+				ok = lmm_walk_packet (data, (uint)size, doff, dlen, mats, nm, h.joints, has_nrm,
+					nbt, has_col, has_uv, &soup);
 			}
 		}
 		// validate indices before building pools
@@ -916,8 +913,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 		mesh->texcoords = has_uv ? MALLOC (soup.num * sizeof (*mesh->texcoords)) : 0;
 		mesh->vertices = MALLOC (soup.num * sizeof (*mesh->vertices));
 		if (!mesh->positions || !mesh->position_node || !mesh->vertices
-			|| (has_col && !mesh->colors[0])
-			|| (has_uv && !mesh->texcoords))
+			|| (has_col && !mesh->colors[0]) || (has_uv && !mesh->texcoords))
 		{
 			FREE (pkeys);
 			FREE (vpos);
@@ -979,8 +975,7 @@ model_t *ParseLMMDL (const u8 *data, size_t size)
 			if (has_col && cn->col >= 0)
 			{
 				const u8 *cp = data + h.colour_off + (uint)cn->col * 4;
-				color4_t col = { cp[0] / 255.0f, cp[1] / 255.0f, cp[2] / 255.0f,
-					cp[3] / 255.0f };
+				color4_t col = { cp[0] / 255.0f, cp[1] / 255.0f, cp[2] / 255.0f, cp[3] / 255.0f };
 				size_t ci = ncol;
 				for (size_t k = 0; k < ncol; k++)
 					if (mesh->colors[0][k].r == col.r && mesh->colors[0][k].g == col.g
@@ -1229,9 +1224,8 @@ enumError EncodeLMMDL (const model_t *model, u8 **out, uint *out_size)
 			const float cx = cosf ((float)dx), sx = sinf ((float)dx);
 			const float cy = cosf ((float)dy), sy = sinf ((float)dy);
 			const float cz = cosf ((float)dz), sz = sinf ((float)dz);
-			float local[12] = { cz * cy, cz * sy * sx - sz * cx, cz * sy * cx + sz * sx, 0,
-				sz * cy, sz * sy * sx + cz * cx, sz * sy * cx - cz * sx, 0, -sy, cy * sx,
-				cy * cx, 0 };
+			float local[12] = { cz * cy, cz * sy * sx - sz * cx, cz * sy * cx + sz * sx, 0, sz * cy,
+				sz * sy * sx + cz * cx, sz * sy * cx - cz * sx, 0, -sy, cy * sx, cy * cx, 0 };
 			for (int r = 0; r < 3; r++)
 			{
 				local[r * 4] *= jt->scale.x;
@@ -1258,8 +1252,7 @@ enumError EncodeLMMDL (const model_t *model, u8 **out, uint *out_size)
 	f3_t *positions = 0, *normals = 0;
 	f2_t *uvs = 0;
 	u8 (*colours)[4] = 0;
-	size_t npos = 0, cap_pos = 0, nnrm = 0, cap_nrm = 0, nuv = 0, cap_uv = 0, ncol = 0,
-		   cap_col = 0;
+	size_t npos = 0, cap_pos = 0, nnrm = 0, cap_nrm = 0, nuv = 0, cap_uv = 0, ncol = 0, cap_col = 0;
 
 	// per-mesh packet build: one packet per mesh (rigid or single smooth
 	// node per position keeps every packet within the 10-slot limit for
@@ -1313,9 +1306,8 @@ enumError EncodeLMMDL (const model_t *model, u8 **out, uint *out_size)
 			FREE (packets);
 			return ERR_INVALID_DATA;
 		}
-		const int mati = mesh->material_idx >= 0 && (size_t)mesh->material_idx < nmat
-			? mesh->material_idx
-			: 0;
+		const int mati
+			= mesh->material_idx >= 0 && (size_t)mesh->material_idx < nmat ? mesh->material_idx : 0;
 
 		// packet slot assignment: unique position_node values in this mesh
 		int slots[10];
@@ -1323,8 +1315,7 @@ enumError EncodeLMMDL (const model_t *model, u8 **out, uint *out_size)
 		for (size_t c = 0; c < mesh->num_vertices; c++)
 		{
 			const int pi = mesh->vertices[c].position_idx;
-			int node = (pi >= 0 && (size_t)pi < mesh->num_positions) ? mesh->position_node[pi]
-																	 : 0;
+			int node = (pi >= 0 && (size_t)pi < mesh->num_positions) ? mesh->position_node[pi] : 0;
 			if (node < 0 || (size_t)node >= nj)
 				node = 0;
 			uint f = nslots;
@@ -1378,8 +1369,7 @@ enumError EncodeLMMDL (const model_t *model, u8 **out, uint *out_size)
 		{
 			const vertex_t *v = mesh->vertices + c;
 			const int pi = v->position_idx;
-			int node = (pi >= 0 && (size_t)pi < mesh->num_positions) ? mesh->position_node[pi]
-																	 : 0;
+			int node = (pi >= 0 && (size_t)pi < mesh->num_positions) ? mesh->position_node[pi] : 0;
 			if (node < 0 || (size_t)node >= nj)
 				node = 0;
 			uint slot = 0;
@@ -1479,7 +1469,7 @@ enumError EncodeLMMDL (const model_t *model, u8 **out, uint *out_size)
 					if (ncol >= cap_col)
 					{
 						const size_t nc = cap_col ? cap_col * 2 : 256;
-						u8(*nn)[4] = REALLOC (colours, nc * sizeof (*nn));
+						u8 (*nn)[4] = REALLOC (colours, nc * sizeof (*nn));
 						if (!nn)
 						{
 							FREE (blob);
@@ -1590,18 +1580,18 @@ enumError EncodeLMMDL (const model_t *model, u8 **out, uint *out_size)
 	}
 	for (size_t qi = 0; qi < npack; qi++)
 		if (npos > 65535 || nnrm > 65535 || nuv > 65535 || ncol > 65535 || npack > 65535)
-	{
-		FREE (worlds);
-		FREE (ibinds);
-		FREE (positions);
-		FREE (normals);
-		FREE (uvs);
-		FREE (colours);
-		for (size_t k = 0; k < npack; k++)
-			FREE (packets[k].blob);
-		FREE (packets);
-		return ERR_INVALID_DATA;
-	}
+		{
+			FREE (worlds);
+			FREE (ibinds);
+			FREE (positions);
+			FREE (normals);
+			FREE (uvs);
+			FREE (colours);
+			for (size_t k = 0; k < npack; k++)
+				FREE (packets[k].blob);
+			FREE (packets);
+			return ERR_INVALID_DATA;
+		}
 	const bool has_n = nnrm > 0;
 	const uint ntex = (uint)nimg;
 
@@ -1636,9 +1626,8 @@ enumError EncodeLMMDL (const model_t *model, u8 **out, uint *out_size)
 		{
 			const vertex_t *vv = lmesh->vertices + c;
 			const int pi = vv->position_idx;
-			int node = (pi >= 0 && (size_t)pi < lmesh->num_positions)
-				? lmesh->position_node[pi]
-				: 0;
+			int node
+				= (pi >= 0 && (size_t)pi < lmesh->num_positions) ? lmesh->position_node[pi] : 0;
 			if (node < 0 || (size_t)node >= nj)
 				node = 0;
 			uint slot = 0;
@@ -1776,10 +1765,10 @@ enumError EncodeLMMDL (const model_t *model, u8 **out, uint *out_size)
 			if (im->size >= 24 && !memcmp (im->data, "\x89PNG\r\n\x1a\n", 8)
 				&& !memcmp (im->data + 12, "IHDR", 4))
 			{
-				w = (uint)im->data[16] << 24 | (uint)im->data[17] << 16
-					| (uint)im->data[18] << 8 | im->data[19];
-				hh = (uint)im->data[20] << 24 | (uint)im->data[21] << 16
-					| (uint)im->data[22] << 8 | im->data[23];
+				w = (uint)im->data[16] << 24 | (uint)im->data[17] << 16 | (uint)im->data[18] << 8
+					| im->data[19];
+				hh = (uint)im->data[20] << 24 | (uint)im->data[21] << 16 | (uint)im->data[22] << 8
+					| im->data[23];
 				if (!w || !hh || w > 2048 || hh > 2048)
 				{
 					w = 8;

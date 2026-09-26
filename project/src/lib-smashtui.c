@@ -32,35 +32,64 @@ static const char *smashtui_tag_name (u32 tag)
 {
 	switch (tag)
 	{
-		case 0x0000: return "Invalid";
-		case 0x000A: return "Fonts";
-		case 0xF001: return "Symbols";
-		case 0xF002: return "Colors";
-		case 0xF003: return "Transforms";
-		case 0xF004: return "Bounds";
-		case 0xF005: return "ActionScript";
-		case 0xFF05: return "ActionScript2";
-		case 0xF007: return "TextureAtlases";
-		case 0xF008: return "UnkF008";
-		case 0xF009: return "UnkF009";
-		case 0xF00A: return "UnkF00A";
-		case 0xF00B: return "UnkF00B";
-		case 0xF00C: return "Properties";
-		case 0xF00D: return "Defines";
-		case 0xF022: return "Shape";
-		case 0xF024: return "Graphic";
-		case 0xF037: return "ColorMatrix";
-		case 0xF103: return "Positions";
-		case 0x0025: return "DynamicText";
-		case 0x0027: return "DefineSprite";
-		case 0x002B: return "FrameLabel";
-		case 0x0001: return "ShowFrame";
-		case 0xF105: return "Keyframe";
-		case 0x0004: return "PlaceObject";
-		case 0x0005: return "RemoveObject";
-		case 0x000C: return "DoAction";
-		case 0xFF00: return "End";
-		default: return 0;
+		case 0x0000:
+			return "Invalid";
+		case 0x000A:
+			return "Fonts";
+		case 0xF001:
+			return "Symbols";
+		case 0xF002:
+			return "Colors";
+		case 0xF003:
+			return "Transforms";
+		case 0xF004:
+			return "Bounds";
+		case 0xF005:
+			return "ActionScript";
+		case 0xFF05:
+			return "ActionScript2";
+		case 0xF007:
+			return "TextureAtlases";
+		case 0xF008:
+			return "UnkF008";
+		case 0xF009:
+			return "UnkF009";
+		case 0xF00A:
+			return "UnkF00A";
+		case 0xF00B:
+			return "UnkF00B";
+		case 0xF00C:
+			return "Properties";
+		case 0xF00D:
+			return "Defines";
+		case 0xF022:
+			return "Shape";
+		case 0xF024:
+			return "Graphic";
+		case 0xF037:
+			return "ColorMatrix";
+		case 0xF103:
+			return "Positions";
+		case 0x0025:
+			return "DynamicText";
+		case 0x0027:
+			return "DefineSprite";
+		case 0x002B:
+			return "FrameLabel";
+		case 0x0001:
+			return "ShowFrame";
+		case 0xF105:
+			return "Keyframe";
+		case 0x0004:
+			return "PlaceObject";
+		case 0x0005:
+			return "RemoveObject";
+		case 0x000C:
+			return "DoAction";
+		case 0xFF00:
+			return "End";
+		default:
+			return 0;
 	}
 }
 
@@ -91,9 +120,8 @@ static bool smashtui_lm_walk (const u8 *data, size_t size, FILE *out, bool *be)
 		if (out)
 		{
 			const char *tname = smashtui_tag_name (tag);
-			fprintf (out, "tag%u | 0x%04x %-14s | offset 0x%zx | %u bytes\n",
-				ntags, tag, tname ? tname : "Unknown",
-				pos, words * 4);
+			fprintf (out, "tag%u | 0x%04x %-14s | offset 0x%zx | %u bytes\n", ntags, tag,
+				tname ? tname : "Unknown", pos, words * 4);
 		}
 		pos += 8 + (size_t)words * 4;
 		ntags++;
@@ -116,10 +144,10 @@ enumError DecodeSmashLM_Text (FILE *out, const u8 *data, size_t size)
 	bool be;
 	if (!out || !smashtui_lm_walk (data, size, 0, &be))
 		return ERR_INVALID_DATA;
-	fprintf (out, "#LM\n# Super Smash Bros. 4 Lumen UI layout\n\n"
+	fprintf (out,
+		"#LM\n# Super Smash Bros. 4 Lumen UI layout\n\n"
 		"endian = %s\nmagic = 0x%08x\nfilesize_field = %u\n\n[tags]\n",
-		be ? "big" : "little", smashtui_rd32 (data, be),
-		smashtui_rd32 (data + 28, be));
+		be ? "big" : "little", smashtui_rd32 (data, be), smashtui_rd32 (data + 28, be));
 	if (!smashtui_lm_walk (data, size, out, 0))
 		return ERR_INVALID_DATA;
 	return ERR_OK;
@@ -134,8 +162,7 @@ enumError DecodeSmashLM_Text (FILE *out, const u8 *data, size_t size)
 // reference Rebuild() shows the true contiguous layout used below:
 // nameOff x2, 4 uv floats, w/h/atlas shorts, pad short.
 
-static bool smashtui_texlist_ok (const u8 *data, size_t size,
-	u32 *n_atlas, u32 *n_tex)
+static bool smashtui_texlist_ok (const u8 *data, size_t size, u32 *n_atlas, u32 *n_tex)
 {
 	if (!data || size < 16 || memcmp (data, "TLST", 4))
 		return false;
@@ -192,22 +219,21 @@ enumError DecodeSmashTexlist_Text (FILE *out, const u8 *data, size_t size)
 
 	const u32 eoff = rd_le16 (data + 12);
 	const u32 soff = rd_le16 (data + 14);
-	fprintf (out, "#TEXLIST\n# Super Smash Bros. 4 UI texture-atlas table\n\n"
-		"atlases = %u\ntextures = %u\n\n[atlases]\n", na, nt);
+	fprintf (out,
+		"#TEXLIST\n# Super Smash Bros. 4 UI texture-atlas table\n\n"
+		"atlases = %u\ntextures = %u\n\n[atlases]\n",
+		na, nt);
 	for (u32 i = 0; i < na; i++)
-		fprintf (out, "atlas%u flags = 0x%08x%s\n", i,
-			rd_le32 (data + 0x10 + (size_t)i * 4),
+		fprintf (out, "atlas%u flags = 0x%08x%s\n", i, rd_le32 (data + 0x10 + (size_t)i * 4),
 			rd_le32 (data + 0x10 + (size_t)i * 4) & 0x01000000u ? " (dynamic)" : "");
 	fprintf (out, "\n[textures]\n# idx | name | uv_tl uv_br | w h | atlas\n");
 	for (u32 i = 0; i < nt; i++)
 	{
 		const u8 *e = data + eoff + (size_t)i * 0x20;
 		fprintf (out, "%u | %s | %.6g %.6g %.6g %.6g | %d %d | %d\n", i,
-			(const char *)(data + soff + rd_le32 (e)),
-			smashtui_f32le (e + 8), smashtui_f32le (e + 12),
-			smashtui_f32le (e + 16), smashtui_f32le (e + 20),
-			(s16)rd_le16 (e + 0x18), (s16)rd_le16 (e + 0x1a),
-			(s16)rd_le16 (e + 0x1c));
+			(const char *)(data + soff + rd_le32 (e)), smashtui_f32le (e + 8),
+			smashtui_f32le (e + 12), smashtui_f32le (e + 16), smashtui_f32le (e + 20),
+			(s16)rd_le16 (e + 0x18), (s16)rd_le16 (e + 0x1a), (s16)rd_le16 (e + 0x1c));
 	}
 	return ERR_OK;
 }

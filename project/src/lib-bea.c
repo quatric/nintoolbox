@@ -144,8 +144,7 @@ static enumError scan_bea_file (bea_file_t *f, const u8 *data, uint size, u64 as
 	{
 		u8 *dec = 0;
 		uint dec_size = 0;
-		const enumError derr
-			= DecodeZSTD (&dec, &dec_size, data + file_offset, file_size);
+		const enumError derr = DecodeZSTD (&dec, &dec_size, data + file_offset, file_size);
 		if (derr || !dec || dec_size != uncompressed_size)
 		{
 			FREE (dec);
@@ -228,10 +227,11 @@ enumError ScanBEA (bea_archive_t *bea, const u8 *data, uint size)
 	{
 		const u32 n_nodes = rd_le32 (data + dic_off + 4); // excludes root
 		const u64 table_off = dic_off + 8;
-		const u64 n_total = (u64)n_nodes + 1; // widen before the multiply below:
-			// n_nodes==UINT32_MAX would otherwise wrap n_nodes+1 to 0 in 32-bit
-			// math, passing the bounds check with a 0-size table while the loop
-			// below still iterates 2^32 times into it.
+		const u64 n_total
+			= (u64)n_nodes + 1; // widen before the multiply below:
+								// n_nodes==UINT32_MAX would otherwise wrap n_nodes+1 to 0 in 32-bit
+								// math, passing the bounds check with a 0-size table while the loop
+								// below still iterates 2^32 times into it.
 		if (table_off + n_total * 16 <= size)
 		{
 			bea->n_dict_nodes = (uint)n_total;
@@ -312,9 +312,9 @@ void ResetBEA (bea_archive_t *bea)
 
 typedef struct bea_dic_node_t
 {
-	ccp  data; // borrowed pointer into the caller's 'names' array, or "" for the tree's own root
-	int  data_len;
-	int  bit_idx; // C#'s bitInx; -1 for the tree's own root
+	ccp data; // borrowed pointer into the caller's 'names' array, or "" for the tree's own root
+	int data_len;
+	int bit_idx; // C#'s bitInx; -1 for the tree's own root
 	struct bea_dic_node_t *parent;
 	struct bea_dic_node_t *child[2];
 } bea_dic_node_t;
@@ -410,7 +410,8 @@ static bea_dic_node_t *bea_dic_new_node (
 	return n;
 }
 
-static uint bea_dic_insert_entry (bea_dic_tree_t *tree, ccp data, int data_len, bea_dic_node_t *node)
+static uint bea_dic_insert_entry (
+	bea_dic_tree_t *tree, ccp data, int data_len, bea_dic_node_t *node)
 {
 	for (uint i = 0; i < tree->n_entries; i++)
 	{
@@ -433,7 +434,8 @@ static uint bea_dic_insert_entry (bea_dic_tree_t *tree, ccp data, int data_len, 
 static uint bea_dic_index_of (bea_dic_tree_t *tree, ccp data, int data_len)
 {
 	for (uint i = 0; i < tree->n_entries; i++)
-		if (tree->entries[i]->data_len == data_len && !memcmp (tree->entries[i]->data, data, data_len))
+		if (tree->entries[i]->data_len == data_len
+			&& !memcmp (tree->entries[i]->data, data, data_len))
 			return i;
 	return 0; // unreachable: every child pointer was itself inserted earlier
 }
@@ -473,7 +475,8 @@ static void bea_dic_insert (bea_dic_tree_t *tree, ccp key, int key_len)
 	{
 		bea_dic_node_t *nn = bea_dic_new_node (tree, key, key_len, bit_idx, current);
 		const int b = bea_bit (key, key_len, bit_idx) ^ 1;
-		nn->child[b] = bea_bit (current->data, current->data_len, bit_idx) == b ? current : tree->root;
+		nn->child[b]
+			= bea_bit (current->data, current->data_len, bit_idx) == b ? current : tree->root;
 		current->child[bea_bit (key, key_len, current->bit_idx)] = nn;
 		bea_dic_insert_entry (tree, key, key_len, nn);
 	}
@@ -512,8 +515,10 @@ static bea_dic_entry_t *BuildBeaDict (ccp const *names, uint n)
 	{
 		bea_dic_node_t *node = tree.entries[i];
 		out[i].reference = (u32)node->bit_idx;
-		out[i].idx_left = (u16)bea_dic_index_of (&tree, node->child[0]->data, node->child[0]->data_len);
-		out[i].idx_right = (u16)bea_dic_index_of (&tree, node->child[1]->data, node->child[1]->data_len);
+		out[i].idx_left
+			= (u16)bea_dic_index_of (&tree, node->child[0]->data, node->child[0]->data_len);
+		out[i].idx_right
+			= (u16)bea_dic_index_of (&tree, node->child[1]->data, node->child[1]->data_len);
 		if (i == 0)
 			out[i].key = STRDUP ("");
 		else
@@ -627,7 +632,7 @@ typedef struct bea_reloc_t
 {
 	u32 pos;
 	u16 struct_count;
-	u8  offset_count, padding_count;
+	u8 offset_count, padding_count;
 } bea_reloc_t;
 
 typedef struct bea_reloc_list_t
@@ -863,7 +868,8 @@ enumError CreateBEA (u8 **dest, uint *dest_size, bea_archive_t *bea)
 		bw_patch_u64 (&w, asst_ptr_pos[i - 1], w.pos);
 
 		bw_bytes (&w, "ASST", 4);
-		block_header_pos[i - 1] = w.pos; // recorded right after the signature, matching SaveBlockHeader()
+		block_header_pos[i - 1]
+			= w.pos; // recorded right after the signature, matching SaveBlockHeader()
 		bw_u32 (&w, 0); // block header offset placeholder
 		bw_u64 (&w, 0); // block header size placeholder
 		bw_u16 (&w, f->unk1);
@@ -915,7 +921,8 @@ enumError CreateBEA (u8 **dest, uint *dest_size, bea_archive_t *bea)
 	//--- string pool ("_STR")
 
 	bw_bytes (&w, "_STR", 4);
-	block_header_pos[bea->n_files] = w.pos; // recorded right after the signature, matching SaveBlockHeader()
+	block_header_pos[bea->n_files]
+		= w.pos; // recorded right after the signature, matching SaveBlockHeader()
 	bw_u32 (&w, 0); // block header offset placeholder
 	bw_u64 (&w, 0); // block header size placeholder
 	bw_u32 (&w, pool.n ? pool.n - 1 : 0);
@@ -1093,7 +1100,8 @@ enumError create_bea_dir (ccp source, ccp dest)
 			bea.compression_name = STRDUP (rest);
 		else if (!strcmp (key, "reference"))
 		{
-			bea.reference_list = REALLOC (bea.reference_list, (bea.n_references + 1) * sizeof (ccp));
+			bea.reference_list
+				= REALLOC (bea.reference_list, (bea.n_references + 1) * sizeof (ccp));
 			bea.reference_list[bea.n_references++] = STRDUP (rest);
 		}
 		else if (!strcmp (key, "file"))

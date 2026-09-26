@@ -24,7 +24,11 @@
 
 #include "lib-std.h"
 
-typedef enum { TORUS_TEXTURE = 1, TORUS_STREAM = 2 } torus_kind_t;
+typedef enum
+{
+	TORUS_TEXTURE = 1,
+	TORUS_STREAM = 2
+} torus_kind_t;
 
 typedef struct
 {
@@ -49,6 +53,7 @@ torus_asset_t *ListTorusHnk (const u8 *data, size_t size, uint *count);
 enumError DecodeTorusTexture (u8 **rgba, const torus_asset_t *a);
 
 // RAW: the stream's raw file. Result is a 16-bit PCM WAV.
-enumError DecodeTorusStream (u8 **wav, size_t *wav_size, const torus_asset_t *a, const u8 *raw, size_t raw_size);
+enumError DecodeTorusStream (
+	u8 **wav, size_t *wav_size, const torus_asset_t *a, const u8 *raw, size_t raw_size);
 
 #endif

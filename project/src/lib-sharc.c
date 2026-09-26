@@ -71,7 +71,8 @@ enumError DecodeSHARC_Text (FILE *out, const u8 *data, size_t size)
 	const u32 program_count = rd_le32 (p + 4);
 	p += 8;
 
-	fprintf (out, "#SHARC\n"
+	fprintf (out,
+		"#SHARC\n"
 		"version = %u\n"
 		"file_size = %u\n"
 		"name = %s\n"
@@ -241,8 +242,8 @@ static void nxr_skip_variation_symbol_table (nxr_t *r, FILE *out, const char *la
 	{
 		const u64 epos = r->pos;
 		u32 esize, name_len, value_len, symbol_len;
-		if (!nxr_u32 (r, &esize) || !nxr_u32 (r, &name_len)
-			|| !nxr_u32 (r, &value_len) || !nxr_u32 (r, &symbol_len) || !esize)
+		if (!nxr_u32 (r, &esize) || !nxr_u32 (r, &name_len) || !nxr_u32 (r, &value_len)
+			|| !nxr_u32 (r, &symbol_len) || !esize)
 		{
 			r->bad = true;
 			break;
@@ -302,8 +303,7 @@ static void nxr_skip_uniform_table (nxr_t *r, FILE *out)
 	{
 		const u64 epos = r->pos;
 		u32 esize, var_size, name_len, value_section_size, value_count;
-		if (!nxr_u32 (r, &esize) || !nxr_u32 (r, &var_size) || !nxr_u32 (r, &name_len)
-			|| !esize)
+		if (!nxr_u32 (r, &esize) || !nxr_u32 (r, &var_size) || !nxr_u32 (r, &name_len) || !esize)
 		{
 			r->bad = true;
 			break;
@@ -319,8 +319,7 @@ static void nxr_skip_uniform_table (nxr_t *r, FILE *out)
 			{
 				const u64 vpos = r->pos;
 				u32 vsize, unk, str_len;
-				if (!nxr_u32 (r, &vsize) || !nxr_u32 (r, &unk) || !nxr_u32 (r, &str_len)
-					|| !vsize)
+				if (!nxr_u32 (r, &vsize) || !nxr_u32 (r, &unk) || !nxr_u32 (r, &str_len) || !vsize)
 				{
 					r->bad = true;
 					break;
@@ -339,8 +338,8 @@ static void nxr_skip_uniform_table (nxr_t *r, FILE *out)
 // Header/Variations/ShaderPrograms, following SHARCFBNX.cs's Header.Read() exactly. ALIGNMENT
 // is the value already read from the outer SHARCFB header at offset 0x14 (the field the non-NX
 // path calls 'name_length', but that's this variant's alignment for the fixed string table).
-static enumError DecodeSHARCFBNX_Text (FILE *out, const u8 *data, size_t size,
-	bool is_le, u32 alignment)
+static enumError DecodeSHARCFBNX_Text (
+	FILE *out, const u8 *data, size_t size, bool is_le, u32 alignment)
 {
 	nxr_t r = { data, size, 0, is_le, false };
 
@@ -353,7 +352,8 @@ static enumError DecodeSHARCFBNX_Text (FILE *out, const u8 *data, size_t size,
 		|| !nxr_u32 (&r, &binary_array_offset))
 		return ERROR0 (ERR_INVALID_DATA, "SHARCFB-NX: file shorter than the fixed header\n");
 
-	fprintf (out, "variant = NX\n"
+	fprintf (out,
+		"variant = NX\n"
 		"alignment = %u\n"
 		"binary_array_size = %u\n"
 		"binary_array_offset = %u\n",
@@ -380,9 +380,10 @@ static enumError DecodeSHARCFBNX_Text (FILE *out, const u8 *data, size_t size,
 	{
 		const u64 vpos = r.pos;
 		u32 section_size, type, pad, section_size2;
-		if (!nxr_u32 (&r, &section_size) || !nxr_u32 (&r, &type)
-			|| !nxr_u32 (&r, &pad) || !nxr_u32 (&r, &section_size2) || !section_size)
-			return ERROR0 (ERR_INVALID_DATA, "SHARCFB-NX: variation %u has an invalid section size\n", i);
+		if (!nxr_u32 (&r, &section_size) || !nxr_u32 (&r, &type) || !nxr_u32 (&r, &pad)
+			|| !nxr_u32 (&r, &section_size2) || !section_size)
+			return ERROR0 (
+				ERR_INVALID_DATA, "SHARCFB-NX: variation %u has an invalid section size\n", i);
 
 		// every offset below (attribute/uniform/sampler/buffer tables) is relative to r.pos
 		// here, per ShaderVariation.Read() -- unused since those tables are only string-table
@@ -393,7 +394,8 @@ static enumError DecodeSHARCFBNX_Text (FILE *out, const u8 *data, size_t size,
 		if (!nxr_u64 (&r, &binary_data_offset) || !nxr_u32 (&r, &shader_a_size)
 			|| !nxr_u32 (&r, &shader_a_offset) || !nxr_u32 (&r, &pad2)
 			|| !nxr_u32 (&r, &num_uniform_blocks) || !nxr_u64 (&r, &uniform_block_offset))
-			return ERROR0 (ERR_INVALID_DATA, "SHARCFB-NX: variation %u header runs past end of file\n", i);
+			return ERROR0 (
+				ERR_INVALID_DATA, "SHARCFB-NX: variation %u header runs past end of file\n", i);
 
 		// Same "dumb hack" the reference implementation uses: the version field alone doesn't
 		// distinguish the layout that inserts a Buffers table, so it's inferred from field
@@ -402,16 +404,19 @@ static enumError DecodeSHARCFBNX_Text (FILE *out, const u8 *data, size_t size,
 		u32 num_buffers = 0;
 		u64 buffer_offset = 0;
 		if (is_new_version && (!nxr_u32 (&r, &num_buffers) || !nxr_u64 (&r, &buffer_offset)))
-			return ERROR0 (ERR_INVALID_DATA, "SHARCFB-NX: variation %u header runs past end of file\n", i);
+			return ERROR0 (
+				ERR_INVALID_DATA, "SHARCFB-NX: variation %u header runs past end of file\n", i);
 
 		u32 num_attributes, num_uniforms, num_samplers;
 		u64 attribute_offset, uniform_offset, sampler_offset;
 		if (!nxr_u32 (&r, &num_attributes) || !nxr_u64 (&r, &attribute_offset)
 			|| !nxr_u32 (&r, &num_uniforms) || !nxr_u64 (&r, &uniform_offset)
 			|| !nxr_u32 (&r, &num_samplers) || !nxr_u64 (&r, &sampler_offset))
-			return ERROR0 (ERR_INVALID_DATA, "SHARCFB-NX: variation %u header runs past end of file\n", i);
+			return ERROR0 (
+				ERR_INVALID_DATA, "SHARCFB-NX: variation %u header runs past end of file\n", i);
 
-		fprintf (out, "  [%u] type = %s, attributes = %u, uniforms = %u, samplers = %u, "
+		fprintf (out,
+			"  [%u] type = %s, attributes = %u, uniforms = %u, samplers = %u, "
 			"uniform_blocks = %u, buffers = %u, shader_binary_size = %u\n",
 			i, type < 2 ? type_name[type] : "?", num_attributes, num_uniforms, num_samplers,
 			num_uniform_blocks, num_buffers, shader_a_size);
@@ -444,12 +449,14 @@ static enumError DecodeSHARCFBNX_Text (FILE *out, const u8 *data, size_t size,
 		int32_t base_index;
 		if (!nxr_u32 (&r, &section_size) || !nxr_u32 (&r, &name_len)
 			|| !nxr_u32 (&r, &section_count) || !nxr_u32 (&r, (u32 *)&base_index) || !section_size)
-			return ERROR0 (ERR_INVALID_DATA, "SHARCFB-NX: program %u has an invalid section size\n", i);
+			return ERROR0 (
+				ERR_INVALID_DATA, "SHARCFB-NX: program %u has an invalid section size\n", i);
 
 		char name[256];
 		nxr_string_inline (&r, name, sizeof (name), name_len);
 		if (r.bad)
-			return ERROR0 (ERR_INVALID_DATA, "SHARCFB-NX: program %u name runs past end of file\n", i);
+			return ERROR0 (
+				ERR_INVALID_DATA, "SHARCFB-NX: program %u name runs past end of file\n", i);
 
 		fprintf (out, "  [%u] %s (base_index = %d)\n", i, name, base_index);
 
@@ -458,7 +465,8 @@ static enumError DecodeSHARCFBNX_Text (FILE *out, const u8 *data, size_t size,
 		nxr_skip_uniform_table (&r, out);
 
 		if (r.bad)
-			return ERROR0 (ERR_INVALID_DATA, "SHARCFB-NX: program %u's value tables run past end of file\n", i);
+			return ERROR0 (ERR_INVALID_DATA,
+				"SHARCFB-NX: program %u's value tables run past end of file\n", i);
 
 		nxr_seek (&r, pos + section_size);
 	}
@@ -469,9 +477,8 @@ static enumError DecodeSHARCFBNX_Text (FILE *out, const u8 *data, size_t size,
 	return ERR_OK;
 }
 
-
-static void print_sharcfb_symbol_list (FILE *out, const u8 *data, size_t size, u64 *cur_pos,
-	bool is_le, ccp list_name, ccp indent)
+static void print_sharcfb_symbol_list (
+	FILE *out, const u8 *data, size_t size, u64 *cur_pos, bool is_le, ccp list_name, ccp indent)
 {
 	u64 p = *cur_pos;
 	if (p + 8 > size)
@@ -499,15 +506,18 @@ static void print_sharcfb_symbol_list (FILE *out, const u8 *data, size_t size, u
 		if (item_p + 24 <= item_p + item_sec_size)
 		{
 			const u32 sym_size = is_le ? rd_le32 (data + item_p + 4) : rd_be32 (data + item_p + 4);
-			const u32 var_name_len = is_le ? rd_le32 (data + item_p + 8) : rd_be32 (data + item_p + 8);
-			const u32 sym_name_len = is_le ? rd_le32 (data + item_p + 12) : rd_be32 (data + item_p + 12);
+			const u32 var_name_len
+				= is_le ? rd_le32 (data + item_p + 8) : rd_be32 (data + item_p + 8);
+			const u32 sym_name_len
+				= is_le ? rd_le32 (data + item_p + 12) : rd_be32 (data + item_p + 12);
 			const u64 str_p = item_p + 24;
 
 			char var_name[128] = "", sym_name[128] = "";
 			if (str_p + var_name_len <= item_p + item_sec_size)
 				copy_name (var_name, sizeof (var_name), data + str_p, var_name_len, data + size);
 			if (str_p + var_name_len + sym_name_len <= item_p + item_sec_size)
-				copy_name (sym_name, sizeof (sym_name), data + str_p + var_name_len, sym_name_len, data + size);
+				copy_name (sym_name, sizeof (sym_name), data + str_p + var_name_len, sym_name_len,
+					data + size);
 
 			fprintf (out, "%s  [%u] %s (symbol = %s, size = %u)\n", indent, i,
 				var_name[0] ? var_name : "<unnamed>", sym_name, sym_size);
@@ -517,8 +527,8 @@ static void print_sharcfb_symbol_list (FILE *out, const u8 *data, size_t size, u
 	*cur_pos = p + sec_size;
 }
 
-static void print_sharcfb_macro_list (FILE *out, const u8 *data, size_t size, u64 *cur_pos,
-	bool is_le, ccp list_name, ccp indent)
+static void print_sharcfb_macro_list (
+	FILE *out, const u8 *data, size_t size, u64 *cur_pos, bool is_le, ccp list_name, ccp indent)
 {
 	u64 p = *cur_pos;
 	if (p + 8 > size)
@@ -549,15 +559,16 @@ static void print_sharcfb_macro_list (FILE *out, const u8 *data, size_t size, u6
 			const u32 val_cnt = is_le ? rd_le32 (data + item_p + 8) : rd_be32 (data + item_p + 8);
 			char mname[128] = "";
 			copy_name (mname, sizeof (mname), data + item_p + 16, name_len, data + size);
-			fprintf (out, "%s  [%u] %s (%u values)\n", indent, i, mname[0] ? mname : "<unnamed>", val_cnt);
+			fprintf (out, "%s  [%u] %s (%u values)\n", indent, i, mname[0] ? mname : "<unnamed>",
+				val_cnt);
 		}
 		item_p += item_sec_size;
 	}
 	*cur_pos = p + sec_size;
 }
 
-static enumError DecodeSHARCFBWiiU_Text (FILE *out, const u8 *data, size_t size, u32 version,
-	bool is_le, u32 name_length)
+static enumError DecodeSHARCFBWiiU_Text (
+	FILE *out, const u8 *data, size_t size, u32 version, bool is_le, u32 name_length)
 {
 	char name[256];
 	copy_name (name, sizeof (name), data + 24, name_length, data + size);
@@ -617,20 +628,23 @@ static enumError DecodeSHARCFBWiiU_Text (FILE *out, const u8 *data, size_t size,
 			{
 				const u32 p_name_len = is_le ? rd_le32 (data + pp + 4) : rd_be32 (data + pp + 4);
 				const u32 kind = is_le ? rd_le32 (data + pp + 8) : rd_be32 (data + pp + 8);
-				const s32 base_idx = (s32)(is_le ? rd_le32 (data + pp + 12) : rd_be32 (data + pp + 12));
+				const s32 base_idx
+					= (s32)(is_le ? rd_le32 (data + pp + 12) : rd_be32 (data + pp + 12));
 
 				char prog_name[256];
 				copy_name (prog_name, sizeof (prog_name), data + pp + 16, p_name_len, data + size);
-				fprintf (out, "  [%u] %s (kind = 0x%x, base_index = %d)\n",
-					i, prog_name[0] ? prog_name : "<unnamed>", kind, base_idx);
+				fprintf (out, "  [%u] %s (kind = 0x%x, base_index = %d)\n", i,
+					prog_name[0] ? prog_name : "<unnamed>", kind, base_idx);
 
 				u64 cp = pp + 16 + p_name_len;
 				const u64 pp_end = pp + p_sec_size;
 
 				if (cp < pp_end)
-					print_sharcfb_macro_list (out, data, size, &cp, is_le, "variation_macros", "    ");
+					print_sharcfb_macro_list (
+						out, data, size, &cp, is_le, "variation_macros", "    ");
 				if (cp < pp_end)
-					print_sharcfb_macro_list (out, data, size, &cp, is_le, "variation_defaults", "    ");
+					print_sharcfb_macro_list (
+						out, data, size, &cp, is_le, "variation_defaults", "    ");
 				if (cp < pp_end)
 					print_sharcfb_symbol_list (out, data, size, &cp, is_le, "uniforms", "    ");
 
@@ -641,7 +655,8 @@ static enumError DecodeSHARCFBWiiU_Text (FILE *out, const u8 *data, size_t size,
 				}
 
 				if (cp < pp_end)
-					print_sharcfb_symbol_list (out, data, size, &cp, is_le, "uniform_blocks", "    ");
+					print_sharcfb_symbol_list (
+						out, data, size, &cp, is_le, "uniform_blocks", "    ");
 				if (cp < pp_end)
 					print_sharcfb_symbol_list (out, data, size, &cp, is_le, "samplers", "    ");
 				if (cp < pp_end)
@@ -669,7 +684,8 @@ enumError DecodeSHARCFB_Text (FILE *out, const u8 *data, size_t size)
 	const bool is_le = bom != 1;
 	const u32 name_length = is_le ? rd_le32 (data + 20) : rd_be32 (data + 20);
 
-	fprintf (out, "#SHARCFB\n"
+	fprintf (out,
+		"#SHARCFB\n"
 		"version = %u\n"
 		"file_size = %u\n"
 		"byte_order = %s\n",

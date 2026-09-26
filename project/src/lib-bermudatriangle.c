@@ -38,13 +38,17 @@ static int is_ascii_run (const u8 *data, size_t len)
 //-----------------------------------------------------------------------------
 // (0) ".MWT" "GDATAVERSION" outer resource envelope
 
-enum { BT_MWT_MAGIC_LEN = 12, BT_MWT_HEADER_SIZE = 0x40 };
+enum
+{
+	BT_MWT_MAGIC_LEN = 12,
+	BT_MWT_HEADER_SIZE = 0x40
+};
 #define BT_MWT_MAGIC "GDATAVERSION"
 #define BT_CAMELOT_BANK_MAGIC_LE 0x0020af30u // big-endian on disk: 00 20 af 30
 
 int IsBermudaMwt (const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!data || size < BT_MWT_HEADER_SIZE)
 		return 0;
 	if (memcmp (data, BT_MWT_MAGIC, BT_MWT_MAGIC_LEN))
@@ -58,19 +62,19 @@ enumError DecodeBermudaMwt_Text (FILE *f, const u8 *data, size_t size, size_t fi
 		return EINVAL;
 
 	u32 payload_size = rd_le32 (data + 0x10);
-	u32 width        = rd_le32 (data + 0x14);
-	u32 height       = rd_le32 (data + 0x18);
-	u32 flags        = rd_le32 (data + 0x1c);
+	u32 width = rd_le32 (data + 0x14);
+	u32 height = rd_le32 (data + 0x18);
+	u32 flags = rd_le32 (data + 0x1c);
 
 	fprintf (f, "# Bermuda Triangle GDATAVERSION resource envelope (.MWT)\n");
 	fprintf (f, "version = 2\n");
-	fprintf (f, "payload_size = %u  # bytes following this 0x%x-byte header\n",
-		payload_size, BT_MWT_HEADER_SIZE);
+	fprintf (f, "payload_size = %u  # bytes following this 0x%x-byte header\n", payload_size,
+		BT_MWT_HEADER_SIZE);
 	fprintf (f, "width = %u\n", width);
 	fprintf (f, "height = %u\n", height);
 	fprintf (f, "flags = %u  # meaning not confirmed\n", flags);
 
-	if ((u64) BT_MWT_HEADER_SIZE + payload_size > size)
+	if ((u64)BT_MWT_HEADER_SIZE + payload_size > size)
 	{
 		fprintf (f, "# payload truncated/out-of-bounds -- not inspected further\n");
 		return ERR_OK;
@@ -92,11 +96,11 @@ enumError DecodeBermudaMwt_Text (FILE *f, const u8 *data, size_t size, size_t fi
 
 int IsBermudaPlanetG (const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!data || size < 8)
 		return 0;
 	u32 len = rd_le32 (data);
-	if (!len || len > 64 || 4 + (u64) len > size)
+	if (!len || len > 64 || 4 + (u64)len > size)
 		return 0;
 	if (!is_ascii_run (data + 4, len))
 		return 0;
@@ -115,7 +119,8 @@ enumError DecodeBermudaPlanetG_Text (FILE *f, const u8 *data, size_t size, size_
 	if (!f || !data || !IsBermudaPlanetG (data, size, file_size))
 		return EINVAL;
 
-	fprintf (f, "# Bermuda Triangle PLANETG tagged-object resource\n"
+	fprintf (f,
+		"# Bermuda Triangle PLANETG tagged-object resource\n"
 		"# heuristic walk: length-prefixed ASCII runs are tags/strings,\n"
 		"# everything else is printed as a raw u32 field (see lib-bermudatriangle.h)\n");
 
@@ -123,8 +128,7 @@ enumError DecodeBermudaPlanetG_Text (FILE *f, const u8 *data, size_t size, size_
 	while (pos + 4 <= size)
 	{
 		u32 val = rd_le32 (data + pos);
-		if (val && val <= 256 && pos + 4 + (u64) val <= size
-			&& is_ascii_run (data + pos + 4, val))
+		if (val && val <= 256 && pos + 4 + (u64)val <= size && is_ascii_run (data + pos + 4, val))
 		{
 			fprintf (f, "tag[0x%zx] len=%u \"", pos, val);
 			print_escaped (f, data + pos + 4, val);
@@ -144,12 +148,16 @@ enumError DecodeBermudaPlanetG_Text (FILE *f, const u8 *data, size_t size, size_
 //-----------------------------------------------------------------------------
 // (2) ".PKI" "IMAGE_WII_COMPACT_FILE_VERSION_1" texture-pack container
 
-enum { BT_PKI_MAGIC_LEN = 32, BT_PKI_HEADER_SIZE = 36 };
+enum
+{
+	BT_PKI_MAGIC_LEN = 32,
+	BT_PKI_HEADER_SIZE = 36
+};
 #define BT_PKI_MAGIC "IMAGE_WII_COMPACT_FILE_VERSION_1"
 
 int IsBermudaPki (const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!data || size < BT_PKI_HEADER_SIZE)
 		return 0;
 	return !memcmp (data, BT_PKI_MAGIC, BT_PKI_MAGIC_LEN);
@@ -175,15 +183,17 @@ enumError DecodeBermudaPki_Text (FILE *f, const u8 *data, size_t size, size_t fi
 		}
 		u32 name_len = rd_le32 (data + pos);
 		pos += 4;
-		if ((u64) pos + name_len + 8 > size)
+		if ((u64)pos + name_len + 8 > size)
 		{
 			fprintf (f, "# entry %u name/trailer out-of-bounds -- stopping\n", i);
 			break;
 		}
 		const u8 *name = data + pos;
 		pos += name_len;
-		u32 data_size   = rd_le32 (data + pos); pos += 4;
-		u32 data_offset = rd_le32 (data + pos); pos += 4;
+		u32 data_size = rd_le32 (data + pos);
+		pos += 4;
+		u32 data_offset = rd_le32 (data + pos);
+		pos += 4;
 
 		fprintf (f, "entry[%u] name=\"", i);
 		print_escaped (f, name, name_len);
@@ -196,15 +206,18 @@ enumError DecodeBermudaPki_Text (FILE *f, const u8 *data, size_t size, size_t fi
 //-----------------------------------------------------------------------------
 // (3) ".pgf" font resource
 
-enum { BT_PGF_MIN_HEADER = 8 };
+enum
+{
+	BT_PGF_MIN_HEADER = 8
+};
 
 int IsBermudaPgf (const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!data || size < BT_PGF_MIN_HEADER)
 		return 0;
 	u32 name_len = rd_le32 (data);
-	if (!name_len || name_len > 64 || 4 + (u64) name_len + 4 > size)
+	if (!name_len || name_len > 64 || 4 + (u64)name_len + 4 > size)
 		return 0;
 	if (!is_ascii_run (data + 4, name_len))
 		return 0;
@@ -231,7 +244,7 @@ enumError DecodeBermudaPgf_Text (FILE *f, const u8 *data, size_t size, size_t fi
 	fprintf (f, "point_size = %u\n", point_size);
 	fprintf (f, "# per-glyph offset table follows; not decoded, see lib-bermudatriangle.h\n");
 
-	(void) size;
-	(void) file_size;
+	(void)size;
+	(void)file_size;
 	return ERR_OK;
 }

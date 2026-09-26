@@ -127,31 +127,10 @@ ccp GetNintendoFormatName (nfmt_type_t type)
 		"BNLL", "BNCL", "BNBL", "LZOvl", "ALAR", "DARC", "SADL", "HSF", "HSD", "BNFM", "XPCK",
 		"XIMG", "ZTAB", "GLG", "MDR", "PERS", "PVOL", "STPK", "G1M", "G1T", "G4PKM", "LMD", "MSH",
 		"MOD", "GAR", "TEX3DS", "BCSTM", "BFSTM", "BCWAV", "BFWAV", "BNSH", "GFBMDL", "GFBANM",
-		"BNSTX", "AAMP", 		"MIO", "ZDAT", "SFX", "VFF", "TM0", "RETRO-TXTR", "TROPICAL-TXTR",
-		"MPR-PACK",
-		"MPR-TXTR",
-		"MPR-CMDL",
-		"MPR-SKEL",
-		"BFSHA",
-		"SHARC",
-		"SHARCFB",
-		"VFXB",
-		"RZPK",
-		"CSB",
-		"CTB",
-		"LMMDL",
-		"LMBIN",
-		"PIKMOD",
-		"PIKARC",
-		"WWRSC",
-		"LMJMP",
-		"LMKEY",
-		"LMTMB",
-		"LMGEB",
-		"LMSLK",
-		"LMSLS",
-		"WWMODEL",
-		"AFS" };
+		"BNSTX", "AAMP", "MIO", "ZDAT", "SFX", "VFF", "TM0", "RETRO-TXTR", "TROPICAL-TXTR",
+		"MPR-PACK", "MPR-TXTR", "MPR-CMDL", "MPR-SKEL", "BFSHA", "SHARC", "SHARCFB", "VFXB", "RZPK",
+		"CSB", "CTB", "LMMDL", "LMBIN", "PIKMOD", "PIKARC", "WWRSC", "LMJMP", "LMKEY", "LMTMB",
+		"LMGEB", "LMSLK", "LMSLS", "WWMODEL", "AFS" };
 	return type < sizeof (tab) / sizeof (*tab) ? tab[type] : "UNKNOWN";
 }
 
@@ -273,8 +252,8 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_NSCR, true, false, 0);
 		if (!memcmp (d, "BTX0", 4) || !memcmp (d, "BMD0", 4))
 			return make_info (NFMT_NSBTX, true, false, 0);
-		if (!memcmp (d, "RTNF", 4) || !memcmp (d, "FNTR", 4)
-			|| !memcmp (d, "RTFN", 4) || !memcmp (d, "NFTR", 4))
+		if (!memcmp (d, "RTNF", 4) || !memcmp (d, "FNTR", 4) || !memcmp (d, "RTFN", 4)
+			|| !memcmp (d, "NFTR", 4))
 			return make_info (NFMT_NFTR, true, false, 0);
 		if (!memcmp (d, "RNFB", 4) || !memcmp (d, "BNFR", 4))
 			return make_info (NFMT_BNFR, true, false, 0);
@@ -302,8 +281,7 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			const u32 refs = rd_be32 (d + 16);
 			if (fs >= 0x20 && ds > 0 && ds <= fs && (roots > 0 || refs > 0) && roots < 0x10000
 				&& refs < 0x10000
-				&& (fs == size
-					|| (ext && (!strcasecmp (ext, ".dat") || !strcasecmp (ext, ".sys")))
+				&& (fs == size || (ext && (!strcasecmp (ext, ".dat") || !strcasecmp (ext, ".sys")))
 					|| hsd_bundle_chain (d, size)))
 				return make_info (NFMT_HSD, true, false, 0);
 		}
@@ -359,8 +337,7 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		{
 			const u32 rz_num = rd_le32 (d + 8);
 			const u32 rz_data_off = rd_le32 (d + 12);
-			if (rz_num > 0 && rz_num <= 10000 && rz_data_off >= 0x20
-				&& (u64)rz_data_off <= size
+			if (rz_num > 0 && rz_num <= 10000 && rz_data_off >= 0x20 && (u64)rz_data_off <= size
 				&& (u64)0x20 + (u64)rz_num * 44 <= size)
 				return make_info (NFMT_RZPK, false, false, 0);
 		}

@@ -32,7 +32,8 @@
 #endif
 
 #if defined(__cplusplus)
-extern "C" {
+extern "C"
+{
 #endif
 
 /**
@@ -93,16 +94,16 @@ extern "C" {
 
 /**
  * Hash table placement policy.
- * 
+ *
  *   FASTYZ_HTAB_STATIC (default)
  *       Table is a single static array. NOT reentrant: concurrent compressions
  *       share one table. Single-threaded only.
- * 
+ *
  *   FASTYZ_HTAB_SCRATCH
  *       Table lives in caller-supplied scratch memory. Thread-safe.
  *       Costs ~3-4% throughput vs. otherwise.
  */
-#define FASTYZ_HTAB_STATIC  0
+#define FASTYZ_HTAB_STATIC 0
 #define FASTYZ_HTAB_SCRATCH 1
 
 #ifndef FASTYZ_HTAB
@@ -118,54 +119,54 @@ extern "C" {
  * Can be overridden at compile time with -DFASTYZ_HASH_LOG=XX
  */
 #ifndef FASTYZ_HASH_LOG
-    /* Retain compatibility with v1.0.0 */
-    #ifdef HASH_LOG
-        #if defined(__clang__) || defined(__GNUC__)
-            #pragma GCC warning "HASH_LOG is deprecated; use FASTYZ_HASH_LOG instead"
-        #elif defined(_MSC_VER)
-            #pragma message("HASH_LOG is deprecated; use FASTYZ_HASH_LOG instead")
-        #endif
-        #define FASTYZ_HASH_LOG HASH_LOG
-    #else
-        #define FASTYZ_HASH_LOG 14
-    #endif
+/* Retain compatibility with v1.0.0 */
+#ifdef HASH_LOG
+#if defined(__clang__) || defined(__GNUC__)
+#pragma GCC warning "HASH_LOG is deprecated; use FASTYZ_HASH_LOG instead"
+#elif defined(_MSC_VER)
+#pragma message("HASH_LOG is deprecated; use FASTYZ_HASH_LOG instead")
 #endif
-
-#if FASTYZ_HTAB == FASTYZ_HTAB_SCRATCH
-    /**
-     * Number of bytes of scratch memory yaz0_compress_scratch() requires.
-     */
-    #define FASTYZ_SCRATCH_SIZE ((size_t)(1u << FASTYZ_HASH_LOG) * sizeof(uint32_t))
+#define FASTYZ_HASH_LOG HASH_LOG
+#else
+#define FASTYZ_HASH_LOG 14
+#endif
 #endif
 
 #if FASTYZ_HTAB == FASTYZ_HTAB_SCRATCH
 /**
- * Compress a block of data using Yaz0 compression.
- *
- * This function compresses the input data and produces a valid Yaz0 stream
- * complete with the standard 16-byte header. The output is fully compatible
- * with any standard Yaz0 decompressor.
- *
- * The compression uses a fast hash-based LZ77 algorithm adapted from FastLZ,
- * optimized for speed over compression ratio. For typical data, expect
- * compression speeds of 150-200 MB/s on modern hardware.
- * 
- * Thread-safe.
- *
- * @param input   Pointer to the input data to compress
- * @param length  Size of the input data in bytes (minimum 16 bytes)
- * @param output  Pointer to the output buffer for compressed data
- *                Must be at least FASTYZ_BOUND(length) bytes
- * @param scratch Scratch buffer, at least FASTYZ_SCRATCH_SIZE bytes,
- *                aligned to at least alignof(uint32_t).
- *
- * @return        Size of the compressed data in bytes,
- *                or 0 if compression failed
- *
- * @note The input and output buffers must not overlap.
- * @note The output includes the 16-byte Yaz0 header.
+ * Number of bytes of scratch memory yaz0_compress_scratch() requires.
  */
-int yaz0_compress_scratch(const void* input, int length, void* output, void* scratch);
+#define FASTYZ_SCRATCH_SIZE ((size_t)(1u << FASTYZ_HASH_LOG) * sizeof (uint32_t))
+#endif
+
+#if FASTYZ_HTAB == FASTYZ_HTAB_SCRATCH
+	/**
+	 * Compress a block of data using Yaz0 compression.
+	 *
+	 * This function compresses the input data and produces a valid Yaz0 stream
+	 * complete with the standard 16-byte header. The output is fully compatible
+	 * with any standard Yaz0 decompressor.
+	 *
+	 * The compression uses a fast hash-based LZ77 algorithm adapted from FastLZ,
+	 * optimized for speed over compression ratio. For typical data, expect
+	 * compression speeds of 150-200 MB/s on modern hardware.
+	 *
+	 * Thread-safe.
+	 *
+	 * @param input   Pointer to the input data to compress
+	 * @param length  Size of the input data in bytes (minimum 16 bytes)
+	 * @param output  Pointer to the output buffer for compressed data
+	 *                Must be at least FASTYZ_BOUND(length) bytes
+	 * @param scratch Scratch buffer, at least FASTYZ_SCRATCH_SIZE bytes,
+	 *                aligned to at least alignof(uint32_t).
+	 *
+	 * @return        Size of the compressed data in bytes,
+	 *                or 0 if compression failed
+	 *
+	 * @note The input and output buffers must not overlap.
+	 * @note The output includes the 16-byte Yaz0 header.
+	 */
+	int yaz0_compress_scratch (const void *input, int length, void *output, void *scratch);
 #else
 /**
  * Compress a block of data using Yaz0 compression.
@@ -177,7 +178,7 @@ int yaz0_compress_scratch(const void* input, int length, void* output, void* scr
  * The compression uses a fast hash-based LZ77 algorithm adapted from FastLZ,
  * optimized for speed over compression ratio. For typical data, expect
  * compression speeds of 150-200 MB/s on modern hardware.
- * 
+ *
  * NOT thread-safe!
  *
  * @param input   Pointer to the input data to compress
@@ -191,52 +192,52 @@ int yaz0_compress_scratch(const void* input, int length, void* output, void* scr
  * @note The input and output buffers must not overlap.
  * @note The output includes the 16-byte Yaz0 header.
  */
-int yaz0_compress(const void* input, int length, void* output);
+int yaz0_compress (const void *input, int length, void *output);
 #endif
 
-/**
- * Decompress a Yaz0-compressed block of data.
- *
- * This function decompresses data that was compressed using Yaz0 compression.
- * It reads the decompressed size from the Yaz0 header and validates that the
- * output buffer is large enough.
- *
- * @param input   Pointer to the compressed Yaz0 data (including header)
- * @param length  Size of the compressed data in bytes
- * @param output  Pointer to the output buffer for decompressed data
- * @param maxout  Maximum size of the output buffer in bytes
- *
- * @return        Size of the decompressed data in bytes,
- *                or 0 if decompression failed (invalid data or buffer too small)
- *
- * @note The input and output buffers must not overlap.
- */
-int yaz0_decompress(const void* input, int length, void* output, int maxout);
+	/**
+	 * Decompress a Yaz0-compressed block of data.
+	 *
+	 * This function decompresses data that was compressed using Yaz0 compression.
+	 * It reads the decompressed size from the Yaz0 header and validates that the
+	 * output buffer is large enough.
+	 *
+	 * @param input   Pointer to the compressed Yaz0 data (including header)
+	 * @param length  Size of the compressed data in bytes
+	 * @param output  Pointer to the output buffer for decompressed data
+	 * @param maxout  Maximum size of the output buffer in bytes
+	 *
+	 * @return        Size of the decompressed data in bytes,
+	 *                or 0 if decompression failed (invalid data or buffer too small)
+	 *
+	 * @note The input and output buffers must not overlap.
+	 */
+	int yaz0_decompress (const void *input, int length, void *output, int maxout);
 
-/**
- * Read the decompressed size from a Yaz0 header.
- *
- * This utility function extracts the original (decompressed) size from a
- * Yaz0 header without performing any decompression. Useful for allocating
- * an appropriately sized output buffer before decompression.
- *
- * @param input   Pointer to the Yaz0 data (at least 8 bytes)
- *
- * @return        The decompressed size in bytes,
- *                or 0 if the header is invalid (wrong magic)
- */
-uint32_t yaz0_get_decompressed_size(const void* input);
+	/**
+	 * Read the decompressed size from a Yaz0 header.
+	 *
+	 * This utility function extracts the original (decompressed) size from a
+	 * Yaz0 header without performing any decompression. Useful for allocating
+	 * an appropriately sized output buffer before decompression.
+	 *
+	 * @param input   Pointer to the Yaz0 data (at least 8 bytes)
+	 *
+	 * @return        The decompressed size in bytes,
+	 *                or 0 if the header is invalid (wrong magic)
+	 */
+	uint32_t yaz0_get_decompressed_size (const void *input);
 
-/**
- * Validate a Yaz0 header.
- *
- * Checks if the input data starts with a valid Yaz0 magic signature ("Yaz0").
- *
- * @param input   Pointer to the data to validate (at least 4 bytes)
- *
- * @return        Non-zero if the header is valid, 0 otherwise
- */
-int yaz0_is_valid(const void* input);
+	/**
+	 * Validate a Yaz0 header.
+	 *
+	 * Checks if the input data starts with a valid Yaz0 magic signature ("Yaz0").
+	 *
+	 * @param input   Pointer to the data to validate (at least 4 bytes)
+	 *
+	 * @return        Non-zero if the header is valid, 0 otherwise
+	 */
+	int yaz0_is_valid (const void *input);
 
 #if defined(__cplusplus)
 }

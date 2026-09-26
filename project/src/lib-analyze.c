@@ -739,7 +739,8 @@ enumError ExecAnalyzeLECODE (analyze_param_t *ap)
 				: ana.head->v3.region == 'K' ? "Korea"
 											 : "?",
 			IsBuildModeDebug (ana.head->v3.build_mode), IsBuildModeTest (ana.head->v3.build_mode),
-			ana.identifier, ana.header_size, (uint)ntohl (ana.head->v3.file_size), ana.creation_time,
+			ana.identifier, ana.header_size, (uint)ntohl (ana.head->v3.file_size),
+			ana.creation_time,
 			ana.creation_time ? PrintTimeByFormat ("%F %T %Z", ana.creation_time) : "-",
 			ana.edit_time, ana.edit_time ? PrintTimeByFormat ("%F %T %Z", ana.edit_time) : "-",
 			ana.szs_required, ana.szs_required ? DecodeVersion (ana.szs_required) : "-",

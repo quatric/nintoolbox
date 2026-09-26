@@ -27,15 +27,15 @@ enumError DecodeBNSH_Text (FILE *out, const u8 *data, size_t size);
 // One extractable shader blob inside a BNSH file, as found by ScanBNSH_Blobs().
 typedef struct bnsh_blob_t
 {
-	uint variation;        // variation table index
+	uint variation; // variation table index
 	char program_kind[16]; // "program", "source" or "binary"
-	char stage[32];        // e.g. "vertex", "fragment"
-	uint blob_index;       // source chunk index, or 0/1 for the binary pair
-	u64  offset;           // absolute file offset of the blob
-	u32  size;             // blob size in bytes
-	u32  decompressed_size;// for zlib-compressed stages, else 0
-	bool is_source;        // source-text chunk (extract as .glsl)
-	bool is_compressed;    // zlib-compressed chunk (still compressed on extract)
+	char stage[32]; // e.g. "vertex", "fragment"
+	uint blob_index; // source chunk index, or 0/1 for the binary pair
+	u64 offset; // absolute file offset of the blob
+	u32 size; // blob size in bytes
+	u32 decompressed_size; // for zlib-compressed stages, else 0
+	bool is_source; // source-text chunk (extract as .glsl)
+	bool is_compressed; // zlib-compressed chunk (still compressed on extract)
 } bnsh_blob_t;
 
 typedef struct bnsh_blobs_t

@@ -26,7 +26,8 @@ static u32 bs_u32 (const bs_ctx_t *c, size_t o)
 	if (!c || c->size < 4 || o > c->size - 4)
 		return 0;
 	const u8 *p = c->d + o;
-	return c->be ? (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3] : (u32)p[3] << 24 | p[2] << 16 | p[1] << 8 | p[0];
+	return c->be ? (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3]
+				 : (u32)p[3] << 24 | p[2] << 16 | p[1] << 8 | p[0];
 }
 
 static bool bs_init (bs_ctx_t *c, const u8 *d, size_t size)
@@ -88,8 +89,10 @@ static void bs_clean_name (char *out, size_t out_size, const u8 *src, size_t max
 	{
 		const u8 ch = *p;
 		out[o++] = (ch >= '0' && ch <= '9') || (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')
-			|| ch == '_' || ch == '-' || ch == '.' || ch == ' ' || ch == '+' || ch == '(' || ch == ')'
-			? ch : '_';
+				|| ch == '_' || ch == '-' || ch == '.' || ch == ' ' || ch == '+' || ch == '('
+				|| ch == ')'
+			? ch
+			: '_';
 	}
 	out[o] = 0;
 	if (!*out || !strcmp (out, ".") || !strcmp (out, ".."))
@@ -136,10 +139,14 @@ static u32 bs_tex_bytes (const bs_ctx_t *c, uint fmt, uint w, uint h)
 		return fmt == 0x45 || fmt == 0xc5 || fmt == 0xc6 ? (u32)(w * h / 2) : 0;
 	switch (fmt)
 	{
-		case 0x45: return w * h / 2;
-		case 0xca: return w * h;
-		case 0xa0: return w * h * 4;
-		case 0x18: return w * h * 3;
+		case 0x45:
+			return w * h / 2;
+		case 0xca:
+			return w * h;
+		case 0xa0:
+			return w * h * 4;
+		case 0x18:
+			return w * h * 3;
 	}
 	return 0;
 }
@@ -195,8 +202,10 @@ bombshell_asset_t *ListBombshell (const u8 *d, size_t size, uint *count)
 			a->off = off;
 			a->size = sz;
 			const u8 *magic = d + off;
-			snprintf (a->ext, sizeof (a->ext), "%s", sz >= 4 && !memcmp (magic, "FSB", 3) ? "fsb"
-				: sz >= 4 && !memcmp (magic, "RIFF", 4) ? "wav" : "bin");
+			snprintf (a->ext, sizeof (a->ext), "%s",
+				sz >= 4 && !memcmp (magic, "FSB", 3)		? "fsb"
+					: sz >= 4 && !memcmp (magic, "RIFF", 4) ? "wav"
+															: "bin");
 			const size_t nm = off + sz;
 			bs_clean_name (a->name, sizeof (a->name), d + nm, nm < size ? size - nm : 0, i);
 			bs_unique (list, n);
@@ -382,7 +391,9 @@ uint CountBombshellModels (const u8 *d, size_t size)
 	if (!bs_init (&c, d, size))
 		return 0;
 	u32 *rec = MALLOC (BS_MAX_MODELS * 12);
-	const uint n = rec ? bs_models (&c, rec, rec + BS_MAX_MODELS, rec + 2 * BS_MAX_MODELS, BS_MAX_MODELS) : 0;
+	const uint n = rec
+		? bs_models (&c, rec, rec + BS_MAX_MODELS, rec + 2 * BS_MAX_MODELS, BS_MAX_MODELS)
+		: 0;
 	FREE (rec);
 	return n;
 }
@@ -407,11 +418,13 @@ static bool bs_submesh (model_t *m, const bs_ctx_t *c, u32 r, u32 bias, uint ind
 	const u32 flags = bs_u32 (c, r + 0xb0) & 0xf;
 	if (!(flags & 1))
 		return false;
-	const u64 pos = (u64)bs_u32 (c, r + 180), nrm = (u64)bs_u32 (c, r + 192), uv = (u64)bs_u32 (c, r + 196),
-		col = (u64)bs_u32 (c, r + (type ? 184 : 188)), dlh = (u64)bs_u32 (c, r + 200);
+	const u64 pos = (u64)bs_u32 (c, r + 180), nrm = (u64)bs_u32 (c, r + 192),
+			  uv = (u64)bs_u32 (c, r + 196), col = (u64)bs_u32 (c, r + (type ? 184 : 188)),
+			  dlh = (u64)bs_u32 (c, r + 200);
 	if (!pos || !dlh || dlh + bias + 12 > size)
 		return false;
-	const u64 dl_bytes = bs_u32 (c, (size_t)(dlh + bias) + 4), dl = (u64)bs_u32 (c, (size_t)(dlh + bias) + 8) + bias;
+	const u64 dl_bytes = bs_u32 (c, (size_t)(dlh + bias) + 4),
+			  dl = (u64)bs_u32 (c, (size_t)(dlh + bias) + 8) + bias;
 	if (!dl_bytes || dl + dl_bytes > size)
 		return false;
 	uint per = 0;
@@ -437,7 +450,8 @@ static bool bs_submesh (model_t *m, const bs_ctx_t *c, u32 r, u32 bias, uint ind
 			const uint n = d[dl + p + 1] << 8 | d[dl + p + 2];
 			p += 3;
 			const uint kind = cmd & 0xf8;
-			if ((kind != 0x80 && kind != 0x90 && kind != 0x98 && kind != 0xa0) || p + (size_t)n * per > dl_bytes)
+			if ((kind != 0x80 && kind != 0x90 && kind != 0x98 && kind != 0xa0)
+				|| p + (size_t)n * per > dl_bytes)
 				return false;
 			for (uint i = 0; i < n; i++)
 			{
@@ -542,7 +556,7 @@ static bool bs_submesh (model_t *m, const bs_ctx_t *c, u32 r, u32 bias, uint ind
 	{
 		// strips are joined with repeated vertices: skip those degenerate triangles
 		const uint *v0i = vidx + 4 * (size_t)tri[t][0], *v1i = vidx + 4 * (size_t)tri[t][1],
-			*v2i = vidx + 4 * (size_t)tri[t][2];
+				   *v2i = vidx + 4 * (size_t)tri[t][2];
 		if (v0i[0] == v1i[0] || v1i[0] == v2i[0] || v0i[0] == v2i[0])
 			continue;
 		for (uint k = 0; k < 3; k++)
@@ -550,18 +564,19 @@ static bool bs_submesh (model_t *m, const bs_ctx_t *c, u32 r, u32 bias, uint ind
 			const size_t o = nout + k;
 			const uint *ix = vidx + 4 * (size_t)tri[t][k];
 			const u8 *pp = d + pos + bias + 12 * (size_t)ix[0];
-			mesh->positions[o] = (vec3_t){ bs_f32 (pp), bs_f32 (pp + 4), bs_f32 (pp + 8) };
+			mesh->positions[o] = (vec3_t) { bs_f32 (pp), bs_f32 (pp + 4), bs_f32 (pp + 8) };
 			if (flags & 2)
 			{
 				const u8 *np_ = d + nrm + bias + 12 * (size_t)ix[1];
-				mesh->normals[o] = (vec3_t){ bs_f32 (np_), bs_f32 (np_ + 4), bs_f32 (np_ + 8) };
+				mesh->normals[o] = (vec3_t) { bs_f32 (np_), bs_f32 (np_ + 4), bs_f32 (np_ + 8) };
 			}
 			else
-				mesh->normals[o] = (vec3_t){ 0, 0, 1 };
+				mesh->normals[o] = (vec3_t) { 0, 0, 1 };
 			if (flags & 8)
 			{
 				const u8 *tp = d + uv + bias + 4 * (size_t)ix[3];
-				mesh->texcoords[o] = (vec2_t){ (int16_t)(tp[0] << 8 | tp[1]) / 256.0f, (int16_t)(tp[2] << 8 | tp[3]) / 256.0f };
+				mesh->texcoords[o] = (vec2_t) { (int16_t)(tp[0] << 8 | tp[1]) / 256.0f,
+					(int16_t)(tp[2] << 8 | tp[3]) / 256.0f };
 			}
 			vertex_t *vt = mesh->vertices + o;
 			vt->position_idx = vt->normal_idx = vt->texcoord_idx = (int)o;
@@ -583,14 +598,16 @@ static bool bs_submesh (model_t *m, const bs_ctx_t *c, u32 r, u32 bias, uint ind
 		if (16 + 24ull * bs_u32 (c, 12) + bs_u32 (c, 16 + 24 * (size_t)k + 20) == dp)
 			dir = k;
 	const u32 ntp = bs_u32 (c, dp + 16);
-	const s64 ip = (s64)bias - 8 * ((s64)ntp + bs_u32 (c, dp + 52) + bs_u32 (c, dp + 28) + bs_u32 (c, dp + 84));
+	const s64 ip = (s64)bias
+		- 8 * ((s64)ntp + bs_u32 (c, dp + 52) + bs_u32 (c, dp + 28) + bs_u32 (c, dp + 84));
 	for (uint f = 0; f < 2 && !*texname && ip >= 0; f++)
 		for (uint i = 0; i < ntp && ip + 8 * (s64)i + 8 <= (s64)size; i++)
 			if (bs_u32 (c, (size_t)ip + 8 * i) + (u64)bias == (u64)r + (f ? 56 : 48))
 			{
 				const uint ti = d[ip + 8 * i + 6] << 8 | d[ip + 8 * i + 7];
 				for (uint a = 0; a < n_assets; a++)
-					if (assets[a].kind == BSA_TEXTURE && assets[a].index == ti && assets[a].dir == dir)
+					if (assets[a].kind == BSA_TEXTURE && assets[a].index == ti
+						&& assets[a].dir == dir)
 						snprintf (texname, sizeof (texname), "%s", assets[a].name);
 				break;
 			}

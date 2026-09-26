@@ -61,7 +61,8 @@ s64 ToshiSymbol (const toshi_trb_t *trb, ccp name);
 
 uint ToshiTtlCount (const toshi_trb_t *trb);
 // Name (points into the section) and decoded first level of texture IDX.
-enumError DecodeToshiTexture (const toshi_trb_t *trb, uint idx, ccp *name, u8 **rgba, uint *width, uint *height);
+enumError DecodeToshiTexture (
+	const toshi_trb_t *trb, uint idx, ccp *name, u8 **rgba, uint *width, uint *height);
 
 //-----------------------------------------------------------------------------
 // .tkl keyframe library (symbol "keylib"): a pool of animation keyframes

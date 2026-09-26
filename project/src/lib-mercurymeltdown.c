@@ -31,7 +31,7 @@ static void print_escaped (FILE *f, const u8 *data, size_t len)
 
 int IsMercuryZen (const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!data || size < 16)
 		return 0;
 	return !memcmp (data, "DAED", 4);
@@ -44,7 +44,8 @@ enumError DecodeMercuryZen_Text (FILE *f, const u8 *data, size_t size, size_t fi
 
 	fprintf (f, "# Mercury Meltdown Revolution scene file (.zen)\n");
 	fprintf (f, "field_a = 0x%x  # little-endian\n", rd_le32 (data + 4));
-	fprintf (f, "zero = 0x%x  # little-endian, always 0 in every sample seen\n", rd_le32 (data + 8));
+	fprintf (
+		f, "zero = 0x%x  # little-endian, always 0 in every sample seen\n", rd_le32 (data + 8));
 	fprintf (f, "count_a = %u  # little-endian u16\n", rd_le16 (data + 12));
 	fprintf (f, "count_b = %u  # little-endian u16\n", rd_le16 (data + 14));
 
@@ -57,7 +58,8 @@ enumError DecodeMercuryZen_Text (FILE *f, const u8 *data, size_t size, size_t fi
 		print_escaped (f, data + 16, max_len);
 		fprintf (f, "\"\n");
 	}
-	fprintf (f, "# fields after the source path not reverse-engineered -- see lib-mercurymeltdown.h\n");
+	fprintf (
+		f, "# fields after the source path not reverse-engineered -- see lib-mercurymeltdown.h\n");
 	return ERR_OK;
 }
 
@@ -66,7 +68,7 @@ enumError DecodeMercuryZen_Text (FILE *f, const u8 *data, size_t size, size_t fi
 
 int IsMercuryCol (const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!data || size < 8)
 		return 0;
 	return !memcmp (data, "COL0", 4);
@@ -111,7 +113,7 @@ enumError DecodeMercuryCol_Text (FILE *f, const u8 *data, size_t size, size_t fi
 
 int IsMercuryPst (const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!data || size < 0x1c)
 		return 0;
 	if (memcmp (data, "TSPA", 4))
@@ -146,13 +148,13 @@ int IsMercuryMat (const u8 *data, size_t size, size_t file_size)
 	// binary/float data); it exists only so the decoder can be reached
 	// via explicit extension match, same as The Dog Island's .sci/.qci
 	// and Zack & Wiki's .ssd.
-	(void) data;
+	(void)data;
 	return size > 0 && size == file_size;
 }
 
 enumError DecodeMercuryMat_Text (FILE *f, const u8 *data, size_t size, size_t file_size)
 {
-	(void) file_size;
+	(void)file_size;
 	if (!f || !data || !size)
 		return EINVAL;
 
@@ -176,14 +178,14 @@ int IsMercuryNav (const u8 *data, size_t size, size_t file_size)
 	// zero-length), so this is extension-recognized only. A zero-length
 	// file is accepted too, since it is a confirmed valid on-disc state
 	// for this extension.
-	(void) data;
+	(void)data;
 	return file_size == size;
 }
 
 enumError DecodeMercuryNav_Text (FILE *f, const u8 *data, size_t size, size_t file_size)
 {
-	(void) data;
-	(void) file_size;
+	(void)data;
+	(void)file_size;
 	if (!f)
 		return EINVAL;
 

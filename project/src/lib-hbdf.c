@@ -94,7 +94,8 @@ static char *hbdf_read_name_block (const u8 *data, size_t size, size_t *pos)
 }
 
 // Helper to parse TEXS chunk and unpack embedded images / palettes
-static void hbdf_unpack_texs (nintendo_sarc_entry_t *out, uint *out_cnt, uint max_entries, const u8 *data, size_t texs_size, uint blk_idx)
+static void hbdf_unpack_texs (nintendo_sarc_entry_t *out, uint *out_cnt, uint max_entries,
+	const u8 *data, size_t texs_size, uint blk_idx)
 {
 	if (texs_size < 16)
 		return;
@@ -123,7 +124,8 @@ static void hbdf_unpack_texs (nintendo_sarc_entry_t *out, uint *out_cnt, uint ma
 
 		if (!strcmp (subtag, "IMGO"))
 		{
-			// IMGO format: [NAME block] [Format:4][Width:2][Height:2][Params:4][texSize:4][tex4x4Size:4][compFlags:4][ImageData...]
+			// IMGO format: [NAME block]
+			// [Format:4][Width:2][Height:2][Params:4][texSize:4][tex4x4Size:4][compFlags:4][ImageData...]
 			size_t ipos = 0;
 			char *tex_name = hbdf_read_name_block (sub_ptr, sub_len, &ipos);
 			if (ipos + 24 <= sub_len)
@@ -136,10 +138,11 @@ static void hbdf_unpack_texs (nintendo_sarc_entry_t *out, uint *out_cnt, uint ma
 
 				if (raw_data_pos + tex_size <= sub_len && *out_cnt < max_entries)
 				{
-					const char *clean_name = (tex_name && *tex_name && OwnedNameOk (tex_name)) ? tex_name : "image";
+					const char *clean_name
+						= (tex_name && *tex_name && OwnedNameOk (tex_name)) ? tex_name : "image";
 					char entry_name[128];
-					snprintf (entry_name, sizeof (entry_name), "%02u_TEXS_%s_%ux%u.bin",
-						blk_idx, clean_name, w, h);
+					snprintf (entry_name, sizeof (entry_name), "%02u_TEXS_%s_%ux%u.bin", blk_idx,
+						clean_name, w, h);
 
 					if (comp_flags == 1)
 					{
@@ -152,12 +155,14 @@ static void hbdf_unpack_texs (nintendo_sarc_entry_t *out, uint *out_cnt, uint ma
 						}
 						else
 						{
-							OwnedEntryAdd (out, (*out_cnt)++, entry_name, sub_ptr + raw_data_pos, tex_size);
+							OwnedEntryAdd (
+								out, (*out_cnt)++, entry_name, sub_ptr + raw_data_pos, tex_size);
 						}
 					}
 					else
 					{
-						OwnedEntryAdd (out, (*out_cnt)++, entry_name, sub_ptr + raw_data_pos, tex_size);
+						OwnedEntryAdd (
+							out, (*out_cnt)++, entry_name, sub_ptr + raw_data_pos, tex_size);
 					}
 				}
 			}
@@ -176,10 +181,11 @@ static void hbdf_unpack_texs (nintendo_sarc_entry_t *out, uint *out_cnt, uint ma
 				const size_t pal_data_pos = ppos + 8;
 				if (pal_data_pos + pal_sz <= sub_len && *out_cnt < max_entries)
 				{
-					const char *clean_name = (pal_name && *pal_name && OwnedNameOk (pal_name)) ? pal_name : "pal";
+					const char *clean_name
+						= (pal_name && *pal_name && OwnedNameOk (pal_name)) ? pal_name : "pal";
 					char entry_name[128];
-					snprintf (entry_name, sizeof (entry_name), "%02u_PLTO_%s.bin",
-						blk_idx, clean_name);
+					snprintf (
+						entry_name, sizeof (entry_name), "%02u_PLTO_%s.bin", blk_idx, clean_name);
 
 					if (comp_flags == 1)
 					{
@@ -192,12 +198,14 @@ static void hbdf_unpack_texs (nintendo_sarc_entry_t *out, uint *out_cnt, uint ma
 						}
 						else
 						{
-							OwnedEntryAdd (out, (*out_cnt)++, entry_name, sub_ptr + pal_data_pos, pal_sz);
+							OwnedEntryAdd (
+								out, (*out_cnt)++, entry_name, sub_ptr + pal_data_pos, pal_sz);
 						}
 					}
 					else
 					{
-						OwnedEntryAdd (out, (*out_cnt)++, entry_name, sub_ptr + pal_data_pos, pal_sz);
+						OwnedEntryAdd (
+							out, (*out_cnt)++, entry_name, sub_ptr + pal_data_pos, pal_sz);
 					}
 				}
 			}
@@ -314,7 +322,10 @@ static int32_t hbdf_les32 (const u8 *p)
 }
 
 // Column-major 4x4.
-typedef struct { float m[16]; } hbdf_mat4_t;
+typedef struct
+{
+	float m[16];
+} hbdf_mat4_t;
 
 static void hbdf_m4_ident (hbdf_mat4_t *o)
 {
@@ -332,8 +343,8 @@ static void hbdf_m4_mul (hbdf_mat4_t *o, const hbdf_mat4_t *a, const hbdf_mat4_t
 	*o = t;
 }
 
-static void hbdf_m4_trs (hbdf_mat4_t *o, const float t[3], const float r[3],
-	const float s[3], const float ms[3])
+static void hbdf_m4_trs (
+	hbdf_mat4_t *o, const float t[3], const float r[3], const float s[3], const float ms[3])
 {
 	const float cx = cosf (r[0]), sx = sinf (r[0]);
 	const float cy = cosf (r[1]), sy = sinf (r[1]);
@@ -470,8 +481,7 @@ typedef struct
 	char text[64];
 } hbdf_strmap_t;
 
-static const char *hbdf_str_lookup (
-	const hbdf_strmap_t *map, uint n, u32 off)
+static const char *hbdf_str_lookup (const hbdf_strmap_t *map, uint n, u32 off)
 {
 	for (uint i = 0; i < n; i++)
 		if (map[i].off == off)
@@ -646,8 +656,7 @@ static bool hbdf_parse_model (hbdf_modelblk_t *blk, const u8 *data, size_t len)
 						ob->ms[2] = 1.0f;
 					const u16 nblocks = rd_le16 (m + 28);
 					const u16 dsize = rd_le16 (m + 30);
-					if (nblocks && nblocks <= 256
-						&& 32 + (size_t)nblocks * 8 + dsize <= msize - 8)
+					if (nblocks && nblocks <= 256 && 32 + (size_t)nblocks * 8 + dsize <= msize - 8)
 					{
 						ob->polys = CALLOC (nblocks, sizeof (*ob->polys));
 						if (ob->polys)
@@ -726,8 +735,8 @@ static bool hbdf_parse_model (hbdf_modelblk_t *blk, const u8 *data, size_t len)
 		if (objs[i].name[0] == '@')
 		{
 			const u32 off = (u32)strtoul (objs[i].name + 1, 0, 10);
-			snprintf (objs[i].name, sizeof (objs[i].name), "%s",
-				hbdf_str_lookup (strmap, n_strmap, off));
+			snprintf (
+				objs[i].name, sizeof (objs[i].name), "%s", hbdf_str_lookup (strmap, n_strmap, off));
 			if (!objs[i].name[0])
 				snprintf (objs[i].name, sizeof (objs[i].name), "obj%u", i);
 		}
@@ -777,8 +786,7 @@ static void hbdf_free_modelblk (hbdf_modelblk_t *blk)
 }
 
 // World matrix for object i (parent chain, cycle-guarded).
-static void hbdf_world_matrix (
-	const hbdf_modelblk_t *blk, uint idx, hbdf_mat4_t *out)
+static void hbdf_world_matrix (const hbdf_modelblk_t *blk, uint idx, hbdf_mat4_t *out)
 {
 	hbdf_mat4_t acc;
 	hbdf_m4_ident (&acc);
@@ -800,8 +808,8 @@ static void hbdf_world_matrix (
 }
 
 // Texture dimensions for a material (via its attribute's texture name).
-static void hbdf_mat_tex_size (const hbdf_modelblk_t *blk,
-	const hbdf_image_t *images, uint n_images, int mat_idx, uint *w, uint *h)
+static void hbdf_mat_tex_size (const hbdf_modelblk_t *blk, const hbdf_image_t *images,
+	uint n_images, int mat_idx, uint *w, uint *h)
 {
 	*w = *h = 0;
 	if (mat_idx < 0 || (uint)mat_idx >= blk->n_materials)
@@ -877,14 +885,13 @@ model_t *ParseHBDF (const u8 *data, uint size)
 							if (n_images == cap_images)
 							{
 								cap_images = cap_images ? cap_images * 2 : 16;
-								hbdf_image_t *nb = REALLOC (images,
-									cap_images * sizeof (*nb));
+								hbdf_image_t *nb = REALLOC (images, cap_images * sizeof (*nb));
 								if (!nb)
 									break;
 								images = nb;
 							}
-							snprintf (images[n_images].name,
-								sizeof (images[n_images].name), "%s", inm);
+							snprintf (
+								images[n_images].name, sizeof (images[n_images].name), "%s", inm);
 							images[n_images].w = w;
 							images[n_images].h = h;
 							n_images++;
@@ -916,8 +923,8 @@ model_t *ParseHBDF (const u8 *data, uint size)
 				const uint mat_base = (uint)out->num_materials;
 				if (blk.n_materials)
 				{
-					material_t *nm = REALLOC (out->materials,
-						(out->num_materials + blk.n_materials) * sizeof (*nm));
+					material_t *nm = REALLOC (
+						out->materials, (out->num_materials + blk.n_materials) * sizeof (*nm));
 					if (nm)
 					{
 						out->materials = nm;
@@ -925,14 +932,12 @@ model_t *ParseHBDF (const u8 *data, uint size)
 						{
 							material_t *mt = out->materials + out->num_materials++;
 							memset (mt, 0, sizeof (*mt));
-							snprintf (mt->name, sizeof (mt->name), "%s",
-								blk.materials[i].name);
+							snprintf (mt->name, sizeof (mt->name), "%s", blk.materials[i].name);
 							const int ai = blk.materials[i].attr_idx;
-							if (ai >= 0 && (uint)ai < blk.n_attrs
-								&& blk.attrs[ai].texname[0])
+							if (ai >= 0 && (uint)ai < blk.n_attrs && blk.attrs[ai].texname[0])
 							{
-								snprintf (mt->textures[0], sizeof (mt->textures[0]),
-									"%s", blk.attrs[ai].texname);
+								snprintf (mt->textures[0], sizeof (mt->textures[0]), "%s",
+									blk.attrs[ai].texname);
 								mt->num_textures = 1;
 							}
 							mt->diffuse[0] = mt->diffuse[1] = mt->diffuse[2] = 0.8f;
@@ -952,8 +957,8 @@ model_t *ParseHBDF (const u8 *data, uint size)
 					{
 						if (ob->polys[g].face_count)
 						{
-							hbdf_mat_tex_size (&blk, images, n_images,
-								ob->polys[g].mat_idx, &tw, &th);
+							hbdf_mat_tex_size (
+								&blk, images, n_images, ob->polys[g].mat_idx, &tw, &th);
 							break;
 						}
 					}
@@ -961,8 +966,8 @@ model_t *ParseHBDF (const u8 *data, uint size)
 					// append to out without moving src underneath us.
 					model_t scratch;
 					memset (&scratch, 0, sizeof (scratch));
-					const int midx = AppendDSGXMesh (&scratch, ob->dl, ob->dl_size,
-						ob->name, tw, th);
+					const int midx
+						= AppendDSGXMesh (&scratch, ob->dl, ob->dl_size, ob->name, tw, th);
 					if (midx < 0)
 						continue;
 					mesh_t *src = scratch.meshes + midx;
@@ -1033,13 +1038,14 @@ model_t *ParseHBDF (const u8 *data, uint size)
 							for (int e = 0; e < 7; e++)
 								nm.vertices[j].extra_texcoord_idx[e] = -1;
 						}
-						nm.num_positions = nm.num_normals = nm.num_texcoords
-							= nm.num_vertices = count;
+						nm.num_positions = nm.num_normals = nm.num_texcoords = nm.num_vertices
+							= count;
 						int mgi = ob->polys[g].mat_idx;
 						nm.material_idx = (mgi >= 0 && (uint)mgi < blk.n_materials)
-							? (int)(mat_base + mgi) : -1;
-						mesh_t *grown = REALLOC (out->meshes,
-							(out->num_meshes + 1) * sizeof (*grown));
+							? (int)(mat_base + mgi)
+							: -1;
+						mesh_t *grown
+							= REALLOC (out->meshes, (out->num_meshes + 1) * sizeof (*grown));
 						if (!grown)
 						{
 							FREE (nm.positions);

@@ -24,8 +24,8 @@ enumError CalcImageBlock (const Image_t *img, uint bits_per_pixel, uint block_wi
 
 // lib-image-load.c: fill IMG from a decoded RGBA8 buffer (endian only
 // matters for img->endian bookkeeping, the buffer itself is native order).
-void AssignDecodedRGBA (Image_t *img, u8 *rgba, uint width, uint height,
-	const endian_func_t *endian, ccp fname);
+void AssignDecodedRGBA (
+	Image_t *img, u8 *rgba, uint width, uint height, const endian_func_t *endian, ccp fname);
 
 // lib-image-mipmap.c: shared mip-chain assembly, used by every per-format
 // Save*() that writes a full mipmap chain rather than a single image.
@@ -57,7 +57,7 @@ enumError WriteImageData (mipmap_info_t *mmi, u8 *data, u8 **p_dest);
 
 // lib-image-save.c: write a finished buffer verbatim (formats that don't go
 // through the mipmap-chain machinery above).
-enumError SaveImageBuffer (Image_t *img, FILE *fo, ccp path, bool overwrite,
-	const u8 *data, uint size, ccp format);
+enumError SaveImageBuffer (
+	Image_t *img, FILE *fo, ccp path, bool overwrite, const u8 *data, uint size, ccp format);
 
 #endif

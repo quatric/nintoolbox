@@ -51,8 +51,8 @@
 
 #define SF_TOC_HEADER_SIZE 0x28
 #define SF_TOC_RECORD_SIZE 36
-#define SF_TOC_MAGIC_OFF    4 // "LE"
-#define SF_TOC_TAG          0xb067ebb2
+#define SF_TOC_MAGIC_OFF 4 // "LE"
+#define SF_TOC_TAG 0xb067ebb2
 #define SF_TOC_SENTINEL_U32 0xaaaaaaaa
 
 typedef struct sf_toc_entry_t
@@ -60,8 +60,7 @@ typedef struct sf_toc_entry_t
 	u32 id;
 	u32 size;
 	u32 offset; // into the paired .DAT
-}
-sf_toc_entry_t;
+} sf_toc_entry_t;
 
 typedef struct sf_toc_t
 {
@@ -70,24 +69,23 @@ typedef struct sf_toc_t
 	sf_toc_entry_t *entry;
 	uint n;
 	uint n_alloc;
-}
-sf_toc_t;
+} sf_toc_t;
 
 //-----------------------------------------------------------------------------
 // Magic/structural probe: slot_count field is sane, "LE" magic present at
 // offset 4, and slot[0] (if slot_count > 0) carries the expected tag.
-int IsSafecrackerTOC ( const u8 *data, size_t size );
+int IsSafecrackerTOC (const u8 *data, size_t size);
 
 // Parses the header and every real (non-sentinel) slot. Returns ERR_OK and
 // a populated, caller-owned table (free with FreeSafecrackerTOC) even if
 // zero real entries were found; returns an error only if IsSafecrackerTOC()
 // would already reject 'data'.
-enumError DecodeSafecrackerTOC ( sf_toc_t *toc, const u8 *data, size_t size );
+enumError DecodeSafecrackerTOC (sf_toc_t *toc, const u8 *data, size_t size);
 
-void FreeSafecrackerTOC ( sf_toc_t *toc );
+void FreeSafecrackerTOC (sf_toc_t *toc);
 
 // Text dump: header fields, then one line per entry (index, id, size,
 // offset, offset+size).
-enumError DecodeSafecrackerTOC_Text ( FILE *f, const u8 *data, size_t size );
+enumError DecodeSafecrackerTOC_Text (FILE *f, const u8 *data, size_t size);
 
 #endif // LIB_SAFECRACKER_H

@@ -192,8 +192,8 @@ static int j3d_find_sections (const uint8_t *data, size_t size, size_t *inf1, si
 
 // J3D name table: s16 count, s16 -1, per entry [u16 hash, s16 stroff]
 // with offsets relative to table start, then NUL strings.
-static int j3d_read_nametable (const uint8_t *data, size_t size, size_t tab,
-	char ***out_names, int *out_count)
+static int j3d_read_nametable (
+	const uint8_t *data, size_t size, size_t tab, char ***out_names, int *out_count)
 {
 	*out_names = 0;
 	*out_count = 0;
@@ -338,8 +338,8 @@ static void j3d_px_pal (int idx, const uint8_t *pal, int palfmt, uint8_t *o)
 
 // Tiled GX decode: walks blocks in raster order, pixels inside each block
 // in raster order, skipping (but consuming) out-of-bounds padding.
-static uint8_t *j3d_tex_decode (const uint8_t *src, size_t src_size, size_t *pos,
-	uint w, uint h, int fmt, const uint8_t *pal, int palfmt, int palcount)
+static uint8_t *j3d_tex_decode (const uint8_t *src, size_t src_size, size_t *pos, uint w, uint h,
+	int fmt, const uint8_t *pal, int palfmt, int palcount)
 {
 	if (!w || !h || w > 4096 || h > 4096)
 		return 0;
@@ -347,25 +347,25 @@ static uint8_t *j3d_tex_decode (const uint8_t *src, size_t src_size, size_t *pos
 	if (!out)
 		return 0;
 #define J3D_NEED(n)                                                                                \
-	do                                                                                         \
-	{                                                                                          \
-		if (*pos + (n) > src_size)                                                         \
-		{                                                                                  \
-			FREE (out);                                                                \
-			return 0;                                                                  \
-		}                                                                                  \
+	do                                                                                             \
+	{                                                                                              \
+		if (*pos + (n) > src_size)                                                                 \
+		{                                                                                          \
+			FREE (out);                                                                            \
+			return 0;                                                                              \
+		}                                                                                          \
 	} while (0)
 #define J3D_PUT(x, y, r, g, b, a)                                                                  \
-	do                                                                                         \
-	{                                                                                          \
-		if ((x) < w && (y) < h)                                                            \
-		{                                                                                  \
-			uint8_t *d = out + ((size_t)(y)*w + (x)) * 4;                              \
-			d[0] = (r);                                                                \
-			d[1] = (g);                                                                \
-			d[2] = (b);                                                                \
-			d[3] = (a);                                                                \
-		}                                                                                  \
+	do                                                                                             \
+	{                                                                                              \
+		if ((x) < w && (y) < h)                                                                    \
+		{                                                                                          \
+			uint8_t *d = out + ((size_t)(y) * w + (x)) * 4;                                        \
+			d[0] = (r);                                                                            \
+			d[1] = (g);                                                                            \
+			d[2] = (b);                                                                            \
+			d[3] = (a);                                                                            \
+		}                                                                                          \
 	} while (0)
 
 	uint bw = 0, bh = 0;
@@ -442,8 +442,8 @@ static uint8_t *j3d_tex_decode (const uint8_t *src, size_t src_size, size_t *pos
 						{
 							int sel = (bits >> ((15 - i) * 2)) & 3;
 							J3D_PUT (bx + (uint)sx * 4 + (uint)(i % 4),
-								by + (uint)sy * 4 + (uint)(i / 4), ct[sel][0],
-								ct[sel][1], ct[sel][2], ct[sel][3]);
+								by + (uint)sy * 4 + (uint)(i / 4), ct[sel][0], ct[sel][1],
+								ct[sel][2], ct[sel][3]);
 						}
 					}
 			}
@@ -489,8 +489,8 @@ static uint8_t *j3d_tex_decode (const uint8_t *src, size_t src_size, size_t *pos
 								uint8_t rgba[4] = { 0, 0, 0, 0 };
 								if (pal && idx[k] < palcount)
 									j3d_px_pal (idx[k], pal, palfmt, rgba);
-								J3D_PUT (bx + px + (uint)k, by + py, rgba[0], rgba[1],
-									rgba[2], rgba[3]);
+								J3D_PUT (
+									bx + px + (uint)k, by + py, rgba[0], rgba[1], rgba[2], rgba[3]);
 							}
 						}
 						else
@@ -517,11 +517,9 @@ static uint8_t *j3d_tex_decode (const uint8_t *src, size_t src_size, size_t *pos
 							{
 								J3D_NEED (1);
 								uint8_t v = src[(*pos)++];
-								rgba[0] = rgba[1] = rgba[2] = rgba[3] =
-									(uint8_t)((v >> 4) * 0x11);
+								rgba[0] = rgba[1] = rgba[2] = rgba[3] = (uint8_t)((v >> 4) * 0x11);
 								J3D_PUT (x, y, rgba[0], rgba[1], rgba[2], rgba[3]);
-								rgba[0] = rgba[1] = rgba[2] = rgba[3] =
-									(uint8_t)((v & 15) * 0x11);
+								rgba[0] = rgba[1] = rgba[2] = rgba[3] = (uint8_t)((v & 15) * 0x11);
 								J3D_PUT (x + 1, y, rgba[0], rgba[1], rgba[2], rgba[3]);
 							}
 						}
@@ -677,8 +675,7 @@ static void j3d_cmpr_block (const uint8_t blk[64], uint8_t out[8])
 	for (int i = 0; i < 4; i++)
 		out[4 + i] = (uint8_t)(j3d_cmpr_best (pal, blk + i * 16) << 6
 			| j3d_cmpr_best (pal, blk + i * 16 + 4) << 4
-			| j3d_cmpr_best (pal, blk + i * 16 + 8) << 2
-			| j3d_cmpr_best (pal, blk + i * 16 + 12));
+			| j3d_cmpr_best (pal, blk + i * 16 + 8) << 2 | j3d_cmpr_best (pal, blk + i * 16 + 12));
 }
 static void j3d_tex_encode (j3d_buf_t *b, const uint8_t *rgba, uint w, uint h, int fmt)
 {
@@ -722,8 +719,8 @@ static void j3d_tex_encode (j3d_buf_t *b, const uint8_t *rgba, uint w, uint h, i
 			memset (blk, 0, sizeof (blk));
 			for (uint py = 0; py < 8 && by + py < h; py++)
 				for (uint px = 0; px < 8 && bx + px < w; px++)
-					memcpy (blk + (py * 8 + px) * 4,
-						rgba + (((size_t)(by + py) * w) + bx + px) * 4, 4);
+					memcpy (
+						blk + (py * 8 + px) * 4, rgba + (((size_t)(by + py) * w) + bx + px) * 4, 4);
 			for (int i = 0, x = 0, y = 0; i < 4; i++)
 			{
 				memcpy (sub, blk + x + y, 16);
@@ -1158,7 +1155,7 @@ static int j3d_parse_evp1 (const uint8_t *data, size_t size, size_t sect, j3d_de
 	if (n < 0 || n > 100000)
 		return 0;
 	uint32_t o_cnt = j3d_rd32 (data + sect + 12), o_idx = j3d_rd32 (data + sect + 16),
-		o_w = j3d_rd32 (data + sect + 20), o_m = j3d_rd32 (data + sect + 24);
+			 o_w = j3d_rd32 (data + sect + 20), o_m = j3d_rd32 (data + sect + 24);
 	d->num_evp = n;
 	// NOTE: IBMs are read even when n==0 (our encoder always writes the
 	// per-joint table; SuperBMD's empty 32-byte section carries none).
@@ -1233,7 +1230,8 @@ static int j3d_parse_drw1 (const uint8_t *data, size_t size, size_t sect, j3d_de
 	d->num_drw = n;
 	if (!n)
 		return 1;
-	if (!j3d_ok (data, size, sect + o_b, (size_t)n) || !j3d_ok (data, size, sect + o_i, (size_t)n * 2))
+	if (!j3d_ok (data, size, sect + o_b, (size_t)n)
+		|| !j3d_ok (data, size, sect + o_i, (size_t)n * 2))
 		return 0;
 	d->drw_weighted = MALLOC ((size_t)n);
 	d->drw_idx = MALLOC ((size_t)n * 2);
@@ -1256,7 +1254,7 @@ static int j3d_parse_jnt1 (const uint8_t *data, size_t size, size_t sect, j3d_de
 	if (n <= 0 || n > 100000)
 		return 0;
 	uint32_t o_j = j3d_rd32 (data + sect + 12), o_r = j3d_rd32 (data + sect + 16),
-		o_n = j3d_rd32 (data + sect + 20);
+			 o_n = j3d_rd32 (data + sect + 20);
 	char **names = 0;
 	int nn = 0;
 	if (!j3d_read_nametable (data, size, sect + o_n, &names, &nn))
@@ -1313,7 +1311,8 @@ static int j3d_parse_jnt1 (const uint8_t *data, size_t size, size_t sect, j3d_de
 		for (int k = 0; k < 3; k++)
 			d->jscale[i * 3 + k] = j3d_rdf32 (data + jo + 4 + (size_t)k * 4);
 		for (int k = 0; k < 3; k++)
-			d->jeuler[i * 3 + k] = (float)j3d_rds16 (data + jo + 16 + (size_t)k * 2) * 180.0f / 32768.0f;
+			d->jeuler[i * 3 + k]
+				= (float)j3d_rds16 (data + jo + 16 + (size_t)k * 2) * 180.0f / 32768.0f;
 		for (int k = 0; k < 3; k++)
 			d->jtrans[i * 3 + k] = j3d_rdf32 (data + jo + 24 + (size_t)k * 4);
 		d->jparent[i] = -2; // resolved from INF1 below
@@ -1398,7 +1397,8 @@ static int j3d_parse_mat3 (const uint8_t *data, size_t size, size_t sect, j3d_de
 		d->mdiffuse[i * 4] = d->mdiffuse[i * 4 + 1] = d->mdiffuse[i * 4 + 2] = 1.0f;
 		d->mdiffuse[i * 4 + 3] = 1.0f;
 		d->mcull[i] = 2; // Back
-		const char *nm = (remap && remap[i] >= 0 && remap[i] < nn) ? names[remap[i]]
+		const char *nm = (remap && remap[i] >= 0 && remap[i] < nn)
+			? names[remap[i]]
 			: (i < nn ? names[i] : "material");
 		d->mnames[i] = STRDUP (nm ? nm : "material");
 	}
@@ -1436,7 +1436,8 @@ static int j3d_parse_mat3 (const uint8_t *data, size_t size, size_t sect, j3d_de
 			if (!j3d_ok (data, size, rec, 160))
 				continue;
 			uint8_t cullidx = data[rec + 1];
-			if (cullblk && j3d_ok (cullblk, size - (size_t)(cullblk - data), (size_t)cullidx * 4, 4))
+			if (cullblk
+				&& j3d_ok (cullblk, size - (size_t)(cullblk - data), (size_t)cullidx * 4, 4))
 			{
 				int cm = (int)j3d_rd32 (cullblk + (size_t)cullidx * 4);
 				if (cm >= 0 && cm <= 3)
@@ -1545,8 +1546,8 @@ static int j3d_parse_tex1 (const uint8_t *data, size_t size, size_t sect, j3d_de
 					mw = 1;
 				if (!mh)
 					mh = 1;
-				uint8_t *px = j3d_tex_decode (data, size, &pos, mw, mh, d->tfmt[i], pal, palfmt,
-					palcnt);
+				uint8_t *px
+					= j3d_tex_decode (data, size, &pos, mw, mh, d->tfmt[i], pal, palfmt, palcnt);
 				if (!px)
 					break;
 				d->tmip_rgba[i][got] = px;
@@ -1672,9 +1673,9 @@ static int j3d_vx_samepos (const j3d_vx_t *a, const j3d_vx_t *b)
 // Parse one shape's packets into a triangle soup. Returns 1 on success.
 static int j3d_expand_shape (const uint8_t *data, size_t size, size_t shp_sect, int shape_idx,
 	int pkt_count, int attr_off_rel, int mtx_data_idx, int first_pkt, const int *pkt_sizes,
-	const int *pkt_offs, int num_pkts, const int *mtx_cnts, const int *mtx_starts,
-	int num_mtx, const uint8_t *mtx_idx_base, size_t mtx_idx_size, size_t prim_base,
-	j3d_dec_t *d, j3d_tri_t *tris, int *has_pmtx_out, int *billboard)
+	const int *pkt_offs, int num_pkts, const int *mtx_cnts, const int *mtx_starts, int num_mtx,
+	const uint8_t *mtx_idx_base, size_t mtx_idx_size, size_t prim_base, j3d_dec_t *d,
+	j3d_tri_t *tris, int *has_pmtx_out, int *billboard)
 {
 	(void)shape_idx;
 	size_t shp_size = j3d_rd32 (data + shp_sect + 4);
@@ -1869,7 +1870,7 @@ static int j3d_expand_shape (const uint8_t *data, size_t size, size_t shp_sect, 
 				{
 					int even = v % 2 != 0;
 					j3d_vx_t t0 = r->v[v - 2], t1 = even ? r->v[v] : r->v[v - 1],
-						t2 = even ? r->v[v - 1] : r->v[v];
+							 t2 = even ? r->v[v - 1] : r->v[v];
 					if (!j3d_vx_samepos (&t0, &t1) && !j3d_vx_samepos (&t1, &t2)
 						&& !j3d_vx_samepos (&t2, &t0))
 					{
@@ -1977,11 +1978,10 @@ static void j3d_joint_trs (float out[12], float sx, float sy, float sz, float rx
 	float rz, float tx, float ty, float tz)
 {
 	double dx = rx * (M_PI / 180.0), dy = ry * (M_PI / 180.0), dz = rz * (M_PI / 180.0);
-	float cx = (float)cos (dx), snx = (float)sin (dx), cy = (float)cos (dy),
-		sny = (float)sin (dy), cz = (float)cos (dz), snz = (float)sin (dz);
-	float rot[12] = { cz * cy, cz * sny * snx - snz * cx, cz * sny * cx + snz * snx, 0.0f,
-		snz * cy, snz * sny * snx + cz * cx, snz * sny * cx - cz * snx, 0.0f, -sny, cy * snx,
-		cy * cx, 0.0f };
+	float cx = (float)cos (dx), snx = (float)sin (dx), cy = (float)cos (dy), sny = (float)sin (dy),
+		  cz = (float)cos (dz), snz = (float)sin (dz);
+	float rot[12] = { cz * cy, cz * sny * snx - snz * cx, cz * sny * cx + snz * snx, 0.0f, snz * cy,
+		snz * sny * snx + cz * cx, snz * sny * cx - cz * snx, 0.0f, -sny, cy * snx, cy * cx, 0.0f };
 	for (unsigned r = 0; r < 3; r++)
 	{
 		out[r * 4] = rot[r * 4] * sx;
@@ -2101,7 +2101,8 @@ static int j3d_build_mesh (mesh_t *mesh, j3d_tri_t *tris, j3d_dec_t *d, int has_
 		ex[t] = MALLOC (cap * sizeof (vec2_t));
 	j3d_map_t map;
 	memset (&map, 0, sizeof (map));
-	if (!mesh->positions || !mesh->normals || !mesh->texcoords || !mesh->vertices || !mesh->position_node)
+	if (!mesh->positions || !mesh->normals || !mesh->texcoords || !mesh->vertices
+		|| !mesh->position_node)
 	{
 		FREE (corners);
 		return 0;
@@ -2390,8 +2391,9 @@ model_t *ParseJ3D (const uint8_t *data, size_t size)
 				m->mag_filter[m->num_textures] = 1;
 				m->texture_coord[m->num_textures] = m->num_textures;
 				int f = d.tfmt[ti];
-				if (f == J3D_TEX_IA4 || f == J3D_TEX_IA8 || f == J3D_TEX_RGB5A3 || f == J3D_TEX_RGBA32
-					|| f == J3D_TEX_C4 || f == J3D_TEX_C8 || f == J3D_TEX_CMPR)
+				if (f == J3D_TEX_IA4 || f == J3D_TEX_IA8 || f == J3D_TEX_RGB5A3
+					|| f == J3D_TEX_RGBA32 || f == J3D_TEX_C4 || f == J3D_TEX_C8
+					|| f == J3D_TEX_CMPR)
 					m->has_alpha = 1;
 				m->num_textures++;
 			}
@@ -2401,9 +2403,9 @@ model_t *ParseJ3D (const uint8_t *data, size_t size)
 	uint32_t shp_size = j3d_rd32 (data + o_shp1 + 4);
 	int entry_count = j3d_rds16 (data + o_shp1 + 8);
 	uint32_t o_shape = j3d_rd32 (data + o_shp1 + 12), o_remap = j3d_rd32 (data + o_shp1 + 16),
-		/* o_attr = j3d_rd32 (data + o_shp1 + 24), */ o_midx = j3d_rd32 (data + o_shp1 + 28),
-		o_prim = j3d_rd32 (data + o_shp1 + 32), o_mdat = j3d_rd32 (data + o_shp1 + 36),
-		o_pinf = j3d_rd32 (data + o_shp1 + 40);
+			 /* o_attr = j3d_rd32 (data + o_shp1 + 24), */ o_midx = j3d_rd32 (data + o_shp1 + 28),
+			 o_prim = j3d_rd32 (data + o_shp1 + 32), o_mdat = j3d_rd32 (data + o_shp1 + 36),
+			 o_pinf = j3d_rd32 (data + o_shp1 + 40);
 	if (entry_count < 0 || entry_count > 100000 || !j3d_ok (data, size, o_shp1 + o_remap, 2))
 	{
 		j3d_dec_free (&d);
@@ -2709,9 +2711,11 @@ int ExportJ3DMaterialsJSON (const uint8_t *data, size_t size, const char *json_p
 		fprintf (f, "    {\"name\": \"");
 		j3d_json_escape (f, d.mnames[i]);
 		fprintf (f, "\", \"cull\": \"%s\", \"diffuse\": [%g, %g, %g, %g], \"textures\": [",
-			d.mcull[i] == 0 ? "None" : d.mcull[i] == 1 ? "Front" : d.mcull[i] == 3 ? "All" : "Back",
-			d.mdiffuse[i * 4], d.mdiffuse[i * 4 + 1], d.mdiffuse[i * 4 + 2],
-			d.mdiffuse[i * 4 + 3]);
+			d.mcull[i] == 0		  ? "None"
+				: d.mcull[i] == 1 ? "Front"
+				: d.mcull[i] == 3 ? "All"
+								  : "Back",
+			d.mdiffuse[i * 4], d.mdiffuse[i * 4 + 1], d.mdiffuse[i * 4 + 2], d.mdiffuse[i * 4 + 3]);
 		for (int k = 0; k < 8; k++)
 		{
 			int ti = d.mtex[i][k];
@@ -2795,14 +2799,16 @@ void J3DProfileDump (const uint8_t *data, size_t size, FILE *f)
 		return;
 	}
 	uint32_t total = j3d_rd32 (data + 8);
-	fprintf (f, "Type: J3D2%s (%s)\n", is_bdl ? "bdl4" : !memcmp (data + 4, "bmd2", 4) ? "bmd2" : "bmd3",
+	fprintf (f, "Type: J3D2%s (%s)\n",
+		is_bdl								? "bdl4"
+			: !memcmp (data + 4, "bmd2", 4) ? "bmd2"
+											: "bmd3",
 		is_bdl ? "BDL" : "BMD");
 	fprintf (f, "Total size: %u bytes (%.1f KiB)\n", total, total / 1024.0);
 	size_t sects[9] = { o_inf1, o_vtx1, o_evp1, o_drw1, o_jnt1, o_shp1, o_mat3, o_mdl3, o_tex1 };
-	const char *names[9]
-		= { "INF1 (scenegraph)", "VTX1 (vertices)", "EVP1 (envelopes)", "DRW1 (weights)",
-			  "JNT1 (joints)", "SHP1 (shapes)", "MAT3 (materials)", "MDL3 (displists)",
-			  "TEX1 (textures)" };
+	const char *names[9] = { "INF1 (scenegraph)", "VTX1 (vertices)", "EVP1 (envelopes)",
+		"DRW1 (weights)", "JNT1 (joints)", "SHP1 (shapes)", "MAT3 (materials)", "MDL3 (displists)",
+		"TEX1 (textures)" };
 	for (int i = 0; i < 9; i++)
 	{
 		if (!sects[i])
@@ -2813,8 +2819,8 @@ void J3DProfileDump (const uint8_t *data, size_t size, FILE *f)
 			continue;
 		}
 		uint32_t s = j3d_rd32 (data + sects[i] + 4);
-		fprintf (f, "Section %-18s size: %7u bytes (%5.1f KiB, %5.2f%%)\n", names[i], s,
-			s / 1024.0, total ? 100.0 * s / total : 0);
+		fprintf (f, "Section %-18s size: %7u bytes (%5.1f KiB, %5.2f%%)\n", names[i], s, s / 1024.0,
+			total ? 100.0 * s / total : 0);
 	}
 	j3d_dec_t d;
 	memset (&d, 0, sizeof (d));
@@ -2822,8 +2828,8 @@ void J3DProfileDump (const uint8_t *data, size_t size, FILE *f)
 		fprintf (f, "INF1: %d scene nodes\n", d.num_nodes);
 	if (j3d_parse_vtx1 (data, size, o_vtx1, &d))
 	{
-		fprintf (f, "Positions: %u  Normals: %u  Colors: %u/%u  UVs:",
-			(uint)d.pos.n, (uint)d.nrm.n, (uint)d.c0.n, (uint)d.c1.n);
+		fprintf (f, "Positions: %u  Normals: %u  Colors: %u/%u  UVs:", (uint)d.pos.n, (uint)d.nrm.n,
+			(uint)d.c0.n, (uint)d.c1.n);
 		for (int i = 0; i < 8; i++)
 			if (d.has_tex[i])
 				fprintf (f, " [%d]%u", i, (uint)d.tex[i].n);
@@ -2894,8 +2900,8 @@ static const char *j3d_parse_str (const char *p, const char *end, char *out, siz
 	return (p < end && *p == '"') ? p + 1 : 0;
 }
 // Find top-level array under key; returns [start,end) of array contents.
-static int j3d_find_array (const char *json, size_t len, const char *key, const char **a0,
-	const char **a1)
+static int j3d_find_array (
+	const char *json, size_t len, const char *key, const char **a0, const char **a1)
 {
 	char pat[80];
 	snprintf (pat, sizeof (pat), "\"%s\"", key);
@@ -2949,8 +2955,8 @@ static int j3d_find_array (const char *json, size_t len, const char *key, const 
 	return 0;
 }
 // Split array contents into top-level {...} object spans.
-static int j3d_split_objects (const char *a0, const char *a1, const char **starts,
-	const char **ends, int maxn)
+static int j3d_split_objects (
+	const char *a0, const char *a1, const char **starts, const char **ends, int maxn)
 {
 	int n = 0;
 	const char *p = a0;
@@ -3049,8 +3055,8 @@ static int j3d_obj_num (const char *o0, const char *o1, const char *key, double 
 	return 0;
 }
 // Extract up-to-8 string-or-null array under key. null -> empty string + present=0.
-static int j3d_obj_str8 (const char *o0, const char *o1, const char *key, char out[8][256],
-	int present[8])
+static int j3d_obj_str8 (
+	const char *o0, const char *o1, const char *key, char out[8][256], int present[8])
 {
 	const char *a0 = 0, *a1 = 0;
 	char sub[65536];
@@ -3171,8 +3177,7 @@ static uint8_t *j3d_rgba_from_image (Image_t *img, uint *w_out, uint *h_out)
 	if (!out)
 		return 0;
 	for (uint y = 0; y < h; y++)
-		memcpy (out + (size_t)y * w * 4,
-			img->data + (size_t)y * img->xwidth * 4, (size_t)w * 4);
+		memcpy (out + (size_t)y * w * 4, img->data + (size_t)y * img->xwidth * 4, (size_t)w * 4);
 	*w_out = w;
 	*h_out = h;
 	return out;
@@ -3277,7 +3282,7 @@ typedef struct
 	char input_dir[PATH_MAX];
 	// joints (synthetic root appended if model has none)
 	int njoints;
-	char(*jnames)[64];
+	char (*jnames)[64];
 	float *jtrs; // 9 floats: scale xyz euler xyz trans xyz
 	int *jparent, *jmtx;
 	float *jibm; // 12 floats each
@@ -3346,8 +3351,8 @@ static int j3d_pool_add (float **pool, int *n, int *cap, j3d_map_t *map, const f
 }
 
 // resolve one model position to (nb, bones, weights); drops zero weights
-static void j3d_resolve_w (const model_t *model, const mesh_t *mesh, int posi, int *nb, int *bones,
-	float *weights)
+static void j3d_resolve_w (
+	const model_t *model, const mesh_t *mesh, int posi, int *nb, int *bones, float *weights)
 {
 	*nb = 0;
 	if (!mesh->position_node || posi < 0)
@@ -3360,8 +3365,7 @@ static void j3d_resolve_w (const model_t *model, const mesh_t *mesh, int posi, i
 	{
 		if (ni->weights[i].weight == 0.0f)
 			continue;
-		if (ni->weights[i].bone_idx < 0
-			|| (size_t)ni->weights[i].bone_idx >= model->num_joints)
+		if (ni->weights[i].bone_idx < 0 || (size_t)ni->weights[i].bone_idx >= model->num_joints)
 			continue;
 		bones[*nb] = ni->weights[i].bone_idx;
 		weights[*nb] = ni->weights[i].weight;
@@ -3612,15 +3616,13 @@ static void j3d_apply_texheaders (j3d_enc_t *e, const char *json_path)
 				e->tex[ti].fmt = f;
 			else if (f >= 0)
 				fprintf (stderr,
-					"j3d: warning: paletted encode to %s unsupported, keeping %s for %s\n",
-					fmt, e->tex[ti].fmt == J3D_TEX_CMPR ? "CMPR" : "RGBA32", name);
+					"j3d: warning: paletted encode to %s unsupported, keeping %s for %s\n", fmt,
+					e->tex[ti].fmt == J3D_TEX_CMPR ? "CMPR" : "RGBA32", name);
 		}
 		if (j3d_obj_str (starts[i], ends[i], "wrap_s", ws, sizeof (ws)))
-			e->tex[ti].wrap_s
-				= !strcmp (ws, "Repeat") ? 1 : !strcmp (ws, "MirroredRepeat") ? 2 : 0;
+			e->tex[ti].wrap_s = !strcmp (ws, "Repeat") ? 1 : !strcmp (ws, "MirroredRepeat") ? 2 : 0;
 		if (j3d_obj_str (starts[i], ends[i], "wrap_t", wt, sizeof (wt)))
-			e->tex[ti].wrap_t
-				= !strcmp (wt, "Repeat") ? 1 : !strcmp (wt, "MirroredRepeat") ? 2 : 0;
+			e->tex[ti].wrap_t = !strcmp (wt, "Repeat") ? 1 : !strcmp (wt, "MirroredRepeat") ? 2 : 0;
 		if (j3d_obj_str (starts[i], ends[i], "min_filter", mn, sizeof (mn)))
 		{
 			if (!strcmp (mn, "Nearest"))
@@ -3695,8 +3697,10 @@ static void j3d_apply_materials_json (j3d_enc_t *e, const char *json_path, int n
 				{
 					char cull[16] = "";
 					if (j3d_obj_str (starts[i], ends[i], "cull", cull, sizeof (cull)))
-						e->mat_cull[m] = !strcmp (cull, "None") ? 0 : !strcmp (cull, "Front") ? 1
-							: !strcmp (cull, "All") ? 3 : 2;
+						e->mat_cull[m] = !strcmp (cull, "None") ? 0
+							: !strcmp (cull, "Front")			? 1
+							: !strcmp (cull, "All")				? 3
+																: 2;
 					double dv[4];
 					if (j3d_obj_numarr (starts[i], ends[i], "diffuse", dv, 4) == 4)
 						for (int k = 0; k < 4; k++)
@@ -3911,7 +3915,8 @@ static void j3d_collect_weights (j3d_enc_t *e)
 						f = k;
 				if (f < 0)
 				{
-					e->singles = REALLOC (e->singles, (size_t)(e->nsingles + 1) * sizeof (*e->singles));
+					e->singles
+						= REALLOC (e->singles, (size_t)(e->nsingles + 1) * sizeof (*e->singles));
 					if (!e->singles)
 						return;
 					e->singles[e->nsingles].n = -1;
@@ -3933,8 +3938,8 @@ static void j3d_collect_weights (j3d_enc_t *e)
 						return;
 					e->multis[e->nmultis].n = c->nb;
 					memcpy (e->multis[e->nmultis].bones, c->bones, sizeof (int) * (size_t)c->nb);
-					memcpy (e->multis[e->nmultis].weights, c->weights,
-						sizeof (float) * (size_t)c->nb);
+					memcpy (
+						e->multis[e->nmultis].weights, c->weights, sizeof (float) * (size_t)c->nb);
 					e->nmultis++;
 				}
 			}
@@ -4125,22 +4130,18 @@ static int j3d_build_packets (j3d_enc_t *e, int mi)
 			v3[1] = c->p[1];
 			v3[2] = c->p[2];
 			pk->rp[i] = j3d_pool_add (&e->pos, &e->npos, &e->cappos, &e->posmap, v3, 3);
-			pk->rn[i] = c->hasn
-				? j3d_pool_add (&e->nrm, &e->nnrm, &e->capnrm, &e->nrmmap, c->n, 3)
-				: -1;
+			pk->rn[i]
+				= c->hasn ? j3d_pool_add (&e->nrm, &e->nnrm, &e->capnrm, &e->nrmmap, c->n, 3) : -1;
 			pk->rc0[i] = c->hasc[0]
-				? j3d_pool_add (&e->col[0], &e->ncol[0], &e->capcol[0], &e->colmap[0], c->c[0],
-					4)
+				? j3d_pool_add (&e->col[0], &e->ncol[0], &e->capcol[0], &e->colmap[0], c->c[0], 4)
 				: -1;
 			pk->rc1[i] = c->hasc[1]
-				? j3d_pool_add (&e->col[1], &e->ncol[1], &e->capcol[1], &e->colmap[1], c->c[1],
-					4)
+				? j3d_pool_add (&e->col[1], &e->ncol[1], &e->capcol[1], &e->colmap[1], c->c[1], 4)
 				: -1;
 			for (int k = 0; k < 8; k++)
-				pk->rt[k][i] = c->hast[k]
-					? j3d_pool_add (&e->texp[k], &e->ntexp[k], &e->captexp[k], &e->texmap[k],
-						c->uv[k], 2)
-					: -1;
+				pk->rt[k][i] = c->hast[k] ? j3d_pool_add (&e->texp[k], &e->ntexp[k], &e->captexp[k],
+												&e->texmap[k], c->uv[k], 2)
+										  : -1;
 		}
 		vbase += pk->ntris * 3;
 	}
@@ -4363,11 +4364,11 @@ static void j3d_write_vtx1 (j3d_enc_t *e, j3d_buf_t *out)
 	// data blobs in Vtx1OffsetIndex order
 	uint32_t rel[13];
 	memset (rel, 0, sizeof (rel));
-#define J3D_VTX_OFF(slot)                                                                                  \
-	do                                                                                                 \
-	{                                                                                                  \
+#define J3D_VTX_OFF(slot)                                                                          \
+	do                                                                                             \
+	{                                                                                              \
 		rel[slot] = (uint32_t)(out->size - start);                                                 \
-		j3d_patch32 (out, offpos + (size_t)(slot)*4, rel[slot]);                                    \
+		j3d_patch32 (out, offpos + (size_t)(slot) * 4, rel[slot]);                                 \
 	} while (0)
 	J3D_VTX_OFF (0);
 	for (int i = 0; i < e->npos; i++)
@@ -5380,8 +5381,7 @@ static void j3d_enc_free (j3d_enc_t *e)
 	FREE (e->mat_texnames);
 }
 
-enumError EncodeModelToJ3D (const model_t *model, const char *out_path,
-	const j3d_encode_opt_t *opt)
+enumError EncodeModelToJ3D (const model_t *model, const char *out_path, const j3d_encode_opt_t *opt)
 {
 	j3d_encode_opt_t def;
 	if (!opt)
@@ -5578,7 +5578,7 @@ enumError EncodeModelToJ3D (const model_t *model, const char *out_path,
 			if (e.mat_cull && e.mat_cull[m] != 0xff)
 				emat[m].cull = e.mat_cull[m];
 			float *dd = (e.mat_diffuse && e.mat_diffuse[m * 4] >= 0) ? e.mat_diffuse + m * 4
-																	: (float *)sm->diffuse;
+																	 : (float *)sm->diffuse;
 			int allzero = dd[0] == 0 && dd[1] == 0 && dd[2] == 0 && dd[3] == 0;
 			for (int k = 0; k < 4; k++)
 			{
@@ -5698,17 +5698,3 @@ enumError EncodeModelToJ3D (const model_t *model, const char *out_path,
 	j3d_enc_free (&e);
 	return err;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

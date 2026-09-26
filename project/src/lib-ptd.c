@@ -115,8 +115,8 @@ enumError ScanPTD (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 		const bool stereo = (flags & 0x01000000) != 0;
 
 		uint dsp1_sz = 0;
-		u8 *dsp1 = ptd_build_dsp (&dsp1_sz, data, size, flags, srate, nibble_cnt,
-			loop_start, ch1_stream_off, ch1_coef_idx, coef_offset);
+		u8 *dsp1 = ptd_build_dsp (&dsp1_sz, data, size, flags, srate, nibble_cnt, loop_start,
+			ch1_stream_off, ch1_coef_idx, coef_offset);
 
 		if (dsp1)
 		{
@@ -135,8 +135,8 @@ enumError ScanPTD (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 			const u16 ch2_coef_idx = rd_be16 (data + file_off + 28);
 
 			uint dsp2_sz = 0;
-			u8 *dsp2 = ptd_build_dsp (&dsp2_sz, data, size, flags, srate, nibble_cnt,
-				loop_start, ch2_stream_off, ch2_coef_idx, coef_offset);
+			u8 *dsp2 = ptd_build_dsp (&dsp2_sz, data, size, flags, srate, nibble_cnt, loop_start,
+				ch2_stream_off, ch2_coef_idx, coef_offset);
 
 			if (dsp2)
 			{
@@ -252,7 +252,8 @@ enumError ScanPTDFile (ptd_file_t *file, const u8 *data, uint size)
 		{
 			if ((u64)coef_offset + (u64)ch2_coef * 32 + 32 <= size)
 				for (int c = 0; c < 16; c++)
-					s->channels[1].coef[c] = rd_be16 (data + coef_offset + (u64)ch2_coef * 32 + c * 2);
+					s->channels[1].coef[c]
+						= rd_be16 (data + coef_offset + (u64)ch2_coef * 32 + c * 2);
 			if (ch2_off && ch2_off < size)
 			{
 				uint avail = (uint)(size - ch2_off);
@@ -295,8 +296,8 @@ static inline void ptd_wr_be32 (u8 *p, u32 v)
 
 enumError CreatePTD (u8 **dest, uint *dest_size, const ptd_file_t *file)
 {
-	if (!dest || !dest_size || !file || !file->num_streams
-		|| file->num_streams > 2000 || !file->streams)
+	if (!dest || !dest_size || !file || !file->num_streams || file->num_streams > 2000
+		|| !file->streams)
 		return ERR_INVALID_DATA;
 
 	const uint n = file->num_streams;
@@ -384,8 +385,7 @@ enumError CreatePTD (u8 **dest, uint *dest_size, const ptd_file_t *file)
 		for (uint c = 0; c < s->num_channels; c++)
 		{
 			for (int k = 0; k < 16; k++)
-				ptd_wr_be16 (out + coef_off + (u64)coef_idx * 32 + k * 2,
-					s->channels[c].coef[k]);
+				ptd_wr_be16 (out + coef_off + (u64)coef_idx * 32 + k * 2, s->channels[c].coef[k]);
 			coef_idx++;
 		}
 	}
@@ -423,8 +423,7 @@ enumError CreatePTD (u8 **dest, uint *dest_size, const ptd_file_t *file)
 		}
 		if (s->flags == PTD_UNKNOWN_MAGIC && s->unknown_data && s->unknown_size)
 		{
-			const uint cp = s->unknown_size < PTD_UNKNOWN_SIZE
-				? s->unknown_size : PTD_UNKNOWN_SIZE;
+			const uint cp = s->unknown_size < PTD_UNKNOWN_SIZE ? s->unknown_size : PTD_UNKNOWN_SIZE;
 			memcpy (out + hpos, s->unknown_data, cp);
 			hpos += PTD_UNKNOWN_SIZE;
 		}
@@ -436,14 +435,12 @@ enumError CreatePTD (u8 **dest, uint *dest_size, const ptd_file_t *file)
 		// Payload bytes.
 		if (s->channels[0].data && s->channels[0].data_size)
 		{
-			const uint cp = s->channels[0].data_size < pl
-				? s->channels[0].data_size : pl;
+			const uint cp = s->channels[0].data_size < pl ? s->channels[0].data_size : pl;
 			memcpy (out + ch1_addr, s->channels[0].data, cp);
 		}
 		if (s->num_channels > 1 && s->channels[1].data && s->channels[1].data_size)
 		{
-			const uint cp = s->channels[1].data_size < pl
-				? s->channels[1].data_size : pl;
+			const uint cp = s->channels[1].data_size < pl ? s->channels[1].data_size : pl;
 			memcpy (out + ch2_addr, s->channels[1].data, cp);
 		}
 	}

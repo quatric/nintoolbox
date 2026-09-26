@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // ----------------------------------------------------------------------------
 // Camelot GX texture bank (Mario Golf: Toadstool Tour, Mario Power Tennis)
 //
@@ -66,7 +65,6 @@ static image_format_t camelot_gx_image_format (u32 format)
 	}
 }
 
-
 // Bytes one GX level occupies, tile padding included.
 static u32 camelot_gx_level_size (u32 format, u32 w, u32 h)
 {
@@ -94,7 +92,6 @@ static u32 camelot_gx_level_size (u32 format, u32 w, u32 h)
 	}
 	return ((w + bw - 1) / bw) * ((h + bh - 1) / bh) * bw * bh * bpp / 8;
 }
-
 
 // True when a bank header at RAW describes entries that all land inside the
 // AVAIL bytes that follow it. Every offset in a bank is relative to the bank
@@ -128,7 +125,6 @@ static bool camelot_bank_valid (const u8 *raw, uint avail)
 	}
 	return true;
 }
-
 
 // Write every texture in one bank to "<stem>_%04u.png" in DEST, numbering
 // from *NEXT so a module holding several banks stays consistently numbered.
@@ -189,7 +185,6 @@ static uint camelot_texbank_to_pngs (const u8 *raw, uint size, ccp dest, ccp ste
 	}
 	return written;
 }
-
 
 // A Camelot LZ stream only announces itself with a 1 or 2 in byte 0, and a
 // texture bank is located by scanning a relocatable module for its signature

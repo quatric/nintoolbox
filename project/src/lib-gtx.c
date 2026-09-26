@@ -1879,7 +1879,6 @@ enumError EncodeGSHFromLatte (
 	return err;
 }
 
-
 enumError create_gsh_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -1969,46 +1968,86 @@ static ccp gx2_shader_var_type_name (u32 t)
 {
 	switch (t)
 	{
-		case 0: return "void";
-		case 1: return "bool";
-		case 2: return "int";
-		case 3: return "uint";
-		case 4: return "float";
-		case 5: return "double";
-		case 6: return "double2";
-		case 7: return "double3";
-		case 8: return "double4";
-		case 9: return "float2";
-		case 10: return "float3";
-		case 11: return "float4";
-		case 12: return "bool2";
-		case 13: return "bool3";
-		case 14: return "bool4";
-		case 15: return "int2";
-		case 16: return "int3";
-		case 17: return "int4";
-		case 18: return "uint2";
-		case 19: return "uint3";
-		case 20: return "uint4";
-		case 21: return "float2x2";
-		case 22: return "float2x3";
-		case 23: return "float2x4";
-		case 24: return "float3x2";
-		case 25: return "float3x3";
-		case 26: return "float3x4";
-		case 27: return "float4x2";
-		case 28: return "float4x3";
-		case 29: return "float4x4";
-		case 30: return "double2x2";
-		case 31: return "double2x3";
-		case 32: return "double2x4";
-		case 33: return "double3x2";
-		case 34: return "double3x3";
-		case 35: return "double3x4";
-		case 36: return "double4x2";
-		case 37: return "double4x3";
-		case 38: return "double4x4";
-		default: return "unknown";
+		case 0:
+			return "void";
+		case 1:
+			return "bool";
+		case 2:
+			return "int";
+		case 3:
+			return "uint";
+		case 4:
+			return "float";
+		case 5:
+			return "double";
+		case 6:
+			return "double2";
+		case 7:
+			return "double3";
+		case 8:
+			return "double4";
+		case 9:
+			return "float2";
+		case 10:
+			return "float3";
+		case 11:
+			return "float4";
+		case 12:
+			return "bool2";
+		case 13:
+			return "bool3";
+		case 14:
+			return "bool4";
+		case 15:
+			return "int2";
+		case 16:
+			return "int3";
+		case 17:
+			return "int4";
+		case 18:
+			return "uint2";
+		case 19:
+			return "uint3";
+		case 20:
+			return "uint4";
+		case 21:
+			return "float2x2";
+		case 22:
+			return "float2x3";
+		case 23:
+			return "float2x4";
+		case 24:
+			return "float3x2";
+		case 25:
+			return "float3x3";
+		case 26:
+			return "float3x4";
+		case 27:
+			return "float4x2";
+		case 28:
+			return "float4x3";
+		case 29:
+			return "float4x4";
+		case 30:
+			return "double2x2";
+		case 31:
+			return "double2x3";
+		case 32:
+			return "double2x4";
+		case 33:
+			return "double3x2";
+		case 34:
+			return "double3x3";
+		case 35:
+			return "double3x4";
+		case 36:
+			return "double4x2";
+		case 37:
+			return "double4x3";
+		case 38:
+			return "double4x4";
+		default:
+			return "unknown";
 	}
 }
 
@@ -2016,15 +2055,24 @@ static ccp gx2_sampler_var_type_name (u32 t)
 {
 	switch (t)
 	{
-		case 0: return "sampler_1d";
-		case 1: return "sampler_2d";
-		case 3: return "sampler_3d";
-		case 4: return "sampler_cube";
-		case 6: return "sampler_2d_shadow";
-		case 10: return "sampler_2d_array";
-		case 12: return "sampler_2d_array_shadow";
-		case 13: return "sampler_cube_array";
-		default: return "unknown_sampler";
+		case 0:
+			return "sampler_1d";
+		case 1:
+			return "sampler_2d";
+		case 3:
+			return "sampler_3d";
+		case 4:
+			return "sampler_cube";
+		case 6:
+			return "sampler_2d_shadow";
+		case 10:
+			return "sampler_2d_array";
+		case 12:
+			return "sampler_2d_array_shadow";
+		case 13:
+			return "sampler_cube_array";
+		default:
+			return "unknown_sampler";
 	}
 }
 
@@ -2071,8 +2119,8 @@ static void decode_gx2_header_tables (FILE *out, const u8 *hdata, uint hsize)
 			const u32 offset = grd32 (p + 12);
 			const u32 block_idx = grd32 (p + 16);
 			ccp name = (name_off < hsize) ? (ccp)(hdata + name_off) : "<invalid>";
-			fprintf (out, "      [%u] %s: type = %s(%u), count = %u, offset = %u, block = %u\n",
-				i, name, gx2_shader_var_type_name (type), type, count, offset, block_idx);
+			fprintf (out, "      [%u] %s: type = %s(%u), count = %u, offset = %u, block = %u\n", i,
+				name, gx2_shader_var_type_name (type), type, count, offset, block_idx);
 		}
 	}
 
@@ -2086,8 +2134,8 @@ static void decode_gx2_header_tables (FILE *out, const u8 *hdata, uint hsize)
 			const u32 type = grd32 (p + 4);
 			const u32 loc = grd32 (p + 8);
 			ccp name = (name_off < hsize) ? (ccp)(hdata + name_off) : "<invalid>";
-			fprintf (out, "      [%u] %s: type = %s(%u), location = %u\n",
-				i, name, gx2_sampler_var_type_name (type), type, loc);
+			fprintf (out, "      [%u] %s: type = %s(%u), location = %u\n", i, name,
+				gx2_sampler_var_type_name (type), type, loc);
 		}
 	}
 
@@ -2106,8 +2154,8 @@ static void decode_gx2_header_tables (FILE *out, const u8 *hdata, uint hsize)
 				const u32 count = grd32 (p + 8);
 				const s32 loc = (s32)grd32 (p + 12);
 				ccp name = (name_off < hsize) ? (ccp)(hdata + name_off) : "<invalid>";
-				fprintf (out, "      [%u] %s: type = %s(%u), count = %u, location = %d\n",
-					i, name, gx2_shader_var_type_name (type), type, count, loc);
+				fprintf (out, "      [%u] %s: type = %s(%u), count = %u, location = %d\n", i, name,
+					gx2_shader_var_type_name (type), type, count, loc);
 			}
 		}
 	}
@@ -2135,37 +2183,41 @@ enumError DecodeGSH_Text (FILE *out, const u8 *data, size_t size)
 	if (err)
 		return err;
 
-	fprintf (out, "#GSH\n"
+	fprintf (out,
+		"#GSH\n"
 		"version = %u.%u\n"
 		"gpu_version = %u\n"
 		"alignment = %u\n"
 		"blocks = %u\n"
 		"shaders = %u\n\n",
-		gtx.version_major, gtx.version_minor, gtx.gpu_version,
-		gtx.alignment, gtx.n_blocks, gtx.n_shaders);
+		gtx.version_major, gtx.version_minor, gtx.gpu_version, gtx.alignment, gtx.n_blocks,
+		gtx.n_shaders);
 
 	static const ccp stage_names[] = { "vertex", "pixel", "geometry", "compute" };
 
 	for (uint i = 0; i < gtx.n_shaders; i++)
 	{
 		const gtx_shader_t *s = gtx.shaders + i;
-		fprintf (out, "[shader.%u]\n"
+		fprintf (out,
+			"[shader.%u]\n"
 			"  stage = %s\n",
 			i, (s->stage <= GTX_SHADER_COMPUTE) ? stage_names[s->stage] : "unknown");
 
 		if (s->header)
 		{
-			fprintf (out, "  header: offset = %u, size = %u\n", s->header->offset, s->header->data_size);
+			fprintf (
+				out, "  header: offset = %u, size = %u\n", s->header->offset, s->header->data_size);
 			decode_gx2_header_tables (out, s->header->data, s->header->data_size);
 		}
 		if (s->program)
-			fprintf (out, "  program: offset = %u, size = %u\n", s->program->offset, s->program->data_size);
+			fprintf (out, "  program: offset = %u, size = %u\n", s->program->offset,
+				s->program->data_size);
 		if (s->copy_program)
-			fprintf (out, "  copy_program: offset = %u, size = %u\n", s->copy_program->offset, s->copy_program->data_size);
+			fprintf (out, "  copy_program: offset = %u, size = %u\n", s->copy_program->offset,
+				s->copy_program->data_size);
 		fprintf (out, "\n");
 	}
 
 	ResetGTX (&gtx);
 	return ERR_OK;
 }
-

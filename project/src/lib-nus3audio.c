@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // ----------------------------------------------------------------------------
 // Bandai Namco NUS3AUDIO audio archive (.nus3audio / NUS3)
 //
@@ -153,7 +152,6 @@ enumError ExtractNUS3AudioArchive (ccp arg, ccp basedir, uint depth)
 	return ERR_OK;
 }
 
-
 enumError CreateNUS3AudioArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {
@@ -281,7 +279,6 @@ enumError CreateNUS3AudioArchive (
 	return ERR_OK;
 }
 
-
 enumError create_nus3audio_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -303,8 +300,8 @@ enumError create_nus3audio_dir (ccp source, ccp dest)
 		// first-time build which has to synthesise all of it.
 		u8 *raw = 0;
 		size_t raw_size = 0;
-		if (!LoadFileAlloc (dest, 0, 0, &raw, &raw_size, 0, 0, 0, false)
-			&& raw_size >= 16 && raw_size <= UINT_MAX && !memcmp (raw, "NUS3", 4))
+		if (!LoadFileAlloc (dest, 0, 0, &raw, &raw_size, 0, 0, 0, false) && raw_size >= 16
+			&& raw_size <= UINT_MAX && !memcmp (raw, "NUS3", 4))
 		{
 			const u8 *nmof = 0, *adof = 0, *tnnm = 0, *pack = 0;
 			uint nmof_size = 0, adof_size = 0, tnnm_size = 0, pack_size = 0;
@@ -329,8 +326,8 @@ enumError create_nus3audio_dir (ccp source, ccp dest)
 				pos = payload + csize;
 			}
 
-			bool reusable = n_tracks && n_tracks <= 100000 && adof && pack
-				&& adof_size >= (u64)n_tracks * 8;
+			bool reusable
+				= n_tracks && n_tracks <= 100000 && adof && pack && adof_size >= (u64)n_tracks * 8;
 			uint *match = reusable ? CALLOC (n_tracks, sizeof (*match)) : 0;
 			if (reusable && !match)
 				reusable = false;
@@ -439,4 +436,3 @@ enumError create_nus3audio_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

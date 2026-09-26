@@ -86,8 +86,8 @@ ccp WWRExtension (ww_rtype_t type)
 ///////////////		RSC container					///////////////
 //-----------------------------------------------------------------------------
 
-enumError ScanWWRSC (wwrsc_entry_t **entries, uint *n_entries, u8 unknowns[32],
-	const u8 *data, uint size)
+enumError ScanWWRSC (
+	wwrsc_entry_t **entries, uint *n_entries, u8 unknowns[32], const u8 *data, uint size)
 {
 	if (!data || size < 0x20)
 		return ERR_INVALID_DATA;
@@ -155,8 +155,8 @@ enumError ScanWWRSC (wwrsc_entry_t **entries, uint *n_entries, u8 unknowns[32],
 	return ERR_OK;
 }
 
-enumError CreateWWRSC (u8 **dest, uint *dest_size, const u8 unknowns[32],
-	const wwrsc_entry_t *entries, uint n_entries)
+enumError CreateWWRSC (
+	u8 **dest, uint *dest_size, const u8 unknowns[32], const wwrsc_entry_t *entries, uint n_entries)
 {
 	if (!dest || !dest_size || !entries || !n_entries)
 		return ERR_INVALID_DATA;
@@ -222,8 +222,8 @@ static bool ww_read_hdr (const u8 *data, uint size, ww_hdr_t *h)
 	h->pack_off = ww_be32 (data + 44) * 4;
 	// A zero draw/shape/packet table is meaningless; zero pools are fine
 	// only when the matching offset is also zero (absent).
-	if (!h->draw_n || !h->shape_n || !h->pack_n || h->draw_n > WW_MAX_SECT || h->shape_n > WW_MAX_SECT
-		|| h->pack_n > WW_MAX_SECT)
+	if (!h->draw_n || !h->shape_n || !h->pack_n || h->draw_n > WW_MAX_SECT
+		|| h->shape_n > WW_MAX_SECT || h->pack_n > WW_MAX_SECT)
 		return false;
 	if ((u64)h->draw_off + (u64)h->draw_n * 8 > size
 		|| (u64)h->pack_off + (u64)h->pack_n * 12 > size)
@@ -341,8 +341,8 @@ static bool ww_tris (ww_soup_t *out, u8 op, const ww_corner_t *v, uint n)
 }
 
 // Walk one packet. Returns false on corrupt data.
-static bool ww_walk_packet (const u8 *data, uint size, u32 off, u32 len, uint flags2,
-	bool has_nrm, bool has_col, bool has_uv, ww_soup_t *out)
+static bool ww_walk_packet (const u8 *data, uint size, u32 off, u32 len, uint flags2, bool has_nrm,
+	bool has_col, bool has_uv, ww_soup_t *out)
 {
 	if ((u64)off + len > size)
 		return false;
@@ -491,8 +491,7 @@ model_t *ParseWWModel (const u8 *data, size_t size)
 					if (mat->num_textures < 8)
 					{
 						const int kk = mat->num_textures++;
-						snprintf (mat->textures[kk], sizeof (mat->textures[kk]), "Texture%d",
-							tidx);
+						snprintf (mat->textures[kk], sizeof (mat->textures[kk]), "Texture%d", tidx);
 						mat->wrap_s[kk] = mat->wrap_t[kk] = 1;
 						mat->min_filter[kk] = mat->mag_filter[kk] = 1;
 					}
@@ -505,16 +504,14 @@ model_t *ParseWWModel (const u8 *data, size_t size)
 					mat->diffuse[2] = cp[2] / 255.0f;
 					mat->diffuse[3] = cp[3] / 255.0f;
 				}
-				ok = ww_walk_packet (data, (uint)size, poff, psz, f2, has_nrm, has_col,
-					has_uv, &soup);
+				ok = ww_walk_packet (
+					data, (uint)size, poff, psz, f2, has_nrm, has_col, has_uv, &soup);
 			}
 			if (ok)
 				for (size_t c = 0; c < soup.num && ok; c++)
 				{
 					const ww_corner_t *cn = soup.v + c;
-					if (cn->pos < 0
-						|| (has_nrm && cn->nrm < 0)
-						|| (has_col && cn->col < 0)
+					if (cn->pos < 0 || (has_nrm && cn->nrm < 0) || (has_col && cn->col < 0)
 						|| (has_uv && cn->uv < 0))
 						ok = false;
 				}
@@ -898,7 +895,7 @@ enumError EncodeWWModel (const model_t *model, u8 **out, uint *out_size)
 					if (nnrm >= cnrm)
 					{
 						const size_t nc = cnrm ? cnrm * 2 : 1024;
-						float(*nn)[3] = REALLOC (nrmpool, nc * sizeof (*nn));
+						float (*nn)[3] = REALLOC (nrmpool, nc * sizeof (*nn));
 						if (!nn)
 						{
 							FREE (blob);
@@ -942,7 +939,7 @@ enumError EncodeWWModel (const model_t *model, u8 **out, uint *out_size)
 					if (nuv >= cuv)
 					{
 						const size_t nc = cuv ? cuv * 2 : 1024;
-						float(*nn)[2] = REALLOC (uvpool, nc * sizeof (*nn));
+						float (*nn)[2] = REALLOC (uvpool, nc * sizeof (*nn));
 						if (!nn)
 						{
 							FREE (blob);
@@ -988,7 +985,7 @@ enumError EncodeWWModel (const model_t *model, u8 **out, uint *out_size)
 					if (ncol >= ccol)
 					{
 						const size_t nc = ccol ? ccol * 2 : 256;
-						u8(*nn)[4] = REALLOC (colpool, nc * sizeof (*nn));
+						u8 (*nn)[4] = REALLOC (colpool, nc * sizeof (*nn));
 						if (!nn)
 						{
 							FREE (blob);
@@ -1126,9 +1123,8 @@ enumError EncodeWWModel (const model_t *model, u8 **out, uint *out_size)
 		// "TextureN" names (no pixels are rebuilt, see header note).
 		pp[11] = 0xff;
 		{
-			const material_t *mt = model->num_materials > packs[m].mat
-				? model->materials + packs[m].mat
-				: 0;
+			const material_t *mt
+				= model->num_materials > packs[m].mat ? model->materials + packs[m].mat : 0;
 			if (mt && mt->num_textures > 0 && mt->textures[0][0])
 			{
 				uint tn = 0;
@@ -1138,9 +1134,8 @@ enumError EncodeWWModel (const model_t *model, u8 **out, uint *out_size)
 		}
 		memcpy (buf + blob_off[m], packs[m].blob, packs[m].len);
 		u8 *cp = buf + matcol_off + packs[m].mat * 4;
-		const material_t *mt = model->num_materials > packs[m].mat
-			? model->materials + packs[m].mat
-			: 0;
+		const material_t *mt
+			= model->num_materials > packs[m].mat ? model->materials + packs[m].mat : 0;
 		if (mt)
 		{
 			cp[0] = (u8)(mt->diffuse[0] * 255.0f);

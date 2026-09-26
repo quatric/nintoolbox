@@ -12,6 +12,7 @@ enumError DecodeBTGA_RGBA (u8 **dest, uint *width, uint *height, const u8 *data,
 enumError DecodeSTEX_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, uint size);
 enumError DecodeDMPBM_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, uint size);
 enumError DecodeCMBTexture_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, uint size);
-enumError SavePica3DSTexture (Image_t *img, file_format_t fform, FILE *fo, ccp path, bool overwrite);
+enumError SavePica3DSTexture (
+	Image_t *img, file_format_t fform, FILE *fo, ccp path, bool overwrite);
 
 #endif

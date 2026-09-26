@@ -17,8 +17,8 @@ enumError ExtractZDATArchive (ccp arg, ccp basedir, uint depth);
 // i (NULL means all-zero keys, i.e. re-emit the payload bytes as-is). The
 // header/offset words of the result are byte-identical to the extractor's
 // input when the entries and keys came from a CREATE or from a saved cache.
-enumError CreateZDATArchive (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries, const u8 *mask_keys);
+enumError CreateZDATArchive (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries,
+	uint n_entries, const u8 *mask_keys);
 
 enumError create_zdat_dir (ccp source, ccp dest);
 

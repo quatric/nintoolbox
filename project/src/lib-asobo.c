@@ -13,8 +13,14 @@
 #define ASOBO_MAX_RESOURCES 0x1000000
 #define ASOBO_MAX_SIZE (0x40000000u)
 
-static u32 as_rd32 (const u8 *p) { return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
-static u32 as_rd32le (const u8 *p) { return p[0] | p[1] << 8 | p[2] << 16 | (u32)p[3] << 24; }
+static u32 as_rd32 (const u8 *p)
+{
+	return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
+}
+static u32 as_rd32le (const u8 *p)
+{
+	return p[0] | p[1] << 8 | p[2] << 16 | (u32)p[3] << 24;
+}
 
 static u32 as_table[256];
 static bool as_table_ready;
@@ -46,10 +52,11 @@ static ccp as_class_name (u32 hash)
 	static const char *const names[] = { "Animation_Z", "Bitmap_Z", "CameraZone_Z", "Camera_Z",
 		"CollisionVol_Z", "Fonts_Z", "GameObj_Z", "GenWorld_Z", "GwRoad_Z", "Light_Z", "LodData_Z",
 		"Lod_Z", "MaterialAnim_Z", "MaterialObj_Z", "Material_Z", "MeshData_Z", "Mesh_Z", "Node_Z",
-		"Omni_Z", "ParticlesData_Z", "Particles_Z", "RotShapeData_Z", "RotShape_Z", "Skel_Z", "Skin_Z",
-		"SoundBank_Z", "Sound_Z", "SplineGraph_Z", "Spline_Z", "SurfaceDatas_Z", "Surface_Z", "Text_Z",
-		"UserDefine_Z", "Warp_Z", "World_Z", "Rtc_Z", "Binary_Z", "Zone_Z", "Path_Z", "Sprite_Z",
-		"Cinematic_Z", "ShapeMorph_Z", "MaterialArray_Z", "SurfaceDatasArray_Z", "Movie_Z", 0 };
+		"Omni_Z", "ParticlesData_Z", "Particles_Z", "RotShapeData_Z", "RotShape_Z", "Skel_Z",
+		"Skin_Z", "SoundBank_Z", "Sound_Z", "SplineGraph_Z", "Spline_Z", "SurfaceDatas_Z",
+		"Surface_Z", "Text_Z", "UserDefine_Z", "Warp_Z", "World_Z", "Rtc_Z", "Binary_Z", "Zone_Z",
+		"Path_Z", "Sprite_Z", "Cinematic_Z", "ShapeMorph_Z", "MaterialArray_Z",
+		"SurfaceDatasArray_Z", "Movie_Z", 0 };
 	for (uint i = 0; names[i]; i++)
 		if (as_hash (names[i]) == hash)
 			return names[i];
@@ -96,10 +103,11 @@ static bool as_lzrs (const u8 *src, size_t src_size, u8 *dst, u32 dst_size)
 	return true;
 }
 
-enumError ScanAsoboDrv (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size)
+enumError ScanAsoboDrv (
+	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size)
 {
-	if (!entries || !n_entries || !data || size < 0x800 || data[0] != 'v' || memcmp (data + 1, "1.", 2)
-		|| !memmem (data, 0x40, "Asobo", 5))
+	if (!entries || !n_entries || !data || size < 0x800 || data[0] != 'v'
+		|| memcmp (data + 1, "1.", 2) || !memmem (data, 0x40, "Asobo", 5))
 		return EINVAL;
 	*entries = 0;
 	*n_entries = 0;
@@ -191,9 +199,18 @@ static bool as_bitmap_gx (u8 format, uint *gx, uint *bits)
 {
 	switch (format)
 	{
-	case 7: *gx = 4; *bits = 16; return true; // RGB565
-	case 12: *gx = 6; *bits = 32; return true; // RGBA8
-	case 14: *gx = 14; *bits = 4; return true; // CMPR
+		case 7:
+			*gx = 4;
+			*bits = 16;
+			return true; // RGB565
+		case 12:
+			*gx = 6;
+			*bits = 32;
+			return true; // RGBA8
+		case 14:
+			*gx = 14;
+			*bits = 4;
+			return true; // CMPR
 	}
 	return false;
 }
@@ -240,7 +257,8 @@ bool IsAsoboSound (const u8 *d, size_t size)
 		return false;
 	// nibbles cover the samples (14 per 16-nibble frame) and must fit the data
 	const u64 frames = ((u64)samples + 13) / 14;
-	return nibbles >= frames * 16 - 15 && nibbles <= frames * 16 && (nibbles + 1) / 2 <= size - AS_SND_DATA;
+	return nibbles >= frames * 16 - 15 && nibbles <= frames * 16
+		&& (nibbles + 1) / 2 <= size - AS_SND_DATA;
 }
 
 enumError DecodeAsoboSound (u8 **wav, size_t *wav_size, const u8 *d, size_t size)
@@ -490,12 +508,13 @@ static bool as_add_mesh (model_t *model, const as_mesh_t *m, uint dl_idx, uint m
 
 	// compact the arrays to the entries this list uses
 	int *pmap = MALLOC (m->n_pos * sizeof (int)), *nmap = MALLOC (m->n_nrm * sizeof (int)),
-	    *umap = MALLOC (m->n_uv * sizeof (int));
+		*umap = MALLOC (m->n_uv * sizeof (int));
 	mesh->vertices = CALLOC (num, sizeof (*mesh->vertices));
 	mesh->positions = CALLOC (m->n_pos, sizeof (*mesh->positions));
 	mesh->normals = CALLOC (m->n_nrm, sizeof (*mesh->normals));
 	mesh->texcoords = CALLOC (m->n_uv, sizeof (*mesh->texcoords));
-	if (!pmap || !nmap || !umap || !mesh->vertices || !mesh->positions || !mesh->normals || !mesh->texcoords)
+	if (!pmap || !nmap || !umap || !mesh->vertices || !mesh->positions || !mesh->normals
+		|| !mesh->texcoords)
 	{
 		FREE (pmap);
 		FREE (nmap);

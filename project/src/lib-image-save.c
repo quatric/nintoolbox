@@ -353,8 +353,8 @@ enumError WriteImageData (mipmap_info_t *mmi, // valid mipmap info
 	ResetIMG (&mmi->img);
 	return err;
 }
-enumError SaveImageBuffer (Image_t *img, FILE *fo, ccp path, bool overwrite,
-	const u8 *data, uint size, ccp format)
+enumError SaveImageBuffer (
+	Image_t *img, FILE *fo, ccp path, bool overwrite, const u8 *data, uint size, ccp format)
 {
 	enumError err;
 	File_t f;
@@ -450,7 +450,6 @@ enumError SaveIMG (Image_t *img, // pointer to valid img
 				GetNameFF (0, fform), fname);
 	}
 }
-
 
 enumError encode_image_from_png (ccp png_path, ccp dest_path)
 {
@@ -621,4 +620,3 @@ enumError encode_image_from_png (ccp png_path, ccp dest_path)
 	ResetIMG (&img);
 	return err;
 }
-

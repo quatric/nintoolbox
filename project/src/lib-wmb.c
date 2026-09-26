@@ -138,7 +138,7 @@ typedef struct wmb_file_t
 	const u8 *bone_hie; // s16 parent per bone, -1 root
 	const u8 *bone_rel; // float3 local translation per bone
 	uint num_materials;
-	const u8 *mat_ofs;  // u32 relative offset table
+	const u8 *mat_ofs; // u32 relative offset table
 	const u8 *mat_base; // base address for materials
 	const u8 *shd_base; // optional shader name table
 	uint num_textures;
@@ -306,8 +306,8 @@ model_t *ParsePlatinumWMB (const u8 *data, size_t size)
 				float tx = wmb_f32be (m.bone_rel + i * 12);
 				float ty = wmb_f32be (m.bone_rel + i * 12 + 4);
 				float tz = wmb_f32be (m.bone_rel + i * 12 + 8);
-				if (!(tx > -1e9f && tx < 1e9f && ty > -1e9f && ty < 1e9f
-						&& tz > -1e9f && tz < 1e9f))
+				if (!(tx > -1e9f && tx < 1e9f && ty > -1e9f && ty < 1e9f && tz > -1e9f
+						&& tz < 1e9f))
 					break;
 				joint_t *j = model->joints + i;
 				snprintf (j->name, sizeof (j->name), "bone%03u", i);
@@ -641,8 +641,7 @@ model_t *ParsePlatinumWMB (const u8 *data, size_t size)
 					bool weights_ok = true;
 					for (uint v = 0; v < vc && weights_ok; v++)
 					{
-						mesh->position_node[v] =
-							(int)(model->num_node_influences + v);
+						mesh->position_node[v] = (int)(model->num_node_influences + v);
 					}
 					node_influence_t *grown = REALLOC (model->node_influences,
 						(model->num_node_influences + vc) * sizeof (*grown));
@@ -657,8 +656,8 @@ model_t *ParsePlatinumWMB (const u8 *data, size_t size)
 						{
 							const u8 *bp = m.verts + (size_t)(vs + v) * lay->stride + 24;
 							const u8 *wp = m.verts + (size_t)(vs + v) * lay->stride + 28;
-							node_influence_t *ni = model->node_influences
-								+ model->num_node_influences + v;
+							node_influence_t *ni
+								= model->node_influences + model->num_node_influences + v;
 							float wsum = 0;
 							for (uint k = 0; k < 4; k++)
 							{
@@ -668,8 +667,7 @@ model_t *ParsePlatinumWMB (const u8 *data, size_t size)
 									weights_ok = false;
 									break;
 								}
-								const uint joint =
-									nremap ? b[0x3c + raw] : raw;
+								const uint joint = nremap ? b[0x3c + raw] : raw;
 								if (joint >= m.num_bones)
 								{
 									weights_ok = false;
@@ -679,8 +677,8 @@ model_t *ParsePlatinumWMB (const u8 *data, size_t size)
 								wsum += w;
 								if (w <= 0.0f)
 									continue;
-								influence_t *ig = REALLOC (ni->weights,
-									(ni->num_weights + 1) * sizeof (*ig));
+								influence_t *ig
+									= REALLOC (ni->weights, (ni->num_weights + 1) * sizeof (*ig));
 								if (!ig)
 								{
 									weights_ok = false;
@@ -716,8 +714,8 @@ model_t *ParsePlatinumWMB (const u8 *data, size_t size)
 						// Leave the geometry; drop this mesh's skin data.
 						for (uint v = 0; v < vc; v++)
 						{
-							node_influence_t *ni = model->node_influences
-								+ model->num_node_influences + v;
+							node_influence_t *ni
+								= model->node_influences + model->num_node_influences + v;
 							FREE (ni->weights);
 							ni->weights = 0;
 							ni->num_weights = 0;

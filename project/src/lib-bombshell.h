@@ -51,14 +51,14 @@ typedef enum bombshell_kind_t
 typedef struct bombshell_asset_t
 {
 	bombshell_kind_t kind;
-	uint dir;		// directory index
-	uint dir_type;		// directory type
-	char name[96];		// unique, file-system safe, no extension
-	char ext[8];		// sound extension: fsb / wav / bin
-	u32 off, size;		// texture pixels / sound data (absolute)
-	u32 off_alpha, off_aux;	// textures: alpha image and aux blob (absolute, 0 = none)
+	uint dir; // directory index
+	uint dir_type; // directory type
+	char name[96]; // unique, file-system safe, no extension
+	char ext[8]; // sound extension: fsb / wav / bin
+	u32 off, size; // texture pixels / sound data (absolute)
+	u32 off_alpha, off_aux; // textures: alpha image and aux blob (absolute, 0 = none)
 	uint width, height, format;
-	uint index;		// textures: index within its directory
+	uint index; // textures: index within its directory
 	bool big_endian;
 } bombshell_asset_t;
 

@@ -52,8 +52,8 @@ bool IsSmashPac (const u8 *data, size_t size)
 	return smashpac_layout_ok (data, size, &n, &be);
 }
 
-enumError ScanSmashPac (nintendo_sarc_entry_t **entries, uint *n_entries,
-	const u8 *data, size_t size)
+enumError ScanSmashPac (
+	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size)
 {
 	u32 n;
 	bool be;
@@ -85,8 +85,8 @@ enumError ScanSmashPac (nintendo_sarc_entry_t **entries, uint *n_entries,
 	return ERR_OK;
 }
 
-enumError CreateSmashPac (u8 **out, uint *out_size,
-	const nintendo_sarc_entry_t *entries, uint n_entries, bool big_endian)
+enumError CreateSmashPac (
+	u8 **out, uint *out_size, const nintendo_sarc_entry_t *entries, uint n_entries, bool big_endian)
 {
 	if (!out || !out_size || !entries || !n_entries || n_entries > 100000)
 		return EINVAL;
@@ -192,9 +192,8 @@ enumError ExtractSmashPacArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT SMPAC:%s (%u members) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "",
-			arg, n_list, dest);
+		fprintf (stdlog, "%s%sEXTRACT SMPAC:%s (%u members) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, n_list, dest);
 
 	if (!testmode)
 	{
@@ -203,7 +202,9 @@ enumError ExtractSmashPacArchive (ccp arg, ccp basedir, uint depth)
 		FILE *man = fopen (man_path, "w");
 		if (man)
 		{
-			fprintf (man, "#SMPAC\n# Super Smash Bros. 4 animation container\n\nmembers = %u\n\n[members]\n", n_list);
+			fprintf (man,
+				"#SMPAC\n# Super Smash Bros. 4 animation container\n\nmembers = %u\n\n[members]\n",
+				n_list);
 			for (uint i = 0; i < n_list; i++)
 				fprintf (man, "%s (%u bytes)\n", list[i].name ? list[i].name : "", list[i].size);
 			fclose (man);
@@ -245,8 +246,8 @@ enumError create_smashpac_dir (ccp source, ccp dest)
 		{
 			FREE ((void *)list.entry[i].name);
 			FREE ((void *)list.entry[i].data);
-			memmove (&list.entry[i], &list.entry[i + 1],
-				(list.used - i - 1) * sizeof (list.entry[i]));
+			memmove (
+				&list.entry[i], &list.entry[i + 1], (list.used - i - 1) * sizeof (list.entry[i]));
 			list.used--;
 		}
 		else

@@ -135,8 +135,8 @@ enumError DecodeBPE (u8 *dest, uint dest_size, const u8 *src, uint src_size)
 // earlier symbols that expand recursively. 'work' is resized in place as
 // substitutions shrink it. 'freq' is a caller-owned scratch buffer of
 // 256*256 uints, reused across blocks to avoid repeated large allocations.
-static uint CompressBPEBlock (u8 *work, uint work_len, u8 table0[256], u8 table1[256],
-	bool paired[256], uint *freq)
+static uint CompressBPEBlock (
+	u8 *work, uint work_len, u8 table0[256], u8 table1[256], bool paired[256], uint *freq)
 {
 	bool present[256];
 	// Once a byte value is used as either a pair's own code or as one of its
@@ -528,9 +528,8 @@ enumError ReadGFAHashHints (ccp path, ParamField_t *out)
 	return err;
 }
 
-enumError CreateGFA (
-	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries,
-	uint compression, const ParamField_t *hash_hint)
+enumError CreateGFA (u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries,
+	uint n_entries, uint compression, const ParamField_t *hash_hint)
 {
 	if (!dest || !dest_size || !entries || !n_entries || n_entries > 0x100000)
 		return EINVAL;
@@ -574,9 +573,8 @@ enumError CreateGFA (
 
 	u8 *zdata = 0;
 	uint zsize = 0;
-	enumError err = use_bpe
-		? EncodeBPE (&zdata, &zsize, payload, payload_size)
-		: EncodeLZ10Raw (&zdata, &zsize, payload, payload_size);
+	enumError err = use_bpe ? EncodeBPE (&zdata, &zsize, payload, payload_size)
+							: EncodeLZ10Raw (&zdata, &zsize, payload, payload_size);
 	FREE (payload);
 	if (err)
 		return err;
@@ -634,7 +632,6 @@ enumError CreateGFA (
 	return ERR_OK;
 }
 
-
 enumError create_gfa_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -674,4 +671,3 @@ enumError create_gfa_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

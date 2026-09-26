@@ -157,7 +157,6 @@ enumError CreatePAC (
 	return ERR_OK;
 }
 
-
 // Nd Cube Wii U PAC ("PAC\0"): does the *existing destination* hold this
 // container? Then rebuild it -- a byte-exact round trip when every entry
 // still matches a tree member 1:1 by name and decompressed content (the
@@ -178,7 +177,6 @@ bool ndcube_pac_dest (ccp dest)
 	return is;
 }
 
-
 // Fresh Nd Cube "PAC\0": header + entries table + name strings + zlib
 // deflate payloads. LANGUAGECOUNT is left at 0 (the extractor keys the
 // member count off FILETOTAL, never the language blocks), and every
@@ -196,7 +194,10 @@ enumError create_ndcube_pac (u8 **data, uint *size, sarc_build_list_t *list)
 	u32 *fstart = CALLOC (n, sizeof (*fstart));
 	if (!comp || !csize || !usize || !fstart)
 	{
-		FREE (comp); FREE (csize); FREE (usize); FREE (fstart);
+		FREE (comp);
+		FREE (csize);
+		FREE (usize);
+		FREE (fstart);
 		return ERR_CANT_CREATE;
 	}
 
@@ -243,25 +244,25 @@ enumError create_ndcube_pac (u8 **data, uint *size, sarc_build_list_t *list)
 		else
 		{
 			memcpy (out, "PAC\0", 4);
-			wr_be32 (out + 0x04, 0x44);            // HEADERLENGTH
-			wr_be32 (out + 0x0c, data_off);        // OVERALLFILESTART
-			wr_be32 (out + 0x10, total);           // PACSIZE
-			wr_be32 (out + 0x14, 0);               // LANGUAGECOUNT
-			wr_be32 (out + 0x20, n);               // FILETOTAL
-			wr_be32 (out + 0x34, entries_off);     // LANGUAGESTART
-			wr_be32 (out + 0x38, entries_off);     // FILEHEADERSTART
-			wr_be32 (out + 0x3c, strings_off);     // STRINGSTART
-			wr_be32 (out + 0x40, data_off);        // OVERALLFILESTART2
+			wr_be32 (out + 0x04, 0x44); // HEADERLENGTH
+			wr_be32 (out + 0x0c, data_off); // OVERALLFILESTART
+			wr_be32 (out + 0x10, total); // PACSIZE
+			wr_be32 (out + 0x14, 0); // LANGUAGECOUNT
+			wr_be32 (out + 0x20, n); // FILETOTAL
+			wr_be32 (out + 0x34, entries_off); // LANGUAGESTART
+			wr_be32 (out + 0x38, entries_off); // FILEHEADERSTART
+			wr_be32 (out + 0x3c, strings_off); // STRINGSTART
+			wr_be32 (out + 0x40, data_off); // OVERALLFILESTART2
 
 			uint name_off = strings_off;
 			for (uint i = 0; i < n; i++)
 			{
 				u8 *e = out + entries_off + i * 0x30;
-				wr_be32 (e + 0x00, name_off);      // FILENAMESTART
-				wr_be32 (e + 0x10, fstart[i]);     // FILESTART
-				wr_be32 (e + 0x14, usize[i]);      // SIZE
-				wr_be32 (e + 0x18, csize[i]);      // ZSIZE
-				wr_be32 (e + 0x1c, csize[i]);      // ZSIZE2
+				wr_be32 (e + 0x00, name_off); // FILENAMESTART
+				wr_be32 (e + 0x10, fstart[i]); // FILESTART
+				wr_be32 (e + 0x14, usize[i]); // SIZE
+				wr_be32 (e + 0x18, csize[i]); // ZSIZE
+				wr_be32 (e + 0x1c, csize[i]); // ZSIZE2
 				ccp name = list->entry[i].name;
 				const uint nlen = strlen (name) + 1;
 				memcpy (out + name_off, name, nlen);
@@ -277,10 +278,12 @@ enumError create_ndcube_pac (u8 **data, uint *size, sarc_build_list_t *list)
 
 	for (uint i = 0; i < n; i++)
 		FREE (comp[i]);
-	FREE (comp); FREE (csize); FREE (usize); FREE (fstart);
+	FREE (comp);
+	FREE (csize);
+	FREE (usize);
+	FREE (fstart);
 	return err;
 }
-
 
 enumError create_pac_dir (ccp source, ccp dest)
 {
@@ -300,13 +303,12 @@ enumError create_pac_dir (ccp source, ccp dest)
 		// language blocks, entry metadata, name table and payloads alike).
 		u8 *raw = 0;
 		size_t raw_size = 0;
-		if (!LoadFileAlloc (dest, 0, 0, &raw, &raw_size, 0, 0, 0, false)
-			&& raw_size >= 0x44 && raw_size <= UINT_MAX && !memcmp (raw, "PAC\0", 4))
+		if (!LoadFileAlloc (dest, 0, 0, &raw, &raw_size, 0, 0, 0, false) && raw_size >= 0x44
+			&& raw_size <= UINT_MAX && !memcmp (raw, "PAC\0", 4))
 		{
 			const u32 n = rd_be32 (raw + 0x20);
 			const u32 fhs = rd_be32 (raw + 0x38);
-			bool reusable = n && n <= 200000 && n == list.used
-				&& fhs <= raw_size - (u64)n * 0x30;
+			bool reusable = n && n <= 200000 && n == list.used && fhs <= raw_size - (u64)n * 0x30;
 			bool *used_member = reusable ? CALLOC (list.used, 1) : 0;
 			if (reusable && !used_member)
 				reusable = false;
@@ -389,4 +391,3 @@ enumError create_pac_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

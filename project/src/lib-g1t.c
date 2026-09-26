@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // ----------------------------------------------------------------------------
 // Koei Tecmo G1T texture container (Hyrule Warriors, Fire Emblem Warriors)
 //
@@ -223,8 +222,8 @@ enumError DecodeG1TGZ (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 			}
 			break;
 		}
-		if (!g1tgz_stream (src, src_size, &pos, rd_be32 (src + 12 + i * 4), &out, &out_len,
-				&out_cap, decomp))
+		if (!g1tgz_stream (
+				src, src_size, &pos, rd_be32 (src + 12 + i * 4), &out, &out_len, &out_cap, decomp))
 			ok = false;
 	}
 	if (ok)
@@ -274,7 +273,6 @@ bool IsG1TGZ (const u8 *data, uint size)
 	}
 	return false;
 }
-
 
 enumError ExtractG1TArchive (ccp arg, ccp basedir, uint depth)
 {
@@ -412,7 +410,8 @@ enumError ExtractG1TArchive (ccp arg, ccp basedir, uint depth)
 		{
 			char raw_out[PATH_MAX];
 			snprintf (raw_out, sizeof (raw_out), "%s/%s_%04u.bin", dest, stem, i);
-			const enumError err = SaveFile (raw_out, 0, 0, raw + data_off, (uint)(member_end - data_off), 0);
+			const enumError err
+				= SaveFile (raw_out, 0, 0, raw + data_off, (uint)(member_end - data_off), 0);
 			if (err)
 			{
 				result = err;

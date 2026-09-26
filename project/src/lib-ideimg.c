@@ -18,10 +18,10 @@ static bool find_sibling_img (ccp dir_path, char *out, size_t out_size)
 		return false;
 
 	struct stat st;
-	snprintf (out, out_size, "%.*s.img", (int) (len - 4), dir_path);
+	snprintf (out, out_size, "%.*s.img", (int)(len - 4), dir_path);
 	if (!stat (out, &st) && S_ISREG (st.st_mode))
 		return true;
-	snprintf (out, out_size, "%.*s.IMG", (int) (len - 4), dir_path);
+	snprintf (out, out_size, "%.*s.IMG", (int)(len - 4), dir_path);
 	return !stat (out, &st) && S_ISREG (st.st_mode);
 }
 
@@ -36,7 +36,7 @@ enumError ExtractIdeImgArchive (ccp arg, ccp basedir, uint depth)
 	if (LoadFileAlloc (arg, 0, 0, &dir_data, &dir_size, 0, 0, 0, false))
 		return ERR_NOTHING_TO_DO;
 
-	const uint n = (uint) (dir_size / IDEIMG_REC_SIZE);
+	const uint n = (uint)(dir_size / IDEIMG_REC_SIZE);
 	if (!n || dir_size % IDEIMG_REC_SIZE || n > IDEIMG_MAX_ENTRIES)
 	{
 		FREE (dir_data);
@@ -73,7 +73,7 @@ enumError ExtractIdeImgArchive (ccp arg, ccp basedir, uint depth)
 		FREE (dir_data);
 		return ERR_NOTHING_TO_DO;
 	}
-	if ((u64) expect_sector * IDEIMG_SECTOR_SIZE != img_size)
+	if ((u64)expect_sector * IDEIMG_SECTOR_SIZE != img_size)
 	{
 		// The table's total doesn't reconcile against the real sibling
 		// file's size -- almost certainly not actually a matching pair.
@@ -98,26 +98,26 @@ enumError ExtractIdeImgArchive (ccp arg, ccp basedir, uint depth)
 			const u8 *rec = dir_data + i * IDEIMG_REC_SIZE;
 			const u32 start_sector = rd_be32 (rec);
 			const u32 num_sectors = rd_be32 (rec + 4);
-			const u64 off = (u64) start_sector * IDEIMG_SECTOR_SIZE;
-			const u64 len = (u64) num_sectors * IDEIMG_SECTOR_SIZE;
+			const u64 off = (u64)start_sector * IDEIMG_SECTOR_SIZE;
+			const u64 len = (u64)num_sectors * IDEIMG_SECTOR_SIZE;
 
 			char name[32];
-			StringCopyS (name, sizeof (name), (ccp) (rec + 8));
+			StringCopyS (name, sizeof (name), (ccp)(rec + 8));
 			for (char *p = name; *p; p++)
-				if (*p == '/' || *p == '\\' || (u8) *p < 0x20)
+				if (*p == '/' || *p == '\\' || (u8)*p < 0x20)
 					*p = '_';
 			if (!*name)
 				snprintf (name, sizeof (name), "member%04u", i);
 
 			char out_path[PATH_MAX];
 			snprintf (out_path, sizeof (out_path), "%s/%s", dest, name);
-			if (SaveFile (out_path, 0, 0, img_data + off, (uint) len, 0))
+			if (SaveFile (out_path, 0, 0, img_data + off, (uint)len, 0))
 				err = ERR_CANT_CREATE;
 		}
 	}
 
 	FREE (dir_data);
 	FREE (img_data);
-	(void) depth;
+	(void)depth;
 	return err;
 }

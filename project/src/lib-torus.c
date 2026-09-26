@@ -8,10 +8,22 @@
 #include "lib-dspadpcm.h"
 #include <string.h>
 
-static u32 tr_rd32 (const u8 *p) { return p[0] | p[1] << 8 | p[2] << 16 | (u32)p[3] << 24; }
-static u32 tr_rd16 (const u8 *p) { return p[0] | p[1] << 8; }
-static u32 tr_be32 (const u8 *p) { return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
-static u32 tr_be16 (const u8 *p) { return p[0] << 8 | p[1]; }
+static u32 tr_rd32 (const u8 *p)
+{
+	return p[0] | p[1] << 8 | p[2] << 16 | (u32)p[3] << 24;
+}
+static u32 tr_rd16 (const u8 *p)
+{
+	return p[0] | p[1] << 8;
+}
+static u32 tr_be32 (const u8 *p)
+{
+	return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
+}
+static u32 tr_be16 (const u8 *p)
+{
+	return p[0] << 8 | p[1];
+}
 
 bool IsTorusHnk (const u8 *d, size_t size)
 {
@@ -112,8 +124,8 @@ torus_asset_t *ListTorusHnk (const u8 *d, size_t size, uint *count)
 				a.header = b1;
 				a.header_size = s1;
 				const uint skip = 4 * (a.channels ? a.channels : 1);
-				if (a.channels >= 1 && a.channels <= 2 && s2 > skip && s1 >= 64u + 48u * a.channels - 16u
-					&& a.samples)
+				if (a.channels >= 1 && a.channels <= 2 && s2 > skip
+					&& s1 >= 64u + 48u * a.channels - 16u && a.samples)
 				{
 					snprintf (a.raw, sizeof (a.raw), "%.*s", (int)(s2 - skip), (ccp)b2 + skip);
 					ok = a.raw[0] != 0;
@@ -146,9 +158,13 @@ enumError DecodeTorusTexture (u8 **rgba, const torus_asset_t *a)
 		a->pixel_size > 0xffffffffu ? 0xffffffffu : (uint)a->pixel_size, 0, 0, 0);
 }
 
-static void tr_put32 (u8 *p, u32 v) { p[0] = v, p[1] = v >> 8, p[2] = v >> 16, p[3] = v >> 24; }
+static void tr_put32 (u8 *p, u32 v)
+{
+	p[0] = v, p[1] = v >> 8, p[2] = v >> 16, p[3] = v >> 24;
+}
 
-enumError DecodeTorusStream (u8 **wav, size_t *wav_size, const torus_asset_t *a, const u8 *raw, size_t raw_size)
+enumError DecodeTorusStream (
+	u8 **wav, size_t *wav_size, const torus_asset_t *a, const u8 *raw, size_t raw_size)
 {
 	if (a->kind != TORUS_STREAM || !a->channels || a->channels > 2 || !a->samples)
 		return ERR_INVALID_DATA;

@@ -96,8 +96,8 @@ const u8 *FindMPRPACKMeta (const mpr_pack_t *pak, const u8 guid[16], uint *meta_
 // word here is u32 LE. Fully bounds-checked: truncation or a wild
 // back-reference fails instead of overrunning.
 
-enumError DecodeMPR_LZSS (u8 **dest, uint *dest_size, const u8 *src, uint src_size,
-	uint decomp_size)
+enumError DecodeMPR_LZSS (
+	u8 **dest, uint *dest_size, const u8 *src, uint src_size, uint decomp_size)
 {
 	if (!dest || !dest_size)
 		return EINVAL;
@@ -213,8 +213,8 @@ static bool read_form (const u8 *data, uint size, uint off, char id[4], u32 *rve
 	return true;
 }
 
-static bool read_chunk (const u8 *data, uint size, uint off, char id[4], u64 *body_size,
-	uint *body_off)
+static bool read_chunk (
+	const u8 *data, uint size, uint off, char id[4], u64 *body_size, uint *body_off)
 {
 	if (!data || (u64)off + 0x18 > size)
 		return false;
@@ -240,8 +240,8 @@ enumError ScanMPRPACK (mpr_pack_t *pak, const u8 *data, uint size)
 	u32 prver, pwver;
 	u64 psize;
 	uint pbody;
-	if (!read_form (data, size, 0, fid, &prver, &pwver, &psize, &pbody)
-		|| memcmp (fid, "PACK", 4) || prver != 1)
+	if (!read_form (data, size, 0, fid, &prver, &pwver, &psize, &pbody) || memcmp (fid, "PACK", 4)
+		|| prver != 1)
 		return ERR_NOTHING_TO_DO;
 
 	char tid[4];
@@ -275,15 +275,15 @@ enumError ScanMPRPACK (mpr_pack_t *pak, const u8 *data, uint size)
 			err = ERR_NOTHING_TO_DO;
 			break;
 		}
-		if (!memcmp (cid, "ADIR", 4))		{
+		if (!memcmp (cid, "ADIR", 4))
+		{
 			if (csize < 4)
 			{
 				err = ERR_NOTHING_TO_DO;
 				break;
 			}
 			const uint count = rd_le32 (data + cbody);
-			if (!count || count > MPR_PACK_MAX_ENTRIES
-				|| (u64)count * 52 > csize - 4)
+			if (!count || count > MPR_PACK_MAX_ENTRIES || (u64)count * 52 > csize - 4)
 			{
 				err = ERR_NOTHING_TO_DO;
 				break;
@@ -299,9 +299,9 @@ enumError ScanMPRPACK (mpr_pack_t *pak, const u8 *data, uint size)
 				ent.offset = rd_le64 (e + 28);
 				ent.decomp_size = rd_le64 (e + 36);
 				ent.size = rd_le64 (e + 44);
-				if (ent.offset > size || ent.size > size
-					|| ent.offset + ent.size > size || ent.decomp_size > MPR_PACK_MAX_OUTPUT
-					|| ent.size < 0x20 || ent.offset + ent.size < ent.offset)
+				if (ent.offset > size || ent.size > size || ent.offset + ent.size > size
+					|| ent.decomp_size > MPR_PACK_MAX_OUTPUT || ent.size < 0x20
+					|| ent.offset + ent.size < ent.offset)
 				{
 					err = ERR_NOTHING_TO_DO;
 					break;
@@ -320,8 +320,7 @@ enumError ScanMPRPACK (mpr_pack_t *pak, const u8 *data, uint size)
 					char iid[4];
 					u32 irver, iwver;
 					u64 isize;
-					if (!read_form (data, size, (uint)ent.offset, iid, &irver, &iwver, &isize,
-							0)
+					if (!read_form (data, size, (uint)ent.offset, iid, &irver, &iwver, &isize, 0)
 						|| memcmp (iid, ent.type, 4) || irver != ent.version
 						|| iwver != ent.other_version || isize + 32 != ent.decomp_size)
 					{
@@ -337,8 +336,7 @@ enumError ScanMPRPACK (mpr_pack_t *pak, const u8 *data, uint size)
 						break;
 					}
 					const u32 mode = rd_le32 (data + (uint)ent.offset);
-					if (mode > 3
-						|| (mode == 0 && ent.size - 4 != ent.decomp_size))
+					if (mode > 3 || (mode == 0 && ent.size - 4 != ent.decomp_size))
 					{
 						err = ERR_NOTHING_TO_DO;
 						break;
@@ -346,8 +344,7 @@ enumError ScanMPRPACK (mpr_pack_t *pak, const u8 *data, uint size)
 				}
 				// Consecutive duplicate guids collapse (reference
 				// read_sparse); the first record wins for naming.
-				if (n_entries
-					&& !memcmp (entries[n_entries - 1].guid, ent.guid, 16))
+				if (n_entries && !memcmp (entries[n_entries - 1].guid, ent.guid, 16))
 					continue;
 				if (n_entries >= cap_entries)
 				{
@@ -437,8 +434,7 @@ enumError ScanMPRPACK (mpr_pack_t *pak, const u8 *data, uint size)
 					break;
 				}
 				const uint nlen = rd_le32 (data + spos + 20);
-				if (nlen > MPR_PACK_MAX_OUTPUT
-					|| (u64)spos + 24 + nlen > (u64)cbody + csize)
+				if (nlen > MPR_PACK_MAX_OUTPUT || (u64)spos + 24 + nlen > (u64)cbody + csize)
 				{
 					err = ERR_NOTHING_TO_DO;
 					break;
@@ -520,8 +516,8 @@ enumError GetMPRPACKEntry (u8 **dest, uint *dest_size, const mpr_pack_t *pak, ui
 	*dest = 0;
 	*dest_size = 0;
 	const mpr_pack_entry_t *e = pak->entries + index;
-	if (e->offset > pak->size || e->size > pak->size - e->offset
-		|| e->size > UINT_MAX || e->decomp_size > MPR_PACK_MAX_OUTPUT)
+	if (e->offset > pak->size || e->size > pak->size - e->offset || e->size > UINT_MAX
+		|| e->decomp_size > MPR_PACK_MAX_OUTPUT)
 		return EINVAL;
 	const uint ssize = (uint)e->size;
 	const uint dsize = (uint)e->decomp_size;
@@ -548,9 +544,8 @@ enumError GetMPRPACKEntry (u8 **dest, uint *dest_size, const mpr_pack_t *pak, ui
 	char iid[4];
 	u32 irver, iwver;
 	u64 isize;
-	if (!read_form (out, out_size, 0, iid, &irver, &iwver, &isize, 0)
-		|| memcmp (iid, e->type, 4) || irver != e->version || iwver != e->other_version
-		|| isize + 32 != e->decomp_size)
+	if (!read_form (out, out_size, 0, iid, &irver, &iwver, &isize, 0) || memcmp (iid, e->type, 4)
+		|| irver != e->version || iwver != e->other_version || isize + 32 != e->decomp_size)
 	{
 		FREE (out);
 		return EINVAL;
@@ -571,8 +566,8 @@ static void mpr_wr_le64 (u8 *p, u64 v)
 	wr_le32 (p + 4, (u32)(v >> 32));
 }
 
-enumError BuildMPRPACKFoot (u8 **dest, uint *dest_size, const mpr_pack_t *pak, uint index,
-	uint comp_mode, u64 orig_offset)
+enumError BuildMPRPACKFoot (
+	u8 **dest, uint *dest_size, const mpr_pack_t *pak, uint index, uint comp_mode, u64 orig_offset)
 {
 	if (!dest || !dest_size || !pak || index >= pak->n_entries)
 		return EINVAL;
@@ -589,8 +584,8 @@ enumError BuildMPRPACKFoot (u8 **dest, uint *dest_size, const mpr_pack_t *pak, u
 			name_len += (uint)strlen (pak->names[i].name);
 			n_names++;
 		}
-	const u64 foot_body = (0x18 + 28) + (meta ? 0x18 + meta_size : 0)
-		+ (u64)n_names * 0x18 + name_len;
+	const u64 foot_body
+		= (0x18 + 28) + (meta ? 0x18 + meta_size : 0) + (u64)n_names * 0x18 + name_len;
 	if (foot_body > MPR_PACK_MAX_OUTPUT)
 		return EINVAL;
 	const uint total = 0x20 + (uint)foot_body;

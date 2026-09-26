@@ -452,7 +452,6 @@ enumError CreateNFLRes (
 	return CreateMiiRes (dest, dest_size, entries, n_entries, false);
 }
 
-
 bool looks_like_rflres_dir (ccp dir)
 {
 	char test[PATH_MAX];
@@ -471,7 +470,6 @@ bool looks_like_rflres_dir (ccp dir)
 		return true;
 	return false;
 }
-
 
 enumError create_rflres_dir (ccp source, ccp dest, bool big_endian)
 {
@@ -520,4 +518,3 @@ enumError create_rflres_dir (ccp source, ccp dest, bool big_endian)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

@@ -383,10 +383,10 @@ static void pk_trs_world (float out[12], const float t[3], const float r[3], con
 	const double dx = r[0] * (M_PI / 180.0), dy = r[1] * (M_PI / 180.0), dz = r[2] * (M_PI / 180.0);
 	const float cx = cosf ((float)dx), sx = sinf ((float)dx), cy = cosf ((float)dy),
 				sy = sinf ((float)dy), cz = cosf ((float)dz), sz = sinf ((float)dz);
-	float local[12] = { cz * cy * s[0], (cz * sy * sx - sz * cx) * s[1],
-		(cz * sy * cx + sz * sx) * s[2], t[0], sz * cy * s[0], (sz * sy * sx + cz * cx) * s[1],
-		(sz * sy * cx - cz * sx) * s[2], t[1], -sy * s[0], (cy * sx) * s[1], (cy * cx) * s[2],
-		t[2] };
+	float local[12]
+		= { cz * cy * s[0], (cz * sy * sx - sz * cx) * s[1], (cz * sy * cx + sz * sx) * s[2], t[0],
+			  sz * cy * s[0], (sz * sy * sx + cz * cx) * s[1], (sz * sy * cx - cz * sx) * s[2],
+			  t[1], -sy * s[0], (cy * sx) * s[1], (cy * cx) * s[2], t[2] };
 	if (!has_parent)
 	{
 		memcpy (out, local, sizeof (local));
@@ -482,8 +482,7 @@ model_t *ParsePIKMOD (const u8 *data, size_t size)
 		return 0;
 	if (!npos || npos > PK_MAX_VERTS || nnrm > PK_MAX_VERTS || ncol > PK_MAX_VERTS)
 		return 0;
-	if ((u64)pos_base + (u64)npos * 12 > size
-		|| (nnrm && (u64)nrm_base + (u64)nnrm * 12 > size)
+	if ((u64)pos_base + (u64)npos * 12 > size || (nnrm && (u64)nrm_base + (u64)nnrm * 12 > size)
 		|| (ncol && (u64)col_base + (u64)ncol * 4 > size))
 		return 0;
 	for (uint t = 0; t < nuvch; t++)
@@ -798,7 +797,8 @@ model_t *ParsePIKMOD (const u8 *data, size_t size)
 			}
 			const uint cnt = pk_be16 (data + ep);
 			ep += 2;
-			if (cnt > 32 || (u64)ep + (u64)cnt * 6 > size || ep + cnt * 6 > c_env->off + c_env->size)
+			if (cnt > 32 || (u64)ep + (u64)cnt * 6 > size
+				|| ep + cnt * 6 > c_env->off + c_env->size)
 			{
 				for (uint k = 0; k < i; k++)
 				{
@@ -1148,8 +1148,7 @@ model_t *ParsePIKMOD (const u8 *data, size_t size)
 		inf->num_weights = cnt;
 		for (uint k = 0; k < cnt; k++)
 		{
-			inf->weights[k].bone_idx
-				= envs[e].joints[k] < njoints ? (int)envs[e].joints[k] : 0;
+			inf->weights[k].bone_idx = envs[e].joints[k] < njoints ? (int)envs[e].joints[k] : 0;
 			inf->weights[k].weight = envs[e].weights[k];
 		}
 	}
@@ -1431,8 +1430,7 @@ model_t *ParsePIKMOD (const u8 *data, size_t size)
 			for (size_t ci = 0; ci < shapes[s].num && ok; ci++)
 			{
 				const pk_corner_t *cn = shapes[s].v + ci;
-				if (cn->pos < 0 || (uint)cn->pos >= npos || cn->slot < -1
-					|| cn->slot >= (int)nslots
+				if (cn->pos < 0 || (uint)cn->pos >= npos || cn->slot < -1 || cn->slot >= (int)nslots
 					|| (c_nrm && (cn->nrm < 0 || (uint)cn->nrm >= nnrm))
 					|| (c_col && (cn->col < 0 || (uint)cn->col >= ncol))
 					|| (nuvch && (cn->uv < 0 || (uint)cn->uv >= uv_cnt[0])))
@@ -1633,8 +1631,8 @@ model_t *ParsePIKMOD (const u8 *data, size_t size)
 				if (c_col && cn->col >= 0)
 				{
 					const u8 *cp = data + col_base + (uint)cn->col * 4;
-					color4_t cc = { cp[0] / 255.0f, cp[1] / 255.0f, cp[2] / 255.0f,
-						cp[3] / 255.0f };
+					color4_t cc
+						= { cp[0] / 255.0f, cp[1] / 255.0f, cp[2] / 255.0f, cp[3] / 255.0f };
 					size_t ff = nc2;
 					for (size_t k = 0; k < nc2; k++)
 						if (mesh->colors[0][k].r == cc.r && mesh->colors[0][k].g == cc.g
@@ -1892,9 +1890,8 @@ enumError EncodePIKMOD (const model_t *model, u8 **out, uint *out_size)
 			for (size_t ci = 0; ci < mesh->num_vertices; ci++)
 			{
 				const int pi = mesh->vertices[ci].position_idx;
-				int node = (pi >= 0 && (size_t)pi < mesh->num_positions)
-					? mesh->position_node[pi]
-					: 0;
+				int node
+					= (pi >= 0 && (size_t)pi < mesh->num_positions) ? mesh->position_node[pi] : 0;
 				if (node < 0 || (size_t)node >= nj)
 					node = 0;
 				votes[node]++;
@@ -2021,7 +2018,7 @@ enumError EncodePIKMOD (const model_t *model, u8 **out, uint *out_size)
 				if (nuv >= cuv)
 				{
 					const size_t nc = cuv ? cuv * 2 : 1024;
-					float(*nn)[2] = REALLOC (uvpool, nc * sizeof (*nn));
+					float (*nn)[2] = REALLOC (uvpool, nc * sizeof (*nn));
 					if (!nn)
 					{
 						FREE (blob);
@@ -2100,10 +2097,10 @@ enumError EncodePIKMOD (const model_t *model, u8 **out, uint *out_size)
 			if (im->size >= 24 && !memcmp (im->data, "\x89PNG\r\n\x1a\n", 8)
 				&& !memcmp (im->data + 12, "IHDR", 4))
 			{
-				w = (uint)im->data[16] << 24 | (uint)im->data[17] << 16
-					| (uint)im->data[18] << 8 | im->data[19];
-				hh = (uint)im->data[20] << 24 | (uint)im->data[21] << 16
-					| (uint)im->data[22] << 8 | im->data[23];
+				w = (uint)im->data[16] << 24 | (uint)im->data[17] << 16 | (uint)im->data[18] << 8
+					| im->data[19];
+				hh = (uint)im->data[20] << 24 | (uint)im->data[21] << 16 | (uint)im->data[22] << 8
+					| im->data[23];
 				if (!w || !hh || w > 2048 || hh > 2048)
 				{
 					w = 8;
@@ -2166,9 +2163,8 @@ enumError EncodePIKMOD (const model_t *model, u8 **out, uint *out_size)
 		jname_sz += (uint)strlen (model->joints[j].name) + 1;
 
 	uint csize[12];
-	const int cops[12]
-		= { PKC_HEADER, PKC_POS, PKC_NRM, PKC_UV0, PKC_TEX, PKC_TXATTR, PKC_MAT, PKC_SKIN,
-			PKC_ENV, PKC_MESH, PKC_JOINT, PKC_JNAME };
+	const int cops[12] = { PKC_HEADER, PKC_POS, PKC_NRM, PKC_UV0, PKC_TEX, PKC_TXATTR, PKC_MAT,
+		PKC_SKIN, PKC_ENV, PKC_MESH, PKC_JOINT, PKC_JNAME };
 	csize[0] = 32;
 	csize[1] = pos_sz;
 	csize[2] = nrm_sz;

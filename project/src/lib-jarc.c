@@ -356,7 +356,6 @@ void ResetJARC (jarc_t *jarc)
 	memset (jarc, 0, sizeof (*jarc));
 }
 
-
 // Repack a directory extracted by extract_jarc_file() back into a Level-5
 // jARC archive. Like ARCV, jARC members carry no stored name -- the reader
 // names them "file_%04u.<ext>" from an ordinal plus an extension sniffed out
@@ -372,7 +371,6 @@ bool jarc_member_name_ok (ccp nm, uint *idx)
 	// side-product ("file_0002.rseq.mid") or an expanded member directory.
 	return *rest == '.' && rest[1] && !strchr (rest + 1, '.');
 }
-
 
 enumError create_jarc_dir (ccp source, ccp dest)
 {
@@ -441,8 +439,8 @@ enumError create_jarc_dir (ccp source, ccp dest)
 	for (uint i = 0; !err && i < used; i++)
 		if (list[i].index != i)
 			err = ERROR0 (ERR_INVALID_DATA,
-				"jARC input directory has a non-contiguous member index: %s/file_%04u*\n",
-				source, list[i].index);
+				"jARC input directory has a non-contiguous member index: %s/file_%04u*\n", source,
+				list[i].index);
 
 	if (!err && !testmode)
 	{
@@ -478,8 +476,8 @@ enumError create_jarc_dir (ccp source, ccp dest)
 				File_t F;
 				err = CreateFileOpt (&F, true, dest, false, dest);
 				if (F.f && fwrite (out, 1, total_size, F.f) != total_size)
-					err = FILEERROR1 (&F, ERR_WRITE_FAILED,
-						"Writing %llu bytes failed: %s\n", (unsigned long long)total_size, dest);
+					err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %llu bytes failed: %s\n",
+						(unsigned long long)total_size, dest);
 				ResetFile (&F, opt_preserve);
 				FREE (out);
 			}
@@ -491,4 +489,3 @@ enumError create_jarc_dir (ccp source, ccp dest)
 	FREE (list);
 	return err;
 }
-

@@ -95,7 +95,6 @@ enumError CreateGPAK (
 	return ERR_OK;
 }
 
-
 // True when the directory has ordinal "file_%04u*" members (GPAK).
 bool looks_like_gpak_dir (ccp source)
 {
@@ -116,7 +115,6 @@ bool looks_like_gpak_dir (ccp source)
 	closedir (dir);
 	return found;
 }
-
 
 // Repack a directory extracted by extract_gpak_file() back into a nameless
 // .pak. Members are ordinal-named, exactly like ARCV and jARC.
@@ -176,8 +174,8 @@ enumError create_gpak_dir (ccp source, ccp dest)
 	for (uint i = 0; !err && i < used; i++)
 		if (list[i].index != i)
 			err = ERROR0 (ERR_INVALID_DATA,
-				"GPAK input directory has a non-contiguous member index: %s/file_%04u*\n",
-				source, list[i].index);
+				"GPAK input directory has a non-contiguous member index: %s/file_%04u*\n", source,
+				list[i].index);
 
 	if (!err && !testmode)
 	{
@@ -199,8 +197,8 @@ enumError create_gpak_dir (ccp source, ccp dest)
 				File_t F;
 				err = CreateFileOpt (&F, true, dest, false, dest);
 				if (F.f && fwrite (out, 1, out_size, F.f) != out_size)
-					err = FILEERROR1 (&F, ERR_WRITE_FAILED,
-						"Writing %u bytes failed: %s\n", out_size, dest);
+					err = FILEERROR1 (
+						&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", out_size, dest);
 				ResetFile (&F, opt_preserve);
 			}
 			FREE (out);
@@ -213,4 +211,3 @@ enumError create_gpak_dir (ccp source, ccp dest)
 	FREE (list);
 	return err;
 }
-

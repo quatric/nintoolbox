@@ -253,7 +253,7 @@ static void add_real_label (
 	{
 		char c = name[i];
 		l->name[j++] = (c == '_' || (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z')
-				|| (c >= 'a' && c <= 'z'))
+						   || (c >= 'a' && c <= 'z'))
 			? c
 			: '_';
 	}
@@ -269,8 +269,8 @@ static void add_real_label (
 // RSEQ/CSEQ/FSEQ via the block table. Returns 1 on success; 0 leaves
 // everything untouched so the caller keeps its legacy fixed-offset path
 // (which is what this tool's own assembler historically emits).
-static int seq_find_blocks (const u8 *data, size_t size, bool is_le,
-	const u8 **code_out, size_t *code_size_out, const u8 **labl_out, size_t *labl_size_out)
+static int seq_find_blocks (const u8 *data, size_t size, bool is_le, const u8 **code_out,
+	size_t *code_size_out, const u8 **labl_out, size_t *labl_size_out)
 {
 	if (size < 20 || (read_be16 (data + 4) != 0xFEFF && read_be16 (data + 4) != 0xFFFE))
 		return 0;
@@ -375,8 +375,7 @@ static void seq_read_labels (const u8 *labl, size_t labl_size, bool is_le, label
 		// LabelInfo {data_off, len, name}; FSEQ stores the full
 		// {ref, len, name} with an 8-byte data reference up front.
 		u32 data_off = is_rseq ? (is_le ? read_le32 (labl + li) : read_be32 (labl + li))
-							   : (is_le ? read_le32 (labl + li + 4)
-										: read_be32 (labl + li + 4));
+							   : (is_le ? read_le32 (labl + li + 4) : read_be32 (labl + li + 4));
 		u32 len = is_rseq ? (is_le ? read_le32 (labl + li + 4) : read_be32 (labl + li + 4))
 						  : (is_le ? read_le32 (labl + li + 8) : read_be32 (labl + li + 8));
 		size_t name_at = li + (is_rseq ? 8 : 12);
@@ -397,7 +396,7 @@ static void seq_read_labels (const u8 *labl, size_t labl_size, bool is_le, label
 	}
 }
 
-	// MML prefix commands per Nintendo's own MmlParser::Parse: IF (0xA2)
+// MML prefix commands per Nintendo's own MmlParser::Parse: IF (0xA2)
 // wraps the next command conditionally; TIME (0xA3), TIME_RANDOM (0xA4)
 // and TIME_VARIABLE (0xA5) wrap it with a trailing second parameter;
 // RANDOM (0xA0) and VARIABLE (0xA1) wrap it replacing its first ReadArg
@@ -506,20 +505,47 @@ static const struct
 	ccp name;
 	u8 kind;
 } seq_u8_mnemonics[] = {
-	{ 0xB0, "timebase", 0 }, { 0xB1, "env_hold", 0 }, { 0xB2, "monophonic", 0 },
-	{ 0xB3, "velocity_range", 0 }, { 0xB4, "biquad_type", 0 }, { 0xB5, "biquad_value", 0 },
-	{ 0xBD, "mod_phase", 0 }, { 0xBE, "mod_curve", 0 }, { 0xBF, "front_bypass", 0 },
-	{ 0xC0, "pan", 0 }, { 0xC1, "vol", 0 }, { 0xC2, "master_vol", 0 },
-	{ 0xC3, "transpose", 1 }, { 0xC4, "bend", 1 }, { 0xC5, "bend_range", 0 },
-	{ 0xC6, "prio", 0 }, { 0xC7, "note_wait", 0 }, { 0xC8, "tie", 0 },
-	{ 0xC9, "porta", 0 }, { 0xCA, "mod_depth", 0 }, { 0xCB, "mod_speed", 0 },
-	{ 0xCC, "mod_type", 0 }, { 0xCD, "mod_range", 0 }, { 0xCE, "porta_sw", 0 },
-	{ 0xCF, "porta_time", 0 }, { 0xD0, "attack", 0 }, { 0xD1, "decay", 0 },
-	{ 0xD2, "sustain", 0 }, { 0xD3, "release", 0 }, { 0xD4, "loop_start", 0 },
-	{ 0xD5, "expr", 0 }, { 0xD6, "printvar", 0 }, { 0xD7, "surround_pan", 0 },
-	{ 0xD8, "lpf_cutoff", 0 }, { 0xD9, "reverb", 0 }, { 0xDA, "fxsend_b", 0 },
-	{ 0xDB, "mainsend", 0 }, { 0xDC, "init_pan", 0 }, { 0xDD, "mute", 0 },
-	{ 0xDE, "fxsend_c", 0 }, { 0xDF, "damper", 0 },
+	{ 0xB0, "timebase", 0 },
+	{ 0xB1, "env_hold", 0 },
+	{ 0xB2, "monophonic", 0 },
+	{ 0xB3, "velocity_range", 0 },
+	{ 0xB4, "biquad_type", 0 },
+	{ 0xB5, "biquad_value", 0 },
+	{ 0xBD, "mod_phase", 0 },
+	{ 0xBE, "mod_curve", 0 },
+	{ 0xBF, "front_bypass", 0 },
+	{ 0xC0, "pan", 0 },
+	{ 0xC1, "vol", 0 },
+	{ 0xC2, "master_vol", 0 },
+	{ 0xC3, "transpose", 1 },
+	{ 0xC4, "bend", 1 },
+	{ 0xC5, "bend_range", 0 },
+	{ 0xC6, "prio", 0 },
+	{ 0xC7, "note_wait", 0 },
+	{ 0xC8, "tie", 0 },
+	{ 0xC9, "porta", 0 },
+	{ 0xCA, "mod_depth", 0 },
+	{ 0xCB, "mod_speed", 0 },
+	{ 0xCC, "mod_type", 0 },
+	{ 0xCD, "mod_range", 0 },
+	{ 0xCE, "porta_sw", 0 },
+	{ 0xCF, "porta_time", 0 },
+	{ 0xD0, "attack", 0 },
+	{ 0xD1, "decay", 0 },
+	{ 0xD2, "sustain", 0 },
+	{ 0xD3, "release", 0 },
+	{ 0xD4, "loop_start", 0 },
+	{ 0xD5, "expr", 0 },
+	{ 0xD6, "printvar", 0 },
+	{ 0xD7, "surround_pan", 0 },
+	{ 0xD8, "lpf_cutoff", 0 },
+	{ 0xD9, "reverb", 0 },
+	{ 0xDA, "fxsend_b", 0 },
+	{ 0xDB, "mainsend", 0 },
+	{ 0xDC, "init_pan", 0 },
+	{ 0xDD, "mute", 0 },
+	{ 0xDE, "fxsend_c", 0 },
+	{ 0xDF, "damper", 0 },
 };
 
 static ccp seq_u8_name (u8 op, bool *is_s8)
@@ -555,8 +581,8 @@ static size_t print_prefixed_command (char *out, size_t out_cap, const u8 *code,
 		pitch_to_name (note_str, sizeof (note_str), op);
 		if (pre->has_random && *pos + 4 <= code_size)
 		{
-			int16_t lo = is_le ? (int16_t)read_le16 (code + *pos)
-							   : (int16_t)read_be16 (code + *pos);
+			int16_t lo
+				= is_le ? (int16_t)read_le16 (code + *pos) : (int16_t)read_be16 (code + *pos);
 			int16_t hi = is_le ? (int16_t)read_le16 (code + *pos + 2)
 							   : (int16_t)read_be16 (code + *pos + 2);
 			*pos += 4;
@@ -582,13 +608,13 @@ static size_t print_prefixed_command (char *out, size_t out_cap, const u8 *code,
 		ccp mn = (op == SEQ_OP_WAIT) ? "wait" : "prg";
 		if (pre->has_random && *pos + 4 <= code_size)
 		{
-			int16_t lo = is_le ? (int16_t)read_le16 (code + *pos)
-							   : (int16_t)read_be16 (code + *pos);
+			int16_t lo
+				= is_le ? (int16_t)read_le16 (code + *pos) : (int16_t)read_be16 (code + *pos);
 			int16_t hi = is_le ? (int16_t)read_le16 (code + *pos + 2)
 							   : (int16_t)read_be16 (code + *pos + 2);
 			*pos += 4;
-			len += snprintf (out + len, out_cap > len ? out_cap - len : 0, "%s %d %d\n",
-				mn, lo, hi);
+			len += snprintf (
+				out + len, out_cap > len ? out_cap - len : 0, "%s %d %d\n", mn, lo, hi);
 		}
 		else if (pre->has_variable && *pos < code_size)
 		{
@@ -617,8 +643,8 @@ static size_t print_prefixed_command (char *out, size_t out_cap, const u8 *code,
 		if (op == SEQ_OP_OPEN_TRACK)
 		{
 			if (tl)
-				len += snprintf (out + len, out_cap > len ? out_cap - len : 0,
-					"open_track %u @%s\n", trk, tl);
+				len += snprintf (
+					out + len, out_cap > len ? out_cap - len : 0, "open_track %u @%s\n", trk, tl);
 			else
 				len += snprintf (out + len, out_cap > len ? out_cap - len : 0,
 					"open_track %u 0x%06X\n", trk, target);
@@ -641,22 +667,22 @@ static size_t print_prefixed_command (char *out, size_t out_cap, const u8 *code,
 			int16_t a2 = is_le ? (int16_t)read_le16 (code + *pos + 1)
 							   : (int16_t)read_be16 (code + *pos + 1);
 			*pos += 3;
-			len += snprintf (out + len, out_cap > len ? out_cap - len : 0, "ex 0x%02X %u %d\n",
-				sub, a1, a2);
+			len += snprintf (
+				out + len, out_cap > len ? out_cap - len : 0, "ex 0x%02X %u %d\n", sub, a1, a2);
 		}
 		else if ((cls == 0xA0 || cls == 0xB0) && *pos < code_size)
 		{
 			u8 a1 = code[(*pos)++];
-			len += snprintf (out + len, out_cap > len ? out_cap - len : 0, "ex 0x%02X %u\n",
-				sub, a1);
+			len += snprintf (
+				out + len, out_cap > len ? out_cap - len : 0, "ex 0x%02X %u\n", sub, a1);
 		}
 		else if (cls == 0xE0 && *pos + 2 <= code_size)
 		{
-			int16_t a1 = is_le ? (int16_t)read_le16 (code + *pos)
-							   : (int16_t)read_be16 (code + *pos);
+			int16_t a1
+				= is_le ? (int16_t)read_le16 (code + *pos) : (int16_t)read_be16 (code + *pos);
 			*pos += 2;
-			len += snprintf (out + len, out_cap > len ? out_cap - len : 0, "ex 0x%02X %d\n",
-				sub, a1);
+			len += snprintf (
+				out + len, out_cap > len ? out_cap - len : 0, "ex 0x%02X %d\n", sub, a1);
 		}
 		else
 			len += snprintf (out + len, out_cap > len ? out_cap - len : 0, "ex 0x%02X\n", sub);
@@ -684,24 +710,24 @@ static size_t print_prefixed_command (char *out, size_t out_cap, const u8 *code,
 					int16_t hi = is_le ? (int16_t)read_le16 (code + *pos + 2)
 									   : (int16_t)read_be16 (code + *pos + 2);
 					*pos += 4;
-					len += snprintf (out + len, out_cap > len ? out_cap - len : 0, "%s %d %d",
-						mn, lo, hi);
+					len += snprintf (
+						out + len, out_cap > len ? out_cap - len : 0, "%s %d %d", mn, lo, hi);
 				}
 				else if (pre->has_variable && *pos < code_size)
 				{
 					u8 var = code[(*pos)++];
-					len += snprintf (out + len, out_cap > len ? out_cap - len : 0, "%s %u",
-						mn, var);
+					len += snprintf (
+						out + len, out_cap > len ? out_cap - len : 0, "%s %u", mn, var);
 				}
 				else if (*pos < code_size)
 				{
 					u8 a = code[(*pos)++];
 					if (s8arg)
-						len += snprintf (out + len, out_cap > len ? out_cap - len : 0, "%s %d",
-							mn, (int)(signed char)a);
+						len += snprintf (out + len, out_cap > len ? out_cap - len : 0, "%s %d", mn,
+							(int)(signed char)a);
 					else
-						len += snprintf (out + len, out_cap > len ? out_cap - len : 0, "%s %u",
-							mn, a);
+						len += snprintf (
+							out + len, out_cap > len ? out_cap - len : 0, "%s %u", mn, a);
 				}
 			}
 		}
@@ -709,27 +735,27 @@ static size_t print_prefixed_command (char *out, size_t out_cap, const u8 *code,
 		{
 			if (pre->has_random && *pos + 4 <= code_size)
 			{
-				int16_t lo = is_le ? (int16_t)read_le16 (code + *pos)
-								   : (int16_t)read_be16 (code + *pos);
+				int16_t lo
+					= is_le ? (int16_t)read_le16 (code + *pos) : (int16_t)read_be16 (code + *pos);
 				int16_t hi = is_le ? (int16_t)read_le16 (code + *pos + 2)
 								   : (int16_t)read_be16 (code + *pos + 2);
 				*pos += 4;
-				len += snprintf (out + len, out_cap > len ? out_cap - len : 0, "raw 0x%02X %d %d",
-					op, lo, hi);
+				len += snprintf (
+					out + len, out_cap > len ? out_cap - len : 0, "raw 0x%02X %d %d", op, lo, hi);
 			}
 			else if (pre->has_variable && *pos < code_size)
 			{
 				u8 var = code[(*pos)++];
-				len += snprintf (out + len, out_cap > len ? out_cap - len : 0, "raw 0x%02X %u",
-					op, var);
+				len += snprintf (
+					out + len, out_cap > len ? out_cap - len : 0, "raw 0x%02X %u", op, var);
 			}
 			else if (s16arg && *pos + 2 <= code_size)
 			{
-				int16_t a = is_le ? (int16_t)read_le16 (code + *pos)
-								  : (int16_t)read_be16 (code + *pos);
+				int16_t a
+					= is_le ? (int16_t)read_le16 (code + *pos) : (int16_t)read_be16 (code + *pos);
 				*pos += 2;
-				ccp mn = (op == SEQ_OP_TEMPO) ? "tempo"
-					: (op == SEQ_OP_MOD_DELAY) ? "mod_delay"
+				ccp mn = (op == SEQ_OP_TEMPO)	 ? "tempo"
+					: (op == SEQ_OP_MOD_DELAY)	 ? "mod_delay"
 					: (op == SEQ_OP_SWEEP_PITCH) ? "sweep_pitch"
 												 : "mod_period";
 				len += snprintf (out + len, out_cap > len ? out_cap - len : 0, "%s %d", mn, a);
@@ -741,15 +767,15 @@ static size_t print_prefixed_command (char *out, size_t out_cap, const u8 *code,
 		{
 			if (pre->time_kind == 0xA3 && *pos + 2 <= code_size)
 			{
-				int16_t a = is_le ? (int16_t)read_le16 (code + *pos)
-								  : (int16_t)read_be16 (code + *pos);
+				int16_t a
+					= is_le ? (int16_t)read_le16 (code + *pos) : (int16_t)read_be16 (code + *pos);
 				*pos += 2;
 				len += snprintf (out + len, out_cap > len ? out_cap - len : 0, " %d", a);
 			}
 			else if (pre->time_kind == 0xA4 && *pos + 4 <= code_size)
 			{
-				int16_t lo = is_le ? (int16_t)read_le16 (code + *pos)
-								   : (int16_t)read_be16 (code + *pos);
+				int16_t lo
+					= is_le ? (int16_t)read_le16 (code + *pos) : (int16_t)read_be16 (code + *pos);
 				int16_t hi = is_le ? (int16_t)read_le16 (code + *pos + 2)
 								   : (int16_t)read_be16 (code + *pos + 2);
 				*pos += 4;
@@ -767,7 +793,6 @@ static size_t print_prefixed_command (char *out, size_t out_cap, const u8 *code,
 	len += snprintf (out + len, out_cap > len ? out_cap - len : 0, "raw 0x%02X\n", op);
 	return len;
 }
-
 
 enumError DisassembleSequence (char **out_text, size_t *out_size, const u8 *data, size_t size)
 {
@@ -820,14 +845,14 @@ enumError DisassembleSequence (char **out_text, size_t *out_size, const u8 *data
 	if (code_size == 0)
 		return ERR_INVALID_DATA;
 
-// Pass 1: find all label / jump / call / track targets
+	// Pass 1: find all label / jump / call / track targets
 	label_map_t *labels = NULL;
 	uint n_labels = 0, alloc_labels = 0;
 
 	// Seed real names from the sequence LABEL block first so they win
 	// over synthesized ones for the same offsets.
-	seq_read_labels (labl, labl_size, is_le, &labels, &n_labels, &alloc_labels,
-		fmt == SEQ_FMT_RSEQ);
+	seq_read_labels (
+		labl, labl_size, is_le, &labels, &n_labels, &alloc_labels, fmt == SEQ_FMT_RSEQ);
 	// Snapshot: entries below this count came from the block (pass 1
 	// only appends synthesized ones afterwards); directives print just
 	// these so the assembler rebuilds the LABL block exactly.
@@ -948,8 +973,8 @@ enumError DisassembleSequence (char **out_text, size_t *out_size, const u8 *data
 	// container round-trips losslessly. Only block names are in the map
 	// at this point: pass 1 appends synthesized ones afterwards.
 	for (uint li = 0; li < n_real_labels && li < n_labels; li++)
-		len += snprintf (out + len, out_cap - len, "label \"%s\" 0x%06X\n",
-			labels[li].name, labels[li].offset);
+		len += snprintf (
+			out + len, out_cap - len, "label \"%s\" 0x%06X\n", labels[li].name, labels[li].offset);
 	len += snprintf (out + len, out_cap - len, "\n");
 
 	pos = 0;
@@ -1003,8 +1028,8 @@ enumError DisassembleSequence (char **out_text, size_t *out_size, const u8 *data
 		// their altered operand shapes can never desync this walk.
 		if (pre.has_if || pre.has_random || pre.has_variable || pre.has_time)
 		{
-			len += print_prefixed_command (out + len, out_cap - len, code, code_size, &pos,
-				is_le, op, &pre, labels, n_labels);
+			len += print_prefixed_command (
+				out + len, out_cap - len, code, code_size, &pos, is_le, op, &pre, labels, n_labels);
 			continue;
 		}
 
@@ -1232,11 +1257,11 @@ enumError DisassembleSequence (char **out_text, size_t *out_size, const u8 *data
 					ccp mn = seq_u8_name (op, &is_s8);
 					u8 a = (pos < code_size) ? code[pos++] : 0;
 					if (is_s8)
-						len += snprintf (out + len, out_cap - len, "    %s %d\n",
-							mn ? mn : "unk", (int)(signed char)a);
+						len += snprintf (out + len, out_cap - len, "    %s %d\n", mn ? mn : "unk",
+							(int)(signed char)a);
 					else
-						len += snprintf (out + len, out_cap - len, "    %s %u\n",
-							mn ? mn : "unk", a);
+						len += snprintf (
+							out + len, out_cap - len, "    %s %u\n", mn ? mn : "unk", a);
 					break;
 				}
 				case SEQ_OP_MOD_DELAY:
@@ -1250,10 +1275,9 @@ enumError DisassembleSequence (char **out_text, size_t *out_size, const u8 *data
 				}
 				case SEQ_OP_SWEEP_PITCH:
 				{
-					int16_t s = (pos + 2 <= code_size)
-						? (is_le ? (int16_t)read_le16 (code + pos)
-								 : (int16_t)read_be16 (code + pos))
-						: 0;
+					int16_t s = (pos + 2 <= code_size) ? (is_le ? (int16_t)read_le16 (code + pos)
+																: (int16_t)read_be16 (code + pos))
+													   : 0;
 					pos += 2;
 					len += snprintf (out + len, out_cap - len, "    sweep_pitch %d\n", s);
 					break;
@@ -1284,22 +1308,20 @@ enumError DisassembleSequence (char **out_text, size_t *out_size, const u8 *data
 						int16_t a2 = is_le ? (int16_t)read_le16 (code + pos + 1)
 										   : (int16_t)read_be16 (code + pos + 1);
 						pos += 3;
-						len += snprintf (out + len, out_cap - len, "    ex 0x%02X %u %d\n",
-							sub, a1, a2);
+						len += snprintf (
+							out + len, out_cap - len, "    ex 0x%02X %u %d\n", sub, a1, a2);
 					}
 					else if ((cls == 0xA0 || cls == 0xB0) && pos < code_size)
 					{
 						u8 a1 = code[pos++];
-						len += snprintf (out + len, out_cap - len, "    ex 0x%02X %u\n",
-							sub, a1);
+						len += snprintf (out + len, out_cap - len, "    ex 0x%02X %u\n", sub, a1);
 					}
 					else if (cls == 0xE0 && pos + 2 <= code_size)
 					{
 						int16_t a1 = is_le ? (int16_t)read_le16 (code + pos)
 										   : (int16_t)read_be16 (code + pos);
 						pos += 2;
-						len += snprintf (out + len, out_cap - len, "    ex 0x%02X %d\n",
-							sub, a1);
+						len += snprintf (out + len, out_cap - len, "    ex 0x%02X %d\n", sub, a1);
 					}
 					else
 						len += snprintf (out + len, out_cap - len, "    ex 0x%02X\n", sub);
@@ -1453,8 +1475,8 @@ enumError AssembleSequence (
 
 		char cmd[64] = "", arg1[64] = "", arg2[64] = "", arg3[64] = "";
 		char arg4[64] = "", arg5[64] = "", arg6[64] = "";
-		int n_args = sscanf (s, "%63s %63s %63s %63s %63s %63s %63s", cmd, arg1, arg2,
-			arg3, arg4, arg5, arg6);
+		int n_args = sscanf (
+			s, "%63s %63s %63s %63s %63s %63s %63s", cmd, arg1, arg2, arg3, arg4, arg5, arg6);
 		if (n_args < 1)
 			continue;
 
@@ -1620,8 +1642,8 @@ enumError AssembleSequence (
 					|| !strcasecmp (sub, "open_track"))
 				{
 					u8 opj = !strcasecmp (sub, "jump") ? SEQ_OP_JUMP
-						: !strcasecmp (sub, "call")	  ? SEQ_OP_CALL
-													  : SEQ_OP_OPEN_TRACK;
+						: !strcasecmp (sub, "call")	   ? SEQ_OP_CALL
+													   : SEQ_OP_OPEN_TRACK;
 					code[code_len++] = opj;
 					int tj = ai;
 					if (opj == SEQ_OP_OPEN_TRACK)
@@ -1645,9 +1667,8 @@ enumError AssembleSequence (
 					|| !strcasecmp (sub, "mod_delay") || !strcasecmp (sub, "sweep_pitch")
 					|| !strcasecmp (sub, "mod_period"))
 				{
-					u8 ops = !strcasecmp (sub, "tempo") || !strcasecmp (sub, "bpm")
-						? SEQ_OP_TEMPO
-						: !strcasecmp (sub, "mod_delay") ? SEQ_OP_MOD_DELAY
+					u8 ops = !strcasecmp (sub, "tempo") || !strcasecmp (sub, "bpm") ? SEQ_OP_TEMPO
+						: !strcasecmp (sub, "mod_delay")   ? SEQ_OP_MOD_DELAY
 						: !strcasecmp (sub, "sweep_pitch") ? SEQ_OP_SWEEP_PITCH
 														   : SEQ_OP_MOD_PERIOD;
 					code[code_len++] = ops;
@@ -1685,9 +1706,8 @@ enumError AssembleSequence (
 				{
 					code[code_len++] = !strcasecmp (sub, "fin") || !strcasecmp (sub, "end")
 						? SEQ_OP_FIN
-						: !strcasecmp (sub, "ret") || !strcasecmp (sub, "return")
-						? SEQ_OP_RET
-						: !strcasecmp (sub, "loop_end") ? SEQ_OP_LOOP_END
+						: !strcasecmp (sub, "ret") || !strcasecmp (sub, "return") ? SEQ_OP_RET
+						: !strcasecmp (sub, "loop_end")							  ? SEQ_OP_LOOP_END
 														: SEQ_OP_ENV_RESET;
 				}
 				else
@@ -2369,16 +2389,15 @@ static int compare_midi_events (const void *a, const void *b)
 
 // Read one u8-class musical value with RANDOM/VARIABLE replacement for
 // MIDI conversion (bounds midpoint / var id literal), advancing *pos.
-static u8 seq_midi_u8arg (const u8 *code, size_t code_size, size_t *pos,
-	bool is_le, const seq_prefix_t *pre, u8 def)
+static u8 seq_midi_u8arg (
+	const u8 *code, size_t code_size, size_t *pos, bool is_le, const seq_prefix_t *pre, u8 def)
 {
 	(void)is_le;
 	if (pre->has_random && *pos + 4 <= code_size)
 	{
-		int16_t lo = is_le ? (int16_t)read_le16 (code + *pos)
-						   : (int16_t)read_be16 (code + *pos);
-		int16_t hi = is_le ? (int16_t)read_le16 (code + *pos + 2)
-						   : (int16_t)read_be16 (code + *pos + 2);
+		int16_t lo = is_le ? (int16_t)read_le16 (code + *pos) : (int16_t)read_be16 (code + *pos);
+		int16_t hi
+			= is_le ? (int16_t)read_le16 (code + *pos + 2) : (int16_t)read_be16 (code + *pos + 2);
 		*pos += 4;
 		int mid = (lo + hi) / 2;
 		return (u8)(mid < 0 ? 0 : mid > 255 ? 255 : mid);
@@ -2391,8 +2410,8 @@ static u8 seq_midi_u8arg (const u8 *code, size_t code_size, size_t *pos,
 }
 
 // Skip a TIME prefix's trailing operand (u8-class commands only).
-static void seq_skip_time_tail (const u8 *code, size_t code_size, size_t *pos,
-	const seq_prefix_t *pre)
+static void seq_skip_time_tail (
+	const u8 *code, size_t code_size, size_t *pos, const seq_prefix_t *pre)
 {
 	if (!pre->has_time)
 		return;
@@ -2721,8 +2740,8 @@ enumError SequenceToMIDI (u8 **out_midi, size_t *out_size, const u8 *seq_data, s
 					{
 						conductor_track.alloc_events
 							= conductor_track.alloc_events ? conductor_track.alloc_events * 2 : 128;
-						conductor_track.events = REALLOC (
-							conductor_track.events, conductor_track.alloc_events * sizeof (midi_event_t));
+						conductor_track.events = REALLOC (conductor_track.events,
+							conductor_track.alloc_events * sizeof (midi_event_t));
 					}
 					midi_event_t *me = &conductor_track.events[conductor_track.n_events++];
 					me->time = cur_time;
@@ -2785,8 +2804,8 @@ enumError SequenceToMIDI (u8 **out_midi, size_t *out_size, const u8 *seq_data, s
 		midi_track_write_time_signature (mtr, 0, 4, 2, 24, 8); // 4/4
 
 		if (conductor_track.n_events > 1)
-			qsort (
-				conductor_track.events, conductor_track.n_events, sizeof (midi_event_t), compare_midi_events);
+			qsort (conductor_track.events, conductor_track.n_events, sizeof (midi_event_t),
+				compare_midi_events);
 
 		u32 last_time = 0;
 		for (uint i = 0; i < conductor_track.n_events; i++)
@@ -3209,7 +3228,6 @@ enumError InvertSequence (
 	return ERR_OK;
 }
 
-
 enumError encode_sequence_file (ccp source, ccp dest)
 {
 	ccp ext = strrchr (dest, '.');
@@ -3258,4 +3276,3 @@ enumError encode_sequence_file (ccp source, ccp dest)
 	FREE (out);
 	return err;
 }
-

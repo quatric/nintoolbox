@@ -58,7 +58,15 @@
 #include "lib-std.h"
 #include "lib-model-glb.h"
 
-typedef enum { REZ_TEXTURE = 73, REZ_SOUND = 76, REZ_VIDEO = 1, REZ_MESH = 75, REZ_ANIM = 86, REZ_MOTION = 7 } rez_kind_t;
+typedef enum
+{
+	REZ_TEXTURE = 73,
+	REZ_SOUND = 76,
+	REZ_VIDEO = 1,
+	REZ_MESH = 75,
+	REZ_ANIM = 86,
+	REZ_MOTION = 7
+} rez_kind_t;
 
 typedef struct
 {

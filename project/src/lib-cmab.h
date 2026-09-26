@@ -30,7 +30,6 @@ typedef struct cmab_entry_t
 
 enumError ScanCMAB (cmab_t *cmab, const u8 *data, uint size);
 enumError GetCMABEntry (const cmab_t *cmab, uint index, cmab_entry_t *entry);
-enumError DecodeCMABTexture_RGBA (
-	u8 **dest, uint *width, uint *height, const cmab_entry_t *entry);
+enumError DecodeCMABTexture_RGBA (u8 **dest, uint *width, uint *height, const cmab_entry_t *entry);
 
 #endif

@@ -58,6 +58,7 @@ model_t *ParseAsoboMesh (const u8 *data, size_t size, AsoboTexFunc texname, void
 // First texture (Bitmap_Z name) referenced by a Material_Z body, or 0.
 u32 AsoboMaterialTexture (const u8 *data, size_t size);
 
-enumError ScanAsoboDrv (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size);
+enumError ScanAsoboDrv (
+	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size);
 
 #endif

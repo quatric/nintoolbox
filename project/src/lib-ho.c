@@ -12,10 +12,20 @@
 #define HO_MAX_LAYERS 0x10000
 #define HO_MAX_ASSETS 0x400000
 
-static u32 ho_rd32 (const u8 *p) { return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
-static u64 ho_rd64 (const u8 *p) { return (u64)ho_rd32 (p) << 32 | ho_rd32 (p + 4); }
+static u32 ho_rd32 (const u8 *p)
+{
+	return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
+}
+static u64 ho_rd64 (const u8 *p)
+{
+	return (u64)ho_rd32 (p) << 32 | ho_rd32 (p + 4);
+}
 
-typedef struct { u64 id; ccp name; } ho_name_t;
+typedef struct
+{
+	u64 id;
+	ccp name;
+} ho_name_t;
 
 static int ho_name_cmp (const void *a, const void *b)
 {
@@ -180,7 +190,8 @@ enumError ScanHO (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *da
 					continue;
 				const u64 id = ho_rd64 (e + 0x10);
 				const u32 typ = ho_rd32 (e + 0x18);
-				ho_name_t key = { id, 0 }, *hit = nn ? bsearch (&key, names, nn, sizeof (*names), ho_name_cmp) : 0;
+				ho_name_t key = { id, 0 },
+						  *hit = nn ? bsearch (&key, names, nn, sizeof (*names), ho_name_cmp) : 0;
 				char nm[256], path[768];
 				if (hit)
 					snprintf (nm, sizeof (nm), "%s", hit->name);
@@ -234,8 +245,8 @@ enumError ScanHO (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *da
 			char path[800];
 			ccp cur = out[k].name, dot = strrchr (cur, '.');
 			const int stem = dot ? (int)(dot - cur) : (int)strlen (cur);
-			snprintf (path, sizeof (path), "%.*s_%016llx_%u%s", stem, cur, (unsigned long long)ids[k], k,
-				dot ? dot : "");
+			snprintf (path, sizeof (path), "%.*s_%016llx_%u%s", stem, cur,
+				(unsigned long long)ids[k], k, dot ? dot : "");
 			char *nm = MALLOC (strlen (path) + 1);
 			if (!nm)
 				break;
@@ -271,7 +282,8 @@ enumError DecodeHoTexture (u8 **rgba, uint *width, uint *height, const u8 *d, si
 		return ERR_NOTHING_TO_DO;
 	const u32 hs = ho_rd32 (d + 0x2c);
 	const uint h = d[0x20 + hs] << 8 | d[0x21 + hs], w = d[0x22 + hs] << 8 | d[0x23 + hs];
-	const enumError err = DecodeGXTexture_RGBA (rgba, w, h, ho_rd32 (d + 0x24 + hs), d + 0x60, size - 0x60, 0, 0, 0);
+	const enumError err = DecodeGXTexture_RGBA (
+		rgba, w, h, ho_rd32 (d + 0x24 + hs), d + 0x60, size - 0x60, 0, 0, 0);
 	if (!err)
 	{
 		*width = w;

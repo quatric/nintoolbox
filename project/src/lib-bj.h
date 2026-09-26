@@ -40,7 +40,6 @@ typedef ccp (*BjTexFunc) (void *ctx, uint tex_id);
 bool IsBjMtm (const u8 *data, size_t size);
 model_t *ParseBjMtm (const u8 *data, size_t size, BjTexFunc texname, void *ctx);
 
-
 // .bsi sound bank (big-endian): u32 0x0005002d, u32 count, u32 table offset
 // (0x10), then count * {u32 flags<<24, u32 0, u32 rate, u32 bytes, u32 0,
 // u32 file offset, u32 0, u32 0}; each sample is mono signed 8-bit PCM.

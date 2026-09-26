@@ -85,8 +85,7 @@ static bool nlg_strings_fit (const u8 *dict, uint dict_size, size_t p, uint n_st
 	return true;
 }
 
-enumError ScanLM3Dict (const u8 *dict, uint dict_size,
-	nlg_block_t **blocks, uint *n_blocks,
+enumError ScanLM3Dict (const u8 *dict, uint dict_size, nlg_block_t **blocks, uint *n_blocks,
 	const char ***strings, uint *n_strings, bool *compressed)
 {
 	if (blocks)
@@ -180,8 +179,7 @@ enumError ScanLM3Dict (const u8 *dict, uint dict_size,
 	return ERR_OK;
 }
 
-enumError ScanLM2Dict (const u8 *dict, uint dict_size,
-	nlg_block_t **blocks, uint *n_blocks,
+enumError ScanLM2Dict (const u8 *dict, uint dict_size, nlg_block_t **blocks, uint *n_blocks,
 	const char ***strings, uint *n_strings, bool *compressed)
 {
 	if (blocks)
@@ -298,8 +296,7 @@ nlg_variant_t NLGDetectVariant (const u8 *dict, uint dict_size)
 	if (m_be != 0x5824F3A9 && m_le != 0x5824F3A9)
 		return NLG_UNKNOWN;
 	// Federation Force first: its @16 rule is exact either endianness.
-	if (dict_size >= 20
-		&& (rd_be32 (dict + 16) == 0x297B947A || rd_le32 (dict + 16) == 0x297B947A))
+	if (dict_size >= 20 && (rd_be32 (dict + 16) == 0x297B947A || rd_le32 (dict + 16) == 0x297B947A))
 		return NLG_FEDFORCE;
 	// LM3's header is shorter with byte counts; it validates strictly.
 	// Try it before LM2 so a small LM3 file is not misread as LM2.
@@ -316,8 +313,8 @@ nlg_variant_t NLGDetectVariant (const u8 *dict, uint dict_size)
 
 #define NLG_MAX_BLOCK (512u << 20)
 
-static u8 *nlg_block_decode (const u8 *src, size_t avail, u32 comp_size,
-	u32 decomp_size, bool is_compressed, uint *out_size)
+static u8 *nlg_block_decode (
+	const u8 *src, size_t avail, u32 comp_size, u32 decomp_size, bool is_compressed, uint *out_size)
 {
 	if (out_size)
 		*out_size = 0;
@@ -413,8 +410,7 @@ static void nlg_free_bufs (nlg_buf_t *bufs, uint n)
 }
 
 // Decode block BI of BL into BUFS[POS]. Missing/out-of-range blocks stay empty.
-static void nlg_load_buf (nlg_buf_t *bufs, uint pos,
-	const nlg_block_t *bl, uint n_blocks,
+static void nlg_load_buf (nlg_buf_t *bufs, uint pos, const nlg_block_t *bl, uint n_blocks,
 	const u8 *data_raw, size_t data_raw_size, uint bi, bool is_compressed)
 {
 	if (!bufs || bi >= n_blocks)
@@ -450,14 +446,34 @@ static const uint lm3_want[] = { 0, 52, 53, 54, 55, 58, 63, 64, 65, 68, 69 };
 // LM3 leaf/chunk buffer by chunk flags (ChunkBlockFlags + TextureData rule).
 static uint lm3_buf_for_flags (u16 type, u16 flags)
 {
-	static const struct { uint flag, pos; } map[] = {
-		{ 128, 52 }, { 257, 52 }, { 129, 52 },
-		{ 192, 53 }, { 193, 52 }, { 194, 53 },
-		{ 2241, 53 }, { 2242, 53 }, { 2264, 53 }, { 2305, 53 },
-		{ 4353, 54 }, { 6721, 55 }, { 8386, 68 },
-		{ 14530, 63 }, { 14528, 63 }, { 14529, 63 },
-		{ 16577, 64 }, { 16641, 64 }, { 16642, 64 }, { 16578, 64 },
-		{ 21057, 65 }, { 32961, 65 }, { 35073, 65 }, { 35009, 65 },
+	static const struct
+	{
+		uint flag, pos;
+	} map[] = {
+		{ 128, 52 },
+		{ 257, 52 },
+		{ 129, 52 },
+		{ 192, 53 },
+		{ 193, 52 },
+		{ 194, 53 },
+		{ 2241, 53 },
+		{ 2242, 53 },
+		{ 2264, 53 },
+		{ 2305, 53 },
+		{ 4353, 54 },
+		{ 6721, 55 },
+		{ 8386, 68 },
+		{ 14530, 63 },
+		{ 14528, 63 },
+		{ 14529, 63 },
+		{ 16577, 64 },
+		{ 16641, 64 },
+		{ 16642, 64 },
+		{ 16578, 64 },
+		{ 21057, 65 },
+		{ 32961, 65 },
+		{ 35073, 65 },
+		{ 35009, 65 },
 	};
 	if (type == 0xB502)
 		return 65;
@@ -525,8 +541,7 @@ static bool nlg_file_has_children (nlg_variant_t variant, u16 flags)
 }
 
 // Child payload resolver per variant. Returns NULL when unavailable.
-static const u8 *nlg_child_data (nlg_variant_t variant,
-	const nlg_chunk_t *tab, uint ti,
+static const u8 *nlg_child_data (nlg_variant_t variant, const nlg_chunk_t *tab, uint ti,
 	const nlg_buf_t *bufs, uint n_bufs, uint *size)
 {
 	if (size)
@@ -560,9 +575,8 @@ static const u8 *nlg_child_data (nlg_variant_t variant,
 }
 
 // Find the first child of TYPE in [START, START+COUNT), resolve payload.
-static const u8 *nlg_find_child (nlg_variant_t variant,
-	const nlg_chunk_t *tab, uint n_tab, uint start, uint count, u16 type,
-	const nlg_buf_t *bufs, uint n_bufs, uint *size)
+static const u8 *nlg_find_child (nlg_variant_t variant, const nlg_chunk_t *tab, uint n_tab,
+	uint start, uint count, u16 type, const nlg_buf_t *bufs, uint n_bufs, uint *size)
 {
 	if (size)
 		*size = 0;
@@ -601,7 +615,6 @@ static void nlg_base_name (char *dst, size_t cap, u32 path_hash, uint idx)
 	}
 }
 
-
 //-----------------------------------------------------------------------------
 // FEDM / FEDS / FEDT containers, versions 1..3.
 //
@@ -618,8 +631,8 @@ typedef struct
 	u32 size;
 } nlg_part_t;
 
-static enumError nlg_parse_container (const u8 *data, size_t size,
-	const char magic[4], nlg_part_t **parts, uint *n_parts, u16 *ver)
+static enumError nlg_parse_container (
+	const u8 *data, size_t size, const char magic[4], nlg_part_t **parts, uint *n_parts, u16 *ver)
 {
 	if (parts)
 		*parts = 0;
@@ -672,8 +685,7 @@ static const nlg_part_t *nlg_find_part (const nlg_part_t *parts, uint n, u16 typ
 	return 0;
 }
 
-static enumError nlg_build_container (u8 **dest, uint *dest_size,
-	const char magic[4], u16 ver,
+static enumError nlg_build_container (u8 **dest, uint *dest_size, const char magic[4], u16 ver,
 	const u16 *types, const u8 **datas, const uint *sizes, uint n)
 {
 	if (!dest || !dest_size || !types || !datas || !sizes || !n)
@@ -714,45 +726,45 @@ static uint nlg_lm2_stride (u32 hash)
 {
 	switch (hash)
 	{
-	case 0xC88C1762u:
-	case 0x72D28D0Du:
-		return 0x46;
-	case 1879155460u:
-		return 0x4A;
-	case 170572476u:
-		return 0x24;
-	case 0x11E26127u:
-	case 0x679BEB7Cu:
-	case 0x8980687Fu:
-	case 0xB3F4492Eu:
-		return 0x16;
-	case 0x0FFA5BDEu:
-		return 0x1A;
-	case 0x4821B2DFu:
-	case 3695673818u:
-	case 3767596423u:
-	case 2860802050u:
-	case 1968188335u:
-		return 0x14;
-	case 0x5576A693u:
-		return 0x10;
-	case 0xDF24890Du:
-	case 0xF4F13EB1u:
-	case 0xFADABB22u:
-	case 0x87C2B716u:
-	case 0x333626D9u:
-		return 0x18;
-	case 0x1090E6EBu:
-	case 0xA856FBF7u:
-	case 0xF07FC596u:
-	case 0xDDCC31B7u:
-	case 3276728684u:
-	case 2808796972u:
-		return 0x1C;
-	case 3483481649u:
-		return 0x0C;
-	default:
-		return 0;
+		case 0xC88C1762u:
+		case 0x72D28D0Du:
+			return 0x46;
+		case 1879155460u:
+			return 0x4A;
+		case 170572476u:
+			return 0x24;
+		case 0x11E26127u:
+		case 0x679BEB7Cu:
+		case 0x8980687Fu:
+		case 0xB3F4492Eu:
+			return 0x16;
+		case 0x0FFA5BDEu:
+			return 0x1A;
+		case 0x4821B2DFu:
+		case 3695673818u:
+		case 3767596423u:
+		case 2860802050u:
+		case 1968188335u:
+			return 0x14;
+		case 0x5576A693u:
+			return 0x10;
+		case 0xDF24890Du:
+		case 0xF4F13EB1u:
+		case 0xFADABB22u:
+		case 0x87C2B716u:
+		case 0x333626D9u:
+			return 0x18;
+		case 0x1090E6EBu:
+		case 0xA856FBF7u:
+		case 0xF07FC596u:
+		case 0xDDCC31B7u:
+		case 3276728684u:
+		case 2808796972u:
+			return 0x1C;
+		case 3483481649u:
+			return 0x0C;
+		default:
+			return 0;
 	}
 }
 
@@ -779,91 +791,91 @@ static uint nlg_lm2_decode_vert (nlg_vert_t *v, const u8 *p, uint avail, u32 has
 	v->r = v->g = v->b = v->a = 1.0f;
 	switch (hash)
 	{
-	// Layout 1: skinned short-pos + s8 normal + uv + bone bytes/weights.
-	case 0xC88C1762u:
-	case 0x72D28D0Du:
-	case 0x11E26127u:
-	case 0x679BEB7Cu:
-	case 0x8980687Fu:
-	case 0xB3F4492Eu:
-	case 0x0FFA5BDEu:
-	case 1879155460u:
-		v->px = nlg_s16_ushort_decode ((s16)rd_le16 (p));
-		v->py = nlg_s16_ushort_decode ((s16)rd_le16 (p + 2));
-		v->pz = nlg_s16_ushort_decode ((s16)rd_le16 (p + 4));
-		v->nx = (s8)p[6] / 255.0f;
-		v->ny = (s8)p[7] / 255.0f;
-		v->nz = (s8)p[8] / 255.0f;
-		v->has_n = true;
-		v->u0 = (s16)rd_le16 (p + 10) / 1024.0f;
-		v->v0 = (s16)rd_le16 (p + 12) / 1024.0f;
-		v->has_uv0 = true;
-		return stride;
-	// Layout 2: float pos + 2x uv + optional color.
-	case 0x333626D9u:
-	case 3767596423u:
-	case 2860802050u:
-	case 1968188335u:
-		memcpy (&v->px, p, 4);
-		memcpy (&v->py, p + 4, 4);
-		memcpy (&v->pz, p + 8, 4);
-		v->u0 = (s16)rd_le16 (p + 12) / 1024.0f;
-		v->v0 = (s16)rd_le16 (p + 14) / 1024.0f;
-		v->u1 = (s16)rd_le16 (p + 16) / 1024.0f;
-		v->v1 = (s16)rd_le16 (p + 18) / 1024.0f;
-		v->has_uv0 = v->has_uv1 = true;
-		if (stride > 20)
-		{
-			v->r = p[20] / 255.0f;
-			v->g = p[21] / 255.0f;
-			v->b = p[22] / 255.0f;
-			v->a = p[23] / 255.0f;
-			v->has_c = true;
-		}
-		return stride;
-	// Layout 3/5: float pos + s8 normal + 2x uv + optional color.
-	case 3695673818u:
-	case 0x5576A693u:
-	case 0xDF24890Du:
-	case 0xF4F13EB1u:
-	case 0xFADABB22u:
-	case 0x87C2B716u:
-	case 0x1090E6EBu:
-	case 0xA856FBF7u:
-	case 0xF07FC596u:
-	case 0xDDCC31B7u:
-	case 3276728684u:
-	case 2808796972u:
-	case 170572476u:
-		memcpy (&v->px, p, 4);
-		memcpy (&v->py, p + 4, 4);
-		memcpy (&v->pz, p + 8, 4);
-		v->nx = (s8)p[12] / 255.0f;
-		v->ny = (s8)p[13] / 255.0f;
-		v->nz = (s8)p[14] / 255.0f;
-		v->has_n = true;
-		v->u0 = (s16)rd_le16 (p + 16) / 1024.0f;
-		v->v0 = (s16)rd_le16 (p + 18) / 1024.0f;
-		v->u1 = (s16)rd_le16 (p + 20) / 1024.0f;
-		v->v1 = (s16)rd_le16 (p + 22) / 1024.0f;
-		v->has_uv0 = v->has_uv1 = true;
-		if (stride >= 0x1C && hash != 170572476u)
-		{
-			v->r = p[0x1C] / 255.0f;
-			v->g = p[0x1D] / 255.0f;
-			v->b = p[0x1E] / 255.0f;
-			v->a = p[0x1F] / 255.0f;
-			v->has_c = true;
-		}
-		return stride;
-	// Layout 4: position only.
-	case 0x4821B2DFu:
-		memcpy (&v->px, p, 4);
-		memcpy (&v->py, p + 4, 4);
-		memcpy (&v->pz, p + 8, 4);
-		return stride;
-	default:
-		return 0;
+		// Layout 1: skinned short-pos + s8 normal + uv + bone bytes/weights.
+		case 0xC88C1762u:
+		case 0x72D28D0Du:
+		case 0x11E26127u:
+		case 0x679BEB7Cu:
+		case 0x8980687Fu:
+		case 0xB3F4492Eu:
+		case 0x0FFA5BDEu:
+		case 1879155460u:
+			v->px = nlg_s16_ushort_decode ((s16)rd_le16 (p));
+			v->py = nlg_s16_ushort_decode ((s16)rd_le16 (p + 2));
+			v->pz = nlg_s16_ushort_decode ((s16)rd_le16 (p + 4));
+			v->nx = (s8)p[6] / 255.0f;
+			v->ny = (s8)p[7] / 255.0f;
+			v->nz = (s8)p[8] / 255.0f;
+			v->has_n = true;
+			v->u0 = (s16)rd_le16 (p + 10) / 1024.0f;
+			v->v0 = (s16)rd_le16 (p + 12) / 1024.0f;
+			v->has_uv0 = true;
+			return stride;
+		// Layout 2: float pos + 2x uv + optional color.
+		case 0x333626D9u:
+		case 3767596423u:
+		case 2860802050u:
+		case 1968188335u:
+			memcpy (&v->px, p, 4);
+			memcpy (&v->py, p + 4, 4);
+			memcpy (&v->pz, p + 8, 4);
+			v->u0 = (s16)rd_le16 (p + 12) / 1024.0f;
+			v->v0 = (s16)rd_le16 (p + 14) / 1024.0f;
+			v->u1 = (s16)rd_le16 (p + 16) / 1024.0f;
+			v->v1 = (s16)rd_le16 (p + 18) / 1024.0f;
+			v->has_uv0 = v->has_uv1 = true;
+			if (stride > 20)
+			{
+				v->r = p[20] / 255.0f;
+				v->g = p[21] / 255.0f;
+				v->b = p[22] / 255.0f;
+				v->a = p[23] / 255.0f;
+				v->has_c = true;
+			}
+			return stride;
+		// Layout 3/5: float pos + s8 normal + 2x uv + optional color.
+		case 3695673818u:
+		case 0x5576A693u:
+		case 0xDF24890Du:
+		case 0xF4F13EB1u:
+		case 0xFADABB22u:
+		case 0x87C2B716u:
+		case 0x1090E6EBu:
+		case 0xA856FBF7u:
+		case 0xF07FC596u:
+		case 0xDDCC31B7u:
+		case 3276728684u:
+		case 2808796972u:
+		case 170572476u:
+			memcpy (&v->px, p, 4);
+			memcpy (&v->py, p + 4, 4);
+			memcpy (&v->pz, p + 8, 4);
+			v->nx = (s8)p[12] / 255.0f;
+			v->ny = (s8)p[13] / 255.0f;
+			v->nz = (s8)p[14] / 255.0f;
+			v->has_n = true;
+			v->u0 = (s16)rd_le16 (p + 16) / 1024.0f;
+			v->v0 = (s16)rd_le16 (p + 18) / 1024.0f;
+			v->u1 = (s16)rd_le16 (p + 20) / 1024.0f;
+			v->v1 = (s16)rd_le16 (p + 22) / 1024.0f;
+			v->has_uv0 = v->has_uv1 = true;
+			if (stride >= 0x1C && hash != 170572476u)
+			{
+				v->r = p[0x1C] / 255.0f;
+				v->g = p[0x1D] / 255.0f;
+				v->b = p[0x1E] / 255.0f;
+				v->a = p[0x1F] / 255.0f;
+				v->has_c = true;
+			}
+			return stride;
+		// Layout 4: position only.
+		case 0x4821B2DFu:
+			memcpy (&v->px, p, 4);
+			memcpy (&v->py, p + 4, 4);
+			memcpy (&v->pz, p + 8, 4);
+			return stride;
+		default:
+			return 0;
 	}
 }
 
@@ -899,17 +911,21 @@ static void nlg_geo_free (nlg_geo_t *g)
 	memset (g, 0, sizeof (*g));
 }
 
-#define NLG_GEO_GROW(f,n,cap,T) do { \
-	if ((n) >= (cap)) { \
-		uint nc = (cap) ? (cap) * 2 : 64; \
-		T *nn = REALLOC (g->f, nc * sizeof (*nn)); \
-		if (!nn) return false; \
-		g->f = nn; \
-		(cap) = nc; \
-	} } while (0)
+#define NLG_GEO_GROW(f, n, cap, T)                                                                 \
+	do                                                                                             \
+	{                                                                                              \
+		if ((n) >= (cap))                                                                          \
+		{                                                                                          \
+			uint nc = (cap) ? (cap) * 2 : 64;                                                      \
+			T *nn = REALLOC (g->f, nc * sizeof (*nn));                                             \
+			if (!nn)                                                                               \
+				return false;                                                                      \
+			g->f = nn;                                                                             \
+			(cap) = nc;                                                                            \
+		}                                                                                          \
+	} while (0)
 
-static bool nlg_geo_vert (nlg_geo_t *g, const nlg_vert_t *v,
-	float m[16], bool use_m)
+static bool nlg_geo_vert (nlg_geo_t *g, const nlg_vert_t *v, float m[16], bool use_m)
 {
 	// Position through the model matrix (row-vector convention, like the
 	// reference) then the repo-standard -90 deg X rotation into Y-up.
@@ -994,8 +1010,7 @@ static bool nlg_geo_vert (nlg_geo_t *g, const nlg_vert_t *v,
 }
 
 // Commit one mesh + material into the model arrays.
-static bool nlg_commit_mesh (model_t *model, nlg_geo_t *g,
-	ccp mesh_name, ccp mat_name, ccp tex_png)
+static bool nlg_commit_mesh (model_t *model, nlg_geo_t *g, ccp mesh_name, ccp mat_name, ccp tex_png)
 {
 	if (!g->n_tri)
 		return true; // nothing (valid) to emit; not fatal
@@ -1003,8 +1018,7 @@ static bool nlg_commit_mesh (model_t *model, nlg_geo_t *g,
 	if (!g->n_tri)
 		return true;
 	mesh_t *nmeshes = REALLOC (model->meshes, (model->num_meshes + 1) * sizeof (*nmeshes));
-	material_t *nmats = REALLOC (model->materials,
-		(model->num_materials + 1) * sizeof (*nmats));
+	material_t *nmats = REALLOC (model->materials, (model->num_materials + 1) * sizeof (*nmats));
 	if (!nmeshes || !nmats)
 	{
 		if (nmeshes)
@@ -1065,8 +1079,8 @@ static bool nlg_commit_mesh (model_t *model, nlg_geo_t *g,
 	return true;
 }
 
-static void nlg_quat_to_euler (float qx, float qy, float qz, float qw,
-	float *rx, float *ry, float *rz)
+static void nlg_quat_to_euler (
+	float qx, float qy, float qz, float qw, float *rx, float *ry, float *rz)
 {
 	float sinr = 2.0f * (qw * qx + qy * qz);
 	float cosr = 1.0f - 2.0f * (qx * qx + qy * qy);
@@ -1090,7 +1104,11 @@ static void nlg_quat_to_euler (float qx, float qy, float qz, float qw,
 // LM2 material preset -> material-blob pointer index (MaterialLoaderHelper).
 static int nlg_lm2_tex_slot (ccp preset)
 {
-	static const struct { ccp name; int slot; } tab[] = {
+	static const struct
+	{
+		ccp name;
+		int slot;
+	} tab[] = {
 		{ "morphluigimaterial/default", 11 },
 		{ "windowmaterial/default", 9 },
 		{ "luigieyematerial/default", 7 },
@@ -1130,8 +1148,8 @@ static bool nlg_tex_known (const nlg_texset_t *ts, u32 h)
 }
 
 // Resolve the diffuse texture hash for one LM2 mesh.
-static u32 nlg_lm2_diffuse (ccp preset, const u32 *ptrs, uint n_ptrs,
-	const u8 *b006, uint b006_size, const nlg_texset_t *ts)
+static u32 nlg_lm2_diffuse (ccp preset, const u32 *ptrs, uint n_ptrs, const u8 *b006,
+	uint b006_size, const nlg_texset_t *ts)
 {
 	if (!ptrs || !b006)
 		return 0;
@@ -1162,14 +1180,9 @@ static u32 nlg_lm2_diffuse (ccp preset, const u32 *ptrs, uint n_ptrs,
 	return 0;
 }
 
-static bool nlg_parse_lm2_model (model_t *model,
-	const u8 *b001, uint b001_size,
-	const u8 *b002, uint b002_size,
-	const u8 *b003, uint b003_size,
-	const u8 *b004, uint b004_size,
-	const u8 *b005, uint b005_size,
-	const u8 *b006, uint b006_size,
-	const u8 *b007, uint b007_size,
+static bool nlg_parse_lm2_model (model_t *model, const u8 *b001, uint b001_size, const u8 *b002,
+	uint b002_size, const u8 *b003, uint b003_size, const u8 *b004, uint b004_size, const u8 *b005,
+	uint b005_size, const u8 *b006, uint b006_size, const u8 *b007, uint b007_size,
 	const nlg_texset_t *ts)
 {
 	if (!model || !b002 || !b003 || !b004 || !b005)
@@ -1267,27 +1280,23 @@ static bool nlg_parse_lm2_model (model_t *model,
 			char mesh_name[64], mat_name[64], tex_png[128];
 			char mhex[16];
 			ccp mn = NLGHashName (mathash, mhex);
-			snprintf (mesh_name, sizeof (mesh_name), "mesh_%u_%s",
-				mesh_idx, mn ? mn : mhex);
+			snprintf (mesh_name, sizeof (mesh_name), "mesh_%u_%s", mesh_idx, mn ? mn : mhex);
 			snprintf (mat_name, sizeof (mat_name), "%s", preset);
 			tex_png[0] = 0;
 			if (dif)
-				snprintf (tex_png, sizeof (tex_png),
-					"nlg_%08X_tex.fedtex.png", dif);
+				snprintf (tex_png, sizeof (tex_png), "nlg_%08X_tex.fedtex.png", dif);
 			nlg_geo_t g;
 			memset (&g, 0, sizeof (g));
 			bool ok = true;
 			for (uint k = 0; k < index_count && ok; k++)
 			{
-				uint vi = (index_fmt == 0x8000)
-					? b005[index_off + k]
-					: rd_le16 (b005 + index_off + (size_t)k * 2);
+				uint vi = (index_fmt == 0x8000) ? b005[index_off + k]
+												: rd_le16 (b005 + index_off + (size_t)k * 2);
 				if (vi >= vert_count)
 					vi %= vert_count;
 				nlg_vert_t vv;
 				const u8 *vp = b005 + vert_ptr + (size_t)vi * stride;
-				if (!nlg_lm2_decode_vert (&vv, vp,
-						b005_size - (uint)(vp - b005), vfmt))
+				if (!nlg_lm2_decode_vert (&vv, vp, b005_size - (uint)(vp - b005), vfmt))
 				{
 					ok = false;
 					break;
@@ -1299,8 +1308,7 @@ static bool nlg_parse_lm2_model (model_t *model,
 				}
 			}
 			if (ok)
-				ok = nlg_commit_mesh (model, &g, mesh_name, mat_name,
-					tex_png[0] ? tex_png : 0);
+				ok = nlg_commit_mesh (model, &g, mesh_name, mat_name, tex_png[0] ? tex_png : 0);
 			else
 				nlg_geo_free (&g);
 			if (!ok)
@@ -1322,16 +1330,28 @@ static bool nlg_parse_lm2_model (model_t *model,
 // LM3 material preset -> {slot, pointer-index} (MaterialLoaderHelper).
 static int nlg_lm3_tex_ptr (ccp preset)
 {
-	static const struct { ccp name; int ptr; } tab[] = {
-		{ "base_metal_map", 16 }, { "base_luigi", 16 },
-		{ "base_environment", 16 }, { "base_skin", 16 },
-		{ "base_translucent", 16 }, { "egadd_glasses_lens", 16 },
-		{ "kingboo_eyes2", 16 }, { "ghost_vip_dj_hair", 16 },
-		{ "base_luigi_fabric", 16 }, { "complex_emissive", 16 },
-		{ "golddark", 16 }, { "treeshader_cutout_01", 16 },
-		{ "treeshader_base_01", 16 }, { "base_environment_detailn", 16 },
+	static const struct
+	{
+		ccp name;
+		int ptr;
+	} tab[] = {
+		{ "base_metal_map", 16 },
+		{ "base_luigi", 16 },
+		{ "base_environment", 16 },
+		{ "base_skin", 16 },
+		{ "base_translucent", 16 },
+		{ "egadd_glasses_lens", 16 },
+		{ "kingboo_eyes2", 16 },
+		{ "ghost_vip_dj_hair", 16 },
+		{ "base_luigi_fabric", 16 },
+		{ "complex_emissive", 16 },
+		{ "golddark", 16 },
+		{ "treeshader_cutout_01", 16 },
+		{ "treeshader_base_01", 16 },
+		{ "base_environment_detailn", 16 },
 		{ "intromovie_terrain_01", 16 },
-		{ "base_prop", 17 }, { "baseghostmaterial", 17 },
+		{ "base_prop", 17 },
+		{ "baseghostmaterial", 17 },
 		{ "luigi_g_poltergust_body", 17 },
 	};
 	for (uint i = 0; i < sizeof (tab) / sizeof (tab[0]); i++)
@@ -1343,13 +1363,24 @@ static int nlg_lm3_tex_ptr (ccp preset)
 // LM3 diffuse offset inside pointers[tex_ptr] (TEXTURE_SLOT table).
 static int nlg_lm3_dif_off (ccp preset)
 {
-	static const struct { ccp name; int off; } tab[] = {
-		{ "base_metal_map", 0 }, { "base_prop", 0 }, { "base_environment", 0 },
-		{ "base_environment_detailn", 0 }, { "kingboo_eyes2", 0 },
-		{ "egadd_glasses_lens", 0 }, { "ghost_vip_dj_hair", 0 },
-		{ "base_luigi", 0 }, { "base_luigi_fabric", 24 },
-		{ "base_translucent", 0 }, { "ghost_boo", 0 },
-		{ "complex_emissive", 0 }, { "baseghostmaterial", 24 },
+	static const struct
+	{
+		ccp name;
+		int off;
+	} tab[] = {
+		{ "base_metal_map", 0 },
+		{ "base_prop", 0 },
+		{ "base_environment", 0 },
+		{ "base_environment_detailn", 0 },
+		{ "kingboo_eyes2", 0 },
+		{ "egadd_glasses_lens", 0 },
+		{ "ghost_vip_dj_hair", 0 },
+		{ "base_luigi", 0 },
+		{ "base_luigi_fabric", 24 },
+		{ "base_translucent", 0 },
+		{ "ghost_boo", 0 },
+		{ "complex_emissive", 0 },
+		{ "baseghostmaterial", 24 },
 	};
 	for (uint i = 0; i < sizeof (tab) / sizeof (tab[0]); i++)
 		if (!strcmp (preset, tab[i].name))
@@ -1357,8 +1388,8 @@ static int nlg_lm3_dif_off (ccp preset)
 	return 0; // default: DIFFUSE at +0
 }
 
-static u32 nlg_lm3_diffuse (ccp preset, const u32 *ptrs, uint n_ptrs,
-	const u8 *b006, uint b006_size, const nlg_texset_t *ts)
+static u32 nlg_lm3_diffuse (ccp preset, const u32 *ptrs, uint n_ptrs, const u8 *b006,
+	uint b006_size, const nlg_texset_t *ts)
 {
 	if (ptrs && b006)
 	{
@@ -1380,22 +1411,16 @@ static u32 nlg_lm3_diffuse (ccp preset, const u32 *ptrs, uint n_ptrs,
 			if (at == 0 || at == 0xFFFFFFFF || at + 4 > b006_size)
 				continue;
 			u32 cand = rd_le32 (b006 + at);
-			if (cand && cand != 0xFFFFFFFF && cand != 0x81800000
-				&& nlg_tex_known (ts, cand))
+			if (cand && cand != 0xFFFFFFFF && cand != 0x81800000 && nlg_tex_known (ts, cand))
 				return cand;
 		}
 	}
 	return 0;
 }
 
-static bool nlg_parse_lm3_model (model_t *model,
-	const u8 *b001, uint b001_size,
-	const u8 *b002, uint b002_size,
-	const u8 *b003, uint b003_size,
-	const u8 *b004, uint b004_size,
-	const u8 *b005, uint b005_size,
-	const u8 *b006, uint b006_size,
-	const u8 *b007, uint b007_size,
+static bool nlg_parse_lm3_model (model_t *model, const u8 *b001, uint b001_size, const u8 *b002,
+	uint b002_size, const u8 *b003, uint b003_size, const u8 *b004, uint b004_size, const u8 *b005,
+	uint b005_size, const u8 *b006, uint b006_size, const u8 *b007, uint b007_size,
 	const nlg_texset_t *ts)
 {
 	if (!model || !b002 || !b003 || !b004 || !b005)
@@ -1445,8 +1470,7 @@ static bool nlg_parse_lm3_model (model_t *model,
 			else
 				vert_ptr = rd_le32 (b004 + p004);
 			p004 += rec_words * 4;
-			if (!vert_count || !index_count || vert_count > (4u << 20)
-				|| index_count > (16u << 20))
+			if (!vert_count || !index_count || vert_count > (4u << 20) || index_count > (16u << 20))
 				continue;
 			// Fixed 48-byte vertices: pos3f + u + nrm3f + v + tan4f.
 			if ((u64)vert_ptr + (u64)vert_count * 48 > b005_size)
@@ -1479,19 +1503,16 @@ static bool nlg_parse_lm3_model (model_t *model,
 			ccp preset = NLGHashName (mathash, hex);
 			if (!preset)
 				preset = hex;
-			u32 dif = nlg_lm3_diffuse (preset, pcopy, pcopy ? n_lookup : 0,
-				b006, b006_size, ts);
+			u32 dif = nlg_lm3_diffuse (preset, pcopy, pcopy ? n_lookup : 0, b006, b006_size, ts);
 			FREE (pcopy);
 			char mesh_name[64], mat_name[64], tex_png[64];
 			char mhex[16];
 			ccp mn = NLGHashName (mathash, mhex);
-			snprintf (mesh_name, sizeof (mesh_name), "mesh_%u_%s",
-				mesh_idx, mn ? mn : mhex);
+			snprintf (mesh_name, sizeof (mesh_name), "mesh_%u_%s", mesh_idx, mn ? mn : mhex);
 			snprintf (mat_name, sizeof (mat_name), "%s", preset);
 			tex_png[0] = 0;
 			if (dif)
-				snprintf (tex_png, sizeof (tex_png),
-					"nlg_%08X_tex.fedtex.png", dif);
+				snprintf (tex_png, sizeof (tex_png), "nlg_%08X_tex.fedtex.png", dif);
 			nlg_geo_t g;
 			memset (&g, 0, sizeof (g));
 			bool ok = true;
@@ -1528,8 +1549,7 @@ static bool nlg_parse_lm3_model (model_t *model,
 				}
 			}
 			if (ok)
-				ok = nlg_commit_mesh (model, &g, mesh_name, mat_name,
-					tex_png[0] ? tex_png : 0);
+				ok = nlg_commit_mesh (model, &g, mesh_name, mat_name, tex_png[0] ? tex_png : 0);
 			else
 				nlg_geo_free (&g);
 			if (!ok)
@@ -1545,9 +1565,8 @@ static bool nlg_parse_lm3_model (model_t *model,
 // (joint_t convention); translations are raw bind offsets.
 //-----------------------------------------------------------------------------
 
-static uint nlg_fill_joints (model_t *model,
-	const char **names, const int *parents, const float *quats,
-	const float *trans, uint n)
+static uint nlg_fill_joints (model_t *model, const char **names, const int *parents,
+	const float *quats, const float *trans, uint n)
 {
 	if (!model || !names || !parents || !quats || !trans || !n || n > 4096)
 		return 0;
@@ -1561,8 +1580,8 @@ static uint nlg_fill_joints (model_t *model,
 		snprintf (j->name, sizeof (j->name), "%s", names[i] ? names[i] : "?");
 		int p = parents[i];
 		j->parent_idx = (p < 0 || (uint)p >= n || (uint)p == i) ? -1 : p;
-		float qx = quats[i * 4], qy = quats[i * 4 + 1],
-			  qz = quats[i * 4 + 2], qw = quats[i * 4 + 3];
+		float qx = quats[i * 4], qy = quats[i * 4 + 1], qz = quats[i * 4 + 2],
+			  qw = quats[i * 4 + 3];
 		float ql = sqrtf (qx * qx + qy * qy + qz * qz + qw * qw);
 		if (ql > 1e-6f && isfinite (ql))
 		{
@@ -1576,13 +1595,11 @@ static uint nlg_fill_joints (model_t *model,
 			qx = qy = qz = 0.0f;
 			qw = 1.0f;
 		}
-		nlg_quat_to_euler (qx, qy, qz, qw,
-			&j->rotate.x, &j->rotate.y, &j->rotate.z);
+		nlg_quat_to_euler (qx, qy, qz, qw, &j->rotate.x, &j->rotate.y, &j->rotate.z);
 		j->translate.x = trans[i * 3];
 		j->translate.y = trans[i * 3 + 1];
 		j->translate.z = trans[i * 3 + 2];
-		if (!isfinite (j->translate.x) || !isfinite (j->translate.y)
-			|| !isfinite (j->translate.z))
+		if (!isfinite (j->translate.x) || !isfinite (j->translate.y) || !isfinite (j->translate.z))
 			j->translate.x = j->translate.y = j->translate.z = 0.0f;
 		j->scale.x = j->scale.y = j->scale.z = 1.0f;
 	}
@@ -1592,10 +1609,8 @@ static uint nlg_fill_joints (model_t *model,
 // LM2: 0x7101 header (BoneCount @0), 0x7102 infos (12B: hash, parent s16,
 // totalchild s16, boneidx u16, childcount, unk), 0x7103 transforms
 // (quat4 + trans3 + scale3 = 40B).
-static uint nlg_parse_lm2_skel (model_t *model,
-	const u8 *s101, uint s101_size,
-	const u8 *s102, uint s102_size,
-	const u8 *s103, uint s103_size)
+static uint nlg_parse_lm2_skel (model_t *model, const u8 *s101, uint s101_size, const u8 *s102,
+	uint s102_size, const u8 *s103, uint s103_size)
 {
 	if (!model || !s101 || !s102 || !s103 || s101_size < 4)
 		return 0;
@@ -1648,17 +1663,13 @@ static uint nlg_parse_lm2_skel (model_t *model,
 // LM3: 0x7101 header (BoneCount @20), 0x7102 infos (8B: hash,
 // totalchild s16, childcount, unk), 0x7103 transforms (quat4 + trans3),
 // 0x7106 parenting (s16 per bone). 0x7104 index list is informational.
-static uint nlg_parse_lm3_skel (model_t *model,
-	const u8 *s101, uint s101_size,
-	const u8 *s102, uint s102_size,
-	const u8 *s103, uint s103_size,
-	const u8 *s106, uint s106_size)
+static uint nlg_parse_lm3_skel (model_t *model, const u8 *s101, uint s101_size, const u8 *s102,
+	uint s102_size, const u8 *s103, uint s103_size, const u8 *s106, uint s106_size)
 {
 	if (!model || !s101 || !s102 || !s103 || !s106 || s101_size < 28)
 		return 0;
 	u32 n = rd_le32 (s101 + 20);
-	if (!n || n > 4096 || s102_size < n * 8 || s103_size < n * 28
-		|| s106_size < n * 2)
+	if (!n || n > 4096 || s102_size < n * 8 || s103_size < n * 28 || s106_size < n * 2)
 		return 0;
 	const char **names = CALLOC (n, sizeof (*names));
 	int *parents = MALLOC (n * sizeof (*parents));
@@ -1724,92 +1735,92 @@ static uint nlg_lm3_bh_log2 (uint height_blocks, uint blk_h)
 	return log2;
 }
 
-static enumError nlg_decode_lm3_pixels (u8 **dest, uint *width, uint *height,
-	const u8 *src, uint src_size, uint w, uint h, uint fmt)
+static enumError nlg_decode_lm3_pixels (
+	u8 **dest, uint *width, uint *height, const u8 *src, uint src_size, uint w, uint h, uint fmt)
 {
 	if (!dest || !width || !height || !src || !w || !h || w > 16384 || h > 16384)
 		return EINVAL;
 	uint blk_w = 4, blk_h = 4, bpp = 16;
 	int kind = -1; // 0=RGBA8 copy, 1=BC1, 2=BC2, 3=BC3, 4=BC4, 5=BC5s,
-		// 6=BC6u, 7=BC7, 8=ASTC
+				   // 6=BC6u, 7=BC7, 8=ASTC
 	uint astc_w = 4, astc_h = 4;
 	switch (fmt)
 	{
-	case 0x00:
-	case 0x01:
-	case 0x05:
-	case 0x0D:
-	case 0x0E:
-		blk_w = blk_h = 1;
-		bpp = 4;
-		kind = 0;
-		break;
-	case 0x11:
-	case 0x12:
-		bpp = 8;
-		kind = 1;
-		break;
-	case 0x13:
-		kind = 2;
-		break;
-	case 0x14:
-		kind = 3;
-		break;
-	case 0x15:
-		bpp = 8;
-		kind = 4;
-		break;
-	case 0x16:
-		kind = 5;
-		break;
-	case 0x17:
-		kind = 6;
-		break;
-	case 0x18:
-		kind = 7;
-		break;
-	case 0x19:
-		astc_w = 4;
-		astc_h = 4;
-		kind = 8;
-		break;
-	case 0x1A:
-		astc_w = 5;
-		astc_h = 4;
-		kind = 8;
-		break;
-	case 0x1B:
-		astc_w = 5;
-		astc_h = 5;
-		kind = 8;
-		break;
-	case 0x1C:
-		astc_w = 6;
-		astc_h = 5;
-		kind = 8;
-		break;
-	case 0x1D:
-		astc_w = 6;
-		astc_h = 6;
-		kind = 8;
-		break;
-	case 0x1E:
-		astc_w = 8;
-		astc_h = 5;
-		kind = 8;
-		break;
-	case 0x1F:
-		astc_w = 8;
-		astc_h = 6;
-		kind = 8;
-		break;
-	case 0x20:
-		astc_w = 8;
-		astc_h = 8;
-		kind = 8;
-		break;
-	default:
-		return ERR_NOTHING_TO_DO;
+		case 0x00:
+		case 0x01:
+		case 0x05:
+		case 0x0D:
+		case 0x0E:
+			blk_w = blk_h = 1;
+			bpp = 4;
+			kind = 0;
+			break;
+		case 0x11:
+		case 0x12:
+			bpp = 8;
+			kind = 1;
+			break;
+		case 0x13:
+			kind = 2;
+			break;
+		case 0x14:
+			kind = 3;
+			break;
+		case 0x15:
+			bpp = 8;
+			kind = 4;
+			break;
+		case 0x16:
+			kind = 5;
+			break;
+		case 0x17:
+			kind = 6;
+			break;
+		case 0x18:
+			kind = 7;
+			break;
+		case 0x19:
+			astc_w = 4;
+			astc_h = 4;
+			kind = 8;
+			break;
+		case 0x1A:
+			astc_w = 5;
+			astc_h = 4;
+			kind = 8;
+			break;
+		case 0x1B:
+			astc_w = 5;
+			astc_h = 5;
+			kind = 8;
+			break;
+		case 0x1C:
+			astc_w = 6;
+			astc_h = 5;
+			kind = 8;
+			break;
+		case 0x1D:
+			astc_w = 6;
+			astc_h = 6;
+			kind = 8;
+			break;
+		case 0x1E:
+			astc_w = 8;
+			astc_h = 5;
+			kind = 8;
+			break;
+		case 0x1F:
+			astc_w = 8;
+			astc_h = 6;
+			kind = 8;
+			break;
+		case 0x20:
+			astc_w = 8;
+			astc_h = 8;
+			kind = 8;
+			break;
+		default:
+			return ERR_NOTHING_TO_DO;
 	}
 	if (kind == 8)
 	{
@@ -1820,8 +1831,8 @@ static enumError nlg_decode_lm3_pixels (u8 **dest, uint *width, uint *height,
 	uint wb = (w + blk_w - 1) / blk_w, hb = (h + blk_h - 1) / blk_h;
 	u8 *linear = 0;
 	uint linear_size = 0;
-	enumError err = BntxDeswizzle (&linear, &linear_size, src, src_size, w, h,
-		blk_w, blk_h, bpp, 0, nlg_lm3_bh_log2 (hb, blk_h), false);
+	enumError err = BntxDeswizzle (&linear, &linear_size, src, src_size, w, h, blk_w, blk_h, bpp, 0,
+		nlg_lm3_bh_log2 (hb, blk_h), false);
 	if (err)
 		return err;
 	u8 *rgba = MALLOC ((size_t)w * h * 4);
@@ -1833,8 +1844,7 @@ static enumError nlg_decode_lm3_pixels (u8 **dest, uint *width, uint *height,
 	if (kind == 0)
 	{
 		for (uint y = 0; y < h; y++)
-			memcpy (rgba + (size_t)y * w * 4,
-				linear + (size_t)y * wb * blk_w * 4, (size_t)w * 4);
+			memcpy (rgba + (size_t)y * w * 4, linear + (size_t)y * wb * blk_w * 4, (size_t)w * 4);
 	}
 	else if (kind == 6)
 	{
@@ -1872,23 +1882,23 @@ static enumError nlg_decode_lm3_pixels (u8 **dest, uint *width, uint *height,
 					tw = th = 4;
 					switch (kind)
 					{
-					case 1:
-						decode_bc1_block (blk, tile, true);
-						break;
-					case 2:
-						decode_bc2_block (blk, tile);
-						break;
-					case 3:
-						decode_bc3_block (blk, tile);
-						break;
-					case 4:
-						decode_bc4_block (blk, tile);
-						break;
-					case 5:
-						decode_bc5_signed_block (blk, tile);
-						break;
-					default:
-						break;
+						case 1:
+							decode_bc1_block (blk, tile, true);
+							break;
+						case 2:
+							decode_bc2_block (blk, tile);
+							break;
+						case 3:
+							decode_bc3_block (blk, tile);
+							break;
+						case 4:
+							decode_bc4_block (blk, tile);
+							break;
+						case 5:
+							decode_bc5_signed_block (blk, tile);
+							break;
+						default:
+							break;
 					}
 				}
 				for (uint y = 0; y < th && by * th + y < h; y++)
@@ -1905,8 +1915,8 @@ static enumError nlg_decode_lm3_pixels (u8 **dest, uint *width, uint *height,
 }
 
 // LM2 B501 header: ImageSize@0, Hash@4, W@16, H@18, Format@44 (48 bytes).
-static enumError nlg_decode_lm2_pixels (u8 **dest, uint *width, uint *height,
-	const u8 *hd, uint hd_size, const u8 *pd, uint pd_size)
+static enumError nlg_decode_lm2_pixels (
+	u8 **dest, uint *width, uint *height, const u8 *hd, uint hd_size, const u8 *pd, uint pd_size)
 {
 	if (!dest || !width || !height || !hd || hd_size < 48 || !pd || !pd_size)
 		return EINVAL;
@@ -1920,8 +1930,7 @@ static enumError nlg_decode_lm2_pixels (u8 **dest, uint *width, uint *height,
 	return DecodePicaTexture (dest, width, height, pd, w, h, fmt, image_size);
 }
 
-enumError DecodeNLGTexture (u8 **dest, uint *width, uint *height,
-	const u8 *data, size_t size)
+enumError DecodeNLGTexture (u8 **dest, uint *width, uint *height, const u8 *data, size_t size)
 {
 	if (!dest || !width || !height)
 		return EINVAL;
@@ -1952,16 +1961,14 @@ enumError DecodeNLGTexture (u8 **dest, uint *width, uint *height,
 static const char *nlg_anim_type (nlg_variant_t variant, uint type)
 {
 	if (variant == NLG_LM2)
-		return type == 0 ? "rotation" : (type == 1 ? "translation" :
-			(type == 2 ? "scale" : "?"));
-	return type == 0 ? "scale" : (type == 1 ? "rotation" :
-		(type == 3 ? "translation" : "?"));
+		return type == 0 ? "rotation" : (type == 1 ? "translation" : (type == 2 ? "scale" : "?"));
+	return type == 0 ? "scale" : (type == 1 ? "rotation" : (type == 3 ? "translation" : "?"));
 }
 
 // Key-count estimator for known translation/rotation opcodes; returns 0
 // when the opcode is unknown (caller records it as opaque).
-static uint nlg_anim_keys (const u8 *blob, uint blob_size, uint at,
-	uint opcode, uint frames, bool is_rot)
+static uint nlg_anim_keys (
+	const u8 *blob, uint blob_size, uint at, uint opcode, uint frames, bool is_rot)
 {
 	if (at >= blob_size)
 		return 0;
@@ -1969,44 +1976,44 @@ static uint nlg_anim_keys (const u8 *blob, uint blob_size, uint at,
 	{
 		switch (opcode)
 		{
-		case 0x06:
-		case 0x08:
-			return frames;
-		case 0x09:
-			return at + 4 <= blob_size ? rd_le32 (blob + at) : 0;
-		case 0x0A:
-			return at + 2 <= blob_size ? rd_le16 (blob + at) : 0;
-		case 0x0B:
-		case 0x0C:
-			return 1;
-		case 0x0D:
-			return at + 16 <= blob_size ? rd_le32 (blob + at + 12) : 0;
-		case 0x0E:
-			return at + 8 <= blob_size ? rd_le16 (blob + at + 6) : 0;
-		default:
-			return 0;
+			case 0x06:
+			case 0x08:
+				return frames;
+			case 0x09:
+				return at + 4 <= blob_size ? rd_le32 (blob + at) : 0;
+			case 0x0A:
+				return at + 2 <= blob_size ? rd_le16 (blob + at) : 0;
+			case 0x0B:
+			case 0x0C:
+				return 1;
+			case 0x0D:
+				return at + 16 <= blob_size ? rd_le32 (blob + at + 12) : 0;
+			case 0x0E:
+				return at + 8 <= blob_size ? rd_le16 (blob + at + 6) : 0;
+			default:
+				return 0;
 		}
 	}
 	switch (opcode)
 	{
-	case 0x0F:
-	case 0x18:
-	case 0x19:
-		return frames;
-	case 0x13:
-	case 0x14:
-		return at + 4 <= blob_size ? rd_le32 (blob + at) : 0;
-	case 0x15:
-	case 0x16:
-	case 0x17:
-		return 1;
-	default:
-		return 0;
+		case 0x0F:
+		case 0x18:
+		case 0x19:
+			return frames;
+		case 0x13:
+		case 0x14:
+			return at + 4 <= blob_size ? rd_le32 (blob + at) : 0;
+		case 0x15:
+		case 0x16:
+		case 0x17:
+			return 1;
+		default:
+			return 0;
 	}
 }
 
-static enumError nlg_dump_anim (u8 **dest, uint *dest_size,
-	const u8 *blob, uint blob_size, nlg_variant_t variant, u32 path_hash)
+static enumError nlg_dump_anim (u8 **dest, uint *dest_size, const u8 *blob, uint blob_size,
+	nlg_variant_t variant, u32 path_hash)
 {
 	if (!dest || !dest_size || !blob || blob_size < 16)
 		return EINVAL;
@@ -2022,8 +2029,9 @@ static enumError nlg_dump_anim (u8 **dest, uint *dest_size,
 	char *out = MALLOC (cap);
 	if (!out)
 		return ERR_CANT_CREATE;
-	len += snprintf (out + len, cap - len, "NLG animation %08X\ntracks %u frames %u duration %.3f fps %.3f\n",
-		path_hash, n_tracks, n_frames, dur, dur > 0.0f ? n_frames / dur : 0.0f);
+	len += snprintf (out + len, cap - len,
+		"NLG animation %08X\ntracks %u frames %u duration %.3f fps %.3f\n", path_hash, n_tracks,
+		n_frames, dur, dur > 0.0f ? n_frames / dur : 0.0f);
 	for (uint i = 0; i < n_tracks; i++)
 	{
 		const u8 *t = blob + 16 + (size_t)i * 12;
@@ -2048,12 +2056,12 @@ static enumError nlg_dump_anim (u8 **dest, uint *dest_size,
 		}
 		if (is_key && keys)
 			len += snprintf (out + len, cap - len,
-				"track %u hash %08X (%s) type %s opcode 0x%02X keys %u\n",
-				idx, hash, nm ? nm : th, nlg_anim_type (variant, type), op, keys);
+				"track %u hash %08X (%s) type %s opcode 0x%02X keys %u\n", idx, hash, nm ? nm : th,
+				nlg_anim_type (variant, type), op, keys);
 		else
 			len += snprintf (out + len, cap - len,
-				"track %u hash %08X (%s) type %s opcode 0x%02X opaque\n",
-				idx, hash, nm ? nm : th, nlg_anim_type (variant, type), op);
+				"track %u hash %08X (%s) type %s opcode 0x%02X opaque\n", idx, hash, nm ? nm : th,
+				nlg_anim_type (variant, type), op);
 		(void)hbuf;
 	}
 	*dest = (u8 *)out;
@@ -2068,9 +2076,8 @@ static enumError nlg_dump_anim (u8 **dest, uint *dest_size,
 // the blob's section-count prefix).
 //-----------------------------------------------------------------------------
 
-static enumError nlg_dump_script (u8 **dest, uint *dest_size,
-	const nlg_chunk_t *tab, uint n_tab, uint start, uint count,
-	nlg_variant_t variant, const nlg_buf_t *bufs, uint n_bufs,
+static enumError nlg_dump_script (u8 **dest, uint *dest_size, const nlg_chunk_t *tab, uint n_tab,
+	uint start, uint count, nlg_variant_t variant, const nlg_buf_t *bufs, uint n_bufs,
 	const nlg_file_t *files, uint n_files, u32 path_hash)
 {
 	if (!dest || !dest_size)
@@ -2079,16 +2086,28 @@ static enumError nlg_dump_script (u8 **dest, uint *dest_size,
 	char *out = MALLOC (cap);
 	if (!out)
 		return ERR_CANT_CREATE;
-#define NLG_SAPPEND(...) do { \
-	int _n = snprintf (out + len, cap - len, __VA_ARGS__); \
-	if (_n < 0) { FREE (out); return ERR_CANT_CREATE; } \
-	len += (size_t)_n; \
-	if (len + 512 > cap) { \
-		cap *= 2; \
-		char *_no = REALLOC (out, cap); \
-		if (!_no) { FREE (out); return ERR_CANT_CREATE; } \
-		out = _no; \
-	} } while (0)
+#define NLG_SAPPEND(...)                                                                           \
+	do                                                                                             \
+	{                                                                                              \
+		int _n = snprintf (out + len, cap - len, __VA_ARGS__);                                     \
+		if (_n < 0)                                                                                \
+		{                                                                                          \
+			FREE (out);                                                                            \
+			return ERR_CANT_CREATE;                                                                \
+		}                                                                                          \
+		len += (size_t)_n;                                                                         \
+		if (len + 512 > cap)                                                                       \
+		{                                                                                          \
+			cap *= 2;                                                                              \
+			char *_no = REALLOC (out, cap);                                                        \
+			if (!_no)                                                                              \
+			{                                                                                      \
+				FREE (out);                                                                        \
+				return ERR_CANT_CREATE;                                                            \
+			}                                                                                      \
+			out = _no;                                                                             \
+		}                                                                                          \
+	} while (0)
 	NLG_SAPPEND ("NLG script %08X\n", path_hash);
 	for (uint c = 0; c < count; c++)
 	{
@@ -2133,9 +2152,8 @@ static enumError nlg_dump_script (u8 **dest, uint *dest_size,
 			uint s1 = rd_le32 (d + 8);
 			uint s2 = (variant == NLG_LM2) ? rd_le32 (d + 4) : rd_le32 (d + 12);
 			uint n_u32 = s1 / 4, n_u16 = s2 / 2;
-			NLG_SAPPEND ("data refs %u opcodes %u strings @%u\n",
-				n_u32 < 100000 ? n_u32 : 0, n_u16 < 1000000 ? n_u16 : 0,
-				hdr + s1 + s2);
+			NLG_SAPPEND ("data refs %u opcodes %u strings @%u\n", n_u32 < 100000 ? n_u32 : 0,
+				n_u16 < 1000000 ? n_u16 : 0, hdr + s1 + s2);
 			const u8 *rp = d + hdr;
 			for (uint k = 0; k < n_u32 && k < 100000; k++)
 			{
@@ -2184,21 +2202,26 @@ static enumError nlg_dump_script (u8 **dest, uint *dest_size,
 // FEDM/FEDS/FEDT assembly from raw chunks + standalone parse entry points.
 //-----------------------------------------------------------------------------
 
-static enumError nlg_build_fedm (u8 **dest, uint *dest_size, u16 ver,
-	const u8 *b008, uint s008, const u8 *b009, uint s009,
-	const u8 *b001, uint s001, const u8 *b003, uint s003,
-	const u8 *b004, uint s004, const u8 *b005, uint s005,
-	const u8 *b006, uint s006, const u8 *b007, uint s007,
-	const u8 *b002, uint s002,
-	const u8 *s101, uint z101, const u8 *s102, uint z102,
-	const u8 *s103, uint z103, const u8 *s104, uint z104,
-	const u8 *s105, uint z105, const u8 *s106, uint z106)
+static enumError nlg_build_fedm (u8 **dest, uint *dest_size, u16 ver, const u8 *b008, uint s008,
+	const u8 *b009, uint s009, const u8 *b001, uint s001, const u8 *b003, uint s003, const u8 *b004,
+	uint s004, const u8 *b005, uint s005, const u8 *b006, uint s006, const u8 *b007, uint s007,
+	const u8 *b002, uint s002, const u8 *s101, uint z101, const u8 *s102, uint z102, const u8 *s103,
+	uint z103, const u8 *s104, uint z104, const u8 *s105, uint z105, const u8 *s106, uint z106)
 {
 	u16 types[15];
 	const u8 *datas[15];
 	uint sizes[15], n = 0;
-#define NLG_PART(t,d,s) do { if ((d) && (s)) { \
-	types[n] = (t); datas[n] = (d); sizes[n] = (s); n++; } } while (0)
+#define NLG_PART(t, d, s)                                                                          \
+	do                                                                                             \
+	{                                                                                              \
+		if ((d) && (s))                                                                            \
+		{                                                                                          \
+			types[n] = (t);                                                                        \
+			datas[n] = (d);                                                                        \
+			sizes[n] = (s);                                                                        \
+			n++;                                                                                   \
+		}                                                                                          \
+	} while (0)
 	NLG_PART (0xB008, b008, s008);
 	NLG_PART (0xB009, b009, s009);
 	NLG_PART (0xB001, b001, s001);
@@ -2220,16 +2243,14 @@ static enumError nlg_build_fedm (u8 **dest, uint *dest_size, u16 ver,
 	return nlg_build_container (dest, dest_size, "FEDM", ver, types, datas, sizes, n);
 }
 
-static enumError nlg_build_feds (u8 **dest, uint *dest_size, u16 ver,
-	const u8 *s101, uint z101, const u8 *s102, uint z102,
-	const u8 *s103, uint z103, const u8 *s104, uint z104,
-	const u8 *s105, uint z105, const u8 *s106, uint z106)
+static enumError nlg_build_feds (u8 **dest, uint *dest_size, u16 ver, const u8 *s101, uint z101,
+	const u8 *s102, uint z102, const u8 *s103, uint z103, const u8 *s104, uint z104, const u8 *s105,
+	uint z105, const u8 *s106, uint z106)
 {
 	u8 *fedm = 0;
 	uint fedm_size = 0;
-	enumError err = nlg_build_fedm (&fedm, &fedm_size, ver,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		s101, z101, s102, z102, s103, z103, s104, z104, s105, z105, s106, z106);
+	enumError err = nlg_build_fedm (&fedm, &fedm_size, ver, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, s101, z101, s102, z102, s103, z103, s104, z104, s105, z105, s106, z106);
 	if (err)
 		return err;
 	memcpy (fedm, "FEDS", 4);
@@ -2238,8 +2259,8 @@ static enumError nlg_build_feds (u8 **dest, uint *dest_size, u16 ver,
 	return ERR_OK;
 }
 
-static enumError nlg_build_fedt (u8 **dest, uint *dest_size, u16 ver,
-	uint fmt, uint w, uint h, u32 hash, const u8 *px, uint px_size)
+static enumError nlg_build_fedt (u8 **dest, uint *dest_size, u16 ver, uint fmt, uint w, uint h,
+	u32 hash, const u8 *px, uint px_size)
 {
 	if (!dest || !dest_size || !px || !px_size || !w || !h)
 		return EINVAL;
@@ -2299,32 +2320,27 @@ model_t *ParseNLGModel (const u8 *data, size_t size, const nlg_texset_t *ts)
 	if (b002 && b003 && b004 && b005)
 	{
 		if (ver == 2)
-			ok = nlg_parse_lm2_model (model,
-				b001 ? b001->data : 0, b001 ? b001->size : 0,
-				b002->data, b002->size, b003->data, b003->size,
-				b004->data, b004->size, b005->data, b005->size,
-				b006 ? b006->data : 0, b006 ? b006->size : 0,
-				b007 ? b007->data : 0, b007 ? b007->size : 0, ts);
+			ok = nlg_parse_lm2_model (model, b001 ? b001->data : 0, b001 ? b001->size : 0,
+				b002->data, b002->size, b003->data, b003->size, b004->data, b004->size, b005->data,
+				b005->size, b006 ? b006->data : 0, b006 ? b006->size : 0, b007 ? b007->data : 0,
+				b007 ? b007->size : 0, ts);
 		else
-			ok = nlg_parse_lm3_model (model,
-				b001 ? b001->data : 0, b001 ? b001->size : 0,
-				b002->data, b002->size, b003->data, b003->size,
-				b004->data, b004->size, b005->data, b005->size,
-				b006 ? b006->data : 0, b006 ? b006->size : 0,
-				b007 ? b007->data : 0, b007 ? b007->size : 0, ts);
+			ok = nlg_parse_lm3_model (model, b001 ? b001->data : 0, b001 ? b001->size : 0,
+				b002->data, b002->size, b003->data, b003->size, b004->data, b004->size, b005->data,
+				b005->size, b006 ? b006->data : 0, b006 ? b006->size : 0, b007 ? b007->data : 0,
+				b007 ? b007->size : 0, ts);
 	}
 	if (ok && s101 && s102 && s103)
 	{
 		if (ver == 2)
-			nlg_parse_lm2_skel (model, s101->data, s101->size,
-				s102->data, s102->size, s103->data, s103->size);
+			nlg_parse_lm2_skel (
+				model, s101->data, s101->size, s102->data, s102->size, s103->data, s103->size);
 		else
 		{
 			const nlg_part_t *s106 = nlg_find_part (parts, n, 0x7106);
 			if (s106)
-				nlg_parse_lm3_skel (model, s101->data, s101->size,
-					s102->data, s102->size, s103->data, s103->size,
-					s106->data, s106->size);
+				nlg_parse_lm3_skel (model, s101->data, s101->size, s102->data, s102->size,
+					s103->data, s103->size, s106->data, s106->size);
 		}
 	}
 	FREE (parts);
@@ -2363,15 +2379,16 @@ model_t *ParseNLGSkeleton (const u8 *data, size_t size)
 	if (s101 && s102 && s103)
 	{
 		if (ver == 2)
-			ok = nlg_parse_lm2_skel (model, s101->data, s101->size,
-				s102->data, s102->size, s103->data, s103->size) > 0;
+			ok = nlg_parse_lm2_skel (
+					 model, s101->data, s101->size, s102->data, s102->size, s103->data, s103->size)
+				> 0;
 		else
 		{
 			const nlg_part_t *s106 = nlg_find_part (parts, n, 0x7106);
 			if (s106)
-				ok = nlg_parse_lm3_skel (model, s101->data, s101->size,
-					s102->data, s102->size, s103->data, s103->size,
-					s106->data, s106->size) > 0;
+				ok = nlg_parse_lm3_skel (model, s101->data, s101->size, s102->data, s102->size,
+						 s103->data, s103->size, s106->data, s106->size)
+					> 0;
 		}
 	}
 	FREE (parts);
@@ -2406,9 +2423,8 @@ static bool nlg_is_printable (const u8 *d, uint n)
 	return text * 4 >= check * 3;
 }
 
-enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
-	const u8 *data_raw, size_t data_raw_size, nlg_variant_t variant,
-	bool is_compressed)
+enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size, const u8 *data_raw,
+	size_t data_raw_size, nlg_variant_t variant, bool is_compressed)
 {
 	if (!dest || !dict || !dict_size || variant == NLG_UNKNOWN)
 		return EINVAL;
@@ -2427,8 +2443,9 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 	if (variant == NLG_FEDFORCE)
 	{
 		bool is_fed = false;
-		if (ScanFedForceDict (dict, dict_size, &is_fed,
-				&fed_blocks, &fed_n_blocks, &fed_ref, &strings, &n_strings) != ERR_OK
+		if (ScanFedForceDict (dict, dict_size, &is_fed, &fed_blocks, &fed_n_blocks, &fed_ref,
+				&strings, &n_strings)
+				!= ERR_OK
 			|| !is_fed)
 		{
 			FreeFedForceDict (fed_blocks, strings, n_strings);
@@ -2455,14 +2472,12 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 	}
 	else if (variant == NLG_LM3)
 	{
-		if (ScanLM3Dict (dict, dict_size, &bl, &n_blocks,
-				&strings, &n_strings, 0) != ERR_OK)
+		if (ScanLM3Dict (dict, dict_size, &bl, &n_blocks, &strings, &n_strings, 0) != ERR_OK)
 			return ERR_OK;
 	}
 	else
 	{
-		if (ScanLM2Dict (dict, dict_size, &bl, &n_blocks,
-				&strings, &n_strings, 0) != ERR_OK)
+		if (ScanLM2Dict (dict, dict_size, &bl, &n_blocks, &strings, &n_strings, 0) != ERR_OK)
 			return ERR_OK;
 	}
 
@@ -2477,15 +2492,13 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 	uint table_size = 0;
 	if (variant == NLG_FEDFORCE)
 	{
-		nlg_load_buf (bufs, 0, bl, n_blocks,
-			data_raw, data_raw_size, 0, is_compressed);
+		nlg_load_buf (bufs, 0, bl, n_blocks, data_raw, data_raw_size, 0, is_compressed);
 		for (uint pos = 0; pos < 8; pos++)
 		{
 			uint bi = fed_ref.block_indices[pos];
 			if (!bi || bi >= n_blocks)
 				continue;
-			nlg_load_buf (bufs, pos, bl, n_blocks,
-				data_raw, data_raw_size, bi, is_compressed);
+			nlg_load_buf (bufs, pos, bl, n_blocks, data_raw, data_raw_size, bi, is_compressed);
 		}
 		table_data = bufs[0].data;
 		table_size = bufs[0].size;
@@ -2493,16 +2506,15 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 	else if (variant == NLG_LM3)
 	{
 		for (uint i = 0; i < sizeof (lm3_want) / sizeof (lm3_want[0]); i++)
-			nlg_load_buf (bufs, lm3_want[i], bl, n_blocks,
-				data_raw, data_raw_size, lm3_want[i], is_compressed);
+			nlg_load_buf (bufs, lm3_want[i], bl, n_blocks, data_raw, data_raw_size, lm3_want[i],
+				is_compressed);
 		table_data = bufs[0].data;
 		table_size = bufs[0].size;
 	}
 	else
 	{
 		for (uint i = 0; i < 4 && i < n_blocks; i++)
-			nlg_load_buf (bufs, i, bl, n_blocks,
-				data_raw, data_raw_size, i, is_compressed);
+			nlg_load_buf (bufs, i, bl, n_blocks, data_raw, data_raw_size, i, is_compressed);
 		table_data = bufs[0].data;
 		table_size = bufs[0].size;
 	}
@@ -2514,8 +2526,7 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 		|| ScanNLGChunks (&tab, &n_tab, table_data, table_size) != ERR_OK)
 		goto done;
 	// Federation Force table size hint (0 = trust the buffer).
-	if (variant == NLG_FEDFORCE && fed_ref.file_section_count
-		&& fed_ref.file_section_count < n_tab)
+	if (variant == NLG_FEDFORCE && fed_ref.file_section_count && fed_ref.file_section_count < n_tab)
 		n_tab = fed_ref.file_section_count;
 	nlg_file_t *files = CALLOC (n_tab + 1, sizeof (*files));
 	if (!files)
@@ -2532,11 +2543,9 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 		// Header payload: hash type + path hash.
 		const u8 *hbuf = 0;
 		if (variant == NLG_FEDFORCE)
-			hbuf = nlg_slice (bufs, 70, NLGChunkBlockIndex (tab[i].flags),
-				tab[i].offset, 8);
+			hbuf = nlg_slice (bufs, 70, NLGChunkBlockIndex (tab[i].flags), tab[i].offset, 8);
 		else if (variant == NLG_LM3)
-			hbuf = nlg_slice (bufs, 70, lm3_head_buf (body->type),
-				tab[i].offset, 8);
+			hbuf = nlg_slice (bufs, 70, lm3_head_buf (body->type), tab[i].offset, 8);
 		else
 		{
 			if (tab[i].size != 8)
@@ -2563,11 +2572,10 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 			uint sz = 0;
 			const u8 *d = 0;
 			if (variant == NLG_FEDFORCE)
-				d = nlg_slice (bufs, 70, NLGChunkBlockIndex (body->flags),
-					body->offset, body->size);
+				d = nlg_slice (
+					bufs, 70, NLGChunkBlockIndex (body->flags), body->offset, body->size);
 			else if (variant == NLG_LM3)
-				d = nlg_slice (bufs, 70, lm3_leaf_buf (f->type),
-					body->offset, body->size);
+				d = nlg_slice (bufs, 70, lm3_leaf_buf (f->type), body->offset, body->size);
 			else
 				d = nlg_slice (bufs, 70, 3, body->offset, body->size);
 			(void)sz;
@@ -2587,8 +2595,8 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 		uint hs = 0;
 		const u8 *hd = 0;
 		if (files[fi].has_children)
-			hd = nlg_find_child (variant, tab, n_tab, files[fi].child_start,
-				files[fi].child_count, 0xB501, bufs, 70, &hs);
+			hd = nlg_find_child (variant, tab, n_tab, files[fi].child_start, files[fi].child_count,
+				0xB501, bufs, 70, &hs);
 		else if (files[fi].data_size >= 16)
 		{
 			hd = files[fi].data;
@@ -2631,32 +2639,32 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 		if (f->type == 0xB000 && f->has_children)
 		{
 			uint s;
-			const u8 *c001 = nlg_find_child (variant, tab, n_tab, f->child_start,
-				f->child_count, 0xB001, bufs, 70, &s);
+			const u8 *c001 = nlg_find_child (
+				variant, tab, n_tab, f->child_start, f->child_count, 0xB001, bufs, 70, &s);
 			uint z001 = c001 ? s : 0;
-			const u8 *c002 = nlg_find_child (variant, tab, n_tab, f->child_start,
-				f->child_count, 0xB002, bufs, 70, &s);
+			const u8 *c002 = nlg_find_child (
+				variant, tab, n_tab, f->child_start, f->child_count, 0xB002, bufs, 70, &s);
 			uint z002 = c002 ? s : 0;
-			const u8 *c003 = nlg_find_child (variant, tab, n_tab, f->child_start,
-				f->child_count, 0xB003, bufs, 70, &s);
+			const u8 *c003 = nlg_find_child (
+				variant, tab, n_tab, f->child_start, f->child_count, 0xB003, bufs, 70, &s);
 			uint z003 = c003 ? s : 0;
-			const u8 *c004 = nlg_find_child (variant, tab, n_tab, f->child_start,
-				f->child_count, 0xB004, bufs, 70, &s);
+			const u8 *c004 = nlg_find_child (
+				variant, tab, n_tab, f->child_start, f->child_count, 0xB004, bufs, 70, &s);
 			uint z004 = c004 ? s : 0;
-			const u8 *c005 = nlg_find_child (variant, tab, n_tab, f->child_start,
-				f->child_count, 0xB005, bufs, 70, &s);
+			const u8 *c005 = nlg_find_child (
+				variant, tab, n_tab, f->child_start, f->child_count, 0xB005, bufs, 70, &s);
 			uint z005 = c005 ? s : 0;
-			const u8 *c006 = nlg_find_child (variant, tab, n_tab, f->child_start,
-				f->child_count, 0xB006, bufs, 70, &s);
+			const u8 *c006 = nlg_find_child (
+				variant, tab, n_tab, f->child_start, f->child_count, 0xB006, bufs, 70, &s);
 			uint z006 = c006 ? s : 0;
-			const u8 *c007 = nlg_find_child (variant, tab, n_tab, f->child_start,
-				f->child_count, 0xB007, bufs, 70, &s);
+			const u8 *c007 = nlg_find_child (
+				variant, tab, n_tab, f->child_start, f->child_count, 0xB007, bufs, 70, &s);
 			uint z007 = c007 ? s : 0;
-			const u8 *c008 = nlg_find_child (variant, tab, n_tab, f->child_start,
-				f->child_count, 0xB008, bufs, 70, &s);
+			const u8 *c008 = nlg_find_child (
+				variant, tab, n_tab, f->child_start, f->child_count, 0xB008, bufs, 70, &s);
 			uint z008 = c008 ? s : 0;
-			const u8 *c009 = nlg_find_child (variant, tab, n_tab, f->child_start,
-				f->child_count, 0xB009, bufs, 70, &s);
+			const u8 *c009 = nlg_find_child (
+				variant, tab, n_tab, f->child_start, f->child_count, 0xB009, bufs, 70, &s);
 			uint z009 = c009 ? s : 0;
 			if (!c002 || !c003 || !c004 || !c005)
 				continue;
@@ -2684,11 +2692,10 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 			}
 			u8 *fedm = 0;
 			uint fedm_size = 0;
-			if (nlg_build_fedm (&fedm, &fedm_size, ver,
-					c008, z008, c009, z009, c001, z001, c003, z003,
-					c004, z004, c005, z005, c006, z006, c007, z007,
-					c002, z002, g101, z101, g102, z102, g103, z103,
-					g104, z104, g105, z105, g106, z106) != ERR_OK)
+			if (nlg_build_fedm (&fedm, &fedm_size, ver, c008, z008, c009, z009, c001, z001, c003,
+					z003, c004, z004, c005, z005, c006, z006, c007, z007, c002, z002, g101, z101,
+					g102, z102, g103, z103, g104, z104, g105, z105, g106, z106)
+				!= ERR_OK)
 				continue;
 			snprintf (path, sizeof (path), "%s/%s_model.fedmodel", dest, base);
 			nlg_save (path, fedm, fedm_size);
@@ -2701,17 +2708,17 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 					ExportModelToGLB (model, path);
 				FreeModel (model);
 				if (verbose >= 0)
-					fprintf (stdlog, "%sEXTRACT NLG-MODEL:%08X -> %s\n",
-						verbose > 0 ? "\n" : "", f->path_hash, path);
+					fprintf (stdlog, "%sEXTRACT NLG-MODEL:%08X -> %s\n", verbose > 0 ? "\n" : "",
+						f->path_hash, path);
 			}
 		}
 		else if (f->type == 0xB500 && f->has_children)
 		{
 			uint hs = 0, ps = 0;
-			const u8 *hd = nlg_find_child (variant, tab, n_tab, f->child_start,
-				f->child_count, 0xB501, bufs, 70, &hs);
-			const u8 *pd = nlg_find_child (variant, tab, n_tab, f->child_start,
-				f->child_count, 0xB502, bufs, 70, &ps);
+			const u8 *hd = nlg_find_child (
+				variant, tab, n_tab, f->child_start, f->child_count, 0xB501, bufs, 70, &hs);
+			const u8 *pd = nlg_find_child (
+				variant, tab, n_tab, f->child_start, f->child_count, 0xB502, bufs, 70, &ps);
 			if (!hd || hs < 16 || !pd || !ps)
 				continue;
 			u32 tex_hash = 0, w = 0, h = 0, fmt = 0, image_size = 0;
@@ -2741,8 +2748,8 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 				tex_hash = f->path_hash;
 			u8 *fedt = 0;
 			uint fedt_size = 0;
-			if (nlg_build_fedt (&fedt, &fedt_size, ver, fmt, w, h,
-					tex_hash, pd, image_size) != ERR_OK)
+			if (nlg_build_fedt (&fedt, &fedt_size, ver, fmt, w, h, tex_hash, pd, image_size)
+				!= ERR_OK)
 				continue;
 			snprintf (path, sizeof (path), "%s/nlg_%08X_tex.fedtex", dest, tex_hash);
 			nlg_save (path, fedt, fedt_size);
@@ -2750,15 +2757,14 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 			uint rw = 0, rh = 0;
 			if (DecodeNLGTexture (&rgba, &rw, &rh, fedt, fedt_size) == ERR_OK && rgba)
 			{
-				snprintf (path, sizeof (path), "%s/nlg_%08X_tex.fedtex.png",
-					dest, tex_hash);
+				snprintf (path, sizeof (path), "%s/nlg_%08X_tex.fedtex.png", dest, tex_hash);
 				if (!testmode)
 					SaveDecodedRGBAToPNG (rgba, rw, rh, &le_func, path, 0, true);
 				else
 					FREE (rgba);
 				if (verbose >= 0)
-					fprintf (stdlog, "%sEXTRACT NLG-TEXTURE:%08X -> %s\n",
-						verbose > 0 ? "\n" : "", tex_hash, path);
+					fprintf (stdlog, "%sEXTRACT NLG-TEXTURE:%08X -> %s\n", verbose > 0 ? "\n" : "",
+						tex_hash, path);
 			}
 			FREE (fedt);
 		}
@@ -2775,25 +2781,25 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 			if (owned)
 				continue;
 			uint z101 = 0, z102 = 0, z103 = 0, z104 = 0, z105 = 0, z106 = 0;
-			const u8 *g101 = nlg_find_child (variant, tab, n_tab, f->child_start,
-				f->child_count, 0x7101, bufs, 70, &z101);
-			const u8 *g102 = nlg_find_child (variant, tab, n_tab, f->child_start,
-				f->child_count, 0x7102, bufs, 70, &z102);
-			const u8 *g103 = nlg_find_child (variant, tab, n_tab, f->child_start,
-				f->child_count, 0x7103, bufs, 70, &z103);
-			const u8 *g104 = nlg_find_child (variant, tab, n_tab, f->child_start,
-				f->child_count, 0x7104, bufs, 70, &z104);
-			const u8 *g105 = nlg_find_child (variant, tab, n_tab, f->child_start,
-				f->child_count, 0x7105, bufs, 70, &z105);
-			const u8 *g106 = nlg_find_child (variant, tab, n_tab, f->child_start,
-				f->child_count, 0x7106, bufs, 70, &z106);
+			const u8 *g101 = nlg_find_child (
+				variant, tab, n_tab, f->child_start, f->child_count, 0x7101, bufs, 70, &z101);
+			const u8 *g102 = nlg_find_child (
+				variant, tab, n_tab, f->child_start, f->child_count, 0x7102, bufs, 70, &z102);
+			const u8 *g103 = nlg_find_child (
+				variant, tab, n_tab, f->child_start, f->child_count, 0x7103, bufs, 70, &z103);
+			const u8 *g104 = nlg_find_child (
+				variant, tab, n_tab, f->child_start, f->child_count, 0x7104, bufs, 70, &z104);
+			const u8 *g105 = nlg_find_child (
+				variant, tab, n_tab, f->child_start, f->child_count, 0x7105, bufs, 70, &z105);
+			const u8 *g106 = nlg_find_child (
+				variant, tab, n_tab, f->child_start, f->child_count, 0x7106, bufs, 70, &z106);
 			if (!g101 || !g102 || !g103)
 				continue;
 			u8 *feds = 0;
 			uint feds_size = 0;
-			if (nlg_build_feds (&feds, &feds_size, ver,
-					g101, z101, g102, z102, g103, z103,
-					g104, z104, g105, z105, g106, z106) != ERR_OK)
+			if (nlg_build_feds (&feds, &feds_size, ver, g101, z101, g102, z102, g103, z103, g104,
+					z104, g105, z105, g106, z106)
+				!= ERR_OK)
 				continue;
 			snprintf (path, sizeof (path), "%s/%s_skel.fedskel", dest, base);
 			nlg_save (path, feds, feds_size);
@@ -2840,8 +2846,7 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 			{
 				u8 *txt = 0;
 				uint txt_size = 0;
-				if (nlg_dump_anim (&txt, &txt_size, blob, bs,
-						variant, f->path_hash) == ERR_OK)
+				if (nlg_dump_anim (&txt, &txt_size, blob, bs, variant, f->path_hash) == ERR_OK)
 				{
 					snprintf (path, sizeof (path), "%s/%s_anim.txt", dest, base);
 					nlg_save (path, txt, txt_size);
@@ -2854,16 +2859,15 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 		{
 			if (!f->has_children)
 			{
-				snprintf (path, sizeof (path), "%s/%s_type_%04X.bin",
-					dest, base, f->type);
+				snprintf (path, sizeof (path), "%s/%s_type_%04X.bin", dest, base, f->type);
 				nlg_save (path, f->data, f->data_size);
 				continue;
 			}
 			u8 *txt = 0;
 			uint txt_size = 0;
-			if (nlg_dump_script (&txt, &txt_size, tab, n_tab, f->child_start,
-					f->child_count, variant, bufs, 70,
-					files, n_files, f->path_hash) == ERR_OK)
+			if (nlg_dump_script (&txt, &txt_size, tab, n_tab, f->child_start, f->child_count,
+					variant, bufs, 70, files, n_files, f->path_hash)
+				== ERR_OK)
 			{
 				snprintf (path, sizeof (path), "%s/%s_script.txt", dest, base);
 				nlg_save (path, txt, txt_size);
@@ -2879,8 +2883,8 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 			if (f->has_children)
 			{
 				uint sz = 0;
-				const u8 *d711 = nlg_find_child (variant, tab, n_tab,
-					f->child_start, f->child_count, 0x7011, bufs, 70, &sz);
+				const u8 *d711 = nlg_find_child (
+					variant, tab, n_tab, f->child_start, f->child_count, 0x7011, bufs, 70, &sz);
 				if (d711 && sz)
 				{
 					payload = d711;
@@ -2907,8 +2911,7 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 								uint ti = f->child_start + c, s2 = 0;
 								const u8 *d2 = 0;
 								if (ti < n_tab)
-									d2 = nlg_child_data (variant, tab, ti,
-										bufs, 70, &s2);
+									d2 = nlg_child_data (variant, tab, ti, bufs, 70, &s2);
 								if (d2 && s2)
 								{
 									memcpy (cat + p, d2, s2);
@@ -2925,14 +2928,12 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 			{
 				if (IsFedForceFont (payload, psize))
 				{
-					snprintf (path, sizeof (path), "%s/%s_font.nlgfont",
-						dest, base);
+					snprintf (path, sizeof (path), "%s/%s_font.nlgfont", dest, base);
 					nlg_save (path, payload, psize);
 				}
 				else
 				{
-					snprintf (path, sizeof (path), "%s/%s_type_7010.bin",
-						dest, base);
+					snprintf (path, sizeof (path), "%s/%s_type_7010.bin", dest, base);
 					nlg_save (path, payload, psize);
 				}
 			}
@@ -2942,20 +2943,17 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 		{
 			if (f->type == 0x7020 && IsFedForceNLOC (f->data, f->data_size))
 			{
-				snprintf (path, sizeof (path), "%s/%s_type_%04X.bin",
-					dest, base, f->type);
+				snprintf (path, sizeof (path), "%s/%s_type_%04X.bin", dest, base, f->type);
 				nlg_save (path, f->data, f->data_size);
 				fed_nloc_msg_t *msgs = 0;
 				uint nmsg = 0;
-				if (ScanFedForceNLOC (f->data, f->data_size, &msgs, &nmsg, 0)
-						== ERR_OK && nmsg)
+				if (ScanFedForceNLOC (f->data, f->data_size, &msgs, &nmsg, 0) == ERR_OK && nmsg)
 				{
 					u8 *txt = 0;
 					uint txt_size = 0;
 					if (FedForceNLOCToText (&txt, &txt_size, msgs, nmsg) == ERR_OK)
 					{
-						snprintf (path, sizeof (path), "%s/%s_type_%04X.txt",
-							dest, base, f->type);
+						snprintf (path, sizeof (path), "%s/%s_type_%04X.txt", dest, base, f->type);
 						nlg_save (path, txt, txt_size);
 						FREE (txt);
 					}
@@ -2969,8 +2967,7 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 			}
 			else
 			{
-				snprintf (path, sizeof (path), "%s/%s_type_%04X.bin",
-					dest, base, f->type);
+				snprintf (path, sizeof (path), "%s/%s_type_%04X.bin", dest, base, f->type);
 				nlg_save (path, f->data, f->data_size);
 			}
 		}
@@ -2986,8 +2983,7 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size,
 					d = nlg_child_data (variant, tab, ti, bufs, 70, &sz);
 				if (!d || !sz)
 					continue;
-				snprintf (path, sizeof (path), "%s/%s_chunk_%04X.bin",
-					dest, base, tab[ti].type);
+				snprintf (path, sizeof (path), "%s/%s_chunk_%04X.bin", dest, base, tab[ti].type);
 				nlg_save (path, d, sz);
 			}
 		}
@@ -3018,15 +3014,14 @@ typedef struct
 	bool in_anim;
 } sanim_state_t;
 
-static void nlg_sanim_flush (sanim_state_t *st,
-	char **out, size_t *len, size_t *cap)
+static void nlg_sanim_flush (sanim_state_t *st, char **out, size_t *len, size_t *cap)
 {
 	if (!st->in_anim)
 		return;
 	int n = snprintf (*out + *len, *cap - *len,
 		"animation %u name \"%s\" frames %u tracks %u rot_keys %u tr_keys %u params %u/%u/%u/%u\n",
-		st->anim_no, st->name, st->frames, st->tracks,
-		st->rot_keys, st->tr_keys, st->p1n, st->p2n, st->p3n, st->p4n);
+		st->anim_no, st->name, st->frames, st->tracks, st->rot_keys, st->tr_keys, st->p1n, st->p2n,
+		st->p3n, st->p4n);
 	if (n < 0)
 		return;
 	*len += (size_t)n;
@@ -3041,8 +3036,8 @@ static void nlg_sanim_flush (sanim_state_t *st,
 	st->in_anim = false;
 }
 
-static enumError nlg_dump_sanim_rec (const u8 *d, uint size,
-	char **out, size_t *len, size_t *cap, int depth, sanim_state_t *st)
+static enumError nlg_dump_sanim_rec (
+	const u8 *d, uint size, char **out, size_t *len, size_t *cap, int depth, sanim_state_t *st)
 {
 	uint p = 0;
 	while (p + 8 <= size)
@@ -3052,54 +3047,54 @@ static enumError nlg_dump_sanim_rec (const u8 *d, uint size,
 		const u8 *pl = d + p + 8;
 		switch (magic)
 		{
-		case 0x7000:
-			nlg_sanim_flush (st, out, len, cap);
-			memset (st->name, 0, sizeof (st->name));
-			st->tracks = st->frames = 0;
-			st->p1n = st->p2n = st->p3n = st->p4n = 0;
-			st->rot_keys = st->tr_keys = 0;
-			st->in_anim = true;
-			if (sz && nlg_dump_sanim_rec (pl, sz, out, len, cap, depth + 1, st))
-				return ERR_CANT_CREATE;
-			break;
-		case 0x7001:
-			if (sz >= 16)
-			{
-				st->frames = rd_be32 (pl + 8);
-				st->tracks = rd_be32 (pl + 12);
-			}
-			break;
-		case 0x7002:
+			case 0x7000:
+				nlg_sanim_flush (st, out, len, cap);
+				memset (st->name, 0, sizeof (st->name));
+				st->tracks = st->frames = 0;
+				st->p1n = st->p2n = st->p3n = st->p4n = 0;
+				st->rot_keys = st->tr_keys = 0;
+				st->in_anim = true;
+				if (sz && nlg_dump_sanim_rec (pl, sz, out, len, cap, depth + 1, st))
+					return ERR_CANT_CREATE;
+				break;
+			case 0x7001:
+				if (sz >= 16)
+				{
+					st->frames = rd_be32 (pl + 8);
+					st->tracks = rd_be32 (pl + 12);
+				}
+				break;
+			case 0x7002:
 			{
 				uint n = sz < sizeof (st->name) - 1 ? sz : sizeof (st->name) - 1;
 				memcpy (st->name, pl, n);
 				st->name[n] = 0;
 			}
 			break;
-		case 0x7003:
-			st->p1n = sz / 4;
-			break;
-		case 0x7004:
-			st->p2n = sz / 4;
-			break;
-		case 0x7005:
-			st->p3n = sz / 4;
-			break;
-		case 0x7006:
-			st->p4n = sz / 4;
-			break;
-		case 0x7100:
-			if (sz && nlg_dump_sanim_rec (pl, sz, out, len, cap, depth + 1, st))
-				return ERR_CANT_CREATE;
-			break;
-		case 0x7101:
-			st->rot_keys += sz / 6;
-			break;
-		case 0x7102:
-			st->tr_keys += sz / 12;
-			break;
-		default:
-			break;
+			case 0x7003:
+				st->p1n = sz / 4;
+				break;
+			case 0x7004:
+				st->p2n = sz / 4;
+				break;
+			case 0x7005:
+				st->p3n = sz / 4;
+				break;
+			case 0x7006:
+				st->p4n = sz / 4;
+				break;
+			case 0x7100:
+				if (sz && nlg_dump_sanim_rec (pl, sz, out, len, cap, depth + 1, st))
+					return ERR_CANT_CREATE;
+				break;
+			case 0x7101:
+				st->rot_keys += sz / 6;
+				break;
+			case 0x7102:
+				st->tr_keys += sz / 12;
+				break;
+			default:
+				break;
 		}
 		p += 8 + sz;
 		p = (p + 3) & ~3u;
@@ -3139,8 +3134,7 @@ enumError ExtractSANIMArchive (ccp arg, ccp basedir, uint depth)
 			{
 				sanim_state_t st;
 				memset (&st, 0, sizeof (st));
-				if (!nlg_dump_sanim_rec (raw, (uint)raw_size, &out, &len,
-						&cap, 0, &st))
+				if (!nlg_dump_sanim_rec (raw, (uint)raw_size, &out, &len, &cap, 0, &st))
 				{
 					char path[PATH_MAX];
 					snprintf (path, sizeof (path), "%s/anim.txt", dest);

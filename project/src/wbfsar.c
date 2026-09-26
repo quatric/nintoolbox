@@ -15,11 +15,11 @@
 static void print_usage (ccp prog)
 {
 	printf ("wbfsar - Wiimms BFSAR/BCSAR Tool\n"
-		"Dumps a Wii U/Switch/3DS Sound Archive's directory as a lossless-structure XML,\n"
-		"or extracts its FILE-pool assets to individual files.\n\n"
-		"Usage:\n"
-		"  %s dump <input.bfsar|.bcsar> [output.xml]\n"
-		"  %s extract <input.bfsar|.bcsar> [output_dir]\n",
+			"Dumps a Wii U/Switch/3DS Sound Archive's directory as a lossless-structure XML,\n"
+			"or extracts its FILE-pool assets to individual files.\n\n"
+			"Usage:\n"
+			"  %s dump <input.bfsar|.bcsar> [output.xml]\n"
+			"  %s extract <input.bfsar|.bcsar> [output_dir]\n",
 		prog, prog);
 }
 

@@ -13,8 +13,14 @@
 #define NIF_MAX_DEPTH 64
 #define NIF_NONE 0xffffffffu
 
-static inline uint nbe16 (const u8 *p) { return (uint)p[0] << 8 | p[1]; }
-static inline u32 nbe32 (const u8 *p) { return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
+static inline uint nbe16 (const u8 *p)
+{
+	return (uint)p[0] << 8 | p[1];
+}
+static inline u32 nbe32 (const u8 *p)
+{
+	return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
+}
 static inline float nbef (const u8 *p)
 {
 	const u32 u = nbe32 (p);
@@ -409,9 +415,15 @@ static void nif_find_textures (nif_t *n)
 	}
 }
 
-uint NifNumTextures (const nif_t *n) { return n ? n->n_tex : 0; }
+uint NifNumTextures (const nif_t *n)
+{
+	return n ? n->n_tex : 0;
+}
 
-ccp NifTextureName (const nif_t *n, uint i) { return n && i < n->n_tex ? n->tex[i].name : 0; }
+ccp NifTextureName (const nif_t *n, uint i)
+{
+	return n && i < n->n_tex ? n->tex[i].name : 0;
+}
 
 enumError NifDecodeTexture (const nif_t *n, uint i, u8 **rgba, uint *width, uint *height)
 {
@@ -496,15 +508,21 @@ static bool parse_stream (const nif_t *n, uint b, stream_t *s)
 }
 
 // bytes per component and component count of a NiDataStream format word
-static uint fm_ncomp (u32 f) { return (f >> 16) & 0xff; }
+static uint fm_ncomp (u32 f)
+{
+	return (f >> 16) & 0xff;
+}
 
 static uint fm_csize (u32 f)
 {
 	switch ((f >> 8) & 0xff)
 	{
-		case 4: return 4;
-		case 2: return 2;
-		case 1: return 1;
+		case 4:
+			return 4;
+		case 2:
+			return 2;
+		case 1:
+			return 1;
 	}
 	return 0;
 }
@@ -524,9 +542,12 @@ static float attr_comp (const attr_t *a, uint elem, uint k)
 		return 0;
 	switch (a->csize)
 	{
-		case 4: return nbef (p);
-		case 2: return (float)nbe16 (p) / 65535.0f;
-		default: return *p / 255.0f;
+		case 4:
+			return nbef (p);
+		case 2:
+			return (float)nbe16 (p) / 65535.0f;
+		default:
+			return *p / 255.0f;
 	}
 }
 
@@ -774,7 +795,8 @@ static void set_v4 (color4_t *c, const attr_t *a, uint e)
 	c->a = a->ncomp > 3 ? attr_comp (a, e, 3) : 1.0f;
 }
 
-static bool build_mesh (build_t *b, uint blockno, const nif_av_t *av, const cur_t *after_av, const xf_t *xf)
+static bool build_mesh (
+	build_t *b, uint blockno, const nif_av_t *av, const cur_t *after_av, const xf_t *xf)
 {
 	const nif_t *n = b->n;
 	cur_t c = *after_av;
@@ -792,7 +814,7 @@ static bool build_mesh (build_t *b, uint blockno, const nif_av_t *av, const cur_
 
 	sem_t sems[24];
 	uint nsem = 0;
-	stream_t dl_stream = {0}, idx_stream = {0};
+	stream_t dl_stream = { 0 }, idx_stream = { 0 };
 	bool has_dl = false, has_idx = false;
 	for (uint i = 0; i < nstreams && c.ok; i++)
 	{
@@ -937,7 +959,8 @@ static bool build_mesh (build_t *b, uint blockno, const nif_av_t *av, const cur_
 		mesh->normals = CALLOC (mesh->num_normals, sizeof (*mesh->normals));
 		for (uint i = 0; mesh->normals && i < nrm->s.count; i++)
 		{
-			const float v[3] = { attr_comp (nrm, i, 0), attr_comp (nrm, i, 1), attr_comp (nrm, i, 2) };
+			const float v[3]
+				= { attr_comp (nrm, i, 0), attr_comp (nrm, i, 1), attr_comp (nrm, i, 2) };
 			mesh->normals[i] = xf_dir (xf, v);
 		}
 		if (!mesh->normals)
@@ -1003,11 +1026,20 @@ static bool build_mesh (build_t *b, uint blockno, const nif_av_t *av, const cur_
 			const int ix = soup[i * nattr + a];
 			switch (order[a])
 			{
-				case 0: v->position_idx = ix; break;
-				case 1: v->normal_idx = mesh->num_normals ? ix : -1; break;
-				case 2: v->color_idx[0] = mesh->num_colors[0] ? ix : -1; break;
-				case 3: v->texcoord_idx = mesh->num_texcoords ? ix : -1; break;
-				default: v->extra_texcoord_idx[0] = mesh->num_extra_texcoords[0] ? ix : -1;
+				case 0:
+					v->position_idx = ix;
+					break;
+				case 1:
+					v->normal_idx = mesh->num_normals ? ix : -1;
+					break;
+				case 2:
+					v->color_idx[0] = mesh->num_colors[0] ? ix : -1;
+					break;
+				case 3:
+					v->texcoord_idx = mesh->num_texcoords ? ix : -1;
+					break;
+				default:
+					v->extra_texcoord_idx[0] = mesh->num_extra_texcoords[0] ? ix : -1;
 			}
 		}
 	}

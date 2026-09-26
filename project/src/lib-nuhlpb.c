@@ -63,8 +63,7 @@ bool IsNUHLPB (const u8 *data, size_t size)
 // Reads a NUL-terminated string at the relative offset stored at 'field_off' (an
 // SsbhString field), bounds-checked against 'size'. Leaves 'dest' empty and returns
 // false on a null or out-of-range offset instead of aborting the whole decode.
-static bool read_ssbh_string (
-	char *dest, uint destsz, const u8 *data, size_t size, u64 field_off)
+static bool read_ssbh_string (char *dest, uint destsz, const u8 *data, size_t size, u64 field_off)
 {
 	dest[0] = 0;
 	if (field_off + 8 > size)
@@ -138,32 +137,34 @@ enumError DecodeNUHLPB_Text (FILE *out, const u8 *data, size_t size)
 	fprintf (out, "[aim_constraints]\n");
 	if (!have_aim || aim_count > NUHLPB_MAX_LIST)
 		fprintf (out, "  <none>\n");
-	else for (u64 i = 0; i < aim_count; i++)
-	{
-		const u64 e = aim_base + i * NUHLPB_AIM_SIZE;
-		if (e < aim_base || e + NUHLPB_AIM_SIZE > size)
+	else
+		for (u64 i = 0; i < aim_count; i++)
 		{
-			fprintf (out, "  [%llu] <out of bounds>\n", (unsigned long long)i);
-			break;
-		}
-		char name[128], bone1[128], bone2[128], target1[128], target2[128];
-		read_ssbh_string (name, sizeof (name), data, size, e);
-		read_ssbh_string (bone1, sizeof (bone1), data, size, e + 8);
-		read_ssbh_string (bone2, sizeof (bone2), data, size, e + 0x10);
-		read_ssbh_string (target1, sizeof (target1), data, size, e + 0x28);
-		read_ssbh_string (target2, sizeof (target2), data, size, e + 0x30);
+			const u64 e = aim_base + i * NUHLPB_AIM_SIZE;
+			if (e < aim_base || e + NUHLPB_AIM_SIZE > size)
+			{
+				fprintf (out, "  [%llu] <out of bounds>\n", (unsigned long long)i);
+				break;
+			}
+			char name[128], bone1[128], bone2[128], target1[128], target2[128];
+			read_ssbh_string (name, sizeof (name), data, size, e);
+			read_ssbh_string (bone1, sizeof (bone1), data, size, e + 8);
+			read_ssbh_string (bone2, sizeof (bone2), data, size, e + 0x10);
+			read_ssbh_string (target1, sizeof (target1), data, size, e + 0x28);
+			read_ssbh_string (target2, sizeof (target2), data, size, e + 0x30);
 
-		fprintf (out, "  [%llu] %s\n"
-			"    aim_bones = %s, %s\n"
-			"    target_bones = %s, %s\n    ",
-			(unsigned long long)i, name[0] ? name : "<unnamed>",
-			bone1[0] ? bone1 : "<none>", bone2[0] ? bone2 : "<none>",
-			target1[0] ? target1 : "<none>", target2[0] ? target2 : "<none>");
-		print_vec3 (out, "aim = ", data, e + 0x40);
-		fprintf (out, ", ");
-		print_vec3 (out, "up = ", data, e + 0x4c);
-		fprintf (out, "\n");
-	}
+			fprintf (out,
+				"  [%llu] %s\n"
+				"    aim_bones = %s, %s\n"
+				"    target_bones = %s, %s\n    ",
+				(unsigned long long)i, name[0] ? name : "<unnamed>", bone1[0] ? bone1 : "<none>",
+				bone2[0] ? bone2 : "<none>", target1[0] ? target1 : "<none>",
+				target2[0] ? target2 : "<none>");
+			print_vec3 (out, "aim = ", data, e + 0x40);
+			fprintf (out, ", ");
+			print_vec3 (out, "up = ", data, e + 0x4c);
+			fprintf (out, "\n");
+		}
 
 	u64 orient_base, orient_count;
 	const bool have_orient
@@ -172,31 +173,33 @@ enumError DecodeNUHLPB_Text (FILE *out, const u8 *data, size_t size)
 	fprintf (out, "\n[orient_constraints]\n");
 	if (!have_orient || orient_count > NUHLPB_MAX_LIST)
 		fprintf (out, "  <none>\n");
-	else for (u64 i = 0; i < orient_count; i++)
-	{
-		const u64 e = orient_base + i * NUHLPB_ORIENT_SIZE;
-		if (e < orient_base || e + NUHLPB_ORIENT_SIZE > size)
+	else
+		for (u64 i = 0; i < orient_count; i++)
 		{
-			fprintf (out, "  [%llu] <out of bounds>\n", (unsigned long long)i);
-			break;
-		}
-		char name[128], parent1[128], parent2[128], source[128], target[128];
-		read_ssbh_string (name, sizeof (name), data, size, e);
-		read_ssbh_string (parent1, sizeof (parent1), data, size, e + 8);
-		read_ssbh_string (parent2, sizeof (parent2), data, size, e + 0x10);
-		read_ssbh_string (source, sizeof (source), data, size, e + 0x18);
-		read_ssbh_string (target, sizeof (target), data, size, e + 0x20);
-		const u32 unk_type = rd_le32 (data + e + 0x28);
+			const u64 e = orient_base + i * NUHLPB_ORIENT_SIZE;
+			if (e < orient_base || e + NUHLPB_ORIENT_SIZE > size)
+			{
+				fprintf (out, "  [%llu] <out of bounds>\n", (unsigned long long)i);
+				break;
+			}
+			char name[128], parent1[128], parent2[128], source[128], target[128];
+			read_ssbh_string (name, sizeof (name), data, size, e);
+			read_ssbh_string (parent1, sizeof (parent1), data, size, e + 8);
+			read_ssbh_string (parent2, sizeof (parent2), data, size, e + 0x10);
+			read_ssbh_string (source, sizeof (source), data, size, e + 0x18);
+			read_ssbh_string (target, sizeof (target), data, size, e + 0x20);
+			const u32 unk_type = rd_le32 (data + e + 0x28);
 
-		fprintf (out, "  [%llu] %s\n"
-			"    parent_bones = %s, %s\n"
-			"    source_bone = %s, target_bone = %s, unk_type = %u\n    ",
-			(unsigned long long)i, name[0] ? name : "<unnamed>",
-			parent1[0] ? parent1 : "<none>", parent2[0] ? parent2 : "<none>",
-			source[0] ? source : "<none>", target[0] ? target : "<none>", unk_type);
-		print_vec3 (out, "constraint_axes = ", data, e + 0x2c);
-		fprintf (out, "\n");
-	}
+			fprintf (out,
+				"  [%llu] %s\n"
+				"    parent_bones = %s, %s\n"
+				"    source_bone = %s, target_bone = %s, unk_type = %u\n    ",
+				(unsigned long long)i, name[0] ? name : "<unnamed>",
+				parent1[0] ? parent1 : "<none>", parent2[0] ? parent2 : "<none>",
+				source[0] ? source : "<none>", target[0] ? target : "<none>", unk_type);
+			print_vec3 (out, "constraint_axes = ", data, e + 0x2c);
+			fprintf (out, "\n");
+		}
 
 	u64 idx_base, idx_count, type_base, type_count;
 	const bool have_idx
@@ -222,7 +225,10 @@ enumError DecodeNUHLPB_Text (FILE *out, const u8 *data, size_t size)
 		const u32 idx = rd_le32 (data + idx_off);
 		const u32 type = rd_le32 (data + type_off);
 		fprintf (out, "  [%llu] %s[%u]\n", (unsigned long long)i,
-			type == 0 ? "aim_constraints" : type == 1 ? "orient_constraints" : "?", idx);
+			type == 0		? "aim_constraints"
+				: type == 1 ? "orient_constraints"
+							: "?",
+			idx);
 	}
 
 	return ERR_OK;

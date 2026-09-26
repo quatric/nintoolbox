@@ -11,7 +11,10 @@
 #define CAR_ENTRY_SIZE 24
 #define CAR_SECTOR 2048
 
-static u32 car_rd32 (const u8 *p) { return p[0] | p[1] << 8 | p[2] << 16 | (u32)p[3] << 24; }
+static u32 car_rd32 (const u8 *p)
+{
+	return p[0] | p[1] << 8 | p[2] << 16 | (u32)p[3] << 24;
+}
 
 // Inflate a bare zlib stream that must end exactly at src_size. Returns an
 // owned buffer or NULL when the bytes are not such a stream.
@@ -130,7 +133,8 @@ enumError ScanCatCar (nintendo_sarc_entry_t **entries, uint *n_entries, const u8
 		u8 *plain = 0;
 		if (fsize > 2 && src[0] == 0x78)
 			plain = car_inflate (src, fsize, &osize);
-		const bool ok = OwnedEntryAdd (out, n, name, plain ? plain : src, plain ? (uint)osize : fsize);
+		const bool ok
+			= OwnedEntryAdd (out, n, name, plain ? plain : src, plain ? (uint)osize : fsize);
 		FREE (plain);
 		if (!ok)
 		{

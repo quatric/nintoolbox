@@ -57,11 +57,11 @@
 
 enum
 {
-	THOR_HEADER_SIZE	= 0x40,
-	THOR_NAME_MAX		= 200000,	// sanity cap for extracted blob names
+	THOR_HEADER_SIZE = 0x40,
+	THOR_NAME_MAX = 200000, // sanity cap for extracted blob names
 };
 
-static const u8 thor_sig[8] = { 0x01,0,0,0, 0,0,0,0x02 };
+static const u8 thor_sig[8] = { 0x01, 0, 0, 0, 0, 0, 0, 0x02 };
 
 bool IsThorPkg (const u8 *data, size_t size)
 {
@@ -109,8 +109,7 @@ enumError ScanThorPkg (thor_t *thor, const u8 *data, size_t size)
 		const u32 v1 = rd_be32 (data + off + 4);
 		const u32 k2 = rd_be32 (data + off + 8);
 		const u32 v2 = rd_be32 (data + off + 12);
-		if (k1 == 0xFFFFFFFF && v1 != 0 && v2 == 0
-			&& k2 >= THOR_HEADER_SIZE && k2 < size)
+		if (k1 == 0xFFFFFFFF && v1 != 0 && v2 == 0 && k2 >= THOR_HEADER_SIZE && k2 < size)
 		{
 			count = v1;
 			table_off = k2;
@@ -135,7 +134,7 @@ enumError ScanThorPkg (thor_t *thor, const u8 *data, size_t size)
 	for (uint i = 0; i < count; i++)
 	{
 		const u8 *p = data + table_off + (u64)i * 12;
-		const u32 id  = rd_be32 (p);
+		const u32 id = rd_be32 (p);
 		const u32 ofs = rd_be32 (p + 4);
 		const u32 len = rd_be32 (p + 8);
 		if (!len || (u64)ofs + len > size)
@@ -144,9 +143,9 @@ enumError ScanThorPkg (thor_t *thor, const u8 *data, size_t size)
 			// failing the whole file -- keep whatever validated so far.
 			break;
 		}
-		thor->entries[n].id     = id;
+		thor->entries[n].id = id;
 		thor->entries[n].offset = ofs;
-		thor->entries[n].size   = len;
+		thor->entries[n].size = len;
 		n++;
 	}
 	thor->n_entries = n;
@@ -249,8 +248,8 @@ enumError ExtractThorPkg (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT THOR:%s (%u entries) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, thor.n_entries, dest);
+		fprintf (stdlog, "%s%sEXTRACT THOR:%s (%u entries) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, thor.n_entries, dest);
 
 	for (uint i = 0; i < thor.n_entries; i++)
 	{

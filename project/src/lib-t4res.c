@@ -23,10 +23,15 @@ int IsT4Res (const u8 *data, size_t size, size_t file_size)
 	int saw_nul = 0;
 	for (int i = 3; i < T4_TAG_FIELD; i++)
 	{
-		if (!data[i]) { saw_nul = 1; continue; }
+		if (!data[i])
+		{
+			saw_nul = 1;
+			continue;
+		}
 		if (saw_nul)
 		{
-			if (data[i]) return 0; // non-zero byte after the NUL terminator
+			if (data[i])
+				return 0; // non-zero byte after the NUL terminator
 			continue;
 		}
 		if (!isalnum (data[i]) && data[i] != '_')
@@ -56,8 +61,8 @@ enumError DecodeT4Res_Text (FILE *f, const u8 *data, size_t size, size_t file_si
 	fprintf (f, "file_size = %zu\n", file_size);
 	fprintf (f, "tag = %s\n", name);
 	if (date_valid)
-		fprintf (f, "date (packed BCD, best guess) = %02x%02x-%02x-%02x\n",
-			bcd[0], bcd[1], bcd[2], bcd[3]);
+		fprintf (f, "date (packed BCD, best guess) = %02x%02x-%02x-%02x\n", bcd[0], bcd[1], bcd[2],
+			bcd[3]);
 	fprintf (f, "# record table layout is type-specific and not decoded here\n");
 
 	return ERR_OK;

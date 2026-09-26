@@ -688,7 +688,8 @@ typedef struct
 	int n;
 } mt_inf_t;
 
-static int mt_inf_add (mt_inf_t **tab, size_t *n, size_t *cap, const int *bones, const float *w, int cnt)
+static int mt_inf_add (
+	mt_inf_t **tab, size_t *n, size_t *cap, const int *bones, const float *w, int cnt)
 {
 	for (size_t i = 0; i < *n; i++)
 	{
@@ -863,7 +864,8 @@ void *ParseMTMOD (const u8 *data, size_t size, ccp sibling_dir)
 				size_t L = strlen (de->d_name);
 				char path[PATH_MAX];
 				if (L > 4
-					&& (!strcasecmp (de->d_name + L - 4, ".mrl") || !strcasecmp (de->d_name + L - 4, ".mfx")
+					&& (!strcasecmp (de->d_name + L - 4, ".mrl")
+						|| !strcasecmp (de->d_name + L - 4, ".mfx")
 						|| !strcasecmp (de->d_name + L - 4, ".lfx")))
 				{
 					snprintf (path, sizeof (path), "%s/%s", sibling_dir, de->d_name);
@@ -1564,7 +1566,9 @@ void *ParseMBN (const u8 *data, size_t size, const u8 *bch_data, size_t bch_size
 							for (uint a = 0; a < vd.n_attrs; a++)
 							{
 								uint pica = vd.attrs[a].fmt == 0 ? 3
-									: vd.attrs[a].fmt == 1 ? 1 : vd.attrs[a].fmt == 2 ? 0 : 2;
+									: vd.attrs[a].fmt == 1		 ? 1
+									: vd.attrs[a].fmt == 2		 ? 0
+																 : 2;
 								uint el = vd.attrs[a].name <= 1 ? 3 : vd.attrs[a].name == 2 ? 4 : 2;
 								if ((pica == 2 || pica == 3) && (ap & 1))
 									ap++;
@@ -1630,8 +1634,8 @@ void *ParseMBN (const u8 *data, size_t size, const u8 *bch_data, size_t bch_size
 						mesh->normals = nrm;
 						mesh->texcoords = uv;
 						mesh->vertices = vx;
-						mesh->num_positions = mesh->num_normals = mesh->num_texcoords =
-							mesh->num_vertices = n;
+						mesh->num_positions = mesh->num_normals = mesh->num_texcoords
+							= mesh->num_vertices = n;
 					}
 					else
 					{
@@ -1679,8 +1683,8 @@ enumError DecodeMTMOD_Text (FILE *f, const u8 *data, size_t size)
 	fprintf (f, "# MTMOD (Capcom MT Framework Mobile model, SPICA MTModel)\n");
 	fprintf (f, "version: %u\nbones: %u\nmeshes: %u\nmaterials: %u\n", data[4] | (u32)data[5] << 8,
 		bones, meshes, mats);
-	fprintf (f, "total_vertices: %u\ntotal_indices: %u\ntotal_triangles: %u\n", rd_le32 (data + 0x0c),
-		rd_le32 (data + 0x10), rd_le32 (data + 0x14));
+	fprintf (f, "total_vertices: %u\ntotal_indices: %u\ntotal_triangles: %u\n",
+		rd_le32 (data + 0x0c), rd_le32 (data + 0x10), rd_le32 (data + 0x14));
 	u32 matnameaddr = rd_le32 (data + 0x30);
 	for (u32 i = 0; i < mats; i++)
 	{
@@ -1734,8 +1738,8 @@ enumError DecodeMTMFX_Text (FILE *f, const u8 *data, size_t size)
 	mt_layout_t *lays = mt_parse_layouts (data, size, &n);
 	fprintf (f, "# MTMFX (Capcom MT Framework Mobile shader effects, SPICA MTShaderEffects)\n");
 	fprintf (f, "descriptors: %u\ninput_layouts: %u\n", rd_le32 (data + 12), n);
-	static const char *pnames[] = { "pos", "nrm", "tan", "col", "uv0", "uv1", "uv2", "joint",
-		"weight" };
+	static const char *pnames[]
+		= { "pos", "nrm", "tan", "col", "uv0", "uv1", "uv2", "joint", "weight" };
 	for (uint i = 0; i < n; i++)
 	{
 		fprintf (f, "layout[%u]: key=0x%08x stride=%u attrs=%u\n", i, lays[i].key, lays[i].stride,
@@ -1743,9 +1747,8 @@ enumError DecodeMTMFX_Text (FILE *f, const u8 *data, size_t size)
 		for (uint a = 0; a < lays[i].n_attrs; a++)
 		{
 			int p = lays[i].attrs[a].pica;
-			fprintf (f, "  attr: %s elems=%u fmt=%u off=%u\n",
-				p >= 0 && p < 9 ? pnames[p] : "?", lays[i].attrs[a].elems, lays[i].attrs[a].fmt,
-				lays[i].attrs[a].off);
+			fprintf (f, "  attr: %s elems=%u fmt=%u off=%u\n", p >= 0 && p < 9 ? pnames[p] : "?",
+				lays[i].attrs[a].elems, lays[i].attrs[a].fmt, lays[i].attrs[a].off);
 		}
 		FREE (lays[i].attrs);
 	}

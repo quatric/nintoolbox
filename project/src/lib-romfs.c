@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // Extract Nintendo 3DS RomFS Archive (.romfs / IVFC)
 static void RomFS_ReadDirectories (const u8 *raw, size_t raw_size, uint dir_start, uint file_start,
 	uint data_start, uint cur_dir_off, ccp current_path, ccp dest)

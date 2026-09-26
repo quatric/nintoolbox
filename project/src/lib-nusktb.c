@@ -42,8 +42,12 @@
 #define NUSKTB_MAX_BONES 0x1000
 
 static const ccp nusktb_billboard_name[] = {
-	[0] = "Disabled", [1] = "XAxisViewPointAligned", [2] = "YAxisViewPointAligned",
-	[3] = "Unk3", [4] = "XYAxisViewPointAligned", [6] = "YAxisViewPlaneAligned",
+	[0] = "Disabled",
+	[1] = "XAxisViewPointAligned",
+	[2] = "YAxisViewPointAligned",
+	[3] = "Unk3",
+	[4] = "XYAxisViewPointAligned",
+	[6] = "YAxisViewPlaneAligned",
 	[8] = "XYAxisViewPlaneAligned",
 };
 
@@ -60,8 +64,7 @@ bool IsNUSKTB (const u8 *data, size_t size)
 // Reads a NUL-terminated string at the relative offset stored at 'field_off' (an
 // SsbhString field), bounds-checked against 'size'. Leaves 'dest' empty and returns
 // false on a null or out-of-range offset instead of aborting the whole decode.
-static bool read_ssbh_string (
-	char *dest, uint destsz, const u8 *data, size_t size, u64 field_off)
+static bool read_ssbh_string (char *dest, uint destsz, const u8 *data, size_t size, u64 field_off)
 {
 	dest[0] = 0;
 	if (field_off + 8 > size)
@@ -123,15 +126,18 @@ enumError DecodeNUSKTB_Text (FILE *out, const u8 *data, size_t size)
 	u64 bone_base, bone_count;
 	if (!read_ssbh_array (data, size, NUSKTB_SUBHDR_OFF + 8, &bone_base, &bone_count))
 	{
-		fprintf (out, "#NUSKTB\nversion = %u.%u\nbone_count = 0\n\n"
-			"[bones]\n  <no bone array>\n", major, minor);
+		fprintf (out,
+			"#NUSKTB\nversion = %u.%u\nbone_count = 0\n\n"
+			"[bones]\n  <no bone array>\n",
+			major, minor);
 		return ERR_OK;
 	}
 
 	u64 world_base, world_count;
 	read_ssbh_array (data, size, NUSKTB_SUBHDR_OFF + 0x18, &world_base, &world_count);
 
-	fprintf (out, "#NUSKTB\n"
+	fprintf (out,
+		"#NUSKTB\n"
 		"version = %u.%u\n"
 		"bone_count = %llu\n\n"
 		"[bones]\n",
@@ -161,7 +167,8 @@ enumError DecodeNUSKTB_Text (FILE *out, const u8 *data, size_t size)
 		const u8 billboard = data[entry_off + 0x0d];
 		ccp billboard_name = billboard < sizeof (nusktb_billboard_name) / sizeof (ccp)
 				&& nusktb_billboard_name[billboard]
-			? nusktb_billboard_name[billboard] : 0;
+			? nusktb_billboard_name[billboard]
+			: 0;
 
 		fprintf (out, "  [%llu] %s\n    index = %u, parent = ", (unsigned long long)i,
 			name[0] ? name : "<unnamed>", index);

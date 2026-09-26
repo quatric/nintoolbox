@@ -2056,8 +2056,8 @@ enumError EncodeExciteMSH (const model_t *model, ccp out_path)
 	const enumError rc = SaveFILE (out_path, 0, true, buf, (uint)total, 0);
 	FREE (buf);
 	if (rc <= ERR_WARNING && verbose >= 0)
-		fprintf (stdlog, "ENCODE MSH: -> %s (%llu bytes, %u tris, %u buckets)\n", out_path, (u64)total,
-			num_tri, n_buckets);
+		fprintf (stdlog, "ENCODE MSH: -> %s (%llu bytes, %u tris, %u buckets)\n", out_path,
+			(u64)total, num_tri, n_buckets);
 	return rc <= ERR_WARNING ? ERR_OK : rc;
 }
 
@@ -2470,13 +2470,10 @@ static bool mod_decode_ndl_chunk (
 		pos_off = !is_ndl2 && h[9] >= m + 0x40 && h[9] < dl_start && h[9] + pos_bytes <= dl_start
 			? h[9]
 			: m + 0x40;
-		const u32 second_off
-			= !is_ndl2 && h[10] >= m + 0x40 && h[10] < dl_start ? h[10] : 0;
-		const u32 third_off
-			= !is_ndl2 && h[11] >= m + 0x40 && h[11] < dl_start ? h[11] : 0;
-		tex_off = third_off
-			? third_off
-			: (second_off ? second_off : pos_off + n_pos * pos_n * fmt_sz[pos_fmt]);
+		const u32 second_off = !is_ndl2 && h[10] >= m + 0x40 && h[10] < dl_start ? h[10] : 0;
+		const u32 third_off = !is_ndl2 && h[11] >= m + 0x40 && h[11] < dl_start ? h[11] : 0;
+		tex_off = third_off ? third_off
+							: (second_off ? second_off : pos_off + n_pos * pos_n * fmt_sz[pos_fmt]);
 
 		uint max_tex = 0;
 		for (uint i = 0; i < best_np; i++)
@@ -2784,8 +2781,8 @@ static int mod_find_or_create_material (const u8 *data, uint size, uint desc_off
 // Forward declarations: the .can parser lives further down, beside its own
 // format comment, but DecodeExciteMOD() below needs it to embed a sibling
 // animation straight into the mesh's GLB.
-static enumError decode_can_to_joints_anim (
-	const u8 *data, uint size, joint_t **out_joints, uint *out_n_joints, model_animation_t *out_anim);
+static enumError decode_can_to_joints_anim (const u8 *data, uint size, joint_t **out_joints,
+	uint *out_n_joints, model_animation_t *out_anim);
 static void free_can_anim (model_animation_t *anim);
 
 enumError DecodeExciteMOD (
@@ -2910,8 +2907,7 @@ enumError DecodeExciteMOD (
 	uint n_can_joints = 0;
 	model_animation_t can_anim;
 	memset (&can_anim, 0, sizeof (can_anim));
-	const bool have_can
-		= can_data
+	const bool have_can = can_data
 		&& decode_can_to_joints_anim (can_data, can_size, &can_joints, &n_can_joints, &can_anim)
 			== ERR_OK;
 	if (have_can)
@@ -3295,8 +3291,8 @@ static void can_matrix_to_euler_deg (const float m[9], float *out_x, float *out_
 // animation straight into the mesh's own GLB). On ERR_OK the caller owns
 // *out_joints and every channel's times/values plus the channel array itself
 // (free_can_anim() below frees the latter).
-static enumError decode_can_to_joints_anim (
-	const u8 *data, uint size, joint_t **out_joints, uint *out_n_joints, model_animation_t *out_anim)
+static enumError decode_can_to_joints_anim (const u8 *data, uint size, joint_t **out_joints,
+	uint *out_n_joints, model_animation_t *out_anim)
 {
 	if (!data || size < CAN_HEADER_SIZE)
 		return ERR_NOTHING_TO_DO;

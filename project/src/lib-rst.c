@@ -101,9 +101,8 @@ enumError ExtractRST (nintendo_sarc_entry_t **out_entries, uint *out_n_entries, 
 		old_toc_size = car_size - 0x80;
 		old_records_off = 0;
 	}
-	if ( ( toc_data && toc_size == 0x28 + (u64)files_count * 0x44 )
-		|| ( !toc_data && old_toc
-			&& old_toc_size >= old_records_off + (u64)files_count * 0x44 ))
+	if ((toc_data && toc_size == 0x28 + (u64)files_count * 0x44)
+		|| (!toc_data && old_toc && old_toc_size >= old_records_off + (u64)files_count * 0x44))
 	{
 		nintendo_sarc_entry_t *entries = CALLOC (files_count, sizeof (nintendo_sarc_entry_t));
 		if (!entries)
@@ -472,7 +471,6 @@ enumError CreateRST (u8 **dest_car, uint *dest_car_size, u8 **dest_toc, uint *de
 	return ERR_OK;
 }
 
-
 enumError create_rst_dir (ccp source, ccp dest, bool compress)
 {
 	// A nested RST rebuild writes back to the raw sibling that produced this
@@ -521,4 +519,3 @@ enumError create_rst_dir (ccp source, ccp dest, bool compress)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

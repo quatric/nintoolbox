@@ -44,16 +44,16 @@ enumError ExtractBamArchive (ccp arg, ccp basedir, uint depth)
 		snprintf (grid_path, sizeof (grid_path), "%s/grid.txt", dest);
 		snprintf (tail_path, sizeof (tail_path), "%s/trailing.bin", dest);
 
-		size_t cap = (size_t) (width + 1) * height * 4 + 64, len = 0;
+		size_t cap = (size_t)(width + 1) * height * 4 + 64, len = 0;
 		char *text = MALLOC (cap);
-		len += (size_t)snprintf (text + len, cap - len, "# %u x %u bubble grid, one cell per byte\n",
-			width, height);
+		len += (size_t)snprintf (
+			text + len, cap - len, "# %u x %u bubble grid, one cell per byte\n", width, height);
 		const u8 *grid = raw + 0x08;
 		for (u32 y = 0; y < height; y++)
 		{
 			for (u32 x = 0; x < width; x++)
-				len += (size_t)snprintf (text + len, cap - len, "%s%u", x ? " " : "",
-					grid[(u64)y * width + x]);
+				len += (size_t)snprintf (
+					text + len, cap - len, "%s%u", x ? " " : "", grid[(u64)y * width + x]);
 			len += (size_t)snprintf (text + len, cap - len, "\n");
 		}
 		if (SaveFile (grid_path, 0, 0, (const u8 *)text, (uint)len, 0))

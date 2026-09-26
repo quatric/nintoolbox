@@ -59,8 +59,8 @@ static u16 prc_rd16 (prc_t *p, u64 off)
 
 static u32 prc_rd32 (prc_t *p, u64 off)
 {
-	return (u32)p->data[off] | (u32)p->data[off + 1] << 8
-		| (u32)p->data[off + 2] << 16 | (u32)p->data[off + 3] << 24;
+	return (u32)p->data[off] | (u32)p->data[off + 1] << 8 | (u32)p->data[off + 2] << 16
+		| (u32)p->data[off + 3] << 24;
 }
 
 static float prc_rdf32 (prc_t *p, u64 off)
@@ -133,11 +133,23 @@ static void prc_xml_text (prc_t *p, const char *s, size_t n, int attr)
 		const unsigned char c = (unsigned char)s[i];
 		switch (c)
 		{
-			case '&': prc_puts (p, "&amp;"); break;
-			case '<': prc_puts (p, "&lt;"); break;
-			case '>': prc_puts (p, "&gt;"); break;
-			case '"': prc_puts (p, attr ? "&quot;" : "\""); break;
-			case 9: case 10: case 13: prc_putn (p, (const char *)&s[i], 1); break;
+			case '&':
+				prc_puts (p, "&amp;");
+				break;
+			case '<':
+				prc_puts (p, "&lt;");
+				break;
+			case '>':
+				prc_puts (p, "&gt;");
+				break;
+			case '"':
+				prc_puts (p, attr ? "&quot;" : "\"");
+				break;
+			case 9:
+			case 10:
+			case 13:
+				prc_putn (p, (const char *)&s[i], 1);
+				break;
 			default:
 				if (c < 0x20 || c == 0x7f)
 					prc_puts (p, "\xef\xbf\xbd");
@@ -230,8 +242,12 @@ static void prc_decode_struct (prc_t *p, u64 pos, ccp key_attr, int depth)
 		u64 j = i;
 		while (j > 0 && hidx[j - 1] > hidx[j])
 		{
-			u32 t = hidx[j]; hidx[j] = hidx[j - 1]; hidx[j - 1] = t;
-			t = voff[j]; voff[j] = voff[j - 1]; voff[j - 1] = t;
+			u32 t = hidx[j];
+			hidx[j] = hidx[j - 1];
+			hidx[j - 1] = t;
+			t = voff[j];
+			voff[j] = voff[j - 1];
+			voff[j - 1] = t;
 			j--;
 		}
 	}
@@ -252,8 +268,8 @@ static void prc_decode_struct (prc_t *p, u64 pos, ccp key_attr, int depth)
 			hash = lo | hi << 32;
 		}
 		char key[32];
-		snprintf (key, sizeof (key), " hash=\"0x%010llx\"",
-			(unsigned long long)(hash & 0xffffffffffull));
+		snprintf (
+			key, sizeof (key), " hash=\"0x%010llx\"", (unsigned long long)(hash & 0xffffffffffull));
 		if (pos + voff[i] < pos) // wrap guard
 		{
 			p->failed = 1;
@@ -352,155 +368,150 @@ static void prc_decode_at (prc_t *p, u64 pos, ccp key_attr, int depth)
 	int sc = 0;
 	switch (type)
 	{
-	case 1: // bool
-		if (!prc_ok (p, pos, 2))
-		{
-			p->failed = 1;
-			break;
-		}
-		prc_open_tag (p, "bool", key_attr, depth, &sc);
-		prc_puts (p, p->data[pos + 1] ? ">true</bool>\n" : ">false</bool>\n");
-		break;
-
-	case 2: // i8
-	case 3: // u8
-		if (!prc_ok (p, pos, 2))
-		{
-			p->failed = 1;
-			break;
-		}
-		prc_open_tag (p, type == 2 ? "sbyte" : "byte", key_attr, depth, &sc);
-		{
-			char tmp[16];
-			if (type == 2)
-				snprintf (tmp, sizeof (tmp), ">%d</%s>\n",
-					(int)(int8_t)p->data[pos + 1], "sbyte");
-			else
-				snprintf (tmp, sizeof (tmp), ">%u</%s>\n",
-					p->data[pos + 1], "byte");
-			prc_puts (p, tmp);
-		}
-		break;
-
-	case 4: // i16
-	case 5: // u16
-		if (!prc_ok (p, pos, 3))
-		{
-			p->failed = 1;
-			break;
-		}
-		prc_open_tag (p, type == 4 ? "short" : "ushort", key_attr, depth, &sc);
-		{
-			char tmp[32];
-			if (type == 4)
-				snprintf (tmp, sizeof (tmp), ">%d</short>\n",
-					(int)(int16_t)prc_rd16 (p, pos + 1));
-			else
-				snprintf (tmp, sizeof (tmp), ">%u</ushort>\n",
-					prc_rd16 (p, pos + 1));
-			prc_puts (p, tmp);
-		}
-		break;
-
-	case 6: // i32
-	case 7: // u32
-		if (!prc_ok (p, pos, 5))
-		{
-			p->failed = 1;
-			break;
-		}
-		prc_open_tag (p, type == 6 ? "int" : "uint", key_attr, depth, &sc);
-		{
-			char tmp[48];
-			if (type == 6)
-				snprintf (tmp, sizeof (tmp), ">%d</int>\n",
-					(int32_t)prc_rd32 (p, pos + 1));
-			else
-				snprintf (tmp, sizeof (tmp), ">%u</uint>\n",
-					prc_rd32 (p, pos + 1));
-			prc_puts (p, tmp);
-		}
-		break;
-
-	case 8: // f32
-		if (!prc_ok (p, pos, 5))
-		{
-			p->failed = 1;
-			break;
-		}
-		prc_open_tag (p, "float", key_attr, depth, &sc);
-		prc_puts (p, ">");
-		prc_float (p, prc_rdf32 (p, pos + 1));
-		prc_puts (p, "</float>\n");
-		break;
-
-	case 9: // hash: label-table index
-		if (!prc_ok (p, pos, 5))
-		{
-			p->failed = 1;
-			break;
-		}
-		{
-			const int32_t idx = (int32_t)prc_rd32 (p, pos + 1);
-			if (idx < 0 || (u64)idx >= p->hashnum
-				|| !prc_ok (p, 16 + (u64)idx * 8, 8))
+		case 1: // bool
+			if (!prc_ok (p, pos, 2))
 			{
 				p->failed = 1;
 				break;
 			}
-			u64 hash = (u64)prc_rd32 (p, 16 + (u64)idx * 8)
-				| (u64)prc_rd32 (p, 16 + (u64)idx * 8 + 4) << 32;
-			prc_open_tag (p, "hash40", key_attr, depth, &sc);
-			prc_puts (p, ">");
+			prc_open_tag (p, "bool", key_attr, depth, &sc);
+			prc_puts (p, p->data[pos + 1] ? ">true</bool>\n" : ">false</bool>\n");
+			break;
+
+		case 2: // i8
+		case 3: // u8
+			if (!prc_ok (p, pos, 2))
 			{
-				char tmp[24];
-				snprintf (tmp, sizeof (tmp), "0x%010llx",
-					(unsigned long long)(hash & 0xffffffffffull));
+				p->failed = 1;
+				break;
+			}
+			prc_open_tag (p, type == 2 ? "sbyte" : "byte", key_attr, depth, &sc);
+			{
+				char tmp[16];
+				if (type == 2)
+					snprintf (
+						tmp, sizeof (tmp), ">%d</%s>\n", (int)(int8_t)p->data[pos + 1], "sbyte");
+				else
+					snprintf (tmp, sizeof (tmp), ">%u</%s>\n", p->data[pos + 1], "byte");
 				prc_puts (p, tmp);
 			}
-			prc_puts (p, "</hash40>\n");
-		}
-		break;
+			break;
 
-	case 10: // string: offset into the reference section
-		if (!prc_ok (p, pos, 5))
-		{
+		case 4: // i16
+		case 5: // u16
+			if (!prc_ok (p, pos, 3))
+			{
+				p->failed = 1;
+				break;
+			}
+			prc_open_tag (p, type == 4 ? "short" : "ushort", key_attr, depth, &sc);
+			{
+				char tmp[32];
+				if (type == 4)
+					snprintf (
+						tmp, sizeof (tmp), ">%d</short>\n", (int)(int16_t)prc_rd16 (p, pos + 1));
+				else
+					snprintf (tmp, sizeof (tmp), ">%u</ushort>\n", prc_rd16 (p, pos + 1));
+				prc_puts (p, tmp);
+			}
+			break;
+
+		case 6: // i32
+		case 7: // u32
+			if (!prc_ok (p, pos, 5))
+			{
+				p->failed = 1;
+				break;
+			}
+			prc_open_tag (p, type == 6 ? "int" : "uint", key_attr, depth, &sc);
+			{
+				char tmp[48];
+				if (type == 6)
+					snprintf (tmp, sizeof (tmp), ">%d</int>\n", (int32_t)prc_rd32 (p, pos + 1));
+				else
+					snprintf (tmp, sizeof (tmp), ">%u</uint>\n", prc_rd32 (p, pos + 1));
+				prc_puts (p, tmp);
+			}
+			break;
+
+		case 8: // f32
+			if (!prc_ok (p, pos, 5))
+			{
+				p->failed = 1;
+				break;
+			}
+			prc_open_tag (p, "float", key_attr, depth, &sc);
+			prc_puts (p, ">");
+			prc_float (p, prc_rdf32 (p, pos + 1));
+			prc_puts (p, "</float>\n");
+			break;
+
+		case 9: // hash: label-table index
+			if (!prc_ok (p, pos, 5))
+			{
+				p->failed = 1;
+				break;
+			}
+			{
+				const int32_t idx = (int32_t)prc_rd32 (p, pos + 1);
+				if (idx < 0 || (u64)idx >= p->hashnum || !prc_ok (p, 16 + (u64)idx * 8, 8))
+				{
+					p->failed = 1;
+					break;
+				}
+				u64 hash = (u64)prc_rd32 (p, 16 + (u64)idx * 8)
+					| (u64)prc_rd32 (p, 16 + (u64)idx * 8 + 4) << 32;
+				prc_open_tag (p, "hash40", key_attr, depth, &sc);
+				prc_puts (p, ">");
+				{
+					char tmp[24];
+					snprintf (tmp, sizeof (tmp), "0x%010llx",
+						(unsigned long long)(hash & 0xffffffffffull));
+					prc_puts (p, tmp);
+				}
+				prc_puts (p, "</hash40>\n");
+			}
+			break;
+
+		case 10: // string: offset into the reference section
+			if (!prc_ok (p, pos, 5))
+			{
+				p->failed = 1;
+				break;
+			}
+			{
+				const u64 soff = p->ref_start + prc_rd32 (p, pos + 1);
+				if (soff >= p->size)
+				{
+					p->failed = 1;
+					break;
+				}
+				u64 len = 0;
+				while (soff + len < p->size && p->data[soff + len])
+					len++;
+				if (soff + len >= p->size)
+				{
+					p->failed = 1;
+					break;
+				}
+				prc_open_tag (p, "string", key_attr, depth, &sc);
+				prc_puts (p, ">");
+				prc_xml_text (p, (const char *)p->data + soff, (size_t)len, 0);
+				prc_puts (p, "</string>\n");
+			}
+			break;
+
+		case 11:
+			prc_decode_list (p, pos, key_attr, depth);
+			break;
+
+		case 12:
+			prc_decode_struct (p, pos, key_attr, depth);
+			break;
+
+		default:
 			p->failed = 1;
 			break;
-		}
-		{
-			const u64 soff = p->ref_start + prc_rd32 (p, pos + 1);
-			if (soff >= p->size)
-			{
-				p->failed = 1;
-				break;
-			}
-			u64 len = 0;
-			while (soff + len < p->size && p->data[soff + len])
-				len++;
-			if (soff + len >= p->size)
-			{
-				p->failed = 1;
-				break;
-			}
-			prc_open_tag (p, "string", key_attr, depth, &sc);
-			prc_puts (p, ">");
-			prc_xml_text (p, (const char *)p->data + soff, (size_t)len, 0);
-			prc_puts (p, "</string>\n");
-		}
-		break;
-
-	case 11:
-		prc_decode_list (p, pos, key_attr, depth);
-		break;
-
-	case 12:
-		prc_decode_struct (p, pos, key_attr, depth);
-		break;
-
-	default:
-		p->failed = 1;
-		break;
 	}
 	p->depth--;
 }
@@ -541,7 +552,8 @@ enumError DecodePRC_XML (char **dest_xml, const u8 *data, size_t size)
 		snprintf (buf, need,
 			"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
 			"<struct>\n"
-			"  <!-- Smash Parameter Binary (PRC) variant \"%.4s\": recognised, no structural decoder -->\n"
+			"  <!-- Smash Parameter Binary (PRC) variant \"%.4s\": recognised, no structural "
+			"decoder -->\n"
 			"</struct>\n",
 			(const char *)data);
 		*dest_xml = buf;
@@ -552,10 +564,10 @@ enumError DecodePRC_XML (char **dest_xml, const u8 *data, size_t size)
 	memset (&prc, 0, sizeof (prc));
 	prc.data = data;
 	prc.size = size;
-	const u32 hashsize = (u32)data[8] | (u32)data[9] << 8
-		| (u32)data[10] << 16 | (u32)data[11] << 24;
-	const u32 refsize = (u32)data[12] | (u32)data[13] << 8
-		| (u32)data[14] << 16 | (u32)data[15] << 24;
+	const u32 hashsize
+		= (u32)data[8] | (u32)data[9] << 8 | (u32)data[10] << 16 | (u32)data[11] << 24;
+	const u32 refsize
+		= (u32)data[12] | (u32)data[13] << 8 | (u32)data[14] << 16 | (u32)data[15] << 24;
 	if (hashsize & 7)
 		return ERR_INVALID_DATA;
 	prc.hashnum = hashsize / 8;

@@ -223,8 +223,8 @@ typedef struct cg_attr_t
 // is reversed: per-vertex local palette indices resolve to global bone ids,
 // and each unique (bones, weights) combination becomes one
 // node_influence_t entry indexed by mesh_t::position_node).
-static int cg_influence_add (node_influence_t **inf, size_t *n, size_t *cap,
-	const int *bones, const float *weights, int count)
+static int cg_influence_add (node_influence_t **inf, size_t *n, size_t *cap, const int *bones,
+	const float *weights, int count)
 {
 	if (!inf || !n || !cap || !bones || !weights || count < 1 || count > 4)
 		return -1;
@@ -754,8 +754,7 @@ model_t *ParseBCRES (const uint8_t *data, size_t size)
 									wel = 4;
 								for (int j = 0; j < el && combo_n < 4; j++)
 								{
-									const int local
-										= (int)(cg_read (g, bpos, ba->fmt, j) * bsc);
+									const int local = (int)(cg_read (g, bpos, ba->fmt, j) * bsc);
 									int global = -1;
 									if (local >= 0 && (unsigned)local < n_sub_bones)
 										global = (int)sub_bones[(unsigned)local];
@@ -766,9 +765,7 @@ model_t *ParseBCRES (const uint8_t *data, size_t size)
 									float wgt = 0.0f;
 									if (wa && j < wel)
 									{
-										const float wsc = wa->scale != 0.0f
-											? wa->scale
-											: 1.0f;
+										const float wsc = wa->scale != 0.0f ? wa->scale : 1.0f;
 										wgt = cg_read (g, vo + (size_t)wa->offset, wa->fmt, j)
 											* wsc;
 									}
@@ -929,7 +926,8 @@ model_t *ParseBCRES (const uint8_t *data, size_t size)
 						snprintf (out->joints[bi].name, sizeof (out->joints[bi].name), "%s",
 							(const char *)(data + bname_ptr));
 					else
-						snprintf (out->joints[bi].name, sizeof (out->joints[bi].name), "bone_%u", bi);
+						snprintf (
+							out->joints[bi].name, sizeof (out->joints[bi].name), "bone_%u", bi);
 
 					const size_t bp = cg_ptr (g, bnode + 12);
 					if (bp && cg_ok (g, bp, 0xd0))
@@ -1118,8 +1116,8 @@ enumError DecodeCGFXTexture (u8 **dest, uint *width, uint *height, const cgfx_t 
 }
 
 // PICA200 texture format ids (SPICA PICA/Commands/PICATextureFormat).
-static const char *pica_format_names[14] = { "RGBA8", "RGB8", "RGBA5551", "RGB565",
-	"RGBA4", "LA8", "HiLo8", "L8", "A8", "LA4", "L4", "A4", "ETC1", "ETC1A4" };
+static const char *pica_format_names[14] = { "RGBA8", "RGB8", "RGBA5551", "RGB565", "RGBA4", "LA8",
+	"HiLo8", "L8", "A8", "LA4", "L4", "A4", "ETC1", "ETC1A4" };
 
 const char *GetPicaTextureFormatName (uint format)
 {
@@ -1252,8 +1250,8 @@ enumError ExportBCRESTextures (const cgfx_t *cgfx, const char *dest_path_or_dir)
 			const int jl = snprintf (json, sizeof (json),
 				"{\n  \"name\": \"%s\",\n  \"format\": %u,\n  \"format_name\": \"%s\",\n"
 				"  \"width\": %u,\n  \"height\": %u,\n  \"data_size\": %u\n}\n",
-				esc, tm.format, GetPicaTextureFormatName (tm.format),
-				tm.width, tm.height, tm.data_size);
+				esc, tm.format, GetPicaTextureFormatName (tm.format), tm.width, tm.height,
+				tm.data_size);
 			if (jl > 0 && (size_t)jl < sizeof (json))
 			{
 				char json_path[PATH_MAX];
@@ -1545,9 +1543,8 @@ static void bc_joint_trs (float out[12], const joint_t *joint)
 	const float cx = (float)cos (dx), sx = (float)sin (dx);
 	const float cy = (float)cos (dy), sy = (float)sin (dy);
 	const float cz = (float)cos (dz), sz = (float)sin (dz);
-	const float rot[12] = { cz * cy, cz * sy * sx - sz * cx, cz * sy * cx + sz * sx, 0.0f,
-		sz * cy, sz * sy * sx + cz * cx, sz * sy * cx - cz * sx, 0.0f, -sy, cy * sx, cy * cx,
-		0.0f };
+	const float rot[12] = { cz * cy, cz * sy * sx - sz * cx, cz * sy * cx + sz * sx, 0.0f, sz * cy,
+		sz * sy * sx + cz * cx, sz * sy * cx - cz * sx, 0.0f, -sy, cy * sx, cy * cx, 0.0f };
 	float sx_val = joint->scale.x != 0.0f ? joint->scale.x : 1.0f;
 	float sy_val = joint->scale.y != 0.0f ? joint->scale.y : 1.0f;
 	float sz_val = joint->scale.z != 0.0f ? joint->scale.z : 1.0f;
@@ -1606,8 +1603,7 @@ static int bc_invert43 (float out[12], const float m[12])
 // index/weight when the mesh is skinned); every stream is float so the
 // decoder above reads values back exactly. Fills names/elements (up to 9
 // entries) and returns the attribute count.
-static unsigned bc_mesh_attr_list (const mesh_t *mesh, unsigned maxinf,
-	uint32_t *names, int *els)
+static unsigned bc_mesh_attr_list (const mesh_t *mesh, unsigned maxinf, uint32_t *names, int *els)
 {
 	unsigned na = 0;
 	names[na] = 0;
@@ -1890,12 +1886,14 @@ int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 	{
 		if (model->materials && mi < model->num_materials)
 		{
-			const char *mat_name = model->materials[mi].name[0] ? model->materials[mi].name : "material";
+			const char *mat_name
+				= model->materials[mi].name[0] ? model->materials[mi].name : "material";
 			mat_name_str[mi] = bc_strpool_add (&strpool, mat_name);
 			for (int t = 0; t < model->materials[mi].num_textures && t < 8; t++)
 			{
 				if (model->materials[mi].textures[t][0])
-					tex_name_str[mi][t] = bc_strpool_add (&strpool, model->materials[mi].textures[t]);
+					tex_name_str[mi][t]
+						= bc_strpool_add (&strpool, model->materials[mi].textures[t]);
 			}
 		}
 		else
@@ -2049,7 +2047,8 @@ int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 	{
 		mtob_off[mi] = bb.size;
 		int num_tex = (model->materials && mi < model->num_materials)
-			? model->materials[mi].num_textures : 0;
+			? model->materials[mi].num_textures
+			: 0;
 		if (num_tex > 8)
 			num_tex = 8;
 		size_t mtob_size = 0x80 + num_tex * 0x30;
@@ -2259,12 +2258,18 @@ int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 			float x = mesh->positions[vi].x;
 			float y = mesh->positions[vi].y;
 			float z = mesh->positions[vi].z;
-			if (x < min_x) min_x = x;
-			if (x > max_x) max_x = x;
-			if (y < min_y) min_y = y;
-			if (y > max_y) max_y = y;
-			if (z < min_z) min_z = z;
-			if (z > max_z) max_z = z;
+			if (x < min_x)
+				min_x = x;
+			if (x > max_x)
+				max_x = x;
+			if (y < min_y)
+				min_y = y;
+			if (y > max_y)
+				max_y = y;
+			if (z < min_z)
+				min_z = z;
+			if (z > max_z)
+				max_z = z;
 		}
 		if (min_x > max_x)
 		{
@@ -2476,7 +2481,8 @@ int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 		size_t mo = mtob_off[mi];
 		bc_rel_ptr (&bb, mo + 0x0C, strtab_off + mat_name_str[mi]);
 		int num_tex = (model->materials && mi < model->num_materials)
-			? model->materials[mi].num_textures : 0;
+			? model->materials[mi].num_textures
+			: 0;
 		if (num_tex > 8)
 			num_tex = 8;
 		for (int t = 0; t < num_tex; t++)
@@ -2586,22 +2592,28 @@ int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 			int u2i = mesh->vertices ? mesh->vertices[v].extra_texcoord_idx[1] : -1;
 
 			vec3_t p = (pi >= 0 && (size_t)pi < mesh->num_positions && mesh->positions)
-				? mesh->positions[pi] : (vec3_t){ 0, 0, 0 };
+				? mesh->positions[pi]
+				: (vec3_t) { 0, 0, 0 };
 			vec3_t n = (ni >= 0 && (size_t)ni < mesh->num_normals && mesh->normals)
-				? mesh->normals[ni] : (vec3_t){ 0, 1.0f, 0 };
+				? mesh->normals[ni]
+				: (vec3_t) { 0, 1.0f, 0 };
 			vec2_t uv = (ti >= 0 && (size_t)ti < mesh->num_texcoords && mesh->texcoords)
-				? mesh->texcoords[ti] : (vec2_t){ 0, 0 };
+				? mesh->texcoords[ti]
+				: (vec2_t) { 0, 0 };
 			vec3_t tg = (gi >= 0 && (size_t)gi < mesh->num_tangents && mesh->tangents)
-				? mesh->tangents[gi] : (vec3_t){ 0, 1.0f, 0 };
+				? mesh->tangents[gi]
+				: (vec3_t) { 0, 1.0f, 0 };
 			color4_t col = { 1.0f, 1.0f, 1.0f, 1.0f };
 			if (ci >= 0 && (size_t)ci < mesh->num_colors[0] && mesh->colors[0])
 				col = mesh->colors[0][ci];
 			vec2_t uv1 = (u1i >= 0 && (size_t)u1i < mesh->num_extra_texcoords[0]
-					&& mesh->extra_texcoords[0])
-				? mesh->extra_texcoords[0][u1i] : (vec2_t){ 0, 0 };
+							 && mesh->extra_texcoords[0])
+				? mesh->extra_texcoords[0][u1i]
+				: (vec2_t) { 0, 0 };
 			vec2_t uv2 = (u2i >= 0 && (size_t)u2i < mesh->num_extra_texcoords[1]
-					&& mesh->extra_texcoords[1])
-				? mesh->extra_texcoords[1][u2i] : (vec2_t){ 0, 0 };
+							 && mesh->extra_texcoords[1])
+				? mesh->extra_texcoords[1][u2i]
+				: (vec2_t) { 0, 0 };
 
 			// Skinning for this vertex: influence list through the mesh's
 			// global-bone palette, stored as local palette indices.
@@ -2611,11 +2623,11 @@ int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 			if (maxinf > 0 && mesh->position_node && model->node_influences)
 			{
 				const int pni = (pi >= 0 && (size_t)pi < mesh->num_positions)
-					? mesh->position_node[(size_t)pi] : -1;
+					? mesh->position_node[(size_t)pi]
+					: -1;
 				if (pni >= 0 && (size_t)pni < model->num_node_influences)
 				{
-					const node_influence_t *e
-						= &model->node_influences[(size_t)pni];
+					const node_influence_t *e = &model->node_influences[(size_t)pni];
 					for (size_t w = 0; w < e->num_weights && nw < maxinf && nw < 4; w++)
 					{
 						int gb = e->weights[w].bone_idx;
@@ -2720,13 +2732,20 @@ int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 	FREE (shape_name_str);
 	FREE (mat_name_str);
 	FREE (tex_name_str);
-	if (bone_name_str) FREE (bone_name_str);
-	if (first_child) FREE (first_child);
-	if (prev_sib) FREE (prev_sib);
-	if (next_sib) FREE (next_sib);
-	if (bone_local) FREE (bone_local);
-	if (bone_world) FREE (bone_world);
-	if (bone_inv) FREE (bone_inv);
+	if (bone_name_str)
+		FREE (bone_name_str);
+	if (first_child)
+		FREE (first_child);
+	if (prev_sib)
+		FREE (prev_sib);
+	if (next_sib)
+		FREE (next_sib);
+	if (bone_local)
+		FREE (bone_local);
+	if (bone_world)
+		FREE (bone_world);
+	if (bone_inv)
+		FREE (bone_inv);
 	FREE (mtob_off);
 	FREE (mesh_off);
 	FREE (shape_off);
@@ -2748,7 +2767,8 @@ int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 	FREE (mesh_maxinf);
 	FREE (mesh_skind);
 	FREE (mesh_use_u8);
-	if (bone_off) FREE (bone_off);
+	if (bone_off)
+		FREE (bone_off);
 	bc_strpool_free (&strpool);
 
 	*out_data = bb.data;

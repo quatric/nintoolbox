@@ -57,7 +57,8 @@ enumError DecodeSmashSQB_Text (FILE *out, const u8 *data, size_t size)
 		return ERR_INVALID_DATA;
 
 	const u32 data_off = rd_le32 (data + 12);
-	fprintf (out, "#SQB\n# Super Smash Bros. 4 sound sequences\n\n"
+	fprintf (out,
+		"#SQB\n# Super Smash Bros. 4 sound sequences\n\n"
 		"unk1 = %d\nunk2 = %d\nsequences = %u\n",
 		(s16)rd_le16 (data + 4), (s16)rd_le16 (data + 6), n);
 
@@ -71,18 +72,16 @@ enumError DecodeSmashSQB_Text (FILE *out, const u8 *data, size_t size)
 		}
 		const u8 *sq = data + 16 + data_off + (size_t)off;
 		const u32 nev = rd_le16 (sq + 2);
-		fprintf (out, "\n[sequence %u]\nunk = %d %d %d\nevents = %u\n"
-			"# idx | hash | type | frame | unk1..unk4\n", i,
-			(s16)rd_le16 (sq), (s16)rd_le16 (sq + 4),
-			(s16)rd_le16 (sq + 6), nev);
+		fprintf (out,
+			"\n[sequence %u]\nunk = %d %d %d\nevents = %u\n"
+			"# idx | hash | type | frame | unk1..unk4\n",
+			i, (s16)rd_le16 (sq), (s16)rd_le16 (sq + 4), (s16)rd_le16 (sq + 6), nev);
 		for (u32 e = 0; e < nev; e++)
 		{
 			const u8 *ev = sq + 8 + (size_t)e * SMASHTSQB_EV_SIZE;
-			fprintf (out, "%u | 0x%08x | %d | %d | %d %d %d %d\n", e,
-				rd_le32 (ev),
-				(s16)rd_le16 (ev + 4), (s16)rd_le16 (ev + 6),
-				(s16)rd_le16 (ev + 8), (s16)rd_le16 (ev + 10),
-				(s16)rd_le16 (ev + 12), (s16)rd_le16 (ev + 14));
+			fprintf (out, "%u | 0x%08x | %d | %d | %d %d %d %d\n", e, rd_le32 (ev),
+				(s16)rd_le16 (ev + 4), (s16)rd_le16 (ev + 6), (s16)rd_le16 (ev + 8),
+				(s16)rd_le16 (ev + 10), (s16)rd_le16 (ev + 12), (s16)rd_le16 (ev + 14));
 		}
 	}
 	return ERR_OK;

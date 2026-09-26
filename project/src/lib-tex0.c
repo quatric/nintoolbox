@@ -173,4 +173,3 @@ abort:
 	ResetMMI (&mmi);
 	return err;
 }
-

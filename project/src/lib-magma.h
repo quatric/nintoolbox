@@ -134,11 +134,9 @@ int IsMagmaBigfile (const u8 *data, size_t size, size_t file_size);
 // (caller is responsible for locating it, e.g. by trying the ".big"/".bf"
 // sibling of the ".fat" basename); 'dest_dir' is the directory sub-files
 // are written under, recreating each entry's own relative path.
-enumError ExtractMagmaFat
-(
-	ccp		fat_path,	// ".fat" index file to read
-	ccp		data_path,	// paired flat data file to extract from
-	ccp		dest_dir	// destination directory (created as needed)
+enumError ExtractMagmaFat (ccp fat_path, // ".fat" index file to read
+	ccp data_path, // paired flat data file to extract from
+	ccp dest_dir // destination directory (created as needed)
 );
 
 #endif // LIB_MAGMA_H

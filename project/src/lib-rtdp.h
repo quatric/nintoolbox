@@ -21,7 +21,7 @@ typedef struct rtdp_entry_t
 {
 	char name[33];
 	u32 size;
-	u32 offset;		// absolute offset into the archive buffer
+	u32 offset; // absolute offset into the archive buffer
 } rtdp_entry_t;
 
 typedef struct rtdp_t
@@ -51,7 +51,7 @@ typedef struct wtmd_header_t
 	u32 header_size;
 	u16 width, height;
 	u8 format_code;
-	const u8 *payload;	// data past the 32-byte header
+	const u8 *payload; // data past the 32-byte header
 	size_t payload_size;
 } wtmd_header_t;
 

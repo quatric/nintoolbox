@@ -129,4 +129,3 @@ enumError SaveCTXB (Image_t *img, FILE *fo, ccp path, bool overwrite)
 }
 
 //-----------------------------------------------------------------------------
-

@@ -47,22 +47,16 @@ bool IsMPMESS (const u8 *data, size_t size)
 
 static ccp get_mp4_name (uint idx)
 {
-	static const char *names[] = {
-		"IndexTable", "CharacterList", "HiddenBlock", "BattleSpace",
-		"BowserSpace", "WrapSpace", "ItemSpace", "Lottery",
-		"BooHouse", "ItemList", "DiceRollMenu", "Toad_MerryGoGame",
-		"Toad_SpaceRocketGame", "Toad_Star", "Toad_RollerCoaster",
-		"Toad_HostBoardDialog", "Toad_ItemShop", "System", "ModeSelect",
-		"ItemInfo", "Goomba_Roulette", "LuckMiniGame", "BoardStart",
-		"Map3Event", "MiniGameNames", "MG_446", "DebugMessage",
-		"PartyMode", "Setup", "Miracle", "MiniGameKoopa", "StoryMode",
-		"BowserStory", "Map4Event", "MiniGameInst", "E3", "SAF",
-		"MiniGameInst_Sys", "BoardResults", "BoardResults2", "Map5Event",
-		"MiniGameMode", "MG_445", "MG_447", "MG_448", "MG_449",
-		"MG_450", "Tutorial", "OptionRoom", "Map6Event", "Charley",
-		"PresentRoom", "ExtraRoom", "StaffPost", "StaffName", "OpeningDemo",
-		"MiniGameExInst"
-	};
+	static const char *names[] = { "IndexTable", "CharacterList", "HiddenBlock", "BattleSpace",
+		"BowserSpace", "WrapSpace", "ItemSpace", "Lottery", "BooHouse", "ItemList", "DiceRollMenu",
+		"Toad_MerryGoGame", "Toad_SpaceRocketGame", "Toad_Star", "Toad_RollerCoaster",
+		"Toad_HostBoardDialog", "Toad_ItemShop", "System", "ModeSelect", "ItemInfo",
+		"Goomba_Roulette", "LuckMiniGame", "BoardStart", "Map3Event", "MiniGameNames", "MG_446",
+		"DebugMessage", "PartyMode", "Setup", "Miracle", "MiniGameKoopa", "StoryMode",
+		"BowserStory", "Map4Event", "MiniGameInst", "E3", "SAF", "MiniGameInst_Sys", "BoardResults",
+		"BoardResults2", "Map5Event", "MiniGameMode", "MG_445", "MG_447", "MG_448", "MG_449",
+		"MG_450", "Tutorial", "OptionRoom", "Map6Event", "Charley", "PresentRoom", "ExtraRoom",
+		"StaffPost", "StaffName", "OpeningDemo", "MiniGameExInst" };
 	if (idx < sizeof (names) / sizeof (names[0]))
 		return names[idx];
 	return NULL;
@@ -72,26 +66,46 @@ static const char *get_dialog_speaker (u8 code)
 {
 	switch (code)
 	{
-		case 0x01: return "Toad_Normal";
-		case 0x02: return "Toad_Excite";
-		case 0x03: return "Toad_Disappoint";
-		case 0x04: return "Goomba_Normal";
-		case 0x05: return "Goomba_Excite";
-		case 0x06: return "Goomba_Disappoint";
-		case 0x07: return "Shyguy_Normal";
-		case 0x08: return "Shyguy_Excite";
-		case 0x09: return "Shyguy_Disappoint";
-		case 0x0A: return "Boo_Normal";
-		case 0x0B: return "Boo_Excite";
-		case 0x0C: return "Boo_Disappoint";
-		case 0x0D: return "Koopa_Normal";
-		case 0x0E: return "Koopa_Excite";
-		case 0x0F: return "Koopa_Disappoint";
-		case 0x10: return "Bowser";
-		case 0x11: return "KoopaKid";
-		case 0x13: return "Thwomp";
-		case 0x14: return "Whomp";
-		default: return "Unknown";
+		case 0x01:
+			return "Toad_Normal";
+		case 0x02:
+			return "Toad_Excite";
+		case 0x03:
+			return "Toad_Disappoint";
+		case 0x04:
+			return "Goomba_Normal";
+		case 0x05:
+			return "Goomba_Excite";
+		case 0x06:
+			return "Goomba_Disappoint";
+		case 0x07:
+			return "Shyguy_Normal";
+		case 0x08:
+			return "Shyguy_Excite";
+		case 0x09:
+			return "Shyguy_Disappoint";
+		case 0x0A:
+			return "Boo_Normal";
+		case 0x0B:
+			return "Boo_Excite";
+		case 0x0C:
+			return "Boo_Disappoint";
+		case 0x0D:
+			return "Koopa_Normal";
+		case 0x0E:
+			return "Koopa_Excite";
+		case 0x0F:
+			return "Koopa_Disappoint";
+		case 0x10:
+			return "Bowser";
+		case 0x11:
+			return "KoopaKid";
+		case 0x13:
+			return "Thwomp";
+		case 0x14:
+			return "Whomp";
+		default:
+			return "Unknown";
 	}
 }
 
@@ -99,16 +113,26 @@ static const char *get_icon_name (u8 code)
 {
 	switch (code)
 	{
-		case 0x01: return "ControlStick";
-		case 0x03: return "A";
-		case 0x04: return "B";
-		case 0x05: return "X";
-		case 0x06: return "Y";
-		case 0x07: return "R";
-		case 0x09: return "L";
-		case 0x0C: return "Z";
-		case 0x13: return "Coin";
-		default: return "Icon";
+		case 0x01:
+			return "ControlStick";
+		case 0x03:
+			return "A";
+		case 0x04:
+			return "B";
+		case 0x05:
+			return "X";
+		case 0x06:
+			return "Y";
+		case 0x07:
+			return "R";
+		case 0x09:
+			return "L";
+		case 0x0C:
+			return "Z";
+		case 0x13:
+			return "Coin";
+		default:
+			return "Icon";
 	}
 }
 
@@ -116,13 +140,20 @@ static const char *get_color_name (u8 code)
 {
 	switch (code)
 	{
-		case 0x01: return "BLACK";
-		case 0x02: return "BLUE";
-		case 0x03: return "PINK";
-		case 0x04: return "RED";
-		case 0x05: return "GREEN";
-		case 0x07: return "YELLOW";
-		default: return "DEFAULT";
+		case 0x01:
+			return "BLACK";
+		case 0x02:
+			return "BLUE";
+		case 0x03:
+			return "PINK";
+		case 0x04:
+			return "RED";
+		case 0x05:
+			return "GREEN";
+		case 0x07:
+			return "YELLOW";
+		default:
+			return "DEFAULT";
 	}
 }
 
@@ -138,27 +169,69 @@ static void decode_mp_string (char *dest, size_t dest_size, const u8 *src, size_
 
 		switch (val)
 		{
-			case 0x0A: dest[di++] = '\n'; break;
-			case 0x10: dest[di++] = ' '; break;
-			case 0x20: dest[di++] = '\t'; break;
-			case 0x1D: dest[di++] = '*'; break;
-			case 0x3D: dest[di++] = '-'; break;
-			case 0x3F: dest[di++] = '/'; break;
-			case 0x5B: dest[di++] = '`'; break;
-			case 0x5C: dest[di++] = '\''; break;
-			case 0x5D: dest[di++] = '('; break;
-			case 0x5E: dest[di++] = ')'; break;
-			case 0x7B: dest[di++] = ':'; break;
-			case 0x7E: dest[di++] = '&'; break;
-			case 0x82: dest[di++] = ','; break;
-			case 0x83: dest[di++] = '@'; break;
-			case 0x84: dest[di++] = '_'; break;
-			case 0x85: dest[di++] = '.'; break;
-			case 0xC0: dest[di++] = '"'; break;
-			case 0xC1: dest[di++] = '"'; break;
-			case 0xC2: dest[di++] = '!'; break;
-			case 0xC3: dest[di++] = '?'; break;
-			case 0xFF: dest[di++] = '\r'; break;
+			case 0x0A:
+				dest[di++] = '\n';
+				break;
+			case 0x10:
+				dest[di++] = ' ';
+				break;
+			case 0x20:
+				dest[di++] = '\t';
+				break;
+			case 0x1D:
+				dest[di++] = '*';
+				break;
+			case 0x3D:
+				dest[di++] = '-';
+				break;
+			case 0x3F:
+				dest[di++] = '/';
+				break;
+			case 0x5B:
+				dest[di++] = '`';
+				break;
+			case 0x5C:
+				dest[di++] = '\'';
+				break;
+			case 0x5D:
+				dest[di++] = '(';
+				break;
+			case 0x5E:
+				dest[di++] = ')';
+				break;
+			case 0x7B:
+				dest[di++] = ':';
+				break;
+			case 0x7E:
+				dest[di++] = '&';
+				break;
+			case 0x82:
+				dest[di++] = ',';
+				break;
+			case 0x83:
+				dest[di++] = '@';
+				break;
+			case 0x84:
+				dest[di++] = '_';
+				break;
+			case 0x85:
+				dest[di++] = '.';
+				break;
+			case 0xC0:
+				dest[di++] = '"';
+				break;
+			case 0xC1:
+				dest[di++] = '"';
+				break;
+			case 0xC2:
+				dest[di++] = '!';
+				break;
+			case 0xC3:
+				dest[di++] = '?';
+				break;
+			case 0xFF:
+				dest[di++] = '\r';
+				break;
 			case 0x0C:
 			{
 				int count = 1;
@@ -179,7 +252,8 @@ static void decode_mp_string (char *dest, size_t dest_size, const u8 *src, size_
 			case 0x1C:
 				if (si + 1 < src_len)
 				{
-					di += snprintf (dest + di, dest_size - di, "[Dialog:%s]", get_dialog_speaker (src[si + 1]));
+					di += snprintf (
+						dest + di, dest_size - di, "[Dialog:%s]", get_dialog_speaker (src[si + 1]));
 					si++;
 				}
 				break;
@@ -189,7 +263,8 @@ static void decode_mp_string (char *dest, size_t dest_size, const u8 *src, size_
 					if (src[si + 1] == 0x08)
 						di += snprintf (dest + di, dest_size - di, "]");
 					else
-						di += snprintf (dest + di, dest_size - di, "[COLOR:(%s)", get_color_name (src[si + 1]));
+						di += snprintf (
+							dest + di, dest_size - di, "[COLOR:(%s)", get_color_name (src[si + 1]));
 					si++;
 				}
 				break;
@@ -203,7 +278,8 @@ static void decode_mp_string (char *dest, size_t dest_size, const u8 *src, size_
 			case 0x0E:
 				if (si + 1 < src_len)
 				{
-					di += snprintf (dest + di, dest_size - di, "[ICON:%s]", get_icon_name (src[si + 1]));
+					di += snprintf (
+						dest + di, dest_size - di, "[ICON:%s]", get_icon_name (src[si + 1]));
 					si++;
 				}
 				break;
@@ -231,12 +307,14 @@ enumError DecodeMPMESS_Text (FILE *out, const u8 *data, size_t size)
 		return ERR_INVALID_DATA;
 	const u32 start_pos = (version > 4) ? 4 : 0;
 
-	fprintf (out, "# Mario Party Message Archive (Version %u, %u subfiles)\n\n", version, num_files);
+	fprintf (
+		out, "# Mario Party Message Archive (Version %u, %u subfiles)\n\n", version, num_files);
 
 	for (uint i = 0; i < num_files; i++)
 	{
 		const u32 off = be32 (data + 4 + i * 4) + start_pos;
-		u32 next_off = (i == num_files - 1) ? (u32)size : (be32 (data + 4 + (i + 1) * 4) + start_pos);
+		u32 next_off
+			= (i == num_files - 1) ? (u32)size : (be32 (data + 4 + (i + 1) * 4) + start_pos);
 		if (off >= size || next_off > size || off >= next_off)
 			continue;
 
@@ -321,7 +399,8 @@ enumError ScanMPMESS (nintendo_sarc_entry_t **entries, uint *n_entries, const u8
 	for (uint i = 0; i < num_files; i++)
 	{
 		const u32 off = be32 (data + 4 + i * 4) + start_pos;
-		u32 next_off = (i == num_files - 1) ? (u32)size : (be32 (data + 4 + (i + 1) * 4) + start_pos);
+		u32 next_off
+			= (i == num_files - 1) ? (u32)size : (be32 (data + 4 + (i + 1) * 4) + start_pos);
 		if (off >= size || next_off > size || off >= next_off)
 			continue;
 
@@ -362,32 +441,57 @@ static int encode_tag (u8 *dst, size_t cap, const char *text, uint *consumed);
 
 static int mp_code_of (const char *name, size_t len, char kind)
 {
-	static const struct { const char *name; u8 code; char kind; } tab[] = {
-		{ "Toad_Normal", 0x01, 'D' }, { "Toad_Excite", 0x02, 'D' },
-		{ "Toad_Disappoint", 0x03, 'D' }, { "Goomba_Normal", 0x04, 'D' },
-		{ "Goomba_Excite", 0x05, 'D' }, { "Goomba_Disappoint", 0x06, 'D' },
-		{ "Shyguy_Normal", 0x07, 'D' }, { "Shyguy_Excite", 0x08, 'D' },
-		{ "Shyguy_Disappoint", 0x09, 'D' }, { "Boo_Normal", 0x0A, 'D' },
-		{ "Boo_Excite", 0x0B, 'D' }, { "Boo_Disappoint", 0x0C, 'D' },
-		{ "Koopa_Normal", 0x0D, 'D' }, { "Koopa_Excite", 0x0E, 'D' },
-		{ "Koopa_Disappoint", 0x0F, 'D' }, { "Bowser", 0x10, 'D' },
-		{ "KoopaKid", 0x11, 'D' }, { "Thwomp", 0x13, 'D' },
+	static const struct
+	{
+		const char *name;
+		u8 code;
+		char kind;
+	} tab[] = {
+		{ "Toad_Normal", 0x01, 'D' },
+		{ "Toad_Excite", 0x02, 'D' },
+		{ "Toad_Disappoint", 0x03, 'D' },
+		{ "Goomba_Normal", 0x04, 'D' },
+		{ "Goomba_Excite", 0x05, 'D' },
+		{ "Goomba_Disappoint", 0x06, 'D' },
+		{ "Shyguy_Normal", 0x07, 'D' },
+		{ "Shyguy_Excite", 0x08, 'D' },
+		{ "Shyguy_Disappoint", 0x09, 'D' },
+		{ "Boo_Normal", 0x0A, 'D' },
+		{ "Boo_Excite", 0x0B, 'D' },
+		{ "Boo_Disappoint", 0x0C, 'D' },
+		{ "Koopa_Normal", 0x0D, 'D' },
+		{ "Koopa_Excite", 0x0E, 'D' },
+		{ "Koopa_Disappoint", 0x0F, 'D' },
+		{ "Bowser", 0x10, 'D' },
+		{ "KoopaKid", 0x11, 'D' },
+		{ "Thwomp", 0x13, 'D' },
 		{ "Whomp", 0x14, 'D' },
-		{ "ControlStick", 0x01, 'I' }, { "A", 0x03, 'I' },
-		{ "B", 0x04, 'I' }, { "X", 0x05, 'I' }, { "Y", 0x06, 'I' },
-		{ "R", 0x07, 'I' }, { "L", 0x09, 'I' }, { "Z", 0x0C, 'I' },
+		{ "ControlStick", 0x01, 'I' },
+		{ "A", 0x03, 'I' },
+		{ "B", 0x04, 'I' },
+		{ "X", 0x05, 'I' },
+		{ "Y", 0x06, 'I' },
+		{ "R", 0x07, 'I' },
+		{ "L", 0x09, 'I' },
+		{ "Z", 0x0C, 'I' },
 		{ "Coin", 0x13, 'I' },
-		{ "BLACK", 0x01, 'C' }, { "BLUE", 0x02, 'C' },
-		{ "PINK", 0x03, 'C' }, { "RED", 0x04, 'C' },
-		{ "GREEN", 0x05, 'C' }, { "YELLOW", 0x07, 'C' },
-		{ "Option1", 0x01, 'R' }, { "Option2", 0x02, 'R' },
-		{ "Option3", 0x03, 'R' }, { "Option4", 0x04, 'R' },
-		{ "Option5", 0x05, 'R' }, { "Option6", 0x06, 'R' },
-		{ "Option7", 0x07, 'R' }, { "Option8", 0x08, 'R' },
+		{ "BLACK", 0x01, 'C' },
+		{ "BLUE", 0x02, 'C' },
+		{ "PINK", 0x03, 'C' },
+		{ "RED", 0x04, 'C' },
+		{ "GREEN", 0x05, 'C' },
+		{ "YELLOW", 0x07, 'C' },
+		{ "Option1", 0x01, 'R' },
+		{ "Option2", 0x02, 'R' },
+		{ "Option3", 0x03, 'R' },
+		{ "Option4", 0x04, 'R' },
+		{ "Option5", 0x05, 'R' },
+		{ "Option6", 0x06, 'R' },
+		{ "Option7", 0x07, 'R' },
+		{ "Option8", 0x08, 'R' },
 	};
 	for (size_t i = 0; i < sizeof (tab) / sizeof (*tab); i++)
-		if (tab[i].kind == kind && strlen (tab[i].name) == len
-			&& !memcmp (tab[i].name, name, len))
+		if (tab[i].kind == kind && strlen (tab[i].name) == len && !memcmp (tab[i].name, name, len))
 			return tab[i].code;
 	return -1;
 }
@@ -412,7 +516,14 @@ static int encode_tag (u8 *dst, size_t cap, const char *text, uint *consumed)
 		*consumed = (uint)(end - text) + 1;
 		return 2;
 	}
-	struct { const char *prefix; size_t plen; u8 lead; char kind; bool close; } fmts[] = {
+	struct
+	{
+		const char *prefix;
+		size_t plen;
+		u8 lead;
+		char kind;
+		bool close;
+	} fmts[] = {
 		{ "[ICON:", 6, 0x0E, 'I', true },
 		{ "[INSERT:", 8, 0x1F, 'R', true },
 		{ "[Dialog:", 8, 0x1C, 'D', true },
@@ -424,8 +535,8 @@ static int encode_tag (u8 *dst, size_t cap, const char *text, uint *consumed)
 		const char *end = strchr (text + fmts[f].plen, ']');
 		if (!end)
 			return -1;
-		const int code = mp_code_of (text + fmts[f].plen,
-			(size_t)(end - (text + fmts[f].plen)), fmts[f].kind);
+		const int code
+			= mp_code_of (text + fmts[f].plen, (size_t)(end - (text + fmts[f].plen)), fmts[f].kind);
 		if (code < 0)
 			return -1;
 		dst[0] = fmts[f].lead;
@@ -462,32 +573,52 @@ static int encode_char_byte (u8 b, bool *quote_open)
 {
 	switch (b)
 	{
-		case '\n': return 0x0A;
-		case ' ': return 0x10;
-		case '\t': return 0x20;
-		case '*': return 0x1D;
-		case '-': return 0x3D;
-		case '/': return 0x3F;
-		case '`': return 0x5B;
-		case '\'': return 0x5C;
-		case '(': return 0x5D;
-		case ')': return 0x5E;
-		case ':': return 0x7B;
-		case '&': return 0x7E;
-		case ',': return 0x82;
-		case '@': return 0x83;
-		case '_': return 0x84;
-		case '.': return 0x85;
-		case '!': return 0xC2;
-		case '?': return 0xC3;
-		case '\r': return 0xFF;
+		case '\n':
+			return 0x0A;
+		case ' ':
+			return 0x10;
+		case '\t':
+			return 0x20;
+		case '*':
+			return 0x1D;
+		case '-':
+			return 0x3D;
+		case '/':
+			return 0x3F;
+		case '`':
+			return 0x5B;
+		case '\'':
+			return 0x5C;
+		case '(':
+			return 0x5D;
+		case ')':
+			return 0x5E;
+		case ':':
+			return 0x7B;
+		case '&':
+			return 0x7E;
+		case ',':
+			return 0x82;
+		case '@':
+			return 0x83;
+		case '_':
+			return 0x84;
+		case '.':
+			return 0x85;
+		case '!':
+			return 0xC2;
+		case '?':
+			return 0xC3;
+		case '\r':
+			return 0xFF;
 		case '"': // alternating start/end quote, like WriteString
 		{
 			const int v = *quote_open ? 0xC1 : 0xC0;
 			*quote_open = !*quote_open;
 			return v;
 		}
-		default: return b;
+		default:
+			return b;
 	}
 }
 
@@ -887,8 +1018,7 @@ static bool mess_write_message (mess_buf_t *b, const mpmess_file_t *f, uint vers
 		// Offsets: v4 relative to msg_start, v5/v6 relative to
 		// msg_start + 4 (see the CreateMPMESS header comment).
 		const u32 rel_base = version > 4 ? 4 : 0;
-		if (!mess_patch_be32 (b, tab_at + k * 4,
-				(u32)(b->size - msg_start - rel_base)))
+		if (!mess_patch_be32 (b, tab_at + k * 4, (u32)(b->size - msg_start - rel_base)))
 			return false;
 		if (version >= 6)
 		{
@@ -902,8 +1032,7 @@ static bool mess_write_message (mess_buf_t *b, const mpmess_file_t *f, uint vers
 				return false;
 		}
 		uint enc_len = 0;
-		u8 *enc = encode_mp_string (
-			f->entries[k].text ? f->entries[k].text : "", &enc_len);
+		u8 *enc = encode_mp_string (f->entries[k].text ? f->entries[k].text : "", &enc_len);
 		if (!enc)
 			return false;
 		bool w = mess_put (b, enc, enc_len);

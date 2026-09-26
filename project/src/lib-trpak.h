@@ -29,12 +29,12 @@
 
 typedef struct trpak_entry_t
 {
-	u64 hash;                 // File.Compression's game-side lookup key (FNV64A1 of a real path)
-	u8  compression;          // TRPAK Compression enum: 3 = OODLE, 255 = NONE, else unrecognized
-	u8  unused, unk1;         // File.Unused / File.Unk1, meaning unknown upstream too
-	u64 decompressed_size;    // File.DecompressedSize (only meaningful when compression == OODLE)
-	u64 data_offset;          // absolute offset of File.Data's raw bytes within the source buffer
-	u32 data_size;            // File.Data's raw (possibly still-compressed) byte length
+	u64 hash; // File.Compression's game-side lookup key (FNV64A1 of a real path)
+	u8 compression; // TRPAK Compression enum: 3 = OODLE, 255 = NONE, else unrecognized
+	u8 unused, unk1; // File.Unused / File.Unk1, meaning unknown upstream too
+	u64 decompressed_size; // File.DecompressedSize (only meaningful when compression == OODLE)
+	u64 data_offset; // absolute offset of File.Data's raw bytes within the source buffer
+	u32 data_size; // File.Data's raw (possibly still-compressed) byte length
 } trpak_entry_t;
 
 typedef struct trpak_t

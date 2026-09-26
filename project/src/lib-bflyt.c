@@ -1508,15 +1508,24 @@ static ccp xml_type_name (bf_val_type_t type)
 {
 	switch (type)
 	{
-		case BF_T_NONE: return "none";
-		case BF_T_BOOL: return "bool";
-		case BF_T_INT: return "int";
-		case BF_T_UINT: return "uint";
-		case BF_T_FLOAT: return "float";
-		case BF_T_STR: return "string";
-		case BF_T_BYTES: return "bytes";
-		case BF_T_NODE: return "node";
-		case BF_T_LIST: return "list";
+		case BF_T_NONE:
+			return "none";
+		case BF_T_BOOL:
+			return "bool";
+		case BF_T_INT:
+			return "int";
+		case BF_T_UINT:
+			return "uint";
+		case BF_T_FLOAT:
+			return "float";
+		case BF_T_STR:
+			return "string";
+		case BF_T_BYTES:
+			return "bytes";
+		case BF_T_NODE:
+			return "node";
+		case BF_T_LIST:
+			return "list";
 	}
 	return "none";
 }
@@ -1561,12 +1570,24 @@ static enumError xml_add_value (mxml_node_t *parent, ccp tag, ccp name, const bf
 	ccp text = value;
 	switch (v->type)
 	{
-		case BF_T_NONE: text = ""; break;
-		case BF_T_BOOL: text = v->u.b ? "true" : "false"; break;
-		case BF_T_INT: snprintf (value, sizeof (value), "%d", v->u.i); break;
-		case BF_T_UINT: snprintf (value, sizeof (value), "%u", (uint)v->u.i); break;
-		case BF_T_FLOAT: fmt_double (v->u.f, value, sizeof (value)); break;
-		case BF_T_STR: text = v->u.s; break;
+		case BF_T_NONE:
+			text = "";
+			break;
+		case BF_T_BOOL:
+			text = v->u.b ? "true" : "false";
+			break;
+		case BF_T_INT:
+			snprintf (value, sizeof (value), "%d", v->u.i);
+			break;
+		case BF_T_UINT:
+			snprintf (value, sizeof (value), "%u", (uint)v->u.i);
+			break;
+		case BF_T_FLOAT:
+			fmt_double (v->u.f, value, sizeof (value));
+			break;
+		case BF_T_STR:
+			text = v->u.s;
+			break;
 		case BF_T_BYTES:
 		{
 			char *hex = MALLOC (v->u.by.n * 2 + 1);
@@ -1578,7 +1599,8 @@ static enumError xml_add_value (mxml_node_t *parent, ccp tag, ccp name, const bf
 			FREE (hex);
 			return t ? ERR_OK : ERR_OUT_OF_MEMORY;
 		}
-		default: return ERR_INVALID_DATA;
+		default:
+			return ERR_INVALID_DATA;
 	}
 	return mxmlNewText (elem, 0, text) ? ERR_OK : ERR_OUT_OF_MEMORY;
 }
@@ -1608,8 +1630,10 @@ static ccp xml_text (mxml_node_t *elem)
 
 static int xml_hex (int c)
 {
-	return c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10
-		: c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
+	return c >= '0' && c <= '9' ? c - '0'
+		: c >= 'a' && c <= 'f'	? c - 'a' + 10
+		: c >= 'A' && c <= 'F'	? c - 'A' + 10
+								: -1;
 }
 
 static enumError xml_load_value (mxml_node_t *elem, bf_val_t *out);
@@ -1650,33 +1674,77 @@ static enumError xml_load_value (mxml_node_t *elem, bf_val_t *out)
 	ccp text = xml_text (elem);
 	if (!type)
 		return ERR_SYNTAX;
-	if (!strcmp (type, "none")) out->type = BF_T_NONE;
-	else if (!strcmp (type, "bool")) { out->type = BF_T_BOOL; out->u.b = !strcmp (text, "true"); }
-	else if (!strcmp (type, "int")) { out->type = BF_T_INT; out->u.i = strtol (text, 0, 0); }
-	else if (!strcmp (type, "uint")) { out->type = BF_T_UINT; out->u.i = (int)strtoul (text, 0, 0); }
-	else if (!strcmp (type, "float")) { out->type = BF_T_FLOAT; out->u.f = strtod (text, 0); }
-	else if (!strcmp (type, "string")) { out->type = BF_T_STR; out->u.s = bf_strdup (text); if (!out->u.s) return ERR_OUT_OF_MEMORY; }
+	if (!strcmp (type, "none"))
+		out->type = BF_T_NONE;
+	else if (!strcmp (type, "bool"))
+	{
+		out->type = BF_T_BOOL;
+		out->u.b = !strcmp (text, "true");
+	}
+	else if (!strcmp (type, "int"))
+	{
+		out->type = BF_T_INT;
+		out->u.i = strtol (text, 0, 0);
+	}
+	else if (!strcmp (type, "uint"))
+	{
+		out->type = BF_T_UINT;
+		out->u.i = (int)strtoul (text, 0, 0);
+	}
+	else if (!strcmp (type, "float"))
+	{
+		out->type = BF_T_FLOAT;
+		out->u.f = strtod (text, 0);
+	}
+	else if (!strcmp (type, "string"))
+	{
+		out->type = BF_T_STR;
+		out->u.s = bf_strdup (text);
+		if (!out->u.s)
+			return ERR_OUT_OF_MEMORY;
+	}
 	else if (!strcmp (type, "bytes"))
 	{
 		uint n = strlen (text);
-		if (n & 1) return ERR_SYNTAX;
-		out->type = BF_T_BYTES; out->u.by.n = n / 2; out->u.by.d = n ? MALLOC (n / 2) : 0;
-		if (n && !out->u.by.d) return ERR_OUT_OF_MEMORY;
-		for (uint i = 0; i < n; i += 2) { int hi = xml_hex (text[i]), lo = xml_hex (text[i+1]); if (hi < 0 || lo < 0) return ERR_SYNTAX; out->u.by.d[i/2] = hi << 4 | lo; }
+		if (n & 1)
+			return ERR_SYNTAX;
+		out->type = BF_T_BYTES;
+		out->u.by.n = n / 2;
+		out->u.by.d = n ? MALLOC (n / 2) : 0;
+		if (n && !out->u.by.d)
+			return ERR_OUT_OF_MEMORY;
+		for (uint i = 0; i < n; i += 2)
+		{
+			int hi = xml_hex (text[i]), lo = xml_hex (text[i + 1]);
+			if (hi < 0 || lo < 0)
+				return ERR_SYNTAX;
+			out->u.by.d[i / 2] = hi << 4 | lo;
+		}
 	}
 	else if (!strcmp (type, "node"))
 	{
-		mxml_node_t *n = xml_child (elem, "node"); if (!n) return ERR_SYNTAX;
-		out->type = BF_T_NODE; out->u.node = CALLOC (1, sizeof (*out->u.node)); if (!out->u.node) return ERR_OUT_OF_MEMORY;
+		mxml_node_t *n = xml_child (elem, "node");
+		if (!n)
+			return ERR_SYNTAX;
+		out->type = BF_T_NODE;
+		out->u.node = CALLOC (1, sizeof (*out->u.node));
+		if (!out->u.node)
+			return ERR_OUT_OF_MEMORY;
 		return xml_load_node (n, out->u.node);
 	}
 	else if (!strcmp (type, "list"))
 	{
-		mxml_node_t *l = xml_child (elem, "list"); if (!l) return ERR_SYNTAX;
-		out->type = BF_T_LIST; out->u.list = CALLOC (1, sizeof (*out->u.list)); if (!out->u.list) return ERR_OUT_OF_MEMORY;
+		mxml_node_t *l = xml_child (elem, "list");
+		if (!l)
+			return ERR_SYNTAX;
+		out->type = BF_T_LIST;
+		out->u.list = CALLOC (1, sizeof (*out->u.list));
+		if (!out->u.list)
+			return ERR_OUT_OF_MEMORY;
 		return xml_load_list (l, out->u.list);
 	}
-	else return ERR_SYNTAX;
+	else
+		return ERR_SYNTAX;
 	return ERR_OK;
 }
 
@@ -3867,9 +3935,9 @@ bool IsSHDVAR_BE (const u8 *data, uint size)
 			if (ch < 0x20 || ch > 0x7E)
 				return false;
 		}
-		if (!memcmp (data + ptr, "DTCB", 4) || !memcmp (data + ptr, "CBUS", 4) ||
-		    !memcmp (data + ptr, "DTSH", 4) || !memcmp (data + ptr, "DRSH", 4) ||
-		    !memcmp (data + ptr, "NORM", 4))
+		if (!memcmp (data + ptr, "DTCB", 4) || !memcmp (data + ptr, "CBUS", 4)
+			|| !memcmp (data + ptr, "DTSH", 4) || !memcmp (data + ptr, "DRSH", 4)
+			|| !memcmp (data + ptr, "NORM", 4))
 			has_known = true;
 		u32 words = rd32 (data + ptr + 4, true);
 		if (words > (size - (ptr + 8)) / 4)
@@ -3907,9 +3975,9 @@ bool IsSHDVAR (const u8 *data, uint size)
 			}
 			if (!ok)
 				break;
-			if (!memcmp (data + ptr, "DTCB", 4) || !memcmp (data + ptr, "CBUS", 4) ||
-			    !memcmp (data + ptr, "DTSH", 4) || !memcmp (data + ptr, "DRSH", 4) ||
-			    !memcmp (data + ptr, "NORM", 4))
+			if (!memcmp (data + ptr, "DTCB", 4) || !memcmp (data + ptr, "CBUS", 4)
+				|| !memcmp (data + ptr, "DTSH", 4) || !memcmp (data + ptr, "DRSH", 4)
+				|| !memcmp (data + ptr, "NORM", 4))
 				has_known = true;
 			u32 words = rd32 (data + ptr + 4, false);
 			if (words > (size - (ptr + 8)) / 4)
@@ -3925,8 +3993,7 @@ bool IsSHDVAR (const u8 *data, uint size)
 	return IsSHDVAR_BE (data, size);
 }
 
-static enumError parse_binary_shdvar (
-	bflyt_t *bflyt, const u8 *data, uint data_size, bool be)
+static enumError parse_binary_shdvar (bflyt_t *bflyt, const u8 *data, uint data_size, bool be)
 {
 	bf_node_t *tree = &bflyt->tree;
 	u32 num = rd32 (data, be);
@@ -5372,9 +5439,9 @@ static enumError p_cnt1 (bf_pctx_t *ctx, bf_buf_t *out, const bf_val_t *v)
 #define CHK_ERR(stmt)                                                                              \
 	do                                                                                             \
 	{                                                                                              \
-		err = (stmt);                                                                          \
-		if (err)                                                                               \
-			goto cleanup;                                                                  \
+		err = (stmt);                                                                              \
+		if (err)                                                                                   \
+			goto cleanup;                                                                          \
 	} while (0)
 
 	uint partnum = 0, animnum = 0;
@@ -5397,7 +5464,8 @@ static enumError p_cnt1 (bf_pctx_t *ctx, bf_buf_t *out, const bf_val_t *v)
 		if (!animname)
 			animname = "";
 		CHK_ERR (bf_buf_str4 (&anbuf, animname));
-		CHK_ERR (bf_buf_u32 (&sec2, ctx->be, (u32)bf_get_int (an, "anim-part-number", (int)animnum)));
+		CHK_ERR (
+			bf_buf_u32 (&sec2, ctx->be, (u32)bf_get_int (an, "anim-part-number", (int)animnum)));
 		CHK_ERR (bf_buf_u32 (&sec2, ctx->be, anbuf.n));
 		CHK_ERR (bf_buf_raw (&sec2, anbuf.d, anbuf.n));
 		bf_buf_free (&anbuf);
@@ -5669,8 +5737,7 @@ static enumError build_binary (const bf_node_t *tree, u8 **dest, uint *dest_size
 	return ERR_OK;
 }
 
-static enumError build_binary_shdvar (
-	const bf_node_t *tree, u8 **dest, uint *dest_size)
+static enumError build_binary_shdvar (const bf_node_t *tree, u8 **dest, uint *dest_size)
 {
 	bf_val_t *bo_v = BFNodeGet ((bf_node_t *)tree, "byte-order");
 	bool be = (bo_v && bo_v->type == BF_T_STR && !strcmp (bo_v->u.s, ">"));
@@ -5792,7 +5859,7 @@ enumError ScanBFLYT (bflyt_t *bflyt, bool init, const u8 *data, uint data_size)
 	if (*first == '<' || is_text_data (data, data_size))
 	{
 		enumError err = *first == '<' ? BFTreeLoadXML (first, &bflyt->tree)
-			: BFTreeLoad ((ccp)data, data_size, &bflyt->tree);
+									  : BFTreeLoad ((ccp)data, data_size, &bflyt->tree);
 		if (err)
 			return err;
 		bf_val_t *magic_v = BFNodeGet (&bflyt->tree, "magic");

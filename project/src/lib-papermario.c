@@ -195,8 +195,7 @@ typedef struct pj_parser_t
 
 static void pj_skip_ws (pj_parser_t *j)
 {
-	while (j->p < j->end
-		&& (*j->p == ' ' || *j->p == '\t' || *j->p == '\n' || *j->p == '\r'))
+	while (j->p < j->end && (*j->p == ' ' || *j->p == '\t' || *j->p == '\n' || *j->p == '\r'))
 		j->p++;
 }
 
@@ -281,14 +280,30 @@ static pj_node_t *pj_parse_string_node (pj_parser_t *j)
 			char e = *j->p++;
 			switch (e)
 			{
-				case '"': pm_sb_putc (&sb, '"'); break;
-				case '\\': pm_sb_putc (&sb, '\\'); break;
-				case '/': pm_sb_putc (&sb, '/'); break;
-				case 'b': pm_sb_putc (&sb, '\b'); break;
-				case 'f': pm_sb_putc (&sb, '\f'); break;
-				case 'n': pm_sb_putc (&sb, '\n'); break;
-				case 'r': pm_sb_putc (&sb, '\r'); break;
-				case 't': pm_sb_putc (&sb, '\t'); break;
+				case '"':
+					pm_sb_putc (&sb, '"');
+					break;
+				case '\\':
+					pm_sb_putc (&sb, '\\');
+					break;
+				case '/':
+					pm_sb_putc (&sb, '/');
+					break;
+				case 'b':
+					pm_sb_putc (&sb, '\b');
+					break;
+				case 'f':
+					pm_sb_putc (&sb, '\f');
+					break;
+				case 'n':
+					pm_sb_putc (&sb, '\n');
+					break;
+				case 'r':
+					pm_sb_putc (&sb, '\r');
+					break;
+				case 't':
+					pm_sb_putc (&sb, '\t');
+					break;
 				case 'u':
 				{
 					if (j->p + 4 > j->end)
@@ -308,8 +323,8 @@ static pj_node_t *pj_parse_string_node (pj_parser_t *j)
 						cp = cp * 16 + (unsigned int)hv;
 					}
 					j->p += 4;
-					if (cp >= 0xd800 && cp <= 0xdbff && j->p + 6 <= j->end
-						&& j->p[0] == '\\' && j->p[1] == 'u')
+					if (cp >= 0xd800 && cp <= 0xdbff && j->p + 6 <= j->end && j->p[0] == '\\'
+						&& j->p[1] == 'u')
 					{
 						unsigned int lo = 0;
 						bool ok = true;
@@ -438,8 +453,7 @@ static pj_node_t *pj_parse_array (pj_parser_t *j)
 			pj_free (n);
 			return 0;
 		}
-		pj_node_t **ni
-			= REALLOC (n->items, (n->n_items + 1) * sizeof (*ni));
+		pj_node_t **ni = REALLOC (n->items, (n->n_items + 1) * sizeof (*ni));
 		if (!ni)
 		{
 			pj_free (it);
@@ -556,9 +570,12 @@ static pj_node_t *pj_parse_value (pj_parser_t *j)
 		return 0;
 	switch (*j->p)
 	{
-		case '{': return pj_parse_object (j);
-		case '[': return pj_parse_array (j);
-		case '"': return pj_parse_string_node (j);
+		case '{':
+			return pj_parse_object (j);
+		case '[':
+			return pj_parse_array (j);
+		case '"':
+			return pj_parse_string_node (j);
 		case 't':
 		{
 			pj_node_t *n;
@@ -674,13 +691,27 @@ static void pm_json_escape (pm_sb_t *sb, const char *s)
 	{
 		switch (*p)
 		{
-			case '"': pm_sb_puts (sb, "\\\""); break;
-			case '\\': pm_sb_puts (sb, "\\\\"); break;
-			case '\b': pm_sb_puts (sb, "\\b"); break;
-			case '\f': pm_sb_puts (sb, "\\f"); break;
-			case '\n': pm_sb_puts (sb, "\\n"); break;
-			case '\r': pm_sb_puts (sb, "\\r"); break;
-			case '\t': pm_sb_puts (sb, "\\t"); break;
+			case '"':
+				pm_sb_puts (sb, "\\\"");
+				break;
+			case '\\':
+				pm_sb_puts (sb, "\\\\");
+				break;
+			case '\b':
+				pm_sb_puts (sb, "\\b");
+				break;
+			case '\f':
+				pm_sb_puts (sb, "\\f");
+				break;
+			case '\n':
+				pm_sb_puts (sb, "\\n");
+				break;
+			case '\r':
+				pm_sb_puts (sb, "\\r");
+				break;
+			case '\t':
+				pm_sb_puts (sb, "\\t");
+				break;
 			default:
 				if (*p < 0x20)
 					pm_sb_printf (sb, "\\u%04x", *p);
@@ -759,8 +790,8 @@ static void pm_hash_init (void)
 		return;
 	for (i = 0; i < pm_hash_strings_count; i++)
 	{
-		pm_hashidx[i].hash = (u32)crc32 (
-			0L, (const Bytef *)pm_hash_strings[i], (uInt)strlen (pm_hash_strings[i]));
+		pm_hashidx[i].hash
+			= (u32)crc32 (0L, (const Bytef *)pm_hash_strings[i], (uInt)strlen (pm_hash_strings[i]));
 		pm_hashidx[i].str = pm_hash_strings[i];
 	}
 	qsort (pm_hashidx, pm_hash_strings_count, sizeof (*pm_hashidx), pm_hashent_cmp);
@@ -781,8 +812,7 @@ ccp PMRender_Lookup (u32 hash)
 		return 0;
 	key.hash = hash;
 	key.str = 0;
-	found = bsearch (
-		&key, pm_hashidx, pm_hashidx_n, sizeof (*pm_hashidx), pm_hashent_cmp);
+	found = bsearch (&key, pm_hashidx, pm_hashidx_n, sizeof (*pm_hashidx), pm_hashent_cmp);
 	return found ? found->str : 0;
 }
 
@@ -942,8 +972,7 @@ enumError EncodePMProbe (const pmprobe_t *probe, u8 **dest, size_t *dest_size)
 	size_t type_len;
 	if (!probe || !dest || !dest_size)
 		return ERR_INVALID_DATA;
-	if (probe->n_axis > PMPROBE_MAX_AXIS
-		|| (probe->n_axis && !probe->axis))
+	if (probe->n_axis > PMPROBE_MAX_AXIS || (probe->n_axis && !probe->axis))
 		return ERR_INVALID_DATA;
 	type_len = strlen (probe->type);
 	if (type_len > 64)
@@ -1071,8 +1100,7 @@ static bool pm_json_float_array_parse (float *out, size_t want, const pj_node_t 
 	return true;
 }
 
-static bool pm_json_u32_array_parse (
-	u32 **out, u32 *n_out, const pj_node_t *n)
+static bool pm_json_u32_array_parse (u32 **out, u32 *n_out, const pj_node_t *n)
 {
 	size_t i;
 	u32 v;
@@ -1273,8 +1301,7 @@ void ResetPMRender (pmrender_t *render)
 
 // read one LF line from [pos,limit); strips a single trailing CR.
 // returns false at end of input. *line/*len point into the buffer.
-static bool pm_read_line (
-	const u8 *data, size_t limit, size_t *pos, const char **line, size_t *len)
+static bool pm_read_line (const u8 *data, size_t limit, size_t *pos, const char **line, size_t *len)
 {
 	size_t start, nl;
 	if (*pos >= limit)
@@ -1429,8 +1456,7 @@ static enumError pm_parse_value (pmrender_val_t *val, const char *s, size_t n)
 }
 
 // parse one section body in [start,end) into sec (props appended)
-static enumError pm_parse_body (
-	pmrender_section_t *sec, const u8 *data, size_t start, size_t end)
+static enumError pm_parse_body (pmrender_section_t *sec, const u8 *data, size_t start, size_t end)
 {
 	size_t pos = start;
 	const char *line;
@@ -1663,8 +1689,12 @@ static void pm_write_value (pm_sb_t *sb, const pmrender_val_t *v)
 	size_t k, n;
 	switch (v->kind)
 	{
-		case PMR_INT: pm_sb_printf (sb, "%lld", (long long)v->ival); break;
-		case PMR_FLOAT: pm_write_hexfloat (sb, v->fval); break;
+		case PMR_INT:
+			pm_sb_printf (sb, "%lld", (long long)v->ival);
+			break;
+		case PMR_FLOAT:
+			pm_write_hexfloat (sb, v->fval);
+			break;
 		case PMR_VEC2:
 		case PMR_VEC3:
 		case PMR_VEC4:
@@ -1673,7 +1703,9 @@ static void pm_write_value (pm_sb_t *sb, const pmrender_val_t *v)
 				pm_sb_printf (sb, "%s%.6f", k ? "," : "", (double)v->vec[k]);
 			break;
 		case PMR_STRING:
-		default: pm_sb_puts (sb, v->sval ? v->sval : ""); break;
+		default:
+			pm_sb_puts (sb, v->sval ? v->sval : "");
+			break;
 	}
 }
 
@@ -1728,8 +1760,7 @@ enumError EncodePMRender (const pmrender_t *render, u8 **dest, size_t *dest_size
 	pm_sb_putn (&out, "\xef\xbb\xbf", 3);
 	pm_sb_printf (&out, "%08x\n", (unsigned)render->n_sections);
 	for (s = 0; s < render->n_sections; s++)
-		pm_sb_printf (&out, "%08x:%08x\n",
-			render->sections[s].hash, (unsigned)bodies[s].len);
+		pm_sb_printf (&out, "%08x:%08x\n", render->sections[s].hash, (unsigned)bodies[s].len);
 	for (s = 0; s < render->n_sections; s++)
 	{
 		pm_sb_putn (&out, bodies[s].buf, bodies[s].len);
@@ -1749,8 +1780,12 @@ static void pm_json_value (pm_sb_t *sb, const pmrender_val_t *v)
 	static const char *const comps[] = { "X", "Y", "Z", "W" };
 	switch (v->kind)
 	{
-		case PMR_INT: pm_sb_printf (sb, "%lld", (long long)v->ival); break;
-		case PMR_FLOAT: pm_json_float (sb, v->fval); break;
+		case PMR_INT:
+			pm_sb_printf (sb, "%lld", (long long)v->ival);
+			break;
+		case PMR_FLOAT:
+			pm_json_float (sb, v->fval);
+			break;
 		case PMR_VEC2:
 		case PMR_VEC3:
 		case PMR_VEC4:
@@ -1764,7 +1799,9 @@ static void pm_json_value (pm_sb_t *sb, const pmrender_val_t *v)
 			pm_sb_puts (sb, " }");
 			break;
 		case PMR_STRING:
-		default: pm_json_escape (sb, v->sval ? v->sval : ""); break;
+		default:
+			pm_json_escape (sb, v->sval ? v->sval : "");
+			break;
 	}
 }
 
@@ -1787,8 +1824,7 @@ enumError DecodePMRender_JSON (FILE *out, const u8 *data, size_t size)
 	{
 		const pmrender_section_t *sec = &render.sections[s];
 		pm_sb_puts (&sb, s ? ",\n    {\n" : "\n    {\n");
-		pm_sb_printf (&sb, "      \"hash_name\": { \"Hash\": %u, \"String\": ",
-			sec->hash);
+		pm_sb_printf (&sb, "      \"hash_name\": { \"Hash\": %u, \"String\": ", sec->hash);
 		pm_json_escape (&sb, sec->name ? sec->name : "");
 		pm_sb_puts (&sb, " },\n      \"properties\": {");
 		for (p = 0; p < sec->n_props; p++)

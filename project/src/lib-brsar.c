@@ -786,4 +786,3 @@ enumError UnpackBRSAR (const u8 *data, size_t size, ccp out_dir)
 
 	return ERROR0 (ERR_INVALID_DATA, "UnpackBRSAR: not an RSAR/FSAR/CSAR file\n");
 }
-

@@ -86,8 +86,8 @@ enumError ScanDTLS (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *
 		const uint sz_field = entry_sz == 12 ? 8 : 12;
 		const u32 hash = is_be ? rd_be32 (e) : rd_le32 (e);
 		const u32 off = raw ? rd_le32 (e + off_field) : (is_be ? rd_be32 (e + 8) : rd_le32 (e + 8));
-		const u32 comp_sz = raw ? rd_le32 (e + sz_field)
-			: (is_be ? rd_be32 (e + 12) : rd_le32 (e + 12));
+		const u32 comp_sz
+			= raw ? rd_le32 (e + sz_field) : (is_be ? rd_be32 (e + 12) : rd_le32 (e + 12));
 		const u32 decomp_sz = raw ? comp_sz : (is_be ? rd_be32 (e + 16) : rd_le32 (e + 16));
 		const u16 flags = raw ? 0 : (is_be ? rd_be16 (e + 6) : rd_le16 (e + 6));
 
@@ -141,7 +141,8 @@ enumError ScanDTLS (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *
 enumError CreateDTLS (u8 **out_ls, uint *out_ls_size, u8 **out_dt, uint *out_dt_size,
 	const nintendo_sarc_entry_t *entries, uint n_entries, bool compress, bool big_endian)
 {
-	if (!out_ls || !out_ls_size || !out_dt || !out_dt_size || !entries || !n_entries || n_entries > 0x100000)
+	if (!out_ls || !out_ls_size || !out_dt || !out_dt_size || !entries || !n_entries
+		|| n_entries > 0x100000)
 		return EINVAL;
 
 	const size_t ls_total = 8 + (size_t)n_entries * 24;
@@ -263,7 +264,6 @@ enumError CreateDTLS (u8 **out_ls, uint *out_ls_size, u8 **out_dt, uint *out_dt_
 	return ERR_OK;
 }
 
-
 enumError create_dtls_dir (ccp source, ccp dest)
 {
 	sarc_build_list_t list = { 0 };
@@ -275,8 +275,8 @@ enumError create_dtls_dir (ccp source, ccp dest)
 	u8 *dest_dt = 0;
 	uint dest_dt_size = 0;
 	if (!err)
-		err = CreateDTLS (&dest_ls, &dest_ls_size, &dest_dt, &dest_dt_size,
-			list.entry, list.used, false, true);
+		err = CreateDTLS (
+			&dest_ls, &dest_ls_size, &dest_dt, &dest_dt_size, list.entry, list.used, false, true);
 	if (!err && !testmode)
 	{
 		char ls_path[PATH_MAX];
@@ -308,4 +308,3 @@ enumError create_dtls_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
-

@@ -14,7 +14,8 @@
 // one independently-compressed block into a caller-sized buffer. Used both
 // for the (possibly chunked) file-table header and for each 64KiB data
 // chunk -- both are raw deflate streams in every sample seen.
-static enumError ttarch_inflate_raw (const u8 *src, uint src_size, u8 *dest, uint dest_cap, uint *out_size)
+static enumError ttarch_inflate_raw (
+	const u8 *src, uint src_size, u8 *dest, uint dest_cap, uint *out_size)
 {
 	z_stream zs;
 	memset (&zs, 0, sizeof (zs));
@@ -64,8 +65,7 @@ enumError ScanTtarch (ttarch_t *tt, const u8 *data, size_t size)
 	if (version < 8 || version > 9)
 		return ERR_INVALID_DATA;
 
-	if (!tt_read_u32 (data, size, &p, &encryption)
-		|| !tt_read_u32 (data, size, &p, &unused_field)
+	if (!tt_read_u32 (data, size, &p, &encryption) || !tt_read_u32 (data, size, &p, &unused_field)
 		|| !tt_read_u32 (data, size, &p, &files_mode))
 		return ERR_INVALID_DATA;
 
@@ -89,10 +89,8 @@ enumError ScanTtarch (ttarch_t *tt, const u8 *data, size_t size)
 		return ERR_INVALID_DATA;
 
 	u32 priority, priority2, xmode1, xmode2;
-	if (!tt_read_u32 (data, size, &p, &priority)
-		|| !tt_read_u32 (data, size, &p, &priority2)
-		|| !tt_read_u32 (data, size, &p, &xmode1)
-		|| !tt_read_u32 (data, size, &p, &xmode2))
+	if (!tt_read_u32 (data, size, &p, &priority) || !tt_read_u32 (data, size, &p, &priority2)
+		|| !tt_read_u32 (data, size, &p, &xmode1) || !tt_read_u32 (data, size, &p, &xmode2))
 		return ERR_INVALID_DATA;
 
 	u32 chunk_size_kb;
@@ -132,7 +130,8 @@ enumError ScanTtarch (ttarch_t *tt, const u8 *data, size_t size)
 		if (!table)
 			return ERR_CANT_CREATE;
 		uint produced = 0;
-		enumError err = ttarch_inflate_raw (data + p, compressed_header_size, table, header_size, &produced);
+		enumError err
+			= ttarch_inflate_raw (data + p, compressed_header_size, table, header_size, &produced);
 		p += compressed_header_size;
 		if (err || produced != header_size)
 		{
@@ -196,7 +195,8 @@ enumError ScanTtarch (ttarch_t *tt, const u8 *data, size_t size)
 			goto invalid;
 		}
 
-		const size_t n = name_len < sizeof (entries[i].name) - 1 ? name_len : sizeof (entries[i].name) - 1;
+		const size_t n
+			= name_len < sizeof (entries[i].name) - 1 ? name_len : sizeof (entries[i].name) - 1;
 		memcpy (entries[i].name, name, n);
 		entries[i].name[n] = 0;
 		for (char *cp = entries[i].name; *cp; cp++)
@@ -235,7 +235,8 @@ void ResetTtarch (ttarch_t *tt)
 	memset (tt, 0, sizeof (*tt));
 }
 
-enumError ReadTtarchEntry (const ttarch_t *tt, const ttarch_entry_t *e, u8 **out_data, uint *out_size)
+enumError ReadTtarchEntry (
+	const ttarch_t *tt, const ttarch_entry_t *e, u8 **out_data, uint *out_size)
 {
 	if (!tt || !e || !out_data)
 		return EINVAL;
@@ -308,7 +309,8 @@ enumError ReadTtarchEntry (const ttarch_t *tt, const ttarch_entry_t *e, u8 **out
 		const u64 chunk_logical_start = (u64)c * tt->chunk_size;
 		const u64 want_start = chunk_logical_start > e->offset ? chunk_logical_start : e->offset;
 		const u64 want_end_excl = (u64)e->offset + e->size < chunk_logical_start + produced
-			? (u64)e->offset + e->size : chunk_logical_start + produced;
+			? (u64)e->offset + e->size
+			: chunk_logical_start + produced;
 		if (want_end_excl > want_start)
 			memcpy (buf + (want_start - e->offset), chunk + (want_start - chunk_logical_start),
 				want_end_excl - want_start);
@@ -361,8 +363,8 @@ enumError ExtractTtarch (ccp arg, ccp basedir, uint depth)
 
 	if (verbose >= 0 || testmode)
 		fprintf (stdlog, "%s%sEXTRACT TTARCH:%s (%u files, mode %u) -> %s/\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "",
-			arg, tt.n_entries, tt.files_mode, dest);
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, tt.n_entries, tt.files_mode,
+			dest);
 
 	for (uint i = 0; i < tt.n_entries; i++)
 	{

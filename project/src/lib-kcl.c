@@ -121,8 +121,7 @@ static const KeywordTab_t opt_kcl_tab[] = { { 0, "CLEAR", "RESET", KCLMD_M_ALL |
 	{ KCLMD_OUT_V2, "SWITCH", 0, KCLMD_M_OUT_VERSION | KCLMD_F_HIDE },
 	{ KCLMD_OUT_DS, "DS", 0, KCLMD_M_OUT_VERSION },
 	{ KCLMD_OUT_GC, "GC", "GAMECUBE", KCLMD_M_OUT_VERSION },
-	{ 0, "WII", "V1", KCLMD_M_OUT_VERSION | KCLMD_F_HIDE },
-	{ KCLMD_OUT_LE, "LE", "LITTLE", 0 },
+	{ 0, "WII", "V1", KCLMD_M_OUT_VERSION | KCLMD_F_HIDE }, { KCLMD_OUT_LE, "LE", "LITTLE", 0 },
 	{ 0, "BE", "BIG", KCLMD_OUT_LE | KCLMD_F_HIDE },
 
 	{ KCLMD_SMALL, "SMALL", 0, KCLMD_M_PRESET },
@@ -268,11 +267,16 @@ ccp GetNameKclVersion (kcl_version_t version)
 {
 	switch (version)
 	{
-		case KCL_V_GC: return "GC";
-		case KCL_V_WII: return "WII";
-		case KCL_V_DS: return "DS";
-		case KCL_V_V2: return "V2";
-		default: return "?";
+		case KCL_V_GC:
+			return "GC";
+		case KCL_V_WII:
+			return "WII";
+		case KCL_V_DS:
+			return "DS";
+		case KCL_V_V2:
+			return "V2";
+		default:
+			return "?";
 	}
 }
 
@@ -1687,7 +1691,10 @@ kcl_tridata_t *AppendPrismKCL (kcl_t *kcl, // valid KCL data structure
 	DASSERT (axis1);
 	DASSERT (axis2);
 
-	enum { max_side = 100 };
+	enum
+	{
+		max_side = 100
+	};
 	if (n_side < 2)
 		n_side = 2;
 	else if (n_side > max_side)
@@ -1858,7 +1865,10 @@ kcl_tridata_t *AppendCylinderKCL (kcl_t *kcl, // valid KCL data structure
 	DASSERT (kcl);
 	DASSERT (pos);
 
-	enum { max_side = 100 };
+	enum
+	{
+		max_side = 100
+	};
 	if (n_side < 2)
 		n_side = 2;
 	else if (n_side > max_side)
@@ -3935,8 +3945,8 @@ enumError ScanRawKCL_V1 (kcl_t *kcl, // KCL data structure
 	void (*rd16n) (u16 *, const u16 *, int) = le ? le16n : be16n;
 	void (*rdf4n) (float *, const float *, int) = le ? lef4n : bef4n;
 
-	KCL_ACTION_LOG (kcl, "ScanRawKCL_V1() %s [%s%s]\n", kcl->fname,
-		GetNameKclVersion (ka.version), le ? ",LE" : "");
+	KCL_ACTION_LOG (kcl, "ScanRawKCL_V1() %s [%s%s]\n", kcl->fname, GetNameKclVersion (ka.version),
+		le ? ",LE" : "");
 	kcl->fform = FF_KCL;
 
 	if (!ka.order_ok && ErrorLogEnabled ())
@@ -3990,8 +4000,8 @@ enumError ScanRawKCL_V1 (kcl_t *kcl, // KCL data structure
 	kcl->y_lshift = RD32 (&kclhead->y_lshift);
 	kcl->z_lshift = RD32 (&kclhead->z_lshift);
 	kcl->unknown_0x38 = is_gc ? 0.0f
-		: is_ds ? (s32)RD32 (&kclhead->unknown_0x38) / KCL_DS_FXSCALE
-				: RDF4 (&kclhead->unknown_0x38);
+		: is_ds				  ? (s32)RD32 (&kclhead->unknown_0x38) / KCL_DS_FXSCALE
+							  : RDF4 (&kclhead->unknown_0x38);
 
 	//--- store triangles
 
@@ -4053,8 +4063,7 @@ enumError ScanRawKCL_V1 (kcl_t *kcl, // KCL data structure
 					td->normal[p].z = (s16)RD16 (q + 4) / KCL_DS_FXSCALE;
 				}
 				else
-					rdf4n (td->normal[p].v,
-						(float *)(normbase + 12 * in[p + 1]), 3);
+					rdf4n (td->normal[p].v, (float *)(normbase + 12 * in[p + 1]), 3);
 			}
 
 		if (is_ds)
@@ -4728,8 +4737,8 @@ enumError CreateRawKCL (kcl_t *kcl, // pointer to valid KCL
 	if (CreateOctreeKCL (kcl) == ERR_OK)
 		add_sig = true;
 
-	KCL_ACTION_LOG (kcl, "CreateRawKCL() [%s%s]\n", GetNameKclVersion (out_ver),
-		out_le ? ",LE" : "");
+	KCL_ACTION_LOG (
+		kcl, "CreateRawKCL() [%s%s]\n", GetNameKclVersion (out_ver), out_le ? ",LE" : "");
 
 	//--- calculate vetex and normal lists
 
@@ -4872,14 +4881,13 @@ enumError CreateRawKCL (kcl_t *kcl, // pointer to valid KCL
 		for (td = td_base; td < td_end; td++)
 		{
 			if (fabs (td->pt[0].x) > 524287.0 || fabs (td->pt[0].y) > 524287.0
-				|| fabs (td->pt[0].z) > 524287.0
-				|| fabs (td->length) > 524287.0)
+				|| fabs (td->pt[0].z) > 524287.0 || fabs (td->length) > 524287.0)
 			{
 				ResetF3L (&vertex);
 				ResetF3L (&normal);
 				FREE (index_list);
-				return ERROR0 (ERR_INVALID_DATA,
-					"Coordinate out of DS fixed point range: %s\n", kcl->fname);
+				return ERROR0 (
+					ERR_INVALID_DATA, "Coordinate out of DS fixed point range: %s\n", kcl->fname);
 			}
 		}
 	}
@@ -4899,8 +4907,8 @@ enumError CreateRawKCL (kcl_t *kcl, // pointer to valid KCL
 	}
 	const uint triangle_size = sizeof (kcl_triangle_t) * n_tri;
 
-	uint data_size = head_size + vertex_size + normal_size + normal_pad + triangle_size
-		+ kcl->octree_size;
+	uint data_size
+		= head_size + vertex_size + normal_size + normal_pad + triangle_size + kcl->octree_size;
 
 	//--- alloc data
 

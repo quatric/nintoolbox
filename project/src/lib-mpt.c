@@ -109,8 +109,7 @@ enumError SaveMPT (Image_t *img, FILE *f, ccp fname, bool overwrite)
 	enumError res = ERR_OK;
 	if (f)
 	{
-		if (fwrite (header, 1, 0x28, f) != 0x28 ||
-		    fwrite (src->data, 1, data_size, f) != data_size)
+		if (fwrite (header, 1, 0x28, f) != 0x28 || fwrite (src->data, 1, data_size, f) != data_size)
 			res = ERR_WRITE_FAILED;
 	}
 	else

@@ -13,12 +13,12 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #ifdef __MINGW32__
-  // No fork()/wait() on native Windows; run_program()/run_program_capture()
-  // below use _spawnv() (mingw's CreateProcess-based process.h API) instead.
-  #include <process.h>
-  #include <direct.h> // _getcwd(), used by run_program_in_dir() below
+// No fork()/wait() on native Windows; run_program()/run_program_capture()
+// below use _spawnv() (mingw's CreateProcess-based process.h API) instead.
+#include <process.h>
+#include <direct.h> // _getcwd(), used by run_program_in_dir() below
 #else
-  #include <sys/wait.h>
+#include <sys/wait.h>
 #endif
 #include <unistd.h>
 #include <dirent.h>
@@ -910,8 +910,8 @@ enumError PassthruEncodeAudio (ccp wav_path, ccp dest_path, ccp format, s64 loop
 	assert (n <= sizeof (argv) / sizeof (*argv));
 
 	char capture_path[PATH_MAX];
-	snprintf (
-		capture_path, sizeof (capture_path), "%s/wszst-mobipeg-encode-%d.log", temp_dir (), (int)getpid ());
+	snprintf (capture_path, sizeof (capture_path), "%s/wszst-mobipeg-encode-%d.log", temp_dir (),
+		(int)getpid ());
 
 	const int rc = run_program_capture (argv, capture_path);
 	enumError err = ERR_OK;
@@ -979,9 +979,11 @@ enumError PassthruReencodeMedia (ccp preview_path, ccp source_path)
 		char probe_path[PATH_MAX];
 		snprintf (probe_path, sizeof (probe_path), "%s", probe);
 		char capture[PATH_MAX];
-		snprintf (capture, sizeof (capture), "%s/wszst-mobipeg-probe-%d.log", temp_dir (), (int)getpid ());
+		snprintf (capture, sizeof (capture), "%s/wszst-mobipeg-probe-%d.log", temp_dir (),
+			(int)getpid ());
 		char *pargv[] = { probe_path, "-v", "error", "-select_streams", "v:0", "-show_entries",
-			"stream=avg_frame_rate,bit_rate,width,height", "-of", "default=nw=0:nk=0", (char *)source_path, 0 };
+			"stream=avg_frame_rate,bit_rate,width,height", "-of", "default=nw=0:nk=0",
+			(char *)source_path, 0 };
 		if (!run_program_capture (pargv, capture))
 		{
 			FILE *f = fopen (capture, "r");
@@ -1016,7 +1018,8 @@ enumError PassthruReencodeMedia (ccp preview_path, ccp source_path)
 	if (mobi_generation && *mobi_generation == '0' && probe)
 	{
 		char capture[PATH_MAX];
-		snprintf (capture, sizeof (capture), "%s/wszst-mobipeg-audio-%d.log", temp_dir (), (int)getpid ());
+		snprintf (capture, sizeof (capture), "%s/wszst-mobipeg-audio-%d.log", temp_dir (),
+			(int)getpid ());
 		char *pargv[] = { (char *)probe, "-v", "error", "-select_streams", "a:0", "-show_entries",
 			"stream=codec_name", "-of", "default=nw=0:nk=0", (char *)source_path, 0 };
 		if (!run_program_capture (pargv, capture))
@@ -1236,7 +1239,8 @@ static bool wit_supports_xcontainers (ccp tool)
 		return false;
 
 	char capture_path[PATH_MAX];
-	snprintf (capture_path, sizeof (capture_path), "%s/wszst-wit-probe-%d.log", temp_dir (), (int)getpid ());
+	snprintf (capture_path, sizeof (capture_path), "%s/wszst-wit-probe-%d.log", temp_dir (),
+		(int)getpid ());
 	char *argv[] = { (char *)tool, "HELP", "XEXTRACT", 0 };
 	const int rc = run_program_capture (argv, capture_path);
 
@@ -1282,70 +1286,75 @@ static bool copy_nds_region (FILE *src, off_t off, size_t size, ccp dest)
 {
 	if (!size || fseeko (src, off, SEEK_SET))
 		return false;
-	u8 *buf = MALLOC(size);
-	const bool ok = fread(buf, 1, size, src) == size;
+	u8 *buf = MALLOC (size);
+	const bool ok = fread (buf, 1, size, src) == size;
 	if (ok)
 	{
-		FILE *out = fopen(dest, "wb");
+		FILE *out = fopen (dest, "wb");
 		if (out)
 		{
-			bool wrote = fwrite(buf, 1, size, out) == size;
-			wrote = fclose(out) == 0 && wrote;
-			FREE(buf);
+			bool wrote = fwrite (buf, 1, size, out) == size;
+			wrote = fclose (out) == 0 && wrote;
+			FREE (buf);
 			return wrote;
 		}
 	}
-	FREE(buf);
+	FREE (buf);
 	return false;
 }
 
 static void stage_nds_metadata (ccp rom, ccp stage)
 {
-	FILE *src = fopen(rom, "rb");
+	FILE *src = fopen (rom, "rb");
 	if (!src)
 		return;
 	u8 hdr[0x200];
-	if (fread(hdr, 1, sizeof(hdr), src) != sizeof(hdr))
+	if (fread (hdr, 1, sizeof (hdr), src) != sizeof (hdr))
 	{
-		fclose(src);
+		fclose (src);
 		return;
 	}
 
-	const u32 header_size = le32(hdr + 0x84);
+	const u32 header_size = le32 (hdr + 0x84);
 	char path[PATH_MAX];
 	if (header_size >= 0x200 && header_size <= 0x10000)
 	{
-		snprintf(path, sizeof(path), "%s/header.bin", stage);
-		copy_nds_region(src, 0, header_size, path);
+		snprintf (path, sizeof (path), "%s/header.bin", stage);
+		copy_nds_region (src, 0, header_size, path);
 	}
 
-	const u32 banner_off = le32(hdr + 0x68);
+	const u32 banner_off = le32 (hdr + 0x68);
 	if (banner_off)
 	{
-		u8 version_buf[2] = {0};
-		if (!fseeko(src, banner_off, SEEK_SET) && fread(version_buf, 1, 2, src) == 2)
+		u8 version_buf[2] = { 0 };
+		if (!fseeko (src, banner_off, SEEK_SET) && fread (version_buf, 1, 2, src) == 2)
 		{
 			const u16 version = version_buf[0] | version_buf[1] << 8;
 			const size_t banner_size = version >= 3 ? 0xa40 : version >= 2 ? 0x940 : 0x840;
-			snprintf(path, sizeof(path), "%s/banner.bin", stage);
-			copy_nds_region(src, banner_off, banner_size, path);
+			snprintf (path, sizeof (path), "%s/banner.bin", stage);
+			copy_nds_region (src, banner_off, banner_size, path);
 		}
 	}
 
-	const struct { uint off_field, size_field; ccp name; } tables[] = {
-		{ 0x50, 0x54, "y9.bin" }, { 0x58, 0x5c, "y7.bin" },
-	};
-	for (uint i = 0; i < sizeof(tables)/sizeof(*tables); i++)
+	const struct
 	{
-		const u32 off = le32(hdr + tables[i].off_field);
-		const u32 size = le32(hdr + tables[i].size_field);
+		uint off_field, size_field;
+		ccp name;
+	} tables[] = {
+		{ 0x50, 0x54, "y9.bin" },
+		{ 0x58, 0x5c, "y7.bin" },
+	};
+	for (uint i = 0; i < sizeof (tables) / sizeof (*tables); i++)
+	{
+		const u32 off = le32 (hdr + tables[i].off_field);
+		const u32 size = le32 (hdr + tables[i].size_field);
 		if (off && size && size <= 0x1000000)
 		{
-			snprintf(path, sizeof(path), "%s/%s", stage, tables[i].name);
-			copy_nds_region(src, off, size, path);
+			snprintf (path, sizeof (path), "%s/%s", stage, tables[i].name);
+			copy_nds_region (src, off, size, path);
 		}
 	}
-	fclose(src);
+	fclose (src);
 }
 
 // Native decoders create a foo.d tree after ndstool has already written its
@@ -1355,63 +1364,63 @@ static void stage_nds_metadata (ccp rom, ccp stage)
 // decode boundary; a real later edit naturally receives a newer timestamp.
 static void stamp_tree_mtime (ccp path, time_t stamp)
 {
-	DIR *dir = opendir(path);
+	DIR *dir = opendir (path);
 	if (!dir)
 		return;
 	struct dirent *de;
-	while ((de = readdir(dir)))
+	while ((de = readdir (dir)))
 	{
-		if (!strcmp(de->d_name,".") || !strcmp(de->d_name,".."))
+		if (!strcmp (de->d_name, ".") || !strcmp (de->d_name, ".."))
 			continue;
 		char child[PATH_MAX];
-		snprintf(child,sizeof(child),"%s/%s",path,de->d_name);
+		snprintf (child, sizeof (child), "%s/%s", path, de->d_name);
 		struct stat st;
-		if (lstat(child,&st))
+		if (lstat (child, &st))
 			continue;
-		if (S_ISDIR(st.st_mode))
-			stamp_tree_mtime(child,stamp);
-		else if (S_ISREG(st.st_mode))
+		if (S_ISDIR (st.st_mode))
+			stamp_tree_mtime (child, stamp);
+		else if (S_ISREG (st.st_mode))
 		{
 			struct utimbuf ut = { stamp, stamp };
-			utime(child,&ut);
+			utime (child, &ut);
 		}
 	}
-	closedir(dir);
+	closedir (dir);
 	struct utimbuf ut = { stamp, stamp };
-	utime(path,&ut);
+	utime (path, &ut);
 }
 
 void normalize_ds_nested_mtimes (ccp root)
 {
-	DIR *dir = opendir(root);
+	DIR *dir = opendir (root);
 	if (!dir)
 		return;
 	struct dirent *de;
-	while ((de = readdir(dir)))
+	while ((de = readdir (dir)))
 	{
-		if (!strcmp(de->d_name,".") || !strcmp(de->d_name,".."))
+		if (!strcmp (de->d_name, ".") || !strcmp (de->d_name, ".."))
 			continue;
 		char path[PATH_MAX];
-		snprintf(path,sizeof(path),"%s/%s",root,de->d_name);
+		snprintf (path, sizeof (path), "%s/%s", root, de->d_name);
 		struct stat st;
-		if (lstat(path,&st) || !S_ISDIR(st.st_mode))
+		if (lstat (path, &st) || !S_ISDIR (st.st_mode))
 			continue;
-		const size_t len = strlen(de->d_name);
-		if (len > 2 && !strcasecmp(de->d_name+len-2,".d"))
+		const size_t len = strlen (de->d_name);
+		if (len > 2 && !strcasecmp (de->d_name + len - 2, ".d"))
 		{
 			char source[PATH_MAX];
-			snprintf(source,sizeof(source),"%s/%.*s",root,(int)len-2,de->d_name);
+			snprintf (source, sizeof (source), "%s/%.*s", root, (int)len - 2, de->d_name);
 			struct stat src_st;
-			bool found = !stat(source,&src_st) && S_ISREG(src_st.st_mode);
+			bool found = !stat (source, &src_st) && S_ISREG (src_st.st_mode);
 			// A decompressor appends .bin before the native decoder adds .d:
 			// "wall_25.nsbtx" -> "wall_25.nsbtx.bin.d".  Prefer the
 			// original native file rather than treating the decoded tree as a
 			// new archive with a fabricated ".bin.nsbtx" name.
-			const size_t source_len = strlen(source);
-			if (!found && source_len > 4 && !strcasecmp(source + source_len - 4, ".bin"))
+			const size_t source_len = strlen (source);
+			if (!found && source_len > 4 && !strcasecmp (source + source_len - 4, ".bin"))
 			{
 				source[source_len - 4] = 0;
-				found = !stat(source,&src_st) && S_ISREG(src_st.st_mode);
+				found = !stat (source, &src_st) && S_ISREG (src_st.st_mode);
 			}
 			// ndstool stages an embedded "165.srl" as "165.d", dropping
 			// the executable extension just as it does for a top-level ROM.
@@ -1422,19 +1431,20 @@ void normalize_ds_nested_mtimes (ccp root)
 				// "wall_25.nsbtx.bin.d".  Its native sibling is
 				// "wall_25.nsbtx.bin.nsbtx", so include that recovered
 				// archive suffix alongside ndstool's extension-less ROM names.
-				static const char * const suffix[] = { ".nds", ".srl", ".nsbtx" };
-				snprintf(source,sizeof(source),"%s/%.*s%s",root,(int)len-2,de->d_name,suffix[i]);
-				found = !stat(source,&src_st) && S_ISREG(src_st.st_mode);
+				static const char *const suffix[] = { ".nds", ".srl", ".nsbtx" };
+				snprintf (source, sizeof (source), "%s/%.*s%s", root, (int)len - 2, de->d_name,
+					suffix[i]);
+				found = !stat (source, &src_st) && S_ISREG (src_st.st_mode);
 			}
 			if (found)
 			{
-				stamp_tree_mtime(path,src_st.st_mtime);
+				stamp_tree_mtime (path, src_st.st_mtime);
 				continue;
 			}
 		}
-		normalize_ds_nested_mtimes(path);
+		normalize_ds_nested_mtimes (path);
 	}
-	closedir(dir);
+	closedir (dir);
 }
 
 // Older extracted trees predate the timestamp marker/cache support. A full
@@ -1443,28 +1453,28 @@ void normalize_ds_nested_mtimes (ccp root)
 // subsequently edited file is still recognized as newer.
 void normalize_legacy_tree_mtimes (ccp root, time_t source_mtime)
 {
-	DIR *dir = opendir(root);
+	DIR *dir = opendir (root);
 	if (!dir)
 		return;
 	struct dirent *de;
-	while ((de = readdir(dir)))
+	while ((de = readdir (dir)))
 	{
-		if (!strcmp(de->d_name,".") || !strcmp(de->d_name,".."))
+		if (!strcmp (de->d_name, ".") || !strcmp (de->d_name, ".."))
 			continue;
 		char path[PATH_MAX];
-		snprintf(path,sizeof(path),"%s/%s",root,de->d_name);
+		snprintf (path, sizeof (path), "%s/%s", root, de->d_name);
 		struct stat st;
-		if (lstat(path,&st))
+		if (lstat (path, &st))
 			continue;
-		if (S_ISDIR(st.st_mode))
-			normalize_legacy_tree_mtimes(path,source_mtime);
-		if ((S_ISREG(st.st_mode) || S_ISDIR(st.st_mode)) && st.st_mtime <= source_mtime + 600)
+		if (S_ISDIR (st.st_mode))
+			normalize_legacy_tree_mtimes (path, source_mtime);
+		if ((S_ISREG (st.st_mode) || S_ISDIR (st.st_mode)) && st.st_mtime <= source_mtime + 600)
 		{
 			struct utimbuf ut = { source_mtime, source_mtime };
-			utime(path,&ut);
+			utime (path, &ut);
 		}
 	}
-	closedir(dir);
+	closedir (dir);
 }
 
 static bool is_ext (ccp src, ccp ext)
@@ -1910,8 +1920,8 @@ static void precreate_romfs_dirs (ccp tool, ccp prod_keys, ccp titlekey, ccp src
 	// the first and last quote of a line that starts with one, which breaks
 	// a quoted tool path followed by more quoted arguments. Wrapping the
 	// whole line in one extra pair of quotes survives that stripping.
-	snprintf (cmd, sizeof (cmd), "\"\"%s\" %s %s --listromfs \"%s\" 2>NUL\"", tool, k_opt, t_opt,
-		src);
+	snprintf (
+		cmd, sizeof (cmd), "\"\"%s\" %s %s --listromfs \"%s\" 2>NUL\"", tool, k_opt, t_opt, src);
 #else
 	snprintf (
 		cmd, sizeof (cmd), "\"%s\" %s %s --listromfs \"%s\" 2>/dev/null", tool, k_opt, t_opt, src);
@@ -2095,8 +2105,8 @@ static enumError passthru_archive (
 		// second verbosity level turns on its progress counter, useful for
 		// diagnosing a stall/failure on a multi-GB disc image instead of
 		// getting nothing but our own before/after log lines.
-		char *argv[]
-			= { (char *)tool, "EXTRACT", "-D", (char *)stage, "--overwrite", "-vv", (char *)src, 0 };
+		char *argv[] = { (char *)tool, "EXTRACT", "-D", (char *)stage, "--overwrite", "-vv",
+			(char *)src, 0 };
 		const int rc = run_program (argv);
 		if (rc != 0)
 			return ERROR0 (
@@ -2243,8 +2253,7 @@ static enumError passthru_archive (
 			// Channel: indices 0..2 hold IDs 4/6/7) came out mislabelled.
 			// "WAD -p" (libWiiSharp CreateNew) looks up <content id>.app
 			// first, so the repack side reads this layout unchanged.
-			char *argv[]
-				= { (char *)tool, "WAD", "-u", (char *)src, (char *)stage, "-cid", 0 };
+			char *argv[] = { (char *)tool, "WAD", "-u", (char *)src, (char *)stage, "-cid", 0 };
 			const int rc = run_program (argv);
 			if (rc != 0)
 				return ERROR0 (ERR_SUBJOB_FAILED,
@@ -2293,8 +2302,7 @@ static enumError passthru_archive (
 			if (CreatePath (stage, true))
 				return ERROR0 (ERR_CANT_CREATE_DIR, "Cannot create dest dir: %s", stage);
 
-			char *argv[]
-				= { (char *)nsz_tool, "-D", "-w", "-o", (char *)stage, (char *)src, 0 };
+			char *argv[] = { (char *)nsz_tool, "-D", "-w", "-o", (char *)stage, (char *)src, 0 };
 			const int rc = run_program (argv);
 			if (rc != 0)
 				return ERROR0 (
@@ -2305,8 +2313,8 @@ static enumError passthru_archive (
 			ccp dot = strrchr (base, '.');
 			uint stem_len = dot ? (uint)(dot - base) : (uint)strlen (base);
 			ccp decompressed_ext = is_ext (src, ".xcz") ? ".xci" : ".nsp";
-			snprintf (nsz_out, sizeof (nsz_out), "%s/%.*s%s", stage, stem_len, base,
-				decompressed_ext);
+			snprintf (
+				nsz_out, sizeof (nsz_out), "%s/%.*s%s", stage, stem_len, base, decompressed_ext);
 			if (access (nsz_out, R_OK))
 				return ERROR0 (ERR_SUBJOB_FAILED,
 					"pass-through 'nsz -D' did not produce the expected %s for %s", nsz_out, src);
@@ -2552,7 +2560,7 @@ static enumError passthru_archive (
 	}
 
 	if (is_ds)
-		normalize_ds_nested_mtimes(stage);
+		normalize_ds_nested_mtimes (stage);
 
 	snprintf (staged_dir, staged_dir_size, "%s", stage);
 	return ERR_OK;
@@ -2952,7 +2960,8 @@ static bool find_wiiu_disc_key (ccp src, ccp stage, char *out_keypath, size_t ou
 					for (int i = 0; i < 16; i++)
 					{
 						uint hi, lo;
-						if (sscanf (hex + 2 * i, "%1x", &hi) == 1 && sscanf (hex + 2 * i + 1, "%1x", &lo) == 1)
+						if (sscanf (hex + 2 * i, "%1x", &hi) == 1
+							&& sscanf (hex + 2 * i + 1, "%1x", &lo) == 1)
 						{
 							bkey[i] = (hi << 4) | lo;
 							p++;
@@ -3011,10 +3020,13 @@ static bool find_wiiu_disc_key (ccp src, ccp stage, char *out_keypath, size_t ou
 				while (*comment == ' ' || *comment == '\t')
 					comment++;
 				char *endc = comment + strlen (comment);
-				while (endc > comment && (endc[-1] == '\r' || endc[-1] == '\n' || endc[-1] == ' ' || endc[-1] == '\t'))
+				while (endc > comment
+					&& (endc[-1] == '\r' || endc[-1] == '\n' || endc[-1] == ' '
+						|| endc[-1] == '\t'))
 					*--endc = '\0';
 
-				if (strcasecmp (comment, base) == 0 || strstr (base, comment) != NULL || strstr (comment, base) != NULL)
+				if (strcasecmp (comment, base) == 0 || strstr (base, comment) != NULL
+					|| strstr (comment, base) != NULL)
 				{
 					char hex[33] = "";
 					int hlen = 0;
@@ -3030,7 +3042,8 @@ static bool find_wiiu_disc_key (ccp src, ccp stage, char *out_keypath, size_t ou
 						for (int i = 0; i < 16; i++)
 						{
 							uint hi, lo;
-							if (sscanf (hex + 2 * i, "%1x", &hi) == 1 && sscanf (hex + 2 * i + 1, "%1x", &lo) == 1)
+							if (sscanf (hex + 2 * i, "%1x", &hi) == 1
+								&& sscanf (hex + 2 * i + 1, "%1x", &lo) == 1)
 							{
 								bkey[i] = (hi << 4) | lo;
 								pcount++;
@@ -3118,7 +3131,8 @@ bool is_dir_newer_than (ccp dirpath, time_t target_mtime)
 				|| !strcmp (de->d_name, "setup.bat") || !strcmp (de->d_name, "setup.sh")
 				|| !strcmp (de->d_name, "align-files.txt") || !strcmp (de->d_name, ".DS_Store")
 				|| !strcmp (de->d_name, SZS_HASH_CACHE_FILE)
-				|| !strcmp (de->d_name, SZS_MTIME_BASELINE_FILE) || strstr (de->d_name, "string-pool"))
+				|| !strcmp (de->d_name, SZS_MTIME_BASELINE_FILE)
+				|| strstr (de->d_name, "string-pool"))
 				continue;
 
 			// Suffix-based tool-generated companion files:
@@ -3129,12 +3143,13 @@ bool is_dir_newer_than (ccp dirpath, time_t target_mtime)
 			//   *.kcl.obj    -- kcl mesh companion
 			//   *.kcl.mtl    -- kcl material companion
 			//   *.glb / .dae -- model mesh companion
-			if (nlen > 10 && (!strcasecmp (de->d_name + nlen - 10, ".bflyt.xml")
-				|| !strcasecmp (de->d_name + nlen - 10, ".bflan.xml")
-				|| !strcasecmp (de->d_name + nlen - 10, ".bclyt.xml")
-				|| !strcasecmp (de->d_name + nlen - 10, ".bclan.xml")
-				|| !strcasecmp (de->d_name + nlen - 10, ".brlyt.xml")
-				|| !strcasecmp (de->d_name + nlen - 10, ".brlan.xml")))
+			if (nlen > 10
+				&& (!strcasecmp (de->d_name + nlen - 10, ".bflyt.xml")
+					|| !strcasecmp (de->d_name + nlen - 10, ".bflan.xml")
+					|| !strcasecmp (de->d_name + nlen - 10, ".bclyt.xml")
+					|| !strcasecmp (de->d_name + nlen - 10, ".bclan.xml")
+					|| !strcasecmp (de->d_name + nlen - 10, ".brlyt.xml")
+					|| !strcasecmp (de->d_name + nlen - 10, ".brlan.xml")))
 				continue;
 			if (nlen > 9 && !strcasecmp (de->d_name + nlen - 9, ".byml.yml"))
 				continue;
@@ -3315,8 +3330,7 @@ static enumError passthru_wiiu_disc (
 			unlink (temp_wud);
 		*staged_dir = 0;
 		return ERROR0 (ERR_WARNING,
-			"Wii U disc needs its 16-byte title key next to it or in bundled wiiu_keys: %s",
-			src);
+			"Wii U disc needs its 16-byte title key next to it or in bundled wiiu_keys: %s", src);
 	}
 
 	char abs_key[PATH_MAX];
@@ -3480,9 +3494,8 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 		const enumError rvz_err = DecodeRVZFile (src, rvz_iso);
 		if (rvz_err > ERR_WARNING)
 			return rvz_err;
-		const enumError claim_err
-			= passthru_archive_or_bms (rvz_iso, basedir, stage, staged_dir, staged_dir_size, false,
-				false, false, true, false);
+		const enumError claim_err = passthru_archive_or_bms (
+			rvz_iso, basedir, stage, staged_dir, staged_dir_size, false, false, false, true, false);
 		remove (rvz_iso);
 		return claim_err;
 	}
@@ -3615,8 +3628,8 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 		return passthru_7z (src, basedir, stage, staged_dir, staged_dir_size, is_rar_magic);
 
 	// Adobe Flash SWF (strong pass: FWS uncompressed, CWS zlib, ZWS lzma)
-	bool is_swf_magic = (head[0] == 'F' || head[0] == 'C' || head[0] == 'Z')
-		&& head[1] == 'W' && head[2] == 'S' && head[3] > 0 && head[3] <= 60;
+	bool is_swf_magic = (head[0] == 'F' || head[0] == 'C' || head[0] == 'Z') && head[1] == 'W'
+		&& head[2] == 'S' && head[3] > 0 && head[3] <= 60;
 	if (is_swf_magic && is_ext (src, ".swf"))
 		return passthru_ffdec (src, basedir, stage, staged_dir, staged_dir_size);
 
@@ -3729,8 +3742,7 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 			|| (is_ext (src, ".rvid") && !memcmp (head, "RVID", 4) && le32 (head + 4) == 5)
 			|| ((is_ext (src, ".bik") || is_ext (src, ".vid"))
 				&& (!memcmp (head, "BIK", 3) || !memcmp (head, "KB2", 3)))
-			|| (is_ext (src, ".bwav") && is_bwav_magic)
-			|| is_ext (src, ".mmstr"));
+			|| (is_ext (src, ".bwav") && is_bwav_magic) || is_ext (src, ".mmstr"));
 
 	// .bwav decodes to a WAV like the other stream-audio siblings.
 	if (is_bwav_magic && is_ext (src, ".bwav"))
@@ -3752,8 +3764,8 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 	// Only THP and Mobiclip have reciprocal mobipeg builders. Keep the other
 	// derived media previews out of regular staging trees; --export/XEXPORT is
 	// the explicit inspection mode for them.
-	if ( export_count <= 0
-		&& ( is_vid1_magic || is_hvqm || is_stream_audio || is_other_media || is_vid1_ext ))
+	if (export_count <= 0
+		&& (is_vid1_magic || is_hvqm || is_stream_audio || is_other_media || is_vid1_ext))
 		return ERR_NOTHING_TO_DO;
 
 	if (is_vid1_magic)
@@ -4124,8 +4136,8 @@ enumError PassthruPack (ccp src_dir, ccp dest)
 			// archive path below -- that would silently write a plain U8
 			// archive at DEST's .3ds/.cia/.cci path, a file that looks
 			// like a real repack but isn't one.
-			return ERROR0 (ERR_SUBJOB_FAILED, "pass-through 'makerom' failed for %s (exit %d)",
-				dest, rc);
+			return ERROR0 (
+				ERR_SUBJOB_FAILED, "pass-through 'makerom' failed for %s (exit %d)", dest, rc);
 		}
 
 		if (dst_exists)

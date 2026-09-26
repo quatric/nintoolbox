@@ -16,9 +16,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #ifdef __MINGW32__
-  #include <process.h>
+#include <process.h>
 #else
-  #include <sys/wait.h>
+#include <sys/wait.h>
 #endif
 #include <errno.h>
 #include "lib-std.h"
@@ -235,26 +235,25 @@ int main (int argc, char *argv[])
 		const char *arg = argv[i];
 		if (!strcmp (arg, "-h") || !strcmp (arg, "--help"))
 		{
-			printf (
-				"wbrsar - Wiimms BRSAR/BFSAR/BCSAR Tool\n"
-				"Converts a BRSAR (or other vgmtrans-recognized) sound bank to MIDI + SF2/DLS\n"
-				"via an external vgmtrans CLI binary (magcius/vgmtrans).\n\n"
-				"Usage: %s [options] <input.brsar> [output_dir]\n"
-				"       %s pack   <input_dir> [output] [--bfsar|--bcsar|--sdat]\n"
-				"       %s unpack <input.brsar|.bfsar|.bcsar|.sdat> [output_dir]\n\n"
-				"Options:\n"
-				"  --with-vgmtrans=P  Specify path to external vgmtrans tool\n"
-				"  -d, --dest <dir>   Specify destination directory\n"
-				"  -h, --help         Show this help\n\n"
-				"pack: Build an archive from a directory of RSEQ (.txt MML source or\n"
-				"      .rseq/.brseq binary) and RBNK/RWAR/RWSD asset files. Defaults to\n"
-				"      BRSAR (Wii); --bfsar/--bcsar select the Wii U / 3DS container\n"
-				"      instead (FSAR/CSAR layout is extrapolated, not independently\n"
-				"      verified -- see lib-brsar.h).\n"
-				"      --sdat builds a Nintendo DS archive from SSEQ/SBNK/SWAR files\n"
-				"      (or .txt MML assembled as SSEQ).\n"
-				"unpack: Extract an archive's RSEQ/RBNK/RWAR/RWSD assets to a directory\n"
-				"      (raw asset dump, distinct from the MIDI/SF2 conversion above).\n",
+			printf ("wbrsar - Wiimms BRSAR/BFSAR/BCSAR Tool\n"
+					"Converts a BRSAR (or other vgmtrans-recognized) sound bank to MIDI + SF2/DLS\n"
+					"via an external vgmtrans CLI binary (magcius/vgmtrans).\n\n"
+					"Usage: %s [options] <input.brsar> [output_dir]\n"
+					"       %s pack   <input_dir> [output] [--bfsar|--bcsar|--sdat]\n"
+					"       %s unpack <input.brsar|.bfsar|.bcsar|.sdat> [output_dir]\n\n"
+					"Options:\n"
+					"  --with-vgmtrans=P  Specify path to external vgmtrans tool\n"
+					"  -d, --dest <dir>   Specify destination directory\n"
+					"  -h, --help         Show this help\n\n"
+					"pack: Build an archive from a directory of RSEQ (.txt MML source or\n"
+					"      .rseq/.brseq binary) and RBNK/RWAR/RWSD asset files. Defaults to\n"
+					"      BRSAR (Wii); --bfsar/--bcsar select the Wii U / 3DS container\n"
+					"      instead (FSAR/CSAR layout is extrapolated, not independently\n"
+					"      verified -- see lib-brsar.h).\n"
+					"      --sdat builds a Nintendo DS archive from SSEQ/SBNK/SWAR files\n"
+					"      (or .txt MML assembled as SSEQ).\n"
+					"unpack: Extract an archive's RSEQ/RBNK/RWAR/RWSD assets to a directory\n"
+					"      (raw asset dump, distinct from the MIDI/SF2 conversion above).\n",
 				argv[0], argv[0], argv[0]);
 			return 0;
 		}

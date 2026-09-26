@@ -1408,7 +1408,10 @@ static uint Add_CYLINDER_Y (struct kcl_t *draw, // pointer to valid KCL
 		zr *= op->scale[2];
 	}
 
-	enum { max_sides = 8 };
+	enum
+	{
+		max_sides = 8
+	};
 	double3 pt[2 * max_sides + 4];
 
 	const uint n_sides = detailed ? max_sides : 6;
@@ -1502,7 +1505,10 @@ static uint Add_CYLINDER_Z (struct kcl_t *draw, // pointer to valid KCL
 		raise *= op->scale[2];
 	}
 
-	enum { max_sides = 8 };
+	enum
+	{
+		max_sides = 8
+	};
 	double3 pt[2 * max_sides + 4];
 
 	const uint n_sides = detailed ? max_sides : 6;
@@ -1706,7 +1712,10 @@ static uint Add_PYRAMID (struct kcl_t *draw, // pointer to valid KCL
 	double r = *data++;
 	const s16 *raise = data_size >= 4 ? data : 0;
 
-	enum { max_side = 10 };
+	enum
+	{
+		max_side = 10
+	};
 	if (n_side > max_side)
 		n_side = max_side;
 

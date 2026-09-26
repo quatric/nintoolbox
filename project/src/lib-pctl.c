@@ -44,9 +44,8 @@ typedef struct pctl_walk_result
 {
 	bool ok;
 	bool has_next;
-	u64  next_pos;
-}
-pctl_walk_result;
+	u64 next_pos;
+} pctl_walk_result;
 
 static void print_indent (FILE *out, int indent)
 {
@@ -54,8 +53,8 @@ static void print_indent (FILE *out, int indent)
 		fputc ('\t', out);
 }
 
-static pctl_walk_result decode_section
-	( FILE *out, const u8 *data, size_t size, u64 pos, int indent, int depth, u32 *budget )
+static pctl_walk_result decode_section (
+	FILE *out, const u8 *data, size_t size, u64 pos, int indent, int depth, u32 *budget)
 {
 	pctl_walk_result res = { false, false, 0 };
 
@@ -87,16 +86,16 @@ static pctl_walk_result decode_section
 		if (sig[i] < 0x20 || sig[i] > 0x7e)
 			sig[i] = '.';
 
-	const u32 section_size        = rd_le32 (data + pos + 4);
-	const u32 subsection_offset   = rd_le32 (data + pos + 8);
+	const u32 section_size = rd_le32 (data + pos + 4);
+	const u32 subsection_offset = rd_le32 (data + pos + 8);
 	const u32 next_section_offset = rd_le32 (data + pos + 12);
-	const u32 binary_data_offset  = rd_le32 (data + pos + 20);
-	const u32 subsection_count    = rd_le32 (data + pos + 28);
+	const u32 binary_data_offset = rd_le32 (data + pos + 20);
+	const u32 subsection_count = rd_le32 (data + pos + 28);
 
 	print_indent (out, indent);
-	fprintf (out, "[%s] offset=%llu size=%u binary_data_offset=%s subsection_count=%u\n",
-		sig, (unsigned long long)pos, section_size,
-		binary_data_offset == PCTL_NULL_OFFSET ? "-" : "set", subsection_count);
+	fprintf (out, "[%s] offset=%llu size=%u binary_data_offset=%s subsection_count=%u\n", sig,
+		(unsigned long long)pos, section_size, binary_data_offset == PCTL_NULL_OFFSET ? "-" : "set",
+		subsection_count);
 
 	const u64 bin_pos = (u64)pos + binary_data_offset;
 	const bool has_binary = binary_data_offset != PCTL_NULL_OFFSET && bin_pos >= pos;
@@ -105,14 +104,14 @@ static pctl_walk_result decode_section
 	{
 		if (has_binary && bin_pos + 48 <= size)
 		{
-			const u16 width  = rd_le16 (data + bin_pos);
+			const u16 width = rd_le16 (data + bin_pos);
 			const u16 height = rd_le16 (data + bin_pos + 2);
 			const u32 image_size = rd_le32 (data + bin_pos + 28);
 			const u32 texture_id = rd_le32 (data + bin_pos + 36);
-			const u8  surf_format = data[bin_pos + 40];
+			const u8 surf_format = data[bin_pos + 40];
 			print_indent (out, indent);
-			fprintf (out, "  texture: %ux%u format=%u image_size=%u texture_id=0x%x\n",
-				width, height, surf_format, image_size, texture_id);
+			fprintf (out, "  texture: %ux%u format=%u image_size=%u texture_id=0x%x\n", width,
+				height, surf_format, image_size, texture_id);
 		}
 		else
 		{
@@ -156,7 +155,8 @@ static pctl_walk_result decode_section
 		if (has_binary)
 			named = read_cstr (name, sizeof (name), data, size, bin_pos + 16, 64);
 		else if (pos + PCTL_SECTION_HDR_SIZE + 16 <= size)
-			named = read_cstr (name, sizeof (name), data, size, pos + PCTL_SECTION_HDR_SIZE + 16, 64);
+			named
+				= read_cstr (name, sizeof (name), data, size, pos + PCTL_SECTION_HDR_SIZE + 16, 64);
 		if (named)
 		{
 			print_indent (out, indent);
@@ -200,8 +200,8 @@ static pctl_walk_result decode_section
 				bool named = read_cstr (name, sizeof (name), data, size, p + 16, 128);
 
 				print_indent (out, indent);
-				fprintf (out, "  [%u] texture_id=0x%llx name=%s\n", i,
-					(unsigned long long)tex_id, named ? name : "<out of bounds>");
+				fprintf (out, "  [%u] texture_id=0x%llx name=%s\n", i, (unsigned long long)tex_id,
+					named ? name : "<out of bounds>");
 
 				if (!next_off)
 					break;
@@ -264,10 +264,10 @@ static pctl_walk_result decode_section
 		print_indent (out, indent);
 		if (has_binary && bin_pos + 4 <= size)
 		{
-			char shmag[5] = {0};
+			char shmag[5] = { 0 };
 			memcpy (shmag, data + bin_pos, 4);
-			fprintf (out, "  embedded shader archive (%s) at offset %llu (%u bytes)\n",
-				shmag, (unsigned long long)bin_pos, section_size);
+			fprintf (out, "  embedded shader archive (%s) at offset %llu (%u bytes)\n", shmag,
+				(unsigned long long)bin_pos, section_size);
 		}
 	}
 	else if (!memcmp (sig, "PRMA", 4))
@@ -291,7 +291,8 @@ static pctl_walk_result decode_section
 				fprintf (out, "<subsection chain out of bounds>\n");
 				break;
 			}
-			pctl_walk_result child = decode_section (out, data, size, cur, indent + 1, depth + 1, budget);
+			pctl_walk_result child
+				= decode_section (out, data, size, cur, indent + 1, depth + 1, budget);
 			if (!child.ok || !child.has_next)
 				break;
 			if (child.next_pos <= cur)
@@ -319,8 +320,8 @@ enumError DecodePCTL_Text (FILE *out, const u8 *data, size_t size)
 	const u16 graphics_api_version = rd_le16 (data + 8);
 	const u16 vfx_version = rd_le16 (data + 10);
 	const u16 byte_order_mark = rd_le16 (data + 12);
-	const u8  alignment = data[14];
-	const u8  target_offset = data[15];
+	const u8 alignment = data[14];
+	const u8 target_offset = data[15];
 	const u32 header_size = rd_le32 (data + 16);
 	const u16 flag = rd_le16 (data + 20);
 	const u16 block_offset = rd_le16 (data + 22);
@@ -339,7 +340,8 @@ enumError DecodePCTL_Text (FILE *out, const u8 *data, size_t size)
 		name[32] = 0;
 	}
 
-	fprintf (out, "#VFXB\n"
+	fprintf (out,
+		"#VFXB\n"
 		"# NintendoWare particle-effect archive -- section manifest.\n\n"
 		"graphics_api_version = %u\n"
 		"vfx_version = %u\n"
@@ -350,8 +352,8 @@ enumError DecodePCTL_Text (FILE *out, const u8 *data, size_t size)
 		"flag = 0x%x\n"
 		"block_offset = %u\n"
 		"file_size = %u\n",
-		graphics_api_version, vfx_version, byte_order_mark, alignment, target_offset,
-		header_size, flag, block_offset, file_size);
+		graphics_api_version, vfx_version, byte_order_mark, alignment, target_offset, header_size,
+		flag, block_offset, file_size);
 
 	if (*name)
 		fprintf (out, "name = %s\n", name);
@@ -394,8 +396,8 @@ enumError ExtractPCTLArchive (ccp source_file, ccp dest_dir)
 	const u16 graphics_api_version = rd_le16 (raw + 8);
 	const u16 vfx_version = rd_le16 (raw + 10);
 	const u16 byte_order_mark = rd_le16 (raw + 12);
-	const u8  alignment = raw[14];
-	const u8  target_offset = raw[15];
+	const u8 alignment = raw[14];
+	const u8 target_offset = raw[15];
 	const u16 flag = rd_le16 (raw + 20);
 	const u16 block_offset = rd_le16 (raw + 22);
 	const u32 file_size = rd_le32 (raw + 28);
@@ -412,7 +414,8 @@ enumError ExtractPCTLArchive (ccp source_file, ccp dest_dir)
 	FILE *hf = fopen (hdr_path, "w");
 	if (hf)
 	{
-		fprintf (hf, "{\n"
+		fprintf (hf,
+			"{\n"
 			"  \"Header\": {\n"
 			"    \"Magic\": 1112884822,\n" // "VFXB"
 			"    \"GraphicsAPIVersion\": %u,\n"
@@ -428,8 +431,8 @@ enumError ExtractPCTLArchive (ccp source_file, ccp dest_dir)
 			"  },\n"
 			"  \"Name\": \"%s\"\n"
 			"}\n",
-			graphics_api_version, vfx_version, byte_order_mark, alignment,
-			target_offset, flag, block_offset, file_size, name);
+			graphics_api_version, vfx_version, byte_order_mark, alignment, target_offset, flag,
+			block_offset, file_size, name);
 		fclose (hf);
 	}
 
@@ -439,14 +442,14 @@ enumError ExtractPCTLArchive (ccp source_file, ccp dest_dir)
 
 	while (pos + PCTL_SECTION_HDR_SIZE <= raw_size && budget--)
 	{
-		char sig[5] = {0};
+		char sig[5] = { 0 };
 		memcpy (sig, raw + pos, 4);
 
-		const u32 section_size        = rd_le32 (raw + pos + 4);
-		const u32 subsection_offset   = rd_le32 (raw + pos + 8);
+		const u32 section_size = rd_le32 (raw + pos + 4);
+		const u32 subsection_offset = rd_le32 (raw + pos + 8);
 		const u32 next_section_offset = rd_le32 (raw + pos + 12);
-		const u32 binary_data_offset  = rd_le32 (raw + pos + 20);
-		const u32 subsection_count    = rd_le32 (raw + pos + 28);
+		const u32 binary_data_offset = rd_le32 (raw + pos + 20);
+		const u32 subsection_count = rd_le32 (raw + pos + 28);
 
 		const u64 bin_pos = (u64)pos + binary_data_offset;
 		const bool has_bin = binary_data_offset != PCTL_NULL_OFFSET && bin_pos < raw_size;
@@ -489,7 +492,8 @@ enumError ExtractPCTLArchive (ccp source_file, ccp dest_dir)
 				s_size = raw_size - bin_pos;
 			char sh_path[PATH_MAX];
 			bool is_bfsha = bin_pos + 4 <= raw_size && !memcmp (raw + bin_pos, "FSHA", 4);
-			snprintf (sh_path, sizeof (sh_path), "%s/shaders.%s", dest_dir, is_bfsha ? "bfsha" : "bnsh");
+			snprintf (
+				sh_path, sizeof (sh_path), "%s/shaders.%s", dest_dir, is_bfsha ? "bfsha" : "bnsh");
 			FILE *sf = fopen (sh_path, "wb");
 			if (sf)
 			{
@@ -524,14 +528,15 @@ enumError ExtractPCTLArchive (ccp source_file, ccp dest_dir)
 			const u32 n_esets = subsection_count ? subsection_count : 1;
 			for (u32 ei = 0; ei < n_esets && eset_pos + PCTL_SECTION_HDR_SIZE <= raw_size; ei++)
 			{
-				const u32 eset_sub_off    = rd_le32 (raw + eset_pos + 8);
-				const u32 eset_next_off   = rd_le32 (raw + eset_pos + 12);
-				const u32 eset_bin_off    = rd_le32 (raw + eset_pos + 20);
-				const u32 eset_sub_count  = rd_le32 (raw + eset_pos + 28);
+				const u32 eset_sub_off = rd_le32 (raw + eset_pos + 8);
+				const u32 eset_next_off = rd_le32 (raw + eset_pos + 12);
+				const u32 eset_bin_off = rd_le32 (raw + eset_pos + 20);
+				const u32 eset_sub_count = rd_le32 (raw + eset_pos + 28);
 
 				char eset_name[128] = "";
 				if (eset_bin_off != PCTL_NULL_OFFSET)
-					read_cstr (eset_name, sizeof (eset_name), raw, raw_size, eset_pos + eset_bin_off + 16, 64);
+					read_cstr (eset_name, sizeof (eset_name), raw, raw_size,
+						eset_pos + eset_bin_off + 16, 64);
 				if (!*eset_name || !OwnedNameOk (eset_name))
 					snprintf (eset_name, sizeof (eset_name), "EmitterSet_%03u", ei);
 
@@ -552,20 +557,23 @@ enumError ExtractPCTLArchive (ccp source_file, ccp dest_dir)
 				{
 					u64 emtr_pos = eset_pos + eset_sub_off;
 					const u32 n_emtrs = eset_sub_count ? eset_sub_count : 1;
-					for (u32 mi = 0; mi < n_emtrs && emtr_pos + PCTL_SECTION_HDR_SIZE <= raw_size; mi++)
+					for (u32 mi = 0; mi < n_emtrs && emtr_pos + PCTL_SECTION_HDR_SIZE <= raw_size;
+						mi++)
 					{
-						const u32 emtr_sec_size  = rd_le32 (raw + emtr_pos + 4);
-						const u32 emtr_next_off  = rd_le32 (raw + emtr_pos + 12);
-						const u32 emtr_bin_off   = rd_le32 (raw + emtr_pos + 20);
+						const u32 emtr_sec_size = rd_le32 (raw + emtr_pos + 4);
+						const u32 emtr_next_off = rd_le32 (raw + emtr_pos + 12);
+						const u32 emtr_bin_off = rd_le32 (raw + emtr_pos + 20);
 
 						char emtr_name[128] = "";
 						if (emtr_bin_off != PCTL_NULL_OFFSET)
-							read_cstr (emtr_name, sizeof (emtr_name), raw, raw_size, emtr_pos + emtr_bin_off + 16, 64);
+							read_cstr (emtr_name, sizeof (emtr_name), raw, raw_size,
+								emtr_pos + emtr_bin_off + 16, 64);
 						if (!*emtr_name || !OwnedNameOk (emtr_name))
 							snprintf (emtr_name, sizeof (emtr_name), "Emitter_%03u", mi);
 
 						if (eordf)
-							fprintf (eordf, "    \"%s\"%s\n", emtr_name, (mi + 1 < n_emtrs) ? "," : "");
+							fprintf (
+								eordf, "    \"%s\"%s\n", emtr_name, (mi + 1 < n_emtrs) ? "," : "");
 
 						char emtr_dir[PATH_MAX];
 						snprintf (emtr_dir, sizeof (emtr_dir), "%s/%s", eset_dir, emtr_name);
@@ -579,7 +587,8 @@ enumError ExtractPCTLArchive (ccp source_file, ccp dest_dir)
 								ebin_size = raw_size - ebin_pos;
 
 							char emtr_bin_path[PATH_MAX];
-							snprintf (emtr_bin_path, sizeof (emtr_bin_path), "%s/EmitterData.bin", emtr_dir);
+							snprintf (emtr_bin_path, sizeof (emtr_bin_path), "%s/EmitterData.bin",
+								emtr_dir);
 							FILE *ebf = fopen (emtr_bin_path, "wb");
 							if (ebf)
 							{
@@ -649,7 +658,8 @@ enumError CreatePCTLArchive (ccp source_dir, ccp dest_file)
 		{
 			u8 *bntx_data = 0;
 			size_t bntx_size = 0;
-			if (!LoadFileAlloc (bntx_path, 0, 0, &bntx_data, &bntx_size, 0, 0, 0, false) && bntx_data)
+			if (!LoadFileAlloc (bntx_path, 0, 0, &bntx_data, &bntx_size, 0, 0, 0, false)
+				&& bntx_data)
 			{
 				// Locate GRTF section in ptcl_raw
 				const u16 block_offset = rd_le16 (ptcl_raw + 22);

@@ -47,7 +47,8 @@ bool IsCSDCT (const u8 *data, size_t size)
 	return true;
 }
 
-enumError DecompressCS_LZ (const u8 *src, size_t src_size, u8 *dst, size_t dst_size, size_t *produced)
+enumError DecompressCS_LZ (
+	const u8 *src, size_t src_size, u8 *dst, size_t dst_size, size_t *produced)
 {
 	if (!src || !dst || dst_size == 0)
 		return ERR_INVALID_DATA;
@@ -277,8 +278,8 @@ enumError DecodeCSDCT_Text (FILE *out, const u8 *data, size_t size)
 		const u16 flags = rd_le16 (data + pos + 6);
 		const u16 pal_flag = rd_le16 (data + pos + 8);
 		const u16 aux_flag = rd_le16 (data + pos + 10);
-		fprintf (out, "  bgr[%u]: %ux%u (flags=0x%04x, palette=%s, aux=%u, unk=0x%04x)\n",
-			i, w, h, flags, pal_flag ? "yes" : "no", aux_flag, unk0);
+		fprintf (out, "  bgr[%u]: %ux%u (flags=0x%04x, palette=%s, aux=%u, unk=0x%04x)\n", i, w, h,
+			flags, pal_flag ? "yes" : "no", aux_flag, unk0);
 		pos += 16;
 	}
 
@@ -318,7 +319,8 @@ enumError ExtractCSDCTArchive (ccp arg, ccp basedir, uint depth, const u8 *data,
 
 	// Read background records
 	size_t pos = 16;
-	typedef struct {
+	typedef struct
+	{
 		u16 w, h, flags, pal_flag, aux_flag;
 	} bgr_rec_t;
 	bgr_rec_t bgrs[32];
@@ -399,8 +401,9 @@ enumError ExtractCSDCTArchive (ccp arg, ccp basedir, uint depth, const u8 *data,
 
 		if (fm)
 		{
-			fprintf (fm, "    { \"index\": %u, \"width\": %u, \"height\": %u, \"has_palette\": %s }%s\n",
-				i, w, h, has_pal ? "true" : "false", (i + 1 < num_bgr) ? "," : "");
+			fprintf (fm,
+				"    { \"index\": %u, \"width\": %u, \"height\": %u, \"has_palette\": %s }%s\n", i,
+				w, h, has_pal ? "true" : "false", (i + 1 < num_bgr) ? "," : "");
 		}
 	}
 
@@ -482,7 +485,9 @@ enumError ExtractCSDCTArchive (ccp arg, ccp basedir, uint depth, const u8 *data,
 
 		if (fm)
 		{
-			fprintf (fm, "    { \"index\": %u, \"id\": %u, \"name\": \"%s\", \"width\": %u, \"height\": %u, \"frames\": %u }%s\n",
+			fprintf (fm,
+				"    { \"index\": %u, \"id\": %u, \"name\": \"%s\", \"width\": %u, \"height\": %u, "
+				"\"frames\": %u }%s\n",
 				i, aid, name, aw, ah, aframes, (i + 1 < num_anim) ? "," : "");
 		}
 	}

@@ -53,7 +53,11 @@
 #define NUMATB_MAX_ATTRS 4096
 
 // Sorted by id (see matl.rs's ParamId enum) for binary search.
-typedef struct { u32 id; ccp name; } matl_param_name_t;
+typedef struct
+{
+	u32 id;
+	ccp name;
+} matl_param_name_t;
 static const matl_param_name_t matl_param_names[] = {
 	{ 0, "Diffuse" },
 	{ 1, "Specular" },
@@ -440,21 +444,23 @@ static ccp matl_param_name (u64 id)
 	return 0;
 }
 
-static const ccp matl_cull_mode_name[]	  = { "Back", "Front", "Disabled" };
-static const ccp matl_fill_mode_name[]	  = { "Line", "Solid" };
-static const ccp matl_wrap_mode_name[]	  = { "Repeat", "ClampToEdge", "MirroredRepeat", "ClampToBorder" };
-static const ccp matl_min_filter_name[]  = { "Nearest", "LinearMipmapLinear", "LinearMipmapLinear2" };
-static const ccp matl_mag_filter_name[]  = { "Nearest", "Linear", "Linear2" };
+static const ccp matl_cull_mode_name[] = { "Back", "Front", "Disabled" };
+static const ccp matl_fill_mode_name[] = { "Line", "Solid" };
+static const ccp matl_wrap_mode_name[]
+	= { "Repeat", "ClampToEdge", "MirroredRepeat", "ClampToBorder" };
+static const ccp matl_min_filter_name[]
+	= { "Nearest", "LinearMipmapLinear", "LinearMipmapLinear2" };
+static const ccp matl_mag_filter_name[] = { "Nearest", "Linear", "Linear2" };
 static const ccp matl_filter_type_name[] = { "Default", "Default2", "AnisotropicFiltering" };
-static const ccp matl_blend_op_name[]	  = { "Add", "Subtract", "ReverseSubtract", "Minimum", "Maximum" };
-static const ccp matl_blend_factor_name[] = {
-	"Zero", "One", "SourceAlpha", "DestinationAlpha", "SourceColor", "DestinationColor",
-	"OneMinusSourceAlpha", "OneMinusDestinationAlpha", "OneMinusSourceColor",
-	"OneMinusDestinationColor", "SourceAlphaSaturate", "Source1Alpha", "Source1Color",
-	"OneMinusSource1Alpha", "OneMinusSource1Color"
-};
+static const ccp matl_blend_op_name[]
+	= { "Add", "Subtract", "ReverseSubtract", "Minimum", "Maximum" };
+static const ccp matl_blend_factor_name[] = { "Zero", "One", "SourceAlpha", "DestinationAlpha",
+	"SourceColor", "DestinationColor", "OneMinusSourceAlpha", "OneMinusDestinationAlpha",
+	"OneMinusSourceColor", "OneMinusDestinationColor", "SourceAlphaSaturate", "Source1Alpha",
+	"Source1Color", "OneMinusSource1Alpha", "OneMinusSource1Color" };
 
-static ccp matl_enum_name (const ccp *table, uint table_len, u32 val, char *fallback, uint fallback_sz)
+static ccp matl_enum_name (
+	const ccp *table, uint table_len, u32 val, char *fallback, uint fallback_sz)
 {
 	if (val < table_len)
 		return table[val];
@@ -475,8 +481,7 @@ bool IsNUMATB (const u8 *data, size_t size)
 // Reads a NUL-terminated string at the relative offset stored at 'field_off' (an
 // SsbhString field), bounds-checked against 'size'. Leaves 'dest' empty and returns
 // false on a null or out-of-range offset instead of aborting the whole decode.
-static bool read_ssbh_string (
-	char *dest, uint destsz, const u8 *data, size_t size, u64 field_off)
+static bool read_ssbh_string (char *dest, uint destsz, const u8 *data, size_t size, u64 field_off)
 {
 	dest[0] = 0;
 	if (field_off + 8 > size)
@@ -527,7 +532,8 @@ enumError DecodeNUMATB_Text (FILE *out, const u8 *data, size_t size)
 	const u64 array_rel = rd_le64 (data + array_field_off);
 	const u64 entry_count = rd_le64 (data + array_field_off + 8);
 
-	fprintf (out, "#NUMATB\n"
+	fprintf (out,
+		"#NUMATB\n"
 		"version = %u.%u\n"
 		"entry_count = %llu\n\n"
 		"[materials]\n",
@@ -556,8 +562,8 @@ enumError DecodeNUMATB_Text (FILE *out, const u8 *data, size_t size)
 		read_ssbh_string (material_label, sizeof (material_label), data, size, entry_off);
 		read_ssbh_string (shader_label, sizeof (shader_label), data, size, entry_off + 0x18);
 
-		fprintf (out, "  [%llu] %s\n    shader = %s\n",
-			(unsigned long long)i, material_label[0] ? material_label : "<unnamed>",
+		fprintf (out, "  [%llu] %s\n    shader = %s\n", (unsigned long long)i,
+			material_label[0] ? material_label : "<unnamed>",
 			shader_label[0] ? shader_label : "<unnamed>");
 
 		const u64 attr_array_field_off = entry_off + 0x08;
@@ -600,97 +606,145 @@ enumError DecodeNUMATB_Text (FILE *out, const u8 *data, size_t size)
 
 			switch (data_type)
 			{
-			case 1: // Float
-				if (val_off + 4 > size) { fprintf (out, "<out of bounds>\n"); break; }
-				print_f32 (out, "", data, val_off);
-				fprintf (out, "\n");
-				break;
+				case 1: // Float
+					if (val_off + 4 > size)
+					{
+						fprintf (out, "<out of bounds>\n");
+						break;
+					}
+					print_f32 (out, "", data, val_off);
+					fprintf (out, "\n");
+					break;
 
-			case 2: // Boolean
-				if (val_off + 4 > size) { fprintf (out, "<out of bounds>\n"); break; }
-				fprintf (out, "%s\n", rd_le32 (data + val_off) ? "true" : "false");
-				break;
+				case 2: // Boolean
+					if (val_off + 4 > size)
+					{
+						fprintf (out, "<out of bounds>\n");
+						break;
+					}
+					fprintf (out, "%s\n", rd_le32 (data + val_off) ? "true" : "false");
+					break;
 
-			case 5: // Vector4
-			case 7: // Color4f (Unk7)
-				if (val_off + 16 > size) { fprintf (out, "<out of bounds>\n"); break; }
-				print_f32 (out, "(", data, val_off); print_f32 (out, ", ", data, val_off + 4);
-				print_f32 (out, ", ", data, val_off + 8); print_f32 (out, ", ", data, val_off + 12);
-				fprintf (out, ")\n");
-				break;
+				case 5: // Vector4
+				case 7: // Color4f (Unk7)
+					if (val_off + 16 > size)
+					{
+						fprintf (out, "<out of bounds>\n");
+						break;
+					}
+					print_f32 (out, "(", data, val_off);
+					print_f32 (out, ", ", data, val_off + 4);
+					print_f32 (out, ", ", data, val_off + 8);
+					print_f32 (out, ", ", data, val_off + 12);
+					fprintf (out, ")\n");
+					break;
 
-			case 11: // String (SsbhString, another relative-offset field)
-			{
-				char str[256];
-				read_ssbh_string (str, sizeof (str), data, size, val_off);
-				fprintf (out, "\"%s\"\n", str);
-				break;
-			}
-
-			case 14: // Sampler
-			{
-				if (val_off + 0x38 > size) { fprintf (out, "<out of bounds>\n"); break; }
-				char fb1[16], fb2[16], fb3[16], fb4[16], fb5[16], fb6[16];
-				fprintf (out, "Sampler(wrap=%s/%s/%s, min=%s, mag=%s, filter=%s,"
-					" lod_bias=%g, max_aniso=%u)\n",
-					matl_enum_name (matl_wrap_mode_name, 4, rd_le32 (data + val_off), fb1, sizeof (fb1)),
-					matl_enum_name (matl_wrap_mode_name, 4, rd_le32 (data + val_off + 4), fb2, sizeof (fb2)),
-					matl_enum_name (matl_wrap_mode_name, 4, rd_le32 (data + val_off + 8), fb3, sizeof (fb3)),
-					matl_enum_name (matl_min_filter_name, 3, rd_le32 (data + val_off + 12), fb4, sizeof (fb4)),
-					matl_enum_name (matl_mag_filter_name, 3, rd_le32 (data + val_off + 16), fb5, sizeof (fb5)),
-					matl_enum_name (matl_filter_type_name, 3, rd_le32 (data + val_off + 20), fb6, sizeof (fb6)),
-					(double)read_f32 (data, val_off + 0x30),
-					rd_le32 (data + val_off + 0x34));
-				break;
-			}
-
-			case 16: // UvTransform
-				if (val_off + 20 > size) { fprintf (out, "<out of bounds>\n"); break; }
-				fprintf (out, "UvTransform(scale=%g/%g, rot=%g, translate=%g/%g)\n",
-					(double)read_f32 (data, val_off),
-					(double)read_f32 (data, val_off + 4),
-					(double)read_f32 (data, val_off + 8),
-					(double)read_f32 (data, val_off + 12),
-					(double)read_f32 (data, val_off + 16));
-				break;
-
-			case 17: // BlendState (leading fields are the same layout in v1.5/v1.6)
-			{
-				if (val_off + 24 > size) { fprintf (out, "<out of bounds>\n"); break; }
-				char fb1[16], fb2[16], fb3[16], fb4[16], fb5[16], fb6[16];
-				fprintf (out, "BlendState(src_color=%s, color_op=%s, dst_color=%s,"
-					" src_alpha=%s, alpha_op=%s, dst_alpha=%s)\n",
-					matl_enum_name (matl_blend_factor_name, 15, rd_le32 (data + val_off), fb1, sizeof (fb1)),
-					matl_enum_name (matl_blend_op_name, 5, rd_le32 (data + val_off + 4), fb2, sizeof (fb2)),
-					matl_enum_name (matl_blend_factor_name, 15, rd_le32 (data + val_off + 8), fb3, sizeof (fb3)),
-					matl_enum_name (matl_blend_factor_name, 15, rd_le32 (data + val_off + 12), fb4, sizeof (fb4)),
-					matl_enum_name (matl_blend_op_name, 5, rd_le32 (data + val_off + 16), fb5, sizeof (fb5)),
-					matl_enum_name (matl_blend_factor_name, 15, rd_le32 (data + val_off + 20), fb6, sizeof (fb6)));
-				break;
-			}
-
-			case 18: // RasterizerState -- v1.6 leads with fill_mode then cull_mode;
-			         // v1.5 is cull_mode only, so the fill_mode column is skipped for it.
-			{
-				const u64 cull_off = v16 ? val_off + 4 : val_off;
-				if (cull_off + 4 > size) { fprintf (out, "<out of bounds>\n"); break; }
-				char fb1[16], fb2[16];
-				if (v16)
+				case 11: // String (SsbhString, another relative-offset field)
 				{
-					if (val_off + 4 > size) { fprintf (out, "<out of bounds>\n"); break; }
-					fprintf (out, "RasterizerState(fill=%s, cull=%s)\n",
-						matl_enum_name (matl_fill_mode_name, 2, rd_le32 (data + val_off), fb1, sizeof (fb1)),
-						matl_enum_name (matl_cull_mode_name, 3, rd_le32 (data + cull_off), fb2, sizeof (fb2)));
+					char str[256];
+					read_ssbh_string (str, sizeof (str), data, size, val_off);
+					fprintf (out, "\"%s\"\n", str);
+					break;
 				}
-				else
-					fprintf (out, "RasterizerState(cull=%s)\n",
-						matl_enum_name (matl_cull_mode_name, 3, rd_le32 (data + cull_off), fb1, sizeof (fb1)));
-				break;
-			}
 
-			default:
-				fprintf (out, "<unknown param type %llu>\n", (unsigned long long)data_type);
-				break;
+				case 14: // Sampler
+				{
+					if (val_off + 0x38 > size)
+					{
+						fprintf (out, "<out of bounds>\n");
+						break;
+					}
+					char fb1[16], fb2[16], fb3[16], fb4[16], fb5[16], fb6[16];
+					fprintf (out,
+						"Sampler(wrap=%s/%s/%s, min=%s, mag=%s, filter=%s,"
+						" lod_bias=%g, max_aniso=%u)\n",
+						matl_enum_name (
+							matl_wrap_mode_name, 4, rd_le32 (data + val_off), fb1, sizeof (fb1)),
+						matl_enum_name (matl_wrap_mode_name, 4, rd_le32 (data + val_off + 4), fb2,
+							sizeof (fb2)),
+						matl_enum_name (matl_wrap_mode_name, 4, rd_le32 (data + val_off + 8), fb3,
+							sizeof (fb3)),
+						matl_enum_name (matl_min_filter_name, 3, rd_le32 (data + val_off + 12), fb4,
+							sizeof (fb4)),
+						matl_enum_name (matl_mag_filter_name, 3, rd_le32 (data + val_off + 16), fb5,
+							sizeof (fb5)),
+						matl_enum_name (matl_filter_type_name, 3, rd_le32 (data + val_off + 20),
+							fb6, sizeof (fb6)),
+						(double)read_f32 (data, val_off + 0x30), rd_le32 (data + val_off + 0x34));
+					break;
+				}
+
+				case 16: // UvTransform
+					if (val_off + 20 > size)
+					{
+						fprintf (out, "<out of bounds>\n");
+						break;
+					}
+					fprintf (out, "UvTransform(scale=%g/%g, rot=%g, translate=%g/%g)\n",
+						(double)read_f32 (data, val_off), (double)read_f32 (data, val_off + 4),
+						(double)read_f32 (data, val_off + 8), (double)read_f32 (data, val_off + 12),
+						(double)read_f32 (data, val_off + 16));
+					break;
+
+				case 17: // BlendState (leading fields are the same layout in v1.5/v1.6)
+				{
+					if (val_off + 24 > size)
+					{
+						fprintf (out, "<out of bounds>\n");
+						break;
+					}
+					char fb1[16], fb2[16], fb3[16], fb4[16], fb5[16], fb6[16];
+					fprintf (out,
+						"BlendState(src_color=%s, color_op=%s, dst_color=%s,"
+						" src_alpha=%s, alpha_op=%s, dst_alpha=%s)\n",
+						matl_enum_name (matl_blend_factor_name, 15, rd_le32 (data + val_off), fb1,
+							sizeof (fb1)),
+						matl_enum_name (
+							matl_blend_op_name, 5, rd_le32 (data + val_off + 4), fb2, sizeof (fb2)),
+						matl_enum_name (matl_blend_factor_name, 15, rd_le32 (data + val_off + 8),
+							fb3, sizeof (fb3)),
+						matl_enum_name (matl_blend_factor_name, 15, rd_le32 (data + val_off + 12),
+							fb4, sizeof (fb4)),
+						matl_enum_name (matl_blend_op_name, 5, rd_le32 (data + val_off + 16), fb5,
+							sizeof (fb5)),
+						matl_enum_name (matl_blend_factor_name, 15, rd_le32 (data + val_off + 20),
+							fb6, sizeof (fb6)));
+					break;
+				}
+
+				case 18: // RasterizerState -- v1.6 leads with fill_mode then cull_mode;
+						 // v1.5 is cull_mode only, so the fill_mode column is skipped for it.
+				{
+					const u64 cull_off = v16 ? val_off + 4 : val_off;
+					if (cull_off + 4 > size)
+					{
+						fprintf (out, "<out of bounds>\n");
+						break;
+					}
+					char fb1[16], fb2[16];
+					if (v16)
+					{
+						if (val_off + 4 > size)
+						{
+							fprintf (out, "<out of bounds>\n");
+							break;
+						}
+						fprintf (out, "RasterizerState(fill=%s, cull=%s)\n",
+							matl_enum_name (matl_fill_mode_name, 2, rd_le32 (data + val_off), fb1,
+								sizeof (fb1)),
+							matl_enum_name (matl_cull_mode_name, 3, rd_le32 (data + cull_off), fb2,
+								sizeof (fb2)));
+					}
+					else
+						fprintf (out, "RasterizerState(cull=%s)\n",
+							matl_enum_name (matl_cull_mode_name, 3, rd_le32 (data + cull_off), fb1,
+								sizeof (fb1)));
+					break;
+				}
+
+				default:
+					fprintf (out, "<unknown param type %llu>\n", (unsigned long long)data_type);
+					break;
 			}
 		}
 	}
@@ -706,11 +760,21 @@ static void xml_escape (FILE *out, ccp s, int attr)
 	{
 		switch (*s)
 		{
-			case '&': fputs ("&amp;", out); break;
-			case '<': fputs ("&lt;", out); break;
-			case '>': fputs ("&gt;", out); break;
-			case '"': fputs (attr ? "&quot;" : "\"", out); break;
-			default: fputc (*s, out); break;
+			case '&':
+				fputs ("&amp;", out);
+				break;
+			case '<':
+				fputs ("&lt;", out);
+				break;
+			case '>':
+				fputs ("&gt;", out);
+				break;
+			case '"':
+				fputs (attr ? "&quot;" : "\"", out);
+				break;
+			default:
+				fputc (*s, out);
+				break;
 		}
 	}
 }
@@ -736,10 +800,10 @@ static void xml_indent (FILE *out, int depth)
 		fputs ("  ", out);
 }
 
-#define XML_LIB_HEAD \
-	"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" \
-	"<MaterialLibrary" \
-	" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" \
+#define XML_LIB_HEAD                                                                               \
+	"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"                                                 \
+	"<MaterialLibrary"                                                                             \
+	" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\""                                     \
 	" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\""
 
 static void xml_vector4_fields (FILE *out, const u8 *data, u64 val_off, int depth)
@@ -837,192 +901,196 @@ enumError DecodeNUMATB_XML (FILE *out, const u8 *data, size_t size)
 
 			switch (data_type)
 			{
-			case 1: // Float
-				xml_indent (out, 3);
-				if (val_ok && val_off + 4 <= size)
-				{
-					fputs ("<Float>", out);
-					xml_f32 (out, data, val_off);
-					fputs ("</Float>\n", out);
-				}
-				else
-					fputs ("<Float>0</Float>\n", out);
-				break;
-
-			case 2: // Boolean
-				xml_indent (out, 3);
-				fprintf (out, "<Bool>%s</Bool>\n",
-					val_ok && val_off + 4 <= size && rd_le32 (data + val_off)
-						? "true" : "false");
-				break;
-
-			case 5: // Vector4
-			case 7: // Color4f
-				xml_indent (out, 3);
-				if (val_ok && val_off + 16 <= size)
-				{
-					fputs ("<Vector4>\n", out);
-					xml_vector4_fields (out, data, val_off, 4);
+				case 1: // Float
 					xml_indent (out, 3);
-					fputs ("</Vector4>\n", out);
-				}
-				else
-				{
-					fputs ("<Vector4>\n", out);
-					xml_indent (out, 4); fputs ("<X>0</X>\n", out);
-					xml_indent (out, 4); fputs ("<Y>0</Y>\n", out);
-					xml_indent (out, 4); fputs ("<Z>0</Z>\n", out);
-					xml_indent (out, 4); fputs ("<W>0</W>\n", out);
-					xml_indent (out, 3);
-					fputs ("</Vector4>\n", out);
-				}
-				break;
-
-			case 11: // String
-			{
-				char str[512];
-				read_ssbh_string (str, sizeof (str), data, size, val_ok ? val_off : size);
-				xml_indent (out, 3);
-				fputs ("<String>\n", out);
-				xml_indent (out, 4);
-				fputs ("<Text>", out);
-				xml_escape (out, str, 0);
-				fputs ("</Text>\n", out);
-				xml_indent (out, 3);
-				fputs ("</String>\n", out);
-				break;
-			}
-
-			case 14: // Sampler (0x38 bytes)
-				xml_indent (out, 3);
-				if (val_ok && val_off + 0x38 <= size)
-				{
-					fputs ("<Sampler>\n", out);
-					static ccp const snames[6] = { "WrapS", "WrapT", "WrapR",
-						"MinFilter", "MagFilter", "TextureFilteringType" };
-					static const ccp * const stabs[6] = { matl_wrap_mode_name,
-						matl_wrap_mode_name, matl_wrap_mode_name,
-						matl_min_filter_name, matl_mag_filter_name,
-						matl_filter_type_name };
-					static const uint stablens[6] = { 4, 4, 4, 3, 3, 3 };
-					for (int s = 0; s < 6; s++)
+					if (val_ok && val_off + 4 <= size)
 					{
-						xml_indent (out, 4);
-						fprintf (out, "<%s>", snames[s]);
-						xml_enum (out, stabs[s], stablens[s],
-							rd_le32 (data + val_off + (u64)s * 4));
-						fprintf (out, "</%s>\n", snames[s]);
+						fputs ("<Float>", out);
+						xml_f32 (out, data, val_off);
+						fputs ("</Float>\n", out);
 					}
-					xml_indent (out, 4);
-					fputs ("<BorderColor>\n", out);
-					xml_vector4_fields (out, data, val_off + 24, 5);
-					xml_indent (out, 4);
-					fputs ("</BorderColor>\n", out);
-					xml_indent (out, 4);
-					fprintf (out, "<Unk11>%u</Unk11>\n", rd_le32 (data + val_off + 0x28));
-					xml_indent (out, 4);
-					fprintf (out, "<Unk12>%u</Unk12>\n", rd_le32 (data + val_off + 0x2c));
-					xml_indent (out, 4);
-					fputs ("<LodBias>", out);
-					xml_f32 (out, data, val_off + 0x30);
-					fputs ("</LodBias>\n", out);
-					xml_indent (out, 4);
-					fprintf (out, "<MaxAnisotropy>%u</MaxAnisotropy>\n",
-						rd_le32 (data + val_off + 0x34));
-					xml_indent (out, 3);
-					fputs ("</Sampler>\n", out);
-				}
-				else
-					fputs ("<Sampler />\n", out);
-				break;
+					else
+						fputs ("<Float>0</Float>\n", out);
+					break;
 
-			case 16: // UvTransform (5 floats)
-				xml_indent (out, 3);
-				if (val_ok && val_off + 20 <= size)
-				{
-					fputs ("<UVtransform>\n", out);
-					static const char uvd[5] = { 'X', 'Y', 'Z', 'W', 'V' };
-					for (int c = 0; c < 5; c++)
+				case 2: // Boolean
+					xml_indent (out, 3);
+					fprintf (out, "<Bool>%s</Bool>\n",
+						val_ok && val_off + 4 <= size && rd_le32 (data + val_off) ? "true"
+																				  : "false");
+					break;
+
+				case 5: // Vector4
+				case 7: // Color4f
+					xml_indent (out, 3);
+					if (val_ok && val_off + 16 <= size)
 					{
-						xml_indent (out, 4);
-						fprintf (out, "<%c>", uvd[c]);
-						xml_f32 (out, data, val_off + (u64)c * 4);
-						fprintf (out, "</%c>\n", uvd[c]);
+						fputs ("<Vector4>\n", out);
+						xml_vector4_fields (out, data, val_off, 4);
+						xml_indent (out, 3);
+						fputs ("</Vector4>\n", out);
 					}
-					xml_indent (out, 3);
-					fputs ("</UVtransform>\n", out);
-				}
-				else
-					fputs ("<UVtransform />\n", out);
-				break;
+					else
+					{
+						fputs ("<Vector4>\n", out);
+						xml_indent (out, 4);
+						fputs ("<X>0</X>\n", out);
+						xml_indent (out, 4);
+						fputs ("<Y>0</Y>\n", out);
+						xml_indent (out, 4);
+						fputs ("<Z>0</Z>\n", out);
+						xml_indent (out, 4);
+						fputs ("<W>0</W>\n", out);
+						xml_indent (out, 3);
+						fputs ("</Vector4>\n", out);
+					}
+					break;
 
-			case 17: // BlendState (10 u32, MatLab's version-agnostic shape)
-				xml_indent (out, 3);
-				if (val_ok && val_off + 40 <= size)
+				case 11: // String
 				{
-					fputs ("<BlendState>\n", out);
-					xml_indent (out, 4); fputs ("<SourceColor>", out);
-					xml_enum (out, matl_blend_factor_name, 15,
-						rd_le32 (data + val_off));
-					fputs ("</SourceColor>\n", out);
+					char str[512];
+					read_ssbh_string (str, sizeof (str), data, size, val_ok ? val_off : size);
+					xml_indent (out, 3);
+					fputs ("<String>\n", out);
 					xml_indent (out, 4);
-					fprintf (out, "<Unk2>%u</Unk2>\n", rd_le32 (data + val_off + 4));
-					xml_indent (out, 4); fputs ("<DestinationColor>", out);
-					xml_enum (out, matl_blend_factor_name, 15,
-						rd_le32 (data + val_off + 8));
-					fputs ("</DestinationColor>\n", out);
-					static ccp const bnames[7] = { "Unk4", "Unk5", "Unk6",
-						"EnableAlphaSampleToCoverage", "Unk8", "Unk9", "Unk10" };
-					for (int b = 0; b < 7; b++)
-					{
-						xml_indent (out, 4);
-						fprintf (out, "<%s>%u</%s>\n", bnames[b],
-							rd_le32 (data + val_off + 12 + (u64)b * 4), bnames[b]);
-					}
+					fputs ("<Text>", out);
+					xml_escape (out, str, 0);
+					fputs ("</Text>\n", out);
 					xml_indent (out, 3);
-					fputs ("</BlendState>\n", out);
+					fputs ("</String>\n", out);
+					break;
 				}
-				else
-					fputs ("<BlendState />\n", out);
-				break;
 
-			case 18: // RasterizerState (MatLab's 8-field shape)
-				xml_indent (out, 3);
-				if (val_ok && val_off + 32 <= size)
-				{
-					fputs ("<RasterizerState>\n", out);
-					xml_indent (out, 4); fputs ("<FillMode>", out);
-					xml_enum (out, matl_fill_mode_name, 2, rd_le32 (data + val_off));
-					fputs ("</FillMode>\n", out);
-					xml_indent (out, 4); fputs ("<CullMode>", out);
-					xml_enum (out, matl_cull_mode_name, 3,
-						rd_le32 (data + val_off + 4));
-					fputs ("</CullMode>\n", out);
-					static ccp const rnames[6] = { "DepthBias", "Unk4", "Unk5",
-						"Unk6", "Unk7", "Unk8" };
-					static const int rfloat[6] = { 1, 1, 1, 0, 0, 1 };
-					for (int r = 0; r < 6; r++)
-					{
-						xml_indent (out, 4);
-						fprintf (out, "<%s>", rnames[r]);
-						if (rfloat[r])
-							xml_f32 (out, data, val_off + 8 + (u64)r * 4);
-						else
-							fprintf (out, "%u", rd_le32 (data + val_off + 8 + (u64)r * 4));
-						fprintf (out, "</%s>\n", rnames[r]);
-					}
+				case 14: // Sampler (0x38 bytes)
 					xml_indent (out, 3);
-					fputs ("</RasterizerState>\n", out);
-				}
-				else
-					fputs ("<RasterizerState />\n", out);
-				break;
+					if (val_ok && val_off + 0x38 <= size)
+					{
+						fputs ("<Sampler>\n", out);
+						static ccp const snames[6] = { "WrapS", "WrapT", "WrapR", "MinFilter",
+							"MagFilter", "TextureFilteringType" };
+						static const ccp *const stabs[6] = { matl_wrap_mode_name,
+							matl_wrap_mode_name, matl_wrap_mode_name, matl_min_filter_name,
+							matl_mag_filter_name, matl_filter_type_name };
+						static const uint stablens[6] = { 4, 4, 4, 3, 3, 3 };
+						for (int s = 0; s < 6; s++)
+						{
+							xml_indent (out, 4);
+							fprintf (out, "<%s>", snames[s]);
+							xml_enum (
+								out, stabs[s], stablens[s], rd_le32 (data + val_off + (u64)s * 4));
+							fprintf (out, "</%s>\n", snames[s]);
+						}
+						xml_indent (out, 4);
+						fputs ("<BorderColor>\n", out);
+						xml_vector4_fields (out, data, val_off + 24, 5);
+						xml_indent (out, 4);
+						fputs ("</BorderColor>\n", out);
+						xml_indent (out, 4);
+						fprintf (out, "<Unk11>%u</Unk11>\n", rd_le32 (data + val_off + 0x28));
+						xml_indent (out, 4);
+						fprintf (out, "<Unk12>%u</Unk12>\n", rd_le32 (data + val_off + 0x2c));
+						xml_indent (out, 4);
+						fputs ("<LodBias>", out);
+						xml_f32 (out, data, val_off + 0x30);
+						fputs ("</LodBias>\n", out);
+						xml_indent (out, 4);
+						fprintf (out, "<MaxAnisotropy>%u</MaxAnisotropy>\n",
+							rd_le32 (data + val_off + 0x34));
+						xml_indent (out, 3);
+						fputs ("</Sampler>\n", out);
+					}
+					else
+						fputs ("<Sampler />\n", out);
+					break;
 
-			default: // not representable in MatLab's dialect; keep it visible
-				xml_indent (out, 3);
-				fprintf (out, "<!-- unknown param type %llu -->\n",
-					(unsigned long long)data_type);
-				break;
+				case 16: // UvTransform (5 floats)
+					xml_indent (out, 3);
+					if (val_ok && val_off + 20 <= size)
+					{
+						fputs ("<UVtransform>\n", out);
+						static const char uvd[5] = { 'X', 'Y', 'Z', 'W', 'V' };
+						for (int c = 0; c < 5; c++)
+						{
+							xml_indent (out, 4);
+							fprintf (out, "<%c>", uvd[c]);
+							xml_f32 (out, data, val_off + (u64)c * 4);
+							fprintf (out, "</%c>\n", uvd[c]);
+						}
+						xml_indent (out, 3);
+						fputs ("</UVtransform>\n", out);
+					}
+					else
+						fputs ("<UVtransform />\n", out);
+					break;
+
+				case 17: // BlendState (10 u32, MatLab's version-agnostic shape)
+					xml_indent (out, 3);
+					if (val_ok && val_off + 40 <= size)
+					{
+						fputs ("<BlendState>\n", out);
+						xml_indent (out, 4);
+						fputs ("<SourceColor>", out);
+						xml_enum (out, matl_blend_factor_name, 15, rd_le32 (data + val_off));
+						fputs ("</SourceColor>\n", out);
+						xml_indent (out, 4);
+						fprintf (out, "<Unk2>%u</Unk2>\n", rd_le32 (data + val_off + 4));
+						xml_indent (out, 4);
+						fputs ("<DestinationColor>", out);
+						xml_enum (out, matl_blend_factor_name, 15, rd_le32 (data + val_off + 8));
+						fputs ("</DestinationColor>\n", out);
+						static ccp const bnames[7] = { "Unk4", "Unk5", "Unk6",
+							"EnableAlphaSampleToCoverage", "Unk8", "Unk9", "Unk10" };
+						for (int b = 0; b < 7; b++)
+						{
+							xml_indent (out, 4);
+							fprintf (out, "<%s>%u</%s>\n", bnames[b],
+								rd_le32 (data + val_off + 12 + (u64)b * 4), bnames[b]);
+						}
+						xml_indent (out, 3);
+						fputs ("</BlendState>\n", out);
+					}
+					else
+						fputs ("<BlendState />\n", out);
+					break;
+
+				case 18: // RasterizerState (MatLab's 8-field shape)
+					xml_indent (out, 3);
+					if (val_ok && val_off + 32 <= size)
+					{
+						fputs ("<RasterizerState>\n", out);
+						xml_indent (out, 4);
+						fputs ("<FillMode>", out);
+						xml_enum (out, matl_fill_mode_name, 2, rd_le32 (data + val_off));
+						fputs ("</FillMode>\n", out);
+						xml_indent (out, 4);
+						fputs ("<CullMode>", out);
+						xml_enum (out, matl_cull_mode_name, 3, rd_le32 (data + val_off + 4));
+						fputs ("</CullMode>\n", out);
+						static ccp const rnames[6]
+							= { "DepthBias", "Unk4", "Unk5", "Unk6", "Unk7", "Unk8" };
+						static const int rfloat[6] = { 1, 1, 1, 0, 0, 1 };
+						for (int r = 0; r < 6; r++)
+						{
+							xml_indent (out, 4);
+							fprintf (out, "<%s>", rnames[r]);
+							if (rfloat[r])
+								xml_f32 (out, data, val_off + 8 + (u64)r * 4);
+							else
+								fprintf (out, "%u", rd_le32 (data + val_off + 8 + (u64)r * 4));
+							fprintf (out, "</%s>\n", rnames[r]);
+						}
+						xml_indent (out, 3);
+						fputs ("</RasterizerState>\n", out);
+					}
+					else
+						fputs ("<RasterizerState />\n", out);
+					break;
+
+				default: // not representable in MatLab's dialect; keep it visible
+					xml_indent (out, 3);
+					fprintf (
+						out, "<!-- unknown param type %llu -->\n", (unsigned long long)data_type);
+					break;
 			}
 
 			xml_indent (out, 2);
