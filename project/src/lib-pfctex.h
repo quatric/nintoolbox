@@ -15,18 +15,20 @@
 //   u16 frame_count  -- unused for decoding (does not gate pixel layout)
 //   u16 tile_w       -- image width / 8
 //   u16 tile_h       -- image height / 8
-//   u16 unknown
+//   u16 format       -- pixel format code, see PFCTEX_FMT_* in lib-pfctex.c
 // (yes, frame_count sits before tile_w/tile_h, not after -- verified against
 // the actual byte offsets, not just field order intuition)
 // offset 0x14: a standard Nintendo LZ11 stream (magic byte 0x11) running to
 // EOF. Decompressing it yields the base image as an 8x8-tile Morton-order
-// (BFLIM tile_mode 1), RGBA4444 surface, top-left origin, width=tile_w*8,
-// height=tile_h*8, no flip. Any bytes beyond width*height*2 are additional
-// mip levels, ignored here.
+// (BFLIM tile_mode 1) surface in one of three pixel formats (RGBA8, RGB8, or
+// RGBA4444 -- see lib-pfctex.c), top-left origin, no flip, width=tile_w*8,
+// height=tile_h*8. Any bytes beyond width*height*bpp are additional mip
+// levels, ignored here.
 typedef struct pfctex_info_t
 {
 	uint width;
 	uint height;
+	uint format;
 } pfctex_info_t;
 
 // Structural probe (no text magic exists for this format): validates the
