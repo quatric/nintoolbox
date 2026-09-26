@@ -1052,15 +1052,21 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		if (bcfnt_hdr < 0x14 || (size_t)bcfnt_hdr + 0x14 > data_size
 			|| memcmp (data + bcfnt_hdr, "FINF", 4))
 			return ERROR0 (ERR_INVALID_IFORM, "No valid FINF in BCFNT/BFFNT: %s\n", fname);
+		// 'finf_len' and 'ptr_glyph' are raw u32 file fields; fuzzing found the
+		// same bug in another format's near-identical check (lib-gf3ds.c
+		// IsGF1Motion): adding a small constant to an attacker-controlled u32
+		// in 32-bit arithmetic can wrap back under 'data_size', bypassing the
+		// bounds check and, for ptr_glyph, deref'ing a wild 'btglp' pointer
+		// below. Do these additions in size_t.
 		const uint finf_len = BCF32 (data + bcfnt_hdr + 4);
-		if ((finf_len < 0x1C) || bcfnt_hdr + finf_len > data_size)
+		if ((finf_len < 0x1C) || (size_t)bcfnt_hdr + finf_len > data_size)
 			return ERROR0 (ERR_INVALID_IFORM, "Invalid FINF in BCFNT/BFFNT: %s\n", fname);
 		uint ptr_glyph = BCF32 (data + bcfnt_hdr + 0x10);
-		if (ptr_glyph < 8 || ptr_glyph - 8 + 0x20 > data_size
+		if (ptr_glyph < 8 || (size_t)ptr_glyph - 8 + 0x20 > data_size
 			|| memcmp (data + ptr_glyph - 8, "TGLP", 4))
 		{
 			ptr_glyph = BCF32 (data + bcfnt_hdr + 0x14);
-			if (ptr_glyph < 8 || ptr_glyph - 8 + 0x20 > data_size
+			if (ptr_glyph < 8 || (size_t)ptr_glyph - 8 + 0x20 > data_size
 				|| memcmp (data + ptr_glyph - 8, "TGLP", 4))
 				return ERR_NOTHING_TO_DO; // Outline, scalable, or glyph-only font without raster
 										  // TGLP sheets
@@ -1332,6 +1338,14 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 				: ERROR0 (ERR_INVALID_IFORM, "No (supported) image file [file type=%s]: %s\n",
 					  GetNameFF (0, fform), fname);
 	}
+
+	// 'n_img' comes straight from the file (a raw 8..32 bit count depending
+	// on format) and drives AssignIMG()'s recursive mipmap descent below; an
+	// unclamped huge value (fuzzing found a corrupted BRRES TEX0 with a
+	// 32-bit n_image) recurses until the stack overflows. Clamp to the same
+	// MAX_MIPMAPS bound the encoder side already enforces.
+	if (n_img > MAX_MIPMAPS + 1)
+		n_img = MAX_MIPMAPS + 1;
 
 	const ImageGeometry_t *geo = GetImageGeometry (iform);
 	if (geo && calc_geo)

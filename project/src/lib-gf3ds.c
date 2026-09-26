@@ -402,7 +402,11 @@ int IsGF1Motion (const u8 *data, size_t size, size_t file_size)
 	u32 skel = rd_le32 (data + 4);
 	if (!skel)
 		return 0;
-	if (skel + 2 > size)
+	// 'skel' is an attacker-controlled u32 file offset; fuzzing found that a
+	// value near UINT32_MAX makes "skel + 2" wrap in 32-bit arithmetic to a
+	// small number that passes this check, then data[skel] reads far out of
+	// bounds. Do the addition in size_t so it can't wrap.
+	if ((size_t)skel + 2 > size)
 		return gf_truncated (size, file_size);
 	// skeleton starts with u8 bone count + u8 first-bone index
 	if (data[skel] < 1 || data[skel] > 200)

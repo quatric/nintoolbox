@@ -1067,7 +1067,12 @@ static bool hsd_fetch_vertex (const hsd_t *hsd, const hsd_attr_t *attrs, uint n_
 				return false;
 		}
 
-		float comp[9];
+		// decode_gx_elem() only fills comp[0..n-1], where n = stride/element
+		// size clamped to 9; a real attribute whose stride encodes fewer than
+		// 9 components (e.g. an NBT entry without a full normal+tangent) still
+		// gets copied out to comp+6..8 below, so an uninitialized 'comp' feeds
+		// stack garbage into the exported normal/tangent/uv. Zero it.
+		float comp[9] = { 0 };
 		decode_gx_elem (at, src, comp, 9);
 		switch (at->name)
 		{

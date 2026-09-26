@@ -70,3 +70,4 @@ src/vgmtrans/build/
 /ncer_help.txt
 /nscr_help.txt
 /patch.diff
+/compile_commands.json

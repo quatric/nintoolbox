@@ -1,0 +1,16 @@
+---
+Checks: >
+  -*,
+  clang-analyzer-*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  -bugprone-implicit-widening-of-multiplication-result,
+  -bugprone-branch-clone,
+  -bugprone-signed-char-misuse,
+  -bugprone-reserved-identifier,
+  -bugprone-signed-bitwise,
+  -bugprone-macro-parentheses
+WarningsAsErrors: ''
+HeaderFilterRegex: '.*'
+FormatStyle: none

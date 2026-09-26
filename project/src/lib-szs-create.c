@@ -5216,7 +5216,10 @@ no_create:;
 			if (F.f)
 			{
 				u32 off = 0;
-				while (off < subszs.size && !it->endian->rd32 (subszs.data + off))
+				// rd32() always reads a full 4 bytes; checking only 'off <
+				// subszs.size' lets it read past the buffer when size isn't
+				// 4-aligned (fuzzing found a heap-buffer-overflow here).
+				while (off + 4 <= subszs.size && !it->endian->rd32 (subszs.data + off))
 					off += 4;
 				off += 4;
 				while (off < subszs.size)
