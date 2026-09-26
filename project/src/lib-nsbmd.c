@@ -501,7 +501,13 @@ static void parse_bone_hierarchy (model_t *out, const uint8_t *cmds, size_t len)
 					if (op & 0x20 && p < end) p++;
 					if (node_id < out->num_joints)
 					{
-						out->joints[node_id].parent_idx = (int)parent_id;
+						// cur_parent/parent_id start at matrix slot 0, the
+						// implicit root/identity matrix -- not joint 0. A
+						// bone whose recovered parent is itself (typically
+						// the root bone, first assigned to slot 0) has no
+						// real parent.
+						out->joints[node_id].parent_idx
+							= parent_id == node_id ? -1 : (int)parent_id;
 						cur_parent = node_id;
 					}
 				}

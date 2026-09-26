@@ -1873,22 +1873,38 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 
 	for (size_t a = 0; a < model->num_animations; a++)
 	{
+		// glTF requires animation.channels/.samplers to be non-empty arrays;
+		// an entry with zero *valid* channels (all missing times/values, or
+		// none to begin with) must be dropped entirely rather than written
+		// out with a null/empty channels array, which some importers
+		// (Blender's glTF add-on) reject as unparsable.
+		size_t nc = model->animations[a].num_channels;
+		size_t valid_nc = 0;
+		for (size_t c = 0; c < nc; c++)
+		{
+			const model_anim_channel_t *ch = model->animations[a].channels + c;
+			if (ch->count && ch->times && ch->values)
+				valid_nc++;
+		}
+		if (!valid_nc)
+			continue;
+
 		cgltf_animation *ganim = &data.animations[data.animations_count++];
 		ganim->name = (char *)model->animations[a].name;
-		size_t nc = model->animations[a].num_channels;
-		ganim->samplers = calloc (nc, sizeof (cgltf_animation_sampler));
-		ganim->channels = calloc (nc, sizeof (cgltf_animation_channel));
-		ganim->samplers_count = nc;
-		ganim->channels_count = nc;
+		ganim->samplers = calloc (valid_nc, sizeof (cgltf_animation_sampler));
+		ganim->channels = calloc (valid_nc, sizeof (cgltf_animation_channel));
+		ganim->samplers_count = valid_nc;
+		ganim->channels_count = valid_nc;
 
+		size_t out_c = 0;
 		for (size_t c = 0; c < nc; c++)
 		{
 			const model_anim_channel_t *ch = model->animations[a].channels + c;
 			if (!ch->count || !ch->times || !ch->values)
 				continue;
 
-			cgltf_animation_sampler *gsmp = &ganim->samplers[c];
-			cgltf_animation_channel *gch = &ganim->channels[c];
+			cgltf_animation_sampler *gsmp = &ganim->samplers[out_c];
+			cgltf_animation_channel *gch = &ganim->channels[out_c++];
 
 			gsmp->interpolation = cgltf_interpolation_type_linear;
 

@@ -86,6 +86,7 @@
 #include "lib-mpmess.h"
 #include "lib-mpboard.h"
 #include "lib-nlg-probe.h"
+#include "lib-pfctex.h"
 #include "lib-gf3ds.h"
 #include "lib-opoona.h"
 #include "lib-monster4x4.h"
@@ -1078,6 +1079,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_FEDSKEL;
 		if (IsSANIM (data8, data_size))
 			return FF_SANIM;
+		if (IsPFCTex (data8, data_size))
+			return FF_PFCTEX;
 	}
 
 	if (data_size >= 8)
@@ -1533,6 +1536,14 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			// Camelot Archive Table (ZTAB)
 			case 0x5a544142: // "ZTAB"
 				return FF_ZTAB;
+
+			// Genki "GTI Club: Supermini Festa!" car resource table (.unq.xtd)
+			case 0x58544400: // "XTD\0"
+				return FF_XTD;
+
+			// Genki "GTI Club: Supermini Festa!" car model container (.mdl)
+			case 0x584d4401: // "XMD\1"
+				return FF_XMD;
 
 			// Jump Super Stars Archive (STPK / $CFH / $RSF)
 			case 0x5354504b: // "STPK"

@@ -518,6 +518,9 @@ typedef enum file_format_t
 	FF_HKX, // 423 - Havok classic packfile (.HKX; header + section table + embedded class names)
 	FF_T4RES, // 424 - Tenchu: Shadow Assassins "T4-*" tagged resource (.b; header/name/date only)
 	FF_HDVOICE, // 425 - Tenchu: Shadow Assassins voice-line manifest (.hd; slot table + parameter table, fully decoded)
+	FF_XTD, // 426 - Genki "GTI Club: Supermini Festa!" car resource table (.unq.xtd; wraps raw Nintendo TPL textures)
+	FF_XMD, // 427 - Genki "GTI Club: Supermini Festa!" car model container (.mdl; wraps a RESOURCE:GX geometry block + an XTD texture block)
+	FF_PFCTEX, // 428 - Nintendo Pocket Football Club "CALCIO3DS" UI texture (.bin; LZ11 + 8x8-tiled RGBA4444, no text magic)
 
 	//--- number of elements
 

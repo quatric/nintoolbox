@@ -2561,6 +2561,36 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString,
 		"Tenchu: Shadow Assassins voice-line manifest (.hd, Wii; slot table and parameter table fully decoded)" },
 
+	// FF_XTD = 426 (Genki "GTI Club: Supermini Festa!" car resource table)
+	// Little-endian directory of tagged sub-resources -- distinct from the
+	// same title's big-endian ".r3d" GX containers. Every entry seen so far
+	// tags "TPL\0" and wraps a bit-exact, unmodified Nintendo TPL texture
+	// at a fixed 0x80-byte offset into the entry, decodable as-is.
+	{ FF_XTD, FF_XTD, 0, "XTD", ".xtd", ".bin", ".xtd",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 4, { 0x58, 0x54, 0x44, 0x00 }, // "XTD\0"
+		0, MinusString, MinusString,
+		"Genki \"GTI Club: Supermini Festa!\" car resource table (.unq.xtd, Wii; wraps raw Nintendo TPL textures)" },
+
+	// FF_XMD = 427 (Genki "GTI Club: Supermini Festa!" car model container)
+	// A thin wrapper concatenating a "RESOURCE:GX" geometry block (same
+	// bytes as the sibling ".r3d" file; display-list/vertex format not
+	// decoded) and an "XTD\0" texture block (same bytes as the sibling
+	// ".unq.xtd" file, extracted the same way).
+	{ FF_XMD, FF_XMD, 0, "XMD", ".mdl", ".bin", ".mdl",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 4, { 0x58, 0x4d, 0x44, 0x01 }, // "XMD\1"
+		0, MinusString, MinusString,
+		"Genki \"GTI Club: Supermini Festa!\" car model container (.mdl, Wii; RESOURCE:GX geometry + XTD textures)" },
+
+	// FF_PFCTEX = 428 (Nintendo Pocket Football Club UI texture)
+	// No text magic -- detected structurally by IsPFCTex() (fixed header
+	// words + LZ11 marker at +0x14 + a base-image size that fits the
+	// LZ11-declared decompressed length). 20-byte header gives width/height
+	// in units of 8-pixel tiles, followed by an LZ11 stream that decodes to
+	// an 8x8-Morton-tiled RGBA4444 surface. See lib-pfctex.h.
+	{ FF_PFCTEX, FF_PFCTEX, 0, "PFCTEX", ".bin", ".bin", ".bin",
+		FFT_VALID | FFT_DECODE | FFT_EXTRACT, 0, { 0 }, 0, MinusString, MinusString,
+		"Nintendo Pocket Football Club \"CALCIO3DS\" UI texture (.bin, 3DS; LZ11 + 8x8-tiled RGBA4444)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2865,6 +2895,9 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_HKX, "HKX", "HKX", 0xe05 },
 	{ FF_T4RES, "T4-RES", "T4-RES", 0xe05 },
 	{ FF_HDVOICE, "HDVOICE", "HDVOICE", 0xe05 },
+	{ FF_XTD, "XTD", "XTD", 0xe05 },
+	{ FF_XMD, "XMD", "XMD", 0xe05 },
+	{ FF_PFCTEX, "PFCTEX", "PFCTEX", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

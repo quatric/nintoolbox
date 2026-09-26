@@ -961,6 +961,14 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_zackwiki_ssd_manifest (arg);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	// Banpresto/Now Production tagged resource table (Crayon Shin-chan:
+	// Saikyou Kazoku Kasukabe King, Wii) -- see lib note in
+	// extract_hgpk_pak_file(). Reached directly as a disc ".pak" file, and
+	// as the ".hgpk" file decompress_nintendo_file3()'s MTXZ branch (below)
+	// produces from a zlib-wrapped ".mz" asset.
+	err = extract_hgpk_pak_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 
 	char pbase_buf[PATH_MAX] = "";
 	ccp pbase = opt_dest && *opt_dest ? opt_dest : basedir;
@@ -999,6 +1007,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = decode_wimg_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_pfctex_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_art_file (arg, basedir, depth);
@@ -1228,6 +1239,14 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		return err;
 
 	err = extract_pk2_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_xtd_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
+	err = extract_xmd_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
