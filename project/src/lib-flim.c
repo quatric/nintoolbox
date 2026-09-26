@@ -5,20 +5,30 @@
 #include <string.h>
 #include <errno.h>
 
-// ETC1/ETC1A4 4x4 block decoder. The bit layout (base colors, table
-// selection, per-pixel modifier index) was verified pixel-for-pixel
-// against the independent `texture2ddecoder` reference decoder (both
-// individual and differential color modes, both flip orientations) using
-// real BFLIM sample data before this was written -- see commit message.
-// Byte layout within the 16-byte ETC1A4 block (alpha first, then color)
-// matches the documented Ohana3DS convention. The alpha nibble-to-pixel
-// order and the block-to-tile arrangement for images larger than one
-// 8x8-pixel tile are NOT independently verified (no oracle covers those);
-// they follow the same tiling convention already used and verified for
-// this codebase's other BFLIM pixel formats.
-static const int16_t etc1_mod_table[8][4] = { { -8, -2, 2, 8 }, { -17, -5, 5, 17 },
-	{ -29, -9, 9, 29 }, { -42, -13, 13, 42 }, { -60, -18, 18, 60 }, { -80, -24, 24, 80 },
-	{ -106, -33, 33, 106 }, { -183, -47, 47, 183 } };
+// ETC1/ETC1A4 4x4 block decoder. The modifier-table row order was wrong:
+// it listed each table's four offsets ascending ({-large,-small,+small,
+// +large}), but the 2-bit (MSB,LSB) pixel index selects sign first, then
+// magnitude, so the correct row order is {+small,+large,-small,-large}.
+// Confirmed by re-extracting several real 3DS CGFX/BCRES textures from Kid
+// Icarus: Uprising with the fix and comparing against the previous output:
+// "shared/pit" (256x256, a detailed character texture atlas) goes from a
+// slightly muddy wing texture to individually-resolved feather detail,
+// and small sprite textures like "ptc_cmn_starA" resolve from scattered
+// noise into a coherent sparkle shape, with no regressions found on any
+// re-checked texture. (A byte-order swap on the 8 block bytes was also
+// tried, since it independently matches the public `texture2ddecoder`
+// ETC1 reference decoder bit-for-bit -- but that reference apparently
+// targets a different ETC1 byte-packing convention than the 3DS PICA200
+// hardware: swapping the byte order visibly breaks every real texture
+// re-checked here, so the original byte order is kept.) Byte layout
+// within the 16-byte ETC1A4 block (alpha first, then color) matches the
+// documented Ohana3DS convention. The alpha nibble-to-pixel order and the
+// block-to-tile arrangement for images larger than one 8x8-pixel tile are
+// NOT independently verified; they follow the same tiling convention
+// already used for this codebase's other BFLIM pixel formats.
+static const int16_t etc1_mod_table[8][4] = { { 2, 8, -2, -8 }, { 5, 17, -5, -17 },
+	{ 9, 29, -9, -29 }, { 13, 42, -13, -42 }, { 18, 60, -18, -60 }, { 24, 80, -24, -80 },
+	{ 33, 106, -33, -106 }, { 47, 183, -47, -183 } };
 
 static inline u8 etc1_clamp255 (int v)
 {
