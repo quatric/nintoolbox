@@ -547,6 +547,15 @@ typedef enum file_format_t
 	FF_NACP_TXT, // 435 - Text version of NACP
 	FF_PFS0, // 436 - Nintendo Switch Partition File System (.pfs0 / .nsp / PFS0)
 	FF_HFS0, // 437 - Nintendo Switch Hashed File System (.hfs0 / HFS0)
+	FF_NRO, // 438 - Nintendo Switch Executable (.nro / NRO0)
+	FF_NRO_TXT, // 439 - Text version of NRO
+	FF_NSO, // 440 - Nintendo Switch Executable (.nso / NSO0)
+	FF_NSO_TXT, // 441 - Text version of NSO
+	FF_CNMT, // 442 - Nintendo Switch Content Metadata (.cnmt)
+	FF_CNMT_TXT, // 443 - Text version of CNMT
+	FF_NPDM, // 444 - Nintendo Switch Program Descriptor (.npdm / META)
+	FF_NPDM_TXT, // 445 - Text version of NPDM
+	FF_XCI, // 446 - Nintendo Switch Game Cartridge Image (.xci / HEAD)
 
 	//--- number of elements
 

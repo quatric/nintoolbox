@@ -138,6 +138,12 @@
 #include "lib-bnvib.h"
 #include "lib-nacp.h"
 #include "lib-pfs0.h"
+#include "lib-sha256.h"
+#include "lib-nro.h"
+#include "lib-nso.h"
+#include "lib-cnmt.h"
+#include "lib-npdm.h"
+#include "lib-xci.h"
 
 bool IsNTTF (const u8 *data, uint size);
 

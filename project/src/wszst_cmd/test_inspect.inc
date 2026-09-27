@@ -1851,8 +1851,33 @@ static enumError cmd_dump ()
 				ResetBNTX (&bntx);
 			}
 		}
+		else if (szs.data && IsNRO (szs.data, szs.size))
+		{
+			printf ("\n* Dump structure of %s:%s\n", GetNameFF (FF_NRO, 0), arg);
+			DumpNRO (stdout, szs.data, szs.size);
+		}
+		else if (szs.data && IsNSO (szs.data, szs.size))
+		{
+			printf ("\n* Dump structure of %s:%s\n", GetNameFF (FF_NSO, 0), arg);
+			DumpNSO (stdout, szs.data, szs.size);
+		}
+		else if (szs.data && IsCNMT (szs.data, szs.size))
+		{
+			printf ("\n* Dump structure of %s:%s\n", GetNameFF (FF_CNMT, 0), arg);
+			DumpCNMT (stdout, szs.data, szs.size);
+		}
+		else if (szs.data && IsNPDM (szs.data, szs.size))
+		{
+			printf ("\n* Dump structure of %s:%s\n", GetNameFF (FF_NPDM, 0), arg);
+			DumpNPDM (stdout, szs.data, szs.size);
+		}
+		else if (szs.data && IsXCI (szs.data, szs.size))
+		{
+			printf ("\n* Dump structure of %s:%s\n", GetNameFF (FF_XCI, 0), arg);
+			DumpXCI (stdout, szs.data, szs.size);
+		}
 		else if (!opt_ignore)
-			ERROR0 (ERR_WARNING, "No BRRES/AAMP/BNTX file -> ignored: %s\n", arg);
+			ERROR0 (ERR_WARNING, "No supported file for dump -> ignored: %s\n", arg);
 		ResetSZS (&szs);
 	}
 	putchar ('\n');

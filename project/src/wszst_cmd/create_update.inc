@@ -288,6 +288,21 @@ static enumError cmd_create (bool create)
 			ResetSetupParam (&sp);
 			continue;
 		}
+		if (create && ext && (!strcasecmp (ext, ".nsp") || !strcasecmp (ext, ".pfs0") || !strcasecmp (ext, ".hfs0")))
+		{
+			const bool is_hfs = !strcasecmp (ext, ".hfs0");
+			enumError err = CreatePFS0Archive (source_dir, dest, is_hfs);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE %s %s/ -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", is_hfs ? "HFS0" : "PFS0", source_dir, dest);
+			if (max_err < err)
+				max_err = err;
+			if (err <= ERR_WARNING && src_len > 2 && !strcasecmp (source_dir + src_len - 2, ".d")
+				&& !testmode)
+				remove_dir_recursive (source_dir);
+			ResetSetupParam (&sp);
+			continue;
+		}
 		if (create && ext && !strcasecmp (ext, ".narc"))
 		{
 			enumError err = create_narc_dir (source_dir, dest, true);
@@ -5106,6 +5121,118 @@ static enumError extract_pfs0_file (ccp arg, ccp basedir, uint depth)
 	get_dest_dir (dest, sizeof (dest), arg, basedir);
 
 	enumError err = ExtractPFS0Archive (arg, basedir, depth);
+	if (err == ERR_OK && !testmode)
+		return extract_tree_complete (dest, depth + 1);
+
+	return err;
+}
+
+// Extract a Nintendo Switch Executable (.nro / NRO0).
+static enumError extract_nro_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".nro"))
+		return ERR_NOTHING_TO_DO;
+
+	char dest[PATH_MAX];
+	get_dest_dir (dest, sizeof (dest), arg, basedir);
+
+	enumError err = ExtractNROArchive (arg, basedir, depth);
+	if (err == ERR_OK && !testmode)
+		return extract_tree_complete (dest, depth + 1);
+
+	return err;
+}
+
+// Extract a Nintendo Switch Executable (.nso / NSO0).
+static enumError extract_nso_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".nso"))
+		return ERR_NOTHING_TO_DO;
+
+	char dest[PATH_MAX];
+	get_dest_dir (dest, sizeof (dest), arg, basedir);
+
+	enumError err = ExtractNSOArchive (arg, basedir, depth);
+	if (err == ERR_OK && !testmode)
+		return extract_tree_complete (dest, depth + 1);
+
+	return err;
+}
+
+// Decode a Nintendo Switch Content Metadata (.cnmt) to text.
+static enumError extract_cnmt_file (ccp arg, ccp basedir, uint depth)
+{
+	(void)depth;
+	if (!is_ext (arg, ".cnmt"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false))
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsCNMT (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest_ext (dest, sizeof (dest), arg, ".txt");
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT CNMT:%s -> TEXT:%s\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest);
+
+	enumError err = ERR_OK;
+	if (!testmode)
+		err = SaveTextCNMT (dest, raw, raw_size);
+
+	FREE (raw);
+	return err;
+}
+
+// Decode a Nintendo Switch Program Descriptor (.npdm / META) to text.
+static enumError extract_npdm_file (ccp arg, ccp basedir, uint depth)
+{
+	(void)depth;
+	if (!is_ext (arg, ".npdm"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false))
+		return ERR_NOTHING_TO_DO;
+
+	if (!IsNPDM (raw, raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest_ext (dest, sizeof (dest), arg, ".txt");
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT NPDM:%s -> TEXT:%s\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest);
+
+	enumError err = ERR_OK;
+	if (!testmode)
+		err = SaveTextNPDM (dest, raw, raw_size);
+
+	FREE (raw);
+	return err;
+}
+
+// Extract a Nintendo Switch Game Cartridge Image (.xci / HEAD).
+static enumError extract_xci_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".xci"))
+		return ERR_NOTHING_TO_DO;
+
+	char dest[PATH_MAX];
+	get_dest_dir (dest, sizeof (dest), arg, basedir);
+
+	enumError err = ExtractXCIArchive (arg, basedir, depth);
 	if (err == ERR_OK && !testmode)
 		return extract_tree_complete (dest, depth + 1);
 

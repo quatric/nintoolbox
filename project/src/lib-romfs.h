@@ -4,7 +4,8 @@
 
 #include "lib-nintendo.h"
 
-// Nintendo 3DS RomFS Archive (.romfs / IVFC)
+// Nintendo 3DS / Switch RomFS Archive (.romfs / IVFC)
+bool IsROMFS (const u8 *data, uint size);
 enumError ExtractROMFSArchive (ccp arg, ccp basedir, uint depth);
 
 #endif // LIB_ROMFS_H

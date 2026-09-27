@@ -115,6 +115,11 @@
 #include "lib-bnvib.h"
 #include "lib-nacp.h"
 #include "lib-pfs0.h"
+#include "lib-nro.h"
+#include "lib-nso.h"
+#include "lib-cnmt.h"
+#include "lib-npdm.h"
+#include "lib-xci.h"
 #include "config.inc"
 
 //
@@ -1797,6 +1802,20 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 					return FF_HFS0;
 				break;
 
+			// Nintendo Switch Executable (NSO0)
+			case 0x4E534F30: // "NSO0"
+			case 0x304F534E:
+				if (IsNSO (data8, data_size))
+					return FF_NSO;
+				break;
+
+			// Nintendo Switch Program Descriptor (META)
+			case 0x4D455441: // "META"
+			case 0x4154454D:
+				if (IsNPDM (data8, data_size))
+					return FF_NPDM;
+				break;
+
 			case BREFF_MAGIC_NUM:
 				if (file_size >= 0x20)
 					return data_size < 0x14 || !memcmp (data + 0x10, BREFF_MAGIC, 4) ? FF_BREFF
@@ -2363,6 +2382,16 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_PFS0;
 	if (IsHFS0 (data8, data_size))
 		return FF_HFS0;
+	if (IsNRO (data8, data_size))
+		return FF_NRO;
+	if (IsNSO (data8, data_size))
+		return FF_NSO;
+	if (IsCNMT (data8, data_size))
+		return FF_CNMT;
+	if (IsNPDM (data8, data_size))
+		return FF_NPDM;
+	if (IsXCI (data8, data_size))
+		return FF_XCI;
 
 	const nfmt_info_t nfmt = DetectNintendoFormat (data, data_size, 0);
 	switch (nfmt.type)

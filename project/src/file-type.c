@@ -2544,6 +2544,51 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 4, { 'H', 'F', 'S', '0' }, 0, MinusString, MinusString,
 		"Nintendo Switch Hashed File System (.hfs0 / HFS0)" },
 
+	// FF_NRO = 438
+	{ FF_NRO, FF_NRO, FF_NRO_TXT, "NRO", ".nro", ".nro", ".nro",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 4, { 'N', 'R', 'O', '0' }, 0, MinusString, MinusString,
+		"Nintendo Switch Executable (.nro / NRO0)" },
+
+	// FF_NRO_TXT = 439
+	{ FF_NRO_TXT, FF_NRO, FF_NRO_TXT, "NRO-TXT", ".txt", ".txt", ".txt",
+		FFT_VALID, 0, { 0 }, 0, MinusString, MinusString,
+		"Text representation of NRO executable headers" },
+
+	// FF_NSO = 440
+	{ FF_NSO, FF_NSO, FF_NSO_TXT, "NSO", ".nso", ".nso", ".nso",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 4, { 'N', 'S', 'O', '0' }, 0, MinusString, MinusString,
+		"Nintendo Switch Executable (.nso / NSO0)" },
+
+	// FF_NSO_TXT = 441
+	{ FF_NSO_TXT, FF_NSO, FF_NSO_TXT, "NSO-TXT", ".txt", ".txt", ".txt",
+		FFT_VALID, 0, { 0 }, 0, MinusString, MinusString,
+		"Text representation of NSO executable headers" },
+
+	// FF_CNMT = 442
+	{ FF_CNMT, FF_CNMT, FF_CNMT_TXT, "CNMT", ".cnmt", ".cnmt", ".cnmt",
+		FFT_VALID, 0, { 0 }, 0, MinusString, MinusString,
+		"Nintendo Switch Content Metadata (.cnmt)" },
+
+	// FF_CNMT_TXT = 443
+	{ FF_CNMT_TXT, FF_CNMT, FF_CNMT_TXT, "CNMT-TXT", ".txt", ".txt", ".txt",
+		FFT_VALID, 0, { 0 }, 0, MinusString, MinusString,
+		"Text representation of CNMT metadata" },
+
+	// FF_NPDM = 444
+	{ FF_NPDM, FF_NPDM, FF_NPDM_TXT, "NPDM", ".npdm", ".npdm", ".npdm",
+		FFT_VALID, 4, { 'M', 'E', 'T', 'A' }, 0, MinusString, MinusString,
+		"Nintendo Switch Program Descriptor (.npdm / META)" },
+
+	// FF_NPDM_TXT = 445
+	{ FF_NPDM_TXT, FF_NPDM, FF_NPDM_TXT, "NPDM-TXT", ".txt", ".txt", ".txt",
+		FFT_VALID, 0, { 0 }, 0, MinusString, MinusString,
+		"Text representation of NPDM program descriptor" },
+
+	// FF_XCI = 446
+	{ FF_XCI, FF_XCI, 0, "XCI", ".xci", ".xci", ".xci",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 4, { 'H', 'E', 'A', 'D' }, 0, MinusString, MinusString,
+		"Nintendo Switch Game Cartridge Image (.xci / HEAD)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2797,6 +2842,11 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_BNVIB, "BNVIB", "NVIB", 0xe05 }, { FF_BNVIB_TXT, "BNVIB-TXT", 0, 0xe05 },
 	{ FF_NACP, "NACP", "NACP", 0xe05 }, { FF_NACP_TXT, "NACP-TXT", 0, 0xe05 },
 	{ FF_PFS0, "PFS0", "NSP", 0xe05 }, { FF_HFS0, "HFS0", "HFS0", 0xe05 },
+	{ FF_NRO, "NRO", "NRO", 0xe05 }, { FF_NRO_TXT, "NRO-TXT", 0, 0xe05 },
+	{ FF_NSO, "NSO", "NSO", 0xe05 }, { FF_NSO_TXT, "NSO-TXT", 0, 0xe05 },
+	{ FF_CNMT, "CNMT", "CNMT", 0xe05 }, { FF_CNMT_TXT, "CNMT-TXT", 0, 0xe05 },
+	{ FF_NPDM, "NPDM", "NPDM", 0xe05 }, { FF_NPDM_TXT, "NPDM-TXT", 0, 0xe05 },
+	{ FF_XCI, "XCI", "XCI", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

@@ -54,6 +54,10 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest, int known_lz
 		return create_effn_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".ptcl") || !strcasecmp (ext, ".vfxb") || !strcasecmp (ext, ".eset"))
 		return create_pctl_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".nsp") || !strcasecmp (ext, ".pfs0"))
+		return CreatePFS0Archive (source_dir, dest, false);
+	if (!strcasecmp (ext, ".hfs0"))
+		return CreatePFS0Archive (source_dir, dest, true);
 
 	if (!strcasecmp (ext, ".sdat"))
 		return PassthruPack (source_dir, dest);

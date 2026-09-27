@@ -12,5 +12,6 @@
 bool IsPFS0 (const u8 *data, uint size);
 bool IsHFS0 (const u8 *data, uint size);
 enumError ExtractPFS0Archive (ccp arg, ccp basedir, uint depth);
+enumError CreatePFS0Archive (ccp source_dir, ccp dest_file, bool is_hfs0);
 
 #endif // LIB_PFS0_H
