@@ -51,6 +51,7 @@
 #include "lib-brres-model.h"
 #include "lib-brres-inject.h"
 #include "lib-nsbmd.h"
+#include "lib-nitro.h"
 #include "lib-j3d.h"
 #include "lib-nsbanim.h"
 #include "lib-bcres.h"
@@ -1707,7 +1708,14 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				else if (raw.data_size >= 4 && !memcmp (raw.data, "CGFX", 4))
 					ExportBCRESTexturesFromData (raw.data, raw.data_size, dest);
 				else if (is_bmd)
+				{
+					// Real BMD0 files carry their textures in a sibling TEX0
+					// block (Nitro G3D dictionary layout); ExportEarlyDSBMDTextures
+					// only understands the legacy pre-BMD0 flat header and is a
+					// harmless no-op here (its shapes_base sanity check fails).
+					ExportNitroTEX0Textures (raw.data, (uint)raw.data_size, dest);
 					ExportEarlyDSBMDTextures (raw.data, raw.data_size, dest);
+				}
 
 				model_t *model = is_bmd				? ParseNSBMD (raw.data, raw.data_size)
 					: !memcmp (raw.data, "CGFX", 4) ? ParseBCRES (raw.data, raw.data_size)
