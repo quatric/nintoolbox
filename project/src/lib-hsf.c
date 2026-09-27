@@ -2346,7 +2346,6 @@ enumError DecodeHSF (const u8 *data, uint size, ccp out_path)
 			model.instances[i].parent_idx
 				= pi >= 0 && (u32)pi < node_cnt && jmap[pi] != (u32)-1 ? (s32)jmap[pi] : -1;
 		}
-		FREE (jmap);
 		ComputeModelTRSBinds (&model);
 
 		// CENV envelope data. Each output position receives a private influence
@@ -2368,6 +2367,18 @@ enumError DecodeHSF (const u8 *data, uint size, ccp out_path)
 				for (size_t p = 0; p < meshes[m].num_positions; p++)
 					meshes[m].position_node[p] = (int)next_node++;
 			}
+			// Some retail files declare more single/double/multi bind entries
+			// (via sn/dn/mn) than the CENV section actually has room for --
+			// the entry table's own offsets stamp the write cursor even for
+			// zero-count entries, so the next entry's offset is the true end
+			// of CENV's data; bound all CENV reads there instead of trusting
+			// sn/dn/mn counts against the whole file, or entries past the
+			// real data get misread as bogus bind info instead of leaving
+			// the earlier whole-mesh bind (if any) in place.
+			u64 cenv_end = size;
+			for (int ii = 0; ii < HSF_NUM_ENTRIES; ii++)
+				if (entry_off[ii] > entry_off[12] && entry_off[ii] < cenv_end)
+					cenv_end = entry_off[ii];
 			const u64 bind_base = (u64)entry_off[12] + (u64)rig_cnt * 36;
 			u64 bind_end = bind_base;
 			for (uint r = 0; r < rig_cnt; r++)
@@ -2393,7 +2404,7 @@ enumError DecodeHSF (const u8 *data, uint size, ccp out_path)
 				for (uint k = 0; k < dn; k++)
 				{
 					u64 o = bind_base + doff + (u64)k * 16;
-					if (o + 16 > size)
+					if (o + 16 > cenv_end)
 						continue;
 					u64 e = bind_end + hsf_be32 (data + o + 12) + (u64)hsf_be32 (data + o + 8) * 12;
 					if (e > double_end)
@@ -2410,7 +2421,10 @@ enumError DecodeHSF (const u8 *data, uint size, ccp out_path)
 				const u8 *h = data + entry_off[12] + r * 36;
 				const uint so = hsf_be32 (h + 4), doff = hsf_be32 (h + 8), mo = hsf_be32 (h + 12);
 				const uint sn = hsf_be32 (h + 16), dn = hsf_be32 (h + 20), mn = hsf_be32 (h + 24);
-				const s32 whole = (s32)hsf_be32 (h + 32);
+				const s32 whole_raw = (s32)hsf_be32 (h + 32);
+				const s32 whole = whole_raw >= 0 && (u32)whole_raw < node_cnt
+										 ? (s32)jmap[whole_raw]
+										 : -1;
 				if (whole >= 0 && (u32)whole < node_cnt)
 				{
 					int b = whole;
@@ -2420,9 +2434,10 @@ enumError DecodeHSF (const u8 *data, uint size, ccp out_path)
 				for (uint k = 0; k < sn; k++)
 				{
 					u64 o = bind_base + so + (u64)k * 12;
-					if (o + 12 > size)
+					if (o + 12 > cenv_end)
 						continue;
-					int b = (s32)hsf_be32 (data + o);
+					const s32 braw = (s32)hsf_be32 (data + o);
+					int b = braw >= 0 && (u32)braw < node_cnt ? (s32)jmap[braw] : -1;
 					float w = 1;
 					const s16 first = hsf_be16s (data + o + 4), count = hsf_be16s (data + o + 6);
 					if (first >= 0 && count > 0)
@@ -2431,14 +2446,16 @@ enumError DecodeHSF (const u8 *data, uint size, ccp out_path)
 				for (uint k = 0; k < dn; k++)
 				{
 					u64 o = bind_base + doff + (u64)k * 16;
-					if (o + 16 > size)
+					if (o + 16 > cenv_end)
 						continue;
-					int b[2] = { (s32)hsf_be32 (data + o), (s32)hsf_be32 (data + o + 4) };
+					const s32 braw0 = (s32)hsf_be32 (data + o), braw1 = (s32)hsf_be32 (data + o + 4);
+					int b[2] = { braw0 >= 0 && (u32)braw0 < node_cnt ? (s32)jmap[braw0] : -1,
+						braw1 >= 0 && (u32)braw1 < node_cnt ? (s32)jmap[braw1] : -1 };
 					const uint wn = hsf_be32 (data + o + 8), wo = hsf_be32 (data + o + 12);
 					for (uint q = 0; q < wn; q++)
 					{
 						u64 x = bind_end + wo + (u64)q * 12;
-						if (x + 12 > size)
+						if (x + 12 > cenv_end)
 							continue;
 						float w0 = hsf_bef32 (data + x), w[2] = { w0, 1 - w0 };
 						s16 first = hsf_be16s (data + x + 4), count = hsf_be16s (data + x + 6);
@@ -2449,26 +2466,34 @@ enumError DecodeHSF (const u8 *data, uint size, ccp out_path)
 				for (uint k = 0; k < mn; k++)
 				{
 					u64 o = bind_base + mo + (u64)k * 16;
-					if (o + 16 > size)
+					if (o + 16 > cenv_end)
 						continue;
 					uint wn = hsf_be32 (data + o);
 					s16 first = hsf_be16s (data + o + 4), count = hsf_be16s (data + o + 6);
 					u32 wo = hsf_be32 (data + o + 12);
 					if (!wn || wn > 8 || first < 0 || count <= 0
-						|| multi_weight_base + wo + (u64)wn * 8 > size)
+						|| multi_weight_base + wo + (u64)wn * 8 > cenv_end)
 						continue;
 					int b[8];
 					float w[8];
+					// Each weight quad is stored as {float weight; u32 bone;},
+					// not {bone; weight} -- reading them in the wrong order
+					// silently produced all-zero weights for every multi-bind
+					// vertex.
 					for (uint q = 0; q < wn; q++)
 					{
 						const u8 *x = data + multi_weight_base + wo + q * 8;
-						b[q] = (s32)hsf_be32 (x);
-						w[q] = hsf_bef32 (x + 4);
+						w[q] = hsf_bef32 (x);
+						const s32 braw = (s32)hsf_be32 (x + 4);
+						b[q] = braw >= 0 && (u32)braw < node_cnt ? (s32)jmap[braw] : -1;
 					}
 					hsf_set_influences (&model, mesh, first, count, b, w, wn);
 				}
 			}
+			FREE (jmap);
 		}
+		else
+			FREE (jmap);
 
 		ComputeModelTRSBinds (&model);
 
