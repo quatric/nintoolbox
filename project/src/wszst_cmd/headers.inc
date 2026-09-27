@@ -134,6 +134,10 @@
 #include "lib-vc.h"
 #include "lib-sequence.h"
 #include "lib-miirender.h"
+#include "lib-bfttf.h"
+#include "lib-bnvib.h"
+#include "lib-nacp.h"
+#include "lib-pfs0.h"
 
 bool IsNTTF (const u8 *data, uint size);
 

@@ -538,6 +538,15 @@ typedef enum file_format_t
 			// RESOURCE:GX geometry block + an XTD texture block)
 	FF_PFCTEX, // 428 - Nintendo Pocket Football Club "CALCIO3DS" UI texture (.bin; LZ11 + 8x8-tiled
 			   // RGBA4444, no text magic)
+	FF_BFLAN, // 429 - Nintendo Wii U / Switch layout animation (.bflan / FLAN)
+	FF_BCLAN, // 430 - Nintendo 3DS layout animation (.bclan / CLAN)
+	FF_BFTTF, // 431 - Nintendo Binary Font TrueType Font (.bfttf)
+	FF_BNVIB, // 432 - Nintendo Switch Joy-Con Vibration Binary (.bnvib / .nvib)
+	FF_BNVIB_TXT, // 433 - Text version of BNVIB
+	FF_NACP, // 434 - Nintendo Switch Application Control Property (.nacp / control.nacp)
+	FF_NACP_TXT, // 435 - Text version of NACP
+	FF_PFS0, // 436 - Nintendo Switch Partition File System (.pfs0 / .nsp / PFS0)
+	FF_HFS0, // 437 - Nintendo Switch Hashed File System (.hfs0 / HFS0)
 
 	//--- number of elements
 

@@ -4890,6 +4890,52 @@ static enumError decode_wimg_file (ccp arg, ccp basedir, uint depth)
 	return SaveDecodedRGBAToPNG (rgba, w, h, &be_func, dest, 0, opt_overwrite);
 }
 
+// Decode a loose Nintendo Message Binary (.bmg) to a sibling, human-readable
+// text file. A .bmg reached through an archive member (ConvertHelper()) has
+// always been able to do this via the explicit BINARY/TEXT/cat commands, but
+// nothing in this file's extraction dispatch chain ever called ConvertHelper
+// -- so a standalone .bmg sitting directly in an extracted tree (as ships in
+// many DS/Wii titles' raw filesystem, not inside any SARC/U8/BRRES) was
+// silently skipped by XX/XDECODE/XEXPORT/XALL. Gate on opt_decode, matching
+// every other caller of the BMG/MSBT-style text decoders: CMD_EXTRACT alone
+// leaves the raw asset untouched for a byte-exact CREATE round trip; the
+// decode-oriented modes set opt_decode and expect a readable sibling.
+static enumError extract_bmg_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!opt_decode || !is_ext (arg, ".bmg"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false))
+		return ERR_NOTHING_TO_DO;
+	if (raw_size > UINT_MAX || GetByMagicFF (raw, (uint)raw_size, (uint)raw_size) != FF_BMG)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	bmg_t bmg;
+	enumError err = ScanBMG (&bmg, true, arg, raw, raw_size);
+	FREE (raw);
+	if (err)
+	{
+		ResetBMG (&bmg);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	char dest[PATH_MAX];
+	beside_source_dest_ext (dest, sizeof (dest), arg, ".txt");
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT BMG:%s -> TEXT:%s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	if (!testmode)
+		err = SaveTextXBMG (&bmg, dest, true);
+	ResetBMG (&bmg);
+	return err;
+}
+
 // Decode a Nintendo Pocket Football Club "CALCIO3DS" UI texture (.bin) to a
 // sibling PNG. No text magic -- IsPFCTex()/DecodePFCTex_RGBA() validate the
 // header structurally, so this only fires on ".bin" files that actually
@@ -4929,6 +4975,141 @@ static enumError extract_pfctex_file (ccp arg, ccp basedir, uint depth)
 		return ERR_OK;
 	}
 	return SaveDecodedRGBAToPNG (rgba, w, h, &le_func, dest, 0, opt_overwrite);
+}
+
+// Decode a Nintendo Binary Font TrueType Font (.bfttf) to a sibling .ttf.
+static enumError extract_bfttf_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".bfttf"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false))
+		return ERR_NOTHING_TO_DO;
+
+	if (raw_size > UINT_MAX || !IsBFTTF (raw, (uint)raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	u8 *ttf = 0;
+	uint ttf_size = 0;
+	enumError err = DecodeBFTTF (&ttf, &ttf_size, raw, (uint)raw_size);
+	FREE (raw);
+	if (err)
+		return err;
+
+	char dest[PATH_MAX];
+	beside_source_dest_ext (dest, sizeof (dest), arg, ".ttf");
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT BFTTF:%s -> TTF:%s (%u bytes)\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest, ttf_size);
+
+	if (!testmode)
+		err = SaveFile (dest, 0, 0, ttf, ttf_size, 0);
+
+	FREE (ttf);
+	return err;
+}
+
+// Decode a Nintendo Switch Joy-Con Vibration Binary (.bnvib/.nvib) to readable text.
+static enumError extract_bnvib_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".bnvib") && !is_ext (arg, ".nvib"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false))
+		return ERR_NOTHING_TO_DO;
+
+	if (raw_size > UINT_MAX || !IsBNVIB (raw, (uint)raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	bnvib_t vib;
+	enumError err = ScanBNVIB (&vib, raw, (uint)raw_size);
+	FREE (raw);
+	if (err)
+		return err;
+
+	char dest[PATH_MAX];
+	beside_source_dest_ext (dest, sizeof (dest), arg, ".txt");
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT BNVIB:%s -> TEXT:%s (%u samples)\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest, vib.sample_count);
+
+	if (!testmode)
+		err = SaveTextBNVIB (&vib, dest);
+
+	ResetBNVIB (&vib);
+	return err;
+}
+
+// Decode a Nintendo Switch Application Control Property (.nacp / control.nacp) to text.
+static enumError extract_nacp_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".nacp"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false))
+		return ERR_NOTHING_TO_DO;
+
+	if (raw_size > UINT_MAX || !IsNACP (raw, (uint)raw_size))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	nacp_t nacp;
+	enumError err = ParseNACP (&nacp, raw, (uint)raw_size);
+	FREE (raw);
+	if (err)
+		return err;
+
+	char dest[PATH_MAX];
+	beside_source_dest_ext (dest, sizeof (dest), arg, ".txt");
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT NACP:%s -> TEXT:%s (version %s)\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest, nacp.display_version);
+
+	if (!testmode)
+		err = SaveTextNACP (&nacp, dest);
+
+	return err;
+}
+
+// Extract a Nintendo Switch Partition File System (.nsp / .pfs0 / .hfs0) natively.
+static enumError extract_pfs0_file (ccp arg, ccp basedir, uint depth)
+{
+	const bool is_nsp = is_ext (arg, ".nsp");
+	const bool is_pfs = is_ext (arg, ".pfs0") || is_ext (arg, ".hfs0");
+	if (!is_nsp && !is_pfs)
+		return ERR_NOTHING_TO_DO;
+
+	FILE *fp = fopen (arg, "rb");
+	if (!fp)
+		return ERR_NOTHING_TO_DO;
+	char magic[4];
+	size_t read_bytes = fread (magic, 1, 4, fp);
+	fclose (fp);
+	if (read_bytes != 4 || (memcmp (magic, "PFS0", 4) && memcmp (magic, "HFS0", 4)))
+		return ERR_NOTHING_TO_DO;
+
+	char dest[PATH_MAX];
+	get_dest_dir (dest, sizeof (dest), arg, basedir);
+
+	enumError err = ExtractPFS0Archive (arg, basedir, depth);
+	if (err == ERR_OK && !testmode)
+		return extract_tree_complete (dest, depth + 1);
+
+	return err;
 }
 
 // Extract a Grezzo 3DS Texture Container (.ctxb) to a sibling PNG. Unlike

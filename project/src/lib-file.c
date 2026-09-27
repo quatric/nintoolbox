@@ -111,6 +111,10 @@
 #include "lib-aquapanic.h"
 #include "lib-diabolik.h"
 #include "lib-mtmob.h"
+#include "lib-bfttf.h"
+#include "lib-bnvib.h"
+#include "lib-nacp.h"
+#include "lib-pfs0.h"
 #include "config.inc"
 
 //
@@ -1406,13 +1410,13 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x464c5954: // "FLYT"
 				return FF_BFLYT;
 			case 0x464c414e: // "FLAN"
-				return FF_BFLYT; // treat BFLAN same as BFLYT for now
+				return FF_BFLAN;
 
 			// BCLYT / BCLAN (3DS layouts) - magic is "CLYT" / "CLAN"
 			case 0x434c5954: // "CLYT"
 				return FF_BCLYT;
 			case 0x434c414e: // "CLAN"
-				return FF_BCLYT; // treat BCLAN same as BCLYT for now
+				return FF_BCLAN;
 
 			// Nitro 3D Texture Archive (NSBTX)
 			case 0x42545830: // "BTX0"
@@ -1780,6 +1784,18 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x5f543147: // "_T1G"
 			case 0x47543147: // "GT1G"
 				return FF_G1T;
+
+			// Nintendo Switch Partition File System (PFS0 / HFS0)
+			case 0x50465330: // "PFS0"
+			case 0x30534650:
+				if (IsPFS0 (data8, data_size))
+					return FF_PFS0;
+				break;
+			case 0x48465330: // "HFS0"
+			case 0x30534648:
+				if (IsHFS0 (data8, data_size))
+					return FF_HFS0;
+				break;
 
 			case BREFF_MAGIC_NUM:
 				if (file_size >= 0x20)
@@ -2337,6 +2353,17 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 	if (IsZackWikiMds (data8, data_size, file_size))
 		return FF_ZACKWIKI_MDS;
 
+	if (IsBFTTF (data8, data_size))
+		return FF_BFTTF;
+	if (IsBNVIB (data8, data_size))
+		return FF_BNVIB;
+	if (IsNACP (data8, data_size))
+		return FF_NACP;
+	if (IsPFS0 (data8, data_size))
+		return FF_PFS0;
+	if (IsHFS0 (data8, data_size))
+		return FF_HFS0;
+
 	const nfmt_info_t nfmt = DetectNintendoFormat (data, data_size, 0);
 	switch (nfmt.type)
 	{
@@ -2577,6 +2604,15 @@ file_format_t GetFileTypeByMagic (
 		// since that entry comes earlier in FileTypeTab.
 		if (ff == FF_UNKNOWN && ext && !strcasecmp (ext, ".tex") && fatt->size >= 0x80)
 			return FF_TEX3DS;
+		if (ff == FF_UNKNOWN && ext && (!strcasecmp (ext, ".bnvib") || !strcasecmp (ext, ".nvib"))
+			&& IsBNVIB ((const u8 *)buf, sizeof (buf)))
+			return FF_BNVIB;
+		if (ff == FF_UNKNOWN && ext && !strcasecmp (ext, ".bfttf")
+			&& IsBFTTF ((const u8 *)buf, sizeof (buf)))
+			return FF_BFTTF;
+		if (ff == FF_UNKNOWN && ext && !strcasecmp (ext, ".nacp")
+			&& IsNACP ((const u8 *)buf, sizeof (buf)))
+			return FF_NACP;
 		if (ff == FF_UNKNOWN && ext)
 		{
 			const file_type_t *ft = GetFileTypeByExt (ext, false);

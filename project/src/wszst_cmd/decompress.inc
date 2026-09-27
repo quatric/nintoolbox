@@ -673,7 +673,16 @@ static enumError decompress_nintendo_file3 (
 			stripped = true;
 		}
 
-		char *dot2 = strrchr (dest, '.');
+		// Search for a genuine extension in the basename only. 'dest' is
+		// still a full path here, and an ancestor directory can itself
+		// contain a literal '.' (e.g. this tool's own "<archive>.d"
+		// extraction folders, or any "*.zip.d" staging tree) -- searching
+		// the whole path let that ancestor dot masquerade as the file
+		// already having a real extension, which skipped the append below
+		// and silently wrote every decoded LZ10/LZ11/etc. payload in such a
+		// tree with no extension at all.
+		char *slash2 = strrchr (dest, '/');
+		char *dot2 = strrchr (slash2 ? slash2 : dest, '.');
 		if (!stripped || !dot2)
 		{
 			const nfmt_info_t dec_info = DetectNintendoFormat (decoded, decoded_size, dest);

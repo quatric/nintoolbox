@@ -999,6 +999,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_tex_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_bmg_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_ctxb_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
@@ -1009,6 +1012,18 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_pfctex_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_bfttf_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_bnvib_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_nacp_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_pfs0_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_art_file (arg, basedir, depth);
@@ -2103,7 +2118,23 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		// decodes to a finished WAV, which no container probe claims, so
 		// this discard used to delete every decoded wave the extractor
 		// produced -- BFWAV/BCWAV/BRWAV conversion never left a file behind.
-		if (!opt_export_raw && !decompressed_is_final && depth > 0)
+		//
+		// ... and not when --auto was given either. --auto's own advertised
+		// purpose ("recursively decode recognised raw Nintendo compression
+		// streams found in the extracted tree") is to KEEP exactly this
+		// class of output; cmd_extract()'s single-archive path already
+		// honours it that way via auto_decompress_tree(). But XX/XDECODE/
+		// XEXPORT/XALL given a plain directory (not an archive file) never
+		// go through cmd_extract()'s per-archive branch at all -- they walk
+		// straight into extract_tree()/extract_one_file(), which passes
+		// depth+1 for every single regular file found by ordinary directory
+		// recursion (see extract_tree()). So depth>0 here is true for
+		// essentially every loose file in a real, already-unpacked game
+		// tree, not just for a payload actually unwrapped from inside a
+		// nested container -- which silently discarded every decoded
+		// LZ10/LZ11/etc. leaf asset (raw NDS tile/graphics data, etc.) that
+		// didn't also happen to parse as some further container format.
+		if (!opt_export_raw && !OptionUsed[OPT_AUTO] && !decompressed_is_final && depth > 0)
 		{
 			struct stat st_leftover;
 			if (!stat (decompressed_path, &st_leftover) && S_ISREG (st_leftover.st_mode))
@@ -2398,10 +2429,21 @@ static enumError extract_tree (ccp root, uint depth)
 static enumError cmd_extract (enumCommands mode)
 {
 	ccp basedir = GetOptBasedir ();
+	// Every decode-oriented alias (XDECODE/XEXPORT a.k.a. XX/XALL) implies
+	// --auto: without it, a raw Nintendo codec stream (LZ10/LZ11/etc.) found
+	// while walking a plain directory argument gets decoded and then
+	// immediately discarded again as an "unclaimed raw dump" (see the
+	// depth>0 discard in extract_one_file_inner() -- ordinary directory
+	// recursion also increments depth, so that check can't tell "reached by
+	// unwrapping a real nested container" from "just a loose file a few
+	// folders deep in an unpacked disc"). --auto's own documented purpose is
+	// to keep exactly this class of output, so make it the default for
+	// these modes instead of requiring users to remember the flag every time.
 	if (mode == CMD_XDECODE)
 	{
 		RegisterOptionByIndex (&InfoUI_wszst, OPT_DECODE, 1, false);
 		opt_decode = true;
+		RegisterOptionByIndex (&InfoUI_wszst, OPT_AUTO, 1, false);
 	}
 	else if (mode == CMD_XEXPORT)
 	{
@@ -2409,6 +2451,7 @@ static enumError cmd_extract (enumCommands mode)
 		opt_decode = true;
 		RegisterOptionByIndex (&InfoUI_wszst, OPT_EXPORT, 1, false);
 		export_count++;
+		RegisterOptionByIndex (&InfoUI_wszst, OPT_AUTO, 1, false);
 	}
 	else if (mode == CMD_XALL)
 	{
@@ -2416,6 +2459,7 @@ static enumError cmd_extract (enumCommands mode)
 		opt_recurse = INT_MAX;
 		opt_decode = true;
 		opt_mipmaps = 1;
+		RegisterOptionByIndex (&InfoUI_wszst, OPT_AUTO, 1, false);
 	}
 	else if (mode == CMD_XCOMMON)
 	{

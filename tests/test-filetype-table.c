@@ -17,6 +17,8 @@ extern "C"
 extern void trace_free (const char *, const char *, unsigned int, void *);
 extern void *trace_calloc (const char *, const char *, unsigned int, size_t, size_t);
 extern void *trace_malloc (const char *, const char *, unsigned int, size_t);
+const char EmptyString[] = "";
+const char MinusString[] = "-";
 
 int main (void)
 {

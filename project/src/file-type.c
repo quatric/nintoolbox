@@ -2499,6 +2499,51 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		"Nintendo Pocket Football Club \"CALCIO3DS\" UI texture (.bin, 3DS; LZ11 + 8x8-tiled "
 		"RGBA4444)" },
 
+	// FF_BFLAN = 429
+	{ FF_BFLAN, FF_BFLAN, 0, "BFLAN", ".bflan", ".szs", ".bflan",
+		FFT_VALID | FFT_DECODE, 4, { 'F', 'L', 'A', 'N' }, 0, MinusString, MinusString,
+		"Nintendo Wii U / Switch layout animation (.bflan / FLAN)" },
+
+	// FF_BCLAN = 430
+	{ FF_BCLAN, FF_BCLAN, 0, "BCLAN", ".bclan", ".szs", ".bclan",
+		FFT_VALID | FFT_DECODE, 4, { 'C', 'L', 'A', 'N' }, 0, MinusString, MinusString,
+		"Nintendo 3DS layout animation (.bclan / CLAN)" },
+
+	// FF_BFTTF = 431
+	{ FF_BFTTF, FF_BFTTF, 0, "BFTTF", ".bfttf", ".ttf", ".bfttf",
+		FFT_VALID | FFT_DECODE | FFT_EXTRACT, 0, { 0 }, 0, MinusString, MinusString,
+		"Nintendo Binary Font TrueType Font (.bfttf; Switch/Wii U/Win scrambled font)" },
+
+	// FF_BNVIB = 432
+	{ FF_BNVIB, FF_BNVIB, FF_BNVIB_TXT, "BNVIB", ".bnvib", ".bin", ".bnvib",
+		FFT_VALID | FFT_DECODE | FFT_EXTRACT, 0, { 0 }, 0, MinusString, MinusString,
+		"Nintendo Switch Joy-Con Vibration Binary (.bnvib/.nvib)" },
+
+	// FF_BNVIB_TXT = 433
+	{ FF_BNVIB_TXT, FF_BNVIB, FF_BNVIB_TXT, "BNVIB-TXT", ".txt", ".txt", ".txt",
+		FFT_VALID, 0, { 0 }, 0, MinusString, MinusString,
+		"Text representation of BNVIB vibration data" },
+
+	// FF_NACP = 434
+	{ FF_NACP, FF_NACP, FF_NACP_TXT, "NACP", ".nacp", ".bin", ".nacp",
+		FFT_VALID | FFT_DECODE | FFT_EXTRACT, 0, { 0 }, 0, MinusString, MinusString,
+		"Nintendo Switch Application Control Property (.nacp / control.nacp)" },
+
+	// FF_NACP_TXT = 435
+	{ FF_NACP_TXT, FF_NACP, FF_NACP_TXT, "NACP-TXT", ".txt", ".txt", ".txt",
+		FFT_VALID, 0, { 0 }, 0, MinusString, MinusString,
+		"Text representation of NACP metadata" },
+
+	// FF_PFS0 = 436
+	{ FF_PFS0, FF_PFS0, 0, "PFS0", ".nsp", ".pfs0", ".nsp",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 4, { 'P', 'F', 'S', '0' }, 0, MinusString, MinusString,
+		"Nintendo Switch Partition File System (.pfs0/.nsp / PFS0)" },
+
+	// FF_HFS0 = 437
+	{ FF_HFS0, FF_HFS0, 0, "HFS0", ".hfs0", ".hfs0", ".hfs0",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 4, { 'H', 'F', 'S', '0' }, 0, MinusString, MinusString,
+		"Nintendo Switch Hashed File System (.hfs0 / HFS0)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2747,6 +2792,11 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_T4RES, "T4-RES", "T4-RES", 0xe05 }, { FF_HDVOICE, "HDVOICE", "HDVOICE", 0xe05 },
 	{ FF_XTD, "XTD", "XTD", 0xe05 }, { FF_XMD, "XMD", "XMD", 0xe05 },
 	{ FF_PFCTEX, "PFCTEX", "PFCTEX", 0xe05 },
+	{ FF_BFLAN, "BFLAN", "BFLAN", 0xe05 }, { FF_BCLAN, "BCLAN", "BCLAN", 0xe05 },
+	{ FF_BFTTF, "BFTTF", "BFTTF", 0xe05 },
+	{ FF_BNVIB, "BNVIB", "NVIB", 0xe05 }, { FF_BNVIB_TXT, "BNVIB-TXT", 0, 0xe05 },
+	{ FF_NACP, "NACP", "NACP", 0xe05 }, { FF_NACP_TXT, "NACP-TXT", 0, 0xe05 },
+	{ FF_PFS0, "PFS0", "NSP", 0xe05 }, { FF_HFS0, "HFS0", "HFS0", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };
