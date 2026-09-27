@@ -1150,53 +1150,52 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 			FILE *fp = fopen (full_png_path, "rb");
 			if (!fp)
 				fp = fopen (tex_path, "rb");
+			if (!fp)
+				// No PNG on disk to embed: a dangling relative-URI reference
+				// would make the GLB non-portable and show up as a missing
+				// texture in any viewer, so fall back to the material's
+				// plain color instead of a broken texture link.
+				continue;
 
 			cgltf_image *gimg = &data.images[data.images_count++];
 			gimg->name = (char *)mat->textures[t];
 			gimg->mime_type = (char *)"image/png";
 
-			if (fp)
+			fseek (fp, 0, SEEK_END);
+			long fsz = ftell (fp);
+			fseek (fp, 0, SEEK_SET);
+			if (fsz > 0)
 			{
-				fseek (fp, 0, SEEK_END);
-				long fsz = ftell (fp);
-				fseek (fp, 0, SEEK_SET);
-				if (fsz > 0)
+				uint8_t *img_data = malloc (fsz);
+				if (img_data && fread (img_data, 1, fsz, fp) == (size_t)fsz)
 				{
-					uint8_t *img_data = malloc (fsz);
-					if (img_data && fread (img_data, 1, fsz, fp) == (size_t)fsz)
+					while (bin_size % 4 != 0)
 					{
-						while (bin_size % 4 != 0)
+						if (bin_size >= bin_cap)
 						{
-							if (bin_size >= bin_cap)
-							{
-								bin_cap = bin_cap ? bin_cap * 2 : 1024;
-								bin_data = realloc (bin_data, bin_cap);
-							}
-							bin_data[bin_size++] = 0;
-						}
-						if (bin_size + fsz > bin_cap)
-						{
-							bin_cap = (bin_size + fsz + 4096) * 2;
+							bin_cap = bin_cap ? bin_cap * 2 : 1024;
 							bin_data = realloc (bin_data, bin_cap);
 						}
-
-						cgltf_buffer_view *bv = &data.buffer_views[data.buffer_views_count++];
-						bv->buffer = &data.buffers[0];
-						bv->offset = bin_size;
-						bv->size = fsz;
-						gimg->buffer_view = bv;
-
-						memcpy (bin_data + bin_size, img_data, fsz);
-						bin_size += fsz;
+						bin_data[bin_size++] = 0;
 					}
-					free (img_data);
+					if (bin_size + fsz > bin_cap)
+					{
+						bin_cap = (bin_size + fsz + 4096) * 2;
+						bin_data = realloc (bin_data, bin_cap);
+					}
+
+					cgltf_buffer_view *bv = &data.buffer_views[data.buffer_views_count++];
+					bv->buffer = &data.buffers[0];
+					bv->offset = bin_size;
+					bv->size = fsz;
+					gimg->buffer_view = bv;
+
+					memcpy (bin_data + bin_size, img_data, fsz);
+					bin_size += fsz;
 				}
-				fclose (fp);
+				free (img_data);
 			}
-			else
-			{
-				gimg->uri = strdup (tex_path);
-			}
+			fclose (fp);
 
 			cgltf_sampler *gsmp = &data.samplers[data.samplers_count++];
 			gsmp->wrap_s = mat->wrap_s[t] == 0 ? 33071 : (mat->wrap_s[t] == 2 ? 33648 : 10497);

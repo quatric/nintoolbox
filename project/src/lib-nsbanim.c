@@ -29,14 +29,16 @@
 #include <dirent.h>
 #include <math.h>
 
+// Buffers allocated here (times/values arrays, raw-clip copies, the
+// animations array itself) are attached to model_t and freed generically
+// by FreeModel() with plain free(), so this file must use real
+// malloc/calloc/realloc/free too -- not the MALLOC/CALLOC/REALLOC/FREE
+// leak-tracking macros, whose returned pointer is offset from the real
+// allocation and aborts if handed to plain free().
 #undef calloc
 #undef malloc
 #undef realloc
 #undef free
-#define malloc(s) MALLOC (s)
-#define calloc(n, s) CALLOC (n, s)
-#define realloc(p, s) REALLOC (p, s)
-#define free(p) FREE (p)
 
 //-----------------------------------------------------------------------------
 // Little-endian readers
