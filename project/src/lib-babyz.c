@@ -284,6 +284,61 @@ enumError ExportBabyzWspPng (const u8 *dec, size_t dec_size, ccp out_path)
 }
 
 //-----------------------------------------------------------------------------
+// ".cam" camera keyframe track. Unlike every other extension documented
+// in this file, .cam is NOT consistently wrapped in the "!Ce" container:
+// small samples (a single keyframe) are stored raw, larger ones are
+// "!Ce"-compressed like everything else. Either way, once past any LZSS
+// layer the payload is dead simple and entirely big-endian (no manual
+// byte-swap in main.dol was needed to find this -- it was identified
+// structurally and confirmed exhaustively):
+//   u32 count;                  // BE, number of keyframes
+//   float m[count][3][4];       // BE, row-major 3x4 transform matrices
+//                                // (rotation/scale in the 3x3 block,
+//                                // translation in column 4 -- same
+//                                // layout as the "matrix" type in the
+//                                // generated .c files documented in
+//                                // IsBabyzWiz's container comment above)
+// -- 4 + count*48 bytes total. Confirmed byte-exact (count*48+4 ==
+// payload size) on all 90 .cam files on disc, decompressing the ones
+// that carry the "!Ce" magic first.
+#define BABYZ_CAM_MATRIX_SIZE 48 // 12 floats
+
+int IsBabyzCam (const u8 *data, size_t size, u32 *ret_count)
+{
+	if (!data || size < 4)
+		return 0;
+
+	u32 count = rd_be32 (data);
+	if ((u64)count * BABYZ_CAM_MATRIX_SIZE + 4 != size)
+		return 0;
+
+	if (ret_count)
+		*ret_count = count;
+	return 1;
+}
+
+enumError DecodeBabyzCam_Text (FILE *f, const u8 *data, size_t size)
+{
+	u32 count;
+	if (!f || !IsBabyzCam (data, size, &count))
+		return EINVAL;
+
+	fprintf (f, "# Imagine: Party Babyz .cam camera keyframe track\n");
+	fprintf (f, "count = %u\n", count);
+
+	const u8 *p = data + 4;
+	for (u32 i = 0; i < count; i++, p += BABYZ_CAM_MATRIX_SIZE)
+	{
+		fprintf (f, "keyframe[%u] =\n", i);
+		for (uint row = 0; row < 3; row++)
+			fprintf (f, "  %11.6f %11.6f %11.6f %11.6f\n", bef4 (p + row * 16),
+				bef4 (p + row * 16 + 4), bef4 (p + row * 16 + 8), bef4 (p + row * 16 + 12));
+	}
+
+	return ERR_OK;
+}
+
+//-----------------------------------------------------------------------------
 // ".msk" morph/blend mask -- a binary (0/1) stencil bitmap, encoded as a
 // standard GX IMG_I8 texture (8x4 tiled blocks -- same hardware texel
 // order as .wsp, just always format I8 and with a smaller/simpler

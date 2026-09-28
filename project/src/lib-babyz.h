@@ -135,4 +135,17 @@ int IsBabyzMsk (const u8 *dec, size_t dec_size, u32 *ret_width, u32 *ret_height)
 // (mask value 1 -> white, 0 -> black).
 enumError ExportBabyzMskPng (const u8 *dec, size_t dec_size, ccp out_path);
 
+//-----------------------------------------------------------------------------
+// ".cam" camera keyframe track -- a plain big-endian array of 3x4
+// transform matrices, no LZSS wrapper on some (small) samples, "!Ce"
+// wrapped on others -- IsBabyzCam()/DecodeBabyzCam_Text() work on either
+// a raw .cam file or an already-decompressed one (the payload shape is
+// identical either way). See lib-babyz.c for the full writeup.
+
+// Probes .cam data (raw file OR decompressed .wiz-container payload).
+// Optionally returns the keyframe count.
+int IsBabyzCam (const u8 *data, size_t size, u32 *ret_count);
+
+enumError DecodeBabyzCam_Text (FILE *f, const u8 *data, size_t size);
+
 #endif // LIB_BABYZ_H

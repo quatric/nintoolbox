@@ -159,6 +159,42 @@ static int check_msk_rejects_wrong_size (void)
 	return IsBabyzMsk (dec, sizeof (dec), 0, 0) != 0;
 }
 
+// A .cam payload: BE u32 count, then count 3x4 BE-float matrices.
+static int check_cam (void)
+{
+	const u32 count = 2;
+	uint size = 4 + count * 48;
+	u8 *data = CALLOC (size, 1);
+	write_be32 (data, count);
+	for (u32 k = 0; k < count * 12; k++)
+		write_bef4 (data + 4 + k * 4, (float)k * 0.5f - 3.0f);
+
+	u32 rc_count;
+	int rc = !IsBabyzCam (data, size, &rc_count);
+	rc |= rc_count != count;
+
+	char *buf = 0;
+	size_t buf_size = 0;
+	FILE *f = open_memstream (&buf, &buf_size);
+	rc |= DecodeBabyzCam_Text (f, data, size) != ERR_OK;
+	fclose (f);
+	rc |= !buf || !strstr (buf, "count = 2") || !strstr (buf, "keyframe[1]");
+	if (buf)
+		RegisterAlloc (__FUNCTION__, __FILE__, __LINE__, buf, buf_size, false);
+	FREE (buf);
+
+	FREE (data);
+	return rc;
+}
+
+static int check_cam_rejects_wrong_size (void)
+{
+	u8 data[4 + 10]; // announces 1 keyframe (48 bytes) but only has 10
+	memset (data, 0, sizeof (data));
+	write_be32 (data, 1);
+	return IsBabyzCam (data, sizeof (data), 0) != 0;
+}
+
 int main (void)
 {
 	struct
@@ -172,6 +208,8 @@ int main (void)
 		{ "Babyz .wsp GX texture parse + PNG export", check_wsp },
 		{ "Babyz .msk GX-I8 mask parse + PNG export", check_msk },
 		{ "Babyz .msk rejects a short mask", check_msk_rejects_wrong_size },
+		{ "Babyz .cam keyframe track parse + text dump", check_cam },
+		{ "Babyz .cam rejects a short track", check_cam_rejects_wrong_size },
 	};
 	int rc = 0;
 	for (uint i = 0; i < sizeof (tests) / sizeof (*tests); i++)
