@@ -556,6 +556,9 @@ typedef enum file_format_t
 	FF_NPDM, // 444 - Nintendo Switch Program Descriptor (.npdm / META)
 	FF_NPDM_TXT, // 445 - Text version of NPDM
 	FF_XCI, // 446 - Nintendo Switch Game Cartridge Image (.xci / HEAD)
+	FF_DAHBWU_STREAM, // 447 - Destroy All Humans! Big Willy Unleashed asset stream (.stream)
+	FF_DAHBWU_TBL, // 448 - Destroy All Humans! Big Willy Unleashed UTF-16BE string table (.tbl)
+	FF_DAHBWU_CNV, // 449 - Destroy All Humans! Big Willy Unleashed conversation table (.cnv)
 
 	//--- number of elements
 

@@ -2589,6 +2589,31 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 4, { 'H', 'E', 'A', 'D' }, 0, MinusString, MinusString,
 		"Nintendo Switch Game Cartridge Image (.xci / HEAD)" },
 
+	// FF_DAHBWU_STREAM = 447 (Destroy All Humans! Big Willy Unleashed asset stream)
+	// Confirmed fixed-shape outer envelope (per-asset tag + constant "4" +
+	// ASCII-hex content hash + zlib payload) across all 93 real samples;
+	// the decompressed "Chunk"-tagged payload itself is not decoded.
+	{ FF_DAHBWU_STREAM, FF_DAHBWU_STREAM, 0, "DAHBWU-STREAM", ".stream", ".txt", ".stream",
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Destroy All Humans! Big Willy Unleashed asset stream (.stream, Wii; outer envelope "
+		"decoded, inner Chunk payload not decoded)" },
+
+	// FF_DAHBWU_TBL = 448 (Destroy All Humans! Big Willy Unleashed string table)
+	// No fixed magic (opens directly with a big-endian entry count); fully
+	// reverse-engineered and confirmed against all 370 real samples.
+	{ FF_DAHBWU_TBL, FF_DAHBWU_TBL, 0, "DAHBWU-TBL", ".tbl", ".txt", ".tbl",
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Destroy All Humans! Big Willy Unleashed localized UTF-16BE string table (.tbl, Wii; "
+		"fully decoded)" },
+
+	// FF_DAHBWU_CNV = 449 (Destroy All Humans! Big Willy Unleashed conversation table)
+	// No fixed magic (opens directly with a big-endian record count); fully
+	// reverse-engineered and confirmed against all 300 real samples.
+	{ FF_DAHBWU_CNV, FF_DAHBWU_CNV, 0, "DAHBWU-CNV", ".cnv", ".txt", ".cnv",
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Destroy All Humans! Big Willy Unleashed conversation/speaker/line table (.cnv, Wii; "
+		"fully decoded)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2847,6 +2872,9 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_CNMT, "CNMT", "CNMT", 0xe05 }, { FF_CNMT_TXT, "CNMT-TXT", 0, 0xe05 },
 	{ FF_NPDM, "NPDM", "NPDM", 0xe05 }, { FF_NPDM_TXT, "NPDM-TXT", 0, 0xe05 },
 	{ FF_XCI, "XCI", "XCI", 0xe05 },
+	{ FF_DAHBWU_STREAM, "DAHBWU-STREAM", "DAHBWU-STREAM", 0xe05 },
+	{ FF_DAHBWU_TBL, "DAHBWU-TBL", "DAHBWU-TBL", 0xe05 },
+	{ FF_DAHBWU_CNV, "DAHBWU-CNV", "DAHBWU-CNV", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

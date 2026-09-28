@@ -120,6 +120,7 @@
 #include "lib-cnmt.h"
 #include "lib-npdm.h"
 #include "lib-xci.h"
+#include "lib-dahbwu.h"
 #include "config.inc"
 
 //
@@ -2392,6 +2393,12 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_NPDM;
 	if (IsXCI (data8, data_size))
 		return FF_XCI;
+	// Destroy All Humans! Big Willy Unleashed (Wii) formats -- see
+	// lib-dahbwu.h. ".tbl"/".cnv" are magic-less (no fixed byte pattern,
+	// only a leading count field) and intentionally NOT wired in here,
+	// same policy as Mercury Meltdown Revolution's ".mat"/".nav" above.
+	if (IsDahbwuStream (data8, data_size, file_size))
+		return FF_DAHBWU_STREAM;
 
 	const nfmt_info_t nfmt = DetectNintendoFormat (data, data_size, 0);
 	switch (nfmt.type)
