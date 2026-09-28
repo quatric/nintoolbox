@@ -2628,6 +2628,28 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		"Destroy All Humans! Big Willy Unleashed headerless raw BE16 PCM audio (.AUD, Wii; sample "
 		"rate not stored in file, NOT confirmed)" },
 
+	// FF_SEGA_PVR = 451 (Illvelo Sega PVR texture)
+	// Tags "XIBG"/"TRVP" are byte-reversed ASCII for the well-known Sega
+	// Dreamcast "GBIX"/"PVRT" texture tags, with all numeric fields
+	// big-endian instead of the original little-endian; confirmed
+	// byte-exact (size field, width, height) across all 626 samples. The
+	// texel payload's pixel encoding could not be confirmed against any
+	// twiddled/raw x big/little-endian combination and is NOT decoded.
+	{ FF_SEGA_PVR, FF_SEGA_PVR, 0, "SEGA-PVR", ".pvr", ".txt", ".pvr", FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Illvelo Sega PVR texture (.pvr, Wii; header only, texel payload not decoded)" },
+
+	// FF_NINJA = 452 (Illvelo Sega "Ninja" chunk model/motion)
+	// Tags "LTJN"/"MCJN"/"MDMN" are byte-reversed ASCII for Sega's
+	// well-known Dreamcast-era Ninja engine tags NJTL/NJCM/NMDM, with all
+	// numeric fields big-endian. Only the NJTL texture list is decoded
+	// (confirmed byte-exact); NJCM chunk-model and NMDM chunk-motion
+	// payloads are reported as opaque chunks only.
+	{ FF_NINJA, FF_NINJA, 0, "NINJA", ".nj", ".txt", ".nj", FFT_VALID | FFT_DECODE, 0, { 0 }, 0,
+		MinusString, MinusString,
+		"Illvelo Sega \"Ninja\" chunk model/motion (.nj/.njm, Wii; NJTL texture list decoded, "
+		"NJCM/NMDM payload not)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2890,6 +2912,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_DAHBWU_TBL, "DAHBWU-TBL", "DAHBWU-TBL", 0xe05 },
 	{ FF_DAHBWU_CNV, "DAHBWU-CNV", "DAHBWU-CNV", 0xe05 },
 	{ FF_DAHBWU_AUDPCM, "DAHBWU-AUDPCM", "DAHBWU-AUDPCM", 0xe05 },
+	{ FF_SEGA_PVR, "SEGA-PVR", "SEGA-PVR", 0xe05 }, { FF_NINJA, "NINJA", "NINJA", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

@@ -560,6 +560,10 @@ typedef enum file_format_t
 	FF_DAHBWU_TBL, // 448 - Destroy All Humans! Big Willy Unleashed UTF-16BE string table (.tbl)
 	FF_DAHBWU_CNV, // 449 - Destroy All Humans! Big Willy Unleashed conversation table (.cnv)
 	FF_DAHBWU_AUDPCM, // 450 - Destroy All Humans! Big Willy Unleashed headerless raw PCM (.AUD)
+	FF_SEGA_PVR, // 451 - Illvelo Sega PVR texture (.pvr; header only, byte-reversed tags + BE
+				 // fields, texel encoding not confirmed)
+	FF_NINJA, // 452 - Illvelo Sega "Ninja" chunk model/motion (.nj/.njm; NJTL texture list
+			  // decoded, NJCM/NMDM payload not)
 
 	//--- number of elements
 

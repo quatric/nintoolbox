@@ -121,6 +121,8 @@
 #include "lib-npdm.h"
 #include "lib-xci.h"
 #include "lib-dahbwu.h"
+#include "lib-segapvr.h"
+#include "lib-ninja.h"
 #include "config.inc"
 
 //
@@ -2399,6 +2401,12 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 	// same policy as Mercury Meltdown Revolution's ".mat"/".nav" above.
 	if (IsDahbwuStream (data8, data_size, file_size))
 		return FF_DAHBWU_STREAM;
+
+	// Illvelo (Wii) formats -- see lib-segapvr.h/lib-ninja.h.
+	if (IsSegaPVR (data8, data_size))
+		return FF_SEGA_PVR;
+	if (IsNinjaChunk (data8, data_size))
+		return FF_NINJA;
 
 	const nfmt_info_t nfmt = DetectNintendoFormat (data, data_size, 0);
 	switch (nfmt.type)
