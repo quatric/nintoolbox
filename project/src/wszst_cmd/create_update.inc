@@ -12200,7 +12200,7 @@ DEFINE_EXTRACT_DOGISLAND (mpq, is_ext (arg, ".mpq"), IsDogIslandMpq, DecodeDogIs
 
 DEFINE_EXTRACT_MURAMASA (fcmp,
 	is_ext (arg, ".mbs") || is_ext (arg, ".ftx") || is_ext (arg, ".esb") || is_ext (arg, ".nsb")
-		|| is_ext (arg, ".abf") || is_ext (arg, ".nms"),
+		|| is_ext (arg, ".abf") || is_ext (arg, ".nms") || is_ext (arg, ".wbf"),
 	IsMuramasaFcmp, DecodeMuramasaFcmp_Text)
 DEFINE_EXTRACT_MURAMASA (otb, is_ext (arg, ".otb"), IsMuramasaOtb, DecodeMuramasaOtb_Text)
 DEFINE_EXTRACT_MURAMASA (nsi, is_ext (arg, ".nsi"), IsMuramasaNsi, DecodeMuramasaNsi_Text)

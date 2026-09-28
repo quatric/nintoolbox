@@ -2031,12 +2031,11 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		"decoded)" },
 
 	// FF_MURAMASA_FCMP = 370 (Muramasa FCMP compressed container)
-	// Wraps ".mbs"/".ftx"/".esb"/".nsb"/".abf"/".nms"; only the outer
-	// header + inner sub-blob tag are decoded, the compressed payload
-	// itself is not (Yaz0/Yaz1 ruled out; see lib-muramasa.h).
+	// Wraps ".mbs"/".ftx"/".esb"/".nsb"/".abf"/".nms"/".wbf"; a classic
+	// Okumura-style LZSS scheme, fully decoded -- see lib-muramasa.h.
 	{ FF_MURAMASA_FCMP, FF_MURAMASA_FCMP, 0, "MURAMASA-FCMP", ".mbs", ".txt", ".mbs",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
-		"Muramasa FCMP compressed container (.mbs/.ftx/.esb/.nsb/.abf/.nms, Wii; payload not "
+		"Muramasa FCMP compressed container (.mbs/.ftx/.esb/.nsb/.abf/.nms/.wbf, Wii; LZSS, fully "
 		"decoded)" },
 
 	// FF_MURAMASA_OTB = 371 (Muramasa .otb table)

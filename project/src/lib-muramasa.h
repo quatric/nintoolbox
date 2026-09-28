@@ -2,43 +2,65 @@
 // "Muramasa - The Demon Blade" (Wii) proprietary asset formats. No public
 // documentation of any of these exists (checked XeNTaX, GBAtemp,
 // Models-Resource, romhacking.net -- all empty on this title). Everything
-// below was reverse-engineered from scratch against the retail disc, by
-// extracting files/ and cross-checking real samples of each extension.
+// below was reverse-engineered against the retail disc: the container
+// format by extracting files/ and cross-checking real samples of each
+// extension, and the FCMP compression itself by disassembling the game's
+// main.dol (USA v1.0, entry 0x8000403c) in Ghidra and decompiling the
+// actual decoder at 0x802c09e0 (called, with the ring-buffer/history
+// state block as param_1, from FUN_800976dc @ 0x800976dc, which in turn
+// reads a loading-screen FCMP/FTEX blob picked by FUN_800973c0 based on
+// the console's language setting).
 //
 // Three formats are covered:
 //
-// (1) A generic "FCMP" compressed container that wraps six of the on-disc
-//     extensions (".mbs", ".ftx", ".esb", ".nsb", ".abf", ".nms"), each
-//     holding a fixed, distinct typed inner sub-blob tag. Confirmed
-//     outer header, checked against 307 real samples across all six
-//     extensions pulled from the retail disc:
+// (1) A generic "FCMP" compressed container that wraps seven of the
+//     on-disc extensions (".mbs", ".ftx", ".esb", ".nsb", ".abf", ".nms",
+//     ".wbf"), each holding a fixed, distinct typed inner sub-blob tag.
+//     Confirmed outer header, verified by re-decompressing every single
+//     FCMP file on the retail disc (1454/1454, spanning all seven
+//     extensions -- see fcmp_inner_map[] in lib-muramasa.c):
 //       char magic[4];      // "FCMP" (fixed)
-//       u32  decomp_size;   // LE. Decompressed payload size. Confirmed
-//                             // >= (file_size - 13) in every one of the
-//                             // 307 samples checked (i.e. never smaller
-//                             // than the on-disc compressed payload),
-//                             // consistent with a real compression ratio
-//                             // (observed up to ~3.6x on this disc).
+//       u32  decomp_size;   // LE. Exact decompressed payload size --
+//                             // confirmed equal (not just >=) to the
+//                             // actual LZSS output length in all 1454
+//                             // samples.
 //       u32  reserved;      // LE. Observed exactly 0x12340000 in every
-//                             // single sample checked (307/307) -- looks
-//                             // like a fixed sentinel/version constant,
-//                             // meaning not otherwise understood.
-//       u8   flag;          // Observed values: 0xff, 0xef, 0x5f -- always
-//                             // ends in the nibble 0xf, only the upper
-//                             // nibble varies (0xf/0xe/0x5). Likely some
-//                             // combination of a compression-method/level
-//                             // selector, but the exact meaning was not
-//                             // confirmed (see below).
-//     followed immediately, with NO further framing, by the compressed
-//     payload, whose first several bytes are confirmed to be a direct,
-//     unencoded copy of the inner sub-blob's 4-byte magic (see the table
-//     below) -- i.e. compression is either not applied to the start of
-//     the stream, or (more likely, see next paragraph) this is a classic
-//     LZ77-family scheme whose very first token(s) are necessarily
-//     literal copies, since no back-reference history exists yet at the
-//     start of any stream.
+//                             // sample checked -- looks like a fixed
+//                             // sentinel/version constant, meaning still
+//                             // not otherwise understood (never read by
+//                             // the decoder at 0x802c09e0 beyond the
+//                             // fixed-value check below).
+//     -- 12 bytes total -- followed immediately, with NO further framing,
+//     by the raw LZSS bitstream (see part below). There is no separate
+//     "flag byte" in the header: what earlier black-box analysis took for
+//     a 13th header byte ending in nibble 0xf is actually just the FIRST
+//     control-flag byte of the LZSS stream itself (see below), which
+//     happens to often end in 0xf on this disc simply because an all-or
+//     mostly-literal opening run is common.
 //
-//     The inner sub-blob tag is a hard 1:1 mapping with the on-disc
+//     COMPRESSION: classic Haruhiko Okumura-style LZSS, byte-for-byte the
+//     same scheme used in the reference `lzss.c` shared across countless
+//     commercial titles, with parameters:
+//       N (ring buffer / window size) = 4096, zero-initialized
+//       F (max match length)          = 18
+//       THRESHOLD                     = 2
+//       initial window position       = N - F = 0xfee
+//     Bitstream, read starting at header offset 12: a control byte is
+//     read every time the previously-read control byte's 8 flag bits (LSB
+//     first) are exhausted; bit==1 means "copy one literal byte from the
+//     stream to output (and to the ring buffer)"; bit==0 means a 2-byte
+//     match token follows: byte0 = low 8 bits of a 12-bit ring-buffer
+//     offset, byte1's high nibble = high 4 bits of that offset, byte1's
+//     low nibble = (match length - 3). The match is copied byte-by-byte
+//     from the ring buffer (wrapping mod 4096) to output, and each copied
+//     byte is also written back into the ring buffer at the current
+//     write position (so overlapping self-referencing copies work).
+//     Decoding stops once `decomp_size` output bytes have been produced.
+//     See DecompressMuramasaFcmp() in lib-muramasa.c for the reference
+//     implementation, verified against every FCMP file on the disc.
+//
+//     The inner sub-blob tag (first 4 bytes of the DECOMPRESSED payload,
+//     not the compressed bytes) is a hard 1:1 mapping with the on-disc
 //     extension, confirmed across every sample (no exceptions):
 //       ".mbs" -> "FMBS" (642/642 samples)
 //       ".ftx" -> "FTEX" (610/610 samples)
@@ -46,36 +68,7 @@
 //       ".nsb" -> "NSBD" (60/60 samples)
 //       ".abf" -> "MLIB" (57/57 samples)
 //       ".nms" -> "NMSB" (10/10 samples)
-//
-//     COMPRESSION NOT CRACKED. What was tried: the project already ships
-//     a Yaz0/Yaz1 LZ77 decompressor (fastyz.c/trueyz.c, wired via
-//     DecompressYAZ() in lib-szs.h) used by several other Nintendo
-//     formats, so that was the first thing checked -- ruled out
-//     immediately since the outer magic is "FCMP", not "Yaz0"/"Yaz1", and
-//     the header layout (13 bytes: magic + LE size + reserved + flag) does
-//     not match Yaz0's (16 bytes: magic + BE size + 8 reserved bytes). A
-//     from-scratch, standalone re-implementation of the classic Yaz0
-//     bitstream (a per-8-token flag byte, MSB first, selecting between a
-//     literal byte and a 2-3 byte back-reference token) was then written
-//     and run against several real samples treating the payload right
-//     after the 13-byte header as the raw Yaz0-style stream. The initial
-//     literal run decoded correctly and reproduced the expected inner
-//     magic bytes exactly (confirming the header/payload boundary is
-//     right), but the very first back-reference token encountered after
-//     that literal run always produced an out-of-range distance (larger
-//     than the amount of output produced so far, in both MSB-first and
-//     LSB-first flag-bit-order interpretations, and also after undoing
-//     the flag-byte-vs-header-byte off-by-one that the first attempt hit).
-//     This rules out the standard Yaz0/Yaz1 token encoding specifically,
-//     without ruling out every possible LZ variant -- but pinning down a
-//     bespoke, undocumented token/distance encoding purely from black-box
-//     byte inspection (no executable/disassembly available in this
-//     session) was judged to need real algorithmic reverse engineering
-//     beyond what a black-box byte-pattern pass can responsibly confirm,
-//     so per this project's policy of not asserting semantics that were
-//     not actually verified, the compressed payload itself is NOT decoded
-//     here. Only the outer FCMP header and the inner sub-blob's magic tag
-//     are reported.
+//       ".wbf" -> "WOLD" (1/1 sample -- world-map data)
 //
 // (2) ".otb" -- "OTB " table. Confirmed outer header (only 2 real samples
 //     exist on this disc -- both are the same underlying table, once
@@ -112,10 +105,31 @@
 
 //-----------------------------------------------------------------------------
 // (1) "FCMP" compressed container wrapping ".mbs"/".ftx"/".esb"/".nsb"/
-// ".abf"/".nms" -- outer header + inner sub-blob tag only, compressed
-// payload NOT decoded (see above for what was tried).
+// ".abf"/".nms"/".wbf" -- outer header, inner sub-blob tag AND the LZSS
+// compressed payload are all decoded (see above).
 int IsMuramasaFcmp (const u8 *data, size_t size, size_t file_size);
 enumError DecodeMuramasaFcmp_Text (FILE *f, const u8 *data, size_t size, size_t file_size);
+
+// Returns the exact decompressed size announced by the header, or 0 if
+// 'data' is not a valid FCMP container.
+u32 GetDecompressedSizeMuramasaFcmp (const void *data, size_t data_size);
+
+// Decompress an FCMP container's LZSS payload.
+//	returns:
+//	    ERR_OK:           decompression completed, wrote exactly
+//	                       'dest_buf_size' bytes
+//	    ERR_WARNING:      silent==true: dest buffer too small or source
+//	                       data exhausted early
+//	    ERR_INVALID_DATA: invalid source data (bad magic/header, or
+//	                       corrupt/truncated LZSS stream)
+enumError DecompressMuramasaFcmp (const void *data, // source data (starting at "FCMP")
+	size_t data_size, // size of 'data'
+	void *dest_buf, // destination buffer (decompressed data)
+	size_t dest_buf_size, // size of 'dest_buf' == wanted output size
+	size_t *write_status, // NULL or returns number of bytes written
+	ccp fname, // NULL or file name for error messages
+	bool silent // true: don't print error messages
+);
 
 //-----------------------------------------------------------------------------
 // (2) ".otb" "OTB " table -- header only, entry table not decoded.
