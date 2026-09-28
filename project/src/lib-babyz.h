@@ -148,4 +148,16 @@ int IsBabyzCam (const u8 *data, size_t size, u32 *ret_count);
 
 enumError DecodeBabyzCam_Text (FILE *f, const u8 *data, size_t size);
 
+//-----------------------------------------------------------------------------
+// ".snd" sound-cue name table (once decompressed by DecompressBabyzWiz())
+// -- a flat array of fixed 64-byte records, each a 60-byte NUL-padded
+// ASCII cue name followed by a constant 4-byte tag. See lib-babyz.c for
+// the full writeup.
+
+// Probes an already-decompressed .snd payload. Optionally returns the
+// number of records.
+int IsBabyzSnd (const u8 *dec, size_t dec_size, u32 *ret_count);
+
+enumError DecodeBabyzSnd_Text (FILE *f, const u8 *dec, size_t dec_size);
+
 #endif // LIB_BABYZ_H

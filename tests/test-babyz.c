@@ -195,6 +195,55 @@ static int check_cam_rejects_wrong_size (void)
 	return IsBabyzCam (data, sizeof (data), 0) != 0;
 }
 
+// A .snd payload: 64-byte records, 60-byte NUL-padded ASCII name + a
+// constant 4-byte tag.
+static int check_snd (void)
+{
+	static const char *names[] = { "baby-minijeu_doudou1", "080_baby_kiss3" };
+	const u32 count = 2;
+	u8 *dec = CALLOC (count * 64, 1);
+	for (u32 i = 0; i < count; i++)
+	{
+		u8 *rec = dec + i * 64;
+		strcpy ((char *)rec, names[i]);
+		write_be32 (rec + 60, 0x30000000);
+	}
+
+	u32 rc_count;
+	int rc = !IsBabyzSnd (dec, count * 64, &rc_count);
+	rc |= rc_count != count;
+
+	char *buf = 0;
+	size_t buf_size = 0;
+	FILE *f = open_memstream (&buf, &buf_size);
+	rc |= DecodeBabyzSnd_Text (f, dec, count * 64) != ERR_OK;
+	fclose (f);
+	rc |= !buf || !strstr (buf, "baby-minijeu_doudou1") || !strstr (buf, "080_baby_kiss3");
+	if (buf)
+		RegisterAlloc (__FUNCTION__, __FILE__, __LINE__, buf, buf_size, false);
+	FREE (buf);
+
+	FREE (dec);
+	return rc;
+}
+
+static int check_snd_rejects_non_ascii (void)
+{
+	u8 dec[64];
+	memset (dec, 0, sizeof (dec));
+	dec[0] = 0xff; // not printable ASCII
+	return IsBabyzSnd (dec, sizeof (dec), 0) != 0;
+}
+
+static int check_snd_rejects_unpadded_tail (void)
+{
+	u8 dec[64];
+	memset (dec, 0, sizeof (dec));
+	strcpy ((char *)dec, "ok");
+	dec[10] = 'x'; // garbage after the NUL, before the tag -- not zero-padded
+	return IsBabyzSnd (dec, sizeof (dec), 0) != 0;
+}
+
 int main (void)
 {
 	struct
@@ -210,6 +259,9 @@ int main (void)
 		{ "Babyz .msk rejects a short mask", check_msk_rejects_wrong_size },
 		{ "Babyz .cam keyframe track parse + text dump", check_cam },
 		{ "Babyz .cam rejects a short track", check_cam_rejects_wrong_size },
+		{ "Babyz .snd cue table parse + text dump", check_snd },
+		{ "Babyz .snd rejects non-ASCII name", check_snd_rejects_non_ascii },
+		{ "Babyz .snd rejects non-zero padding", check_snd_rejects_unpadded_tail },
 	};
 	int rc = 0;
 	for (uint i = 0; i < sizeof (tests) / sizeof (*tests); i++)

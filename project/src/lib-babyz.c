@@ -423,3 +423,69 @@ enumError ExportBabyzMskPng (const u8 *dec, size_t dec_size, ccp out_path)
 	FREE (tpl);
 	return err;
 }
+
+//-----------------------------------------------------------------------------
+// ".snd" sound-cue name table. A flat array of fixed 64-byte records:
+//   char name[60];  // NUL-terminated ASCII cue name, zero-padded
+//   u32  tag;        // BE, always 0x30000000 in every sample on disc
+//                     // (a fixed type/flags tag, not yet understood
+//                     // further -- possibly a packed enum in the top
+//                     // byte, given how round the value is in hex)
+// Identified purely structurally (all confirmed): 83/83 non-empty .snd
+// files on disc decompress to an exact multiple of 64 bytes, and every
+// single record's name field is printable ASCII, NUL-terminated well
+// inside the 60-byte field, with the remainder zero-padded and the
+// trailing tag always 0x30000000. Cue names read like voice-line/anim
+// trigger IDs ("baby-minijeu_doudou1", "080_baby_kiss3",
+// "200_baby_mood_curieux16") -- this table does not carry any audio
+// sample data itself, just cue names, so it likely indexes into a
+// separate runtime sound-bank system rather than into any file on this
+// disc.
+#define BABYZ_SND_RECORD_SIZE 64
+#define BABYZ_SND_NAME_SIZE 60
+
+int IsBabyzSnd (const u8 *dec, size_t dec_size, u32 *ret_count)
+{
+	if (!dec || !dec_size || dec_size % BABYZ_SND_RECORD_SIZE)
+		return 0;
+
+	u32 count = (u32)(dec_size / BABYZ_SND_RECORD_SIZE);
+	for (u32 i = 0; i < count; i++)
+	{
+		const u8 *rec = dec + (size_t)i * BABYZ_SND_RECORD_SIZE;
+		uint nul = 0;
+		while (nul < BABYZ_SND_NAME_SIZE && rec[nul])
+			nul++;
+		if (nul == BABYZ_SND_NAME_SIZE)
+			return 0;
+		for (uint k = 0; k < nul; k++)
+			if (rec[k] < 0x20 || rec[k] > 0x7e)
+				return 0;
+		for (uint k = nul; k < BABYZ_SND_NAME_SIZE; k++)
+			if (rec[k] != 0)
+				return 0;
+	}
+
+	if (ret_count)
+		*ret_count = count;
+	return 1;
+}
+
+enumError DecodeBabyzSnd_Text (FILE *f, const u8 *dec, size_t dec_size)
+{
+	u32 count;
+	if (!f || !IsBabyzSnd (dec, dec_size, &count))
+		return EINVAL;
+
+	fprintf (f, "# Imagine: Party Babyz .snd sound-cue name table\n");
+	fprintf (f, "count = %u\n", count);
+
+	for (u32 i = 0; i < count; i++)
+	{
+		const u8 *rec = dec + (size_t)i * BABYZ_SND_RECORD_SIZE;
+		u32 tag = rd_be32 (rec + BABYZ_SND_NAME_SIZE);
+		fprintf (f, "cue[%u] = \"%s\"  # tag=0x%08x\n", i, (const char *)rec, tag);
+	}
+
+	return ERR_OK;
+}
