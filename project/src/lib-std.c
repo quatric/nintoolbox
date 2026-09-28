@@ -4285,7 +4285,8 @@ enumError cmd_filetype ()
 					// magic-less .tex of plausible size is the headerless 3DS
 					// texture. Extension lookup alone always yields FF_TEX,
 					// which comes earlier in FileTypeTab.
-					if (ext && !strcasecmp (ext, ".tex") && fatt.size >= 0x80)
+					if (ext && !strcasecmp (ext, ".tex") && fatt.size >= 0x80
+						&& IsTex3DS ((const u8 *)buf1, bufsize, fatt.size))
 						fform1 = FF_TEX3DS;
 					else if (ext)
 					{

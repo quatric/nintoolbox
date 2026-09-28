@@ -1333,10 +1333,20 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		break;
 
 		default:
-			return opt_ignore || fform == FF_UNKNOWN
+			// A silent ERR_WARNING is only appropriate for batch/scan use
+			// (opt_ignore set): callers there rely on unrecognized files
+			// being skipped without noise. An explicitly named file whose
+			// magic didn't match any known image format (fform==FF_UNKNOWN,
+			// e.g. a ".tpl"/".tex"/... file that isn't actually in that
+			// format) must still be reported, or DECODE fails with no
+			// diagnostic at all (status 28, nothing printed).
+			return opt_ignore
 				? ERR_WARNING
-				: ERROR0 (ERR_INVALID_IFORM, "No (supported) image file [file type=%s]: %s\n",
-					  GetNameFF (0, fform), fname);
+				: ERROR0 (ERR_INVALID_IFORM,
+					  fform == FF_UNKNOWN
+						  ? "Not a (recognized) image file: %s\n"
+						  : "No (supported) image file [file type=%s]: %s\n",
+					  fform == FF_UNKNOWN ? fname : GetNameFF (0, fform), fname);
 	}
 
 	// 'n_img' comes straight from the file (a raw 8..32 bit count depending

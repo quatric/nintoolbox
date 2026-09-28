@@ -204,6 +204,12 @@ typedef struct nfmt_info_t
 
 // Detect formats by their stable magic/header fields. Never reads past SIZE.
 __attribute__ ((weak)) nfmt_info_t DetectNintendoFormat (const void *data, uint size, ccp filename);
+
+// Validates a devkitPro/tex3ds ".t3x"/".tex" header structurally (the format
+// has no magic bytes). 'avail' is how many bytes of 'd' are actually
+// readable; 'total_size' is the real file size used to sanity-check the
+// subtexture table fits.
+bool IsTex3DS (const u8 *d, u32 avail, u32 total_size);
 ccp GetNintendoFormatName (nfmt_type_t type);
 
 enumError AllocOutput (u8 **dest, uint *dest_size, u32 size);

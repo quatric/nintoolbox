@@ -2652,7 +2652,8 @@ file_format_t GetFileTypeByMagic (
 		// magic-less .tex of plausible size is the headerless 3DS texture.
 		// Resolving it by extension alone would always hit FF_TEX first,
 		// since that entry comes earlier in FileTypeTab.
-		if (ff == FF_UNKNOWN && ext && !strcasecmp (ext, ".tex") && fatt->size >= 0x80)
+		if (ff == FF_UNKNOWN && ext && !strcasecmp (ext, ".tex") && fatt->size >= 0x80
+			&& IsTex3DS ((const u8 *)buf, sizeof (buf), fatt->size))
 			return FF_TEX3DS;
 		if (ff == FF_UNKNOWN && ext && (!strcasecmp (ext, ".bnvib") || !strcasecmp (ext, ".nvib"))
 			&& IsBNVIB ((const u8 *)buf, sizeof (buf)))

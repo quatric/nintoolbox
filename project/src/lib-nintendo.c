@@ -162,6 +162,44 @@ static bool hsd_bundle_chain (const u8 *d, size_t size)
 	return n > 1;
 }
 
+// devkitPro/tex3ds ".t3x"/".tex" container has no magic bytes at all, so it
+// was previously claimed for *any* ".tex" file >= 0x80 bytes -- misfiring on
+// unrelated ".tex" files from other games (e.g. Mercury Meltdown Revolution's
+// PSP-style "#TEX FILE ..." text asset, Excite Truck/Bots's GC texture dumps)
+// and routing them into a DECODE path with no real TEX3DS decoder behind it,
+// so the tool just failed silently. Validate the real T3X header structure
+// instead of trusting the extension alone:
+//   u16 numSubTextures; u8 widthLog2:4,type:4; u8 heightLog2:4,format:4;
+//   u8 mipmapLevels; u8 reserved (always 0 in genuine tex3ds output);
+//   followed by numSubTextures * 20-byte subtexture records.
+bool IsTex3DS (const u8 *d, u32 avail, u32 total_size)
+{
+	if (avail < 6)
+		return false;
+
+	const uint n_sub = d[0] | d[1] << 8;
+	const uint type = d[2] & 0x0f;
+	const uint width_log2 = d[2] >> 4;
+	const uint format = d[3] & 0x0f;
+	const uint height_log2 = d[3] >> 4;
+	const uint mipmaps = d[4];
+	const uint reserved = d[5];
+
+	if (reserved != 0)
+		return false;
+	if (!n_sub || n_sub > 4096)
+		return false;
+	if (type > 6 || format > 13)
+		return false;
+	if (width_log2 < 3 || width_log2 > 10 || height_log2 < 3 || height_log2 > 10)
+		return false;
+	if (mipmaps > 11)
+		return false;
+
+	const u64 need = 6ull + (u64)n_sub * 20;
+	return need <= total_size;
+}
+
 nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 {
 	const u8 *d = vdata;
@@ -454,7 +492,7 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 				|| !strcasecmp (ext, ".ctb.zs") || !strcasecmp (ext, ".ctb.zstd"))
 			&& IsCTB (d, size))
 			return make_info (NFMT_CTB, false, false, 0);
-		if (ext && !strcasecmp (ext, ".tex") && size >= 0x80)
+		if (ext && !strcasecmp (ext, ".tex") && size >= 0x80 && IsTex3DS (d, size, size))
 			return make_info (NFMT_TEX3DS, false, false, 0);
 
 		// WarioWare: D.I.Y. Showcase / "WarioWare Snapped!" (DSiWare, NTR-KUWE)
@@ -738,7 +776,7 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 				return make_info (NFMT_GFBMDL, false, false, 0);
 			if (!strcasecmp (ext, ".gfbanm"))
 				return make_info (NFMT_GFBANM, false, false, 0);
-			if (!strcasecmp (ext, ".tex"))
+			if (!strcasecmp (ext, ".tex") && IsTex3DS (d, size, size))
 				return make_info (NFMT_TEX3DS, false, false, 0);
 		}
 	}
