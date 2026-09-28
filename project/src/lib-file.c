@@ -123,6 +123,7 @@
 #include "lib-dahbwu.h"
 #include "lib-segapvr.h"
 #include "lib-ninja.h"
+#include "lib-babyz.h"
 #include "config.inc"
 
 //
@@ -2407,6 +2408,11 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_SEGA_PVR;
 	if (IsNinjaChunk (data8, data_size))
 		return FF_NINJA;
+
+	// Imagine: Party Babyz (Wii) "!Ce" compressed container -- see
+	// lib-babyz.h.
+	if (IsBabyzWiz (data8, data_size, file_size))
+		return FF_BABYZ_WIZ;
 
 	const nfmt_info_t nfmt = DetectNintendoFormat (data, data_size, 0);
 	switch (nfmt.type)

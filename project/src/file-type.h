@@ -564,6 +564,8 @@ typedef enum file_format_t
 				 // fields, texel encoding not confirmed)
 	FF_NINJA, // 452 - Illvelo Sega "Ninja" chunk model/motion (.nj/.njm; NJTL texture list
 			  // decoded, NJCM/NMDM payload not)
+	FF_BABYZ_WIZ, // 453 - Imagine: Party Babyz "Wizard" engine LZSS-compressed asset container
+				  // (.wiz/.wsp/.wsn/.tan/.wan/.msk/.spt/.snd/.wik/.lmc/.eff; fully decoded)
 
 	//--- number of elements
 

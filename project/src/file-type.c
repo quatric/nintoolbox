@@ -2650,6 +2650,15 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		"Illvelo Sega \"Ninja\" chunk model/motion (.nj/.njm, Wii; NJTL texture list decoded, "
 		"NJCM/NMDM payload not)" },
 
+	// FF_BABYZ_WIZ = 453 (Imagine: Party Babyz "!Ce" compressed container)
+	// Classic Okumura-style LZSS (N=4096, F=18, THRESHOLD=3) behind a
+	// 12-byte header; fully decoded -- see lib-babyz.h. Wraps eleven
+	// on-disc extensions plus extensionless generated .c/.h sources.
+	{ FF_BABYZ_WIZ, FF_BABYZ_WIZ, 0, "BABYZ-WIZ", ".wiz", ".txt", ".wiz", FFT_VALID | FFT_DECODE, 0,
+		{ 0 }, 0, MinusString, MinusString,
+		"Imagine: Party Babyz \"!Ce\" compressed container (.wiz/.wsp/.wsn/.tan/.wan/.msk/.spt/"
+		".snd/.wik/.lmc/.eff, Wii; LZSS, fully decoded)" },
+
 	// FF_N
 	{ 0 }
 };
