@@ -2613,6 +2613,21 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		"Destroy All Humans! Big Willy Unleashed conversation/speaker/line table (.cnv, Wii; "
 		"fully decoded)" },
 
+	// FF_DAHBWU_AUDPCM = 450 (Destroy All Humans! Big Willy Unleashed headerless PCM)
+	// Most ".AUD" files on this disc (19745/19938, 99.03%) are already the
+	// standard Nintendo GC/Wii mono DSP-ADPCM stream this project detects
+	// generically as FF_DSP -- no new format needed for those. The
+	// remaining 193/19938 (large background music/ambient tracks) have no
+	// header at all: confirmed (via a smoothness/delta check against every
+	// one of the 193 real samples) to be plain big-endian 16-bit PCM from
+	// byte 0. No fixed magic exists, so this is extension-recognized only,
+	// same policy as Mercury Meltdown Revolution's ".mat"/".nav" above; the
+	// sample rate is not stored in the file and was NOT confirmed.
+	{ FF_DAHBWU_AUDPCM, FF_DAHBWU_AUDPCM, 0, "DAHBWU-AUDPCM", ".AUD", ".txt", ".AUD",
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Destroy All Humans! Big Willy Unleashed headerless raw BE16 PCM audio (.AUD, Wii; sample "
+		"rate not stored in file, NOT confirmed)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2874,6 +2889,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_DAHBWU_STREAM, "DAHBWU-STREAM", "DAHBWU-STREAM", 0xe05 },
 	{ FF_DAHBWU_TBL, "DAHBWU-TBL", "DAHBWU-TBL", 0xe05 },
 	{ FF_DAHBWU_CNV, "DAHBWU-CNV", "DAHBWU-CNV", 0xe05 },
+	{ FF_DAHBWU_AUDPCM, "DAHBWU-AUDPCM", "DAHBWU-AUDPCM", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

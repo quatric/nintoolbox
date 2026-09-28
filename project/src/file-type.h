@@ -559,6 +559,7 @@ typedef enum file_format_t
 	FF_DAHBWU_STREAM, // 447 - Destroy All Humans! Big Willy Unleashed asset stream (.stream)
 	FF_DAHBWU_TBL, // 448 - Destroy All Humans! Big Willy Unleashed UTF-16BE string table (.tbl)
 	FF_DAHBWU_CNV, // 449 - Destroy All Humans! Big Willy Unleashed conversation table (.cnv)
+	FF_DAHBWU_AUDPCM, // 450 - Destroy All Humans! Big Willy Unleashed headerless raw PCM (.AUD)
 
 	//--- number of elements
 

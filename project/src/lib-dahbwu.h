@@ -6,7 +6,7 @@
 // the retail disc, by extracting DATA/files/ and cross-checking every real
 // sample of each extension byte-for-byte (never a single-sample guess).
 //
-// Three formats are covered:
+// Four formats are covered:
 //   .stream  93/93  samples: outer envelope 100% confirmed (fixed-shape
 //            header + zlib payload); the decompressed payload is the
 //            engine's own generic "Chunk" object-serialization format
@@ -17,6 +17,15 @@
 //            UTF-16BE localized string table) -- see note (2).
 //   .cnv    300/300 samples: fully reverse-engineered, 100% (a nested
 //            conversation/speaker/line table) -- see note (3).
+//   .AUD    19938/19938 samples: NOT a proprietary format at all --
+//            19745/19938 (99.03%) are already the standard Nintendo
+//            GC/Wii mono DSP-ADPCM stream this project detects generically
+//            as FF_DSP (see lib-dsp.h), byte-for-byte, including its exact
+//            0x60-byte header and nibble-count formula; the remaining
+//            193/19938 (large streamed background music/ambient tracks)
+//            have no header at all and are confirmed (by a waveform-
+//            smoothness check against every one of the 193 real samples)
+//            to be plain big-endian 16-bit PCM from byte 0 -- see note (4).
 //
 // Several other extensions on this disc are NOT covered here because they
 // were confirmed to already be standard, generically-supported formats,
@@ -29,11 +38,6 @@
 //   .bik   -- standard Bink video (RAD Game Tools), decodable with any
 //             Bink-capable player/library.
 //   .tga / .bmp -- plain, unmodified TGA/BMP images.
-//
-// Not yet inspected in this pass: ".AUD" (proprietary audio under
-// AUDIO/BGM and AUDIO/VBK -- opens with small BE-looking header fields
-// followed by data that does not match any standard PCM/ADPCM container
-// checked so far; left for a future pass rather than guessed at).
 //
 // (1) ".stream" -- proprietary asset/level/UI resource stream. Confirmed
 //     fixed-shape outer envelope, all big-endian, held across every one of
@@ -105,6 +109,37 @@
 //     were confirmed to exactly account for every record through to EOF
 //     in all 300 samples (verified by a byte-for-byte structural walk of
 //     the entire disc's .cnv set, not spot-checked).
+//
+// (4) ".AUD" -- game audio (AUDIO/BGM and AUDIO/VBK). Two sub-formats,
+//     distinguished purely by content (no fixed magic on either side):
+//       - 19745/19938 (99.03%) validate byte-for-byte as this project's
+//         existing standard Nintendo GC/Wii mono DSP-ADPCM header (see
+//         IsDSP()/DecodeDSPToWAV() in lib-dsp.h): num_samples, num_nibbles
+//         (confirmed to satisfy DspAdpcmNibbleCount(num_samples) exactly),
+//         sample_rate (32000 in every sample checked), loop_flag/format,
+//         loop_start/loop_end/current_address (2 / num_nibbles-1 / 2 in
+//         every non-looping sample checked), 16 predictor coefficients,
+//         gain/ps/hist1/hist2, all at the exact standard 0x60-byte mono
+//         .dsp offsets -- and the file's total byte count matches
+//         DspAdpcmByteCount(num_samples) + the 0x60-byte header exactly.
+//         These are handled entirely by the existing FF_DSP code path;
+//         nothing DAH-specific was added for them.
+//       - The other 193/19938 -- large streamed background-music/ambient
+//         tracks (names like "DAH3_sunnywood_explore01", "*_MIDTRO*",
+//         "*AMBIENT*") plus one confirmed-valid empty (0-byte) file -- do
+//         NOT parse as a valid DSP header. Interpreting the full file
+//         (from byte 0, no header) as big-endian 16-bit PCM gives a low,
+//         smooth sample-to-sample delta in every one of the 192 non-empty
+//         samples (mean ~1189, max ~3221 out of a 16-bit range), the same
+//         signature real decoded audio gives and nothing like the ~19500
+//         mean delta the same test gives on a real (still-compressed)
+//         DSP-ADPCM file -- confirming these are raw, unencoded PCM. The
+//         sample rate is NOT stored anywhere in these files and was NOT
+//         confirmed (every DSP-ADPCM sample on the disc uses 32000 Hz, but
+//         that has not been verified against this sub-format). No fixed
+//         magic exists for this sub-format, so it is extension-recognized
+//         only, same policy as Mercury Meltdown Revolution's ".mat"/".nav"
+//         above.
 
 #ifndef SZS_LIB_DAHBWU_H
 #define SZS_LIB_DAHBWU_H 1
@@ -136,5 +171,17 @@ enumError DecodeDahbwuTbl_Text (FILE *f, const u8 *data, size_t size, size_t fil
 
 int IsDahbwuCnv (const u8 *data, size_t size, size_t file_size);
 enumError DecodeDahbwuCnv_Text (FILE *f, const u8 *data, size_t size, size_t file_size);
+
+//-----------------------------------------------------------------------------
+// (4) ".AUD" headerless raw BE16 PCM sub-format (the other, DSP-ADPCM,
+// sub-format needs no code here -- see lib-dsp.h's IsDSP()/DecodeDSPToWAV()).
+// Extension-recognized only; see note (4) above for why no magic check
+// exists. IsDahbwuAudPcm() accepts any non-odd-length file (including
+// empty), so callers should try IsDSP() first and only fall back to this
+// when it fails, the same order this project's ".mat"/".nav"-style formats
+// are meant to be tried.
+
+int IsDahbwuAudPcm (const u8 *data, size_t size, size_t file_size);
+enumError DecodeDahbwuAudPcm_Text (FILE *f, const u8 *data, size_t size, size_t file_size);
 
 #endif // SZS_LIB_DAHBWU_H

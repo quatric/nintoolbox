@@ -368,3 +368,30 @@ enumError DecodeDahbwuCnv_Text (FILE *f, const u8 *data, size_t size, size_t fil
 	}
 	return ERR_OK;
 }
+
+//-----------------------------------------------------------------------------
+// (4) ".AUD" headerless raw BE16 PCM sub-format
+
+int IsDahbwuAudPcm (const u8 *data, size_t size, size_t file_size)
+{
+	(void)data;
+	(void)file_size;
+	// No fixed magic exists for this sub-format (see lib-dahbwu.h note (4));
+	// the only structural constraint confirmed across all 193 real samples
+	// is an even byte length (16-bit sample pairs), which a genuinely empty
+	// file (0 bytes, one confirmed real sample) also satisfies.
+	return (size & 1) == 0;
+}
+
+enumError DecodeDahbwuAudPcm_Text (FILE *f, const u8 *data, size_t size, size_t file_size)
+{
+	(void)data;
+	if (!f || !IsDahbwuAudPcm (data, size, file_size))
+		return EINVAL;
+
+	fprintf (f, "# Destroy All Humans! Big Willy Unleashed headerless raw BE16 PCM audio (.AUD)\n");
+	fprintf (f, "sample_count = %zu\n", size / 2);
+	fprintf (f, "# sample rate is NOT stored in this file and was NOT confirmed;\n");
+	fprintf (f, "# see lib-dahbwu.h note (4).\n");
+	return ERR_OK;
+}
