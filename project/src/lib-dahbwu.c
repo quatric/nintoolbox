@@ -5,6 +5,7 @@
 
 #include "lib-dahbwu.h"
 #include "lib-nintendo.h"
+#include "dclib-mingw-compat.h" // memmem() shim (this file has no other dclib include)
 #include <string.h>
 #include <ctype.h>
 #include <zlib.h>
@@ -178,9 +179,34 @@ enumError DecodeDahbwuStream_Text (FILE *f, const u8 *data, size_t size, size_t 
 	}
 
 	fprintf (f, "decompressed_size = %zu\n", dec_size);
-	fprintf (f, "# decompressed payload is the engine's own generic \"Chunk\" object\n");
-	fprintf (f, "# stream (see Chunk.cpp/ChunkManager.cpp in dah_rls.elf) -- the per-tag\n");
-	fprintf (f, "# chunk table is NOT reverse-engineered; see lib-dahbwu.h note (1).\n");
+	fprintf (f, "# decompressed payload is a Pcpl::AssetHandler named-resource stream;\n");
+	fprintf (f, "# individual resource records and their payloads are NOT fully\n");
+	fprintf (f, "# reverse-engineered -- see lib-dahbwu.h note (1). The counts below are\n");
+	fprintf (f, "# a substring census of confirmed resource-type tags, not a real walk\n");
+	fprintf (f, "# of the record chain (a tag string could in principle also occur\n");
+	fprintf (f, "# inside unrelated binary payload data).\n");
+	static const ccp tags[]
+		= { "TEXTUREDICT", "TEXTUREREF", "SOUNDBANK", "SOUNDREF", "AUDIOMARKERDATA",
+			  "COLLISIONMATERIALS", "COLLISIONMESH", "CUTSCENEDATA", "RENDERWORLD",
+			  "SHELLDATA", "SPLINE", "FLUA" };
+	for (uint t = 0; t < sizeof (tags) / sizeof (*tags); t++)
+	{
+		size_t taglen = strlen (tags[t]);
+		uint count = 0;
+		const u8 *p = dec;
+		size_t remain = dec_size;
+		while (remain >= taglen)
+		{
+			const u8 *hit = memmem (p, remain, tags[t], taglen);
+			if (!hit)
+				break;
+			count++;
+			remain -= (hit - p) + 1;
+			p = hit + 1;
+		}
+		if (count)
+			fprintf (f, "resource_tag[\"%s\"] = %u\n", tags[t], count);
+	}
 	fprintf (f, "# Leading bytes of the decompressed payload, escaped:\n");
 	fprintf (f, "payload_preview = \"");
 	print_escaped (f, dec, dec_size < 256 ? dec_size : 256);

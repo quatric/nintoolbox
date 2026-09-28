@@ -67,17 +67,56 @@
 //                            // "78 DA" -- best-compression preset in
 //                            // every sample), inflates cleanly with
 //                            // plain zlib in all 93 samples.
-//     The decompressed payload is a chunk-tag-based object stream built by
-//     the game's own generic serialization system (dah_rls.elf ships
-//     "Chunk.cpp"/"ChunkManager.cpp" debug strings). Samples pulled from
-//     this disc show it mixing raw compiled/embedded Lua source (a "FLUA"
-//     tag immediately preceding readable Lua function bodies such as
-//     "function GBL_SetUpLevel(...)") with further named sub-blocks (e.g.
-//     "TEXTUREDICT", "RSF") whose tag table, per-tag header shape and
-//     length-prefixing were NOT reverse-engineered in this pass -- this
-//     module only decodes the outer envelope above and exposes the
-//     decompressed payload (DecompressDahbwuStream()); walking the inner
-//     chunk tags is future work.
+//     The decompressed payload is a named-resource stream built by the
+//     engine's generic "Pcpl::AssetHandler" system (dah_rls.elf, not
+//     stripped, still has the full symbol table: AssetHandler::
+//     RegisterHandler()/HandleAssetChunk(), AssetManager::RegisterAsset(),
+//     and one HandleAssetFn__<N>Handler symbol per resource type). Each
+//     top-level resource record has this confirmed fixed-shape header,
+//     cross-checked against 5 different real .stream samples and every
+//     occurrence of every tag below found in them (all big-endian):
+//       u64  asset_id;     // per-asset hash/ID (an AssetManager key,
+//                            // "Ux" in the mangled RegisterAsset()
+//                            // signature); not decoded further.
+//       char name[36];     // ASCII resource-type tag, NUL-padded to a
+//                            // fixed 36 bytes regardless of tag length --
+//                            // confirmed exactly 36 for every occurrence
+//                            // of every tag below across 5 samples.
+//       u8   payload[...]; // tag-specific; see below. Its length is only
+//                            // confirmed for the "FLUA" tag -- for every
+//                            // other tag, finding the *next* record
+//                            // requires knowing this tag's own payload
+//                            // shape, which was NOT reverse-engineered.
+//     Confirmed resource-type tag strings (recovered from dah_rls.elf's
+//     AssetHandler registrations, then confirmed present verbatim, in this
+//     exact 36-byte-padded shape, in real .stream payloads): TEXTUREDICT,
+//     TEXTUREREF, SOUNDBANK, SOUNDREF, AUDIOMARKERDATA, COLLISIONMATERIALS,
+//     COLLISIONMESH, CUTSCENEDATA, RENDERWORLD, SHELLDATA, SPLINE, FLUA.
+//     Two more handler classes exist in the executable (AnimHandler,
+//     RenderObjectHandler, TextResource) whose literal tag string was NOT
+//     found/confirmed in this pass -- "ANIM" is a plausible guess for the
+//     first (a "PCPLANIM" sub-tag was seen following it, see below) but
+//     its measured header width didn't match the confirmed 36 bytes, so
+//     it is NOT listed as confirmed above.
+//
+//     "FLUA" is the only tag whose payload was reverse-engineered: it is
+//     embedded Lua *source* (not bytecode), immediately as
+//       u32  len;           // little-endian (every other integer in this
+//                            // whole format is big-endian; this one
+//                            // isn't) -- confirmed exact (not rounded/
+//                            // padded) against 2 independent samples.
+//       char text[len];     // raw Lua source, e.g. "function
+//                            // GBL_SetUpLevel( levelName )\n\n\t
+//                            // dah.shell_flow_init();\nend\n\n".
+//     Every other tag's payload opens with a second, inner 8-byte ASCII
+//     type tag of the shape "PCPL_XXX"/"PCPLXXXX" (confirmed: TEXTUREDICT
+//     -> "PCPL_RSF", RENDERWORLD -> "PCPL_RTW", COLLISIONMESH ->
+//     "PCPL_COL", and a "PCPLANIM" seen following an "ANIM"-tagged region)
+//     followed by further binary data (for "PCPL_RSF": a small run of u32
+//     fields then a long run of paired bytes that look like an index/LOD
+//     table) that was NOT reverse-engineered -- this module only decodes
+//     the outer envelope (DecompressDahbwuStream()); walking individual
+//     resource records and their PCPL_XXX payloads is future work.
 //
 // (2) ".tbl" -- localized UI/HUD string table (LANG/<lang>/*.tbl).
 //     Confirmed structure, held across all 370 real samples (364
