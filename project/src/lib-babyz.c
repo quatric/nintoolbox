@@ -489,3 +489,30 @@ enumError DecodeBabyzSnd_Text (FILE *f, const u8 *dec, size_t dec_size)
 
 	return ERR_OK;
 }
+
+//-----------------------------------------------------------------------------
+// ".spt" sound-effect parameter table. Header-only: a leading BE u32
+// count, followed by count fixed 74-byte records -- confirmed byte-exact
+// (count*74+4 == payload size) on all 83 non-empty .spt files on disc
+// (per-file counts consistently match the sibling .snd file's cue count,
+// e.g. balancoire.spt/.snd both have 7 entries), but the odd,
+// non-word-aligned 74-byte stride does not cleanly decompose into a
+// consistent set of u32/float fields, so the record body is NOT decoded
+// here (values spot-checked look plausible for audio parameters -- one
+// field is consistently 0x7d00 = 32000, a plausible Wii audio sample
+// rate -- but that is not enough to claim a confirmed layout).
+#define BABYZ_SPT_RECORD_SIZE 74
+
+int IsBabyzSpt (const u8 *dec, size_t dec_size, u32 *ret_count)
+{
+	if (!dec || dec_size < 4)
+		return 0;
+
+	u32 count = rd_be32 (dec);
+	if ((u64)count * BABYZ_SPT_RECORD_SIZE + 4 != dec_size)
+		return 0;
+
+	if (ret_count)
+		*ret_count = count;
+	return 1;
+}

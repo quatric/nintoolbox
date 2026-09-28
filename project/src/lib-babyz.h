@@ -160,4 +160,14 @@ int IsBabyzSnd (const u8 *dec, size_t dec_size, u32 *ret_count);
 
 enumError DecodeBabyzSnd_Text (FILE *f, const u8 *dec, size_t dec_size);
 
+//-----------------------------------------------------------------------------
+// ".spt" sound-effect parameter table (once decompressed by
+// DecompressBabyzWiz()) -- confirmed header only (count + fixed 74-byte
+// record stride); the individual record fields are NOT decoded. See
+// lib-babyz.c for the full writeup.
+
+// Probes an already-decompressed .spt payload. Optionally returns the
+// record count.
+int IsBabyzSpt (const u8 *dec, size_t dec_size, u32 *ret_count);
+
 #endif // LIB_BABYZ_H

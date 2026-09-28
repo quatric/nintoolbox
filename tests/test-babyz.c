@@ -244,6 +244,30 @@ static int check_snd_rejects_unpadded_tail (void)
 	return IsBabyzSnd (dec, sizeof (dec), 0) != 0;
 }
 
+// A .spt payload: BE u32 count, then count opaque 74-byte records.
+static int check_spt (void)
+{
+	const u32 count = 3;
+	uint size = 4 + count * 74;
+	u8 *dec = CALLOC (size, 1);
+	write_be32 (dec, count);
+
+	u32 rc_count;
+	int rc = !IsBabyzSpt (dec, size, &rc_count);
+	rc |= rc_count != count;
+
+	FREE (dec);
+	return rc;
+}
+
+static int check_spt_rejects_wrong_size (void)
+{
+	u8 dec[4 + 10]; // announces 1 record (74 bytes) but only has 10
+	memset (dec, 0, sizeof (dec));
+	write_be32 (dec, 1);
+	return IsBabyzSpt (dec, sizeof (dec), 0) != 0;
+}
+
 int main (void)
 {
 	struct
@@ -262,6 +286,8 @@ int main (void)
 		{ "Babyz .snd cue table parse + text dump", check_snd },
 		{ "Babyz .snd rejects non-ASCII name", check_snd_rejects_non_ascii },
 		{ "Babyz .snd rejects non-zero padding", check_snd_rejects_unpadded_tail },
+		{ "Babyz .spt parameter table parse", check_spt },
+		{ "Babyz .spt rejects a short table", check_spt_rejects_wrong_size },
 	};
 	int rc = 0;
 	for (uint i = 0; i < sizeof (tests) / sizeof (*tests); i++)
