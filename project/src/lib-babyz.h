@@ -110,4 +110,29 @@ enumError DecompressBabyzWiz (const void *data, // source data (starting at the 
 	bool silent // true: don't print error messages
 );
 
+//-----------------------------------------------------------------------------
+// ".wsp" sprite/texture (once decompressed by DecompressBabyzWiz()) -- a
+// plain GX hardware texture behind a 0x20-byte header. See lib-babyz.c for
+// the full writeup.
+
+// Probes an already-decompressed .wsp payload. Optionally returns the GX
+// texture format (image_format_t numbering), width and height.
+int IsBabyzWsp (const u8 *dec, size_t dec_size, u32 *ret_format, u32 *ret_width, u32 *ret_height);
+
+// Export a decompressed .wsp payload as a PNG at 'out_path'.
+enumError ExportBabyzWspPng (const u8 *dec, size_t dec_size, ccp out_path);
+
+//-----------------------------------------------------------------------------
+// ".msk" morph/blend mask (once decompressed by DecompressBabyzWiz()) -- a
+// binary (0/1) stencil bitmap encoded as a GX IMG_I8 texture. See
+// lib-babyz.c for the full writeup.
+
+// Probes an already-decompressed .msk payload. Optionally returns width
+// and height.
+int IsBabyzMsk (const u8 *dec, size_t dec_size, u32 *ret_width, u32 *ret_height);
+
+// Export a decompressed .msk payload as a grayscale PNG at 'out_path'
+// (mask value 1 -> white, 0 -> black).
+enumError ExportBabyzMskPng (const u8 *dec, size_t dec_size, ccp out_path);
+
 #endif // LIB_BABYZ_H

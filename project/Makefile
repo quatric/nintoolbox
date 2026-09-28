@@ -1502,6 +1502,12 @@ test-afs: version.h $(ALL_OBJECTS) $(TOBJ_wtest)
 	$(CC) $(CFLAGS) $(DEFINES) $(LDFLAGS) ../tests/test-afs.c $(ALL_OBJECTS) $(filter-out $(ALL_OBJECTS),$(TOBJ_wtest)) $(LIBS) $(TOPT_wtest) -o bin/test-afs
 	@./bin/test-afs
 
+.PHONY : test-babyz
+test-babyz: version.h $(ALL_OBJECTS) $(TOBJ_wtest)
+	@mkdir -p bin
+	$(CC) $(CFLAGS) $(DEFINES) $(LDFLAGS) ../tests/test-babyz.c $(ALL_OBJECTS) $(filter-out $(ALL_OBJECTS),$(TOBJ_wtest)) $(LIBS) $(TOPT_wtest) -o bin/test-babyz
+	@./bin/test-babyz
+
 .PHONY : test
 test:
 	@printf "$(LOGFORMAT)" enable test "-> define -DTEST"

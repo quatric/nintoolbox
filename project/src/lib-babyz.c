@@ -4,6 +4,7 @@
 
 #include "lib-babyz.h"
 #include "lib-nintendo.h"
+#include "lib-image.h"
 #include <string.h>
 
 //-----------------------------------------------------------------------------
@@ -184,4 +185,186 @@ enumError DecodeBabyzWiz_Text (FILE *f, const u8 *data, size_t size, size_t file
 		FREE (decoded);
 
 	return ERR_OK;
+}
+
+//-----------------------------------------------------------------------------
+// ".wsp" sprite/texture -- once decompressed by DecompressBabyzWiz(), the
+// payload is a plain GX hardware texture wrapped in a tiny 0x20-byte
+// header. Reverse-engineered from the load path FUN_800a3cf4 (main.dol),
+// which decompresses the file, byte-swaps the first three LE header words
+// to BE in place, and hands them straight to the GX-texobj setup helper
+// FUN_8010c2d8 -- the same bit-packing as libogc's GXInitTexObj(), with
+// the format field using GX's own hardware texture-format numbering
+// (0=I4, 1=I8, 2=IA4, 3=IA8, 4=RGB565, 5=RGB5A3, 6=RGBA32, 8=C4, 9=C8,
+// 0xa=C14X2, 0xe=CMPR -- i.e. this codebase's image_format_t 1:1, see
+// lib-camtexbank.c's camelot_gx_image_format() for the same mapping in
+// another title). Layout (all fields little-endian in the decompressed
+// buffer; the game byte-swaps its own copy to BE only after loading):
+//   u32 format;   // GX/image_format_t texture format
+//   u32 width;    // low 16 bits used (high 16 unused/zero in samples)
+//   u32 height;   // low 16 bits used
+//   u8  reserved[0x14]; // unused by the confirmed load path
+//   <pixel data, standard GX-tiled encoding for 'format'>
+// Confirmed against every sample under files/babyz/overlay/hud/ and
+// files/babyz/test_menu/: image_format_t geometry always accounts for
+// exactly the remaining decompressed bytes (see IsBabyzWsp()).
+
+#define BABYZ_WSP_HEADER_SIZE 0x20
+
+int IsBabyzWsp (const u8 *dec, size_t dec_size, u32 *ret_format, u32 *ret_width, u32 *ret_height)
+{
+	if (!dec || dec_size < BABYZ_WSP_HEADER_SIZE)
+		return 0;
+
+	u32 format = rd_le32 (dec);
+	u32 width = rd_le32 (dec + 4) & 0xffff;
+	u32 height = rd_le32 (dec + 8) & 0xffff;
+	if (!width || !height)
+		return 0;
+
+	const ImageGeometry_t *geo = GetImageGeometry ((image_format_t)format);
+	if (!geo || !geo->read_support)
+		return 0;
+
+	uint img_size = 0;
+	CalcImageGeometry ((image_format_t)format, width, height, 0, 0, 0, 0, &img_size);
+	if (!img_size || dec_size < (size_t)BABYZ_WSP_HEADER_SIZE + img_size)
+		return 0;
+
+	if (ret_format)
+		*ret_format = format;
+	if (ret_width)
+		*ret_width = width;
+	if (ret_height)
+		*ret_height = height;
+	return 1;
+}
+
+// Export a decompressed .wsp payload as a PNG at 'out_path'. Wraps the raw
+// GX pixel data in a synthetic single-image TPL (same trick used by
+// lib-camtexbank.c) so the existing TPL/GX texel decoder does the actual
+// pixel unswizzling.
+enumError ExportBabyzWspPng (const u8 *dec, size_t dec_size, ccp out_path)
+{
+	u32 format, width, height;
+	if (!IsBabyzWsp (dec, dec_size, &format, &width, &height))
+		return ERROR0 (ERR_INVALID_DATA, "Not a decoded Imagine: Party Babyz .wsp texture: %s\n",
+			out_path ? out_path : "?");
+
+	uint img_size = 0;
+	CalcImageGeometry ((image_format_t)format, width, height, 0, 0, 0, 0, &img_size);
+
+	const u32 tpl_hdr = sizeof (tpl_header_t);
+	const u32 tpl_tab = tpl_hdr + sizeof (tpl_imgtab_t);
+	const u32 tpl_data = tpl_tab + sizeof (tpl_img_header_t);
+	u8 *tpl = CALLOC (tpl_data + img_size, 1);
+	if (!tpl)
+		return ERROR0 (ERR_OUT_OF_MEMORY, "Out of memory: %s\n", out_path ? out_path : "?");
+
+	write_be32 (tpl, TPL_MAGIC_NUM);
+	write_be32 (tpl + 4, 1);
+	write_be32 (tpl + 8, tpl_hdr);
+	write_be32 (tpl + tpl_hdr, tpl_tab);
+	write_be32 (tpl + tpl_hdr + 4, 0);
+	write_be16 (tpl + tpl_tab, height);
+	write_be16 (tpl + tpl_tab + 2, width);
+	write_be32 (tpl + tpl_tab + 4, format);
+	write_be32 (tpl + tpl_tab + 8, tpl_data);
+	write_be32 (tpl + tpl_tab + 20, 1);
+	write_be32 (tpl + tpl_tab + 24, 1);
+	memcpy (tpl + tpl_data, dec + BABYZ_WSP_HEADER_SIZE, img_size);
+
+	Image_t img;
+	enumError err = AssignIMG (&img, 1, tpl, tpl_data + img_size, 0, false, &be_func, out_path);
+	if (err == ERR_OK)
+		err = SaveIMG (&img, FF_PNG, 0, 0, out_path, true);
+	ResetIMG (&img);
+	FREE (tpl);
+	return err;
+}
+
+//-----------------------------------------------------------------------------
+// ".msk" morph/blend mask -- a binary (0/1) stencil bitmap, encoded as a
+// standard GX IMG_I8 texture (8x4 tiled blocks -- same hardware texel
+// order as .wsp, just always format I8 and with a smaller/simpler
+// header). Not traced through main.dol like .wsp was; identified purely
+// structurally (all confirmed by direct inspection, not guessed):
+//   u32 width;          // LE
+//   u32 height;         // LE
+//   u8  reserved[16];   // 0xCC filler in every sample (uninitialized
+//                       // pointer slots, same pattern as .wik/.eff/.wan/
+//                       // .wsn/.tan/.lmc below)
+//   <mask data, width*height bytes, GX IMG_I8 tiled (8x4 blocks)>
+// Confirmed on every sample under files/babyz/motion/*/*.msk: reserved+
+// width*height always accounts for exactly the remaining decompressed
+// bytes, every pixel value is 0 or 1 (checked byte-exhaustively), and
+// I8-tiled decode of base_mask.msk (512x512) produces a clean body-
+// silhouette shape (a naive row-major read instead produces scanline
+// garbage, confirming the GX tiling).
+
+#define BABYZ_MSK_HEADER_SIZE 24
+
+int IsBabyzMsk (const u8 *dec, size_t dec_size, u32 *ret_width, u32 *ret_height)
+{
+	if (!dec || dec_size < BABYZ_MSK_HEADER_SIZE)
+		return 0;
+
+	u32 width = rd_le32 (dec);
+	u32 height = rd_le32 (dec + 4);
+	if (!width || !height || (u64)width * height + BABYZ_MSK_HEADER_SIZE != dec_size)
+		return 0;
+
+	if (ret_width)
+		*ret_width = width;
+	if (ret_height)
+		*ret_height = height;
+	return 1;
+}
+
+// Export a decompressed .msk payload as a PNG at 'out_path' (as an 8-bit
+// grayscale image with mask value 1 mapped to white, matching the
+// natural "visible/opaque" reading of the stencil).
+enumError ExportBabyzMskPng (const u8 *dec, size_t dec_size, ccp out_path)
+{
+	u32 width, height;
+	if (!IsBabyzMsk (dec, dec_size, &width, &height))
+		return ERROR0 (ERR_INVALID_DATA, "Not a decoded Imagine: Party Babyz .msk mask: %s\n",
+			out_path ? out_path : "?");
+
+	uint img_size = 0;
+	CalcImageGeometry (IMG_I8, width, height, 0, 0, 0, 0, &img_size);
+
+	const u32 tpl_hdr = sizeof (tpl_header_t);
+	const u32 tpl_tab = tpl_hdr + sizeof (tpl_imgtab_t);
+	const u32 tpl_data = tpl_tab + sizeof (tpl_img_header_t);
+	u8 *tpl = CALLOC (tpl_data + img_size, 1);
+	if (!tpl)
+		return ERROR0 (ERR_OUT_OF_MEMORY, "Out of memory: %s\n", out_path ? out_path : "?");
+
+	write_be32 (tpl, TPL_MAGIC_NUM);
+	write_be32 (tpl + 4, 1);
+	write_be32 (tpl + 8, tpl_hdr);
+	write_be32 (tpl + tpl_hdr, tpl_tab);
+	write_be32 (tpl + tpl_hdr + 4, 0);
+	write_be16 (tpl + tpl_tab, height);
+	write_be16 (tpl + tpl_tab + 2, width);
+	write_be32 (tpl + tpl_tab + 4, IMG_I8);
+	write_be32 (tpl + tpl_tab + 8, tpl_data);
+	write_be32 (tpl + tpl_tab + 20, 1);
+	write_be32 (tpl + tpl_tab + 24, 1);
+
+	const u8 *mask = dec + BABYZ_MSK_HEADER_SIZE;
+	u8 *scaled = CALLOC (width * height, 1);
+	for (u32 i = 0; i < width * height; i++)
+		scaled[i] = mask[i] ? 0xff : 0;
+	memcpy (tpl + tpl_data, scaled, img_size < width * height ? img_size : width * height);
+	FREE (scaled);
+
+	Image_t img;
+	enumError err = AssignIMG (&img, 1, tpl, tpl_data + img_size, 0, false, &be_func, out_path);
+	if (err == ERR_OK)
+		err = SaveIMG (&img, FF_PNG, 0, 0, out_path, true);
+	ResetIMG (&img);
+	FREE (tpl);
+	return err;
 }
