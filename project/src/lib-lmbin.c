@@ -83,12 +83,29 @@ static bool lmb_read_hdr (const u8 *data, uint size, lmb_off_t *o)
 	o->mat = lmb_be32 (data + 52);
 	o->batch = lmb_be32 (data + 56);
 	o->graph = lmb_be32 (data + 60);
-	// every section must start inside the file, in header order
+	// Every section that is actually used by this parser (tex, samp, pos,
+	// nrm, uv, mat, batch, graph) must start inside the file, in header
+	// order. at1..at5 are unused reserved slots in this header -- real
+	// retail room files (e.g. Luigi's Mansion room.bin) leave them zero,
+	// so they are skipped here rather than rejected; only their relative
+	// order is checked when they happen to be non-zero.
 	const u32 arr[] = { o->tex, o->samp, o->pos, o->nrm, o->at1, o->at2, o->uv, o->at3, o->at4,
 		o->at5, o->mat, o->batch, o->graph };
+	const bool required[] = { true, true, true, true, false, false, true, false, false, false,
+		true, true, true };
+	u32 prev = 0;
 	for (uint i = 0; i < 13; i++)
-		if (!arr[i] || arr[i] >= size || (i && arr[i] < arr[i - 1]))
+	{
+		if (!arr[i])
+		{
+			if (required[i])
+				return false;
+			continue;
+		}
+		if (arr[i] >= size || arr[i] < prev)
 			return false;
+		prev = arr[i];
+	}
 	if (o->graph + 140 > size)
 		return false;
 	return true;

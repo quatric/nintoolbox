@@ -268,8 +268,16 @@ enumError DecodeZackWikiPpg_Text (FILE *f, const u8 *data, size_t size, size_t f
 // Both formats share the exact same on-disc shape: a run of BE u32 offsets
 // (the "directory"), then tagged chunks. Returns the number of directory
 // entries found (0 on failure). offs[] receives the raw offsets.
-static int zw_probe_directory (const u8 *data, size_t size, u32 *offs, int max)
+// HEADER_VALID, if given, is set true as soon as the directory header
+// itself (the entry count word and its bounds) checks out, even if the
+// function later bails because an individual chunk offset runs past the
+// (possibly truncated) probe buffer -- callers use this to tell "not this
+// format" apart from "looks right so far but the probe buffer was too
+// small to confirm it".
+static int zw_probe_directory (const u8 *data, size_t size, u32 *offs, int max, bool *header_valid)
 {
+	if (header_valid)
+		*header_valid = false;
 	if (!data || size < 8)
 		return 0;
 	int n = 0;
@@ -281,6 +289,8 @@ static int zw_probe_directory (const u8 *data, size_t size, u32 *offs, int max)
 		return 0;
 	if ((size_t)dir_count * 4 > size)
 		return 0;
+	if (header_valid)
+		*header_valid = true;
 
 	u32 prev = 0;
 	for (int i = 0; i < dir_count; i++)
@@ -299,9 +309,15 @@ static int zw_probe_directory (const u8 *data, size_t size, u32 *offs, int max)
 static int zw_is_chunked_bank (const u8 *data, size_t size, size_t file_size)
 {
 	u32 offs[ZW_MAX_CHUNKS];
-	int n = zw_probe_directory (data, size, offs, ZW_MAX_CHUNKS);
+	bool header_valid = false;
+	int n = zw_probe_directory (data, size, offs, ZW_MAX_CHUNKS, &header_valid);
 	if (n < 1)
-		return size < file_size;
+		// Only trust the "probe buffer was too small" fallback when the
+		// directory header itself was structurally valid; otherwise this
+		// false-positived on large unrelated files (e.g. Wario World
+		// WWRSC containers) whose first four bytes merely failed to look
+		// like a directory-offset count.
+		return header_valid && size < file_size;
 
 	int checked = 0;
 	for (int i = 0; i < n; i++)
@@ -327,7 +343,7 @@ static void zw_decode_chunked_bank (FILE *f, const u8 *data, size_t size, const 
 	fprintf (f, "# layout beyond that is NOT fully confirmed, see lib-zackwiki.h\n\n");
 
 	u32 offs[ZW_MAX_CHUNKS];
-	int n = zw_probe_directory (data, size, offs, ZW_MAX_CHUNKS);
+	int n = zw_probe_directory (data, size, offs, ZW_MAX_CHUNKS, NULL);
 	fprintf (f, "directory_entries = %d\n\n", n);
 
 	for (int i = 0; i < n; i++)
