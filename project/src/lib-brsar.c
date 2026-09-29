@@ -389,12 +389,15 @@ static void WriteRsarEnvelope (membuf_t *out, membuf_t *symb_block, membuf_t *in
 }
 
 // -----------------------------------------------------------------------------
-// FSAR/CSAR envelope: EXTRAPOLATED, see lib-brsar.h. Section-table layout
-// modeled directly on the verified BFSTM/BCSTM one (brstm_write_fstm() in
-// mobipeg): a fixed 0x40-byte header, sections flagged 0x4000 (SYMB),
-// 0x4001 (INFO), 0x4002 (FILE), big-endian for FSAR / little-endian by
-// default for CSAR. No independent reader confirms this for the archive
-// format specifically.
+// FSAR/CSAR envelope. Section-table layout modeled on the verified
+// BFSTM/BCSTM one (brstm_write_fstm() in mobipeg): a fixed 0x40-byte
+// header, big-endian for FSAR / little-endian by default for CSAR.
+// Section flags are 0x2000 (STRG), 0x2001 (INFO), 0x2002 (FILE) --
+// confirmed against real retail Wii U BFSAR archives (Splatoon,
+// content/Sound/DummySound.bfsar); the previously-assumed 0x4000-series
+// (borrowed from RSAR's own block-table convention) never matched real
+// files. CSAR (3DS) flags are not independently verified but are kept
+// symmetric with the confirmed FSAR scheme.
 
 static void WriteFsarEnvelope (membuf_t *out, membuf_t *symb_block, membuf_t *info_block,
 	membuf_t *file_block, size_t group_data_offs_rel, bool cstm)
@@ -432,7 +435,7 @@ static void WriteFsarEnvelope (membuf_t *out, membuf_t *symb_block, membuf_t *in
 	mb_append (out, file_block->data, file_block->size);
 	mb_align (out, 0x20);
 
-	u16 flags[3] = { 0x4000, 0x4001, 0x4002 };
+	u16 flags[3] = { 0x2000, 0x2001, 0x2002 };
 	u32 offs[3] = { (u32)symb_offs, (u32)info_offs, (u32)file_offs };
 	u32 sizes[3] = { (u32)symb_block->size, (u32)info_block->size, (u32)file_block->size };
 	for (int i = 0; i < 3; i++)
@@ -593,24 +596,50 @@ enumError PackBRSARDir (u8 **out_data, size_t *out_size, ccp input_dir, brsar_va
 typedef struct symb_reader_t
 {
 	const u8 *base;
+	size_t limit;
 	u32 count;
 	const u8 *table;
+	u32 table_offs;
 } symb_reader_t;
 
+// Bounds-checked u32 read relative to a [base, base+limit) window -- used
+// throughout this file, since a degenerate/minimal retail archive (e.g.
+// Splatoon's content/Sound/DummySound.bfsar: real INFO entries whose
+// group/item tables carry bogus or zero offsets and huge derived counts)
+// can otherwise walk table offsets and counts read straight from file data
+// past the mapped buffer and crash (SIGSEGV) rather than failing cleanly.
+// Returns 0 for any read that doesn't fit inside the window.
+static inline u32 rd_u32_bound (const u8 *base, size_t limit, size_t off)
+{
+	if (off + 4 > limit || off + 4 < off)
+		return 0;
+	return rd_u32 (base + off);
+}
+
 static void symb_read (
-	symb_reader_t *sr, const u8 *block) // block = SYMB content base (past tag+size)
+	symb_reader_t *sr, const u8 *block, size_t block_limit) // block = SYMB content base
 {
 	sr->base = block;
-	u32 str_table_offs = rd_u32 (block);
+	sr->limit = block_limit;
+	u32 str_table_offs = rd_u32_bound (block, block_limit, 0);
 	sr->table = block + str_table_offs;
-	sr->count = rd_u32 (sr->table);
+	sr->table_offs = str_table_offs;
+	sr->count = str_table_offs <= block_limit
+		? rd_u32_bound (block, block_limit, str_table_offs)
+		: 0;
 }
 
 static ccp symb_name (symb_reader_t *sr, u32 idx)
 {
 	if (idx == 0xFFFFFFFF || idx >= sr->count)
 		return 0;
-	u32 str_offs = rd_u32 (sr->table + 4 + idx * 4);
+	size_t entry_off = (size_t)sr->table_offs + 4 + (size_t)idx * 4;
+	u32 str_offs = rd_u32_bound (sr->base, sr->limit, entry_off);
+	if (str_offs >= sr->limit)
+		return 0;
+	// The referenced string itself isn't NUL-terminated-checked here (as
+	// before); it's trusted to lie within the SYMB block like every other
+	// well-formed archive's string table does.
 	return (ccp)(sr->base + str_offs);
 }
 
@@ -619,19 +648,34 @@ static ccp symb_name (symb_reader_t *sr, u32 idx)
 static enumError UnpackBrsarContent (
 	const u8 *symb, const u8 *info, const u8 *file_base, size_t file_size, ccp out_dir)
 {
-	symb_reader_t sr;
-	symb_read (&sr, symb);
+	if (info < file_base || (size_t)(info - file_base) > file_size)
+		return ERROR0 (ERR_INVALID_DATA, "UnpackBRSAR: INFO block outside archive\n");
+	size_t info_limit = file_size - (size_t)(info - file_base);
 
-	u32 sound_tab_offs = rd_u32 (info + 0x04);
-	u32 sound_count = rd_u32 (info + sound_tab_offs);
-	u32 bank_tab_offs = rd_u32 (info + 0x0C);
-	u32 bank_count = rd_u32 (info + bank_tab_offs);
-	u32 file_tab_offs = rd_u32 (info + 0x1C);
-	u32 file_count = rd_u32 (info + file_tab_offs);
-	u32 group_tab_offs = rd_u32 (info + 0x24);
-	u32 group_count = rd_u32 (info + group_tab_offs);
+	if (symb < file_base || (size_t)(symb - file_base) > file_size)
+		return ERROR0 (ERR_INVALID_DATA, "UnpackBRSAR: SYMB block outside archive\n");
+	size_t symb_limit = file_size - (size_t)(symb - file_base);
+
+	symb_reader_t sr;
+	symb_read (&sr, symb, symb_limit);
+
+	u32 sound_tab_offs = rd_u32_bound (info, info_limit, 0x04);
+	u32 sound_count = rd_u32_bound (info, info_limit, sound_tab_offs);
+	u32 bank_tab_offs = rd_u32_bound (info, info_limit, 0x0C);
+	u32 bank_count = rd_u32_bound (info, info_limit, bank_tab_offs);
+	u32 file_tab_offs = rd_u32_bound (info, info_limit, 0x1C);
+	u32 file_count = rd_u32_bound (info, info_limit, file_tab_offs);
+	u32 group_tab_offs = rd_u32_bound (info, info_limit, 0x24);
+	u32 group_count = rd_u32_bound (info, info_limit, group_tab_offs);
 	if (group_count < 1)
 		return ERROR0 (ERR_INVALID_DATA, "UnpackBRSAR: no groups in archive\n");
+
+	// Sanity-cap counts derived from file data before using them to drive
+	// MALLOC/loops below: each table entry is at least 8 bytes, so a count
+	// that can't possibly fit inside the INFO block is bogus.
+	if ((size_t)sound_count * 8 > info_limit || (size_t)bank_count * 8 > info_limit
+		|| (size_t)file_count * 8 > info_limit || (size_t)group_count * 8 > info_limit)
+		return ERROR0 (ERR_INVALID_DATA, "UnpackBRSAR: implausible table count\n");
 
 	// name maps: fileID -> name, for the two asset kinds that have one
 	ccp *file_name = MALLOC (file_count * sizeof (ccp));
@@ -639,19 +683,17 @@ static enumError UnpackBrsarContent (
 
 	for (u32 i = 0; i < sound_count; i++)
 	{
-		u32 entry_offs = rd_u32 (info + sound_tab_offs + 8 + i * 8);
-		const u8 *sound = info + entry_offs;
-		u32 str_id = rd_u32 (sound);
-		u32 fid = rd_u32 (sound + 4);
+		u32 entry_offs = rd_u32_bound (info, info_limit, sound_tab_offs + 8 + (size_t)i * 8);
+		u32 str_id = rd_u32_bound (info, info_limit, entry_offs);
+		u32 fid = rd_u32_bound (info, info_limit, entry_offs + 4);
 		if (fid < file_count)
 			file_name[fid] = symb_name (&sr, str_id);
 	}
 	for (u32 i = 0; i < bank_count; i++)
 	{
-		u32 entry_offs = rd_u32 (info + bank_tab_offs + 8 + i * 8);
-		const u8 *bank = info + entry_offs;
-		u32 str_id = rd_u32 (bank);
-		u32 fid = rd_u32 (bank + 4);
+		u32 entry_offs = rd_u32_bound (info, info_limit, bank_tab_offs + 8 + (size_t)i * 8);
+		u32 str_id = rd_u32_bound (info, info_limit, entry_offs);
+		u32 fid = rd_u32_bound (info, info_limit, entry_offs + 4);
 		if (fid < file_count)
 			file_name[fid] = symb_name (&sr, str_id);
 	}
@@ -660,10 +702,9 @@ static enumError UnpackBrsarContent (
 	// entry fields are ignored unless the explicit marker is present.
 	for (u32 fid = 0; fid < file_count; fid++)
 	{
-		u32 entry_offs = rd_u32 (info + file_tab_offs + 8 + fid * 8);
-		const u8 *entry = info + entry_offs;
-		if (!file_name[fid] && rd_u32 (entry + 4) == 0x574e414d)
-			file_name[fid] = symb_name (&sr, rd_u32 (entry));
+		u32 entry_offs = rd_u32_bound (info, info_limit, file_tab_offs + 8 + (size_t)fid * 8);
+		if (!file_name[fid] && rd_u32_bound (info, info_limit, entry_offs + 4) == 0x574e414d)
+			file_name[fid] = symb_name (&sr, rd_u32_bound (info, info_limit, entry_offs));
 	}
 
 	struct stat st;
@@ -675,19 +716,20 @@ static enumError UnpackBrsarContent (
 
 	for (u32 g = 0; g < group_count; g++)
 	{
-		u32 group_entry_offs = rd_u32 (info + group_tab_offs + 8 + g * 8);
-		const u8 *group = info + group_entry_offs;
-		u32 group_data_offs = rd_u32 (group + 0x10);
-		u32 item_tab_offs = rd_u32 (group + 0x24);
-		u32 item_count = rd_u32 (info + item_tab_offs);
+		u32 group_entry_offs = rd_u32_bound (info, info_limit, group_tab_offs + 8 + (size_t)g * 8);
+		u32 group_data_offs = rd_u32_bound (info, info_limit, group_entry_offs + 0x10);
+		u32 item_tab_offs = rd_u32_bound (info, info_limit, group_entry_offs + 0x24);
+		u32 item_count = rd_u32_bound (info, info_limit, item_tab_offs);
+		if ((size_t)item_count * 8 > info_limit)
+			continue; // implausible -- skip this group rather than walk OOB
 
 		for (u32 i = 0; i < item_count; i++)
 		{
-			u32 item_entry_offs = rd_u32 (info + item_tab_offs + 8 + i * 8);
-			const u8 *item = info + item_entry_offs;
-			u32 fid = rd_u32 (item + 0x00);
-			u32 data_offs = rd_u32 (item + 0x04);
-			u32 data_size = rd_u32 (item + 0x08);
+			u32 item_entry_offs
+				= rd_u32_bound (info, info_limit, item_tab_offs + 8 + (size_t)i * 8);
+			u32 fid = rd_u32_bound (info, info_limit, item_entry_offs + 0x00);
+			u32 data_offs = rd_u32_bound (info, info_limit, item_entry_offs + 0x04);
+			u32 data_size = rd_u32_bound (info, info_limit, item_entry_offs + 0x08);
 
 			if (fid < file_count && extracted_fid[fid])
 				continue;
@@ -767,15 +809,25 @@ enumError UnpackBRSAR (const u8 *data, size_t size, ccp out_dir)
 		{
 			u16 flag = rd_u16e (data + pos, le);
 			u32 offs = rd_u32e (data + pos + 4, le);
-			if (flag == 0x4000)
+			// Real retail FSAR section flags are 0x2000 (STRG), 0x2001 (INFO),
+			// 0x2002 (FILE); the 0x4000-series was this codebase's own,
+			// unverified encoder convention (borrowed from RSAR) before real
+			// retail samples confirmed otherwise -- still accepted here so
+			// previously-encoded/round-tripped archives keep reading back.
+			if (flag == 0x2000 || flag == 0x4000)
 				symb_offs = offs;
-			else if (flag == 0x4001)
+			else if (flag == 0x2001 || flag == 0x4001)
 				info_offs = offs;
-			else if (flag == 0x4002)
+			else if (flag == 0x2002 || flag == 0x4002)
 				file_offs = offs;
 		}
-		if (!symb_offs || memcmp (data + symb_offs, "SYMB", 4))
-			return ERROR0 (ERR_INVALID_DATA, "UnpackBRSAR: missing SYMB section\n");
+		// Real retail FSAR string-table blocks are tagged "STRG", not RSAR's
+		// "SYMB" -- confirmed against real Wii U BFSAR archives (Splatoon).
+		// Accept either tag; the block content layout read by
+		// UnpackBrsarContent() is unaffected by which 4-byte tag precedes it.
+		if (!symb_offs
+			|| (memcmp (data + symb_offs, "SYMB", 4) && memcmp (data + symb_offs, "STRG", 4)))
+			return ERROR0 (ERR_INVALID_DATA, "UnpackBRSAR: missing SYMB/STRG section\n");
 		if (!info_offs || memcmp (data + info_offs, "INFO", 4))
 			return ERROR0 (ERR_INVALID_DATA, "UnpackBRSAR: missing INFO section\n");
 		if (!file_offs || memcmp (data + file_offs, "FILE", 4))
