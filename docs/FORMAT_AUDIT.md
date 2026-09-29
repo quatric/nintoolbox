@@ -228,3 +228,40 @@ contains no `MAIN` archives. It uses different resource layouts, so this IEAR
 audit does not establish support for the sequel's resources. Its extracted ROM
 SHA-256 is `dd6fc8a1e8a9019f75ec6683bbbdb001ded9fab7328b2e3802260b7a870064aa`.
 No retail assets are included in the repository.
+
+
+## Luminous Arc 2 LZE compression
+
+Native `wszst DECOMPRESS` and `EXTRACT` now recognize the six-byte `Le` header
+(two magic bytes and a little-endian 32-bit decoded size). Four two-bit commands
+per flag byte represent one literal, three literals, a short-distance match, or
+a long-distance match. Overlapping matches are supported. The decoder validates
+the whole token stream before allocating output, rejects references before the
+output start and matches beyond the declared length, and applies the shared
+output-size limit. Final literal triples can end at the declared output size.
+Trailing alignment bytes are permitted.
+
+All **1,275 streams**, totaling **17,197,224 decoded bytes**, from the Luminous
+Arc 2 (USA) sample above match
+[CUE's reference LZE decoder](https://github.com/WonderfulToolchain/wf-nnpack/blob/d65bf0bd9ebfb5642ec63ff40b7bb1dcb670eb7f/lze.c)
+byte for byte with no reference warnings. The corpus includes 408 `.LZE`, 250
+`.imb`, 250 `.scb`, and 367 `.bin` files. CUE's 2011 implementation documents the
+token layout and is used as the external reference; the native decoder performs
+its own bounded validation. No reference source or retail assets are bundled.
+
+Nine CLI tests cover all token forms, flag rollover, maximum distance and run
+length, output naming, empty streams, dry runs, extraction dispatch, and invalid
+streams. Native tests run under AddressSanitizer and UndefinedBehaviorSanitizer.
+The format-name registry also restores missing NTTF/SHDVAR labels, which had
+shifted the names of later formats; native tests guard those labels and AFS.
+
+```sh
+wszst DECOMPRESS resource.LZE -d resource.bin
+python3 tests/audit_lze_corpus.py /path/to/luminous2/files \
+  --reference /path/to/wf-nnpack/lze --output /tmp/lze-report.json
+make -C project test-lze LZE_TEST_CFLAGS='-O1 -g -fsanitize=address,undefined'
+```
+
+This adds decompression, not LZE encoding or rendering of the game's raw image,
+palette, and tile-map resources. The same codec is documented for Luminous Arc 3,
+but that game's resources have not been validated here.

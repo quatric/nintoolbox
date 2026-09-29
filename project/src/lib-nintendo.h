@@ -185,7 +185,8 @@ typedef enum nfmt_type_t
 	NFMT_LMSLK,
 	NFMT_LMSLS,
 	NFMT_WWMODEL,
-	NFMT_AFS
+	NFMT_AFS,
+	NFMT_LZE
 } nfmt_type_t;
 
 typedef struct nfmt_info_t
@@ -211,6 +212,8 @@ __attribute__ ((weak)) nfmt_info_t DetectNintendoFormat (const void *data, uint 
 // subtexture table fits.
 bool IsTex3DS (const u8 *d, u32 avail, u32 total_size);
 ccp GetNintendoFormatName (nfmt_type_t type);
+
+enumError DecodeLZE (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 
 enumError AllocOutput (u8 **dest, uint *dest_size, u32 size);
 

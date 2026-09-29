@@ -571,6 +571,9 @@ static enumError decompress_nintendo_file3 (
 	const uint psize = info.payload_offset < size ? size - info.payload_offset : size;
 	switch (info.type)
 	{
+		case NFMT_LZE:
+			err = DecodeLZE (&decoded, &decoded_size, pdata, psize);
+			break;
 		case NFMT_LZ10:
 		case NFMT_LZ11:
 			err = DecodeLZ10LZ11 (&decoded, &decoded_size, pdata, psize);
@@ -668,7 +671,7 @@ static enumError decompress_nintendo_file3 (
 				|| !strcasecmp (dot, ".stpl") || !strcasecmp (dot, ".p")
 				|| !strcasecmp (dot, ".lzs") || !strcasecmp (dot, ".fzip")
 				|| !strcasecmp (dot, ".vlx") || !strcasecmp (dot, ".pc")
-				|| !strcasecmp (dot, ".lzx") || !strcasecmp (dot, ".diff")
+				|| !strcasecmp (dot, ".lze") || !strcasecmp (dot, ".lzx") || !strcasecmp (dot, ".diff")
 				|| !strcasecmp (dot, ".ovl") || !strcasecmp (dot, ".psdk")
 				|| !strcasecmp (dot, ".cmp") || !strcasecmp (dot, ".lzh8")
 				|| !strcasecmp (dot, ".lh")))

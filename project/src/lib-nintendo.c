@@ -128,9 +128,10 @@ ccp GetNintendoFormatName (nfmt_type_t type)
 		"XIMG", "ZTAB", "GLG", "MDR", "PERS", "PVOL", "STPK", "G1M", "G1T", "G4PKM", "LMD", "MSH",
 		"MOD", "GAR", "TEX3DS", "BCSTM", "BFSTM", "BCWAV", "BFWAV", "BNSH", "GFBMDL", "GFBANM",
 		"BNSTX", "AAMP", "MIO", "ZDAT", "SFX", "VFF", "TM0", "RETRO-TXTR", "TROPICAL-TXTR",
-		"MPR-PACK", "MPR-TXTR", "MPR-CMDL", "MPR-SKEL", "BFSHA", "SHARC", "SHARCFB", "VFXB", "RZPK",
-		"CSB", "CTB", "LMMDL", "LMBIN", "PIKMOD", "PIKARC", "WWRSC", "LMJMP", "LMKEY", "LMTMB",
-		"LMGEB", "LMSLK", "LMSLS", "WWMODEL", "AFS" };
+		"MPR-PACK", "MPR-TXTR", "MPR-CMDL", "MPR-SKEL", "NTTF", "SHDVAR", "BFSHA", "SHARC",
+		"SHARCFB", "VFXB", "RZPK", "CSB", "CTB", "LMMDL", "LMBIN", "PIKMOD", "PIKARC", "WWRSC",
+		"LMJMP", "LMKEY", "LMTMB", "LMGEB", "LMSLK", "LMSLS", "WWMODEL", "AFS",
+		[NFMT_LZE] = "LZE" };
 	return type < sizeof (tab) / sizeof (*tab) ? tab[type] : "UNKNOWN";
 }
 
@@ -205,6 +206,8 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 	const u8 *d = vdata;
 	if (!d || !size)
 		return make_info (NFMT_UNKNOWN, true, false, 0);
+	if (size >= 6 && !memcmp (d, "Le", 2))
+		return make_info (NFMT_LZE, false, true, rd_le32 (d + 2));
 	if (size >= 4)
 	{
 		ccp ext = filename ? strrchr (filename, '.') : 0;
