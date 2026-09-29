@@ -2152,7 +2152,7 @@ inline constexpr unsigned int str2tag(const char* str, int h = 0) {
 }
 
 namespace udl {
-inline constexpr unsigned int operator "" _(const char* s, size_t) {
+inline constexpr unsigned int operator""_(const char* s, size_t) {
     return str2tag(s);
 }
 }

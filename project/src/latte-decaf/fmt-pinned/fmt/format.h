@@ -3040,7 +3040,7 @@ constexpr auto operator"" _a(const char* s, size_t) -> detail::udl_arg<char> {
 
 // DEPRECATED!
 // User-defined literal equivalent of fmt::format.
-FMT_DEPRECATED constexpr auto operator"" _format(const char* s, size_t n)
+FMT_DEPRECATED constexpr auto operator""_format(const char* s, size_t n)
     -> detail::udl_formatter<char> {
   return {{s, n}};
 }

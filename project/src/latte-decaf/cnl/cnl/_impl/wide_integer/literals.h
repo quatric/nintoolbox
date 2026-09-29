@@ -149,9 +149,9 @@ namespace cnl {
     }
 
     namespace literals {
-        // cnl::_impl::operator "" _wide()
+        // cnl::_impl::operator""_wide()
         template<char ... Chars>
-        CNL_NODISCARD constexpr auto operator "" _wide()
+        CNL_NODISCARD constexpr auto operator""_wide()
         -> decltype(_impl::wide_integer_parser<Chars...>{}())
         {
             return _impl::wide_integer_parser<Chars...>{}();

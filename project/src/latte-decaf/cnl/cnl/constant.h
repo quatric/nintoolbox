@@ -145,7 +145,7 @@ namespace cnl {
 
     namespace literals {
         template<char... Chars>
-        CNL_NODISCARD constexpr auto operator "" _c()
+        CNL_NODISCARD constexpr auto operator""_c()
         -> constant<_cnlint_impl::parse<Chars...,'\0'>()>
         {
             return {};

@@ -3608,7 +3608,7 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 	bool is_xci = !memcmp (head + 0x100, "HEAD", 4) && xci_cart_size_valid;
 	bool is_nca_sig = !memcmp (head + 0x200, "NCA2", 4) || !memcmp (head + 0x200, "NCA3", 4)
 		|| !memcmp (head, "NCA2", 4) || !memcmp (head, "NCA3", 4);
-	if (is_nca_sig)
+	if (is_nca_sig || is_nsp || is_xci)
 		return passthru_archive_or_bms (
 			src, basedir, stage, staged_dir, staged_dir_size, false, false, false, false, true);
 

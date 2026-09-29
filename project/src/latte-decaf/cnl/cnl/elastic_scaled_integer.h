@@ -117,7 +117,7 @@ namespace cnl {
     namespace literals {
         ////////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////////
-        // cnl::literals::operator "" _elastic
+        // cnl::literals::operator""_elastic
 
         /// \brief generate an \ref cnl::elastic_scaled_integer object using a literal
         ///
@@ -134,7 +134,7 @@ namespace cnl {
         /// \snippet snippets.cpp define an object using elastic literal
 
         template<char... Chars>
-        CNL_NODISCARD constexpr auto operator "" _elastic()
+        CNL_NODISCARD constexpr auto operator""_elastic()
         -> decltype(make_elastic_scaled_integer<int>(
                 constant<_cnlint_impl::parse<sizeof...(Chars)+1>({Chars..., '\0'})>{}))
         {
