@@ -446,6 +446,149 @@ static bool bt_lib_batch (const u8 *d, size_t size, ccp name, uint nb, uint k, b
 	return false;
 }
 
+
+//-----------------------------------------------------------------------------
+// Material binding. A model name selects an entry of "CoreMaterialSets_Mem"
+// {u32 name (".data" offset of the string), u32 count, u32 offset of the
+// pointer list, count * u32 offset of a record in "CoreMaterials_Mem"}; a
+// record has 28 bytes {u32 name, ..., u32 word 2 (low 12 bits: index into
+// "GXSET_TexObj_Mem")}; a TexObj entry has 52 bytes {u32 0x06nnkk00 (nn =
+// texture count), then {u32 0, u32 texture << 16} pairs}; a texture is an
+// index into the "ttlt" texture name table {u32 count, u32 offset of count
+// name offsets}. The first entry of a lit material is the cell's lightmap;
+// the others are the diffuse texture and its spec / env / bump helpers.
+//-----------------------------------------------------------------------------
+
+// NUL-terminated string at an absolute file offset, or "".
+static ccp bt_name_at (const u8 *d, size_t size, size_t o)
+{
+	return o < size && memchr (d + o, 0, size - o) ? (ccp)d + o : "";
+}
+
+static bool bt_sym_named (const u8 *d, size_t size, ccp name, bt_sec_t *sec, u32 *off)
+{
+	const uint nsec = bt_u32 (d, size, 0x0c), nsym = bt_u32 (d, size, 0x14);
+	const size_t symtab = 0x80 + 0x30 * (size_t)nsec;
+	if (!nsym || nsym > BT_MAX_SYMBOLS || symtab + 16ull * nsym > size)
+		return false;
+	for (uint i = 0; i < nsym; i++)
+	{
+		const size_t so = symtab + 16 * (size_t)i;
+		if (strcmp (bt_name (d, size, bt_u32 (d, size, so + 12)), name))
+			continue;
+		const uint si = bt_u32 (d, size, so + 8) >> 16;
+		if (si >= nsec)
+			continue;
+		*sec = bt_section (d, size, si);
+		*off = bt_u32 (d, size, so + 4);
+		return sec->size != 0;
+	}
+	return false;
+}
+
+// Helper textures never used as a diffuse map.
+static bool bt_helper_texture (ccp n)
+{
+	static const ccp skip[] = { "lightmap", "spec", "envmap", "_bump", "_mask", "reflect",
+		"indirect", "invalid" };
+	for (uint i = 0; i < sizeof (skip) / sizeof (*skip); i++)
+		if (strcasestr (n, skip[i]))
+			return true;
+	return false;
+}
+
+// Replaces the placeholder material of M by the materials of MODEL_NAME found in the
+// material tables of package LIB and points each mesh at the material of its batch.
+static void bt_bind_materials (
+	model_t *m, ccp model_name, const u8 *lib, size_t lib_size, const uint *mesh_batch)
+{
+	bt_sec_t data, sets, mats, texobj, ttlt_sec;
+	u32 ttlt_off;
+	if (!bt_section_named (lib, lib_size, ".data", &data)
+		|| !bt_section_named (lib, lib_size, "CoreMaterialSets_Mem", &sets)
+		|| !bt_section_named (lib, lib_size, "CoreMaterials_Mem", &mats)
+		|| !bt_section_named (lib, lib_size, "GXSET_TexObj_Mem", &texobj)
+		|| !bt_sym_named (lib, lib_size, "ttlt", &ttlt_sec, &ttlt_off) || ttlt_sec.off != data.off)
+		return;
+	const u32 n_names = bt_u32 (lib, lib_size, (size_t)data.off + ttlt_off);
+	const u32 names_o = bt_u32 (lib, lib_size, (size_t)data.off + ttlt_off + 4);
+	if (!n_names || n_names > 65536 || (u64)names_o + 4ull * n_names > data.size)
+		return;
+
+	// the set of the model
+	const size_t mlen = strlen (model_name);
+	u32 count = 0, ptrs = 0;
+	for (u32 o = 0; (u64)o + 16 <= sets.size;)
+	{
+		const u32 nm = bt_u32 (lib, lib_size, (size_t)sets.off + o);
+		const u32 c = bt_u32 (lib, lib_size, (size_t)sets.off + o + 4);
+		if (bt_u32 (lib, lib_size, (size_t)sets.off + o + 8) != o + 12 || c > 64
+			|| (u64)o + 12 + 4ull * c > sets.size)
+			break;
+		if (nm < data.size && (u64)data.off + nm + mlen < lib_size
+			&& !memcmp (lib + data.off + nm, model_name, mlen) && !lib[data.off + nm + mlen])
+		{
+			count = c;
+			ptrs = o + 12;
+			break;
+		}
+		o += 12 + 4 * c;
+	}
+	if (!count)
+		return;
+
+	material_t *mm = CALLOC (count, sizeof (*mm));
+	if (!mm)
+		return;
+	uint n_mat = 0;
+	for (uint k = 0; k < count; k++)
+	{
+		const u32 rec = bt_u32 (lib, lib_size, (size_t)sets.off + ptrs + 4 * k);
+		if ((u64)rec + 28 > mats.size)
+			continue;
+		const size_t r = (size_t)mats.off + rec;
+		material_t *mat = mm + n_mat++;
+		const u32 nm = bt_u32 (lib, lib_size, r);
+		snprintf (mat->name, sizeof (mat->name), "%s",
+			nm < data.size ? bt_name_at (lib, lib_size, (size_t)data.off + nm) : "material");
+		mat->diffuse[0] = mat->diffuse[1] = mat->diffuse[2] = mat->diffuse[3] = 1.0f;
+		const u32 ti = bt_u32 (lib, lib_size, r + 8) & 0xfff;
+		if ((u64)(ti + 1) * 52 > texobj.size)
+			continue;
+		const size_t e = (size_t)texobj.off + 52 * (size_t)ti;
+		const uint nt = bt_u32 (lib, lib_size, e) >> 16 & 0xff;
+		for (uint t = 0; t < nt && t < 6; t++)
+		{
+			const u32 id = bt_u32 (lib, lib_size, e + 8 + 8 * t) >> 16;
+			if (id >= n_names)
+				continue;
+			const u32 np = bt_u32 (lib, lib_size, (size_t)data.off + names_o + 4 * id);
+			if (np >= data.size)
+				continue;
+			char clean[64];
+			bt_clean_name (clean, sizeof (clean), bt_name_at (lib, lib_size, (size_t)data.off + np), id);
+			if (bt_helper_texture (clean))
+				continue;
+			snprintf (mat->textures[0], sizeof (mat->textures[0]), "%s", clean);
+			mat->num_textures = 1;
+			break;
+		}
+	}
+	if (!n_mat)
+	{
+		FREE (mm);
+		return;
+	}
+	FREE (m->materials);
+	m->materials = mm;
+	m->num_materials = n_mat;
+	for (size_t i = 0; i < m->num_meshes; i++)
+	{
+		const uint k = mesh_batch[i];
+		m->meshes[i].material_idx = (int)(k < n_mat ? k : n_mat - 1);
+	}
+}
+
 model_t *BuildBlueTongueModel (const u8 *d, size_t size, uint index, char *name, size_t name_size,
 	const u8 *lib, size_t lib_size)
 {
@@ -462,8 +605,13 @@ model_t *BuildBlueTongueModel (const u8 *d, size_t size, uint index, char *name,
 		return 0;
 
 	model_t *m = CALLOC (1, sizeof (*m));
-	if (!m)
+	uint *mesh_batch = CALLOC (nb, sizeof (*mesh_batch));
+	if (!m || !mesh_batch)
+	{
+		FREE (m);
+		FREE (mesh_batch);
 		return 0;
+	}
 	for (uint k = 0; k < nb; k++)
 	{
 		const u32 rec = bt_u32 (d, size, (size_t)data.off + arr + 4 * k);
@@ -524,6 +672,7 @@ model_t *BuildBlueTongueModel (const u8 *d, size_t size, uint index, char *name,
 			break;
 		}
 		m->meshes = nm;
+		mesh_batch[m->num_meshes] = k;
 		mesh_t *mesh = m->meshes + m->num_meshes++;
 		memset (mesh, 0, sizeof (*mesh));
 		snprintf (mesh->name, sizeof (mesh->name), "batch%u", k);
@@ -535,8 +684,12 @@ model_t *BuildBlueTongueModel (const u8 *d, size_t size, uint index, char *name,
 		{
 			FREE (idx);
 			FreeModel (m);
+			FREE (mesh_batch);
 			return 0;
 		}
+		bool has_tex1 = false;
+		for (uint a = 0; a < b.n; a++)
+			has_tex1 = has_tex1 || b.attr[a] == 14;
 		for (size_t i = 0; i < nv; i++)
 		{
 			vertex_t *v = mesh->vertices + i;
@@ -562,9 +715,15 @@ model_t *BuildBlueTongueModel (const u8 *d, size_t size, uint index, char *name,
 					const float len = sqrtf (n.x * n.x + n.y * n.y + n.z * n.z);
 					mesh->normals[i] = len > 0 ? (vec3_t) { n.x / len, n.y / len, n.z / len } : n;
 				}
-				else if (b.attr[a] == 13)
-					mesh->texcoords[i] = (vec2_t) { (int16_t)(q[0] << 8 | q[1]) * sc,
+				else if (b.attr[a] == 13 || b.attr[a] == 14)
+				{
+					// TEX0 carries the lightmap coordinates of a lit material, TEX1
+					// (when present) the diffuse ones
+					const vec2_t uv = { (int16_t)(q[0] << 8 | q[1]) * sc,
 						(int16_t)(q[2] << 8 | q[3]) * sc };
+					if (b.attr[a] == 14 || !has_tex1)
+						mesh->texcoords[i] = uv;
+				}
 			}
 		}
 		mesh->num_positions = mesh->num_normals = mesh->num_texcoords = mesh->num_vertices = nv;
@@ -573,6 +732,7 @@ model_t *BuildBlueTongueModel (const u8 *d, size_t size, uint index, char *name,
 	if (!m->num_meshes)
 	{
 		FreeModel (m);
+		FREE (mesh_batch);
 		return 0;
 	}
 	m->materials = CALLOC (1, sizeof (*m->materials));
@@ -583,5 +743,8 @@ model_t *BuildBlueTongueModel (const u8 *d, size_t size, uint index, char *name,
 		m->materials[0].diffuse[0] = m->materials[0].diffuse[1] = m->materials[0].diffuse[2]
 			= m->materials[0].diffuse[3] = 1.0f;
 	}
+	// a cell's props take their materials from the level's LevelAssets package
+	bt_bind_materials (m, name_of_model, lib ? lib : d, lib ? lib_size : size, mesh_batch);
+	FREE (mesh_batch);
 	return m;
 }

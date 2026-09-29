@@ -25,6 +25,15 @@
 // (0x90 triangles, 0x98 strip, 0xa0 fan, 0x80 quads) with one u8 (u16 when the
 // array has more than 256 entries) index per attribute. Positions are s16 /
 // 2^fraction bits in the cell's space.
+// Materials (LevelAssets.trb, or the package itself for its own models): the
+// "CoreMaterialSets_Mem" entry named like the model lists the records of
+// "CoreMaterials_Mem" (28 bytes, name string offset first) of its batches; word 2 of
+// a record (low 12 bits) indexes "GXSET_TexObj_Mem" (52-byte entries: header
+// 0x06nnkk00, then nn {0, texture << 16} pairs) and a texture number indexes
+// the "ttlt" name table. Entry 0 is the cell lightmap, the diffuse map is the
+// first name that is not a spec / envmap / bump helper. TEX0 holds the
+// lightmap coordinates (12 fraction bits), TEX1 the diffuse ones (8 bits, v
+// running from -1 to 0 and wrapping).
 // A "ttex" symbol is a texture object: {0, size, hash} then 0x0df00bb0 fill
 // words, and from the first other word F: +0 GX format (0 I4, 1 I8, 2 IA4, 3
 // IA8, 5 RGB5A3, 6 RGBA8, 8 C4, 9 C8, 14 CMPR), +0xc pixel offset in the
