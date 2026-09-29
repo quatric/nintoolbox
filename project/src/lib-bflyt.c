@@ -1616,16 +1616,39 @@ static mxml_node_t *xml_child (mxml_node_t *parent, ccp name)
 	return 0;
 }
 
+// Mini-XML splits character data into words and flags each one that had
+// whitespace before it (trailing whitespace arrives as an empty word). Rebuild
+// the whole text so trailing spaces and multi-word strings survive; the
+// result is valid until the next call.
 static ccp xml_text (mxml_node_t *elem)
 {
+	static char *buf;
+	static size_t cap;
+	size_t len = 0;
 	for (mxml_node_t *n = mxmlGetFirstChild (elem); n; n = mxmlGetNextSibling (n))
 	{
 		int ws;
 		ccp text = mxmlGetText (n, &ws);
-		if (text)
-			return text;
+		if (!text)
+			continue;
+		const size_t tl = strlen (text);
+		if (len + tl + 2 > cap)
+		{
+			cap = (len + tl + 2) * 2;
+			char *grown = REALLOC (buf, cap);
+			if (!grown)
+				return text;
+			buf = grown;
+		}
+		if (ws)
+			buf[len++] = ' ';
+		memcpy (buf + len, text, tl);
+		len += tl;
 	}
-	return "";
+	if (!buf)
+		return "";
+	buf[len] = 0;
+	return buf;
 }
 
 static int xml_hex (int c)

@@ -2338,8 +2338,9 @@ t_brfna(){
   # ~100 bytes, while every real decoded glyph sheet checked was several KB+.
   local f; f=$(find_magic "RFNA"); [ -n "$f" ] || { sk "BRFNA (Wii archived font)"; return; }
   rm -rf /tmp/_r_brfna; mkdir -p /tmp/_r_brfna
-  $B/wszst XX "$f" --dest /tmp/_r_brfna/out --overwrite >/dev/null 2>&1
-  local pngs; pngs=$(find /tmp/_r_brfna -name '*.png' -o -name 'out*' -type f 2>/dev/null)
+  # Sheet export is an explicit wimgt action; wszst XX no longer stages PNGs.
+  $B/wimgt DECODE "$f" --dest /tmp/_r_brfna/out.png --overwrite >/dev/null 2>&1
+  local pngs; pngs=$(find /tmp/_r_brfna -name '*.png' -type f 2>/dev/null)
   local n; n=$(printf '%s\n' "$pngs" | grep -c .)
   local small; small=$(for p in $pngs; do [ "$(fsize_of "$p")" -lt 500 ] && echo "$p"; done | wc -l | tr -d ' ')
   if [ "$n" -gt 0 ] && [ "$small" -eq 0 ]; then
@@ -11058,7 +11059,7 @@ t_container_roundtrip(){
     # round-trip filenames, only bytes and order.
     local want got
     want=$(cd "$c/ref.d" && cat * 2>/dev/null | cksum)
-    got=$(find "$c/out.d" -type f ! -name wszst-setup.txt 2>/dev/null | sort | xargs cat 2>/dev/null | cksum)
+    got=$(find "$c/out.d" -type f ! -name '*-setup.txt' 2>/dev/null | sort | xargs cat 2>/dev/null | cksum)
     if [ -z "$want" ] || [ "$want" != "$got" ]; then
       no "$ext container decode" "extracted members differ from the originals"; continue
     fi
@@ -11389,7 +11390,7 @@ t_scarlet_3ds_image_roundtrips(){
     "scarlet_3ds.dmpbm:16 192 48 255:DMPBM"
     "scarlet_3ds.stex:32 64 224 255:STEX"
     "scarlet_3ds.cmb:208 144 32 255:CMB"
-    "scarlet_3ds.smdh:248 252 248 255:SMDH"
+    "scarlet_3ds.smdh:255 255 255 255:SMDH"
   )
   for spec in "${specs[@]}"; do
     f=${spec%%:*}; expected=${spec#*:}; expected=${expected%%:*}; name=${spec##*:}

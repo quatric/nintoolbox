@@ -150,6 +150,18 @@ enumError CreateDTLS (u8 **out_ls, uint *out_ls_size, u8 **out_dt, uint *out_dt_
 	if (!ls)
 		return ERR_CANT_CREATE;
 
+	// ScanDTLS() recognises 24-byte-entry tables by this magic + count header.
+	if (big_endian)
+	{
+		memcpy (ls, "LS\0\0", 4);
+		wr_be32 (ls + 4, n_entries);
+	}
+	else
+	{
+		memcpy (ls, "SL\0\0", 4);
+		wr_le32 (ls + 4, n_entries);
+	}
+
 	u64 dt_calc = 0;
 	for (uint i = 0; i < n_entries; i++)
 		dt_calc += ((u64)entries[i].size + 31) & ~31ull;
