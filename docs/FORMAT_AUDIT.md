@@ -95,8 +95,8 @@ Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Professor Layton and the 
 SADL conversion now accepts retail lowercase magic, decodes 16-byte channel
 blocks with independent predictor state, honors the stored initial IMA state,
 and handles Procyon ADPCM instead of treating every payload as IMA. Both sample
-rates are covered by retail samples. The 0xC0 header offset and uppercase magic
-compatibility are covered by synthetic tests; all sampled streams use 0x100.
+rates are covered by retail samples. The Layton samples use 0x100 headers. The 0xC0 variant is also verified
+in Luminous Arc below; uppercase compatibility has synthetic coverage.
 Malformed channels, codec flags, offsets, block lengths, IMA indices, and loops
 are rejected before writing output. Decoding emits one pass through the stream,
 with loop metadata rather than repeated audio.
@@ -136,3 +136,62 @@ A Shift-JIS filename in Curious Village blocked the local `ndstool` build on
 macOS. The audit instead read NitroFS directory/FAT records independently and
 decoded names as UTF-8 or Shift-JIS. That external extraction limitation remains.
 No retail game assets are included in this repository.
+
+## Layton backgrounds and additional SADL variants
+
+Native `wimgt DECODE` now renders Layton background images (`.arc` and `.arb`)
+as PNG. The layout contains a BGR555 palette, 8-bit 8×8 tiles and a 16-bit tile
+map. Nonzero palette entries are opaque; palette entry zero retains its alpha
+bit. The loader accepts raw images and the four-byte Layton type prefix before
+LZ10, RLE, Huffman-4 or Huffman-8 data. A complete structural and index check
+precedes allocation and rendering, and the probe is restricted to `.arc` and
+`.arb` candidates. A palette count that resembles a compression prefix is
+handled as raw data when the full raw layout is valid.
+
+| Sample | Images | Verification |
+| --- | ---: | --- |
+| Curious Village, `data/bg` | 1,161 | Every rendered RGBA pixel matches the independent decoder |
+| Diabolical Box, `data_lt2/bg` | 1,030 | Every rendered RGBA pixel matches the independent decoder |
+
+The combined set contains 2,092 LZ10, 80 Huffman-8, 16 RLE and 3 raw images.
+Huffman-4 is covered by synthetic fixtures. Sprite/animation `.arc` files and
+`.bgx` resources have different layouts and are not covered by this decoder.
+Background encoding is not implemented.
+
+The layout was cross-checked against the public-domain
+[LaytonEditor BGImage reader](https://github.com/C3RV1/LaytonEditor/blob/8c57f449798caaa4ffd2d711f9624854daa96915/formats/graphics/bg.py)
+and its [compression wrapper definitions](https://github.com/C3RV1/LaytonEditor/blob/8c57f449798caaa4ffd2d711f9624854daa96915/formats/compression/__init__.py).
+The corpus checker independently expands the wrapper, reconstructs the palette
+and tile map, and compares every output pixel, including transparent pixels.
+
+Two more rclone samples broadened the SADL audit:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Luminous Arc (USA).zip
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Soma Bringer (Japan).zip
+```
+
+* **Luminous Arc:** all 2,152 streams match vgmstream, verifying the 0xC0 payload
+  offset and codec flag 0x00 on retail mono, 16,364 Hz IMA audio.
+* **Soma Bringer:** all 3 streams match vgmstream, covering stereo 32,728 Hz IMA
+  and Procyon ADPCM. The outer NitroFS contains `data/data.srl`; the actual game
+  files are in this nested DS ROM, which was extracted separately.
+
+These are compatibility confirmations of the SADL decoder, with no audio-codec
+changes required. The total verified SADL corpus is now **2,573 streams**.
+
+```sh
+wimgt DECODE background.arc -d background.png
+python3 tests/audit_layton_backgrounds.py /path/to/curious/data/bg \
+  /path/to/diabolical/data_lt2/bg --output /tmp/background-report.json
+python3 tests/audit_sadl_corpus.py /path/to/luminous/files /path/to/soma/inner-files \
+  --reference /path/to/vgmstream-cli --output /tmp/additional-sadl.json
+make -C project test-layton-bg LAYTON_BG_TEST_CFLAGS='-O1 -g -fsanitize=address,undefined'
+```
+
+Extracted ROM SHA-256 (Soma Bringer is the outer image):
+
+```text
+Luminous Arc.nds 30c8c2bf9eced043c4a993f43076fd8532a2df038d65ae5bed62a8cba8c87bed
+Soma Bringer.nds db97954685e09b3814a5d048c4460779ecfee58a0389e62f59abc22f55cd171f
+```

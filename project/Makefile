@@ -484,7 +484,7 @@ SZS_O		:= $(XOBJ_IMAGE) lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-nsbmd
 		   lib-dsb.o lib-bnr.o lib-brfnt.o lib-brfna.o lib-bcfnt.o lib-mpr-pak.o \
 		   lib-ncgr.o lib-nclr.o lib-sarc.o lib-nw4r.o lib-rst.o lib-thp.o \
 		   lib-owned-entries.o lib-mvdk.o lib-vlx.o lib-pucrunch.o lib-lzx.o \
-		   lib-diff.o lib-lzovl.o lib-alar.o lib-pck2.o lib-sadl.o lib-psdk.o lib-sszl.o \
+		   lib-diff.o lib-lzovl.o lib-alar.o lib-layton-bg.o lib-pck2.o lib-sadl.o lib-psdk.o lib-sszl.o \
 		   lib-rflres.o lib-bea.o \
 		   lib-atb.o lib-ptd.o lib-lzbin.o lib-xb.o lib-mpmess.o lib-mpboard.o \
 		   lib-rarc.o lib-pack.o lib-rkc.o lib-brres.o lib-breff.o \
@@ -1479,6 +1479,13 @@ test-mdr-bounds: version.h
 	@mkdir -p bin
 	$(CC) $(MDR_TEST_CFLAGS) -ffunction-sections -fdata-sections -I. -Isrc -Idclib ../tests/test-mdr-bounds.c src/lib-mdr.c $(COMPRESSION_TEST_LDFLAGS) -lz -o bin/test-mdr-bounds
 	@./bin/test-mdr-bounds
+
+.PHONY : test-layton-bg
+LAYTON_BG_TEST_CFLAGS ?= -O2
+test-layton-bg: version.h
+	@mkdir -p bin
+	$(CC) $(LAYTON_BG_TEST_CFLAGS) -ffunction-sections -fdata-sections -I. -Isrc -Idclib ../tests/test-layton-bg.c src/lib-layton-bg.c src/lib-nintendo.c src/lib-lz10.c src/lib-huff.c src/lib-nintendo-rl.c $(COMPRESSION_TEST_LDFLAGS) -o bin/test-layton-bg
+	@./bin/test-layton-bg
 
 .PHONY : test-pck2
 PCK2_TEST_CFLAGS ?= -O2

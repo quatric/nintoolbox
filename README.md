@@ -289,6 +289,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **MPR TXTR** | `.txtr` / `.mpr.txtr` | ✅ | ✅ | ✅ | ✅ | Retro Studios texture, Remastered revision (*Metroid Prime Remastered*, Switch) |
 | **MTTEX** | `.tex` | ✅ | — | — | — | Capcom MT Framework Mobile texture (3DS): PICA200 payloads including ETC1 / ETC1A4. |
 | **MWT** | `.MWT` | ✅ | — | — | ✅ | *Bermuda Triangle: Saving the Coral* (Wii) texture envelope format. |
+| **Layton backgrounds** | `.arc`, `.arb` | ✅ | — | — | ✅ | *Professor Layton* (DS): BGR555 palettes, 8-bit tiles and tile maps; raw, LZ10, RLE and Huffman wrappers. `wimgt DECODE` to PNG; [2,191 retail images verified](docs/FORMAT_AUDIT.md). |
 | **NCER / NANR** | `.ncer`, `.nanr` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro cell & animation resources (DS) |
 | **NCGR / NCLR** | `.ncgr`, `.nclr` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro 2D graphics & palette (DS) |
 | **NDS banner** | `banner.bin` | ✅ | — | — | ✅ | Nintendo DS ROM banner (DS / DSi) |
@@ -335,7 +336,7 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | **EID** | `.eid` | ✅ | — | ✅ | *I Spy Spooky Mansion* (Wii) sound-event/effect table. |
 | **NUS3AUDIO** | `.nus3audio`, `.nus3bank` | ✅ | ✅ | — | Bandai Namco NUS3 audio archive (*Super Smash Bros. Ultimate*, Switch) |
 | **RSEQ / CSEQ / FSEQ / SSEQ** | `.rseq`, `.cseq`, `.fseq`, `.sseq` | ✅ | ✅ | ✅ | Nintendo sequence music format (Wii / 3DS / Wii U / DS). |
-| **SADL** | `.sad`, `.sadl` | ✅ | — | ✅ | *Professor Layton* (DS): native mono/stereo IMA and Procyon ADPCM to WAV with loop markers. All 418 sampled streams match vgmstream; see [audit](docs/FORMAT_AUDIT.md). |
+| **SADL** | `.sad`, `.sadl` | ✅ | — | ✅ | *Professor Layton* (DS): native mono/stereo IMA and Procyon ADPCM to WAV with loop markers. All 2,573 sampled Layton, Luminous Arc and Soma Bringer streams match vgmstream; see [audit](docs/FORMAT_AUDIT.md). |
 | **SDAT** | `.sdat` | ✅ | ✅ | ✅ | Nintendo DS Nitro sound archive (DS) |
 | **WT** | `.wt` | ✅ | — | ✅ | *Octomania* (Wii) wavetable sample-offset index. |
 

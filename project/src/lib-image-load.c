@@ -63,6 +63,7 @@
 #include "lib-xtx.h"
 #include "lib-nlg-lm.h"
 #include "lib-pik1.h"
+#include "lib-layton-bg.h"
 
 ///////////////		    AssignIMG(), LoadIMG()		///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -1522,6 +1523,27 @@ enumError LoadIMG (Image_t *img, // pointer to valid img
 		ResetFile (&F, 0);
 		FreeString (eszs.fname);
 		eszs.fname = STRDUP (fname);
+	}
+
+	// These backgrounds have no magic and can carry a four-byte compression
+	// type before the Nitro stream. Probe the complete bounded layout first.
+	ccp bg_ext = fname ? strrchr (fname, '.') : 0;
+	if (bg_ext && (!strcasecmp (bg_ext, ".arc") || !strcasecmp (bg_ext, ".arb")))
+	{
+		u8 *rgba = 0;
+		uint width = 0, height = 0;
+		enumError bg_err = DecodeLaytonBG_RGBA (&rgba, &width, &height, eszs.data, eszs.data_size);
+		if (!bg_err)
+		{
+			AssignDecodedRGBA (img, rgba, width, height, &le_func, fname);
+			ResetExtractSZS (&eszs);
+			return PatchListIMG (img);
+		}
+		if (bg_err != ERR_NOTHING_TO_DO)
+		{
+			ResetExtractSZS (&eszs);
+			return ERROR0 (bg_err, "Invalid Layton background: %s\n", fname);
+		}
 	}
 
 	const nfmt_info_t nfmt = DetectNintendoFormat (eszs.data, eszs.data_size, fname);
