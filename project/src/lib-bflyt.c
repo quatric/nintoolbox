@@ -1602,6 +1602,21 @@ static enumError xml_add_value (mxml_node_t *parent, ccp tag, ccp name, const bf
 		default:
 			return ERR_INVALID_DATA;
 	}
+	// Mini-XML treats a raw newline in text as ordinary whitespace, so it would
+	// read back as a space. Mark newlines with \x01 here; the saved document
+	// turns each marker into the entity &#10;, which reads back as a newline.
+	if (strchr (text, '\n'))
+	{
+		char *marked = bf_strdup (text);
+		if (!marked)
+			return ERR_OUT_OF_MEMORY;
+		for (char *p = marked; *p; p++)
+			if (*p == '\n')
+				*p = '\x01';
+		mxml_node_t *t = mxmlNewText (elem, 0, marked);
+		FREE (marked);
+		return t ? ERR_OK : ERR_OUT_OF_MEMORY;
+	}
 	return mxmlNewText (elem, 0, text) ? ERR_OK : ERR_OUT_OF_MEMORY;
 }
 
@@ -5997,6 +6012,33 @@ enumError SaveXMLBFLYT (const bflyt_t *bflyt, ccp fname, bool set_time)
 		return err;
 	if (!xml)
 		return ERR_OUT_OF_MEMORY;
+	{
+		// \x01 marks a newline that belongs to a string value (see above)
+		uint markers = 0;
+		for (ccp q = xml; *q; q++)
+			markers += *q == '\x01';
+		if (markers)
+		{
+			char *fixed = MALLOC (strlen (xml) + markers * 4 + 1);
+			if (!fixed)
+			{
+				FREE (xml);
+				return ERR_OUT_OF_MEMORY;
+			}
+			char *w = fixed;
+			for (ccp q = xml; *q; q++)
+				if (*q == '\x01')
+				{
+					memcpy (w, "&#10;", 5);
+					w += 5;
+				}
+				else
+					*w++ = *q;
+			*w = 0;
+			FREE (xml);
+			xml = fixed;
+		}
+	}
 
 	File_t F;
 	err = CreateFileOpt (&F, true, fname, testmode, fname);
