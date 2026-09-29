@@ -15569,17 +15569,22 @@ static enumError extract_bcres_textures (ccp arg, ccp basedir, uint depth)
 	}
 
 	char dest[PATH_MAX];
-	snprintf (dest, sizeof (dest), "%s", arg);
-	char *slash = strrchr (dest, '/');
-	if (slash)
-		*slash = 0;
+	ccp dest_base = opt_dest && *opt_dest ? opt_dest : basedir;
+	if (dest_base && *dest_base)
+		snprintf (dest, sizeof (dest), "%s", dest_base);
 	else
-		snprintf (dest, sizeof (dest), ".");
+	{
+		snprintf (dest, sizeof (dest), "%s", arg);
+		char *slash = strrchr (dest, '/');
+		if (slash)
+			*slash = 0;
+		else
+			snprintf (dest, sizeof (dest), ".");
+	}
 
 	if (!testmode)
 		ExportBCRESTexturesFromData (raw, raw_size, dest);
 	FREE (raw);
-	(void)basedir;
 	(void)depth;
 	return ERR_NOTHING_TO_DO;
 }
