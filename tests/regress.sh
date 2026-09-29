@@ -562,7 +562,7 @@ if command -v mobipeg >/dev/null 2>&1 || command -v ffmpeg >/dev/null 2>&1; then
     fi
 
     # 3296 payload bytes is 412 frames of 8 bytes, each carrying 14 samples.
-    if "$B/wszst" EXTRACT "$sfx_src" --dest "$sfx_d/out" >/dev/null 2>&1 \
+    if "$B/wszst" XEXPORT "$sfx_src" --dest "$sfx_d/out" >/dev/null 2>&1 \
     && python3 -c '
 import sys, wave
 w = wave.open(sys.argv[1])
@@ -591,7 +591,7 @@ struct.pack_into("<I", d, 0, struct.unpack_from("<I", d, 0)[0] + 32)
 open(sys.argv[2], "wb").write(bytes(d))
 ' "$sfx_src" "$sfx_d/bad.sfx"
     rm -rf "$sfx_d/badout"
-    "$B/wszst" EXTRACT "$sfx_d/bad.sfx" --dest "$sfx_d/badout" >/dev/null 2>&1
+    "$B/wszst" XEXPORT "$sfx_d/bad.sfx" --dest "$sfx_d/badout" >/dev/null 2>&1
     if [ -z "$(find "$sfx_d/badout" -name '*.wav' 2>/dev/null)" ]; then
       ok "SFX declines a header that does not account for the file"
     else
@@ -4564,7 +4564,7 @@ thp_bytes = hdr + comps_padded + offsets_padded + frame_hdr + jpeg_data
 open('$d/test.thp', 'wb').write(thp_bytes)
 "
   local ok=1
-  "$B/wszst" EXTRACT "$d/test.thp" --dest "$d/thp_out" --no-passthrough --overwrite >/dev/null 2>&1
+  "$B/wszst" XEXPORT "$d/test.thp" --dest "$d/thp_out" --no-passthrough --overwrite >/dev/null 2>&1
   local out_dir="$d/thp_out/test"
   [ -d "$out_dir" ] || out_dir="$d/thp_out"
   [ -s "$out_dir/frame_00000.jpg" ] || ok=0
@@ -4602,13 +4602,13 @@ STUB_EOF
   printf 'VID1\000\000\000\010' > "$d/in.vid"
   local ok=1
   VID1DEC="$d/stub/NeversoftMultitool" \
-    "$B/wszst" EXTRACT "$d/in.vid" --dest "$d/out" --overwrite >/dev/null 2>&1
+    "$B/wszst" XEXPORT "$d/in.vid" --dest "$d/out" --overwrite >/dev/null 2>&1
   local mp4; mp4=$(find "$d/out" -name "in.mp4" | head -n 1)
   [ -n "$mp4" ] && [ -s "$mp4" ] || ok=0
   grep -q "FAKE-MP4:in" "$mp4" 2>/dev/null || ok=0
   # no decoder anywhere: clean skip, exit 0, no preview written
   VID1DEC= PATH=/usr/bin:/bin \
-    "$B/wszst" EXTRACT "$d/in.vid" --dest "$d/out2" --overwrite >/dev/null 2>&1
+    "$B/wszst" XEXPORT "$d/in.vid" --dest "$d/out2" --overwrite >/dev/null 2>&1
   [ -z "$(find "$d/out2" -name '*.mp4' 2>/dev/null)" ] || ok=0
   rm -rf "$d"
   [ "$ok" = 1 ] && ok "VID1 preview (stub decoder -> .mp4, clean skip)" \
@@ -13546,7 +13546,7 @@ t_bcstm_3ds_retail(){
     no "retail Yo-Kai Watch (3DS) BCSTM" "not recognised as BCSTM"
   fi
   rm -rf "$d"
-  "$B/wszst" X "$f" --dest "$d" --overwrite >/dev/null 2>&1
+  "$B/wszst" XEXPORT "$f" --dest "$d" --overwrite >/dev/null 2>&1
   local wav; wav=$(find "$d" -name '*.wav' -size +0c 2>/dev/null | head -1)
   if [ -n "$wav" ]; then
     ok "BCSTM retail 3DS (Yo-Kai Watch) -> WAV decoded"

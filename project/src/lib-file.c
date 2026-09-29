@@ -2394,6 +2394,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_NRO;
 	if (IsNSO (data8, data_size))
 		return FF_NSO;
+	// Smash XMB: the "XMB " magic is exact, and CNMT below is loose enough to
+	// claim any file whose header counts happen to be small.
+	if (data_size >= 0x20 && !memcmp (data8, "XMB ", 4))
+		return FF_XMB;
 	if (IsCNMT (data8, data_size))
 		return FF_CNMT;
 	if (IsNPDM (data8, data_size))
