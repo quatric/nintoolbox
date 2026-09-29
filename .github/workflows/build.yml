@@ -4,6 +4,7 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+  workflow_call: # nightly.yml reuses these build jobs
 
 permissions:
   contents: write
@@ -74,15 +75,17 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get install -y build-essential
+          # runner apt indexes can go stale mid-run (404 on a .deb); refresh and retry
+          apt_install() { sudo apt-get install -y "$@" || { sudo apt-get update && sudo apt-get install -y --fix-missing "$@"; }; }
+          apt_install build-essential
           if [[ -n "${{ matrix.foreign_arch }}" ]]; then
             case "${{ matrix.foreign_arch }}" in
-              i386)  sudo apt-get install -y gcc-multilib g++-multilib libpng-dev:i386 zlib1g-dev:i386 libncurses-dev:i386 libssl-dev:i386 ;;
-              arm64) sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libpng-dev:arm64 zlib1g-dev:arm64 libncurses-dev:arm64 libssl-dev:arm64 ;;
-              armhf) sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf libpng-dev:armhf zlib1g-dev:armhf libncurses-dev:armhf libssl-dev:armhf ;;
+              i386)  apt_install gcc-multilib g++-multilib libpng-dev:i386 zlib1g-dev:i386 libncurses-dev:i386 libssl-dev:i386 ;;
+              arm64) apt_install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libpng-dev:arm64 zlib1g-dev:arm64 libncurses-dev:arm64 libssl-dev:arm64 ;;
+              armhf) apt_install gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf libpng-dev:armhf zlib1g-dev:armhf libncurses-dev:armhf libssl-dev:armhf ;;
             esac
           else
-            sudo apt-get install -y cmake libpng-dev zlib1g-dev libncurses-dev libcurl4-openssl-dev
+            apt_install cmake libpng-dev zlib1g-dev libncurses-dev libcurl4-openssl-dev
           fi
 
       - name: Build

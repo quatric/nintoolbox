@@ -1,0 +1,104 @@
+name: nightly
+
+# Publishes a pre-release built from the default branch at 01:00 America/Chicago,
+# but only when master has moved since the previous nightly.
+#
+# GitHub cron is UTC-only and Chicago flips between UTC-5 (CDT) and UTC-6
+# (CST), so two crons fire an hour apart and the gate job lets through only
+# the one that lands on 01:xx local time. A manual run skips that gate;
+# set `force` to release even when nothing changed.
+on:
+  schedule:
+    - cron: "0 6 * * *"
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Release even if nothing changed since the last nightly"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.decide.outputs.release }}
+      tag: ${{ steps.decide.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: decide
+        run: |
+          set -euo pipefail
+          hour=$(TZ=America/Chicago date +%H)
+          if [[ "${{ github.event_name }}" == "schedule" && "$hour" != "01" ]]; then
+            echo "It is ${hour}:xx in Chicago, not 01:xx; the other cron handles this one."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          head=$(git rev-parse HEAD)
+          last_tag=$(git tag --list 'nightly-*' --sort=-creatordate | head -n 1)
+          if [[ -n "$last_tag" && "$(git rev-list -n 1 "$last_tag")" == "$head" \
+                && "${{ inputs.force }}" != "true" ]]; then
+            echo "No commits since $last_tag; skipping."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          tag="nightly-$(TZ=America/Chicago date +%Y%m%d)"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            tag="$tag-$(git rev-parse --short HEAD)"
+          fi
+          echo "release=true" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Releasing $tag at $head (previous: ${last_tag:-none})"
+
+  build:
+    needs: gate
+    if: needs.gate.outputs.release == 'true'
+    uses: ./.github/workflows/build.yml
+
+  release:
+    needs: [gate, build]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.gate.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Package each target
+        run: |
+          git archive --format=tar.gz --prefix="wiimms-szs-tools-nintendo-${TAG}/" \
+            -o "wiimms-szs-tools-nintendo-${TAG}-source.tar.gz" HEAD
+          cd dist
+          for d in */; do
+            [ -d "$d" ] || continue
+            tar -czf "../${d%/}.tar.gz" -C "$d" .
+          done
+      - name: Create checksums
+        run: |
+          cp dist/*/*.zip . 2>/dev/null || true
+          sha256sum *.tar.gz *.zip 2>/dev/null > SHA256SUMS.txt || sha256sum *.tar.gz > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - name: Publish pre-release
+        run: |
+          gh release create "$TAG" --target "$GITHUB_SHA" --prerelease \
+            --title "Nightly $TAG" --generate-notes \
+            *.tar.gz *.zip SHA256SUMS.txt
+      - name: Prune old nightlies (keep 7)
+        run: |
+          gh release list --limit 100 --json tagName,createdAt \
+            --jq '[.[] | select(.tagName | startswith("nightly-"))] | sort_by(.createdAt) | reverse | .[7:][].tagName' |
+            while read -r old; do
+              gh release delete "$old" --cleanup-tag --yes
+            done

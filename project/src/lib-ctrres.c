@@ -8,6 +8,36 @@
 
 // open_memstream() buffers come from the libc allocator
 #undef free
+#undef malloc
+
+#ifdef __MINGW32__
+// MinGW has no open_memstream(): spool to a temp file and slurp it on close.
+static FILE *ctr_memstream_open (char **buf, size_t *len)
+{
+	*buf = 0;
+	*len = 0;
+	return tmpfile();
+}
+static void ctr_memstream_close (FILE *f, char **buf, size_t *len)
+{
+	fflush (f);
+	long n = ftell (f);
+	char *b = n >= 0 ? malloc ((size_t)n + 1) : 0;
+	if (b)
+	{
+		rewind (f);
+		size_t got = fread (b, 1, (size_t)n, f);
+		b[got] = 0;
+		*len = got;
+	}
+	*buf = b;
+	fclose (f);
+}
+#define open_memstream ctr_memstream_open
+#define CTR_MEMSTREAM_CLOSE(f, buf, len) ctr_memstream_close (f, &(buf), &(len))
+#else
+#define CTR_MEMSTREAM_CLOSE(f, buf, len) fclose (f)
+#endif
 
 static u32 ctr_le32 (const u8 *p)
 {
@@ -173,7 +203,7 @@ char *DumpCtrGbin (const u8 *d, size_t size, ccp source)
 		}
 		p += GBIN_GUID + (size_t)parts * 20;
 	}
-	fclose (f);
+	CTR_MEMSTREAM_CLOSE (f, buf, len);
 	(void)len;
 	return buf;
 }
@@ -246,7 +276,7 @@ char *DumpCtrBankOrWsd (const u8 *d, size_t size, ccp source)
 			}
 		}
 	}
-	fclose (f);
+	CTR_MEMSTREAM_CLOSE (f, buf, len);
 	(void)len;
 	return buf;
 }
