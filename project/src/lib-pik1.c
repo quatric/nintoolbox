@@ -141,7 +141,8 @@ bool IsTXE (const u8 *data, size_t size)
 	uint need = 0;
 	if (pk_txe_gx (fmt, &need, w, h) < 0)
 		return false;
-	if (decl != need)
+	// Retail effect textures may omit the size; dimensions still bound pixels.
+	if (decl && decl != need)
 		return false;
 	// pixels start at the next 32-byte boundary after the 12-byte header
 	const uint base = (12 + 31) & ~31u;
@@ -2447,66 +2448,51 @@ enumError EncodeModelToPIKMOD (const model_t *model, ccp out_path)
 enumError ScanPIKARC (pikarc_entry_t **entries, uint *n_entries, const u8 *dir_data, uint dir_size,
 	const u8 *arc_data, uint arc_size)
 {
-	if (!entries || !n_entries || !dir_data || dir_size < 8)
+	if (!entries || !n_entries)
 		return ERR_INVALID_DATA;
-	const uint fsize = pk_be32 (dir_data);
-	const uint ndirs = pk_be32 (dir_data + 4);
-	if (!ndirs || ndirs > 100000 || (u64)8 + (u64)ndirs * 12 > dir_size)
+	*entries = 0;
+	*n_entries = 0;
+	if (!dir_data || dir_size < 8 || (!arc_data && arc_size))
 		return ERR_INVALID_DATA;
-	(void)fsize;
-	pikarc_entry_t *out = CALLOC (ndirs ? ndirs : 1, sizeof (*out));
+	const uint fsize = pk_be32 (dir_data), count = pk_be32 (dir_data + 4);
+	if (fsize < 8 || fsize > dir_size || !count || count > 100000 || count > (fsize - 8) / 13)
+		return ERR_INVALID_DATA;
+	pikarc_entry_t *out = CALLOC (count, sizeof (*out));
 	if (!out)
 		return ERR_OUT_OF_MEMORY;
-	for (uint i = 0; i < ndirs; i++)
+	uint pos = 8;
+	enumError err = ERR_INVALID_DATA;
+	for (uint i = 0; i < count; i++)
 	{
-		const u8 *ep = dir_data + 8 + i * 12;
-		const uint off = pk_be32 (ep), sz = pk_be32 (ep + 4), nl = pk_be32 (ep + 8);
-		const uint npos = 8 + ndirs * 12 + i * 0; // names live after the table
-		(void)npos;
-		if (nl > 1024 || (u64)off + sz > arc_size)
+		if (pos > fsize || fsize - pos < 12)
+			goto fail;
+		const uint off = pk_be32 (dir_data + pos), size = pk_be32 (dir_data + pos + 4);
+		const uint len = pk_be32 (dir_data + pos + 8);
+		pos += 12;
+		// Retail records interleave each header with its padded filename.
+		if (!len || len > 1024 || len > fsize - pos || off > arc_size || size > arc_size - off)
+			goto fail;
+		const size_t name_len = strnlen ((ccp)dir_data + pos, len);
+		if (!name_len)
+			goto fail;
+		out[i].name = MALLOC (name_len + 1);
+		if (!out[i].name)
 		{
-			for (uint k = 0; k < i; k++)
-				FREE (out[k].name);
-			FREE (out);
-			return ERR_INVALID_DATA;
+			err = ERR_OUT_OF_MEMORY;
+			goto fail;
 		}
-		// name table: entries are {off, size, namelen} + names packed after;
-		// names are found by scanning: name i starts after previous names.
-		// Recompute: names begin at 8 + ndirs*12, each namelen bytes.
-		uint name_off = 8 + ndirs * 12;
-		for (uint k = 0; k < i; k++)
-			name_off += pk_be32 (dir_data + 8 + k * 12 + 8);
-		if ((u64)name_off + nl > dir_size)
-		{
-			for (uint k = 0; k < i; k++)
-				FREE (out[k].name);
-			FREE (out);
-			return ERR_INVALID_DATA;
-		}
-		char *nm = MALLOC (nl + 1);
-		if (!nm)
-		{
-			for (uint k = 0; k < i; k++)
-				FREE (out[k].name);
-			FREE (out);
-			return ERR_OUT_OF_MEMORY;
-		}
-		memcpy (nm, dir_data + name_off, nl);
-		nm[nl] = 0;
-		out[i].name = nm;
+		memcpy (out[i].name, dir_data + pos, name_len);
+		out[i].name[name_len] = 0;
 		out[i].data = arc_data ? arc_data + off : 0;
-		out[i].size = arc_data ? sz : 0;
-		if (arc_data && (u64)off + sz > arc_size)
-		{
-			for (uint k = 0; k <= i; k++)
-				FREE (out[k].name);
-			FREE (out);
-			return ERR_INVALID_DATA;
-		}
+		out[i].size = size;
+		pos += len;
 	}
-	*n_entries = ndirs;
 	*entries = out;
+	*n_entries = count;
 	return ERR_OK;
+fail:
+	FreePIKARC (out, count);
+	return err;
 }
 
 void FreePIKARC (pikarc_entry_t *entries, uint n_entries)
@@ -2521,42 +2507,53 @@ void FreePIKARC (pikarc_entry_t *entries, uint n_entries)
 enumError CreatePIKARC (u8 **dir_out, uint *dir_size, u8 **arc_out, uint *arc_size,
 	const pikarc_entry_t *entries, uint n_entries)
 {
-	if (!dir_out || !dir_size || !arc_out || !arc_size || !entries || !n_entries)
+	if (!dir_out || !dir_size || !arc_out || !arc_size)
 		return ERR_INVALID_DATA;
-	uint names = 0, payload = 0;
+	*dir_out = *arc_out = 0;
+	*dir_size = *arc_size = 0;
+	if (!entries || !n_entries || n_entries > 100000)
+		return ERR_INVALID_DATA;
+	u64 dsz = 8, asz = 0;
 	for (uint i = 0; i < n_entries; i++)
 	{
-		names += (uint)strlen (entries[i].name);
-		payload += entries[i].size;
+		if (!entries[i].name || !*entries[i].name || (entries[i].size && !entries[i].data))
+			return ERR_INVALID_DATA;
+		const size_t len = strlen (entries[i].name);
+		if (len > 1023)
+			return ERR_INVALID_DATA;
+		dsz += 12 + ((len + 3) & ~(u64)3);
+		asz = ((asz + 31) & ~(u64)31) + entries[i].size;
+		if (dsz > UINT_MAX || asz > UINT_MAX)
+			return ERR_FILE_TOO_BIG;
 	}
-	const uint dsz = 8 + n_entries * 12 + names;
-	const uint asz = payload;
-	u8 *dd = CALLOC (1, dsz ? dsz : 1);
-	u8 *ad = CALLOC (1, asz ? asz : 1);
+	u8 *dd = CALLOC (1, (size_t)dsz), *ad = CALLOC (1, asz ? (size_t)asz : 1);
 	if (!dd || !ad)
 	{
 		FREE (dd);
 		FREE (ad);
 		return ERR_OUT_OF_MEMORY;
 	}
-	pk_wr32 (dd, dsz);
+	pk_wr32 (dd, (uint)dsz);
 	pk_wr32 (dd + 4, n_entries);
-	uint noff = 8 + n_entries * 12, aoff = 0;
+	uint pos = 8;
+	u64 aoff = 0;
 	for (uint i = 0; i < n_entries; i++)
 	{
-		const uint nl = (uint)strlen (entries[i].name);
-		pk_wr32 (dd + 8 + i * 12, aoff);
-		pk_wr32 (dd + 8 + i * 12 + 4, entries[i].size);
-		pk_wr32 (dd + 8 + i * 12 + 8, nl);
-		memcpy (dd + noff, entries[i].name, nl);
-		noff += nl;
-		if (entries[i].size && entries[i].data)
+		aoff = (aoff + 31) & ~(u64)31;
+		const uint len = (uint)strlen (entries[i].name);
+		const uint padded = (len + 3) & ~3u;
+		pk_wr32 (dd + pos, (uint)aoff);
+		pk_wr32 (dd + pos + 4, entries[i].size);
+		pk_wr32 (dd + pos + 8, padded);
+		memcpy (dd + pos + 12, entries[i].name, len);
+		pos += 12 + padded;
+		if (entries[i].size)
 			memcpy (ad + aoff, entries[i].data, entries[i].size);
 		aoff += entries[i].size;
 	}
 	*dir_out = dd;
-	*dir_size = dsz;
+	*dir_size = (uint)dsz;
 	*arc_out = ad;
-	*arc_size = asz;
+	*arc_size = (uint)asz;
 	return ERR_OK;
 }

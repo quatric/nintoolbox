@@ -1,3 +1,4 @@
+#include "lib-pik1.h"
 
 // Defined in formats.inc, included after this file; forward-declared here
 // because create_update.inc calls it directly (see the note near its other
@@ -2346,137 +2347,168 @@ static bool is_littlest_pet_shop_rpk (ccp arg)
 		&& !memcmp (head + 7, "STRM\0", 5);
 }
 
-// Jump Ultimate Stars / Jump Super Stars "ALAR" archive. FF_ALAR carries
-// FFT_ARCHIVE and is meant to go through the generic member iterator
-// (ExtractFilesSZS -> IterateFilesParSZS), but GetIteratorFunction() has no
-// entry for it at all -- ifunc comes back NULL and the iterator silently
-// walks zero members, for every real .aar on a retail DS cart regardless of
-// its sub-type. Two sub-formats share the "ALAR" magic, selected by the byte
-// at offset 4:
-//   type 2: exactly one raw blob. offset/size are plain LE32 at +20/+24.
-//   type 3: a name-based table. A u16 at +6 gives the file count n; a table
-//     of n+1 u16s at +16 gives, at index 0, the size of the whole name+
-//     record region, and at indices 1..n, each member's name offset
-//     relative to byte 18 (i.e. two bytes past the table's own first u16).
-//     Each name is a NUL-terminated path; the record immediately following
-//     it (2-byte aligned) is { u16 index, u16 tag, u32 offset, u32 size,
-//     u32 flags, ... }, offset/size locating that member's raw bytes
-//     directly in the file. Reconstructed from Jump Ultimate Stars'
-//     info.aar (4 named members, offsets/sizes verified to tile the file
-//     exactly) -- the tag and flags fields are still not understood, but
-//     extraction only needs the name, offset and size.
+// Pikmin pairs use a separate .dir index; .arc itself has no magic.
+static enumError extract_pikarc_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".arc") || strlen (arg) >= PATH_MAX)
+		return ERR_NOTHING_TO_DO;
+	char index_path[PATH_MAX];
+	snprintf (index_path, sizeof (index_path), "%s", arg);
+	strcpy (index_path + strlen (index_path) - 4, ".dir");
+	struct stat st;
+	if (stat (index_path, &st) || !S_ISREG (st.st_mode) || st.st_size < 8 || st.st_size > UINT_MAX)
+		return ERR_NOTHING_TO_DO;
+	u8 header[8];
+	FILE *index = fopen (index_path, "rb");
+	const size_t got = index ? fread (header, 1, sizeof (header), index) : 0;
+	if (index)
+		fclose (index);
+	if (got != sizeof (header) || be32 (header) != st.st_size || !be32 (header + 4))
+		return ERR_NOTHING_TO_DO;
+	u8 *dir_data = 0, *arc_data = 0;
+	size_t dir_size = 0, arc_size = 0;
+	enumError err = LoadFileAlloc (index_path, 0, 0, &dir_data, &dir_size, 0, 0, 0, false);
+	if (!err)
+		err = LoadFileAlloc (arg, 0, 0, &arc_data, &arc_size, 0, 0, 0, false);
+	pikarc_entry_t *entries = 0;
+	uint count = 0;
+	if (!err && (dir_size > UINT_MAX || arc_size > UINT_MAX))
+		err = ERR_FILE_TOO_BIG;
+	if (!err)
+		err = ScanPIKARC (&entries, &count, dir_data, dir_size, arc_data, arc_size);
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	for (uint i = 0; !err && i < count; i++)
+	{
+		// Preserve UTF-8 names and transcode retail Shift-JIS names for the host.
+		if (!valid_utf8 (entries[i].name))
+		{
+			const size_t len = strlen (entries[i].name);
+			char *converted = MALLOC (len * 4 + 1);
+			if (!converted)
+			{
+				err = ERR_OUT_OF_MEMORY;
+				break;
+			}
+			char *dst = converted;
+			cucp src = (cucp)entries[i].name, end = src + len;
+			while (src < end)
+			{
+				const int code = ScanShiftJISCharE (&src, end);
+				if (code <= 0)
+				{
+					err = ERR_INVALID_DATA;
+					break;
+				}
+				dst = PrintUTF8Char (dst, code);
+			}
+			*dst = 0;
+			FREE (entries[i].name);
+			entries[i].name = converted;
+		}
+		if (!valid_sarc_path (entries[i].name)
+			|| strlen (dest) + 1 + (basedir ? strlen (basedir) : 0) + strlen (entries[i].name)
+				>= PATH_MAX)
+			err = ERR_INVALID_DATA;
+	}
+	if (!err && (verbose >= 0 || testmode))
+		fprintf (stdlog, "%sEXTRACT PIKARC:%s (%u files) -> %s/\n", testmode ? "WOULD " : "", arg,
+			count, dest);
+	for (uint i = 0; !err && !testmode && i < count; i++)
+	{
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", entries[i].name);
+		File_t F;
+		err = CreateFileOpt (&F, true, path, false, arg);
+		if (F.f && entries[i].size
+			&& fwrite (entries[i].data, 1, entries[i].size, F.f) != entries[i].size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing Pikmin member failed: %s\n", path);
+		ResetFile (&F, opt_preserve);
+	}
+	FreePIKARC (entries, count);
+	FREE (dir_data);
+	FREE (arc_data);
+	if (!err && !testmode && (opt_recurse < 0 || depth < (uint)opt_recurse))
+		err = extract_tree_complete (dest, depth + 1);
+	return err;
+}
+
+// Extract every ALAR member and validate the complete directory before writing.
+// DSCP-wrapped archives occur inside retail Jump Ultimate Stars containers.
 static enumError extract_alar_file (ccp arg, ccp basedir, uint depth)
 {
 	u8 *raw = 0;
 	size_t raw_size = 0;
 	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false))
 		return ERR_NOTHING_TO_DO;
-	if (raw_size < 32 || raw_size > UINT_MAX || memcmp (raw, "ALAR", 4))
+	if (raw_size >= 4 && !memcmp (raw, "DSCP", 4) && raw_size <= UINT_MAX)
+	{
+		u8 *decoded = 0;
+		uint decoded_size = 0;
+		enumError err = DecodeLZ10LZ11 (&decoded, &decoded_size, raw, raw_size);
+		FREE (raw);
+		if (err)
+			return ERR_INVALID_DATA;
+		raw = decoded;
+		raw_size = decoded_size;
+	}
+	if (raw_size < 4 || memcmp (raw, "ALAR", 4))
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
 	}
-
-	const u8 type = raw[4];
-	if (type != 2 && type != 3)
+	if (raw_size < 16 || raw_size > UINT_MAX)
 	{
 		FREE (raw);
-		return ERR_NOTHING_TO_DO;
+		return ERR_INVALID_DATA;
 	}
-
+	const uint count = le16 (raw + 6);
+	alar_entry_t *entries = count ? CALLOC (count, sizeof (*entries)) : 0;
+	if (!entries)
+	{
+		FREE (raw);
+		return count ? ERR_OUT_OF_MEMORY : ERR_INVALID_DATA;
+	}
 	char dest[PATH_MAX];
 	beside_source_dest (dest, sizeof (dest), arg);
 	enumError err = ERR_OK;
-	uint emitted = 0;
-
-	if (type == 2)
+	for (uint i = 0; i < count; i++)
 	{
-		const u32 off = le32 (raw + 20), size = le32 (raw + 24);
-		if (!size || (u64)off + size > raw_size)
+		err = ReadALAREntry (entries + i, raw, raw_size, i);
+		if (err)
+			break;
+		if (entries[i].name && !valid_sarc_path (entries[i].name))
 		{
-			FREE (raw);
-			return ERR_NOTHING_TO_DO;
+			err = ERR_INVALID_DATA;
+			break;
 		}
-		if (verbose >= 0 || testmode)
-			fprintf (stdlog, "%s%sEXTRACT ALAR:%s (1 file) -> %s/\n", verbose > 0 ? "\n" : "",
-				testmode ? "WOULD " : "", arg, dest);
-		if (!testmode)
+		const size_t name_len = entries[i].name ? strlen (entries[i].name) : 24;
+		if (strlen (dest) + 1 + (basedir ? strlen (basedir) : 0) + name_len >= PATH_MAX)
 		{
-			char path[PATH_MAX];
-			snprintf (path, sizeof (path), "%s/%sfile0.bin", dest, basedir ? basedir : "");
-			File_t F;
-			err = CreateFileOpt (&F, true, path, false, arg);
-			if (F.f && fwrite (raw + off, 1, size, F.f) != size)
-				err = FILEERROR1 (
-					&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, path);
-			ResetFile (&F, opt_preserve);
-		}
-		emitted = 1;
-	}
-	else
-	{
-		if (raw_size < 8)
-		{
-			FREE (raw);
-			return ERR_NOTHING_TO_DO;
-		}
-		const uint n = le16 (raw + 6);
-		if (!n || n > 0x4000 || 16 + 2ULL * (n + 1) > raw_size)
-		{
-			FREE (raw);
-			return ERR_NOTHING_TO_DO;
-		}
-		if (verbose >= 0 || testmode)
-			fprintf (stdlog, "%s%sEXTRACT ALAR:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
-				testmode ? "WOULD " : "", arg, n, dest);
-
-		for (uint i = 0; !err && i < n; i++)
-		{
-			const u64 name_off = 18ULL + le16 (raw + 16 + 2 * (i + 1));
-			if (name_off >= raw_size)
-				continue;
-			const u8 *name = raw + name_off;
-			u64 len = 0;
-			while (name_off + len < raw_size && name[len])
-				len++;
-			if (name_off + len >= raw_size || !len || !valid_sarc_path ((ccp)name))
-				continue;
-
-			u64 meta = name_off + len + 1;
-			if (meta & 1)
-				meta++;
-			if (meta + 16 > raw_size)
-				continue;
-			const u32 off = le32 (raw + meta + 4), size = le32 (raw + meta + 8);
-			if (!size || (u64)off + size > raw_size)
-				continue;
-
-			if (testmode)
-			{
-				emitted++;
-				continue;
-			}
-			char path[PATH_MAX];
-			snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", (ccp)name);
-			File_t F;
-			err = CreateFileOpt (&F, true, path, false, arg);
-			if (F.f && fwrite (raw + off, 1, size, F.f) != size)
-				err = FILEERROR1 (
-					&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, path);
-			ResetFile (&F, opt_preserve);
-			emitted++;
+			err = ERR_INVALID_DATA;
+			break;
 		}
 	}
-
+	if (!err && (verbose >= 0 || testmode))
+		fprintf (stdlog, "%s%sEXTRACT ALAR:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, count, dest);
+	for (uint i = 0; !err && !testmode && i < count; i++)
+	{
+		char generated[32], path[PATH_MAX];
+		snprintf (generated, sizeof (generated), "file%u.bin", i);
+		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "",
+			entries[i].name ? entries[i].name : generated);
+		File_t F;
+		err = CreateFileOpt (&F, true, path, false, arg);
+		if (F.f && entries[i].size
+			&& fwrite (entries[i].data, 1, entries[i].size, F.f) != entries[i].size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing ALAR member failed: %s\n", path);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (entries);
 	FREE (raw);
-	if (!emitted)
-		return ERR_NOTHING_TO_DO;
-	if (!err && !testmode)
-	{
-		enumError sub = extract_tree_complete (dest, depth + 1);
-		if (err < sub)
-			err = sub;
-	}
+	if (!err && !testmode && (opt_recurse < 0 || depth < (uint)opt_recurse))
+		err = extract_tree_complete (dest, depth + 1);
 	return err;
 }
 

@@ -62,6 +62,7 @@
 #include "lib-astc-file.h"
 #include "lib-xtx.h"
 #include "lib-nlg-lm.h"
+#include "lib-pik1.h"
 
 ///////////////		    AssignIMG(), LoadIMG()		///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -124,6 +125,20 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		InitializeIMG (img);
 	else if (!init_img)
 		ResetIMG (img);
+
+	// TXE has no magic: require its extension as well as the bounded header
+	// probe, so ordinary binary data cannot be mistaken for a texture.
+	ccp txe_ext = fname ? strrchr (fname, '.') : 0;
+	if (txe_ext && !strcasecmp (txe_ext, ".txe") && IsTXE (data, data_size))
+	{
+		u8 *rgba = 0;
+		uint width = 0, height = 0;
+		if (DecodeTXE_RGBA (&rgba, &width, &height, data, data_size))
+			return ERROR0 (ERR_INVALID_IFORM, "Invalid TXE texture: %s\n", fname);
+		AssignDecodedRGBA (img, rgba, width, height, &be_func, fname);
+		img->info_fform = FF_TXE;
+		return PatchListIMG (img);
+	}
 
 	if (IsDDS (data, data_size))
 	{

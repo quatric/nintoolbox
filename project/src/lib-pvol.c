@@ -15,7 +15,7 @@
 #include <string.h>
 
 // ----------------------------------------------------------------------------
-// 4. Pikmin 1 & 2 Model/Archive Container (.pvol)
+// 4. PVOL model/archive container (.pvol)
 // ----------------------------------------------------------------------------
 enumError ExtractPVOLArchive (ccp arg, ccp basedir, uint depth)
 {
@@ -118,7 +118,7 @@ static int compare_pvol_entries (const void *a, const void *b)
 	return strcmp (leaf_name (ea->name), leaf_name (eb->name));
 }
 
-// 4. Pikmin 1 & 2 Model/Archive Container (.pvol)
+// 4. PVOL model/archive container (.pvol)
 enumError CreatePVOLArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {

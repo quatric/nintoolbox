@@ -15,7 +15,7 @@
 #include <string.h>
 
 // ----------------------------------------------------------------------------
-// 5. Jump Super Stars / Jump Ultimate Stars DS Archive (.srd / .stpk / STPK)
+// 5. STPK resource archive (.srd / .stpk / STPK)
 // ----------------------------------------------------------------------------
 enumError ExtractSTPKArchive (ccp arg, ccp basedir, uint depth)
 {
@@ -82,7 +82,7 @@ enumError ExtractSTPKArchive (ccp arg, ccp basedir, uint depth)
 	return ERR_OK;
 }
 
-// 5. Jump Super Stars / Jump Ultimate Stars DS Archive (.srd / .stpk)
+// 5. STPK resource archive (.srd / .stpk)
 enumError CreateSTPKArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {

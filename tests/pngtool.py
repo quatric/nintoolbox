@@ -7,7 +7,8 @@ import struct, sys, zlib
 
 
 def _read_png(path):
-    d = open(path, 'rb').read()
+    with open(path, 'rb') as source:
+        d = source.read()
     if d[:8] != b'\x89PNG\r\n\x1a\n':
         raise ValueError('not a PNG')
     pos = 8

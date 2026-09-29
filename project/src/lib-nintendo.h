@@ -224,6 +224,13 @@ enumError EncodeLZOvl (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 int CxIsCompressedLZOvl (const unsigned char *src, unsigned int size);
 
 enumError DecodeALAR (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+typedef struct alar_entry_t
+{
+	ccp name; // optional, bounded NUL-terminated name inside the source buffer
+	const u8 *data;
+	uint size;
+} alar_entry_t;
+enumError ReadALAREntry (alar_entry_t *entry, const u8 *src, uint src_size, uint index);
 enumError DecodeDARC (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 enumError DecodeSADL_WAV (u8 **dest_wav, uint *dest_size, const u8 *src, uint src_size);
 enumError DecodePSDK (u8 **dest, uint *dest_size, const u8 *src, uint src_size);

@@ -6,6 +6,11 @@
 
 enumError DecodeLZ10LZ11 (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 {
+	if (src && src_size >= 4 && (!memcmp (src, "DSCP", 4) || !memcmp (src, "CX00", 4)))
+	{
+		src += 4;
+		src_size -= 4;
+	}
 	if (!src || src_size < 4 || (src[0] != 0x10 && src[0] != 0x11))
 		return EINVAL;
 	const bool lz11 = src[0] == 0x11;

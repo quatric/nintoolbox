@@ -1031,17 +1031,17 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x50, 0x45, 0x52, 0x53, 0x2d, 0x53, 0x5a, 0x50 }, // "PERS-SZP"
 		0, MinusString, MinusString, "Pokemon Stadium N64 Model / Fragment (.pers / FRAGMENT)" },
 
-	// FF_PVOL = 194 (Pikmin 1 & 2 Model Container Archive)
+	// FF_PVOL = 194 (PVOL model container archive)
 	{ FF_PVOL, FF_PVOL, 0, "PVOL", ".pvol", ".szs", ".pvol",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0, { 0 }, 0, MinusString,
-		MinusString, "Pikmin 1 & 2 Model Container Archive (.pvol)" },
+		MinusString, "PVOL model container archive (.pvol)" },
 
-	// FF_STPK = 195 (Jump Super Stars / Jump Ultimate Stars DS Archive)
+	// FF_STPK = 195 (STPK resource archive)
 	{ FF_STPK, FF_STPK, 0, "STPK", ".srd", ".szs", ".stpk",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 4,
 		{ 0x53, 0x54, 0x50, 0x4b }, // "STPK"
 		0, MinusString, MinusString,
-		"Jump Super Stars / Jump Ultimate Stars DS Archive (.srd / STPK)" },
+		"STPK resource archive (.srd / STPK)" },
 
 	// FF_G1M = 196 (Koei Tecmo 3D Model)
 	{ FF_G1M, FF_G1M, 0, "G1M", ".g1m", ".szs", ".g1m", FFT_VALID | FFT_CUT | FFT_DECODE, 4,

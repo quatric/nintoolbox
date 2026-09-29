@@ -2512,10 +2512,12 @@ enumError DecompressLZ (szs_file_t *szs, bool rm_compressed)
 	const wlz_header_t *wh = (wlz_header_t *)szs->cdata;
 	if (memcmp (wh->magic, LZ_MAGIC, sizeof (wh->magic)))
 	{
+		const bool wrapped = szs->csize >= 4
+			&& (!memcmp (szs->cdata, "DSCP", 4) || !memcmp (szs->cdata, "CX00", 4));
 		// FF_LZ can be selected by a heuristic for an embedded payload. Do not
 		// turn an ordinary Storybook asset into a hard extraction error merely
 		// because it is not either of the Nintendo raw-LZ signatures.
-		if (szs->cdata[0] != 0x10 && szs->cdata[0] != 0x11)
+		if (!wrapped && szs->cdata[0] != 0x10 && szs->cdata[0] != 0x11)
 			return ERR_NOTHING_TO_DO;
 		u8 *data = 0;
 		uint size = 0;
@@ -2537,7 +2539,7 @@ enumError DecompressLZ (szs_file_t *szs, bool rm_compressed)
 		// not contain a complete raw-LZ stream. This branch is reached from a
 		// format heuristic, so retain such data verbatim rather than emitting
 		// a false corruption diagnostic or blocking the surrounding extract.
-		return ERR_NOTHING_TO_DO;
+		return wrapped ? ERR_INVALID_DATA : ERR_NOTHING_TO_DO;
 	}
 
 	u8 *data;

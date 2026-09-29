@@ -66,7 +66,7 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | --- | --- | --- | --- | --- | --- | --- |
 | **ABE BigFile** | `.bf` | ✅ | — | — | ✅ | Ubisoft *Rabbids Go Home* BigFile archive (ABE\0 with segmented LZO1X chunks). |
 | **AGI** | `.pak` | ✅ | — | — | ✅ | Toys for Bob archive (*Skylanders: Swap Force*, Wii); audio-bank members extract to FSB5 → WAV, raw `.igz`/`.igx` model/material members; both known entry-table record layouts (pure audio and mixed audio+model) are supported (100% of 2339 retail `.pak` files sampled). |
-| **ALAR** | `.alar` | ✅ | — | — | ✅ | Nintendo DS Nitro ALAR archive (*Jump Ultimate Stars*). |
+| **ALAR** | `.aar`, `.alar` | ✅ | — | — | ✅ | *Jump Super Stars* / *Jump Ultimate Stars* (DS): all named members in type 2 and type 3 archives, including DSCP-wrapped nested archives. See [retail audit](docs/FORMAT_AUDIT.md). |
 | **And-Kensaku** | `.rz` | ✅ | — | — | — | CyberConnect2 "Pres" archive with LZ77 wrapping (Nintendo DS, *And-Kensaku* family). |
 | **APAK** | `.apak` | ✅ | ✅ | ✅ | — | Nintendo / Pokémon APAK archive format (Wii U / Switch) |
 | **ARC / U8** | `.arc`, `.szs` | ✅ | ✅ | ✅ | — | Nintendo standard U8 archive (Wii / GameCube NintendoWare & EAD) |
@@ -152,7 +152,8 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **PKZ** | `.pkz` | ✅ | ✅ | ✅ | — | PlatinumGames archive format (*Bayonetta*, *Astral Chain*) |
 | **PRC** | `.prc`, `.param` | ✅ | — | — | — | Smash parameter binary (Ultimate `paracobn` decoded to ParamXML; Smash 4 variants recognised). |
 | **PTD** | `.ptd`, `.pdt` | ✅ | ✅ | ✅ | — | Hudson Soft DSP-ADPCM audio archive (*Mario Party 4-8*); streams extract to `.dsp`. |
-| **PVOL** | `.pvol` | 🟡 | ✅ | ✅ | 🟡 | *Pikmin 1 & 2* model & resource container archive. |
+| **Pikmin ARC/DIR** | `.arc` + `.dir` | ✅ | API | — | ✅ | *Pikmin* (GameCube): extract `.arc` with its sibling `.dir`, preserving paths and empty files. Interleaved index records and aligned data; writer API tested independently. |
+| **PVOL** | `.pvol` | 🟡 | ✅ | ✅ | — | Container with synthetic roundtrip coverage; retail provenance unverified. The sampled *Pikmin* disc uses ARC/DIR pairs, not this layout. |
 | **RARC** | `.rarc`, `.arc` | ✅ | ✅ | ✅ | — | Nintendo standard resource archive (GameCube / Wii) |
 | **RFL_Res** | `RFL_Res.dat`, `.dat` | ✅ | ✅ | ✅ | ✅ | Revolution Face Library Mii resource database (Wii / 3DS / Wii U). |
 | **RKET** | `.rck`, `.spa` | 🟡 | — | — | ✅ | *Aqua Panic!* (Wii) per-level scene / localized-pack resource container. |
@@ -168,7 +169,7 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **SIR0** | `.sir0` | ✅ | ✅ | ✅ | ✅ | Pokémon Mystery Dungeon resource container (DS / 3DS). |
 | **SMASH-ARC** | `.arc` | ✅ | ✅ | — | — | *Super Smash Bros. Ultimate* `data.arc` (Switch). |
 | **Storybook ONE** | `.one` | ✅ | ✅ | — | ✅ | Sonic Team *Sonic and the Secret Rings* / *Black Knight* PRS-compressed container. |
-| **STPK** | `.srd`, `.stpk` | ✅ | ✅ | ✅ | 🟡 | *Jump Super Stars* & *Jump Ultimate Stars* DS resource archive. |
+| **STPK** | `.srd`, `.stpk` | ✅ | ✅ | ✅ | — | STPK container with synthetic roundtrip coverage; retail provenance unverified. The sampled Jump Stars games use ALAR archives. |
 | **Sumo STZ** | `.stz` | ✅ | — | — | ✅ | Sumo Digital tool-resource container (*Sonic & Sega All-Stars Racing*, Wii; `Resource/SumoToolResources/*.stz`): single big-endian header wrapping a raw zlib stream, inflated (into a buffer that grows to fit, not preallocated from the header's undersized size hint on some samples) to its inner FourCC-tagged chunk blob (`PTEX` font/UI texture atlas in every sample seen; the chunk format itself is not decoded further). Verified against all 1442 retail `.stz` files on the disc: 1442/1442 decode. |
 | **Sumo WAS** | `.was` | ✅ | — | — | ✅ | Sumo Digital multi-channel DSP-ADPCM audio stream (*Sonic & Sega All-Stars Racing*, Wii; `Resource/Audio/wav/**/*.was`): `iSWS` header, one `.dsp`-identical per-channel sub-header, then sample data block-interleaved BRSTM-style across channels (fixed 0x8000-byte blocks, last block zero-padded), reusing this repo's existing DSP-ADPCM decoder and decoding to interleaved 16-bit PCM WAV. Verified against mono voice-line and stereo music `.was` files on the disc from a few KB to 10+ MB: on-disk file size reconstructs exactly from the block layout, and decoded output has correct declared sample counts/durations, non-silent/non-clipping levels, and no channel-desync artifacts at block boundaries. |
 | **Terminal Reality POD** | `.pod` | ✅ | — | — | ✅ | POD3/4/5 archive (*Nickelodeon Dance*, Wii); stored members with a directory tree |
@@ -308,7 +309,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **TM0** | `.tm0` | ✅ | — | — | ✅ | Monster Games high-resolution texture (*Excite Truck*, Wii) |
 | **Tropical TXTR** | `.txtr` | ✅ | — | — | — | Retro Studios texture, new revision (*Donkey Kong Country: Tropical Freeze*, Wii U) |
 | **TVOL** | `.tvol` | ✅ | — | — | — | Koei Tecmo / Gust texture volume archive. |
-| **TXE** | `.txe` | ✅ | — | — | — | *Pikmin 1* texture (decodes to PNG). |
+| **TXE** | `.txe` | ✅ | — | — | ✅ | *Pikmin* (GameCube) texture; standalone `wimgt DECODE` to PNG, validated on retail textures. |
 | **TXTG** | `.txtg` | ✅ | — | — | — | Next Level Games Texture To Go (`6PK0`). |
 | **WIBN** | `banner.bin`, `.bnr` | ✅ | — | — | — | Wii save game banner (Wii) |
 | **Wii banner** | `opening.bnr`, `IMET`, `IMD5` | ✅ | — | — | ✅ | Wii channel/disc banner (Wii) |
@@ -399,7 +400,7 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | **Diff8 / Diff16** | `0x81`, `0x82` | ✅ | ✅ | Nintendo DS differential delta filter encoding |
 | **FZIP** | `FZIP` | ✅ | ✅ | *Game & Wario* Zlib stream container (Wii U). |
 | **Huffman (4-bit / 8-bit)** | `0x24`, `0x28` | ✅ | ✅ | Nintendo DS Huffman stream compression |
-| **LZ10** | `0x10` (LZSS) | ✅ | ✅ | Nintendo standard LZ77 (GameCube / Wii / DS / GBA) |
+| **LZ10** | `0x10` (LZSS) | ✅ | ✅ | Nintendo standard LZ77 (GameCube / Wii / DS / GBA); DSCP and CX00 wrappers also decode. |
 | **LZ11** | `0x11` (Extended LZSS) | ✅ | ✅ | Nintendo extended LZSS with 4-byte match lengths (DS / 3DS) |
 | **LZ4** | `04 22 4D 18` | ✅ | ✅ | Standard LZ4 frame compression |
 | **LZO / LZOvl** | Overlay trailer | ✅ | ✅ | Nintendo DS reverse LZO overlay compression |

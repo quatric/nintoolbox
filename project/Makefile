@@ -1480,6 +1480,20 @@ test-mdr-bounds: version.h
 	$(CC) $(MDR_TEST_CFLAGS) -ffunction-sections -fdata-sections -I. -Isrc -Idclib ../tests/test-mdr-bounds.c src/lib-mdr.c $(COMPRESSION_TEST_LDFLAGS) -lz -o bin/test-mdr-bounds
 	@./bin/test-mdr-bounds
 
+.PHONY : test-pikarc
+PIKARC_TEST_CFLAGS ?= -O2
+test-pikarc: version.h
+	@mkdir -p bin
+	$(CC) $(PIKARC_TEST_CFLAGS) -ffunction-sections -fdata-sections -I. -Isrc -Idclib ../tests/test-pikarc.c src/lib-pik1.c $(COMPRESSION_TEST_LDFLAGS) -lm -o bin/test-pikarc
+	@./bin/test-pikarc
+
+.PHONY : test-alar
+ALAR_TEST_CFLAGS ?= -O2
+test-alar: version.h
+	@mkdir -p bin
+	$(CC) $(ALAR_TEST_CFLAGS) -ffunction-sections -fdata-sections -I. -Isrc -Idclib ../tests/test-alar.c src/lib-alar.c $(COMPRESSION_TEST_LDFLAGS) -o bin/test-alar
+	@./bin/test-alar
+
 .PHONY : test-xpck-bounds
 XPCK_TEST_CFLAGS ?= -O2
 test-xpck-bounds: version.h
