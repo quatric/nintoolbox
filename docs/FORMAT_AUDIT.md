@@ -195,3 +195,36 @@ Extracted ROM SHA-256 (Soma Bringer is the outer image):
 Luminous Arc.nds 30c8c2bf9eced043c4a993f43076fd8532a2df038d65ae5bed62a8cba8c87bed
 Soma Bringer.nds db97954685e09b3814a5d048c4460779ecfee58a0389e62f59abc22f55cd171f
 ```
+
+
+## Luminous Arc IEAR resource archives
+
+Native `wszst EXTRACT` recognizes the `MAIN`/`JTBL` signature independently of
+filename extension. It validates the complete directory, chunk lengths and
+`ENDT` footer before writing any files. Each 16-byte resource wrapper is removed;
+payloads are emitted as `file_0000.nclr`, `file_0001.ncbr`, and so on, using the
+lowercase chunk tag. Unsafe tags fall back to `.bin`, and indexed names prevent
+duplicate tags from overwriting one another.
+
+All **331 archives and 7,511 members** from the Luminous Arc (USA) sample above
+match an independent Python directory reader byte for byte. Native regression
+tests cover every truncation of a fixture, oversized counts and corrupt offsets
+and lengths under AddressSanitizer and UndefinedBehaviorSanitizer. CLI tests also
+cover dry runs, empty members, unsafe tags and write failures.
+
+This is payload extraction support. Repacking, automatic palette association,
+and semantic decoding of proprietary resource tags remain unsupported.
+
+```sh
+wszst EXTRACT resource.iear --recurse=0 -d extracted
+python3 tests/audit_retail_corpus.py /path/to/luminous/files --format iear \
+  --output /tmp/iear-report.json
+make -C project test-iear IEAR_TEST_CFLAGS='-O1 -g -fsanitize=address,undefined'
+```
+
+The additional rclone sample
+`Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Luminous Arc 2 (USA).zip`
+contains no `MAIN` archives. It uses different resource layouts, so this IEAR
+audit does not establish support for the sequel's resources. Its extracted ROM
+SHA-256 is `dd6fc8a1e8a9019f75ec6683bbbdb001ded9fab7328b2e3802260b7a870064aa`.
+No retail assets are included in the repository.

@@ -6,6 +6,7 @@
 #include "extract/bigf.inc"
 #include "extract/pikarc.inc"
 #include "extract/pck2.inc"
+#include "extract/iear.inc"
 #include "extract/alar.inc"
 #include "extract/arc0.inc"
 #include "extract/abe.inc"

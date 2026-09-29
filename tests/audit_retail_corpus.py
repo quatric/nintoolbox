@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify ALAR, PCK2 or Pikmin ARC/DIR extraction against every source member.
+"""Verify ALAR, PCK2, IEAR or Pikmin ARC/DIR extraction against every source member.
 
 Usage: python3 tests/audit_retail_corpus.py /path/to/extracted/rom/files --output report.json
 The report contains counts and failures; source files are never modified.
@@ -96,9 +96,29 @@ def pck2_members(data):
         pos += record
 
 
+def iear_members(data):
+    count = struct.unpack_from('<I', data, 4)[0]
+    words = struct.unpack_from('<I', data, 20)[0]
+    if data[:4] != b'MAIN' or data[16:20] != b'JTBL' or data[-16:-12] != b'ENDT':
+        raise ValueError('invalid IEAR signature')
+    if words != (count*2+3)//4*4 or 32+words*4 > len(data)-16:
+        raise ValueError('invalid IEAR directory')
+    for i in range(count):
+        offset, size = struct.unpack_from('<II', data, 32+i*8)
+        if offset < 32+words*4 or size < 16 or offset+size > len(data)-16:
+            raise ValueError('invalid IEAR member bounds')
+        payload_size = struct.unpack_from('<I', data, offset+4)[0]
+        if payload_size != size-16:
+            raise ValueError('IEAR member length mismatch')
+        tag = data[offset:offset+4].split(b'\0',1)[0].lower()
+        extension = tag.decode('ascii') if tag and all(c in b'abcdefghijklmnopqrstuvwxyz0123456789_' for c in tag) else 'bin'
+        yield f'file_{i:04d}.{extension}', data[offset+16:offset+size]
+
+
 def audit(path, binary, kind):
     data = path.read_bytes()
     expected = list(alar_members(data) if kind == 'alar' else pck2_members(data) if kind == 'pck2' else
+                    iear_members(data) if kind == 'iear' else
                     pikmin_members(path.with_suffix('.dir').read_bytes(), data))
     with tempfile.TemporaryDirectory(prefix='alar-audit-') as tmp:
         dest = Path(tmp) / 'out'
@@ -122,7 +142,7 @@ def main():
     parser.add_argument('--binary', type=Path,
                         default=Path(__file__).resolve().parents[1] / 'project/bin/wszst')
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--format', choices=('alar', 'pikmin', 'pck2'), default='alar')
+    parser.add_argument('--format', choices=('alar', 'pikmin', 'pck2', 'iear'), default='alar')
     parser.add_argument('--jobs', type=int, default=4)
     args = parser.parse_args()
     if not args.root.is_dir():
@@ -134,6 +154,9 @@ def main():
         if path.is_file():
             if args.format == 'pikmin':
                 if path.suffix.lower() == '.arc' and path.with_suffix('.dir').is_file():
+                    paths.append(path.resolve())
+            elif args.format == 'iear':
+                if path.suffix.lower() == '.iear':
                     paths.append(path.resolve())
             elif args.format == 'pck2':
                 if path.suffix.lower() in ('.plz', '.pck2'):
