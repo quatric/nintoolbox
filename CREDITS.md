@@ -104,6 +104,30 @@ We acknowledge and credit the following tools and authors whose research, format
   * Reference tools for Wii container and system formats (U8, TPL, BMG, DOL, WAD, TMD, Ticket).
 * **nfs2iso2nfs** ([sabykos/nfs2iso2nfs](https://github.com/sabykos/nfs2iso2nfs))
   * Reference implementation for the Wii U "Wii Virtual Console" NFS/EGGS container; `wit`'s `x-nfs.c` is a direct C port of its `nfs2iso` / `iso2nfs` logic.
+* **GvrTool** by **MaikelChan** ([GvrTool](https://github.com/MaikelChan/GvrTool))
+  * MIT-licensed GVR/GVMH texture tool used to independently verify the GameCube/Wii Sega GVR texture layout implemented in `lib-gvr.c`.
+* **nsbmd_docs** by **scurest** ([nsbmd_docs](https://github.com/scurest/nsbmd_docs))
+  * Community documentation of the Nintendo DS NSBMD/BMD0 model format (MDL0/TEX0 blocks, render commands, matrix stack), read as the reference for `lib-nsbmd.c`.
+* **BFRES-Tool** by **aboood40091** ([BFRES-Tool](https://github.com/aboood40091/BFRES-Tool))
+  * GPL-3.0 reference for the Wii U GX2 addrlib surface address computation (`computeMacroTileAspectRatio` and related tiling logic), ported into `lib-gtx.c`.
+* **HSDLib** by **Ploaj** ([HSDLib](https://github.com/Ploaj/HSDLib))
+  * MIT-licensed reference for HAL Laboratory HSD/DAT structures (JOBJ/DOBJ/POBJ, alternate null pointer handling) used by `lib-hsd.c`.
+* **txtrtool** by **xchellx** ([txtrtool](https://github.com/xchellx/txtrtool)) and **DK-Tropical-Freeze-Model-Extractor** by **leamsii** ([repo](https://github.com/leamsii/DK-Tropical-Freeze-Model-Extractor))
+  * Encode/decode ground truth for Retro Studios TXTR textures (mip size calculation, format decoding) used by `lib-retro-txtr.c`.
+* **rnc_propack_source** by **lab313ru** ([rnc_propack_source](https://github.com/lab313ru/rnc_propack_source))
+  * Reference for the Rob Northen Compression (RNC ProPack) methods implemented in `lib-rnc.c`.
+* **GotaSequenceLib** by **Gota7** ([GotaSequenceLib](https://github.com/Gota7/GotaSequenceLib)) and **GotaSequenceCmd** by **kitlith** ([GotaSequenceCmd](https://github.com/kitlith/GotaSequenceCmd))
+  * NintendoWare sequence bytecode opcode definitions and CLI conversion flow used by `lib-sequence.c`.
+* **NintyFont** by **hadashisora** ([NintyFont](https://github.com/hadashisora/NintyFont))
+  * From-source CFNT/FINF/TGLP reader used to verify the Nintendo font (RFNT/CFNT) layouts in `lib-nintendo.c`.
+* **mpbintools** by **gamemasterplc** ([mpbintools](https://github.com/gamemasterplc/mpbintools))
+  * Reference for the Mario Party MPBIN container and its QuickLZ-compressed members.
+* **telltale-explorer** by **coccofresco** ([telltale-explorer](https://github.com/coccofresco/telltale-explorer))
+  * Reference for the Telltale Games TTARCH archive layouts implemented in `lib-ttarch.c`.
+* **Paper-Mario-Tools** and **LM_Research** by **KillzXGaming** ([Paper-Mario-Tools](https://github.com/KillzXGaming/Paper-Mario-Tools), [LM_Research](https://github.com/KillzXGaming/LM_Research))
+  * Paper Mario LightConverter and hash-string tables (`pm-hash-strings.inc`, `lib-papermario.c`), and the Luigi's Mansion MDL format research (with SpaceCats) behind `lib-lmmdl.c`.
+* **Nintendo_DS_Compressors** by **PeterLemon** ([Nintendo_DS_Compressors](https://github.com/PeterLemon/Nintendo_DS_Compressors))
+  * Additional reference for the Nintendo DS LZ/Huffman/RLE compression variants, alongside CUE's decompressors.
 * **QuickBMS** by **Luigi Auriemma** (<http://aluigi.altervista.org/quickbms.htm>)
   * Format documentation, decompression algorithms, and container specifications used for various flat archives.
 * **EveryFileExplorer** by **Gericom** ([EveryFileExplorer](https://github.com/Gericom/EveryFileExplorer))
@@ -195,6 +219,30 @@ We acknowledge and credit the following tools and authors whose research, format
 * **License:** No explicit license file in the upstream repository for ctrtool itself; its bundled dependency libraries below carry their own stated licenses.
 * **Description:** Nintendo 3DS CIA/CCI/NCCH/ExeFS/RomFS reader and extractor. Vendored under `project/third_party/ctrtool` and built as a companion binary shipped alongside `wszst`, so its 3DS pass-through extraction (`lib-passthru.c`) works without a separately installed copy on `PATH`.
   * Bundles **libmbedtls** (Apache License 2.0, Mbed-TLS/ARM contributors), **{fmt}** (MIT License, Victor Zverovich), and Project_CTR's own **libtoolchain**, **libnintendo-n3ds**, and **libbroadon-es** (MIT License).
+
+### 13. LZ4
+* **Author:** Yann Collet
+* **Website:** <https://github.com/lz4/lz4>
+* **License:** BSD 2-Clause (library)
+* **Description:** Fast LZ4 block/frame/HC compression, vendored under `project/src/liblz4` (includes xxHash).
+
+### 14. Zstandard (`libzstd`)
+* **Author / Project:** Meta Platforms, Inc. (Yann Collet, Nick Terrell) and contributors
+* **Website:** <https://github.com/facebook/zstd>
+* **License:** BSD-3-Clause or GPL-2.0 (dual)
+* **Description:** Zstandard compression, vendored as a single-file amalgamation in `project/src/libzstd`. Bundles FiniteStateEntropy (Yann Collet, BSD), xxHash (Yann Collet, BSD 2-Clause), zstdmt (Tino Reichardt, BSD/GPL) and portions adapted from Google's HighwayHash (Apache 2.0).
+
+### 15. xxHash
+* **Author:** Yann Collet
+* **Website:** <https://github.com/Cyan4973/xxHash>
+* **License:** BSD 2-Clause
+* **Description:** Fast non-cryptographic hash used by LZ4 frames and Zstandard.
+
+### 16. sentry-native
+* **Author / Project:** Functional Software, Inc. (Sentry) and contributors
+* **Website:** <https://github.com/getsentry/sentry-native>
+* **License:** MIT License
+* **Description:** Crash reporting SDK vendored under `project/third_party/sentry-native` and used by `szs-sentry.c`.
 
 ---
 
