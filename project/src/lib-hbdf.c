@@ -308,14 +308,6 @@ enumError ScanHBDF (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *
 // triangle list exactly like the reference's ctx.indices[] window.
 // SkinningBlock/ENVS/ANMF carry no fields in the reference and are skipped.
 
-static float hbdf_lef32 (const u8 *p)
-{
-	u32 u = (u32)p[0] | (u32)p[1] << 8 | (u32)p[2] << 16 | (u32)p[3] << 24;
-	float f;
-	memcpy (&f, &u, 4);
-	return f;
-}
-
 static int32_t hbdf_les32 (const u8 *p)
 {
 	return (int32_t)((u32)p[0] | (u32)p[1] << 8 | (u32)p[2] << 16 | (u32)p[3] << 24);
@@ -604,6 +596,17 @@ static bool hbdf_parse_model (hbdf_modelblk_t *blk, const u8 *data, size_t len)
 		char tag[5];
 		memcpy (tag, data + pos, 4);
 		tag[4] = 0;
+		// Retail files put small filler records (8 bytes, no tag) between
+		// blocks; resynchronise on the next 4-byte-aligned tag.
+		bool tag_ok = true;
+		for (int c = 0; c < 4; c++)
+			if (tag[c] < 'A' || tag[c] > 'Z')
+				tag_ok = false;
+		if (!tag_ok)
+		{
+			pos += 4;
+			continue;
+		}
 		const u32 bsize = rd_le32 (data + pos + 4);
 		if (bsize < 8 || pos + bsize > len)
 			break;
@@ -614,19 +617,24 @@ static bool hbdf_parse_model (hbdf_modelblk_t *blk, const u8 *data, size_t len)
 				pos += bsize; // more objects than announced; skip
 				continue;
 			}
-			if (bsize < 8 + 48)
+			// Short OBJOs (no scale fields) exist; missing fields default.
+			if (bsize < 8 + 12)
 				break;
 			const u8 *o = data + pos + 8;
+			const size_t olen = bsize - 8;
 			hbdf_object_t *ob = objs + n_objs;
 			ob->type = rd_le16 (o);
 			ob->parent = (int16_t)rd_le16 (o + 2);
 			const u32 name_off = rd_le32 (o + 8);
 			for (int c = 0; c < 3; c++)
-				ob->t[c] = hbdf_lef32 (o + 12 + c * 4);
+				if (12 + (size_t)(c + 1) * 4 <= olen)
+					ob->t[c] = (float)hbdf_les32 (o + 12 + c * 4) / 4096.0f;
 			for (int c = 0; c < 3; c++)
-				ob->r[c] = (float)hbdf_les32 (o + 24 + c * 4) / 16384.0f;
+				if (24 + (size_t)(c + 1) * 4 <= olen)
+					ob->r[c] = (float)hbdf_les32 (o + 24 + c * 4) * (6.2831853f / 65536.0f);
 			for (int c = 0; c < 3; c++)
-				ob->s[c] = hbdf_lef32 (o + 36 + c * 4);
+				if (36 + (size_t)(c + 1) * 4 <= olen)
+					ob->s[c] = (float)hbdf_les32 (o + 36 + c * 4) / 4096.0f;
 			if (!ob->s[0])
 				ob->s[0] = 1.0f;
 			if (!ob->s[1])
@@ -636,18 +644,24 @@ static bool hbdf_parse_model (hbdf_modelblk_t *blk, const u8 *data, size_t len)
 			ob->ms[0] = ob->ms[1] = ob->ms[2] = 1.0f;
 			// Stash the name offset in the name field until STRB resolves.
 			snprintf (ob->name, sizeof (ob->name), "@%u", name_off);
-			pos += bsize;
+			// The MESH belongs to its object: retail files nest it inside
+			// the OBJO block's own size (right after the 48-byte fields),
+			// others place it as the next sibling. Either way it is
+			// magic-driven; the reference keys off the object type.
+			const size_t obj_end = pos + bsize;
+			size_t mpos = obj_end;
+			if (pos + 8 + 48 + 8 <= obj_end && !memcmp (data + pos + 8 + 48, "MESH", 4))
+				mpos = pos + 8 + 48;
+			pos = obj_end;
 			n_objs++;
-			// A MESH sibling right after its object belongs to it
-			// (magic-driven; the reference keys off the object type).
-			if (pos + 8 <= len && !memcmp (data + pos, "MESH", 4))
+			if (mpos + 8 <= len && !memcmp (data + mpos, "MESH", 4))
 			{
-				const u32 msize = rd_le32 (data + pos + 4);
-				if (msize >= 8 + 32 && pos + msize <= len)
+				const u32 msize = rd_le32 (data + mpos + 4);
+				if (msize >= 8 + 32 && mpos + msize <= len)
 				{
-					const u8 *m = data + pos + 8;
+					const u8 *m = data + mpos + 8;
 					for (int c = 0; c < 3; c++)
-						ob->ms[c] = hbdf_lef32 (m + c * 4);
+						ob->ms[c] = (float)hbdf_les32 (m + c * 4) / 4096.0f;
 					if (!ob->ms[0])
 						ob->ms[0] = 1.0f;
 					if (!ob->ms[1])
@@ -656,7 +670,9 @@ static bool hbdf_parse_model (hbdf_modelblk_t *blk, const u8 *data, size_t len)
 						ob->ms[2] = 1.0f;
 					const u16 nblocks = rd_le16 (m + 28);
 					const u16 dsize = rd_le16 (m + 30);
-					if (nblocks && nblocks <= 256 && 32 + (size_t)nblocks * 8 + dsize <= msize - 8)
+					// dsize spans the PolyGroup table plus the display list.
+					if (nblocks && nblocks <= 256 && dsize >= (size_t)nblocks * 8
+						&& 32 + (size_t)dsize <= msize - 8)
 					{
 						ob->polys = CALLOC (nblocks, sizeof (*ob->polys));
 						if (ob->polys)
@@ -670,11 +686,12 @@ static bool hbdf_parse_model (hbdf_modelblk_t *blk, const u8 *data, size_t len)
 							}
 							ob->n_polys = nblocks;
 							ob->dl = m + 32 + (size_t)nblocks * 8;
-							ob->dl_size = dsize;
+							ob->dl_size = dsize - (uint)nblocks * 8;
 						}
 					}
 				}
-				pos += msize;
+				if (mpos == pos)
+					pos += msize;
 			}
 		}
 		else if (!strcmp (tag, "STRB"))
@@ -951,37 +968,42 @@ model_t *ParseHBDF (const u8 *data, uint size)
 					hbdf_object_t *ob = blk.objects + oi;
 					if (!ob->dl || !ob->dl_size || !ob->n_polys)
 						continue;
-					// UV dims from the first ranged group's texture.
-					uint tw = 0, th = 0;
-					for (uint g = 0; g < ob->n_polys; g++)
-					{
-						if (ob->polys[g].face_count)
-						{
-							hbdf_mat_tex_size (
-								&blk, images, n_images, ob->polys[g].mat_idx, &tw, &th);
-							break;
-						}
-					}
-					// Decode into a scratch model so the split meshes can
-					// append to out without moving src underneath us.
-					model_t scratch;
-					memset (&scratch, 0, sizeof (scratch));
-					const int midx
-						= AppendDSGXMesh (&scratch, ob->dl, ob->dl_size, ob->name, tw, th);
-					if (midx < 0)
-						continue;
-					mesh_t *src = scratch.meshes + midx;
 					hbdf_mat4_t world;
 					hbdf_world_matrix (&blk, oi, &world);
-					// Split per PolyGroup material range.
+					// Each PolyGroup is a slice of the display list, given as
+					// a start and length in 4-byte words; decode every slice
+					// on its own so it becomes one primitive with its own
+					// material and UV size.
 					for (uint g = 0; g < ob->n_polys; g++)
 					{
-						uint start = ob->polys[g].face_start;
-						uint count = ob->polys[g].face_count;
-						if (!count || start >= src->num_vertices)
+						const size_t dl_start = (size_t)ob->polys[g].face_start * 4;
+						size_t dl_len = (size_t)ob->polys[g].face_count * 4;
+						if (!dl_len || dl_start >= ob->dl_size)
 							continue;
-						if (start + count > src->num_vertices)
-							count = (uint)src->num_vertices - start;
+						if (dl_start + dl_len > ob->dl_size)
+							dl_len = ob->dl_size - dl_start;
+						uint tw = 0, th = 0;
+						hbdf_mat_tex_size (&blk, images, n_images, ob->polys[g].mat_idx, &tw, &th);
+						// Decode into a scratch model so the split meshes can
+						// append to out without moving src underneath us.
+						model_t scratch;
+						memset (&scratch, 0, sizeof (scratch));
+						const int midx = AppendDSGXMesh (
+							&scratch, ob->dl + dl_start, dl_len, ob->name, tw, th);
+						if (midx < 0)
+							continue;
+						mesh_t *src = scratch.meshes + midx;
+						const uint start = 0;
+						uint count = (uint)src->num_vertices - (uint)src->num_vertices % 3;
+						if (!count)
+						{
+							FREE (src->positions);
+							FREE (src->normals);
+							FREE (src->texcoords);
+							FREE (src->vertices);
+							FREE (scratch.meshes);
+							continue;
+						}
 						mesh_t nm;
 						memset (&nm, 0, sizeof (nm));
 						snprintf (nm.name, sizeof (nm.name), "%s_p%u",
@@ -996,6 +1018,11 @@ model_t *ParseHBDF (const u8 *data, uint size)
 							FREE (nm.normals);
 							FREE (nm.texcoords);
 							FREE (nm.vertices);
+							FREE (src->positions);
+							FREE (src->normals);
+							FREE (src->texcoords);
+							FREE (src->vertices);
+							FREE (scratch.meshes);
 							continue;
 						}
 						for (uint j = 0; j < count; j++)
@@ -1052,16 +1079,21 @@ model_t *ParseHBDF (const u8 *data, uint size)
 							FREE (nm.normals);
 							FREE (nm.texcoords);
 							FREE (nm.vertices);
+							FREE (src->positions);
+							FREE (src->normals);
+							FREE (src->texcoords);
+							FREE (src->vertices);
+							FREE (scratch.meshes);
 							continue;
 						}
 						out->meshes = grown;
 						out->meshes[out->num_meshes++] = nm;
+						FREE (src->positions);
+						FREE (src->normals);
+						FREE (src->texcoords);
+						FREE (src->vertices);
+						FREE (scratch.meshes);
 					}
-					FREE (src->positions);
-					FREE (src->normals);
-					FREE (src->texcoords);
-					FREE (src->vertices);
-					FREE (scratch.meshes);
 				}
 				hbdf_free_modelblk (&blk);
 			}

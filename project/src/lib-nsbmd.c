@@ -311,7 +311,13 @@ static int run_display_list (geom_t *g, const uint8_t *d, size_t size, const ds_
 			const uint8_t op = cmd[c];
 			const uint np = nparams[op];
 			if (pos + (size_t)np * 4 > size)
-				return 1; // truncated stream: keep what we already decoded
+			{
+				// Truncated stream: keep what we already decoded,
+				// including the primitive still being built.
+				if (in_prim)
+					emit_primitive (g, prim, P, N, T, HN, HT, run);
+				return 1;
+			}
 			const uint8_t *p = d + pos;
 			pos += (size_t)np * 4;
 
