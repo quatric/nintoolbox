@@ -40,7 +40,17 @@
 
 bool IsWTB (const u8 *data, size_t size)
 {
-	return data && size >= 3 && !memcmp (data, "WTB", 3);
+	if (!data || size < WTB_HDR_SIZE || memcmp (data, "WTB", 3))
+		return false;
+	const u32 num = rd_le32 (data + 8);
+	const u32 data_offset_table = rd_le32 (data + 0x0c);
+	const u32 data_size_table = rd_le32 (data + 0x10);
+	const u32 texture_info_table = rd_le32 (data + 0x1c);
+	if (!num || num > WTB_MAX_TEXTURES)
+		return false;
+	return (u64)data_offset_table + (u64)num * 4 <= size
+		&& (u64)data_size_table + (u64)num * 4 <= size
+		&& (u64)texture_info_table + (u64)num * WTB_INFO_SIZE <= size;
 }
 
 void ResetWTB (wtb_t *wtb)

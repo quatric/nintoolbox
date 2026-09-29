@@ -165,7 +165,7 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **RZPK** | `.rzpk` | ✅ | ✅ | ✅ | — | Mario Party 3DS compressed archive (zlib members). |
 | **SARC** | `.sarc`, `.szs` | ✅ | ✅ | ✅ | ✅ | NintendoWare NW4F & NintendoSDK sorted archive (Wii U / Switch / 3DS). |
 | **SEC** | `.sec` | ✅ | — | — | ✅ | *Octomania* (Wii) scene/demo resource container. |
-| **SFZDAT** | `.dat` | ✅ | 🟡 | — | ✅ | *Star Fox Zero* (Wii U) flat archive (`DAT\0`). |
+| **SFZDAT** | `.dat` | ✅ | ✅ | — | ✅ | *Star Fox Zero* (Wii U) flat archive (`DAT\0`). |
 | **SHARC / SHARCFB** | `.sharc`, `.sharcfb` | ✅ | ✅ | — | ✅ | NintendoWare shader source and binary archive (Wii U / Switch). |
 | **SIR0** | `.sir0` | ✅ | ✅ | ✅ | ✅ | Pokémon Mystery Dungeon resource container (DS / 3DS). |
 | **SMASH-ARC** | `.arc` | ✅ | ✅ | — | — | *Super Smash Bros. Ultimate* `data.arc` (Switch). |
@@ -299,7 +299,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **NUT** | `.nut` | ✅ | ✅ | ✅ | ✅ | Bandai Namco texture package (*Super Smash Bros. 4*, Wii U / 3DS) |
 | **NUTEXB** | `.nutexb` | ✅ | ✅ | ✅ | — | Bandai Namco / Nintendo Switch texture wrapper (Switch) |
 | **PLT0** | `.plt0` | — | — | — | — | Nintendo DS / Wii palette file (identification only). |
-| **PST** | `.pst` | 🟡 | — | — | ✅ | *Mercury Meltdown Revolution* (Wii) paletted texture format. |
+| **PST** | `.pst` | ✅ | — | — | ✅ | *Mercury Meltdown Revolution* (Wii) texture sheet container (TSPA header, subtexture entries, packed dims & formats). |
 | **PTLG** | `.glt`, `.rlt` | ✅ | ✅ | ✅ | ✅ | Next Level Games texture container, extracted as TPL (*Super Mario Strikers*, *Mario Strikers Charged*). |
 | **Retro TXTR** | `.txtr` | ✅ | ✅ | ✅ | ✅ | Retro Studios texture, old revision (*Metroid Prime 1-3*, *Donkey Kong Country Returns*, Wii) |
 | **SMDH** | `.smdh` | ✅ | ✅ | — | ✅ | Nintendo 3DS application icon, publisher info & title metadata. |
