@@ -54,7 +54,20 @@ typedef struct brsar_asset_t
 	const u8 *data; // asset payload (already-assembled binary)
 	size_t size;
 	u32 bank_id; // RSEQ only: index into the bank table it references
+	const u8 *wave_data; // RBNK/RWSD only: paired RWAR wave data (group wave region), or NULL
+	size_t wave_size;
 } brsar_asset_t;
+
+// One sound-table entry. A real RSEQ file holds many labeled songs, so several
+// sounds may reference the same RSEQ asset at different label offsets.
+typedef struct brsar_sound_t
+{
+	ccp name; // sound name (e.g. "BGM_TOWN")
+	ccp seq_name; // asset name of the RSEQ it plays
+	ccp bank_name; // asset name of the RBNK it uses (NULL = bank 0)
+	u32 data_offset; // label offset inside the RSEQ DATA block
+	u32 alloc_track; // track allocation mask
+} brsar_sound_t;
 
 // Build an archive binary in memory from a list of pre-resolved assets.
 // Sequence assets must already be assembled binary (RSEQ/BRSEQ); text/MML
@@ -62,6 +75,16 @@ typedef struct brsar_asset_t
 // first (see wbrsar.c's pack command).
 enumError PackBRSAR (u8 **out_data, size_t *out_size, const brsar_asset_t *assets, uint n_assets,
 	brsar_variant_t variant);
+
+// Like PackBRSAR, but with an explicit sound table (see brsar_sound_t). With
+// n_sounds == 0 every RSEQ asset becomes one sound named after itself.
+enumError PackBRSAREx (u8 **out_data, size_t *out_size, const brsar_asset_t *assets, uint n_assets,
+	const brsar_sound_t *sounds, uint n_sounds, brsar_variant_t variant);
+
+// RWAR wave archive <-> directory of RWAV files (NNNNN.brwav). Repacking is
+// content-preserving; padding is normalized to 0x20.
+enumError UnpackRWAR (const u8 *data, size_t size, ccp out_dir);
+enumError PackRWARDir (u8 **out_data, size_t *out_size, ccp in_dir);
 
 // Scan a directory for RSEQ (.txt MML source, .rseq/.brseq binary) and
 // RBNK/RWAR/RWSD files, assemble/load them, and build an archive.
@@ -73,5 +96,13 @@ enumError PackBRSARDir (u8 **out_data, size_t *out_size, ccp input_dir, brsar_va
 // mark a file-entry name association for RWAR/RWSD; unrelated retail entries
 // without a name use "file_NNN.<ext>". Extensions are sniffed from magic.
 enumError UnpackBRSAR (const u8 *data, size_t size, ccp out_dir);
+
+// BrawlCrate-style extraction: sequences as .brseq, banks as .brbnk, wave sets
+// as .brwsd, and every group's wave data as a paired <name>.brwar next to its
+// bank/wave-set. sounds.tsv records the sound table (name, sequence file,
+// label offset, bank, track mask) so PackBRSARDir restores it. With
+// 'recursive', each .brwar becomes a <name>.brwar.d/ directory of .brwav files
+// (PackBRSARDir rebuilds the .brwar from it).
+enumError UnpackBRSAREx (const u8 *data, size_t size, ccp out_dir, bool recursive);
 
 #endif // SZS_LIB_BRSAR_H

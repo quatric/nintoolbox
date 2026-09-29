@@ -49,10 +49,11 @@ wbrstm DECODE music.brstm --dest music.wav
 wseqt DECODE sequence.sseq --dest sequence.mid
 
 # 6. Convert a whole sound archive to a playable SoundFont + MIDI set
-#    (BRSAR / BFSAR / BCSAR / SDAT -> one .sf2 plus every sequence as .mid)
+#    (-> Sound.d/raw: BrawlCrate-style .brseq/.brbnk/.brwar, Sound.d/midi: one .mid
+#     per sound, Sound.d/soundfonts: one .sf2 per bank)
 wbrsar Sound.brsar --dest Sound.d
-wbrsar Sound.sdat --dls --dest Sound.d      # DLS instead of SF2
-wbrsar Sound.sdat --both --dest Sound.d
+wbrsar Sound.sdat --dest Sound.d
+wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 ```
 
 ---

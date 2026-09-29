@@ -418,11 +418,15 @@ wmdlt GEOMETRY Course.mdl0
 Converts Nintendo sound archives to MIDI and SoundFont instruments, or unpacks/packs raw audio assets.
 
 ```bash
-# 1. Default: Convert all sequenced music to MIDI + SoundFont (.sf2):
-wbrsar <sound.brsar> [output_dir] [--sf2] [--dls] [--both]
+# 1. Default: write BOTH output styles under output_dir:
+#      raw/         BrawlCrate-style .brseq/.brbnk/.brwsd/.brwar + sounds.tsv (repackable)
+#      midi/        one .mid per sound + sequences.tsv (which bank each MIDI uses)
+#      soundfonts/  one .sf2 per bank (vgmtrans); a MIDI is only correct with its own bank's font
+wbrsar <sound.brsar> [output_dir] [-r]
 
-# 2. Unpack raw asset files (RSEQ, RBNK, RWAR, RWSD, SSEQ, SBNK, SWAR):
-wbrsar unpack <sound.brsar|.bfsar|.bcsar|.sdat> [output_dir]
+# 2. Only the raw assets (RSEQ, RBNK, RWAR, RWSD, SSEQ, SBNK, SWAR); -r also splits each
+#    .brwar into a <name>.brwar.d/ directory of .brwav files
+wbrsar unpack [-r] <sound.brsar|.bfsar|.bcsar|.sdat> [output_dir]
 
 # 3. Rebuild / Pack sound archives from asset directory:
 wbrsar pack <input_dir> [output.brsar]
@@ -433,8 +437,12 @@ wbrsar pack <input_dir> [output.sdat]  --sdat
 
 #### Examples
 ```bash
-# Convert a Wii sound archive to MIDI sequences + SoundFont:
-wbrsar sound/eulaSound.brsar extracted_music/ --sf2
+# Convert a Wii sound archive to raw assets + MIDI + per-bank SoundFonts:
+wbrsar sound/eulaSound.brsar extracted_music/
+
+# Edit raw assets, then rebuild (sounds.tsv restores sequence labels and bank links;
+# a BANK_X.brwar next to BANK_X.brbnk is that bank's wave data):
+wbrsar pack extracted_music/raw edited.brsar
 
 # Unpack a Nintendo DS SDAT archive into constituent assets:
 wbrsar unpack sound_data.sdat sdat_assets/

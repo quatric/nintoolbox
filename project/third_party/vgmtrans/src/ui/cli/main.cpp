@@ -25,6 +25,20 @@ static std::string getFileStem(const std::string &path)
     return (lastDot == std::string::npos) ? filename : filename.substr(0, lastDot);
 }
 
+static std::string narrow(const std::wstring &w)
+{
+    return std::string(w.begin(), w.end());
+}
+
+static std::string safeName(std::string n)
+{
+    for (auto &c : n)
+        if (c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<'
+            || c == '>' || c == '|')
+            c = '_';
+    return n.empty() ? "unnamed" : n;
+}
+
 int main(int argc, char* argv[])
 {
     if (argc < 3) {
@@ -36,6 +50,7 @@ int main(int argc, char* argv[])
     std::string outDir = argv[2];
     bool exportSF2 = true;
     bool exportDLS = false;
+    bool mergedSF2 = false;
 
     for (int i = 3; i < argc; i++) {
         std::string arg = argv[i];
@@ -43,6 +58,8 @@ int main(int argc, char* argv[])
             exportDLS = true;
         } else if (arg == "--sf2") {
             exportSF2 = true;
+        } else if (arg == "--merged") {
+            mergedSF2 = true;
         }
     }
 
@@ -74,13 +91,40 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    // Export all MIDI sequences
+    // MIDI goes to <out>/midi, soundfonts to <out>/soundfonts; sequences.tsv
+    // records which soundfont (bank) each MIDI must be played with.
+    std::string midiDir = outDir + "/midi";
+    std::string sfDir = outDir + "/soundfonts";
+#ifdef _WIN32
+    mkdir(midiDir.c_str());
+    mkdir(sfDir.c_str());
+#else
+    mkdir(midiDir.c_str(), 0755);
+    mkdir(sfDir.c_str(), 0755);
+#endif
+    std::set<std::string> usedMidi;
+    std::string manifest = "midi\tsoundfont\n";
     for (size_t i = 0; i < cliRoot.vVGMColl.size(); ++i) {
         VGMColl *coll = cliRoot.vVGMColl[i];
         if (coll && coll->seq) {
-            std::wstring name = *coll->GetName();
-            std::wstring midifilepath = cliRoot.saveDirPath + L"/" + name + L".mid";
-            coll->seq->SaveAsMidi(midifilepath);
+            std::string name = safeName(narrow(*coll->GetName()));
+            std::string unique = name;
+            for (int n = 2; !usedMidi.insert(unique).second; n++)
+                unique = name + "_" + std::to_string(n);
+            std::string bank;
+            if (!coll->instrsets.empty() && coll->instrsets[0])
+                bank = safeName(narrow(*coll->instrsets[0]->GetName()));
+            std::string path = midiDir + "/" + unique + ".mid";
+            coll->seq->SaveAsMidi(std::wstring(path.begin(), path.end()));
+            manifest += unique + ".mid\t" + (bank.empty() ? "" : bank + ".sf2") + "\n";
+        }
+    }
+    {
+        std::string mp = midiDir + "/sequences.tsv";
+        FILE *mf = fopen(mp.c_str(), "wb");
+        if (mf) {
+            fwrite(manifest.data(), 1, manifest.size(), mf);
+            fclose(mf);
         }
     }
 
@@ -122,6 +166,48 @@ int main(int argc, char* argv[])
                     allSampColls.push_back(sc);
             }
         }
+    }
+
+    // One SoundFont per bank (instrument set + the sample collections of the
+    // collection(s) using it), the way vgmtrans' own GUI exports them. Each
+    // MIDI's program numbers are only valid against its own bank, so a merged
+    // font (--merged) can pick wrong instruments when banks collide.
+    if (!mergedSF2 && (exportSF2 || exportDLS)) {
+        std::set<VGMInstrSet *> done;
+        std::set<std::string> usedSf;
+        for (size_t i = 0; i < cliRoot.vVGMColl.size(); ++i) {
+            VGMColl *coll = cliRoot.vVGMColl[i];
+            if (!coll) continue;
+            for (size_t j = 0; j < coll->instrsets.size(); ++j) {
+                VGMInstrSet *is = coll->instrsets[j];
+                if (!is || !done.insert(is).second) continue;
+                std::string name = safeName(narrow(*is->GetName()));
+                std::string unique = name;
+                for (int n = 2; !usedSf.insert(unique).second; n++)
+                    unique = name + "_" + std::to_string(n);
+                std::wstring wName(unique.begin(), unique.end());
+                VGMColl bankColl(wName);
+                bankColl.AddInstrSet(is);
+                for (size_t k = 0; k < coll->sampcolls.size(); ++k)
+                    bankColl.AddSampColl(coll->sampcolls[k]);
+                std::wstring base = std::wstring(sfDir.begin(), sfDir.end()) + L"/" + wName;
+                if (exportSF2) {
+                    SF2File *sf2file = bankColl.CreateSF2File();
+                    if (sf2file != NULL) {
+                        sf2file->SaveSF2File(base + L".sf2");
+                        delete sf2file;
+                    }
+                }
+                if (exportDLS) {
+                    DLSFile dlsfile;
+                    if (bankColl.CreateDLSFile(dlsfile))
+                        dlsfile.SaveDLSFile(base + L".dls");
+                }
+                bankColl.RemoveFileAssocs();
+            }
+        }
+        cliRoot.Exit();
+        return 0;
     }
 
     // Create 1 combined master SoundFont for the entire archive

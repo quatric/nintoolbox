@@ -4715,8 +4715,13 @@ t_brsar(){
     mid=""
   done <<< "$candidates"
   local sf2_count; sf2_count=$(find /tmp/_r_brsar -iname "*.sf2" -size +100c 2>/dev/null | wc -l | tr -d ' ')
-  if [ -n "$mid" ] && [ "$sf2_count" -eq 1 ]; then
-    ok "BRSAR -> MIDI + single SF2 ($f)"
+  local raw_n; raw_n=$(find /tmp/_r_brsar/raw -iname "*.brseq" -o -iname "*.brbnk" 2>/dev/null | wc -l | tr -d ' ')
+  if [ -n "$mid" ] && [ "$sf2_count" -ge 1 ] && [ "$raw_n" -ge 1 ]; then
+    ok "BRSAR -> MIDI + per-bank SF2 + raw .brseq/.brbnk ($f)"
+  elif [ -n "$mid" ] && [ "$sf2_count" -ge 1 ]; then
+    no "BRSAR raw assets" "MIDI/SF2 written but no raw .brseq/.brbnk under raw/"
+  elif false; then
+    :
   elif [ -n "$mid" ]; then
     ok "BRSAR -> MIDI ($f)"
   else
@@ -4795,6 +4800,48 @@ EOF
 }
 t_brsar_pack
 
+t_brsar_wave_pairing(){
+  # BrawlCrate-style layout: a .brbnk with a same-stem .brwar (group wave
+  # data), a multi-label sequence via sounds.tsv, and a .brwar.d/ directory
+  # that must rebuild the RWAR. unpack -> pack -> unpack must be a fixed point.
+  local d=/tmp/_r_brsar_wave; rm -rf "$d"; mkdir -p "$d/in"
+  python3 - "$d/in" <<'PY' || { no "BRSAR wave pairing" "fixture generation failed"; return; }
+import struct, sys
+d = sys.argv[1]
+def rwav(n): return b"RWAV" + bytes(range(n % 200)) + b"\0" * 28
+def rwar(wavs):
+    tabl = b"TABL" + b"\0" * 4 + struct.pack(">I", len(wavs))
+    dat = b"DATA" + b"\0" * 4 + b"\0" * 24
+    for w in wavs:
+        while len(dat) % 32: dat += b"\0"
+        tabl += struct.pack(">III", 0x01000000, len(dat), len(w))
+        dat += w
+    while len(tabl) % 32: tabl += b"\0"
+    while len(dat) % 32: dat += b"\0"
+    tabl = tabl[:4] + struct.pack(">I", len(tabl)) + tabl[8:]
+    dat = dat[:4] + struct.pack(">I", len(dat)) + dat[8:]
+    return b"RWAR\xfe\xff\x01\x00" + struct.pack(">I", 0x20 + len(tabl) + len(dat)) + b"\x00\x20\x00\x02" + struct.pack(">IIII", 0x20, len(tabl), 0x20 + len(tabl), len(dat)) + tabl + dat
+open(d + "/SONG_A.brseq", "wb").write(b"RSEQ\xfe\xff\x01\x00" + b"\0" * 24)
+open(d + "/BANK_A.brbnk", "wb").write(b"RBNK\xfe\xff\x01\x00" + b"\0" * 24)
+open(d + "/BANK_A.brwar", "wb").write(rwar([rwav(10), rwav(77)]))
+open(d + "/sounds.tsv", "w").write("SONG_A\tSONG_A\t0\tBANK_A\t65535\nSONG_A_ALT\tSONG_A\t44\tBANK_A\t3\n")
+PY
+  if "$B/wbrsar" pack "$d/in" "$d/a.brsar" >/dev/null 2>&1 \
+  && "$B/wbrsar" unpack -r "$d/a.brsar" "$d/u1" >/dev/null 2>&1 \
+  && [ -f "$d/u1/BANK_A.brwar.d/00001.brwav" ] \
+  && "$B/wbrsar" pack "$d/u1" "$d/b.brsar" >/dev/null 2>&1 \
+  && "$B/wbrsar" unpack "$d/b.brsar" "$d/u2" >/dev/null 2>&1 \
+  && cmp -s "$d/in/BANK_A.brwar" "$d/u2/BANK_A.brwar" \
+  && cmp -s "$d/in/sounds.tsv" "$d/u2/sounds.tsv" \
+  && cmp -s "$d/a.brsar" "$d/b.brsar"; then
+    ok "BRSAR wave pairing + sounds.tsv + recursive .brwar.d round trip"
+  else
+    no "BRSAR wave pairing" "round trip changed content"
+  fi
+  rm -rf "$d"
+}
+t_brsar_wave_pairing
+
 t_sdat(){
   local candidates; candidates=$(awk -F'\t' '$1=="SDAT"{print $2}' "$IDX" 2>/dev/null)
   if [ -z "$candidates" ]; then
@@ -4851,7 +4898,7 @@ t_rbnk(){
   local brsar="$PWD_PROJECT/../tests/samples-excitebots/extract/excitebots.d/UPDATE/files/_sys/RVL-Eulav_US-v2.d/0000000b.d/sound/eulaSound.brsar"
   [ -f "$brsar" ] || { sk "RBNK instrument bank (no fixture)"; rm -rf "$d"; return; }
   "$B/wbrsar" unpack "$brsar" "$d" >/dev/null 2>&1
-  local rbnk="$d/BANK_SYSTEM_SE.rbnk"
+  local rbnk="$d/BANK_SYSTEM_SE.brbnk"
   [ -f "$rbnk" ] || { sk "RBNK instrument bank (no rbnk in archive)"; rm -rf "$d"; return; }
 
   if "$B/wrbnk" dump "$rbnk" "$d/bank.xml" >/dev/null 2>&1 \

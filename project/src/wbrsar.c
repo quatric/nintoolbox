@@ -5,6 +5,9 @@
 // files (see lib-brsar.h for the pack/unpack implementation and its
 // documented field-layout provenance -- RSAR is verified against vgmtrans'
 // reader, FSAR/CSAR are an extrapolation with no independent reference).
+// The default mode writes two complementary outputs: raw BrawlCrate-style
+// assets under <out>/raw (repackable) and vgmtrans' MIDI + per-bank SF2 under
+// <out>/midi and <out>/soundfonts.
 // The MIDI/SF2 conversion path always delegates to an external vgmtrans CLI
 // binary (magcius/vgmtrans), found via --with-vgmtrans=PATH or a PATH/
 // argv0-relative lookup (find_vgmtrans_tool() below) -- no vgmtrans source
@@ -184,14 +187,26 @@ static int cmd_unpack (int argc, char *argv[])
 	{
 		fprintf (stderr,
 			"wbrsar unpack: missing input archive\n"
-			"Usage: %s unpack <input.brsar|.bfsar|.bcsar|.sdat> [output_dir]\n",
+			"Usage: %s unpack [-r] <input.brsar|.bfsar|.bcsar|.sdat> [output_dir]\n",
 			argv[0]);
 		return ERR_SYNTAX;
 	}
 
-	ccp input_path = argv[2];
+	bool recursive = false;
+	ccp input_path = 0;
+	ccp out_dir = 0;
+	for (int i = 2; i < argc; i++)
+	{
+		if (!strcmp (argv[i], "-r") || !strcmp (argv[i], "--recursive"))
+			recursive = true;
+		else if (!input_path)
+			input_path = argv[i];
+		else if (!out_dir)
+			out_dir = argv[i];
+	}
+	if (!input_path)
+		return ERR_SYNTAX;
 	char dest_buf[1024];
-	ccp out_dir = argc > 3 ? argv[3] : 0;
 	if (!out_dir)
 	{
 		snprintf (dest_buf, sizeof (dest_buf), "%s.d", input_path);
@@ -208,7 +223,7 @@ static int cmd_unpack (int argc, char *argv[])
 	}
 
 	err = raw_size >= 4 && !memcmp (raw, "SDAT", 4) ? UnpackSDAT (raw, raw_size, out_dir)
-													: UnpackBRSAR (raw, raw_size, out_dir);
+													: UnpackBRSAREx (raw, raw_size, out_dir, recursive);
 	FREE (raw);
 	if (err)
 	{
@@ -229,6 +244,7 @@ int main (int argc, char *argv[])
 	const char *in_file = NULL;
 	const char *out_dir = NULL;
 	const char *opt_with_vgmtrans = NULL;
+	bool recursive = false;
 
 	for (int i = 1; i < argc; i++)
 	{
@@ -236,15 +252,19 @@ int main (int argc, char *argv[])
 		if (!strcmp (arg, "-h") || !strcmp (arg, "--help"))
 		{
 			printf ("wbrsar - Wiimms BRSAR/BFSAR/BCSAR Tool\n"
-					"Converts a BRSAR (or other vgmtrans-recognized) sound bank to MIDI + SF2/DLS\n"
+					"Extracts a BRSAR (or other vgmtrans-recognized) sound archive to raw assets and to MIDI + SF2\n"
 					"via an external vgmtrans CLI binary (magcius/vgmtrans).\n\n"
 					"Usage: %s [options] <input.brsar> [output_dir]\n"
 					"       %s pack   <input_dir> [output] [--bfsar|--bcsar|--sdat]\n"
-					"       %s unpack <input.brsar|.bfsar|.bcsar|.sdat> [output_dir]\n\n"
+					"       %s unpack [-r] <input.brsar|.bfsar|.bcsar|.sdat> [output_dir]\n\n"
 					"Options:\n"
 					"  --with-vgmtrans=P  Specify path to external vgmtrans tool\n"
 					"  -d, --dest <dir>   Specify destination directory\n"
+					"  -r, --recursive    Also split each .brwar into a .brwar.d/ dir of .brwav files\n"
 					"  -h, --help         Show this help\n\n"
+					"Default mode writes both output styles under <output_dir>: raw/ (BrawlCrate-\n"
+					"style .brseq/.brbnk/.brwsd/.brwar + sounds.tsv, repackable), midi/ and\n"
+					"soundfonts/ (vgmtrans: MIDI per sound, one SF2 per bank).\n\n"
 					"pack: Build an archive from a directory of RSEQ (.txt MML source or\n"
 					"      .rseq/.brseq binary) and RBNK/RWAR/RWSD asset files. Defaults to\n"
 					"      BRSAR (Wii); --bfsar/--bcsar select the Wii U / 3DS container\n"
@@ -252,11 +272,12 @@ int main (int argc, char *argv[])
 					"      verified -- see lib-brsar.h).\n"
 					"      --sdat builds a Nintendo DS archive from SSEQ/SBNK/SWAR files\n"
 					"      (or .txt MML assembled as SSEQ).\n"
-					"unpack: Extract an archive's RSEQ/RBNK/RWAR/RWSD assets to a directory\n"
-					"      (raw asset dump, distinct from the MIDI/SF2 conversion above).\n",
+					"unpack: Extract only the raw BrawlCrate-style assets (no MIDI/SF2).\n",
 				argv[0], argv[0], argv[0]);
 			return 0;
 		}
+		else if (!strcmp (arg, "-r") || !strcmp (arg, "--recursive"))
+			recursive = true;
 		else if (!strncmp (arg, "--with-vgmtrans=", 16))
 			opt_with_vgmtrans = arg + 16;
 		else if (!strcmp (arg, "--with-vgmtrans"))
@@ -302,32 +323,43 @@ int main (int argc, char *argv[])
 	if (stat (out_dir, &st) != 0)
 		mkdir (out_dir, 0755);
 
-	const char *ext_tool = find_vgmtrans_tool (opt_with_vgmtrans, argv[0]);
-	if (ext_tool && run_external_vgmtrans (ext_tool, in_file, out_dir) == 0)
-	{
-		printf ("wbrsar: converted %s -> %s (external %s)\n", in_file, out_dir, ext_tool);
-		return 0;
-	}
+	// Two complementary outputs, side by side:
+	//   <out>/raw/         BrawlCrate-style assets (.brseq/.brbnk/.brwsd/.brwar,
+	//                      sounds.tsv) -- `wbrsar pack <out>/raw` rebuilds the archive
+	//   <out>/midi/        one .mid per sound + sequences.tsv (which bank each uses)
+	//   <out>/soundfonts/  one .sf2 per bank (vgmtrans)
+	char raw_dir[1100];
+	snprintf (raw_dir, sizeof (raw_dir), "%s/raw", out_dir);
 
-	// No (working) external vgmtrans available -- fall back to a raw asset
-	// dump (same result as `wbrsar unpack`) instead of failing outright.
+	int rc = 1;
 	u8 *raw = 0;
 	size_t raw_size = 0;
 	enumError lerr = LoadFileAlloc (in_file, 0, 0, &raw, &raw_size, 0, 0, 0, false);
 	if (!lerr && raw)
 	{
 		enumError uerr = raw_size >= 4 && !memcmp (raw, "SDAT", 4)
-			? UnpackSDAT (raw, raw_size, out_dir)
-			: UnpackBRSAR (raw, raw_size, out_dir);
+			? UnpackSDAT (raw, raw_size, raw_dir)
+			: UnpackBRSAREx (raw, raw_size, raw_dir, recursive);
 		FREE (raw);
 		if (!uerr)
 		{
-			printf ("wbrsar: unpacked raw sound assets %s -> %s\n", in_file, out_dir);
-			return 0;
+			printf ("wbrsar: unpacked raw sound assets %s -> %s\n", in_file, raw_dir);
+			rc = 0;
 		}
 	}
-	fprintf (stderr, "wbrsar: conversion failed for %s\n", in_file);
-	return 1;
+
+	const char *ext_tool = find_vgmtrans_tool (opt_with_vgmtrans, argv[0]);
+	if (ext_tool && run_external_vgmtrans (ext_tool, in_file, out_dir) == 0)
+	{
+		printf ("wbrsar: converted %s -> %s/{midi,soundfonts} (external %s)\n", in_file, out_dir,
+			ext_tool);
+		rc = 0;
+	}
+	else if (rc)
+		fprintf (stderr, "wbrsar: conversion failed for %s\n", in_file);
+	else
+		fprintf (stderr, "wbrsar: no working vgmtrans found; MIDI/SF2 skipped (raw assets only)\n");
+	return rc;
 }
 
 bool DefineIntVar (VarMap_t *vm, ccp varname, int value)
