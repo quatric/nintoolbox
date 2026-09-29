@@ -39,6 +39,10 @@ bool IsCNMT (const u8 *data, size_t size)
 	if (!data || size < 0x20)
 		return false;
 
+	// A content meta always names a title; an all-zero id is padding.
+	if (rd_le32 (data) == 0 && rd_le32 (data + 4) == 0)
+		return false;
+
 	const u16 ext_hdr_size = rd_le16 (data + 0x0E);
 	const u16 content_count = rd_le16 (data + 0x10);
 	const u16 content_meta_count = rd_le16 (data + 0x12);

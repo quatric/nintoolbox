@@ -136,6 +136,8 @@ int mem_stream_init (struct mem_stream *stream, struct buffer *buffer)
 		return 1;
 
 	stream->buffer = buffer;
+	stream->stream.position = 0;
+	stream->stream._errno = 0;
 	stream->stream.write = mem_stream_write;
 	stream->stream.read = mem_stream_read;
 	stream->stream.seek = mem_stream_seek;

@@ -2246,6 +2246,19 @@ enumError DecodeHSF (const u8 *data, uint size, ccp out_path)
 		for (u32 i = 0; i < node_cnt; i++)
 			jmap[i] = HSF_IS_JOINT (ntype[i]) ? true_joint_cnt++ : (u32)-1;
 		joint_t *real_joints = true_joint_cnt ? CALLOC (true_joint_cnt, sizeof (*real_joints)) : 0;
+		// A bind may target a mesh/instance node that is not itself a joint;
+		// such a bind belongs to the nearest ancestor joint.
+		u32 *jmap_up = node_cnt ? MALLOC (node_cnt * sizeof (*jmap_up)) : 0;
+		for (u32 i = 0; i < node_cnt; i++)
+		{
+			u32 n = i;
+			for (u32 depth = 0; depth <= node_cnt && n < node_cnt && jmap[n] == (u32)-1; depth++)
+			{
+				const s32 pn = joints[n].parent_idx;
+				n = pn >= 0 ? (u32)pn : node_cnt;
+			}
+			jmap_up[i] = n < node_cnt ? jmap[n] : (u32)-1;
+		}
 		for (u32 i = 0, j = 0; i < node_cnt; i++)
 			if (HSF_IS_JOINT (ntype[i]))
 			{
@@ -2423,7 +2436,7 @@ enumError DecodeHSF (const u8 *data, uint size, ccp out_path)
 				const uint sn = hsf_be32 (h + 16), dn = hsf_be32 (h + 20), mn = hsf_be32 (h + 24);
 				const s32 whole_raw = (s32)hsf_be32 (h + 32);
 				const s32 whole = whole_raw >= 0 && (u32)whole_raw < node_cnt
-										 ? (s32)jmap[whole_raw]
+										 ? (s32)jmap_up[whole_raw]
 										 : -1;
 				if (whole >= 0 && (u32)whole < node_cnt)
 				{
@@ -2494,6 +2507,7 @@ enumError DecodeHSF (const u8 *data, uint size, ccp out_path)
 		}
 		else
 			FREE (jmap);
+		FREE (jmap_up);
 
 		ComputeModelTRSBinds (&model);
 

@@ -5418,7 +5418,9 @@ enumError EncodeModelToJ3D (const model_t *model, const char *out_path, const j3
 		snprintf (e.jnames[0], 64, "root");
 		e.jtrs[0] = e.jtrs[1] = e.jtrs[2] = 1.0f;
 		e.jparent[0] = -1;
-		e.jmtx[0] = 0;
+		// same matrix type a real joint gets below, so a synthetic root survives
+		// a GLB round trip (where it comes back as an ordinary joint) unchanged
+		e.jmtx[0] = 1;
 		for (int k = 0; k < 12; k++)
 			e.jibm[k] = (k % 5 == 0) ? 1.0f : 0.0f; // identity 3x4 (diag idx 0,5,10)
 	}

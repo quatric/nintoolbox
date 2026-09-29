@@ -2629,9 +2629,14 @@ enumError ExtractNLGTyped (ccp dest, const u8 *dict, uint dict_size, const u8 *d
 	nlg_texset_t ts = { tex_hashes, n_tex_hashes };
 
 	// ---- 4. per-file export ----
+	// Textures go first: the GLB writer only embeds a PNG that already exists
+	// on disk, so a model exported ahead of its texture would lose it.
+	for (int pass = 0; pass < 2; pass++)
 	for (uint fi = 0; fi < n_files; fi++)
 	{
 		nlg_file_t *f = &files[fi];
+		if ((f->type == 0xB500 && f->has_children) != (pass == 0))
+			continue;
 		char base[160];
 		nlg_base_name (base, sizeof (base), f->path_hash, fi);
 		char path[PATH_MAX];

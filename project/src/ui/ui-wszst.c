@@ -3074,28 +3074,28 @@ static u8 option_allowed_cmd_EXTRACT[151] = // cmd #67
 		1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0,
 		1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 1,
 		1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0 };
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0 };
 
 static u8 option_allowed_cmd_XDECODE[151] = // cmd #68
 	{ 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 		1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0,
 		1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 1,
 		1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0 };
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0 };
 
 static u8 option_allowed_cmd_XEXPORT[151] = // cmd #69
 	{ 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 		1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0,
 		1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 1,
 		1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0 };
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0 };
 
 static u8 option_allowed_cmd_XALL[151] = // cmd #70
 	{ 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 		1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0,
 		1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 1,
 		1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0 };
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0 };
 
 static u8 option_allowed_cmd_XCOMMON[151] = // cmd #71
 	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -4684,6 +4684,7 @@ static const InfoOption_t *option_tab_cmd_UPDATE[] = { OptionInfo + OPT_NO_WILDC
 
 static const InfoOption_t *option_tab_cmd_EXTRACT[] = { OptionInfo + OPT_NO_WILDCARDS,
 	OptionInfo + OPT_IN_ORDER, OptionInfo + OPT_IGNORE, &option_cmd_EXTRACT_AUTO,
+	OptionInfo + OPT_EXPORT_RAW,
 
 	OptionInfo + OPT_NONE, // separator
 
@@ -4723,6 +4724,7 @@ static const InfoOption_t *option_tab_cmd_EXTRACT[] = { OptionInfo + OPT_NO_WILD
 
 static const InfoOption_t *option_tab_cmd_XDECODE[] = { OptionInfo + OPT_NO_WILDCARDS,
 	OptionInfo + OPT_IN_ORDER, OptionInfo + OPT_IGNORE, &option_cmd_EXTRACT_AUTO,
+	OptionInfo + OPT_EXPORT_RAW,
 
 	OptionInfo + OPT_NONE, // separator
 
@@ -4762,6 +4764,7 @@ static const InfoOption_t *option_tab_cmd_XDECODE[] = { OptionInfo + OPT_NO_WILD
 
 static const InfoOption_t *option_tab_cmd_XEXPORT[] = { OptionInfo + OPT_NO_WILDCARDS,
 	OptionInfo + OPT_IN_ORDER, OptionInfo + OPT_IGNORE, &option_cmd_EXTRACT_AUTO,
+	OptionInfo + OPT_EXPORT_RAW,
 
 	OptionInfo + OPT_NONE, // separator
 
@@ -4801,6 +4804,7 @@ static const InfoOption_t *option_tab_cmd_XEXPORT[] = { OptionInfo + OPT_NO_WILD
 
 static const InfoOption_t *option_tab_cmd_XALL[] = { OptionInfo + OPT_NO_WILDCARDS,
 	OptionInfo + OPT_IN_ORDER, OptionInfo + OPT_IGNORE, &option_cmd_EXTRACT_AUTO,
+	OptionInfo + OPT_EXPORT_RAW,
 
 	OptionInfo + OPT_NONE, // separator
 
@@ -5606,7 +5610,7 @@ static const InfoCommand_t CommandInfo[CMD__N + 1] = {
 		" RARC archives. The default destination is '%P/%N.d/'. Wildcards and"
 		" pipe characters are parsed, see https://szs.wiimm.de/doc/wildcards"
 		" for details.",
-		0, 84, option_tab_cmd_EXTRACT, option_allowed_cmd_EXTRACT },
+		0, 85, option_tab_cmd_EXTRACT, option_allowed_cmd_EXTRACT },
 
 	{ CMD_XDECODE, false, false, false, "XDECODE", "XD", "wszst XDECODE [source]...",
 		"Command XDECODE is a short cut for 'EXTRACT --decode'. It extract all"
@@ -5614,7 +5618,7 @@ static const InfoCommand_t CommandInfo[CMD__N + 1] = {
 		" archives and decodes all supported files. The default destination is"
 		" '%P/%N.d/'. Wildcards and pipe characters are parsed, see"
 		" https://szs.wiimm.de/doc/wildcards for details.",
-		0, 84, option_tab_cmd_XDECODE, option_allowed_cmd_XDECODE },
+		0, 85, option_tab_cmd_XDECODE, option_allowed_cmd_XDECODE },
 
 	{ CMD_XEXPORT, false, false, false, "XEXPORT", "XX", "wszst XEXPORT [source]...",
 		"Command XEXPORT is a short cut for 'EXTRACT --decode --export'. It"
@@ -5623,7 +5627,7 @@ static const InfoCommand_t CommandInfo[CMD__N + 1] = {
 		" mode. The default destination is '%P/%N.d/'. Wildcards and pipe"
 		" characters are parsed, see https://szs.wiimm.de/doc/wildcards for"
 		" details.",
-		0, 84, option_tab_cmd_XEXPORT, option_allowed_cmd_XEXPORT },
+		0, 85, option_tab_cmd_XEXPORT, option_allowed_cmd_XEXPORT },
 
 	{ CMD_XALL, false, false, false, "XALL", "XA", "wszst XALL [source]...",
 		"Command XALL is a short cut for 'EXTRACT --all'. It extract all sub"
@@ -5631,7 +5635,7 @@ static const InfoCommand_t CommandInfo[CMD__N + 1] = {
 		" recursively and decodes all supported files. The default destination"
 		" is '%P/%N.d/'. Wildcards and pipe characters are parsed, see"
 		" https://szs.wiimm.de/doc/wildcards for details.",
-		0, 84, option_tab_cmd_XALL, option_allowed_cmd_XALL },
+		0, 85, option_tab_cmd_XALL, option_allowed_cmd_XALL },
 
 	{ CMD_XCOMMON, false, false, false, "XCOMMON", 0, "wszst XCOMMON [source]...",
 		"Command XCOMMON is a short cut for 'EXTRACT --basedir=common'. Scan"

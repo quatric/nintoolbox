@@ -4005,7 +4005,7 @@ t_huffman_cx00_wrapped(){
   [ -f "$f" ] || { sk "CX00-wrapped HUFF8 (AquaSpace BRRES)"; return; }
   local d; d=$(mktemp -d)
   local ok=1
-  [ "$("$B/wszst" FILETYPE "$f" 2>/dev/null | tail -1 | awk '{print $1}')" = "HUFF" ] || ok=0
+  [ "$("$B/wszst" FILETYPE "$f" 2>/dev/null | grep . | tail -1 | awk '{print $1}')" = "HUFF" ] || ok=0
   "$B/wszst" DECOMPRESS "$f" --dest "$d/out.bin" --overwrite >/dev/null 2>&1
   python3 -c "
 import sys
@@ -4049,13 +4049,13 @@ t_mpb
 
 echo "== QuickBMS chaining (wszst xx --bms) =="
 t_wszst_bms(){
-  command -v python3 >/dev/null || { sk "wszst xx --bms"; return; }
+  command -v python3 >/dev/null && command -v quickbms >/dev/null || { sk "wszst xx --bms"; return; }
   local d; d=$(mktemp -d)
   printf 'The quick brown fox jumps over the lazy dog. %.0s' {1..200} > "$d/payload.dat"
   python3 -c "import zlib; open('$d/container.bin', 'wb').write(zlib.compress(open('$d/payload.dat', 'rb').read()))"
   printf 'COMTYPE zlib\nCLOG "nested.dat" 0 %d\n' "$(fsize_of "$d/container.bin")" > "$d/unpack.bms"
   "$B/wszst" xx "$d/container.bin" --bms="$d/unpack.bms" --dest "$d/out_bms" --overwrite >/dev/null 2>&1
-  if [ -s "$d/out_bms/container.d/nested.dat" ] && cmp -s "$d/out_bms/container.d/nested.dat" "$d/payload.dat"; then
+  if [ -s "$d/out_bms/container.bin.d/nested.dat" ] && cmp -s "$d/out_bms/container.bin.d/nested.dat" "$d/payload.dat"; then
     ok "wszst xx --bms chained extraction"
   else
     no "wszst xx --bms chained extraction" "nested.dat mismatch or missing"
@@ -4096,7 +4096,7 @@ t_mpb_retail(){
   cp "$src" "$d/model.bin"
   "$B/wszst" xx "$d/model.bin" --dest "$d/raw" --overwrite >"$d/xx.log" 2>&1
   "$B/wszst" EXTRACT "$d/model.bin" --dest "$d/decoded" --overwrite >"$d/wszst.log" 2>&1
-  local a="$d/raw/file000.dat" b="$d/raw/file001.dat"
+  local a="$d/raw/file000.hsf" b="$d/raw/file001.hsf"
   local glb="$d/decoded/file000.glb"
   local motion="$glb.motion.json"
   local textured=0

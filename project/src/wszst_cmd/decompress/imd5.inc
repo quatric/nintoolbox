@@ -17,6 +17,15 @@
 			SubstDest (dest, sizeof (dest), arg, opt_dest, 0, ext, false);
 		else
 			snprintf (dest, sizeof (dest), "%s%s", arg, ext);
+		// Same rule as the generic path below: an existing unwrapped payload
+		// is reused, not an error, when the tree is visited a second time.
+		if (!opt_overwrite && !access (dest, F_OK))
+		{
+			if (dest_out && dest_out_size)
+				snprintf (dest_out, dest_out_size, "%s", dest);
+			FREE (decoded);
+			return ERR_OK;
+		}
 		if (verbose >= 0 || testmode)
 			fprintf (stdlog, "%s%sDECOMPRESS %s:%s -> RAW:%s\n", verbose > 0 ? "\n" : "",
 				testmode ? "WOULD " : "", was_compressed ? "IMD5+LZ77" : "IMD5", arg, dest);

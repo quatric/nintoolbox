@@ -1020,6 +1020,7 @@ typedef enum enumOptions
 //				| OB_IN_ORDER
 //				| OB_IGNORE
 //				| OB_AUTO
+//				| OB_EXPORT_RAW
 //				| OB_GRP_DEST
 //				| OB_GRP_EXTRACT
 //				| OB_ANALYZE

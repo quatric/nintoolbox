@@ -429,7 +429,16 @@ model_t *ParseNUD (const uint8_t *data, size_t size)
 			}
 			mesh->num_vertices = vert_out_idx;
 		}
-		return model;
+
+		// A header whose polyset count is really some other field (the
+		// flat/synthetic layout below reuses that slot) parses into meshes
+		// without a single vertex; treat that as "not the full format".
+		bool any_geometry = false;
+		for (size_t oi = 0; oi < polysets; oi++)
+			any_geometry |= model->meshes[oi].num_positions && model->meshes[oi].num_vertices;
+		if (any_geometry)
+			return model;
+		FreeModel (model);
 	}
 
 	// Fallback to flat/simple layout for legacy or synthetic files
