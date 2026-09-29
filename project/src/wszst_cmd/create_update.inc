@@ -3849,6 +3849,86 @@ static bool is_rpak_file (ccp arg)
 	return valid;
 }
 
+
+//-----------------------------------------------------------------------------
+// Bermuda Triangle .PKI extract
+
+static enumError extract_bermuda_pki_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".PKI"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err)
+		return ERR_NOTHING_TO_DO;
+	if (raw_size < 36 || memcmp (raw, "IMAGE_WII_COMPACT_FILE_VERSION_1", 32))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+
+	u32 entry_count = rd_le32 (raw + 32);
+
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT BERMUDA-PKI:%s (%u entries) -> %s/\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, entry_count, dest);
+
+	size_t pos = 36;
+	for (uint i = 0; !err && i < entry_count; i++)
+	{
+		if (pos + 4 > raw_size) break;
+		u32 name_len = rd_le32 (raw + pos);
+		pos += 4;
+		if (pos + name_len + 8 > raw_size) break;
+		const u8 *name = raw + pos;
+		pos += name_len;
+		u32 data_size = rd_le32 (raw + pos);
+		pos += 4;
+		u32 data_offset = rd_le32 (raw + pos);
+		pos += 4;
+
+		if (testmode) continue;
+
+        // Path is Windows-style backslashes, e.g., DATA\CORALDATA\PLAYGAME\CORAL\03\01.MWT
+		char e_path[PATH_MAX];
+		snprintf (e_path, sizeof(e_path), "%s/%s", dest, basedir ? basedir : "");
+		size_t e_len = strlen(e_path);
+		for (u32 j = 0; j < name_len && e_len < sizeof(e_path)-1; j++)
+		{
+			char c = name[j];
+			if (c == '\\') c = '/';
+			e_path[e_len++] = c;
+		}
+		e_path[e_len] = 0;
+
+		const u8 *out_data = 0;
+		if (data_offset <= raw_size && data_offset + (u64)data_size <= raw_size)
+			out_data = raw + data_offset;
+		else
+		    continue; // out of bounds
+
+		File_t F;
+		err = CreateFileOpt (&F, true, e_path, false, arg);
+		if (F.f && data_size && fwrite (out_data, 1, data_size, F.f) != data_size)
+			err = FILEERROR1 (
+				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", data_size, e_path);
+		ResetFile (&F, opt_preserve);
+	}
+
+	FREE (raw);
+	if (!err && !testmode)
+	{
+		enumError sub_err = extract_tree_complete (dest, depth + 1);
+		if (err < sub_err)
+			err = sub_err;
+	}
+	return err;
+}
+
 static enumError extract_rpak_file (ccp arg, ccp basedir, uint depth)
 {
 	if (!is_ext (arg, ".pak"))

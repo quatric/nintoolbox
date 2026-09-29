@@ -2354,7 +2354,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// FF_BERMUDA_PKI = 413 (Bermuda Triangle "IMAGE_WII_COMPACT" texture
 	// pack container). Header and full name/size/offset entry table
 	// decoded.
-	{ FF_BERMUDA_PKI, FF_BERMUDA_PKI, 0, "BERMUDA-PKI", ".PKI", ".txt", ".PKI",
+	{ FF_BERMUDA_PKI, FF_BERMUDA_PKI, 0, "BERMUDA-PKI", ".PKI", ".d", ".PKI",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Bermuda Triangle IMAGE_WII_COMPACT texture-pack container (.PKI, Wii; entry table "
 		"decoded)" },
