@@ -2,7 +2,8 @@
 """Synthetic Blue Tongue "TRB\\0" package (see project/src/lib-bttrb.h): one 8x8
 RGB5A3 "ttex" texture in the __s00000 pool, an XUR section and a one-triangle
 "tcmd" model.
-usage: mk_bttrb.py OUTDIR -> OUTDIR/T.trb"""
+usage: mk_bttrb.py OUTDIR -> OUTDIR/T.trb and OUTDIR/S.trb (the same package whose
+model shares its positions: S.trb only converts when the arrays are found in T.trb)"""
 import os, struct, sys
 out = sys.argv[1]
 os.makedirs(out, exist_ok=True)
@@ -44,3 +45,8 @@ struct.pack_into('>9h', f, G + 0x10, 0, 0, 0, 8, 0, 0, 0, 8, 0)
 f[G + 0x30:G + 0x33] = bytes([0, 0, 64])
 struct.pack_into('>6h', f, G + 0x40, 0, 0, 4096, 0, 0, 4096)
 open(os.path.join(out, 'T.trb'), 'wb').write(f)
+
+# S.trb: identical, but the position array descriptor has bit 15 set (array not stored here)
+g = bytearray(f)
+struct.pack_into('>2I', g, rec + 0x48, 0, 9 << 24 | 6 << 16 | 0x8000)
+open(os.path.join(out, 'S.trb'), 'wb').write(g)

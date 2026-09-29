@@ -1,3 +1,57 @@
+// Shared batches of a de Blob 2 model take their arrays from a same-named model of
+// another package of the level (usually a cell that owns them, or LevelAssets.trb);
+// load every model package next to ARG once per directory.
+static void bttrb_load_level_libs (ccp arg)
+{
+	static char cached_dir[PATH_MAX];
+	static u8 *bufs[512];
+	static size_t sizes[512];
+	static uint n_bufs;
+	char dir[PATH_MAX];
+	snprintf (dir, sizeof (dir), "%s", arg);
+	char *slash = strrchr (dir, '/');
+	if (slash)
+		*slash = 0;
+	else
+		snprintf (dir, sizeof (dir), ".");
+	if (!strcmp (dir, cached_dir))
+		return;
+	for (uint i = 0; i < n_bufs; i++)
+		FREE (bufs[i]);
+	n_bufs = 0;
+	snprintf (cached_dir, sizeof (cached_dir), "%s", dir);
+
+	DIR *dp = opendir (dir);
+	if (!dp)
+		return;
+	for (int pass = 0; pass < 2; pass++) // LevelAssets.trb first
+	{
+		rewinddir (dp);
+		for (const struct dirent *de; (de = readdir (dp)) && n_bufs < 512;)
+		{
+				const size_t l = strlen (de->d_name);
+				if (l < 5 || strcasecmp (de->d_name + l - 4, ".trb")
+					|| !strcasecmp (de->d_name, "LevelAssets.trb") != !pass)
+					continue;
+				char path[PATH_MAX];
+				snprintf (path, sizeof (path), "%s/%s", dir, de->d_name);
+				u8 *raw = 0;
+				size_t raw_size = 0;
+				if (LoadFileAlloc (path, 0, 0, &raw, &raw_size, 0, 0, 0, false) || !raw)
+					continue;
+				if (!IsBlueTongueTrb (raw, raw_size) || !CountBlueTongueModels (raw, raw_size))
+				{
+					FREE (raw);
+					continue;
+				}
+				bufs[n_bufs] = raw;
+				sizes[n_bufs++] = raw_size;
+		}
+	}
+	closedir (dp);
+	SetBlueTongueLibraries ((const u8 **)bufs, sizes, n_bufs);
+}
+
 // Blue Tongue "TRB\0" package (de Blob 2, Wii): "ttex" textures -> PNG in
 // textures/, an embedded XUR section -> NAME.xur.
 static enumError extract_bttrb_file (ccp arg, ccp basedir, uint depth)
@@ -57,6 +111,8 @@ static enumError extract_bttrb_file (ccp arg, ccp basedir, uint depth)
 	}
 	// models: one GLB per "tcmd" object
 	const uint n_models = is_trb && !testmode && !err ? CountBlueTongueModels (raw, raw_size) : 0;
+	if (n_models)
+		bttrb_load_level_libs (arg);
 	// batches sharing arrays by name (props placed in a cell) find them in the level's
 	// LevelAssets.trb
 	u8 *lib = 0;
@@ -68,7 +124,9 @@ static enumError extract_bttrb_file (ccp arg, ccp basedir, uint depth)
 		char *slash = strrchr (lpath, '/');
 		snprintf (slash ? slash + 1 : lpath, lpath + sizeof (lpath) - (slash ? slash + 1 : lpath),
 			"LevelAssets.trb");
-		if (LoadFileAlloc (lpath, 0, 0, &lib, &lib_size, 0, 0, 0, false) || !lib
+		struct stat lst;
+		if (stat (lpath, &lst) || !S_ISREG (lst.st_mode)
+			|| LoadFileAlloc (lpath, 0, 0, &lib, &lib_size, 0, 0, 0, false) || !lib
 			|| !IsBlueTongueTrb (lib, lib_size))
 		{
 			FREE (lib);

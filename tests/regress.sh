@@ -9228,6 +9228,8 @@ with open(sys.argv[1], "wb") as f:
     [ "$(head -c 4 "$d/bttrb_test/T.trb.d/textures/test.png" | tail -c 3)" = "PNG" ] \
     && [ "$(head -c 4 "$d/bttrb_test/T.trb.d/T.xur")" = "XUIB" ] \
     && [ "$(head -c 4 "$d/bttrb_test/T.trb.d/models/tri.glb")" = "glTF" ] \
+    && "$B/wszst" extract "$d/bttrb_test/S.trb" >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/bttrb_test/S.trb.d/models/tri.glb")" = "glTF" ] \
     && fok "Blue Tongue TRB: ttex texture -> PNG, XUR section, tcmd model -> GLB" \
     || fno "Blue Tongue TRB" "failed to extract synthetic package"
   else

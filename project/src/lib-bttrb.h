@@ -71,6 +71,10 @@ uint CountBlueTongueModels (const u8 *d, size_t size);
 model_t *BuildBlueTongueModel (const u8 *d, size_t size, uint index, char *name, size_t name_size,
 	const u8 *lib, size_t lib_size);
 
+// Packages searched (besides LIB) for the arrays of shared batches, normally every
+// .trb of the level; the pointers must stay valid while models are built.
+void SetBlueTongueLibraries (const u8 **data, const size_t *size, uint count);
+
 // The bytes of a named section (points into D), or 0.
 const u8 *FindBlueTongueSection (const u8 *d, size_t size, ccp name, u32 *len);
 

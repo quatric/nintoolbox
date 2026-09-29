@@ -299,6 +299,8 @@ typedef struct bt_batch_t
 	uint attr[BT_MAX_ATTR]; // GX attribute ids, in vertex order (< 9: inline byte, no array)
 	u32 arr[BT_MAX_ATTR], cnt[BT_MAX_ATTR], elem[BT_MAX_ATTR], frac[BT_MAX_ATTR];
 	bool shared[BT_MAX_ATTR]; // array not stored here (bit 15 of its count)
+	bool absent[BT_MAX_ATTR]; // no array descriptor at all (index width unknown, see bt_dl_auto)
+	uint wd_guess[BT_MAX_ATTR]; // index width (1 or 2) assumed for an absent array
 	const u8 *src[BT_MAX_ATTR]; // start of the gpu_data holding the array
 } bt_batch_t;
 
@@ -319,7 +321,10 @@ static size_t bt_dl_verts (const u8 *d, size_t size, const bt_sec_t *gpu, const 
 	uint wd[BT_MAX_ATTR] = { 0 };
 	size_t stride = 0;
 	for (uint a = 0; a < b->n; a++)
-		stride += wd[a] = b->attr[a] < 9 || b->cnt[a] <= 256 ? 1 : 2;
+		stride += wd[a] = b->attr[a] < 9 ? 1
+			: b->absent[a]               ? (b->wd_guess[a] ? b->wd_guess[a] : 1)
+			: b->cnt[a] <= 256           ? 1
+										 : 2;
 	if (b->dl_off + (u64)b->dl_size > gpu->size || (u64)gpu->off + gpu->size > size)
 		return 0;
 	const u8 *dl = d + gpu->off + b->dl_off;
@@ -372,6 +377,27 @@ static size_t bt_dl_verts (const u8 *d, size_t size, const bt_sec_t *gpu, const 
 	return out;
 }
 
+// bt_dl_verts() for a batch that may have arrays without a descriptor: their index
+// width (u8 or u16) is not stored, so try the combinations until the display list
+// parses exactly.
+static size_t bt_dl_auto (const u8 *d, size_t size, const bt_sec_t *gpu, bt_batch_t *b,
+	uint (*idx)[BT_MAX_ATTR], size_t max)
+{
+	uint free_attr[BT_MAX_ATTR], nf = 0;
+	for (uint a = 0; a < b->n; a++)
+		if (b->absent[a] && b->attr[a] >= 9)
+			free_attr[nf++] = a;
+	for (uint combo = 0; combo < (1u << nf); combo++)
+	{
+		for (uint f = 0; f < nf; f++)
+			b->wd_guess[free_attr[f]] = 1 + (combo >> f & 1);
+		const size_t nv = bt_dl_verts (d, size, gpu, b, idx, max);
+		if (nv)
+			return nv;
+	}
+	return 0;
+}
+
 // Parses batch record R of the package into B; false when it cannot be read.
 static bool bt_parse_batch (
 	const u8 *d, size_t size, const bt_sec_t *data, const bt_sec_t *gpu, size_t r, bt_batch_t *b)
@@ -396,7 +422,16 @@ static bool bt_parse_batch (
 		b->src[a] = d + gpu->off;
 		if (b->attr[a] < 9)
 			continue; // matrix index bytes: nothing stored
-		const size_t po = (size_t)data->off + pairs + 8 * np++;
+		// descriptors are stored only for the arrays a batch owns or shares; an
+		// attribute without one (the lightmap coordinates of some terrain
+		// batches) has no array here
+		size_t po = (size_t)data->off + pairs + 8 * np;
+		if (pairs + 8ull * (np + 1) > data->size || (bt_u32 (d, size, po + 4) >> 24) != b->attr[a])
+		{
+			b->absent[a] = true;
+			continue;
+		}
+		np++;
 		b->arr[a] = bt_u32 (d, size, po);
 		const u32 desc = bt_u32 (d, size, po + 4);
 		b->elem[a] = desc >> 16 & 0xff;
@@ -419,11 +454,44 @@ static bool bt_parse_batch (
 	return ok;
 }
 
-// Batch K of the library package's model NAME with NB batches (own arrays only).
-static bool bt_lib_batch (const u8 *d, size_t size, ccp name, uint nb, uint k, bt_batch_t *out)
+// Packages searched for the arrays of shared batches (see SetBlueTongueLibraries).
+#define BT_MAX_LIBS 512
+static const u8 *bt_lib_data[BT_MAX_LIBS];
+static size_t bt_lib_size[BT_MAX_LIBS];
+static uint bt_n_libs;
+
+void SetBlueTongueLibraries (const u8 **data, const size_t *size, uint count)
+{
+	bt_n_libs = count > BT_MAX_LIBS ? BT_MAX_LIBS : count;
+	for (uint i = 0; i < bt_n_libs; i++)
+		bt_lib_data[i] = data[i], bt_lib_size[i] = size[i];
+}
+
+// Does LB own an array for every attribute WANT shares?
+static bool bt_lib_covers (const bt_batch_t *want, const bt_batch_t *lb)
+{
+	for (uint a = 0; a < want->n; a++)
+	{
+		if (!want->shared[a])
+			continue;
+		uint j = 0;
+		while (j < lb->n && lb->attr[j] != want->attr[a])
+			j++;
+		if (j >= lb->n || lb->shared[j] || lb->absent[j])
+			return false;
+	}
+	return true;
+}
+
+// Looks in package D for the (*SKIP + 1)-th batch of a model NAME with NB batches that
+// owns the arrays WANT shares. Batch K is tried first (it is usually the counterpart),
+// then the others: an instance in a cell may list its batches in another order than
+// the model that owns the arrays.
+static bool bt_lib_batch (const u8 *d, size_t size, ccp name, uint nb, uint k,
+	const bt_batch_t *want, const u8 *skip_rec_of, uint *skip, bt_batch_t *out)
 {
 	bt_sec_t data, gpu;
-	if (!bt_section_named (d, size, ".data", &data)
+	if (!IsBlueTongueTrb (d, size) || !bt_section_named (d, size, ".data", &data)
 		|| !bt_section_named (d, size, "gpu_data", &gpu))
 		return false;
 	char nm[64];
@@ -437,15 +505,41 @@ static bool bt_lib_batch (const u8 *d, size_t size, ccp name, uint nb, uint k, b
 		const u32 arr = bt_u32 (d, size, obj + 0x14);
 		if (arr + 4ull * nb > data.size)
 			continue;
-		const u32 rec = bt_u32 (d, size, (size_t)data.off + arr + 4 * k);
-		if (rec + 0x68ull > data.size)
-			continue;
-		if (bt_parse_batch (d, size, &data, &gpu, (size_t)data.off + rec, out))
+		for (uint step = 0; step < nb; step++)
+		{
+			const uint j = step == 0 ? k : step - 1 < k ? step - 1 : step;
+			const u32 rec = bt_u32 (d, size, (size_t)data.off + arr + 4 * j);
+			if (rec + 0x68ull > data.size || (skip_rec_of && d + data.off + rec == skip_rec_of))
+				continue;
+			bt_batch_t lb;
+			if (!bt_parse_batch (d, size, &data, &gpu, (size_t)data.off + rec, &lb)
+				|| !bt_lib_covers (want, &lb))
+				continue;
+			if (*skip)
+			{
+				(*skip)--;
+				continue;
+			}
+			*out = lb;
 			return true;
+		}
 	}
 	return false;
 }
 
+// Same over the library package LIB, the registered packages and the package itself.
+static bool bt_find_lib_batch (const u8 *self, size_t self_size, const u8 *lib, size_t lib_size,
+	ccp name, uint nb, uint k, const bt_batch_t *want, const u8 *skip_rec, uint skip,
+	bt_batch_t *out)
+{
+	if (lib && bt_lib_batch (lib, lib_size, name, nb, k, want, 0, &skip, out))
+		return true;
+	for (uint i = 0; i < bt_n_libs; i++)
+		if (bt_lib_data[i] != lib && bt_lib_data[i] != self
+			&& bt_lib_batch (bt_lib_data[i], bt_lib_size[i], name, nb, k, want, 0, &skip, out))
+			return true;
+	return bt_lib_batch (self, self_size, name, nb, k, want, skip_rec, &skip, out);
+}
 
 //-----------------------------------------------------------------------------
 // Material binding. A model name selects an entry of "CoreMaterialSets_Mem"
@@ -589,6 +683,42 @@ static void bt_bind_materials (
 	}
 }
 
+// Do all indices of the display list of B stay inside the arrays it shares (WANT
+// marks which ones are shared)?
+static bool bt_indices_fit (const u8 *d, size_t size, const bt_sec_t *gpu, bt_batch_t *b,
+	const bt_batch_t *want)
+{
+	const size_t nv = bt_dl_auto (d, size, gpu, b, 0, 0);
+	if (!nv || nv > BT_MAX_VERTS)
+		return false;
+	uint (*idx)[BT_MAX_ATTR] = MALLOC (nv * sizeof (*idx));
+	if (!idx)
+		return false;
+	bt_dl_auto (d, size, gpu, b, idx, nv);
+	bool fit = true;
+	for (size_t i = 0; i < nv && fit; i++)
+		for (uint a = 0; a < b->n && fit; a++)
+			if (want->shared[a] && idx[i][a] >= b->cnt[a])
+				fit = false;
+	FREE (idx);
+	return fit;
+}
+
+typedef struct
+{
+	bool valid;
+	u32 arr, cnt, elem, frac;
+	const u8 *src;
+} bt_last_t;
+
+static bool bt_absent_pos (const bt_batch_t *b)
+{
+	for (uint a = 0; a < b->n; a++)
+		if (b->attr[a] == 9)
+			return b->absent[a];
+	return true;
+}
+
 model_t *BuildBlueTongueModel (const u8 *d, size_t size, uint index, char *name, size_t name_size,
 	const u8 *lib, size_t lib_size)
 {
@@ -612,6 +742,8 @@ model_t *BuildBlueTongueModel (const u8 *d, size_t size, uint index, char *name,
 		FREE (mesh_batch);
 		return 0;
 	}
+	bt_last_t last[16];
+	memset (last, 0, sizeof (last));
 	for (uint k = 0; k < nb; k++)
 	{
 		const u32 rec = bt_u32 (d, size, (size_t)data.off + arr + 4 * k);
@@ -626,29 +758,33 @@ model_t *BuildBlueTongueModel (const u8 *d, size_t size, uint index, char *name,
 			any_shared = any_shared || b.shared[a];
 		if (any_shared)
 		{
-			// the arrays come from the same-named model of the library package
-			bt_batch_t lb;
-			if (!lib || !bt_lib_batch (lib, lib_size, name_of_model, nb, k, &lb))
-				continue;
-			bool fine = true;
-			for (uint a = 0; a < b.n && fine; a++)
+			// the arrays come from a same-named model of another package of the level;
+			// the candidate is right when every index of the display list fits its arrays
+			const bt_batch_t own = b;
+			bool found = false;
+			for (uint cand = 0; !found; cand++)
 			{
-				if (!b.shared[a])
-					continue;
-				uint j = 0;
-				while (j < lb.n && lb.attr[j] != b.attr[a])
-					j++;
-				fine = j < lb.n && !lb.shared[j];
-				if (fine)
+				bt_batch_t lb;
+				if (!bt_find_lib_batch (
+						d, size, lib, lib_size, name_of_model, nb, k, &own, d + r, cand, &lb))
+					break;
+				b = own;
+				for (uint a = 0; a < b.n; a++)
 				{
+					if (!b.shared[a])
+						continue;
+					uint j = 0;
+					while (j < lb.n && lb.attr[j] != b.attr[a])
+						j++;
 					b.arr[a] = lb.arr[j];
 					b.cnt[a] = lb.cnt[j];
 					b.elem[a] = lb.elem[j];
 					b.frac[a] = lb.frac[j];
 					b.src[a] = lb.src[0];
 				}
+				found = bt_indices_fit (d, size, &gpu, &b, &own);
 			}
-			if (!fine)
+			if (!found)
 				continue;
 		}
 
@@ -657,13 +793,38 @@ model_t *BuildBlueTongueModel (const u8 *d, size_t size, uint index, char *name,
 			has_pos = has_pos || b.attr[a] == 9;
 		if (!has_pos)
 			continue;
-		const size_t nv = bt_dl_verts (d, size, &gpu, &b, 0, 0);
+		// a batch without a descriptor for an attribute continues with the array of the
+		// closest earlier batch of the model that had one (terrain pieces share their
+		// position pool this way); if that does not give a clean display list the
+		// attribute stays absent
+		bt_batch_t plain = b;
+		bool inherited = false;
+		for (uint a = 0; a < b.n; a++)
+		{
+			if (b.attr[a] >= 9 && b.absent[a] && last[b.attr[a] & 15].valid)
+			{
+				const bt_last_t *l = last + (b.attr[a] & 15);
+				b.arr[a] = l->arr, b.cnt[a] = l->cnt, b.elem[a] = l->elem, b.frac[a] = l->frac;
+				b.src[a] = l->src;
+				b.absent[a] = false;
+				inherited = true;
+			}
+		}
+		if (inherited && !bt_dl_verts (d, size, &gpu, &b, 0, 0))
+			b = plain;
+		for (uint a = 0; a < b.n; a++)
+			if (b.attr[a] >= 9 && !b.absent[a])
+				last[b.attr[a] & 15]
+					= (bt_last_t) { true, b.arr[a], b.cnt[a], b.elem[a], b.frac[a], b.src[a] };
+		if (bt_absent_pos (&b))
+			continue;
+		const size_t nv = bt_dl_auto (d, size, &gpu, &b, 0, 0);
 		if (!nv || nv > BT_MAX_VERTS)
 			continue;
 		uint (*idx)[BT_MAX_ATTR] = MALLOC (nv * sizeof (*idx));
 		if (!idx)
 			continue;
-		bt_dl_verts (d, size, &gpu, &b, idx, nv);
+		bt_dl_auto (d, size, &gpu, &b, idx, nv);
 
 		mesh_t *nm = REALLOC (m->meshes, (m->num_meshes + 1) * sizeof (*nm));
 		if (!nm)
@@ -701,7 +862,7 @@ model_t *BuildBlueTongueModel (const u8 *d, size_t size, uint index, char *name,
 			mesh->normals[i] = (vec3_t) { 0, 0, 1 };
 			for (uint a = 0; a < b.n; a++)
 			{
-				if (b.attr[a] < 9)
+				if (b.attr[a] < 9 || b.absent[a])
 					continue;
 				const uint ix = idx[i][a] < b.cnt[a] ? idx[i][a] : 0;
 				const u8 *q = b.src[a] + b.arr[a] + (size_t)b.elem[a] * ix;
