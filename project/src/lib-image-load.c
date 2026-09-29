@@ -64,6 +64,7 @@
 #include "lib-nlg-lm.h"
 #include "lib-pik1.h"
 #include "lib-layton-bg.h"
+#include "lib-luminous-bg.h"
 
 ///////////////		    AssignIMG(), LoadIMG()		///////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -1525,9 +1526,25 @@ enumError LoadIMG (Image_t *img, // pointer to valid img
 		eszs.fname = STRDUP (fname);
 	}
 
+	ccp bg_ext = fname ? strrchr (fname, '.') : 0;
+	if (bg_ext && !strcasecmp (bg_ext, ".scb"))
+	{
+		u8 *rgba = 0;
+		uint width = 0, height = 0;
+		enumError bg_err
+			= LoadLuminousBG_RGBA (&rgba, &width, &height, eszs.data, eszs.data_size, fname);
+		if (bg_err)
+		{
+			ResetExtractSZS (&eszs);
+			return ERROR0 (ERR_INVALID_DATA,
+				"Invalid SCB/IMB/PLB background or missing companions: %s\n", fname);
+		}
+		AssignDecodedRGBA (img, rgba, width, height, &le_func, fname);
+		ResetExtractSZS (&eszs);
+		return PatchListIMG (img);
+	}
 	// These backgrounds have no magic and can carry a four-byte compression
 	// type before the Nitro stream. Probe the complete bounded layout first.
-	ccp bg_ext = fname ? strrchr (fname, '.') : 0;
 	if (bg_ext && (!strcasecmp (bg_ext, ".arc") || !strcasecmp (bg_ext, ".arb")))
 	{
 		u8 *rgba = 0;

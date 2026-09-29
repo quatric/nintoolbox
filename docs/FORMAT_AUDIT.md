@@ -265,3 +265,40 @@ make -C project test-lze LZE_TEST_CFLAGS='-O1 -g -fsanitize=address,undefined'
 This adds decompression, not LZE encoding or rendering of the game's raw image,
 palette, and tile-map resources. The same codec is documented for Luminous Arc 3,
 but that game's resources have not been validated here.
+
+
+## Luminous Arc 2 screen backgrounds
+
+`wimgt DECODE image.scb` now loads `image.imb` and `image.plb` from the same
+directory and renders the assembled background as PNG. SCB maps and IMB tiles
+may be raw or LZE-compressed; palettes are raw BGR555. The verified layouts use
+16-color, 4-bit tiles (32-byte palette) or 256-color, 8-bit tiles (512-byte
+palette). Palette index zero is transparent, matching DS background behavior.
+Screen entries use the standard DS tile number and horizontal/vertical flip bits
+as documented in [GBATEK](https://mgba-emu.github.io/gbatek/#lcd-vram-bg-screen-data-format-bg-map).
+
+The four SCB header words are tile columns, tile rows, entry width (16 bits),
+and row stride in bytes. All dimensions, resource lengths, tile references and
+palette modes are checked before allocating the rendered image. Missing
+companions and malformed inputs return an error without producing a PNG.
+Palette-bank variants are rejected because none were present in the sample.
+
+All **250 backgrounds** from the Luminous Arc 2 (USA) sample above pass an
+independent tile-first renderer comparison, including every RGBA pixel. Of these,
+143 use 256 colors and 107 use 16 colors. The reference reader uses CUE to expand
+LZE streams separately. A rendered gameplay resource was also inspected visually.
+Six CLI tests cover both color depths, four flip states, raw/compressed inputs,
+missing companions, invalid dimensions/indices, truncations and dry runs. Native
+bounds tests pass AddressSanitizer and UndefinedBehaviorSanitizer.
+
+```sh
+wimgt DECODE image.scb -d image.png
+python3 tests/audit_luminous_backgrounds.py /path/to/luminous2/files \
+  --reference /path/to/wf-nnpack/lze --output /tmp/luminous-bg-report.json
+make -C project test-luminous-bg LUMINOUS_BG_TEST_CFLAGS='-O1 -g -fsanitize=address,undefined'
+```
+
+Companion filenames use the same stem and lowercase `.imb`/`.plb` extensions.
+This renders individual resources; it does not reproduce game compositing,
+animation, or sprite resources, and no encoding is implemented. No retail assets
+are included in the repository.
