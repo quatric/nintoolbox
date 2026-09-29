@@ -4,5 +4,6 @@
 #include "wszst_cmd/decompress.inc"
 #include "wszst_cmd/create_archive_dispatch.inc"
 #include "wszst_cmd/create_update.inc"
+#include "wszst_cmd/extract_all.inc"
 #include "wszst_cmd/formats.inc"
 #include "wszst_cmd/main.inc"
