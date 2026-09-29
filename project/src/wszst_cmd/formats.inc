@@ -2,6 +2,7 @@
 #include "formats/sprites.inc"
 #include "formats/bch.inc"
 #include "formats/extract_dispatch.inc"
+#include "formats/extract_one_file_inner.inc"
 #include "formats/extract_tree.inc"
 #include "formats/convert.inc"
 #include "formats/cat.inc"
