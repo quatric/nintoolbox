@@ -9276,6 +9276,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Toshi TSFB" "mk_toshi.py failed"
   fi
 
+  # Toshi TSFB model (Nickelodeon Barnyard, Wii): skinned .trb mesh -> GLB
+  mkdir -p "$d/toshi_model"
+  if python3 "$PWD_PROJECT/../tests/mk_toshi_model.py" "$d/toshi_model" >/dev/null 2>&1; then
+    "$B/wmdlt" ENCODE "$d/toshi_model/Data/Models/Quad.trb" --dest "$d/toshi_model/Quad.glb" >/dev/null 2>&1
+    [ "$(head -c 4 "$d/toshi_model/Quad.glb" 2>/dev/null)" = "glTF" ] \
+    && grep -a -q '"skins"' "$d/toshi_model/Quad.glb" \
+    && fok "Toshi TSFB: skinned .trb model -> GLB" \
+    || fno "Toshi TSFB model" "failed to convert synthetic model"
+  else
+    fno "Toshi TSFB model" "mk_toshi_model.py failed"
+  fi
+
   # Toshi TSFB keyframe library (Nickelodeon Barnyard, Wii): .tkl -> YAML
   mkdir -p "$d/tkl_test"
   if python3 "$PWD_PROJECT/../tests/mk_tkl.py" "$d/tkl_test" >/dev/null 2>&1; then

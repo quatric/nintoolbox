@@ -1646,6 +1646,36 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 			}
 			continue;
 		}
+		// Blue Tongue Toshi model .trb (Nickelodeon Barnyard Wii)
+		if (is_model_dest && IsToshiTsfb (raw.data, raw.data_size))
+		{
+			toshi_trb_t trb;
+			if (!OpenToshiTrb (&trb, raw.data, raw.data_size))
+			{
+				model_t *model = IsToshiModel (&trb) ? BuildToshiModel (&trb) : 0;
+				ResetToshiTrb (&trb);
+				if (model)
+				{
+					if (!testmode)
+					{
+						char out_dir[PATH_MAX];
+						snprintf (out_dir, sizeof (out_dir), "%s", dest);
+						char *slash = strrchr (out_dir, '/');
+						if (slash)
+							*slash = 0;
+						else
+							snprintf (out_dir, sizeof (out_dir), ".");
+						ExportToshiModelTextures (model, arg, out_dir);
+						if (verbose >= 0)
+							fprintf (stdlog, "%sEXPORT TOSHI:%s -> GLB:%s\n",
+								verbose > 0 ? "\n" : "", arg, dest);
+						ExportModelToGLB (model, dest);
+					}
+					FreeModel (model);
+					continue;
+				}
+			}
+		}
 		// J3D GameCube/Wii BMD/BDL (SuperBMD-compatible). Magic-checked
 		// first so a J3D .bmd never reaches the DS NSBMD path below;
 		// the .bmd extension alone still means early-DS BMD there.

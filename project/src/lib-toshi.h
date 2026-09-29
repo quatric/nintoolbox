@@ -44,6 +44,7 @@
 #define SZS_LIB_TOSHI_H 1
 
 #include "lib-std.h"
+#include "lib-model-glb.h"
 
 typedef struct
 {
@@ -101,5 +102,44 @@ bool ToshiTklTranslation (const toshi_tkl_t *tkl, uint idx, float out[3]);
 bool ToshiTklQuaternion (const toshi_tkl_t *tkl, uint idx, float out[4]);
 // Decodes scale IDX to a float. BEST-EFFORT format (see toshi_tkl_t comment).
 bool ToshiTklScale (const toshi_tkl_t *tkl, uint idx, float *out);
+
+//-----------------------------------------------------------------------------
+// Toshi model .trb (Nickelodeon Barnyard Wii, Data/Models/*.trb). Symbols
+// "FileHeader" (LDMT v2.0), "SkeletonHeader", "Skeleton", "Materials",
+// "Collision", "Header" and "LOD<l>_Mesh_<n>". Layout after OpenBarnyard's
+// TTMDBase/TTMDWin/TSkeleton headers for the parts shared with the PC build,
+// and reverse engineered from disc samples for the Wii mesh payload
+// (verified: all index ranges, array extents and DL sizes fit exactly).
+//
+// Skeleton (section offset S): u16 bone count at S; bones start at S + 0x48,
+//   192 bytes each: quaternion (local, x y z w), 4x4 world bind matrix and 4x4
+//   inverse (row-vector convention, translation in row 3), u8 name length,
+//   31-byte name, s16 parent (-1 root), vec3 local position.
+// Materials: {u32 0, u32 0, u32 count, u32 size} then count * 296 bytes
+//   {char name[104]; char texture_file[192]} (texture file such as
+//   "Prop\\copcar2.tga", whose pixels live in Data/Matlibs/<model>.ttl).
+// Header: {u32 num LODs, float lod distance, ptr to LOD table}; LOD: {u32 mesh
+//   count 1, u32 mesh count 2, u32 shader, u32 junk, sphere (x y z r)}.
+// LODn_Mesh_m (32 bytes): ptr positions (s16 x3, frac bits = fmt[0]), ptr
+//   normals (s8 x3 / 64), ptr texcoords (s16 x2), ptr submesh table, u32
+//   submesh count, ptr material name, ptr skin table, u8 fmt[4] = {position
+//   frac bits, then the index width in bytes for position / normal / texcoord
+//   as GX index types 2 (u8) and 3 (u16)}.
+// Submesh (24 bytes): ptr display list, u32 DL byte size (padded to 32), u32
+//   vertex count, u8 bones[12] (matrix slot -> skin table entry, 0xff unused).
+// Display list: GX commands {u8 cmd (0x90 triangles, 0x98 strip, 0xa0 fan,
+//   0x80 quads), u16 vertex count, vertices}; vertex = u8 matrix slot * 3
+//   followed by the position, normal and texcoord indices.
+// Skin table: {u32 count, ptr}; entries of 16 bytes {u8 n, u8 bone[3], float
+//   weight[3]} blending skeleton bones for one matrix slot.
+//-----------------------------------------------------------------------------
+bool IsToshiModel (const toshi_trb_t *trb);
+// Builds LOD0 as a skinned model_t (Y-up, positions in metres). The material
+// texture names are the sanitized ttl names ("Prop_copcar2").
+model_t *BuildToshiModel (const toshi_trb_t *trb);
+// Writes the PNGs the model's materials name into DEST_DIR, looking in the
+// same-named library of the sibling Matlibs directory first, then in all of
+// them. MODEL_PATH is the .trb the model came from.
+void ExportToshiModelTextures (const model_t *model, ccp model_path, ccp dest_dir);
 
 #endif
