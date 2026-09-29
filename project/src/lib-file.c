@@ -1465,6 +1465,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 				return FF_BCFNT;
 
 			// Level-5 Layton Sound (SADL)
+			case 0x7361646c: // "sadl" (retail; avoid matching plain text)
+				if (data_size < 8 || memcmp (data8 + 4, "\0\0\0\0", 4))
+					break;
+				return FF_SADL;
 			case 0x5341444c: // "SADL"
 				return FF_SADL;
 

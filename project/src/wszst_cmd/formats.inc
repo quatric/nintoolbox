@@ -1092,6 +1092,17 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
+	// Stream conversion must precede generic archive sniffers.
+	if (is_ext (arg, ".sad") || is_ext (arg, ".sadl"))
+	{
+		err = decompress_nintendo_file (arg);
+		if (err != ERR_NOTHING_TO_DO)
+			return err;
+	}
+	err = extract_pck2_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+
 	err = extract_pikarc_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

@@ -73,3 +73,64 @@ Jump Super Stars.nds    819a2325536c3f5b5fdbf6d77d924e5d30b686ba8741f0a9893e9dbc
 Jump Ultimate Stars.nds a9c9bf89e6d99548b7c87e822b217c3fb74ef25186535b06193a6fb73d0d6d27
 Pikmin.rvz             239946db4d46fb29b90245a7602f27f83e3b5c90dc98510b15a2fd191f70b76f
 ```
+
+## Professor Layton audio and archives
+
+Additional rclone samples:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Professor Layton and the Curious Village (USA, Australia).zip
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Professor Layton and the Diabolical Box (USA).zip
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| Curious Village | 59 SADL IMA streams: 42 mono, 17 stereo | Every PCM sample, channel count, sample rate and length matches vgmstream |
+| Diabolical Box | 359 SADL Procyon streams: 312 mono, 47 stereo | Every PCM sample, channel count, sample rate and length matches vgmstream |
+| Both games | 4 looped streams | Original loop bounds preserved in WAV `smpl` chunks |
+| Diabolical Box | 74 LZ10-wrapped PCK2 archives; 8,160 members | All payloads match independent decompression and directory parsing |
+
+SADL conversion now accepts retail lowercase magic, decodes 16-byte channel
+blocks with independent predictor state, honors the stored initial IMA state,
+and handles Procyon ADPCM instead of treating every payload as IMA. Both sample
+rates are covered by retail samples. The 0xC0 header offset and uppercase magic
+compatibility are covered by synthetic tests; all sampled streams use 0x100.
+Malformed channels, codec flags, offsets, block lengths, IMA indices, and loops
+are rejected before writing output. Decoding emits one pass through the stream,
+with loop metadata rather than repeated audio.
+
+The audio reference is [vgmstream commit 7dc938fa](https://github.com/vgmstream/vgmstream/tree/7dc938fa2f210943b37c7b6511852b516ef432ab),
+particularly `src/meta/sadl.c`, `src/coding/ima_decoder.c`, and
+`src/coding/nds_procyon_decoder.c`. The upstream [copyright and permission
+notice](licenses/vgmstream.txt) is retained. Native conversion does not require
+vgmstream; only the optional corpus checker uses it.
+
+PCK2 uses sequential records with separate header, record and payload sizes.
+The extractor validates all records and names before writing and supports raw
+PCK2, LZ10-wrapped PLZ, empty members, dry runs and `--recurse=0`. The sample
+members contain 4,755 scripts, 1,963 data files, 1,380 text files, 20 models, and
+42 motion/animation files. Extraction does not establish semantic decoding of
+every member type. PCK2 creation is not implemented.
+
+```sh
+wszst DECOMPRESS stream.SAD -d stream.wav --no-passthrough
+wszst EXTRACT archive.plz -d archive-out --recurse=0 --no-passthrough
+python3 tests/audit_sadl_corpus.py /path/to/curious/files /path/to/diabolical/files \
+  --reference /path/to/vgmstream-cli --output /tmp/sadl-report.json
+python3 tests/audit_retail_corpus.py /path/to/diabolical/files \
+  --format pck2 --output /tmp/pck2-report.json
+make -C project test-sadl SADL_TEST_CFLAGS='-O1 -g -fsanitize=address,undefined'
+make -C project test-pck2 PCK2_TEST_CFLAGS='-O1 -g -fsanitize=address,undefined'
+```
+
+Extracted ROM SHA-256:
+
+```text
+Curious Village.nds 0d6c06e010f4228605f08f934bf30d994e9986898ddc68a5260f6937c41bda57
+Diabolical Box.nds  604e962ad3eda65a637c6cace2a521d99133501b59c9cac150d7face11cba3f7
+```
+
+A Shift-JIS filename in Curious Village blocked the local `ndstool` build on
+macOS. The audit instead read NitroFS directory/FAT records independently and
+decoded names as UTF-8 or Shift-JIS. That external extraction limitation remains.
+No retail game assets are included in this repository.

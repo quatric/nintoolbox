@@ -493,17 +493,21 @@ static enumError decompress_nintendo_file3 (
 		return err;
 	}
 
-	if (src_ext
-		&& (!strcasecmp (src_ext, ".bfwav") || !strcasecmp (src_ext, ".bcwav")
-			|| !strcasecmp (src_ext, ".cwav") || !strcasecmp (src_ext, ".fwav")
-			|| !strcasecmp (src_ext, ".brwav") || !strcasecmp (src_ext, ".rwav")))
+	const bool is_sadl
+		= size >= 8 && (!memcmp (data, "sadl\0\0\0\0", 8) || !memcmp (data, "SADL", 4));
+	if (is_sadl
+		|| (src_ext
+			&& (!strcasecmp (src_ext, ".bfwav") || !strcasecmp (src_ext, ".bcwav")
+				|| !strcasecmp (src_ext, ".cwav") || !strcasecmp (src_ext, ".fwav")
+				|| !strcasecmp (src_ext, ".brwav") || !strcasecmp (src_ext, ".rwav"))))
 	{
-		err = DecodeBXWAV (&decoded, &decoded_size, data, size);
+		err = is_sadl ? DecodeSADL_WAV (&decoded, &decoded_size, data, size)
+					  : DecodeBXWAV (&decoded, &decoded_size, data, size);
 		FREE (data);
 		if (err || !decoded || !decoded_size)
 		{
 			FREE (decoded);
-			return ERR_NOTHING_TO_DO;
+			return is_sadl ? (err ? err : ERR_INVALID_DATA) : ERR_NOTHING_TO_DO;
 		}
 
 		char dest[PATH_MAX];

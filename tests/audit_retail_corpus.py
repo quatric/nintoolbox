@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify ALAR or Pikmin ARC/DIR extraction against every source member.
+"""Verify ALAR, PCK2 or Pikmin ARC/DIR extraction against every source member.
 
 Usage: python3 tests/audit_retail_corpus.py /path/to/extracted/rom/files --output report.json
 The report contains counts and failures; source files are never modified.
@@ -54,9 +54,51 @@ def pikmin_members(index, data):
         yield name, data[offset:offset+length]
 
 
+def pck2_members(data):
+    if data[:1] == b'\x10':
+        length = int.from_bytes(data[1:4], 'little')
+        if not length or length > 256*1024*1024:
+            raise ValueError('unsupported LZ10 size')
+        decoded = bytearray()
+        pos = 4
+        while len(decoded) < length:
+            flags = data[pos]; pos += 1
+            for bit in range(7, -1, -1):
+                if len(decoded) >= length:
+                    break
+                if flags & (1 << bit):
+                    a, b = data[pos:pos+2]; pos += 2
+                    distance = ((a & 15) << 8 | b) + 1
+                    if distance > len(decoded):
+                        raise ValueError('invalid LZ10 distance')
+                    for _ in range((a >> 4) + 3):
+                        decoded.append(decoded[-distance])
+                else:
+                    decoded.append(data[pos]); pos += 1
+        if len(decoded) != length:
+            raise ValueError('LZ10 size mismatch')
+        data = decoded
+    head, total = struct.unpack_from('<II', data)
+    if data[8:12] != b'PCK2' or total != len(data) or head < 16:
+        raise ValueError('invalid PCK2 header')
+    pos = head
+    while pos < total:
+        header, record, unused, size = struct.unpack_from('<4I', data, pos)
+        if header <= 16 or header > record or record > total-pos or size > record-header:
+            raise ValueError('invalid PCK2 record')
+        raw_name = data[pos+16:pos+header]
+        if 0 not in raw_name:
+            raise ValueError('unterminated PCK2 name')
+        name = bytes(raw_name).split(b'\0', 1)[0].decode('utf-8')
+        if not name or name.startswith('/') or '..' in name.split('/'):
+            raise ValueError('unsafe or missing member name')
+        yield name, data[pos+header:pos+header+size]
+        pos += record
+
+
 def audit(path, binary, kind):
     data = path.read_bytes()
-    expected = list(alar_members(data) if kind == 'alar' else
+    expected = list(alar_members(data) if kind == 'alar' else pck2_members(data) if kind == 'pck2' else
                     pikmin_members(path.with_suffix('.dir').read_bytes(), data))
     with tempfile.TemporaryDirectory(prefix='alar-audit-') as tmp:
         dest = Path(tmp) / 'out'
@@ -69,7 +111,7 @@ def audit(path, binary, kind):
             if not target.is_file() or target.read_bytes() != payload:
                 mismatches.append(name)
         return {'path': str(path), 'sha256': hashlib.sha256(data).hexdigest(),
-                'variant': data[4] if kind == 'alar' else 'arc-dir', 'members': len(expected),
+                'variant': data[4] if kind == 'alar' else kind, 'members': len(expected),
                 'exit_code': result.returncode, 'mismatches': mismatches,
                 'diagnostic': result.stderr[-2000:] if result.returncode else ''}
 
@@ -80,7 +122,7 @@ def main():
     parser.add_argument('--binary', type=Path,
                         default=Path(__file__).resolve().parents[1] / 'project/bin/wszst')
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--format', choices=('alar', 'pikmin'), default='alar')
+    parser.add_argument('--format', choices=('alar', 'pikmin', 'pck2'), default='alar')
     parser.add_argument('--jobs', type=int, default=4)
     args = parser.parse_args()
     if not args.root.is_dir():
@@ -93,6 +135,9 @@ def main():
             if args.format == 'pikmin':
                 if path.suffix.lower() == '.arc' and path.with_suffix('.dir').is_file():
                     paths.append(path.resolve())
+            elif args.format == 'pck2':
+                if path.suffix.lower() in ('.plz', '.pck2'):
+                    paths.append(path.resolve())
             else:
                 with path.open('rb') as source:
                     if source.read(4) == b'ALAR':
@@ -103,7 +148,7 @@ def main():
     def run(path):
         try:
             return audit(path, binary, args.format)
-        except (OSError, ValueError, struct.error, subprocess.TimeoutExpired) as error:
+        except (OSError, ValueError, IndexError, struct.error, subprocess.TimeoutExpired) as error:
             return {'path': str(path), 'members': 0, 'exit_code': -1,
                     'mismatches': [], 'diagnostic': str(error)}
     # Keep the executable stable if another build replaces the project tools.

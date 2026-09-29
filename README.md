@@ -152,6 +152,7 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **PKZ** | `.pkz` | ✅ | ✅ | ✅ | — | PlatinumGames archive format (*Bayonetta*, *Astral Chain*) |
 | **PRC** | `.prc`, `.param` | ✅ | — | — | — | Smash parameter binary (Ultimate `paracobn` decoded to ParamXML; Smash 4 variants recognised). |
 | **PTD** | `.ptd`, `.pdt` | ✅ | ✅ | ✅ | — | Hudson Soft DSP-ADPCM audio archive (*Mario Party 4-8*); streams extract to `.dsp`. |
+| **PCK2 / PLZ** | `.plz`, `.pck2` | ✅ | — | — | ✅ | *Professor Layton and the Diabolical Box* (DS): named PCK2 members, raw or LZ10-wrapped. All 74 sampled archives / 8,160 members verified. |
 | **Pikmin ARC/DIR** | `.arc` + `.dir` | ✅ | API | — | ✅ | *Pikmin* (GameCube): extract `.arc` with its sibling `.dir`, preserving paths and empty files. Interleaved index records and aligned data; writer API tested independently. |
 | **PVOL** | `.pvol` | 🟡 | ✅ | ✅ | — | Container with synthetic roundtrip coverage; retail provenance unverified. The sampled *Pikmin* disc uses ARC/DIR pairs, not this layout. |
 | **RARC** | `.rarc`, `.arc` | ✅ | ✅ | ✅ | — | Nintendo standard resource archive (GameCube / Wii) |
@@ -334,7 +335,7 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | **EID** | `.eid` | ✅ | — | ✅ | *I Spy Spooky Mansion* (Wii) sound-event/effect table. |
 | **NUS3AUDIO** | `.nus3audio`, `.nus3bank` | ✅ | ✅ | — | Bandai Namco NUS3 audio archive (*Super Smash Bros. Ultimate*, Switch) |
 | **RSEQ / CSEQ / FSEQ / SSEQ** | `.rseq`, `.cseq`, `.fseq`, `.sseq` | ✅ | ✅ | ✅ | Nintendo sequence music format (Wii / 3DS / Wii U / DS). |
-| **SADL** | `.sad`, `.sadl` | ✅ | — | ✅ | Level-5 / *Professor Layton* audio stream container (DS) |
+| **SADL** | `.sad`, `.sadl` | ✅ | — | ✅ | *Professor Layton* (DS): native mono/stereo IMA and Procyon ADPCM to WAV with loop markers. All 418 sampled streams match vgmstream; see [audit](docs/FORMAT_AUDIT.md). |
 | **SDAT** | `.sdat` | ✅ | ✅ | ✅ | Nintendo DS Nitro sound archive (DS) |
 | **WT** | `.wt` | ✅ | — | ✅ | *Octomania* (Wii) wavetable sample-offset index. |
 

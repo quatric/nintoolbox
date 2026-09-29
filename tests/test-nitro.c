@@ -415,6 +415,7 @@ int main (void)
 	{
 		u8 sadl_buf[0x100 + 32] = { 0 };
 		memcpy (sadl_buf, "SADL", 4);
+		sadl_buf[0x49] = 1; // payload begins at 0x100
 		sadl_buf[0x32] = 1; // 1 channel
 		sadl_buf[0x33] = 4; // 32728 Hz
 		sadl_buf[0x40] = (u8)(sizeof (sadl_buf) & 0xFF);

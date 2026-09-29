@@ -305,7 +305,7 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_ALAR, true, false, 0);
 		if (!memcmp (d, "DARC", 4) || !memcmp (d, "darc", 4))
 			return make_info (NFMT_DARC, true, false, 0);
-		if (!memcmp (d, "SADL", 4))
+		if (!memcmp (d, "SADL", 4) || (size >= 8 && !memcmp (d, "sadl\0\0\0\0", 8)))
 			return make_info (NFMT_SADL, true, false, 0);
 		if (size >= 8
 			&& (!memcmp (d, "HSFV", 4) || !memcmp (d, "HSF\0", 4)
