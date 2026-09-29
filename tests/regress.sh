@@ -9276,6 +9276,20 @@ with open(sys.argv[1], "wb") as f:
     fno "Toshi TSFB" "mk_toshi.py failed"
   fi
 
+  # Nintendo 3DS Camera resources: .pack members, .gbin guide table, .bcbnk / .bcwsd info
+  mkdir -p "$d/ctrres"
+  for f in camera_effects_bubb.pack camera_guide.gbin camera_sound_bank.bcbnk camera_sound_wave_data.bcwsd; do
+    cp "$PWD_PROJECT/../tests/fixtures/$f" "$d/ctrres/$f" 2>/dev/null
+    "$B/wszst" extract "$d/ctrres/$f" >/dev/null 2>&1
+  done
+  [ "$(ls "$d/ctrres/camera_effects_bubb.pack.d" 2>/dev/null | wc -l | tr -d ' ')" = 16 ] \
+  && [ "$(head -c 1 "$d/ctrres/camera_effects_bubb.pack.d/BubB.bcptl.LZ" | xxd -p)" = 11 ] \
+  && grep -q '^guides: # 110 entries' "$d/ctrres/camera_guide.gbin.yaml" 2>/dev/null \
+  && grep -q '^waves: # 89 entries' "$d/ctrres/camera_sound_bank.bcbnk.yaml" 2>/dev/null \
+  && grep -q '^wave-sounds: # 11 slots' "$d/ctrres/camera_sound_wave_data.bcwsd.yaml" 2>/dev/null \
+  && fok "3DS Camera resources: PACK members, GBIN / CBNK / CWSD YAML" \
+  || fno "3DS Camera resources" "failed to extract the camera fixtures"
+
   # Toshi TSFB model (Nickelodeon Barnyard, Wii): skinned .trb mesh -> GLB
   mkdir -p "$d/toshi_model"
   if python3 "$PWD_PROJECT/../tests/mk_toshi_model.py" "$d/toshi_model" >/dev/null 2>&1; then
