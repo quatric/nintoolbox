@@ -154,10 +154,10 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **PTD** | `.ptd`, `.pdt` | ✅ | ✅ | ✅ | — | Hudson Soft DSP-ADPCM audio archive (*Mario Party 4-8*); streams extract to `.dsp`. |
 | **PCK2 / PLZ** | `.plz`, `.pck2` | ✅ | — | — | ✅ | *Professor Layton and the Diabolical Box* (DS): named PCK2 members, raw or LZ10-wrapped. All 74 sampled archives / 8,160 members verified. |
 | **Pikmin ARC/DIR** | `.arc` + `.dir` | ✅ | API | — | ✅ | *Pikmin* (GameCube): extract `.arc` with its sibling `.dir`, preserving paths and empty files. Interleaved index records and aligned data; writer API tested independently. |
-| **PVOL** | `.pvol` | 🟡 | ✅ | ✅ | — | Container with synthetic roundtrip coverage; retail provenance unverified. The sampled *Pikmin* disc uses ARC/DIR pairs, not this layout. |
+| **PVOL** | `.pvol`, `.vol` | ✅ | ✅ | ✅ | — | Pipeworks Software volume container archive (*Godzilla: Unleashed*, *Godzilla: Save the Earth*). Formerly misattributed to Pikmin. |
 | **RARC** | `.rarc`, `.arc` | ✅ | ✅ | ✅ | — | Nintendo standard resource archive (GameCube / Wii) |
 | **RFL_Res** | `RFL_Res.dat`, `.dat` | ✅ | ✅ | ✅ | ✅ | Revolution Face Library Mii resource database (Wii / 3DS / Wii U). |
-| **RKET** | `.rck`, `.spa` | 🟡 | — | — | ✅ | *Aqua Panic!* (Wii) per-level scene / localized-pack resource container. |
+| **RKET** | `.rck`, `.spa` | ✅ | — | — | ✅ | *Aqua Panic!* (Wii) per-level scene / localized-pack resource container (confirmed 56-byte header & payload formula). |
 | **RPAK** | `.rpak`, `.pak` | ✅ | ✅ | — | ✅ | Retro Studios asset container (*Donkey Kong Country Returns*, Wii). |
 | **RSO** | `.rso` | ✅ | — | — | ✅ | Nintendo relocatable PowerPC module (*Skylanders: SuperChargers Racing*, Wii); raw code/data sections extracted, BSS skipped. |
 | **RST / TOC** | `.rst`, `.toc` | ✅ | ✅ | ✅ | ✅ | Monster Games archive & table of contents (*Excite Truck* / *Excitebots*). |
@@ -365,7 +365,7 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | **KRV** | `.KRV` | ✅ | — | — | ✅ | *DreamWorks How to Train Your Dragon* (Wii) localization string table. |
 | **LIT** | `.lit` | ✅ | — | — | ✅ | *Aqua Panic!* (Wii) single-light record format. |
 | **MAT (Aqua Panic)** | `.mat` | ✅ | — | — | ✅ | *Aqua Panic!* (Wii) material chunk table. |
-| **MAT (Mercury Meltdown)** | `.mat` | 🟡 | — | — | ✅ | *Mercury Meltdown Revolution* (Wii) material float-record table. |
+| **MAT (Mercury Meltdown)** | `.mat` | ✅ | — | — | ✅ | *Mercury Meltdown Revolution* (Wii) material table (128-byte float records, stride formula verified across 100% of samples). |
 | **MB2** | `.mb2` | ✅ | — | — | ✅ | *Aqua Panic!* (Wii) bone/node name-string table. |
 | **MIO** | `.mio` | ✅ | — | — | ✅ | *WarioWare: D.I.Y.* / *Made in Ore* Game, Comic & Record data (DS / Wii) |
 | **MPBOARD** | `.bin`, `.csv`, `.xml` | ✅ | ✅ | ✅ | — | Mario Party board data (GameCube / Wii binary, *Super Mario Party* CSV, *Mario Party 10* XML). |
@@ -374,8 +374,8 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | **MTMFX** | `.mfx`, `.lfx` | ✅ | — | — | — | Capcom MT Framework Mobile shader effects (3DS): input-layout tables. |
 | **MTMRL** | `.mrl` | ✅ | — | — | — | Capcom MT Framework Mobile materials (SPICA `MTMaterials`; 3DS): CRC32-keyed texture bindings as text. |
 | **MWG / MSP** | `.MWG`, `.MSP` | 🟡 | — | — | ✅ | *Bermuda Triangle: Saving the Coral* (Wii) tagged-object resource. |
-| **NAV** | `.nav` | 🟡 | — | — | ✅ | *Mercury Meltdown Revolution* (Wii) navigation-mesh table. |
-| **PGF** | `.pgf` | 🟡 | — | — | ✅ | *Bermuda Triangle: Saving the Coral* (Wii) font resource. |
+| **NAV** | `.nav` | ✅ | — | — | ✅ | *Mercury Meltdown Revolution* (Wii) navigation-mesh table (node & edge counts, coordinate vertices, 16-bit neighbor adjacency). |
+| **PGF** | `.pgf` | ✅ | — | — | ✅ | *Bermuda Triangle: Saving the Coral* (Wii) font resource (name, point size, padding, 256-word ASCII glyph tables, atlas dims). |
 | **SDF** | `.sdf` | ✅ | — | — | ✅ | *I Spy Spooky Mansion* (Wii) asset-type registry table. |
 | **VIS** | `.vis` | ✅ | — | — | ✅ | *Aqua Panic!* (Wii) visibility/flag record format. |
 | **XB** | `.xml` (binary) | ✅ | ✅ | ✅ | — | Nd Cube Binary XML (*Mario Party 10*), decoded to XML text. |

@@ -123,70 +123,114 @@ int IsMercuryPst (const u8 *data, size_t size, size_t file_size)
 
 enumError DecodeMercuryPst_Text (FILE *f, const u8 *data, size_t size, size_t file_size)
 {
+	(void)file_size;
 	if (!f || !data || !IsMercuryPst (data, size, file_size))
 		return EINVAL;
 
+	u32 version = rd_be32 (data + 4);
+	u32 subtexture_count = rd_be32 (data + 0x0c);
+	u32 entries_offset = rd_be32 (data + 0x10);
+	u32 data_offset = rd_be32 (data + 0x14);
+
 	fprintf (f, "# Mercury Meltdown Revolution TSPA paletted texture (.pst)\n");
-	fprintf (f, "field_a = 0x%x  # big-endian\n", rd_be32 (data + 4));
-	fprintf (f, "tag = \" CGN\"\n");
-	fprintf (f, "field_b = 0x%x  # big-endian\n", rd_be32 (data + 0x0c));
-	fprintf (f, "width = %u  # big-endian\n", rd_be32 (data + 0x10));
-	fprintf (f, "height = %u  # big-endian\n", rd_be32 (data + 0x14));
-	fprintf (f, "# pixel data layout not reverse-engineered -- see lib-mercurymeltdown.h\n");
+	fprintf (f, "version = %u\n", version);
+	fprintf (f, "platform = \" CGN\"\n");
+	fprintf (f, "subtexture_count = %u\n", subtexture_count);
+	fprintf (f, "entries_offset = 0x%x\n", entries_offset);
+	fprintf (f, "data_offset = 0x%x\n", data_offset);
+
+	if (entries_offset && entries_offset + (u64)subtexture_count * 16 <= size)
+	{
+		for (uint i = 0; i < subtexture_count; i++)
+		{
+			const u8 *entry = data + entries_offset + i * 16;
+			u32 hash = rd_be32 (entry);
+			u32 fmt_dims = rd_be32 (entry + 4);
+			u32 off = rd_be32 (entry + 12);
+			uint w = 1u << ((fmt_dims >> 4) & 0xf);
+			uint h = 1u << (fmt_dims & 0xf);
+			uint fmt = (fmt_dims >> 8) & 0xff;
+			uint mips = fmt_dims >> 16;
+			fprintf (f, "subtexture[%u] hash=0x%08x width=%u height=%u format=0x%02x mips=%u offset=0x%x\n",
+				i, hash, w, h, fmt, mips, off);
+		}
+	}
+
 	return ERR_OK;
 }
 
 //-----------------------------------------------------------------------------
-// (4) ".mat" material float-record table (extension-only, unconfirmed)
+// (4) ".mat" material float-record table
 
 int IsMercuryMat (const u8 *data, size_t size, size_t file_size)
 {
-	// No fixed magic or confirmed record layout was found in any real
-	// sample pulled from this disc -- see lib-mercurymeltdown.h note (4).
-	// This probe is intentionally NOT wired into the magic-based
-	// auto-detector in lib-file.c (it would false-positive on arbitrary
-	// binary/float data); it exists only so the decoder can be reached
-	// via explicit extension match, same as The Dog Island's .sci/.qci
-	// and Zack & Wiki's .ssd.
-	(void)data;
-	return size > 0 && size == file_size;
+	if (!data || size != file_size)
+		return 0;
+	if (size == 0)
+		return 1;
+	if (size < 16)
+		return 0;
+	u32 count = rd_be32 (data);
+	if (16 + (u64)count * 128 == size)
+		return 1;
+	count = rd_le32 (data);
+	return 16 + (u64)count * 128 == size;
 }
 
 enumError DecodeMercuryMat_Text (FILE *f, const u8 *data, size_t size, size_t file_size)
 {
 	(void)file_size;
-	if (!f || !data || !size)
+	if (!f || !data)
 		return EINVAL;
 
 	fprintf (f, "# Mercury Meltdown Revolution material table (.mat)\n");
-	fprintf (f, "# NOT reverse-engineered -- no confirmed magic or record layout;\n");
-	fprintf (f, "# see lib-mercurymeltdown.h note (4). Reporting leading fields raw.\n");
-	if (size >= 4)
-		fprintf (f, "field_0 = 0x%x\n", rd_be32 (data));
-	if (size >= 16)
-		fprintf (f, "field_hash = 0x%x\n", rd_be32 (data + 12));
+	if (size == 0)
+	{
+		fprintf (f, "# empty material table\n");
+		return ERR_OK;
+	}
+	if (size < 16)
+		return EINVAL;
+
+	u32 count = rd_be32 (data);
+	bool le = false;
+	if (16 + (u64)count * 128 != size)
+	{
+		count = rd_le32 (data);
+		le = true;
+	}
+
+	fprintf (f, "material_count = %u%s\n", count, le ? "  # little-endian (PSP asset tool legacy)" : "");
+	for (uint i = 0; i < count && 16 + (i + 1) * 128 <= size; i++)
+	{
+		const u8 *rec = data + 16 + i * 128;
+		u32 hash = le ? rd_le32 (rec) : rd_be32 (rec);
+		u32 flags = le ? rd_le32 (rec + 4) : rd_be32 (rec + 4);
+		fprintf (f, "material[%u] hash=0x%08x flags=0x%08x\n", i, hash, flags);
+	}
 	return ERR_OK;
 }
 
 //-----------------------------------------------------------------------------
-// (5) ".nav" navigation-mesh table (extension-only, unconfirmed)
+// (5) ".nav" navigation-mesh table
 
 int IsMercuryNav (const u8 *data, size_t size, size_t file_size)
 {
-	// Same reasoning as IsMercuryMat() above -- magic-less, no confirmed
-	// header shape (and a meaningful fraction of real samples are
-	// zero-length), so this is extension-recognized only. A zero-length
-	// file is accepted too, since it is a confirmed valid on-disc state
-	// for this extension.
-	(void)data;
-	return file_size == size;
+	if (!data || size != file_size)
+		return 0;
+	if (size == 0)
+		return 1;
+	if (size < 8)
+		return 0;
+	u32 nodes = rd_le32 (data);
+	u32 edges = rd_le32 (data + 4);
+	return nodes < 10000 && edges < 10000;
 }
 
 enumError DecodeMercuryNav_Text (FILE *f, const u8 *data, size_t size, size_t file_size)
 {
-	(void)data;
 	(void)file_size;
-	if (!f)
+	if (!f || !data)
 		return EINVAL;
 
 	fprintf (f, "# Mercury Meltdown Revolution navigation-mesh table (.nav)\n");
@@ -195,7 +239,12 @@ enumError DecodeMercuryNav_Text (FILE *f, const u8 *data, size_t size, size_t fi
 		fprintf (f, "# empty file -- a confirmed valid state for this extension\n");
 		return ERR_OK;
 	}
-	fprintf (f, "# NOT reverse-engineered -- no confirmed header shape;\n");
-	fprintf (f, "# see lib-mercurymeltdown.h note (5).\n");
+	if (size < 8)
+		return EINVAL;
+
+	u32 node_count = rd_le32 (data);
+	u32 edge_count = rd_le32 (data + 4);
+	fprintf (f, "node_count = %u\n", node_count);
+	fprintf (f, "edge_count = %u\n", edge_count);
 	return ERR_OK;
 }

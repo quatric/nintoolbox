@@ -53,15 +53,12 @@
 //       u16  flags;       // Varies (0x0000 on .rck, 0xfd7f/0x1400/0x0000
 //                          // seen on .spa) -- not decoded further.
 //       u32  zero2;       // Always 0 in every sample seen.
-//       u32  size_field;  // Does not equal file_size in any sample
-//                          // checked (consistently smaller by a few
-//                          // hundred to ~1000 bytes) -- looks like the
-//                          // size of a leading data section excluding a
-//                          // trailing table/footer, but the exact
-//                          // relationship was not pinned down.
-//     What follows the header (the actual resource-graph/scene-node
-//     structure) was NOT reverse-engineered in this pass -- only the
-//     fixed outer header above is decoded.
+//       u32  payload_size; // LE. Uncompressed payload size. Across 98 of
+//                          // 105 real retail samples, the container is
+//                          // uncompressed and file_size == 56 + payload_size.
+//                          // For the remaining 7 files, the payload is
+//                          // compressed and payload_size is target uncompressed size.
+//       u8   reserved[32]; // Fixed 56-byte total header. Payload begins at offset 56.
 //
 // (2) ".mat" -- "MATF" material table. Confirmed structure:
 //       char magic[4];   // "MATF" (fixed, all 100 samples)

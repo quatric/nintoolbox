@@ -235,16 +235,58 @@ enumError DecodeBermudaPgf_Text (FILE *f, const u8 *data, size_t size, size_t fi
 
 	u32 name_len = rd_le32 (data);
 	const u8 *name = data + 4;
-	u32 point_size = rd_le32 (data + 4 + name_len);
+	u32 pos = 4 + name_len;
+	u32 point_size = rd_le32 (data + pos);
+	pos += 4;
 
 	fprintf (f, "# Bermuda Triangle font resource (.pgf)\n");
 	fprintf (f, "family = \"");
 	print_escaped (f, name, name_len);
 	fprintf (f, "\"\n");
 	fprintf (f, "point_size = %u\n", point_size);
-	fprintf (f, "# per-glyph offset table follows; not decoded, see lib-bermudatriangle.h\n");
 
-	(void)size;
+	if (pos + 16 <= size)
+	{
+		u32 pad_left = rd_le32 (data + pos);
+		u32 pad_top = rd_le32 (data + pos + 4);
+		u32 pad_right = rd_le32 (data + pos + 8);
+		u32 pad_bottom = rd_le32 (data + pos + 12);
+		pos += 16;
+		fprintf (f, "padding = [%u, %u, %u, %u]\n", pad_left, pad_top, pad_right, pad_bottom);
+	}
+
+	if (pos + 1024 * 4 + 8 <= size)
+	{
+		const u8 *gx = data + pos;
+		const u8 *gy = data + pos + 256 * 4;
+		const u8 *gw = data + pos + 512 * 4;
+		const u8 *gh = data + pos + 768 * 4;
+		pos += 1024 * 4;
+
+		u32 atlas_w = rd_le32 (data + pos);
+		u32 atlas_h = rd_le32 (data + pos + 4);
+		pos += 8;
+
+		fprintf (f, "atlas_width = %u\n", atlas_w);
+		fprintf (f, "atlas_height = %u\n", atlas_h);
+		fprintf (f, "glyph_count = 256\n");
+
+		for (uint i = 0; i < 256; i++)
+		{
+			u32 x = rd_le32 (gx + i * 4);
+			u32 y = rd_le32 (gy + i * 4);
+			u32 w = rd_le32 (gw + i * 4);
+			u32 h = rd_le32 (gh + i * 4);
+			if (w > 0 && h > 0)
+			{
+				if (i >= 32 && i <= 126)
+					fprintf (f, "glyph[0x%02x '%c'] = x:%u y:%u w:%u h:%u\n", i, (char)i, x, y, w, h);
+				else
+					fprintf (f, "glyph[0x%02x] = x:%u y:%u w:%u h:%u\n", i, x, y, w, h);
+			}
+		}
+	}
+
 	(void)file_size;
 	return ERR_OK;
 }

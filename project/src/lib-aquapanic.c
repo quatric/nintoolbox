@@ -51,13 +51,18 @@ enumError DecodeAquaPanicRket_Text (FILE *f, const u8 *data, size_t size, size_t
 	if (!f || !data || size < 24)
 		return EINVAL;
 
+	u32 hash = rd_le32 (data + 8);
+	u16 version = rd_le16 (data + 12);
+	u16 flags = rd_le16 (data + 14);
+	u32 payload_size = rd_le32 (data + 20);
+
 	fprintf (f, "# Aqua Panic! RKET resource container (.rck / .spa)\n");
-	fprintf (f, "# Shared outer header only -- resource-graph/scene-node structure\n");
-	fprintf (f, "# after the header not reverse-engineered; see lib-aquapanic.h note (1).\n");
-	fprintf (f, "hash = 0x%x\n", rd_le32 (data + 8));
-	fprintf (f, "version = %u\n", rd_le16 (data + 12));
-	fprintf (f, "flags = 0x%x\n", rd_le16 (data + 14));
-	fprintf (f, "size_field = %u  # does not equal file_size, see note (1)\n", rd_le32 (data + 20));
+	fprintf (f, "hash = 0x%08x\n", hash);
+	fprintf (f, "version = %u\n", version);
+	fprintf (f, "flags = 0x%04x\n", flags);
+	fprintf (f, "header_size = 56\n");
+	fprintf (f, "payload_size = %u%s\n", payload_size,
+		file_size == 56 + (u64)payload_size ? "  # uncompressed (header_size + payload_size == file_size)" : "  # uncompressed target size (compressed container)");
 	return ERR_OK;
 }
 

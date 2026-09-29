@@ -93,7 +93,7 @@
 //     game's individual .MWT files (see note above) under one name/size/
 //     offset table.
 //
-// (3) ".pgf" -- font resource. Confirmed header, all 4 real samples
+// (3) ".pgf" -- font resource. Confirmed structure, all 4 real samples
 //     (consolas20.pgf, Tahoma16.pgf, tahoma20.pgf, comic.pgf):
 //       u32  name_len;    // LE.
 //       char name[name_len]; // font family name, e.g. "Consolas",
@@ -104,11 +104,16 @@
 //                         // point size baked into each filename exactly
 //                         // (comic.pgf, no size in its filename, has
 //                         // 0x14=20 here too).
-//     Followed by a run of ascending u32 values that looks like a
-//     per-glyph offset table (into a glyph atlas or outline blob later
-//     in the file), but no confirmed glyph-count field or terminator was
-//     found to pin down the table's length or the payload that follows
-//     it, so only the header above is decoded.
+//       u32  padding[4];  // LE. Margins/padding [left, top, right, bottom].
+//       u32  glyph_x[256]; // LE. X pixel coordinate in atlas for ASCII 0..255.
+//       u32  glyph_y[256]; // LE. Y pixel coordinate in atlas for ASCII 0..255.
+//       u32  glyph_w[256]; // LE. Glyph pixel width in atlas for ASCII 0..255.
+//       u32  glyph_h[256]; // LE. Glyph pixel height in atlas for ASCII 0..255.
+//       u32  atlas_width; // LE. 256 across all samples.
+//       u32  atlas_height; // LE. 256 (or 512 for tahoma20).
+//     Matches the paired companion .MWT/.TPL texture sheets (e.g.
+//     TAHOMA16.MWT at 256x256, TAHOMA20.MWT at 256x512) defined in
+//     DATA/font/FontDefine.txt. Fully decoded.
 
 #ifndef SZS_LIB_BERMUDATRIANGLE_H
 #define SZS_LIB_BERMUDATRIANGLE_H 1

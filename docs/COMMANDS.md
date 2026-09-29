@@ -245,7 +245,7 @@ wszst xx <source> [--dest <dir>] [--auto] [--overwrite] [delegation options]
 #### Newly Supported Archive Formats
 `wszst xx` and `wszst EXTRACT` natively recognize and extract:
 - Nintendo standard: **SARC** (Big-Endian & Little-Endian), **DARC**, **PAC / MRG**, **RARC**
-- GameCube / Wii: **FSYS** (Pokémon Colosseum/XD), **F9RES**, **MDR** (DDR Mario Mix), **PVOL** (Pikmin), **MPBIN** (Mario Party), **ZTAB** (Camelot), **ARCV** (Pac-Man Party), **AT7** (Koei Tecmo), **BIGF** (EA), **VCRA**
+- GameCube / Wii: **FSYS** (Pokémon Colosseum/XD), **F9RES**, **MDR** (DDR Mario Mix), **PVOL** (Pipeworks), **MPBIN** (Mario Party), **ZTAB** (Camelot), **ARCV** (Pac-Man Party), **AT7** (Koei Tecmo), **BIGF** (EA), **VCRA**
 - Nintendo DS / 3DS / Wii U: **GFA** / **BPE** (Good-Feel), **XPCK** (Level-5), **STPK** (Jump Super Stars), **ZLARC** (NES Remix), **BG4** (Mario & Luigi), **CRAM** (Xenoblade 3D), **WARC** (Game & Wario), **CA01** / **SA01** (Mii Maker)
 - SPICA / 3dsTools family: **GFMPACK** (named model/texture/shader members), **GFPKG** (Gen6/Gen7 offset-table packages), **GFLX** (Switch LZ4 members); **GFMOT** / **GF1MOT** (motion), **MTMRL** / **MTMFX** (materials/shaders), **MTMOD** (models → GLB beside the source) and **MBN** decode to `.txt` manifests / GLB instead of directories
 

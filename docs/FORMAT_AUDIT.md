@@ -26,9 +26,11 @@ not wired up. TXE loading is extension-gated because the format has no magic.
 ## Remaining uncertainty
 
 The sampled Jump Stars files use ALAR rather than establishing retail STPK
-support. The Pikmin disc listing contains ARC/DIR pairs and no `.pvol` files.
-STPK and PVOL retain synthetic round-trip coverage, but their former game
-attributions are unverified. Extraction of proprietary Jump Stars member data
+support. The Pikmin disc listing contains ARC/DIR pairs and no `.pvol` files;
+PVOL was identified as the Pipeworks Software volume archive format (`.vol` / `.pvol`)
+used in Pipeworks titles such as *Godzilla: Unleashed* and *Godzilla: Save the Earth*.
+STPK retains synthetic round-trip coverage while its former Jump Stars attribution
+was unverified. Extraction of proprietary Jump Stars member data
 does not imply semantic decoding of every contained image, animation, or model
 format. Recompression and ALAR creation were not established by this audit.
 

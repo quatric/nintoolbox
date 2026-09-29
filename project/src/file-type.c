@@ -1031,10 +1031,10 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x50, 0x45, 0x52, 0x53, 0x2d, 0x53, 0x5a, 0x50 }, // "PERS-SZP"
 		0, MinusString, MinusString, "Pokemon Stadium N64 Model / Fragment (.pers / FRAGMENT)" },
 
-	// FF_PVOL = 194 (PVOL model container archive)
+	// FF_PVOL = 194 (Pipeworks volume archive container)
 	{ FF_PVOL, FF_PVOL, 0, "PVOL", ".pvol", ".szs", ".pvol",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_DECODE | FFT_EXTRACT, 0, { 0 }, 0, MinusString,
-		MinusString, "PVOL model container archive (.pvol)" },
+		MinusString, "Pipeworks volume archive container (.vol / .pvol)" },
 
 	// FF_STPK = 195 (STPK resource archive)
 	{ FF_STPK, FF_STPK, 0, "STPK", ".srd", ".szs", ".stpk",

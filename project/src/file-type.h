@@ -285,7 +285,7 @@ typedef enum file_format_t
 	FF_MSH, // 193 - Monster Games collision mesh (.msh)
 	FF_MOD, // 194 - Monster Games display list model (.mod)
 	FF_PERS, // 195 - Pokemon Stadium N64 Model / Fragment (.pers / FRAGMENT)
-	FF_PVOL, // 194 - Pikmin 1 & 2 Model Container Archive (.pvol)
+	FF_PVOL, // 194 - Pipeworks Volume Archive Container (.vol / .pvol)
 	FF_STPK, // 195 - Jump Super Stars / Jump Ultimate Stars DS Archive (.srd / STPK)
 	FF_G1M, // 196 - Koei Tecmo 3D Model (Hyrule Warriors / FE Warriors .g1m)
 	FF_G1T, // 197 - Koei Tecmo Texture Container (Hyrule Warriors / FE Warriors .g1t)
