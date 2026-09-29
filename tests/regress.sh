@@ -3227,21 +3227,20 @@ t2_name = b'se_mario_punch'
 t2_data = b'OPUS' + b'\x00'*60
 
 n_tracks = 2
-audiindx = struct.pack('<I', n_tracks)
-tnid = struct.pack('<II', 100, 101)
-tnnm_str1 = struct.pack('B', len(t1_name)) + t1_name + b'\x00'
-tnnm_str2 = struct.pack('B', len(t2_name)) + t2_name + b'\x00'
-tnnm = tnnm_str1 + tnnm_str2
-nmof = struct.pack('<II', 0, len(tnnm_str1))
-adof = struct.pack('<IIII', 0, len(t1_data), len(t1_data), len(t2_data))
+def ck(tag, p): return tag + struct.pack('<I', len(p)) + p
+tnnm = t1_name + b'\x00' + t2_name + b'\x00'
+nmof = struct.pack('<II', 0, len(t1_name) + 1)
+head_len = (12 + 4) + (8 + 8) + (8 + 8) + (8 + 16) + (8 + len(tnnm))
+pack_off = 8 + head_len + 8   # ADOF offsets are absolute file offsets
+adof = struct.pack('<IIII', pack_off, len(t1_data), pack_off + len(t1_data), len(t2_data))
 pack = t1_data + t2_data
 
-body = (b'AUDIINDX' + struct.pack('<I', len(audiindx)) + audiindx +
-        b'TNID\x00\x00\x00\x00' + struct.pack('<I', len(tnid)) + tnid +
-        b'NMOF\x00\x00\x00\x00' + struct.pack('<I', len(nmof)) + nmof +
-        b'ADOF\x00\x00\x00\x00' + struct.pack('<I', len(adof)) + adof +
-        b'TNNM\x00\x00\x00\x00' + struct.pack('<I', len(tnnm)) + tnnm +
-        b'PACK\x00\x00\x00\x00' + struct.pack('<I', len(pack)) + pack)
+body = (b'AUDIINDX' + struct.pack('<I', 4) + struct.pack('<I', n_tracks) +
+        ck(b'TNID', struct.pack('<II', 100, 101)) +
+        ck(b'NMOF', nmof) +
+        ck(b'ADOF', adof) +
+        ck(b'TNNM', tnnm) +
+        ck(b'PACK', pack))
 hdr = magic + struct.pack('<I', len(body))
 open('$d/smash_audio.nus3audio', 'wb').write(hdr + body)
 " 2>/dev/null
@@ -3264,24 +3263,24 @@ open('$d/smash_audio.nus3audio', 'wb').write(hdr + body)
     python3 -c "
 import struct
 magic = b'NUS3'
-def ck(tag, p): return tag.ljust(8, b'\x00') + struct.pack('<I', len(p)) + p
+def ck(tag, p): return tag + struct.pack('<I', len(p)) + p
 t1_name = b'theme.stage'          # dotted name -> extra.bits-style base
 t1_data = b'IDSP' + struct.pack('>I', 64) + b'Z'*56
 t2_name = b'punch'
 t2_data = b'OPUS' + b'Q'*60
 t3_name = b'extra.bits'
 t3_data = b'\x12\x34\x56\x78' + b'R'*33  # unknown magic -> .bin
-s1 = struct.pack('B', len(t1_name)) + t1_name + b'\x00'
-s2 = struct.pack('B', len(t2_name)) + t2_name + b'\x00'
-s3 = struct.pack('B', len(t3_name)) + t3_name + b'\x00'
-tnnm = s1 + s2 + s3
-nmof = struct.pack('<III', 0, len(s1), len(s1) + len(s2))
-offs = [0, len(t1_data), len(t1_data) + len(t2_data)]
-adof = struct.pack('<IIIIII', offs[0], len(t1_data), offs[1], len(t2_data), offs[2], len(t3_data))
+tnnm = t1_name + b'\x00' + t2_name + b'\x00' + t3_name + b'\x00'
+nmof = struct.pack('<III', 0, len(t1_name) + 1, len(t1_name) + len(t2_name) + 2)
+tnid = ck(b'TNID', struct.pack('<III', 42, 777, 3))
+audi = b'AUDIINDX' + struct.pack('<I', 4) + struct.pack('<I', 3)
+# PACK goes before ADOF (non-canonical order), so its payload offset is known
 pack = t1_data + t2_data + t3_data
-body = (ck(b'AUDIINDX', struct.pack('<I', 3))
-        + ck(b'TNID', struct.pack('<III', 42, 777, 3))
-        + ck(b'PACK', pack)          # PACK before ADOF: non-canonical order
+pack_off = 8 + len(audi) + len(tnid) + 8
+offs = [pack_off, pack_off + len(t1_data), pack_off + len(t1_data) + len(t2_data)]
+adof = struct.pack('<IIIIII', offs[0], len(t1_data), offs[1], len(t2_data), offs[2], len(t3_data))
+body = (audi + tnid
+        + ck(b'PACK', pack)
         + ck(b'NMOF', nmof)
         + ck(b'ADOF', adof)
         + ck(b'TNNM', tnnm)
@@ -3316,14 +3315,15 @@ import struct
 d = open('$d/retail_like.nus3audio','rb').read()
 pos, pack_off, adof_payload, order = 8, None, None, []
 while pos + 12 <= len(d):
+    tl = 8 if d[pos:pos+8] == b'AUDIINDX' else 4
     tag = d[pos:pos+4]
-    c = struct.unpack('<I', d[pos+8:pos+12])[0]
+    c = struct.unpack('<I', d[pos+tl:pos+tl+4])[0]
     order.append(tag)
-    if tag == b'PACK' and pack_off is None: pack_off = pos + 12
-    if tag == b'ADOF': adof_payload = d[pos+12:pos+12+c]
-    pos = pos + 12 + c
+    if tag == b'ADOF': adof_payload = d[pos+tl+4:pos+tl+4+c]
+    pos = pos + tl + 4 + c
+    if len(order) == 6: break
 o, s = struct.unpack('<II', adof_payload[8:16])
-seg = d[pack_off+o:pack_off+o+s]
+seg = d[o:o+s]
 assert seg[4:] == b'X'*60, 'edited payload not rewritten in place'
 assert d.endswith(b'JUNK_TRAILING_BYTES_123'), 'trailing bytes lost'
 assert order[:6] == [b'AUDI', b'TNID', b'PACK', b'NMOF', b'ADOF', b'TNNM'], 'chunk order changed'

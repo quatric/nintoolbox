@@ -22,18 +22,98 @@
 //
 //   0x00  "NUS3"
 //   0x04  u32 body size
-//   0x08  chunks, each an 8-byte tag (4 characters, NUL-padded) followed by
-//         a u32 size and that many payload bytes:
+//   0x08  chunks. The first, AUDIINDX, has an 8-byte tag; every later chunk
+//         has a 4-byte tag. Each is followed by a u32 size and that many
+//         payload bytes:
 //           AUDIINDX  u32 track count
 //           TNID      u32 track id per track
 //           NMOF      u32 offset into TNNM per track
-//           ADOF      u32 offset, u32 size into PACK per track
-//           TNNM      name table: u8 length, name bytes, NUL terminator
+//           ADOF      u32 offset, u32 size per track -- offsets are absolute
+//                     from the start of the file, and point into PACK
+//           TNNM      name table: NUL-terminated strings
+//           JUNK      alignment padding
 //           PACK      the concatenated track payloads
 //
 // Track payloads are whole audio files. IDSP and Opus are the two that turn
 // up in practice, so name members by their own magic and fall back to .bin.
 // ----------------------------------------------------------------------------
+
+typedef struct nus3_t
+{
+	const u8 *nmof, *adof, *tnnm;
+	uint nmof_size, adof_size, tnnm_size;
+	u32 n_tracks;
+	bool has_pack;
+} nus3_t;
+
+static bool nus3_parse (const u8 *raw, size_t size, nus3_t *n)
+{
+	memset (n, 0, sizeof (*n));
+	if (size < 16 || memcmp (raw, "NUS3", 4))
+		return false;
+
+	for (size_t pos = 8; pos + 8 <= size;)
+	{
+		const uint tag_len = pos + 12 <= size && !memcmp (raw + pos, "AUDIINDX", 8) ? 8 : 4;
+		const u8 *tag = raw + pos;
+		const u32 csize = rd_le32 (raw + pos + tag_len);
+		const size_t payload = pos + tag_len + 4;
+		if (csize > size - payload)
+			break;
+
+		if (tag_len == 8 && csize >= 4)
+			n->n_tracks = rd_le32 (raw + payload);
+		else if (!memcmp (tag, "NMOF", 4))
+			n->nmof = raw + payload, n->nmof_size = csize;
+		else if (!memcmp (tag, "ADOF", 4))
+			n->adof = raw + payload, n->adof_size = csize;
+		else if (!memcmp (tag, "TNNM", 4))
+			n->tnnm = raw + payload, n->tnnm_size = csize;
+		else if (!memcmp (tag, "PACK", 4))
+			n->has_pack = true;
+
+		pos = payload + csize;
+	}
+
+	return n->n_tracks && n->n_tracks <= 100000 && n->adof && n->has_pack
+		&& n->adof_size >= (u64)n->n_tracks * 8;
+}
+
+// Track name as the extractor gives it: the TNNM string NMOF points at, or a
+// plain index-based one when it is missing or not a usable filename.
+static void nus3_track_name (const nus3_t *n, uint i, char *name, size_t name_size)
+{
+	name[0] = 0;
+	if (n->tnnm && n->nmof && n->nmof_size >= (u64)(i + 1) * 4)
+	{
+		const u32 noff = rd_le32 (n->nmof + i * 4);
+		if (noff < n->tnnm_size)
+		{
+			const size_t max = n->tnnm_size - noff;
+			size_t len = 0;
+			while (len < max && n->tnnm[noff + len])
+				len++;
+			if (len < max && len < name_size)
+			{
+				memcpy (name, n->tnnm + noff, len);
+				name[len] = 0;
+			}
+		}
+	}
+
+	// Track names come straight out of the file, so keep them to a single
+	// plain filename rather than letting one escape the destination
+	// directory.
+	bool name_ok = name[0] != 0;
+	for (ccp c = name; name_ok && *c; c++)
+		if (*c == '/' || *c == '\\' || (u8)*c < 0x20)
+			name_ok = false;
+	if (name_ok && (!strcmp (name, ".") || !strcmp (name, "..")))
+		name_ok = false;
+	if (!name_ok)
+		snprintf (name, name_size, "track_%04u", i);
+}
+
 enumError ExtractNUS3AudioArchive (ccp arg, ccp basedir, uint depth)
 {
 	if (!is_ext_match (arg, ".nus3audio") && !is_ext_match (arg, ".nus3bank")
@@ -51,39 +131,13 @@ enumError ExtractNUS3AudioArchive (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 	}
 
-	const u8 *nmof = 0, *adof = 0, *tnnm = 0;
-	uint nmof_size = 0, adof_size = 0, tnnm_size = 0;
-	const u8 *pack = 0;
-	uint pack_size = 0;
-	u32 n_tracks = 0;
-
-	for (size_t pos = 8; pos + 12 <= raw_size;)
-	{
-		const u8 *tag = raw + pos;
-		const u32 csize = rd_le32 (raw + pos + 8);
-		const size_t payload = pos + 12;
-		if (csize > raw_size - payload)
-			break;
-
-		if (!memcmp (tag, "AUDIINDX", 8) && csize >= 4)
-			n_tracks = rd_le32 (raw + payload);
-		else if (!memcmp (tag, "NMOF", 4))
-			nmof = raw + payload, nmof_size = csize;
-		else if (!memcmp (tag, "ADOF", 4))
-			adof = raw + payload, adof_size = csize;
-		else if (!memcmp (tag, "TNNM", 4))
-			tnnm = raw + payload, tnnm_size = csize;
-		else if (!memcmp (tag, "PACK", 4))
-			pack = raw + payload, pack_size = csize;
-
-		pos = payload + csize;
-	}
-
-	if (!n_tracks || n_tracks > 100000 || !adof || !pack || adof_size < (u64)n_tracks * 8)
+	nus3_t n;
+	if (!nus3_parse (raw, raw_size, &n))
 	{
 		FREE (raw);
 		return ERR_INVALID_DATA;
 	}
+	const u32 n_tracks = n.n_tracks;
 
 	char dest[PATH_MAX];
 	get_dest_dir (dest, sizeof (dest), arg, basedir);
@@ -95,39 +149,14 @@ enumError ExtractNUS3AudioArchive (ccp arg, ccp basedir, uint depth)
 
 	for (uint i = 0; i < n_tracks; i++)
 	{
-		const u32 off = rd_le32 (adof + i * 8);
-		const u32 size = rd_le32 (adof + i * 8 + 4);
-		if (off > pack_size || size > pack_size - off)
+		const u32 off = rd_le32 (n.adof + i * 8);
+		const u32 size = rd_le32 (n.adof + i * 8 + 4);
+		if (off > raw_size || size > raw_size - off)
 			continue;
-		const u8 *data = pack + off;
+		const u8 *data = raw + off;
 
-		// Names are optional: a track without one is keyed by its index.
 		char name[PATH_MAX];
-		name[0] = 0;
-		if (tnnm && nmof && nmof_size >= (u64)(i + 1) * 4)
-		{
-			const u32 noff = rd_le32 (nmof + i * 4);
-			if (noff < tnnm_size)
-			{
-				const uint nlen = tnnm[noff];
-				if (nlen && noff + 1 + nlen <= tnnm_size)
-				{
-					memcpy (name, tnnm + noff + 1, nlen);
-					name[nlen] = 0;
-				}
-			}
-		}
-		// Track names come straight out of the file, so keep them to a
-		// single plain filename rather than letting one escape the
-		// destination directory.
-		bool name_ok = name[0] != 0;
-		for (ccp c = name; name_ok && *c; c++)
-			if (*c == '/' || *c == '\\' || (u8)*c < 0x20)
-				name_ok = false;
-		if (name_ok && (!strcmp (name, ".") || !strcmp (name, "..")))
-			name_ok = false;
-		if (!name_ok)
-			snprintf (name, sizeof (name), "track_%04u", i);
+		nus3_track_name (&n, i, name, sizeof (name));
 
 		ccp ext = ".bin";
 		if (size >= 4)
@@ -180,22 +209,23 @@ enumError CreateNUS3AudioArchive (
 		char *dot = strrchr (names[i], '.');
 		if (dot)
 			*dot = 0;
-		tnnm_size += 1 + (u32)strlen (names[i]) + 1; // 1 byte len + chars + NUL
+		tnnm_size += (u32)strlen (names[i]) + 1; // chars + NUL
 	}
 
 	const u32 audiindx_len = 4;
 	const u32 tnid_len = n_entries * 4;
 	const u32 nmof_len = n_entries * 4;
 	const u32 adof_len = n_entries * 8;
-	const u32 tnnm_chunk_len = tnnm_size;
 
 	u32 pack_len = 0;
 	for (uint i = 0; i < n_entries; i++)
 		pack_len += sorted[i].size;
 
-	const u32 body_size = (8 + 4 + audiindx_len) + (8 + 4 + tnid_len) + (8 + 4 + nmof_len)
-		+ (8 + 4 + adof_len) + (8 + 4 + tnnm_chunk_len) + (8 + 4 + pack_len);
-
+	// AUDIINDX carries an 8-byte tag, every other chunk a 4-byte one.
+	const u32 head_size = (12 + audiindx_len) + (8 + tnid_len) + (8 + nmof_len)
+		+ (8 + adof_len) + (8 + tnnm_size);
+	const u32 pack_payload_off = 8 + head_size + 8;
+	const u32 body_size = head_size + 8 + pack_len;
 	const u32 total_size = 8 + body_size;
 	u8 *out = CALLOC (1, total_size);
 	if (!out)
@@ -210,60 +240,53 @@ enumError CreateNUS3AudioArchive (
 
 	u32 pos = 8;
 
-	// 1. AUDIINDX
 	memcpy (out + pos, "AUDIINDX", 8);
 	wr_le32 (out + pos + 8, audiindx_len);
 	wr_le32 (out + pos + 12, n_entries);
 	pos += 12 + audiindx_len;
 
-	// 2. TNID
-	memcpy (out + pos, "TNID\0\0\0\0", 8);
-	wr_le32 (out + pos + 8, tnid_len);
+	memcpy (out + pos, "TNID", 4);
+	wr_le32 (out + pos + 4, tnid_len);
 	for (uint i = 0; i < n_entries; i++)
-		wr_le32 (out + pos + 12 + i * 4, 100 + i);
-	pos += 12 + tnid_len;
+		wr_le32 (out + pos + 8 + i * 4, 100 + i);
+	pos += 8 + tnid_len;
 
-	// 3. NMOF
-	memcpy (out + pos, "NMOF\0\0\0\0", 8);
-	wr_le32 (out + pos + 8, nmof_len);
+	memcpy (out + pos, "NMOF", 4);
+	wr_le32 (out + pos + 4, nmof_len);
 	u32 cur_tnnm_off = 0;
 	for (uint i = 0; i < n_entries; i++)
 	{
-		wr_le32 (out + pos + 12 + i * 4, cur_tnnm_off);
-		cur_tnnm_off += 1 + (u32)strlen (names[i]) + 1;
+		wr_le32 (out + pos + 8 + i * 4, cur_tnnm_off);
+		cur_tnnm_off += (u32)strlen (names[i]) + 1;
 	}
-	pos += 12 + nmof_len;
+	pos += 8 + nmof_len;
 
-	// 4. ADOF
-	memcpy (out + pos, "ADOF\0\0\0\0", 8);
-	wr_le32 (out + pos + 8, adof_len);
-	u32 cur_pack_off = 0;
+	// ADOF offsets are absolute file offsets into PACK.
+	memcpy (out + pos, "ADOF", 4);
+	wr_le32 (out + pos + 4, adof_len);
+	u32 cur_pack_off = pack_payload_off;
 	for (uint i = 0; i < n_entries; i++)
 	{
-		wr_le32 (out + pos + 12 + i * 8, cur_pack_off);
-		wr_le32 (out + pos + 12 + i * 8 + 4, sorted[i].size);
+		wr_le32 (out + pos + 8 + i * 8, cur_pack_off);
+		wr_le32 (out + pos + 8 + i * 8 + 4, sorted[i].size);
 		cur_pack_off += sorted[i].size;
 	}
-	pos += 12 + adof_len;
+	pos += 8 + adof_len;
 
-	// 5. TNNM
-	memcpy (out + pos, "TNNM\0\0\0\0", 8);
-	wr_le32 (out + pos + 8, tnnm_chunk_len);
-	u32 tnnm_payload = pos + 12;
+	memcpy (out + pos, "TNNM", 4);
+	wr_le32 (out + pos + 4, tnnm_size);
+	u32 tnnm_payload = pos + 8;
 	for (uint i = 0; i < n_entries; i++)
 	{
-		const u8 nlen = (u8)strlen (names[i]);
-		out[tnnm_payload++] = nlen;
+		const size_t nlen = strlen (names[i]);
 		memcpy (out + tnnm_payload, names[i], nlen);
-		tnnm_payload += nlen;
-		out[tnnm_payload++] = 0; // NUL terminator
+		tnnm_payload += (u32)nlen + 1; // NUL terminator (buffer is zeroed)
 	}
-	pos += 12 + tnnm_chunk_len;
+	pos += 8 + tnnm_size;
 
-	// 6. PACK
-	memcpy (out + pos, "PACK\0\0\0\0", 8);
-	wr_le32 (out + pos + 8, pack_len);
-	u32 pack_payload = pos + 12;
+	memcpy (out + pos, "PACK", 4);
+	wr_le32 (out + pos + 4, pack_len);
+	u32 pack_payload = pos + 8;
 	for (uint i = 0; i < n_entries; i++)
 	{
 		if (sorted[i].data && sorted[i].size)
@@ -303,31 +326,9 @@ enumError create_nus3audio_dir (ccp source, ccp dest)
 		if (!LoadFileAlloc (dest, 0, 0, &raw, &raw_size, 0, 0, 0, false) && raw_size >= 16
 			&& raw_size <= UINT_MAX && !memcmp (raw, "NUS3", 4))
 		{
-			const u8 *nmof = 0, *adof = 0, *tnnm = 0, *pack = 0;
-			uint nmof_size = 0, adof_size = 0, tnnm_size = 0, pack_size = 0;
-			u32 n_tracks = 0;
-			for (size_t pos = 8; pos + 12 <= raw_size;)
-			{
-				const u8 *tag = raw + pos;
-				const u32 csize = rd_le32 (raw + pos + 8);
-				const size_t payload = pos + 12;
-				if (csize > raw_size - payload)
-					break;
-				if (!memcmp (tag, "AUDIINDX", 8) && csize >= 4)
-					n_tracks = rd_le32 (raw + payload);
-				else if (!memcmp (tag, "NMOF", 4))
-					nmof = raw + payload, nmof_size = csize;
-				else if (!memcmp (tag, "ADOF", 4))
-					adof = raw + payload, adof_size = csize;
-				else if (!memcmp (tag, "TNNM", 4))
-					tnnm = raw + payload, tnnm_size = csize;
-				else if (!memcmp (tag, "PACK", 4))
-					pack = raw + payload, pack_size = csize;
-				pos = payload + csize;
-			}
-
-			bool reusable
-				= n_tracks && n_tracks <= 100000 && adof && pack && adof_size >= (u64)n_tracks * 8;
+			nus3_t n;
+			bool reusable = nus3_parse (raw, raw_size, &n);
+			const u32 n_tracks = n.n_tracks;
 			uint *match = reusable ? CALLOC (n_tracks, sizeof (*match)) : 0;
 			if (reusable && !match)
 				reusable = false;
@@ -344,34 +345,13 @@ enumError create_nus3audio_dir (ccp source, ccp dest)
 						// Skip tracks the extractor would have skipped, and
 						// name every other one exactly as it does, so the
 						// tree entries can be matched back 1:1.
-						const u32 off = rd_le32 (adof + i * 8);
-						const u32 tsize = rd_le32 (adof + i * 8 + 4);
+						const u32 off = rd_le32 (n.adof + i * 8);
+						const u32 tsize = rd_le32 (n.adof + i * 8 + 4);
 						match[i] = UINT_MAX;
-						if (off > pack_size || tsize > pack_size - off)
+						if (off > raw_size || tsize > raw_size - off)
 							continue;
 						char name[PATH_MAX];
-						name[0] = 0;
-						if (tnnm && nmof && nmof_size >= (u64)(i + 1) * 4)
-						{
-							const u32 noff = rd_le32 (nmof + i * 4);
-							if (noff < tnnm_size)
-							{
-								const uint nlen = tnnm[noff];
-								if (nlen && noff + 1 + nlen <= tnnm_size)
-								{
-									memcpy (name, tnnm + noff + 1, nlen);
-									name[nlen] = 0;
-								}
-							}
-						}
-						bool name_ok = name[0] != 0;
-						for (ccp c = name; name_ok && *c; c++)
-							if (*c == '/' || *c == '\\' || (u8)*c < 0x20)
-								name_ok = false;
-						if (name_ok && (!strcmp (name, ".") || !strcmp (name, "..")))
-							name_ok = false;
-						if (!name_ok)
-							snprintf (name, sizeof (name), "track_%04u", i);
+						nus3_track_name (&n, i, name, sizeof (name));
 
 						for (uint k = 0; k < list.used; k++)
 						{
@@ -407,12 +387,11 @@ enumError create_nus3audio_dir (ccp source, ccp dest)
 				else
 				{
 					memcpy (out, raw, raw_size);
-					const size_t pack_off = (size_t)(pack - raw);
 					for (uint i = 0; i < n_tracks; i++)
 					{
-						const u32 off = rd_le32 (adof + i * 8);
-						const u32 tsize = rd_le32 (adof + i * 8 + 4);
-						memcpy (out + pack_off + off, list.entry[match[i]].data, tsize);
+						const u32 off = rd_le32 (n.adof + i * 8);
+						const u32 tsize = rd_le32 (n.adof + i * 8 + 4);
+						memcpy (out + off, list.entry[match[i]].data, tsize);
 					}
 					data = out;
 					size = (uint)raw_size;
