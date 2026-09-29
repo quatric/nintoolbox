@@ -1480,6 +1480,27 @@ test-mdr-bounds: version.h
 	$(CC) $(MDR_TEST_CFLAGS) -ffunction-sections -fdata-sections -I. -Isrc -Idclib ../tests/test-mdr-bounds.c src/lib-mdr.c $(COMPRESSION_TEST_LDFLAGS) -lz -o bin/test-mdr-bounds
 	@./bin/test-mdr-bounds
 
+.PHONY : test-xpck-bounds
+XPCK_TEST_CFLAGS ?= -O2
+test-xpck-bounds: version.h
+	@mkdir -p bin
+	$(CC) $(XPCK_TEST_CFLAGS) -ffunction-sections -fdata-sections -I. -Isrc -Idclib ../tests/test-xpck-bounds.c src/lib-xpck.c src/lib-owned-entries.c $(COMPRESSION_TEST_LDFLAGS) -lz -o bin/test-xpck-bounds
+	@./bin/test-xpck-bounds
+
+.PHONY : test-gpak-bounds
+GPAK_TEST_CFLAGS ?= -O2
+test-gpak-bounds: version.h
+	@mkdir -p bin
+	$(CC) $(GPAK_TEST_CFLAGS) -ffunction-sections -fdata-sections -I. -Isrc -Idclib ../tests/test-gpak-bounds.c src/lib-gpak.c $(COMPRESSION_TEST_LDFLAGS) -o bin/test-gpak-bounds
+	@./bin/test-gpak-bounds
+
+.PHONY : test-brstm-bounds
+BRSTM_TEST_CFLAGS ?= -O2
+test-brstm-bounds: version.h
+	@mkdir -p bin
+	$(CC) $(BRSTM_TEST_CFLAGS) -ffunction-sections -fdata-sections -I. -Isrc -Idclib ../tests/test-brstm-bounds.c src/lib-brstm.c src/lib-dspadpcm.c $(COMPRESSION_TEST_LDFLAGS) -lm -o bin/test-brstm-bounds
+	@./bin/test-brstm-bounds
+
 .PHONY : test-mpbin
 # Recompile the decoder so this target also supports sanitizer instrumentation.
 MPBIN_TEST_CFLAGS ?= -O2

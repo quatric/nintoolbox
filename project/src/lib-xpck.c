@@ -28,10 +28,15 @@ enumError ExtractXPCKArchive (ccp arg, ccp basedir, uint depth)
 	if (err)
 		return ERR_NOTHING_TO_DO;
 
-	if (raw_size < 0x20 || (memcmp (raw, "XPCK", 4) && memcmp (raw, "XPC2", 4)))
+	if (raw_size < 4 || (memcmp (raw, "XPCK", 4) && memcmp (raw, "XPC2", 4)))
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
+	}
+	if (raw_size < 0x10)
+	{
+		FREE (raw);
+		return ERR_INVALID_DATA;
 	}
 
 	const u32 file_count = (uint)(rd_le16 (raw + 4) & 0xFFF);
@@ -40,32 +45,46 @@ enumError ExtractXPCKArchive (ccp arg, ccp basedir, uint depth)
 	const u32 data_offset = (u32)rd_le16 (raw + 10) * 4;
 	const u32 filename_table_size = (u32)rd_le16 (raw + 14) * 4;
 
-	if (file_info_offset >= raw_size || file_table_offset >= raw_size)
+	if (!file_count || file_info_offset < 0x10
+		|| (u64)file_info_offset + (u64)file_count * 12 > raw_size
+		|| (u64)file_table_offset + filename_table_size > raw_size || data_offset > raw_size)
 	{
 		FREE (raw);
 		return ERR_INVALID_DATA;
 	}
+	// Validate every member before writing anything. A partial payload must
+	// never be reported as a successfully extracted file.
+	for (uint i = 0; i < file_count; i++)
+	{
+		const u8 *entry = raw + file_info_offset + i * 12;
+		const u32 rel_off = rd_le16 (entry + 6) | (u32)entry[10] << 16;
+		const u32 size = rd_le16 (entry + 8) | (u32)entry[11] << 16;
+		if ((u64)data_offset + (u64)rel_off * 4 + size > raw_size)
+		{
+			FREE (raw);
+			return ERR_INVALID_DATA;
+		}
+	}
 
 	char dest[PATH_MAX];
 	get_dest_dir (dest, sizeof (dest), arg, basedir);
-	CreatePath (dest, true);
+	if (!testmode && (err = CreatePath (dest, true)))
+	{
+		FREE (raw);
+		return err;
+	}
 
 	if (verbose >= 0 || testmode)
 		fprintf (stdlog, "%s%sEXTRACT XPCK:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
 			testmode ? "WOULD " : "", arg, file_count, dest);
 
 	// Try reading filename table if present
-	const char *names_ptr = (file_table_offset + filename_table_size <= raw_size)
-		? (const char *)(raw + file_table_offset)
-		: 0;
+	const char *names_ptr = (const char *)(raw + file_table_offset);
 	uint name_pos = 0;
 
 	for (uint i = 0; i < file_count; i++)
 	{
 		const u32 entry_off = file_info_offset + i * 12;
-		if (entry_off + 12 > raw_size)
-			break;
-
 		u32 off = (u32)rd_le16 (raw + entry_off + 6);
 		u32 sz = (u32)rd_le16 (raw + entry_off + 8);
 		const u32 off_ext = (u32)raw[entry_off + 10];
@@ -74,25 +93,20 @@ enumError ExtractXPCKArchive (ccp arg, ccp basedir, uint depth)
 		off |= (off_ext << 16);
 		sz |= (sz_ext << 16);
 		const u64 off64 = (u64)off * 4 + data_offset;
-		if (off64 >= raw_size)
-			continue;
-		off = (u32)off64;
-		if (off64 + sz > raw_size)
-			sz = (u32)(raw_size - off64);
-
-		char fname[64];
-		if (names_ptr && name_pos < filename_table_size && names_ptr[name_pos])
+		char fname[240];
+		if (name_pos < filename_table_size)
 		{
 			const size_t max_len = filename_table_size - name_pos;
-			size_t slen = strnlen (names_ptr + name_pos, max_len);
-			if (slen >= sizeof (fname))
-				slen = sizeof (fname) - 1;
-			memcpy (fname, names_ptr + name_pos, slen);
-			fname[slen] = 0;
-			if (slen < max_len && names_ptr[name_pos + slen] == 0)
-				name_pos += (uint)slen + 1;
+			const size_t slen = strnlen (names_ptr + name_pos, max_len);
+			if (slen < max_len && slen < sizeof (fname))
+			{
+				memcpy (fname, names_ptr + name_pos, slen);
+				fname[slen] = 0;
+			}
 			else
-				name_pos += (uint)slen;
+				fname[0] = 0;
+			// Consume the complete stored name even when it cannot be used.
+			name_pos += (uint)slen + (slen < max_len);
 			if (!OwnedNameOk (fname))
 				snprintf (fname, sizeof (fname), "file_%04u.bin", i);
 		}
@@ -102,28 +116,42 @@ enumError ExtractXPCKArchive (ccp arg, ccp basedir, uint depth)
 		}
 
 		char out_path[PATH_MAX];
-		snprintf (out_path, sizeof (out_path), "%s/%s", dest, fname);
+		if (snprintf (out_path, sizeof (out_path), "%s/%s", dest, fname) >= sizeof (out_path))
+		{
+			err = ERR_INVALID_DATA;
+			break;
+		}
 
-		if (!testmode && sz > 0)
-			SaveFile (out_path, 0, 0, raw + off, sz, 0);
+		if (!testmode && (err = SaveFile (out_path, 0, 0, raw + off64, sz, 0)))
+			break;
 	}
 
 	FREE (raw);
-	return ERR_OK;
+	return err;
+}
+
+static int compare_xpck_entries (const void *a, const void *b)
+{
+	const nintendo_sarc_entry_t *ea = a, *eb = b;
+	return strcmp (leaf_name (ea->name), leaf_name (eb->name));
 }
 
 // 1. Level-5 Container Archive (.xc / .xpck)
 enumError CreateXPCKArchive (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {
-	if (!dest || !dest_size || !entries || !n_entries || n_entries > 0xFFF)
+	if (!dest || !dest_size)
+		return ERR_INVALID_DATA;
+	*dest = 0;
+	*dest_size = 0;
+	if (!entries || !n_entries || n_entries > 0xFFF)
 		return ERR_INVALID_DATA;
 
 	nintendo_sarc_entry_t *sorted = MALLOC (n_entries * sizeof (*sorted));
 	if (!sorted)
 		return ERR_OUT_OF_MEMORY;
 	memcpy (sorted, entries, n_entries * sizeof (*sorted));
-	qsort (sorted, n_entries, sizeof (*sorted), compare_archive_entries);
+	qsort (sorted, n_entries, sizeof (*sorted), compare_xpck_entries);
 
 	const u32 header_sz = 0x10;
 	const u32 file_info_sz = n_entries * 12;
@@ -136,13 +164,16 @@ enumError CreateXPCKArchive (
 		ccp slash = strrchr (name, '/');
 		if (slash)
 			name = slash + 1;
-		if (!OwnedNameOk (name))
+		if (!OwnedNameOk (name) || (sorted[i].size && !sorted[i].data)
+			|| (i && !strcmp (name, leaf_name (sorted[i - 1].name))))
 		{
 			FREE (sorted);
 			return ERR_INVALID_DATA;
 		}
 		names_len += strlen (name) + 1;
 	}
+	// Check collisions using stored names while retaining source-path order.
+	qsort (sorted, n_entries, sizeof (*sorted), compare_archive_entries);
 	const u64 filename_table_size = (names_len + 3) & ~3ull;
 	const u64 data_start = (file_names_start + filename_table_size + 15) & ~15ull;
 

@@ -179,8 +179,10 @@ static int check_cam (void)
 	rc |= DecodeBabyzCam_Text (f, data, size) != ERR_OK;
 	fclose (f);
 	rc |= !buf || !strstr (buf, "count = 2") || !strstr (buf, "keyframe[1]");
+#if TRACE_ALLOC_MODE > 2
 	if (buf)
 		RegisterAlloc (__FUNCTION__, __FILE__, __LINE__, buf, buf_size, false);
+#endif
 	FREE (buf);
 
 	FREE (data);
@@ -219,8 +221,10 @@ static int check_snd (void)
 	rc |= DecodeBabyzSnd_Text (f, dec, count * 64) != ERR_OK;
 	fclose (f);
 	rc |= !buf || !strstr (buf, "baby-minijeu_doudou1") || !strstr (buf, "080_baby_kiss3");
+#if TRACE_ALLOC_MODE > 2
 	if (buf)
 		RegisterAlloc (__FUNCTION__, __FILE__, __LINE__, buf, buf_size, false);
+#endif
 	FREE (buf);
 
 	FREE (dec);

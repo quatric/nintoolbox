@@ -17,6 +17,42 @@ void *dclib_calloc (size_t n, size_t s) { return calloc (n, s); }
 void *dclib_realloc (void *v, size_t n) { return realloc (v, n); }
 enumError PrintError (enumError err, ccp format, ...) { (void)format; return err; }
 
+static u64 get64 (const u8 *p)
+{
+	u64 v = 0;
+	for (uint i = 0; i < 8; i++)
+		v |= (u64)p[i] << (8 * i);
+	return v;
+}
+
+static void test_invalid_offsets (const u8 *source, uint size)
+{
+	const u64 ti = get64 (source + get64 (source + 0x28)) + 16;
+	const u64 ud = get64 (source + ti + 0x68);
+	const u64 offsets[] = { ud, ud + 0x40, get64 (source + ud + 8),
+		get64 (source + ud + 0x48) };
+	u8 *buf = malloc (size);
+	assert (buf);
+	for (uint i = 0; i < sizeof (offsets) / sizeof (*offsets); i++)
+	{
+		memcpy (buf, source, size);
+		memset (buf + offsets[i], 0xff, 8);
+		bntx_t bntx;
+		assert (ScanBNTX (&bntx, buf, size) == ERR_OK);
+		assert (bntx.n_textures == 1 && bntx.textures[0].n_user_data == 2);
+		const bntx_user_data_t *su = bntx.textures[0].user_data;
+		const bntx_user_data_t *wu = su + 1;
+		if (i < 2)
+			assert (!bntx.textures[0].user_data[i].name[0]);
+		else if (i == 2)
+			assert (su->val.str && su->val.str[0] && !su->val.str[0][0]);
+		else
+			assert (wu->val.wstr && wu->val.wstr[0] && !wu->val.wstr[0][0]);
+		ResetBNTX (&bntx);
+	}
+	free (buf);
+}
+
 int main (int argc, char **argv)
 {
 	// Verifies the LegacySwitchLibraries UserData port: UserDataType.String
@@ -61,6 +97,7 @@ int main (int argc, char **argv)
 	DumpStructureBNTX (stdout, &bntx, 0);
 	ResetBNTX (&bntx);
 	assert (bntx.textures == 0 && bntx.n_textures == 0);
+	test_invalid_offsets (buf, (uint)len);
 	free (buf);
 
 	printf ("BNTX UserData STRING/WSTRING test passed!\n");

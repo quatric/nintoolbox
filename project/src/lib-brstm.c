@@ -515,6 +515,74 @@ enumError EncodeBRSTM (u8 **out_data, size_t *out_size, const brstm_audio_t *aud
 // any file using the documented ref-table convention, which is the same
 // convention EncodeRSTM() above follows.
 
+static bool stream_range (size_t size, u64 offset, u64 length)
+{
+	return offset <= size && length <= size - offset;
+}
+
+// Validate the entire block layout before allocating or copying channel data.
+// The final block has its own channel stride, but follows all full-size blocks.
+static enumError DecodeStreamSamples (brstm_audio_t *audio, const u8 *data, size_t size,
+	u64 audio_offset, u8 codec, bool le, u32 block_count, u32 block_size, u32 last_block_used,
+	u32 last_block_size, s16 coefs[][16])
+{
+	u64 full_bytes = block_count ? (u64)(block_count - 1) * block_size : 0;
+	u64 channel_bytes = full_bytes + last_block_used;
+	u64 required = codec == 2 ? (u64)(audio->n_samples / 14) * 8
+			+ (audio->n_samples % 14 ? 1 + (audio->n_samples % 14 + 1) / 2 : 0)
+							  : (u64)audio->n_samples * (codec == 1 ? 2 : 1);
+	if (!block_count || (block_count > 1 && !block_size) || last_block_used > last_block_size
+		|| required > channel_bytes
+		|| (block_count > 1 && ((codec == 2 && block_size % 8) || (codec == 1 && block_size % 2)))
+		|| !stream_range (size, audio_offset, 0)
+		|| full_bytes > (size - audio_offset) / audio->channels
+		|| !stream_range (size, audio_offset + full_bytes * audio->channels,
+			(u64)(audio->channels - 1) * last_block_size + last_block_used)
+		|| (u64)audio->n_samples > SIZE_MAX / sizeof (s16))
+		return ERROR0 (ERR_INVALID_DATA, "DecodeBRSTM: invalid audio block layout\n");
+
+	u8 *bytes = MALLOC (channel_bytes ? (size_t)channel_bytes : 1);
+	if (!bytes)
+		return ERR_OUT_OF_MEMORY;
+	for (int ch = 0; ch < audio->channels; ch++)
+	{
+		for (u32 b = 0; b < block_count; b++)
+		{
+			u32 span = b == block_count - 1 ? last_block_size : block_size;
+			u32 used = b == block_count - 1 ? last_block_used : block_size;
+			u64 offset = audio_offset + (u64)b * block_size * audio->channels + (u64)ch * span;
+			if (used)
+				memcpy (bytes + (size_t)b * block_size, data + offset, used);
+		}
+		audio->pcm[ch] = MALLOC (audio->n_samples ? (size_t)audio->n_samples * sizeof (s16) : 1);
+		if (!audio->pcm[ch])
+		{
+			FREE (bytes);
+			FreeBRSTMAudio (audio);
+			return ERR_OUT_OF_MEMORY;
+		}
+		if (codec == 2)
+		{
+			int h1s = 0, h2s = 0;
+			for (s64 f = 0; f < DspAdpcmFrameCount (audio->n_samples); f++)
+			{
+				s64 off = f * DSP_ADPCM_SAMPLES_PER_FRAME;
+				int count = audio->n_samples - off < DSP_ADPCM_SAMPLES_PER_FRAME
+					? (int)(audio->n_samples - off)
+					: DSP_ADPCM_SAMPLES_PER_FRAME;
+				DspAdpcmDecodeBlock (bytes + f * DSP_ADPCM_BYTES_PER_FRAME, count,
+					audio->pcm[ch] + off, coefs[ch], &h1s, &h2s);
+			}
+		}
+		else
+			for (s64 i = 0; i < audio->n_samples; i++)
+				audio->pcm[ch][i]
+					= codec == 0 ? (s16)((s8)bytes[i] * 256) : (s16)rd_u16e (bytes + i * 2, le);
+	}
+	FREE (bytes);
+	return ERR_OK;
+}
+
 static enumError DecodeRSTM (brstm_audio_t *audio, const u8 *data, size_t size)
 {
 	u16 bom = rd_u16 (data + 4);
@@ -523,14 +591,16 @@ static enumError DecodeRSTM (brstm_audio_t *audio, const u8 *data, size_t size)
 
 	u32 head_offs = rd_u32 (data + 0x10);
 	u32 data_offs = rd_u32 (data + 0x20);
-	if ((size_t)head_offs + 8 > size || memcmp (data + head_offs, "HEAD", 4))
+	if (!stream_range (size, head_offs, 32) || memcmp (data + head_offs, "HEAD", 4))
 		return ERROR0 (ERR_INVALID_DATA, "DecodeBRSTM: missing HEAD chunk\n");
-	if ((size_t)data_offs + 8 > size || memcmp (data + data_offs, "DATA", 4))
+	if (!stream_range (size, data_offs, 32) || memcmp (data + data_offs, "DATA", 4))
 		return ERROR0 (ERR_INVALID_DATA, "DecodeBRSTM: missing DATA chunk\n");
 
-	u32 head_body_base = head_offs + 8;
+	u64 head_body_base = (u64)head_offs + 8;
 	u32 h1rel = rd_u32 (data + head_body_base + 4);
 	u32 h3rel = rd_u32 (data + head_body_base + 20);
+	if (!stream_range (size, head_body_base + h1rel, 0x2c))
+		return ERROR0 (ERR_INVALID_DATA, "DecodeBRSTM: truncated stream header\n");
 	const u8 *h1 = data + head_body_base + h1rel;
 
 	u8 codec = h1[0];
@@ -540,6 +610,8 @@ static enumError DecodeRSTM (brstm_audio_t *audio, const u8 *data, size_t size)
 		return ERROR0 (ERR_INVALID_DATA, "DecodeBRSTM: bad channel count %d\n", channels);
 
 	u16 sample_rate = rd_u16 (h1 + 4);
+	if (!sample_rate)
+		return ERROR0 (ERR_INVALID_DATA, "DecodeBRSTM: invalid sample rate\n");
 	u32 loop_start = rd_u32 (h1 + 8);
 	u32 n_samples = rd_u32 (h1 + 0xC);
 	u32 block_count = rd_u32 (h1 + 0x14);
@@ -554,35 +626,19 @@ static enumError DecodeRSTM (brstm_audio_t *audio, const u8 *data, size_t size)
 	s16 coefs[DSP_ADPCM_MAX_CHANNELS][16];
 	if (is_adpcm)
 	{
+		if (!stream_range (size, head_body_base + h3rel, 4 + 8 * channels))
+			return ERROR0 (ERR_INVALID_DATA, "DecodeBRSTM: truncated channel table\n");
 		const u8 *h3 = data + head_body_base + h3rel;
 		for (int ch = 0; ch < channels; ch++)
 		{
 			u32 coef_ref = rd_u32 (h3 + 4 + 8 * ch + 4); // relative to head_body_base
+			if (!stream_range (size, head_body_base + coef_ref, 40))
+				return ERROR0 (ERR_INVALID_DATA, "DecodeBRSTM: truncated coefficients\n");
 			// +8: coef_ref points at this channel's own {type,offset} ref
 			// pair, not the coefficients themselves.
 			const u8 *cp = data + head_body_base + coef_ref + 8;
 			for (int i = 0; i < 16; i++)
 				coefs[ch][i] = (s16)rd_u16 (cp + i * 2);
-		}
-	}
-
-	u8 *ch_bytes[DSP_ADPCM_MAX_CHANNELS] = { 0 };
-	const u8 *audio_start = data + data_offs
-		+ 0x20; // DATA content base (data_offs+8) + the 0x18 offset field written there
-
-	for (int b = 0; b < (int)block_count; b++)
-	{
-		u32 span = (b == (int)block_count - 1) ? last_block_size : block_size;
-		for (int ch = 0; ch < channels; ch++)
-		{
-			const u8 *src = audio_start + (s64)b * span * channels + (s64)ch * span;
-			if (b == 0)
-			{
-				ch_bytes[ch] = MALLOC ((s64)block_count * block_size);
-				memset (ch_bytes[ch], 0, (s64)block_count * block_size);
-			}
-			u32 use = (b == (int)block_count - 1) ? last_block_used : block_size;
-			memcpy (ch_bytes[ch] + (s64)b * block_size, src, use);
 		}
 	}
 
@@ -593,36 +649,8 @@ static enumError DecodeRSTM (brstm_audio_t *audio, const u8 *data, size_t size)
 	audio->loop = loop != 0;
 	audio->loop_start = loop_start;
 
-	for (int ch = 0; ch < channels; ch++)
-	{
-		audio->pcm[ch] = MALLOC (n_samples * sizeof (s16));
-
-		if (is_adpcm)
-		{
-			int h1s = 0, h2s = 0;
-			s64 nframes = DspAdpcmFrameCount (n_samples);
-			for (s64 f = 0; f < nframes; f++)
-			{
-				s64 off = f * DSP_ADPCM_SAMPLES_PER_FRAME;
-				int count = (int)(n_samples - off < DSP_ADPCM_SAMPLES_PER_FRAME
-						? n_samples - off
-						: DSP_ADPCM_SAMPLES_PER_FRAME);
-				DspAdpcmDecodeBlock (ch_bytes[ch] + f * DSP_ADPCM_BYTES_PER_FRAME, count,
-					audio->pcm[ch] + off, coefs[ch], &h1s, &h2s);
-			}
-		}
-		else
-		{
-			for (s64 i = 0; i < n_samples; i++)
-				audio->pcm[ch][i] = (s16)rd_u16 (ch_bytes[ch] + i * 2);
-		}
-	}
-
-	for (int ch = 0; ch < channels; ch++)
-		if (ch_bytes[ch])
-			FREE (ch_bytes[ch]);
-
-	return ERR_OK;
+	return DecodeStreamSamples (audio, data, size, (u64)data_offs + 0x20, codec, false, block_count,
+		block_size, last_block_used, last_block_size, coefs);
 }
 
 // -----------------------------------------------------------------------------
@@ -633,6 +661,8 @@ static enumError DecodeFSTM (brstm_audio_t *audio, const u8 *data, size_t size, 
 {
 	u32 info_offs = 0, data_offs = 0;
 	u16 sections = rd_u16e (data + 16, le);
+	if (!stream_range (size, 20, (u64)sections * 12))
+		return ERROR0 (ERR_INVALID_DATA, "DecodeBRSTM: truncated section table\n");
 	u32 pos = 20;
 	for (int i = 0; i < sections && pos + 12 <= size; i++, pos += 12)
 	{
@@ -642,14 +672,16 @@ static enumError DecodeFSTM (brstm_audio_t *audio, const u8 *data, size_t size, 
 		else if (flag == 0x4002)
 			data_offs = rd_u32e (data + pos + 4, le);
 	}
-	if (!info_offs || (size_t)info_offs + 8 > size || memcmp (data + info_offs, "INFO", 4))
+	if (!info_offs || !stream_range (size, info_offs, 32) || memcmp (data + info_offs, "INFO", 4))
 		return ERROR0 (ERR_INVALID_DATA, "DecodeBRSTM: missing INFO section\n");
-	if (!data_offs || (size_t)data_offs + 8 > size || memcmp (data + data_offs, "DATA", 4))
+	if (!data_offs || !stream_range (size, data_offs, 32) || memcmp (data + data_offs, "DATA", 4))
 		return ERROR0 (ERR_INVALID_DATA, "DecodeBRSTM: missing DATA section\n");
 
-	u32 info_body_base = info_offs + 8;
+	u64 info_body_base = (u64)info_offs + 8;
 	u32 h1rel = rd_u32e (data + info_body_base + 4, le);
 	u32 h3rel = rd_u32e (data + info_body_base + 20, le);
+	if (!stream_range (size, info_body_base + h1rel, 0x28))
+		return ERROR0 (ERR_INVALID_DATA, "DecodeBRSTM: truncated stream header\n");
 	const u8 *h1 = data + info_body_base + h1rel;
 
 	u8 codec = h1[0];
@@ -659,6 +691,8 @@ static enumError DecodeFSTM (brstm_audio_t *audio, const u8 *data, size_t size, 
 		return ERROR0 (ERR_INVALID_DATA, "DecodeBRSTM: bad channel count %d\n", channels);
 
 	u32 sample_rate = rd_u32e (h1 + 4, le);
+	if (!sample_rate || sample_rate > INT_MAX)
+		return ERROR0 (ERR_INVALID_DATA, "DecodeBRSTM: invalid sample rate\n");
 	u32 loop_start = rd_u32e (h1 + 8, le);
 	u32 n_samples = rd_u32e (h1 + 0xC, le);
 	u32 block_count = rd_u32e (h1 + 0x10, le);
@@ -677,6 +711,8 @@ static enumError DecodeFSTM (brstm_audio_t *audio, const u8 *data, size_t size, 
 	s16 coefs[DSP_ADPCM_MAX_CHANNELS][16];
 	if (is_adpcm)
 	{
+		if (!stream_range (size, ci_base + ai0, (u64)(channels - 1) * 46 + 32))
+			return ERROR0 (ERR_INVALID_DATA, "DecodeBRSTM: truncated coefficients\n");
 		for (int ch = 0; ch < channels; ch++)
 		{
 			const u8 *cp = data + ci_base + ai0 + 46 * ch;
@@ -686,25 +722,6 @@ static enumError DecodeFSTM (brstm_audio_t *audio, const u8 *data, size_t size, 
 	}
 	(void)ci0;
 
-	u8 *ch_bytes[DSP_ADPCM_MAX_CHANNELS] = { 0 };
-	const u8 *audio_start = data + data_offs + 0x20;
-
-	for (int b = 0; b < (int)block_count; b++)
-	{
-		u32 span = (b == (int)block_count - 1) ? last_block_size : block_size;
-		for (int ch = 0; ch < channels; ch++)
-		{
-			const u8 *src = audio_start + (s64)b * span * channels + (s64)ch * span;
-			if (b == 0)
-			{
-				ch_bytes[ch] = MALLOC ((s64)block_count * block_size);
-				memset (ch_bytes[ch], 0, (s64)block_count * block_size);
-			}
-			u32 use = (b == (int)block_count - 1) ? last_block_used : block_size;
-			memcpy (ch_bytes[ch] + (s64)b * block_size, src, use);
-		}
-	}
-
 	audio->channels = channels;
 	audio->sample_rate = sample_rate;
 	audio->n_samples = n_samples;
@@ -712,43 +729,17 @@ static enumError DecodeFSTM (brstm_audio_t *audio, const u8 *data, size_t size, 
 	audio->loop = loop != 0;
 	audio->loop_start = loop_start;
 
-	for (int ch = 0; ch < channels; ch++)
-	{
-		audio->pcm[ch] = MALLOC (n_samples * sizeof (s16));
-
-		if (is_adpcm)
-		{
-			int h1s = 0, h2s = 0;
-			s64 nframes = DspAdpcmFrameCount (n_samples);
-			for (s64 f = 0; f < nframes; f++)
-			{
-				s64 off = f * DSP_ADPCM_SAMPLES_PER_FRAME;
-				int count = (int)(n_samples - off < DSP_ADPCM_SAMPLES_PER_FRAME
-						? n_samples - off
-						: DSP_ADPCM_SAMPLES_PER_FRAME);
-				DspAdpcmDecodeBlock (ch_bytes[ch] + f * DSP_ADPCM_BYTES_PER_FRAME, count,
-					audio->pcm[ch] + off, coefs[ch], &h1s, &h2s);
-			}
-		}
-		else
-		{
-			for (s64 i = 0; i < n_samples; i++)
-				audio->pcm[ch][i] = (s16)rd_u16e (ch_bytes[ch] + i * 2, le);
-		}
-	}
-
-	for (int ch = 0; ch < channels; ch++)
-		if (ch_bytes[ch])
-			FREE (ch_bytes[ch]);
-
-	return ERR_OK;
+	return DecodeStreamSamples (audio, data, size, (u64)data_offs + 0x20, codec, le, block_count,
+		block_size, last_block_used, last_block_size, coefs);
 }
 
 enumError DecodeBRSTM (brstm_audio_t *audio, const u8 *data, size_t size)
 {
+	if (!audio)
+		return ERR_INVALID_DATA;
 	memset (audio, 0, sizeof (*audio));
 
-	if (size < 0x40)
+	if (!data || size < 0x40)
 		return ERROR0 (ERR_INVALID_DATA, "DecodeBRSTM: file too small\n");
 
 	if (!memcmp (data, "RSTM", 4))
@@ -761,7 +752,9 @@ enumError DecodeBRSTM (brstm_audio_t *audio, const u8 *data, size_t size)
 		bool cstm = data[0] == 'C';
 		audio->variant = cstm ? BRSTM_VARIANT_CSTM : BRSTM_VARIANT_FSTM;
 		u16 bom = rd_u16 (data + 4);
-		bool le = (bom != 0xFEFF); // 0xFFFE (bytes swapped) means little-endian fields
+		if (bom != 0xFEFF && bom != 0xFFFE)
+			return ERROR0 (ERR_INVALID_DATA, "DecodeBRSTM: invalid byte order mark\n");
+		bool le = (bom == 0xFFFE);
 		return DecodeFSTM (audio, data, size, le);
 	}
 

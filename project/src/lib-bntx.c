@@ -171,7 +171,7 @@ void ResetBNTX (bntx_t *bntx)
 // array of `count` u64 offsets, each pointing at u16 length + bytes + NUL.
 static char *bntx_dup_u8_string (const u8 *data, uint size, u64 addr)
 {
-	if (!addr || addr + 2 > size)
+	if (!addr || addr >= size || size - addr < 2)
 		return NULL;
 	const uint len = brd16 (data + addr);
 	if ((u64)len + 1 > (u64)size - addr - 2)
@@ -189,7 +189,7 @@ static char *bntx_dup_u8_string (const u8 *data, uint size, u64 addr)
 // `addr`, transcoded to UTF-8. Matches BntxLibrary's LoadStrings(Unicode).
 static char *bntx_dup_w_string (const u8 *data, uint size, u64 addr)
 {
-	if (!addr || addr + 2 > size)
+	if (!addr || addr >= size || size - addr < 2)
 		return NULL;
 	const uint len = brd16 (data + addr); // UTF-16 code units
 	if ((u64)len * 2 + 2 > (u64)size - addr - 2)
@@ -280,6 +280,22 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 		if (!image_size || data_addr >= size || image_size > size - data_addr)
 			continue;
 
+		const uint n_mips = brd16 (ti + TI_NUM_MIPS);
+		if (!n_mips || n_mips > 32 || (u64)n_mips * 8 > size - ptrs_addr)
+			continue;
+		bool valid_mips = true;
+		for (uint m = 1; m < n_mips; m++)
+		{
+			const u64 m_addr = brd64 (data + ptrs_addr + m * 8);
+			if (m_addr < data_addr || m_addr - data_addr >= image_size)
+			{
+				valid_mips = false;
+				break;
+			}
+		}
+		if (!valid_mips)
+			continue;
+
 		tex[n].name = name;
 		tex[n].width = w;
 		tex[n].height = h;
@@ -297,12 +313,12 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 		tex[n].tile_mode = brd16 (ti + TI_TILE_MODE);
 		tex[n].block_height_log2 = brd32 (ti + TI_LAYOUT) & 7;
 		tex[n].alignment = brd32 (ti + TI_ALIGNMENT);
-		tex[n].n_mips = brd16 (ti + TI_NUM_MIPS);
+		tex[n].n_mips = n_mips;
 		tex[n].data = data + data_addr;
 		tex[n].data_size = image_size;
 
 		// Read mip offsets if available
-		if (tex[n].n_mips > 1 && ptrs_addr < size && (u64)tex[n].n_mips * 8 <= size - ptrs_addr)
+		if (n_mips > 1)
 		{
 			tex[n].mip_offsets = CALLOC (tex[n].n_mips, sizeof (u64));
 			if (tex[n].mip_offsets)
@@ -310,8 +326,7 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 				for (uint m = 0; m < tex[n].n_mips; m++)
 				{
 					const u64 m_addr = brd64 (data + ptrs_addr + m * 8);
-					if (m_addr >= data_addr && m_addr <= size)
-						tex[n].mip_offsets[m] = m_addr - data_addr;
+					tex[n].mip_offsets[m] = m_addr - data_addr;
 				}
 			}
 		}
@@ -319,7 +334,8 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 		// Read UserData if present (dictionary at 0x88, array at 0x68)
 		const u64 ud_dict_addr = brd64 (ti + 0x88);
 		const u64 ud_addr = brd64 (ti + 0x68);
-		if (ud_dict_addr && ud_dict_addr + 8 <= size && ud_addr && ud_addr < size
+		if (ud_dict_addr && ud_dict_addr < size && size - ud_dict_addr >= 8
+			&& ud_addr && ud_addr < size
 			&& !memcmp (data + ud_dict_addr, "_DIC", 4))
 		{
 			const uint ud_count = brd32 (data + ud_dict_addr + 4);
@@ -339,7 +355,7 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 						const uint u_type = udh[0x14];
 
 						ccp u_name = "";
-						if (u_name_addr && u_name_addr + 2 <= size)
+						if (u_name_addr && u_name_addr < size && size - u_name_addr >= 2)
 						{
 							const uint ulen = brd16 (data + u_name_addr);
 							if (ulen < size - u_name_addr - 2 && !data[u_name_addr + 2 + ulen])
@@ -425,7 +441,8 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 
 	// Parse Relocation Table (_RLT) if present
 	const u32 rlt_addr = brd32 (data + 24);
-	if (rlt_addr && rlt_addr + 16 <= size && !memcmp (data + rlt_addr, "_RLT", 4))
+	if (rlt_addr && rlt_addr < size && size - rlt_addr >= 16
+		&& !memcmp (data + rlt_addr, "_RLT", 4))
 	{
 		const u32 sec_count = brd32 (data + rlt_addr + 8);
 		if (sec_count > 0 && sec_count <= 256 && rlt_addr + 16 + (u64)sec_count * 24 <= size)
@@ -433,7 +450,7 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 			bntx_reloc_section_t *sections = CALLOC (sec_count, sizeof (*sections));
 			if (sections)
 			{
-				uint total_entries = 0;
+				u64 total_entries = 0;
 				for (uint s = 0; s < sec_count; s++)
 				{
 					const u8 *sp = data + rlt_addr + 16 + s * 24;
@@ -938,17 +955,18 @@ enumError DecodeBNTX_Mip_RGBA (
 	if (!dest || !width || !height || !bntx || index >= bntx->n_textures)
 		return EINVAL;
 	const bntx_texture_t *t = bntx->textures + index;
-	if (mip_level >= t->n_mips)
+	if (mip_level >= t->n_mips || mip_level >= 32 || !t->data || !t->width || !t->height)
+		return EINVAL;
+	if (mip_level && !t->mip_offsets)
+		return EINVAL;
+	const u64 offset = mip_level ? t->mip_offsets[mip_level] : 0;
+	if (offset >= t->data_size)
 		return EINVAL;
 
 	const uint w = (t->width >> mip_level) ? (t->width >> mip_level) : 1;
 	const uint h = (t->height >> mip_level) ? (t->height >> mip_level) : 1;
-	const u8 *src_data
-		= (mip_level > 0 && t->mip_offsets) ? t->data + t->mip_offsets[mip_level] : t->data;
-	const uint src_size
-		= (mip_level > 0 && t->mip_offsets && t->mip_offsets[mip_level] < t->data_size)
-		? (t->data_size - (uint)t->mip_offsets[mip_level])
-		: t->data_size;
+	const u8 *src_data = t->data + offset;
+	const uint src_size = t->data_size - (uint)offset;
 	const uint bh_log2 = t->block_height_log2 > mip_level ? t->block_height_log2 - mip_level : 0;
 
 	const uint fmt = (t->format >> 8) & 0xFF;

@@ -65,13 +65,23 @@ enumError ScanGPAK (gpak_t *pak, const u8 *data, uint size)
 enumError CreateGPAK (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {
-	if (!dest || !dest_size || !entries || !n_entries)
+	if (!dest || !dest_size)
+		return ERR_INVALID_DATA;
+	*dest = 0;
+	*dest_size = 0;
+	if (!entries || !n_entries || n_entries > 0x1000000)
 		return ERR_INVALID_DATA;
 
 	const u32 data_start = (n_entries + 1) * 16;
-	u32 total = data_start;
+	u64 total = data_start;
 	for (uint i = 0; i < n_entries; i++)
-		total = (total + entries[i].size + 15) & ~15u;
+	{
+		if (entries[i].size && !entries[i].data)
+			return ERR_INVALID_DATA;
+		total = (total + entries[i].size + 15) & ~(u64)15;
+		if (total > UINT_MAX)
+			return ERR_FILE_TOO_BIG;
+	}
 
 	u8 *buf = CALLOC (total, 1);
 	if (!buf)
@@ -87,7 +97,7 @@ enumError CreateGPAK (
 		wr_be32 (h + 4, entries[i].size);
 		if (entries[i].data && entries[i].size)
 			memcpy (buf + off, entries[i].data, entries[i].size);
-		off = (off + entries[i].size + 15) & ~15u;
+		off = (u32)(((u64)off + entries[i].size + 15) & ~(u64)15);
 	}
 
 	*dest = buf;
@@ -155,8 +165,11 @@ enumError create_gpak_dir (ccp source, ccp dest)
 		u8 *data = 0;
 		size_t fsize = 0;
 		err = LoadFileAlloc (path, 0, 0, &data, &fsize, 0, 0, 0, false);
-		if (err)
+		if (err || fsize > UINT_MAX)
 		{
+			FREE (data);
+			if (!err)
+				err = ERR_FILE_TOO_BIG;
 			ERROR0 (err, "Can't load GPAK input: %s\n", path);
 			break;
 		}

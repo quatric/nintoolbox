@@ -14,6 +14,73 @@ void *dclib_calloc (size_t n, size_t s) { return calloc (n, s); }
 void *dclib_realloc (void *v, size_t n) { return realloc (v, n); }
 enumError PrintError (enumError err, ccp format, ...) { (void)format; return err; }
 
+static void put32 (u8 *p, u32 v)
+{
+	for (uint i = 0; i < 4; i++)
+		p[i] = (u8)(v >> (8 * i));
+}
+
+static void put64 (u8 *p, u64 v)
+{
+	for (uint i = 0; i < 8; i++)
+		p[i] = (u8)(v >> (8 * i));
+}
+
+static u64 get64 (const u8 *p)
+{
+	u64 v = 0;
+	for (uint i = 0; i < 8; i++)
+		v |= (u64)p[i] << (8 * i);
+	return v;
+}
+
+static void test_container_bounds (const u8 *source, uint size)
+{
+	u8 *buf = malloc (size);
+	assert (buf);
+	memcpy (buf, source, size);
+	bntx_t bntx;
+
+	// Optional relocation metadata must not wrap its header range check.
+	put32 (buf + 24, 0xfffffff8u);
+	assert (ScanBNTX (&bntx, buf, size) == ERR_OK);
+	assert (!bntx.reloc_table.n_sections);
+	ResetBNTX (&bntx);
+
+	memcpy (buf, source, size);
+	const u64 ti = get64 (buf + get64 (buf + 0x28)) + 16;
+	put64 (buf + ti + 0x68, 0x20);
+	put64 (buf + ti + 0x88, ~(u64)3);
+	assert (ScanBNTX (&bntx, buf, size) == ERR_OK);
+	assert (!bntx.textures[0].n_user_data);
+	ResetBNTX (&bntx);
+
+	// Mip pointers must stay inside the declared image payload, even when
+	// the rest of the container contains more bytes after that payload.
+	memcpy (buf, source, size);
+	const u64 ptrs = get64 (buf + ti + 0x60);
+	buf[ti + 6] = 2;
+	put64 (buf + ptrs + 8, size);
+	assert (ScanBNTX (&bntx, buf, size) != ERR_OK);
+
+	// Public decoding also validates callers' mip offsets and shift counts.
+	assert (ScanBNTX (&bntx, source, size) == ERR_OK);
+	bntx.textures[0].n_mips = 33;
+	u8 *out = NULL;
+	uint w = 0, h = 0;
+	assert (DecodeBNTX_Mip_RGBA (&out, &w, &h, &bntx, 0, 32) != ERR_OK);
+	assert (!out);
+	bntx.textures[0].n_mips = 2;
+	assert (DecodeBNTX_Mip_RGBA (&out, &w, &h, &bntx, 0, 1) != ERR_OK);
+	bntx.textures[0].mip_offsets = calloc (2, sizeof (u64));
+	assert (bntx.textures[0].mip_offsets);
+	bntx.textures[0].mip_offsets[1] = bntx.textures[0].data_size;
+	assert (DecodeBNTX_Mip_RGBA (&out, &w, &h, &bntx, 0, 1) != ERR_OK);
+	assert (!out);
+	ResetBNTX (&bntx);
+	free (buf);
+}
+
 int main (void)
 {
 	// Test GetBNTXFormatName
@@ -96,6 +163,7 @@ int main (void)
 
 	free (decoded);
 	ResetBNTX (&bntx);
+	test_container_bounds (bntx_buf, bntx_size);
 	free (bntx_buf);
 
 	printf ("All BNTX format and container tests passed successfully!\n");

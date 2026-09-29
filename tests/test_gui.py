@@ -65,6 +65,32 @@ class GuiTests(unittest.TestCase):
             gui.NintoolboxGUI.on_pack_input_changed(form)
             self.assertEqual(form.pack_target_var.get(), "")
 
+    def test_missing_inputs_clear_stale_destinations(self):
+        with tempfile.TemporaryDirectory() as root:
+            for prefix, output, method in (
+                ("pack", "target", gui.NintoolboxGUI.on_pack_input_changed),
+                ("unpack", "outdir", gui.NintoolboxGUI.on_unpack_input_changed),
+            ):
+                for value in ("", str(Path(root) / "missing")):
+                    form = self.make_form()
+                    getattr(form, f"{prefix}_input_var").set(value)
+                    destination = getattr(form, f"{prefix}_{output}_var")
+                    destination.set("previous-output")
+                    method(form)
+                    self.assertEqual(destination.get(), "")
+
+    def test_directory_suffix_is_recognized_with_trailing_separator(self):
+        with tempfile.TemporaryDirectory() as root:
+            directory = Path(root) / "game.arc.d"
+            directory.mkdir()
+            form = self.make_form()
+            form.pack_input_var.set(str(directory) + gui.os.sep)
+            gui.NintoolboxGUI.on_pack_input_changed(form)
+            self.assertEqual(form.pack_target_var.get(), str(directory)[:-2])
+            form.unpack_input_var.set(str(directory) + gui.os.sep)
+            gui.NintoolboxGUI.on_unpack_input_changed(form)
+            self.assertEqual(form.unpack_outdir_var.get(), str(directory))
+
     def make_form(self):
         form = SimpleNamespace(wszst_path="wszst", with_companion_tool_flags=lambda: [], execute_cmd=Mock())
         for prefix in ("pack", "unpack"):
@@ -135,6 +161,26 @@ class GuiTests(unittest.TestCase):
         output = self.run_child([sys.executable, "-c", "import os; print(os.environ['PATH'].split(os.pathsep)[0])"])
         self.assertIn(gui.bundle_dir() + "\n", output)
 
+    def test_companion_tools_are_on_the_child_path(self):
+        with tempfile.TemporaryDirectory() as root:
+            bundle = Path(root).resolve() / "bundle"
+            for relative in ("extra_tools", "project/bin", "../Frameworks/bin"):
+                with self.subTest(location=relative):
+                    directory = (bundle / relative).resolve()
+                    directory.mkdir(parents=True, exist_ok=True)
+                    name = "sample-companion.exe" if gui.os.name == "nt" else "sample-companion"
+                    tool = directory / name
+                    tool.write_text("#!/bin/sh\n")
+                    tool.chmod(0o755)
+                    with patch.object(gui, "bundle_dir", return_value=str(bundle)):
+                        self.assertEqual(gui.find_companion_tool(name, "wszst"), str(tool))
+                        output = self.run_child([
+                            sys.executable, "-c",
+                            "import shutil; print(shutil.which('sample-companion'))",
+                        ])
+                    self.assertIn(str(tool) + "\n", output)
+                    tool.unlink()
+
     def test_clean_path_strips_quotes_and_braces(self):
         self.assertEqual(gui._clean_path('  "/path/to/game.iso"  '), "/path/to/game.iso")
         self.assertEqual(gui._clean_path("  '/path/to/game.iso'  "), "/path/to/game.iso")
@@ -175,9 +221,10 @@ class GuiTests(unittest.TestCase):
             self.assertEqual(cmd[-1], str(extract_dir))
 
     def test_install_cli_tools_filters_runtimes_and_copies_assets(self):
-        with tempfile.TemporaryDirectory() as tools_tmp, tempfile.TemporaryDirectory() as dest_tmp:
-            troot = Path(tools_tmp)
-            droot = Path(dest_tmp)
+        with tempfile.TemporaryDirectory() as root:
+            troot = Path(root) / "bundle"
+            droot = Path(root) / "install" / "bin"
+            troot.mkdir()
 
             # Executable tools
             wszst = troot / "wszst"
@@ -199,16 +246,28 @@ class GuiTests(unittest.TestCase):
             wiiu_keys = troot / "wiiu_keys"
             wiiu_keys.mkdir()
             (wiiu_keys / "game.key").write_text("wiiukey")
+            (wiiu_keys / "region").mkdir()
+            (wiiu_keys / "region" / "nested.key").write_text("nestedkey")
 
             share = troot / "share"
             share.mkdir()
             (share / "titles.txt").write_text("title")
+            (share / "data").mkdir()
+            (share / "data" / "nested.txt").write_text("data")
+            libraries = troot / "lib" / "nested"
+            libraries.mkdir(parents=True)
+            (libraries / "dependency.jar").write_text("library")
+            installed_libraries = droot / "lib"
+            installed_libraries.mkdir(parents=True)
+            (installed_libraries / "existing.jar").write_text("keep")
 
             form = SimpleNamespace(append_console=Mock(), _add_to_path=Mock(return_value="PATH OK"))
             with patch.object(gui, "bundle_dir", return_value=str(troot)), \
                  patch.object(gui.os.path, "expanduser", return_value=str(droot)), \
+                 patch.object(gui.messagebox, "showerror") as error, \
                  patch.object(gui.messagebox, "showinfo") as info:
                 gui.NintoolboxGUI.install_cli_tools(form)
+                error.assert_not_called()
                 info.assert_called_once()
 
             installed_files = set(p.name for p in droot.iterdir())
@@ -219,6 +278,56 @@ class GuiTests(unittest.TestCase):
             self.assertNotIn("Python", installed_files)
             self.assertNotIn("libcrypto.3.dylib", installed_files)
             self.assertTrue((droot / "wiiu_keys" / "game.key").is_file())
+            self.assertEqual((droot / "wiiu_keys" / "region" / "nested.key").read_text(), "nestedkey")
+            self.assertEqual((droot.parent / "share" / "nintoolbox" / "data" / "nested.txt").read_text(), "data")
+            self.assertEqual((droot / "lib" / "nested" / "dependency.jar").read_text(), "library")
+            self.assertEqual((droot / "lib" / "existing.jar").read_text(), "keep")
+
+    def test_install_cli_tools_can_reinstall_from_destination(self):
+        with tempfile.TemporaryDirectory() as root:
+            directory = Path(root)
+            tool = directory / "wszst"
+            tool.write_text("#!/bin/sh\n")
+            tool.chmod(0o755)
+            (directory / "prod.keys").write_text("key")
+            (directory / "lib").mkdir()
+            (directory / "lib" / "dependency.jar").write_text("library")
+            form = SimpleNamespace(append_console=Mock(), _add_to_path=Mock(return_value="PATH OK"))
+            with patch.object(gui, "bundle_dir", return_value=str(directory)), \
+                 patch.object(gui.os.path, "expanduser", return_value=str(directory)), \
+                 patch.object(gui.messagebox, "showerror") as error, \
+                 patch.object(gui.messagebox, "showinfo") as info:
+                gui.NintoolboxGUI.install_cli_tools(form)
+                error.assert_not_called()
+                info.assert_called_once()
+            self.assertEqual((directory / "prod.keys").read_text(), "key")
+            self.assertEqual((directory / "lib" / "dependency.jar").read_text(), "library")
+
+    def test_windows_install_ignores_directories_and_copies_nested_share(self):
+        with tempfile.TemporaryDirectory() as root:
+            bundle = Path(root) / "bundle"
+            bundle.mkdir()
+            (bundle / "wszst.exe").write_text("tool")
+            (bundle / "support.dll").write_text("library")
+            (bundle / "directory.exe").mkdir()
+            (bundle / "python.exe").write_text("runtime")
+            (bundle / "share" / "data").mkdir(parents=True)
+            (bundle / "share" / "data" / "titles.txt").write_text("titles")
+            form = SimpleNamespace(append_console=Mock(), _add_to_path=Mock(return_value="PATH OK"))
+            with patch.object(gui, "bundle_dir", return_value=str(bundle)), \
+                 patch.object(gui.sys, "platform", "win32"), \
+                 patch.dict(gui.os.environ, {"LOCALAPPDATA": root}), \
+                 patch.object(gui.messagebox, "showerror") as error, \
+                 patch.object(gui.messagebox, "showinfo") as info:
+                gui.NintoolboxGUI.install_cli_tools(form)
+                error.assert_not_called()
+                info.assert_called_once()
+            destination = Path(root) / "nintoolbox" / "bin"
+            self.assertEqual((destination / "wszst.exe").read_text(), "tool")
+            self.assertEqual((destination / "support.dll").read_text(), "library")
+            self.assertFalse((destination / "directory.exe").exists())
+            self.assertFalse((destination / "python.exe").exists())
+            self.assertEqual((destination / "share" / "data" / "titles.txt").read_text(), "titles")
 
     def test_report_callback_exception_invokes_sentry(self):
         mock_sentry = Mock()
@@ -231,4 +340,3 @@ class GuiTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
