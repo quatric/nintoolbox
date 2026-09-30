@@ -124,6 +124,7 @@
 #include "lib-segapvr.h"
 #include "lib-ninja.h"
 #include "lib-babyz.h"
+#include "lib-soma.h"
 #include "config.inc"
 
 //
@@ -2421,6 +2422,16 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 	// lib-babyz.h.
 	if (IsBabyzWiz (data8, data_size, file_size))
 		return FF_BABYZ_WIZ;
+
+	// Monolith Soft Soma Bringer 2D graphics, compressed containers, and layout sequences
+	if (IsSomaObp (data8, data_size, file_size))
+		return FF_SOMA_OBP;
+	if (IsSomaBgp (data8, data_size, file_size))
+		return FF_SOMA_BGP;
+	if (IsSomaDad (data8, data_size))
+		return FF_SOMA_DAD;
+	if (IsSomaPcs (data8, data_size))
+		return FF_SOMA_PCS;
 
 	const nfmt_info_t nfmt = DetectNintendoFormat (data, data_size, 0);
 	switch (nfmt.type)

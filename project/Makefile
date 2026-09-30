@@ -484,7 +484,7 @@ SZS_O		:= $(XOBJ_IMAGE) lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-nsbmd
 		   lib-dsb.o lib-bnr.o lib-brfnt.o lib-brfna.o lib-bcfnt.o lib-mpr-pak.o \
 		   lib-ncgr.o lib-nclr.o lib-sarc.o lib-nw4r.o lib-rst.o lib-thp.o \
 		   lib-owned-entries.o lib-mvdk.o lib-vlx.o lib-pucrunch.o lib-lzx.o \
-		   lib-lze.o lib-diff.o lib-lzovl.o lib-alar.o lib-iear.o lib-luminous-bg.o lib-layton-bg.o lib-pck2.o lib-sadl.o lib-psdk.o lib-sszl.o \
+		   lib-lze.o lib-diff.o lib-lzovl.o lib-alar.o lib-iear.o lib-soma.o lib-luminous-bg.o lib-layton-bg.o lib-pck2.o lib-sadl.o lib-psdk.o lib-sszl.o \
 		   lib-rflres.o lib-bea.o \
 		   lib-atb.o lib-ptd.o lib-lzbin.o lib-xb.o lib-mpmess.o lib-mpboard.o \
 		   lib-rarc.o lib-pack.o lib-rkc.o lib-brres.o lib-breff.o \
@@ -1508,6 +1508,14 @@ test-iear: version.h
 	$(CC) $(IEAR_TEST_CFLAGS) -ffunction-sections -fdata-sections -I. -Isrc -Idclib ../tests/test-iear.c src/lib-iear.c $(COMPRESSION_TEST_LDFLAGS) -o bin/test-iear
 	@./bin/test-iear
 
+.PHONY : test-soma
+SOMA_TEST_CFLAGS ?= -O2
+test-soma: version.h
+	@mkdir -p bin
+	$(CC) $(SOMA_TEST_CFLAGS) -ffunction-sections -fdata-sections -I. -Isrc -Idclib ../tests/test-soma.c src/lib-soma.c src/lib-nintendo.c $(COMPRESSION_TEST_LDFLAGS) -o bin/test-soma
+	@./bin/test-soma
+
+
 .PHONY : test-pck2
 PCK2_TEST_CFLAGS ?= -O2
 test-pck2: version.h
@@ -1584,6 +1592,12 @@ test-babyz: version.h $(ALL_OBJECTS) $(TOBJ_wtest)
 	@mkdir -p bin
 	$(CC) $(CFLAGS) $(DEFINES) $(LDFLAGS) ../tests/test-babyz.c $(ALL_OBJECTS) $(filter-out $(ALL_OBJECTS),$(TOBJ_wtest)) $(LIBS) $(TOPT_wtest) -o bin/test-babyz
 	@./bin/test-babyz
+
+.PHONY : test-filetype-table
+test-filetype-table: version.h $(ALL_OBJECTS) $(TOBJ_wtest)
+	@mkdir -p bin
+	$(CC) $(CFLAGS) $(DEFINES) $(LDFLAGS) ../tests/test-filetype-table.c $(ALL_OBJECTS) $(filter-out $(ALL_OBJECTS),$(TOBJ_wtest)) $(LIBS) $(TOPT_wtest) -o bin/test-filetype-table
+	@./bin/test-filetype-table
 
 .PHONY : test
 test:

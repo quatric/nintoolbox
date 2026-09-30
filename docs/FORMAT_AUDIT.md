@@ -302,3 +302,24 @@ Companion filenames use the same stem and lowercase `.imb`/`.plb` extensions.
 This renders individual resources; it does not reproduce game compositing,
 animation, or sprite resources, and no encoding is implemented. No retail assets
 are included in the repository.
+
+## Soma Bringer graphics, archives, and animation sequences
+
+Retail sample:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Soma Bringer (Japan).zip
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| Soma Bringer (Japan) | 20 DAD LZSS compressed archives (`.dad`, `DAD\x01`) | 100% decompressed cleanly and verified against ARM9 disassembly |
+| Soma Bringer (Japan) | 16 PCS animation / layout timelines (`.pcs`, `pcs\0`) | 100% decoded into structured components and FX32 keyframes |
+| Soma Bringer (Japan) | 204 OBP sprite/object graphics (`OBP1`) | Validated dimensions, RGB555 palettes, and 4bpp/8bpp tile banks |
+| Soma Bringer (Japan) | 23 BGP background graphics (`BGP1`) | Validated 256x192 screen dimensions and companion palettes |
+
+*Soma Bringer* (developed by Monolith Soft with music by Procyon Studio) uses a dedicated graphics, animation, and compression stack:
+1. `DAD\x01`: LZSS compressed stream with an 8-byte header (`DAD\x01` + little-endian uncompressed size). Uses 1-bit flags (1 for literal byte, 0 for 2-byte sliding window reference: `dist = b1 | ((b2 & 0xf0) << 4)`, `len = (b2 & 0x0f) + 3`). Decompresses to `OBP1` graphics, `DFN\0` fonts, and `PACK` databases (`database.dad`). Decompression is integrated into `wszst decompress`.
+2. `pcs\0`: 2D animation sequence and layout container with `pcn\0` components containing Translation (`pos\0`), Rotation (`ang\0`), Scale (`sca\0`), and Color (`col\0`) keyframe tracks in Nintendo DS FX32 (20.12 fixed point) format. Supported via `wszst text` and `wszst dump`.
+3. `OBP1` / `BGP1`: 2D sprite sheets and background graphics with header fields, dimensions, and embedded RGB555 palettes. Supported via `wszst text` and `wszst dump`.
+

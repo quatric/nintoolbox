@@ -178,6 +178,7 @@ static ccp opt_parent = 0;
 #include "lib-gtx.h"
 #include "lib-vc.h"
 #include "lib-model-glb.h"
+#include "lib-soma.h"
 
 #if HAVE_WIIMM_EXT
 #include "lib-vehicle.h"

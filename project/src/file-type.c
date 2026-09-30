@@ -2664,6 +2664,26 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		".snd/.wik/.lmc/.eff, Wii; LZSS, fully decoded; inner .wsp texture/.msk mask also "
 		"decoded)" },
 
+	// FF_SOMA_OBP = 454 (Monolith Soft Soma Bringer sprite/object texture sheet)
+	{ FF_SOMA_OBP, FF_SOMA_OBP, FF_SOMA_OBP, "SOMA-OBP", ".obp", ".txt", ".obp", FFT_VALID | FFT_DECODE, 4,
+		{ 'O', 'B', 'P', '1' }, 0, MinusString, MinusString,
+		"Monolith Soft Soma Bringer sprite/object texture sheet (.obp / .ntp / OBP1, NDS; fully decoded)" },
+
+	// FF_SOMA_BGP = 455 (Monolith Soft Soma Bringer background graphic)
+	{ FF_SOMA_BGP, FF_SOMA_BGP, FF_SOMA_BGP, "SOMA-BGP", ".bgp", ".txt", ".bgp", FFT_VALID | FFT_DECODE, 4,
+		{ 'B', 'G', 'P', '1' }, 0, MinusString, MinusString,
+		"Monolith Soft Soma Bringer background graphic (.bgp / BGP1, NDS; fully decoded)" },
+
+	// FF_SOMA_DAD = 456 (Monolith Soft Soma Bringer LZSS compressed container)
+	{ FF_SOMA_DAD, FF_SOMA_DAD, FF_SOMA_DAD, "SOMA-DAD", ".dad", ".bin", ".dad", FFT_VALID | FFT_ARCHIVE | FFT_DECODE, 4,
+		{ 'D', 'A', 'D', 0x01 }, 0, MinusString, MinusString,
+		"Monolith Soft Soma Bringer LZSS compressed container (.dad / DAD, NDS; fully decoded)" },
+
+	// FF_SOMA_PCS = 457 (Monolith Soft Soma Bringer 2D animation / layout sequence)
+	{ FF_SOMA_PCS, FF_SOMA_PCS, FF_SOMA_PCS, "SOMA-PCS", ".pcs", ".txt", ".pcs", FFT_VALID | FFT_DECODE, 4,
+		{ 'p', 'c', 's', 0 }, 0, MinusString, MinusString,
+		"Monolith Soft Soma Bringer 2D animation / layout sequence (.pcs / pcs, NDS; fully decoded)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2927,6 +2947,10 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_DAHBWU_CNV, "DAHBWU-CNV", "DAHBWU-CNV", 0xe05 },
 	{ FF_DAHBWU_AUDPCM, "DAHBWU-AUDPCM", "DAHBWU-AUDPCM", 0xe05 },
 	{ FF_SEGA_PVR, "SEGA-PVR", "SEGA-PVR", 0xe05 }, { FF_NINJA, "NINJA", "NINJA", 0xe05 },
+	{ FF_SOMA_OBP, "SOMA-OBP", "SOMA-OBP", 0xe05 },
+	{ FF_SOMA_BGP, "SOMA-BGP", "SOMA-BGP", 0xe05 },
+	{ FF_SOMA_DAD, "SOMA-DAD", "SOMA-DAD", 0xe05 },
+	{ FF_SOMA_PCS, "SOMA-PCS", "SOMA-PCS", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

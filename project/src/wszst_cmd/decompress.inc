@@ -164,6 +164,8 @@ static enumError decompress_nintendo_file3 (
 
 #include "decompress/wux.inc"
 
+#include "decompress/dad.inc"
+
 	const nfmt_info_t info = DetectNintendoFormat (data, size, arg);
 	// A short unrecognized prefix (e.g. AquaSpace's "CX00" tag ahead of a
 	// standard LZ10/LZ11 stream) is reported via payload_offset rather than

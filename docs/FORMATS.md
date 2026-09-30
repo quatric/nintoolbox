@@ -15,6 +15,10 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **LZE** | DS / Compression | ✅ | ❌ | Luminous Arc 2 `Le` streams, four token forms; 1,275 retail resources verified against CUE, [audit](FORMAT_AUDIT.md) |
 | **IEAR** | DS / Archive | ✅ | ❌ | Luminous Arc MAIN/JTBL typed resource archives; indexed payload extraction, [retail audit](FORMAT_AUDIT.md) |
 | **ALAR** | DS / Archive | ✅ | ❌ | Jump Stars type 2 / type 3 named archives, including nested DSCP wrappers; [retail audit](FORMAT_AUDIT.md) |
+| **SOMA-DAD** | DS / Compression | ✅ | ❌ | Monolith Soft / Procyon Studio *Soma Bringer* LZSS compression (`DAD\x01`); 20/20 retail archives decompressed cleanly, [retail audit](FORMAT_AUDIT.md) |
+| **SOMA-OBP** | DS / Graphics | ✅ | ❌ | Monolith Soft *Soma Bringer* sprite/object tile banks with RGB555 palette (`OBP1`); structured inspection via `wszst text` / `dump`, [retail audit](FORMAT_AUDIT.md) |
+| **SOMA-BGP** | DS / Graphics | ✅ | ❌ | Monolith Soft *Soma Bringer* 256x192 background tile maps with RGB555 palette (`BGP1`); structured inspection via `wszst text` / `dump`, [retail audit](FORMAT_AUDIT.md) |
+| **SOMA-PCS** | DS / Animation | ✅ | ❌ | Monolith Soft *Soma Bringer* 2D layout and animation keyframe sequence (`pcs\0`); structured inspection via `wszst text` / `dump`, [retail audit](FORMAT_AUDIT.md) |
 | **THOR** | Wii / Resource package | ✅ | ❌ | Behaviour Interactive resource package (`.wii`, *Phineas and Ferb: Quest for Cool Stuff*) -- not a disc image; 0x40-byte header with an ASCII "Thor" marker at 0x3C, a mostly-empty run of 8-byte BE (key,val) slots ending in a `{0xFFFFFFFF,count}`/`{table_offset,0}` marker pair, then `count` 12-byte BE `{id,offset,size}` resource records; many blobs carry a small `0xABABABAB`-prefixed envelope with an embedded name used for extraction, others are dumped raw by index; decode-only, verified against all 85 retail samples by direct byte analysis |
 | **ALZ1** | DS / Compression | ✅ | ✅ | Arika 4096-byte window LZSS with inverted flag bits |
 | **Arika (INFO.DAT/GAME.DAT)** | DS/DSi / Archive | ✅ | ✅ | Obfuscated directory decryption and member decompression |

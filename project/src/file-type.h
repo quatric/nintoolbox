@@ -566,6 +566,10 @@ typedef enum file_format_t
 			  // decoded, NJCM/NMDM payload not)
 	FF_BABYZ_WIZ, // 453 - Imagine: Party Babyz "Wizard" engine LZSS-compressed asset container
 				  // (.wiz/.wsp/.wsn/.tan/.wan/.msk/.spt/.snd/.wik/.lmc/.eff; fully decoded)
+	FF_SOMA_OBP, // 454 - Monolith Soft Soma Bringer sprite/object texture sheet (.obp / .ntp / OBP1)
+	FF_SOMA_BGP, // 455 - Monolith Soft Soma Bringer background graphic (.bgp / BGP1)
+	FF_SOMA_DAD, // 456 - Monolith Soft Soma Bringer LZSS compressed container (.dad / DAD)
+	FF_SOMA_PCS, // 457 - Monolith Soft Soma Bringer 2D animation / layout sequence (.pcs / pcs)
 
 	//--- number of elements
 

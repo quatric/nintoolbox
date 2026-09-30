@@ -440,6 +440,45 @@ static bool ConvertHelper (const u8 *data, // valid data
 			}
 			return true;
 
+		case FF_SOMA_OBP:
+			FreeContainerData (cdata);
+			if (!binary_dest)
+			{
+				File_t F;
+				*err = CreateFileOpt (&F, true, dest_fname, false, src_fname);
+				if (!*err && F.f)
+					*err = DecodeSomaObp_Text (F.f, data, data_size, data_size);
+				ResetFile (&F, opt_preserve);
+				return true;
+			}
+			return false;
+
+		case FF_SOMA_BGP:
+			FreeContainerData (cdata);
+			if (!binary_dest)
+			{
+				File_t F;
+				*err = CreateFileOpt (&F, true, dest_fname, false, src_fname);
+				if (!*err && F.f)
+					*err = DecodeSomaBgp_Text (F.f, data, data_size, data_size);
+				ResetFile (&F, opt_preserve);
+				return true;
+			}
+			return false;
+
+		case FF_SOMA_PCS:
+			FreeContainerData (cdata);
+			if (!binary_dest)
+			{
+				File_t F;
+				*err = CreateFileOpt (&F, true, dest_fname, false, src_fname);
+				if (!*err && F.f)
+					*err = DecodeSomaPcs_Text (F.f, data, data_size);
+				ResetFile (&F, opt_preserve);
+				return true;
+			}
+			return false;
+
 		case FF_BFLYT:
 		case FF_BCLYT:
 		case FF_BRLYT:

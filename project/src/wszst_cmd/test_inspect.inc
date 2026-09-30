@@ -1876,6 +1876,21 @@ static enumError cmd_dump ()
 			printf ("\n* Dump structure of %s:%s\n", GetNameFF (FF_XCI, 0), arg);
 			DumpXCI (stdout, szs.data, szs.size);
 		}
+		else if (szs.data && IsSomaObp (szs.data, szs.size, szs.size))
+		{
+			printf ("\n* Dump structure of %s:%s\n", GetNameFF (FF_SOMA_OBP, 0), arg);
+			DecodeSomaObp_Text (stdout, szs.data, szs.size, szs.size);
+		}
+		else if (szs.data && IsSomaBgp (szs.data, szs.size, szs.size))
+		{
+			printf ("\n* Dump structure of %s:%s\n", GetNameFF (FF_SOMA_BGP, 0), arg);
+			DecodeSomaBgp_Text (stdout, szs.data, szs.size, szs.size);
+		}
+		else if (szs.data && IsSomaPcs (szs.data, szs.size))
+		{
+			printf ("\n* Dump structure of %s:%s\n", GetNameFF (FF_SOMA_PCS, 0), arg);
+			DecodeSomaPcs_Text (stdout, szs.data, szs.size);
+		}
 		else if (!opt_ignore)
 			ERROR0 (ERR_WARNING, "No supported file for dump -> ignored: %s\n", arg);
 		ResetSZS (&szs);
