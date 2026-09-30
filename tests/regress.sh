@@ -9199,6 +9199,22 @@ with open(sys.argv[1], "wb") as f:
     fno "Goliath GS package" "mk_goliath.py failed"
   fi
 
+  # Harmonix Ark (Guitar Hero / Rock Band): encrypted v5 header + two parts,
+  # a "../" member path folded into the tree.
+  mkdir -p "$d/rbark_test"
+  if python3 "$PWD_PROJECT/../tests/mk_rbark.py" "$d/rbark_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/rbark_test/T.hdr" >/dev/null 2>&1
+    rd="$d/rbark_test/T.hdr.d"
+    [ "$(cat "$rd/songs/a/x.bin" 2>/dev/null | wc -c | tr -d ' ')" = "100" ] \
+    && [ "$(cat "$rd/songs/a/y.dtb" 2>/dev/null | wc -c | tr -d ' ')" = "200" ] \
+    && [ "$(cat "$rd/system/z.txt" 2>/dev/null | head -c 4)" = "zed" ] \
+    && [ "$(cat "$rd/top.bin" 2>/dev/null)" = "top" ] \
+    && fok "Harmonix Ark: encrypted v5 header, multi-part data, ../ path folded" \
+    || fno "Harmonix Ark" "failed to extract synthetic archive"
+  else
+    fno "Harmonix Ark" "mk_rbark.py failed"
+  fi
+
   # Exient "XPK" archive (Angry Birds Star Wars, Wii): directory records,
   # zlib and stored members, duplicate names.
   mkdir -p "$d/xpk_test"
