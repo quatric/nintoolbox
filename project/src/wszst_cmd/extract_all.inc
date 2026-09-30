@@ -85,6 +85,7 @@
 #include "extract/xpk.inc"
 #include "extract/bcbig.inc"
 #include "extract/bcdspi.inc"
+#include "extract/dbkmap.inc"
 #include "extract/rbark.inc"
 #include "extract/nibm.inc"
 #include "extract/rcf.inc"

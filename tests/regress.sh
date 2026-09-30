@@ -9252,6 +9252,19 @@ PYEOF
     fno "Blue Castle .big" "mk_bcbig.py failed"
   fi
 
+  # Artefacts Studio ".map" level database (Diabolik, Boot Camp Academy,
+  # Wii): the textures inside the FAAFFAAF object graph come out as TPLs.
+  mkdir -p "$d/dbkmap_test"
+  if python3 "$PWD_PROJECT/../tests/mk_dbkmap.py" "$d/dbkmap_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/dbkmap_test/T.map" >/dev/null 2>&1
+    [ -s "$d/dbkmap_test/T.map.d/textures/0000_tex_test.tpl" ] \
+    && [ -s "$d/dbkmap_test/T.map.d/textures/0000_tex_test.tpl.png" ] \
+    && fok "Artefacts .map: CMPR texture extracted and decoded" \
+    || fno "Artefacts .map" "failed to extract synthetic texture"
+  else
+    fno "Artefacts .map" "mk_dbkmap.py failed"
+  fi
+
   # Eden Games .wsi blocked stereo DSP-ADPCM (Alone in the Dark, Wii):
   # each channel is re-assembled into a .dsp and decoded to a WAV.
   mkdir -p "$d/wsi_test"
