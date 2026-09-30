@@ -9199,6 +9199,20 @@ with open(sys.argv[1], "wb") as f:
     fno "Goliath GS package" "mk_goliath.py failed"
   fi
 
+  # Eden Games .wsi blocked stereo DSP-ADPCM (Alone in the Dark, Wii):
+  # each channel is re-assembled into a .dsp and decoded to a WAV.
+  mkdir -p "$d/wsi_test"
+  if wsam=$(python3 "$PWD_PROJECT/../tests/mk_wsi.py" "$d/wsi_test" 2>/dev/null); then
+    "$B/wszst" xx "$d/wsi_test/T.wsi" >/dev/null 2>&1
+    wn0=$(python3 -c 'import struct,sys;d=open(sys.argv[1],"rb").read();print((len(d)-44)//2)' "$d/wsi_test/T.wsi.d/ch0.wav" 2>/dev/null)
+    wn1=$(python3 -c 'import struct,sys;d=open(sys.argv[1],"rb").read();print((len(d)-44)//2)' "$d/wsi_test/T.wsi.d/ch1.wav" 2>/dev/null)
+    [ "$wn0" = "$wsam" ] && [ "$wn1" = "$wsam" ] \
+    && fok "WSI blocked stereo DSP-ADPCM: two channels re-assembled, $wsam samples each -> WAV" \
+    || fno "WSI blocked DSP-ADPCM" "got $wn0/$wn1 samples, want $wsam"
+  else
+    fno "WSI blocked DSP-ADPCM" "mk_wsi.py failed"
+  fi
+
   # CRI Sofdec movies (.sfd = MPEG-1 program stream, .sfv = bare MPEG-1 video)
   # go through mobipeg; needs mobipeg on PATH plus an ffmpeg to make the fixtures.
   if command -v mobipeg >/dev/null 2>&1 && command -v ffmpeg >/dev/null 2>&1; then

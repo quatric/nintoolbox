@@ -81,6 +81,7 @@
 #include "extract/blpkg.inc"
 #include "extract/goliath.inc"
 #include "extract/twl.inc"
+#include "extract/wsi.inc"
 #include "extract/rso.inc"
 #include "extract/catcar.inc"
 #include "extract/termpod.inc"
