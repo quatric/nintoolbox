@@ -9199,6 +9199,34 @@ with open(sys.argv[1], "wb") as f:
     fno "Goliath GS package" "mk_goliath.py failed"
   fi
 
+  # Nintendo DSi packaging (twltool-compatible crypto): installable .tad,
+  # SD-card DSiWare export .bin, and the modcrypt layer of an SRL.
+  mkdir -p "$d/dsitad_test"
+  if python3 -c 'import Crypto.Cipher.AES' >/dev/null 2>&1 \
+     && python3 "$PWD_PROJECT/../tests/mk_dsi_tad.py" "$d/dsitad_test" >/dev/null 2>&1; then
+    for f in T.tad E.bin M.srl; do "$B/wszst" xx "$d/dsitad_test/$f" >/dev/null 2>&1; done
+    dt="$d/dsitad_test"
+    python3 - "$dt" <<'PYEOF' >/dev/null 2>&1
+import sys
+d = sys.argv[1]
+r = lambda p: open(d + '/' + p, 'rb').read()
+plain, enc = r('plain.srl'), r('M.srl')
+dec = bytearray(plain); dec[0x1c] &= ~2          # decrypted output has the flag cleared
+ok = r('T.tad.d/00000000.srl') == enc and r('T.tad.d/00000000.srl.d/decrypted.srl') == bytes(dec)
+ok = ok and r('E.bin.d/title.srl') == enc and r('E.bin.d/title.srl.d/decrypted.srl') == bytes(dec)
+ok = ok and r('M.srl.d/decrypted.srl') == bytes(dec)
+ok = ok and r('E.bin.d/public.sav') == b'PUBLICSAV' * 7 and r('E.bin.d/banner.bin')[:4] == b'BNR-'
+ok = ok and b'sha1 ok' in r('T.tad.d/manifest.txt') and b'MISMATCH' not in r('E.bin.d/manifest.txt')
+ok = ok and b'console id 0123456789ABCDEF' in r('E.bin.d/manifest.txt')
+sys.exit(0 if ok else 1)
+PYEOF
+    [ $? -eq 0 ] \
+    && fok "DSi TAD/export/modcrypt: .tad (forged ticket, DSi common key, SHA-1 verified), ES-block .bin (fixed + console key), modcrypt SRL decrypt" \
+    || fno "DSi TAD/export/modcrypt" "failed to extract synthetic packages"
+  else
+    printf "  SKIP  DSi TAD/export/modcrypt (needs python3 pycryptodome)\n"; SKIP=$((SKIP+1))
+  fi
+
   # Old-dialect Goliath package in the BABEB1B0 block-zlib wrapper (The
   # Amazing Spider-Man, Wii): textures matched to pixels by name hash.
   mkdir -p "$d/goliath6_test"

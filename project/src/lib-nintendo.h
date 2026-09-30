@@ -529,6 +529,7 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-agi.h"
 #include "lib-blpkg.h"
 #include "lib-goliath.h"
+#include "lib-twl.h"
 #include "lib-rso.h"
 #include "lib-avtex.h"
 #include "lib-cs-dct.h"

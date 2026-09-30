@@ -141,6 +141,9 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **NARC** | `.narc` | ✅ | ✅ | ✅ | ✅ | Nintendo DS Nitro standard archive (DS / DSi) |
 | **NCCARC** | `.nccarc` | ✅ | ✅ | ✅ | — | Nintendo DS flat blob container |
 | **NDS / SRL / DSI** | `.nds`, `.srl`, `.dsi` | ✅ | — | — | — | Nintendo DS & DSi ROM images and executables |
+| **DSi TAD** | `.tad` | ✅ | — | — | — | Installable DSi title (the DSi's WAD, TwlSDK `maketad`): cert chain, ticket, TMD and contents; contents are decrypted with the title key unwrapped by the DSi retail/debug common key and every one is checked against the TMD SHA-1 (round-tripped on a real DSiWare title: app byte-identical to No-Intro's decrypted dump). Ticket signatures are not verified. |
+| **DSiWare export** | `.bin` (SD card) | ✅ | — | — | — | Files the DSi writes to its SD card: ES-block AES-CCM, fixed key for banner/header/footer/saves and a console key derived from the ConsoleID printed in the TW certificate; banner, header, footer, certs, `title.tmd`, `title.srl`, saves, SHA-1 checked manifest. Built to match twltool; checked against it, not against a retail SD dump. |
+| **DSi modcrypt SRL** | `.nds`, `.srl`, `.dsi` | ✅ | — | — | — | SRLs flagged modcrypted (header `0x1c` bit 1) are written back decrypted (retail or debug key, both regions) with the flag cleared and the header CRC16 fixed, then handed to the normal NDS extraction. |
 | **NIF (Gamebryo 20.6, Wii)** | `.nif` | ✅ | — | — | — | *Pocoyo Racing* (Wii): textures to PNG, `NiMesh` scenes to textured GLB. |
 | **NLG DICT** | `.dict`, `.data` | ✅ | — | — | ✅ | Next Level Games dictionary archive (*Federation Force*, *Luigi's Mansion 2/3*, *Strikers*). |
 | **NXARC** | `.nxarc` | ✅ | ✅ | ✅ | — | Nintendo Switch NX archive (`RAXN`) |
