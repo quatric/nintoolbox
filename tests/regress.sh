@@ -9199,6 +9199,27 @@ with open(sys.argv[1], "wb") as f:
     fno "Goliath GS package" "mk_goliath.py failed"
   fi
 
+  # Exient "XPK" archive (Angry Birds Star Wars, Wii): directory records,
+  # zlib and stored members, duplicate names.
+  mkdir -p "$d/xpk_test"
+  if python3 "$PWD_PROJECT/../tests/mk_xpk.py" "$d/xpk_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/xpk_test/T.pak" >/dev/null 2>&1
+    xd="$d/xpk_test/T.pak.d"
+    python3 - "$xd" <<'PYEOF' >/dev/null 2>&1
+import sys
+d = sys.argv[1]
+r = lambda p: open(d + '/' + p, 'rb').read()
+ok = r('a.lua') == b'print("hello")\n' * 40 and r('raw.bin') == bytes(range(200))
+ok = ok and r('sub/b.lua') == b'x = 1\n' * 100 and r('sub/b_dup2.lua') == b'dup\n' * 30
+sys.exit(0 if ok else 1)
+PYEOF
+    [ $? -eq 0 ] \
+    && fok "XPK archive: directory tree, zlib + stored members, duplicate name suffixed" \
+    || fno "XPK archive" "failed to extract synthetic archive"
+  else
+    fno "XPK archive" "mk_xpk.py failed"
+  fi
+
   # Eden Games .wsi blocked stereo DSP-ADPCM (Alone in the Dark, Wii):
   # each channel is re-assembled into a .dsp and decoded to a WAV.
   mkdir -p "$d/wsi_test"
