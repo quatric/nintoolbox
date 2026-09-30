@@ -533,6 +533,7 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-wsi.h"
 #include "lib-xpk.h"
 #include "lib-rbark.h"
+#include "lib-nibm.h"
 #include "lib-rso.h"
 #include "lib-avtex.h"
 #include "lib-cs-dct.h"

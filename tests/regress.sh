@@ -9250,6 +9250,18 @@ PYEOF
     fno "WSI blocked DSP-ADPCM" "mk_wsi.py failed"
   fi
 
+  # NIBM streamed audio (CSI: Hard Evidence, Wii): Ogg Vorbis behind a
+  # serialized-class header; only a stream whose pages tile the file is cut out.
+  mkdir -p "$d/nibm_test"
+  if python3 "$PWD_PROJECT/../tests/mk_nibm.py" "$d/nibm_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/nibm_test/T.aud" >/dev/null 2>&1
+    cmp -s "$d/nibm_test/T.aud.d/T.ogg" "$d/nibm_test/expected.ogg" \
+    && fok "NIBM .aud: Ogg Vorbis stream cut out at the first page, byte-exact" \
+    || fno "NIBM .aud" "T.ogg missing or different"
+  else
+    fno "NIBM .aud" "mk_nibm.py failed"
+  fi
+
   # EA .vp6 (MVhd), Bink-under-.xmv and CRI .usm are claimed on their magic and
   # routed to mobipeg; stubs are enough because --test stops before running it.
   if command -v mobipeg >/dev/null 2>&1; then
