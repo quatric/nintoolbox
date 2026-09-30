@@ -1,16 +1,16 @@
 name: nightly
 
-# Publishes a pre-release built from the default branch at 01:00 America/Chicago,
-# but only when master has moved since the previous nightly.
+# Publishes a pre-release built from the default branch every night, but only
+# when master has moved since the previous nightly.
 #
-# GitHub cron is UTC-only and Chicago flips between UTC-5 (CDT) and UTC-6
-# (CST), so two crons fire an hour apart and the gate job lets through only
-# the one that lands on 01:xx local time. A manual run skips that gate;
-# set `force` to release even when nothing changed.
+# GitHub cron is UTC-only and scheduled runs are often delayed by hours, so
+# there is deliberately no time-of-day gate: a single cron fires at 06:00 UTC
+# (01:00 CDT; change to 7 after the November DST switch for 01:00 CST) and the
+# "any commits since the last nightly tag" check prevents duplicates.
+# A manual run can set `force` to release even when nothing changed.
 on:
   schedule:
     - cron: "0 6 * * *"
-    - cron: "0 7 * * *"
   workflow_dispatch:
     inputs:
       force:
@@ -38,12 +38,6 @@ jobs:
       - id: decide
         run: |
           set -euo pipefail
-          hour=$(TZ=America/Chicago date +%H)
-          if [[ "${{ github.event_name }}" == "schedule" && "$hour" != "01" ]]; then
-            echo "It is ${hour}:xx in Chicago, not 01:xx; the other cron handles this one."
-            echo "release=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
           head=$(git rev-parse HEAD)
           last_tag=$(git tag --list 'nightly-*' --sort=-creatordate | head -n 1)
           if [[ -n "$last_tag" && "$(git rev-list -n 1 "$last_tag")" == "$head" \
