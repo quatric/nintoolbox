@@ -9236,6 +9236,22 @@ PYEOF
     fno "XPK archive" "mk_xpk.py failed"
   fi
 
+  # Blue Castle Games ".big" archive (The Bigs, Wii): duplicate names, a
+  # nested archive and a stereo ".dspi" split into per-channel .dsp files.
+  mkdir -p "$d/bcbig_test"
+  if python3 "$PWD_PROJECT/../tests/mk_bcbig.py" "$d/bcbig_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/bcbig_test/T.big" >/dev/null 2>&1
+    bd="$d/bcbig_test/T.big.d"
+    [ "$(cat "$bd/a.txt" 2>/dev/null)" = "$(printf 'hello\n%.0s' 1 2 3 4 5 6 7 8 9)" ] \
+    && [ "$(cat "$bd/A_dup2.TXT" 2>/dev/null)" = "dup" ] \
+    && [ "$(cat "$bd/nest.big.d/x.txt" 2>/dev/null)" = "inner" ] \
+    && [ -s "$bd/s.dspi.d/ch0.dsp" ] && [ -s "$bd/s.dspi.d/ch1.dsp" ] \
+    && fok "Blue Castle .big: members, duplicate name, nested archive, .dspi channels" \
+    || fno "Blue Castle .big" "failed to extract synthetic archive"
+  else
+    fno "Blue Castle .big" "mk_bcbig.py failed"
+  fi
+
   # Eden Games .wsi blocked stereo DSP-ADPCM (Alone in the Dark, Wii):
   # each channel is re-assembled into a .dsp and decoded to a WAV.
   mkdir -p "$d/wsi_test"

@@ -485,9 +485,14 @@ static enumError passthru_media (
 	if (CreatePath (stage, true))
 		return ERROR0 (ERR_CANT_CREATE_DIR, "Cannot create dest dir: %s", stage);
 
-	char *argv[] = { (char *)tool, "-i", (char *)src, "-y", out_file, 0 };
+	// libx264 (yuv420p) refuses odd frame sizes, e.g. Bink videos of
+	// 853x240: pad an odd dimension by one pixel instead of failing. An
+	// even-sized input passes through the pad filter unchanged.
+	char *argv_video[] = { (char *)tool, "-i", (char *)src, "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2", "-y",
+		out_file, 0 };
+	char *argv_audio[] = { (char *)tool, "-i", (char *)src, "-y", out_file, 0 };
 
-	const int rc = run_program (argv);
+	const int rc = run_program (is_audio ? argv_audio : argv_video);
 	if (rc != 0)
 		return ERROR0 (ERR_SUBJOB_FAILED, "pass-through mobipeg failed for %s (exit %d)", src, rc);
 

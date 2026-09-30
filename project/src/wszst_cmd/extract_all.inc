@@ -83,6 +83,8 @@
 #include "extract/twl.inc"
 #include "extract/wsi.inc"
 #include "extract/xpk.inc"
+#include "extract/bcbig.inc"
+#include "extract/bcdspi.inc"
 #include "extract/rbark.inc"
 #include "extract/nibm.inc"
 #include "extract/rcf.inc"
