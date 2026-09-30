@@ -3728,6 +3728,13 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 	//          Bink content is not missed just because this title renamed
 	//          the extension; a bare ".vid" with no VID1/BIK magic still
 	//          falls through to the generic media group below
+	//   .sfd   CRI Sofdec movie: MPEG-1 program stream (pack start code
+	//          00 00 01 BA) carrying MPEG-1 video and ADX audio; mobipeg's
+	//          stock mpeg demuxer opens it (Resident Evil, Bleach, Arc Rise
+	//          Fantasia, ... on Wii)
+	//   .sfv   Sofdec video-only: a bare MPEG-1 elementary stream that starts
+	//          at the sequence header (00 00 01 B3), with "SUDPS_" Sofdec user
+	//          data (Anime Slot Revolution: 944 of them)
 	//   .bwav  "BWAV" + UTF-16 BOM  (mobipeg routes .bwav through its bfstm
 	//          demuxer, which ignores the tag but wants the BOM at offset 4)
 	// .mmstr has no header magic at all -- mobipeg's gbavideo demuxer probes
@@ -3742,6 +3749,8 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 			|| (is_ext (src, ".rvid") && !memcmp (head, "RVID", 4) && le32 (head + 4) == 5)
 			|| ((is_ext (src, ".bik") || is_ext (src, ".vid"))
 				&& (!memcmp (head, "BIK", 3) || !memcmp (head, "KB2", 3)))
+			|| (is_ext (src, ".sfd") && !memcmp (head, "\x00\x00\x01\xba", 4))
+			|| (is_ext (src, ".sfv") && !memcmp (head, "\x00\x00\x01\xb3", 4))
 			|| (is_ext (src, ".bwav") && is_bwav_magic) || is_ext (src, ".mmstr"));
 
 	// .bwav decodes to a WAV like the other stream-audio siblings.

@@ -9199,6 +9199,25 @@ with open(sys.argv[1], "wb") as f:
     fno "Goliath GS package" "mk_goliath.py failed"
   fi
 
+  # CRI Sofdec movies (.sfd = MPEG-1 program stream, .sfv = bare MPEG-1 video)
+  # go through mobipeg; needs mobipeg on PATH plus an ffmpeg to make the fixtures.
+  if command -v mobipeg >/dev/null 2>&1 && command -v ffmpeg >/dev/null 2>&1; then
+    mkdir -p "$d/sofdec_test"
+    ffmpeg -v error -y -f lavfi -i testsrc=size=64x48:rate=30000/1001 -f lavfi -i sine=frequency=440 -t 0.5 \
+      -c:v mpeg1video -c:a mp2 -f mpeg "$d/sofdec_test/A.sfd" >/dev/null 2>&1
+    ffmpeg -v error -y -f lavfi -i testsrc=size=64x48:rate=30000/1001 -t 0.5 \
+      -c:v mpeg1video -f mpeg1video "$d/sofdec_test/B.sfv" >/dev/null 2>&1
+    "$B/wszst" xx "$d/sofdec_test/A.sfd" >/dev/null 2>&1
+    "$B/wszst" xx "$d/sofdec_test/B.sfv" >/dev/null 2>&1
+    [ "$(head -c 4 "$d/sofdec_test/A.sfd" | xxd -p)" = "000001ba" ] \
+    && [ "$(head -c 4 "$d/sofdec_test/B.sfv" | xxd -p)" = "000001b3" ] \
+    && [ -s "$d/sofdec_test/A.d/A.mp4" ] && [ -s "$d/sofdec_test/B.d/B.mp4" ] \
+    && fok "Sofdec .sfd (MPEG-PS + audio) and .sfv (bare MPEG-1) -> MP4 via mobipeg" \
+    || fno "Sofdec .sfd/.sfv" "no MP4 produced"
+  else
+    printf "  SKIP  Sofdec .sfd/.sfv (needs mobipeg and ffmpeg on PATH)\n"; SKIP=$((SKIP+1))
+  fi
+
   # Nintendo DSi packaging (twltool-compatible crypto): installable .tad,
   # SD-card DSiWare export .bin, and the modcrypt layer of an SRL.
   mkdir -p "$d/dsitad_test"

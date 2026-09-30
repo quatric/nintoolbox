@@ -439,7 +439,7 @@ When extracting or repacking game trees with `wszst xx` / `wszst create`, unsupp
 | **Nintendo Switch Packages** | `.nsp`, `.xci`, `.nca`, `.nsz`, `.xcz` | **`hactool`** / **`hacbrewpack`** / **`nsz`** (`--with-hactool`, `--with-hacbrewpack`, `--with-nsz`) | PFS0 / HFS0 / NCA content extraction, NSZ/XCZ decompression & homebrew NSP repacking |
 | **SFX** | `.sfx` | **`mobipeg`** / **`ffmpeg`** | Monster Games DSP-ADPCM audio (*Excite Truck*, *ExciteBots*, Wii). |
 | **Sound Archives** | `.brsar`, `.sdat`, `.bfsar`, `.bcsar` | **`wbrsar`** / **`vgmtrans`** (bundled; `--with-vgmtrans`) | Nintendo sound archive translation to MIDI + SoundFont, asset pack/unpack |
-| **THP & Media Video** | `.thp`, `.h4m`, `.vid`, `.dpg`, `.fv`, `.ppm`, `.kwz`, `.mmstr`, `.rvid`, `.vx`, `.bik` | **`mobipeg`** / **`ffmpeg`** | GameCube/Wii THP, HVQM4, DPG, Bink, FastVideo & Flipnote animation decoding. |
+| **THP & Media Video** | `.thp`, `.h4m`, `.vid`, `.dpg`, `.fv`, `.ppm`, `.kwz`, `.mmstr`, `.rvid`, `.vx`, `.bik`, `.sfd`, `.sfv` | **`mobipeg`** / **`ffmpeg`** | GameCube/Wii THP, HVQM4, DPG, Bink, CRI Sofdec (`.sfd` MPEG-1 program stream with ADX audio, `.sfv` bare MPEG-1 video, both gated on their start code; frame rate comes out as 29.97 even though ffprobe shows 25 for the raw `.sfv`), FastVideo & Flipnote animation decoding. |
 | **Wii / GameCube Disc Images** | `.iso`, `.wbfs`, `.wdf`, `.ciso`, `.wia` | **`wit`** (`--with-wit`) | Disc partition extraction & scrubbed disc creation |
 | **Wii U Optical Discs** | `.wud`, `.wux` | **`wud2app`** + **`cdecrypt`** | Automated compressed WUX disc decompression, partition dump & decryption |
 | **Wii WAD Packages** | `.wad`, `.app` | **`sharpii`** (`--with-sharpii`) | Wii title & IOS WAD archive unpacking and repacking |
