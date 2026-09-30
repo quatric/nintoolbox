@@ -85,6 +85,7 @@
 #include "extract/xpk.inc"
 #include "extract/rbark.inc"
 #include "extract/nibm.inc"
+#include "extract/rcf.inc"
 #include "extract/rso.inc"
 #include "extract/catcar.inc"
 #include "extract/termpod.inc"

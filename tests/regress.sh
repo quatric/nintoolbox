@@ -9250,6 +9250,22 @@ PYEOF
     fno "WSI blocked DSP-ADPCM" "mk_wsi.py failed"
   fi
 
+  # Radical ATG cement library (Crash of the Titans, Wii): hash table, names in
+  # offset order, backslash paths, case-only duplicate name.
+  mkdir -p "$d/rcf_test"
+  if python3 "$PWD_PROJECT/../tests/mk_rcf.py" "$d/rcf_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/rcf_test/T.rcf" >/dev/null 2>&1
+    rc="$d/rcf_test/T.rcf.d"
+    [ "$(head -c 4 "$rc/script/init.blua" 2>/dev/null | tail -c 3)" = "Lua" ] \
+    && [ "$(head -c 3 "$rc/levels/a.p3d" 2>/dev/null)" = "P3D" ] \
+    && [ "$(cat "$rc/Readme.txt" 2>/dev/null)" = "first" ] \
+    && [ "$(cat "$rc/readme_dup2.TXT" 2>/dev/null)" = "second" ] \
+    && fok "Radical ATG cement library: hash table + offset-ordered names, dirs from backslashes, duplicate suffixed" \
+    || fno "Radical ATG cement library" "failed to extract synthetic archive"
+  else
+    fno "Radical ATG cement library" "mk_rcf.py failed"
+  fi
+
   # NIBM streamed audio (CSI: Hard Evidence, Wii): Ogg Vorbis behind a
   # serialized-class header; only a stream whose pages tile the file is cut out.
   mkdir -p "$d/nibm_test"
