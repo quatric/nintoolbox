@@ -9250,6 +9250,29 @@ PYEOF
     fno "WSI blocked DSP-ADPCM" "mk_wsi.py failed"
   fi
 
+  # EA .vp6 (MVhd), Bink-under-.xmv and CRI .usm are claimed on their magic and
+  # routed to mobipeg; stubs are enough because --test stops before running it.
+  if command -v mobipeg >/dev/null 2>&1; then
+    mkdir -p "$d/mediaclaim_test"
+    printf 'MVhd\040\0\0\0stub' > "$d/mediaclaim_test/A.vp6"
+    printf 'BIKi\040\0\0\0stub' > "$d/mediaclaim_test/B.xmv"
+    printf 'CRID\0\0\0\040stub' > "$d/mediaclaim_test/C.usm"
+    printf 'MVhd\040\0\0\0' > "$d/mediaclaim_test/D.dat"
+    printf 'XXXX\040\0\0\0' > "$d/mediaclaim_test/E.vp6"
+    mc=0
+    for f in A.vp6 B.xmv C.usm; do
+      "$B/wszst" xx -t "$d/mediaclaim_test/$f" 2>&1 | grep -q "WOULD EXTRACT media passthrough" && mc=$((mc+1))
+    done
+    for f in D.dat E.vp6; do
+      "$B/wszst" xx -t "$d/mediaclaim_test/$f" 2>&1 | grep -q "media passthrough" && mc=$((mc+10))
+    done
+    [ "$mc" = "3" ] \
+    && fok "Media claims: EA .vp6 (MVhd), .xmv (Bink) and .usm (CRID) routed to mobipeg; wrong magic/extension left alone" \
+    || fno "Media claims .vp6/.xmv/.usm" "score $mc (want 3)"
+  else
+    printf "  SKIP  Media claims .vp6/.xmv/.usm (needs mobipeg on PATH)\n"; SKIP=$((SKIP+1))
+  fi
+
   # CRI Sofdec movies (.sfd = MPEG-1 program stream, .sfv = bare MPEG-1 video)
   # go through mobipeg; needs mobipeg on PATH plus an ffmpeg to make the fixtures.
   if command -v mobipeg >/dev/null 2>&1 && command -v ffmpeg >/dev/null 2>&1; then

@@ -3728,6 +3728,14 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 	//          Bink content is not missed just because this title renamed
 	//          the extension; a bare ".vid" with no VID1/BIK magic still
 	//          falls through to the generic media group below
+	//   .vp6   Electronic Arts video: an EA "MVhd" container holding On2 VP6
+	//          and EA ADPCM audio (EA Sports Active, Boogie, Boom Blox,
+	//          Celebrity Sports Showdown, ...); mobipeg's `ea` demuxer opens it
+	//   .xmv   Bink video under an Xbox-style name: the Wii releases that use
+	//          it (Emergency Heroes, Driver: San Francisco / Parallel Lines)
+	//          ship "BIKi" files, so it is claimed on the Bink magic like .bik
+	//   .usm   CRI Sofdec2 movie, "CRID" chunk stream; mobipeg's `usm`
+	//          demuxer opens it (MPEG-1 video, ADX audio)
 	//   .sfd   CRI Sofdec movie: MPEG-1 program stream (pack start code
 	//          00 00 01 BA) carrying MPEG-1 video and ADX audio; mobipeg's
 	//          stock mpeg demuxer opens it (Resident Evil, Bleach, Arc Rise
@@ -3747,8 +3755,10 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 			|| (is_ext (src, ".ppm") && !memcmp (head, "PARA", 4))
 			|| (is_ext (src, ".kwz") && (!memcmp (head, "KFH", 3) || !memcmp (head, "KIC", 3)))
 			|| (is_ext (src, ".rvid") && !memcmp (head, "RVID", 4) && le32 (head + 4) == 5)
-			|| ((is_ext (src, ".bik") || is_ext (src, ".vid"))
+			|| ((is_ext (src, ".bik") || is_ext (src, ".vid") || is_ext (src, ".xmv"))
 				&& (!memcmp (head, "BIK", 3) || !memcmp (head, "KB2", 3)))
+			|| (is_ext (src, ".vp6") && !memcmp (head, "MVhd", 4))
+			|| (is_ext (src, ".usm") && !memcmp (head, "CRID", 4))
 			|| (is_ext (src, ".sfd") && !memcmp (head, "\x00\x00\x01\xba", 4))
 			|| (is_ext (src, ".sfv") && !memcmp (head, "\x00\x00\x01\xb3", 4))
 			|| (is_ext (src, ".bwav") && is_bwav_magic) || is_ext (src, ".mmstr"));
