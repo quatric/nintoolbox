@@ -4,8 +4,73 @@
 #include <errno.h>
 #include <limits.h>
 
+// Validate tokens without allocating, then replay the same walk to materialize bytes.
+static bool walk_lz (u8 *out, const u8 *src, uint src_size, uint sp, uint out_len, bool lz11)
+{
+	uint dp = 0;
+	while (dp < out_len)
+	{
+		if (sp >= src_size)
+			return false;
+		u8 flags = src[sp++];
+		for (uint bit = 0; bit < 8 && dp < out_len; bit++, flags <<= 1)
+			if (!(flags & 0x80))
+			{
+				if (sp >= src_size)
+					return false;
+				if (out)
+					out[dp] = src[sp];
+				dp++;
+				sp++;
+			}
+			else
+			{
+				if (src_size - sp < 2)
+					return false;
+				u8 a = src[sp++], b = src[sp++];
+				uint len, back;
+				if (!lz11)
+				{
+					len = (a >> 4) + 3;
+					back = ((a & 15) << 8 | b) + 1;
+				}
+				else if (a >> 4 == 0)
+				{
+					if (sp >= src_size)
+						return false;
+					len = ((a & 15) << 4 | b >> 4) + 0x11;
+					back = ((b & 15) << 8 | src[sp++]) + 1;
+				}
+				else if (a >> 4 == 1)
+				{
+					if (src_size - sp < 2)
+						return false;
+					len = ((a & 15) << 12 | b << 4 | src[sp] >> 4) + 0x111;
+					const u8 c = src[sp++], d = src[sp++];
+					back = ((c & 15) << 8 | d) + 1;
+				}
+				else
+				{
+					len = (a >> 4) + 1;
+					back = ((a & 15) << 8 | b) + 1;
+				}
+				if (back > dp || len > out_len - dp)
+					return false;
+				if (out)
+					for (uint i = 0; i < len; i++)
+						out[dp + i] = out[dp + i - back];
+				dp += len;
+			}
+	}
+	return true;
+}
+
 enumError DecodeLZ10LZ11 (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 {
+	if (!dest || !dest_size)
+		return EINVAL;
+	*dest = 0;
+	*dest_size = 0;
 	if (src && src_size >= 4 && (!memcmp (src, "DSCP", 4) || !memcmp (src, "CX00", 4)))
 	{
 		src += 4;
@@ -23,65 +88,13 @@ enumError DecodeLZ10LZ11 (u8 **dest, uint *dest_size, const u8 *src, uint src_si
 		out_len = (u32)src[4] | (u32)src[5] << 8 | (u32)src[6] << 16 | (u32)src[7] << 24;
 		sp = 8;
 	}
+	if (!out_len || out_len > NFMT_MAX_OUTPUT || !walk_lz (0, src, src_size, sp, out_len, lz11))
+		return EINVAL;
 	enumError err = AllocOutput (dest, dest_size, out_len);
 	if (err)
 		return err;
-	uint dp = 0;
-	while (dp < out_len)
-	{
-		if (sp >= src_size)
-			goto invalid;
-		u8 flags = src[sp++];
-		for (uint bit = 0; bit < 8 && dp < out_len; bit++, flags <<= 1)
-			if (!(flags & 0x80))
-			{
-				if (sp >= src_size)
-					goto invalid;
-				(*dest)[dp++] = src[sp++];
-			}
-			else
-			{
-				if (sp + 2 > src_size)
-					goto invalid;
-				u8 a = src[sp++], b = src[sp++];
-				uint len, back;
-				if (!lz11)
-				{
-					len = (a >> 4) + 3;
-					back = ((a & 15) << 8 | b) + 1;
-				}
-				else if (a >> 4 == 0)
-				{
-					if (sp >= src_size)
-						goto invalid;
-					len = ((a & 15) << 4 | b >> 4) + 0x11;
-					back = ((b & 15) << 8 | src[sp++]) + 1;
-				}
-				else if (a >> 4 == 1)
-				{
-					if (sp + 2 > src_size)
-						goto invalid;
-					len = ((a & 15) << 12 | b << 4 | src[sp] >> 4) + 0x111;
-					const u8 c = src[sp++], d = src[sp++];
-					back = ((c & 15) << 8 | d) + 1;
-				}
-				else
-				{
-					len = (a >> 4) + 1;
-					back = ((a & 15) << 8 | b) + 1;
-				}
-				if (back > dp || len > out_len - dp)
-					goto invalid;
-				while (len--)
-					(*dest)[dp] = (*dest)[dp - back], dp++;
-			}
-	}
+	walk_lz (*dest, src, src_size, sp, out_len, lz11);
 	return ERR_OK;
-invalid:
-	FREE (*dest);
-	*dest = 0;
-	*dest_size = 0;
-	return EINVAL;
 }
 
 enumError EncodeLZ10LZ11 (u8 **dest, uint *dest_size, const u8 *src, uint src_size, bool lz11)

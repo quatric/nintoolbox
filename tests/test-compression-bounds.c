@@ -13,6 +13,8 @@
 #undef free
 #undef strdup
 
+static uint allocation_calls;
+
 void trace_free (ccp f, ccp p, uint l, void *v)
 {
 	(void)f;
@@ -25,6 +27,7 @@ void *trace_malloc (ccp f, ccp p, uint l, size_t n)
 	(void)f;
 	(void)p;
 	(void)l;
+	allocation_calls++;
 	return malloc (n);
 }
 void *trace_calloc (ccp f, ccp p, uint l, size_t n, size_t s)
@@ -47,6 +50,7 @@ void dclib_free (void *v)
 }
 void *dclib_malloc (size_t n)
 {
+	allocation_calls++;
 	return malloc (n);
 }
 void *dclib_calloc (size_t n, size_t s)
@@ -398,8 +402,65 @@ static void test_lz10raw (void)
 	free (out);
 }
 
+static void test_lz10_lz11 (void)
+{
+	const u8 fixtures[][10] = { { 0x10, 6, 0, 0, 0x10, 'A', 'B', 'C', 0, 2 },
+		{ 0x11, 5, 0, 0, 0x40, 'A', 0x30, 0 }, { 0x11, 19, 0, 0, 0x40, 'A', 0, 0x10, 0 },
+		{ 0x11, 0x13, 1, 0, 0x40, 'A', 0x10, 0, 0x10, 0 } };
+	const uint sizes[] = { 10, 8, 9, 10 }, lengths[] = { 6, 5, 19, 275 };
+	for (uint f = 0; f < 4; f++)
+	{
+		u8 *out = 0;
+		uint length = 0;
+		CHECK (DecodeLZ10LZ11 (&out, &length, fixtures[f], sizes[f]) == ERR_OK);
+		CHECK (out && length == lengths[f]);
+		if (out)
+			for (uint j = 0; j < length; j++)
+				CHECK (out[j] == (f ? 'A' : "ABC"[j % 3]));
+		free (out);
+		for (uint n = 0; n < sizes[f]; n++)
+		{
+			out = (u8 *)1;
+			length = 99;
+			const uint before = allocation_calls;
+			CHECK (DecodeLZ10LZ11 (&out, &length, fixtures[f], n) != ERR_OK);
+			CHECK (!out && !length);
+			CHECK (allocation_calls == before);
+		}
+		for (uint wrapper = 0; wrapper < 2; wrapper++)
+		{
+			u8 wrapped[14];
+			memcpy (wrapped, wrapper ? "CX00" : "DSCP", 4);
+			memcpy (wrapped + 4, fixtures[f], sizes[f]);
+			CHECK (DecodeLZ10LZ11 (&out, &length, wrapped, sizes[f] + 4) == ERR_OK);
+			CHECK (out && length == lengths[f]);
+			free (out);
+		}
+	}
+	const u8 huge[] = { 0x11, 0, 0, 0, 0, 0, 0, 0x20 };
+	u8 *out = (u8 *)1;
+	uint length = 99;
+	uint before = allocation_calls;
+	CHECK (DecodeLZ10LZ11 (&out, &length, huge, sizeof (huge)) != ERR_OK);
+	CHECK (!out && !length && before == allocation_calls);
+	const u8 bad_reference[] = { 0x10, 3, 0, 0, 0x80, 0, 0 };
+	CHECK (DecodeLZ10LZ11 (&out, &length, bad_reference, sizeof (bad_reference)) != ERR_OK);
+	CHECK (!out && !length && before == allocation_calls);
+	const u8 overrun[] = { 0x11, 2, 0, 0, 0x40, 'A', 0x30, 0 };
+	CHECK (DecodeLZ10LZ11 (&out, &length, overrun, sizeof (overrun)) != ERR_OK);
+	CHECK (!out && !length && before == allocation_calls);
+	CHECK (DecodeLZ10LZ11 (0, &length, fixtures[0], sizes[0]) != ERR_OK);
+	CHECK (DecodeLZ10LZ11 (&out, 0, fixtures[0], sizes[0]) != ERR_OK);
+	out = (u8 *)1;
+	length = 99;
+	CHECK (DecodeLZ10LZ11 (&out, &length, 0, 0) != ERR_OK);
+	CHECK (!out && !length);
+}
+
 int main (int argc, char **argv)
 {
+	if (argc == 1 || !strcmp (argv[1], "lz10_lz11"))
+		test_lz10_lz11 ();
 	if (argc == 1 || !strcmp (argv[1], "huffman"))
 		test_huffman ();
 	if (argc == 1 || !strcmp (argv[1], "huffman_bounds"))
