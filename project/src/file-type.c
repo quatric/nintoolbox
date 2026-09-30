@@ -2684,6 +2684,11 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 'p', 'c', 's', 0 }, 0, MinusString, MinusString,
 		"Monolith Soft Soma Bringer 2D animation / layout sequence (.pcs / pcs, NDS; fully decoded)" },
 
+	// FF_CV_SPR = 458 (Konami Castlevania DS sprite object definition)
+	{ FF_CV_SPR, FF_CV_SPR, FF_CV_SPR, "CV-SPR", ".dat", ".txt", ".dat", FFT_VALID | FFT_DECODE, 4,
+		{ 0x0d, 0xf0, 0xef, 0xbe }, 0, MinusString, MinusString,
+		"Konami Castlevania DS sprite object definition (.dat / 0xBEEFF00D, NDS; fully decoded)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2951,6 +2956,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_SOMA_BGP, "SOMA-BGP", "SOMA-BGP", 0xe05 },
 	{ FF_SOMA_DAD, "SOMA-DAD", "SOMA-DAD", 0xe05 },
 	{ FF_SOMA_PCS, "SOMA-PCS", "SOMA-PCS", 0xe05 },
+	{ FF_CV_SPR, "CV-SPR", "CV-SPR", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

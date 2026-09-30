@@ -479,6 +479,19 @@ static bool ConvertHelper (const u8 *data, // valid data
 			}
 			return false;
 
+		case FF_CV_SPR:
+			FreeContainerData (cdata);
+			if (!binary_dest)
+			{
+				File_t F;
+				*err = CreateFileOpt (&F, true, dest_fname, false, src_fname);
+				if (!*err && F.f)
+					*err = DecodeCastlevaniaSprite_Text (F.f, data, data_size);
+				ResetFile (&F, opt_preserve);
+				return true;
+			}
+			return false;
+
 		case FF_BFLYT:
 		case FF_BCLYT:
 		case FF_BRLYT:

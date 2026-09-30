@@ -125,6 +125,7 @@
 #include "lib-ninja.h"
 #include "lib-babyz.h"
 #include "lib-soma.h"
+#include "lib-cvspr.h"
 #include "config.inc"
 
 //
@@ -2432,6 +2433,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_SOMA_DAD;
 	if (IsSomaPcs (data8, data_size))
 		return FF_SOMA_PCS;
+
+	// Konami Castlevania DS sprite object definition (.dat / 0xBEEFF00D)
+	if (IsCastlevaniaSprite (data8, data_size, file_size))
+		return FF_CV_SPR;
 
 	const nfmt_info_t nfmt = DetectNintendoFormat (data, data_size, 0);
 	switch (nfmt.type)

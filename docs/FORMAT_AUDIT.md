@@ -323,3 +323,20 @@ Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Soma Bringer (Japan).zip
 2. `pcs\0`: 2D animation sequence and layout container with `pcn\0` components containing Translation (`pos\0`), Rotation (`ang\0`), Scale (`sca\0`), and Color (`col\0`) keyframe tracks in Nintendo DS FX32 (20.12 fixed point) format. Supported via `wszst text` and `wszst dump`.
 3. `OBP1` / `BGP1`: 2D sprite sheets and background graphics with header fields, dimensions, and embedded RGB555 palettes. Supported via `wszst text` and `wszst dump`.
 
+## Castlevania DS sprite object containers
+
+Retail samples:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Castlevania - Dawn of Sorrow (USA).zip
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Castlevania - Order of Ecclesia (USA) (En,Fr).zip
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| Castlevania: Dawn of Sorrow (USA) | 165 Sprite Object containers (`so/p_*.dat`, `0xBEEFF00D`) | 100% (165/165) parsed and disassembled cleanly |
+| Castlevania: Order of Ecclesia (USA) | 347 Sprite Object containers (`so/p_*.dat`, `0xBEEFF00D`) | 100% (347/347) parsed and disassembled cleanly |
+
+Konami's Nintendo DS *Castlevania* trilogy (*Dawn of Sorrow*, *Portrait of Ruin*, *Order of Ecclesia*) structures character, enemy, and boss animations through binary sprite definition containers with magic `0xBEEFF00D` (little-endian byte sequence `0x0D, 0xF0, 0xEF, 0xBE`). Each container indexes parts (16 bytes: position, source graphics coordinates, width, height, graphics bank page, horizontal/vertical flip flags, palette index), hitboxes (8 bytes: offset, width, height), frames (12 bytes: composite part and hitbox ranges), frame delays (8 bytes: frame index, duration, flags), and animation sequences (8 bytes: frame count, start delay index). Disassembly into structured TOML/text is available via `wszst text` and `wszst dump`.
+
+

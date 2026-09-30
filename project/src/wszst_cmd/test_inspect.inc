@@ -1891,6 +1891,11 @@ static enumError cmd_dump ()
 			printf ("\n* Dump structure of %s:%s\n", GetNameFF (FF_SOMA_PCS, 0), arg);
 			DecodeSomaPcs_Text (stdout, szs.data, szs.size);
 		}
+		else if (szs.data && IsCastlevaniaSprite (szs.data, szs.size, szs.size))
+		{
+			printf ("\n* Dump structure of %s:%s\n", GetNameFF (FF_CV_SPR, 0), arg);
+			DecodeCastlevaniaSprite_Text (stdout, szs.data, szs.size);
+		}
 		else if (!opt_ignore)
 			ERROR0 (ERR_WARNING, "No supported file for dump -> ignored: %s\n", arg);
 		ResetSZS (&szs);
