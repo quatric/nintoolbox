@@ -9199,6 +9199,23 @@ with open(sys.argv[1], "wb") as f:
     fno "Goliath GS package" "mk_goliath.py failed"
   fi
 
+  # Old-dialect Goliath package in the BABEB1B0 block-zlib wrapper (The
+  # Amazing Spider-Man, Wii): textures matched to pixels by name hash.
+  mkdir -p "$d/goliath6_test"
+  if python3 "$PWD_PROJECT/../tests/mk_goliath_v6.py" "$d/goliath6_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/goliath6_test/T6.pkz" >/dev/null 2>&1
+    g6="$d/goliath6_test/T6.pkz.d"
+    g6dim=$(python3 -c 'import struct,sys;d=open(sys.argv[1],"rb").read();print("%dx%d"%struct.unpack_from(">II",d,16))' \
+      "$g6/textures/0000_SynthA_D_Mid_.tpl.png" 2>/dev/null)
+    [ "$g6dim" = "16x8" ] \
+    && [ "$(head -c 4 "$g6/textures/0000_SynthA_D_Mid_.alpha.tpl.png" | tail -c 3)" = "PNG" ] \
+    && [ "$(head -c 4 "$g6/textures/0001_SynthB_D_Mid_.tpl.png" | tail -c 3)" = "PNG" ] \
+    && fok "Goliath GS v6 package: BABEB1B0 block-zlib wrapper, name-hash texture pairing -> PNG" \
+    || fno "Goliath GS v6 package" "failed to extract synthetic package"
+  else
+    fno "Goliath GS v6 package" "mk_goliath_v6.py failed"
+  fi
+
   # Sumo Digital .stz container (Sonic & Sega All-Stars Racing, Wii): zlib
   # payload inflated to its FourCC-tagged blob (PTEX in every retail sample).
   mkdir -p "$d/sumostz_test"

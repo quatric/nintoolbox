@@ -102,8 +102,14 @@
 
 #include "lib-nintendo.h"
 
-// True if 'data' is a structurally complete Goliath "GS" package.
+// True if 'data' is a structurally complete Goliath "GS" package (either the
+// 16-byte-header dialect or the older 12-byte one, see lib-goliath.c).
 bool IsGoliathPKZ (const u8 *data, size_t size);
+
+// "BABEB1B0" block-zlib wrapper around an old-dialect package (The Amazing
+// Spider-Man, Wii). Decode returns the concatenated package in *dest (MALLOC).
+bool IsGoliathBlockPKZ (const u8 *data, size_t size);
+enumError DecodeGoliathBlockPKZ (const u8 *data, size_t size, u8 **dest, size_t *dest_size);
 
 // Extract textures (as TPL), audio (as DSP) and a resource manifest.
 enumError ScanGoliathPKZ (

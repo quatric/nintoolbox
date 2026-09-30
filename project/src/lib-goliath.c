@@ -9,24 +9,32 @@
 #include "lib-std.h"
 #include <string.h>
 #include <stdlib.h>
+#include <zlib.h>
 
 //-----------------------------------------------------------------------------
 // chunk tree
 //-----------------------------------------------------------------------------
 
+// Two dialects exist. The newer one (Skylanders, engine "GS version 9.x") uses
+// a 16-byte chunk header and ids with the high bit set. The older one (The
+// Amazing Spider-Man, "GS version 6.64") drops the size_hi word (12-byte
+// header) and the high id bit, and shifts every record field down by 4.
 #define GS_CHUNK_HEAD 16
+#define GS_CHUNK_HEAD_V6 12
 #define GS_ROOT_ID 0x80000001
 
 // Resource wrapper and the name record that is always its first child.
 #define GS_ID_RESOURCE 0x8000138d
 #define GS_ID_NAME 0x8000138e
 #define GS_NAME_OFFSET 0x1c
+#define GS_NAME_OFFSET_V6 0x18
 
 // Texture description (header lives one level below) and the pooled pixels.
 #define GS_ID_TEXTURE 0x80000191
 #define GS_ID_TEX_HEAD 0x80000197
 #define GS_ID_TEX_DATA 0x80000195
 #define GS_TEX_HEAD_SIZE 0x30
+#define GS_TEX_HEAD_SIZE_V6 0x2c
 
 // Audio description and the pooled RIFX stream.
 #define GS_ID_AUDIO 0x80001133
@@ -50,40 +58,145 @@ static u16 gs_rd16 (const u8 *p)
 // Walk one level of the tree; returns false unless the children consume
 // [off,end) exactly. Every chunk must carry the high id bit, a zero size
 // high word and a payload that fits inside its parent.
-static bool gs_walk_check (const u8 *data, size_t off, size_t end, uint depth)
+static bool gs_walk_check (const u8 *data, size_t off, size_t end, uint depth, bool v6)
 {
+	const uint head = v6 ? GS_CHUNK_HEAD_V6 : GS_CHUNK_HEAD;
 	if (depth > GS_MAX_DEPTH)
 		return false;
 	while (off < end)
 	{
-		if (off + GS_CHUNK_HEAD > end)
+		if (off + head > end)
 			return false;
 		const u8 *h = data + off;
 		const u32 id = gs_rd32 (h);
 		const u16 children = gs_rd16 (h + 6);
-		const u32 size_hi = gs_rd32 (h + 8);
-		const u32 size = gs_rd32 (h + 12);
-		if (!(id & 0x80000000) || size_hi || children > 1)
+		const u32 size_hi = v6 ? 0 : gs_rd32 (h + 8);
+		const u32 size = gs_rd32 (h + head - 4);
+		if (v6 ? (id & 0x80000000) : !(id & 0x80000000))
 			return false;
-		const size_t body = off + GS_CHUNK_HEAD;
+		if (size_hi || children > 1)
+			return false;
+		const size_t body = off + head;
 		if (size > end - body)
 			return false;
-		if (children && !gs_walk_check (data, body, body + size, depth + 1))
+		if (children && !gs_walk_check (data, body, body + size, depth + 1, v6))
 			return false;
 		off = body + size;
 	}
 	return off == end;
 }
 
+// 0 = not a package, 6 = old 12-byte dialect, 9 = new 16-byte dialect.
+static int gs_dialect (const u8 *data, size_t size)
+{
+	if (!data || size < GS_CHUNK_HEAD_V6)
+		return 0;
+	if (size >= GS_CHUNK_HEAD && gs_rd32 (data) == GS_ROOT_ID && !gs_rd32 (data + 8)
+		&& gs_rd16 (data + 6) == 1 && (u64)gs_rd32 (data + 12) + GS_CHUNK_HEAD == size
+		&& gs_walk_check (data, 0, size, 0, false))
+		return 9;
+	if (gs_rd32 (data) == 1 && gs_rd16 (data + 6) == 1
+		&& (u64)gs_rd32 (data + 8) + GS_CHUNK_HEAD_V6 == size
+		&& gs_walk_check (data, 0, size, 0, true))
+		return 6;
+	return 0;
+}
+
 bool IsGoliathPKZ (const u8 *data, size_t size)
 {
-	if (!data || size < GS_CHUNK_HEAD || gs_rd32 (data) != GS_ROOT_ID)
+	return gs_dialect (data, size) != 0;
+}
+
+//-----------------------------------------------------------------------------
+// "BABEB1B0" block-zlib wrapper (The Amazing Spider-Man .pkz on Wii)
+//
+//   0x00 u32 magic 0xBABEB1B0 (big-endian on Wii)
+//   0x04 u32 block size          0x8000
+//   0x08 u32 data offset         0x8000 (first block)
+//   0x0c u32 unknown
+//   0x10 u32 block count
+//   0x14 u32 file size           compressed total, the file length
+//   0x18 u32 uncompressed total
+//   0x1c u32 ends[count]         cumulative uncompressed end of each block
+//   ...      u32 index table     per 0x8000 output slice; not needed
+//   at data_offset + i * block_size: one raw zlib stream per block
+//
+// Each block is an independent zlib stream (0x78 0x01) that carries no final
+// block bit, so a plain inflate to the expected length is used and the
+// padding after the data is ignored. The concatenated result is a GS
+// chunk-tree package ("GS version 6.64" in its first payload chunk).
+//-----------------------------------------------------------------------------
+
+#define GS_BLOCK_MAGIC 0xBABEB1B0
+#define GS_BLOCK_MAX_OUT 0x40000000u
+
+bool IsGoliathBlockPKZ (const u8 *data, size_t size)
+{
+	if (!data || size < 0x20 || gs_rd32 (data) != GS_BLOCK_MAGIC)
 		return false;
-	if (gs_rd32 (data + 8) || gs_rd16 (data + 6) != 1)
-		return false;
-	if ((u64)gs_rd32 (data + 12) + GS_CHUNK_HEAD != size)
-		return false;
-	return gs_walk_check (data, 0, size, 0);
+	const u32 bsize = gs_rd32 (data + 4), doff = gs_rd32 (data + 8);
+	const u32 count = gs_rd32 (data + 16), total = gs_rd32 (data + 0x18);
+	return bsize && doff && count && total <= GS_BLOCK_MAX_OUT && (u64)count * 4 + 0x1c <= size
+		&& (u64)doff + (u64)count * bsize <= size + bsize;
+}
+
+enumError DecodeGoliathBlockPKZ (const u8 *data, size_t size, u8 **dest, size_t *dest_size)
+{
+	if (dest)
+		*dest = 0;
+	if (dest_size)
+		*dest_size = 0;
+	if (!dest || !dest_size || !IsGoliathBlockPKZ (data, size))
+		return ERR_INVALID_DATA;
+
+	const u32 bsize = gs_rd32 (data + 4), doff = gs_rd32 (data + 8);
+	const u32 count = gs_rd32 (data + 16), total = gs_rd32 (data + 0x18);
+	u8 *out = MALLOC (total ? total : 1);
+	if (!out)
+		return ERR_OUT_OF_MEMORY;
+
+	u32 prev = 0;
+	for (u32 i = 0; i < count; i++)
+	{
+		const u32 end = gs_rd32 (data + 0x1c + 4 * i);
+		const u64 src = (u64)doff + (u64)i * bsize;
+		if (end < prev || end > total || src >= size)
+		{
+			FREE (out);
+			return ERR_INVALID_DATA;
+		}
+		const u32 want = end - prev;
+		const size_t avail = size - src < bsize ? size - src : bsize;
+
+		z_stream z;
+		memset (&z, 0, sizeof (z));
+		if (inflateInit (&z) != Z_OK)
+		{
+			FREE (out);
+			return ERR_INVALID_DATA;
+		}
+		z.next_in = (Bytef *)(data + src);
+		z.avail_in = (uInt)avail;
+		z.next_out = out + prev;
+		z.avail_out = want;
+		const int zerr = inflate (&z, Z_SYNC_FLUSH);
+		const bool full = z.total_out == want;
+		inflateEnd (&z);
+		if (!full && zerr != Z_STREAM_END)
+		{
+			FREE (out);
+			return ERR_INVALID_DATA;
+		}
+		prev = end;
+	}
+	if (prev != total)
+	{
+		FREE (out);
+		return ERR_INVALID_DATA;
+	}
+	*dest = out;
+	*dest_size = total;
+	return ERR_OK;
 }
 
 //-----------------------------------------------------------------------------
@@ -95,6 +208,7 @@ typedef struct gs_ref_t
 	size_t off; // payload offset
 	u32 size; // payload size
 	ccp name; // borrowed pointer into a name buffer, may be NULL
+	u32 key; // hash from the enclosing name record (0x138e), 0 if none
 } gs_ref_t;
 
 typedef struct gs_list_t
@@ -103,7 +217,7 @@ typedef struct gs_list_t
 	uint used, alloc;
 } gs_list_t;
 
-static bool gs_push (gs_list_t *l, size_t off, u32 size, ccp name)
+static bool gs_push (gs_list_t *l, size_t off, u32 size, ccp name, u32 key)
 {
 	if (l->used >= GS_MAX_RECORDS)
 		return false;
@@ -119,6 +233,7 @@ static bool gs_push (gs_list_t *l, size_t off, u32 size, ccp name)
 	l->v[l->used].off = off;
 	l->v[l->used].size = size;
 	l->v[l->used].name = name;
+	l->v[l->used].key = key;
 	l->used++;
 	return true;
 }
@@ -126,18 +241,23 @@ static bool gs_push (gs_list_t *l, size_t off, u32 size, ccp name)
 typedef struct gs_scan_t
 {
 	const u8 *data;
+	bool v6; // old 12-byte dialect, see the top of this file
+	uint head; // chunk header length
+	uint name_off; // name field offset inside a 0x138e record
+	uint tex_head_min; // shortest acceptable texture header
+	u32 cur_key;
 	gs_list_t tex_head, tex_data, audio_desc, audio_data, resources;
 	ccp cur_name; // name of the resource wrapper we are currently inside
 	bool overflow;
 } gs_scan_t;
 
 // Pull the NUL-terminated name out of a 0x8000138e record, or NULL.
-static ccp gs_name_of (const u8 *body, u32 size)
+static ccp gs_name_of (const gs_scan_t *s, const u8 *body, u32 size)
 {
-	if (size <= GS_NAME_OFFSET)
+	if (size <= s->name_off)
 		return 0;
-	const char *p = (const char *)body + GS_NAME_OFFSET;
-	const u32 avail = size - GS_NAME_OFFSET;
+	const char *p = (const char *)body + s->name_off;
+	const u32 avail = size - s->name_off;
 	u32 len = 0;
 	while (len < avail && p[len])
 		len++;
@@ -146,33 +266,35 @@ static ccp gs_name_of (const u8 *body, u32 size)
 
 static void gs_collect (gs_scan_t *s, size_t off, size_t end, uint depth)
 {
-	while (off + GS_CHUNK_HEAD <= end && !s->overflow)
+	while (off + s->head <= end && !s->overflow)
 	{
 		const u8 *h = s->data + off;
-		const u32 id = gs_rd32 (h);
+		const u32 id = gs_rd32 (h) | 0x80000000; // old dialect ids lack the high bit
 		const u16 children = gs_rd16 (h + 6);
-		const u32 size = gs_rd32 (h + 12);
-		const size_t body = off + GS_CHUNK_HEAD;
+		const u32 size = gs_rd32 (h + s->head - 4);
+		const size_t body = off + s->head;
 
 		switch (id)
 		{
 			case GS_ID_NAME:
-				s->cur_name = gs_name_of (s->data + body, size);
+				s->cur_name = gs_name_of (s, s->data + body, size);
+				s->cur_key = size >= 4 ? gs_rd32 (s->data + body) : 0;
 				break;
 			case GS_ID_TEX_HEAD:
-				if (size >= GS_TEX_HEAD_SIZE && !gs_push (&s->tex_head, body, size, s->cur_name))
+				if (size >= s->tex_head_min
+					&& !gs_push (&s->tex_head, body, size, s->cur_name, s->cur_key))
 					s->overflow = true;
 				break;
 			case GS_ID_TEX_DATA:
-				if (!gs_push (&s->tex_data, body, size, 0))
+				if (!gs_push (&s->tex_data, body, size, 0, s->cur_key))
 					s->overflow = true;
 				break;
 			case GS_ID_AUDIO:
-				if (!gs_push (&s->audio_desc, body, size, s->cur_name))
+				if (!gs_push (&s->audio_desc, body, size, s->cur_name, s->cur_key))
 					s->overflow = true;
 				break;
 			case GS_ID_AUDIO_DATA:
-				if (!gs_push (&s->audio_data, body, size, 0))
+				if (!gs_push (&s->audio_data, body, size, 0, s->cur_key))
 					s->overflow = true;
 				break;
 			case GS_ID_RESOURCE:
@@ -186,7 +308,7 @@ static void gs_collect (gs_scan_t *s, size_t off, size_t end, uint depth)
 		// A resource wrapper's typed children are done; record what it was
 		// so the manifest can list even the types not decoded here.
 		if (id == GS_ID_RESOURCE && s->cur_name
-			&& !gs_push (&s->resources, body, size, s->cur_name))
+			&& !gs_push (&s->resources, body, size, s->cur_name, s->cur_key))
 			s->overflow = true;
 
 		off = body + size;
@@ -324,11 +446,25 @@ static void gs_extract_textures (gs_scan_t *s, gs_out_t *out)
 {
 	// The two pools are matched positionally, so a count mismatch means the
 	// assumption does not hold for this file and no texture is emitted.
-	if (s->tex_head.used != s->tex_data.used)
+	if (!s->v6 && s->tex_head.used != s->tex_data.used)
 		return;
 
+	bool *taken = s->v6 ? CALLOC (s->tex_data.used ? s->tex_data.used : 1, 1) : 0;
 	for (uint i = 0; i < s->tex_head.used; i++)
 	{
+		// Old dialect: the pixel pool is not in document order; each payload
+		// sits in a 0x26 wrapper with its own name record, and the hash in
+		// that record equals the one in the resource that owns the header.
+		uint di = i;
+		if (s->v6)
+		{
+			for (di = 0; di < s->tex_data.used; di++)
+				if (!taken[di] && s->tex_data.v[di].key == s->tex_head.v[i].key)
+					break;
+			if (di == s->tex_data.used || !s->tex_head.v[i].key)
+				continue;
+			taken[di] = true;
+		}
 		const u8 *h = s->data + s->tex_head.v[i].off;
 		// The first two words are height then width, not the other way
 		// round: with them swapped every non-square texture's mip chain
@@ -338,8 +474,8 @@ static void gs_extract_textures (gs_scan_t *s, gs_out_t *out)
 		const u32 w = gs_rd32 (h + 4);
 		const uint levels = gs_rd32 (h + 8) & 0xff;
 		const u32 format = gs_rd32 (h + 12);
-		const u8 *pix = s->data + s->tex_data.v[i].off;
-		const u32 pix_size = s->tex_data.v[i].size;
+		const u8 *pix = s->data + s->tex_data.v[di].off;
+		const u32 pix_size = s->tex_data.v[di].size;
 
 		if (!w || !height || w > 0x2000 || height > 0x2000 || !levels || levels > 16)
 			continue;
@@ -369,6 +505,7 @@ static void gs_extract_textures (gs_scan_t *s, gs_out_t *out)
 				tpl_size);
 		}
 	}
+	FREE (taken);
 }
 
 //-----------------------------------------------------------------------------
@@ -527,15 +664,15 @@ static void gs_emit_manifest (gs_scan_t *s, gs_out_t *out)
 		// First child after the name record is the typed description.
 		u32 type = 0;
 		size_t off = body;
-		while (off + GS_CHUNK_HEAD <= body + size)
+		while (off + s->head <= body + size)
 		{
-			const u32 id = gs_rd32 (s->data + off);
+			const u32 id = gs_rd32 (s->data + off) | 0x80000000;
 			if (id != GS_ID_NAME)
 			{
 				type = id;
 				break;
 			}
-			off += GS_CHUNK_HEAD + gs_rd32 (s->data + off + 12);
+			off += s->head + gs_rd32 (s->data + off + s->head - 4);
 		}
 		char line[256];
 		const int len
@@ -561,7 +698,8 @@ static void gs_emit_manifest (gs_scan_t *s, gs_out_t *out)
 enumError ScanGoliathPKZ (
 	nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size)
 {
-	if (!entries || !n_entries || !IsGoliathPKZ (data, size))
+	const int dialect = gs_dialect (data, size);
+	if (!entries || !n_entries || !dialect)
 		return EINVAL;
 	*entries = 0;
 	*n_entries = 0;
@@ -569,6 +707,10 @@ enumError ScanGoliathPKZ (
 	gs_scan_t s;
 	memset (&s, 0, sizeof (s));
 	s.data = data;
+	s.v6 = dialect == 6;
+	s.head = s.v6 ? GS_CHUNK_HEAD_V6 : GS_CHUNK_HEAD;
+	s.name_off = s.v6 ? GS_NAME_OFFSET_V6 : GS_NAME_OFFSET;
+	s.tex_head_min = s.v6 ? GS_TEX_HEAD_SIZE_V6 : GS_TEX_HEAD_SIZE;
 	gs_collect (&s, 0, size, 0);
 
 	gs_out_t out;

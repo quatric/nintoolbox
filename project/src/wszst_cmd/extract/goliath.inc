@@ -13,6 +13,18 @@ static enumError extract_goliath_file (ccp arg, ccp basedir, uint depth)
 	if (err)
 		return ERR_NOTHING_TO_DO;
 
+	if (IsGoliathBlockPKZ (raw, raw_size))
+	{
+		u8 *plain = 0;
+		size_t plain_size = 0;
+		err = DecodeGoliathBlockPKZ (raw, raw_size, &plain, &plain_size);
+		FREE (raw);
+		if (err)
+			return ERR_NOTHING_TO_DO;
+		raw = plain;
+		raw_size = plain_size;
+	}
+
 	nintendo_sarc_entry_t *entries = 0;
 	uint n_entries = 0;
 	err = ScanGoliathPKZ (&entries, &n_entries, raw, raw_size);
