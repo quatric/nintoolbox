@@ -339,4 +339,20 @@ Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Castlevania - Order of Ec
 
 Konami's Nintendo DS *Castlevania* trilogy (*Dawn of Sorrow*, *Portrait of Ruin*, *Order of Ecclesia*) structures character, enemy, and boss animations through binary sprite definition containers with magic `0xBEEFF00D` (little-endian byte sequence `0x0D, 0xF0, 0xEF, 0xBE`). Each container indexes parts (16 bytes: position, source graphics coordinates, width, height, graphics bank page, horizontal/vertical flip flags, palette index), hitboxes (8 bytes: offset, width, height), frames (12 bytes: composite part and hitbox ranges), frame delays (8 bytes: frame index, duration, flags), and animation sequences (8 bytes: frame count, start delay index). Disassembly into structured TOML/text is available via `wszst text` and `wszst dump`.
 
+## Capcom CPAC multi-section archive containers
+
+Retail sample:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Ghost Trick - Phantom Detective (USA) (En,Fr,De,Es,It).zip
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| Ghost Trick: Phantom Detective (USA) | `cpac_3d.bin` (6.45 MB, 4 sections) | 1,481/1,481 member files streamed and extracted cleanly with 0 bounds overflows |
+| Ghost Trick: Phantom Detective (USA) | `cpac_2d.bin` (81.83 MB, 5 sections) | 24,852/24,852 member files (including 2,904 palettes) streamed and extracted cleanly |
+
+Capcom DS titles (such as *Ghost Trick: Phantom Detective* and *Resident Evil: Deadly Silence*) package large multi-section resource archives (`cpac_2d.bin`, `cpac_3d.bin`) under a tagged chunk architecture. An outer index table describes 4-6 sections. Each section begins with a 24-byte tag header specifying `BKEY` / `BDAT` (for 3D models, 2D animations, textures, scripts) or `PKEY` / `PDAT` (for color palettes). `BKEY` sections index member pairs via 16-byte records, with bit 31 of size flagging standard Nintendo LZ11 compression. `PKEY` sections index RGB555 palette banks (16 colors / 32 bytes or 256 colors / 512 bytes). Streaming extraction and identification are integrated into `wszst extract` and `wszst filetype`.
+
+
 

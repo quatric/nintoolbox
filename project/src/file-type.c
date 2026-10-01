@@ -2689,6 +2689,11 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x0d, 0xf0, 0xef, 0xbe }, 0, MinusString, MinusString,
 		"Konami Castlevania DS sprite object definition (.dat / 0xBEEFF00D, NDS; fully decoded)" },
 
+	// FF_CPAC = 459 (Capcom CPAC multi-section archive container)
+	{ FF_CPAC, FF_CPAC, 0, "CPAC", ".bin", ".bin", ".bin",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 0, { 0 }, 0, MinusString, MinusString,
+		"Capcom CPAC multi-section archive container (.bin / BKEY / PKEY, NDS; fully decoded)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2957,6 +2962,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_SOMA_DAD, "SOMA-DAD", "SOMA-DAD", 0xe05 },
 	{ FF_SOMA_PCS, "SOMA-PCS", "SOMA-PCS", 0xe05 },
 	{ FF_CV_SPR, "CV-SPR", "CV-SPR", 0xe05 },
+	{ FF_CPAC, "CPAC", "CPAC", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

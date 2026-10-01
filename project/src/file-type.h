@@ -571,6 +571,7 @@ typedef enum file_format_t
 	FF_SOMA_DAD, // 456 - Monolith Soft Soma Bringer LZSS compressed container (.dad / DAD)
 	FF_SOMA_PCS, // 457 - Monolith Soft Soma Bringer 2D animation / layout sequence (.pcs / pcs)
 	FF_CV_SPR,	 // 458 - Konami Castlevania DS sprite object definition (.dat / 0xBEEFF00D)
+	FF_CPAC,	 // 459 - Capcom CPAC multi-section archive container (.bin / BKEY / PKEY)
 
 	//--- number of elements
 
