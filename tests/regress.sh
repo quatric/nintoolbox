@@ -9252,6 +9252,19 @@ PYEOF
     fno "Blue Castle .big" "mk_bcbig.py failed"
   fi
 
+  # Town Factory "PCKG" package (Little King's Story, Wii): chained entries
+  # and a nested package that extracts again.
+  mkdir -p "$d/pckg_test"
+  if python3 "$PWD_PROJECT/../tests/mk_pckg.py" "$d/pckg_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/pckg_test/T.pac" >/dev/null 2>&1
+    [ "$(cat "$d/pckg_test/T.pac.d/a.txt" 2>/dev/null)" = "hello" ] \
+    && [ "$(cat "$d/pckg_test/T.pac.d/n.pcha.d/in.txt" 2>/dev/null)" = "inner" ] \
+    && fok "Town Factory PCKG: entry chain and nested package" \
+    || fno "Town Factory PCKG" "failed to extract synthetic package"
+  else
+    fno "Town Factory PCKG" "mk_pckg.py failed"
+  fi
+
   # Natsume "BIN\0" archive (Harvest Moon, Wii): members split by offset table,
   # a leading lowercase tag becomes the extension.
   mkdir -p "$d/natbin_test"
