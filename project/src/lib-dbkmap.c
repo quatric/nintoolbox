@@ -10,6 +10,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 #define DM_BEGIN 0xbbbbbbbbu
 #define DM_END 0xbebebebeu
@@ -776,9 +780,194 @@ static inline float dm_s8 (u8 b)
 	return (float)(int8_t)b;
 }
 
+// Skeleton of a mesh object (class 0x1c, loader FUN_800bf004): after the base
+// section come five u16, then three counted arrays; the first holds the bones
+// {s32 parent, f32 pos[3], f32 rot[9], name28} (80 bytes, parents first), the
+// second the inverse bind transforms of the bones that skin vertices.
+typedef struct dm_bone_t
+{
+	int parent;
+	double pos[3];
+	double rot[9]; // as stored: row-major, the local rotation is its transpose
+	char name[24];
+} dm_bone_t;
+
+typedef struct dm_skel_t
+{
+	dm_bone_t *b;
+	uint n;
+} dm_skel_t;
+
+static double dm_f32 (const u8 *p)
+{
+	union
+	{
+		u32 u;
+		float f;
+	} x = { rd_be32 (p) };
+	return x.f;
+}
+
+// BODY is the mesh object section; its first child is the base section.
+static bool dm_skel_parse (const dm_ctx_t *c, dm_node_t body, dm_skel_t *sk)
+{
+	memset (sk, 0, sizeof (*sk));
+	dm_node_t kids[1];
+	if (!dm_children (c, body, kids, 1))
+		return false;
+	size_t p = kids[0].end + 4 + 10; // five u16
+	if (p + 4 > body.end)
+		return false;
+	const u32 n = rd_be32 (c->d + p);
+	p += 4;
+	if (!n || n > 512 || p + (size_t)n * 80 > body.end)
+		return false;
+	sk->b = CALLOC (n, sizeof (*sk->b));
+	if (!sk->b)
+		return false;
+	for (uint i = 0; i < n; i++, p += 80)
+	{
+		dm_bone_t *b = sk->b + i;
+		b->parent = (int)rd_be32 (c->d + p);
+		if (b->parent >= (int)i || b->parent < -1)
+		{
+			FREE (sk->b);
+			sk->b = 0;
+			return false;
+		}
+		for (uint k = 0; k < 3; k++)
+			b->pos[k] = dm_f32 (c->d + p + 4 + 4 * k);
+		for (uint k = 0; k < 9; k++)
+			b->rot[k] = dm_f32 (c->d + p + 16 + 4 * k);
+		memcpy (b->name, c->d + p + 56, 20);
+		b->name[20] = 0;
+	}
+	sk->n = n;
+	return true;
+}
+
+// Euler angles (degrees) of M = Rz(z) Ry(y) Rx(x), the order lib-model-glb
+// composes joint rotations in.
+static void dm_euler_zyx (const double m[9], vec3_t *out)
+{
+	const double sy = -m[6];
+	double x, y, z;
+	if (sy > 0.99999 || sy < -0.99999)
+	{
+		y = sy > 0 ? M_PI / 2 : -M_PI / 2;
+		x = atan2 (-m[5], m[4]);
+		z = 0;
+	}
+	else
+	{
+		y = asin (sy);
+		x = atan2 (m[7], m[8]);
+		z = atan2 (m[3], m[0]);
+	}
+	out->x = (float)(x * 180.0 / M_PI);
+	out->y = (float)(y * 180.0 / M_PI);
+	out->z = (float)(z * 180.0 / M_PI);
+}
+
+// Fill model->joints from the skeleton, converted from the game's Z-up to
+// glTF's Y-up with C = [[1,0,0],[0,0,1],[0,-1,0]] ((x,y,z) -> (x,z,-y)).
+static bool dm_build_joints (model_t *model, const dm_skel_t *sk)
+{
+	static const double C[9] = { 1, 0, 0, 0, 0, 1, 0, -1, 0 };
+	model->joints = CALLOC (sk->n, sizeof (joint_t));
+	if (!model->joints)
+		return false;
+	double (*wr)[9] = CALLOC (sk->n, sizeof (*wr)); // world rotation, Z-up
+	double (*wt)[3] = CALLOC (sk->n, sizeof (*wt));
+	if (!wr || !wt)
+	{
+		FREE (wr);
+		FREE (wt);
+		FREE (model->joints);
+		model->joints = 0;
+		return false;
+	}
+	for (uint i = 0; i < sk->n; i++)
+	{
+		const dm_bone_t *b = sk->b + i;
+		double L[9]; // local rotation = transpose of the stored matrix
+		for (uint r = 0; r < 3; r++)
+			for (uint k = 0; k < 3; k++)
+				L[r * 3 + k] = b->rot[k * 3 + r];
+		if (b->parent < 0)
+		{
+			memcpy (wr[i], L, sizeof (L));
+			memcpy (wt[i], b->pos, sizeof (b->pos));
+		}
+		else
+		{
+			const double *pr = wr[b->parent];
+			for (uint r = 0; r < 3; r++)
+			{
+				wt[i][r] = wt[b->parent][r]
+					+ pr[r * 3] * b->pos[0] + pr[r * 3 + 1] * b->pos[1] + pr[r * 3 + 2] * b->pos[2];
+				for (uint k = 0; k < 3; k++)
+					wr[i][r * 3 + k] = pr[r * 3] * L[k] + pr[r * 3 + 1] * L[3 + k] + pr[r * 3 + 2] * L[6 + k];
+			}
+		}
+
+		joint_t *j = model->joints + i;
+		snprintf (j->name, sizeof (j->name), "%s", b->name[0] ? b->name : "bone");
+		j->parent_idx = b->parent;
+		// local transform in Y-up: R' = C L C^T, t' = C t
+		double CL[9], R2[9];
+		for (uint r = 0; r < 3; r++)
+			for (uint k = 0; k < 3; k++)
+				CL[r * 3 + k] = C[r * 3] * L[k] + C[r * 3 + 1] * L[3 + k] + C[r * 3 + 2] * L[6 + k];
+		for (uint r = 0; r < 3; r++)
+			for (uint k = 0; k < 3; k++)
+				R2[r * 3 + k] = CL[r * 3] * C[k * 3] + CL[r * 3 + 1] * C[k * 3 + 1] + CL[r * 3 + 2] * C[k * 3 + 2];
+		dm_euler_zyx (R2, &j->rotate);
+		j->translate = (vec3_t){ (float)b->pos[0], (float)b->pos[2], (float)-b->pos[1] };
+		j->scale = (vec3_t){ 1, 1, 1 };
+
+		// world bind (Y-up) and its inverse, 3x4 row-major
+		double WR[9], WT[3];
+		for (uint r = 0; r < 3; r++)
+		{
+			WT[r] = C[r * 3] * wt[i][0] + C[r * 3 + 1] * wt[i][1] + C[r * 3 + 2] * wt[i][2];
+			for (uint k = 0; k < 3; k++)
+			{
+				double a = 0;
+				for (uint e = 0; e < 3; e++)
+				{
+					double ce = 0;
+					for (uint f = 0; f < 3; f++)
+						ce += wr[i][e * 3 + f] * C[k * 3 + f];
+					a += C[r * 3 + e] * ce;
+				}
+				WR[r * 3 + k] = a;
+			}
+		}
+		for (uint r = 0; r < 3; r++)
+		{
+			for (uint k = 0; k < 3; k++)
+			{
+				j->bind[r * 4 + k] = (float)WR[r * 3 + k];
+				j->inverse_bind[r * 4 + k] = (float)WR[k * 3 + r]; // transpose
+			}
+			j->bind[r * 4 + 3] = (float)WT[r];
+		}
+		for (uint r = 0; r < 3; r++)
+			j->inverse_bind[r * 4 + 3]
+				= (float)-(WR[0 * 3 + r] * WT[0] + WR[1 * 3 + r] * WT[1] + WR[2 * 3 + r] * WT[2]);
+		j->has_inverse_bind = 1;
+	}
+	FREE (wr);
+	FREE (wt);
+	model->num_joints = sk->n;
+	return true;
+}
+
 // Bind-pose GLB of one mesh. Coordinates are rotated from the game's Z-up to
 // glTF's Y-up: (x, y, z) -> (x, z, -y).
-static bool dm_write_glb (const dm_mesh_t *m, ccp name, ccp path, char (*slot_tex)[128])
+static bool dm_write_glb (
+	const dm_mesh_t *m, ccp name, ccp path, char (*slot_tex)[128], const dm_skel_t *sk)
 {
 	dm_tri_t *tri = 0;
 	uint nt = 0, cap = 0;
@@ -833,6 +1022,52 @@ static bool dm_write_glb (const dm_mesh_t *m, ccp name, ccp path, char (*slot_te
 		texcoords[i] = (vec2_t){ (t[0] << 8 | t[1]) / 1024.0f, (t[2] << 8 | t[3]) / 1024.0f };
 	}
 
+	// skeleton and skin weights: vertex bones index the inverse-bind table,
+	// whose entry k belongs to bone k+1 (bone 0 is the root node); up to three
+	// bones with u8 weights at +12..+14, all 0xff / all 0 meaning rigid
+	int *position_node = 0;
+	if (sk && sk->n && dm_build_joints (&model, sk))
+	{
+		model.node_influences = CALLOC (m->V, sizeof (node_influence_t));
+		position_node = CALLOC (m->V, sizeof (int));
+		if (model.node_influences && position_node)
+		{
+			model.num_node_influences = m->V;
+			for (uint i = 0; i < m->V; i++)
+			{
+				const u8 *v = m->verts + (size_t)i * 16;
+				const uint bone[3] = { v[6], v[7], v[11] };
+				uint w[3] = { v[12], v[13], v[14] };
+				if ((w[0] == 255 && w[1] == 255 && w[2] == 255) || (!w[0] && !w[1] && !w[2]))
+					w[0] = 255, w[1] = w[2] = 0;
+				node_influence_t *ni = model.node_influences + i;
+				ni->weights = CALLOC (3, sizeof (influence_t));
+				if (!ni->weights)
+					continue;
+				for (uint k = 0; k < 3; k++)
+				{
+					const uint joint = bone[k] + 1;
+					if (!w[k] || joint >= sk->n)
+						continue;
+					ni->weights[ni->num_weights++] = (influence_t){ (int)joint, w[k] / 255.0f };
+				}
+				if (!ni->num_weights)
+					ni->weights[ni->num_weights++] = (influence_t){ 0, 1.0f };
+				position_node[i] = (int)i;
+			}
+		}
+		else
+		{
+			FREE (model.node_influences);
+			model.node_influences = 0;
+			FREE (position_node);
+			position_node = 0;
+			FREE (model.joints);
+			model.joints = 0;
+			model.num_joints = 0;
+		}
+	}
+
 	// one mesh per material slot (the GLB writer takes one material per mesh);
 	// they share the vertex streams
 	for (uint slot = 0; slot < DM_SLOTS; slot++)
@@ -854,6 +1089,7 @@ static bool dm_write_glb (const dm_mesh_t *m, ccp name, ccp path, char (*slot_te
 		mesh->num_positions = mesh->num_normals = m->V;
 		mesh->num_texcoords = m->T;
 		mesh->material_idx = (int)k;
+		mesh->position_node = position_node;
 		uint o = 0;
 		for (uint i = 0; i < nt; i++)
 		{
@@ -891,6 +1127,11 @@ static bool dm_write_glb (const dm_mesh_t *m, ccp name, ccp path, char (*slot_te
 
 	for (uint k = 0; k < nmat; k++)
 		FREE (meshes[k].vertices);
+	for (size_t i = 0; i < model.num_node_influences; i++)
+		FREE (model.node_influences[i].weights);
+	FREE (model.node_influences);
+	FREE (model.joints);
+	FREE (position_node);
 	FREE (meshes);
 	FREE (positions);
 	FREE (normals);
@@ -1080,8 +1321,12 @@ static void dm_walk_models (dm_model_ctx_t *mc, dm_node_t parent, dm_node_t n, u
 				snprintf (path, sizeof (path), "%s/models/%04u_%s.glb", mc->dest, mc->written, clean);
 				char slot_tex[DM_SLOTS][128];
 				dm_slot_names (mc, slots, slot_tex);
-				if (!CreatePath (path, false) && dm_write_glb (&m, clean, path, slot_tex))
+				dm_skel_t sk;
+				const bool have_sk = dm_skel_parse (c, parent, &sk);
+				if (!CreatePath (path, false) && dm_write_glb (&m, clean, path, slot_tex, have_sk ? &sk : 0))
 					mc->written++;
+				if (have_sk)
+					FREE (sk.b);
 			}
 			FREE (m.seg);
 		}
