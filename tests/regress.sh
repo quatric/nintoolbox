@@ -9252,6 +9252,20 @@ PYEOF
     fno "Blue Castle .big" "mk_bcbig.py failed"
   fi
 
+  # Neversoft Guitar Hero (Wii) ".pak.ngc" package and CMPR ".img.ngc" texture.
+  mkdir -p "$d/nsgh_test"
+  if python3 "$PWD_PROJECT/../tests/mk_nsgh.py" "$d/nsgh_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/nsgh_test/T.pak.ngc" >/dev/null 2>&1
+    "$B/wszst" xx "$d/nsgh_test/T.img.ngc" >/dev/null 2>&1
+    [ "$(cat "$d/nsgh_test/T.pak.ngc.d/0000_t.qb.ngc" 2>/dev/null)" = "hello" ] \
+    && [ "$(cat "$d/nsgh_test/T.pak.ngc.d/0001_00000004.2cb3ef3b" 2>/dev/null)" = "world!!" ] \
+    && [ -s "$d/nsgh_test/T.img.ngc.d/T.tpl.png" ] \
+    && fok "Guitar Hero .pak.ngc entries (named + CRC-named) and .img.ngc CMPR texture" \
+    || fno "Guitar Hero .ngc" "failed to extract synthetic pak/img"
+  else
+    fno "Guitar Hero .ngc" "mk_nsgh.py failed"
+  fi
+
   # Town Factory "PCKG" package (Little King's Story, Wii): chained entries
   # and a nested package that extracts again.
   mkdir -p "$d/pckg_test"

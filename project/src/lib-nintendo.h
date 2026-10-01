@@ -535,6 +535,7 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-bcbig.h"
 #include "lib-natbin.h"
 #include "lib-pckg.h"
+#include "lib-nsgh.h"
 #include "lib-dbkmap.h"
 #include "lib-rbark.h"
 #include "lib-nibm.h"

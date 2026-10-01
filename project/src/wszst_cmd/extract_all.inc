@@ -86,6 +86,7 @@
 #include "extract/bcbig.inc"
 #include "extract/natbin.inc"
 #include "extract/pckg.inc"
+#include "extract/nsgh.inc"
 #include "extract/bcdspi.inc"
 #include "extract/dbkmap.inc"
 #include "extract/rbark.inc"
