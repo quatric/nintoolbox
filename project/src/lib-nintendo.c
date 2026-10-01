@@ -750,6 +750,17 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		}
 		if (d[0] == 0x30 && size >= 4)
 			return make_info (NFMT_RL, false, true, (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);
+		// Same 4-byte wrapped header as LZ10/Huffman above, for Nintendo Run Length (0x30)
+		// streams (e.g. Professor Layton / Level-5 DS .arc / .arj containers, where 0x01
+		// flags RLE compression). Nonzero decompressed size disambiguates against false positives.
+		if (d[0] != 0x30 && size >= 8 && d[4] == 0x30
+			&& ((u32)d[5] | (u32)d[6] << 8 | (u32)d[7] << 16))
+		{
+			nfmt_info_t inf = make_info (NFMT_RL, false, true,
+				(u32)d[5] | (u32)d[6] << 8 | (u32)d[7] << 16);
+			inf.payload_offset = 4;
+			return inf;
+		}
 		// LZH8: 0x40 followed by a 24-bit LE size.  WarioWare Snapped wraps
 		// the stream in a 4-byte LE size prefix, so 0x40 may sit at offset 4.
 		if (d[0] == 0x40 && size >= 4)

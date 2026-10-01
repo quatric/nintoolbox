@@ -2454,6 +2454,8 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		case NFMT_HUFF4:
 		case NFMT_HUFF8:
 			return FF_HUFF;
+		case NFMT_RL:
+			return FF_RL;
 		case NFMT_PUCRUNCH:
 			return FF_PUCRUNCH;
 		case NFMT_DIFF8:

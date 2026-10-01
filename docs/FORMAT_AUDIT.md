@@ -354,5 +354,22 @@ Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Ghost Trick - Phantom Det
 
 Capcom DS titles (such as *Ghost Trick: Phantom Detective* and *Resident Evil: Deadly Silence*) package large multi-section resource archives (`cpac_2d.bin`, `cpac_3d.bin`) under a tagged chunk architecture. An outer index table describes 4-6 sections. Each section begins with a 24-byte tag header specifying `BKEY` / `BDAT` (for 3D models, 2D animations, textures, scripts) or `PKEY` / `PDAT` (for color palettes). `BKEY` sections index member pairs via 16-byte records, with bit 31 of size flagging standard Nintendo LZ11 compression. `PKEY` sections index RGB555 palette banks (16 colors / 32 bytes or 256 colors / 512 bytes). Streaming extraction and identification are integrated into `wszst extract` and `wszst filetype`.
 
+## Level-5 / Professor Layton compression containers (RL / LZ10 / HUFF8)
+
+Retail sample:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Professor Layton and the Curious Village (USA, Australia).zip
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| Professor Layton and the Curious Village | 1,770 LZ10 files (`.arc`, `.arj` with prefix 2) | 100% (1,770/1,770) decompressed cleanly via `wszst decompress` |
+| Professor Layton and the Curious Village | 58 RL files (`.arc`, `.arj` with prefix 1) | 100% (58/58) decompressed byte-for-byte exact via `wszst decompress` |
+| Professor Layton and the Curious Village | 47 HUFF8 files (`.arc`, `.arj` with prefix 4) | 100% (47/47) decompressed cleanly via `wszst decompress` |
+
+Level-5 titles on Nintendo DS prefix standard GBA/DS BIOS compression streams (Run Length `0x30`, LZ10 `0x10`, Huffman-4 `0x24`, Huffman-8 `0x28`) with a 4-byte little-endian method header (`0x00000001` for RL, `0x00000002` for LZ10, `0x00000003` for Huff4, `0x00000004` for Huff8). `DetectNintendoFormat` automatically unwraps these 4-byte headers and routes them to their native decompressors, matching uncompressed reference implementations byte-for-byte.
+
+
 
 
