@@ -964,10 +964,160 @@ static bool dm_build_joints (model_t *model, const dm_skel_t *sk)
 	return true;
 }
 
+//-----------------------------------------------------------------------------
+// animations (class 0x2e, loader FUN_800b6e30): a header, one flag byte per
+// bone, then pooled quantised keys
+
+typedef struct dm_anim_t
+{
+	char name[64];
+	uint frames, bones, ms_per_frame;
+	const u8 *flags; // per bone: 1 rotation constant, 2 translation constant,
+	// 0x20 no rotation, 0x40 no translation
+	const u8 *rot; // s16 x4 / 16384 quaternions
+	const u8 *tr; // s16 x3 * scale translations
+	uint n_rot, n_tr;
+	float tr_scale;
+	const u8 *idx_tr; // u16 per frame per (non-constant) bone
+	uint n_idx_tr;
+	const u8 *idx_rot; // same for rotations; absent when every frame has its own key
+	uint n_idx_rot;
+} dm_anim_t;
+
+static bool dm_anim_parse (const u8 *g, size_t len, dm_anim_t *a)
+{
+	memset (a, 0, sizeof (*a));
+	dm_rd_t r = { g, len, 0, false };
+	a->ms_per_frame = dm_u32 (&r);
+	dm_u32 (&r); // duration
+	a->frames = dm_u16 (&r);
+	a->bones = dm_u16 (&r);
+	dm_take (&r, 4); // flags
+	a->n_rot = dm_u32 (&r);
+	a->n_tr = dm_u32 (&r);
+	const u32 n_sc = dm_u32 (&r);
+	const u8 *p4 = dm_take (&r, 4);
+	a->tr_scale = p4 ? (float)dm_f32 (p4) : 0.0f;
+	dm_take (&r, 4); // scale scale
+	if (r.bad || !a->frames || a->frames > 20000 || !a->bones || a->bones > 512 || n_sc
+		|| a->n_rot > 4000000 || a->n_tr > 4000000)
+		return false;
+	a->flags = dm_take (&r, a->bones);
+	a->rot = dm_take (&r, (size_t)a->n_rot * 8);
+	a->tr = dm_take (&r, (size_t)a->n_tr * 6);
+	a->n_idx_rot = dm_u32 (&r);
+	a->idx_rot = dm_take (&r, (size_t)a->n_idx_rot * 2);
+	a->n_idx_tr = dm_u32 (&r);
+	a->idx_tr = dm_take (&r, (size_t)a->n_idx_tr * 2);
+	const u32 n6c = dm_u32 (&r);
+	if (r.bad || n6c)
+		return false;
+	// consistency: pool sizes follow from the per-bone flags
+	uint rp = 0, tp = 0;
+	for (uint b = 0; b < a->bones; b++)
+	{
+		const u8 fl = a->flags[b];
+		if (!(fl & 0x20))
+			rp += (fl & 1) ? 1 : a->frames;
+		if (!(fl & 0x40))
+			tp += (fl & 2) ? 1 : a->frames;
+	}
+	return (a->n_idx_rot ? rp == a->n_idx_rot : rp == a->n_rot)
+		&& (a->n_idx_tr ? tp == a->n_idx_tr : tp == a->n_tr);
+}
+
+// Channels in glTF space (Y-up): rotation q' = (-x, -z, y, w) of the stored
+// quaternion (the local rotation is the transpose of the stored matrix),
+// translation (x, z, -y).
+static bool dm_anim_to_glb (const dm_anim_t *a, model_animation_t *out)
+{
+	memset (out, 0, sizeof (*out));
+	snprintf (out->name, sizeof (out->name), "%s", a->name);
+	out->channels = CALLOC (a->bones * 2, sizeof (*out->channels));
+	if (!out->channels)
+		return false;
+	const double dt = a->ms_per_frame / 1000.0;
+	uint rp = 0, ip = 0;
+	for (uint b = 0; b < a->bones; b++)
+	{
+		const u8 fl = a->flags[b];
+		if (!(fl & 0x20))
+		{
+			const uint n = (fl & 1) ? 1 : a->frames;
+			model_anim_channel_t *ch = out->channels + out->num_channels++;
+			ch->node_idx = (int)b;
+			ch->path = MODEL_ANIM_ROTATION;
+			ch->count = n;
+			ch->components = 4;
+			ch->times = CALLOC (n, sizeof (float));
+			ch->values = CALLOC ((size_t)n * 4, sizeof (float));
+			if (!ch->times || !ch->values)
+				return false;
+			for (uint f = 0; f < n; f++)
+			{
+				uint k = rp + f;
+				if (a->n_idx_rot)
+					k = a->idx_rot[(size_t)(rp + f) * 2] << 8 | a->idx_rot[(size_t)(rp + f) * 2 + 1];
+				if (k >= a->n_rot)
+					k = 0;
+				const u8 *q = a->rot + (size_t)k * 8;
+				const float x = dm_s16 (q) / 16384.0f, y = dm_s16 (q + 2) / 16384.0f,
+							z = dm_s16 (q + 4) / 16384.0f, w = dm_s16 (q + 6) / 16384.0f;
+				ch->times[f] = (float)(f * dt);
+				ch->values[f * 4 + 0] = -x;
+				ch->values[f * 4 + 1] = -z;
+				ch->values[f * 4 + 2] = y;
+				ch->values[f * 4 + 3] = w;
+			}
+			rp += n;
+		}
+		if (!(fl & 0x40))
+		{
+			const uint n = (fl & 2) ? 1 : a->frames;
+			model_anim_channel_t *ch = out->channels + out->num_channels++;
+			ch->node_idx = (int)b;
+			ch->path = MODEL_ANIM_TRANSLATION;
+			ch->count = n;
+			ch->components = 3;
+			ch->times = CALLOC (n, sizeof (float));
+			ch->values = CALLOC ((size_t)n * 3, sizeof (float));
+			if (!ch->times || !ch->values)
+				return false;
+			for (uint f = 0; f < n; f++)
+			{
+				uint k = ip + f;
+				if (a->n_idx_tr)
+					k = a->idx_tr[(size_t)(ip + f) * 2] << 8 | a->idx_tr[(size_t)(ip + f) * 2 + 1];
+				ch->times[f] = (float)(f * dt);
+				if (k < a->n_tr)
+				{
+					const u8 *t = a->tr + (size_t)k * 6;
+					ch->values[f * 3 + 0] = dm_s16 (t) * a->tr_scale;
+					ch->values[f * 3 + 1] = dm_s16 (t + 4) * a->tr_scale;
+					ch->values[f * 3 + 2] = -dm_s16 (t + 2) * a->tr_scale;
+				}
+			}
+			ip += n;
+		}
+	}
+	return true;
+}
+
+static void dm_anim_free (model_animation_t *an)
+{
+	for (size_t i = 0; i < an->num_channels; i++)
+	{
+		FREE (an->channels[i].times);
+		FREE (an->channels[i].values);
+	}
+	FREE (an->channels);
+}
+
 // Bind-pose GLB of one mesh. Coordinates are rotated from the game's Z-up to
 // glTF's Y-up: (x, y, z) -> (x, z, -y).
 static bool dm_write_glb (
-	const dm_mesh_t *m, double scale, ccp name, ccp path, char (*slot_tex)[128], const dm_skel_t *sk)
+	const dm_mesh_t *m, double scale, ccp name, ccp path, char (*slot_tex)[128], const dm_skel_t *sk,
+	const dm_anim_t *anims, uint n_anims)
 {
 	dm_tri_t *tri = 0;
 	uint nt = 0, cap = 0;
@@ -1029,6 +1179,15 @@ static bool dm_write_glb (
 	int *position_node = 0;
 	if (sk && sk->n && dm_build_joints (&model, sk))
 	{
+		if (n_anims)
+		{
+			model.animations = CALLOC (n_anims, sizeof (model_animation_t));
+			for (uint i = 0; model.animations && i < n_anims; i++)
+				if (dm_anim_to_glb (anims + i, model.animations + model.num_animations))
+					model.num_animations++;
+				else
+					dm_anim_free (model.animations + model.num_animations);
+		}
 		model.node_influences = CALLOC (m->V, sizeof (node_influence_t));
 		position_node = CALLOC (m->V, sizeof (int));
 		if (model.node_influences && position_node)
@@ -1131,6 +1290,9 @@ static bool dm_write_glb (
 	for (size_t i = 0; i < model.num_node_influences; i++)
 		FREE (model.node_influences[i].weights);
 	FREE (model.node_influences);
+	for (size_t i = 0; i < model.num_animations; i++)
+		dm_anim_free (model.animations + i);
+	FREE (model.animations);
 	FREE (model.joints);
 	FREE (position_node);
 	FREE (meshes);
@@ -1676,7 +1838,60 @@ static void dm_walk_models (dm_model_ctx_t *mc, dm_node_t parent, dm_node_t n, u
 					{
 						dm_skel_t sk;
 						const bool have_sk = dm_skel_parse (c, parent, &sk);
-						ok = dm_write_glb (&m, scale, clean, path, slot_tex, have_sk ? &sk : 0);
+						dm_anim_t *anims = 0;
+						uint n_anims = 0;
+						if (have_sk)
+						{
+							// animations of this file with one channel set per bone whose
+							// name starts with the root bone's name
+							char root[24];
+							snprintf (root, sizeof (root), "%s", sk.b[0].name);
+							dm_index_t *ix = &mc->sc[0]->ix;
+							for (uint i = 0; i < ix->used; i++)
+							{
+								if (ix->v[i].cls != 0x2e)
+									continue;
+								const dm_node_t an = { ix->v[i].start, ix->v[i].end };
+								dm_node_t ak[1];
+								size_t gs = an.start + 12, best = 0, best_len = 0, q = gs;
+								(void)ak;
+								while (q + 4 <= an.end)
+								{
+									if (q + 12 <= an.end && dm_section (c->d, c->size, q, an.end))
+									{
+										if (q - gs > best_len)
+											best = gs, best_len = q - gs;
+										gs = rd_be32 (c->d + q + 4) + 4;
+										q = gs;
+									}
+									else
+										q += 4;
+								}
+								if (an.end - gs > best_len)
+									best = gs, best_len = an.end - gs;
+								if (best_len < 40)
+									continue;
+								dm_anim_t a;
+								if (!dm_anim_parse (c->d + best, best_len, &a) || a.bones != sk.n)
+									continue;
+								char an_name[64] = "";
+								dm_find_name (c, an, an_name, sizeof (an_name));
+								snprintf (a.name, sizeof (a.name), "%s", an_name[0] ? an_name : "anim");
+								// prefix test, case-insensitive
+								const size_t rl = strlen (root);
+								if (strncasecmp (a.name, root, rl))
+									continue;
+								if (n_anims >= 64)
+									break;
+								dm_anim_t *na = REALLOC (anims, (n_anims + 1) * sizeof (*na));
+								if (!na)
+									break;
+								anims = na;
+								anims[n_anims++] = a;
+							}
+						}
+						ok = dm_write_glb (&m, scale, clean, path, slot_tex, have_sk ? &sk : 0, anims, n_anims);
+						FREE (anims);
 						if (have_sk)
 							FREE (sk.b);
 					}
