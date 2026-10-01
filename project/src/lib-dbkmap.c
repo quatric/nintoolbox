@@ -967,7 +967,7 @@ static bool dm_build_joints (model_t *model, const dm_skel_t *sk)
 // Bind-pose GLB of one mesh. Coordinates are rotated from the game's Z-up to
 // glTF's Y-up: (x, y, z) -> (x, z, -y).
 static bool dm_write_glb (
-	const dm_mesh_t *m, ccp name, ccp path, char (*slot_tex)[128], const dm_skel_t *sk)
+	const dm_mesh_t *m, double scale, ccp name, ccp path, char (*slot_tex)[128], const dm_skel_t *sk)
 {
 	dm_tri_t *tri = 0;
 	uint nt = 0, cap = 0;
@@ -1011,8 +1011,9 @@ static bool dm_write_glb (
 	for (uint i = 0; i < m->V; i++)
 	{
 		const u8 *v = m->verts + (size_t)i * 16;
-		positions[i] = (vec3_t){ dm_s16 (v) / 4096.0f, dm_s16 (v + 4) / 4096.0f,
-			-dm_s16 (v + 2) / 4096.0f };
+		const double inv = scale > 0 ? 1.0 / scale : 1.0 / 4096.0;
+		positions[i] = (vec3_t){ (float)(dm_s16 (v) * inv), (float)(dm_s16 (v + 4) * inv),
+			(float)(-dm_s16 (v + 2) * inv) };
 		const float nx = dm_s8 (v[8]), ny = dm_s8 (v[9]), nz = dm_s8 (v[10]);
 		normals[i] = (vec3_t){ nx / 64.0f, nz / 64.0f, -ny / 64.0f };
 	}
@@ -1139,6 +1140,342 @@ static bool dm_write_glb (
 	FREE (model.materials);
 	FREE (tri);
 	return rc == 0;
+}
+
+//-----------------------------------------------------------------------------
+// static meshes (class 0x14, loader FUN_80107cf8): positions, texcoords and
+// display lists, no skin
+
+typedef struct dm_static_t
+{
+	uint NP, NU;
+	const u8 *pos, *uv;
+	struct dm_sdl_t
+	{
+		uint slot, dl_size;
+		const u8 *dl;
+	} *dl;
+	uint n_dl;
+} dm_static_t;
+
+static bool dm_static_parse (dm_static_t *m, const u8 *g, size_t len)
+{
+	memset (m, 0, sizeof (*m));
+	dm_rd_t r = { g, len, 0, false };
+	const u8 *flag = dm_take (&r, 1);
+	if (!flag || *flag != 1)
+		return false;
+	m->NP = dm_u32 (&r);
+	if (!m->NP || m->NP > DM_MAX_VERTS * 4)
+		return false;
+	m->pos = dm_take (&r, (size_t)m->NP * 6);
+	m->NU = dm_u32 (&r);
+	if (r.bad || m->NU > DM_MAX_VERTS * 4)
+		return false;
+	m->uv = dm_take (&r, (size_t)m->NU * 4);
+	const u32 nd = dm_u32 (&r);
+	if (r.bad || !nd || nd > 4096)
+		return false;
+	m->dl = CALLOC (nd, sizeof (*m->dl));
+	if (!m->dl)
+		return false;
+	for (uint i = 0; i < nd && !r.bad; i++)
+	{
+		const uint slot = dm_u16 (&r);
+		dm_u32 (&r); // triangle count
+		const u32 sz = dm_u32 (&r);
+		const u8 *dl = dm_take (&r, sz);
+		if (r.bad)
+			break;
+		m->dl[m->n_dl++] = (struct dm_sdl_t){ slot, sz, dl };
+	}
+	if (r.bad || len - r.pos >= 8 || !m->n_dl)
+	{
+		FREE (m->dl);
+		m->dl = 0;
+		return false;
+	}
+	return true;
+}
+
+// 0x98 / 0x99 tristrips, 0x90 lists: format 0 vertices are {pos, nrm, tex} u16,
+// format 1 vertices {pos u16, colour u8, nrm u16, tex u16}.
+static bool dm_expand_static (const dm_static_t *m, dm_tri_t **tri, uint *n, uint *cap)
+{
+	for (uint di = 0; di < m->n_dl; di++)
+	{
+		const u8 *d = m->dl[di].dl;
+		const size_t len = m->dl[di].dl_size;
+		size_t i = 0;
+		while (i < len)
+		{
+			const u8 op = d[i++];
+			if (!op)
+				continue;
+			const u8 prim = op & 0xf8, fmt = op & 7;
+			if ((prim != 0x90 && prim != 0x98 && prim != 0xa0) || fmt > 1 || i + 2 > len)
+				return false;
+			const uint cnt = d[i] << 8 | d[i + 1];
+			i += 2;
+			const uint stride = fmt ? 7 : 6;
+			if (i + (size_t)cnt * stride > len)
+				return false;
+			uint pv[3], pt[3], have = 0;
+			for (uint k = 0; k < cnt; k++, i += stride)
+			{
+				const u8 *v = d + i;
+				const uint p = v[0] << 8 | v[1];
+				const uint t = fmt ? (v[5] << 8 | v[6]) : (v[4] << 8 | v[5]);
+				if (p >= m->NP || t >= m->NU)
+					return false;
+				uint a[3], at[3];
+				bool emit = false;
+				if (prim == 0x90)
+				{
+					pv[have] = p;
+					pt[have++] = t;
+					if (have == 3)
+					{
+						memcpy (a, pv, sizeof (a));
+						memcpy (at, pt, sizeof (at));
+						have = 0;
+						emit = true;
+					}
+				}
+				else if (prim == 0x98)
+				{
+					if (have < 3)
+					{
+						pv[have] = p;
+						pt[have++] = t;
+					}
+					else
+					{
+						pv[0] = pv[1];
+						pv[1] = pv[2];
+						pv[2] = p;
+						pt[0] = pt[1];
+						pt[1] = pt[2];
+						pt[2] = t;
+					}
+					if (have == 3)
+					{
+						const bool odd = (k - 2) & 1;
+						a[0] = pv[0];
+						a[1] = odd ? pv[2] : pv[1];
+						a[2] = odd ? pv[1] : pv[2];
+						at[0] = pt[0];
+						at[1] = odd ? pt[2] : pt[1];
+						at[2] = odd ? pt[1] : pt[2];
+						emit = true;
+					}
+				}
+				else
+				{
+					if (have < 3)
+					{
+						pv[have] = p;
+						pt[have++] = t;
+					}
+					else
+					{
+						pv[1] = pv[2];
+						pt[1] = pt[2];
+						pv[2] = p;
+						pt[2] = t;
+					}
+					if (have == 3)
+					{
+						memcpy (a, pv, sizeof (a));
+						memcpy (at, pt, sizeof (at));
+						emit = true;
+					}
+				}
+				if (!emit || a[0] == a[1] || a[1] == a[2] || a[0] == a[2])
+					continue;
+				if (*n == *cap)
+				{
+					*cap = *cap ? *cap * 2 : 4096;
+					dm_tri_t *nt = REALLOC (*tri, *cap * sizeof (**tri));
+					if (!nt)
+						return false;
+					*tri = nt;
+				}
+				dm_tri_t *t3 = *tri + (*n)++;
+				memcpy (t3->v, a, sizeof (a));
+				memcpy (t3->t, at, sizeof (at));
+				t3->slot = m->dl[di].slot & 0x7fff;
+			}
+		}
+	}
+	return true;
+}
+
+static bool dm_write_static_glb (
+	const dm_static_t *m, double scale, ccp name, ccp path, char (*slot_tex)[128])
+{
+	dm_tri_t *tri = 0;
+	uint nt = 0, cap = 0;
+	if (!dm_expand_static (m, &tri, &nt, &cap) || !nt)
+	{
+		FREE (tri);
+		return false;
+	}
+	// material slots actually used
+	int slot_mat[DM_SLOTS];
+	uint nmat = 0;
+	for (uint i = 0; i < DM_SLOTS; i++)
+		slot_mat[i] = -1;
+	for (uint i = 0; i < nt; i++)
+	{
+		const uint sl = tri[i].slot < DM_SLOTS ? tri[i].slot : DM_SLOTS - 1;
+		tri[i].slot = sl;
+		if (slot_mat[sl] < 0)
+			slot_mat[sl] = (int)nmat++;
+	}
+
+	model_t model;
+	memset (&model, 0, sizeof (model));
+	vec3_t *positions = CALLOC (m->NP, sizeof (vec3_t));
+	vec3_t *normals = CALLOC (m->NP, sizeof (vec3_t));
+	vec2_t *texcoords = CALLOC (m->NU ? m->NU : 1, sizeof (vec2_t));
+	mesh_t *meshes = CALLOC (nmat, sizeof (mesh_t));
+	model.materials = CALLOC (nmat, sizeof (material_t));
+	if (!positions || !normals || !texcoords || !meshes || !model.materials)
+	{
+		FREE (positions);
+		FREE (normals);
+		FREE (texcoords);
+		FREE (meshes);
+		FREE (model.materials);
+		FREE (tri);
+		return false;
+	}
+	const double inv = scale > 0 ? 1.0 / scale : 1.0 / 4096.0;
+	for (uint i = 0; i < m->NP; i++)
+	{
+		const u8 *v = m->pos + (size_t)i * 6;
+		positions[i] = (vec3_t){ (float)(dm_s16 (v) * inv), (float)(dm_s16 (v + 4) * inv),
+			(float)(-dm_s16 (v + 2) * inv) };
+	}
+	for (uint i = 0; i < m->NU; i++)
+	{
+		const u8 *t = m->uv + (size_t)i * 4;
+		texcoords[i] = (vec2_t){ (t[0] << 8 | t[1]) / 1024.0f, (t[2] << 8 | t[3]) / 1024.0f };
+	}
+	// smooth normals from the faces
+	for (uint i = 0; i < nt; i++)
+	{
+		const vec3_t *a = positions + tri[i].v[0], *b = positions + tri[i].v[1],
+					 *c = positions + tri[i].v[2];
+		const float ux = b->x - a->x, uy = b->y - a->y, uz = b->z - a->z;
+		const float vx = c->x - a->x, vy = c->y - a->y, vz = c->z - a->z;
+		const vec3_t n = { uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx };
+		for (uint k = 0; k < 3; k++)
+		{
+			vec3_t *d = normals + tri[i].v[k];
+			d->x += n.x;
+			d->y += n.y;
+			d->z += n.z;
+		}
+	}
+	for (uint i = 0; i < m->NP; i++)
+	{
+		const float l = sqrtf (normals[i].x * normals[i].x + normals[i].y * normals[i].y
+			+ normals[i].z * normals[i].z);
+		if (l > 0)
+		{
+			normals[i].x /= l;
+			normals[i].y /= l;
+			normals[i].z /= l;
+		}
+		else
+			normals[i] = (vec3_t){ 0, 1, 0 };
+	}
+
+	for (uint slot = 0; slot < DM_SLOTS; slot++)
+	{
+		if (slot_mat[slot] < 0)
+			continue;
+		const uint k = (uint)slot_mat[slot];
+		mesh_t *mesh = meshes + k;
+		uint count = 0;
+		for (uint i = 0; i < nt; i++)
+			count += tri[i].slot == slot;
+		mesh->vertices = CALLOC ((size_t)count * 3, sizeof (vertex_t));
+		if (!mesh->vertices)
+			continue;
+		snprintf (mesh->name, sizeof (mesh->name), "%s_slot%02u", name, slot);
+		mesh->positions = positions;
+		mesh->normals = normals;
+		mesh->texcoords = texcoords;
+		mesh->num_positions = mesh->num_normals = m->NP;
+		mesh->num_texcoords = m->NU;
+		mesh->material_idx = (int)k;
+		uint o = 0;
+		for (uint i = 0; i < nt; i++)
+		{
+			if (tri[i].slot != slot)
+				continue;
+			for (uint e = 0; e < 3; e++, o++)
+			{
+				vertex_t *vx = mesh->vertices + o;
+				vx->position_idx = vx->normal_idx = (int)tri[i].v[e];
+				vx->texcoord_idx = (int)tri[i].t[e];
+				vx->tangent_idx = -1;
+				vx->matrix_idx = -1;
+				vx->color_idx[0] = vx->color_idx[1] = -1;
+				for (uint x = 0; x < 7; x++)
+					vx->extra_texcoord_idx[x] = -1;
+			}
+		}
+		mesh->num_vertices = o;
+		material_t *mt = model.materials + k;
+		snprintf (mt->name, sizeof (mt->name), "slot%02u", slot);
+		mt->diffuse[0] = mt->diffuse[1] = mt->diffuse[2] = mt->diffuse[3] = 1.0f;
+		if (slot_tex && slot_tex[slot][0])
+		{
+			snprintf (mt->textures[0], sizeof (mt->textures[0]), "%s", slot_tex[slot]);
+			mt->num_textures = 1;
+			mt->wrap_s[0] = mt->wrap_t[0] = 1;
+			mt->min_filter[0] = mt->mag_filter[0] = 1;
+		}
+	}
+	model.num_materials = nmat;
+	model.meshes = meshes;
+	model.num_meshes = nmat;
+	const int rc = ExportModelToGLB (&model, path);
+	for (uint k = 0; k < nmat; k++)
+		FREE (meshes[k].vertices);
+	FREE (meshes);
+	FREE (positions);
+	FREE (normals);
+	FREE (texcoords);
+	FREE (model.materials);
+	FREE (tri);
+	return rc == 0;
+}
+
+// Position scale of a mesh object: the base section ends with a 20-byte record
+// {f32 radius, f32 units-per-metre, ...} behind a u32 length.
+static double dm_base_scale (const dm_ctx_t *c, dm_node_t body)
+{
+	dm_node_t kids[1];
+	if (!dm_children (c, body, kids, 1))
+		return 0;
+	double scale = 0;
+	size_t p = kids[0].start + 12;
+	// scan the base section for the u32 length (0x14 or 0x1c) followed by two floats
+	for (; p + 12 <= kids[0].end; p += 4)
+	{
+		const u32 l = rd_be32 (c->d + p);
+		if (l != 0x14 && l != 0x1c)
+			continue;
+		const double a = dm_f32 (c->d + p + 4), b = dm_f32 (c->d + p + 8);
+		if (a > 0 && a < 1e6 && b >= 1 && b <= 65536)
+			scale = b; // keep the last candidate: the record closes the section
+	}
+	return scale;
 }
 
 // First plausible ASCII name (u32 length 20 + text) inside a subtree.
@@ -1286,7 +1623,12 @@ static void dm_walk_models (dm_model_ctx_t *mc, dm_node_t parent, dm_node_t n, u
 	if (!nk && n.end - n.start > 64 && c->d[n.start + 12] == 1)
 	{
 		dm_mesh_t m;
-		if (dm_mesh_parse (&m, c->d + n.start + 12, n.end - n.start - 12))
+		dm_static_t sm;
+		const u8 *leaf = c->d + n.start + 12;
+		const size_t leaf_len = n.end - n.start - 12;
+		const bool skinned = dm_mesh_parse (&m, leaf, leaf_len);
+		const bool statik = !skinned && dm_static_parse (&sm, leaf, leaf_len);
+		if (skinned || statik)
 		{
 			dm_slot_t slots[DM_SLOTS];
 			for (uint i = 0; i < DM_SLOTS; i++)
@@ -1294,8 +1636,13 @@ static void dm_walk_models (dm_model_ctx_t *mc, dm_node_t parent, dm_node_t n, u
 			if (depth >= 2)
 				dm_resolve_slots (mc, mc->anc[depth - 2], slots);
 			bool used[DM_SLOTS] = { false };
-			for (uint i = 0; i < m.n_seg; i++)
-				used[m.seg[i].slot] = true;
+			if (skinned)
+				for (uint i = 0; i < m.n_seg; i++)
+					used[m.seg[i].slot] = true;
+			else
+				for (uint i = 0; i < sm.n_dl; i++)
+					used[(sm.dl[i].slot & 0x7fff) < DM_SLOTS ? (sm.dl[i].slot & 0x7fff) : DM_SLOTS - 1]
+						= true;
 			for (uint i = 0; i < DM_SLOTS; i++)
 				if (!used[i])
 					slots[i].scene = -1;
@@ -1321,14 +1668,28 @@ static void dm_walk_models (dm_model_ctx_t *mc, dm_node_t parent, dm_node_t n, u
 				snprintf (path, sizeof (path), "%s/models/%04u_%s.glb", mc->dest, mc->written, clean);
 				char slot_tex[DM_SLOTS][128];
 				dm_slot_names (mc, slots, slot_tex);
-				dm_skel_t sk;
-				const bool have_sk = dm_skel_parse (c, parent, &sk);
-				if (!CreatePath (path, false) && dm_write_glb (&m, clean, path, slot_tex, have_sk ? &sk : 0))
+				const double scale = dm_base_scale (c, parent);
+				bool ok = false;
+				if (!CreatePath (path, false))
+				{
+					if (skinned)
+					{
+						dm_skel_t sk;
+						const bool have_sk = dm_skel_parse (c, parent, &sk);
+						ok = dm_write_glb (&m, scale, clean, path, slot_tex, have_sk ? &sk : 0);
+						if (have_sk)
+							FREE (sk.b);
+					}
+					else
+						ok = dm_write_static_glb (&sm, scale, clean, path, slot_tex);
+				}
+				if (ok)
 					mc->written++;
-				if (have_sk)
-					FREE (sk.b);
 			}
-			FREE (m.seg);
+			if (skinned)
+				FREE (m.seg);
+			else
+				FREE (sm.dl);
 		}
 		return;
 	}
