@@ -62,7 +62,10 @@
 bool IsDbkMap (const u8 *data, size_t size);
 // Writes one bind-pose GLB per skinned mesh into DEST_DIR/models/. Returns the
 // number written (0 if the file holds no mesh).
-uint ExportDbkMapModels (const u8 *data, size_t size, ccp dest_dir);
-enumError ScanDbkMap (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size);
+uint ExportDbkMapModels (const u8 *data, size_t size, const u8 *aux, size_t aux_size, ccp dest_dir);
+// AUX is the shared game database (Games/*.gam) next to a map, or NULL: textures
+// its materials use are added to the entries as "gam_" members.
+enumError ScanDbkMap (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, size_t size,
+	const u8 *aux, size_t aux_size);
 
 #endif

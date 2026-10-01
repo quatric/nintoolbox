@@ -37,12 +37,22 @@ typedef struct dm_out_t
 	uint used, alloc;
 } dm_out_t;
 
+typedef struct dm_texinfo_t
+{
+	size_t obj_start; // start of the texture object section
+	char name[96]; // member name, e.g. "textures/0003_sky_jungle4.tpl"
+} dm_texinfo_t;
+
 typedef struct dm_ctx_t
 {
 	const u8 *d;
 	size_t size;
-	dm_out_t *out;
+	dm_out_t *out; // NULL: only record names
 	uint textures;
+	dm_texinfo_t *tex;
+	uint tex_cap;
+	const u8 *want; // NULL: emit every texture, else one flag per texture index
+	ccp prefix; // member name prefix after "textures/"
 } dm_ctx_t;
 
 static bool dm_emit (dm_out_t *o, char *name, u8 *payload, uint size)
@@ -165,7 +175,7 @@ static void dm_scan_hdr (const dm_ctx_t *c, dm_node_t n, uint depth, dm_hdr_t *h
 	}
 }
 
-static char *dm_member_name (uint index, ccp name, ccp ext)
+static char *dm_member_name (ccp prefix, uint index, ccp name, ccp ext)
 {
 	char clean[80];
 	uint n = 0;
@@ -181,7 +191,7 @@ static char *dm_member_name (uint index, ccp name, ccp ext)
 	if (!n)
 		snprintf (clean, sizeof (clean), "unnamed");
 	char path[PATH_MAX];
-	snprintf (path, sizeof (path), "textures/%04u_%s%s", index, clean, ext);
+	snprintf (path, sizeof (path), "textures/%s%04u_%s%s", prefix ? prefix : "", index, clean, ext);
 	return STRDUP (path);
 }
 
@@ -248,10 +258,36 @@ static void dm_texture (dm_ctx_t *c, dm_node_t obj, dm_node_t leaf)
 	if (want != sz)
 		return;
 	const u32 base = (u32)dm_cmpr_level (w, ht);
-	uint tpl_size = 0;
-	u8 *tpl = dm_make_tpl (w, ht, IMG_CMPR, g + 13, base, &tpl_size);
-	if (dm_emit (c->out, dm_member_name (c->textures, h.name, ".tpl"), tpl, tpl_size))
-		c->textures++;
+	char *mname = dm_member_name (c->prefix, c->textures, h.name, ".tpl");
+	if (!mname)
+		return;
+	if (c->out && (!c->want || c->want[c->textures]))
+	{
+		uint tpl_size = 0;
+		u8 *tpl = dm_make_tpl (w, ht, IMG_CMPR, g + 13, base, &tpl_size);
+		if (!tpl || !dm_emit (c->out, STRDUP (mname), tpl, tpl_size))
+		{
+			FREE (mname);
+			return;
+		}
+	}
+	if (c->textures == c->tex_cap)
+	{
+		const uint want = c->tex_cap ? c->tex_cap * 2 : 32;
+		dm_texinfo_t *nt = REALLOC (c->tex, want * sizeof (*nt));
+		if (nt)
+		{
+			c->tex = nt;
+			c->tex_cap = want;
+		}
+	}
+	if (c->textures < c->tex_cap)
+	{
+		c->tex[c->textures].obj_start = obj.start;
+		snprintf (c->tex[c->textures].name, sizeof (c->tex[c->textures].name), "%s", mname);
+	}
+	c->textures++;
+	FREE (mname);
 }
 
 static void dm_walk (dm_ctx_t *c, dm_node_t n, uint depth)
@@ -285,9 +321,9 @@ static void dm_walk (dm_ctx_t *c, dm_node_t n, uint depth)
 		dm_node_t sub[1];
 		if (!dm_children (c, last, sub, 1))
 		{
-			const size_t before = c->out->used;
+			const uint before = c->textures;
 			dm_texture (c, n, last);
-			if (c->out->used != before)
+			if (c->textures != before)
 				return;
 		}
 	}
@@ -295,30 +331,188 @@ static void dm_walk (dm_ctx_t *c, dm_node_t n, uint depth)
 		dm_walk (c, kids[i], depth + 1);
 }
 
-enumError ScanDbkMap (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d, size_t size)
-{
-	if (!entries || !n_entries || !IsDbkMap (d, size))
-		return EINVAL;
-	*entries = 0;
-	*n_entries = 0;
+//-----------------------------------------------------------------------------
+// object references: material set -> material -> texture
 
-	dm_out_t out = { 0, 0, 0 };
-	dm_ctx_t c = { d, size, &out, 0 };
-	if (dm_section (d, size, 8, size - 4))
-	{
-		const dm_node_t root = { 8, rd_be32 (d + 12) };
-		dm_walk (&c, root, 0);
-	}
-	if (!out.used)
-	{
-		FREE (out.v);
-		return ERR_NOTHING_TO_DO;
-	}
-	*entries = out.v;
-	*n_entries = out.used;
-	return ERR_OK;
+typedef struct dm_ref_t
+{
+	int cls;
+	u32 ua, ub;
+	uint n;
+	u8 flag;
+	size_t end; // offset after the flag byte
+} dm_ref_t;
+
+// An object reference as the game's reader FUN_8000f2d8 stores it in a
+// FAAFFAAF stream: s16 class, s16 n, u64 uid, [u32 size when n > 0], u8 flag
+// (1 = the object's body follows as the next section). No name (it is only
+// present in the byte-swapped twin format).
+static bool dm_ref_at (const u8 *d, size_t p, size_t limit, dm_ref_t *r)
+{
+	if (p + 13 > limit)
+		return false;
+	const int cls = (s16)(d[p] << 8 | d[p + 1]);
+	const int n = (s16)(d[p + 2] << 8 | d[p + 3]);
+	if (cls <= 0 || cls > 0x300 || n < 0 || n > 1)
+		return false;
+	size_t q = p + 12;
+	if (n)
+		q += 4;
+	if (q + 1 > limit || d[q] > 1)
+		return false;
+	r->cls = cls;
+	r->n = n;
+	r->ua = rd_be32 (d + p + 4);
+	r->ub = rd_be32 (d + p + 8);
+	r->flag = d[q];
+	r->end = q + 1;
+	return r->ua || r->ub;
 }
 
+typedef struct dm_obj_t
+{
+	int cls;
+	u32 ua, ub;
+	size_t start, end; // body section
+} dm_obj_t;
+
+typedef struct dm_index_t
+{
+	dm_obj_t *v;
+	uint used, cap;
+} dm_index_t;
+
+static void dm_index_add (dm_index_t *ix, const dm_ref_t *r, dm_node_t body)
+{
+	if (ix->used == ix->cap)
+	{
+		const uint want = ix->cap ? ix->cap * 2 : 256;
+		dm_obj_t *nv = REALLOC (ix->v, want * sizeof (*nv));
+		if (!nv)
+			return;
+		ix->v = nv;
+		ix->cap = want;
+	}
+	ix->v[ix->used++] = (dm_obj_t){ r->cls, r->ua, r->ub, body.start, body.end };
+}
+
+// Every section that directly follows an object reference with flag 1.
+static void dm_index_walk (const dm_ctx_t *c, dm_index_t *ix, dm_node_t n, uint depth)
+{
+	if (depth > DM_MAX_DEPTH)
+		return;
+	size_t p = n.start + 12, gs = p;
+	while (p + 12 <= n.end)
+	{
+		if (dm_section (c->d, c->size, p, n.end))
+		{
+			const dm_node_t k = { p, rd_be32 (c->d + p + 4) };
+			// the reference that introduces this body ends at the section
+			// (plus up to 3 padding bytes); references pack without padding
+			for (uint back = 13; back <= 23; back++)
+			{
+				dm_ref_t r;
+				if (p >= gs + back && dm_ref_at (c->d, p - back, p, &r) && r.flag
+					&& ((r.end + 3) & ~(size_t)3) == p)
+				{
+					dm_index_add (ix, &r, k);
+					break;
+				}
+			}
+			dm_index_walk (c, ix, k, depth + 1);
+			p = k.end + 4;
+			gs = p;
+		}
+		else
+			p += 4;
+	}
+}
+
+static const dm_obj_t *dm_index_find (const dm_index_t *ix, int cls, u32 ua, u32 ub)
+{
+	for (uint i = 0; i < ix->used; i++)
+		if (ix->v[i].ua == ua && ix->v[i].ub == ub && (cls < 0 || ix->v[i].cls == cls))
+			return ix->v + i;
+	return 0;
+}
+
+// First object reference of class CLS in the gaps of a subtree (document order).
+static bool dm_first_ref (const dm_ctx_t *c, dm_node_t n, int cls, uint depth, dm_ref_t *out)
+{
+	if (depth > DM_MAX_DEPTH)
+		return false;
+	size_t p = n.start + 12, gs = p;
+	while (p + 4 <= n.end)
+	{
+		if (p + 12 <= n.end && dm_section (c->d, c->size, p, n.end))
+		{
+			for (size_t q = gs; q + 13 <= p; q++)
+				if (dm_ref_at (c->d, q, p, out) && out->cls == cls)
+					return true;
+			const dm_node_t k = { p, rd_be32 (c->d + p + 4) };
+			if (dm_first_ref (c, k, cls, depth + 1, out))
+				return true;
+			p = k.end + 4;
+			gs = p;
+		}
+		else
+			p += 4;
+	}
+	for (size_t q = gs; q + 13 <= n.end; q++)
+		if (dm_ref_at (c->d, q, n.end, out) && out->cls == cls)
+			return true;
+	return false;
+}
+
+// Ordered object references of a material set body: descend through
+// single-child wrappers to the section that holds the list, skip its u32 count
+// and parse the references of every gap in order.
+#define DM_MAX_SET 256
+static uint dm_material_set (const dm_ctx_t *c, dm_node_t body, dm_ref_t *refs)
+{
+	dm_node_t n = body;
+	for (uint guard = 0; guard < 8; guard++)
+	{
+		dm_node_t kids[2];
+		const uint nk = dm_children (c, n, kids, 2);
+		if (nk != 1)
+			break;
+		n = kids[0];
+	}
+	uint count = 0;
+	bool first = true;
+	size_t p = n.start + 12, gs = p;
+	while (p <= n.end)
+	{
+		const bool at_sec = p + 12 <= n.end && dm_section (c->d, c->size, p, n.end);
+		if (at_sec || p + 4 > n.end)
+		{
+			const size_t ge = at_sec ? p : n.end;
+			size_t q = gs;
+			if (ge > gs && first)
+			{
+				// the list count comes first and is followed by the first reference
+				if (ge - gs >= 4 + 13 && rd_be32 (c->d + gs) <= DM_MAX_SET)
+					q += 4;
+				first = false;
+			}
+			dm_ref_t r;
+			while (q < ge && count < DM_MAX_SET && dm_ref_at (c->d, q, ge, &r))
+			{
+				refs[count++] = r;
+				q = r.end;
+			}
+			if (!at_sec)
+				break;
+			const dm_node_t k = { p, rd_be32 (c->d + p + 4) };
+			p = k.end + 4;
+			gs = p;
+		}
+		else
+			p += 4;
+	}
+	return count;
+}
 
 //-----------------------------------------------------------------------------
 // meshes
@@ -584,7 +778,7 @@ static inline float dm_s8 (u8 b)
 
 // Bind-pose GLB of one mesh. Coordinates are rotated from the game's Z-up to
 // glTF's Y-up: (x, y, z) -> (x, z, -y).
-static bool dm_write_glb (const dm_mesh_t *m, ccp name, ccp path)
+static bool dm_write_glb (const dm_mesh_t *m, ccp name, ccp path, char (*slot_tex)[128])
 {
 	dm_tri_t *tri = 0;
 	uint nt = 0, cap = 0;
@@ -610,23 +804,17 @@ static bool dm_write_glb (const dm_mesh_t *m, ccp name, ccp path)
 
 	model_t model;
 	memset (&model, 0, sizeof (model));
-	mesh_t mesh;
-	memset (&mesh, 0, sizeof (mesh));
-	snprintf (mesh.name, sizeof (mesh.name), "%s", name);
-	mesh.positions = CALLOC (m->V, sizeof (vec3_t));
-	mesh.normals = CALLOC (m->V, sizeof (vec3_t));
-	mesh.texcoords = CALLOC (m->T ? m->T : 1, sizeof (vec2_t));
-	mesh.vertices = CALLOC ((size_t)nt * 3, sizeof (vertex_t));
-	mesh.triangle_materials = CALLOC (nt, sizeof (int));
+	vec3_t *positions = CALLOC (m->V, sizeof (vec3_t));
+	vec3_t *normals = CALLOC (m->V, sizeof (vec3_t));
+	vec2_t *texcoords = CALLOC (m->T ? m->T : 1, sizeof (vec2_t));
+	mesh_t *meshes = CALLOC (nmat, sizeof (mesh_t));
 	model.materials = CALLOC (nmat, sizeof (material_t));
-	if (!mesh.positions || !mesh.normals || !mesh.texcoords || !mesh.vertices
-		|| !mesh.triangle_materials || !model.materials)
+	if (!positions || !normals || !texcoords || !meshes || !model.materials)
 	{
-		FREE (mesh.positions);
-		FREE (mesh.normals);
-		FREE (mesh.texcoords);
-		FREE (mesh.vertices);
-		FREE (mesh.triangle_materials);
+		FREE (positions);
+		FREE (normals);
+		FREE (texcoords);
+		FREE (meshes);
 		FREE (model.materials);
 		FREE (tri);
 		return false;
@@ -634,54 +822,79 @@ static bool dm_write_glb (const dm_mesh_t *m, ccp name, ccp path)
 	for (uint i = 0; i < m->V; i++)
 	{
 		const u8 *v = m->verts + (size_t)i * 16;
-		mesh.positions[i] = (vec3_t){ dm_s16 (v) / 4096.0f, dm_s16 (v + 4) / 4096.0f,
+		positions[i] = (vec3_t){ dm_s16 (v) / 4096.0f, dm_s16 (v + 4) / 4096.0f,
 			-dm_s16 (v + 2) / 4096.0f };
 		const float nx = dm_s8 (v[8]), ny = dm_s8 (v[9]), nz = dm_s8 (v[10]);
-		mesh.normals[i] = (vec3_t){ nx / 64.0f, nz / 64.0f, -ny / 64.0f };
+		normals[i] = (vec3_t){ nx / 64.0f, nz / 64.0f, -ny / 64.0f };
 	}
-	mesh.num_positions = mesh.num_normals = m->V;
 	for (uint i = 0; i < m->T; i++)
 	{
 		const u8 *t = m->uv + (size_t)i * 4;
-		mesh.texcoords[i]
-			= (vec2_t){ (t[0] << 8 | t[1]) / 1024.0f, (t[2] << 8 | t[3]) / 1024.0f };
+		texcoords[i] = (vec2_t){ (t[0] << 8 | t[1]) / 1024.0f, (t[2] << 8 | t[3]) / 1024.0f };
 	}
-	mesh.num_texcoords = m->T;
-	for (uint i = 0; i < nt; i++)
-	{
-		for (uint k = 0; k < 3; k++)
-		{
-			vertex_t *vx = mesh.vertices + (size_t)i * 3 + k;
-			vx->position_idx = vx->normal_idx = (int)tri[i].v[k];
-			vx->texcoord_idx = (int)tri[i].t[k];
-			vx->tangent_idx = -1;
-			vx->matrix_idx = -1;
-			vx->color_idx[0] = vx->color_idx[1] = -1;
-			for (uint e = 0; e < 7; e++)
-				vx->extra_texcoord_idx[e] = -1;
-		}
-		mesh.triangle_materials[i] = slot_mat[tri[i].slot];
-	}
-	mesh.num_vertices = (size_t)nt * 3;
-	mesh.material_idx = 0;
 
-	for (uint i = 0; i < DM_SLOTS; i++)
-		if (slot_mat[i] >= 0)
+	// one mesh per material slot (the GLB writer takes one material per mesh);
+	// they share the vertex streams
+	for (uint slot = 0; slot < DM_SLOTS; slot++)
+	{
+		if (slot_mat[slot] < 0)
+			continue;
+		const uint k = (uint)slot_mat[slot];
+		mesh_t *mesh = meshes + k;
+		uint count = 0;
+		for (uint i = 0; i < nt; i++)
+			count += tri[i].slot == slot;
+		mesh->vertices = CALLOC ((size_t)count * 3, sizeof (vertex_t));
+		if (!mesh->vertices)
+			continue;
+		snprintf (mesh->name, sizeof (mesh->name), "%s_slot%02u", name, slot);
+		mesh->positions = positions;
+		mesh->normals = normals;
+		mesh->texcoords = texcoords;
+		mesh->num_positions = mesh->num_normals = m->V;
+		mesh->num_texcoords = m->T;
+		mesh->material_idx = (int)k;
+		uint o = 0;
+		for (uint i = 0; i < nt; i++)
 		{
-			material_t *mt = model.materials + slot_mat[i];
-			snprintf (mt->name, sizeof (mt->name), "slot%02u", i);
-			mt->diffuse[0] = mt->diffuse[1] = mt->diffuse[2] = mt->diffuse[3] = 1.0f;
+			if (tri[i].slot != slot)
+				continue;
+			for (uint e = 0; e < 3; e++, o++)
+			{
+				vertex_t *vx = mesh->vertices + o;
+				vx->position_idx = vx->normal_idx = (int)tri[i].v[e];
+				vx->texcoord_idx = (int)tri[i].t[e];
+				vx->tangent_idx = -1;
+				vx->matrix_idx = -1;
+				vx->color_idx[0] = vx->color_idx[1] = -1;
+				for (uint x = 0; x < 7; x++)
+					vx->extra_texcoord_idx[x] = -1;
+			}
 		}
+		mesh->num_vertices = o;
+
+		material_t *mt = model.materials + k;
+		snprintf (mt->name, sizeof (mt->name), "slot%02u", slot);
+		mt->diffuse[0] = mt->diffuse[1] = mt->diffuse[2] = mt->diffuse[3] = 1.0f;
+		if (slot_tex && slot_tex[slot][0])
+		{
+			snprintf (mt->textures[0], sizeof (mt->textures[0]), "%s", slot_tex[slot]);
+			mt->num_textures = 1;
+			mt->wrap_s[0] = mt->wrap_t[0] = 1;
+			mt->min_filter[0] = mt->mag_filter[0] = 1;
+		}
+	}
 	model.num_materials = nmat;
-	model.meshes = &mesh;
-	model.num_meshes = 1;
+	model.meshes = meshes;
+	model.num_meshes = nmat;
 	const int rc = ExportModelToGLB (&model, path);
 
-	FREE (mesh.positions);
-	FREE (mesh.normals);
-	FREE (mesh.texcoords);
-	FREE (mesh.vertices);
-	FREE (mesh.triangle_materials);
+	for (uint k = 0; k < nmat; k++)
+		FREE (meshes[k].vertices);
+	FREE (meshes);
+	FREE (positions);
+	FREE (normals);
+	FREE (texcoords);
 	FREE (model.materials);
 	FREE (tri);
 	return rc == 0;
@@ -706,18 +919,126 @@ static bool dm_find_name (const dm_ctx_t *c, dm_node_t n, char *out, size_t cap)
 	return false;
 }
 
-typedef struct dm_model_ctx_t
+typedef struct dm_scene_t
 {
 	dm_ctx_t c;
-	ccp dest;
+	dm_index_t ix;
+	bool ok;
+} dm_scene_t;
+
+// Texture names are recorded by a dry run of the texture walk; the object
+// index maps (class, uid) to the section that defines the object.
+static bool dm_scene_open (dm_scene_t *sc, const u8 *d, size_t size, ccp prefix)
+{
+	memset (sc, 0, sizeof (*sc));
+	if (!d || !IsDbkMap (d, size) || !dm_section (d, size, 8, size - 4))
+		return false;
+	sc->c.d = d;
+	sc->c.size = size;
+	sc->c.prefix = prefix;
+	const dm_node_t root = { 8, rd_be32 (d + 12) };
+	dm_walk (&sc->c, root, 0);
+	dm_index_walk (&sc->c, &sc->ix, root, 0);
+	sc->ok = true;
+	return true;
+}
+
+static void dm_scene_close (dm_scene_t *sc)
+{
+	FREE (sc->c.tex);
+	FREE (sc->ix.v);
+}
+
+typedef struct dm_slot_t
+{
+	int scene; // -1: no texture, 0: this file, 1: auxiliary file
+	uint tex;
+} dm_slot_t;
+
+typedef struct dm_model_ctx_t
+{
+	dm_scene_t *sc[2];
+	dm_node_t anc[DM_MAX_DEPTH + 2];
+	ccp dest; // NULL: plan only (mark wanted auxiliary textures)
+	u8 *want_aux;
 	uint written;
 } dm_model_ctx_t;
 
+static const dm_obj_t *dm_lookup (dm_model_ctx_t *mc, int cls, u32 ua, u32 ub, int *scene)
+{
+	for (int s = 0; s < 2; s++)
+	{
+		if (!mc->sc[s])
+			continue;
+		const dm_obj_t *o = dm_index_find (&mc->sc[s]->ix, cls, ua, ub);
+		if (o)
+		{
+			*scene = s;
+			return o;
+		}
+	}
+	return 0;
+}
+
+// Texture of each material slot of the model object MODEL: slot i is entry i
+// of the model's material set; a material's first class-12 reference is its
+// texture. Material and texture may live in the auxiliary file (the shared
+// game database next to the maps).
+static void dm_resolve_slots (dm_model_ctx_t *mc, dm_node_t model, dm_slot_t *slots)
+{
+	dm_scene_t *own = mc->sc[0];
+	const dm_obj_t *set = 0;
+	for (uint i = 0; i < own->ix.used && !set; i++)
+		if (own->ix.v[i].cls == 0x25 && own->ix.v[i].start > model.start && own->ix.v[i].start < model.end)
+			set = own->ix.v + i;
+	for (uint i = 0; i < DM_SLOTS; i++)
+		slots[i].scene = -1;
+	if (!set)
+		return;
+	dm_ref_t refs[DM_MAX_SET];
+	const uint n = dm_material_set (&own->c, (dm_node_t){ set->start, set->end }, refs);
+	for (uint slot = 0; slot < n && slot < DM_SLOTS; slot++)
+	{
+		int ms = 0;
+		const dm_obj_t *mat = dm_lookup (mc, refs[slot].cls, refs[slot].ua, refs[slot].ub, &ms);
+		if (!mat)
+			continue;
+		dm_ref_t t;
+		if (!dm_first_ref (&mc->sc[ms]->c, (dm_node_t){ mat->start, mat->end }, 12, 0, &t))
+			continue;
+		int ts = 0;
+		const dm_obj_t *to = dm_lookup (mc, 12, t.ua, t.ub, &ts);
+		if (!to)
+			continue;
+		const dm_ctx_t *tc = &mc->sc[ts]->c;
+		for (uint k = 0; k < tc->textures && k < tc->tex_cap; k++)
+			if (tc->tex[k].obj_start == to->start)
+			{
+				slots[slot].scene = ts;
+				slots[slot].tex = k;
+				break;
+			}
+	}
+}
+
+static void dm_slot_names (dm_model_ctx_t *mc, const dm_slot_t *slots, char (*slot_tex)[128])
+{
+	for (uint i = 0; i < DM_SLOTS; i++)
+	{
+		slot_tex[i][0] = 0;
+		if (slots[i].scene < 0)
+			continue;
+		const dm_scene_t *sc = mc->sc[slots[i].scene];
+		snprintf (slot_tex[i], 128, "../%s.png", sc->c.tex[slots[i].tex].name);
+	}
+}
+
 static void dm_walk_models (dm_model_ctx_t *mc, dm_node_t parent, dm_node_t n, uint depth)
 {
-	dm_ctx_t *c = &mc->c;
+	dm_ctx_t *c = &mc->sc[0]->c;
 	if (depth > DM_MAX_DEPTH || mc->written >= DM_MAX_TEXTURES)
 		return;
+	mc->anc[depth] = n;
 	// leaf test: no nested sections
 	dm_node_t first[1];
 	const uint nk = dm_children (c, n, first, 1);
@@ -726,19 +1047,42 @@ static void dm_walk_models (dm_model_ctx_t *mc, dm_node_t parent, dm_node_t n, u
 		dm_mesh_t m;
 		if (dm_mesh_parse (&m, c->d + n.start + 12, n.end - n.start - 12))
 		{
-			char name[64] = "";
-			dm_find_name (c, parent, name, sizeof (name));
-			char clean[64];
-			uint k = 0;
-			for (ccp p = name; *p && k + 1 < sizeof (clean); p++)
-				clean[k++] = (isalnum ((u8)*p) || *p == '_' || *p == '-' || *p == '.') ? *p : '_';
-			clean[k] = 0;
-			if (!k)
-				snprintf (clean, sizeof (clean), "model");
-			char path[PATH_MAX];
-			snprintf (path, sizeof (path), "%s/models/%04u_%s.glb", mc->dest, mc->written, clean);
-			if (!CreatePath (path, false) && dm_write_glb (&m, clean, path))
-				mc->written++;
+			dm_slot_t slots[DM_SLOTS];
+			for (uint i = 0; i < DM_SLOTS; i++)
+				slots[i].scene = -1;
+			if (depth >= 2)
+				dm_resolve_slots (mc, mc->anc[depth - 2], slots);
+			bool used[DM_SLOTS] = { false };
+			for (uint i = 0; i < m.n_seg; i++)
+				used[m.seg[i].slot] = true;
+			for (uint i = 0; i < DM_SLOTS; i++)
+				if (!used[i])
+					slots[i].scene = -1;
+			if (!mc->dest)
+			{
+				// plan: remember which auxiliary textures the models use
+				for (uint i = 0; i < DM_SLOTS; i++)
+					if (slots[i].scene == 1)
+						mc->want_aux[slots[i].tex] = 1;
+			}
+			else
+			{
+				char name[64] = "";
+				dm_find_name (c, parent, name, sizeof (name));
+				char clean[64];
+				uint k = 0;
+				for (ccp p = name; *p && k + 1 < sizeof (clean); p++)
+					clean[k++] = (isalnum ((u8)*p) || *p == '_' || *p == '-' || *p == '.') ? *p : '_';
+				clean[k] = 0;
+				if (!k)
+					snprintf (clean, sizeof (clean), "model");
+				char path[PATH_MAX];
+				snprintf (path, sizeof (path), "%s/models/%04u_%s.glb", mc->dest, mc->written, clean);
+				char slot_tex[DM_SLOTS][128];
+				dm_slot_names (mc, slots, slot_tex);
+				if (!CreatePath (path, false) && dm_write_glb (&m, clean, path, slot_tex))
+					mc->written++;
+			}
 			FREE (m.seg);
 		}
 		return;
@@ -757,16 +1101,71 @@ static void dm_walk_models (dm_model_ctx_t *mc, dm_node_t parent, dm_node_t n, u
 	}
 }
 
-uint ExportDbkMapModels (const u8 *d, size_t size, ccp dest_dir)
+enumError ScanDbkMap (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d, size_t size,
+	const u8 *aux, size_t aux_size)
 {
-	if (!IsDbkMap (d, size) || !dm_section (d, size, 8, size - 4))
+	if (!entries || !n_entries || !IsDbkMap (d, size))
+		return EINVAL;
+	*entries = 0;
+	*n_entries = 0;
+
+	dm_out_t out = { 0, 0, 0 };
+	dm_ctx_t c = { d, size, &out, 0, 0, 0, 0, 0 };
+	const dm_node_t root = { 8, dm_section (d, size, 8, size - 4) ? rd_be32 (d + 12) : 0 };
+	if (root.end)
+		dm_walk (&c, root, 0);
+	FREE (c.tex);
+
+	// Textures of the shared game database that this file's models use.
+	dm_scene_t own, shared;
+	if (root.end && aux && dm_scene_open (&own, d, size, 0))
+	{
+		if (dm_scene_open (&shared, aux, aux_size, "gam_") && shared.c.textures)
+		{
+			dm_model_ctx_t mc;
+			memset (&mc, 0, sizeof (mc));
+			mc.sc[0] = &own;
+			mc.sc[1] = &shared;
+			mc.want_aux = CALLOC (shared.c.textures, 1);
+			if (mc.want_aux)
+			{
+				dm_walk_models (&mc, root, root, 0);
+				dm_ctx_t ac = { aux, aux_size, &out, 0, 0, 0, mc.want_aux, "gam_" };
+				dm_walk (&ac, (dm_node_t){ 8, rd_be32 (aux + 12) }, 0);
+				FREE (ac.tex);
+				FREE (mc.want_aux);
+			}
+		}
+		dm_scene_close (&shared);
+		dm_scene_close (&own);
+	}
+	if (!out.used)
+	{
+		FREE (out.v);
+		return ERR_NOTHING_TO_DO;
+	}
+	*entries = out.v;
+	*n_entries = out.used;
+	return ERR_OK;
+}
+
+uint ExportDbkMapModels (const u8 *d, size_t size, const u8 *aux, size_t aux_size, ccp dest_dir)
+{
+	dm_scene_t own, shared;
+	if (!dm_scene_open (&own, d, size, 0))
 		return 0;
 	dm_model_ctx_t mc;
 	memset (&mc, 0, sizeof (mc));
-	mc.c.d = d;
-	mc.c.size = size;
+	mc.sc[0] = &own;
+	// auxiliary textures were written as "gam_" members by ScanDbkMap
+	const bool have_aux = aux && dm_scene_open (&shared, aux, aux_size, "gam_");
+	if (have_aux)
+		mc.sc[1] = &shared;
 	mc.dest = dest_dir;
 	const dm_node_t root = { 8, rd_be32 (d + 12) };
 	dm_walk_models (&mc, root, root, 0);
+	if (have_aux)
+		dm_scene_close (&shared);
+	dm_scene_close (&own);
 	return mc.written;
 }
