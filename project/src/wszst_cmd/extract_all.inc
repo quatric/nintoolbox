@@ -84,6 +84,7 @@
 #include "extract/wsi.inc"
 #include "extract/xpk.inc"
 #include "extract/bcbig.inc"
+#include "extract/natbin.inc"
 #include "extract/bcdspi.inc"
 #include "extract/dbkmap.inc"
 #include "extract/rbark.inc"

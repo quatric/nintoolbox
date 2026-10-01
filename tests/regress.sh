@@ -9252,6 +9252,19 @@ PYEOF
     fno "Blue Castle .big" "mk_bcbig.py failed"
   fi
 
+  # Natsume "BIN\0" archive (Harvest Moon, Wii): members split by offset table,
+  # a leading lowercase tag becomes the extension.
+  mkdir -p "$d/natbin_test"
+  if python3 "$PWD_PROJECT/../tests/mk_natbin.py" "$d/natbin_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/natbin_test/T.bin" >/dev/null 2>&1
+    [ -s "$d/natbin_test/T.bin.d/0000.mss" ] \
+    && [ "$(cat "$d/natbin_test/T.bin.d/0001.bin" 2>/dev/null)" = "raw-data" ] \
+    && fok "Natsume BIN: members and tagged extension" \
+    || fno "Natsume BIN" "failed to extract synthetic archive"
+  else
+    fno "Natsume BIN" "mk_natbin.py failed"
+  fi
+
   # Artefacts Studio ".map" level database (Diabolik, Boot Camp Academy,
   # Wii): the textures inside the FAAFFAAF object graph come out as TPLs, the
   # skinned meshes as bind-pose GLBs.
