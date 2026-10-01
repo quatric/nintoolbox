@@ -9253,14 +9253,16 @@ PYEOF
   fi
 
   # Artefacts Studio ".map" level database (Diabolik, Boot Camp Academy,
-  # Wii): the textures inside the FAAFFAAF object graph come out as TPLs.
+  # Wii): the textures inside the FAAFFAAF object graph come out as TPLs, the
+  # skinned meshes as bind-pose GLBs.
   mkdir -p "$d/dbkmap_test"
   if python3 "$PWD_PROJECT/../tests/mk_dbkmap.py" "$d/dbkmap_test" >/dev/null 2>&1; then
     "$B/wszst" xx "$d/dbkmap_test/T.map" >/dev/null 2>&1
     [ -s "$d/dbkmap_test/T.map.d/textures/0000_tex_test.tpl" ] \
     && [ -s "$d/dbkmap_test/T.map.d/textures/0000_tex_test.tpl.png" ] \
-    && fok "Artefacts .map: CMPR texture extracted and decoded" \
-    || fno "Artefacts .map" "failed to extract synthetic texture"
+    && [ -s "$d/dbkmap_test/T.map.d/models/0000_dm_test.glb" ] \
+    && fok "Artefacts .map: CMPR texture decoded, skinned mesh exported as GLB" \
+    || fno "Artefacts .map" "failed to extract synthetic texture/mesh"
   else
     fno "Artefacts .map" "mk_dbkmap.py failed"
   fi

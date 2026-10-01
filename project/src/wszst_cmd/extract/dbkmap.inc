@@ -24,9 +24,32 @@ static enumError extract_dbkmap_file (ccp arg, ccp basedir, uint depth)
 
 	nintendo_sarc_entry_t *entries = 0;
 	uint n_entries = 0;
-	err = ScanDbkMap (&entries, &n_entries, raw, raw_size);
-	FREE (raw);
-	if (err || !n_entries)
+	const enumError serr = ScanDbkMap (&entries, &n_entries, raw, raw_size);
+	if ((serr && serr != ERR_NOTHING_TO_DO) || !IsDbkMap (raw, raw_size))
+	{
+		FREE (raw);
 		return ERR_NOTHING_TO_DO;
-	return write_owned_entries (arg, basedir, depth, "DBKMAP", entries, n_entries);
+	}
+
+	// Textures first: writing them also decodes the TPLs to PNGs.
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	err = ERR_OK;
+	if (n_entries)
+		err = write_owned_entries (arg, basedir, depth, "DBKMAP", entries, n_entries);
+
+	uint models = 0;
+	if (!err && !testmode)
+	{
+		char mdir[PATH_MAX];
+		snprintf (mdir, sizeof (mdir), "%s/%s", dest, basedir ? basedir : "");
+		models = ExportDbkMapModels (raw, raw_size, mdir);
+		if (models && verbose >= 0)
+			fprintf (stdlog, "%sEXTRACT DBKMAP:%s (%u models) -> %s/models/\n",
+				verbose > 0 ? "\n" : "", arg, models, mdir);
+	}
+	FREE (raw);
+	if (!n_entries && !models)
+		return ERR_NOTHING_TO_DO;
+	return err;
 }

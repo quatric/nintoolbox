@@ -37,6 +37,23 @@ name = struct.pack('>I', 20) + b'tex_test'.ljust(20, b'\0')
 leaf = b'\x01' + struct.pack('>III', mips, len(cmpr), 0) + cmpr + b'\0\0\0'
 tex = (3, [(2, [(2, [(1, [name, b'\0' * 4]), b'\0' * 4]), bytes([1, 0, 1]) + struct.pack('>HH', w, h) + b'\0']),
            b'\x01\xff\x00\x00', (1, [leaf])])
-root = (1, [(2, [tex])])
+# one skinned mesh: 3 vertices, 3 texcoords, one slot-0 strip of 1 triangle
+def mesh_leaf():
+    out = b'\x01' + struct.pack('>I', 3)
+    for i in range(3):
+        out += struct.pack('>hhhBBbbbBBBBB', 100 * i, 200 * i, 300 * i, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0)
+    out += struct.pack('>I', 3) + b''.join(struct.pack('>HH', 100 * i, 100 * i) for i in range(3))
+    out += struct.pack('>I', 0) + struct.pack('>I', 0)
+    dl = b'\x00\x98' + struct.pack('>H', 3) + b''.join(struct.pack('>HHH', i, i, i) for i in range(3))
+    for slot in range(32):
+        if slot == 0:
+            out += b'\x01' + struct.pack('>HHIHI', 0, 3, 1, 0, len(dl)) + dl + b'\0' * 8
+        else:
+            out += b'\x00'
+        out += b'\x00\x00'
+    return out + b'\0\0\0'
+mname = struct.pack('>I', 20) + b'dm_test'.ljust(20, b'\0')
+mesh = (8, [(5, [(2, [b'\0' * 4]), b'\0' * 4]), mname + b'\0' * 8, (1, [mesh_leaf()])])
+root = (1, [(2, [tex, mesh])])
 body = emit(root, 8)
 open(os.path.join(out, 'T.map'), 'wb').write(struct.pack('>II', 0xFAAFFAAF, 8) + body + struct.pack('>I', 0xFEEFFEEF))
