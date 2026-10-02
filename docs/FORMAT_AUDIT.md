@@ -395,6 +395,22 @@ Dragon Quest IX (developed by Level-5 and Armor Project / Square Enix) uses a co
 
 Archives terminate either with a terminal sentinel (`file_size == 0xFFFFFFFF && alloc_size == 0xFFFFFFFF`) or upon hitting padding / EOF. Detection (`IsL5Pac`) and streaming extraction (`wszst extract`) operate end-to-end autonomously.
 
+## Bandai Namco Museum Remix SSZL & VCRA containers (SSZL / VCRA)
+
+Retail sample:
+
+```text
+Nintendo - Wii - Redump/Namco Museum Remix (USA).zip [RN2EAF]
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| `DATA/files/museum/resource.lzs` | SSZL LZSS0 compressed archive containing inner VCRA archive | 100% (Decompressed cleanly via `wszst decompress`, 4 inner files extracted cleanly via `wszst extract`) |
+
+Bandai Namco uses two paired formats in *Namco Museum Remix* on Wii:
+- **SSZL (`.lzs`)**: LZSS0 sliding dictionary stream with 16-byte header starting with magic `SSZL`, compressed size at offset 8, decompressed size at offset 12. Decompressible via `wszst decompress` or extracted via `wszst extract`.
+- **VCRA (`.vcra` / `.bin`)**: Resource archive container starting with `VCRA` magic, entry count at offset 4, total archive size at offset 8. Supports 56-byte member filenames and inner BRRES / NW4R resources. Extraction supported via `wszst extract` and creation supported via `wszst create`.
+
 
 
 

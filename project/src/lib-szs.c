@@ -903,6 +903,25 @@ enumError DecompressSZS (szs_file_t *szs, // valid SZS source, use cdata
 			return DecompressLZ4 (szs, rm_compressed);
 		case FF_HUFF:
 			return DecompressHUFF (szs, rm_compressed);
+		case FF_SSZL:
+		{
+			u8 *data = 0;
+			uint size = 0;
+			enumError err = DecodeSSZL (&data, &size, szs->cdata, szs->csize);
+			if (err || !data)
+				return err ? err : ERR_INVALID_DATA;
+			szs->data = data;
+			szs->size = size;
+			szs->file_size = size;
+			szs->data_alloced = true;
+			szs->fform_arch = szs->fform_current = GetByMagicFF (data, size, size);
+			szs->ff_attrib = GetAttribFF (szs->fform_arch);
+			szs->ff_version = GetVersionFF (szs->fform_arch, szs->data, szs->size, 0);
+			ClearContainerSZS (szs);
+			if (rm_compressed)
+				ClearCompressedSZS (szs);
+			return ERR_OK;
+		}
 		case FF_RL:
 		{
 			uint off = 0;

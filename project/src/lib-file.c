@@ -1826,6 +1826,20 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 					return FF_NPDM;
 				break;
 
+			// Namco Museum SSZL LZSS0 compressed container
+			case 0x53535a4c: // "SSZL"
+			case 0x4c5a5353: // "LZSS"
+				if (data_size >= 16 && !memcmp (data8, "SSZL", 4))
+					return FF_SSZL;
+				break;
+
+			// Namco Museum Remix VCRA archive container
+			case 0x56435241: // "VCRA"
+			case 0x41524356: // "ARCV"
+				if (data_size >= 16 && !memcmp (data8, "VCRA", 4))
+					return FF_VCRA;
+				break;
+
 			case BREFF_MAGIC_NUM:
 				if (file_size >= 0x20)
 					return data_size < 0x14 || !memcmp (data + 0x10, BREFF_MAGIC, 4) ? FF_BREFF

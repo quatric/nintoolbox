@@ -2704,6 +2704,16 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 0, { 0 }, 0, MinusString, MinusString,
 		"Level-5 / Armor Project PAC archive container (.pac / .dat, NDS; fully decoded)" },
 
+	// FF_SSZL = 462 (Namco Museum SSZL LZSS0 compressed container)
+	{ FF_SSZL, 0, 0, "SSZL", ".lzs", ".szs", ".lzs",
+		FFT_VALID | FFT_COMPRESS | FFT_TRACK, 4, { 'S', 'S', 'Z', 'L' }, 0, MinusString, MinusString,
+		"Namco Museum SSZL LZSS0 compressed container (.lzs / SSZL, Wii; fully decoded)" },
+
+	// FF_VCRA = 463 (Namco Museum Remix archive container)
+	{ FF_VCRA, FF_VCRA, 0, "VCRA", ".vcra", ".vcra", ".vcra",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 4, { 'V', 'C', 'R', 'A' }, 0, MinusString, MinusString,
+		"Namco Museum Remix archive container (.vcra / .bin / VCRA, Wii; fully decoded)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2975,6 +2985,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_CPAC, "CPAC", "CPAC", 0xe05 },
 	{ FF_RL, "RL", "RL", 0x103 },
 	{ FF_L5_PAC, "L5-PAC", "L5-PAC", 0xe05 },
+	{ FF_SSZL, "SSZL", "SSZL", 0x103 },
+	{ FF_VCRA, "VCRA", "VCRA", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

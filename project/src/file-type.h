@@ -574,6 +574,8 @@ typedef enum file_format_t
 	FF_CPAC,	 // 459 - Capcom CPAC multi-section archive container (.bin / BKEY / PKEY)
 	FF_RL,		 // 460 - Nintendo Run Length 8-bit compressed file (.rl / 0x30)
 	FF_L5_PAC,	 // 461 - Level-5 / Armor Project PAC archive container (.pac / .dat)
+	FF_SSZL,	 // 462 - Namco Museum SSZL LZSS0 compressed container (.lzs / SSZL)
+	FF_VCRA,	 // 463 - Namco Museum Remix archive container (.vcra / .bin / VCRA)
 
 	//--- number of elements
 
