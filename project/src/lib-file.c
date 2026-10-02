@@ -2254,6 +2254,11 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 	if (IsJupiterPck (data8, data_size, file_size))
 		return FF_JUPITER_PCK;
 
+	// Treasure Co., Ltd. Nintendo DS Multi-Resource Archive (.mrg, Bleach / Bangai-O)
+	bool IsTreasureMrg (const u8 *data, uint data_size, u64 file_size);
+	if (IsTreasureMrg (data8, data_size, file_size))
+		return FF_TREASURE_MRG;
+
 	// Magic-less SPICA-family containers: the structural gates (validated
 	// offset tables plus a skeleton/probe byte) are specific enough to run
 	// ahead of the looser NFMT walkers below (e.g. ScanWWRSC, which also

@@ -91,6 +91,7 @@
 #include "extract/l5pac.inc"
 #include "extract/cingwpf.inc"
 #include "extract/jupiterpck.inc"
+#include "extract/treasuremrg.inc"
 #include "extract/bcdspi.inc"
 #include "extract/dbkmap.inc"
 #include "extract/rbark.inc"

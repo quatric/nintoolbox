@@ -558,9 +558,24 @@ Camelot Software Planning titles (*Golden Sun: Dark Dawn* / *Ougon no Taiyou: Sh
 
 Detected and classified natively via `wszst filetype`.
 
+## Treasure DS Multi-Resource Archive (TREASURE-MRG)
 
+Retail samples:
 
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Bleach - Dark Souls (USA).zip
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Bleach - The Blade of Fate (USA).zip
+```
 
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| Bleach: Dark Souls `.mrg` archives | 90 retail archives (2,177 member files) | 100% (90/90 detected cleanly as `TREASURE-MRG`; extracted 2,177 members byte-for-byte) |
+| Bleach: The Blade of Fate `.mrg` archives | 78 retail archives (2,184 member files) | 100% (78/78 detected cleanly as `TREASURE-MRG`; extracted 2,184 members byte-for-byte) |
 
+Treasure Co., Ltd. Nintendo DS titles (*Bleach: Dark Souls*, *Bleach: The Blade of Fate*, *Bangai-O Spirits*) bundle multi-resource character animations, stage assets, UI graphics, and scripts in little-endian `.mrg` table archives:
+- `+0x00..+0x03`: `u32` member file count $N$ (little-endian).
+- `+0x04..+0x04 + N * 8`: $N$ pairs of `{ u32 offset, u32 size }` (little-endian).
+- Alignment: First offset aligns with table end padded to 4-byte boundary. Subsequent member offsets are contiguous.
+- Members include Treasure 2D graphics (`.bg4` with magic `04 00 01 01`, `.bg8` with magic `08 00 01 01`), palettes, collision hitboxes, and scripts.
 
-
+Detected cleanly via `wszst filetype` and extracted natively via `wszst extract`.
