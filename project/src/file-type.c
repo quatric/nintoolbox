@@ -2699,6 +2699,11 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0x30 }, 0, MinusString, MinusString,
 		"Nintendo Run Length 8-bit compressed file (GBA BIOS / DS style, 0x30)" },
 
+	// FF_L5_PAC = 461 (Level-5 / Armor Project PAC archive container)
+	{ FF_L5_PAC, FF_L5_PAC, 0, "L5-PAC", ".pac", ".pac", ".pac",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 0, { 0 }, 0, MinusString, MinusString,
+		"Level-5 / Armor Project PAC archive container (.pac / .dat, NDS; fully decoded)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2969,6 +2974,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_CV_SPR, "CV-SPR", "CV-SPR", 0xe05 },
 	{ FF_CPAC, "CPAC", "CPAC", 0xe05 },
 	{ FF_RL, "RL", "RL", 0x103 },
+	{ FF_L5_PAC, "L5-PAC", "L5-PAC", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };

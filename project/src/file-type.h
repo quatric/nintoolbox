@@ -573,6 +573,7 @@ typedef enum file_format_t
 	FF_CV_SPR,	 // 458 - Konami Castlevania DS sprite object definition (.dat / 0xBEEFF00D)
 	FF_CPAC,	 // 459 - Capcom CPAC multi-section archive container (.bin / BKEY / PKEY)
 	FF_RL,		 // 460 - Nintendo Run Length 8-bit compressed file (.rl / 0x30)
+	FF_L5_PAC,	 // 461 - Level-5 / Armor Project PAC archive container (.pac / .dat)
 
 	//--- number of elements
 

@@ -537,6 +537,7 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-pckg.h"
 #include "lib-nsgh.h"
 #include "lib-cpac.h"
+#include "lib-l5pac.h"
 #include "lib-dbkmap.h"
 #include "lib-rbark.h"
 #include "lib-nibm.h"

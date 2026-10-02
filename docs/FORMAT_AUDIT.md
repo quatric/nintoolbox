@@ -370,6 +370,32 @@ Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Professor Layton and the 
 
 Level-5 titles on Nintendo DS prefix standard GBA/DS BIOS compression streams (Run Length `0x30`, LZ10 `0x10`, Huffman-4 `0x24`, Huffman-8 `0x28`) with a 4-byte little-endian method header (`0x00000001` for RL, `0x00000002` for LZ10, `0x00000003` for Huff4, `0x00000004` for Huff8). `DetectNintendoFormat` automatically unwraps these 4-byte headers and routes them to their native decompressors, matching uncompressed reference implementations byte-for-byte.
 
+## Level-5 / Armor Project PAC archive containers (L5-PAC)
+
+Retail samples:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Dragon Quest IX - Sentinels of the Starry Skies (USA) (En,Fr,Es).zip
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Dragon Quest IX - Hoshizora no Mamoribito (Japan).zip
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| Dragon Quest IX (USA) | 123 `.pac` + 3 `.dat` archives | 100% (541/541 files extracted, 0 boundary errors) |
+| Dragon Quest IX (Japan) | 190 `.pac` archives | 100% (853/853 files extracted, 0 boundary errors) |
+| Combined Retail Audit | 316 PAC archives | 1,475 member files extracted cleanly with correct inner formats (`.ncgr`, `.nclr`, `.ncer`, `.nanr`, `.nsbmd`, `.nsbca`, `.nsbma`, `.nsbta`, `.bncg`, `.bncl`, `.bnsc`, `.bcfg`, `.bact`) |
+
+Dragon Quest IX (developed by Level-5 and Armor Project / Square Enix) uses a contiguous-header archive container (`.pac` and `.dat`), where each member record begins with an 80-byte (`0x50`) header:
+- `+0x00..+0x3F`: null-terminated member filename (ASCII / Shift-JIS) followed by compiler metadata
+- `+0x40`: header length (always `0x00000050` / 80 bytes)
+- `+0x44`: uncompressed member payload size
+- `+0x48`: member chunk allocation stride (16-byte aligned)
+- `+0x4C`: engine scratch word
+- `+0x50`: uncompressed payload bytes begin immediately
+
+Archives terminate either with a terminal sentinel (`file_size == 0xFFFFFFFF && alloc_size == 0xFFFFFFFF`) or upon hitting padding / EOF. Detection (`IsL5Pac`) and streaming extraction (`wszst extract`) operate end-to-end autonomously.
+
+
 
 
 
