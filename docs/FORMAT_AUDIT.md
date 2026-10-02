@@ -579,3 +579,37 @@ Treasure Co., Ltd. Nintendo DS titles (*Bleach: Dark Souls*, *Bleach: The Blade 
 - Members include Treasure 2D graphics (`.bg4` with magic `04 00 01 01`, `.bg8` with magic `08 00 01 01`), palettes, collision hitboxes, and scripts.
 
 Detected cleanly via `wszst filetype` and extracted natively via `wszst extract`.
+
+## Capcom Ghost Trick Proprietary Formats (CAPCOM-MODS & CAPCOM-GML1)
+
+Retail sample:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Ghost Trick - Phantom Detective (USA) (En,Fr,De,Es,It).zip
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| Ghost Trick `.mods` animation streams | 17 retail `.mods` files | 100% (17/17 files identified cleanly as `CAPCOM-MODS`; 0 errors) |
+| Ghost Trick `.xml.bin` script binaries | 18 retail `.xml.bin` files (+ 929 inner `.xml.lz` files) | 100% (18/18 files identified cleanly as `CAPCOM-GML1`; 0 errors) |
+
+*Ghost Trick: Phantom Detective* (Capcom, Nintendo DS) uses proprietary formats for cutscene animation and game script data:
+- **CAPCOM-MODS (`.mods` / `MODSN3`)**:
+  - `+0x00..+0x03`: `MODS` magic fourcc (ASCII).
+  - `+0x04..+0x07`: `N3\n\0` format version identifier.
+  - `+0x08..+0x0B`: `u32` total animation frame count (little-endian).
+  - `+0x0C..+0x0F`: `u32` block/chunk stride (always 256).
+  - `+0x10..+0x13`: `u32` header size (always 192 bytes = `0xC0`).
+  - `+0x14..+0x17`: animation identifier / CRC (`0x0EFC2ED9`).
+  - `+0x28..+0x2B`: `u32` trailer keyframe table offset.
+  - `+0x2C..+0x2F`: `u32` trailer keyframe table entry count.
+  - Trailer: Array of pairs `{ u32 frame_index, u32 keyframe_offset }`.
+- **CAPCOM-GML1 (`.xml.bin` / `1LMG`)**:
+  - `+0x00..+0x03`: `1LMG` magic fourcc (ASCII; little-endian `0x474D4C31`).
+  - `+0x04..+0x07`: `u32` flags/version (0 for dialogue/database scripts, 102 for system menus).
+  - `+0x08..+0x0B`: `u32` data/bytecode section byte length.
+  - `+0x0C..+0x0F`: `u32` control entry count.
+  - `+0x10..+0x13`: `u32` key/string table offset.
+  - Followed by bytecode instructions, localized text blocks, and dictionary key-to-offset index tables.
+
+Both formats are detected and classified natively via `wszst filetype`.

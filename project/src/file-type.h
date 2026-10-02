@@ -583,6 +583,8 @@ typedef enum file_format_t
 	FF_PROCYON_SMD, // 468 - Procyon Studio Standard MIDI / Song Data (.smd / smdl; Layton / PMD)
 	FF_CAMELOT_MDLR, // 469 - Camelot Software Planning Model/Map Object Definition (.mdlr / MDLR; Golden Sun)
 	FF_TREASURE_MRG, // 470 - Treasure Co., Ltd. Nintendo DS Multi-Resource Archive (.mrg; Bleach / Bangai-O)
+	FF_CAPCOM_MODS,	 // 471 - Capcom Ghost Trick Animation Stream (.mods / MODSN3)
+	FF_CAPCOM_GML1,	 // 472 - Capcom Game Message/Script Binary (.xml.bin / 1LMG; Ghost Trick)
 
 	//--- number of elements
 

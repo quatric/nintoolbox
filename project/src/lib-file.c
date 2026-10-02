@@ -1792,6 +1792,13 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x424e5348: // "BNSH"
 				return FF_BNSH;
 
+			// Capcom Ghost Trick Animation Stream (MODS)
+			case 0x4d4f4453: // "MODS"
+			case 0x53444f4d: // "SDOM"
+				if (IsCapcomMods (data8, data_size, file_size))
+					return FF_CAPCOM_MODS;
+				break;
+
 			// NintendoWare Shader Archive (BFSHA)
 			case 0x46534841: // "FSHA"
 				return FF_BFSHA;
@@ -1878,6 +1885,13 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x4c5a4f31: // "LZO1"
 				if (data_size >= 12 && !memcmp (data8, "1OZL", 4))
 					return FF_INIO_LZO;
+				break;
+
+			// Capcom Game Message / Script Binary (1LMG / GML1, Ghost Trick: Phantom Detective)
+			case 0x314c4d47: // "1LMG"
+			case 0x474d4c31: // "GML1"
+				if (IsCapcomGML1 (data8, data_size, file_size))
+					return FF_CAPCOM_GML1;
 				break;
 
 			case BREFF_MAGIC_NUM:

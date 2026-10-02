@@ -2753,6 +2753,18 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, MinusString, MinusString,
 		"Treasure Co., Ltd. Nintendo DS Multi-Resource Archive (.mrg, Bleach / Bangai-O; fully extracted)" },
 
+	// FF_CAPCOM_MODS = 471 (Capcom Ghost Trick Animation Stream)
+	{ FF_CAPCOM_MODS, FF_CAPCOM_MODS, 0, "CAPCOM-MODS", ".mods", ".mods", ".mods",
+		FFT_VALID | FFT_CUT, 4, { 'M', 'O', 'D', 'S' },
+		0, MinusString, MinusString,
+		"Capcom Ghost Trick Animation Stream (.mods / MODSN3; Ghost Trick: Phantom Detective)" },
+
+	// FF_CAPCOM_GML1 = 472 (Capcom Game Message / Script Binary)
+	{ FF_CAPCOM_GML1, FF_CAPCOM_GML1, 0, "CAPCOM-GML1", ".xml.bin", ".bin", ".xml.bin",
+		FFT_VALID | FFT_CUT, 4, { '1', 'L', 'M', 'G' },
+		0, MinusString, MinusString,
+		"Capcom Game Message / Script Binary (.xml.bin / 1LMG; Ghost Trick: Phantom Detective)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -3034,6 +3046,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_PROCYON_SMD, "PROCYON-SMD", "SMDL", 0x861 },
 	{ FF_CAMELOT_MDLR, "CAMELOT-MDLR", "MDLR", 0x861 },
 	{ FF_TREASURE_MRG, "TREASURE-MRG", "TREASUREMRG", 0xe05 },
+	{ FF_CAPCOM_MODS, "CAPCOM-MODS", "MODS", 0x861 },
+	{ FF_CAPCOM_GML1, "CAPCOM-GML1", "1LMG", 0x861 },
 
 	{ 0, 0, 0, 0 }
 };

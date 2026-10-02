@@ -571,5 +571,6 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-fpk.h"
 #include "lib-fpk.h"
 #include "lib-ttarch.h"
+#include "lib-ghosttrick.h"
 
 #endif
