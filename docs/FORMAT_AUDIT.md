@@ -476,6 +476,35 @@ CiNG adventure titles (*Hotel Dusk: Room 215*, *Last Window: The Secret of Cape 
 
 Contained assets include `.dtx` textures (LZ10/Huffman compressed), `.mdf` 3D room/prop models, `.anm` animations, `.def` definitions, `.col` collision data, and `.mot` motion tracks. Extraction is supported natively in `wszst extract`, with automatic recursion into nested compressed payloads.
 
+## Jupiter Corp Nintendo DS Model/Motion Package (JUPITER-PCK)
+
+Retail sample:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/World Ends with You, The (USA).zip
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| The World Ends with You `.pck` archives | 90 retail `.pck` archives (276 total member files) | 100% (90/90 archives extracted cleanly; all 276 member files verified byte-for-byte; 0 errors) |
+
+Jupiter Corporation developed Nintendo DS titles (*The World Ends with You* / *Subarashiki Kono Sekai*, *Kingdom Hearts: Re:coded*, *Spectrobes*) store model meshes, animations, and physics colliders in uncompressed `.pck` packages:
+- `+0x00..+0x03`: `u32` header table length (little-endian; 16-byte aligned).
+- `+0x04..+0x07`: `u32` member count $N$ (little-endian).
+- `+0x08..+0x08 + N*4`: $N$ $\times$ `u32` member byte sizes (little-endian).
+- Zero-padding to header length, followed by contiguous member payloads without gaps.
+
+Members unpack directly to standard Nintendo Nitro 3D binary formats identified by embedded fourcc magics:
+- `BMD0` (`.nsbmd`): Nitro 3D basic model mesh and material dictionaries
+- `BTX0` (`.nsbtx`): Nitro 3D texture dictionary
+- `BCA0` (`.nsbca`): Nitro 3D character / skeletal bone animation
+- `BTP0` (`.nsbtp`): Nitro 3D texture pattern animation
+- `BTA0` (`.nsbta`): Nitro 3D material color animation
+- `BMA0` (`.nsbma`): Nitro 3D visibility animation
+- `COLI` (`.coli`): Battle hitbox collision geometry
+
+Extraction is supported natively in `wszst extract`, with members automatically assigned typed Nitro file extensions.
+
 
 
 

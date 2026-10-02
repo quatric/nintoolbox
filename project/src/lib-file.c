@@ -2218,6 +2218,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 	if (IsCingWpf (data8, data_size, file_size))
 		return FF_CING_WPF;
 
+	// Jupiter Corp Nintendo DS Model/Motion Package (.pck, TWEWY / Kingdom Hearts)
+	if (IsJupiterPck (data8, data_size, file_size))
+		return FF_JUPITER_PCK;
+
 	// Magic-less SPICA-family containers: the structural gates (validated
 	// offset tables plus a skeleton/probe byte) are specific enough to run
 	// ahead of the looser NFMT walkers below (e.g. ScanWWRSC, which also

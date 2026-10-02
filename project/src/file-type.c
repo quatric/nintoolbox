@@ -2724,6 +2724,11 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 0, { 0 }, 0, MinusString, MinusString,
 		"CiNG Wish Pack File archive container (.wpf, Hotel Dusk / Trace Memory, NDS; fully extracted)" },
 
+	// FF_JUPITER_PCK = 466 (Jupiter Corp Nintendo DS Model/Motion Package)
+	{ FF_JUPITER_PCK, FF_JUPITER_PCK, 0, "JUPITER-PCK", ".pck", ".pck", ".pck",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 0, { 0 }, 0, MinusString, MinusString,
+		"Jupiter Corp Nintendo DS Model/Motion Package (.pck, TWEWY / Kingdom Hearts; fully extracted)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -3000,6 +3005,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_VCRA, "VCRA", "VCRA", 0xe05 },
 	{ FF_INIO_LZO, "INIO-LZO", "1OZL", 0x103 },
 	{ FF_CING_WPF, "CING-WPF", "CINGWPF", 0xe05 },
+	{ FF_JUPITER_PCK, "JUPITER-PCK", "JUPITERPCK", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };
