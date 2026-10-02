@@ -2214,6 +2214,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 	if (IsL5Pac (data8, data_size, file_size))
 		return FF_L5_PAC;
 
+	// CiNG Wish Pack File archive container (.wpf, Hotel Dusk / Trace Memory)
+	if (IsCingWpf (data8, data_size, file_size))
+		return FF_CING_WPF;
+
 	// Magic-less SPICA-family containers: the structural gates (validated
 	// offset tables plus a skeleton/probe byte) are specific enough to run
 	// ahead of the looser NFMT walkers below (e.g. ScanWWRSC, which also

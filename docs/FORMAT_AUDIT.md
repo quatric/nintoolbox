@@ -455,6 +455,27 @@ Nintendo DS titles (*Custom Robo Arena*, etc.) use a little-endian compilation o
 
 Both `wszst filetype`, `wszst extract --decode`, and `wbmgt decode` / `wbmgt encode` support little-endian BMG end-to-end with 100% byte-for-byte round-trip preservation.
 
+## CiNG Wish Pack File (CING-WPF)
+
+Retail sample:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Hotel Dusk - Room 215 (USA).zip
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| Hotel Dusk `.wpf` archives | 275 retail `.wpf` archives (6,605 total member files) | 100% (275/275 archives extracted cleanly; all 6,605 member files verified byte-for-byte; 0 errors) |
+| Hotel Dusk `.tbl` index files | 275 companion `.tbl` files | Verified 1:1 match against internal 32-byte directory records |
+
+CiNG adventure titles (*Hotel Dusk: Room 215*, *Last Window: The Secret of Cape West*) package 2D/3D graphics, scripts, models, textures, and sound into contiguous archives using 32-byte directory headers:
+- `+0x00..+0x17`: 24-byte member filename (null-terminated, ASCII/Shift-JIS, optionally prefixed with `\` or `/`).
+- `+0x18..+0x1B`: `u32` payload size (little-endian).
+- `+0x1C..+0x1F`: `u32` next member offset in archive (little-endian).
+- `+0x20`: Raw member payload data, padded to 16-byte alignment boundary.
+
+Contained assets include `.dtx` textures (LZ10/Huffman compressed), `.mdf` 3D room/prop models, `.anm` animations, `.def` definitions, `.col` collision data, and `.mot` motion tracks. Extraction is supported natively in `wszst extract`, with automatic recursion into nested compressed payloads.
+
 
 
 

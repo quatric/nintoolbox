@@ -2719,6 +2719,11 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		FFT_VALID | FFT_COMPRESS | FFT_TRACK, 4, { '1', 'O', 'Z', 'L' }, 0, MinusString, MinusString,
 		"iNiS LZO1X compressed container (1OZL, Ouendan / Elite Beat Agents, NDS; fully decoded)" },
 
+	// FF_CING_WPF = 465 (CiNG Wish Pack File archive container)
+	{ FF_CING_WPF, FF_CING_WPF, 0, "CING-WPF", ".wpf", ".wpf", ".wpf",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 0, { 0 }, 0, MinusString, MinusString,
+		"CiNG Wish Pack File archive container (.wpf, Hotel Dusk / Trace Memory, NDS; fully extracted)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2994,6 +2999,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_SSZL, "SSZL", "SSZL", 0x103 },
 	{ FF_VCRA, "VCRA", "VCRA", 0xe05 },
 	{ FF_INIO_LZO, "INIO-LZO", "1OZL", 0x103 },
+	{ FF_CING_WPF, "CING-WPF", "CINGWPF", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };
