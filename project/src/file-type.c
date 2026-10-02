@@ -2729,6 +2729,18 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 0, { 0 }, 0, MinusString, MinusString,
 		"Jupiter Corp Nintendo DS Model/Motion Package (.pck, TWEWY / Kingdom Hearts; fully extracted)" },
 
+	// FF_PROCYON_SWD = 467 (Procyon Studio Sound Wave Data)
+	{ FF_PROCYON_SWD, FF_PROCYON_SWD, 0, "PROCYON-SWD", ".swd", ".swd", ".swd",
+		FFT_VALID | FFT_CUT, 4, { 0x73, 0x77, 0x64, 0x6c }, // "swdl"
+		0, MinusString, MinusString,
+		"Procyon Studio Sound Wave Data (swdl; Professor Layton / Inazuma Eleven / PMD)" },
+
+	// FF_PROCYON_SMD = 468 (Procyon Studio Standard MIDI / Song Data)
+	{ FF_PROCYON_SMD, FF_PROCYON_SMD, 0, "PROCYON-SMD", ".smd", ".smd", ".smd",
+		FFT_VALID | FFT_CUT, 4, { 0x73, 0x6d, 0x64, 0x6c }, // "smdl"
+		0, MinusString, MinusString,
+		"Procyon Studio Standard MIDI / Song Data (smdl; Professor Layton / PMD)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -3006,6 +3018,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_INIO_LZO, "INIO-LZO", "1OZL", 0x103 },
 	{ FF_CING_WPF, "CING-WPF", "CINGWPF", 0xe05 },
 	{ FF_JUPITER_PCK, "JUPITER-PCK", "JUPITERPCK", 0xe05 },
+	{ FF_PROCYON_SWD, "PROCYON-SWD", "SWDL", 0x861 },
+	{ FF_PROCYON_SMD, "PROCYON-SMD", "SMDL", 0x861 },
 
 	{ 0, 0, 0, 0 }
 };

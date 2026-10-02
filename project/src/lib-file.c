@@ -1475,6 +1475,28 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x5341444c: // "SADL"
 				return FF_SADL;
 
+			// Procyon Studio Sound Wave Data (SWDL)
+			case 0x7377646c: // "swdl" (LE rd_be32)
+			case 0x6c647773: // "ldws"
+				if (data_size >= 12)
+				{
+					const u32 fsz = (u32)data8[8] | ((u32)data8[9] << 8) | ((u32)data8[10] << 16) | ((u32)data8[11] << 24);
+					if (fsz >= 0x30 && (file_size == 0 || fsz == file_size))
+						return FF_PROCYON_SWD;
+				}
+				break;
+
+			// Procyon Studio Standard MIDI / Song Data (SMDL)
+			case 0x736d646c: // "smdl" (LE rd_be32)
+			case 0x6c646d73: // "ldms"
+				if (data_size >= 12)
+				{
+					const u32 fsz = (u32)data8[8] | ((u32)data8[9] << 8) | ((u32)data8[10] << 16) | ((u32)data8[11] << 24);
+					if (fsz >= 0x40 && (file_size == 0 || fsz == file_size))
+						return FF_PROCYON_SMD;
+				}
+				break;
+
 			// Nitro Cell Resource (NCER / RECN)
 			case 0x5245434e: // "RECN"
 			case 0x4e434552: // "NCER"

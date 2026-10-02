@@ -579,6 +579,8 @@ typedef enum file_format_t
 	FF_INIO_LZO, // 464 - iNiS LZO1X compressed container (1OZL / Ouendan / EBA)
 	FF_CING_WPF, // 465 - CiNG Wish Pack File archive container (.wpf, Hotel Dusk / Trace Memory)
 	FF_JUPITER_PCK, // 466 - Jupiter Corp Nintendo DS Model/Motion Package (.pck, TWEWY / Kingdom Hearts)
+	FF_PROCYON_SWD, // 467 - Procyon Studio Sound Wave Data (.swd / swdl; Layton / Inazuma / PMD)
+	FF_PROCYON_SMD, // 468 - Procyon Studio Standard MIDI / Song Data (.smd / smdl; Layton / PMD)
 
 	//--- number of elements
 

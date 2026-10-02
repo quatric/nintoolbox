@@ -505,6 +505,35 @@ Members unpack directly to standard Nintendo Nitro 3D binary formats identified 
 
 Extraction is supported natively in `wszst extract`, with members automatically assigned typed Nitro file extensions.
 
+## Procyon Studio Sound Wave Data (PROCYON-SWD) & MIDI Song Data (PROCYON-SMD)
+
+Retail samples:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Professor Layton and the Diabolical Box (USA).zip
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Pokemon Mystery Dungeon - Explorers of Sky (USA).zip
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| Layton & PMD Sound Wave Data (`.swd`) | 385 retail `.swd` files (82 Layton 2, 303 PMD Sky) | 100% (385/385 files identified cleanly as `PROCYON-SWD`; 0 errors) |
+| Layton & PMD Standard MIDI Data (`.smd`) | 226 retail `.smd` files (15 Layton 2, 211 PMD Sky) | 100% (226/226 files identified cleanly as `PROCYON-SMD`; 0 errors) |
+
+Procyon Studio sound driver formats created by Yasunori Mitsuda's sound production studio are used across Level-5 titles (*Professor Layton and the Diabolical Box*, *Inazuma Eleven*) and Chunsoft titles (*Pokémon Mystery Dungeon: Explorers of Time / Darkness / Sky*):
+- **Sound Wave Data (`swdl` / `.swd`)**:
+  - `+0x00..+0x03`: `swdl` magic fourcc (little-endian `0x6c647773`).
+  - `+0x08..+0x0B`: `u32` total file size (little-endian).
+  - Fourcc chunk sections: `wavi` (wave parameters & sample properties), `prgi` (program/instrument definitions), `kgrp` (keygroup mappings), and `pcmd` (raw ADPCM/PCM sample data stream).
+  - Trailing block: `eod \0\0\x15\x04\x10\0\0\0\0\0\0\0`.
+- **Standard MIDI Song Data (`smdl` / `.smd`)**:
+  - `+0x00..+0x03`: `smdl` magic fourcc (little-endian `0x6c646d73`).
+  - `+0x08..+0x0B`: `u32` total file size (little-endian).
+  - Fourcc chunk sections: `song` (music metadata & channel assignment), followed by 4-byte-aligned track sequences (`trk `).
+  - Trailing block: `eoc ` or `eod `.
+
+Both formats are detected and classified natively via `wszst filetype`.
+
+
 
 
 
