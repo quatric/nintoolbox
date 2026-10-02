@@ -2741,6 +2741,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, MinusString, MinusString,
 		"Procyon Studio Standard MIDI / Song Data (smdl; Professor Layton / PMD)" },
 
+	// FF_CAMELOT_MDLR = 469 (Camelot Software Planning Model/Map Object Definition)
+	{ FF_CAMELOT_MDLR, FF_CAMELOT_MDLR, 0, "CAMELOT-MDLR", ".mdlr", ".mdlr", ".mdlr",
+		FFT_VALID | FFT_CUT, 4, { 'M', 'D', 'L', 'R' },
+		0, MinusString, MinusString,
+		"Camelot Software Planning Model/Map Object Definition (.mdlr / MDLR; Golden Sun: Dark Dawn)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -3020,6 +3026,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_JUPITER_PCK, "JUPITER-PCK", "JUPITERPCK", 0xe05 },
 	{ FF_PROCYON_SWD, "PROCYON-SWD", "SWDL", 0x861 },
 	{ FF_PROCYON_SMD, "PROCYON-SMD", "SMDL", 0x861 },
+	{ FF_CAMELOT_MDLR, "CAMELOT-MDLR", "MDLR", 0x861 },
 
 	{ 0, 0, 0, 0 }
 };

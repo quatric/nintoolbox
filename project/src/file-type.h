@@ -581,6 +581,7 @@ typedef enum file_format_t
 	FF_JUPITER_PCK, // 466 - Jupiter Corp Nintendo DS Model/Motion Package (.pck, TWEWY / Kingdom Hearts)
 	FF_PROCYON_SWD, // 467 - Procyon Studio Sound Wave Data (.swd / swdl; Layton / Inazuma / PMD)
 	FF_PROCYON_SMD, // 468 - Procyon Studio Standard MIDI / Song Data (.smd / smdl; Layton / PMD)
+	FF_CAMELOT_MDLR, // 469 - Camelot Software Planning Model/Map Object Definition (.mdlr / MDLR; Golden Sun)
 
 	//--- number of elements
 

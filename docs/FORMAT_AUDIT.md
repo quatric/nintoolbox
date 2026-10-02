@@ -533,6 +533,32 @@ Procyon Studio sound driver formats created by Yasunori Mitsuda's sound producti
 
 Both formats are detected and classified natively via `wszst filetype`.
 
+## Camelot Software Planning Model Definition (CAMELOT-MDLR)
+
+Retail sample:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Golden Sun - Dark Dawn (USA, Australia) (En,Es).zip
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| Golden Sun: Dark Dawn `.mdlr` models | 1,284 retail `.mdlr` files with MDLR container header | 100% (1,284/1,284 files identified cleanly as `CAMELOT-MDLR`; 0 errors) |
+
+Camelot Software Planning titles (*Golden Sun: Dark Dawn* / *Ougon no Taiyou: Shikkokunaru Yoake*) store interactive 3D map props, puzzle interactables, and animated scenery in `.mdlr` definition containers:
+- `+0x00..+0x03`: `MDLR` magic fourcc (ASCII).
+- `+0x04`: `0x00` delimiter byte.
+- `+0x05..+0x08`: `u32` actor model name byte length $L$ (little-endian).
+- `+0x09..+0x09 + L`: ASCII actor identifier name, terminated by `0x00`.
+- Chunks follow immediately after the identifier name:
+  - `ANMC`: Animation controller sequence states (`WAIT_S_1`, `ACT_A`, `LOOP`, etc.).
+  - `COLL`: Physics collision definition binding to collision meshes (`.col`).
+  - `LCTR`: Lighting and directional reflection controls.
+  - `REND`: Render activation tags.
+
+Detected and classified natively via `wszst filetype`.
+
+
 
 
 

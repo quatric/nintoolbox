@@ -1497,6 +1497,16 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 				}
 				break;
 
+			// Camelot Software Planning Model/Map Object Definition (MDLR)
+			case 0x4d444c52: // "MDLR"
+				if (data_size >= 14 && data8[4] == 0)
+				{
+					const u32 nlen = (u32)data8[5] | ((u32)data8[6] << 8) | ((u32)data8[7] << 16) | ((u32)data8[8] << 24);
+					if (nlen >= 1 && nlen <= 64 && 9 + nlen < data_size && data8[9 + nlen] == 0)
+						return FF_CAMELOT_MDLR;
+				}
+				break;
+
 			// Nitro Cell Resource (NCER / RECN)
 			case 0x5245434e: // "RECN"
 			case 0x4e434552: // "NCER"
