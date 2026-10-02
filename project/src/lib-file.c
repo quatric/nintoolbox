@@ -2273,6 +2273,11 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 	if (IsTreasureMrg (data8, data_size, file_size))
 		return FF_TREASURE_MRG;
 
+	// Atlus Nintendo DS / 3DS Directory Index (.ndx, Radiant Historia / SMT)
+	bool IsAtlusNdx (const u8 *data, uint data_size, u64 file_size);
+	if (IsAtlusNdx (data8, data_size, file_size))
+		return FF_ATLUS_NDX;
+
 	// Magic-less SPICA-family containers: the structural gates (validated
 	// offset tables plus a skeleton/probe byte) are specific enough to run
 	// ahead of the looser NFMT walkers below (e.g. ScanWWRSC, which also

@@ -613,3 +613,42 @@ Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Ghost Trick - Phantom Det
   - Followed by bytecode instructions, localized text blocks, and dictionary key-to-offset index tables.
 
 Both formats are detected and classified natively via `wszst filetype`.
+
+## Atlus Nintendo DS / 3DS Directory Index & Archive System (ATLUS-NDX)
+
+Retail sample:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Radiant Historia (USA).zip
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| Radiant Historia `Data.ndx` / `Data.idx` / `Data.bin` | 1 retail archive trio (25,405 tree paths, 25,321 packed files, 35,155,000 bytes) | 100% (Detected as `ATLUS-NDX`; extracted 25,321 files byte-for-byte across 2,468 directories) |
+
+Atlus Nintendo DS and Nintendo 3DS titles (*Radiant Historia*, *Shin Megami Tensei: Strange Journey*, *Shin Megami Tensei: Devil Survivor*, *Etrian Odyssey*) package game assets in a trio of files:
+- **`*.ndx` (Name Directory Index)**:
+  - `+0x00..+0x01`: `u16` root node entry count $N$ (little-endian).
+  - Array of $N$ directory records:
+    - `u16 name_len`
+    - `char name[name_len]` (ASCII, non-terminated)
+    - `u32 child_offset`: File offset to child directory block if non-zero; `0` indicates a leaf file entry.
+  - Child blocks begin with `u16 child_count`, followed by `child_count` directory records recursively.
+- **`*.idx` (Hash Lookup Index)**:
+  - `+0x00..+0x01`: `u16` bucket count $B$ (e.g. 2048 / `0x800`).
+  - `+0x02..+0x07`: 6 reserved zero bytes.
+  - Array of $B$ bucket entries (6 bytes each):
+    - `u32 w0`, `u16 w4`.
+    - Default file size: `(((u32)w4 << 16) >> 10) + (w0 >> 26)`.
+    - Bit 0 of `w0` (`w0 & 1`):
+      - If 0 (direct entry): Offset in `.bin` is `(((w0 << 6) & 0xffffffff) >> 7) << 2`. Size in `.bin` is default file size.
+      - If 1 (collision list): Offset in `.idx` is `((w0 << 6) & 0xffffffff) >> 7`. At `idx_offset`: `u8 item_count`.
+        - Item 0 has 4-byte offset `*(u32*)(idx + pos) << 2` and uses default file size.
+        - Subsequent items have 4-byte offset and 4-byte explicit size `*(u32*)(idx + pos + 4)`.
+        - Each item has a collision discriminator list of pairs `(u8 char, u8 str_index)` terminated by `u8 0x00`.
+  - Hash function: Multiplier 37 case-insensitive rolling hash (`h = (h * 37 + tolower(c)) & 0xffffffff`), with leading `/` skipped, masked by `B - 1`.
+- **`*.bin` (Payload Container)**:
+  - Contiguous packed binary member files aligned to 4 bytes.
+
+Fully detected via `wszst filetype` and extracted natively via `wszst extract <file.ndx>` or `wszst extract <file.bin>`.
+

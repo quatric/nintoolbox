@@ -585,6 +585,7 @@ typedef enum file_format_t
 	FF_TREASURE_MRG, // 470 - Treasure Co., Ltd. Nintendo DS Multi-Resource Archive (.mrg; Bleach / Bangai-O)
 	FF_CAPCOM_MODS,	 // 471 - Capcom Ghost Trick Animation Stream (.mods / MODSN3)
 	FF_CAPCOM_GML1,	 // 472 - Capcom Game Message/Script Binary (.xml.bin / 1LMG; Ghost Trick)
+	FF_ATLUS_NDX,	 // 473 - Atlus Nintendo DS / 3DS Directory Index (.ndx; Radiant Historia / SMT)
 
 	//--- number of elements
 

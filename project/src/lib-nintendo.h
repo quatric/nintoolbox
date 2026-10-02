@@ -541,6 +541,7 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-cingwpf.h"
 #include "lib-jupiterpck.h"
 #include "lib-treasuremrg.h"
+#include "lib-atlusndx.h"
 #include "lib-dbkmap.h"
 #include "lib-rbark.h"
 #include "lib-nibm.h"

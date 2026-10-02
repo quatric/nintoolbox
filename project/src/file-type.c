@@ -2765,6 +2765,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, MinusString, MinusString,
 		"Capcom Game Message / Script Binary (.xml.bin / 1LMG; Ghost Trick: Phantom Detective)" },
 
+	// FF_ATLUS_NDX = 473 (Atlus Directory Index)
+	{ FF_ATLUS_NDX, FF_ATLUS_NDX, 0, "ATLUS-NDX", ".ndx", ".ndx", ".ndx",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 0, { 0 },
+		0, MinusString, MinusString,
+		"Atlus Nintendo DS/3DS Directory Index (.ndx, Radiant Historia / SMT; fully extracted)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -3048,6 +3054,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_TREASURE_MRG, "TREASURE-MRG", "TREASUREMRG", 0xe05 },
 	{ FF_CAPCOM_MODS, "CAPCOM-MODS", "MODS", 0x861 },
 	{ FF_CAPCOM_GML1, "CAPCOM-GML1", "1LMG", 0x861 },
+	{ FF_ATLUS_NDX, "ATLUS-NDX", "ATLUSNDX", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };
