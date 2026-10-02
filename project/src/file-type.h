@@ -586,6 +586,7 @@ typedef enum file_format_t
 	FF_CAPCOM_MODS,	 // 471 - Capcom Ghost Trick Animation Stream (.mods / MODSN3)
 	FF_CAPCOM_GML1,	 // 472 - Capcom Game Message/Script Binary (.xml.bin / 1LMG; Ghost Trick)
 	FF_ATLUS_NDX,	 // 473 - Atlus Nintendo DS / 3DS Directory Index (.ndx; Radiant Historia / SMT)
+	FF_ARTE_TEX,	 // 474 - ArtePiazza Nintendo DS Texture Container (.tex; Dragon Quest IV/V/VI)
 
 	//--- number of elements
 

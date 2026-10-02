@@ -2771,6 +2771,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, MinusString, MinusString,
 		"Atlus Nintendo DS/3DS Directory Index (.ndx, Radiant Historia / SMT; fully extracted)" },
 
+	// FF_ARTE_TEX = 474 (ArtePiazza Texture Container)
+	{ FF_ARTE_TEX, FF_ARTE_TEX, 0, "ARTE-TEX", ".tex", ".tex", ".tex",
+		FFT_VALID | FFT_GRAPHIC | FFT_CUT | FFT_EXTRACT, 0, { 0 },
+		0, MinusString, MinusString,
+		"ArtePiazza Nintendo DS Texture Container (.tex, Dragon Quest IV/V/VI; decoded to .png)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -3055,6 +3061,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_CAPCOM_MODS, "CAPCOM-MODS", "MODS", 0x861 },
 	{ FF_CAPCOM_GML1, "CAPCOM-GML1", "1LMG", 0x861 },
 	{ FF_ATLUS_NDX, "ATLUS-NDX", "ATLUSNDX", 0xe05 },
+	{ FF_ARTE_TEX, "ARTE-TEX", "ARTETEX", 0x861 },
 
 	{ 0, 0, 0, 0 }
 };

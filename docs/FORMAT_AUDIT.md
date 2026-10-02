@@ -652,3 +652,49 @@ Atlus Nintendo DS and Nintendo 3DS titles (*Radiant Historia*, *Shin Megami Tens
 
 Fully detected via `wszst filetype` and extracted natively via `wszst extract <file.ndx>` or `wszst extract <file.bin>`.
 
+## ArtePiazza Nintendo DS Texture Container (ARTE-TEX)
+
+Retail sample:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Dragon Quest IV - Chapters of the Chosen (USA) (En,Fr,Es).zip
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| *Dragon Quest IV* (`.tex` texture files across `2D/`, `ACT/`, `BATTLE/`, `FIELD/`, `MASK/`, etc.) | 470 retail texture files (467 `TextureObject`, 2 `TextureData`, 1 `Texture Data`) | 100% (All 470 files validated and decoded natively to `.png` with exact dimensions and palettes) |
+
+ArtePiazza (*Dragon Quest IV*, *Dragon Quest V*, *Dragon Quest VI* on Nintendo DS) packages textures in container files with `.tex` extension:
+- **`TextureObject\0` Container** (112-byte header, `header_len = 112 = 0x70`):
+  - `+0x00..+0x0D`: Magic string `TextureObject\0`.
+  - `+0x10..+0x13`: Version `0x00010000` (little-endian).
+  - `+0x20..+0x23`: Texture format:
+    - `3`: 4-bpp indexed (16-color palette, 2 pixels per byte, low nibble first).
+    - `4`: 8-bpp indexed (256-color palette, 1 pixel per byte).
+    - `1`: A3I5 (3-bit alpha, 5-bit color index, up to 32 colors).
+    - `6`: A5I3 (5-bit alpha, 3-bit color index, up to 8 colors).
+  - `+0x24..+0x27`: Width shift $S$ where $\text{width} = 8 \ll S$.
+  - `+0x28..+0x2B`: Height shift $T$ where $\text{height} = 8 \ll T$ (used if height cannot be computed from byte count).
+  - `+0x30..+0x33`: Pixel data byte length.
+  - `+0x34..+0x37`: Header length (112).
+  - `+0x38..+0x3B`: Palette data byte length ($2 \times \text{color\_count}$).
+  - `+0x3C..+0x3F`: Palette file offset ($= \text{header\_len} + \text{pix\_len}$).
+  - Dimensions: $\text{width} = 8 \ll S$; for format 3, $\text{height} = (\text{pix\_len} \times 2) / \text{width}$; for formats 1, 4, 6, $\text{height} = \text{pix\_len} / \text{width}$.
+- **`TextureData\0` / `Texture Data\0` Container** (56-byte compact header):
+  - `+0x00..`: Magic string `TextureData\0` or `Texture Data\0`.
+  - `+0x10..+0x13`: Texture format (3, 4, 1, or 6).
+  - `+0x14..+0x17`: Header length (56).
+  - `+0x24..+0x27`: Width parameter ($S \le 8 \implies 8 \ll S$, else $S \times 4$).
+  - `+0x28..+0x2B`: Height parameter.
+  - `+0x2C..+0x2F`: Pixel data byte length.
+  - `+0x30..+0x33`: Palette offset relative to pixel start.
+  - `+0x34..+0x37`: Palette byte length.
+- **Palette & Pixel Decoding**:
+  - Palette entries are 16-bit little-endian RGB555 colors expanded to full [0..255] RGB dynamic range: `((c & 0x1f) * 255 + 15) / 31`.
+  - For indexed modes (formats 3 and 4), color index 0 is transparent key.
+  - For alpha modes:
+    - Format 1 (A3I5): 3-bit alpha $\to$ `(alpha3 * 255 + 3) / 7`.
+    - Format 6 (A5I3): 5-bit alpha $\to$ `(alpha5 * 255 + 15) / 31`.
+
+Fully detected via `wszst filetype` as `ARTE-TEX` and decoded to sibling `.png` via `wszst extract <file.tex>`.
+

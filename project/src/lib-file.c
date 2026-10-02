@@ -2278,6 +2278,11 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 	if (IsAtlusNdx (data8, data_size, file_size))
 		return FF_ATLUS_NDX;
 
+	// ArtePiazza Nintendo DS Texture Container (.tex, Dragon Quest IV/V/VI)
+	bool IsArteTexture (const u8 *data, uint data_size);
+	if (IsArteTexture (data8, data_size))
+		return FF_ARTE_TEX;
+
 	// Magic-less SPICA-family containers: the structural gates (validated
 	// offset tables plus a skeleton/probe byte) are specific enough to run
 	// ahead of the looser NFMT walkers below (e.g. ScanWWRSC, which also
@@ -2775,6 +2780,9 @@ file_format_t GetFileTypeByMagic (
 		if (ff == FF_UNKNOWN && ext && !strcasecmp (ext, ".tex") && fatt->size >= 0x80
 			&& IsTex3DS ((const u8 *)buf, sizeof (buf), fatt->size))
 			return FF_TEX3DS;
+		if (ff == FF_UNKNOWN && ext && !strcasecmp (ext, ".tex") && fatt->size >= 56
+			&& IsArteTexture ((const u8 *)buf, sizeof (buf)))
+			return FF_ARTE_TEX;
 		if (ff == FF_UNKNOWN && ext && (!strcasecmp (ext, ".bnvib") || !strcasecmp (ext, ".nvib"))
 			&& IsBNVIB ((const u8 *)buf, sizeof (buf)))
 			return FF_BNVIB;

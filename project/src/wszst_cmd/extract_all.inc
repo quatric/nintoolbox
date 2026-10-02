@@ -93,6 +93,7 @@
 #include "extract/jupiterpck.inc"
 #include "extract/treasuremrg.inc"
 #include "extract/atlusndx.inc"
+#include "extract/artetex.inc"
 #include "extract/bcdspi.inc"
 #include "extract/dbkmap.inc"
 #include "extract/rbark.inc"
