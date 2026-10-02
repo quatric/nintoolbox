@@ -49,7 +49,7 @@ static enumError decode_wimg_file (ccp arg, ccp basedir, uint depth)
 // decode-oriented modes set opt_decode and expect a readable sibling.
 static enumError extract_bmg_file (ccp arg, ccp basedir, uint depth)
 {
-	if (!opt_decode || !is_ext (arg, ".bmg"))
+	if (!opt_decode || (!is_ext (arg, ".bmg") && !is_ext (arg, ".cbmg")))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;

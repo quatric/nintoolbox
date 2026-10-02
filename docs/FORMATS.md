@@ -228,4 +228,5 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **WUD / WUX** | Wii U / Disc Image | ✅ | ✅ | Wii U disc extraction & compression |
 | **XTX** | Switch / Texture | ✅ | ❌ | Nintendo Switch intermediate texture container (`DFvN`/`HBvN`, Tegra block-linear RGBA8/BC1-BC7/ASTC; synthetic fixture, no retail sample) |
 | **XMB** | Switch / Metadata | ✅ | ❌ | Smash XMB material/LOD metadata: node/property tables to XMBDec-mapping XML |
+| **BMG / CBMG** | GameCube / Wii / DS / Message Binary | ✅ | ✅ | Nintendo Binary Message format (`MESGbmg1` big-endian on GC/Wii, `GSEM1gmb` little-endian on DS such as *Custom Robo Arena* `.cbmg` / `.mlz`). Decodes text messages, Shift-JIS / UTF-8 / UTF-16 strings, and attributes cleanly via `wbmgt decode` / `wszst extract --decode`, with 100% byte-for-byte round-trip re-encoding via `wbmgt encode`. |
 | **Yay0 / Yaz0** | Compression | ✅ | ✅ | Nintendo standard LZ77 compression |

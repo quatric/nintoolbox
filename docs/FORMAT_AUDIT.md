@@ -431,6 +431,30 @@ iNiS rhythm games (*Osu! Tatakae! Ouendan*, *Moero! Nekketsu Rhythm Damashii: Os
 
 The decompressed payload unpacks directly into standard Nitro / NW4C formats (`NCGR`, `NSCR`, `NCLR`, `NCER`, `NANR`) or proprietary iNiS movie/animation structures. Full decompression is integrated into `wszst decompress`.
 
+## Nintendo Little-Endian BMG / CBMG (GSEM1gmb)
+
+Retail sample:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Custom Robo Arena (USA).zip
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| Custom Robo Arena `.cbmg` scripts | 8 retail `.cbmg` files (1,664 to 35,648 bytes) | 100% (8/8 decoded to text and re-encoded with byte-for-byte exact matches) |
+| Custom Robo Arena `.mlz` scripts | 680 LZ10-compressed `.mlz` archives | 100% (Decompressed cleanly via `wszst decompress`, inner BMG decoded and re-encoded with byte-for-byte exact matches) |
+
+Nintendo DS titles (*Custom Robo Arena*, etc.) use a little-endian compilation of the Nintendo Binary Message (`BMG`) specification, commonly given the `.cbmg` extension or packed in LZ10-compressed `.mlz` files:
+- **File Magic**: `GSEM1gmb` (`0x4753454D31676D62` in big-endian, corresponding to 32-bit little-endian fourccs `MESG` and `bmg1`)
+- **Section Magics**: Stored as 32-bit little-endian integers, reversing the ASCII representation:
+  - `INF1` → `1FNI` (`0x31464E49`)
+  - `DAT1` → `1TAD` (`0x31544144`)
+  - `MID1` → `1DIM` (`0x3144494D`)
+  - `STR1` → `1RTS` (`0x31525453`)
+- **Encoding**: Supports standard Nintendo message encodings (CP1252, UTF-16, Shift-JIS, UTF-8). Custom Robo Arena uses encoding `3` (Shift-JIS) with variable attributes and escape codes (`\z{...}`).
+
+Both `wszst filetype`, `wszst extract --decode`, and `wbmgt decode` / `wbmgt encode` support little-endian BMG end-to-end with 100% byte-for-byte round-trip preservation.
+
 
 
 

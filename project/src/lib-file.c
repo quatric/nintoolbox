@@ -1124,6 +1124,7 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x584d534720100503ULL:
 				return FF_XMSG; // "XMSG \x10\x05\x03" (Wii Party mess.bin)
 			case BMG_MAGIC8_NUM:
+			case BMG_LE_MAGIC8_NUM:
 				return FF_BMG;
 			case PNG_MAGIC8_NUM:
 				return FF_PNG;
@@ -3964,7 +3965,10 @@ int GetVersionFF (
 			if (data_size >= sizeof (bmg_header_t))
 			{
 				const bmg_header_t *bh = (bmg_header_t *)data;
-				return ntohl (bh->n_sections) * 10 + bh->encoding;
+				const u32 n_sec = !memcmp (bh->magic, BMG_LE_MAGIC, 8)
+					? le32 (&bh->n_sections)
+					: ntohl (bh->n_sections);
+				return n_sec * 10 + bh->encoding;
 			}
 			break;
 
