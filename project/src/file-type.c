@@ -2714,6 +2714,11 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 4, { 'V', 'C', 'R', 'A' }, 0, MinusString, MinusString,
 		"Namco Museum Remix archive container (.vcra / .bin / VCRA, Wii; fully decoded)" },
 
+	// FF_INIO_LZO = 464 (iNiS LZO1X compressed container)
+	{ FF_INIO_LZO, 0, 0, "INIO-LZO", ".bin", ".szs", ".bin",
+		FFT_VALID | FFT_COMPRESS | FFT_TRACK, 4, { '1', 'O', 'Z', 'L' }, 0, MinusString, MinusString,
+		"iNiS LZO1X compressed container (1OZL, Ouendan / Elite Beat Agents, NDS; fully decoded)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2987,6 +2992,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_L5_PAC, "L5-PAC", "L5-PAC", 0xe05 },
 	{ FF_SSZL, "SSZL", "SSZL", 0x103 },
 	{ FF_VCRA, "VCRA", "VCRA", 0xe05 },
+	{ FF_INIO_LZO, "INIO-LZO", "1OZL", 0x103 },
 
 	{ 0, 0, 0, 0 }
 };

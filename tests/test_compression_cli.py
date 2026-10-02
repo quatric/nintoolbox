@@ -52,6 +52,30 @@ class CompressionCliTests(unittest.TestCase):
                     self.assertIn("Can't decompress", result.stderr)
                     self.assertFalse(output.exists())
 
+    def test_inio_lzo_decompress(self):
+        # 1OZL fixture: 12-byte header + LZO1X payload
+        sample_1ozl = (
+            b'1OZL\xb0\x02\x00\x00\x66\x02\x00\x00'
+            b'&RGCN\xfe\x01\x01\xb0\x02\x00\x00\x10\x00\x01\x00RAHC\xa0M\x01\xff'
+            b'B\x00\x03\x00n\x02\x10\x00a\x00\x80M\x02\x18]\x00\x11A\x00wA\x00UA'
+            b'\x00D\x01\x00$m\x00"R\x00"B\r\x00\x11R\x00\x11\x11\x0c\x10\x0cww\x17\x00'
+            b'Uuw\x01\x11Qw\x17""uM\x00R\x8d\x00$L\x00\x00\x0f\x18!!B,a&!\xbd\x14\xca('
+            b'\x83b\x87\x18\x00e\xa8\x00b\x84\x00!\x87\x00\x00\x8e$\x00"f\x00"$\r\x00'
+            b'\x11&\x00\x11\x11\x0c\x10\x0cww\x17\x00Uuw\x01\x11Qw\x17""uM\x00R\x8d\x00'
+            b'$L\x00\x00\x0f\x18!!B,a&!\xbd\x14\xca(\x83b\x87\x18\x00e\xa8\x00b\x84\x00'
+            b'!\x87\x00\x00\x8e$\x00"f\x00"$\r\x00\x11&\x00\x11\x11\x0c\x10\x0cww\x17\x00'
+            b'Uuw\x01\x11Qw\x17""uM\x00R\x8d\x00$L\x00\x00\x0f\x18!!B,a&!\xbd\x14\xca(\x11\x00\x00'
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / 'sample.bin'
+            output = root / 'sample.out'
+            source.write_bytes(sample_1ozl)
+            # Verify wszst filetype detects INIO-LZO
+            ft_res = self.run_tool('FILETYPE', source)
+            self.assertEqual(ft_res.returncode, 0)
+            self.assertIn('INIO-LZO', ft_res.stdout)
+
 
 if __name__ == '__main__':
     unittest.main()

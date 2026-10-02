@@ -576,6 +576,7 @@ typedef enum file_format_t
 	FF_L5_PAC,	 // 461 - Level-5 / Armor Project PAC archive container (.pac / .dat)
 	FF_SSZL,	 // 462 - Namco Museum SSZL LZSS0 compressed container (.lzs / SSZL)
 	FF_VCRA,	 // 463 - Namco Museum Remix archive container (.vcra / .bin / VCRA)
+	FF_INIO_LZO, // 464 - iNiS LZO1X compressed container (1OZL / Ouendan / EBA)
 
 	//--- number of elements
 

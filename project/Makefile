@@ -484,7 +484,7 @@ SZS_O		:= $(XOBJ_IMAGE) lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-nsbmd
 		   lib-dsb.o lib-bnr.o lib-brfnt.o lib-brfna.o lib-bcfnt.o lib-mpr-pak.o \
 		   lib-ncgr.o lib-nclr.o lib-sarc.o lib-nw4r.o lib-rst.o lib-thp.o \
 		   lib-owned-entries.o lib-mvdk.o lib-vlx.o lib-pucrunch.o lib-lzx.o \
-		   lib-lze.o lib-diff.o lib-lzovl.o lib-alar.o lib-iear.o lib-soma.o lib-cvspr.o lib-cpac.o lib-l5pac.o lib-luminous-bg.o lib-layton-bg.o lib-pck2.o lib-sadl.o lib-psdk.o lib-sszl.o \
+		   lib-lze.o lib-diff.o lib-lzovl.o lib-alar.o lib-iear.o lib-soma.o lib-cvspr.o lib-cpac.o lib-l5pac.o lib-luminous-bg.o lib-layton-bg.o lib-pck2.o lib-sadl.o lib-psdk.o lib-sszl.o lib-lzo.o \
 		   lib-rflres.o lib-bea.o \
 		   lib-atb.o lib-ptd.o lib-lzbin.o lib-xb.o lib-mpmess.o lib-mpboard.o \
 		   lib-rarc.o lib-pack.o lib-rkc.o lib-brres.o lib-breff.o \

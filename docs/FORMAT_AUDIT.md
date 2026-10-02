@@ -411,6 +411,26 @@ Bandai Namco uses two paired formats in *Namco Museum Remix* on Wii:
 - **SSZL (`.lzs`)**: LZSS0 sliding dictionary stream with 16-byte header starting with magic `SSZL`, compressed size at offset 8, decompressed size at offset 12. Decompressible via `wszst decompress` or extracted via `wszst extract`.
 - **VCRA (`.vcra` / `.bin`)**: Resource archive container starting with `VCRA` magic, entry count at offset 4, total archive size at offset 8. Supports 56-byte member filenames and inner BRRES / NW4R resources. Extraction supported via `wszst extract` and creation supported via `wszst create`.
 
+## iNiS LZO1X compressed containers (INIO-LZO)
+
+Retail sample:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Moero! Nekketsu Rhythm Damashii - Osu! Tatakae! Ouendan 2 (Japan).zip
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| Ouendan 2 Retail NDS (`.omv_`, `.oml_`, `.ntfp_`, `.ntft_`, `.seq_`, `.NCGR_`, `.NSCR_`, `.NCLR_`, `.NCER_`, `.NANR_`) | 15,702 compressed streams | 100% (15,702 / 15,702 files decompressed cleanly with exact size matches; 0 errors) |
+
+iNiS rhythm games (*Osu! Tatakae! Ouendan*, *Moero! Nekketsu Rhythm Damashii: Osu! Tatakae! Ouendan 2*, *Elite Beat Agents*) package graphics, movies, palettes, and animations inside an LZO1X container identified by the magic header `1OZL` (little-endian for ASCII representation `LZO1`):
+- `+0x00`: magic `1OZL` (`0x314F5A4C`)
+- `+0x04`: uncompressed size (32-bit LE)
+- `+0x08`: compressed size (32-bit LE)
+- `+0x0C`: LZO1X stream payload starts immediately
+
+The decompressed payload unpacks directly into standard Nitro / NW4C formats (`NCGR`, `NSCR`, `NCLR`, `NCER`, `NANR`) or proprietary iNiS movie/animation structures. Full decompression is integrated into `wszst decompress`.
+
 
 
 

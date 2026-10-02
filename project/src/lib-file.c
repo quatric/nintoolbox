@@ -1840,6 +1840,13 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 					return FF_VCRA;
 				break;
 
+			// iNiS LZO1X compressed container (1OZL, Ouendan / Elite Beat Agents)
+			case 0x314f5a4c: // "1OZL"
+			case 0x4c5a4f31: // "LZO1"
+				if (data_size >= 12 && !memcmp (data8, "1OZL", 4))
+					return FF_INIO_LZO;
+				break;
+
 			case BREFF_MAGIC_NUM:
 				if (file_size >= 0x20)
 					return data_size < 0x14 || !memcmp (data + 0x10, BREFF_MAGIC, 4) ? FF_BREFF
