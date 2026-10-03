@@ -1124,6 +1124,7 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x584d534720100503ULL:
 				return FF_XMSG; // "XMSG \x10\x05\x03" (Wii Party mess.bin)
 			case BMG_MAGIC8_NUM:
+			case BMG_LE_MAGIC8_NUM:
 				return FF_BMG;
 			case PNG_MAGIC8_NUM:
 				return FF_PNG;
@@ -1474,6 +1475,38 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x5341444c: // "SADL"
 				return FF_SADL;
 
+			// Procyon Studio Sound Wave Data (SWDL)
+			case 0x7377646c: // "swdl" (LE rd_be32)
+			case 0x6c647773: // "ldws"
+				if (data_size >= 12)
+				{
+					const u32 fsz = (u32)data8[8] | ((u32)data8[9] << 8) | ((u32)data8[10] << 16) | ((u32)data8[11] << 24);
+					if (fsz >= 0x30 && (file_size == 0 || fsz == file_size))
+						return FF_PROCYON_SWD;
+				}
+				break;
+
+			// Procyon Studio Standard MIDI / Song Data (SMDL)
+			case 0x736d646c: // "smdl" (LE rd_be32)
+			case 0x6c646d73: // "ldms"
+				if (data_size >= 12)
+				{
+					const u32 fsz = (u32)data8[8] | ((u32)data8[9] << 8) | ((u32)data8[10] << 16) | ((u32)data8[11] << 24);
+					if (fsz >= 0x40 && (file_size == 0 || fsz == file_size))
+						return FF_PROCYON_SMD;
+				}
+				break;
+
+			// Camelot Software Planning Model/Map Object Definition (MDLR)
+			case 0x4d444c52: // "MDLR"
+				if (data_size >= 14 && data8[4] == 0)
+				{
+					const u32 nlen = (u32)data8[5] | ((u32)data8[6] << 8) | ((u32)data8[7] << 16) | ((u32)data8[8] << 24);
+					if (nlen >= 1 && nlen <= 64 && 9 + nlen < data_size && data8[9 + nlen] == 0)
+						return FF_CAMELOT_MDLR;
+				}
+				break;
+
 			// Nitro Cell Resource (NCER / RECN)
 			case 0x5245434e: // "RECN"
 			case 0x4e434552: // "NCER"
@@ -1759,6 +1792,13 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x424e5348: // "BNSH"
 				return FF_BNSH;
 
+			// Capcom Ghost Trick Animation Stream (MODS)
+			case 0x4d4f4453: // "MODS"
+			case 0x53444f4d: // "SDOM"
+				if (IsCapcomMods (data8, data_size, file_size))
+					return FF_CAPCOM_MODS;
+				break;
+
 			// NintendoWare Shader Archive (BFSHA)
 			case 0x46534841: // "FSHA"
 				return FF_BFSHA;
@@ -1845,6 +1885,13 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x4c5a4f31: // "LZO1"
 				if (data_size >= 12 && !memcmp (data8, "1OZL", 4))
 					return FF_INIO_LZO;
+				break;
+
+			// Capcom Game Message / Script Binary (1LMG / GML1, Ghost Trick: Phantom Detective)
+			case 0x314c4d47: // "1LMG"
+			case 0x474d4c31: // "GML1"
+				if (IsCapcomGML1 (data8, data_size, file_size))
+					return FF_CAPCOM_GML1;
 				break;
 
 			case BREFF_MAGIC_NUM:
@@ -2212,6 +2259,29 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 	// Level-5 / Armor Project PAC archive container (.pac / .dat)
 	if (IsL5Pac (data8, data_size, file_size))
 		return FF_L5_PAC;
+
+	// CiNG Wish Pack File archive container (.wpf, Hotel Dusk / Trace Memory)
+	if (IsCingWpf (data8, data_size, file_size))
+		return FF_CING_WPF;
+
+	// Jupiter Corp Nintendo DS Model/Motion Package (.pck, TWEWY / Kingdom Hearts)
+	if (IsJupiterPck (data8, data_size, file_size))
+		return FF_JUPITER_PCK;
+
+	// Treasure Co., Ltd. Nintendo DS Multi-Resource Archive (.mrg, Bleach / Bangai-O)
+	bool IsTreasureMrg (const u8 *data, uint data_size, u64 file_size);
+	if (IsTreasureMrg (data8, data_size, file_size))
+		return FF_TREASURE_MRG;
+
+	// Atlus Nintendo DS / 3DS Directory Index (.ndx, Radiant Historia / SMT)
+	bool IsAtlusNdx (const u8 *data, uint data_size, u64 file_size);
+	if (IsAtlusNdx (data8, data_size, file_size))
+		return FF_ATLUS_NDX;
+
+	// ArtePiazza Nintendo DS Texture Container (.tex, Dragon Quest IV/V/VI)
+	bool IsArteTexture (const u8 *data, uint data_size);
+	if (IsArteTexture (data8, data_size))
+		return FF_ARTE_TEX;
 
 	// Magic-less SPICA-family containers: the structural gates (validated
 	// offset tables plus a skeleton/probe byte) are specific enough to run
@@ -2710,6 +2780,9 @@ file_format_t GetFileTypeByMagic (
 		if (ff == FF_UNKNOWN && ext && !strcasecmp (ext, ".tex") && fatt->size >= 0x80
 			&& IsTex3DS ((const u8 *)buf, sizeof (buf), fatt->size))
 			return FF_TEX3DS;
+		if (ff == FF_UNKNOWN && ext && !strcasecmp (ext, ".tex") && fatt->size >= 56
+			&& IsArteTexture ((const u8 *)buf, sizeof (buf)))
+			return FF_ARTE_TEX;
 		if (ff == FF_UNKNOWN && ext && (!strcasecmp (ext, ".bnvib") || !strcasecmp (ext, ".nvib"))
 			&& IsBNVIB ((const u8 *)buf, sizeof (buf)))
 			return FF_BNVIB;
@@ -3964,7 +4037,10 @@ int GetVersionFF (
 			if (data_size >= sizeof (bmg_header_t))
 			{
 				const bmg_header_t *bh = (bmg_header_t *)data;
-				return ntohl (bh->n_sections) * 10 + bh->encoding;
+				const u32 n_sec = !memcmp (bh->magic, BMG_LE_MAGIC, 8)
+					? le32 (&bh->n_sections)
+					: ntohl (bh->n_sections);
+				return n_sec * 10 + bh->encoding;
 			}
 			break;
 

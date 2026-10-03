@@ -14,14 +14,14 @@
 		else
 		{
 			snprintf (dest, sizeof (dest), "%s", arg);
-			char *dot = strrchr (dest, '.');
+			char *dot = decompression_extension (dest);
 			bool stripped = false;
 			if (dot && !strcasecmp (dot, ".lz4"))
 			{
 				*dot = 0;
 				stripped = true;
 			}
-			char *dot2 = strrchr (dest, '.');
+			char *dot2 = decompression_extension (dest);
 			if (!stripped || !dot2)
 			{
 				const nfmt_info_t dec_info = DetectNintendoFormat (decoded, decoded_size, dest);
@@ -55,7 +55,9 @@
 			if (F.f && fwrite (decoded, 1, decoded_size, F.f) != decoded_size)
 				err = FILEERROR1 (
 					&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", decoded_size, dest);
-			ResetFile (&F, opt_preserve);
+			const enumError close_err = ResetFile (&F, opt_preserve);
+			if (close_err > err)
+				err = close_err;
 		}
 		FREE (decoded);
 		if (!err && dest_out)

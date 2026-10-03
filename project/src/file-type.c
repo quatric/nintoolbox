@@ -2719,6 +2719,64 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		FFT_VALID | FFT_COMPRESS | FFT_TRACK, 4, { '1', 'O', 'Z', 'L' }, 0, MinusString, MinusString,
 		"iNiS LZO1X compressed container (1OZL, Ouendan / Elite Beat Agents, NDS; fully decoded)" },
 
+	// FF_CING_WPF = 465 (CiNG Wish Pack File archive container)
+	{ FF_CING_WPF, FF_CING_WPF, 0, "CING-WPF", ".wpf", ".wpf", ".wpf",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 0, { 0 }, 0, MinusString, MinusString,
+		"CiNG Wish Pack File archive container (.wpf, Hotel Dusk / Trace Memory, NDS; fully extracted)" },
+
+	// FF_JUPITER_PCK = 466 (Jupiter Corp Nintendo DS Model/Motion Package)
+	{ FF_JUPITER_PCK, FF_JUPITER_PCK, 0, "JUPITER-PCK", ".pck", ".pck", ".pck",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 0, { 0 }, 0, MinusString, MinusString,
+		"Jupiter Corp Nintendo DS Model/Motion Package (.pck, TWEWY / Kingdom Hearts; fully extracted)" },
+
+	// FF_PROCYON_SWD = 467 (Procyon Studio Sound Wave Data)
+	{ FF_PROCYON_SWD, FF_PROCYON_SWD, 0, "PROCYON-SWD", ".swd", ".swd", ".swd",
+		FFT_VALID | FFT_CUT, 4, { 0x73, 0x77, 0x64, 0x6c }, // "swdl"
+		0, MinusString, MinusString,
+		"Procyon Studio Sound Wave Data (swdl; Professor Layton / Inazuma Eleven / PMD)" },
+
+	// FF_PROCYON_SMD = 468 (Procyon Studio Standard MIDI / Song Data)
+	{ FF_PROCYON_SMD, FF_PROCYON_SMD, 0, "PROCYON-SMD", ".smd", ".smd", ".smd",
+		FFT_VALID | FFT_CUT, 4, { 0x73, 0x6d, 0x64, 0x6c }, // "smdl"
+		0, MinusString, MinusString,
+		"Procyon Studio Standard MIDI / Song Data (smdl; Professor Layton / PMD)" },
+
+	// FF_CAMELOT_MDLR = 469 (Camelot Software Planning Model/Map Object Definition)
+	{ FF_CAMELOT_MDLR, FF_CAMELOT_MDLR, 0, "CAMELOT-MDLR", ".mdlr", ".mdlr", ".mdlr",
+		FFT_VALID | FFT_CUT, 4, { 'M', 'D', 'L', 'R' },
+		0, MinusString, MinusString,
+		"Camelot Software Planning Model/Map Object Definition (.mdlr / MDLR; Golden Sun: Dark Dawn)" },
+
+	// FF_TREASURE_MRG = 470 (Treasure Multi-Resource Archive)
+	{ FF_TREASURE_MRG, FF_TREASURE_MRG, 0, "TREASURE-MRG", ".mrg", ".mrg", ".mrg",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 0, { 0 },
+		0, MinusString, MinusString,
+		"Treasure Co., Ltd. Nintendo DS Multi-Resource Archive (.mrg, Bleach / Bangai-O; fully extracted)" },
+
+	// FF_CAPCOM_MODS = 471 (Capcom Ghost Trick Animation Stream)
+	{ FF_CAPCOM_MODS, FF_CAPCOM_MODS, 0, "CAPCOM-MODS", ".mods", ".mods", ".mods",
+		FFT_VALID | FFT_CUT, 4, { 'M', 'O', 'D', 'S' },
+		0, MinusString, MinusString,
+		"Capcom Ghost Trick Animation Stream (.mods / MODSN3; Ghost Trick: Phantom Detective)" },
+
+	// FF_CAPCOM_GML1 = 472 (Capcom Game Message / Script Binary)
+	{ FF_CAPCOM_GML1, FF_CAPCOM_GML1, 0, "CAPCOM-GML1", ".xml.bin", ".bin", ".xml.bin",
+		FFT_VALID | FFT_CUT, 4, { '1', 'L', 'M', 'G' },
+		0, MinusString, MinusString,
+		"Capcom Game Message / Script Binary (.xml.bin / 1LMG; Ghost Trick: Phantom Detective)" },
+
+	// FF_ATLUS_NDX = 473 (Atlus Directory Index)
+	{ FF_ATLUS_NDX, FF_ATLUS_NDX, 0, "ATLUS-NDX", ".ndx", ".ndx", ".ndx",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 0, { 0 },
+		0, MinusString, MinusString,
+		"Atlus Nintendo DS/3DS Directory Index (.ndx, Radiant Historia / SMT; fully extracted)" },
+
+	// FF_ARTE_TEX = 474 (ArtePiazza Texture Container)
+	{ FF_ARTE_TEX, FF_ARTE_TEX, 0, "ARTE-TEX", ".tex", ".tex", ".tex",
+		FFT_VALID | FFT_GRAPHIC | FFT_CUT | FFT_EXTRACT, 0, { 0 },
+		0, MinusString, MinusString,
+		"ArtePiazza Nintendo DS Texture Container (.tex, Dragon Quest IV/V/VI; decoded to .png)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -2765,7 +2823,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_CUPICON, "CUPICON", "TPL", 0x2009 }, { FF_CUPICON, "TPLX", 0, 0x2009 },
 	{ FF_BTI, "BTI", "BTIENV", 0x3809 }, { FF_BTI, "BTIMAT", 0, 0x3809 },
 	{ FF_BREFT_IMG, "BREFT-IMG", "BREFTIMG", 0x3809 }, { FF_BREFT_IMG, "BT-IMG", "BTIMG", 0x3809 },
-	{ FF_BMG, "BMG", "MESGBMG1", 0x3801 }, { FF_BMG_TXT, "BMG-TXT", "BMGTXT", 0x3011 },
+	{ FF_BMG, "BMG", "MESGBMG1", 0x3801 }, { FF_BMG, "BMG", "GSEM1GMB", 0x3801 },
+	{ FF_BMG_TXT, "BMG-TXT", "BMGTXT", 0x3011 },
 	{ FF_KCL, "KCL", 0, 0xb801 }, { FF_KCL_TXT, "KCL-TXT", "KCLTXT", 0x7011 },
 	{ FF_WAV_OBJ, "WAV-OBJ", "WAVOBJ", 0x7011 }, { FF_SKP_OBJ, "SKP-OBJ", "SKPOBJ", 0x7011 },
 	{ FF_KMP, "KMP", 0, 0x3801 }, { FF_KMP_TXT, "KMP-TXT", "KMPTXT", 0x7011 },
@@ -2993,6 +3052,16 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_SSZL, "SSZL", "SSZL", 0x103 },
 	{ FF_VCRA, "VCRA", "VCRA", 0xe05 },
 	{ FF_INIO_LZO, "INIO-LZO", "1OZL", 0x103 },
+	{ FF_CING_WPF, "CING-WPF", "CINGWPF", 0xe05 },
+	{ FF_JUPITER_PCK, "JUPITER-PCK", "JUPITERPCK", 0xe05 },
+	{ FF_PROCYON_SWD, "PROCYON-SWD", "SWDL", 0x861 },
+	{ FF_PROCYON_SMD, "PROCYON-SMD", "SMDL", 0x861 },
+	{ FF_CAMELOT_MDLR, "CAMELOT-MDLR", "MDLR", 0x861 },
+	{ FF_TREASURE_MRG, "TREASURE-MRG", "TREASUREMRG", 0xe05 },
+	{ FF_CAPCOM_MODS, "CAPCOM-MODS", "MODS", 0x861 },
+	{ FF_CAPCOM_GML1, "CAPCOM-GML1", "1LMG", 0x861 },
+	{ FF_ATLUS_NDX, "ATLUS-NDX", "ATLUSNDX", 0xe05 },
+	{ FF_ARTE_TEX, "ARTE-TEX", "ARTETEX", 0x861 },
 
 	{ 0, 0, 0, 0 }
 };

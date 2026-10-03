@@ -97,6 +97,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	// plausible object-flow version/count pair. Extension plus the strict
 	// texture-header/size validation must therefore get first refusal before
 	// generic format/pass-through probes classify them as OBFLOW.
+	err = extract_artetex_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_tex_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
@@ -322,6 +325,18 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_l5pac_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_cingwpf_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_jupiterpck_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_treasuremrg_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_atlusndx_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_pckg_file (arg, basedir, depth);

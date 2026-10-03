@@ -4,38 +4,49 @@
 #include <errno.h>
 #include <limits.h>
 
-enumError DecodeNintendoRL (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
+static bool walk_rl (u8 *out, const u8 *src, uint src_size, uint out_size)
 {
-	if (!src || src_size < 4 || src[0] != 0x30)
-		return EINVAL;
-	const uint out_size = (uint)src[1] | (uint)src[2] << 8 | (uint)src[3] << 16;
-	enumError err = AllocOutput (dest, dest_size, out_size);
-	if (err)
-		return err;
 	uint sp = 4, dp = 0;
 	while (dp < out_size)
 	{
 		if (sp >= src_size)
-			goto invalid_rl;
+			return false;
 		const u8 control = src[sp++];
-		const uint len = (control & 0x7f) + (control >> 7 ? 3 : 1);
-		if (len > out_size - dp || sp + (control >> 7 ? 1 : len) > src_size)
-			goto invalid_rl;
-		if (control >> 7)
-			memset (*dest + dp, src[sp++], len);
-		else
+		const bool repeat = control >> 7;
+		const uint len = (control & 0x7f) + (repeat ? 3 : 1);
+		const uint consumed = repeat ? 1 : len;
+		if (len > out_size - dp || consumed > src_size - sp)
+			return false;
+		if (out)
 		{
-			memcpy (*dest + dp, src + sp, len);
-			sp += len;
+			if (repeat)
+				memset (out + dp, src[sp], len);
+			else
+				memcpy (out + dp, src + sp, len);
 		}
+		sp += consumed;
 		dp += len;
 	}
-	return ERR_OK;
-invalid_rl:
-	FREE (*dest);
+	return true;
+}
+
+enumError DecodeNintendoRL (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
+{
+	if (!dest || !dest_size)
+		return EINVAL;
 	*dest = 0;
 	*dest_size = 0;
-	return EINVAL;
+	if (!src || src_size < 4 || src[0] != 0x30)
+		return EINVAL;
+	const uint out_size = (uint)src[1] | (uint)src[2] << 8 | (uint)src[3] << 16;
+	// Validate the entire stream before trusting its advertised allocation size.
+	if (!out_size || !walk_rl (0, src, src_size, out_size))
+		return EINVAL;
+	enumError err = AllocOutput (dest, dest_size, out_size);
+	if (err)
+		return err;
+	walk_rl (*dest, src, src_size, out_size);
+	return ERR_OK;
 }
 
 enumError EncodeNintendoRL (u8 **dest, uint *dest_size, const u8 *src, uint src_size)

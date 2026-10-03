@@ -53,7 +53,9 @@ static enumError extract_jarc_file (ccp arg, ccp basedir, uint depth)
 		err = CreateFileOpt (&F, true, path, false, arg);
 		if (F.f && e->size && e->data && fwrite (e->data, 1, e->size, F.f) != e->size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", e->size, path);
-		ResetFile (&F, opt_preserve);
+		const enumError close_err = ResetFile (&F, opt_preserve);
+		if (close_err > err)
+			err = close_err;
 	}
 
 	ResetJARC (&jarc);

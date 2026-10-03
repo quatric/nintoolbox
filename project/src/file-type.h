@@ -577,6 +577,16 @@ typedef enum file_format_t
 	FF_SSZL,	 // 462 - Namco Museum SSZL LZSS0 compressed container (.lzs / SSZL)
 	FF_VCRA,	 // 463 - Namco Museum Remix archive container (.vcra / .bin / VCRA)
 	FF_INIO_LZO, // 464 - iNiS LZO1X compressed container (1OZL / Ouendan / EBA)
+	FF_CING_WPF, // 465 - CiNG Wish Pack File archive container (.wpf, Hotel Dusk / Trace Memory)
+	FF_JUPITER_PCK, // 466 - Jupiter Corp Nintendo DS Model/Motion Package (.pck, TWEWY / Kingdom Hearts)
+	FF_PROCYON_SWD, // 467 - Procyon Studio Sound Wave Data (.swd / swdl; Layton / Inazuma / PMD)
+	FF_PROCYON_SMD, // 468 - Procyon Studio Standard MIDI / Song Data (.smd / smdl; Layton / PMD)
+	FF_CAMELOT_MDLR, // 469 - Camelot Software Planning Model/Map Object Definition (.mdlr / MDLR; Golden Sun)
+	FF_TREASURE_MRG, // 470 - Treasure Co., Ltd. Nintendo DS Multi-Resource Archive (.mrg; Bleach / Bangai-O)
+	FF_CAPCOM_MODS,	 // 471 - Capcom Ghost Trick Animation Stream (.mods / MODSN3)
+	FF_CAPCOM_GML1,	 // 472 - Capcom Game Message/Script Binary (.xml.bin / 1LMG; Ghost Trick)
+	FF_ATLUS_NDX,	 // 473 - Atlus Nintendo DS / 3DS Directory Index (.ndx; Radiant Historia / SMT)
+	FF_ARTE_TEX,	 // 474 - ArtePiazza Nintendo DS Texture Container (.tex; Dragon Quest IV/V/VI)
 
 	//--- number of elements
 

@@ -75,7 +75,9 @@ static enumError cmd_compress ()
 							err = FILEERROR1 (&F, ERR_WRITE_FAILED,
 								"Writing %zu bytes failed: %s\n", szs.csize, dest);
 					}
-					ResetFile (&F, opt_preserve);
+					const enumError close_err = ResetFile (&F, opt_preserve);
+					if (close_err > err)
+						err = close_err;
 					LinkCacheData (szs.cache_fname, dest, szs.cdata, szs.csize);
 
 					if (!err && opt_remove_src)
@@ -101,6 +103,13 @@ static enumError cmd_compress ()
 // Decompress raw Nintendo codecs through the normal wszst destination and
 // overwrite path. They are deliberately handled before LoadSZS(), because
 // their payload is not an archive.
+// An extension belongs to the final path component, never an ancestor directory.
+static char *decompression_extension (char *path)
+{
+	char *slash = strrchr (path, '/');
+	return strrchr (slash ? slash + 1 : path, '.');
+}
+
 static enumError decompress_nintendo_file3 (
 	ccp arg, char *dest_out, uint dest_out_size, bool *is_final_out, bool report_error);
 
@@ -265,7 +274,7 @@ static enumError decompress_nintendo_file3 (
 	else
 	{
 		snprintf (dest, sizeof (dest), "%s", arg);
-		char *dot = strrchr (dest, '.');
+		char *dot = decompression_extension (dest);
 		bool stripped = false;
 		if (dot
 			&& (!strcasecmp (dot, ".lz") || !strcasecmp (dot, ".lz10") || !strcasecmp (dot, ".lz11")
@@ -352,7 +361,9 @@ static enumError decompress_nintendo_file3 (
 		if (F.f && fwrite (decoded, 1, decoded_size, F.f) != decoded_size)
 			err = FILEERROR1 (
 				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", decoded_size, dest);
-		ResetFile (&F, opt_preserve);
+		const enumError close_err = ResetFile (&F, opt_preserve);
+		if (close_err > err)
+			err = close_err;
 	}
 	FREE (decoded);
 	if (!err && dest_out)
@@ -437,7 +448,9 @@ static enumError cmd_decompress ()
 							err = FILEERROR1 (&F, ERR_WRITE_FAILED,
 								"Writing %zu bytes failed: %s\n", szs.size, dest);
 					}
-					ResetFile (&F, opt_preserve);
+					const enumError close_err = ResetFile (&F, opt_preserve);
+					if (close_err > err)
+						err = close_err;
 					if (!err && opt_remove_src)
 						RemoveSource (arg, dest, verbose >= 0, testmode);
 				}

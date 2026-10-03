@@ -8,7 +8,7 @@ static enumError extract_narc_mem (ccp arg, ccp basedir, uint depth, const u8 *r
 	narc_t narc;
 	enumError err = ScanNARC (&narc, raw, raw_size);
 	if (err)
-		return ERR_NOTHING_TO_DO;
+		return err;
 
 	char dest[PATH_MAX];
 	beside_source_dest (dest, sizeof (dest), arg);
@@ -19,8 +19,6 @@ static enumError extract_narc_mem (ccp arg, ccp basedir, uint depth, const u8 *r
 	for (uint i = 0; !err && i < narc.n_entries; i++)
 	{
 		const narc_entry_t *e = narc.entries + i;
-		if (!e->size)
-			continue;
 		char auto_name[PATH_MAX];
 		ccp name = e->name;
 		if (!name || !*name)
@@ -72,7 +70,9 @@ static enumError extract_narc_mem (ccp arg, ccp basedir, uint depth, const u8 *r
 		if (F.f && e->offset + e->size <= narc.fimg_size
 			&& fwrite (narc.fimg_data + e->offset, 1, e->size, F.f) != e->size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", e->size, path);
-		ResetFile (&F, opt_preserve);
+		const enumError close_err = ResetFile (&F, opt_preserve);
+		if (close_err > err)
+			err = close_err;
 	}
 
 	ResetNARC (&narc);

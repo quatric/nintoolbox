@@ -431,7 +431,315 @@ iNiS rhythm games (*Osu! Tatakae! Ouendan*, *Moero! Nekketsu Rhythm Damashii: Os
 
 The decompressed payload unpacks directly into standard Nitro / NW4C formats (`NCGR`, `NSCR`, `NCLR`, `NCER`, `NANR`) or proprietary iNiS movie/animation structures. Full decompression is integrated into `wszst decompress`.
 
+## Nintendo Little-Endian BMG / CBMG (GSEM1gmb)
+
+Retail sample:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Custom Robo Arena (USA).zip
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| Custom Robo Arena `.cbmg` scripts | 8 retail `.cbmg` files (1,664 to 35,648 bytes) | 100% (8/8 decoded to text and re-encoded with byte-for-byte exact matches) |
+| Custom Robo Arena `.mlz` scripts | 680 LZ10-compressed `.mlz` archives | 100% (Decompressed cleanly via `wszst decompress`, inner BMG decoded and re-encoded with byte-for-byte exact matches) |
+
+Nintendo DS titles (*Custom Robo Arena*, etc.) use a little-endian compilation of the Nintendo Binary Message (`BMG`) specification, commonly given the `.cbmg` extension or packed in LZ10-compressed `.mlz` files:
+- **File Magic**: `GSEM1gmb` (`0x4753454D31676D62` in big-endian, corresponding to 32-bit little-endian fourccs `MESG` and `bmg1`)
+- **Section Magics**: Stored as 32-bit little-endian integers, reversing the ASCII representation:
+  - `INF1` → `1FNI` (`0x31464E49`)
+  - `DAT1` → `1TAD` (`0x31544144`)
+  - `MID1` → `1DIM` (`0x3144494D`)
+  - `STR1` → `1RTS` (`0x31525453`)
+- **Encoding**: Supports standard Nintendo message encodings (CP1252, UTF-16, Shift-JIS, UTF-8). Custom Robo Arena uses encoding `3` (Shift-JIS) with variable attributes and escape codes (`\z{...}`).
+
+Both `wszst filetype`, `wszst extract --decode`, and `wbmgt decode` / `wbmgt encode` support little-endian BMG end-to-end with 100% byte-for-byte round-trip preservation.
+
+## CiNG Wish Pack File (CING-WPF)
+
+Retail sample:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Hotel Dusk - Room 215 (USA).zip
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| Hotel Dusk `.wpf` archives | 275 retail `.wpf` archives (6,605 total member files) | 100% (275/275 archives extracted cleanly; all 6,605 member files verified byte-for-byte; 0 errors) |
+| Hotel Dusk `.tbl` index files | 275 companion `.tbl` files | Verified 1:1 match against internal 32-byte directory records |
+
+CiNG adventure titles (*Hotel Dusk: Room 215*, *Last Window: The Secret of Cape West*) package 2D/3D graphics, scripts, models, textures, and sound into contiguous archives using 32-byte directory headers:
+- `+0x00..+0x17`: 24-byte member filename (null-terminated, ASCII/Shift-JIS, optionally prefixed with `\` or `/`).
+- `+0x18..+0x1B`: `u32` payload size (little-endian).
+- `+0x1C..+0x1F`: `u32` next member offset in archive (little-endian).
+- `+0x20`: Raw member payload data, padded to 16-byte alignment boundary.
+
+Contained assets include `.dtx` textures (LZ10/Huffman compressed), `.mdf` 3D room/prop models, `.anm` animations, `.def` definitions, `.col` collision data, and `.mot` motion tracks. Extraction is supported natively in `wszst extract`, with automatic recursion into nested compressed payloads.
+
+## Jupiter Corp Nintendo DS Model/Motion Package (JUPITER-PCK)
+
+Retail sample:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/World Ends with You, The (USA).zip
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| The World Ends with You `.pck` archives | 90 retail `.pck` archives (276 total member files) | 100% (90/90 archives extracted cleanly; all 276 member files verified byte-for-byte; 0 errors) |
+
+Jupiter Corporation developed Nintendo DS titles (*The World Ends with You* / *Subarashiki Kono Sekai*, *Kingdom Hearts: Re:coded*, *Spectrobes*) store model meshes, animations, and physics colliders in uncompressed `.pck` packages:
+- `+0x00..+0x03`: `u32` header table length (little-endian; 16-byte aligned).
+- `+0x04..+0x07`: `u32` member count $N$ (little-endian).
+- `+0x08..+0x08 + N*4`: $N$ $\times$ `u32` member byte sizes (little-endian).
+- Zero-padding to header length, followed by contiguous member payloads without gaps.
+
+Members unpack directly to standard Nintendo Nitro 3D binary formats identified by embedded fourcc magics:
+- `BMD0` (`.nsbmd`): Nitro 3D basic model mesh and material dictionaries
+- `BTX0` (`.nsbtx`): Nitro 3D texture dictionary
+- `BCA0` (`.nsbca`): Nitro 3D character / skeletal bone animation
+- `BTP0` (`.nsbtp`): Nitro 3D texture pattern animation
+- `BTA0` (`.nsbta`): Nitro 3D material color animation
+- `BMA0` (`.nsbma`): Nitro 3D visibility animation
+- `COLI` (`.coli`): Battle hitbox collision geometry
+
+Extraction is supported natively in `wszst extract`, with members automatically assigned typed Nitro file extensions.
+
+## Procyon Studio Sound Wave Data (PROCYON-SWD) & MIDI Song Data (PROCYON-SMD)
+
+Retail samples:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Professor Layton and the Diabolical Box (USA).zip
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Pokemon Mystery Dungeon - Explorers of Sky (USA).zip
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| Layton & PMD Sound Wave Data (`.swd`) | 385 retail `.swd` files (82 Layton 2, 303 PMD Sky) | 100% (385/385 files identified cleanly as `PROCYON-SWD`; 0 errors) |
+| Layton & PMD Standard MIDI Data (`.smd`) | 226 retail `.smd` files (15 Layton 2, 211 PMD Sky) | 100% (226/226 files identified cleanly as `PROCYON-SMD`; 0 errors) |
+
+Procyon Studio sound driver formats created by Yasunori Mitsuda's sound production studio are used across Level-5 titles (*Professor Layton and the Diabolical Box*, *Inazuma Eleven*) and Chunsoft titles (*Pokémon Mystery Dungeon: Explorers of Time / Darkness / Sky*):
+- **Sound Wave Data (`swdl` / `.swd`)**:
+  - `+0x00..+0x03`: `swdl` magic fourcc (little-endian `0x6c647773`).
+  - `+0x08..+0x0B`: `u32` total file size (little-endian).
+  - Fourcc chunk sections: `wavi` (wave parameters & sample properties), `prgi` (program/instrument definitions), `kgrp` (keygroup mappings), and `pcmd` (raw ADPCM/PCM sample data stream).
+  - Trailing block: `eod \0\0\x15\x04\x10\0\0\0\0\0\0\0`.
+- **Standard MIDI Song Data (`smdl` / `.smd`)**:
+  - `+0x00..+0x03`: `smdl` magic fourcc (little-endian `0x6c646d73`).
+  - `+0x08..+0x0B`: `u32` total file size (little-endian).
+  - Fourcc chunk sections: `song` (music metadata & channel assignment), followed by 4-byte-aligned track sequences (`trk `).
+  - Trailing block: `eoc ` or `eod `.
+
+Both formats are detected and classified natively via `wszst filetype`.
+
+## Camelot Software Planning Model Definition (CAMELOT-MDLR)
+
+Retail sample:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Golden Sun - Dark Dawn (USA, Australia) (En,Es).zip
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| Golden Sun: Dark Dawn `.mdlr` models | 1,284 retail `.mdlr` files with MDLR container header | 100% (1,284/1,284 files identified cleanly as `CAMELOT-MDLR`; 0 errors) |
+
+Camelot Software Planning titles (*Golden Sun: Dark Dawn* / *Ougon no Taiyou: Shikkokunaru Yoake*) store interactive 3D map props, puzzle interactables, and animated scenery in `.mdlr` definition containers:
+- `+0x00..+0x03`: `MDLR` magic fourcc (ASCII).
+- `+0x04`: `0x00` delimiter byte.
+- `+0x05..+0x08`: `u32` actor model name byte length $L$ (little-endian).
+- `+0x09..+0x09 + L`: ASCII actor identifier name, terminated by `0x00`.
+- Chunks follow immediately after the identifier name:
+  - `ANMC`: Animation controller sequence states (`WAIT_S_1`, `ACT_A`, `LOOP`, etc.).
+  - `COLL`: Physics collision definition binding to collision meshes (`.col`).
+  - `LCTR`: Lighting and directional reflection controls.
+  - `REND`: Render activation tags.
+
+Detected and classified natively via `wszst filetype`.
+
+## Treasure DS Multi-Resource Archive (TREASURE-MRG)
+
+Retail samples:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Bleach - Dark Souls (USA).zip
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Bleach - The Blade of Fate (USA).zip
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| Bleach: Dark Souls `.mrg` archives | 90 retail archives (2,177 member files) | 100% (90/90 detected cleanly as `TREASURE-MRG`; extracted 2,177 members byte-for-byte) |
+| Bleach: The Blade of Fate `.mrg` archives | 78 retail archives (2,184 member files) | 100% (78/78 detected cleanly as `TREASURE-MRG`; extracted 2,184 members byte-for-byte) |
+
+Treasure Co., Ltd. Nintendo DS titles (*Bleach: Dark Souls*, *Bleach: The Blade of Fate*, *Bangai-O Spirits*) bundle multi-resource character animations, stage assets, UI graphics, and scripts in little-endian `.mrg` table archives:
+- `+0x00..+0x03`: `u32` member file count $N$ (little-endian).
+- `+0x04..+0x04 + N * 8`: $N$ pairs of `{ u32 offset, u32 size }` (little-endian).
+- Alignment: First offset aligns with table end padded to 4-byte boundary. Subsequent member offsets are contiguous.
+- Members include Treasure 2D graphics (`.bg4` with magic `04 00 01 01`, `.bg8` with magic `08 00 01 01`), palettes, collision hitboxes, and scripts.
+
+Detected cleanly via `wszst filetype` and extracted natively via `wszst extract`.
+
+## Capcom Ghost Trick Proprietary Formats (CAPCOM-MODS & CAPCOM-GML1)
+
+Retail sample:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Ghost Trick - Phantom Detective (USA) (En,Fr,De,Es,It).zip
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| Ghost Trick `.mods` animation streams | 17 retail `.mods` files | 100% (17/17 files identified cleanly as `CAPCOM-MODS`; 0 errors) |
+| Ghost Trick `.xml.bin` script binaries | 18 retail `.xml.bin` files (+ 929 inner `.xml.lz` files) | 100% (18/18 files identified cleanly as `CAPCOM-GML1`; 0 errors) |
+
+*Ghost Trick: Phantom Detective* (Capcom, Nintendo DS) uses proprietary formats for cutscene animation and game script data:
+- **CAPCOM-MODS (`.mods` / `MODSN3`)**:
+  - `+0x00..+0x03`: `MODS` magic fourcc (ASCII).
+  - `+0x04..+0x07`: `N3\n\0` format version identifier.
+  - `+0x08..+0x0B`: `u32` total animation frame count (little-endian).
+  - `+0x0C..+0x0F`: `u32` block/chunk stride (always 256).
+  - `+0x10..+0x13`: `u32` header size (always 192 bytes = `0xC0`).
+  - `+0x14..+0x17`: animation identifier / CRC (`0x0EFC2ED9`).
+  - `+0x28..+0x2B`: `u32` trailer keyframe table offset.
+  - `+0x2C..+0x2F`: `u32` trailer keyframe table entry count.
+  - Trailer: Array of pairs `{ u32 frame_index, u32 keyframe_offset }`.
+- **CAPCOM-GML1 (`.xml.bin` / `1LMG`)**:
+  - `+0x00..+0x03`: `1LMG` magic fourcc (ASCII; little-endian `0x474D4C31`).
+  - `+0x04..+0x07`: `u32` flags/version (0 for dialogue/database scripts, 102 for system menus).
+  - `+0x08..+0x0B`: `u32` data/bytecode section byte length.
+  - `+0x0C..+0x0F`: `u32` control entry count.
+  - `+0x10..+0x13`: `u32` key/string table offset.
+  - Followed by bytecode instructions, localized text blocks, and dictionary key-to-offset index tables.
+
+Both formats are detected and classified natively via `wszst filetype`.
+
+## Atlus Nintendo DS / 3DS Directory Index & Archive System (ATLUS-NDX)
+
+Retail sample:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Radiant Historia (USA).zip
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| Radiant Historia `Data.ndx` / `Data.idx` / `Data.bin` | 1 retail archive trio (25,405 tree paths, 25,321 packed files, 35,155,000 bytes) | 100% (Detected as `ATLUS-NDX`; extracted 25,321 files byte-for-byte across 2,468 directories) |
+
+Atlus Nintendo DS and Nintendo 3DS titles (*Radiant Historia*, *Shin Megami Tensei: Strange Journey*, *Shin Megami Tensei: Devil Survivor*, *Etrian Odyssey*) package game assets in a trio of files:
+- **`*.ndx` (Name Directory Index)**:
+  - `+0x00..+0x01`: `u16` root node entry count $N$ (little-endian).
+  - Array of $N$ directory records:
+    - `u16 name_len`
+    - `char name[name_len]` (ASCII, non-terminated)
+    - `u32 child_offset`: File offset to child directory block if non-zero; `0` indicates a leaf file entry.
+  - Child blocks begin with `u16 child_count`, followed by `child_count` directory records recursively.
+- **`*.idx` (Hash Lookup Index)**:
+  - `+0x00..+0x01`: `u16` bucket count $B$ (e.g. 2048 / `0x800`).
+  - `+0x02..+0x07`: 6 reserved zero bytes.
+  - Array of $B$ bucket entries (6 bytes each):
+    - `u32 w0`, `u16 w4`.
+    - Default file size: `(((u32)w4 << 16) >> 10) + (w0 >> 26)`.
+    - Bit 0 of `w0` (`w0 & 1`):
+      - If 0 (direct entry): Offset in `.bin` is `(((w0 << 6) & 0xffffffff) >> 7) << 2`. Size in `.bin` is default file size.
+      - If 1 (collision list): Offset in `.idx` is `((w0 << 6) & 0xffffffff) >> 7`. At `idx_offset`: `u8 item_count`.
+        - Item 0 has 4-byte offset `*(u32*)(idx + pos) << 2` and uses default file size.
+        - Subsequent items have 4-byte offset and 4-byte explicit size `*(u32*)(idx + pos + 4)`.
+        - Each item has a collision discriminator list of pairs `(u8 char, u8 str_index)` terminated by `u8 0x00`.
+  - Hash function: Multiplier 37 case-insensitive rolling hash (`h = (h * 37 + tolower(c)) & 0xffffffff`), with leading `/` skipped, masked by `B - 1`.
+- **`*.bin` (Payload Container)**:
+  - Contiguous packed binary member files aligned to 4 bytes.
+
+Fully detected via `wszst filetype` and extracted natively via `wszst extract <file.ndx>` or `wszst extract <file.bin>`.
+
+## ArtePiazza Nintendo DS Texture Container (ARTE-TEX)
+
+Retail sample:
+
+```text
+Nintendo - Nintendo DS/No-Intro/Cartridges (Decrypted)/Dragon Quest IV - Chapters of the Chosen (USA) (En,Fr,Es).zip
+```
+
+| Sample | Coverage | Result |
+| --- | --- | --- |
+| *Dragon Quest IV* (`.tex` texture files across `2D/`, `ACT/`, `BATTLE/`, `FIELD/`, `MASK/`, etc.) | 470 retail texture files (467 `TextureObject`, 2 `TextureData`, 1 `Texture Data`) | 100% (All 470 files validated and decoded natively to `.png` with exact dimensions and palettes) |
+
+ArtePiazza (*Dragon Quest IV*, *Dragon Quest V*, *Dragon Quest VI* on Nintendo DS) packages textures in container files with `.tex` extension:
+- **`TextureObject\0` Container** (112-byte header, `header_len = 112 = 0x70`):
+  - `+0x00..+0x0D`: Magic string `TextureObject\0`.
+  - `+0x10..+0x13`: Version `0x00010000` (little-endian).
+  - `+0x20..+0x23`: Texture format:
+    - `3`: 4-bpp indexed (16-color palette, 2 pixels per byte, low nibble first).
+    - `4`: 8-bpp indexed (256-color palette, 1 pixel per byte).
+    - `1`: A3I5 (3-bit alpha, 5-bit color index, up to 32 colors).
+    - `6`: A5I3 (5-bit alpha, 3-bit color index, up to 8 colors).
+  - `+0x24..+0x27`: Width shift $S$ where $\text{width} = 8 \ll S$.
+  - `+0x28..+0x2B`: Height shift $T$ where $\text{height} = 8 \ll T$ (used if height cannot be computed from byte count).
+  - `+0x30..+0x33`: Pixel data byte length.
+  - `+0x34..+0x37`: Header length (112).
+  - `+0x38..+0x3B`: Palette data byte length ($2 \times \text{color\_count}$).
+  - `+0x3C..+0x3F`: Palette file offset ($= \text{header\_len} + \text{pix\_len}$).
+  - Dimensions: $\text{width} = 8 \ll S$; for format 3, $\text{height} = (\text{pix\_len} \times 2) / \text{width}$; for formats 1, 4, 6, $\text{height} = \text{pix\_len} / \text{width}$.
+- **`TextureData\0` / `Texture Data\0` Container** (56-byte compact header):
+  - `+0x00..`: Magic string `TextureData\0` or `Texture Data\0`.
+  - `+0x10..+0x13`: Texture format (3, 4, 1, or 6).
+  - `+0x14..+0x17`: Header length (56).
+  - `+0x24..+0x27`: Width parameter ($S \le 8 \implies 8 \ll S$, else $S \times 4$).
+  - `+0x28..+0x2B`: Height parameter.
+  - `+0x2C..+0x2F`: Pixel data byte length.
+  - `+0x30..+0x33`: Palette offset relative to pixel start.
+  - `+0x34..+0x37`: Palette byte length.
+- **Palette & Pixel Decoding**:
+  - Palette entries are 16-bit little-endian RGB555 colors expanded to full [0..255] RGB dynamic range: `((c & 0x1f) * 255 + 15) / 31`.
+  - For indexed modes (formats 3 and 4), color index 0 is transparent key.
+  - For alpha modes:
+    - Format 1 (A3I5): 3-bit alpha $\to$ `(alpha3 * 255 + 3) / 7`.
+    - Format 6 (A5I3): 5-bit alpha $\to$ `(alpha5 * 255 + 15) / 31`.
+
+Fully detected via `wszst filetype` as `ARTE-TEX` and decoded to sibling `.png` via `wszst extract <file.tex>`.
 
 
 
+## Archive extraction reliability audit
 
+ZIP/TSZIP extraction validates the complete central directory, local-header
+agreement, member paths, declared lengths, DEFLATE completion and CRCs before
+creating output files. Previously, unsupported or corrupt members could be
+silently skipped, CRCs were not checked, and an advertised output size directly
+controlled allocation. The member decoder now uses a fixed 64 KiB output window;
+the source archive is still loaded in memory. Each member is limited to the
+shared 512 MiB output limit. Stored and raw-DEFLATE members are supported,
+including empty files, UTF-8 names, comments and data descriptors. Encrypted,
+split, ZIP64 and unsupported compression variants return an error. Directory
+entries are validated; parent directories are created when their files are
+written, while standalone empty directories remain omitted.
+
+The payload validation pass runs before the write pass. This prevents corrupt
+later members from leaving earlier output files and makes `--test` perform real
+validation. It requires two decoding passes for successful compressed members.
+An actual write failure stops extraction and removes the failed output; files
+successfully written before a filesystem failure are retained.
+
+Close-error propagation was also repaired in 18 archive handlers: SARC, NARC,
+DARC, CCF, GFA, PAC, JARC, GPKG, RPAK (both extraction paths), MPR PACK, AT7,
+Storybook ONE, Pikmin ARC/DIR, ARC0, GPAK, LSPK, FSYS and TRPAK (manifest and
+members). Their existing stop-on-error loops now receive buffered close errors
+instead of continuing and returning success.
+
+Validation includes thirteen ZIP CLI tests, native ZIP member tests under
+AddressSanitizer and UndefinedBehaviorSanitizer, and successful/failing writes
+for synthetic SARC, NARC, DARC and Pikmin archives. File-size-limit injection
+checks a nonzero exit status, removal of the failed member, and that subsequent
+members are not attempted. Existing IEAR, PCK2 and ALAR write regressions remain
+in the suite.
+
+```sh
+python3 -m unittest discover -s tests -p 'test_zip_validation_cli.py'
+python3 -m unittest discover -s tests -p 'test_archive_write_cli.py'
+make -C project test-zip ZIP_TEST_CFLAGS='-O1 -g -fsanitize=address,undefined'
+```
+
+The rclone Luminous Arc 2 (USA) ZIP was fetched again and extracted through the
+new streaming path. Its 134,217,728-byte ROM matches the previously recorded
+SHA-256 `dd6fc8a1e8a9019f75ec6683bbbdb001ded9fab7328b2e3802260b7a870064aa`.
+No retail assets are committed.

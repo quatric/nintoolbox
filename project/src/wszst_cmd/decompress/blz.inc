@@ -11,7 +11,7 @@
 		else
 		{
 			snprintf (dest, sizeof (dest), "%s", arg);
-			char *dot = strrchr (dest, '.');
+			char *dot = decompression_extension (dest);
 			if (dot)
 				*dot = 0;
 			snprintf (dest + strlen (dest), sizeof (dest) - strlen (dest), ".bin");
@@ -26,7 +26,9 @@
 			if (F.f && fwrite (decoded, 1, decoded_size, F.f) != decoded_size)
 				err = FILEERROR1 (
 					&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", decoded_size, dest);
-			ResetFile (&F, opt_preserve);
+			const enumError close_err = ResetFile (&F, opt_preserve);
+			if (close_err > err)
+				err = close_err;
 		}
 		FREE (decoded);
 		if (!err && dest_out)

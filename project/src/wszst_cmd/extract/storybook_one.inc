@@ -52,7 +52,9 @@ static enumError extract_storybook_one_file (ccp arg, ccp basedir, uint depth)
 		if (F.f && fwrite (out, 1, out_size, F.f) != out_size)
 			err = FILEERROR1 (
 				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", out_size, path);
-		ResetFile (&F, opt_preserve);
+		const enumError close_err = ResetFile (&F, opt_preserve);
+		if (close_err > err)
+			err = close_err;
 		FREE (out);
 	}
 	if (!err && !testmode)

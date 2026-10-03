@@ -110,7 +110,9 @@ static enumError extract_darc_file (ccp arg, ccp basedir, uint depth)
 			&& fwrite (raw + e->parent_or_offset, 1, e->end_or_size, F.f) != e->end_or_size)
 			err = FILEERROR1 (
 				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", e->end_or_size, path);
-		ResetFile (&F, opt_preserve);
+		const enumError close_err = ResetFile (&F, opt_preserve);
+		if (close_err > err)
+			err = close_err;
 	}
 
 	ResetDARC (&darc);

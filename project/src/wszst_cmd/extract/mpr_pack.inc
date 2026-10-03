@@ -96,7 +96,9 @@ static enumError extract_mpr_pack_file (ccp arg, ccp basedir, uint depth)
 				err = FILEERROR1 (
 					&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", foot_size, path);
 		}
-		ResetFile (&F, opt_preserve);
+		const enumError close_err = ResetFile (&F, opt_preserve);
+		if (close_err > err)
+			err = close_err;
 		FREE (data);
 		FREE (foot);
 	}

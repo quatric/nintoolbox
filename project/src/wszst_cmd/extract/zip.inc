@@ -1,6 +1,25 @@
+#include "lib-zip.h"
+
 static inline u32 zip_le32 (const u8 *p)
 {
 	return (u32)p[0] | (u32)p[1] << 8 | (u32)p[2] << 16 | (u32)p[3] << 24;
+}
+
+typedef struct zip_member_t
+{
+	const u8 *data;
+	char *name;
+	uint stored_size, size, crc, method;
+	bool directory;
+} zip_member_t;
+
+static enumError copy_zip_member (File_t *file, const zip_member_t *member)
+{
+	enumError err = DecodeZIPMember (file ? file->f : 0, member->data, member->stored_size,
+		member->size, member->crc, member->method);
+	if (err == ERR_WRITE_FAILED && file)
+		return FILEERROR1 (file, err, "Writing ZIP member failed: %s\n", member->name);
+	return err;
 }
 
 static enumError extract_zip_file (ccp arg, ccp basedir, uint depth)
@@ -9,12 +28,10 @@ static enumError extract_zip_file (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 	u8 *raw = 0;
 	size_t raw_size = 0;
-	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, UINT_MAX, 0, 0, false);
 	if (err)
-		return ERR_NOTHING_TO_DO;
-
-	// The end-of-central-directory record is followed only by its (at most
-	// 64 KiB) comment.  Scanning backwards also permits self-extracting ZIPs.
+		return err;
+	// EOCD must terminate the file, including its optional comment.
 	const size_t begin = raw_size > 0x10016 ? raw_size - 0x10016 : 0;
 	const u8 *eocd = 0;
 	for (size_t pos = raw_size >= 22 ? raw_size - 22 : 0; raw_size >= 22 && pos >= begin; pos--)
@@ -32,126 +49,110 @@ static enumError extract_zip_file (ccp arg, ccp basedir, uint depth)
 		|| zip_le16 (eocd + 8) != zip_le16 (eocd + 10))
 	{
 		FREE (raw);
-		return ERR_NOTHING_TO_DO;
+		return ERR_INVALID_DATA;
 	}
-
-	const uint n_entries = zip_le16 (eocd + 10);
+	const uint count = zip_le16 (eocd + 10);
 	const u32 cd_size = zip_le32 (eocd + 12), cd_off = zip_le32 (eocd + 16);
-	if (cd_off == 0xffffffff || cd_size == 0xffffffff || cd_off > raw_size
-		|| cd_size > raw_size - cd_off)
+	const size_t eocd_off = eocd - raw;
+	if (count == 0xffff || cd_off > eocd_off || cd_size != eocd_off - cd_off)
 	{
 		FREE (raw);
-		return ERR_NOTHING_TO_DO; // ZIP64 is deliberately not guessed at.
+		return ERR_INVALID_DATA;
 	}
-
-	const u8 *cd = raw + cd_off, *cd_end = cd + cd_size;
-	const u8 *entry = cd;
-	for (uint i = 0; i < n_entries; i++)
-	{
-		if (entry > cd_end || (size_t)(cd_end - entry) < 46 || memcmp (entry, "PK\x01\x02", 4))
-		{
-			FREE (raw);
-			return ERR_NOTHING_TO_DO;
-		}
-		const size_t entry_size
-			= 46u + zip_le16 (entry + 28) + zip_le16 (entry + 30) + zip_le16 (entry + 32);
-		if (entry_size > (size_t)(cd_end - entry))
-		{
-			FREE (raw);
-			return ERR_NOTHING_TO_DO;
-		}
-		entry += entry_size;
-	}
-	if (entry != cd_end)
+	zip_member_t *members = count ? CALLOC (count, sizeof (*members)) : 0;
+	if (count && !members)
 	{
 		FREE (raw);
-		return ERR_NOTHING_TO_DO;
+		return ERR_OUT_OF_MEMORY;
 	}
-
 	char dest[PATH_MAX];
 	beside_source_dest (dest, sizeof (dest), arg);
-	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT ZIP:%s (%u entries) -> %s/\n", verbose > 0 ? "\n" : "",
-			testmode ? "WOULD " : "", arg, n_entries, dest);
-
-	entry = cd;
-	for (uint i = 0; !err && i < n_entries; i++)
+	const u8 *entry = raw + cd_off;
+	for (uint i = 0; !err && i < count; i++)
 	{
-		const uint name_len = zip_le16 (entry + 28), extra_len = zip_le16 (entry + 30);
-		const uint flags = zip_le16 (entry + 8), method = zip_le16 (entry + 10);
-		const u32 compressed_size = zip_le32 (entry + 20),
-				  uncompressed_size = zip_le32 (entry + 24);
-		const u32 local_off = zip_le32 (entry + 42);
-		const char *name = (ccp)(entry + 46);
-
-		// Directories are implied by file paths. Reject encrypted, ZIP64 and
-		// unsupported-compression members rather than emitting corrupt bytes.
-		if (name_len >= PATH_MAX || !name_len || name[name_len - 1] == '/')
-			goto next_zip_entry;
-		char rel[PATH_MAX];
-		memcpy (rel, name, name_len);
-		rel[name_len] = 0;
-		if (!valid_sarc_path (rel) || flags & 1 || local_off == 0xffffffff
-			|| compressed_size == 0xffffffff || uncompressed_size == 0xffffffff
-			|| (method != 0 && method != 8) || local_off > raw_size || raw_size - local_off < 30
-			|| memcmp (raw + local_off, "PK\x03\x04", 4))
-			goto next_zip_entry;
-
-		const uint local_name_len = zip_le16 (raw + local_off + 26);
-		const uint local_extra_len = zip_le16 (raw + local_off + 28);
-		const size_t data_off = (size_t)local_off + 30 + local_name_len + local_extra_len;
-		if (data_off > raw_size || compressed_size > raw_size - data_off)
-			goto next_zip_entry;
-
-		if (!testmode)
+		if ((size_t)(eocd - entry) < 46 || memcmp (entry, "PK\x01\x02", 4))
 		{
-			u8 *out = 0;
-			if (method == 0)
-			{
-				if (compressed_size != uncompressed_size)
-					goto next_zip_entry;
-				out = MALLOC (uncompressed_size ? uncompressed_size : 1);
-				if (uncompressed_size)
-					memcpy (out, raw + data_off, uncompressed_size);
-			}
-			else
-			{
-				out = MALLOC (uncompressed_size ? uncompressed_size : 1);
-				z_stream zs = { 0 };
-				zs.next_in = raw + data_off;
-				zs.avail_in = compressed_size;
-				zs.next_out = out;
-				zs.avail_out = uncompressed_size;
-				if (inflateInit2 (&zs, -MAX_WBITS) != Z_OK
-					|| inflate (&zs, Z_FINISH) != Z_STREAM_END || zs.total_out != uncompressed_size
-					|| inflateEnd (&zs) != Z_OK)
-				{
-					FREE (out);
-					goto next_zip_entry;
-				}
-			}
-
-			char path[PATH_MAX];
-			snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", rel);
-			File_t F;
-			err = CreateFileOpt (&F, true, path, false, arg);
-			if (F.f && uncompressed_size
-				&& fwrite (out, 1, uncompressed_size, F.f) != uncompressed_size)
-				err = FILEERROR1 (
-					&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", uncompressed_size, path);
-			ResetFile (&F, opt_preserve);
-			FREE (out);
+			err = ERR_INVALID_DATA;
+			break;
 		}
-
-	next_zip_entry:
-		entry += 46u + name_len + extra_len + zip_le16 (entry + 32);
+		const uint name_len = zip_le16 (entry + 28);
+		const size_t record_size = 46u + name_len + zip_le16 (entry + 30) + zip_le16 (entry + 32);
+		const uint flags = zip_le16 (entry + 8), method = zip_le16 (entry + 10);
+		const u32 local_off = zip_le32 (entry + 42);
+		zip_member_t *member = members + i;
+		if (record_size > (size_t)(eocd - entry) || !name_len || name_len >= PATH_MAX
+			|| memchr (entry + 46, 0, name_len) || (flags & (1 | 0x20 | 0x40 | 0x2000))
+			|| zip_le16 (entry + 34) || (method != 0 && method != 8) || local_off > cd_off
+			|| cd_off - local_off < 30 || memcmp (raw + local_off, "PK\x03\x04", 4))
+		{
+			err = ERR_INVALID_DATA;
+			break;
+		}
+		member->name = MALLOC (name_len + 1);
+		if (!member->name)
+		{
+			err = ERR_OUT_OF_MEMORY;
+			break;
+		}
+		memcpy (member->name, entry + 46, name_len);
+		member->name[name_len] = 0;
+		member->directory = member->name[name_len - 1] == '/';
+		if (member->directory)
+			member->name[name_len - 1] = 0;
+		if (!valid_sarc_path (member->name)
+			|| strlen (dest) + 1 + (basedir ? strlen (basedir) : 0) + name_len >= PATH_MAX)
+		{
+			err = ERR_INVALID_DATA;
+			break;
+		}
+		member->stored_size = zip_le32 (entry + 20);
+		member->size = zip_le32 (entry + 24);
+		member->crc = zip_le32 (entry + 16);
+		member->method = method;
+		const u8 *local = raw + local_off;
+		const size_t data_off
+			= (size_t)local_off + 30 + zip_le16 (local + 26) + zip_le16 (local + 28);
+		if (zip_le16 (local + 6) != flags || zip_le16 (local + 8) != method
+			|| zip_le16 (local + 26) != name_len || data_off > cd_off
+			|| memcmp (local + 30, entry + 46, name_len) || member->stored_size > cd_off - data_off
+			|| member->size > NFMT_MAX_OUTPUT || (member->directory && member->size)
+			|| (!(flags & 8)
+				&& (zip_le32 (local + 14) != member->crc
+					|| zip_le32 (local + 18) != member->stored_size
+					|| zip_le32 (local + 22) != member->size)))
+		{
+			err = ERR_INVALID_DATA;
+			break;
+		}
+		member->data = raw + data_off;
+		err = copy_zip_member (0, member);
+		entry += record_size;
 	}
-	FREE (raw);
-	if (!err && !testmode)
+	if (!err && entry != eocd)
+		err = ERR_INVALID_DATA;
+	if (!err && (verbose >= 0 || testmode))
+		fprintf (stdlog, "%sEXTRACT ZIP:%s (%u entries) -> %s/\n", testmode ? "WOULD " : "", arg,
+			count, dest);
+	for (uint i = 0; !err && !testmode && i < count; i++)
 	{
-		enumError sub_err = extract_tree_complete (dest, depth + 1);
-		if (err < sub_err)
-			err = sub_err;
+		const zip_member_t *member = members + i;
+		if (member->directory)
+			continue; // Parent directories are created with their files.
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", member->name);
+		File_t file;
+		err = CreateFileOpt (&file, true, path, false, arg);
+		if (!err && file.f)
+			err = copy_zip_member (&file, member);
+		const enumError close_err = ResetFile (&file, opt_preserve);
+		if (close_err > err)
+			err = close_err;
 	}
+	for (uint i = 0; i < count; i++)
+		FREE (members[i].name);
+	FREE (members);
+	FREE (raw);
+	if (!err && !testmode && count)
+		err = extract_tree_complete (dest, depth + 1);
 	return err;
 }

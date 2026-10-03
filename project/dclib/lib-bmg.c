@@ -157,6 +157,9 @@ static const endian_func_t *get_bmg_endian (const bmg_t *bmg)
 static const endian_func_t *get_endian_by_bh (const bmg_header_t *bh, uint size)
 {
 	DASSERT (bh);
+	if (!memcmp (bh->magic, BMG_LE_MAGIC, sizeof (bh->magic)))
+		return &le_func;
+
 	const u32 be_n = be_func.n2hl (bh->n_sections);
 	const u32 be_sz = be_func.n2hl (bh->size);
 	if (be_n >= 1 && be_n <= BMG_MAX_SECTIONS)
@@ -1181,7 +1184,8 @@ bmg_sect_list_t *ScanSectionsBMG (cvp data, uint size, const endian_func_t *endi
 {
 	//--- initialize
 
-	if (!data || size < sizeof (bmg_header_t) || memcmp (data, BMG_MAGIC, 8))
+	if (!data || size < sizeof (bmg_header_t)
+		|| (memcmp (data, BMG_MAGIC, 8) && memcmp (data, BMG_LE_MAGIC, 8)))
 		return 0;
 
 	bmg_sect_list_t sl = { 0 };
@@ -1222,7 +1226,9 @@ bmg_sect_list_t *ScanSectionsBMG (cvp data, uint size, const endian_func_t *endi
 		si.info = "?";
 
 		if (!memcmp (sect->magic, BMG_INF_MAGIC, sizeof (sect->magic))
-			|| !memcmp (sect->magic, "INF2", 4))
+			|| !memcmp (sect->magic, "INF2", 4)
+			|| !memcmp (sect->magic, "1FNI", 4)
+			|| !memcmp (sect->magic, "2FNI", 4))
 		{
 			sl.pinf = (bmg_inf_t *)sect;
 			si.head_size = sizeof (bmg_inf_t);
@@ -1230,10 +1236,12 @@ bmg_sect_list_t *ScanSectionsBMG (cvp data, uint size, const endian_func_t *endi
 			si.n_elem_head = endian->n2hs (sl.pinf->n_msg);
 			si.known = true;
 			si.supported = true;
-			si.info = !memcmp (sect->magic, "INF2", 4) ? "offset & attributes (v2)"
-													   : "offset & attributes";
+			si.info = (!memcmp (sect->magic, "INF2", 4) || !memcmp (sect->magic, "2FNI", 4))
+				? "offset & attributes (v2)"
+				: "offset & attributes";
 		}
-		else if (!memcmp (sect->magic, BMG_DAT_MAGIC, sizeof (sect->magic)))
+		else if (!memcmp (sect->magic, BMG_DAT_MAGIC, sizeof (sect->magic))
+			|| !memcmp (sect->magic, "1TAD", 4))
 		{
 			sl.pdat = (bmg_dat_t *)sect;
 			si.head_size = sizeof (bmg_dat_t);
@@ -1241,7 +1249,8 @@ bmg_sect_list_t *ScanSectionsBMG (cvp data, uint size, const endian_func_t *endi
 			si.supported = true;
 			si.info = "string pool";
 		}
-		else if (!memcmp (sect->magic, BMG_STR_MAGIC, sizeof (sect->magic)))
+		else if (!memcmp (sect->magic, BMG_STR_MAGIC, sizeof (sect->magic))
+			|| !memcmp (sect->magic, "1RTS", 4))
 		{
 			sl.pstr = (bmg_str_t *)sect;
 			si.head_size = sizeof (bmg_str_t);
@@ -1249,7 +1258,8 @@ bmg_sect_list_t *ScanSectionsBMG (cvp data, uint size, const endian_func_t *endi
 			si.supported = false;
 			si.info = "string id pool";
 		}
-		else if (!memcmp (sect->magic, BMG_MID_MAGIC, sizeof (sect->magic)))
+		else if (!memcmp (sect->magic, BMG_MID_MAGIC, sizeof (sect->magic))
+			|| !memcmp (sect->magic, "1DIM", 4))
 		{
 			sl.pmid = (bmg_mid_t *)sect;
 			si.head_size = sizeof (bmg_mid_t);
@@ -1259,7 +1269,9 @@ bmg_sect_list_t *ScanSectionsBMG (cvp data, uint size, const endian_func_t *endi
 			si.supported = true;
 			si.info = "message ids";
 		}
-		else if (!memcmp (sect->magic, "FLW", 3))
+		else if (!memcmp (sect->magic, "FLW", 3)
+			|| !memcmp (sect->magic, "1WLF", 4)
+			|| !memcmp (sect->magic, "WLF", 3))
 		{
 			sl.pflw = (bmg_flw_t *)sect;
 			si.head_size = sizeof (bmg_flw_t);
@@ -1271,7 +1283,8 @@ bmg_sect_list_t *ScanSectionsBMG (cvp data, uint size, const endian_func_t *endi
 			si.supported = false;
 			si.info = "message flow nodes";
 		}
-		else if (!memcmp (sect->magic, "FLI", 3) || !memcmp (sect->magic, "FLID", 4))
+		else if (!memcmp (sect->magic, "FLI", 3) || !memcmp (sect->magic, "FLID", 4)
+			|| !memcmp (sect->magic, "1ILF", 4) || !memcmp (sect->magic, "DILF", 4))
 		{
 			sl.pfli = (bmg_fli_t *)sect;
 			si.head_size = sizeof (bmg_fli_t);
@@ -1283,7 +1296,8 @@ bmg_sect_list_t *ScanSectionsBMG (cvp data, uint size, const endian_func_t *endi
 			si.supported = false;
 			si.info = "message flow indices";
 		}
-		else if (!memcmp (sect->magic, "TBN", 3))
+		else if (!memcmp (sect->magic, "TBN", 3)
+			|| !memcmp (sect->magic, "1NBT", 4))
 		{
 			sl.ptbn = (bmg_tbn_t *)sect;
 			si.head_size = sizeof (bmg_tbn_t);
@@ -1293,7 +1307,8 @@ bmg_sect_list_t *ScanSectionsBMG (cvp data, uint size, const endian_func_t *endi
 			si.supported = false;
 			si.info = "attributes table";
 		}
-		else if (!memcmp (sect->magic, "WII", 3))
+		else if (!memcmp (sect->magic, "WII", 3)
+			|| !memcmp (sect->magic, "1IIW", 4))
 		{
 			sl.pwii = (bmg_wii_t *)sect;
 			si.head_size = sizeof (bmg_wii_t);
@@ -2382,7 +2397,8 @@ enumError ScanRawBMG (bmg_t *bmg)
 	DASSERT (bmg->endian);
 
 	const bmg_header_t *bh = (bmg_header_t *)bmg->data;
-	DASSERT (!memcmp (bh->magic, BMG_MAGIC, sizeof (bh->magic)));
+	DASSERT (!memcmp (bh->magic, BMG_MAGIC, sizeof (bh->magic))
+		|| !memcmp (bh->magic, BMG_LE_MAGIC, sizeof (bh->magic)));
 
 	u32 data_size = bmg->endian->n2hl (bh->size);
 	bmg->encoding = bh->encoding;
@@ -3211,7 +3227,8 @@ enumError ScanBMG (bmg_t *bmg, // pointer to valid bmg
 
 	const bmg_header_t *bh = (bmg_header_t *)bmg->data;
 
-	if (!memcmp (bh->magic, BMG_MAGIC, sizeof (bh->magic)))
+	if (!memcmp (bh->magic, BMG_MAGIC, sizeof (bh->magic))
+		|| !memcmp (bh->magic, BMG_LE_MAGIC, sizeof (bh->magic)))
 	{
 		bmg->endian = get_endian_by_bh (bh, bmg->data_size);
 		if (bmg->endian)
@@ -3688,7 +3705,7 @@ enumError CreateRawBMG (bmg_t *bmg // pointer to valid BMG
 	bh->size = bc.endian->h2nl (bmg->legacy ? total_size / BMG_LEGACY_BLOCK_SIZE : total_size);
 	bh->n_sections = bc.endian->h2nl ((bc.have_mid ? 3 : 2) + raw_count);
 	bh->encoding = bmg->legacy ? 0 : encoding;
-	memcpy (bh->magic, BMG_MAGIC, sizeof (bh->magic));
+	memcpy (bh->magic, bc.endian->is_le ? BMG_LE_MAGIC : BMG_MAGIC, sizeof (bh->magic));
 
 	u8 *dest = (u8 *)(bh + 1);
 	DASSERT (dest <= bmg->raw_data + total_size);
@@ -3700,7 +3717,8 @@ enumError CreateRawBMG (bmg_t *bmg // pointer to valid BMG
 	pinf->n_msg = bc.endian->h2ns (bc.n_msg);
 	pinf->inf_size = bc.endian->h2ns (bmg->inf_size);
 	pinf->unknown_0c = bc.endian->h2nl (bmg->unknown_inf_0c);
-	memcpy (pinf->magic, bmg->inf_magic[0] ? bmg->inf_magic : BMG_INF_MAGIC, sizeof (pinf->magic));
+	memcpy (pinf->magic, bmg->inf_magic[0] ? bmg->inf_magic
+		: (bc.endian->is_le ? "1FNI" : BMG_INF_MAGIC), sizeof (pinf->magic));
 	memcpy (pinf->list, inf.ptr, inf.len);
 
 	dest += inf_size;
@@ -3710,7 +3728,7 @@ enumError CreateRawBMG (bmg_t *bmg // pointer to valid BMG
 
 	bmg_dat_t *pdat = (bmg_dat_t *)dest;
 	pdat->size = bc.endian->h2nl (dat_size);
-	memcpy (pdat->magic, BMG_DAT_MAGIC, sizeof (pdat->magic));
+	memcpy (pdat->magic, bc.endian->is_le ? "1TAD" : BMG_DAT_MAGIC, sizeof (pdat->magic));
 	memcpy (pdat->text_pool, dat.ptr, dat.len);
 
 	dest += dat_size;
@@ -3725,7 +3743,7 @@ enumError CreateRawBMG (bmg_t *bmg // pointer to valid BMG
 		pmid->n_msg = bc.endian->h2ns (bc.n_msg);
 		pmid->unknown_0a = bc.endian->h2ns (bmg->unknown_mid_0a);
 		pmid->unknown_0c = bc.endian->h2nl (bmg->unknown_mid_0c);
-		memcpy (pmid->magic, BMG_MID_MAGIC, sizeof (pmid->magic));
+		memcpy (pmid->magic, bc.endian->is_le ? "1DIM" : BMG_MID_MAGIC, sizeof (pmid->magic));
 		memcpy (pmid->mid, mid.ptr, mid.len);
 
 		dest += mid_size;
