@@ -35,7 +35,9 @@ static enumError extract_numatb_manifest (ccp arg)
 	err = CreateFileOpt (&F, true, dest, false, arg);
 	if (F.f)
 		err = DecodeNUMATB_Text (F.f, raw, raw_size);
-	ResetFile (&F, opt_preserve);
+	const enumError close_err = ResetFile (&F, opt_preserve);
+	if (close_err > err)
+		err = close_err;
 	if (err)
 	{
 		FREE (raw);
@@ -58,7 +60,9 @@ static enumError extract_numatb_manifest (ccp arg)
 	err = CreateFileOpt (&XF, true, xdest, false, arg);
 	if (XF.f)
 		err = DecodeNUMATB_XML (XF.f, raw, raw_size);
-	ResetFile (&XF, opt_preserve);
+	const enumError xml_close_err = ResetFile (&XF, opt_preserve);
+	if (xml_close_err > err)
+		err = xml_close_err;
 	FREE (raw);
 	return err;
 }

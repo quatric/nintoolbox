@@ -668,7 +668,7 @@ $(ALL_TOOLS_X): %: %.o $(ALL_OBJECTS) $(TOBJ_ALL) Makefile | $(HELPER_TOOLS) $(U
 	@printf "$(LOGFORMAT_TOOL)" tool "$@" "$(MODE) $(TOPT_$@)"
 	@$(CC) $(CFLAGS) $(DEFINES) $(LDFLAGS) $@.o \
 		$(ALL_OBJECTS) $(filter-out $(ALL_OBJECTS),$(TOBJ_$@)) $(LIBS) $(TOPT_$@) -o $@
-	@if test -f $@.exe; then $(STRIP) $@.exe || true; else $(STRIP) $@ || true; fi
+	@if test -f $@.exe; then $(STRIP) $@.exe; else $(STRIP) $@; fi
 	@# stripping invalidates the linker-embedded ad-hoc code signature; on
 	@# macOS this can be taskgated ("Code Signature Invalid") for a binary
 	@# linking certain frameworks unless it is re-signed after stripping.
