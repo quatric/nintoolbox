@@ -20,9 +20,11 @@ void ResetNARC (narc_t *narc)
 
 enumError ScanNARC (narc_t *narc, const u8 *data, size_t size)
 {
-	if (!narc || !data || size < 16)
+	if (!narc)
 		return ERR_INVALID_DATA;
 	memset (narc, 0, sizeof (*narc));
+	if (!data || size < 16)
+		return ERR_INVALID_DATA;
 
 	if (memcmp (data, "NARC", 4) && memcmp (data, "CRAN", 4))
 		return ERR_INVALID_DATA;
@@ -33,29 +35,30 @@ enumError ScanNARC (narc_t *narc, const u8 *data, size_t size)
 	narc->raw_size = size;
 	narc->is_le = is_le;
 
-	u32 off = 16;
+	size_t off = 16;
 	const u8 *fatb_data = 0;
-	uint fatb_files = 0;
+	uint fatb_files = 0, fatb_size = 0;
 	const u8 *btnf_data = 0;
 	uint btnf_size = 0;
 	const u8 *fimg_data = 0;
 	uint fimg_size = 0;
 
-	while (off + 8 <= size)
+	while (size - off >= 8)
 	{
 		char ch_magic[5] = { 0 };
 		memcpy (ch_magic, data + off, 4);
 		u32 ch_size = is_le ? rd_le32 (data + off + 4) : rd_be32 (data + off + 4);
-		// ch_size is an attacker-controlled 32-bit chunk length; off+ch_size
-		// must be widened before the bounds check, since a large ch_size can
-		// otherwise wrap 32-bit 'off' back into range and slip past it.
-		if (ch_size < 8 || (u64)off + ch_size > size)
-			break;
+		// Compare with the remaining bytes to avoid overflowing the chunk end.
+		if (ch_size < 8 || ch_size > size - off)
+			return ERR_INVALID_DATA;
 
 		if (!memcmp (ch_magic, "BTAF", 4) || !memcmp (ch_magic, "FATB", 4))
 		{
+			if (ch_size < 12)
+				return ERR_INVALID_DATA;
+			fatb_size = ch_size;
 			fatb_data = data + off;
-			fatb_files = (is_le ? rd_le32 (data + off + 8) : rd_be32 (data + off + 8)) & 0xFFFF;
+			fatb_files = is_le ? rd_le16 (data + off + 8) : rd_be16 (data + off + 8);
 		}
 		else if (!memcmp (ch_magic, "BTNF", 4) || !memcmp (ch_magic, "FNTB", 4))
 		{
@@ -70,23 +73,31 @@ enumError ScanNARC (narc_t *narc, const u8 *data, size_t size)
 		off += ch_size;
 	}
 
-	if (!fatb_data || !fimg_data || !fatb_files)
+	if (!fatb_data || !fimg_data || !fatb_files || fatb_files > (fatb_size - 12) / 8)
 		return ERR_INVALID_DATA;
 
-	narc->n_entries = fatb_files;
-	narc->entries = CALLOC (fatb_files, sizeof (narc_entry_t));
-	narc->fimg_data = fimg_data;
-	narc->fimg_size = fimg_size;
-
+	// Reject the complete table before allocating or exposing any entries.
 	for (uint i = 0; i < fatb_files; i++)
 	{
-		const u8 *entry_ptr = fatb_data + 12 + 8 * i;
-		if (entry_ptr + 8 > fatb_data + (is_le ? rd_le32 (fatb_data + 4) : rd_be32 (fatb_data + 4)))
-			break;
-		u32 st = is_le ? rd_le32 (entry_ptr) : rd_be32 (entry_ptr);
-		u32 en = is_le ? rd_le32 (entry_ptr + 4) : rd_be32 (entry_ptr + 4);
-		narc->entries[i].offset = st;
-		narc->entries[i].size = en >= st ? en - st : 0;
+		const u8 *entry = fatb_data + 12 + 8 * i;
+		const u32 start = is_le ? rd_le32 (entry) : rd_be32 (entry);
+		const u32 end = is_le ? rd_le32 (entry + 4) : rd_be32 (entry + 4);
+		if (start > end || end > fimg_size)
+			return ERR_INVALID_DATA;
+	}
+	narc->entries = CALLOC (fatb_files, sizeof (narc_entry_t));
+	if (!narc->entries)
+		return ERR_OUT_OF_MEMORY;
+	narc->n_entries = fatb_files;
+	narc->fimg_data = fimg_data;
+	narc->fimg_size = fimg_size;
+	for (uint i = 0; i < fatb_files; i++)
+	{
+		const u8 *entry = fatb_data + 12 + 8 * i;
+		const u32 start = is_le ? rd_le32 (entry) : rd_be32 (entry);
+		const u32 end = is_le ? rd_le32 (entry + 4) : rd_be32 (entry + 4);
+		narc->entries[i].offset = start;
+		narc->entries[i].size = end - start;
 	}
 
 	if (btnf_data && btnf_size >= 16)
@@ -100,8 +111,20 @@ enumError ScanNARC (narc_t *narc, const u8 *data, size_t size)
 				u16 first;
 				u16 parent;
 			} narc_dir_t;
+			if (num_dirs > (btnf_size - 8) / 8)
+			{
+				ResetNARC (narc);
+				return ERR_INVALID_DATA;
+			}
 			narc_dir_t *dirs = CALLOC (num_dirs, sizeof (narc_dir_t));
 			char **dir_paths = CALLOC (num_dirs, sizeof (char *));
+			if (!dirs || !dir_paths)
+			{
+				FREE (dirs);
+				FREE (dir_paths);
+				ResetNARC (narc);
+				return ERR_OUT_OF_MEMORY;
+			}
 
 			for (uint d = 0; d < num_dirs; d++)
 			{
@@ -121,7 +144,7 @@ enumError ScanNARC (narc_t *narc, const u8 *data, size_t size)
 			{
 				const char *parent_path = dir_paths[d] ? dir_paths[d] : "";
 				uint cur_file = dirs[d].first;
-				u32 pos = 8 + dirs[d].sub;
+				size_t pos = 8ull + dirs[d].sub;
 
 				while (pos < btnf_size)
 				{

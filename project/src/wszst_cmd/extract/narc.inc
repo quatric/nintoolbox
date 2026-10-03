@@ -8,7 +8,7 @@ static enumError extract_narc_mem (ccp arg, ccp basedir, uint depth, const u8 *r
 	narc_t narc;
 	enumError err = ScanNARC (&narc, raw, raw_size);
 	if (err)
-		return ERR_NOTHING_TO_DO;
+		return err;
 
 	char dest[PATH_MAX];
 	beside_source_dest (dest, sizeof (dest), arg);
@@ -19,8 +19,6 @@ static enumError extract_narc_mem (ccp arg, ccp basedir, uint depth, const u8 *r
 	for (uint i = 0; !err && i < narc.n_entries; i++)
 	{
 		const narc_entry_t *e = narc.entries + i;
-		if (!e->size)
-			continue;
 		char auto_name[PATH_MAX];
 		ccp name = e->name;
 		if (!name || !*name)

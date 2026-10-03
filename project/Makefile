@@ -1487,6 +1487,13 @@ test-layton-bg: version.h
 	$(CC) $(LAYTON_BG_TEST_CFLAGS) -ffunction-sections -fdata-sections -I. -Isrc -Idclib ../tests/test-layton-bg.c src/lib-layton-bg.c src/lib-nintendo.c src/lib-lz10.c src/lib-huff.c src/lib-nintendo-rl.c $(COMPRESSION_TEST_LDFLAGS) -o bin/test-layton-bg
 	@./bin/test-layton-bg
 
+.PHONY : test-narc-bounds
+NARC_TEST_CFLAGS ?= -O2
+test-narc-bounds: version.h
+	@mkdir -p bin
+	$(CC) $(NARC_TEST_CFLAGS) -ffunction-sections -fdata-sections -I. -Isrc -Idclib ../tests/test-narc-bounds.c src/lib-narc.c $(COMPRESSION_TEST_LDFLAGS) -o bin/test-narc-bounds
+	@./bin/test-narc-bounds
+
 .PHONY : test-zip
 ZIP_TEST_CFLAGS ?= -O2
 test-zip: version.h
