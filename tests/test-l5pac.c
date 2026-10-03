@@ -55,6 +55,20 @@ static void test_l5pac_parse_synthetic (void)
 	assert (pac.e[1].alloc_size == 0x60);
 
 	L5PacFree (&pac);
+
+	// The advertised file size cannot substitute for missing buffer bytes.
+	assert (L5PacParse (&pac, buf, 0xb0, total_sz) == ERR_INVALID_DATA);
+	assert (pac.n == 0 && !pac.e);
+
+	// A stride includes the header and must contain the entire payload.
+	write_le32 (buf + 0x48, 0x50);
+	assert (!IsL5Pac (buf, total_sz, total_sz));
+
+	// A large stride must not wrap the next-header bounds check.
+	write_le32 (buf + 0x48, 0xfffffff0);
+	assert (IsL5Pac (buf, total_sz, 0));
+	assert (L5PacParse (&pac, buf, total_sz, 0) == ERR_INVALID_DATA);
+	assert (pac.n == 0 && !pac.e);
 	printf ("ok\n");
 }
 

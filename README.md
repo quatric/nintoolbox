@@ -9,9 +9,9 @@ A fast, unified command-line toolkit to extract, modify, convert, and rebuild ga
 ### Installation & Building
 
 ```bash
-git clone https://github.com/quatric/wiimms-szs-tools-plus.git
-cd wiimms-szs-tools-plus/project
-make all -j$(nproc)
+git clone https://github.com/quatric/nintoolbox.git
+cd nintoolbox/project
+make all -j8
 ```
 
 Compiled binaries (`wszst`, `wimgt`, `wmdlt`, `wbrsar`, `wbmgt`, `wlayt`, `wctct`, `wkclt`, `wkmpt`) will be placed in `project/bin/`.

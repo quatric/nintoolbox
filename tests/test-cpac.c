@@ -82,6 +82,27 @@ static void test_cpac_parse_synthetic (void)
 	assert (cpac.e[3].section == 1 && cpac.e[3].is_palette == true && cpac.e[3].size == 512);
 
 	CpacFree (&cpac);
+
+	// A zero file size uses the supplied buffer length.
+	assert (CpacParse (&cpac, buf, total_sz, 0) == ERR_OK);
+	assert (cpac.n == 4);
+	CpacFree (&cpac);
+
+	// Truncated section data must not produce entries outside the buffer.
+	assert (CpacParse (&cpac, buf, sec1_off, total_sz) == ERR_OK);
+	assert (cpac.n == 2);
+	CpacFree (&cpac);
+
+	// An overflowing section offset must be skipped without dereferencing it.
+	write_le32 (buf + 8, 0xfffffff0);
+	assert (CpacParse (&cpac, buf, total_sz, total_sz) == ERR_OK);
+	assert (cpac.n == 2);
+	CpacFree (&cpac);
+
+	// A table may not extend beyond its own section.
+	write_le32 (buf + sec0_off + 20, 0xfffffff0);
+	assert (CpacParse (&cpac, buf, total_sz, total_sz) == ERR_NOTHING_TO_DO);
+	CpacFree (&cpac);
 	printf ("ok\n");
 }
 

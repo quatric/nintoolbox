@@ -77,6 +77,7 @@ enumError CpacParse (cpac_t *cpac, const u8 *d, size_t size, u64 file_size)
 	if (!IsCpac (d, size, file_size))
 		return ERR_INVALID_DATA;
 
+	const u64 available = file_size && file_size < size ? file_size : size;
 	const u32 head_len = cpac_le32 (d);
 	const uint n_sections = head_len / 8;
 	if (!n_sections)
@@ -107,17 +108,19 @@ enumError CpacParse (cpac_t *cpac, const u8 *d, size_t size, u64 file_size)
 	{
 		const u32 soff = secs[i].offset;
 		const u32 ssz = secs[i].size;
-		if (ssz < 24 || soff >= file_size || soff + 24 > size)
+		if (ssz < 24 || (u64)soff + ssz > available)
 			continue;
 
 		const u8 *shead = d + soff;
 		const u32 key_tag = cpac_le32 (shead + 8);
 		const u32 tbl_len = cpac_le32 (shead + 20);
+		if (tbl_len > ssz)
+			continue;
 
 		if (key_tag == CPAC_TAG_BKEY && tbl_len >= 32)
 		{
 			const uint n_recs = (tbl_len - 32) / 16;
-			if (soff + tbl_len <= size)
+			if ((u64)soff + tbl_len <= available)
 			{
 				for (uint r = 0; r < n_recs; r++)
 				{
@@ -154,15 +157,17 @@ enumError CpacParse (cpac_t *cpac, const u8 *d, size_t size, u64 file_size)
 	{
 		const u32 soff = secs[i].offset;
 		const u32 ssz = secs[i].size;
-		if (ssz < 24 || soff >= file_size || soff + 24 > size)
+		if (ssz < 24 || (u64)soff + ssz > available)
 			continue;
 
 		const u8 *shead = d + soff;
 		const u32 key_tag = cpac_le32 (shead + 8);
 		const u32 tbl_len = cpac_le32 (shead + 20);
-		const u32 payload_start = soff + tbl_len;
+		if (tbl_len > ssz)
+			continue;
+		const u64 payload_start = (u64)soff + tbl_len;
 
-		if (key_tag == CPAC_TAG_BKEY && tbl_len >= 32 && soff + tbl_len <= size)
+		if (key_tag == CPAC_TAG_BKEY && tbl_len >= 32 && (u64)soff + tbl_len <= available)
 		{
 			const uint n_recs = (tbl_len - 32) / 16;
 			uint sec_file = 0;
@@ -181,8 +186,8 @@ enumError CpacParse (cpac_t *cpac, const u8 *d, size_t size, u64 file_size)
 					const u32 sz = raw_s & 0x7FFFFFFF;
 					if (sz > 0 && out_idx < total_entries)
 					{
-						const u32 off = payload_start + (raw_o & 0x7FFFFFFF);
-						if (off + sz <= file_size)
+						const u64 off = payload_start + (raw_o & 0x7FFFFFFF);
+						if (off <= 0xffffffffULL && off + sz <= (u64)soff + ssz)
 						{
 							cpac->e[out_idx].offset = off;
 							cpac->e[out_idx].size = sz;
@@ -196,7 +201,7 @@ enumError CpacParse (cpac_t *cpac, const u8 *d, size_t size, u64 file_size)
 				}
 			}
 		}
-		else if (key_tag == CPAC_TAG_PKEY && tbl_len >= 32 && soff + tbl_len <= size)
+		else if (key_tag == CPAC_TAG_PKEY && tbl_len >= 32 && (u64)soff + tbl_len <= available)
 		{
 			const uint n_desc = (tbl_len - 32) / 4;
 			for (uint d_idx = 0; d_idx < n_desc; d_idx++)
@@ -207,9 +212,9 @@ enumError CpacParse (cpac_t *cpac, const u8 *d, size_t size, u64 file_size)
 				const u16 w0 = desc & 0xFFFF;
 				const u16 w1 = (desc >> 16) & 0xFFFF;
 				const u32 pal_sz = (w0 == 0x0100) ? 512 : 32;
-				const u32 off = payload_start + (u32)w1 * 32;
+				const u64 off = payload_start + (u32)w1 * 32;
 
-				if (off + pal_sz <= file_size)
+				if (off <= 0xffffffffULL && off + pal_sz <= (u64)soff + ssz)
 				{
 					cpac->e[out_idx].offset = off;
 					cpac->e[out_idx].size = pal_sz;

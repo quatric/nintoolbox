@@ -31,7 +31,7 @@ bool IsL5Pac (const u8 *head, size_t head_size, u64 file_size)
 		return false;
 	if (file_size && a_len > file_size)
 		return false;
-	if (f_len > a_len)
+	if (a_len < L5PAC_HDR_SIZE || f_len > a_len - L5PAC_HDR_SIZE)
 		return false;
 
 	// Filename inspection: null-terminated within first 40 bytes, must contain '.'
@@ -52,7 +52,7 @@ bool IsL5Pac (const u8 *head, size_t head_size, u64 file_size)
 		return false;
 
 	// If there are more entries within head_size, probe the next entry
-	if (a_len + L5PAC_HDR_SIZE <= head_size)
+	if ((u64)a_len + L5PAC_HDR_SIZE <= head_size)
 	{
 		const u8 *next = head + a_len;
 		const u32 h2 = l5pac_le32 (next + 0x40);
@@ -64,7 +64,7 @@ bool IsL5Pac (const u8 *head, size_t head_size, u64 file_size)
 			// Valid second header or terminal sentinel
 			if (f2 == 0xffffffff && a2 == 0xffffffff)
 				return true;
-			if (a2 > 0 && f2 <= a2)
+			if (a2 >= L5PAC_HDR_SIZE && f2 <= a2 - L5PAC_HDR_SIZE)
 				return true;
 		}
 		else if (h2 == 0 && f2 == 0 && a2 == 0)
@@ -112,8 +112,13 @@ enumError L5PacParse (l5pac_t *pac, const u8 *d, size_t size, u64 file_size)
 			break;
 		if (a_len == 0 || a_len == 0xffffffff || f_len == 0xffffffff)
 			break;
-		if (off + L5PAC_HDR_SIZE + f_len > total_sz)
-			break;
+		if (a_len < L5PAC_HDR_SIZE || f_len > a_len - L5PAC_HDR_SIZE
+			|| off + a_len > total_sz || off + a_len > size
+			|| off + L5PAC_HDR_SIZE > 0xffffffffULL)
+		{
+			L5PacFree (pac);
+			return ERR_INVALID_DATA;
+		}
 
 		// Entry filename
 		size_t nlen = 0;
@@ -147,8 +152,13 @@ enumError L5PacParse (l5pac_t *pac, const u8 *d, size_t size, u64 file_size)
 			break;
 		if (a_len == 0 || a_len == 0xffffffff || f_len == 0xffffffff)
 			break;
-		if (off + L5PAC_HDR_SIZE + f_len > total_sz)
-			break;
+		if (a_len < L5PAC_HDR_SIZE || f_len > a_len - L5PAC_HDR_SIZE
+			|| off + a_len > total_sz || off + a_len > size
+			|| off + L5PAC_HDR_SIZE > 0xffffffffULL)
+		{
+			L5PacFree (pac);
+			return ERR_INVALID_DATA;
+		}
 
 		size_t nlen = 0;
 		while (nlen < 40 && h[nlen] != 0)
