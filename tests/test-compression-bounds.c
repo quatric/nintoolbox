@@ -3,6 +3,7 @@
 #include "lib-huff.h"
 #include "lib-yay0.h"
 #include "lib-lz10.h"
+#include "lib-nintendo-rl.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -457,8 +458,56 @@ static void test_lz10_lz11 (void)
 	CHECK (!out && !length);
 }
 
+static void test_rle (void)
+{
+	const u8 valid[] = { 0x30, 7, 0, 0, 1, 'A', 'B', 0x80, 'C', 1, 'D', 'E' };
+	u8 *out = 0;
+	uint size = 0;
+	CHECK (DecodeNintendoRL (&out, &size, valid, sizeof (valid)) == ERR_OK);
+	CHECK (out && size == 7 && !memcmp (out, "ABCCCDE", 7));
+	free (out);
+	for (uint n = 0; n < sizeof (valid); n++)
+	{
+		out = (u8 *)1;
+		size = 99;
+		const uint before = allocation_calls;
+		CHECK (DecodeNintendoRL (&out, &size, valid, n) != ERR_OK);
+		CHECK (!out && !size && before == allocation_calls);
+	}
+	const u8 bad[][6] = { { 0x30, 255, 255, 255, 0, 'A' }, { 0x30, 2, 0, 0, 0x80, 'A' },
+		{ 0x30, 1, 0, 0, 1, 'A' }, { 0x30, 0, 0, 0, 0, 0 }, { 0x31, 1, 0, 0, 0, 'A' } };
+	for (uint i = 0; i < sizeof (bad) / sizeof (*bad); i++)
+	{
+		out = (u8 *)1;
+		size = 99;
+		const uint before = allocation_calls;
+		CHECK (DecodeNintendoRL (&out, &size, bad[i], sizeof (*bad)) != ERR_OK);
+		CHECK (!out && !size && before == allocation_calls);
+	}
+	CHECK (DecodeNintendoRL (0, &size, valid, sizeof (valid)) != ERR_OK);
+	CHECK (DecodeNintendoRL (&out, 0, valid, sizeof (valid)) != ERR_OK);
+	out = (u8 *)1;
+	size = 99;
+	CHECK (DecodeNintendoRL (&out, &size, 0, 0) != ERR_OK);
+	CHECK (!out && !size);
+	// Maximum literal block followed by the maximum repeat run.
+	u8 boundary[135] = { 0x30, 2, 1, 0, 127 };
+	for (uint i = 0; i < 128; i++)
+		boundary[5 + i] = i;
+	boundary[133] = 255;
+	boundary[134] = 42;
+	CHECK (DecodeNintendoRL (&out, &size, boundary, sizeof (boundary)) == ERR_OK);
+	CHECK (out && size == 258);
+	if (out)
+		for (uint i = 0; i < size; i++)
+			CHECK (out[i] == (i < 128 ? i : 42));
+	free (out);
+}
+
 int main (int argc, char **argv)
 {
+	if (argc == 1 || !strcmp (argv[1], "rle"))
+		test_rle ();
 	if (argc == 1 || !strcmp (argv[1], "lz10_lz11"))
 		test_lz10_lz11 ();
 	if (argc == 1 || !strcmp (argv[1], "huffman"))

@@ -1429,7 +1429,7 @@ ifeq ($(SYSTEM),mac)
 endif
 COMPRESSION_TEST_SOURCES = ../tests/test-compression-bounds.c src/lib-nintendo.c \
                           src/lib-diff.c src/lib-vlx.c src/lib-lzovl.c src/lib-sszl.c \
-                          src/lib-huff.c src/lib-yay0.c src/lib-lz10.c
+                          src/lib-huff.c src/lib-yay0.c src/lib-lz10.c src/lib-nintendo-rl.c
 
 # Override COMPRESSION_TEST_CFLAGS with -g -O1 -fsanitize=address,undefined
 # to check every decoder and the shared allocator with sanitizers.
