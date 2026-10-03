@@ -20,7 +20,7 @@ static enumError extract_ue4_pak_file (ccp arg, ccp basedir, uint depth)
 	if (err)
 	{
 		FREE (raw);
-		return ERR_NOTHING_TO_DO;
+		return err;
 	}
 
 	char dest[PATH_MAX];
@@ -38,7 +38,10 @@ static enumError extract_ue4_pak_file (ccp arg, ccp basedir, uint depth)
 		size_t entry_size = 0;
 		enumError eerr = ExtractUE4PakEntry (&pak, i, &entry_data, &entry_size);
 		if (eerr)
-			continue;
+		{
+			err = eerr;
+			break;
+		}
 
 		const char *fname = pak.entries[i].filename;
 		while (*fname == '/' || *fname == '\\' || !strncmp (fname, "../", 3)
@@ -50,6 +53,13 @@ static enumError extract_ue4_pak_file (ccp arg, ccp basedir, uint depth)
 				fname += 3;
 		}
 
+		char fallback[32];
+		if (!valid_sarc_path (fname))
+		{
+			snprintf (fallback, sizeof (fallback), "file_%04u.bin", i);
+			fname = fallback;
+		}
+
 		char path[PATH_MAX];
 		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", fname);
 
@@ -58,7 +68,9 @@ static enumError extract_ue4_pak_file (ccp arg, ccp basedir, uint depth)
 		if (F.f && entry_size > 0 && fwrite (entry_data, 1, entry_size, F.f) != entry_size)
 			err = FILEERROR1 (
 				&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", entry_size, path);
-		ResetFile (&F, opt_preserve);
+		const enumError close_err = ResetFile (&F, opt_preserve);
+		if (close_err > err)
+			err = close_err;
 		FREE (entry_data);
 	}
 

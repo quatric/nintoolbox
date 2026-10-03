@@ -44,7 +44,7 @@ bool IsUE4Pak (const u8 *data, size_t size)
 
 static const u8 *read_fstring (const u8 *p, const u8 *end, char *out, size_t out_max)
 {
-	if (p + 4 > end)
+	if ((size_t)(end - p) < 4)
 	{
 		if (out && out_max > 0)
 			out[0] = 0;
@@ -64,7 +64,7 @@ static const u8 *read_fstring (const u8 *p, const u8 *end, char *out, size_t out
 	if (len > 0)
 	{
 		// ASCII string with trailing null
-		if (p + len > end)
+		if ((size_t)len > (size_t)(end - p))
 		{
 			if (out && out_max > 0)
 				out[0] = 0;
@@ -84,8 +84,8 @@ static const u8 *read_fstring (const u8 *p, const u8 *end, char *out, size_t out
 	else
 	{
 		// UTF-16LE string: len is negative
-		size_t u16_chars = (size_t)(-len);
-		if (p + u16_chars * 2 > end)
+		size_t u16_chars = (size_t)(-(s64)len);
+		if (u16_chars > (size_t)(end - p) / 2)
 		{
 			if (out && out_max > 0)
 				out[0] = 0;
@@ -173,7 +173,7 @@ enumError ScanUE4Pak (ue4_pak_t *pak, const u8 *data, size_t size)
 	const u8 *end = p + pak->index_size;
 
 	p = read_fstring (p, end, pak->mount_point, sizeof (pak->mount_point));
-	if (p + 4 > end)
+	if ((size_t)(end - p) < 4)
 		return ERR_INVALID_DATA;
 
 	pak->n_entries = le32 (p);
@@ -192,11 +192,16 @@ enumError ScanUE4Pak (ue4_pak_t *pak, const u8 *data, size_t size)
 		char fname_buf[PATH_MAX];
 		p = read_fstring (p, end, fname_buf, sizeof (fname_buf));
 		if (p >= end)
-			break;
+			goto invalid_data;
 
 		e->filename = STRDUP (fname_buf);
-		if (p + 24 > end)
-			break;
+		if (!e->filename)
+		{
+			ResetUE4Pak (pak);
+			return ERR_OUT_OF_MEMORY;
+		}
+		if ((size_t)(end - p) < 24)
+			goto invalid_data;
 
 		e->offset = le64 (p);
 		p += 8;
@@ -207,39 +212,39 @@ enumError ScanUE4Pak (ue4_pak_t *pak, const u8 *data, size_t size)
 
 		if (pak->version < 7)
 		{
-			if (p + 4 > end)
-				break;
+			if ((size_t)(end - p) < 4)
+				goto invalid_data;
 			e->compression_method = le32 (p);
 			p += 4;
 		}
 		else
 		{
-			if (p + 4 > end)
-				break;
+			if ((size_t)(end - p) < 4)
+				goto invalid_data;
 			e->compression_method = le32 (p);
 			p += 4;
 		}
 
-		if (p + 20 > end)
-			break;
+		if ((size_t)(end - p) < 20)
+			goto invalid_data;
 		memcpy (e->hash, p, 20);
 		p += 20;
 
 		if (e->compression_method != 0)
 		{
-			if (p + 4 > end)
-				break;
+			if ((size_t)(end - p) < 4)
+				goto invalid_data;
 			e->block_count = le32 (p);
 			p += 4;
 
 			if (e->block_count > 0 && e->block_count < 100000
-				&& p + (u64)e->block_count * 16 <= end)
+				&& e->block_count <= (size_t)(end - p) / 16)
 			{
 				e->blocks = CALLOC (e->block_count, sizeof (ue4_pak_block_t));
 				if (!e->blocks)
 				{
 					e->block_count = 0;
-					break;
+					goto invalid_data;
 				}
 				for (uint b = 0; b < e->block_count; b++)
 				{
@@ -252,16 +257,16 @@ enumError ScanUE4Pak (ue4_pak_t *pak, const u8 *data, size_t size)
 			else
 			{
 				e->block_count = 0;
-				break;
+				goto invalid_data;
 			}
 		}
 
-		if (p + 1 > end)
-			break;
+		if ((size_t)(end - p) < 1)
+			goto invalid_data;
 		e->encrypted = *p++;
 
-		if (p + 4 > end)
-			break;
+		if ((size_t)(end - p) < 4)
+			goto invalid_data;
 		e->block_size = le32 (p);
 		p += 4;
 
@@ -275,6 +280,10 @@ enumError ScanUE4Pak (ue4_pak_t *pak, const u8 *data, size_t size)
 	}
 
 	return ERR_OK;
+
+invalid_data:
+	ResetUE4Pak (pak);
+	return ERR_INVALID_DATA;
 }
 
 void ResetUE4Pak (ue4_pak_t *pak)
@@ -320,11 +329,12 @@ enumError ExtractUE4PakEntry (const ue4_pak_t *pak, uint index, u8 **dest, size_
 		// Uncompressed: in standard UE4 PAK, the file data payload at e->offset
 		// begins after an FPakEntry header (53 bytes for V3-V11).
 		uint hdr_size = 53;
-		u64 src_off = e->offset + hdr_size;
+		u64 src_off = e->offset <= pak->size && hdr_size <= pak->size - e->offset
+			? e->offset + hdr_size : pak->size;
 
-		if (src_off + e->uncompressed_size <= pak->size)
+		if (e->uncompressed_size <= pak->size - src_off)
 			memcpy (out, pak->data + src_off, e->uncompressed_size);
-		else if (e->offset + e->uncompressed_size <= pak->size)
+		else if (e->offset <= pak->size && e->uncompressed_size <= pak->size - e->offset)
 			memcpy (out, pak->data + e->offset, e->uncompressed_size);
 		else
 		{
@@ -374,10 +384,10 @@ enumError ExtractUE4PakEntry (const ue4_pak_t *pak, uint index, u8 **dest, size_
 			uint block_written = 0;
 			enumError zerr = DecodeZSTDpart (
 				out + dst_off, (uint)expected_dst, &block_written, csrc, (uint)clen);
-			if (zerr != ERR_OK)
+			if (zerr != ERR_OK || block_written != expected_dst)
 			{
 				FREE (out);
-				return zerr;
+				return zerr != ERR_OK ? zerr : ERR_INVALID_DATA;
 			}
 			written_total += block_written;
 		}
@@ -397,9 +407,15 @@ enumError ExtractUE4PakEntry (const ue4_pak_t *pak, uint index, u8 **dest, size_
 				strm.avail_out = (uInt)expected_dst;
 				if (inflateInit2 (&strm, -15) == Z_OK)
 				{
-					inflate (&strm, Z_FINISH);
+					const int status = inflate (&strm, Z_FINISH);
+					const size_t produced = strm.total_out;
 					inflateEnd (&strm);
-					written_total += strm.total_out;
+					if (status != Z_STREAM_END || produced != expected_dst)
+					{
+						FREE (out);
+						return ERR_INVALID_DATA;
+					}
+					written_total += produced;
 				}
 				else
 				{
@@ -408,14 +424,26 @@ enumError ExtractUE4PakEntry (const ue4_pak_t *pak, uint index, u8 **dest, size_
 				}
 			}
 			else
+			{
+				if (dlen != expected_dst)
+				{
+					FREE (out);
+					return ERR_INVALID_DATA;
+				}
 				written_total += dlen;
+			}
 		}
 	}
 
+	if (written_total != e->uncompressed_size)
+	{
+		FREE (out);
+		return ERR_INVALID_DATA;
+	}
 	out[e->uncompressed_size] = 0;
 	*dest = out;
 	*dest_size = e->uncompressed_size;
-	(void)written_total; // tallied for future diagnostics, unused for now
+
 	return ERR_OK;
 }
 
