@@ -7,7 +7,7 @@
 		else
 		{
 			snprintf (dest, sizeof (dest), "%s", arg);
-			char *dot = strrchr (dest, '.');
+			char *dot = decompression_extension (dest);
 			if (dot)
 				*dot = 0;
 			snprintf (dest + strlen (dest), sizeof (dest) - strlen (dest), ".wud");

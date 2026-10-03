@@ -101,6 +101,13 @@ static enumError cmd_compress ()
 // Decompress raw Nintendo codecs through the normal wszst destination and
 // overwrite path. They are deliberately handled before LoadSZS(), because
 // their payload is not an archive.
+// An extension belongs to the final path component, never an ancestor directory.
+static char *decompression_extension (char *path)
+{
+	char *slash = strrchr (path, '/');
+	return strrchr (slash ? slash + 1 : path, '.');
+}
+
 static enumError decompress_nintendo_file3 (
 	ccp arg, char *dest_out, uint dest_out_size, bool *is_final_out, bool report_error);
 
@@ -265,7 +272,7 @@ static enumError decompress_nintendo_file3 (
 	else
 	{
 		snprintf (dest, sizeof (dest), "%s", arg);
-		char *dot = strrchr (dest, '.');
+		char *dot = decompression_extension (dest);
 		bool stripped = false;
 		if (dot
 			&& (!strcasecmp (dot, ".lz") || !strcasecmp (dot, ".lz10") || !strcasecmp (dot, ".lz11")

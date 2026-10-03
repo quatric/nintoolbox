@@ -14,14 +14,14 @@
 		else
 		{
 			snprintf (dest, sizeof (dest), "%s", arg);
-			char *dot = strrchr (dest, '.');
+			char *dot = decompression_extension (dest);
 			bool stripped = false;
 			if (dot && !strcasecmp (dot, ".lz4"))
 			{
 				*dot = 0;
 				stripped = true;
 			}
-			char *dot2 = strrchr (dest, '.');
+			char *dot2 = decompression_extension (dest);
 			if (!stripped || !dot2)
 			{
 				const nfmt_info_t dec_info = DetectNintendoFormat (decoded, decoded_size, dest);
