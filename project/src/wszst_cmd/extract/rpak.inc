@@ -100,7 +100,9 @@ static enumError extract_bermuda_pki_file (ccp arg, ccp basedir, uint depth)
 		if (F.f && data_size && fwrite (out_data, 1, data_size, F.f) != data_size)
 			err = FILEERROR1 (
 				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", data_size, e_path);
-		ResetFile (&F, opt_preserve);
+		const enumError close_err = ResetFile (&F, opt_preserve);
+		if (close_err > err)
+			err = close_err;
 	}
 
 	FREE (raw);
@@ -202,7 +204,9 @@ static enumError extract_rpak_file (ccp arg, ccp basedir, uint depth)
 		if (F.f && out_size && fwrite (out_data, 1, out_size, F.f) != out_size)
 			err = FILEERROR1 (
 				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", out_size, path);
-		ResetFile (&F, opt_preserve);
+		const enumError close_err = ResetFile (&F, opt_preserve);
+		if (close_err > err)
+			err = close_err;
 		FREE (dec);
 	}
 

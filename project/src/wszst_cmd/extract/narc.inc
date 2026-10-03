@@ -72,7 +72,9 @@ static enumError extract_narc_mem (ccp arg, ccp basedir, uint depth, const u8 *r
 		if (F.f && e->offset + e->size <= narc.fimg_size
 			&& fwrite (narc.fimg_data + e->offset, 1, e->size, F.f) != e->size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", e->size, path);
-		ResetFile (&F, opt_preserve);
+		const enumError close_err = ResetFile (&F, opt_preserve);
+		if (close_err > err)
+			err = close_err;
 	}
 
 	ResetNARC (&narc);

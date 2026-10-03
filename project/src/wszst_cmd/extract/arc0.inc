@@ -79,7 +79,9 @@ static enumError extract_arc0_file (ccp arg, ccp basedir, uint depth)
 			err = CreateFileOpt (&F, true, path, false, arg);
 			if (F.f && fwrite (raw + pos, 1, sz, F.f) != sz)
 				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", sz, path);
-			ResetFile (&F, opt_preserve);
+			const enumError close_err = ResetFile (&F, opt_preserve);
+			if (close_err > err)
+				err = close_err;
 		}
 		emitted++;
 		pos += sz;

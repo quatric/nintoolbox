@@ -49,7 +49,9 @@ static enumError extract_trpak_file (ccp arg, ccp basedir, uint depth)
 		err = CreateFileOpt (&F, true, manifest, false, arg);
 		if (F.f)
 			err = DecodeTRPAK_Text (F.f, &trpak);
-		ResetFile (&F, opt_preserve);
+		const enumError close_err = ResetFile (&F, opt_preserve);
+		if (close_err > err)
+			err = close_err;
 	}
 
 	for (uint i = 0; !err && i < trpak.n_entries && !testmode; i++)
@@ -68,7 +70,9 @@ static enumError extract_trpak_file (ccp arg, ccp basedir, uint depth)
 			&& fwrite (raw + e->data_offset, 1, e->data_size, F.f) != e->data_size)
 			err = FILEERROR1 (
 				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", e->data_size, path);
-		ResetFile (&F, opt_preserve);
+		const enumError close_err = ResetFile (&F, opt_preserve);
+		if (close_err > err)
+			err = close_err;
 	}
 
 	ResetTRPAK (&trpak);

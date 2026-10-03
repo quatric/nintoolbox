@@ -100,6 +100,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **Deflate** | Compression | ✅ | ✅ | Standard Deflate / Zlib streams |
 | **DTLS (dt00/ls00)** | Wii U / 3DS / Archive | ✅ | ✅ | Super Smash Bros. 4 composite resource package & lookup (Wii U `of02` 16-byte + 3DS `of01` 12-byte retail variants included) |
 | **FSYS** | GameCube / Archive | ✅ | ✅ | Genius Sonority Pokémon archive |
+| **ZIP / TSZIP** | Multi-platform / Archive | ✅ | ❌ | Stored and DEFLATE members, CRC/length validation before extraction, bounded streaming output; no encryption, ZIP64, or split archives |
 | **FZIP** | Wii U / Compression | ✅ | ✅ | Game & Wario Zlib container |
 | **GFA** | 3DS / Archive | ✅ | ✅ | GFAC archive |
 | **GF1MOT** | 3DS / Animation | ✅ | ❌ | Game Freak XY/ORAS bone-motion pack (SPICA GF1MotionPack): skeleton + per-anim frame/octet listing as text |

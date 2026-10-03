@@ -698,3 +698,48 @@ ArtePiazza (*Dragon Quest IV*, *Dragon Quest V*, *Dragon Quest VI* on Nintendo D
 
 Fully detected via `wszst filetype` as `ARTE-TEX` and decoded to sibling `.png` via `wszst extract <file.tex>`.
 
+
+
+## Archive extraction reliability audit
+
+ZIP/TSZIP extraction validates the complete central directory, local-header
+agreement, member paths, declared lengths, DEFLATE completion and CRCs before
+creating output files. Previously, unsupported or corrupt members could be
+silently skipped, CRCs were not checked, and an advertised output size directly
+controlled allocation. The member decoder now uses a fixed 64 KiB output window;
+the source archive is still loaded in memory. Each member is limited to the
+shared 512 MiB output limit. Stored and raw-DEFLATE members are supported,
+including empty files, UTF-8 names, comments and data descriptors. Encrypted,
+split, ZIP64 and unsupported compression variants return an error. Directory
+entries are validated; parent directories are created when their files are
+written, while standalone empty directories remain omitted.
+
+The payload validation pass runs before the write pass. This prevents corrupt
+later members from leaving earlier output files and makes `--test` perform real
+validation. It requires two decoding passes for successful compressed members.
+An actual write failure stops extraction and removes the failed output; files
+successfully written before a filesystem failure are retained.
+
+Close-error propagation was also repaired in 18 archive handlers: SARC, NARC,
+DARC, CCF, GFA, PAC, JARC, GPKG, RPAK (both extraction paths), MPR PACK, AT7,
+Storybook ONE, Pikmin ARC/DIR, ARC0, GPAK, LSPK, FSYS and TRPAK (manifest and
+members). Their existing stop-on-error loops now receive buffered close errors
+instead of continuing and returning success.
+
+Validation includes thirteen ZIP CLI tests, native ZIP member tests under
+AddressSanitizer and UndefinedBehaviorSanitizer, and successful/failing writes
+for synthetic SARC, NARC, DARC and Pikmin archives. File-size-limit injection
+checks a nonzero exit status, removal of the failed member, and that subsequent
+members are not attempted. Existing IEAR, PCK2 and ALAR write regressions remain
+in the suite.
+
+```sh
+python3 -m unittest discover -s tests -p 'test_zip_validation_cli.py'
+python3 -m unittest discover -s tests -p 'test_archive_write_cli.py'
+make -C project test-zip ZIP_TEST_CFLAGS='-O1 -g -fsanitize=address,undefined'
+```
+
+The rclone Luminous Arc 2 (USA) ZIP was fetched again and extracted through the
+new streaming path. Its 134,217,728-byte ROM matches the previously recorded
+SHA-256 `dd6fc8a1e8a9019f75ec6683bbbdb001ded9fab7328b2e3802260b7a870064aa`.
+No retail assets are committed.

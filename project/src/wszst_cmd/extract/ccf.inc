@@ -69,7 +69,9 @@ static enumError extract_ccf_file (ccp arg, ccp basedir, uint depth)
 		if (F.f && decomp_size && fwrite (decomp, 1, decomp_size, F.f) != decomp_size)
 			err = FILEERROR1 (
 				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", decomp_size, path);
-		ResetFile (&F, opt_preserve);
+		const enumError close_err = ResetFile (&F, opt_preserve);
+		if (close_err > err)
+			err = close_err;
 		FREE (decomp);
 	}
 
