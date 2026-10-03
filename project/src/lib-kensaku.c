@@ -126,7 +126,7 @@ static enumError ScanKensakuPres (kensaku_t *k, u8 *blob, uint blob_size, uint c
 			continue;
 		if ((u64)offset + fsize > blob_size)
 			continue;
-		if (name_off + 12 > blob_size)
+		if (name_off > blob_size || blob_size - name_off < 12)
 			continue;
 
 		// The name descriptor: three offsets, each relative to PRES_OFF (0).

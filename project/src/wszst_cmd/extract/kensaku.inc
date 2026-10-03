@@ -72,13 +72,17 @@ static enumError extract_kensaku_members (kensaku_t *kp, ccp arg, ccp basedir, u
 		if (F.f && fwrite (k.blob + e->offset, 1, e->size, F.f) != e->size)
 			ferr
 				= FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", e->size, path);
-		ResetFile (&F, opt_preserve);
+		const enumError close_err = ResetFile (&F, opt_preserve);
+		if (close_err > ferr)
+			ferr = close_err;
 		if (ferr > err)
 			err = ferr;
+		if (ferr == ERR_WRITE_FAILED || close_err)
+			break;
 	}
 
 	ResetKensaku (&k);
-	if (!testmode)
+	if (!err && !testmode)
 	{
 		enumError sub_err = extract_tree_complete (dest, depth + 1);
 		if (err < sub_err)
