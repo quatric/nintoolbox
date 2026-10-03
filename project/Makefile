@@ -1784,3 +1784,9 @@ test-ue4pak-roundtrip: version.h $(ALL_OBJECTS) $(TOBJ_wtest)
 	@mkdir -p bin
 	$(CC) $(CFLAGS) $(DEFINES) $(LDFLAGS) ../tests/test-ue4pak-roundtrip.c $(ALL_OBJECTS) $(filter-out $(ALL_OBJECTS),$(TOBJ_wtest)) $(LIBS) $(TOPT_wtest) -o bin/test-ue4pak-roundtrip
 	@./bin/test-ue4pak-roundtrip
+
+.PHONY : test-aamp-header-bounds
+test-aamp-header-bounds: version.h $(ALL_OBJECTS) $(TOBJ_wtest)
+	@mkdir -p bin
+	$(CC) $(CFLAGS) $(DEFINES) $(LDFLAGS) -g -O1 -fsanitize=address,undefined ../tests/test-aamp-header-bounds.c src/lib-aamp.c $(filter-out lib-aamp.o,$(ALL_OBJECTS)) $(filter-out $(ALL_OBJECTS),$(TOBJ_wtest)) $(LIBS) $(TOPT_wtest) -o bin/test-aamp-header-bounds
+	@./bin/test-aamp-header-bounds

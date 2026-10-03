@@ -720,15 +720,15 @@ enumError ScanAAMP (aamp_file_t *aamp, const u8 *data, size_t size)
 
 	if (aamp->version == 1)
 	{
-		if (size < 20)
+		if (size < 24)
 			return ERR_INVALID_DATA;
 		aamp->pio_version = read_u32 (data + 16, le);
 		u32 name_len = read_u32 (data + 20, le);
-		if (24 + name_len > size)
+		if (name_len > size - 24)
 			return ERR_INVALID_DATA;
-		snprintf (aamp->pio_type, sizeof (aamp->pio_type), "%.*s", (int)name_len,
+		snprintf (aamp->pio_type, sizeof (aamp->pio_type), "%.*s", (int)(name_len < sizeof (aamp->pio_type) ? name_len : sizeof (aamp->pio_type) - 1),
 			(const char *)(data + 24));
-		size_t root_off = 24 + name_len;
+		size_t root_off = 24 + (size_t)name_len;
 		return aamp_scan_v1_list (&aamp->root, data, size, root_off, le);
 	}
 	else if (aamp->version == 2)
@@ -739,6 +739,8 @@ enumError ScanAAMP (aamp_file_t *aamp, const u8 *data, size_t size)
 		u32 pio_off = read_u32 (data + 20, le);
 		const char *type_str = (const char *)(data + 0x30);
 		size_t max_tl = (pio_off > 0 && pio_off < 256) ? pio_off : 64;
+		if (max_tl > size - 0x30)
+			max_tl = size - 0x30;
 		snprintf (aamp->pio_type, sizeof (aamp->pio_type), "%.*s", (int)max_tl, type_str);
 		size_t root_off = 0x30 + (size_t)pio_off;
 		if (root_off >= size)
