@@ -1764,3 +1764,9 @@ test-jupiterpck-bounds: version.h
 	@mkdir -p bin
 	$(CC) -O2 -I. -Isrc -Idclib ../tests/test-jupiterpck-bounds.c src/lib-jupiterpck.c -o bin/test-jupiterpck-bounds
 	@./bin/test-jupiterpck-bounds
+
+.PHONY : test-ue4pak-roundtrip
+test-ue4pak-roundtrip: version.h $(ALL_OBJECTS) $(TOBJ_wtest)
+	@mkdir -p bin
+	$(CC) $(CFLAGS) $(DEFINES) $(LDFLAGS) ../tests/test-ue4pak-roundtrip.c $(ALL_OBJECTS) $(filter-out $(ALL_OBJECTS),$(TOBJ_wtest)) $(LIBS) $(TOPT_wtest) -o bin/test-ue4pak-roundtrip
+	@./bin/test-ue4pak-roundtrip

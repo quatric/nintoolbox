@@ -450,30 +450,48 @@ enumError ExtractUE4PakEntry (const ue4_pak_t *pak, uint index, u8 **dest, size_
 enumError CreateUE4Pak (u8 **dest, size_t *dest_size, const char *mount_point, uint n_files,
 	const char *const *rel_paths, const u8 *const *file_data, const size_t *file_sizes)
 {
-	if (!dest || !dest_size || (!n_files && rel_paths))
+	if (!dest || !dest_size || !n_files || n_files > 500000 || !rel_paths)
 		return ERR_INVALID_DATA;
 
 	const char *mp = mount_point && *mount_point ? mount_point : "../../../MarioAndLuigi/Content/";
 	const uint version = 8; // UE4.27 standard version
-	const uint hdr_size = 57;
+	const uint hdr_size = 53;
 
 	// Calculate total size needed
 	size_t data_payload_size = 0;
 	for (uint i = 0; i < n_files; i++)
-		data_payload_size += hdr_size + (file_sizes ? file_sizes[i] : 0);
+	{
+		const size_t fsz = file_sizes ? file_sizes[i] : 0;
+		if (fsz > NFMT_MAX_OUTPUT - hdr_size
+			|| data_payload_size > NFMT_MAX_OUTPUT - hdr_size - fsz)
+			return ERR_FILE_TOO_BIG;
+		if (fsz && (!file_data || !file_data[i]))
+			return ERR_INVALID_DATA;
+		data_payload_size += hdr_size + fsz;
+	}
 
-	size_t index_size = 4 + strlen (mp) + 1 + 4;
+	const size_t mount_len = strlen (mp);
+	if (mount_len >= PATH_MAX)
+		return ERR_INVALID_DATA;
+	size_t index_size = 4 + mount_len + 1 + 4;
 	for (uint i = 0; i < n_files; i++)
 	{
 		if (!rel_paths[i])
 			return ERR_INVALID_DATA;
-		index_size += 4 + strlen (rel_paths[i]) + 1 + 8 + 8 + 8 + 4 + 20 + 1 + 4;
+		const size_t name_len = strlen (rel_paths[i]);
+		if (name_len >= PATH_MAX)
+			return ERR_INVALID_DATA;
+		const size_t entry_size = 4 + name_len + 1 + 8 + 8 + 8 + 4 + 20 + 1 + 4;
+		if (index_size > NFMT_MAX_OUTPUT - entry_size)
+			return ERR_FILE_TOO_BIG;
+		index_size += entry_size;
 	}
 
 	size_t footer_size = 221;
-	size_t total_size = data_payload_size + index_size + footer_size;
-	if (total_size > NFMT_MAX_OUTPUT)
+	if (index_size > NFMT_MAX_OUTPUT - footer_size
+		|| data_payload_size > NFMT_MAX_OUTPUT - footer_size - index_size)
 		return ERR_FILE_TOO_BIG;
+	const size_t total_size = data_payload_size + index_size + footer_size;
 
 	u8 *buf = CALLOC (1, total_size);
 	if (!buf)
