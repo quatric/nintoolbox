@@ -35,7 +35,9 @@ static enumError extract_nulstb_manifest (ccp arg)
 	err = CreateFileOpt (&F, true, dest, false, arg);
 	if (F.f)
 		err = DecodeNULSTB_Text (F.f, raw, raw_size);
-	ResetFile (&F, opt_preserve);
+	const enumError close_err = ResetFile (&F, opt_preserve);
+	if (close_err > err)
+		err = close_err;
 	FREE (raw);
 	return err;
 }

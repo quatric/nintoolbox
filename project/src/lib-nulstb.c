@@ -25,7 +25,7 @@ bool IsNULSTB (const u8 *data, size_t size)
 static bool read_ssbh_string (char *dest, uint destsz, const u8 *data, size_t size, u64 field_off)
 {
 	dest[0] = 0;
-	if (field_off + 8 > size)
+	if (field_off > size || size - field_off < 8)
 		return false;
 	const u64 rel = rd_le64 (data + field_off);
 	if (!rel)
@@ -67,15 +67,21 @@ enumError DecodeNULSTB_Text (FILE *out, const u8 *data, size_t size)
 		"[file_names]\n",
 		major, minor, (unsigned long long)count);
 
-	if (!rel || count > NULSTB_MAX_LIST)
+	if (!count)
 	{
 		fprintf (out, "  <none>\n");
 		return ERR_OK;
 	}
 
+	if (!rel || count > NULSTB_MAX_LIST)
+		return ERROR0 (ERR_INVALID_DATA, "NULSTB: invalid file_names array\n");
+
 	const u64 base = array_field_off + rel;
 	if (base < array_field_off)
 		return ERROR0 (ERR_INVALID_DATA, "NULSTB: file_names array offset overflow\n");
+
+	if (base > size || count > (size - base) / 8)
+		return ERROR0 (ERR_INVALID_DATA, "NULSTB: file_names array outside file\n");
 
 	for (u64 i = 0; i < count; i++)
 	{
