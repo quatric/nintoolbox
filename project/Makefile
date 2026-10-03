@@ -1758,3 +1758,9 @@ wqlz_comp_140: src/wqlz_comp_140.c
 
 wqlz_decomp_140: src/wqlz_decomp_140.c
 	$(CC) $(CFLAGS) $< -o $@
+
+.PHONY : test-jupiterpck-bounds
+test-jupiterpck-bounds: version.h
+	@mkdir -p bin
+	$(CC) -O2 -I. -Isrc -Idclib ../tests/test-jupiterpck-bounds.c src/lib-jupiterpck.c -o bin/test-jupiterpck-bounds
+	@./bin/test-jupiterpck-bounds

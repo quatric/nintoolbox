@@ -33,7 +33,7 @@ bool IsJupiterPck (const u8 *data, uint data_size, u64 file_size)
 			return false;
 
 		// If the first payload is within read buffer, verify valid 4-character tag
-		if (data_size >= hdr_len + 4)
+		if ((u64)data_size >= (u64)hdr_len + 4)
 		{
 			const u8 *m = data + hdr_len;
 			for (int k = 0; k < 4; k++)

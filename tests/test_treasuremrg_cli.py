@@ -38,6 +38,19 @@ def build_synthetic_treasure_mrg(members: list[bytes]) -> bytes:
 
 
 class TreasureMrgTests(unittest.TestCase):
+    def test_empty_member_does_not_borrow_next_member_magic(self):
+        members = [b'', bytes([4, 0, 1, 1]) + b'payload']
+        with tempfile.TemporaryDirectory() as td:
+            source, dest = Path(td) / 'sample.mrg', Path(td) / 'out'
+            source.write_bytes(build_synthetic_treasure_mrg(members))
+            result = subprocess.run([str(WSZST), 'EXTRACT', str(source), '-d', str(dest),
+                                     '--no-passthrough', '--recurse=0'],
+                                    capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual((dest / 'file_000.bin').read_bytes(), b'')
+            self.assertFalse((dest / 'file_000.bg4').exists())
+            self.assertEqual((dest / 'file_001.bg4').read_bytes(), members[1])
+
     def test_detection_and_extraction(self):
         with tempfile.TemporaryDirectory() as td:
             mrg_path = Path(td) / "sample.mrg"

@@ -28,6 +28,18 @@ def build_synthetic_jupiter_pck(members: list[bytes]) -> bytes:
 
 
 class JupiterPckTests(unittest.TestCase):
+    def test_short_member_does_not_borrow_next_member_magic(self):
+        members = [b'BMD0first', b'B', b'MD0last']
+        with tempfile.TemporaryDirectory() as td:
+            source, dest = Path(td) / 'sample.pck', Path(td) / 'out'
+            source.write_bytes(build_synthetic_jupiter_pck(members))
+            result = subprocess.run([str(WSZST), 'EXTRACT', str(source), '-d', str(dest),
+                                     '--no-passthrough', '--recurse=0'],
+                                    capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual((dest / 'file_001.bin').read_bytes(), b'B')
+            self.assertFalse((dest / 'file_001.nsbmd').exists())
+
     def test_detection_and_extraction(self):
         with tempfile.TemporaryDirectory() as td:
             pck_path = Path(td) / "sample.pck"

@@ -12,6 +12,8 @@ from test_alar_cli import alar2, alar3
 from test_pikmin_cli import pair
 from test_cpac_cli import make_synthetic_cpac
 from test_l5pac_cli import make_synthetic_l5pac
+from test_jupiterpck_cli import build_synthetic_jupiter_pck
+from test_treasuremrg_cli import build_synthetic_treasure_mrg
 
 BIN = Path(__file__).resolve().parents[1] / 'project/bin/wszst'
 
@@ -61,7 +63,9 @@ class ArchiveWriteTests(unittest.TestCase):
         fixtures = [('.iear', iear([(b'bin', b'first'), (b'bin', b'second')])),
                     ('.plz', pck2(members)), ('.aar', alar2(members)), ('.aar', alar3(members)),
                     ('.bin', make_synthetic_cpac()), ('.bin', bytes(palettes)),
-                    ('.pac', make_synthetic_l5pac())]
+                    ('.pac', make_synthetic_l5pac()),
+                    ('.pck', build_synthetic_jupiter_pck([b'BMD0first', b'BCA0second'])),
+                    ('.mrg', build_synthetic_treasure_mrg([b'first', b'second']))]
         for suffix, data in fixtures:
             with self.subTest(format=suffix, version=data[4]), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)

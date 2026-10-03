@@ -89,7 +89,7 @@ static enumError extract_treasuremrg_file (ccp arg, ccp basedir, uint depth)
 		}
 
 		u8 magic[4] = { 0 };
-		const size_t m_read = fread (magic, 1, 4, f);
+		const size_t m_read = fread (magic, 1, sz < 4 ? sz : 4, f);
 		char ext[16] = ".bin";
 		if (m_read == 4)
 		{
@@ -114,6 +114,8 @@ static enumError extract_treasuremrg_file (ccp arg, ccp basedir, uint depth)
 			{
 				u8 *buf = MALLOC (1 << 20);
 				u32 left = sz;
+				if (!buf)
+					err = ERR_OUT_OF_MEMORY;
 				while (buf && left)
 				{
 					const size_t n = fread (buf, 1, left < (1 << 20) ? left : (1 << 20), f);
@@ -126,7 +128,11 @@ static enumError extract_treasuremrg_file (ccp arg, ccp basedir, uint depth)
 				}
 				FREE (buf);
 			}
-			ResetFile (&F, opt_preserve);
+			else if (!err && F.f)
+				err = ERR_READ_FAILED;
+			const enumError close_err = ResetFile (&F, opt_preserve);
+			if (close_err > err)
+				err = close_err;
 			if (err)
 				break;
 		}
