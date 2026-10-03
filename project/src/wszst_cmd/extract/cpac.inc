@@ -65,7 +65,7 @@ static enumError extract_cpac_file (ccp arg, ccp basedir, uint depth)
 	{
 		const u32 soff = secs[s_idx].offset;
 		const u32 ssz = secs[s_idx].size;
-		if (ssz < 24 || soff >= file_size)
+		if (ssz < 24 || (u64)soff + ssz > file_size)
 			continue;
 
 		if (fseeko (f, (off_t)soff, SEEK_SET))
@@ -78,7 +78,7 @@ static enumError extract_cpac_file (ccp arg, ccp basedir, uint depth)
 		const u32 key_tag = (u32)tag_hdr[8] | ((u32)tag_hdr[9] << 8) | ((u32)tag_hdr[10] << 16) | ((u32)tag_hdr[11] << 24);
 		const u32 tbl_len = (u32)tag_hdr[20] | ((u32)tag_hdr[21] << 8) | ((u32)tag_hdr[22] << 16) | ((u32)tag_hdr[23] << 24);
 
-		if (tbl_len < 32 || tbl_len > 0x1000000 || soff + tbl_len > file_size)
+		if (tbl_len < 32 || tbl_len > 0x1000000 || tbl_len > ssz)
 			continue;
 
 		u8 *sec_tbl = MALLOC (tbl_len);
@@ -92,7 +92,7 @@ static enumError extract_cpac_file (ccp arg, ccp basedir, uint depth)
 			continue;
 		}
 
-		const u32 payload_start = soff + tbl_len;
+		const u64 payload_start = (u64)soff + tbl_len;
 
 		if (key_tag == 0x424b4559) // 'BKEY'
 		{
@@ -115,8 +115,8 @@ static enumError extract_cpac_file (ccp arg, ccp basedir, uint depth)
 					if (sz == 0)
 						continue;
 
-					const u32 off = payload_start + (raw_o & 0x7FFFFFFF);
-					if (off + sz > file_size)
+					const u64 off = payload_start + (raw_o & 0x7FFFFFFF);
+					if (off + sz > (u64)soff + ssz)
 						continue;
 
 					// Peek magic from member
@@ -154,6 +154,8 @@ static enumError extract_cpac_file (ccp arg, ccp basedir, uint depth)
 					{
 						u8 *buf = MALLOC (1 << 20);
 						u32 left = sz;
+						if (!buf)
+							err = ERR_OUT_OF_MEMORY;
 						while (buf && left)
 						{
 							const size_t n = fread (buf, 1, left < (1 << 20) ? left : (1 << 20), f);
@@ -166,7 +168,11 @@ static enumError extract_cpac_file (ccp arg, ccp basedir, uint depth)
 						}
 						FREE (buf);
 					}
-					ResetFile (&F, opt_preserve);
+					else if (!err && F.f)
+						err = ERR_READ_FAILED;
+					const enumError close_err = ResetFile (&F, opt_preserve);
+					if (close_err > err)
+						err = close_err;
 					total_files++;
 				}
 			}
@@ -180,9 +186,9 @@ static enumError extract_cpac_file (ccp arg, ccp basedir, uint depth)
 				const u16 w0 = (u16)rec[0] | ((u16)rec[1] << 8);
 				const u16 w1 = (u16)rec[2] | ((u16)rec[3] << 8);
 				const u32 pal_sz = (w0 == 0x0100) ? 512 : 32;
-				const u32 off = payload_start + (u32)w1 * 32;
+				const u64 off = payload_start + (u32)w1 * 32;
 
-				if (off + pal_sz > file_size)
+				if (off + pal_sz > (u64)soff + ssz)
 					continue;
 
 				char name[PATH_MAX];
@@ -197,10 +203,14 @@ static enumError extract_cpac_file (ccp arg, ccp basedir, uint depth)
 				{
 					u8 pal_buf[512];
 					const size_t n = fread (pal_buf, 1, pal_sz, f);
-					if (n == pal_sz)
-						fwrite (pal_buf, 1, pal_sz, F.f);
+					if (n != pal_sz || fwrite (pal_buf, 1, pal_sz, F.f) != pal_sz)
+						err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", pal_sz, out_path);
 				}
-				ResetFile (&F, opt_preserve);
+				else if (!err && F.f)
+					err = ERR_READ_FAILED;
+				const enumError close_err = ResetFile (&F, opt_preserve);
+				if (close_err > err)
+					err = close_err;
 				total_files++;
 			}
 		}

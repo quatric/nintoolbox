@@ -52,8 +52,12 @@ static enumError extract_l5pac_file (ccp arg, ccp basedir, uint depth)
 			break;
 		if (a_len == 0 || a_len == 0xffffffff || f_len == 0xffffffff)
 			break;
-		if (off + L5PAC_HDR_SIZE + f_len > file_size)
+		if (a_len < L5PAC_HDR_SIZE || f_len > a_len - L5PAC_HDR_SIZE
+			|| off + a_len > file_size)
+		{
+			err = ERR_INVALID_DATA;
 			break;
+		}
 
 		// Entry filename in first 40 bytes
 		char name[64];
@@ -66,6 +70,8 @@ static enumError extract_l5pac_file (ccp arg, ccp basedir, uint depth)
 		name[nlen] = '\0';
 		if (nlen == 0)
 			break;
+		if (nlen == 40 || !valid_sarc_path (name))
+			snprintf (name, sizeof (name), "file_%04u.bin", total_files);
 
 		if (!testmode)
 		{
@@ -78,6 +84,8 @@ static enumError extract_l5pac_file (ccp arg, ccp basedir, uint depth)
 			{
 				u8 *buf = MALLOC (1 << 20);
 				u32 left = f_len;
+				if (!buf)
+					err = ERR_OUT_OF_MEMORY;
 				while (buf && left)
 				{
 					const size_t n = fread (buf, 1, left < (1 << 20) ? left : (1 << 20), f);
@@ -90,7 +98,11 @@ static enumError extract_l5pac_file (ccp arg, ccp basedir, uint depth)
 				}
 				FREE (buf);
 			}
-			ResetFile (&F, opt_preserve);
+			else if (!err && F.f)
+				err = ERR_READ_FAILED;
+			const enumError close_err = ResetFile (&F, opt_preserve);
+			if (close_err > err)
+				err = close_err;
 		}
 
 		total_files++;

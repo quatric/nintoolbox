@@ -10,6 +10,8 @@ from test_iear_cli import iear
 from test_pck2_cli import pck2
 from test_alar_cli import alar2, alar3
 from test_pikmin_cli import pair
+from test_cpac_cli import make_synthetic_cpac
+from test_l5pac_cli import make_synthetic_l5pac
 
 BIN = Path(__file__).resolve().parents[1] / 'project/bin/wszst'
 
@@ -54,8 +56,12 @@ class ArchiveWriteTests(unittest.TestCase):
 
     def test_close_failure_stops_member_extraction(self):
         members = [('first.bin', b'first'), ('second.bin', b'second')]
+        palettes = bytearray(make_synthetic_cpac())
+        struct.pack_into('<I', palettes, 4, 0)  # Skip BKEY and exercise PKEY writes.
         fixtures = [('.iear', iear([(b'bin', b'first'), (b'bin', b'second')])),
-                    ('.plz', pck2(members)), ('.aar', alar2(members)), ('.aar', alar3(members))]
+                    ('.plz', pck2(members)), ('.aar', alar2(members)), ('.aar', alar3(members)),
+                    ('.bin', make_synthetic_cpac()), ('.bin', bytes(palettes)),
+                    ('.pac', make_synthetic_l5pac())]
         for suffix, data in fixtures:
             with self.subTest(format=suffix, version=data[4]), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)

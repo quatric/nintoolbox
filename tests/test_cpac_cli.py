@@ -65,6 +65,23 @@ def make_synthetic_cpac():
 
 
 class CpacTests(unittest.TestCase):
+    def test_member_cannot_read_the_following_section(self):
+        data = bytearray(make_synthetic_cpac())
+        # The first payload is 30 bytes, so a 100-byte member crosses into PKEY.
+        struct.pack_into('<I', data, 32 + 36, 100)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            source, dest = root / 'archive.bin', root / 'out'
+            source.write_bytes(data)
+            result = subprocess.run([str(BIN), 'EXTRACT', str(source), '-d', str(dest),
+                                     '--no-passthrough', '--recurse=0'],
+                                    capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual((dest / 'sec0_0000_0000.bin').read_bytes(), b'TEST_DATA_PART_2')
+            files = [p for p in dest.rglob('*') if p.is_file()]
+            self.assertEqual(len(files), 3)
+            self.assertIn(b'TEST_DATA_PART_2', [p.read_bytes() for p in files])
+
     def test_identify_synthetic(self):
         data = make_synthetic_cpac()
         with tempfile.NamedTemporaryFile(suffix='.bin', delete=False) as f:

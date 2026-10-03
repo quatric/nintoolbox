@@ -36,6 +36,39 @@ def make_synthetic_l5pac():
 
 
 class L5PacTests(unittest.TestCase):
+    def test_unsafe_member_name_stays_inside_destination(self):
+        data = bytearray(make_synthetic_l5pac())
+        data[:40] = bytes(40)
+        name = b'../escape.bin'
+        data[:len(name)] = name
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            source, dest = root / 'archive.pac', root / 'out'
+            source.write_bytes(data)
+            result = subprocess.run([str(BIN), 'EXTRACT', str(source), '-d', str(dest),
+                                     '--no-passthrough', '--recurse=0'],
+                                    capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((root / 'escape.bin').exists())
+            self.assertEqual((dest / 'file_0000.bin').read_bytes(), b'Hello world!\n')
+            self.assertEqual((dest / 'number.bin').read_bytes(), bytes([1, 2, 3, 4]))
+
+    def test_invalid_later_stride_fails_extraction(self):
+        data = bytearray(make_synthetic_l5pac())
+        # Replace the terminal sentinel with a member whose stride cannot fit its header.
+        data[0xc0:0xc0+10] = b'third.bin\0'
+        struct.pack_into('<III', data, 0xc0+0x40, 0x50, 1, 1)
+        data += b'X'
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            source, dest = root / 'archive.pac', root / 'out'
+            source.write_bytes(data)
+            result = subprocess.run([str(BIN), 'EXTRACT', str(source), '-d', str(dest),
+                                     '--no-passthrough', '--recurse=0'],
+                                    capture_output=True, text=True, timeout=30)
+            self.assertGreater(result.returncode, 0, result.stdout + result.stderr)
+            self.assertFalse((dest / 'third.bin').exists())
+
     def test_identify_synthetic(self):
         data = make_synthetic_l5pac()
         with tempfile.NamedTemporaryFile(suffix='.pac', delete=False) as f:
