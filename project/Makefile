@@ -1487,6 +1487,20 @@ test-layton-bg: version.h
 	$(CC) $(LAYTON_BG_TEST_CFLAGS) -ffunction-sections -fdata-sections -I. -Isrc -Idclib ../tests/test-layton-bg.c src/lib-layton-bg.c src/lib-nintendo.c src/lib-lz10.c src/lib-huff.c src/lib-nintendo-rl.c $(COMPRESSION_TEST_LDFLAGS) -o bin/test-layton-bg
 	@./bin/test-layton-bg
 
+.PHONY : test-sarc-bounds
+SARC_TEST_CFLAGS ?= -O2
+test-sarc-bounds: version.h
+	@mkdir -p bin
+	$(CC) $(SARC_TEST_CFLAGS) -ffunction-sections -fdata-sections -I. -Isrc -Idclib ../tests/test-sarc-bounds.c src/lib-sarc.c $(COMPRESSION_TEST_LDFLAGS) -o bin/test-sarc-bounds
+	@./bin/test-sarc-bounds
+
+.PHONY : test-darc-bounds
+DARC_TEST_CFLAGS ?= -O2
+test-darc-bounds: version.h
+	@mkdir -p bin
+	$(CC) $(DARC_TEST_CFLAGS) -ffunction-sections -fdata-sections -I. -Isrc -Idclib ../tests/test-darc-bounds.c src/lib-darc.c $(COMPRESSION_TEST_LDFLAGS) -o bin/test-darc-bounds
+	@./bin/test-darc-bounds
+
 .PHONY : test-narc-bounds
 NARC_TEST_CFLAGS ?= -O2
 test-narc-bounds: version.h

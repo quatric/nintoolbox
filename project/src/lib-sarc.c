@@ -15,62 +15,75 @@ static inline u32 sarc32 (const nintendo_sarc_t *s, const u8 *p)
 
 enumError ScanSARC (nintendo_sarc_t *sarc, const u8 *data, uint size)
 {
-	if (!sarc || !data || size < 0x20 || memcmp (data, "SARC", 4))
-		return EINVAL;
+	if (!sarc)
+		return ERR_INVALID_DATA;
 	memset (sarc, 0, sizeof (*sarc));
-	sarc->data = data;
-	sarc->size = size;
+	if (!data || size < 0x20 || memcmp (data, "SARC", 4))
+		return ERR_INVALID_DATA;
+	nintendo_sarc_t parsed = { 0 };
+	parsed.data = data;
 	// The BOM is stored in the file's byte order, independently of host CPU.
 	if (data[6] == 0xfe && data[7] == 0xff)
-		sarc->big_endian = true;
-	else if (data[6] == 0xff && data[7] == 0xfe)
-		sarc->big_endian = false;
-	else
-		return EINVAL;
-	const uint header_size = sarc16 (sarc, data + 4);
-	const uint file_size = sarc32 (sarc, data + 8);
-	sarc->data_offset = sarc32 (sarc, data + 0x0c);
-	if (header_size < 0x14 || header_size > size || file_size > size
-		|| sarc->data_offset > file_size || header_size + 12 > file_size
+		parsed.big_endian = true;
+	else if (data[6] != 0xff || data[7] != 0xfe)
+		return ERR_INVALID_DATA;
+	const uint header_size = sarc16 (&parsed, data + 4);
+	const uint file_size = sarc32 (&parsed, data + 8);
+	parsed.size = file_size;
+	parsed.data_offset = sarc32 (&parsed, data + 0xc);
+	if (header_size < 0x14 || file_size > size || header_size > file_size
+		|| file_size - header_size < 12 || parsed.data_offset > file_size
 		|| memcmp (data + header_size, "SFAT", 4))
-		return EINVAL;
-	const uint sfat_size = sarc16 (sarc, data + header_size + 4);
-	sarc->n_entries = sarc16 (sarc, data + header_size + 6);
-	if (sfat_size < 12 || sarc->n_entries > (file_size - header_size - 12) / 16
-		|| header_size + sfat_size + 16 * sarc->n_entries + 8 > file_size)
-		return EINVAL;
-	sarc->entries_offset = header_size + sfat_size;
-	sarc->sfnt_offset = sarc->entries_offset + 16 * sarc->n_entries;
-	if (memcmp (data + sarc->sfnt_offset, "SFNT", 4)
-		|| sarc16 (sarc, data + sarc->sfnt_offset + 4) < 8)
-		return EINVAL;
+		return ERR_INVALID_DATA;
+	const uint sfat_size = sarc16 (&parsed, data + header_size + 4);
+	parsed.n_entries = sarc16 (&parsed, data + header_size + 6);
+	const u64 sfnt_offset = (u64)header_size + sfat_size + 16 * parsed.n_entries;
+	if (sfat_size < 12 || sfnt_offset + 8 > parsed.data_offset)
+		return ERR_INVALID_DATA;
+	parsed.entries_offset = header_size + sfat_size;
+	parsed.sfnt_offset = sfnt_offset;
+	const uint sfnt_size = sarc16 (&parsed, data + parsed.sfnt_offset + 4);
+	if (memcmp (data + parsed.sfnt_offset, "SFNT", 4) || sfnt_size < 8
+		|| sfnt_size > parsed.data_offset - parsed.sfnt_offset)
+		return ERR_INVALID_DATA;
+	// Validate every member before any caller can start extracting payloads.
+	for (uint i = 0; i < parsed.n_entries; i++)
+		if (GetSARCEntry (&parsed, i, 0, 0, 0))
+			return ERR_INVALID_DATA;
+	*sarc = parsed;
 	return ERR_OK;
 }
 
 enumError GetSARCEntry (
 	const nintendo_sarc_t *sarc, uint index, ccp *name, const u8 **data, uint *size)
 {
-	if (!sarc || !sarc->data || index >= sarc->n_entries)
-		return EINVAL;
+	if (name)
+		*name = 0;
+	if (data)
+		*data = 0;
+	if (size)
+		*size = 0;
+	if (!sarc || !sarc->data || index >= sarc->n_entries || sarc->data_offset > sarc->size
+		|| sarc->sfnt_offset > sarc->data_offset || sarc->data_offset - sarc->sfnt_offset < 8
+		|| (u64)sarc->entries_offset + 16ull * (index + 1ull) > sarc->sfnt_offset)
+		return ERR_INVALID_DATA;
 	const u8 *node = sarc->data + sarc->entries_offset + 16 * index;
 	const u32 attr = sarc32 (sarc, node + 4);
 	const uint begin = sarc32 (sarc, node + 8), end = sarc32 (sarc, node + 12);
 	if (begin > end || end > sarc->size - sarc->data_offset)
-		return EINVAL;
-	if (name)
+		return ERR_INVALID_DATA;
+	ccp member_name = 0;
+	if (attr >> 24)
 	{
-		if (!(attr >> 24))
-		{
-			*name = 0;
-		}
-		else
-		{
-			const uint noff = sarc->sfnt_offset + 8 + 4 * (attr & 0x00ffffff);
-			if (noff >= sarc->size || !memchr (sarc->data + noff, 0, sarc->size - noff))
-				return EINVAL;
-			*name = (ccp)sarc->data + noff;
-		}
+		const uint header_size = sarc16 (sarc, sarc->data + sarc->sfnt_offset + 4);
+		const u64 noff = (u64)sarc->sfnt_offset + header_size + 4ull * (attr & 0xffffff);
+		if (header_size < 8 || noff >= sarc->data_offset
+			|| !memchr (sarc->data + (size_t)noff, 0, sarc->data_offset - (size_t)noff))
+			return ERR_INVALID_DATA;
+		member_name = (ccp)sarc->data + (size_t)noff;
 	}
+	if (name)
+		*name = member_name;
 	if (data)
 		*data = sarc->data + sarc->data_offset + begin;
 	if (size)
@@ -221,7 +234,9 @@ enumError create_sarc_dir (ccp source, ccp dest, bool big_endian)
 			if (F.f && fwrite (final_data, 1, final_size, F.f) != final_size)
 				err = FILEERROR1 (
 					&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", final_size, dest);
-			ResetFile (&F, opt_preserve);
+			const enumError close_err = ResetFile (&F, opt_preserve);
+			if (close_err > err)
+				err = close_err;
 		}
 		FREE (comp_data);
 	}

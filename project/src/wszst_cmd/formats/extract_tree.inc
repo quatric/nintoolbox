@@ -113,7 +113,8 @@ static enumError extract_tree (ccp root, uint depth)
 			if (!is_extractor_output_dir (path)
 				&& (opt_with_update_part || strcasecmp (de->d_name, "UPDATE")))
 			{
-				err = extract_tree (path, depth + 1);
+				// Count nested containers, not ordinary filesystem directories.
+				err = extract_tree (path, depth);
 			}
 		}
 		else if (S_ISREG (st.st_mode))

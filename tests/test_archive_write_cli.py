@@ -56,6 +56,39 @@ class ArchiveWriteTests(unittest.TestCase):
                         self.assertEqual(result.returncode,0,result.stderr)
                         self.assertEqual(sorted(p.read_bytes() for p in files),[b'first',b'second'])
 
+    def test_nested_archive_close_failure_preserves_editable_sources(self):
+        for suffix in ('.darc', '.sarc'):
+            with self.subTest(format=suffix), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                source = root / 'source'
+                nested = source / ('edited' + suffix + '.d')
+                nested.mkdir(parents=True)
+                member = nested / 'first.bin'
+                member.write_bytes(b'edited payload')
+                archive = root / 'created.darc'
+                result = subprocess.run([str(BIN), 'CREATE', str(source), '-d', str(archive)],
+                                        capture_output=True, text=True, timeout=30,
+                                        preexec_fn=reject_file_writes)
+                self.assertGreater(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn('Error while closing file:', result.stderr)
+                self.assertEqual(member.read_bytes(), b'edited payload')
+                self.assertFalse(archive.exists())
+
+    def test_sarc_creation_reports_buffered_close_failure(self):
+        for suffix in ('.sarc', '.sarc.fzip'):
+            with self.subTest(format=suffix), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                source = root / 'source'
+                source.mkdir()
+                (source / 'first.bin').write_bytes(b'payload')
+                archive = root / ('created' + suffix)
+                result = subprocess.run([str(BIN), 'CREATE', str(source), '-d', str(archive)],
+                                        capture_output=True, text=True, timeout=30,
+                                        preexec_fn=reject_file_writes)
+                self.assertGreater(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn('Error while closing file:', result.stderr)
+                self.assertFalse(archive.exists())
+
     def test_close_failure_stops_member_extraction(self):
         members = [('first.bin', b'first'), ('second.bin', b'second')]
         palettes = bytearray(make_synthetic_cpac())
