@@ -58,7 +58,14 @@ static enumError extract_rcf_file (ccp arg, ccp basedir, uint depth)
 	// duplicate detection over the final names
 	rcf_order_t *ord = MALLOC (sizeof (*ord) * r.n);
 	uint *dup = CALLOC (r.n, sizeof (uint));
-	if (ord && dup)
+	if (!ord || !dup)
+	{
+		FREE (ord);
+		FREE (dup);
+		RcfFree (&r);
+		fclose (f);
+		return ERR_OUT_OF_MEMORY;
+	}
 	{
 		for (uint i = 0; i < r.n; i++)
 			ord[i] = (rcf_order_t){ &r, i };
@@ -100,6 +107,8 @@ static enumError extract_rcf_file (ccp arg, ccp basedir, uint depth)
 		{
 			u8 *buf = MALLOC (1 << 20);
 			u32 left = e->size;
+			if (!buf)
+				err = ERR_OUT_OF_MEMORY;
 			while (buf && left)
 			{
 				const size_t n = fread (buf, 1, left < (1 << 20) ? left : (1 << 20), f);
@@ -112,7 +121,11 @@ static enumError extract_rcf_file (ccp arg, ccp basedir, uint depth)
 			}
 			FREE (buf);
 		}
-		ResetFile (&F, opt_preserve);
+		else if (!err && F.f && e->size)
+			err = ERR_READ_FAILED;
+		const enumError close_err = ResetFile (&F, opt_preserve);
+		if (close_err > err)
+			err = close_err;
 	}
 
 	fclose (f);

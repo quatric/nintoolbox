@@ -79,7 +79,9 @@ static enumError extract_cod_pak0_file (ccp arg, ccp basedir, uint depth)
 		err = CreateFileOpt (&F, true, path, false, arg);
 		if (F.f && size && fwrite (raw + off, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, path);
-		ResetFile (&F, opt_preserve);
+		const enumError close_err = ResetFile (&F, opt_preserve);
+		if (close_err > err)
+			err = close_err;
 	}
 
 	FREE (raw);
