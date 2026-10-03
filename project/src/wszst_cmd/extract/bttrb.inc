@@ -107,7 +107,9 @@ static enumError extract_bttrb_file (ccp arg, ccp basedir, uint depth)
 		if (F.f && fwrite (xur, 1, xur_size, F.f) != xur_size)
 			err = FILEERROR1 (
 				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", xur_size, path);
-		ResetFile (&F, opt_preserve);
+		const enumError close_err = ResetFile (&F, opt_preserve);
+		if (close_err > err)
+			err = close_err;
 	}
 	// models: one GLB per "tcmd" object
 	const uint n_models = is_trb && !testmode && !err ? CountBlueTongueModels (raw, raw_size) : 0;
@@ -139,6 +141,8 @@ static enumError extract_bttrb_file (ccp arg, ccp basedir, uint depth)
 	uint lib_tex_n = 0;
 	char (*used)[64] = n_models ? CALLOC (n_models, 64) : 0;
 	uint n_used = 0;
+	if (n_models && !used)
+		err = ERR_OUT_OF_MEMORY;
 	for (uint i = 0; used && i < n_models && !err; i++)
 	{
 		char mname[64], clean[64];
@@ -167,7 +171,8 @@ static enumError extract_bttrb_file (ccp arg, ccp basedir, uint depth)
 		char mdir[PATH_MAX], path[PATH_MAX];
 		snprintf (mdir, sizeof (mdir), "%s/%smodels", dest, basedir ? basedir : "");
 		snprintf (path, sizeof (path), "%s/%s.glb", mdir, clean);
-		if (!CreatePath (mdir, true))
+		err = CreatePath (mdir, true);
+		if (!err)
 		{
 			// the diffuse maps the model's materials name live in the package the
 			// materials were read from (the level's LevelAssets.trb for cell props)
@@ -177,7 +182,7 @@ static enumError extract_bttrb_file (ccp arg, ccp basedir, uint depth)
 				lib_tex = ListBlueTongueTextures (lib ? lib : raw, lib ? lib_size : raw_size, &lib_tex_n);
 				lib_tex_done = lib_tex_n ? CALLOC (lib_tex_n, sizeof (bool)) : 0;
 			}
-			for (size_t mi = 0; mi < model->num_materials && lib_tex_done; mi++)
+			for (size_t mi = 0; mi < model->num_materials && lib_tex_done && !err; mi++)
 			{
 				if (!model->materials[mi].num_textures)
 					continue;
@@ -190,13 +195,14 @@ static enumError extract_bttrb_file (ccp arg, ccp basedir, uint depth)
 					snprintf (tpath, sizeof (tpath), "%s/%s.png", mdir, lib_tex[t].name);
 					if (!DecodeBlueTongueTexture (
 							&rgba, lib ? lib : raw, lib ? lib_size : raw_size, lib_tex + t))
-						SaveDecodedRGBAToPNG (
+						err = SaveDecodedRGBAToPNG (
 							rgba, lib_tex[t].width, lib_tex[t].height, &be_func, tpath, 0, true);
 					lib_tex_done[t] = true;
 					break;
 				}
 			}
-			ExportModelToGLB (model, path);
+			if (!err && ExportModelToGLB (model, path))
+				err = ERR_WRITE_FAILED;
 		}
 		FreeModel (model);
 	}
