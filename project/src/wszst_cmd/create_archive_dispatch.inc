@@ -800,56 +800,13 @@ static enumError repack_wii_banner_dir (ccp source_d, ccp target_file)
 	return ERR_OK;
 }
 
-static enumError repack_tree_bottom_up (ccp root, uint depth)
+static enumError repack_directory_contents (ccp root)
 {
-	if (depth > 32)
-		return ERR_FILE_TOO_BIG;
-
 	DIR *dir = opendir (root);
 	if (!dir)
 		return ERR_NOT_EXISTS;
-
 	enumError max_err = ERR_OK;
 	struct dirent *de;
-
-	// 1. Recurse into subdirectories first (depth-first / bottom-up)
-	while ((de = readdir (dir)))
-	{
-		if (!strcmp (de->d_name, ".") || !strcmp (de->d_name, ".."))
-			continue;
-		char path[PATH_MAX];
-		const int len = snprintf (path, sizeof (path), "%s/%s", root, de->d_name);
-		if (len < 0 || (uint)len >= sizeof (path))
-		{
-			if (max_err < ERR_FILE_TOO_BIG)
-				max_err = ERR_FILE_TOO_BIG;
-			continue;
-		}
-		struct stat st;
-		if (lstat (path, &st))
-			continue;
-		if (S_ISDIR (st.st_mode))
-		{
-			// Switch hactool staging deliberately exposes the selected Program
-			// NCA twice: once as the canonical top-level romfs/exefs tree used
-			// by hacbrewpack, and once under its hexadecimal *.nca.d mirror.
-			// Never recurse into that mirror when the canonical tree exists;
-			// doing so independently rebuilds every nested SZS before the real
-			// NSP pack even begins.
-			const size_t dlen = strlen (de->d_name);
-			if (dlen > 6 && !strcasecmp (de->d_name + dlen - 6, ".nca.d"))
-			{
-				char canonical_romfs[PATH_MAX];
-				snprintf (canonical_romfs, sizeof (canonical_romfs), "%s/romfs", root);
-				if (IsDirectory (canonical_romfs, false))
-					continue;
-			}
-			enumError err = repack_tree_bottom_up (path, depth + 1);
-			if (max_err < err)
-				max_err = err;
-		}
-	}
-	rewinddir (dir);
 
 	// 2. Process modified files & .d directories in this directory
 	while ((de = readdir (dir)))
@@ -1617,4 +1574,104 @@ static enumError repack_tree_bottom_up (ccp root, uint depth)
 	}
 	closedir (dir);
 	return max_err;
+}
+
+// Collect directories without recursion, then process descendants before parents.
+// Ordinary folder depth does not consume the nested-container limit.
+static enumError repack_tree_bottom_up (ccp root, uint depth)
+{
+	if (depth > 32)
+		return ERR_FILE_TOO_BIG;
+	struct repack_path_t
+	{
+		char *path;
+		uint depth;
+	};
+	size_t used = 0, capacity = 32;
+	struct repack_path_t *paths = CALLOC (capacity, sizeof (*paths));
+	if (!paths)
+		return ERR_OUT_OF_MEMORY;
+	enumError err = ERR_OK;
+	paths[0].path = STRDUP (root);
+	paths[0].depth = depth;
+	if (!paths[0].path)
+		err = ERR_OUT_OF_MEMORY;
+	else
+		used = 1;
+	for (size_t i = 0; !err && i < used; i++)
+	{
+		DIR *dir = opendir (paths[i].path);
+		if (!dir)
+		{
+			err = ERR_NOT_EXISTS;
+			break;
+		}
+		struct dirent *de;
+		while (!err && (de = readdir (dir)))
+		{
+			if (!strcmp (de->d_name, ".") || !strcmp (de->d_name, ".."))
+				continue;
+			char path[PATH_MAX];
+			const int len = snprintf (path, sizeof (path), "%s/%s", paths[i].path, de->d_name);
+			if (len < 0 || (size_t)len >= sizeof (path))
+			{
+				err = ERR_FILE_TOO_BIG;
+				break;
+			}
+			struct stat st;
+			if (lstat (path, &st) || !S_ISDIR (st.st_mode))
+				continue;
+			const size_t dlen = strlen (de->d_name);
+			if (dlen > 6 && !strcasecmp (de->d_name + dlen - 6, ".nca.d"))
+			{
+				char canonical[PATH_MAX];
+				snprintf (canonical, sizeof (canonical), "%s/romfs", paths[i].path);
+				if (IsDirectory (canonical, false))
+					continue;
+			}
+			const uint child_depth
+				= paths[i].depth + (dlen > 2 && !strcasecmp (de->d_name + dlen - 2, ".d"));
+			if (child_depth > 32)
+			{
+				err = ERR_FILE_TOO_BIG;
+				break;
+			}
+			if (used == capacity)
+			{
+				if (capacity > SIZE_MAX / (2 * sizeof (*paths)))
+				{
+					err = ERR_FILE_TOO_BIG;
+					break;
+				}
+				struct repack_path_t *grown = REALLOC (paths, 2 * capacity * sizeof (*paths));
+				if (!grown)
+				{
+					err = ERR_OUT_OF_MEMORY;
+					break;
+				}
+				paths = grown;
+				capacity *= 2;
+			}
+			char *copy = STRDUP (path);
+			if (!copy)
+			{
+				err = ERR_OUT_OF_MEMORY;
+				break;
+			}
+			paths[used].path = copy;
+			paths[used++].depth = child_depth;
+		}
+		closedir (dir);
+	}
+	if (!err)
+		for (size_t i = used; !err && i; i--)
+		{
+			const enumError sub_err = repack_directory_contents (paths[i - 1].path);
+			if (err < sub_err)
+				err = sub_err;
+		}
+	for (size_t i = 0; i < used; i++)
+		FREE (paths[i].path);
+	FREE (paths);
+	return err;
 }

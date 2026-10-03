@@ -1,11 +1,11 @@
 static enumError extract_sarc_mem (ccp arg, ccp basedir, uint depth, const u8 *raw, size_t raw_size)
 {
-	if (!raw || raw_size < 0x20 || raw_size > UINT_MAX || memcmp (raw, "SARC", 4))
+	if (!raw || raw_size < 4 || raw_size > UINT_MAX || memcmp (raw, "SARC", 4))
 		return ERR_NOTHING_TO_DO;
 	nintendo_sarc_t sarc;
 	enumError err = ScanSARC (&sarc, raw, raw_size);
 	if (err)
-		return ERR_NOTHING_TO_DO;
+		return err;
 
 	char dest[PATH_MAX];
 	beside_source_dest (dest, sizeof (dest), arg);
@@ -18,6 +18,8 @@ static enumError extract_sarc_mem (ccp arg, ccp basedir, uint depth, const u8 *r
 		const u8 *data = 0;
 		uint size = 0;
 		err = GetSARCEntry (&sarc, i, &name, &data, &size);
+		if (err)
+			break;
 		char auto_name[PATH_MAX];
 		if (!err && (!name || !*name))
 		{

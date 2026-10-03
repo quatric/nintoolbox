@@ -125,6 +125,9 @@ static enumError cmd_create (bool create)
 			enumError tree_err = repack_tree_bottom_up (source_dir, 0);
 			if (max_err < tree_err)
 				max_err = tree_err;
+			// Keep editable sources when any nested rebuild remains incomplete.
+			if (tree_err)
+				continue;
 
 			// Clean up all leftover .d folders and preview/companion artifacts from the tree
 			cleanup_extracted_artifacts (source_dir, true, 0);

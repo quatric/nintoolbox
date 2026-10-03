@@ -4,78 +4,59 @@
 #include <string.h>
 #include <errno.h>
 
-static char *darc_utf16le_to_utf8 (const u8 *p, const u8 *end)
+static enumError darc_utf16le_to_utf8 (char **dest, const u8 *p, size_t size)
 {
-	uint cap = 4, len = 0;
-	char *out = MALLOC (cap);
+	// Require a complete, terminated UTF-16 string before allocating it.
+	size_t units = 0;
+	while (units < size / 2 && rd_le16 (p + 2 * units))
+		units++;
+	if (units == size / 2)
+		return ERR_INVALID_DATA;
+	char *out = MALLOC (3 * units + 1);
 	if (!out)
-		return 0;
-	while (p + 2 <= end)
+		return ERR_OUT_OF_MEMORY;
+	size_t len = 0;
+	for (size_t i = 0; i < units; i++)
 	{
-		const u16 u = rd_le16 (p);
-		p += 2;
-		if (!u)
-			break;
-		u32 cp = u;
-		if (u >= 0xD800 && u <= 0xDBFF && p + 2 <= end)
+		u32 cp = rd_le16 (p + 2 * i);
+		if (cp >= 0xd800 && cp <= 0xdbff)
 		{
-			const u16 lo = rd_le16 (p);
-			if (lo >= 0xDC00 && lo <= 0xDFFF)
-			{
-				cp = 0x10000 + ((u - 0xD800) << 10) + (lo - 0xDC00);
-				p += 2;
-			}
-			else
-				cp = 0xFFFD;
+			if (++i >= units)
+				goto invalid;
+			const u16 lo = rd_le16 (p + 2 * i);
+			if (lo < 0xdc00 || lo > 0xdfff)
+				goto invalid;
+			cp = 0x10000 + ((cp - 0xd800) << 10) + lo - 0xdc00;
 		}
-		else if (u >= 0xD800 && u <= 0xDFFF)
-			cp = 0xFFFD;
-
-		char enc[4];
-		uint n;
+		else if (cp >= 0xdc00 && cp <= 0xdfff)
+			goto invalid;
 		if (cp < 0x80)
-		{
-			enc[0] = (char)cp;
-			n = 1;
-		}
+			out[len++] = cp;
 		else if (cp < 0x800)
 		{
-			enc[0] = 0xC0 | (cp >> 6);
-			enc[1] = 0x80 | (cp & 0x3f);
-			n = 2;
+			out[len++] = 0xc0 | (cp >> 6);
+			out[len++] = 0x80 | (cp & 0x3f);
 		}
 		else if (cp < 0x10000)
 		{
-			enc[0] = 0xE0 | (cp >> 12);
-			enc[1] = 0x80 | ((cp >> 6) & 0x3f);
-			enc[2] = 0x80 | (cp & 0x3f);
-			n = 3;
+			out[len++] = 0xe0 | (cp >> 12);
+			out[len++] = 0x80 | ((cp >> 6) & 0x3f);
+			out[len++] = 0x80 | (cp & 0x3f);
 		}
 		else
 		{
-			enc[0] = 0xF0 | (cp >> 18);
-			enc[1] = 0x80 | ((cp >> 12) & 0x3f);
-			enc[2] = 0x80 | ((cp >> 6) & 0x3f);
-			enc[3] = 0x80 | (cp & 0x3f);
-			n = 4;
+			out[len++] = 0xf0 | (cp >> 18);
+			out[len++] = 0x80 | ((cp >> 12) & 0x3f);
+			out[len++] = 0x80 | ((cp >> 6) & 0x3f);
+			out[len++] = 0x80 | (cp & 0x3f);
 		}
-
-		if (len + n + 1 > cap)
-		{
-			cap = (len + n + 1) * 2;
-			char *grown = REALLOC (out, cap);
-			if (!grown)
-			{
-				FREE (out);
-				return 0;
-			}
-			out = grown;
-		}
-		memcpy (out + len, enc, n);
-		len += n;
 	}
 	out[len] = 0;
-	return out;
+	*dest = out;
+	return ERR_OK;
+invalid:
+	FREE (out);
+	return ERR_INVALID_DATA;
 }
 
 void ResetDARC (darc_t *darc)
@@ -91,69 +72,89 @@ void ResetDARC (darc_t *darc)
 
 enumError ScanDARC (darc_t *darc, const u8 *data, uint size)
 {
-	if (!darc || !data || size < 0x1c || memcmp (data, "darc", 4))
-		return EINVAL;
-	if (rd_le16 (data + 4) != 0xfeff)
-		return EINVAL;
+	if (!darc)
+		return ERR_INVALID_DATA;
+	memset (darc, 0, sizeof (*darc));
+	if (!data || size < 0x1c || memcmp (data, "darc", 4) || rd_le16 (data + 4) != 0xfeff)
+		return ERR_INVALID_DATA;
 
 	const uint header_size = rd_le16 (data + 6);
 	const uint file_size = rd_le32 (data + 0xc);
 	const uint table_offset = rd_le32 (data + 0x10);
 	const uint table_size = rd_le32 (data + 0x14);
-	if (header_size < 0x1c || file_size > size || table_offset < header_size || table_size < 12
-		|| (u64)table_offset + table_size > size)
-		return EINVAL;
+	const uint data_offset = rd_le32 (data + 0x18);
+	if (header_size < 0x1c || file_size < header_size || file_size > size
+		|| table_offset < header_size || table_offset > file_size || table_size < 12
+		|| table_size > file_size - table_offset || data_offset < table_offset + table_size
+		|| data_offset > file_size)
+		return ERR_INVALID_DATA;
 
-	const uint n = table_size / 12;
-	if (!n || (u64)table_offset + 12 > size)
-		return EINVAL;
-
-	const u32 e0 = rd_le32 (data + table_offset);
-	if (!(e0 & 0x01000000))
-		return EINVAL;
-	const uint n_entries = rd_le32 (data + table_offset + 8);
-	if (!n_entries || n_entries > n || (u64)table_offset + (u64)n_entries * 12 > size)
-		return EINVAL;
-
-	const u8 *name_area = data + table_offset + n_entries * 12;
-	const u8 *name_area_end
-		= data + (table_offset + table_size <= size ? table_offset + table_size : size);
-
+	const u8 *table = data + table_offset;
+	const uint n_entries = rd_le32 (table + 8);
+	if (!n_entries || n_entries > table_size / 12 || rd_le32 (table + 4) != 0
+		|| (rd_le32 (table) >> 24) != 1)
+		return ERR_INVALID_DATA;
+	const uint name_size = table_size - n_entries * 12;
+	const u8 *names = table + n_entries * 12;
 	darc_entry_t *entries = CALLOC (n_entries, sizeof (*entries));
-	if (!entries)
-		return ERR_CANT_CREATE;
-
+	uint *stack = CALLOC (n_entries, sizeof (*stack));
+	if (!entries || !stack)
+	{
+		FREE (entries);
+		FREE (stack);
+		return ERR_OUT_OF_MEMORY;
+	}
+	darc->entries = entries;
+	darc->n_entries = n_entries;
+	uint sp = 0;
+	enumError err = ERR_OK;
 	for (uint i = 0; i < n_entries; i++)
 	{
-		const u8 *e = data + table_offset + i * 12;
+		const u8 *e = table + i * 12;
 		const u32 f0 = rd_le32 (e);
 		const u32 f1 = rd_le32 (e + 4);
 		const u32 f2 = rd_le32 (e + 8);
-		const bool is_dir = (f0 & 0x01000000) != 0;
 		const uint name_off = f0 & 0xffffff;
-
-		entries[i].is_dir = is_dir;
+		if ((f0 >> 24) > 1 || name_off & 1 || name_off >= name_size || name_size - name_off < 2)
+		{
+			err = ERR_INVALID_DATA;
+			break;
+		}
+		entries[i].is_dir = (f0 >> 24) == 1;
 		entries[i].parent_or_offset = f1;
 		entries[i].end_or_size = f2;
-
-		if (name_area + name_off < name_area_end)
-			entries[i].name = darc_utf16le_to_utf8 (name_area + name_off, name_area_end);
-		if (!entries[i].name)
-			entries[i].name = STRDUP ("");
-
-		if (!is_dir && ((u64)f1 + f2 > size))
+		err = darc_utf16le_to_utf8 (&entries[i].name, names + name_off, name_size - name_off);
+		if (err)
+			break;
+		if (i)
 		{
-			for (uint k = 0; k <= i; k++)
-				FREE (entries[k].name);
-			FREE (entries);
-			return EINVAL;
+			while (sp && i >= entries[stack[sp]].end_or_size)
+				sp--;
+			if (entries[i].is_dir)
+			{
+				const uint parent = stack[sp];
+				if (f1 != parent || f2 <= i || f2 > entries[parent].end_or_size)
+				{
+					err = ERR_INVALID_DATA;
+					break;
+				}
+				stack[++sp] = i;
+			}
+			else if (f1 < data_offset || f1 > file_size || f2 > file_size - f1)
+			{
+				err = ERR_INVALID_DATA;
+				break;
+			}
 		}
 	}
-
+	FREE (stack);
+	if (err)
+	{
+		ResetDARC (darc);
+		return err;
+	}
 	darc->data = data;
-	darc->size = size;
-	darc->entries = entries;
-	darc->n_entries = n_entries;
+	darc->size = file_size;
 	return ERR_OK;
 }
 
@@ -161,261 +162,288 @@ typedef struct darc_build_node_t
 {
 	char *name;
 	bool is_dir;
-	uint parent_node_idx;
-	uint end_subtree_idx;
+	uint parent;
+	uint first_child;
+	uint last_child;
+	uint next_sibling;
+	uint end;
 	uint table_idx;
-	uint orig_entry_idx;
+	uint input_idx;
 	uint name_off;
+	uint name_size;
 	uint data_off;
-	uint data_size;
-	uint num_children;
-	uint *child_indices;
 } darc_build_node_t;
 
-static void flatten_darc_node (
-	darc_build_node_t *nodes, uint cur_node, uint *order, uint *order_count)
+// Convert a validated UTF-8 component to UTF-16LE, including its terminator.
+// A null output measures the encoded length before allocating the archive.
+static bool darc_utf8_to_utf16le (u8 *out, uint *size, ccp name)
 {
-	uint my_table_idx = (*order_count)++;
-	nodes[cur_node].table_idx = my_table_idx;
-	order[my_table_idx] = cur_node;
-
-	for (uint c = 0; c < nodes[cur_node].num_children; c++)
+	const u8 *p = (const u8 *)name;
+	uint len = 0;
+	while (*p)
 	{
-		uint child = nodes[cur_node].child_indices[c];
-		if (nodes[child].is_dir)
-			flatten_darc_node (nodes, child, order, order_count);
+		u32 cp = *p++;
+		uint extra = 0;
+		u32 minimum = 0;
+		if (cp >= 0xc2 && cp <= 0xdf)
+		{
+			cp &= 0x1f;
+			extra = 1;
+			minimum = 0x80;
+		}
+		else if (cp >= 0xe0 && cp <= 0xef)
+		{
+			cp &= 0x0f;
+			extra = 2;
+			minimum = 0x800;
+		}
+		else if (cp >= 0xf0 && cp <= 0xf4)
+		{
+			cp &= 7;
+			extra = 3;
+			minimum = 0x10000;
+		}
+		else if (cp >= 0x80)
+			return false;
+		for (uint i = 0; i < extra; i++)
+		{
+			if ((*p & 0xc0) != 0x80)
+				return false;
+			cp = (cp << 6) | (*p++ & 0x3f);
+		}
+		if (cp < minimum || cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff))
+			return false;
+		if (cp >= 0x10000)
+		{
+			cp -= 0x10000;
+			if (out)
+			{
+				wr_le16 (out + len, 0xd800 | (cp >> 10));
+				wr_le16 (out + len + 2, 0xdc00 | (cp & 0x3ff));
+			}
+			len += 4;
+		}
 		else
 		{
-			uint f_table_idx = (*order_count)++;
-			nodes[child].table_idx = f_table_idx;
-			order[f_table_idx] = child;
+			if (out)
+				wr_le16 (out + len, cp);
+			len += 2;
 		}
 	}
+	if (out)
+		wr_le16 (out + len, 0);
+	*size = len + 2;
+	return true;
+}
 
-	nodes[cur_node].end_subtree_idx = *order_count;
+static bool darc_valid_component (ccp name)
+{
+	if (!*name || !strcmp (name, ".") || !strcmp (name, ".."))
+		return false;
+	for (const u8 *p = (const u8 *)name; *p; p++)
+		if (*p < 0x20 || *p == 0x7f || *p == ':' || *p == '\\')
+			return false;
+	uint size;
+	return darc_utf8_to_utf16le (0, &size, name);
 }
 
 enumError CreateDARC (
 	u8 **dest, uint *dest_size, const nintendo_sarc_entry_t *entries, uint n_entries)
 {
-	if (!dest || !dest_size || !entries || !n_entries || n_entries >= 1000)
-		return EINVAL;
+	if (dest)
+		*dest = 0;
+	if (dest_size)
+		*dest_size = 0;
+	if (!dest || !dest_size || !entries || !n_entries)
+		return ERR_INVALID_DATA;
 
-	darc_build_node_t nodes[1024];
-	uint num_nodes = 1;
-	memset (nodes, 0, sizeof (nodes));
-	nodes[0].name = STRDUP (".");
+	// One root, one node per input file, and at most one node per slash.
+	// Shared directories reduce this upper bound during tree construction.
+	u64 capacity = 1ull + n_entries;
+	for (uint i = 0; i < n_entries; i++)
+	{
+		ccp name = entries[i].name ? entries[i].name : "file";
+		if (!*name || strlen (name) >= PATH_MAX || (entries[i].size && !entries[i].data))
+			return ERR_INVALID_DATA;
+		for (ccp p = name; *p; p++)
+			if (*p == '/')
+				capacity++;
+	}
+	if (capacity > UINT_MAX / 12 || capacity > SIZE_MAX / sizeof (darc_build_node_t))
+		return ERR_FILE_TOO_BIG;
+	darc_build_node_t *nodes = CALLOC ((size_t)capacity, sizeof (*nodes));
+	uint *order = MALLOC ((size_t)capacity * sizeof (*order));
+	enumError err = ERR_OUT_OF_MEMORY;
+	uint used = 1;
+	if (!nodes || !order)
+		goto cleanup;
 	nodes[0].is_dir = true;
-	nodes[0].parent_node_idx = 0;
+	nodes[0].name = STRDUP (".");
+	if (!nodes[0].name)
+		goto cleanup;
 
 	for (uint i = 0; i < n_entries; i++)
 	{
-		ccp full_name = entries[i].name ? entries[i].name : "file";
-		char dir_part[PATH_MAX] = { 0 };
-		char file_part[PATH_MAX] = { 0 };
-
-		ccp slash = strrchr (full_name, '/');
-		if (slash)
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s", entries[i].name ? entries[i].name : "file");
+		uint parent = 0;
+		char *component = path;
+		for (;;)
 		{
-			size_t dlen = slash - full_name;
-			if (dlen >= sizeof (dir_part))
-				dlen = sizeof (dir_part) - 1;
-			memcpy (dir_part, full_name, dlen);
-			dir_part[dlen] = 0;
-			snprintf (file_part, sizeof (file_part), "%s", slash + 1);
-		}
-		else
-		{
-			snprintf (file_part, sizeof (file_part), "%s", full_name);
-		}
-
-		uint cur_dir = 0;
-		if (dir_part[0])
-		{
-			char *p = dir_part;
-			while (*p)
+			char *slash = strchr (component, '/');
+			if (slash)
+				*slash = 0;
+			if (!darc_valid_component (component))
 			{
-				char seg[PATH_MAX];
-				char *slash2 = strchr (p, '/');
-				if (slash2)
+				err = ERR_INVALID_DATA;
+				goto cleanup;
+			}
+			uint found = 0;
+			for (uint c = nodes[parent].first_child; c; c = nodes[c].next_sibling)
+				if (!strcmp (nodes[c].name, component))
 				{
-					size_t slen = slash2 - p;
-					if (slen >= sizeof (seg))
-						slen = sizeof (seg) - 1;
-					memcpy (seg, p, slen);
-					seg[slen] = 0;
-					p = slash2 + 1;
+					found = c;
+					break;
 				}
-				else
+			if (found)
+			{
+				// A member cannot overwrite a file or reinterpret it as a directory.
+				if (!slash || !nodes[found].is_dir)
 				{
-					snprintf (seg, sizeof (seg), "%s", p);
-					p += strlen (p);
-				}
-
-				int found = -1;
-				for (uint c = 0; c < nodes[cur_dir].num_children; c++)
-				{
-					uint cidx = nodes[cur_dir].child_indices[c];
-					if (nodes[cidx].is_dir && !strcmp (nodes[cidx].name, seg))
-					{
-						found = (int)cidx;
-						break;
-					}
-				}
-
-				if (found < 0)
-				{
-					if (num_nodes >= 1024)
-						break;
-					uint new_d = num_nodes++;
-					nodes[new_d].name = STRDUP (seg);
-					nodes[new_d].is_dir = true;
-					nodes[new_d].parent_node_idx = cur_dir;
-					nodes[cur_dir].child_indices = REALLOC (nodes[cur_dir].child_indices,
-						(nodes[cur_dir].num_children + 1) * sizeof (uint));
-					nodes[cur_dir].child_indices[nodes[cur_dir].num_children++] = new_d;
-					cur_dir = new_d;
-				}
-				else
-				{
-					cur_dir = (uint)found;
+					err = ERR_INVALID_DATA;
+					goto cleanup;
 				}
 			}
-		}
-
-		if (num_nodes < 1024)
-		{
-			uint new_f = num_nodes++;
-			nodes[new_f].name = STRDUP (file_part);
-			nodes[new_f].is_dir = false;
-			nodes[new_f].parent_node_idx = cur_dir;
-			nodes[new_f].orig_entry_idx = i;
-			nodes[new_f].data_size = entries[i].size;
-			nodes[cur_dir].child_indices = REALLOC (
-				nodes[cur_dir].child_indices, (nodes[cur_dir].num_children + 1) * sizeof (uint));
-			nodes[cur_dir].child_indices[nodes[cur_dir].num_children++] = new_f;
+			else
+			{
+				found = used++;
+				nodes[found].name = STRDUP (component);
+				if (!nodes[found].name)
+				{
+					err = ERR_OUT_OF_MEMORY;
+					goto cleanup;
+				}
+				nodes[found].is_dir = slash != 0;
+				nodes[found].parent = parent;
+				nodes[found].input_idx = i;
+				if (nodes[parent].last_child)
+					nodes[nodes[parent].last_child].next_sibling = found;
+				else
+					nodes[parent].first_child = found;
+				nodes[parent].last_child = found;
+			}
+			if (!slash)
+				break;
+			parent = found;
+			component = slash + 1;
 		}
 	}
 
-	uint order[1024];
-	uint order_count = 0;
-	flatten_darc_node (nodes, 0, order, &order_count);
-
-	uint name_cap = 4096;
-	u8 *name_table = MALLOC (name_cap);
-	if (!name_table)
+	// Flatten iteratively so deeply nested input never consumes the call stack.
+	uint count = 0, cur = 0;
+	for (;;)
 	{
-		for (uint n = 0; n < num_nodes; n++)
+		nodes[cur].table_idx = count;
+		order[count++] = cur;
+		if (nodes[cur].first_child)
 		{
-			FREE (nodes[n].name);
-			FREE (nodes[n].child_indices);
+			cur = nodes[cur].first_child;
+			continue;
 		}
-		return ERR_CANT_CREATE;
+		for (;;)
+		{
+			nodes[cur].end = count;
+			if (!cur)
+				goto flattened;
+			if (nodes[cur].next_sibling)
+			{
+				cur = nodes[cur].next_sibling;
+				break;
+			}
+			cur = nodes[cur].parent;
+		}
 	}
-	uint name_pos = 0;
-
-	for (uint i = 0; i < order_count; i++)
+flattened:;
+	u64 name_size = 0;
+	for (uint i = 0; i < count; i++)
 	{
-		uint nidx = order[i];
-		nodes[nidx].name_off = name_pos;
-		ccp nstr = nodes[nidx].name;
-		size_t nlen = strlen (nstr);
-
-		while (name_pos + 2 * nlen + 2 > name_cap)
+		darc_build_node_t *node = nodes + order[i];
+		if (name_size > 0xffffff)
 		{
-			name_cap *= 2;
-			name_table = REALLOC (name_table, name_cap);
+			err = ERR_FILE_TOO_BIG;
+			goto cleanup;
 		}
-
-		for (size_t c = 0; c < nlen; c++)
-		{
-			wr_le16 (name_table + name_pos, (u16)(u8)nstr[c]);
-			name_pos += 2;
-		}
-		wr_le16 (name_table + name_pos, 0);
-		name_pos += 2;
+		node->name_off = name_size;
+		darc_utf8_to_utf16le (0, &node->name_size, node->name);
+		name_size += node->name_size;
 	}
-
-	uint name_table_size = (name_pos + 3) & ~3u;
-
-	const uint table_size = 12 * order_count + name_table_size;
-	uint cur_data_off = (0x1C + table_size + 0x7F) & ~0x7Fu;
-	const uint data_base_off = cur_data_off;
-
-	for (uint i = 0; i < order_count; i++)
+	const u64 table_size = 12ull * count + ((name_size + 3) & ~3ull);
+	const u64 data_start = (0x1c + table_size + 0x7f) & ~0x7full;
+	u64 total = data_start;
+	for (uint i = 0; i < count; i++)
 	{
-		uint nidx = order[i];
-		if (!nodes[nidx].is_dir)
+		darc_build_node_t *node = nodes + order[i];
+		if (!node->is_dir)
 		{
-			nodes[nidx].data_off = cur_data_off;
-			cur_data_off += (nodes[nidx].data_size + 3) & ~3u;
+			if (total > UINT_MAX)
+			{
+				err = ERR_FILE_TOO_BIG;
+				goto cleanup;
+			}
+			node->data_off = total;
+			total += ((u64)entries[node->input_idx].size + 3) & ~3ull;
 		}
 	}
-
-	const uint total_file_size = cur_data_off;
-	u8 *out = CALLOC (1, total_file_size);
+	if (total > UINT_MAX)
+	{
+		err = ERR_FILE_TOO_BIG;
+		goto cleanup;
+	}
+	u8 *out = CALLOC (1, (size_t)total);
 	if (!out)
 	{
-		FREE (name_table);
-		for (uint n = 0; n < num_nodes; n++)
-		{
-			FREE (nodes[n].name);
-			FREE (nodes[n].child_indices);
-		}
-		return ERR_CANT_CREATE;
+		err = ERR_OUT_OF_MEMORY;
+		goto cleanup;
 	}
-
 	memcpy (out, "darc", 4);
-	wr_le16 (out + 4, 0xFEFF);
-	wr_le16 (out + 6, 0x001C);
+	wr_le16 (out + 4, 0xfeff);
+	wr_le16 (out + 6, 0x1c);
 	wr_le32 (out + 8, 0x01000000);
-	wr_le32 (out + 0x0C, total_file_size);
-	wr_le32 (out + 0x10, 0x0000001C);
+	wr_le32 (out + 0xc, total);
+	wr_le32 (out + 0x10, 0x1c);
 	wr_le32 (out + 0x14, table_size);
-	wr_le32 (out + 0x18, data_base_off);
-
-	for (uint i = 0; i < order_count; i++)
+	wr_le32 (out + 0x18, data_start);
+	u8 *names = out + 0x1c + 12 * count;
+	for (uint i = 0; i < count; i++)
 	{
-		uint nidx = order[i];
-		u8 *e = out + 0x1C + 12 * i;
-		if (nodes[nidx].is_dir)
+		darc_build_node_t *node = nodes + order[i];
+		u8 *entry = out + 0x1c + 12 * i;
+		wr_le32 (entry, node->name_off | (node->is_dir ? 0x01000000 : 0));
+		if (node->is_dir)
 		{
-			uint parent_tidx = nodes[nodes[nidx].parent_node_idx].table_idx;
-			wr_le32 (e + 0, 0x01000000 | (nodes[nidx].name_off & 0x00FFFFFF));
-			wr_le32 (e + 4, parent_tidx);
-			wr_le32 (e + 8, nodes[nidx].end_subtree_idx);
+			wr_le32 (entry + 4, nodes[node->parent].table_idx);
+			wr_le32 (entry + 8, node->end);
 		}
 		else
 		{
-			wr_le32 (e + 0, nodes[nidx].name_off & 0x00FFFFFF);
-			wr_le32 (e + 4, nodes[nidx].data_off);
-			wr_le32 (e + 8, nodes[nidx].data_size);
+			const nintendo_sarc_entry_t *input = entries + node->input_idx;
+			wr_le32 (entry + 4, node->data_off);
+			wr_le32 (entry + 8, input->size);
+			if (input->size)
+				memcpy (out + node->data_off, input->data, input->size);
 		}
+		darc_utf8_to_utf16le (names + node->name_off, &node->name_size, node->name);
 	}
-
-	memcpy (out + 0x1C + 12 * order_count, name_table, name_pos);
-	FREE (name_table);
-
-	for (uint i = 0; i < order_count; i++)
-	{
-		uint nidx = order[i];
-		if (!nodes[nidx].is_dir && nodes[nidx].data_size)
-		{
-			uint oidx = nodes[nidx].orig_entry_idx;
-			if (entries[oidx].data)
-				memcpy (out + nodes[nidx].data_off, entries[oidx].data, nodes[nidx].data_size);
-		}
-	}
-
-	for (uint n = 0; n < num_nodes; n++)
-	{
-		FREE (nodes[n].name);
-		FREE (nodes[n].child_indices);
-	}
-
 	*dest = out;
-	*dest_size = total_file_size;
-	return ERR_OK;
+	*dest_size = total;
+	err = ERR_OK;
+cleanup:
+	if (nodes)
+		for (uint i = 0; i < used; i++)
+			FREE (nodes[i].name);
+	FREE (nodes);
+	FREE (order);
+	return err;
 }
 
 //-----------------------------------------------------------------------------
@@ -466,7 +494,9 @@ enumError create_darc_dir (ccp source, ccp dest)
 		err = CreateFileOpt (&F, true, dest, false, dest);
 		if (F.f && fwrite (data, 1, size, F.f) != size)
 			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", size, dest);
-		ResetFile (&F, opt_preserve);
+		const enumError close_err = ResetFile (&F, opt_preserve);
+		if (close_err > err)
+			err = close_err;
 	}
 	FREE (data);
 	reset_sarc_build_list (&list);

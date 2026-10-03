@@ -743,3 +743,33 @@ The rclone Luminous Arc 2 (USA) ZIP was fetched again and extracted through the
 new streaming path. Its 134,217,728-byte ROM matches the previously recorded
 SHA-256 `dd6fc8a1e8a9019f75ec6683bbbdb001ded9fab7328b2e3802260b7a870064aa`.
 No retail assets are committed.
+
+## DARC and SARC integrity and lossless rebuilding (2026-10-03)
+
+DARC creation now sizes its node table from the input tree instead of silently
+omitting members once 1,024 nodes are reached. Native and CLI regressions cover
+600 files under 600 distinct directories (1,201 nodes), and a 100-directory
+nested path. UTF-8 names are encoded as UTF-16LE, including surrogate pairs;
+Japanese names, accented Latin names, supplementary characters and empty members
+survive create/extract round trips. Duplicate member paths, file/directory
+conflicts, invalid UTF-8 and archive size overflow fail before output allocation.
+
+The DARC reader validates declared table and payload boundaries, terminated
+UTF-16 names, directory parents and subtree ranges. Extraction validates the
+complete set of assembled paths before writing a member, and handles deep trees
+with a dynamically allocated directory stack. Both checked-in retail 3DS DARC
+fixtures still extract and rebuild with identical member bytes. Allocation-failure
+injection covers reader and creator cleanup under AddressSanitizer/UBSan.
+
+SARC now validates all members during scanning, restricts filename lookups to
+the filename section, honors the SFNT header length, and restricts payloads to
+the declared archive size even when extra bytes follow the archive. Native and
+CLI tests cover both byte orders, extended SFNT headers, empty members and late
+invalid entries that must leave no extracted files.
+
+Shared directory walking no longer counts ordinary folders as nested archives.
+Bottom-up rebuild traversal uses an explicit work list, avoiding recursive calls
+while keeping the nesting limit for archive directories. Incomplete nested
+rebuilds stop outer creation before cleanup can remove editable source folders.
+DARC, SARC and SARC/FZIP creation propagate buffered close failures; injected
+file-size limits confirm that failed nested writes retain their editable members.
