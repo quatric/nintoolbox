@@ -63,7 +63,7 @@ bool IsNURPDB (const u8 *data, size_t size)
 static bool read_ssbh_string (char *dest, uint destsz, const u8 *data, size_t size, u64 field_off)
 {
 	dest[0] = 0;
-	if (field_off + 8 > size)
+	if (field_off > size || size - field_off < 8)
 		return false;
 	const u64 rel = rd_le64 (data + field_off);
 	if (!rel)
@@ -87,14 +87,14 @@ static bool read_ssbh_array (
 	const u8 *data, size_t size, u64 field_off, u64 *out_base, u64 *out_count)
 {
 	*out_base = *out_count = 0;
-	if (field_off + 16 > size)
+	if (field_off > size || size - field_off < 16)
 		return false;
 	const u64 rel = rd_le64 (data + field_off);
 	const u64 count = rd_le64 (data + field_off + 8);
 	if (!rel)
 		return false;
 	const u64 base = field_off + rel;
-	if (base < field_off)
+	if (base < field_off || base > size)
 		return false;
 	*out_base = base;
 	*out_count = count;
@@ -107,7 +107,7 @@ static bool read_ssbh_array (
 static void print_enum64_named (FILE *out, const u8 *data, size_t size, u64 field_off, u64 idx,
 	const ccp *variant_names, uint n_variants)
 {
-	if (field_off + 16 > size)
+	if (field_off > size || size - field_off < 16)
 	{
 		fprintf (out, "  [%llu] <out of bounds>\n", (unsigned long long)idx);
 		return;

@@ -1790,3 +1790,9 @@ test-aamp-header-bounds: version.h $(ALL_OBJECTS) $(TOBJ_wtest)
 	@mkdir -p bin
 	$(CC) $(CFLAGS) $(DEFINES) $(LDFLAGS) -g -O1 -fsanitize=address,undefined ../tests/test-aamp-header-bounds.c src/lib-aamp.c $(filter-out lib-aamp.o,$(ALL_OBJECTS)) $(filter-out $(ALL_OBJECTS),$(TOBJ_wtest)) $(LIBS) $(TOPT_wtest) -o bin/test-aamp-header-bounds
 	@./bin/test-aamp-header-bounds
+
+.PHONY : test-nurpdb-bounds
+test-nurpdb-bounds: version.h $(ALL_OBJECTS) $(TOBJ_wtest)
+	@mkdir -p bin
+	$(CC) $(CFLAGS) $(DEFINES) $(LDFLAGS) -g -O1 -fsanitize=address,undefined ../tests/test-nurpdb-bounds.c src/lib-nurpdb.c $(filter-out lib-nurpdb.o,$(ALL_OBJECTS)) $(filter-out $(ALL_OBJECTS),$(TOBJ_wtest)) $(LIBS) $(TOPT_wtest) -o bin/test-nurpdb-bounds
+	@./bin/test-nurpdb-bounds
