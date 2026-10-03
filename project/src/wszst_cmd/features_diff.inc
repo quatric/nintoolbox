@@ -1646,5 +1646,7 @@ static enumError compress_nintendo_file (ccp arg)
 		if (F.f && fwrite (packed, 1, packed_size, F.f) != packed_size)
 			err = FILEERROR1 (
 				&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", packed_size, dest);
-		ResetFile (&F, opt_preserve);
+		const enumError close_err = ResetFile (&F, opt_preserve);
+		if (close_err > err)
+			err = close_err;
 	}

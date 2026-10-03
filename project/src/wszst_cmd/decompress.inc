@@ -75,7 +75,9 @@ static enumError cmd_compress ()
 							err = FILEERROR1 (&F, ERR_WRITE_FAILED,
 								"Writing %zu bytes failed: %s\n", szs.csize, dest);
 					}
-					ResetFile (&F, opt_preserve);
+					const enumError close_err = ResetFile (&F, opt_preserve);
+					if (close_err > err)
+						err = close_err;
 					LinkCacheData (szs.cache_fname, dest, szs.cdata, szs.csize);
 
 					if (!err && opt_remove_src)
@@ -446,7 +448,9 @@ static enumError cmd_decompress ()
 							err = FILEERROR1 (&F, ERR_WRITE_FAILED,
 								"Writing %zu bytes failed: %s\n", szs.size, dest);
 					}
-					ResetFile (&F, opt_preserve);
+					const enumError close_err = ResetFile (&F, opt_preserve);
+					if (close_err > err)
+						err = close_err;
 					if (!err && opt_remove_src)
 						RemoveSource (arg, dest, verbose >= 0, testmode);
 				}
