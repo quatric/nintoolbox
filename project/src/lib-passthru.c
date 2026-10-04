@@ -484,6 +484,37 @@ static uint count_video_streams (ccp mobipeg, ccp src)
 	return n;
 }
 
+// True if the first video stream is flagged as frame-sequential stereo 3D
+// (Moflex "image layout" 0/1: left and right eye alternate frame by frame).
+static bool is_frame_alternate_stereo (ccp mobipeg, ccp src)
+{
+	ccp probe = resolve_ffprobe_for_mobipeg (mobipeg);
+	if (!probe)
+		return false;
+	char probe_path[PATH_MAX];
+	snprintf (probe_path, sizeof (probe_path), "%s", probe);
+	char capture[PATH_MAX];
+	snprintf (capture, sizeof (capture), "%s/wszst-mobipeg-stereo-%d.log", temp_dir (),
+		(int)getpid ());
+	char *pargv[] = { probe_path, "-v", "error", "-select_streams", "v:0", "-show_entries",
+		"stream_side_data=type", "-of", "default=nw=0:nk=0", (char *)src, 0 };
+	bool alt = false;
+	if (!run_program_capture (pargv, capture))
+	{
+		FILE *f = fopen (capture, "r");
+		if (f)
+		{
+			char line[128];
+			while (fgets (line, sizeof (line), f))
+				if (strstr (line, "frame alternate"))
+					alt = true;
+			fclose (f);
+		}
+	}
+	unlink (capture);
+	return alt;
+}
+
 static enumError passthru_media (
 	ccp src, ccp basedir, ccp stage, char *staged_dir, uint staged_dir_size, bool is_audio)
 {
@@ -524,10 +555,23 @@ static enumError passthru_media (
 
 	// Stereoscopic (3D) Moflex carries two video layers, left and right eye.
 	// Decode both and place them side by side instead of dropping the second.
+	// Encoded as MPEG-4: mobipeg's libx264 emits corrupt streams for these filter graphs.
 	char *argv_sbs[] = { (char *)tool, "-i", (char *)src, "-filter_complex",
 		"[0:v:0][0:v:1]hstack=inputs=2,pad=ceil(iw/2)*2:ceil(ih/2)*2[v]", "-map", "[v]", "-map",
-		"0:a?", "-y", out_file, 0 };
+		"0:a?", "-c:v", "mpeg4", "-q:v", "2", "-y", out_file, 0 };
+	// Frame-sequential 3D Moflex: one stream whose frames alternate left/right.
+	// Split even/odd frames into the two eyes and halve the frame rate.
+	char *argv_alt[] = { (char *)tool, "-i", (char *)src, "-filter_complex",
+		"[0:v:0]split[a][b];"
+		"[a]select='not(mod(n\\,2))',setpts=N/(FRAME_RATE/2)/TB[l];"
+		"[b]select='mod(n\\,2)',setpts=N/(FRAME_RATE/2)/TB[r];"
+		"[l][r]hstack=inputs=2,pad=ceil(iw/2)*2:ceil(ih/2)*2[v]",
+		"-map", "[v]", "-map", "0:a?", "-c:v", "mpeg4", "-q:v", "2", "-y", out_file, 0 };
 	char **argv_use = is_audio ? argv_audio : argv_video;
+	// The ffprobe lookup reuses the static buffer behind TOOL.
+	char tool_copy[PATH_MAX];
+	snprintf (tool_copy, sizeof (tool_copy), "%s", tool);
+	argv_video[0] = argv_audio[0] = tool_copy;
 	if (!is_audio)
 	{
 		ccp ext = strrchr (src, '.');
@@ -542,8 +586,13 @@ static enumError passthru_media (
 				fclose (hf);
 			}
 		}
-		if (is_moflex && count_video_streams (tool, src) == 2)
+		const uint nvideo = is_moflex ? count_video_streams (tool_copy, src) : 0;
+		const bool alt = is_moflex && nvideo != 2 && is_frame_alternate_stereo (tool_copy, src);
+		argv_sbs[0] = argv_alt[0] = tool_copy;
+		if (nvideo == 2)
 			argv_use = argv_sbs;
+		else if (alt)
+			argv_use = argv_alt;
 	}
 
 	const int rc = run_program (argv_use);
