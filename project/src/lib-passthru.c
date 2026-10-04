@@ -454,6 +454,36 @@ static int run_program (char *const argv[])
 }
 #endif
 
+// Number of video streams in SRC according to ffprobe, or 0 if unknown.
+static uint count_video_streams (ccp mobipeg, ccp src)
+{
+	ccp probe = resolve_ffprobe_for_mobipeg (mobipeg);
+	if (!probe)
+		return 0;
+	char probe_path[PATH_MAX];
+	snprintf (probe_path, sizeof (probe_path), "%s", probe);
+	char capture[PATH_MAX];
+	snprintf (capture, sizeof (capture), "%s/wszst-mobipeg-vcount-%d.log", temp_dir (),
+		(int)getpid ());
+	char *pargv[] = { probe_path, "-v", "error", "-select_streams", "v", "-show_entries",
+		"stream=index", "-of", "csv=p=0", (char *)src, 0 };
+	uint n = 0;
+	if (!run_program_capture (pargv, capture))
+	{
+		FILE *f = fopen (capture, "r");
+		if (f)
+		{
+			char line[64];
+			while (fgets (line, sizeof (line), f))
+				if (isdigit ((unsigned char)line[0]))
+					n++;
+			fclose (f);
+		}
+	}
+	unlink (capture);
+	return n;
+}
+
 static enumError passthru_media (
 	ccp src, ccp basedir, ccp stage, char *staged_dir, uint staged_dir_size, bool is_audio)
 {
@@ -492,7 +522,31 @@ static enumError passthru_media (
 		out_file, 0 };
 	char *argv_audio[] = { (char *)tool, "-i", (char *)src, "-y", out_file, 0 };
 
-	const int rc = run_program (is_audio ? argv_audio : argv_video);
+	// Stereoscopic (3D) Moflex carries two video layers, left and right eye.
+	// Decode both and place them side by side instead of dropping the second.
+	char *argv_sbs[] = { (char *)tool, "-i", (char *)src, "-filter_complex",
+		"[0:v:0][0:v:1]hstack=inputs=2,pad=ceil(iw/2)*2:ceil(ih/2)*2[v]", "-map", "[v]", "-map",
+		"0:a?", "-y", out_file, 0 };
+	char **argv_use = is_audio ? argv_audio : argv_video;
+	if (!is_audio)
+	{
+		ccp ext = strrchr (src, '.');
+		bool is_moflex = ext && !strcasecmp (ext, ".moflex");
+		if (!is_moflex)
+		{
+			FILE *hf = fopen (src, "rb");
+			if (hf)
+			{
+				char h[6];
+				is_moflex = fread (h, 1, 6, hf) == 6 && !memcmp (h, "MOFLEX", 6);
+				fclose (hf);
+			}
+		}
+		if (is_moflex && count_video_streams (tool, src) == 2)
+			argv_use = argv_sbs;
+	}
+
+	const int rc = run_program (argv_use);
 	if (rc != 0)
 		return ERROR0 (ERR_SUBJOB_FAILED, "pass-through mobipeg failed for %s (exit %d)", src, rc);
 
