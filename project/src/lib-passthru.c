@@ -554,19 +554,25 @@ static enumError passthru_media (
 	char *argv_audio[] = { (char *)tool, "-i", (char *)src, "-y", out_file, 0 };
 
 	// Stereoscopic (3D) Moflex carries two video layers, left and right eye.
-	// Decode both and place them side by side instead of dropping the second.
-	// Encoded as MPEG-4: mobipeg's libx264 emits corrupt streams for these filter graphs.
-	char *argv_sbs[] = { (char *)tool, "-i", (char *)src, "-filter_complex",
-		"[0:v:0][0:v:1]hstack=inputs=2,pad=ceil(iw/2)*2:ceil(ih/2)*2[v]", "-map", "[v]", "-map",
-		"0:a?", "-c:v", "mpeg4", "-q:v", "2", "-y", out_file, 0 };
-	// Frame-sequential 3D Moflex: one stream whose frames alternate left/right.
-	// Split even/odd frames into the two eyes and halve the frame rate.
+	// Demux them into <name>.left.mp4 and <name>.right.mp4; the audio goes
+	// into both. Encoded as MPEG-4: mobipeg's libx264 emits corrupt streams
+	// for these filter graphs.
+	char out_left[PATH_MAX], out_right[PATH_MAX];
+	snprintf (out_left, sizeof (out_left), "%s/%s.left.mp4", stage, base_leaf);
+	snprintf (out_right, sizeof (out_right), "%s/%s.right.mp4", stage, base_leaf);
+	// Two separate video streams.
+	char *argv_sbs[] = { (char *)tool, "-i", (char *)src, "-map", "0:v:0", "-map", "0:a?",
+		"-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2", "-c:v", "mpeg4", "-q:v", "2", "-y", out_left,
+		"-map", "0:v:1", "-map", "0:a?", "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2", "-c:v", "mpeg4",
+		"-q:v", "2", "-y", out_right, 0 };
+	// Frame-sequential 3D: one stream whose frames alternate left/right.
+	// Even frames are the left eye, odd frames the right; frame rate is halved.
 	char *argv_alt[] = { (char *)tool, "-i", (char *)src, "-filter_complex",
 		"[0:v:0]split[a][b];"
-		"[a]select='not(mod(n\\,2))',setpts=N/(FRAME_RATE/2)/TB[l];"
-		"[b]select='mod(n\\,2)',setpts=N/(FRAME_RATE/2)/TB[r];"
-		"[l][r]hstack=inputs=2,pad=ceil(iw/2)*2:ceil(ih/2)*2[v]",
-		"-map", "[v]", "-map", "0:a?", "-c:v", "mpeg4", "-q:v", "2", "-y", out_file, 0 };
+		"[a]select='not(mod(n\\,2))',setpts=N/(FRAME_RATE/2)/TB,pad=ceil(iw/2)*2:ceil(ih/2)*2[l];"
+		"[b]select='mod(n\\,2)',setpts=N/(FRAME_RATE/2)/TB,pad=ceil(iw/2)*2:ceil(ih/2)*2[r]",
+		"-map", "[l]", "-map", "0:a?", "-c:v", "mpeg4", "-q:v", "2", "-y", out_left, "-map",
+		"[r]", "-map", "0:a?", "-c:v", "mpeg4", "-q:v", "2", "-y", out_right, 0 };
 	char **argv_use = is_audio ? argv_audio : argv_video;
 	// The ffprobe lookup reuses the static buffer behind TOOL.
 	char tool_copy[PATH_MAX];
@@ -601,7 +607,13 @@ static enumError passthru_media (
 
 	// Extraction itself can take minutes. Give the preview the source's time so
 	// a later CREATE can distinguish that generated file from a user edit.
-	StampFileMtime (out_file, src);
+	if (argv_use == argv_sbs || argv_use == argv_alt)
+	{
+		StampFileMtime (out_left, src);
+		StampFileMtime (out_right, src);
+	}
+	else
+		StampFileMtime (out_file, src);
 
 	snprintf (staged_dir, staged_dir_size, "%s", stage);
 	return ERR_OK;
