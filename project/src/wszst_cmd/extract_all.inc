@@ -132,6 +132,7 @@
 #include "extract/kraw.inc"
 #include "extract/fsb.inc"
 #include "extract/wadh.inc"
+#include "extract/hog.inc"
 #include "extract/rev.inc"
 #include "extract/gct.inc"
 #include "extract/asobo_bitmap.inc"

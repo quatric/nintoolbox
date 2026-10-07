@@ -9364,6 +9364,17 @@ with open(sys.argv[1], "wb") as f:
     fno ".tplc texture" "mk_tplc.py failed"
   fi
 
+  # HOG archive
+  mkdir -p "$d/hog_test"
+  if python3 "$PWD_PROJECT/../tests/mk_hog.py" "$d/hog_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/hog_test/t.hog" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/hog_test/t.hog.d/DIR/A.TXT")" = "hello hog" ] \
+    && fok "HOG archive extracts" \
+    || fno "HOG archive" "failed to extract synthetic t.hog"
+  else
+    fno "HOG archive" "mk_hog.py failed"
+  fi
+
   # Petz engine TTPL texture: wrapper around a TPL, decoded to PNG by xx
   mkdir -p "$d/ttpl_test"
   if python3 "$PWD_PROJECT/../tests/mk_ttpl.py" "$d/ttpl_test" >/dev/null 2>&1; then
