@@ -11527,6 +11527,10 @@
 	"After extraction, recursively decode recognised raw Nintendo" \
 	" compression streams found in the extracted tree." )
 
+#:def_cmd_opt( "EXTRACT", "EXPORT_RAW", \
+	"", \
+	"" )
+
 #:def_cmd_opt( "EXTRACT", "DEST", \
 	"", \
 	"" )
@@ -11863,6 +11867,10 @@
 	"", \
 	"After extraction, recursively decode recognised raw Nintendo" \
 	" compression streams found in the extracted tree." )
+
+#:def_cmd_opt( "XDECODE", "EXPORT_RAW", \
+	"", \
+	"" )
 
 #:def_cmd_opt( "XDECODE", "DEST", \
 	"", \
@@ -12201,6 +12209,10 @@
 	"After extraction, recursively decode recognised raw Nintendo" \
 	" compression streams found in the extracted tree." )
 
+#:def_cmd_opt( "XEXPORT", "EXPORT_RAW", \
+	"", \
+	"" )
+
 #:def_cmd_opt( "XEXPORT", "DEST", \
 	"", \
 	"" )
@@ -12537,6 +12549,10 @@
 	"", \
 	"After extraction, recursively decode recognised raw Nintendo" \
 	" compression streams found in the extracted tree." )
+
+#:def_cmd_opt( "XALL", "EXPORT_RAW", \
+	"", \
+	"" )
 
 #:def_cmd_opt( "XALL", "DEST", \
 	"", \

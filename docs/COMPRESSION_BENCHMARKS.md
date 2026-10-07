@@ -1,6 +1,6 @@
 # Compression Formats & Multi-Corpus Benchmark
 
-This document presents the compressed output file sizes, compression ratios, and platform usage contexts for all compression formats baked into `wiimms-szs-tools-plus` across various text corpora.
+This document presents the compressed output file sizes, compression ratios, and platform usage contexts for all compression formats baked into `nintoolbox` across various text corpora.
 
 ## Green Eggs and Ham (Dr. Seuss)
 - **Original File Size:** `3,472 bytes`

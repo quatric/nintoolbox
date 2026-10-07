@@ -102,6 +102,7 @@
 #include "extract/rso.inc"
 #include "extract/catcar.inc"
 #include "extract/termpod.inc"
+#include "extract/jadebig.inc"
 #include "extract/ho.inc"
 #include "extract/asobo.inc"
 #include "extract/vblank.inc"

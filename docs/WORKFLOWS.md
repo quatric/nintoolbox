@@ -1,6 +1,6 @@
 # Editing and rebuilding games
 
-This is the practical guide for the `wiimms-szs-tools-plus` fork. The root
+This is the practical guide for the `nintoolbox` fork. The root
 README is the format reference; this file is the source of truth for the
 extract/edit/rebuild workflow.
 

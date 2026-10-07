@@ -1935,11 +1935,11 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		{ 0 }, 0, MinusString, MinusString, "Ubisoft Magma bigfile index (.fat, Wii)" },
 
 	// FF_MAGMA_BF = 356 (Ubisoft Magma self-indexed bigfile)
-	// Magic "BIG\0" plus light header sanity only; the internal table is
-	// NOT decoded (see lib-magma.h for what was and wasn't determined).
+	// Magic "BIG\0" plus light header sanity. Despite the name this is the
+	// Ubisoft Jade BigFile layout; it is extracted by lib-jadebig.c.
 	{ FF_MAGMA_BF, FF_MAGMA_BF, 0, "MAGMA-BF", ".bf", ".txt", ".bf", FFT_VALID, 0, { 0 }, 0,
 		MinusString, MinusString,
-		"Ubisoft Magma self-indexed bigfile (.bf, Wii; internal table not decoded)" },
+		"Ubisoft Jade/Magma self-indexed bigfile (.bf, Wii; extract with wszst x)" },
 
 	// FF_VOICE_SONG = 357 (The Voice song script)
 	// Plain-text XML, xmlns="zoe:Song". Decoded to a normalized manifest

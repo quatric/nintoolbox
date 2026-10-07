@@ -2348,3 +2348,48 @@ same pre-existing, unrelated breakage (BGLPBD, ZDAT, MOD, SFX, LZO1X/CMPD,
 BRFNA, BFLYT, SFZ DAT family, THP, VID1, RSEQ, `.mdr`, `.bin` container,
 SMDH, G1TGZ, BCSTM, unattributed-formats-claim-nothing), none of it touched
 by this change.
+
+## 42. 2026-09-30 — Bermuda Triangle PLANETG retail census + text-manifest wiring gap
+
+Retail source (rclone `mcubewii`, `Nintendo - Wii/Redump/[WBFS]/Games/`):
+`Bermuda Triangle - Saving the Coral (USA).wbfs` (292 MiB), wit-extracted.
+Corpus under `DATA/files`: 20 `.MWG` + 1 `.MSP` + 4 `.pgf` + 1207 `.MWT` +
+1 `PK/CoralPack.PKI`.
+
+PLANETG findings (backs the README/`docs/FORMATS.md` rows; stays 🟡):
+- Root type is length-prefixed: `PLANETG_SPRITECOLLECTION` (0x18) on all 20
+  `.MWG`, `PLANETG_SPRITE` (0x0e) on the single `.MSP` — one serializer,
+  two root variants by extension.
+- Following u32 is a version, not a count: 2 on every `.MWG` (446 B to
+  92 KiB alike), 1 on the `.MSP`. The next u32 (1..54 on `.MWG`, 4 on the
+  `.MSP`) correlates with neither file size nor texture-path count, so its
+  semantics stay unclaimed.
+- Body is length-prefixed ASCII runs interleaved with u32 fields. Backslash
+  paths ending in `.MWT` are the sprite texture references; raw `.MWT`
+  byte census per file: 2 (446-byte `License.MWG`) up to 2144 (153-KiB
+  `LOAD.MSP`).
+- The sequential heuristic walk does NOT stay aligned through every record
+  shape — verified: `Continue.MWG` walks 0 texture paths vs. census 15,
+  `LOAD.MSP` walks a handful vs. census 2144 (its `SPRITE` body desyncs the
+  walk right after the `LOAD` tag). So any walk-found total undercounts;
+  only the alignment-independent census is a reliable total. Tree shape and
+  per-field semantics remain open.
+
+Wiring gap (for whoever owns `extract/` after the §41-era refactor): the
+Bermuda (4), Aqua Panic (5), Mercury (5), Octomania (2), Spooky (4), RFF
+(8 probes / 3 decoders), HTTYD (2), T4Res, HDVoice, HKX and BotBAG text
+decoders are `FILETYPE`-reachable only — `wszst EXTRACT`/`xx` on a lone
+`.MWG`/`.pgf` sailed through with exit 0 and zero output. A
+`DEFINE_EXTRACT_WII_TEXT` wiring (extension-gated + `Is*`-validated `.txt`
+sidecars, Mercury `.mat`/`.nav` fallbacks last so magic-validated handlers
+such as Aqua `MATF` win) was proven end-to-end on the Bermuda tree pre-
+refactor — 21 `.MWG.txt` + 1 `.MSP.txt` + 4 `.pgf.txt` + 909 `.MWT.txt`
+(the rest of the 1207 `.MWT` decode as TPL→PNG via the existing texture
+path, a clean complement), plus all 5 Mercury types on local samples, exit
+0, no crashes — but it targeted the old `create_update.inc`/`formats.inc`
+layout and was lost in the `extract/*.inc` split. Re-implement as one new
+`extract/wii_text_manifests.inc` plus one `#include` in
+`extract_all.inc`; no existing file needs restructuring. Extension
+collisions checked safe: `.mod` (MTMOD vs. RFF-FBTI) and `.mat` (Aqua MATF
+vs. Mercury fallback) both resolve via `Is*` order, `.ast`/`.bag`/`.wt`
+have no competing claimants.

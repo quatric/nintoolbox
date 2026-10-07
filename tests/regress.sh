@@ -9100,6 +9100,21 @@ with open(sys.argv[1], "wb") as f:
     fno "POD5 archive" "mk_termpod.py failed"
   fi
 
+  # Ubisoft Jade BigFile (.bf, BIG and XOR-obfuscated BUG variants)
+  mkdir -p "$d/jadebig_test"
+  if python3 "$PWD_PROJECT/../tests/mk_jadebig.py" "$d/jadebig_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/jadebig_test/TEST.bf" --dest "$d/jadebig_test/out" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/jadebig_test/out/Bin/one.bin")" = "hello jade" ] \
+    && [ "$(cat "$d/jadebig_test/out/Bin/Sub dir/two.bin")" = "second member" ] \
+    && [ "$(cat "$d/jadebig_test/out/Bin/fc000003.bin")" = "unnamed" ] \
+    && "$B/wszst" x "$d/jadebig_test/TESTX.bf" --dest "$d/jadebig_test/outx" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/jadebig_test/outx/Bin/Sub dir/two.bin")" = "second member" ] \
+    && fok "Jade BigFile (.bf, BIG and XOR BUG) unpacks with directory tree" \
+    || fno "Jade BigFile" "failed to unpack synthetic TEST.bf / TESTX.bf"
+  else
+    fno "Jade BigFile" "mk_jadebig.py failed"
+  fi
+
   # Heavy Iron Good Engine .ho package (WALL-E / Up)
   mkdir -p "$d/ho_test"
   if python3 "$PWD_PROJECT/../tests/mk_ho.py" "$d/ho_test" >/dev/null 2>&1; then
