@@ -109,6 +109,7 @@
 #include "extract/abebf.inc"
 #include "extract/wiiresarc.inc"
 #include "extract/packv2.inc"
+#include "extract/arcb.inc"
 #include "extract/ho.inc"
 #include "extract/asobo.inc"
 #include "extract/vblank.inc"

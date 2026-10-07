@@ -9178,6 +9178,18 @@ with open(sys.argv[1], "wb") as f:
     fno "PACK v2 archive" "mk_packv2.py failed"
   fi
 
+  # Sega ARCB archive (Super Monkey Ball: Banana Blitz): U8 tree over an AVLZ block
+  mkdir -p "$d/arcb_test"
+  if python3 "$PWD_PROJECT/../tests/mk_arcb.py" "$d/arcb_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/arcb_test/TEST.arc" --dest "$d/arcb_test/out" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/arcb_test/out/dir/one.txt")" = "inside the directory" ] \
+    && [ "$(wc -c < "$d/arcb_test/out/two.bin" | tr -d ' ')" = "40" ] \
+    && fok "ARCB (Banana Blitz .arc) unpacks its AVLZ-compressed U8 tree" \
+    || fno "ARCB archive" "failed to unpack synthetic TEST.arc"
+  else
+    fno "ARCB archive" "mk_arcb.py failed"
+  fi
+
   # Heavy Iron Good Engine .ho package (WALL-E / Up)
   mkdir -p "$d/ho_test"
   if python3 "$PWD_PROJECT/../tests/mk_ho.py" "$d/ho_test" >/dev/null 2>&1; then
