@@ -9307,6 +9307,18 @@ with open(sys.argv[1], "wb") as f:
     fno "SCHl stream" "SCHl magic was not routed to the decoder"
   fi
 
+  # Star Trek: Conquest WII! texture bundle: each texture decoded to PNG by xx
+  mkdir -p "$d/wiitex_test"
+  if python3 "$PWD_PROJECT/../tests/mk_wiitex.py" "$d/wiitex_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/wiitex_test/TEST.WII" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/wiitex_test/TEST.WII.d/00_TEST.png" | tail -c 3)" = "PNG" ] \
+    && [ ! -e "$d/wiitex_test/TEST.WII.d/.wiitex-tmp.tpl" ] \
+    && fok "WII! (Star Trek: Conquest texture bundle) decodes to PNG" \
+    || fno "WII! texture bundle" "failed to decode synthetic TEST.WII"
+  else
+    fno "WII! texture bundle" "mk_wiitex.py failed"
+  fi
+
   # Petz engine TTPL texture: wrapper around a TPL, decoded to PNG by xx
   mkdir -p "$d/ttpl_test"
   if python3 "$PWD_PROJECT/../tests/mk_ttpl.py" "$d/ttpl_test" >/dev/null 2>&1; then
