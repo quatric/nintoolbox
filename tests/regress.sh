@@ -9298,6 +9298,15 @@ with open(sys.argv[1], "wb") as f:
     fno "FCAT container" "mk_fcat.py failed"
   fi
 
+  # EA SCHl stream: claimed and routed to the audio pass-through (dry run, no decoder needed)
+  mkdir -p "$d/schl_test"
+  printf 'SCHl\x40\x00\x00\x00GSTR' > "$d/schl_test/movie.ngc"
+  if "$B/wszst" xx "$d/schl_test/movie.ngc" --test 2>&1 | grep -q "WOULD DECODE SCHl"; then
+    fok "SCHl (EA stream) is claimed by the audio pass-through"
+  else
+    fno "SCHl stream" "SCHl magic was not routed to the decoder"
+  fi
+
   # Petz engine TTPL texture: wrapper around a TPL, decoded to PNG by xx
   mkdir -p "$d/ttpl_test"
   if python3 "$PWD_PROJECT/../tests/mk_ttpl.py" "$d/ttpl_test" >/dev/null 2>&1; then
