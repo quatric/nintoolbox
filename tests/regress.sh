@@ -9342,6 +9342,17 @@ with open(sys.argv[1], "wb") as f:
     fno "WII! mixed bundle" "mk_wiitex_b.py failed"
   fi
 
+  # Ninja NJCM chunk model -> GLB
+  mkdir -p "$d/ninja_test"
+  if python3 "$PWD_PROJECT/../tests/mk_ninja.py" "$d/ninja_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/ninja_test/m.dat" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/ninja_test/m.glb")" = "glTF" ] \
+    && fok "Ninja NJCM model exports to GLB" \
+    || fno "Ninja NJCM model" "failed to export synthetic m.dat"
+  else
+    fno "Ninja NJCM model" "mk_ninja.py failed"
+  fi
+
   # Petz engine TTPL texture: wrapper around a TPL, decoded to PNG by xx
   mkdir -p "$d/ttpl_test"
   if python3 "$PWD_PROJECT/../tests/mk_ttpl.py" "$d/ttpl_test" >/dev/null 2>&1; then

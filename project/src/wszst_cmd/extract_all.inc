@@ -70,6 +70,7 @@
 #include "extract/mod.inc"
 #include "extract/hsf.inc"
 #include "extract/nud.inc"
+#include "extract/ninja.inc"
 #include "extract/numshb.inc"
 #include "extract/mpr_cmdl.inc"
 #include "extract/nut.inc"
