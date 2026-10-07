@@ -9353,6 +9353,17 @@ with open(sys.argv[1], "wb") as f:
     fno "Ninja NJCM model" "mk_ninja.py failed"
   fi
 
+  # 10 Minute Solution LZSS .tplc texture
+  mkdir -p "$d/tplc_test"
+  if python3 "$PWD_PROJECT/../tests/mk_tplc.py" "$d/tplc_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/tplc_test/t.tplc" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/tplc_test/t.tplc.png" | tail -c 3)" = "PNG" ] \
+    && fok ".tplc LZSS texture decodes to PNG" \
+    || fno ".tplc texture" "failed to decode synthetic t.tplc"
+  else
+    fno ".tplc texture" "mk_tplc.py failed"
+  fi
+
   # Petz engine TTPL texture: wrapper around a TPL, decoded to PNG by xx
   mkdir -p "$d/ttpl_test"
   if python3 "$PWD_PROJECT/../tests/mk_ttpl.py" "$d/ttpl_test" >/dev/null 2>&1; then

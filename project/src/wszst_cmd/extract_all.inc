@@ -115,6 +115,7 @@
 #include "extract/mrqz.inc"
 #include "extract/fcat.inc"
 #include "extract/ttpl.inc"
+#include "extract/tplc.inc"
 #include "extract/texl.inc"
 #include "extract/strt.inc"
 #include "extract/fuax.inc"
