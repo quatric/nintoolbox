@@ -9127,6 +9127,18 @@ with open(sys.argv[1], "wb") as f:
     fno "THQ pack archive" "mk_thqpack.py failed"
   fi
 
+  # 2XL Games LPAK (SCORE International Baja 1000 *.PAK), zlib block streams
+  mkdir -p "$d/lpak_test"
+  if python3 "$PWD_PROJECT/../tests/mk_lpak.py" "$d/lpak_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/lpak_test/TEST.PAK" --dest "$d/lpak_test/out" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/lpak_test/out/Dir/wii/a.txt")" = "hello lpak" ] \
+    && [ "$(wc -c < "$d/lpak_test/out/Dir/big.bin" | tr -d ' ')" = "16408" ] \
+    && fok "LPAK (.PAK, Baja 1000) inflates single- and multi-block members" \
+    || fno "LPAK archive" "failed to unpack synthetic TEST.PAK"
+  else
+    fno "LPAK archive" "mk_lpak.py failed"
+  fi
+
   # Heavy Iron Good Engine .ho package (WALL-E / Up)
   mkdir -p "$d/ho_test"
   if python3 "$PWD_PROJECT/../tests/mk_ho.py" "$d/ho_test" >/dev/null 2>&1; then

@@ -105,6 +105,7 @@
 #include "extract/streamed.inc"
 #include "extract/jadebig.inc"
 #include "extract/thqpack.inc"
+#include "extract/lpak.inc"
 #include "extract/ho.inc"
 #include "extract/asobo.inc"
 #include "extract/vblank.inc"
