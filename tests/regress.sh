@@ -9166,6 +9166,18 @@ with open(sys.argv[1], "wb") as f:
     fno "wii resource ARC" "mk_wiiresarc.py failed"
   fi
 
+  # "PACK" v2 data archive (Ski and Shoot packfile.pak): stored + packed members
+  mkdir -p "$d/packv2_test"
+  if python3 "$PWD_PROJECT/../tests/mk_packv2.py" "$d/packv2_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/packv2_test/TEST.pak" --dest "$d/packv2_test/out" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/packv2_test/out/global/a.txt")" = "stored member data" ] \
+    && [ -f "$d/packv2_test/out/menu/b.pic.packed" ] \
+    && fok "PACK v2 (.pak, Ski and Shoot) unpacks stored members, keeps packed ones raw" \
+    || fno "PACK v2 archive" "failed to unpack synthetic TEST.pak"
+  else
+    fno "PACK v2 archive" "mk_packv2.py failed"
+  fi
+
   # Heavy Iron Good Engine .ho package (WALL-E / Up)
   mkdir -p "$d/ho_test"
   if python3 "$PWD_PROJECT/../tests/mk_ho.py" "$d/ho_test" >/dev/null 2>&1; then
