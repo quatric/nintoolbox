@@ -9250,6 +9250,18 @@ with open(sys.argv[1], "wb") as f:
     fno "PlatinumGames DAT" "mk_platdat.py failed"
   fi
 
+  # Rebel Raiders FUAX UTF-16 string table: dumped to UTF-8 .txt by xx
+  mkdir -p "$d/fuax_test"
+  if python3 "$PWD_PROJECT/../tests/mk_fuax.py" "$d/fuax_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/fuax_test/msg.bin" --overwrite >/dev/null 2>&1 \
+    && grep -q "^Ghost team$" "$d/fuax_test/msg.bin.txt" \
+    && grep -q "^Caf.* .*$" "$d/fuax_test/msg.bin.txt" \
+    && fok "FUAX (Rebel Raiders string table) dumps to UTF-8 text" \
+    || fno "FUAX string table" "failed to decode synthetic msg.bin"
+  else
+    fno "FUAX string table" "mk_fuax.py failed"
+  fi
+
   # Petz engine TTPL texture: wrapper around a TPL, decoded to PNG by xx
   mkdir -p "$d/ttpl_test"
   if python3 "$PWD_PROJECT/../tests/mk_ttpl.py" "$d/ttpl_test" >/dev/null 2>&1; then
