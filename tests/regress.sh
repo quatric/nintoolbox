@@ -9238,6 +9238,18 @@ with open(sys.argv[1], "wb") as f:
     fno "GCT0 texture" "mk_gct0.py failed"
   fi
 
+  # PlatinumGames DAT (MadWorld): named raw members
+  mkdir -p "$d/platdat_test"
+  if python3 "$PWD_PROJECT/../tests/mk_platdat.py" "$d/platdat_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/platdat_test/TEST.dat" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/platdat_test/TEST.dat.d/one.txt")" = "first member" ] \
+    && [ "$(wc -c < "$d/platdat_test/TEST.dat.d/two.bin" | tr -d ' ')" = "4" ] \
+    && fok "PlatinumGames DAT (MadWorld) unpacks named members" \
+    || fno "PlatinumGames DAT" "failed to unpack synthetic TEST.dat"
+  else
+    fno "PlatinumGames DAT" "mk_platdat.py failed"
+  fi
+
   # Petz engine TTPL texture: wrapper around a TPL, decoded to PNG by xx
   mkdir -p "$d/ttpl_test"
   if python3 "$PWD_PROJECT/../tests/mk_ttpl.py" "$d/ttpl_test" >/dev/null 2>&1; then
