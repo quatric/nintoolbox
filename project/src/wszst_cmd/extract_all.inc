@@ -107,6 +107,7 @@
 #include "extract/thqpack.inc"
 #include "extract/lpak.inc"
 #include "extract/abebf.inc"
+#include "extract/wiiresarc.inc"
 #include "extract/ho.inc"
 #include "extract/asobo.inc"
 #include "extract/vblank.inc"

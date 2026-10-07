@@ -519,6 +519,7 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-thqpack.h"
 #include "lib-lpak.h"
 #include "lib-abebf.h"
+#include "lib-wiiresarc.h"
 #include "lib-ho.h"
 #include "lib-asobo.h"
 #include "lib-bj.h"

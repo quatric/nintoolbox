@@ -9153,6 +9153,19 @@ with open(sys.argv[1], "wb") as f:
     fno "ABE BigFile" "mk_abebf.py failed"
   fi
 
+  # "wii\0" resource archive (Petanque Master .ARC), relative and absolute offsets
+  mkdir -p "$d/wiiresarc_test"
+  if python3 "$PWD_PROJECT/../tests/mk_wiiresarc.py" "$d/wiiresarc_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/wiiresarc_test/LEVEL.ARC" --dest "$d/wiiresarc_test/out" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/wiiresarc_test/out/alpha.t2")" = "first payload" ] \
+    && "$B/wszst" x "$d/wiiresarc_test/SOUNDS.ARC" --dest "$d/wiiresarc_test/outs" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/wiiresarc_test/outs/beta.t4")" = "second" ] \
+    && fok "wii resource ARC (Petanque Master) unpacks relative and absolute offset variants" \
+    || fno "wii resource ARC" "failed to unpack synthetic LEVEL.ARC / SOUNDS.ARC"
+  else
+    fno "wii resource ARC" "mk_wiiresarc.py failed"
+  fi
+
   # Heavy Iron Good Engine .ho package (WALL-E / Up)
   mkdir -p "$d/ho_test"
   if python3 "$PWD_PROJECT/../tests/mk_ho.py" "$d/ho_test" >/dev/null 2>&1; then
