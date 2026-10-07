@@ -9388,6 +9388,17 @@ with open(sys.argv[1], "wb") as f:
     fno "NUB sound bank" "mk_nub.py failed"
   fi
 
+  # SPD/SPT audio bank (Worms)
+  mkdir -p "$d/spt_test"
+  if python3 "$PWD_PROJECT/../tests/mk_spt.py" "$d/spt_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/spt_test/b.spd" --overwrite >/dev/null 2>&1 \
+    && [ "$(stat -f%z "$d/spt_test/b.spd.d/000.dsp" 2>/dev/null || stat -c%s "$d/spt_test/b.spd.d/000.dsp")" = "112" ] \
+    && fok "SPD/SPT bank extracts DSP streams" \
+    || fno "SPD/SPT bank" "failed to extract synthetic b.spd"
+  else
+    fno "SPD/SPT bank" "mk_spt.py failed"
+  fi
+
   # Petz engine TTPL texture: wrapper around a TPL, decoded to PNG by xx
   mkdir -p "$d/ttpl_test"
   if python3 "$PWD_PROJECT/../tests/mk_ttpl.py" "$d/ttpl_test" >/dev/null 2>&1; then

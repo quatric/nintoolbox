@@ -134,6 +134,7 @@
 #include "extract/wadh.inc"
 #include "extract/hog.inc"
 #include "extract/nub.inc"
+#include "extract/spt.inc"
 #include "extract/rev.inc"
 #include "extract/gct.inc"
 #include "extract/asobo_bitmap.inc"
