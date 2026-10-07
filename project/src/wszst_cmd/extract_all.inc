@@ -123,6 +123,7 @@
 #include "extract/schl.inc"
 #include "extract/wiitex.inc"
 #include "extract/ptex.inc"
+#include "extract/gfmc.inc"
 #include "extract/gct0.inc"
 #include "extract/ho.inc"
 #include "extract/asobo.inc"

@@ -9331,6 +9331,18 @@ with open(sys.argv[1], "wb") as f:
     fno "PTEX texture bundle" "mk_ptex.py failed"
   fi
 
+  # Kirby GFMC message file: dumped to UTF-8 .txt by xx
+  mkdir -p "$d/gfmc_test"
+  if python3 "$PWD_PROJECT/../tests/mk_gfmc.py" "$d/gfmc_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/gfmc_test/msg.bin" --overwrite >/dev/null 2>&1 \
+    && grep -q "^Elegant Chair$" "$d/gfmc_test/msg.bin.txt" \
+    && grep -q "^Very soft$" "$d/gfmc_test/msg.bin.txt" \
+    && fok "GFMC (Kirby message file) dumps to text" \
+    || fno "GFMC message file" "failed to decode synthetic msg.bin"
+  else
+    fno "GFMC message file" "mk_gfmc.py failed"
+  fi
+
   # Petz engine TTPL texture: wrapper around a TPL, decoded to PNG by xx
   mkdir -p "$d/ttpl_test"
   if python3 "$PWD_PROJECT/../tests/mk_ttpl.py" "$d/ttpl_test" >/dev/null 2>&1; then
