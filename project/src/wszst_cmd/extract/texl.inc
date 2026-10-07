@@ -2,7 +2,7 @@
 // header {"TEXL", u32 version, u32 0, u32 fmt, u16 w, u16 h, ...} followed by
 // raw GX pixel data and an 8-byte trailer. Decoded to "<name>.png" in decode
 // mode (xx) by wrapping the pixels in a synthetic TPL. Supported: CMPR
-// (4 bpp), RGBA8 (32 bpp) and the colour plane of CMPR+alpha (8 bpp) files.
+// (4 bpp), RGBA8 (32 bpp) and CMPR with a separate I4 alpha plane (8 bpp) files.
 static enumError extract_texl_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)basedir;
@@ -38,6 +38,8 @@ static enumError extract_texl_file (ccp arg, ccp basedir, uint depth)
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
 	}
+	// 8 bpp "_atxl" textures: a CMPR colour plane followed by an I4 alpha plane.
+	const bool with_alpha = body == (size_t)w * h;
 
 	char tmp[PATH_MAX], png[PATH_MAX], tmp_png[PATH_MAX];
 	snprintf (tmp, sizeof (tmp), "%s.texl-tmp.tpl", arg);
@@ -50,6 +52,15 @@ static enumError extract_texl_file (ccp arg, ccp basedir, uint depth)
 	{
 		FREE (raw);
 		return ERR_OK;
+	}
+
+	if (with_alpha)
+	{
+		u8 *rgba = GxDecodeCmprAlpha4 (raw + 0x19, raw + 0x19 + need, w, h);
+		FREE (raw);
+		if (!rgba)
+			return ERR_OUT_OF_MEMORY;
+		return SaveDecodedRGBAToPNG (rgba, w, h, &be_func, png, 0, true);
 	}
 
 	const uint data_off = 0x40;
