@@ -1,14 +1,16 @@
-// "10 Minute Solution" LZSS containers (.tplc/.gfx): {flag bytes LSB first;
+// "10 Minute Solution" LZSS containers (.tplc/.gfx/.xpf): {flag bytes LSB first;
 // bit 1 = literal, bit 0 = u16 LE match (len = (t & 15) + 3, pos = t >> 4 into a zero-filled
 // 4096-byte ring written at decoded offset & 4095)};
 // the first four decoded bytes are the big-endian decoded size. A decoded TPL
 // becomes "<name>.png" in decode mode (xx); anything else is saved as
-// "<name>.dec" (.gfx are Scaleform GFx movies).
+// "<name>.dec" (.gfx are Scaleform GFx movies, .xpf UTF-16 script data).
 static u8 *tplc_unpack (const u8 *d, size_t n, size_t *out_size)
 {
 	if (n < 8)
 		return 0;
-	const size_t size = (size_t)d[1] << 24 | d[2] << 16 | d[3] << 8 | d[4];
+	// .xpf carries the magic 0xBADBEEF1 instead of a size and runs to EOF
+	const bool xpf = !memcmp (d + 1, "\xba\xdb\xee\xf1", 4);
+	const size_t size = xpf ? n * 10 : (size_t)d[1] << 24 | d[2] << 16 | d[3] << 8 | d[4];
 	if (size < 8 || size > 0x4000000)
 		return 0;
 	u8 *out = MALLOC (size);
@@ -25,6 +27,8 @@ static u8 *tplc_unpack (const u8 *d, size_t n, size_t *out_size)
 		const uint f = d[p++];
 		for (uint i = 0; i < 8 && o < size; i++)
 		{
+			if (xpf && p >= n)
+				break;
 			if (f >> i & 1)
 			{
 				if (p >= n)
@@ -44,11 +48,11 @@ static u8 *tplc_unpack (const u8 *d, size_t n, size_t *out_size)
 			}
 		}
 	}
-	if (o != size || memcmp (out + 0, d + 1, 4))
+	if (xpf ? o < 8 : (o != size || memcmp (out, d + 1, 4)))
 		goto bad;
 	FREE (ring);
-	*out_size = size - 4;
-	memmove (out, out + 4, size - 4);
+	*out_size = o - 4;
+	memmove (out, out + 4, o - 4);
 	return out;
 bad:
 	FREE (ring);
@@ -60,7 +64,7 @@ static enumError extract_tplc_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)basedir;
 	(void)depth;
-	if (!is_ext (arg, ".tplc") && !is_ext (arg, ".gfx"))
+	if (!is_ext (arg, ".tplc") && !is_ext (arg, ".gfx") && !is_ext (arg, ".xpf"))
 		return ERR_NOTHING_TO_DO;
 	if (export_count <= 0 && !opt_decode)
 		return ERR_NOTHING_TO_DO;
