@@ -8,11 +8,18 @@
 
 #include "lib-std.h"
 
+enum
+{
+	STREAM_CODEC_RAW = 0,     // size bytes are copied from offset
+	STREAM_CODEC_ABE_LZO = 1, // u32 n_blocks, n * u32 packed size, then the LZO1X blocks; size = unpacked
+};
+
 typedef struct stream_entry_t
 {
 	char *name; // relative path, '/' separated, never escapes the root
 	u64 offset; // absolute offset of the payload
-	u32 size;   // payload size
+	u32 size;   // payload size as written to disk (unpacked size for codecs)
+	u8 codec;   // STREAM_CODEC_*
 } stream_entry_t;
 
 // Free the list and its names; safe on NULL.

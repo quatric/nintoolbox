@@ -32,6 +32,10 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_muramasa_fcmp_manifest (arg);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	// Ubisoft ABE bigfiles are unpacked in full; the Red Steel 2 manifest below is the fallback.
+	err = extract_abebf_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	// Red Steel 2 (Wii) formats -- see lib-redsteel2.h.
 	err = extract_redsteel2_abe_manifest (arg);
 	if (err != ERR_NOTHING_TO_DO)

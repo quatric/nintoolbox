@@ -9139,6 +9139,20 @@ with open(sys.argv[1], "wb") as f:
     fno "LPAK archive" "mk_lpak.py failed"
   fi
 
+  # Ubisoft Magma ABE BigFile (Rabbids Go Home / Red Steel 2 .BF): chunk chain, LZO blocks
+  mkdir -p "$d/abebf_test"
+  if python3 "$PWD_PROJECT/../tests/mk_abebf.py" "$d/abebf_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/abebf_test/TEST.BF" --dest "$d/abebf_test/out" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/abebf_test/out/stored.txt")" = "hello abe pack" ] \
+    && [ "$(cat "$d/abebf_test/out/lzo.bin")" = "first block datasecond block 12" ] \
+    && [ "$(cat "$d/abebf_test/out/second chunk.txt")" = "abc" ] \
+    && [ ! -e "$d/abebf_test/out/shadowed.bik" ] \
+    && fok "ABE BigFile (.BF) unpacks stored + LZO members across chunks, skips shadows" \
+    || fno "ABE BigFile" "failed to unpack synthetic TEST.BF"
+  else
+    fno "ABE BigFile" "mk_abebf.py failed"
+  fi
+
   # Heavy Iron Good Engine .ho package (WALL-E / Up)
   mkdir -p "$d/ho_test"
   if python3 "$PWD_PROJECT/../tests/mk_ho.py" "$d/ho_test" >/dev/null 2>&1; then
