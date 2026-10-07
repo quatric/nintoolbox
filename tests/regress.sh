@@ -9190,6 +9190,18 @@ with open(sys.argv[1], "wb") as f:
     fno "ARCB archive" "mk_arcb.py failed"
   fi
 
+  # Petz engine TTPL texture: wrapper around a TPL, decoded to PNG by xx
+  mkdir -p "$d/ttpl_test"
+  if python3 "$PWD_PROJECT/../tests/mk_ttpl.py" "$d/ttpl_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/ttpl_test/tx_testtxl" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/ttpl_test/tx_testtxl.png" | tail -c 3)" = "PNG" ] \
+    && [ ! -e "$d/ttpl_test/tx_testtxl.ttpl-tmp.tpl" ] \
+    && fok "TTPL (Petz texture) decodes to PNG without leaving temp files" \
+    || fno "TTPL texture" "failed to decode synthetic tx_testtxl"
+  else
+    fno "TTPL texture" "mk_ttpl.py failed"
+  fi
+
   # Heavy Iron Good Engine .ho package (WALL-E / Up)
   mkdir -p "$d/ho_test"
   if python3 "$PWD_PROJECT/../tests/mk_ho.py" "$d/ho_test" >/dev/null 2>&1; then
