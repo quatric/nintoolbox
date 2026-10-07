@@ -117,6 +117,7 @@
 #include "extract/texl.inc"
 #include "extract/strt.inc"
 #include "extract/fuax.inc"
+#include "extract/stgs.inc"
 #include "extract/gct0.inc"
 #include "extract/ho.inc"
 #include "extract/asobo.inc"

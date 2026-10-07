@@ -9262,6 +9262,18 @@ with open(sys.argv[1], "wb") as f:
     fno "FUAX string table" "mk_fuax.py failed"
   fi
 
+  # MySims Agents STGS string table: dumped to .txt by xx
+  mkdir -p "$d/stgs_test"
+  if python3 "$PWD_PROJECT/../tests/mk_stgs.py" "$d/stgs_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/stgs_test/msg.str" --overwrite >/dev/null 2>&1 \
+    && grep -q "^pratar$" "$d/stgs_test/msg.str.txt" \
+    && grep -q "^\[0fdf53d1\]$" "$d/stgs_test/msg.str.txt" \
+    && fok "STGS (MySims Agents string table) dumps to text" \
+    || fno "STGS string table" "failed to decode synthetic msg.str"
+  else
+    fno "STGS string table" "mk_stgs.py failed"
+  fi
+
   # Petz engine TTPL texture: wrapper around a TPL, decoded to PNG by xx
   mkdir -p "$d/ttpl_test"
   if python3 "$PWD_PROJECT/../tests/mk_ttpl.py" "$d/ttpl_test" >/dev/null 2>&1; then
