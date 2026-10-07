@@ -1,4 +1,4 @@
-// "PACK" version 2 archive (".arc", Ski and Shoot); see lib-iga.h.
+// "IGA" archive (".arc", Skylanders); see lib-iga.h.
 static enumError extract_iga_file (ccp arg, ccp basedir, uint depth)
 {
 	if (!is_ext (arg, ".arc"))

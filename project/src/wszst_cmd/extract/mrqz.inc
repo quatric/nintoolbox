@@ -1,4 +1,4 @@
-// "PACK" version 2 archive (".pak", Ski and Shoot); see lib-mrqz.h.
+// "MRQZ" archive (".pak", My Fitness Coach); see lib-mrqz.h.
 static enumError extract_mrqz_file (ccp arg, ccp basedir, uint depth)
 {
 	if (!is_ext (arg, ".pak"))
