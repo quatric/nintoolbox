@@ -9202,6 +9202,18 @@ with open(sys.argv[1], "wb") as f:
     fno "IGA archive" "mk_iga.py failed"
   fi
 
+  # One Piece STRT string table: dumped to .txt by xx
+  mkdir -p "$d/strt_test"
+  if python3 "$PWD_PROJECT/../tests/mk_strt.py" "$d/strt_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/strt_test/msg.en.bin" --overwrite >/dev/null 2>&1 \
+    && grep -q "^Hello there\.$" "$d/strt_test/msg.en.bin.txt" \
+    && grep -q "^\[1\]$" "$d/strt_test/msg.en.bin.txt" \
+    && fok "STRT (One Piece string table) dumps to text" \
+    || fno "STRT string table" "failed to decode synthetic msg.en.bin"
+  else
+    fno "STRT string table" "mk_strt.py failed"
+  fi
+
   # Petz engine TTPL texture: wrapper around a TPL, decoded to PNG by xx
   mkdir -p "$d/ttpl_test"
   if python3 "$PWD_PROJECT/../tests/mk_ttpl.py" "$d/ttpl_test" >/dev/null 2>&1; then
