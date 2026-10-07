@@ -115,6 +115,7 @@
 #include "extract/ttpl.inc"
 #include "extract/texl.inc"
 #include "extract/strt.inc"
+#include "extract/gct0.inc"
 #include "extract/ho.inc"
 #include "extract/asobo.inc"
 #include "extract/vblank.inc"

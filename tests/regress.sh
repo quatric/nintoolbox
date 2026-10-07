@@ -9226,6 +9226,18 @@ with open(sys.argv[1], "wb") as f:
     fno "MRQZ pak" "mk_mrqz.py failed"
   fi
 
+  # Grasshopper GCT0 texture: decoded to PNG by xx
+  mkdir -p "$d/gct0_test"
+  if python3 "$PWD_PROJECT/../tests/mk_gct0.py" "$d/gct0_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/gct0_test/test.bin" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/gct0_test/test.bin.png" | tail -c 3)" = "PNG" ] \
+    && [ ! -e "$d/gct0_test/test.bin.gct0-tmp.tpl" ] \
+    && fok "GCT0 (No More Heroes texture) decodes to PNG" \
+    || fno "GCT0 texture" "failed to decode synthetic test.bin"
+  else
+    fno "GCT0 texture" "mk_gct0.py failed"
+  fi
+
   # Petz engine TTPL texture: wrapper around a TPL, decoded to PNG by xx
   mkdir -p "$d/ttpl_test"
   if python3 "$PWD_PROJECT/../tests/mk_ttpl.py" "$d/ttpl_test" >/dev/null 2>&1; then
