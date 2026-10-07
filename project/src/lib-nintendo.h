@@ -526,6 +526,7 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-mrqz.h"
 #include "lib-platdat.h"
 #include "lib-fcat.h"
+#include "lib-gxdec.h"
 #include "lib-ho.h"
 #include "lib-asobo.h"
 #include "lib-bj.h"

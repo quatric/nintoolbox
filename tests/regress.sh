@@ -9319,6 +9319,18 @@ with open(sys.argv[1], "wb") as f:
     fno "WII! texture bundle" "mk_wiitex.py failed"
   fi
 
+  # Virtua Tennis PTEX texture bundle: CMPR (+ I4 alpha) textures decoded to PNG by xx
+  mkdir -p "$d/ptex_test"
+  if python3 "$PWD_PROJECT/../tests/mk_ptex.py" "$d/ptex_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/ptex_test/TEST.dat" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/ptex_test/TEST.dat.d/00_11111111.png" | tail -c 3)" = "PNG" ] \
+    && [ "$(head -c 4 "$d/ptex_test/TEST.dat.d/01_22222222.png" | tail -c 3)" = "PNG" ] \
+    && fok "PTEX (Virtua Tennis texture bundle) decodes to PNG" \
+    || fno "PTEX texture bundle" "failed to decode synthetic TEST.dat"
+  else
+    fno "PTEX texture bundle" "mk_ptex.py failed"
+  fi
+
   # Petz engine TTPL texture: wrapper around a TPL, decoded to PNG by xx
   mkdir -p "$d/ttpl_test"
   if python3 "$PWD_PROJECT/../tests/mk_ttpl.py" "$d/ttpl_test" >/dev/null 2>&1; then
