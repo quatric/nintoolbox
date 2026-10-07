@@ -9286,6 +9286,18 @@ with open(sys.argv[1], "wb") as f:
     fno "WB-L10n string table" "mk_wbl10n.py failed"
   fi
 
+  # Winning Post FCAT container: raw members named by index
+  mkdir -p "$d/fcat_test"
+  if python3 "$PWD_PROJECT/../tests/mk_fcat.py" "$d/fcat_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/fcat_test/TEST.dat" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/fcat_test/TEST.dat.d/000.bin")" = "first member data" ] \
+    && [ "$(wc -c < "$d/fcat_test/TEST.dat.d/001.bin" | tr -d ' ')" = "5" ] \
+    && fok "FCAT (Winning Post .dat) unpacks its members" \
+    || fno "FCAT container" "failed to unpack synthetic TEST.dat"
+  else
+    fno "FCAT container" "mk_fcat.py failed"
+  fi
+
   # Petz engine TTPL texture: wrapper around a TPL, decoded to PNG by xx
   mkdir -p "$d/ttpl_test"
   if python3 "$PWD_PROJECT/../tests/mk_ttpl.py" "$d/ttpl_test" >/dev/null 2>&1; then
