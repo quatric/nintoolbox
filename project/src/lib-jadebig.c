@@ -107,21 +107,7 @@ static bool jb_dir_path (const jb_dir_t *dirs, uint n_dirs, int idx, char *out, 
 	return true;
 }
 
-static void jb_free_partial (jadebig_entry_t *out, uint n)
-{
-	FreeJadeBig (out, n);
-}
-
-void FreeJadeBig (jadebig_entry_t *entries, uint n_entries)
-{
-	if (!entries)
-		return;
-	for (uint i = 0; i < n_entries; i++)
-		FREE (entries[i].name);
-	FREE (entries);
-}
-
-enumError ScanJadeBig (FILE *f, u64 file_size, jadebig_entry_t **entries, uint *n_entries)
+enumError ScanJadeBig (FILE *f, u64 file_size, stream_entry_t **entries, uint *n_entries)
 {
 	if (!f || !entries || !n_entries || file_size < 0x30)
 		return EINVAL;
@@ -217,7 +203,7 @@ enumError ScanJadeBig (FILE *f, u64 file_size, jadebig_entry_t **entries, uint *
 		return res;
 	}
 
-	jadebig_entry_t *out = CALLOC (max_file ? max_file : 1, sizeof (*out));
+	stream_entry_t *out = CALLOC (max_file ? max_file : 1, sizeof (*out));
 	u8 *refs = MALLOC ((size_t)size_of_fat * 8);
 	u8 *infos = MALLOC ((size_t)size_of_fat * info_size);
 	if (!out || !refs || !infos)
@@ -291,15 +277,11 @@ enumError ScanJadeBig (FILE *f, u64 file_size, jadebig_entry_t **entries, uint *
 					snprintf (path, sizeof (path), "%s", alt);
 					break;
 				}
-			out[n].name = MALLOC (strlen (path) + 1);
-			if (!out[n].name)
+			if (!StreamEntryAdd (out, n, path, (u64)off + 4, size))
 			{
 				res = ERR_CANT_CREATE;
 				break;
 			}
-			strcpy (out[n].name, path);
-			out[n].offset = (u64)off + 4;
-			out[n].size = size;
 			n++;
 		}
 	}
@@ -309,7 +291,7 @@ enumError ScanJadeBig (FILE *f, u64 file_size, jadebig_entry_t **entries, uint *
 	FREE (dirs);
 	if (res || !n)
 	{
-		jb_free_partial (out, n);
+		FreeStreamEntries (out, n);
 		return res ? res : EINVAL;
 	}
 	*entries = out;

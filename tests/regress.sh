@@ -9115,6 +9115,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Jade BigFile" "mk_jadebig.py failed"
   fi
 
+  # THQ Australia "pack" archive (Nickelodeon Avatar *_DATA.PAK)
+  mkdir -p "$d/thqpack_test"
+  if python3 "$PWD_PROJECT/../tests/mk_thqpack.py" "$d/thqpack_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/thqpack_test/TEST_DATA.PAK" --dest "$d/thqpack_test/out" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/thqpack_test/out/data/sub/b.txt")" = "hello pack" ] \
+    && [ "$(cat "$d/thqpack_test/out/data/a.rad")" = "rad payload" ] \
+    && fok "THQ Australia pack (.PAK, Nickelodeon Avatar) unpacks with directory tree" \
+    || fno "THQ pack archive" "failed to unpack synthetic TEST_DATA.PAK"
+  else
+    fno "THQ pack archive" "mk_thqpack.py failed"
+  fi
+
   # Heavy Iron Good Engine .ho package (WALL-E / Up)
   mkdir -p "$d/ho_test"
   if python3 "$PWD_PROJECT/../tests/mk_ho.py" "$d/ho_test" >/dev/null 2>&1; then

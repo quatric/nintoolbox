@@ -29,21 +29,13 @@
 #ifndef SZS_LIB_JADEBIG_H
 #define SZS_LIB_JADEBIG_H 1
 
-#include "lib-std.h"
+#include "lib-streamentry.h"
 #include <stdio.h>
-
-typedef struct jadebig_entry_t
-{
-	char *name; // relative path, '/' separated, never escapes the root
-	u64 offset; // offset of the payload (after its u32 size word)
-	u32 size;   // payload size
-} jadebig_entry_t;
 
 // Cheap header sanity test for file-type detection.
 bool IsJadeBigHeader (const u8 *data, size_t size);
 
 // Read the index of the open file. Returns EINVAL if it is not a Jade BigFile.
-enumError ScanJadeBig (FILE *f, u64 file_size, jadebig_entry_t **entries, uint *n_entries);
-void FreeJadeBig (jadebig_entry_t *entries, uint n_entries);
+enumError ScanJadeBig (FILE *f, u64 file_size, stream_entry_t **entries, uint *n_entries);
 
 #endif
