@@ -9274,6 +9274,18 @@ with open(sys.argv[1], "wb") as f:
     fno "STGS string table" "mk_stgs.py failed"
   fi
 
+  # So Blonde WB-L10n string table: dumped to .txt by xx
+  mkdir -p "$d/wbl10n_test"
+  if python3 "$PWD_PROJECT/../tests/mk_wbl10n.py" "$d/wbl10n_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/wbl10n_test/text.dat" --overwrite >/dev/null 2>&1 \
+    && grep -q "^Hallo Welt$" "$d/wbl10n_test/text.dat.txt" \
+    && grep -q "^Zweiter Text$" "$d/wbl10n_test/text.dat.txt" \
+    && fok "WB-L10n (So Blonde string table) dumps to text" \
+    || fno "WB-L10n string table" "failed to decode synthetic text.dat"
+  else
+    fno "WB-L10n string table" "mk_wbl10n.py failed"
+  fi
+
   # Petz engine TTPL texture: wrapper around a TPL, decoded to PNG by xx
   mkdir -p "$d/ttpl_test"
   if python3 "$PWD_PROJECT/../tests/mk_ttpl.py" "$d/ttpl_test" >/dev/null 2>&1; then
