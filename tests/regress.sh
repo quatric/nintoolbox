@@ -9377,6 +9377,17 @@ with open(sys.argv[1], "wb") as f:
     fno "HOG archive" "mk_hog.py failed"
   fi
 
+  # Namco NUB sound bank
+  mkdir -p "$d/nub_test"
+  if python3 "$PWD_PROJECT/../tests/mk_nub.py" "$d/nub_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/nub_test/t.nub" --overwrite >/dev/null 2>&1 \
+    && [ "$(stat -f%z "$d/nub_test/t.nub.d/000.dsp" 2>/dev/null || stat -c%s "$d/nub_test/t.nub.d/000.dsp")" = "104" ] \
+    && fok "NUB sound bank extracts DSP streams" \
+    || fno "NUB sound bank" "failed to extract synthetic t.nub"
+  else
+    fno "NUB sound bank" "mk_nub.py failed"
+  fi
+
   # Petz engine TTPL texture: wrapper around a TPL, decoded to PNG by xx
   mkdir -p "$d/ttpl_test"
   if python3 "$PWD_PROJECT/../tests/mk_ttpl.py" "$d/ttpl_test" >/dev/null 2>&1; then
