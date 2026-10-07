@@ -112,7 +112,6 @@
 #include "extract/arcb.inc"
 #include "extract/iga.inc"
 #include "extract/mrqz.inc"
-#include "extract/platdat.inc"
 #include "extract/fcat.inc"
 #include "extract/ttpl.inc"
 #include "extract/texl.inc"
