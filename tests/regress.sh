@@ -9343,6 +9343,17 @@ with open(sys.argv[1], "wb") as f:
     fno "GFMC message file" "mk_gfmc.py failed"
   fi
 
+  # Star Trek: Conquest mixed WII! bundle (nameless texture records)
+  mkdir -p "$d/wiitexb_test"
+  if python3 "$PWD_PROJECT/../tests/mk_wiitex_b.py" "$d/wiitexb_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/wiitexb_test/LVL.wii" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/wiitexb_test/LVL.wii.d/000_8x8.png" | tail -c 3)" = "PNG" ] \
+    && fok "WII! mixed level bundle decodes its textures to PNG" \
+    || fno "WII! mixed bundle" "failed to decode synthetic LVL.wii"
+  else
+    fno "WII! mixed bundle" "mk_wiitex_b.py failed"
+  fi
+
   # Petz engine TTPL texture: wrapper around a TPL, decoded to PNG by xx
   mkdir -p "$d/ttpl_test"
   if python3 "$PWD_PROJECT/../tests/mk_ttpl.py" "$d/ttpl_test" >/dev/null 2>&1; then
