@@ -9190,6 +9190,18 @@ with open(sys.argv[1], "wb") as f:
     fno "ARCB archive" "mk_arcb.py failed"
   fi
 
+  # Skylanders IGA archive (.arc): stored members with build-path names
+  mkdir -p "$d/iga_test"
+  if python3 "$PWD_PROJECT/../tests/mk_iga.py" "$d/iga_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/iga_test/TEST.arc" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/iga_test/TEST.arc.d/tfb/build/wii/levels/a.txt")" = "first member" ] \
+    && [ "$(wc -c < "$d/iga_test/TEST.arc.d/tfb/build/wii/levels/dir/b.bin" | tr -d ' ')" = "4" ] \
+    && fok "IGA (Skylanders .arc) unpacks named members" \
+    || fno "IGA archive" "failed to unpack synthetic TEST.arc"
+  else
+    fno "IGA archive" "mk_iga.py failed"
+  fi
+
   # Petz engine TTPL texture: wrapper around a TPL, decoded to PNG by xx
   mkdir -p "$d/ttpl_test"
   if python3 "$PWD_PROJECT/../tests/mk_ttpl.py" "$d/ttpl_test" >/dev/null 2>&1; then

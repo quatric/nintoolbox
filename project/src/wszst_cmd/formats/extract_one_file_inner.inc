@@ -45,6 +45,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_arcb_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_iga_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_ttpl_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
