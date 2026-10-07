@@ -111,6 +111,7 @@
 #include "extract/packv2.inc"
 #include "extract/arcb.inc"
 #include "extract/iga.inc"
+#include "extract/mrqz.inc"
 #include "extract/ttpl.inc"
 #include "extract/texl.inc"
 #include "extract/strt.inc"

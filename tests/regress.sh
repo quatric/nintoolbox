@@ -9214,6 +9214,18 @@ with open(sys.argv[1], "wb") as f:
     fno "STRT string table" "mk_strt.py failed"
   fi
 
+  # My Fitness Coach MRQZ pak: raw members with full paths
+  mkdir -p "$d/mrqz_test"
+  if python3 "$PWD_PROJECT/../tests/mk_mrqz.py" "$d/mrqz_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/mrqz_test/TEST.pak" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/mrqz_test/TEST.pak.d/data/a.txt")" = "alpha member" ] \
+    && [ "$(wc -c < "$d/mrqz_test/TEST.pak.d/data/dir/b.bin" | tr -d ' ')" = "4" ] \
+    && fok "MRQZ (My Fitness Coach .pak) unpacks named members" \
+    || fno "MRQZ pak" "failed to unpack synthetic TEST.pak"
+  else
+    fno "MRQZ pak" "mk_mrqz.py failed"
+  fi
+
   # Petz engine TTPL texture: wrapper around a TPL, decoded to PNG by xx
   mkdir -p "$d/ttpl_test"
   if python3 "$PWD_PROJECT/../tests/mk_ttpl.py" "$d/ttpl_test" >/dev/null 2>&1; then

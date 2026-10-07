@@ -523,6 +523,7 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-packv2.h"
 #include "lib-arcb.h"
 #include "lib-iga.h"
+#include "lib-mrqz.h"
 #include "lib-ho.h"
 #include "lib-asobo.h"
 #include "lib-bj.h"
