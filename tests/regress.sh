@@ -9369,7 +9369,9 @@ with open(sys.argv[1], "wb") as f:
   if python3 "$PWD_PROJECT/../tests/mk_hog.py" "$d/hog_test" >/dev/null 2>&1; then
     "$B/wszst" x "$d/hog_test/t.hog" --overwrite >/dev/null 2>&1 \
     && [ "$(cat "$d/hog_test/t.hog.d/DIR/A.TXT")" = "hello hog" ] \
-    && fok "HOG archive extracts" \
+    && "$B/wszst" x "$d/hog_test/s.hog" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 12 "$d/hog_test/s.hog.d/sfx_7.bin")" = "shoc payload" ] \
+    && fok "HOG archives extract (house and EA SHOC)" \
     || fno "HOG archive" "failed to extract synthetic t.hog"
   else
     fno "HOG archive" "mk_hog.py failed"
