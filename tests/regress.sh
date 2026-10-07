@@ -9202,6 +9202,18 @@ with open(sys.argv[1], "wb") as f:
     fno "TTPL texture" "mk_ttpl.py failed"
   fi
 
+  # Petz engine TEXL texture: raw GX pixels, decoded to PNG by xx
+  mkdir -p "$d/texl_test"
+  if python3 "$PWD_PROJECT/../tests/mk_texl.py" "$d/texl_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/texl_test/tx_testtexl" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/texl_test/tx_testtexl.png" | tail -c 3)" = "PNG" ] \
+    && [ ! -e "$d/texl_test/tx_testtexl.texl-tmp.tpl" ] \
+    && fok "TEXL (Petz texture) decodes to PNG without leaving temp files" \
+    || fno "TEXL texture" "failed to decode synthetic tx_testtexl"
+  else
+    fno "TEXL texture" "mk_texl.py failed"
+  fi
+
   # Heavy Iron Good Engine .ho package (WALL-E / Up)
   mkdir -p "$d/ho_test"
   if python3 "$PWD_PROJECT/../tests/mk_ho.py" "$d/ho_test" >/dev/null 2>&1; then
