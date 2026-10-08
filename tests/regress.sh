@@ -9463,6 +9463,13 @@ with open(sys.argv[1], "wb") as f:
     fno "EA .ngc stream" "mk_eangc.py failed"
   fi
 
+  if [ -f "$d/eangc_test/t.fcd" ]; then
+    "$B/wszst" x "$d/eangc_test/t.fcd" --overwrite >/dev/null 2>&1 \
+    && [ -f "$d/eangc_test/t.fcd.d/00000.wav" ] && [ -f "$d/eangc_test/t.fcd.d/00001.wav" ] \
+    && fok "EA .fcd speech data splits into WAV streams" \
+    || fno "EA .fcd speech" "failed to split synthetic t.fcd"
+  fi
+
   # Namco NUB sound bank
   mkdir -p "$d/nub_test"
   if python3 "$PWD_PROJECT/../tests/mk_nub.py" "$d/nub_test" >/dev/null 2>&1; then

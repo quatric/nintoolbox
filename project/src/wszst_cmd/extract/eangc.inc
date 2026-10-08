@@ -18,25 +18,14 @@ static uint ea_patch_value (const u8 *p, uint len)
 	return v;
 }
 
-static enumError extract_eangc_file (ccp arg, ccp basedir, uint depth)
+// decode one SCHl stream into a WAV image (caller frees *wav_out)
+static enumError ea_decode_wav (const u8 *raw, size_t raw_size, u8 **wav_out, uint *wav_size, uint *ch_out, uint *rate_out)
 {
-	if (!is_ext (arg, ".ngc"))
-		return ERR_NOTHING_TO_DO;
-	u8 *raw = 0;
-	size_t raw_size = 0;
-	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false) || !raw)
-	{
-		FREE (raw);
-		return ERR_NOTHING_TO_DO;
-	}
 	if (raw_size < 0x30 || memcmp (raw, "SCHl", 4) || rd_le32 (raw + 4) > raw_size)
-	{
-		FREE (raw);
 		return ERR_NOTHING_TO_DO;
-	}
 
 	// header patch elements
-	uint rev = 0, channels = 0, rate = 48000;
+	uint rev = 0, channels = 1, rate = 48000;
 	{
 		const size_t hend = rd_le32 (raw + 4);
 		size_t p = 8;
@@ -59,7 +48,6 @@ static enumError extract_eangc_file (ccp arg, ccp basedir, uint depth)
 	}
 	if (rev != 3 || channels < 1 || channels > 6 || rate < 4000 || rate > 192000)
 	{
-		FREE (raw);
 		return ERR_NOTHING_TO_DO;
 	}
 
@@ -67,7 +55,6 @@ static enumError extract_eangc_file (ccp arg, ccp basedir, uint depth)
 	s16 *pcm = MALLOC (cap * sizeof (s16));
 	if (!pcm)
 	{
-		FREE (raw);
 		return ERR_OUT_OF_MEMORY;
 	}
 	int prev[6] = {0}, cur[6] = {0};
@@ -75,7 +62,6 @@ static enumError extract_eangc_file (ccp arg, ccp basedir, uint depth)
 	if (!chan)
 	{
 		FREE (pcm);
-		FREE (raw);
 		return ERR_OUT_OF_MEMORY;
 	}
 	for (size_t p = 0; p + 8 <= raw_size;)
@@ -171,7 +157,6 @@ static enumError extract_eangc_file (ccp arg, ccp basedir, uint depth)
 		p += sz;
 	}
 	FREE (chan);
-	FREE (raw);
 	if (!used)
 	{
 		FREE (pcm);
@@ -201,14 +186,85 @@ static enumError extract_eangc_file (ccp arg, ccp basedir, uint depth)
 		wr_le16 (wav + 44 + 2 * i, (u16)pcm[i]);
 	FREE (pcm);
 
+	*wav_out = wav;
+	*wav_size = (uint)(44 + data);
+	*ch_out = channels;
+	*rate_out = rate;
+	return ERR_OK;
+}
+
+static enumError extract_eangc_file (ccp arg, ccp basedir, uint depth)
+{
+	const bool ngc = is_ext (arg, ".ngc"), fcd = is_ext (arg, ".fcd");
+	if (!ngc && !fcd)
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	if (raw_size < 0x30 || memcmp (raw, "SCHl", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
 	char dest[PATH_MAX];
 	beside_source_dest (dest, sizeof (dest), arg);
-	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT EA-NGC:%s (%u ch, %u Hz) -> %s/\n", verbose > 0 ? "\n" : "",
-			testmode ? "WOULD " : "", arg, channels, rate, dest);
-	enumError err = ERR_OK;
-	if (!testmode)
-		err = shade_write (arg, dest, basedir, "audio.wav", wav, (uint)(44 + data));
-	FREE (wav);
-	return err;
+	enumError err = ERR_NOTHING_TO_DO;
+	uint n = 0;
+	// ".fcd" data files (NBA Live speech) concatenate many SCHl..SCEl streams
+	for (size_t p = 0; p + 8 <= raw_size;)
+	{
+		size_t e = raw_size;
+		if (fcd)
+		{
+			size_t q = p;
+			bool found = false;
+			while (q + 8 <= raw_size)
+			{
+				const size_t sz = rd_le32 (raw + q + 4);
+				if (sz < 8 || sz > raw_size - q)
+					break;
+				q += sz;
+				if (!memcmp (raw + q - sz, "SCEl", 4))
+				{
+					found = true;
+					break;
+				}
+			}
+			if (!found)
+				break;
+			e = q;
+		}
+		u8 *wav = 0;
+		uint wsz = 0, ch = 0, rate = 0;
+		enumError e2 = ea_decode_wav (raw + p, e - p, &wav, &wsz, &ch, &rate);
+		if (e2 == ERR_OK)
+		{
+			char name[64];
+			if (fcd)
+				snprintf (name, sizeof (name), "%05u.wav", n);
+			else
+				snprintf (name, sizeof (name), "audio.wav");
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sEXTRACT EA-NGC:%s (%u ch, %u Hz) -> %s/%s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", arg, ch, rate, dest, name);
+			err = ERR_OK;
+			if (!testmode)
+				err = shade_write (arg, dest, basedir, name, wav, wsz);
+			n++;
+		}
+		else if (e2 != ERR_NOTHING_TO_DO)
+			err = e2;
+		FREE (wav);
+		if (!fcd || err > ERR_WARNING)
+			break;
+		p = e;
+		while (p + 4 <= raw_size && memcmp (raw + p, "SCHl", 4))
+			p++;
+	}
+	FREE (raw);
+	return n ? ERR_OK : err;
 }

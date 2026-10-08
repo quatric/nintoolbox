@@ -12,3 +12,8 @@ pkt = struct.pack('>II', 28, 0) + frame
 pkt += b'\0' * (-(len(pkt) + 8) % 4)
 scdl = b'SCDl' + struct.pack('<I', 8 + len(pkt)) + pkt
 open(os.path.join(out, 't.ngc'), 'wb').write(schl + scdl)
+# NBA Live style .fcd: two SCHl..SCEl streams (no channel element = mono) padded to 0x100
+sce = b'SCEl' + struct.pack('<I', 8)
+one = schl + scdl + sce
+one += b'\0' * (-len(one) % 0x100)
+open(os.path.join(out, 't.fcd'), 'wb').write(one + one)
