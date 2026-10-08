@@ -143,7 +143,7 @@ static enumError extract_hog_shoc (ccp arg, ccp basedir, uint depth, u8 *raw, si
 
 static enumError extract_hog_file (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext (arg, ".hog"))
+	if (!is_ext (arg, ".hog") && !is_ext (arg, ".gcb"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;

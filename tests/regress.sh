@@ -9371,7 +9371,9 @@ with open(sys.argv[1], "wb") as f:
     && [ "$(cat "$d/hog_test/t.hog.d/DIR/A.TXT")" = "hello hog" ] \
     && "$B/wszst" x "$d/hog_test/s.hog" --overwrite >/dev/null 2>&1 \
     && [ "$(head -c 12 "$d/hog_test/s.hog.d/sfx_7.bin")" = "shoc payload" ] \
-    && fok "HOG archives extract (house and EA SHOC)" \
+    && "$B/wszst" x "$d/hog_test/g.gcb" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 12 "$d/hog_test/g.gcb.d/sfx_7.bin")" = "shoc payload" ] \
+    && fok "HOG archives extract (house and EA SHOC, .hog and .gcb)" \
     || fno "HOG archive" "failed to extract synthetic t.hog"
   else
     fno "HOG archive" "mk_hog.py failed"
