@@ -9414,6 +9414,19 @@ with open(sys.argv[1], "wb") as f:
     fno "PDA .bra archive" "mk_pdabra.py failed"
   fi
 
+  # Shade (Level-5 Strikers) scn.bin and mcb0/mcb1.bln with ShadeLz members
+  mkdir -p "$d/shade_test"
+  if python3 "$PWD_PROJECT/../tests/mk_shade.py" "$d/shade_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/shade_test/scn.bin" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/shade_test/scn.bin.d/0000.bin")" = "abcdefghxxxxxxxxxxabcdef" ] \
+    && "$B/wszst" x "$d/shade_test/mcb0.bln" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/shade_test/mcb0.bln.d/0000/000_a0_0.bin")" = "abcdefghxxxxxxxxxxabcdef" ] \
+    && fok "Shade scn.bin and mcb0/mcb1.bln extract ShadeLz members" \
+    || fno "Shade containers" "failed to extract synthetic scn.bin/mcb0.bln"
+  else
+    fno "Shade containers" "mk_shade.py failed"
+  fi
+
   # Namco NUB sound bank
   mkdir -p "$d/nub_test"
   if python3 "$PWD_PROJECT/../tests/mk_nub.py" "$d/nub_test" >/dev/null 2>&1; then
