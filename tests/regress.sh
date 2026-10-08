@@ -9450,6 +9450,12 @@ with open(sys.argv[1], "wb") as f:
   else
     fno "2DF sprite sheet" "mk_spr2df.py failed"
   fi
+  if [ -f "$d/spr2df_test/v10.spr" ]; then
+    "$B/wszst" xx "$d/spr2df_test/v10.spr" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/spr2df_test/v10.spr.00.png" | tail -c 3)" = "PNG" ] \
+    && fok "2DF v10 CMPR/C8 sprite sheets decode to PNG" \
+    || fno "2DF v10 sprite sheet" "failed to decode synthetic v10.spr"
+  fi
 
   # EA GameCube stream (.ngc, ADPCM R3) -> WAV
   mkdir -p "$d/eangc_test"
