@@ -9427,6 +9427,17 @@ with open(sys.argv[1], "wb") as f:
     fno "Shade containers" "mk_shade.py failed"
   fi
 
+  # Messiah 2df .spr sprite sheet (Gummy Bears), decoded to PNG by xx
+  mkdir -p "$d/spr2df_test"
+  if python3 "$PWD_PROJECT/../tests/mk_spr2df.py" "$d/spr2df_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/spr2df_test/t.spr" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/spr2df_test/t.spr.00.png" | tail -c 3)" = "PNG" ] \
+    && fok "2DF .spr sprite sheets decode to PNG" \
+    || fno "2DF sprite sheet" "failed to decode synthetic t.spr"
+  else
+    fno "2DF sprite sheet" "mk_spr2df.py failed"
+  fi
+
   # Namco NUB sound bank
   mkdir -p "$d/nub_test"
   if python3 "$PWD_PROJECT/../tests/mk_nub.py" "$d/nub_test" >/dev/null 2>&1; then

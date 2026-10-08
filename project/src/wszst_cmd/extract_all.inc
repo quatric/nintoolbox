@@ -139,6 +139,7 @@
 #include "extract/pdabra.inc"
 #include "extract/threedf.inc"
 #include "extract/shade.inc"
+#include "extract/spr2df.inc"
 #include "extract/nub.inc"
 #include "extract/spt.inc"
 #include "extract/pwbundle.inc"
