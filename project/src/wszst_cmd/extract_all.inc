@@ -135,6 +135,7 @@
 #include "extract/wadh.inc"
 #include "extract/hog.inc"
 #include "extract/hvp.inc"
+#include "extract/rkv.inc"
 #include "extract/nub.inc"
 #include "extract/spt.inc"
 #include "extract/pwbundle.inc"

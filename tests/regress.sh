@@ -9389,6 +9389,18 @@ with open(sys.argv[1], "wb") as f:
     fno "HVP pack" "mk_hvp.py failed"
   fi
 
+  # RKV (RK33) resource archive
+  mkdir -p "$d/rkv_test"
+  if python3 "$PWD_PROJECT/../tests/mk_rkv.py" "$d/rkv_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/rkv_test/t.rkv" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/rkv_test/t.rkv.d/a.txt")" = "raw rkv member" ] \
+    && [ "$(cat "$d/rkv_test/t.rkv.d/b.txt")" = "abcabcabcabcabc" ] \
+    && fok "RKV archives extract raw and LZF members" \
+    || fno "RKV archive" "failed to extract synthetic t.rkv"
+  else
+    fno "RKV archive" "mk_rkv.py failed"
+  fi
+
   # Namco NUB sound bank
   mkdir -p "$d/nub_test"
   if python3 "$PWD_PROJECT/../tests/mk_nub.py" "$d/nub_test" >/dev/null 2>&1; then
