@@ -9487,6 +9487,18 @@ with open(sys.argv[1], "wb") as f:
     fno "SPHC .txf" "mk_spooktxf.py failed"
   fi
 
+  # NDP stereo DSP music (.nds) split into per-channel .dsp
+  mkdir -p "$d/ndp_test"
+  if python3 "$PWD_PROJECT/../tests/mk_ndp.py" "$d/ndp_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/ndp_test/t.nds" --overwrite >/dev/null 2>&1 \
+    && [ "$(stat -f%z "$d/ndp_test/t.nds.d/ch1.dsp" 2>/dev/null || stat -c%s "$d/ndp_test/t.nds.d/ch1.dsp")" = "128" ] \
+    && [ "$(xxd -s 0x60 -l 4 -p "$d/ndp_test/t.nds.d/ch1.dsp")" = "80818283" ] \
+    && fok "NDP .nds music splits into channel DSPs" \
+    || fno "NDP .nds" "failed to split synthetic t.nds"
+  else
+    fno "NDP .nds" "mk_ndp.py failed"
+  fi
+
   # Namco NUB sound bank
   mkdir -p "$d/nub_test"
   if python3 "$PWD_PROJECT/../tests/mk_nub.py" "$d/nub_test" >/dev/null 2>&1; then
