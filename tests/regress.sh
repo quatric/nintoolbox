@@ -9410,6 +9410,17 @@ with open(sys.argv[1], "wb") as f:
     fno "Pipeworks bundle" "mk_pwbundle.py failed"
   fi
 
+  # DC2 engine model (.dcm) -> GLB
+  mkdir -p "$d/dc2m_test"
+  if python3 "$PWD_PROJECT/../tests/mk_dc2model.py" "$d/dc2m_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/dc2m_test/m.dcm" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/dc2m_test/m.glb")" = "glTF" ] \
+    && fok "DC2 .dcm model exports to GLB" \
+    || fno "DC2 .dcm model" "failed to export synthetic m.dcm"
+  else
+    fno "DC2 .dcm model" "mk_dc2model.py failed"
+  fi
+
   # Petz engine TTPL texture: wrapper around a TPL, decoded to PNG by xx
   mkdir -p "$d/ttpl_test"
   if python3 "$PWD_PROJECT/../tests/mk_ttpl.py" "$d/ttpl_test" >/dev/null 2>&1; then
