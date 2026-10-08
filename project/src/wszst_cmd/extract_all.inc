@@ -137,6 +137,7 @@
 #include "extract/hvp.inc"
 #include "extract/rkv.inc"
 #include "extract/pdabra.inc"
+#include "extract/threedf.inc"
 #include "extract/nub.inc"
 #include "extract/spt.inc"
 #include "extract/pwbundle.inc"

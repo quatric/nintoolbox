@@ -9406,7 +9406,9 @@ with open(sys.argv[1], "wb") as f:
   if python3 "$PWD_PROJECT/../tests/mk_pdabra.py" "$d/pdabra_test" >/dev/null 2>&1; then
     "$B/wszst" x "$d/pdabra_test/t.bra" --overwrite >/dev/null 2>&1 \
     && [ "$(head -c 18 "$d/pdabra_test/t.bra.d/Dir/a.txt")" = "bra member payload" ] \
-    && fok "PDA .bra archives extract deflated members" \
+    && "$B/wszst" x "$d/pdabra_test/t.3df" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 18 "$d/pdabra_test/t.3df.d/000_0001a0.bin")" = "bra member payload" ] \
+    && fok "PDA .bra archives extract deflated members (and .3df embedded members)" \
     || fno "PDA .bra archive" "failed to extract synthetic t.bra"
   else
     fno "PDA .bra archive" "mk_pdabra.py failed"
