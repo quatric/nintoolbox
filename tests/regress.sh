@@ -9476,6 +9476,14 @@ with open(sys.argv[1], "wb") as f:
     || fno "EA .fcd speech" "failed to split synthetic t.fcd"
   fi
 
+  if [ -f "$d/eangc_test/t.fcd" ]; then
+    cp "$d/eangc_test/t.fcd" "$d/eangc_test/t.ast"
+    "$B/wszst" x "$d/eangc_test/t.ast" --overwrite >/dev/null 2>&1 \
+    && [ -f "$d/eangc_test/t.ast.d/00001.wav" ] \
+    && fok "EA .ast multi-segment stream splits into WAV streams" \
+    || fno "EA .ast" "failed to split synthetic t.ast"
+  fi
+
   # SPHC locale string table (.txf)
   mkdir -p "$d/spooktxf_test"
   if python3 "$PWD_PROJECT/../tests/mk_spooktxf.py" "$d/spooktxf_test" >/dev/null 2>&1; then

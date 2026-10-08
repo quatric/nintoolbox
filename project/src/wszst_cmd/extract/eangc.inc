@@ -195,7 +195,7 @@ static enumError ea_decode_wav (const u8 *raw, size_t raw_size, u8 **wav_out, ui
 
 static enumError extract_eangc_file (ccp arg, ccp basedir, uint depth)
 {
-	const bool ngc = is_ext (arg, ".ngc"), fcd = is_ext (arg, ".fcd");
+	const bool ngc = is_ext (arg, ".ngc"), fcd = is_ext (arg, ".fcd") || is_ext (arg, ".ast");
 	if (!ngc && !fcd)
 		return ERR_NOTHING_TO_DO;
 	u8 *raw = 0;
