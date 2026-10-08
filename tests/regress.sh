@@ -9399,6 +9399,17 @@ with open(sys.argv[1], "wb") as f:
     fno "SPD/SPT bank" "mk_spt.py failed"
   fi
 
+  # Pipeworks bundle (.bdg)
+  mkdir -p "$d/pwb_test"
+  if python3 "$PWD_PROJECT/../tests/mk_pwbundle.py" "$d/pwb_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/pwb_test/p.bdg" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 9 "$d/pwb_test/p.bdg.d/12345678_Binary.txt")" = "<VERSION>" ] \
+    && fok "Pipeworks bundle extracts hashed members" \
+    || fno "Pipeworks bundle" "failed to extract synthetic p.bdg"
+  else
+    fno "Pipeworks bundle" "mk_pwbundle.py failed"
+  fi
+
   # Petz engine TTPL texture: wrapper around a TPL, decoded to PNG by xx
   mkdir -p "$d/ttpl_test"
   if python3 "$PWD_PROJECT/../tests/mk_ttpl.py" "$d/ttpl_test" >/dev/null 2>&1; then
