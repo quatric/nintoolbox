@@ -9510,6 +9510,18 @@ with open(sys.argv[1], "wb") as f:
     fno "EA TXG" "mk_txg.py failed"
   fi
 
+  # EA BNKb sound bank split into per-sound .dsp
+  mkdir -p "$d/eabnk_test"
+  if python3 "$PWD_PROJECT/../tests/mk_eabnk.py" "$d/eabnk_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/eabnk_test/t.bnk.bin" --overwrite >/dev/null 2>&1 \
+    && [ "$(stat -f%z "$d/eabnk_test/t.bnk.bin.d/0000.dsp" 2>/dev/null || stat -c%s "$d/eabnk_test/t.bnk.bin.d/0000.dsp")" = "128" ] \
+    && [ "$(xxd -s 0x60 -l 4 -p "$d/eabnk_test/t.bnk.bin.d/0000.dsp")" = "40414243" ] \
+    && fok "EA BNKb bank splits into DSP sounds" \
+    || fno "EA BNKb" "failed to split synthetic t.bnk.bin"
+  else
+    fno "EA BNKb" "mk_eabnk.py failed"
+  fi
+
   # Namco NUB sound bank
   mkdir -p "$d/nub_test"
   if python3 "$PWD_PROJECT/../tests/mk_nub.py" "$d/nub_test" >/dev/null 2>&1; then
