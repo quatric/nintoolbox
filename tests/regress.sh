@@ -9525,6 +9525,17 @@ with open(sys.argv[1], "wb") as f:
     fno "EA BNKb" "mk_eabnk.py failed"
   fi
 
+  # EA SHPG texture archive (RefPack-wrapped .gsh), decoded to PNG by xx
+  mkdir -p "$d/eashpg_test"
+  if python3 "$PWD_PROJECT/../tests/mk_eashpg.py" "$d/eashpg_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/eashpg_test/t.gsh" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/eashpg_test/t.gsh.000_tst1.png" | tail -c 3)" = "PNG" ] \
+    && fok "EA SHPG textures decode to PNG" \
+    || fno "EA SHPG" "failed to decode synthetic t.gsh"
+  else
+    fno "EA SHPG" "mk_eashpg.py failed"
+  fi
+
   # Namco NUB sound bank
   mkdir -p "$d/nub_test"
   if python3 "$PWD_PROJECT/../tests/mk_nub.py" "$d/nub_test" >/dev/null 2>&1; then

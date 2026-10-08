@@ -145,6 +145,7 @@
 #include "extract/ndp.inc"
 #include "extract/txg.inc"
 #include "extract/eabnk.inc"
+#include "extract/eashpg.inc"
 #include "extract/nub.inc"
 #include "extract/spt.inc"
 #include "extract/pwbundle.inc"
