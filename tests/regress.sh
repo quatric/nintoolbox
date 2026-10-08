@@ -9440,6 +9440,18 @@ with open(sys.argv[1], "wb") as f:
     fno "2DF sprite sheet" "mk_spr2df.py failed"
   fi
 
+  # EA GameCube stream (.ngc, ADPCM R3) -> WAV
+  mkdir -p "$d/eangc_test"
+  if python3 "$PWD_PROJECT/../tests/mk_eangc.py" "$d/eangc_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/eangc_test/t.ngc" --overwrite >/dev/null 2>&1 \
+    && [ "$(stat -f%z "$d/eangc_test/t.ngc.d/audio.wav" 2>/dev/null || stat -c%s "$d/eangc_test/t.ngc.d/audio.wav")" = "100" ] \
+    && [ "$(head -c 4 "$d/eangc_test/t.ngc.d/audio.wav")" = "RIFF" ] \
+    && fok "EA .ngc streams decode to WAV" \
+    || fno "EA .ngc stream" "failed to decode synthetic t.ngc"
+  else
+    fno "EA .ngc stream" "mk_eangc.py failed"
+  fi
+
   # Namco NUB sound bank
   mkdir -p "$d/nub_test"
   if python3 "$PWD_PROJECT/../tests/mk_nub.py" "$d/nub_test" >/dev/null 2>&1; then
