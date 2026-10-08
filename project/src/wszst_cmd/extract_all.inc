@@ -143,6 +143,7 @@
 #include "extract/eangc.inc"
 #include "extract/spooktxf.inc"
 #include "extract/ndp.inc"
+#include "extract/txg.inc"
 #include "extract/nub.inc"
 #include "extract/spt.inc"
 #include "extract/pwbundle.inc"

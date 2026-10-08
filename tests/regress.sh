@@ -9499,6 +9499,17 @@ with open(sys.argv[1], "wb") as f:
     fno "NDP .nds" "mk_ndp.py failed"
   fi
 
+  # EA TXG texture group, decoded to PNG by xx
+  mkdir -p "$d/txg_test"
+  if python3 "$PWD_PROJECT/../tests/mk_txg.py" "$d/txg_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/txg_test/t.txg.bin" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/txg_test/t.txg.bin.000_tex1.png" | tail -c 3)" = "PNG" ] \
+    && fok "EA TXG texture groups decode to PNG" \
+    || fno "EA TXG" "failed to decode synthetic t.txg.bin"
+  else
+    fno "EA TXG" "mk_txg.py failed"
+  fi
+
   # Namco NUB sound bank
   mkdir -p "$d/nub_test"
   if python3 "$PWD_PROJECT/../tests/mk_nub.py" "$d/nub_test" >/dev/null 2>&1; then
