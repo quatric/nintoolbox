@@ -436,6 +436,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_pwbundle_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_fst_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_catcar_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

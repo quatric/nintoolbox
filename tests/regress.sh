@@ -9421,6 +9421,17 @@ with open(sys.argv[1], "wb") as f:
     fno "DC2 .dcm model" "mk_dc2model.py failed"
   fi
 
+  # FAST (.fst) archive
+  mkdir -p "$d/fst_test"
+  if python3 "$PWD_PROJECT/../tests/mk_fst.py" "$d/fst_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/fst_test/a.fst" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/fst_test/a.fst.d/00007.wav")" = "RIFF" ] \
+    && fok "FAST .fst archive extracts sound objects" \
+    || fno "FAST .fst archive" "failed to extract synthetic a.fst"
+  else
+    fno "FAST .fst archive" "mk_fst.py failed"
+  fi
+
   # Petz engine TTPL texture: wrapper around a TPL, decoded to PNG by xx
   mkdir -p "$d/ttpl_test"
   if python3 "$PWD_PROJECT/../tests/mk_ttpl.py" "$d/ttpl_test" >/dev/null 2>&1; then
