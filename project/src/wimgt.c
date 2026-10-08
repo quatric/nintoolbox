@@ -391,9 +391,30 @@ static enumError decode_brfnt_atlas (ccp arg, ccp dest)
 			if (err)
 				break;
 		}
+		// Transform2XIMG() picks IMG_X_GRAY (gray + alpha, 2 bytes per pixel) for
+		// the I4/I8/IA4/IA8 fonts and IMG_X_RGB (RGBA, 4 bytes) for the colour
+		// ones; reading the gray sheets as RGBA ran far past the buffer.
+		if (img.iform != IMG_X_RGB && img.iform != IMG_X_GRAY)
+		{
+			err = ERROR0 (ERR_INVALID_DATA, "Unsupported font sheet format: %s\n", arg);
+			ResetIMG (&img);
+			break;
+		}
 		for (uint y = 0; y < sh; y++)
-			memcpy (atlas + ((size_t)y * atlas_w + sheet * sw) * 4,
-				img.data + (size_t)y * img.xwidth * 4, (size_t)sw * 4);
+		{
+			u8 *dest = atlas + ((size_t)y * atlas_w + sheet * sw) * 4;
+			if (img.iform == IMG_X_RGB)
+				memcpy (dest, img.data + (size_t)y * img.xwidth * 4, (size_t)sw * 4);
+			else
+			{
+				const u8 *src = img.data + (size_t)y * img.xwidth * 2;
+				for (uint x = 0; x < sw; x++, dest += 4, src += 2)
+				{
+					dest[0] = dest[1] = dest[2] = src[0];
+					dest[3] = src[1];
+				}
+			}
+		}
 		ResetIMG (&img);
 	}
 	if (err)
