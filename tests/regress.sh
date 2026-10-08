@@ -9401,6 +9401,17 @@ with open(sys.argv[1], "wb") as f:
     fno "RKV archive" "mk_rkv.py failed"
   fi
 
+  # PDA .bra archive (Messiah engine)
+  mkdir -p "$d/pdabra_test"
+  if python3 "$PWD_PROJECT/../tests/mk_pdabra.py" "$d/pdabra_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/pdabra_test/t.bra" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 18 "$d/pdabra_test/t.bra.d/Dir/a.txt")" = "bra member payload" ] \
+    && fok "PDA .bra archives extract deflated members" \
+    || fno "PDA .bra archive" "failed to extract synthetic t.bra"
+  else
+    fno "PDA .bra archive" "mk_pdabra.py failed"
+  fi
+
   # Namco NUB sound bank
   mkdir -p "$d/nub_test"
   if python3 "$PWD_PROJECT/../tests/mk_nub.py" "$d/nub_test" >/dev/null 2>&1; then
