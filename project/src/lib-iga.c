@@ -23,7 +23,7 @@ enumError ScanIga (FILE *f, u64 file_size, stream_entry_t **entries, uint *n_ent
 
 	u8 h[0x30];
 	if (fseeko (f, 0, SEEK_SET) || fread (h, 1, sizeof (h), f) != sizeof (h) || memcmp (h, "IGA\x1a", 4)
-		|| iga_rd32 (h + 4) != 4)
+		|| (iga_rd32 (h + 4) != 4 && iga_rd32 (h + 4) != 2))
 		return EINVAL;
 	const u32 count = iga_rd32 (h + 12);
 	const u64 names_off = iga_rd32 (h + 24), names_size = iga_rd32 (h + 28);
@@ -53,7 +53,12 @@ enumError ScanIga (FILE *f, u64 file_size, stream_entry_t **entries, uint *n_ent
 		const u8 *r = tab + 12ull * i;
 		const u32 off = iga_rd32 (r), size = iga_rd32 (r + 4);
 		const u32 no = iga_rd32 (nm + 4ull * i);
-		if ((u64)off + size > file_size || no >= names_size)
+		const u32 flags = iga_rd32 (r + 8);
+		// 0x1000000N: chunked LZMA, size is the unpacked size
+		const bool lzma = (flags & 0xf0000000u) == 0x10000000u;
+		if (lzma ? (u64)off + 7 > file_size : (u64)off + size > file_size)
+			continue;
+		if (no >= names_size)
 			continue;
 		const char *s = (const char *)nm + no;
 		// Drop a "c:/" drive prefix and any leading slashes; names are build paths.
@@ -77,6 +82,8 @@ enumError ScanIga (FILE *f, u64 file_size, stream_entry_t **entries, uint *n_ent
 			res = ERR_CANT_CREATE;
 			break;
 		}
+		if (lzma)
+			out[n].codec = STREAM_CODEC_IGA_LZMA;
 		n++;
 	}
 	FREE (tab);

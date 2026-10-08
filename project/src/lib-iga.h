@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0+
 //-----------------------------------------------------------------------------
-// Alchemy/Vicarious Visions "IGA" archive (".arc"; Skylanders on Wii).
+// Alchemy/Vicarious Visions "IGA" archive (".arc"/".bld"; Skylanders, Madagascar 2 on Wii).
+// Versions 4 (Skylanders) and 2 (Madagascar: Escape 2 Africa) share this layout.
 // Little-endian, verified on retail Spyro's Adventure archives:
 //   0x00 "IGA\x1a", u32 version (4), u32 toc_size, u32 count, u32 ?,
 //        u32 ?, u32 names_offset, u32 names_size, 0x10 reserved

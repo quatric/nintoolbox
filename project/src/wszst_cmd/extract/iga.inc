@@ -1,7 +1,7 @@
-// "IGA" archive (".arc", Skylanders); see lib-iga.h.
+// "IGA" archive (".arc"/".bld"/".pak"; Skylanders v4, Madagascar 2 v2); see lib-iga.h.
 static enumError extract_iga_file (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext (arg, ".arc"))
+	if (!is_ext (arg, ".arc") && !is_ext (arg, ".bld") && !is_ext (arg, ".pak"))
 		return ERR_NOTHING_TO_DO;
 
 	FILE *src = fopen (arg, "rb");

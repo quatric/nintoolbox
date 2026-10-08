@@ -12,6 +12,7 @@ enum
 {
 	STREAM_CODEC_RAW = 0,     // size bytes are copied from offset
 	STREAM_CODEC_ABE_LZO = 1, // u32 n_blocks, n * u32 packed size, then the LZO1X blocks; size = unpacked
+	STREAM_CODEC_IGA_LZMA = 2, // IGA chunks {u16 BE size, 5 props bytes, LZMA data}, 0x800-aligned; size = unpacked
 };
 
 typedef struct stream_entry_t

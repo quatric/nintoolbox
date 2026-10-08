@@ -9196,10 +9196,21 @@ with open(sys.argv[1], "wb") as f:
     "$B/wszst" x "$d/iga_test/TEST.arc" --overwrite >/dev/null 2>&1 \
     && [ "$(cat "$d/iga_test/TEST.arc.d/tfb/build/wii/levels/a.txt")" = "first member" ] \
     && [ "$(wc -c < "$d/iga_test/TEST.arc.d/tfb/build/wii/levels/dir/b.bin" | tr -d ' ')" = "4" ] \
-    && fok "IGA (Skylanders .arc) unpacks named members" \
+    && "$B/wszst" x "$d/iga_test/V2.bld" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/iga_test/V2.bld.d/tfb/build/wii/levels/a.txt")" = "first member" ] \
+    && fok "IGA (Skylanders .arc, Madagascar 2 v2 .bld) unpacks named members" \
     || fno "IGA archive" "failed to unpack synthetic TEST.arc"
   else
     fno "IGA archive" "mk_iga.py failed"
+  fi
+  mkdir -p "$d/igalzma_test"
+  if python3 "$PWD_PROJECT/../tests/mk_igalzma.py" "$d/igalzma_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/igalzma_test/L.bld" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/igalzma_test/L.bld.d/level.dat" "$d/igalzma_test/L.expect" \
+    && fok "IGA chunked-LZMA members (with stored chunks) unpack" \
+    || fno "IGA LZMA members" "failed to unpack synthetic L.bld"
+  else
+    fno "IGA LZMA members" "mk_igalzma.py failed"
   fi
 
   # One Piece STRT string table: dumped to .txt by xx

@@ -29,3 +29,8 @@ for (o, _), (_, d) in zip(ents, members):
 out[names_off:] = names
 os.makedirs(sys.argv[1], exist_ok=True)
 open(os.path.join(sys.argv[1], 'TEST.arc'), 'wb').write(bytes(out))
+
+# Madagascar 2 style version-2 archive with a ".bld" extension.
+v2 = bytearray(out)
+struct.pack_into('<I', v2, 4, 2)
+open(os.path.join(sys.argv[1], 'V2.bld'), 'wb').write(bytes(v2))

@@ -79,6 +79,82 @@ static enumError stream_write_abe_lzo (File_t *F, FILE *src, ccp arg, ccp path, 
 	return err;
 }
 
+#include "lib-lzma.h"
+
+// Alchemy IGA chunked LZMA members: {u16 BE n, 5 LZMA property bytes, n
+// stream bytes} per chunk of up to 0x8000 unpacked bytes; each chunk starts at
+// the next 0x800 boundary of the file. The stream is positioned at the member.
+static enumError stream_write_iga_lzma (File_t *F, FILE *src, ccp arg, ccp path, u32 unpacked)
+{
+	enumError err = ERR_OK;
+	u8 *in = MALLOC (13 + 0x10000 + 8), *out = MALLOC (0x8000);
+	if (!in || !out)
+	{
+		FREE (in);
+		FREE (out);
+		return ERR_OUT_OF_MEMORY;
+	}
+	for (u32 done = 0; !err && done < unpacked;)
+	{
+		off_t pos = ftello (src);
+		u8 hdr[2];
+		if (fread (hdr, 1, 2, src) != 2)
+		{
+			err = FILEERROR1 (F, ERR_READ_FAILED, "Reading member failed: %s\n", arg);
+			break;
+		}
+		const uint cs = hdr[0] << 8 | hdr[1];
+		const u32 want = unpacked - done < 0x8000 ? unpacked - done : 0x8000;
+		// A chunk that did not compress is stored as-is, without a header.
+		u8 props[5];
+		if (fread (props, 1, 5, src) != 5)
+		{
+			err = FILEERROR1 (F, ERR_READ_FAILED, "Reading member failed: %s\n", arg);
+			break;
+		}
+		if (props[0] >= 225 || props[1] || props[2] != 0x80 || props[3] || props[4])
+		{
+			if (fseeko (src, pos, SEEK_SET) || fread (out, 1, want, src) != want)
+				err = FILEERROR1 (F, ERR_READ_FAILED, "Reading stored chunk failed: %s\n", arg);
+			else if (fwrite (out, 1, want, F->f) != want)
+				err = FILEERROR1 (F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", want, path);
+			done += want;
+			pos = (pos + want + 0x7ff) & ~(off_t)0x7ff;
+			if (!err && fseeko (src, pos, SEEK_SET))
+				err = FILEERROR1 (F, ERR_READ_FAILED, "Seek failed: %s\n", arg);
+			continue;
+		}
+		memcpy (in, props, 5);
+		if (cs < 6 || fread (in + 5, 1, (size_t)cs, src) != (size_t)cs)
+		{
+			err = FILEERROR1 (F, ERR_READ_FAILED, "Reading LZMA chunk failed: %s\n", arg);
+			break;
+		}
+		// shift the stream up to make room for the 8-byte length field
+		memmove (in + 13, in + 5, cs);
+		memset (in + 5, 0, 8);
+		in[5] = cs & 255;
+		in[6] = cs >> 8;
+		uint got = 0;
+		DecodeLZMApart (out, want, &got, in, 13 + cs);
+		if (got != want)
+		{
+			err = FILEERROR1 (F, ERR_INVALID_DATA, "LZMA chunk decoded %u of %u bytes: %s\n", got, want, arg);
+			break;
+		}
+		if (fwrite (out, 1, want, F->f) != want)
+			err = FILEERROR1 (F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", want, path);
+		done += want;
+		pos += 2 + 5 + cs;
+		pos = (pos + 0x7ff) & ~(off_t)0x7ff;
+		if (fseeko (src, pos, SEEK_SET))
+			err = FILEERROR1 (F, ERR_READ_FAILED, "Seek failed: %s\n", arg);
+	}
+	FREE (in);
+	FREE (out);
+	return err;
+}
+
 static enumError extract_streamed_entries (ccp arg, ccp basedir, uint depth, ccp label, FILE *src,
 	const stream_entry_t *entries, uint n_entries)
 {
@@ -102,6 +178,8 @@ static enumError extract_streamed_entries (ccp arg, ccp basedir, uint depth, ccp
 			err = FILEERROR1 (&F, ERR_READ_FAILED, "Seek failed: %s\n", arg);
 		if (F.f && !err && entries[i].codec == STREAM_CODEC_ABE_LZO)
 			err = stream_write_abe_lzo (&F, src, arg, path, entries[i].size);
+		if (F.f && !err && entries[i].codec == STREAM_CODEC_IGA_LZMA)
+			err = stream_write_iga_lzma (&F, src, arg, path, entries[i].size);
 		for (u32 left = entries[i].codec ? 0 : entries[i].size; F.f && !err && left;)
 		{
 			const size_t chunk = left < 0x100000 ? left : 0x100000;
