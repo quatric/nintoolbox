@@ -9526,6 +9526,7 @@ with open(sys.argv[1], "wb") as f:
     && [ "$(xxd -s 0x60 -l 4 -p "$d/eabnk_test/t.bnk.bin.d/0000.dsp")" = "40414243" ] \
     && [ "$(xxd -s 0 -l 2 -p "$d/eabnk_test/t.bnk.bin.d/0001.mp3")" = "fff3" ] \
     && [ "$(xxd -s 0x2c -l 4 -p "$d/eabnk_test/t.bnk.bin.d/0002.wav")" = "00006400" ] \
+    && [ -s "$d/eabnk_test/t.bnk.bin.d/0003.wav" ] \
     && "$B/wszst" x "$d/eabnk_test/t.abk" --overwrite >/dev/null 2>&1 \
     && [ -s "$d/eabnk_test/t.abk.d/0001.mp3" ] \
     && fok "EA BNKb bank splits into DSP / EALayer3 MP3 sounds" \

@@ -5,6 +5,8 @@
 // patches: 0xa0 codec 0x12 = GC DSP, 0x84 rate, 0x85 samples, 0x88 absolute data
 // offset, 0x8f 33 bytes with the 16 DSP coefficients). Each sound is written as
 // "NNNN.dsp". "ABKC" soundbanks (FIFA, `.abk`) embed the same bank at +0x20.
+#include "lib-utk.h"
+
 typedef struct eabnk_snd_t
 {
 	uint codec, rate, samples, ch, version;
@@ -352,6 +354,58 @@ static u8 *eaxa2_to_wav (const u8 *raw, size_t sz, const eabnk_snd_t *s, size_t 
 	return wav;
 }
 
+// EA MicroTalk (codec 4 = MT10, 0x16 = MT5; one UTK stream per channel) -> 16-bit WAV
+static u8 *eamt_to_wav (const u8 *raw, size_t sz, const eabnk_snd_t *s, size_t limit, size_t *out_size)
+{
+	const size_t data = (size_t)s->samples * s->ch * 2;
+	u8 *wav = MALLOC (44 + data);
+	if (!wav)
+		return 0;
+	memset (wav + 44, 0, data);
+	for (uint k = 0; k < s->ch; k++)
+	{
+		const size_t start = k ? s->data2 : s->data;
+		utk_context_t *ctx = utk_init (s->version == 3 ? UTK_EA_PCM : UTK_EA);
+		if (!ctx || start >= sz)
+		{
+			if (ctx)
+				utk_free (ctx);
+			FREE (wav);
+			return 0;
+		}
+		utk_reset (ctx);
+		utk_set_buffer (ctx, raw + start, (k ? sz : limit) - start);
+		float *f = utk_get_samples (ctx);
+		for (uint i = 0; i < s->samples;)
+		{
+			const int n = utk_decode_frame (ctx);
+			if (n <= 0)
+				break;
+			for (int j = 0; j < n && i < s->samples; j++, i++)
+			{
+				float v = f[j] >= 0 ? f[j] + 0.5f : f[j] - 0.5f;
+				v = v < -32768 ? -32768 : v > 32767 ? 32767 : v;
+				wr_le16 (wav + 44 + 2 * ((size_t)i * s->ch + k), (u16)(s16)v);
+			}
+		}
+		utk_free (ctx);
+	}
+	memcpy (wav, "RIFF", 4);
+	wr_le32 (wav + 4, (u32)(36 + data));
+	memcpy (wav + 8, "WAVEfmt ", 8);
+	wr_le32 (wav + 16, 16);
+	wr_le16 (wav + 20, 1);
+	wr_le16 (wav + 22, s->ch);
+	wr_le32 (wav + 24, s->rate);
+	wr_le32 (wav + 28, s->rate * s->ch * 2);
+	wr_le16 (wav + 32, s->ch * 2);
+	wr_le16 (wav + 34, 16);
+	memcpy (wav + 36, "data", 4);
+	wr_le32 (wav + 40, (u32)data);
+	*out_size = 44 + data;
+	return wav;
+}
+
 static enumError eabnk_split (ccp arg, ccp basedir, uint depth, u8 *raw, size_t sz)
 {
 	const uint count = sz > 0x20 ? (raw[6] << 8) | raw[7] : 0;
@@ -398,7 +452,7 @@ static enumError eabnk_split (ccp arg, ccp basedir, uint depth, u8 *raw, size_t 
 				continue;
 			snprintf (name, sizeof (name), "%04u.wav", i);
 		}
-		else if (s.codec == 0x17 && s.ch >= 1 && s.ch <= 2)
+		else if ((s.codec == 0x17 || s.codec == 0x04 || s.codec == 0x16) && s.ch >= 1 && s.ch <= 2)
 		{
 			// the sound ends where the next one in the bank starts
 			size_t limit = sz;
@@ -408,10 +462,18 @@ static enumError eabnk_split (ccp arg, ccp basedir, uint depth, u8 *raw, size_t 
 				if (k != i && eabnk_parse (raw, sz, k, &o) && o.data > s.data && o.data < limit)
 					limit = o.data;
 			}
-			out = eal3_to_mp3 (raw, s.data, limit, s.samples, s.ch, &out_size);
+			if (s.codec == 0x17)
+			{
+				out = eal3_to_mp3 (raw, s.data, limit, s.samples, s.ch, &out_size);
+				snprintf (name, sizeof (name), "%04u.mp3", i);
+			}
+			else
+			{
+				out = (s.ch == 1 || s.data2) ? eamt_to_wav (raw, sz, &s, limit, &out_size) : 0;
+				snprintf (name, sizeof (name), "%04u.wav", i);
+			}
 			if (!out)
 				continue;
-			snprintf (name, sizeof (name), "%04u.mp3", i);
 		}
 		else
 			continue;
