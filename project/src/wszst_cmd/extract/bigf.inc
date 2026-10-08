@@ -3,7 +3,8 @@
 // one is well above the normal in-memory archive limit, so keep extraction
 // streamed just like the ABE reader below.  Each table record is
 // { u32 offset, u32 size, NUL-terminated path }, and the header's final u32
-// marks the first payload byte (and therefore the end of the table).
+// marks the first payload byte (and therefore the end of the table).  FIFA/NBA
+// Live-era banks use the same layout under the magic "BIG4".
 static enumError extract_bigf_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)basedir;
@@ -11,7 +12,7 @@ static enumError extract_bigf_file (ccp arg, ccp basedir, uint depth)
 	FILE *in = fopen (arg, "rb");
 	if (!in)
 		return ERR_NOT_EXISTS;
-	if (!read_abe_at (in, 0, header, sizeof (header)) || memcmp (header, "BIGF", 4))
+	if (!read_abe_at (in, 0, header, sizeof (header)) || (memcmp (header, "BIGF", 4) && memcmp (header, "BIG4", 4)))
 	{
 		fclose (in);
 		return ERR_NOTHING_TO_DO;
