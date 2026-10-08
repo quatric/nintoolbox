@@ -9537,6 +9537,17 @@ with open(sys.argv[1], "wb") as f:
     fno "EA SHPG" "mk_eashpg.py failed"
   fi
 
+  # EA LOCH/LOCL locale string table
+  mkdir -p "$d/ealoc_test"
+  if python3 "$PWD_PROJECT/../tests/mk_ealoc.py" "$d/ealoc_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/ealoc_test/t.loc" --overwrite >/dev/null 2>&1 \
+    && grep -q "^1.Hello$" "$d/ealoc_test/t.loc.d/strings.txt" \
+    && fok "EA LOCH locale table exports strings" \
+    || fno "EA LOCH" "failed to export synthetic t.loc"
+  else
+    fno "EA LOCH" "mk_ealoc.py failed"
+  fi
+
   # Namco NUB sound bank
   mkdir -p "$d/nub_test"
   if python3 "$PWD_PROJECT/../tests/mk_nub.py" "$d/nub_test" >/dev/null 2>&1; then
