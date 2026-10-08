@@ -7,8 +7,8 @@
 // "NNNN.dsp". "ABKC" soundbanks (FIFA, `.abk`) embed the same bank at +0x20.
 typedef struct eabnk_snd_t
 {
-	uint codec, rate, samples, ch;
-	size_t data, coefs;
+	uint codec, rate, samples, ch, version;
+	size_t data, data2, coefs;
 } eabnk_snd_t;
 
 // parse the PT tag header of slot i; false if the slot is empty or malformed
@@ -23,6 +23,7 @@ static bool eabnk_parse (const u8 *raw, size_t sz, uint i, eabnk_snd_t *s)
 	size_t p = slot + rel;
 	if (raw[p] != 'P' || raw[p + 1] != 'T')
 		return false;
+	const uint platform = raw[p + 2] | (raw[p + 3] << 8);
 	p += 4;
 	while (p < sz)
 	{
@@ -46,11 +47,15 @@ static bool eabnk_parse (const u8 *raw, size_t sz, uint i, eabnk_snd_t *s)
 		case 0x82: s->ch = v; break;
 		case 0x84: s->rate = v; break;
 		case 0x85: s->samples = v; break;
+		case 0x80: s->version = v; break;
 		case 0x88: s->data = v; break;
+		case 0x89: s->data2 = v; break;
 		case 0x8f: s->coefs = p; break;
 		}
 		p += len;
 	}
+	if (!s->rate)
+		s->rate = platform == 0x10 ? 32000 : platform == 6 ? 24000 : 0; // sx.exe platform defaults
 	return true;
 }
 
@@ -266,6 +271,87 @@ static u8 *eal3_to_mp3 (const u8 *raw, size_t start, size_t end, uint samples, u
 	return out;
 }
 
+// EA-XA "v2" (PCM-block revision, mono per channel): 15-byte ADPCM frames of 28 samples,
+// or 0xEE frames {hist1, hist2, 28 raw big-endian samples}; returns malloc'd samples
+static s16 *eaxa2_decode (const u8 *raw, size_t sz, size_t p, uint samples)
+{
+	static const int tab[20] = {0, 240, 460, 392, 0, 0, -208, -220, 0, 1, 3, 4, 7, 8, 10, 11, 0, -1, -3, -4};
+	s16 *out = CALLOC (samples, sizeof (*out));
+	if (!out)
+		return 0;
+	int h1 = 0, h2 = 0;
+	uint i = 0;
+	while (i < samples && p < sz)
+	{
+		const uint info = raw[p];
+		if (info == 0xee)
+		{
+			if (p + 61 > sz)
+				break;
+			h1 = (s16)((raw[p + 1] << 8) | raw[p + 2]);
+			h2 = (s16)((raw[p + 3] << 8) | raw[p + 4]);
+			for (uint k = 0; k < 28 && i < samples; k++)
+				out[i++] = (s16)((raw[p + 5 + 2 * k] << 8) | raw[p + 6 + 2 * k]);
+			p += 61;
+			continue;
+		}
+		if (p + 15 > sz)
+			break;
+		const int c1 = tab[info >> 4], c2 = tab[(info >> 4) + 4], shift = (info & 15) + 8;
+		for (uint k = 0; k < 28; k++)
+		{
+			const uint b = raw[p + 1 + k / 2], nib = (k & 1) ? b & 15 : b >> 4;
+			int s = (int)((u32)nib << 28) >> shift;
+			s = (s + c1 * h1 + c2 * h2) >> 8;
+			s = s < -32768 ? -32768 : s > 32767 ? 32767 : s;
+			h2 = h1;
+			h1 = s;
+			if (i < samples)
+				out[i++] = (s16)s;
+		}
+		p += 15;
+	}
+	return out;
+}
+
+static u8 *eaxa2_to_wav (const u8 *raw, size_t sz, const eabnk_snd_t *s, size_t *out_size)
+{
+	s16 *c[2] = {0, 0};
+	for (uint k = 0; k < s->ch; k++)
+	{
+		c[k] = eaxa2_decode (raw, sz, k ? s->data2 : s->data, s->samples);
+		if (!c[k])
+		{
+			FREE (c[0]);
+			return 0;
+		}
+	}
+	const size_t data = (size_t)s->samples * s->ch * 2;
+	u8 *wav = MALLOC (44 + data);
+	if (wav)
+	{
+		memcpy (wav, "RIFF", 4);
+		wr_le32 (wav + 4, (u32)(36 + data));
+		memcpy (wav + 8, "WAVEfmt ", 8);
+		wr_le32 (wav + 16, 16);
+		wr_le16 (wav + 20, 1);
+		wr_le16 (wav + 22, s->ch);
+		wr_le32 (wav + 24, s->rate);
+		wr_le32 (wav + 28, s->rate * s->ch * 2);
+		wr_le16 (wav + 32, s->ch * 2);
+		wr_le16 (wav + 34, 16);
+		memcpy (wav + 36, "data", 4);
+		wr_le32 (wav + 40, (u32)data);
+		for (uint i = 0; i < s->samples; i++)
+			for (uint k = 0; k < s->ch; k++)
+				wr_le16 (wav + 44 + 2 * ((size_t)i * s->ch + k), (u16)c[k][i]);
+		*out_size = 44 + data;
+	}
+	FREE (c[0]);
+	FREE (c[1]);
+	return wav;
+}
+
 static enumError eabnk_split (ccp arg, ccp basedir, uint depth, u8 *raw, size_t sz)
 {
 	const uint count = sz > 0x20 ? (raw[6] << 8) | raw[7] : 0;
@@ -303,6 +389,14 @@ static enumError eabnk_split (ccp arg, ccp basedir, uint depth, u8 *raw, size_t 
 			memcpy (out + 0x60, raw + s.data, bytes);
 			out_size = 0x60 + bytes;
 			snprintf (name, sizeof (name), "%04u.dsp", i);
+		}
+		else if (s.codec == 0x0a && s.version == 3 && s.ch >= 1 && s.ch <= 2 && s.data2 < sz
+			&& (s.ch == 1 || s.data2))
+		{
+			out = eaxa2_to_wav (raw, sz, &s, &out_size);
+			if (!out)
+				continue;
+			snprintf (name, sizeof (name), "%04u.wav", i);
 		}
 		else if (s.codec == 0x17 && s.ch >= 1 && s.ch <= 2)
 		{
