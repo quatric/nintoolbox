@@ -141,6 +141,7 @@
 #include "extract/shade.inc"
 #include "extract/spr2df.inc"
 #include "extract/eangc.inc"
+#include "extract/spooktxf.inc"
 #include "extract/nub.inc"
 #include "extract/spt.inc"
 #include "extract/pwbundle.inc"

@@ -9470,6 +9470,17 @@ with open(sys.argv[1], "wb") as f:
     || fno "EA .fcd speech" "failed to split synthetic t.fcd"
   fi
 
+  # SPHC locale string table (.txf)
+  mkdir -p "$d/spooktxf_test"
+  if python3 "$PWD_PROJECT/../tests/mk_spooktxf.py" "$d/spooktxf_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/spooktxf_test/t.txf" --overwrite >/dev/null 2>&1 \
+    && [ "$(sed -n 3p "$d/spooktxf_test/t.txf.d/strings.txt")" = '2	two\nlines' ] \
+    && fok "SPHC .txf locale tables export strings" \
+    || fno "SPHC .txf" "failed to export synthetic t.txf"
+  else
+    fno "SPHC .txf" "mk_spooktxf.py failed"
+  fi
+
   # Namco NUB sound bank
   mkdir -p "$d/nub_test"
   if python3 "$PWD_PROJECT/../tests/mk_nub.py" "$d/nub_test" >/dev/null 2>&1; then
