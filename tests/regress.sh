@@ -9377,6 +9377,18 @@ with open(sys.argv[1], "wb") as f:
     fno "HOG archive" "mk_hog.py failed"
   fi
 
+  # HVP file pack
+  mkdir -p "$d/hvp_test"
+  if python3 "$PWD_PROJECT/../tests/mk_hvp.py" "$d/hvp_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/hvp_test/t.hvp" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/hvp_test/t.hvp.d/sub/a.txt")" = "stored member" ] \
+    && [ "$(cat "$d/hvp_test/t.hvp.d/sub/b.txt")" = "lzo member data" ] \
+    && fok "HVP packs extract stored and LZO members" \
+    || fno "HVP pack" "failed to extract synthetic t.hvp"
+  else
+    fno "HVP pack" "mk_hvp.py failed"
+  fi
+
   # Namco NUB sound bank
   mkdir -p "$d/nub_test"
   if python3 "$PWD_PROJECT/../tests/mk_nub.py" "$d/nub_test" >/dev/null 2>&1; then
