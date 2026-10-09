@@ -9569,6 +9569,19 @@ with open(sys.argv[1], "wb") as f:
     fno "IDSP .gcm" "mk_dspwrap.py failed"
   fi
 
+  # Next Level Games .zlib wrapper and NLOC locale table
+  mkdir -p "$d/nlzlib_test"
+  if python3 "$PWD_PROJECT/../tests/mk_nlzlib.py" "$d/nlzlib_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/nlzlib_test/t.sanim.zlib" --overwrite >/dev/null 2>&1 \
+    && [ "$(stat -f%z "$d/nlzlib_test/t.sanim.zlib.d/t.sanim" 2>/dev/null || stat -c%s "$d/nlzlib_test/t.sanim.zlib.d/t.sanim")" = "64" ] \
+    && "$B/wszst" x "$d/nlzlib_test/t.loc" --overwrite >/dev/null 2>&1 \
+    && grep -q "^101.Caf" "$d/nlzlib_test/t.loc.d/strings.txt" \
+    && fok "Next Level .zlib wrapper and NLOC strings extract" \
+    || fno "Next Level .zlib/.loc" "failed on synthetic t.sanim.zlib / t.loc"
+  else
+    fno "Next Level .zlib/.loc" "mk_nlzlib.py failed"
+  fi
+
   # Namco NUB sound bank
   mkdir -p "$d/nub_test"
   if python3 "$PWD_PROJECT/../tests/mk_nub.py" "$d/nub_test" >/dev/null 2>&1; then
