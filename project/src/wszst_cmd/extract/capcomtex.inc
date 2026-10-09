@@ -92,3 +92,52 @@ static enumError extract_capcomtex_file (ccp arg, ccp basedir, uint depth)
 	FREE (raw);
 	return write_owned_entries (arg, basedir, depth, "CAPCOM-TEX", entries, 1);
 }
+
+// Capcom MT Framework Wii models (Sengoku Basara 3 ".rmd" = "\0DMR"): a big-endian skeleton / material
+// / bone-remap header (bone map @0x30, table of section offsets @0x130) that wraps an ordinary
+// BRRES holding the MDL0 model. Its offset is the u32 @0x154 and its size the u32 @0x15c. The BRRES is
+// written as "<name>.brres" so the regular BRRES extraction runs on it.
+static enumError extract_capcomrmd_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".rmd"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	size_t off = 0, len = 0;
+	if (sz > 0x200 && !memcmp (raw, "\0DMR", 4))
+	{
+		off = rd_be32 (raw + 0x154);
+		len = rd_be32 (raw + 0x15c);
+		if (!off || off + 0x20 > sz || memcmp (raw + off, "bres", 4))
+			off = 0;
+		else if (!len || off + len > sz)
+			len = sz - off;
+	}
+	if (!off)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	ccp base = strrchr (arg, '/');
+	base = base ? base + 1 : arg;
+	char name[PATH_MAX];
+	snprintf (name, sizeof (name), "%s", base);
+	char *dot = strrchr (name, '.');
+	if (dot)
+		*dot = 0;
+	snprintf (name + strlen (name), sizeof (name) - strlen (name), ".brres");
+	nintendo_sarc_entry_t *entries = CALLOC (1, sizeof (*entries));
+	if (!entries || !OwnedEntryAdd (entries, 0, name, raw + off, len))
+	{
+		FREE (entries);
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+	FREE (raw);
+	return write_owned_entries (arg, basedir, depth, "CAPCOM-RMD", entries, 1);
+}

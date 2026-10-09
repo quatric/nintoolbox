@@ -9728,6 +9728,18 @@ with open(sys.argv[1], "wb") as f:
     fno "tri-Crescendo CAF" "mk_caf.py failed"
   fi
 
+  # Capcom MT Framework Wii model wrapper (Sengoku Basara 3)
+  mkdir -p "$d/caprmd_test"
+  if python3 "$PWD_PROJECT/../tests/mk_caprmd.py" "$d/caprmd_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/caprmd_test/t.rmd" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/caprmd_test/t.rmd.d/t.brres")" = "bres" ] \
+    && [ "$(stat -f %z "$d/caprmd_test/t.rmd.d/t.brres" 2>/dev/null || stat -c %s "$d/caprmd_test/t.rmd.d/t.brres")" = "64" ] \
+    && fok "Capcom .rmd model unwrapped to its BRRES" \
+    || fno "Capcom .rmd" "failed on synthetic t.rmd"
+  else
+    fno "Capcom .rmd" "mk_caprmd.py failed"
+  fi
+
   # Retro PAK v2 (Metroid Prime 3): LZO TXTR + CSMP
   mkdir -p "$d/retropak_test"
   if python3 "$PWD_PROJECT/../tests/mk_retropak.py" "$d/retropak_test" >/dev/null 2>&1; then
