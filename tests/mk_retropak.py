@@ -31,3 +31,9 @@ nts = 8 + len(nm)
 s = struct.pack('>IIIIII', 0x87654321, 3, 1, 1, 1, nts) + struct.pack('>II', 8, 0) + nm + b'ENGL'
 s += struct.pack('>II', 7, 0) + struct.pack('>I', 3) + b'Hi\0'
 open(os.path.join(d, 't.strg'), 'wb').write(s)
+# RAS_: two channels, interleave 16, 2 frames per channel
+r = bytearray(0xc0)
+r[0:4] = b'RAS_'
+struct.pack_into('>IIIII', r, 0x14, 32000, 0xc0, 64, 16, 0)
+r += bytes([0x11] * 16) + bytes([0x22] * 16) + bytes([0x33] * 16) + bytes([0x44] * 16)
+open(os.path.join(d, 't.ras'), 'wb').write(bytes(r))

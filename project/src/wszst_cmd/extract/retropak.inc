@@ -432,3 +432,89 @@ static enumError extract_retrostrg_file (ccp arg, ccp basedir, uint depth)
 	}
 	return write_owned_entries (arg, basedir, depth, "RETRO-STRG", entries, n);
 }
+
+// Retro "RAS_" streamed music (Donkey Kong Country Returns): "RAS_", u32 2, u32 2, ..., +0x14 rate,
+// +0x18 data start, +0x1c data bytes (both channels), +0x20 interleave, +0x30 loop {start block,
+// samples into it, end block, samples into it}, then per-channel DSP coefficients at +0x40 + 0x30 * ch.
+// Written as one mono ".dsp" per channel.
+static enumError extract_retroras_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".ras"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const size_t start = sz >= 0xa0 ? rd_be32 (raw + 0x18) : 0, total = sz >= 0xa0 ? rd_be32 (raw + 0x1c) : 0;
+	const size_t il = sz >= 0xa0 ? rd_be32 (raw + 0x20) : 0;
+	if (sz < 0xa0 || memcmp (raw, "RAS_", 4) || !il || il % 8 || il > 0x100000 || start < 0xa0 || start > sz
+		|| total < 16 || total / 2 > sz - start || (total & 15))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const size_t per = total / 2;
+	const u32 samples = (u32)(per / 8 * 14), rate = rd_be32 (raw + 0x14);
+	const bool loop = rd_be32 (raw + 0x30) || rd_be32 (raw + 0x34) || rd_be32 (raw + 0x38) || rd_be32 (raw + 0x3c);
+	const u32 ls = (u32)(rd_be32 (raw + 0x30) * il / 8 * 14 + rd_be32 (raw + 0x34));
+	const u32 le = (u32)(rd_be32 (raw + 0x38) * il / 8 * 14 + rd_be32 (raw + 0x3c));
+	nintendo_sarc_entry_t *entries = CALLOC (2, sizeof (*entries));
+	if (!entries)
+	{
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+	uint n = 0;
+	for (uint c = 0; c < 2; c++)
+	{
+		u8 *out = CALLOC (1, 0x60 + per);
+		if (!out)
+			break;
+		size_t done = 0;
+		for (size_t k = 0; done < per; k++)
+		{
+			size_t take = il < per - done ? il : per - done;
+			const size_t src = start + (k * 2 + c) * il;
+			if (src + take > sz)
+				take = src < sz ? sz - src : 0;
+			if (!take)
+				break;
+			memcpy (out + 0x60 + done, raw + src + 0, take);
+			done += take;
+		}
+		if (done == per)
+		{
+			wr_be32 (out, samples);
+			wr_be32 (out + 4, (u32)(per * 2));
+			wr_be32 (out + 8, rate);
+			if (loop)
+			{
+				out[0xd] = 1;
+				wr_be32 (out + 0x10, ls / 14 * 16 + 2 + ls % 14);
+				wr_be32 (out + 0x14, le / 14 * 16 + 2 + le % 14);
+			}
+			else
+				wr_be32 (out + 0x14, (u32)(per * 2 - 1));
+			wr_be32 (out + 0x18, 2);
+			memcpy (out + 0x1c, raw + 0x40 + 0x30 * c, 32);
+			out[0x3f] = out[0x60];
+		}
+		char name[16];
+		snprintf (name, sizeof (name), "ch%u.dsp", c);
+		const bool ok = done == per && OwnedEntryAdd (entries, n, name, out, (uint)(0x60 + per));
+		FREE (out);
+		if (!ok)
+			break;
+		n++;
+	}
+	FREE (raw);
+	if (n != 2)
+	{
+		FREE (entries);
+		return ERR_NOTHING_TO_DO;
+	}
+	return write_owned_entries (arg, basedir, depth, "RAS", entries, n);
+}
