@@ -9628,6 +9628,8 @@ with open(sys.argv[1], "wb") as f:
     && [ "$(xxd -s 12 -l 3 -p "$d/retropak_test/t.pak.d/TXTR_Test.txtr")" = "000102" ] \
     && [ -s "$d/retropak_test/t.pak.d/TXTR_Test.txtr.png" ] \
     && [ -s "$d/retropak_test/t.pak.d/fedcba9876543210.csmp.d/fedcba9876543210.dsp" ] \
+    && "$B/wszst" x "$d/retropak_test/t.strg" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/retropak_test/t.strg.d/ENGL.txt")" = "$(printf '0\tGreet\tHi')" ] \
     && fok "Retro PAK v2 unpacked (LZO TXTR to PNG, CSMP to DSP)" \
     || fno "Retro PAK" "failed on synthetic t.pak"
   else

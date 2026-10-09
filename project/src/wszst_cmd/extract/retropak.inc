@@ -325,3 +325,102 @@ static enumError extract_csmp_file (ccp arg, ccp basedir, uint depth)
 	}
 	return write_owned_entries (arg, basedir, depth, "CSMP", entries, 1);
 }
+
+// Retro "STRG" string table, version 3 (Metroid Prime 3): 0x87654321, u32 3, u32 languages, u32
+// strings, u32 names, u32 name table size, names * {u32 name offset (from 0x18), u32 string index} + name
+// cstrings, languages * fourcc, then per language {u32 size, strings * u32 offset} and a shared
+// blob of {u32 length, UTF-8 text + NUL} records. One "<LANG>.txt" per language ("index<TAB>name<TAB>text").
+static enumError extract_retrostrg_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".strg"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const uint nl = sz >= 0x18 ? rd_be32 (raw + 8) : 0, ns = sz >= 0x18 ? rd_be32 (raw + 12) : 0;
+	const uint nn = sz >= 0x18 ? rd_be32 (raw + 16) : 0;
+	const size_t nts = sz >= 0x18 ? rd_be32 (raw + 20) : 0;
+	if (sz < 0x18 || rd_be32 (raw) != 0x87654321 || rd_be32 (raw + 4) != 3 || !nl || nl > 16 || !ns || ns > 0x10000
+		|| nn > 0x10000 || 8 * (size_t)nn > nts || 0x18 + nts + 4 * (size_t)nl > sz)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const size_t langs = 0x18 + nts, tabs = langs + 4 * (size_t)nl;
+	const size_t blob = tabs + (4 + 4 * (size_t)ns) * nl;
+	if (blob > sz)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	nintendo_sarc_entry_t *entries = CALLOC (nl, sizeof (*entries));
+	if (!entries)
+	{
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+	uint n = 0;
+	for (uint l = 0; l < nl; l++)
+	{
+		const u8 *t = raw + tabs + (4 + 4 * (size_t)ns) * l + 4;
+		size_t cap = 4096, o = 0;
+		char *txt = MALLOC (cap);
+		if (!txt)
+			break;
+		for (uint i = 0; i < ns; i++)
+		{
+			const size_t off = rd_be32 (t + 4 * (size_t)i);
+			if (blob + off + 4 > sz)
+				continue;
+			const size_t len = rd_be32 (raw + blob + off);
+			if (!len || len > sz - blob - off - 4)
+				continue;
+			const char *nm = "";
+			for (uint k = 0; k < nn; k++)
+				if (rd_be32 (raw + 0x18 + 8 * (size_t)k + 4) == i && 0x18 + rd_be32 (raw + 0x18 + 8 * (size_t)k) < sz)
+				{
+					nm = (const char *)raw + 0x18 + rd_be32 (raw + 0x18 + 8 * (size_t)k);
+					break;
+				}
+			if (o + len * 2 + strnlen (nm, 256) + 32 > cap)
+			{
+				cap = (o + len * 2 + 300) * 2;
+				char *nt = REALLOC (txt, cap);
+				if (!nt)
+					break;
+				txt = nt;
+			}
+			o += snprintf (txt + o, cap - o, "%u\t%.255s\t", i, nm);
+			for (size_t k = 0; k + 1 < len; k++)
+			{
+				const char c = (char)raw[blob + off + 4 + k];
+				if (c == '\n')
+					txt[o++] = '\\', txt[o++] = 'n';
+				else if (c == '\t')
+					txt[o++] = '\\', txt[o++] = 't';
+				else if (c != '\r')
+					txt[o++] = c;
+			}
+			txt[o++] = '\n';
+		}
+		char name[16];
+		snprintf (name, sizeof (name), "%.4s.txt", raw + langs + 4 * (size_t)l);
+		for (char *c = name; *c; c++)
+			if (*c == '/')
+				*c = '_';
+		if (OwnedEntryAdd (entries, n, name, (const u8 *)txt, (uint)o))
+			n++;
+		FREE (txt);
+	}
+	FREE (raw);
+	if (!n)
+	{
+		FREE (entries);
+		return ERR_NOTHING_TO_DO;
+	}
+	return write_owned_entries (arg, basedir, depth, "RETRO-STRG", entries, n);
+}

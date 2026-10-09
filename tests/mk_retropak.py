@@ -25,3 +25,9 @@ for tag, s in ((b'STRG', len(strg)), (b'RSHD', len(rshd)), (b'DATA', len(data)))
 for b in (strg, rshd, data):
     f += bytes(al(len(f)) - len(f)) + b
 open(os.path.join(d, 't.pak'), 'wb').write(bytes(f))
+# STRG v3: one language (ENGL), one string "Hi" named "Greet"
+nm = b'Greet\0'
+nts = 8 + len(nm)
+s = struct.pack('>IIIIII', 0x87654321, 3, 1, 1, 1, nts) + struct.pack('>II', 8, 0) + nm + b'ENGL'
+s += struct.pack('>II', 7, 0) + struct.pack('>I', 3) + b'Hi\0'
+open(os.path.join(d, 't.strg'), 'wb').write(s)
