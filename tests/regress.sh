@@ -9596,6 +9596,19 @@ with open(sys.argv[1], "wb") as f:
     fno "MT Framework ARC" "mk_mtarc.py failed"
   fi
 
+  # Rebellion Asura .sfx and RedSpark .rsd DSP streams
+  mkdir -p "$d/dspmisc_test"
+  if python3 "$PWD_PROJECT/../tests/mk_dspmisc.py" "$d/dspmisc_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/dspmisc_test/t.sfx" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 0x60 -l 2 -p "$d/dspmisc_test/t.sfx.d/ch1.dsp")" = "2233" ] \
+    && "$B/wszst" x "$d/dspmisc_test/t.rsd" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 0x60 -l 2 -p "$d/dspmisc_test/t.rsd.d/ch0.dsp")" = "5577" ] \
+    && fok "Asura .sfx and RedSpark .rsd split into DSP channels" \
+    || fno "Asura sfx / RedSpark" "failed on synthetic t.sfx / t.rsd"
+  else
+    fno "Asura sfx / RedSpark" "mk_dspmisc.py failed"
+  fi
+
   # Namco NUB sound bank
   mkdir -p "$d/nub_test"
   if python3 "$PWD_PROJECT/../tests/mk_nub.py" "$d/nub_test" >/dev/null 2>&1; then

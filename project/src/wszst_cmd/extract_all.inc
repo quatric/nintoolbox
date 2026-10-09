@@ -152,6 +152,8 @@
 #include "extract/mtarc.inc"
 #include "extract/capcomtex.inc"
 #include "extract/capcaps.inc"
+#include "extract/asurasfx.inc"
+#include "extract/redspark.inc"
 #include "extract/nub.inc"
 #include "extract/spt.inc"
 #include "extract/pwbundle.inc"
