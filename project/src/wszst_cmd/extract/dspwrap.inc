@@ -141,3 +141,100 @@ static enumError extract_dspwrap_file (ccp arg, ccp basedir, uint depth)
 	FREE (raw);
 	return err;
 }
+
+// Exient "WIIADPCM" (.adpcm; Need for Speed: Hot Pursuit, Angry Birds Star Wars): the first
+// channel header sits at 0x10 (v1: one more channel offset @+8) or 0x20 (v2: offsets @+8..),
+// channel blocks are file-aligned multiples of the interleave (first offset - header offset); the first of each starts with
+// the header bytes then its 0x60 DSP header and ADPCM, the following blocks hold pure data.
+static enumError extract_wiiadpcm_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".adpcm"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	if (sz < 0x100 || memcmp (raw, "WIIADPCM", 8))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const u32 test = rd_be32 (raw + 0x2c);
+	const bool v1 = !(test == 0x10000 || test == 0);
+	const size_t hdr = v1 ? 0x10 : 0x20;
+	const uint maxch = v1 ? 2 : 6;
+	uint ch = 1;
+	for (uint i = 0; i + 1 < maxch; i++)
+		if (rd_be32 (raw + 8 + 4 * i))
+			ch++;
+		else
+			break;
+	const size_t il = ch > 1 ? rd_be32 (raw + 8) - hdr : 0;
+	if (ch > 1 && (il <= 0x60 || il > sz))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	nintendo_sarc_entry_t *entries = CALLOC (ch, sizeof (*entries));
+	if (!entries)
+	{
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+	uint n = 0;
+	for (uint c = 0; c < ch; c++)
+	{
+		const size_t hp = hdr + (ch > 1 ? c * il : 0);
+		if (hp + 0x60 > sz)
+			break;
+		const size_t per = (((size_t)rd_be32 (raw + hp + 4) + 15) / 16) * 8;
+		u8 *out = CALLOC (1, 0x60 + per);
+		if (!per || !out)
+		{
+			FREE (out);
+			break;
+		}
+		memcpy (out, raw + hp, 0x60);
+		size_t done = 0;
+		bool ok = true;
+		if (ch == 1)
+		{
+			ok = hp + 0x60 + per <= sz;
+			if (ok)
+				memcpy (out + 0x60, raw + hp + 0x60, per);
+		}
+		else
+			for (size_t k = 0; done < per && ok; k++)
+			{
+				const size_t skip = k ? 0 : hdr + 0x60;
+				const size_t src = (k * ch + c) * il + skip;
+				size_t take = il - skip;
+				if (take > per - done)
+					take = per - done;
+				if (src + take > sz)
+					ok = false;
+				else
+				{
+					memcpy (out + 0x60 + done, raw + src, take);
+					done += take;
+				}
+			}
+		char name[16];
+		snprintf (name, sizeof (name), "ch%u.dsp", c);
+		const bool added = ok && OwnedEntryAdd (entries, n, name, out, 0x60 + per);
+		FREE (out);
+		if (!added)
+			break;
+		n++;
+	}
+	enumError err = ERR_NOTHING_TO_DO;
+	if (n == ch)
+		err = write_owned_entries (arg, basedir, depth, "WIIADPCM", entries, n);
+	else
+		FREE (entries);
+	FREE (raw);
+	return err;
+}

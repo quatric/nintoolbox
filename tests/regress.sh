@@ -9609,6 +9609,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Asura sfx / RedSpark" "mk_dspmisc.py failed"
   fi
 
+  # Exient WIIADPCM
+  mkdir -p "$d/wiiadpcm_test"
+  if python3 "$PWD_PROJECT/../tests/mk_wiiadpcm.py" "$d/wiiadpcm_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/wiiadpcm_test/t.adpcm" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 0x60 -l 1 -p "$d/wiiadpcm_test/t.adpcm.d/ch0.dsp")" = "11" ] \
+    && [ "$(xxd -s $((0x60+800-1)) -l 1 -p "$d/wiiadpcm_test/t.adpcm.d/ch1.dsp")" = "22" ] \
+    && fok "Exient WIIADPCM split into DSP channels" \
+    || fno "Exient WIIADPCM" "failed on synthetic t.adpcm"
+  else
+    fno "Exient WIIADPCM" "mk_wiiadpcm.py failed"
+  fi
+
   # Namco NUB sound bank
   mkdir -p "$d/nub_test"
   if python3 "$PWD_PROJECT/../tests/mk_nub.py" "$d/nub_test" >/dev/null 2>&1; then
