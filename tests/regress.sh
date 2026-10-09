@@ -9663,6 +9663,21 @@ with open(sys.argv[1], "wb") as f:
     fno "Reflections 04SW" "mk_04sw.py failed"
   fi
 
+  # Ubisoft GWB+GWD (Monster 4x4: World Circuit)
+  mkdir -p "$d/gwb_test"
+  if python3 "$PWD_PROJECT/../tests/mk_gwb.py" "$d/gwb_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/gwb_test/t.gwb" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 0x60 -l 1 -p "$d/gwb_test/t.gwb.d/0000.dsp")" = "51" ] \
+    && [ "$(xxd -s 0x60 -l 1 -p "$d/gwb_test/t.gwb.d/0001_ch0.dsp")" = "62" ] \
+    && [ "$(xxd -s 0x60 -l 1 -p "$d/gwb_test/t.gwb.d/0001_ch1.dsp")" = "73" ] \
+    && [ "$(xxd -s $((0x60+0x4008-1)) -l 1 -p "$d/gwb_test/t.gwb.d/0001_ch0.dsp")" = "64" ] \
+    && [ "$(xxd -s $((0x60+0x4008-1)) -l 1 -p "$d/gwb_test/t.gwb.d/0001_ch1.dsp")" = "75" ] \
+    && fok "Ubisoft GWB+GWD bank split into DSP channels" \
+    || fno "Ubisoft GWB+GWD" "failed on synthetic t.gwb/t.gwd"
+  else
+    fno "Ubisoft GWB+GWD" "mk_gwb.py failed"
+  fi
+
   # Retro PAK v2 (Metroid Prime 3): LZO TXTR + CSMP
   mkdir -p "$d/retropak_test"
   if python3 "$PWD_PROJECT/../tests/mk_retropak.py" "$d/retropak_test" >/dev/null 2>&1; then
