@@ -9689,6 +9689,18 @@ with open(sys.argv[1], "wb") as f:
     fno "plain DSP named .wav" "mk_dspplain.py failed"
   fi
 
+  # Rebellion Asura Wii archive (PDC World Championship Darts)
+  mkdir -p "$d/asurarc_test"
+  if python3 "$PWD_PROJECT/../tests/mk_asurarc.py" "$d/asurarc_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/asurarc_test/t.arc" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 0x60 -l 1 -p "$d/asurarc_test/t.arc.d/sample.dsp")" = "42" ] \
+    && [ "$(cat "$d/asurarc_test/t.arc.d/sample.t18")" = "ANIMDATA" ] \
+    && fok "Asura Wii archive unpacked (DSP and raw members)" \
+    || fno "Asura Wii archive" "failed on synthetic t.arc"
+  else
+    fno "Asura Wii archive" "mk_asurarc.py failed"
+  fi
+
   # Retro PAK v2 (Metroid Prime 3): LZO TXTR + CSMP
   mkdir -p "$d/retropak_test"
   if python3 "$PWD_PROJECT/../tests/mk_retropak.py" "$d/retropak_test" >/dev/null 2>&1; then
