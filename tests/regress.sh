@@ -9557,6 +9557,18 @@ with open(sys.argv[1], "wb") as f:
     fno "EA LOCH" "mk_ealoc.py failed"
   fi
 
+  # Wrapped interleaved DSP (Traveller's Tales IDSP .gcm) split into channel DSPs
+  mkdir -p "$d/dspwrap_test"
+  if python3 "$PWD_PROJECT/../tests/mk_dspwrap.py" "$d/dspwrap_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/dspwrap_test/t.gcm" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 0x60 -l 4 -p "$d/dspwrap_test/t.gcm.d/ch1.dsp")" = "80818283" ] \
+    && [ "$(xxd -s 0x60 -l 4 -p "$d/dspwrap_test/t.gcm.d/ch0.dsp")" = "10111213" ] \
+    && fok "Wrapped interleaved DSP (.gcm IDSP) splits into channel DSPs" \
+    || fno "IDSP .gcm" "failed to split synthetic t.gcm"
+  else
+    fno "IDSP .gcm" "mk_dspwrap.py failed"
+  fi
+
   # Namco NUB sound bank
   mkdir -p "$d/nub_test"
   if python3 "$PWD_PROJECT/../tests/mk_nub.py" "$d/nub_test" >/dev/null 2>&1; then

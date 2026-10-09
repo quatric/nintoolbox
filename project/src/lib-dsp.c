@@ -93,7 +93,24 @@ enumError DecodeDSPToWAV (const u8 *data, size_t size, u8 **wav_out, size_t *wav
 		const size_t take = avail < 8 ? avail : 8;
 		memcpy (block, data + off, take);
 
-		DspAdpcmDecodeBlock (block, cnt, out, coefs, &h1, &h2);
+		// hardware-exact decode: the 11-bit shift is applied to the whole sum with a
+		// +1024 rounding term (DspAdpcmDecodeBlock follows ffmpeg's THP variant, which
+		// differs by a few LSBs)
+		{
+			const int info = block[0];
+			const s64 f1 = coefs[((info >> 4) & 7) * 2], f2 = coefs[((info >> 4) & 7) * 2 + 1];
+			for (uint k = 0; k < cnt; k++)
+			{
+				const int nb = block[1 + k / 2];
+				int nib = (k & 1) ? nb & 15 : nb >> 4;
+				nib = nib > 7 ? nib - 16 : nib;
+				s64 smp = (((s64)nib * (1 << (info & 15))) * 2048 + 1024 + h1 * f1 + h2 * f2) >> 11;
+				smp = smp < -32768 ? -32768 : smp > 32767 ? 32767 : smp;
+				out[k] = (s16)smp;
+				h2 = h1;
+				h1 = (int)smp;
+			}
+		}
 		for (uint k = 0; k < cnt; k++)
 		{
 			w[44 + 2 * (done + k)] = (u8)out[k];
