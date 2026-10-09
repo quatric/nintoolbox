@@ -9714,6 +9714,20 @@ with open(sys.argv[1], "wb") as f:
     fno "Infernal ITL" "mk_itl.py failed"
   fi
 
+  # tri-Crescendo CAF (Fragile Dreams)
+  mkdir -p "$d/caf_test"
+  if python3 "$PWD_PROJECT/../tests/mk_caf.py" "$d/caf_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/caf_test/t.caf" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 0x60 -l 1 -p "$d/caf_test/t.caf.d/ch0.dsp")" = "11" ] \
+    && [ "$(xxd -s $((0x60+0x400)) -l 1 -p "$d/caf_test/t.caf.d/ch0.dsp")" = "12" ] \
+    && [ "$(xxd -s $((0x60+0x400)) -l 1 -p "$d/caf_test/t.caf.d/ch1.dsp")" = "22" ] \
+    && [ "$(xxd -s 8 -l 4 -p "$d/caf_test/t.caf.d/ch1.dsp")" = "00007d00" ] \
+    && fok "tri-Crescendo CAF split into DSP channels" \
+    || fno "tri-Crescendo CAF" "failed on synthetic t.caf"
+  else
+    fno "tri-Crescendo CAF" "mk_caf.py failed"
+  fi
+
   # Retro PAK v2 (Metroid Prime 3): LZO TXTR + CSMP
   mkdir -p "$d/retropak_test"
   if python3 "$PWD_PROJECT/../tests/mk_retropak.py" "$d/retropak_test" >/dev/null 2>&1; then

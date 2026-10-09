@@ -151,6 +151,7 @@
 #include "extract/myspd.inc"
 #include "extract/gwb.inc"
 #include "extract/asurarc.inc"
+#include "extract/caf.inc"
 #include "extract/nlzlib.inc"
 #include "extract/mtarc.inc"
 #include "extract/capcomtex.inc"
