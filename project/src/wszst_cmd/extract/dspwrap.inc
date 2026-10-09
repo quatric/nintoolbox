@@ -7,6 +7,7 @@
 //   Next Level "IDSP" (.idsp: Mario Strikers Charged): +0x04 interleave, headers at 0x0c, stereo
 //   Procyon "sadb" (.sad: Disaster: Day of Crisis): channels u8 at +0x32, headers at 0x80,
 //     data start +0x48, interleave 0x10
+//   Paon "KNON"/"KAST" (.asr: Donkey Kong Barrel Blast): stereo, headers at 0x70, data +0x800, interleave 0x10
 //   Capcom "DSPW" (.dspw: Sengoku Basara 3): channels at +0x18, per-channel {header,data}
 //     blocks of (size-0x20)/channels starting at 0x20
 typedef struct dspwrap_t
@@ -50,6 +51,15 @@ static bool dspwrap_probe (const u8 *raw, size_t sz, dspwrap_t *w)
 		w->start = rd_be32 (raw + 0x48);
 		w->interleave = 0x10;
 		w->name = "SADB";
+	}
+	else if (!memcmp (raw, "KNON", 4) && !memcmp (raw + 8, "WII ", 4) && !memcmp (raw + 0x20, "KAST", 4))
+	{
+		w->ch = 2;
+		w->hdr = 0x70;
+		w->spacing = 0x60;
+		w->start = 0x800;
+		w->interleave = 0x10;
+		w->name = "KNON";
 	}
 	else if (!memcmp (raw, "DSPW", 4))
 	{
@@ -108,6 +118,8 @@ static enumError extract_dspwrap_file (ccp arg, ccp basedir, uint depth)
 		if (!out)
 			break;
 		memcpy (out, h, 0x60);
+		if (!rd_be32 (h + 0x18))
+			wr_be32 (out + 0x18, 2); // loaders that ignore the current address leave it unset
 		bool ok = true;
 		for (size_t i = 0; i < full && ok; i++)
 		{
@@ -125,6 +137,8 @@ static enumError extract_dspwrap_file (ccp arg, ccp basedir, uint depth)
 			else
 				memcpy (out + 0x60 + full * w.interleave, raw + src, rem);
 		}
+		if (ok && !rd_be16 (h + 0x3e)) // initial predictor/scale = first byte of the data
+			out[0x3f] = out[0x60];
 		char name[32];
 		snprintf (name, sizeof (name), "ch%u.dsp", c);
 		const bool added = ok && OwnedEntryAdd (entries, n, name, out, 0x60 + per);
@@ -235,6 +249,70 @@ static enumError extract_wiiadpcm_file (ccp arg, ccp basedir, uint depth)
 		err = write_owned_entries (arg, basedir, depth, "WIIADPCM", entries, n);
 	else
 		FREE (entries);
+	FREE (raw);
+	return err;
+}
+
+// Paon "KNON"/"KPST" (.str: Donkey Kong Barrel Blast): stereo 16-bit big-endian PCM from +0x800,
+// 0x10-byte interleave, byte count @+0x3c, rate @+0x40 -> stereo.wav
+static enumError extract_knonpcm_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	size_t bytes = sz > 0x800 ? rd_be32 (raw + 0x3c) : 0;
+	if (sz < 0x800 || memcmp (raw, "KNON", 4) || memcmp (raw + 8, "WII ", 4) || memcmp (raw + 0x20, "KPST", 4)
+		|| bytes < 4 || bytes > sz - 0x800)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const u32 rate = rd_be32 (raw + 0x40);
+	const size_t frames = bytes / 4, data = frames * 4;
+	u8 *wav = rate ? MALLOC (44 + data) : 0;
+	nintendo_sarc_entry_t *entries = wav ? CALLOC (1, sizeof (*entries)) : 0;
+	if (!entries)
+	{
+		FREE (wav);
+		FREE (raw);
+		return rate ? ERR_OUT_OF_MEMORY : ERR_NOTHING_TO_DO;
+	}
+	memcpy (wav, "RIFF", 4);
+	wr_le32 (wav + 4, (u32)(36 + data));
+	memcpy (wav + 8, "WAVEfmt ", 8);
+	wr_le32 (wav + 16, 16);
+	wr_le16 (wav + 20, 1);
+	wr_le16 (wav + 22, 2);
+	wr_le32 (wav + 24, rate);
+	wr_le32 (wav + 28, rate * 4);
+	wr_le16 (wav + 32, 4);
+	wr_le16 (wav + 34, 16);
+	memcpy (wav + 36, "data", 4);
+	wr_le32 (wav + 40, (u32)data);
+	// blocks of 0x10 bytes: 8 left samples, then 8 right samples
+	for (size_t i = 0; i < frames; i++)
+	{
+		const size_t blk = i / 8, k = i % 8;
+		const size_t src = 0x800 + blk * 0x20 + k * 2;
+		const u8 *l = raw + src, *r = raw + src + 0x10;
+		if (src + 0x12 > sz)
+			wr_le32 (wav + 44 + 4 * i, 0);
+		else
+		{
+			wr_le16 (wav + 44 + 4 * i, (u16)((l[0] << 8) | l[1]));
+			wr_le16 (wav + 46 + 4 * i, (u16)((r[0] << 8) | r[1]));
+		}
+	}
+	enumError err = ERR_OUT_OF_MEMORY;
+	if (OwnedEntryAdd (entries, 0, "stereo.wav", wav, 44 + data))
+		err = write_owned_entries (arg, basedir, depth, "KNON", entries, 1);
+	else
+		FREE (entries);
+	FREE (wav);
 	FREE (raw);
 	return err;
 }
