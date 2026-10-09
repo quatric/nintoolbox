@@ -9638,6 +9638,17 @@ with open(sys.argv[1], "wb") as f:
     fno "Paon KNON" "mk_knon.py failed"
   fi
 
+  # Punchers Impact MYSPD (U-Sing)
+  mkdir -p "$d/myspd_test"
+  if python3 "$PWD_PROJECT/../tests/mk_myspd.py" "$d/myspd_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/myspd_test/t.myspd" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 44 -l 8 -p "$d/myspd_test/t.myspd.d/stereo.wav")" = "0700070011001100" ] \
+    && fok "Punchers Impact MYSPD decoded to stereo WAV" \
+    || fno "Punchers Impact MYSPD" "failed on synthetic t.myspd"
+  else
+    fno "Punchers Impact MYSPD" "mk_myspd.py failed"
+  fi
+
   # Retro PAK v2 (Metroid Prime 3): LZO TXTR + CSMP
   mkdir -p "$d/retropak_test"
   if python3 "$PWD_PROJECT/../tests/mk_retropak.py" "$d/retropak_test" >/dev/null 2>&1; then

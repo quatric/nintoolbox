@@ -482,6 +482,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_knonwvd_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_myspd_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_nlzlib_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
