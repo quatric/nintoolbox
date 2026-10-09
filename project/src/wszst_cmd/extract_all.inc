@@ -149,6 +149,7 @@
 #include "extract/ealoc.inc"
 #include "extract/dspwrap.inc"
 #include "extract/nlzlib.inc"
+#include "extract/mtarc.inc"
 #include "extract/nub.inc"
 #include "extract/spt.inc"
 #include "extract/pwbundle.inc"

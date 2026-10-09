@@ -9582,6 +9582,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Next Level .zlib/.loc" "mk_nlzlib.py failed"
   fi
 
+  # Capcom MT Framework big-endian ARC
+  mkdir -p "$d/mtarc_test"
+  if python3 "$PWD_PROJECT/../tests/mk_mtarc.py" "$d/mtarc_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/mtarc_test/t.arc" --overwrite >/dev/null 2>&1 \
+    && [ "$(stat -f%z "$d/mtarc_test/t.arc.d/dir/two.plt" 2>/dev/null || stat -c%s "$d/mtarc_test/t.arc.d/dir/two.plt")" = "64" ] \
+    && [ -f "$d/mtarc_test/t.arc.d/dir/one.tex" ] \
+    && fok "Capcom MT Framework ARC extracts (zlib + stored, type-derived extensions)" \
+    || fno "MT Framework ARC" "failed to extract synthetic t.arc"
+  else
+    fno "MT Framework ARC" "mk_mtarc.py failed"
+  fi
+
   # Namco NUB sound bank
   mkdir -p "$d/nub_test"
   if python3 "$PWD_PROJECT/../tests/mk_nub.py" "$d/nub_test" >/dev/null 2>&1; then
