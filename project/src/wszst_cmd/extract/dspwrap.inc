@@ -8,12 +8,16 @@
 //   Procyon "sadb" (.sad: Disaster: Day of Crisis): channels u8 at +0x32, headers at 0x80,
 //     data start +0x48, interleave 0x10
 //   Paon "KNON"/"KAST" (.asr: Donkey Kong Barrel Blast): stereo, headers at 0x70, data +0x800, interleave 0x10
+//   Reflections "04SW" (.xa: Driver: Parallel Lines, Emergency Heroes): two DSP headers at 0x04 (stereo when
+//     the sample counts match), data at u32 @0xc4, interleave 0x8000, history fields are junk
 //   Capcom "DSPW" (.dspw: Sengoku Basara 3): channels at +0x18, per-channel {header,data}
 //     blocks of (size-0x20)/channels starting at 0x20
 typedef struct dspwrap_t
 {
 	uint ch;
 	size_t hdr, spacing, start, interleave;
+	bool clear_state; // gain/predictor/history fields of the header are garbage
+	bool tight_last;  // the final block of every channel is only as long as its data
 	const char *name;
 } dspwrap_t;
 
@@ -60,6 +64,18 @@ static bool dspwrap_probe (const u8 *raw, size_t sz, dspwrap_t *w)
 		w->start = 0x800;
 		w->interleave = 0x10;
 		w->name = "KNON";
+	}
+	else if (!memcmp (raw, "04SW", 4) && sz > 0x100)
+	{
+		w->ch = rd_be32 (raw + 4) == rd_be32 (raw + 0x64) ? 2 : 1;
+		w->hdr = 4;
+		w->spacing = 0x60;
+		w->start = rd_be32 (raw + 0xc4);
+		w->interleave = 0x8000;
+		w->clear_state = true;
+		w->tight_last = true;
+		w->name = "04SW";
+		return w->start >= 0xc8 && w->start < sz;
 	}
 	else if (!memcmp (raw, "DSPW", 4))
 	{
@@ -112,7 +128,7 @@ static enumError extract_dspwrap_file (ccp arg, ccp basedir, uint depth)
 		const size_t full = per / w.interleave, rem = per % w.interleave;
 		const size_t tail = w.start + full * w.ch * w.interleave > sz ? 0 : sz - (w.start + full * w.ch * w.interleave);
 		size_t rem_stride = rem;
-		if (full == 0 || tail >= (size_t)w.ch * w.interleave)
+		if (full == 0 || (!w.tight_last && tail >= (size_t)w.ch * w.interleave))
 			rem_stride = w.interleave;
 		u8 *out = CALLOC (1, 0x60 + per);
 		if (!out)
@@ -137,7 +153,9 @@ static enumError extract_dspwrap_file (ccp arg, ccp basedir, uint depth)
 			else
 				memcpy (out + 0x60 + full * w.interleave, raw + src, rem);
 		}
-		if (ok && !rd_be16 (h + 0x3e)) // initial predictor/scale = first byte of the data
+		if (w.clear_state)
+			memset (out + 0x3c, 0, 8);
+		if (ok && !rd_be16 (out + 0x3e)) // initial predictor/scale = first byte of the data
 			out[0x3f] = out[0x60];
 		char name[32];
 		snprintf (name, sizeof (name), "ch%u.dsp", c);

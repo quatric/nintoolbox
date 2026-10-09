@@ -9649,6 +9649,20 @@ with open(sys.argv[1], "wb") as f:
     fno "Punchers Impact MYSPD" "mk_myspd.py failed"
   fi
 
+  # Reflections 04SW (Driver: Parallel Lines)
+  mkdir -p "$d/xa04sw_test"
+  if python3 "$PWD_PROJECT/../tests/mk_04sw.py" "$d/xa04sw_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/xa04sw_test/t.xa" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 0x60 -l 1 -p "$d/xa04sw_test/t.xa.d/ch0.dsp")" = "11" ] \
+    && [ "$(xxd -s $((0x60+0x8008-1)) -l 1 -p "$d/xa04sw_test/t.xa.d/ch0.dsp")" = "13" ] \
+    && [ "$(xxd -s $((0x60+0x8008-1)) -l 1 -p "$d/xa04sw_test/t.xa.d/ch1.dsp")" = "24" ] \
+    && [ "$(xxd -s 0x3c -l 6 -p "$d/xa04sw_test/t.xa.d/ch1.dsp")" = "000000220000" ] \
+    && fok "Reflections 04SW split into DSP channels" \
+    || fno "Reflections 04SW" "failed on synthetic t.xa"
+  else
+    fno "Reflections 04SW" "mk_04sw.py failed"
+  fi
+
   # Retro PAK v2 (Metroid Prime 3): LZO TXTR + CSMP
   mkdir -p "$d/retropak_test"
   if python3 "$PWD_PROJECT/../tests/mk_retropak.py" "$d/retropak_test" >/dev/null 2>&1; then
