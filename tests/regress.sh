@@ -9701,6 +9701,19 @@ with open(sys.argv[1], "wb") as f:
     fno "Asura Wii archive" "mk_asurarc.py failed"
   fi
 
+  # Infernal ITL (MX vs. ATV Untamed)
+  mkdir -p "$d/itl_test"
+  if python3 "$PWD_PROJECT/../tests/mk_itl.py" "$d/itl_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/itl_test/t.itl" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 0x60 -l 1 -p "$d/itl_test/t.itl.d/ch0.dsp")" = "11" ] \
+    && [ "$(xxd -s $((0x60+0x10000-0x60+23)) -l 1 -p "$d/itl_test/t.itl.d/ch0.dsp")" = "13" ] \
+    && [ "$(xxd -s $((0x60+0x10000-0x60+23)) -l 1 -p "$d/itl_test/t.itl.d/ch1.dsp")" = "24" ] \
+    && fok "Infernal ITL split into DSP channels" \
+    || fno "Infernal ITL" "failed on synthetic t.itl"
+  else
+    fno "Infernal ITL" "mk_itl.py failed"
+  fi
+
   # Retro PAK v2 (Metroid Prime 3): LZO TXTR + CSMP
   mkdir -p "$d/retropak_test"
   if python3 "$PWD_PROJECT/../tests/mk_retropak.py" "$d/retropak_test" >/dev/null 2>&1; then

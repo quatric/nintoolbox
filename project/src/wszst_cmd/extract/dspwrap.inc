@@ -439,3 +439,71 @@ static enumError extract_dspplain_file (ccp arg, ccp basedir, uint depth)
 	FREE (raw);
 	return err;
 }
+
+// Stereo DSP files whose channel blocks each start with their own 0x60-byte header and alternate every
+// "interleave" bytes: Infernal Engine ".itl" (MX vs. ATV Untamed: interleave 0x10000) and Rebellion
+// Asura ".ds2" (PDC World Championship Darts: 0x8000, unverified). The last block of both channels
+// is only as long as the remaining data, (filesize / 2) % interleave.
+static enumError extract_dskip_file (ccp arg, ccp basedir, uint depth)
+{
+	const size_t il = is_ext (arg, ".itl") ? 0x10000 : is_ext (arg, ".ds2") ? 0x8000 : 0;
+	if (!il)
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	if (sz < il + 0x100 || memcmp (raw, raw + il, 12) || rd_be32 (raw + 4) < 16 || rd_be16 (raw + 0x0e) || rd_be32 (raw + 0x18) != 2
+		|| rd_be32 (raw + il + 0x18) != 2)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const size_t per = (((size_t)rd_be32 (raw + 4) + 15) / 16) * 8;
+	const size_t half = sz / 2, last = half % il, full = half / il;
+	nintendo_sarc_entry_t *entries = CALLOC (2, sizeof (*entries));
+	uint n = 0;
+	for (uint c = 0; c < 2 && entries; c++)
+	{
+		u8 *out = CALLOC (1, 0x60 + per);
+		if (!out)
+			break;
+		memcpy (out, raw + c * il, 0x60);
+		size_t done = 0;
+		for (size_t k = 0; done < per; k++)
+		{
+			const size_t skip = k ? 0 : 0x60;
+			const bool is_last = k == full;
+			const size_t src = is_last ? full * 2 * il + c * last : (k * 2 + c) * il + skip;
+			size_t take = is_last ? last : il - skip;
+			if (take > per - done)
+				take = per - done;
+			if (k > full || src + take > sz)
+			{
+				if (k <= full && src < sz && sz - src + 8 >= take && sz - src < take)
+					take = sz - src; // truncated final frame
+				else
+					break;
+			}
+			memcpy (out + 0x60 + done, raw + src + (is_last ? 0 : 0), take);
+			done += take;
+		}
+		char name[16];
+		snprintf (name, sizeof (name), "ch%u.dsp", c);
+		const bool added = done + 8 >= per && OwnedEntryAdd (entries, n, name, out, 0x60 + per); // files may end inside the last frame
+		FREE (out);
+		if (!added)
+			break;
+		n++;
+	}
+	enumError err = ERR_NOTHING_TO_DO;
+	if (entries && n == 2)
+		err = write_owned_entries (arg, basedir, depth, "DSP-ITL", entries, n);
+	else
+		FREE (entries);
+	FREE (raw);
+	return err;
+}
