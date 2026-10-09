@@ -9678,6 +9678,17 @@ with open(sys.argv[1], "wb") as f:
     fno "Ubisoft GWB+GWD" "mk_gwb.py failed"
   fi
 
+  # plain DSP behind a .wav extension (Wacky Races)
+  mkdir -p "$d/dspplain_test"
+  if python3 "$PWD_PROJECT/../tests/mk_dspplain.py" "$d/dspplain_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/dspplain_test/t.wav" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 0x60 -l 1 -p "$d/dspplain_test/t.wav.d/audio.dsp")" = "35" ] \
+    && fok "plain DSP named .wav unpacked" \
+    || fno "plain DSP named .wav" "failed on synthetic t.wav"
+  else
+    fno "plain DSP named .wav" "mk_dspplain.py failed"
+  fi
+
   # Retro PAK v2 (Metroid Prime 3): LZO TXTR + CSMP
   mkdir -p "$d/retropak_test"
   if python3 "$PWD_PROJECT/../tests/mk_retropak.py" "$d/retropak_test" >/dev/null 2>&1; then
