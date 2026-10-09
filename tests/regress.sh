@@ -9621,6 +9621,19 @@ with open(sys.argv[1], "wb") as f:
     fno "Exient WIIADPCM" "mk_wiiadpcm.py failed"
   fi
 
+  # Retro PAK v2 (Metroid Prime 3): LZO TXTR + CSMP
+  mkdir -p "$d/retropak_test"
+  if python3 "$PWD_PROJECT/../tests/mk_retropak.py" "$d/retropak_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/retropak_test/t.pak" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 12 -l 3 -p "$d/retropak_test/t.pak.d/TXTR_Test.txtr")" = "000102" ] \
+    && [ -s "$d/retropak_test/t.pak.d/TXTR_Test.txtr.png" ] \
+    && [ -s "$d/retropak_test/t.pak.d/fedcba9876543210.csmp.d/fedcba9876543210.dsp" ] \
+    && fok "Retro PAK v2 unpacked (LZO TXTR to PNG, CSMP to DSP)" \
+    || fno "Retro PAK" "failed on synthetic t.pak"
+  else
+    fno "Retro PAK" "mk_retropak.py failed"
+  fi
+
   # Namco NUB sound bank
   mkdir -p "$d/nub_test"
   if python3 "$PWD_PROJECT/../tests/mk_nub.py" "$d/nub_test" >/dev/null 2>&1; then

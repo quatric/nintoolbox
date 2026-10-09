@@ -23,7 +23,11 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	// ".otb" spuriously matched as an unknown/generic member archive). Give
 	// the extension-gated Muramasa probes first refusal, before any of the
 	// generic sniffers below get a chance to misfire on them.
-	enumError err = extract_muramasa_otb_manifest (arg);
+	// Retro PAK v2 has a strict header; claim it before the loose ".pak" sniffers.
+	enumError err = extract_retropak_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_muramasa_otb_manifest (arg);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_muramasa_nsi_manifest (arg);
@@ -488,6 +492,12 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_redspark_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_retrotxtr_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_csmp_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_nloc_file (arg, basedir, depth);

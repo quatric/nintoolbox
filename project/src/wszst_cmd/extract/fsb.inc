@@ -1,7 +1,7 @@
 // FMOD FSB3 / FSB4 / FSB5 sound banks (DSP-ADPCM and PCM16 samples decoded to WAV). Extract-only.
 static enumError extract_fsb_file (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext (arg, ".fsb"))
+	if (!is_ext (arg, ".fsb") && !is_ext (arg, ".strm"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;
