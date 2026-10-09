@@ -9624,13 +9624,16 @@ with open(sys.argv[1], "wb") as f:
   # Paon KNON (Donkey Kong Barrel Blast)
   mkdir -p "$d/knon_test"
   if python3 "$PWD_PROJECT/../tests/mk_knon.py" "$d/knon_test" >/dev/null 2>&1; then
-    "$B/wszst" x "$d/knon_test/t.str" "$d/knon_test/t.asr" --overwrite >/dev/null 2>&1 \
+    "$B/wszst" x "$d/knon_test/t.str" "$d/knon_test/t.asr" "$d/knon_test/t.wvd" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 0x60 -l 1 -p "$d/knon_test/t.wvd.d/0000.dsp")" = "51" ] \
+    && [ "$(xxd -s 4 -l 4 -p "$d/knon_test/t.wvd.d/0001.dsp")" = "00000030" ] \
+    && [ "$(xxd -s 0x77 -l 1 -p "$d/knon_test/t.wvd.d/0001.dsp")" = "63" ] \
     && [ "$(xxd -s 44 -l 8 -p "$d/knon_test/t.str.d/stereo.wav")" = "0100650002006600" ] \
     && [ "$(xxd -s 0x60 -l 1 -p "$d/knon_test/t.asr.d/ch0.dsp")" = "31" ] \
     && [ "$(xxd -s 0x18 -l 4 -p "$d/knon_test/t.asr.d/ch0.dsp")" = "00000002" ] \
     && [ "$(xxd -s 0x3e -l 2 -p "$d/knon_test/t.asr.d/ch1.dsp")" = "0041" ] \
-    && fok "Paon KNON PCM to WAV and DSP split into channels" \
-    || fno "Paon KNON" "failed on synthetic t.str/t.asr"
+    && fok "Paon KNON PCM to WAV, DSP split into channels and wave bank unpacked" \
+    || fno "Paon KNON" "failed on synthetic t.str/t.asr/t.wvd"
   else
     fno "Paon KNON" "mk_knon.py failed"
   fi

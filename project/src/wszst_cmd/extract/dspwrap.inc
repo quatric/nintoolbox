@@ -316,3 +316,73 @@ static enumError extract_knonpcm_file (ccp arg, ccp basedir, uint depth)
 	FREE (raw);
 	return err;
 }
+
+// Paon "KNON"/"KWBK" wave bank (.WVD: Donkey Kong Barrel Blast sound effects): after the
+// KWBK/3DWB headers, a WINF chunk lists u16 count @+8 and 0x60-byte entries {u16 index, u16 flags,
+// u32 rate, u32 0, u32 size, ...} @+0x10; the WAVE chunk behind it (at WINF+8+size) holds the waves
+// back to back from +0x10, each a standard mono DSP header + ADPCM padded to its entry size.
+static enumError extract_knonwvd_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	size_t wi = 0;
+	if (sz > 0x200 && !memcmp (raw, "KNON", 4) && !memcmp (raw + 8, "WII ", 4) && !memcmp (raw + 0x20, "KWBK", 4))
+		for (size_t p = 0x20; p + 0x10 < sz && p < 0x400; p += 4)
+			if (!memcmp (raw + p, "WINF", 4))
+			{
+				wi = p;
+				break;
+			}
+	const size_t wave = wi ? wi + 8 + rd_be32 (raw + wi + 4) : 0;
+	const uint count = wi ? rd_be16 (raw + wi + 8) : 0;
+	if (!wi || !count || wave + 0x10 > sz || memcmp (raw + wave, "WAVE", 4) || wi + 0x10 + (size_t)count * 0x60 > wave)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	nintendo_sarc_entry_t *entries = CALLOC (count, sizeof (*entries));
+	if (!entries)
+	{
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+	uint n = 0;
+	size_t p = wave + 0x10;
+	for (; n < count; n++)
+	{
+		const u8 *e = raw + wi + 0x10 + (size_t)n * 0x60;
+		const size_t len = rd_be32 (e + 12);
+		// looped waves keep their loop end in the nibble count, the sample count covers the tail
+		size_t nib = rd_be32 (raw + p + 4);
+		const size_t frames_ns = ((size_t)rd_be32 (raw + p) + 13) / 14;
+		if (frames_ns * 16 > nib && frames_ns * 8 + 0x60 <= len + 1)
+			nib = frames_ns * 16;
+		const size_t per = ((nib + 15) / 16) * 8;
+		if (len < 0x60 || p + len > sz || (nib + 1) / 2 + 0x60 > len + 1 || rd_be32 (raw + p + 8) != rd_be32 (e + 4))
+			break;
+		u8 *out = CALLOC (1, 0x60 + per); // the last frame may be cut short by the entry size
+		if (!out)
+			break;
+		memcpy (out, raw + p, 0x60 + per > len ? len : 0x60 + per);
+		wr_be32 (out + 4, (u32)nib);
+		char name[24];
+		snprintf (name, sizeof (name), "%04u.dsp", n);
+		const bool added = OwnedEntryAdd (entries, n, name, out, 0x60 + per);
+		FREE (out);
+		if (!added)
+			break;
+		p += len;
+	}
+	enumError err = ERR_NOTHING_TO_DO;
+	if (n == count)
+		err = write_owned_entries (arg, basedir, depth, "KNON-WVD", entries, n);
+	else
+		FREE (entries);
+	FREE (raw);
+	return err;
+}
