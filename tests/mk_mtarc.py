@@ -11,3 +11,5 @@ for name, h, payload, comp in members:
     table += name.ljust(0x40, b'\0') + struct.pack('>IIII', h, len(blob), len(payload) << 3 | 2, off + len(data))
     data += blob
 open(os.path.join(sys.argv[1], 't.arc'), 'wb').write(hdr + table + data)
+# Capcom wrapped BRRES: "\0XET" header (0x20 bytes) + payload starting with "bres"
+open(os.path.join(sys.argv[1], 't.tex'), 'wb').write(b'\0XET' + struct.pack('>II', 0x87, 0x20) + bytes(20) + b'bres' + bytes(0x40))

@@ -9588,7 +9588,8 @@ with open(sys.argv[1], "wb") as f:
     "$B/wszst" x "$d/mtarc_test/t.arc" --overwrite >/dev/null 2>&1 \
     && [ "$(stat -f%z "$d/mtarc_test/t.arc.d/dir/two.plt" 2>/dev/null || stat -c%s "$d/mtarc_test/t.arc.d/dir/two.plt")" = "64" ] \
     && [ -f "$d/mtarc_test/t.arc.d/dir/one.tex" ] \
-    && fok "Capcom MT Framework ARC extracts (zlib + stored, type-derived extensions)" \
+    && { "$B/wszst" x "$d/mtarc_test/t.tex" --overwrite >/dev/null 2>&1; [ "$(head -c4 "$d/mtarc_test/t.tex.d/t.brres" 2>/dev/null)" = "bres" ]; } \
+    && fok "Capcom MT Framework ARC extracts (zlib + stored, type-derived extensions) and .tex unwraps BRRES" \
     || fno "MT Framework ARC" "failed to extract synthetic t.arc"
   else
     fno "MT Framework ARC" "mk_mtarc.py failed"
