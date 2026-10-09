@@ -1,9 +1,10 @@
-// Retro Studios "PAK" version 2 (Metroid Prime 3: Corruption):
+// Retro Studios "PAK" version 2 (Metroid Prime 3: Corruption, Donkey Kong Country Returns):
 // {u32 2, u32 0x40, 0x38 bytes hash}, u32 section count + {tag, size} pairs, then 0x40-aligned
 // STRG {u32 n; n * {cstr name, fourcc type, u64 id}}, RSHD {u32 n; n * {u32 compressed, fourcc, u64 id,
 // u32 size, u32 offset}} and DATA. A compressed resource is "CMPD", u32 blocks, blocks * {u32
-// (flags << 29 | compressed size), u32 size}; a block whose two sizes are equal is stored, any other
-// is a run of {u16 length, LZO1X data} pieces of up to 0x4000 bytes each. TXTR resources
+// (flags << 29 | compressed size), u32 size}; a block whose two sizes are equal is stored, a zlib stream
+// (Donkey Kong Country Returns) is inflated, any other is a run of {u16 length, LZO1X data} pieces of up to
+// 0x4000 bytes each. TXTR resources
 // (u32 format, u16 w, u16 h, u32 mips, [palette], tiled GX data) become PNG in decode mode.
 
 static long retro_lzo1x (const u8 *ip0, size_t n, u8 *op0, size_t cap)
@@ -64,8 +65,15 @@ static bool retropak_cmpd (const u8 *p, size_t n, u8 **out, size_t *osz)
 		const size_t cs = c & 0x1fffffff;
 		if (cs > n - ip)
 			goto bad;
-		if (c == d)
+		if (cs == d)
 			memcpy (o + op, p + ip, d);
+		else if (cs >= 2 && p[ip] == 0x78 && ((p[ip] << 8 | p[ip + 1]) % 31) == 0)
+		{
+			// Donkey Kong Country Returns packs its blocks with zlib
+			uLongf dl = d;
+			if (uncompress (o + op, &dl, p + ip, cs) != Z_OK || dl != d)
+				goto bad;
+		}
 		else
 		{
 			size_t q = 0, got = 0;
