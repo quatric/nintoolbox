@@ -79,6 +79,21 @@ static enumError extract_mtarc_file (ccp arg, ccp basedir, uint depth)
 					ok = false;
 			if (ok && !out[0] && rev[0] >= 'a')
 				snprintf (ext, sizeof (ext), "%s", rev);
+			else if (out[0])
+			{
+				// magic stored in reading order ("CAPS", "SRND", ...)
+				bool alnum = true;
+				char fwd[5] = {0};
+				for (int k = 0; k < 4; k++)
+				{
+					const char c = (char)out[k];
+					if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')))
+						alnum = false;
+					fwd[k] = (char)(c >= 'A' && c <= 'Z' ? c + 32 : c);
+				}
+				if (alnum)
+					snprintf (ext, sizeof (ext), "%s", fwd);
+			}
 		}
 		char stem[PATH_MAX];
 		snprintf (stem, sizeof (stem), "%s", name);
