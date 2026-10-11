@@ -5,7 +5,7 @@ static enumError extract_sarc_mem (ccp arg, ccp basedir, uint depth, const u8 *r
 	nintendo_sarc_t sarc;
 	enumError err = ScanSARC (&sarc, raw, raw_size);
 	if (err)
-		return err;
+		return ERR_NOTHING_TO_DO; // "SARC" prefix that fails validation is not a SARC
 
 	char dest[PATH_MAX];
 	beside_source_dest (dest, sizeof (dest), arg);
