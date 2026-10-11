@@ -141,3 +141,112 @@ static enumError extract_capcomrmd_file (ccp arg, ccp basedir, uint depth)
 	FREE (raw);
 	return write_owned_entries (arg, basedir, depth, "CAPCOM-RMD", entries, 1);
 }
+
+// Capcom MT Framework Wii motion banks (Sengoku Basara 3 ".lmt" = "\0TML"): u16 version @4 (0x38),
+// u16 slot count @6, then big-endian u32 motion offsets (0 = empty slot). Each motion is 0x150 bytes
+// {u32 track table, u32 track count, u32 frames, u32 loop frame, ...}; tracks are 0x24 bytes
+// {u8 compression, u8 usage, u8 type, u8 bone, f32 weight, u32 buffer size, u32 buffer offset, f32[4] ref}.
+// The keyframe buffers are not decoded; "<name>.txt" lists the validated motion / track layout.
+static enumError extract_capcomlmt_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".lmt"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	if (sz < 0x10 || memcmp (raw, "\0TML", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const uint count = ((uint)raw[6] << 8) | raw[7];
+	if (!count || 8 + (size_t)count * 4 > sz)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	// first pass: every non-empty motion and its track table must lie inside the file
+	uint motions = 0;
+	for (uint i = 0; i < count; i++)
+	{
+		const u32 mo = rd_be32 (raw + 8 + i * 4);
+		if (!mo)
+			continue;
+		if (mo > sz || sz - mo < 0x150)
+		{
+			FREE (raw);
+			return ERR_NOTHING_TO_DO;
+		}
+		const u32 to = rd_be32 (raw + mo), tc = rd_be32 (raw + mo + 4);
+		if (tc && (to > sz || (size_t)tc * 0x24 > sz - to))
+		{
+			FREE (raw);
+			return ERR_NOTHING_TO_DO;
+		}
+		motions++;
+	}
+	if (!motions)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	size_t cap = 256, used = 0;
+	char *txt = MALLOC (cap);
+	if (!txt)
+	{
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+#define LMT_PRINT(...) \
+	do { \
+		for (;;) { \
+			int n_ = snprintf (txt + used, cap - used, __VA_ARGS__); \
+			if (n_ >= 0 && (size_t)n_ < cap - used) { used += n_; break; } \
+			char *t_ = REALLOC (txt, cap *= 2); \
+			if (!t_) { FREE (txt); FREE (raw); return ERR_OUT_OF_MEMORY; } \
+			txt = t_; \
+		} \
+	} while (0)
+	LMT_PRINT ("Capcom LMT version 0x%02x, %u slots, %u motions\n", raw[5], count, motions);
+	for (uint i = 0; i < count; i++)
+	{
+		const u32 mo = rd_be32 (raw + 8 + i * 4);
+		if (!mo)
+			continue;
+		const u32 to = rd_be32 (raw + mo), tc = rd_be32 (raw + mo + 4);
+		LMT_PRINT ("motion %u: offset 0x%x, %u tracks, %u frames, loop frame %d\n", i, mo, tc,
+			   rd_be32 (raw + mo + 8), (int)rd_be32 (raw + mo + 12));
+		for (u32 t = 0; t < tc; t++)
+		{
+			const u8 *tr = raw + to + t * 0x24;
+			const u32 bl = rd_be32 (tr + 8), bo = rd_be32 (tr + 12);
+			LMT_PRINT ("  track %u: compression %u, usage %u, type %u, bone %u, buffer 0x%x+%u%s\n", t,
+				   tr[0], tr[1], tr[2], tr[3], bo, bl,
+				   (bo > sz || bl > sz - bo) ? " (outside file)" : "");
+		}
+	}
+#undef LMT_PRINT
+	ccp base = strrchr (arg, '/');
+	base = base ? base + 1 : arg;
+	char name[PATH_MAX];
+	snprintf (name, sizeof (name), "%s", base);
+	char *dot = strrchr (name, '.');
+	if (dot)
+		*dot = 0;
+	snprintf (name + strlen (name), sizeof (name) - strlen (name), ".txt");
+	nintendo_sarc_entry_t *entries = CALLOC (1, sizeof (*entries));
+	if (!entries || !OwnedEntryAdd (entries, 0, name, (u8 *)txt, used))
+	{
+		FREE (entries);
+		FREE (txt);
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+	FREE (txt);
+	FREE (raw);
+	return write_owned_entries (arg, basedir, depth, "CAPCOM-LMT", entries, 1);
+}

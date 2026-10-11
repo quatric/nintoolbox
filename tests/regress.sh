@@ -9764,6 +9764,19 @@ with open(sys.argv[1], "wb") as f:
     fno "Capcom .rmd" "mk_caprmd.py failed"
   fi
 
+  # Capcom MT Framework Wii motion bank (Sengoku Basara 3)
+  mkdir -p "$d/caplmt_test"
+  if python3 "$PWD_PROJECT/../tests/mk_caplmt.py" "$d/caplmt_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/caplmt_test/t.lmt" --overwrite >/dev/null 2>&1 \
+    && grep -q "1 motions" "$d/caplmt_test/t.lmt.d/t.txt" \
+    && grep -q "motion 1: offset 0x20, 2 tracks, 73 frames" "$d/caplmt_test/t.lmt.d/t.txt" \
+    && grep -q "track 1: compression 12, usage 0, type 1, bone 7" "$d/caplmt_test/t.lmt.d/t.txt" \
+    && fok "Capcom .lmt motion bank listed" \
+    || fno "Capcom .lmt" "failed on synthetic t.lmt"
+  else
+    fno "Capcom .lmt" "mk_caplmt.py failed"
+  fi
+
   # Retro PAK v2 (Metroid Prime 3): LZO TXTR + CSMP
   mkdir -p "$d/retropak_test"
   if python3 "$PWD_PROJECT/../tests/mk_retropak.py" "$d/retropak_test" >/dev/null 2>&1; then
