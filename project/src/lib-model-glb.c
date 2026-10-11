@@ -2036,26 +2036,42 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 		cgltf_node *gnode = &data.nodes[j];
 		gnode->name = (char *)joint->name;
 
-		const double hx = joint->rotate.x * M_PI / 360.0, hy = joint->rotate.y * M_PI / 360.0,
-					 hz = joint->rotate.z * M_PI / 360.0;
-		const double cx = cos (hx), sx = sin (hx), cy = cos (hy), sy = sin (hy), cz = cos (hz),
-					 sz = sin (hz);
-		const double qx = sx * cy * cz - cx * sy * sz, qy = cx * sy * cz + sx * cy * sz,
-					 qz = cx * cy * sz - sx * sy * cz, qw = cx * cy * cz + sx * sy * sz;
+		float local[12];
+		if (!dae_joint_local_matrix (model, j, local))
+		{
+			// Segment-scale-compensate bone: TRS can't reproduce the stored
+			// bind, so emit the recovered local matrix (column-major).
+			gnode->has_matrix = 1;
+			for (unsigned c = 0; c < 4; c++)
+			{
+				for (unsigned r = 0; r < 3; r++)
+					gnode->matrix[c * 4 + r] = local[r * 4 + c];
+				gnode->matrix[c * 4 + 3] = c == 3 ? 1.0f : 0.0f;
+			}
+		}
+		else
+		{
+			const double hx = joint->rotate.x * M_PI / 360.0, hy = joint->rotate.y * M_PI / 360.0,
+						 hz = joint->rotate.z * M_PI / 360.0;
+			const double cx = cos (hx), sx = sin (hx), cy = cos (hy), sy = sin (hy), cz = cos (hz),
+						 sz = sin (hz);
+			const double qx = sx * cy * cz - cx * sy * sz, qy = cx * sy * cz + sx * cy * sz,
+						 qz = cx * cy * sz - sx * sy * cz, qw = cx * cy * cz + sx * sy * sz;
 
-		gnode->has_translation = 1;
-		gnode->translation[0] = joint->translate.x;
-		gnode->translation[1] = joint->translate.y;
-		gnode->translation[2] = joint->translate.z;
-		gnode->has_rotation = 1;
-		gnode->rotation[0] = qx;
-		gnode->rotation[1] = qy;
-		gnode->rotation[2] = qz;
-		gnode->rotation[3] = qw;
-		gnode->has_scale = 1;
-		gnode->scale[0] = joint->scale.x;
-		gnode->scale[1] = joint->scale.y;
-		gnode->scale[2] = joint->scale.z;
+			gnode->has_translation = 1;
+			gnode->translation[0] = joint->translate.x;
+			gnode->translation[1] = joint->translate.y;
+			gnode->translation[2] = joint->translate.z;
+			gnode->has_rotation = 1;
+			gnode->rotation[0] = qx;
+			gnode->rotation[1] = qy;
+			gnode->rotation[2] = qz;
+			gnode->rotation[3] = qw;
+			gnode->has_scale = 1;
+			gnode->scale[0] = joint->scale.x;
+			gnode->scale[1] = joint->scale.y;
+			gnode->scale[2] = joint->scale.z;
+		}
 
 		size_t num_children = 0;
 		for (size_t c = 0; c < model->num_joints; c++)

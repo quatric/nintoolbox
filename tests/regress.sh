@@ -711,26 +711,43 @@ else
 fi
 
 t_gsh_retail(){
-  local f
-  f=$(for d in $SEARCH; do [ -d "$d" ] || continue
-      find -L "$d" -maxdepth 8 -type f -iname '*.gsh' -size -128M 2>/dev/null
-    done | head -1)
-  [ -n "$f" ] || { sk "GSH retail program byte-exact listings"; return; }
+  # Real shader-bearing .gsh files only. Other .gsh containers (for example the
+  # texture-only EA SHPG synthetics other cases leave in /tmp) carry no Latte
+  # programs and legitimately declare none, so they are not candidates. The
+  # committed Twilight Princess HD Shaders.pack.gz (retail Wii U) is the
+  # fallback source, unpacked on demand.
   local d; d=$(mktemp -d /tmp/_r_gsh.XXXXXX) || return
-  cp "$f" "$d/input.gsh"
-  "$B/wszst" EXTRACT "$d/input.gsh" --overwrite >"$d/extract.log" 2>&1
-  # extract_gsh_shaders() writes a listing only after AssembleLatteCF has
-  # reproduced that complete program byte-for-byte, including RAW fallback
-  # for any instruction or clause the semantic decoder cannot preserve.
-  local declared written
-  declared=$(grep -c 'EXTRACT GSH:' "$d/extract.log" 2>/dev/null || true)
-  written=$(find "$d" -maxdepth 1 -name '*.latte' -size +0c | wc -l | tr -d ' ')
+  local cands="$d/cands.txt" f=""
+  for s in $SEARCH; do [ -d "$s" ] || continue
+    find -L "$s" -maxdepth 8 -type f -iname '*.gsh' -size +1k -size -128M ! -path '*/_r_*' 2>/dev/null
+  done | head -20 > "$cands"
+  local pk="$PWD_PROJECT/../tests/fixtures/tmpk_wiiu_twilight_princess_hd_shaders.pack.gz"
+  if [ -f "$pk" ]; then
+    mkdir -p "$d/pk"; cp "$pk" "$d/pk/"
+    "$B/wszst" EXTRACT "$d/pk/$(basename "$pk")" --overwrite >/dev/null 2>&1
+    find "$d/pk" -type f -iname '*.gsh' -size +1k 2>/dev/null | sort | head -20 >> "$cands"
+  fi
+  local declared=0 written=0
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    rm -rf "$d/run"; mkdir -p "$d/run"; cp "$f" "$d/run/input.gsh"
+    "$B/wszst" EXTRACT "$d/run/input.gsh" --overwrite >"$d/run/extract.log" 2>&1
+    # extract_gsh_shaders() writes a listing only after AssembleLatteCF has
+    # reproduced that complete program byte-for-byte, including RAW fallback
+    # for any instruction or clause the semantic decoder cannot preserve.
+    declared=$(grep -c 'EXTRACT GSH:' "$d/run/extract.log" 2>/dev/null || true)
+    [ "$declared" -gt 0 ] && break
+    f=""
+  done < "$cands"
+  [ -n "$f" ] || { rm -rf "$d"; sk "GSH retail program byte-exact listings"; return; }
+  written=$(find "$d/run" -maxdepth 1 -name '*.latte' -size +0c | wc -l | tr -d ' ')
   if [ "$declared" -gt 0 ] && [ "$written" -eq "$declared" ]; then
     ok "GSH retail container -> $written byte-exact Latte program listing(s) ($f)"
     bok "GSH $written retail program listing(s) -> identical program bytes"
   else
     no "GSH retail program byte-exact listings" "$f"
   fi
+  rm -rf "$d"
 }
 t_gsh_retail
 
@@ -4658,7 +4675,14 @@ rm -rf "$RD"
 echo "== external pass-through extraction (wit/ndstool/ctrtool/sharpii) =="
 # Find one real .nds and one real .wad under SEARCH; a plain PATH lookup for
 # the external tool decides skip vs. pass/fail, same convention as t_model.
-PT_NDS=$(for d in $SEARCH; do [ -d "$d" ] || continue; find -L "$d" -maxdepth 4 -iname '*.nds' -size -60M ! -path '*/_r_*' -print -quit 2>/dev/null; done | head -1)
+# Only plain DS ROMs (header unitcode 0x12 == 0) take the ndstool path; DSi
+# enhanced/exclusive ROMs are modcrypt-decrypted by extract/twl.inc instead
+# and stage as <name>.nds.d/decrypted.d, so they would fail the t.d layout.
+PT_NDS=$(for d in $SEARCH; do [ -d "$d" ] || continue
+    find -L "$d" -maxdepth 4 -iname '*.nds' -size -60M ! -path '*/_r_*' 2>/dev/null
+  done | while IFS= read -r n; do
+    [ "$(dd if="$n" bs=1 skip=18 count=1 2>/dev/null | od -An -tu1 | tr -d ' ')" = "0" ] && { printf '%s\n' "$n"; break; }
+  done)
 PT_WAD=$(for d in $SEARCH; do [ -d "$d" ] || continue; find -L "$d" -maxdepth 4 -iname '*.wad' -size -60M ! -path '*/_r_*' -print -quit 2>/dev/null; done | head -1)
 
 if command -v ndstool >/dev/null 2>&1 && [ -n "$PT_NDS" ]; then
