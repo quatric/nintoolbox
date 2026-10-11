@@ -9793,8 +9793,10 @@ with open(sys.argv[1], "wb") as f:
   # Havok-style .hvt texture (Aladdin Magic Racer)
   mkdir -p "$d/hvt_test"
   if python3 "$PWD_PROJECT/../tests/mk_hvt.py" "$d/hvt_test" >/dev/null 2>&1; then
-    "$B/wszst" xx "$d/hvt_test/t.hvt" --overwrite >/dev/null 2>&1 \
+    "$B/wszst" xx "$d/hvt_test/t.hvt" "$d/hvt_test/t2.hvt" "$d/hvt_test/t3.hvt" --overwrite >/dev/null 2>&1 \
     && [ "$(head -c 4 "$d/hvt_test/t.hvt.png" | tail -c 3)" = "PNG" ] \
+    && [ "$(head -c 4 "$d/hvt_test/t2.hvt.png" | tail -c 3)" = "PNG" ] \
+    && [ "$(head -c 4 "$d/hvt_test/t3.hvt.png" | tail -c 3)" = "PNG" ] \
     && fok "Havok .hvt texture decoded to PNG" \
     || fno "Havok .hvt" "failed on synthetic t.hvt"
   else
