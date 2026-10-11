@@ -250,3 +250,103 @@ static enumError extract_capcomlmt_file (ccp arg, ccp basedir, uint depth)
 	FREE (raw);
 	return write_owned_entries (arg, basedir, depth, "CAPCOM-LMT", entries, 1);
 }
+
+// Capcom MT Framework Wii serialized objects (Sengoku Basara 3 ".xfs" = "\0SFX"): u16 version @4 (8),
+// u32 class count @8, and the class table at 0x10 + u32@0x10. Each class is {u32 crc, u32 info} with
+// info >> 17 members, followed by that many 0x38-byte members {u32 name offset (relative to 0x10), u8 type,
+// u8 flags, u16 size, default value bytes}. Names are NUL-terminated strings in the string table. The object
+// data after the string table is not decoded; "<name>.txt" lists the validated class / member layout.
+static enumError extract_capcomxfs_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".xfs"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	if (sz < 0x30 || memcmp (raw, "\0SFX", 4) || rd_be16 (raw + 4) != 8)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const u32 classes = rd_be32 (raw + 8);
+	const u32 tab = 0x10 + (size_t)rd_be32 (raw + 0x10);
+	if (!classes || classes > 0x100 || tab > sz)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	// first pass: every class header, member record and member name must lie inside the file
+	size_t p = tab;
+	for (u32 c = 0; c < classes; c++)
+	{
+		if (p > sz || sz - p < 8)
+			goto bad;
+		const u32 members = rd_be32 (raw + p + 4) >> 17;
+		p += 8;
+		if ((size_t)members * 0x38 > sz - p)
+			goto bad;
+		for (u32 m = 0; m < members; m++, p += 0x38)
+		{
+			const size_t no = 0x10 + (size_t)rd_be32 (raw + p);
+			if (no >= sz || !memchr (raw + no, 0, sz - no < 128 ? sz - no : 128))
+				goto bad;
+		}
+	}
+	{
+		size_t cap = 256, used = 0;
+		char *txt = MALLOC (cap);
+		if (!txt)
+		{
+			FREE (raw);
+			return ERR_OUT_OF_MEMORY;
+		}
+#define XFS_PRINT(...) \
+	do { \
+		for (;;) { \
+			int n_ = snprintf (txt + used, cap - used, __VA_ARGS__); \
+			if (n_ >= 0 && (size_t)n_ < cap - used) { used += n_; break; } \
+			char *t_ = REALLOC (txt, cap *= 2); \
+			if (!t_) { FREE (txt); FREE (raw); return ERR_OUT_OF_MEMORY; } \
+			txt = t_; \
+		} \
+	} while (0)
+		XFS_PRINT ("Capcom XFS version %u, %u classes\n", rd_be16 (raw + 4), classes);
+		p = tab;
+		for (u32 c = 0; c < classes; c++)
+		{
+			const u32 members = rd_be32 (raw + p + 4) >> 17;
+			XFS_PRINT ("class %u: crc 0x%08x, %u members\n", c, rd_be32 (raw + p), members);
+			p += 8;
+			for (u32 m = 0; m < members; m++, p += 0x38)
+				XFS_PRINT ("  %s: type 0x%02x, flags 0x%02x, size %u\n",
+					   (ccp)raw + 0x10 + rd_be32 (raw + p), raw[p + 4], raw[p + 5], rd_be16 (raw + p + 6));
+		}
+#undef XFS_PRINT
+		ccp base = strrchr (arg, '/');
+		base = base ? base + 1 : arg;
+		char name[PATH_MAX];
+		snprintf (name, sizeof (name), "%s", base);
+		char *dot = strrchr (name, '.');
+		if (dot)
+			*dot = 0;
+		snprintf (name + strlen (name), sizeof (name) - strlen (name), ".txt");
+		nintendo_sarc_entry_t *entries = CALLOC (1, sizeof (*entries));
+		if (!entries || !OwnedEntryAdd (entries, 0, name, (u8 *)txt, used))
+		{
+			FREE (entries);
+			FREE (txt);
+			FREE (raw);
+			return ERR_OUT_OF_MEMORY;
+		}
+		FREE (txt);
+		FREE (raw);
+		return write_owned_entries (arg, basedir, depth, "CAPCOM-XFS", entries, 1);
+	}
+bad:
+	FREE (raw);
+	return ERR_NOTHING_TO_DO;
+}

@@ -9777,6 +9777,19 @@ with open(sys.argv[1], "wb") as f:
     fno "Capcom .lmt" "mk_caplmt.py failed"
   fi
 
+  # Capcom MT Framework Wii serialized object (Sengoku Basara 3)
+  mkdir -p "$d/capxfs_test"
+  if python3 "$PWD_PROJECT/../tests/mk_capxfs.py" "$d/capxfs_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/capxfs_test/t.xfs" --overwrite >/dev/null 2>&1 \
+    && grep -q "class 0: crc 0x1234abcd, 2 members" "$d/capxfs_test/t.xfs.d/t.txt" \
+    && grep -q "mAlpha: type 0x06, flags 0x00, size 8" "$d/capxfs_test/t.xfs.d/t.txt" \
+    && grep -q "mBeta: type 0x0c, flags 0x00, size 4" "$d/capxfs_test/t.xfs.d/t.txt" \
+    && fok "Capcom .xfs class layout listed" \
+    || fno "Capcom .xfs" "failed on synthetic t.xfs"
+  else
+    fno "Capcom .xfs" "mk_capxfs.py failed"
+  fi
+
   # Retro PAK v2 (Metroid Prime 3): LZO TXTR + CSMP
   mkdir -p "$d/retropak_test"
   if python3 "$PWD_PROJECT/../tests/mk_retropak.py" "$d/retropak_test" >/dev/null 2>&1; then
