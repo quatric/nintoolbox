@@ -9790,6 +9790,17 @@ with open(sys.argv[1], "wb") as f:
     fno "Capcom .xfs" "mk_capxfs.py failed"
   fi
 
+  # Havok-style .hvt texture (Aladdin Magic Racer)
+  mkdir -p "$d/hvt_test"
+  if python3 "$PWD_PROJECT/../tests/mk_hvt.py" "$d/hvt_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/hvt_test/t.hvt" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/hvt_test/t.hvt.png" | tail -c 3)" = "PNG" ] \
+    && fok "Havok .hvt texture decoded to PNG" \
+    || fno "Havok .hvt" "failed on synthetic t.hvt"
+  else
+    fno "Havok .hvt" "mk_hvt.py failed"
+  fi
+
   # Retro PAK v2 (Metroid Prime 3): LZO TXTR + CSMP
   mkdir -p "$d/retropak_test"
   if python3 "$PWD_PROJECT/../tests/mk_retropak.py" "$d/retropak_test" >/dev/null 2>&1; then

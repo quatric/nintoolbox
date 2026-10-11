@@ -118,6 +118,7 @@
 #include "extract/ttpl.inc"
 #include "extract/tplc.inc"
 #include "extract/texl.inc"
+#include "extract/hvt.inc"
 #include "extract/strt.inc"
 #include "extract/fuax.inc"
 #include "extract/stgs.inc"
