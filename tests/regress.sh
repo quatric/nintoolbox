@@ -9790,6 +9790,57 @@ with open(sys.argv[1], "wb") as f:
     fno "Capcom .xfs" "mk_capxfs.py failed"
   fi
 
+  # Capcom MT Framework Wii attack table (Sengoku Basara 3)
+  mkdir -p "$d/capatk_test"
+  if python3 "$PWD_PROJECT/../tests/mk_capatk.py" "$d/capatk_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/capatk_test/t.atk" --overwrite >/dev/null 2>&1 \
+    && grep -q "2 attacks" "$d/capatk_test/t.atk.d/t.txt" \
+    && grep -q "attack 0: name \"NONAME\", damage 120.0" "$d/capatk_test/t.atk.d/t.txt" \
+    && grep -q "attack 1: name \"SLASH\", damage 450.5" "$d/capatk_test/t.atk.d/t.txt" \
+    && fok "Capcom .atk attack table listed" \
+    || fno "Capcom .atk" "failed on synthetic t.atk"
+  else
+    fno "Capcom .atk" "mk_capatk.py failed"
+  fi
+
+  # Capcom MT Framework Wii actor index table (Sengoku Basara 3)
+  mkdir -p "$d/capidx_test"
+  if python3 "$PWD_PROJECT/../tests/mk_capidx.py" "$d/capidx_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/capidx_test/t.idx" --overwrite >/dev/null 2>&1 \
+    && grep -q "Capcom IDX 2 entries" "$d/capidx_test/t.idx.d/t.txt" \
+    && grep -q "entry 0: id 0x10" "$d/capidx_test/t.idx.d/t.txt" \
+    && grep -q "entry 1: id 0x20" "$d/capidx_test/t.idx.d/t.txt" \
+    && fok "Capcom .idx actor index table listed" \
+    || fno "Capcom .idx" "failed on synthetic t.idx"
+  else
+    fno "Capcom .idx" "mk_capidx.py failed"
+  fi
+
+  # Capcom MT Framework Wii effect link table (Sengoku Basara 3)
+  mkdir -p "$d/capeco_test"
+  if python3 "$PWD_PROJECT/../tests/mk_capeco.py" "$d/capeco_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/capeco_test/t.eco" --overwrite >/dev/null 2>&1 \
+    && grep -q "2 effect links" "$d/capeco_test/t.eco.d/t.txt" \
+    && grep -q "effect 0: id 1, path \"effect/fire\"" "$d/capeco_test/t.eco.d/t.txt" \
+    && grep -q "effect 1: id 2, unused" "$d/capeco_test/t.eco.d/t.txt" \
+    && fok "Capcom .eco effect link table listed" \
+    || fno "Capcom .eco" "failed on synthetic t.eco"
+  else
+    fno "Capcom .eco" "mk_capeco.py failed"
+  fi
+
+  # Capcom MT Framework Wii effect file (Sengoku Basara 3)
+  mkdir -p "$d/capefl_test"
+  if python3 "$PWD_PROJECT/../tests/mk_capefl.py" "$d/capefl_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/capefl_test/t.efl" --overwrite >/dev/null 2>&1 \
+    && grep -q "1 chunks, payload 64 bytes" "$d/capefl_test/t.efl.d/t.txt" \
+    && grep -q "chunk 0: type 0x10, offset 0x40" "$d/capefl_test/t.efl.d/t.txt" \
+    && fok "Capcom .efl effect file listed" \
+    || fno "Capcom .efl" "failed on synthetic t.efl"
+  else
+    fno "Capcom .efl" "mk_capefl.py failed"
+  fi
+
   # Havok-style .hvt texture (Aladdin Magic Racer)
   mkdir -p "$d/hvt_test"
   if python3 "$PWD_PROJECT/../tests/mk_hvt.py" "$d/hvt_test" >/dev/null 2>&1; then

@@ -350,3 +350,335 @@ bad:
 	FREE (raw);
 	return ERR_NOTHING_TO_DO;
 }
+
+// Capcom MT Framework Wii attack tables (Sengoku Basara 3 ".atk" = "\0KTA"): u16 version @4 (0x1021),
+// u16 count @6, followed by count 176-byte attack records {char name[8], u8 flags[8], f32 damage @0x10, ...}.
+// "<name>.txt" lists the validated attack records.
+static enumError extract_capcomatk_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".atk"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	if (sz < 8 || memcmp (raw, "\0KTA", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const uint ver = rd_be16 (raw + 4);
+	const uint count = rd_be16 (raw + 6);
+	if (!count || 8 + (size_t)count * 176 != sz)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	size_t cap = 256, used = 0;
+	char *txt = MALLOC (cap);
+	if (!txt)
+	{
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+#define ATK_PRINT(...) \
+	do { \
+		for (;;) { \
+			int n_ = snprintf (txt + used, cap - used, __VA_ARGS__); \
+			if (n_ >= 0 && (size_t)n_ < cap - used) { used += n_; break; } \
+			char *t_ = REALLOC (txt, cap *= 2); \
+			if (!t_) { FREE (txt); FREE (raw); return ERR_OUT_OF_MEMORY; } \
+			txt = t_; \
+		} \
+	} while (0)
+	ATK_PRINT ("Capcom ATK version 0x%04x, %u attacks\n", ver, count);
+	for (uint i = 0; i < count; i++)
+	{
+		const u8 *rec = raw + 8 + i * 176;
+		char name[9];
+		memcpy (name, rec, 8);
+		name[8] = 0;
+		for (int j = 7; j >= 0; j--)
+		{
+			if ((u8)name[j] <= ' ' || (u8)name[j] >= 0x7f)
+				name[j] = 0;
+			else
+				break;
+		}
+		u32 raw_dmg = rd_be32 (rec + 0x10);
+		float dmg = 0.0f;
+		memcpy (&dmg, &raw_dmg, sizeof (dmg));
+		ATK_PRINT ("attack %u: name \"%s\", damage %.1f, flags 0x%02x%02x%02x%02x, attr 0x%08x\n",
+			   i, name[0] ? name : "NONAME", dmg, rec[8], rec[9], rec[10], rec[11], rd_be32 (rec + 12));
+	}
+#undef ATK_PRINT
+	ccp base = strrchr (arg, '/');
+	base = base ? base + 1 : arg;
+	char name[PATH_MAX];
+	snprintf (name, sizeof (name), "%s", base);
+	char *dot = strrchr (name, '.');
+	if (dot)
+		*dot = 0;
+	snprintf (name + strlen (name), sizeof (name) - strlen (name), ".txt");
+	nintendo_sarc_entry_t *entries = CALLOC (1, sizeof (*entries));
+	if (!entries || !OwnedEntryAdd (entries, 0, name, (u8 *)txt, used))
+	{
+		FREE (entries);
+		FREE (txt);
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+	FREE (txt);
+	FREE (raw);
+	return write_owned_entries (arg, basedir, depth, "CAPCOM-ATK", entries, 1);
+}
+
+// Capcom MT Framework Wii actor index tables (Sengoku Basara 3 ".idx" = "\0XDI"): u32 count @4,
+// followed by count 4-byte mapping IDs, followed by count 20-byte record descriptors (u32[5]).
+// "<name>.txt" lists the index mapping table.
+static enumError extract_capcomidx_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".idx"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	if (sz < 8 || memcmp (raw, "\0XDI", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const u32 count = rd_be32 (raw + 4);
+	if (!count || 8 + (size_t)count * 24 != sz)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	size_t cap = 256, used = 0;
+	char *txt = MALLOC (cap);
+	if (!txt)
+	{
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+#define IDX_PRINT(...) \
+	do { \
+		for (;;) { \
+			int n_ = snprintf (txt + used, cap - used, __VA_ARGS__); \
+			if (n_ >= 0 && (size_t)n_ < cap - used) { used += n_; break; } \
+			char *t_ = REALLOC (txt, cap *= 2); \
+			if (!t_) { FREE (txt); FREE (raw); return ERR_OUT_OF_MEMORY; } \
+			txt = t_; \
+		} \
+	} while (0)
+	IDX_PRINT ("Capcom IDX %u entries\n", count);
+	const size_t rec_base = 8 + (size_t)count * 4;
+	for (u32 i = 0; i < count; i++)
+	{
+		const u32 id = rd_be32 (raw + 8 + i * 4);
+		const u8 *rec = raw + rec_base + i * 20;
+		IDX_PRINT ("entry %u: id 0x%x (%u), data [0x%x, 0x%x, 0x%x, 0x%x, 0x%x]\n",
+			   i, id, id, rd_be32 (rec), rd_be32 (rec + 4), rd_be32 (rec + 8), rd_be32 (rec + 12), rd_be32 (rec + 16));
+	}
+#undef IDX_PRINT
+	ccp base = strrchr (arg, '/');
+	base = base ? base + 1 : arg;
+	char name[PATH_MAX];
+	snprintf (name, sizeof (name), "%s", base);
+	char *dot = strrchr (name, '.');
+	if (dot)
+		*dot = 0;
+	snprintf (name + strlen (name), sizeof (name) - strlen (name), ".txt");
+	nintendo_sarc_entry_t *entries = CALLOC (1, sizeof (*entries));
+	if (!entries || !OwnedEntryAdd (entries, 0, name, (u8 *)txt, used))
+	{
+		FREE (entries);
+		FREE (txt);
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+	FREE (txt);
+	FREE (raw);
+	return write_owned_entries (arg, basedir, depth, "CAPCOM-IDX", entries, 1);
+}
+
+// Capcom MT Framework Wii effect link tables (Sengoku Basara 3 ".eco" = "\0OCE"): u16 version @4,
+// u16 count @6, u32 table offset @0x10. Followed by count 8-byte descriptors {u32 id, u32 str_offset}
+// pointing into NUL-terminated .efl path strings.
+// "<name>.txt" lists the linked effect files.
+static enumError extract_capcomeco_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".eco"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	if (sz < 0x14 || memcmp (raw, "\0OCE", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const uint ver = rd_be16 (raw + 4);
+	const uint count = rd_be16 (raw + 6);
+	const u32 toff = rd_be32 (raw + 0x10);
+	if (!count || toff > sz || 0x14 + (size_t)count * 8 > toff)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	for (uint i = 0; i < count; i++)
+	{
+		const u32 so = rd_be32 (raw + 0x14 + i * 8 + 4);
+		if (so != 0xffffffff && (toff + so >= sz || !memchr (raw + toff + so, 0, sz - (toff + so))))
+		{
+			FREE (raw);
+			return ERR_NOTHING_TO_DO;
+		}
+	}
+	size_t cap = 256, used = 0;
+	char *txt = MALLOC (cap);
+	if (!txt)
+	{
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+#define ECO_PRINT(...) \
+	do { \
+		for (;;) { \
+			int n_ = snprintf (txt + used, cap - used, __VA_ARGS__); \
+			if (n_ >= 0 && (size_t)n_ < cap - used) { used += n_; break; } \
+			char *t_ = REALLOC (txt, cap *= 2); \
+			if (!t_) { FREE (txt); FREE (raw); return ERR_OUT_OF_MEMORY; } \
+			txt = t_; \
+		} \
+	} while (0)
+	ECO_PRINT ("Capcom ECO version %u, %u effect links\n", ver, count);
+	for (uint i = 0; i < count; i++)
+	{
+		const u32 id = rd_be32 (raw + 0x14 + i * 8);
+		const u32 so = rd_be32 (raw + 0x14 + i * 8 + 4);
+		if (so == 0xffffffff)
+			ECO_PRINT ("effect %u: id %u, unused\n", i, id);
+		else
+			ECO_PRINT ("effect %u: id %u, path \"%s\"\n", i, id, (ccp)raw + toff + so);
+	}
+#undef ECO_PRINT
+	ccp base = strrchr (arg, '/');
+	base = base ? base + 1 : arg;
+	char name[PATH_MAX];
+	snprintf (name, sizeof (name), "%s", base);
+	char *dot = strrchr (name, '.');
+	if (dot)
+		*dot = 0;
+	snprintf (name + strlen (name), sizeof (name) - strlen (name), ".txt");
+	nintendo_sarc_entry_t *entries = CALLOC (1, sizeof (*entries));
+	if (!entries || !OwnedEntryAdd (entries, 0, name, (u8 *)txt, used))
+	{
+		FREE (entries);
+		FREE (txt);
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+	FREE (txt);
+	FREE (raw);
+	return write_owned_entries (arg, basedir, depth, "CAPCOM-ECO", entries, 1);
+}
+
+// Capcom MT Framework Wii effect files (Sengoku Basara 3 ".efl" = "\0LFE"): u32 date @4 (0x20090914),
+// u32 payload size @8, u32 count @0x0c, followed by 16-byte parameter/bounding header, followed by
+// count 16-byte effect chunk records {u32 d0, u32 d1, u32 d2, u32 d3}.
+// "<name>.txt" lists the effect chunks and offsets.
+static enumError extract_capcomefl_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".efl"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	if (sz < 0x20 || memcmp (raw, "\0LFE", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const u32 date = rd_be32 (raw + 4);
+	const u32 psz = rd_be32 (raw + 8);
+	const u32 count = rd_be32 (raw + 12);
+	if (!count || 0x20 + psz != sz || 0x20 + (size_t)count * 16 > sz)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	for (u32 i = 0; i < count; i++)
+	{
+		const u32 d0 = rd_be32 (raw + 0x20 + i * 16);
+		const size_t off = 0x20 + (size_t)(d0 & 0x00ffffff);
+		if (off >= sz)
+		{
+			FREE (raw);
+			return ERR_NOTHING_TO_DO;
+		}
+	}
+	size_t cap = 256, used = 0;
+	char *txt = MALLOC (cap);
+	if (!txt)
+	{
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+#define EFL_PRINT(...) \
+	do { \
+		for (;;) { \
+			int n_ = snprintf (txt + used, cap - used, __VA_ARGS__); \
+			if (n_ >= 0 && (size_t)n_ < cap - used) { used += n_; break; } \
+			char *t_ = REALLOC (txt, cap *= 2); \
+			if (!t_) { FREE (txt); FREE (raw); return ERR_OUT_OF_MEMORY; } \
+			txt = t_; \
+		} \
+	} while (0)
+	EFL_PRINT ("Capcom EFL date 0x%08x, %u chunks, payload %u bytes\n", date, count, psz);
+	for (u32 i = 0; i < count; i++)
+	{
+		const u32 d0 = rd_be32 (raw + 0x20 + i * 16);
+		const u32 d1 = rd_be32 (raw + 0x20 + i * 16 + 4);
+		const u32 d2 = rd_be32 (raw + 0x20 + i * 16 + 8);
+		const u32 d3 = rd_be32 (raw + 0x20 + i * 16 + 12);
+		EFL_PRINT ("chunk %u: type 0x%02x, offset 0x%x, d1 0x%08x, ref 0x%08x 0x%08x\n",
+			   i, d0 >> 24, (uint)(0x20 + (d0 & 0x00ffffff)), d1, d2, d3);
+	}
+#undef EFL_PRINT
+	ccp base = strrchr (arg, '/');
+	base = base ? base + 1 : arg;
+	char name[PATH_MAX];
+	snprintf (name, sizeof (name), "%s", base);
+	char *dot = strrchr (name, '.');
+	if (dot)
+		*dot = 0;
+	snprintf (name + strlen (name), sizeof (name) - strlen (name), ".txt");
+	nintendo_sarc_entry_t *entries = CALLOC (1, sizeof (*entries));
+	if (!entries || !OwnedEntryAdd (entries, 0, name, (u8 *)txt, used))
+	{
+		FREE (entries);
+		FREE (txt);
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+	FREE (txt);
+	FREE (raw);
+	return write_owned_entries (arg, basedir, depth, "CAPCOM-EFL", entries, 1);
+}
+
