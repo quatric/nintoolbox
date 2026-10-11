@@ -4,6 +4,11 @@
 
 static enumError extract_treasuremrg_file (ccp arg, ccp basedir, uint depth)
 {
+	// Koei Tecmo/Gust .tvol shares this count + offset/size table layout; the
+	// extension-gated TVOL extractor owns those files.
+	if (is_ext_match (arg, ".tvol"))
+		return ERR_NOTHING_TO_DO;
+
 	FILE *f = fopen (arg, "rb");
 	if (!f)
 		return ERR_NOTHING_TO_DO;
