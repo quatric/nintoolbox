@@ -9878,6 +9878,43 @@ with open(sys.argv[1], "wb") as f:
     fno "Capcom .qers" "mk_capqers.py failed"
   fi
 
+  # Capcom MT Framework Wii collision table (Sengoku Basara 3)
+  mkdir -p "$d/capcol_test"
+  if python3 "$PWD_PROJECT/../tests/mk_capcol.py" "$d/capcol_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/capcol_test/t.col" --overwrite >/dev/null 2>&1 \
+    && grep -q "Capcom COL version 2, 2 collision groups" "$d/capcol_test/t.col.d/t.txt" \
+    && grep -q "group 0: flags 0xffffffff 0xffffffff, 1 shapes" "$d/capcol_test/t.col.d/t.txt" \
+    && fok "Capcom .col collision table listed" \
+    || fno "Capcom .col" "failed on synthetic t.col"
+  else
+    fno "Capcom .col" "mk_capcol.py failed"
+  fi
+
+  # Capcom MT Framework Wii AI decision trees (Sengoku Basara 3)
+  mkdir -p "$d/capthk_test"
+  if python3 "$PWD_PROJECT/../tests/mk_capthk.py" "$d/capthk_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/capthk_test/t.thk" --overwrite >/dev/null 2>&1 \
+    && grep -q "Capcom THK version 0x14100000, 2 decision trees" "$d/capthk_test/t.thk.d/t.txt" \
+    && grep -q "tree 0: 3 nodes" "$d/capthk_test/t.thk.d/t.txt" \
+    && grep -q "tree 1: 2 nodes" "$d/capthk_test/t.thk.d/t.txt" \
+    && fok "Capcom .thk AI decision trees listed" \
+    || fno "Capcom .thk" "failed on synthetic t.thk"
+  else
+    fno "Capcom .thk" "mk_capthk.py failed"
+  fi
+
+  # Capcom MT Framework Wii animation/texture SRT table (Sengoku Basara 3)
+  mkdir -p "$d/capastl_test"
+  if python3 "$PWD_PROJECT/../tests/mk_capastl.py" "$d/capastl_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/capastl_test/t.astl" --overwrite >/dev/null 2>&1 \
+    && [ -f "$d/capastl_test/t.astl.d/t.brres" ] \
+    && [ "$(head -c 4 "$d/capastl_test/t.astl.d/t.brres")" = "bres" ] \
+    && fok "Capcom .astl SRT table extracted BRRES" \
+    || fno "Capcom .astl" "failed on synthetic t.astl"
+  else
+    fno "Capcom .astl" "mk_capastl.py failed"
+  fi
+
   # Havok-style .hvt texture (Aladdin Magic Racer)
   mkdir -p "$d/hvt_test"
   if python3 "$PWD_PROJECT/../tests/mk_hvt.py" "$d/hvt_test" >/dev/null 2>&1; then

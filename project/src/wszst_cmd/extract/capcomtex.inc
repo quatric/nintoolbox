@@ -916,4 +916,225 @@ static enumError extract_capcomqers_file (ccp arg, ccp basedir, uint depth)
 	return write_owned_entries (arg, basedir, depth, "CAPCOM-QERS", entries, 1);
 }
 
+// Capcom MT Framework Wii collision tables (Sengoku Basara 3 ".col" = "\0LOC"): u16 version @4 (2),
+// u16 count @6, followed by count groups with sub-chunks of collision volumes.
+// "<name>.txt" lists the collision groups and shape sub-chunks.
+static enumError extract_capcomcol_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".col"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	if (sz < 8 || memcmp (raw, "\0LOC", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const uint ver = rd_be16 (raw + 4);
+	const uint count = rd_be16 (raw + 6);
+	if (!count)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	size_t pos = 8;
+	for (uint i = 0; i < count; i++)
+	{
+		if (pos + 16 > sz)
+		{
+			FREE (raw);
+			return ERR_NOTHING_TO_DO;
+		}
+		const u32 subcount = rd_be32 (raw + pos + 8);
+		pos += 16 + (size_t)subcount * 64;
+	}
+	if (pos + 8 != sz)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	size_t cap = 256, used = 0;
+	char *txt = MALLOC (cap);
+	if (!txt)
+	{
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+#define COL_PRINT(...) \
+	do { \
+		for (;;) { \
+			int n_ = snprintf (txt + used, cap - used, __VA_ARGS__); \
+			if (n_ >= 0 && (size_t)n_ < cap - used) { used += n_; break; } \
+			char *t_ = REALLOC (txt, cap *= 2); \
+			if (!t_) { FREE (txt); FREE (raw); return ERR_OUT_OF_MEMORY; } \
+			txt = t_; \
+		} \
+	} while (0)
+	COL_PRINT ("Capcom COL version %u, %u collision groups\n", ver, count);
+	pos = 8;
+	for (uint i = 0; i < count; i++)
+	{
+		const u32 u0 = rd_be32 (raw + pos);
+		const u32 u1 = rd_be32 (raw + pos + 4);
+		const u32 subcount = rd_be32 (raw + pos + 8);
+		const u32 unk = rd_be32 (raw + pos + 12);
+		COL_PRINT ("group %u: flags 0x%08x 0x%08x, %u shapes (type 0x%x)\n", i, u0, u1, subcount, unk);
+		pos += 16;
+		for (uint s = 0; s < subcount; s++)
+		{
+			const u8 *rec = raw + pos;
+			const u32 s_bone = rd_be32 (rec + 12);
+			const u32 s_flag = rd_be32 (rec + 16);
+			COL_PRINT ("  shape %u: bone 0x%x, flag 0x%x\n", s, s_bone, s_flag);
+			pos += 64;
+		}
+	}
+#undef COL_PRINT
+	ccp base = strrchr (arg, '/');
+	base = base ? base + 1 : arg;
+	char name[PATH_MAX];
+	snprintf (name, sizeof (name), "%s", base);
+	char *dot = strrchr (name, '.');
+	if (dot)
+		*dot = 0;
+	snprintf (name + strlen (name), sizeof (name) - strlen (name), ".txt");
+	nintendo_sarc_entry_t *entries = CALLOC (1, sizeof (*entries));
+	if (!entries || !OwnedEntryAdd (entries, 0, name, (u8 *)txt, used))
+	{
+		FREE (entries);
+		FREE (txt);
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+	FREE (txt);
+	FREE (raw);
+	return write_owned_entries (arg, basedir, depth, "CAPCOM-COL", entries, 1);
+}
+
+// Capcom MT Framework Wii AI decision trees (Sengoku Basara 3 ".thk" = "\0KHT"): u32 version @4,
+// u32 count @8, followed by count tree headers pointing to 176-byte behavior node records.
+// "<name>.txt" lists the AI decision trees and their behavior node counts.
+static enumError extract_capcomthk_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".thk"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	if (sz < 16 || memcmp (raw, "\0KHT", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const u32 ver = rd_be32 (raw + 4);
+	const u32 count = rd_be32 (raw + 8);
+	if (!count || 16 + (size_t)count * 16 > sz)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	size_t cap = 256, used = 0;
+	char *txt = MALLOC (cap);
+	if (!txt)
+	{
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+#define THK_PRINT(...) \
+	do { \
+		for (;;) { \
+			int n_ = snprintf (txt + used, cap - used, __VA_ARGS__); \
+			if (n_ >= 0 && (size_t)n_ < cap - used) { used += n_; break; } \
+			char *t_ = REALLOC (txt, cap *= 2); \
+			if (!t_) { FREE (txt); FREE (raw); return ERR_OUT_OF_MEMORY; } \
+			txt = t_; \
+		} \
+	} while (0)
+	THK_PRINT ("Capcom THK version 0x%08x, %u decision trees\n", ver, count);
+	for (u32 i = 0; i < count; i++)
+	{
+		const u8 *entry = raw + 16 + i * 16;
+		const u32 u0 = rd_be32 (entry);
+		const u32 offset = rd_be32 (entry + 4);
+		const u32 nodes = u0 >> 24;
+		THK_PRINT ("tree %u: %u nodes, offset 0x%04x\n", i, nodes, offset);
+	}
+#undef THK_PRINT
+	ccp base = strrchr (arg, '/');
+	base = base ? base + 1 : arg;
+	char name[PATH_MAX];
+	snprintf (name, sizeof (name), "%s", base);
+	char *dot = strrchr (name, '.');
+	if (dot)
+		*dot = 0;
+	snprintf (name + strlen (name), sizeof (name) - strlen (name), ".txt");
+	nintendo_sarc_entry_t *entries = CALLOC (1, sizeof (*entries));
+	if (!entries || !OwnedEntryAdd (entries, 0, name, (u8 *)txt, used))
+	{
+		FREE (entries);
+		FREE (txt);
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+	FREE (txt);
+	FREE (raw);
+	return write_owned_entries (arg, basedir, depth, "CAPCOM-THK", entries, 1);
+}
+
+// Capcom MT Framework Wii animation/texture SRT tables (Sengoku Basara 3 ".astl" = "ASTL"):
+// wraps a NW4R BRRES (holding AnmTexSrt SRT0) at offset @0x144, size @0x140.
+// Unwrapped to "<name>.brres".
+static enumError extract_capcomastl_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".astl"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	if (sz < 0x160 || memcmp (raw, "ASTL", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const u32 bres_sz = rd_be32 (raw + 0x140);
+	const u32 bres_off = rd_be32 (raw + 0x144);
+	if (!bres_off || bres_off + 16 > sz || memcmp (raw + bres_off, "bres", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const size_t len = (bres_sz && bres_off + bres_sz <= sz) ? bres_sz : (sz - bres_off);
+	ccp base = strrchr (arg, '/');
+	base = base ? base + 1 : arg;
+	char name[PATH_MAX];
+	snprintf (name, sizeof (name), "%s", base);
+	char *dot = strrchr (name, '.');
+	if (dot)
+		*dot = 0;
+	snprintf (name + strlen (name), sizeof (name) - strlen (name), ".brres");
+	nintendo_sarc_entry_t *entries = CALLOC (1, sizeof (*entries));
+	if (!entries || !OwnedEntryAdd (entries, 0, name, raw + bres_off, len))
+	{
+		FREE (entries);
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+	FREE (raw);
+	return write_owned_entries (arg, basedir, depth, "CAPCOM-ASTL", entries, 1);
+}
+
+
 
