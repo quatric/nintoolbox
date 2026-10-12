@@ -69,6 +69,28 @@ class CingWpfTests(unittest.TestCase):
                 self.assertTrue(out_file.exists(), f"Missing extracted file {name}")
                 self.assertEqual(out_file.read_bytes(), payload)
 
+    def test_create_and_roundtrip(self):
+        with tempfile.TemporaryDirectory() as td:
+            src_dir = Path(td) / "source_data"
+            src_dir.mkdir()
+            (src_dir / "member1.bin").write_bytes(b"First member payload")
+            (src_dir / "member2.txt").write_bytes(b"Second member text")
+            rebuilt_wpf = Path(td) / "rebuilt.wpf"
+
+            # Create archive from directory
+            subprocess.run([str(WSZST), "create", str(src_dir), "-d", str(rebuilt_wpf)], check=True)
+            self.assertTrue(rebuilt_wpf.exists())
+
+            # Verify filetype
+            res = subprocess.run([str(WSZST), "filetype", str(rebuilt_wpf)], capture_output=True, text=True, check=True)
+            self.assertIn("CING-WPF", res.stdout)
+
+            # Extract rebuilt archive and verify byte identity
+            out_dir = Path(td) / "re_extracted"
+            subprocess.run([str(WSZST), "extract", str(rebuilt_wpf), "-d", str(out_dir)], check=True)
+            self.assertEqual((out_dir / "member1.bin").read_bytes(), b"First member payload")
+            self.assertEqual((out_dir / "member2.txt").read_bytes(), b"Second member text")
+
 
 if __name__ == "__main__":
     unittest.main()

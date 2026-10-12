@@ -177,3 +177,88 @@ enumError CingWpfParse (cingwpf_t *wpf, const u8 *d, size_t size, u64 file_size)
 	wpf->n = out_idx;
 	return ERR_OK;
 }
+
+#include "lib-archive-util.h"
+
+// Repack a directory extracted by extract_cingwpf_file() into a CiNG Wish Pack File (*.wpf).
+enumError create_wpf_dir (ccp source, ccp dest)
+{
+	sarc_build_list_t list = { 0 };
+	enumError err = collect_sarc_dir (&list, source, "");
+	if (!err && !list.used)
+		err = ERR_NOTHING_TO_DO;
+
+	if (!err)
+	{
+		for (uint i = 0; i < list.used; i++)
+		{
+			ccp name = list.entry[i].name ? list.entry[i].name : "";
+			while (*name == '/' || *name == '\\')
+				name++;
+			if (strlen (name) > 22) // prefixed with '\' and NUL-terminated fits in 24 bytes
+			{
+				err = ERROR0 (ERR_INVALID_DATA,
+					"CiNG WPF member name exceeds the format's 23-byte field: %s\n", name);
+				break;
+			}
+		}
+	}
+
+	u8 *out = 0;
+	uint total = 0;
+	if (!err)
+	{
+		// Calculate total archive size
+		for (uint i = 0; i < list.used; i++)
+		{
+			uint padded = (list.entry[i].size + 15) & ~15u;
+			total += CINGWPF_HDR_SIZE + padded;
+		}
+
+		out = CALLOC (1, total ? total : 1);
+		if (!out)
+			err = ERR_CANT_CREATE;
+		else
+		{
+			uint cur_off = 0;
+			for (uint i = 0; i < list.used; i++)
+			{
+				ccp name = list.entry[i].name ? list.entry[i].name : "";
+				while (*name == '/' || *name == '\\')
+					name++;
+
+				uint fsize = list.entry[i].size;
+				uint padded = (fsize + 15) & ~15u;
+				uint next_off = cur_off + CINGWPF_HDR_SIZE + padded;
+
+				u8 *hdr = out + cur_off;
+				// Format name with leading backslash
+				hdr[0] = '\\';
+				strncpy ((char *)hdr + 1, name, 22);
+
+				// Little-endian fsize and next_offset
+				wr_le32 (hdr + 24, fsize);
+				wr_le32 (hdr + 28, next_off);
+
+				if (list.entry[i].data && fsize)
+					memcpy (out + cur_off + CINGWPF_HDR_SIZE, list.entry[i].data, fsize);
+
+				cur_off = next_off;
+			}
+		}
+	}
+
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, dest);
+		if (F.f && fwrite (out, 1, total, F.f) != total)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", total, dest);
+		ResetFile (&F, opt_preserve);
+	}
+
+	FREE (out);
+	reset_sarc_build_list (&list);
+	return err;
+}
+

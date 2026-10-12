@@ -9915,6 +9915,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Capcom .astl" "mk_capastl.py failed"
   fi
 
+  # CiNG Wish Pack File (Hotel Dusk: Room 215) create -> extract roundtrip
+  mkdir -p "$d/wpf_test/src"
+  printf "Member One Data 12345" > "$d/wpf_test/src/item1.bin"
+  printf "Member Two Data 67890ABC" > "$d/wpf_test/src/item2.txt"
+  "$B/wszst" create "$d/wpf_test/src" -d "$d/wpf_test/rebuilt.wpf" --overwrite >/dev/null 2>&1 \
+  && "$B/wszst" filetype "$d/wpf_test/rebuilt.wpf" | grep -q "CING-WPF" \
+  && "$B/wszst" x "$d/wpf_test/rebuilt.wpf" -d "$d/wpf_test/out" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/wpf_test/src/item1.bin" "$d/wpf_test/out/item1.bin" \
+  && cmp -s "$d/wpf_test/src/item2.txt" "$d/wpf_test/out/item2.txt" \
+  && fok "CiNG .wpf create -> extract roundtrip content-identical" \
+  || fno "CiNG .wpf" "failed create -> extract roundtrip"
+
   # Havok-style .hvt texture (Aladdin Magic Racer)
   mkdir -p "$d/hvt_test"
   if python3 "$PWD_PROJECT/../tests/mk_hvt.py" "$d/hvt_test" >/dev/null 2>&1; then

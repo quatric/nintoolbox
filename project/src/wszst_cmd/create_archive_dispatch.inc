@@ -141,6 +141,8 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest, int known_lz
 	}
 	if (!strcasecmp (ext, ".vcra"))
 		return create_vcra_dir (source_dir, dest);
+	if (!strcasecmp (ext, ".wpf"))
+		return create_wpf_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".apak"))
 		return create_apak_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".nxarc"))

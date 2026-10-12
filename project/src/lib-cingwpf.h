@@ -34,5 +34,6 @@ typedef struct cingwpf_t
 bool IsCingWpf (const u8 *head, size_t head_size, u64 file_size);
 enumError CingWpfParse (cingwpf_t *wpf, const u8 *d, size_t size, u64 file_size);
 void CingWpfFree (cingwpf_t *wpf);
+enumError create_wpf_dir (ccp source, ccp dest);
 
 #endif
