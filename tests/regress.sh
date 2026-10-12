@@ -9841,6 +9841,43 @@ with open(sys.argv[1], "wb") as f:
     fno "Capcom .efl" "mk_capefl.py failed"
   fi
 
+  # Capcom MT Framework Wii scripted resource table (Sengoku Basara 3)
+  mkdir -p "$d/capscra_test"
+  if python3 "$PWD_PROJECT/../tests/mk_capscra.py" "$d/capscra_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/capscra_test/t.scra" --overwrite >/dev/null 2>&1 \
+    && grep -q "Capcom SCRA version 7, 2 resource references" "$d/capscra_test/t.scra.d/t.txt" \
+    && grep -q "ref 0: type 0x12345678, resource 0x9abcdef0" "$d/capscra_test/t.scra.d/t.txt" \
+    && fok "Capcom .scra resource table listed" \
+    || fno "Capcom .scra" "failed on synthetic t.scra"
+  else
+    fno "Capcom .scra" "mk_capscra.py failed"
+  fi
+
+  # Capcom MT Framework Wii surround sound parameter table (Sengoku Basara 3)
+  mkdir -p "$d/capsrnd_test"
+  if python3 "$PWD_PROJECT/../tests/mk_capsrnd.py" "$d/capsrnd_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/capsrnd_test/t.srnd" --overwrite >/dev/null 2>&1 \
+    && grep -q "Capcom SRND version 2, 2 sound definitions" "$d/capsrnd_test/t.srnd.d/t.txt" \
+    && grep -q "sound 0: id 0x1001" "$d/capsrnd_test/t.srnd.d/t.txt" \
+    && fok "Capcom .srnd surround sound parameter table listed" \
+    || fno "Capcom .srnd" "failed on synthetic t.srnd"
+  else
+    fno "Capcom .srnd" "mk_capsrnd.py failed"
+  fi
+
+  # Capcom MT Framework Wii sound event request table (Sengoku Basara 3)
+  mkdir -p "$d/capqers_test"
+  if python3 "$PWD_PROJECT/../tests/mk_capqers.py" "$d/capqers_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/capqers_test/t.qers" --overwrite >/dev/null 2>&1 \
+    && grep -q "Capcom QERS version 19, 2 sound events" "$d/capqers_test/t.qers.d/t.txt" \
+    && grep -q "event 0: id 0x101" "$d/capqers_test/t.qers.d/t.txt" \
+    && grep -q 'bank 0: "_common_sound"' "$d/capqers_test/t.qers.d/t.txt" \
+    && fok "Capcom .qers sound event request table listed" \
+    || fno "Capcom .qers" "failed on synthetic t.qers"
+  else
+    fno "Capcom .qers" "mk_capqers.py failed"
+  fi
+
   # Havok-style .hvt texture (Aladdin Magic Racer)
   mkdir -p "$d/hvt_test"
   if python3 "$PWD_PROJECT/../tests/mk_hvt.py" "$d/hvt_test" >/dev/null 2>&1; then

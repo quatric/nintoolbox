@@ -533,6 +533,15 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_capcomefl_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_capcomscra_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_capcomsrnd_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_capcomqers_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_capcaps_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

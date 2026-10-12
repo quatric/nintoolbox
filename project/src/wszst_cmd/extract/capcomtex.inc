@@ -682,3 +682,238 @@ static enumError extract_capcomefl_file (ccp arg, ccp basedir, uint depth)
 	return write_owned_entries (arg, basedir, depth, "CAPCOM-EFL", entries, 1);
 }
 
+// Capcom MT Framework Wii scripted resource tables (Sengoku Basara 3 ".scra" = "SCRA"): u16 version @4 (7),
+// u16 count @6, followed by count 8-byte resource descriptors {u32 type_hash, u32 resource_hash}.
+// "<name>.txt" lists the referenced resource hashes.
+static enumError extract_capcomscra_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".scra"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	if (sz < 8 || memcmp (raw, "SCRA", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const uint ver = rd_be16 (raw + 4);
+	const uint count = rd_be16 (raw + 6);
+	if (!count || 8 + (size_t)count * 8 != sz)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	size_t cap = 256, used = 0;
+	char *txt = MALLOC (cap);
+	if (!txt)
+	{
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+#define SCRA_PRINT(...) \
+	do { \
+		for (;;) { \
+			int n_ = snprintf (txt + used, cap - used, __VA_ARGS__); \
+			if (n_ >= 0 && (size_t)n_ < cap - used) { used += n_; break; } \
+			char *t_ = REALLOC (txt, cap *= 2); \
+			if (!t_) { FREE (txt); FREE (raw); return ERR_OUT_OF_MEMORY; } \
+			txt = t_; \
+		} \
+	} while (0)
+	SCRA_PRINT ("Capcom SCRA version %u, %u resource references\n", ver, count);
+	for (uint i = 0; i < count; i++)
+	{
+		const u32 type_hash = rd_be32 (raw + 8 + i * 8);
+		const u32 res_hash = rd_be32 (raw + 8 + i * 8 + 4);
+		SCRA_PRINT ("ref %u: type 0x%08x, resource 0x%08x\n", i, type_hash, res_hash);
+	}
+#undef SCRA_PRINT
+	ccp base = strrchr (arg, '/');
+	base = base ? base + 1 : arg;
+	char name[PATH_MAX];
+	snprintf (name, sizeof (name), "%s", base);
+	char *dot = strrchr (name, '.');
+	if (dot)
+		*dot = 0;
+	snprintf (name + strlen (name), sizeof (name) - strlen (name), ".txt");
+	nintendo_sarc_entry_t *entries = CALLOC (1, sizeof (*entries));
+	if (!entries || !OwnedEntryAdd (entries, 0, name, (u8 *)txt, used))
+	{
+		FREE (entries);
+		FREE (txt);
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+	FREE (txt);
+	FREE (raw);
+	return write_owned_entries (arg, basedir, depth, "CAPCOM-SCRA", entries, 1);
+}
+
+// Capcom MT Framework Wii surround sound parameter tables (Sengoku Basara 3 ".srnd" = "SRND"): u32 version @4 (2),
+// u32 count @8, followed by count 140-byte sound records {u32 sound_id, u32 flags, ...}.
+// "<name>.txt" lists the surround sound parameters.
+static enumError extract_capcomsrnd_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".srnd"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	if (sz < 16 || memcmp (raw, "SRND", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const u32 ver = rd_be32 (raw + 4);
+	const u32 count = rd_be32 (raw + 8);
+	if (!count || 16 + (size_t)count * 140 != sz)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	size_t cap = 256, used = 0;
+	char *txt = MALLOC (cap);
+	if (!txt)
+	{
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+#define SRND_PRINT(...) \
+	do { \
+		for (;;) { \
+			int n_ = snprintf (txt + used, cap - used, __VA_ARGS__); \
+			if (n_ >= 0 && (size_t)n_ < cap - used) { used += n_; break; } \
+			char *t_ = REALLOC (txt, cap *= 2); \
+			if (!t_) { FREE (txt); FREE (raw); return ERR_OUT_OF_MEMORY; } \
+			txt = t_; \
+		} \
+	} while (0)
+	SRND_PRINT ("Capcom SRND version %u, %u sound definitions\n", ver, count);
+	for (u32 i = 0; i < count; i++)
+	{
+		const u8 *rec = raw + 16 + i * 140;
+		const u32 sound_id = rd_be32 (rec);
+		const u32 flags = rd_be32 (rec + 4);
+		SRND_PRINT ("sound %u: id 0x%x (%u), flags 0x%08x\n", i, sound_id, sound_id, flags);
+	}
+#undef SRND_PRINT
+	ccp base = strrchr (arg, '/');
+	base = base ? base + 1 : arg;
+	char name[PATH_MAX];
+	snprintf (name, sizeof (name), "%s", base);
+	char *dot = strrchr (name, '.');
+	if (dot)
+		*dot = 0;
+	snprintf (name + strlen (name), sizeof (name) - strlen (name), ".txt");
+	nintendo_sarc_entry_t *entries = CALLOC (1, sizeof (*entries));
+	if (!entries || !OwnedEntryAdd (entries, 0, name, (u8 *)txt, used))
+	{
+		FREE (entries);
+		FREE (txt);
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+	FREE (txt);
+	FREE (raw);
+	return write_owned_entries (arg, basedir, depth, "CAPCOM-SRND", entries, 1);
+}
+
+// Capcom MT Framework Wii sound event request tables (Sengoku Basara 3 ".qers" = "QERS"): u32 version @4 (19),
+// u32 count @8, followed by count 144-byte sound event records, followed by optional string table.
+// "<name>.txt" lists the sound event requests and referenced sound bank paths.
+static enumError extract_capcomqers_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".qers"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	if (sz < 128 || memcmp (raw, "QERS", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const u32 ver = rd_be32 (raw + 4);
+	const u32 count = rd_be32 (raw + 8);
+	if (!count || 128 + (size_t)count * 144 > sz)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	size_t cap = 256, used = 0;
+	char *txt = MALLOC (cap);
+	if (!txt)
+	{
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+#define QERS_PRINT(...) \
+	do { \
+		for (;;) { \
+			int n_ = snprintf (txt + used, cap - used, __VA_ARGS__); \
+			if (n_ >= 0 && (size_t)n_ < cap - used) { used += n_; break; } \
+			char *t_ = REALLOC (txt, cap *= 2); \
+			if (!t_) { FREE (txt); FREE (raw); return ERR_OUT_OF_MEMORY; } \
+			txt = t_; \
+		} \
+	} while (0)
+	QERS_PRINT ("Capcom QERS version %u, %u sound events\n", ver, count);
+	for (u32 i = 0; i < count; i++)
+	{
+		const u8 *rec = raw + 128 + i * 144;
+		const u32 id = rd_be32 (rec + 24);
+		const u32 flags = rd_be32 (rec + 28);
+		QERS_PRINT ("event %u: id 0x%x, flags 0x%08x\n", i, id, flags);
+	}
+	const size_t str_base = 128 + (size_t)count * 144;
+	if (str_base < sz)
+	{
+		size_t p = str_base;
+		uint bidx = 0;
+		while (p < sz)
+		{
+			while (p < sz && !raw[p])
+				p++;
+			if (p >= sz)
+				break;
+			size_t len = strlen ((ccp)raw + p);
+			QERS_PRINT ("bank %u: \"%s\"\n", bidx++, (ccp)raw + p);
+			p += len + 1;
+		}
+	}
+#undef QERS_PRINT
+	ccp base = strrchr (arg, '/');
+	base = base ? base + 1 : arg;
+	char name[PATH_MAX];
+	snprintf (name, sizeof (name), "%s", base);
+	char *dot = strrchr (name, '.');
+	if (dot)
+		*dot = 0;
+	snprintf (name + strlen (name), sizeof (name) - strlen (name), ".txt");
+	nintendo_sarc_entry_t *entries = CALLOC (1, sizeof (*entries));
+	if (!entries || !OwnedEntryAdd (entries, 0, name, (u8 *)txt, used))
+	{
+		FREE (entries);
+		FREE (txt);
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+	FREE (txt);
+	FREE (raw);
+	return write_owned_entries (arg, basedir, depth, "CAPCOM-QERS", entries, 1);
+}
+
+
