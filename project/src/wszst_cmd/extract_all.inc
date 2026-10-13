@@ -172,6 +172,7 @@
 #include "extract/avdict.inc"
 #include "extract/avdbl.inc"
 #include "extract/dds.inc"
+#include "extract/wwisebnk.inc"
 #include "extract/mhsrt.inc"
 #include "extract/gts.inc"
 #include "extract/retropak.inc"

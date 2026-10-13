@@ -9999,6 +9999,19 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # Wwise sound bank (Epic Mickey)
+  mkdir -p "$d/wwisebnk_test"
+  if python3 "$PWD_PROJECT/../tests/mk_wwisebnk.py" "$d/wwisebnk_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/wwisebnk_test/t.bnk" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 0x1c -l 4 -p "$d/wwisebnk_test/t.bnk.d/4242.dsp")" = "00010002" ] \
+    && [ "$(xxd -s 8 -l 4 -p "$d/wwisebnk_test/t.bnk.d/4242.dsp")" = "00003e80" ] \
+    && [ -f "$d/wwisebnk_test/t.bnk.d/7.wem" ] \
+    && fok "Wwise .bnk split into DSP / WEM media" \
+    || fno "Wwise bank" "failed on synthetic t.bnk"
+  else
+    fno "Wwise bank" "mk_wwisebnk.py failed"
+  fi
+
   # DDS texture decode via xx (Epic Mickey)
   mkdir -p "$d/dds_test"
   if python3 "$PWD_PROJECT/../tests/mk_dds.py" "$d/dds_test" >/dev/null 2>&1; then
