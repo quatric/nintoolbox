@@ -9999,6 +9999,19 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # Avalanche DICT localisation dictionary (Disney's Bolt)
+  mkdir -p "$d/avdict_test"
+  if python3 "$PWD_PROJECT/../tests/mk_avdict.py" "$d/avdict_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/avdict_test/t.dct" --overwrite >/dev/null 2>&1 \
+    && grep -q '^0: Hello\\nthere$' "$d/avdict_test/t.dct.d/t.txt" \
+    && grep -q '^2: Bolt… speak!$' "$d/avdict_test/t.dct.d/t.txt" \
+    && [ "$(wc -l < "$d/avdict_test/t.dct.d/t.txt" | tr -d ' ')" = 20 ] \
+    && fok "Avalanche .dct string pool listed" \
+    || fno "Avalanche DICT" "failed on synthetic t.dct"
+  else
+    fno "Avalanche DICT" "mk_avdict.py failed"
+  fi
+
   # Sega GTS texture set (Ghost Squad)
   mkdir -p "$d/gts_test"
   if python3 "$PWD_PROJECT/../tests/mk_gts.py" "$d/gts_test" >/dev/null 2>&1; then
