@@ -199,6 +199,7 @@
 #include "extract/timg.inc"
 #include "extract/liblue.inc"
 #include "extract/muranms.inc"
+#include "extract/asura.inc"
 #include "extract/mhsrt.inc"
 #include "extract/gts.inc"
 #include "extract/retropak.inc"
