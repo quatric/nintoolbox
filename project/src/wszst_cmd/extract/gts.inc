@@ -58,7 +58,7 @@ static enumError extract_gts_file (ccp arg, ccp basedir, uint depth)
 	if (ok && n)
 		err = write_owned_entries (arg, basedir, depth, "GTS", entries, n);
 	else
-		FREE (entries);
+		ResetOwnedEntries (entries, n);
 	FREE (raw);
 	return err;
 }

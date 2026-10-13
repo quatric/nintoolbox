@@ -55,7 +55,7 @@ static enumError extract_txag_file (ccp arg, ccp basedir, uint depth)
 	if (ok && n)
 		err = write_owned_entries (arg, basedir, depth, "TXAG", entries, n);
 	else
-		FREE (entries);
+		ResetOwnedEntries (entries, n);
 	FREE (raw);
 	return err;
 }

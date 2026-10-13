@@ -74,7 +74,7 @@ static enumError extract_pbin_file (ccp arg, ccp basedir, uint depth)
 	if (ok && n)
 		err = write_owned_entries (arg, basedir, depth, "PBIN", entries, n);
 	else
-		FREE (entries);
+		ResetOwnedEntries (entries, n);
 	FREE (raw);
 	return err;
 }

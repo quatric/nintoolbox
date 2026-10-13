@@ -140,7 +140,7 @@ static enumError extract_ccfpk_file (ccp arg, ccp basedir, uint depth)
 	if (ok && n)
 		err = write_owned_entries (arg, basedir, depth, "FPK", entries, n);
 	else
-		FREE (entries);
+		ResetOwnedEntries (entries, n);
 	FREE (raw);
 	return err;
 }

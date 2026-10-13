@@ -10010,6 +10010,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # Clover / Okami offset-table container + .t texture
+  mkdir -p "$d/okami_test"
+  if python3 "$PWD_PROJECT/../tests/mk_okamidat.py" "$d/okami_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/okami_test/t.dat" --overwrite >/dev/null 2>&1 \
+    && [ -f "$d/okami_test/t.dat.d/000.t" ] && [ "$(cat "$d/okami_test/t.dat.d/001.bin")" = "OPAQUE-DATA" ] \
+    && python3 "$PNGTOOL" pixel "$d/okami_test/t.dat.d/000.t.00.png" 0 0 255 0 0 255 2>/dev/null \
+    && fok "Okami .dat split, .t texture decoded" \
+    || fno "Okami dat" "failed on synthetic t.dat"
+  else
+    fno "Okami dat" "mk_okamidat.py failed"
+  fi
+
   # EA Montreal .loc / .sub text (Boogie SuperStar)
   mkdir -p "$d/eatext_test"
   if python3 "$PWD_PROJECT/../tests/mk_eatext.py" "$d/eatext_test" >/dev/null 2>&1; then

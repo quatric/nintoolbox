@@ -184,6 +184,8 @@
 #include "extract/pbin.inc"
 #include "extract/ccfpk.inc"
 #include "extract/eatext.inc"
+#include "extract/okamit.inc"
+#include "extract/okamidat.inc"
 #include "extract/mhsrt.inc"
 #include "extract/gts.inc"
 #include "extract/retropak.inc"
