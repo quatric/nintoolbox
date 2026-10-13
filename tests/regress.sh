@@ -9940,6 +9940,19 @@ with open(sys.argv[1], "wb") as f:
     fno "Havok .hvt" "mk_hvt.py failed"
   fi
 
+  # Rebellion Asura string table (PDC World Championship Darts)
+  mkdir -p "$d/asurastr_test"
+  if python3 "$PWD_PROJECT/../tests/mk_asurastr.py" "$d/asurastr_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/asurastr_test/t.str" --overwrite >/dev/null 2>&1 \
+    && grep -qx "0: Statistics" "$d/asurastr_test/t.str.d/t.txt" \
+    && grep -qx '1: Line\\none' "$d/asurastr_test/t.str.d/t.txt" \
+    && grep -qx "2: £%m" "$d/asurastr_test/t.str.d/t.txt" \
+    && fok "Asura .str string table listed" \
+    || fno "Asura .str" "failed on synthetic t.str"
+  else
+    fno "Asura .str" "mk_asurastr.py failed"
+  fi
+
   # Retro PAK v2 (Metroid Prime 3): LZO TXTR + CSMP
   mkdir -p "$d/retropak_test"
   if python3 "$PWD_PROJECT/../tests/mk_retropak.py" "$d/retropak_test" >/dev/null 2>&1; then
