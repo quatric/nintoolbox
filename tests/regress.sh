@@ -9999,6 +9999,22 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # CRI ADX audio (Ghost Squad)
+  mkdir -p "$d/adx_test"
+  if python3 "$PWD_PROJECT/../tests/mk_adx.py" "$d/adx_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/adx_test/t.adx" --overwrite >/dev/null 2>&1 \
+    && python3 -I -c '
+import wave, struct, sys
+w = wave.open(sys.argv[1])
+d = struct.unpack("<64h", w.readframes(64))
+assert w.getframerate() == 32000 and d[0] == 0 and d[32] == 100 and d[33] == 271
+' "$d/adx_test/t.adx.d/audio.wav" \
+    && fok "ADX decoded to WAV" \
+    || fno "ADX" "failed on synthetic t.adx"
+  else
+    fno "ADX" "mk_adx.py failed"
+  fi
+
   # Capcom @LPK / @FPK / ANA@ archives (Dead Rising Wii)
   mkdir -p "$d/capcomarc_test"
   if python3 "$PWD_PROJECT/../tests/mk_capcomarc.py" "$d/capcomarc_test" >/dev/null 2>&1; then
