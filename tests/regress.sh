@@ -8933,6 +8933,17 @@ with open(sys.argv[1], "wb") as f:
     fno "Blitz .rev package" "mk_rev.py failed"
   fi
 
+  # Blitz Overkill-style texture header (House of the Dead: Overkill)
+  mkdir -p "$d/blovk_test"
+  if python3 "$PWD_PROJECT/../tests/mk_blovk.py" "$d/blovk_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/blovk_test/t.bltex" --overwrite >/dev/null 2>&1 \
+    && python3 "$PNGTOOL" pixel "$d/blovk_test/t.png" 0 0 255 0 0 255 2>/dev/null \
+    && fok "Blitz Overkill 0x60-header texture -> PNG" \
+    || fno "Blitz Overkill texture" "failed on synthetic t.bltex"
+  else
+    fno "Blitz Overkill texture" "mk_blovk.py failed"
+  fi
+
   # Data Design Interactive WADH archive (Ninjabread Man DataWII.wad)
   mkdir -p "$d/wadh_test"
   if python3 "$PWD_PROJECT/../tests/mk_wadh.py" "$d/wadh_test" >/dev/null 2>&1; then

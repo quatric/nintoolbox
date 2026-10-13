@@ -237,8 +237,40 @@ static bool rev_texfmt (uint fmt, rev_texfmt_t *f)
 	return false;
 }
 
+// Later Blitz-engine builds (The House of the Dead: Overkill) use a 0x60-byte texture header instead:
+// 12 zero bytes, u32 total size @0xc, u16 width / height @0x20 / 0x22, u16 format @0x24 (23 RGBA8,
+// 24 RGB5A3, 25 CI8 with a 256-entry RGB5A3 palette right after the header, 29 CMPR), u8 mipmap count
+// @0x28; the base level follows at 0x60 (after the palette) and the mip chain after it.
+static bool rev_ovk_tex (const u8 *d, uint size, uint *w, uint *h, uint *gx, uint *pal_count)
+{
+	if (!d || size < 0x80)
+		return false;
+	for (uint i = 0; i < 12; i++)
+		if (d[i])
+			return false;
+	const uint fmt = rev_be16 (d + 0x24);
+	*w = rev_be16 (d + 0x20);
+	*h = rev_be16 (d + 0x22);
+	if (rd_be32 (d + 12) != size || !*w || !*h || *w > 2048 || *h > 2048 || (*w & (*w - 1)) || (*h & (*h - 1)))
+		return false;
+	*pal_count = 0;
+	uint bytes;
+	switch (fmt)
+	{
+		case 23: *gx = 6, bytes = *w * *h * 4; break;
+		case 24: *gx = 5, bytes = *w * *h * 2; break;
+		case 25: *gx = 9, *pal_count = 256, bytes = *w * *h; break;
+		case 29: *gx = 14, bytes = *w * *h / 2; break;
+		default: return false;
+	}
+	return (u64)0x60 + *pal_count * 2 + bytes <= size;
+}
+
 bool IsBlitzTexture (const u8 *d, uint size)
 {
+	uint ow, oh, ogx, opc;
+	if (rev_ovk_tex (d, size, &ow, &oh, &ogx, &opc))
+		return true;
 	if (!d || size < 0xa0)
 		return false;
 	for (uint i = 0; i < 0x20; i++)
@@ -257,6 +289,21 @@ bool IsBlitzTexture (const u8 *d, uint size)
 
 enumError DecodeBlitzTexture (u8 **rgba, uint *width, uint *height, const u8 *d, uint size)
 {
+	{
+		uint ow, oh, ogx, opc;
+		if (rev_ovk_tex (d, size, &ow, &oh, &ogx, &opc))
+		{
+			const uint po = 0x60 + opc * 2;
+			const enumError e2 = DecodeGXTexture_RGBA (
+				rgba, ow, oh, ogx, d + po, size - po, opc ? d + 0x60 : 0, opc, 2);
+			if (!e2)
+			{
+				*width = ow;
+				*height = oh;
+			}
+			return e2;
+		}
+	}
 	if (!IsBlitzTexture (d, size))
 		return ERR_NOTHING_TO_DO;
 	rev_texfmt_t f = { 0 };
