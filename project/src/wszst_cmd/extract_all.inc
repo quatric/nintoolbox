@@ -200,6 +200,7 @@
 #include "extract/liblue.inc"
 #include "extract/muranms.inc"
 #include "extract/asura.inc"
+#include "extract/terf.inc"
 #include "extract/mhsrt.inc"
 #include "extract/gts.inc"
 #include "extract/retropak.inc"

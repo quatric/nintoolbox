@@ -10072,6 +10072,17 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Trauma Team TPX/FLW0" "mk_trauma.py failed"
   fi
 
+  # EA Tiburon TERF bundle holding an SHPG texture archive
+  mkdir -p "$d/terf_test"
+  if python3 "$PWD_PROJECT/../tests/mk_terf.py" "$d/terf_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/terf_test/t.dat" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/terf_test/t.dat.d/0000.gsh.000_tst1.png" | tail -c 3)" = "PNG" ] \
+    && fok "EA TERF bundle split and SHPG -> PNG" \
+    || fno "EA TERF" "failed on synthetic t.dat"
+  else
+    fno "EA TERF" "mk_terf.py failed"
+  fi
+
   # Rebellion Asura resource file (AsuraZlb) with an embedded TPL
   mkdir -p "$d/asura_test"
   if python3 "$PWD_PROJECT/../tests/mk_asura.py" "$d/asura_test" >/dev/null 2>&1; then
