@@ -183,6 +183,7 @@
 #include "extract/ftex.inc"
 #include "extract/pbin.inc"
 #include "extract/ccfpk.inc"
+#include "extract/eatext.inc"
 #include "extract/mhsrt.inc"
 #include "extract/gts.inc"
 #include "extract/retropak.inc"

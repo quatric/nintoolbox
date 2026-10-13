@@ -10010,6 +10010,19 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # EA Montreal .loc / .sub text (Boogie SuperStar)
+  mkdir -p "$d/eatext_test"
+  if python3 "$PWD_PROJECT/../tests/mk_eatext.py" "$d/eatext_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/eatext_test/t.loc" --overwrite >/dev/null 2>&1 \
+    && "$B/wszst" xx "$d/eatext_test/t.sub" --overwrite >/dev/null 2>&1 \
+    && [ "$(sed -n 2p "$d/eatext_test/t.loc.d/strings.txt")" = "$(printf '5\tHi\\tyou')" ] \
+    && [ "$(cut -f1,2 "$d/eatext_test/t.sub.d/subtitles.txt" | tr '\t' ' ')" = "16 77" ] \
+    && fok "EA .loc strings / .sub subtitles extracted" \
+    || fno "EA text" "failed on synthetic t.loc / t.sub"
+  else
+    fno "EA text" "mk_eatext.py failed"
+  fi
+
   # CyberConnect2-style fpack .fpk with Sega PRS members (Naruto Clash of Ninja Revolution III, Tatsunoko vs. Capcom)
   mkdir -p "$d/ccfpk_test"
   if python3 "$PWD_PROJECT/../tests/mk_ccfpk.py" "$d/ccfpk_test" >/dev/null 2>&1; then
