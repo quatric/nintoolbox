@@ -10021,6 +10021,17 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Arc Rise WTMD" "mk_wtmd.py failed"
   fi
 
+  # Muramasa FTEX texture set inside FCMP
+  mkdir -p "$d/fcmpftex_test"
+  if python3 "$PWD_PROJECT/../tests/mk_fcmpftex.py" "$d/fcmpftex_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/fcmpftex_test/t.ftx" --overwrite >/dev/null 2>&1 \
+    && python3 "$PNGTOOL" pixel "$d/fcmpftex_test/t.ftx.d/t.tpl.png" 0 0 128 128 128 255 2>/dev/null \
+    && fok "Muramasa FCMP .ftx -> TPL -> PNG" \
+    || fno "Muramasa .ftx" "failed on synthetic t.ftx"
+  else
+    fno "Muramasa .ftx" "mk_fcmpftex.py failed"
+  fi
+
   # Dokapon Kingdom PAH/PAC pair and PIM texture
   mkdir -p "$d/dokapon_test"
   if python3 "$PWD_PROJECT/../tests/mk_dokapon.py" "$d/dokapon_test" >/dev/null 2>&1; then
