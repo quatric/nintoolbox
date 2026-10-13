@@ -10010,6 +10010,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # Marvelous pBin container + FIPAFTEX textures (Harvest Moon: Animal Parade)
+  mkdir -p "$d/pbin_test"
+  if python3 "$PWD_PROJECT/../tests/mk_pbin.py" "$d/pbin_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/pbin_test/t.pBin" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/pbin_test/t.pBin.d/main.dat" | head -c 8)" = "MAINBODY" ] \
+    && python3 "$PNGTOOL" pixel "$d/pbin_test/t.pBin.d/00.ftex.00.png" 0 0 255 0 0 255 2>/dev/null \
+    && fok "Marvelous pBin split, FIPAFTEX decoded" \
+    || fno "Marvelous pBin" "failed on synthetic t.pBin"
+  else
+    fno "Marvelous pBin" "mk_pbin.py failed"
+  fi
+
   # Climax data.arc (Silent Hill: Shattered Memories)
   mkdir -p "$d/climaxarc_test"
   if python3 "$PWD_PROJECT/../tests/mk_climaxarc.py" "$d/climaxarc_test" >/dev/null 2>&1; then
