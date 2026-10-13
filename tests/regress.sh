@@ -10128,8 +10128,8 @@ assert w.getframerate() == 32000 and d[0] == 0 and d[32] == 100 and d[33] == 271
     "$B/wszst" x "$d/capcomarc_test/t.lpk" --overwrite >/dev/null 2>&1 \
     && "$B/wszst" x "$d/capcomarc_test/t.fpk" --overwrite >/dev/null 2>&1 \
     && "$B/wszst" x "$d/capcomarc_test/t.ana" --overwrite >/dev/null 2>&1 \
-    && [ "$(wc -c < "$d/capcomarc_test/t.lpk.d/one.bin")" = 32 ] \
-    && [ -f "$d/capcomarc_test/t.fpk.d/00-00.brres" ] && [ "$(wc -c < "$d/capcomarc_test/t.fpk.d/05-00.bin")" = 32 ] \
+    && [ "$(wc -c < "$d/capcomarc_test/t.lpk.d/one.bin" | tr -d " ")" = 32 ] \
+    && [ -f "$d/capcomarc_test/t.fpk.d/00-00.brres" ] && [ "$(wc -c < "$d/capcomarc_test/t.fpk.d/05-00.bin" | tr -d " ")" = 32 ] \
     && [ -f "$d/capcomarc_test/t.ana.d/tx_000.brres" ] && [ -f "$d/capcomarc_test/t.ana.d/pic.bin" ] \
     && fok "Capcom @LPK / @FPK / ANA@ archives split" \
     || fno "Capcom archives" "failed on synthetic t.lpk / t.fpk / t.ana"
