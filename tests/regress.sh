@@ -9999,6 +9999,21 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # Nippon Ichi Phantom Brave battle map data
+  mkdir -p "$d/pbmpd_test"
+  if python3 "$PWD_PROJECT/../tests/mk_pbmpd.py" "$d/pbmpd_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/pbmpd_test/t.mpd" --overwrite >/dev/null 2>&1 \
+    && grep -q "1 A records, 1 B records, 2 table words, 1 extra records" "$d/pbmpd_test/t.mpd.d/t.txt" \
+    && sed -n '/grid plane 0/,/grid plane 1/p' "$d/pbmpd_test/t.mpd.d/t.txt" | sed -n 4p | grep -q "^007f" \
+    && grep -q "^A 0: 000102" "$d/pbmpd_test/t.mpd.d/t.txt" \
+    && grep -q "1234 abcd" "$d/pbmpd_test/t.mpd.d/t.txt" \
+    && grep -q "^C 0: f0f1" "$d/pbmpd_test/t.mpd.d/t.txt" \
+    && fok "Phantom Brave .mpd listed" \
+    || fno "Phantom Brave .mpd" "failed on synthetic t.mpd"
+  else
+    fno "Phantom Brave .mpd" "mk_pbmpd.py failed"
+  fi
+
   # Retro PAK v2 (Metroid Prime 3): LZO TXTR + CSMP
   mkdir -p "$d/retropak_test"
   if python3 "$PWD_PROJECT/../tests/mk_retropak.py" "$d/retropak_test" >/dev/null 2>&1; then
