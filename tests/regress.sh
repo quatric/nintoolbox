@@ -9999,6 +9999,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # Scaleform GFx (Epic Mickey)
+  mkdir -p "$d/gfx_test"
+  if python3 "$PWD_PROJECT/../tests/mk_gfx.py" "$d/gfx_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/gfx_test/t.gfx" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -l 4 -p "$d/gfx_test/t.gfx.d/t.gfx")" = "47465809" ] \
+    && [ "$(wc -c < "$d/gfx_test/t.gfx.d/t.gfx" | tr -d ' ')" = 264 ] \
+    && fok "Scaleform .gfx decompressed" \
+    || fno "Scaleform gfx" "failed on synthetic t.gfx"
+  else
+    fno "Scaleform gfx" "mk_gfx.py failed"
+  fi
+
   # Junction Point .pak resource pack (Epic Mickey)
   mkdir -p "$d/jppak_test"
   if python3 "$PWD_PROJECT/../tests/mk_jppak.py" "$d/jppak_test" >/dev/null 2>&1; then
