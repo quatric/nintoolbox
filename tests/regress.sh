@@ -10010,6 +10010,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # Ganbarion ALAR (big-endian, Pandora's Tower)
+  mkdir -p "$d/alar2_test"
+  if python3 "$PWD_PROJECT/../tests/mk_alar2.py" "$d/alar2_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/alar2_test/t.aar" --overwrite >/dev/null 2>&1 \
+    && [ -f "$d/alar2_test/t.aar.d/000_B020002.alig" ] \
+    && [ "$(tail -c +5 "$d/alar2_test/t.aar.d/001_D02005d.alms" | head -c 8)" = "payload!" ] \
+    && fok "Ganbarion ALAR (BE) members split" \
+    || fno "Ganbarion ALAR" "failed on synthetic t.aar"
+  else
+    fno "Ganbarion ALAR" "mk_alar2.py failed"
+  fi
+
   # Sakura Wars HTEX 8-bit PS2-swizzled texture
   mkdir -p "$d/htex_test"
   if python3 "$PWD_PROJECT/../tests/mk_htex.py" "$d/htex_test" >/dev/null 2>&1; then
