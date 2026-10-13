@@ -91,11 +91,13 @@ static enumError extract_rst_file (ccp arg, ccp basedir, uint depth)
 	uint n_entries = 0;
 	enumError err
 		= ExtractRST (&entries, &n_entries, car_data, (uint)car_size_st, toc_data, toc_size);
-	FREE (car_data);
 	FREE (toc_data);
 
 	if (err || !n_entries)
+	{
+		FREE (car_data);
 		return ERR_NOTHING_TO_DO;
+	}
 
 	char dest[PATH_MAX];
 	beside_source_dest (dest, sizeof (dest), arg);
@@ -124,6 +126,10 @@ static enumError extract_rst_file (ccp arg, ccp basedir, uint depth)
 		}
 		if (testmode)
 			continue;
+		// Excite Truck .car files list themselves as a member; unpacking that copy would recurse
+		// until the depth limit, so leave it out.
+		if (entries[i].size == car_size_st && !memcmp (entries[i].data, car_data, car_size_st))
+			continue;
 
 		char path[PATH_MAX];
 		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", name);
@@ -135,6 +141,7 @@ static enumError extract_rst_file (ccp arg, ccp basedir, uint depth)
 		ResetFile (&F, opt_preserve);
 	}
 
+	FREE (car_data);
 	for (uint i = 0; i < n_entries; i++)
 	{
 		FREE ((void *)entries[i].name);
