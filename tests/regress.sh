@@ -15221,16 +15221,15 @@ t_ptlg_retail_mario_strikers(){
     no "retail PTLG" "FILETYPE failed to recognize PTLG"
   fi
 
-  if "$B/wszst" xx "$f" --dest "$d/out" --overwrite >/dev/null 2>&1 \
-  && [ -f "$d/out/8ffc5fbe.tpl" ] \
-  && "$B/wimgt" DECODE "$d/out/8ffc5fbe.tpl" --dest "$d/balloon.png" --overwrite >/dev/null 2>&1 \
-  && [ -s "$d/balloon.png" ] \
+  cp "$f" "$d/b.rlt"
+  if "$B/wszst" xx "$d/b.rlt" --overwrite >/dev/null 2>&1 \
+  && [ -s "$d/b.rlt.8ffc5fbe.png" ] \
   && python3 -c '
 from PIL import Image
-im = Image.open("'"$d"'/balloon.png")
+im = Image.open("'"$d"'/b.rlt.8ffc5fbe.png")
 assert im.size == (64, 64)
 ' 2>/dev/null; then
-    ok "retail PTLG extract TPL -> decode 64x64 PNG"
+    ok "retail PTLG texture bank -> decode 64x64 PNG"
   else
     no "retail PTLG" "failed to extract and decode PTLG texture"
   fi
