@@ -9999,6 +9999,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # Climax data.arc (Silent Hill: Shattered Memories)
+  mkdir -p "$d/climaxarc_test"
+  if python3 "$PWD_PROJECT/../tests/mk_climaxarc.py" "$d/climaxarc_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/climaxarc_test/t.arc" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/climaxarc_test/t.arc.d/11111111.bin" | tr -d ' ')" = 120 ] \
+    && [ -f "$d/climaxarc_test/t.arc.d/22222222.jpg" ] \
+    && fok "Climax data.arc split (zlib + stored members)" \
+    || fno "Climax arc" "failed on synthetic t.arc"
+  else
+    fno "Climax arc" "mk_climaxarc.py failed"
+  fi
+
   # Sonic TXAG texture archive with inline-palette CI8 GVR (Sonic and the Black Knight)
   mkdir -p "$d/txag_test"
   if python3 "$PWD_PROJECT/../tests/mk_txag.py" "$d/txag_test" >/dev/null 2>&1; then

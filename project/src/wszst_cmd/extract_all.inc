@@ -179,6 +179,7 @@
 #include "extract/capcomtres.inc"
 #include "extract/sonicone.inc"
 #include "extract/txag.inc"
+#include "extract/climaxarc.inc"
 #include "extract/mhsrt.inc"
 #include "extract/gts.inc"
 #include "extract/retropak.inc"
