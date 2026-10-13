@@ -27,6 +27,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	enumError err = extract_retropak_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_gts_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_adx_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

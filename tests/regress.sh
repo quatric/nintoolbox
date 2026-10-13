@@ -9999,6 +9999,22 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # Sega GTS texture set (Ghost Squad)
+  mkdir -p "$d/gts_test"
+  if python3 "$PWD_PROJECT/../tests/mk_gts.py" "$d/gts_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/gts_test/t.gts" --overwrite >/dev/null 2>&1 \
+    && [ -f "$d/gts_test/t.gts.d/aaa.gvr" ] && [ -f "$d/gts_test/t.gts.d/bbb.gvr" ] \
+    && python3 -c '
+from PIL import Image
+im = Image.open("'"$d"'/gts_test/t.gts.d/bbb.gvr.png")
+assert im.size == (8, 8) and im.getpixel((0, 0))[:3] == (0, 255, 0)
+' 2>/dev/null \
+    && fok "Sega GTS texture set split and decoded" \
+    || fno "Sega GTS" "failed on synthetic t.gts"
+  else
+    fno "Sega GTS" "mk_gts.py failed"
+  fi
+
   # CRI ADX audio (Ghost Squad)
   mkdir -p "$d/adx_test"
   if python3 "$PWD_PROJECT/../tests/mk_adx.py" "$d/adx_test" >/dev/null 2>&1; then
