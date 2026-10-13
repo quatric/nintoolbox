@@ -176,6 +176,7 @@
 #include "extract/jppak.inc"
 #include "extract/gfx.inc"
 #include "extract/csvt.inc"
+#include "extract/capcomtres.inc"
 #include "extract/mhsrt.inc"
 #include "extract/gts.inc"
 #include "extract/retropak.inc"

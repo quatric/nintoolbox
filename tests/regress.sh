@@ -9999,6 +9999,17 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # Capcom TRES text resources (Resident Evil Chronicles)
+  mkdir -p "$d/tres_test"
+  if python3 "$PWD_PROJECT/../tests/mk_capcomtres.py" "$d/tres_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/tres_test/t.txtres" --overwrite >/dev/null 2>&1 \
+    && [ "$(sed -n 2p "$d/tres_test/t.txtres.d/text.txt")" = "$(printf '00000002\tLB1\ta\\nb\ttail')" ] \
+    && fok "Capcom TRES text -> text.txt" \
+    || fno "Capcom TRES" "failed on synthetic t.txtres"
+  else
+    fno "Capcom TRES" "mk_capcomtres.py failed"
+  fi
+
   # Capcom CSVT tables (Resident Evil Chronicles)
   mkdir -p "$d/csvt_test"
   if python3 "$PWD_PROJECT/../tests/mk_csvt.py" "$d/csvt_test" >/dev/null 2>&1; then
