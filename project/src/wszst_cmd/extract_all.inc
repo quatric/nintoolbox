@@ -192,6 +192,8 @@
 #include "extract/pah.inc"
 #include "extract/pim.inc"
 #include "extract/fcmpftex.inc"
+#include "extract/flw0.inc"
+#include "extract/tpx.inc"
 #include "extract/mhsrt.inc"
 #include "extract/gts.inc"
 #include "extract/retropak.inc"

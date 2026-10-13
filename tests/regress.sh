@@ -10021,6 +10021,19 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Arc Rise WTMD" "mk_wtmd.py failed"
   fi
 
+  # Trauma Team TPX texture pack and FLW0 flow script
+  mkdir -p "$d/trauma_test"
+  if python3 "$PWD_PROJECT/../tests/mk_trauma.py" "$d/trauma_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/trauma_test/t.tpx" "$d/trauma_test/t.bf" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/trauma_test/t.tpx.d/tex1.tpl.png" | tail -c 3)" = "PNG" ] \
+    && grep -q '^proc start @ 0$' "$d/trauma_test/t.bf.txt" \
+    && grep -q '^  "Hello"$' "$d/trauma_test/t.bf.txt" \
+    && fok "Trauma Team TPX -> TPL -> PNG and FLW0 .bf -> text" \
+    || fno "Trauma Team TPX/FLW0" "failed on synthetic t.tpx / t.bf"
+  else
+    fno "Trauma Team TPX/FLW0" "mk_trauma.py failed"
+  fi
+
   # Muramasa FTEX texture set inside FCMP
   mkdir -p "$d/fcmpftex_test"
   if python3 "$PWD_PROJECT/../tests/mk_fcmpftex.py" "$d/fcmpftex_test" >/dev/null 2>&1; then
