@@ -175,6 +175,7 @@
 #include "extract/wwisebnk.inc"
 #include "extract/jppak.inc"
 #include "extract/gfx.inc"
+#include "extract/csvt.inc"
 #include "extract/mhsrt.inc"
 #include "extract/gts.inc"
 #include "extract/retropak.inc"

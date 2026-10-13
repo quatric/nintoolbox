@@ -9999,6 +9999,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # Capcom CSVT tables (Resident Evil Chronicles)
+  mkdir -p "$d/csvt_test"
+  if python3 "$PWD_PROJECT/../tests/mk_csvt.py" "$d/csvt_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/csvt_test/t.vop" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -1 "$d/csvt_test/t.vop.d/voice.csv")" = "7,5" ] \
+    && [ "$(sed -n 2p "$d/csvt_test/t.vop.d/voice.csv")" = '"hi,there",' ] \
+    && fok "Capcom CSVT table -> CSV" \
+    || fno "Capcom CSVT" "failed on synthetic t.vop"
+  else
+    fno "Capcom CSVT" "mk_csvt.py failed"
+  fi
+
   # Scaleform GFx (Epic Mickey)
   mkdir -p "$d/gfx_test"
   if python3 "$PWD_PROJECT/../tests/mk_gfx.py" "$d/gfx_test" >/dev/null 2>&1; then
