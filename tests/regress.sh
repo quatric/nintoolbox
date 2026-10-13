@@ -9999,6 +9999,17 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # DDS texture decode via xx (Epic Mickey)
+  mkdir -p "$d/dds_test"
+  if python3 "$PWD_PROJECT/../tests/mk_dds.py" "$d/dds_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/dds_test/t.dds" --overwrite >/dev/null 2>&1 \
+    && python3 "$PNGTOOL" pixel "$d/dds_test/t.dds.png" 2 2 255 0 0 255 \
+    && fok "DDS decoded to PNG by xx" \
+    || fno "DDS xx" "failed on synthetic t.dds"
+  else
+    fno "DDS xx" "mk_dds.py failed"
+  fi
+
   # Monster Hunter Tri .srt sound table + .ssd stream
   mkdir -p "$d/mhsrt_test"
   if python3 "$PWD_PROJECT/../tests/mk_mhsrt.py" "$d/mhsrt_test" >/dev/null 2>&1; then
