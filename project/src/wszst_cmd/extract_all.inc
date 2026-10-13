@@ -197,6 +197,7 @@
 #include "extract/popn.inc"
 #include "extract/ktm.inc"
 #include "extract/timg.inc"
+#include "extract/liblue.inc"
 #include "extract/mhsrt.inc"
 #include "extract/gts.inc"
 #include "extract/retropak.inc"

@@ -10021,6 +10021,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Arc Rise WTMD" "mk_wtmd.py failed"
   fi
 
+  # Lost in Blue WII scene archive and ZMS message table
+  mkdir -p "$d/liblue_test"
+  if python3 "$PWD_PROJECT/../tests/mk_liblue.py" "$d/liblue_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/liblue_test/t.bin" "$d/liblue_test/t.zms" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/liblue_test/t.bin.d/tSnd.bin")" = "sound data" ] \
+    && grep -q '^0	0	Hi\\nOK$' "$d/liblue_test/t.zms.txt" \
+    && fok "Lost in Blue WII archive split and ZMS -> text" \
+    || fno "Lost in Blue WII/ZMS" "failed on synthetic t.bin / t.zms"
+  else
+    fno "Lost in Blue WII/ZMS" "mk_liblue.py failed"
+  fi
+
   # Cursed Mountain KTM bundle (zlib + stored members) and TIMG texture
   mkdir -p "$d/ktm_test"
   if python3 "$PWD_PROJECT/../tests/mk_ktm.py" "$d/ktm_test" >/dev/null 2>&1; then
