@@ -9968,6 +9968,22 @@ with open(sys.argv[1], "wb") as f:
     fno "Nippon Ichi .imy" "mk_imy.py failed"
   fi
 
+  # Nippon Ichi WIIIDARC sound archive (Phantom Brave)
+  mkdir -p "$d/wiiidarc_test"
+  if python3 "$PWD_PROJECT/../tests/mk_wiiidarc.py" "$d/wiiidarc_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/wiiidarc_test/t.dat" --overwrite >/dev/null 2>&1 \
+    && python3 -c "
+import sys
+a = open(sys.argv[1] + '/a.dsp', 'rb').read(); b = open(sys.argv[1] + '/a-1.dsp', 'rb').read()
+assert len(a) == 112 and len(b) == 112 and a[0x60] == 0x11 and b[0x60] == 0x22 and b[0x60 + 10] == 0x22 and b[0x60 + 11] == 0
+assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') == 22050 and int.from_bytes(b[0x18:0x1c], 'big') == 2
+" "$d/wiiidarc_test/t.dat.d" \
+    && fok "Nippon Ichi WIIIDARC members split into DSP files" \
+    || fno "Nippon Ichi WIIIDARC" "failed on synthetic t.dat"
+  else
+    fno "Nippon Ichi WIIIDARC" "mk_wiiidarc.py failed"
+  fi
+
   # Retro PAK v2 (Metroid Prime 3): LZO TXTR + CSMP
   mkdir -p "$d/retropak_test"
   if python3 "$PWD_PROJECT/../tests/mk_retropak.py" "$d/retropak_test" >/dev/null 2>&1; then

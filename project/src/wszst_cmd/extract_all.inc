@@ -154,6 +154,7 @@
 #include "extract/asurarc.inc"
 #include "extract/asurastr.inc"
 #include "extract/imy.inc"
+#include "extract/wiiidarc.inc"
 #include "extract/caf.inc"
 #include "extract/nlzlib.inc"
 #include "extract/mtarc.inc"
