@@ -10021,6 +10021,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Arc Rise WTMD" "mk_wtmd.py failed"
   fi
 
+  # pop'n music SEN sentence table and AEPT texture file
+  mkdir -p "$d/popn_test"
+  if python3 "$PWD_PROJECT/../tests/mk_popn.py" "$d/popn_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/popn_test/t.sen" "$d/popn_test/t.aept" --overwrite >/dev/null 2>&1 \
+    && grep -q '^1	Back\\nHome$' "$d/popn_test/t.sen.txt" \
+    && [ "$(head -c 4 "$d/popn_test/t.aept.d/t.tpl.png" | tail -c 3)" = "PNG" ] \
+    && fok "pop'n music SEN -> text and AEPT -> TPL -> PNG" \
+    || fno "pop'n music SEN/AEPT" "failed on synthetic t.sen / t.aept"
+  else
+    fno "pop'n music SEN/AEPT" "mk_popn.py failed"
+  fi
+
   # Trauma Team TPX texture pack and FLW0 flow script
   mkdir -p "$d/trauma_test"
   if python3 "$PWD_PROJECT/../tests/mk_trauma.py" "$d/trauma_test" >/dev/null 2>&1; then
