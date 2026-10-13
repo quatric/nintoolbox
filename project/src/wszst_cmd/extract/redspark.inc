@@ -6,6 +6,7 @@
 // 8-byte channel configs, optional cue points, then per channel 0x2e bytes of DSP coefficients;
 // the ADPCM data is interleaved per 8-byte frame. A bank lists mono sounds (header table at
 // +0x20) addressed from the data offset. Every channel/sound is written as a standard DSP.
+// Announcer voice files ("announce/*/an_c*_pack_*.bin") use the same format; the decrypted magic is checked.
 static u32 rsd_rotl (u32 x, uint r)
 {
 	return (x << r) | (x >> (32 - r));
@@ -60,7 +61,7 @@ static bool rsd_add_dsp (nintendo_sarc_entry_t *entries, uint *n, ccp name, cons
 
 static enumError extract_redspark_file (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext (arg, ".rsd"))
+	if (!is_ext (arg, ".rsd") && !is_ext (arg, ".bin"))
 		return ERR_NOTHING_TO_DO;
 	u8 *raw = 0;
 	size_t sz = 0;
