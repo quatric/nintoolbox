@@ -10014,6 +10014,19 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Phantom Brave .mpd" "mk_pbmpd.py failed"
   fi
 
+  # Next Level Games texture banks (Mario Strikers Charged): PTLG .rlt and .res
+  mkdir -p "$d/nltex_test"
+  if python3 "$PWD_PROJECT/../tests/mk_nltex.py" "$d/nltex_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/nltex_test/t.rlt" "$d/nltex_test/t.res" --overwrite >/dev/null 2>&1 \
+    && python3 "$PNGTOOL" pixel "$d/nltex_test/t.rlt.cafe0001.png" 0 0 255 0 0 255 \
+    && python3 "$PNGTOOL" pixel "$d/nltex_test/t.rlt.cafe0001.png" 7 7 255 0 0 255 \
+    && python3 "$PNGTOOL" pixel "$d/nltex_test/t.res.cafe0002.png" 3 4 255 0 0 255 \
+    && fok "Next Level .rlt / .res textures decoded to PNG" \
+    || fno "Next Level .rlt / .res" "failed on synthetic t.rlt / t.res"
+  else
+    fno "Next Level .rlt / .res" "mk_nltex.py failed"
+  fi
+
   # Retro PAK v2 (Metroid Prime 3): LZO TXTR + CSMP
   mkdir -p "$d/retropak_test"
   if python3 "$PWD_PROJECT/../tests/mk_retropak.py" "$d/retropak_test" >/dev/null 2>&1; then
