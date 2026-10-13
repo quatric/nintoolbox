@@ -178,6 +178,7 @@
 #include "extract/csvt.inc"
 #include "extract/capcomtres.inc"
 #include "extract/sonicone.inc"
+#include "extract/txag.inc"
 #include "extract/mhsrt.inc"
 #include "extract/gts.inc"
 #include "extract/retropak.inc"

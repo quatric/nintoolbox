@@ -9999,6 +9999,21 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # Sonic TXAG texture archive with inline-palette CI8 GVR (Sonic and the Black Knight)
+  mkdir -p "$d/txag_test"
+  if python3 "$PWD_PROJECT/../tests/mk_txag.py" "$d/txag_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/txag_test/t.txd" --overwrite >/dev/null 2>&1 \
+    && python3 -c '
+from PIL import Image
+im = Image.open("'"$d"'/txag_test/t.txd.d/RED_GREEN.gvr.png")
+assert im.size == (8, 4) and im.getpixel((0, 0))[:3] == (255, 0, 0) and im.getpixel((0, 3))[:3] == (0, 255, 0)
+' 2>/dev/null \
+    && fok "Sonic TXAG split, CI8 GVR decoded" \
+    || fno "Sonic TXAG" "failed on synthetic t.txd"
+  else
+    fno "Sonic TXAG" "mk_txag.py failed"
+  fi
+
   # Sonic Team .one PRS archive (Sonic and the Black Knight)
   mkdir -p "$d/sonicone_test"
   if python3 "$PWD_PROJECT/../tests/mk_sonicone.py" "$d/sonicone_test" >/dev/null 2>&1; then

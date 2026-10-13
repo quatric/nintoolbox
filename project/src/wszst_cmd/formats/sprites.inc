@@ -425,8 +425,9 @@ static enumError decode_image_if_possible (ccp arg)
 		// round-trippable as its raw member, whereas sending it to LoadIMG()
 		// produces one hard error for every non-editable asset in Sonic games.
 		const uint gvr_format = n_head > 0x1b ? head[0x1b] : 0xff;
-		is_image
-			= n_head >= 0x20 && !(head[0x1a] & 0x0b) && (gvr_format <= 6 || gvr_format == 0x0e);
+		const bool gvr_ci = gvr_format == 8 || gvr_format == 9; // inline palette (flag 8), no mipmaps
+		is_image = n_head >= 0x20 && !(head[0x1a] & 0x03) && !!(head[0x1a] & 8) == gvr_ci
+			&& (gvr_format <= 6 || gvr_format == 0x0e || gvr_ci);
 	}
 	else if (nfmt.type == NFMT_BFLIM || nfmt.type == NFMT_BCLIM || is_ext (arg, ".bflim")
 		|| is_ext (arg, ".bclim"))

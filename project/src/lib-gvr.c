@@ -55,7 +55,8 @@ enumError DecodeGVR_RGBA (
 	if (!width || !height || width > 16384 || height > 16384
 		|| (size_t)width * height > UINT_MAX / 4)
 		return ERR_INVALID_DATA;
-	if (flags & 0x0b) // mipmaps or palettes require a separately selected level/palette
+	const bool indexed = format == 8 || format == 9;
+	if ((flags & 0x03) || (flags & 8 ? !indexed : indexed)) // mipmaps need a level; palettes only for CI4 / CI8 with an inline palette
 		return ERR_INVALID_DATA;
 
 	u8 *rgba = MALLOC ((size_t)width * height * 4);
@@ -67,7 +68,59 @@ enumError DecodeGVR_RGBA (
 			goto invalid_gvr;                                                                      \
 	} while (0)
 
-	if (format == 0 || format == 1 || format == 2 || format == 3)
+	if (indexed)
+	{
+		// inline palette (16 / 256 entries of IA8, RGB565 or RGB5A3, picked by the high nibble of
+		// byte 0x1a) followed by 8x8 (CI4) or 8x4 (CI8) index tiles
+		const uint npal = format == 8 ? 16 : 256, pfmt = data[0x1a] >> 4;
+		const uint tw = 8, th = format == 8 ? 8 : 4;
+		u8 pal[256][4];
+		if (pfmt > 2)
+			goto invalid_gvr;
+		GVR_NEED (npal * 2);
+		for (uint i = 0; i < npal; i++, src += 2)
+		{
+			const u16 p = be_func.rd16 (src);
+			if (pfmt == 0)
+				pal[i][0] = pal[i][1] = pal[i][2] = p & 0xff, pal[i][3] = p >> 8;
+			else if (pfmt == 1)
+				GVRDecode565 (p, pal[i]);
+			else if (p & 0x8000)
+			{
+				pal[i][0] = GVRScale (p >> 10 & 31, 31);
+				pal[i][1] = GVRScale (p >> 5 & 31, 31);
+				pal[i][2] = GVRScale (p & 31, 31);
+				pal[i][3] = 255;
+			}
+			else
+			{
+				pal[i][0] = GVRScale (p >> 8 & 15, 15);
+				pal[i][1] = GVRScale (p >> 4 & 15, 15);
+				pal[i][2] = GVRScale (p & 15, 15);
+				pal[i][3] = GVRScale (p >> 12 & 7, 7);
+			}
+		}
+		for (uint by = 0; by < height; by += th)
+			for (uint bx = 0; bx < width; bx += tw)
+				for (uint y = 0; y < th; y++)
+					for (uint x = 0; x < tw; x++)
+					{
+						uint idx;
+						if (format == 9)
+						{
+							GVR_NEED (1);
+							idx = *src++;
+						}
+						else
+						{
+							GVR_NEED (1);
+							idx = x & 1 ? *src++ & 15 : *src >> 4;
+						}
+						GVRStore (rgba, width, height, bx + x, by + y, pal[idx][0], pal[idx][1],
+							pal[idx][2], pal[idx][3]);
+					}
+	}
+	else if (format == 0 || format == 1 || format == 2 || format == 3)
 	{
 		const uint tw = format == 0 ? 8 : format == 1 || format == 2 ? 8 : 4;
 		const uint th = format == 0 ? 8 : format == 1 || format == 2 ? 4 : 4;
