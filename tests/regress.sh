@@ -10010,6 +10010,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # Sakura Wars HTEX 8-bit PS2-swizzled texture
+  mkdir -p "$d/htex_test"
+  if python3 "$PWD_PROJECT/../tests/mk_htex.py" "$d/htex_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/htex_test/t.htx" --overwrite >/dev/null 2>&1 \
+    && python3 "$PNGTOOL" pixel "$d/htex_test/t.htx.png" 0 0 255 0 0 255 2>/dev/null \
+    && python3 "$PNGTOOL" pixel "$d/htex_test/t.htx.png" 15 15 0 0 255 255 2>/dev/null \
+    && fok "Sakura Wars HTEX unswizzled -> PNG" \
+    || fno "Sakura Wars HTEX" "failed on synthetic t.htx"
+  else
+    fno "Sakura Wars HTEX" "mk_htex.py failed"
+  fi
+
   # Clover / Okami offset-table container + .t texture
   mkdir -p "$d/okami_test"
   if python3 "$PWD_PROJECT/../tests/mk_okamidat.py" "$d/okami_test" >/dev/null 2>&1; then
