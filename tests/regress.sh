@@ -10021,6 +10021,20 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Arc Rise WTMD" "mk_wtmd.py failed"
   fi
 
+  # Dokapon Kingdom PAH/PAC pair and PIM texture
+  mkdir -p "$d/dokapon_test"
+  if python3 "$PWD_PROJECT/../tests/mk_dokapon.py" "$d/dokapon_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/dokapon_test/GAME.PAH" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/dokapon_test/GAME.PAH.d/A.BIN")" = "first member" ] \
+    && [ -f "$d/dokapon_test/GAME.PAH.d/B.PIM.png" ] \
+    && "$B/wszst" xx "$d/dokapon_test/t.PIM" --overwrite >/dev/null 2>&1 \
+    && python3 "$PNGTOOL" pixel "$d/dokapon_test/t.PIM.png" 0 0 1 0 0 255 2>/dev/null \
+    && fok "Dokapon PAH/PAC split and PIM texture -> PNG" \
+    || fno "Dokapon PAH/PIM" "failed on synthetic GAME.PAH"
+  else
+    fno "Dokapon PAH/PIM" "mk_dokapon.py failed"
+  fi
+
   # Ganbarion ALAR (big-endian, Pandora's Tower)
   mkdir -p "$d/alar2_test"
   if python3 "$PWD_PROJECT/../tests/mk_alar2.py" "$d/alar2_test" >/dev/null 2>&1; then

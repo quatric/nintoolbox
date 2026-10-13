@@ -36,6 +36,12 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_ftex_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_pim_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_pah_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_wtmd_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
