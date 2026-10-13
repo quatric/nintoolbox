@@ -9953,6 +9953,21 @@ with open(sys.argv[1], "wb") as f:
     fno "Asura .str" "mk_asurastr.py failed"
   fi
 
+  # Nippon Ichi IMY texture (Phantom Brave)
+  mkdir -p "$d/imy_test"
+  if python3 "$PWD_PROJECT/../tests/mk_imy.py" "$d/imy_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/imy_test/t.imy" --overwrite >/dev/null 2>&1 \
+    && python3 "$PNGTOOL" pixel "$d/imy_test/t.imy.png" 0 0 255 0 0 255 \
+    && python3 "$PNGTOOL" pixel "$d/imy_test/t.imy.png" 7 3 255 0 0 255 \
+    && python3 "$PNGTOOL" pixel "$d/imy_test/t.imy.png" 8 0 0 255 0 255 \
+    && python3 "$PNGTOOL" pixel "$d/imy_test/t.imy.png" 0 4 0 255 0 255 \
+    && python3 "$PNGTOOL" pixel "$d/imy_test/t.imy.png" 8 4 0 255 0 255 \
+    && fok "Nippon Ichi .imy decoded to PNG" \
+    || fno "Nippon Ichi .imy" "failed on synthetic t.imy"
+  else
+    fno "Nippon Ichi .imy" "mk_imy.py failed"
+  fi
+
   # Retro PAK v2 (Metroid Prime 3): LZO TXTR + CSMP
   mkdir -p "$d/retropak_test"
   if python3 "$PWD_PROJECT/../tests/mk_retropak.py" "$d/retropak_test" >/dev/null 2>&1; then
