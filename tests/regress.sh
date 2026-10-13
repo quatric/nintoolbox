@@ -10021,6 +10021,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Arc Rise WTMD" "mk_wtmd.py failed"
   fi
 
+  # Cursed Mountain KTM bundle (zlib + stored members) and TIMG texture
+  mkdir -p "$d/ktm_test"
+  if python3 "$PWD_PROJECT/../tests/mk_ktm.py" "$d/ktm_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/ktm_test/t.dat" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/ktm_test/t.dat.d/wii/test/a.txt")" = "hello ktm" ] \
+    && python3 "$PNGTOOL" pixel "$d/ktm_test/t.dat.d/wii/test/t.timg.png" 0 0 255 255 255 255 2>/dev/null \
+    && fok "Cursed Mountain KTM bundle split and TIMG -> PNG" \
+    || fno "Cursed Mountain KTM/TIMG" "failed on synthetic t.dat"
+  else
+    fno "Cursed Mountain KTM/TIMG" "mk_ktm.py failed"
+  fi
+
   # pop'n music SEN sentence table and AEPT texture file
   mkdir -p "$d/popn_test"
   if python3 "$PWD_PROJECT/../tests/mk_popn.py" "$d/popn_test" >/dev/null 2>&1; then
