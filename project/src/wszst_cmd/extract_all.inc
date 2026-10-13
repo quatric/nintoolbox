@@ -154,6 +154,7 @@
 #include "extract/asurarc.inc"
 #include "extract/asurastr.inc"
 #include "extract/imy.inc"
+#include "extract/nlxwb.inc"
 #include "extract/nltex.inc"
 #include "extract/pbmpd.inc"
 #include "extract/wiiidarc.inc"

@@ -10027,6 +10027,24 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Next Level .rlt / .res" "mk_nltex.py failed"
   fi
 
+  # Next Level Games wave bank (Mario Strikers Charged): .resbun wave table + raw .nlxwb ADPCM
+  mkdir -p "$d/nlxwb_test"
+  if python3 "$PWD_PROJECT/../tests/mk_nlxwb.py" "$d/nlxwb_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/nlxwb_test/t.resbun" --overwrite >/dev/null 2>&1 \
+    && python3 -c "
+import struct, sys
+a = open(sys.argv[1] + '/00.dsp', 'rb').read(); b = open(sys.argv[1] + '/01.dsp', 'rb').read()
+assert len(a) == 0x68 and len(b) == 0x70 and struct.unpack_from('>3I', a, 0) == (14, 16, 22050)
+assert struct.unpack_from('>3I', b, 0) == (24, 28, 44100) and a[0x60:0x68] == bytes([0x33, 1, 2, 3, 4, 5, 6, 7])
+assert b[0x60:0x69] == bytes([0x44, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x55]) and b[0x6e:] == b'\0\0'
+assert struct.unpack_from('>2h', b, 0x1c) == (100, 101) and a[0x3f] == 0x33
+" "$d/nlxwb_test/t.resbun.d" \
+    && fok "Next Level .resbun / .nlxwb wave bank split into DSP files" \
+    || fno "Next Level .resbun / .nlxwb" "failed on synthetic t.resbun"
+  else
+    fno "Next Level .resbun / .nlxwb" "mk_nlxwb.py failed"
+  fi
+
   # Retro PAK v2 (Metroid Prime 3): LZO TXTR + CSMP
   mkdir -p "$d/retropak_test"
   if python3 "$PWD_PROJECT/../tests/mk_retropak.py" "$d/retropak_test" >/dev/null 2>&1; then
