@@ -9962,8 +9962,11 @@ with open(sys.argv[1], "wb") as f:
     && python3 "$PNGTOOL" pixel "$d/imy_test/t.imy.png" 8 0 0 255 0 255 \
     && python3 "$PNGTOOL" pixel "$d/imy_test/t.imy.png" 0 4 0 255 0 255 \
     && python3 "$PNGTOOL" pixel "$d/imy_test/t.imy.png" 8 4 0 255 0 255 \
-    && fok "Nippon Ichi .imy decoded to PNG" \
-    || fno "Nippon Ichi .imy" "failed on synthetic t.imy"
+    && "$B/wszst" xx "$d/imy_test/t.dat" --overwrite >/dev/null 2>&1 \
+    && python3 "$PNGTOOL" pixel "$d/imy_test/t.dat.000010.png" 0 0 255 0 0 255 \
+    && python3 "$PNGTOOL" pixel "$d/imy_test/t.dat.000500.png" 8 4 0 255 0 255 \
+    && fok "Nippon Ichi .imy decoded to PNG (standalone and embedded in a .dat)" \
+    || fno "Nippon Ichi .imy" "failed on synthetic t.imy / t.dat"
   else
     fno "Nippon Ichi .imy" "mk_imy.py failed"
   fi

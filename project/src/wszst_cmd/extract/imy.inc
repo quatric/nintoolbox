@@ -7,21 +7,12 @@
 // the left, above, above-left or above-right (c-0xc0 >> 4). Units are 2 bytes (4 with flags bit1). The
 // result is plain GX tile order (C4 8x8, C8 8x4, RGBA8 4x4, padded to whole tiles). Palettes are RGB565
 // when flags bits 5-6 are 0 and RGB5A3 otherwise. Decoded to "<file>.png" in decode mode (xx).
-static enumError extract_imy_file (ccp arg, ccp basedir, uint depth)
+// Decodes the IMY texture at "raw" (sz bytes available) to RGBA; *used receives the stream length.
+static enumError imy_to_rgba (const u8 *raw, size_t sz, uint *out_w, uint *out_h, u8 **out_rgba, size_t *used)
 {
-	(void)basedir;
-	(void)depth;
-	if (!is_ext (arg, ".imy") || (export_count <= 0 && !opt_decode))
-		return ERR_NOTHING_TO_DO;
-	u8 *raw = 0;
-	size_t sz = 0;
-	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
-	{
-		FREE (raw);
-		return ERR_NOTHING_TO_DO;
-	}
 	u8 *buf = 0, *rgba = 0;
 	enumError err = ERR_NOTHING_TO_DO;
+	size_t endpos = 0;
 	if (sz < 0x24 || memcmp (raw, "IMY", 4))
 		goto done;
 	const uint stride = rd_le16 (raw + 8), flags = raw[10], bpp = raw[11], h = rd_le16 (raw + 12),
@@ -47,6 +38,7 @@ static enumError extract_imy_file (ccp arg, ccp basedir, uint depth)
 		if (sz - p < total)
 			goto done;
 		memcpy (buf, raw + p, total);
+		endpos = p + total;
 	}
 	else
 	{
@@ -98,6 +90,7 @@ static enumError extract_imy_file (ccp arg, ccp basedir, uint depth)
 					buf[o] = buf[o + d];
 			}
 		}
+		endpos = lit;
 	}
 	rgba = MALLOC ((size_t)w * h * 4);
 	if (!rgba)
@@ -166,23 +159,88 @@ static enumError extract_imy_file (ccp arg, ccp basedir, uint depth)
 						}
 			}
 	}
-	{
-		char png[PATH_MAX];
-		snprintf (png, sizeof (png), "%s.png", arg);
-		if (verbose >= 0 || testmode)
-			fprintf (stdlog, "%s%sDECODE IMY:%s %ux%u -> PNG:%s\n", verbose > 0 ? "\n" : "",
-				testmode ? "WOULD " : "", arg, w, h, png);
-		if (testmode)
-			err = ERR_OK;
-		else
-		{
-			err = SaveDecodedRGBAToPNG (rgba, w, h, &be_func, png, 0, true);
-			rgba = 0; // owned by the PNG writer
-		}
-	}
+	*out_w = w;
+	*out_h = h;
+	*out_rgba = rgba;
+	rgba = 0;
+	if (used)
+		*used = endpos;
+	err = ERR_OK;
 done:
 	FREE (rgba);
 	FREE (buf);
-	FREE (raw);
 	return err;
+}
+
+static enumError imy_save_png (ccp arg, ccp suffix, u8 *rgba, uint w, uint h)
+{
+	char png[PATH_MAX];
+	snprintf (png, sizeof (png), "%s%s.png", arg, suffix);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE IMY:%s %ux%u -> PNG:%s\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "",
+			arg, w, h, png);
+	if (testmode)
+	{
+		FREE (rgba);
+		return ERR_OK;
+	}
+	return SaveDecodedRGBAToPNG (rgba, w, h, &be_func, png, 0, true); // takes ownership of rgba
+}
+
+static enumError extract_imy_file (ccp arg, ccp basedir, uint depth)
+{
+	(void)basedir;
+	(void)depth;
+	if (!is_ext (arg, ".imy") || (export_count <= 0 && !opt_decode))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	uint w, h;
+	u8 *rgba;
+	enumError err = imy_to_rgba (raw, sz, &w, &h, &rgba, 0);
+	FREE (raw);
+	return err ? err : imy_save_png (arg, "", rgba, w, h);
+}
+
+// Phantom Brave ".dat" / ".mpd" game data files that carry IMY textures back to back (map tiles
+// "mp*.dat", animation sheets "anm*.dat", "titleImg.dat"): every "IMY\0" on a 4-byte boundary that
+// decodes cleanly is written as "<file>.<offset>.png" in decode mode (xx).
+static enumError extract_imycarve_file (ccp arg, ccp basedir, uint depth)
+{
+	(void)basedir;
+	(void)depth;
+	if ((!is_ext (arg, ".dat") && !is_ext (arg, ".mpd")) || (export_count <= 0 && !opt_decode))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw || sz > 0x4000000)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	enumError err = ERR_OK;
+	uint done = 0;
+	for (size_t p = 0; p + 0x24 <= sz && !err;)
+	{
+		uint w, h;
+		u8 *rgba;
+		size_t used = 0;
+		if (memcmp (raw + p, "IMY", 4) || imy_to_rgba (raw + p, sz - p, &w, &h, &rgba, &used))
+		{
+			p += 4;
+			continue;
+		}
+		char suffix[32];
+		snprintf (suffix, sizeof (suffix), ".%06zx", p);
+		err = imy_save_png (arg, suffix, rgba, w, h);
+		done++;
+		p = (p + (used > 4 ? used : 4) + 3) & ~(size_t)3;
+	}
+	FREE (raw);
+	return err ? err : done ? ERR_OK : ERR_NOTHING_TO_DO;
 }
