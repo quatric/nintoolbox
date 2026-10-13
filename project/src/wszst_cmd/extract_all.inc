@@ -166,6 +166,7 @@
 #include "extract/capcaps.inc"
 #include "extract/asurasfx.inc"
 #include "extract/redspark.inc"
+#include "extract/rsp.inc"
 #include "extract/retropak.inc"
 #include "extract/nub.inc"
 #include "extract/spt.inc"

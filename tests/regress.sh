@@ -9999,6 +9999,21 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # PlatinumGames .rsp sound pack (MadWorld): nested PACK of RedSpark sounds
+  if [ -f "$d/dspmisc_test/t.rsd" ]; then
+    mkdir -p "$d/rsp_test"
+    cp "$d/dspmisc_test/t.rsd" "$d/rsp_test/"
+    if python3 "$PWD_PROJECT/../tests/mk_rsp.py" "$d/rsp_test" >/dev/null 2>&1; then
+      "$B/wszst" x "$d/rsp_test/t.rsp" --overwrite >/dev/null 2>&1 \
+      && [ -f "$d/rsp_test/t.rsp.d/00-00.rsd" ] && [ -f "$d/rsp_test/t.rsp.d/01.rsd" ] \
+      && cmp -s "$d/rsp_test/t.rsp.d/01.rsd" "$d/rsp_test/t.rsd" \
+      && fok "MadWorld .rsp sound pack split into RedSpark sounds" \
+      || fno "MadWorld .rsp" "failed on synthetic t.rsp"
+    else
+      fno "MadWorld .rsp" "mk_rsp.py failed"
+    fi
+  fi
+
   # PlatinumGames IDD / EFF container textures (MadWorld)
   mkdir -p "$d/idd_test"
   if python3 "$PWD_PROJECT/../tests/mk_idd.py" "$d/idd_test" >/dev/null 2>&1; then
