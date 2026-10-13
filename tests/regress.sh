@@ -10010,6 +10010,17 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # Arc Rise Fantasia WTMD texture
+  mkdir -p "$d/wtmd_test"
+  if python3 "$PWD_PROJECT/../tests/mk_wtmd.py" "$d/wtmd_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/wtmd_test/t.wtm" --overwrite >/dev/null 2>&1 \
+    && python3 "$PNGTOOL" pixel "$d/wtmd_test/t.wtm.png" 0 0 255 0 0 255 2>/dev/null \
+    && fok "Arc Rise WTMD texture -> PNG" \
+    || fno "Arc Rise WTMD" "failed on synthetic t.wtm"
+  else
+    fno "Arc Rise WTMD" "mk_wtmd.py failed"
+  fi
+
   # Ganbarion ALAR (big-endian, Pandora's Tower)
   mkdir -p "$d/alar2_test"
   if python3 "$PWD_PROJECT/../tests/mk_alar2.py" "$d/alar2_test" >/dev/null 2>&1; then
