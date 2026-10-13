@@ -9999,6 +9999,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # Junction Point .pak resource pack (Epic Mickey)
+  mkdir -p "$d/jppak_test"
+  if python3 "$PWD_PROJECT/../tests/mk_jppak.py" "$d/jppak_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/jppak_test/t.pak" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/jppak_test/t.pak.d/Dir/One/a.bin")" = "stored-data-0123456789" ] \
+    && [ "$(wc -c < "$d/jppak_test/t.pak.d/Other/b.txt" | tr -d ' ')" = 480 ] \
+    && fok "Epic Mickey .pak split (stored + zlib members)" \
+    || fno "Epic Mickey pak" "failed on synthetic t.pak"
+  else
+    fno "Epic Mickey pak" "mk_jppak.py failed"
+  fi
+
   # Wwise sound bank (Epic Mickey)
   mkdir -p "$d/wwisebnk_test"
   if python3 "$PWD_PROJECT/../tests/mk_wwisebnk.py" "$d/wwisebnk_test" >/dev/null 2>&1; then
