@@ -10039,7 +10039,13 @@ assert struct.unpack_from('>3I', b, 0) == (24, 28, 44100) and a[0x60:0x68] == by
 assert b[0x60:0x69] == bytes([0x44, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x55]) and b[0x6e:] == b'\0\0'
 assert struct.unpack_from('>2h', b, 0x1c) == (100, 101) and a[0x3f] == 0x33
 " "$d/nlxwb_test/t.resbun.d" \
-    && fok "Next Level .resbun / .nlxwb wave bank split into DSP files" \
+    && "$B/wszst" x "$d/nlxwb_test/t2.resbun" --overwrite >/dev/null 2>&1 \
+    && python3 -c "
+import sys
+b = open(sys.argv[1] + '/00.idsp', 'rb').read()
+assert b == b'IDSP' + bytes(range(0x7c))
+" "$d/nlxwb_test/t2.resbun.d" \
+    && fok "Next Level .resbun / .nlxwb wave and stream banks split" \
     || fno "Next Level .resbun / .nlxwb" "failed on synthetic t.resbun"
   else
     fno "Next Level .resbun / .nlxwb" "mk_nlxwb.py failed"

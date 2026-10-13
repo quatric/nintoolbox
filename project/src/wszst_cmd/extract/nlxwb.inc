@@ -5,8 +5,8 @@
 // nibble address, start nibble address, 0}, then count 0x2e-byte blocks with the DSP coefficients and
 // history {s16 coef[16], gain, initial scale, history 1, history 2, loop scale, loop history 1 / 2}.
 // Addresses are nibble offsets into the ".nlxwb" file. Every sound is written as "<NN>.dsp" (decoded to
-// WAV by the DSP extractor). Banks without that chunk (music streams) are left alone.
-static bool nlxwb_find (const u8 *d, size_t sz, size_t p, size_t end, size_t *tab, size_t *tsz)
+// WAV by the DSP extractor). Banks without that chunk are stream banks (see nlxwb_streams).
+static bool nlxwb_find (const u8 *d, size_t sz, size_t p, size_t end, u32 want, size_t *tab, size_t *tsz)
 {
 	while (p + 8 <= end && end <= sz)
 	{
@@ -15,10 +15,10 @@ static bool nlxwb_find (const u8 *d, size_t sz, size_t p, size_t end, size_t *ta
 			return false;
 		if (tag & 0x80000000)
 		{
-			if (nlxwb_find (d, sz, p + 8, p + 8 + len, tab, tsz))
+			if (nlxwb_find (d, sz, p + 8, p + 8 + len, want, tab, tsz))
 				return true;
 		}
-		else if (tag == 0x03023703)
+		else if (tag == want)
 		{
 			*tab = p + 8;
 			*tsz = len;
@@ -27,6 +27,54 @@ static bool nlxwb_find (const u8 *d, size_t sz, size_t p, size_t end, size_t *ta
 		p += 8 + (size_t)len;
 	}
 	return false;
+}
+
+// Stream banks (music / crowd / cut-scene audio): chunk 0x23202 lists count 28-byte entries {index, offset,
+// size, hash, channels, 0, 0}; each stream is a complete "IDSP" file inside the ".nlxwb" and is written as
+// "<NN>.idsp" for the IDSP extractor. Takes ownership of "raw".
+static enumError nlxwb_streams (ccp arg, ccp basedir, uint depth, u8 *raw, size_t sz)
+{
+	u8 *wav = 0;
+	size_t wsz = 0, tab = 0, tsz = 0;
+	enumError err = ERR_NOTHING_TO_DO;
+	nintendo_sarc_entry_t *entries = 0;
+	if (!nlxwb_find (raw, sz, 0, sz, 0x23202, &tab, &tsz) || !tsz || tsz % 28 || tsz / 28 > 4096)
+		goto done;
+	const uint count = tsz / 28;
+	char sib[PATH_MAX];
+	snprintf (sib, sizeof (sib), "%s", arg);
+	strcpy (sib + strlen (sib) - 7, ".nlxwb");
+	if (LoadFileAlloc (sib, 0, 0, &wav, &wsz, 0, 0, 0, false) || !wav)
+		goto done;
+	entries = CALLOC (count, sizeof (*entries));
+	if (!entries)
+	{
+		err = ERR_OUT_OF_MEMORY;
+		goto done;
+	}
+	uint n = 0;
+	for (uint i = 0; i < count; i++)
+	{
+		const u8 *e = raw + tab + (size_t)i * 28;
+		const size_t off = rd_be32 (e + 4), size = rd_be32 (e + 8);
+		if (rd_be32 (e) != i || off > wsz || size < 0x60 || size > wsz - off || memcmp (wav + off, "IDSP", 4))
+			break;
+		char name[16];
+		snprintf (name, sizeof (name), "%02u.idsp", i);
+		if (!OwnedEntryAdd (entries, n, name, wav + off, size))
+			break;
+		n++;
+	}
+	if (n == count)
+	{
+		err = write_owned_entries (arg, basedir, depth, "NLXWB-STREAM", entries, n);
+		entries = 0;
+	}
+done:
+	FREE (entries);
+	FREE (wav);
+	FREE (raw);
+	return err;
 }
 
 static enumError extract_nlxwb_file (ccp arg, ccp basedir, uint depth)
@@ -40,8 +88,8 @@ static enumError extract_nlxwb_file (ccp arg, ccp basedir, uint depth)
 	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
 		goto done;
 	size_t tab = 0, tsz = 0;
-	if (sz < 0x20 || !(rd_be32 (raw) & 0x80000000) || !nlxwb_find (raw, sz, 0, sz, &tab, &tsz) || tsz < 4)
-		goto done;
+	if (sz < 0x20 || !(rd_be32 (raw) & 0x80000000) || !nlxwb_find (raw, sz, 0, sz, 0x03023703, &tab, &tsz) || tsz < 4)
+		return nlxwb_streams (arg, basedir, depth, raw, sz);
 	size_t p = tab;
 	uint count = rd_be32 (raw + p);
 	if (!count && tsz >= 8)

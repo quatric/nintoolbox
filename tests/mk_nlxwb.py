@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-# Synthetic Next Level Games wave bank (Mario Strikers Charged): t.resbun (container with a 0x03023703 wave table of
-# two sounds, the second one cut short at the end of the file) plus the raw DSP-ADPCM data t.nlxwb.
+# Synthetic Next Level Games wave banks (Mario Strikers Charged): t.resbun (container with a 0x03023703 wave table of
+# two sounds, the second one cut short at the end of the file) plus the raw DSP-ADPCM data t.nlxwb, and t2.resbun /
+# t2.nlxwb (a stream bank whose 0x23202 table points at one IDSP blob).
 import struct, sys, os
 d = sys.argv[1]
 data = bytes([0x33] + list(range(1, 8))) + bytes([0x44] + list(range(0x11, 0x18))) + bytes([0x55, 0xaa, 0xbb, 1, 2, 3])
@@ -15,3 +16,12 @@ inner = struct.pack('>II', 0x03023703, len(tab)) + tab
 res = struct.pack('>II', 0x80000001, len(inner)) + inner
 open(os.path.join(d, 't.resbun'), 'wb').write(res)
 open(os.path.join(d, 't.nlxwb'), 'wb').write(data)
+
+# stream bank: one 0x23202 stream table entry pointing at an IDSP blob at 0x20 in t2.nlxwb
+blob = b'IDSP' + bytes(range(0x7c))
+sdata = bytes(0x20) + blob + bytes(0x10)
+stab = struct.pack('>7I', 0, 0x20, len(blob), 0x12345678, 2, 0, 0)
+sinner = struct.pack('>II', 0x23202, len(stab)) + stab
+sres = struct.pack('>II', 0x80000001, 8 + len(sinner)) + struct.pack('>II', 0x80023200, len(sinner)) + sinner
+open(os.path.join(d, 't2.resbun'), 'wb').write(sres)
+open(os.path.join(d, 't2.nlxwb'), 'wb').write(sdata)
