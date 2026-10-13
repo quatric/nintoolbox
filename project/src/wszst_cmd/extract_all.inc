@@ -170,6 +170,7 @@
 #include "extract/capcomarc.inc"
 #include "extract/adx.inc"
 #include "extract/avdict.inc"
+#include "extract/avdbl.inc"
 #include "extract/gts.inc"
 #include "extract/retropak.inc"
 #include "extract/nub.inc"

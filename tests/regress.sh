@@ -9999,6 +9999,19 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # Avalanche DBL texture sets (Disney's Bolt)
+  mkdir -p "$d/avdbl_test"
+  if python3 "$PWD_PROJECT/../tests/mk_avdbl.py" "$d/avdbl_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/avdbl_test/t.dbl" --overwrite >/dev/null 2>&1 \
+    && python3 "$PNGTOOL" pixel "$d/avdbl_test/t.dbl.00.red.png" 0 0 0 0 255 255 \
+    && python3 "$PNGTOOL" pixel "$d/avdbl_test/t.dbl.00.red.png" 3 3 255 0 0 255 \
+    && python3 "$PNGTOOL" pixel "$d/avdbl_test/t.dbl.01.green.png" 7 3 0 255 0 255 \
+    && fok "Avalanche .dbl textures decoded to PNG" \
+    || fno "Avalanche DBL" "failed on synthetic t.dbl"
+  else
+    fno "Avalanche DBL" "mk_avdbl.py failed"
+  fi
+
   # Avalanche DICT localisation dictionary (Disney's Bolt)
   mkdir -p "$d/avdict_test"
   if python3 "$PWD_PROJECT/../tests/mk_avdict.py" "$d/avdict_test" >/dev/null 2>&1; then
