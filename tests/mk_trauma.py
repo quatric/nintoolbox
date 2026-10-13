@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Synthetic Trauma Team files: t.tpx (one 8x4 I8 TPL record "tex1") and t.bf (FLW0 flow script with one proc
+"""Synthetic Trauma Team files: t.tpx (one 8x4 I8 TPL record "tex1") and t.bm2 (the bare MSG2 block) and t.bf (FLW0 flow script with one proc
 label and a MSG2 block holding the message "msg0" with the Shift-JIS string "Hello"). usage: mk_trauma.py OUTDIR"""
 import os, struct, sys
 
@@ -19,6 +19,7 @@ mrec = b'msg0'.ljust(0x20, b'\0') + struct.pack('>IIII', 0, len(text), 0x70, 0xf
 msg = (b'\0\0\0\0MSG2' + struct.pack('>II', 0x10000, 0)).ljust(0x24, b'\0') + struct.pack('>III', 0x30, 1, 0x30)
 msg = msg.ljust(0x30, b'\0') + mrec + text
 msg = msg[:12] + struct.pack('>I', len(msg)) + msg[16:]
+open(os.path.join(d, 't.bm2'), 'wb').write(msg)
 lab = b'start'.ljust(0x30, b'\0') + struct.pack('>II', 0, 0)
 secs = [(0, 0x38, 1, 0x20 + 16 * 4), (1, 0x38, 0, 0x20 + 16 * 4 + 0x38), (2, 4, 0, 0), (3, 1, len(msg), 0)]
 base = 0x20 + 16 * 4 + 0x38

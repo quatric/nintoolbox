@@ -25,6 +25,32 @@ static void flw0_print_sjis (FILE *f, const u8 *s, size_t n)
 	}
 }
 
+// Writes the messages of an Atlus "MSG2" block (see above): every record name with its Shift-JIS strings.
+static void msg2_write_text (FILE *f, const u8 *m, size_t msglen)
+{
+	const size_t tab = rd_be32 (m + 0x24), rs = 0x40, cnt = rd_be32 (m + 0x28);
+	for (size_t i = 0; i < cnt && tab + rs * (i + 1) <= msglen; i++)
+	{
+		const u8 *r = m + tab + rs * i;
+		const size_t tsz = rd_be32 (r + 0x24), toff = rd_be32 (r + 0x28);
+		if (toff > msglen || tsz > msglen - toff)
+			break;
+		fprintf (f, "\nmessage %.32s\n", (ccp)r);
+		const u8 *t = m + toff;
+		for (size_t p = 0, q; p < tsz; p = q + 1)
+		{
+			for (q = p; q < tsz && t[q] >= 0x20 && t[q] != 0xff; q++)
+				;
+			if (q - p >= 2)
+			{
+				fputs ("  \"", f);
+				flw0_print_sjis (f, t + p, q - p);
+				fputs ("\"\n", f);
+			}
+		}
+	}
+}
+
 static enumError extract_flw0_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)basedir;
@@ -82,30 +108,44 @@ static enumError extract_flw0_file (ccp arg, ccp basedir, uint depth)
 			fprintf (F.f, "%s %.32s @ %u\n", t ? "jump" : "proc", (ccp)e, rd_be32 (e + 0x30));
 		}
 	if (msglen >= 0x30 && !memcmp (raw + msg + 4, "MSG2", 4))
+		msg2_write_text (F.f, raw + msg, msglen);
+	err = ResetFile (&F, opt_preserve);
+done:
+	FREE (raw);
+	return err;
+}
+
+// Standalone "MSG2" message files (Trauma Team ".bm2"): the same block as inside the flow scripts, decoded to
+// "<file>.txt".
+static enumError extract_bm2_file (ccp arg)
+{
+	if (!is_ext (arg, ".bm2") || (export_count <= 0 && !opt_decode))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
 	{
-		const u8 *m = raw + msg;
-		const size_t tab = rd_be32 (m + 0x24), rs = 0x40, cnt = rd_be32 (m + 0x28);
-		for (size_t i = 0; i < cnt && tab + rs * (i + 1) <= msglen; i++)
-		{
-			const u8 *r = m + tab + rs * i;
-			const size_t tsz = rd_be32 (r + 0x24), toff = rd_be32 (r + 0x28);
-			if (toff > msglen || tsz > msglen - toff)
-				break;
-			fprintf (F.f, "\nmessage %.32s\n", (ccp)r);
-			const u8 *t = m + toff;
-			for (size_t p = 0, q; p < tsz; p = q + 1)
-			{
-				for (q = p; q < tsz && t[q] >= 0x20 && t[q] != 0xff; q++)
-					;
-				if (q - p >= 2)
-				{
-					fputs ("  \"", F.f);
-					flw0_print_sjis (F.f, t + p, q - p);
-					fputs ("\"\n", F.f);
-				}
-			}
-		}
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
 	}
+	enumError err = ERR_NOTHING_TO_DO;
+	if (sz < 0x30 || memcmp (raw + 4, "MSG2", 4) || rd_be32 (raw + 12) != sz)
+		goto done;
+	char out[PATH_MAX];
+	snprintf (out, sizeof (out), "%s.txt", arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE MSG2:%s -> %s\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, out);
+	if (testmode)
+	{
+		err = ERR_OK;
+		goto done;
+	}
+	File_t F;
+	err = CreateFileOpt (&F, true, out, false, arg);
+	if (!F.f)
+		goto done;
+	fputs ("# Atlus MSG2 message file\n", F.f);
+	msg2_write_text (F.f, raw, sz);
 	err = ResetFile (&F, opt_preserve);
 done:
 	FREE (raw);

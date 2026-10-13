@@ -10064,6 +10064,8 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     && [ "$(head -c 4 "$d/trauma_test/t.tpx.d/tex1.tpl.png" | tail -c 3)" = "PNG" ] \
     && grep -q '^proc start @ 0$' "$d/trauma_test/t.bf.txt" \
     && grep -q '^  "Hello"$' "$d/trauma_test/t.bf.txt" \
+    && "$B/wszst" xx "$d/trauma_test/t.bm2" --overwrite >/dev/null 2>&1 \
+    && grep -q '^  "Hello"$' "$d/trauma_test/t.bm2.txt" \
     && fok "Trauma Team TPX -> TPL -> PNG and FLW0 .bf -> text" \
     || fno "Trauma Team TPX/FLW0" "failed on synthetic t.tpx / t.bf"
   else
