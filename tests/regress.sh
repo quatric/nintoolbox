@@ -9999,6 +9999,23 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # Monster Hunter Tri .srt sound table + .ssd stream
+  mkdir -p "$d/mhsrt_test"
+  if python3 "$PWD_PROJECT/../tests/mk_mhsrt.py" "$d/mhsrt_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/mhsrt_test/T_Demo_01.srt" --overwrite >/dev/null 2>&1 \
+    && python3 -I -c '
+import wave, struct, sys
+for c, v in ((0, 7), (1, 2)):
+    w = wave.open(sys.argv[1] + "/ch%d.wav" % c)
+    assert w.getnframes() == 14 and w.getframerate() == 32000
+    assert struct.unpack("<3h", w.readframes(3)) == (v, v, v)
+' "$d/mhsrt_test/T_Demo_01.srt.d" \
+    && fok "Monster Hunter Tri .srt + .ssd stream decoded" \
+    || fno "MH Tri srt/ssd" "failed on synthetic T_Demo_01.srt"
+  else
+    fno "MH Tri srt/ssd" "mk_mhsrt.py failed"
+  fi
+
   # Avalanche DBL texture sets (Disney's Bolt)
   mkdir -p "$d/avdbl_test"
   if python3 "$PWD_PROJECT/../tests/mk_avdbl.py" "$d/avdbl_test" >/dev/null 2>&1; then
