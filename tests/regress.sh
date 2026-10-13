@@ -10072,6 +10072,17 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Trauma Team TPX/FLW0" "mk_trauma.py failed"
   fi
 
+  # Muramasa NMS message sheet inside FCMP
+  mkdir -p "$d/muranms_test"
+  if python3 "$PWD_PROJECT/../tests/mk_muranms.py" "$d/muranms_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/muranms_test/t.nms" --overwrite >/dev/null 2>&1 \
+    && grep -q '^1	a\\nb$' "$d/muranms_test/t.nms.txt" \
+    && fok "Muramasa FCMP .nms -> text" \
+    || fno "Muramasa .nms" "failed on synthetic t.nms"
+  else
+    fno "Muramasa .nms" "mk_muranms.py failed"
+  fi
+
   # Muramasa FTEX texture set inside FCMP
   mkdir -p "$d/fcmpftex_test"
   if python3 "$PWD_PROJECT/../tests/mk_fcmpftex.py" "$d/fcmpftex_test" >/dev/null 2>&1; then
