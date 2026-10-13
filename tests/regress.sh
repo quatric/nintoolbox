@@ -9999,6 +9999,19 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # PlatinumGames IDD / EFF container textures (MadWorld)
+  mkdir -p "$d/idd_test"
+  if python3 "$PWD_PROJECT/../tests/mk_idd.py" "$d/idd_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/idd_test/t.idd" --overwrite >/dev/null 2>&1 \
+    && python3 "$PNGTOOL" pixel "$d/idd_test/t.idd.00.png" 0 0 255 0 0 255 \
+    && python3 "$PNGTOOL" pixel "$d/idd_test/t.idd.00.png" 3 3 0 255 0 255 \
+    && python3 "$PNGTOOL" pixel "$d/idd_test/t.idd.01.png" 7 7 0 0 255 255 \
+    && fok "MadWorld .idd textures decoded to PNG" \
+    || fno "MadWorld .idd textures" "failed on synthetic t.idd"
+  else
+    fno "MadWorld .idd textures" "mk_idd.py failed"
+  fi
+
   # Nippon Ichi Phantom Brave battle map data
   mkdir -p "$d/pbmpd_test"
   if python3 "$PWD_PROJECT/../tests/mk_pbmpd.py" "$d/pbmpd_test" >/dev/null 2>&1; then
