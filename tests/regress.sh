@@ -10010,6 +10010,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # CyberConnect2-style fpack .fpk with Sega PRS members (Naruto Clash of Ninja Revolution III, Tatsunoko vs. Capcom)
+  mkdir -p "$d/ccfpk_test"
+  if python3 "$PWD_PROJECT/../tests/mk_ccfpk.py" "$d/ccfpk_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/ccfpk_test/t.fpk" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/ccfpk_test/t.fpk.d/packed.bin")" = "ABABAB" ] \
+    && [ "$(cat "$d/ccfpk_test/t.fpk.d/dir/stored.bin")" = "STORED-MEMBER-DATA" ] \
+    && fok "fpack .fpk (PRS + stored members) extracted" \
+    || fno "fpack fpk" "failed on synthetic t.fpk"
+  else
+    fno "fpack fpk" "mk_ccfpk.py failed"
+  fi
+
   # Marvelous pBin container + FIPAFTEX textures (Harvest Moon: Animal Parade)
   mkdir -p "$d/pbin_test"
   if python3 "$PWD_PROJECT/../tests/mk_pbin.py" "$d/pbin_test" >/dev/null 2>&1; then

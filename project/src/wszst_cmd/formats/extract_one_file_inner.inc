@@ -36,6 +36,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_ftex_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_ccfpk_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_pbin_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
