@@ -9999,6 +9999,21 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # Capcom @LPK / @FPK / ANA@ archives (Dead Rising Wii)
+  mkdir -p "$d/capcomarc_test"
+  if python3 "$PWD_PROJECT/../tests/mk_capcomarc.py" "$d/capcomarc_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/capcomarc_test/t.lpk" --overwrite >/dev/null 2>&1 \
+    && "$B/wszst" x "$d/capcomarc_test/t.fpk" --overwrite >/dev/null 2>&1 \
+    && "$B/wszst" x "$d/capcomarc_test/t.ana" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/capcomarc_test/t.lpk.d/one.bin")" = 32 ] \
+    && [ -f "$d/capcomarc_test/t.fpk.d/00-00.brres" ] && [ "$(wc -c < "$d/capcomarc_test/t.fpk.d/05-00.bin")" = 32 ] \
+    && [ -f "$d/capcomarc_test/t.ana.d/tx_000.brres" ] && [ -f "$d/capcomarc_test/t.ana.d/pic.bin" ] \
+    && fok "Capcom @LPK / @FPK / ANA@ archives split" \
+    || fno "Capcom archives" "failed on synthetic t.lpk / t.fpk / t.ana"
+  else
+    fno "Capcom archives" "mk_capcomarc.py failed"
+  fi
+
   # PlatinumGames .rsp sound pack (MadWorld): nested PACK of RedSpark sounds
   if [ -f "$d/dspmisc_test/t.rsd" ]; then
     mkdir -p "$d/rsp_test"
