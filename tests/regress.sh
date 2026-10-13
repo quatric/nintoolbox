@@ -9987,6 +9987,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Nippon Ichi WIIIDARC" "mk_wiiidarc.py failed"
   fi
 
+  # Rebellion Asura Wii texture member (PDC World Championship Darts)
+  mkdir -p "$d/asuratex_test"
+  if python3 "$PWD_PROJECT/../tests/mk_asuratex.py" "$d/asuratex_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/asuratex_test/t.t1" --overwrite >/dev/null 2>&1 \
+    && python3 "$PNGTOOL" pixel "$d/asuratex_test/t.t1.png" 0 0 255 0 0 255 \
+    && python3 "$PNGTOOL" pixel "$d/asuratex_test/t.t1.png" 3 3 0 255 0 255 \
+    && fok "Asura .t1 texture decoded to PNG" \
+    || fno "Asura .t1 texture" "failed on synthetic t.t1"
+  else
+    fno "Asura .t1 texture" "mk_asuratex.py failed"
+  fi
+
   # Retro PAK v2 (Metroid Prime 3): LZO TXTR + CSMP
   mkdir -p "$d/retropak_test"
   if python3 "$PWD_PROJECT/../tests/mk_retropak.py" "$d/retropak_test" >/dev/null 2>&1; then

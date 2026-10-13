@@ -70,3 +70,51 @@ static enumError extract_asurarc_file (ccp arg, ccp basedir, uint depth)
 	FREE (raw);
 	return err;
 }
+
+// Rebellion Asura Wii texture member (type 1, "<name>.t1" in an unpacked ".ARC"): 0x20-byte big-endian
+// header {u16 width, u16 height, u16 width, u16 height, ..., u8 GX format @0xc, u8 palette format @0xd},
+// the base level pixels in GX tile order from 0x20 (smaller mip levels follow), and for C4 / C8 the
+// 16 / 256 palette words at the very end. Written to "<file>.png" in decode mode (xx).
+static enumError extract_asuratex_file (ccp arg, ccp basedir, uint depth)
+{
+	(void)basedir;
+	(void)depth;
+	if (!is_ext (arg, ".t1") || (export_count <= 0 && !opt_decode))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	enumError err = ERR_NOTHING_TO_DO;
+	if (sz < 0x30)
+		goto done;
+	const uint w = rd_be16 (raw), h = rd_be16 (raw + 2), fmt = raw[0xc], pfmt = raw[0xd];
+	if (!w || !h || w > 2048 || h > 2048 || w != rd_be16 (raw + 4) || h != rd_be16 (raw + 6))
+		goto done;
+	const uint pn = fmt == 8 ? 16 : fmt == 9 ? 256 : 0;
+	if (pn && sz < 0x20 + 2 * (size_t)pn)
+		goto done;
+	u8 *rgba = eashpg_decode (fmt, raw + 0x20, sz - 0x20 - 2 * pn, w, h, pn ? raw + sz - 2 * pn : 0, pn, pfmt);
+	if (!rgba)
+		goto done;
+	{
+		char png[PATH_MAX];
+		snprintf (png, sizeof (png), "%s.png", arg);
+		if (verbose >= 0 || testmode)
+			fprintf (stdlog, "%s%sDECODE ASURA-TEX:%s %ux%u -> PNG:%s\n", verbose > 0 ? "\n" : "",
+				testmode ? "WOULD " : "", arg, w, h, png);
+		if (testmode)
+		{
+			FREE (rgba);
+			err = ERR_OK;
+		}
+		else
+			err = SaveDecodedRGBAToPNG (rgba, w, h, &be_func, png, 0, true);
+	}
+done:
+	FREE (raw);
+	return err;
+}
