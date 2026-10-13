@@ -9999,6 +9999,17 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Asura .t1 texture" "mk_asuratex.py failed"
   fi
 
+  # Sonic Team .one PRS archive (Sonic and the Black Knight)
+  mkdir -p "$d/sonicone_test"
+  if python3 "$PWD_PROJECT/../tests/mk_sonicone.py" "$d/sonicone_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/sonicone_test/t.one" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/sonicone_test/t.one.d/HELLO.BIN")" = "ABAB" ] \
+    && fok "Sonic .one PRS archive extracted" \
+    || fno "Sonic .one" "failed on synthetic t.one"
+  else
+    fno "Sonic .one" "mk_sonicone.py failed"
+  fi
+
   # Capcom TRES text resources (Resident Evil Chronicles)
   mkdir -p "$d/tres_test"
   if python3 "$PWD_PROJECT/../tests/mk_capcomtres.py" "$d/tres_test" >/dev/null 2>&1; then
