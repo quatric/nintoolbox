@@ -123,6 +123,7 @@
 #include "extract/fuax.inc"
 #include "extract/stgs.inc"
 #include "extract/wbl10n.inc"
+#include "extract/eaxa.inc"
 #include "extract/schl.inc"
 #include "extract/wiitex.inc"
 #include "extract/ptex.inc"

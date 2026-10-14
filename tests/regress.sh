@@ -10157,6 +10157,17 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "DSP .asf" "mk_asfdsp.py failed"
   fi
 
+  # EA SCHl stream with EA-XA ADPCM (Wii .exa) decoded natively
+  mkdir -p "$d/eaxa_test"
+  if python3 "$PWD_PROJECT/../tests/mk_eaxa.py" "$d/eaxa_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/eaxa_test/t.exa" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 44 -l 8 -p "$d/eaxa_test/t.exa.wav")" = "0010002000300040" ] \
+    && fok "EA SCHl EA-XA .exa -> WAV" \
+    || fno "EA SCHl EA-XA" "failed on synthetic t.exa"
+  else
+    fno "EA SCHl EA-XA" "mk_eaxa.py failed"
+  fi
+
   # Rebellion Asura resource file (AsuraZlb) with an embedded TPL
   mkdir -p "$d/asura_test"
   if python3 "$PWD_PROJECT/../tests/mk_asura.py" "$d/asura_test" >/dev/null 2>&1; then
