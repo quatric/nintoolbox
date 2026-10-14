@@ -211,6 +211,7 @@
 #include "extract/asfdsp.inc"
 #include "extract/aix.inc"
 #include "extract/waf.inc"
+#include "extract/seg.inc"
 #include "extract/mhsrt.inc"
 #include "extract/gts.inc"
 #include "extract/retropak.inc"
