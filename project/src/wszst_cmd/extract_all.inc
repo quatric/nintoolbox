@@ -204,6 +204,7 @@
 #include "extract/dbpf.inc"
 #include "extract/murafcmp.inc"
 #include "extract/fev.inc"
+#include "extract/bgst3.inc"
 #include "extract/mhsrt.inc"
 #include "extract/gts.inc"
 #include "extract/retropak.inc"

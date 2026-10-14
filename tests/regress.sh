@@ -10107,6 +10107,19 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "FMOD .fev" "mk_fev.py failed"
   fi
 
+  # Good-Feel BGST background tile set: CMPR tiles -> PNG, empty tile skipped
+  mkdir -p "$d/bgst3_test"
+  if python3 "$PWD_PROJECT/../tests/mk_bgst3.py" "$d/bgst3_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/bgst3_test/t.bgst3" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/bgst3_test/t.bgst3.001.png" | tail -c 3)" = "PNG" ] \
+    && [ ! -e "$d/bgst3_test/t.bgst3.000.png" ] \
+    && grep -q '^1 0 0 0 1 65535 65535 65535$' "$d/bgst3_test/t.bgst3.txt" \
+    && fok "Good-Feel BGST tile set -> PNG tiles + slot table" \
+    || fno "BGST3" "failed on synthetic t.bgst3"
+  else
+    fno "BGST3" "mk_bgst3.py failed"
+  fi
+
   # Rebellion Asura resource file (AsuraZlb) with an embedded TPL
   mkdir -p "$d/asura_test"
   if python3 "$PWD_PROJECT/../tests/mk_asura.py" "$d/asura_test" >/dev/null 2>&1; then
