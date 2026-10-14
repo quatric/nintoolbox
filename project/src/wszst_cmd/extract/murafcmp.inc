@@ -1,6 +1,6 @@
 // Muramasa - The Demon Blade ".abf" (MLIB resource name lists), ".esb" (EMBP typed record tables), ".mbs" and
 // ".nsb" files are "FCMP" LZSS containers (see lib-muramasa.c). In decode mode the decompressed body is written to
-// "<file>.dec" and, for the string-bearing MLIB / EMBP bodies, every NUL-terminated string of at least three
+// "<file>.dec" and, for the string-bearing MLIB / EMBP / NSBD bodies, every NUL-terminated string of at least three
 // characters (ASCII or Shift-JIS) to "<file>.strings.txt" as "offset<TAB>text" lines. The record layouts of the
 // inner formats are not interpreted.
 static enumError extract_murafcmp_file (ccp arg)
@@ -44,7 +44,7 @@ static enumError extract_murafcmp_file (ccp arg)
 		if (!err)
 			err = rerr;
 	}
-	if (!err && dsz >= 8 && (!memcmp (pl, "MLIB", 4) || !memcmp (pl, "EMBP", 4)))
+	if (!err && dsz >= 8 && (!memcmp (pl, "MLIB", 4) || !memcmp (pl, "EMBP", 4) || !memcmp (pl, "NSBD", 4)))
 	{
 		char out[PATH_MAX];
 		snprintf (out, sizeof (out), "%s.strings.txt", arg);
@@ -55,7 +55,7 @@ static enumError extract_murafcmp_file (ccp arg)
 		size_t p = 0;
 		while (p < dsz)
 		{
-			if (pl[p] < 0x20)
+			if (pl[p] < 0x20 || pl[p] == 0xff)
 			{
 				p++;
 				continue;
