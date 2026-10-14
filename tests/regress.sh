@@ -10133,6 +10133,17 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Ubisoft BAO" "mk_ubibao.py failed"
   fi
 
+  # Big-endian RIFX PCM .wax -> little-endian WAV
+  mkdir -p "$d/rifx_test"
+  if python3 "$PWD_PROJECT/../tests/mk_rifx.py" "$d/rifx_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/rifx_test/t.wax" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 44 -l 8 -p "$d/rifx_test/t.wav")" = "0100feff3412cced" ] \
+    && fok "RIFX .wax -> WAV" \
+    || fno "RIFX .wax" "failed on synthetic t.wax"
+  else
+    fno "RIFX .wax" "mk_rifx.py failed"
+  fi
+
   # Rebellion Asura resource file (AsuraZlb) with an embedded TPL
   mkdir -p "$d/asura_test"
   if python3 "$PWD_PROJECT/../tests/mk_asura.py" "$d/asura_test" >/dev/null 2>&1; then
