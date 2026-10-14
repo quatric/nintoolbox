@@ -10157,6 +10157,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "DSP .asf" "mk_asfdsp.py failed"
   fi
 
+  # Major Minor's Majestic March .waf: chained DSP chunks
+  mkdir -p "$d/waf_test"
+  if python3 "$PWD_PROJECT/../tests/mk_waf.py" "$d/waf_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/waf_test/t.waf" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/waf_test/t.waf.d/0000.dsp" | tr -d ' ')" -eq 112 ] \
+    && [ "$(xxd -s 0x60 -l 8 -p "$d/waf_test/t.waf.d/0001.dsp")" = "2122232425262728" ] \
+    && fok "Major Minor .waf -> DSP chunks" \
+    || fno "Major Minor .waf" "failed on synthetic t.waf"
+  else
+    fno "Major Minor .waf" "mk_waf.py failed"
+  fi
+
   # EA SCHl stream with EA-XA ADPCM (Wii .exa) decoded natively
   mkdir -p "$d/eaxa_test"
   if python3 "$PWD_PROJECT/../tests/mk_eaxa.py" "$d/eaxa_test" >/dev/null 2>&1; then
