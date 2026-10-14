@@ -212,6 +212,7 @@
 #include "extract/aix.inc"
 #include "extract/waf.inc"
 #include "extract/seg.inc"
+#include "extract/kwa.inc"
 #include "extract/mhsrt.inc"
 #include "extract/gts.inc"
 #include "extract/retropak.inc"

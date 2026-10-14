@@ -10181,6 +10181,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Stormfront .seg" "mk_seg.py failed"
   fi
 
+  # Knight Wars / Aragorn's Quest .kwa -> DSP
+  mkdir -p "$d/kwa_test"
+  if python3 "$PWD_PROJECT/../tests/mk_kwa.py" "$d/kwa_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/kwa_test/t.kwa" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/kwa_test/t.kwa.d/00.dsp" | tr -d ' ')" -eq 128 ] \
+    && [ "$(xxd -s 0x60 -l 8 -p "$d/kwa_test/t.kwa.d/00.dsp")" = "0102030405060708" ] \
+    && fok "KWA -> DSP" \
+    || fno "KWA" "failed on synthetic t.kwa"
+  else
+    fno "KWA" "mk_kwa.py failed"
+  fi
+
   # EA SCHl stream with EA-XA ADPCM (Wii .exa) decoded natively
   mkdir -p "$d/eaxa_test"
   if python3 "$PWD_PROJECT/../tests/mk_eaxa.py" "$d/eaxa_test" >/dev/null 2>&1; then
