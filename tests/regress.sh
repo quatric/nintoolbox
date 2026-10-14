@@ -10229,6 +10229,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Terminal Reality .smp" "mk_smp.py failed"
   fi
 
+  # Z-Axis ZSND GCUB .zss -> DSP
+  mkdir -p "$d/zsnd_test"
+  if python3 "$PWD_PROJECT/../tests/mk_zsnd.py" "$d/zsnd_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/zsnd_test/t.zss" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 0x1c -l 4 -p "$d/zsnd_test/t.zss.d/0000.dsp")" = "01000200" ] \
+    && [ "$(xxd -s 0x60 -l 4 -p "$d/zsnd_test/t.zss.d/0000.dsp")" = "01020304" ] \
+    && fok "Z-Axis ZSND .zss -> DSP" \
+    || fno "Z-Axis ZSND" "failed on synthetic t.zss"
+  else
+    fno "Z-Axis ZSND" "mk_zsnd.py failed"
+  fi
+
   # EA SCHl stream with EA-XA ADPCM (Wii .exa) decoded natively
   mkdir -p "$d/eaxa_test"
   if python3 "$PWD_PROJECT/../tests/mk_eaxa.py" "$d/eaxa_test" >/dev/null 2>&1; then
