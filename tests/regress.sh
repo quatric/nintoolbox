@@ -10205,6 +10205,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Treyarch .wbk" "mk_wbk.py failed"
   fi
 
+  # Tornado Outbreak .bgw (ZLIB wrapper)
+  mkdir -p "$d/bgw_test"
+  if python3 "$PWD_PROJECT/../tests/mk_bgw.py" "$d/bgw_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/bgw_test/t.bgw" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/bgw_test/t.bgw.d/t.bin" | tr -d ' ')" -eq 264 ] \
+    && [ "$(xxd -s 8 -l 8 -p "$d/bgw_test/t.bgw.d/t.bin")" = "0000237820010000" -o "$(xxd -s 8 -l 4 -p "$d/bgw_test/t.bgw.d/t.bin")" = "4c435458" ] \
+    && fok "Tornado Outbreak .bgw -> payload" \
+    || fno "Tornado Outbreak .bgw" "failed on synthetic t.bgw"
+  else
+    fno "Tornado Outbreak .bgw" "mk_bgw.py failed"
+  fi
+
   # EA SCHl stream with EA-XA ADPCM (Wii .exa) decoded natively
   mkdir -p "$d/eaxa_test"
   if python3 "$PWD_PROJECT/../tests/mk_eaxa.py" "$d/eaxa_test" >/dev/null 2>&1; then

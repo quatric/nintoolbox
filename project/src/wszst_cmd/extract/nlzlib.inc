@@ -45,6 +45,54 @@ static enumError extract_nlzlib_file (ccp arg, ccp basedir, uint depth)
 	return err;
 }
 
+// Tornado Outbreak ".bgw" level packages (Wii): "ZLIB", u32 big-endian decompressed size, then a plain zlib stream.
+// The payload (a tagged "LCTX" resource container, not interpreted further) is written to
+// "<file>.d/<file without .bgw>.bin".
+static enumError extract_bgw_file (ccp arg, ccp basedir, uint depth)
+{
+	(void)depth;
+	if (!is_ext (arg, ".bgw"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const size_t out_size = sz > 10 ? rd_be32 (raw + 4) : 0;
+	if (!out_size || out_size > (size_t)1 << 30 || memcmp (raw, "ZLIB", 4) || raw[8] != 0x78)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	u8 *out = MALLOC (out_size);
+	uLongf dsz = out_size;
+	if (!out || uncompress (out, &dsz, raw + 8, sz - 8) != Z_OK || dsz != out_size)
+	{
+		FREE (out);
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	FREE (raw);
+	ccp base = strrchr (arg, '/');
+	base = base ? base + 1 : arg;
+	char name[PATH_MAX];
+	snprintf (name, sizeof (name), "%s", base);
+	name[strlen (name) - 4] = 0;
+	if (!*name)
+		snprintf (name, sizeof (name), "data");
+	StringCat2S (name, sizeof (name), name, ".bin");
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT BGW:%s (%zu bytes) -> %s/%s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, out_size, dest, name);
+	const enumError err = shade_write (arg, dest, basedir, name, out, (uint)out_size);
+	FREE (out);
+	return err;
+}
+
 // Next Level Games "NLOC" locale tables (".loc"): big-endian {"NLOC", u32 1, u32 hash,
 // u32 count, u32 1, {u32 id, u32 offset}[count]} followed by the UTF-16BE NUL-terminated
 // string pool; offsets count 16-bit characters. Written as strings.txt ("<id>\t<text>").
