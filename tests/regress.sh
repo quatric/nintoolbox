@@ -10217,6 +10217,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Tornado Outbreak .bgw" "mk_bgw.py failed"
   fi
 
+  # Terminal Reality .smp (Guilty Party DSP variant) -> DSP
+  mkdir -p "$d/smp_test"
+  if python3 "$PWD_PROJECT/../tests/mk_smp.py" "$d/smp_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/smp_test/t.smp" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 0x1c -l 4 -p "$d/smp_test/t.smp.d/t.dsp")" = "01000200" ] \
+    && [ "$(xxd -s 0x60 -l 4 -p "$d/smp_test/t.smp.d/t.dsp")" = "01020304" ] \
+    && fok "Terminal Reality .smp -> DSP" \
+    || fno "Terminal Reality .smp" "failed on synthetic t.smp"
+  else
+    fno "Terminal Reality .smp" "mk_smp.py failed"
+  fi
+
   # EA SCHl stream with EA-XA ADPCM (Wii .exa) decoded natively
   mkdir -p "$d/eaxa_test"
   if python3 "$PWD_PROJECT/../tests/mk_eaxa.py" "$d/eaxa_test" >/dev/null 2>&1; then
