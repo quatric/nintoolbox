@@ -209,6 +209,7 @@
 #include "extract/ubibao.inc"
 #include "extract/rifx.inc"
 #include "extract/asfdsp.inc"
+#include "extract/aix.inc"
 #include "extract/mhsrt.inc"
 #include "extract/gts.inc"
 #include "extract/retropak.inc"

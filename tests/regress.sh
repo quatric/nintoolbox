@@ -10168,6 +10168,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "EA SCHl EA-XA" "mk_eaxa.py failed"
   fi
 
+  # CRI AIX container: segments and layers split into ADX streams
+  mkdir -p "$d/aix_test"
+  if python3 "$PWD_PROJECT/../tests/mk_aix.py" "$d/aix_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/aix_test/t.aix" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -p "$d/aix_test/t.aix.d/s01_l01.adx")" = "111111111111111111111111121212121212121212121212" ] \
+    && [ "$(ls "$d/aix_test/t.aix.d" | wc -l | tr -d ' ')" -eq 4 ] \
+    && fok "CRI AIX segments/layers -> ADX" \
+    || fno "CRI AIX" "failed on synthetic t.aix"
+  else
+    fno "CRI AIX" "mk_aix.py failed"
+  fi
+
   # Rebellion Asura resource file (AsuraZlb) with an embedded TPL
   mkdir -p "$d/asura_test"
   if python3 "$PWD_PROJECT/../tests/mk_asura.py" "$d/asura_test" >/dev/null 2>&1; then
