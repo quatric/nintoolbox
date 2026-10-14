@@ -10253,6 +10253,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Tecmo pack" "mk_tecmoad.py failed"
   fi
 
+  # Need for Speed: Hot Pursuit STME package (.stm)
+  mkdir -p "$d/stme_test"
+  if python3 "$PWD_PROJECT/../tests/mk_stme.py" "$d/stme_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/stme_test/t.stm" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/stme_test/t.stm.d/0000_car_a.mod" | tr -d ' ')" -eq 64 ] \
+    && [ "$(xxd -s 0 -l 4 -p "$d/stme_test/t.stm.d/0001_sign.tex")" = "00010203" ] \
+    && fok "STME .stm package -> members" \
+    || fno "STME .stm" "failed on synthetic t.stm"
+  else
+    fno "STME .stm" "mk_stme.py failed"
+  fi
+
   # EA SCHl stream with EA-XA ADPCM (Wii .exa) decoded natively
   mkdir -p "$d/eaxa_test"
   if python3 "$PWD_PROJECT/../tests/mk_eaxa.py" "$d/eaxa_test" >/dev/null 2>&1; then
