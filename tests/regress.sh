@@ -10083,6 +10083,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "EA TERF" "mk_terf.py failed"
   fi
 
+  # EA DBPF package (MySims) with a name map, a RefPack texture and a stored member
+  mkdir -p "$d/dbpf_test"
+  if python3 "$PWD_PROJECT/../tests/mk_dbpf.py" "$d/dbpf_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/dbpf_test/t.package" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/dbpf_test/t.package.d/0001_tex1.mstex.png" | tail -c 3)" = "PNG" ] \
+    && [ "$(cat "$d/dbpf_test/t.package.d/0002_0000000000000007.t02019972.bin")" = "hello dbpf" ] \
+    && fok "EA DBPF package split, named and texture -> PNG" \
+    || fno "EA DBPF" "failed on synthetic t.package"
+  else
+    fno "EA DBPF" "mk_dbpf.py failed"
+  fi
+
   # Rebellion Asura resource file (AsuraZlb) with an embedded TPL
   mkdir -p "$d/asura_test"
   if python3 "$PWD_PROJECT/../tests/mk_asura.py" "$d/asura_test" >/dev/null 2>&1; then
