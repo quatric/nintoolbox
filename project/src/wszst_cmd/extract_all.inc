@@ -202,6 +202,7 @@
 #include "extract/asura.inc"
 #include "extract/terf.inc"
 #include "extract/dbpf.inc"
+#include "extract/murafcmp.inc"
 #include "extract/mhsrt.inc"
 #include "extract/gts.inc"
 #include "extract/retropak.inc"

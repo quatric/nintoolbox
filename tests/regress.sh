@@ -10109,8 +10109,10 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
   # Muramasa NMS message sheet inside FCMP
   mkdir -p "$d/muranms_test"
   if python3 "$PWD_PROJECT/../tests/mk_muranms.py" "$d/muranms_test" >/dev/null 2>&1; then
-    "$B/wszst" xx "$d/muranms_test/t.nms" --overwrite >/dev/null 2>&1 \
+    "$B/wszst" xx "$d/muranms_test/t.nms" "$d/muranms_test/t.abf" --overwrite >/dev/null 2>&1 \
     && grep -q '^1	a\\nb$' "$d/muranms_test/t.nms.txt" \
+    && grep -q 'bg37_00.ftx' "$d/muranms_test/t.abf.strings.txt" \
+    && [ "$(head -c 4 "$d/muranms_test/t.abf.dec")" = "MLIB" ] \
     && fok "Muramasa FCMP .nms -> text" \
     || fno "Muramasa .nms" "failed on synthetic t.nms"
   else
