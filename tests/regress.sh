@@ -10144,6 +10144,19 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "RIFX .wax" "mk_rifx.py failed"
   fi
 
+  # Multi-stream DSP .asf container (Brunswick Pro Bowling)
+  mkdir -p "$d/asfdsp_test"
+  if python3 "$PWD_PROJECT/../tests/mk_asfdsp.py" "$d/asfdsp_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/asfdsp_test/t.asf" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/asfdsp_test/t.asf.d/000.dsp" | tr -d ' ')" -eq 112 ] \
+    && [ "$(xxd -s 0x60 -l 8 -p "$d/asfdsp_test/t.asf.d/001.dsp")" = "2122232425262728" ] \
+    && [ -f "$d/asfdsp_test/t.asf.d/001.wav" ] \
+    && fok "DSP .asf container -> DSP streams" \
+    || fno "DSP .asf" "failed on synthetic t.asf"
+  else
+    fno "DSP .asf" "mk_asfdsp.py failed"
+  fi
+
   # Rebellion Asura resource file (AsuraZlb) with an embedded TPL
   mkdir -p "$d/asura_test"
   if python3 "$PWD_PROJECT/../tests/mk_asura.py" "$d/asura_test" >/dev/null 2>&1; then
