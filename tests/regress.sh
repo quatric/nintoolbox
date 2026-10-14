@@ -10120,6 +10120,19 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "BGST3" "mk_bgst3.py failed"
   fi
 
+  # Ubisoft DARE sound package (.pk): DSP-ADPCM audio BAO -> standard .dsp
+  mkdir -p "$d/ubibao_test"
+  if python3 "$PWD_PROJECT/../tests/mk_ubibao.py" "$d/ubibao_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/ubibao_test/t.pk" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/ubibao_test/t.pk.d/00001001.dsp" | tr -d ' ')" -eq 112 ] \
+    && [ "$(xxd -s 8 -l 4 -p "$d/ubibao_test/t.pk.d/00001001.dsp")" = "00005622" ] \
+    && [ "$(xxd -s 0x60 -l 4 -p "$d/ubibao_test/t.pk.d/00001001.dsp")" = "12345678" ] \
+    && fok "Ubisoft BAO package audio -> DSP" \
+    || fno "Ubisoft BAO" "failed on synthetic t.pk"
+  else
+    fno "Ubisoft BAO" "mk_ubibao.py failed"
+  fi
+
   # Rebellion Asura resource file (AsuraZlb) with an embedded TPL
   mkdir -p "$d/asura_test"
   if python3 "$PWD_PROJECT/../tests/mk_asura.py" "$d/asura_test" >/dev/null 2>&1; then
