@@ -213,6 +213,7 @@
 #include "extract/waf.inc"
 #include "extract/seg.inc"
 #include "extract/kwa.inc"
+#include "extract/wbk.inc"
 #include "extract/mhsrt.inc"
 #include "extract/gts.inc"
 #include "extract/retropak.inc"

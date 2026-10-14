@@ -10193,6 +10193,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "KWA" "mk_kwa.py failed"
   fi
 
+  # Treyarch NSLB .wbk -> DSP
+  mkdir -p "$d/wbk_test"
+  if python3 "$PWD_PROJECT/../tests/mk_wbk.py" "$d/wbk_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/wbk_test/t.wbk" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 0x1c -l 4 -p "$d/wbk_test/t.wbk.d/0000_snd.dsp")" = "01000200" ] \
+    && [ "$(xxd -s 0x60 -l 4 -p "$d/wbk_test/t.wbk.d/0000_snd.dsp")" = "01020304" ] \
+    && fok "Treyarch NSLB .wbk -> DSP" \
+    || fno "Treyarch .wbk" "failed on synthetic t.wbk"
+  else
+    fno "Treyarch .wbk" "mk_wbk.py failed"
+  fi
+
   # EA SCHl stream with EA-XA ADPCM (Wii .exa) decoded natively
   mkdir -p "$d/eaxa_test"
   if python3 "$PWD_PROJECT/../tests/mk_eaxa.py" "$d/eaxa_test" >/dev/null 2>&1; then
