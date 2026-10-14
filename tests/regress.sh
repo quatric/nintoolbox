@@ -10515,7 +10515,9 @@ assert b == b'IDSP' + bytes(range(0x7c))
   if python3 "$PWD_PROJECT/../tests/mk_spt.py" "$d/spt_test" >/dev/null 2>&1; then
     "$B/wszst" x "$d/spt_test/b.spd" --overwrite >/dev/null 2>&1 \
     && [ "$(stat -f%z "$d/spt_test/b.spd.d/000.dsp" 2>/dev/null || stat -c%s "$d/spt_test/b.spd.d/000.dsp")" = "112" ] \
-    && fok "SPD/SPT bank extracts DSP streams" \
+    && "$B/wszst" x "$d/spt_test/c.spd" --overwrite >/dev/null 2>&1 \
+    && [ "$(stat -f%z "$d/spt_test/c.spd.d/000.dsp" 2>/dev/null || stat -c%s "$d/spt_test/c.spd.d/000.dsp")" = "112" ] \
+    && fok "SPD/SPT bank extracts DSP streams (incl. a truncated last frame)" \
     || fno "SPD/SPT bank" "failed to extract synthetic b.spd"
   else
     fno "SPD/SPT bank" "mk_spt.py failed"

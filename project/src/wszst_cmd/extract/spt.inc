@@ -58,8 +58,10 @@ static enumError extract_spt_file (ccp arg, ccp basedir, uint depth)
 		if (rate < 4000 || rate > 96000 || start >= end || end > 0x7ffffff)
 			continue;
 		const size_t b0 = (start & ~15u) / 2, b1 = ((size_t)(end | 15) + 1) / 2;
-		if (b1 > spd_size || b1 - b0 > (1u << 24) || spd[b0] != (u8)rd_be16 (co + 34) || co[34])
+		// the last frame may be cut short right after the end nibble (Burger Bot): pad it with zeros
+		if ((size_t)end / 2 >= spd_size || b1 - b0 > (1u << 24) || spd[b0] != (u8)rd_be16 (co + 34) || co[34])
 			continue;
+		const size_t have = (b1 < spd_size ? b1 : spd_size) - b0;
 		const uint nib = (uint)(b1 - b0) * 2;
 		memset (tmp, 0, 0x60);
 		wr_be32 (tmp, spt_samples (end + 1) - spt_samples (start));
@@ -69,7 +71,8 @@ static enumError extract_spt_file (ccp arg, ccp basedir, uint depth)
 		wr_be32 (tmp + 0x14, nib - 1);
 		wr_be32 (tmp + 0x18, 2);
 		memcpy (tmp + 0x1c, co, 46);
-		memcpy (tmp + 0x60, spd + b0, b1 - b0);
+		memset (tmp + 0x60, 0, b1 - b0);
+		memcpy (tmp + 0x60, spd + b0, have);
 		char name[32];
 		snprintf (name, sizeof (name), "%03u.dsp", i);
 		if (!OwnedEntryAdd (entries, n, name, tmp, 0x60 + (uint)(b1 - b0)))
