@@ -10095,6 +10095,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "EA DBPF" "mk_dbpf.py failed"
   fi
 
+  # FMOD Designer .fev event file: length-prefixed names listed as text
+  mkdir -p "$d/fev_test"
+  if python3 "$PWD_PROJECT/../tests/mk_fev.py" "$d/fev_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/fev_test/t.fev" --overwrite >/dev/null 2>&1 \
+    && grep -q '	AX03_amb_hiss$' "$d/fev_test/t.fev.strings.txt" \
+    && grep -q '	sfx$' "$d/fev_test/t.fev.strings.txt" \
+    && fok "FMOD .fev names -> text" \
+    || fno "FMOD .fev" "failed on synthetic t.fev"
+  else
+    fno "FMOD .fev" "mk_fev.py failed"
+  fi
+
   # Rebellion Asura resource file (AsuraZlb) with an embedded TPL
   mkdir -p "$d/asura_test"
   if python3 "$PWD_PROJECT/../tests/mk_asura.py" "$d/asura_test" >/dev/null 2>&1; then
