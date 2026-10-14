@@ -216,6 +216,7 @@
 #include "extract/wbk.inc"
 #include "extract/smp.inc"
 #include "extract/zsnd.inc"
+#include "extract/tecmoad.inc"
 #include "extract/mhsrt.inc"
 #include "extract/gts.inc"
 #include "extract/retropak.inc"

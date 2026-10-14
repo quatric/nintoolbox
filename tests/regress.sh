@@ -10241,6 +10241,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Z-Axis ZSND" "mk_zsnd.py failed"
   fi
 
+  # Tecmo resource pack (.mad) split into members
+  mkdir -p "$d/tecmoad_test"
+  if python3 "$PWD_PROJECT/../tests/mk_tecmoad.py" "$d/tecmoad_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/tecmoad_test/t.mad" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/tecmoad_test/t.mad.d/0002_tgs.bin" | tr -d ' ')" -eq 32 ] \
+    && [ "$(wc -c < "$d/tecmoad_test/t.mad.d/0000_XMDF.bin" | tr -d ' ')" -eq 16 ] \
+    && fok "Tecmo MAD/LAD/EFE pack -> members" \
+    || fno "Tecmo pack" "failed on synthetic t.mad"
+  else
+    fno "Tecmo pack" "mk_tecmoad.py failed"
+  fi
+
   # EA SCHl stream with EA-XA ADPCM (Wii .exa) decoded natively
   mkdir -p "$d/eaxa_test"
   if python3 "$PWD_PROJECT/../tests/mk_eaxa.py" "$d/eaxa_test" >/dev/null 2>&1; then
