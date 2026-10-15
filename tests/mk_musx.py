@@ -20,3 +20,14 @@ for i in range(16):
 b[0x1000:0x1040] = ng
 b[0x1040:0x1040 + len(data)] = data
 open(os.path.join(sys.argv[1], 't.000'), 'wb').write(b)
+
+# t0b.000: SBNK version 0x0b (The Mummy): count @0x824, table offset @0x828 (from there), data base @0x840,
+# codec byte 0x11 but NGCA data
+c = bytearray(b)
+struct.pack_into('>I', c, 0x804, 0x0b)
+struct.pack_into('>II', c, 0x810 + 0x20, 0, 0)
+struct.pack_into('>I', c, 0x824, 1)
+struct.pack_into('>I', c, 0x828, 0x900 - 0x828)
+struct.pack_into('>I', c, 0x840, 0x1000)
+struct.pack_into('>IiiIII', c, 0x900, 0xabce, 28, -1, (22050 << 16) | (0x11 << 8) | 3, 0, 0x40 + len(data))
+open(os.path.join(sys.argv[1], 't0b.000'), 'wb').write(c)

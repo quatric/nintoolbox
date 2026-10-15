@@ -10330,6 +10330,8 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     "$B/wszst" x "$d/musx_test/t.000" --overwrite >/dev/null 2>&1 \
     && [ "$(xxd -s 0x1c -l 4 -p "$d/musx_test/t.000.d/0000_0000abcd.dsp")" = "01000200" ] \
     && [ "$(xxd -s 0x60 -l 4 -p "$d/musx_test/t.000.d/0000_0000abcd.dsp")" = "01020304" ] \
+    && "$B/wszst" x "$d/musx_test/t0b.000" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 0x60 -l 4 -p "$d/musx_test/t0b.000.d/0000_0000abce.dsp")" = "01020304" ] \
     && fok "Eurocom MUSX .000 -> DSP" \
     || fno "Eurocom MUSX" "failed on synthetic t.000"
   else

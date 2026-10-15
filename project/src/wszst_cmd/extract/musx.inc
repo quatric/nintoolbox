@@ -18,10 +18,14 @@ static enumError extract_musx_file (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 	}
 	if (sz < 0x900 || memcmp (raw, "MUSX", 4) || rd_le32 (raw + 8) != 10 || memcmp (raw + 0x10, "WII_", 4)
-		|| memcmp (raw + 0x800, "SBNK", 4) || rd_be32 (raw + 0x804) != 0x12)
+		|| memcmp (raw + 0x800, "SBNK", 4) || (rd_be32 (raw + 0x804) != 0x12 && rd_be32 (raw + 0x804) != 0x0b))
 		goto skip;
-	const size_t to = 0x810, cnt = rd_be32 (raw + to + 0x20), head = rd_be32 (raw + to + 0x24) + to + 0x24,
-		     data = rd_be32 (raw + to + 0x3c);
+	// version 0x0b (The Mummy: Tomb of the Dragon Emperor): the sound count / table offset / data base sit at
+	// 0x824 / 0x828 (offset from there) / 0x840 and the codec byte (0x11) is not 0x13, but the data is still NGCA
+	const bool v0b = rd_be32 (raw + 0x804) == 0x0b;
+	const size_t to = 0x810, cnt = v0b ? rd_be32 (raw + 0x824) : rd_be32 (raw + to + 0x20),
+		     head = v0b ? rd_be32 (raw + 0x828) + 0x828 : rd_be32 (raw + to + 0x24) + to + 0x24,
+		     data = v0b ? rd_be32 (raw + 0x840) : rd_be32 (raw + to + 0x3c);
 	if (!cnt || cnt > 0x10000 || head + 0x1c * cnt > sz)
 		goto skip;
 	nintendo_sarc_entry_t *entries = CALLOC (cnt * 2, sizeof (*entries));
@@ -32,10 +36,11 @@ static enumError extract_musx_file (ccp arg, ccp basedir, uint depth)
 		const u8 *e = raw + head + 0x1c * i;
 		const u32 id = rd_be32 (e);
 		const s32 ns = (s32)rd_be32 (e + 4), ls = (s32)rd_be32 (e + 8);
-		const uint rate = rd_be16 (e + 0xc), codec = e[0xe], ch = e[0xf];
+		const uint rate = rd_be16 (e + 0xc), codec = e[0xe], chraw = e[0xf];
 		const size_t off = (size_t)rd_be32 (e + 0x10) + data, size = rd_be32 (e + 0x14);
-		if (codec != 0x13 || ns <= 0 || !rate || ch < 1 || ch > 2 || off > sz || size > sz - off)
+		if ((!v0b && codec != 0x13) || ns <= 0 || !rate || (v0b ? 0 : chraw < 1 || chraw > 2) || off > sz || size > sz - off)
 			continue;
+		const uint ch = v0b ? 1u : chraw;
 		const size_t il = size / ch;
 		if (il <= 0x40)
 			continue;
