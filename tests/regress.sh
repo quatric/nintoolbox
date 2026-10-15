@@ -10336,6 +10336,20 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Eurocom MUSX" "mk_musx.py failed"
   fi
 
+  # Konami Wii .vas streaming bank -> per-channel DSP
+  mkdir -p "$d/konamivas_test"
+  if python3 "$PWD_PROJECT/../tests/mk_konamivas.py" "$d/konamivas_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/konamivas_test/t.vas" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 0x60 -l 2 -p "$d/konamivas_test/t.vas.d/000_ch0.dsp")" = "1111" ] \
+    && [ "$(xxd -s 0x60 -l 2 -p "$d/konamivas_test/t.vas.d/000_ch1.dsp")" = "2121" ] \
+    && [ "$(xxd -s 0x60 -l 2 -p "$d/konamivas_test/t.vas.d/001_ch1.dsp")" = "4141" ] \
+    && [ "$(xxd -s 8 -l 4 -p "$d/konamivas_test/t.vas.d/001_ch0.dsp")" = "0000ac44" ] \
+    && fok "Konami .vas -> per-channel DSP" \
+    || fno "Konami .vas" "failed on synthetic t.vas"
+  else
+    fno "Konami .vas" "mk_konamivas.py failed"
+  fi
+
   # EA SCHl stream with EA-XA ADPCM (Wii .exa) decoded natively
   mkdir -p "$d/eaxa_test"
   if python3 "$PWD_PROJECT/../tests/mk_eaxa.py" "$d/eaxa_test" >/dev/null 2>&1; then
