@@ -8,15 +8,16 @@ def dsphdr(nbytes, rate):
     for i in range(16):
         struct.pack_into('>h', h, 0x1c + 2 * i, 0x100 * (i + 1))
     return bytes(h)
-streams = [(bytes(range(1, 17)), 44100), (bytes(range(0x21, 0x29)), 22050)]
-start = 0x0c + 0x70 * 2
+# third stream: stereo (flag 0x0202), the short tail is split in halves (header describes one 8-byte channel)
+streams = [(bytes(range(1, 17)), 44100), (bytes(range(0x21, 0x29)), 22050), (bytes(range(0x31, 0x39)) + bytes(range(0x41, 0x49)), 32000)]
+start = 0x0c + 0x70 * 3
 offs = [start]
 for d, r in streams[:-1]:
     offs.append((offs[-1] + len(d) + 0x1f) & ~0x1f)
 recs = b''
 for i, (d, r) in enumerate(streams):
     nxt = struct.pack('<II', offs[i + 1], len(streams[i + 1][0])) if i + 1 < len(streams) else bytes(8)
-    recs += struct.pack('<I', 0x0201) + b'T_%02d' % i + dsphdr(len(d), r) + nxt
+    recs += struct.pack('<I', 0x0202 if i == 2 else 0x0201) + b'T_%02d' % i + dsphdr(8 if i == 2 else len(d), r) + nxt
 body = struct.pack('<III', len(streams), start, len(streams[0][0])) + recs
 body = body.ljust(offs[-1], b'\0')
 for i, (d, r) in enumerate(streams):

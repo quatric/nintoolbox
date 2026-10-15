@@ -10151,6 +10151,8 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     && [ "$(wc -c < "$d/asfdsp_test/t.asf.d/000.dsp" | tr -d ' ')" -eq 112 ] \
     && [ "$(xxd -s 0x60 -l 8 -p "$d/asfdsp_test/t.asf.d/001.dsp")" = "2122232425262728" ] \
     && [ -f "$d/asfdsp_test/t.asf.d/001.wav" ] \
+    && [ "$(xxd -s 0x60 -l 2 -p "$d/asfdsp_test/t.asf.d/002_ch0.dsp")" = "3132" ] \
+    && [ "$(xxd -s 0x60 -l 2 -p "$d/asfdsp_test/t.asf.d/002_ch1.dsp")" = "4142" ] \
     && fok "DSP .asf container -> DSP streams" \
     || fno "DSP .asf" "failed on synthetic t.asf"
   else
