@@ -10318,6 +10318,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Sumo .abc" "mk_abc.py failed"
   fi
 
+  # Eurocom MUSX (SBNK, Wii) .000 -> DSP
+  mkdir -p "$d/musx_test"
+  if python3 "$PWD_PROJECT/../tests/mk_musx.py" "$d/musx_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/musx_test/t.000" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 0x1c -l 4 -p "$d/musx_test/t.000.d/0000_0000abcd.dsp")" = "01000200" ] \
+    && [ "$(xxd -s 0x60 -l 4 -p "$d/musx_test/t.000.d/0000_0000abcd.dsp")" = "01020304" ] \
+    && fok "Eurocom MUSX .000 -> DSP" \
+    || fno "Eurocom MUSX" "failed on synthetic t.000"
+  else
+    fno "Eurocom MUSX" "mk_musx.py failed"
+  fi
+
   # EA SCHl stream with EA-XA ADPCM (Wii .exa) decoded natively
   mkdir -p "$d/eaxa_test"
   if python3 "$PWD_PROJECT/../tests/mk_eaxa.py" "$d/eaxa_test" >/dev/null 2>&1; then
