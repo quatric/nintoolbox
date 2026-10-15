@@ -10265,6 +10265,19 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "STME .stm" "mk_stme.py failed"
   fi
 
+  # Exient .bnk sound bank of WIIADPCM streams
+  mkdir -p "$d/exibnk_test"
+  if python3 "$PWD_PROJECT/../tests/mk_exibnk.py" "$d/exibnk_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/exibnk_test/t.bnk" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/exibnk_test/t.bnk.d/0000.adpcm" | tr -d ' ')" -eq 256 ] \
+    && [ "$(wc -c < "$d/exibnk_test/t.bnk.d/0001.adpcm" | tr -d ' ')" -eq 288 ] \
+    && [ "$(xxd -s 0 -l 8 -p "$d/exibnk_test/t.bnk.d/0001.adpcm")" = "5749494144504d00" -o "$(xxd -s 0 -l 4 -p "$d/exibnk_test/t.bnk.d/0001.adpcm")" = "57494941" ] \
+    && fok "Exient .bnk -> WIIADPCM members" \
+    || fno "Exient .bnk" "failed on synthetic t.bnk"
+  else
+    fno "Exient .bnk" "mk_exibnk.py failed"
+  fi
+
   # EA SCHl stream with EA-XA ADPCM (Wii .exa) decoded natively
   mkdir -p "$d/eaxa_test"
   if python3 "$PWD_PROJECT/../tests/mk_eaxa.py" "$d/eaxa_test" >/dev/null 2>&1; then
