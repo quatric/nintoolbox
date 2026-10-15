@@ -36,12 +36,28 @@ static enumError extract_konamivas_file (ccp arg, ccp basedir, uint depth)
 		ok = pos + 0x800 <= fsz && read_abe_at (in, pos, hp, sizeof (hp));
 		if (!ok)
 			break;
-		const u64 total = rd_be32 (hp), rate = rd_be32 (hp + 4);
-		const u64 next = pos + 0x800 + ((total + 0x7ff) & ~(u64)0x7ff);
-		ok = total <= 0x10000000 && next <= fsz && rate >= 4000 && rate <= 96000;
+		u64 total = rd_be32 (hp);
+		const u64 rate = rd_be32 (hp + 4);
 		uint chs = 0;
-		while (ok && chs < 6 && rd_be32 (hp + 0x80 + 0x40 * chs + 8))
+		while (chs < 6 && rd_be32 (hp + 0x80 + 0x40 * chs + 8))
 			chs++;
+		// the stored size can be a few bytes short of the channels' padded length (later games): take whichever
+		// candidate size ends at a plausible stream header page or at the trailer page
+		u64 next = pos + 0x800 + ((total + 0x7ff) & ~(u64)0x7ff);
+		if (chs)
+		{
+			const u64 need = (chs * (((u64)rd_be32 (hp + 0x88) + 2) / 2) + 0xff) & ~(u64)0xff;
+			const u64 alt = need > total ? pos + 0x800 + ((need + 0x7ff) & ~(u64)0x7ff) : next;
+			u8 np[8];
+			const bool ok1 = next + 0x800 == fsz || (next + 0x800 < fsz && read_abe_at (in, next, np, 8)
+				&& rd_be32 (np + 4) >= 4000 && rd_be32 (np + 4) <= 96000);
+			if (!ok1 && alt != next)
+			{
+				next = alt;
+				total = need;
+			}
+		}
+		ok = total <= 0x10000000 && next <= fsz && rate >= 4000 && rate <= 96000;
 		if (!ok || !chs)
 		{
 			pos = next;
