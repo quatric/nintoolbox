@@ -221,6 +221,7 @@
 #include "extract/exibnk.inc"
 #include "extract/twi.inc"
 #include "extract/ubisb.inc"
+#include "extract/abc.inc"
 #include "extract/mhsrt.inc"
 #include "extract/gts.inc"
 #include "extract/retropak.inc"
