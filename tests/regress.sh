@@ -10289,6 +10289,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Exient .twi" "mk_twi.py failed"
   fi
 
+  # Ubisoft .sb7 sound bank (Red Steel) -> DSP
+  mkdir -p "$d/ubisb_test"
+  if python3 "$PWD_PROJECT/../tests/mk_ubisb.py" "$d/ubisb_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/ubisb_test/t.sb7" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 0x1c -l 4 -p "$d/ubisb_test/t.sb7.d/0000_00001234.dsp")" = "01000200" ] \
+    && [ "$(xxd -s 0x60 -l 4 -p "$d/ubisb_test/t.sb7.d/0000_00001234.dsp")" = "01020304" ] \
+    && fok "Ubisoft .sb7 -> DSP" \
+    || fno "Ubisoft .sb7" "failed on synthetic t.sb7"
+  else
+    fno "Ubisoft .sb7" "mk_ubisb.py failed"
+  fi
+
   # EA SCHl stream with EA-XA ADPCM (Wii .exa) decoded natively
   mkdir -p "$d/eaxa_test"
   if python3 "$PWD_PROJECT/../tests/mk_eaxa.py" "$d/eaxa_test" >/dev/null 2>&1; then
