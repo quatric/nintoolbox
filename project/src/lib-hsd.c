@@ -1323,6 +1323,11 @@ typedef struct hsd_model_ctx_t
 	uint n_jobj_map, cap_jobj_map;
 	hsd_mat_slot_t *mat_slots;
 	uint n_mat_slots, cap_mat_slots;
+	// JOBJs already visited by the mesh pass: a child/next pointer may reach a
+	// node twice (Doraemon common_dat), which would otherwise re-walk shared
+	// subtrees exponentially and duplicate their meshes.
+	u32 *mesh_seen;
+	uint n_mesh_seen, cap_mesh_seen;
 	// Texture binding: names[] are the texture filenames (without path/extension),
 	// tex_lookup[] maps HSD_Image offsets to indices in names[].
 	char **tex_names;
@@ -2027,6 +2032,16 @@ static void hsd_walk_jobj_meshes (hsd_model_ctx_t *ctx, u32 off, int parent_idx,
 		return;
 	}
 
+	for (uint i = 0; i < ctx->n_mesh_seen; i++)
+		if (ctx->mesh_seen[i] == off)
+			return;
+	if (ctx->n_mesh_seen == ctx->cap_mesh_seen)
+	{
+		ctx->cap_mesh_seen = ctx->cap_mesh_seen ? ctx->cap_mesh_seen * 2 : 64;
+		ctx->mesh_seen = REALLOC (ctx->mesh_seen, ctx->cap_mesh_seen * sizeof (*ctx->mesh_seen));
+	}
+	ctx->mesh_seen[ctx->n_mesh_seen++] = off;
+
 	// Find this JOBJ's index from the pre-built map
 	const int idx = hsd_find_joint_by_offset (ctx, off);
 	char name[64];
@@ -2262,6 +2277,7 @@ static void hsd_free_ctx (hsd_model_ctx_t *ctx, hsd_tex_t *tex)
 	FREE (ctx->materials);
 	FREE (ctx->jobj_map);
 	FREE (ctx->mat_slots);
+	FREE (ctx->mesh_seen);
 	FREE (tex);
 	for (uint i = 0; i < ctx->n_tex_names; i++)
 		FREE (ctx->tex_names[i]);
@@ -2361,7 +2377,11 @@ bool IsHSDBundle (const u8 *data, uint size)
 	{
 		const uint fsize = hsd_bundle_span (data, size, off);
 		if (!fsize)
-			return false;
+		{
+			// Doraemon's common_dat.mdl (characters) follows its archives with
+			// non-HSD effect data: accept the leading run once it holds 2+ archives.
+			return n > 1;
+		}
 		n++;
 		off = hsd_bundle_next (data, size, off, fsize);
 	}
