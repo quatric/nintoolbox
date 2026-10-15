@@ -126,6 +126,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_exibnk_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_twi_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_fcmpftex_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

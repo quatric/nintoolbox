@@ -10278,6 +10278,17 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Exient .bnk" "mk_exibnk.py failed"
   fi
 
+  # Exient .twi texture -> PNG
+  mkdir -p "$d/twi_test"
+  if python3 "$PWD_PROJECT/../tests/mk_twi.py" "$d/twi_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/twi_test/t.twi" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 0 -l 4 -p "$d/twi_test/t.twi.png")" = "89504e47" ] \
+    && fok "Exient .twi -> PNG" \
+    || fno "Exient .twi" "failed on synthetic t.twi"
+  else
+    fno "Exient .twi" "mk_twi.py failed"
+  fi
+
   # EA SCHl stream with EA-XA ADPCM (Wii .exa) decoded natively
   mkdir -p "$d/eaxa_test"
   if python3 "$PWD_PROJECT/../tests/mk_eaxa.py" "$d/eaxa_test" >/dev/null 2>&1; then
