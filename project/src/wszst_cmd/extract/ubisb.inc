@@ -7,8 +7,63 @@
 // @0x50, channels @0x58, stream type @0x5c. Internal hardware (DSP-ADPCM) sounds sit after the subblock table (their
 // offset plus the sizes of the subblocks before theirs) with the channels stored one after another (frame-aligned
 // stream size / channels); the extra section holds a mini DSP header (coefficients at +0x10, history at +0x34).
-// Those become "NNNN_<id>[_chN].dsp"; streamed sounds (external .ss7/.ls7, Ubisoft IMA), software PCM sounds, sequences
-// and layers are skipped.
+// Those become "NNNN_<id>[_chN].dsp". Streamed Ubisoft IMA sounds (stream type 3) live in the external file named in
+// the extra section (.ss7/.ls7 next to the bank) and are decoded natively to "NNNN_<id>.wav"; software PCM sounds,
+// sequences and layers are skipped.
+static const short ubisb_ima_step[89] = {7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41, 45, 50,
+	55, 60, 66, 73, 80, 88, 97, 107, 118, 130, 143, 157, 173, 190, 209, 230, 253, 279, 307, 337, 371, 408, 449, 494,
+	544, 598, 658, 724, 796, 876, 963, 1060, 1166, 1282, 1411, 1552, 1707, 1878, 2066, 2272, 2499, 2749, 3024, 3327,
+	3660, 4026, 4428, 4871, 5358, 5894, 6484, 7132, 7845, 8630, 9493, 10442, 11487, 12635, 13899, 15289, 16818, 18500,
+	20350, 22385, 24623, 27086, 29794, 32767};
+
+// Decodes one Ubisoft IMA stream (the "version 1-5" layout of vgmstream's decode_ubi_ima): u8 version, u8 0, then
+// at +2: s16 header sample count @0xc (10), per channel {s16 history, s8 step index, s8 0} from +0xe, 8 more header
+// bytes (+4 from version 3), the raw 16-bit header PCM samples (count * channels, big-endian below version 5), and
+// then the IMA nibbles (mono: two per byte, high first; stereo: one byte per sample pair, high nibble = left,
+// "multiplying" IMA expansion with the history and step index of the header). Returns the interleaved PCM or NULL.
+static s16 *ubisb_decode_ima (const u8 *d, size_t size, uint ch, size_t ns)
+{
+	if (size < 0x30 || !d[0] || d[0] > 5 || ch < 1 || ch > 2 || !ns)
+		return 0;
+	const bool be = d[0] < 5;
+	const size_t hdr = 2;
+	const uint hs = be ? rd_be16 (d + hdr + 0xc) : rd_le16 (d + hdr + 0xc);
+	size_t off = hdr + 0x0e + 0x08 + (d[0] >= 3 ? 4 : 0);
+	if (!hs || hs > ns || off + (size_t)hs * ch * 2 > size)
+		return 0;
+	s16 *pcm = CALLOC (ns * ch, sizeof (*pcm));
+	if (!pcm)
+		return 0;
+	for (uint c = 0; c < ch; c++)
+	{
+		int hist = (s16)(be ? rd_be16 (d + hdr + 0x0e + 4 * c) : rd_le16 (d + hdr + 0x0e + 4 * c));
+		int step = (s8)d[hdr + 0x10 + 4 * c];
+		for (size_t i = 0; i < hs; i++)
+			pcm[i * ch + c] = (s16)(be ? rd_be16 (d + off + (i * ch + c) * 2) : rd_le16 (d + off + (i * ch + c) * 2));
+		const size_t data = off + (size_t)hs * ch * 2;
+		if (step < 0)
+			step = 0;
+		if (step > 88)
+			step = 88;
+		for (size_t i = hs; i < ns; i++)
+		{
+			const size_t bo = data + (ch == 1 ? (i - hs) / 2 : i - hs);
+			uint nib = bo < size ? d[bo] : 0;
+			nib = (ch == 1 ? ((i - hs) & 1 ? nib : nib >> 4) : (c == 0 ? nib >> 4 : nib)) & 15;
+			int delta = ((int)(nib & 7) * 2 + 1) * ubisb_ima_step[step] >> 3;
+			if (nib & 8)
+				delta = -delta;
+			hist += delta;
+			hist = hist > 32767 ? 32767 : hist < -32768 ? -32768 : hist;
+			static const int idx[8] = {-1, -1, -1, -1, 2, 4, 6, 8};
+			step += idx[nib & 7];
+			step = step < 0 ? 0 : step > 88 ? 88 : step;
+			pcm[i * ch + c] = (s16)hist;
+		}
+	}
+	return pcm;
+}
+
 static enumError extract_ubisb_file (ccp arg, ccp basedir, uint depth)
 {
 	if (!is_ext (arg, ".sb7"))
@@ -30,12 +85,82 @@ static enumError extract_ubisb_file (ccp arg, ccp basedir, uint depth)
 	if (so > sz)
 		goto skip;
 	nintendo_sarc_entry_t *entries = CALLOC (n2 * 2, sizeof (*entries));
+	u8 *ext = 0;
+	size_t ext_size = 0;
+	char ext_name[80] = "";
 	uint n = 0;
 	bool good = entries != 0;
 	for (size_t i = 0; i < n2 && good; i++)
 	{
 		const u8 *h = raw + o2 + 0x6c * i;
-		if (rd_be32 (h + 4) != 1 || (rd_be32 (h + 0x28) & 1) || (rd_be32 (h + 0x2c) & 1) || rd_be32 (h + 0x5c))
+		if (rd_be32 (h + 4) != 1)
+			continue;
+		if (rd_be32 (h + 0x28) & 1)
+		{
+			// streamed Ubisoft IMA sound in an external file next to the bank
+			const uint ch = rd_be32 (h + 0x58), rate = rd_be32 (h + 0x50), nmo = rd_be32 (h + 0x60);
+			const bool loop = rd_be32 (h + 0x30) & 1;
+			const size_t ns = loop ? rd_be32 (h + 0x44) + rd_be32 (h + 0x3c) : rd_be32 (h + 0x3c);
+			const size_t ssz = rd_be32 (h + 8), off = rd_be32 (h + 0x10);
+			if (rd_be32 (h + 0x5c) != 3 || nmo == 0xffffffffu || ox + nmo >= sz || !ns || ns > ((size_t)1 << 27) || !rate)
+				continue;
+			char nm[PATH_MAX];
+			snprintf (nm, sizeof (nm), "%.*s", (int)(sz - ox - nmo > 64 ? 64 : sz - ox - nmo), (ccp)raw + ox + nmo);
+			if (!*nm || strchr (nm, '/') || strchr (nm, '\\') || !strcmp (nm, ".."))
+				continue;
+			if (!ext || strcmp (ext_name, nm))
+			{
+				FREE (ext);
+				ext = 0;
+				ext_size = 0;
+				snprintf (ext_name, sizeof (ext_name), "%s", nm);
+				char path[PATH_MAX];
+				snprintf (path, sizeof (path), "%s", arg);
+				char *sl = strrchr (path, '/');
+				snprintf (sl ? sl + 1 : path, sizeof (path) - (sl ? (size_t)(sl + 1 - path) : 0), "%s", nm);
+				if (LoadFileAlloc (path, 0, 0, &ext, &ext_size, 0, 0, 0, false))
+				{
+					FREE (ext);
+					ext = 0;
+				}
+			}
+			if (!ext || off > ext_size || ssz > ext_size - off)
+				continue;
+			s16 *pcm = ubisb_decode_ima (ext + off, ssz, ch, ns);
+			if (!pcm)
+				continue;
+			const size_t dsz = ns * ch * 2;
+			u8 *wav = MALLOC (44 + dsz);
+			if (!wav)
+			{
+				FREE (pcm);
+				good = false;
+				break;
+			}
+			memcpy (wav, "RIFF", 4);
+			wr_le32 (wav + 4, (u32)(36 + dsz));
+			memcpy (wav + 8, "WAVEfmt ", 8);
+			wr_le32 (wav + 16, 16);
+			wr_le16 (wav + 20, 1);
+			wr_le16 (wav + 22, (u16)ch);
+			wr_le32 (wav + 24, rate);
+			wr_le32 (wav + 28, rate * ch * 2);
+			wr_le16 (wav + 32, (u16)(ch * 2));
+			wr_le16 (wav + 34, 16);
+			memcpy (wav + 36, "data", 4);
+			wr_le32 (wav + 40, (u32)dsz);
+			for (size_t k = 0; k < ns * ch; k++)
+				wr_le16 (wav + 44 + 2 * k, (u16)pcm[k]);
+			FREE (pcm);
+			char name[40];
+			snprintf (name, sizeof (name), "%04u_%08x.wav", (uint)i, rd_be32 (h));
+			good = OwnedEntryAdd (entries, n, name, wav, 44 + dsz);
+			FREE (wav);
+			if (good)
+				n++;
+			continue;
+		}
+		if ((rd_be32 (h + 0x2c) & 1) || rd_be32 (h + 0x5c))
 			continue;
 		const size_t ssz = rd_be32 (h + 8), xo = ox + rd_be32 (h + 0xc), off = rd_be32 (h + 0x10);
 		const uint ch = rd_be32 (h + 0x58), rate = rd_be32 (h + 0x50);
@@ -88,6 +213,7 @@ static enumError extract_ubisb_file (ccp arg, ccp basedir, uint depth)
 				n++;
 		}
 	}
+	FREE (ext);
 	enumError err = ERR_NOTHING_TO_DO;
 	if (good && n)
 		err = write_owned_entries (arg, basedir, depth, "UBISB", entries, n);

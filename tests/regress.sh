@@ -10297,6 +10297,11 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     && [ "$(xxd -s 0x60 -l 4 -p "$d/ubisb_test/t.sb7.d/0000_00001234.dsp")" = "01020304" ] \
     && fok "Ubisoft .sb7 -> DSP" \
     || fno "Ubisoft .sb7" "failed on synthetic t.sb7"
+    "$B/wszst" x "$d/ubisb_test/ima.sb7" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/ubisb_test/ima.sb7.d/0000_00005678.wav" | tr -d ' ')" -eq 72 ] \
+    && [ "$(xxd -s 44 -l 4 -p "$d/ubisb_test/ima.sb7.d/0000_00005678.wav")" = "00010002" ] \
+    && fok "Ubisoft .sb7 streamed IMA -> WAV" \
+    || fno "Ubisoft .sb7 IMA" "failed on synthetic ima.sb7"
   else
     fno "Ubisoft .sb7" "mk_ubisb.py failed"
   fi
