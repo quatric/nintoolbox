@@ -32,3 +32,15 @@ z += struct.pack('>II', slot_tab, 0)           # slot 0 -> message table
 z += struct.pack('>II', 0x40 + 8 + 8 - 0x20, 0)  # message 0 -> text right behind the table
 z += text
 open(os.path.join(d, 't.zms'), 'wb').write(bytes(z))
+
+# u.bin: unnamed variant (u32 0 @0xc), count {offset, size} pairs, one empty member
+um = [b'first member', b'', b'ZMS\0 second']
+uh = bytearray(0x10 + 8 * len(um))
+uh[0:4] = b'WII\0'
+struct.pack_into('>fII', uh, 4, 1.0, len(um), 0)
+pos = (len(uh) + 0x1f) & ~0x1f
+body = b''
+for i, c in enumerate(um):
+    struct.pack_into('>II', uh, 0x10 + 8 * i, pos + len(body), len(c))
+    body += c.ljust((len(c) + 0x1f) & ~0x1f, b'\0')
+open(os.path.join(d, 'u.bin'), 'wb').write(bytes(uh).ljust(pos, b'\0') + body)

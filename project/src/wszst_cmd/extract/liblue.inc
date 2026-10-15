@@ -2,7 +2,9 @@
 //
 // "WII\0" scene archives (".bin"), big-endian: "WII\0", float 1.0, u32 file count @8 (2 or 3), u32 2, count
 // {u32 offset, u32 size} pairs at 0x10, then count 0x10-byte NUL-padded member names ("0000Model.bin",
-// "0000Snd.bin", ...); the member data follows 0x20 aligned. Members are written under their names.
+// "0000Snd.bin", ...); the member data follows 0x20 aligned. Members are written under their names. Variant with
+// u32 0 @0xc (animal, Stage, Effect, Text, ...): no name table, just count {offset, size} pairs (empty ones skipped);
+// members are written as "NNN.ext" with the extension guessed from their magic (ZMB, TEB, ZMS, nested WII).
 static enumError extract_liblue_bin_file (ccp arg, ccp basedir, uint depth)
 {
 	if (!is_ext (arg, ".bin"))
@@ -22,15 +24,26 @@ static enumError extract_liblue_bin_file (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 	}
 	const uint count = sz >= 0x20 ? rd_be32 (raw + 8) : 0;
+	const bool unnamed = sz >= 0x20 && rd_be32 (raw + 0xc) == 0;
 	const size_t names = 0x10 + 8 * (size_t)count;
-	bool ok = count && count <= 64 && names + 0x10 * (size_t)count <= sz;
+	bool ok = count && count <= (unnamed ? 4096u : 64u) && names + (unnamed ? 0 : 0x10 * (size_t)count) <= sz;
+	uint nonempty = 0;
+	if (unnamed && IsZMB (raw, (uint)sz))
+		ok = false; // single ZMB model container: handled by the ZMB extractor
 	for (uint i = 0; ok && i < count; i++)
 	{
 		const u8 *e = raw + 0x10 + 8 * (size_t)i, *nm = raw + names + 0x10 * (size_t)i;
 		const size_t o = rd_be32 (e), n = rd_be32 (e + 4);
-		ok = o >= names + 0x10 * (size_t)count && o <= sz && n <= sz - o && nm[0] && memchr (nm, 0, 0x10)
-			&& valid_sarc_path ((ccp)nm);
+		if (unnamed)
+		{
+			ok = n ? o >= names && o <= sz && n <= sz - o : true;
+			nonempty += n != 0;
+		}
+		else
+			ok = o >= names + 0x10 * (size_t)count && o <= sz && n <= sz - o && nm[0] && memchr (nm, 0, 0x10)
+				&& valid_sarc_path ((ccp)nm);
 	}
+	ok = ok && (!unnamed || nonempty);
 	nintendo_sarc_entry_t *entries = ok ? CALLOC (count, sizeof (*entries)) : 0;
 	if (!entries)
 	{
@@ -41,7 +54,19 @@ static enumError extract_liblue_bin_file (ccp arg, ccp basedir, uint depth)
 	for (uint i = 0; i < count && ok; i++)
 	{
 		const u8 *e = raw + 0x10 + 8 * (size_t)i;
-		ok = OwnedEntryAdd (entries, n, (ccp)raw + names + 0x10 * (size_t)i, raw + rd_be32 (e), rd_be32 (e + 4));
+		char uname[32];
+		ccp name = (ccp)raw + names + 0x10 * (size_t)i;
+		if (unnamed)
+		{
+			if (!rd_be32 (e + 4))
+				continue;
+			const u8 *m = raw + rd_be32 (e);
+			const bool big = rd_be32 (e + 4) >= 4;
+			ccp ext = !big ? "bin" : !memcmp (m, "ZMB ", 4) ? "zmb" : !memcmp (m, "TEB", 4) ? "teb" : !memcmp (m, "ZMS", 4) ? "zms" : "bin";
+			snprintf (uname, sizeof (uname), "%03u.%s", i, ext);
+			name = uname;
+		}
+		ok = OwnedEntryAdd (entries, n, name, raw + rd_be32 (e), rd_be32 (e + 4));
 		n += ok;
 	}
 	enumError err = ERR_NOTHING_TO_DO;

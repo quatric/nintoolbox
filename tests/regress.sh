@@ -10027,6 +10027,10 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     "$B/wszst" xx "$d/liblue_test/t.bin" "$d/liblue_test/t.zms" --overwrite >/dev/null 2>&1 \
     && [ "$(cat "$d/liblue_test/t.bin.d/tSnd.bin")" = "sound data" ] \
     && grep -q '^0	0	Hi\\nOK$' "$d/liblue_test/t.zms.txt" \
+    && "$B/wszst" xx "$d/liblue_test/u.bin" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/liblue_test/u.bin.d/000.bin")" = "first member" ] \
+    && [ ! -e "$d/liblue_test/u.bin.d/001.bin" ] \
+    && [ -f "$d/liblue_test/u.bin.d/002.zms" ] \
     && fok "Lost in Blue WII archive split and ZMS -> text" \
     || fno "Lost in Blue WII/ZMS" "failed on synthetic t.bin / t.zms"
   else
