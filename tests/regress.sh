@@ -10205,6 +10205,19 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Petz .ozzy" "mk_petzozzy.py failed"
   fi
 
+  # Alchemy IGZ (Madagascar 2): igImage2 -> PNG, igGeometry strips -> model.glb
+  mkdir -p "$d/igz_test"
+  if python3 "$PWD_PROJECT/../tests/mk_igz.py" "$d/igz_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/igz_test/t.igz" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/igz_test/t.igz.d/model.glb")" = "glTF" ] \
+    && [ "$(head -c 4 "$d/igz_test/t.igz.d/tex0000.png" | tail -c 3)" = "PNG" ] \
+    && grep -aq "tex0000" "$d/igz_test/t.igz.d/model.glb" \
+    && fok "Alchemy IGZ -> GLB + PNG" \
+    || fno "Alchemy IGZ" "failed on synthetic t.igz"
+  else
+    fno "Alchemy IGZ" "mk_igz.py failed"
+  fi
+
   # Krome RKV2 archive (Star Wars: The Force Unleashed) -> plain members
   mkdir -p "$d/rkv2_test"
   if python3 "$PWD_PROJECT/../tests/mk_rkv2.py" "$d/rkv2_test" >/dev/null 2>&1; then
