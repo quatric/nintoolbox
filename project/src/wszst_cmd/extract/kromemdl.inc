@@ -15,7 +15,7 @@ typedef struct
 } kmdl_strip_t;
 
 static bool kmdl_chunk (const u8 *d, size_t sz, size_t f, kmdl_strip_t *strips, uint *nstrips, size_t *tab, size_t *pos,
-	size_t *uv, size_t *end, uint *maxa, uint *maxb, uint *maxc)
+	size_t *uv, size_t *end, uint *maxa, uint *maxb, uint *maxc, uint *pstride)
 {
 	if (f + 0x40 > sz)
 		return false;
@@ -56,7 +56,10 @@ static bool kmdl_chunk (const u8 *d, size_t sz, size_t f, kmdl_strip_t *strips, 
 	*pos = *tab + s1;
 	*uv = *pos + s2;
 	*end = *uv + s3;
-	return *end <= sz && (*maxa + 1) * (strips[0].rs == 15 ? 16ull : 12ull) <= s2 && (*maxc + 1) * 4ull <= s3 && (*maxb + 1) * 4ull <= s1;
+	// position stride: 12 (xyz), or 16 (xyz + 4 bytes) when only that fits the padded array
+	const u64 n1 = *maxa + 1;
+	*pstride = n1 * 12 <= s2 && s2 < n1 * 12 + 32 ? 12 : (n1 * 16 <= s2 && s2 < n1 * 16 + 32 ? 16 : 0);
+	return *pstride && *end <= sz && (*maxc + 1) * 4ull <= s3 && (*maxb + 1) * 4ull <= s1;
 }
 
 static enumError extract_kromemdl_file (ccp arg, ccp basedir, uint depth)
@@ -129,9 +132,9 @@ static enumError extract_kromemdl_file (ccp arg, ccp basedir, uint depth)
 		}
 		for (;;)
 		{
-			uint ns, ma, mb, mc;
+			uint ns, ma, mb, mc, ps;
 			size_t tab, pos, uv, end;
-			if (!kmdl_chunk (mdg, gsz, f, strips, &ns, &tab, &pos, &uv, &end, &ma, &mb, &mc))
+			if (!kmdl_chunk (mdg, gsz, f, strips, &ns, &tab, &pos, &uv, &end, &ma, &mb, &mc, &ps))
 				break;
 			size_t ncorner = 0, cap = 0;
 			for (uint s = 0; s < ns; s++)
@@ -183,7 +186,7 @@ static enumError extract_kromemdl_file (ccp arg, ccp basedir, uint depth)
 					{
 						const u8 *rec = mdg + strips[s].at + strips[s].rs * (size_t)idx[k];
 						pi[k] = rd_be16 (rec);
-						const u8 *pp = mdg + pos + (strips[s].rs == 15 ? 16 : 12) * (size_t)pi[k];
+						const u8 *pp = mdg + pos + ps * (size_t)pi[k];
 						union
 						{
 							u32 u;
