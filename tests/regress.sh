@@ -10147,6 +10147,29 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
   else
     fno "RIFX .wax" "mk_rifx.py failed"
   fi
+  # Ubisoft DARE sound package (.pk): PCM stream BAO with external .spk -> WAV
+  mkdir -p "$d/ubibao_pcm_test"
+  if python3 "$PWD_PROJECT/../tests/mk_ubibao_pcm.py" "$d/ubibao_pcm_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/ubibao_pcm_test/t2.pk" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/ubibao_pcm_test/t2.pk.d/00002001.wav" | tr -d ' ')" -eq 60 ] \
+    && [ "$(xxd -s 44 -l 6 -p "$d/ubibao_pcm_test/t2.pk.d/00002001.wav")" = "0100feff2c01" ] \
+    && fok "Ubisoft BAO package PCM stream -> WAV" \
+    || fno "Ubisoft BAO PCM" "failed on synthetic t2.pk"
+  else
+    fno "Ubisoft BAO PCM" "mk_ubibao_pcm.py failed"
+  fi
+
+  # Ubisoft DARE sound package (.pk): Ubisoft IMA stream BAO with external .spk -> WAV
+  mkdir -p "$d/ubibao_ima_test"
+  if python3 "$PWD_PROJECT/../tests/mk_ubibao_ima.py" "$d/ubibao_ima_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/ubibao_ima_test/t3.pk" --overwrite >/dev/null 2>&1 \
+    && tail -c 56 "$d/ubibao_ima_test/t3.pk.d/00003001.wav" | cmp -s - "$d/ubibao_ima_test/t3.expect" \
+    && fok "Ubisoft BAO package IMA stream -> WAV" \
+    || fno "Ubisoft BAO IMA" "failed on synthetic t3.pk"
+  else
+    fno "Ubisoft BAO IMA" "mk_ubibao_ima.py failed"
+  fi
+
 
   # Multi-stream DSP .asf container (Brunswick Pro Bowling)
   mkdir -p "$d/asfdsp_test"
