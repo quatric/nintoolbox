@@ -16,6 +16,8 @@ typedef struct
 	u32 maxa, maxc;
 } dcw_run_t;
 
+static u32 dcw_lim_a, dcw_lim_c;
+
 static uint dcw_rec (const u8 *d, size_t sz, size_t o)
 {
 	const u8 op = d[o];
@@ -24,6 +26,9 @@ static uint dcw_rec (const u8 *d, size_t sz, size_t o)
 	const uint n = rd_be16 (d + o + 1);
 	if (n < 3 || n >= 4000 || o + 3 + 6 * (size_t)n > sz || (op == 0x92 && n % 3) || (op == 0x82 && n % 4))
 		return 0;
+	for (uint i = 0; i < n; i++)
+		if (rd_be16 (d + o + 3 + 6 * (size_t)i) >= dcw_lim_a || rd_be16 (d + o + 7 + 6 * (size_t)i) >= dcw_lim_c)
+			return 0;
 	return n;
 }
 
@@ -75,6 +80,12 @@ static enumError extract_dcw_file (ccp arg, ccp basedir, uint depth)
 		p++;
 	}
 
+	dcw_lim_a = dcw_lim_c = 0;
+	for (uint i = 0; i < nsets; i++)
+	{
+		dcw_lim_a = sets[i].npos > dcw_lim_a ? sets[i].npos : dcw_lim_a;
+		dcw_lim_c = sets[i].nuv > dcw_lim_c ? sets[i].nuv : dcw_lim_c;
+	}
 	// primitive runs behind the arrays
 	dcw_run_t *runs = CALLOC (16384, sizeof (*runs));
 	uint nruns = 0;
