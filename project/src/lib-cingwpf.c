@@ -21,6 +21,10 @@ bool IsCingWpf (const u8 *head, size_t head_size, u64 file_size)
 	if (!memcmp (head, "WPF\x01", 4))
 		return false;
 
+	// Speed 2 "DC2" models
+	if (!memcmp (head, "DC2\0", 4))
+		return false;
+
 	// First entry filename in bytes 0..23: null-terminated, printable ASCII
 	const u8 ch0 = head[0];
 	if (ch0 != 0x5c && ch0 != 0x2f && (ch0 < 0x20 || ch0 > 0x7e))

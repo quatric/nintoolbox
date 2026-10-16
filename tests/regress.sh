@@ -10889,6 +10889,7 @@ assert b == b'IDSP' + bytes(range(0x7c))
   if python3 "$PWD_PROJECT/../tests/mk_dc2model.py" "$d/dc2m_test" >/dev/null 2>&1; then
     "$B/wszst" xx "$d/dc2m_test/m.dcm" --overwrite >/dev/null 2>&1 \
     && [ "$(head -c 4 "$d/dc2m_test/m.glb")" = "glTF" ] \
+    && grep -aq '"mesh1"' "$d/dc2m_test/m.glb" \
     && fok "DC2 .dcm model exports to GLB" \
     || fno "DC2 .dcm model" "failed to export synthetic m.dcm"
   else
