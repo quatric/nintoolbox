@@ -10170,6 +10170,28 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Ubisoft BAO IMA" "mk_ubibao_ima.py failed"
   fi
 
+  # Nintendo JAudio .baa archive: WSYS waves from the Waves/ .aw -> WAV (AFC 4 bit and PCM16)
+  mkdir -p "$d/jaudiobaa_test"
+  if python3 "$PWD_PROJECT/../tests/mk_jaudiobaa.py" "$d/jaudiobaa_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/jaudiobaa_test/t.baa" --overwrite >/dev/null 2>&1 \
+    && tail -c 64 "$d/jaudiobaa_test/t.baa.d/wsys0/t/0000.wav" | cmp -s - "$d/jaudiobaa_test/t.expect" \
+    && [ "$(tail -c 8 "$d/jaudiobaa_test/t.baa.d/wsys0/t/0001.wav" | xxd -p)" = "640038ff2c0170fe" ] \
+    && fok "JAudio BAA waves -> WAV" \
+    || fno "JAudio BAA" "failed on synthetic t.baa"
+  else
+    fno "JAudio BAA" "mk_jaudiobaa.py failed"
+  fi
+
+  # Big-endian RIFX PCM .wax -> little-endian WAV
+  mkdir -p "$d/rifx_test"
+  if python3 "$PWD_PROJECT/../tests/mk_rifx.py" "$d/rifx_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/rifx_test/t.wax" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 44 -l 8 -p "$d/rifx_test/t.wav")" = "0100feff3412cced" ] \
+    && fok "RIFX .wax -> WAV" \
+    || fno "RIFX .wax" "failed on synthetic t.wax"
+  else
+    fno "RIFX .wax" "mk_rifx.py failed"
+  fi
 
   # Multi-stream DSP .asf container (Brunswick Pro Bowling)
   mkdir -p "$d/asfdsp_test"
