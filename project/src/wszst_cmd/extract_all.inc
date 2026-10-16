@@ -209,6 +209,7 @@
 #include "extract/ubibao.inc"
 #include "extract/rifx.inc"
 #include "extract/jaudiobaa.inc"
+#include "extract/sts.inc"
 #include "extract/asfdsp.inc"
 #include "extract/aix.inc"
 #include "extract/waf.inc"

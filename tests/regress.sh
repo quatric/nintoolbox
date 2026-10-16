@@ -10182,6 +10182,17 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "JAudio BAA" "mk_jaudiobaa.py failed"
   fi
 
+  # Alfa System .sts (Castle of Shikigami III): single DSP channel -> ch0.wav
+  mkdir -p "$d/sts_test"
+  if python3 "$PWD_PROJECT/../tests/mk_sts.py" "$d/sts_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/sts_test/t.sts" --overwrite >/dev/null 2>&1 \
+    && tail -c 56 "$d/sts_test/t.sts.d/ch0.wav" | cmp -s - "$d/sts_test/t.expect" \
+    && fok "Alfa System .sts -> WAV" \
+    || fno "Alfa System .sts" "failed on synthetic t.sts"
+  else
+    fno "Alfa System .sts" "mk_sts.py failed"
+  fi
+
   # Big-endian RIFX PCM .wax -> little-endian WAV
   mkdir -p "$d/rifx_test"
   if python3 "$PWD_PROJECT/../tests/mk_rifx.py" "$d/rifx_test" >/dev/null 2>&1; then
