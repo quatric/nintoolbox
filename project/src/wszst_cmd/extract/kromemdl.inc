@@ -2,7 +2,8 @@
 // "MDG3" companion the geometry as chunks {0x20 byte field block at f: u16 x4 (the 4th = strip count), u16 0xffff, u16
 // flags, .., u32 colour table offset (from f + 0x20), u32 colour table size, u32 position array size, u32 UV array size;
 // strips at f + 0x20: {u8 op (0x98 strip, 0x90 list, 0xa0 fan), u16 n, n x 9 byte records {u16 position index, s8 x3 normal
-// (/ 64), u16 colour index, u16 UV index}}; the colour table (rgba8), f32 x3 positions and s16 x2 UV (/ 4096) arrays follow
+// (/ 64), [6 tangent bytes in the 15 byte records of op 0x9a / 0x92 / 0xa2 (skinned models; positions then have a 16 byte
+// stride, no skinning is applied)], u16 colour index, u16 UV index}}; the colour table (rgba8), f32 x3 positions and s16 x2 UV (/ 4096) arrays follow
 // each other}, the next chunk starts right behind the UV array. The texture is the first string of the .mdl that names an
 // existing ".tex" beside it. Skinned (character) models use another layout and are left alone. -> "<name>.glb"
 typedef struct
@@ -10,6 +11,7 @@ typedef struct
 	u8 op;
 	size_t at;
 	uint n;
+	size_t rs;
 } kmdl_strip_t;
 
 static bool kmdl_chunk (const u8 *d, size_t sz, size_t f, kmdl_strip_t *strips, uint *nstrips, size_t *tab, size_t *pos,
@@ -26,32 +28,35 @@ static bool kmdl_chunk (const u8 *d, size_t sz, size_t f, kmdl_strip_t *strips, 
 	*maxa = *maxb = *maxc = 0;
 	for (uint i = 0; i < ns; i++)
 	{
-		if (q + 3 > sz || (d[q] != 0x98 && d[q] != 0x90 && d[q] != 0xa0))
+		const u8 op = d[q] & ~2;
+		if (q + 3 > sz || (op != 0x98 && op != 0x90 && op != 0xa0) || (d[q] & ~2) != op)
 			return false;
+		const size_t rs = d[q] & 2 ? 15 : 9;
 		const uint n = rd_be16 (d + q + 1);
-		if (q + 3 + 9 * (size_t)n > sz)
+		if (q + 3 + rs * n > sz)
 			return false;
-		strips[i].op = d[q];
+		strips[i].op = op;
+		strips[i].rs = rs;
 		strips[i].at = q + 3;
 		strips[i].n = n;
 		for (uint r = 0; r < n; r++)
 		{
-			const u8 *rec = d + q + 3 + 9 * (size_t)r;
+			const u8 *rec = d + q + 3 + rs * (size_t)r;
 			if (rd_be16 (rec) > *maxa)
 				*maxa = rd_be16 (rec);
-			if (rd_be16 (rec + 5) > *maxb)
-				*maxb = rd_be16 (rec + 5);
-			if (rd_be16 (rec + 7) > *maxc)
-				*maxc = rd_be16 (rec + 7);
+			if (rd_be16 (rec + rs - 4) > *maxb)
+				*maxb = rd_be16 (rec + rs - 4);
+			if (rd_be16 (rec + rs - 2) > *maxc)
+				*maxc = rd_be16 (rec + rs - 2);
 		}
-		q += 3 + 9 * (size_t)n;
+		q += 3 + rs * (size_t)n;
 	}
 	*nstrips = ns;
 	*tab = s0 + o;
 	*pos = *tab + s1;
 	*uv = *pos + s2;
 	*end = *uv + s3;
-	return *end <= sz && (*maxa + 1) * 12ull <= s2 && (*maxc + 1) * 4ull <= s3 && (*maxb + 1) * 4ull <= s1;
+	return *end <= sz && (*maxa + 1) * (strips[0].rs == 15 ? 16ull : 12ull) <= s2 && (*maxc + 1) * 4ull <= s3 && (*maxb + 1) * 4ull <= s1;
 }
 
 static enumError extract_kromemdl_file (ccp arg, ccp basedir, uint depth)
@@ -176,9 +181,9 @@ static enumError extract_kromemdl_file (ccp arg, ccp basedir, uint depth)
 					u32 pi[3];
 					for (uint k = 0; k < 3; k++)
 					{
-						const u8 *rec = mdg + strips[s].at + 9 * (size_t)idx[k];
+						const u8 *rec = mdg + strips[s].at + strips[s].rs * (size_t)idx[k];
 						pi[k] = rd_be16 (rec);
-						const u8 *pp = mdg + pos + 12 * (size_t)pi[k];
+						const u8 *pp = mdg + pos + (strips[s].rs == 15 ? 16 : 12) * (size_t)pi[k];
 						union
 						{
 							u32 u;
@@ -193,12 +198,12 @@ static enumError extract_kromemdl_file (ccp arg, ccp basedir, uint depth)
 						nn[k].x = (s8)rec[2] / 64.0f;
 						nn[k].y = (s8)rec[3] / 64.0f;
 						nn[k].z = (s8)rec[4] / 64.0f;
-						const u8 *cp = mdg + tab + 4 * (size_t)rd_be16 (rec + 5);
+						const u8 *cp = mdg + tab + 4 * (size_t)rd_be16 (rec + strips[s].rs - 4);
 						c[k].r = cp[0] / 255.0f;
 						c[k].g = cp[1] / 255.0f;
 						c[k].b = cp[2] / 255.0f;
 						c[k].a = cp[3] / 255.0f;
-						const u8 *up = mdg + uv + 4 * (size_t)rd_be16 (rec + 7);
+						const u8 *up = mdg + uv + 4 * (size_t)rd_be16 (rec + strips[s].rs - 2);
 						t[k].u = (s16)rd_be16 (up) / 4096.0f;
 						t[k].v = (s16)rd_be16 (up + 2) / 4096.0f;
 					}
