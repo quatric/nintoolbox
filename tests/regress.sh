@@ -10240,6 +10240,17 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Spyro .KRV" "mk_krvglc.py failed"
   fi
 
+  # Krome .mdl/.mdg static model -> GLB
+  mkdir -p "$d/kromemdl_test"
+  if python3 "$PWD_PROJECT/../tests/mk_kromemdl.py" "$d/kromemdl_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/kromemdl_test/t.mdl" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/kromemdl_test/t.glb")" = "glTF" ] \
+    && fok "Krome .mdl/.mdg -> GLB" \
+    || fno "Krome .mdl" "failed on synthetic t.mdl"
+  else
+    fno "Krome .mdl" "mk_kromemdl.py failed"
+  fi
+
   # Krome RKV2 archive (Star Wars: The Force Unleashed) -> plain members
   mkdir -p "$d/rkv2_test"
   if python3 "$PWD_PROJECT/../tests/mk_rkv2.py" "$d/rkv2_test" >/dev/null 2>&1; then

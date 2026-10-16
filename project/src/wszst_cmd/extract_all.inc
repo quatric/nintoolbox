@@ -213,6 +213,7 @@
 #include "extract/petzozzy.inc"
 #include "extract/igz.inc"
 #include "extract/krometex.inc"
+#include "extract/kromemdl.inc"
 #include "extract/krvglc.inc"
 #include "extract/rkv2.inc"
 #include "extract/muskrome.inc"
