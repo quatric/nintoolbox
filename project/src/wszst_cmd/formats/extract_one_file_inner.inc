@@ -96,6 +96,12 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_sts_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_petzozzy_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_petzmesh_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_rifx_file (arg);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

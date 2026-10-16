@@ -10193,6 +10193,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Alfa System .sts" "mk_sts.py failed"
   fi
 
+  # Petz Sports .ozzy level container: zlib chunks -> level.bin + one GEOM mesh in models.glb
+  mkdir -p "$d/petzozzy_test"
+  if python3 "$PWD_PROJECT/../tests/mk_petzozzy.py" "$d/petzozzy_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/petzozzy_test/t.ozzy" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/petzozzy_test/t.ozzy.d/level.bin" "$d/petzozzy_test/t.expect" \
+    && grep -aq "sm_t_0" "$d/petzozzy_test/t.ozzy.d/models.glb" \
+    && fok "Petz .ozzy level -> level.bin + GEOM GLB" \
+    || fno "Petz .ozzy" "failed on synthetic t.ozzy"
+  else
+    fno "Petz .ozzy" "mk_petzozzy.py failed"
+  fi
+
   # Big-endian RIFX PCM .wax -> little-endian WAV
   mkdir -p "$d/rifx_test"
   if python3 "$PWD_PROJECT/../tests/mk_rifx.py" "$d/rifx_test" >/dev/null 2>&1; then
