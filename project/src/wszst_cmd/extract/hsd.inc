@@ -49,6 +49,18 @@ static enumError extract_hsd_textures (ccp arg, ccp basedir, uint depth)
 	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
 	if (err)
 		return ERR_NOTHING_TO_DO;
+	// Barrel Blast ships its models as whole-file LZ10 (.dat)
+	if (raw_size >= 4 && raw[0] == 0x10)
+	{
+		u8 *dec = 0;
+		uint dec_size = 0;
+		if (!DecodeLZ10LZ11 (&dec, &dec_size, raw, (uint)raw_size))
+		{
+			FREE (raw);
+			raw = dec;
+			raw_size = dec_size;
+		}
+	}
 	const bool is_bundle
 		= raw_size >= 0x40 && raw_size <= 0x40000000 && IsHSDBundle (raw, (uint)raw_size);
 	if (raw_size < 0x40 || raw_size > 0x40000000 || (!is_bundle && !IsHSD (raw, (uint)raw_size)))

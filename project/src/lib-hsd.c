@@ -2346,6 +2346,25 @@ int ExportHSDModelFromData (const u8 *data, uint size, ccp out_glb_file)
 // the true (unpadded) length of that archive; the gap up to the next one is
 // filled with 0xCD bytes.
 
+// Paon (Donkey Kong: Barrel Blast) "FJG" container: magic "FJG\0", u8 flags,
+// u24 entry count, then that many u32 offsets of complete HSD archives. The
+// archives are zero-padded, so the table (not the 0xCD walk) locates them.
+static uint hsd_fjg_count (const u8 *data, uint size)
+{
+	if (size < 0x40 || memcmp (data, "FJG", 4))
+		return 0;
+	const uint n = be32 (data + 4) & 0xffffff;
+	if (!n || 8 + 4 * (u64)n > size || be32 (data + 8) < 8 + 4 * n || be32 (data + 8) >= size)
+		return 0;
+	return n;
+}
+
+// Offset of the first archive of a bundle.
+static uint hsd_bundle_first (const u8 *data, uint size)
+{
+	return hsd_fjg_count (data, size) ? be32 (data + 8) : 0;
+}
+
 // Length of the archive at 'off', or 0 when none starts there.
 static uint hsd_bundle_span (const u8 *data, uint size, uint off)
 {
@@ -2359,6 +2378,17 @@ static uint hsd_bundle_span (const u8 *data, uint size, uint off)
 
 static uint hsd_bundle_next (const u8 *data, uint size, uint off, uint fsize)
 {
+	const uint n_fjg = hsd_fjg_count (data, size);
+	if (n_fjg)
+	{
+		for (uint i = 0; i < n_fjg; i++)
+		{
+			const uint o = be32 (data + 8 + 4 * i);
+			if (o >= off + fsize)
+				return o;
+		}
+		return size;
+	}
 	off += fsize;
 	while (off < size && data[off] == 0xCD)
 		off++;
@@ -2372,12 +2402,15 @@ bool IsHSDBundle (const u8 *data, uint size)
 	if (!data || size < 0x40)
 		return false;
 
-	uint off = 0, n = 0;
+	const bool is_fjg = hsd_fjg_count (data, size) > 0;
+	uint off = hsd_bundle_first (data, size), n = 0;
 	while (off < size)
 	{
 		const uint fsize = hsd_bundle_span (data, size, off);
 		if (!fsize)
 		{
+			if (is_fjg)
+				return n > 0;
 			// Doraemon's common_dat.mdl (characters) follows its archives with
 			// non-HSD effect data: accept the leading run once it holds 2+ archives.
 			return n > 1;
@@ -2386,14 +2419,14 @@ bool IsHSDBundle (const u8 *data, uint size)
 		off = hsd_bundle_next (data, size, off, fsize);
 	}
 	// a single archive that fills the file is a plain HSD, not a bundle
-	return n > 1 || be32 (data) < size;
+	return is_fjg ? n > 0 : (n > 1 || be32 (data) < size);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
 uint CountHSDBundle (const u8 *data, uint size)
 {
-	uint off = 0, n = 0;
+	uint off = hsd_bundle_first (data, size), n = 0;
 	while (off < size)
 	{
 		const uint fsize = hsd_bundle_span (data, size, off);
@@ -2416,7 +2449,7 @@ int SplitHSDBundle (const u8 *data, uint size, ccp dest_dir, ccp basename)
 	StringCopyS (dir, sizeof (dir), dest_dir);
 	CreatePath (dir, true);
 
-	uint off = 0, n = 0;
+	uint off = hsd_bundle_first (data, size), n = 0;
 	while (off < size)
 	{
 		const uint fsize = hsd_bundle_span (data, size, off);
@@ -2525,7 +2558,7 @@ int ExportHSDBundleModel (const u8 *data, uint size, ccp out_glb_file)
 	model_t acc;
 	memset (&acc, 0, sizeof (acc));
 
-	uint off = 0, arc = 0;
+	uint off = hsd_bundle_first (data, size), arc = 0;
 	while (off < size)
 	{
 		const uint fsize = hsd_bundle_span (data, size, off);
