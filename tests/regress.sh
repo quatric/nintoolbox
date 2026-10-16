@@ -10251,6 +10251,21 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Krome .mdl" "mk_kromemdl.py failed"
   fi
 
+  # Shin'en .ogl custom-framed Vorbis -> standard Ogg
+  if command -v ffmpeg >/dev/null 2>&1; then
+    mkdir -p "$d/ogl_test"
+    if python3 "$PWD_PROJECT/../tests/mk_ogl.py" "$d/ogl_test" >/dev/null 2>&1; then
+      "$B/wszst" x "$d/ogl_test/t.ogl" --overwrite >/dev/null 2>&1 \
+      && ffmpeg -v error -i "$d/ogl_test/t.ogg" -f s16le "$d/ogl_test/a.raw" >/dev/null 2>&1 \
+      && ffmpeg -v error -i "$d/ogl_test/t.ref.ogg" -f s16le "$d/ogl_test/b.raw" >/dev/null 2>&1 \
+      && cmp -s -n 20000 "$d/ogl_test/a.raw" "$d/ogl_test/b.raw" \
+      && fok "Shin'en .ogl -> Ogg Vorbis" \
+      || fno "Shin'en .ogl" "failed on synthetic t.ogl"
+    else
+      fno "Shin'en .ogl" "mk_ogl.py failed"
+    fi
+  fi
+
   # Krome RKV2 archive (Star Wars: The Force Unleashed) -> plain members
   mkdir -p "$d/rkv2_test"
   if python3 "$PWD_PROJECT/../tests/mk_rkv2.py" "$d/rkv2_test" >/dev/null 2>&1; then

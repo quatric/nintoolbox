@@ -212,6 +212,7 @@
 #include "extract/sts.inc"
 #include "extract/petzozzy.inc"
 #include "extract/igz.inc"
+#include "extract/ogl.inc"
 #include "extract/krometex.inc"
 #include "extract/kromemdl.inc"
 #include "extract/krvglc.inc"
