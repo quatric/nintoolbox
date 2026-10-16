@@ -10229,6 +10229,17 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Krome .tex" "mk_krometex.py failed"
   fi
 
+  # Spyro DotD language .KRV -> strings.txt
+  mkdir -p "$d/krvglc_test"
+  if python3 "$PWD_PROJECT/../tests/mk_krvglc.py" "$d/krvglc_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/krvglc_test/t.KRV" --overwrite >/dev/null 2>&1 \
+    && [ "$(sed -n 2p "$d/krvglc_test/t.KRV.d/strings.txt")" = '1: New\nGame' ] \
+    && fok "Spyro .KRV language table -> strings.txt" \
+    || fno "Spyro .KRV" "failed on synthetic t.KRV"
+  else
+    fno "Spyro .KRV" "mk_krvglc.py failed"
+  fi
+
   # Krome RKV2 archive (Star Wars: The Force Unleashed) -> plain members
   mkdir -p "$d/rkv2_test"
   if python3 "$PWD_PROJECT/../tests/mk_rkv2.py" "$d/rkv2_test" >/dev/null 2>&1; then
