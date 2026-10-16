@@ -49,6 +49,80 @@ static void petz_basename (char *out, size_t out_size, ccp path)
 	snprintf (out, out_size, "%s", b ? b + 1 : path);
 }
 
+// Appends a mesh (unindexed triangle list, takes ownership of the arrays) and its material slot.
+static bool petz_finish_mesh (const u8 *d, size_t sz, size_t p, ccp tex, vec3_t *pos, vec3_t *nrm, vec2_t *uv, u32 nv,
+	model_t *model, uint index, petz_mat_t **mats, uint *nmats)
+{
+	mesh_t *meshes = REALLOC (model->meshes, (model->num_meshes + 1) * sizeof (*meshes));
+	vertex_t *verts = CALLOC (nv, sizeof (*verts));
+	int *tri_mat = CALLOC (nv / 3 + 1, sizeof (*tri_mat));
+	if (!meshes || !verts || !tri_mat)
+	{
+		if (meshes)
+			model->meshes = meshes;
+		FREE (pos);
+		FREE (nrm);
+		FREE (uv);
+		FREE (verts);
+		FREE (tri_mat);
+		return false;
+	}
+	model->meshes = meshes;
+	mesh_t *mesh = meshes + model->num_meshes++;
+	memset (mesh, 0, sizeof (*mesh));
+	mesh->positions = pos;
+	mesh->num_positions = nv;
+	mesh->normals = nrm;
+	mesh->num_normals = nrm ? nv : 0;
+	mesh->texcoords = uv;
+	mesh->num_texcoords = uv ? nv : 0;
+	for (u32 i = 0; i < nv; i++)
+	{
+		verts[i].position_idx = i;
+		verts[i].normal_idx = nrm ? (int)i : -1;
+		verts[i].texcoord_idx = uv ? (int)i : -1;
+		verts[i].tangent_idx = verts[i].matrix_idx = -1;
+		verts[i].color_idx[0] = verts[i].color_idx[1] = -1;
+		for (int x = 0; x < 7; x++)
+			verts[i].extra_texcoord_idx[x] = -1;
+	}
+	mesh->vertices = verts;
+	mesh->num_vertices = nv;
+	mesh->triangle_materials = tri_mat;
+
+	// geometry name from the MESH node just before the tag
+	char name[128] = "";
+	for (size_t b = p; b > 4 && p - b < 0x100; b--)
+		if (!memcmp (d + b, "MESH", 4))
+		{
+			char path[128];
+			if (petz_str (d, sz, b + 12, path, sizeof (path), 0))
+				petz_basename (name, sizeof (name), path);
+			break;
+		}
+	if (!*name)
+		snprintf (name, sizeof (name), "geom%u", index);
+	snprintf (mesh->name, sizeof (mesh->name), "%s", name);
+
+	uint mi = 0;
+	for (; mi < *nmats; mi++)
+		if (!strcmp ((*mats)[mi].path, tex))
+			break;
+	if (mi == *nmats)
+	{
+		petz_mat_t *nm = REALLOC (*mats, (*nmats + 1) * sizeof (**mats));
+		if (!nm)
+			return true;
+		*mats = nm;
+		memset (nm + *nmats, 0, sizeof (*nm));
+		snprintf (nm[*nmats].path, sizeof (nm[*nmats].path), "%s", tex);
+		petz_basename (nm[*nmats].base, sizeof (nm[*nmats].base), tex);
+		(*nmats)++;
+	}
+	mesh->material_idx = (int)mi;
+	return true;
+}
+
 // Parse the GEOM at "d + p" (pointing at the tag); appends a mesh to model.
 static bool petz_geom (const u8 *d, size_t sz, size_t p, model_t *model, uint index, petz_mat_t **mats, uint *nmats)
 {
@@ -152,74 +226,103 @@ static bool petz_geom (const u8 *d, size_t sz, size_t p, model_t *model, uint in
 		}
 	}
 
-	mesh_t *meshes = REALLOC (model->meshes, (model->num_meshes + 1) * sizeof (*meshes));
-	vertex_t *verts = CALLOC (nv, sizeof (*verts));
-	int *tri_mat = CALLOC (nv / 3 + 1, sizeof (*tri_mat));
-	if (!meshes || !verts || !tri_mat)
+	return petz_finish_mesh (d, sz, p, tex, pos, nrm, uv, nv, model, index, mats, nmats);
+}
+
+// Skinned meshes "SMSH" / "FSMH": {tag, u32 version, u32, u32, ...}, a list of 19 byte attribute records {u8 stride, 0,
+// semantic, 0, components, 14 zero bytes} (1 position, 2 normal, 5 texcoord; f32), then the GX display list {u32 size,
+// u8 0x90|fmt, u16 vertex count, vertices of {u8 matrix index, f32 position, [f32 normal], [f32 texcoord]}}. Exported
+// as the bind pose (the first display list; no skin).
+static bool petz_smsh (const u8 *d, size_t sz, size_t p, model_t *model, uint index, petz_mat_t **mats, uint *nmats)
+{
+	size_t q = p + 0x24;
+	for (; q + 19 < sz && q < p + 0x60; q++)
+		if (d[q] == 12 && !d[q + 1] && d[q + 2] == 1 && !d[q + 3] && d[q + 4] == 3)
+			break;
+	if (q + 19 >= sz || q >= p + 0x60)
+		return false;
+	const size_t q0 = q;
+	bool has_nrm = false, has_uv = false;
+	uint vsz = 1;
+	while (q + 19 <= sz && d[q] && !d[q + 1] && !d[q + 3] && (d[q + 2] == 1 || d[q + 2] == 2 || d[q + 2] == 5))
 	{
-		if (meshes)
-			model->meshes = meshes;
+		vsz += d[q];
+		has_nrm |= d[q + 2] == 2;
+		has_uv |= d[q + 2] == 5;
+		q += 19;
+	}
+	// all display lists of the file (one per bone batch), concatenated into one triangle list
+	vec3_t *pos = 0, *nrm = 0;
+	vec2_t *uv = 0;
+	size_t total = 0, cap = 0;
+	size_t e = q0, limit = q + 16;
+	while (e + 7 < sz)
+	{
+		const u32 size = rd_be32 (d + e);
+		const uint op = d[e + 4], nv = rd_be16 (d + e + 5);
+		if ((op & 0xf8) == 0x90 && nv && nv % 3 == 0 && size == ((3 + (u64)nv * vsz + 31) & ~31u)
+			&& e + 7 + (size_t)nv * vsz <= sz)
+		{
+			if (total + nv > cap)
+			{
+				cap = (total + nv) * 2;
+				vec3_t *np = REALLOC (pos, cap * sizeof (*np));
+				if (np)
+					pos = np;
+				vec3_t *nn = has_nrm ? REALLOC (nrm, cap * sizeof (*nn)) : 0;
+				if (has_nrm && nn)
+					nrm = nn;
+				vec2_t *nu = has_uv ? REALLOC (uv, cap * sizeof (*nu)) : 0;
+				if (has_uv && nu)
+					uv = nu;
+				if (!np || (has_nrm && !nn) || (has_uv && !nu))
+				{
+					FREE (pos);
+					FREE (nrm);
+					FREE (uv);
+					return false;
+				}
+			}
+			for (uint i = 0; i < nv; i++)
+			{
+				const u8 *v = d + e + 7 + (size_t)i * vsz + 1;
+				u32 w[8];
+				for (uint k = 0; k < 8 && 4 * k + 5 <= vsz; k++)
+					w[k] = rd_be32 (v + 4 * k);
+				memcpy (&pos[total + i].x, &w[0], 4);
+				memcpy (&pos[total + i].y, &w[1], 4);
+				memcpy (&pos[total + i].z, &w[2], 4);
+				uint k = 3;
+				if (has_nrm)
+				{
+					memcpy (&nrm[total + i].x, &w[k], 4);
+					memcpy (&nrm[total + i].y, &w[k + 1], 4);
+					memcpy (&nrm[total + i].z, &w[k + 2], 4);
+					k += 3;
+				}
+				if (has_uv)
+				{
+					memcpy (&uv[total + i].u, &w[k], 4);
+					memcpy (&uv[total + i].v, &w[k + 1], 4);
+				}
+			}
+			total += nv;
+			e += 4 + size;
+			limit = e + 0x100;
+			continue;
+		}
+		if (e >= limit)
+			break;
+		e++;
+	}
+	if (!total)
+	{
 		FREE (pos);
 		FREE (nrm);
 		FREE (uv);
-		FREE (verts);
-		FREE (tri_mat);
 		return false;
 	}
-	model->meshes = meshes;
-	mesh_t *mesh = meshes + model->num_meshes++;
-	memset (mesh, 0, sizeof (*mesh));
-	mesh->positions = pos;
-	mesh->num_positions = nv;
-	mesh->normals = nrm;
-	mesh->num_normals = nrm ? nv : 0;
-	mesh->texcoords = uv;
-	mesh->num_texcoords = uv ? nv : 0;
-	for (u32 i = 0; i < nv; i++)
-	{
-		verts[i].position_idx = i;
-		verts[i].normal_idx = nrm ? (int)i : -1;
-		verts[i].texcoord_idx = uv ? (int)i : -1;
-		verts[i].tangent_idx = verts[i].matrix_idx = -1;
-		verts[i].color_idx[0] = verts[i].color_idx[1] = -1;
-		for (int x = 0; x < 7; x++)
-			verts[i].extra_texcoord_idx[x] = -1;
-	}
-	mesh->vertices = verts;
-	mesh->num_vertices = nv;
-	mesh->triangle_materials = tri_mat;
-
-	// geometry name from the MESH node just before the tag
-	char name[128] = "";
-	for (size_t b = p; b > 4 && p - b < 0x100; b--)
-		if (!memcmp (d + b, "MESH", 4))
-		{
-			char path[128];
-			if (petz_str (d, sz, b + 12, path, sizeof (path), 0))
-				petz_basename (name, sizeof (name), path);
-			break;
-		}
-	if (!*name)
-		snprintf (name, sizeof (name), "geom%u", index);
-	snprintf (mesh->name, sizeof (mesh->name), "%s", name);
-
-	uint mi = 0;
-	for (; mi < *nmats; mi++)
-		if (!strcmp ((*mats)[mi].path, tex))
-			break;
-	if (mi == *nmats)
-	{
-		petz_mat_t *nm = REALLOC (*mats, (*nmats + 1) * sizeof (**mats));
-		if (!nm)
-			return true;
-		*mats = nm;
-		memset (nm + *nmats, 0, sizeof (*nm));
-		snprintf (nm[*nmats].path, sizeof (nm[*nmats].path), "%s", tex);
-		petz_basename (nm[*nmats].base, sizeof (nm[*nmats].base), tex);
-		(*nmats)++;
-	}
-	mesh->material_idx = (int)mi;
-	return true;
+	return petz_finish_mesh (d, sz, p, "", pos, nrm, uv, (u32)total, model, index, mats, nmats);
 }
 
 static enumError extract_petzozzy_file (ccp arg, ccp basedir, uint depth)
@@ -291,6 +394,11 @@ static enumError extract_petzozzy_file (ccp arg, ccp basedir, uint depth)
 		if (d[i] == 'G' && !memcmp (d + i, "GEOM", 4) && want_glb)
 		{
 			if (petz_geom (d, sz, i, model, ngeom, &mats, &nmats))
+				ngeom++;
+		}
+		else if (want_glb && (d[i] == 'S' || d[i] == 'F') && (!memcmp (d + i, "SMSH", 4) || !memcmp (d + i, "FSMH", 4)))
+		{
+			if (petz_smsh (d, sz, i, model, ngeom, &mats, &nmats))
 				ngeom++;
 		}
 		else if (d[i] == 'T' && !memcmp (d + i, "TTPL", 4))
@@ -391,7 +499,8 @@ static bool petz_has_magic (ccp arg, ccp magic)
 static enumError extract_petzmesh_file (ccp arg, ccp basedir, uint depth)
 {
 	const bool is_mesh = petz_has_magic (arg, "MESH");
-	if (!is_mesh && !petz_has_magic (arg, "GEOM"))
+	const bool is_skin = petz_has_magic (arg, "SMSH") || petz_has_magic (arg, "FSMH");
+	if (!is_mesh && !is_skin && !petz_has_magic (arg, "GEOM"))
 		return ERR_NOTHING_TO_DO;
 	const bool want_glb = export_count > 0 || opt_decode;
 	if (!want_glb)
@@ -456,7 +565,8 @@ static enumError extract_petzmesh_file (ccp arg, ccp basedir, uint depth)
 	petz_mat_t *mats = 0;
 	uint nmats = 0;
 	enumError err = ERR_NOTHING_TO_DO;
-	if (model && petz_geom (geom, gsz, 0, model, 0, &mats, &nmats) && model->num_meshes == 1)
+	if (model && (is_skin ? petz_smsh (geom, gsz, 0, model, 0, &mats, &nmats) : petz_geom (geom, gsz, 0, model, 0, &mats, &nmats))
+		&& model->num_meshes == 1)
 	{
 		char base[64], name[96];
 		petz_basename (base, sizeof (base), tex_path);
