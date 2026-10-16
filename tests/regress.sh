@@ -10205,6 +10205,29 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Petz .ozzy" "mk_petzozzy.py failed"
   fi
 
+  # Krome RKV2 archive (Star Wars: The Force Unleashed) -> plain members
+  mkdir -p "$d/rkv2_test"
+  if python3 "$PWD_PROJECT/../tests/mk_rkv2.py" "$d/rkv2_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/rkv2_test/t.rkv" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/rkv2_test/t.rkv.d/a.txt")" = "hello rkv2" ] \
+    && [ "$(stat -f%z "$d/rkv2_test/t.rkv.d/sub/b.bin" 2>/dev/null || stat -c%s "$d/rkv2_test/t.rkv.d/sub/b.bin")" = "64" ] \
+    && fok "Krome RKV2 archive extracts members" \
+    || fno "Krome RKV2 archive" "failed on synthetic t.rkv"
+  else
+    fno "Krome RKV2 archive" "mk_rkv2.py failed"
+  fi
+
+  # Krome .mus stereo DSP stream -> ch0.wav / ch1.wav
+  mkdir -p "$d/muskrome_test"
+  if python3 "$PWD_PROJECT/../tests/mk_muskrome.py" "$d/muskrome_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/muskrome_test/t.mus" --overwrite >/dev/null 2>&1 \
+    && [ "$( (tail -c +45 "$d/muskrome_test/t.mus.d/ch0.wav" | head -c 28; tail -c +45 "$d/muskrome_test/t.mus.d/ch1.wav" | head -c 28) | cmp - "$d/muskrome_test/t.expect" && echo ok)" = "ok" ] \
+    && fok "Krome .mus -> WAV" \
+    || fno "Krome .mus" "failed on synthetic t.mus"
+  else
+    fno "Krome .mus" "mk_muskrome.py failed"
+  fi
+
   # Big-endian RIFX PCM .wax -> little-endian WAV
   mkdir -p "$d/rifx_test"
   if python3 "$PWD_PROJECT/../tests/mk_rifx.py" "$d/rifx_test" >/dev/null 2>&1; then

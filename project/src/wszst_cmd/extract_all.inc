@@ -211,6 +211,8 @@
 #include "extract/jaudiobaa.inc"
 #include "extract/sts.inc"
 #include "extract/petzozzy.inc"
+#include "extract/rkv2.inc"
+#include "extract/muskrome.inc"
 #include "extract/asfdsp.inc"
 #include "extract/aix.inc"
 #include "extract/waf.inc"
