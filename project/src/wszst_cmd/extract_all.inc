@@ -212,6 +212,7 @@
 #include "extract/sts.inc"
 #include "extract/petzozzy.inc"
 #include "extract/igz.inc"
+#include "extract/krometex.inc"
 #include "extract/rkv2.inc"
 #include "extract/muskrome.inc"
 #include "extract/asfdsp.inc"

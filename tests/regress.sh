@@ -10218,6 +10218,17 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Alchemy IGZ" "mk_igz.py failed"
   fi
 
+  # Krome .tex (Star Wars: The Force Unleashed): GX mip chain -> PNG
+  mkdir -p "$d/krometex_test"
+  if python3 "$PWD_PROJECT/../tests/mk_krometex.py" "$d/krometex_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/krometex_test/t.tex" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/krometex_test/t.png" | tail -c 3)" = "PNG" ] \
+    && fok "Krome .tex -> PNG" \
+    || fno "Krome .tex" "failed on synthetic t.tex"
+  else
+    fno "Krome .tex" "mk_krometex.py failed"
+  fi
+
   # Krome RKV2 archive (Star Wars: The Force Unleashed) -> plain members
   mkdir -p "$d/rkv2_test"
   if python3 "$PWD_PROJECT/../tests/mk_rkv2.py" "$d/rkv2_test" >/dev/null 2>&1; then
