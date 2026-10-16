@@ -139,7 +139,7 @@ static enumError extract_dcw_file (ccp arg, ccp basedir, uint depth)
 			rlast[cur] = r;
 			gma = runs[r].maxa > gma ? runs[r].maxa : gma;
 			gmc = runs[r].maxc > gmc ? runs[r].maxc : gmc;
-			if (gma + 1 == sets[cur].npos && gmc + 1 == sets[cur].nuv)
+			if (gmc + 1 == sets[cur].nuv && (gma + 1 == sets[cur].npos || (u64)(gma + 1) * 10 >= (u64)sets[cur].npos * 8))
 			{
 				open = false;
 				// mesh of the runs rfirst..rlast that fit
