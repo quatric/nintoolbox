@@ -61,6 +61,26 @@ static enumError extract_hsd_textures (ccp arg, ccp basedir, uint depth)
 			raw_size = dec_size;
 		}
 	}
+	// Paon "OCN." skinned model (Donkey Kong: Barrel Blast chara/*.dat)
+	if (IsOCN (raw, (uint)raw_size))
+	{
+		char dest[PATH_MAX];
+		hal_texture_dest (dest, sizeof (dest), arg);
+		ccp base = strrchr (arg, '/');
+		base = base ? base + 1 : arg;
+		if (!testmode)
+		{
+			char glb_path[PATH_MAX];
+			snprintf (glb_path, sizeof (glb_path), "%s/%s.glb", dest, base);
+			CreatePath (glb_path, false);
+			const int nm = ExportOCNModel (raw, (uint)raw_size, glb_path, base);
+			if (nm > 0 && verbose >= 0)
+				fprintf (stdlog, "  - OCN model (%d mesh%s) extracted from %s -> %s\n", nm,
+					nm == 1 ? "" : "es", arg, glb_path);
+		}
+		FREE (raw);
+		return ERR_OK;
+	}
 	const bool is_bundle
 		= raw_size >= 0x40 && raw_size <= 0x40000000 && IsHSDBundle (raw, (uint)raw_size);
 	if (raw_size < 0x40 || raw_size > 0x40000000 || (!is_bundle && !IsHSD (raw, (uint)raw_size)))

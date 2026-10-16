@@ -118,6 +118,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **GTX** | Wii U / Texture | ✅ | ✅ | Wii U GX2 texture container |
 | **GSH** | Wii U / Shader | ✅ | ✅ | Wii U Latte GPU shader container |
 | **HSD (.dat)** | GameCube / Model | ✅ | ✅ | HAL Laboratory sysdolphin object graph; also archive bundles (many archives in one file, `scene_data` roots, e.g. Doraemon `map*_dat.mdl`) merged into one GLB |
+| **OCN. (.dat)** | Wii / Model | ✅ | ❌ | Paon "OCN." skinned model (Donkey Kong: Barrel Blast `chara/*.dat`, LZ10 wrapped): TEXS textures, bones, GX display lists over a per-vertex multi-bone WEIG pool (s16 or f32 layouts), rigid shapes from float ELEM banks; exported as one skinned GLB with PNG textures. `*_mp*.dat` are FJG tables of HSD motion archives |
 | **HSF** | GameCube / Wii / Model | ✅ | ✅ | Hudson Mario Party 3D model |
 | **IPK** | Wii / Wii U / Switch / Archive | ✅ | ❌ | Ubisoft UbiArt archive (*Just Dance*, *Rayman Origins/Legends*): stored + zlib/LZMA members, old/new path-name orders |
 | **WADH** | Wii / Archive | ✅ | ❌ | Data Design Interactive `DataWII.wad` (*Ninjabread Man*): stored members, directory tree via last-child / previous-sibling links |

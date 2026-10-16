@@ -167,6 +167,7 @@ static ccp opt_parent = 0;
 #include "lib-bch.h"
 #include "lib-bcres.h"
 #include "lib-hsd.h"
+#include "lib-ocn.h"
 #include "lib-halbank.h"
 #include "lib-passthru.h"
 #include "lib-brres-model.h"
