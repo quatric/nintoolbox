@@ -72,6 +72,7 @@
 #include "extract/nud.inc"
 #include "extract/ninja.inc"
 #include "extract/dc2model.inc"
+#include "extract/dcw.inc"
 #include "extract/numshb.inc"
 #include "extract/mpr_cmdl.inc"
 #include "extract/nut.inc"

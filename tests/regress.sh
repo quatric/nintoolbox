@@ -10266,6 +10266,17 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fi
   fi
 
+  # Speed 2 .dcw world -> GLB
+  mkdir -p "$d/dcw_test"
+  if python3 "$PWD_PROJECT/../tests/mk_dcw.py" "$d/dcw_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/dcw_test/t.dcw" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/dcw_test/t.glb")" = "glTF" ] \
+    && fok "DC2 .dcw world -> GLB" \
+    || fno "DC2 .dcw" "failed on synthetic t.dcw"
+  else
+    fno "DC2 .dcw" "mk_dcw.py failed"
+  fi
+
   # Krome RKV2 archive (Star Wars: The Force Unleashed) -> plain members
   mkdir -p "$d/rkv2_test"
   if python3 "$PWD_PROJECT/../tests/mk_rkv2.py" "$d/rkv2_test" >/dev/null 2>&1; then
