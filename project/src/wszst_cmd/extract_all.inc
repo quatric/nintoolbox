@@ -219,6 +219,7 @@
 #include "extract/ogl.inc"
 #include "extract/krometex.inc"
 #include "extract/dcf.inc"
+#include "extract/sedbres.inc"
 #include "extract/kromemdl.inc"
 #include "extract/krvglc.inc"
 #include "extract/rkv2.inc"
