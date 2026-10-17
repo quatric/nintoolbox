@@ -10289,6 +10289,17 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Petz DPGZ" "mk_dpgz.py failed"
   fi
 
+  # Petz MACT action table -> text
+  mkdir -p "$d/mact_test"
+  if python3 "$PWD_PROJECT/../tests/mk_mact.py" "$d/mact_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/mact_test/t_mact" --overwrite >/dev/null 2>&1 \
+    && grep -q '^1 0x0081 -1 104$' "$d/mact_test/t_mact.txt" \
+    && fok "Petz MACT -> text" \
+    || fno "Petz MACT" "failed on synthetic t_mact"
+  else
+    fno "Petz MACT" "mk_mact.py failed"
+  fi
+
   # Speed 2 .dcw world -> GLB
   mkdir -p "$d/dcw_test"
   if python3 "$PWD_PROJECT/../tests/mk_dcw.py" "$d/dcw_test" >/dev/null 2>&1; then
