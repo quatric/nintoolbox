@@ -511,6 +511,7 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-t4res.h"
 #include "lib-hdvoice.h"
 #include "lib-wadh.h"
+#include "lib-sedb.h"
 #include "lib-catcar.h"
 #include "lib-vblank.h"
 #include "lib-termpod.h"

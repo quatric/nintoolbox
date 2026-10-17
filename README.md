@@ -178,6 +178,7 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **RZPK** | `.rzpk` | *Mario Party* (3DS) |
 | **SARC** | `.sarc`, `.szs` | Wii U / Switch / 3DS |
 | **SEC** | `.sec` | *Octomania* |
+| **SEDB** | `.rps`, `.txb` | *Dragon Quest X* (Wii) |
 | **SFZDAT** | `.dat` | *Star Fox Zero* |
 | **SHARC / SHARCFB** | `.sharc`, `.sharcfb` | Wii U / Switch |
 | **SIR0** | `.sir0` | DS / 3DS |

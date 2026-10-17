@@ -136,6 +136,7 @@
 #include "extract/kraw.inc"
 #include "extract/fsb.inc"
 #include "extract/wadh.inc"
+#include "extract/sedb.inc"
 #include "extract/hog.inc"
 #include "extract/hvp.inc"
 #include "extract/rkv.inc"
