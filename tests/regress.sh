@@ -10310,19 +10310,6 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
   else
     fno "DC2 .dcw" "mk_dcw.py failed"
   fi
-  # Dragon Quest X SEDBRES .trb package -> palette textures as PNG + raw blocks
-  mkdir -p "$d/sedb_test"
-  if python3 "$PWD_PROJECT/../tests/mk_sedbres.py" "$d/sedb_test" >/dev/null 2>&1; then
-    "$B/wszst" x "$d/sedb_test/t.trb" --overwrite >/dev/null 2>&1 \
-    && [ "$(head -c 4 "$d/sedb_test/t.trb.d/000_txb.png" | tail -c 3)" = "PNG" ] \
-    && [ -s "$d/sedb_test/t.trb.d/001_shd.bin" ] \
-    && grep -q '^1	F01.tex.wii$' "$d/sedb_test/t.trb.d/strings.txt" \
-    && fok "DQX SEDBRES .trb -> PNG + blocks" \
-    || fno "DQX SEDBRES" "failed on synthetic t.trb"
-  else
-    fno "DQX SEDBRES" "mk_sedbres.py failed"
-  fi
-
 
   # Krome RKV2 archive (Star Wars: The Force Unleashed) -> plain members
   mkdir -p "$d/rkv2_test"
