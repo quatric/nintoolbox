@@ -1817,6 +1817,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x56465842: // "VFXB"
 				return FF_VFXB;
 
+			// Square Enix SEDB resource container
+			case 0x53454442: // "SEDB"
+				return data_size >= 0x20 ? FF_SEDB : FF_UNKNOWN;
+
 			// Bandai Namco Effect File (EFFN)
 			case 0x4546464e: // "EFFN"
 				return IsEFFN (data8, data_size) ? FF_EFFN : FF_UNKNOWN;

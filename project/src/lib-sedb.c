@@ -7,6 +7,8 @@
 #include "lib-gxdec.h"
 #include <string.h>
 
+#undef free // open_memstream() buffers belong to libc
+
 #define SEDB_MAX_RECORDS 0x10000
 #define SEDB_RES_HEADER 0x30
 #define SEDB_DDS_OFFSET 0x20
@@ -26,8 +28,9 @@ bool IsSEDB (const u8 *data, uint size)
 {
 	if (!data || size < 0x20 || memcmp (data, "SEDB", 4))
 		return false;
-	const uint hdr = data[0x0e] | data[0x0f] << 8;
-	return hdr >= 0x20 && hdr <= 0x100 && hdr <= size;
+	// PHB blobs carry a big-endian header, everything else a little-endian one.
+	const uint le = data[0x0e] | data[0x0f] << 8, be = data[0x0e] << 8 | data[0x0f];
+	return ((le >= 0x20 && le <= 0x100) || (be >= 0x20 && be <= 0x100)) && size >= 0x20;
 }
 
 bool IsSEDBRes (const u8 *data, uint size)
@@ -188,10 +191,145 @@ enumError DecodeSEDBTexture (u8 **rgba, uint *width, uint *height, const u8 *dat
 		}
 		*rgba = out;
 	}
+	else if (pf_flags == 0x20 && bits == 8) // 256 entry A,R,G,B palette + indices
+	{
+		if (avail < 0x400 + (u64)w * h)
+			return ERR_NOTHING_TO_DO;
+		u8 *out = MALLOC ((size_t)w * h * 4);
+		if (!out)
+			return ERR_CANT_CREATE;
+		for (size_t k = 0; k < (size_t)w * h; k++)
+		{
+			const u8 *e = pix + 4 * (size_t)pix[0x400 + k];
+			u8 *d = out + k * 4;
+			d[0] = e[1];
+			d[1] = e[2];
+			d[2] = e[3];
+			d[3] = e[0];
+		}
+		*rgba = out;
+	}
 	else
 		return ERR_NOTHING_TO_DO;
 
 	*width = w;
 	*height = h;
 	return ERR_OK;
+}
+
+//
+///////////////////////////////////////////////////////////////////////////////
+///////////////			text summaries			///////////////
+///////////////////////////////////////////////////////////////////////////////
+//
+
+static float sedb_bef (const u8 *p)
+{
+	const u32 v = sedb_be32 (p);
+	float f;
+	memcpy (&f, &v, sizeof (f));
+	return f;
+}
+
+static void sedb_dump_header (FILE *f, const u8 *data, uint size)
+{
+	char type[5] = { 0 };
+	memcpy (type, data + 4, 4);
+	if (!memcmp (type, "PHB", 4))
+		fprintf (f, "# SEDB %s, %u bytes (big-endian header)\n", type, size);
+	else
+		fprintf (f, "# SEDB %s, version %u, %u bytes, build time %u\n", type,
+			sedb_le32 (data + 8), size, sedb_le32 (data + 0x18));
+}
+
+static void sedb_dump_shader (FILE *f, const u8 *data, uint size)
+{
+	for (uint pos = 0x40; pos + 0x10 <= size;)
+	{
+		const u8 *c = data + pos;
+		const u32 csize = sedb_be32 (c + 8);
+		if (csize < 0x10 || pos + csize > size)
+			break;
+		fprintf (f, "chunk %.4s, %u bytes\n", (ccp)c, csize);
+		if (!memcmp (c, "PRAM", 4) && csize >= 0x30)
+		{
+			const u8 *b = c + 0x10;
+			const u32 n = sedb_be32 (c + 0x18);
+			const u32 end = csize - 0x10;
+			if (n && n < 256 && 0x0c + 4ull * (5 + 2 * n) <= end)
+				for (u32 k = 0; k < n; k++)
+				{
+					const u32 ro = sedb_be32 (b + 0x0c + 4 * (5 + k));
+					const u32 no = sedb_be32 (b + 0x0c + 4 * (5 + n + k));
+					if (ro + 0x20 > end || no >= end)
+						continue;
+					const uint comps = b[ro + 2];
+					fprintf (f, "  param %.*s = [", (int)(end - no), (ccp)b + no);
+					for (uint i = 0; i < comps && i < 4; i++)
+						fprintf (f, "%s%g", i ? ", " : "", sedb_bef (b + ro + 0x10 + 4 * i));
+					fprintf (f, "] (flag %u)\n", b[ro]);
+				}
+		}
+		pos += csize;
+	}
+}
+
+static void sedb_dump_strings (FILE *f, const u8 *data, uint size, uint start)
+{
+	fprintf (f, "strings:\n");
+	for (uint i = start; i < size;)
+	{
+		uint j = i;
+		while (j < size && data[j] >= 0x20 && data[j] < 0x7f)
+			j++;
+		if (j - i >= 4 && j < size && !data[j])
+			fprintf (f, "  %06x %.*s\n", i, (int)(j - i), (ccp)data + i);
+		i = j + 1;
+	}
+}
+
+char *DumpSEDBText (const u8 *data, uint size)
+{
+	if (!IsSEDB (data, size))
+		return 0;
+	const bool shd = !memcmp (data + 4, "shd\0", 4);
+	const bool lyb = !memcmp (data + 4, "lyb\0", 4);
+	const bool phb = !memcmp (data + 4, "PHB\0", 4);
+	if (!shd && !lyb && !phb)
+		return 0;
+
+	char *text = 0;
+	size_t text_size = 0;
+	FILE *f = open_memstream (&text, &text_size);
+	if (!f)
+		return 0;
+	sedb_dump_header (f, data, size);
+	if (shd)
+		sedb_dump_shader (f, data, size);
+	else if (lyb)
+		sedb_dump_strings (f, data, size, 0x30);
+	else
+	{
+		uint blocks = 0;
+		for (uint i = 0x20; i + 8 <= size; i += 0x10)
+			if (!memcmp (data + i, "PHB.TBC\0", 8))
+				blocks++;
+		if (size >= 0x120 && !memcmp (data + 0xc0, "PHB.GBD\0", 8))
+		{
+			const u8 *b = data + 0x100;
+			fprintf (f, "bounds min [%g, %g, %g] max [%g, %g, %g]\n", sedb_bef (b),
+				sedb_bef (b + 4), sedb_bef (b + 8), sedb_bef (b + 16), sedb_bef (b + 20),
+				sedb_bef (b + 24));
+		}
+		fprintf (f, "collision blocks: %u\n", blocks);
+	}
+	fclose (f);
+	char *copy = text ? MALLOC (text_size + 1) : 0;
+	if (copy)
+	{
+		memcpy (copy, text, text_size);
+		copy[text_size] = 0;
+	}
+	free (text);
+	return copy;
 }

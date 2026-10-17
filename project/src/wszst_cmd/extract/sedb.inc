@@ -66,3 +66,41 @@ static enumError extract_sedb_txb_file (ccp arg, ccp basedir, uint depth)
 	}
 	return SaveDecodedRGBAToPNG (rgba, w, h, &le_func, dest, 0, opt_overwrite);
 }
+
+// shd / lyb / PHB members: write a readable "<name>.txt" summary next to them.
+static enumError extract_sedb_text_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".shd") && !is_ext (arg, ".lyb") && !is_ext (arg, ".phb"))
+		return ERR_NOTHING_TO_DO;
+
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	char *text = raw_size <= UINT_MAX ? DumpSEDBText (raw, (uint)raw_size) : 0;
+	FREE (raw);
+	if (!text)
+		return ERR_NOTHING_TO_DO;
+
+	char dest[PATH_MAX];
+	snprintf (dest, sizeof (dest), "%s.txt", arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT SEDB-TEXT:%s -> TEXT:%s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, dest);
+
+	enumError err = ERR_OK;
+	if (!testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, arg);
+		const size_t len = strlen (text);
+		if (F.f && len && fwrite (text, 1, len, F.f) != len)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", len, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (text);
+	return err;
+}

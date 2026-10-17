@@ -25,12 +25,27 @@
 //   n-1    : name table, n * char[16], NUL padded resource names
 // Record i is named by name[i]; the extension comes from its SEDB header.
 //
+// shd: after the 0x20 SEDB header and a 0x20 "SHD" header come chunks of
+// { char[4] tag, u32 0, u32 size, ... } ("WMAT" material flags, "PRAM", ...).
+// PRAM (all big-endian): at chunk+0x18 u32 n, then 5 section words, n record
+// offsets and n name offsets, all relative to chunk+0x10. A record is 0x20
+// bytes: u8 flag, u8 1, u8 component count, 13 more bytes, then f32[count] at
+// +0x10. Names are NUL terminated strings (diffuseColor, fogParam, ...).
+//
+// lyb is the big-endian Lay editor object database (object proxies, type
+// names, resource paths); only its header and string pool are decoded.
+//
+// PHB starts with a "PHB.GBD" block (+0x40: f32[4] min, f32[4] max bounding
+// box) followed by "PHB.TBC" / "PHB.TBD" block pairs holding bounding boxes and
+// 16-bit quantized collision data; only the block count and box are decoded.
+//
 // txb holds one texture: a 0x20 SEDB header, then a big-endian DDS-style
 // header (0x80 bytes: size, flags, height, width, ..., mip count at +0x1c,
 // pixel format at +0x4c) and the GX pixel data (base level first, then mips):
 //   fourcc "DXT1" (stored reversed)      -> GX CMPR   (8x8 tiles of 4 blocks)
 //   pf flags 0x20001, 16 bpp             -> linear u8 luminance, u8 alpha
 //   pf flags 0x41,    32 bpp             -> linear R,G,B,A bytes
+//   pf flags 0x20,     8 bpp             -> 256 * A,R,G,B palette, then linear indices
 //-----------------------------------------------------------------------------
 #ifndef SZS_LIB_SEDB_H
 #define SZS_LIB_SEDB_H 1
@@ -54,5 +69,11 @@ enumError ScanSEDBRes (nintendo_sarc_entry_t **entries, uint *n_entries, const u
 // RGBA8 buffer. Returns ERR_NOTHING_TO_DO for pixel formats that are not
 // supported.
 enumError DecodeSEDBTexture (u8 **rgba, uint *width, uint *height, const u8 *data, uint size);
+
+// Human readable summary of a non-texture SEDB member ("shd" material with its
+// named float parameters, "lyb" layout object database with its string pool,
+// "PHB" collision blob with its bounding box and block count). Returns a
+// malloc'ed text, or NULL for other types.
+char *DumpSEDBText (const u8 *data, uint size);
 
 #endif

@@ -2777,6 +2777,12 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, MinusString, MinusString,
 		"ArtePiazza Nintendo DS Texture Container (.tex, Dragon Quest IV/V/VI; decoded to .png)" },
 
+	// FF_SEDB = 475 (Square Enix SEDB resource container)
+	{ FF_SEDB, FF_SEDB, 0, "SEDB", ".rps", ".rps", ".rps",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 4, { 0x53, 0x45, 0x44, 0x42 }, // "SEDB"
+		0, MinusString, MinusString,
+		"Square Enix SEDB resource container (.rps/.txb/.shd/.phb/.lyb, Dragon Quest X)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -3062,6 +3068,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_CAPCOM_GML1, "CAPCOM-GML1", "1LMG", 0x861 },
 	{ FF_ATLUS_NDX, "ATLUS-NDX", "ATLUSNDX", 0xe05 },
 	{ FF_ARTE_TEX, "ARTE-TEX", "ARTETEX", 0x861 },
+	{ FF_SEDB, "SEDB", "SEDB", 0xe05 },
 
 	{ 0, 0, 0, 0 }
 };
