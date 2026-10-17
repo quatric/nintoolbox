@@ -10266,6 +10266,19 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fi
   fi
 
+  # MT Framework .thk/.atk/.col parameter dumps
+  mkdir -p "$d/mtparam_test"
+  if python3 "$PWD_PROJECT/../tests/mk_mtparam.py" "$d/mtparam_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/mtparam_test/t.thk" "$d/mtparam_test/t.atk" "$d/mtparam_test/t.col" --overwrite >/dev/null 2>&1 \
+    && grep -q 'groups 2' "$d/mtparam_test/t.thk.txt" \
+    && grep -q 'records 2' "$d/mtparam_test/t.atk.txt" \
+    && [ -s "$d/mtparam_test/t.col.txt" ] \
+    && fok "MT Framework .thk/.atk/.col -> text" \
+    || fno "MT param" "failed on synthetic tables"
+  else
+    fno "MT param" "mk_mtparam.py failed"
+  fi
+
   # Speed 2 .dcw world -> GLB
   mkdir -p "$d/dcw_test"
   if python3 "$PWD_PROJECT/../tests/mk_dcw.py" "$d/dcw_test" >/dev/null 2>&1; then
