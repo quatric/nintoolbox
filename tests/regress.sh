@@ -10266,6 +10266,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fi
   fi
 
+  # Speed 2 .dcf font cache -> PNG + glyph table
+  mkdir -p "$d/dcf_test"
+  if python3 "$PWD_PROJECT/../tests/mk_dcf.py" "$d/dcf_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/dcf_test/t.dcf" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 4 "$d/dcf_test/t.png" | tail -c 3)" = "PNG" ] \
+    && grep -q '^98 12 0 23 16 7$' "$d/dcf_test/t.txt" \
+    && fok "DC2 .dcf font cache -> PNG" \
+    || fno "DC2 .dcf" "failed on synthetic t.dcf"
+  else
+    fno "DC2 .dcf" "mk_dcf.py failed"
+  fi
+
   # Speed 2 .dcw world -> GLB
   mkdir -p "$d/dcw_test"
   if python3 "$PWD_PROJECT/../tests/mk_dcw.py" "$d/dcw_test" >/dev/null 2>&1; then
