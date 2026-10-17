@@ -10278,6 +10278,17 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "DC2 .dcf" "mk_dcf.py failed"
   fi
 
+  # Petz DPGZ displacement track -> text
+  mkdir -p "$d/dpgz_test"
+  if python3 "$PWD_PROJECT/../tests/mk_dpgz.py" "$d/dpgz_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/dpgz_test/t_dpgz" --overwrite >/dev/null 2>&1 \
+    && grep -q '^2  2 4 6  1 1 2  9$' "$d/dpgz_test/t_dpgz.txt" \
+    && fok "Petz DPGZ -> text" \
+    || fno "Petz DPGZ" "failed on synthetic t_dpgz"
+  else
+    fno "Petz DPGZ" "mk_dpgz.py failed"
+  fi
+
   # Speed 2 .dcw world -> GLB
   mkdir -p "$d/dcw_test"
   if python3 "$PWD_PROJECT/../tests/mk_dcw.py" "$d/dcw_test" >/dev/null 2>&1; then
