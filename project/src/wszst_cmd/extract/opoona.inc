@@ -624,8 +624,42 @@ static enumError extract_opoona_atb_file (ccp arg, ccp basedir, uint depth)
 	if (verbose >= 0 || testmode)
 		fprintf (stdlog, "%s%sEXTRACT OPOONA-ATB:%s (%u triangles) -> %s/%s\n", verbose > 0 ? "\n" : "",
 			testmode ? "WOULD " : "", arg, ntri, dest, name);
-	const enumError err = shade_write (arg, dest, basedir, name, (u8 *)out, (uint)used);
+	enumError err = shade_write (arg, dest, basedir, name, (u8 *)out, (uint)used);
 	FREE (out);
+	// Wall outline behind the list area: u32 {size, count, 12}, count * {f32 x1, z1, x2, z2,
+	// s16 a, s16 b, u32 flags} segments in the floor plane (a, b and the flags are kept as comments).
+	const u32 end = rd_be32 (raw + 0x24);
+	if (!err && !testmode && end <= sz && sz - end >= 12 && rd_be32 (raw + end + 8) == 12)
+	{
+		const u32 tsz = rd_be32 (raw + end), nseg = rd_be32 (raw + end + 4);
+		if (nseg && nseg < 0x100000 && 12 + 24ull * nseg == tsz && 4ull + tsz <= sz - end)
+		{
+			const size_t wcap = 64 + 160 * (size_t)nseg;
+			char *w = MALLOC (wcap);
+			size_t wu = 0;
+			if (w)
+			{
+				wu += snprintf (w + wu, wcap - wu, "# Opoona wall segments (x, z plane): %u\n", nseg);
+				for (uint i = 0; i < nseg; i++)
+				{
+					const u8 *r = raw + end + 12 + 24 * (size_t)i;
+					float f[4];
+					for (uint c = 0; c < 4; c++)
+					{
+						const u32 b = rd_be32 (r + 4 * c);
+						memcpy (f + c, &b, 4);
+					}
+					wu += snprintf (w + wu, wcap - wu,
+						"# %u: s16 %d %d flags %08x\nv %g 0 %g\nv %g 0 %g\nl %u %u\n", i,
+						(int)(s16)rd_be16 (r + 16), (int)(s16)rd_be16 (r + 18), rd_be32 (r + 20), f[0],
+						f[1], f[2], f[3], 2 * i + 1, 2 * i + 2);
+				}
+				snprintf (name, sizeof (name), "%s.walls.obj", base);
+				err = shade_write (arg, dest, basedir, name, (u8 *)w, (uint)wu);
+				FREE (w);
+			}
+		}
+	}
 	FREE (raw);
 	return err;
 }
