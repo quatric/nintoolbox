@@ -143,6 +143,7 @@
 #include "extract/pdabra.inc"
 #include "extract/threedf.inc"
 #include "extract/shade.inc"
+#include "extract/opoona.inc"
 #include "extract/spr2df.inc"
 #include "extract/eangc.inc"
 #include "extract/spooktxf.inc"

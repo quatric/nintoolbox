@@ -773,3 +773,18 @@ while keeping the nesting limit for archive directories. Incomplete nested
 rebuilds stop outer creation before cleanup can remove editable source folders.
 DARC, SARC and SARC/FZIP creation propagate buffered close failures; injected
 file-size limits confirm that failed nested writes retain their editable members.
+
+## Opoona (Wii, USA retail) (2026-10-19)
+
+ArtePiazza's *Opoona* (`RPOEC8`, 4,646 `.mdl`, 4,645 `.mot`, 1,075 `.map`, 483 `.btl`) was the
+remaining "pesky" disc of the Redump Wii audit. All 744 `SL01` files (`.btl`, `.bin`, `.dat`, `.map`)
+unpack with the LZO1X variant found in the game's loader, every OPKG package parses, and the whole
+tree extracts with `wszst xx`:
+
+* 80 sampled character / battle packages (`character/`, `btl/`, `bonbon/`) → 80 GLBs, no errors;
+  Blender renders show correctly skinned and textured models (T-pose characters, monsters), and the
+  `.mot` quaternions of 105/106 nodes match the euler angles stored in the model, which fixed the
+  node rotation convention.
+* 25 sampled maps → 1,418 model GLBs plus their TPL textures, no errors.
+* Not decoded: placement / collision chunks of `.map`, the `.atb` / effect `.bin` tables, `.dat`
+  menu catalogs, `msg_*.bin`, `.dll` code modules.

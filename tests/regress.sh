@@ -9449,6 +9449,39 @@ with open(sys.argv[1], "wb") as f:
     fno "RKV archive" "mk_rkv.py failed"
   fi
 
+  # Opoona SL01 (LZO1X) wrapper, OPKG packages, blanked-magic / TPLE textures
+  mkdir -p "$d/opkg_test"
+  if python3 "$PWD_PROJECT/../tests/mk_opoonapkg.py" "$d/opkg_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/opkg_test/raw.mdl" "$d/opkg_test/sample.btl" "$d/opkg_test/eye.tpl" --overwrite >/dev/null 2>&1
+    [ "$(cat "$d/opkg_test/raw.mdl.d/tex.bin" 2>/dev/null)" = "hello" ] \
+    && [ -s "$d/opkg_test/sample.btl.d/a.tpl.png" ] \
+    && [ -s "$d/opkg_test/eye.tpl.d/eye_2.tpl.png" ] \
+    && fok "Opoona SL01/OPKG packages and blanked-magic TPL textures" \
+    || fno "Opoona OPKG" "failed to extract synthetic SL01/OPKG/TPLE fixtures"
+  else
+    fno "Opoona OPKG" "mk_opoonapkg.py failed"
+  fi
+
+  # Opoona model packages -> skinned/animated GLB, SL01 map models -> GLB
+  mkdir -p "$d/opmdl_test"
+  if python3 "$PWD_PROJECT/../tests/mk_opoonamdl.py" "$d/opmdl_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/opmdl_test/c/p001_01.mdl" "$d/opmdl_test/c/room.map" --overwrite >/dev/null 2>&1
+    python3 - "$d/opmdl_test/c/p001_01.mdl.d/p001_01.glb" "$d/opmdl_test/c/room.map.d/static_obj.glb" >/dev/null 2>&1 <<'PYEOF'
+import json, struct, sys
+def info(f):
+    d = open(f, 'rb').read()
+    assert d[:4] == b'glTF'
+    return json.loads(d[20:20 + struct.unpack_from('<I', d, 12)[0]])
+a, b = info(sys.argv[1]), info(sys.argv[2])
+assert len(a['animations'][0]['channels']) == 1 and len(a['skins']) == 1
+assert len(b['meshes']) == 1 and 'animations' not in b
+PYEOF
+    [ $? = 0 ] && fok "Opoona .mdl -> skinned GLB with .mot clip, .map model -> GLB" \
+    || fno "Opoona model" "GLB export failed on synthetic .mdl/.map"
+  else
+    fno "Opoona model" "mk_opoonamdl.py failed"
+  fi
+
   # PDA .bra archive (Messiah engine)
   mkdir -p "$d/pdabra_test"
   if python3 "$PWD_PROJECT/../tests/mk_pdabra.py" "$d/pdabra_test" >/dev/null 2>&1; then
