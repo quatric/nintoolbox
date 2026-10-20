@@ -9456,7 +9456,10 @@ with open(sys.argv[1], "wb") as f:
     [ "$(cat "$d/opkg_test/raw.mdl.d/tex.bin" 2>/dev/null)" = "hello" ] \
     && [ -s "$d/opkg_test/sample.btl.d/a.tpl.png" ] \
     && [ -s "$d/opkg_test/eye.tpl.d/eye_2.tpl.png" ] \
-    && fok "Opoona SL01/OPKG packages and blanked-magic TPL textures" \
+    && cp "$d/opkg_test/raw.mdl" "$d/opkg_test/plain.bin" \
+    && "$B/wszst" xx "$d/opkg_test/plain.bin" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/opkg_test/plain.bin.d/tex.bin" 2>/dev/null)" = "hello" ] \
+    && fok "Opoona SL01/OPKG packages (also plain .bin) and blanked-magic TPL textures" \
     || fno "Opoona OPKG" "failed to extract synthetic SL01/OPKG/TPLE fixtures"
   else
     fno "Opoona OPKG" "mk_opoonapkg.py failed"

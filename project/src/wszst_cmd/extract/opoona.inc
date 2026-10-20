@@ -32,7 +32,7 @@ static bool opoona_pkg_ok (const u8 *p, size_t sz)
 	if (sz < 0x28 || rd_le16 (p + 4) != 0x20 || rd_le16 (p + 6) != 0x20)
 		return false;
 	const uint n = rd_le32 (p);
-	if (!n || n > 0x1000 || 8 + 0x20ull * n > sz)
+	if (!n || n > 0x10000 || 8 + 0x20ull * n > sz)
 		return false;
 	for (uint i = 0; i < n; i++)
 	{
@@ -583,6 +583,7 @@ static enumError extract_opoona_file (ccp arg, ccp basedir, uint depth)
 		psz = dsz;
 	}
 	else if (!is_ext (arg, ".mdl") && !is_ext (arg, ".tex") && !is_ext (arg, ".mol")
+		&& !(is_ext (arg, ".bin") && opoona_pkg_ok (raw, sz))
 		&& !(is_ext (arg, ".tpl") && (!memcmp (raw, "TPLE", 4) || opoona_tpl_plain (raw, sz))))
 	{
 		FREE (raw);
