@@ -9466,6 +9466,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Opoona OPKG" "mk_opoonapkg.py failed"
   fi
 
+  # Opoona .atb collision mesh -> OBJ
+  mkdir -p "$d/opatb_test"
+  if python3 "$PWD_PROJECT/../tests/mk_opoonaatb.py" "$d/opatb_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/opatb_test/room.atb" --overwrite >/dev/null 2>&1
+    [ "$(grep -c '^v ' "$d/opatb_test/room.atb.d/room.atb.obj" 2>/dev/null)" = 4 ] \
+    && [ "$(grep -c '^f ' "$d/opatb_test/room.atb.d/room.atb.obj")" = 2 ] \
+    && fok "Opoona .atb collision mesh -> OBJ" \
+    || fno "Opoona .atb" "failed on synthetic room.atb"
+  else
+    fno "Opoona .atb" "mk_opoonaatb.py failed"
+  fi
+
   # Opoona message bank (msg_*.bin) -> strings.txt
   mkdir -p "$d/opmsg_test"
   python3 - "$d/opmsg_test/msg_usa.bin" >/dev/null 2>&1 <<'PYEOF'

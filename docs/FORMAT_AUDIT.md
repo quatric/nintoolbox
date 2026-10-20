@@ -776,7 +776,7 @@ file-size limits confirm that failed nested writes retain their editable members
 
 ## Opoona (Wii, USA retail) (2026-10-19)
 
-**Opoona `.atb` (undecoded, notes).** Big-endian, 375 files under `map/`. Header words: `[0]` grid-section size (not the file size; a trailer of variable length follows), `[1]=0x00800000`, `[2]=0x2020_00xx`, `[3]` record count, `[4..8]` five section offsets (`0x38` is always the first block, a short table of float bounds / cell sizes follows at `0x24`). Sections hold u16 index runs and `0xFFFF`-filled cell tables, so the format is a per-room navigation / attribute grid. No consumer was found in main.dol yet, so it is left as a raw file.
+**Opoona `.atb` (decoded to OBJ; earlier notes below are superseded: word 0 is the end of the list area, it is a collision triangle mesh with a 32 x 32 lookup grid).** Big-endian, 375 files under `map/`. Header words: `[0]` grid-section size (not the file size; a trailer of variable length follows), `[1]=0x00800000`, `[2]=0x2020_00xx`, `[3]` record count, `[4..8]` five section offsets (`0x38` is always the first block, a short table of float bounds / cell sizes follows at `0x24`). Sections hold u16 index runs and `0xFFFF`-filled cell tables, so the format is a per-room navigation / attribute grid. No consumer was found in main.dol yet, so it is left as a raw file.
 
 ArtePiazza's *Opoona* (`RPOEC8`, 4,646 `.mdl`, 4,645 `.mot`, 1,075 `.map`, 483 `.btl`) was the
 remaining "pesky" disc of the Redump Wii audit. All 744 `SL01` files (`.btl`, `.bin`, `.dat`, `.map`)

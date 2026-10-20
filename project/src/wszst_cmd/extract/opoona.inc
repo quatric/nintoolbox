@@ -556,6 +556,80 @@ static enumError extract_opoona_msg_file (ccp arg, ccp basedir, uint depth)
 	return err;
 }
 
+// map/*.atb collision meshes (big-endian): u32 {size, 0x800000, 0x20200000|x, ntri, tri_off,
+// vert_off (0x38), normal_off, grid_off, list_off, end}, f32 {1/cell_x, 1/cell_z, min_x, min_z},
+// then 12-byte float vertices, 12-byte float normals, ntri * {u16 v0, v1, v2, normal} triangles,
+// a 32 x 32 u16 grid of offsets into the 0xFFFF terminated triangle id lists at list_off. A
+// region trailer follows `end` and is not interpreted. Written as a Wavefront OBJ.
+static enumError extract_opoona_atb_file (ccp arg, ccp basedir, uint depth)
+{
+	(void)depth;
+	if (!is_ext (arg, ".atb"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const u32 ntri = sz >= 0x38 ? rd_be32 (raw + 12) : 0, toff = sz >= 0x38 ? rd_be32 (raw + 16) : 0,
+		  voff = sz >= 0x38 ? rd_be32 (raw + 20) : 0, noff = sz >= 0x38 ? rd_be32 (raw + 24) : 0;
+	if (sz < 0x38 || rd_be32 (raw + 4) != 0x800000 || voff != 0x38 || noff <= voff || toff < noff
+		|| (noff - voff) % 12 || (toff - noff) % 12 || ntri > 0x100000 || toff > sz
+		|| 8ull * ntri > sz - toff)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const uint nv = (noff - voff) / 12, nn = (toff - noff) / 12;
+	for (uint i = 0; i < ntri; i++)
+	{
+		const u8 *t = raw + toff + 8 * (size_t)i;
+		if (rd_be16 (t) >= nv || rd_be16 (t + 2) >= nv || rd_be16 (t + 4) >= nv || rd_be16 (t + 6) >= nn)
+		{
+			FREE (raw);
+			return ERR_NOTHING_TO_DO;
+		}
+	}
+	size_t cap = 64 + 40 * (size_t)(nv + nn) + 40 * (size_t)ntri, used = 0;
+	char *out = MALLOC (cap);
+	if (!out)
+	{
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+	used += snprintf (out + used, cap - used, "# Opoona collision mesh: %u vertices, %u triangles\n", nv, ntri);
+	for (uint i = 0; i < nv + nn; i++)
+	{
+		const u32 b[3] = { rd_be32 (raw + voff + 12 * (size_t)i), rd_be32 (raw + voff + 12 * (size_t)i + 4),
+			rd_be32 (raw + voff + 12 * (size_t)i + 8) };
+		float f[3];
+		memcpy (f, b, sizeof f);
+		used += snprintf (out + used, cap - used, "%s %g %g %g\n", i < nv ? "v" : "vn", f[0], f[1], f[2]);
+	}
+	for (uint i = 0; i < ntri; i++)
+	{
+		const u8 *t = raw + toff + 8 * (size_t)i;
+		const uint a = rd_be16 (t) + 1, b = rd_be16 (t + 2) + 1, c = rd_be16 (t + 4) + 1,
+			   n = rd_be16 (t + 6) + 1;
+		used += snprintf (out + used, cap - used, "f %u//%u %u//%u %u//%u\n", a, n, b, n, c, n);
+	}
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	ccp base = strrchr (arg, '/');
+	base = base ? base + 1 : arg;
+	char name[PATH_MAX];
+	snprintf (name, sizeof (name), "%s.obj", base);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT OPOONA-ATB:%s (%u triangles) -> %s/%s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, ntri, dest, name);
+	const enumError err = shade_write (arg, dest, basedir, name, (u8 *)out, (uint)used);
+	FREE (out);
+	FREE (raw);
+	return err;
+}
+
 static enumError extract_opoona_file (ccp arg, ccp basedir, uint depth)
 {
 	u8 *raw = 0;
