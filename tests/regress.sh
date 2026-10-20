@@ -9462,6 +9462,22 @@ with open(sys.argv[1], "wb") as f:
     fno "Opoona OPKG" "mk_opoonapkg.py failed"
   fi
 
+  # Opoona message bank (msg_*.bin) -> strings.txt
+  mkdir -p "$d/opmsg_test"
+  python3 - "$d/opmsg_test/msg_usa.bin" >/dev/null 2>&1 <<'PYEOF'
+import struct, sys
+t = [b'\x00\x03Poleena\xe3\x80\x8cWake up.\x00', b'\x00\x00Second line\x00']
+off = 4 + 8 * len(t); b = struct.pack('<I', len(t)); ids = [1, 5]
+for i, s in zip(ids, t):
+    b += struct.pack('<II', i, off); off += len(s)
+open(sys.argv[1], 'wb').write(b + b''.join(t))
+PYEOF
+  "$B/wszst" xx "$d/opmsg_test/msg_usa.bin" --overwrite >/dev/null 2>&1
+  grep -q "^5	0000	Second line" "$d/opmsg_test/msg_usa.bin.d/strings.txt" 2>/dev/null \
+  && grep -q "^1	0003	Poleena" "$d/opmsg_test/msg_usa.bin.d/strings.txt" \
+  && fok "Opoona msg bank -> strings.txt" \
+  || fno "Opoona msg" "failed to extract synthetic msg_usa.bin"
+
   # Opoona model packages -> skinned/animated GLB, SL01 map models -> GLB
   mkdir -p "$d/opmdl_test"
   if python3 "$PWD_PROJECT/../tests/mk_opoonamdl.py" "$d/opmdl_test" >/dev/null 2>&1; then
