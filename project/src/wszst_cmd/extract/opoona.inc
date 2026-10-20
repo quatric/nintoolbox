@@ -626,20 +626,22 @@ static enumError extract_opoona_atb_file (ccp arg, ccp basedir, uint depth)
 			testmode ? "WOULD " : "", arg, ntri, dest, name);
 	enumError err = shade_write (arg, dest, basedir, name, (u8 *)out, (uint)used);
 	FREE (out);
-	// Wall outline behind the list area: u32 {size, count, 12}, count * {f32 x1, z1, x2, z2,
-	// s16 a, s16 b, u32 flags} segments in the floor plane (a, b and the flags are kept as comments).
+	// Wall outline behind the list area: u32 {size, count, 12}, count * {f32 x1, z1, x2, z2, s16 y_a,
+	// y_b, u16 angle (65536 = 360 degrees, facing of the wall), u16 flags}: vertical wall quads from
+	// (x1, z1) to (x2, z2) spanning heights y_a..y_b (the game uses their mean as the wall centre
+	// height and the angle as a sine-table index; FUN_8005e768 / FUN_8005e56c).
 	const u32 end = rd_be32 (raw + 0x24);
 	if (!err && !testmode && end <= sz && sz - end >= 12 && rd_be32 (raw + end + 8) == 12)
 	{
 		const u32 tsz = rd_be32 (raw + end), nseg = rd_be32 (raw + end + 4);
 		if (nseg && nseg < 0x100000 && 12 + 24ull * nseg == tsz && 4ull + tsz <= sz - end)
 		{
-			const size_t wcap = 64 + 160 * (size_t)nseg;
+			const size_t wcap = 64 + 320 * (size_t)nseg;
 			char *w = MALLOC (wcap);
 			size_t wu = 0;
 			if (w)
 			{
-				wu += snprintf (w + wu, wcap - wu, "# Opoona wall segments (x, z plane): %u\n", nseg);
+				wu += snprintf (w + wu, wcap - wu, "# Opoona wall segments: %u\n", nseg);
 				for (uint i = 0; i < nseg; i++)
 				{
 					const u8 *r = raw + end + 12 + 24 * (size_t)i;
@@ -650,9 +652,11 @@ static enumError extract_opoona_atb_file (ccp arg, ccp basedir, uint depth)
 						memcpy (f + c, &b, 4);
 					}
 					wu += snprintf (w + wu, wcap - wu,
-						"# %u: s16 %d %d flags %08x\nv %g 0 %g\nv %g 0 %g\nl %u %u\n", i,
-						(int)(s16)rd_be16 (r + 16), (int)(s16)rd_be16 (r + 18), rd_be32 (r + 20), f[0],
-						f[1], f[2], f[3], 2 * i + 1, 2 * i + 2);
+						"# %u: angle %.2f flags %04x\nv %g %d %g\nv %g %d %g\nv %g %d %g\nv %g %d %g\nf %u %u %u %u\n", i,
+						rd_be16 (r + 20) * 360.0 / 65536.0, rd_be16 (r + 22), f[0],
+						(int)(s16)rd_be16 (r + 16), f[1], f[2], (int)(s16)rd_be16 (r + 16), f[3], f[2],
+						(int)(s16)rd_be16 (r + 18), f[3], f[0], (int)(s16)rd_be16 (r + 18), f[1],
+						4 * i + 1, 4 * i + 2, 4 * i + 3, 4 * i + 4);
 				}
 				snprintf (name, sizeof (name), "%s.walls.obj", base);
 				err = shade_write (arg, dest, basedir, name, (u8 *)w, (uint)wu);

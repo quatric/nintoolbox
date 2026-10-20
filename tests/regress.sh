@@ -9485,7 +9485,7 @@ PYEOF
     "$B/wszst" xx "$d/opatb_test/room.atb" --overwrite >/dev/null 2>&1
     [ "$(grep -c '^v ' "$d/opatb_test/room.atb.d/room.atb.obj" 2>/dev/null)" = 4 ] \
     && [ "$(grep -c '^f ' "$d/opatb_test/room.atb.d/room.atb.obj")" = 2 ] \
-    && [ "$(grep -c '^l ' "$d/opatb_test/room.atb.d/room.atb.walls.obj")" = 2 ] \
+    && [ "$(grep -c '^f ' "$d/opatb_test/room.atb.d/room.atb.walls.obj")" = 2 ] \
     && fok "Opoona .atb collision mesh -> OBJ" \
     || fno "Opoona .atb" "failed on synthetic room.atb"
   else
