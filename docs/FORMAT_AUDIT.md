@@ -802,3 +802,8 @@ tree extracts with `wszst xx`:
 - The BYML sidecar, `.ogl` and `.wax` failures predate the Opoona work (same 3 on `92b6fb3e`). Causes: the `.yml` check needed PyYAML (now skipped when the module is missing), `cmp -n` on this macOS build reports EOF on a longer reference file (the `.ogl` check now compares `head -c 20000` copies), and the RIFX / EA XA WAV writers ignored `--overwrite` (they now use `CreateFileOpt`). Full regress: PASS=573 FAIL=0.
 - Retail Mobiclip: *Battleship* (Wii, USA) `BTS_FMV3_FINAL_25.mo` decodes through `mobipeg` to a 640x480 MP4 (97 frames, AAC audio) and the frames render correctly.
 - Opoona `system/param.bin` members are fixed-size per-table records (SJIS names plus binary fields); 33 of 37 tables are now dumped to `records.tsv` (strings plus non-zero words per record). Field meanings per table remain undecoded.
+
+## Petz MACT follow-up (2026-10-19)
+
+- The `N` id hashes at the start of a `*_skin_mact` are stored in ascending big-endian order (checked on `labradorchocolat_skin_mact`, N = 47), so they are a sorted lookup table of 32-bit name hashes (bone names, going by the `bip01` header name). FNV-1/1a, djb2, sdbm, Jenkins one-at-a-time and CRC32 (plain and inverted) over `bip01`, `Bip01 Pelvis`, `Bip01 Spine`, `Bip01 Head` and similar, each in original, lower and upper case, matched none of the 47 hashes.
+- The retail `_skin` meshes (`SMSH`) carry no names, and the DOL has no bone-name strings to test against (only `AAI_Cookies_Bone` / `I_Cookie_Bone`), so the hash function has to come from the DOL's resource lookup code. The `MACT` parsers at `0x8048a1a8` / `0x8048b064` only walk a node tree through vtable calls, which is why the reader class is still unidentified. Still open.
