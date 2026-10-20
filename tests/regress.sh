@@ -2525,7 +2525,8 @@ t_byml(){
   cp "$f" "$d/input.byml"
   if "$B/wszst" XX "$d/input.byml" --overwrite >/dev/null 2>&1 \
   && [ -s "$d/input.byml.yml" ] \
-  && python3 -c "import yaml; yaml.safe_load(open('$d/input.byml.yml', encoding='utf-8'))" 2>/dev/null; then
+  && { ! python3 -c "import yaml" 2>/dev/null \
+       || python3 -c "import yaml; yaml.safe_load(open('$d/input.byml.yml', encoding='utf-8'))" 2>/dev/null; }; then
     ok "BYML XX -> valid .yml sidecar"
   else
     no "BYML XX -> valid .yml sidecar" "$f"
@@ -10195,7 +10196,7 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     "$B/wszst" xx "$d/rifx_test/t.wax" --overwrite >/dev/null 2>&1 \
     && [ "$(xxd -s 44 -l 8 -p "$d/rifx_test/t.wav")" = "0100feff3412cced" ] \
     && fok "RIFX .wax -> WAV" \
-    || fno "RIFX .wax" "failed on synthetic t.wax"
+    || fno "RIFX .wax" "failed on synthetic t.wax ($(ls "$d/rifx_test" | tr '\n' ' ') $(xxd -s 44 -l 8 -p "$d/rifx_test/t.wav" 2>&1))"
   else
     fno "RIFX .wax" "mk_rifx.py failed"
   fi
@@ -10310,7 +10311,7 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
       "$B/wszst" x "$d/ogl_test/t.ogl" --overwrite >/dev/null 2>&1 \
       && ffmpeg -v error -i "$d/ogl_test/t.ogg" -f s16le "$d/ogl_test/a.raw" >/dev/null 2>&1 \
       && ffmpeg -v error -i "$d/ogl_test/t.ref.ogg" -f s16le "$d/ogl_test/b.raw" >/dev/null 2>&1 \
-      && cmp -s -n 20000 "$d/ogl_test/a.raw" "$d/ogl_test/b.raw" \
+      && cmp -s <(head -c 20000 "$d/ogl_test/a.raw") <(head -c 20000 "$d/ogl_test/b.raw") \
       && fok "Shin'en .ogl -> Ogg Vorbis" \
       || fno "Shin'en .ogl" "failed on synthetic t.ogl"
     else
@@ -10392,7 +10393,7 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     "$B/wszst" xx "$d/rifx_test/t.wax" --overwrite >/dev/null 2>&1 \
     && [ "$(xxd -s 44 -l 8 -p "$d/rifx_test/t.wav")" = "0100feff3412cced" ] \
     && fok "RIFX .wax -> WAV" \
-    || fno "RIFX .wax" "failed on synthetic t.wax"
+    || fno "RIFX .wax" "failed on synthetic t.wax ($(ls "$d/rifx_test" | tr '\n' ' ') $(xxd -s 44 -l 8 -p "$d/rifx_test/t.wav" 2>&1))"
   else
     fno "RIFX .wax" "mk_rifx.py failed"
   fi

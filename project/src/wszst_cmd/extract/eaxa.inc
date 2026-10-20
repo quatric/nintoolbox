@@ -223,7 +223,13 @@ static enumError extract_eaxa_file (ccp arg)
 			testmode ? "WOULD " : "", arg, ch, h.rate, n, dest);
 	enumError err = ERR_OK;
 	if (!testmode)
-		err = SaveFile (dest, 0, 0, wav, (uint)(44 + dsz), 0);
+		{
+			File_t F;
+			err = CreateFileOpt (&F, true, dest, false, arg);
+			if (F.f && fwrite (wav, 1, (uint)(44 + dsz), F.f) != (uint)(44 + dsz))
+				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing failed: %s\n", dest);
+			ResetFile (&F, opt_preserve);
+		}
 	FREE (wav);
 	return err;
 }

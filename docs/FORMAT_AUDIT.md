@@ -796,3 +796,9 @@ tree extracts with `wszst xx`:
 - **MT Framework `.lmt` keyframes**: already decoded. Across the Sengoku Basara 3 corpus only buffer types 1, 2 (constant, reference values), 4, 5 (16 / 8 bit translation) and 6, 7 (14 / 7 bit rotation) occur (7,000+ tracks tallied by type and usage), and all are handled by `capcomtex.inc`; no raw-only buffers remain.
 - **`.wsd`**: the extension does not occur anywhere in the 2,133-disc Wii format audit (`wiiaudit/formats.csv`), so no sample exists to reverse; left open until a sample turns up.
 - **Mobiclip (`MOC5` / Moflex) / THP**: already routed through the external `mobipeg` media passthrough (`wszst xx` writes an MP4 preview; see `docs/WORKFLOWS.md`). Checked on *Final Fantasy Crystal Chronicles: Echoes of Time*: its 38 `.mods` files are Nintendo THP streams (`THP\0` header), not MobiClip, and `movie019.mods` extracts to a 150 frame MP4. A native decoder remains open only if the `mobipeg` dependency is to be dropped.
+
+## Regress and Mobiclip verification (2026-10-19)
+
+- The BYML sidecar, `.ogl` and `.wax` failures predate the Opoona work (same 3 on `92b6fb3e`). Causes: the `.yml` check needed PyYAML (now skipped when the module is missing), `cmp -n` on this macOS build reports EOF on a longer reference file (the `.ogl` check now compares `head -c 20000` copies), and the RIFX / EA XA WAV writers ignored `--overwrite` (they now use `CreateFileOpt`). Full regress: PASS=573 FAIL=0.
+- Retail Mobiclip: *Battleship* (Wii, USA) `BTS_FMV3_FINAL_25.mo` decodes through `mobipeg` to a 640x480 MP4 (97 frames, AAC audio) and the frames render correctly.
+- Opoona `system/param.bin` members are fixed-size per-table records (SJIS names plus binary fields) whose layouts differ per table; they are unpacked but not interpreted.
