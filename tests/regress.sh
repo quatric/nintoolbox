@@ -11396,6 +11396,25 @@ PYEOF
     printf "  SKIP  Media claims .vp6/.xmv/.usm (needs mobipeg on PATH)\n"; SKIP=$((SKIP+1))
   fi
 
+  # Mobiclip (.mo, .moflex, .mods) fixtures made by mobipeg's own encoders, then
+  # decoded back to MP4 previews by the media passthrough.
+  if command -v mobipeg >/dev/null 2>&1; then
+    mkdir -p "$d/mobiclip_test"
+    mcs=0
+    for spec in "mobiclip_mo:mo" "moflex:moflex" "mods:mods"; do
+      mux="${spec%%:*}"; ext="${spec##*:}"
+      mobipeg -v error -y -f lavfi -i testsrc=size=128x96:rate=15:duration=1 -pix_fmt yuv420p \
+        -c:v mobiclip -f "$mux" "$d/mobiclip_test/clip_$ext.$ext" >/dev/null 2>&1 || continue
+      "$B/wszst" xx "$d/mobiclip_test/clip_$ext.$ext" --overwrite >/dev/null 2>&1
+      [ -s "$d/mobiclip_test/clip_$ext.d/clip_$ext.mp4" ] && mcs=$((mcs+1))
+    done
+    [ "$mcs" = "3" ] \
+    && fok "Mobiclip .mo / .moflex / .mods -> MP4 via mobipeg" \
+    || fno "Mobiclip" "decoded $mcs of 3 synthetic clips"
+  else
+    printf "  SKIP  Mobiclip .mo/.moflex/.mods (needs mobipeg on PATH)\n"; SKIP=$((SKIP+1))
+  fi
+
   # CRI Sofdec movies (.sfd = MPEG-1 program stream, .sfv = bare MPEG-1 video)
   # go through mobipeg; needs mobipeg on PATH plus an ffmpeg to make the fixtures.
   if command -v mobipeg >/dev/null 2>&1 && command -v ffmpeg >/dev/null 2>&1; then
