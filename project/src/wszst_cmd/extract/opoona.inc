@@ -630,6 +630,108 @@ static enumError extract_opoona_atb_file (ccp arg, ccp basedir, uint depth)
 	return err;
 }
 
+// system/param.bin members (`*_param.bin`, `encounter.bin`): char name[6], u16be count, u32 0,
+// then count fixed-size records (the size is implied by the file size). The field layout differs
+// per table and is not interpreted; records.tsv lists "index<TAB>text fields<TAB>non-zero u16be
+// words as @offset=value", with NUL terminated Shift-JIS / ASCII runs (non-ASCII bytes written as \\xNN).
+static enumError extract_opoona_param_file (ccp arg, ccp basedir, uint depth)
+{
+	(void)depth;
+	ccp base = strrchr (arg, '/');
+	base = base ? base + 1 : arg;
+	const size_t bl = strlen (base);
+	if (!is_ext (arg, ".bin")
+		|| ((bl < 10 || strcasecmp (base + bl - 10, "_param.bin")) && strcasecmp (base, "encounter.bin")))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const uint cnt = sz > 12 ? rd_be16 (raw + 6) : 0;
+	if (!cnt || rd_be32 (raw + 8) || !raw[0] || (sz - 12) % cnt || (sz - 12) / cnt < 4 || (sz - 12) / cnt > 0x1000)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	for (uint i = 0; i < 6 && raw[i]; i++)
+		if (raw[i] < 0x20 || raw[i] > 0x7e)
+		{
+			FREE (raw);
+			return ERR_NOTHING_TO_DO;
+		}
+	const size_t rs = (sz - 12) / cnt;
+	size_t cap = sz * 12 + 64 * (size_t)cnt + 64, used = 0;
+	char *out = MALLOC (cap);
+	if (!out)
+	{
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+	for (uint r = 0; r < cnt; r++)
+	{
+		const u8 *rec = raw + 12 + rs * r;
+		bool taken[0x1000] = { 0 };
+		used += snprintf (out + used, cap - used, "%u\t", r);
+		bool first = true;
+		for (size_t o = 0; o < rs;)
+		{
+			size_t e = o;
+			bool sj = true;
+			while (e < rs && rec[e] && sj)
+			{
+				const u8 c = rec[e];
+				if (c >= 0x20 && c < 0x7f)
+					e++;
+				else if (c >= 0xa1 && c <= 0xdf)
+					e++;
+				else if (((c >= 0x81 && c <= 0x9f) || (c >= 0xe0 && c <= 0xfc)) && e + 1 < rs
+					&& rec[e + 1] >= 0x40 && rec[e + 1] != 0x7f && rec[e + 1] <= 0xfc)
+					e += 2;
+				else
+					sj = false;
+			}
+			if (sj && e - o >= 3 && (e == rs || !rec[e]) && (!o || !rec[o - 1]))
+			{
+				used += snprintf (out + used, cap - used, "%s@%zu=", first ? "" : " | ", o);
+				for (size_t k = o; k < e; k++)
+					if (rec[k] < 0x80)
+						out[used++] = (char)rec[k] == '\t' ? ' ' : (char)rec[k];
+					else
+						used += snprintf (out + used, cap - used, "\\x%02x", rec[k]);
+				first = false;
+				memset (taken + o, 1, e - o);
+				o = e + 1;
+				continue;
+			}
+			o++;
+		}
+		out[used++] = '\t';
+		first = true;
+		for (size_t o = 0; o + 2 <= rs; o += 2)
+		{
+			const uint v = rd_be16 (rec + o);
+			if (v && !taken[o] && !taken[o + 1])
+			{
+				used += snprintf (out + used, cap - used, "%s@%zu=%u", first ? "" : " ", o, v);
+				first = false;
+			}
+		}
+		out[used++] = '\n';
+	}
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT OPOONA-PARAM:%s (%u records of %zu bytes) -> %s/records.tsv\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, cnt, rs, dest);
+	const enumError err = shade_write (arg, dest, basedir, "records.tsv", (u8 *)out, (uint)used);
+	FREE (out);
+	FREE (raw);
+	return err;
+}
+
 static enumError extract_opoona_file (ccp arg, ccp basedir, uint depth)
 {
 	u8 *raw = 0;

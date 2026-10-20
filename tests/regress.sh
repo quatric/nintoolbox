@@ -9466,6 +9466,19 @@ with open(sys.argv[1], "wb") as f:
     fno "Opoona OPKG" "mk_opoonapkg.py failed"
   fi
 
+  # Opoona *_param.bin fixed-record tables -> records.tsv
+  mkdir -p "$d/opparam_test"
+  python3 - "$d/opparam_test/code_param.bin" >/dev/null 2>&1 <<'PYEOF'
+import struct, sys
+rec = lambda i, n: struct.pack('>H2x', i) + n.ljust(16, b'\0') + b'\0' * 10
+data = b'code\0\0' + struct.pack('>HI', 2, 0) + rec(1, b'Gooey Bed') + rec(2, b'Piglet Cookie')
+open(sys.argv[1], 'wb').write(data)
+PYEOF
+  "$B/wszst" xx "$d/opparam_test/code_param.bin" --overwrite >/dev/null 2>&1
+  grep -q "^1	@4=Piglet Cookie	@0=2" "$d/opparam_test/code_param.bin.d/records.tsv" 2>/dev/null \
+  && fok "Opoona *_param.bin -> records.tsv" \
+  || fno "Opoona param table" "failed on synthetic code_param.bin"
+
   # Opoona .atb collision mesh -> OBJ
   mkdir -p "$d/opatb_test"
   if python3 "$PWD_PROJECT/../tests/mk_opoonaatb.py" "$d/opatb_test" >/dev/null 2>&1; then

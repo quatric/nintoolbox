@@ -801,4 +801,4 @@ tree extracts with `wszst xx`:
 
 - The BYML sidecar, `.ogl` and `.wax` failures predate the Opoona work (same 3 on `92b6fb3e`). Causes: the `.yml` check needed PyYAML (now skipped when the module is missing), `cmp -n` on this macOS build reports EOF on a longer reference file (the `.ogl` check now compares `head -c 20000` copies), and the RIFX / EA XA WAV writers ignored `--overwrite` (they now use `CreateFileOpt`). Full regress: PASS=573 FAIL=0.
 - Retail Mobiclip: *Battleship* (Wii, USA) `BTS_FMV3_FINAL_25.mo` decodes through `mobipeg` to a 640x480 MP4 (97 frames, AAC audio) and the frames render correctly.
-- Opoona `system/param.bin` members are fixed-size per-table records (SJIS names plus binary fields) whose layouts differ per table; they are unpacked but not interpreted.
+- Opoona `system/param.bin` members are fixed-size per-table records (SJIS names plus binary fields); 33 of 37 tables are now dumped to `records.tsv` (strings plus non-zero words per record). Field meanings per table remain undecoded.
