@@ -626,10 +626,11 @@ static enumError extract_opoona_atb_file (ccp arg, ccp basedir, uint depth)
 			testmode ? "WOULD " : "", arg, ntri, dest, name);
 	enumError err = shade_write (arg, dest, basedir, name, (u8 *)out, (uint)used);
 	FREE (out);
-	// Wall outline behind the list area: u32 {size, count, 12}, count * {f32 x1, z1, x2, z2, s16 y_a,
-	// y_b, u16 angle (65536 = 360 degrees, facing of the wall), u16 flags}: vertical wall quads from
-	// (x1, z1) to (x2, z2) spanning heights y_a..y_b (the game uses their mean as the wall centre
-	// height and the angle as a sine-table index; FUN_8005e768 / FUN_8005e56c).
+	// Wall outline behind the list area: u32 {size, count, 12}, count * {f32 x1, z1, x2, z2, s16 y_top,
+	// y_bottom, u16 angle (65536 = 360 degrees, facing of the wall), u16 flags}: vertical wall quads
+	// from (x1, z1) to (x2, z2). The actor collision test (FUN_8005dd74) skips walls whose angle is
+	// more than 0x5000 away from the mover's heading, requires y_bottom <= y <= y_top, and ignores
+	// walls with (flags & 0xE000) == 0x8000; the wall type is flags & 0xDFFF.
 	const u32 end = rd_be32 (raw + 0x24);
 	if (!err && !testmode && end <= sz && sz - end >= 12 && rd_be32 (raw + end + 8) == 12)
 	{
