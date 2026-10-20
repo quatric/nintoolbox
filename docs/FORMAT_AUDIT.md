@@ -795,4 +795,4 @@ tree extracts with `wszst xx`:
 
 - **MT Framework `.lmt` keyframes**: already decoded. Across the Sengoku Basara 3 corpus only buffer types 1, 2 (constant, reference values), 4, 5 (16 / 8 bit translation) and 6, 7 (14 / 7 bit rotation) occur (7,000+ tracks tallied by type and usage), and all are handled by `capcomtex.inc`; no raw-only buffers remain.
 - **`.wsd`**: the extension does not occur anywhere in the 2,133-disc Wii format audit (`wiiaudit/formats.csv`), so no sample exists to reverse; left open until a sample turns up.
-- **Mobiclip (`MOC5` / Moflex)**: still open; needs a full video codec implementation rather than a container parser.
+- **Mobiclip (`MOC5` / Moflex) / THP**: already routed through the external `mobipeg` media passthrough (`wszst xx` writes an MP4 preview; see `docs/WORKFLOWS.md`). Checked on *Final Fantasy Crystal Chronicles: Echoes of Time*: its 38 `.mods` files are Nintendo THP streams (`THP\0` header), not MobiClip, and `movie019.mods` extracts to a 150 frame MP4. A native decoder remains open only if the `mobipeg` dependency is to be dropped.
