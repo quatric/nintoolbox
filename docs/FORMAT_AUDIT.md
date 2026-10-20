@@ -790,3 +790,9 @@ tree extracts with `wszst xx`:
 * 25 sampled maps → 1,418 model GLBs plus their TPL textures, no errors.
 * Not decoded: placement / collision chunks of `.map`, the `.atb` / effect `.bin` tables, `.dat`
   menu catalogs, `msg_*.bin`, `.dll` code modules.
+
+## Handoff §5 re-check (2026-10-19)
+
+- **MT Framework `.lmt` keyframes**: already decoded. Across the Sengoku Basara 3 corpus only buffer types 1, 2 (constant, reference values), 4, 5 (16 / 8 bit translation) and 6, 7 (14 / 7 bit rotation) occur (7,000+ tracks tallied by type and usage), and all are handled by `capcomtex.inc`; no raw-only buffers remain.
+- **`.wsd`**: the extension does not occur anywhere in the 2,133-disc Wii format audit (`wiiaudit/formats.csv`), so no sample exists to reverse; left open until a sample turns up.
+- **Mobiclip (`MOC5` / Moflex)**: still open; needs a full video codec implementation rather than a container parser.
