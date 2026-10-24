@@ -10434,6 +10434,22 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Spyro .KCS" "mk_kcs.py failed"
   fi
 
+  # Sengoku Basara .lsp / .sdl name tables -> strings.txt
+  mkdir -p "$d/basaraui_test"
+  python3 -c "
+import struct,sys
+d=sys.argv[1]
+p=b'\0PSL'+struct.pack('>I',33)+bytes(0x28)+b'SysRoot\0'+bytes([41])+b'id\\\\texture\\\\x'+b'\0'
+open(d+'/t.lsp','wb').write(p)
+s=b'\0LDS'+bytes(0x30)+b'Root\0mFrame\0'
+open(d+'/t.sdl','wb').write(s)
+" "$d/basaraui_test" \
+  && "$B/wszst" x "$d/basaraui_test/t.lsp" "$d/basaraui_test/t.sdl" --overwrite >/dev/null 2>&1 \
+  && grep -q '	SysRoot$' "$d/basaraui_test/t.lsp.d/strings.txt" \
+  && grep -q '	mFrame$' "$d/basaraui_test/t.sdl.d/strings.txt" \
+  && fok "Basara .lsp/.sdl name tables -> strings.txt" \
+  || fno "Basara .lsp/.sdl" "failed on synthetic files"
+
   # Petz DPGZ displacement track -> text
   mkdir -p "$d/dpgz_test"
   if python3 "$PWD_PROJECT/../tests/mk_dpgz.py" "$d/dpgz_test" >/dev/null 2>&1; then
