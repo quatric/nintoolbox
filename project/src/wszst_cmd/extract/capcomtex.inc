@@ -145,8 +145,15 @@ static enumError extract_capcomrmd_file (ccp arg, ccp basedir, uint depth)
 // Capcom MT Framework Wii motion banks (Sengoku Basara 3 ".lmt" = "\0TML"): u16 version @4 (0x38),
 // u16 slot count @6, then big-endian u32 motion offsets (0 = empty slot). Each motion is 0x150 bytes
 // {u32 track table, u32 track count, u32 frames, u32 loop frame, ...}; tracks are 0x24 bytes
-// {u8 compression, u8 usage, u8 type, u8 bone, f32 weight, u32 buffer size, u32 buffer offset, f32[4] ref}.
-// The keyframe buffers are not decoded; "<name>.txt" lists the validated motion / track layout.
+// {u8 bone, u8 joint type, u8 usage (0 rotation, 1 translation, 4 root translation), u8 buffer type,
+// f32 weight, u32 buffer size, u32 buffer offset, f32[4] reference (the frame-0 value), u32 extra offset}.
+// Buffer types: 1 / 2 hold a constant translation / rotation in the reference and have no buffer; 4 / 5 are
+// 16 / 8 bit "bilinear" translations and 7 a 7 bit rotation; 6 is a 14 bit rotation. Every key packs its
+// components plus the number of frames up to the next key (0 on the last key). Types 4, 5 and 7 quantize
+// each component to [8, 2^bits - 8] and scale it with the 2 x vec4 {multiplier, base} at the extra offset:
+// value = base + multiplier * (q - 8) / (2^bits - 16). Type 6 needs no extra data: each of the four 14 bit
+// fields is a signed fixed-point value with 12 fractional bits. Keys are interpolated linearly between
+// frames. "<name>.txt" lists the validated layout and the decoded keys.
 static enumError extract_capcomlmt_file (ccp arg, ccp basedir, uint depth)
 {
 	if (!is_ext (arg, ".lmt"))
@@ -223,10 +230,85 @@ static enumError extract_capcomlmt_file (ccp arg, ccp basedir, uint depth)
 		for (u32 t = 0; t < tc; t++)
 		{
 			const u8 *tr = raw + to + t * 0x24;
-			const u32 bl = rd_be32 (tr + 8), bo = rd_be32 (tr + 12);
-			LMT_PRINT ("  track %u: compression %u, usage %u, type %u, bone %u, buffer 0x%x+%u%s\n", t,
-				   tr[0], tr[1], tr[2], tr[3], bo, bl,
-				   (bo > sz || bl > sz - bo) ? " (outside file)" : "");
+			const u32 bl = rd_be32 (tr + 8), bo = rd_be32 (tr + 12), ex = rd_be32 (tr + 32);
+			const uint bt = tr[3];
+			float ref[4];
+			for (uint c = 0; c < 4; c++)
+			{
+				const u32 b = rd_be32 (tr + 16 + c * 4);
+				memcpy (ref + c, &b, 4);
+			}
+			LMT_PRINT ("  track %u: bone %u, usage %u, joint %u, buffer type %u, buffer 0x%x+%u%s, "
+				   "ref %.6f %.6f %.6f %.6f\n", t, tr[0], tr[2], tr[1], bt, bo, bl,
+				   (bo > sz || bl > sz - bo) ? " (outside file)" : "", ref[0], ref[1], ref[2],
+				   ref[3]);
+			if (bt == 1 || bt == 2)
+			{
+				LMT_PRINT ("    constant %.6f %.6f %.6f", ref[0], ref[1], ref[2]);
+				if (bt == 2)
+					LMT_PRINT (" %.6f", ref[3]);
+				LMT_PRINT ("\n");
+				continue;
+			}
+			// key size and components per type; others are listed only
+			const uint ksize = bt == 4 ? 8 : bt == 5 ? 4 : bt == 6 ? 8 : bt == 7 ? 4 : 0;
+			if (!ksize || !bl || bo > sz || bl > sz - bo || bl % ksize)
+				continue;
+			float mult[4] = { 0, 0, 0, 0 }, base[4] = { 0, 0, 0, 0 };
+			if (bt != 6)
+			{
+				if (!ex || ex > sz || sz - ex < 32)
+					continue;
+				for (uint c = 0; c < 4; c++)
+				{
+					const u32 m = rd_be32 (raw + ex + c * 4), b = rd_be32 (raw + ex + 16 + c * 4);
+					memcpy (mult + c, &m, 4);
+					memcpy (base + c, &b, 4);
+				}
+			}
+			uint frame = 0;
+			for (uint k = 0; k < bl / ksize; k++)
+			{
+				const u8 *kp = raw + bo + k * ksize;
+				float v[4] = { 0, 0, 0, 0 };
+				uint dt = 0, nc = 3;
+				if (bt == 4)
+				{
+					for (uint c = 0; c < 3; c++)
+						v[c] = base[c] + mult[c] * ((int)(kp[c * 2] << 8 | kp[c * 2 + 1]) - 8) / 65520.0f;
+					dt = kp[6] << 8 | kp[7];
+				}
+				else if (bt == 5)
+				{
+					for (uint c = 0; c < 3; c++)
+						v[c] = base[c] + mult[c] * ((int)kp[c] - 8) / 240.0f;
+					dt = kp[3];
+				}
+				else if (bt == 6)
+				{
+					const u64 key = (u64)rd_be32 (kp) << 32 | rd_be32 (kp + 4);
+					dt = key >> 56;
+					nc = 4;
+					for (uint c = 0; c < 4; c++)
+					{
+						int q = (key >> (42 - 14 * c)) & 0x3fff;
+						v[c] = (q >= 0x2000 ? q - 0x4000 : q) / 4096.0f;
+					}
+				}
+				else
+				{
+					const u32 key = rd_be32 (kp);
+					dt = key >> 28;
+					nc = 4;
+					for (uint c = 0; c < 4; c++)
+						v[c] = base[c] + mult[c] * ((int)((key >> (21 - 7 * c)) & 127) - 8) / 112.0f;
+				}
+				LMT_PRINT ("    frame %u: %.6f %.6f %.6f", frame, v[0], v[1], v[2]);
+				if (nc == 4)
+					LMT_PRINT (" %.6f", v[3]);
+				LMT_PRINT ("\n");
+				frame += dt;
+			}
 		}
 	}
 #undef LMT_PRINT
