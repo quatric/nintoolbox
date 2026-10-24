@@ -229,6 +229,186 @@ static bool petz_geom (const u8 *d, size_t sz, size_t p, model_t *model, uint in
 	return petz_finish_mesh (d, sz, p, tex, pos, nrm, uv, nv, model, index, mats, nmats);
 }
 
+static float petz_f32 (const u8 *p);
+static size_t petz_skel_find (const u8 *d, size_t sz, uint *count);
+
+// Skeleton, weight palettes and per display list palette index lists of a skinned mesh (see petz_skel_write).
+typedef struct
+{
+	uint nodes, npal, nbat;
+	size_t base;
+	uint *pal_off; // offset of each palette's {n, hashes, weights}
+	uint *bat_off; // offset of each batch's {n, u16 indices}
+} petz_skin_t;
+
+static void petz_skin_free (petz_skin_t *k)
+{
+	FREE (k->pal_off);
+	FREE (k->bat_off);
+	memset (k, 0, sizeof (*k));
+}
+
+static bool petz_skin_parse (const u8 *d, size_t sz, petz_skin_t *k)
+{
+	memset (k, 0, sizeof (*k));
+	k->base = petz_skel_find (d, sz, &k->nodes);
+	if (!k->base)
+		return false;
+	size_t p = k->base + 88 * (size_t)k->nodes;
+	if (p + 4 > sz)
+		return false;
+	k->npal = rd_be32 (d + p);
+	p += 4;
+	k->pal_off = CALLOC (k->npal + 1, sizeof (*k->pal_off));
+	for (uint i = 0; k->pal_off && i < k->npal; i++)
+	{
+		const size_t c = p + 4 <= sz ? rd_be32 (d + p) : 0;
+		if (!c || c > 16 || p + 4 + 8 * c > sz)
+		{
+			petz_skin_free (k);
+			return false;
+		}
+		k->pal_off[i] = (uint)p;
+		p += 4 + 8 * c;
+	}
+	if (!k->pal_off || p + 4 > sz)
+	{
+		petz_skin_free (k);
+		return false;
+	}
+	k->nbat = rd_be32 (d + p);
+	p += 4;
+	k->bat_off = CALLOC (k->nbat + 1, sizeof (*k->bat_off));
+	for (uint i = 0; k->bat_off && i < k->nbat; i++)
+	{
+		const size_t c = p + 4 <= sz ? rd_be32 (d + p) : 0;
+		if (!c || p + 4 + 2 * c > sz)
+		{
+			petz_skin_free (k);
+			return false;
+		}
+		k->bat_off[i] = (uint)p;
+		for (size_t m = 0; m < c; m++)
+			if (rd_be16 (d + p + 4 + 2 * m) >= k->npal)
+			{
+				petz_skin_free (k);
+				return false;
+			}
+		p += 4 + 2 * c;
+	}
+	if (!k->bat_off || p != sz)
+	{
+		petz_skin_free (k);
+		return false;
+	}
+	return true;
+}
+
+// The node table gives the skeleton in its second (bind) pose: world matrices are composed down the depth first
+// hierarchy, the weight palettes become node influences (one per palette index, bone = node with that id hash).
+static bool petz_skin_model (const u8 *d, const petz_skin_t *k, model_t *model, mesh_t *mesh, const int *pnode)
+{
+	const uint n = k->nodes;
+	joint_t *joints = CALLOC (n, sizeof (*joints));
+	node_influence_t *inf = CALLOC (k->npal, sizeof (*inf));
+	float (*world)[12] = CALLOC (n, sizeof (*world));
+	if (!joints || !inf || !world)
+		goto fail;
+	int left[256], stack[256], depth = 0;
+	for (uint i = 0; i < n; i++)
+	{
+		const u8 *r = d + k->base + 88 * (size_t)i;
+		while (depth > 0 && !left[depth - 1])
+			depth--;
+		const int par = depth ? stack[depth - 1] : -1;
+		if (depth)
+			left[depth - 1]--;
+		const uint c = rd_be32 (r + 84);
+		if (c && depth < 256)
+		{
+			stack[depth] = i;
+			left[depth++] = c;
+		}
+		const float t[3] = { petz_f32 (r + 56), petz_f32 (r + 60), petz_f32 (r + 64) };
+		const float x = petz_f32 (r + 68), y = petz_f32 (r + 72), z = petz_f32 (r + 76), w = petz_f32 (r + 80);
+		const float R[9] = { 1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w), 2 * (x * y + z * w),
+			1 - 2 * (x * x + z * z), 2 * (y * z - x * w), 2 * (x * z - y * w), 2 * (y * z + x * w),
+			1 - 2 * (x * x + y * y) };
+		float *m = world[i];
+		if (par < 0)
+		{
+			for (uint a = 0; a < 3; a++)
+			{
+				for (uint b = 0; b < 3; b++)
+					m[a * 4 + b] = R[a * 3 + b];
+				m[a * 4 + 3] = t[a];
+			}
+		}
+		else
+		{
+			const float *pm = world[par];
+			for (uint a = 0; a < 3; a++)
+			{
+				for (uint b = 0; b < 3; b++)
+					m[a * 4 + b] = pm[a * 4] * R[b] + pm[a * 4 + 1] * R[3 + b] + pm[a * 4 + 2] * R[6 + b];
+				m[a * 4 + 3] = pm[a * 4] * t[0] + pm[a * 4 + 1] * t[1] + pm[a * 4 + 2] * t[2] + pm[a * 4 + 3];
+			}
+		}
+		joint_t *j = joints + i;
+		snprintf (j->name, sizeof (j->name), "bone_%08x", rd_be32 (r));
+		j->parent_idx = par;
+		j->translate.x = t[0];
+		j->translate.y = t[1];
+		j->translate.z = t[2];
+		j->scale.x = j->scale.y = j->scale.z = 1.0f;
+		memcpy (j->bind, m, sizeof (j->bind));
+		// rigid transform: inverse = transpose of the rotation, -R^T t
+		for (uint a = 0; a < 3; a++)
+		{
+			for (uint b = 0; b < 3; b++)
+				j->inverse_bind[a * 4 + b] = m[b * 4 + a];
+			j->inverse_bind[a * 4 + 3] = -(m[a] * m[3] + m[4 + a] * m[7] + m[8 + a] * m[11]);
+		}
+		j->has_inverse_bind = 1;
+	}
+	for (uint i = 0; i < k->npal; i++)
+	{
+		const u8 *q = d + k->pal_off[i];
+		const uint c = rd_be32 (q);
+		inf[i].weights = CALLOC (c, sizeof (*inf[i].weights));
+		if (!inf[i].weights)
+			goto fail;
+		for (uint m = 0; m < c; m++)
+		{
+			const u32 h = rd_be32 (q + 4 + 4 * m);
+			int bone = -1;
+			for (uint b = 0; b < n && bone < 0; b++)
+				if (rd_be32 (d + k->base + 88 * (size_t)b) == h)
+					bone = (int)b;
+			if (bone < 0)
+				goto fail;
+			inf[i].weights[m].bone_idx = bone;
+			inf[i].weights[m].weight = petz_f32 (q + 4 + 4 * c + 4 * m);
+		}
+		inf[i].num_weights = c;
+	}
+	FREE (world);
+	model->joints = joints;
+	model->num_joints = n;
+	model->node_influences = inf;
+	model->num_node_influences = k->npal;
+	mesh->position_node = (int *)pnode;
+	return true;
+fail:
+	if (inf)
+		for (uint i = 0; i < k->npal; i++)
+			FREE (inf[i].weights);
+	FREE (inf);
+	FREE (joints);
+	FREE (world);
+	return false;
+}
+
 // Skinned meshes "SMSH" / "FSMH": {tag, u32 version, u32, u32, ...}, a list of 19 byte attribute records {u8 stride, 0,
 // semantic, 0, components, 14 zero bytes} (1 position, 2 normal, 5 texcoord; f32), then the GX display list {u32 size,
 // u8 0x90|fmt, u16 vertex count, vertices of {u8 matrix index, f32 position, [f32 normal], [f32 texcoord]}}. Exported
@@ -254,8 +434,12 @@ static bool petz_smsh (const u8 *d, size_t sz, size_t p, model_t *model, uint in
 	// all display lists of the file (one per bone batch), concatenated into one triangle list
 	vec3_t *pos = 0, *nrm = 0;
 	vec2_t *uv = 0;
+	int *pnode = 0;
 	size_t total = 0, cap = 0;
 	size_t e = q0, limit = q + 16;
+	petz_skin_t skin;
+	const bool skinned = petz_skin_parse (d, sz, &skin);
+	uint batch = 0;
 	while (e + 7 < sz)
 	{
 		const u32 size = rd_be32 (d + e);
@@ -275,17 +459,30 @@ static bool petz_smsh (const u8 *d, size_t sz, size_t p, model_t *model, uint in
 				vec2_t *nu = has_uv ? REALLOC (uv, cap * sizeof (*nu)) : 0;
 				if (has_uv && nu)
 					uv = nu;
-				if (!np || (has_nrm && !nn) || (has_uv && !nu))
+				int *npn = REALLOC (pnode, cap * sizeof (*npn));
+				if (npn)
+					pnode = npn;
+				if (!np || !npn || (has_nrm && !nn) || (has_uv && !nu))
 				{
 					FREE (pos);
 					FREE (nrm);
 					FREE (uv);
+					FREE (pnode);
+					petz_skin_free (&skin);
 					return false;
 				}
 			}
 			for (uint i = 0; i < nv; i++)
 			{
 				const u8 *v = d + e + 7 + (size_t)i * vsz + 1;
+				pnode[total + i] = -1;
+				if (skinned && batch < skin.nbat)
+				{
+					const u8 *bp = d + skin.bat_off[batch];
+					const uint mi = v[-1] / 3;
+					if (mi < rd_be32 (bp))
+						pnode[total + i] = (int)rd_be16 (bp + 4 + 2 * mi);
+				}
 				u32 w[8];
 				for (uint k = 0; k < 8 && 4 * k + 5 <= vsz; k++)
 					w[k] = rd_be32 (v + 4 * k);
@@ -307,6 +504,7 @@ static bool petz_smsh (const u8 *d, size_t sz, size_t p, model_t *model, uint in
 				}
 			}
 			total += nv;
+			batch++;
 			e += 4 + size;
 			limit = e + 0x100;
 			continue;
@@ -320,9 +518,23 @@ static bool petz_smsh (const u8 *d, size_t sz, size_t p, model_t *model, uint in
 		FREE (pos);
 		FREE (nrm);
 		FREE (uv);
+		FREE (pnode);
+		petz_skin_free (&skin);
 		return false;
 	}
-	return petz_finish_mesh (d, sz, p, "", pos, nrm, uv, (u32)total, model, index, mats, nmats);
+	const bool fin = petz_finish_mesh (d, sz, p, "", pos, nrm, uv, (u32)total, model, index, mats, nmats);
+	bool bound = false;
+	if (fin && skinned && batch == skin.nbat)
+	{
+		bool all = true;
+		for (size_t i = 0; i < total; i++)
+			all &= pnode[i] >= 0;
+		bound = all && petz_skin_model (d, &skin, model, model->meshes + model->num_meshes - 1, pnode);
+	}
+	if (!bound)
+		FREE (pnode);
+	petz_skin_free (&skin);
+	return fin;
 }
 
 static enumError extract_petzozzy_file (ccp arg, ccp basedir, uint depth)
