@@ -722,6 +722,65 @@ static enumError opoona_write_items (ccp arg, ccp basedir, const u8 *raw, uint c
 	return err;
 }
 
+// Verified layouts of small Opoona tables: a big-endian id plus fixed-width text slots (and one
+// optional u32). Columns are "id" then each text slot in order, then "value" when val_off > 0.
+typedef struct opoona_table_t
+{
+	ccp file;
+	size_t rs;
+	uint id_off, id_size;
+	uint val_off;
+	ccp heads;	// tab separated names of the text slots
+	uint slots[4][2]; // {offset, length}
+} opoona_table_t;
+
+static const opoona_table_t opoona_tables[] = {
+	{ "job_param.bin", 36, 2, 2, 0, "name", { { 4, 32 } } },
+	{ "style_param.bin", 36, 0, 2, 0, "name", { { 4, 32 } } },
+	{ "personality_param.bin", 100, 2, 2, 0, "name", { { 4, 32 } } },
+	{ "shopp_param.bin", 40, 0, 2, 36, "name", { { 4, 32 } } },
+	{ "bonbon_rank_param.bin", 40, 0, 2, 36, "name", { { 4, 32 } } },
+	{ "condition_param.bin", 232, 0, 2, 0, "name\tpast\tstate", { { 4, 32 }, { 36, 32 }, { 68, 32 } } },
+	{ "license_param.bin", 248, 0, 2, 0, "organization\trank\tdescription\tnote",
+		{ { 4, 32 }, { 36, 32 }, { 68, 64 }, { 132, 64 } } },
+	{ 0 }
+};
+
+static enumError opoona_write_table (ccp arg, ccp basedir, ccp base, const u8 *raw, uint cnt, size_t rs)
+{
+	const opoona_table_t *t = opoona_tables;
+	while (t->file && (strcasecmp (base, t->file) || t->rs != rs))
+		t++;
+	if (!t->file)
+		return 0;
+	uint ns = 0;
+	while (ns < 4 && t->slots[ns][1])
+		ns++;
+	size_t cap = (size_t)cnt * (ns * 4 * 64 + 64) + 256, used = 0;
+	char *out = MALLOC (cap);
+	if (!out)
+		return ERR_OUT_OF_MEMORY;
+	used += snprintf (out, cap, "id\t%s%s\n", t->heads, t->val_off ? "\tvalue" : "");
+	for (uint i = 0; i < cnt; i++)
+	{
+		const u8 *r = raw + 12 + rs * i;
+		used += snprintf (out + used, cap - used, "%u", t->id_size == 4 ? rd_be32 (r + t->id_off) : rd_be16 (r + t->id_off));
+		for (uint k = 0; k < ns; k++)
+		{
+			out[used++] = '\t';
+			used += opoona_tsv_str (out + used, cap - used, r + t->slots[k][0], t->slots[k][1]);
+		}
+		if (t->val_off)
+			used += snprintf (out + used, cap - used, "\t%u", rd_be32 (r + t->val_off));
+		out[used++] = '\n';
+	}
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	const enumError err = shade_write (arg, dest, basedir, "table.tsv", (u8 *)out, (uint)used);
+	FREE (out);
+	return err;
+}
+
 // system/param.bin members (`*_param.bin`, `encounter.bin`): char name[6], u16be count, u32 0,
 // then count fixed-size records (the size is implied by the file size). The field layout differs
 // per table and is not interpreted; records.tsv lists "index<TAB>text fields<TAB>non-zero u16be
@@ -821,6 +880,8 @@ static enumError extract_opoona_param_file (ccp arg, ccp basedir, uint depth)
 	enumError err = shade_write (arg, dest, basedir, "records.tsv", (u8 *)out, (uint)used);
 	if (!err && !strcasecmp (base, "item_param.bin") && rs == 444)
 		err = opoona_write_items (arg, basedir, raw, cnt, rs);
+	if (!err)
+		err = opoona_write_table (arg, basedir, base, raw, cnt, rs);
 	FREE (out);
 	FREE (raw);
 	return err;
