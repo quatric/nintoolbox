@@ -9590,6 +9590,14 @@ PYEOF
     || fno "EA .fcd speech" "failed to split synthetic t.fcd"
   fi
 
+  if [ -f "$d/eangc_test/t.mus" ]; then
+    "$B/wszst" x "$d/eangc_test/t.mus" --overwrite >/dev/null 2>&1
+    [ "$(stat -f%z "$d/eangc_test/t.mus.d/0001.ngc" 2>/dev/null || stat -c%s "$d/eangc_test/t.mus.d/0001.ngc")" = "112" ] \
+    && [ "$(head -c 4 "$d/eangc_test/t.mus.d/0000.ngc")" = "SCHl" ] \
+    && fok "EA .mus stream bank splits into SCHl streams" \
+    || fno "EA .mus bank" "failed to split synthetic t.mus"
+  fi
+
   if [ -f "$d/eangc_test/t.fcd" ]; then
     cp "$d/eangc_test/t.fcd" "$d/eangc_test/t.ast"
     "$B/wszst" x "$d/eangc_test/t.ast" --overwrite >/dev/null 2>&1 \
@@ -9860,7 +9868,9 @@ PYEOF
     "$B/wszst" x "$d/caplmt_test/t.lmt" --overwrite >/dev/null 2>&1 \
     && grep -q "1 motions" "$d/caplmt_test/t.lmt.d/t.txt" \
     && grep -q "motion 1: offset 0x20, 2 tracks, 73 frames" "$d/caplmt_test/t.lmt.d/t.txt" \
-    && grep -q "track 1: compression 12, usage 0, type 1, bone 7" "$d/caplmt_test/t.lmt.d/t.txt" \
+    && grep -q "track 1: bone 7, usage 0, joint 0, buffer type 6" "$d/caplmt_test/t.lmt.d/t.txt" \
+    && grep -q "frame 72: 1.000000 40.000000 2.000000$" "$d/caplmt_test/t.lmt.d/t.txt" \
+    && grep -q "frame 36: -0.500000 0.000000 0.000000 0.000000$" "$d/caplmt_test/t.lmt.d/t.txt" \
     && fok "Capcom .lmt motion bank listed" \
     || fno "Capcom .lmt" "failed on synthetic t.lmt"
   else

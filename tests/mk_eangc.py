@@ -17,3 +17,5 @@ sce = b'SCEl' + struct.pack('<I', 8)
 one = schl + scdl + sce
 one += b'\0' * (-len(one) % 0x100)
 open(os.path.join(out, 't.fcd'), 'wb').write(one + one)
+# EA PathFinder .mus: 0x100 header (non-zero checksum word) + the same two streams
+open(os.path.join(out, 't.mus'), 'wb').write(b'\x59\x23\x31\xf8'.ljust(0x100, b'\0') + one + one)
