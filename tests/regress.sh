@@ -9870,6 +9870,14 @@ PYEOF
   && fok "Capcom .wpd weapon parameters listed" \
   || fno "Capcom .wpd" "failed on synthetic t.wpd"
 
+  # Capcom MT Framework sound resource table (.qrts)
+  mkdir -p "$d/capqrts_test"
+  { printf 'QRTS\000\000\000\032\000\000\000\001\000\000\000\002'; head -c 36 /dev/zero; printf 'sound\\stream\\bgm\\data\\bgm_a\000'; } > "$d/capqrts_test/t.qrts"
+  "$B/wszst" x "$d/capqrts_test/t.qrts" --overwrite >/dev/null 2>&1
+  grep -q 'sound.stream.bgm.data.bgm_a$' "$d/capqrts_test/t.qrts.d/t.txt" 2>/dev/null \
+  && fok "Capcom .qrts stream table paths listed" \
+  || fno "Capcom .qrts" "failed on synthetic t.qrts"
+
   # RenderWare audio stream with GameCube ADPCM segments (Spyro: Dawn of the Dragon)
   mkdir -p "$d/rwsdsp_test"
   if python3 "$PWD_PROJECT/../tests/mk_rwsdsp.py" "$d/rwsdsp_test" >/dev/null 2>&1; then

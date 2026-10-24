@@ -638,6 +638,76 @@ static enumError extract_capcomwpd_file (ccp arg, ccp basedir, uint depth)
 	return write_owned_entries (arg, basedir, depth, "CAPCOM-WPD", entries, 1);
 }
 
+// Capcom MT Framework Wii sound resource tables (Sengoku Basara 3 ".qrts" stream tables, "QRTS", and ".qers" effect
+// tables, "QERS"): u32 version @4 (0x1a / 0x13) and big-endian entry counts @8 / @12 around fixed-size records that are
+// not decoded, followed by NUL terminated path strings ("sound\stream\bgm\data\bgm_st000_kubota", ...) that name the
+// "*.dspw" / bank files the entries play. "<name>.txt" lists the header words and every path in order.
+static enumError extract_capcomsndtab_file (ccp arg, ccp basedir, uint depth)
+{
+	const bool qrts = is_ext (arg, ".qrts");
+	if (!qrts && !is_ext (arg, ".qers"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	if (sz < 0x30 || memcmp (raw, qrts ? "QRTS" : "QERS", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	size_t cap = 4096 + sz, used = 0;
+	char *txt = MALLOC (cap);
+	if (!txt)
+	{
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+	used += (size_t)snprintf (txt, cap, "Capcom %s version 0x%x, counts %u %u\n", qrts ? "QRTS" : "QERS", rd_be32 (raw + 4),
+				  rd_be32 (raw + 8), rd_be32 (raw + 12));
+	uint n = 0;
+	for (size_t p = 0x10; p + 7 < sz; p++)
+	{
+		if (memcmp (raw + p, "sound\\", 6) || (qrts && p && raw[p - 1]))
+			continue;
+		size_t e = p;
+		while (e < sz && raw[e] >= 0x20 && raw[e] < 0x7f)
+			e++;
+		if (e >= sz || raw[e] || e - p < 8)
+			continue;
+		if (used + (e - p) + 32 > cap)
+			break;
+		used += (size_t)snprintf (txt + used, cap - used, "%u 0x%zx %s\n", n++, p, (ccp)raw + p);
+		p = e;
+	}
+	FREE (raw);
+	if (!n)
+	{
+		FREE (txt);
+		return ERR_NOTHING_TO_DO;
+	}
+	ccp base = strrchr (arg, '/');
+	base = base ? base + 1 : arg;
+	char name[PATH_MAX];
+	snprintf (name, sizeof (name), "%s", base);
+	char *dot = strrchr (name, '.');
+	if (dot)
+		*dot = 0;
+	snprintf (name + strlen (name), sizeof (name) - strlen (name), ".txt");
+	nintendo_sarc_entry_t *entries = CALLOC (1, sizeof (*entries));
+	if (!entries || !OwnedEntryAdd (entries, 0, name, (u8 *)txt, used))
+	{
+		FREE (entries);
+		FREE (txt);
+		return ERR_OUT_OF_MEMORY;
+	}
+	FREE (txt);
+	return write_owned_entries (arg, basedir, depth, qrts ? "CAPCOM-QRTS" : "CAPCOM-QERS", entries, 1);
+}
+
 // Capcom MT Framework Wii effect link tables (Sengoku Basara 3 ".eco" = "\0OCE"): u16 version @4,
 // u16 count @6, u32 table offset @0x10. Followed by count 8-byte descriptors {u32 id, u32 str_offset}
 // pointing into NUL-terminated .efl path strings.
