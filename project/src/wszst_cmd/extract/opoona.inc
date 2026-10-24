@@ -674,6 +674,54 @@ static enumError extract_opoona_atb_file (ccp arg, ccp basedir, uint depth)
 	return err;
 }
 
+// item_param.bin record (444 bytes): u16be id, u16be after_use item, u8 category, char name[32] at 5,
+// u32be buy at 36, u32be sell at 40, 8 flag bytes at 44, char tag[32] at 76, u16be value_a / value_b at
+// 108 / 110, and seven 32 byte description lines from 216. Other bytes stay in records.tsv.
+static size_t opoona_tsv_str (char *out, size_t cap, const u8 *s, size_t max)
+{
+	size_t used = 0;
+	for (size_t k = 0; k < max && s[k] && used + 5 < cap; k++)
+		if (s[k] < 0x80)
+			out[used++] = s[k] < 0x20 ? ' ' : (char)s[k];
+		else
+			used += snprintf (out + used, cap - used, "\\x%02x", s[k]);
+	return used;
+}
+
+static enumError opoona_write_items (ccp arg, ccp basedir, const u8 *raw, uint cnt, size_t rs)
+{
+	size_t cap = (size_t)cnt * 1024 + 128, used = 0;
+	char *out = MALLOC (cap);
+	if (!out)
+		return ERR_OUT_OF_MEMORY;
+	used += snprintf (out, cap, "id\tafter_use\tcategory\tname\tbuy\tsell\tflags\ttag\tvalue_a\tvalue_b\tdescription\n");
+	for (uint i = 0; i < cnt; i++)
+	{
+		const u8 *r = raw + 12 + rs * i;
+		used += snprintf (out + used, cap - used, "%u\t%u\t%u\t", rd_be16 (r), rd_be16 (r + 2), r[4]);
+		used += opoona_tsv_str (out + used, cap - used, r + 5, 32);
+		used += snprintf (out + used, cap - used, "\t%u\t%u\t", rd_be32 (r + 36), rd_be32 (r + 40));
+		for (uint k = 0; k < 8; k++)
+			used += snprintf (out + used, cap - used, "%02x", r[44 + k]);
+		out[used++] = '\t';
+		used += opoona_tsv_str (out + used, cap - used, r + 76, 32);
+		used += snprintf (out + used, cap - used, "\t%u\t%u\t", rd_be16 (r + 108), rd_be16 (r + 110));
+		for (uint k = 0, n = 0; k < 7; k++)
+			if (r[216 + 32 * k])
+			{
+				if (n++)
+					out[used++] = ' ';
+				used += opoona_tsv_str (out + used, cap - used, r + 216 + 32 * k, 32);
+			}
+		out[used++] = '\n';
+	}
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	const enumError err = shade_write (arg, dest, basedir, "items.tsv", (u8 *)out, (uint)used);
+	FREE (out);
+	return err;
+}
+
 // system/param.bin members (`*_param.bin`, `encounter.bin`): char name[6], u16be count, u32 0,
 // then count fixed-size records (the size is implied by the file size). The field layout differs
 // per table and is not interpreted; records.tsv lists "index<TAB>text fields<TAB>non-zero u16be
@@ -770,7 +818,9 @@ static enumError extract_opoona_param_file (ccp arg, ccp basedir, uint depth)
 	if (verbose >= 0 || testmode)
 		fprintf (stdlog, "%s%sEXTRACT OPOONA-PARAM:%s (%u records of %zu bytes) -> %s/records.tsv\n",
 			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, cnt, rs, dest);
-	const enumError err = shade_write (arg, dest, basedir, "records.tsv", (u8 *)out, (uint)used);
+	enumError err = shade_write (arg, dest, basedir, "records.tsv", (u8 *)out, (uint)used);
+	if (!err && !strcasecmp (base, "item_param.bin") && rs == 444)
+		err = opoona_write_items (arg, basedir, raw, cnt, rs);
 	FREE (out);
 	FREE (raw);
 	return err;
