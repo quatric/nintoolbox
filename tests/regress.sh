@@ -10422,6 +10422,18 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "DC2 .dcf" "mk_dcf.py failed"
   fi
 
+  # Spyro .KCS skeleton pose chunks -> kcs.tsv
+  mkdir -p "$d/kcs_test"
+  if python3 "$PWD_PROJECT/../tests/mk_kcs.py" "$d/kcs_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/kcs_test/t.KCS" --overwrite >/dev/null 2>&1 \
+    && grep -q '^chunk	0	0x0	.*	0	2	1$' "$d/kcs_test/t.KCS.d/kcs.tsv" \
+    && grep -q '^228	0	0	0	1	4	5	6$' "$d/kcs_test/t.KCS.d/kcs.tsv" \
+    && fok "Spyro .KCS pose chunks -> kcs.tsv" \
+    || fno "Spyro .KCS" "failed on synthetic t.KCS"
+  else
+    fno "Spyro .KCS" "mk_kcs.py failed"
+  fi
+
   # Petz DPGZ displacement track -> text
   mkdir -p "$d/dpgz_test"
   if python3 "$PWD_PROJECT/../tests/mk_dpgz.py" "$d/dpgz_test" >/dev/null 2>&1; then
