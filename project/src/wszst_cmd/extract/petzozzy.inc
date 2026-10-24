@@ -589,6 +589,23 @@ static enumError petz_skel_write (ccp arg, const u8 *d, size_t sz)
 					left[depth++] = c;
 				}
 			}
+			// weight palettes {u32 n, n x id hash, n x f32 weight}, preceded by their count
+			size_t p = base + 88 * (size_t)n;
+			const u32 np = p + 4 <= sz ? rd_be32 (d + p) : 0;
+			p += 4;
+			uint ok = 0;
+			fprintf (f, "# weight palettes (%u): index hash:weight ...\n", np);
+			for (; ok < np && p + 4 <= sz; ok++)
+			{
+				const size_t c = rd_be32 (d + p);
+				if (!c || c > 16 || p + 4 + 8 * c > sz)
+					break;
+				fprintf (f, "%u", ok);
+				for (size_t k = 0; k < c; k++)
+					fprintf (f, " %08x:%.6g", rd_be32 (d + p + 4 + 4 * k), petz_f32 (d + p + 4 + 4 * c + 4 * k));
+				fputc ('\n', f);
+				p += 4 + 8 * c;
+			}
 		}
 		const enumError ce = ResetFile (&F, opt_preserve);
 		err = err ? err : ce;

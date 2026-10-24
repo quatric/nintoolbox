@@ -7,5 +7,7 @@ def node(h, tx, qz, qw, kids):
 f += node(0x11111111, 0.0, 0.0, 1.0, 2)
 f += node(0x22222222, 0.5, 0.0, 1.0, 0)
 f += node(0x33333333, 0.25, 0.6, 0.8, 0)
+# one weight palette {n, hashes, weights}
+f += struct.pack('>IIIIff', 1, 2, 0x11111111, 0x22222222, 0.25, 0.75)
 f += b'\0' * 0x20
 open(os.path.join(d, 't_skin'), 'wb').write(bytes(f))

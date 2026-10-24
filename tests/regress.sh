@@ -9869,6 +9869,7 @@ PYEOF
     grep -q "^0 -1 11111111 " "$d/petzskel_test/t_skin.skeleton.txt" \
     && grep -q "^1 0 22222222 | 1 1 1 | 0.5 0 0 " "$d/petzskel_test/t_skin.skeleton.txt" \
     && grep -q "^2 0 33333333 " "$d/petzskel_test/t_skin.skeleton.txt" \
+    && grep -q "^0 11111111:0.25 22222222:0.75$" "$d/petzskel_test/t_skin.skeleton.txt" \
     && fok "Petz skin skeleton listed" \
     || fno "Petz skin skeleton" "failed on synthetic t_skin"
   else
