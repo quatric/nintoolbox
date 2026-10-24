@@ -730,8 +730,8 @@ typedef struct opoona_table_t
 	size_t rs;
 	uint id_off, id_size;
 	uint val_off;
-	ccp heads;	// tab separated names of the text slots
-	uint slots[4][2]; // {offset, length}
+	ccp heads;	// tab separated names of the text columns
+	uint slots[12][3]; // {offset, length, 1 = continue the previous column}
 } opoona_table_t;
 
 static const opoona_table_t opoona_tables[] = {
@@ -743,20 +743,32 @@ static const opoona_table_t opoona_tables[] = {
 	{ "condition_param.bin", 232, 0, 2, 0, "name\tpast\tstate", { { 4, 32 }, { 36, 32 }, { 68, 32 } } },
 	{ "license_param.bin", 248, 0, 2, 0, "organization\trank\tdescription\tnote",
 		{ { 4, 32 }, { 36, 32 }, { 68, 64 }, { 132, 64 } } },
+	{ "situation_param.bin", 68, 0, 2, 0, "name", { { 4, 32 } } },
+	{ "code_param.bin", 144, 0, 2, 0, "name\tname2", { { 4, 32 }, { 36, 32 } } },
+	{ "cmn_hkey_param.bin", 80, 0, 2, 0, "key\ttitle", { { 4, 36 }, { 40, 32 } } },
+	{ "catalog_param.bin", 392, 0, 2, 0, "name\tyear\tdescription",
+		{ { 4, 32 }, { 72, 32 }, { 104, 32 }, { 136, 32, 1 }, { 168, 32, 1 }, { 200, 32, 1 }, { 232, 32, 1 },
+			{ 264, 32, 1 }, { 296, 32, 1 }, { 328, 32, 1 } } },
+	{ "force_param.bin", 428, 0, 2, 0, "name\tdescription",
+		{ { 172, 32 }, { 204, 32 }, { 236, 32, 1 }, { 268, 32, 1 }, { 300, 32, 1 }, { 332, 32, 1 },
+			{ 364, 32, 1 }, { 396, 32, 1 } } },
+	{ "enemy_param.bin", 564, 0, 2, 0, "name\titem_a\titem_b\tattack1\tattack2\tattack3\tattack4\tattack5\tattack6",
+		{ { 4, 32 }, { 0x50, 32 }, { 0x74, 32 }, { 0xd8, 32 }, { 0xf8, 32 }, { 0x118, 32 }, { 0x138, 32 },
+			{ 0x158, 32 }, { 0x178, 32 } } },
 	{ 0 }
 };
 
 static enumError opoona_write_table (ccp arg, ccp basedir, ccp base, const u8 *raw, uint cnt, size_t rs)
 {
 	const opoona_table_t *t = opoona_tables;
-	while (t->file && (strcasecmp (base, t->file) || t->rs != rs))
+	while (t->file && (strcasecmp (base, t->file) || (t->rs && t->rs != rs)))
 		t++;
 	if (!t->file)
 		return 0;
 	uint ns = 0;
-	while (ns < 4 && t->slots[ns][1])
+	while (ns < 12 && t->slots[ns][1])
 		ns++;
-	size_t cap = (size_t)cnt * (ns * 4 * 64 + 64) + 256, used = 0;
+	size_t cap = (size_t)cnt * (ns * 4 * 32 + 64) + 256, used = 0;
 	char *out = MALLOC (cap);
 	if (!out)
 		return ERR_OUT_OF_MEMORY;
@@ -767,8 +779,20 @@ static enumError opoona_write_table (ccp arg, ccp basedir, ccp base, const u8 *r
 		used += snprintf (out + used, cap - used, "%u", t->id_size == 4 ? rd_be32 (r + t->id_off) : rd_be16 (r + t->id_off));
 		for (uint k = 0; k < ns; k++)
 		{
+			if (t->slots[k][0] + t->slots[k][1] > rs)
+				break;
+			const u8 *sp = r + t->slots[k][0];
+			if (t->slots[k][2])
+			{
+				if (*sp)
+				{
+					out[used++] = ' ';
+					used += opoona_tsv_str (out + used, cap - used, sp, t->slots[k][1]);
+				}
+				continue;
+			}
 			out[used++] = '\t';
-			used += opoona_tsv_str (out + used, cap - used, r + t->slots[k][0], t->slots[k][1]);
+			used += opoona_tsv_str (out + used, cap - used, sp, t->slots[k][1]);
 		}
 		if (t->val_off)
 			used += snprintf (out + used, cap - used, "\t%u", rd_be32 (r + t->val_off));
