@@ -493,6 +493,109 @@ static bool petz_has_magic (ccp arg, ccp magic)
 	return ok;
 }
 
+// Skeleton of a Petz skinned mesh ("SMSH" / "FSMH"): a table of 88-byte node records {u32 id hash, f32 scale[3], f32
+// translation[3], f32 rotation[4] (quaternion), f32 scale[3], f32 translation[3], f32 rotation[4] (a second pose), u32
+// child count}, stored depth first, so the child counts alone give the hierarchy (they sum to N - 1). The id hashes are
+// the ones of the sibling "*_mact" action table; the bone names behind them are not stored anywhere in the files.
+static float petz_f32 (const u8 *p)
+{
+	const u32 v = rd_be32 (p);
+	float f;
+	memcpy (&f, &v, 4);
+	return f;
+}
+
+static bool petz_skel_node (const u8 *r)
+{
+	for (uint k = 0; k < 3; k++)
+	{
+		const float sc = petz_f32 (r + 4 + 4 * k);
+		if (!(sc > 0.999f && sc < 1.001f))
+			return false;
+	}
+	if (rd_be32 (r + 84) > 255)
+		return false;
+	for (uint q = 0; q < 2; q++)
+	{
+		const float x = petz_f32 (r + 28 + q * 40), y = petz_f32 (r + 32 + q * 40), z = petz_f32 (r + 36 + q * 40),
+			    w = petz_f32 (r + 40 + q * 40);
+		const float n = x * x + y * y + z * z + w * w;
+		if (!(n > 0.98f && n < 1.02f))
+			return false;
+	}
+	return true;
+}
+
+static size_t petz_skel_find (const u8 *d, size_t sz, uint *count)
+{
+	for (size_t i = 0x20; i + 88 * 2 <= sz; i += 4)
+	{
+		if (!petz_skel_node (d + i))
+			continue;
+		long pending = 1;
+		uint n = 0;
+		while (pending > 0 && i + 88 * (n + 1) <= sz && petz_skel_node (d + i + 88 * n))
+		{
+			pending += (long)rd_be32 (d + i + 88 * n + 84) - 1;
+			n++;
+		}
+		if (!pending && n >= 2)
+		{
+			*count = n;
+			return i;
+		}
+	}
+	return 0;
+}
+
+static enumError petz_skel_write (ccp arg, const u8 *d, size_t sz)
+{
+	uint n = 0;
+	const size_t base = petz_skel_find (d, sz, &n);
+	if (!base)
+		return ERR_NOTHING_TO_DO;
+	char dest[PATH_MAX];
+	snprintf (dest, sizeof (dest), "%s.skeleton.txt", arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT PETZ-SKEL:%s (%u nodes) -> %s\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, n, dest);
+	enumError err = ERR_OK;
+	if (!testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, arg);
+		if (F.f)
+		{
+			FILE *f = F.f;
+			int parent[256], left[256], depth = 0;
+			fprintf (f, "# Petz skeleton, %u nodes (depth first), node table at 0x%zx\n"
+				    "# index parent hash | scale | translation | rotation xyzw | second pose: scale | translation | rotation xyzw | children\n",
+				n, base);
+			for (uint i = 0; i < n; i++)
+			{
+				const u8 *r = d + base + 88 * i;
+				while (depth > 0 && !left[depth - 1])
+					depth--;
+				const int par = depth ? parent[depth - 1] : -1;
+				if (depth)
+					left[depth - 1]--;
+				fprintf (f, "%u %d %08x", i, par, rd_be32 (r));
+				for (uint k = 0; k < 20; k++)
+					fprintf (f, "%s%.6g", k == 0 || k == 3 || k == 6 || k == 10 || k == 13 || k == 16 ? " | " : " ", petz_f32 (r + 4 + 4 * k));
+				fprintf (f, " | children %u\n", rd_be32 (r + 84));
+				const uint c = rd_be32 (r + 84);
+				if (c && depth < 256)
+				{
+					parent[depth] = i;
+					left[depth++] = c;
+				}
+			}
+		}
+		const enumError ce = ResetFile (&F, opt_preserve);
+		err = err ? err : ce;
+	}
+	return err;
+}
+
 // Standalone Petz "MESH" resource (u32 1, u32 1, geometry path, u32 texture count, texture path, material colours) or
 // bare "GEOM" file -> "<name>.d/model.glb" (+ the diffuse TTPL, decoded to PNG). The paths are relative to the folder
 // that holds "3d/".
@@ -503,7 +606,7 @@ static enumError extract_petzmesh_file (ccp arg, ccp basedir, uint depth)
 	if (!is_mesh && !is_skin && !petz_has_magic (arg, "GEOM"))
 		return ERR_NOTHING_TO_DO;
 	const bool want_glb = export_count > 0 || opt_decode;
-	if (!want_glb)
+	if (!want_glb && !is_skin)
 		return ERR_NOTHING_TO_DO;
 	u8 *raw = 0;
 	size_t rsz = 0;
@@ -511,6 +614,20 @@ static enumError extract_petzmesh_file (ccp arg, ccp basedir, uint depth)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
+	}
+	if (is_skin)
+	{
+		const enumError serr = petz_skel_write (arg, raw, rsz);
+		if (serr != ERR_NOTHING_TO_DO && (serr || !want_glb))
+		{
+			FREE (raw);
+			return serr;
+		}
+		if (!want_glb)
+		{
+			FREE (raw);
+			return ERR_NOTHING_TO_DO;
+		}
 	}
 	char geom_path[128] = "", tex_path[128] = "", root[PATH_MAX] = "";
 	u8 *geom = 0;

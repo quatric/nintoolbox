@@ -9862,6 +9862,19 @@ PYEOF
     fno "Capcom .rmd" "mk_caprmd.py failed"
   fi
 
+  # Petz skinned mesh skeleton (node table with child counts)
+  mkdir -p "$d/petzskel_test"
+  if python3 "$PWD_PROJECT/../tests/mk_petzskel.py" "$d/petzskel_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/petzskel_test/t_skin" --overwrite >/dev/null 2>&1
+    grep -q "^0 -1 11111111 " "$d/petzskel_test/t_skin.skeleton.txt" \
+    && grep -q "^1 0 22222222 | 1 1 1 | 0.5 0 0 " "$d/petzskel_test/t_skin.skeleton.txt" \
+    && grep -q "^2 0 33333333 " "$d/petzskel_test/t_skin.skeleton.txt" \
+    && fok "Petz skin skeleton listed" \
+    || fno "Petz skin skeleton" "failed on synthetic t_skin"
+  else
+    fno "Petz skin skeleton" "mk_petzskel.py failed"
+  fi
+
   # Capcom MT Framework Wii motion bank (Sengoku Basara 3)
   mkdir -p "$d/caplmt_test"
   if python3 "$PWD_PROJECT/../tests/mk_caplmt.py" "$d/caplmt_test" >/dev/null 2>&1; then
