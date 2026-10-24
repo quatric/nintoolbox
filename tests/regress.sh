@@ -9862,6 +9862,14 @@ PYEOF
     fno "Capcom .rmd" "mk_caprmd.py failed"
   fi
 
+  # Capcom MT Framework weapon parameters (.wpd)
+  mkdir -p "$d/capwpd_test"
+  printf '\000DPW\000\000\002\005\000\006\000\230\000\002\000\036\000\024\000\012' > "$d/capwpd_test/t.wpd"
+  "$B/wszst" x "$d/capwpd_test/t.wpd" --overwrite >/dev/null 2>&1
+  grep -q "^value 1: 152 (0x98)$" "$d/capwpd_test/t.wpd.d/t.txt" 2>/dev/null \
+  && fok "Capcom .wpd weapon parameters listed" \
+  || fno "Capcom .wpd" "failed on synthetic t.wpd"
+
   # RenderWare audio stream with GameCube ADPCM segments (Spyro: Dawn of the Dragon)
   mkdir -p "$d/rwsdsp_test"
   if python3 "$PWD_PROJECT/../tests/mk_rwsdsp.py" "$d/rwsdsp_test" >/dev/null 2>&1; then

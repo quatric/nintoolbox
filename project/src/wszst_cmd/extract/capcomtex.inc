@@ -591,6 +591,53 @@ static enumError extract_capcomidx_file (ccp arg, ccp basedir, uint depth)
 	return write_owned_entries (arg, basedir, depth, "CAPCOM-IDX", entries, 1);
 }
 
+// Capcom MT Framework Wii weapon parameters (Sengoku Basara 3 ".wpd" = "\0DPW", 20 bytes): u32 @4 (0, 0x205 or
+// 0x20a in the seven weapons of the first character) then six big-endian u16 values (meanings unknown; the weapons
+// differ mostly in the 2nd and 3rd). "<name>.txt" lists them.
+static enumError extract_capcomwpd_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".wpd"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	if (sz != 24 - 4 || memcmp (raw, "\0DPW", 4))
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	char txt[256];
+	size_t used = (size_t)snprintf (txt, sizeof (txt), "Capcom WPD header 0x%x\n", rd_be32 (raw + 4));
+	for (uint i = 0; i < 6; i++)
+		used += (size_t)snprintf (txt + used, sizeof (txt) - used, "value %u: %u (0x%x)\n", i, rd_be16 (raw + 8 + 2 * i),
+					  rd_be16 (raw + 8 + 2 * i));
+	ccp base = strrchr (arg, '/');
+	base = base ? base + 1 : arg;
+	char name[PATH_MAX];
+	snprintf (name, sizeof (name), "%s", base);
+	char *dot = strrchr (name, '.');
+	if (dot)
+		*dot = 0;
+	snprintf (name + strlen (name), sizeof (name) - strlen (name), ".txt");
+	nintendo_sarc_entry_t *entries = CALLOC (1, sizeof (*entries));
+	u8 *copy = MALLOC (used);
+	if (copy)
+		memcpy (copy, txt, used);
+	FREE (raw);
+	if (!entries || !copy || !OwnedEntryAdd (entries, 0, name, copy, used))
+	{
+		FREE (entries);
+		FREE (copy);
+		return ERR_OUT_OF_MEMORY;
+	}
+	FREE (copy);
+	return write_owned_entries (arg, basedir, depth, "CAPCOM-WPD", entries, 1);
+}
+
 // Capcom MT Framework Wii effect link tables (Sengoku Basara 3 ".eco" = "\0OCE"): u16 version @4,
 // u16 count @6, u32 table offset @0x10. Followed by count 8-byte descriptors {u32 id, u32 str_offset}
 // pointing into NUL-terminated .efl path strings.
