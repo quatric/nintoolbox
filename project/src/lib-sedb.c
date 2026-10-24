@@ -8,6 +8,36 @@
 #include <string.h>
 
 #undef free // open_memstream() buffers belong to libc
+#undef malloc
+
+#ifdef __MINGW32__
+// MinGW has no open_memstream(): spool to a temp file and slurp it on close.
+static FILE *sedb_memstream_open (char **buf, size_t *len)
+{
+	*buf = 0;
+	*len = 0;
+	return tmpfile();
+}
+static void sedb_memstream_close (FILE *f, char **buf, size_t *len)
+{
+	fflush (f);
+	long n = ftell (f);
+	char *b = n >= 0 ? malloc ((size_t)n + 1) : 0;
+	if (b)
+	{
+		rewind (f);
+		size_t got = fread (b, 1, (size_t)n, f);
+		b[got] = 0;
+		*len = got;
+	}
+	*buf = b;
+	fclose (f);
+}
+#define open_memstream sedb_memstream_open
+#define SEDB_MEMSTREAM_CLOSE(f, buf, len) sedb_memstream_close (f, &(buf), &(len))
+#else
+#define SEDB_MEMSTREAM_CLOSE(f, buf, len) fclose (f)
+#endif
 
 #define SEDB_MAX_RECORDS 0x10000
 #define SEDB_RES_HEADER 0x30
@@ -323,7 +353,7 @@ char *DumpSEDBText (const u8 *data, uint size)
 		}
 		fprintf (f, "collision blocks: %u\n", blocks);
 	}
-	fclose (f);
+	SEDB_MEMSTREAM_CLOSE (f, text, text_size);
 	char *copy = text ? MALLOC (text_size + 1) : 0;
 	if (copy)
 	{
