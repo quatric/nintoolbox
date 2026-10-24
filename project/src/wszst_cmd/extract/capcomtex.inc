@@ -708,6 +708,80 @@ static enumError extract_capcomsndtab_file (ccp arg, ccp basedir, uint depth)
 	return write_owned_entries (arg, basedir, depth, qrts ? "CAPCOM-QRTS" : "CAPCOM-QERS", entries, 1);
 }
 
+// Capcom MT Framework Wii effect sprite animations (Sengoku Basara 3 ".ean" = "\0NAE"): u32 date @4 (0x20060501),
+// u32 body size @8 (file size - 16), u32 animation count @0xc, then 0x20 byte records at 0x10 {u32 offset of the rect
+// list (from 0x10), u16 frame count, u16 kind (0 / 3), 6 more words (the last two read like {u16 columns, u16 frame count}
+// and {u16 cell w, u16 cell h}, e.g. 5 / 15 and 96 x 96 for a 15 frame sheet laid out 5 wide)} and, back to back up
+// to the end of the file, 8-byte rect lists {u16 x, y, w, h} per frame (cells of the effect's texture sheet; the field
+// names are inferred from the values). All 27 retail files tile exactly. "<name>.txt" lists them.
+static enumError extract_capcomean_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".ean"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const u32 cnt = sz >= 16 ? rd_be32 (raw + 12) : 0;
+	bool ok = sz > 16 && !memcmp (raw, "\0NAE", 4) && rd_be32 (raw + 8) == sz - 16 && cnt && cnt <= 64
+		&& 0x10 + 0x20 * (size_t)cnt <= sz;
+	size_t expect = 0x10 + 0x20 * (size_t)cnt;
+	for (u32 i = 0; ok && i < cnt; i++)
+	{
+		const u8 *r = raw + 0x10 + 0x20 * (size_t)i;
+		const size_t at = 0x10 + (size_t)rd_be32 (r), nf = rd_be16 (r + 4);
+		ok = at == expect && at + 8 * nf <= sz;
+		expect = at + 8 * nf;
+	}
+	if (!ok || expect != sz)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	size_t cap = 256 + (size_t)cnt * 128 + sz * 6, used = 0;
+	char *txt = MALLOC (cap);
+	if (!txt)
+	{
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+	used += (size_t)snprintf (txt, cap, "Capcom EAN date 0x%x, %u animations\n", rd_be32 (raw + 4), cnt);
+	for (u32 i = 0; i < cnt; i++)
+	{
+		const u8 *r = raw + 0x10 + 0x20 * (size_t)i;
+		const uint nf = rd_be16 (r + 4);
+		used += (size_t)snprintf (txt + used, cap - used, "animation %u: %u frames, kind %u, words", i, nf, rd_be16 (r + 6));
+		for (uint k = 2; k < 8; k++)
+			used += (size_t)snprintf (txt + used, cap - used, " 0x%x", rd_be32 (r + 4 * k));
+		used += (size_t)snprintf (txt + used, cap - used, "\n");
+		const u8 *q = raw + 0x10 + rd_be32 (r);
+		for (uint f = 0; f < nf; f++)
+			used += (size_t)snprintf (txt + used, cap - used, "  frame %u: x %u y %u w %u h %u\n", f, rd_be16 (q + 8 * f),
+						  rd_be16 (q + 8 * f + 2), rd_be16 (q + 8 * f + 4), rd_be16 (q + 8 * f + 6));
+	}
+	FREE (raw);
+	ccp base = strrchr (arg, '/');
+	base = base ? base + 1 : arg;
+	char name[PATH_MAX];
+	snprintf (name, sizeof (name), "%s", base);
+	char *dot = strrchr (name, '.');
+	if (dot)
+		*dot = 0;
+	snprintf (name + strlen (name), sizeof (name) - strlen (name), ".txt");
+	nintendo_sarc_entry_t *entries = CALLOC (1, sizeof (*entries));
+	if (!entries || !OwnedEntryAdd (entries, 0, name, (u8 *)txt, used))
+	{
+		FREE (entries);
+		FREE (txt);
+		return ERR_OUT_OF_MEMORY;
+	}
+	FREE (txt);
+	return write_owned_entries (arg, basedir, depth, "CAPCOM-EAN", entries, 1);
+}
+
 // Capcom MT Framework Wii effect link tables (Sengoku Basara 3 ".eco" = "\0OCE"): u16 version @4,
 // u16 count @6, u32 table offset @0x10. Followed by count 8-byte descriptors {u32 id, u32 str_offset}
 // pointing into NUL-terminated .efl path strings.

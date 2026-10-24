@@ -630,7 +630,9 @@ static enumError extract_opoona_atb_file (ccp arg, ccp basedir, uint depth)
 	// y_bottom, u16 angle (65536 = 360 degrees, facing of the wall), u16 flags}: vertical wall quads
 	// from (x1, z1) to (x2, z2). The actor collision test (FUN_8005dd74) skips walls whose angle is
 	// more than 0x5000 away from the mover's heading, requires y_bottom <= y <= y_top, and ignores
-	// walls with (flags & 0xE000) == 0x8000; the wall type is flags & 0xDFFF.
+	// walls with (flags & 0xE000) == 0x8000; the wall type is flags & 0xDFFF. Only 0 and 0x2000 | id occur in the
+	// 375 retail files: 931 walls carry an event id (1 .. 899 start the script "scp_src/<name>" when the nearest such
+	// wall is touched, FUN_80061244; ids from 900 are skipped there).
 	const u32 end = rd_be32 (raw + 0x24);
 	if (!err && !testmode && end <= sz && sz - end >= 12 && rd_be32 (raw + end + 8) == 12)
 	{
@@ -652,9 +654,12 @@ static enumError extract_opoona_atb_file (ccp arg, ccp basedir, uint depth)
 						const u32 b = rd_be32 (r + 4 * c);
 						memcpy (f + c, &b, 4);
 					}
+					char ev[40] = "";
+					if (rd_be16 (r + 22) & 0x2000)
+						snprintf (ev, sizeof (ev), " event %u", rd_be16 (r + 22) & 0xdfff);
 					wu += snprintf (w + wu, wcap - wu,
-						"# %u: angle %.2f flags %04x\nv %g %d %g\nv %g %d %g\nv %g %d %g\nv %g %d %g\nf %u %u %u %u\n", i,
-						rd_be16 (r + 20) * 360.0 / 65536.0, rd_be16 (r + 22), f[0],
+						"# %u: angle %.2f flags %04x%s\nv %g %d %g\nv %g %d %g\nv %g %d %g\nv %g %d %g\nf %u %u %u %u\n", i,
+						rd_be16 (r + 20) * 360.0 / 65536.0, rd_be16 (r + 22), ev, f[0],
 						(int)(s16)rd_be16 (r + 16), f[1], f[2], (int)(s16)rd_be16 (r + 16), f[3], f[2],
 						(int)(s16)rd_be16 (r + 18), f[3], f[0], (int)(s16)rd_be16 (r + 18), f[1],
 						4 * i + 1, 4 * i + 2, 4 * i + 3, 4 * i + 4);

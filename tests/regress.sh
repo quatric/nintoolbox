@@ -9878,6 +9878,18 @@ PYEOF
   && fok "Capcom .qrts stream table paths listed" \
   || fno "Capcom .qrts" "failed on synthetic t.qrts"
 
+  # Capcom MT Framework effect sprite animation (.ean)
+  mkdir -p "$d/capean_test"
+  if python3 "$PWD_PROJECT/../tests/mk_capean.py" "$d/capean_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/capean_test/t.ean" --overwrite >/dev/null 2>&1
+    grep -q "^animation 0: 3 frames" "$d/capean_test/t.ean.d/t.txt" 2>/dev/null \
+    && grep -q "^  frame 2: x 64 y 0 w 32 h 32$" "$d/capean_test/t.ean.d/t.txt" \
+    && fok "Capcom .ean sprite animation listed" \
+    || fno "Capcom .ean" "failed on synthetic t.ean"
+  else
+    fno "Capcom .ean" "mk_capean.py failed"
+  fi
+
   # RenderWare audio stream with GameCube ADPCM segments (Spyro: Dawn of the Dragon)
   mkdir -p "$d/rwsdsp_test"
   if python3 "$PWD_PROJECT/../tests/mk_rwsdsp.py" "$d/rwsdsp_test" >/dev/null 2>&1; then
