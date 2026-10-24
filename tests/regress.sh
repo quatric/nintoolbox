@@ -9862,6 +9862,19 @@ PYEOF
     fno "Capcom .rmd" "mk_caprmd.py failed"
   fi
 
+  # RenderWare audio stream with GameCube ADPCM segments (Spyro: Dawn of the Dragon)
+  mkdir -p "$d/rwsdsp_test"
+  if python3 "$PWD_PROJECT/../tests/mk_rwsdsp.py" "$d/rwsdsp_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/rwsdsp_test/t.rws" --overwrite >/dev/null 2>&1
+    [ "$(fsize_of "$d/rwsdsp_test/t.rws.d/000.dsp")" = "160" ] \
+    && [ "$(fsize_of "$d/rwsdsp_test/t.rws.d/001.dsp")" = "128" ] \
+    && [ "$(od -An -tx1 -j63 -N1 "$d/rwsdsp_test/t.rws.d/001.dsp" | tr -d ' ')" = "02" ] \
+    && fok "RenderWare ADPCM stream split into segments" \
+    || fno "RWS DSP" "failed on synthetic t.rws"
+  else
+    fno "RWS DSP" "mk_rwsdsp.py failed"
+  fi
+
   # Petz skinned mesh skeleton (node table with child counts)
   mkdir -p "$d/petzskel_test"
   if python3 "$PWD_PROJECT/../tests/mk_petzskel.py" "$d/petzskel_test" >/dev/null 2>&1; then

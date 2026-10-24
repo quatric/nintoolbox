@@ -226,6 +226,7 @@
 #include "extract/muskrome.inc"
 #include "extract/rifx.inc"
 #include "extract/asfdsp.inc"
+#include "extract/rwsdsp.inc"
 #include "extract/aix.inc"
 #include "extract/waf.inc"
 #include "extract/seg.inc"

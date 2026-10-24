@@ -129,6 +129,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_asfdsp_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_rwsdsp_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_aix_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
