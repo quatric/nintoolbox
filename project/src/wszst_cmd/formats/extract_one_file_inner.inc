@@ -713,6 +713,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_rkv_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_scribble_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_opoona_map_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

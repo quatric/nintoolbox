@@ -9450,6 +9450,19 @@ with open(sys.argv[1], "wb") as f:
     fno "RKV archive" "mk_rkv.py failed"
   fi
 
+  # Scribblenauts index.bin + .p packages
+  mkdir -p "$d/scribble_test"
+  if python3 "$PWD_PROJECT/../tests/mk_scribble.py" "$d/scribble_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/scribble_test/index.bin" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/scribble_test/index.bin.d/00000.bin")" = "scribble zlib member" ] \
+    && [ "$(cat "$d/scribble_test/index.bin.d/00001.bin")" = "raw member" ] \
+    && [ ! -e "$d/scribble_test/index.bin.d/00002.bin" ] \
+    && fok "Scribblenauts index.bin extracts zlib and raw members" \
+    || fno "Scribblenauts pack" "failed to extract synthetic index.bin"
+  else
+    fno "Scribblenauts pack" "mk_scribble.py failed"
+  fi
+
   # Opoona SL01 (LZO1X) wrapper, OPKG packages, blanked-magic / TPLE textures
   mkdir -p "$d/opkg_test"
   if python3 "$PWD_PROJECT/../tests/mk_opoonapkg.py" "$d/opkg_test" >/dev/null 2>&1; then

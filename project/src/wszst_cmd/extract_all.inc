@@ -225,6 +225,7 @@
 #include "extract/kromemdl.inc"
 #include "extract/krvglc.inc"
 #include "extract/rkv2.inc"
+#include "extract/scribble.inc"
 #include "extract/muskrome.inc"
 #include "extract/rifx.inc"
 #include "extract/asfdsp.inc"
