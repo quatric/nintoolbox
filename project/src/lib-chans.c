@@ -346,6 +346,21 @@ static int IsStartOfLine (const chans_script_t *cs, u32 offset)
 	return (b >> byteoff) & 1;
 }
 
+// Branch target math follows the Wii IPL VM (CHANSVmStep): a forward offset
+// is relative to the end of the instruction, a backward offset (sign bit set)
+// is biased so that an all-ones offset targets the instruction itself.
+static u32 ChansJump24Target (u32 pc, const u8 *operand)
+{
+	u32 off = ((u32)operand[0] << 16) | ((u32)operand[1] << 8) | operand[2];
+	return (off & 0x800000) ? off + pc - 0xFFFFFF : off + pc + 4;
+}
+
+static u32 ChansForInTarget (u32 pc, u16 raw)
+{
+	u32 off = raw & 0x1FFF;
+	return (raw & 0x1000) ? off + pc - 0x1FFC : off + pc + 5;
+}
+
 // Opcode decoder helper
 typedef struct decoded_op_t
 {
@@ -555,6 +570,13 @@ static int DecodeInstruction (const chans_script_t *cs, u32 pc, decoded_op_t *do
 					(rem >= 5) ? be32 ((data + 1)) : 0, (rem >= 5) ? be32 ((data + 1)) : 0);
 				break;
 			case 0x29:
+			{
+				dop->length = (rem >= 9) ? 9 : 1;
+				u64 uval = (rem >= 9) ? be64 ((data + 1)) : 0;
+				snprintf (dop->desc, sizeof (dop->desc), "ACC = 0x%016llx (%lld)",
+					(unsigned long long)uval, (long long)uval);
+				break;
+			}
 			case 0x2a:
 			{
 				dop->length = (rem >= 9) ? 9 : 1;
@@ -569,7 +591,7 @@ static int DecodeInstruction (const chans_script_t *cs, u32 pc, decoded_op_t *do
 			}
 			case 0x2b:
 				dop->length = 1;
-				snprintf (dop->desc, sizeof (dop->desc), "ACC = null");
+				snprintf (dop->desc, sizeof (dop->desc), "ACC = undefined");
 				break;
 			case 0x2c:
 			{
@@ -627,8 +649,7 @@ static int DecodeInstruction (const chans_script_t *cs, u32 pc, decoded_op_t *do
 				dop->length = (rem >= 5) ? 5 : 1;
 				u16 raw_var = (rem >= 5) ? be16 ((data + 1)) : 0;
 				u16 var_id = raw_var & 0x1FFF;
-				s16 jmp = (rem >= 5) ? (s16)be16 ((data + 3)) : 0;
-				u32 dst = pc + 5 + jmp;
+				u32 dst = (rem >= 5) ? ChansForInTarget (pc, be16 ((data + 3))) : pc + 5;
 				char vbuf[32];
 				const char *vname = NULL;
 				if (var_id < cs->exported_count && cs->exported[var_id].name)
@@ -645,14 +666,7 @@ static int DecodeInstruction (const chans_script_t *cs, u32 pc, decoded_op_t *do
 			case 0x35:
 			{
 				dop->length = (rem >= 4) ? 4 : 1;
-				s32 jmp = 0;
-				if (rem >= 4)
-				{
-					jmp = (data[1] << 16) | (data[2] << 8) | data[3];
-					if (jmp & 0x800000)
-						jmp -= 0x1000000;
-				}
-				u32 dst = pc + 4 + jmp;
+				u32 dst = (rem >= 4) ? ChansJump24Target (pc, data + 1) : pc + 4;
 				snprintf (dop->desc, sizeof (dop->desc), "GOTO_24 [dst: 0x%04x]", dst);
 				break;
 			}
@@ -1086,7 +1100,17 @@ static void DecompileMethodBody (
 					pc += 5;
 					break;
 				}
-				case 0x29:
+				case 0x29: // LOAD_I64
+				{
+					u64 uval = (rem >= 9) ? be64 ((data + 1)) : 0;
+					char num_expr[32];
+					snprintf (num_expr, sizeof (num_expr), "%lld", (long long)uval);
+					if (acc)
+						FREE (acc);
+					acc = STRDUP (num_expr);
+					pc += 9;
+					break;
+				}
 				case 0x2a: // LOAD_F64
 				{
 					double fval = 0.0;
@@ -1103,10 +1127,10 @@ static void DecompileMethodBody (
 					pc += 9;
 					break;
 				}
-				case 0x2b: // LOAD_NULL
+				case 0x2b: // LOAD_UNDEFINED
 					if (acc)
 						FREE (acc);
-					acc = STRDUP ("null");
+					acc = STRDUP ("undefined");
 					pc += 1;
 					break;
 				case 0x2c: // LOAD_STR
@@ -1230,8 +1254,7 @@ static void DecompileMethodBody (
 				{
 					u16 raw_var = (rem >= 5) ? be16 ((data + 1)) : 0;
 					u16 var_id = raw_var & 0x1FFF;
-					s16 jmp = (rem >= 5) ? (s16)be16 ((data + 3)) : 0;
-					u32 dst = pc + 5 + jmp;
+					u32 dst = (rem >= 5) ? ChansForInTarget (pc, be16 ((data + 3))) : pc + 5;
 					char vbuf[32];
 					const char *vname = NULL;
 					if (var_id < cs->exported_count && cs->exported[var_id].name)
@@ -1251,14 +1274,7 @@ static void DecompileMethodBody (
 				}
 				case 0x35: // GOTO_24
 				{
-					s32 jmp = 0;
-					if (rem >= 4)
-					{
-						jmp = (data[1] << 16) | (data[2] << 8) | data[3];
-						if (jmp & 0x800000)
-							jmp -= 0x1000000;
-					}
-					u32 dst = pc + 4 + jmp;
+					u32 dst = (rem >= 4) ? ChansJump24Target (pc, data + 1) : pc + 4;
 					csb_printf (sb, "    goto 0x%04x;\n", dst);
 					pc += 4;
 					break;
