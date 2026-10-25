@@ -81,6 +81,7 @@
 #include "extract/ipk.inc"
 #include "extract/dig.inc"
 #include "extract/agi.inc"
+#include "extract/unityfs.inc"
 #include "extract/blpkg.inc"
 #include "extract/goliath.inc"
 #include "extract/twl.inc"

@@ -66,6 +66,7 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | --- | --- | --- |
 | **ABE BigFile** | `.bf` | *Rabbids Go Home* |
 | **AGI** | `.pak` | *Skylanders: Swap Force* |
+| **Unity AssetBundle (UnityFS)** | `.unity3d`, `.bundle`, `.assetbundle`, `.ab` | Unity 5.3+ games (LZMA/LZ4/LZ4HC; extracts `CAB-*`, `.resS`, `.resource`) |
 | **ALAR** | `.aar`, `.alar` | *Jump Super Stars*, *Jump Ultimate Stars* |
 | **And-Kensaku** | `.rz` | *And-Kensaku* |
 | **APAK** | `.apak` | Wii U / Switch |
