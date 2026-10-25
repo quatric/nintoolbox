@@ -383,7 +383,7 @@ XOBJ_LIB	= analyze.o lib-szs-create.o lib-analyze.o lib-xbmg.o lib-msbt.o \
 			lib-sha256.o lib-nro.o lib-nso.o lib-cnmt.o lib-npdm.o lib-xci.o lib-dahbwu.o
 
 TOBJ_gen-ui	= $(XOBJ_OBJECT)
-TOBJ_wszst	= $(XOBJ_LIB) lib-hsd.o lib-ocn.o lib-halbank.o lib-bcres.o lib-bfres.o lib-nsbmd.o lib-nsbanim.o lib-nud.o lib-numsh.o lib-j3d.o lib-hbdf.o lib-passthru.o $(WRAPPER_OBJ) lzh8_cmp.o lzh8_dec.o lzh8_util.o
+TOBJ_wszst	= $(XOBJ_LIB) lib-hsd.o lib-ocn.o lib-halbank.o lib-bcres.o lib-bfres.o lib-nsbmd.o lib-nsbanim.o lib-nud.o lib-numsh.o lib-j3d.o lib-hbdf.o lib-mph.o lib-passthru.o $(WRAPPER_OBJ) lzh8_cmp.o lzh8_dec.o lzh8_util.o
 TOBJ_wbmgt	= lib-xbmg.o lib-msbt.o $(XOBJ_OBJECT)
 TOBJ_wctct	= $(XOBJ_LIB)
 TOBJ_wimgt	= lib-aes.o $(XOBJ_IMAGE) lib-excite.o lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-nlg-lm.o lib-fedforce.o $(XOBJ_OBJECT)
@@ -392,7 +392,7 @@ TOBJ_wkmpt	= lib-aes.o $(XOBJ_KMP) lib-transform.o \
 			$(XOBJ_KCL) lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-kcl-image.o \
 			$(XOBJ_IMAGE) lib-excite.o lib-nlg-lm.o lib-fedforce.o $(XOBJ_PARSER) $(XOBJ_OBJECT)
 TOBJ_wlect	= $(XOBJ_LIB)
-TOBJ_wmdlt	= $(XOBJ_LIB) lib-hsd.o lib-bcres.o lib-bfres.o lib-nsbmd.o lib-nsbanim.o lib-nud.o lib-numsh.o lib-j3d.o lib-hbdf.o
+TOBJ_wmdlt	= $(XOBJ_LIB) lib-hsd.o lib-bcres.o lib-bfres.o lib-nsbmd.o lib-nsbanim.o lib-nud.o lib-numsh.o lib-j3d.o lib-hbdf.o lib-mph.o
 TOBJ_wpatt	= lib-pat.o $(XOBJ_PARSER) $(XOBJ_OBJECT)
 TOBJ_wstrt	= lib-staticr.o db-dol.o db-ctcode.o $(XOBJ_OBJECT)
 TOBJ_wtest	= $(XOBJ_LIB) lib-nsbanim.o
@@ -484,7 +484,7 @@ SZS_O		:= $(XOBJ_IMAGE) lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-nsbmd
 		   lib-dsb.o lib-bnr.o lib-brfnt.o lib-brfna.o lib-bcfnt.o lib-mpr-pak.o \
 		   lib-ncgr.o lib-nclr.o lib-sarc.o lib-nw4r.o lib-rst.o lib-thp.o \
 		   lib-owned-entries.o lib-mvdk.o lib-vlx.o lib-pucrunch.o lib-lzx.o \
-		   lib-zip.o lib-lze.o lib-diff.o lib-lzovl.o lib-alar.o lib-iear.o lib-soma.o lib-cvspr.o lib-cpac.o lib-l5pac.o lib-cingwpf.o lib-jupiterpck.o lib-treasuremrg.o lib-ghosttrick.o lib-atlusndx.o lib-artetex.o lib-luminous-bg.o lib-layton-bg.o lib-pck2.o lib-sadl.o lib-psdk.o lib-sszl.o lib-lzo.o \
+		   lib-zip.o lib-lze.o lib-diff.o lib-lzovl.o lib-alar.o lib-iear.o lib-soma.o lib-cvspr.o lib-cpac.o lib-l5pac.o lib-cingwpf.o lib-jupiterpck.o lib-treasuremrg.o lib-mph.o lib-ghosttrick.o lib-atlusndx.o lib-artetex.o lib-luminous-bg.o lib-layton-bg.o lib-pck2.o lib-sadl.o lib-psdk.o lib-sszl.o lib-lzo.o \
 		   lib-rflres.o lib-bea.o \
 		   lib-atb.o lib-ptd.o lib-lzbin.o lib-xb.o lib-mpmess.o lib-mpboard.o \
 		   lib-rarc.o lib-pack.o lib-rkc.o lib-brres.o lib-breff.o \

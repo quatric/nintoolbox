@@ -64,6 +64,7 @@
 #include "lib-pik1.h"
 #include "lib-wwrsc.h"
 #include "lib-hbdf.h"
+#include "lib-mph.h"
 #include "lib-gf3ds.h"
 #include "lib-mtmob.h"
 #include "lib-numsh.h"
@@ -1328,6 +1329,23 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				if (err > ERR_WARNING)
 				{
 					ERROR0 (err, "Failed to decode HBDF: %s\n", arg);
+					return err;
+				}
+			}
+			continue;
+		}
+
+		if (is_model_dest && raw.data_size >= 100 && IsMphModel (raw.data, (uint)raw.data_size))
+		{
+			if (!testmode)
+			{
+				uint tex_size = 0;
+				u8 *tex = LoadMphTexFile (arg, &tex_size);
+				err = DecodeMphModel (raw.data, (uint)raw.data_size, tex, tex_size, dest);
+				FREE (tex);
+				if (err > ERR_WARNING)
+				{
+					ERROR0 (err, "Failed to decode MPH model: %s\n", arg);
 					return err;
 				}
 			}

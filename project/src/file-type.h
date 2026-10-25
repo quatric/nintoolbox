@@ -588,6 +588,8 @@ typedef enum file_format_t
 	FF_ATLUS_NDX,	 // 473 - Atlus Nintendo DS / 3DS Directory Index (.ndx; Radiant Historia / SMT)
 	FF_ARTE_TEX,	 // 474 - ArtePiazza Nintendo DS Texture Container (.tex; Dragon Quest IV/V/VI)
 	FF_SEDB,	 // 475 - Square Enix SEDB resource container (.rps / .txb / .shd / .phb / .lyb; Dragon Quest X)
+	FF_MPH_ARC,	 // 476 - Metroid Prime Hunters SNDFILE archive (.arc)
+	FF_MPH_MODEL,	 // 477 - Metroid Prime Hunters Nitro model (_Model.bin)
 
 	//--- number of elements
 

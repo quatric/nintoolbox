@@ -2287,6 +2287,13 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 	if (IsArteTexture (data8, data_size))
 		return FF_ARTE_TEX;
 
+	// Metroid Prime Hunters (Nintendo DS) archive and model. The model has no
+	// magic, so it is checked ahead of the magic-less SPICA containers below.
+	if (IsMphArchive (data8, data_size))
+		return FF_MPH_ARC;
+	if (IsMphModel (data8, data_size))
+		return FF_MPH_MODEL;
+
 	// Magic-less SPICA-family containers: the structural gates (validated
 	// offset tables plus a skeleton/probe byte) are specific enough to run
 	// ahead of the looser NFMT walkers below (e.g. ScanWWRSC, which also

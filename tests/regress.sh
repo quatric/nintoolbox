@@ -9438,6 +9438,19 @@ with open(sys.argv[1], "wb") as f:
     fno "HVP pack" "mk_hvp.py failed"
   fi
 
+  # Metroid Prime Hunters SNDFILE archive + model
+  mkdir -p "$d/mph_test"
+  if python3 "$PWD_PROJECT/../tests/mk_mph.py" "$d/mph_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/mph_test/t.arc" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/mph_test/t.arc.d/hello.txt")" = "mph member" ] \
+    && [ -s "$d/mph_test/t.arc.d/Test_Model.glb" ] \
+    && [ -s "$d/mph_test/t.arc.d/Test_Model_t0_p0.png" ] \
+    && fok "Metroid Prime Hunters archive extracts and its model converts to GLB" \
+    || fno "Metroid Prime Hunters" "failed to extract synthetic t.arc"
+  else
+    fno "Metroid Prime Hunters" "mk_mph.py failed"
+  fi
+
   # RKV (RK33) resource archive
   mkdir -p "$d/rkv_test"
   if python3 "$PWD_PROJECT/../tests/mk_rkv.py" "$d/rkv_test" >/dev/null 2>&1; then

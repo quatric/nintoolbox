@@ -66,6 +66,7 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | --- | --- | --- |
 | **ABE BigFile** | `.bf` | *Rabbids Go Home* |
 | **AGI** | `.pak` | *Skylanders: Swap Force* |
+| **MPH SNDFILE archive** | `.arc` | *Metroid Prime Hunters* (DS) |
 | **Unity AssetBundle (UnityFS)** | `.unity3d`, `.bundle`, `.assetbundle`, `.ab` | Unity 5.3+ games (LZMA/LZ4/LZ4HC; extracts `CAB-*`, `.resS`, `.resource`) |
 | **ALAR** | `.aar`, `.alar` | *Jump Super Stars*, *Jump Ultimate Stars* |
 | **And-Kensaku** | `.rz` | *And-Kensaku* |
@@ -228,6 +229,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **BNFM** | `.bnfm` | **GLB** | *Mario Party 10*, *Animal Crossing: amiibo Festival* |
 | **CSB** | `.csb` | **GLB** | *Paper Mario: The Thousand-Year Door*, *The Origami King*, *Color Splash* |
 | **CTB** | `.ctb` | *(text dump)* | *Paper Mario: The Thousand-Year Door*, *The Origami King*, *Color Splash* |
+| **MPH Model** | `_Model.bin` (+ `_Tex.bin`) | **GLB** | *Metroid Prime Hunters* (DS; textures written as PNG) |
 | **FEDMODEL** | `.fedmodel` | **GLB** | *Metroid Prime: Federation Force*, *Luigi's Mansion: Dark Moon*, *Luigi's Mansion 3* |
 | **FEDSKEL** | `.fedskel` | **GLB** | *Metroid Prime: Federation Force*, *Luigi's Mansion: Dark Moon*, *Luigi's Mansion 3* |
 | **G1M** | `.g1m` | **GLB** | *Hyrule Warriors Legends*, *Fire Emblem Warriors* |

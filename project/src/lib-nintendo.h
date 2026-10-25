@@ -499,6 +499,7 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-donkeykonga.h"
 #include "lib-lzbin.h"
 #include "lib-hbdf.h"
+#include "lib-mph.h"
 #include "lib-sa01.h"
 #include "lib-msr.h"
 

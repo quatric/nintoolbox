@@ -2783,6 +2783,18 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, MinusString, MinusString,
 		"Square Enix SEDB resource container (.rps/.txb/.shd/.phb/.lyb, Dragon Quest X)" },
 
+	// FF_MPH_ARC = 476 (Metroid Prime Hunters SNDFILE archive)
+	{ FF_MPH_ARC, FF_MPH_ARC, 0, "MPH-ARC", ".arc", ".arc", ".arc",
+		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 8, { 'S', 'N', 'D', 'F', 'I', 'L', 'E', 0 },
+		0, MinusString, MinusString,
+		"Metroid Prime Hunters SNDFILE archive (.arc, Nintendo DS; fully extracted)" },
+
+	// FF_MPH_MODEL = 477 (Metroid Prime Hunters model)
+	{ FF_MPH_MODEL, FF_MPH_MODEL, 0, "MPH-MODEL", "_Model.bin", "_Model.bin", "_Model.bin",
+		FFT_VALID | FFT_CUT | FFT_EXTRACT, 0, { 0 },
+		0, MinusString, MinusString,
+		"Metroid Prime Hunters model (_Model.bin, Nintendo DS; converted to .glb with PNG textures)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -3069,6 +3081,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_ATLUS_NDX, "ATLUS-NDX", "ATLUSNDX", 0xe05 },
 	{ FF_ARTE_TEX, "ARTE-TEX", "ARTETEX", 0x861 },
 	{ FF_SEDB, "SEDB", "SEDB", 0xe05 },
+	{ FF_MPH_ARC, "MPH-ARC", "SNDFILE", 0xe05 },
+	{ FF_MPH_MODEL, "MPH-MODEL", "MPHMODEL", 0x861 },
 
 	{ 0, 0, 0, 0 }
 };
