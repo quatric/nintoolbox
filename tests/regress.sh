@@ -9463,6 +9463,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Scribblenauts pack" "mk_scribble.py failed"
   fi
 
+  # Scribblenauts vector mesh -> SVG
+  mkdir -p "$d/scribvec_test"
+  if python3 "$PWD_PROJECT/../tests/mk_scribvec.py" "$d/scribvec_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/scribvec_test/v.bin" --overwrite >/dev/null 2>&1 \
+    && grep -q 'fill="#302010"' "$d/scribvec_test/v.bin.svg" \
+    && grep -q 'M0 0L4 0L0 4z' "$d/scribvec_test/v.bin.svg" \
+    && fok "Scribblenauts vector mesh converts to SVG" \
+    || fno "Scribblenauts vector" "failed to convert synthetic v.bin"
+  else
+    fno "Scribblenauts vector" "mk_scribvec.py failed"
+  fi
+
   # Opoona SL01 (LZO1X) wrapper, OPKG packages, blanked-magic / TPLE textures
   mkdir -p "$d/opkg_test"
   if python3 "$PWD_PROJECT/../tests/mk_opoonapkg.py" "$d/opkg_test" >/dev/null 2>&1; then
