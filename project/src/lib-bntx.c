@@ -39,6 +39,22 @@ static inline uint round_up (uint x, uint y)
 ///////////////		block-linear addressing			///////////////
 //-----------------------------------------------------------------------------
 
+// Set to use the Switch 2 (Orin) GOB layout instead of the Tegra X1 one.
+bool BntxIsOrin = false;
+
+// Byte offset of (x in bytes, y) inside a 512-byte GOB.
+static uint gob_offset (uint xb, uint y)
+{
+	return ((xb % 64) / 32) * 256 + ((y % 8) / 2) * 64 + ((xb % 32) / 16) * 32 + (y % 2) * 16
+		+ (xb % 16);
+}
+
+static uint gob_offset_orin (uint xb, uint y)
+{
+	return ((xb % 64) / 32) * 256 + ((y % 8) / 4) * 128 + ((xb % 32) / 16) * 64 + (y % 4) * 16
+		+ (xb % 16);
+}
+
 // Tegra X1 TRM block-linear address for element (x,y).
 static u64 addr_block_linear (
 	uint x, uint y, uint image_width, uint bytes_per_pixel, u64 base_address, uint block_height)
@@ -51,8 +67,7 @@ static u64 addr_block_linear (
 		+ (u64)((y % (8 * block_height)) / 8) * 512;
 
 	const uint xb = x * bytes_per_pixel;
-	return gob_address + (u64)((xb % 64) / 32) * 256 + (u64)((y % 8) / 2) * 64
-		+ (u64)((xb % 32) / 16) * 32 + (u64)(y % 2) * 16 + (xb % 16);
+	return gob_address + (BntxIsOrin ? gob_offset_orin (xb, y) : gob_offset (xb, y));
 }
 
 enumError BntxDeswizzle (u8 **dest, uint *dest_size, const u8 *src, uint src_size, uint width,

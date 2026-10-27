@@ -7,6 +7,9 @@
 // inside BFRES/BFFNT/PTCL. Texture data is stored in the Tegra GPU's
 // block-linear layout and has to be deswizzled before it means anything.
 
+// When true, (de)swizzling uses the Switch 2 (Orin) GOB layout.
+extern bool BntxIsOrin;
+
 // Deswizzles one Tegra block-linear surface into linear order.
 //
 // WIDTH/HEIGHT are in pixels; BLK_W/BLK_H are the compression block size
