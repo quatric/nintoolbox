@@ -17327,6 +17327,11 @@
 	"Convert all files and not only the files with changed file or image" \
 	" formats." )
 
+#:def_opt( "ORIN", "orin", "C", \
+	"", \
+	"Encode BNTX files for the Switch 2: write platform 'Ounc' and use the" \
+	" Orin GOB swizzle layout. Decoding detects it automatically." )
+
 #:def_opt( "MIPMAPS", "mipmaps", "C", \
 	"", \
 	"If reading a source, scan for mipmaps and load them too. For PNG" \
@@ -17667,6 +17672,10 @@
 	"", \
 	"" )
 
+#:def_cmd_opt( "DECODE", "ORIN", \
+	"", \
+	"" )
+
 #:def_cmd_opt( "DECODE", "CMPR_DEFAULT", \
 	"", \
 	"" )
@@ -17758,6 +17767,10 @@
 	"" )
 
 #:def_cmd_opt( "ENCODE", "FAST_MIPMAPS", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "ENCODE", "ORIN", \
 	"", \
 	"" )
 
@@ -17855,6 +17868,10 @@
 	"", \
 	"" )
 
+#:def_cmd_opt( "CONVERT", "ORIN", \
+	"", \
+	"" )
+
 #:def_cmd_opt( "CONVERT", "CMPR_DEFAULT", \
 	"", \
 	"" )
@@ -17946,6 +17963,10 @@
 	"" )
 
 #:def_cmd_opt( "COPY", "FAST_MIPMAPS", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "COPY", "ORIN", \
 	"", \
 	"" )
 

@@ -148,6 +148,12 @@ static const InfoOption_t OptionInfo[OPT__N_TOTAL+1] =
 	" formats."
     },
 
+    {	OPT_ORIN, false, false, false, false, false, 0, "orin",
+	0,
+	"Encode BNTX files for the Switch 2: write platform 'Ounc' and use the"
+	" Orin GOB swizzle layout. Decoding detects it automatically."
+    },
+
     {	OPT_MIPMAPS, false, false, false, false, false, 0, "mipmaps",
 	0,
 	"If reading a source, scan for mipmaps and load them too. For PNG"
@@ -270,7 +276,7 @@ static const InfoOption_t OptionInfo[OPT__N_TOTAL+1] =
 	"Print in machine readable sections and parameter lines."
     },
 
-    {0,0,0,0,0,0,0,0,0,0}, // OPT__N_SPECIFIC == 28
+    {0,0,0,0,0,0,0,0,0,0}, // OPT__N_SPECIFIC == 29
 
     //----- global options -----
 
@@ -546,7 +552,7 @@ static const InfoOption_t OptionInfo[OPT__N_TOTAL+1] =
 	" helper option."
     },
 
-    {0,0,0,0,0,0,0,0,0,0} // OPT__N_TOTAL == 65
+    {0,0,0,0,0,0,0,0,0,0} // OPT__N_TOTAL == 66
 
 };
 
@@ -744,6 +750,7 @@ static const struct option OptionLong[] =
 	{ "preserve",		0, 0, 'p' },
 	{ "ignore",		0, 0, 'i' },
 	{ "all",		0, 0, 'a' },
+	{ "orin",		0, 0, GO_ORIN },
 	{ "mipmaps",		0, 0, GO_MIPMAPS },
 	{ "no-mipmaps",		0, 0, GO_NO_MIPMAPS },
 	 { "nomipmaps",		0, 0, GO_NO_MIPMAPS },
@@ -860,17 +867,18 @@ static const OptionIndex_t OptionIndex[UIOPT_INDEX_SIZE] =
 	/* 0x098   */	OPT_NEW,
 	/* 0x099   */	OPT_EXTRACT,
 	/* 0x09a   */	OPT_NUMBER,
-	/* 0x09b   */	OPT_MIPMAPS,
-	/* 0x09c   */	OPT_NO_MIPMAPS,
-	/* 0x09d   */	OPT_N_MIPMAPS,
-	/* 0x09e   */	OPT_MAX_MIPMAPS,
-	/* 0x09f   */	OPT_MIPMAP_SIZE,
-	/* 0x0a0   */	OPT_FAST_MIPMAPS,
-	/* 0x0a1   */	OPT_CMPR_DEFAULT,
-	/* 0x0a2   */	OPT_PRE_CONVERT,
-	/* 0x0a3   */	OPT_STRIP,
-	/* 0x0a4   */	OPT_SECTIONS,
-	/* 0x0a5   */	 0,0,0,0, 0,0,0,0, 0,0,0,
+	/* 0x09b   */	OPT_ORIN,
+	/* 0x09c   */	OPT_MIPMAPS,
+	/* 0x09d   */	OPT_NO_MIPMAPS,
+	/* 0x09e   */	OPT_N_MIPMAPS,
+	/* 0x09f   */	OPT_MAX_MIPMAPS,
+	/* 0x0a0   */	OPT_MIPMAP_SIZE,
+	/* 0x0a1   */	OPT_FAST_MIPMAPS,
+	/* 0x0a2   */	OPT_CMPR_DEFAULT,
+	/* 0x0a3   */	OPT_PRE_CONVERT,
+	/* 0x0a4   */	OPT_STRIP,
+	/* 0x0a5   */	OPT_SECTIONS,
+	/* 0x0a6   */	 0,0,0,0, 0,0,0,0, 0,0,
 	/* 0x0b0   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
 	/* 0x0c0   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
 	/* 0x0d0   */	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
@@ -892,89 +900,89 @@ static const OptionIndex_t OptionIndex[UIOPT_INDEX_SIZE] =
 ///////////////                opt_allowed_cmd_*                ///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-static u8 option_allowed_cmd_VERSION[28] = // cmd #1
+static u8 option_allowed_cmd_VERSION[29] = // cmd #1
 {
-    0,1,0,1,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,1
+    0,1,0,1,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,1
 };
 
-static u8 option_allowed_cmd_HELP[28] = // cmd #2
+static u8 option_allowed_cmd_HELP[29] = // cmd #2
 {
-    1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1
+    1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1
 };
 
-static u8 option_allowed_cmd_CONFIG[28] = // cmd #3
+static u8 option_allowed_cmd_CONFIG[29] = // cmd #3
 {
-    0,1,0,1,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0
+    0,1,0,1,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0
 };
 
-static u8 option_allowed_cmd_ARGTEST[28] = // cmd #4
+static u8 option_allowed_cmd_ARGTEST[29] = // cmd #4
 {
-    1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1
+    1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1
 };
 
-static u8 option_allowed_cmd_EXPAND[28] = // cmd #5
+static u8 option_allowed_cmd_EXPAND[29] = // cmd #5
 {
-    1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1
+    1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1
 };
 
-static u8 option_allowed_cmd_TEST[28] = // cmd #6
+static u8 option_allowed_cmd_TEST[29] = // cmd #6
 {
-    1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1
+    1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1
 };
 
-static u8 option_allowed_cmd_COLORS[28] = // cmd #7
+static u8 option_allowed_cmd_COLORS[29] = // cmd #7
 {
-    0,1,0,1,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0
+    0,1,0,1,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0
 };
 
-static u8 option_allowed_cmd_ERROR[28] = // cmd #8
+static u8 option_allowed_cmd_ERROR[29] = // cmd #8
 {
-    0,1,1,1,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,1
+    0,1,1,1,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,1
 };
 
-static u8 option_allowed_cmd_FILETYPE[28] = // cmd #9
+static u8 option_allowed_cmd_FILETYPE[29] = // cmd #9
 {
-    0,1,0,0,1, 1,0,0,0,0,  0,0,0,0,1, 0,0,0,0,0,  0,0,0,0,0, 0,0,0
+    0,1,0,0,1, 1,0,0,0,0,  0,0,0,0,1, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0
 };
 
-static u8 option_allowed_cmd_FILEATTRIB[28] = // cmd #10
+static u8 option_allowed_cmd_FILEATTRIB[29] = // cmd #10
 {
-    0,0,1,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0
+    0,0,1,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0
 };
 
-static u8 option_allowed_cmd_LIST[28] = // cmd #11
+static u8 option_allowed_cmd_LIST[29] = // cmd #11
 {
-    0,1,1,0,1, 1,0,0,0,0,  0,0,0,0,1, 0,0,0,0,0,  0,0,0,0,0, 0,0,0
+    0,1,1,0,1, 1,0,0,0,0,  0,0,0,0,1, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0
 };
 
-static u8 option_allowed_cmd_LIST_L[28] = // cmd #12
+static u8 option_allowed_cmd_LIST_L[29] = // cmd #12
 {
-    0,1,1,0,1, 1,0,0,0,0,  0,0,0,0,1, 0,0,0,0,0,  0,0,0,0,0, 0,0,0
+    0,1,1,0,1, 1,0,0,0,0,  0,0,0,0,1, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0
 };
 
-static u8 option_allowed_cmd_LIST_LL[28] = // cmd #13
+static u8 option_allowed_cmd_LIST_LL[29] = // cmd #13
 {
-    0,1,1,0,1, 1,0,0,0,0,  0,0,0,0,1, 0,0,0,0,0,  0,0,0,0,0, 0,0,0
+    0,1,1,0,1, 1,0,0,0,0,  0,0,0,0,1, 0,0,0,0,0,  0,0,0,0,0, 0,0,0,0
 };
 
-static u8 option_allowed_cmd_DECODE[28] = // cmd #14
+static u8 option_allowed_cmd_DECODE[29] = // cmd #14
 {
-    0,0,0,0,1, 1,1,1,1,1,  1,1,1,1,1, 0,1,1,1,1,  1,1,1,1,1, 1,1,0
+    0,0,0,0,1, 1,1,1,1,1,  1,1,1,1,1, 0,1,1,1,1,  1,1,1,1,1, 1,1,1,0
 };
 
-static u8 option_allowed_cmd_ENCODE[28] = // cmd #15
+static u8 option_allowed_cmd_ENCODE[29] = // cmd #15
 {
-    0,0,0,0,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,0
+    0,0,0,0,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,0
 };
 
-static u8 option_allowed_cmd_CONVERT[28] = // cmd #16
+static u8 option_allowed_cmd_CONVERT[29] = // cmd #16
 {
-    0,0,0,0,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,0
+    0,0,0,0,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,0
 };
 
-static u8 option_allowed_cmd_COPY[28] = // cmd #17
+static u8 option_allowed_cmd_COPY[29] = // cmd #17
 {
-    0,0,0,0,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,0
+    0,0,0,0,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,1,1,  1,1,1,1,1, 1,1,1,0
 };
 
 
@@ -1176,6 +1184,7 @@ static const InfoOption_t * option_tab_cmd_DECODE[] =
 	OptionInfo + OPT_MIPMAPS,
 	OptionInfo + OPT_NO_MIPMAPS,
 	OptionInfo + OPT_FAST_MIPMAPS,
+	OptionInfo + OPT_ORIN,
 	OptionInfo + OPT_CMPR_DEFAULT,
 	OptionInfo + OPT_TRANSFORM,
 	OptionInfo + OPT_STRIP,
@@ -1217,6 +1226,7 @@ static const InfoOption_t * option_tab_cmd_ENCODE[] =
 	OptionInfo + OPT_MIPMAPS,
 	OptionInfo + OPT_NO_MIPMAPS,
 	OptionInfo + OPT_FAST_MIPMAPS,
+	OptionInfo + OPT_ORIN,
 	OptionInfo + OPT_CMPR_DEFAULT,
 	OptionInfo + OPT_TRANSFORM,
 	OptionInfo + OPT_STRIP,
@@ -1258,6 +1268,7 @@ static const InfoOption_t * option_tab_cmd_CONVERT[] =
 	OptionInfo + OPT_MIPMAPS,
 	OptionInfo + OPT_NO_MIPMAPS,
 	OptionInfo + OPT_FAST_MIPMAPS,
+	OptionInfo + OPT_ORIN,
 	OptionInfo + OPT_CMPR_DEFAULT,
 	OptionInfo + OPT_TRANSFORM,
 	OptionInfo + OPT_STRIP,
@@ -1299,6 +1310,7 @@ static const InfoOption_t * option_tab_cmd_COPY[] =
 	OptionInfo + OPT_MIPMAPS,
 	OptionInfo + OPT_NO_MIPMAPS,
 	OptionInfo + OPT_FAST_MIPMAPS,
+	OptionInfo + OPT_ORIN,
 	OptionInfo + OPT_CMPR_DEFAULT,
 	OptionInfo + OPT_TRANSFORM,
 	OptionInfo + OPT_STRIP,
@@ -1559,7 +1571,7 @@ static const InfoCommand_t CommandInfo[CMD__N+1] =
 	" starts with colon (:), then it may be a generic image instead of a"
 	" real file. See https://szs.wiimm.de/doc/genericimg for details.",
 	0,
-	22,
+	23,
 	option_tab_cmd_DECODE,
 	option_allowed_cmd_DECODE
     },
@@ -1578,7 +1590,7 @@ static const InfoCommand_t CommandInfo[CMD__N+1] =
 	" SOURCE starts with colon (:), then it may be a generic image instead"
 	" of a real file. See https://szs.wiimm.de/doc/genericimg for details.",
 	0,
-	23,
+	24,
 	option_tab_cmd_ENCODE,
 	option_allowed_cmd_ENCODE
     },
@@ -1598,7 +1610,7 @@ static const InfoCommand_t CommandInfo[CMD__N+1] =
 	" may be a generic image instead of a real file. See"
 	" https://szs.wiimm.de/doc/genericimg for details.",
 	0,
-	23,
+	24,
 	option_tab_cmd_CONVERT,
 	option_allowed_cmd_CONVERT
     },
@@ -1623,7 +1635,7 @@ static const InfoCommand_t CommandInfo[CMD__N+1] =
 	" instead of a real file. See https://szs.wiimm.de/doc/genericimg for"
 	" details.",
 	0,
-	23,
+	24,
 	option_tab_cmd_COPY,
 	option_allowed_cmd_COPY
     },

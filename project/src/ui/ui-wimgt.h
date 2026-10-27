@@ -71,6 +71,7 @@ typedef enum enumOptions
 	OPT_PRESERVE,
 	OPT_IGNORE,
 	OPT_ALL,
+	OPT_ORIN,
 	OPT_MIPMAPS,
 	OPT_NO_MIPMAPS,
 	OPT_N_MIPMAPS,
@@ -84,7 +85,7 @@ typedef enum enumOptions
 	OPT_STRIP,
 	OPT_SECTIONS,
 
-	OPT__N_SPECIFIC, // == 28
+	OPT__N_SPECIFIC, // == 29
 
 	//----- global options -----
 
@@ -126,7 +127,7 @@ typedef enum enumOptions
 	OPT_NEW,
 	OPT_EXTRACT,
 
-	OPT__N_TOTAL // == 65
+	OPT__N_TOTAL // == 66
 
 } enumOptions;
 
@@ -156,6 +157,7 @@ typedef enum enumOptions
 //	OB_PRESERVE		= 1llu << OPT_PRESERVE,
 //	OB_IGNORE		= 1llu << OPT_IGNORE,
 //	OB_ALL			= 1llu << OPT_ALL,
+//	OB_ORIN			= 1llu << OPT_ORIN,
 //	OB_MIPMAPS		= 1llu << OPT_MIPMAPS,
 //	OB_NO_MIPMAPS		= 1llu << OPT_NO_MIPMAPS,
 //	OB_N_MIPMAPS		= 1llu << OPT_N_MIPMAPS,
@@ -188,6 +190,7 @@ typedef enum enumOptions
 //				| OB_MIPMAPS
 //				| OB_NO_MIPMAPS
 //				| OB_FAST_MIPMAPS
+//				| OB_ORIN
 //				| OB_CMPR_DEFAULT
 //				| OB_TRANSFORM
 //				| OB_STRIP,
@@ -350,6 +353,7 @@ typedef enum enumGetOpt
 	GO_NEW,
 	GO_EXTRACT,
 	GO_NUMBER,
+	GO_ORIN,
 	GO_MIPMAPS,
 	GO_NO_MIPMAPS,
 	GO_N_MIPMAPS,

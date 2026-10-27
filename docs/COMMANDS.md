@@ -660,6 +660,10 @@ wimgt DECODE texture.bntx --dest texture.astc
 # instead of decoding to RGBA8 first -- the round trip BNTX -> DDS is
 # block-exact. Other inputs (PNG, uncompressed DDS, ...) encode as RGBA8:
 wimgt ENCODE texture.dds --dest texture.bntx
+
+# Same, for the Switch 2: platform "Ounc" + Orin GOB swizzle layout
+# (decoding detects it from the BNTX header automatically):
+wimgt ENCODE texture.dds --orin --dest texture.bntx
 wimgt ENCODE texture.png --dest texture.bntx
 # Combine several DDS sources into one multi-texture BNTX (SourceToBinaryCmd
 # `-bntx` without `--split`; one `--dest` file shared by all inputs). A

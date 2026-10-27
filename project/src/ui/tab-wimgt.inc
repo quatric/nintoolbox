@@ -333,6 +333,11 @@
 		"Convert all files and not only the files with changed file"
 		" or image formats." },
 
+  { T_OPT_C,	"ORIN",		"orin",
+		0,
+		"Encode BNTX files for the Switch 2: write platform 'Ounc' and use"
+		" the Orin GOB swizzle layout. Decoding detects it automatically." },
+
   { T_OPT_C,	"MIPMAPS",	"mipmaps",
 		0, 0 /* copy of wszst */ },
 
@@ -425,6 +430,7 @@
   { T_COPT,	"MIPMAPS",	0,0,0 },
   { T_COPT,	"NO_MIPMAPS",	0,0,0 },
   { T_COPT,	"FAST_MIPMAPS",	0,0,0 },
+  { T_COPT,	"ORIN",		0,0,0 },
   { T_COPT,	"CMPR_DEFAULT",	0,0,0 },
   { T_COPT,	"TRANSFORM",	0,0,0 },
   { T_COPT,	"STRIP",	0,0,0 },

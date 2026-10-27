@@ -2210,6 +2210,9 @@ static enumError CheckOptions (int argc, char **argv, bool is_env)
 			case GO_NO_MIPMAPS:
 				opt_mipmaps = -1;
 				break;
+			case GO_ORIN:
+				BntxIsOrin = true;
+				break;
 			case GO_FAST_MIPMAPS:
 				fast_resize_enabled = true;
 				break;
