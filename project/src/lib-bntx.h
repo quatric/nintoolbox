@@ -7,7 +7,7 @@
 // inside BFRES/BFFNT/PTCL. Texture data is stored in the Tegra GPU's
 // block-linear layout and has to be deswizzled before it means anything.
 
-// When true, (de)swizzling uses the Switch 2 (Orin) GOB layout.
+// Output platform for encoders: true writes "Ounc" + the Switch 2 (Orin) GOB layout.
 extern bool BntxIsOrin;
 
 // Deswizzles one Tegra block-linear surface into linear order.
@@ -24,6 +24,11 @@ extern bool BntxIsOrin;
 enumError BntxDeswizzle (u8 **dest, uint *dest_size, const u8 *src, uint src_size, uint width,
 	uint height, uint blk_w, uint blk_h, uint bpp, uint tile_mode, uint block_height_log2,
 	bool round_pitch);
+
+// Same, with is_orin selecting the Switch 2 GOB layout (BNTX platform "Ounc").
+enumError BntxDeswizzleEx (u8 **dest, uint *dest_size, const u8 *src, uint src_size, uint width,
+	uint height, uint blk_w, uint blk_h, uint bpp, uint tile_mode, uint block_height_log2,
+	bool round_pitch, bool is_orin);
 
 // User data types supported in BNTX files (matching BntxLibrary)
 typedef enum bntx_user_data_type_t
@@ -92,6 +97,7 @@ typedef struct bntx_texture_t
 	uint tile_mode, block_height_log2;
 	uint alignment; // surface alignment (BRTI info +0x44)
 	uint n_mips;
+	bool is_orin; // container platform is "Ounc" (Switch 2 GOB layout)
 	const u8 *data; // swizzled texture data
 	uint data_size;
 	u64 *mip_offsets; // relative to data buffer [n_mips]

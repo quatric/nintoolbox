@@ -39,7 +39,8 @@ static inline uint round_up (uint x, uint y)
 ///////////////		block-linear addressing			///////////////
 //-----------------------------------------------------------------------------
 
-// Set to use the Switch 2 (Orin) GOB layout instead of the Tegra X1 one.
+// Output platform for newly encoded BNTX files: true writes "Ounc" and the
+// Switch 2 (Orin) GOB layout instead of "NX  " and the Tegra X1 one.
 bool BntxIsOrin = false;
 
 // Byte offset of (x in bytes, y) inside a 512-byte GOB.
@@ -57,7 +58,8 @@ static uint gob_offset_orin (uint xb, uint y)
 
 // Tegra X1 TRM block-linear address for element (x,y).
 static u64 addr_block_linear (
-	uint x, uint y, uint image_width, uint bytes_per_pixel, u64 base_address, uint block_height)
+	uint x, uint y, uint image_width, uint bytes_per_pixel, u64 base_address, uint block_height,
+	bool is_orin)
 {
 	const uint width_in_gobs = div_round_up (image_width * bytes_per_pixel, 64);
 
@@ -67,12 +69,20 @@ static u64 addr_block_linear (
 		+ (u64)((y % (8 * block_height)) / 8) * 512;
 
 	const uint xb = x * bytes_per_pixel;
-	return gob_address + (BntxIsOrin ? gob_offset_orin (xb, y) : gob_offset (xb, y));
+	return gob_address + (is_orin ? gob_offset_orin (xb, y) : gob_offset (xb, y));
 }
 
 enumError BntxDeswizzle (u8 **dest, uint *dest_size, const u8 *src, uint src_size, uint width,
 	uint height, uint blk_w, uint blk_h, uint bpp, uint tile_mode, uint block_height_log2,
 	bool round_pitch)
+{
+	return BntxDeswizzleEx (dest, dest_size, src, src_size, width, height, blk_w, blk_h, bpp,
+		tile_mode, block_height_log2, round_pitch, false);
+}
+
+enumError BntxDeswizzleEx (u8 **dest, uint *dest_size, const u8 *src, uint src_size, uint width,
+	uint height, uint blk_w, uint blk_h, uint bpp, uint tile_mode, uint block_height_log2,
+	bool round_pitch, bool is_orin)
 {
 	if (!dest || !src || !bpp || block_height_log2 > 5)
 		return EINVAL;
@@ -111,7 +121,7 @@ enumError BntxDeswizzle (u8 **dest, uint *dest_size, const u8 *src, uint src_siz
 		for (uint x = 0; x < w; x++)
 		{
 			const u64 pos = tile_mode == 1 ? (u64)y * pitch + (u64)x * bpp
-										   : addr_block_linear (x, y, w, bpp, 0, block_height);
+										   : addr_block_linear (x, y, w, bpp, 0, block_height, is_orin);
 			const u64 pos_linear = ((u64)y * w + x) * bpp;
 
 			// The reference skips any element whose swizzled address runs past
@@ -453,6 +463,8 @@ enumError ScanBNTX (bntx_t *bntx, const u8 *data, uint size)
 	bntx->version_major = brd16 (data + 10);
 	bntx->textures = tex;
 	bntx->n_textures = n;
+	for (uint i = 0; i < n; i++)
+		tex[i].is_orin = !memcmp (bntx->platform, "Ounc", 4);
 
 	// Parse Relocation Table (_RLT) if present
 	const u32 rlt_addr = brd32 (data + 24);
@@ -1237,8 +1249,8 @@ enumError DecodeBNTX_Mip_RGBA (
 
 	u8 *linear = 0;
 	uint linear_size = 0;
-	enumError err = BntxDeswizzle (&linear, &linear_size, src_data, src_size, w, h, blk_w, blk_h,
-		bpp, t->tile_mode, bh_log2, true);
+	enumError err = BntxDeswizzleEx (&linear, &linear_size, src_data, src_size, w, h, blk_w, blk_h,
+		bpp, t->tile_mode, bh_log2, true, t->is_orin);
 	if (err)
 		return err;
 
@@ -1668,7 +1680,7 @@ enumError EncodeBNTX_RGBA (
 	for (uint y = 0; y < height; y++)
 		for (uint x = 0; x < width; x++)
 		{
-			const u64 pos = addr_block_linear (x, y, width, bpp, 0, block_height);
+			const u64 pos = addr_block_linear (x, y, width, bpp, 0, block_height, BntxIsOrin);
 			if (pos + bpp <= surf_size)
 				memcpy (swizzled + pos, rgba + 4 * ((size_t)y * width + x), 4);
 		}
@@ -1765,7 +1777,7 @@ enumError EncodeBNTX_RGBA (
 	bwr32 (buf + 0x1c, total_size); // FileSize
 
 	// 2. BNTX Header (0x20)
-	memcpy (buf + ofs_bntx_hdr, "NX  ", 4);
+	memcpy (buf + ofs_bntx_hdr, BntxIsOrin ? "Ounc" : "NX  ", 4);
 	bwr32 (buf + ofs_bntx_hdr + 4, 1); // TextureCount
 	bwr64 (buf + ofs_bntx_hdr + 8, ofs_tex_ptrs); // TextureInfoPointer
 	bwr64 (buf + ofs_bntx_hdr + 16, ofs_brtd); // TextureDataPointer
@@ -2214,7 +2226,7 @@ enumError EncodeBNTX_FromDDS (u8 **dest, uint *dest_size, const u8 *dds, uint dd
 		for (uint y = 0; y < hb; y++)
 			for (uint x = 0; x < wb; x++)
 			{
-				const u64 pos = addr_block_linear (x, y, wb, bpp, 0, block_height);
+				const u64 pos = addr_block_linear (x, y, wb, bpp, 0, block_height, BntxIsOrin);
 				if (pos + bpp > surf_size)
 					continue;
 				memcpy (base + pos, src + ((u64)y * wb + x) * bpp, bpp);
@@ -2303,7 +2315,7 @@ enumError EncodeBNTX_FromDDS (u8 **dest, uint *dest_size, const u8 *dds, uint dd
 	bwr32 (buf + 0x18, ofs_rlt);
 	bwr32 (buf + 0x1c, total_size);
 
-	memcpy (buf + ofs_bntx_hdr, "NX  ", 4);
+	memcpy (buf + ofs_bntx_hdr, BntxIsOrin ? "Ounc" : "NX  ", 4);
 	bwr32 (buf + ofs_bntx_hdr + 4, 1);
 	bwr64 (buf + ofs_bntx_hdr + 8, ofs_tex_ptrs);
 	bwr64 (buf + ofs_bntx_hdr + 16, ofs_brtd);
@@ -2843,7 +2855,7 @@ static enumError bntx_combine_parse_dds (
 		for (uint y = 0; y < hb; y++)
 			for (uint x = 0; x < wb; x++)
 			{
-				const u64 pos = addr_block_linear (x, y, wb, bpp, 0, block_height);
+				const u64 pos = addr_block_linear (x, y, wb, bpp, 0, block_height, BntxIsOrin);
 				if (pos + bpp > surf_size)
 					continue;
 				memcpy (base + pos, src + ((u64)y * wb + x) * bpp, bpp);
@@ -3133,7 +3145,7 @@ enumError EncodeBNTX_FromDDSList (u8 **dest, uint *dest_size, const u8 **dds_dat
 	bwr32 (buf + 0x18, ofs_rlt);
 	bwr32 (buf + 0x1c, total_size);
 
-	memcpy (buf + ofs_bntx_hdr, "NX  ", 4);
+	memcpy (buf + ofs_bntx_hdr, BntxIsOrin ? "Ounc" : "NX  ", 4);
 	bwr32 (buf + ofs_bntx_hdr + 4, n_tex);
 	bwr64 (buf + ofs_bntx_hdr + 8, ofs_tex_ptrs);
 	bwr64 (buf + ofs_bntx_hdr + 16, ofs_brtd);
@@ -3549,8 +3561,8 @@ static enumError bntx_native_linear (
 	u8 *linear = 0;
 	uint linear_size = 0;
 	const uint bh_log2 = t->block_height_log2 > 5 ? 5 : t->block_height_log2;
-	const enumError err = BntxDeswizzle (&linear, &linear_size, t->data, t->data_size, t->width,
-		t->height, blk_w, blk_h, bpp, t->tile_mode, bh_log2, true);
+	const enumError err = BntxDeswizzleEx (&linear, &linear_size, t->data, t->data_size, t->width,
+		t->height, blk_w, blk_h, bpp, t->tile_mode, bh_log2, true, t->is_orin);
 	if (err)
 		return err;
 	if (linear_size < size)
