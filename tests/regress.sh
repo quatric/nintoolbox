@@ -9548,6 +9548,18 @@ with open(sys.argv[1], "wb") as f:
     fno "PAKb archive" "mk_pakb.py failed"
   fi
 
+  # 49Games .pak (0xDEADBEEF, 40-byte records; stored members decoded, packed ones preserved)
+  mkdir -p "$d/ws49pak_test"
+  if python3 "$PWD_PROJECT/../tests/mk_ws49pak.py" "$d/ws49pak_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/ws49pak_test/t.pak" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/ws49pak_test/t.pak.d/11223344_00001.packed" | tr -d ' ')" = "9" ] \
+    && [ -f "$d/ws49pak_test/t.pak.d/aabbccdd_00000.thp" ] \
+    && fok "49Games pak extracts stored members and preserves packed ones" \
+    || fno "49Games pak" "failed to extract synthetic t.pak"
+  else
+    fno "49Games pak" "mk_ws49pak.py failed"
+  fi
+
   # Scribblenauts index.bin + .p packages
   mkdir -p "$d/scribble_test"
   if python3 "$PWD_PROJECT/../tests/mk_scribble.py" "$d/scribble_test" >/dev/null 2>&1; then

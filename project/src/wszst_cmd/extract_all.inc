@@ -164,6 +164,7 @@
 #include "extract/fbnd.inc"
 #include "extract/atluspak.inc"
 #include "extract/pakb.inc"
+#include "extract/ws49pak.inc"
 #include "extract/gwb.inc"
 #include "extract/asurarc.inc"
 #include "extract/asurastr.inc"

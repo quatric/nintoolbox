@@ -64,6 +64,7 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 
 | Format | Extensions | Games |
 | --- | --- | --- |
+| **49Games PAK** | `.pak` | *Summer Athletics - The Ultimate Challenge*, *Winter Sports* (49Games / Deep Silver) |
 | **ABE BigFile** | `.bf` | *Rabbids Go Home* |
 | **AGI** | `.pak` | *Skylanders: Swap Force* |
 | **ALAR** | `.aar`, `.alar` | *Jump Super Stars*, *Jump Ultimate Stars* |
