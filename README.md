@@ -159,6 +159,7 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **NXARC** | `.nxarc` | Switch titles |
 | **PAC (Nd Cube)** | `.bin` | *Mario Party 10*, *Animal Crossing: amiibo Festival* |
 | **PAC / MRG** | `.pac`, `.mrg` | HAL Laboratory / Game Arts Wii titles |
+| **PAKb** | `.pak` | *Secret Files: Tunguska*, *Secret Files 2: Puritas Cordis* |
 | **PCK2 / PLZ** | `.plz`, `.pck2` | *Professor Layton and the Diabolical Box* |
 | **Pikmin ARC/DIR** | `.arc` + `.dir` | *Pikmin* |
 | **PKG (Barking Lizards)** | `.pkg` | *Nickelodeon: The Naked Brothers Band - The Video Game* |

@@ -9536,6 +9536,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Atlus pak" "mk_atluspak.py failed"
   fi
 
+  # PAKb archives (hash/offset/size table, stored members)
+  mkdir -p "$d/pakb_test"
+  if python3 "$PWD_PROJECT/../tests/mk_pakb.py" "$d/pakb_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/pakb_test/t.pak" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/pakb_test/t.pak.d/11223344_00000.func")" = "func table member" ] \
+    && [ "$(wc -c < "$d/pakb_test/t.pak.d/55667788_00001.bin" | tr -d ' ')" = "14" ] \
+    && fok "PAKb archives extract hashed members with magic-based extensions" \
+    || fno "PAKb archive" "failed to extract synthetic t.pak"
+  else
+    fno "PAKb archive" "mk_pakb.py failed"
+  fi
+
   # Scribblenauts index.bin + .p packages
   mkdir -p "$d/scribble_test"
   if python3 "$PWD_PROJECT/../tests/mk_scribble.py" "$d/scribble_test" >/dev/null 2>&1; then
