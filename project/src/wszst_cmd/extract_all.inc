@@ -160,6 +160,7 @@
 #include "extract/dspwrap.inc"
 #include "extract/myspd.inc"
 #include "extract/bgib.inc"
+#include "extract/wsbl.inc"
 #include "extract/dkapbig.inc"
 #include "extract/fbnd.inc"
 #include "extract/atluspak.inc"

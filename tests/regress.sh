@@ -9560,6 +9560,17 @@ with open(sys.argv[1], "wb") as f:
     fno "49Games pak" "mk_ws49pak.py failed"
   fi
 
+  # 49Games WSBL sound bank (DSP-ADPCM records)
+  mkdir -p "$d/wsbl_test"
+  if python3 "$PWD_PROJECT/../tests/mk_wsbl.py" "$d/wsbl_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/wsbl_test/t.wsbl" --overwrite >/dev/null 2>&1 \
+    && [ -f "$d/wsbl_test/t.wsbl.d/0000.dsp" ] && [ -f "$d/wsbl_test/t.wsbl.d/0001.dsp" ] \
+    && fok "WSBL sound bank extracts one DSP per sound" \
+    || fno "WSBL sound bank" "failed to extract synthetic t.wsbl"
+  else
+    fno "WSBL sound bank" "mk_wsbl.py failed"
+  fi
+
   # Scribblenauts index.bin + .p packages
   mkdir -p "$d/scribble_test"
   if python3 "$PWD_PROJECT/../tests/mk_scribble.py" "$d/scribble_test" >/dev/null 2>&1; then
