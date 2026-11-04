@@ -9511,6 +9511,18 @@ with open(sys.argv[1], "wb") as f:
     fno "NGCSD02 stream" "mk_ngcsd.py failed"
   fi
 
+  # FBND bundles (zeroed table, 0x800-aligned U8 / BCV0 members)
+  mkdir -p "$d/fbnd_test"
+  if python3 "$PWD_PROJECT/../tests/mk_fbnd.py" "$d/fbnd_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/fbnd_test/t.bin" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/fbnd_test/t.bin.d/00000_1000.bcv" ] \
+    && [ "$(cat "$d/fbnd_test/t.bin.d/00001_1800.d/file.txt")" = "fbnd u8 member" ] \
+    && fok "FBND bundle carves BCV0 and U8 members" \
+    || fno "FBND bundle" "failed to extract synthetic t.bin"
+  else
+    fno "FBND bundle" "mk_fbnd.py failed"
+  fi
+
   # Scribblenauts index.bin + .p packages
   mkdir -p "$d/scribble_test"
   if python3 "$PWD_PROJECT/../tests/mk_scribble.py" "$d/scribble_test" >/dev/null 2>&1; then

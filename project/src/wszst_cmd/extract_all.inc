@@ -161,6 +161,7 @@
 #include "extract/myspd.inc"
 #include "extract/bgib.inc"
 #include "extract/dkapbig.inc"
+#include "extract/fbnd.inc"
 #include "extract/gwb.inc"
 #include "extract/asurarc.inc"
 #include "extract/asurastr.inc"

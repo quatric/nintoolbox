@@ -113,6 +113,7 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **DTLS** | `dt00`, `ls00`, `.ls` | *Super Smash Bros. 4* |
 | **EFFN** | `.eff`, `.effn` | *Super Smash Bros. for 3DS / Wii U*, *Super Smash Bros. Ultimate* |
 | **F9RES** | `.res` | GameCube titles |
+| **FBND bundle** | `data.bin` | *Sega Bass Fishing*, *Uchi Tsuri! Sega Bass Fishing* |
 | **FBTI** | `.Mod`, `.Mot` | *Rune Factory: Frontier* |
 | **FMOD FSB** | `.fsb` | FSB3 / FSB4 / FSB5, Wii |
 | **FSYS** | `.fsys` | GameCube / Wii |
