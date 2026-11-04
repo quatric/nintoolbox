@@ -89,6 +89,7 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **BG4** | `.bg4` | *Mario & Luigi* (3DS) |
 | **BGIB** | `.gcs`, `.gcm`, `.pak` (matched by `BGIB` magic) | *Pheasants Forever*, *Tournament of Legends*, *Nickelodeon Dora the Explorer* / *Go Diego Go!* / *Ni Hao, Kai-Lan*, *Rudolph the Red-Nosed Reindeer*, *The Secret Saturdays*, *Pirates PlundArrr* |
 | **BIGF** | `.big` | Electronic Arts Wii titles |
+| **BIGFILE TOC/DAT (DKAP)** | `BIGFILEn.TOC` + `.DAT` | *Totally Spies! Totally Party* |
 | **Bj engine** | `.tx1`/`.tx2`, `.mtm`, `.bsi`, `.bsm` | *Super Karts* |
 | **Blue Castle BIG** | `.big`, `.dspi` | *The Bigs*, *The Bigs 2* |
 | **Blue Tongue TRB** | `.trb` | *de Blob 2* |
@@ -311,6 +312,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **NCER / NANR** | `.ncer`, `.nanr` | DS |
 | **NCGR / NCLR** | `.ncgr`, `.nclr` | DS |
 | **NDS banner** | `banner.bin` | DS / DSi |
+| **NGCBM (`_NGCBM01`)** | `.ngcbm` | *Totally Spies! Totally Party* (unpacked from BIGFILE DKAP members) |
 | **NSBCA / NSBTA / NSBTP / NSBVA / NSBMA** | `.nsbca`, `.nsbta`, `.nsbtp`, `.nsbva`, `.nsbma` | DS titles using Nitro 3D |
 | **NSBTX** | `.nsbtx` | DS |
 | **NSCR** | `.nscr` | DS |

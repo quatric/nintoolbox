@@ -9487,6 +9487,18 @@ with open(sys.argv[1], "wb") as f:
     fno "BGIB pack" "mk_bgib.py failed"
   fi
 
+  # Ubisoft BIGFILE.TOC/.DAT with DKAP (LZO1X) members and _NGCBM01 bitmaps
+  mkdir -p "$d/dkapbig_test"
+  if python3 "$PWD_PROJECT/../tests/mk_dkapbig.py" "$d/dkapbig_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/dkapbig_test/BIGFILE0.TOC" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/dkapbig_test/BIGFILE0.TOC.d/00001_FOO_BAR.TXT")" = "hello dkap bigfile" ] \
+    && [ -s "$d/dkapbig_test/BIGFILE0.TOC.d/00002_FOO_PIC.TGA.ngcbm.png" ] \
+    && fok "BIGFILE TOC unpacks DKAP members and decodes _NGCBM01 bitmaps" \
+    || fno "BIGFILE DKAP" "failed to extract synthetic BIGFILE0.TOC"
+  else
+    fno "BIGFILE DKAP" "mk_dkapbig.py failed"
+  fi
+
   # Scribblenauts index.bin + .p packages
   mkdir -p "$d/scribble_test"
   if python3 "$PWD_PROJECT/../tests/mk_scribble.py" "$d/scribble_test" >/dev/null 2>&1; then
