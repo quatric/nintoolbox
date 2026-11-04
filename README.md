@@ -354,6 +354,7 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | **BRSAR / RBNK / RWAV** | `.brsar`, `.rbnk`, `.rwav` | Wii |
 | **BRSTM / BCSTM / BFSTM** | `.brstm`, `.bcstm`, `.bfstm` | Wii / 3DS / Wii U / Switch |
 | **EID** | `.eid` | *I Spy Spooky Mansion* |
+| **NGCSD (`_NGCSD02`)** | `.ngcsd` | *Totally Spies! Totally Party* (unpacked from BIGFILE members) |
 | **NUS3AUDIO** | `.nus3audio`, `.nus3bank` | *Super Smash Bros. Ultimate* |
 | **RSEQ / CSEQ / FSEQ / SSEQ** | `.rseq`, `.cseq`, `.fseq`, `.sseq` | Wii / 3DS / Wii U / DS |
 | **SADL** | `.sad`, `.sadl` | *Professor Layton* |

@@ -9499,6 +9499,18 @@ with open(sys.argv[1], "wb") as f:
     fno "BIGFILE DKAP" "mk_dkapbig.py failed"
   fi
 
+  # _NGCSD02 sound streams (per-channel DSP headers, 8-byte frame interleave)
+  mkdir -p "$d/ngcsd_test"
+  if python3 "$PWD_PROJECT/../tests/mk_ngcsd.py" "$d/ngcsd_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/ngcsd_test/t.ngcsd" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 0x60 -l 16 -p "$d/ngcsd_test/t.ngcsd.d/ch0.dsp")" = "10010203040506072008090a0b0c0d0e" ] \
+    && [ "$(xxd -s 0x60 -l 16 -p "$d/ngcsd_test/t.ngcsd.d/ch1.dsp")" = "3015161718191a1b401c1d1e1f202122" ] \
+    && fok "NGCSD02 streams deinterleave to per-channel DSP files" \
+    || fno "NGCSD02 stream" "failed to extract synthetic t.ngcsd"
+  else
+    fno "NGCSD02 stream" "mk_ngcsd.py failed"
+  fi
+
   # Scribblenauts index.bin + .p packages
   mkdir -p "$d/scribble_test"
   if python3 "$PWD_PROJECT/../tests/mk_scribble.py" "$d/scribble_test" >/dev/null 2>&1; then

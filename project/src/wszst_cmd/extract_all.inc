@@ -123,6 +123,7 @@
 #include "extract/texl.inc"
 #include "extract/hvt.inc"
 #include "extract/ngcbm.inc"
+#include "extract/ngcsd.inc"
 #include "extract/strt.inc"
 #include "extract/fuax.inc"
 #include "extract/stgs.inc"
