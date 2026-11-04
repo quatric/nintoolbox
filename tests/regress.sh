@@ -9523,6 +9523,19 @@ with open(sys.argv[1], "wb") as f:
     fno "FBND bundle" "mk_fbnd.py failed"
   fi
 
+  # Atlus .pak (0x100 headers, 0x40 alignment, LZ10 members, duplicate names)
+  mkdir -p "$d/atluspak_test"
+  if python3 "$PWD_PROJECT/../tests/mk_atluspak.py" "$d/atluspak_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/atluspak_test/t.pak" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/atluspak_test/t.pak.d/dir/a.txt")" = "atlus pak member" ] \
+    && [ "$(cat "$d/atluspak_test/t.pak.d/raw.txt")" = "raw member" ] \
+    && [ "$(cat "$d/atluspak_test/t.pak.d/raw~2.txt")" = "second raw" ] \
+    && fok "Atlus pak extracts LZ10 members and disambiguates duplicates" \
+    || fno "Atlus pak" "failed to extract synthetic t.pak"
+  else
+    fno "Atlus pak" "mk_atluspak.py failed"
+  fi
+
   # Scribblenauts index.bin + .p packages
   mkdir -p "$d/scribble_test"
   if python3 "$PWD_PROJECT/../tests/mk_scribble.py" "$d/scribble_test" >/dev/null 2>&1; then

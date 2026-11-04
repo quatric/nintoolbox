@@ -78,6 +78,7 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **AST** | `.ast` | *I Spy Spooky Mansion* |
 | **AT7** | `.at7` | Wii / PS2 |
 | **ATB** | `.atb` | *Mario Party 4-8* |
+| **Atlus PAK** | `.pak` | *Trauma Center: Second Opinion*, *Trauma Center: New Blood*, *Trauma Team* |
 | **Atomic Planet PUB** | `.pub` | *AMF Bowling: Pinbusters!* |
 | **Avalanche THB/TBB** | `.thb` + `.tbb` | *Cars 2* |
 | **Battle of the Bands BAG** | `.bag` | *Battle of the Bands* |
