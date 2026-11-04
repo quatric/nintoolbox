@@ -87,6 +87,7 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **BFMA** | `.bfma` | Wii U titles with a built-in manual |
 | **BFSHA / BNSH** | `.bfsha`, `.bnsh` | Wii U / Switch |
 | **BG4** | `.bg4` | *Mario & Luigi* (3DS) |
+| **BGIB** | `.gcs`, `.gcm`, `.pak` (matched by `BGIB` magic) | *Pheasants Forever*, *Tournament of Legends*, *Nickelodeon Dora the Explorer* / *Go Diego Go!* / *Ni Hao, Kai-Lan*, *Rudolph the Red-Nosed Reindeer*, *The Secret Saturdays*, *Pirates PlundArrr* |
 | **BIGF** | `.big` | Electronic Arts Wii titles |
 | **Bj engine** | `.tx1`/`.tx2`, `.mtm`, `.bsi`, `.bsm` | *Super Karts* |
 | **Blue Castle BIG** | `.big`, `.dspi` | *The Bigs*, *The Bigs 2* |

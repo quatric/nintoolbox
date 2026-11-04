@@ -157,6 +157,7 @@
 #include "extract/ealoc.inc"
 #include "extract/dspwrap.inc"
 #include "extract/myspd.inc"
+#include "extract/bgib.inc"
 #include "extract/gwb.inc"
 #include "extract/asurarc.inc"
 #include "extract/asurastr.inc"

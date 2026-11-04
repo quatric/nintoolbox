@@ -9474,6 +9474,19 @@ with open(sys.argv[1], "wb") as f:
     fno "MSCF cabinet" "mk_mscf.py failed"
   fi
 
+  # BGIB .gcs sound packs (LZ-compressed WAVS records + raw DSP tail blob)
+  mkdir -p "$d/bgib_test"
+  if python3 "$PWD_PROJECT/../tests/mk_bgib.py" "$d/bgib_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/bgib_test/t.gcs" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/bgib_test/t.gcs.d/0000_test.dsp" | tr -d ' ')" = "104" ] \
+    && [ "$(xxd -s 0x60 -l 8 -p "$d/bgib_test/t.gcs.d/0000_test.dsp")" = "0511223344556677" ] \
+    && [ "$(xxd -s 0 -l 4 -p "$d/bgib_test/t.gcs.d/0000_test.dsp")" = "0000000e" ] \
+    && fok "BGIB packs unpack LZ stream and split WAVS records to DSP" \
+    || fno "BGIB pack" "failed to extract synthetic t.gcs"
+  else
+    fno "BGIB pack" "mk_bgib.py failed"
+  fi
+
   # Scribblenauts index.bin + .p packages
   mkdir -p "$d/scribble_test"
   if python3 "$PWD_PROJECT/../tests/mk_scribble.py" "$d/scribble_test" >/dev/null 2>&1; then

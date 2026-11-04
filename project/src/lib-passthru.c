@@ -3648,7 +3648,7 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 	// (.iso/.img/.raw are left out: those names are also used for plain
 	// members inside game archives.)
 	if (is_ext (src, ".wbfs") || is_ext (src, ".wdf") || is_ext (src, ".ciso")
-		|| (is_ext (src, ".gcm") && memcmp (head, "IDSP", 4)) /* LEGO .gcm audio, not a disc */
+		|| (is_ext (src, ".gcm") && memcmp (head, "IDSP", 4) && memcmp (head, "BGIB", 4)) /* LEGO / BGIB .gcm, not a disc */
 		|| is_ext (src, ".wia") || is_ext (src, ".rvz"))
 	{
 		struct stat st;
