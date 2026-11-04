@@ -9463,6 +9463,17 @@ with open(sys.argv[1], "wb") as f:
     fno "RKV archive" "mk_rkv.py failed"
   fi
 
+  # Microsoft Cabinet (MSCF) packs with a .bin extension
+  mkdir -p "$d/mscf_test"
+  if python3 "$PWD_PROJECT/../tests/mk_mscf.py" "$d/mscf_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/mscf_test/t.bin" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/mscf_test/t.d/item.txt")" = "mscf cabinet member" ] \
+    && fok "MSCF cabinet extracts by magic" \
+    || fno "MSCF cabinet" "failed to extract synthetic t.bin"
+  else
+    fno "MSCF cabinet" "mk_mscf.py failed"
+  fi
+
   # Scribblenauts index.bin + .p packages
   mkdir -p "$d/scribble_test"
   if python3 "$PWD_PROJECT/../tests/mk_scribble.py" "$d/scribble_test" >/dev/null 2>&1; then

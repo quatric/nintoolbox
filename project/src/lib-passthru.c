@@ -3794,6 +3794,12 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 		return passthru_archive_or_bms (
 			src, basedir, stage, staged_dir, staged_dir_size, false, false, true, false, false);
 
+	// Microsoft Cabinet ("MSCF\0\0\0\0"): Tales of Symphonia: Dawn of the
+	// New World ships its item/character packs as plain CABs named
+	// .bin/.dat, so match by magic and let 7z unpack them.
+	if (!memcmp (head, "MSCF\0\0\0\0", 8))
+		return passthru_7z (src, basedir, stage, staged_dir, staged_dir_size, false);
+
 	// 7-Zip / RAR / Tar / gzip archives (by extension). Koei Tecmo
 	// .g1t.gz files are not gzip streams at all (chunked wrapper with
 	// its own magic); the native G1T extractor takes them below, so

@@ -66,8 +66,6 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | --- | --- | --- |
 | **ABE BigFile** | `.bf` | *Rabbids Go Home* |
 | **AGI** | `.pak` | *Skylanders: Swap Force* |
-| **MPH SNDFILE archive** | `.arc` | *Metroid Prime Hunters* (DS) |
-| **Unity AssetBundle (UnityFS)** | `.unity3d`, `.bundle`, `.assetbundle`, `.ab` | Unity 5.3+ games (LZMA/LZ4/LZ4HC; extracts `CAB-*`, `.resS`, `.resource`) |
 | **ALAR** | `.aar`, `.alar` | *Jump Super Stars*, *Jump Ultimate Stars* |
 | **And-Kensaku** | `.rz` | *And-Kensaku* |
 | **APAK** | `.apak` | Wii U / Switch |
@@ -75,6 +73,7 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **ARC0** | `.fa` | *Yo-Kai Watch* |
 | **ARCV** | `.arc` | Namco / Tose Wii titles |
 | **Arika Archive** | `INFO.DAT`, `GAME.DAT`, `.arika` | Arika DS / DSi / Wii titles |
+| **Artefacts MAP** | `.map`, `.gam` | *Diabolik: The Original Sin*, *Boot Camp Academy*, *Jillian Michaels Fitness Ultimatum*, *Dodge Racing*, *.gam` when that is present (all of* |
 | **Asobo BigFile** | `.drv` | *Ratatouille* |
 | **AST** | `.ast` | *I Spy Spooky Mansion* |
 | **AT7** | `.at7` | Wii / PS2 |
@@ -82,9 +81,6 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **Atomic Planet PUB** | `.pub` | *AMF Bowling: Pinbusters!* |
 | **Avalanche THB/TBB** | `.thb` + `.tbb` | *Cars 2* |
 | **Battle of the Bands BAG** | `.bag` | *Battle of the Bands* |
-| **Havok HKX (classic packfile)** | `.hkx`, `.HKX` | *Tenchu: Shadow Assassins* |
-| **T4-RES (Tenchu: Shadow Assassins)** | `.b` | *Tenchu: Shadow Assassins*, *"` tagged resource family (`Common/Camera/* |
-| **HDVOICE (Tenchu: Shadow Assassins)** | `.hd` | *Tenchu: Shadow Assassins* |
 | **BCGRP** | `.bcgrp` | 3DS NintendoWare titles |
 | **BEA** | `.bea`, `.nx.bea` | *WarioWare*, *Mario Party* |
 | **BFGRP** | `.bfgrp` | Wii U / Switch NintendoWare titles |
@@ -93,6 +89,7 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **BG4** | `.bg4` | *Mario & Luigi* (3DS) |
 | **BIGF** | `.big` | Electronic Arts Wii titles |
 | **Bj engine** | `.tx1`/`.tx2`, `.mtm`, `.bsi`, `.bsm` | *Super Karts* |
+| **Blue Castle BIG** | `.big`, `.dspi` | *The Bigs*, *The Bigs 2* |
 | **Blue Tongue TRB** | `.trb` | *de Blob 2* |
 | **BNS Archive** | `.bns` | *Samurai Warriors 3* |
 | **BombShell data pack** | `.xwi`, `.xdx9` | *Bee Movie Game* |
@@ -108,6 +105,9 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **DC2 DCX / DCT** | `.dcx`, `.dct` | *Jakers! Kart Racing* |
 | **DIG** | `.dig` | *Bomberman Land* |
 | **DKZF** | `.tpl.dkz` | *Donkey Konga*, *Donkey Konga 2*, *3* |
+| **DSi modcrypt SRL** | `.nds`, `.srl`, `.dsi` | DSi-enhanced and DSiWare titles |
+| **DSi TAD** | `.tad` | the DSi's WAD, TwlSDK |
+| **DSiWare export** | `.bin` (SD card) | DSiWare titles |
 | **DTLS** | `dt00`, `ls00`, `.ls` | *Super Smash Bros. 4* |
 | **EFFN** | `.eff`, `.effn` | *Super Smash Bros. for 3DS / Wii U*, *Super Smash Bros. Ultimate* |
 | **F9RES** | `.res` | GameCube titles |
@@ -123,7 +123,10 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **Goliath GS Package** | `.pkz` | *Skylanders: SuperChargers Racing*, *The Amazing Spider-Man* |
 | **Grip RES** | `.res` | *Sesame Street: Elmo's Musical Monsterpiece* |
 | **h.a.n.d. FBC** | `.fbc` | *Oyako de Asobo: Miffy no Omochabako* |
+| **Harmonix Ark** | `.hdr` + `_N.ark` | *AC/DC Live: Rock Band Track Pack*, *The Beatles: Rock Band* |
+| **Havok HKX (classic packfile)** | `.hkx`, `.HKX` | *Tenchu: Shadow Assassins* |
 | **HBDF** | `.hbdf`, `.hsdf` | *Mario Party DS* |
+| **HDVOICE (Tenchu: Shadow Assassins)** | `.hd` | *Tenchu: Shadow Assassins* |
 | **Heavy Iron HO** | `.ho` | *WALL-E*, *Up* |
 | **Humongous Resource.rez** | `.rez` | *Backyard Football '10* |
 | **Hyrule Warriors** | `.idx`, `.bin` | 3DS |
@@ -137,39 +140,31 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **MDR** | `.mdr` | *Dance Dance Revolution Mario Mix* |
 | **MKGPDX PAC** | `.pac`, `.mkgpdx` | *Mario Kart Arcade GP DX* |
 | **MPBIN** | `.bin` | GameCube / Wii |
+| **MPH SNDFILE archive** | `.arc` | *Metroid Prime Hunters* (DS) |
 | **MPR PACK** | `.pak` | *Metroid Prime Remastered* |
 | **MSR** | `.pkg`, `.bin` | *Metroid: Samus Returns* |
 | **MTXT** | `.mtxt` | Switch titles |
 | **NARC** | `.narc` | DS / DSi |
+| **Natsume BIN** | `.bin` | *Harvest Moon* |
 | **NCCARC** | `.nccarc` | DS titles |
 | **NDS / SRL / DSI** | `.nds`, `.srl`, `.dsi` | All DS / DSi games |
-| **Radical RCF** | `.rcf` | *Crash of the Titans*, *Simpsons Hit & Run* |
-| **NIBM audio** | `.aud` | *CSI: Hard Evidence*, *Destroy All Humans* |
-| **Harmonix Ark** | `.hdr` + `_N.ark` | *AC/DC Live: Rock Band Track Pack*, *The Beatles: Rock Band* |
-| **XPK** | `.pak` | *Angry Birds Star Wars* |
-| **Artefacts MAP** | `.map`, `.gam` | *Diabolik: The Original Sin*, *Boot Camp Academy*, *Jillian Michaels Fitness Ultimatum*, *Dodge Racing*, *.gam` when that is present (all of* |
-| **Blue Castle BIG** | `.big`, `.dspi` | *The Bigs*, *The Bigs 2* |
-| **Natsume BIN** | `.bin` | *Harvest Moon* |
-| **Town Factory PCKG** | `.pac`, `.pcha`, `.pac0`-`9`, `.bin`, `.dat` | *Little King's Story* |
 | **Neversoft GH PAK/IMG** | `.pak.ngc`, `.img.ngc` | *Guitar Hero* |
-| **WSI** | `.wsi` | *Alone in the Dark*, *Aladdin Magic Racer* |
-| **DSi TAD** | `.tad` | the DSi's WAD, TwlSDK |
-| **DSiWare export** | `.bin` (SD card) | DSiWare titles |
-| **DSi modcrypt SRL** | `.nds`, `.srl`, `.dsi` | DSi-enhanced and DSiWare titles |
+| **NIBM audio** | `.aud` | *CSI: Hard Evidence*, *Destroy All Humans* |
 | **NIF (Gamebryo 20.6, Wii)** | `.nif` | *Pocoyo Racing* |
 | **NLG DICT** | `.dict`, `.data` | *Federation Force*, *Luigi's Mansion 2/3*, *Strikers* |
 | **NXARC** | `.nxarc` | Switch titles |
 | **PAC (Nd Cube)** | `.bin` | *Mario Party 10*, *Animal Crossing: amiibo Festival* |
 | **PAC / MRG** | `.pac`, `.mrg` | HAL Laboratory / Game Arts Wii titles |
+| **PCK2 / PLZ** | `.plz`, `.pck2` | *Professor Layton and the Diabolical Box* |
+| **Pikmin ARC/DIR** | `.arc` + `.dir` | *Pikmin* |
 | **PKG (Barking Lizards)** | `.pkg` | *Nickelodeon: The Naked Brothers Band - The Video Game* |
 | **PKG / GPKG / GPAK** | `.pkg`, `.pak`, `.gpak` | *Bonsai Barber*, *World of Goo* |
 | **PKI** | `.PKI` | *Bermuda Triangle: Saving the Coral* |
 | **PKZ** | `.pkz` | *Bayonetta*, *Astral Chain* |
 | **PRC** | `.prc`, `.param` | *Super Smash Bros. for 3DS / Wii U*, *Super Smash Bros. Ultimate* |
 | **PTD** | `.ptd`, `.pdt` | *Mario Party 4-8* |
-| **PCK2 / PLZ** | `.plz`, `.pck2` | *Professor Layton and the Diabolical Box* |
-| **Pikmin ARC/DIR** | `.arc` + `.dir` | *Pikmin* |
 | **PVOL** | `.pvol`, `.vol` | *Godzilla: Unleashed*, *Godzilla: Save the Earth* |
+| **Radical RCF** | `.rcf` | *Crash of the Titans*, *Simpsons Hit & Run* |
 | **RARC** | `.rarc`, `.arc` | GameCube / Wii |
 | **RFL_Res** | `RFL_Res.dat`, `.dat` | Wii / 3DS / Wii U |
 | **RKET** | `.rck`, `.spa` | *Aqua Panic!* |
@@ -189,12 +184,15 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **STPK** | `.srd`, `.stpk` | None verified (*Jump Stars* use ALAR) |
 | **Sumo STZ** | `.stz` | *Sonic & Sega All-Stars Racing* |
 | **Sumo WAS** | `.was` | *Sonic & Sega All-Stars Racing*, */* |
+| **T4-RES (Tenchu: Shadow Assassins)** | `.b` | *Tenchu: Shadow Assassins*, *"` tagged resource family (`Common/Camera/* |
 | **Terminal Reality POD** | `.pod` | *Nickelodeon Dance* |
 | **TMPK** | `.pack`, `.tmpk` | *The Legend of Zelda: Twilight Princess HD* |
 | **Torus Games hunkfile** | `.hnk` | *Barbie & Her Sisters: Puppy Rescue* |
 | **Toshi TSFB** | `.ttl`, `.tkl` (`.trb`) | *Nickelodeon Barnyard* |
+| **Town Factory PCKG** | `.pac`, `.pcha`, `.pac0`-`9`, `.bin`, `.dat` | *Little King's Story* |
 | **TRPAK** | `.trpak` | *Pokémon Scarlet / Violet* |
 | **UE4 PAK** | `.pak` | *Mario & Luigi: Brothership* |
+| **Unity AssetBundle (UnityFS)** | `.unity3d`, `.bundle`, `.assetbundle`, `.ab` | Unity 5.3+ games (LZMA/LZ4/LZ4HC; extracts `CAB-*`, `.resS`, `.resource`) |
 | **Vblank BFP / BAP** | `.bfp`, `.bap` | *Retro City Rampage DX*, *Shakedown: Hawaii* |
 | **VCRA** | `.bin`, `.vcra` | Wii |
 | **VFF** | `.vff` | Wii channels and save data |
@@ -202,10 +200,12 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **VIBS** | `.vibs` | Switch first-party titles |
 | **WADH** | `.wad` (DataWII.wad) | *Ninjabread Man* |
 | **WARC** | `.warc` | Wii U |
+| **WSI** | `.wsi` | *Alone in the Dark*, *Aladdin Magic Racer* |
 | **WTA / WTP** | `.wta` + `.wtp` | *Star Fox Zero* |
 | **WUD / WUX** | `.wud`, `.wux` | All Wii U games |
 | **XMSG** | `.bin` | *Wii Party* |
 | **XPCK** | `.xc`, `.xpck` | *Inazuma Eleven*, *Professor Layton*, *Yo-kai Watch* |
+| **XPK** | `.pak` | *Angry Birds Star Wars* |
 | **ZDAT** | `.zdat` | *Animal Crossing: Pocket Camp* |
 | **ZLARC** | `.zlarc` | *NES Remix*, *NES Remix 2*, *NES Remix Pack* |
 | **ZTAB** | `.ztab`, `.tab` | *Mario Golf: Toadstool Tour*, *Mario Power Tennis* |
@@ -229,7 +229,6 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **BNFM** | `.bnfm` | **GLB** | *Mario Party 10*, *Animal Crossing: amiibo Festival* |
 | **CSB** | `.csb` | **GLB** | *Paper Mario: The Thousand-Year Door*, *The Origami King*, *Color Splash* |
 | **CTB** | `.ctb` | *(text dump)* | *Paper Mario: The Thousand-Year Door*, *The Origami King*, *Color Splash* |
-| **MPH Model** | `_Model.bin` (+ `_Tex.bin`) | **GLB** | *Metroid Prime Hunters* (DS; textures written as PNG) |
 | **FEDMODEL** | `.fedmodel` | **GLB** | *Metroid Prime: Federation Force*, *Luigi's Mansion: Dark Moon*, *Luigi's Mansion 3* |
 | **FEDSKEL** | `.fedskel` | **GLB** | *Metroid Prime: Federation Force*, *Luigi's Mansion: Dark Moon*, *Luigi's Mansion 3* |
 | **G1M** | `.g1m` | **GLB** | *Hyrule Warriors Legends*, *Fire Emblem Warriors* |
@@ -248,6 +247,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **MBN** | `.mbn` | **GLB** | 3DS titles with `.bch` scenes |
 | **MDL0 / BRRES** | `.mdl0`, `.brres` | **GLB** | Wii |
 | **MOD** | `.mod` | **GLB** | Wii |
+| **MPH Model** | `_Model.bin` (+ `_Tex.bin`) | **GLB** | *Metroid Prime Hunters* (DS; textures written as PNG) |
 | **MPR CMDL / SMDL / WMDL** | `.cmdl`, `.smdl`, `.wmdl` | **GLB** | *Metroid Prime Remastered*, *DKCTF* |
 | **MPR SKEL** | `.skel` | **GLB** | *Metroid Prime Remastered*, *DKCTF* |
 | **MSH (PMsh)** | `.msh` | **GLB** | Wii |
@@ -303,10 +303,10 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **GFTEX** | `.gftex` | *Pokémon X/Y/ORAS* |
 | **GTX** | `.gtx` | Wii U |
 | **GVR** | `.gvr` | Sega GameCube / Wii titles (e.g. *Sonic Riders*) |
+| **Layton backgrounds** | `.arc`, `.arb` | *Professor Layton* |
 | **MPR TXTR** | `.txtr` / `.mpr.txtr` | *Metroid Prime Remastered* |
 | **MTTEX** | `.tex` | 3DS |
 | **MWT** | `.MWT` | *Bermuda Triangle: Saving the Coral* |
-| **Layton backgrounds** | `.arc`, `.arb` | *Professor Layton* |
 | **NCER / NANR** | `.ncer`, `.nanr` | DS |
 | **NCGR / NCLR** | `.ncgr`, `.nclr` | DS |
 | **NDS banner** | `banner.bin` | DS / DSi |
@@ -447,6 +447,8 @@ When extracting or repacking game trees with `wszst xx` / `wszst create`, unsupp
 | **7-Zip / RAR / Tar / Gzip Archives** | `.7z`, `.rar`, `.cb7`, `.tar`, `.tgz`, `.tbz2`, `.txz`, `.gz` | **`7z`** / **`7zz`** / **`7za`** / **`unar`** (`--with-7z`) | General archive unpacking |
 | **Custom Binary Containers** | Arbitrary formats | **`QuickBMS`** (`--bms=<script.bms>`) | Direct execution of QuickBMS extraction scripts |
 | **DSP-ADPCM Audio Streams** | `.brstm`, `.bcstm`, `.bfstm`, `.bns`, `.btsnd`, `.ast`, `.dsp` | **`mobipeg`** | Bit-exact Nintendo THP ADPCM coefficient search & stream encoding |
+| **Flash SWF Files** | `.swf` | **`ffdec`** (bundled; `--with-ffdec`) | Decompile ActionScript 1/2/3 and extract shapes, images, sounds, fonts, and binary assets via JPEXS Free Flash Decompiler |
+| **Microsoft Cabinet (MSCF)** | `.cab`, `.bin`, `.dat` (matched by `MSCF` magic) | **`7z`** / **`7zz`** / **`7za`** (`--with-7z`) | CAB packs unpacked in place, e.g. *Tales of Symphonia: Dawn of the New World* item/character `.bin` files |
 | **Mobiclip Video & Cutscenes** | `.mo`, `.mods`, `.moflex`, `.MOC`, `.MOD` | **`mobipeg`** (`--with-mobipeg`) / **`ffmpeg`** | Nintendo DS / 3DS / Wii Mobiclip video decoding to MP4 |
 | **Nintendo 3DS Containers** | `.3ds`, `.cci`, `.cxi`, `.cfa`, `.cia`, `.app` | **`ctrtool`** (bundled) / **`makerom`** (`--with-ctrtool`) | NCCH/NCSD partition extraction, ExeFS/RomFS unpacking & CIA installation packages |
 | **Nintendo DS / DSi ROMs** | `.nds`, `.srl`, `.dsi` | **`ndstool`** (`--with-ndstool`) | Nitro ROM header, banner, arm9/arm7 binary & NitroFS extraction/rebuild |
@@ -457,7 +459,6 @@ When extracting or repacking game trees with `wszst xx` / `wszst create`, unsupp
 | **Wii / GameCube Disc Images** | `.iso`, `.wbfs`, `.wdf`, `.ciso`, `.wia` | **`wit`** (`--with-wit`) | Disc partition extraction & scrubbed disc creation |
 | **Wii U Optical Discs** | `.wud`, `.wux` | **`wud2app`** + **`cdecrypt`** | Automated compressed WUX disc decompression, partition dump & decryption |
 | **Wii WAD Packages** | `.wad`, `.app` | **`sharpii`** (`--with-sharpii`) | Wii title & IOS WAD archive unpacking and repacking |
-| **Flash SWF Files** | `.swf` | **`ffdec`** (bundled; `--with-ffdec`) | Decompile ActionScript 1/2/3 and extract shapes, images, sounds, fonts, and binary assets via JPEXS Free Flash Decompiler |
 
 ---
 
