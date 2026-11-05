@@ -31,7 +31,7 @@
 //	MDLS  -> MDEL  -> MATE*  u16 texture index at +0x14
 //			  BONE*  (NAME child at +0x40, name at +0x60)
 //			  SHAP*  -> ELEM* (TXCD child: u16 u,v pairs, 1/1024)
-//			            MESH* (u16 material at +0x16) -> PRIM ->
+//			            MESH* (u16 material at +0x14) -> PRIM ->
 //			              VIDL  GX display list of (pos,nrm,uv) u16 indices
 //			              VIDX  redundant strip index list
 //			              WEIG  skinned vertex pool
@@ -50,5 +50,20 @@ bool IsOCN (const u8 *data, uint size);
 // Writes <out_glb_file> plus "<tex_base>.texNNN.png" beside it. Returns the
 // mesh count, 0 for an OCN without geometry, -1 on error.
 int ExportOCNModel (const u8 *data, uint size, ccp out_glb_file, ccp tex_base);
+
+//
+///////////////////////////////////////////////////////////////////////////////
+///////////////			Paon .d4 texture		///////////////
+///////////////////////////////////////////////////////////////////////////////
+//
+// A single GX texture (Donkey Kong: Barrel Blast chara/spheremap.d4, system/
+// load*.d4, strap*.d4, gimmick/gp_*.d4): u16 GX format, u16 width, u16 height,
+// u16 0, u32 offset of the pixels (0x20), zero padding, then the top mip level.
+// Formats seen: CMPR and RGBA8; heights need not be a multiple of the block.
+
+bool IsPaonD4 (const u8 *data, uint size);
+
+// Decodes it and writes a PNG.
+enumError SavePaonD4PNG (const u8 *data, uint size, ccp png_path);
 
 #endif // LIB_OCN_H

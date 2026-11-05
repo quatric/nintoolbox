@@ -1039,6 +1039,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_bltex_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_paon_d4_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_asobo_mesh_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

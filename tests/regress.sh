@@ -9906,6 +9906,18 @@ PYEOF
     fno "Paon KNON" "mk_knon.py failed"
   fi
 
+  # Paon .d4 texture (Donkey Kong Barrel Blast): RGBA8 4x4, first pixel 11 22 33 ff
+  mkdir -p "$d/paon_d4_test"
+  python3 -c '
+import sys
+px = bytearray(64); px[0], px[1], px[32], px[33] = 0xff, 0x11, 0x22, 0x33
+hdr = bytes([0, 6, 0, 4, 0, 4, 0, 0, 0, 0, 0, 0x20]) + bytes(20)
+open(sys.argv[1], "wb").write(hdr + px + bytes(32))' "$d/paon_d4_test/t.d4"
+  "$B/wszst" xx "$d/paon_d4_test/t.d4" --overwrite >/dev/null 2>&1 \
+  && [ "$(python3 -c 'import sys,zlib; d=open(sys.argv[1],"rb").read(); i=d.index(b"IDAT"); n=int.from_bytes(d[i-4:i],"big"); print(zlib.decompress(d[i+4:i+4+n])[1:5].hex())' "$d/paon_d4_test/t.png")" = "112233ff" ] \
+  && fok "Paon .d4 texture decoded to PNG" \
+  || fno "Paon .d4" "failed on synthetic RGBA8 t.d4"
+
   # Punchers Impact MYSPD (U-Sing)
   mkdir -p "$d/myspd_test"
   if python3 "$PWD_PROJECT/../tests/mk_myspd.py" "$d/myspd_test" >/dev/null 2>&1; then

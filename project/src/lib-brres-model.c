@@ -1591,6 +1591,35 @@ skip_materials:
 			mesh->material_idx = object_material[i - 1];
 			if (mesh->material_idx < 0 && model->num_materials == 1)
 				mesh->material_idx = 0;
+			// A textured object with no UV set is environment-mapped on the Wii:
+			// the texture is looked up by the normal (a sphere map). Bake that
+			// lookup from the bind-pose normals, the way GodModeWii draws it, so
+			// the texture shows at all (Animal Crossing: City Folk balloons).
+			if (!mesh->num_texcoords && mesh->num_normals && mesh->material_idx >= 0
+				&& (size_t)mesh->material_idx < model->num_materials
+				&& model->materials[mesh->material_idx].num_textures)
+			{
+				mesh->texcoords = calloc (mesh->num_normals, sizeof (*mesh->texcoords));
+				if (mesh->texcoords)
+				{
+					mesh->num_texcoords = mesh->num_normals;
+					for (size_t n = 0; n < mesh->num_normals; n++)
+					{
+						const vec3_t nv = mesh->normals[n];
+						float l = sqrtf (nv.x * nv.x + nv.y * nv.y + nv.z * nv.z);
+						if (l < 1e-6f)
+							l = 1;
+						mesh->texcoords[n].u = nv.x / l * 0.5f + 0.5f;
+						mesh->texcoords[n].v = 0.5f - nv.y / l * 0.5f;
+					}
+					for (size_t p = 0; p < mesh->num_vertices; p++)
+						mesh->vertices[p].texcoord_idx
+							= mesh->vertices[p].normal_idx >= 0
+								&& (size_t)mesh->vertices[p].normal_idx < mesh->num_normals
+							? mesh->vertices[p].normal_idx
+							: -1;
+				}
+			}
 			// Keep the object's real name (polygon0, mune_M, ...). BrawlCrate
 			// uses it for the geometry/controller/node ids, so a DAE that
 			// renames every mesh to mesh_N cannot be matched back to the MDL0.

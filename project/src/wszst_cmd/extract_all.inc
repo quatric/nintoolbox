@@ -302,6 +302,7 @@
 #include "extract/gripres.inc"
 #include "extract/gripsurf.inc"
 #include "extract/bltex.inc"
+#include "extract/paon_d4.inc"
 #include "extract/blact.inc"
 #include "extract/wta.inc"
 #include "extract/wmb.inc"

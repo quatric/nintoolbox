@@ -334,6 +334,64 @@ static ocn_rec_t *ocn_read_weig (
 
 ///////////////////////////////////////////////////////////////////////////////
 
+static uint ocn_gx_size (uint fmt, uint w, uint h)
+{
+	uint bw, bh, bpp;
+	switch (fmt)
+	{
+	case 0: case 14: bw = 8, bh = 8, bpp = 4; break;	// I4, CMPR
+	case 1: case 2: bw = 8, bh = 4, bpp = 8; break;		// I8, IA4
+	case 3: case 4: case 5: bw = 4, bh = 4, bpp = 16; break; // IA8, RGB565, RGB5A3
+	case 6: bw = 4, bh = 4, bpp = 32; break;		// RGBA8
+	default: return 0;
+	}
+	return ((w + bw - 1) / bw * bw) * ((h + bh - 1) / bh * bh) * bpp / 8;
+}
+
+bool IsPaonD4 (const u8 *data, uint size)
+{
+	if (!data || size < 0x40)
+		return false;
+	const uint fmt = be16 (data), w = be16 (data + 2), h = be16 (data + 4), at = be32 (data + 8);
+	if (!ocn_gx_size (fmt, w, h) || !w || !h || w > 2048 || h > 2048 || be16 (data + 6))
+		return false;
+	if (at < 0x0c || at > 0x100 || (at & 3))
+		return false;
+	for (uint i = 0x0c; i < at; i++)
+		if (data[i])
+			return false;
+	return (u64)at + ocn_gx_size (fmt, w, h) <= size;
+}
+
+enumError SavePaonD4PNG (const u8 *data, uint size, ccp png_path)
+{
+	if (!IsPaonD4 (data, size))
+		return ERR_INVALID_DATA;
+	const uint fmt = be16 (data), w = be16 (data + 2), h = be16 (data + 4), at = be32 (data + 8);
+	const uint need = ocn_gx_size (fmt, w, h);
+
+	Image_t img;
+	InitializeIMG (&img);
+	img.data = CALLOC (1, need + OCN_COPY_SLACK);
+	memcpy (img.data, data + at, need);
+	img.data_alloced = true;
+	img.data_size = need;
+	img.width = w;
+	img.height = h;
+	img.iform = img.info_iform = fmt;
+	img.info_fform = FF_PNG;
+	img.info_n_image = 1;
+	img.endian = &be_func;
+	CalcImageGeometry (img.iform, img.width, img.height, &img.xwidth, &img.xheight, 0, 0, 0);
+	enumError err = ConvertIMG (&img, false, 0, IMG_X_RGB, PAL_INVALID);
+	if (!err)
+		err = SavePNG (&img, false, 0, png_path, 0, 0, true, 0);
+	ResetIMG (&img);
+	return err;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 static void ocn_free_model (model_t *m)
 {
 	for (size_t i = 0; i < m->num_meshes; i++)
@@ -510,7 +568,7 @@ int ExportOCNModel (const u8 *data, uint size, ccp out_glb_file, ccp tex_base)
 			else if (ocn_tag (data + e, "MESH") && en >= e + 2 * OCN_HDR)
 			{
 				const uint mi = n_shape_mesh++;
-				const uint mate = be16 (data + e + 0x16);
+				const uint mate = be16 (data + e + 0x14); // +0x16 is always 0
 				const uint prim = e + OCN_HDR;
 				if (!ocn_tag (data + prim, "PRIM"))
 					continue;

@@ -79,7 +79,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **BREFT** | Wii / Texture | ✅ | ✅ | Brawl effect texture |
 | **BRFNA / BRFNT** | Wii / Font | ✅ | ✅ | NW4R font to PNG atlas + XML metrics |
 | **BRLAN / BRLYT** | Wii / Layout | ✅ | ✅ | NW4R layout and animations |
-| **BRRES (MDL0, TEX0)** | Wii / Graphics | ✅ | ✅ | NW4R models, textures, animations |
+| **BRRES (MDL0, TEX0)** | Wii / Graphics | ✅ | ✅ | NW4R models, textures, animations; a textured MDL0 object with no UV set (an environment map on the Wii, e.g. the *Animal Crossing: City Folk* balloons) gets sphere-map UVs baked from its bind-pose normals so its texture shows in the GLB |
 | **BRSAR** | Wii / Audio Archive | ✅ | ✅ | NW4R sound archive |
 | **BRSTM / BFSTM / BCSTM** | Wii/Wii U/3DS / Audio Stream | ✅ | ✅ | Multichannel ADPCM/PCM streams |
 | **BYAML / BYML** | Wii U / Switch / Data | ✅ | ✅ | Binary YAML format (versions 1–7, big- and little-endian, string/path/hash tables incl. reloc maps); path tables ride any version, not just v1; Yaz0-wrapped BotW containers (`.sbyml`, `.smubin`, …) decode transparently and re-compress on CREATE; encoder honors `.be`/`.vN` dest markers and `# byml version=N endian=..` headers; `wszst BYMLFIND` searches keys/values |
@@ -118,7 +118,8 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **GTX** | Wii U / Texture | ✅ | ✅ | Wii U GX2 texture container |
 | **GSH** | Wii U / Shader | ✅ | ✅ | Wii U Latte GPU shader container |
 | **HSD (.dat)** | GameCube / Model | ✅ | ✅ | HAL Laboratory sysdolphin object graph; also archive bundles (many archives in one file, `scene_data` roots, e.g. Doraemon `map*_dat.mdl`) merged into one GLB |
-| **OCN. (.dat)** | Wii / Model | ✅ | ❌ | Paon "OCN." skinned model (Donkey Kong: Barrel Blast `chara/*.dat`, LZ10 wrapped): TEXS textures, bones, GX display lists over a per-vertex multi-bone WEIG pool (s16 or f32 layouts), rigid shapes from float ELEM banks; exported as one skinned GLB with PNG textures. `*_mp*.dat` are FJG tables of HSD motion archives |
+| **OCN. (.dat)** | Wii / Model | ✅ | ❌ | Paon "OCN." skinned model (Donkey Kong: Barrel Blast `chara/*.dat`, LZ10 wrapped): TEXS textures, bones, GX display lists over a per-vertex multi-bone WEIG pool (s16 or f32 layouts), rigid shapes from float ELEM banks, each MESH's material index at +0x14; exported as one skinned GLB with PNG textures. `*_mp*.dat` are FJG tables of HSD motion archives |
+| **Paon .d4** | Wii / Texture | ✅ | ❌ | *Donkey Kong: Barrel Blast* `.d4` (`chara/spheremap.d4`, `system/load*.d4`, `strap*.d4`, `gimmick/gp_*.d4`): u16 GX format, u16 width, u16 height, u16 0, u32 pixel offset (0x20), then one GX image (CMPR or RGBA8 in the retail files; heights need not fill the last block); `wszst xx` writes `<name>.png` beside it |
 | **HSF** | GameCube / Wii / Model | ✅ | ✅ | Hudson Mario Party 3D model |
 | **IPK** | Wii / Wii U / Switch / Archive | ✅ | ❌ | Ubisoft UbiArt archive (*Just Dance*, *Rayman Origins/Legends*): stored + zlib/LZMA members, old/new path-name orders |
 | **SEDB (.rps / txb / shd / lyb / PHB)** | Wii / Archive + Texture | ✅ | ❌ | Square Enix resource container (*Dragon Quest X* `layout/bin/wii/*.rps`): RES index with per-member names split into `.txb` / `.shd` / `.phb` / `.mtb` / nested `.rps`; `txb` textures (GX CMPR, linear LA8 / RGBA8, 256-colour palette) decoded to PNG; `.shd` materials (named float parameters), `.lyb` layout databases (string pool) and `.phb` collision blobs (bounds, block count) summarised to `<name>.txt`. Recognised by `wszst FILETYPE` as `SEDB`. Full `.lyb` object graphs and `.phb` collision geometry are not decoded |
